@@ -6,6 +6,7 @@ This folder holds everything needed to wrap the Studyboard web build in a native
 | --- | --- |
 | `capacitor.config.json` | Capacitor settings: app id `com.studioso.app`, bundled web files (no remote `server.url`), navigation allow-list, no cleartext, no native HTTP/cookie plugins. |
 | `native-bridge.js` | Small native glue loaded before the page: Keychain session storage, safe external links, deep links, push registration. |
+| `native/` | **Quick capture (UNTESTED Swift sources):** App Intents for Siri/Shortcuts, Share Extension, Capacitor plugins `StudyboardCaptureToken` and `StudyboardSharedQueue`. See `native/capture.md` and `../VOICE-CAPTURE-NATIVE.md`. |
 | `Info.plist.additions.plist` | Keys to merge into `ios/App/App/Info.plist` (encryption flag, usage strings, push background mode, URL scheme). |
 | `App.entitlements.template.plist` | Push and associated-domains entitlements. |
 | `apple-app-site-association.template.json` | The universal-links file to host on the website. |
@@ -71,6 +72,10 @@ In Xcode (App target):
 | `NSCameraUsageDescription` | The same pickers offer "Take Photo". |
 | (none) microphone, location, contacts, calendars, tracking | Not used. Do not add them: an unused permission string is a rejection reason, and an unexplained use is a crash. `NSUserTrackingUsageDescription` is deliberately absent because nothing tracks (see the checklist). |
 
+### 3b. Quick capture: Siri, Shortcuts, share sheet (optional, untested)
+
+Needs the App Groups and Keychain Sharing capabilities, the Swift files in `native/`, a Share Extension target and the plugin registration in `MainViewController`. Follow `native/capture.md` section 2 step by step; the test plan is section 5 there. Nothing in `native/` has been compiled: expect to fix errors, and do not advertise Siri support before a device test. Plugin names are already listed in `capacitor.config.json` (`StudyboardCaptureToken`, `StudyboardSharedQueue`). Capacitor 5 or older: plugins need a `.m` file with `CAP_PLUGIN(...)` instead of `CAPBridgedPlugin`.
+
 ## 4. Build, test and submit
 
 ```bash
@@ -83,6 +88,7 @@ Then in Xcode: run on a device, test with the checklist, **Product > Archive**, 
 
 * The **Supabase session** (access and refresh tokens) must not sit in the web view's `localStorage`, which is a plain file inside the app container. `native-bridge.js` sets `window.StudyboardAuthStorage`; `index.html` hands that to supabase-js (`authStorage()`), so the tokens live in the iOS Keychain (`capacitor-secure-storage-plugin` stores with `kSecAttrAccessibleAfterFirstUnlock` by default; if you want them unreadable while the phone is locked after a restart choose the stricter accessibility option in the plugin's settings). An older copy found in localStorage is moved into the Keychain on first start.
 * **AI keys** (the person's own Gemini/Claude/OpenAI key) are always device-only: never in the settings that sync to the account, never in backups, wiped at sign-out. On iOS they sit in `localStorage` unless you extend `native-bridge.js` the same way as the session (copy the `StudyboardAuthStorage` pattern for the `studyboard:aiKeys` key). Doing this is recommended before submission; the review does not require it.
+* The **capture token** (Quick Capture, for Siri and the share extension) lives in a shared Keychain group, set through `window.StudyboardNative.saveCaptureToken(token, supabaseUrl)` and removed with `clearCaptureToken()`; see `native/capture.md`.
 * Never ship secrets in the bundle: only the Supabase **publishable** key (`sb_publishable_...`) belongs in the app. No service-role key, no RevenueCat secret key (only the public SDK key), no Stripe keys, no AI keys.
 
 ## 6. Universal links and deep links

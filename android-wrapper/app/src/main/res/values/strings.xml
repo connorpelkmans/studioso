@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="share_label">Studyboard</string>
+    <string name="tile_label">Quick capture</string>
+    <string name="shortcut_add_short">Add task</string>
+    <string name="shortcut_add_long">Add a task to Studyboard</string>
+    <string name="shortcut_photo_short">Capture photo</string>
+    <string name="shortcut_photo_long">Capture a photo for Studyboard</string>
+</resources>
