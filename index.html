@@ -14195,7 +14195,16 @@ var PLAN = null;
     if (!sb || !sbUser) return null;
     const uid = sbUser.id;
     try {
-      const {data, error} = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew").eq("user_id", uid).maybeSingle();
+      // grant_until / grant_lifetime hold manual gifts (studyboard_grant_pro); older databases don't have them yet, so retry without.
+      let res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime").eq("user_id", uid).maybeSingle();
+      if (res.error && /grant_(until|lifetime)|column/i.test(String(res.error.message || ""))) res = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew").eq("user_id", uid).maybeSingle();
+      let {data, error} = res;
+      if (data) {   // fold a manual gift into the display shape the rest of the module reads (a gift never hides a live subscription)
+        const e = Object.assign({}, data);
+        if (e.grant_lifetime) { e.plan = "lifetime"; e.source = "lifetime"; }
+        else if (e.grant_until && ts(e.grant_until) > now() && !entActive(e)) { e.plan = "pro"; e.pro_until = e.grant_until; e.source = "promo"; }
+        data = e;
+      }
       if (error) { if (missing(error)) { P.tablesMissing = true; P.row = {uid, ent: null, at: Date.now()}; P.rowLive = true; write(K_ENT, P.row); } return false; }
       P.row = {uid, ent: data || null, at: Date.now()}; P.rowLive = true; write(K_ENT, P.row);
       return true;
