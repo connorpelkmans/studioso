@@ -255,7 +255,7 @@ Your keys sync to your other devices through your account, and they're left out 
 - judges how ready you are for each exam from your study sessions, flashcards and quizzes
 - tunes the next study sessions to what you keep missing, and picks the flashcards for Study Cards
 - prepares the practice test before a practice day, so Practice Quiz is ready to go
-- reads each task's instructions, your next few days on the Schedule, your course standings from the Grade Tracker and recent announcements from Brightspace, Canvas or Blackboard, and lists up to 3 things you could easily miss under **Heads Up** in Today's Plan (an earlier draft or pre-lab deadline, a changed due date, a full clinical day right before something is due). Dismiss one with ×.
+- reads each task's instructions, your next few days on the Schedule, your course standings from the Grade Tracker and recent announcements from Brightspace, Canvas or Blackboard, and lists up to 3 things you could easily miss under **Heads Up** in Today's Plan (an earlier draft or pre-lab deadline, a changed due date, a full lab, placement or work day right before something is due). Dismiss one with ×.
 - rates how demanding tasks look when you haven't set Easy or Hard, so hard ones get more time and start earlier
 
 It only runs when something changed and a few times a day, and anything it changed is marked with ✦. It's on by default only if your default model is free Gemini. It can run on free Gemini even when your default is a paid model. It will never use a paid model unless you choose that, tick "I understand", and press **Confirm and Turn On**, and it asks again if you switch to a different paid model. If you turned on billing for your Gemini key, even "free" Gemini requests may be billed.
@@ -267,18 +267,18 @@ It only runs when something changed and a few times a day, and anything it chang
 
 **How Today's Plan decides** (all on your device, no AI needed)
 - **Deadlines come first:** the closer the exact due time, the higher the task. Due tomorrow counts about five times as much as due in a week, and dozens of times more than due in a month. Anything due in the next week always stays above work due 10 or more days after it, unless that later task is big enough to need most of your study time before its deadline (then it climbs early so it gets started in time, and the plan says why).
-- **Your time:** your study hours per day, less on long class, lab or clinical days from your Schedule (an all-day event called Clinical, Practicum or Placement counts as a full day). Focus time you've already done today comes off today's time.
+- **Your time:** your study hours per day, less on long class, lab or placement days from your Schedule (an all-day event called Placement, Practicum, Internship or Clinical counts as a full day). Focus time you've already done today comes off today's time.
 - **Deadlines and workload:** everything due before each deadline is added up and compared with the time you have, so you see a warning before you fall behind.
 - **Grade impact:** each task's weight fine-tunes the order between similar deadlines (a 40% project counts about twice a 1% reading, not more). If your school's gradebook isn't weighted, school sync works it out from the points (a 40-point assignment in a 200-point course is about 20%).
 - **Late submissions:** from school sync, when each item stops accepting work. Something that still accepts late work is less urgent than something that closes at the due time, and anything that can't be handed in any more stops taking up your time.
 - **Instructions:** word or page counts ("1500 words, APA") make time estimates more realistic, and an earlier step with its own deadline (a draft, an outline, a pre-lab) is pointed out.
-- **Other things it weighs:** your priority, tasks already started or nearly finished, small tasks due within 2 days (quick to clear), hard tasks due within 5 days, started work left alone for 5+ days, a full clinical or class day coming up before the due date, tasks other tasks are waiting on, and courses close to their pass mark. After 2 hours on one course in a day, Do This Next leans toward a different course for a change of subject.
+- **Other things it weighs:** your priority, tasks already started or nearly finished, small tasks due within 2 days (quick to clear), hard tasks due within 5 days, started work left alone for 5+ days, a full placement or class day coming up before the due date, tasks other tasks are waiting on, and courses close to their pass mark. After 2 hours on one course in a day, Do This Next leans toward a different course for a change of subject.
 - **Right now:** with a class coming up within the hour, Do This Next suggests something that fits in the gap and sizes the focus session to it. Hard work goes in the morning, short tasks late at night, and exams and quizzes are never Do This Next (their study sessions are).
 - **Automatic AI** (when it's on) is a second opinion: it can reorder the picks, but it can't bury something due today that you're short of time for, or jump to something due weeks away ahead of work due in the next few days.
 
 **Your study companion does the AI work**
 When you have a study companion out, it's the one handling Studyboard's smart features: its little face replaces the ✦ AI mark, Do This Next shows as its pick ("Mochi's Pick"), Heads Up becomes "Mochi Noticed", and buttons say things like **Create with Mochi** and **Ask Mochi**. When you start something like making flashcards or a summary, your companion says it's on it, then cheers when it's ready. Turn companions off and everything goes back to the plain AI labels.
-- **Create with AI** (Flashcards): flashcards, practice quizzes and case studies from your slides, in any style (NCLEX, select all that apply, pharmacology, and more).
+- **Create with AI** (Flashcards): flashcards, practice quizzes and case studies from your slides, in any style (AP, MCAT, USMLE, NCLEX, bar exam, CPA, select all that apply, a general mixed quiz, and more).
 - **Explain This**: on a flipped flashcard or an answered question, get a plain explanation, an analogy, an example and a memory tip.
 - **Typed answers graded by meaning**: "K+" counts for "Potassium". You still have "I was right" if you disagree.
 - **Weak Spots**: gathers the cards and questions you keep missing and writes fresh questions on those ideas.
@@ -290,7 +290,7 @@ When you have a study companion out, it's the one handling Studyboard's smart fe
 - **Syllabus import**: reads dates, weights, class times and now work-hour estimates.
 
 Things to know:
-- On Google's free tier, Google may use what you upload to improve its products. Don't upload private information such as real patient details.
+- On Google's free tier, Google may use what you upload to improve its products. Don't upload private information such as personal or sensitive details.
 - PDF is the best format for slides, because the AI also sees pictures and diagrams. From .pptx and .docx files only the text and speaker notes are used.
 - About 13 MB of files can go in one request. Split very large PDFs.
 - AI can get things wrong, so check cards, rationales and summaries against your notes.
@@ -691,14 +691,14 @@ You can turn this off, or clear the saved text and start over, in **Settings →
 
 ### Ask With AI (search by meaning)
 
-Switch search to **Ask With AI** and describe what you want in your own words, like "that slide about ACE inhibitors and cough" or "when is my pharm midterm". It finds the best matches by meaning, even if they use different words, and writes a short answer with numbered links to where it found it (for example "Week 3 Antihypertensives.pptx, slide 3"). Tap a number to open it.
+Switch search to **Ask With AI** and describe what you want in your own words, like "that slide about photosynthesis and light" or "when is my bio midterm". It finds the best matches by meaning, even if they use different words, and writes a short answer with numbered links to where it found it (for example "Week 3 Antihypertensives.pptx, slide 3"). Tap a number to open it.
 
 This uses your **free Google Gemini key** (see AI Features above). There's nothing extra to set up:
 - After you've used search, Studyboard quietly sends short pieces of your tasks, notes, flashcards, practice questions and file text to Gemini so it can "understand" them. This happens a little at a time in the background, only for things that are new or changed, and the results are saved on this device. With a lot of files the first time can take a while, and the footer of the search window shows how far along it is.
 - It uses Google's free embedding model (gemini-embedding-2, or gemini-embedding-001 if your key doesn't have the newer one). If you hit the free limit it just pauses and picks up later.
 - The short answer uses free Gemini too. If your only AI key is a paid one (Claude or ChatGPT), search asks you to tick "I understand" and confirm before it ever uses it for answers, and it asks again if you switch to a different paid model.
 
-**Without a Gemini key**, Ask With AI still works: it looks for your words plus common nursing abbreviations and synonyms (like BP and blood pressure, or "ACE inhibitor" and drugs ending in -pril), and offers **Set Up AI**.
+**Without a Gemini key**, Ask With AI still works: it looks for your words plus common abbreviations and synonyms (like calc and calculus, bio and biology, or BP and blood pressure), and offers **Set Up AI**.
 
 ## Share Decks and Study Groups
 
@@ -856,7 +856,7 @@ Every theme has 3 little companions to choose from (201 in all). Yours lives in 
 - **Choosing a companion:** the one you pick gets a clear highlight and a check mark.
 - **It grows with you:** focus hours unlock accessories: Cozy Scarf (1 hour), Tiny Hat (5), Round Glasses (15), Little Backpack (30), Star Badge (60) and Graduation Cap (100).
 - **Ideas when you tap:** sometimes it suggests a next step, like starting a focus on the top task in Today's Plan or reviewing due flashcards. **Let's Do It** starts it; **Not Now** stops ideas for the day.
-- **Smart Lines (with AI):** if you've set up AI and turned on automatic AI, your companion writes its lines from what's actually going on ("Pharm quiz tomorrow. One card round?"). It reacts to the task you just finished, the end of a focus session, coming back after a break, a new exam or a busy week, and it keeps fresh lines for your taps. Each request writes lines for several moments at once, and everything is kept on your device.
+- **Smart Lines (with AI):** if you've set up AI and turned on automatic AI, your companion writes its lines from what's actually going on ("Bio quiz tomorrow. One card round?"). It reacts to the task you just finished, the end of a focus session, coming back after a break, a new exam or a busy week, and it keeps fresh lines for your taps. Each request writes lines for several moments at once, and everything is kept on your device.
   - **It never takes from your other AI features:** with free Gemini it has its own daily allowance (up to 50 small requests a day, at least 2 minutes apart, never while Studyboard is hidden) and only uses Gemini's Flash-Lite models, which have their own free quota, separate from the models the rest of Studyboard uses. If Google says the free quota is used up, it simply rests until tomorrow. The companion settings show how many it has used today. With a paid model it keeps to one small plan a few times a day.
   - **Ask About This:** while you're studying a flashcard, editing a note, looking at a course, or just after opening a file, the Ask button becomes **Ask About This**. Ask things like "explain this card", "quiz me on this note" or "summarize this reading". Only when you ask (and only if **About this ...** stays ticked) does it send what's on screen: the card, the note, the course's task list, or the text inside the file. The task window has its own **Ask About This Task** link under Notes, for "what is this assignment asking me to do?". Please don't use it with real patient information.
   - **Ask Me:** after a tap, tap **Ask** and type a short question ("what should I do next?", "quiz me on something"). It answers in a sentence or two in character, and can offer to start a focus on the right task.
@@ -885,7 +885,7 @@ That's all. It adds a small table for each group's current session, the rules th
 
 ### Starting a session
 - Open **Groups**, then your group. Near the top you'll see **Study Together**.
-- Tap **Start a Session**, pick a length (**25**, **50** or **90 minutes**, or **Custom**) and, if you like, a short goal like *Pharm chapter 5*. Tap **Start Session**.
+- Tap **Start a Session**, pick a length (**25**, **50** or **90 minutes**, or **Custom**) and, if you like, a short goal like *Biology chapter 5*. Tap **Start Session**.
 - Everyone in the group who has Studyboard open gets a small note (and sees a **Studying Now** banner on the Groups page). They can join any time before it ends.
 
 ### In the room
