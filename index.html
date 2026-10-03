@@ -1254,7 +1254,7 @@ html{transition:none}
 /* the rest of today */
 .plan-sub{margin:16px 0 0;font:700 .72rem var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .plan .plan-list{list-style:none;margin:4px 0 0;padding:0;background:transparent;border:0;border-radius:0;box-shadow:none;overflow:visible}
-.plan-row{display:grid;grid-template-columns:26px minmax(0,1fr) auto auto;grid-template-areas:"chk main why side" ". more more more";align-items:center;column-gap:12px;padding:6px 0 6px 2px;border-top:1px solid color-mix(in srgb,var(--line) 70%,transparent);position:relative}
+.plan-row{display:grid;grid-template-columns:26px minmax(0,1fr) auto auto;grid-template-areas:"chk main why side" ". slot slot slot" ". more more more";align-items:center;column-gap:12px;padding:6px 0 6px 2px;border-top:1px solid color-mix(in srgb,var(--line) 70%,transparent);position:relative}
 .plan .plan-list>.plan-row:first-child{border-top:0}
 .plan-row::before{display:none}
 .plan-row>.check{grid-area:chk;margin:0;width:24px;height:24px}
@@ -1302,7 +1302,7 @@ button.pr-why:hover{background:var(--soft);color:var(--ink)}
   .nu-body{flex-basis:150px}
   .nu-row>.lms-go{align-self:flex-start}
   .nu-acts{flex-basis:100%;margin-left:0;padding-left:38px}
-  .plan-row{grid-template-columns:26px minmax(0,1fr) auto;grid-template-areas:"chk main side" "chk why side" ". more more";column-gap:12px;padding:8px 0}
+  .plan-row{grid-template-columns:26px minmax(0,1fr) auto;grid-template-areas:"chk main side" "chk why side" ". slot slot" ". more more";column-gap:12px;padding:8px 0}
   .plan-row>.check{align-self:start;width:26px;height:26px;margin-top:2px}
   .plan-main{flex-wrap:wrap;gap:4px 8px;padding:3px 0 1px}
   .plan-main .task-title{white-space:normal;overflow-wrap:anywhere}
@@ -1583,6 +1583,59 @@ body.sch-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .sch-chip.sch-allday{background:color-mix(in srgb,var(--c) 26%,var(--surface))}
 .sch-legend .k-event::before{background:color-mix(in srgb,var(--accent) 22%,var(--surface));border-left:4px solid var(--accent)}
 .sch-nav{flex-wrap:wrap;justify-content:flex-end}
+/* Availability blocks: Schedule styling per type, Today's free-time strip, the add/edit sheet */
+.sch-b.k-av-class{background:var(--c);color:#fff}
+.sch-b.k-av-work{background:color-mix(in srgb,var(--c) 24%,var(--surface));color:var(--ink);border-left:5px solid var(--c);box-shadow:0 1px 4px rgba(8,20,50,.12)}
+.sch-b.k-av-shift{background:repeating-linear-gradient(135deg,var(--c) 0 9px,color-mix(in srgb,var(--c) 78%,#000) 9px 18px);color:#fff}
+.sch-b.k-av-travel{background:color-mix(in srgb,var(--c) 12%,var(--surface));color:var(--ink);border:2px dotted var(--c);box-shadow:none}
+.sch-b.k-av-other{background:color-mix(in srgb,var(--c) 20%,var(--surface));color:var(--ink);border:2px solid var(--c);box-shadow:none}
+.sch-b.k-av-protected{background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--c) 16%,transparent) 0 6px,transparent 6px 12px),var(--surface);color:var(--ink);border:2px dashed color-mix(in srgb,var(--c) 70%,transparent);box-shadow:none}
+.sch-chip.k-av-shift,.sch-chip.k-av-work{border-left-width:5px}
+.sch-legend .k-av-class::before{background:var(--c)}
+.sch-legend .k-av-work::before{background:color-mix(in srgb,var(--c) 24%,var(--surface));border-left:5px solid var(--c)}
+.sch-legend .k-av-shift::before{background:repeating-linear-gradient(135deg,var(--c) 0 4px,color-mix(in srgb,var(--c) 78%,#000) 4px 8px)}
+.sch-legend .k-av-travel::before{background:none;border:2px dotted var(--c)}
+.sch-legend .k-av-other::before{background:color-mix(in srgb,var(--c) 20%,var(--surface));border:2px solid var(--c)}
+.sch-legend .k-av-protected::before{background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--c) 30%,transparent) 0 3px,transparent 3px 6px);border:2px dashed var(--c)}
+.av-strip{margin:12px 0 6px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--soft) 60%,var(--surface))}
+.av-top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.av-top .plan-sub{margin:0}
+.av-acts{display:flex;gap:6px;flex-wrap:wrap}
+.av-strip .btn.small,.av-form .btn.small{min-height:40px}
+.av-line{margin:6px 0 8px;font-size:.92rem;line-height:1.4}
+.av-note{margin:8px 0 0;font-size:.88rem;border-left:3px solid var(--accent);padding-left:8px;line-height:1.4}
+.av-chips{display:flex;flex-wrap:wrap;gap:8px}
+.av-chip{display:inline-flex;align-items:baseline;gap:8px;min-height:40px;padding:8px 14px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);cursor:pointer;font:inherit;font-size:.9rem;align-items:center}
+.av-chip small{color:var(--muted);font-size:.8rem}
+.av-chip:hover,.av-chip:focus-visible{border-color:var(--accent)}
+.pr-slot{grid-area:slot;font-size:.84rem;color:var(--muted);padding:0 0 4px;min-width:0;overflow-wrap:anywhere}
+.pr-slot b,.nu-slot b{color:var(--ink);font-weight:600}
+.av-form fieldset{border:1px solid var(--line);border-radius:10px;padding:8px 12px 12px;margin:10px 0 0;min-width:0;min-inline-size:0}
+.av-form legend{padding:0 6px}
+.av-form .seg span{padding:11px 4px}
+.av-form .meet-days{gap:6px;flex-wrap:wrap}
+.av-form .meet-days button{min-height:40px;min-width:40px;width:auto;padding:0 8px}
+.av-form input[type=color]{width:100%;min-height:44px;padding:3px;border-radius:10px}
+.av-form textarea{min-height:60px}
+.av-list{list-style:none;margin:10px 0;padding:0;display:grid;gap:8px}
+.av-row{display:grid;gap:6px;padding:8px 10px;border:1px solid var(--line);border-left:6px solid var(--c);border-radius:10px;min-width:0}
+.av-dot{display:none}
+.av-rt{min-width:0;overflow-wrap:anywhere}
+.av-ra{display:flex;gap:6px;flex-wrap:wrap}
+.av-none{padding:8px 0}
+.av-rrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0}
+.av-cal{margin-top:8px}
+.av-cal-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+.av-cal-h .icon-btn{width:40px;height:40px;font-size:1.3rem}
+.av-cal-w,.av-cal-g{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.av-cal-w span{text-align:center;font-size:.74rem;color:var(--muted)}
+.av-cal-g button{min-height:40px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;font:600 .9rem var(--body)}
+.av-cal-g button.is-today{border-color:var(--accent)}
+.av-cal-g button[aria-pressed="true"]{background:var(--sel);border-color:var(--sel);color:var(--sel-ink)}
+.av-dchips{display:flex;flex-wrap:wrap;gap:6px}
+.av-dchips p{flex-basis:100%}
+.av-dc{min-height:36px;padding:4px 10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;font-size:.84rem}
+@media (max-width:600px){.av-form .two{grid-template-columns:minmax(0,1fr)}.av-form .av-times,.av-form .av-buf{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 .ics-list{display:grid;gap:4px;max-height:46vh;overflow:auto;margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:6px}
 .ics-row{display:flex;align-items:center;gap:10px;padding:6px 6px;border-radius:8px}
 .ics-row:nth-child(odd){background:var(--soft)}
@@ -6316,6 +6369,8 @@ function qaBarHtml(){
 document.addEventListener("submit", e => {
   if (e.target.id !== "qaForm") return;
   e.preventDefault(); const v = $("#qaIn").value.trim(); if (!v) { $("#qaIn").focus(); return; }
+  // "work Tue Thu 4-9pm" or "shift 7a-7:30p Mon Wed Fri" opens the availability form filled in; anything else is a task
+  try { const aq = AVAIL.parseQuick(v); if (aq) { ui.qaText = ""; $("#qaIn").value = ""; availForm(null, aq); return; } } catch(err) {}
   ui.qaText = v; qaRun(v);
 });
 document.addEventListener("input", e => { if (e.target.id === "qaIn") ui.qaText = e.target.value; const i = e.target.dataset && e.target.dataset.qa; if (i && ui.qa && e.target.type === "text") ui.qa.items[Number(e.target.dataset.i)][i] = e.target.value; });
@@ -6477,7 +6532,7 @@ function nextUp(F){
   let gapMin = null, gapWhat = "";
   try {
     const nowMin = hr * 60 + now.getMinutes();
-    const nx = schOccurrences(today, today).filter(o => !o.skipped && o.start && !(o.type === "meet" && o.m && o.m.kind === "Office Hours")).map(o => ({o, m: Number(o.start.slice(0, 2)) * 60 + Number(o.start.slice(3, 5))})).filter(y => y.m > nowMin).sort((a, b) => a.m - b.m)[0];
+    const nx = schOccurrences(today, today).filter(o => !o.skipped && o.start && !(o.type === "meet" && o.m && o.m.kind === "Office Hours") && !(o.type === "avail" && (o.avail.kind === "protected" || o.avail.seg === "tail"))).map(o => ({o, m: Number(o.start.slice(0, 2)) * 60 + Number(o.start.slice(3, 5))})).filter(y => y.m > nowMin).sort((a, b) => a.m - b.m)[0];
     if (nx && nx.m - nowMin <= 75) { gapMin = nx.m - nowMin; gapWhat = nx.o.label || nx.o.title || "your class"; }
   } catch(e) {}
   // Focus minutes per course so far today, from the Focus sessions logged on each task
@@ -6542,6 +6597,7 @@ function nextUpHtml(F, pre){
         <button class="nu-title" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</button>
         <span class="nu-why">${n.why.map(esc).join(" · ")}</span>
         ${n.step ? `<span class="nu-step">Next step: ${esc(n.step.text)}</span>` : ""}
+        ${(sl => sl && sl.length ? `<span class="nu-step nu-slot"><b>${esc(availSlotText(sl))}</b> in your free time</span>` : "")(F.slotsBy ? F.slotsBy[t.id] : null)}
       </div>
       ${lmsGoBtn(t)}
       <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-id="${esc(t.id)}">${TOMATO}Start a ${n.mins}m Focus</button>${t.type === "Study" && (t.studyDecks || []).length ? `<button class="btn small" data-act="fc-study-plan" data-id="${esc(t.id)}">Study Cards</button>` : ""}${n.left ? `<button class="btn small" data-act="nu-skip" data-id="${esc(t.id)}">Something Else</button>` : ""}</div>
@@ -9074,7 +9130,7 @@ let autoBackupDone = false;
 // Online backup history is a Studyboard Pro extra once plans are switched on (always on while they're off).
 const DEV_BACKUP_DAYS = 14;
 const cloudBackupsOn = () => cloud.on && (inClaude() || typeof PLAN === "undefined" || !PLAN || PLAN.can("cloud-backups"));
-const backupSnap = () => ({at: Date.now(), courses: Object.values(state.courses), tasks: Object.values(state.tasks), files: Object.values(state.files), notes: Object.values(state.notes), decks: Object.values(state.decks || {}), events: Object.values(state.events || {})});
+const backupSnap = () => ({at: Date.now(), courses: Object.values(state.courses), tasks: Object.values(state.tasks), files: Object.values(state.files), notes: Object.values(state.notes), decks: Object.values(state.decks || {}), events: Object.values(state.events || {}), avail: (state.settings && state.settings.avail) || null});
 async function deviceBackups(){
   let arr = await SBC.all("backups");
   try { arr = arr.concat(JSON.parse(localStorage.getItem(LSB) || "[]").map(b => Object.assign({where: "device"}, b))); } catch(e) {}   // older versions kept a few here
@@ -9501,10 +9557,10 @@ function busyDays(from, to){
   const m = {}, what = {}, mins = x => { const [h, mm] = String(x || "0:0").split(":").map(Number); return (h || 0) * 60 + (mm || 0); };
   try {
     schOccurrences(from, to).forEach(o => {
-      if (o.skipped || (o.type === "meet" && o.m && o.m.kind === "Office Hours")) return;
+      if (o.skipped || (o.type === "meet" && o.m && o.m.kind === "Office Hours") || (o.type === "avail" && o.avail.kind === "protected")) return;
       const label = (o.label || "") + " " + (o.title || "");
       let h = 0;
-      if (o.allDay || !o.start) { if (CLINICAL_RX.test(label)) h = 8; }
+      if (o.allDay || !o.start) { if (CLINICAL_RX.test(label) || o.type === "avail") h = 8; }
       else h = Math.max(0, (mins(o.end || o.start) - mins(o.start)) / 60);
       if (!h) return;
       m[o.date] = (m[o.date] || 0) + Math.min(h, 12);
@@ -9570,14 +9626,18 @@ function computeFocus(){
   const today = todayISO(), dh = dailyHours(), thSet = todayHours(), now = new Date();
   // Today's time left: what you set for today, minus focus time you've already done, and not past about 1 am
   let doneToday = 0; try { if (typeof SBSTATS !== "undefined") doneToday = SBSTATS.focusMinutes(today, today) / 60; } catch(e) {}
-  const th = Math.max(0, Math.min(thSet - doneToday, 25 - now.getHours() - now.getMinutes() / 60));
+  const th0 = Math.max(0, Math.min(thSet - doneToday, 25 - now.getHours() - now.getMinutes() / 60));
+  // Availability: today's study time can't be more than the free time that's left (work, shifts, classes and protected time come out of it)
+  let av = null; try { av = availToday(now); } catch(e) {}
+  const th = av && av.active ? Math.min(th0, av.res.total / 60) : th0;
   const open = tasksArr().filter(t => t.status !== "done" && t.due);
   const info = {};
   PTS_W = pointsWeights();
   const horizon = Math.min(90, Math.max(14, open.reduce((m, t) => Math.max(m, dayDiff(today, t.due)), 0) + 1));
   const B = busyDays(today, addDays(today, horizon));
   const day = [th], cum = [0];
-  for (let i = 1; i <= horizon; i++) day.push(dh * busyFactor(B.m[addDays(today, i)] || 0));
+  let AD = null; if (av && av.active) { try { AD = availDays(addDays(today, 1), addDays(today, horizon)); } catch(e) {} }   // free hours per later day: a heavy-shift week gets less planned work
+  for (let i = 1; i <= horizon; i++) { const d = addDays(today, i); day.push(Math.min(dh * busyFactor(B.m[d] || 0), AD && AD[d] != null ? AD[d] : Infinity)); }
   for (let i = 1; i <= horizon; i++) cum.push(cum[i - 1] + day[i - 1]);
   const stamp = nowStamp();
   // 1. Line up everything by deadline and compare the work piling up before each deadline with the time available until then.
@@ -9671,6 +9731,7 @@ function computeFocus(){
   // Spare time goes to the top tasks, to get ahead.
   ranked.forEach(x => { if (left >= 0.25 && x.R > x.alloc) { const extra = Math.min(x.R - x.alloc, Math.floor(left * 4) / 4); x.alloc += extra; left -= extra; } });
   const needToday = ranked.reduce((s, x) => s + x.need, 0);
+  let avail = null; if (av) { try { avail = availPlan(av, ranked, th0, needToday, day, today, now); } catch(e) { console.warn(e); } }
   // 6. The first deadline you're on track to miss at your current pace.
   const crunch = byDue.map(t => info[t.id]).find(x => x.behind >= 0.5 && x.dl >= 0);
   // 7. Plain-language reasons, most important first.
@@ -9703,7 +9764,7 @@ function computeFocus(){
     if (t.start && t.start > today) r.push([20, `Starts ${fmtDate(t.start)}`]);
     x.reasons = r.sort((a, b) => b[0] - a[0]).map(y => y[1]);
   });
-  FOCUS = {info, ranked, blocked, later, today, th, thSet, doneToday, dh, planned: th - Math.max(0, left), needToday, crunch, busy: B, day};
+  FOCUS = {info, ranked, blocked, later, today, th, thSet, doneToday, dh, planned: avail && avail.active ? avail.planned : th - Math.max(0, left), needToday, crunch, busy: B, day, avail, slotsBy: avail ? avail.by : {}};
   return FOCUS;
 }
 // For tests: the plan as the app sees it right now
@@ -9726,6 +9787,7 @@ function planRow(x, i, showScore, noRank){
     <button class="plan-main" data-act="edit-task" data-id="${esc(t.id)}" title="${esc(rs.join("\n"))}"><span class="task-title">${esc(t.title)}</span>${c ? `<span class="pr-chip">${esc(courseLabel(c))}</span>` : ""}</button>
     ${lead ? rest.length ? `<button class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}" data-act="plan-why" data-id="${esc(key)}" aria-expanded="${open}" aria-controls="pw-${esc(key)}" title="${esc(lead)}. Show all ${rs.length} reasons"><span class="pr-lead">${esc(lead)}</span><span class="pr-n" aria-hidden="true">+${rest.length}</span></button>` : `<span class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}"><span class="pr-lead">${esc(lead)}</span></span>` : `<span class="pr-why"></span>`}
     <span class="plan-side">${lmsGoBtn(t)}${side}${showScore ? "" : `<button class="focus-go" data-act="pomo-task" data-id="${esc(t.id)}" aria-label="Start a focus session on ${esc(t.title)}" title="Start a focus session">${TOMATO}</button>`}</span>
+    ${(sl => !showScore && ((sl && sl.length) || x.moved > 0.05) ? `<span class="pr-slot">${sl && sl.length ? `<b>${esc(availSlotText(sl))}</b>` : ""}${x.moved > 0.05 ? `${sl && sl.length ? " " : ""}<span class="mini">${esc(fmtHM(x.moved))} moved to a lighter day</span>` : ""}</span>` : "")(FOCUS && FOCUS.slotsBy ? FOCUS.slotsBy[t.id] : null)}
     ${rest.length ? `<ul class="pr-more" id="pw-${esc(key)}"${open ? "" : " hidden"}>${rest.map(r => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
   </li>`;
 }
@@ -9756,7 +9818,7 @@ function focusHtml(){
       <div class="fh-ctl"><div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b title="${F.doneToday >= 0.25 ? `${fmtHM(F.doneToday)} done so far, ${fmtHM(F.th)} left` : ""}">${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></div>
       ${autoChipHtml()}
       <button class="btn small fh-hide" data-act="focus-toggle" aria-expanded="${ui.focusOpen}">${ui.focusOpen ? "Hide" : "Show"}</button></div></div>
-    ${ui.focusOpen ? `${nextUpHtml(F, hero)}${headsHtml()}${insightsHtml()}${warn}${(() => { const n = allDueCount(); return n ? `<div class="plan-fc">${FC_ICON}<span><b>${n}</b> flashcard${n === 1 ? "" : "s"} due for review</span><button class="btn small" data-act="fc-review-all">Review</button></div>` : ""; })()}
+    ${ui.focusOpen ? `${availStripHtml(F)}${nextUpHtml(F, hero)}${headsHtml()}${insightsHtml()}${warn}${(() => { const n = allDueCount(); return n ? `<div class="plan-fc">${FC_ICON}<span><b>${n}</b> flashcard${n === 1 ? "" : "s"} due for review</span><button class="btn small" data-act="fc-review-all">Review</button></div>` : ""; })()}
       ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>` : heroId ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}
       <div class="plan-foot">${more ? foot("more", `Full Ranking${nBlk ? `, Waiting (${nBlk})` : ""}${nLater ? `, Coming Up (${nLater})` : ""}`, moreOpen) : ""}${foot("how", "How This Is Ranked", howOpen)}</div>
       ${more ? `<div class="plan-more" id="plan-more" role="region" aria-label="Full Ranking"${moreOpen ? "" : " hidden"}>
@@ -10040,6 +10102,622 @@ function restoreCourse(id){
 
 
 
+/* AVAIL-START: availability blocks and the free-time engine.
+   Pure: no DOM and no app state, so tests/avail.test.js extracts this block and runs it in node. Everything is wall-clock
+   (local dates as YYYY-MM-DD, times as minutes from local midnight); date maths uses day numbers, never local-time arithmetic, so DST days
+   can't shift anything. Only durations (realMin) ask the runtime's time zone, so a spring-forward gap or a repeated fall-back hour counts as it really is.
+   Shared helpers other code may read: AVAIL.occurrences (display occurrences, same shape as schOccurrences rows, type "avail"),
+   AVAIL.freeWindows (a day's free intervals), AVAIL.place (slots for plan items). Output shapes are stable; extend, don't change. */
+const AVAIL = (() => {
+  const TYPES = {
+    class:     {label: "Class",             color: "#4C78C8", verb: "in class"},
+    work:      {label: "Work",              color: "#C4733A", verb: "at work"},
+    shift:     {label: "Shift / Placement", color: "#1E9A86", verb: "on shift"},
+    travel:    {label: "Commute / Travel",  color: "#7E8AA0", verb: "travelling"},
+    other:     {label: "Other commitment",  color: "#8A62B8", verb: "busy"},
+    protected: {label: "Protected time",    color: "#5E8C6A", verb: "in protected time"}
+  };
+  const MAX_BLOCKS = 100, MAX_DATES = 366, MAX_SKIPS = 120;
+  const p2 = n => String(n).padStart(2, "0");
+  const isT = x => typeof x === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(x);
+  const toMin = t => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+  const toT = m => { m = Math.max(0, Math.min(1439, Math.round(m))); return p2(Math.floor(m / 60)) + ":" + p2(m % 60); };
+  // Calendar days as day numbers (UTC math on the date parts only, so local DST never matters)
+  const dnum = s => { const [y, m, d] = s.split("-").map(Number); return Math.round(Date.UTC(y, m - 1, d) / 864e5); };
+  const fromDn = n => new Date(n * 864e5).toISOString().slice(0, 10);
+  const addD = (s, n) => fromDn(dnum(s) + n);
+  const dow = s => new Date(dnum(s) * 864e5).getUTCDay();
+  const monN = s => { const n = dnum(s); return n - ((dow(s) + 6) % 7); };
+  const isDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && fromDn(dnum(s)) === s && s >= "1970-01-01" && s <= "2100-12-31";
+  const colorOk = c => /^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([\d\s.,%\/-]{1,60}\))$/i.test(String(c || "").trim());
+  const clampInt = (v, lo, hi, def) => { v = Math.round(Number(v)); return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : def; };
+  const str = (s, n) => String(s == null ? "" : s).replace(/[\u0000-\u001f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, n);
+
+  // One block, cleaned. Returns null when it could never occur (no days and no dates).
+  function normBlock(b){
+    if (!b || typeof b !== "object" || Array.isArray(b)) return null;
+    const type = TYPES[b.type] ? b.type : "other";
+    const o = {id: str(b.id, 40).replace(/[^\w.-]/g, "") || "av" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), type,
+      title: str(b.title, 80) || TYPES[type].label, color: colorOk(b.color) ? String(b.color).trim() : TYPES[type].color, allDay: !!b.allDay};
+    o.start = isT(b.start) ? b.start : "09:00"; o.end = isT(b.end) ? b.end : "17:00";
+    if (o.start === o.end) o.end = toT((toMin(o.start) + 60) % 1440);
+    if (o.allDay) { o.start = "00:00"; o.end = "23:59"; }
+    o.days = [...new Set((Array.isArray(b.days) ? b.days : []).map(Number))].filter(d => Number.isInteger(d) && d >= 0 && d <= 6).sort((x, y) => x - y);
+    o.dates = [...new Set((Array.isArray(b.dates) ? b.dates : []).filter(isDate))].sort().slice(0, MAX_DATES);
+    o.from = isDate(b.from) ? b.from : ""; o.until = isDate(b.until) ? b.until : "";
+    if (o.from && o.until && o.from > o.until) { const t = o.from; o.from = o.until; o.until = t; }
+    o.every = clampInt(b.every, 1, 8, 1);
+    o.anchor = isDate(b.anchor) ? b.anchor : "";
+    o.bufB = clampInt(b.bufB, 0, 240, 0); o.bufA = clampInt(b.bufA, 0, 240, 0);
+    if (o.type === "protected" || o.type === "travel") { o.bufB = 0; o.bufA = 0; }
+    o.skip = {};
+    if (b.skip && typeof b.skip === "object" && !Array.isArray(b.skip)) {
+      Object.keys(b.skip).filter(isDate).slice(0, MAX_SKIPS).forEach(k => {
+        const v = b.skip[k]; if (!v || typeof v !== "object") return;
+        if (v.skip) o.skip[k] = {skip: true};
+        else if (isT(v.start) && isT(v.end) && v.start !== v.end) o.skip[k] = {start: v.start, end: v.end};
+      });
+    }
+    o.created = Number(b.created) > 0 ? Number(b.created) : 0;
+    if (!o.dates.length && !o.days.length) return null;
+    return o;
+  }
+  // Settings. dayStart/dayEnd are the waking window; minChunk drops gaps too short to work in.
+  function normCfg(c){
+    c = c && typeof c === "object" ? c : {};
+    const tm = v => isT(v) ? toMin(v) : Number.isInteger(v) && v >= 0 && v <= 1440 ? v : null;   // "HH:MM" or minutes, so cleaning twice gives the same result
+    const ds = tm(c.dayStart) == null ? 420 : tm(c.dayStart), de = tm(c.dayEnd) == null ? 1380 : tm(c.dayEnd);
+    const ok = de - ds >= 120;
+    return {dayStart: ok ? ds : 420, dayEnd: ok ? de : 1380, minChunk: clampInt(c.minChunk, 5, 180, 25), maxSession: clampInt(c.maxSession, 15, 240, 90),
+      breakMin: clampInt(c.breakMin, 0, 60, 10), defBuf: clampInt(c.defBuf, 0, 120, 0), recover: !!c.recover, set: !!c.set};
+  }
+  function normAvail(a){
+    a = a && typeof a === "object" ? a : {};
+    const seen = new Set(), blocks = [];
+    (Array.isArray(a.blocks) ? a.blocks : []).forEach(raw => {
+      if (blocks.length >= MAX_BLOCKS) return;
+      const b = normBlock(raw); if (!b || seen.has(b.id)) return;
+      seen.add(b.id); blocks.push(b);
+    });
+    return {v: 1, blocks, cfg: normCfg(a.cfg)};
+  }
+
+  // Does this block start on date d? Specific dates win over weekdays; term range and repeat-every-N-weeks apply to weekdays.
+  function occursOn(b, d){
+    if (b.dates.length) return b.dates.includes(d);
+    if (b.from && d < b.from) return false;
+    if (b.until && d > b.until) return false;
+    if (!b.days.includes(dow(d))) return false;
+    if (b.every > 1) {
+      const wk = (monN(d) - monN(b.anchor || b.from || "2001-01-01")) / 7;
+      return ((wk % b.every) + b.every) % b.every === 0;
+    }
+    return true;
+  }
+  // Raw occurrences that START between from and to (inclusive): s/e are minutes from the start date's midnight, e can pass 1440 (overnight).
+  function raw(blocks, from, to){
+    const out = [];
+    blocks.forEach(b => {
+      for (let n = dnum(from), end = dnum(to); n <= end; n++) {
+        const d = fromDn(n); if (!occursOn(b, d)) continue;
+        const sk = b.skip[d], o = {b, id: b.id, key: d, date: d, type: b.type, allDay: b.allDay, skipped: false, moved: false};
+        let st = b.start, en = b.end;
+        if (sk && sk.skip) o.skipped = true; else if (sk && !b.allDay) { st = sk.start; en = sk.end; o.moved = true; }
+        o.s = b.allDay ? 0 : toMin(st); o.e = b.allDay ? 1440 : toMin(en);
+        if (!b.allDay && o.e <= o.s) o.e += 1440;
+        o.overnight = o.e > 1440;
+        out.push(o);
+      }
+    });
+    return out;
+  }
+  // Display occurrences for [from, to]: same fields the app's schedule rows use, type "avail". An overnight block is two rows
+  // (evening of day 1, morning of day 2) that share one key, so skipping it skips both.
+  function occurrences(blocks, from, to){
+    const out = [];
+    raw(blocks, addD(from, -1), to).forEach(o => {
+      const b = o.b, inR = d => d >= from && d <= to;
+      const base = {type: "avail", id: b.id, key: o.key, orig: o.key, moved: o.moved, skipped: o.skipped, color: b.color, title: b.title, label: TYPES[b.type].label, where: "", cls: "k-av k-av-" + b.type,
+        allDay: o.allDay, avail: {kind: b.type, block: b, overnight: o.overnight, seg: "whole", bufB: b.bufB, bufA: b.bufA, fullStart: toT(o.s), fullEnd: o.allDay ? "23:59" : toT(o.e % 1440)}};
+      if (o.allDay) { if (inR(o.date)) out.push(Object.assign({}, base, {date: o.date, start: "", end: ""})); return; }
+      if (!o.overnight) { if (inR(o.date)) out.push(Object.assign({}, base, {date: o.date, start: toT(o.s), end: toT(o.e)})); return; }
+      if (inR(o.date)) out.push(Object.assign({}, base, {date: o.date, start: toT(o.s), end: "23:59", avail: Object.assign({}, base.avail, {seg: "head"})}));
+      const nd = addD(o.date, 1);
+      if (inR(nd)) out.push(Object.assign({}, base, {date: nd, start: "00:00", end: toT(o.e - 1440), avail: Object.assign({}, base.avail, {seg: "tail"})}));
+    });
+    return out.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.start < b.start ? -1 : a.start > b.start ? 1 : 0);
+  }
+
+  // Real minutes between two wall-clock times on a date (DST-aware through the runtime's time zone)
+  function realMin(date, a, b){
+    const [y, m, d] = date.split("-").map(Number);
+    const r = Math.round((new Date(y, m - 1, d, Math.floor(b / 60), b % 60) - new Date(y, m - 1, d, Math.floor(a / 60), a % 60)) / 60000);
+    return isFinite(r) ? Math.max(0, r) : Math.max(0, b - a);
+  }
+  const CLINICAL = /clinical|practicum|placement|internship|co-?op|field ?work|preceptor|\bshift\b|practice (day|experience)|hospital|sim(ulation)? lab|site visit/i;
+
+  // Everything that takes the day's time, as wall-clock minute intervals clipped to the day (before the waking window is applied).
+  // ext: other timed things on the date, [{start, end, allDay, title, label}] (classes, events). done: [{s, e}] focus already done.
+  function busy(date, blocks, cfg, ext, done){
+    const iv = [], add = (s, e, kind, title) => { s = Math.max(0, s); e = Math.min(1440, e); if (e > s) iv.push({s, e, kind, title: title || TYPES[kind] && TYPES[kind].label || kind}); };
+    const dn = dnum(date);
+    raw(blocks, addD(date, -1), addD(date, 1)).forEach(o => {
+      if (o.skipped) return;
+      const off = (dnum(o.date) - dn) * 1440, b = o.b;
+      if (o.allDay) { if (off === 0 && b.type !== "travel") add(0, 1440, b.type, b.title); return; }
+      add(o.s + off, o.e + off, b.type, b.title);
+      if (b.bufB) add(o.s + off - b.bufB, o.s + off, "travel", "Travel to " + b.title);
+      if (b.bufA) add(o.e + off, o.e + off + b.bufA, "travel", "Travel from " + b.title);
+      // Morning after a night shift: no study before noon
+      if (cfg.recover && o.overnight && (b.type === "shift" || b.type === "work") && (o.e - 1440) < 720) add(o.e + off, 1440 + 720 + off, "recovery", "Recovery after " + b.title);
+    });
+    (ext || []).forEach(x => {
+      if (x.allDay || !x.start) { if (CLINICAL.test((x.label || "") + " " + (x.title || ""))) add(480, 960, "class", x.title || x.label || "Placement"); return; }
+      if (!isT(x.start)) return;
+      const s = toMin(x.start), e = isT(x.end) ? toMin(x.end) : s;
+      if (e > s) add(s, e, "class", x.title || x.label || "Class");
+    });
+    (done || []).forEach(x => add(x.s, x.e, "done", "Focus session"));
+    return iv;
+  }
+  const RANK = {shift: 5, work: 5, class: 4, other: 3, recovery: 2, protected: 2, done: 1, travel: 0};
+  const mainOf = parts => parts.slice().sort((p, q) => (RANK[q.kind] || 0) - (RANK[p.kind] || 0) || (q.e - q.s) - (p.e - p.s))[0];
+  function merge(iv){
+    const a = iv.slice().sort((x, y) => x.s - y.s || x.e - y.e), out = [];
+    a.forEach(x => {
+      const l = out[out.length - 1];
+      if (l && x.s <= l.e) { l.e = Math.max(l.e, x.e); l.parts.push(x); }
+      else out.push({s: x.s, e: x.e, parts: [x]});
+    });
+    out.forEach(m => { const main = mainOf(m.parts); m.kind = main.kind; m.title = main.title; });
+    return out;
+  }
+
+  // A day's free intervals. opts: {blocks, cfg, ext, done, nowMin (clip the start to now for today)}.
+  // Returns {date, windows:[{s,e,min,a,b}], total (real minutes), largest, none, busy:[merged], ws, we}.
+  function freeWindows(date, opts){
+    opts = opts || {};
+    const cfg = normCfg(opts.cfg), blocks = opts.blocks || [];
+    let lo = cfg.dayStart; const we = cfg.dayEnd;
+    if (opts.nowMin != null) lo = Math.max(lo, Math.ceil(opts.nowMin / 5) * 5);
+    const mb = merge(busy(date, blocks, cfg, opts.ext, opts.done));
+    const raw0 = []; let cur = lo;
+    for (const m of mb) {
+      if (cur >= we) break;
+      if (m.e <= cur) continue;
+      if (m.s > cur) raw0.push([cur, Math.min(m.s, we)]);
+      cur = Math.max(cur, m.e);
+    }
+    if (cur < we) raw0.push([cur, we]);
+    const windows = raw0.map(([s, e]) => ({s, e, min: realMin(date, s, e), a: toT(s), b: e >= 1440 ? "24:00" : toT(e)})).filter(w => w.min >= cfg.minChunk);
+    const total = windows.reduce((t, w) => t + w.min, 0);
+    return {date, windows, total, largest: windows.reduce((m, w) => Math.max(m, w.min), 0), none: total === 0, busy: mb, ws: cfg.dayStart, we, lo};
+  }
+
+  // Put work into free windows, in the order given. tasks: [{id, min}]. A task that doesn't fit in one window is split across windows, and
+  // a task longer than maxSession is split with a short break. Returns {slots:[{id,s,e,min,part,of}], unplaced:{id:min}, placed}.
+  function place(windows, tasks, o){
+    o = o || {};
+    const cfg = normCfg(o.cfg), maxS = o.maxSession || cfg.maxSession, brk = o.breakMin != null ? o.breakMin : cfg.breakMin, minSlot = o.minSlot || 15;
+    const left = (tasks || []).map(t => ({id: t.id, left: Math.max(0, Math.round(t.min))})).filter(t => t.left > 0);
+    const slots = []; let ti = 0;
+    (windows || []).forEach(w => {
+      let cur = w.s;
+      while (cur < w.e && ti < left.length) {
+        const t = left[ti], room = w.e - cur;
+        if (room < Math.min(minSlot, t.left)) break;
+        const len = Math.min(t.left, maxS, room);
+        slots.push({id: t.id, s: cur, e: cur + len, min: len});
+        t.left -= len; cur += len;
+        if (t.left <= 0) ti++;
+        if (cur < w.e && ti < left.length) cur += brk;
+      }
+    });
+    const n = {}; slots.forEach(s => { n[s.id] = (n[s.id] || 0) + 1; });
+    const k = {}; slots.forEach(s => { k[s.id] = (k[s.id] || 0) + 1; s.part = k[s.id]; s.of = n[s.id]; });
+    const unplaced = {}; left.forEach(t => { if (t.left > 0) unplaced[t.id] = t.left; });
+    return {slots, unplaced, placed: slots.reduce((t, s) => t + s.min, 0)};
+  }
+
+  const defFmt = m => { const h = Math.floor(m / 60) % 24, mm = m % 60, ap = h >= 12 ? "PM" : "AM"; return `${h % 12 || 12}${mm ? ":" + p2(mm) : ""} ${ap}`; };
+  const rangeTxt = (w, f) => `${f(w.s)}–${f(w.e)}`;
+  // Plain-language line for today. opts: {nowMin, fmt(minutes) -> text}
+  function explain(res, opts){
+    opts = opts || {}; const f = opts.fmt || defFmt, now = opts.nowMin;
+    const list = res.windows.map(w => rangeTxt(w, f)).join(" and ");
+    let act = now != null ? res.busy.find(m => m.s <= now && m.e > now) : null;
+    if (act) { const cur = mainOf(act.parts.filter(p => p.s <= now && p.e > now)); act = Object.assign({}, act, {kind: cur.kind, title: cur.title}); }   // what you're doing right now, until the whole busy stretch ends
+    const verb = m => m.kind === "recovery" ? "recovering from your night shift" : (TYPES[m.kind] ? TYPES[m.kind].verb : "busy");
+    const what = verb;
+    if (!res.windows.length) {
+      const last = res.busy.length ? res.busy[res.busy.length - 1] : null;
+      if (act && act.s <= res.ws && act.e >= res.we) return `No free time today. You're ${what(act)} all day.`;
+      if (act && last && last.e >= res.we - 1) return `No free time today. You're ${what(act)} until ${f(act.e)}.`;
+      if (act) return `No free time left today. You're ${what(act)} until ${f(act.e)}.`;
+      return now != null && now >= res.we ? "The day is over for study time." : "No free time today: everything from " + f(res.ws) + " to " + f(res.we) + " is taken.";
+    }
+    if (act) return `You're ${what(act)} until ${f(act.e)}; your free ${res.windows.length > 1 ? "windows are" : "window is"} ${list}.`;
+    return `Free ${now != null ? "for the rest of today" : "that day"}: ${list}.`;
+  }
+
+  // ---- Typing helpers ----
+  const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+  const DAYW = [["sun", "sunday"], ["mon", "monday"], ["tue", "tues", "tuesday"], ["wed", "weds", "wednesday"], ["thu", "thur", "thurs", "thursday"], ["fri", "friday"], ["sat", "saturday"]];
+  const dayIdx = w => DAYW.findIndex(a => a.includes(String(w).toLowerCase().replace(/\.$/, "")));
+  // "Mon Nov 3, Wed Nov 5, 11/8, 2026-11-10, Nov 12-14" -> {dates, bad}. Years are guessed: the next such date, allowing 45 days back.
+  function parseDates(text, today){
+    const out = new Set(), bad = [], ty = Number(today.slice(0, 4));
+    const mk = (m, d, y) => {
+      if (m < 0 || m > 11 || !d) return "";
+      let yr = y || ty, s = `${yr}-${p2(m + 1)}-${p2(d)}`;
+      if (!isDate(s)) return "";
+      if (!y && dnum(s) - dnum(today) < -45) { s = `${yr + 1}-${p2(m + 1)}-${p2(d)}`; if (!isDate(s)) return ""; }
+      return s;
+    };
+    const yfix = y => y ? (String(y).length === 2 ? 2000 + Number(y) : Number(y)) : 0;
+    const mon = "(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?";
+    String(text || "").split(/[,;\n]+|\band\b|&/i).forEach(tok => {
+      let t = tok.replace(/\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?/gi, " ").replace(/\s+/g, " ").trim(), m;
+      if (!t) return;
+      if ((m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/))) { const s = `${m[1]}-${p2(m[2])}-${p2(m[3])}`; return isDate(s) ? out.add(s) : bad.push(tok.trim()); }
+      if ((m = t.match(new RegExp(`^${mon}\\s*(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:-|–|to)\\s*(\\d{1,2})(?:st|nd|rd|th)?(?:\\s*,?\\s*(\\d{4}))?$`, "i")))) {
+        const mi = MONTHS.indexOf(m[1].toLowerCase()), a = Number(m[2]), z = Number(m[3]); let ok = a <= z && z - a < 31;
+        if (ok) for (let d = a; d <= z; d++) { const s = mk(mi, d, yfix(m[4])); if (s) out.add(s); else ok = false; }
+        return ok ? null : bad.push(tok.trim());
+      }
+      if ((m = t.match(new RegExp(`^${mon}\\s*(\\d{1,2})(?:st|nd|rd|th)?(?:\\s*,?\\s*(\\d{4}))?$`, "i")))) { const s = mk(MONTHS.indexOf(m[1].toLowerCase()), Number(m[2]), yfix(m[3])); return s ? out.add(s) : bad.push(tok.trim()); }
+      if ((m = t.match(new RegExp(`^(\\d{1,2})(?:st|nd|rd|th)?\\s*${mon}(?:\\s*,?\\s*(\\d{4}))?$`, "i")))) { const s = mk(MONTHS.indexOf(m[2].toLowerCase()), Number(m[1]), yfix(m[3])); return s ? out.add(s) : bad.push(tok.trim()); }
+      if ((m = t.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/))) { const s = mk(Number(m[1]) - 1, Number(m[2]), yfix(m[3])); return s ? out.add(s) : bad.push(tok.trim()); }
+      bad.push(tok.trim());
+    });
+    return {dates: [...out].sort(), bad};
+  }
+  // "work Tue Thu 4-9pm", "shift 7a-7:30p Mon Wed Fri" -> a prefilled block, or null when it reads like an ordinary task
+  // (the first word must be a block word, and days plus a time range must account for everything else typed).
+  function parseQuick(text){
+    let s = " " + String(text || "").trim().replace(/\s+/g, " ") + " ";
+    if (s.length > 170) return null;
+    const lead = s.match(/^\s*(?:add\s+|new\s+)?(work|job|shift|shifts|placement|clinical|practicum|class|lecture|commute|travel|appointment|practice|training|meeting|lunch|dinner|sleep)\b/i);
+    if (!lead) return null;
+    const w = lead[1].toLowerCase();
+    const type = /^(work|job)$/.test(w) ? "work" : /^(shift|shifts|placement|clinical|practicum)$/.test(w) ? "shift" : /^(class|lecture)$/.test(w) ? "class" : /^(commute|travel)$/.test(w) ? "travel" : /^(lunch|dinner|sleep)$/.test(w) ? "protected" : "other";
+    s = s.replace(lead[0], " ");
+    let time = null;
+    const tr = s.match(/(\d{1,2})(?::([0-5]\d))?\s*(?:(a\.?m\.?|p\.?m\.?|a|p)(?![a-z]))?\s*(?:-|–|to|until)\s*(\d{1,2})(?::([0-5]\d))?\s*(?:(a\.?m\.?|p\.?m\.?|a|p)(?![a-z]))?(?![\d:])/i);
+    if (tr) {
+      const ap = x => x ? (/^p/i.test(x) ? "p" : "a") : "", a1 = ap(tr[3]), a2 = ap(tr[6]);
+      const h1 = Number(tr[1]), m1 = Number(tr[2] || 0), h2 = Number(tr[4]), m2 = Number(tr[5] || 0);
+      const conv = (h, m, a) => (h % 12 + (a === "p" ? 12 : 0)) * 60 + m;
+      let a = null, b = null;
+      if (a1 && a2) { a = conv(h1, m1, a1); b = conv(h2, m2, a2); }
+      else if (a2 && !a1 && h1 <= 12) { b = conv(h2, m2, a2); a = conv(h1, m1, a2); if (a >= b) a = conv(h1, m1, a2 === "p" ? "a" : "p"); }
+      else if (a1 && !a2 && h2 <= 12) { a = conv(h1, m1, a1); b = conv(h2, m2, a1); if (b <= a) b = conv(h2, m2, a1 === "p" ? "a" : "p"); }
+      else if (!a1 && !a2 && (h1 > 12 || h2 > 12 || tr[2] || tr[5]) && h1 < 24 && h2 < 24 && /:/.test(tr[0])) { a = h1 * 60 + m1; b = h2 * 60 + m2; }
+      if (a != null && b != null && a !== b && a < 1440 && b < 1440) { time = {start: toT(a), end: toT(b)}; s = s.replace(tr[0], " "); }
+    }
+    if (!time) return null;
+    const days = new Set();
+    s = s.replace(/\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?\s*(?:-|–|to|through|thru)\s*(mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?/i, (all, x, y) => { let i = dayIdx(x), j = dayIdx(y); for (let n = 0; n < 7; n++) { days.add(i); if (i === j) break; i = (i + 1) % 7; } return " "; });
+    s = s.replace(/\b(weekdays?)\b/i, () => { [1, 2, 3, 4, 5].forEach(d => days.add(d)); return " "; });
+    s = s.replace(/\b(weekends?)\b/i, () => { days.add(6); days.add(0); return " "; });
+    s = s.replace(/\b(every ?day|daily)\b/i, () => { for (let d = 0; d < 7; d++) days.add(d); return " "; });
+    s = s.replace(/\b(sun(?:day)?|mon(?:day)?|tues?(?:day)?|weds?(?:nesday)?|thu(?:rs?(?:day)?)?|fri(?:day)?|sat(?:urday)?)s?\b\.?/gi, (all, x) => { const i = dayIdx(x); if (i >= 0) days.add(i); return " "; });
+    s = s.replace(/\b(on|every|each|from|at|and|the|shift|work|,)\b|[,&]/gi, " ").replace(/\s+/g, " ").trim();
+    if (!days.size || s) return null;
+    return {type, title: w === "shifts" ? "Shift" : w.charAt(0).toUpperCase() + w.slice(1), days: [...days].sort((x, y) => x - y), start: time.start, end: time.end};
+  }
+
+  return {TYPES, MAX_BLOCKS, MAX_DATES, normBlock, normCfg, normAvail, occursOn, occurrences, freeWindows, place, explain, realMin, parseDates, parseQuick, isDate, isT, toMin, toT, addD, dnum, dow, monN, fromDn, defFmt};
+})();
+/* AVAIL-END */
+
+/* AVAIL-UI-START: availability in the app. Blocks live in state.settings.avail = {v, blocks, cfg}, so they sync with the account,
+   go into backups, and are cleaned by AVAIL.normAvail on every read. The engine above does the maths; this part is storage, forms and the free-time strip. */
+let AV_CACHE = {src: null, val: null};
+function availState(){
+  const raw = state.settings && state.settings.avail;
+  if (AV_CACHE.val && AV_CACHE.src === raw) return AV_CACHE.val;
+  const v = AVAIL.normAvail(raw); AV_CACHE = {src: raw, val: v}; return v;
+}
+const availBlocks = () => availState().blocks;
+const availCfg = () => availState().cfg;
+// Plan limits switch on once there's a block or the person has saved availability settings; until then Today's Plan behaves as before.
+const availActive = () => { const a = availState(); return a.blocks.length > 0 || a.cfg.set; };
+function availSet(v){ state.settings = Object.assign({}, state.settings, {avail: v}); saveSettings(); scheduleRender(); }
+function availCommit(next, label){
+  const prev = state.settings && state.settings.avail != null ? state.settings.avail : null;
+  availSet(AVAIL.normAvail(next));
+  if (label) toast(label, () => { availSet(prev); toast("Undone"); });
+}
+// For backup restore and import: replace the blocks without a toast
+function availRestore(v){ availSet(v == null ? null : AVAIL.normAvail(v)); }
+const availMin = m => m >= 1440 ? "midnight" : fmtTime(AVAIL.toT(m));
+function availRange(s, e){
+  const a = availMin(s), b = availMin(e), sx = x => ((x.match(/\s?[AP]M$/i) || [""])[0]).trim().toLowerCase();
+  return (sx(a) && sx(a) === sx(b) ? a.replace(/\s?[AP]M$/i, "") : a) + "\u2013" + b;
+}
+// What an availability row says about its time (shown on the schedule grid)
+function availOccs(from, to){
+  const a = availState(); if (!a.blocks.length) return [];
+  return AVAIL.occurrences(a.blocks, from, to).map(o => {
+    const v = o.avail;
+    o.rangeText = o.allDay ? "All day" : v.seg === "head" ? `${fmtTime(o.start)}–${fmtTime(v.fullEnd)} (overnight)` : v.seg === "tail" ? `until ${fmtTime(o.end)} (overnight)` : `${fmtTime(o.start)}–${fmtTime(o.end)}`;
+    return o;
+  });
+}
+// Timed things other than availability blocks (classes, events) per date, for the engine. One schedule read for the whole range.
+function availExtMap(from, to){
+  const m = {};
+  schOccurrences(from, to).forEach(o => {
+    if (o.type === "avail" || o.skipped || (o.type === "meet" && o.m && o.m.kind === "Office Hours")) return;
+    (m[o.date] = m[o.date] || []).push({start: o.start, end: o.end, allDay: !!o.allDay, title: o.title, label: o.label});
+  });
+  return m;
+}
+function availFreeDay(date, nowMin, extMap){
+  const a = availState(), ext = (extMap || availExtMap(date, date))[date] || [];
+  return AVAIL.freeWindows(date, {blocks: a.blocks, cfg: a.cfg, ext, nowMin});
+}
+let AV_DAYS = {k: "", v: null};
+// Free hours per future date, cached until something changes
+function availDays(from, to){
+  const k = from + "|" + to + "|" + (state.updated || 0);
+  if (AV_DAYS.k === k) return AV_DAYS.v;
+  const ext = availExtMap(from, to), out = {};
+  for (let d = from; d <= to; d = addDays(d, 1)) out[d] = availFreeDay(d, null, ext).total / 60;
+  AV_DAYS = {k, v: out}; return out;
+}
+// Today's window, from now on
+function availToday(now){
+  const res = availFreeDay(todayISO(), now.getHours() * 60 + now.getMinutes());
+  return {res, active: availActive()};
+}
+const availWhen = (day, today) => { for (let i = 1; i < day.length; i++) if (day[i] >= 0.5) return i === 1 ? "tomorrow" : parse(addDays(today, i)).toLocaleDateString(undefined, {weekday: "long"}); return "the coming days"; };
+// Fill in what Today's Plan can say about free time: the line, the notes, slots for each row
+function availPlan(av, ranked, th0, needToday, day, today, now){
+  const res = av.res, a = availState();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const tasks = ranked.filter(x => x.alloc > 0).map(x => ({id: x.t.id, min: Math.round(x.alloc * 60)}));
+  const pl = AVAIL.place(res.windows, tasks, {cfg: a.cfg});
+  const by = {}; pl.slots.forEach(s => { (by[s.id] = by[s.id] || []).push(s); });
+  if (av.active) ranked.forEach(x => {
+    if (!(x.alloc > 0)) return;
+    const placed = (by[x.t.id] || []).reduce((t, s) => t + s.min, 0);
+    if (placed < x.alloc * 60 - 1) { x.moved = x.alloc - placed / 60; x.alloc = placed / 60; }
+  });
+  const planned = ranked.reduce((t, x) => t + (x.alloc || 0), 0), freeH = res.total / 60, wantH = Math.min(th0, needToday);
+  let note = "";
+  if (av.active && wantH > planned + 0.2) {
+    const over = wantH - planned, when = availWhen(day, today);
+    note = res.none ? `Nothing fits in today's free time, so ${fmtHM(over)} of work moves to ${when}.` : `${fmtHM(wantH)} of work doesn't fit in today's ${fmtHM(freeH)} of free time: moved ${fmtHM(over)} to ${when}.`;
+  }
+  const has = res.busy.some(m => m.kind !== "done");
+  return {res, active: av.active, line: AVAIL.explain(res, {nowMin, fmt: availMin}), note, slots: pl.slots, by, planned, show: av.active || has};
+}
+const availSlotText = list => list.map(s => availRange(s.s, s.e)).join(", then ");
+
+/* ---- Today's Plan: free time today, as chips ---- */
+function availStripHtml(F){
+  const a = F.avail; if (!a || !a.show) return "";
+  const chips = a.res.windows.map(w => `<button type="button" class="av-chip" data-act="avail-focus" data-s="${w.s}" data-e="${w.e}" aria-label="Start a focus session in your free time, ${esc(availRange(w.s, w.e))}"><b>${esc(availRange(w.s, w.e))}</b><small>${esc(fmtHM(w.min / 60))}</small></button>`).join("");
+  return `<div class="av-strip" role="region" aria-label="Free time today">
+    <div class="av-top"><h3 class="plan-sub">Free Time Today</h3><span class="av-acts"><button type="button" class="btn small" data-act="avail-add">+ Shift or work</button><button type="button" class="btn small" data-act="avail-open">Availability</button></span></div>
+    <p class="av-line">${esc(a.line)}</p>
+    ${chips ? `<div class="av-chips" role="group" aria-label="Free windows. Tap one to start a focus session">${chips}</div>` : ""}
+    ${a.note ? `<p class="av-note">${esc(a.note)}</p>` : ""}
+  </div>`;
+}
+// Start a focus session sized to a free window (or to the plan's slot in it)
+function availFocus(s, e){
+  const F = FOCUS || computeFocus(), slot = ((F.avail || {}).slots || []).find(x => x.s >= s && x.e <= e);
+  if (pomo.running) { openPomo(); toast("A focus session is already running"); return; }
+  const dur = Math.max(5, Math.min(Math.round(e - s), slot ? slot.min : Number(pomoCfg().focus) || 25, 120));
+  pomoSetMode("focus"); pomo.left = dur * 60000; pomo.preset = dur; pomo.taskId = slot ? slot.id : pomo.taskId; pomoSave();
+  openPomo(); pomoStart();
+}
+
+/* ---- Forms ---- */
+const AV_ORDER = ["class", "work", "shift", "travel", "other", "protected"];
+const AV_HELP = {class: "A class that isn't in your courses", work: "A job or work shift", shift: "Placement, clinical, practicum, rotation or other shifts", travel: "Time to get somewhere", other: "Sports, family, appointments", protected: "Meals, sleep, personal time. The planner never uses it"};
+function availSummary(b){
+  const days = b.days.length === 7 ? "Every day" : WEEK_ORDER.filter(d => b.days.includes(d)).map(d => parse("2024-01-0" + (d === 0 ? 7 : d)).toLocaleDateString(undefined, {weekday: "short"})).join(", ");
+  const when = b.dates.length ? (b.dates.length === 1 ? fmtDate(b.dates[0]) : `${b.dates.length} dates, ${fmtShort(b.dates[0])} to ${fmtShort(b.dates[b.dates.length - 1])}`) : days + (b.every > 1 ? `, every ${b.every} weeks` : "") + (b.from || b.until ? `, ${b.from ? "from " + fmtShort(b.from) : ""}${b.until ? " until " + fmtShort(b.until) : ""}` : "");
+  const t = b.allDay ? "All day" : `${fmtTime(b.start)}–${fmtTime(b.end)}${b.end <= b.start ? " (overnight)" : ""}`;
+  return `${when} · ${t}${b.bufB || b.bufA ? ` · travel ${b.bufB || 0}/${b.bufA || 0} min` : ""}`;
+}
+function availManager(){
+  const a = availState(), c = a.cfg;
+  const rows = a.blocks.length ? a.blocks.map(b => `<li class="av-row" style="--c:${esc(b.color)}"><span class="av-dot" aria-hidden="true"></span><span class="av-rt"><b>${esc(b.title)}</b> <span class="mini">${esc(AVAIL.TYPES[b.type].label)}</span><br><span class="mini">${esc(availSummary(b))}</span></span>
+      <span class="av-ra"><button type="button" class="btn small" data-act="avail-edit" data-id="${esc(b.id)}" aria-label="Edit ${esc(b.title)}">Edit</button><button type="button" class="btn small" data-act="avail-dup" data-id="${esc(b.id)}" aria-label="Duplicate ${esc(b.title)}">Duplicate</button><button type="button" class="btn small danger" data-act="avail-del" data-id="${esc(b.id)}" aria-label="Delete ${esc(b.title)}">Delete</button></span></li>`).join("")
+    : `<li class="mini av-none">Nothing added yet. Your course classes and calendar events already count as busy time.</li>`;
+  openSheet(`<form class="sheet av-form">${head("Availability")}
+    <div class="sheet-body">
+      <p class="mini" style="margin:0">Add work, shifts and placements, travel, and time the planner must never use. Today's Plan only schedules into the free time that's left. Classes from your courses and calendar already count, so you don't need to add them again.</p>
+      <ul class="av-list">${rows}</ul>
+      <button type="button" class="btn small" data-act="avail-add">+ Add shift or work</button>
+      <fieldset class="av-set"><legend>Study Time</legend>
+        <div class="two"><label class="f">Day starts<input type="time" name="dayStart" value="${esc(AVAIL.toT(c.dayStart))}" required></label><label class="f">Day ends<input type="time" name="dayEnd" value="${esc(AVAIL.toT(c.dayEnd))}" required></label></div>
+        <div class="two"><label class="f">Shortest useful gap (min)<input type="number" name="minChunk" min="5" max="180" step="5" value="${c.minChunk}"></label><label class="f">Longest single session (min)<input type="number" name="maxSession" min="15" max="240" step="5" value="${c.maxSession}"></label></div>
+        <div class="two"><label class="f">Break between sessions (min)<input type="number" name="breakMin" min="0" max="60" step="5" value="${c.breakMin}"></label><label class="f">Usual travel time for new shifts and work (min)<input type="number" name="defBuf" min="0" max="120" step="5" value="${c.defBuf}"></label></div>
+        <label class="mi-check"><input type="checkbox" name="recover" ${c.recover ? "checked" : ""}> Treat the morning after an overnight shift as recovery (no study before noon)</label>
+        <p class="mini" style="margin:6px 0 0">Gaps shorter than the shortest useful gap are ignored. Your Study Hours per Day in Settings still sets how much you want to do; free time only caps it.</p>
+      </fieldset>
+    </div>
+    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button><button type="button" class="btn primary" data-submit>Save Settings</button></div>
+  </form>`, fd => {
+    const ds = String(fd.get("dayStart")), de = String(fd.get("dayEnd"));
+    if (!AVAIL.isT(ds) || !AVAIL.isT(de) || AVAIL.toMin(de) - AVAIL.toMin(ds) < 120) { toast("Your day needs to be at least 2 hours long"); return false; }
+    const cfg = {dayStart: ds, dayEnd: de, minChunk: Number(fd.get("minChunk")), maxSession: Number(fd.get("maxSession")), breakMin: Number(fd.get("breakMin")), defBuf: Number(fd.get("defBuf")), recover: !!fd.get("recover"), set: true};
+    availCommit({blocks: availBlocks(), cfg}, "Availability settings saved");
+  });
+}
+function availForm(block, preset){
+  const cfg = availCfg(), today = todayISO(), isNew = !block || !availBlocks().some(x => x.id === block.id);
+  let b = block ? clone(block) : null;
+  if (!b || isNew) b = Object.assign({id: uid(), type: "work", title: "", days: [], dates: [], start: "16:00", end: "21:00", allDay: false, every: 1, from: "", until: "", anchor: "", bufB: cfg.defBuf, bufA: cfg.defBuf, skip: {}}, b || {}, preset || {});
+  const mode0 = preset && preset.roster ? "dates" : b.dates.length ? (b.dates.length === 1 && !b.days.length ? "one" : "dates") : "weekly";
+  const pat0 = (() => { if (b.every < 2 || !b.anchor) return 0; return (((AVAIL.monN(b.anchor) - AVAIL.monN(today)) / 7) % b.every + b.every) % b.every; })();
+  let color = b.color || AVAIL.TYPES[b.type].color, colorTouched = !!b.color && b.color !== AVAIL.TYPES[b.type].color, days = b.days.slice(), dates = b.dates.slice(), calM = (dates[0] || today).slice(0, 7);
+  const bufOpts = [0, 5, 10, 15, 20, 30, 45, 60, 90, 120].concat([b.bufB, b.bufA]).filter((v, i, arr) => arr.indexOf(v) === i).sort((x, y) => x - y);
+  const sel = (name, val) => `<select name="${name}">${bufOpts.map(v => `<option value="${v}" ${v === val ? "selected" : ""}>${v ? v + " min" : "None"}</option>`).join("")}</select>`;
+  openSheet(`<form class="sheet av-form">${head(isNew ? "Add Shift or Work" : "Edit Availability")}
+    <div class="sheet-body">${REQ_NOTE}
+      <label class="f"><span class="lh">Type</span><select name="type">${AV_ORDER.map(k => `<option value="${k}" ${k === b.type ? "selected" : ""}>${esc(AVAIL.TYPES[k].label)}</option>`).join("")}</select></label>
+      <p class="mini av-help" id="avHelp" style="margin:-4px 0 8px">${esc(AV_HELP[b.type])}</p>
+      <div class="two">
+        <label class="f"><span class="lh">Title ${REQ}</span><input type="text" name="title" required maxlength="80" value="${esc(b.title)}" autofocus placeholder="e.g. Hospital placement, Cafe shift, Soccer practice"></label>
+        <label class="f">Color<input type="color" name="color" value="${esc(/^#[0-9a-f]{6}$/i.test(color) ? color : AVAIL.TYPES[b.type].color)}"></label>
+      </div>
+      <fieldset class="av-when"><legend>When</legend>
+        ${seg("mode", [["weekly", "Every week"], ["dates", "Specific dates"], ["one", "One day"]], mode0)}
+        <div class="av-pane" data-pane="weekly">
+          <div class="meet-days" role="group" aria-label="Days of the week" id="avDays">${WEEK_ORDER.map(d => `<button type="button" data-day="${d}" aria-pressed="${days.includes(d)}">${DAY_SHORT[d]}</button>`).join("")}</div>
+          <div class="two">
+            <label class="f">Repeats<select name="every">${[1, 2, 3, 4].map(n => `<option value="${n}" ${b.every === n ? "selected" : ""}>${n === 1 ? "Every week" : "Every " + n + " weeks"}</option>`).join("")}</select></label>
+            <label class="f av-pat">Which weeks<select name="pat"></select></label>
+          </div>
+          <div class="two">
+            <label class="f">Term starts <span class="hint">optional</span><input type="date" name="from" value="${esc(b.from)}"></label>
+            <label class="f">Term ends <span class="hint">optional</span><input type="date" name="until" value="${esc(b.until)}"></label>
+          </div>
+        </div>
+        <div class="av-pane" data-pane="dates">
+          <label class="f">Type or paste your roster <span class="hint">e.g. Mon Nov 3, Wed Nov 5, Sat Nov 8 or 11/10, 11/12-11/14</span><textarea name="roster" rows="2" maxlength="2000" placeholder="Mon Nov 3, Wed Nov 5, Sat Nov 8"></textarea></label>
+          <div class="av-rrow"><button type="button" class="btn small" id="avAddRoster">Add These Dates</button><span class="mini" id="avRMsg" role="status" aria-live="polite"></span></div>
+          <div class="av-cal" id="avCal"></div>
+          <div class="av-dchips" id="avDChips" aria-label="Selected dates"></div>
+        </div>
+        <div class="av-pane" data-pane="one"><label class="f">Date<input type="date" name="date" value="${esc(b.dates[0] || today)}"></label></div>
+      </fieldset>
+      <fieldset class="av-time"><legend>Time</legend>
+        <label class="mi-check"><input type="checkbox" name="allDay" ${b.allDay ? "checked" : ""}> All day</label>
+        <div class="two av-times">
+          <label class="f">Starts<input type="time" name="start" value="${esc(b.allDay ? "09:00" : b.start)}"></label>
+          <label class="f">Ends<input type="time" name="end" value="${esc(b.allDay ? "17:00" : b.end)}"></label>
+        </div>
+        <p class="mini av-ovn" id="avOvn" role="status" aria-live="polite" style="margin:0 0 8px"></p>
+        <div class="two av-buf"><label class="f">Travel before${sel("bufB", b.bufB)}</label><label class="f">Travel after${sel("bufA", b.bufA)}</label></div>
+      </fieldset>
+    </div>
+    <div class="sheet-foot">${isNew ? "" : `<button type="button" class="btn danger" id="avDel">Delete</button><button type="button" class="btn" id="avDup">Duplicate</button>`}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>${isNew ? "Add" : "Save"}</button></div>
+  </form>`, fd => {
+    const type = AVAIL.TYPES[fd.get("type")] ? String(fd.get("type")) : "work", allDay = !!fd.get("allDay"), start = String(fd.get("start") || ""), end = String(fd.get("end") || ""), mode = String(fd.get("mode") || "weekly");
+    const title = String(fd.get("title") || "").trim() || AVAIL.TYPES[type].label;
+    if (!allDay && (!AVAIL.isT(start) || !AVAIL.isT(end) || start === end)) { toast("Pick a start and an end time that are different"); return false; }
+    const n = Object.assign(clone(b), {type, title, color: String(fd.get("color") || ""), allDay, start: allDay ? "00:00" : start, end: allDay ? "23:59" : end, bufB: Number(fd.get("bufB")) || 0, bufA: Number(fd.get("bufA")) || 0, created: b.created || Date.now()});
+    if (mode === "weekly") {
+      if (!days.length) { toast("Pick the days of the week"); return false; }
+      const every = Number(fd.get("every")) || 1, pat = Math.min(every - 1, Number(fd.get("pat")) || 0);
+      Object.assign(n, {days, dates: [], every, from: String(fd.get("from") || ""), until: String(fd.get("until") || ""), anchor: every > 1 ? AVAIL.addD(AVAIL.fromDn(AVAIL.monN(today)), 7 * pat) : ""});
+      if (n.from && n.until && n.until < n.from) { toast("The term can't end before it starts"); return false; }
+    } else if (mode === "one") {
+      const d = String(fd.get("date") || ""); if (!AVAIL.isDate(d)) { toast("Pick the date"); return false; }
+      Object.assign(n, {days: [], dates: [d], every: 1, from: "", until: "", anchor: ""});
+    } else {
+      if (!dates.length) { toast("Add at least one date to your roster"); return false; }
+      Object.assign(n, {days: [], dates: dates.slice().sort(), every: 1, from: "", until: "", anchor: ""});
+    }
+    const cleaned = AVAIL.normBlock(n); if (!cleaned) { toast("That block never happens. Check the days and dates."); return false; }
+    const list = availBlocks().filter(x => x.id !== cleaned.id).concat(cleaned);
+    ui.schWeek = mondayOf(cleaned.dates[0] || (cleaned.from && cleaned.from > today ? cleaned.from : today));
+    availCommit({blocks: list, cfg: availCfg()}, isNew ? `Added ${cleaned.title}` : `Saved ${cleaned.title}`);
+  });
+  const f = dlg.querySelector("form"), q = s => f.querySelector(s);
+  const paneSync = () => { const m = f.elements.mode.value || mode0; f.querySelectorAll(".av-pane").forEach(p => { p.hidden = p.dataset.pane !== m; }); };
+  f.querySelectorAll('input[name="mode"]').forEach(r => r.addEventListener("change", paneSync)); paneSync();
+  const patSync = () => {
+    const every = Number(f.elements.every.value) || 1, box = q(".av-pat"), s = f.elements.pat;
+    box.hidden = every < 2;
+    s.innerHTML = Array.from({length: every}, (_, i) => `<option value="${i}" ${i === Math.min(pat0, every - 1) ? "selected" : ""}>${i === 0 ? "This week, then every " + every + (every === 2 ? "nd" : every === 3 ? "rd" : "th") + " week" : i === 1 ? "Next week, then every " + every + (every === 2 ? "nd" : every === 3 ? "rd" : "th") + " week" : "In " + i + " weeks, then every " + every + "th week"}</option>`).join("");
+    if (every === 2) s.innerHTML = `<option value="0" ${pat0 === 0 ? "selected" : ""}>This week and every other week (A weeks)</option><option value="1" ${pat0 === 1 ? "selected" : ""}>Next week and every other week (B weeks)</option>`;
+  };
+  f.elements.every.addEventListener("change", patSync); patSync();
+  q("#avDays").addEventListener("click", e => { const x = e.target.closest("[data-day]"); if (!x) return; const d = Number(x.dataset.day); days = days.includes(d) ? days.filter(v => v !== d) : days.concat(d); x.setAttribute("aria-pressed", days.includes(d)); });
+  const timeSync = () => {
+    const ad = f.elements.allDay.checked; q(".av-times").hidden = ad; q(".av-buf").hidden = ad || f.elements.type.value === "protected" || f.elements.type.value === "travel";
+    const s = f.elements.start.value, e = f.elements.end.value, note = q("#avOvn");
+    note.textContent = ad ? "Blocks the whole day." : s && e && e < s ? `Overnight: blocks from ${fmtTime(s)} that evening until ${fmtTime(e)} the next morning.${cfg.recover ? " The morning after counts as recovery." : ""}` : "";
+  };
+  ["allDay", "start", "end", "type"].forEach(n => f.elements[n].addEventListener("change", timeSync)); timeSync();
+  f.elements.color.addEventListener("input", () => { colorTouched = true; color = f.elements.color.value; });
+  f.elements.type.addEventListener("change", () => {
+    const t = f.elements.type.value; q("#avHelp").textContent = AV_HELP[t] || "";
+    if (!colorTouched) f.elements.color.value = AVAIL.TYPES[t].color;
+    if (t === "protected" || t === "travel") { f.elements.bufB.value = "0"; f.elements.bufA.value = "0"; }
+    timeSync();
+  });
+  // Roster: typed dates plus a small month calendar
+  const calDraw = () => {
+    const first = calM + "-01", lead = (AVAIL.dow(first) + 6) % 7, [y, m] = calM.split("-").map(Number), nxt = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`, nd = AVAIL.dnum(nxt) - AVAIL.dnum(first);
+    let cells = ""; for (let i = 0; i < lead; i++) cells += "<span></span>";
+    for (let d = 1; d <= nd; d++) { const k = `${calM}-${String(d).padStart(2, "0")}`; cells += `<button type="button" data-d="${k}" aria-pressed="${dates.includes(k)}" aria-label="${esc(fmtDate(k))}"${k === today ? ' class="is-today"' : ""}>${d}</button>`; }
+    q("#avCal").innerHTML = `<div class="av-cal-h"><button type="button" class="icon-btn" data-mv="-1" aria-label="Previous month">‹</button><b>${esc(parse(first).toLocaleDateString(undefined, {month: "long", year: "numeric"}))}</b><button type="button" class="icon-btn" data-mv="1" aria-label="Next month">›</button></div>
+      <div class="av-cal-w" aria-hidden="true">${WEEK_ORDER.map(d => `<span>${DAY_SHORT[d]}</span>`).join("")}</div><div class="av-cal-g">${cells}</div>`;
+    q("#avDChips").innerHTML = dates.length ? `<p class="mini" style="margin:6px 0 4px">${dates.length} date${dates.length === 1 ? "" : "s"} selected. Tap one to remove it.</p>` + dates.slice().sort().map(k => `<button type="button" class="av-dc" data-rm="${k}" aria-label="Remove ${esc(fmtDate(k))}">${esc(fmtDate(k))} ✕</button>`).join("") : `<p class="mini" style="margin:6px 0 0">No dates yet. Type them above or tap days on the calendar.</p>`;
+  };
+  q("#avCal").addEventListener("click", e => {
+    const mv = e.target.closest("[data-mv]"); if (mv) { const [y, m] = calM.split("-").map(Number), dt = new Date(Date.UTC(y, m - 1 + Number(mv.dataset.mv), 1)); calM = dt.toISOString().slice(0, 7); calDraw(); return; }
+    const x = e.target.closest("[data-d]"); if (!x) return; const k = x.dataset.d;
+    dates = dates.includes(k) ? dates.filter(v => v !== k) : dates.length < AVAIL.MAX_DATES ? dates.concat(k) : dates; calDraw();
+    const again = q(`#avCal [data-d="${k}"]`); if (again) again.focus();
+  });
+  q("#avDChips").addEventListener("click", e => { const x = e.target.closest("[data-rm]"); if (!x) return; dates = dates.filter(v => v !== x.dataset.rm); calDraw(); });
+  q("#avAddRoster").addEventListener("click", () => {
+    const r = AVAIL.parseDates(f.elements.roster.value, today), msg = q("#avRMsg");
+    if (!r.dates.length) { msg.textContent = r.bad.length ? `Couldn't read: ${r.bad.slice(0, 3).join(", ")}` : "Type some dates first"; return; }
+    const before = dates.length; dates = [...new Set(dates.concat(r.dates))].sort().slice(0, AVAIL.MAX_DATES); calM = r.dates[0].slice(0, 7);
+    msg.textContent = `Added ${dates.length - before} date${dates.length - before === 1 ? "" : "s"}${r.bad.length ? `. Couldn't read: ${r.bad.slice(0, 3).join(", ")}` : ""}`;
+    f.elements.roster.value = ""; calDraw();
+  });
+  calDraw();
+  const del = q("#avDel"); if (del) del.addEventListener("click", () => { dlg.close(); availDelete(b.id); });
+  const dup = q("#avDup"); if (dup) dup.addEventListener("click", () => { dlg.close(); availDuplicate(b.id); });
+}
+function availDelete(id){
+  const b = availBlocks().find(x => x.id === id); if (!b) return;
+  availCommit({blocks: availBlocks().filter(x => x.id !== id), cfg: availCfg()}, `Deleted ${b.title}`);
+}
+function availDuplicate(id){
+  const b = availBlocks().find(x => x.id === id); if (!b) return;
+  const n = Object.assign(clone(b), {id: uid(), title: b.title + " (copy)", skip: {}, created: Date.now()});
+  availCommit({blocks: availBlocks().concat(n), cfg: availCfg()}, `Duplicated ${b.title}`);
+  setTimeout(() => availForm(availBlocks().find(x => x.id === n.id) || n), 60);
+}
+// Tap a block on the schedule: change just this day, or skip it
+function availOccSheet(id, key){
+  const b = availBlocks().find(x => x.id === id); if (!b) return;
+  const sk = b.skip[key], skipped = !!(sk && sk.skip), moved = !!(sk && !sk.skip);
+  const st = moved ? sk.start : b.start, en = moved ? sk.end : b.end;
+  openSheet(`<form class="sheet">${head(b.title)}
+    <div class="sheet-body">
+      <p class="mini" style="margin:0 0 10px">${esc(AVAIL.TYPES[b.type].label)}: usually ${esc(availSummary(b))}. Changes here only affect ${esc(fmtDate(key))}; every other day stays the same.${skipped ? " <b>Skipped this day.</b>" : moved ? " <b>Changed this day.</b>" : ""}</p>
+      ${b.allDay ? "" : `<div class="two"><label class="f">Starts<input type="time" name="start" value="${esc(st)}" required></label><label class="f">Ends<input type="time" name="end" value="${esc(en)}" required></label></div>`}
+    </div>
+    <div class="sheet-foot occ-foot">
+      <button type="button" class="btn" id="avSkip">${skipped ? "Don't Skip" : "Skip This Day"}</button>
+      ${moved ? `<button type="button" class="btn" id="avReset">Reset to Usual Time</button>` : ""}
+      <button type="button" class="btn" id="avAll">Edit All</button>
+      ${b.allDay ? "" : `<button type="button" class="btn primary" data-submit>Save This Day</button>`}</div>
+  </form>`, fd => {
+    const s = String(fd.get("start") || ""), e = String(fd.get("end") || "");
+    if (!AVAIL.isT(s) || !AVAIL.isT(e) || s === e) { toast("Pick a start and an end time that are different"); return false; }
+    avSetSkip(b, key, s === b.start && e === b.end ? null : {start: s, end: e}, `${b.title} changed on ${fmtShort(key)}`);
+  });
+  $("#avSkip").addEventListener("click", () => { dlg.close(); avSetSkip(b, key, skipped ? null : {skip: true}, skipped ? `${b.title} is back on` : `Skipped ${b.title} on ${fmtShort(key)}`); });
+  const r = $("#avReset"); if (r) r.addEventListener("click", () => { dlg.close(); avSetSkip(b, key, null, `${b.title} is back to its usual time`); });
+  $("#avAll").addEventListener("click", () => { dlg.close(); setTimeout(() => availForm(b), 30); });
+}
+function avSetSkip(b, key, val, label){
+  const n = clone(b); n.skip = Object.assign({}, n.skip); if (val) n.skip[key] = val; else delete n.skip[key];
+  availCommit({blocks: availBlocks().map(x => x.id === b.id ? n : x), cfg: availCfg()}, label);
+}
+// Test and crunch-view hook: read-only
+window.__sbAvail = {state: () => availState(), free: (d, nowMin) => availFreeDay(d, nowMin == null ? null : nowMin), occ: (a, b) => availOccs(a, b), plan: () => (FOCUS || computeFocus()).avail,
+  // for tests
+  view: o => { Object.assign(ui, o); render(); }, pomo: () => ({running: pomo.running, preset: pomo.preset, endAt: pomo.endAt, mode: pomo.mode, taskId: pomo.taskId}), pomoReset: () => { pomoReset(); const d = $("#pomoDlg"); if (d.open) d.close(); },
+  exportArrays: () => exportArrays(), restore: availRestore, day: () => (FOCUS || computeFocus()).day.slice(0, 6)};
+/* AVAIL-UI-END */
+
 /* ---------- Calendar events: your own, and ones imported from Apple Calendar (or any .ics file) ---------- */
 const eventsArr = () => Object.values(state.events || {});
 const minToT = m => pad(Math.floor(m / 60)) + ":" + pad(m % 60);
@@ -10079,6 +10757,7 @@ function schOccurrences(from, to){
       push(d);
     }
   });
+  try { availOccs(from, to).forEach(o => out.push(o)); } catch(e) {}   // work, shifts and other availability blocks (type "avail", o.avail.kind)
   return out;
 }
 const occWhen = o => `${parse(o.date).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"})}${o.allDay ? "" : `, ${fmtTime(o.start)}–${fmtTime(o.end)}`}`;
@@ -10101,6 +10780,7 @@ function findOcc(type, id, key){
   return schOccurrences(addDays(d, -8), addDays(d, 8)).find(o => o.type === type && o.id === id && o.key === key) || null;
 }
 function occSheet(type, id, key){
+  if (type === "avail") { availOccSheet(id, key); return; }
   if (type === "event" && state.events[id] && !state.events[id].repeat) { eventForm(state.events[id]); return; }
   const o = findOcc(type, id, key); if (!o) return;
   const usual = type === "meet" ? {date: o.orig, start: o.m.start, end: o.m.end} : {date: o.orig, start: o.ev.start, end: o.ev.end};
@@ -10620,13 +11300,15 @@ function viewSchedule(){
     <button class="icon-btn" data-act="sch-next" aria-label="Next week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
     <button class="btn small" data-act="sch-today" ${mon === mondayOf(today) && ui.schDay == null ? 'disabled aria-pressed="true" title="You are viewing this week"' : 'aria-pressed="false"'}>This Week</button>
     <button class="btn small" data-act="sch-add">+ Event</button>
+    <button class="btn small" data-act="avail-add" title="Add work, a shift or placement, travel, or protected time so Today's Plan only uses free time">+ Add shift or work</button>
+    <button class="btn small" data-act="avail-open" title="See and edit your work, shifts and free-time settings">Availability</button>
     <button class="btn small" data-act="sch-ics" title="Import from Apple Calendar, Google Calendar or Outlook">Import Calendar</button></div></div>`;
   const withEvents = new Set(eventsArr().map(e => e.courseId).filter(Boolean));
   const missing = cs.filter(c => !courseMeetings(c).length && !withEvents.has(c.id));
-  const hasAny = cs.some(c => courseMeetings(c).length) || eventsArr().length;
+  const hasAny = cs.some(c => courseMeetings(c).length) || eventsArr().length || availBlocks().length;
   if (!hasAny) return nav + `<div class="empty" style="margin-top:14px;text-align:left"><strong>Add Your Class Times</strong>Your weekly schedule fills in from each course's class times: lectures, labs, discussions and office hours. You can also add your own events, or import your Apple, Google or Outlook calendar.
     ${cs.length ? `<div class="sch-missing">${cs.map(c => `<button class="chip" style="--c:${esc(c.color)}" data-act="edit-course" data-id="${esc(c.id)}"><span class="dot"></span>${esc(courseLabel(c))}: Add class times</button>`).join("")}</div>` : `<br><button class="btn primary" data-act="new-course" style="margin-top:10px">Add a course</button>`}
-    <div class="sch-missing"><button class="btn small" data-act="sch-add">+ Add an Event</button><button class="btn small" data-act="sch-ics">Import a Calendar File</button></div></div>`;
+    <div class="sch-missing"><button class="btn small" data-act="sch-add">+ Add an Event</button><button class="btn small" data-act="avail-add">+ Add shift or work</button><button class="btn small" data-act="sch-ics">Import a Calendar File</button></div></div>`;
   const occ = schOccurrences(mon, addDays(mon, 6));
   const hasWeekend = occ.some(o => { const w = parse(o.date).getDay(); return w === 0 || w === 6; });
   const days = []; for (let i = 0; i < (hasWeekend ? 7 : 5); i++) { const iso = addDays(mon, i); days.push({i, iso, wd: parse(iso).getDay()}); }
@@ -10640,7 +11322,7 @@ function viewSchedule(){
   const h0 = Math.max(0, Math.floor(lo / 60)), h1 = Math.min(24, Math.ceil(hi / 60));
   const PPH = 56, top = m => (m - h0 * 60) / 60 * PPH, H = (h1 - h0) * PPH;
   const sel = ui.schDay != null && days[ui.schDay] ? ui.schDay : Math.max(0, days.findIndex(d => d.iso === today));
-  let classMin = 0;
+  let classMin = 0, availMinSum = 0;
   const cols = days.map(d => {
     const items = timed.filter(o => o.date === d.iso).map(o => ({s: tToMin(o.start), e: Math.max(tToMin(o.end), tToMin(o.start) + 15), o}))
       .concat(weekTasks.filter(t => t.due === d.iso && onGrid(t)).map(t => ({s: tToMin(t.time), e: tToMin(t.time) + 60, t}))).sort((a, b) => a.s - b.s || b.e - a.e);
@@ -10654,9 +11336,10 @@ function viewSchedule(){
       if (it.t) { const c = courseOf(it.t.courseId); return `<button class="sch-b sch-exam" style="${pos};--c:${esc(colorOf(it.t.courseId))}" data-act="edit-task" data-id="${esc(it.t.id)}" data-drag="1" data-type="task" data-dur="60"><b>${esc(it.t.title)}</b><span>${esc(fmtTime(it.t.time))}${c ? " · " + esc(courseLabel(c)) : ""}${it.t.location ? " · " + esc(it.t.location) : ""}</span></button>`; }
       const o = it.o;
       if (o.type === "meet" && o.label !== "Office Hours" && !o.skipped) classMin += it.e - it.s;
-      const sub = o.skipped ? "Skipped this week" : `${o.type === "meet" ? esc(o.label) + " · " : o.label ? esc(o.label) + " · " : o.course ? esc(courseLabel(o.course)) + " · " : ""}${esc(fmtTime(o.start))}–${esc(fmtTime(o.end))}`;
-      const tip = `${o.title}${o.label ? ", " + o.label : ""}, ${fmtTime(o.start)}–${fmtTime(o.end)}${o.where ? ", " + o.where : ""}${o.moved ? " (moved this week only)" : ""}. Drag to move${o.type === "meet" || (o.ev && o.ev.repeat) ? " just this week" : ""}.`;
-      return `<button class="sch-b ${esc(o.cls)}${o.skipped ? " skipped" : ""}${o.moved ? " moved" : ""}" style="${pos};--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}" data-dur="${tToMin(o.end) - tToMin(o.start)}" ${o.skipped ? "" : `data-drag="1"`} title="${esc(tip)}"><b>${esc(o.title)}</b><span>${sub}</span>${o.where && !o.skipped ? `<span>${esc(o.where)}</span>` : ""}${o.moved ? `<i class="sch-mv">This week only</i>` : ""}</button>`;
+      if (o.type === "avail" && !o.skipped) availMinSum += Math.max(0, it.e - it.s) * (o.avail.kind === "work" || o.avail.kind === "shift" ? 1 : 0);
+      const sub = o.skipped ? (o.type === "avail" ? "Skipped this day" : "Skipped this week") : o.type === "avail" ? `${esc(o.label)} · ${esc(o.rangeText)}` : `${o.type === "meet" ? esc(o.label) + " · " : o.label ? esc(o.label) + " · " : o.course ? esc(courseLabel(o.course)) + " · " : ""}${esc(fmtTime(o.start))}–${esc(fmtTime(o.end))}`;
+      const tip = o.type === "avail" ? `${o.title}, ${o.label}, ${o.rangeText}${o.moved ? " (changed this day only)" : ""}. Tap to change or skip this day.` : `${o.title}${o.label ? ", " + o.label : ""}, ${fmtTime(o.start)}–${fmtTime(o.end)}${o.where ? ", " + o.where : ""}${o.moved ? " (moved this week only)" : ""}. Drag to move${o.type === "meet" || (o.ev && o.ev.repeat) ? " just this week" : ""}.`;
+      return `<button class="sch-b ${esc(o.cls)}${o.skipped ? " skipped" : ""}${o.moved ? " moved" : ""}" style="${pos};--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}" data-dur="${tToMin(o.end) - tToMin(o.start)}" ${o.skipped || o.type === "avail" ? "" : `data-drag="1"`} title="${esc(tip)}"><b>${esc(o.title)}</b><span>${sub}</span>${o.where && !o.skipped ? `<span>${esc(o.where)}</span>` : ""}${o.moved ? `<i class="sch-mv">${o.type === "avail" ? "This day only" : "This week only"}</i>` : ""}</button>`;
     }).join("");
     const allDay = occ.filter(o => o.allDay && o.date === d.iso);
     const dueList = weekTasks.filter(t => t.due === d.iso && !onGrid(t)).sort(sortTasks);
@@ -10665,7 +11348,7 @@ function viewSchedule(){
     return {d, dueList, allDay, html: `<div class="sch-col ${d.iso === today ? "is-today" : ""} ${d.i === sel ? "sel" : ""}" data-date="${d.iso}" style="height:${H}px">${blocks}${nowLine}</div>`};
   });
   const heads = cols.map(({d, dueList, allDay}) => {
-    const chips = allDay.map(o => `<button class="sch-chip sch-allday" style="--c:${esc(o.color)}" data-act="sch-occ" data-type="event" data-id="${esc(o.id)}" data-key="${esc(o.key)}" title="${esc(o.title)}">${esc(o.title)}</button>`)
+    const chips = allDay.map(o => `<button class="sch-chip sch-allday${o.type === "avail" ? " k-av k-av-" + o.avail.kind : ""}" style="--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}" title="${esc(o.title)}">${esc(o.title)}</button>`)
       .concat(dueList.map(t => `<button class="sch-chip" style="--c:${esc(colorOf(t.courseId))}" data-act="edit-task" data-id="${esc(t.id)}" title="${esc(t.title)}">${esc(t.title)}${t.time ? ` <span>${esc(fmtTime(t.time))}</span>` : ""}</button>`));
     return `<div class="sch-head ${d.iso === today ? "is-today" : ""} ${d.i === sel ? "sel" : ""}"><div class="sch-dn"><span>${esc(parse(d.iso).toLocaleDateString(undefined, {weekday: "short"}))}</span><b>${parse(d.iso).getDate()}</b></div>
     <div class="sch-due">${chips.slice(0, 3).join("")}${chips.length > 3 ? `<span class="mini">+${chips.length - 3} more</span>` : ""}</div></div>`;
@@ -10673,7 +11356,8 @@ function viewSchedule(){
   let gutter = ""; for (let h = h0; h < h1; h++) { const d = new Date(); d.setHours(h, 0, 0, 0); gutter += `<span style="top:${(h - h0) * PPH}px">${esc(d.toLocaleTimeString(undefined, {hour: "numeric"}))}</span>`; }
   const pills = days.map(d => `<button data-act="sch-day" data-id="${d.i}" aria-pressed="${d.i === sel}" class="${d.iso === today ? "is-today" : ""}"><span>${esc(parse(d.iso).toLocaleDateString(undefined, {weekday: "narrow"}))}</span><b>${parse(d.iso).getDate()}</b></button>`).join("");
   const nEv = occ.filter(o => o.type === "event" && !o.skipped).length;
-  return nav + `<div class="sch-sum mini">${fmtHM(classMin / 60) || "0m"} of class this week${nEv ? `, ${nEv} event${nEv === 1 ? "" : "s"}` : ""}${weekTasks.length ? `, ${weekTasks.length} deadline${weekTasks.length === 1 ? "" : "s"}` : ""}. Tap a class to change just this week, or drag it to a new time.${missing.length ? ` <span>No class times yet for ${missing.map(c => `<button class="link-btn" data-act="edit-course" data-id="${esc(c.id)}">${esc(courseLabel(c))}</button>`).join(", ")}.</span>` : ""}</div>
+  const avKinds = AV_ORDER.filter(k => occ.some(o => o.type === "avail" && o.avail.kind === k));
+  return nav + `<div class="sch-sum mini">${fmtHM(classMin / 60) || "0m"} of class this week${availMinSum >= 15 ? `, ${fmtHM(availMinSum / 60)} of work and shifts` : ""}${nEv ? `, ${nEv} event${nEv === 1 ? "" : "s"}` : ""}${weekTasks.length ? `, ${weekTasks.length} deadline${weekTasks.length === 1 ? "" : "s"}` : ""}. Tap a class to change just this week, or drag it to a new time.${missing.length ? ` <span>No class times yet for ${missing.map(c => `<button class="link-btn" data-act="edit-course" data-id="${esc(c.id)}">${esc(courseLabel(c))}</button>`).join(", ")}.</span>` : ""}</div>
     <div class="sch-pills" role="group" aria-label="Day">${pills}</div>
     <div class="sch-wrap" style="--n:${days.length}">
       <div class="sch-grid" data-h0="${h0}" data-h1="${h1}" data-pph="${PPH}">
@@ -10681,7 +11365,7 @@ function viewSchedule(){
         <div class="sch-gutter" style="height:${H}px">${gutter}</div>${cols.map(c => c.html).join("")}
       </div>
     </div>
-    <div class="sch-legend mini"><span class="lg k-lecture">Lecture</span><span class="lg k-lab">Lab</span><span class="lg k-discussion">Discussion</span><span class="lg k-officehours">Office Hours</span><span class="lg k-event">Event</span><span class="lg sch-exam">Exam or Quiz</span></div>`;
+    <div class="sch-legend mini"><span class="lg k-lecture">Lecture</span><span class="lg k-lab">Lab</span><span class="lg k-discussion">Discussion</span><span class="lg k-officehours">Office Hours</span><span class="lg k-event">Event</span><span class="lg sch-exam">Exam or Quiz</span>${avKinds.map(k => `<span class="lg k-av k-av-${k}" style="--c:${esc(AVAIL.TYPES[k].color)}">${esc(AVAIL.TYPES[k].label)}</span>`).join("")}</div>`;
 }
 
 /* ---------- Plan Ahead: Timeline and Schedule share one tab ---------- */
@@ -11222,6 +11906,7 @@ function menuSheet(){
       ${folderBackupRow()}
       ${installRow()}
       <div class="cap-row"><label for="dailyIn" style="flex:1;font-weight:600">Study Hours per Day<span class="sub">Today's Plan fits your work into this. You can change just today on the Board.</span></label><input type="number" id="dailyIn" min="0" max="16" step="0.5" value="${esc(dailyHours())}"> h</div>
+      <button data-act="avail-open"><span>Availability and Free Time<span class="sub">Work, shifts, placements and protected time. Today's Plan only uses the free time left.</span></span></button>
       <div class="cap-row"><label for="capIn" style="flex:1;font-weight:600">Weekly Hours Limit<span class="sub">Timeline weeks over this turn red</span></label><input type="number" id="capIn" min="0" step="1" value="${esc(state.settings.capacity ?? 15)}"> h</div>
       <button data-act="import-syllabus"><span>Import a Syllabus<span class="sub">Upload a PDF to add the course and its deadlines</span></span></button>
       <button data-act="new-term"><span>Start a New Term<span class="sub">Put last term's courses, tasks and flashcards in the Archive</span></span></button>
@@ -11260,6 +11945,7 @@ async function restoreSheet(){
     const b = list[Number(btn.dataset.i)];
     dlg.close();
     applyChanges(replaceAllChanges(b.courses || [], b.tasks || [], Array.isArray(b.files) ? b.files : null, Array.isArray(b.notes) ? b.notes : null, Array.isArray(b.decks) ? b.decks : null, Array.isArray(b.events) ? b.events : null), "Backup restored");
+    if (b.avail !== undefined) { try { availRestore(b.avail); } catch(e) {} }
   }));
 }
 
@@ -12909,7 +13595,7 @@ function pomoLoad(){
   try { return Object.assign(base, JSON.parse(localStorage.getItem(POMO_LS) || "{}")); } catch(e) { return base; }
 }
 let pomo = pomoLoad(), pomoTimer = null;
-const modeMs = m => Math.max(1, Number(pomoCfg()[m === "focus" ? "focus" : m === "short" ? "short" : "long"]) || 1) * 60000;
+const modeMs = m => m === "focus" && Number(pomo.preset) > 0 ? Number(pomo.preset) * 60000 : Math.max(1, Number(pomoCfg()[m === "focus" ? "focus" : m === "short" ? "short" : "long"]) || 1) * 60000;   // pomo.preset: a one-off length, set by a free-time chip
 const pomoLeft = () => pomo.running ? Math.max(0, pomo.endAt - Date.now()) : (pomo.left > 0 ? pomo.left : modeMs(pomo.mode));
 const fmtClock = ms => { const s = Math.ceil(ms / 1000), m = Math.floor(s / 60); return `${m}:${String(s % 60).padStart(2, "0")}`; };
 function pomoSave(){ try { localStorage.setItem(POMO_LS, JSON.stringify(pomo)); } catch(e) {} }
@@ -12967,20 +13653,20 @@ function pomoStart(){
   fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId});
 }
 function pomoPause(){ if (!pomo.running) return; pomo.left = Math.max(1000, pomo.endAt - Date.now()); pomo.running = false; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); fire("focus", {type: "pause", mode: pomo.mode}); }
-function pomoReset(){ const was = pomo.running; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); if (was) fire("focus", {type: "stop", mode: pomo.mode}); }
-function pomoSetMode(m){ pomo.mode = m; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); }
+function pomoReset(){ const was = pomo.running; pomo.preset = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); if (was) fire("focus", {type: "stop", mode: pomo.mode}); }
+function pomoSetMode(m){ pomo.mode = m; pomo.preset = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); }
 function pomoSkip(){ const next = pomo.mode === "focus" ? ((pomo.cycle + 1) % pomoCfg().every === 0 ? "long" : "short") : "focus"; if (pomo.mode === "long") pomo.cycle = 0; pomoSetMode(next); }
 function pomoFinish(missed){
   if (!pomo.running) return;
-  const cfg = pomoCfg(), done = pomo.mode;
-  pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer);
+  const cfg = pomoCfg(), done = pomo.mode, fm = done === "focus" && Number(pomo.preset) > 0 ? Number(pomo.preset) : Number(cfg.focus) || 25;
+  pomo.running = false; pomo.left = 0; pomo.preset = 0; clearTimeout(pomoTimer);
   pomoToday();
   if (done === "focus") {
-    pomo.cycle++; pomo.sessions++; pomo.minutes += Number(cfg.focus) || 25;
+    pomo.cycle++; pomo.sessions++; pomo.minutes += fm;
     const t = pomo.taskId && state.tasks[pomo.taskId];
     if (t) {
-      const n = clone(t); n.pomos = (Number(n.pomos) || 0) + 1; n.focusMin = (Number(n.focusMin) || 0) + (Number(cfg.focus) || 25);
-      n.history = (n.history || []).concat({at: Date.now(), text: `Focus session: ${cfg.focus}m`}).slice(-30);
+      const n = clone(t); n.pomos = (Number(n.pomos) || 0) + 1; n.focusMin = (Number(n.focusMin) || 0) + fm;
+      n.history = (n.history || []).concat({at: Date.now(), text: `Focus session: ${fm}m`}).slice(-30);
       applyChanges([{kind: "task", id: t.id, after: n}], null);
     }
   }
@@ -12992,7 +13678,7 @@ function pomoFinish(missed){
   if (auto) { pomo.endAt = Date.now() + modeMs(next); pomo.running = true; pomoSave(); pomoSchedule(); }
   pomoAlarm(done, next, auto, missed);
   pomoUI(true);
-  fire("focus", {type: "end", mode: done, minutes: done === "focus" ? Number(cfg.focus) || 25 : 0, next, auto, missed: !!missed});
+  fire("focus", {type: "end", mode: done, minutes: done === "focus" ? fm : 0, next, auto, missed: !!missed});
 }
 function pomoAlarm(done, next, auto, missed){
   const cfg = pomoCfg();
@@ -13598,6 +14284,7 @@ $("#importFile").addEventListener("change", async e => {
         msg = `Backup imported with ${r.moved} file${r.moved === 1 ? "" : "s"}${r.skipped ? `, ${r.skipped} couldn't be restored${sbActive() || inClaude() ? "" : " (sign in first)"}` : ""}`;
       }
       applyChanges(replaceAllChanges(cs, ts, fs, ns, ds, es), msg);
+      if (d.settings && d.settings.avail !== undefined) { try { availRestore(d.settings.avail); } catch(e) {} }   // work, shifts and free-time settings come back too
     });
   } catch(err) { toast(/compressed/.test(String(err && err.message)) ? "That zip wasn't made by Studyboard" : "That file isn't a Studyboard backup"); }
 });
@@ -13683,6 +14370,12 @@ document.addEventListener("click", e => {
     case "sch-occ": occSheet(el.dataset.type, id, el.dataset.key); break;
     case "sch-add": { const wk = ui.schWeek || mondayOf(todayISO()); eventForm(null, {date: wk === mondayOf(todayISO()) ? todayISO() : wk}); break; }
     case "sch-ics": icsHelpSheet(); break;
+    case "avail-add": if (dlg.open) dlg.close(); setTimeout(() => availForm(null), 30); break;
+    case "avail-open": if (dlg.open) dlg.close(); setTimeout(availManager, 30); break;
+    case "avail-edit": { const b = availBlocks().find(x => x.id === id); if (b) { if (dlg.open) dlg.close(); setTimeout(() => availForm(b), 30); } break; }
+    case "avail-dup": if (dlg.open) dlg.close(); availDuplicate(id); break;
+    case "avail-del": if (dlg.open) dlg.close(); availDelete(id); break;
+    case "avail-focus": availFocus(Number(el.dataset.s), Number(el.dataset.e)); break;
     case "daily-quote": if (dlg.open) dlg.close(); setTimeout(() => dailyQuote(true), 60); break;
     case "new-course": courseForm(null); break;
     case "edit-course": { const c = courseOf(id); if (c) courseForm(c); break; }
@@ -13736,6 +14429,7 @@ document.addEventListener("click", e => {
       confirmSheet("Clear All Data?", "Every course and task will be deleted. You can undo right after, and weekly backups stay available.", "Clear everything", () => {
         ui.courseId = null; ui.filter = "all";
         applyChanges(replaceAllChanges([], [], [], [], [], []), "All data cleared");
+        try { availRestore(null); } catch(e) {}
       });
       break;
   }
@@ -31058,7 +31752,7 @@ const RM_CORE = (() => {
     let occ = [];
     if (c.events || c.nudges) {
       try {
-        occ = schOccurrences(today, addDays(today, 14)).filter(o => !o.skipped && !o.allDay && o.start).map(o => ({
+        occ = schOccurrences(today, addDays(today, 14)).filter(o => !o.skipped && !o.allDay && o.start && o.type !== "avail").map(o => ({
           id: `${o.type === "meet" ? "c" : "e"}:${o.id}:${o.key}`, date: o.date, start: o.start, title: o.title, where: o.where || "", label: o.label || "",
           meeting: o.type === "meet", study: o.type === "event" && /\b(study|focus|revision|review session)\b/i.test(`${o.title} ${o.label}`)}));
       } catch (e) { console.warn("reminders: events", e); }

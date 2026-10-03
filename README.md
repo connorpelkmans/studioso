@@ -6,6 +6,7 @@ A calm student planner for courses, deadlines, study sessions and flashcards. It
 
 - **Board and Today's Plan:** every task and deadline in one place, with a ranked plan for today that fits your study hours.
 - **Plan Ahead:** a Timeline and a Schedule (classes, exams and events) in one tab.
+- **Availability blocks:** add work, shifts and placements (including overnight and rotating rosters), travel time, other commitments and protected time. Today's Plan only schedules into the free time left and shows when. Free.
 - **Courses, grades and syllabi:** import a syllabus PDF, track grades, "What do I need?" and Rough Week Rescue.
 - **Flashcards and quizzes**, notes with stickers, files, and Search Everywhere.
 - **Focus timer** with sounds, and a study companion.
