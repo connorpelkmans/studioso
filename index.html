@@ -1078,6 +1078,7 @@ html{transition:none}
 .ar-cards li{display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:start}
 .ar-cards textarea{min-height:0;font-size:.92rem}
 .ar-cards .src{grid-column:1/-1;margin-top:-2px}
+.ar-chk{background:color-mix(in srgb,#d98a00 18%,transparent);color:inherit;border:1px solid color-mix(in srgb,#d98a00 55%,transparent);font-size:.74rem;white-space:normal}
 @media (max-width:560px){.ar-cards li{grid-template-columns:1fr auto}.ar-cards textarea[data-f=back]{grid-column:1;grid-row:2}}
 .ar-qs{margin:0;padding:0 0 0 22px;display:grid;gap:10px}
 .ar-qs>li{background:var(--field);border:1px solid var(--line);border-radius:12px;padding:8px 8px 10px 12px}
@@ -5097,8 +5098,117 @@ function aiParseJson(text){
   try { return JSON.parse(t); } catch(e) {}
   const a = t.indexOf("{"), b = t.lastIndexOf("}");
   if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b + 1)); } catch(e) {} }
+  return aiRepairJson(t);
+}
+/* AI-QUALITY-START: pure helpers (no app globals) that check and repair what the AI sends back. Unit-tested in tests/ai-quality.test.js. */
+// Cut-off or slightly broken JSON: keep every complete item and close what was left open.
+function aiRepairJson(text){
+  let t = String(text || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "");
+  const st = t.search(/[\[{]/); if (st < 0) return null; t = t.slice(st);
+  const stack = [], cuts = []; let inStr = false, esc = false;
+  for (let i = 0; i < t.length; i++) {
+    const ch = t[i];
+    if (inStr) { if (esc) esc = false; else if (ch === "\\") esc = true; else if (ch === '"') inStr = false; continue; }
+    if (ch === '"') inStr = true;
+    else if (ch === "{" || ch === "[") stack.push(ch);
+    else if (ch === "}" || ch === "]") { stack.pop(); if (stack.length) cuts.push([i + 1, stack.slice()]); }
+  }
+  for (let k = cuts.length - 1; k >= Math.max(0, cuts.length - 60); k--) {
+    const [pos, s] = cuts[k];
+    try { return JSON.parse(t.slice(0, pos) + s.slice().reverse().map(c => c === "{" ? "}" : "]").join("")); } catch(e) {}
+  }
   return null;
 }
+const AI_SUP = {"0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹", "+": "⁺", "-": "⁻", "n": "ⁿ"};
+const AI_SUB = {"0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄", "5": "₅", "6": "₆", "7": "₇", "8": "₈", "9": "₉", "+": "₊", "-": "₋"};
+const AI_TEX = {rightarrow: "→", to: "→", leftarrow: "←", leftrightarrow: "↔", rightleftharpoons: "⇌", times: "×", cdot: "·", pm: "±", leq: "≤", geq: "≥", le: "≤", ge: "≥", neq: "≠", approx: "≈", degree: "°", circ: "°", Delta: "Δ", delta: "δ", alpha: "α", beta: "β", gamma: "γ", mu: "μ", lambda: "λ", sigma: "σ", pi: "π", theta: "θ", omega: "ω", Omega: "Ω", rho: "ρ", tau: "τ", infty: "∞", sum: "Σ", propto: "∝", uparrow: "↑", downarrow: "↓"};
+// Cards and questions are shown as plain text, so strip markdown, HTML and LaTeX the model sometimes adds, and write simple math and chemistry (CO_2, x^2) with real sub- and superscripts.
+function aiTidyText(s){
+  s = String(s == null ? "" : s);
+  s = s.replace(/<br\s*\/?>/gi, "\n").replace(/<\/?(?:p|div|span|b|i|u|em|strong|li|ul|ol|sup|sub|code|pre|h[1-6]|table|tr|td|th)\b[^>]*>/gi, "")
+    .replace(/```[a-z]*\n?/gi, "").replace(/\*\*([^*\n]+)\*\*/g, "$1").replace(/__([^_\n]+)__/g, "$1").replace(/`([^`\n]+)`/g, "$1").replace(/^\s{0,3}#{1,6}\s+/gm, "");
+  s = s.replace(/\$\$?([^$\n]{1,240}?)\$\$?/g, (m, x) => /[\\^_{]/.test(x) ? x : m).replace(/\\[(\[]\s*/g, "").replace(/\s*\\[)\]]/g, "");
+  for (let k = 0; k < 3; k++) s = s.replace(/\\(?:text|mathrm|mathbf|mathit|textbf|textit|operatorname)\{([^{}]*)\}/g, "$1").replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, (m, a, b) => (/^[\w.]+$/.test(a) ? a : "(" + a + ")") + "/" + (/^[\w.]+$/.test(b) ? b : "(" + b + ")")).replace(/\\sqrt\{([^{}]*)\}/g, "√($1)");
+  s = s.replace(/\\([A-Za-z]+)(\s?)/g, (m, w, sp) => AI_TEX[w] == null ? m : AI_TEX[w] + (/^(Delta|delta|alpha|beta|gamma|mu|lambda|sigma|pi|theta|omega|Omega|rho|tau)$/.test(w) ? "" : sp)).replace(/\\%/g, "%").replace(/\\([{}_&#$])/g, "$1");
+  const map = (t, M) => { let o = ""; for (const c of t) { if (!M[c]) return null; o += M[c]; } return o; };
+  s = s.replace(/\^\{?([0-9+\-n]{1,4})\}?/g, (m, x) => map(x, AI_SUP) || m).replace(/([A-Za-z)\]])_\{?([0-9+\-]{1,4})\}?/g, (m, a, x) => a + (map(x, AI_SUB) || "_" + x));
+  return s.replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+}
+const AI_FILLER = new Set("what which who whom whose is are was were the a an of to in on for and or does do did define definition explain describe state name list give how why when this that these those with by as at from be it its into".split(" "));
+function aiKeyTokens(s){ return [...new Set(String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9%.]+/g, " ").split(" ").map(w => w.replace(/^\.+|\.+$/g, "")).filter(w => w && !AI_FILLER.has(w)).map(w => w.length > 4 ? w.replace(/(ies|es|s)$/, "") : w))]; }
+function aiJaccard(a, b){ if (!a.length || !b.length) return 0; const B = new Set(b); let n = 0; a.forEach(x => { if (B.has(x)) n++; }); return n / (a.length + b.length - n); }
+// What the student's own material contains, for checking that a card's facts really come from it.
+function aiCorpus(texts){
+  const t = texts.join("\n").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  return {words: new Set(t.match(/[a-z]{5,}/g) || []), nums: new Set((t.replace(/(\d),(\d{3})/g, "$1$2").match(/\d+(?:\.\d+)?/g) || []))};
+}
+// A short reason when a card says something the material doesn't (a number that never appears, or mostly words the material never uses). "" when it looks grounded.
+function aiGroundNote(text, corpus){
+  if (!corpus) return "";
+  const t = String(text || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const nums = (t.replace(/(\d),(\d{3})/g, "$1$2").match(/\d+(?:\.\d+)?/g) || []).filter(n => n.length >= 2 || n.includes("."));
+  const miss = nums.find(n => !corpus.nums.has(n));
+  if (miss) return `The number ${miss} isn't in your material`;
+  const words = [...new Set(t.match(/[a-z]{5,}/g) || [])];
+  if (words.length >= 4 && words.filter(w => corpus.words.has(w) || corpus.words.has(w.replace(/(ies|es|s|ed|ing)$/, ""))).length / words.length < 0.4) return "Mostly not in your material";
+  return "";
+}
+// Flashcard quality gate: plain text, one idea per card, no empty, repeated or oversized cards, capped at the number asked for. Cards that don't match the material are marked (check), not hidden.
+function aiGateCards(list, opts){
+  opts = opts || {}; const max = opts.max > 0 ? opts.max : 60, seen = [], keys = new Set(), out = [], dropped = {dup: 0, long: 0, empty: 0};
+  (Array.isArray(list) ? list : []).forEach(c => {
+    if (!c || typeof c !== "object") { dropped.empty++; return; }
+    const front = aiTidyText(c.front), back = aiTidyText(c.back), source = aiTidyText(c.source).slice(0, 60);
+    const ft = aiKeyTokens(front), same = aiKeyTokens(front).join(" ") === aiKeyTokens(back).join(" ");
+    if (front.length < 3 || !back || same) { dropped.empty++; return; }
+    if (front.length > 300 || back.length > 700) { dropped.long++; return; }
+    const key = ft.slice().sort().join(" ");
+    if (keys.has(key) || seen.some(x => aiJaccard(ft, x.ft) >= 0.8 || (x.back === back.toLowerCase() && aiJaccard(ft, x.ft) >= 0.3))) { dropped.dup++; return; }
+    keys.add(key); seen.push({ft, back: back.toLowerCase()});
+    out.push({front, back, source, check: opts.corpus ? aiGroundNote(front + " " + back, opts.corpus) : ""});
+  });
+  return {cards: out.slice(0, max), dropped};
+}
+// Question gate (after aiCleanQuestions): repeated stems, options that repeat each other, and more questions than were asked for.
+function aiGateQuestions(qs, opts){
+  opts = opts || {}; const max = opts.max > 0 ? opts.max : 60, seen = [], out = []; let dup = 0, bad = 0;
+  qs.forEach(q => {
+    const st = aiKeyTokens(q.stem);
+    const on = (q.options || []).map(o => aiKeyTokens(o).join(" ") || String(o).toLowerCase()), same = on.slice().sort().join("|") + "#" + (q.type === "short" ? aiKeyTokens(q.answer).join(" ") : q.correct.map(i => on[i]).sort().join(","));
+    if (seen.some(x => aiJaccard(st, x.st) >= 0.75 || (same.length > 3 && x.same === same && aiJaccard(st, x.st) >= 0.45))) { dup++; return; }
+    if (q.type !== "truefalse" && new Set(on).size !== on.length) { bad++; return; }
+    seen.push({st, same});
+    q.check = opts.corpus ? aiGroundNote(q.stem + " " + (q.type === "short" ? q.answer : q.correct.map(i => q.options[i]).join(" ")), opts.corpus) : "";
+    out.push(q);
+  });
+  return {questions: out.slice(0, max), dropped: {dup, bad}};
+}
+const aiDayNum = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ""); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) / 864e5 : NaN; };
+// Syllabus items: drop repeats, and blank any date that is far from all the others (usually a wrong year), so the student fills it in instead of trusting it.
+function aiGateSyllabus(items, today){
+  const seen = new Set(), out = []; let dups = 0, fixed = 0;
+  items.forEach(i => { const k = String(i.title).toLowerCase().replace(/[^a-z0-9]/g, "") + "|" + i.due; if (seen.has(k)) { dups++; return; } seen.add(k); out.push(i); });
+  const days = out.map(i => aiDayNum(i.due)).filter(x => !isNaN(x)).sort((a, b) => a - b), now = aiDayNum(today);
+  const med = days.length ? days[Math.floor(days.length / 2)] : now;
+  out.forEach(i => {
+    const d = aiDayNum(i.due);
+    if (!isNaN(d) && (Math.abs(d - med) > 240 || d < now - 366 || d > now + 800)) { i.due = ""; i.source = "ai-low"; fixed++; }
+    if (i.start && (isNaN(aiDayNum(i.start)) || (i.due && i.start > i.due))) i.start = "";
+  });
+  return {items: out, dups, fixed};
+}
+// Answers cite sources like [2]. Remove citations that point at a source that doesn't exist.
+function aiCleanCites(text, n){ return String(text || "").replace(/\s?\[(\d{1,2})\]/g, (m, k) => Number(k) >= 1 && Number(k) <= n ? m : "").trim(); }
+// Quick add: true when reading the sentence on this device is enough (one task, nothing left over that looks like a date or a second task), so the AI isn't needed.
+function qaConfident(text, t){
+  const s = String(text || "");
+  if (s.length > 140 || /[;\n]|\balso\b|\bthen\b|\band\b.*\b(due|by|on)\b/i.test(s)) return false;
+  if (!t || !t.title || !/[a-z]{2}/i.test(t.title) || t.title === t.type) return false;
+  const left = String(t.title);
+  if (/\b(next|this|end of|eom|eow|week|weekend|month|after|before|until|till|semester|term|morning|evening|afternoon|night|noon|midnight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december|today|tomorrow|tonight|days?|hrs?|hours?|mins?|minutes?)\b|\d/i.test(left.replace(/\b(?:lab|quiz|exam|test|project|chapter|ch|homework|hw|assignment|problem set|pset|week|module|unit|part|lecture|report|essay|paper|midterm|final|reading|read|worksheet|discussion|post|presentation|draft|set)\s*\d+\b/gi, " "))) return false;
+  return true;
+}
+/* AI-QUALITY-END */
 // Schemas are written in Gemini's format; Claude and ChatGPT take standard JSON Schema.
 function toJsonSchema(s){
   if (Array.isArray(s)) return s.map(toJsonSchema);
@@ -5127,9 +5237,10 @@ function geminiOrder(pinned, tier = "reason"){
   const rest = free.filter(x => x !== pinned);
   return tier === "lite" ? rest.concat(pinned) : [pinned].concat(rest);
 }
-function fetchT(url, opts, ms){
+function fetchT(url, opts, ms, signal){
   const ac = typeof AbortController === "function" ? new AbortController() : null;
   const t = ac ? setTimeout(() => ac.abort(), ms) : null;
+  if (ac && signal) { if (signal.aborted) ac.abort(); else signal.addEventListener("abort", () => ac.abort(), {once: true}); }
   return fetch(url, Object.assign({}, opts, ac ? {signal: ac.signal} : {})).finally(() => clearTimeout(t));
 }
 const offlineErr = who => aiErr("offline", navigator.onLine === false ? "You're offline. AI features need an internet connection." : `Couldn't reach ${who}. Check your connection and try again.`);
@@ -5138,7 +5249,7 @@ async function errMsg(res){ try { const e = await res.json(); return (e.error &&
 /* One call, any provider. parts are Gemini-style: {text} or {inline_data: {mime_type, data}}.
    fast: quick jobs (grading, quick add, explanations) ask for less thinking so they come back sooner.
    task: the job's name in AI_TASKS, which picks the model tier (smartest for hard jobs, lite for quick ones) and the thinking level. */
-async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, fast = false, timeout, auto = false, task = ""}){
+async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, fast = false, timeout, auto = false, task = "", signal}){
   let cfg = aiCfg();
   if (auto) { const a = autoState(); if (!a.on) throw aiErr("auto-off", "Automatic AI is off."); cfg = a.cfg; }   // never a paid model unless confirmed
   if (inClaude()) throw aiErr("preview", "AI features work in the Studyboard app and on your website, not in this preview.");
@@ -5147,12 +5258,12 @@ async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0
   // Only reassure after a while; never announce retries.
   const slow = onStatus ? setTimeout(() => onStatus(fast ? "Still thinking…" : "Still working. Big files can take up to a minute…"), fast ? 9000 : 20000) : null;
   try {
-    if (cfg.provider === "anthropic") return await claudeCall(cfg, {system, parts, schema, maxTokens, ms});
-    if (cfg.provider === "openai") return await openaiCall(cfg, {system, parts, schema, maxTokens, ms});
-    return await geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task});
+    if (cfg.provider === "anthropic") return await claudeCall(cfg, {system, parts, schema, maxTokens, ms, signal});
+    if (cfg.provider === "openai") return await openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal});
+    return await geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task, signal});
   } finally { clearTimeout(slow); }
 }
-async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task}){
+async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task, signal}){
   const T = aiTask(task, fast), models = geminiOrder(cfg.model, T.tier);
   let thinking = true, lastErr = null;
   const bodyFor = () => {
@@ -5165,8 +5276,9 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
     const m = models[i];
     let res;
     try {
-      res = await fetchT(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {method: "POST", headers: {"Content-Type": "application/json", "x-goog-api-key": cfg.key}, body: bodyFor()}, ms);
+      res = await fetchT(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {method: "POST", headers: {"Content-Type": "application/json", "x-goog-api-key": cfg.key}, body: bodyFor()}, ms, signal);
     } catch(e) {
+      if (signal && signal.aborted) throw aiErr("cancelled", "Cancelled.");
       if (e && e.name === "AbortError") { aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + 5 * 60000; }); lastErr = aiErr("slow", "The AI took too long to answer. Try again, or use fewer files."); continue; }
       throw offlineErr("Google's AI service");
     }
@@ -5203,13 +5315,13 @@ function claudeBlocks(parts){
     throw aiErr("type", "Claude can't read HEIC photos. Save the photo as JPG or PNG, or switch to Gemini.");
   });
 }
-async function claudeCall(cfg, {system, parts, schema, maxTokens, ms}){
+async function claudeCall(cfg, {system, parts, schema, maxTokens, ms, signal}){
   const body = {model: cfg.model, max_tokens: Math.min(maxTokens, 16000), system, messages: [{role: "user", content: claudeBlocks(parts)}]};
   if (schema) { body.tools = [{name: "answer", description: "Give your answer in this exact structure.", input_schema: toJsonSchema(schema)}]; body.tool_choice = {type: "tool", name: "answer"}; }
   for (let attempt = 0; attempt < 2; attempt++) {
     let res;
-    try { res = await fetchT("https://api.anthropic.com/v1/messages", {method: "POST", headers: {"content-type": "application/json", "x-api-key": cfg.key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true"}, body: JSON.stringify(body)}, ms); }
-    catch(e) { if (e && e.name === "AbortError") throw aiErr("slow", "Claude took too long to answer. Try again, or use fewer files."); throw offlineErr("Anthropic"); }
+    try { res = await fetchT("https://api.anthropic.com/v1/messages", {method: "POST", headers: {"content-type": "application/json", "x-api-key": cfg.key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true"}, body: JSON.stringify(body)}, ms, signal); }
+    catch(e) { if (signal && signal.aborted) throw aiErr("cancelled", "Cancelled."); if (e && e.name === "AbortError") throw aiErr("slow", "Claude took too long to answer. Try again, or use fewer files."); throw offlineErr("Anthropic"); }
     if (res.ok) {
       const j = await res.json().catch(() => ({}));
       const blocks = j.content || [];
@@ -5240,13 +5352,13 @@ function openaiContent(parts){
     throw aiErr("type", "ChatGPT can't read HEIC photos. Save the photo as JPG or PNG, or switch to Gemini.");
   });
 }
-async function openaiCall(cfg, {system, parts, schema, maxTokens, ms}){
+async function openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal}){
   const body = {model: cfg.model, instructions: system, input: [{role: "user", content: openaiContent(parts)}], max_output_tokens: Math.max(1024, maxTokens)};
   if (schema) body.text = {format: {type: "json_schema", name: "answer", schema: toJsonSchema(schema), strict: false}};
   for (let attempt = 0; attempt < 2; attempt++) {
     let res;
-    try { res = await fetchT("https://api.openai.com/v1/responses", {method: "POST", headers: {"Content-Type": "application/json", "Authorization": "Bearer " + cfg.key}, body: JSON.stringify(body)}, ms); }
-    catch(e) { if (e && e.name === "AbortError") throw aiErr("slow", "ChatGPT took too long to answer. Try again, or use fewer files."); throw offlineErr("OpenAI"); }
+    try { res = await fetchT("https://api.openai.com/v1/responses", {method: "POST", headers: {"Content-Type": "application/json", "Authorization": "Bearer " + cfg.key}, body: JSON.stringify(body)}, ms, signal); }
+    catch(e) { if (signal && signal.aborted) throw aiErr("cancelled", "Cancelled."); if (e && e.name === "AbortError") throw aiErr("slow", "ChatGPT took too long to answer. Try again, or use fewer files."); throw offlineErr("OpenAI"); }
     if (res.ok) {
       const j = await res.json().catch(() => ({}));
       const text = j.output_text || (j.output || []).filter(o => o.type === "message").flatMap(o => o.content || []).filter(c => c.type === "output_text").map(c => c.text).join("");
@@ -5399,51 +5511,55 @@ const QUIZ_SCHEMA = {type: "OBJECT", properties: {
     topic: {type: "STRING"},
     source: {type: "STRING"}}, required: ["type", "stem", "rationale"]}}},
   required: ["questions"]};
-function aiCleanCards(list){
-  const seen = new Set();
-  return (Array.isArray(list) ? list : []).map(c => ({front: String(c.front || "").trim(), back: String(c.back || "").trim(), source: String(c.source || "").trim()}))
-    .filter(c => c.front && c.back && !seen.has(c.front.toLowerCase()) && seen.add(c.front.toLowerCase()));
-}
 function aiCleanQuestions(list){
   const out = [];
   (Array.isArray(list) ? list : []).forEach(q => {
     const type = ["single", "multiple", "order", "truefalse", "short"].includes(q.type) ? q.type : "single";
-    const stem = String(q.stem || "").trim(); if (!stem) return;
-    let options = (Array.isArray(q.options) ? q.options : []).map(o => String(o).trim()).filter(Boolean);
+    const stem = aiTidyText(q.stem); if (!stem) return;
+    let options = (Array.isArray(q.options) ? q.options : []).map(o => aiTidyText(o)).filter(Boolean);
     if (type === "truefalse") options = ["True", "False"];
     let correct = (Array.isArray(q.correct) ? q.correct : []).map(Number).filter(i => Number.isInteger(i) && i >= 0 && i < options.length);
     if (type === "truefalse" && !correct.length && q.answer) correct = [/^t/i.test(q.answer) ? 0 : 1];
-    const answer = String(q.answer || "").trim();
+    const answer = aiTidyText(q.answer);
     if (type === "short") { if (!answer && !(correct.length && options[correct[0]])) return; }
     else if (options.length < 2) return;
     if ((type === "single" || type === "truefalse") && correct.length !== 1) return;
     if (type === "multiple" && !correct.length) return;
     if (type === "order" && (correct.length !== options.length || new Set(correct).size !== options.length)) return;
-    const notes = Array.isArray(q.optionNotes) && q.optionNotes.length === options.length ? q.optionNotes.map(s => String(s || "").trim()) : [];
+    const notes = Array.isArray(q.optionNotes) && q.optionNotes.length === options.length ? q.optionNotes.map(s => aiTidyText(s)) : [];
     out.push({id: uid(), type, stem, options: type === "short" ? [] : options, correct: type === "short" ? [] : (type === "multiple" ? [...new Set(correct)].sort((a, b) => a - b) : correct),
-      answer: type === "short" ? (answer || options[correct[0]]) : "", rationale: String(q.rationale || "").trim(), notes, topic: String(q.topic || "").trim(), source: String(q.source || "").trim(), update: String(q.update || "").trim()});
+      answer: type === "short" ? (answer || options[correct[0]]) : "", rationale: aiTidyText(q.rationale), notes, topic: String(q.topic || "").trim(), source: String(q.source || "").trim(), update: String(q.update || "").trim()});
   });
   return out;
 }
 const AI_RULES = "Use only the provided course material (and standard facts that agree with it). If the material is thin on a topic, skip it rather than invent details. Match the student's requested style exactly. Write clearly for a university student. Return JSON only.";
+const AI_QUIZ_SYSTEM = "You write high-quality practice exam questions. Question types: 'single' (one best answer, usually 4 options), 'multiple' (select all that apply: 5 or 6 options, 2 or more correct; start or end the stem with 'Select all that apply.'), 'order' (4 to 6 steps listed in scrambled order; 'correct' lists the option indexes in the right order), 'truefalse' (options exactly ['True','False']), and 'short' (a brief typed answer in 'answer'). 'correct' holds zero-based option indexes. Every question gets a rationale explaining why the answer is right and why the others are wrong, and 'optionNotes' with one short note per option. The student's style instructions decide the mix of question types, the stem length and format (passages, vignettes, case data, calculations) and the difficulty, so follow them exactly, including a custom format they describe in their own words. If they name an exam (AP, MCAT, USMLE, NCLEX, HESI, bar exam, CPA, FE, a professor's midterm and so on), follow that exam's conventions; for example, NCLEX style uses client-centered stems about what the nurse should do, with priority, first-action, safety and delegation questions and select-all-that-apply items. When no style is given, mix types sensibly. Avoid trivia and 'all of the above' or 'none of the above'. Spread questions across the whole material. Put the slide or page in 'source'. " + AI_RULES;
+// One more try when the answer came back garbled or cut off to nothing; never retries a cancel, a bad key or a quota error.
+async function aiRetry(fn){ try { return await fn(); } catch(e) { if (e && (e.code === "bad" || e.code === "long")) return await fn(); throw e; } }
+const AI_GROUND = "Ground every item in the material above: use its own terms, numbers, names and wording. Never add a fact, number, date, example or definition that is not in the material, and skip a topic rather than guess. Write in the same language as the material. Plain text only (no markdown, HTML or LaTeX); write chemistry and math directly, like H₂O, CO₂, x², Δ, →. The 'source' field is required: the slide number or page (like 'Slide 12' or 'p. 4'), or the section heading when the material has no pages.";
 async function aiMakeStudySet(opts, onStatus){
-  const {sources, style, difficulty, cards, quiz, cases, caseCount, cardCount, quizCount, courseName} = opts;
+  const {sources, style, difficulty, cards, quiz, cases, caseCount, cardCount, quizCount, courseName, signal} = opts;
   const diff = difficulty === "easier" ? "Keep it approachable: core facts and main ideas." : difficulty === "harder" ? "Make it challenging: application, analysis and tricky distinctions." : "Mix easier recall with harder application.";
   const ctx = `Course: ${courseName || "not given"}. Student's style and instructions (follow them exactly; if they name an exam or describe a professor's format, imitate that exam's wording, structure and difficulty; where they conflict with your defaults, they win): ${style || "Clear, exam-focused study material."} Difficulty: ${diff}`;
   const parts = sources.map(s => s.part);
+  // Only text sources can be checked word for word; a PDF or photo is read by the AI alone, so those sets are not checked.
+  const corpus = sources.every(s => s.part && typeof s.part.text === "string") ? aiCorpus(sources.map(s => s.part.text)) : null;
+  const nCards = cardCount === "auto" ? 0 : Number(cardCount) || 0, nQuiz = Number(quizCount) || 10;
   const jobs = [];
-  if (cards) jobs.push(aiCall({task: "cards", maxTokens: 24000, onStatus, schema: CARD_SCHEMA, parts: parts.concat({text: `${ctx}\n\nMake ${cardCount === "auto" ? "as many flashcards as the material supports well (usually 15 to 40, at most 60)" : cardCount + " flashcards"} from the material above.`}),
-    system: "You write excellent flashcards for students. Each card tests one idea. Fronts are short (a term, a question, or a sentence with ____ for a cloze). Backs are accurate and concise (1 to 3 sentences). Favor high-yield, exam-relevant content: definitions, mechanisms, comparisons, steps, normal values, and key priorities where relevant. No duplicates. Put the slide or page in 'source' when you can. " + AI_RULES}));
-  if (quiz) jobs.push(aiCall({task: "quiz", maxTokens: 32000, onStatus, schema: QUIZ_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite ${quizCount} practice questions from the material above.`}),
-    system: "You write high-quality practice exam questions. Question types: 'single' (one best answer, usually 4 options), 'multiple' (select all that apply: 5 or 6 options, 2 or more correct; start or end the stem with 'Select all that apply.'), 'order' (4 to 6 steps listed in scrambled order; 'correct' lists the option indexes in the right order), 'truefalse' (options exactly ['True','False']), and 'short' (a brief typed answer in 'answer'). 'correct' holds zero-based option indexes. Every question gets a rationale explaining why the answer is right and why the others are wrong, and 'optionNotes' with one short note per option. The student's style instructions decide the mix of question types, the stem length and format (passages, vignettes, case data, calculations) and the difficulty, so follow them exactly, including a custom format they describe in their own words. If they name an exam (AP, MCAT, USMLE, NCLEX, HESI, bar exam, CPA, FE, a professor's midterm and so on), follow that exam's conventions; for example, NCLEX style uses client-centered stems about what the nurse should do, with priority, first-action, safety and delegation questions and select-all-that-apply items. When no style is given, mix types sensibly. Avoid trivia and 'all of the above' or 'none of the above'. Spread questions across the whole material. Put the slide or page in 'source'. " + AI_RULES}));
-  if (cases) jobs.push(aiCall({task: "cases", maxTokens: 24000, onStatus, schema: CASE_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite ${caseCount || 1} case stud${Number(caseCount) === 1 ? "y" : "ies"} from the material above.`}), system: CASE_SYSTEM}));
+  if (cards) jobs.push(aiRetry(() => aiCall({task: "cards", signal, maxTokens: 24000, onStatus, schema: CARD_SCHEMA, parts: parts.concat({text: `${ctx}\n\nMake ${nCards ? "exactly " + nCards + " flashcards (a few more is fine if the material truly needs them)" : "as many flashcards as the material supports well: roughly one per key idea, usually 15 to 40, at most 60"} from the material above. Spread them across all of its topics in proportion to how much it says about each.`}),
+    system: "You write excellent flashcards for students. Each card tests exactly one idea. Fronts are short (a term, a question of at most 20 words, or a sentence with ____ for a cloze). Backs are accurate and concise (1 to 2 sentences). Favor high-yield, exam-relevant content: definitions, mechanisms, comparisons, steps, normal values, and key priorities where relevant. Every card must be answerable from the material alone. No two cards may ask the same thing, and skip trivia such as the lecture title, agenda, instructor names and logistics. " + AI_GROUND + " " + AI_RULES})));
+  if (quiz) jobs.push(aiRetry(() => aiCall({task: "quiz", signal, maxTokens: 32000, onStatus, schema: QUIZ_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite exactly ${quizCount} practice questions from the material above, spread across all of its topics. Every question must be answerable from the material, and its rationale must say where.`}),
+    system: AI_QUIZ_SYSTEM + " " + AI_GROUND})));
+  if (cases) jobs.push(aiRetry(() => aiCall({task: "cases", signal, maxTokens: 24000, onStatus, schema: CASE_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite ${caseCount || 1} case stud${Number(caseCount) === 1 ? "y" : "ies"} from the material above.`}), system: CASE_SYSTEM})));
   const settled = await Promise.allSettled(jobs);
   const failed = settled.filter(x => x.status === "rejected");
   if (failed.length === settled.length) throw failed[0].reason;
   const res = settled.map(x => x.status === "fulfilled" ? x.value : {data: {}, truncated: false});
-  let k = 0, out = {cards: [], questions: [], cases: [], title: "", quizTitle: "", truncated: false, partial: failed.length ? failed[0].reason.message : ""};
-  if (cards) { const r = res[k++]; out.cards = aiCleanCards(r.data.cards); out.title = String(r.data.deckTitle || "").trim(); out.truncated = out.truncated || r.truncated; }
-  if (quiz) { const r = res[k++]; out.questions = aiCleanQuestions(r.data.questions); out.quizTitle = String(r.data.title || "").trim(); out.truncated = out.truncated || r.truncated; }
+  let k = 0, out = {cards: [], questions: [], cases: [], title: "", quizTitle: "", truncated: false, partial: failed.length ? failed[0].reason.message : "", notes: []};
+  if (cards) { const r = res[k++], g = aiGateCards(r.data.cards, {max: nCards ? Math.ceil(nCards * 1.2) : 60, corpus}); out.cards = g.cards; out.title = aiTidyText(r.data.deckTitle); out.truncated = out.truncated || r.truncated;
+    const dr = []; if (g.dropped.dup) dr.push(g.dropped.dup + " repeated"); if (g.dropped.long) dr.push(g.dropped.long + " too long for one card"); if (g.dropped.empty) dr.push(g.dropped.empty + " incomplete"); if (dr.length) out.notes.push("Left out " + dr.join(", ") + " flashcard" + (g.dropped.dup + g.dropped.long + g.dropped.empty === 1 ? "" : "s") + "."); }
+  if (quiz) { const r = res[k++], g = aiGateQuestions(aiCleanQuestions(r.data.questions), {max: Math.ceil(nQuiz * 1.2), corpus}); out.questions = g.questions; out.quizTitle = aiTidyText(r.data.title); out.truncated = out.truncated || r.truncated;
+    if (g.dropped.dup + g.dropped.bad) out.notes.push(`Left out ${g.dropped.dup + g.dropped.bad} repeated or malformed question${g.dropped.dup + g.dropped.bad === 1 ? "" : "s"}.`); }
   if (cases) { const r = res[k++]; out.cases = aiCleanCases(r.data.cases); out.truncated = out.truncated || r.truncated; }
   return out;
 }
@@ -5536,13 +5652,17 @@ function aiStudySheet(deckId){
     const custom = $("#aiStyle").value.trim(), picks = $$(".ai-styles .chip.on", dlg).map(b => Number(b.dataset.style));
     const {style, name: styleName} = aiComposeStyle(custom, picks), cId = deck ? deck.courseId : ($("#aiCourse") ? $("#aiCourse").value : "");
     job.busy = true; const go = $("#aiGo"); go.disabled = true; go.classList.add("busy");
+    const ac = typeof AbortController === "function" ? new AbortController() : null;
+    if (ac) dlg.addEventListener("close", () => ac.abort(), {once: true});   // closing the window stops the request
     status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(aiModelName(aiCfg().provider, aiCfg().model))} is reading your material and writing ${[wantCards && "flashcards", wantQuiz && "a quiz", wantCase && "case studies"].filter(Boolean).join(" and ")}. This usually takes 20 to 60 seconds…`;
     try {
-      const r = await aiMakeStudySet({sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : ""}, m => { status.textContent = m; });
+      const r = await aiMakeStudySet({sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : "", signal: ac && ac.signal}, m => { status.textContent = m; });
+      if (ac && ac.signal.aborted) return;
       if (!r.cards.length && !r.questions.length && !r.cases.length) throw aiErr("empty", "The AI couldn't make anything from that material. Try adding more content, or a PDF version.");
       aiRememberStyle(custom);
       aiReviewSheet(r, {deck, courseId: cId, style, styleName, sources: sources.map(s => s.name)});
     } catch(e) {
+      if (e && e.code === "cancelled") return;
       console.warn(e); status.textContent = e.code ? e.message : "Something went wrong. Try again.";
       job.busy = false; go.disabled = false; go.classList.remove("busy");
     }
@@ -5553,13 +5673,16 @@ function aiReviewSheet(r, ctx){
   const decks = decksArr();
   const defName = ctx.deck ? ctx.deck.name : (r.title || (ctx.sources[0] || "AI Study Set").replace(/\.[^.]+$/, "")).slice(0, 80);
   const typeLabel = {single: "One answer", multiple: "Select all that apply", order: "Put in order", truefalse: "True or false", short: "Short answer"};
+  const nCheck = cards.filter(c => c.check).length + qs.filter(q => q.check).length;
+  const chk = x => x.check ? `<span class="pill ar-chk" title="${esc(x.check)}">Check: ${esc(x.check)}</span>` : "";
   openSheet(`<form class="sheet ai-sheet">${head("Review Before Saving")}
     <div class="sheet-body">
-      <p style="margin:0">${cards.length ? `<b>${cards.length}</b> flashcard${cards.length === 1 ? "" : "s"}` : ""}${cards.length && qs.length ? " and " : ""}${qs.length ? `<b>${qs.length}</b> quiz question${qs.length === 1 ? "" : "s"}` : ""}${(cards.length || qs.length) && cs.length ? " and " : ""}${cs.length ? `<b>${cs.length}</b> case stud${cs.length === 1 ? "y" : "ies"}` : ""} ready. Edit or remove anything, then save.${r.truncated ? " (The AI ran long, so a few may be missing.)" : ""}${r.partial ? ` Part of it couldn't be made: ${esc(r.partial)}` : ""}</p>
+      <p style="margin:0">${cards.length ? `<b>${cards.length}</b> flashcard${cards.length === 1 ? "" : "s"}` : ""}${cards.length && qs.length ? " and " : ""}${qs.length ? `<b>${qs.length}</b> quiz question${qs.length === 1 ? "" : "s"}` : ""}${(cards.length || qs.length) && cs.length ? " and " : ""}${cs.length ? `<b>${cs.length}</b> case stud${cs.length === 1 ? "y" : "ies"}` : ""} ready. Edit or remove anything, then save.${r.truncated ? " (The AI ran out of room, so the last few may be missing. Everything complete was kept.)" : ""}${r.partial ? ` Part of it couldn't be made: ${esc(r.partial)}` : ""}${(r.notes || []).length ? " " + esc(r.notes.join(" ")) : ""}</p>
+      ${nCheck ? `<p class="mini ar-check-note" style="margin:0"><b>${nCheck}</b> item${nCheck === 1 ? "" : "s"} marked <b>Check</b>: ${nCheck === 1 ? "it says" : "they say"} something that doesn't clearly appear in your material, so verify against your notes. <button type="button" class="link-btn" id="arDropChk">Remove ${nCheck === 1 ? "it" : "them"}</button></p>` : ""}
       ${ctx.deck ? `<p class="mini" style="margin:0">Saving to <b>${esc(ctx.deck.name)}</b>.</p>` : `<div class="two"><label class="f"><span class="lh">Save To</span><select id="arDeck"><option value="">A new deck</option>${decks.map(d => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join("")}</select></label><label class="f" id="arNameL"><span class="lh">New Deck Name ${REQ}</span><input type="text" id="arName" maxlength="120" value="${esc(defName)}"></label></div>`}
       ${qs.length ? `<label class="f"><span class="lh">Quiz Name</span><input type="text" id="arQuizName" maxlength="120" value="${esc(r.quizTitle || ctx.styleName || (ctx.style ? ctx.style.split(/[.:,]/)[0].slice(0, 60) : "Practice Quiz"))}"></label>` : ""}
-      ${cards.length ? `<h3 class="fsec">Flashcards<span class="n" id="arCardN">${cards.length}</span></h3><ul class="ar-cards" id="arCards">${cards.map((c, i) => `<li data-i="${i}"><textarea data-f="front" rows="2" aria-label="Front">${esc(c.front)}</textarea><textarea data-f="back" rows="2" aria-label="Back">${esc(c.back)}</textarea><button type="button" class="x-btn" data-rmc="${i}" aria-label="Remove card">${CLOSE}</button>${c.source ? `<span class="mini src">${esc(c.source)}</span>` : ""}</li>`).join("")}</ul>` : ""}
-      ${qs.length ? `<h3 class="fsec">Quiz Questions<span class="n" id="arQN">${qs.length}</span></h3><ol class="ar-qs" id="arQs">${qs.map((q, i) => `<li data-i="${i}"><div class="ar-q-head"><span class="pill">${typeLabel[q.type]}</span>${q.source ? `<span class="mini">${esc(q.source)}</span>` : ""}<span class="spacer"></span><button type="button" class="x-btn" data-rmq="${i}" aria-label="Remove question">${CLOSE}</button></div>
+      ${cards.length ? `<h3 class="fsec">Flashcards<span class="n" id="arCardN">${cards.length}</span></h3><ul class="ar-cards" id="arCards">${cards.map((c, i) => `<li data-i="${i}"><textarea data-f="front" rows="2" aria-label="Front">${esc(c.front)}</textarea><textarea data-f="back" rows="2" aria-label="Back">${esc(c.back)}</textarea><button type="button" class="x-btn" data-rmc="${i}" aria-label="Remove card">${CLOSE}</button>${c.source || c.check ? `<span class="mini src">${esc(c.source)} ${chk(c)}</span>` : ""}</li>`).join("")}</ul>` : ""}
+      ${qs.length ? `<h3 class="fsec">Quiz Questions<span class="n" id="arQN">${qs.length}</span></h3><ol class="ar-qs" id="arQs">${qs.map((q, i) => `<li data-i="${i}"><div class="ar-q-head"><span class="pill">${typeLabel[q.type]}</span>${q.source ? `<span class="mini">${esc(q.source)}</span>` : ""}${chk(q)}<span class="spacer"></span><button type="button" class="x-btn" data-rmq="${i}" aria-label="Remove question">${CLOSE}</button></div>
           <p class="ar-stem">${esc(q.stem)}</p>
           ${q.type === "short" ? `<p class="mini">Answer: <b>${esc(q.answer)}</b></p>` : `<ul class="ar-opts">${(q.type === "order" ? q.correct.map(ix => q.options[ix]) : q.options).map((o, k) => `<li class="${q.type !== "order" && q.correct.includes(k) ? "ok" : ""}">${q.type === "order" ? `<b>${k + 1}.</b> ` : ""}${esc(o)}</li>`).join("")}</ul>`}
           ${q.rationale ? `<details><summary>Rationale</summary><p>${esc(q.rationale)}</p></details>` : ""}</li>`).join("")}</ol>` : ""}
@@ -5574,6 +5697,12 @@ function aiReviewSheet(r, ctx){
     cl.addEventListener("click", e => { const b = e.target.closest("[data-rmc]"); if (b) { rmC.add(Number(b.dataset.rmc)); b.closest("li").remove(); $("#arCardN").textContent = cards.length - rmC.size; } }); }
   if (ql) ql.addEventListener("click", e => { const b = e.target.closest("[data-rmq]"); if (b) { rmQ.add(Number(b.dataset.rmq)); b.closest("li").remove(); $("#arQN").textContent = qs.length - rmQ.size; } });
   const sel = $("#arDeck"); if (sel) sel.addEventListener("change", () => { $("#arNameL").hidden = !!sel.value; });
+  const dc = $("#arDropChk"); if (dc) dc.addEventListener("click", () => {
+    cards.forEach((c, i) => { if (c.check && !rmC.has(i)) { rmC.add(i); const li = $(`#arCards li[data-i="${i}"]`); if (li) li.remove(); } });
+    qs.forEach((q, i) => { if (q.check && !rmQ.has(i)) { rmQ.add(i); const li = $(`#arQs li[data-i="${i}"]`); if (li) li.remove(); } });
+    if ($("#arCardN")) $("#arCardN").textContent = cards.length - rmC.size; if ($("#arQN")) $("#arQN").textContent = qs.length - rmQ.size;
+    dc.closest("p").remove();
+  });
   $("#arBack").addEventListener("click", () => aiStudySheet(ctx.deck ? ctx.deck.id : null));
   $("#arSave").addEventListener("click", () => {
     const keepC = cards.filter((c, i) => !rmC.has(i) && c.front.trim() && c.back.trim()), keepQ = qs.filter((q, i) => !rmQ.has(i)), keepCs = cs.filter((c, i) => !rmCs.has(i));
@@ -5778,8 +5907,10 @@ Return JSON only.`});
   const items = (Array.isArray(d.items) ? d.items : []).map(i => ({title: String(i.title || "").trim(), type: TYPES.includes(i.type) ? i.type : "Other", due: isDate(i.due) ? i.due : "", start: isDate(i.start) ? i.start : "", time: isTime(i.time) ? i.time : "",
     weight: Number(i.weight) > 0 && Number(i.weight) <= 100 ? Math.round(Number(i.weight) * 10) / 10 : null, hours: Number(i.hours) > 0 && Number(i.hours) < 200 ? Math.round(Number(i.hours) * 4) / 4 : null, source: i.sure === false ? "ai-low" : "ai", note: String(i.note || i.title || "").slice(0, 300), hasDue: true,
     location: String(i.location || "").trim(), reading: String(i.reading || "").trim()})).filter(i => i.title);
+  const gate = aiGateSyllabus(items, today); items.length = 0; gate.items.forEach(i => items.push(i));
   items.sort((a, b) => (a.due || "9999") < (b.due || "9999") ? -1 : (a.due || "9999") > (b.due || "9999") ? 1 : 0);
-  return {course, items, term: c.term ? {label: String(c.term)} : null, weightsFound: items.some(i => i.weight != null), ai: true};
+  const gateNote = [gate.fixed ? `${gate.fixed} date${gate.fixed === 1 ? " looked" : "s looked"} wrong (far from the rest) and ${gate.fixed === 1 ? "was" : "were"} left blank for you to fill in.` : "", gate.dups ? `${gate.dups} repeated item${gate.dups === 1 ? " was" : "s were"} merged.` : ""].filter(Boolean).join(" ");
+  return {course, items, term: c.term ? {label: String(c.term)} : null, weightsFound: items.some(i => i.weight != null), ai: true, gateNote};
 }
 
 /* ----- Settings: turning AI on and choosing a model ----- */
@@ -5943,7 +6074,11 @@ const QA_SCHEMA = {type: "OBJECT", properties: {tasks: {type: "ARRAY", items: {t
 async function qaRun(text){
   ui.qa = {busy: true, text, items: []}; render();
   let items = null, by = "local", err = "";
-  if (aiReady()) {
+  // Dates, times, durations, courses and types are read on this device first (instant, free, always the same). The AI only steps in
+  // when the sentence is ambiguous: several tasks in one line, or words that look like a date this reader didn't understand.
+  const loc = qaLocal(text), sure = qaConfident(text, loc);
+  if (sure) items = [loc];
+  if (!sure && aiReady()) {
     try {
       const today = todayISO(), d = parse(today);
       const courses = coursesArr().map(c => `${c.code || c.name}${c.code ? ` (${c.name})` : ""}`).join("; ") || "none";
@@ -5953,13 +6088,16 @@ async function qaRun(text){
       items = (r.data.tasks || []).map(x => ({title: String(x.title || "").trim(), type: TYPES.includes(x.type) ? x.type : "Assignment", due: isDate(x.due) ? x.due : "", time: /^\d\d:\d\d$/.test(x.time || "") ? x.time : "", start: isDate(x.start) ? x.start : "",
         hours: Number(x.hours) > 0 && !MILESTONE(x.type) ? Math.round(Number(x.hours) * 4) / 4 : null, weight: Number(x.weight) > 0 ? Number(x.weight) : null, priority: PRIO[x.priority] ? x.priority : "med", difficulty: DIFF_M[x.difficulty] ? x.difficulty : "med",
         courseId: byCode[String(x.course || "").toLowerCase()] || "", location: String(x.location || ""), reading: String(x.reading || ""), notes: String(x.notes || "")})).filter(x => x.title);
+      // Don't trust a date, time or hours figure the AI made up when the sentence states one plainly
+      items.forEach(x => { if (x.due && (dayDiff(today, x.due) < -45 || dayDiff(today, x.due) > 800)) x.due = ""; if (x.hours && x.hours > 40) x.hours = null; });
+      if (items.length === 1) { const x = items[0]; if (loc.due) x.due = loc.due; if (loc.time) x.time = loc.time; if (loc.hours && !MILESTONE(x.type)) x.hours = loc.hours; if (loc.weight) x.weight = loc.weight; if (!x.courseId && loc.courseId) x.courseId = loc.courseId; }
       by = "ai";
     } catch(e) { err = e.code ? e.message : ""; console.warn(e); }
   }
-  if (!items || !items.length) { items = [qaLocal(text)]; by = "local"; }
+  if (!items || !items.length) { items = [loc]; by = "local"; }
   items.forEach(x => { if (!isNum(x.hours) && !MILESTONE(x.type)) { const est = localEstimate(x); x.hours = est.hours; x.est = true; } });
   if (!ui.qa || ui.qa.text !== text) return;
-  ui.qa = {text, items, by, err}; render();
+  ui.qa = {text, items, by, err, sure}; render();
   setTimeout(() => { const b = $("#qaAddBtn"); if (b) b.focus(); }, 30);
 }
 function qaBarHtml(){
@@ -5978,8 +6116,9 @@ function qaBarHtml(){
       <button type="submit" class="btn small primary" ${q && q.busy ? "disabled" : ""}>${q && q.busy ? `<span class="ai-spin" aria-hidden="true"></span>Reading` : "Add"}</button>
     </form>
     ${q && !q.busy && q.items.length ? `<div class="qa-preview" role="region" aria-label="Check the new task">
-      <p class="mini">${q.by === "ai" ? `${AI_ICON} ${aiWho() ? esc(aiWho()) + " filled this in. " : ""}Check the details, then add.` : `Check the details, then add.${q.err ? " (" + esc(q.err) + " Read on this device instead.)" : aiReady() ? "" : " Turn on AI Features for smarter reading."}`}</p>
+      <p class="mini">${q.by === "ai" ? `${AI_ICON} ${aiWho() ? esc(aiWho()) + " filled this in. " : ""}Check the details, then add.` : `Check the details, then add.${q.err ? " (" + esc(q.err) + " Read on this device instead.)" : aiReady() || q.sure ? "" : " Turn on AI Features for smarter reading."}`}</p>
       <ul class="qa-list">${q.items.map(row).join("")}</ul>
+      ${q.items.some(x => !x.due) ? `<p class="mini" style="margin:6px 0 0">${q.items.filter(x => !x.due).length === 1 ? "One task has" : "Some tasks have"} no due date. Pick one above, or add it as it is.</p>` : ""}
       <div class="row-actions"><button class="btn primary small" data-act="qa-add" id="qaAddBtn">Add ${q.items.length === 1 ? "Task" : q.items.length + " Tasks"}</button>${q.items.length === 1 ? `<button class="btn small" data-act="qa-full">More Details</button>` : ""}<button class="btn small" data-act="qa-cancel">Cancel</button></div>
     </div>` : ""}`;
 }
@@ -6510,7 +6649,7 @@ function examPlanSheet(examId){
         const parts = [];
         for (const cb of $$("[data-epf]:checked", body)) { const f = state.files[cb.dataset.epf]; if (!f) continue; const r = curRev(f); const bytes = await assetBytes(r.assetId); parts.push((await aiSourceFromFile(new File([bytes], r.name || f.name, {type: r.type || ""}))).part); }
         const c = courseOf(ex.courseId);
-        const r = await aiCall({task: "topics", maxTokens: 4000, schema: TOPICS_SCHEMA, parts: parts.concat({text: `Course: ${c ? c.name : ""}\nExam: ${ex.title} on ${ex.due}\nWhat the exam covers (student's notes): ${ex.notes || "not given"}\nList the topics this exam will most likely test, in teaching order, 4 to 15 topics.`}), system: "You list the topics a course exam will cover, using the course files and the exam notes. Topic names are short (2 to 6 words). Return JSON only."});
+        const r = await aiCall({task: "topics", maxTokens: 4000, schema: TOPICS_SCHEMA, parts: parts.concat({text: `Course: ${c ? c.name : ""}\nExam: ${ex.title} on ${ex.due}\nWhat the exam covers (student's notes): ${ex.notes || "not given"}\nList the topics this exam will most likely test, in teaching order, 4 to 15 topics.`}), system: "You list the topics a course exam will cover, using the course files and the exam notes. Only list topics that actually appear in those files or notes; never add general topics the material does not mention. If neither the files nor the notes say what is covered, return fewer topics rather than guess. Topic names are short (2 to 6 words), plain text, no repeats. Return JSON only."});
         const have = new Set(S.topics.map(t => t.name.toLowerCase()));
         const add = (r.data.topics || []).map(t => String(t.name || "").trim()).filter(n => n && !have.has(n.toLowerCase()));
         add.forEach(n => S.topics.push({name: n, conf: "ok"}));
@@ -6628,7 +6767,7 @@ async function summarizeFile(fid, again){
   try {
     const src = await fileSource(f), c = courseOf(f.courseId);
     const r = await aiCall({task: "summary", maxTokens: 8000, schema: SUM_SCHEMA, onStatus: m => st(m), parts: [src.part, {text: `Course: ${c ? c.name : "not given"}. Summarize this file for studying.`}],
-      system: "You summarize course material for a student who will be tested on it. Be accurate and specific to the file (names, numbers, mechanisms, steps), not generic. Include the key terms with short definitions and the questions an instructor would most likely ask. Return JSON only."});
+      system: "You summarize course material for a student who will be tested on it. Be accurate and specific to the file (names, numbers, mechanisms, steps), not generic. Include the key terms with short definitions and the questions an instructor would most likely ask. Use only what the file says: never add facts, numbers or examples that are not in it. Write in the file's language, in plain text without markdown or LaTeX. Return JSON only."});
     const n = clone(state.files[fid]);
     n.summary = {at: Date.now(), model: r.model, provider: r.provider, overview: String(r.data.overview || ""), keyPoints: (r.data.keyPoints || []).map(String), keyTerms: (r.data.keyTerms || []).filter(k => k && k.term && k.definition).map(k => ({term: String(k.term), definition: String(k.definition)})), questions: (r.data.questions || []).map(String)};
     applyChanges([{kind: "file", id: fid, after: n}], null);
@@ -11311,7 +11450,7 @@ function importSheet(courseId){
   async function aiShow(parts, text, from){
     if (aiBusy) return true;
     aiBusy = true; $("#impResult").innerHTML = ""; $("#impAdd").hidden = true;
-    status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Gemini is reading ${esc(from)}. This usually takes 10 to 40 seconds…`;
+    status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(aiModelName(aiCfg().provider, aiCfg().model))} is reading ${esc(from)}. This usually takes 10 to 40 seconds…`;
     try { const r = await aiReadSyllabus(parts, m => { status.textContent = m; }); aiBusy = false; show(text, from, r); return true; }
     catch(e) {
       aiBusy = false; console.warn(e);
@@ -11364,7 +11503,7 @@ function importSheet(courseId){
     const match = courseId ? courseOf(courseId) : cs.find(c => (r.course.code && norm(c.code) === norm(r.course.code)) || (r.course.name && norm(c.name) === norm(r.course.name)));
     const existingKeys = new Set(tasksArr().map(t => norm(t.title) + "|" + t.due + "|" + t.courseId));
     const dated = r.items.filter(i => i.due).length;
-    status.textContent = (lead || "") + (r.ai ? "Read by AI. " : "") + (r.items.length ? `Found ${r.items.length} item${r.items.length === 1 ? "" : "s"} in ${from}${dated < r.items.length ? `, ${r.items.length - dated} without a date` : ""}.${r.weightsFound ? " Grade weights were taken from the grading breakdown." : ""} Check them over, then add.` : `No dated assignments or exams were found in ${from}. You can still create the course, then add tasks yourself.`);
+    status.textContent = (lead || "") + (r.ai ? "Read by AI. " : "") + (r.gateNote ? r.gateNote + " " : "") + (r.items.length ? `Found ${r.items.length} item${r.items.length === 1 ? "" : "s"} in ${from}${dated < r.items.length ? `, ${r.items.length - dated} without a date` : ""}.${r.weightsFound ? " Grade weights were taken from the grading breakdown." : ""} Check them over, then add.` : `No dated assignments or exams were found in ${from}. You can still create the course, then add tasks yourself.`);
     const c = r.course;
     const flag = i => i.source === "ai-low" ? (i.due ? "The AI worked out this date, so double-check it" : "No date found") : i.source === "week" ? "Date estimated from the week number" : i.source === "session" ? "Date estimated from the class number" : i.source === "context" ? "Date taken from the schedule entry above" : !i.due ? "No date found" : "";
     const typeSel = (i, n) => `<select data-f="type" data-n="${n}" aria-label="Type">${TYPES.map(x => `<option ${x === i.type ? "selected" : ""}>${x}</option>`).join("")}</select>`;
@@ -27993,6 +28132,15 @@ var MAJ_THEMES = [];
       if (!occ.length) return {kind: "classes", items: [], text: `Nothing is scheduled ${dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name}${forC}.`};
       return {kind: "classes", items: [], text: `Scheduled ${dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name}${forC}:\n` + occ.slice(0, 12).map(o => `• ${o.start ? fmtTime(o.start) + (o.end ? "–" + fmtTime(o.end) : "") + ": " : "All day: "}${o.title}${o.label ? " " + o.label : ""}${o.where ? ", " + o.where : ""}`).join("\n")};
     }
+    // Who teaches a course, office hours, room: straight from the course page
+    if (cs.length && cs.length <= 3) {
+      const ask = /\b(who (teaches|is teaching|taught|is the|is my)|professors?|profs?|instructors?|teachers?|lecturers?)\b/.test(ql) ? "instructor" : /\boffice( hours?)?\b/.test(ql) ? "office" : /\b(room|classroom|building)\b|\bwhere (is|are|do|does)\b/.test(ql) ? "room" : "";
+      if (ask) {
+        const lbl = {instructor: "instructor", office: "office hours", room: "room"}[ask];
+        const lines = cs.map(c => { const v = String((ask === "instructor" ? c.instructor : ask === "office" ? c.office : c.room) || "").trim(); return v ? `${courseLabel(c)}: ${v}` : `${courseLabel(c)}: no ${lbl} saved on the course page`; });
+        return {kind: "course", items: [], text: (ask === "instructor" ? "Instructor, " : ask === "office" ? "Office hours, " : "Room, ") + lines.join("; ") + "."};
+      }
+    }
     return null;
   }
   /* The snapshot the model reads with every question. Dates come pre-computed so the model never has to do date math. */
@@ -28089,7 +28237,7 @@ Return JSON only.`;
     try {
       const r = plan.kind === "gemini" ? await geminiCall(plan.cfg, Object.assign({ms: 90000}, args)) : await aiCall(args);
       if (seq !== S.seq) return;
-      A.answer = {state: "done", text: String(r.data.answer || ""), found: r.data.found !== false, used: [...new Set((r.data.sources || []).map(Number).filter(n => n >= 1 && n <= A.rows.length))], items: prior ? prior.items : [], model: aiModelName(r.provider || "gemini", r.model || "")};
+      A.answer = {state: "done", text: aiCleanCites(aiTidyText(r.data.answer), A.rows.length), found: r.data.found !== false, used: [...new Set((r.data.sources || []).map(Number).filter(n => n >= 1 && n <= A.rows.length))], items: prior ? prior.items : [], model: aiModelName(r.provider || "gemini", r.model || "")};
     } catch(e) {
       if (seq !== S.seq) return;
       A.answer = {state: "error", text: e.message || "Couldn't get an answer right now. Try again."};
@@ -28253,7 +28401,7 @@ Return JSON only.`;
     const txt = esc(an.text).replace(/\[(\d+)\]/g, (m, n) => Number(n) >= 1 && Number(n) <= A.rows.length ? `<button type="button" class="sx-cite" data-sx="cite" data-id="${Number(n) - 1}" aria-label="Open source ${n}">${n}</button>` : m);
     const from = (an.used || []).filter(n => A.rows[n - 1]).map(n => `<button type="button" class="sx-src" data-sx="cite" data-id="${n - 1}"><span>${n}</span>${esc(citeOf(A.rows[n - 1]))}</button>`)
       .concat((an.items || []).filter(i => state.tasks[i.id]).map(i => `<button type="button" class="sx-src" data-sx="task" data-id="${esc(i.id)}">${esc(String(i.title).slice(0, 60))}</button>`));
-    return `<div class="sx-ans${an.found ? "" : " miss"}"><div class="sx-ans-h">${AI_ICON}<b>${an.found ? "Answer" : "Not Found in Your Things"}</b></div><p style="white-space:pre-line">${txt}</p>${from.length ? `<p class="sx-from">From ${from.join("")}</p>` : ""}<p class="mini">${an.det ? "Worked out from your planner's dates and marks, so no AI guessing." : `Answered by ${esc(an.model)}. AI can make mistakes; check the source.`}</p></div>`;
+    return `<div class="sx-ans${an.found ? "" : " miss"}"><div class="sx-ans-h">${AI_ICON}<b>${an.found ? "Answer" : "Not Found in Your Things"}</b></div><p style="white-space:pre-line">${txt}</p>${from.length ? `<p class="sx-from">From ${from.join("")}</p>` : ""}<p class="mini">${an.det ? "Worked out from your planner, so no AI guessing." : `Answered by ${esc(an.model)}. AI can make mistakes; check the source.`}</p></div>`;
   }
   function drawAskArea(){
     const A = S.ask, box = $("#sxAnswer"), q = S.q.trim();
