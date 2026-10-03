@@ -161,6 +161,11 @@ await test("other methods are 405; database failure is a generic 500", async () 
   const res = await cap.handle(post({ text: "x" }), s.deps);
   assert.equal(res.status, 500); assert.ok(!(await res.text()).includes("capture_add"));
 });
+await test("long course hint is cut to 60, not refused", async () => {
+  const { deps, inbox } = setup();
+  const res = await cap.handle(post({ text: "x", course: "c".repeat(80) }), deps);
+  assert.equal(res.status, 200); assert.equal(inbox[0].p_course_hint.length, 60);
+});
 await test("long spoken text is shortened in speech but stored in full", async () => {
   const { deps, inbox } = setup();
   const t = "Finish the whole problem set about thermodynamics and write up the lab report for Friday";

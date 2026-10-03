@@ -133,8 +133,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     const text = pick(f, "text", "task", "title", "input");
     if (!text || !text.replace(/[\s\u0000-\u001f\u007f-\u009f]/g, "")) { log("no_text"); return fail(400, "text is required"); }
     if (text.length > 500) { log("text_long"); return fail(400, "text is too long (500 characters max)"); }
-    const course = pick(f, "course", "class", "subject");
-    if (course && course.length > 60) { log("course_long"); return fail(400, "course is too long (60 characters max)"); }
+    const course = pick(f, "course", "class", "subject")?.slice(0, 60);   // only a hint for matching a course name
     const due = parseDue(pick(f, "due", "due_date", "when"), pick(f, "due_time", "time"));
     const source = (pick(f, "source") || "api").slice(0, 24);
     const idem = (req.headers.get("idempotency-key") || pick(f, "id", "idempotency_key") || "").trim().slice(0, 80) || null;

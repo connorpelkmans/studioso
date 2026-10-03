@@ -53808,7 +53808,7 @@ const capNorm = s => String(s == null ? "" : s).toLowerCase().replace(/[^a-z0-9]
 const capKey = (text, due) => capNorm(text) + "|" + capNorm(due);
 const capTs = r => Date.parse(r && r.created_at) || 0;
 // The task id comes from the inbox id, so storing the same capture twice (crash, retry, two devices) lands on the same task.
-const capTaskId = rowId => "cap" + String(rowId || "").replace(/[^a-z0-9]/gi, "").toLowerCase().slice(0, 24);
+const capTaskId = rowId => "cap" + String(rowId || "").replace(/[^a-z0-9]/gi, "").toLowerCase().slice(0, 32);
 const CAP_WHO = {siri: "Siri", shortcut: "Shortcuts", shortcuts: "Shortcuts", gemini: "Gemini", pixel: "Gemini", pixelgemini: "Gemini", google: "Google", assistant: "Google Assistant", bixby: "Bixby", galaxy: "Bixby", samsung: "Samsung", share: "the share sheet", sharesheet: "the share sheet", test: "a test"};
 function capWho(sources){
   const names = [...new Set((sources || []).map(s => { const k = String(s || "").toLowerCase().replace(/[^a-z]/g, ""); const hit = Object.keys(CAP_WHO).find(w => k === w || k.startsWith(w)); return hit ? CAP_WHO[hit] : "your voice assistant"; }))];
@@ -53840,7 +53840,7 @@ function capConvert(row, d){
   x.title = String(x.title || text).slice(0, 200);
   return Object.assign(x, {id: capTaskId(row.id), ref: row.id, source: row.source, sure});
 }
-const capDraft = row => ({ref: row.id, text: row.text, due_date: row.due_date || null, due_time: row.due_time || null, due_text: row.due_text || null, course_hint: row.course_hint || null, source: row.source, created_at: row.created_at});
+const capDraft = row => ({ref: row.id, id: row.id, kind: "task", due: row.due_date ? row.due_date + (row.due_time ? "T" + String(row.due_time).slice(0, 5) : "") : row.due_text || "", course: row.course_hint || "", createdAt: Date.parse(row.created_at) || 0, text: row.text, due_date: row.due_date || null, due_time: row.due_time || null, due_text: row.due_text || null, course_hint: row.course_hint || null, source: row.source, created_at: row.created_at});
 // The whole round, with every outside step passed in so the order can be tested.
 // d: {dedupe(), convert(row), addTasks(items), verifySaved(ids), seenAdd(ids), ack(ids), ingest?(drafts), onTest?(rows)}
 async function capProcess(rows, d){
@@ -53875,6 +53875,21 @@ async function capProcess(rows, d){
   const seenSet = () => { try { return new Set(JSON.parse(ls(SEEN_KEY) || "[]")); } catch (e) { return new Set(); } };
   const seenAdd = ids => { const a = [...seenSet(), ...ids].slice(-300); ls(SEEN_KEY, JSON.stringify(a)); };
   const missing = err => { const m = String(err && (err.message || err.code) || ""); return err && (err.code === "42P01" || err.code === "PGRST205" || err.code === "PGRST202" || err.status === 404 || /does not exist|Could not find the (table|function)|schema cache/i.test(m)); };
+  // The installed iOS/Android app keeps its own copy of ONE token (Keychain / Keystore) so Siri, Gemini and the share sheet can send while the app is closed.
+  const NATIVE_KEY = "studyboard:capNativeTok";   // id (never the token) of the token the app was given
+  const nativeBridge = () => window.StudyboardNative || null;
+  function nativeSave(t){
+    try { const nb = nativeBridge(); if (nb && typeof nb.saveCaptureToken === "function" && t && t.token) { const c = sbConfig(); nb.saveCaptureToken(t.token, c && c.url ? c.url.replace(/\/+$/, "") : ""); ls(NATIVE_KEY, t.id); } } catch (e) {}
+  }
+  function nativeClear(){ try { const nb = nativeBridge(); if (nb && typeof nb.clearCaptureToken === "function") nb.clearCaptureToken(); ls(NATIVE_KEY, ""); } catch (e) {} }
+  // On start: if the token the app holds was revoked (on another device), or nobody is signed in, let the app forget it.
+  async function nativeCheck(){
+    const id = ls(NATIVE_KEY); if (!id || !nativeBridge()) return;
+    if (!sbUser && !(sb && sbStarting)) { if (typeof sb !== "undefined" && sb) nativeClear(); return; }
+    if (!ready()) return;
+    try { const {data, error} = await sb.rpc("capture_list_tokens"); if (!error && Array.isArray(data) && !data.some(x => x.id === id && !x.revoked_at)) nativeClear(); } catch (e) {}
+  }
+  document.addEventListener("click", e => { const b = e.target.closest && e.target.closest('[data-act="sb-signout"]'); if (b) nativeClear(); }, true);
   const endpoint = () => { const c = sbConfig(); return c && c.url ? c.url.replace(/\/+$/, "") + "/functions/v1/capture-task" : ""; };
   const ready = () => !inClaude() && typeof sbActive === "function" && sbActive() && !sbStarting;
 
@@ -53921,6 +53936,7 @@ async function capProcess(rows, d){
   }
   const tick = () => pull(false);
   setTimeout(tick, 2500); setTimeout(tick, 9000); setTimeout(tick, 25000);
+  setTimeout(nativeCheck, 6000); setTimeout(nativeCheck, 30000);
   window.addEventListener("focus", tick);
   window.addEventListener("online", () => pull(true));
   document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
@@ -53957,7 +53973,7 @@ async function capProcess(rows, d){
       <ol class="mini">
         <li>Open <b>Shortcuts</b>, tap <b>+</b>, and name it <b>Add to Studyboard</b>. That name is what you say to Siri.</li>
         <li>Add <b>Ask for Input</b>: Input Type <b>Text</b>, Prompt "What's the task?". (Siri will ask out loud and you answer by voice.)</li>
-        <li>Add <b>Get Contents of URL</b>. URL: the address below. Tap <b>Show More</b>: Method <b>POST</b>; Headers: <code>Authorization</code> = your <code>Bearer</code> value, <code>Content-Type</code> = <code>application/json</code>; Request Body <b>JSON</b> with a Text field <code>text</code> = the <b>Provided Input</b> variable and a Text field <code>source</code> = <code>siri</code>.</li>
+        <li>Add <b>Get Contents of URL</b>. URL: the Address in "Values to copy" above. Tap <b>Show More</b>: Method <b>POST</b>; Headers: <code>Authorization</code> = your <code>Bearer</code> value, <code>Content-Type</code> = <code>application/json</code>; Request Body <b>JSON</b> with a Text field <code>text</code> = the <b>Provided Input</b> variable and a Text field <code>source</code> = <code>siri</code>.</li>
         <li>Add <b>Get Dictionary Value</b> (Get <b>Value</b> for <code>speech</code> in <b>Contents of URL</b>), then <b>Speak Text</b> with that value. Siri then says "Added to Studyboard: ...".</li>
         <li>Say <b>"Hey Siri, Add to Studyboard"</b>, then say the task, for example "Read chapter 4 for bio due Friday 5pm". Dates in words are read by the app when it opens.</li>
       </ol>
@@ -53976,7 +53992,7 @@ async function capProcess(rows, d){
       <p class="mini"><b>Needs:</b> a capture token and the free, open-source <b>HTTP Shortcuts</b> app from Google Play. <b>Not tested here on a real Pixel.</b> Gemini cannot call a web address by itself, so the HTTP Shortcuts app does the sending.</p>
       <ol class="mini">
         <li>In HTTP Shortcuts tap <b>+</b>, choose <b>Regular Shortcut</b>, name it <b>Add to Studyboard</b>.</li>
-        <li>Method <b>POST</b>, URL: the address below. Under <b>Headers</b> add <code>Authorization</code> = your <code>Bearer</code> value. Under <b>Request Body</b> choose <b>Custom Text</b>, content type <code>application/json</code>, and use this body: <code>{"text": "{task}", "source": "gemini"}</code>.</li>
+        <li>Method <b>POST</b>, URL: the Address in "Values to copy" above. Under <b>Headers</b> add <code>Authorization</code> = your <code>Bearer</code> value. Under <b>Request Body</b> choose <b>Custom Text</b>, content type <code>application/json</code>, and use this body: <code>{"text": "{task}", "source": "gemini"}</code>.</li>
         <li>Under <b>Variables</b> add a <b>Text input</b> variable named <code>task</code> ("Type or dictate with the keyboard mic"). Under <b>Response Handling</b> choose <b>Show toast</b>.</li>
         <li>Say <b>"Hey Google, open HTTP Shortcuts"</b> and tap <b>Add to Studyboard</b>, or put the shortcut on your home screen. Whether Gemini can start a shortcut by its own name depends on your Android and Gemini version, so try "Hey Google, Add to Studyboard" and, if it doesn't work, use the home screen shortcut or the Tasker route (Tasker's <b>HTTP Request</b> action with the same URL, header and body).</li>
       </ol>
@@ -54049,13 +54065,14 @@ async function capProcess(rows, d){
     const {data, error} = await sb.rpc("capture_create_token", {p_label: label, p_allow_get: !!form.get.checked});
     S.busy = false;
     if (error) { if (missing(error)) S.missing = true; else S.err = /SB_CAPTURE_LIMIT/.test(error.message || "") ? "You already have 5 active tokens. Revoke one first." : "Couldn't make the token. Check your connection and try again."; paint(); return; }
-    S.tok = data; await loadTokens();
+    S.tok = data; nativeSave(data);
+    await loadTokens();
     const el = dlg.querySelector(".capv-body"); if (el) el.scrollTop = 0;
   }
   async function revoke(id){
     if (!confirm("Revoke this token? Any shortcut using it stops working right away.")) return;
     const {error} = await sb.rpc("capture_revoke_token", {p_id: id});
-    if (error) S.err = "Couldn't revoke it. Try again."; else { S.err = ""; toast("Token revoked"); }
+    if (error) S.err = "Couldn't revoke it. Try again."; else { S.err = ""; toast("Token revoked"); if (ls(NATIVE_KEY) === id) nativeClear(); }
     await loadTokens();
   }
   async function test(){
