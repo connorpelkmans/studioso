@@ -5944,6 +5944,54 @@ async function tfEstimate(btn){
   btn.disabled = false;
 }
 
+/* ---------- Next Up feedback: what you start and what you skip nudges future picks (stored on this device only) ----------
+   Pure helpers (unit-tested): nufbWeights turns events into decayed per-type, per-course and per-task signals; nufbMult
+   turns them into a gentle multiplier (never more than -30% / +10%) that never touches anything due today or overdue. */
+const NUFB_LS = "studyboard:nextFb";
+const nufbLoad = () => { try { const a = JSON.parse(localStorage.getItem(NUFB_LS) || "[]"); return Array.isArray(a) ? a : []; } catch(e) { return []; } };
+function nufbAdd(kind, t){
+  if (!t) return;
+  try { const a = nufbLoad().filter(e => Date.now() - e.at < 30 * 864e5); a.push({k: kind, id: t.id, ty: t.type || "", c: t.courseId || "", at: Date.now()}); localStorage.setItem(NUFB_LS, JSON.stringify(a.slice(-200))); } catch(e) {}
+}
+function nufbWeights(ev, now){
+  const w = {type: {}, course: {}, task: {}};
+  (ev || []).forEach(e => {
+    const age = (now - e.at) / 864e5; if (!(age >= 0) || age > 30) return;
+    const v = (e.k === "accept" ? 1 : -1) * Math.pow(0.5, age / 10);
+    if (e.ty) w.type[e.ty] = (w.type[e.ty] || 0) + v;
+    if (e.c) w.course[e.c] = (w.course[e.c] || 0) + v;
+    if (e.k === "skip" && e.id) w.task[e.id] = (w.task[e.id] || 0) + Math.pow(0.5, age / 3);   // snoozed tasks come back slowly
+  });
+  return w;
+}
+function nufbMult(w, type, course, id, dl){
+  if (dl <= 0) return 1;
+  let f = 1 + Math.max(-0.15, Math.min(0.1, 0.04 * ((w.type[type] || 0) + (w.course[course] || 0))));
+  f *= Math.max(0.8, 1 - 0.07 * (w.task[id] || 0));
+  return Math.max(0.7, Math.min(1.1, f));
+}
+// Time of day buckets, and when this student actually studies (minutes of focus per hour over the last 30 days, from task history)
+const dayPartOf = h => h < 5 ? "night" : h < 12 ? "morning" : h < 17 ? "afternoon" : h < 21 ? "evening" : "night";
+function peakStudyHours(hist, now){
+  const bins = new Array(24).fill(0);
+  (hist || []).forEach(h => { const m = /^Focus session:? (\d+)m/.exec(h.text || ""); if (m && now - h.at < 30 * 864e5) bins[new Date(h.at).getHours()] += Number(m[1]); });
+  const total = bins.reduce((a, b) => a + b, 0); if (total < 90) return "";
+  let best = 0, bi = 0;
+  for (let i = 0; i < 24; i++) { const s = bins[i] + bins[(i + 1) % 24] + bins[(i + 2) % 24]; if (s > best) { best = s; bi = i; } }
+  return `${pad(bi)}:00 to ${pad((bi + 3) % 24)}:00`;
+}
+// Keep only picks that are real, open, unblocked, non-exam tasks, once each, in order; text cleaned (no dashes, links or markup)
+function autoCleanNext(raw, back, ok){
+  const seen = new Set(), out = [], tx = (s, n) => String(s || "").replace(/\s+/g, " ").replace(/\s*[—–]\s*/g, ", ").replace(/[<>{}]|https?:\S*/g, "").trim().slice(0, n);
+  (Array.isArray(raw) ? raw : []).forEach(x => {
+    const id = x && back[String(x.ref || "").trim()];
+    if (!id || seen.has(id) || !ok(id)) return;
+    seen.add(id);
+    out.push({id, why: tx(x.why, 220), step: tx(x.step, 120), min: Math.max(10, Math.min(180, Number(x.minutes) || 0)) || null});
+  });
+  return out.slice(0, 5);
+}
+
 /* ---------- Next Up: the one thing to do right now ---------- */
 function nextUp(F){
   const today = todayISO();
@@ -5964,6 +6012,7 @@ function nextUp(F){
   // Focus minutes per course so far today, from the Focus sessions logged on each task
   const courseMin = {}, dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   tasksArr().forEach(t => (t.history || []).forEach(h => { const mm = /^Focus session:? (\d+)m/.exec(h.text || ""); if (mm && h.at >= dayStart && t.courseId) courseMin[t.courseId] = (courseMin[t.courseId] || 0) + Number(mm[1]); }));
+  const fbW = nufbWeights(nufbLoad(), Date.now());
   const scored = pool.map(x => {
     const t = x.t, why = [];
     let s = x.score * (x.alloc > 0 ? 1 : 0.8);
@@ -5976,11 +6025,14 @@ function nextUp(F){
     if (t.prepFor) why.push("Part of your exam study plan");
     // Already 2+ hours on this course today and it isn't due today: a change of subject helps you stay sharp
     if (x.dl > 0 && t.courseId && (courseMin[t.courseId] || 0) >= 120) s *= 0.92;
+    // What you've accepted or skipped before (gentle; never applies to anything due today)
+    s *= nufbMult(fbW, t.type, t.courseId, t.id, x.dl);
     return {x, s, why, sessionH};
   });
   deadlineGuard(scored, y => y.x, "s");
   scored.sort((a, b) => b.s - a.s);
-  let aiPick = AUTO_ON && AUTO.next && AUTO.next.day === today ? AUTO.next.list.find(x => scored.some(y => y.x.t.id === x.id)) : null;
+  // The AI's list is only trusted for the day it was made and for 8 hours (a morning pick shouldn't steer the evening); its ids are checked against the real, unskipped pool
+  let aiPick = AUTO_ON && AUTO.next && AUTO.next.day === today && Date.now() - (AUTO.next.at || 0) < 8 * 3600000 ? (AUTO.next.list || []).find(x => scored.some(y => y.x.t.id === x.id)) : null;
   // The AI's pick is a second opinion: it can't bury something due today that you're short of time for, or pick from far down the list
   if (aiPick) {
     const idx = scored.findIndex(y => y.x.t.id === aiPick.id), y = scored[idx], top = scored[0];
@@ -5990,6 +6042,7 @@ function nextUp(F){
     if (urgent || leap || (idx > 5 && y.s < top.s * 0.6)) aiPick = null;
   }
   const pick = aiPick ? scored.find(y => y.x.t.id === aiPick.id) : scored[0];
+  ui.nextShown = pick.x.t.id;                          // so Start / Something Else can be recorded as feedback
   const cl = (pick.x.t.checklist || []).find(i => !i.done);
   const step = aiPick && aiPick.step ? {text: aiPick.step} : cl;
   let mins = aiPick && aiPick.min ? Math.round(aiPick.min / 5) * 5 : Math.max(focusLen, Math.min(focusLen * 2, Math.round(pick.sessionH * 60 / 5) * 5));
@@ -6635,7 +6688,7 @@ const autoFresh = (x, days) => x && x.at && Date.now() - x.at < days * 864e5;
 function planSig(){
   const open = tasksArr().filter(t => t.status !== "done" && t.due).sort((a, b) => a.due < b.due ? -1 : 1).slice(0, 40);
   let extra = ""; try { const n = typeof window.SBLMS_NEWS === "function" ? window.SBLMS_NEWS(7) : []; extra = n.length + ":" + (n[0] ? n[0].date : "") + ":" + eventsArr().length + ":" + coursesArr().map(c => (c.meetings || []).length).join(","); } catch(e) {}
-  return extra + "#" + todayISO() + "#" + open.map(t => [t.id, t.status, t.due, t.time, t.hours, t.pct, t.weight, t.priority, t.difficulty, Number(t.focusMin) || 0, (t.checklist || []).filter(i => i.done).length, (t.checklist || []).length].join(",")).join(";") + "#" + dailyHours() + "#" + todayHours();
+  return extra + "#" + todayISO() + dayPartOf(new Date().getHours()) + "#" + open.map(t => [t.id, t.status, t.due, t.time, t.hours, t.pct, t.weight, t.priority, t.difficulty, Number(t.focusMin) || 0, (t.checklist || []).filter(i => i.done).length, (t.checklist || []).length].join(",")).join(";") + "#" + dailyHours() + "#" + todayHours();
 }
 const NEXT_SCHEMA = {type: "OBJECT", properties: {
   next: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, why: {type: "STRING", description: "One sentence, why this and why now"}, step: {type: "STRING", description: "The concrete first thing to do, under 80 characters"}, minutes: {type: "INTEGER"}}, required: ["ref", "why"]}, description: "Up to 5 tasks in the order to work on them right now"},
@@ -6652,10 +6705,11 @@ async function autoPlan(a){
   const ref = {}, back = {};
   open.forEach((t, i) => { ref[t.id] = "t" + (i + 1); back["t" + (i + 1)] = t.id; });
   const deckInfo = cid => decksArr().filter(d => d.courseId && d.courseId === cid).map(d => { const s = deckStats(d); return `${d.name}: ${Math.round(s.mastery * 100)}% mastered${s.last ? `, last quiz ${s.last.score}/${s.last.total}` : ""}`; }).join("; ");
+  const rankOf = {}; (F.ranked || []).forEach((x, i) => { rankOf[x.t.id] = i + 1; });
   const lines = open.map(t => {
     const c = courseOf(t.courseId), p = progress(t), ps = MILESTONE(t.type) ? planSessions(t.id) : [];
-    const bits = [`${ref[t.id]} | ${t.title} | ${t.type} | ${c ? courseLabel(c) : "no course"} | due ${t.due}${t.time ? " " + t.time : ""}`,
-      `status ${t.status}`, hasWeight(t) ? `worth ${t.weight}%` : "", `priority ${t.priority}`, `difficulty ${t.difficulty}`,
+    const bits = [`${ref[t.id]} | ${t.title} | ${t.type} | ${c ? courseLabel(c) : "no course"} | due ${t.due}${t.time ? " " + t.time : ""} (${dayDiff(today, t.due) < 0 ? -dayDiff(today, t.due) + " days overdue" : dayDiff(today, t.due) === 0 ? "today" : dayDiff(today, t.due) + " days away"})`,
+      rankOf[t.id] ? `rank ${rankOf[t.id]}` : "", `status ${t.status}`, hasWeight(t) ? `worth ${t.weight}%` : "", `priority ${t.priority}`, `difficulty ${t.difficulty}`,
       MILESTONE(t.type) ? "" : isNum(t.hours) && Number(t.hours) > 0 ? `estimate ${t.hours}h` : "no estimate",
       p.frac ? `progress ${Math.round(p.frac * 100)}%` : "", (t.checklist || []).length ? `checklist ${p.done}/${p.total}` : "",
       t.focusMin ? `focused ${t.focusMin}m so far` : "", t.prepFor ? `study session for ${(state.tasks[t.prepFor] || {}).title || "an exam"}` : "",
@@ -6677,10 +6731,17 @@ async function autoPlan(a){
   let news = []; try { news = typeof window.SBLMS_NEWS === "function" ? window.SBLMS_NEWS(7) : []; } catch(e) {}
   const newsTxt = news.map(n => { const c = courseOf(n.courseId); return `- ${c ? courseLabel(c) : ""} (${String(n.date || "").slice(0, 10)}): ${n.title}. ${String(n.text || "").replace(/\s+/g, " ").slice(0, 220)}`; }).join("\n") || "none";
   const hist = Object.entries(L.byType).map(([k, v]) => `${k}: ${v.length} finished, median ${fmtHM(median(v.map(x => x.h)))} of focused time`).join("; ") || "none yet";
-  const r = await aiCall({task: "plan", auto: true, fast: true, maxTokens: 6000, temperature: 0.2, schema: NEXT_SCHEMA, parts: [{text: `Now: ${now.toLocaleDateString("en-US", {weekday: "long"})} ${today} ${pad(now.getHours())}:${pad(now.getMinutes())}. Study time left today: ${fmtHM(F.th)}${F.doneToday >= 0.25 ? ` (already focused ${fmtHM(F.doneToday)} today)` : ""}; usual per day: ${fmtHM(F.dh)}.\nThe next few days:\n${week}\nCourse standings: ${standings}\nRecent announcements from the school site:\n${newsTxt}\nThis student's history: ${hist}. They usually take ${L.ratio.toFixed(2)}x their own estimates.\nOpen tasks:\n${lines}`}],
-    system: "You're an expert study planner working quietly inside a student's planner app. Using the tasks, the time of day, the time left today and the student's own history: (1) choose up to 5 tasks to work on right now, best first (deadlines come first: never put a task due weeks away ahead of one due in the next few days that still needs work, unless the far one is a big task that needs most of the time left before it; grade weight only breaks ties between similar deadlines), each with a one-sentence reason that's specific (deadline, grade weight, how much is left, what it unblocks, energy for the time of day), a concrete first step, and sensible session minutes (never pick an exam or quiz itself, since it happens at a set time; pick its study tasks instead); skip BLOCKED tasks. (2) Estimate total hours for tasks marked 'no estimate', leaning on how long this student's past tasks took. (3) For started tasks, estimate hours of work left, counting their focus time and progress and their tendency to underestimate. (4) For each exam or quiz, judge readiness 0 to 100 from study sessions done, flashcard mastery and quiz scores, with a short note. (5) Heads up: up to 3 real things the student could miss, read from the instructions, the announcements, the schedule and the standings (an earlier draft or pre-lab deadline, a changed due date or room, a full clinical day right before a deadline, a course near its pass mark); leave it empty rather than state the obvious. (6) Rate how demanding tasks marked 'difficulty not set' look. Consider the schedule: long class or clinical days leave little study time, so plan around them and favour short tasks just before a class. Late submissions: a task that still accepts late work is less urgent than one that closes at the due time, but never suggest planning to be late. Use the refs exactly (t1, t2...). Return JSON only."});
+  // Exact moment and zone, when this student tends to study, what they've been skipping, and today's progress
+  let tz = ""; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch(e) {}
+  const peak = (() => { try { return peakStudyHours(tasksArr().flatMap(t => t.history || []), Date.now()); } catch(e) { return ""; } })();
+  const fbw = nufbWeights(nufbLoad(), Date.now());
+  const skipped = Object.entries(fbw.type).filter(e => e[1] <= -1.5).map(e => e[0]), liked = Object.entries(fbw.type).filter(e => e[1] >= 1.5).map(e => e[0]);
+  const doneTodayN = allTasks().filter(t => t.status === "done" && t.doneAt && t.doneAt >= new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()).length;
+  const r = await aiCall({task: "plan", auto: true, fast: true, maxTokens: 6000, temperature: 0.2, schema: NEXT_SCHEMA, parts: [{text: `Now: ${now.toLocaleDateString("en-US", {weekday: "long"})} ${today} ${pad(now.getHours())}:${pad(now.getMinutes())}${tz ? " (" + tz + ")" : ""}, ${dayPartOf(now.getHours())}. Study time left today: ${fmtHM(F.th)}${F.doneToday >= 0.25 ? ` (already focused ${fmtHM(F.doneToday)} today)` : ""}; usual per day: ${fmtHM(F.dh)}.${doneTodayN ? ` ${doneTodayN} task${doneTodayN === 1 ? "" : "s"} finished today.` : ""}\nThe next few days:\n${week}\nCourse standings: ${standings}\nRecent announcements from the school site:\n${newsTxt}\nThis student's history: ${hist}. They usually take ${L.ratio.toFixed(2)}x their own estimates.${peak ? ` They usually study around ${peak}.` : ""}${skipped.length ? ` They often skip suggestions of these types: ${skipped.join(", ")}.` : ""}${liked.length ? ` They usually accept: ${liked.join(", ")}.` : ""}\nOpen tasks (already ranked by the planner; "rank" 1 is its top choice; days are counted from today):\n${lines}`}],
+    system: "You're an expert study planner working quietly inside a student's planner app. The tasks come pre-ranked by the app's own planner (rank, planner score, days away); treat that ranking as a strong default and only move a task up or down with a concrete reason from the data, never invent a task or id. Using the tasks, the time of day, the time left today and the student's own history: (1) choose up to 5 tasks to work on right now, best first (deadlines come first: never put a task due weeks away ahead of one due in the next few days that still needs work, unless the far one is a big task that needs most of the time left before it; grade weight only breaks ties between similar deadlines), each with a one-sentence reason that's specific (deadline, grade weight, how much is left, what it unblocks, energy for the time of day), a concrete first step, and sensible session minutes (never pick an exam or quiz itself, since it happens at a set time; pick its study tasks instead); skip BLOCKED tasks. (2) Estimate total hours for tasks marked 'no estimate', leaning on how long this student's past tasks took. (3) For started tasks, estimate hours of work left, counting their focus time and progress and their tendency to underestimate. (4) For each exam or quiz, judge readiness 0 to 100 from study sessions done, flashcard mastery and quiz scores, with a short note. (5) Heads up: up to 3 real things the student could miss, read from the instructions, the announcements, the schedule and the standings (an earlier draft or pre-lab deadline, a changed due date or room, a full clinical day right before a deadline, a course near its pass mark); leave it empty rather than state the obvious. (6) Rate how demanding tasks marked 'difficulty not set' look. Consider the schedule: long class or clinical days leave little study time, so plan around them and favour short tasks just before a class. Late submissions: a task that still accepts late work is less urgent than one that closes at the due time, but never suggest planning to be late. Use the refs exactly (t1, t2...). Return JSON only."});
   const d = r.data || {}, changes = [];
-  const next = (d.next || []).filter(x => back[x.ref]).map(x => ({id: back[x.ref], why: String(x.why || "").slice(0, 220), step: String(x.step || "").slice(0, 120), min: Math.max(10, Math.min(180, Number(x.minutes) || 0)) || null})).slice(0, 5);
+  // Only real, open, unblocked, non-exam tasks, once each: anything the model invents or repeats is dropped (nextUp falls back to the planner's own ranking)
+  const next = autoCleanNext(d.next, back, id => { const t = state.tasks[id]; return !!t && t.status !== "done" && !MILESTONE(t.type) && !blockers(t).length; });
   AUTO.next = {day: today, at: Date.now(), list: next, model: r.model};
   const patch = (id, fn) => { const cur = changes.find(c => c.id === id); const n = cur ? cur.after : clone(state.tasks[id]); if (fn(n) !== false && !cur) changes.push({kind: "task", id, after: n}); };
   (d.estimates || []).forEach(x => { const id = back[x.ref], t = id && state.tasks[id], h = Number(x.hours); if (!t || MILESTONE(t.type) || isNum(t.hours) || !(h > 0) || h > 200) return; if (t.aiHours && Math.abs(t.aiHours.h - h) / h < 0.15) return; patch(id, n => { n.aiHours = {h: Math.round(h * 4) / 4, at: Date.now()}; }); });
@@ -6741,7 +6802,7 @@ async function autoRun(){
   let job = null;
   const sig = planSig();
   if (tasksArr().some(t => t.status !== "done" && t.due) && (AUTO.sig !== sig ? Date.now() - (AUTO.planAt || 0) > 90000 : Date.now() - (AUTO.planAt || 0) > 3 * 3600000))
-    job = async () => { AUTO.sig = sig; AUTO.planAt = Date.now(); await autoPlan(a); };
+    job = async () => { const prev = AUTO.sig, prevAt = AUTO.planAt; AUTO.sig = sig; AUTO.planAt = Date.now(); try { await autoPlan(a); } catch(e) { AUTO.sig = prev; AUTO.planAt = prevAt; throw e; } };   // a failed plan retries after the error back-off, not 3 hours later
   if (!job) { const t = tasksArr().find(x => x.type === "Study" && x.prepFor && x.status !== "done" && (x.due === today || x.due === tomorrow) && !x.aiTuned); if (t) job = () => autoTune(t); }
   if (!job) { const t = tasksArr().find(x => x.type === "Study" && x.studyKind === "practice" && x.status !== "done" && x.due && dayDiff(today, x.due) <= 2 && dayDiff(today, x.due) >= 0 && !x.practiceQuiz); if (t) job = () => autoPractice(t); }
   if (!job) return;
@@ -7877,7 +7938,7 @@ const AI_ACTS = {
   "qa-add": () => qaAdd(), "qa-full": () => qaFull(), "qa-cancel": () => { ui.qa = null; render(); },
   "qa-rm": el => { if (ui.qa) { ui.qa.items.splice(Number(el.dataset.i), 1); if (!ui.qa.items.length) ui.qa = null; render(); } },
   "tf-est": el => tfEstimate(el),
-  "nu-skip": el => { if (ui.skipNext) ui.skipNext.ids.push(el.dataset.id); render(); },
+  "nu-skip": el => { if (ui.skipNext) ui.skipNext.ids.push(el.dataset.id); nufbAdd("skip", state.tasks[el.dataset.id]); render(); },
   "heads-hide": el => { let h = {}; try { h = JSON.parse(localStorage.getItem(HEADS_HIDE) || "{}") || {}; } catch(e) {} const d = todayISO(); Object.keys(h).forEach(k => { if (!k.startsWith(d)) delete h[k]; }); h[d + "|" + el.dataset.id] = 1; try { localStorage.setItem(HEADS_HIDE, JSON.stringify(h)); } catch(e) {} render(); },
   "ai-explain": el => runExplain(el.dataset.key, el.dataset.given),
   "fc-weak": el => weakSheet(el.dataset.id ? [el.dataset.id] : decksArr().filter(d => ui.filter === "all" || d.courseId === ui.filter).map(d => d.id)),
@@ -11927,7 +11988,7 @@ function pomoAction(act, el){
     case "pomo-skip": pomoSkip(); return true;
     case "pomo-mode": pomoSetMode(el.dataset.id); return true;
     case "pomo-test": { const cfg = pomoCfg(); if (!playAlarm($("#psSound") ? $("#psSound").value : cfg.sound, $("#psVol") ? Number($("#psVol").value) : cfg.volume, 1)) toast("Sound isn't available in this browser"); return true; }
-    case "pomo-task": if (dlg.open) dlg.close(); openPomo(el.dataset.id); if (!pomo.running) pomoStart(); return true;
+    case "pomo-task": if (ui.nextShown && ui.nextShown === el.dataset.id) { nufbAdd("accept", state.tasks[el.dataset.id]); ui.nextShown = null; } if (dlg.open) dlg.close(); openPomo(el.dataset.id); if (!pomo.running) pomoStart(); return true;
   }
   return false;
 }
