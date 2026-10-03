@@ -8986,7 +8986,7 @@ function dueDayFrac(t){
   return t.time < "12:00" ? 0 : t.time < "18:00" ? 0.4 : 0.75;
 }
 // Study hours available from now until the task is due. cum[i] = hours from today through day i-1 (day 0 is today's time left);
-// each later day is your usual study time, less on long class or clinical days.
+// each later day is your usual study time, less on long class, lab or placement days.
 function capacityUntil(t, today, dh, th, cum, day){
   const dl = dayDiff(today, t.due);
   if (dl < 0) return 0;
