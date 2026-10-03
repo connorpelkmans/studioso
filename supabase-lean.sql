@@ -217,6 +217,10 @@ begin
   if to_regclass('public.bug_reports') is not null then
     execute 'delete from public.bug_reports where user_id = $1' using me;
   end if;
+  if to_regclass('public.capture_inbox') is not null then
+    execute 'delete from public.capture_inbox where user_id = $1' using me;
+    execute 'delete from public.capture_tokens where user_id = $1' using me;
+  end if;
   begin
     if to_regclass('storage.objects') is not null then
       delete from storage.objects where bucket_id = 'studioso-files' and split_part(name, '/', 1) = me::text;
