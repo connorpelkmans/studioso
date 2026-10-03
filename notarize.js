@@ -1,5 +1,4 @@
-// electron-builder "afterSign" hook (package.json: build.afterSign = "scripts/notarize.js"). Lives next to prepare.js
-// (in the repo's intended layout both are in desktop/scripts/).
+// electron-builder "afterSign" hook (package.json: build.afterSign = "notarize.js", relative to the project folder).
 //
 //   Direct download (Developer ID, DMG):  signs with hardened runtime (electron-builder), then THIS script sends the app to Apple's
 //                                          notary service and waits. electron-builder staples the ticket to the DMG afterwards.
@@ -12,7 +11,7 @@
 //   APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID                                   <- app-specific password from appleid.apple.com
 // Set REQUIRE_NOTARIZATION=1 (do this on the release job) to make a missing credential an error instead of a skip.
 //
-// `node scripts/notarize.js --check` prints what is ready and what is missing (exit code 1 if something blocks a store build).
+// `node notarize.js --check` prints what is ready and what is missing (exit code 1 if something blocks a store build).
 const fs = require("fs"), path = require("path");
 
 const has = k => !!(process.env[k] && String(process.env[k]).trim());
@@ -23,20 +22,22 @@ function credentials() {
     return { kind: "Apple ID + app-specific password", opts: { appleId: process.env.APPLE_ID, appleIdPassword: process.env.APPLE_APP_SPECIFIC_PASSWORD, teamId: process.env.APPLE_TEAM_ID } };
   return null;
 }
+// Project folder: this file sits next to package.json (flat repo) or in desktop/scripts/ (nested layout).
+const ROOT = fs.existsSync(path.join(__dirname, "package.json")) ? __dirname : path.join(__dirname, "..");
 const PLACEHOLDER = /REPLACE_WITH|PLACEHOLDER|TEAMID/i;
 
 function readBuildConfig() {
-  try { return JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8")).build || {}; } catch (e) { return {}; }
+  try { return JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")).build || {}; } catch (e) { return {}; }
 }
 // Problems that would make Apple reject a Mac App Store upload.
 function masProblems(cfg, which) {
   const out = [], c = (cfg[which] || {});
   const team = c.extendInfo && c.extendInfo.ElectronTeamID;
   if (!team || PLACEHOLDER.test(team)) out.push(`build.${which}.extendInfo.ElectronTeamID is still a placeholder (put your 10-character Apple Team ID)`);
-  const prof = c.provisioningProfile && path.resolve(__dirname, "..", c.provisioningProfile);
+  const prof = c.provisioningProfile && path.resolve(ROOT, c.provisioningProfile);
   if (!prof || !fs.existsSync(prof)) out.push(`provisioning profile not found: ${c.provisioningProfile || "(not set)"} (download it from developer.apple.com and put it there)`);
   for (const k of ["entitlements", "entitlementsInherit"]) {
-    const f = c[k] && path.resolve(__dirname, "..", c[k]);
+    const f = c[k] && path.resolve(ROOT, c[k]);
     if (!f || !fs.existsSync(f)) out.push(`entitlements file missing: ${c[k] || k}`);
     else if (/<string>\s*(TEAM_ID|REPLACE_WITH)/.test(fs.readFileSync(f, "utf8"))) out.push(`${c[k]} still contains a TEAM_ID placeholder`);
   }

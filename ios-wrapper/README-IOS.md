@@ -11,7 +11,7 @@ This folder holds everything needed to wrap the Studyboard web build in a native
 | `apple-app-site-association.template.json` | The universal-links file to host on the website. |
 | `../build-resources/ios/PrivacyInfo.xcprivacy` | Privacy manifest template (add to the App target). |
 
-Layout assumed (the repo here is a flat copy of this): `index.html` at the top, the desktop project in `desktop/` (it owns `scripts/prepare.js` and `node_modules`), this folder as `ios-wrapper/`.
+Layout assumed: this repo as it is (flat): `index.html`, `prepare.js` and `package.json` at the top, this folder as `ios-wrapper/`. (In the nested layout run the same commands from `desktop/` and use `scripts/prepare.js`.)
 
 ## 1. Why a native wrapper passes review (guideline 4.2, "minimum functionality")
 
@@ -21,21 +21,20 @@ A wrapper that only shows a website is rejected. Studyboard is a real app: all p
 
 ```bash
 # 2a. Stage the web build with the libraries and fonts bundled (no CDN, no Google Fonts request, strict CSP possible).
-cd desktop
 npm ci
-STUDYBOARD_OUT=ios-www STUDYBOARD_BASE=capacitor://localhost/ node scripts/prepare.js
-cp ../ios-wrapper/native-bridge.js ios-www/native-bridge.js
+STUDYBOARD_OUT=ios-www STUDYBOARD_BASE=capacitor://localhost/ node prepare.js
+cp ios-wrapper/native-bridge.js ios-www/native-bridge.js
 # Load the bridge BEFORE the page's script: add this line right after <head> in ios-www/index.html
 #   <script src="native-bridge.js"></script>
 # (a one-line sed, or add it in prepare.js; scripts with a src are allowed by the CSP because they are 'self')
 
 # 2b. Capacitor
-cd ../ios-wrapper
+cd ios-wrapper
 npm init -y
 npm i @capacitor/core @capacitor/ios @capacitor/app @capacitor/browser @capacitor/push-notifications \
       @capacitor/share @capacitor/filesystem capacitor-secure-storage-plugin @revenuecat/purchases-capacitor
 npm i -D @capacitor/cli
-cp -R ../desktop/ios-www ./ios-www
+cp -R ../ios-www ./ios-www
 ```
 
 Recommended plugins and why (install no others unless you need them; every plugin adds code and possibly privacy-manifest entries):
@@ -75,7 +74,7 @@ In Xcode (App target):
 ## 4. Build, test and submit
 
 ```bash
-cd desktop && STUDYBOARD_OUT=ios-www STUDYBOARD_BASE=capacitor://localhost/ node scripts/prepare.js && cp ../ios-wrapper/native-bridge.js ios-www/ && cd ../ios-wrapper && cp -R ../desktop/ios-www . && npx cap sync ios
+STUDYBOARD_OUT=ios-www STUDYBOARD_BASE=capacitor://localhost/ node prepare.js && cp ios-wrapper/native-bridge.js ios-www/ && cd ios-wrapper && cp -R ../ios-www . && npx cap sync ios
 ```
 
 Then in Xcode: run on a device, test with the checklist, **Product > Archive**, upload with the Organizer, test through TestFlight, and submit in App Store Connect. Every web change needs the staging line above again.
@@ -83,7 +82,7 @@ Then in Xcode: run on a device, test with the checklist, **Product > Archive**, 
 ## 5. Tokens and secrets: Keychain, not localStorage
 
 * The **Supabase session** (access and refresh tokens) must not sit in the web view's `localStorage`, which is a plain file inside the app container. `native-bridge.js` sets `window.StudyboardAuthStorage`; `index.html` hands that to supabase-js (`authStorage()`), so the tokens live in the iOS Keychain (`capacitor-secure-storage-plugin` stores with `kSecAttrAccessibleAfterFirstUnlock` by default; if you want them unreadable while the phone is locked after a restart choose the stricter accessibility option in the plugin's settings). An older copy found in localStorage is moved into the Keychain on first start.
-* **AI keys** (the person's own Gemini/Claude/OpenAI key): by default "Keep my keys on this device only" is on, so they stay out of the account data that syncs to Supabase. On iOS they are in `localStorage` unless you extend `native-bridge.js` the same way (copy the `StudyboardAuthStorage` pattern for the `studyboard:aiKeys` key). Doing this is recommended before submission; the review does not require it.
+* **AI keys** (the person's own Gemini/Claude/OpenAI key) are always device-only: never in the settings that sync to the account, never in backups, wiped at sign-out. On iOS they sit in `localStorage` unless you extend `native-bridge.js` the same way as the session (copy the `StudyboardAuthStorage` pattern for the `studyboard:aiKeys` key). Doing this is recommended before submission; the review does not require it.
 * Never ship secrets in the bundle: only the Supabase **publishable** key (`sb_publishable_...`) belongs in the app. No service-role key, no RevenueCat secret key (only the public SDK key), no Stripe keys, no AI keys.
 
 ## 6. Universal links and deep links

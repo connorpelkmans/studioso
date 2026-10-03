@@ -33,11 +33,11 @@ Contents: 1 Accounts and identifiers · 2 Build and submit (DMG, MAS, iOS) · 3 
 ### 2a. Direct-download Mac app (notarized DMG)
 
 ```bash
-cd desktop && npm ci
+npm ci          # from the project folder (the repo root; `desktop/` if you use the nested layout)
 export CSC_LINK=...base64 or path of the Developer ID Application .p12   CSC_KEY_PASSWORD=...
 export APPLE_API_KEY=/path/AuthKey_XXXX.p8 APPLE_API_KEY_ID=XXXX APPLE_API_ISSUER=xxxxxxxx-...   # or APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID
 export REQUIRE_NOTARIZATION=1        # fail instead of skipping if the credentials are missing
-npm run dist:mac-signed              # universal (Apple silicon + Intel), hardened runtime, notarized by scripts/notarize.js
+npm run dist:mac-signed              # universal (Apple silicon + Intel), hardened runtime, notarized by notarize.js
 spctl -a -vvv -t install dist/*.dmg  # should say "accepted, source=Notarized Developer ID"
 xcrun stapler validate dist/*.dmg
 ```
@@ -72,19 +72,19 @@ Follow `ios-wrapper/README-IOS.md` (stage web files, `npx cap add ios`, merge `I
 | # | Rule | Status for Studyboard | What to do |
 | --- | --- | --- | --- |
 | **1.2** | User-generated content needs: filter for objectionable content, a way to **report** content, a way to **block** abusive users, and **published contact info** | Study Groups have a message board and shared items. **Done in repo**: Report on every message, shared item and member, "also block" option, block list per person (hidden on screen and filtered by the server), reports stored in `group_reports` (insert-only for members, nobody can read them in the app). | **Owner**: run `supabase-moderation.sql` after `supabase-groups.sql`; check `group_reports` daily and act within 24 h (SQL examples are in the file; say so in review notes); put a support email on the Support URL page and in the app (Settings > About, rel-polish adds the page). Optional: a profanity filter on `group_messages.body` (a Postgres trigger or Edge Function); Apple's text asks for a "method for filtering", so mention the report/remove process in the notes and consider a basic word filter before launch. Group invites are by private code only (no public search, no discovery of strangers), which lowers risk. |
-| **2.1** | App completeness: no placeholders, no crashes, **demo account** for reviewers | No lorem ipsum found in shipped files; `homepage` in `package.json` and the AI "yourschool.example" strings are placeholders (the latter are input hints, fine). | **Owner**: demo account (section 5); replace `homepage`; delete `download` and other stray files from the app bundle (`files` in `package.json` already limits what is packed). **"Coming soon" text is rejected under 2.1**: `shopUnlock()` shows "Studyboard Pro is coming soon" (line ~8325 of `index.html`; the Pro work should replace it with the real purchase screen) and the calendar-feed fallback is titled "Coming Soon" (~line 30059). Hosted users also see server "setup" messages (`srvSetup(...)`) for any feature whose SQL file has not been run: **run every `supabase-*.sql` file on the production project before review**, then walk through every tab once. |
+| **2.1** | App completeness: no placeholders, no crashes, **demo account** for reviewers | No lorem ipsum found in shipped files; `homepage` in `package.json` and the AI "yourschool.example" strings are placeholders (the latter are input hints, fine). | **Owner**: demo account (section 5); replace `homepage`; delete `download` and other stray files from the app bundle (`files` in `package.json` already limits what is packed). **"Coming soon" wording is gone**: `shopUnlock()` now says "This item is part of Studyboard Pro." and the calendar-feed fallback is titled "Live Link Unavailable" (re-grep for `coming soon` before each submission). Hosted users also see server "setup" messages (`srvSetup(...)`) for any feature whose SQL file has not been run: **run every `supabase-*.sql` file on the production project before review**, then walk through every tab once. |
 | **2.3 / 5.2** | Accurate metadata, screenshots from the app, no other company's trademarks | Brightspace, Canvas, Blackboard, Google Calendar, Outlook, Gemini, Claude, ChatGPT are mentioned by name. | **Owner**: write them as "works with ..."; do not use their logos; state in the description that these brands belong to their owners. |
 | **2.5.2** | No downloading code that changes the app | The iOS and Mac builds bundle all pages and libraries (`prepare.js`), no CDN code. The web page can fetch the libraries from a CDN, the app builds do not. | Keep using `prepare.js` output for store builds. Never set Capacitor `server.url`. |
 | **2.4.5** (Mac) | Sandbox, no self-update, no unrelated launch items, public APIs only | Done: sandbox entitlements are minimal; no updater; start-at-login hidden in the MAS build; tray icon present only to bring the window back. | Test closing the window with "Keep running in the background" on and off; the first-close tip explains where the icon is. |
-| **3.1.1 / 3.1.3** | Digital subscriptions must use In-App Purchase | See section 4. | **Depends** on the Pro work; run the checks in section 8. |
+| **3.1.1 / 3.1.3** | Digital subscriptions must use In-App Purchase | See section 4. Routing verified after the merge. | **Owner**: IAP products and RevenueCat; re-run the section 8 greps after Pro changes. |
 | **4.0 / 4.1** | Design, copycats | n/a | n/a |
 | **4.2** | Minimum functionality: a web wrapper is rejected | Bundled app with offline use, push reminders, share sheet, photo/file attach, Keychain, widgets. | Put the sentence from section 5 in the review notes. For iOS add the WidgetKit "Today" extension before submitting if you want the widget in the description (it is not required; do not claim it if it is not there). |
 | **4.8** | Sign in with Apple required if you offer a third-party or social login | **Compliant, nothing needed.** The only sign-in is the app's own email address and password with an email code (`signInWithPassword`, `signUp`, `verifyOtp`, `resetPasswordForEmail`). There is no Google, Facebook, Microsoft or other social login. The Brightspace/Canvas/Blackboard windows sign in to the school's own site to read school data; they are not an account for Studyboard. | **If you ever add Google/Microsoft/Facebook login**: you must also offer Sign in with Apple (or another login that limits data to name and email, lets people hide their email, and does not track). Plan: Supabase supports Apple as an auth provider (`signInWithOAuth({provider: "apple"})` on the web, `signInWithIdToken` with `@capacitor-community/apple-sign-in` on iOS); add the *Sign in with Apple* capability and entitlement `com.apple.developer.applesignin`; show the button with Apple's official style. |
-| **5.1.1(i)** | Privacy policy link in App Store Connect and in the app; data collection disclosure | **Depends** (rel-polish writes the Privacy, Terms and About sheets). | **Owner**: publish the policy on the web at a stable URL, paste it in App Store Connect, and make sure the in-app sheet matches it. It must say: what is collected (section 6), who processes it (Supabase hosting, RevenueCat, the AI company the person chooses), retention, how to delete the account, contact email. |
-| **5.1.1(ii)** | Consent for data collection | The account creation screen collects only email and password; AI use asks consent (below). | Link the Privacy Policy and Terms on the create-account screen ("By creating an account you agree to..."). **Depends** on the legal sheets. |
+| **5.1.1(i)** | Privacy policy link in App Store Connect and in the app; data collection disclosure | **Done in the app** (rel-polish: Privacy Policy, Terms of Service and About sheets in Settings and on the sign-in screen). | **Owner**: publish the same policy on the web at a stable URL, paste it in App Store Connect, and make sure it matches the in-app sheet (re-read the in-app text: it must mention the AI providers, the consent window and that keys stay on the device). It must say: what is collected (section 6), who processes it (Supabase hosting, RevenueCat, the AI company the person chooses), retention, how to delete the account, contact email. |
+| **5.1.1(ii)** | Consent for data collection | The account creation screen collects only email and password; AI use asks consent (below). | The Privacy and Terms sheets are reachable from the sign-in screen (rel-polish); check the create-account text links to them. |
 | **5.1.1(iv)** | Do not insist on permissions; works without | Notifications are asked only when the person turns reminders on; photos and camera only when they tap a picker. The app works without an account (local mode). | Keep it that way. |
-| **5.1.1(v)** | **Account deletion inside the app** | **Not present in the app** (searched `index.html` and every `supabase-*.sql`: no `delete_account`, no "Delete Account"). The rel-polish agent is adding it. **This is a hard rejection reason for any app that lets people create an account.** | **Depends**: requirements below. |
-| **5.1.2** | Data use and sharing; **sharing personal data with third-party AI needs clear disclosure and explicit permission** | **Done in repo**: a one-time consent window before the first AI use of each provider, naming the company (Google, Anthropic or OpenAI), the host it goes to, what is sent and what is not, with a link to that company's privacy policy and a "Not Now" choice. Declining changes nothing else. Background (automatic) AI, search-by-meaning and the companion's AI chat stay off until the person has agreed. AI only works with the person's own key. Consent is stored on the device and wiped at sign-out, "Turn Off" and after a different account signs in. | **Owner**: repeat the same disclosure in the privacy policy and review notes. See section 6 for the label. |
+| **5.1.1(v)** | **Account deletion inside the app** | **Present** (rel-polish): Settings > Account and Sync > Delete My Account and Data, type DELETE to confirm; it removes uploaded files, then calls `studyboard_delete_my_account()` (in `supabase-lean.sql`), which deletes the data and the auth user. This pass also wipes the device's AI keys and AI consent after deletion. | **Owner**: run `supabase-lean.sql` on production; test deletion with a throw-away account (checklist 7); make sure the policy says what is deleted. Review the requirements below against what was built: group messages/items by the user are removed by the cascade; Apple subscriptions are not cancelled by deletion (the dialog says to cancel the plan first; also link to https://apps.apple.com/account/subscriptions for Apple purchases). |
+| **5.1.2** | Data use and sharing; **sharing personal data with third-party AI needs clear disclosure and explicit permission** | **Done in repo**: a one-time consent window before the first AI use of each provider, naming the company (Google, Anthropic or OpenAI), the host it goes to, what is sent and what is not, with a link to that company's privacy policy and a "Not Now" choice. Declining changes nothing else. Background (automatic) AI, search-by-meaning and the companion's AI chat stay off until the person has agreed. AI only works with the person's own key. Consent is stored on the device and wiped at sign-out, "Turn Off" and account deletion. AI keys are always device-only (the system keychain in the desktop app). | **Owner**: repeat the same disclosure in the privacy policy and review notes. See section 6 for the label. |
 | **5.1.2(i)** (ATT) | App Tracking Transparency | **No tracking.** No analytics, advertising, attribution or fingerprinting SDKs in the page or the wrappers (searched for gtag, fbq, mixpanel, sentry, posthog, amplitude, segment, firebase, appsflyer, adjust: none). Network calls go only to the person's Supabase project, the AI company the person chose, RevenueCat (purchases) and, in the web version only, Google Fonts and two CDNs. | Answer "Data Not Used to Track You". Do **not** add `NSUserTrackingUsageDescription` or call ATT. If you add any analytics later, re-do the label and the privacy manifest. |
 | **5.6** | Developer code of conduct | n/a for code | **Owner**: honest reviews and metadata, answer reports quickly, no fake ratings, no misleading screenshots. |
 | **1.5** | Developer contact information | Support URL required | **Owner** (section 1, item 9). |
@@ -92,7 +92,7 @@ Follow `ios-wrapper/README-IOS.md` (stage web files, `npx cap add ios`, merge `I
 | **Age rating** | Questionnaire | Chat between members of private groups = user-generated content; no web browsing, no gambling, no mature content. | Typical answers: Unrestricted Web Access **No**; User-Generated Content **Yes** (with the report/block tools above, rating usually lands at 12+ or 13+); everything else None. Set "Made for Kids" **No** (students include adults). If any users may be under 13, add parental-consent flows (COPPA) before launch. |
 | **Accessibility labels** | Not required for review but expected | rel-polish does an accessibility pass. | Add "Accessibility Nutrition Label" answers in App Store Connect only for features you have verified. |
 
-### 5.1.1(v) account deletion: what the finished feature must do
+### 5.1.1(v) account deletion: what it must do (reviewed against rel-polish's version)
 
 Add it to **Settings > Account > Delete Account** (visible without contacting anyone; a link to a web form is not enough, Apple allows a web flow only for highly regulated industries).
 
@@ -108,8 +108,8 @@ Add it to **Settings > Account > Delete Account** (visible without contacting an
 * **Direct-download Mac app and the website**: Stripe is fine.
 * **Restore Purchases** button must be reachable.
 * Show price, billing period, auto-renewal text, cancel instructions, Privacy Policy and Terms links beside the buy button; free trials must say what happens when the trial ends.
-* **How this repo enforces it** (until the Pro work lands): `nativeStore()` in the plan module is true for the iOS wrapper (`window.Capacitor`, `window.StudyboardNative`) and now also for the Mac App Store build (`studiosoDesktop.store === "mas"`, passed from `main.js`), and `PLAN.checkout()` only opens `checkout_url_*` when `nativeStore()` is false. In addition `main.js` refuses to open payment hosts (stripe.com, paypal.com, paddle.com, lemonsqueezy.com, gumroad.com, ko-fi.com, buymeacoffee.com, patreon.com) in the MAS build, and `ios-wrapper/native-bridge.js` does the same on iOS. The Stripe link is also gated by `STORE.paywall` (off today, so no purchase UI is visible at all).
-* **The pro-client agent implements `PLAN.buy` routing and the constant `EXTERNAL_PURCHASE_ALLOWED`. After merging run the greps in section 8.** The rule to confirm: in store builds, `EXTERNAL_PURCHASE_ALLOWED` must be `false` unless you have deliberately taken part in Apple's external-purchase program for a specific storefront (the rules differ by storefront and have changed recently, so check Apple's current text for each country before you rely on it). Even then, links must not be hidden behind the iOS build for storefronts where they are not allowed.
+* **How this repo enforces it** (until the Pro work lands): `nativeStore()` in the plan module is true for the iOS wrapper (`window.Capacitor`, `window.StudyboardNative`) and now also for the Mac App Store build (`studiosoDesktop.store === "mas"`, passed from `main.js`), and `PLAN.buy()` only opens the website or `checkout_url_*` when the route is not "store". In addition `main.js` refuses to open payment hosts (stripe.com, paypal.com, paddle.com, lemonsqueezy.com, gumroad.com, ko-fi.com, buymeacoffee.com, patreon.com) in the MAS build, and `ios-wrapper/native-bridge.js` does the same on iOS. The purchase UI is also off until `PRO_ENFORCED` is true.
+* **Verified after the merge** (pro-client): `PLAN.buy()` picks the route by `route()`: `nativeStore() && !EXTERNAL_PURCHASE_ALLOWED` is the "store" route (in-app purchase through the `plan-checkout` hook; if no native layer handles it the app only says buying isn't available in this build), otherwise the website route. `const EXTERNAL_PURCHASE_ALLOWED = false` in the plan module. `nativeStore()` is true for Capacitor, `StudyboardNative`, and the Mac App Store build (`studiosoDesktop.mas` / `.store === "mas"`). `manage()` in a store build goes to Apple's subscription page. Pro enforcement itself is off until `PRO_ENFORCED` is flipped. Re-run the greps in section 8 after any change to that module. The rule to confirm: in store builds, `EXTERNAL_PURCHASE_ALLOWED` must be `false` unless you have deliberately taken part in Apple's external-purchase program for a specific storefront (the rules differ by storefront and have changed recently, so check Apple's current text for each country before you rely on it). Even then, links must not be hidden behind the iOS build for storefronts where they are not allowed.
 * Entitlements shown in the app must come from the server (`studyboard_entitlements`, written by `billing-webhook` from RevenueCat events), never from the client alone.
 
 ## 5. Review notes and demo account (paste into App Store Connect > App Review Information)
@@ -159,7 +159,7 @@ Not collected: location, contacts, health and fitness, financial info, sensitive
 
 - [ ] Fresh install: first launch shows no error, no permission prompt appears until the person asks for reminders or a photo.
 - [ ] Create account (email + code), sign in, sign out, sign in again; reset password.
-- [ ] **Delete Account** works end to end (after it exists), and the same email can sign up again.
+- [ ] **Delete My Account and Data** works end to end with a throw-away account, and the same email can sign up again.
 - [ ] Airplane mode: app opens and works; a change made offline syncs later.
 - [ ] AI: first use shows the consent window naming the company; "Not Now" sends nothing; "I Agree" works; Settings > AI Features > Turn Off removes the keys and the consent.
 - [ ] Groups: Report a message, a member and a shared item; block someone; their posts disappear; Unblock brings them back.
@@ -173,17 +173,18 @@ Not collected: location, contacts, health and fitness, financial info, sensitive
 ## 8. After merging the other agents' work: checks to run (from the repo root)
 
 ```bash
-# Account deletion present?  (must find a UI action AND a server function)
-grep -nE "delete_account|Delete (My )?Account|deleteAccount" index.html supabase-*.sql *.ts | head
-
-# Legal pages and links present?
-grep -nE "Privacy Policy|Terms of (Use|Service)" index.html | head
+# Account deletion and legal pages (present since the rel-polish merge: expect hits)
+grep -nE "studyboard_delete_my_account|Delete My Account" index.html supabase-*.sql | head
+grep -nE "legal-privacy|legal-terms|Privacy Policy|Terms of Service" index.html | head
 
 # Purchases: store builds must not reach an outside payment page
-grep -nE "EXTERNAL_PURCHASE_ALLOWED" index.html | head          # constant exists; false for store builds
+grep -nE "EXTERNAL_PURCHASE_ALLOWED" index.html | head          # constant exists and is false
 grep -nE "checkout_url|buy\.stripe\.com|checkout\.stripe|payment[_-]?link|window\.open\(.*(checkout|stripe)" index.html | head
-grep -nE "nativeStore\(\)|PLAN\.buy|DESK\.store|studiosoDesktop\.store" index.html | head   # every external-purchase path is behind a store check
+grep -nE "nativeStore\(\)|route\(\)|DESK\.mas|DESK\.store" index.html | head   # every external-purchase path is behind the store route
 grep -nE "Purchases\.|plan-checkout|plan-restore" index.html | head                           # the IAP path exists
+
+# No placeholder wording
+grep -nEi "coming soon|lorem ipsum" index.html | head          # expect nothing
 
 # Still true after merges: nothing sends content to an AI company without the consent gate
 grep -nE "generativelanguage|api\.anthropic|api\.openai" index.html | head                    # expect only the 5 known call sites
@@ -193,7 +194,7 @@ grep -nE "aiConsented\(" index.html | head                                      
 grep -nEi "gtag|google-analytics|fbq\(|mixpanel|sentry|posthog|amplitude|segment\.|firebase|appsflyer|adjust\.com|clarity\.ms|hotjar" index.html sw.js *.html | head
 
 # Build config still valid
-node -e "JSON.parse(require('fs').readFileSync('package.json'))" && node scripts/notarize.js --check
+node -e "JSON.parse(require('fs').readFileSync('package.json'))" && node notarize.js --check
 python3 - <<'PY'
 import plistlib,glob
 for f in glob.glob('build-resources/**/*.plist',recursive=True)+glob.glob('build-resources/**/*.xcprivacy',recursive=True)+glob.glob('ios-wrapper/*.plist'):

@@ -10,7 +10,9 @@
 --  * Accounts not used for 6 months are packed into one compressed row (studyboard_archive) and unpacked
 --    automatically the next time that person opens Studyboard.
 --  * Daily clean-ups of old deletion records and rate counters.
--- The app works with or without this file. Without it, every device downloads everything each time, like before.
+-- It also adds the "Delete My Account" function (studyboard_delete_my_account) that the in-app account deletion calls.
+-- That part is required for a public launch. Sync itself works with or without this file (without it, every device
+-- downloads everything each time, like before).
 
 -- ---------- Server time on every change ----------
 alter table public.items add column if not exists updated_at timestamptz not null default now();
@@ -191,3 +193,38 @@ begin
   perform cron.schedule('studyboard-lean-daily', '17 4 * * *', 'select public.studyboard_purge_deletions(); select public.studyboard_purge_rate();');
   perform cron.schedule('studyboard-archive-monthly', '43 4 2 * *', 'select public.studyboard_archive_inactive(180, 500);');
 end $$;
+
+-- ---------- Delete My Account (Settings > Account and Sync > Delete My Account and Data) ----------
+-- Permanently deletes the signed-in person's account and everything stored for it. It can only ever act on the caller
+-- (auth.uid()), so nobody can delete anyone else, and it does nothing for anonymous visitors. It is safe to call twice:
+-- the second call simply finds nothing left. Nearly everything is removed by "on delete cascade" when the account row
+-- goes (synced data, deletion log, devices, plan and usage rows, reminders, push devices, calendar links, group
+-- memberships, profiles, shared decks, and study groups the person owns). Rows that have no link to the account row,
+-- or that would be slow to cascade, are deleted explicitly first. The app deletes the person's uploaded files through the
+-- Storage API before calling this (Supabase does not allow deleting storage rows from SQL); the block below only
+-- sweeps up what is left when SQL is allowed to.
+-- It does NOT cancel a Pro subscription at Stripe, the App Store or Google Play. The app tells people to cancel first.
+create or replace function public.studyboard_delete_my_account() returns void
+language plpgsql security definer set search_path = public, auth, storage as $$
+declare me uuid := auth.uid();
+begin
+  if me is null then
+    raise exception 'SB_NOT_SIGNED_IN: Sign in first.' using errcode = '28000';
+  end if;
+  if to_regclass('public.items') is not null then
+    execute 'delete from public.items where user_id = $1' using me;
+  end if;
+  if to_regclass('public.bug_reports') is not null then
+    execute 'delete from public.bug_reports where user_id = $1' using me;
+  end if;
+  begin
+    if to_regclass('storage.objects') is not null then
+      delete from storage.objects where bucket_id = 'studioso-files' and split_part(name, '/', 1) = me::text;
+    end if;
+  exception when others then
+    raise notice 'Uploaded files were not deleted from SQL (%). The app removes them through the Storage API instead.', sqlerrm;
+  end;
+  delete from auth.users where id = me;
+end $$;
+revoke all on function public.studyboard_delete_my_account() from public, anon;
+grant execute on function public.studyboard_delete_my_account() to authenticated;

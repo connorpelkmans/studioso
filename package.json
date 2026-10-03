@@ -1,24 +1,25 @@
 {
   "name": "studyboard",
   "productName": "Studyboard",
-  "version": "1.12.4",
+  "version": "1.13.0",
   "description": "Studyboard: a student planner for courses, deadlines, study sessions and flashcards",
   "author": {
     "name": "Studyboard"
   },
+  "license": "MIT",
   "main": "main.js",
   "private": true,
   "scripts": {
-    "start": "node scripts/prepare.js && electron .",
-    "prep": "node scripts/prepare.js",
-    "dist": "node scripts/prepare.js && electron-builder --win nsis --x64",
-    "dist:mac": "node scripts/prepare.js && electron-builder --mac dmg --arm64 -c.mac.identity=-",
-    "dist:linux": "node scripts/prepare.js && electron-builder --linux AppImage",
-    "dist:mac-intel": "node scripts/prepare.js && electron-builder --mac dmg --x64 -c.mac.identity=- '-c.mac.artifactName=Studyboard-${version}-mac-intel.${ext}'",
-    "dist:mac-signed": "node scripts/prepare.js && electron-builder --mac dmg --universal '-c.mac.artifactName=Studyboard-${version}-mac-universal.${ext}'",
-    "dist:mas": "node scripts/prepare.js && electron-builder --mac mas --universal",
-    "dist:mas-dev": "node scripts/prepare.js && electron-builder --mac mas-dev --universal",
-    "check:store": "node scripts/notarize.js --check"
+    "start": "node prepare.js && electron .",
+    "prep": "node prepare.js",
+    "dist": "node prepare.js && electron-builder --win nsis --x64",
+    "dist:mac": "node prepare.js && electron-builder --mac dmg --arm64 -c.mac.identity=-",
+    "dist:linux": "node prepare.js && electron-builder --linux AppImage",
+    "dist:mac-intel": "node prepare.js && electron-builder --mac dmg --x64 -c.mac.identity=- '-c.mac.artifactName=Studyboard-${version}-mac-intel.${ext}'",
+    "dist:mac-signed": "node prepare.js && electron-builder --mac dmg --universal '-c.mac.artifactName=Studyboard-${version}-mac-universal.${ext}'",
+    "dist:mas": "node prepare.js && electron-builder --mac mas --universal",
+    "dist:mas-dev": "node prepare.js && electron-builder --mac mas-dev --universal",
+    "check:store": "node notarize.js --check"
   },
   "devDependencies": {
     "@electron/notarize": "^3.1.1",
@@ -30,7 +31,6 @@
     "electron-builder": "^26.15.3",
     "pdfjs-dist": "^3.11.174"
   },
-  "homepage": "https://github.com",
   "build": {
     "appId": "com.studioso.app",
     "productName": "Studyboard",
@@ -170,7 +170,7 @@
         }
       ]
     },
-    "afterSign": "scripts/notarize.js",
+    "afterSign": "notarize.js",
     "electronFuses": {
       "runAsNode": false,
       "enableCookieEncryption": true,

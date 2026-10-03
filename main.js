@@ -158,6 +158,7 @@ const OPENABLE = new Set(["pdf", "txt", "md", "rtf", "csv", "tsv", "json", "ics"
 async function openSafely(p) {
   let st; try { st = await fsp.stat(p); } catch (e) { return "Not found"; }
   if (st.isDirectory()) return shell.openPath(p);
+  if (RISKY_EXT.test(p)) return "blocked: programs and scripts are not opened from here";      // never, not even shown
   const ext = path.extname(p).slice(1).toLowerCase();
   if (OPENABLE.has(ext)) return shell.openPath(p);
   shell.showItemInFolder(p); return "";
@@ -273,6 +274,9 @@ function sendAction(action, arg, stayHidden) {
   toPage("desk:action", action, typeof arg === "string" ? arg.slice(0, 200) : "");
 }
 function openTask(id) { showMain(); toPage("desk:open-task", String(id).slice(0, 200)); }
+
+// Files saved in the Studyboard folder can be opened by the system, but programs and scripts never are.
+const RISKY_EXT = /\.(exe|msi|bat|cmd|com|scr|pif|lnk|url|ps1|psm1|vbs|vbe|js|jse|jar|wsf|wsh|hta|cpl|reg|dll|sh|command|app|appimage|desktop|workflow|action|scpt|terminal|inf|msc|gadget|chm|docm|xlsm|pptm)$/i;
 
 // ---------- Small checks for anything that comes from a page ----------
 const str = (v, max) => typeof v === "string" ? v.slice(0, max) : "";
@@ -607,7 +611,7 @@ function startBookmarkAccess() {
 }
 
 // ---------- Locking down every window and session ----------
-// CSP for Studyboard's own pages. The two inline scripts are allowed by hash (scripts/prepare.js writes the hashes); with no hashes file
+// CSP for Studyboard's own pages. The page's inline scripts are allowed by hash (prepare.js writes the hashes); with no hashes file
 // (running from source) inline scripts are allowed so development still works. connect-src allows any https host because the person can
 // use their own Supabase server and their own AI provider; nothing else (no http, no frames, no plugins, no form posts) is allowed.
 let scriptHashes = null;

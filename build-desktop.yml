@@ -1,3 +1,5 @@
+# TEMPLATE for the nested layout (desktop/ folder). It does NOT run from the repo root;
+# the working copy for this repository is .github/workflows/build-desktop.yml.
 name: Build Studyboard desktop app
 
 on:
@@ -27,7 +29,7 @@ jobs:
           - os: macos-latest
             script: dist:mac
             files: desktop/dist/*.dmg
-          - os: macos-13
+          - os: macos-15-intel
             script: dist:mac-intel
             files: desktop/dist/*.dmg
     runs-on: ${{ matrix.os }}

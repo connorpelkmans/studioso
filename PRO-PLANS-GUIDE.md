@@ -27,108 +27,149 @@ You can do the setup below any time before launch (in any order). While the payw
 
 In the app, **Settings > Studyboard Pro** shows the plan, what Pro adds, how much storage you use, and **Your Devices**.
 
-### 1. Add the Plan Tables (Once)
 
-You'll need `supabase-plans.sql` from the zip.
+### How It Fits Together
 
-In Supabase open **SQL Editor**, then **New query**. Paste everything from `supabase-plans.sql` and click **Run**. You should see *Success. No rows returned*. It's safe to run again any time, and it never changes values you've edited.
+```
+ App (index.html)                         Website (website/ on any static host)
+   |  Buy / Manage opens                     |  account/ : log in with the SAME Supabase account
+   +------------------------------------->   |  reads ?plan=monthly|yearly&src=app, then:
+   |                                         |
+   |                                         v   (user JWT, only "monthly" or "yearly" is sent)
+   |                                  create-checkout  ----> Stripe Checkout (prices come from server secrets)
+   |                                  create-portal-session -> Stripe customer portal
+   |                                                              |
+   |                                                              v  signed webhooks
+   |                       billing-webhook  <-----------  Stripe     RevenueCat (App Store, Google Play)
+   |                            |  verify signature/auth, then ONE database call
+   |                            v
+   |                  studyboard_apply_billing()  (idempotent, ordered, service role only)
+   |                            v
+   |                  studyboard_entitlements  (users can only READ their own row)
+   |                            ^                       ^
+   |   entitlement-token  ------+   studyboard_grant_pro / _revoke_pro (SQL Editor only)
+   |   (signed {tier,exp,uid,iat,sig}, Ed25519)
+   v
+ App checks the signature with ENT_PUBKEY, works offline until "exp"
 
-It adds:
-- **studyboard_config:** prices, limits and switches. The app reads it, so you can change a price or a limit here without a new version of the app.
-- **studyboard_entitlements:** who has Pro and until when. People can see only their own row. Only the payment function below can change it.
-- **studyboard_devices:** the devices signed in to each account.
-- **studyboard_usage:** a running total of each account's data and files.
-- Checks that keep free accounts to their limits (only once the paywall is on), and a nightly clean-up of group messages older than 60 days in groups owned by free accounts.
-
-Run `supabase-groups.sql` before `supabase-plans.sql`, so the group limits can be added. If you run `supabase-groups.sql` later, run `supabase-plans.sql` again after it.
-
-If you see a notice that the file storage triggers were skipped, that's OK. Some Supabase projects don't allow extra rules on file storage. The app still checks the storage limit before each upload.
-
-**Change a price or a limit:** in **Table Editor**, open **studyboard_config** and edit the **value** of a row. For example, `limits` holds both plans. A blank (`null`) limit means no limit. The app always shows devices, group members and group message history as 2 / 3 / 60 days on Free and unlimited / 100 / unlimited on Pro, whatever this row says; changing those three needs an app update (and the matching change in `supabase-plans.sql`).
-
-**Give someone Pro for free** (a friend, a tester, yourself), in **SQL Editor**:
-```sql
-select public.studyboard_grant_pro('friend@example.com', 365);   -- a year of Pro
-select public.studyboard_grant_pro('you@example.com', null);     -- Pro for good
+ Always enforced by the database (when paywall = true): devices, storage MB, data MB, group size,
+ message retention, online backups. These do not depend on the app being honest.
 ```
 
-### 2. Set Up Stripe (Website and Desktop App)
+The app only ever **asks**. The server decides who is Pro: money arrives through Stripe or RevenueCat webhooks, gifts come from you in the SQL Editor, and nothing a signed-in person can send changes either.
 
-Stripe takes the card payments. You don't need to write any code: Stripe **Payment Links** are ready-made checkout pages.
+Files (all in the zip):
+- `supabase-plans.sql` (tables, limits, grants, lock-down) and `supabase-plans-selftest.sql` (attack simulation)
+- `billing-webhook` (`index (1).ts` in the flat copy), `supabase-functions/create-checkout`, `supabase-functions/create-portal-session`, `supabase-functions/entitlement-token`
+- `supabase-functions/tools/gen-ent-key.mjs` (key pair) and `supabase-functions/tools/test-functions.mjs` (offline tests)
+- `website/` (landing, pricing, account, privacy, terms, success, cancel)
 
-**Make the product**
-- Sign up at [stripe.com](https://stripe.com) and finish the account setup so you can take payments. (You can do everything below in **Test mode** first.)
-- Open **Product catalog**, click **Add product**, and name it **Studyboard Pro**.
-- Add a **Recurring** price of **$2.99** every **month**, and a second **Recurring** price of **$19.99** every **year**.
+### Owner Steps, In Order
 
-**Make two payment links**
-- Open **Payment Links** and click **New**. Pick Studyboard Pro and the monthly price.
-- Under **Options**, turn on **Include a free trial** and set it to **7 days**.
-- Under **After payment**, choose **Don't show confirmation page** and send people back to your Studyboard web address.
-- Click **Create link**. Copy the link (it starts with `https://buy.stripe.com/`).
-- Do the same for the yearly price.
+Do these in test mode first. Everything stays free for everyone until Launch Day.
 
-Studyboard adds the person's account id to the link when they tap a price (`client_reference_id`), so the payment goes to the right account. You don't add anything.
+**1. Run the SQL.** In Supabase **SQL Editor** paste all of `supabase-plans.sql` and **Run** (safe to run again; run `supabase-groups.sql` and the main setup first, and `supabase-lean.sql` if you use it). Then paste `supabase-plans-selftest.sql` and **Run**. It must end with the notice **ALL n SECURITY CHECKS PASSED** (it changes nothing for real). Run it again after any future SQL change. If it ever stops with `EXPLOIT SUCCEEDED`, do not launch.
 
-**Put the links in Supabase.** In **SQL Editor**, paste your two links in place of the examples and click **Run**:
+**2. Make the signing key.** On your computer (Node 18+): `node supabase-functions/tools/gen-ent-key.mjs`. It prints a **PRIVATE** value (`ENT_SIGNING_KEY`, PKCS8 as base64url) and a **PUBLIC** value (`ENT_PUBKEY`, 43 characters). Put the private one in Supabase **Edge Functions > Secrets** as `ENT_SIGNING_KEY` (never in the app, the website or git). Paste the public one into `const ENT_PUBKEY = "..."` in `index.html` and ship the app. If the private key ever leaks, run the script again, replace both and ship the app again.
+
+**3. Stripe (test mode first).**
+- **Product catalog > Add product** "Studyboard Pro" with a **Recurring** price of $2.99 per month and another of $19.99 per year. Copy both price ids (`price_...`). No payment links are needed any more; the checkout is created by your server.
+- **Settings > Billing > Customer portal:** turn it on (allow cancel and card changes).
+- **Developers > API keys > Create restricted key** with **Write** on Customers, Checkout Sessions and Customer portal sessions, and **Read** on Subscriptions and Charges. This is `STRIPE_SECRET_KEY` (the webhook uses it to read renewal dates and to find the owner of a disputed charge).
+
+**4. Deploy the four functions** (Supabase **Edge Functions > Deploy a new function > Via Editor**, paste the file, exact name, **Deploy**), then open each one's **Details** and set **Verify JWT**:
+
+| Function | File | Verify JWT |
+|---|---|---|
+| `create-checkout` | `supabase-functions/create-checkout/index.ts` | **ON** |
+| `create-portal-session` | `supabase-functions/create-portal-session/index.ts` | **ON** |
+| `entitlement-token` | `supabase-functions/entitlement-token/index.ts` | **ON** |
+| `billing-webhook` | `index (1).ts` (the billing webhook) | **OFF** (Stripe and RevenueCat can't sign in; each request is verified with its own secret) |
+
+**5. Secrets** (**Edge Functions > Secrets**):
+- `ENT_SIGNING_KEY` (step 2)
+- `STRIPE_SECRET_KEY` (step 3), `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY` (the two `price_...` ids)
+- `SITE_ORIGINS`: your website address, for example `https://studyboard.example` (comma separate more than one). The checkout only ever returns people to these addresses.
+- `STRIPE_WEBHOOK_SECRET` (step 6), and later `REVENUECAT_WEBHOOK_AUTH` (a long random password, 16 characters or more)
+- Optional: `STRIPE_PORTAL_CONFIG` (a `bpc_...` id), `RC_ALLOW_SANDBOX=1` (only while testing RevenueCat), `ALLOW_LOCALHOST=1` (only while testing the website on your computer)
+
+**6. Stripe webhook.** **Developers > Webhooks > Add endpoint**: `https://YOUR-PROJECT.supabase.co/functions/v1/billing-webhook/stripe` with the events `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `charge.refunded`, `charge.dispute.created` and `charge.dispute.closed`. Reveal the **Signing secret** (`whsec_...`) and save it as `STRIPE_WEBHOOK_SECRET`. (Live mode has its own endpoint and secret.)
+
+**7. The website.** Edit `website/config.js` (Supabase URL, the **public** anon/publishable key, app address, support email), fill the placeholders in `website/privacy.html` and `website/terms.html`, and upload the `website/` folder to a static host over HTTPS (Cloudflare Pages, Netlify or GitHub Pages; Netlify and Cloudflare also read `_headers` for extra security headers). In Supabase **Authentication > URL Configuration** add your website address as the **Site URL** (or an extra **Redirect URL** `https://YOUR-SITE/account/**`) so confirmation and reset links come back to it. Your email templates (`confirm-signup.html`, `reset-password.html`) show both a code and a link; the account page accepts either.
+
+**8. Tell the database your site address.** In **SQL Editor**:
 ```sql
-update public.studyboard_config set value = to_jsonb('https://buy.stripe.com/YOUR_MONTHLY_LINK'::text) where key = 'checkout_url_monthly';
-update public.studyboard_config set value = to_jsonb('https://buy.stripe.com/YOUR_YEARLY_LINK'::text) where key = 'checkout_url_yearly';
+update public.studyboard_config set value = to_jsonb('https://YOUR-SITE'::text) where key = 'site_url';
 ```
+(The app also has `SITE_URL` in `index.html`.) The checkout also allows this address, so you can add a second site later without touching secrets.
 
-**Let people manage their plan.** In Stripe open **Settings > Billing > Customer portal**, turn it on, and copy the **login link**. Then:
-```sql
-update public.studyboard_config set value = to_jsonb('https://billing.stripe.com/p/login/YOUR_LINK'::text) where key = 'manage_url';
-```
-**Manage Plan** in the Studyboard Pro sheet opens it, so people can cancel or change cards by themselves.
+**9. Test with Stripe test mode.** Open `https://YOUR-SITE/account/?plan=monthly&src=app`, make a new account (or sign in), and you are taken to Stripe Checkout. Pay with `4242 4242 4242 4242`, any future date, any CVC. Within seconds `studyboard_entitlements` shows `plan = pro`, and the app shows the trial. Try **Manage billing**, a cancel, and in Stripe **Developers > Webhooks > Resend** an old event (it must be answered as a duplicate or ignored). Check `studyboard_billing_events` for the outcomes. The checkout only gives a 7-day trial to an account that never had one.
 
-### 3. Add the Payment Function
-
-This small function hears from Stripe (and from RevenueCat, below) when someone buys, renews or cancels, and turns Pro on or off for them. You'll need `supabase-functions/billing-webhook/index.ts` from the zip.
-
-**Deploy it**
-- In Supabase open **Edge Functions**, click **Deploy a new function**, then **Via Editor**.
-- Delete the sample code. Paste everything from `supabase-functions/billing-webhook/index.ts`.
-- Set the function name to exactly `billing-webhook` and click **Deploy function**.
-- Click **billing-webhook**, open **Details**, and turn **off** **Verify JWT** (it may be called **Enforce JWT Verification**). Click **Save changes**. Stripe and RevenueCat can't sign in to Supabase; each message is checked with its own secret instead.
-
-**Tell Stripe about it**
-- In Stripe open **Developers > Webhooks** and click **Add endpoint**.
-- Endpoint URL: `https://YOUR-PROJECT.supabase.co/functions/v1/billing-webhook/stripe`
-- Events: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted` and `invoice.paid`.
-- Click **Add endpoint**, then **Reveal** the **Signing secret** (it starts with `whsec_`).
-
-**Add the secrets.** In Supabase open **Edge Functions > Secrets** and add:
-- `STRIPE_WEBHOOK_SECRET`: the signing secret from Stripe.
-- `STRIPE_SECRET_KEY` (recommended): in Stripe open **Developers > API keys**, click **Create restricted key**, give it **Read** access to **Subscriptions** only, and paste that key. The function uses it to read the exact renewal and trial dates.
-
-**Try it.** In Stripe's Test mode, open your payment link from Studyboard (tap a price in the Studyboard Pro sheet with the paywall on, see Launch Day) and pay with the test card `4242 4242 4242 4242`. Within a few seconds the sheet shows **Your Pro Trial Is On**. In Supabase, **studyboard_entitlements** has a new row.
-
-### 4. App Store and Google Play (Later, With RevenueCat)
-
-Apple and Google require their own payment systems inside phone apps from their stores. **RevenueCat** handles both and tells the same payment function what happened. You only need this once Studyboard is in the App Store or Google Play. The website works on phones without it.
-
-- Make a free account at [revenuecat.com](https://www.revenuecat.com) and add your iOS and Android apps.
-- Make the same two products in App Store Connect and Google Play Console (monthly and yearly, with a 7-day free trial), and add them to one RevenueCat **entitlement** called `pro`.
-- In the app wrapper, log in to RevenueCat with the person's Supabase user id, so RevenueCat's **App User ID** is that id. When someone taps a price in Studyboard, the app sends a `plan-checkout` event; the wrapper's RevenueCat code shows the store's checkout. **Restore Purchase** sends `plan-restore`.
-- In RevenueCat open **Integrations > Webhooks**, and add:
-  - URL: `https://YOUR-PROJECT.supabase.co/functions/v1/billing-webhook/revenuecat`
-  - Authorization header value: a long random password you make up.
-- In Supabase **Edge Functions > Secrets**, add `REVENUECAT_WEBHOOK_AUTH` with that same password.
-- Click **Send Test Event** in RevenueCat. It should say it was delivered.
+**10. App Store and Google Play (later, RevenueCat).** Apple and Google require their own payment system for subscriptions sold inside a store app, so store builds use **RevenueCat** (the app sends `plan-checkout`, **Restore Purchase** sends `plan-restore`), and the **same** `billing-webhook` records it.
+- Make a RevenueCat account, add your iOS and Android apps, create the same two products in App Store Connect and Google Play Console (with the 7-day trial) and add them to one entitlement called `pro`.
+- In the app wrapper, log in to RevenueCat with the person's Supabase user id, so the **App User ID** is that id. (Purchases under any other id, such as `$RCAnonymousID...`, give nothing.)
+- RevenueCat **Integrations > Webhooks**: URL `https://YOUR-PROJECT.supabase.co/functions/v1/billing-webhook/revenuecat`, **Authorization header value** = the `REVENUECAT_WEBHOOK_AUTH` secret. **Send Test Event** should say delivered. Sandbox purchases are ignored unless you set `RC_ALLOW_SANDBOX=1`.
+- A store refund (RevenueCat's `CANCELLATION` with reason `CUSTOMER_SUPPORT`) switches Pro off at once. A subscription from one store never cancels one from another (for example, a Stripe cancel can't end an App Store subscription), and none of them ever touches a gift from you.
+- Apple only allows the website for people who already pay there (`EXTERNAL_PURCHASE_ALLOWED` stays `false` in store builds unless your storefront entitlements allow external purchase links).
 
 ### Launch Day
 
-When you're ready to start selling Pro:
-1. Check the steps above are done: `supabase-plans.sql` run, payment links in `studyboard_config`, the `billing-webhook` function deployed with its secrets, and Stripe switched from Test mode to live (make live payment links and a live webhook, and update the links and secret).
-2. **Turn on the server switch.** In **SQL Editor**:
+There is **one switch in the app** and **one in the server**, and either one turns Pro on:
+- **App switch:** `const PRO_ENFORCED = false;` just above `const STORE` in `index.html`, under the heading *FLIP TO true TO LAUNCH PRO*.
+- **Server switch:** `studyboard_config.paywall`. Setting it to `true` turns on every limit in the database (devices, storage, data, group size, message history, online backups) and tells every copy of the app, with no new build.
+
+When you are ready:
+1. Everything above is done in **live** mode: live Stripe products and price ids in the secrets, a live webhook and its `whsec_`, the live restricted key, the website live with the right `config.js`, `site_url` set, the self-test passing.
+2. Turn on the server switch (**SQL Editor**):
    ```sql
    update public.studyboard_config set value = 'true' where key = 'paywall';
    ```
-3. **Turn on the app switch.** In `base/app.js`, find `const STORE = {paywall: false};` and change it to `const STORE = {paywall: true};`. Build the app and upload the new `index.html` like any update.
-4. Open Studyboard, go to **Settings > Studyboard Pro**, and check that it says **You're on the Free Plan** with the two prices. Buy Pro once yourself (or use `studyboard_grant_pro`) and check it switches to **You Have Studyboard Pro**.
+3. In `index.html` change `const PRO_ENFORCED = false;` to `true`, build the app and upload the new `index.html`. (Step 2 alone already works for people online; step 3 makes it work from the first moment and offline.)
+4. Open **Settings > Studyboard Pro**, check it says **You're on the Free Plan** with the two prices, buy Pro once yourself with a real card, check it turns on, then cancel and refund it (the refund must switch Pro off).
 
-To turn the paywall off again, set both switches back to `false`. Nobody loses anything: items people bought or earned stay theirs.
+To turn Pro off again set both switches back to `false`. Nobody loses anything.
+
+### Give or Take Back Pro for Specific Accounts (Safely)
+
+Only you can do this: in the **SQL Editor** (or with the service role). The functions refuse every signed-in person and the public key (the self-test proves it), and every use is written to `studyboard_pro_grants` (who ran it, when, how long, why).
+
+```sql
+-- by email, a year        select public.studyboard_grant_pro('friend@example.com', 365, 'beta tester');
+-- by email, for good      select public.studyboard_grant_pro('you@example.com', null, 'owner');
+-- by account id, 30 days  select public.studyboard_grant_pro_uid('PASTE-USER-ID', 30, 'contest winner');
+-- take a gift back        select public.studyboard_revoke_pro('friend@example.com', 'ended early');
+-- the log                 select * from public.studyboard_pro_grants order by created_at desc;
+```
+A new grant replaces the old one for that person (the days count from now). The account must already exist (they sign up first). Grants live in their own columns, separate from payments: a cancelled or refunded subscription never removes your gift, and revoking a gift never cancels a subscription. The app shows a gift as **Pro (granted)** and the token tier is `pro` (with an end date) or `lifetime` (no end date). Older gifts made with the previous version of this function are moved into grants automatically when you run the SQL again.
+
+### Threat Model: How Someone Could Try to Get Pro for Free
+
+| Attempt | What stops it |
+|---|---|
+| Edit their own `studyboard_entitlements` row through the API | Row level security allows **select of your own row only**; there is no insert, update or delete policy, and the table privileges for writing are removed from `anon` and `authenticated`. The self-test tries each. |
+| Call the grant function, or the billing function, or the limit helpers | `EXECUTE` is revoked from PUBLIC, anon and signed-in users for every overload (a sweep over `pg_proc` re-applies this each time the SQL runs); the functions pin `search_path`, and also check the caller's role. A forged `role` claim doesn't help, since the database role is what counts. |
+| Change prices, limits or the paywall switch | `studyboard_config` is read-only for everyone but you, and a check constraint refuses keys or values that look like secrets (it is publicly readable). |
+| Reset their own usage totals, delete or fake device rows of others | `studyboard_usage` is read-only for users, only triggers update it; device rows are limited by row level security to your own. |
+| Edit the app (`index.html`, local storage) to say Pro | Themes and style are only cosmetic. The app trusts only a **signed token** (`entitlement-token`, Ed25519, checked with `ENT_PUBKEY`), which expires (at most 7 days; 1 day for free; trials 2 days) and carries the server's clock so a set-back device clock is noticed. Without the private key nobody can forge one. Anything that costs you money is enforced by the database regardless. |
+| Replay or forge a Stripe webhook | Signature (HMAC) verified in constant time, timestamps older or newer than 5 minutes refused, and every event id is stored so a repeat does nothing. The result of an event is applied only if it is not older than the newest one already applied. |
+| Forge a RevenueCat webhook | The Authorization header is compared in constant time against your secret; RevenueCat sandbox events are ignored in production. |
+| Give Pro to a stranger or an invented id with metadata | Only checkouts made by `create-checkout` count (the webhook requires `client_reference_id` = `metadata.uid`, set only by that function); the account must exist in `auth.users`; a Stripe customer is linked to one account only and an id can't be moved to another. |
+| Pay a lower price, or choose their own price id | The browser sends only `monthly` or `yearly`; price ids live in server secrets. Return addresses are checked against an allowlist (no open redirect). |
+| Get the free trial again and again | The checkout gives the trial only to accounts that never had one. (Making many new accounts with new email addresses can still get a trial each; that's the one thing a card-free app can't fully prevent, and the trial can be turned off with the `app_trial` and trial settings.) |
+| Subscribe, then get a refund or chargeback and keep Pro | Full refunds and disputes switch Pro off and **keep it off** until a brand new purchase; a lost dispute stays off, a won one is restored. |
+| One payment source cancelling another, or a Stripe cancel wiping a gift | Paid sources are tracked by owner (Stripe vs App Store/Google), and an event from one never ends another's live subscription; gifts have their own columns that payment events never write. |
+| Stay on more devices than allowed | The database refuses a 3rd device and limits swaps to 4 removals a week. **Honest limitation:** the device list is written by the app, so a modified app could avoid registering a device at all and sync without being counted. Data and file limits still apply to such a client, so it can't use more storage; to stop this you would have to gate every data write on a registered device, which was not done because it would break normal sign-in. |
+| Store unlimited data as "online backups" | Online backups are a Pro feature (refused for free accounts), have their own total and are pruned after 30 days. Changing an item's kind is checked as well, and sizes are measured on the JSON text, so compression can't hide them. |
+| Write files with no owner folder | Refused by the storage trigger (when the paywall is on). |
+| Read other people's plan, usage, devices or the server-only tables | Row level security; the billing, grant, rate-limit and event tables have no policies and no grants, and none of them is sent over Realtime. |
+| Hammer checkout, billing or token functions | Each account is rate limited (10 checkouts, 20 portal opens, 40 tokens per hour), and the sign-in page slows down after 5 wrong passwords (Supabase adds its own limits). |
+| Steal the signing key or a Stripe key from the website | Neither is ever in the website or the app. `config.js` holds only public values; the website pages have a strict Content-Security-Policy and write all dynamic text with `textContent`. |
+
+What this does **not** stop: someone who edits their own copy of the app can unlock the cosmetic themes on their own device (nothing else is gained, and Pro can't be proven to anyone), and an account shared between friends (the device limit slows that). If you later sell something expensive, enforce it on the server like the limits above.
+
+### Entitlement Token Contract (for developers)
+
+`entitlement-token` (Verify JWT **on**) returns `{tier, exp, uid, iat, sig}` and the headers `X-Server-Time` and `Date`. `tier` is `free`, `pro`, `trial` or `lifetime`; `exp` and `iat` are unix seconds (never more than 7 days apart, which the app limits to 8); `sig` is Ed25519 over the UTF-8 text `studyboard-ent-v1|<uid>|<tier>|<exp>|<iat>`, base64url without padding. The private key is a PKCS8 DER written as base64url; the public key is the raw 32 bytes as base64url. Test it all offline with `node --experimental-strip-types supabase-functions/tools/test-functions.mjs`.
 
 ### Good to Know
 
@@ -137,3 +178,15 @@ To turn the paywall off again, set both switches back to `false`. Nobody loses a
 - **Devices:** the free plan counts devices when people sign in. On a 3rd device, Studyboard shows the devices on the account with **Remove** buttons, and **Go Pro**.
 - **Limits are checked twice:** the app explains the limit before an upload, and Supabase refuses anything over the limit even if someone changes the app.
 - **Single items or packs:** the shop can also sell single cosmetic items later. Set `item_purchases` to `true` and hook up a checkout for them. Pro always unlocks everything.
+
+
+### Public Launch Checklist (Pro)
+
+- [ ] `supabase-plans-selftest.sql` ends with **ALL n SECURITY CHECKS PASSED** on your live project.
+- [ ] Stripe is in **live** mode: live price ids, restricted key and webhook secret saved as secrets, and the live webhook points at `billing-webhook/stripe` with all eight events.
+- [ ] You bought Pro yourself with a real card on the website, saw it switch on in the app, then cancelled and refunded it (Pro must switch off after the refund). **Manage billing** on the account page opens the Stripe portal.
+- [ ] Prices, the trial length and the refund policy on the Stripe checkout page match `website/terms.html` and the Terms in the app. The placeholders in `website/privacy.html` and `website/terms.html` are filled in, and `website/config.js` has your real values.
+- [ ] `SITE_ORIGINS` and `site_url` are your real website address; the Supabase **Site URL** and redirect allowlist include `https://YOUR-SITE/account/**`.
+- [ ] You know that **Delete My Account and Data does not cancel a Stripe subscription**. Tell people to cancel first (the app says so), and cancel in Stripe yourself if someone writes asking you to remove their account.
+- [ ] Both switches (`paywall` in `studyboard_config` and `PRO_ENFORCED` in `index.html`) are set the way you want, and the "early access" wording in the Style Shop and welcome tour disappears once the paywall is on.
+- [ ] App Store and Google Play (only if you ship a store app): RevenueCat webhook tested, subscriptions cancellable from each store, Restore Purchase works, and each store's privacy label and data-safety form match the Privacy Policy.

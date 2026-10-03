@@ -60,6 +60,11 @@ drop policy if exists "Own push subscriptions" on public.push_subscriptions;
 create policy "Own push subscriptions" on public.push_subscriptions for all to authenticated
   using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
+-- Push services always use https. This stops a made-up address (for example one pointing inside a network) from being stored,
+-- so the send-reminders function only ever contacts real push services. (NOT VALID: old rows are left alone, new ones are checked.)
+alter table public.push_subscriptions drop constraint if exists push_subscriptions_https;
+alter table public.push_subscriptions add constraint push_subscriptions_https check (endpoint ~ '^https://[^/[:space:]]+(/|$)') not valid;
+
 -- ---------- Your reminders ----------
 -- id: made by Studyboard. "r:..." are worked out from your tasks and settings, "s:..." are snoozed ones.
 -- tok: a random code that goes out with each notification, so its Snooze and Mark Done buttons work without signing in.

@@ -11,6 +11,10 @@ create table if not exists public.calendar_feeds (
   last_fetched_at timestamptz
 );
 
+-- Keep each link's options small, and tokens to plain URL-safe characters (they go in a web address).
+alter table public.calendar_feeds drop constraint if exists calendar_feeds_limits;
+alter table public.calendar_feeds add constraint calendar_feeds_limits check (token ~ '^[A-Za-z0-9_-]+$' and pg_column_size(options) <= 20000) not valid;
+
 create index if not exists calendar_feeds_user_id_idx on public.calendar_feeds (user_id);
 
 alter table public.calendar_feeds enable row level security;

@@ -1,11 +1,16 @@
 // Copies the Studioso page into app/ and points it at local copies of its fonts and libraries,
 // so the desktop app opens and works with no internet connection.
-// Usage: node scripts/prepare.js [path to index.html]   (default: ../index.html)
+// Usage: node prepare.js [path to index.html]
+// Works from two layouts:
+//  - flat (this repository): prepare.js sits next to index.html, main.js, widget.* and the icon files.
+//    It also stages widget/ and build/ from those flat files, so `npm run prep|start|dist` work as they are.
+//  - nested: prepare.js is in desktop/scripts/ and the page is one folder above desktop/ (default ../index.html).
 const fs = require("fs"), path = require("path");
-const root = path.join(__dirname, "..");
-const src = path.resolve(process.argv[2] || path.join(root, "..", "index.html"));
+const flat = fs.existsSync(path.join(__dirname, "main.js")) && fs.existsSync(path.join(__dirname, "index.html"));
+const root = flat ? __dirname : path.join(__dirname, "..");
+const src = path.resolve(process.argv[2] || (flat ? path.join(root, "index.html") : path.join(root, "..", "index.html")));
 // STUDYBOARD_OUT (a folder inside this project, default app/) and STUDYBOARD_BASE (the page's own address, default app://studioso/) let the same
-// script stage the iOS wrapper's web folder: STUDYBOARD_OUT=ios-www STUDYBOARD_BASE=capacitor://localhost/ node scripts/prepare.js (see ios-wrapper/README-IOS.md).
+// script stage the iOS wrapper's web folder: STUDYBOARD_OUT=ios-www STUDYBOARD_BASE=capacitor://localhost/ node prepare.js (see ios-wrapper/README-IOS.md).
 const out = process.env.STUDYBOARD_OUT ? path.resolve(root, process.env.STUDYBOARD_OUT) : path.join(root, "app"), vendor = path.join(out, "vendor");
 if (!out.startsWith(root + path.sep)) throw new Error("prepare: STUDYBOARD_OUT must be a folder inside " + root);
 const BASE = process.env.STUDYBOARD_BASE || "app://studioso/";
@@ -51,4 +56,19 @@ if (/<script\b[^>]*\ssrc=["']https?:/i.test(markup)) console.warn("prepare: a sc
 if (/<script\b(?![^>]*\ssrc=)[^>]+>/i.test(html.replace(/<script>[\s\S]*?<\/script>/gi, "<!--s-->"))) console.warn("prepare: a script tag with attributes is not covered by the CSP hashes");
 if (/<[a-z][^>]*\son(click|load|error|change|input|submit|keydown|keyup|mouse\w+)=["']/i.test(markup)) console.warn("prepare: inline event handlers (onclick=...) are blocked by the app's CSP");
 fs.writeFileSync(path.join(out, "csp-hashes.json"), JSON.stringify(inline));
+// Flat layout: stage the widget window files and the icon / installer artwork into the folders electron-builder expects.
+if (flat) {
+  const stage = (dir, names) => {
+    const d = path.join(root, dir);
+    fs.rmSync(d, { recursive: true, force: true });
+    fs.mkdirSync(d, { recursive: true });
+    for (const n of names) {
+      const from = path.join(root, n.from || n);
+      if (!fs.existsSync(from)) { console.warn("prepare: missing " + (n.from || n) + ", skipped"); continue; }
+      fs.copyFileSync(from, path.join(d, n.to || n));
+    }
+  };
+  stage("widget", ["widget.html", "widget.css", "widget.js", { from: "widget-preload.js", to: "widget-preload.js" }]);
+  stage("build", ["icon.ico", "icon.png", "icon.icns", "installerSidebar.bmp", "uninstallerSidebar.bmp", "installerHeader.bmp"]);
+}
 console.log("Prepared app/ from", src, `(${inline.length} inline scripts hashed for the CSP)`);
