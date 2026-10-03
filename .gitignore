@@ -1,6 +1,9 @@
 node_modules/
 dist/
 app/
+build/
+widget/
+site/
 .env
 .env.*
 *.pem
@@ -8,3 +11,7 @@ app/
 *.pfx
 *.key
 .claude/
+.DS_Store
+Thumbs.db
+*.log
+server.json
