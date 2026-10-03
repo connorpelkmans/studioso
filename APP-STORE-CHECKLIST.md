@@ -131,6 +131,19 @@ Add it to **Settings > Account > Delete Account** (visible without contacting an
 
 Also provide: screenshots for each device size you claim (6.9" and 6.5" iPhone, 13" iPad if universal; Mac 2880 x 1800), an app preview video (optional), description, keywords, promotional text, "What's New", copyright, and the support, marketing and privacy URLs.
 
+### 5b. Siri, App Intents, share extension and App Groups (only if the quick-capture sources in `ios-wrapper/native/` are shipped)
+
+Sources are UNTESTED (written without Xcode): do the device tests in `ios-wrapper/native/capture.md` section 5 first. Then:
+
+- [ ] Capabilities on **both** the App and the Share Extension targets: **App Groups** (`group.com.studioso.app`) and **Keychain Sharing** (`com.studioso.app.shared`); both registered in the Developer portal (Identifiers) and in the provisioning profiles (regenerate them after adding).
+- [ ] No `NSSiriUsageDescription` (App Intents need none; the key is for the old SiriKit extensions). No microphone or speech-recognition string: Siri does the listening.
+- [ ] Share Extension `NSExtensionActivationRule` is the **dictionary** form (text, 1 web URL, 1 image), not `TRUEPREDICATE`; the extension has its own `PrivacyInfo.xcprivacy`.
+- [ ] Privacy manifest: no new required-reason API from the native code (Keychain, URLSession, App Group files). If you add App Group `UserDefaults`, add reason `1C8F.1` (verify on Apple's current list). Run Generate Privacy Report on the archive.
+- [ ] App Privacy answers unchanged (task text goes to the person's own account; same "Other User Content" row).
+- [ ] The capture token is a bearer secret kept in the Keychain, revocable in Settings; never shown in logs.
+- [ ] Review notes: add the Siri / Shortcuts paragraph from `VOICE-CAPTURE-NATIVE.md` section 4 and a demo account with a token.
+- [ ] Do not claim Apple Intelligence / iOS 27 Siri support in the listing until tested on that OS.
+
 ## 6. App Privacy answers ("nutrition label") and privacy manifest
 
 App Store Connect > App Privacy. Match these answers to `build-resources/ios/PrivacyInfo.xcprivacy` and `build-resources/mac/PrivacyInfo.xcprivacy` (both declare: no tracking, no tracking domains, the types below). **Third-party code in the app builds**: Supabase client (talks to your own project), RevenueCat SDK (purchases), Capacitor and plugins (no data leaves the device except through these), pdf.js (local). Answer for yourself **and** those partners.

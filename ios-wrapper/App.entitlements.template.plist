@@ -12,6 +12,17 @@
   <array>
     <string>applinks:YOUR-DOMAIN.example</string>
   </array>
+  <!-- Quick capture (UNTESTED template; see native/ and VOICE-CAPTURE-NATIVE.md): the App Intents (Siri / Shortcuts) and the Share Extension read the capture token from
+       the shared Keychain group and exchange queued items through the App Group container. The Share Extension target needs the SAME two entries
+       (native/ShareExtension/ShareExtension.entitlements). Add the App Groups and Keychain Sharing capabilities in Xcode, then compare. -->
+  <key>com.apple.security.application-groups</key>
+  <array>
+    <string>group.com.studioso.app</string>
+  </array>
+  <key>keychain-access-groups</key>
+  <array>
+    <string>$(AppIdentifierPrefix)com.studioso.app.shared</string>
+  </array>
   <!-- In-app purchase needs the capability switched on in Xcode but no entitlement key. Keychain: the default app keychain group is enough. -->
 </dict>
 </plist>
