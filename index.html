@@ -20044,12 +20044,12 @@ function rgba(hex, a) { var n = parseInt(hex.slice(1), 16); return 'rgba(' + (n 
     return {
       step: function (dt, t, f) {
         flare = Math.max(0, flare - dt * 0.45);
-        bats.forEach(function (b) { b.x += b.dir * b.v * f.s * dt; b.y = b.y0 + Math.sin(t * 0.7 * f.s + b.ph) * 22 * f.a - (b.fresh ? 0 : 0); if (b.fresh) b.y0 -= dt * 25; if (b.x > W + 60) b.x = b.fresh ? W + 999 : -60; if (b.x < -60) b.x = W + 60; });
+        bats.forEach(function (b) { b.x += b.dir * b.v * (0.8 + 0.3 * Math.sin(t * 0.31 + b.ph * 2.7) + 0.15 * Math.sin(t * 0.83 + b.ph)) * f.s * dt; b.y = b.y0 + (Math.sin(t * 0.7 * f.s + b.ph) * 22 + Math.sin(t * 1.9 * f.s + b.ph * 3.1) * 6) * f.a; if (b.fresh) b.y0 -= dt * 25; if (b.x > W + 60) b.x = b.fresh ? W + 999 : -60; if (b.x < -60) b.x = W + 60; });
         bats = bats.filter(function (b) { return !b.fresh || (b.x < W + 200 && b.y0 > -120); }); // finished bats leave for good instead of wrapping round forever
       },
       draw: function (ca, cb, t, f) {
         ca.fillStyle = A.batColor;
-        bats.forEach(function (b) { var fl = Math.sin(t * b.fl * Math.max(0.6, f.s) + b.ph) * 0.16; ca.save(); ca.translate(b.x, b.y); ca.scale(b.dir, 1); ca.fill(new Path2D(b7_bat(0, 0, b.s, b.dir * -6, fl))); ca.restore(); });
+        bats.forEach(function (b) { var fl = Math.sin(t * b.fl * 1.7 * Math.max(0.6, f.s) + b.ph) * 0.17 * (0.6 + 0.4 * Math.sin(t * 0.9 + b.ph * 2.3)); ca.save(); ca.translate(b.x, b.y); ca.scale(b.dir, 1); ca.fill(new Path2D(b7_bat(0, 0, b.s, b.dir * -6, fl))); ca.restore(); });
         cb.save(); cb.globalCompositeOperation = 'lighter';
         lan.forEach(function (l, i) {
           var fk = flick(t * (0.55 + 0.45 * f.s), i * 2.1), boost = i === flareIdx ? flare : 0, k = (dk ? 0.9 : 0.5) * (0.55 + 0.6 * fk * f.a) + boost * 1.4;
@@ -20427,7 +20427,7 @@ ENGINES.sunset = function (A, v, dk) {
         ca.fillStyle = dk ? 'rgba(40,10,40,0.25)' : 'rgba(170,110,80,0.2)'; ca.beginPath(); ca.ellipse(2, 7, 24, 5, 0, 0, 7); ca.fill(); ca.fillStyle = cShell; ca.fill(shellP); ca.strokeStyle = cRib; ca.lineWidth = 1.3; ca.stroke(shellR); ca.restore(); });
       // the surf sheet sliding up the sand and back
       var e0 = 0.5 + 0.5 * Math.sin(t * 0.5);
-      for (j = 0; j < NS; j++) { var x = sh[j][0], e = 0.5 + 0.5 * Math.sin(t * 0.5 - x * 0.0035 + 0.6 * Math.sin(x * 0.011)); ext[j] = sh[j][1] + 2 + reach * e + surge * SURGE * (0.85 + 0.15 * Math.sin(x * 0.02)); }
+      for (j = 0; j < NS; j++) { var x = sh[j][0], e = 0.5 + 0.5 * Math.sin(t * 0.5 + 0.9 * Math.sin(t * 0.17) - x * 0.0035 + 0.6 * Math.sin(x * 0.011)); e *= 0.8 + 0.2 * Math.sin(t * 0.23 + x * 0.004); ext[j] = sh[j][1] + 2 + reach * e + surge * SURGE * (0.85 + 0.15 * Math.sin(x * 0.02)); }
       ca.beginPath(); for (j = 0; j < NS; j++) { if (j) ca.lineTo(wash[j][0], wash[j][1]); else ca.moveTo(wash[j][0], wash[j][1]); } for (j = NS - 1; j >= 0; j--) ca.lineTo(sh[j][0], ext[j]); ca.closePath(); ca.fillStyle = cFoam; ca.fill();
       ca.beginPath(); for (j = 0; j < NS; j++) { if (j) ca.lineTo(sh[j][0], sh[j][1] + 1); else ca.moveTo(sh[j][0], sh[j][1] + 1); } for (j = NS - 1; j >= 0; j--) ca.lineTo(sh[j][0], ext[j]); ca.closePath(); ca.fillStyle = cWet + ((dk ? 0.12 : 0.28) + 0.1 * surge) + ')'; ca.fill();
       ca.lineCap = 'round'; ca.lineJoin = 'round'; ca.strokeStyle = cEdge; ca.lineWidth = 2.2; ca.beginPath(); for (j = 0; j < NS; j++) { if (j) ca.lineTo(sh[j][0], ext[j]); else ca.moveTo(sh[j][0], ext[j]); } ca.stroke();
@@ -21090,7 +21090,7 @@ ENGINES.mint = function (A, v, dk) {
   var nf = Math.round(Math.max(3, Math.min(8, W * H / 150000)));
   var fl = b3_mleaf(0, 0, 26 * u, 0), flP = {dx: 0, len: 26 * u, ang: 0, hi: new Path2D(fl.hi), lo: new Path2D(fl.lo), vein: new Path2D(fl.vein)};
   var flA = b3_leafSprite([flP], C), flB = b3_leafSprite([flP], {lo: C.hi, hi: C.hi, vein: C.vein});
-  function newFall(p, first) { p.x = Math.random() * W; p.y = first ? Math.random() * H : -30; p.v = 16 + Math.random() * 10; p.ph = Math.random() * 6.28; p.sp = 0.5 + Math.random() * 0.5; p.s = 0.7 + Math.random() * 0.5; p.x0 = p.x; return p; }
+  function newFall(p, first) { p.x = Math.random() * W; p.y = first ? Math.random() * H : -30; p.v = 16 + Math.random() * 10; p.ph = Math.random() * 6.28; p.sp = 0.5 + Math.random() * 0.5; p.s = 0.7 + Math.random() * 0.5; p.x0 = p.x; p.amp = 22 + Math.random() * 24; p.rf = 0.45 + Math.random() * 0.5; return p; }
   for (var i = 0; i < nf; i++) falls.push(newFall({}, true));
   // spoon: bowl centred at origin, handle towards +x (rotated later)
   var bowlR = 46 * u, spoonBowl = new Path2D(ell(0, 0, bowlR, bowlR * 0.72)), spoonNeck = new Path2D(poly([[bowlR * 0.8, -5 * u], [bowlR * 2.2, -3.5 * u], [bowlR * 2.2, 3.5 * u], [bowlR * 0.8, 5 * u]]) + rrect(bowlR * 2.1, -7 * u, bowlR * 3.4, 14 * u, 7 * u));
@@ -21105,7 +21105,7 @@ ENGINES.mint = function (A, v, dk) {
   function sprigBend(S, t, f) { return (Math.sin(t * 0.55 * f.s + S.ph) * 0.035 + Math.sin(t * 1.1 * f.s + S.ph * 2) * 0.012) * f.a; }
   return {
     step: function (dt, t, f) {
-      falls.forEach(function (p) { p.y += p.v * f.s * dt; p.x = p.x0 + Math.sin(t * p.sp + p.ph) * 34 * f.a; if (p.y > H + 30) newFall(p); });
+      falls.forEach(function (p) { p.y += p.v * (0.8 + 0.3 * Math.sin(t * p.sp * 2 + p.ph)) * f.s * dt; p.x = p.x0 + Math.sin(t * p.sp + p.ph) * p.amp * f.a; if (p.y > H + 30) newFall(p); });
       if (spoon) { spoon.k += dt; if (spoon.k > 5.2) { spoon = null; if (queue > 0) { queue--; spoon = {k: 0}; } } }
     },
     draw: function (ca, cb, t, f) {
@@ -21125,7 +21125,7 @@ ENGINES.mint = function (A, v, dk) {
         cb.fillStyle = dk ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.8)'; cb.fill(spoonHi); cb.restore(); cb.restore(); }
       // drifting leaves (behind the sprigs)
       falls.forEach(function (p) { var fl2 = Math.cos(t * 1.3 * p.sp + p.ph), low = (v.desk && p.x < W * 0.45 && p.y < H * 0.47) ? 0.45 : 0.85;
-        var r = Math.sin(t * 0.7 + p.ph) * 0.9 + p.ph, c = Math.cos(r), sn = Math.sin(r), sy = p.s * (0.1 + 0.9 * Math.abs(fl2)), sp = fl2 > 0 ? flB : flA;
+        var r = Math.sin(t * p.rf + p.ph) * 0.9 + p.ph, c = Math.cos(r), sn = Math.sin(r), sy = p.s * (0.1 + 0.9 * Math.abs(fl2)), sp = fl2 > 0 ? flB : flA;
         cb.globalAlpha = low; cb.save(); cb.transform(c * p.s, sn * p.s, -sn * sy, c * sy, p.x, p.y); cb.drawImage(sp.c, sp.x, sp.y, sp.w, sp.h); cb.restore(); });
       cb.globalAlpha = 1;
       // swaying hero sprigs
@@ -21710,7 +21710,7 @@ ENGINES.cats = function (A, v, dk) {
       c.strokeStyle = C.body; c.lineWidth = s * 0.092; c.beginPath(); c.moveTo(K.shoulder[0], K.shoulder[1]); c.bezierCurveTo(K.c1[0], K.c1[1], pw[0] - s * 0.06, pw[1] - s * 0.14, pw[0], pw[1]); c.stroke();
       c.fillStyle = C.body; c.beginPath(); c.arc(pw[0], pw[1] + s * 0.01, s * 0.05, 0, 7); c.fill();
       // head: gentle tilt, follows the ball, blinks
-      var hl = (Math.sin(t * 0.45 * sp) * 0.035 * a + st.tilt), bl = (t * sp + 2.4) % 5.3, ey = bl < 0.18 ? 0.15 : 1;
+      var hl = (Math.sin(t * 0.45 * sp) * 0.035 * a + st.tilt), bl = (t * sp + 2.4) % 5.3, bl2 = (t * sp + 5.1) % 8.7, ey = bl < 0.18 || (bl2 < 0.14 && bl > 1) ? 0.15 : 1;
       c.save(); c.translate(K.neck[0], K.neck[1]); c.rotate(hl); c.translate(-K.neck[0], -K.neck[1]);
       c.fillStyle = C.body; c.fill(cat.hb); c.fillStyle = C.light; c.fill(cat.hl); c.fillStyle = C.dark; c.fill(cat.hd);
       c.translate(0, K.eyeY); c.scale(1, ey); c.translate(0, -K.eyeY); c.fill(cat.he); c.restore();
@@ -22110,7 +22110,7 @@ ENGINES.photography = function (A, v, dk) {
     },
     draw: function (ca, cb, t, f) {
       bokeh.forEach(function (b) { var x = b.x + Math.sin(t * 0.09 * f.s + b.ph) * 22 * f.a, y = b.y + Math.sin(t * 0.07 * f.s + b.ph2) * 12 * f.a - Math.sin(t * 0.05 + b.ph) * 6; b6_stamp(ca, b.sp, x, y, b.r * 1.08, b.r * 1.08, b.a * (0.75 + 0.25 * Math.sin(t * 0.35 * f.s + b.ph * 2))); });
-      birds.forEach(function (b) { var fl = Math.sin(t * 5 + b.ph) * 4 * b.s, s = 7 * b.s; ca.strokeStyle = 'rgba(80,72,70,0.55)'; ca.lineWidth = 1.5; ca.lineCap = 'round'; ca.beginPath(); ca.moveTo(b.x - s, b.y - fl); ca.quadraticCurveTo(b.x - s * 0.4, b.y - fl * 0.3 - 2, b.x, b.y); ca.quadraticCurveTo(b.x + s * 0.4, b.y - fl * 0.3 - 2, b.x + s, b.y - fl); ca.stroke(); });
+      birds.forEach(function (b) { var fl = Math.sin(t * 7.5 + b.ph * 2) * 4 * b.s * (0.45 + 0.55 * Math.max(0, Math.sin(t * 0.8 + b.ph * 3))), s = 7 * b.s, by = b.y + Math.sin(t * 1.1 + b.ph * 4) * 3 - fl * 0.25; ca.strokeStyle = 'rgba(80,72,70,0.55)'; ca.lineWidth = 1.5; ca.lineCap = 'round'; ca.beginPath(); ca.moveTo(b.x - s, by - fl); ca.quadraticCurveTo(b.x - s * 0.4, by - fl * 0.3 - 2, b.x, by); ca.quadraticCurveTo(b.x + s * 0.4, by - fl * 0.3 - 2, b.x + s, by - fl); ca.stroke(); });
       if (dk) { ca.save(); ca.globalCompositeOperation = 'lighter'; ffly.forEach(function (q) { var x = q.x + Math.sin(t * q.sp + q.ph) * 30, y = q.y + Math.sin(t * q.sp * 1.3 + q.ph * 2) * 14, a = Math.max(0, Math.sin(t * 0.7 + q.ph * 3)); b6_stamp(ca, ffSp, x, y, 12, 12, 0.7 * a); }); ca.restore(); }
       function paintPrint(c, P, dev) {
         c.drawImage(shS.c, -pw / 2 - shS.pad + 4, -shS.pad + 7, pw + shS.pad * 2, phh + shS.pad * 2);
@@ -22368,7 +22368,7 @@ ENGINES.easter = function (A, v, dk) {
     step: function (dt, t, f) {
       flies.forEach(function (o) {
         if (o.state === 'rest') { o.timer -= dt * f.s; if (o.timer <= 0) takeOff(o); o.rot *= 0.9; return; }
-        o.ft += dt * f.s; var k = Math.min(1, o.ft / o.dur), e = b7_ease(k), dx = o.to.x - o.from.x, dy = o.to.y - o.from.y, L = Math.hypot(dx, dy) || 1;
+        o.ft += dt * f.s; var k = Math.min(1, o.ft / o.dur), e = o.to.p ? b7_ease(k) : 0.55 * k + 0.45 * b7_ease(k), dx = o.to.x - o.from.x, dy = o.to.y - o.from.y, L = Math.hypot(dx, dy) || 1;
         var nx = o.from.x + dx * e - dy / L * o.bend * Math.sin(Math.PI * e), ny = o.from.y + dy * e + dx / L * o.bend * Math.sin(Math.PI * e) + Math.sin(o.ft * 3.1 + o.ph) * 9 * (1 - e * e) * f.a;
         o.rot += ((nx - o.x) * 0.02 - o.rot) * 0.2; o.x = nx; o.y = ny;
         if (k >= 1) { if (o.to.p) { o.state = 'rest'; o.perch = o.to.p; o.timer = 4 + Math.random() * 5; } else takeOff(o); }
@@ -22385,7 +22385,7 @@ ENGINES.easter = function (A, v, dk) {
         if (cap > 0) { chick(cb, e, T); drawEgg(cb, e, rot, e.lo); cb.save(); cb.translate(e.x, e.y); var zs = 1 + 0.35 * b7_ease(T / 0.6) * (1 - b7_ease((T - 4.4) / 0.6)); cb.scale(zs, zs); cb.rotate(rot); cb.translate(e.rx * 0.9 * cap, -e.ry * 1.25 - e.ry * 0.95 * cap); cb.rotate(0.7 * cap); cb.translate(0, e.ry * 1.25); cb.clip(e.hi); cb.fillStyle = e.col; cb.fill(e.shell); cb.fillStyle = A.deco; cb.fill(e.deco); cb.restore(); }
         else { drawEgg(cb, e, rot, null); var ck = Math.min(b7_ease((T - 0.7) / 0.3), 1 - b7_ease((T - 4.6) / 0.4)); if (ck > 0) { cb.save(); cb.translate(e.x, e.y); var zc = 1 + 0.35 * b7_ease(T / 0.6) * (1 - b7_ease((T - 4.4) / 0.6)); cb.scale(zc, zc); cb.rotate(rot); cb.globalAlpha = ck; cb.strokeStyle = A.ink; cb.lineWidth = 1.2; cb.stroke(e.crack); cb.restore(); cb.globalAlpha = 1; } } }
       flies.forEach(function (o) {
-        var k = o.state === 'rest' ? 0.62 + 0.38 * Math.sin(t * 1.4 * f.s + o.ph) : 0.18 + 0.82 * Math.abs(Math.sin(t * 5.5 * f.s + o.ph));
+        var k = o.state === 'rest' ? 0.62 + 0.38 * Math.sin(t * 1.4 * f.s + o.ph) : 0.18 + 0.82 * Math.abs(Math.sin(t * 5.5 * f.s + o.ph + 1.2 * Math.sin(t * 0.8 + o.ph * 2)));
         cb.save(); cb.translate(o.x, o.y); cb.rotate(o.rot); cb.scale(k, 1); cb.fillStyle = A.wingLo; cb.fill(o.w.lo); cb.fillStyle = A.wingUp; cb.fill(o.w.up); cb.restore();
         cb.save(); cb.translate(o.x, o.y); cb.rotate(o.rot); cb.strokeStyle = A.ink; cb.lineWidth = 1.6; cb.lineCap = 'round'; cb.stroke(o.w.body); cb.restore();
       });
@@ -22821,7 +22821,7 @@ ENGINES.lunarnewyear = function (A, v, dk) {
   var sx = W + 40, sy = py - H * (v.desk ? 0.34 : 0.22), ex = v.desk ? Math.min(W + 60, px + W * 0.55) : W + 50, ey = -60;
   var api = {
     step: function (dt, t, f) {
-      petals.forEach(function (p) { p.y += p.v * f.s * dt; p.x += (5 + Math.sin(t * 0.3) * 4) * f.s * dt; p.rot += p.sp * f.s * dt; if (p.y > H + 6) { p.y = -6; p.x = Math.random() * W; } if (p.x > W + 6) p.x = -6; });
+      petals.forEach(function (p) { p.y += p.v * (0.85 + 0.25 * Math.sin(t * (0.5 + p.sp * 0.3) + p.ph)) * f.s * dt; p.x += (5 + Math.sin(t * 0.3) * 4 + Math.sin(t * 0.17 + p.ph) * 2) * f.s * dt; p.rot += p.sp * f.s * dt; if (p.y > H + 6) { p.y = -6; p.x = Math.random() * W; } if (p.x > W + 6) p.x = -6; });
       shower.forEach(function (p) { p.vy = Math.min(26, p.vy + 40 * dt); p.vx *= 1 - dt * 1.2; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.sp * dt; p.age += dt; });
       shower = shower.filter(function (p) { return p.age < 4; });
       if (bird) { var u = t - bird.t0; if (u > 2.0 && !bird.landed) { bird.landed = 1; for (var i = 0; i < 9; i++) shower.push({x: px + (Math.random() - 0.4) * 70 * bs, y: py - (8 + Math.random() * 40) * bs, vx: (Math.random() - 0.5) * 40, vy: -12 - Math.random() * 14, rot: Math.random() * 6, sp: 1 + Math.random() * 2, age: 0}); }
@@ -22835,7 +22835,7 @@ ENGINES.lunarnewyear = function (A, v, dk) {
       if (dk) { ca.globalCompositeOperation = 'lighter'; for (var g = 0; g < 3; g++) { var fk = flick(t * 0.5 * f.s, g * 2.7); ca.fillStyle = 'rgba(255,140,70,' + (0.1 * fk) + ')'; ca.beginPath();
         for (var j = g; j < lans.length; j += 3) { var L = lans[j], x = L.x - Math.sin(L.ang) * L.cy, y = L.y + Math.cos(L.ang) * L.cy; ca.moveTo(x + L.r * 1.25, y); ca.ellipse(x, y, L.r * 1.25, L.r * 1.15, 0, 0, 6.2832); } ca.fill(); } ca.globalCompositeOperation = 'source-over'; }
       ca.fillStyle = A.petalA; ca.beginPath();
-      petals.forEach(function (p) { var x = p.x + Math.sin(t * 0.7 * f.s + p.ph) * 10 * f.a, rx = p.r * (0.35 + 0.65 * Math.abs(Math.cos(p.rot))); ca.moveTo(x + rx * Math.cos(p.rot * 0.5), p.y + rx * Math.sin(p.rot * 0.5)); ca.ellipse(x, p.y, rx, p.r * 0.66, p.rot * 0.5, 0, 6.2832); }); ca.fill();
+      petals.forEach(function (p) { var x = p.x + Math.sin(t * (0.45 + p.sp * 0.22) * f.s + p.ph) * 10 * f.a, rx = p.r * (0.35 + 0.65 * Math.abs(Math.cos(p.rot))); ca.moveTo(x + rx * Math.cos(p.rot * 0.5), p.y + rx * Math.sin(p.rot * 0.5)); ca.ellipse(x, p.y, rx, p.r * 0.66, p.rot * 0.5, 0, 6.2832); }); ca.fill();
       cb.fillStyle = A.petalC;
       shower.forEach(function (p) { cb.globalAlpha = Math.min(1, (4 - p.age) / 1.2); cb.beginPath(); cb.ellipse(p.x, p.y, 4.2 * bs * (0.35 + 0.65 * Math.abs(Math.cos(p.rot))), 2.8 * bs, p.rot * 0.5, 0, 7); cb.fill(); }); cb.globalAlpha = 1;
       if (!bird) return;
@@ -23177,7 +23177,7 @@ ENGINES.rooftops = function (A, v, dk) {
   }
   return {
     step: function (dt, t, f) {
-      nextS -= dt * f.s; if (nextS <= 0 && chims.length) { nextS = 0.55; chims.forEach(function (c, i) { smoke.push({x: c.x, y: c.y, t0: t, s: hash(t * 3 + i) * 6}); }); }
+      chims.forEach(function (c, i) { c.nx = (c.nx === undefined ? hash(i + 5) * 0.6 : c.nx) - dt * f.s; if (c.nx <= 0) { c.nx = 0.4 + Math.random() * 0.4; smoke.push({x: c.x, y: c.y, t0: t, s: hash(t * 3 + i) * 6}); } });
       smoke = smoke.filter(function (s) { return t - s.t0 < 5; });
       if (dk) { nextW -= dt * f.s; if (nextW <= 0) { nextW = 2.5 + Math.random() * 3; var off = wins.filter(function (w) { return !w.on && !w.lit && !w.aw && w.x > (ph ? 0 : W * 0.4) && w.x < W - 30 && w.y < H - 50; }); if (off.length && litW.length < 5) { var w = off[Math.floor(Math.random() * off.length)]; w.lit = 1; litW.push({w: w, t0: t, dur: 9 + Math.random() * 8}); } }
         litW = litW.filter(function (L) { if (t - L.t0 > L.dur) { L.w.lit = 0; return false; } return true; }); }
@@ -23193,7 +23193,7 @@ ENGINES.rooftops = function (A, v, dk) {
       // chimney smoke (soft curling puffs)
       ca.fillStyle = smokeG; smoke.forEach(function (s) { var k = (t - s.t0) / 5, wind = Math.sin(t * 0.25 + s.s) * 10 + 14, r = 5 + k * 18; ca.save(); ca.globalAlpha = (dk ? 0.3 : 0.45) * Math.sin(Math.PI * Math.min(1, k * 1.2)) * (1 - k); ca.translate(s.x + wind * k * 3 + Math.sin(k * 7 + s.s) * 5 * k, s.y - k * 70); ca.scale(r, r); ca.beginPath(); ca.arc(0, 0, 1, 0, 7); ca.fill(); ca.restore(); });
       // birds (light)
-      if (Lg.birds.length) { ca.strokeStyle = '#5A6478'; ca.lineWidth = 1.4; ca.beginPath(); Lg.birds.forEach(function (b, j) { var x = ((b.x + t * 11 * f.s + 20) % (W + 40) + W + 40) % (W + 40) - 20, y = b.y + Math.sin(t * 0.6 * f.s + j * 2) * 5 * f.a; bn_bird(ca, x, y, 7, Math.sin(t * 4.5 * f.s + j * 1.7)); }); ca.stroke(); }
+      if (Lg.birds.length) { ca.strokeStyle = '#5A6478'; ca.lineWidth = 1.4; ca.beginPath(); Lg.birds.forEach(function (b, j) { var x = ((b.x + t * (9 + (j * 5 % 7)) * f.s + 20) % (W + 40) + W + 40) % (W + 40) - 20, y = b.y + (Math.sin(t * 0.6 * f.s + j * 2) * 5 + Math.sin(t * 1.4 * f.s + j * 3.1) * 1.5) * f.a; bn_bird(ca, x, y, 7, Math.sin(t * (4.5 + (j % 3) * 0.6) * f.s + j * 1.7) * (0.35 + 0.65 * Math.max(0, Math.sin(t * 0.5 + j * 2.1) * 1.4 + 0.2))); }); ca.stroke(); }
       // windows switching on at night, and the launch window
       litW.forEach(function (L) { var T = t - L.t0, a = Math.min(1, T / 1.5, (L.dur - T) / 1.5); cb.globalAlpha = a; cb.fillStyle = winG; cb.save(); cb.translate(L.w.x + 15, L.w.y + 22); cb.beginPath(); cb.arc(0, 0, 34, 0, 7); cb.fill(); cb.restore(); cb.fillStyle = '#FFD58A'; winPath(cb, L.w.x, L.w.y); cb.fill(); boxes(cb, L.w); });
       planes.forEach(function (p) { var T = t - p.t0, a = Math.min(1, T / 0.4) * Math.min(1, Math.max(0, (p.fly + 1.6 - T) / 0.8)); cb.globalAlpha = a * (dk ? 1 : 0.8); cb.fillStyle = winG; cb.save(); cb.translate(p.w.x + 15, p.w.y + 22); cb.beginPath(); cb.arc(0, 0, 34, 0, 7); cb.fill(); cb.restore(); cb.fillStyle = dk ? '#FFD58A' : '#FCE6B8'; winPath(cb, p.w.x, p.w.y); cb.fill(); boxes(cb, p.w); });
@@ -23202,7 +23202,7 @@ ENGINES.rooftops = function (A, v, dk) {
       var sw = (Math.sin(t * 0.6 * f.s) * 6 + Math.sin(t * 1.3 * f.s + 1) * 2) * f.a, pts = [];
       cb.strokeStyle = Lg.rope; cb.lineWidth = 1.4; cb.beginPath(); for (i = 0; i <= 24; i++) { var q = rope(i / 24, sw); if (i) cb.lineTo(q[0], q[1]); else cb.moveTo(q[0], q[1]); } cb.stroke();
       cb.beginPath(); cb.fillStyle = Lg.bulb; for (var u = 0.04, k = 0; u < 1; u += 0.05, k++) { var b = rope(u, sw), sway = Math.sin(t * 1.2 * f.s + k * 0.7) * 1.2 * f.a; pts.push([b[0] + sway, b[1] + 5]); cb.moveTo(b[0] + sway + 4, b[1] + 5); cb.arc(b[0] + sway, b[1] + 5, 4, 0, 7); } cb.fill();
-      if (dk) { cb.save(); cb.globalCompositeOperation = 'lighter'; pts.forEach(function (p, k) { cb.globalAlpha = 0.55 + 0.45 * Math.sin(t * 1.1 * f.s + k * 1.7); cb.save(); cb.translate(p[0], p[1]); cb.fillStyle = bulbG; cb.beginPath(); cb.arc(0, 0, 16, 0, 7); cb.fill(); cb.restore(); }); cb.restore(); cb.globalAlpha = 1; }
+      if (dk) { cb.save(); cb.globalCompositeOperation = 'lighter'; pts.forEach(function (p, k) { cb.globalAlpha = 0.55 + 0.27 * Math.sin(t * 1.1 * f.s + k * 1.7) + 0.18 * Math.sin(t * 0.73 * f.s + k * 2.9); cb.save(); cb.translate(p[0], p[1]); cb.fillStyle = bulbG; cb.beginPath(); cb.arc(0, 0, 16, 0, 7); cb.fill(); cb.restore(); }); cb.restore(); cb.globalAlpha = 1; }
       // paper planes
       planes.forEach(function (p) { if (!p.pos) return; var T = t - p.t0, a = Math.min(1, Math.max(0, (p.fly + 1.6 - T) / 0.5)), sc = ph ? 1.35 : 1.8;
         cb.fillStyle = dk ? 'rgba(242,236,224,' : 'rgba(255,255,255,'; p.trail.forEach(function (q) { cb.fillStyle = (dk ? 'rgba(242,236,224,' : 'rgba(255,255,255,') + (0.7 * (1 - (t - q.t) / 1.1) * a) + ')'; cb.beginPath(); cb.arc(q.x, q.y, 1.6, 0, 7); cb.fill(); });
@@ -23879,7 +23879,7 @@ ENGINES.psych = function (A, v, dk) {
       life.drawB(cb, t, f);
       // butterflies
       flies.forEach(function (b, j) {
-        var x = b.hx + Math.sin(t * 0.21 * f.s + b.ph) * b.ax * f.a + Math.sin(t * 0.53 * f.s + b.ph * 2) * 12, y = b.hy + Math.sin(t * 0.3 * f.s + b.ph * 1.3) * b.ay * f.a + Math.sin(t * 1.7 + b.ph) * 4, vx = Math.cos(t * 0.21 * f.s + b.ph) * b.ax * 0.21, fl = 0.22 + 0.78 * Math.abs(Math.cos(t * 7.5 * f.s + b.ph * 3));
+        var x = b.hx + Math.sin(t * 0.21 * f.s + b.ph) * b.ax * f.a + Math.sin(t * 0.53 * f.s + b.ph * 2) * 12, y = b.hy + Math.sin(t * 0.3 * f.s + b.ph * 1.3) * b.ay * f.a + Math.sin(t * 1.7 + b.ph) * 4, vx = Math.cos(t * 0.21 * f.s + b.ph) * b.ax * 0.21, fl = 0.22 + 0.78 * Math.abs(Math.cos(t * 7.5 * f.s + b.ph * 3 + 1.3 * Math.sin(t * 0.9 + b.ph)));
         cb.save(); cb.translate(x, y); cb.rotate(Math.max(-0.35, Math.min(0.35, vx * 0.02))); cb.scale(b.s * 1.6, b.s * 1.6);
         if (dk) m1_glowAt(cb, flyG, 0, 0, 22, 1);
         [1, -1].forEach(function (sd) { cb.save(); cb.scale(sd * fl, 1); cb.fillStyle = b.c; cb.fill(b.wing); cb.fillStyle = inkC; cb.fill(b.ink); cb.restore(); });
@@ -24448,7 +24448,7 @@ function m2_L_engineering(A, v, dk) {
       if (bot.wait > 0) bot.wait -= dt; else { bot.x += bot.dir * 16 * Lf.rb.s / 40 * sp * dt; if (bot.x > Lf.rb.x1) { bot.x = Lf.rb.x1; bot.dir = -1; bot.wait = 1.2; } if (bot.x < Lf.rb.x0) { bot.x = Lf.rb.x0; bot.dir = 1; bot.wait = 1.2; } }
       items.forEach(function (it) { it.u += dt * 0.05 * sp; if (it.u > 1) { it.u -= 1; it.k = 1 + Math.floor(Math.random() * 3); } });
       nextCuckoo -= dt * f.s; if (nextCuckoo <= 0) { cuckoo = t; nextCuckoo = 22 + Math.random() * 22; }
-      if (runP) { var prev = marble; var onRail = marble < railLen; marble += dt * (onRail ? 70 : 260) * sp; if (prev < bellS && marble >= bellS) { ring = t; for (var j = 0; j < 6; j++) sparks.push({x: R.bell[0], y: R.bell[1], vx: (Math.random() - 0.7) * 90, vy: -40 - Math.random() * 80, t0: t}); } if (marble > runLen) marble -= runLen; var mp = m2_at(runP, marble); if (Math.hypot(mp[0] - R.wheel[0], mp[1] - R.wheel[1] - 18) < 30) wheelA += dt * 14; else wheelA += dt * 0.3; }
+      if (runP) { var prev = marble; var onRail = marble < railLen; marble += dt * (onRail ? 45 + 50 * Math.min(1, marble / Math.max(1, railLen)) : 260) * sp; if (prev < bellS && marble >= bellS) { ring = t; for (var j = 0; j < 6; j++) sparks.push({x: R.bell[0], y: R.bell[1], vx: (Math.random() - 0.7) * 90, vy: -40 - Math.random() * 80, t0: t}); } if (marble > runLen) marble -= runLen; var mp = m2_at(runP, marble); if (Math.hypot(mp[0] - R.wheel[0], mp[1] - R.wheel[1] - 18) < 30) wheelA += dt * 14; else wheelA += dt * 0.3; }
       m2_confStep(conf, dt, t); sparks.forEach(function (s2) { s2.vy += 160 * dt; s2.x += s2.vx * dt; s2.y += s2.vy * dt; }); sparks = sparks.filter(function (s2) { return t - s2.t0 < 1.2; });
     },
     draw: function (ca, cb, t, f) {
@@ -24780,7 +24780,7 @@ ENGINES.civics = function (A, v, dk) {
         ca.fillStyle = pgC[0]; ca.fill(pBody); ca.fillStyle = pgC[1]; ca.fill(pWing); ca.fillStyle = pgC[2]; ca.fill(pNeck);
         ca.fillStyle = beak; ca.fill(pBeak); ca.fillStyle = '#2A2630'; ca.beginPath(); ca.arc(9.2, -15.6, 0.9, 0, 7); ca.fill(); ca.restore(); });
       // fountain water
-      var jh = F.rx * (0.45 + 1.7 * b), top = F.bowlY - jh, R = F.bowlR, flow = -t * 32 * f.s;
+      var jh = F.rx * (0.45 + 1.7 * b) * (1 + (0.035 * Math.sin(t * 1.7 * f.s) + 0.02 * Math.sin(t * 3.1 * f.s + 1)) * f.a), top = F.bowlY - jh, R = F.bowlR, flow = -t * 32 * f.s;
       ripples.forEach(function (r) { var k = (t - r.t0) / 2.2; ca.strokeStyle = water + (0.6 * (1 - k)) + ')'; ca.lineWidth = 1.2; ca.beginPath(); ca.ellipse(r.x, r.y, 4 + k * 26, (4 + k * 26) * 0.26, 0, 0, 7); ca.stroke(); });
       ca.lineCap = 'round';
       for (var pass = 0; pass < 3; pass++) {
@@ -25064,7 +25064,7 @@ ENGINES.gallery = function (A, v, dk) {
     var k, cm = T >= 0 && T < 5.4 ? m3_env(T, 0, 0.4, 4.4, 5.4) : 0;
     // the living landscape: a smiling sun, drifting clouds and a little bird
     c.save(); c.clip(ldClip); var sp = sunPos(); m3_face(c, sp[0], sp[1] + 2, LD.h * 0.07, {closed: true, ink: '#C07030'});
-    c.fillStyle = 'rgba(255,255,255,0.9)'; for (k = 0; k < 2; k++) { var cx = LD.x + ((t * 3 + k * LD.w * 0.55) % (LD.w + 80)) - 40, cy = LD.y + LD.h * (0.14 + k * 0.08); c.beginPath(); c.ellipse(cx, cy, 22, 7, 0, 0, 7); c.ellipse(cx + 8, cy - 5, 11, 7, 0, 0, 7); c.fill(); }
+    c.fillStyle = 'rgba(255,255,255,0.9)'; for (k = 0; k < 2; k++) { var cx = LD.x + ((t * (3.6 - k * 1.5) + k * LD.w * 0.55) % (LD.w + 80)) - 40, cy = LD.y + LD.h * (0.14 + k * 0.08), cz = 1 - k * 0.25; c.beginPath(); c.ellipse(cx, cy, 22 * cz, 7 * cz, 0, 0, 7); c.ellipse(cx + 8 * cz, cy - 5 * cz, 11 * cz, 7 * cz, 0, 0, 7); c.fill(); }
     var bh = birdHome(), FT = t - P2.flyT, fly = FT >= 0 && FT < 5 ? m3_env(FT, 0, 0.6, 4.2, 5) : 0;
     if (fly > 0) { var fa = FT * 1.4; drawBird(c, bh[0] - LD.w * 0.18 * Math.sin(fa) * fly, bh[1] - LD.h * 0.35 * fly + Math.cos(fa * 2) * LD.h * 0.06 * fly, 0.9, Math.cos(fa) >= 0 ? -1 : 1, Math.abs(Math.sin(FT * 6))); }
     else drawBird(c, bh[0] + Math.sin(t * 0.1) * 8, bh[1], 0.9, Math.sin(t * 0.1 + 1.5) > 0 ? 1 : -1, 0.2);
@@ -25441,7 +25441,7 @@ ENGINES.math = function (A, v, dk) {
         ca.strokeStyle = k.c[0]; ca.lineWidth = 1.4; ca.beginPath(); for (var q = 0; q <= 12; q++) { var u = q / 12; ca.lineTo(x - u * k.s * 0.6 + Math.sin(t * 1.2 + u * 6 + k.ph) * 3, y + k.s + u * k.s * 2.4); } ca.stroke();
         for (var b = 1; b <= 3; b++) { var u2 = b / 4, bx = x - u2 * k.s * 0.6 + Math.sin(t * 1.2 + u2 * 6 + k.ph) * 3, by = y + k.s + u2 * k.s * 2.4; ca.fillStyle = m4_FUN[(b + k.n) % 6]; ca.beginPath(); ca.moveTo(bx, by); ca.lineTo(bx - 4, by - 3); ca.lineTo(bx - 4, by + 3); ca.closePath(); ca.moveTo(bx, by); ca.lineTo(bx + 4, by - 3); ca.lineTo(bx + 4, by + 3); ca.closePath(); ca.fill(); }
         polyPath(ca, x, y, k.n, k.s, rot); ca.fillStyle = k.c[1]; ca.fill(); ca.strokeStyle = k.c[0]; ca.lineWidth = 2; ca.stroke(); polyPath(ca, x, y, k.n, k.s * 0.55, rot); ca.fillStyle = k.c2[1]; ca.fill();
-        m4_face(ca, x, y, k.s * 0.42, glowK > 0.3, (t % 4.7) < 0.12, '#3A2A4A'); });
+        m4_face(ca, x, y, k.s * 0.42, glowK > 0.3, ((t + k.ph * 2.3) % 4.7) < 0.12, '#3A2A4A'); });
       var bx2 = ((bal.x + t * 2.5 * f.s) % (W + 140) + W + 140) % (W + 140) - 70, by2 = bal.y + Math.sin(t * 0.25) * 6, br = bal.r;
       ca.save(); ca.translate(bx2, by2); ca.save(); ca.beginPath(); ca.arc(0, 0, br, 0, 7); ca.clip(); for (var st = -4; st <= 4; st++) { ca.fillStyle = PAL[(st + 8) % 6][1 - (st & 1)]; ca.fillRect(st * br * 0.25 - br * 0.125, -br, br * 0.25, br * 2); } ca.restore();
       ca.strokeStyle = dk ? '#C8B8D8' : '#8A6A8A'; ca.lineWidth = 1; ca.beginPath(); ca.moveTo(-br * 0.6, br * 0.8); ca.lineTo(-br * 0.2, br * 1.5); ca.moveTo(br * 0.6, br * 0.8); ca.lineTo(br * 0.2, br * 1.5); ca.stroke(); ca.fillStyle = '#C08A5A'; ca.fillRect(-br * 0.24, br * 1.5, br * 0.48, br * 0.34);
@@ -25842,7 +25842,7 @@ function m5_bird(c, x, y, s, flap) { var f = flap * s * 0.45; c.moveTo(x - s, y 
 ENGINES.ruins = function (A, v, dk) {
   var W = v.bw, H = v.bh, ph = !v.desk, S = A.sun, T = A.temple, hz = A.hz, flare = null, glass = null;
   var gC = dk ? 'rgba(255,230,170,' : 'rgba(255,222,120,', sunG = m5_rg(dk ? 'rgba(225,230,255,0.5)' : 'rgba(255,236,190,0.75)', 1, [0.3, 0.35]), flyG = m5_rg('rgba(255,226,140,0.6)', 1), goldG = m5_rg(dk ? 'rgba(255,224,150,0.85)' : 'rgba(222,150,40,0.95)', 1, [0.35, 0.45]);
-  var flies = [], motes = [], birds = [], i, j;
+  var flies = [], motes = [], birds = [], i, j, sailA = 0;
   if (false) { A.olives.forEach(function (o, k) { for (var j = 0; j < 5; j++) flies.push({x0: o[0] + (hash(k * 9 + j) - 0.5) * o[2] * 2.4, y0: o[1] + (hash(k * 9 + j + 3) - 0.3) * o[2] * 1.6, ph: hash(k * 9 + j + 5) * 6.28}); }); for (j = 0; j < (ph ? 6 : 10); j++) flies.push({x0: T.x0 + hash(j + 40) * (T.x1 - T.x0), y0: T.sy - hash(j + 50) * T.ch * 1.1, ph: hash(j + 60) * 6.28}); }
   for (i = 0; i < (ph ? 10 : 18); i++) motes.push({x0: hash(i + 1) * W, y0: H * 0.55 + hash(i + 2) * H * 0.42, ph: hash(i + 3) * 6.28});
   var petals = [], PC = dk ? ['#E070B8', '#F090C8', '#C858A0'] : ['#EE4F9A', '#FF7FB6', '#F7A8CF'], petP = new Path2D('M0 -3C2.4 -3 3 0 1.4 2.6C0.7 3.4 -0.7 3.4 -1.4 2.6C-3 0 -2.4 -3 0 -3Z'), swirl = null;
@@ -25867,6 +25867,7 @@ ENGINES.ruins = function (A, v, dk) {
       nextDol -= dt * f.s; if (nextDol <= 0 && !dol) { nextDol = 14 + Math.random() * 12; var Sx = A.sea; dol = {t0: t, x: Sx[0] + Math.random() * (Sx[1] - Sx[0] - 60), y: Sx[2] + Math.random() * (Sx[3] - Sx[2]), dir: Math.random() < 0.5 ? 1 : -1, n: 0}; }
       if (dol) { var du = (t - dol.t0) / 1.8; if (du > 1.6) dol = null; else if (du > 0 && du < 0.05 && !dol.n) { dol.n = 1; for (var k = 0; k < 8; k++) spl.push({x: dol.x, y: dol.y, vx: (Math.random() - 0.5) * 40, vy: -30 - Math.random() * 40, t0: t}); } else if (du > 0.95 && dol.n === 1) { dol.n = 2; for (k = 0; k < 10; k++) spl.push({x: dol.x + dol.dir * (ph ? 60 : 80), y: dol.y, vx: (Math.random() - 0.5) * 50, vy: -30 - Math.random() * 50, t0: t}); } }
       spl = spl.filter(function (q) { return t - q.t0 < 0.9; });
+      sailA += dt * f.s * 0.3 * (1 + 0.3 * Math.sin(t * 0.09) + 0.2 * Math.sin(t * 0.23 + 1)) * (1 + 3 * (flare ? m5_env(t - flare.t0, 0, 0.8, 2.2, 4.2) : 0));
       if (flare && t - flare.t0 > 4.5) flare = null;
     },
     draw: function (ca, cb, t, f) {
@@ -25877,7 +25878,7 @@ ENGINES.ruins = function (A, v, dk) {
         ca.fillStyle = dk ? '#FBF3DA' : '#FFF6D6'; ca.beginPath(); ca.arc(S[0], S[1], S[2], 0, 7); ca.fill(); }
       if (dk) { ca.fillStyle = 'rgba(210,200,230,0.4)'; [[-0.3, -0.2, 0.2], [0.32, 0.25, 0.14], [0.2, -0.42, 0.09], [-0.15, 0.45, 0.1]].forEach(function (q) { ca.beginPath(); ca.arc(S[0] + S[2] * q[0], S[1] + S[2] * q[1], S[2] * q[2], 0, 7); ca.fill(); }); }
       // the windmill's sails turn
-      ca.save(); ca.translate(M[0], M[1] - M[2] * 1.75); ca.rotate(tt * 0.6 * (1 + (flare ? 3 : 0))); ca.scale(M[2], M[2]); ca.fillStyle = dk ? '#C9CFEA' : '#FFFFFF'; ca.fill(sailP); ca.strokeStyle = dk ? 'rgba(40,50,100,0.5)' : 'rgba(80,110,170,0.45)'; ca.lineWidth = 1 / M[2]; ca.stroke(sailP); ca.restore();
+      ca.save(); ca.translate(M[0], M[1] - M[2] * 1.75); ca.rotate(sailA); ca.scale(M[2], M[2]); ca.fillStyle = dk ? '#C9CFEA' : '#FFFFFF'; ca.fill(sailP); ca.strokeStyle = dk ? 'rgba(40,50,100,0.5)' : 'rgba(80,110,170,0.45)'; ca.lineWidth = 1 / M[2]; ca.stroke(sailP); ca.restore();
       ca.fillStyle = dk ? '#3A62C8' : '#2A6BD2'; ca.beginPath(); ca.arc(M[0], M[1] - M[2] * 1.75, M[2] * 0.16, 0, 7); ca.fill();
       // sea glints
       ca.lineCap = 'round';
