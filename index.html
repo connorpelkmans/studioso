@@ -7556,8 +7556,42 @@ const STICKER_PACKS = [
 ];
 
 /* ---------- Style Shop: themes, flashcard styles, note shapes, pins, stickers ---------- */
-// PRO items are free for now. Flip STORE.paywall to true once purchases exist; owned items live in settings.owned.
-const STORE = {paywall: false};
+/* ============================================================================================================
+   FLIP TO true TO LAUNCH PRO
+   ------------------------------------------------------------------------------------------------------------
+   This one constant is the app-side Pro switch. While it is false (and the server switch below is off) every
+   theme, shop item, companion and limit is unlocked for everyone, exactly as before.
+   When Pro enforcement is ON, everything below follows from it automatically: STORE.paywall, PLAN.paywall(),
+   PLAN.isPro(), the Style Shop locks, sticker packs, theme collections, companions, photo themes, scrapbook
+   extras, Study Together limits, group limits and the Studyboard Pro sheet.
+
+   Enforcement is ON if ANY of these is true (the first two are "real" switches, the third is for testing):
+     1. PRO_ENFORCED below is true (needs a new build of the app), OR
+     2. the server says so: studyboard_config.paywall = true (flip it in Supabase, no rebuild needed), OR
+     3. the test override localStorage "studyboard:paywall-test" = "1" (can only force it ON).
+   Nothing local can ever turn enforcement OFF once the constant or the server says ON: the last server answer is
+   latched on this device and only a successful server answer of "false" releases it (so you can still switch back).
+   To launch with the constant, change false to true on the next line, rebuild, and set the server switch too
+   (see "Launch Day" in PRO-PLANS-GUIDE.md).
+   ============================================================================================================ */
+const PRO_ENFORCED = false;   // <-- FLIP TO true TO LAUNCH PRO
+
+// PRO items are free while enforcement is off. Owned/earned items live in settings.owned (and always stay usable).
+// STORE.paywall is a read-only view of the switch above; the PLAN module feeds the server answer in through STORE.serverPaywall().
+const STORE = (() => {
+  const K_CFG = "studyboard:plancfg", K_LATCH = "studyboard:pw-latch", K_TEST = "studyboard:paywall-test";
+  const ls = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  let server = false;
+  try { const c = JSON.parse(ls(K_CFG) || "null"); server = !!(c && c.rows && c.rows.paywall === true); } catch (e) {}
+  if (ls(K_LATCH) === "1") server = true;
+  const st = {
+    get paywall(){ return PRO_ENFORCED === true || server || ls(K_TEST) === "1"; },
+    // v: true | false from a successful read of studyboard_config.paywall. false releases the latch; a failed read never calls this.
+    serverPaywall(v){ server = !!v; try { if (v) localStorage.setItem(K_LATCH, "1"); else localStorage.removeItem(K_LATCH); } catch (e) {} },
+    get enforcedByApp(){ return PRO_ENFORCED === true; }
+  };
+  return st;
+})();
 const svgUrl = svg => `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 const SVGH = (vb, body, ar = "none") => `<svg xmlns='http://www.w3.org/2000/svg' viewBox='${vb}' preserveAspectRatio='${ar}'>${body}</svg>`;
 // Theme colors: [paper, grid, surface, ink, muted, line, soft, field, accent, accent-2, accent-ink, selected, spine, spine-ink, highlight]
@@ -8157,10 +8191,26 @@ const pinHtml = k => `<span class="pin pk-${k} pkk-${PIN_KIND[k] || "badge"}" ar
 const STICKERS = {}; STICKER_PACKS.forEach(p => Object.entries(p.items).forEach(([k, svg]) => { STICKERS[k] = {svg, pack: p.id}; }));
 const stickerSvg = k => STICKERS[k] ? `<svg viewBox="0 0 64 64" aria-hidden="true">${STICKERS[k].svg}</svg>` : "";
 
-/* Ownership: free items always; PRO items once the paywall is on need to be owned. */
-const STYLE_LISTS = {skin: SKINS, card: CARD_STYLES, note: NOTE_SHAPES, pin: PINS, sticker: STICKER_PACKS};
+/* Ownership: free items always; PRO items once Pro enforcement is on need Pro, or to be owned/earned (settings.owned).
+   Every place that APPLIES or RENDERS a style item asks owns() again (applySkin, cardStyleOf, noteShapeOf, notePinOf, the companion,
+   stickers on notes, scrapbook extras), so a Pro id that arrives from a synced setting, an imported backup, restored storage or
+   another device is never used without entitlement. The choice itself stays in settings ("remembered"), so it returns with Pro. */
+const STYLE_LISTS = {skin: SKINS, card: CARD_STYLES, note: NOTE_SHAPES, pin: PINS, sticker: STICKER_PACKS, comp: [], prop: []};   // comp and prop are filled by the companion module
+// The tier of a theme (a skin id, or "plain" for the free plain colors). Theme collections and companions take their tier from here.
+const themeTier = id => id === "plain" || !id ? "free" : ((SKINS.find(x => x.id === id) || {}).tier || "free");
 const itemTier = (kind, id) => ((STYLE_LISTS[kind] || []).find(x => x.id === id) || {}).tier || "free";
-const owns = (kind, id) => !STORE.paywall || itemTier(kind, id) === "free" || (typeof PLAN !== "undefined" && !!PLAN && PLAN.isPro()) || ((state.settings && state.settings.owned) || []).includes(`${kind}:${id}`);
+const ownedList = () => (state.settings && state.settings.owned) || [];
+const owns = (kind, id) => {
+  if (!STORE.paywall || itemTier(kind, id) === "free") return true;
+  if (typeof PLAN !== "undefined" && !!PLAN && PLAN.isPro()) return true;
+  const o = ownedList();
+  if (o.includes(`${kind}:${id}`)) return true;
+  // a companion comes with its theme: if you own the theme, you own the companions that live in it
+  if (kind === "comp") { const it = (STYLE_LISTS.comp || []).find(x => x.id === id); if (it && it.theme && o.includes(`skin:${it.theme}`)) return true; }
+  return false;
+};
+// The theme actually on screen: the chosen one only if it may be used now, else Classic (the choice stays in settings).
+const effSkinId = () => { const id = ((state.settings && state.settings.style) || {}).skin || "classic"; return SKINS.some(x => x.id === id) && owns("skin", id) ? id : "classic"; };
 const styleCfg = () => Object.assign({skin: "classic", card: "index", note: "classic", pin: "pin"}, (state.settings && state.settings.style) || {});
 const cardStyleOf = d => { const cfg = styleCfg(), kit = themeKit(); let s = (d && d.cardStyle) || (cfg.cardAuto !== false && kit ? "theme" : cfg.card); if (s === "theme") return kit ? "theme" : "index"; return owns("card", s) && CARD_STYLES.some(x => x.id === s) ? s : "index"; };
 const noteShapeOf = n => { const cfg = styleCfg(), kit = themeKit(); if (n && n.shape) return owns("note", n.shape) && NOTE_SHAPES.some(x => x.id === n.shape) ? n.shape : "classic"; if (cfg.noteAuto !== false && kit) return kit.shape; const s = cfg.note; return owns("note", s) && NOTE_SHAPES.some(x => x.id === s) ? s : "classic"; };
@@ -8250,7 +8300,8 @@ function shopRow(){
 
 /* Stickers: an envelope beside the board. Drag a sticker onto a note; it rides along when the note moves. */
 function noteStickersHtml(n){
-  return (n.stickers || []).filter(x => STICKERS[x.k]).map((x, i) => `<span class="stk" data-stk="${i}" title="Drag to move, drag off the note to remove, tap to resize" style="left:${x.x}%;top:${x.yp != null ? x.yp + "px" : (x.y || 50) + "%"};--r:${x.r || 0}deg;--s:${x.s || 1}">${stickerSvg(x.k)}</span>`).join("");
+  // Stickers from a Pro pack you can't use right now stay in the note but are not drawn (they come back with Pro)
+  return (n.stickers || []).map((x, i) => [x, i]).filter(([x]) => STICKERS[x.k] && stkOwns(x.k)).map(([x, i]) => `<span class="stk" data-stk="${i}" title="Drag to move, drag off the note to remove, tap to resize" style="left:${x.x}%;top:${x.yp != null ? x.yp + "px" : (x.y || 50) + "%"};--r:${x.r || 0}deg;--s:${x.s || 1}">${stickerSvg(x.k)}</span>`).join("");
 }
 /* Sticker search: every sticker in every pack is findable by its name, a few keywords (and emoji), or its pack and theme.
    Words below are for the built-in packs; theme packs fall back on their own names. Recents are kept on this device. */
@@ -8281,7 +8332,7 @@ function stkPackInfo(id){
   STICKER_PACKS.forEach((p, i) => { if (!stkPacks.has(p.id)) stkPacks.set(p.id, {id: p.id, name: p.name, tier: p.tier, theme: p.theme, i}); });
   return stkPacks.get(id) || null;
 }
-const stkOwns = k => { const i = stkPackInfo((STICKERS[k] || {}).pack); return !STORE.paywall || !i || i.tier !== "pro" || (typeof PLAN !== "undefined" && !!PLAN && PLAN.isPro()) || ((state.settings && state.settings.owned) || []).includes(`sticker:${i.id}`); };
+const stkOwns = k => { const i = stkPackInfo((STICKERS[k] || {}).pack); return !STORE.paywall || !i || i.tier !== "pro" || (typeof PLAN !== "undefined" && !!PLAN && PLAN.isPro()) || ownedList().includes(`sticker:${i.id}`); };
 function stkIndex(){
   stkPackInfo("");
   const sig = Object.keys(STICKERS).length + ":" + stkPacks.size;
@@ -13547,27 +13598,57 @@ function endDrag(ok){
 
 /* ===== module: 10-plan.js ===== */
 /* Studyboard 1.11: Plans (Free and Pro)
-   The plan and entitlement system. It is built and ready, but switched off: while STORE.paywall is false,
-   PLAN.isPro() is true, nothing is locked and no limit sheets appear (exactly how the app worked before).
+   The plan and entitlement system. It is built and ready, but switched off: while Pro enforcement is off (PRO_ENFORCED is false
+   and the server switch studyboard_config.paywall is false), PLAN.isPro() is true, nothing is locked and no limit sheets appear.
+   To launch, see "FLIP TO true TO LAUNCH PRO" next to STORE.
 
    Shared API (declared with var so every later module can use it):
-     PLAN.tier()            "free" | "pro"   ("pro" while the paywall is off)
-     PLAN.isPro()           paid or trialling Pro, or paywall off
-     PLAN.paywall()         STORE.paywall
+     PLAN.tier()            "free" | "pro"   ("pro" while enforcement is off)
+     PLAN.isPro()           paid or trialling Pro (a verified signed token), or enforcement off
+     PLAN.paywall()         STORE.paywall (enforcement on: constant OR server switch OR test override; local state can never turn it off)
+     PLAN.mode()            "off" | "free" | "signed" (verified token) | "unsigned-fallback" (own RLS row, no key or no Ed25519)
      PLAN.limits()          {devices, fileMB, dataMB, groupMembers, groupMsgDays, cloudBackupDays}  (Infinity / null = no limit)
      PLAN.can(feature)      "sync-unlimited-devices" | "cloud-backups" | "big-groups" | "full-group-history" | "premium-styles" | "big-storage" | "insights" | "ai-credits"
      PLAN.openSheet(reason) the Studyboard Pro sheet, with an optional reason line at the top
      PLAN.usage()           {dataMB, fileMB} estimated from this device's copy of your data
-     PLAN.checkout(period)  "monthly" | "yearly": Stripe Payment Link, or hook("plan-checkout") for a native store layer
-     PLAN.refresh()         reload the plan and config from Supabase
+     PLAN.buy(period)       "monthly" | "yearly": the ONE buy function (website account page, or native in-app purchase in store builds)
+     PLAN.manage() PLAN.restore() PLAN.refresh()
      hook("plan-changed", fn(PLAN))   fired after the plan loads or changes
    Hooks fired for a native layer (RevenueCat in an app store wrapper, or the desktop app):
      "plan-checkout" (period, userId) return true if handled; "plan-restore" (userId); "plan-manage" (ent); "plan-buy-item" (kind, id)
 */
 var PLAN = null;
 (() => {
-  const K_ENT = "studyboard:plan", K_CFG = "studyboard:plancfg", K_DEV = "studyboard:deviceId", K_FORCE = "studyboard:paywall-test", K_NAG = "studyboard:devnag";
+  const K_ENT = "studyboard:plan", K_TOK = "studyboard:enttok", K_HW = "studyboard:ent:hw", K_CFG = "studyboard:plancfg", K_DEV = "studyboard:deviceId", K_NAG = "studyboard:devnag";
   const MB = 1048576;
+
+  /* ============================== OWNER SETTINGS (replace these before launch) ============================== */
+  // The Pro switch itself is PRO_ENFORCED (next to STORE, near the top of this file). These are the other things you fill in:
+
+  // The public half of the key that signs entitlement tokens. REPLACE with the output of the key-generation step in
+  // PRO-PLANS-GUIDE.md ("Entitlement signing key"). It is a RAW 32-byte Ed25519 public key as base64url (43 characters).
+  // While this is still the placeholder, the app falls back to reading the signed-in user's own studyboard_entitlements row
+  // (allowed by RLS) and marks the plan as "unsigned-fallback" (kept in memory only, never trusted from storage).
+  const ENT_PUBKEY = "REPLACE_WITH_ED25519_PUBLIC_KEY_BASE64URL";
+
+  // Your website. REPLACE with the real address (no trailing slash). studyboard_config "site_url" overrides it without a rebuild.
+  // Buy / Manage Plan open <site>/account?plan=monthly|yearly&src=app in the person's browser.
+  const SITE_URL = "https://studyboard.example";
+
+  // App Store / Play builds must sell digital subscriptions with the store's own in-app purchase (Apple guideline 3.1.1), so
+  // Buy goes to the native layer (the "plan-checkout" event, RevenueCat) there. Set this to true ONLY if you are sure that your
+  // storefronts allow external purchase links (for example the US storefront under the current Apple rules); store builds then
+  // open the website like everyone else. Default false is the safe choice.
+  const EXTERNAL_PURCHASE_ALLOWED = false;
+
+  /* About tamper resistance (please read): Studyboard is a fully client-side app, so nobody can stop a determined person from
+     editing their own copy of index.html and making isPro() return true. Everything that gates cosmetics here (themes, companions,
+     stickers...) is deterrence for normal people, not security. The REAL protection is on the server: file and data storage
+     limits, the device limit, study group size and message retention, online backups and Study Together rooms are enforced by
+     Supabase (supabase-plans.sql triggers and room_limits) from the studyboard_entitlements row that only the billing webhook can write.
+     What this client does on top: it never trusts a plain flag in localStorage. Pro is derived from a SIGNED token
+     (the entitlement-token edge function) that is verified with the public key above on every load, must belong to the signed-in
+     user, and must not be expired (with a clock high-water mark so setting the device clock back doesn't revive it). */
 
   /* ---------- Config: one place for limits and prices. The studyboard_config table can override any of it. ---------- */
   const PLAN_CONFIG = {
@@ -13576,11 +13657,11 @@ var PLAN = null;
       pro: {devices: Infinity, fileMB: 10240, dataMB: 250, groupMembers: 100, groupMsgDays: null, cloudBackupDays: 30}
     },
     prices: {monthly: "$2.99", yearly: "$19.99", trialDays: 7},
-    checkout_url_monthly: "", checkout_url_yearly: "", manage_url: "",
+    checkout_url_monthly: "", checkout_url_yearly: "", manage_url: "", site_url: "",
     app_trial: false,                 // a no-card trial started in the app (studyboard_start_trial). Store trials work without this.
     item_purchases: false,            // single cosmetic items or packs for sale on their own (optional)
     features: {insights: false, ai_credits: false},
-    paywall: false                    // the server switch (for information; the client switch is STORE.paywall)
+    paywall: false                    // the server switch (studyboard_config.paywall); the app switch is PRO_ENFORCED. Either one turns enforcement on.
   };
   const read = k => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } };
   const write = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
@@ -13597,7 +13678,7 @@ var PLAN = null;
       Object.keys(c.limits[t]).forEach(k => { if (k in src && !PINNED[t].includes(k)) { const v = numOr(src[k], c.limits[t][k]); c.limits[t][k] = v === null && k !== "groupMsgDays" ? Infinity : v; } });
     });
     if (rows.prices && typeof rows.prices === "object") Object.assign(c.prices, rows.prices);
-    ["checkout_url_monthly", "checkout_url_yearly", "manage_url"].forEach(k => { if (typeof rows[k] === "string" && /^https:\/\//.test(rows[k])) c[k] = rows[k]; });
+    ["checkout_url_monthly", "checkout_url_yearly", "manage_url", "site_url"].forEach(k => { if (typeof rows[k] === "string" && /^https:\/\//.test(rows[k])) c[k] = rows[k]; });
     ["app_trial", "item_purchases", "paywall"].forEach(k => { if (typeof rows[k] === "boolean") c[k] = rows[k]; });
     if (rows.features && typeof rows.features === "object") Object.keys(c.features).forEach(k => { if (typeof rows.features[k] === "boolean") c.features[k] = rows.features[k]; });
     return c;
@@ -13606,18 +13687,34 @@ var PLAN = null;
   /* ---------- State ---------- */
   const P = {
     cfgRows: (read(K_CFG) || {}).rows || null,
-    cache: read(K_ENT),       // {uid, ent: {plan, pro_until, trial_until, source, will_renew}, at}
+    row: read(K_ENT),         // {uid, ent: {plan, pro_until, trial_until, source, will_renew}, at}: the user's own row, for DISPLAY (and the unsigned fallback when fetched this session)
+    rowLive: false,           // the row above was read from the server during this page load
+    tok: null,                // the verified token {tier, exp, uid, iat, sig} (only ever set after a successful signature check in this page load)
+    pend: null,               // the cached token while its signature check is still running (a few ms at startup)
+    mode: "none",             // "signed" (verified token) | "unsigned-fallback" (the user's own RLS row) | "none"
+    edBad: false, noFn: false,
     uid: null,                // the signed-in user we last loaded for
-    loading: false, tablesMissing: false,
+    stored: null,             // the user id of the saved sign-in, used only while the app hasn't finished signing in (offline start)
+    loading: false, tablesMissing: false, lastLoad: 0, awaiting: 0, wasPro: false,
     devices: null, devErr: "", devBlocked: false,
     lastKey: ""
   };
   let cfg = mergeCfg(P.cfgRows);
-  try { if (localStorage.getItem(K_FORCE) === "1") STORE.paywall = true; } catch (e) {}   // tests: force the paywall on (never off)
+  try { const a = JSON.parse(localStorage.getItem("studioso-auth") || "null"); P.stored = a && a.user && typeof a.user.id === "string" ? a.user.id : (a && a.currentSession && a.currentSession.user && a.currentSession.user.id) || null; } catch (e) {}
 
-  const now = () => Date.now();
+  /* Time that only moves forward: the larger of the device clock and a saved high-water mark (bumped from the server's own
+     timestamps and every minute), plus the time elapsed in this session. Setting the clock back can't un-expire a token. */
+  let hw = Number((() => { try { return localStorage.getItem(K_HW); } catch (e) { return 0; } })()) || 0;
+  const base0 = Math.max(Date.now(), hw), perf0 = typeof performance !== "undefined" ? performance.now() : 0;
+  const bump = ms => { if (ms > hw) { hw = ms; try { localStorage.setItem(K_HW, String(Math.floor(hw))); } catch (e) {} } };
+  const now = () => Math.max(Date.now(), base0 + (typeof performance !== "undefined" ? performance.now() - perf0 : 0));
   const ts = v => { const t = v ? Date.parse(v) : NaN; return isNaN(t) ? 0 : t; };
-  const ent = () => (P.cache && P.cache.ent) || null;
+  const clockBack = () => Date.now() < hw - 5 * 60000;
+  setInterval(() => bump(now()), 60000);
+  bump(now());
+
+  const curUid = () => sbUser ? sbUser.id : P.stored;
+  const ent = () => (P.row && P.row.ent && P.row.uid === curUid()) ? P.row.ent : null;
   function entActive(e){
     if (!e) return false;
     if (e.plan === "lifetime") return true;
@@ -13625,9 +13722,71 @@ var PLAN = null;
     return ts(e.trial_until) > now();
   }
   const trialing = e => !!e && e.plan !== "lifetime" && !(e.plan === "pro" && (!e.pro_until || ts(e.pro_until) > now())) && ts(e.trial_until) > now();
-  const paid = () => entActive(ent());
+  const PRO_TIERS = ["pro", "trial", "lifetime"];
+  const SKEW_MS = 2 * 60000;
+  const tokLive = t => !!t && PRO_TIERS.includes(t.tier) && t.uid === curUid() && now() < t.exp * 1000 + SKEW_MS;
+  // Is this person Pro right now? Derived from the verified token (or the legitimate RLS fallback), never from a stored flag.
+  function paid(){
+    const u = curUid(); if (!u) return false;
+    if (P.mode === "signed" && tokLive(P.tok)) return true;
+    if (P.mode === "unsigned-fallback" && P.rowLive && P.row && P.row.uid === u && entActive(P.row.ent)) return true;
+    return !!P.pend && tokLive(P.pend);   // the cached token's signature is being checked: keep what you had for those few milliseconds
+  }
+  // Enforcement: PRO_ENFORCED, the server switch (latched), or the test override. Local state can only ever turn it ON.
   const paywall = () => !!STORE.paywall;
   const isPro = () => !paywall() || paid();
+  const mode = () => !paywall() ? "off" : !paid() ? "free" : P.mode === "signed" ? "signed" : P.mode === "unsigned-fallback" ? "unsigned-fallback" : "signed";
+
+  /* ---------- The signed entitlement token ----------
+     Contract with the server (edge function "entitlement-token", POST with the user's Supabase JWT) returns
+       {tier, exp, uid, iat, sig}
+     tier "free" | "pro" | "trial" | "lifetime"; exp and iat in unix seconds (exp is at most 7 days after iat, sooner for trials; the
+     server hands out a fresh one while the subscription is active); sig = base64url Ed25519 signature over the UTF-8 string
+       studyboard-ent-v1|<uid>|<tier>|<exp>|<iat>                                                                                    */
+  const b64u = s => { s = String(s || "").replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "="; const bin = atob(s), a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a; };
+  const keyBytes = () => { try { const b = b64u(ENT_PUBKEY); return b.length === 32 ? b : null; } catch (e) { return null; } };
+  const hasKey = () => !!keyBytes();
+  let keyP = null;
+  const cryptoKey = () => keyP || (keyP = crypto.subtle.importKey("raw", keyBytes(), {name: "Ed25519"}, false, ["verify"]));
+  // "ok" | "nokey" | "unsupported" | "shape" | "forged" | "uid" | "expired" | "toolong"
+  async function verifyToken(t, uid){
+    if (!t || typeof t !== "object") return "shape";
+    const {tier, exp, uid: tu, iat, sig} = t;
+    if (typeof tier !== "string" || !/^[a-z]{1,16}$/.test(tier) || typeof tu !== "string" || !tu || tu.includes("|") || typeof sig !== "string" || !Number.isInteger(exp) || !Number.isInteger(iat)) return "shape";
+    if (!hasKey()) return "nokey";
+    if (!(window.crypto && crypto.subtle)) return "unsupported";
+    let key; try { key = await cryptoKey(); } catch (e) { keyP = null; return "unsupported"; }
+    let ok = false;
+    try { ok = await crypto.subtle.verify("Ed25519", key, b64u(sig), new TextEncoder().encode(`studyboard-ent-v1|${tu}|${tier}|${exp}|${iat}`)); } catch (e) { ok = false; }
+    if (!ok) return "forged";
+    if (uid && tu !== uid) return "uid";
+    if (exp - iat > 8 * 86400) return "toolong";
+    bump(iat * 1000);
+    if (now() > exp * 1000 + SKEW_MS) return "expired";
+    return "ok";
+  }
+  // On every load: re-verify the cached token (never trusted just because it is in storage)
+  async function loadCachedToken(){
+    const c = read(K_TOK); if (!c || !c.tok) return;
+    if (!hasKey() || !(window.crypto && crypto.subtle)) { write(K_TOK, null); return; }
+    const uid = curUid();
+    if (uid && c.tok.uid === uid && tokLive(c.tok)) P.pend = c.tok;
+    const r = await verifyToken(c.tok, null);
+    P.pend = null;
+    if (r === "unsupported") { P.edBad = true; changed(); return; }
+    if (r === "ok") { P.tok = c.tok; P.mode = "signed"; }
+    else { P.tok = null; write(K_TOK, null); }
+    changed();
+  }
+
+  /* ---------- Features ---------- */
+  function can(feature){
+    switch (feature) {
+      case "insights": return !!cfg.features.insights && isPro();
+      case "ai-credits": return !!cfg.features.ai_credits && isPro();
+      default: return isPro();   // sync-unlimited-devices, cloud-backups, big-groups, full-group-history, premium-styles, big-storage
+    }
+  }
 
   /* ---------- Usage (estimated from this device's copy) ---------- */
   function usage(){
@@ -13639,20 +13798,18 @@ var PLAN = null;
   const lim = () => cfg.limits[isPro() ? "pro" : "free"];
   const fmtMB = mb => mb === Infinity ? "Unlimited" : mb >= 1024 ? `${+(mb / 1024).toFixed(mb % 1024 ? 1 : 0)} GB` : mb >= 10 || mb === 0 ? `${Math.round(mb)} MB` : `${mb.toFixed(1)} MB`;
 
-  /* ---------- Features ---------- */
-  function can(feature){
-    switch (feature) {
-      case "insights": return !!cfg.features.insights && isPro();
-      case "ai-credits": return !!cfg.features.ai_credits && isPro();
-      default: return isPro();   // sync-unlimited-devices, cloud-backups, big-groups, full-group-history, premium-styles, big-storage
-    }
-  }
-
   /* ---------- Loading from Supabase (tolerates missing tables) ---------- */
   const missing = err => { const m = String(err && (err.message || err.code) || ""); return err && (err.code === "42P01" || err.code === "PGRST205" || err.code === "PGRST202" || /does not exist|Could not find the (table|function)|schema cache/i.test(m)); };
   let lastFire = "";
   function changed(){
-    const key = JSON.stringify([paywall(), isPro(), ent(), cfg.limits, cfg.prices]);
+    const pro = isPro();
+    const key = JSON.stringify([paywall(), pro, mode(), ent(), cfg.limits, cfg.prices, P.edBad]);
+    // the person just became Pro after starting a purchase: say so
+    if (pro && !P.wasPro && P.awaiting && paywall()) {
+      P.awaiting = 0;
+      setTimeout(() => { try { toast("Pro is on. Thank you for supporting Studyboard!"); if (dlg.open && dlg.querySelector(".plan-sheet")) proSheet(P.reason); } catch (e) {} }, 50);
+    }
+    P.wasPro = pro;
     if (key === lastFire) return;
     lastFire = key;
     try { applySkin(); } catch (e) {}
@@ -13665,21 +13822,51 @@ var PLAN = null;
       const {data, error} = await sb.from("studyboard_config").select("key,value");
       if (error) { if (missing(error)) { P.tablesMissing = true; P.cfgRows = null; cfg = mergeCfg(null); write(K_CFG, null); } return; }
       const rows = {}; (data || []).forEach(r => { rows[r.key] = r.value; });
-      P.cfgRows = rows; cfg = mergeCfg(rows); write(K_CFG, {rows, at: now()});
-    } catch (e) { /* offline: keep the cached config */ }
+      P.cfgRows = rows; cfg = mergeCfg(rows); write(K_CFG, {rows, at: Date.now()});
+      STORE.serverPaywall(rows.paywall === true);   // a successful answer: true turns it on (latched), false releases the latch
+    } catch (e) { /* offline: keep the cached config (and the latch) */ }
+  }
+  async function loadRow(){
+    if (!sb || !sbUser) return null;
+    const uid = sbUser.id;
+    try {
+      const {data, error} = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew").eq("user_id", uid).maybeSingle();
+      if (error) { if (missing(error)) { P.tablesMissing = true; P.row = {uid, ent: null, at: Date.now()}; P.rowLive = true; write(K_ENT, P.row); } return false; }
+      P.row = {uid, ent: data || null, at: Date.now()}; P.rowLive = true; write(K_ENT, P.row);
+      return true;
+    } catch (e) { return false; /* offline: keep what we have */ }
+  }
+  // Ask the server for a fresh signed token. true = the token path handled it (even if the answer was "free"); false = use the fallback.
+  async function loadToken(){
+    if (!sb || !sbUser) return false;
+    if (!hasKey() || P.edBad) return false;
+    const uid = sbUser.id;
+    let res;
+    try { res = await sb.functions.invoke("entitlement-token", {body: {}}); }
+    catch (e) { return P.mode === "signed"; }   // offline: a verified, unexpired token keeps working
+    const {data, error} = res || {};
+    if (error) {
+      const st = error.context && error.context.status;
+      if (st === 404 || /not found|FunctionsFetchError.*404/i.test(String(error.message || ""))) { P.noFn = true; return false; }   // not deployed yet: fall back to the RLS row
+      return P.mode === "signed";                 // network trouble or a server hiccup: keep the verified token we have
+    }
+    const r = await verifyToken(data, uid);
+    if (r === "ok") { P.tok = data; P.mode = "signed"; P.noFn = false; write(K_TOK, {tok: data, at: Date.now()}); return true; }
+    if (r === "unsupported") { P.edBad = true; return false; }
+    // forged, wrong user, expired or malformed: this is not a Pro token
+    P.tok = null; write(K_TOK, null); P.mode = "signed";
+    return true;
   }
   async function loadEntitlement(){
     if (!sb || !sbUser) return;
-    try {
-      const {data, error} = await sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew").eq("user_id", sbUser.id).maybeSingle();
-      if (error) { if (missing(error)) { P.tablesMissing = true; P.cache = {uid: sbUser.id, ent: null, at: now()}; write(K_ENT, P.cache); } return; }
-      P.cache = {uid: sbUser.id, ent: data || null, at: now()}; write(K_ENT, P.cache);
-    } catch (e) { /* offline: keep the cached plan */ }
+    const signed = await loadToken();
+    await loadRow();                                   // the user's own row: plan details for display, and the fallback when there is no usable key
+    if (!signed) { P.mode = "unsigned-fallback"; P.tok = null; }
   }
   async function refresh(){
     if (P.loading || inClaude()) return;
     P.loading = true;
-    try { await loadConfig(); await loadEntitlement(); } finally { P.loading = false; }
+    try { await loadConfig(); if (paywall()) await loadEntitlement(); } finally { P.loading = false; P.lastLoad = Date.now(); }
     changed();
   }
   // Notice sign in and sign out without touching the sync code: the render hook runs after every sync too.
@@ -13688,10 +13875,12 @@ var PLAN = null;
     if (id === P.uid) return;
     const was = P.uid; P.uid = id;
     if (id) {
-      if (P.cache && P.cache.uid && P.cache.uid !== id) { P.cache = null; write(K_ENT, null); }
-      P.devices = null;
+      P.stored = id;
+      if (P.row && P.row.uid && P.row.uid !== id) { P.row = null; write(K_ENT, null); }
+      if (P.tok && P.tok.uid !== id) { P.tok = null; write(K_TOK, null); }
+      P.rowLive = false; P.devices = null;
       refresh().then(registerDevice);
-    } else if (was && sb) { P.cache = null; write(K_ENT, null); P.devices = null; changed(); }   // signed out
+    } else if (was && sb) { P.row = null; P.tok = null; P.pend = null; P.stored = null; P.rowLive = false; write(K_ENT, null); write(K_TOK, null); P.devices = null; changed(); }   // signed out
   }
 
   /* ---------- Devices ---------- */
@@ -13740,45 +13929,94 @@ var PLAN = null;
     if (P.devBlocked) await registerDevice(); else await loadDevices().catch(() => {});
   }
 
-  /* ---------- Checkout (stubs a store layer can take over) ---------- */
-  const nativeStore = () => !!(window.Capacitor || window.StudyboardNative || window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.studyboardStore);
-  let pollUntil = 0;
-  function pollAfterCheckout(){
-    pollUntil = now() + 15 * 60000;
-    const tick = () => { if (now() > pollUntil || paid()) return; refresh(); setTimeout(tick, 20000); };
-    setTimeout(tick, 8000);
+  /* ---------- Buying: ONE function, PLAN.buy(period), picks the route by platform ----------
+     web and desktop (direct download):  the Studyboard website account page, <site>/account?plan=monthly|yearly&src=app
+         (people log in with their Studyboard account, then pay with Stripe Checkout tied to it). Opens in the external browser.
+     iOS / Android wrapper, Mac App Store build:  native in-app purchase through the "plan-checkout" event (RevenueCat), because
+         Apple requires in-app purchase for digital subscriptions sold inside App Store apps (guideline 3.1.1). With
+         EXTERNAL_PURCHASE_ALLOWED = true the store builds use the website route as well.
+     Manage Plan and Restore Purchases follow the same split. After the website, the app refreshes the plan on its own. */
+  const nativeStore = () => {
+    try {
+      const C = window.Capacitor;
+      return !!((C && (typeof C.isNativePlatform === "function" ? C.isNativePlatform() : true)) || window.studyboardNative || window.StudyboardNative
+        || (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.studyboardStore) || (DESK && DESK.mas));
+    } catch (e) { return false; }
+  };
+  const route = () => nativeStore() && !EXTERNAL_PURCHASE_ALLOWED ? "store" : "web";
+  const siteBase = () => {
+    try { const u = new URL(cfg.site_url || SITE_URL); return u.protocol === "https:" ? u.origin + u.pathname.replace(/\/+$/, "") : ""; } catch (e) { return ""; }
+  };
+  const siteReady = () => { const b = siteBase(); try { return !!b && new URL(b).hostname !== "studyboard.example"; } catch (e) { return false; } };
+  const siteUrl = (path, q) => { const u = new URL(siteBase() + path); Object.keys(q || {}).forEach(k => u.searchParams.set(k, q[k])); u.searchParams.set("src", "app"); return u.toString(); };
+  function openExternal(url){
+    try { const B = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser; if (B && B.open) { B.open({url}); return; } } catch (e) {}
+    window.open(url, "_blank", "noopener");   // in the desktop app this goes to the system browser (main.js setWindowOpenHandler)
   }
-  function checkout(period){
+  // After sending someone to pay: check the plan when they come back (window focus), and poll for about two minutes.
+  const WATCH_MS = 2 * 60000, AWAIT_MS = 30 * 60000;
+  let pollUntil = 0, pollT = 0;
+  function watchPurchase(){
+    P.awaiting = Date.now() + AWAIT_MS;
+    pollUntil = Date.now() + WATCH_MS;
+    clearTimeout(pollT);
+    const tick = () => { if (Date.now() > pollUntil || (paid() && paywall())) return; if (sbUser && navigator.onLine !== false) refresh(); pollT = setTimeout(tick, 10000); };
+    pollT = setTimeout(tick, 6000);
+  }
+  function buy(period){
     period = period === "yearly" ? "yearly" : "monthly";
     const userId = sbUser ? sbUser.id : null;
-    if (fire("plan-checkout", period, userId).some(Boolean)) { pollAfterCheckout(); return; }
+    if (route() === "store") {
+      if (fire("plan-checkout", period, userId).some(Boolean)) { watchPurchase(); return true; }
+      toast("Buying Pro in the app isn't available in this build yet.");
+      return false;
+    }
+    if (siteReady()) {
+      openExternal(siteUrl("/account", {plan: period}));
+      toast("Finish in the page that just opened, then come back here. Pro turns on by itself.");
+      watchPurchase();
+      return true;
+    }
+    // The website isn't set up yet: a Stripe Payment Link from studyboard_config still works
     const url = cfg["checkout_url_" + period];
-    if (url && !nativeStore()) {
-      if (!userId) { toast("Sign in first so Pro is linked to your account."); if (sb && typeof sbSignInSheet === "function") sbSignInSheet(); return; }
+    if (url) {
+      if (!userId) { toast("Sign in first so Pro is linked to your account."); if (sb && typeof sbSignInSheet === "function") sbSignInSheet(); return false; }
       const u = new URL(url);
       u.searchParams.set("client_reference_id", userId);
       if (sbUser.email) u.searchParams.set("prefilled_email", sbUser.email);
-      window.open(u.toString(), "_blank", "noopener");
+      openExternal(u.toString());
       toast("Finish in the page that just opened. Pro turns on here by itself.");
-      pollAfterCheckout();
-      return;
+      watchPurchase();
+      return true;
     }
     toast("Pro isn't available yet");
+    return false;
+  }
+  // "I've Purchased - Refresh" and Restore Purchases: re-read the plan, then say what we found
+  async function refreshNow(quiet){
+    if (!sbUser) { if (!quiet) { toast("Sign in to the account you bought Pro with, then try again."); if (sb && typeof sbSignInSheet === "function") sbSignInSheet(); } return false; }
+    if (!quiet) toast("Checking your plan…");
+    for (let i = 0; i < 20 && P.loading; i++) await new Promise(r => setTimeout(r, 150));
+    await refresh();
+    const ok = paid();
+    if (!quiet) toast(ok ? "Pro is on. Thank you for supporting Studyboard!" : "We couldn't find Pro on this account yet. If you just bought it, wait a minute and try again.");
+    if (ok) P.awaiting = 0;
+    if (dlg.open && dlg.querySelector(".plan-sheet")) proSheet(P.reason);
+    return ok;
   }
   async function restore(){
-    fire("plan-restore", sbUser ? sbUser.id : null);
-    if (!sbUser) { toast("Sign in to the account you bought Pro with, then tap Restore Purchase."); return; }
-    toast("Checking your purchase…");
-    await refresh();
-    toast(paid() ? "Pro is on. Thank you!" : "We couldn't find Pro on this account. If you just bought it, wait a minute and try again.");
-    if (dlg.open && dlg.querySelector(".plan-sheet")) proSheet(P.reason);
+    if (route() === "store") fire("plan-restore", sbUser ? sbUser.id : null);   // the native layer re-links the store purchase to this account
+    return refreshNow();
   }
   function manage(){
-    if (fire("plan-manage", ent()).some(Boolean)) return;
     const e = ent() || {};
-    if ((e.source === "stripe" || !e.source) && cfg.manage_url) { window.open(cfg.manage_url, "_blank", "noopener"); return; }
-    if (e.source === "apple") { window.open("https://apps.apple.com/account/subscriptions", "_blank", "noopener"); return; }
-    if (e.source === "google") { window.open("https://play.google.com/store/account/subscriptions", "_blank", "noopener"); return; }
+    if (route() === "store" || e.source === "apple" || e.source === "google") {
+      if (fire("plan-manage", ent()).some(Boolean)) return;
+      if (e.source === "apple" || (route() === "store" && /iPhone|iPad|Mac/.test(navigator.userAgent || ""))) { openExternal("https://apps.apple.com/account/subscriptions"); return; }
+      if (e.source === "google" || route() === "store") { openExternal("https://play.google.com/store/account/subscriptions"); return; }
+    }
+    if (siteReady()) { openExternal(siteUrl("/account", {})); return; }
+    if (cfg.manage_url) { openExternal(cfg.manage_url); return; }
     toast("To change or cancel your plan, use the link in your receipt email.");
   }
   async function startTrial(){
@@ -13824,9 +14062,11 @@ var PLAN = null;
     const e = ent();
     if (!paywall()) return {title: "Everything Is Unlocked Right Now", sub: "Studyboard is in early access, so every theme and feature is yours to use. Pro will add the extras below later."};
     if (!paid()) return {title: "You're on the Free Plan", sub: "The whole planner is free, forever. Pro adds room to grow and every style in the shop."};
-    if (e.plan === "lifetime") return {title: "You Have Studyboard Pro", sub: "Pro is yours for good. Thank you for supporting Studyboard!"};
+    if (!e) return {title: "You Have Studyboard Pro", sub: "Thank you for supporting Studyboard!"};
+    if (e.plan === "lifetime") return {title: "You Have Studyboard Pro", sub: e.source === "lifetime" ? "Pro was granted to your account for good. Thank you for being part of Studyboard!" : "Pro is yours for good. Thank you for supporting Studyboard!"};
     if (trialing(e)) return {title: "Your Pro Trial Is On", sub: `Your free trial ends ${dateStr(e.trial_until)}.`};
     if (!e.pro_until) return {title: "You Have Studyboard Pro", sub: "Thank you for supporting Studyboard!"};
+    if (e.source === "promo") return {title: "You Have Studyboard Pro", sub: `Pro was granted to your account until ${dateStr(e.pro_until)}.`};
     return {title: "You Have Studyboard Pro", sub: e.will_renew === false ? `Pro ends ${dateStr(e.pro_until)}. You can turn renewal back on any time.` : `Renews ${dateStr(e.pro_until)}. Thank you for supporting Studyboard!`};
   }
   function priceButtons(){
@@ -13851,6 +14091,7 @@ var PLAN = null;
         ${reason ? `<p class="plan-reason" role="status">${IC.info}<span>${esc(reason)}</span></p>` : ""}
         <div class="plan-hero${pro ? " is-pro" : ""}"><span class="plan-orb" aria-hidden="true">${IC.spark}</span><div><b>${esc(st.title)}</b><p class="mini">${esc(st.sub)}</p></div></div>
         ${pro ? `<div class="plan-actions"><button type="button" class="btn primary" data-act="plan-manage">Manage Plan</button><button type="button" class="btn" data-act="plan-devices">Your Devices</button></div>${usageHtml}` : ""}
+        ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}
         <div class="plan-compare" role="table" aria-label="Free and Pro">
           <div class="pc-row pc-head" role="row"><span role="columnheader"></span><span role="columnheader">Free</span><span role="columnheader" class="pc-pro">${PRO_BADGE}</span></div>
           ${rows.map(([k, f, p]) => `<div class="pc-row" role="row"><span role="rowheader">${esc(k)}</span><span role="cell">${esc(f)}</span><span role="cell" class="pc-pro">${esc(p)}</span></div>`).join("")}
@@ -13859,7 +14100,7 @@ var PLAN = null;
         <p class="plan-free mini">${IC.check}<span>Always free: Board, Timeline, Schedule, Focus, notes, flashcards, grades, reminders, Brightspace, Canvas and Blackboard sync, and AI with your own key.</span></p>
         ${pro ? "" : usageHtml}
       </div>
-      <div class="sheet-foot">${paywall() && !pro ? `<button type="button" class="btn" data-act="plan-restore">Restore Purchase</button>` : ""}${!paywall() && sbUser ? `<button type="button" class="btn" data-act="plan-devices">Your Devices</button>` : ""}<span class="spacer"></span><button type="button" class="btn ${pro || !paywall() ? "primary" : ""}" data-act="close">${pro || !paywall() ? "Done" : "Maybe Later"}</button></div></div>`);
+      <div class="sheet-foot">${paywall() && !pro ? `<button type="button" class="btn" data-act="plan-restore">Restore Purchases</button>${P.awaiting ? `<button type="button" class="btn" data-act="plan-refresh">I've Purchased: Refresh</button>` : ""}` : ""}${!paywall() && sbUser ? `<button type="button" class="btn" data-act="plan-devices">Your Devices</button>` : ""}<span class="spacer"></span><button type="button" class="btn ${pro || !paywall() ? "primary" : ""}" data-act="close">${pro || !paywall() ? "Done" : "Maybe Later"}</button></div></div>`);
   }
   async function devicesSheet(limitHit){
     const L = lim(), limited = paywall() && !isPro();
@@ -13885,7 +14126,7 @@ var PLAN = null;
   }
 
   /* ---------- Guards ---------- */
-  const KIND_NAME = {skin: "theme", card: "flashcard style", note: "note shape", pin: "pin", sticker: "sticker pack"};
+  const KIND_NAME = {skin: "theme", card: "flashcard style", note: "note shape", pin: "pin", sticker: "sticker pack", comp: "companion", prop: "accessory"};
   // Tapping a Pro item you don't own (Style Shop, onboarding, sticker envelope) opens the Pro sheet.
   const origUnlock = shopUnlock;
   shopUnlock = function (kind, id){
@@ -13907,19 +14148,27 @@ var PLAN = null;
   };
 
   /* ---------- Settings row, actions and hooks ---------- */
+  // The plan state shown in Settings: "Free" | "Pro until <date>" | "Pro (granted)" (| "Pro trial until <date>")
+  function planLabel(){
+    if (!paywall()) return "Everything is unlocked right now";
+    if (!paid()) return "Free";
+    const e = ent();
+    if (!e) return "Pro";
+    if (e.plan === "lifetime" || e.source === "lifetime") return "Pro (granted)";
+    if (trialing(e)) return `Pro trial until ${dateStr(e.trial_until)}`;
+    if (e.source === "promo") return e.pro_until ? `Pro (granted) until ${dateStr(e.pro_until)}` : "Pro (granted)";
+    return e.pro_until ? `Pro until ${dateStr(e.pro_until)}` : "Pro";
+  }
   function rowSub(){
     if (!paywall()) return "Everything is unlocked right now";
-    const e = ent();
-    if (!paid()) return "Free plan. See what Pro adds.";
-    if (e.plan === "lifetime") return "Pro, yours for good";
-    if (trialing(e)) return `Free trial until ${dateStr(e.trial_until)}`;
-    return e.pro_until ? `Pro until ${dateStr(e.pro_until)}` : "Pro";
+    return paid() ? planLabel() : "Free. See what Pro adds.";
   }
   hook("menu", () => inClaude() ? "" : `<button data-act="plan-open" data-group="account" class="plan-row"><span class="plan-row-ic" aria-hidden="true">${IC.spark}</span><span>Studyboard Pro<span class="sub">${esc(rowSub())}</span></span></button>`);
   hook("act", (act, el, id) => {
     switch (act) {
       case "plan-open": proSheet(id === "devices" ? `The free plan syncs on up to ${lims("free").devices} devices` : el.dataset.reason || ""); return true;
-      case "plan-buy": checkout(id); return true;
+      case "plan-buy": buy(id); return true;
+      case "plan-refresh": refreshNow(); return true;
       case "plan-restore": restore(); return true;
       case "plan-manage": manage(); return true;
       case "plan-trial": startTrial(); return true;
@@ -13934,8 +14183,13 @@ var PLAN = null;
     changed();
     // Refresh now and then (a renewal or a purchase on another device), and when you come back to the app.
     setInterval(() => { if (sbUser && navigator.onLine !== false) refresh(); }, 6 * 3600000);
-    document.addEventListener("visibilitychange", () => { if (!document.hidden && sbUser && now() < pollUntil) refresh(); });
+    // Coming back from the website (or the store): check the plan again, and now and then anyway
+    const back = () => { if (document.hidden || !sbUser || !paywall() || navigator.onLine === false) return; if ((P.awaiting && Date.now() < P.awaiting) || Date.now() - P.lastLoad > 15 * 60000) refresh(); };
+    document.addEventListener("visibilitychange", back);
+    window.addEventListener("focus", back);
+    document.addEventListener("visibilitychange", () => { if (document.hidden) bump(now()); });
   });
+  loadCachedToken();   // every load: the saved token is checked against the public key again, never just believed
 
   PLAN = {
     tier: () => isPro() ? "pro" : "free",
@@ -13948,12 +14202,13 @@ var PLAN = null;
     can, usage,
     openSheet: proSheet,
     devicesSheet: () => devicesSheet(false),
-    checkout, restore, refresh,
+    buy, checkout: buy, restore, refresh, manage, refreshNow, mode,
+    label: planLabel, siteUrl: () => siteBase(),
     deviceId,
     fmtMB
   };
   // For a native store layer (RevenueCat) and tests. Nothing here can turn Pro on; that only comes from your Supabase project.
-  window.StudyboardPlan = {tier: PLAN.tier, isPro, paywall, limits: PLAN.limits, can, usage, openSheet: r => proSheet(r), refresh, entitlement: PLAN.entitlement};
+  window.StudyboardPlan = {tier: PLAN.tier, isPro, paywall, mode, limits: PLAN.limits, can, usage, openSheet: r => proSheet(r), refresh, entitlement: PLAN.entitlement};
 })();
 
 
@@ -38591,23 +38846,23 @@ var TP_DATA = [];
     const rec = byTheme[t.theme] = {theme: t.theme, pack: "", pins: [], card: ""};
     if (t.pack && t.pack.items) {
       const pid = "tp-" + t.theme;
-      STICKER_PACKS.push({id: pid, name: t.pack.name, tier: "pro", theme: t.theme, items: t.pack.items});
+      STICKER_PACKS.push({id: pid, name: t.pack.name, tier: themeTier(t.theme), theme: t.theme, items: t.pack.items});   // a collection has the tier of its theme
       Object.entries(t.pack.items).forEach(([k, svg]) => { STICKERS[k] = {svg, pack: pid}; });
       rec.pack = pid;
     }
     (t.pins || []).forEach(p => {
       if (!p || !p.id || PIN_SVG[p.id]) return;
       PIN_SVG[p.id] = p.svg;
-      PINS.push({id: p.id, name: p.name, tier: "pro", desc: p.desc || "", theme: t.theme});
+      PINS.push({id: p.id, name: p.name, tier: themeTier(t.theme), desc: p.desc || "", theme: t.theme});
       PIN_KIND[p.id] = PIN_BOX[p.kind] ? p.kind : "badge";
       css.push(`.pin.pk-${p.id}{${PIN_BOX[p.kind] || PIN_BOX.badge};background:none;box-shadow:none;border-radius:0;filter:drop-shadow(0 2px 2px rgba(0,0,0,.3))}`);
       rec.pins.push(p.id);
     });
-    if (t.card && t.card.id) { CARD_STYLES.push({id: t.card.id, name: t.card.name, tier: "pro", desc: t.card.desc || "", theme: t.theme}); rec.card = t.card.id; }
+    if (t.card && t.card.id) { CARD_STYLES.push({id: t.card.id, name: t.card.name, tier: themeTier(t.theme), desc: t.card.desc || "", theme: t.theme}); rec.card = t.card.id; }
   });
   if (css.length) { const st = document.createElement("style"); st.id = "tpPins"; st.textContent = css.join("\n"); document.head.appendChild(st); }
   const TP_ORDER = SKINS.filter(s => byTheme[s.id]).map(s => s.id);
-  const curTheme = () => document.documentElement.dataset.skin || styleCfg().skin || "";
+  const curTheme = () => document.documentElement.dataset.skin || effSkinId() || "";
   // The theme you're using comes first, then the rest in Style Shop order
   const ordered = () => { const c = curTheme(); return byTheme[c] ? [c].concat(TP_ORDER.filter(x => x !== c)) : TP_ORDER.slice(); };
   const isTP = x => !!(x && x.theme);
@@ -47356,6 +47611,14 @@ var COMP_KIT = (() => {
     REG[t.theme] = {theme: t.theme, spot: t.spot, list};
     list.forEach(c => { if (!BYID[c.id]) BYID[c.id] = c; });
   });
+  /* ---------- Tiers: a companion has the tier of the theme it lives in (single source of truth: SKINS via themeTier) ----------
+     Plain-color companions are free; every companion of a Pro theme is Pro. Registered in STYLE_LISTS so owns("comp", id) works
+     like every other shop item (Pro, or owned/earned, or you own the companion's theme). Props (accessories) use their own free flag. */
+  Object.keys(REG).forEach(th => REG[th].list.forEach(c => {
+    if (STYLE_LISTS.comp.some(x => x.id === c.id)) return;
+    STYLE_LISTS.comp.push({id: c.id, name: c.name, theme: th, get tier(){ return themeTier(th); }});
+  }));
+  ACC.forEach(a => { if (!STYLE_LISTS.prop.some(x => x.id === a.id)) STYLE_LISTS.prop.push({id: a.id, name: a.name, get tier(){ return a.free ? "free" : "pro"; }}); });
 
   /* ---------- Drawing ---------- */
   const OUT = (w = 3) => `stroke="${INK}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"`;
@@ -47470,14 +47733,17 @@ var COMP_KIT = (() => {
   const talkOn = () => cfg().talk !== false;
   const pro = () => { try { return typeof PLAN === "undefined" || !PLAN ? true : !!PLAN.isPro(); } catch (e) { return true; } };
   const paywall = () => { try { return !!(typeof PLAN !== "undefined" && PLAN && PLAN.paywall()); } catch (e) { return false; } };
-  const skinId = () => document.documentElement.dataset.skin || (styleCfg() || {}).skin || "classic";
+  const skinId = () => document.documentElement.dataset.skin || effSkinId() || "classic";
   const themeKey = id => REG[id] ? id : "plain";
   const setOf = id => (REG[themeKey(id)] || REG.plain || {list: []}).list;
-  const canSlot = slot => slot === 0 || pro();
+  const compTier = c => itemTier("comp", c.id);
+  const canComp = c => !!c && owns("comp", c.id);
+  const canSlot = slot => canComp(setOf(skinId())[slot]);
+  // APPLY-time gate: the remembered pick is only used while it is allowed, else the first companion you may use (the pick stays saved)
   function current(){
     const list = setOf(skinId()); if (!list.length) return null;
     const want = Number((cfg().pick || {})[themeKey(skinId())]) || 0;
-    return list[canSlot(want) && list[want] ? want : 0];
+    return list[want] && canComp(list[want]) ? list[want] : list.find(canComp) || null;
   }
   const nameOf = c => { const n = (cfg().names || {})[c.id]; return typeof n === "string" && n.trim() ? n.trim() : c.name; };
   const hours = () => { try { return typeof SBSTATS !== "undefined" ? SBSTATS.totalFocusMinutes() / 60 : 0; } catch (e) { return 0; } };
@@ -47525,7 +47791,7 @@ var COMP_KIT = (() => {
   const unlocked = () => ACC.filter(isEarned);
   const closestPath = a => propProg(a).sort((x, y) => y.p - x.p)[0];
   const pathShort = x => x.k === "festive" || x.k === "groups" ? x.unit : `${x.v} of ${x.n} ${x.unit}`;
-  const canWear = a => !!a && isEarned(a) && (a.free || pro());
+  const canWear = a => !!a && isEarned(a) && owns("prop", a.id);
   const wearOf = c => { const w = (cfg().wear || {})[c.id]; const a = ACC.find(x => x.id === w); return canWear(a) ? w : ""; };
   function wearColor(c){
     if (c.wearColor) return c.wearColor;
@@ -48916,10 +49182,10 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const locked = !canSlot(i), on = c && c.id === x.id;
       return `<div class="cp-tile${on ? " on" : ""}${locked ? " locked" : ""}" data-id="${esc(x.id)}" aria-current="${on ? "true" : "false"}">
         ${previewHtml(x, on ? wearOf(x) : "", 92)}
-        <div class="cp-tile-t"><b>${esc(on ? nameOf(x) : (cfg().names || {})[x.id] || x.name)}</b>${i ? PRO_BADGE : FREE_BADGE}</div>
+        <div class="cp-tile-t"><b>${esc(on ? nameOf(x) : (cfg().names || {})[x.id] || x.name)}</b>${compTier(x) === "pro" ? PRO_BADGE : FREE_BADGE}</div>
         <div class="cp-kind">${esc(x.kind || "")}</div>
         <p class="mini">${esc(x.bio || "")}</p>
-        ${locked ? `<button type="button" class="btn small" data-act="comp-pick" data-slot="${i}">🔒 Unlock</button>` : on ? `<span class="cp-chosen" role="status">✓ ${want !== i && !canSlot(want) ? "In Use" : "Chosen"}</span>` : `<button type="button" class="btn small primary" data-act="comp-pick" data-slot="${i}">Choose</button>`}
+        ${locked ? `<button type="button" class="btn small" data-act="comp-pick" data-slot="${i}">🔒 Go Pro</button>` : on ? `<span class="cp-chosen" role="status">✓ ${want !== i && !canSlot(want) ? "In Use" : "Chosen"}</span>` : `<button type="button" class="btn small primary" data-act="comp-pick" data-slot="${i}">Choose</button>`}
       </div>`;
     }).join("");
     const h = hours(), nGot = ACC.filter(isEarned).length, locked = ACC.filter(a => !isEarned(a));
@@ -48987,7 +49253,9 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     if (a === "comp-open") { openPicker(); return true; }
     if (a === "comp-pick") {
       const slot = Number(el.dataset.slot) || 0;
-      if (!canSlot(slot)) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Pick any of the three companions in every theme with Studyboard Pro."); return true; }
+      const pickC = setOf(skinId())[slot];
+      if (!pickC) return true;
+      if (!canComp(pickC)) { shopUnlock("comp", pickC.id); return true; }
       setCfg({pick: {[themeKey(skinId())]: slot}, on: true});
       curSig = ""; build(); refreshPicker();
       later(() => { if (act) { act.eyes("happy"); act.motion("hop"); spawnFx("heart", 2); later(() => act && act.eyes("open"), 1400); } }, 300);
@@ -49028,7 +49296,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   function allThemesHtml(){
     const names = id => { const s = SKINS.find(x => x.id === id); return s ? s.name : id === "plain" ? "Plain Colors" : id; };
     const keys = ["plain"].concat(SKINS.map(s => s.id).filter(id => REG[id]));
-    return keys.filter(k => REG[k]).map(k => `<div class="cp-row"><div class="cp-row-t">${esc(names(k))}${k === themeKey(skinId()) ? `<span class="tp-now">Your Theme</span>` : ""}</div><div class="cp-row-l">${REG[k].list.map((x, i) => `<span class="cp-mini" title="${esc(x.name + ", " + (x.kind || ""))}">${rigSvg(x, {})}<span>${esc(x.name)}${i ? PRO_BADGE : ""}</span></span>`).join("")}</div></div>`).join("");
+    return keys.filter(k => REG[k]).map(k => `<div class="cp-row"><div class="cp-row-t">${esc(names(k))}${k === themeKey(skinId()) ? `<span class="tp-now">Your Theme</span>` : ""}</div><div class="cp-row-l">${REG[k].list.map((x, i) => `<span class="cp-mini" ${canComp(x) ? "" : `data-act="shop-unlock" data-kind="comp" data-id="${esc(x.id)}" role="button" tabindex="0"`} title="${esc(x.name + ", " + (x.kind || ""))}">${rigSvg(x, {})}<span>${esc(x.name)}${compTier(x) === "pro" ? PRO_BADGE : ""}${canComp(x) ? "" : " 🔒"}</span></span>`).join("")}</div></div>`).join("");
   }
   function shopBody(){
     return `${pickerBody()}<button type="button" class="btn small cp-more" data-act="comp-more" aria-expanded="false">See Every Theme's Companions</button><div class="cp-all" hidden></div>`;
@@ -51578,14 +51846,17 @@ window.__scrapArt = SCRAP_ART;   // for tests
   }
   const accent = () => { try { return getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#7C8CF8"; } catch (e) { return "#7C8CF8"; } };
   const paperCache = {};
+  // Apply-time gate: a Pro page design from a synced/imported page is only drawn with Pro (the page keeps its choice)
+  const paperId = page => A.papers[page.pp] && !locked((A.papers[page.pp] || {}).tier) ? page.pp : "cream";
   function paperOf(page, H){
-    const id = A.papers[page.pp] ? page.pp : "cream", k = id + H + (id === "theme" ? accent() : "");
+    const id = paperId(page), k = id + H + (id === "theme" ? accent() : "");
     if (!paperCache[k]) { const p = A.paper(id, W, H, accent()); paperCache[k] = Object.assign({}, p, {uri: A.uri(p.svg)}); }
     return paperCache[k];
   }
-  const decoUri = (kind, style) => kind === "w" ? A.uri((A.washi[style] || A.washi.dots).svg) : A.uri((A.frames[style] || A.frames.circle).svg);
+  const freeStyle = (list, style, dflt) => list[style] && !locked(list[style].tier) ? list[style] : list[dflt];
+  const decoUri = (kind, style) => kind === "w" ? A.uri(freeStyle(A.washi, style, "dots").svg) : A.uri(freeStyle(A.frames, style, "circle").svg);
   const decoCache = {};
-  const dUri = (k, s, t) => k === "c" ? A.tag(A.tagW(t)) : decoCache[k + s] || (decoCache[k + s] = decoUri(k, s));
+  const dUri = (k, s, t) => k === "c" ? A.tag(A.tagW(t)) : (decoCache[k + s + (locked("pro") ? "L" : "")] || (decoCache[k + s + (locked("pro") ? "L" : "")] = decoUri(k, s)));
   const sizeOf = (kind, t) => kind === "s" ? [STK, STK] : kind === "w" ? WASHI : kind === "f" ? [FRAME, FRAME] : [A.tagW(t), 80];
 
   /* ---------- The page ---------- */
@@ -51956,7 +52227,7 @@ window.__scrapArt = SCRAP_ART;   // for tests
     const cv = document.createElement("canvas"); cv.width = W * Z; cv.height = H * Z;
     const x = cv.getContext("2d"); x.scale(Z, Z);
     // The paper's fine grain becomes light speckles here, so the image stays small enough to share (a few hundred KB)
-    x.drawImage(await loadImg(A.uri(A.paper(A.papers[page.pp] ? page.pp : "cream", W, H, accent(), o.grain == null ? .5 : o.grain).svg)), 0, 0, W, H);
+    x.drawImage(await loadImg(A.uri(A.paper(paperId(page), W, H, accent(), o.grain == null ? .5 : o.grain).svg)), 0, 0, W, H);
     const font = (getComputedStyle(document.documentElement).getPropertyValue("--display") || "Lexend, sans-serif").trim();
     x.textAlign = "center"; x.fillStyle = p.ink; x.font = `800 ${Math.round(titleSize(page.n) * 10)}px ${font}`;
     x.fillText(page.n, W / 2, 110, 580);
@@ -52599,7 +52870,7 @@ var SOUNDS_HOOK = hook;
   const isPro = () => { try { return typeof PLAN === "undefined" || !PLAN ? true : !!PLAN.isPro(); } catch (e) { return true; } };
   const paywallOn = () => { try { return typeof PLAN !== "undefined" && PLAN ? !!PLAN.paywall() : false; } catch (e) { return false; } };
   const proSheet = why => { try { if (typeof PLAN !== "undefined" && PLAN) { PLAN.openSheet(why); return; } } catch (e) {} toast(why); };
-  const skinNow = () => document.documentElement.dataset.skin || (typeof styleCfg === "function" ? styleCfg().skin : "classic") || "classic";
+  const skinNow = () => document.documentElement.dataset.skin || (typeof effSkinId === "function" ? effSkinId() : "classic") || "classic";
   const darkNow = () => { try { return isDark(); } catch (e) { return document.documentElement.dataset.theme === "dark"; } };
   const skinName = id => { const s = (typeof SKINS !== "undefined" && SKINS.find(x => x.id === id)) || null; return s ? s.name : "Your Theme"; };
   // What to play right now, after plan rules
