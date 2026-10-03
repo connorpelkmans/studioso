@@ -12,7 +12,7 @@ A calm student planner for courses, deadlines, study sessions and flashcards. It
 - **Flashcards and quizzes**, notes with stickers, files, and Search Everywhere.
 - **Focus timer** with sounds, and a study companion.
 - **School sites:** Brightspace, Canvas and Blackboard (read only) on desktop, or calendar links anywhere.
-- **Reminders and calendar sync** on phones and desktop; study groups, shared decks and Study Together rooms.
+- **Reminders and calendar sync** on phones and desktop; study groups with shared Project Tasks (task lists with assignees and due dates, workload view, tasks assigned to you show up on your Board), shared decks and Study Together rooms.
 - **Themes and styles**, light and dark mode, reduced motion, keyboard and screen reader support.
 - **Optional AI helpers** that use your own Gemini, Claude or ChatGPT key.
 - **Privacy:** no ads and no analytics. Privacy Policy, Terms and About are in the app (Settings), and **Delete My Account and Data** is under Settings > Account and Sync.
