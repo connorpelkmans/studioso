@@ -245,7 +245,7 @@ function backgroundTip() {
 // ---------- Messages to the page ----------
 // The page says which messages it's ready for (see preload.js). Until then they wait here, for example
 // when a reminder is clicked while the window is still opening.
-const PAGE_CHANNELS = ["desk:action", "desk:open-task"];
+const PAGE_CHANNELS = ["desk:action", "desk:open-task", "desk:power"];
 const listening = new Set();
 let pendingMsgs = [];
 function toPage(channel, ...args) {
@@ -507,6 +507,16 @@ function loginOn() { try { return canLogin() && !!app.getLoginItemSettings(proce
 function deskSettings() {
   return { background: cfg.background !== false, tray: !!tray, openAtLogin: loginOn(), canLogin: canLogin(), widget: !!(widget && !widget.isDestroyed()), widgetPinned: widgetState().pinned, pausedUntil: remindersPaused() ? cfg.pauseUntil : 0, notifications: Notification.isSupported() };
 }
+// Power state for the page's animation governor: on battery, thermal pressure and a locked screen. Plain values only, read-only.
+function powerState() {
+  const o = { onBattery: false, thermal: "unknown", locked: powerLocked };
+  try { o.onBattery = !!powerMonitor.isOnBatteryPower(); } catch (err) {}
+  try { const t = String(powerMonitor.getCurrentThermalState()); o.thermal = ["nominal", "fair", "serious", "critical"].includes(t) ? t : "unknown"; } catch (err) {}
+  return o;
+}
+let powerLocked = false;
+function pushPower() { try { if (win && !win.isDestroyed() && listening.has("desk:power")) win.webContents.send("desk:power", powerState()); } catch (err) {} }
+ipcMain.handle("power:get", e => fromMain(e) ? powerState() : null);
 ipcMain.handle("desk:settings:get", e => fromMain(e) ? deskSettings() : null);
 ipcMain.handle("desk:settings:set", (e, key, value) => {
   if (!fromMain(e)) return null;
@@ -703,6 +713,7 @@ if (GOT_LOCK) app.whenReady().then(async () => {
   checkReminders();
   const startLink = pendingDeepLink || process.argv.find(a => typeof a === "string" && a.startsWith(DEEP_SCHEME + "://"));
   pendingDeepLink = null; if (startLink) handleDeepLink(startLink);
+  try { ["on-battery", "on-ac", "thermal-state-change", "resume"].forEach(ev => { try { powerMonitor.on(ev, pushPower); } catch (err) {} }); powerMonitor.on("lock-screen", () => { powerLocked = true; pushPower(); }); powerMonitor.on("unlock-screen", () => { powerLocked = false; pushPower(); }); } catch (e) {}
   try { powerMonitor.on("resume", checkReminders); powerMonitor.on("unlock-screen", checkReminders); powerMonitor.on("shutdown", () => { quitting = true; }); } catch (e) {}
   app.on("activate", () => showMain());
 });

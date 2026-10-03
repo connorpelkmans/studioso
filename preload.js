@@ -42,6 +42,9 @@ contextBridge.exposeInMainWorld("studiosoDesktop", {
   // fn(action, arg): the tray, the widget or a shortcut asks for "quickadd", "today", "focus", "search", "flashcards",
   // "settings", "toggle" (arg = task id) or "focus-task" (arg = task id).
   onAction: fn => { ipcRenderer.on("desk:action", (e, action, arg) => fn(String(action), String(arg || ""))); ipcRenderer.send("desk:listen", "desk:action"); },
+  // {onBattery, thermal: "unknown"|"nominal"|"fair"|"serious"|"critical", locked}: read-only power state for the animation governor.
+  getPower: () => ipcRenderer.invoke("power:get"),
+  onPower: fn => { ipcRenderer.on("desk:power", (e, o) => { if (o && typeof o === "object") fn({ onBattery: o.onBattery === true, thermal: String(o.thermal || "unknown"), locked: o.locked === true }); }); ipcRenderer.send("desk:listen", "desk:power"); },
   // What the Today widget shows (built by the widgets module).
   setWidgetData: data => ipcRenderer.send("widget:set", data),
   // {background, tray, openAtLogin, canLogin, widget, widgetPinned, pausedUntil, notifications}

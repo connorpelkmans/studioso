@@ -18,7 +18,7 @@
 <meta name="format-detection" content="telephone=no">
 <link rel="manifest" href="manifest.webmanifest">
 <link href="vendor/fonts.css" rel="stylesheet">
-<script>try{var t=localStorage.getItem("studioso:theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);var k=localStorage.getItem("studyboard:skin"),c=localStorage.getItem("studyboard:skincss");if(k&&c){document.documentElement.setAttribute("data-skin",k);var st=document.createElement("style");st.id="skinCss";st.textContent=c;document.head.appendChild(st)}}catch(e){}</script>
+<script>try{var ts=localStorage.getItem("studyboard:textsize");if(ts==="s"||ts==="l"||ts==="xl")document.documentElement.setAttribute("data-ts",ts);if(localStorage.getItem("studyboard:contrast")==="1")document.documentElement.setAttribute("data-hc","1")}catch(e){}try{var t=localStorage.getItem("studioso:theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);var k=localStorage.getItem("studyboard:skin"),c=localStorage.getItem("studyboard:skincss");if(k&&c){document.documentElement.setAttribute("data-skin",k);var st=document.createElement("style");st.id="skinCss";st.textContent=c;document.head.appendChild(st)}}catch(e){}</script>
 <style>
 :root{
   box-sizing:border-box;
@@ -44,7 +44,7 @@
 }
 *,*::before,*::after{box-sizing:inherit}
 html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
-body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:16px/1.5 var(--body);-webkit-font-smoothing:antialiased}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:1rem/1.5 var(--body);-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
@@ -277,7 +277,7 @@ label.f{display:grid;gap:5px;font-size:.88rem;font-weight:600}
 label.f .hint{font-weight:400;color:var(--muted)}
 label.f .lh{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 6px}
 label.f .lh .req{margin-left:0}
-input[type=text],input[type=search],input[type=date],input[type=time],input[type=number],input[type=url],select,textarea{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;font-size:16px;font-weight:400}
+input[type=text],input[type=search],input[type=date],input[type=time],input[type=number],input[type=url],select,textarea{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;font-size:max(16px,1rem);font-weight:400}
 textarea{min-height:84px;resize:vertical}
 .two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
 .two>*,label.f{min-width:0}
@@ -404,7 +404,7 @@ nav.tabs button{font-size:.75rem!important}
 .note-colors{display:flex;gap:6px;flex-wrap:wrap}
 .nc{width:22px;height:22px;border-radius:50%;border:2px solid rgba(42,36,24,.25);padding:0}
 .nc.on{border-color:#2A2418;box-shadow:0 0 0 2px rgba(255,255,255,.7)}
-.note-course{padding:6px 8px;font-size:14px;background:rgba(255,255,255,.55);border:1px solid rgba(42,36,24,.2);border-radius:8px;color:#2A2418}
+.note-course{padding:6px 8px;font-size:.875rem;background:rgba(255,255,255,.55);border:1px solid rgba(42,36,24,.2);border-radius:8px;color:#2A2418}
 .note-btns{display:flex;gap:6px;align-items:center}
 .note-btns .nb{border:0;background:rgba(255,255,255,.5);border-radius:8px;width:36px;height:34px;display:grid;place-items:center;color:#2A2418}
 .note-btns .nb svg{width:18px;height:18px}
@@ -533,7 +533,7 @@ details *{box-sizing:border-box}
 .imp-w{display:flex;align-items:center;gap:4px;font-size:.75rem;color:var(--muted);min-width:0}
 .imp-w input{min-width:0;width:100%}
 .imp-w span{white-space:nowrap}
-.imp-sub select,.imp-sub input{padding:7px 8px;font-size:14px}
+.imp-sub select,.imp-sub input{padding:7px 8px;font-size:max(14px,.875rem)}
 @media (max-width:480px){.imp-sub{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.imp-sub input[type=time]{grid-column:1/-1}}
 .imp-flag{font-size:.78rem;font-weight:600;color:var(--muted)}
 .imp-flag.warn{color:#9A6400}
@@ -925,7 +925,7 @@ canvas.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:n
 .note.rotating::after{content:attr(data-deg);position:absolute;left:50%;bottom:-30px;transform:translateX(-50%) rotate(calc(-1 * var(--rot)));background:#10254A;color:#fff;font:700 .75rem var(--display);padding:3px 8px;border-radius:6px;white-space:nowrap}
 .note-task-tag{display:inline-flex;align-items:center;gap:2px;max-width:100%;border:0;border-radius:5px;background:rgba(255,255,255,.6);color:#1F3F9A;font:700 .72rem/1.3 var(--display);padding:2px 7px;margin:0 0 6px 4px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .note-task-tag:hover{background:#fff}
-.note-task{padding:6px 8px;font-size:14px;background:rgba(255,255,255,.55)!important;border:1px solid rgba(42,36,24,.2)!important;border-radius:8px;color:#2A2418!important}
+.note-task{padding:6px 8px;font-size:.875rem;background:rgba(255,255,255,.55)!important;border:1px solid rgba(42,36,24,.2)!important;border-radius:8px;color:#2A2418!important}
 .tf-notes{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
 .tf-note{position:relative;width:150px;min-height:70px;background:var(--nc);color:#2A2418;border-radius:3px 3px 8px 3px;padding:8px 26px 8px 9px;font-size:.84rem;line-height:1.35;box-shadow:0 3px 8px rgba(0,0,0,.15);white-space:pre-wrap;overflow-wrap:anywhere}
 .tf-note .x-btn{position:absolute;right:0;top:0;width:26px;height:26px;color:#2A2418}
@@ -1008,7 +1008,7 @@ canvas.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:n
 .meet-list{display:grid;gap:8px;margin-bottom:8px}
 .meet-row{display:grid;grid-template-columns:118px minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--soft) 40%,transparent)}
 .meet-row .meet-days{grid-column:2/4}.meet-row .x-btn{grid-column:4;grid-row:1}.meet-row .meet-times{grid-column:1/3}.meet-row input[data-k=where]{grid-column:3/5}
-.meet-row select,.meet-row input{padding:7px 8px;font-size:14px}
+.meet-row select,.meet-row input{padding:7px 8px;font-size:max(14px,.875rem)}
 .meet-days{display:flex;gap:2px}
 .meet-days button{width:30px;height:32px;border:1px solid var(--line);background:var(--field);border-radius:7px;font:700 .72rem var(--display);color:var(--muted);padding:0}
 .meet-days button[aria-pressed="true"]{background:var(--sel);border-color:var(--sel);color:var(--sel-ink)}
@@ -1461,7 +1461,7 @@ body.desk::before{background:var(--spine-bg,var(--spine))}
 body.stk-dragging,body.stk-dragging *{cursor:grabbing!important;user-select:none}
 .note.stk-target{outline:3px dashed rgba(255,255,255,.9);outline-offset:4px}
 .note-row2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.note-shape,.note-pin{min-width:0;padding:6px 6px;font-size:13px;background:rgba(255,255,255,.55)!important;border:1px solid rgba(42,36,24,.2)!important;border-radius:8px;color:#2A2418!important}
+.note-shape,.note-pin{min-width:0;padding:6px 6px;font-size:.8125rem;background:rgba(255,255,255,.55)!important;border:1px solid rgba(42,36,24,.2)!important;border-radius:8px;color:#2A2418!important}
 /* the sticker envelope */
 .nb-wrap{display:flex;gap:14px;align-items:flex-start}
 .nb-main{position:relative;flex:1;min-width:0}
@@ -1760,7 +1760,7 @@ dialog.sx-dlg[open]{display:flex}
 .sx-top{display:flex;align-items:center;gap:10px;padding:14px 14px 10px}
 .sx-field{flex:1;min-width:0;position:relative;display:flex;align-items:center}
 .sx-glass{position:absolute;left:13px;width:20px;height:20px;color:var(--muted);pointer-events:none}
-.sx-field input[type=search]{padding:12px 64px 12px 42px;font-size:17px;border-radius:12px;min-height:48px}
+.sx-field input[type=search]{padding:12px 64px 12px 42px;font-size:1.0625rem;border-radius:12px;min-height:48px}
 .sx-field input[type=search]::-webkit-search-cancel-button{display:none}
 .sx-field .sx-kbd{position:absolute;right:10px}
 .sx-kbd,.sx-keys kbd{font:600 .72rem/1 var(--body);color:var(--muted);border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:3px 6px;background:var(--surface);white-space:nowrap}
@@ -4103,14 +4103,48 @@ button.snd-head:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
 }
 @media (pointer:coarse),(max-width:719px){
   .icon-btn,.pomo-btn,nav.tabs button,.btn,.btn.small,.icon-btn.sm,.seg label span,.segb button,.chips button,.chip,.bview-tabs button,.pview-tabs button,[role="tab"],.menu-list>button,.cap-row>.btn,
-  [data-act="plan-view"],[data-act="bview"],[data-act="tl-mode"],[data-act="tl-zoom"],[data-act="f-sort"],.env-head,.pf-link,.plan .btn.small.fh-hide,.est-btn{min-height:40px}
-  .icon-btn,.icon-btn.sm{min-width:40px}
-  select,input[type="text"],input[type="number"],input[type="date"],input[type="time"],input[type="search"],input[type="email"],input[type="url"],input[type="password"]{min-height:40px}
+  [data-act="plan-view"],[data-act="bview"],[data-act="tl-mode"],[data-act="tl-zoom"],[data-act="f-sort"],.env-head,.pf-link,.plan .btn.small.fh-hide,.est-btn{min-height:max(40px,2.5rem)}
+  .icon-btn,.icon-btn.sm{min-width:max(40px,2.5rem)}
+  select,input[type="text"],input[type="number"],input[type="date"],input[type="time"],input[type="search"],input[type="email"],input[type="url"],input[type="password"]{min-height:max(40px,2.5rem)}
   /* small round controls keep their look but get a bigger tap area */
   button.check,.focus-go,.ms{position:relative}
   button.check::after,.focus-go::after,.ms::after{content:"";position:absolute;inset:-7px}
   .link-btn{padding-block:8px}
 }
+/* ===== module: 99-motion-a11y-tz.css ===== */
+/* Text size: everything in rem scales with the root. Default follows the browser or device; iOS gets Dynamic Type. */
+html{font-size:100%;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+html[data-ts="s"]{font-size:87.5%}
+html[data-ts="l"]{font-size:112.5%}
+html[data-ts="xl"]{font-size:125%}
+@supports (font:-apple-system-body) and (-webkit-touch-callout:none){html:not([data-ts]){font:-apple-system-body}}
+.cap-row.sb-wide{flex-wrap:wrap;gap:8px}
+.cap-row.sb-wide .segb{flex-wrap:wrap}
+/* Animations: Off, and Auto when the device asks for less motion. Ends every animation and transition at once. */
+html[data-motion="static"] *,html[data-motion="static"] *::before,html[data-motion="static"] *::after{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0s!important;scroll-behavior:auto!important}
+html[data-motion="calm"] .plan-orb{animation:none}
+html[data-motion="calm"] *,html[data-motion="calm"] *::before,html[data-motion="calm"] *::after{scroll-behavior:auto!important}
+#sbFlash{position:fixed;inset:0;z-index:2147483000;pointer-events:none;box-shadow:inset 0 0 0 5px var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+/* Time zone notice */
+.tz-note{position:fixed;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:60;max-width:540px;margin:0 auto;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:0 8px 28px rgba(0,0,0,.25)}
+.tz-note p{margin:0 0 10px;font-size:.92rem;line-height:1.4}
+.tz-note .tz-act{display:flex;flex-wrap:wrap;gap:8px}
+/* High contrast and calm backgrounds: scenery dimmed and blurred, cards and text stronger. Also on by itself for prefers-contrast: more. */
+html[data-hc="1"] #sceneArt{filter:blur(6px) saturate(.55);opacity:.4}
+html[data-hc="1"] body{background-image:none!important}
+html[data-hc="1"]{--muted:color-mix(in srgb,var(--ink) 82%,var(--bg));--line:color-mix(in srgb,var(--ink) 38%,var(--bg))}
+html[data-hc="1"] .card,html[data-hc="1"] .task,html[data-hc="1"] header.top,html[data-hc="1"] nav.tabs,html[data-hc="1"] .sheet{background-color:var(--surface)!important;opacity:1}
+/* Text that sits straight on theme artwork gets a soft plate in the page colour, so it stays readable on every scene. --scrim is the plate's strength. */
+html.sc-on :is(.board-sec-head > h2,.board-ctl .mini,.hint-line,.tl-controls > h2,.view-head > h2,.fcrumb,.sec > .t,.sec > .n,.term-bar,.nudge,header.top .today){background:color-mix(in srgb,var(--paper) var(--scrim,92%),transparent);-webkit-box-decoration-break:clone;box-decoration-break:clone;border-radius:8px;padding-inline:.5rem;text-shadow:0 0 6px var(--paper)}
+html[data-hc="1"].sc-on{--scrim:96%}
+/* Big text: the header may wrap instead of overlapping, tap targets grow with the text, the side bar's sync line ellipsizes */
+.top-row{flex-wrap:wrap;row-gap:6px}
+.top-row > div:first-child{min-width:min(100%,8rem)!important}
+.head-actions{margin-left:auto}
+.icon-btn{width:max(40px,2.5rem);height:max(40px,2.5rem)}
+nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sync{display:block;text-align:center;text-overflow:ellipsis}
+nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sync::before{display:inline-block;margin:0 5px 0 0;vertical-align:middle}
+@media (forced-colors:active){#sceneArt,.confetti,#sbFlash{display:none!important}}
 </style>
 </head>
 <body>
@@ -4143,6 +4177,7 @@ button.snd-head:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
       <button class="btn small" data-act="search-close">Close</button>
     </div>
   </div>
+  <h1 class="sr" id="pageH1" hidden></h1>
   <main id="view" tabindex="-1"></main>
 </div>
 
@@ -4313,7 +4348,7 @@ const isDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
 const fmtShort = s => parse(s).toLocaleDateString(undefined, {month:"short", day:"numeric"});
 const fmtDate = s => parse(s).toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"});
 const mondayOf = s => { const d = parse(s); const wd = (d.getDay() + 6) % 7; return addDays(s, -wd); };
-function fmtTime(t){ const [h,m] = t.split(":").map(Number); const d = new Date(); d.setHours(h, m, 0); return d.toLocaleTimeString(undefined, {hour:"numeric", minute:"2-digit"}); }
+function fmtTime(t){ const [h,m] = t.split(":").map(Number); const d = new Date(2001, 0, 15, h, m, 0); return d.toLocaleTimeString(undefined, {hour:"numeric", minute:"2-digit"}); }
 
 /* ---------- State ---------- */
 let state = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, settings:{capacity:15}, updated:0};
@@ -7564,7 +7599,7 @@ const AINS = (() => {
     return wd === 0 ? add(today, -6) : wd === 1 ? add(today, -7) : "";
   }
   function weeklyStats({tasks, today, weekStart}){
-    const a = parseD(weekStart).getTime(), b = a + 7 * 864e5, nextStart = add(weekStart, 7), nextEnd = add(nextStart, 7);
+    const a = parseD(weekStart).getTime(), nextStart = add(weekStart, 7), b = parseD(nextStart).getTime(), nextEnd = add(nextStart, 7);   // a week is 7 calendar days (167 or 169 hours across a clock change)
     const all = (tasks || []).filter(t => !t.prepFor);
     const done = all.filter(t => t.status === "done" && t.doneAt >= a && t.doneAt < b);
     const slipped = all.filter(t => open(t) && t.due && t.due >= weekStart && t.due < nextStart && t.due < today);
@@ -8300,6 +8335,21 @@ function dimLight(v){
   const mix = (a, f) => { if (!hx(a)) return a; const A = [1, 3, 5].map(i => parseInt(a.substr(i, 2), 16)), B = [1, 3, 5].map(i => parseInt(ink.substr(i, 2), 16)); return "#" + A.map((x, i) => Math.round(x + (B[i] - x) * f).toString(16).padStart(2, "0")).join(""); };
   const o = v.slice(); [[0, 0.075], [2, 0.045], [5, 0.035], [6, 0.045], [7, 0.055]].forEach(([i, f]) => { o[i] = mix(o[i], f); }); return o;
 }
+/* Readable text on every theme: a colour is nudged toward black or white, just far enough, until it reaches the contrast asked for
+   against every background it sits on (WCAG 2: 4.5 for normal text). Only colours that fail are touched. */
+const HEX6 = /^#[0-9a-f]{6}$/i;
+const hexRgb = h => [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16));
+const rgbHex = c => "#" + c.map(x => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, "0")).join("");
+const hexLum = h => { const f = x => { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); }, c = hexRgb(h); return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
+const hexContrast = (a, b) => { const x = hexLum(a), y = hexLum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+function ensureContrast(fg, bgs, min){
+  bgs = (bgs || []).filter(b => HEX6.test(b)); if (!HEX6.test(fg) || !bgs.length) return fg;
+  const worst = f => Math.min(...bgs.map(b => hexContrast(f, b)));
+  if (worst(fg) >= min) return fg;
+  const to = bgs.reduce((a, b) => a + hexLum(b), 0) / bgs.length > 0.4 ? [0, 0, 0] : [255, 255, 255], c = hexRgb(fg);
+  for (let f = 0.05; f < 1.001; f += 0.05) { const m = rgbHex(c.map((x, i) => x + (to[i] - x) * f)); if (worst(m) >= min) return m; }
+  return rgbHex(to);
+}
 function skinVars(s, dark){
   let v = dark ? s.dark : s.light; if (!v) return "";
   const dim = !dark && s.id !== "paper"; if (dim) v = dimLight(v);
@@ -8309,6 +8359,19 @@ function skinVars(s, dark){
   o.scene = "none"; o["scene-h"] = "0px";
   o["spine-bg"] = s.spine ? s.spine[dark ? 1 : 0] : v[12];
   o["btn-bg"] = s.btn ? s.btn[dark ? 1 : 0] : v[8];
+  try {
+    // contrast guard (see ensureContrast): small text, links, selected states, the side bar and filled buttons
+    o.muted = ensureContrast(o.muted, [o.paper, o.surface, o.soft, o.field, o.line], 5);
+    o.accent = ensureContrast(o.accent, [o.paper, o.surface], 4.5);
+    o["accent-2"] = ensureContrast(o["accent-2"], [o.paper, o.surface], 3);
+    o.sel = ensureContrast(o.sel, [o["sel-ink"]], 4.5);
+    // the side bar: its colours are darkened (or lightened, for a dark label) until the label reads, with room for the highlighted item's overlay
+    const ink0 = o["spine-ink"];
+    o.spine = ensureContrast(o.spine, [ink0], 5.5);
+    o["spine-bg"] = String(o["spine-bg"]).replace(/#[0-9a-f]{6}/gi, h => ensureContrast(h, [ink0], 5.5));
+    o["spine-ink"] = ensureContrast(ink0, [o.spine].concat(String(o["spine-bg"]).match(/#[0-9a-f]{6}/gi) || []), 7);
+    o["btn-bg"] = String(o["btn-bg"]).replace(/#[0-9a-f]{6}/gi, h => ensureContrast(h, [o["accent-ink"]], 4.5));
+  } catch (e) {}
   const kv = kitVars(s.id);
   return Object.entries(o).map(([k, x]) => `--${k}:${x}`).join(";") + (kv ? ";" + kv : "");
 }
@@ -8447,6 +8510,7 @@ const fxDefer = fn => { const w = fxBusyMs(); w > 0 ? setTimeout(fn, w + 120) : 
 function ambientPause(on){}
 
 function runThemeFx(fx){
+  if (window.SBMotion && SBMotion.noParticles()) { SBMotion.flash(); return; }
   const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
   const cv = document.createElement("canvas");
   cv.className = "confetti"; cv.setAttribute("aria-hidden", "true");
@@ -10273,11 +10337,11 @@ function icsParse(text){
 const icsTxt = s => scrubText(String(s || "").replace(/\\n/gi, "\n").replace(/\\([,;\\])/g, "$1").trim(), false);   // calendar text often carries HTML
 function icsTz(y, mo, d, h, mi, tz){
   try {
-    const guess = Date.UTC(y, mo - 1, d, h, mi);
+    // The offset is read at the instant the wall-clock time means (two passes), so times near a clock change come out right.
     const f = new Intl.DateTimeFormat("en-US", {timeZone: tz.replace(/^\//, ""), hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit"});
-    const P = {}; f.formatToParts(new Date(guess)).forEach(x => { P[x.type] = x.value; });
-    const asUTC = Date.UTC(+P.year, +P.month - 1, +P.day, +P.hour % 24, +P.minute);
-    return new Date(guess - (asUTC - guess));
+    const off = ms => { const P = {}; f.formatToParts(new Date(ms)).forEach(x => { P[x.type] = x.value; }); return Date.UTC(+P.year, +P.month - 1, +P.day, +P.hour % 24, +P.minute) - Math.floor(ms / 6e4) * 6e4; };
+    const guess = Date.UTC(y, mo - 1, d, h, mi); let t = guess - off(guess); const o2 = off(t); if (guess - o2 !== t) t = guess - o2;
+    return new Date(t);
   } catch(e) { return new Date(y, mo - 1, d, h, mi); }
 }
 function icsWhen(x){
@@ -10285,6 +10349,9 @@ function icsWhen(x){
   const m = String(x.v).trim().match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?/); if (!m) return null;
   if (!m[4]) return {date: `${m[1]}-${m[2]}-${m[3]}`, time: "", allDay: true};
   const d = m[7] ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5])) : x.p.TZID ? icsTz(+m[1], +m[2], +m[3], +m[4], +m[5], x.p.TZID) : new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+  // An instant (UTC "Z" or a TZID) becomes the wall-clock time in your home zone, so a calendar link imported at home doesn't move when you travel. A floating time stays as written.
+  const hz = (m[7] || x.p.TZID) && window.SBTZ && SBTZ.schoolZone(), w = hz && SBTZ.wallIn(d.getTime(), hz);
+  if (w) return {date: w.date, time: w.time, allDay: false, ms: d.getTime()};
   return {date: iso(d), time: pad(d.getHours()) + ":" + pad(d.getMinutes()), allDay: false, ms: d.getTime()};
 }
 const icsDur = s => { const m = String(s || "").match(/P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?)?/); return m ? ((+m[1] || 0) * 7 * 1440 + (+m[2] || 0) * 1440 + (+m[3] || 0) * 60 + (+m[4] || 0)) : 0; };
@@ -10507,7 +10574,7 @@ const DAILY_QUOTES = [
   ["Bad days don't cancel out good progress.", ""]
 ];
 function todaysQuote(){
-  const d = parse(todayISO()), n = Math.floor(d.getTime() / 864e5), N = DAILY_QUOTES.length;
+  const t = todayISO(), n = Math.floor(Date.UTC(+t.slice(0, 4), +t.slice(5, 7) - 1, +t.slice(8, 10)) / 864e5), N = DAILY_QUOTES.length;   // whole days in UTC: the same quote all day, whatever the zone or clock change
   return DAILY_QUOTES[((n * 37) % N + N) % N];
 }
 const streakOf = () => { const s = Object.assign({cur: 0, best: 0, last: ""}, (state.settings && state.settings.streak) || {}); if (s.last && s.last < addDays(todayISO(), -1)) s.cur = 0; return s; };
@@ -13952,6 +14019,7 @@ function loop60(step){
   requestAnimationFrame(run);
 }
 function fireworks(){
+  if (window.SBMotion && SBMotion.noParticles()) { SBMotion.flash(); return; }
   const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const cv = document.createElement("canvas");
   cv.className = "confetti"; cv.setAttribute("aria-hidden", "true");
@@ -13999,6 +14067,7 @@ function fireworks(){
   loop60(step);
 }
 function confetti(){
+  if (window.SBMotion && SBMotion.noParticles()) { SBMotion.flash(); return; }
   const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const cv = document.createElement("canvas");
   cv.className = "confetti"; cv.setAttribute("aria-hidden", "true");
@@ -27086,10 +27155,14 @@ return {buildScene: buildScene, buildSceneAt: buildSceneAt, SCENES: SCENES, ENGI
   const reduced = () => !!(mqReduce && mqReduce.matches);
   let lowBattery = false;
   try { if (navigator.getBattery) navigator.getBattery().then(b => { const u = () => { lowBattery = !b.charging && b.level < 0.2; syncRun(); }; b.addEventListener("levelchange", u); b.addEventListener("chargingchange", u); u(); }).catch(() => {}); } catch (e) {}
-  const liveOK = () => styleCfg().motion !== false && !lowBattery && !reduced();
+  const MO = () => window.SBMotion || null;   // the Animations governor (99-motion-a11y-tz.js): level, frame rate, pause rules
+  const liveOK = () => styleCfg().motion !== false && (!lowBattery || !!MO()) && (!reduced() || (!!MO() && MO().pref() === "full")) && (!MO() || MO().live());   // with the governor: low battery is its call (Auto only), and an explicit Full beats the system setting
 
   /* ---------- The scene on screen ---------- */
-  let cur = null, raf = 0, last = 0, T = 0, finUntil = 0, rebuildTimer = 0;
+  let cur = null, raf = 0, rafT = 0, last = 0, T = 0, finUntil = 0, rebuildTimer = 0;
+  const stopLoop = () => { cancelAnimationFrame(raf); clearTimeout(rafT); raf = 0; rafT = 0; };
+  // Sleep between frames (a timer, then one rAF) so a 15 or 30 fps scene does not wake the page on every 60 Hz refresh.
+  const nextFrame = () => { const gap = MO() ? MO().frameMs() : FRAME_MS, wait = last ? gap - (performance.now() - last) + 1 : 0; if (gap > 45 && wait > 4) { rafT = setTimeout(() => { rafT = 0; if (raf === -1) raf = requestAnimationFrame(tick); }, wait); return -1; } return requestAnimationFrame(tick); };
   const broken = new Set();   // scene ids whose engine threw: shown as a still scene from then on
 
   function geometry(){
@@ -27134,19 +27207,19 @@ return {buildScene: buildScene, buildSceneAt: buildSceneAt, SCENES: SCENES, ENGI
     const band = v.band.h ? `<div class="sc-band" style="top:${v.band.top * k}px;height:${v.band.h * k}px;background:${v.band.bg}"></div>` : "";
     el.innerHTML = band + layerHtml(v.far, true, v, k) + layerHtml(v.refl, true, v, k) + layerHtml(v.mid, true, v, k)
       + (eng ? `<canvas class="sc-cv sc-a"></canvas>` : "") + layerHtml(v.near, false, v, k) + (eng ? `<canvas class="sc-cv sc-b"></canvas>` : "");
-    const dpr = Math.min(g.W * g.H > BIG_AREA ? DPR_BIG : DPR_MAX, window.devicePixelRatio || 1), s = k * dpr;
+    const dpr = Math.min(g.W * g.H > BIG_AREA ? DPR_BIG : DPR_MAX, window.devicePixelRatio || 1) * (MO() ? MO().dprScale() : 1), s = k * dpr;
     const cvs = eng ? [el.querySelector(".sc-a"), el.querySelector(".sc-b")] : [];
     cvs.forEach(c => { c.width = Math.round(g.W * dpr); c.height = Math.round(g.H * dpr); c.style.width = g.W + "px"; c.style.height = g.H + "px"; });
-    cancelAnimationFrame(raf); raf = 0; last = 0; T = 0;
+    stopLoop(); last = 0; T = 0;
     document.documentElement.classList.add("sc-on");
-    cur = {id, sc, dk, sig: sigOf(id, dk, g), g, v, eng, s, el, ctx: cvs.map(c => c.getContext("2d"))};
+    cur = {id, sc, dk, sig: sigOf(id, dk, g), g, v, eng, s, el, dprK: MO() ? MO().dprScale() : 1, ctx: cvs.map(c => c.getContext("2d"))};
     if (eng) { safe(() => { eng.step(1 / 30, 0, feel()); T = 1 / 30; drawFrame(); }); }
     syncRun();
     return true;
   }
 
   function teardown(){
-    clearTimeout(rebuildTimer); cancelAnimationFrame(raf); raf = 0; cur = null;
+    clearTimeout(rebuildTimer); stopLoop(); cur = null;
     document.documentElement.classList.remove("sc-on");
     const el = document.getElementById("sceneArt"); if (el) el.remove();
   }
@@ -27172,10 +27245,12 @@ return {buildScene: buildScene, buildSceneAt: buildSceneAt, SCENES: SCENES, ENGI
     const c = cur; if (!c || !c.eng || document.hidden) return;
     const finishing = performance.now() < finUntil;
     if ((!liveOK() || popup) && !finishing) { last = 0; return; }
-    raf = requestAnimationFrame(tick);
-    if (last && ts - last < FRAME_MS) return;
+    if (last && ts - last < (MO() ? MO().frameMs() : FRAME_MS)) { raf = nextFrame(); return; }
     const dt = last ? Math.min(0.1, (ts - last) / 1000) : 1 / 30; last = ts; T += dt;
+    const t0 = performance.now();
     safe(() => { c.eng.step(dt, T, feel()); drawFrame(); });
+    if (MO() && !finishing) MO().frameCost(performance.now() - t0, ts);
+    if (!raf && cur === c) raf = nextFrame();
   }
   function syncRun(){
     if (!cur || !cur.eng || raf || document.hidden) return;
@@ -27185,8 +27260,14 @@ return {buildScene: buildScene, buildSceneAt: buildSceneAt, SCENES: SCENES, ENGI
   let popup = false;
   const origPause = ambientPause;
   ambientPause = function (on) { origPause.apply(this, arguments); popup = !!on; if (!on) syncRun(); };
-  document.addEventListener("visibilitychange", () => { if (document.hidden) { cancelAnimationFrame(raf); raf = 0; } else syncRun(); });
-  if (mqReduce) (mqReduce.addEventListener ? mqReduce.addEventListener("change", () => { cancelAnimationFrame(raf); raf = 0; syncRun(); }) : mqReduce.addListener(syncRun));
+  document.addEventListener("visibilitychange", () => { if (document.hidden) { stopLoop(); } else syncRun(); });
+  if (mqReduce) (mqReduce.addEventListener ? mqReduce.addEventListener("change", () => { stopLoop(); syncRun(); }) : mqReduce.addListener(syncRun));
+  // The Animations governor changed something (mode, power, focus, idle, quality step): stop or restart the loop, and redraw at a new pixel density if it changed.
+  window.addEventListener("sb-motion", () => {
+    stopLoop(); last = 0;
+    if (cur && cur.eng && MO() && cur.dprK !== MO().dprScale()) { build(cur.id); return; }
+    syncRun();
+  });
 
   /* ---------- Hooks ---------- */
   hook("skinart", () => {
@@ -27200,7 +27281,7 @@ return {buildScene: buildScene, buildSceneAt: buildSceneAt, SCENES: SCENES, ENGI
       rebuildTimer = setTimeout(() => { if (cur && cur.id === id) build(id); }, dk !== cur.dk ? 60 : 220);
       cur.el.style.left = g.side + "px";
     }
-    cancelAnimationFrame(raf); raf = 0; syncRun();   // the motion switch or battery state may have changed
+    stopLoop(); syncRun();   // the motion switch or battery state may have changed
     return true;
   });
 
@@ -27210,13 +27291,13 @@ return {buildScene: buildScene, buildSceneAt: buildSceneAt, SCENES: SCENES, ENGI
      Today's Plan. The student can also play it on purpose from the Style Shop or Settings. */
   const hasMoment = () => !!(cur && cur.eng && cur.id === document.documentElement.dataset.skin);
   function sceneMoment(byUser){
-    if (!hasMoment() || document.hidden) return false;
+    if (!hasMoment() || document.hidden || (MO() && MO().level() === "static")) return false;
     const cfg = styleCfg();
     if (!byUser && (cfg.celebrate === false || cfg.motion === false)) return false;
     const rm = reduced();
     if (!safe(() => cur.eng.finish(T))) return false;
     finUntil = Math.max(finUntil, performance.now() + (rm ? 2200 : 6000));
-    cancelAnimationFrame(raf); raf = 0; syncRun();
+    stopLoop(); syncRun();
     return true;
   }
   const later = (ms, byUser) => setTimeout(() => sceneMoment(byUser), ms);
@@ -30527,7 +30608,8 @@ const CS_SQL = "-- Studyboard: live calendar link (Calendar Sync)\n-- Run this o
 const cs = {tab: "live", phase: "idle", row: null, err: "", fn: "", fnAt: 0, confirm: "", busy: false, saved: ""};
 let csSaveTimer = null;
 
-const csTz = () => { try { const z = Intl.DateTimeFormat().resolvedOptions().timeZone; return SBICS.validTz(z) ? z : "America/Vancouver"; } catch (e) { return "America/Vancouver"; } };
+// The calendar link uses the HOME zone (changed only when you choose "Use this device" after a trip), so the link never silently changes zone while you travel.
+const csTz = () => { try { const h = window.SBTZ && SBTZ.schoolZone(); if (h && SBICS.validTz(h)) return h; const z = Intl.DateTimeFormat().resolvedOptions().timeZone; return SBICS.validTz(z) ? z : "America/Vancouver"; } catch (e) { return "America/Vancouver"; } };
 const csAppUrl = () => /^https?:$/.test(location.protocol) ? location.origin + location.pathname : "";
 const csCourses = () => Object.values(state.courses || {}).filter(c => c && !c.archived).sort((a, b) => courseLabel(a).localeCompare(courseLabel(b)));
 const csHasImported = () => Object.values(state.events || {}).some(e => e && e.src === "ics");
@@ -32369,7 +32451,7 @@ const RM_CORE = (() => {
     const max = Math.max(1, ...rows.map(r => r.v)), total = rows.reduce((a, r) => a + r.f, 0), need = goal * ms.length;
     const champ = ext.stats.filter(s => s.week === last && s.focus_min > 0).sort((a, b) => b.focus_min - a.focus_min)[0];
     const mine = rows.find(r => r.m.user_id === myId());
-    const left = parse(addDays(wk, 7)) - Date.now(), dl = Math.max(0, Math.ceil(left / 864e5));
+    const dl = Math.max(0, dayDiff(todayISO(), addDays(wk, 7)));
     return `<section class="grp-sec" id="grpChallenge"><h3 class="fsec">${I_TROPHY}Weekly Challenge<span class="n">resets in ${dl} day${dl === 1 ? "" : "s"}</span></h3>
       <div class="grp-card2">
         ${goal ? `<div class="grp-goal"><div class="grp-goal-top"><b>Group goal</b><span class="mini">${gMins(total)} of ${gMins(need)} (${gMins(goal)} each)</span></div><div class="score-bar"><i style="width:${Math.min(100, gPct(total, need))}%"></i></div>${total >= need ? `<span class="grp-chg">Goal reached. Nice teamwork.</span>` : mine && mine.f >= goal ? `<span class="grp-chg">You've hit your ${gMins(goal)}. Help the others get there.</span>` : mine ? `<span class="mini">You need ${gMins(Math.max(0, goal - mine.f))} more for your share.</span>` : ""}</div>` : ""}
@@ -34075,7 +34157,13 @@ window.SBEST = SBEST;
   const titleKey = s => String(s || "").toLowerCase().replace(/\b[a-z]{3,5}[\s_-]?\d{4}[a-z]?\b/g, "").replace(/[^a-z0-9]/g, "");
   const words = s => new Set(String(s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(w => w.length > 1));
   const sim = (a, b) => { const A = words(a), B = words(b); if (!A.size || !B.size) return 0; let n = 0; A.forEach(w => { if (B.has(w)) n++; }); return n / Math.max(A.size, B.size); };
-  const localDT = s => { if (!s) return null; const d = new Date(s); if (isNaN(d)) return null; return {date: iso(d), time: pad(d.getHours()) + ":" + pad(d.getMinutes())}; };
+  const localDT = s => {
+    if (!s) return null;
+    if (isDate(s)) return {date: s, time: ""};                      // a bare date is floating: "Nov 1" stays Nov 1 (new Date("2026-11-01") would be UTC midnight, the day before in the Americas)
+    const d = new Date(s); if (isNaN(d)) return null;
+    const z = window.SBTZ && SBTZ.schoolZone(), w = z && SBTZ.wallIn(d.getTime(), z);   // an instant (Canvas due_at is UTC) becomes the wall-clock time in your home zone, so a trip doesn't move the deadline
+    return w || {date: iso(d), time: pad(d.getHours()) + ":" + pad(d.getMinutes())};
+  };
   // When the platform stops taking submissions (its "availability ends" or "lock" date), as "YYYY-MM-DD HH:MM".
   // Later than the due date: late work is accepted until then. The same as the due date: nothing is accepted late.
   const lateWin = (due, end) => { const a = localDT(due), b = localDT(end); if (!a || !b || Date.parse(end) < Date.parse(due) - 60000) return ""; return b.date + " " + b.time; };
@@ -40218,14 +40306,14 @@ var TP_DATA = [];
   // Where each row goes, by its data-act (or input id). Also sets the order inside a category.
   const ORDER = {
     account: ["sb-signout", "sb-signin", "sb-connect", "plan-open"],
-    appearance: ["theme-set", "shop", "anim-toggle", "daily-quote", "scene-moment"],
+    appearance: ["theme-set", "shop", "anim-mode", "text-size", "a11y-contrast", "anim-toggle", "daily-quote", "scene-moment"],
     study: ["dailyIn", "capIn", "g-grades", "ai-setup", "sx-settings"],
     school: ["lms-open", "cal-export", "cal-sync", "import-syllabus", "grp-page"],
-    app: ["rm-open", "sbw-open", "pwa-install", "install", "desk-version", "ob-replay", "tour-open", "bug-open"],
+    app: ["tz-shift", "rm-open", "sbw-open", "pwa-install", "install", "desk-version", "ob-replay", "tour-open", "bug-open"],
     data: ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "backup-now", "restore", "export", "export-full", "import", "new-term", "archive-open", "clear-all"]
   };
   // Extra words people might search for, per row
-  const SYN = {"theme-set": "dark light mode night", shop: "theme colors stickers pins cards", "anim-toggle": "motion confetti",
+  const SYN = {"theme-set": "dark light mode night", shop: "theme colors stickers pins cards", "anim-toggle": "motion confetti", "anim-mode": "reduce motion animation battery low power static still reduced saver", "text-size": "font bigger larger smaller accessibility dynamic type zoom", "a11y-contrast": "contrast accessibility readable calm background dim blur", "tz-shift": "timezone travel daylight saving dst clock",
     "sb-connect": "sync cloud online login", "sb-signin": "sync login", "sb-signout": "log out logout", "plan-open": "pro upgrade subscription devices storage",
     dailyIn: "study time plan", capIn: "weekly limit", "ai-setup": "gemini key chatbot", "sx-settings": "find ctrl k", "g-grades": "marks gpa",
     "lms-open": "d2l lms school sites", "cal-export": "calendar ics google outlook apple", "import-syllabus": "pdf course", "grp-page": "classmates share",
@@ -48429,7 +48517,7 @@ var COMP_KIT = (() => {
 
   /* ---------- Conditions ---------- */
   const mq = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : null;
-  const still = () => !!(mq && mq.matches) || (styleCfg() || {}).motion === false;
+  const still = () => !!(mq && mq.matches) || (styleCfg() || {}).motion === false || !!(window.SBMotion && SBMotion.level() !== "full");
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
@@ -51195,7 +51283,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const initials = n => { const w = String(n || "?").trim().split(/\s+/).filter(Boolean); return ((w[0] || "?")[0] + (w.length > 1 ? w[w.length - 1][0] : "")).toUpperCase(); };
   const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch(e) {} return null; };
   const lsJSON = (k, d) => { try { const v = JSON.parse(ls(k) || "null"); return v == null ? d : v; } catch(e) { return d; } };
-  const reduceMotion = () => (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) || styleCfg().celebrate === false;
+  const reduceMotion = () => (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) || styleCfg().celebrate === false || !!(window.SBMotion && SBMotion.noParticles());
   const noticesOn = () => (state.settings || {}).roomNotice !== false;
   const joinNames = a => a.length <= 1 ? (a[0] || "") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1];
   const minLabel = m => m % 60 === 0 && m >= 60 ? plural(m / 60, "hour") : `${m} min`;
@@ -54104,6 +54192,261 @@ var SOUNDS_HOOK = hook;
     if (h && h.textContent.trim()) d.setAttribute("aria-label", h.textContent.trim());
   };
   try { new MutationObserver(() => nameSheet(dlg)).observe(dlg, {childList: true}); } catch (e) {}
+})();
+
+
+/* ===== module: 99-motion-a11y-tz.js ===== */
+/* Animations governor (Auto / Full / Reduced / Off), low-power handling, text size, high contrast and time zones.
+   Pieces: SBMotion (level, frame rate, pause rules, quality governor), SBTZ (time zone model and DST-proof day math),
+   Settings rows (via the "menu" hook), and the shared a11y helpers that run after every render. */
+(() => {
+  const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} return null; };
+  const ss = (k, v) => { try { if (v === undefined) return sessionStorage.getItem(k); sessionStorage.setItem(k, v); } catch (e) {} return null; };
+  const mm = q => { try { return window.matchMedia ? matchMedia(q) : null; } catch (e) { return null; } };
+  const onMq = (m, fn) => { if (!m) return; try { m.addEventListener ? m.addEventListener("change", fn) : m.addListener(fn); } catch (e) {} };
+  const root = document.documentElement;
+
+  /* ================= Animations governor ================= */
+  const mqReduce = mm("(prefers-reduced-motion: reduce)"), mqData = mm("(prefers-reduced-data: reduce)"), mqPhone = mm("(max-width:719px)"), mqContrast = mm("(prefers-contrast: more)");
+  const MODES = ["auto", "full", "calm", "off"], RANK = {full: 0, calm: 1, static: 2}, KEY = "studyboard:anim";
+  const worse = (a, b) => RANK[a] >= RANK[b] ? a : b;
+  let pref = ls(KEY); if (MODES.indexOf(pref) < 0) pref = "auto";
+  let battery = null, saveData = false, desk = {onBattery: false, thermal: "unknown", locked: false};
+  let blurred = false, idle = false, covered = false, lastInput = Date.now(), lastSig = "";
+  let gov = Math.max(0, Math.min(3, Number(ss("studyboard:animGov")) || 0));     // 0 none, 1 15 fps, 2 + lower pixel density, 3 still: kept for this session
+  const IDLE_MS = 5 * 60000;
+
+  const reduceSys = () => !!(mqReduce && mqReduce.matches);
+  const batLow = () => !!(battery && battery.charging === false && battery.level < 0.2);
+  const batCritical = () => !!(battery && battery.charging === false && battery.level < 0.08);
+  const thermal = () => desk.thermal === "serious" || desk.thermal === "critical";
+  const lowPower = () => batLow() || saveData || !!(mqData && mqData.matches) || thermal() || nativeLow;
+  function level(){
+    if (pref === "off") return "static";
+    let lv = "full";
+    if (pref === "auto") {
+      if (reduceSys() || batCritical() || desk.thermal === "critical") lv = "static";
+      else if (lowPower()) lv = "calm";
+    } else if (pref === "calm") lv = "calm";
+    if (gov >= 3) lv = "static"; else if (gov >= 1) lv = worse(lv, "calm");
+    return lv;
+  }
+  const live = () => level() !== "static" && !blurred && !idle && !covered && !desk.locked && !document.hidden;
+  const frameMs = () => level() === "calm" ? 66 : 31;
+  const dprScale = () => gov >= 2 ? 0.5 : level() === "calm" ? 0.7 : 1;
+  const noParticles = () => level() !== "full";
+  const pauseWhy = () => document.hidden ? "the tab is hidden" : blurred ? "the window isn't in front" : idle ? "no activity for a few minutes" : covered ? "a full-screen sheet is open" : "";
+  function why(){
+    const r = [];
+    if (reduceSys()) r.push("your device's Reduce Motion is on");
+    if (batLow()) r.push("battery is low");
+    if (saveData) r.push("Data Saver is on");
+    if (mqData && mqData.matches) r.push("reduced data is requested");
+    if (thermal()) r.push("the device is running hot");
+    if (nativeLow) r.push("Low Power Mode is on");
+    return r.join(", ");
+  }
+  function statusText(){
+    const lv = level(), p = pauseWhy();
+    let s;
+    if (pref === "auto") {
+      const w = why();
+      s = lv === "full" ? "Auto: following your device. Nothing asks for less motion, so scenes play fully."
+        : lv === "calm" ? `Auto: following your device. ${w ? w[0].toUpperCase() + w.slice(1) : "Power saving is on"}, so scenes run slower and gentler.`
+        : `Auto: following your device. ${w ? w[0].toUpperCase() + w.slice(1) : "Motion is limited"}, so scenes are still.`;
+    } else s = pref === "full" ? "Full: scenes always play." : pref === "calm" ? "Reduced: scenes drift slowly at a low frame rate." : "Off: scenes are still, with no confetti.";
+    if (gov > 0 && pref !== "off") s += " Quality was lowered automatically because this device was struggling (until you close the app).";
+    if (p && lv !== "static") s += ` Paused for now because ${p}.`;
+    return s;
+  }
+  function emit(force){
+    const lv = level(), sig = [lv, live(), frameMs(), dprScale(), pref, gov].join("|");
+    root.dataset.motion = lv;
+    if (sig === lastSig && !force) return;
+    lastSig = sig;
+    document.querySelectorAll("[data-anim-status]").forEach(el => { el.textContent = statusText(); });
+    try { window.dispatchEvent(new CustomEvent("sb-motion", {detail: {level: lv, live: live(), pref, gov}})); } catch (e) {}
+  }
+  const setPref = p => { if (MODES.indexOf(p) < 0) return; pref = p; ls(KEY, p === "auto" ? null : p); if (p !== "auto" || gov) { gov = 0; ss("studyboard:animGov", "0"); } emit(true); };
+
+  // Quality governor: if drawing a frame keeps costing too much (or frames keep arriving late), step down for this session.
+  let win = {n: 0, cost: 0, t0: 0, last: 0}, badRuns = 0;
+  function frameCost(ms, ts){
+    if (!win.t0 || ts - win.last > 600) { win = {n: 0, cost: 0, t0: ts, last: ts}; badRuns = 0; }
+    win.n++; win.cost += ms; win.last = ts;
+    if (ts - win.t0 < 3000 || win.n < 20) return;
+    const avg = win.cost / win.n, interval = (ts - win.t0) / win.n, budget = frameMs();
+    win = {n: 0, cost: 0, t0: ts, last: ts};
+    if (avg > budget * 0.45 || interval > budget * 1.8) badRuns++; else badRuns = 0;
+    if (badRuns >= 2 && gov < 3 && pref !== "off") { gov++; badRuns = 0; ss("studyboard:animGov", String(gov)); emit(true); }
+  }
+
+  // Signals
+  try { if (navigator.getBattery) navigator.getBattery().then(b => { battery = b; const u = () => emit(true); ["levelchange", "chargingchange"].forEach(ev => b.addEventListener(ev, u)); u(); }).catch(() => {}); } catch (e) {}
+  try { const c = navigator.connection; if (c) { saveData = !!c.saveData; c.addEventListener && c.addEventListener("change", () => { saveData = !!c.saveData; emit(true); }); } } catch (e) {}
+  try { if (typeof DESK !== "undefined" && DESK) {
+    const set = o => { if (o && typeof o === "object") { desk = {onBattery: o.onBattery === true, thermal: String(o.thermal || "unknown"), locked: o.locked === true}; emit(true); } };
+    if (DESK.getPower) DESK.getPower().then(set).catch(() => {});
+    if (DESK.onPower) DESK.onPower(set);
+  } } catch (e) {}
+  onMq(mqReduce, () => emit(true)); onMq(mqData, () => emit(true)); onMq(mqContrast, () => applyContrast());
+  window.addEventListener("blur", () => { blurred = true; emit(); });
+  window.addEventListener("focus", () => { blurred = false; lastInput = Date.now(); idle = false; emit(); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { lastInput = Date.now(); idle = false; } emit(); });
+  const touch = () => { lastInput = Date.now(); if (idle) { idle = false; emit(); } };
+  ["pointerdown", "keydown", "wheel", "touchstart", "pointermove", "scroll"].forEach(ev => document.addEventListener(ev, touch, {passive: true, capture: true}));
+  setInterval(() => { if (!idle && Date.now() - lastInput > IDLE_MS) { idle = true; emit(); } }, 15000);
+  // A sheet or the Focus timer that fills a phone screen hides the scene: nothing to animate behind it.
+  const coverDlgs = () => [dlg, document.getElementById("pomoDlg")].filter(Boolean);
+  const syncCover = () => { const c = !!(mqPhone && mqPhone.matches && coverDlgs().some(d => d.open)); if (c !== covered) { covered = c; emit(); } };
+  // Every dialog (sheets, Focus timer, alerts, Search Everywhere) gets the screen reader pass when it opens.
+  const passOpen = () => { ["dlg", "pomoDlg", "alarmDlg", "sxDlg"].forEach(id => { const d = document.getElementById(id); if (d && d.open) { try { a11yPass(d); } catch (e) {} setTimeout(() => { try { a11yPass(d); } catch (e) {} }, 400); } }); };
+  try { const mo = new MutationObserver(() => { syncCover(); passOpen(); }); ["dlg", "pomoDlg", "alarmDlg", "sxDlg"].forEach(id => { const d = document.getElementById(id); if (d) mo.observe(d, {attributes: true, attributeFilter: ["open"]}); }); onMq(mqPhone, syncCover); } catch (e) {}
+
+  // Smooth scrolling off whenever motion is reduced.
+  const calmScroll = () => level() !== "full" || reduceSys();
+  [[Element.prototype, ["scrollIntoView", "scrollTo", "scrollBy", "scroll"]], [window, ["scrollTo", "scrollBy", "scroll"]]].forEach(([o, names]) => names.forEach(n => {
+    const f = o[n]; if (typeof f !== "function") return;
+    o[n] = function (a) { if (a && typeof a === "object" && a.behavior === "smooth" && calmScroll()) { const b = Object.assign({}, a, {behavior: "auto"}); const r = Array.prototype.slice.call(arguments, 1); return f.apply(this, [b].concat(r)); } return f.apply(this, arguments); };
+  }));
+
+  // A brief highlight that doesn't move, in place of confetti and fireworks.
+  function flash(){
+    try {
+      const old = document.getElementById("sbFlash"); if (old) old.remove();
+      const el = document.createElement("div"); el.id = "sbFlash"; el.setAttribute("aria-hidden", "true"); document.body.appendChild(el);
+      setTimeout(() => el.remove(), 700);
+    } catch (e) {}
+  }
+  // A native shell that knows more (iOS Low Power Mode is not visible to web pages) can say so: SBMotion.setPower({lowPower: true}).
+  let nativeLow = false;
+  const setPower = o => { nativeLow = !!(o && o.lowPower); if (o && o.thermal) desk.thermal = String(o.thermal); emit(true); };
+  window.SBMotion = {level, live, frameMs, dprScale, noParticles, frameCost, flash, pref: () => pref, setPref, setPower, status: statusText, gov: () => gov, why: pauseWhy};
+  emit(true);
+
+  /* ================= Text size and contrast ================= */
+  const TS = [["s", "Small"], ["d", "Default"], ["l", "Large"], ["xl", "Extra Large"]];
+  const tsNow = () => { const v = ls("studyboard:textsize"); return TS.some(x => x[0] === v) ? v : "d"; };
+  const applyTextSize = () => { const v = tsNow(); if (v === "d") root.removeAttribute("data-ts"); else root.setAttribute("data-ts", v); };
+  const hcPref = () => ls("studyboard:contrast") === "1";
+  function applyContrast(){ const on = hcPref() || !!(mqContrast && mqContrast.matches); if (on) root.setAttribute("data-hc", "1"); else root.removeAttribute("data-hc"); }
+  applyTextSize(); applyContrast();
+
+  /* ================= Time zones ================= */
+  /* TZ-CORE-START */
+  const SBTZ_CORE = (() => {
+    const p2 = n => String(n).padStart(2, "0");
+    const isDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
+    // Day numbers are whole days since 1970 in UTC, so day maths never sees a 23 or 25 hour day.
+    const dn = s => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)) / 864e5;
+    const fromDn = n => { const d = new Date(n * 864e5); return d.getUTCFullYear() + "-" + p2(d.getUTCMonth() + 1) + "-" + p2(d.getUTCDate()); };
+    const localISO = d => d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate());
+    const todayLocal = now => localISO(now || new Date());
+    const addDays = (s, n) => fromDn(dn(s) + n);
+    const dayDiff = (a, b) => dn(b) - dn(a);
+    const weekday = s => new Date(dn(s) * 864e5).getUTCDay();
+    const mondayOf = s => addDays(s, -((weekday(s) + 6) % 7));
+    const fmts = {};
+    const valid = tz => { try { return typeof tz === "string" && tz.length < 64 && !!new Intl.DateTimeFormat("en-US", {timeZone: tz}); } catch (e) { return false; } };
+    const partsIn = (tz, ms) => { const f = fmts[tz] || (fmts[tz] = new Intl.DateTimeFormat("en-US", {timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit"})); const o = {}; f.formatToParts(new Date(ms)).forEach(x => { o[x.type] = x.value; }); return o; };
+    // The wall-clock date and time an instant has in a zone.
+    const wallIn = (ms, tz) => { if (!valid(tz) || !isFinite(ms)) return null; const o = partsIn(tz, ms); return {date: o.year + "-" + o.month + "-" + o.day, time: p2(+o.hour % 24) + ":" + o.minute}; };
+    // The wall-clock date and time of an ISO instant in a zone ("2026-11-02T07:59:00Z" in America/Vancouver is 2026-11-01 23:59).
+    const wallOfIso = (s, tz) => { if (isDate(s)) return {date: s, time: ""}; const ms = Date.parse(s); return isNaN(ms) ? null : wallIn(ms, tz); };
+    // A due date and time are a wall-clock reading: 11:59 PM is 11:59 PM wherever the device is. This is the instant it means right now.
+    const dueMs = (due, time) => { const m = /^(\d{2}):(\d{2})$/.exec(time || ""); return new Date(+due.slice(0, 4), +due.slice(5, 7) - 1, +due.slice(8, 10), m ? +m[1] : 23, m ? +m[2] : 59, m ? 0 : 59).getTime(); };
+    // overdue | today | tomorrow | later for an open task, against a moment (ms).
+    const dueClass = (t, nowMs) => {
+      if (!t || !isDate(t.due) || t.status === "done") return "none";
+      const today = todayLocal(new Date(nowMs)), d = dayDiff(today, t.due);
+      if (d < 0) return "overdue";
+      if (d === 0) return nowMs > dueMs(t.due, t.time) ? "overdue" : "today";
+      return d === 1 ? "tomorrow" : "later";
+    };
+    // Streak rule used by the app: progress today extends the run when the last progress day was yesterday.
+    const streakStep = (s, today) => { const o = Object.assign({cur: 0, best: 0, last: ""}, s); if (o.last === today) return o; o.cur = o.last === addDays(today, -1) ? o.cur + 1 : 1; o.last = today; o.best = Math.max(o.best, o.cur); return o; };
+    const zoneChanged = (home, now) => !!home && !!now && home !== now;
+    return {isDate, dn, fromDn, localISO, todayLocal, addDays, dayDiff, weekday, mondayOf, valid, wallIn, wallOfIso, dueMs, dueClass, streakStep, zoneChanged};
+  })();
+  /* TZ-CORE-END */
+  const HOME_KEY = "studyboard:tz", ACK_KEY = "studyboard:tzAck";
+  const deviceZone = () => { try { const z = Intl.DateTimeFormat().resolvedOptions().timeZone; return SBTZ_CORE.valid(z) ? z : ""; } catch (e) { return ""; } };
+  const homeZone = () => { const h = ls(HOME_KEY); return SBTZ_CORE.valid(h) ? h : ""; };
+  const city = z => String(z || "").split("/").pop().replace(/_/g, " ");
+  if (!homeZone() && deviceZone()) ls(HOME_KEY, deviceZone());
+  window.SBTZ = Object.assign({}, SBTZ_CORE, {
+    device: deviceZone, home: () => homeZone() || deviceZone(),
+    // The zone school sites' instants (Canvas due_at and so on) are turned into wall-clock times in: the home zone, so a trip doesn't move a deadline.
+    schoolZone: () => homeZone() || null
+  });
+
+  function refreshAfterZone(){
+    try { if (window.studyboardReminders && window.studyboardReminders.refresh) window.studyboardReminders.refresh(); } catch (e) {}
+    try { scheduleRender(); } catch (e) {}
+  }
+  function tzNote(){
+    const home = homeZone(), cur = deviceZone();
+    if (!SBTZ_CORE.zoneChanged(home, cur) || ls(ACK_KEY) === cur || document.getElementById("tzNote")) return;
+    const el = document.createElement("div"); el.id = "tzNote"; el.className = "tz-note"; el.setAttribute("role", "region"); el.setAttribute("aria-label", "Time zone changed");
+    el.innerHTML = `<p><b>This device is now on ${esc(city(cur))} time.</b> Your due dates and times stay just as you set them: 11:59 PM is still 11:59 PM wherever you are, and reminders now follow the local clock. School sites keep using ${esc(city(home))} time unless you switch.</p>
+      <div class="tz-act"><button type="button" class="btn small" data-act="tz-keep">Keep my times</button><button type="button" class="btn small primary" data-act="tz-shift">Use ${esc(city(cur))} time for school sites</button></div>`;
+    document.body.appendChild(el);
+    refreshAfterZone();
+  }
+  const closeNote = () => { const n = document.getElementById("tzNote"); if (n) n.remove(); };
+  ["visibilitychange", "focus", "online"].forEach(ev => (ev === "visibilitychange" ? document : window).addEventListener(ev, () => { if (!document.hidden) setTimeout(tzNote, 300); }));
+  setInterval(() => { if (!document.hidden) tzNote(); }, 5 * 60000);
+  hook("boot", () => setTimeout(tzNote, 1200));
+
+  /* ================= Settings rows ================= */
+  const seg = (act, items, cur, label) => `<div class="segb" role="group" aria-label="${esc(label)}">${items.map(([k, l]) => `<button type="button" data-act="${act}" data-id="${k}" aria-pressed="${cur === k}">${esc(l)}</button>`).join("")}</div>`;
+  hook("menu", () => {
+    const tzr = homeZone(), cur = deviceZone(), differs = SBTZ_CORE.zoneChanged(tzr, cur);
+    return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Animations<span class="sub" data-anim-status>${esc(statusText())}</span><span class="sub">Auto follows your device's Reduce Motion setting and its power state. Reduced keeps scenes slow and calm. Off shows still scenery and replaces confetti with a quiet highlight. It also saves battery.</span></span>${seg("anim-mode", [["auto", "Auto"], ["full", "Full"], ["calm", "Reduced"], ["off", "Off"]], pref, "Animations")}</div>
+    <div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Text Size<span class="sub">Makes all text and buttons bigger or smaller. Default follows your device's text size.</span></span>${seg("text-size", TS, tsNow(), "Text size")}</div>
+    <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">High Contrast and Calm Backgrounds<span class="sub">Dims and blurs theme scenery and makes cards and text stronger. Turns on by itself if your device asks for more contrast.</span></span><label class="anim-tog"><input type="checkbox" data-act="a11y-contrast" ${hcPref() ? "checked" : ""}> On</label></div>
+    <div class="cap-row sb-wide" data-group="app"><span style="flex:1;font-weight:600;min-width:12rem">Time Zone<span class="sub">Due dates and times stay as you set them when you travel or the clocks change. Home zone for school sites: <b>${esc(tzr || cur || "this device")}</b>.${differs ? ` This device is on ${esc(cur)} now.` : ""}</span></span>${differs ? `<button type="button" class="btn small" data-act="tz-shift">Use ${esc(city(cur))}</button>` : ""}</div>`;
+  });
+  hook("act", (act, el, id) => {
+    if (act === "anim-mode") { setPref(id); dlg.querySelectorAll('[data-act="anim-mode"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); return true; }
+    if (act === "text-size") { ls("studyboard:textsize", id === "d" ? null : id); applyTextSize(); dlg.querySelectorAll('[data-act="text-size"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); try { queueArt(); } catch (e) {} return true; }
+    if (act === "a11y-contrast") { ls("studyboard:contrast", el.checked ? "1" : null); applyContrast(); try { artSig = ""; renderSkinArt(); } catch (e) {} return true; }
+    if (act === "tz-keep") { ls(ACK_KEY, deviceZone()); closeNote(); refreshAfterZone(); return true; }
+    if (act === "tz-shift") { ls(HOME_KEY, deviceZone()); ls(ACK_KEY, deviceZone()); closeNote(); refreshAfterZone(); try { toast("School sites will use " + city(deviceZone()) + " time from the next sync."); } catch (e) {} return true; }
+    return false;
+  });
+
+  /* ================= Screen reader pass (runs after every render and every sheet; no observers) =================
+     Decorative icons are hidden from VoiceOver and TalkBack, and any icon-only control that still has no name borrows its
+     title or placeholder. Controls that already have a name are left alone. */
+  const NAMELESS = 'button:not([aria-label]):not([aria-labelledby]),a[href]:not([aria-label]):not([aria-labelledby]),[role="button"]:not([aria-label]):not([aria-labelledby]),[role="tab"]:not([aria-label]):not([aria-labelledby])';
+  const FIELDS = 'input:not([type="hidden"]):not([aria-label]):not([aria-labelledby]),select:not([aria-label]):not([aria-labelledby]),textarea:not([aria-label]):not([aria-labelledby])';
+  function a11yPass(scope){
+    const r = scope && scope.querySelectorAll ? scope : document;
+    try {
+      r.querySelectorAll('svg:not([aria-hidden]):not([aria-label]):not([role]):not([aria-labelledby])').forEach(s => { if (!s.querySelector("title")) s.setAttribute("aria-hidden", "true"); });
+      r.querySelectorAll(NAMELESS).forEach(b => {
+        if ((b.textContent || "").trim() || b.querySelector('img[alt]:not([alt=""])')) return;
+        const t = b.getAttribute("title"); if (t && t.trim()) b.setAttribute("aria-label", t.trim());
+      });
+      r.querySelectorAll(FIELDS).forEach(i => {
+        if (i.labels && i.labels.length) return;
+        const t = i.getAttribute("title") || i.getAttribute("placeholder"); if (t && t.trim()) i.setAttribute("aria-label", t.trim());
+      });
+    } catch (e) { console.warn("a11y pass", e); }
+  }
+  // One page title for screen readers when the visible header (with the logo heading) is hidden, as on desktop: "Studyboard, Board".
+  function pageTitle(){
+    const h = document.getElementById("pageH1"); if (!h) return;
+    const top = document.querySelector("header.top .brand"), cur = document.querySelector('nav.tabs [aria-current="page"]');
+    const topShown = !!(top && top.getClientRects().length);
+    h.hidden = topShown;
+    if (!topShown) { const t = "Studyboard" + (cur ? ", " + (cur.textContent || "").replace(/\s+/g, " ").trim() : ""); if (h.textContent !== t) h.textContent = t; }
+  }
+  hook("render", () => { a11yPass(document.body); pageTitle(); });
+  const origOpenSheet = openSheet;
+  openSheet = function () { const r = origOpenSheet.apply(this, arguments); try { a11yPass(dlg); } catch (e) {} return r; };
+  window.SBA11Y = {pass: a11yPass};
 })();
 
 
