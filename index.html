@@ -48641,8 +48641,23 @@ var COMP_KIT = (() => {
       if (b.surface) { if (c.kind !== "home" && c.kind !== "ground") continue; c.score += 45; }
       if (!best || c.score < best.score) best = c;
     }
+    // Nowhere open. On a phone it never sits over what you press: it tucks into the page's side gutter and peeks in from the right
+    // edge (only a sliver shows), at the lowest height where that gutter is clear, and steps back out when a clear spot appears.
+    if (!best && phone()) best = dockSpot(px, f);
     if (!best) best = list.find(c => c.kind === "home") || list[0];   // nowhere open: it floats beside Add Task like the button itself, with room reserved below the page
     return Object.assign(best, {px, fab: f});
+  }
+  const DOCK_VIS = 15;
+  function dockSpot(px, f){
+    const left = Math.round(innerWidth - DOCK_VIS - px * 0.08), ground = Math.round(f.bottom - px * (112 / 120));
+    const rects = RECTS || (RECTS = contentRects()), stripL = innerWidth - DOCK_VIS - 1;
+    let pick = null;
+    for (let y = ground; y >= 40 && !pick; y -= Math.round(px * 0.5)) {
+      if (f.shown && stripL < f.right + 4 && y + px > f.top - 4 && y < f.bottom + 4) continue;
+      const a = {t: y + px * 0.1, b: y + px * 0.97};
+      if (!rects.some(q => q.right > stripL && q.top < a.b && q.bottom > a.t)) pick = y;
+    }
+    return {left, top: pick == null ? ground : pick, kind: "dock", score: 999};
   }
   // Travel to a new spot in character, picked from a few fun styles:
   //   walkers: a trail of bouncy hops (squash on landing, a puff of dust each time), or one big leap with a flip
@@ -48836,6 +48851,8 @@ var COMP_KIT = (() => {
   const ownLines = kind => cur && Array.isArray(cur.lines[kind]) && cur.lines[kind].length ? cur.lines[kind] : GENERIC[kind] || GENERIC.tap;
   const bubbleOpen = () => !!(front && front.querySelector(".cp-bubble.on"));
   function hideBubble(){ clearTimeout(bubbleT); bubbleIdea = null; bubbleAsk = false; if (front) { const b = front.querySelector(".cp-bubble"); if (b) b.classList.remove("on", "has-idea", "asking"); } }
+  let bRects = null, bRectsAt = 0;
+  const bubbleRects = () => { const n = performance.now(); if (!bRects || n - bRectsAt > 700) { try { bRects = contentRects(); } catch (e) { bRects = []; } bRectsAt = n; } return bRects; };
   // Where the bubble goes: its right edge lines up with the Add Task button's right edge, just above the companion
   function placeBubble(b){
     // Centred over the companion (kept on screen), with its pointer always aimed at it, wherever it stands or travels
@@ -48844,7 +48861,13 @@ var COMP_KIT = (() => {
     if (b.dataset.mw !== String(maxW)) { b.style.maxWidth = maxW + "px"; b.dataset.mw = maxW; }
     const w = b.offsetWidth, h = b.offsetHeight;
     const left = Math.max(g.side + 10, Math.min(innerWidth - 10 - w, cx - w / 2));
-    const top = Math.max(8, r.top + r.height * 0.06 - h);
+    let top = Math.max(8, r.top + r.height * 0.06 - h);
+    // Over the page it should cover as little as possible: above the companion, or below it when that hides fewer controls and text
+    const topB = Math.min(innerHeight - h - 8, r.bottom + 4);
+    const cover = t => { let a = 0; const x1 = left, x2 = left + w, y2 = t + h; for (const q of bubbleRects()) { const ox = Math.min(x2, q.right) - Math.max(x1, q.left), oy = Math.min(y2, q.bottom) - Math.max(t, q.top); if (ox > 0 && oy > 0) a += ox * oy; } return a; };
+    const below = topB > r.bottom - h * 0.5 && cover(topB) + 400 < cover(top);
+    if (below) top = topB;
+    b.classList.toggle("below", below);
     b.style.left = Math.round(left) + "px"; b.style.top = Math.round(top) + "px";
     b.style.setProperty("--tx", Math.round(Math.max(16, Math.min(w - 16, r.left + r.width / 2 - left))) + "px");
   }
@@ -49675,6 +49698,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   new MutationObserver(() => refresh(60)).observe(document.documentElement, {attributes: true, attributeFilter: ["data-skin", "data-theme"]});
   addEventListener("resize", () => placeSoon(200));
   { const nav = document.querySelector("nav.tabs"); if (nav) new MutationObserver(() => placeSoon(80)).observe(nav, {attributes: true, attributeFilter: ["data-fit"]}); }
+  // The page changing shape under it (a banner or card appearing, a list growing): look again once things settle
+  try { const v = document.getElementById("view"); if (v && window.ResizeObserver) new ResizeObserver(() => { if (!travelAnim && !press) placeSoon(450); }).observe(v); } catch (e) {}
   let lastTab = "", lastRoam = Date.now(), nextRoam = Date.now() + rand(12, 25) * 60000;
   const roamDue = chance => Date.now() - lastRoam > 4 * 60000 && Math.random() < chance;
   // A stroll on its own every 12 to 25 minutes while you're around (never during a focus session or with a window open)
@@ -54032,13 +54057,46 @@ var SOUNDS_HOOK = hook;
     if (!t && sig.tab) t = [...document.querySelectorAll(`[data-tab="${CSS.escape(sig.tab)}"]`)].find(visible) || null;
     if (t) { try { t.focus({preventScroll: true}); } catch (e) {} }
   }
-  ["dlg", "pomoDlg", "sxDlg"].forEach(id => {
+  /* Top-level sheets are exclusive: the sheet dialog, the focus timer and Search Everywhere never stack. Opening one closes the
+     others first and hands over the focus-restore target, so closing the new one still returns focus to the original opener.
+     Nested layers are untouched: confirms and sub-sheets reuse the sheet dialog itself, the tour (#sbTour) sits above its own
+     panels, and the timer alert and AI consent dialog are separate layers on purpose. */
+  const TOP = ["dlg", "pomoDlg", "sxDlg"];
+  TOP.forEach(id => {
     const d = document.getElementById(id);
     if (!d || typeof d.showModal !== "function") return;
     const open = d.showModal.bind(d);
-    d.showModal = function(){ if (!d.open) was.set(d, sigOf(document.activeElement)); return open(); };
+    d.showModal = function(){
+      if (d.open) return;
+      let sig = sigOf(document.activeElement);
+      const tour = document.getElementById("sbTour");
+      if (!(tour && tour.open)) TOP.forEach(oid => {
+        const o = document.getElementById(oid);
+        if (!o || o === d || !o.open) return;
+        if (!sig || o.contains(sig.el)) sig = was.get(o) || null;      // the opener of the sheet being replaced
+        was.delete(o);
+        try { o.close(); } catch (e) { o.removeAttribute("open"); }
+      });
+      was.set(d, sig);
+      return open();
+    };
     d.addEventListener("close", () => { const sig = was.get(d); was.delete(d); setTimeout(() => refocus(sig), 90); });
   });
+  /* Header and nav buttons that open a sheet ignore double clicks and ghost taps: the same button is ignored while its sheet is
+     open or for a short moment after it was accepted (a safety timeout, since the open itself is synchronous). */
+  const OPENERS = {"pomo-open": "pomoDlg", "search": "sxDlg", "menu": "dlg", "ann-open": "dlg", "new-task": "dlg"};
+  let lastOpen = {act: "", at: 0};
+  document.addEventListener("click", e => {
+    const el = e.target && e.target.closest ? e.target.closest("[data-act]") : null;
+    if (!el || !OPENERS[el.dataset.act] || !el.closest("header.top, nav.tabs, .nav-foot, #fab")) return;
+    const act = el.dataset.act, now = Date.now(), d = document.getElementById(OPENERS[act]);
+    const tour = document.getElementById("sbTour");
+    if (tour && tour.open) return;
+    const same = lastOpen.act === act && now - lastOpen.at < 450;
+    const open = d && d.open && (act === "pomo-open" || act === "search" ? true : !!d.querySelector(act === "menu" ? ".menu-list" : act === "ann-open" ? ".ann-sheet" : "form.sheet"));
+    if (same || open) { e.stopImmediatePropagation(); e.preventDefault(); return; }
+    lastOpen = {act, at: now};
+  }, true);
 
   /* ---------- Every sheet gets a name for screen readers ---------- */
   const nameSheet = d => {
