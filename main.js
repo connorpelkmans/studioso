@@ -71,9 +71,11 @@ const DEEP_SCHEME = "studyboard";
 function parseDeepLink(raw) {
   try {
     const s = String(raw || "");
-    if (s.length > 600) return null;
+    if (s.length > 2400) return null;
     const u = new URL(s);
     if (u.protocol !== DEEP_SCHEME + ":" || u.username || u.password || u.port) return null;
+    if (u.host === "add" || u.host === "capture") return { type: "capture", url: s };       // quick capture: the page validates it and only ever makes a draft
+    if (s.length > 600) return null;
     if (u.host === "open") {
       const id = u.searchParams.get("task");
       return id && /^[\w.:-]{1,200}$/.test(id) ? { type: "task", id } : { type: "main" };
@@ -90,7 +92,7 @@ function handleDeepLink(raw) {
   const d = parseDeepLink(raw);
   if (!d) return false;
   if (!app.isReady()) { pendingDeepLink = raw; return true; }
-  if (d.type === "task") openTask(d.id); else if (d.type === "action") sendAction(d.name); else showMain();
+  if (d.type === "capture") { showMain(); toPage("desk:capture", d.url); } else if (d.type === "task") openTask(d.id); else if (d.type === "action") sendAction(d.name); else showMain();
   return true;
 }
 try {
@@ -245,7 +247,7 @@ function backgroundTip() {
 // ---------- Messages to the page ----------
 // The page says which messages it's ready for (see preload.js). Until then they wait here, for example
 // when a reminder is clicked while the window is still opening.
-const PAGE_CHANNELS = ["desk:action", "desk:open-task"];
+const PAGE_CHANNELS = ["desk:action", "desk:open-task", "desk:capture"];
 const listening = new Set();
 let pendingMsgs = [];
 function toPage(channel, ...args) {

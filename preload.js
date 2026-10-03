@@ -41,6 +41,8 @@ contextBridge.exposeInMainWorld("studiosoDesktop", {
   onOpenTask: fn => { ipcRenderer.on("desk:open-task", (e, id) => fn(String(id))); ipcRenderer.send("desk:listen", "desk:open-task"); },
   // fn(action, arg): the tray, the widget or a shortcut asks for "quickadd", "today", "focus", "search", "flashcards",
   // "settings", "toggle" (arg = task id) or "focus-task" (arg = task id).
+  // fn(url): a studyboard://add?... or studyboard://capture?... link. The page checks it (allowed fields only) and shows a draft.
+  onCapture: fn => { ipcRenderer.on("desk:capture", (e, url) => fn(String(url || "").slice(0, 2400))); ipcRenderer.send("desk:listen", "desk:capture"); },
   onAction: fn => { ipcRenderer.on("desk:action", (e, action, arg) => fn(String(action), String(arg || ""))); ipcRenderer.send("desk:listen", "desk:action"); },
   // What the Today widget shows (built by the widgets module).
   setWidgetData: data => ipcRenderer.send("widget:set", data),

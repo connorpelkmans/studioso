@@ -6,6 +6,7 @@ A calm student planner for courses, deadlines, study sessions and flashcards. It
 
 - **Board and Today's Plan:** every task and deadline in one place, with a ranked plan for today that fits your study hours.
 - **Plan Ahead:** a Timeline and a Schedule (classes, exams and events) in one tab.
+- **Quick capture:** add a task in seconds by typing a sentence (press C), sharing text or a link, a Shortcut or Siri link, or a photo of a whiteboard or slide with a due date. Clear sentences are added with Undo; anything unsure shows a one-tap check sheet. See SETUP-GUIDE, Quick Capture.
 - **Courses, grades and syllabi:** import a syllabus PDF, track grades, "What do I need?" and Rough Week Rescue.
 - **Flashcards and quizzes**, notes with stickers, files, and Search Everywhere.
 - **Focus timer** with sounds, and a study companion.

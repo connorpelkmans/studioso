@@ -332,6 +332,16 @@ Things to know:
 - AI can get things wrong, so check cards, rationales and summaries against your notes.
 - AI needs an internet connection and doesn't work inside the Claude preview; use the app or your website.
 
+## Quick Capture
+
+Settings > Quick Capture explains each way in, with a Try it button for each, and three switches: Add right away when I'm sure (on), Keep photos with tasks (off), Use AI to read photos (on once AI is set up).
+
+- **Typing:** press **C** anywhere (or open `./?capture=1`, or the "Quick capture" app shortcut). Type a sentence such as `bio lab report fri 5pm`, `exam 12/5 9am`, `chem201 pset in 3 days 2h` or `read ch 4 wk 9`. **Enter** adds, **Ctrl/Cmd+Enter** adds and keeps the window open for the next one, **Esc** cancels. One task per line. Dates are read on the device (today, tomorrow, fri, next tue, oct 28, 10/28, in 3 days, end of the month, wk N), so no network is needed. A clear sentence with a date is added at once with an Undo button ("Added: Bio lab report, due Fri 5 PM"). Anything unsure (no date, a second course that fits, "next week") opens a small check sheet where one Enter adds everything.
+- **Photo:** the camera button beside the add bar (or the "Capture photo" shortcut, or paste or drop a picture on the Board) shrinks the photo on the device (1600 px, no location data), then sends it to your own AI provider after the AI consent sheet. You get a list to check next to the photo. Items the AI is unsure about start unchecked, and dates that are not in the photo are removed. Without AI, or if you say no, the photo stays on screen while you type it in, or you can save it as a note. Photos taken offline are kept (up to 50) and offered when you are back online.
+- **Share sheet:** Android, ChromeOS and desktop installs of the web app appear in Share (the manifest `share_target` posts to `share-target`, handled by `sw.js`: images only, 10 files, 15 MB each, held only until the page reads them). iPhone Safari web apps cannot receive shares; the iOS app has a share extension (see `ios-wrapper`).
+- **Shortcuts and links:** `./?capture=<text>&due=YYYY-MM-DD&time=HH:MM&course=BIO101&source=ios-shortcut`, the same after `#`, and `studyboard://add?title=...&due=...` or `studyboard://capture?photo=1`. Only those fields are read; text is stripped of HTML and capped. A link only ever makes a draft, and from the web it always shows the check sheet. It is added straight away only when `source` is a native one (siri, shortcuts, share-ios, share-android, tile, appfunction, bixby, ios-shortcut, android) **and** the app runs inside the iOS/Android wrapper or the desktop app. More than 10 links a minute are ignored.
+- **For developers:** `window.SBCAPTURE.handleUrl(url)`, `ingest(draftsOrItem, {source})`, `registerInbox(fn)` and `settingsExtra(fn)` are documented at the top of the "75-capture" module. Tests: `node tests/capture.test.js` (parser, links, photo-answer checks) and `node tests/capture.e2e.js` (Playwright and Chromium).
+
 ## Schedule and Calendar
 
 - **Plan Ahead:** Timeline and Schedule are one tab, **Plan Ahead**, with a **Timeline | Schedule** switch at the top. Studyboard remembers which one you last used.

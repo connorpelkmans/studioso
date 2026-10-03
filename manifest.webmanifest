@@ -68,6 +68,42 @@
   ],
   "shortcuts": [
     {
+      "name": "Quick Capture",
+      "short_name": "Capture",
+      "description": "Add a task in seconds",
+      "url": "./?capture=1",
+      "icons": [
+        {
+          "src": "icons/shortcut-add.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        },
+        {
+          "src": "shortcut-add.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Capture Photo",
+      "short_name": "Photo",
+      "description": "Snap a whiteboard or slide with a due date",
+      "url": "./?capture=photo",
+      "icons": [
+        {
+          "src": "icons/shortcut-add.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        },
+        {
+          "src": "shortcut-add.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
       "name": "Quick Add",
       "short_name": "Quick Add",
       "description": "Add a task by typing a sentence",
@@ -173,5 +209,23 @@
       "update": 3600
     }
   ],
-  "lang": "en"
+  "lang": "en",
+  "share_target": {
+    "action": "./share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "files",
+          "accept": [
+            "image/*"
+          ]
+        }
+      ]
+    }
+  }
 }
