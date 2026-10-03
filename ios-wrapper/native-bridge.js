@@ -9,9 +9,12 @@
       pages are never opened from the iOS app (App Store rule 3.1.1: Pro is bought with Apple in-app purchase).
    3. Deep links: universal links and studyboard:// links are passed to the page as ?deck= / ?group= / ?task= on the app's own address.
    4. Push: registers for notifications only after the page asks (window.StudyboardNative.enablePush()), and hands the token to the page.
+   5. Purchases: Buy / Restore / Manage from the Pro sheet go to Apple In-App Purchase through RevenueCat (section 5 below). The page asks with
+      cancelable window events (studyboard:plan-checkout, studyboard:plan-restore, studyboard:plan-manage) and this file answers with
+      studyboard:purchase-result. The contract is written out in README-IOS.md ("Purchase bridge contract").
 
    Needs these Capacitor plugins installed (README-IOS.md section 2): @capacitor/app, @capacitor/browser, @capacitor/push-notifications,
-   capacitor-secure-storage-plugin. */
+   capacitor-secure-storage-plugin, @revenuecat/purchases-capacitor. */
 (function () {
   "use strict";
   var C = window.Capacitor;
@@ -99,5 +102,43 @@
         });
       });
     }
+  });
+  /* 5. Purchases (Apple In-App Purchase through RevenueCat). OWNER: put your RevenueCat PUBLIC iOS key below ("appl_..."), create an offering
+        with a monthly and an annual package, and an entitlement called "pro". The page never trusts this file for Pro: RevenueCat tells our
+        server (webhook), and the page re-reads the plan from the server after every result. The app user id is the Supabase user id. */
+  var RC_KEY = "appl_REPLACE_WITH_REVENUECAT_PUBLIC_KEY", RC_ENTITLEMENT = "pro";
+  var RC = P.Purchases, rcReady = null;
+  function result(action, status, message) {
+    try { window.dispatchEvent(new CustomEvent("studyboard:purchase-result", { detail: { action: action, status: status, message: message || "" } })); } catch (e) {}
+  }
+  function rcSetup(userId) {
+    if (!RC || /REPLACE/.test(RC_KEY)) return Promise.reject(new Error("Purchases aren't set up in this build yet."));
+    if (!rcReady) rcReady = RC.configure({ apiKey: RC_KEY, appUserID: userId || null });
+    return Promise.resolve(rcReady).then(function () { return userId ? RC.logIn({ appUserID: userId }) : null; });
+  }
+  var isCancel = function (e) { return !!(e && (e.userCancelled || /cancel/i.test(String(e.message || "")))); };
+  var active = function (info) { return !!(info && info.customerInfo ? info.customerInfo.entitlements.active[RC_ENTITLEMENT] : info && info.entitlements && info.entitlements.active[RC_ENTITLEMENT]); };
+  // "claim" = tell the page we are handling it (preventDefault), then answer later with a result.
+  window.addEventListener("studyboard:plan-checkout", function (ev) {
+    ev.preventDefault();
+    var d = ev.detail || {};
+    rcSetup(d.userId).then(function () { return RC.getOfferings(); }).then(function (o) {
+      var cur = o && o.current, pkg = cur && (d.period === "yearly" ? cur.annual : cur.monthly);
+      if (!pkg) throw new Error("That plan isn't available right now.");
+      return RC.purchasePackage({ aPackage: pkg });
+    }).then(function () { result("checkout", "success"); },
+      function (e) { isCancel(e) ? result("checkout", "cancelled") : result("checkout", "error", "The purchase didn't go through. You weren't charged."); });
+  });
+  window.addEventListener("studyboard:plan-restore", function (ev) {
+    ev.preventDefault();
+    var d = ev.detail || {};
+    rcSetup(d.userId).then(function () { return RC.restorePurchases(); }).then(function (info) { result("restore", active(info) ? "success" : "nothing"); },
+      function () { result("restore", "error", "Couldn't restore purchases. Check your connection and try again."); });
+  });
+  window.addEventListener("studyboard:plan-manage", function (ev) {
+    ev.preventDefault();
+    (RC && RC.showManageSubscriptions ? RC.showManageSubscriptions() : Promise.reject()).catch(function () {
+      if (P.Browser) P.Browser.open({ url: "https://apps.apple.com/account/subscriptions" }).catch(function () {});
+    }).then(function () { result("manage", "success"); });
   });
 })();

@@ -19,7 +19,7 @@
     ["tab-signin", "tab-signup", "tab-reset"].forEach(function (t) {
       var on = tabs[f] === t; $(t).setAttribute("aria-selected", String(on)); $(t).tabIndex = on ? 0 : -1;
     });
-    $("auth-msg").hidden = true;
+    $("auth-msg").hidden = true; $("link-expired").hidden = true;
   }
   function msg(el, text, kind) {
     el.textContent = text || ""; el.hidden = !text;
@@ -173,10 +173,55 @@
     return location.origin + location.pathname + (q.toString() ? "?" + q.toString() : "");
   }
   function toCode(mode, email, intro) {
-    state.codeMode = mode; state.codeEmail = email; $("code-intro").textContent = intro; showForm("form-code"); $("form-code").elements.code.value = ""; $("form-code").elements.code.focus();
+    state.codeMode = mode; state.codeEmail = email; resendAt = Date.now() + 30000; tickResend(); $("code-intro").textContent = intro; showForm("form-code"); $("form-code").elements.code.value = ""; $("form-code").elements.code.focus();
+  }
+
+  // ----- Password strength and the "send a new code" cooldown (30 s, shown on the button) -----
+  function strength(pw) {
+    var n = 0;
+    if (pw.length >= 8) n++; if (pw.length >= 12) n++;
+    if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) n++;
+    if ((/\d/.test(pw) && /[^A-Za-z0-9]/.test(pw)) || (/\d/.test(pw) && /[A-Za-z]/.test(pw) && pw.length >= 10)) n++;
+    if (/^(password|12345678|qwertyui|letmein|iloveyou)/i.test(pw) || /^(.)\1+$/.test(pw)) n = 0;
+    return { label: pw.length < 8 ? "Too short" : n <= 1 ? "Weak" : n === 2 ? "Okay" : n === 3 ? "Good" : "Strong", ok: pw.length >= 8 && n >= 2 };
+  }
+  var resendAt = 0, resendTimer = null;
+  function tickResend() {
+    var b = $("code-resend"), left = Math.ceil((resendAt - Date.now()) / 1000);
+    if (left > 0) { b.disabled = true; b.textContent = "Send again in " + left + "s"; clearTimeout(resendTimer); resendTimer = setTimeout(tickResend, 1000); }
+    else { b.disabled = false; b.textContent = "Send a new code"; }
   }
 
   function wire() {
+    $("code-resend").addEventListener("click", function () {
+      if (Date.now() < resendAt || !state.codeEmail) return;
+      resendAt = Date.now() + 30000; tickResend();
+      var p = state.codeMode === "recovery"
+        ? state.sb.auth.resetPasswordForEmail(state.codeEmail, { redirectTo: location.origin + location.pathname })
+        : state.sb.auth.resend({ type: "signup", email: state.codeEmail, options: { emailRedirectTo: redirectBack() } });
+      p.then(function (r) {
+        if (r && r.error) msg($("auth-msg"), words(r.error), "error");
+        else msg($("auth-msg"), "Sent. Check your email (and your junk folder).", "ok");
+      }, function (e) { msg($("auth-msg"), words(e), "error"); });
+    });
+    $("expired-new").addEventListener("click", function () { $("link-expired").hidden = true; showForm("form-reset"); });
+    $("form-newpass").elements.password.addEventListener("input", function (ev) { $("np-strength").textContent = ev.target.value ? "Strength: " + strength(ev.target.value).label : ""; });
+    $("form-delete").addEventListener("submit", function (ev) {
+      ev.preventDefault(); var f = ev.target;
+      if (state.busy) return;
+      if (field(f, "confirm").trim().toUpperCase() !== "DELETE") return msg($("acct-msg"), "Type DELETE to confirm.", "error");
+      state.busy = true; busy(f, true); msg($("acct-msg"), "Deleting your account...", "");
+      fn("delete-account", { confirm: "DELETE", password: field(f, "password") || undefined, ack_store_subscription: false }).then(function (r) {
+        state.busy = false; busy(f, false);
+        if (r.status === 200 && r.body && r.body.ok) {
+          f.reset(); state.sb.auth.signOut({ scope: "local" }).catch(function () {});
+          show("v-auth"); showForm("form-signin");
+          return msg($("auth-msg"), "Your account and its online data were deleted. Payment records stay with Stripe or Apple as the law requires, and encrypted backups clear within 30 days.", "ok");
+        }
+        var b = r.body || {};
+        msg($("acct-msg"), r.status === 404 ? "Account deletion isn't switched on yet. Use the app (Settings, Delete My Account and Data) or email support." : typeof b.message === "string" ? b.message : "Something went wrong. Please try again.", "error");
+      }, function () { state.busy = false; busy(f, false); msg($("acct-msg"), "Couldn't reach Studyboard. Check your connection and try again.", "error"); });
+    });
     $("tab-signin").addEventListener("click", function () { showForm("form-signin"); });
     $("tab-signup").addEventListener("click", function () { showForm("form-signup"); });
     $("tab-reset").addEventListener("click", function () { showForm("form-reset"); });
@@ -248,11 +293,13 @@
     $("form-newpass").addEventListener("submit", function (ev) {
       ev.preventDefault(); var f = ev.target, pw = field(f, "password");
       if (pw.length < 8) return msg($("auth-msg"), "Choose a password of at least 8 characters.", "error");
+      if (!strength(pw).ok) return msg($("auth-msg"), "That password is too easy to guess. Add more characters or mix in capitals, numbers or symbols.", "error");
+      if (pw !== field(f, "confirm")) return msg($("auth-msg"), "The two passwords don't match.", "error");
       busy(f, true);
       state.sb.auth.updateUser({ password: pw }).then(function (r) {
         busy(f, false);
         if (r.error) return msg($("auth-msg"), words(r.error), "error");
-        f.reset(); state.recovering = false;
+        f.reset(); $("np-strength").textContent = ""; state.recovering = false;
         history.replaceState(null, "", location.pathname + location.search);
         renderAccount(); msg($("acct-msg"), "Your password is changed.", "ok");
       }, function (e) { busy(f, false); msg($("auth-msg"), words(e), "error"); });
@@ -283,7 +330,7 @@
       state.session = r.data && r.data.session;
       if (!state.session && !state.recovering) {
         show("v-auth"); showForm("form-signin");
-        if (hashErr) msg($("auth-msg"), "That link didn't work or has expired. Sign in, or ask for a new one.", "error");
+        if (hashErr) { msg($("auth-msg"), "That link has expired or was already used. Links in Studyboard emails work once, for 1 hour.", "error"); $("link-expired").hidden = false; }
         if (wantPlan) { var b = $("plan-intent"); b.hidden = false; b.textContent = "Sign in or create a free account to start your Studyboard Pro " + wantPlan + " plan. Your 7-day free trial starts at checkout."; }
       }
     });

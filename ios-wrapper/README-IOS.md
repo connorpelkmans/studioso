@@ -97,6 +97,34 @@ Then in Xcode: run on a device, test with the checklist, **Product > Archive**, 
 * Pro is a digital subscription: in this app it must be sold with **In-App Purchase** through RevenueCat. The web build's Stripe payment link must never appear in the iOS app. `index.html` already treats `window.Capacitor` and `window.StudyboardNative` as a store build (`nativeStore()` in the plan module) and `native-bridge.js` refuses to open payment hosts. Re-check after the Pro work is merged (`APP-STORE-CHECKLIST.md` section 3).
 * "Restore Purchases" must be reachable from the Pro screen (the `plan-restore` hook).
 * Subscription terms (price, length, auto-renew, how to cancel, links to Privacy Policy and Terms) must be shown next to the buy button.
+### Purchase bridge contract (page <-> native)
+
+The page (`index.html`, plan module) never talks to RevenueCat itself. In a store build (`nativeStore()` is true: `window.Capacitor` native, `window.StudyboardNative`, or the `studyboardStore` message handler) Buy, Manage Plan and Restore Purchases only use this contract, and the page never shows a Stripe or website link (unless `EXTERNAL_PURCHASE_ALLOWED` is changed in the plan module).
+
+Page to native: three **cancelable** window events. The native side calls `event.preventDefault()` to say "I'm handling this"; if nobody does, the page tells the person the feature isn't available in this build.
+
+| Event | `event.detail` | Meaning |
+| --- | --- | --- |
+| `studyboard:plan-checkout` | `{period: "monthly" or "yearly", userId}` | Start the Apple purchase sheet for that package. `userId` is the Supabase user id, use it as the RevenueCat app user id. |
+| `studyboard:plan-restore` | `{userId}` | Run `restorePurchases()` and re-link the purchase to this account. |
+| `studyboard:plan-manage` | `{entitlement}` | Open the App Store subscription management screen. |
+
+(The same three calls are also run through the page's internal `hook("plan-checkout" / "plan-restore" / "plan-manage")` list, used by the desktop app and tests.)
+
+Native to page: when the action finishes, answer with
+
+```js
+window.dispatchEvent(new CustomEvent("studyboard:purchase-result", {detail: {action, status, message}}));
+```
+
+* `action`: `"checkout"`, `"restore"` or `"manage"`.
+* `status`: `"success"`, `"cancelled"` (the person backed out, no error shown), `"nothing"` (a restore that found no purchase) or `"error"`.
+* `message` (optional, max 200 characters, plain text): shown to the person on `"error"`. Do not put secrets or stack traces in it.
+
+What the page does with the answer: it shows progress ("Restoring your purchases…" and a disabled Restore button), then "Purchases restored. Pro is on.", "Nothing to restore…", "Restore cancelled." or the error text. After a success it re-reads the plan from the server (up to 5 tries, 2 s apart, because RevenueCat tells the server through its webhook first). **A result never turns Pro on by itself**: Pro only appears when the signed entitlement from the server says so. Unanswered restores time out after 60 s and fall back to one plan refresh.
+
+`native-bridge.js` section 5 is a minimal working example of the native side with `@revenuecat/purchases-capacitor` (set `RC_KEY`, an offering with monthly and annual packages, and an entitlement named `pro`). Restore Purchases is reachable from: the Pro sheet, Settings (the "Restore Purchases" row under Studyboard Pro), and every paywall prompt (they all open the Pro sheet).
+
 * Reader-app style links to an outside payment page are only allowed under Apple's external-purchase entitlement rules for your storefront; leave them out unless you apply for that entitlement.
 
 ## 8. Security checklist for the wrapper
