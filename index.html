@@ -5104,6 +5104,28 @@ function sbWords(error, fallback){
   if (/fetch|network|timed? ?out|Load failed/i.test(m)) return "Couldn't reach Studyboard. Check your internet connection and try again.";
   return fallback || "Something went wrong. Please try again.";
 }
+/* A link from an email that failed (expired, already used) comes back as #error_code=otp_expired&error_description=... on the address.
+   Captured now, before the sign-in library cleans the address up, and shown by sbLinkErrorSheet() once the page is ready. */
+const SB_LINK_ERR = (() => {
+  try {
+    const q = new URLSearchParams(location.hash.replace(/^#/, "") + "&" + location.search.replace(/^\?/, ""));
+    const code = q.get("error_code") || (q.get("error") ? "error" : "");
+    if (!code && !q.get("error_description")) return null;
+    return {code: String(code).slice(0, 40), recovery: /recover|reset/i.test(String(q.get("type") || "")) };
+  } catch (e) { return null; }
+})();
+// Password strength for the new-password forms: {label, score 0-4, ok}
+function sbStrength(pw){
+  pw = String(pw || "");
+  let n = 0;
+  if (pw.length >= 8) n++;
+  if (pw.length >= 12) n++;
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) n++;
+  if (/\d/.test(pw) && /[^A-Za-z0-9]/.test(pw) || (/\d/.test(pw) && /[A-Za-z]/.test(pw) && pw.length >= 10)) n++;
+  if (/^(password|12345678|qwertyui|letmein|iloveyou)/i.test(pw) || /^(.)\1+$/.test(pw)) n = 0;
+  const label = pw.length < 8 ? "Too short" : n <= 1 ? "Weak" : n === 2 ? "Okay" : n === 3 ? "Good" : "Strong";
+  return {label, score: pw.length < 8 ? 0 : n, ok: pw.length >= 8 && n >= 2};
+}
 const sbActive = () => !inClaude() && !!sb && !!sbUser;
 function sbErr(e){
   const msg = String((e && (e.message || e.error_description || e.error)) || e || "");
@@ -5160,6 +5182,7 @@ async function initSupabase(ask){
   }
   let session = null;
   try { const r = await sb.auth.getSession(); session = r.data && r.data.session; } catch(e) {}
+  if (SB_LINK_ERR && !SB_LINK_ERR.shown) { SB_LINK_ERR.shown = true; try { history.replaceState(null, "", location.pathname); } catch(e) {} setTimeout(sbLinkErrorSheet, 500); }
   if (session) { if (!sbUser) { sbUser = session.user; startSupabaseSync(); } }
   else { syncLabel(); setTimeout(() => { if ((ask || !dlg.open) && !sbUser) sbSignInSheet(); }, ask ? 0 : 400); }
 }
@@ -5427,6 +5450,7 @@ function sbSetupSheet(){
   }));
 }
 // Sign in, create an account, confirm your email with a code, and reset a forgotten password, all inside Studyboard.
+const SB_RESEND = {}, SB_RESEND_MS = 30000;   // when each "send a new code" button may be used again (kept here so re-opening the sheet doesn't reset it)
 function sbSignInSheet(mode, email, note){
   if (!sb) { sbAsk(); return; }
   mode = mode || "signin"; email = email || (dlg.open && dlg.querySelector(".sb-acct input[name=email]") ? dlg.querySelector(".sb-acct input[name=email]").value.trim() : "");
@@ -5439,9 +5463,9 @@ function sbSignInSheet(mode, email, note){
   const body = {
     signin: `${first ? `<p style="margin:0">Sign in to keep your tasks, notes and files safe online and in sync on all your devices.</p>` : ""}${emailIn()}${pwIn("Password", "current-password")}`,
     signup: `<p style="margin:0">Free, and it keeps your planner in sync on your phone, laptop and the web.</p>${emailIn()}${pwIn("Password", "new-password")}<p class="mini" style="margin:0">At least 8 characters.</p>`,
-    confirm: `<p style="margin:0">We sent a code to <b>${esc(email)}</b>. Type it here to finish, or open the link in the email.</p>${codeIn}`,
-    forgot: `<p style="margin:0">Enter your email and we'll send you a code to set a new password.</p>${emailIn()}`,
-    reset: `<p style="margin:0">We sent a code to <b>${esc(email)}</b>. Enter it with your new password.</p>${codeIn}${pwIn("New Password", "new-password")}`
+    confirm: `<p style="margin:0">If <b>${esc(email)}</b> can be used for a new account, we sent a code to it. Type it here to finish, or open the link in the email.</p><p class="mini" style="margin:0">Until you confirm your email, Studyboard works on this device only and your planner doesn't sync. Already have an account? Use Back to Sign In.</p>${codeIn}`,
+    forgot: `<p style="margin:0">Enter your email and, if an account uses it, we'll send you a code to set a new password.</p>${emailIn()}`,
+    reset: `<p style="margin:0">If an account uses <b>${esc(email)}</b>, we sent it a code. Enter the code with your new password.</p>${codeIn}${pwIn("New Password", "new-password")}<p class="mini" id="sbStrength" style="margin:0" aria-live="polite"></p>`
   }[mode];
   const links = {
     signin: `<button type="button" class="link-btn" data-sbm="forgot">Forgot password?</button> · <button type="button" class="link-btn" id="sbLater">${first ? "Use Without an Account" : "Not Now"}</button>`,
@@ -5486,7 +5510,7 @@ function sbSignInSheet(mode, email, note){
           say("Creating your account…");
           const {data, error} = await sb.auth.signUp({email: em, password: pw, options: redirect ? {} : {emailRedirectTo: back}});
           if (error) throw error;
-          if (data && data.user && Array.isArray(data.user.identities) && !data.user.identities.length) { say("There's already an account with that email. Sign in instead."); return; }
+          // An address that already has an account looks the same as a new one here, so nobody can use this screen to find out who has an account.
           if (data && data.session) { done("Welcome to Studyboard!"); return; }
           busy = false; sbSignInSheet("confirm", em); return;
         } else if (mode === "confirm") {
@@ -5524,25 +5548,58 @@ function sbSignInSheet(mode, email, note){
     toast(first ? "Saving on this device only. Sign in any time from Settings." : "Working on this device. Sign in from Settings to sync.");
   });
   const rs = $("#sbResend");
-  if (rs) rs.addEventListener("click", async () => {
-    rs.disabled = true; say("Sending a new code…");
-    const {error} = mode === "reset" ? await sb.auth.resetPasswordForEmail(email, redirect ? {} : {redirectTo: back}) : await sb.auth.resend({type: "signup", email});
-    say(error ? sbWords(error) : "Sent. Check your email (and your junk folder).");
-    setTimeout(() => { rs.disabled = false; }, 30000);
-  });
+  if (rs) {
+    const ckey = mode + ":" + String(email).toLowerCase(), label = rs.textContent;
+    const tick = () => {
+      const left = Math.ceil(((SB_RESEND[ckey] || 0) - Date.now()) / 1000);
+      if (!rs.isConnected) return;
+      if (left > 0) { rs.disabled = true; rs.textContent = `Send again in ${left}s`; setTimeout(tick, 1000); }
+      else { rs.disabled = false; rs.textContent = label; }
+    };
+    tick();
+    rs.addEventListener("click", async () => {
+      if ((SB_RESEND[ckey] || 0) > Date.now()) return;
+      SB_RESEND[ckey] = Date.now() + SB_RESEND_MS; tick(); say("Sending a new code…");
+      const {error} = mode === "reset" ? await sb.auth.resetPasswordForEmail(email, redirect ? {} : {redirectTo: back}) : await sb.auth.resend({type: "signup", email});
+      say(error ? sbWords(error) : "Sent. Check your email (and your junk folder).");
+    });
+  }
+  const pwr = dlg.querySelector('.sb-acct[data-mode="reset"] input[name=password]'), st = $("#sbStrength");
+  if (pwr && st) pwr.addEventListener("input", () => { st.textContent = pwr.value ? "Strength: " + sbStrength(pwr.value).label : ""; });
   const sv = $("#sbServer"); if (sv) sv.addEventListener("click", sbSetupSheet);
 }
-// Opened from the link in a password email (on the website).
+// Opened from the link in a password email (recovery session): new password twice, with a strength hint.
 function sbNewPasswordSheet(){
-  openSheet(`<form class="sheet sb-acct">${head("Set a New Password")}
-    <div class="sheet-body">${REQ_NOTE}<label class="f"><span class="lh">New Password ${REQ}</span><input type="password" name="password" required minlength="8" autocomplete="new-password" autofocus></label><p class="status-msg" id="sbMsg" style="margin:0"></p></div>
+  openSheet(`<form class="sheet sb-acct" data-mode="newpass">${head("Set a New Password")}
+    <div class="sheet-body">${REQ_NOTE}
+      <label class="f"><span class="lh">New Password ${REQ} <span class="hint">At least 8 characters</span></span><input type="password" name="password" required minlength="8" autocomplete="new-password" autofocus></label>
+      <p class="mini" id="sbStrength" style="margin:0" aria-live="polite"></p>
+      <label class="f"><span class="lh">Confirm New Password ${REQ}</span><input type="password" name="confirm" required minlength="8" autocomplete="new-password"></label>
+      <p class="status-msg" id="sbMsg" style="margin:0" aria-live="polite"></p></div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-submit>Save Password</button></div>
   </form>`, fd => {
-    const password = String(fd.get("password") || "");
-    if (password.length < 8) { $("#sbMsg").textContent = "Use at least 8 characters."; return false; }
-    sb.auth.updateUser({password}).then(({error}) => { if (error) $("#sbMsg").textContent = sbWords(error); else { if (dlg.open) dlg.close(); toast("Password updated"); } });
+    const password = String(fd.get("password") || ""), say = t => { const m = $("#sbMsg"); if (m) m.textContent = t; };
+    if (password.length < 8) { say("Use at least 8 characters."); return false; }
+    if (!sbStrength(password).ok) { say("That password is too easy to guess. Add more characters or mix in capitals, numbers or symbols."); return false; }
+    if (password !== String(fd.get("confirm") || "")) { say("The two passwords don't match."); return false; }
+    say("Saving…");
+    sb.auth.updateUser({password}).then(({error}) => {
+      if (error) say(sbWords(error));
+      else { if (dlg.open) dlg.close(); toast("Password updated. You're signed in."); }
+    }, e => say(sbWords(e)));
     return false;
   });
+  const pw = dlg.querySelector("input[name=password]"), st = $("#sbStrength");
+  if (pw && st) pw.addEventListener("input", () => { st.textContent = pw.value ? "Strength: " + sbStrength(pw.value).label : ""; });
+}
+// A link in an email failed (expired or already used): say so and offer to send a new one.
+function sbLinkErrorSheet(){
+  openSheet(`<div class="sheet sb-acct">${head("That Link Didn't Work")}
+    <div class="sheet-body"><p style="margin:0" role="status">This link has expired or was already used. Links in Studyboard emails work once, for 1 hour.</p>
+      <p class="mini" style="margin:0">Ask for a new one:</p>
+      <div class="menu-list"><button type="button" data-sbm="forgot"><span>Send a New Password Reset</span></button><button type="button" data-sbm="signup"><span>Send a New Confirmation Code (new account)</span></button><button type="button" data-sbm="signin"><span>Back to Sign In</span></button></div></div>
+    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></div>`);
+  dlg.querySelectorAll("[data-sbm]").forEach(b => b.addEventListener("click", () => sbSignInSheet(b.dataset.sbm)));
 }
 // Signing out removes this account's copy from the device: the working copy, backups, the sync cache, the search index,
 // photos, queued reports (and with them any AI keys and school sign-ins kept here).
@@ -15305,6 +15362,13 @@ function endDrag(ok){
      hook("plan-changed", fn(PLAN))   fired after the plan loads or changes
    Hooks fired for a native layer (RevenueCat in an app store wrapper, or the desktop app):
      "plan-checkout" (period, userId) return true if handled; "plan-restore" (userId); "plan-manage" (ent); "plan-buy-item" (kind, id)
+   The same three calls are also sent to a native wrapper as cancelable window events (a wrapper script cannot see these hooks):
+     window "studyboard:plan-checkout"  detail {period, userId}      call event.preventDefault() to say "handled"
+     window "studyboard:plan-restore"   detail {userId}              (same)
+     window "studyboard:plan-manage"    detail {entitlement}         (same)
+   and answers by dispatching   window.dispatchEvent(new CustomEvent("studyboard:purchase-result", {detail}))   with
+     detail = {action: "checkout" | "restore" | "manage", status: "success" | "cancelled" | "nothing" | "error", message?: string}
+   ("nothing" = a restore that found no purchase). See ios-wrapper/README-IOS.md. Pro itself still only ever turns on from the server.
 */
 var PLAN = null;
 (() => {
@@ -15661,11 +15725,60 @@ var PLAN = null;
     const tick = () => { if (Date.now() > pollUntil || (paid() && paywall())) return; if (sbUser && navigator.onLine !== false) refresh(); pollT = setTimeout(tick, 10000); };
     pollT = setTimeout(tick, 6000);
   }
+  /* ---------- Native bridge: hooks + cancelable window events out, "studyboard:purchase-result" in ---------- */
+  const NATIVE_DETAIL = {"plan-checkout": (period, userId) => ({period, userId}), "plan-restore": userId => ({userId}), "plan-manage": entitlement => ({entitlement})};
+  function nativeFire(name, ...a){
+    let handled = fire(name, ...a).some(Boolean);
+    try {
+      const ev = new CustomEvent("studyboard:" + name, {cancelable: true, detail: NATIVE_DETAIL[name] ? NATIVE_DETAIL[name](...a) : {}});
+      window.dispatchEvent(ev);
+      if (ev.defaultPrevented) handled = true;
+    } catch (e) {}
+    return handled;
+  }
+  let waiter = null;   // {action, res, t}: the one thing we are waiting for the native layer to answer
+  function waitResult(action, ms){
+    return new Promise(res => {
+      if (waiter) { clearTimeout(waiter.t); waiter.res({status: "superseded"}); }
+      const w = {action, res, t: setTimeout(() => { if (waiter === w) waiter = null; res({status: "timeout"}); }, ms)};
+      waiter = w;
+    });
+  }
+  const cleanMsg = m => typeof m === "string" ? m.replace(/[\u0000-\u001f<>]/g, " ").trim().slice(0, 200) : "";
+  window.addEventListener("studyboard:purchase-result", e => {
+    const d = (e && e.detail) || {}, action = ["checkout", "restore", "manage"].includes(d.action) ? d.action : "";
+    const status = ["success", "cancelled", "nothing", "error"].includes(d.status) ? d.status : "error", message = cleanMsg(d.message);
+    if (waiter && (!action || action === waiter.action)) { const w = waiter; waiter = null; clearTimeout(w.t); w.res({status, message}); return; }
+    // Nobody is waiting (for example the purchase sheet was closed): still re-read the plan after a success
+    if (status === "success" && sbUser) refresh();
+  });
+  // Poll the server for the plan for a few seconds: the store tells our server first (RevenueCat webhook), so Pro can lag a moment
+  async function refreshUntilPaid(tries){
+    for (let i = 0; i < tries; i++) {
+      for (let j = 0; j < 20 && P.loading; j++) await new Promise(r => setTimeout(r, 150));
+      await refresh();
+      if (paid()) return true;
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    return paid();
+  }
+  async function afterNativeCheckout(){
+    const r = await waitResult("checkout", 10 * 60000);
+    if (r.status === "success") {
+      toast("Thank you! Turning on Pro…");
+      const ok = await refreshUntilPaid(5);
+      toast(ok ? "Pro is on. Thank you for supporting Studyboard!" : "Your purchase went through. Pro can take a minute to appear: use Restore Purchases if it doesn't.");
+      if (ok) P.awaiting = 0;
+      if (dlg.open && dlg.querySelector(".plan-sheet")) proSheet(P.reason);
+    } else if (r.status === "cancelled") toast("Purchase cancelled. You weren't charged.");
+    else if (r.status === "error") toast(r.message || "The purchase didn't go through. You weren't charged. Please try again.");
+  }
   function buy(period){
     period = period === "yearly" ? "yearly" : "monthly";
     const userId = sbUser ? sbUser.id : null;
     if (route() === "store") {
-      if (fire("plan-checkout", period, userId).some(Boolean)) { watchPurchase(); return true; }
+      if (!userId) { toast("Sign in first so Pro is linked to your account."); if (sb && typeof sbSignInSheet === "function") sbSignInSheet(); return false; }
+      if (nativeFire("plan-checkout", period, userId)) { watchPurchase(); afterNativeCheckout(); return true; }
       toast("Buying Pro in the app isn't available in this build yet.");
       return false;
     }
@@ -15691,25 +15804,54 @@ var PLAN = null;
     return false;
   }
   // "I've Purchased - Refresh" and Restore Purchases: re-read the plan, then say what we found
-  async function refreshNow(quiet){
+  async function refreshNow(quiet, restoring){
     if (!sbUser) { if (!quiet) { toast("Sign in to the account you bought Pro with, then try again."); if (sb && typeof sbSignInSheet === "function") sbSignInSheet(); } return false; }
-    if (!quiet) toast("Checking your plan…");
+    if (!quiet) toast(restoring ? "Restoring your purchases…" : "Checking your plan…");
     for (let i = 0; i < 20 && P.loading; i++) await new Promise(r => setTimeout(r, 150));
     await refresh();
     const ok = paid();
-    if (!quiet) toast(ok ? "Pro is on. Thank you for supporting Studyboard!" : "We couldn't find Pro on this account yet. If you just bought it, wait a minute and try again.");
+    if (!quiet) toast(ok ? (restoring ? "Purchases restored. Pro is on." : "Pro is on. Thank you for supporting Studyboard!") : restoring ? "Nothing to restore. We couldn't find a Pro purchase for this account. If you bought Pro with a different Apple ID or Studyboard account, sign in with that one." : "We couldn't find Pro on this account yet. If you just bought it, wait a minute and try again.");
     if (ok) P.awaiting = 0;
     if (dlg.open && dlg.querySelector(".plan-sheet")) proSheet(P.reason);
     return ok;
   }
+  // Restore Purchases: store builds ask the native layer (RevenueCat re-links the store purchase to this account) and wait for its
+  // answer; web builds just re-read the plan. Always shows progress, then success, "nothing to restore", or an error.
+  const restoreBtns = on => document.querySelectorAll('[data-act="plan-restore"]').forEach(b => {
+    b.disabled = on; b.setAttribute("aria-busy", String(on));
+    const sub = b.querySelector(".sub"); if (sub && sub.dataset.idle === undefined) sub.dataset.idle = sub.textContent;
+    if (sub) sub.textContent = on ? "Restoring…" : sub.dataset.idle;
+    else { if (b.dataset.idle === undefined) b.dataset.idle = b.textContent; b.textContent = on ? "Restoring…" : b.dataset.idle; }
+  });
   async function restore(){
-    if (route() === "store") fire("plan-restore", sbUser ? sbUser.id : null);   // the native layer re-links the store purchase to this account
-    return refreshNow();
+    if (P.restoring) return false;
+    if (!sbUser) { toast("Sign in to the account you bought Pro with, then restore."); if (sb && typeof sbSignInSheet === "function") sbSignInSheet(); return false; }
+    P.restoring = true; restoreBtns(true);
+    try {
+      if (route() === "store") {
+        const wait = waitResult("restore", 60000);
+        if (!nativeFire("plan-restore", sbUser.id)) { if (waiter) { clearTimeout(waiter.t); waiter = null; } toast("Restoring purchases isn't available in this build yet."); return false; }
+        toast("Restoring your purchases…");
+        const r = await wait;
+        if (r.status === "error") { toast(r.message || "Couldn't restore purchases. Check your connection and try again."); return false; }
+        if (r.status === "cancelled") { toast("Restore cancelled."); return false; }
+        if (r.status === "success") {
+          const ok = await refreshUntilPaid(5);
+          toast(ok ? "Purchases restored. Pro is on." : "Your purchase was found, but Pro can take a minute to appear. Try again shortly.");
+          if (ok) P.awaiting = 0;
+          if (dlg.open && dlg.querySelector(".plan-sheet")) proSheet(P.reason);
+          return ok;
+        }
+        // "nothing", or no answer in time: read the plan once and say what we found
+      }
+      return await refreshNow(false, true);
+    } finally { P.restoring = false; restoreBtns(false); }
   }
   function manage(){
     const e = ent() || {};
     if (route() === "store" || e.source === "apple" || e.source === "google") {
-      if (fire("plan-manage", ent()).some(Boolean)) return;
+      if (nativeFire("plan-manage", ent())) return;
+      if (route() === "store" && e.source === "stripe") { toast("This plan was bought on the Studyboard website. Manage it there, where you subscribed."); return; }
       if (e.source === "apple" || (route() === "store" && /iPhone|iPad|Mac/.test(navigator.userAgent || ""))) { openExternal("https://apps.apple.com/account/subscriptions"); return; }
       if (e.source === "google" || route() === "store") { openExternal("https://play.google.com/store/account/subscriptions"); return; }
     }
@@ -15767,6 +15909,14 @@ var PLAN = null;
     if (e.source === "promo") return {title: "You Have Studyboard Pro", sub: `Pro was granted to your account until ${dateStr(e.pro_until)}.`};
     return {title: "You Have Studyboard Pro", sub: e.will_renew === false ? `Pro ends ${dateStr(e.pro_until)}. You can turn renewal back on any time.` : `Renews ${dateStr(e.pro_until)}. Thank you for supporting Studyboard!`};
   }
+  // Auto-renewal disclosure shown next to the buy buttons (App Store guideline 3.1.2: price, period, trial, how to cancel, Terms and Privacy links)
+  const APPLE_RENEW = "Payment will be charged to your Apple ID account at confirmation of purchase. The subscription renews automatically unless it is cancelled at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours before the end of the current period. You can manage and cancel your subscriptions in your App Store account settings after purchase. Any unused portion of a free trial period, if offered, is forfeited when you buy a subscription.";
+  const WEB_RENEW = "Your card is charged when the free trial ends unless you cancel before then, and again at the start of each period until you cancel. Cancel any time from Manage Plan; you keep Pro until the end of the period you paid for.";
+  function renewalText(pr, trial){
+    const store = route() === "store", t = +pr.trialDays;
+    const head = `Studyboard Pro is an auto-renewing subscription: ${pr.monthly} per month or ${pr.yearly} per year${t ? `, after a ${t}-day free trial` : ""}.`;
+    return `<p class="plan-fine mini plan-legal" id="planLegal">${esc(head)} ${esc(store ? APPLE_RENEW : WEB_RENEW)} <button type="button" class="link-btn" data-act="legal-terms">Terms of Use</button> · <button type="button" class="link-btn" data-act="legal-privacy">Privacy Policy</button></p>`;
+  }
   function priceButtons(){
     const pr = cfg.prices, m = price(pr.monthly), y = price(pr.yearly);
     const save = m && y && y < m * 12 ? Math.round((1 - y / (m * 12)) * 100) : 0;
@@ -15776,7 +15926,8 @@ var PLAN = null;
         <button type="button" class="plan-price" data-act="plan-buy" data-id="monthly"><span class="pp-name">Monthly</span><span class="pp-amt">${esc(pr.monthly)}<small> / month</small></span>${trial ? `<span class="pp-sub">${esc(trial)}</span>` : ""}</button>
         <button type="button" class="plan-price best" data-act="plan-buy" data-id="yearly">${save ? `<span class="pp-flag">Save ${save}%</span>` : ""}<span class="pp-name">Yearly</span><span class="pp-amt">${esc(pr.yearly)}<small> / year</small></span><span class="pp-sub">${esc([trial, perMo && "Just " + perMo].filter(Boolean).join(" · "))}</span></button>
       </div>
-      <p class="plan-fine mini">${trial ? `Try Pro free for ${+pr.trialDays} days. ` : ""}Cancel any time before it ends and you won't be charged.${cfg.app_trial && sbUser && !(ent() && ent().trial_until) ? ` <button type="button" class="link-btn" data-act="plan-trial">Try It Without a Card</button>` : ""}${sbUser ? ` <button type="button" class="link-btn" data-act="plan-devices">Your Devices</button>` : ""}</p>`;
+      <p class="plan-fine mini">${trial ? `Try Pro free for ${+pr.trialDays} days. ` : ""}Cancel any time before it ends and you won't be charged.${cfg.app_trial && sbUser && !(ent() && ent().trial_until) ? ` <button type="button" class="link-btn" data-act="plan-trial">Try It Without a Card</button>` : ""}${sbUser ? ` <button type="button" class="link-btn" data-act="plan-devices">Your Devices</button>` : ""}</p>
+      ${renewalText(pr, trial)}`;
   }
   function proSheet(reason){
     P.reason = reason || "";
@@ -15798,7 +15949,7 @@ var PLAN = null;
         <p class="plan-free mini">${IC.check}<span>Always free: Board, Timeline, Schedule, Focus, notes, flashcards, grades, reminders, Brightspace, Canvas and Blackboard sync, and AI with your own key.</span></p>
         ${pro ? "" : usageHtml}
       </div>
-      <div class="sheet-foot">${paywall() && !pro ? `<button type="button" class="btn" data-act="plan-restore">Restore Purchases</button>${P.awaiting ? `<button type="button" class="btn" data-act="plan-refresh">I've Purchased: Refresh</button>` : ""}` : ""}${!paywall() && sbUser ? `<button type="button" class="btn" data-act="plan-devices">Your Devices</button>` : ""}<span class="spacer"></span><button type="button" class="btn ${pro || !paywall() ? "primary" : ""}" data-act="close">${pro || !paywall() ? "Done" : "Maybe Later"}</button></div></div>`);
+      <div class="sheet-foot">${paywall() ? `<button type="button" class="btn" data-act="plan-restore">Restore Purchases</button>` : ""}${paywall() && !pro && P.awaiting ? `<button type="button" class="btn" data-act="plan-refresh">I've Purchased: Refresh</button>` : ""}${!paywall() && sbUser ? `<button type="button" class="btn" data-act="plan-devices">Your Devices</button>` : ""}<span class="spacer"></span><button type="button" class="btn ${pro || !paywall() ? "primary" : ""}" data-act="close">${pro || !paywall() ? "Done" : "Maybe Later"}</button></div></div>`);
   }
   async function devicesSheet(limitHit){
     const L = lim(), limited = paywall() && !isPro();
@@ -15861,7 +16012,8 @@ var PLAN = null;
     if (!paywall()) return "Everything is unlocked right now";
     return paid() ? planLabel() : "Free. See what Pro adds.";
   }
-  hook("menu", () => inClaude() ? "" : `<button data-act="plan-open" data-group="account" class="plan-row"><span class="plan-row-ic" aria-hidden="true">${IC.spark}</span><span>Studyboard Pro<span class="sub">${esc(rowSub())}</span></span></button>`);
+  hook("menu", () => inClaude() ? "" : `<button data-act="plan-open" data-group="account" class="plan-row"><span class="plan-row-ic" aria-hidden="true">${IC.spark}</span><span>Studyboard Pro<span class="sub">${esc(rowSub())}</span></span></button>`
+    + (paywall() ? `<button data-act="plan-restore" data-group="account"><span>Restore Purchases<span class="sub">Get Pro back after reinstalling or on a new device</span></span></button>` : ""));
   hook("act", (act, el, id) => {
     switch (act) {
       case "plan-open": proSheet(id === "devices" ? `The free plan syncs on up to ${lims("free").devices} devices` : el.dataset.reason || ""); return true;
@@ -57802,63 +57954,88 @@ async function capProcess(rows, d){
   const SUPPORT = "support@YOUR-DOMAIN";
   const UPDATED = "October 3, 2026";
   const FIRST_YEAR = 2026;
+  const ph = t => `<b>${esc(t)}</b>`;   // OWNER placeholder, shown in bold until replaced
   const contact = () => /YOUR-DOMAIN/.test(SUPPORT) ? `<b>${esc(SUPPORT)}</b>` : `<a href="mailto:${esc(SUPPORT)}">${esc(SUPPORT)}</a>`;
   const year = () => { const y = new Date().getFullYear(); return y > FIRST_YEAR ? FIRST_YEAR + "–" + y : String(FIRST_YEAR); };
   let backFn = null;
 
   /* ---------- Texts ---------- */
   const PRIVACY = () => `
-    <p class="legal-meta">Last updated ${UPDATED}</p>
-    <p>Studyboard is a planner for courses, deadlines, notes and flashcards. This page explains, in plain words, what it does with your information. The short version: your work stays on your device unless you choose to sync it, there are no ads, and nothing in Studyboard tracks you or sells your data.</p>
+    <p class="legal-meta">Effective ${UPDATED}</p>
+<p>Studyboard is a planner for courses, deadlines, notes and flashcards, run by ${ph("YOUR NAME OR COMPANY")} ("we"). This page explains, in plain words, what we collect, why, who else handles it, how long we keep it and how to delete it. The short version: your work stays on your device unless you choose to sync it, there are no ads, and nothing in Studyboard tracks you or sells your data.</p>
 
-    <h3>What stays on your device</h3>
-    <p>Your courses, tasks, notes, flashcards, files, settings, themes, daily backups and your school-site connections are saved on the device you use (in the browser's storage on the website, or in the app's folder on desktop). If you turn on folder backups on desktop, copies are also written to the folder you pick. Nothing leaves your device unless you use one of the optional features below.</p>
+<h3>What stays on your device</h3>
+<p>Your courses, tasks, notes, flashcards, files, settings, themes, daily backups, AI keys and your school-site connections are saved on the device you use (in the browser's storage on the website, or in the app's folder on desktop and phone). If you turn on folder backups on desktop, copies are also written to the folder you pick. Nothing leaves your device unless you use one of the optional features below.</p>
 
-    <h3>No analytics, no ads, no tracking</h3>
-    <p>Studyboard has no analytics, advertising or tracking tools, and it sets no tracking cookies. The only things it stores in your browser are the ones it needs to work: your data, settings and sign-in. The one thing it can send on its own is an anonymous crash report, described next.</p>
+<h3>No analytics, no ads, no tracking</h3>
+<p>Studyboard has no analytics, advertising or tracking tools, and it sets no tracking cookies. We do not track you across other apps or websites, and we do not sell or share your data for advertising. The only things stored in your browser are the ones needed to work: your data, settings and sign-in. The one thing Studyboard can send on its own is an anonymous crash report, described next.</p>
 
-    <h3>Anonymous crash reports</h3>
-    <p>When Studyboard hits an error (a crash, a failed sync or a broken screen), it can send a short report so we can fix the bug. A report holds the kind of error and where in the code it happened, the app version, the platform (website, installed app, desktop or iPhone/iPad app), whether you have a free or paid plan, the theme in use, and the last few actions of the app itself (such as which tab was open). It never contains your tasks, notes, courses, files, email address, account id, AI keys or anything you typed, and it is not linked to you: it carries only a random number made on your device that is not your account and is deleted when you switch reports off. We do not use reports for advertising or tracking and never share them. They are kept for about 30 days. This is on by default (off if your browser sends Do Not Track or Global Privacy Control). Turn it off any time in Settings, Send Anonymous Crash Reports. On iPhone and iPad, Apple may also give us crash logs through App Store Connect if you chose to share app analytics with developers in your device's settings.</p>
+<!-- CRASH-REPORTING-PARAGRAPH: keep in step with the crash-reporting feature (49-errreport.js). -->
+<h3>Anonymous crash reports</h3>
+<p>When Studyboard hits an error (a crash, a failed sync or a broken screen), it can send a short report so we can fix the bug. A report holds the kind of error and where in the code it happened, the app version, the platform (website, installed app, desktop or iPhone/iPad app), whether you have a free or paid plan, the theme in use, and the last few actions of the app itself (such as which tab was open). It never contains your tasks, notes, courses, files, email address, account id, AI keys or anything you typed, and it is not linked to you: it carries only a random number made on your device that is not your account and is deleted when you switch reports off. We do not use reports for advertising or tracking and never share them. They are kept for about 30 days. This is on by default (off if your browser sends Do Not Track or Global Privacy Control). Turn it off any time in Settings, Send Anonymous Crash Reports. On iPhone and iPad, Apple may also give us crash logs through App Store Connect if you chose to share app analytics with developers in your device's settings.</p>
 
-    <h3>Optional: a Studyboard account and sync</h3>
-    <p>If you create an account, we store your email address and password (the password is kept only as a salted hash by our hosting provider, Supabase). Signing in also syncs your planner between your devices, so your courses, tasks, notes, flashcards, settings, file records and any files you upload are stored on our Supabase project in your account. They are protected so that only your account can read them. Your AI keys are saved with your account so they work on every device, and are left out of the backup files you export.</p>
-    <p>Like any online service, the people who run the server can technically reach what is stored on it. We only look at it to keep the service working, fix a problem you ask us to look into, or comply with the law.</p>
+<h3>Your account and synced data</h3>
+<p>If you create an account, we store your email address and your password, which is kept only as a salted hash by our hosting provider, Supabase (Supabase Auth). Signing in also syncs your planner between your devices, so your courses, tasks, notes, flashcards, settings and file records are stored on our Supabase project, in your account. Each account can only read its own rows. We also keep the name and type of each device signed in to your account, how much storage your account uses (for the plan limits), and your plan status. Your AI keys are never sent to your account: they stay on the device and are left out of the backup files you export.</p>
+<p>Like any online service, the people who run the server can technically reach what is stored on it. We only look at it to keep the service working, fix a problem you ask us to look into, or comply with the law.</p>
 
-    <h3>Optional: AI features, with your own key</h3>
-    <p>AI is off until you add your own key from Google (Gemini), Anthropic (Claude) or OpenAI. When you use an AI feature, the text it needs (for example task titles, notes, a syllabus you import, flashcards or your question) is sent straight from your device to the provider you chose, using your key. It does not pass through us. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private.</p>
+<h3>Uploaded files</h3>
+<p>Files you attach (for example PDFs and images) are stored in a private storage area of our Supabase project, in a folder that only your account can open. They count toward your plan's storage limit and are deleted when you delete them or your account.</p>
 
-    <h3>Optional: your school's learning platform</h3>
-    <p>If you connect Brightspace, Canvas or Blackboard, the connection stays on your device. On desktop you sign in on your school's own page (Studyboard never sees your password) and the sign-in is kept in a private store on your computer. If you paste a calendar link instead, it is saved on your device; on the website and phone the link is passed through a small function on our server that fetches the calendar for you and stores nothing. Studyboard only reads from your school's site. What it brings in (due dates, grades, announcements) becomes part of your planner and syncs like everything else if you have an account.</p>
+<h3>Optional: AI features, with your own key</h3>
+<p>AI is off until you add your own key from Google (Gemini), Anthropic (Claude) or OpenAI and agree, in a prompt that names the company, to send content to it. When you use an AI feature, the content it needs (for example task titles, notes, a syllabus or PDF you import, flashcards or your question) is sent straight from your device to the provider you chose, using your key. It does not pass through our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time.</p>
 
-    <h3>Optional: reminders, calendar link, study groups</h3>
-    <p><b>Phone and desktop reminders</b> need your device's push address and your upcoming reminders (task titles and times for the next two weeks) to be stored on our server so a notification can arrive when Studyboard is closed. The notification itself is delivered by your browser maker's push service (Google, Apple or Mozilla). <b>Calendar Sync</b> stores a private link token and your choices so your calendar app can fetch your deadlines. <b>Study groups, shared decks and Study Together rooms</b> share the display name and the decks, deadlines and messages you choose to share with the people in that group. Turn any of these off, or leave a group, and it stops.</p>
+<h3>Optional: your school's learning platform</h3>
+<p>If you connect Brightspace, Canvas or Blackboard, the connection stays on your device. On desktop you sign in on your school's own page (Studyboard never sees your password) and the sign-in is kept in a private store on your computer. If you paste a calendar link instead, it is saved on your device; on the website and phone the link is passed through a small function on our server that fetches the calendar for you and stores nothing. Studyboard only reads from your school's site. What it brings in (due dates, grades, announcements) becomes part of your planner and syncs like everything else if you have an account.</p>
 
-    <h3>Bug reports and feedback</h3>
-    <p>If you send a report, it includes what you wrote, an optional screenshot you attach, an optional email address for a reply, and basic technical details (app version, browser and device type, screen size, your plan and recent error messages). It contains none of your tasks or notes unless you type them. Only the app's owner can read reports.</p>
+<h3>Optional: reminders, calendar link, study groups</h3>
+<p><b>Phone and desktop reminders</b> need your device's push address and your upcoming reminders (task titles and times for the next two weeks) to be stored on our server so a notification can arrive when Studyboard is closed. The notification itself is delivered by your browser or phone maker's push service (Google, Apple or Mozilla). <b>Calendar Sync</b> stores a private link token and your choices so your calendar app can fetch your deadlines. <b>Study groups, shared decks and Study Together rooms</b> share the display name and the decks, deadlines and messages you choose to share with the people in that group. Turn any of these off, or leave a group, and it stops. <b>Voice and shortcut capture</b> (optional, for example "Hey Siri, add a task") stores a private capture token (only a hash of it, shown to you once) and the short notes you send, in an inbox on our server until your app collects them; you can revoke the token any time, and everything is deleted with your account.</p>
 
-    <h3>Payments</h3>
-    <p>Paid plans are sold through payment links from Stripe (website and desktop) or through the App Store and Google Play. Stripe and the app stores handle your card and billing details; Studyboard never sees or stores them. We keep a record of your plan, when it ends and where you bought it, so the app knows you have Pro.</p>
+<h3>Bug reports and feedback</h3>
+<p>If you send a report, it includes what you wrote, an optional screenshot you attach, an optional email address for a reply, and basic technical details (app version, browser and device type, screen size, your plan and recent error messages). It contains none of your tasks or notes unless you type them. Only the app's owner can read reports.</p>
 
-    <h3>Other services the website contacts</h3>
-    <p>On the website, the fonts and the sign-in library are served from the same site as the page,, so no third party is contacted for them. The PDF reader used for syllabus import is served from the same site too. Only if the sign-in library's copy can't be loaded does the page fall back to a public content network (jsDelivr), which can then see your IP address as for any web page. The desktop app ships all of these files inside the app and does not need to contact it. Studyboard also contacts Supabase (if you use an account) and, only when you use AI, the AI provider you chose.</p>
+<h3>Payments</h3>
+<p>Pro is sold through Stripe (website and desktop) or through the App Store and Google Play (iPhone, iPad and Android apps). Stripe and the app stores handle your card and billing details; we never see or store them. We receive only your plan status: whether you have Pro, when it ends and where you bought it. If you pay with Stripe we also keep a Stripe customer id so we can open your billing page.</p>
 
-    <h3>Your choices and your data</h3>
-    <ul>
-      <li><b>Export:</b> Settings, Data and Backups, Export a Backup File gives you everything in one file.</li>
-      <li><b>Get a copy of your data (access and portability):</b> Settings, Data and Backups, Export My Data makes a ZIP with one JSON file and spreadsheet (CSV) files of your tasks, notes, grades, flashcards, courses, schedule and study sessions. It is made on your device, works offline, and never includes AI keys, sign-in details or device ids.</li>
-      <li><b>Deleted by mistake:</b> things you delete wait in Settings, Data and Backups, Recently Deleted for 30 days (synced with your account like the rest of your data), then are removed for good.</li>
-      <li><b>Delete everything on this device:</b> Settings, Data and Backups, Clear All Data. Clearing your browser's site data also removes it.</li>
-      <li><b>Delete your account and online data:</b> Settings, Account and Sync, Delete My Account and Data. This removes your account, synced data, uploaded files, reminders, devices, calendar links and plan record from our server, and the study groups you own. Cancel a paid subscription yourself first, because deleting the account does not cancel billing. Copies in backups we hold are removed in the normal backup cycle, and billing records kept by Stripe or an app store are kept as the law requires.</li>
-    </ul>
+<h3>Email delivery</h3>
+<p>Emails we send you (confirming your address, resetting your password, signing in) are sent through our email delivery provider, ${ph("YOUR EMAIL PROVIDER")}, which handles your email address and the message so it can be delivered. We send no marketing email.</p>
 
-    <h3>Children</h3>
-    <p>Studyboard is for students aged 13 and over. If you are younger, ask a parent, guardian or your school before you use it or make an account.</p>
+<h3>Other services we use</h3>
+<p>Studyboard runs on Supabase (accounts, sync and storage). On the website, fonts, the sign-in library and the PDF reader are served from the same site as the page, so no other third party is contacted for them. If the sign-in library's copy can't be loaded the page falls back to a public content network (jsDelivr), which can then see your IP address as for any web page. Studyboard also contacts the AI provider you chose, only when you use AI, and Stripe when you pay on the website.</p>
 
-    <h3>Changes and contact</h3>
-    <p>If this policy changes in a way that matters, we will update the date above and tell you in the app. Questions or requests about your data: ${contact()}.</p>`;
+<h3>How long we keep things</h3>
+<ul>
+<li><b>Your account and planner:</b> until you delete them. Deleted items are remembered for 45 days only so your other devices can catch up.</li>
+<li><b>After you delete your account:</b> your data is removed from our database and storage straight away. Encrypted backups can hold a copy for up to 30 days before they are overwritten; nothing is restored for a deleted account.</li>
+<li><b>Payment records:</b> Stripe and the app stores keep them as tax and accounting law requires. We keep only anonymous plan and payment-event records with no link to your account.</li>
+<li><b>Crash reports:</b> kept for about 30 days, then deleted. They are anonymous and not linked to your account.</li>
+<li><b>Bug reports:</b> kept only as long as needed to fix the problem. Reports sent while signed in are deleted with your account.</li>
+</ul>
+
+<h3>Your choices and your data</h3>
+<ul>
+<li><b>Export:</b> Settings, Data and Backups, Export a Backup File gives you everything in one file.</li>
+<li><b>Get a copy of your data (access and portability):</b> Settings, Data and Backups, Export My Data makes a ZIP with one JSON file and spreadsheet (CSV) files of your tasks, notes, grades, flashcards, courses, schedule and study sessions. It is made on your device, works offline, and never includes AI keys, sign-in details or device ids.</li>
+<li><b>Deleted by mistake:</b> things you delete wait in Settings, Data and Backups, Recently Deleted for 30 days (synced with your account like the rest of your data), then are removed for good.</li>
+<li><b>Delete everything on this device:</b> Settings, Data and Backups, Clear All Data. Clearing your browser's site data also removes it.</li>
+<li><b>Delete your account and online data:</b> Settings, Account and Sync, Delete My Account and Data. This removes your account, synced data, uploaded files, reminders, devices, calendar links and plan record from our server, and cancels a card subscription for you. Study groups you own pass to another member, or are deleted if nobody else is in them, and your group messages are deleted. Subscriptions bought through the App Store or Google Play must be cancelled by you in your store account, because we cannot cancel them. You can also email us from the address on the account to ask for deletion.</li>
+<li><b>Your rights:</b> depending on where you live (for example the EU, UK or California) you may have the right to access, correct, delete or port your data and to object to its use. Use the steps above, or contact us.</li>
+</ul>
+
+<h3>International transfers</h3>
+<p>Our servers are in ${ph("YOUR REGION")}. Supabase, Stripe, our email provider and the AI provider you choose may process data in other countries, including the United States. Where the law requires it we rely on safeguards such as standard contractual clauses.</p>
+
+<h3>Children</h3>
+<p>Studyboard is for students aged 13 and over. In the European Economic Area and the UK, where the age of digital consent is higher in some countries (up to 16), a person under that age needs a parent or guardian's permission to make an account. If you are younger than 13, please do not create an account. If you think a child has given us personal data, contact us and we will delete it.</p>
+
+<h3>Security</h3>
+<p>Connections are encrypted (HTTPS). Each account can only read its own rows, and plans can only be changed by our payment system, never from your device. No system is perfectly safe; if something affecting you goes wrong we will tell you.</p>
+
+<h3>Changes and contact</h3>
+<p>If this policy changes in a way that matters, we will update the effective date above and tell you in the app. Questions or requests about your data: ${contact()}.</p>
+`;
 
   const TERMS = () => `
-    <p class="legal-meta">Last updated ${UPDATED}</p>
+    <p class="legal-meta">Effective ${UPDATED}</p>
     <p>These terms are the agreement between you and the people who run Studyboard ("we"). By using Studyboard you agree to them. If you do not agree, please do not use it.</p>
 
     <h3>Using Studyboard</h3>
@@ -57874,7 +58051,7 @@ async function capProcess(rows, d){
     <p>Connecting a school learning platform, calendar or other service is your choice. Make sure you are allowed to, and follow your school's rules. Studyboard only reads from those sites. Studyboard is not affiliated with Brightspace, Canvas, Blackboard, Google, Anthropic, OpenAI, Apple or any school.</p>
 
     <h3>Free and paid plans</h3>
-    <p>Studyboard has a free plan and an optional Pro plan with higher limits and extras. Prices, what each plan includes and the renewal terms are shown before you buy. Payments are handled by Stripe, the App Store or Google Play, and you manage or cancel your plan with them. Unless the law or the purchase page says otherwise, payments are not refundable for time already used. Plan limits and features can change; we will not take away what you have paid for during the period you paid for.</p>
+    <p>Studyboard has a free plan and an optional Pro plan with higher limits and extras. Prices, what each plan includes and the renewal terms are shown before you buy. Payments are handled by Stripe, the App Store or Google Play, and you manage or cancel your plan with them. Unless the law or the purchase page says otherwise, payments are not refundable for time already used. <b>Apple subscriptions:</b> Payment will be charged to your Apple ID account at confirmation of purchase. The subscription renews automatically unless it is cancelled at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours before the end of the current period. You can manage and cancel your subscriptions in your App Store account settings after purchase (https://apps.apple.com/account/subscriptions). Any unused portion of a free trial period, if offered, is forfeited when you buy a subscription.  Plan limits and features can change; we will not take away what you have paid for during the period you paid for.</p>
 
     <h3>Availability and no warranty</h3>
     <p>We work hard to keep Studyboard reliable, but it is provided "as is" and "as available", without promises that it will always work, be error free or never lose data. Back up what matters. Do not rely on reminders alone for something critical.</p>
@@ -57929,6 +58106,7 @@ async function capProcess(rows, d){
       const email = em ? em.value.trim() : "";
       return () => sbSignInSheet(mode, email);
     }
+    if (el && el.closest(".plan-sheet") && window.PLAN && PLAN.openSheet) return () => PLAN.openSheet();
     if (el && el.closest(".about-links")) { const keep = backFn; return () => showAbout(keep); }
     return () => menuSheet();
   }
@@ -57974,47 +58152,189 @@ async function capProcess(rows, d){
     } catch (e) {}
     try { if (window.caches) for (const k of await caches.keys()) await caches.delete(k); } catch (e) {}
   }
+  /* What plan the person pays for, from the plan module. Card subscriptions are cancelled for them by the server;
+     App Store / Google Play ones can only be cancelled by the person in the store, so they must acknowledge it. */
+  const planEnt = () => { try { return typeof PLAN !== "undefined" && PLAN && PLAN.entitlement ? PLAN.entitlement() : null; } catch (e) { return null; } };
+  const payingNow = e => !!e && e.plan === "pro" && (!e.pro_until || Date.parse(e.pro_until) > Date.now());
+  const storeSub = () => { const e = planEnt(); return payingNow(e) && ["apple", "google", "revenuecat"].includes(e.source) && e.will_renew !== false; };
+  const cardSub = () => { const e = planEnt(); return payingNow(e) && e.source === "stripe"; };
+  const APPLE_SUBS = "https://apps.apple.com/account/subscriptions";
+  // Calls the delete-account Edge Function. kind: ok | missing (not deployed) | network | http
+  async function callDelete(payload){
+    let res;
+    try { res = await sb.functions.invoke("delete-account", {body: payload}); }
+    catch (e) { return {kind: "network", error: e}; }
+    if (!res || !res.error) return {kind: "ok", data: res && res.data};
+    const err = res.error, c = err.context;
+    let status = c && c.status || 0, body = null;
+    try { if (c && typeof c.json === "function") body = await c.json(); } catch (e) {}
+    if (status === 404 && !(body && body.error)) return {kind: "missing"};
+    if (!status) return {kind: "network", error: err};
+    return {kind: "http", status, body: body || {}, error: err};
+  }
+  const deletedList = (data, wiped) => {
+    const d = (data && data.deleted) || {}, rows = [];
+    rows.push("Your account and sign-in, on every device");
+    rows.push("Your synced courses, tasks, notes, flashcards and settings");
+    rows.push(typeof d.files_deleted === "number" ? `Your uploaded files (${d.files_deleted} deleted from storage)` : "Your uploaded files");
+    rows.push("Your reminders, push devices, calendar link, devices, usage and plan record");
+    rows.push("Your bug reports, shared decks and study profile");
+    rows.push("Study groups you owned: passed to another member, or deleted if nobody else was in them. Your messages and activity in groups were deleted");
+    if (typeof d.stripe_subscriptions_cancelled === "number" && d.stripe_subscriptions_cancelled > 0) rows.push("Your card subscription (cancelled, no further charges)");
+    rows.push(wiped ? "The copy of your data on this device" : "The copy on this device was kept (you can erase it in your browser or app settings)");
+    return rows;
+  };
+  const RETAINED = [
+    "Payment records stay with Stripe, Apple or Google as the law requires. Studyboard never had your card number.",
+    "Encrypted server backups can hold a copy for up to 30 days, then it is overwritten. Nothing is restored for a deleted account.",
+    "Reports about abuse in study groups stay, with no link to your account.",
+    "If you had an App Store subscription, cancel it in your Apple ID settings: " + APPLE_SUBS
+  ];
+  function deletedSheet(data, wiped, fallback){
+    const keep = (data && Array.isArray(data.retained) && data.retained.length ? data.retained : RETAINED.slice(0, 3)).slice();
+    if (storeSub() || fallback === "store") keep.push(RETAINED[3]);
+    openSheet(`<div class="sheet" id="delDone">${head("Your Account Was Deleted")}
+      <div class="sheet-body">
+        <p style="margin:0" role="status"><b>Done.</b> Your Studyboard account and its online data were permanently deleted${fallback ? " (using the server's fallback method)" : ""}.</p>
+        <h3 class="fsec">What was removed</h3>
+        <ul class="legal-list">${deletedList(data, wiped).map(t => `<li>${esc(t)}</li>`).join("")}</ul>
+        <h3 class="fsec">What we keep, and for how long</h3>
+        <ul class="legal-list">${keep.map(t => `<li>${esc(t).replace(APPLE_SUBS, `<a href="${APPLE_SUBS}" target="_blank" rel="noopener">${APPLE_SUBS}</a>`)}</li>`).join("")}</ul>
+        <p class="mini" style="margin:0">Questions? ${contact()}.</p>
+      </div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="del-done">Done</button></div></div>`);
+    dlg.addEventListener("close", () => location.reload(), {once: true});
+  }
   function deleteSheet(){
     if (!canDelete()) { toast("Sign in to your account first."); return; }
-    openSheet(`<form class="sheet">${head("Delete My Account and Data")}
+    const card = cardSub(), store = storeSub();
+    openSheet(`<form class="sheet" id="delForm">${head("Delete My Account and Data")}
       <div class="sheet-body">
         <p style="margin:0"><b>This permanently deletes your Studyboard account and everything stored online for it.</b> It can't be undone.</p>
         <ul class="legal-list">
           <li>Your synced courses, tasks, notes, flashcards, settings and uploaded files</li>
           <li>Your reminders, devices, calendar link and plan record</li>
-          <li>Study groups you own (for everyone in them)</li>
+          <li>Study groups you own are passed to another member, or deleted if nobody else is in them. Your group messages are deleted</li>
         </ul>
-        <p class="mini" style="margin:0"><b>Paid plan?</b> Cancel it first from Account and Sync, Plan. Deleting your account does not cancel billing.</p>
-        <p class="mini" style="margin:0">The copy on this device stays unless you tick the box below. <button type="button" class="link-btn" data-act="export">Export a backup first</button></p>
-        <label class="mi-check"><input type="checkbox" name="wipe"> Also erase the copy of my data on this device</label>
+        ${card ? `<p class="mini" id="delCard" style="margin:0"><b>Paid plan:</b> your card subscription is cancelled for you when the account is deleted, so you won't be charged again.</p>` : ""}
+        <div id="delStore" ${store ? "" : "hidden"}>
+          <p class="mini" style="margin:0"><b>Your Pro plan is billed by the App Store or Google Play.</b> Deleting your account does not cancel it. Cancel it first in your store account (iPhone and iPad: Settings, your name, Subscriptions, or <a href="${APPLE_SUBS}" target="_blank" rel="noopener">${APPLE_SUBS}</a>).</p>
+          <label class="mi-check"><input type="checkbox" name="ack"> I understand that I must cancel my App Store or Google Play subscription myself</label>
+        </div>
+        <p class="mini" style="margin:0">The copy on this device is erased too unless you untick the box below. <button type="button" class="link-btn" data-act="export">Export a backup first</button></p>
+        <label class="mi-check"><input type="checkbox" name="wipe" checked> Also erase the copy of my data on this device</label>
+        <label class="f"><span class="lh">Your password <span class="hint">Needed if you signed in more than 10 minutes ago</span></span><input type="password" name="password" id="delPw" autocomplete="current-password" data-noenter></label>
         <label class="f"><span class="lh">Type DELETE to confirm</span><input type="text" name="confirm" id="delConfirm" autocomplete="off" autocapitalize="characters" spellcheck="false" data-noenter></label>
         <p class="status-msg" id="delMsg" style="margin:0" aria-live="polite" role="status"></p>
       </div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="delGo" data-submit disabled style="background:var(--late);border-color:var(--late);color:#fff">Delete My Account</button></div>
     </form>`, fd => {
       if (String(fd.get("confirm") || "").trim().toUpperCase() !== "DELETE") return false;
-      const wipe = !!fd.get("wipe"), say = t => { const m = $("#delMsg"); if (m) m.textContent = t; }, go = $("#delGo");
+      const wipe = !!fd.get("wipe"), pw = String(fd.get("password") || ""), say = t => { const m = $("#delMsg"); if (m) m.textContent = t; }, go = $("#delGo");
+      let ack = !!fd.get("ack");
       if (go) go.disabled = true;
+      const stop = (msg, showStore) => { say(msg); if (showStore) { const x = $("#delStore"); if (x) x.hidden = false; } if (go) go.disabled = false; };
       (async () => {
         try {
           const uid = sbUser.id;
-          say("Deleting your files…");
-          await removeFiles(uid);
-          say("Deleting your account…");
-          const {error} = await sb.rpc("studyboard_delete_my_account");
-          if (error) throw error;
+          if (storeSub() && !ack) { stop("Tick the box about your App Store subscription first.", true); return; }
+          say("Deleting your account on the server…");
+          const payload = {confirm: "DELETE", ack_store_subscription: ack};
+          if (pw) payload.password = pw;
+          const r = await callDelete(payload);
+          let data = null, fallback = "";
+          if (r.kind === "ok") data = r.data;
+          else if (r.kind === "missing") {
+            // The Edge Function isn't deployed: delete the files and database rows with the person's own sign-in instead.
+            if (cardSub()) { stop("Cancel your plan first (Studyboard Pro, Manage Plan), then try again. This server can't cancel it for you yet."); return; }
+            if (storeSub() && !ack) { stop("Tick the box about your App Store subscription first.", true); return; }
+            say("Deleting your files…");
+            await removeFiles(uid);
+            say("Deleting your account…");
+            const {error} = await sb.rpc("studyboard_delete_my_account");
+            if (error) throw error;
+            data = {deleted: {}}; fallback = storeSub() ? "store" : "rpc";
+          } else if (r.kind === "network") { stop("Couldn't reach the server. Check your connection and try again."); return; }
+          else {
+            const b = r.body || {}, code = String(b.error || "");
+            if (code === "store_subscription") { stop(b.message || "Cancel your App Store subscription first.", true); return; }
+            if (code === "reauth_required" || code === "wrong_password") { stop(b.message || "Enter your password and try again."); const i = $("#delPw"); if (i) i.focus(); return; }
+            if (r.status === 401) { stop("You've been signed out. Sign in again, then try again."); return; }
+            stop(b.message || deleteErr(r.error)); return;
+          }
           try { await sb.auth.signOut({scope: "local"}); } catch (e) {}
           try { localStorage.removeItem(OUTBOX); } catch (e) {}
           aiWipeLocal();                       // AI keys and AI consent never outlive the account on this device
-          if (wipe) await wipeDevice();
-          say("Your account was deleted.");
-          setTimeout(() => location.reload(), 900);
-        } catch (e) { say(deleteErr(e)); if (go) go.disabled = false; }
+          if (wipe) { try { await wipeDeviceData(); } catch (e) {} await wipeDevice(); }
+          deletedSheet(data, wipe, fallback);
+        } catch (e) { stop(deleteErr(e)); }
       })();
       return false;
     });
     const inp = $("#delConfirm"), go = $("#delGo");
     if (inp && go) inp.addEventListener("input", () => { go.disabled = inp.value.trim().toUpperCase() !== "DELETE"; });
+  }
+
+  /* ---------- Change email and change password (both ask for the current password first) ----------
+     Email: Supabase "Secure email change" sends a confirmation to the old AND the new address (change-email.html); the address
+     changes after both are confirmed. Password: if the server asks for re-authentication (reauthentication.html) a code is
+     emailed and entered here as the "nonce". */
+  function securitySheet(kind){
+    if (!canDelete()) { toast("Sign in to your account first."); return; }
+    const isMail = kind === "email", T = isMail ? "Change Email" : "Change Password";
+    openSheet(`<form class="sheet" id="secForm" data-kind="${kind}">${head(T)}
+      <div class="sheet-body">
+        <p style="margin:0">${isMail ? `Your email is <b>${esc(sbUser.email || "")}</b>. We'll email both your current and your new address, and it changes once you confirm.` : "Choose a new password. You'll stay signed in on this device."}</p>
+        <label class="f"><span class="lh">Current Password</span><input type="password" name="current" required autocomplete="current-password" autofocus></label>
+        ${isMail ? `<label class="f"><span class="lh">New Email</span><input type="email" name="email" required autocomplete="email"></label>`
+          : `<label class="f"><span class="lh">New Password <span class="hint">At least 8 characters</span></span><input type="password" name="password" required minlength="8" autocomplete="new-password"></label>
+             <p class="mini" id="secStrength" style="margin:0" aria-live="polite"></p>
+             <label class="f"><span class="lh">Confirm New Password</span><input type="password" name="confirm" required minlength="8" autocomplete="new-password"></label>
+             <label class="f" id="secCodeRow" hidden><span class="lh">Code from the email <span class="hint">We emailed you a security code</span></span><input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="10"></label>`}
+        <p class="status-msg" id="secMsg" style="margin:0" aria-live="polite" role="status"></p>
+      </div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" data-submit>${isMail ? "Send Confirmation" : "Save Password"}</button></div>
+    </form>`, fd => {
+      const say = t => { const m = $("#secMsg"); if (m) m.textContent = t; };
+      const cur = String(fd.get("current") || "");
+      (async () => {
+        try {
+          if (!cur) { say("Enter your current password."); return; }
+          say("Checking…");
+          const chk = await sb.auth.signInWithPassword({email: sbUser.email, password: cur});
+          if (chk.error) { say(/invalid login/i.test(chk.error.message || "") ? "That current password isn't right." : sbWords(chk.error)); return; }
+          if (isMail) {
+            const em = String(fd.get("email") || "").trim();
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em) || em.length > 254) { say("That email address doesn't look right."); return; }
+            if (em.toLowerCase() === String(sbUser.email || "").toLowerCase()) { say("That's already your email."); return; }
+            const {error} = await sb.auth.updateUser({email: em}, /^https?:/.test(location.protocol) ? {emailRedirectTo: location.origin + location.pathname} : undefined);
+            if (error) throw error;
+            say(`We sent a confirmation to ${sbUser.email} and to ${em}. Open both emails and confirm. Your email changes after that.`);
+          } else {
+            const pw = String(fd.get("password") || "");
+            if (pw.length < 8) { say("Use at least 8 characters."); return; }
+            if (!sbStrength(pw).ok) { say("That password is too easy to guess. Add more characters or mix in capitals, numbers or symbols."); return; }
+            if (pw !== String(fd.get("confirm") || "")) { say("The two passwords don't match."); return; }
+            const code = String(fd.get("code") || "").replace(/\s+/g, "");
+            let r = await sb.auth.updateUser(code ? {password: pw, nonce: code} : {password: pw});
+            if (r.error && /reauth|nonce/i.test(String(r.error.message || ""))) {
+              if (!code) {
+                await sb.auth.reauthenticate();
+                const row = $("#secCodeRow"); if (row) row.hidden = false;
+                say("For your security we emailed you a code. Enter it above and press Save Password again.");
+                return;
+              }
+            }
+            if (r.error) throw r.error;
+            if (dlg.open) dlg.close();
+            toast("Password updated");
+          }
+        } catch (e) { say(sbWords(e)); }
+      })();
+      return false;
+    });
+    const pw = dlg.querySelector("input[name=password]"), st = $("#secStrength");
+    if (pw && st) pw.addEventListener("input", () => { st.textContent = pw.value ? "Strength: " + sbStrength(pw.value).label : ""; });
   }
 
   /* ---------- Hooks ---------- */
@@ -58024,6 +58344,7 @@ async function capProcess(rows, d){
       `<button data-act="legal-privacy" data-group="app"><span>Privacy Policy<span class="sub">What Studyboard does with your information</span></span></button>`,
       `<button data-act="legal-terms" data-group="app"><span>Terms of Service<span class="sub">The rules for using Studyboard</span></span></button>`
     ];
+    if (canDelete()) rows.push(`<button data-act="acct-email" data-group="account"><span>Change Email<span class="sub">Confirmed from both your old and new address</span></span></button>`, `<button data-act="acct-pass" data-group="account"><span>Change Password<span class="sub">Needs your current password</span></span></button>`);
     if (canDelete()) rows.push(`<button data-act="acct-delete" data-group="account" style="color:var(--late)"><span>Delete My Account and Data<span class="sub">Permanently remove your account and everything stored online</span></span></button>`);
     return rows.join("");
   });
@@ -58032,7 +58353,10 @@ async function capProcess(rows, d){
     if (act === "legal-terms") { showTerms(backFor(el)); return true; }
     if (act === "legal-about") { showAbout(backFor(el)); return true; }
     if (act === "legal-back") { const f = backFn; backFn = null; if (f) f(); else if (dlg.open) dlg.close(); return true; }
+    if (act === "acct-email") { securitySheet("email"); return true; }
+    if (act === "acct-pass") { securitySheet("password"); return true; }
     if (act === "acct-delete") { deleteSheet(); return true; }
+    if (act === "del-done") { location.reload(); return true; }
     return false;
   });
   window.SBLEGAL = {line, privacy: showPrivacy, terms: showTerms, about: showAbout, version: VERSION};

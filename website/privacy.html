@@ -27,52 +27,80 @@
 </header>
 <main id="main">
 <section class="block"><div class="wrap narrow legal">
-<p class="msg"><strong>Owner:</strong> this is a plain-language starting point, not legal advice. Replace the highlighted placeholders (<span class="placeholder">YOUR NAME OR COMPANY</span>, <span class="placeholder">support@YOUR-DOMAIN</span>, <span class="placeholder">YOUR COUNTRY</span>), have it reviewed for where you operate, then delete this box.</p>
+<p class="msg"><strong>Owner:</strong> this is a plain-language starting point, not legal advice. Replace the highlighted placeholders (<span class="placeholder">YOUR NAME OR COMPANY</span>, <span class="placeholder">support@YOUR-DOMAIN</span>, <span class="placeholder">YOUR EMAIL PROVIDER</span>, <span class="placeholder">YOUR REGION</span>), have it reviewed for where you operate, then delete this box.</p>
 <h1>Privacy Policy</h1>
-<p class="muted">Last updated: <span class="placeholder">DATE</span></p>
-<p>Studyboard is run by <span class="placeholder">YOUR NAME OR COMPANY</span> ("we"). This page says, in plain words, what we collect and why. Questions: <a class="support-email" href="mailto:support@YOUR-DOMAIN">support@YOUR-DOMAIN</a>.</p>
+<p class="muted">Effective: October 3, 2026</p>
+<p>Studyboard is a planner for courses, deadlines, notes and flashcards, run by <span class="placeholder">YOUR NAME OR COMPANY</span> ("we"). This page explains, in plain words, what we collect, why, who else handles it, how long we keep it and how to delete it. The short version: your work stays on your device unless you choose to sync it, there are no ads, and nothing in Studyboard tracks you or sells your data.</p>
 
-<h2>What we keep</h2>
-<ul>
-<li><strong>Your account:</strong> your email address and a password (stored only as a one-way hash, never readable by us).</li>
-<li><strong>Your planner:</strong> the courses, tasks, notes, flashcards and settings you choose to sync, and the files you upload. They are stored so your devices stay in step. We don't read them or use them for anything else.</li>
-<li><strong>Your devices:</strong> a name and type for each device signed in to your account, and the last time it connected, so we can apply the device limit of the free plan.</li>
-<li><strong>Usage totals:</strong> how much synced data and file storage your account uses, so we can apply the storage limits of each plan.</li>
-<li><strong>Your plan:</strong> whether you have Pro, until when, and how you got it.</li>
-<li><strong>Study groups:</strong> if you join one, the display name you choose and what you post there are visible to its members.</li>
-</ul>
+<h2>What stays on your device</h2>
+<p>Your courses, tasks, notes, flashcards, files, settings, themes, daily backups, AI keys and your school-site connections are saved on the device you use (in the browser's storage on the website, or in the app's folder on desktop and phone). If you turn on folder backups on desktop, copies are also written to the folder you pick. Nothing leaves your device unless you use one of the optional features below.</p>
+
+<h2>No analytics, no ads, no tracking</h2>
+<p>Studyboard has no analytics, advertising or tracking tools, and it sets no tracking cookies. We do not track you across other apps or websites, and we do not sell or share your data for advertising. The only things stored in your browser are the ones needed to work: your data, settings and sign-in. The one thing Studyboard can send on its own is an anonymous crash report, described next.</p>
+
+<!-- CRASH-REPORTING-PARAGRAPH: keep in step with the crash-reporting feature (49-errreport.js). -->
+<h2>Anonymous crash reports</h2>
+<p>When Studyboard hits an error (a crash, a failed sync or a broken screen), it can send a short report so we can fix the bug. A report holds the kind of error and where in the code it happened, the app version, the platform (website, installed app, desktop or iPhone/iPad app), whether you have a free or paid plan, the theme in use, and the last few actions of the app itself (such as which tab was open). It never contains your tasks, notes, courses, files, email address, account id, AI keys or anything you typed, and it is not linked to you: it carries only a random number made on your device that is not your account and is deleted when you switch reports off. We do not use reports for advertising or tracking and never share them. They are kept for about 30 days. This is on by default (off if your browser sends Do Not Track or Global Privacy Control). Turn it off any time in Settings, Send Anonymous Crash Reports. On iPhone and iPad, Apple may also give us crash logs through App Store Connect if you chose to share app analytics with developers in your device's settings.</p>
+
+<h2>Your account and synced data</h2>
+<p>If you create an account, we store your email address and your password, which is kept only as a salted hash by our hosting provider, Supabase (Supabase Auth). Signing in also syncs your planner between your devices, so your courses, tasks, notes, flashcards, settings and file records are stored on our Supabase project, in your account. Each account can only read its own rows. We also keep the name and type of each device signed in to your account, how much storage your account uses (for the plan limits), and your plan status. Your AI keys are never sent to your account: they stay on the device and are left out of the backup files you export.</p>
+<p>Like any online service, the people who run the server can technically reach what is stored on it. We only look at it to keep the service working, fix a problem you ask us to look into, or comply with the law.</p>
+
+<h2>Uploaded files</h2>
+<p>Files you attach (for example PDFs and images) are stored in a private storage area of our Supabase project, in a folder that only your account can open. They count toward your plan's storage limit and are deleted when you delete them or your account.</p>
+
+<h2>Optional: AI features, with your own key</h2>
+<p>AI is off until you add your own key from Google (Gemini), Anthropic (Claude) or OpenAI and agree, in a prompt that names the company, to send content to it. When you use an AI feature, the content it needs (for example task titles, notes, a syllabus or PDF you import, flashcards or your question) is sent straight from your device to the provider you chose, using your key. It does not pass through our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time.</p>
+
+<h2>Optional: your school's learning platform</h2>
+<p>If you connect Brightspace, Canvas or Blackboard, the connection stays on your device. On desktop you sign in on your school's own page (Studyboard never sees your password) and the sign-in is kept in a private store on your computer. If you paste a calendar link instead, it is saved on your device; on the website and phone the link is passed through a small function on our server that fetches the calendar for you and stores nothing. Studyboard only reads from your school's site. What it brings in (due dates, grades, announcements) becomes part of your planner and syncs like everything else if you have an account.</p>
+
+<h2>Optional: reminders, calendar link, study groups</h2>
+<p><b>Phone and desktop reminders</b> need your device's push address and your upcoming reminders (task titles and times for the next two weeks) to be stored on our server so a notification can arrive when Studyboard is closed. The notification itself is delivered by your browser or phone maker's push service (Google, Apple or Mozilla). <b>Calendar Sync</b> stores a private link token and your choices so your calendar app can fetch your deadlines. <b>Study groups, shared decks and Study Together rooms</b> share the display name and the decks, deadlines and messages you choose to share with the people in that group. Turn any of these off, or leave a group, and it stops. <b>Voice and shortcut capture</b> (optional, for example "Hey Siri, add a task") stores a private capture token (only a hash of it, shown to you once) and the short notes you send, in an inbox on our server until your app collects them; you can revoke the token any time, and everything is deleted with your account.</p>
+
+<h2>Bug reports and feedback</h2>
+<p>If you send a report, it includes what you wrote, an optional screenshot you attach, an optional email address for a reply, and basic technical details (app version, browser and device type, screen size, your plan and recent error messages). It contains none of your tasks or notes unless you type them. Only the app's owner can read reports.</p>
 
 <h2>Payments</h2>
-<p>Card payments on this website are handled by <a href="https://stripe.com/privacy" rel="noopener noreferrer">Stripe</a>. Your card number goes straight to Stripe and never touches our servers or this website. We keep a Stripe customer id and your subscription status. In the App Store or Google Play versions, purchases are handled by Apple or Google and RevenueCat, who tell us only that a subscription is active.</p>
+<p>Pro is sold through Stripe (website and desktop) or through the App Store and Google Play (iPhone, iPad and Android apps). Stripe and the app stores handle your card and billing details; we never see or store them. We receive only your plan status: whether you have Pro, when it ends and where you bought it. If you pay with Stripe we also keep a Stripe customer id so we can open your billing page.</p>
 
-<h2>Anonymous crash reports</h2>
-<p>When the app hits an error (a crash, a failed sync or a broken screen) it can send a short, anonymous report so we can fix the bug. A report holds the kind of error and where in the code it happened, the app version and build, the platform (website, installed app, desktop or iPhone/iPad app), whether you have a free or paid plan, the theme in use, and the last few actions of the app itself (such as which tab was open). It never contains your tasks, notes, courses, files, email address, account id, AI keys, file names or anything you typed, and addresses are cut down to a page name with no query or fragment. It is not linked to you: it carries only a random number made on your device (not your account) that is deleted when you turn reports off. Reports are used only to find and fix bugs, are not used for advertising or tracking, are never sold or shared, and are kept for about 30 days. They are sent to our error-monitoring service (Sentry) or to our own Supabase project, over HTTPS, with no tracking script on the page.</p>
-<p>This is on by default, and off by default if your browser sends Do Not Track or Global Privacy Control. Turn it off any time in the app: Settings, Send Anonymous Crash Reports.</p>
+<h2>Email delivery</h2>
+<p>Emails we send you (confirming your address, resetting your password, signing in) are sent through our email delivery provider, <span class="placeholder">YOUR EMAIL PROVIDER</span>, which handles your email address and the message so it can be delivered. We send no marketing email.</p>
 
-<h2>What we don't do</h2>
+<h2>Other services we use</h2>
+<p>Studyboard runs on Supabase (accounts, sync and storage). On the website, fonts, the sign-in library and the PDF reader are served from the same site as the page, so no other third party is contacted for them. If the sign-in library's copy can't be loaded the page falls back to a public content network (jsDelivr), which can then see your IP address as for any web page. Studyboard also contacts the AI provider you chose, only when you use AI, and Stripe when you pay on the website.</p>
+
+<h2>How long we keep things</h2>
 <ul>
-<li>We don't sell your data or show ads.</li>
-<li>This website uses no advertising or analytics trackers (the anonymous crash reports described above are not analytics: no pages or clicks are counted) and sets no tracking cookies. It stores your sign-in and your light or dark choice in your browser's local storage so you stay signed in.</li>
+<li><b>Your account and planner:</b> until you delete them. Deleted items are remembered for 45 days only so your other devices can catch up.</li>
+<li><b>After you delete your account:</b> your data is removed from our database and storage straight away. Encrypted backups can hold a copy for up to 30 days before they are overwritten; nothing is restored for a deleted account.</li>
+<li><b>Payment records:</b> Stripe and the app stores keep them as tax and accounting law requires. We keep only anonymous plan and payment-event records with no link to your account.</li>
+<li><b>Crash reports:</b> kept for about 30 days, then deleted. They are anonymous and not linked to your account.</li>
+<li><b>Bug reports:</b> kept only as long as needed to fix the problem. Reports sent while signed in are deleted with your account.</li>
 </ul>
 
-<h2>Who else handles your data</h2>
-<p>Studyboard's accounts and storage run on <a href="https://supabase.com/privacy" rel="noopener noreferrer">Supabase</a>. Optional features you switch on may send data to the service behind them, for example your own AI key to the AI provider you picked, or your school's calendar address to that school's system. We only do this when you turn the feature on.</p>
-
-<h2>Your choices</h2>
+<h2>Your choices and your data</h2>
 <ul>
-<li>You can export your data from the app (Backup) at any time.</li>
-<li>To delete your account and the data in it, write to <a class="support-email" href="mailto:support@YOUR-DOMAIN">support@YOUR-DOMAIN</a> from the email on the account. We delete it within <span class="placeholder">30</span> days. Payment records may be kept as long as the law requires.</li>
-<li>You can sign out of all your devices by changing your password.</li>
+<li><b>Export:</b> Settings, Data and Backups, Export a Backup File gives you everything in one file.</li>
+<li><b>Get a copy of your data (access and portability):</b> Settings, Data and Backups, Export My Data makes a ZIP with one JSON file and spreadsheet (CSV) files of your tasks, notes, grades, flashcards, courses, schedule and study sessions. It is made on your device, works offline, and never includes AI keys, sign-in details or device ids.</li>
+<li><b>Deleted by mistake:</b> things you delete wait in Settings, Data and Backups, Recently Deleted for 30 days (synced with your account like the rest of your data), then are removed for good.</li>
+<li><b>Delete everything on this device:</b> Settings, Data and Backups, Clear All Data. Clearing your browser's site data also removes it.</li>
+<li><b>Delete your account and online data:</b> Settings, Account and Sync, Delete My Account and Data. This removes your account, synced data, uploaded files, reminders, devices, calendar links and plan record from our server, and cancels a card subscription for you. Study groups you own pass to another member, or are deleted if nobody else is in them, and your group messages are deleted. Subscriptions bought through the App Store or Google Play must be cancelled by you in your store account, because we cannot cancel them. You can also email us from the address on the account to ask for deletion.</li>
+<li><b>Your rights:</b> depending on where you live (for example the EU, UK or California) you may have the right to access, correct, delete or port your data and to object to its use. Use the steps above, or contact us.</li>
 </ul>
 
-<h2>Security</h2>
-<p>Connections are encrypted (HTTPS). Each account can only read its own rows. Plans can only be changed by our payment system and by us, never from your device. No system is perfectly safe; if something affecting you goes wrong we will tell you.</p>
+<h2>International transfers</h2>
+<p>Our servers are in <span class="placeholder">YOUR REGION</span>. Supabase, Stripe, our email provider and the AI provider you choose may process data in other countries, including the United States. Where the law requires it we rely on safeguards such as standard contractual clauses.</p>
 
 <h2>Children</h2>
-<p>Studyboard is made for students. If you are under <span class="placeholder">13 (or your country's age)</span>, please use it with a parent or guardian's permission.</p>
+<p>Studyboard is for students aged 13 and over. In the European Economic Area and the UK, where the age of digital consent is higher in some countries (up to 16), a person under that age needs a parent or guardian's permission to make an account. If you are younger than 13, please do not create an account. If you think a child has given us personal data, contact us and we will delete it.</p>
 
-<h2>Changes</h2>
-<p>If we change this page in a way that matters, we'll say so in the app or by email.</p>
+<h2>Security</h2>
+<p>Connections are encrypted (HTTPS). Each account can only read its own rows, and plans can only be changed by our payment system, never from your device. No system is perfectly safe; if something affecting you goes wrong we will tell you.</p>
+
+<h2>Changes and contact</h2>
+<p>If this policy changes in a way that matters, we will update the effective date above and tell you in the app. Questions or requests about your data: <a class="support-email" href="mailto:support@YOUR-DOMAIN">support@YOUR-DOMAIN</a>.</p>
+
 
 </div></section>
 </main>
