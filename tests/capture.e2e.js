@@ -114,7 +114,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ctx = await mkCtx({native: true}); page = await open(ctx);
     res = await page.evaluate(due => SBCAPTURE.handleUrl("studyboard://add?title=" + encodeURIComponent("Bio quiz") + "&due=" + due + "&course=BIO101&source=siri"), DUE10);
     await page.waitForTimeout(200); ts = await tasks(page);
-    ok(res.ok && res.trusted && res.added === 1 && ts.length === 1 && ts[0].courseId === "c1" && ts[0].due === DUE10, "native wrapper + trusted source (siri) adds straight away with Undo");
+    ok(res.ok && res.trusted === false && res.confirm === true && ts.length === 0 && await page.isVisible(".cap-ext"), "a studyboard:// link never auto-adds, even from a trusted-looking source in the wrapper: it opens the confirm sheet"); await page.keyboard.press("Escape");
     res = await page.evaluate(() => SBCAPTURE.handleUrl("studyboard://add?title=" + encodeURIComponent("Evil") + "&source=made-up"));
     ok(res.ok && res.trusted === false && res.confirm === true, "unknown source is not trusted even in the wrapper"); await page.keyboard.press("Escape");
     ok(await page.evaluate(async () => (await SBCAPTURE.ingest({id: "x9", kind: "text", text: "lab 2 fri 3pm", source: "share-ios"})) === true), "native item (share-ios) accepted"); await page.waitForTimeout(200);

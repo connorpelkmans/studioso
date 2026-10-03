@@ -33826,7 +33826,7 @@ function handleUrl(raw, o){
   if (r.action === "open") { openCapture({shortcut: true}); return {ok: true, action: "open"}; }
   if (p.sw) { stagedShare(p.sw); return {ok: true, action: "share"}; }
   if (!limiter.take()) { toast("Too many captures at once. Wait a moment and try again."); return {ok: false, reason: "rate"}; }
-  const c = ctx(), trusted = !!(r.trustedSource && isNative());      // a trusted source counts only inside the app wrapper, never from a plain web link
+  const c = ctx(), trusted = false;      // SECURITY: a link (studyboard://, ?capture=, a web page) never auto-adds: custom URL schemes can be launched by any app or website, so every link capture ends in the confirm sheet (one Enter). Trusted auto-add is only for items handed over directly by the native bridge through ingest().
   const res = r.action === "share" ? CAP.fromShare({title: p.title, text: p.text, url: p.link}, c, {source: p.source}) : CAP.fromText(p.text || p.title, c, {source: p.source});
   const ds = res.drafts; if (!ds.length) return {ok: false, reason: "empty"};
   if (ds.length === 1) { const d = ds[0]; if (p.title && p.text) { d.title = p.title; } if (p.due) d.due = p.due; if (p.time) d.time = p.time; if (p.type) { d.type = p.type; d.typeGuess = true; } if (p.hours) d.hours = p.hours; if (p.link && !d.link) d.link = p.link;
