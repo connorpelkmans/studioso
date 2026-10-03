@@ -1089,3 +1089,9 @@ Work through this before you tell the public about Studyboard.
 - [ ] Desktop installers built from a tagged release (`v1.13.0`) with the GitHub workflow and tested on a clean Windows and Mac. Decide about code signing (see the Windows and Mac sections above).
 - [ ] The website is served over HTTPS and Add to Home Screen works on a phone.
 - [ ] If you sell Pro: finish `PRO-PLANS-GUIDE.md` and its Launch Day steps. If you do not, leave the paywall off.
+
+## Recently Deleted and Export My Data (no setup needed)
+
+- Deleted items are kept for 30 days in a bin that syncs like the rest of your data. It uses the existing `items` table with `kind = 'trash'`, so there is no SQL to run. Bin entries count toward each account's data size like any other item (a deleted deck still takes its space until the 30 days pass or it is deleted forever). Stored files are not removed from storage until the bin lets go of them.
+- If the same item is edited on another device after it was deleted, the live copy wins and the bin entry is hidden until it expires. Nothing is removed from the account because of a conflict.
+- Settings > Export My Data builds a ZIP (JSON plus CSV files) on the device; nothing is sent to the server.

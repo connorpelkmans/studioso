@@ -13,6 +13,8 @@ A calm student planner for courses, deadlines, study sessions and flashcards. It
 - **Reminders and calendar sync** on phones and desktop; study groups, shared decks and Study Together rooms.
 - **Themes and styles**, light and dark mode, reduced motion, keyboard and screen reader support.
 - **Optional AI helpers** that use your own Gemini, Claude or ChatGPT key.
+- **Undo and Recently Deleted:** every delete has an 8-second Undo (Ctrl/Cmd+Z too) and waits in Settings > Recently Deleted for 30 days (decks keep their cards, courses keep their tasks). Restore, Delete Forever and Empty Bin are there.
+- **Export My Data:** Settings > Export My Data makes a ZIP (complete JSON with a schema header, plus CSV files for tasks, notes, grades, flashcards, courses, events and study sessions, and an Anki text file). Built on the device, works offline, never includes secrets; the JSON restores through Import from a Backup File. Also serves as data portability (GDPR-style access).
 - **Privacy:** no ads and no analytics. Privacy Policy, Terms and About are in the app (Settings), and **Delete My Account and Data** is under Settings > Account and Sync.
 
 ## Run it

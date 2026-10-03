@@ -418,6 +418,11 @@ nav.tabs button{font-size:.75rem!important}
 .nb-target.trash.hot{border-color:var(--late);background:color-mix(in srgb,var(--late) 18%,var(--surface));color:var(--late)}
 .dragging-note .nb-target{transform:scale(1.05)}
 @media (max-width:600px){.nb-target{width:66px;height:66px;border-radius:14px}.nb-scroll{height:calc(100dvh - 300px)}}
+.tr-list{display:grid;gap:14px}.tr-h{margin:0 0 6px;font-size:.95rem;display:flex;gap:6px;align-items:baseline}.tr-h .n{color:var(--muted);font-weight:500}
+.tr-row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin-bottom:6px}
+.tr-main{display:grid;gap:2px;min-width:0;flex:1 1 200px}.tr-label{overflow-wrap:anywhere}.tr-acts{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.tr-chips{display:flex;gap:6px;flex-wrap:wrap}.tr-chips:empty{display:none}
+.xp-set{border:0;margin:0;padding:0;display:grid;gap:6px}.xp-set legend{padding:0;margin-bottom:4px}
 .ar-list{display:grid;gap:10px}
 .ar-note{background:var(--nc);color:#2A2418;border-radius:6px;padding:12px;box-shadow:0 2px 6px rgba(0,0,0,.15)}
 .ar-text{white-space:pre-wrap;overflow-wrap:anywhere;max-height:140px;overflow:auto}
@@ -4315,8 +4320,235 @@ const fmtDate = s => parse(s).toLocaleDateString(undefined, {weekday:"short", mo
 const mondayOf = s => { const d = parse(s); const wd = (d.getDay() + 6) % 7; return addDays(s, -wd); };
 function fmtTime(t){ const [h,m] = t.split(":").map(Number); const d = new Date(); d.setHours(h, m, 0); return d.toLocaleTimeString(undefined, {hour:"numeric", minute:"2-digit"}); }
 
+/*TRASH-START*/
+/* ---------- Recently Deleted and Export My Data: pure logic (no page access, so it is unit tested in tests/trash-export.test.js) ----------
+   Bin rules: a delete keeps the item (and what went with it) for 30 days. Entries are {id, kind, label, detail, deletedAt, items:[{kind, id, data, parent?}]}.
+   Sync rule: the bin entry is a normal synced record. If the same item is live again (edited on another device after the delete, or restored there),
+   the live copy wins and the stale entry is hidden until it expires. Nothing is ever removed from your account because of a conflict. */
+const TB = (() => {
+  const DAY = 864e5, KEEP_DAYS = 30, MAX_ENTRIES = 400, MAX_BYTES = 12e6, BULK_AFTER = 40, SYNC_MAX = 1.5e6;
+  const KINDS = ["course", "task", "note", "deck", "file", "event", "card", "quiz", "bulk"];
+  const KIND_TITLE = {course: "Courses", task: "Tasks", note: "Notes", deck: "Flashcard Decks", card: "Flashcards", quiz: "Quizzes", file: "Files", event: "Events", bulk: "Bulk Deletions"};
+  const cl = o => o == null ? o : JSON.parse(JSON.stringify(o));
+  const sizeOf = o => { try { return JSON.stringify(o).length; } catch (e) { return 0; } };
+  const cut = (s, n) => { s = String(s == null ? "" : s).replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
+  const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+  function labelFor(kind, d){
+    d = d || {};
+    if (kind === "course") return cut(d.name || d.code, 70) || "Course";
+    if (kind === "task") return cut(d.title, 70) || "Task";
+    if (kind === "note") return cut(String(d.text || "").split("\n").find(x => x.trim()) || "", 60) || "Empty note";
+    if (kind === "deck") return cut(d.name, 70) || "Flashcard deck";
+    if (kind === "file") return cut(d.name, 70) || "File";
+    if (kind === "event") return cut(d.title, 70) || "Event";
+    if (kind === "card") return cut(d.front, 60) || "Flashcard";
+    if (kind === "quiz") return cut(d.title, 60) || "Quiz";
+    return "Item";
+  }
+  const isSub = k => k === "card" || k === "quiz";
+  function normEntry(e){
+    e = Object.assign({id: "", kind: "bulk", label: "", detail: "", deletedAt: 0, items: []}, e && typeof e === "object" ? e : {});
+    e.id = String(e.id || ""); if (!KINDS.includes(e.kind)) e.kind = "bulk";
+    e.deletedAt = Number(e.deletedAt) || 0;
+    e.items = (Array.isArray(e.items) ? e.items : []).filter(i => i && typeof i === "object" && KINDS.includes(i.kind) && i.id && i.data && typeof i.data === "object");
+    e.label = cut(e.label, 140) || (e.items[0] ? labelFor(e.items[0].kind, e.items[0].data) : "Deleted item");
+    e.detail = cut(e.detail, 200);
+    return e;
+  }
+  const countsText = items => {
+    const c = {}; items.forEach(i => { c[i.kind] = (c[i.kind] || 0) + 1; });
+    const nm = {course: "course", task: "task", note: "note", deck: "deck", file: "file", event: "event", card: "card", quiz: "quiz"};
+    return KINDS.filter(k => c[k] && nm[k]).map(k => plural(c[k], nm[k])).join(", ");
+  };
+  // deleted: [{kind, id, data, parent?}]. Returns the entries to keep in the bin.
+  function makeEntries(deleted, now, newId, opts){
+    opts = opts || {};
+    const out = [], used = new Set(), mk = (kind, label, items, detail) => {
+      const e = {id: newId(), kind, label, detail: detail || "", deletedAt: now, items: items.map(i => Object.assign({}, i, {data: cl(i.data)}))};
+      if (opts.batch) e.batch = opts.batch;
+      if (sizeOf(e) > SYNC_MAX) e.local = true;     // too big to send to the account; kept on this device only
+      out.push(e);
+    };
+    const left = () => deleted.filter(d => !used.has(d));
+    deleted.filter(d => d.kind === "course").forEach(c => {
+      const ts = deleted.filter(d => d.kind === "task" && d.data && d.data.courseId === c.id && !used.has(d));
+      used.add(c); ts.forEach(t => used.add(t));
+      mk("course", labelFor("course", c.data), [c].concat(ts), ts.length ? plural(ts.length, "task") + " moved with it" : "");
+    });
+    const rest = left();
+    if (rest.length > BULK_AFTER) mk("bulk", opts.bulkLabel || `${plural(rest.length, "item")} deleted together`, rest, countsText(rest));
+    else rest.forEach(d => {
+      if (isSub(d.kind)) return;
+      mk(d.kind, labelFor(d.kind, d.data), [d], d.kind === "deck" ? plural((d.data.cards || []).length, "card") : d.kind === "file" ? plural((d.data.revs || []).length, "version") : "");
+    });
+    // cards and quizzes taken out of a deck: one entry per deck
+    const subs = rest.length > BULK_AFTER ? [] : rest.filter(d => isSub(d.kind));
+    const byDeck = new Map(); subs.forEach(s => { const k = s.kind + ":" + (s.parent && s.parent.id); (byDeck.get(k) || byDeck.set(k, []).get(k)).push(s); });
+    byDeck.forEach(list => {
+      const kind = list[0].kind, dn = (list[0].parent && list[0].parent.name) || "a deck";
+      mk(kind, list.length === 1 ? labelFor(kind, list[0].data) : plural(list.length, kind === "card" ? "flashcard" : "quiz").replace("quizs", "quizzes") + " from " + dn, list, "From " + dn);
+    });
+    return out;
+  }
+  const expiresAt = e => (e.deletedAt || 0) + KEEP_DAYS * DAY;
+  const daysLeft = (e, now) => Math.max(0, Math.ceil((expiresAt(e) - now) / DAY));
+  // Drops what is older than 30 days, then the oldest beyond the count and size caps. Returns {keep, dropped}.
+  function purge(entries, now, caps){
+    caps = Object.assign({entries: MAX_ENTRIES, bytes: MAX_BYTES}, caps || {});
+    const keep = [], dropped = [];
+    const fresh = entries.filter(e => { const ok = e && e.id && e.deletedAt && now < expiresAt(e) && Array.isArray(e.items) && e.items.length; if (!ok) dropped.push(e); return ok; }).sort((a, b) => b.deletedAt - a.deletedAt);
+    let bytes = 0;
+    fresh.forEach(e => { const s = sizeOf(e); if (keep.length < caps.entries && bytes + s <= caps.bytes) { keep.push(e); bytes += s; } else dropped.push(e); });
+    return {keep, dropped};
+  }
+  // Is every item of this entry already live again? (then the live copy wins and the entry is hidden)
+  function superseded(e, exists){
+    return !e.items.some(i => isSub(i.kind) ? !exists(i.kind, i.id, i.parent) : !exists(i.kind, i.id));
+  }
+  // ctx: {exists(kind,id), getDeck(id), binCourse(courseId) -> another entry or null, newId()}. Returns {changes, notes, entries:[entry ids this restore consumes]}.
+  function restorePlan(e, ctx, seen){
+    seen = seen || new Set([e.id]);
+    const changes = [], notes = [], entries = [e.id], idMap = {};
+    const items = e.items, have = new Set(items.map(i => i.kind + ":" + i.id));
+    const nid = (k, id) => idMap[k + ":" + id] || id;
+    items.forEach(i => { if (!isSub(i.kind) && ctx.exists(i.kind, i.id)) { idMap[i.kind + ":" + i.id] = ctx.newId(); notes.push(`${labelFor(i.kind, i.data)} was already in use, so it came back as a copy`); } });
+    const parentCourse = d => {
+      const cid = d.courseId; if (!cid) return;
+      if (have.has("course:" + cid)) { d.courseId = nid("course", cid); return; }
+      if (ctx.exists("course", cid)) return;
+      const be = ctx.binCourse(cid);
+      if (be && !seen.has(be.id)) {
+        seen.add(be.id);
+        const p = restorePlan(be, ctx, seen);
+        p.changes.forEach(c => changes.push(c)); p.notes.forEach(n => notes.push(n)); p.entries.forEach(x => entries.push(x));
+        notes.push("Its course was restored too");
+        return;
+      }
+      d.courseId = ""; notes.push(`${labelFor("task", d)} went to No Course because its course is gone`);
+    };
+    const decksTouched = {};
+    items.forEach(i => {
+      if (isSub(i.kind)) {
+        const pid = i.parent && i.parent.id;
+        let deck = decksTouched[pid] || (pid && ctx.getDeck(pid) ? cl(ctx.getDeck(pid)) : null);
+        if (!deck) {
+          const nd = ctx.newId(); deck = {id: nd, name: "Restored " + (i.kind === "card" ? "cards" : "quizzes"), courseId: "", cards: [], quizzes: [], aiQuizzes: []};
+          notes.push("Its deck is gone, so it went into a new deck"); if (pid) decksTouched[pid] = deck; else decksTouched[nd] = deck;
+        }
+        decksTouched[deck.id] = deck;
+        if (i.kind === "card") { const d = cl(i.data); if (deck.cards.some(c => c.id === d.id)) d.id = ctx.newId(); deck.cards.push(d); }
+        else { const d = cl(i.data); deck.aiQuizzes = deck.aiQuizzes || []; if (deck.aiQuizzes.some(c => c.id === d.id)) d.id = ctx.newId(); deck.aiQuizzes.push(d); }
+        return;
+      }
+      const d = cl(i.data); d.id = nid(i.kind, i.id);
+      if (i.kind === "task" || i.kind === "deck" || i.kind === "file" || i.kind === "note" || i.kind === "event") parentCourse(d);
+      if (i.kind === "file" && d.folderId && !ctx.folderOk(d.folderId, d.courseId)) d.folderId = "other";
+      if (i.kind === "note" && d.taskId && !ctx.exists("task", d.taskId) && !have.has("task:" + d.taskId)) d.taskId = "";
+      changes.push({kind: i.kind, id: d.id, after: d});
+    });
+    Object.keys(decksTouched).forEach(k => { const d = decksTouched[k]; if (!changes.some(c => c.kind === "deck" && c.id === d.id)) changes.push({kind: "deck", id: d.id, after: d}); });
+    return {changes, notes: [...new Set(notes)], entries: [...new Set(entries)]};
+  }
+
+  /* ----- CSV (RFC 4180, UTF-8 with BOM for Excel, formula-injection safe per OWASP) ----- */
+  function csvCell(v){
+    if (v == null) return "";
+    let s = typeof v === "boolean" ? (v ? "true" : "false") : String(v);
+    s = s.replace(/\r\n?/g, "\n");
+    if (/^[=+\-@\t]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = "'" + s;
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  const csv = (header, rows) => "﻿" + [header].concat(rows).map(r => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
+  const isoDay = ms => ms ? new Date(ms).toISOString() : "";
+  const nz = v => v == null || v === "" ? "" : v;
+  const pctOf = t => t && t.mark && Number(t.mark.outOf) > 0 && t.mark.got !== "" && t.mark.got != null && !isNaN(Number(t.mark.got)) ? Math.round(Number(t.mark.got) / Number(t.mark.outOf) * 1000) / 10 : "";
+  const cname = (courses, id) => { const c = courses[id]; return c ? (c.code ? c.code + " " : "") + (c.name || "") : ""; };
+  function toCsvFiles(data, want){
+    const courses = {}; (data.courses || []).forEach(c => { courses[c.id] = c; });
+    const f = {}, w = k => !want || want[k];
+    if (w("tasks")) f["tasks.csv"] = csv(["title", "course", "type", "status", "due_date", "due_time_local", "due_iso_local", "start_date", "hours", "priority", "weight_percent", "score", "out_of", "notes", "link", "completed_at"],
+      (data.tasks || []).map(t => [t.title, cname(courses, t.courseId), t.type, t.status, t.due, t.time || "", t.due ? t.due + (t.time ? "T" + t.time : "") : "", t.start, nz(t.hours), t.priority, nz(t.weight), t.mark ? nz(t.mark.got) : "", t.mark ? nz(t.mark.outOf) : "", t.notes, t.link, t.status === "done" ? isoDay(t.doneAt) : ""]));
+    if (w("notes")) f["notes.csv"] = csv(["title", "course", "text", "updated_at", "created_at", "archived"],
+      (data.notes || []).map(n => [labelFor("note", n), cname(courses, n.courseId), n.text, isoDay(n.updated), isoDay(n.created), !!n.archived]));
+    if (w("grades")) {
+      const gt = (data.tasks || []).filter(t => t.mark && pctOf(t) !== "");
+      f["grades.csv"] = csv(["course", "assessment", "type", "weight_percent", "score", "out_of", "percent", "date"], gt.map(t => [cname(courses, t.courseId), t.title, t.type, nz(t.weight), t.mark.got, t.mark.outOf, pctOf(t), t.due]));
+      const by = {}; gt.forEach(t => { (by[t.courseId || ""] = by[t.courseId || ""] || []).push(t); });
+      f["grades-summary.csv"] = csv(["course", "graded_items", "graded_weight_percent", "current_percent", "goal_percent"], Object.keys(by).map(cid => {
+        const l = by[cid], wt = l.filter(t => Number(t.weight) > 0), tw = wt.reduce((s, t) => s + Number(t.weight), 0);
+        const cur = wt.length ? wt.reduce((s, t) => s + pctOf(t) * Number(t.weight), 0) / tw : l.reduce((s, t) => s + pctOf(t), 0) / l.length;
+        const g = courses[cid] && courses[cid].grading;
+        return [cname(courses, cid), l.length, tw ? Math.round(tw * 10) / 10 : "", Math.round(cur * 10) / 10, g ? nz(g.goal) : ""];
+      }));
+    }
+    if (w("decks")) {
+      f["flashcards.csv"] = csv(["deck", "course", "front", "back", "source", "box", "due"], (data.decks || []).flatMap(d => (d.cards || []).map(c => [d.name, cname(courses, d.courseId), c.front, c.back, d.source || d.sourceName || c.source || "", c.box, c.due || ""])));
+      const q = s => /[\t\n\r"]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      f["flashcards-anki.txt"] = "#separator:tab\n#html:false\n#tags column:3\n" + (data.decks || []).flatMap(d => (d.cards || []).map(c => [q(String(c.front || "").replace(/\r\n?/g, "\n")), q(String(c.back || "").replace(/\r\n?/g, "\n")), String(d.name || "deck").trim().replace(/\s+/g, "_")].join("\t"))).join("\n") + "\n";
+    }
+    if (w("courses")) f["courses.csv"] = csv(["name", "code", "color", "goal_percent", "pass_percent", "meetings", "tasks"], (data.courses || []).map(c => [c.name, c.code, c.color, c.grading ? nz(c.grading.goal) : "", c.grading ? nz(c.grading.pass) : "",
+      (c.meetings || []).map(m => `${m.kind || "Class"} ${(m.days || []).join("/")} ${m.start || ""}-${m.end || ""}`).join("; "), (data.tasks || []).filter(t => t.courseId === c.id).length]));
+    if (w("events")) f["events.csv"] = csv(["title", "course", "date", "end_date", "start_time", "end_time", "all_day", "where", "repeat_days", "repeat_until", "notes"],
+      (data.events || []).map(e => [e.title, cname(courses, e.courseId), e.date, e.endDate, e.start, e.end, !!e.allDay, e.where, e.repeat ? (e.repeat.days || []).join("/") : "", e.repeat ? e.repeat.until || "" : "", e.notes]));
+    if (w("sessions")) f["study-sessions.csv"] = csv(["task", "course", "type", "focus_minutes", "status", "due_date"],
+      (data.tasks || []).filter(t => Number(t.focusMin) > 0).map(t => [t.title, cname(courses, t.courseId), t.type, Math.round(Number(t.focusMin)), t.status, t.due]));
+    return f;
+  }
+  const README = [
+    "Studyboard data export",
+    "This is a copy of your own data, kept so you can open it in other apps, keep it, or move it (data portability).",
+    "studyboard-export.json holds everything in one file and can be imported back with Settings > Import from a Backup File.",
+    "The .csv files open in Excel, Numbers, Google Sheets and similar. They are UTF-8 with a byte order mark and use ISO dates (YYYY-MM-DD).",
+    "Cells that start with = + - or @ are prefixed with an apostrophe so a spreadsheet never runs them as formulas.",
+    "flashcards-anki.txt is tab separated and can be imported into Anki (File > Import).",
+    "Never included: AI keys, sign-in tokens or sessions, device ids, or anything from other people's groups."
+  ].join("\r\n") + "\r\n";
+  /* ----- ZIP (STORE, CRC32). Builds a Blob from parts, so large exports are never copied into one big buffer. ----- */
+  let CT = null;
+  function crc32(bytes, crc){
+    if (!CT) { CT = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; CT[n] = c >>> 0; } }
+    let c = crc == null ? 0xFFFFFFFF : crc;
+    for (let i = 0; i < bytes.length; i++) c = CT[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+    return crc == null ? (c ^ 0xFFFFFFFF) >>> 0 : c;
+  }
+  async function zipBlob(entries, opts){
+    opts = opts || {};
+    const enc = new TextEncoder(), parts = [], central = [], d = new Date(opts.now || Date.now());
+    const dosT = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), dosD = (Math.max(1980, d.getFullYear()) - 1980 << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+    let off = 0;
+    for (let i = 0; i < entries.length; i++) {
+      const {name, data} = entries[i], nm = enc.encode(name), b = data instanceof Uint8Array ? data : enc.encode(String(data));
+      if (b.length > 0xFFFFFFF0 || off > 0xFFFFFFF0) throw new Error("too big for a zip");
+      const crc = crc32(b);
+      const lh = new DataView(new ArrayBuffer(30));
+      lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true); lh.setUint16(10, dosT, true); lh.setUint16(12, dosD, true);
+      lh.setUint32(14, crc, true); lh.setUint32(18, b.length, true); lh.setUint32(22, b.length, true); lh.setUint16(26, nm.length, true); lh.setUint16(28, 0, true);
+      const ch = new DataView(new ArrayBuffer(46));
+      ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(10, 0, true); ch.setUint16(12, dosT, true); ch.setUint16(14, dosD, true);
+      ch.setUint32(16, crc, true); ch.setUint32(20, b.length, true); ch.setUint32(24, b.length, true); ch.setUint16(28, nm.length, true); ch.setUint32(42, off, true);
+      parts.push(new Uint8Array(lh.buffer), nm, b); central.push(new Uint8Array(ch.buffer), nm);
+      off += 30 + nm.length + b.length;
+      if (opts.onProgress) opts.onProgress(i + 1, entries.length);
+      if (opts.yield) await opts.yield();
+    }
+    const cdSize = central.reduce((s, x) => s + x.length, 0), ed = new DataView(new ArrayBuffer(22));
+    ed.setUint32(0, 0x06054b50, true); ed.setUint16(8, entries.length, true); ed.setUint16(10, entries.length, true); ed.setUint32(12, cdSize, true); ed.setUint32(16, off, true);
+    return new Blob(parts.concat(central, [new Uint8Array(ed.buffer)]), {type: "application/zip"});
+  }
+  // The complete JSON export: the same arrays a backup holds (so the restore path reads it) plus a header describing it.
+  function jsonExport(arrays, now, include){
+    const out = Object.assign({app: "studyboard"}, arrays);
+    out.export = {schema: "studyboard-export", version: 1, exportedAt: new Date(now).toISOString(), includes: include || [],
+      counts: {courses: (arrays.courses || []).length, tasks: (arrays.tasks || []).length, notes: (arrays.notes || []).length, decks: (arrays.decks || []).length, cards: (arrays.decks || []).reduce((s, d) => s + (d.cards || []).length, 0), events: (arrays.events || []).length, files: (arrays.files || []).length},
+      readme: README.split("\r\n").filter(Boolean)};
+    return out;
+  }
+  return {KEEP_DAYS, DAY, KIND_TITLE, KINDS, labelFor, normEntry, makeEntries, purge, daysLeft, expiresAt, superseded, restorePlan, csvCell, csv, toCsvFiles, README, crc32, zipBlob, jsonExport, sizeOf, isSub, SYNC_MAX};
+})();
+/*TRASH-END*/
+
 /* ---------- State ---------- */
-let state = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, settings:{capacity:15}, updated:0};
+let state = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, trash:{}, settings:{capacity:15}, updated:0};
 const ui = {tab:"board", courseId:null, filter:"all", q:"", focusOpen:true, showOldDone:false,
   planView: (() => { try { return localStorage.getItem("studyboard:planview") === "schedule" ? "schedule" : "timeline"; } catch(e) { return "timeline"; } })(),
   tlMode:"bars", tlZoom:"month", tlScroll:null, tlJump:true, calMonth:null, calDay:null,
@@ -4360,21 +4592,22 @@ function normEvent(e){
   if (!e.moved || typeof e.moved !== "object" || Array.isArray(e.moved)) e.moved = {};
   return scrubFields(e, ["title", "where"], ["notes"]);
 }
-const norm = (kind, o) => kind === "task" ? normTask(o) : kind === "file" ? normFile(o) : kind === "note" ? normNote(o) : kind === "deck" ? normDeck(o) : kind === "event" ? normEvent(o) : o;
+const norm = (kind, o) => kind === "task" ? normTask(o) : kind === "file" ? normFile(o) : kind === "note" ? normNote(o) : kind === "deck" ? normDeck(o) : kind === "event" ? normEvent(o) : kind === "trash" ? TB.normEntry(o) : o;
 function fromArrays(o){
-  const s = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, settings:Object.assign({capacity:15}, (o && o.settings) || {}), updated:(o && o.updated) || 0};
+  const s = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, trash:{}, settings:Object.assign({capacity:15}, (o && o.settings) || {}), updated:(o && o.updated) || 0};
   ((o && Array.isArray(o.courses)) ? o.courses : []).forEach(c => { if (c && c.id) { const k = scrubFields(clone(c), ["name", "code"]); if (!/^(#[0-9a-f]{3,8}|(rgb|hsl)a?\([\d\s.,%\/-]{1,60}\)|[a-z]{3,20})$/i.test(String(k.color || "").trim())) k.color = "#8A94A6"; s.courses[c.id] = k; } });
   ((o && Array.isArray(o.tasks)) ? o.tasks : []).forEach(t => { if (t && t.id) s.tasks[t.id] = normTask(clone(t)); });
   ((o && Array.isArray(o.files)) ? o.files : []).forEach(f => { if (f && f.id) s.files[f.id] = normFile(clone(f)); });
   ((o && Array.isArray(o.notes)) ? o.notes : []).forEach(n => { if (n && n.id) s.notes[n.id] = normNote(clone(n)); });
   ((o && Array.isArray(o.decks)) ? o.decks : []).forEach(d => { if (d && d.id) s.decks[d.id] = normDeck(clone(d)); });
   ((o && Array.isArray(o.events)) ? o.events : []).forEach(e => { if (e && e.id) s.events[e.id] = normEvent(clone(e)); });
+  ((o && Array.isArray(o.trash)) ? o.trash : []).forEach(e => { if (e && e.id) s.trash[e.id] = TB.normEntry(clone(e)); });
   return s;
 }
-const toArrays = () => ({v:2, courses:Object.values(state.courses), tasks:Object.values(state.tasks), files:Object.values(state.files), notes:Object.values(state.notes), decks:Object.values(state.decks || {}), events:Object.values(state.events || {}), settings:state.settings, updated:state.updated});
+const toArrays = () => ({v:2, courses:Object.values(state.courses), tasks:Object.values(state.tasks), files:Object.values(state.files), notes:Object.values(state.notes), decks:Object.values(state.decks || {}), events:Object.values(state.events || {}), trash:Object.values(state.trash || {}), settings:state.settings, updated:state.updated});
 let saveWarnAt = 0;
 function saveLocal(){
-  try { localStorage.setItem(LS2, JSON.stringify(toArrays())); }
+  try { const a = toArrays(); delete a.trash; localStorage.setItem(LS2, JSON.stringify(a)); }
   catch(e){
     // Storage full or blocked: tell the person (at most once a minute) instead of silently losing changes.
     if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost."); } catch(e2) {} }, 700); }
@@ -4383,15 +4616,122 @@ function saveLocal(){
 function loadLocal(){
   try {
     let r = localStorage.getItem(LS2);
-    if (r) { state = fromArrays(JSON.parse(r)); return; }
+    if (r) { state = fromArrays(JSON.parse(r)); trashLoadLocal(); return; }
     r = localStorage.getItem(LS1);
     if (r) state = fromArrays(JSON.parse(r));
   } catch(e){}
+  trashLoadLocal();
+}
+
+/* ---------- Recently Deleted (the bin): keeping, purging and restoring ---------- */
+const LS_TRASH = "studioso:trash";
+const trashList = () => Object.values((state && state.trash) || {}).filter(e => e && Array.isArray(e.items));
+function trashLoadLocal(){
+  const m = {};
+  try { const r = localStorage.getItem(LS_TRASH); if (r) JSON.parse(r).forEach(e => { if (e && e.id) m[e.id] = TB.normEntry(e); }); } catch(e) {}
+  state.trash = m;
+}
+// Written to its own key (and later than the main copy) so a big bin can never stop your planner from saving.
+let trashDirty = false, trashT = 0;
+function trashSaveLocal(){
+  trashDirty = true; clearTimeout(trashT);
+  trashT = setTimeout(trashFlush, 500);
+}
+function trashFlush(){
+  if (!trashDirty) return; trashDirty = false;
+  const list = trashList().sort((a, b) => b.deletedAt - a.deletedAt);
+  for (let guard = 0; guard < 12; guard++) {
+    try { localStorage.setItem(LS_TRASH, JSON.stringify(list)); return; }
+    catch(e) { if (!list.length) return; list.length = Math.floor(list.length * 0.8); }   // storage full: keep the newest on this device (the account keeps the rest)
+  }
+}
+window.addEventListener("pagehide", () => { try { trashFlush(); } catch(e) {} });
+// Stored files only go away when the bin lets go of them.
+function trashAssets(entries){
+  const ids = (entries || []).flatMap(e => (e.items || []).filter(i => i.kind === "file").flatMap(i => (i.data.revs || []).map(r => r.assetId))).filter(Boolean);
+  if (ids.length) cleanupAssets([...new Set(ids)], 0);
+}
+// 30 days, then it's gone. Also keeps the bin from growing without limit.
+function trashEnforce(){
+  const r = TB.purge(trashList(), Date.now());
+  if (!r.dropped.length) return 0;
+  r.dropped.forEach(e => { if (e && e.id && state.trash[e.id]) { delete state.trash[e.id]; try { queueWrite("trash", e.id, null); } catch(x) {} } });
+  trashAssets(r.dropped);
+  trashSaveLocal();
+  return r.dropped.length;
+}
+function trashDrop(ids){
+  (ids || []).forEach(id => { if (state.trash[id]) { delete state.trash[id]; queueWrite("trash", id, null); } });
+  if (ids && ids.length) trashSaveLocal();
+}
+// Called by applyChanges before anything is removed: keeps what is about to disappear.
+function trashCapture(changes, label){
+  const deleted = [], inDecks = new Set();
+  changes.forEach(c => { if (c.kind === "deck" && c.after) (c.after.cards || []).forEach(x => inDecks.add(x.id)); });
+  changes.forEach(c => {
+    if (c.kind === "trash") return;
+    const cur = getItem(c.kind, c.id); if (!cur) return;
+    if (c.after === null) deleted.push({kind: c.kind, id: c.id, data: clone(cur)});
+    else if (c.kind === "deck") {
+      const keepC = new Set((c.after.cards || []).map(x => x.id)), keepQ = new Set((c.after.aiQuizzes || []).map(x => x.id)), par = {kind: "deck", id: cur.id, name: cur.name};
+      (cur.cards || []).filter(x => !keepC.has(x.id) && !inDecks.has(x.id)).slice(0, 2000).forEach(x => deleted.push({kind: "card", id: x.id, data: clone(x), parent: par}));
+      (cur.aiQuizzes || []).filter(x => !keepQ.has(x.id)).forEach(x => deleted.push({kind: "quiz", id: x.id, data: clone(x), parent: par}));
+    }
+  });
+  if (!deleted.length) return [];
+  const entries = TB.makeEntries(deleted, Date.now(), uid, {batch: uid(), bulkLabel: label || ""});
+  entries.forEach(e => { state.trash[e.id] = TB.normEntry(e); if (!e.local) queueWrite("trash", e.id, e); });
+  trashEnforce(); trashSaveLocal();
+  return entries.map(e => e.id).filter(id => state.trash[id]);
+}
+const trashBtn = kind => { const n = trashVisible().filter(e => e.kind === kind || (kind === "deck" && TB.isSub(e.kind))).length; return n ? `<button class="btn small" data-act="trash-open" data-kind="${kind}">Recently Deleted (${n})</button>` : ""; };
+const plural0 = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+const trashExists = (kind, id, parent) => {
+  if (kind === "card") { const d = state.decks[parent && parent.id]; return !!(d && d.cards.some(c => c.id === id)); }
+  if (kind === "quiz") { const d = state.decks[parent && parent.id]; return !!(d && (d.aiQuizzes || []).some(c => c.id === id)); }
+  const m = mapOf(kind); return !!(m && m[id]);
+};
+// What shows in the bin: entries that are not already live again (a live copy always wins), newest first.
+const trashVisible = () => trashList().filter(e => e.items.length && Date.now() < TB.expiresAt(e) && !TB.superseded(e, trashExists)).sort((a, b) => b.deletedAt - a.deletedAt);
+// Puts entries back where they were. Returns {count, notes}.
+function trashRestore(ids){
+  const entries = ids.map(id => state.trash[id]).filter(Boolean);
+  if (!entries.length) return {count: 0, notes: []};
+  const ctx = {exists: (k, id) => trashExists(k, id), newId: uid, getDeck: id => state.decks[id],
+    folderOk: (fid, cid) => foldersOf(cid).some(f => f.id === fid),
+    binCourse: cid => trashList().find(x => !ids.includes(x.id) && x.items.some(i => i.kind === "course" && i.id === cid)) || null};
+  const changes = [], notes = [], consumed = new Set(), seenKey = new Set();
+  entries.forEach(e => {
+    if (consumed.has(e.id)) return;
+    const p = TB.restorePlan(e, ctx);
+    p.changes.forEach(c => { const k = c.kind + ":" + c.id; if (!seenKey.has(k)) { seenKey.add(k); changes.push(c); } });
+    p.notes.forEach(n => notes.push(n)); p.entries.forEach(x => consumed.add(x));
+  });
+  const gone = [...consumed].map(id => state.trash[id]).filter(Boolean);
+  const inv = applyChanges(changes, null) || [];
+  gone.forEach(e => { delete state.trash[e.id]; queueWrite("trash", e.id, null); });
+  saveLocal(); trashSaveLocal();
+  const count = gone.reduce((n, e) => n + e.items.length, 0);
+  lastDelete = null;
+  return {count, notes: [...new Set(notes)], entries: gone, inverse: inv};
+}
+// Entries that came in with a backup or export: added when they aren't here yet and haven't expired.
+function trashMerge(list){
+  let n = 0;
+  (list || []).forEach(e => { if (e && e.id && !state.trash[e.id] && e.items && e.items.length && Date.now() < TB.expiresAt(e)) { state.trash[e.id] = e; if (!e.local) queueWrite("trash", e.id, e); n++; } });
+  if (n) { trashEnforce(); trashSaveLocal(); }
+  return n;
+}
+function trashForever(ids){
+  const gone = ids.map(id => state.trash[id]).filter(Boolean);
+  gone.forEach(e => { delete state.trash[e.id]; queueWrite("trash", e.id, null); });
+  trashAssets(gone); trashSaveLocal();
+  return gone.length;
 }
 
 /* ---------- Cloud sync: one document per task and per course ---------- */
-const cloud = {on:false, base:null, tasks:null, courses:null, files:null, notes:null, decks:null, events:null, backups:null};
-const KIND_MAP = {task:"tasks", course:"courses", file:"files", note:"notes", deck:"decks", event:"events"};
+const cloud = {on:false, base:null, tasks:null, courses:null, files:null, notes:null, decks:null, events:null, trash:null, backups:null};
+const KIND_MAP = {task:"tasks", course:"courses", file:"files", note:"notes", deck:"decks", event:"events", trash:"trash"};
 const queue = new Map(), intended = new Map();
 let syncError = false;
 function refFor(kind, id){
@@ -4416,6 +4756,7 @@ function queueWrite(kind, id, data){
   // Every change is written to the outbox first, so nothing is lost if the page closes before it reaches Supabase.
   outboxAdd(kind, id, data);
   if (!cloud.on) return;
+  if (kind === "trash" && !cloud.trash) return;
   const key = kind + ":" + id;
   intended.set(key, data === null ? null : clone(data));
   let e = queue.get(key);
@@ -4464,10 +4805,12 @@ function applySnap(kind, snap){
     if (v === null) delete m[id]; else m[id] = norm(kind, clone(v));
   });
   const prev = state[KIND_MAP[kind]] || {};
+  if (kind === "trash") Object.keys(prev).forEach(id => { if (prev[id] && prev[id].local && !m[id]) m[id] = prev[id]; });   // too big to sync: kept here
   const same = Object.keys(prev).length === Object.keys(m).length && Object.keys(m).every(id => prev[id] && JSON.stringify(prev[id]) === JSON.stringify(m[id]));
   if (same) return;                                          // an echo of a change we already have: nothing to redraw
   state[KIND_MAP[kind]] = m;
   saveLocal();
+  if (kind === "trash") { trashEnforce(); trashSaveLocal(); }
   fxDefer(scheduleRender);
 }
 const useCap = n => (window.claude && typeof window.claude.use === "function") ? window.claude.use(n).catch(() => null) : Promise.resolve(null);
@@ -4482,7 +4825,7 @@ async function initCloud(){
     const id = await user.id();
     if (!id) { syncLabel(); return; }
     const base = db.doc("data/users/" + id + "/planner");
-    await connectBackend({base, tasks: base.collection("tasks"), courses: base.collection("courses"), files: base.collection("files"), notes: base.collection("notes"), decks: base.collection("decks"), events: base.collection("events"), backups: base.collection("backups")});
+    await connectBackend({base, tasks: base.collection("tasks"), courses: base.collection("courses"), files: base.collection("files"), notes: base.collection("notes"), decks: base.collection("decks"), events: base.collection("events"), trash: base.collection("trash"), backups: base.collection("backups")});
   } catch(e) {
     console.warn("Cloud unavailable", e);
     cloud.on = false; syncLabel();
@@ -4492,7 +4835,7 @@ async function initCloud(){
 async function connectBackend(b){
   const snap = await b.base.get();
   const md = snap.exists ? clone(snap.data()) : null;
-  Object.assign(cloud, {base: b.base, tasks: b.tasks, courses: b.courses, files: b.files, notes: b.notes, decks: b.decks, events: b.events || null, backups: b.backups, refresh: b.refresh || null});
+  Object.assign(cloud, {base: b.base, tasks: b.tasks, courses: b.courses, files: b.files, notes: b.notes, decks: b.decks, events: b.events || null, trash: b.trash || null, backups: b.backups, refresh: b.refresh || null});
   if (md && md.schema === 2) {
     if (md.settings) {
       // AI keys live on this device only. Keys an older version saved to the account are kept here once, then removed from the account.
@@ -4507,12 +4850,12 @@ async function connectBackend(b){
     const localHas = Object.keys(state.tasks).length || Object.keys(state.courses).length || Object.keys(state.notes).length || Object.keys(state.decks || {}).length || Object.keys(state.events || {}).length;
     const src = (v1 && (!localHas || (v1.updated || 0) >= (state.updated || 0))) ? v1 : state;
     const items = [...Object.values(src.courses).map(c => ["course", c]), ...Object.values(src.tasks).map(t => ["task", t]),
-      ...Object.values(src.files || {}).map(f => ["file", f]), ...Object.values(src.notes || {}).map(n => ["note", n]), ...Object.values(src.decks || {}).map(d => ["deck", d]), ...Object.values(src.events || {}).map(e => ["event", e])];
+      ...Object.values(src.files || {}).map(f => ["file", f]), ...Object.values(src.notes || {}).map(n => ["note", n]), ...Object.values(src.decks || {}).map(d => ["deck", d]), ...Object.values(src.events || {}).map(e => ["event", e]), ...Object.values(src.trash || {}).filter(e => !e.local).map(e => ["trash", e])];
     for (let i = 0; i < items.length; i += 5) {
       await Promise.all(items.slice(i, i + 5).map(([k, o]) => refFor(k, o.id).set(clone(o))));
     }
     await b.base.set({schema:2, settings: syncSettings(src.settings || state.settings), migratedAt: Date.now()});
-    state = src; saveLocal();
+    { const keep = state.trash; state = src; if (!Object.keys(state.trash || {}).length) state.trash = keep || {}; } saveLocal();
     if (items.length && !inClaude()) toast(`Moved ${items.length} item${items.length === 1 ? "" : "s"} from this device into your account`);
   }
   cloud.on = true; syncLabel();
@@ -4529,7 +4872,7 @@ async function connectBackend(b){
     });
     start();
   };
-  sub("task", cloud.tasks); sub("course", cloud.courses); sub("file", cloud.files); sub("note", cloud.notes); if (cloud.decks) sub("deck", cloud.decks); if (cloud.events) sub("event", cloud.events);
+  sub("task", cloud.tasks); sub("course", cloud.courses); sub("file", cloud.files); sub("note", cloud.notes); if (cloud.decks) sub("deck", cloud.decks); if (cloud.events) sub("event", cloud.events); if (cloud.trash) sub("trash", cloud.trash);
 }
 
 /* ---------- Offline outbox: changes made while disconnected are kept and sent later ---------- */
@@ -4712,10 +5055,10 @@ const SBC = {
 const SB_OVERLAP = 2 * 60000, SB_FULL_EVERY = 7 * 864e5, SB_DELTA_MAX_AGE = 30 * 864e5, SB_REALTIME_IDLE = 60000;
 const SB_STATS = {mode: "", full: 0, delta: 0, rows: 0, at: 0};   // for Settings and tests
 async function sbBackend(client, userId){
-  const T = "items", KINDS = ["task", "course", "file", "note", "deck", "event", "meta"];
+  const T = "items", KINDS = ["task", "course", "file", "note", "deck", "event", "trash", "meta"];
   const blank = () => { const o = {}; KINDS.forEach(k => { o[k] = new Map(); }); return o; };
   let cache = blank();
-  const listeners = {task: [], course: [], file: [], note: [], deck: [], event: []};
+  const listeners = {task: [], course: [], file: [], note: [], deck: [], event: [], trash: []};
   const snapOf = kind => ({docs: [...cache[kind].entries()].map(([id, d]) => ({id, data: () => d}))});
   const emit = kind => (listeners[kind] || []).forEach(f => { try { f(snapOf(kind)); } catch(e) { console.warn(e); } });
   const saved = {cursor: "", fullAt: 0, at: 0};   // cursor: the server's time of the newest change seen; at: when this device last synced
@@ -4819,7 +5162,7 @@ async function sbBackend(client, userId){
   const refresh = () => refreshing || (refreshing = (async () => {
     try {
       if (lean && saved.cursor && Date.now() - saved.fullAt < SB_FULL_EVERY && Date.now() - saved.at < SB_DELTA_MAX_AGE) (await pullDelta()).forEach(k => emit(k));
-      else { await loadAll(); ["task", "course", "file", "note", "deck", "event"].forEach(emit); }
+      else { await loadAll(); ["task", "course", "file", "note", "deck", "event", "trash"].forEach(emit); }
     } catch(e) {}
     refreshing = null;
   })());
@@ -4843,7 +5186,7 @@ async function sbBackend(client, userId){
       if (error) throw sbErr(error);
       return {docs: (data || []).map(r => ({id: r.id, data: () => r.data}))};
     }})})};
-  return {base: doc("meta", "planner"), tasks: col("task"), courses: col("course"), files: col("file"), notes: col("note"), decks: col("deck"), events: col("event"), backups, refresh, lean: () => lean, stop: unsubscribe};
+  return {base: doc("meta", "planner"), tasks: col("task"), courses: col("course"), files: col("file"), notes: col("note"), decks: col("deck"), events: col("event"), trash: col("trash"), backups, refresh, lean: () => lean, stop: unsubscribe};
 }
 const sbAssets = {
   upload: async (file, opts) => {
@@ -5043,7 +5386,7 @@ function sbNewPasswordSheet(){
 // Signing out removes this account's copy from the device: the working copy, backups, the sync cache, the search index,
 // photos, queued reports (and with them any AI keys and school sign-ins kept here).
 async function wipeDeviceData(){
-  try { [LS2, LS1, LSB, OUTBOX, "studyboard:bugq"].forEach(k => localStorage.removeItem(k)); } catch(e) {}
+  try { [LS2, LS1, LSB, OUTBOX, LS_TRASH, "studyboard:bugq"].forEach(k => localStorage.removeItem(k)); } catch(e) {}
   try { if (SBC.db) { const d = await SBC.db; d.close(); SBC.db = null; } } catch(e) {}
   try { if (window.caches) for (const k of await caches.keys()) { const c = await caches.open(k); for (const r of await c.keys()) if (/\/widgets\/today-data\.json/.test(r.url)) await c.delete(r); } } catch(e) {}
   try { if (DESK && DESK.lms) await Promise.race([Promise.all(["brightspace", "canvas", "blackboard"].map(id => DESK.lms.signOut(id).catch(() => {}))), new Promise(r => setTimeout(r, 1500))]); } catch(e) {}
@@ -5062,6 +5405,7 @@ async function sbSignOut(){
 }
 
 /* ---------- Changes and undo ---------- */
+let lastDelete = null;   // the newest delete that can still be undone with Ctrl/Cmd+Z
 const mapOf = kind => state[KIND_MAP[kind]];
 const getItem = (kind, id) => mapOf(kind)[id] || null;
 function historyDiff(a, b){
@@ -5100,11 +5444,16 @@ function applyChanges(changes, label, extra){
   if (!changes.length) return;
   const inverse = changes.map(c => ({kind:c.kind, id:c.id, after: clone(getItem(c.kind, c.id))}));
   const progressed = label !== null && typeof isProgress === "function" && changes.some(c => c.kind === "task" && c.after && isProgress(getItem("task", c.id), c.after));
+  // Anything deleted here goes to Recently Deleted (Settings) for 30 days. Undo (label === null) is never binned.
+  let binned = [];
+  if (label !== null) { try { binned = trashCapture(changes, label); } catch(e) { console.warn("Recently Deleted", e); } }
   changes.forEach(c => setItem(c.kind, c.id, c.after === null ? null : c.after, label !== null));
   state.updated = Date.now();
   saveLocal();
   scheduleRender();
-  if (label) toast(label, () => { applyChanges(inverse, null); toast("Undone"); }, extra);
+  const undo = () => { applyChanges(inverse, null); trashDrop(binned); toast("Undone"); };
+  if (label) toast(label, undo, extra);
+  if (binned.length) lastDelete = {at: Date.now(), undo, label: label || ""};
   if (typeof scheduleFolderBackup === "function") scheduleFolderBackup(DESK ? 3000 : 60000);
   if (progressed) { try { noteProgress(); } catch(e) { console.warn(e); } }
   fire("changed", changes);
@@ -9291,7 +9640,7 @@ function toast(msg, undoFn, extra){
   x.hidden = !extra; if (extra) x.textContent = extra.label;
   t.classList.add("show");
   clearTimeout(toastT);
-  toastT = setTimeout(() => { t.classList.remove("show"); toastUndoFn = null; toastExtraFn = null; }, extra ? 9000 : undoFn ? 6000 : 2600);
+  toastT = setTimeout(() => { t.classList.remove("show"); toastUndoFn = null; toastExtraFn = null; }, extra ? 9000 : undoFn ? 8000 : 2600);
 }
 $("#toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; $("#toast").classList.remove("show"); if (f) f(); });
 $("#toastExtra").addEventListener("click", () => { const f = toastExtraFn; toastExtraFn = null; $("#toast").classList.remove("show"); if (f) f(); });
@@ -9906,7 +10255,7 @@ function viewCourses(){
         ${ts.length ? `<div class="prog" style="--c:${esc(c.color)}"><span class="track"><i style="width:${(doneN / ts.length * 100).toFixed(0)}%"></i></span>${doneN}/${ts.length} complete${nFiles ? `, ${nFiles} file${nFiles === 1 ? "" : "s"}` : ""}</div>` : ""}
       </span></button>${lmsCourseBtn(c)}</div>`;
   }).join("");
-  return `<div style="display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap"><h2 class="sec" style="margin:0;flex:1"><span class="t">Your Courses</span><span class="n">${cs.length}</span></h2>${imp}<button class="btn small" data-act="new-course">Add course</button></div><div class="course-list">${cards}</div>
+  return `<div style="display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap"><h2 class="sec" style="margin:0;flex:1"><span class="t">Your Courses</span><span class="n">${cs.length}</span></h2>${imp}${trashBtn("course")}<button class="btn small" data-act="new-course">Add course</button></div><div class="course-list">${cards}</div>
     <div class="term-bar"><span>${ARCHIVE_SM}Term over? Put its courses and tasks away, and bring anything back later.</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${(n => n ? ` (${n})` : "")(allCourses().filter(c => c.archived).length)}</button></div>`;
 }
 function viewCourseDetail(c){
@@ -11226,6 +11575,8 @@ function menuSheet(){
       <button data-act="import-syllabus"><span>Import a Syllabus<span class="sub">Upload a PDF to add the course and its deadlines</span></span></button>
       <button data-act="new-term"><span>Start a New Term<span class="sub">Put last term's courses, tasks and flashcards in the Archive</span></span></button>
       <button data-act="archive-open"><span>Archive<span class="sub">Finished tasks and past terms</span></span></button>
+      <button data-act="trash-open"><span>Recently Deleted<span class="sub">${trashVisible().length ? `${trashVisible().length} item${trashVisible().length === 1 ? "" : "s"} you can still restore. Kept for ${TB.KEEP_DAYS} days.` : `Anything you delete waits here for ${TB.KEEP_DAYS} days`}</span></span></button>
+      <button data-act="export-data"><span>Export My Data<span class="sub">Tasks, notes, grades and flashcards as a ZIP of spreadsheet files and one JSON file</span></span></button>
       <button data-act="cal-export"><span>Add Deadlines to Your Calendar<span class="sub">Download a calendar file with reminders</span></span></button>
       ${Object.values(state.files).some(f => f.kind === "file") ? `<button data-act="export-full"><span>Export Backup with Files<span class="sub">One file with your data and every uploaded file. Use it to move to another version of Studyboard.</span></span></button>` : ""}
       <button data-act="backup-now"><span>Back Up Now<span class="sub">A backup is also saved on this device each day</span></span></button>
@@ -12081,6 +12432,7 @@ function cleanupAssets(ids, delay = 0){
   setTimeout(async () => {
     const a = await getAssets(); if (!a) return;
     const used = new Set(Object.values(state.files).flatMap(f => f.revs.map(r => r.assetId)));
+    trashList().forEach(e => e.items.forEach(i => { if (i.kind === "file") (i.data.revs || []).forEach(r => used.add(r.assetId)); }));   // still in Recently Deleted
     for (const id of ids) if (id && !used.has(id)) { try { await a.delete(id); } catch(e) {} }
   }, delay);
 }
@@ -12160,7 +12512,7 @@ function viewFiles(){
   const actions = `<div class="factions">
       ${canUpload ? `<button class="btn primary small" data-act="f-upload">Upload files</button>` : ""}
       <button class="btn small" data-act="f-link">Add link</button>
-      ${ui.fCourse !== "all" ? `<button class="btn small" data-act="f-newfolder">New folder</button>` : ""}
+      ${trashBtn("file")}${ui.fCourse !== "all" ? `<button class="btn small" data-act="f-newfolder">New folder</button>` : ""}
       ${folder ? `<button class="btn small" data-act="f-folder-edit">Edit folder</button>` : ""}
       ${ui.fCourse !== "all" && !inClaude() ? `<button class="btn small ai-btn" data-act="ask-course" data-id="${esc(ui.fCourse)}">${AI_ICON} Ask ${aiWho() ? esc(aiWho()) + " " : ""}About These Files</button>` : ""}
       <span class="spacer"></span>
@@ -12243,8 +12595,7 @@ function fileSheet(f){
   $("#fsDel").addEventListener("click", () => {
     const cur = state.files[f.id]; if (!cur) return;
     dlg.close();
-    applyChanges([{kind:"file", id: f.id, after: null}], `Deleted ${cur.name}`);
-    cleanupAssets(cur.revs.map(r => r.assetId), 12000);
+    applyChanges([{kind:"file", id: f.id, after: null}], `Deleted ${cur.name}`);   // the stored copies stay until Recently Deleted lets go of it
   });
 }
 function linkSheet(){
@@ -12395,7 +12746,7 @@ function viewNotes(){
   const maxY = onBoard.reduce((m, n) => Math.max(m, n.y), 0), maxX = onBoard.reduce((m, n) => Math.max(m, n.x), 0);
   // The board fills its frame and only grows (with scroll bars) when notes sit past its edge; fitNoteBoard() measures after drawing
   const W = maxX ? maxX + NOTE_W() + 40 : 0, H = maxY ? maxY + 260 : 0;
-  return `<div class="tl-controls"><h2>Notes</h2><button class="btn primary small" data-act="note-new">+ New note</button>${inClaude() ? "" : `<button class="btn small ai-btn" data-act="note-photo">${AI_ICON} Photo to Note</button>`}<button class="btn small" data-act="note-archive-open">Archive${archived ? ` (${archived})` : ""}</button></div>
+  return `<div class="tl-controls"><h2>Notes</h2><button class="btn primary small" data-act="note-new">+ New note</button>${inClaude() ? "" : `<button class="btn small ai-btn" data-act="note-photo">${AI_ICON} Photo to Note</button>`}${trashBtn("note")}<button class="btn small" data-act="note-archive-open">Archive${archived ? ` (${archived})` : ""}</button></div>
     ${ui.q.trim() ? `<div class="search-note">Notes that don't match “${esc(ui.q.trim())}” are faded. <button class="link-btn" data-act="search-clear">Clear search</button></div>` : ""}
     <div class="nb-wrap"><div class="nb-main">
       <div class="nb-scroll" id="nbScroll">
@@ -12533,7 +12884,7 @@ function viewFlashcards(){
       ${due ? `<button class="btn small" data-act="fc-review-all">Review ${due} Due</button>` : ""}
       ${(w => w.n ? `<button class="btn small" data-act="fc-weak">Weak Spots <span class="n-badge">${w.n}</span></button>` : "")(weakSpots(decksArr().filter(d => ui.filter === "all" || d.courseId === ui.filter).map(d => d.id)))}
       ${inClaude() ? "" : `<button class="btn small ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}
-      <button class="btn small primary" data-act="fc-new">New Deck</button></div>
+      ${trashBtn("deck")}<button class="btn small primary" data-act="fc-new">New Deck</button></div>
     ${chipsHtml()}${ui.q.trim() ? `<div class="search-note">Showing decks that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear search</button></div>` : ""}
     ${ds.length ? `<div class="deck-grid">${tiles}</div>` : `<div class="empty" style="margin-top:14px"><strong>${decksArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Make a deck for a course, add cards (or paste a list from Quizlet or your notes), then study them or take an auto-made quiz." + (inClaude() ? "" : " Or upload your lecture slides and let " + esc(aiWho("AI")) + " make the cards and a practice quiz.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inClaude() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}
     <p class="hint-line tip-everyday">Study shows each card again after 1, 3, 7, 14 and 30 days as you get it right, so reviews land just before you'd forget.</p>`;
@@ -13579,14 +13930,14 @@ $("#importFile").addEventListener("change", async e => {
     let entries = null, text;
     if (isZip) {
       entries = unzipStored(await f.arrayBuffer());
-      const j = entries.find(x => /(^|\/)(studioso|studyboard)-backup\.json$/.test(x.name));
+      const j = entries.find(x => /(^|\/)(studioso|studyboard)-(backup|export)\.json$/.test(x.name));
       if (!j) throw new Error("no backup in zip");
       if (j.data.length > 200e6) throw new Error("too big");
       text = new TextDecoder().decode(j.data);
     } else text = await f.text();
-    const d = fromArrays(JSON.parse(text));
-    const cs = Object.values(d.courses), ts = Object.values(d.tasks), ns = Object.values(d.notes), ds = Object.values(d.decks), es = Object.values(d.events || {});
-    let fs = Object.values(d.files);
+    const raw = JSON.parse(text), d = fromArrays(raw), has = k => !!raw && Array.isArray(raw[k]);   // a partial export (Export My Data) leaves the parts it doesn't have alone
+    const cs = has("courses") ? Object.values(d.courses) : Object.values(state.courses), ts = has("tasks") ? Object.values(d.tasks) : Object.values(state.tasks), ns = has("notes") ? Object.values(d.notes) : Object.values(state.notes), ds = has("decks") ? Object.values(d.decks) : Object.values(state.decks || {}), es = has("events") ? Object.values(d.events || {}) : Object.values(state.events || {});
+    let fs = has("files") ? Object.values(d.files) : Object.values(state.files);
     if (!cs.length && !ts.length && !ns.length && !fs.length && !ds.length) throw new Error("empty");
     const nFiles = entries ? entries.filter(x => x.name.startsWith("files/")).length : 0;
     confirmSheet("Replace Your Data?", `This backup has ${cs.length} courses, ${ts.length} tasks, ${ns.length} notes and ${ds.length} flashcard deck${ds.length === 1 ? "" : "s"}${nFiles ? `, plus ${nFiles} stored file${nFiles === 1 ? "" : "s"}` : ""}. It will replace everything currently here. You can undo right after.`, "Replace", async () => {
@@ -13598,6 +13949,7 @@ $("#importFile").addEventListener("change", async e => {
         msg = `Backup imported with ${r.moved} file${r.moved === 1 ? "" : "s"}${r.skipped ? `, ${r.skipped} couldn't be restored${sbActive() || inClaude() ? "" : " (sign in first)"}` : ""}`;
       }
       applyChanges(replaceAllChanges(cs, ts, fs, ns, ds, es), msg);
+      if (has("trash")) trashMerge(Object.values(d.trash));
     });
   } catch(err) { toast(/compressed/.test(String(err && err.message)) ? "That zip wasn't made by Studyboard" : "That file isn't a Studyboard backup"); }
 });
@@ -13689,7 +14041,7 @@ document.addEventListener("click", e => {
     case "delete-course": {
       const c = courseOf(id); if (!c) break;
       const ts = allTasks().filter(t => t.courseId === id);
-      confirmSheet("Delete course?", `${c.name} and its ${ts.length} task${ts.length === 1 ? "" : "s"} will be deleted. You can undo right after.`, "Delete course", () => {
+      confirmSheet("Delete course?", `${c.name} and its ${ts.length} task${ts.length === 1 ? "" : "s"}${ts.length >= 5 ? ` (${ts.filter(t => t.status === "done").length} finished)` : ""} will be moved to Recently Deleted. You can undo right after, or restore it from Settings for ${TB.KEEP_DAYS} days.`, "Delete course", () => {
         if (ui.filter === id) ui.filter = "all";
         ui.courseId = null;
         applyChanges([{kind:"course", id, after:null}, ...ts.map(t => ({kind:"task", id:t.id, after:null}))], `Deleted ${c.name}`);
@@ -13733,7 +14085,7 @@ document.addEventListener("click", e => {
     case "export": dlg.close(); exportBackup(); break;
     case "import": dlg.close(); $("#importFile").click(); break;
     case "clear-all":
-      confirmSheet("Clear All Data?", "Every course and task will be deleted. You can undo right after, and weekly backups stay available.", "Clear everything", () => {
+      confirmSheet("Clear All Data?", `This removes ${plural0(Object.keys(state.courses).length, "course")}, ${plural0(Object.keys(state.tasks).length, "task")}, ${plural0(Object.keys(state.notes).length, "note")}, ${plural0(Object.keys(state.decks || {}).length, "flashcard deck")}, ${plural0(Object.keys(state.files).length, "file")} and ${plural0(Object.keys(state.events || {}).length, "event")}. All of it goes to Recently Deleted for ${TB.KEEP_DAYS} days, you can undo right after, and weekly backups stay available.`, "Clear everything", () => {
         ui.courseId = null; ui.filter = "all";
         applyChanges(replaceAllChanges([], [], [], [], [], []), "All data cleared");
       });
@@ -40222,7 +40574,7 @@ var TP_DATA = [];
     study: ["dailyIn", "capIn", "g-grades", "ai-setup", "sx-settings"],
     school: ["lms-open", "cal-export", "cal-sync", "import-syllabus", "grp-page"],
     app: ["rm-open", "sbw-open", "pwa-install", "install", "desk-version", "ob-replay", "tour-open", "bug-open"],
-    data: ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "backup-now", "restore", "export", "export-full", "import", "new-term", "archive-open", "clear-all"]
+    data: ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "backup-now", "restore", "export", "export-full", "import", "new-term", "archive-open", "trash-open", "export-data", "clear-all"]
   };
   // Extra words people might search for, per row
   const SYN = {"theme-set": "dark light mode night", shop: "theme colors stickers pins cards", "anim-toggle": "motion confetti",
@@ -40231,7 +40583,7 @@ var TP_DATA = [];
     "lms-open": "d2l lms school sites", "cal-export": "calendar ics google outlook apple", "import-syllabus": "pdf course", "grp-page": "classmates share",
     "rm-open": "alerts push notify", "sbw-open": "widget tray startup desktop", "ob-replay": "tour help welcome start", "tour-open": "tour help guide orientation walkthrough tutorial", "bug-open": "bug report feedback problem issue idea support contact", "pwa-install": "home screen app",
     "fsb-choose": "google drive onedrive folder backup", folder: "google drive onedrive folder backup", "backup-now": "save", "restore": "undo backup", "export": "download backup", "import": "upload backup", "export-full": "files zip",
-    "new-term": "semester archive", "clear-all": "delete reset erase"};
+    "new-term": "semester archive", "trash-open": "recently deleted trash bin restore undo recover deleted", "export-data": "export csv json zip spreadsheet excel portability download my data gdpr", "clear-all": "delete reset erase"};
   const KEY_CAT = {};
   Object.entries(ORDER).forEach(([c, ks]) => ks.forEach(k => { KEY_CAT[k] = c; }));
   const ALIAS = {account: "account", sync: "account", plan: "account", pro: "account", devices: "account",
@@ -53844,6 +54196,8 @@ var SOUNDS_HOOK = hook;
     <h3>Your choices and your data</h3>
     <ul>
       <li><b>Export:</b> Settings, Data and Backups, Export a Backup File gives you everything in one file.</li>
+      <li><b>Get a copy of your data (access and portability):</b> Settings, Data and Backups, Export My Data makes a ZIP with one JSON file and spreadsheet (CSV) files of your tasks, notes, grades, flashcards, courses, schedule and study sessions. It is made on your device, works offline, and never includes AI keys, sign-in details or device ids.</li>
+      <li><b>Deleted by mistake:</b> things you delete wait in Settings, Data and Backups, Recently Deleted for 30 days (synced with your account like the rest of your data), then are removed for good.</li>
       <li><b>Delete everything on this device:</b> Settings, Data and Backups, Clear All Data. Clearing your browser's site data also removes it.</li>
       <li><b>Delete your account and online data:</b> Settings, Account and Sync, Delete My Account and Data. This removes your account, synced data, uploaded files, reminders, devices, calendar links and plan record from our server, and the study groups you own. Cancel a paid subscription yourself first, because deleting the account does not cancel billing. Copies in backups we hold are removed in the normal backup cycle, and billing records kept by Stripe or an app store are kept as the law requires.</li>
     </ul>
@@ -54107,6 +54461,158 @@ var SOUNDS_HOOK = hook;
 })();
 
 
+/* ---------- Recently Deleted (screen) and Export My Data ---------- */
+(() => {
+  const tick = () => new Promise(r => setTimeout(r, 0));
+  const when = ms => { const d = Math.floor((Date.now() - ms) / 864e5); return d <= 0 ? "today" : d === 1 ? "yesterday" : d + " days ago"; };
+  const S = {q: "", kind: ""};
+  const kindsHere = list => TB.KINDS.filter(k => list.some(e => e.kind === k));
+  const hay = e => (e.label + " " + e.detail + " " + e.items.slice(0, 60).map(i => TB.labelFor(i.kind, i.data) + " " + String(i.data.back || "") + " " + String(i.data.text || "").slice(0, 400) + " " + String(i.data.notes || "").slice(0, 200) + " " + (i.data.cards || []).slice(0, 300).map(c => c.front + " " + c.back).join(" ")).join(" ")).toLowerCase();
+  function trashSheet(kind){
+    if (kind !== undefined) { S.kind = TB.isSub(kind) ? kind : kind || ""; S.q = ""; }
+    openSheet(`<div class="sheet">${head("Recently Deleted")}<div class="sheet-body">
+      <p class="status-msg" id="trSum" style="margin:0"></p>
+      <input type="search" id="trQ" placeholder="Search deleted items" aria-label="Search deleted items" data-noenter value="${esc(S.q)}">
+      <div class="tr-chips" id="trChips"></div>
+      <div id="trList" class="tr-list"></div></div>
+      <div class="sheet-foot"><span id="trEmpty"></span><span class="spacer"></span><button type="button" class="btn" data-act="close">Done</button></div></div>`);
+    $("#trQ").addEventListener("input", e => { S.q = e.target.value.trim().toLowerCase(); drawTrash(); });
+    $("#trChips").addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (b) { S.kind = b.dataset.k; drawTrash(); } });
+    $("#trList").addEventListener("click", trashClick);
+    $("#trEmpty").addEventListener("click", e => {
+      const b = e.target.closest("[data-em]"); if (!b) return;
+      if (b.dataset.em === "ask") { $("#trEmpty").innerHTML = `<span class="mini">Delete everything here for good?</span> <button type="button" class="btn small" data-em="no">Cancel</button> <button type="button" class="btn small danger" data-em="yes">Empty Bin</button>`; return; }
+      if (b.dataset.em === "yes") { const n = trashForever(trashVisible().map(x => x.id)); toast(`Emptied Recently Deleted (${n} item${n === 1 ? "" : "s"})`); }
+      drawTrash();
+    });
+    drawTrash();
+  }
+  function drawTrash(){
+    if (!$("#trList")) return;
+    const all = trashVisible(), kinds = kindsHere(all);
+    if (S.kind && !kinds.includes(S.kind)) S.kind = "";
+    const list = all.filter(e => (!S.kind || e.kind === S.kind) && (!S.q || hay(e).includes(S.q)));
+    const nItems = all.reduce((n, e) => n + e.items.length, 0);
+    $("#trSum").textContent = all.length ? `${all.length} deleted ${all.length === 1 ? "entry" : "entries"} (${nItems} item${nItems === 1 ? "" : "s"}). Each is kept for ${TB.KEEP_DAYS} days, then removed for good.` : `Nothing here. Anything you delete waits here for ${TB.KEEP_DAYS} days so you can get it back.`;
+    $("#trChips").innerHTML = kinds.length > 1 ? [["", "All"], ...kinds.map(k => [k, TB.KIND_TITLE[k]])].map(([k, l]) => `<button type="button" class="chip${S.kind === k ? " on" : ""}" data-k="${k}" aria-pressed="${S.kind === k}">${esc(l)}${k ? ` (${all.filter(e => e.kind === k).length})` : ""}</button>`).join("") : "";
+    $("#trEmpty").innerHTML = all.length ? `<button type="button" class="btn small danger" data-em="ask">Empty Bin</button>` : "";
+    const groups = TB.KINDS.filter(k => list.some(e => e.kind === k));
+    $("#trList").innerHTML = groups.map(k => `<section class="tr-group" aria-label="${esc(TB.KIND_TITLE[k])}"><h3 class="tr-h">${esc(TB.KIND_TITLE[k])} <span class="n">${list.filter(e => e.kind === k).length}</span></h3>${list.filter(e => e.kind === k).map(rowHtml).join("")}</section>`).join("")
+      || (all.length ? `<p class="status-msg">No deleted items match.</p>` : "");
+  }
+  const rowHtml = e => {
+    const left = TB.daysLeft(e, Date.now());
+    return `<div class="tr-row" data-tid="${esc(e.id)}"><div class="tr-main"><b class="tr-label">${esc(e.label)}</b><span class="mini">${e.detail ? esc(e.detail) + " · " : ""}Deleted ${when(e.deletedAt)} · ${left} day${left === 1 ? "" : "s"} left${e.local ? " · this device only" : ""}</span></div>
+      <div class="tr-acts"><button type="button" class="btn small primary" data-tr="restore" data-id="${esc(e.id)}" aria-label="Restore ${esc(e.label)}">Restore</button><button type="button" class="btn small danger" data-tr="ask" data-id="${esc(e.id)}" aria-label="Delete ${esc(e.label)} forever">Delete Forever</button></div></div>`;
+  };
+  function trashClick(e){
+    const b = e.target.closest("[data-tr]"); if (!b) return;
+    const id = b.dataset.id, ent = state.trash[id], row = b.closest(".tr-row");
+    if (b.dataset.tr === "ask") { row.querySelector(".tr-acts").innerHTML = `<span class="mini">Delete for good? This can't be undone.</span><button type="button" class="btn small" data-tr="no" data-id="${esc(id)}">Cancel</button><button type="button" class="btn small danger" data-tr="forever" data-id="${esc(id)}">Delete Forever</button>`; const f = row.querySelector('[data-tr="forever"]'); if (f) f.focus(); return; }
+    if (b.dataset.tr === "no") { drawTrash(); return; }
+    if (!ent) { drawTrash(); return; }
+    if (b.dataset.tr === "forever") { trashForever([id]); toast(`Deleted ${ent.label} for good`); drawTrash(); return; }
+    if (b.dataset.tr === "restore") {
+      const r = trashRestore([id]);
+      const note = r.notes.length ? " " + r.notes[0] + (r.notes.length > 1 ? ` (+${r.notes.length - 1} more)` : "") + "." : "";
+      toast(`Restored ${ent.label}.${note}`, () => { applyChanges(r.inverse, null); trashReadd(r.entries); toast("Undone"); });
+      drawTrash(); scheduleRender();
+    }
+  }
+  window.trashReadd = function(entries){ (entries || []).forEach(e => { state.trash[e.id] = e; if (!e.local) queueWrite("trash", e.id, e); }); trashSaveLocal(); const d = $("#trList"); if (d) drawTrash(); };
+  window.trashSheet = trashSheet;
+  hook("act", (a, el) => {
+    if (a === "trash-open") { trashSheet(el.dataset.kind || ""); return true; }
+    if (a === "export-data") { exportSheet(); return true; }
+    return false;
+  });
+  // Ctrl/Cmd+Z undoes the last delete (not while typing, and not with a sheet open).
+  document.addEventListener("keydown", e => {
+    if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || String(e.key).toLowerCase() !== "z") return;
+    const t = e.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    if (dlg.open || !lastDelete || Date.now() - lastDelete.at > 30000) return;
+    e.preventDefault();
+    const f = lastDelete.undo; lastDelete = null; toastUndoFn = null; $("#toast").classList.remove("show");
+    f();
+  });
+
+  /* ---------- Export My Data ---------- */
+  const PARTS = [["tasks", "Tasks", "tasks.csv"], ["notes", "Notes", "notes.csv"], ["grades", "Grades and marks", "grades.csv, grades-summary.csv"], ["decks", "Flashcard decks", "flashcards.csv, flashcards-anki.txt"],
+    ["courses", "Courses", "courses.csv"], ["events", "Schedule and events", "events.csv"], ["sessions", "Study sessions (focus time)", "study-sessions.csv"], ["files", "File list (names and links, not the files)", "JSON only"], ["trash", "Recently Deleted items", "JSON only"]];
+  const countOf = k => k === "tasks" ? Object.keys(state.tasks).length : k === "notes" ? Object.keys(state.notes).length : k === "decks" ? Object.keys(state.decks || {}).length : k === "courses" ? Object.keys(state.courses).length
+    : k === "events" ? Object.keys(state.events || {}).length : k === "files" ? Object.keys(state.files).length : k === "trash" ? trashVisible().length : k === "grades" ? Object.values(state.tasks).filter(t => t.mark).length : Object.values(state.tasks).filter(t => Number(t.focusMin) > 0).length;
+  // Never let a secret ride along: anything named like a key, token, session or device id is dropped from settings.
+  const scrub = (o, depth) => {
+    if (!o || typeof o !== "object" || depth > 6) return o;
+    if (Array.isArray(o)) return o.map(x => scrub(x, depth + 1));
+    const out = {}; Object.keys(o).forEach(k => { if (!/key|token|secret|password|passwd|session|device|endpoint|auth|credential|jwt|bearer/i.test(k)) out[k] = scrub(o[k], depth + 1); });
+    return out;
+  };
+  async function buildExport(opts, onStatus){
+    const inc = new Set(opts.parts), say = (t, p) => { if (onStatus) onStatus(t, p); };
+    const arr = exportArrays(), data = {};
+    ["courses", "tasks", "notes", "decks", "events", "files"].forEach(k => { data[k] = arr[k] || []; });
+    const wantJson = opts.format !== "csv", wantCsv = opts.format !== "json";
+    const entries = [{name: "README.txt", data: TB.README}];
+    if (wantJson) {
+      say("Preparing the JSON file…", 0.15); await tick();
+      const out = {v: 2, settings: scrub(arr.settings, 0), updated: arr.updated};
+      const jsonKeys = {courses: ["courses", "tasks", "decks", "notes", "events", "grades", "sessions", "files"].some(k => inc.has(k)), tasks: inc.has("tasks") || inc.has("grades") || inc.has("sessions"), notes: inc.has("notes"), decks: inc.has("decks"), events: inc.has("events"), files: inc.has("files")};
+      Object.keys(jsonKeys).forEach(k => { if (jsonKeys[k]) out[k] = data[k]; });
+      if (inc.has("trash")) out.trash = trashVisible();
+      const j = TB.jsonExport(out, Date.now(), [...inc]);
+      entries.unshift({name: "studyboard-export.json", data: JSON.stringify(j, null, 2)});
+    }
+    if (wantCsv) {
+      say("Writing the spreadsheet files…", 0.4); await tick();
+      const csvs = TB.toCsvFiles(data, {tasks: inc.has("tasks"), notes: inc.has("notes"), grades: inc.has("grades"), decks: inc.has("decks"), courses: inc.has("courses"), events: inc.has("events"), sessions: inc.has("sessions")});
+      Object.keys(csvs).forEach(n => entries.push({name: n, data: csvs[n]}));
+    }
+    return entries;
+  }
+  async function saveOut(name, blob, type){
+    try {
+      const dl = caps.downloads || await useCap("downloads");
+      if (dl) { await dl.save({filename: name, data: type === "json" ? await blob.text() : new Uint8Array(await blob.arrayBuffer())}); return true; }
+    } catch(e) { if (e && e.code === "declined") return false; }
+    if (!inClaude()) { saveBlob(name, blob, type === "json" ? "application/json" : "application/zip"); return true; }
+    toast("Downloads aren't available here"); return false;
+  }
+  function exportSheet(){
+    openSheet(`<div class="sheet">${head("Export My Data")}<div class="sheet-body">
+      <p style="margin:0">Take a copy of your term with you: open it in a spreadsheet, keep it as a safety copy, or move it somewhere else. It is made on this device and works offline. AI keys, sign-in details and other devices' ids are never included.</p>
+      <fieldset class="xp-set"><legend class="lh">What to include</legend>${PARTS.map(([k, l, f]) => `<label class="mi-check"><input type="checkbox" name="xp" value="${k}" ${k === "trash" ? "" : "checked"}> ${esc(l)} <span class="mini">(${countOf(k)})${f ? " · " + esc(f) : ""}</span></label>`).join("")}</fieldset>
+      <fieldset class="xp-set"><legend class="lh">Format</legend>
+        <label class="mi-check"><input type="radio" name="xpf" value="zip" checked> ZIP: one JSON file with everything plus a spreadsheet file for each part</label>
+        <label class="mi-check"><input type="radio" name="xpf" value="json"> JSON only (can be imported back into Studyboard)</label>
+        <label class="mi-check"><input type="radio" name="xpf" value="csv"> Spreadsheet files only (in a ZIP)</label></fieldset>
+      <p class="mini" style="margin:0">Uploaded files aren't inside this export. Use Export Backup with Files in Settings for those. The JSON file can be restored with Settings, Import from a Backup File.</p>
+      <progress id="xpBar" max="1" value="0" hidden style="width:100%"></progress><p class="status-msg" id="xpMsg" role="status" style="margin:0"></p>
+    </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="xpGo">Export</button></div></div>`);
+    $("#xpGo").addEventListener("click", async ev => {
+      const b = ev.currentTarget, parts = [...dlg.querySelectorAll('input[name="xp"]:checked')].map(i => i.value), format = (dlg.querySelector('input[name="xpf"]:checked') || {}).value || "zip";
+      if (!parts.length) { $("#xpMsg").textContent = "Tick at least one thing to include."; return; }
+      b.disabled = true; const bar = $("#xpBar"), msg = $("#xpMsg"); bar.hidden = false;
+      const st = (t, p) => { msg.textContent = t; bar.value = p; };
+      try {
+        const entries = await buildExport({parts, format}, st);
+        const day = todayISO();
+        if (format === "json") {
+          st("Saving…", 0.9);
+          const ok = await saveOut(`studyboard-export-${day}.json`, new Blob([entries.find(x => /\.json$/.test(x.name)).data], {type: "application/json"}), "json");
+          if (ok) { try { localStorage.setItem("studioso:lastExport", String(Date.now())); } catch(e) {} dlg.close(); toast("Export saved"); scheduleRender(); } else { b.disabled = false; bar.hidden = true; msg.textContent = ""; }
+          return;
+        }
+        const zip = await TB.zipBlob(entries, {yield: tick, onProgress: (i, n) => st(`Packing ${i} of ${n} files…`, 0.5 + 0.4 * i / n)});
+        st("Saving…", 0.95);
+        const ok = await saveOut(`studyboard-export-${day}.zip`, zip, "zip");
+        if (ok) { try { localStorage.setItem("studioso:lastExport", String(Date.now())); } catch(e) {} dlg.close(); toast(`Export saved (${entries.length} files)`); scheduleRender(); } else { b.disabled = false; bar.hidden = true; msg.textContent = ""; }
+      } catch(err) { console.warn(err); b.disabled = false; bar.hidden = true; msg.textContent = "Couldn't make the export. Try again, or use Export a Backup File."; }
+    });
+  }
+  window.exportSheet = exportSheet;
+})();
+
 /* ---------- Start ---------- */
 (async () => {
 if (DESK) { try { await deskBoot(); } catch(e) { console.warn(e); } }
@@ -54114,6 +54620,7 @@ try { pwaBoot(); } catch(e) {}
 try { applyTheme(); } catch(e) {}
 try { applySkin(); } catch(e) {}
 loadLocal();
+try { trashEnforce(); } catch(e) { console.warn(e); }   // anything older than 30 days leaves Recently Deleted at start
 syncLabel();
 pomoBoot();
 initFolderBackup();
@@ -54122,6 +54629,7 @@ initCloud();
 setTimeout(() => dailyQuote(false), 1600);
 fire("boot");
 })();
+setInterval(() => { try { trashEnforce(); } catch(e) {} }, 36e5);
 setInterval(() => { const d = todayISO(); if (d !== ui._day) { ui._day = d; scheduleRender(); setTimeout(() => dailyQuote(false), 1000); } }, 60000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(() => dailyQuote(false), 800); });
 ui._day = todayISO();
