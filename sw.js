@@ -1,14 +1,19 @@
 // Studyboard offline support: keeps a copy of the app so it opens with no internet.
 // Your data is never stored here; it lives in the app itself and in your Supabase account.
-const CACHE = "studyboard-v2";
-const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/maskable-512.png", "./icons/apple-touch-icon.png", "./today.webmanifest"];
+const CACHE = "studyboard-v3";
+// CORE must exist for the app to work offline. OPTIONAL files (icons) may be missing, in the icons/ folder layout or the
+// flat layout; a missing one never stops the service worker from installing.
+const CORE = ["./", "./index.html"];
+const OPTIONAL = ["./manifest.webmanifest", "./today.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/maskable-512.png", "./icons/apple-touch-icon.png",
+  "./icon-192.png", "./icon-512.png", "./maskable-512.png", "./apple-touch-icon.png"];
 const LIBS = ["https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"];
 const LIB_HOSTS = ["cdn.jsdelivr.net", "cdnjs.cloudflare.com", "fonts.googleapis.com", "fonts.gstatic.com"];
 
 self.addEventListener("install", e => {
   e.waitUntil((async () => {
     const c = await caches.open(CACHE);
-    await c.addAll(SHELL);
+    await c.addAll(CORE);
+    await Promise.all(OPTIONAL.map(u => c.add(u).catch(() => {})));
     await Promise.all(LIBS.map(u => fetch(u, {mode: "cors"}).then(r => r.ok && c.put(u, r)).catch(() => {})));
     await self.skipWaiting();
   })());

@@ -5,6 +5,14 @@ About 20 minutes, done once. You'll need the three files that came with this gui
 
 Throughout, replace `USERNAME` with your GitHub username.
 
+## What's New in 1.13
+
+- **Ready for everyone:** Privacy Policy, Terms of Service and an About page (version, credits and licenses) are now in the app, in **Settings > App and Notifications** and on the sign-in screen.
+- **Delete My Account and Data:** signed-in people can permanently remove their account and everything stored online from **Settings > Account and Sync**. Run `supabase-lean.sql` once more to switch it on (see "Run the SQL files in this order" below).
+- **Easier to use:** every sheet has a name for screen readers, Left and Right Arrow move between tabs, closing a sheet puts the keyboard focus back, bigger tap targets on phones, stronger text contrast, and animations stop when a device asks for reduced motion.
+- **Faster start:** the sticker picture cache is built only when the page is quiet.
+- **Desktop build fixes:** `npm run prep`, `start` and `dist` work from the repository root, and the Intel Mac build uses a current GitHub runner.
+
 ## What's New in 1.12
 
 - **1.12.4:** Study Fields scenes only keep animals that fit the subject (like the cells and microbes in Cell Garden, the class hamster and fish tank, the therapy dog at Night Shift, the farm animals in Green Valley and the Ruins cat) and move more calmly, with rare little surprises. Switching your study companion now updates its name and face across the page right away. Today's Plan is calmer: Do This Next shows once, the other tasks are single tidy lines with the main reason (tap +2 for the rest), Full Ranking and How This Is Ranked share one line, and Board cards drop the default Medium pill and repeated dates.
@@ -41,7 +49,7 @@ Throughout, replace `USERNAME` with your GitHub username.
 
 ### Updating to 1.11 (one time)
 
-1. **Website:** upload everything from `studyboard-github-files-1.11.0.zip` to your GitHub repository, replacing what's there: `index.html`, `sw.js`, `manifest.webmanifest`, `today.webmanifest`, the `icons` and `widgets` folders, and the `desktop` and `.github` folders. If you had filled in `SB_DEFAULT` in the old `index.html`, fill it in again first.
+1. **Website:** upload everything from `studyboard-github-files-1.13.0.zip` to your GitHub repository, replacing what's there: `index.html`, `sw.js`, `manifest.webmanifest`, `today.webmanifest`, the `icons` and `widgets` folders, and the `desktop` and `.github` folders. If you had filled in `SB_DEFAULT` in the old `index.html`, fill it in again first.
 2. **Database:** in Supabase open **SQL Editor**, then **New query**, and run each of these once: `supabase-groups.sql`, `supabase-calendar-feed.sql`, `supabase-reminders.sql` (paste your Project URL and publishable key into the two lines marked PASTE in the reminders file first) `supabase-rooms.sql` (for Study Together) and, last, `supabase-lean.sql`. `supabase-plans.sql` can wait until you want to sell Pro. The sections below explain what each one is for.
 3. **Small Supabase functions** (for Calendar Sync, phone notifications, and optionally school-platform calendar links on your phone): the steps are in the Calendar Sync, Reminders and Brightspace, Canvas and Blackboard sections below. All are pasted into the Supabase dashboard, with no command line.
 4. **Desktop:** run the new installer for your computer. Your data stays as it is.
@@ -70,6 +78,34 @@ Save. This is where confirmation and password-reset emails send you back to.
 - **Publishable key**, starting with `sb_publishable_`, under **Project Settings > API Keys**. Older projects show an **anon** key instead, which works the same way.
 
 Never use the **secret** or **service_role** key. The app refuses them.
+
+---
+
+## Run the SQL files in this order
+
+Open **SQL Editor > New query** in Supabase, paste a whole file and click **Run**. Every file is safe to run again. Run them in this order on a new project:
+
+| Step | File | What it is for | Needed? |
+|---|---|---|---|
+| 1 | `supabase-setup.sql` | Your synced data table (`items`) and the private file storage | Required |
+| 2 | `supabase-groups.sql` | Share decks and study groups | Recommended |
+| 3 | `supabase-calendar-feed.sql` | The live calendar link | Optional |
+| 4 | `supabase-rooms.sql` | Study Together rooms (needs step 2) | Optional |
+| 5 | `supabase-reminders.sql` | Phone and desktop reminders (paste your Project URL and key into the two lines marked PASTE first) | Optional |
+| 6 | `supabase-bug-reports.sql` | Report a Bug or Send Feedback | Recommended |
+| 7 | `supabase-plans.sql` | Free and Pro plans, limits, devices (run after step 2 so group limits are added) | Before you sell Pro, and for notification keys |
+| 8 | `supabase-lean.sql` | Lean Sync and **Delete My Account and Data** (run it last) | Required for a public launch |
+
+If you run `supabase-groups.sql` or `supabase-calendar-feed.sql` later, run `supabase-plans.sql` and `supabase-lean.sql` again afterwards.
+
+**Edge Functions** (pasted into Supabase under Edge Functions > Deploy a new function > Via Editor). In this repository they are saved as plain `index.ts` files, so match them by their first line:
+
+| File in this repository | Function name | Verify JWT |
+|---|---|---|
+| `index.ts` | `calendar-feed` | Off |
+| `index (1).ts` | `billing-webhook` | Off |
+| `index (2).ts` | `lms-feed` | On |
+| `index (3).ts` | `send-reminders` | Off |
 
 ---
 
@@ -189,7 +225,7 @@ There are two ways to install Studyboard. Both sync through your Supabase accoun
 
 ### On your Windows computer: the Studyboard app
 
-1. Run **Studyboard-Setup-1.11.0.exe**. Windows may say "Windows protected your PC", because the installer isn't signed with a paid code-signing certificate. Click **More info**, then **Run anyway**.
+1. Run **Studyboard-Setup-1.13.0.exe**. Windows may say "Windows protected your PC", because the installer isn't signed with a paid code-signing certificate. Click **More info**, then **Run anyway**.
 2. Pick where to install (the default is fine) and finish. Studyboard gets a Start menu entry, a desktop shortcut and an uninstaller in Settings > Apps.
 3. The first time it opens, choose **Connect to Supabase** and paste the same Project URL and publishable key as on the website, then sign in. Or choose **Use Without an Account** to work only on this computer, and connect later in Settings.
 
@@ -205,7 +241,7 @@ Updating: installing a newer version over the old one keeps all your data. To bu
 
 ### On a Mac (macOS 12 or newer, Apple Silicon)
 
-Use **Studyboard-1.11.0-mac.dmg** on Apple silicon Macs (M1 and newer) and **Studyboard-1.11.0-mac-intel.dmg** on Intel Macs. The Intel version needs macOS 12 Monterey or newer, which covers the last generation of Intel Macs (2018 to 2020). Not sure which you have? Apple menu > About This Mac shows either "Chip: Apple M…" or "Processor: Intel".
+Use **Studyboard-1.13.0-mac.dmg** on Apple silicon Macs (M1 and newer) and **Studyboard-1.13.0-mac-intel.dmg** on Intel Macs. The Intel version needs macOS 12 Monterey or newer, which covers the last generation of Intel Macs (2018 to 2020). Not sure which you have? Apple menu > About This Mac shows either "Chip: Apple M…" or "Processor: Intel".
 
 1. Open the .dmg for your Mac and drag **Studyboard** onto **Applications**.
 2. The first time, macOS says it can't verify the developer, because the app isn't notarized by Apple (that needs a paid Apple Developer account, $99 a year). Click **Done**, then open **System Settings › Privacy & Security**, scroll down and click **Open Anyway** next to Studyboard, and confirm. After that it opens normally.
@@ -219,7 +255,7 @@ This build is for Macs with Apple silicon (M1 and newer), which is every Mac tha
 On a phone, the Board tab has two tabs at the top, **Today's Plan** and **Task Board**, so you see one at a time. Press and hold a card to drag it; the board stays on the column you drop it in.
 
 
-1. Upload the files from **studyboard-github-files-1.11.0.zip** to your GitHub repository, next to `index.html` (replace it too): `manifest.webmanifest`, `sw.js`, the `icons` folder, and optionally the `desktop` and `.github` folders so GitHub can build the Windows app for you.
+1. Upload the files from **studyboard-github-files-1.13.0.zip** to your GitHub repository, next to `index.html` (replace it too): `manifest.webmanifest`, `sw.js`, the `icons` folder, and optionally the `desktop` and `.github` folders so GitHub can build the Windows app for you.
 2. Open your Studyboard site once while online.
 3. On an **iPhone**, tap **Share**, then **Add to Home Screen**. On **Android** or in **Chrome/Edge** on a computer, open the browser menu and choose **Install app** (or **Add to Home screen**). Studyboard's Settings also shows an **Install** button when the browser offers one.
 
@@ -229,8 +265,8 @@ After that it has its own icon and window and opens without internet. Changes ma
 
 Studioso is now called **Studyboard**. Nothing about your account or data changes:
 
-- **Website:** upload the new files from `studyboard-github-files-1.11.0.zip` as usual. Your GitHub repository and web address can keep their old names; if you rename the repository, update the Site URL in Supabase (Authentication > URL Configuration) to the new address.
-- **Windows app:** run `Studyboard-Setup-1.11.0.exe`. It replaces Studioso (the old shortcuts go away and new Studyboard ones appear). The first time Studyboard opens, it renames **Documents\Studioso** to **Documents\Studyboard** and brings over your sign-in and settings. The old app data is left in place as a spare copy.
+- **Website:** upload the new files from `studyboard-github-files-1.13.0.zip` as usual. Your GitHub repository and web address can keep their old names; if you rename the repository, update the Site URL in Supabase (Authentication > URL Configuration) to the new address.
+- **Windows app:** run `Studyboard-Setup-1.13.0.exe`. It replaces Studioso (the old shortcuts go away and new Studyboard ones appear). The first time Studyboard opens, it renames **Documents\Studioso** to **Documents\Studyboard** and brings over your sign-in and settings. The old app data is left in place as a spare copy.
 - **Phone:** the home-screen app updates itself the next time you open it online. To get the new name under the icon, remove it and add it to the Home Screen again.
 - **Behind the scenes:** Supabase names (like the `studioso-files` storage bucket) stay as they are, so everything keeps syncing.
 
@@ -1025,5 +1061,31 @@ When you're ready to sell Pro, follow the step-by-step guide in `PRO-PLANS-GUIDE
 
 To install a new version, upload the new `index.html` to your GitHub repository (Add file, Upload files) and replace the old one. Your data stays in Supabase, so nothing is lost. If you had filled in `SB_DEFAULT` in the old file, fill it in again in the new one before uploading.
 
-**Flashcards update (one time).** Flashcard decks need a small database change before they can sync. In Supabase open **SQL Editor**, then **New query**. Paste the contents of `supabase-update-flashcards.sql` and click **Run**. Supabase may show a "Potential issue detected" warning because the query drops a rule. It's safe: it only swaps the rule on which kinds of items are allowed, and no data is deleted. Confirm and run it. Until you do, decks are still saved on each device, and Studyboard shows a reminder.
+**Flashcards update (one time, only if your project was made before 1.11 with an older `supabase-setup.sql`).** Flashcard decks need a small database change before they can sync. In Supabase open **SQL Editor**, then **New query**. Paste the contents of `supabase-update-flashcards.sql` and click **Run**. Supabase may show a "Potential issue detected" warning because the query drops a rule. It's safe: it only swaps the rule on which kinds of items are allowed, and no data is deleted. Confirm and run it. Until you do, decks are still saved on each device, and Studyboard shows a reminder.
 
+---
+
+## Public launch checklist
+
+Work through this before you tell the public about Studyboard.
+
+**Server (Supabase)**
+- [ ] All SQL files run in the order above, ending with `supabase-lean.sql` (it adds Delete My Account and Data).
+- [ ] Custom SMTP set up and the six email templates pasted in (Part 1b, steps 3 and 4). The built-in sender only allows a few emails an hour.
+- [ ] Email confirmation on, password length 8, Site URL and Redirect URLs set to your real web address.
+- [ ] Edge Functions deployed with the right Verify JWT setting (table above) and their secrets set.
+- [ ] Test **Delete My Account and Data** with a spare account: it signs out, the account is gone from Authentication > Users, and its rows and files are gone.
+- [ ] A weekly backup of the database turned on (Supabase paid plans) or a regular export of your tables, and the keep-awake workflow running if you stay on the free plan.
+- [ ] Row Level Security shows **enabled** on every table in Table Editor, and the secret or service_role key appears nowhere in the app or repository.
+
+**Legal and contact**
+- [ ] In `index.html`, change `const SUPPORT = "support@YOUR-DOMAIN"` (in the 99-release module) to your real support address, and monitor that inbox.
+- [ ] Read the in-app Privacy Policy and Terms of Service (Settings > App and Notifications) and have them checked for your country or state. They describe the app as built; change them if you change what Studyboard collects.
+- [ ] Add your legal name or business name where you are required to, and the governing law in the Terms.
+- [ ] Switch the same support address into Stripe, your email templates and the store listings.
+
+**App**
+- [ ] Version is the same everywhere (`package.json`, `APP_VERSION`, the installer file names in this guide).
+- [ ] Desktop installers built from a tagged release (`v1.13.0`) with the GitHub workflow and tested on a clean Windows and Mac. Decide about code signing (see the Windows and Mac sections above).
+- [ ] The website is served over HTTPS and Add to Home Screen works on a phone.
+- [ ] If you sell Pro: finish `PRO-PLANS-GUIDE.md` and its Launch Day steps. If you do not, leave the paywall off.

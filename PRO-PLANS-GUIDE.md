@@ -29,7 +29,7 @@ In the app, **Settings > Studyboard Pro** shows the plan, what Pro adds, how muc
 
 ### 1. Add the Plan Tables (Once)
 
-You'll need `supabase-plans.sql` from the zip.
+You'll need `supabase-plans.sql` from the zip. Run the SQL files in the order listed in `SETUP-GUIDE.md` ("Run the SQL files in this order"): `supabase-setup.sql` first, `supabase-groups.sql` before this file, and `supabase-lean.sql` last.
 
 In Supabase open **SQL Editor**, then **New query**. Paste everything from `supabase-plans.sql` and click **Run**. You should see *Success. No rows returned*. It's safe to run again any time, and it never changes values you've edited.
 
@@ -125,7 +125,7 @@ When you're ready to start selling Pro:
    ```sql
    update public.studyboard_config set value = 'true' where key = 'paywall';
    ```
-3. **Turn on the app switch.** In `base/app.js`, find `const STORE = {paywall: false};` and change it to `const STORE = {paywall: true};`. Build the app and upload the new `index.html` like any update.
+3. **Turn on the app switch.** In `index.html`, find `const STORE = {paywall: false};` and change it to `const STORE = {paywall: true};`. Build the app and upload the new `index.html` like any update.
 4. Open Studyboard, go to **Settings > Studyboard Pro**, and check that it says **You're on the Free Plan** with the two prices. Buy Pro once yourself (or use `studyboard_grant_pro`) and check it switches to **You Have Studyboard Pro**.
 
 To turn the paywall off again, set both switches back to `false`. Nobody loses anything: items people bought or earned stay theirs.
@@ -137,3 +137,13 @@ To turn the paywall off again, set both switches back to `false`. Nobody loses a
 - **Devices:** the free plan counts devices when people sign in. On a 3rd device, Studyboard shows the devices on the account with **Remove** buttons, and **Go Pro**.
 - **Limits are checked twice:** the app explains the limit before an upload, and Supabase refuses anything over the limit even if someone changes the app.
 - **Single items or packs:** the shop can also sell single cosmetic items later. Set `item_purchases` to `true` and hook up a checkout for them. Pro always unlocks everything.
+
+### Public Launch Checklist (Pro)
+
+- [ ] Stripe is in **live** mode: live payment links saved in `studyboard_config`, a live webhook pointing at `billing-webhook/stripe`, and the live `STRIPE_WEBHOOK_SECRET` set.
+- [ ] You bought Pro yourself with a real card, saw it switch on, then cancelled and refunded it. The **Manage** link in `studyboard_config` (`manage_url`) opens the Stripe customer portal.
+- [ ] Prices, the trial length and the refund policy shown on the Stripe checkout page match the Terms of Service in the app.
+- [ ] `PRIVACY` and `TERMS` in the app mention Stripe (they do) and your support address is set (see the Public Launch Checklist in `SETUP-GUIDE.md`).
+- [ ] You know that **Delete My Account and Data does not cancel a Stripe subscription**. Tell people to cancel first (the app says so), and cancel subscriptions yourself in Stripe if someone writes asking you to remove their account.
+- [ ] The paywall switches (the `paywall` row and `const STORE` in `index.html`) are set the way you want, and the "early access" wording in the Style Shop and welcome tour disappears once the paywall is on.
+- [ ] App Store and Google Play (only if you ship a store app): RevenueCat webhook tested, subscriptions cancellable from each store, Restore Purchase works, and each store's privacy label and data-safety form match the Privacy Policy.
