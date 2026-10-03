@@ -8,6 +8,7 @@ A calm student planner for courses, deadlines, study sessions and flashcards. It
 - **Plan Ahead:** a Timeline and a Schedule (classes, exams and events) in one tab.
 - **Availability blocks:** add work, shifts and placements (including overnight and rotating rosters), travel time, other commitments and protected time. Today's Plan only schedules into the free time left and shows when. Free.
 - **Crunch Forecast:** a third Plan Ahead view that colours every day and week of the term from calm to crunch, counting prep time before exams, papers and projects, so a week with three exams and a paper glows red weeks ahead. Tap a week for what is driving it, preview pulling work forward, and apply it with undo (school-synced tasks move their start date, not the due date). A card on Today and one gentle companion suggestion appear only for heavy weeks, once per week, and can be dismissed. Free, works offline, no AI.
+- **Quick capture:** add a task in seconds by typing a sentence (press C), sharing text or a link, a Shortcut or Siri link, or a photo of a whiteboard or slide with a due date. Clear sentences are added with Undo; anything unsure shows a one-tap check sheet. See SETUP-GUIDE, Quick Capture.
 - **Courses, grades and syllabi:** import a syllabus PDF, track grades, "What do I need?" and Rough Week Rescue.
 - **Flashcards and quizzes**, notes with stickers, files, and Search Everywhere.
 - **Focus timer** with sounds, and a study companion.

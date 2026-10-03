@@ -37,6 +37,8 @@ self.addEventListener("activate", e => {
 const timeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
 self.addEventListener("fetch", e => {
   const req = e.request, url = new URL(req.url);
+  // Quick capture: the Web Share Target (manifest share_target) POSTs shared text and photos here. Handled, never cached.
+  if (req.method === "POST" && url.origin === location.origin && /\/share-target$/.test(url.pathname)) { e.respondWith(sbcShare(req)); return; }
   if (req.method !== "GET" || !/^https?:$/.test(url.protocol)) return;
   if (req.headers.has("range") || req.headers.has("authorization")) return;   // never cache ranged or authenticated requests
   const isApp = url.origin === location.origin && /\/(index\.html)?$/.test(url.pathname);
@@ -227,3 +229,38 @@ self.addEventListener("message", e => {
     await sbwRenderAll();
   })().catch(() => {}));
 });
+
+// ---------- Quick capture: share target (Studyboard 1.12) ----------
+// Android, ChromeOS and desktop installs list Studyboard in the system Share menu. The shared text and photos are checked (images only, at most
+// 10 files, 15 MB each), kept for a few minutes in a private cache so the page can read them after the redirect, and the page deletes them as it reads.
+// Anything not read is swept out after 10 minutes. iPhone Safari web apps don't support share targets (the iOS app has a share extension instead).
+const SBC_STAGE = "sb-capture-stage", SBC_FILES = 10, SBC_BYTES = 15 * 1048576, SBC_TTL = 10 * 60 * 1000, SBC_IMG = /^image\/(png|jpe?g|webp|gif|heic|heif|avif|bmp)$/i;
+async function sbcSweep(c) {
+  const now = Date.now();
+  for (const k of await c.keys()) {
+    const m = k.url.match(/__share\/([a-z0-9]+)\//);
+    if (m && now - parseInt(m[1].slice(0, 8), 36) > SBC_TTL) await c.delete(k);
+  }
+}
+async function sbcShare(req) {
+  const base = new URL("./", self.registration.scope).href;
+  const go = q => Response.redirect(base + "?share=1" + q, 303);
+  try {
+    if (!/^multipart\/form-data/i.test(req.headers.get("content-type") || "")) return go("&err=type");
+    if (Number(req.headers.get("content-length") || 0) > SBC_FILES * SBC_BYTES + 1048576) return go("&err=big");
+    const fd = await req.formData();
+    const str = (k, n) => { const v = fd.get(k); return typeof v === "string" ? v.slice(0, n) : ""; };
+    const all = fd.getAll("files").filter(f => f && typeof f === "object" && typeof f.size === "number");
+    if (all.length > SBC_FILES) return go("&err=many");
+    if (all.some(f => f.size > SBC_BYTES)) return go("&err=big");
+    const files = all.filter(f => SBC_IMG.test(f.type || ""));
+    const id = Date.now().toString(36).padStart(8, "0") + Math.random().toString(36).slice(2, 8);
+    const c = await caches.open(SBC_STAGE);
+    await sbcSweep(c);
+    await c.put(base + "__share/" + id + "/meta", new Response(JSON.stringify({title: str("title", 300), text: str("text", 4000), url: str("url", 500), n: files.length, skipped: all.length - files.length}), {headers: {"content-type": "application/json"}}));
+    for (let i = 0; i < files.length; i++) {
+      await c.put(base + "__share/" + id + "/f" + i, new Response(files[i], {headers: {"content-type": files[i].type, "x-name": encodeURIComponent(String(files[i].name || "shared").slice(0, 120))}}));
+    }
+    return go("&sw=" + id);
+  } catch (err) { return go("&err=fail"); }
+}
