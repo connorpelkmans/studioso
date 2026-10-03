@@ -51,7 +51,8 @@ export function supabaseStore(db: any) {
       if (!users.length) return [];
       const { data, error } = await db.from("push_subscriptions").select("id,user_id,endpoint,p256dh,auth").in("user_id", users);
       if (error) throw error;
-      return data || [];
+      // Push services always use https; anything else is never contacted (stops a made-up address being called from here).
+      return (data || []).filter((s: Sub) => /^https:\/\/[^/\s]+/.test(String(s.endpoint || "")));
     },
     async dropSub(id: string) { await db.from("push_subscriptions").delete().eq("id", id); },
     async cleanup(now: number) { await db.from("reminder_queue").delete().lt("fire_at", new Date(now - KEEP_MS).toISOString()); },

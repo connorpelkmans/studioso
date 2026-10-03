@@ -1,0 +1,10 @@
+node_modules/
+dist/
+app/
+.env
+.env.*
+*.pem
+*.p12
+*.pfx
+*.key
+.claude/
