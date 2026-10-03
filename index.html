@@ -536,7 +536,7 @@ header.top{background:color-mix(in srgb,var(--paper) 86%,transparent);-webkit-ba
 .pomo-btn svg{width:20px;height:20px;flex:none}
 /* Navigation: floating dock on phones */
 nav.tabs{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));padding:6px;border:0;border-radius:20px;background:var(--spine);box-shadow:0 10px 30px rgba(8,20,50,.35)}
-nav.tabs .in{grid-template-columns:repeat(7,1fr)!important;max-width:760px;gap:1px}
+nav.tabs .in{grid-template-columns:repeat(6,1fr)!important;max-width:760px;gap:1px}
 nav.tabs .in button{color:var(--spine-ink);font:500 .66rem/1.1 var(--display)!important;padding:7px 1px 6px;border-radius:14px;gap:3px;width:100%}
 nav.tabs .in button svg{width:22px;height:22px;flex:none}
 nav.tabs .in button[aria-current="page"]{color:#fff;background:var(--spine-hi);font-weight:700}
@@ -1264,6 +1264,33 @@ button.pr-why:hover{background:var(--soft);color:var(--ink)}
   .bview[data-bview=board] .board-sec-head h2,.bview[data-bview=plan] .focus-head h2{display:none}
 }
 @media (min-width:980px){.bview-empty{display:none}}
+/* Plan Ahead's Timeline / Schedule switch: the same look as the phone's Today's Plan / Task Board switch, on every screen size */
+.pview-tabs{display:flex;gap:4px;padding:4px;margin:0 0 12px;background:var(--soft);border:1px solid var(--line);border-radius:14px;max-width:420px}
+.pview-tabs button{flex:1;border:0;background:transparent;border-radius:10px;padding:10px 8px;font:700 .95rem var(--display);color:var(--muted);display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
+.pview-tabs button[aria-selected=true]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+@media (max-width:979px){.pview-tabs{max-width:none}}
+/* App tour (coach marks) and the bug report form */
+.tour{position:fixed;inset:0;z-index:9000}
+.tour [hidden]{display:none!important}
+.tour-block{position:absolute;inset:0}
+.tour-spot{position:absolute;border-radius:14px;box-shadow:0 0 0 9999px rgba(8,14,30,.64),0 0 0 3px var(--accent-2,var(--accent));transition:left .25s,top .25s,width .25s,height .25s;pointer-events:none}
+.tour.center .tour-spot{left:50%;top:50%;width:0;height:0;box-shadow:0 0 0 9999px rgba(8,14,30,.64)}
+.tour-card{position:absolute;box-sizing:border-box;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:18px;box-shadow:0 18px 50px rgba(8,14,30,.4);padding:16px 18px 14px;width:340px;max-width:calc(100vw - 24px);display:grid;gap:8px;transition:left .25s,top .25s;outline:0}
+.tour.center .tour-card{left:50%;top:50%;transform:translate(-50%,-50%);width:min(380px,calc(100vw - 24px))}
+.tour-card h2{margin:0;font:700 1.1rem var(--display)}
+.tour-card p{margin:0;font-size:.92rem;line-height:1.45}
+.tour-step{color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.tour-dots{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:2px 0 0}
+.tour-dots span{width:7px;height:7px;border-radius:4px;background:var(--line);transition:width .2s,background .2s}
+.tour-dots span.past{background:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.tour-dots span.on{width:18px;background:var(--accent)}
+.tour-foot{display:flex;align-items:center;gap:8px;margin-top:4px}
+.tour-foot .spacer{flex:1}
+.tour-skip{border-color:transparent;background:transparent;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.tour-spot,.tour-card,.tour-dots span{transition:none}}
+.bug-shot{display:grid;gap:6px;justify-items:start}
+.bug-diag summary{cursor:pointer;font-size:.85rem;color:var(--muted)}
+
 
 /* ===== Style Shop v2 ===== */
 body{background-image:var(--bgimg,linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px));background-size:var(--bgsize,24px 24px);background-position:var(--bgpos,0 0);background-attachment:var(--bgatt,scroll)}
@@ -3870,8 +3897,7 @@ button.snd-head:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
 
 <nav class="tabs" aria-label="Views"><div class="nav-brand"><img src="data:image/webp;base64,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" alt="Studyboard" width="116" height="79"><div class="nav-date" id="navDate" aria-hidden="true"></div></div><div class="in">
   <button data-tab="board"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/></svg>Board</button>
-  <button data-tab="timeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4v16"/><rect x="5" y="5" width="9" height="3.5" rx="1.2"/><rect x="9" y="10.25" width="10" height="3.5" rx="1.2"/><rect x="7" y="15.5" width="7" height="3.5" rx="1.2"/></svg>Timeline</button>
-  <button data-tab="schedule"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/><rect x="6.5" y="11.5" width="4" height="3" rx=".6" fill="currentColor" stroke="none"/><rect x="13" y="15" width="4.5" height="3" rx=".6" fill="currentColor" stroke="none"/></svg>Schedule</button>
+  <button data-tab="plan" aria-label="Plan Ahead: Timeline and Schedule"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/><rect x="6.5" y="11.5" width="4" height="3" rx=".6" fill="currentColor" stroke="none"/><rect x="13" y="15" width="4.5" height="3" rx=".6" fill="currentColor" stroke="none"/></svg>Plan Ahead</button>
   <button data-tab="flashcards"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="14" height="13" rx="2"/><path d="M7 4h12a2 2 0 0 1 2 2v11"/><path d="M7 12h6M7 15.5h4"/></svg>Flashcards</button>
   <button data-tab="notes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v10l-6 6H4z"/><path d="M14 20v-6h6"/></svg>Notes</button>
   <button data-tab="files"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>Files</button>
@@ -3925,6 +3951,15 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 /* ---------- Hooks: how the 1.11 feature modules plug into the app ----------
    hook(name, fn) registers; fire(name, ...args) calls every fn and returns their results. VIEWS[tab] adds a page. */
 const HOOK = {}, VIEWS = {};
+/* Recent errors, kept in memory only (never saved or sent on their own), so a bug report can say what went wrong. */
+const ERRLOG = [];
+(() => {
+  const add = (k, m) => { try { ERRLOG.push({t: Date.now(), k, m: String(m || "").slice(0, 240)}); if (ERRLOG.length > 15) ERRLOG.shift(); } catch(e) {} };
+  window.addEventListener("error", e => add("error", (e.message || "error") + (e.filename ? " @" + String(e.filename).split("/").pop().split("?")[0] + ":" + e.lineno : "")));
+  window.addEventListener("unhandledrejection", e => add("promise", e.reason && e.reason.message || e.reason));
+  const ce = console.error;
+  console.error = function(...a){ add("console", a.map(x => x instanceof Error ? x.message : typeof x === "string" ? x : x && x.message || "").join(" ")); return ce.apply(this, a); };
+})();
 const hook = (name, fn) => { (HOOK[name] = HOOK[name] || []).push(fn); };
 const fire = (name, ...a) => (HOOK[name] || []).map(fn => { try { return fn(...a); } catch(e) { console.warn("hook " + name, e); return undefined; } });
 const clone = o => o == null ? o : JSON.parse(JSON.stringify(o));
@@ -3976,6 +4011,7 @@ function fmtTime(t){ const [h,m] = t.split(":").map(Number); const d = new Date(
 /* ---------- State ---------- */
 let state = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, settings:{capacity:15}, updated:0};
 const ui = {tab:"board", courseId:null, filter:"all", q:"", focusOpen:true, showOldDone:false,
+  planView: (() => { try { return localStorage.getItem("studyboard:planview") === "schedule" ? "schedule" : "timeline"; } catch(e) { return "timeline"; } })(),
   tlMode:"bars", tlZoom:"month", tlScroll:null, tlJump:true, calMonth:null, calDay:null,
   groupBy: (() => { try { return localStorage.getItem("coursework:group") || "none"; } catch(e) { return "none"; } })(), fCourse:"all", fFolder:"", fSort:"date"};
 const caps = {downloads:null, assets:null};
@@ -7495,6 +7531,7 @@ document.addEventListener("change", e => {
 });
 
 const AI_ACTS = {
+  "plan-view": el => { const t = el.dataset.id === "schedule" ? "schedule" : "timeline"; if (t === "timeline" && ui.tab !== "timeline") ui.tlJump = true; ui.tab = t; render(); window.scrollTo(0, 0); },
   "bview": el => { ui.bview = el.dataset.id; try { localStorage.setItem("studyboard:bview", ui.bview); } catch(e) {} render(); window.scrollTo(0, 0); },
   "qa-add": () => qaAdd(), "qa-full": () => qaFull(), "qa-cancel": () => { ui.qa = null; render(); },
   "qa-rm": el => { if (ui.qa) { ui.qa.items.splice(Number(el.dataset.i), 1); if (!ui.qa.items.length) ui.qa = null; render(); } },
@@ -9105,6 +9142,17 @@ function viewSchedule(){
     <div class="sch-legend mini"><span class="lg k-lecture">Lecture</span><span class="lg k-lab">Lab</span><span class="lg k-discussion">Discussion</span><span class="lg k-officehours">Office Hours</span><span class="lg k-event">Event</span><span class="lg sch-exam">Exam or Quiz</span></div>`;
 }
 
+/* ---------- Plan Ahead: Timeline and Schedule share one tab ---------- */
+function planViewSet(t){
+  if (ui.planView === t) return;
+  ui.planView = t;
+  try { localStorage.setItem("studyboard:planview", t); } catch(e) {}
+}
+function planSwitchHtml(){
+  const t = ui.tab;
+  return `<div class="pview-tabs" role="tablist" aria-label="Plan Ahead view"><button role="tab" data-act="plan-view" data-id="timeline" aria-selected="${t === "timeline"}">Timeline</button><button role="tab" data-act="plan-view" data-id="schedule" aria-selected="${t === "schedule"}">Schedule</button></div>`;
+}
+
 /* ---------- Render ---------- */
 let renderQueued = false, renderBlocked = false;
 function scheduleRender(){
@@ -9119,14 +9167,18 @@ function render(){
   computeFocus();
   { const nd = new Date(); $("#navDate").textContent = nd.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"}); }
   { const sk = streakOf(); $("#todayLabel").innerHTML = `<span class="wd">${esc(new Date().toLocaleDateString(undefined, {weekday:"long"}))}</span> ${esc(new Date().toLocaleDateString(undefined, {month:"long", day:"numeric"}))}${sk.cur >= 2 ? `<button class="streak-chip" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${sk.cur}</button>` : ""}`; }
-  $$("nav.tabs button").forEach(b => b.setAttribute("aria-current", b.dataset.tab === ui.tab ? "page" : "false"));
+  // "plan" (Plan Ahead) is one tab with two views, Timeline and Schedule. The rest of the app can still say "timeline" or "schedule".
+  if (ui.tab === "plan" || ui.tab === "calendar") ui.tab = ui.planView;
+  if (ui.tab === "timeline" || ui.tab === "schedule") planViewSet(ui.tab);
+  const navTab = ui.tab === "timeline" || ui.tab === "schedule" ? "plan" : ui.tab;
+  $$("nav.tabs button").forEach(b => b.setAttribute("aria-current", b.dataset.tab === navTab ? "page" : "false"));
   document.body.classList.toggle("wide", ui.tab !== "courses");
   const v = $("#view");
   const y = window.scrollY;
   const nt = $("#noteText"), ntVal = nt ? nt.value : null, ntFocus = nt && document.activeElement === nt, ntSel = nt ? [nt.selectionStart, nt.selectionEnd] : null;
   const nbs = $("#nbScroll"), nbPos = nbs ? [nbs.scrollLeft, nbs.scrollTop] : null;
   const bds = $$(".board").map(b => b.scrollLeft);
-  v.innerHTML = VIEWS[ui.tab] ? VIEWS[ui.tab]() : ui.tab === "archive" ? viewArchive() : ui.tab === "schedule" ? viewSchedule() : ui.tab === "timeline" ? viewTimeline() : ui.tab === "courses" ? viewCourses() : ui.tab === "files" ? viewFiles() : ui.tab === "notes" ? viewNotes() : ui.tab === "flashcards" ? viewFlashcards() : viewBoard();
+  v.innerHTML = (ui.tab === "timeline" || ui.tab === "schedule" ? planSwitchHtml() : "") + (VIEWS[ui.tab] ? VIEWS[ui.tab]() : ui.tab === "archive" ? viewArchive() : ui.tab === "schedule" ? viewSchedule() : ui.tab === "timeline" ? viewTimeline() : ui.tab === "courses" ? viewCourses() : ui.tab === "files" ? viewFiles() : ui.tab === "notes" ? viewNotes() : ui.tab === "flashcards" ? viewFlashcards() : viewBoard());
   $("#fab").style.display = (VIEWS[ui.tab] || ui.tab === "archive" || (ui.tab === "courses" && ui.courseId) || ui.tab === "files" || ui.tab === "notes" || ui.tab === "flashcards") ? "none" : "";
   document.body.dataset.view = ui.tab;
   const nbs2 = $("#nbScroll"); if (nbs2 && nbPos) { nbs2.scrollLeft = nbPos[0]; nbs2.scrollTop = nbPos[1]; }
@@ -11992,9 +12044,11 @@ document.addEventListener("click", e => {
   const tab = e.target.closest("[data-tab]");
   if (tab) {
     if (tab.dataset.tab === "flashcards" && ui.tab === "flashcards") { ui.fc = null; ui.deckId = null; }
-    if (tab.dataset.tab === "timeline" && ui.tab !== "timeline") ui.tlJump = true;
-    if (tab.dataset.tab === ui.tab && ui.tab === "courses") ui.courseId = null;
-    ui.tab = tab.dataset.tab; if (ui.tab !== "courses") ui.courseId = null;
+    let want = tab.dataset.tab;
+    if (want === "plan" || want === "calendar") want = ui.tab === "timeline" || ui.tab === "schedule" ? ui.tab : ui.planView;
+    if (want === "timeline" && ui.tab !== "timeline") ui.tlJump = true;
+    if (want === ui.tab && ui.tab === "courses") ui.courseId = null;
+    ui.tab = want; if (ui.tab !== "courses") ui.courseId = null;
     render(); window.scrollTo(0, 0); return;
   }
   if (ui.tab === "notes" && !e.target.closest("dialog")) {
@@ -26162,6 +26216,8 @@ var MAJ_THEMES = [];
     add("New Flashcard Deck", "Start a deck for a course", tabAct("flashcards", "fc-new"), "create cards");
     add("New Note", "Pin a sticky note to your Notes board", tabAct("notes", "note-new"), "create sticky");
     add("Add an Event", "Something on your schedule, like a shift or appointment", tabAct("schedule", "sch-add"), "calendar new create");
+    add("Report a Bug or Send Feedback", "Tell us what's broken or what to add", () => { if (window.SBFEEDBACK) window.SBFEEDBACK.open(); }, "bug issue problem feedback idea help support");
+    add("Take the App Tour", "A one-minute walk around Studyboard", () => { if (window.SBTOUR) window.SBTOUR.start(); }, "tour help guide orientation tutorial");
     add("Import a Calendar", "From Apple Calendar, Google Calendar or Outlook", tabAct("schedule", "sch-ics"), "ics");
     add("Review Due Flashcards", "Study every card that's due today", act("fc-review-all"), "study spaced");
     add("Focus Timer", "Pomodoro timer for a study session", act("pomo-open"), "pomodoro study");
@@ -27609,6 +27665,395 @@ var MAJ_THEMES = [];
     if (act !== "ob-replay") return false;
     if (dlg.open) dlg.close();
     setTimeout(start, 40);
+    return true;
+  });
+})();
+
+
+/* ===== module: 49-feedback.js ===== */
+/* Report a Bug or Send Feedback. The report goes to the bug_reports table (supabase-bug-reports.sql), which only the app's
+   owner can read. It works signed in or out. With no connection (or a server hiccup) the report waits on this device and
+   is sent later. Diagnostics hold no personal content: version, browser, current page, plan and recent error messages. */
+(() => {
+  const APP_VERSION = "1.12.4";   // keep in step with package.json
+  const QKEY = "studyboard:bugq", CID = "studyboard:bugcid", LASTSEND = "studyboard:bugsent";
+  const MAX_SHOT = 280000;        // characters of the screenshot data URL
+  let shot = "", busy = false, flushing = false;
+
+  const readQ = () => { try { const q = JSON.parse(localStorage.getItem(QKEY) || "[]"); return Array.isArray(q) ? q : []; } catch (e) { return []; } };
+  const writeQ = q => { try { if (q.length) localStorage.setItem(QKEY, JSON.stringify(q.slice(-5))); else localStorage.removeItem(QKEY); return true; } catch (e) { return false; } };
+  const clientId = () => { try { let c = localStorage.getItem(CID); if (!c) { c = uid() + uid(); localStorage.setItem(CID, c); } return c; } catch (e) { return "none"; } };
+  const server = () => { const c = sbConfig() || (SB_HOSTED ? SB_DEFAULT : null); return c && c.url && c.key ? {url: String(c.url).replace(/\/+$/, ""), key: c.key} : null; };
+
+  function diagnostics(){
+    const d = {version: APP_VERSION, tab: ui.tab, at: new Date().toISOString()};
+    try { d.ua = String(navigator.userAgent || "").slice(0, 220); } catch (e) {}
+    try { d.platform = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || ""; } catch (e) {}
+    try { d.screen = `${innerWidth}x${innerHeight} @${devicePixelRatio || 1}x`; d.lang = navigator.language; } catch (e) {}
+    try { d.standalone = !!(matchMedia("(display-mode: standalone)").matches || navigator.standalone); d.online = navigator.onLine !== false; } catch (e) {}
+    try { if (DESK) d.desktop = {platform: DESK.platform, version: DESK.version}; } catch (e) {}
+    try { d.plan = window.StudyboardPlan ? window.StudyboardPlan.tier() : ""; } catch (e) {}
+    try { d.signedIn = !!sbUser; d.theme = document.documentElement.dataset.skin || "classic"; d.dark = document.documentElement.dataset.theme || ""; } catch (e) {}
+    d.errors = ERRLOG.slice(-10).map(e => ({ago: Math.round((Date.now() - e.t) / 1000) + "s", k: e.k, m: e.m}));
+    return d;
+  }
+
+  /* ---------- Sending ---------- */
+  // client_ref only stops a queued report being sent twice, so on the wire it travels inside diagnostics
+  const wire = r => { const w = Object.assign({}, r); w.diagnostics = Object.assign({}, r.diagnostics, {ref: r.client_ref}); delete w.client_ref; return w; };
+  async function post(row){
+    const sv = server();
+    if (!sv) return "offline";
+    const headers = {apikey: sv.key, "Content-Type": "application/json", Prefer: "return=minimal"};
+    try { if (sb && sbUser) { const {data} = await sb.auth.getSession(); const t = data && data.session && data.session.access_token; if (t) headers.Authorization = "Bearer " + t; } } catch (e) {}
+    let res;
+    try { res = await fetch(sv.url + "/rest/v1/bug_reports", {method: "POST", headers, body: JSON.stringify(wire(row))}); }
+    catch (e) { return "offline"; }
+    if (res.ok) return "sent";
+    let body = ""; try { body = await res.text(); } catch (e) {}
+    if (res.status === 404 || /PGRST205|42P01|does not exist/i.test(body)) return "missing";
+    if (res.status === 429 || /SB_RATE/.test(body)) return "limited";
+    if (res.status >= 500 || res.status === 408) return "offline";
+    return "rejected";
+  }
+  async function flush(){
+    if (flushing || navigator.onLine === false) return;
+    let q = readQ(); if (!q.length) return;
+    flushing = true;
+    try {
+      let sent = 0;
+      for (const row of q.slice()) {
+        const r = await post(row);
+        if (r === "offline" || r === "limited") break;
+        q = q.filter(x => x !== row && x.client_ref !== row.client_ref);   // sent, or can never be accepted: drop it
+        writeQ(q);
+        if (r === "sent") sent++;
+      }
+      if (sent) toast(`Thanks! ${sent === 1 ? "Your saved report was" : sent + " saved reports were"} sent.`);
+    } finally { flushing = false; }
+  }
+  window.addEventListener("online", () => setTimeout(flush, 1500));
+  hook("boot", () => setTimeout(flush, 8000));
+
+  /* ---------- Screenshot ---------- */
+  function shrink(file){
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file), img = new Image();
+      img.onload = () => {
+        try {
+          let w = img.naturalWidth, h = img.naturalHeight, k = Math.min(1, 1100 / Math.max(w, h));
+          let out = "";
+          for (let tries = 0; tries < 5; tries++) {
+            const c = document.createElement("canvas"); c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+            const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
+            out = c.toDataURL("image/jpeg", Math.max(0.4, 0.72 - tries * 0.08));
+            if (out.length <= MAX_SHOT) break;
+            k *= 0.75;
+          }
+          URL.revokeObjectURL(url);
+          out.length <= MAX_SHOT ? resolve(out) : reject(new Error("big"));
+        } catch (e) { URL.revokeObjectURL(url); reject(e); }
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("img")); };
+      img.src = url;
+    });
+  }
+
+  /* ---------- The form ---------- */
+  function open(opts){
+    opts = opts || {};
+    shot = ""; busy = false;
+    const email = (sbUser && sbUser.email) || "";
+    const queued = readQ().length;
+    openSheet(`<form class="sheet bug-sheet">${head("Report a Bug or Send Feedback")}
+      <div class="sheet-body">
+        <p class="mini" style="margin:0">Tell us what went wrong, or what would make Studyboard better. Every report is read by the person who makes the app.</p>
+        ${queued ? `<p class="mini" style="margin:0">${queued} earlier report${queued === 1 ? " is" : "s are"} waiting to send when you're online.</p>` : ""}
+        <label class="f">What is it about?<select name="cat">${[["bug", "Something is broken"], ["idea", "An idea or feature request"], ["confusing", "Something is confusing"], ["other", "Something else"]].map(([v, l]) => `<option value="${v}" ${v === (opts.cat || "bug") ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+        <label class="f"><span class="lh">What happened?<span class="req" aria-hidden="true">*</span></span><textarea name="msg" id="bugMsg" rows="4" maxlength="2000" placeholder="Describe the problem or your idea. What did you expect to happen?" data-noenter autofocus></textarea></label>
+        <label class="f"><span class="lh">Steps to make it happen <span class="hint">optional</span></span><textarea name="steps" rows="3" maxlength="1500" placeholder="1. Go to… 2. Tap… 3. See…" data-noenter></textarea></label>
+        <div class="bug-shot">
+          <label class="btn small" style="cursor:pointer">Attach a Screenshot<input type="file" id="bugFile" accept="image/*" class="sr"></label>
+          <span class="mini" id="bugShotNote">Optional. It may show your tasks or notes, so only add one you're happy to share.</span>
+          <div id="bugShotPrev"></div>
+        </div>
+        <label class="mi-check"><input type="checkbox" name="contact" id="bugContact"> You can email me about this</label>
+        <label class="f" id="bugMailRow" style="display:none">Your email<input type="email" name="email" id="bugMail" maxlength="200" value="${esc(email)}" placeholder="you@example.com" autocomplete="email" data-noenter></label>
+        <details class="bug-diag"><summary>What gets sent with it</summary><p class="mini" style="margin:6px 0">Only this technical info, never your tasks, notes or files:</p><pre class="mini" id="bugDiag" style="white-space:pre-wrap;word-break:break-word;max-height:160px;overflow:auto;margin:0"></pre></details>
+        <p class="mini" id="bugMsgOut" role="status" style="margin:0"></p>
+      </div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" data-submit>Send Report</button></div>
+    </form>`, () => { submit(); return false; });
+    const diag = diagnostics();
+    $("#bugDiag").textContent = Object.entries(diag).filter(([k]) => k !== "errors" && k !== "ua").map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`).join("\n") + `\nrecent errors: ${diag.errors.length ? diag.errors.map(e => e.m).join(" | ") : "none"}\nbrowser: ${diag.ua || ""}`;
+    const contact = $("#bugContact");
+    contact.addEventListener("change", () => { $("#bugMailRow").style.display = contact.checked ? "" : "none"; if (contact.checked) $("#bugMail").focus(); });
+    $("#bugFile").addEventListener("change", async e => {
+      const f = e.target.files && e.target.files[0]; if (!f) return;
+      const note = $("#bugShotNote");
+      note.textContent = "Preparing the picture…";
+      try {
+        shot = await shrink(f);
+        $("#bugShotPrev").innerHTML = `<div style="display:flex;align-items:center;gap:10px;margin-top:6px"><img src="${shot}" alt="Screenshot preview" style="max-width:120px;max-height:90px;border-radius:8px;border:1px solid var(--line)"><button type="button" class="btn small" id="bugShotX">Remove</button></div>`;
+        $("#bugShotX").addEventListener("click", () => { shot = ""; $("#bugShotPrev").innerHTML = ""; note.textContent = "Screenshot removed."; $("#bugFile").value = ""; });
+        note.textContent = "Screenshot attached.";
+      } catch (err) { shot = ""; $("#bugShotPrev").innerHTML = ""; note.textContent = "Couldn't use that picture. Try a smaller image."; }
+      e.target.value = "";
+    });
+  }
+
+  async function submit(){
+    if (busy) return;
+    const f = dlg.querySelector("form.bug-sheet"); if (!f) return;
+    const out = $("#bugMsgOut"), say = m => { if (out) out.textContent = m; };
+    const msg = String(f.msg.value || "").trim();
+    if (msg.length < 5) { say("Please describe what happened (a few words is enough)."); f.msg.focus(); return; }
+    const wantMail = f.contact.checked, mail = String(f.email.value || "").trim();
+    if (wantMail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) { say("That email address doesn't look right. Fix it, or untick the email box."); f.email.focus(); return; }
+    let last = 0; try { last = Number(localStorage.getItem(LASTSEND)) || 0; } catch (e) {}
+    if (Date.now() - last < 15000) { say("One moment, you just sent a report. Try again in a few seconds."); return; }
+    const row = {category: f.cat.value, message: msg, steps: String(f.steps.value || "").trim() || null, contact_email: wantMail ? mail.slice(0, 200) : null,
+      diagnostics: diagnostics(), screenshot: shot || null, client_id: clientId(), client_ref: uid()};
+    busy = true;
+    const btn = f.querySelector("[data-submit]"); btn.disabled = true; btn.textContent = "Sending…"; say("");
+    const res = await post(row);
+    busy = false;
+    if (res === "sent") { try { localStorage.setItem(LASTSEND, String(Date.now())); } catch (e) {} if (dlg.open) dlg.close(); toast("Thank you! Your report was sent."); return; }
+    if (res === "offline" || !server()) {
+      const q = readQ(); q.push(row);
+      if (writeQ(q)) { try { localStorage.setItem(LASTSEND, String(Date.now())); } catch (e) {} if (dlg.open) dlg.close(); toast("You're offline. Your report is saved and will be sent when you're back online."); }
+      else { btn.disabled = false; btn.textContent = "Send Report"; say("Couldn't save your report on this device. Check your connection and try again."); }
+      return;
+    }
+    btn.disabled = false; btn.textContent = "Send Report";
+    say(res === "missing" ? srvSetup("Sending reports", "supabase-bug-reports.sql")
+      : res === "limited" ? "You've sent quite a few reports lately. Please try again in an hour."
+      : "That report couldn't be sent. If it has a screenshot, try again without it.");
+  }
+
+  window.SBFEEDBACK = {open, flush, diagnostics, pending: () => readQ().length};
+  hook("menu", () => `<button data-act="bug-open" data-group="app"><span>Report a Bug or Send Feedback<span class="sub">Something broken, confusing or missing? Tell us, with an optional screenshot${readQ().length ? ` (${readQ().length} waiting to send)` : ""}</span></span></button>`);
+  hook("act", act => {
+    if (act !== "bug-open") return false;
+    if (dlg.open) dlg.close();
+    setTimeout(open, 40);
+    return true;
+  });
+})();
+
+
+/* ===== module: 49-apptour.js ===== */
+/* App Tour: a coach-mark walk around the app. A dimmed page with one spotlight, a card that says what it is, and Back / Next.
+   It shows once, right after a brand-new person finishes (or closes) the welcome setup above. Anyone who already has data
+   never sees it on its own. It can be replayed from Settings, Search Everywhere and the end of the welcome tour.
+   A step whose target isn't on screen (a hidden tab, an empty page) is skipped, so the tour never points at nothing. */
+(() => {
+  const KEY = "studyboard:tour", OB = "sb:onboarded";
+  const flag = () => { try { return localStorage.getItem(KEY) || ""; } catch (e) { return "done"; } };
+  const setFlag = v => { try { localStorage.setItem(KEY, v); } catch (e) {} };
+  const phone = () => !!(window.matchMedia && matchMedia("(max-width:719px)").matches);
+  const NAV = t => `nav.tabs [data-tab="${t}"]`;
+  const SETTINGS = ['nav.tabs .nav-tool[data-act="menu"]', 'header.top [data-act="menu"]'];
+
+  // tab: page to show first (ui.tab). sel: where to point, first one that is on screen wins. No sel: a centred card.
+  const STEPS = [
+    {id: "welcome", title: "Welcome to Studyboard", text: () => "A quick tour, about a minute. It shows where everything lives. Use the arrow keys or the buttons, and skip any time.", tab: "board"},
+    {id: "add", title: "Add Your Work", tab: "board", sel: [".qa-wrap .qa-bar", "#fab"],
+      text: () => "Type a sentence like \"Essay due Friday 5pm\" and press Enter. Studyboard works out the course, date and type. The + button opens the full task form."},
+    {id: "today", title: "Today's Plan and the Board", tab: "board", sel: [".bview-tabs", ".focus.plan", ".board-sec-head", NAV("board")],
+      text: () => phone() ? "Switch between Today's Plan, what to work on and for how long, and your Task Board of every task by status." : "Today's Plan lines up what to work on next and for how long. Your Task Board with every task sits below it."},
+    {id: "plan", title: "Plan Ahead", tab: "timeline", sel: [NAV("plan")],
+      text: () => "Timeline and Schedule now share one tab. See every deadline across your courses, and your weekly classes and events."},
+    {id: "planswitch", title: "Timeline or Schedule", tab: "timeline", sel: [".pview-tabs"],
+      text: () => "Tap here to switch. Timeline shows deadlines as bars or a month calendar. Schedule is your week of classes, with room for shifts and appointments. Studyboard remembers your choice."},
+    {id: "cards", title: "Flashcards and Quizzes", tab: "flashcards", sel: [NAV("flashcards")],
+      text: () => "Make decks by hand or have AI build cards and practice quizzes from your notes and readings. Study with spaced repetition so reviews come due at the right time."},
+    {id: "notes", title: "Notes and Stickers", tab: "notes", sel: [NAV("notes")],
+      text: () => "A sticky-note board for quick thoughts. Pin notes to tasks, colour them and decorate them with stickers."},
+    {id: "files", title: "Files", tab: "files", sel: [NAV("files")],
+      text: () => "Keep readings, slides and handouts with the course they belong to, and attach them to tasks."},
+    {id: "courses", title: "Courses and School Sites", tab: "courses", sel: [NAV("courses")],
+      text: () => "Add your courses with class times and grade weights. To pull in deadlines automatically, connect Brightspace, Canvas or Blackboard from Settings, under School and Groups."},
+    {id: "focus", title: "Focus Timer", tab: "board", sel: ["#navPomo", "#pomoBtn"],
+      text: () => "Start a focus session on any task. Time you spend is counted toward the task and your streak."},
+    {id: "groups", title: "Study Groups", tab: "board", sel: [NAV("groups")],
+      text: () => "Study with classmates: share decks, notes and tasks, and chat in a group. Groups are also in Settings under School and Groups."},
+    {id: "settings", title: "Settings, AI and Pro", tab: "board", sel: SETTINGS,
+      text: () => "This is the control centre: your study companion and AI helper, themes and dark mode, reminders, calendar sync, backups, sign in and Studyboard Pro."},
+    {id: "help", title: "Found a Bug? Tell Us", tab: "board", sel: SETTINGS,
+      text: () => "Open Settings and choose Report a Bug or Send Feedback. It sends what happened, with an optional screenshot, straight to the people who make Studyboard. You can replay this tour from there too."},
+    {id: "done", title: "You're Ready", tab: "board",
+      text: () => "That's the tour. Add your first task and Today's Plan takes it from there."}
+  ];
+
+  let steps = [], i = 0, root = null, spot = null, card = null, tgt = null, opened = null, saved = null, onKey = null, raf = 0, active = false;
+
+  const visible = el => { if (!el || !el.isConnected) return false; const r = el.getBoundingClientRect(); if (r.width < 2 || r.height < 2 || !el.getClientRects().length) return false; const cs = getComputedStyle(el); return cs.visibility !== "hidden" && cs.display !== "none"; };
+  const find = s => { for (const q of s.sel || []) { let el = null; try { el = document.querySelector(q); } catch (e) {} if (visible(el)) return el; } return null; };
+  const gotoTab = t => {
+    if (!t) return;
+    if (ui.tab !== t) { if (t === "flashcards") { ui.fc = null; ui.deckId = null; } if (t !== "courses") ui.courseId = null; if (t === "timeline") ui.tlJump = true; ui.tab = t; render(); window.scrollTo(0, 0); }
+  };
+
+  /* ---------- Drawing ---------- */
+  function build(){
+    root = document.createElement("div"); root.id = "sbTour"; root.className = "tour";
+    root.innerHTML = `<div class="tour-block"></div><div class="tour-spot" aria-hidden="true"></div>
+      <div class="tour-card" role="dialog" aria-modal="true" aria-labelledby="tourT" aria-describedby="tourD" tabindex="-1">
+        <div class="tour-step mini" id="tourN"></div><h2 id="tourT"></h2><p id="tourD"></p>
+        <div class="tour-dots" id="tourDots" aria-hidden="true"></div>
+        <div class="tour-foot"><button type="button" class="btn small tour-skip" data-tour="skip">Skip Tour</button><span class="spacer"></span><button type="button" class="btn small" data-tour="back">Back</button><button type="button" class="btn small primary" data-tour="next">Next</button></div>
+      </div>`;
+    document.body.appendChild(root);
+    spot = root.querySelector(".tour-spot"); card = root.querySelector(".tour-card");
+    root.addEventListener("click", e => {
+      const b = e.target.closest("[data-tour]"); if (!b) return;
+      e.preventDefault(); e.stopPropagation();
+      const a = b.dataset.tour;
+      if (a === "next") move(1); else if (a === "back") move(-1); else finish(false);
+    });
+    onKey = e => {
+      if (!active) return;
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); finish(false); return; }
+      if (e.key === "ArrowRight" || (e.key === "Enter" && !e.target.closest("button"))) { e.preventDefault(); e.stopPropagation(); move(1); return; }
+      if (e.key === "ArrowLeft") { e.preventDefault(); e.stopPropagation(); move(-1); return; }
+      if (e.key === "Tab") {   // keep focus inside the card
+        const f = [...card.querySelectorAll("button:not([disabled])")].filter(b => b.offsetParent);
+        if (!f.length) return;
+        const first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && (document.activeElement === first || !card.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && (document.activeElement === last || !card.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener("keydown", onKey, true);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+  }
+
+  function place(){
+    if (!active || !card) return;
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => {
+      if (!active || !card) return;
+      const vw = innerWidth, vh = innerHeight, pad = 8, cw = Math.min(card.offsetWidth || 340, vw - 24), ch = card.offsetHeight || 200;
+      if (!tgt || !visible(tgt)) {
+        root.classList.add("center"); spot.style.cssText = ""; card.style.cssText = "";
+        return;
+      }
+      root.classList.remove("center");
+      const r = tgt.getBoundingClientRect();
+      const sx = Math.max(4, r.left - pad), sy = Math.max(4, r.top - pad), sw = Math.min(vw - 8, r.width + pad * 2), sh = Math.min(vh - 8, r.height + pad * 2);
+      spot.style.cssText = `left:${sx}px;top:${sy}px;width:${sw}px;height:${sh}px`;
+      let x, y;
+      if (phone() || vw < 560) {
+        // Phones: the card docks to the far edge from the spotlight so it never covers it
+        x = Math.round((vw - cw) / 2);
+        const mid = sy + sh / 2;
+        y = mid > vh / 2 ? Math.max(12, sy - ch - 14) : Math.min(vh - ch - 12, sy + sh + 14);
+        if (mid > vh / 2 && sy - ch - 14 < 12) y = 12;
+      } else {
+        const room = {right: vw - (sx + sw) - 16, left: sx - 16, below: vh - (sy + sh) - 16, above: sy - 16};
+        if (room.right >= cw) { x = sx + sw + 14; y = sy + sh / 2 - ch / 2; }
+        else if (room.below >= ch) { x = sx + sw / 2 - cw / 2; y = sy + sh + 14; }
+        else if (room.above >= ch) { x = sx + sw / 2 - cw / 2; y = sy - ch - 14; }
+        else if (room.left >= cw) { x = sx - cw - 14; y = sy + sh / 2 - ch / 2; }
+        else { x = vw - cw - 16; y = vh - ch - 16; }
+        x = Math.max(12, Math.min(vw - cw - 12, x)); y = Math.max(12, Math.min(vh - ch - 12, y));
+      }
+      card.style.cssText = `left:${Math.round(x)}px;top:${Math.round(y)}px;width:${cw}px`;
+    });
+  }
+
+  function show(){
+    const s = steps[i]; if (!s) { finish(true); return; }
+    gotoTab(s.tab);
+    tgt = find(s);
+    // Targets inside the page (not the fixed side or bottom bars) need to be scrolled into view
+    if (tgt && !tgt.closest("nav,header,#fab")) { try { tgt.scrollIntoView({block: "center", behavior: "auto"}); } catch (e) {} }
+    $("#tourN").textContent = `${i + 1} of ${steps.length}`;
+    $("#tourT").textContent = s.title;
+    $("#tourD").textContent = s.text();
+    $("#tourDots").innerHTML = steps.map((_, k) => `<span class="${k === i ? "on" : k < i ? "past" : ""}"></span>`).join("");
+    const back = card.querySelector('[data-tour="back"]'), next = card.querySelector('[data-tour="next"]'), skip = card.querySelector('[data-tour="skip"]');
+    back.hidden = i === 0; next.textContent = i === steps.length - 1 ? "Done" : i === 0 ? "Start" : "Next";
+    skip.hidden = i === steps.length - 1;
+    root.classList.toggle("last", i === steps.length - 1);
+    place(); setTimeout(place, 120); setTimeout(place, 400);
+    try { next.focus({preventScroll: true}); } catch (e) { next.focus(); }
+  }
+
+  // dir 1 or -1. A step whose target can't be found is taken out of the tour (the dots shrink) and the next one is tried.
+  function move(dir){
+    if (!active) return;
+    let k = i + dir;
+    while (k >= 0 && k < steps.length) {
+      const s = steps[k];
+      if (!s.sel) break;
+      gotoTab(s.tab);
+      if (find(s)) break;
+      steps.splice(k, 1);
+      if (dir < 0) k--;
+    }
+    if (k >= steps.length) { finish(true); return; }
+    if (k < 0) k = 0;
+    i = k; show();
+  }
+
+  function finish(completed){
+    if (!active) return;
+    active = false;
+    cancelAnimationFrame(raf);
+    document.removeEventListener("keydown", onKey, true);
+    window.removeEventListener("resize", place);
+    window.removeEventListener("scroll", place, true);
+    if (root) root.remove();
+    root = spot = card = tgt = null;
+    setFlag("done");
+    if (saved && saved.planView) { try { planViewSet(saved.planView); } catch (e) {} }
+    ui.tab = "board"; ui.courseId = null; render(); window.scrollTo(0, 0);
+    if (opened && opened.isConnected) { try { opened.focus({preventScroll: true}); } catch (e) {} }
+    saved = null; opened = null;
+    if (completed) setTimeout(() => { const q = $("#qaIn"); if (q && !dlg.open) { const bar = q.closest(".qa-bar"); if (bar) { bar.classList.add("ob-glow"); setTimeout(() => bar.classList.remove("ob-glow"), 2600); } } }, 200);
+  }
+
+  function start(){
+    if (active) return;
+    if (dlg.open) dlg.close();
+    try { const p = $("#pomoDlg"); if (p && p.open) p.close(); } catch (e) {}
+    active = true; opened = document.activeElement;
+    saved = {planView: ui.planView};
+    // Take out every step that can't be shown on this screen (a hidden tab, an empty page) so the dots are right
+    steps = STEPS.filter(s => { if (!s.sel) return true; gotoTab(s.tab); return !!find(s); });
+    i = 0;
+    build();
+    show();
+  }
+
+  /* ---------- When to show it on its own ---------- */
+  let poll = 0, sawSetup = false;
+  const setupOpen = () => dlg.open && !!dlg.querySelector(".sheet.ob");
+  function check(){
+    if (flag() === "done") { stop(); return; }
+    if (setupOpen()) { sawSetup = true; return; }
+    // The welcome setup never appeared and was already finished or skipped earlier: an existing person, so no tour
+    try { if (!sawSetup && localStorage.getItem(OB)) { setFlag("done"); stop(); return; } } catch (e) {}
+    if (!sawSetup) return;
+    if (dlg.open || document.hidden || document.getElementById("qod") || active) return;
+    stop(); setTimeout(() => { if (flag() !== "done" && !dlg.open) { start(); } }, 700);
+  }
+  function stop(){ clearInterval(poll); poll = 0; }
+  hook("boot", () => {
+    if (flag() === "done") return;
+    poll = setInterval(check, 700);
+  });
+
+  /* ---------- Settings row ---------- */
+  window.SBTOUR = {start, active: () => active};
+  hook("menu", () => `<button data-act="tour-open" data-group="app"><span>Take the App Tour<span class="sub">A one-minute walk around the tabs and controls</span></span></button>`);
+  hook("act", act => {
+    if (act !== "tour-open") return false;
+    if (dlg.open) dlg.close();
+    setTimeout(start, 60);
     return true;
   });
 })();
@@ -36996,7 +37441,7 @@ var TP_DATA = [];
     appearance: ["theme-set", "shop", "anim-toggle", "daily-quote", "scene-moment"],
     study: ["dailyIn", "capIn", "g-grades", "ai-setup", "sx-settings"],
     school: ["lms-open", "cal-export", "cal-sync", "import-syllabus", "grp-page"],
-    app: ["rm-open", "sbw-open", "pwa-install", "install", "desk-version", "ob-replay"],
+    app: ["rm-open", "sbw-open", "pwa-install", "install", "desk-version", "ob-replay", "tour-open", "bug-open"],
     data: ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "backup-now", "restore", "export", "export-full", "import", "new-term", "archive-open", "clear-all"]
   };
   // Extra words people might search for, per row
@@ -37004,7 +37449,7 @@ var TP_DATA = [];
     "sb-connect": "sync cloud online login", "sb-signin": "sync login", "sb-signout": "log out logout", "plan-open": "pro upgrade subscription devices storage",
     dailyIn: "study time plan", capIn: "weekly limit", "ai-setup": "gemini key chatbot", "sx-settings": "find ctrl k", "g-grades": "marks gpa",
     "lms-open": "d2l lms school sites", "cal-export": "calendar ics google outlook apple", "import-syllabus": "pdf course", "grp-page": "classmates share",
-    "rm-open": "alerts push notify", "sbw-open": "widget tray startup desktop", "ob-replay": "tour help welcome start", "pwa-install": "home screen app",
+    "rm-open": "alerts push notify", "sbw-open": "widget tray startup desktop", "ob-replay": "tour help welcome start", "tour-open": "tour help guide orientation walkthrough tutorial", "bug-open": "bug report feedback problem issue idea support contact", "pwa-install": "home screen app",
     "fsb-choose": "google drive onedrive folder backup", folder: "google drive onedrive folder backup", "backup-now": "save", "restore": "undo backup", "export": "download backup", "import": "upload backup", "export-full": "files zip",
     "new-term": "semester archive", "clear-all": "delete reset erase"};
   const KEY_CAT = {};
