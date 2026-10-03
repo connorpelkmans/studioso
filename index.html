@@ -202,7 +202,7 @@ li.task>.lms-go{align-self:center;margin-right:12px}
 .course-list{display:grid;gap:12px;margin-top:14px}
 .course-card{display:flex;gap:14px;align-items:stretch;text-align:left;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
 .course-card .swatch{width:6px;border-radius:4px;background:var(--c);flex:none}
-.course-card .body{flex:1;min-width:0}
+.course-card .body{flex:1;min-width:0;overflow-wrap:anywhere}
 .course-card h3{margin:0;font:700 1.1rem/1.25 var(--display)}
 .course-card .code{color:var(--muted);font-size:.88rem}
 .course-card .stats{display:flex;gap:14px;margin-top:8px;font-size:.88rem;color:var(--muted)}
@@ -242,7 +242,7 @@ dialog::backdrop{background:rgba(10,14,24,.5)}
 .sheet-head{display:flex;align-items:center;gap:10px;padding:16px 18px 8px}
 .sheet-head h2{flex:1;margin:0;font:700 1.25rem var(--display)}
 .sheet-body{overflow:auto;padding:6px 18px 12px;display:grid;gap:14px}
-.sheet-foot{display:flex;gap:10px;padding:12px 18px calc(14px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line)}
+.sheet-foot{display:flex;flex-wrap:wrap;gap:10px;padding:12px 18px calc(14px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line)}
 .sheet-foot .spacer{flex:1}
 label.f{display:grid;gap:5px;font-size:.88rem;font-weight:600}
 label.f .hint{font-weight:400;color:var(--muted)}
@@ -250,7 +250,9 @@ label.f .lh{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 6px}
 label.f .lh .req{margin-left:0}
 input[type=text],input[type=search],input[type=date],input[type=time],input[type=number],input[type=url],select,textarea{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;font-size:16px;font-weight:400}
 textarea{min-height:84px;resize:vertical}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.two>*,label.f{min-width:0}
+label.f select,label.f input:not([type=checkbox]):not([type=radio]){max-width:100%;min-width:0}
 fieldset{border:0;margin:0;padding:0;display:grid;gap:6px}
 legend{font-size:.88rem;font-weight:600;padding:0;margin-bottom:6px}
 .seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
@@ -639,7 +641,7 @@ dialog::backdrop{background:rgba(6,15,36,.55)}
 .sheet-head{border-bottom:1px solid var(--line);padding-bottom:12px}
 .sheet-body{padding-top:14px}
 /* Advanced settings drawer */
-details.adv{border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--soft) 45%,transparent)}
+details.adv{min-width:0;max-width:100%;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--soft) 45%,transparent)}
 details.adv > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px}
 details.adv > summary::-webkit-details-marker{display:none}
 details.adv > summary::before{content:"";width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(-45deg);transition:transform .15s;flex:none}
@@ -4219,7 +4221,14 @@ function fromArrays(o){
   return s;
 }
 const toArrays = () => ({v:2, courses:Object.values(state.courses), tasks:Object.values(state.tasks), files:Object.values(state.files), notes:Object.values(state.notes), decks:Object.values(state.decks || {}), events:Object.values(state.events || {}), settings:state.settings, updated:state.updated});
-function saveLocal(){ try { localStorage.setItem(LS2, JSON.stringify(toArrays())); } catch(e){} }
+let saveWarnAt = 0;
+function saveLocal(){
+  try { localStorage.setItem(LS2, JSON.stringify(toArrays())); }
+  catch(e){
+    // Storage full or blocked: tell the person (at most once a minute) instead of silently losing changes.
+    if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost."); } catch(e2) {} }, 700); }
+  }
+}
 function loadLocal(){
   try {
     let r = localStorage.getItem(LS2);
@@ -4446,7 +4455,7 @@ async function initSupabase(ask){
   if (sbLocalOnly() && !ask) { syncLabel(); return; }   // they chose to use Studyboard without an account
   if (!window.supabase) {
     try { await loadScript(SBJS); }
-    catch(e) { syncLabel(); return; } // offline: keep working on this device, the retry timer reconnects later
+    catch(e) { syncLabel(); if (ask) toast("Can't reach the sign-in service right now. Check your connection and try again. Your work is saved on this device."); return; } // offline: keep working on this device, the retry timer reconnects later
   }
   if (!sb) {
     sb = window.supabase.createClient(cfg.url, cfg.key, {auth: {persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: "studioso-auth"}});
