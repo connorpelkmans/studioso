@@ -199,6 +199,20 @@ async function sbwClick(verb, id){
   const q = ok === "quickadd" ? "?action=quickadd" : ok === "task" && id ? "?task=" + encodeURIComponent(id) : ok === "done" && id ? "?action=done&task=" + encodeURIComponent(id) : "?action=today";
   try { await self.clients.openWindow(sbwUrl("./") + q); } catch (e) {}
 }
+// Crash reports (ERROR-REPORTING.md): the page asks which worker version it has, and gets told about this worker's own errors. The page scrubs and sends them; the worker never makes a network call for this.
+self.addEventListener("message", e => {
+  const m = e.data;
+  if (m && m.type === "sb-sw-ping" && e.source && typeof e.source.postMessage === "function") { try { e.source.postMessage({type: "sb-sw-info", v: CACHE}); } catch (err) {} }
+});
+async function sbTell(err) {
+  try {
+    const cs = await self.clients.matchAll({type: "window"});
+    const m = {type: "sb-sw-error", name: String((err && err.name) || "Error").slice(0, 40), msg: String((err && err.message) || err || "").slice(0, 200), stack: String((err && err.stack) || "").slice(0, 2000)};
+    if (cs[0]) cs[0].postMessage(m);
+  } catch (e) {}
+}
+self.addEventListener("error", e => { sbTell(e.error || e.message); });
+self.addEventListener("unhandledrejection", e => { sbTell(e.reason); });
 // The page's latest Today data (see modules/70-widgets.js).
 self.addEventListener("message", e => {
   const m = e.data;

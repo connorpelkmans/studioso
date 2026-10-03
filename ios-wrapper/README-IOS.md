@@ -115,6 +115,14 @@ Then in Xcode: run on a device, test with the checklist, **Product > Archive**, 
 - [ ] Apple Sign-In: not required (email and password only; see the checklist).
 - [ ] Review the plugin list: `npm ls --prod` should show only the plugins above; run `npm audit --omit=dev`.
 
+## 8b. Crash and error reporting (no third-party SDK)
+
+* **Native crashes** (the app dies, the web view process is killed, memory kills) are collected by **Apple**: App Store Connect > your app > TestFlight > Crashes, and Xcode > Window > Organizer > Crashes. Apple only sends logs from people who chose "Share With App Developers" in their iPhone's Analytics settings, so you need no SDK, no `NSPrivacyTracking`, and no extra App Privacy answer for these logs. Symbolicate with the dSYM Xcode uploads with the archive.
+* **Web errors** (a JavaScript exception, a failed sync, a broken screen, a storage-full failure) are reported by the page itself, in the same module as the website and desktop app (`index.html`, `49-errreport.js`). Nothing native is involved: it is one `fetch` POST of a scrubbed event to your Sentry project (or your Supabase `error-ingest` function), so it works the same inside Capacitor. The event's `platform` tag is `ios-wrapper` (the page checks `window.Capacitor.isNativePlatform()`), so you can filter iOS-wrapper issues in Sentry. `native-bridge.js` does not need to do anything for this.
+* **The bridge**: there is none to build. If you later want native crash logs inside Sentry too, add the Sentry Capacitor plugin as a separate, deliberate step; it is a third-party SDK that must then be listed in the App Privacy answers and in `PrivacyInfo.xcprivacy` (Crash Data and Performance Data are already declared there, not linked, no tracking, app functionality).
+* **Before submitting**: the privacy manifest in `build-resources/ios/PrivacyInfo.xcprivacy` declares `CrashData` and `PerformanceData`. If you ship with an empty DSN and no Supabase fallback (nothing is sent), delete those two entries and answer "not collected" for Crash Data and Performance Data in App Store Connect. The in-app switch is Settings, Send Anonymous Crash Reports (default on; off when Do Not Track / Global Privacy Control is set).
+* The build id (`1.13.0+<12 hex>`) is stamped into the staged page by `prepare.js`, so a stack line `index.html:LINE:COL` can be matched to the exact file in this build: see `ERROR-REPORTING.md`, "Reading a stack".
+
 ## 9. Known differences from the web app on iOS
 
 * There is no service worker inside the app (WKWebView only allows them for "app-bound domains"); the bundled files make the app work offline anyway. Reminders come from APNs instead of web push.
