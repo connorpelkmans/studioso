@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- UNTESTED: Android 11 and lower full-backup rules. The encrypted capture token is useless on another device (its Keystore key does not move), so it is excluded. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="sb_capture.xml" />
+    <exclude domain="file" path="pending-captures/" />
+</full-backup-content>
