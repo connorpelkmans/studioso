@@ -18,11 +18,13 @@ Scope: static scan + Playwright (Chromium) smoke tests at 1280x800, 390x800, 360
 7. **Courses tab overflowed horizontally** (page 3000+px wide) when a course's next task had a long unbroken title. Course card text now wraps.
 8. **Edit Task sheet overflowed on phones <= 360px**: the Advanced Settings summary line, grid columns and the 4-button footer (Save was clipped off-screen). Fixed with `min-width:0` on grid/details and a wrapping sheet footer.
 
+## Fixed after the report
+- Stacked sheets: the sheet dialog, focus timer and Search Everywhere are now exclusive (opening one closes the others and keeps the original opener for focus restore; the tour is exempt). Header and nav buttons ignore double clicks and ghost taps while their sheet is open.
+- Companion over controls on phones: when no clear spot exists it tucks into the right-hand gutter (a sliver peeks in) instead of standing over buttons, re-checks when the page changes shape, and its speech bubble flips below it when that covers less.
+
 ## Known remaining issues / notes
 - The app has no `<link rel="manifest">` in the static HTML (it is injected by script); installability checks that don't run scripts won't see it. Not changed.
 - Shell/manifest icon paths point to `icons/...` and the widget files to `widgets/...`, which don't exist in this flat repo layout; make sure the deploy layout provides them (the SW no longer breaks if not).
-- With several rapid header taps, multiple sheets can stack (2 to 3 open dialogs). Harmless but untidy.
-- On the phone Board, the floating mascot can sit over small controls (e.g. the "Time Today" stepper).
 - The Groups tab is hidden in the phone bottom nav (reachable via Settings, School and Groups).
 - Supabase-backed flows (sign-in success, groups, announcements, uploads, push) could not be exercised: the sandbox blocks the Supabase CDN and API. Only signed-out and failure behaviour was verified.
 - Electron (`main.js`, `prepare.js`, widget) was only syntax-checked, not launched.
