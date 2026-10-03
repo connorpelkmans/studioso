@@ -13387,7 +13387,7 @@ SCENES.winter = function (W, H, dk, rnd) {
   var back = ridge(W, hz - H * (ph ? 0.1 : 0.2), [[H * (ph ? 0.06 : 0.12), 130, 0.9], [H * 0.03, 47, 2.0]], 6, true);
   var snowline = hz - H * (ph ? 0.06 : 0.12);
   var snow = back.map(function (p) { return [p[0], Math.max(p[1], Math.min(p[1] + H * 0.07, snowline) + Math.sin(p[0] / 9) * 3)]; });
-  add(refl, 'c', below(back, hz + 40), dk ? '#26365E' : '#B4C7DE');
+  add(refl, 'c', below(back, hz + 40), dk ? '#18244A' : '#B4C7DE'); /* dark: body must read against the sky or the snowcaps float */
   add(refl, 'd', poly(back.concat(snow.slice().reverse())), dk ? '#8595BD' : '#F4F8FC');
   add(far, 'c', ell(W / 2, hz - 10, W * 0.8, 40), dk ? 'rgba(120,140,200,0.3)' : 'rgba(255,255,255,0.85)');
   // hill 1 with forest band
@@ -14471,16 +14471,17 @@ function b5_bz(p0, p1, p2, p3, n) { var o = []; for (var i = 0; i <= n; i++) { v
 function b5_tube(pts, w0, w1) { var L = [], R = [], n = pts.length; for (var i = 0; i < n; i++) { var a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], d = Math.sqrt(dx * dx + dy * dy) || 1, w = lerp(w0, w1, i / (n - 1)) / 2; L.push([pts[i][0] - dy / d * w, pts[i][1] + dx / d * w]); R.unshift([pts[i][0] + dy / d * w, pts[i][1] - dx / d * w]); } return poly(L.concat(R)); }
 function b5_dot(x, y) { return 'M' + PT(x, y) + ' l0 0 '; }
 // ear: head centre, radius, angle from vertical (rad); returns [outer, inner]
-function b5_ear(hx, hy, r, th) { function p(a, k) { return [hx + Math.sin(a) * r * k, hy - Math.cos(a) * r * k]; } return [poly([p(th - 0.42, 0.9), p(th + 0.05, 1.62), p(th + 0.42, 0.9)]), poly([p(th - 0.24, 1.0), p(th + 0.04, 1.45), p(th + 0.26, 1.0)])]; }
+function b5_ear(hx, hy, r, th) { function p(a, k) { return [hx + Math.sin(a) * r * k, hy - Math.cos(a) * r * k]; } /* points run the same way round as circ(), so an ear overlapping the head fills instead of cutting a hole in it */ return [poly([p(th + 0.42, 0.9), p(th + 0.05, 1.62), p(th - 0.42, 0.9)]), poly([p(th + 0.26, 1.0), p(th + 0.04, 1.45), p(th - 0.24, 1.0)])]; }
 // sitting cat, 3/4 view, x,y = ground point, s = height, f = 1 faces right. raise = paw batting forward
 function b5_catSit(x, y, s, f, raise, sep) {
   function P(px, py) { return [x + f * px * s, y + py * s]; }
   function C(px, py, r) { var p = P(px, py); return circ(p[0], p[1], r * s); }
   function El(px, py, rx, ry) { var p = P(px, py); return ell(p[0], p[1], rx * s, ry * s); }
-  function leg(px0, px1, top) { var a = P(px0, top), b = P(px1, 0); return rrect(Math.min(a[0], b[0]), a[1], Math.abs(b[0] - a[0]), b[1] - a[1], 0.045 * s); }
+  // legs are drawn the same way round as the ellipses of the body, so where they overlap there is no hole
+  function leg(px0, px1, top) { var a = P(px0, top), b = P(px1, 0), x = Math.min(a[0], b[0]), y = a[1], w = Math.abs(b[0] - a[0]), h = b[1] - a[1], r = Math.min(0.045 * s, w / 2, h / 2); return 'M' + PT(x + r, y) + ' a' + n1(r) + ' ' + n1(r) + ' 0 0 0 ' + n1(-r) + ' ' + n1(r) + ' v' + n1(h - 2 * r) + ' a' + n1(r) + ' ' + n1(r) + ' 0 0 0 ' + n1(r) + ' ' + n1(r) + ' h' + n1(w - 2 * r) + ' a' + n1(r) + ' ' + n1(r) + ' 0 0 0 ' + n1(r) + ' ' + n1(-r) + ' v' + n1(-(h - 2 * r)) + ' a' + n1(r) + ' ' + n1(r) + ' 0 0 0 ' + n1(-r) + ' ' + n1(-r) + ' Z '; }
   // sep: tail, head and batting paw are kept apart (for the animation engine); the drawing is otherwise identical
   var o = {body: '', light: '', dark: '', eye: '', pink: ''}, hd = sep ? {body: '', light: '', dark: '', eye: '', pink: ''} : o, tl = sep ? {body: '', dark: ''} : o;
-  tl.body += b5_tube(b5_bz(P(-0.28, -0.06), P(-0.66, -0.02), P(-0.7, -0.52), P(-0.5, -0.66), 16), 0.11 * s, 0.075 * s) + C(-0.5, -0.66, 0.038);
+  tl.body += b5_tube(b5_bz(P(-0.28, -0.06), P(-0.66, -0.02), P(-0.7, -0.52), P(-0.5, -0.66), 16), 0.11 * s, 0.075 * s) + C(-0.5, -0.66, 0.038) + C(-0.28, -0.06, 0.055);
   o.body += El(-0.1, -0.25, 0.31, 0.25) + El(0.07, -0.44, 0.19, 0.3) + El(-0.02, -0.035, 0.15, 0.045);
   o.body += leg(0.07, 0.17, -0.42);
   if (sep) { /* paw drawn live */ }
@@ -14496,7 +14497,7 @@ function b5_catSit(x, y, s, f, raise, sep) {
   // tabby stripes
   hd.dark += b5_tube([P(0.08, -1.0), P(0.1, -0.93)], 0.03 * s, 0.015 * s) + b5_tube([P(0.15, -1.01), P(0.155, -0.94)], 0.03 * s, 0.015 * s) + b5_tube([P(0.22, -0.99), P(0.2, -0.93)], 0.03 * s, 0.015 * s);
   for (var k = 0; k < 3; k++) o.dark += b5_tube(b5_bz(P(-0.34 + k * 0.1, -0.44 + k * 0.02), P(-0.28 + k * 0.1, -0.36), P(-0.26 + k * 0.1, -0.22), P(-0.3 + k * 0.1, -0.12), 6), 0.04 * s, 0.01 * s);
-  tl.dark += b5_tube(b5_bz(P(-0.6, -0.3), P(-0.64, -0.3), P(-0.66, -0.26), P(-0.66, -0.24), 3), 0.035 * s, 0.01 * s) + b5_tube([P(-0.66, -0.47), P(-0.6, -0.49)], 0.035 * s, 0.01 * s);
+  tl.dark += b5_tube(b5_bz(P(-0.57, -0.3), P(-0.61, -0.3), P(-0.63, -0.26), P(-0.63, -0.24), 3), 0.035 * s, 0.01 * s) + b5_tube([P(-0.63, -0.47), P(-0.575, -0.49)], 0.035 * s, 0.01 * s);
   if (sep) { o.head = hd; o.tail = tl; o.P = P; }
   return o;
 }
@@ -14602,7 +14603,7 @@ SCENES.cats = function (W, H, dk, rnd) {
   fr.forEach(function (f) { frames += rect(f[0], f[1], f[2], f[3]); pic += rect(f[0] + 7, f[1] + 7, f[2] - 14, f[3] - 14); });
   add(mid, 'e', shelf + frames, dk ? '#5A3C30' : '#A8725A');
   add(mid, 'f', pic, dk ? '#3E2A3A' : '#F7E2D2');
-  var fcat = ''; fr.forEach(function (f) { var o = b5_catSit(f[0] + f[2] * 0.52, f[1] + f[3] - 12, f[3] * 0.55, 1, false); fcat += o.body; });
+  var fcat = ''; fr.forEach(function (f) { var o = b5_catSit(f[0] + f[2] * 0.57, f[1] + f[3] - 12, f[3] * 0.55, 1, false); fcat += o.body; });
   add(mid, 'g', books[0] + fcat, dk ? '#8A4A3A' : '#C0624A');
   add(mid, 'h', books[1], dk ? '#4E5E6A' : '#7F9CA8');
   add(near, 'a', books[2] + pots, dk ? '#9A7A50' : '#E3B06A');
@@ -14834,7 +14835,9 @@ SCENES.knitting = function (W, H, dk, rnd) {
   var cx0 = ph ? W * 0.03 : W * 0.03, cw = ph ? W * 0.42 : W * 0.38, cy0 = ph ? H * 0.41 : H * 0.2, chh = fy + 6 - cy0, cols = ph ? 2 : 3, rows = ph ? 3 : 4, bd = ph ? 6 : 9, cellW = (cw - bd) / cols, cellH = (chh - bd) / rows;
   wood += rect(cx0, cy0, cw, chh);
   for (var r = 0; r < rows; r++) for (var q = 0; q < cols; q++) { var x = cx0 + bd + q * cellW, y = cy0 + bd + r * cellH, iw = cellW - bd, ih = cellH - bd; back += rect(x, y, iw, ih); var br = Math.min(iw, ih) * 0.24, n = Math.max(2, Math.floor(iw / (br * 2.1))), k0 = Math.floor(rnd() * 3);
-    if ((r + q) % 4 === 3) { lv += b5_plant(x + iw / 2, y + ih - ih * 0.35, ih * 0.55, rnd, 7, 170); wood += b5_pot(x + iw / 2, y + ih, ih * 0.4, ih * 0.36); continue; }
+    if ((r + q) % 4 === 3) { lv += b5_plant(x + iw / 2, y + ih - ih * 0.35, ih * 0.55, rnd, 7, 170); wood += b5_pot(x + iw / 2, y + ih, ih * 0.4, ih * 0.36);
+      /* the cubby back is drawn after the wood, so cut the pot out of it (reverse winding) or the pot is hidden and the plant floats */
+      var ppx = x + iw / 2, ppy = y + ih, ppw = ih * 0.4, pph = ih * 0.36; back += poly([[ppx - ppw * 0.38, ppy], [ppx + ppw * 0.38, ppy], [ppx + ppw / 2, ppy - pph], [ppx - ppw / 2, ppy - pph]]); continue; }
     for (var i = 0; i < n; i++) ball(x + iw * (i + 0.5) / n, y + ih - br, br, (k0 + i) % 3);
     if (n > 2) ball(x + iw * 0.5 / n * 2, y + ih - br * 2.6, br * 0.95, (k0 + 1) % 3); }
   // plants on the sill
@@ -15106,7 +15109,7 @@ SCENES.gardening = function (W, H, dk, rnd) {
     snake(W * 0.93, pot(W * 0.93, bt - 4, 34, 32), 70);
     hanging(W * 0.2, top, H * 0.43, 36, 0.62); hanging(W * 0.72, top, H * 0.44, 30);
     var mr0 = pot(W * 0.14, H * 0.905, 76, 66); monstera(W * 0.14, mr0 + 6, 110, mr0 - 66 * 0.02); can(W * 0.8, H * 0.88, 50); crate(W * 0.52, H * 0.885, 84);
-    pot(W * 0.36, bt + (fl - bt) * 0.55 - 4, 30, 24); pot(W * 0.46, bt + (fl - bt) * 0.55 - 4, 26, 20); pot(W * 0.82, bt + (fl - bt) * 0.55 - 4, 34, 28);
+    pot(W * 0.36, bt + (fl - bt) * 0.55 + 1, 30, 24); pot(W * 0.46, bt + (fl - bt) * 0.55 + 1, 26, 20); pot(W * 0.82, bt + (fl - bt) * 0.55 + 1, 34, 28);
   } else {
     succ(W * 0.07, bt - 4, 96); snake(W * 0.19, pot(W * 0.19, bt - 4, 44, 40), 100); fern(W * 0.33, pot(W * 0.33, bt - 4, 60, 50), 90);
     blooms(W * 0.49, pot(W * 0.49, bt - 4, 54, 46), 80); fern(W * 0.64, pot(W * 0.64, bt - 4, 56, 46), 82); succ(W * 0.77, bt - 4, 100);
@@ -15115,7 +15118,7 @@ SCENES.gardening = function (W, H, dk, rnd) {
     var mr1 = pot(W * 0.92, H * 0.97, 110, 90); monstera(W * 0.92, mr1 + 8, 170, mr1 - 90 * 0.02);
     hanging(W * 0.47, top, H * 0.27, 40); hanging(W * 0.72, top, H * 0.3, 44); hanging(W * 0.96, top, H * 0.24, 36); hanging(W * 0.2, top, H * 0.26, 36);
     crate(W * 0.64, H * 0.955, 130); stack(W * 0.07, H * 0.96, 56);
-    [0.08, 0.13, 0.55, 0.6, 0.83].forEach(function (f, i) { pot(W * f, bt + (fl - bt) * 0.55 - 4, 34 + (i % 2) * 8, 28 + (i % 2) * 6); });
+    [0.08, 0.13, 0.55, 0.6, 0.83].forEach(function (f, i) { pot(W * f, bt + (fl - bt) * 0.55 + 1, 34 + (i % 2) * 8, 28 + (i % 2) * 6); });
   }
   stk(near, 's', stems, C.stem, ph ? 1.6 : 2); stk(near, 't', ropes, C.rope, 1.4);
   add(near, 'd', dl, C.d); add(near, 'e', el, C.e); add(near, 'f', fl1, C.f); add(near, 'h', fc, C.h);
@@ -16526,7 +16529,7 @@ SCENES.psych = function (W, H, dk, rnd) {
   function bush(x, base, r, flowers) { ball(x - r * 0.72, base - r * 0.55, r * 0.68); ball(x + r * 0.72, base - r * 0.5, r * 0.7); ball(x, base - r * 0.85, r); if (flowers) bloom(x, base - r * 0.8, r * 1.3, Math.round(r * 0.5)); }
   function poodle(x, base, r) { stone += rrect(x - r * 0.7, base - r * 0.7, r * 1.4, r * 0.72, 3); trunk += seg(x, base - r * 0.7, x, base - r * 0.9) + seg(x, base - r * 2.1, x, base - r * 2.32); ball(x, base - r * 1.5, r * 0.62); ball(x, base - r * 3.2, r * 0.9); }
   var walls = '';
-  function wall(x0, x1, base, h) { walls += rect(x0, base - h * 0.75, x1 - x0, h * 0.75 + 30); for (var xx = x0 + h * 0.3; xx < x1 - h * 0.2; xx += h * 0.42) walls += circ(xx, base - h * 0.72, h * 0.3 + rnd() * h * 0.05); }
+  function wall(x0, x1, base, h) { walls += 'M' + PT(x0, base - h * 0.75) + ' v' + n1(h * 0.75 + 30) + ' h' + n1(x1 - x0) + ' v' + n1(-(h * 0.75 + 30)) + ' Z ' /* same winding as circ(), so the scallops join the hedge instead of cutting holes in it */; for (var xx = x0 + h * 0.3; xx < x1 - h * 0.2; xx += h * 0.42) walls += circ(xx, base - h * 0.72, h * 0.3 + rnd() * h * 0.05); }
   function lantern(x, base) { var h = ph ? 52 : 68; stone += rect(x - 2.2, base - h + 10, 4.4, h - 10) + rrect(x - 8, base - h - 6, 16, 18, 4) + poly([[x - 11, base - h - 5], [x, base - h - 15], [x + 11, base - h - 5]]) + rect(x - 5, base - 4, 10, 4); lan.push([x, base - h + 3]); }
   function reeds(x, base, n, dir) { for (var k = 0; k < n; k++) { var a = -90 + dir * (8 + k * 9) + (rnd() - 0.5) * 8, len = (34 + rnd() * 26) * s; lit += leaf(x + k * 4 * dir, base, len, 4.5 * s, a); if (k % 2 === 0) { var tip = rotp([[len * 0.85, 0]], x + k * 4 * dir, base, a)[0]; fl += rotEll(tip[0], tip[1], 4 * s, 2.4 * s, a + 90) + rotEll(tip[0] + 3, tip[1] + 2, 3.4 * s, 2 * s, a + 40); } } }
   var px = W * 0.5, py = H * (ph ? 0.895 : 0.875), prx = W * (ph ? 0.38 : 0.2), pry = H * (ph ? 0.05 : 0.065);
@@ -16540,7 +16543,8 @@ SCENES.psych = function (W, H, dk, rnd) {
     ball(W * 0.02, H * 1.0, 90); ball(W * 0.13, H * 1.04, 60); bloom(W * 0.05, H * 0.98, 110, 40); ball(W * 0.985, H * 1.0, 96); ball(W * 0.87, H * 1.05, 58); bloom(W * 0.95, H * 0.98, 110, 40);
     lantern(W * 0.34, yAt(l2, W * 0.34) + 12); lantern(W * 0.66, yAt(l2, W * 0.66) + 12); reeds(px - prx * 0.96, py - 4, 6, -1); reeds(px + prx * 0.96, py - 4, 6, 1); }
   // pond: pebbles around a soft rim, lily pads with flowers
-  stone += ell(px, py + 3, prx + 8, pry + 6);
+  // the rim is drawn clockwise like the pebbles, lanterns and rims, so they merge instead of cutting holes in each other
+  stone += 'M' + PT(px - prx - 8, py + 3) + ' a' + n1(prx + 8) + ' ' + n1(pry + 6) + ' 0 1 1 ' + n1(2 * prx + 16) + ' 0 a' + n1(prx + 8) + ' ' + n1(pry + 6) + ' 0 1 1 ' + n1(-2 * prx - 16) + ' 0 ';
   for (var a = 0; a < 6.28; a += 0.16 + rnd() * 0.1) { var rx = (prx + 8) * Math.cos(a), ry = (pry + 6) * Math.sin(a); if (ry < -pry * 0.4) continue; stone += rotEll(px + rx, py + 3 + ry, 9 + rnd() * 7, 5 + rnd() * 3, rnd() * 30 - 15); }
   var pads = '', hi = '';
   spread(px - prx * 0.75, py - pry * 0.45, prx * 1.5, pry * 0.9, ph ? 70 : 100, 36, rnd, 0.7).forEach(function (c) { if (c.q < 0.32) { var pr = (10 + c.r * 6) * s, pp = [[c.x, c.y]]; for (var q = 0; q <= 20; q++) { var aa = c.k * 6.28 + 0.35 + q / 20 * 5.6; pp.push([c.x + pr * Math.cos(aa), c.y + pr * 0.42 * Math.sin(aa)]); } pads += poly(pp); if (c.r > 0.5) { fl += circ(c.x + 2, c.y - 2, 3.4 * s); fl2 += 'M' + PT(c.x + 2, c.y - 2) + ' l0 0.1 '; } } else if (c.q < 0.7) hi += ell(c.x, c.y, 18 + c.r * 30, 1.3); });
@@ -17008,7 +17012,7 @@ SCENES.engineering = function (W, H, dk, rnd) {
   nShade += poly([[sb[0] + nx * iw * 0.3, sb[1] + ny * iw * 0.3], [se[0] + nx * ow * 0.2, se[1] + ny * ow * 0.2], [se[0] - nx * ow, se[1] - ny * ow], [sb[0] - nx * iw, sb[1] - ny * iw]]);
   var lamp = {x: se[0], y: se[1], dx: ldx, dy: ldy, ow: ow, open: opening, by: by};
   // conveyor belt with boxes and a rubber duck
-  var cv = ph ? {x0: W * 0.42, x1: W * 0.76} : {x0: W * 0.46, x1: W * 0.735}, cvy = by - 24 * s, mugX = (cv.x0 + cv.x1) / 2;
+  var cv = ph ? {x0: W * 0.5, x1: W * 0.79} : {x0: W * 0.46, x1: W * 0.735}, cvy = by - 24 * s, mugX = (cv.x0 + cv.x1) / 2;
   nSteel += rect(cv.x0 + 10, cvy + 10 * s, 5 * s, by - cvy - 10 * s) + rect(cv.x1 - 15, cvy + 10 * s, 5 * s, by - cvy - 10 * s) + rrect(cv.x0, cvy, cv.x1 - cv.x0, 12 * s, 6 * s);
   nShade += rrect(cv.x0 + 2, cvy + 2, cv.x1 - cv.x0 - 4, 8 * s, 4 * s); for (var rl = cv.x0 + 8; rl < cv.x1 - 4; rl += 18 * s) nDet += circ(rl, cvy + 6 * s, 2.4 * s);
   nCopper += poly([[cv.x0 - 22 * s, cvy - 30 * s], [cv.x0 + 12 * s, cvy - 30 * s], [cv.x0 + 6 * s, cvy + 2], [cv.x0 - 16 * s, cvy + 2]]); nLight += rect(cv.x0 - 18 * s, cvy - 26 * s, 4 * s, 22 * s);
@@ -17454,7 +17458,7 @@ SCENES.civics = function (W, H, dk, rnd) {
     if (ph) C.garlands.push({x0: lt[0].x, y0: lt[0].y - 20, x1: lt[1].x, y1: lt[1].y - 20, sag: H * 0.06});
     else { C.garlands.push({x0: lt[0].x, y0: lt[0].y - 20, x1: bx0 - 4, y1: bodyTop - 8, sag: 40}); C.garlands.push({x0: bx0 - 4, y0: bodyTop - 8, x1: cx, y1: entTop - pedH - 2, sag: 34}); C.garlands.push({x0: cx, y0: entTop - pedH - 2, x1: bx1 + 4, y1: bodyTop - 8, sag: 34}); C.garlands.push({x0: bx1 + 4, y0: bodyTop - 8, x1: lt[1].x, y1: lt[1].y - 20, sag: 16}); }
     C.dome = {x: cx, y: domeTop - domeR * 0.5};
-    C.kids = ph ? [{x: W * 0.2, y: H * 0.71, s: 1.2, shirt: '#F47A90', hair: '#5A3A2A', skin: '#F6CFAE', kite: {x: W * 0.32, y: H * 0.12, c: '#FFC94A', c2: '#F47A90'}}, {x: W * 0.68, y: H * 0.68, s: 1.05, shirt: '#6FCB8E', hair: '#2A2230', skin: '#C88E64', bubbles: 1}]
+    C.kids = ph ? [{x: W * 0.2, y: H * 0.71, s: 1.2, shirt: '#F47A90', hair: '#5A3A2A', skin: '#F6CFAE', kite: {x: W * 0.32, y: H * 0.12, c: '#FFC94A', c2: '#F47A90'}}, {x: W * 0.6, y: H * 0.7, s: 1.05, shirt: '#6FCB8E', hair: '#2A2230', skin: '#C88E64', bubbles: 1}]
       : [{x: W * 0.29, y: H * 0.735, s: 1.5, shirt: '#F47A90', hair: '#5A3A2A', skin: '#F6CFAE', kite: {x: W * 0.33, y: H * 0.17, c: '#FFC94A', c2: '#F47A90'}}, {x: W * 0.87, y: H * 0.8, s: 1.45, shirt: '#8E7AE8', hair: '#E8B050', skin: '#F2C8A6', kite: {x: W * 0.8, y: H * 0.1, c: '#5EB0E8', c2: '#6FCB8E'}}, {x: W * 0.355, y: H * 0.965, s: 1.6, shirt: '#6FCB8E', hair: '#2A2230', skin: '#C88E64', bubbles: 1}];
     C.seller = ph ? {x: W * 0.73, y: H * 0.73, s: 1.3} : {x: W * 0.72, y: H * 0.975, s: 1.75};
     C.cart = ph ? null : {x: W * 0.55, y: H * 0.965, s: 1.2};
@@ -17752,7 +17756,7 @@ SCENES.gallery = function (W, H, dk, rnd) {
   if (!G) { add(near, 'a', frames, dk ? '#B08A4A' : '#D4AE62'); add(near, 'b', liners, dk ? '#8A6A38' : '#B8904A'); } else G.frames = {a: [a, ph ? 9 : 12], l: [l, ph ? 11 : 15], p: [pcx, pcy, prx, pry, ph ? 10 : 13]};
   var plac = ''; if (ph) [a, l, p].forEach(function (b) { plac += rect(b.x0, b.y1 + 18, 22, 11); }); else { [a, l].forEach(function (b) { plac += rect(b.x1 + 18, b.y1 - 26, 26, 16); }); plac += rect(p.x1 + 18, p.y1 - 10, 26, 16); }
   // the plinth and a marble bust (facing left), with a velvet rope
-  var bx = W * (ph ? 0.8 : 0.9), pTop = H * (ph ? 0.7 : 0.6), pw = ph ? 70 : 96, bs = ph ? 0.9 : 1.3;
+  var bx = W * (ph ? 0.8 : 0.9), pTop = H * (ph ? 0.73 : 0.6), pw = ph ? 70 : 96, bs = ph ? 0.9 : 1.3;
   var plinth = rect(bx - pw / 2, pTop, pw, floorY - pTop + 4) + rect(bx - pw / 2 - 6, pTop - 8, pw + 12, 10) + rect(bx - pw / 2 - 6, floorY - 8, pw + 12, 12);
   function BP(px, py) { return PT(bx + px * bs, pTop + py * bs); }
   var pShade = rect(bx + pw * 0.2, pTop + 2, pw * 0.3, floorY - pTop - 10) + rect(bx - pw / 2, pTop + 2, pw, 4) + rect(bx - pw / 2 - 6, floorY - 8, pw + 12, 3);
@@ -17779,7 +17783,7 @@ SCENES.gallery = function (W, H, dk, rnd) {
   add(near, 'h', plac + posts, dk ? '#D8C89A' : '#E8DCC0');
   stk(near, 's', rope, dk ? '#9A3A48' : '#B8404E', 4);
   stk(near, 't', veins, dk ? 'rgba(120,116,140,0.35)' : 'rgba(150,150,170,0.4)', 1.2);
-  var bfx = bx - (ph ? 10 : 30); fix = rect(bfx - 2, railY, 4, 10) + m3_rot([[bfx - 6, railY + 8], [bfx + 6, railY + 8], [bfx + 8, railY + 30], [bfx - 8, railY + 30]], bfx, railY + 10, -8);
+  var bfx = bx + (ph ? 36 : -30); fix = rect(bfx - 2, railY, 4, 10) + m3_rot([[bfx - 6, railY + 8], [bfx + 6, railY + 8], [bfx + 8, railY + 30], [bfx - 8, railY + 30]], bfx, railY + 10, ph ? 8 : -8); // phone: the bust's lamp sits to the right so it does not crowd the portrait's lamp
   add(mid, 'h', fix, null);
   if (G) G.spots.push({x: bfx, y: railY + 26, tx: bx, ty: pTop - 70 * bs, w: 110 * bs, h: 150 * bs});
   if (!G && dk) [a, l, p].forEach(function (b) { add(far, 'c', ell((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, b.w * 0.75, b.h * 0.72), 'rgba(255,214,150,0.22)'); });
