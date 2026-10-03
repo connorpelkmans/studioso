@@ -95,8 +95,10 @@ Open **SQL Editor > New query** in Supabase, paste a whole file and click **Run*
 | 6 | `supabase-bug-reports.sql` | Report a Bug or Send Feedback | Recommended |
 | 7 | `supabase-plans.sql` | Free and Pro plans, limits, devices (run after step 2 so group limits are added) | Before you sell Pro, and for notification keys |
 | 8 | `supabase-lean.sql` | Lean Sync and **Delete My Account and Data** (run it last) | Required for a public launch |
+| 9 | `supabase-capture.sql` | Voice and shortcut capture (Siri, Gemini, Bixby, share sheet). Run it after step 8 so account deletion also clears it, then deploy the `capture-task` function with Verify JWT **off**. Optional check: `supabase-capture-selftest.sql`. See `VOICE-CAPTURE.md` | Optional |
 
 If you run `supabase-groups.sql` or `supabase-calendar-feed.sql` later, run `supabase-plans.sql` and `supabase-lean.sql` again afterwards. Running `supabase-groups.sql` again also resets who can see blocked people's tasks, so run `supabase-moderation.sql` again after it.
+If you run `supabase-groups.sql` or `supabase-calendar-feed.sql` later, run `supabase-plans.sql` and `supabase-lean.sql` again afterwards (and `supabase-capture.sql` if you use voice capture).
 
 **Edge Functions** (pasted into Supabase under Edge Functions > Deploy a new function > Via Editor). In this repository they are saved as plain `index.ts` files, so match them by their first line:
 

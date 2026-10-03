@@ -68,7 +68,7 @@ Files (all in the zip):
 
 Do these in test mode first. Everything stays free for everyone until Launch Day.
 
-**1. Run the SQL.** In Supabase **SQL Editor** paste all of `supabase-plans.sql` and **Run** (safe to run again; run `supabase-groups.sql` and the main setup first, and `supabase-lean.sql` if you use it). Then paste `supabase-plans-selftest.sql` and **Run**. It must end with the notice **ALL n SECURITY CHECKS PASSED** (it changes nothing for real). Run it again after any future SQL change. If it ever stops with `EXPLOIT SUCCEEDED`, do not launch.
+**1. Run the SQL.** In Supabase **SQL Editor** paste all of `supabase-plans.sql` and **Run** (safe to run again; run `supabase-groups.sql` and the main setup first, and `supabase-lean.sql` if you use it; voice capture, `supabase-capture.sql`, is free for everyone and is not part of Pro, see `VOICE-CAPTURE.md`). Then paste `supabase-plans-selftest.sql` and **Run**. It must end with the notice **ALL n SECURITY CHECKS PASSED** (it changes nothing for real). Run it again after any future SQL change. If it ever stops with `EXPLOIT SUCCEEDED`, do not launch.
 
 **2. Make the signing key.** On your computer (Node 18+): `node supabase-functions/tools/gen-ent-key.mjs`. It prints a **PRIVATE** value (`ENT_SIGNING_KEY`, PKCS8 as base64url) and a **PUBLIC** value (`ENT_PUBKEY`, 43 characters). Put the private one in Supabase **Edge Functions > Secrets** as `ENT_SIGNING_KEY` (never in the app, the website or git). Paste the public one into `const ENT_PUBKEY = "..."` in `index.html` and ship the app. If the private key ever leaks, run the script again, replace both and ship the app again.
 
