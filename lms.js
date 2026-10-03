@@ -382,7 +382,7 @@ function connect(id, host, parent) {
     const w = new BrowserWindow({ width: 1000, height: 780, parent: parent || undefined, title: "Sign In", autoHideMenuBar: true, show: true, webPreferences: prefs(Pv) });
     w.webContents.setUserAgent(chromeUA());
     // Sign-in pages sometimes open a pop-up (Microsoft, Google, Duo). Those stay in the same private cookie store.
-    w.webContents.setWindowOpenHandler(() => ({ action: "allow", overrideBrowserWindowOptions: { autoHideMenuBar: true, webPreferences: prefs(Pv) } }));
+    w.webContents.setWindowOpenHandler(({ url }) => !/^https:\/\//i.test(url) ? { action: "deny" } : ({ action: "allow", overrideBrowserWindowOptions: { autoHideMenuBar: true, webPreferences: prefs(Pv) } }));
     let done = false, timer = null;
     const finish = r => { if (done) return; done = true; clearInterval(timer); if (!w.isDestroyed()) w.close(); resolve(r); };
     const check = async () => {
