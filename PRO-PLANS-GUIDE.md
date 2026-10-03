@@ -11,7 +11,7 @@ You can do the setup below any time before launch (in any order). While the payw
 - Sync on up to **2 devices**.
 - Brightspace, Canvas and Blackboard sync, with the desktop sign-in or calendar links.
 - Reminders and notifications, including phone push.
-- Study groups (up to **3 members**, messages kept **60 days**) and deck sharing.
+- Study groups (up to **3 members**, messages kept **60 days**), deck sharing and shared Project Tasks (no extra limits: the size limits come from the group size; after updating run `supabase-groups.sql` again, then `supabase-plans.sql`).
 - AI with your own Gemini key.
 - The 14 plain color themes, and the free card styles, note shapes, pins and sticker packs.
 - **100 MB** of cloud file storage (plus unlimited files kept on the device, or links to Google Drive or OneDrive), and **25 MB** of synced data.

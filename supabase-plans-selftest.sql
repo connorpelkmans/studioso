@@ -309,7 +309,7 @@ begin
   exception when sqlstate 'P0001' then insert into public.sbt_log (name) values ('a file outside any account folder is refused');
   end;
   -- Study groups: 3 members while the owner is free
-  insert into public.study_groups (id, owner_id, name) values (gid, ua, 'selftest');
+  insert into public.study_groups (id, owner_id, name, invite_code) values (gid, ua, 'selftest', 'TST-' || substr(gid::text, 1, 3));
   insert into public.group_members (group_id, user_id) values (gid, ua);
   insert into auth.users (id, instance_id, aud, role, email) select u, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'selftest-m-' || u || '@example.invalid'
     from (select gen_random_uuid() u from generate_series(1, 3)) g;
@@ -382,6 +382,254 @@ begin
   r := public.studyboard_apply_billing(jsonb_build_object('event_id', 'r5', 'family', 'revenuecat', 'source', 'apple', 'state', 'lifetime', 'uid_hint', ub, 'fresh', true, 'event_at', now() + interval '7 minutes'));
   r := public.studyboard_apply_billing(jsonb_build_object('event_id', 'r6', 'family', 'revenuecat', 'source', 'apple', 'state', 'ended', 'uid_hint', ub, 'event_at', now() + interval '8 minutes'));
   perform public.sbt_ok(r = 'kept lifetime', 'an ended subscription does not remove paid Pro for good (got ' || r || ')');
+
+  -- ===== 9. Project Tasks (groups.sql 1.13): shared task lists inside a study group =====
+  if to_regclass('public.group_tasks') is null then
+    raise notice 'Project Tasks tables not found (run supabase-groups.sql, then this test again): section 9 skipped.';
+  else
+  declare
+    uc uuid := gen_random_uuid();   -- not in any group
+    ud uuid := gen_random_uuid();   -- an ordinary member
+    g1 uuid := gen_random_uuid();   -- group owned by A; members A, B, D
+    g2 uuid := gen_random_uuid();   -- another group owned by B (A is not in it)
+    l1 uuid; l2 uuid; lcap uuid; lx uuid; t1 uuid; t2 uuid; tx uuid; i int;
+    gt_fn text[] := array['create_task_list', 'update_task_list', 'delete_task_list', 'add_group_task', 'update_group_task', 'move_group_task', 'delete_group_task'];
+  begin
+    perform set_config('request.jwt.claims', '', true);
+    insert into auth.users (id, instance_id, aud, role, email, created_at, updated_at)
+      values (uc, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'selftest-c-' || uc || '@example.invalid', now(), now()),
+             (ud, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'selftest-d-' || ud || '@example.invalid', now(), now());
+    insert into public.study_groups (id, owner_id, name, invite_code) values (g1, ua, 'tasks-1', 'TK1-' || substr(g1::text, 1, 3)), (g2, ub, 'tasks-2', 'TK2-' || substr(g2::text, 1, 3));
+    insert into public.group_members (group_id, user_id, role) values (g1, ua, 'owner'), (g1, ub, 'member'), (g1, ud, 'member'), (g2, ub, 'owner');
+
+    -- A (owner of g1) makes a list; B makes a task and assigns it to D; B also adds an unassigned one.
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', ua, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    select id into l1 from public.create_task_list(g1, 'BIOL 201 Poster', 'BIOL 201');
+    execute 'reset role'; perform public.sbt_ok(l1 is not null, 'a member can create a task list');
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', ub, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    select id into t1 from public.add_group_task(l1, 'Draft the intro', ud, current_date + 3, 'two paragraphs', 'high');
+    select id into t2 from public.add_group_task(l1, 'Find three figures', null, null, '', null);
+    select id into l2 from public.create_task_list(g2, 'Other group list', '');
+    select id into tx from public.add_group_task(l2, 'Secret task in another group', null, null, '', null);
+    execute 'reset role';
+    perform public.sbt_ok(t1 is not null and t2 is not null, 'a member can add tasks (with and without an assignee)');
+    perform public.sbt_ok((select created_by = ub and updated_by = ub and position = 1 and status = 'todo' from public.group_tasks where id = t1), 'the server stamps who added the task and where it sits');
+
+    -- 9a. Someone who is not in the group (account C) sees and changes nothing
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', uc, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    n := public.sbt_count('select 1 from public.group_task_lists where group_id = ' || quote_literal(g1));
+    execute 'reset role'; perform public.sbt_ok(n = 0, 'a non-member can read a group''s task lists (saw ' || n || ')'); execute 'set local role authenticated';
+    n := public.sbt_count('select 1 from public.group_tasks where group_id = ' || quote_literal(g1));
+    execute 'reset role'; perform public.sbt_ok(n = 0, 'a non-member can read a group''s tasks (saw ' || n || ')'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.create_task_list(%L, %L, %L)', g1, 'x', ''));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a non-member created a task list'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.add_group_task(%L, %L, null, null, %L, null)', l1, 'x', ''));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a non-member added a task'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.update_group_task(%L, %L)', t1, '{"status":"done"}'));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a non-member changed a task'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.move_group_task(%L, 1)', t2));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a non-member reordered a task'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.delete_group_task(%L)', t1));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a non-member removed a task'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.update_task_list(%L, %L)', l1, '{"archived":true}'));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a non-member archived a list'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.delete_task_list(%L)', l1));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a non-member deleted a list');
+    perform public.sbt_ok((select count(*) = 2 from public.group_tasks where list_id = l1 and not deleted) and exists (select 1 from public.group_task_lists where id = l1),
+                           'the list and its tasks are untouched by the outsider');
+
+    -- 9b. A member still has no direct write access to the tables (only the functions)
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', ub, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    r := public.sbt_try(format('insert into public.group_tasks (list_id, group_id, title) values (%L, %L, %L)', l1, g1, 'sneaky'));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a member inserted a task directly'); execute 'set local role authenticated';
+    r := public.sbt_try(format('update public.group_tasks set title = %L, assignee_id = %L where id = %L', 'pwned', ub, t1));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a member edited a task directly'); execute 'set local role authenticated';
+    r := public.sbt_try(format('update public.group_tasks set deleted = true where id = %L', t1));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a member soft-deleted a task directly'); execute 'set local role authenticated';
+    r := public.sbt_try(format('delete from public.group_tasks where id = %L', t1));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a member deleted a task directly'); execute 'set local role authenticated';
+    r := public.sbt_try(format('insert into public.group_task_lists (group_id, title) values (%L, %L)', g1, 'sneaky'));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a member inserted a list directly'); execute 'set local role authenticated';
+    r := public.sbt_try(format('update public.group_task_lists set title = %L where id = %L', 'pwned', l1));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a member renamed a list directly'); execute 'set local role authenticated';
+    r := public.sbt_try(format('delete from public.group_task_lists where id = %L', l1));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a member deleted a list directly'); execute 'set local role authenticated';
+    r := public.sbt_try('truncate public.group_tasks');
+    execute 'reset role'; perform public.sbt_blocked(r, 'a member truncated the tasks table'); execute 'set local role anon';
+    r := public.sbt_try('select * from public.group_tasks');
+    execute 'reset role'; perform public.sbt_ok(r like 'err:%', 'the anon key can read group tasks'); execute 'set local role anon';
+    r := public.sbt_try(format('select public.add_group_task(%L, %L, null, null, %L, null)', l1, 'x', ''));
+    execute 'reset role'; perform public.sbt_blocked(r, 'the anon key added a group task');
+    perform public.sbt_ok((select title = 'Draft the intro' from public.group_tasks where id = t1), 'direct attempts left the task unchanged');
+
+    -- 9c. Assignees must be members, and who may reassign
+    execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.add_group_task(%L, %L, %L, null, %L, null)', l1, 'for a stranger', uc, ''));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a member assigned a new task to a non-member'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.update_group_task(%L, jsonb_build_object(%L, %L))', t2, 'assignee_id', uc));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a member assigned an existing task to a non-member'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.update_group_task(%L, jsonb_build_object(%L, %L))', t2, 'assignee_id', ub));
+    execute 'reset role'; perform public.sbt_ok(r = 'ok:1', 'anyone can claim an unassigned task (got ' || r || ')');
+    -- B now holds t2; D (a plain member, not the assignee, not the owner) can't take it
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', ud, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.update_group_task(%L, jsonb_build_object(%L, %L))', t2, 'assignee_id', ud));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a member took over a task that was assigned to someone else'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.update_group_task(%L, %L)', t2, '{"assignee_id": null}'));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a member unassigned someone else''s task');
+    perform public.sbt_ok((select assignee_id = ub from public.group_tasks where id = t2), 'the task is still assigned to B');
+    -- any member may edit details and mark it done
+    execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.update_group_task(%L, %L)', t2, '{"status":"done","notes":"found them"}'));
+    execute 'reset role'; perform public.sbt_ok(r = 'ok:1', 'any member can mark a task done (got ' || r || ')');
+    perform public.sbt_ok((select status = 'done' and completed_by = ud and completed_at is not null and updated_by = ud from public.group_tasks where id = t2), 'completion is stamped with who and when');
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', ua, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.update_group_task(%L, jsonb_build_object(%L, %L, %L, %L))', t2, 'assignee_id', ud, 'status', 'todo'));
+    execute 'reset role'; perform public.sbt_ok(r = 'ok:1', 'the group owner can reassign a task (got ' || r || ')');
+    perform public.sbt_ok((select assignee_id = ud and completed_at is null and completed_by is null from public.group_tasks where id = t2), 'reopening clears the completion stamp');
+
+    -- 9d. Crafted ids across groups (A is not in g2)
+    execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.update_group_task(%L, %L)', tx, '{"title":"hijacked"}'));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a member edited a task in a group they are not in'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.delete_group_task(%L)', tx));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a member deleted a task in a group they are not in'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.move_group_task(%L, -1)', tx));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a member reordered a task in a group they are not in'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.add_group_task(%L, %L, null, null, %L, null)', l2, 'x', ''));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a member added a task to another group''s list'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.delete_task_list(%L)', l2));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a member deleted another group''s list');
+    perform set_config('request.jwt.claims', '', true);
+    -- the database itself refuses a task whose group does not match its list, or an assignee who is not a member
+    r := public.sbt_try(format('insert into public.group_tasks (list_id, group_id, title) values (%L, %L, %L)', l2, g1, 'mismatch'));
+    perform public.sbt_ok(r like 'err:%', 'a task can''t sit in a list of a different group');
+    r := public.sbt_try(format('insert into public.group_tasks (list_id, group_id, title, assignee_id) values (%L, %L, %L, %L)', l1, g1, 'stranger', uc));
+    perform public.sbt_ok(r like 'err:%', 'the database refuses an assignee who is not a member, even from the SQL Editor');
+    perform public.sbt_ok((select title = 'Secret task in another group' and not deleted from public.group_tasks where id = tx), 'the other group''s task is untouched');
+
+    -- 9e. Who can delete, and reordering
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', ud, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.delete_group_task(%L)', t1));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a member who is not the author or the owner removed a task'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.delete_task_list(%L)', l1));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a member who is not the creator or the owner deleted a list');
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', ub, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    perform public.move_group_task(t2, -1);
+    execute 'reset role';
+    perform public.sbt_ok((select position from public.group_tasks where id = t2) = 1 and (select position from public.group_tasks where id = t1) = 2, 'a member can move a task up');
+    execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.delete_group_task(%L)', t1));
+    execute 'reset role'; perform public.sbt_ok(r = 'ok:1', 'the author can remove their task (got ' || r || ')');
+    perform public.sbt_ok((select deleted from public.group_tasks where id = t1), 'removal is a soft delete');
+
+    -- 9f. Caps and text limits
+    execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.add_group_task(%L, repeat(%L, 201), null, null, %L, null)', l1, 'x', ''));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a task title over 200 characters was accepted'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.add_group_task(%L, %L, null, null, %L, null)', l1, '   ', ''));
+    execute 'reset role'; perform public.sbt_blocked(r, 'an empty task title was accepted'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.create_task_list(%L, repeat(%L, 81), %L)', g1, 'x', ''));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a list title over 80 characters was accepted'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.add_group_task(%L, %L, null, null, %L, %L)', l1, 'odd priority', '', 'bogus'));
+    execute 'reset role'; perform public.sbt_blocked(r, 'an unknown priority was accepted');
+    execute 'set local role authenticated';
+    perform public.add_group_task(l1, 'long notes', null, null, repeat('n', 5000), null);
+    execute 'reset role';
+    perform public.sbt_ok((select max(char_length(notes)) <= 1000 from public.group_tasks where list_id = l1), 'notes are capped at 1000 characters');
+    -- 200 tasks in a list
+    perform set_config('request.jwt.claims', '', true);
+    insert into public.group_task_lists (group_id, title) values (g1, 'cap list') returning id into lcap;
+    insert into public.group_tasks (list_id, group_id, title, position) select lcap, g1, 'bulk ' || x, x from generate_series(1, 200) x;
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', ub, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.add_group_task(%L, %L, null, null, %L, null)', lcap, 'one too many', ''));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a list took a 201st task');
+    perform public.sbt_ok((select count(*) = 200 from public.group_tasks where list_id = lcap), 'a list holds exactly 200 tasks');
+    -- 20 active lists (the group has l1 and lcap now)
+    perform set_config('request.jwt.claims', '', true);
+    insert into public.group_task_lists (group_id, title) select g1, 'filler ' || x from generate_series(1, 18) x;
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', ub, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.create_task_list(%L, %L, %L)', g1, '21st', ''));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a group got a 21st active task list'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.update_task_list(%L, %L)', lcap, '{"archived": true}'));
+    execute 'reset role'; perform public.sbt_ok(r = 'ok:1', 'a member can archive a list (got ' || r || ')'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.add_group_task(%L, %L, null, null, %L, null)', lcap, 'into archived', ''));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a task was added to an archived list'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.create_task_list(%L, %L, %L)', g1, 'after archiving', ''));
+    execute 'reset role'; perform public.sbt_ok(r = 'ok:1', 'archiving frees a slot for a new list (got ' || r || ')'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.update_task_list(%L, %L)', lcap, '{"archived": false}'));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a restored list pushed the group past 20 active lists');
+    -- flooding: no more than 40 new tasks a minute from one account
+    perform set_config('request.jwt.claims', '', true);
+    insert into public.group_task_lists (group_id, title) values (g2, 'flood list') returning id into lx;
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', ub, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    r := 'ok';
+    for i in 1..60 loop
+      begin
+        perform public.add_group_task(lx, 'flood ' || i, null, null, '', null);
+      exception when others then r := 'blocked'; exit;
+      end;
+    end loop;
+    execute 'reset role';
+    perform public.sbt_ok(r = 'blocked' and (select count(*) < 50 from public.group_tasks where list_id = lx), 'one account added more than 40 tasks in a minute');
+
+    -- 9g. Leaving a group unassigns your tasks; blocked people's tasks are hidden
+    perform set_config('request.jwt.claims', '', true);
+    perform public.sbt_ok((select assignee_id = ud from public.group_tasks where id = t2), 'D holds a task before leaving');
+    delete from public.group_members where group_id = g1 and user_id = ud;
+    perform public.sbt_ok((select assignee_id is null from public.group_tasks where id = t2), 'a task becomes unassigned when its assignee leaves the group');
+    if to_regclass('public.group_blocks') is not null
+       and exists (select 1 from pg_policy where polrelid = 'public.group_tasks'::regclass and polname = 'gtask member read' and pg_get_expr(polqual, polrelid) like '%group_blocks%') then
+      insert into public.group_blocks (blocker_id, blocked_id) values (ua, ub);
+      perform set_config('request.jwt.claims', jsonb_build_object('sub', ua, 'role', 'authenticated')::text, true);
+      execute 'set local role authenticated';
+      n := public.sbt_count('select 1 from public.group_tasks where created_by = ' || quote_literal(ub) || ' and group_id = ' || quote_literal(g1));
+      execute 'reset role'; perform public.sbt_ok(n = 0, 'tasks added by someone you blocked are hidden (saw ' || n || ')'); execute 'set local role authenticated';
+      n := public.sbt_count('select 1 from public.group_tasks where created_by is distinct from ' || quote_literal(ub) || ' and group_id = ' || quote_literal(g1));
+      execute 'reset role'; perform public.sbt_ok(n > 0, 'tasks from everyone else are still visible');
+      perform set_config('request.jwt.claims', '', true);
+      delete from public.group_blocks where blocker_id = ua;
+    else
+      raise notice 'supabase-moderation.sql (task rules) is not installed: the blocked-people check was skipped.';
+    end if;
+
+    -- 9h. Privileges, definer settings and realtime
+    perform public.sbt_ok(not has_table_privilege('anon', 'public.group_tasks', 'select,insert,update,delete,truncate')
+                          and not has_table_privilege('anon', 'public.group_task_lists', 'select,insert,update,delete,truncate'), 'anon has privileges on the task tables');
+    perform public.sbt_ok(not has_table_privilege('authenticated', 'public.group_tasks', 'insert,update,delete,truncate')
+                          and not has_table_privilege('authenticated', 'public.group_task_lists', 'insert,update,delete,truncate'), 'signed-in users have write privileges on the task tables');
+    perform public.sbt_ok((select relrowsecurity from pg_class where oid = 'public.group_tasks'::regclass) and (select relrowsecurity from pg_class where oid = 'public.group_task_lists'::regclass),
+                          'row level security is off on a task table');
+    perform public.sbt_ok(not exists (select 1 from pg_policy where polrelid in ('public.group_tasks'::regclass, 'public.group_task_lists'::regclass) and polcmd <> 'r'), 'a task table has a policy that allows writes');
+    for f in
+      select p.oid, p.oid::regprocedure as sig, p.proname, p.prosecdef, p.proconfig, p.proacl, p.proowner
+      from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+      where ns.nspname = 'public' and (p.proname = any (gt_fn) or p.proname in ('sbg_task_stamp', 'sbg_task_member_left'))
+    loop
+      perform public.sbt_ok(not has_function_privilege('anon', f.oid, 'execute'), 'anon can execute ' || f.sig::text);
+      perform public.sbt_ok(not exists (select 1 from aclexplode(coalesce(f.proacl, acldefault('f', f.proowner))) a where a.grantee = 0 and a.privilege_type = 'EXECUTE'), 'PUBLIC can execute ' || f.sig::text);
+      perform public.sbt_ok(f.proname = any (gt_fn) or not has_function_privilege('authenticated', f.oid, 'execute'), 'signed-in users can execute the trigger function ' || f.sig::text);
+      perform public.sbt_ok(f.proname <> all (gt_fn) or has_function_privilege('authenticated', f.oid, 'execute'), 'signed-in users can''t execute ' || f.sig::text || ' (the app needs it)');
+      perform public.sbt_ok(f.prosecdef and exists (select 1 from unnest(coalesce(f.proconfig, '{}')) c where c like 'search_path=%'), f.sig::text || ' is not SECURITY DEFINER with a fixed search_path');
+    end loop;
+    perform public.sbt_ok((select count(*) = 9 from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace where ns.nspname = 'public' and (p.proname = any (gt_fn) or p.proname in ('sbg_task_stamp', 'sbg_task_member_left'))),
+                          'a task function has a leftover older version (overload) or is missing');
+    if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+      perform public.sbt_ok((select count(*) = 2 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename in ('group_tasks', 'group_task_lists')),
+                            'the task tables are not published over Realtime (members would not see live updates)');
+    end if;
+  end;
+  end if;
 
   -- ===== Done =====
   select count(*) into n from public.sbt_log;

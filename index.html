@@ -2294,6 +2294,71 @@ button.grp-item-main{cursor:pointer;min-height:44px}
 .grp-report fieldset{border:0;margin:0;padding:0;display:grid;gap:6px}
 .grp-report legend{font-weight:600;padding:0;margin-bottom:6px}
 dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:auto}
+/* Project Tasks (shared task lists in a group) and My Group Tasks on the Board */
+.grp-pt .pt-lists{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.pt-chip{display:inline-flex;align-items:baseline;gap:6px;min-height:40px;max-width:100%;padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:inherit;font-weight:600;font-size:.9rem;cursor:pointer}
+.pt-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px}
+.pt-chip small{font-weight:600;font-size:.74rem;color:var(--muted)}
+.pt-chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.pt-chip.on small{color:inherit;opacity:.85}
+.pt-chip.arch{border-style:dashed}
+.pt-listbar{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin:2px 0 8px}
+.pt-lname{flex:1 1 140px;min-width:0;overflow-wrap:anywhere}
+.pt-listbar .btn.small,.pt-listbar .link-btn{min-height:40px}
+.pt-prog{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;margin:0 0 10px}
+.pt-load-wrap{margin:0 0 10px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.pt-load{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px 14px}
+.pt-load li{display:inline-flex;align-items:center;gap:6px;font-size:.86rem;min-width:0}
+.pt-load li .grp-av{width:22px;height:22px;font-size:.62rem}
+.pt-load li.me{font-weight:600}
+.pt-load li.none{color:var(--muted)}
+.pt-load .late{color:var(--late);font-weight:600}
+.pt-uneven{margin:6px 0 0}
+.pt-add{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
+.pt-add input[type=text]{flex:1 1 100%;min-width:0;min-height:44px}
+.pt-add select,.pt-add input[type=date]{flex:1 1 130px;min-width:0;min-height:44px}
+.pt-add .btn{min-height:44px;flex:0 0 auto}
+@media (min-width:700px){.pt-add input[type=text]{flex:1 1 220px}}
+.pt-filters{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.pt-f{min-height:40px;padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:inherit;font-weight:600;font-size:.86rem;cursor:pointer}
+.pt-f small{font-weight:700;color:var(--muted);margin-left:2px}
+.pt-f.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--surface))}
+.pt-tasks,.gm-list{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.pt-task,.gm-row{display:flex;align-items:flex-start;gap:6px;padding:6px 10px 6px 4px;border-top:1px solid var(--line)}
+.pt-task:first-child,.gm-row:first-child{border-top:0}
+.pt-task.is-saving{opacity:.65}
+.pt-task.is-done .pt-title{text-decoration:line-through;color:var(--muted)}
+.pt-check{flex:none;width:44px;height:44px;border:0;background:none;padding:0;display:grid;place-items:center;cursor:pointer;color:inherit}
+.pt-box{width:24px;height:24px;border-radius:50%;border:2px solid var(--muted);display:grid;place-items:center;color:transparent;transition:background .12s,border-color .12s}
+.pt-box svg{width:14px;height:14px}
+.pt-check:hover .pt-box,.pt-check:focus-visible .pt-box{border-color:var(--accent)}
+.pt-check[aria-checked="true"] .pt-box,.pt-task.is-done .pt-box{background:var(--leaf);border-color:var(--leaf);color:#fff}
+.pt-body{flex:1;min-width:0;display:grid;gap:2px;padding-top:2px}
+.pt-title{border:0;background:none;padding:8px 0 2px;text-align:left;color:inherit;font:600 .98rem/1.3 var(--body);overflow-wrap:anywhere;cursor:pointer;min-height:40px}
+.pt-meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;padding-bottom:6px;min-width:0}
+.pt-who{display:inline-flex;align-items:center;gap:5px;font-size:.82rem;font-weight:600;min-width:0}
+.pt-who .grp-av{width:22px;height:22px;font-size:.62rem}
+.pt-who.none{color:var(--muted);font-weight:500;padding:1px 9px;border:1px dashed var(--line);border-radius:999px}
+.pt-due{display:inline-flex;align-items:center;gap:4px;font-size:.78rem;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--soft);color:var(--ink)}
+.pt-due.soon{background:color-mix(in srgb,var(--mark) 45%,var(--surface))}
+.pt-due.late{background:color-mix(in srgb,var(--late) 16%,transparent);color:var(--late)}
+.pt-prio{font-size:.72rem;font-weight:700;padding:1px 8px;border-radius:999px;background:var(--soft)}
+.pt-prio.high,.pt-prio.urgent{background:color-mix(in srgb,var(--late) 14%,transparent);color:var(--late)}
+.pt-prio.doing{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+.pt-notes{overflow-wrap:anywhere}
+.pt-act{display:flex;flex-direction:column;gap:6px;align-items:flex-end;padding-top:6px}
+.pt-act .btn.small{min-height:40px;white-space:nowrap}
+.pt-nudged{padding:8px 4px}
+@media (max-width:520px){.pt-task{flex-wrap:wrap}.pt-act{flex:1 1 100%;flex-direction:row;justify-content:flex-end;padding:0 0 4px 44px}}
+.pt-sheet-acts{display:flex;flex-wrap:wrap;gap:8px}
+.pt-sheet-acts .btn{min-height:44px}
+.grp-mine{margin-top:16px}
+.gm-sum{margin:0 0 8px}
+.gm-sum .link-btn{min-height:40px}
+.gm-main{flex:1;min-width:0;display:grid;gap:2px;text-align:left;border:0;background:none;padding:8px 0 4px;color:inherit;cursor:pointer;min-height:44px}
+.gm-title{font-weight:600;overflow-wrap:anywhere}
+.gm-badge{font-size:.74rem;font-weight:700;padding:2px 9px;border-radius:999px;background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent);overflow-wrap:anywhere;max-width:100%}
+.gm-row.is-late .gm-title{color:var(--ink)}
 /* ===== module: 90-grades.css ===== */
 /* Grade Tracker and Rough Week Rescue */
 .gr-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:12px}
@@ -31848,6 +31913,27 @@ const RM_CORE = (() => {
       try { ch.subscribe(); } catch(e) {}
       return () => { try { c.removeChannel(ch); } catch(e) {} };
     },
+    // 1.13 Project Tasks (group_task_lists and group_tasks exist once the newer groups.sql has been run). Writes only go through these functions.
+    ptLists: gid => q(cli().from("group_task_lists").select("*").eq("group_id", gid).order("created_at")),
+    ptTasks: gid => q(cli().from("group_tasks").select("*").eq("group_id", gid).eq("deleted", false).order("position").limit(3000)),
+    ptMine: () => q(cli().from("group_tasks").select("*").eq("assignee_id", myId()).eq("deleted", false).neq("status", "done").limit(500)),
+    ptListsIn: ids => q(cli().from("group_task_lists").select("id,group_id,title,course_code,archived,created_by").in("group_id", ids)),
+    ptNewList: (gid, title, course) => q(cli().rpc("create_task_list", {p_group: gid, p_title: title, p_course: course})),
+    ptUpdList: (id, patch) => q(cli().rpc("update_task_list", {p_list: id, p_patch: patch})),
+    ptDelList: id => q(cli().rpc("delete_task_list", {p_list: id})),
+    ptAdd: (list, title, who, due, notes, prio) => q(cli().rpc("add_group_task", {p_list: list, p_title: title, p_assignee: who, p_due: due, p_notes: notes, p_priority: prio})),
+    ptUpd: (id, patch) => q(cli().rpc("update_group_task", {p_task: id, p_patch: patch})),
+    ptMove: (id, dir) => q(cli().rpc("move_group_task", {p_task: id, p_dir: dir})),
+    ptDel: id => q(cli().rpc("delete_group_task", {p_task: id})),
+    // A third channel for the Project Task tables, opened only once they are known to exist.
+    listenTasks(gid, cb){
+      const c = cli(); if (!c || typeof c.channel !== "function") return () => {};
+      const ch = c.channel("sbt-" + gid + "-" + uid());
+      ["group_task_lists", "group_tasks"].forEach(t => ch.on("postgres_changes", {event: "*", schema: "public", table: t, filter: "group_id=eq." + gid}, () => cb()));
+      ch.on("postgres_changes", {event: "DELETE", schema: "public", table: "group_task_lists"}, () => cb());
+      try { ch.subscribe(); } catch(e) {}
+      return () => { try { c.removeChannel(ch); } catch(e) {} };
+    },
     // A second channel for the 1.12 tables, only opened once they are known to exist (a missing table would break the whole channel).
     listenExtras(gid, cb){
       const c = cli(); if (!c || typeof c.channel !== "function") return () => {};
@@ -31861,10 +31947,136 @@ const RM_CORE = (() => {
     }
   };
 
+  /* ---------- Project Tasks: pure logic (no DOM, no network; unit-tested in tests/grouptasks.test.js) ----------
+     Dates are plain "YYYY-MM-DD" strings (the due_at column is a SQL date), compared as whole days with UTC maths, so
+     daylight-saving changes and time zones can never shift a due date by a day. */
+  /*GT-START*/
+  const GTL = (() => {
+    const LIM = {lists: 20, listsAll: 40, tasks: 200, title: 200, listTitle: 80, notes: 1000, course: 40};
+    const dayNum = s => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || "")); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) / 864e5 : NaN; };
+    const isDay = s => Number.isFinite(dayNum(s));
+    const diff = (a, b) => dayNum(b) - dayNum(a);
+    const addDays = (s, n) => new Date((dayNum(s) + n) * 864e5).toISOString().slice(0, 10);
+    const localISO = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const open = t => t && !t.deleted && t.status !== "done";
+    // How a due date relates to today: none / overdue / today / tomorrow / soon (within 3 days) / later.
+    function due(d, today){
+      if (!isDay(d)) return {k: "none", n: null, soon: false, late: false};
+      const n = diff(today, d);
+      return {k: n < 0 ? "overdue" : n === 0 ? "today" : n === 1 ? "tomorrow" : n <= 3 ? "soon" : "later", n, soon: n >= 0 && n <= 3, late: n < 0};
+    }
+    // wd(d) and md(d) format a date as a short weekday ("Fri") and as month and day ("Oct 12").
+    function dueLabel(d, today, wd, md){
+      const c = due(d, today);
+      if (c.k === "none") return "No date";
+      if (c.k === "overdue") return c.n === -1 ? "Due yesterday" : `${-c.n}d overdue`;
+      if (c.k === "today") return "Due today";
+      if (c.k === "tomorrow") return "Due tomorrow";
+      return c.n <= 6 ? `Due ${wd(d)}` : `Due ${md(d)}`;
+    }
+    const byPos = (a, b) => (a.position - b.position) || String(a.created_at || "").localeCompare(String(b.created_at || "")) || String(a.id).localeCompare(String(b.id));
+    // Open tasks in list order, then finished ones (most recently finished first).
+    const order = tasks => {
+      const live = tasks.filter(t => !t.deleted);
+      return live.filter(t => t.status !== "done").sort(byPos).concat(live.filter(t => t.status === "done").sort((a, b) => String(b.completed_at || "").localeCompare(String(a.completed_at || "")) || byPos(a, b)));
+    };
+    function filter(tasks, f, me, today){
+      const live = tasks.filter(t => !t.deleted);
+      const pick = f === "mine" ? t => t.assignee_id === me && t.status !== "done"
+        : f === "unassigned" ? t => !t.assignee_id && t.status !== "done"
+        : f === "overdue" ? t => t.status !== "done" && due(t.due_at, today).late
+        : f === "done" ? t => t.status === "done"
+        : () => true;
+      return order(live.filter(pick));
+    }
+    const counts = (tasks, me, today) => ({all: tasks.filter(t => !t.deleted).length, mine: filter(tasks, "mine", me, today).length, unassigned: filter(tasks, "unassigned", me, today).length,
+      overdue: filter(tasks, "overdue", me, today).length, done: filter(tasks, "done", me, today).length});
+    function progress(tasks){
+      const live = tasks.filter(t => !t.deleted), done = live.filter(t => t.status === "done").length;
+      return {done, total: live.length, pct: live.length ? Math.round(done / live.length * 100) : 0};
+    }
+    // Open tasks per member (and how many nobody has claimed), to spot an uneven split. members: [{user_id, display_name}].
+    function workload(tasks, members, today){
+      const live = tasks.filter(t => !t.deleted), ids = new Set(members.map(m => m.user_id));
+      const rows = members.map(m => {
+        const mine = live.filter(t => t.assignee_id === m.user_id);
+        return {id: m.user_id, name: m.display_name || "Member", open: mine.filter(t => t.status !== "done").length, done: mine.filter(t => t.status === "done").length,
+          overdue: mine.filter(t => t.status !== "done" && due(t.due_at, today).late).length};
+      }).sort((a, b) => (b.open - a.open) || a.name.localeCompare(b.name));
+      const unassigned = live.filter(t => t.status !== "done" && (!t.assignee_id || !ids.has(t.assignee_id))).length;
+      const hi = rows[0], lo = rows[rows.length - 1];
+      // "Uneven" only when there is real work and the gap is 3 or more tasks.
+      const uneven = rows.length > 1 && hi.open - lo.open >= 3 ? {hi: hi.name, lo: lo.name, gap: hi.open - lo.open} : null;
+      return {rows, unassigned, uneven};
+    }
+    // Who may do what (the server enforces the same rules; these decide which buttons to show).
+    const canReassign = (t, me, owner) => !t.assignee_id || t.assignee_id === me || !!owner;
+    const canDeleteTask = (t, me, owner) => !!owner || (!!t.created_by && t.created_by === me);
+    const canDeleteList = (l, me, owner) => !!owner || (!!l.created_by && l.created_by === me);
+    const canAddTask = (tasks, listId) => tasks.filter(t => !t.deleted && t.list_id === listId).length < LIM.tasks;
+    const canAddList = lists => lists.filter(l => !l.archived).length < LIM.lists && lists.length < LIM.listsAll;
+    const clamp = (s, n) => String(s == null ? "" : s).replace(/\s+/g, " ").trim().slice(0, n);
+    // Apply a patch to a task the way the server will, so the screen can update before the answer arrives.
+    function applyPatch(t, patch, me, nowIso){
+      const n = Object.assign({}, t);
+      ["title", "notes", "status", "assignee_id", "due_at", "priority"].forEach(k => { if (k in patch) n[k] = patch[k]; });
+      if (n.status === "done" && t.status !== "done") { n.completed_at = nowIso; n.completed_by = me; }
+      else if (n.status !== "done") { n.completed_at = null; n.completed_by = null; }
+      n.updated_at = nowIso; n.updated_by = me;
+      return n;
+    }
+    // Merge a fresh server copy with what is on screen: rows being saved right now (pending: has(id)) keep their on-screen version.
+    function reconcile(local, server, pending){
+      const keep = new Map(local.filter(t => pending.has(t.id)).map(t => [t.id, t]));
+      const out = server.map(t => keep.get(t.id) || t);
+      local.forEach(t => { if (t._tmp && pending.has(t.id) && !out.some(x => x.id === t.id)) out.push(t); });
+      return out;
+    }
+    // My open tasks in a group, in the shape the planner reads. Tasks on archived lists don't count.
+    function deriveMine(tasks, lists, groupName, gid, me){
+      const L = new Map(lists.map(l => [l.id, l]));
+      return tasks.filter(t => open(t) && t.assignee_id === me && !t._tmp && L.has(t.list_id) && !L.get(t.list_id).archived).map(t => {
+        const l = L.get(t.list_id);
+        return {id: t.id, gid, listId: t.list_id, title: t.title, due: isDay(t.due_at) ? String(t.due_at).slice(0, 10) : "", status: t.status, hours: 1, priority: t.priority || "",
+          courseCode: l.course_code || "", listTitle: l.title, groupName: groupName || "", badge: "Group: " + (l.title || groupName || "Study group"), notes: t.notes || "", by: t.updated_by || t.created_by || ""};
+      }).sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999") || a.title.localeCompare(b.title));
+    }
+    // Tasks that were not assigned to me before and are now, by someone else, and that I haven't been told about.
+    function newlyAssigned(prev, next, me, seen){
+      const had = new Set(prev.filter(t => t.assignee_id === me).map(t => t.id));
+      return next.filter(t => open(t) && t.assignee_id === me && !had.has(t.id) && !seen.has(t.id) && t.updated_by && t.updated_by !== me && !t._tmp);
+    }
+    // How many of my rows are due in the next 7 days (today included) and how many are overdue.
+    function weekDue(rows, today){
+      let week = 0, late = 0, tomorrow = 0;
+      rows.forEach(r => { const c = due(r.due, today); if (c.k === "overdue") late++; else if (c.k !== "none" && c.n <= 6) week++; if (c.k === "tomorrow") tomorrow++; });
+      return {week, late, tomorrow};
+    }
+    // Move a task up (-1) or down (1) among the tasks of its list that are in the same state (open or done), exactly as move_group_task does.
+    // Returns {taskId: newPosition} for the rows that change.
+    function move(tasks, id, dir){
+      const live = tasks.filter(t => !t.deleted).sort(byPos), me = live.find(t => t.id === id); if (!me) return {};
+      const pos = new Map(live.map((t, i) => [t.id, i + 1]));
+      const same = live.filter(t => (t.status === "done") === (me.status === "done")), i = same.findIndex(t => t.id === id), j = i + (dir < 0 ? -1 : 1);
+      if (j < 0 || j >= same.length) return {};
+      const a = same[i].id, b = same[j].id, pa = pos.get(a); pos.set(a, pos.get(b)); pos.set(b, pa);
+      const out = {}; live.forEach(t => { if (t.position !== pos.get(t.id)) out[t.id] = pos.get(t.id); });
+      return out;
+    }
+    const nextListId = (lists, cur, showArchived) => {
+      const vis = lists.filter(l => showArchived || !l.archived);
+      return vis.some(l => l.id === cur) ? cur : (vis[0] || {}).id || "";
+    };
+    return {LIM, dayNum, isDay, diff, addDays, localISO, due, dueLabel, order, filter, counts, progress, workload, canReassign, canDeleteTask, canDeleteList, canAddTask, canAddList,
+      clamp, applyPatch, reconcile, move, deriveMine, newlyAssigned, weekDue, nextListId};
+  })();
+  /*GT-END*/
+
   /* ---------- Small helpers ---------- */
   const S = {groups: null, members: {}, items: {}, msgs: {}, busy: false, err: "", setup: false, loadingG: {}, errG: {},
     name: undefined, shares: null, sharesBusy: false, unsub: null, subGid: null, drafts: {}, changed: {}, pushQ: new Set(), pushT: 0, linkChecked: {}, linkNew: {},
-    ext: {}, lb: {}, rep: {}, repT: 0, extT: 0, unsubX: null, subX: null, pick: "", nudged: {}, blocked: new Set(), blocksFor: ""};
+    ext: {}, lb: {}, rep: {}, repT: 0, extT: 0, unsubX: null, subX: null, pick: "", nudged: {}, blocked: new Set(), blocksFor: "",
+    pt: {}, ptPend: new Map(), ptT: 0, unsubT: null, subT: null, mine: {}, mineFor: "", mineAt: 0, mineBusy: false, mineOff: false};
   const str = (x, n) => String(x == null ? "" : x).slice(0, n);
   const hashOf = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
   const plural = (n, w, ws) => `${n} ${n === 1 ? w : (ws || w + "s")}`;
@@ -32107,7 +32319,7 @@ const RM_CORE = (() => {
     } catch(e) { S.errG[gid] = e.message; }
     S.loadingG[gid] = false;
     if (ui.tab === "groups" && ui.grp === gid && $("#grpDetail") && S.items[gid]) patch(gid); else if (ui.tab === "groups") render();
-    if (S.items[gid]) loadExtras(gid);
+    if (S.items[gid]) { loadExtras(gid); loadPT(gid); }
   }
   let refreshT = 0;
   function subscribe(gid){
@@ -32123,8 +32335,9 @@ const RM_CORE = (() => {
       clearTimeout(refreshT); refreshT = setTimeout(() => loadGroup(gid), 350);
     });
     if (extOf(gid)) subscribeExtras(gid);
+    if (ptX(gid)) subscribePT(gid);
   }
-  function unsubscribe(){ if (S.unsub) S.unsub(); S.unsub = null; S.subGid = null; if (S.unsubX) S.unsubX(); S.unsubX = null; S.subX = null; }
+  function unsubscribe(){ if (S.unsub) S.unsub(); S.unsub = null; S.subGid = null; if (S.unsubX) S.unsubX(); S.unsubX = null; S.subX = null; if (S.unsubT) S.unsubT(); S.unsubT = null; S.subT = null; }
   function subscribeExtras(gid){
     if (S.subX === gid || S.subGid !== gid) return;
     if (S.unsubX) S.unsubX();
@@ -32205,7 +32418,7 @@ const RM_CORE = (() => {
       ${headHtml(g)}
       ${S.errG[gid] ? errBox(S.errG[gid]) : ""}
       ${setupNote(g)}
-      <div class="grp-cols"><div class="grp-col">${challengeHtml(g)}${decksHtml(g)}${quizzesHtml(g)}${sessionsHtml(g)}${tasksHtml(g)}</div>
+      <div class="grp-cols"><div class="grp-col">${challengeHtml(g)}${ptHtml(g)}${decksHtml(g)}${quizzesHtml(g)}${sessionsHtml(g)}${tasksHtml(g)}</div>
       <div class="grp-col">${checkinHtml(g)}${boardHtml(g)}${membersHtml(g)}</div></div></div>`;
   }
   const BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>';
@@ -32527,6 +32740,399 @@ const RM_CORE = (() => {
     });
   }
 
+  /* ---------- Project Tasks (groups.sql 1.13): shared task lists with assignees and due dates ----------
+     Data: group_task_lists and group_tasks, written only through the RPCs in api.pt* (the server checks membership and the rules).
+     Screen: the "Project Tasks" section of the group page (optimistic updates, rolled back with a message if the server says no).
+     Planner: tasks assigned to ME are read through (never copied into state.tasks, so there are no duplicates or sync conflicts).
+       window.SBGROUPTASKS.mine() returns them for the Today card, and other planner code may use it like this (always guarded):
+         const g = (typeof window !== "undefined" && window.SBGROUPTASKS) ? window.SBGROUPTASKS.mine() : [];
+       Each row: {id, gid, listId, title, due ("YYYY-MM-DD" or ""), status, hours (default 1), priority, courseCode, listTitle, groupName, badge, notes}.
+       The cache is kept in memory and in localStorage (sb:gtmine:<user>) so the rows are there offline. */
+  const PT_ICON = gi('<rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M7.5 9.5l1.5 1.5 2.5-3M7.5 15.5l1.5 1.5 2.5-3M14 10h3.5M14 16h3.5"/>');
+  const PT_FILTERS = [["all", "All"], ["mine", "Mine"], ["unassigned", "Unassigned"], ["overdue", "Overdue"], ["done", "Done"]];
+  const PT_PRIO = [["", "None"], ["low", "Low"], ["med", "Medium"], ["high", "High"], ["urgent", "Urgent"]];
+  const PT_STATUS = [["todo", "To Do"], ["doing", "In Progress"], ["done", "Done"]];
+  const ptInit = gid => (S.pt[gid] = S.pt[gid] || {ok: false, lists: [], tasks: [], filter: "all", list: "", arch: false, draft: {title: "", who: "", due: ""}, busy: false, err: "", setup: false});
+  const ptX = gid => { const x = S.pt[gid]; return x && x.ok ? x : null; };
+  const ptTaskOf = id => { for (const k in S.pt) { const t = (S.pt[k].tasks || []).find(x => x.id === id); if (t) return t; } return null; };
+  const ptWd = d => parse(d).toLocaleDateString(undefined, {weekday: "short"});
+  const ptDueTxt = d => GTL.dueLabel(d, todayISO(), ptWd, fmtShort);
+  const ptWho = (gid, id) => id === myId() ? "You" : mName(gid, id);
+  const ptPendAdd = id => S.ptPend.set(id, (S.ptPend.get(id) || 0) + 1);
+  const ptPendDone = id => { const n = (S.ptPend.get(id) || 0) - 1; if (n > 0) S.ptPend.set(id, n); else S.ptPend.delete(id); };
+
+  function ptDuePill(t, today){
+    const c = GTL.due(t.due_at, today);
+    if (c.k === "none") return "";
+    const open = t.status !== "done";
+    return `<span class="pt-due${open && c.late ? " late" : open && c.soon ? " soon" : ""}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg>${esc(open ? ptDueTxt(t.due_at) : fmtShort(t.due_at))}</span>`;
+  }
+  function ptRow(g, t, today){
+    const me = myId(), done = t.status === "done", late = !done && GTL.due(t.due_at, today).late, ms = S.members[g.id] || [];
+    const who = t.assignee_id && ms.some(m => m.user_id === t.assignee_id) ? t.assignee_id : "";
+    const chip = who ? `<span class="pt-who">${av(mName(g.id, who), who)}<span>${esc(who === me ? "You" : mName(g.id, who))}</span></span>` : `<span class="pt-who none">Unassigned</span>`;
+    const nudgeKey = "t:" + t.id + ":" + today, mini = done ? `Done${t.completed_by ? " by " + esc(ptWho(g.id, t.completed_by)) : ""}` : "";
+    const btns = (!done && !who ? `<button type="button" class="btn small" data-act="grp-pt-claim" data-id="${esc(t.id)}">Claim this</button>` : "")
+      + (late && who && who !== me ? (S.nudged[nudgeKey] ? `<span class="mini pt-nudged">Nudged</span>` : `<button type="button" class="btn small" data-act="grp-pt-nudge" data-id="${esc(t.id)}" aria-label="Nudge ${esc(mName(g.id, who))} about ${esc(str(t.title, 60))}">Nudge</button>`) : "");
+    return `<li class="pt-task${done ? " is-done" : ""}${late ? " is-late" : ""}${t._tmp ? " is-saving" : ""}" data-id="${esc(t.id)}"${t._tmp ? ' aria-busy="true"' : ""}>
+      <button type="button" class="pt-check" role="checkbox" aria-checked="${done}" data-act="grp-pt-done" data-id="${esc(t.id)}" aria-label="${done ? "Mark not done" : "Mark done"}: ${esc(str(t.title, 80))}"><span class="pt-box">${CHECK}</span></button>
+      <div class="pt-body"><button type="button" class="pt-title" data-act="grp-pt-edit" data-id="${esc(t.id)}" aria-label="Edit task: ${esc(str(t.title, 80))}">${esc(t.title)}</button>
+        <div class="pt-meta">${chip}${ptDuePill(t, today)}${t.priority === "high" || t.priority === "urgent" ? `<span class="pt-prio ${esc(t.priority)}">${t.priority === "urgent" ? "Urgent" : "High"}</span>` : ""}${t.status === "doing" ? `<span class="pt-prio doing">In progress</span>` : ""}${mini ? `<span class="mini">${mini}</span>` : ""}${t.notes ? `<span class="mini pt-notes" title="${esc(str(t.notes, 300))}">${esc(str(t.notes, 70))}${t.notes.length > 70 ? "…" : ""}</span>` : ""}</div></div>
+      ${btns ? `<div class="pt-act">${btns}</div>` : ""}</li>`;
+  }
+  function ptHtml(g){
+    const x = S.pt[g.id], owner = isOwner(g), head2 = `<h3 class="fsec">${PT_ICON}Project Tasks`;
+    if (!x || (!x.ok && !x.setup && !x.err)) return S.items[g.id] ? `<section class="grp-sec" id="grpPT">${head2}</h3><p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Loading…</p></section>` : `<div id="grpPT"></div>`;
+    if (!x.ok) {
+      if (x.setup) return owner ? `<section class="grp-sec" id="grpPT">${head2}</h3><div class="grp-note">Project Tasks need the latest <b>groups.sql</b>. ${esc(srvSetup("Project Tasks", "groups.sql"))}</div></section>` : `<div id="grpPT"></div>`;
+      return `<section class="grp-sec" id="grpPT">${head2}</h3><div class="grp-err" role="alert"><span>${esc(x.err)}</span><button type="button" class="btn small" data-act="grp-pt-retry">Try Again</button></div></section>`;
+    }
+    const me = myId(), today = todayISO(), ms = (S.members[g.id] || []).filter(m => m.user_id === me || !S.blocked.has(m.user_id));
+    const lists = x.lists.slice().sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+    const curId = GTL.nextListId(lists, x.list, x.arch), cur = lists.find(l => l.id === curId) || null, nArch = lists.filter(l => l.archived).length;
+    const activeIds = new Set(lists.filter(l => !l.archived).map(l => l.id)), openAll = x.tasks.filter(t => activeIds.has(t.list_id) && t.status !== "done" && !t.deleted).length;
+    const err = x.err ? `<div class="grp-err" role="alert"><span>${esc(x.err)}</span><button type="button" class="btn small" data-act="grp-pt-retry">Try Again</button></div>` : "";
+    const top = `${head2}<span class="n">${openAll} open</span><span class="spacer"></span><button type="button" class="btn small" data-act="grp-pt-list-new" data-id="${esc(g.id)}">New List</button></h3>`;
+    if (!lists.length) return `<section class="grp-sec grp-pt" id="grpPT">${top}${err}<p class="grp-none">Split up the work: make a list for a project, like “BIOL 201 Poster”, then add the first task.</p></section>`;
+    const chips = lists.filter(l => !l.archived || x.arch).map(l => {
+      const n = x.tasks.filter(t => t.list_id === l.id && t.status !== "done" && !t.deleted).length;
+      return `<button type="button" class="pt-chip${l.id === curId ? " on" : ""}${l.archived ? " arch" : ""}" data-act="grp-pt-list" data-id="${esc(l.id)}" aria-pressed="${l.id === curId}"><span>${esc(l.title)}</span><small>${l.archived ? "archived" : n + " open"}</small></button>`;
+    }).join("");
+    const archBtn = nArch ? `<button type="button" class="link-btn" data-act="grp-pt-arch" aria-pressed="${!!x.arch}">${x.arch ? "Hide" : "Show"} archived (${nArch})</button>` : "";
+    if (!cur) return `<section class="grp-sec grp-pt" id="grpPT">${top}${err}<div class="pt-lists">${chips}</div>${archBtn}<p class="grp-none">All your lists are archived. Make a new one, or show the archived ones.</p></section>`;
+    const tasks = x.tasks.filter(t => t.list_id === cur.id && !t.deleted), pr = GTL.progress(tasks), cnt = GTL.counts(tasks, me, today);
+    const shown = GTL.filter(tasks, x.filter, me, today), wl = ms.length > 1 ? GTL.workload(x.tasks.filter(t => activeIds.has(t.list_id)), ms, today) : null;
+    const dr = x.draft || {}, canAdd = !cur.archived && GTL.canAddTask(tasks, cur.id);
+    const opts = [`<option value="">Unassigned</option>`].concat(ms.slice().sort((a, b) => (b.user_id === me) - (a.user_id === me) || String(a.display_name).localeCompare(String(b.display_name)))
+      .map(m => `<option value="${esc(m.user_id)}"${dr.who === m.user_id ? " selected" : ""}>${esc(m.user_id === me ? "Me" : m.display_name || "Member")}</option>`)).join("");
+    const add = cur.archived ? `<p class="grp-none">This list is archived. Open List Options to restore it before adding tasks.</p>`
+      : !canAdd ? `<p class="grp-none">This list is full (${GTL.LIM.tasks} tasks). Archive it and start a new list.</p>`
+      : `<form class="pt-add" id="grpPTAdd" data-gid="${esc(g.id)}" data-list="${esc(cur.id)}" autocomplete="off">
+          <input type="text" id="ptTitle" name="title" maxlength="${GTL.LIM.title}" required placeholder="Add a task, like “Draft the intro”" aria-label="New task" value="${esc(dr.title || "")}">
+          <select id="ptWho" name="who" aria-label="Assign to">${opts}</select>
+          <input type="date" id="ptDue" name="due" aria-label="Due date" value="${esc(dr.due || "")}">
+          <button type="submit" class="btn primary">Add</button></form>`;
+    const wlHtml = wl ? `<div class="pt-load-wrap"><ul class="pt-load" aria-label="Open tasks per person">${wl.rows.map(r => `<li class="${r.id === me ? "me" : ""}">${av(r.name, r.id)}<span><b>${esc(r.id === me ? "You" : r.name)}</b> ${r.open} open${r.overdue ? `, <span class="late">${r.overdue} overdue</span>` : ""}</span></li>`).join("")}${wl.unassigned ? `<li class="none"><span><b>Unassigned</b> ${wl.unassigned} open</span></li>` : ""}</ul>
+        ${wl.uneven ? `<p class="mini pt-uneven">${esc(wl.uneven.hi)} has ${wl.uneven.gap} more open tasks than ${esc(wl.uneven.lo)}. Worth a quick look at the split.</p>` : ""}</div>` : "";
+    const empty = !tasks.length ? `<p class="grp-none">Split up the work: add the first task.</p>`
+      : !shown.length ? `<p class="grp-none">${{mine: "Nothing assigned to you here.", unassigned: "Every open task has an owner.", overdue: "Nothing is overdue.", done: "Nothing is done yet."}[x.filter] || "No tasks."}</p>` : "";
+    return `<section class="grp-sec grp-pt" id="grpPT">${top}${err}
+      <div class="pt-lists" role="group" aria-label="Task lists">${chips}</div>
+      <div class="pt-listbar"><span class="pt-lname"><b>${esc(cur.title)}</b>${cur.course_code ? ` <span class="pill">${esc(cur.course_code)}</span>` : ""}</span>${archBtn}<button type="button" class="btn small" data-act="grp-pt-list-edit" data-id="${esc(cur.id)}">List Options</button></div>
+      <div class="pt-prog"><div class="score-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pr.pct}" aria-label="Progress on ${esc(cur.title)}"><i style="width:${pr.pct}%"></i></div><span class="mini">${pr.done} of ${pr.total} done</span></div>
+      ${wlHtml}${add}
+      <div class="pt-filters" role="group" aria-label="Filter tasks">${PT_FILTERS.map(([k, l]) => `<button type="button" class="pt-f${x.filter === k ? " on" : ""}" data-act="grp-pt-filter" data-f="${k}" aria-pressed="${x.filter === k}">${l}${k === "all" ? "" : ` <small>${cnt[k]}</small>`}</button>`).join("")}</div>
+      ${shown.length ? `<ul class="pt-tasks" aria-label="Tasks in ${esc(cur.title)}">${shown.map(t => ptRow(g, t, today)).join("")}</ul>` : empty}</section>`;
+  }
+  // Redraw the section in place and keep the cursor where it was (a live update must never eat what someone is typing).
+  function swapPT(g){
+    const el = $("#grpPT"); if (!el || !g) return;
+    const a = document.activeElement, inside = a && el.contains(a), key = inside ? a.id || "" : "", sel = inside && "selectionStart" in a ? [a.selectionStart, a.selectionEnd] : null;
+    const act = inside && !key && a.dataset ? {act: a.dataset.act, id: a.dataset.id, f: a.dataset.f} : null;
+    el.outerHTML = ptHtml(g);
+    if (key) { const n = document.getElementById(key); if (n) { n.focus(); if (sel) { try { n.setSelectionRange(sel[0], sel[1]); } catch(e) {} } } }
+    else if (act && act.act) { const n = $(`#grpPT [data-act="${act.act}"]${act.id ? `[data-id="${CSS.escape(act.id)}"]` : ""}${act.f ? `[data-f="${CSS.escape(act.f)}"]` : ""}`); if (n) n.focus(); }
+  }
+  const ptRefresh = gid => { const g = groupOf(gid); if (ui.tab === "groups" && ui.grp === gid && g) swapPT(g); };
+
+  /* Mine: the planner's read-through list */
+  const MINEK = () => "sb:gtmine:" + myId();
+  function readMine(){ try { const o = JSON.parse(localStorage.getItem(MINEK()) || "null"); return o && typeof o.rows === "object" ? o.rows : {}; } catch(e) { return {}; } }
+  function persistMine(){ try { localStorage.setItem(MINEK(), JSON.stringify({at: Date.now(), rows: S.mine})); } catch(e) {} }
+  function mineRows(opts){
+    if (S.mineFor !== myId()) { S.mineFor = myId(); S.mine = myId() ? readMine() : {}; }
+    const known = S.groups ? new Set(S.groups.map(g => g.id)) : null;
+    return Object.keys(S.mine).filter(gid => !known || known.has(gid)).reduce((a, gid) => a.concat(S.mine[gid] || []), [])
+      .filter(r => r && r.id && (!opts || !opts.groupId || r.gid === opts.groupId)).sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999") || String(a.title).localeCompare(String(b.title)));
+  }
+  function deriveMineFor(gid){
+    const x = ptX(gid), g = groupOf(gid); if (!x) return;
+    S.mine[gid] = GTL.deriveMine(x.tasks, x.lists, g ? g.name : "", gid, myId()); persistMine(); decorateBoard();
+  }
+  async function loadMine(){
+    if (!online() || S.mineBusy || S.mineOff) return;
+    S.mineBusy = true; const id = myId(); mineRows();
+    try {
+      const gs = await api.groups() || [], names = {}; gs.forEach(g => { names[g.id] = g.name; });
+      const rows = gs.length ? await api.ptMine() || [] : [], gids = [...new Set(rows.map(r => r.group_id))];
+      const lists = gids.length ? await api.ptListsIn(gids) || [] : [];
+      if (myId() !== id) return;
+      const next = {};
+      gs.forEach(g => { if (ptX(g.id)) next[g.id] = S.mine[g.id] || []; });
+      gids.forEach(gid => { if (!ptX(gid)) next[gid] = GTL.deriveMine(rows.filter(r => r.group_id === gid), lists.filter(l => l.group_id === gid), names[gid], gid, id); });
+      const had = new Set(mineRows().map(r => r.id)), seen = readSeen();
+      S.mine = next; persistMine(); S.mineAt = Date.now();
+      if (!seen) markSeen(mineRows().map(r => r.id));
+      else { const fresh = mineRows().filter(r => !had.has(r.id) && !seen.has(r.id) && r.by && r.by !== id); markSeen(mineRows().map(r => r.id)); if (fresh.length) announceAssigned(fresh); }
+      announceDue();
+    } catch(e) { if (e && e.setup) S.mineOff = true; S.mineAt = Date.now() - 240000; }
+    S.mineBusy = false; decorateBoard();
+  }
+  const SEENK = () => "sb:gtseen:" + myId();
+  function readSeen(){ try { const a = JSON.parse(localStorage.getItem(SEENK()) || "null"); return Array.isArray(a) ? new Set(a) : null; } catch(e) { return null; } }
+  function markSeen(ids){ try { const s = readSeen() || new Set(); ids.forEach(i => s.add(i)); localStorage.setItem(SEENK(), JSON.stringify([...s].slice(-400))); } catch(e) {} }
+  // A task someone else just gave me, and one that is due tomorrow: an in-app notice the next time the app is open (no push).
+  function announceAssigned(list){
+    markSeen(list.map(t => t.id));
+    const t = list[0], by = t.by && t.by !== myId() ? mName(t.gid, t.by) : "Someone";
+    toast(list.length === 1 ? `${by} gave you a task: ${str(t.title, 50)}` : `${plural(list.length, "new group task")} assigned to you`, null, {label: "View", fn: () => openGroupTask(t)});
+  }
+  function announceDue(){
+    const today = todayISO(), key = "sb:gtdue:" + myId() + ":" + today;
+    try { if (localStorage.getItem(key)) return; } catch(e) { return; }
+    const rows = mineRows().filter(r => GTL.due(r.due, today).k === "tomorrow");
+    if (!rows.length) return;
+    try { localStorage.setItem(key, "1"); } catch(e) {}
+    toast(rows.length === 1 ? `Group task due tomorrow: ${str(rows[0].title, 50)}` : `${plural(rows.length, "group task")} due tomorrow`, null, {label: "View", fn: () => openGroupTask(rows[0])});
+  }
+  function openGroupTask(r){
+    if (!r) return;
+    const x = ptInit(r.gid); x.list = r.listId || x.list;
+    openGroup(r.gid); setTimeout(() => { const s = $("#grpPT"); if (s) s.scrollIntoView({block: "start"}); }, 500);
+  }
+  // The card under Today's Plan on the Board tab: tasks assigned to me, with a group badge, due date and a checkbox.
+  function decorateBoard(){
+    if (ui.tab !== "board") return;
+    const v = $("#view"), pane = v && $(".bpane-plan", v); if (!pane) return;
+    const old = $("#grpMine", pane); if (old) old.remove();
+    const rows = mineRows(); if (!rows.length) return;
+    const today = todayISO(), wk = GTL.weekDue(rows, today), shown = rows.slice(0, 5), one = [...new Set(rows.map(r => r.gid))].length === 1;
+    const sum = [wk.week ? `${plural(wk.week, "group task")} due this week` : `${plural(rows.length, "group task")} assigned to you`, wk.late ? `${wk.late} overdue` : ""].filter(Boolean).join(" · ");
+    const li = r => { const c = GTL.due(r.due, today);
+      return `<li class="gm-row${c.late ? " is-late" : ""}"><button type="button" class="pt-check" role="checkbox" aria-checked="false" data-act="grp-pt-done" data-id="${esc(r.id)}" data-g="${esc(r.gid)}" aria-label="Mark done: ${esc(str(r.title, 80))}"><span class="pt-box">${CHECK}</span></button>
+        <button type="button" class="gm-main" data-act="grp-pt-open" data-g="${esc(r.gid)}" data-l="${esc(r.listId)}" data-id="${esc(r.id)}"><span class="gm-title">${esc(r.title)}</span>
+          <span class="pt-meta"><span class="gm-badge" title="${esc(r.groupName)}">${esc(r.badge)}</span>${r.due ? `<span class="pt-due${c.late ? " late" : c.soon ? " soon" : ""}">${esc(ptDueTxt(r.due))}</span>` : ""}<span class="mini">about ${r.hours}h</span></span></button></li>`; };
+    pane.insertAdjacentHTML("beforeend", `<section class="grp-mine" id="grpMine" aria-label="Group tasks assigned to you"><h3 class="fsec">${PT_ICON}My Group Tasks<span class="n">${rows.length}</span></h3>
+      <p class="mini gm-sum">${esc(sum)}. <button type="button" class="link-btn" data-act="${one ? "grp-pt-open" : "grp-page"}" data-g="${esc(rows[0].gid)}" data-l="${esc(rows[0].listId)}">${one ? "Open the group" : "Open Study Groups"}</button></p>
+      <ul class="gm-list">${shown.map(li).join("")}</ul>${rows.length > shown.length ? `<p class="mini">+${rows.length - shown.length} more in your groups</p>` : ""}</section>`);
+  }
+
+  /* Loading and live updates */
+  async function loadPT(gid){
+    if (!online()) return;
+    const x = ptInit(gid);
+    if (x.busy) { x.again = true; return; }
+    x.busy = true;
+    try {
+      await loadBlocks();
+      const [ls, ts2] = await Promise.all([api.ptLists(gid), api.ptTasks(gid)]);
+      const lists = (ls || []).filter(l => !l.created_by || !S.blocked.has(l.created_by)), ids = new Set(lists.map(l => l.id));
+      const tasks = (ts2 || []).filter(t => ids.has(t.list_id) && (!t.created_by || !S.blocked.has(t.created_by)));
+      const prev = x.tasks, wasOk = x.ok;
+      x.tasks = GTL.reconcile(prev, tasks, S.ptPend); x.lists = lists; x.ok = true; x.setup = false; x.err = "";
+      x.list = GTL.nextListId(lists, x.list, x.arch);
+      if (wasOk) { const seen = readSeen() || new Set(), fresh = GTL.newlyAssigned(prev, x.tasks, myId(), seen); if (fresh.length) announceAssigned(fresh.map(t => ({id: t.id, gid, listId: t.list_id, title: t.title, by: t.updated_by}))); }
+      else markSeen(x.tasks.filter(t => t.assignee_id === myId()).map(t => t.id));
+      deriveMineFor(gid);
+      if (ui.grp === gid) subscribePT(gid);
+    } catch(e) { if (e.setup) { x.ok = false; x.setup = true; } else x.err = e.message; }
+    x.busy = false;
+    if (x.again) { x.again = false; loadPT(gid); return; }
+    ptRefresh(gid);
+  }
+  function subscribePT(gid){
+    if (S.subT === gid || S.subGid !== gid) return;
+    if (S.unsubT) S.unsubT();
+    S.subT = gid;
+    S.unsubT = api.listenTasks(gid, () => { clearTimeout(S.ptT); S.ptT = setTimeout(() => loadPT(gid), 400); });
+  }
+
+  /* Changing things: show the change at once, ask the server, and put it back with a message if the server says no. */
+  function ptMutate(gid, id, patch){
+    const x = ptX(gid), i = x ? x.tasks.findIndex(t => t.id === id) : -1; if (i < 0) return Promise.resolve();
+    const snap = x.tasks[i], was = snap.status;
+    x.tasks[i] = GTL.applyPatch(snap, patch, myId(), new Date().toISOString());
+    ptPendAdd(id); deriveMineFor(gid); ptRefresh(gid);
+    return api.ptUpd(id, patch).then(row => {
+      ptPendDone(id);
+      const j = x.tasks.findIndex(t => t.id === id);
+      if (j >= 0 && row && !S.ptPend.has(id)) x.tasks[j] = row;
+      deriveMineFor(gid); ptRefresh(gid);
+      if (patch.status === "done" && was !== "done") ptCelebrate(gid, id);
+    }).catch(e => {
+      ptPendDone(id);
+      const j = x.tasks.findIndex(t => t.id === id);
+      if (j >= 0) x.tasks[j] = snap;
+      deriveMineFor(gid); ptRefresh(gid); toast(e.message);
+      if (!/permission|isn't there|only the/i.test(e.message)) return; loadPT(gid);
+    });
+  }
+  function ptCelebrate(gid, id){
+    const x = ptX(gid), t = x && x.tasks.find(k => k.id === id); if (!t) return;
+    const all = x.tasks.filter(k => k.list_id === t.list_id && !k.deleted), l = x.lists.find(k => k.id === t.list_id);
+    if (all.length >= 2 && all.every(k => k.status === "done")) {
+      toast(`Everything on ${l ? l.title : "the list"} is done. Nice teamwork.`);
+      try { if (typeof celebrate === "function") celebrate("check"); } catch(e) {}
+    } else toast(`Done: ${str(t.title, 50)}`);
+  }
+  async function ptAddTask(gid, listId, title, who, due){
+    const x = ptX(gid); if (!x) return false;
+    title = GTL.clamp(title, GTL.LIM.title); if (!title) return false;
+    if (!GTL.canAddTask(x.tasks, listId)) { toast(`A list holds up to ${GTL.LIM.tasks} tasks. Start a new list.`); return false; }
+    const now = new Date().toISOString(), tmp = {id: "tmp-" + uid(), list_id: listId, group_id: gid, title, notes: "", status: "todo", assignee_id: who || null, due_at: GTL.isDay(due) ? due : null, priority: null,
+      position: Math.max(0, ...x.tasks.filter(t => t.list_id === listId).map(t => t.position || 0)) + 1, created_by: myId(), created_at: now, updated_by: myId(), updated_at: now, completed_at: null, completed_by: null, deleted: false, _tmp: true};
+    x.tasks.push(tmp); ptPendAdd(tmp.id); x.draft = {title: "", who: "", due: ""}; ptRefresh(gid);
+    try {
+      const row = await api.ptAdd(listId, title, who || null, tmp.due_at, "", null);
+      ptPendDone(tmp.id);
+      const j = x.tasks.findIndex(t => t.id === tmp.id);
+      if (j >= 0) x.tasks[j] = row; else if (row && !x.tasks.some(t => t.id === row.id)) x.tasks.push(row);
+      deriveMineFor(gid); ptRefresh(gid);
+      if (who && who !== myId()) toast(`Added for ${mName(gid, who)}`);
+      return true;
+    } catch(e) {
+      ptPendDone(tmp.id); x.tasks = x.tasks.filter(t => t.id !== tmp.id);
+      x.draft = {title, who: who || "", due: due || ""}; ptRefresh(gid); toast(e.message); return false;
+    }
+  }
+  function ptMove(gid, id, dir){
+    const x = ptX(gid), t = x && x.tasks.find(k => k.id === id); if (!t) return;
+    const snapP = new Map(x.tasks.filter(k => k.list_id === t.list_id).map(k => [k.id, k.position])), map = GTL.move(x.tasks.filter(k => k.list_id === t.list_id), id, dir);
+    if (!Object.keys(map).length) return;
+    x.tasks.forEach(k => { if (map[k.id] != null) k.position = map[k.id]; });
+    ptPendAdd(id); ptRefresh(gid);
+    api.ptMove(id, dir).then(() => ptPendDone(id)).catch(e => { ptPendDone(id); x.tasks.forEach(k => { if (snapP.has(k.id)) k.position = snapP.get(k.id); }); ptRefresh(gid); toast(e.message); });
+  }
+  async function ptToggle(id, gid){
+    const x = ptX(gid), t = x && x.tasks.find(k => k.id === id);
+    if (t) { if (t._tmp) return; return ptMutate(gid, id, {status: t.status === "done" ? "todo" : "done"}); }
+    // The group isn't open: finish the task straight from the planner's list.
+    const rows = S.mine[gid] || [], r = rows.find(k => k.id === id); if (!r) return;
+    S.mine[gid] = rows.filter(k => k.id !== id); persistMine(); decorateBoard();
+    try { await api.ptUpd(id, {status: "done"}); toast(`Done: ${str(r.title, 50)}`); if (S.pt[gid]) loadPT(gid); }
+    catch(e) { S.mine[gid] = rows; persistMine(); decorateBoard(); toast(e.message); }
+  }
+
+  /* Sheets */
+  function ptListSheet(g, list){
+    const x = ptX(g.id); if (!x) return;
+    if (!list && !GTL.canAddList(x.lists)) { toast(`A group can keep ${GTL.LIM.lists} active task lists. Archive or delete one first.`); return; }
+    const owner = isOwner(g), me = myId(), codes = [...new Set(coursesArr().map(c => c.code).filter(Boolean).concat(g.course ? [g.course] : []))].slice(0, 20);
+    const canDel = list && GTL.canDeleteList(list, me, owner);
+    openSheet(`<form class="sheet">${head(list ? "List Options" : "New Task List")}<div class="sheet-body">${REQ_NOTE}
+      <label class="f"><span class="lh">List Name ${REQ}</span><input type="text" name="title" required maxlength="${GTL.LIM.listTitle}" autofocus value="${esc(list ? list.title : "")}" placeholder="e.g. BIOL 201 Poster"></label>
+      <label class="f"><span class="lh">Course Code <span class="hint">optional</span></span><input type="text" name="course" maxlength="${GTL.LIM.course}" list="ptCodes" value="${esc(list ? list.course_code : g.course || "")}" placeholder="e.g. BIOL 201"><datalist id="ptCodes">${codes.map(c => `<option value="${esc(c)}">`).join("")}</datalist></label>
+      ${list ? `<div class="pt-sheet-acts"><button type="button" class="btn" data-act="grp-pt-list-arch" data-id="${esc(list.id)}">${list.archived ? "Restore List" : "Archive List"}</button>${canDel ? `<button type="button" class="btn danger" data-act="grp-pt-list-del" data-id="${esc(list.id)}">Delete List</button>` : ""}</div>
+        <p class="mini" style="margin:0">Archiving hides the list and its tasks from everyone but keeps them. Deleting removes the list and all its tasks for the whole group${canDel ? "" : ", and only the group owner or whoever made the list can do that"}.</p>` : ""}</div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>${list ? "Save" : "Create List"}</button></div></form>`, fd => {
+      const title = GTL.clamp(fd.get("title"), GTL.LIM.listTitle), code = GTL.clamp(fd.get("course"), GTL.LIM.course); if (!title) return false;
+      (async () => {
+        try {
+          if (list) {
+            if (title === list.title && code === list.course_code) return;
+            const row = await api.ptUpdList(list.id, {title, course_code: code});
+            Object.assign(list, row || {title, course_code: code}); deriveMineFor(g.id); ptRefresh(g.id);
+          } else {
+            const row = await api.ptNewList(g.id, title, code);
+            if (row && !x.lists.some(l => l.id === row.id)) x.lists.push(row);
+            x.list = row ? row.id : x.list; x.filter = "all"; ptRefresh(g.id); toast(`Made the list ${title}`);
+          }
+        } catch(e) { toast(e.message); }
+      })();
+    });
+  }
+  function ptEditSheet(t){
+    const g = groupOf(t.group_id), x = ptX(t.group_id); if (!g || !x || t._tmp) return;
+    const owner = isOwner(g), me = myId(), ms = (S.members[g.id] || []).filter(m => m.user_id === me || !S.blocked.has(m.user_id));
+    const canRe = GTL.canReassign(t, me, owner), canDel = GTL.canDeleteTask(t, me, owner), cur = ms.some(m => m.user_id === t.assignee_id) ? t.assignee_id : "";
+    const whoName = cur ? ptWho(g.id, cur) : "someone";
+    openSheet(`<form class="sheet">${head("Edit Task")}<div class="sheet-body">${REQ_NOTE}
+      <label class="f"><span class="lh">Task ${REQ}</span><input type="text" name="title" required maxlength="${GTL.LIM.title}" autofocus value="${esc(t.title)}"></label>
+      <div class="two"><label class="f"><span class="lh">Assigned To</span><select name="who"${canRe ? "" : " disabled"}><option value="">Unassigned</option>${ms.map(m => `<option value="${esc(m.user_id)}"${m.user_id === cur ? " selected" : ""}>${esc(m.user_id === me ? "Me" : m.display_name || "Member")}</option>`).join("")}</select></label>
+        <label class="f"><span class="lh">Due Date <span class="hint">optional</span></span><input type="date" name="due" value="${esc(t.due_at || "")}"></label></div>
+      ${canRe ? "" : `<p class="mini" style="margin:-6px 0 0">Only ${esc(whoName)} or the group owner can change who this is assigned to.</p>`}
+      <div class="two"><label class="f"><span class="lh">Status</span><select name="status">${PT_STATUS.map(([v, l]) => `<option value="${v}"${t.status === v ? " selected" : ""}>${l}</option>`).join("")}</select></label>
+        <label class="f"><span class="lh">Priority</span><select name="priority">${PT_PRIO.map(([v, l]) => `<option value="${v}"${(t.priority || "") === v ? " selected" : ""}>${l}</option>`).join("")}</select></label></div>
+      <label class="f"><span class="lh">Notes <span class="hint">optional, up to ${GTL.LIM.notes} characters</span></span><textarea name="notes" rows="3" maxlength="${GTL.LIM.notes}" placeholder="What done looks like, links, who to ask">${esc(t.notes || "")}</textarea></label>
+      <div class="pt-sheet-acts"><button type="button" class="btn" data-act="grp-pt-move" data-id="${esc(t.id)}" data-dir="-1">Move Up</button><button type="button" class="btn" data-act="grp-pt-move" data-id="${esc(t.id)}" data-dir="1">Move Down</button></div>
+      <p class="mini" style="margin:0">Added by ${esc(t.created_by ? ptWho(g.id, t.created_by) : "a former member")} ${esc(ago(t.created_at, 1))}${t.updated_by && ts(t.updated_at) - ts(t.created_at) > 2000 ? ` · Last changed ${esc(ago(t.updated_at, 1))} by ${esc(ptWho(g.id, t.updated_by))}` : ""}${t.status === "done" && t.completed_by ? ` · Done by ${esc(ptWho(g.id, t.completed_by))}` : ""}</p></div>
+      <div class="sheet-foot">${canDel ? `<button type="button" class="btn danger" data-act="grp-pt-del" data-id="${esc(t.id)}">Delete</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save</button></div></form>`, fd => {
+      const title = GTL.clamp(fd.get("title"), GTL.LIM.title); if (!title) return false;
+      const patch = {}, due = String(fd.get("due") || ""), notes = String(fd.get("notes") || "").trim().slice(0, GTL.LIM.notes), st = String(fd.get("status") || t.status), pr = String(fd.get("priority") || "");
+      if (title !== t.title) patch.title = title;
+      if (notes !== (t.notes || "")) patch.notes = notes;
+      if (PT_STATUS.some(s => s[0] === st) && st !== t.status) patch.status = st;
+      if ((due || null) !== (t.due_at || null) && (!due || GTL.isDay(due))) patch.due_at = due || null;
+      if (pr !== (t.priority || "") && PT_PRIO.some(p => p[0] === pr)) patch.priority = pr || null;
+      if (canRe && fd.has("who")) { const w = String(fd.get("who") || ""); if ((w || null) !== (t.assignee_id || null) && (!w || ms.some(m => m.user_id === w))) patch.assignee_id = w || null; }
+      if (Object.keys(patch).length) ptMutate(g.id, t.id, patch);
+    });
+  }
+
+  /* Actions and forms */
+  hook("act", (act, el, id) => {
+    if (!act.startsWith("grp-pt-")) return false;
+    const gid = (el && el.dataset && el.dataset.g) || ui.grp, g = groupOf(ui.grp), x = g ? ptX(g.id) : null;
+    switch (act) {
+      case "grp-pt-retry": if (g) { ptInit(g.id).err = ""; loadPT(g.id); ptRefresh(g.id); } return true;
+      case "grp-pt-list": if (x) { x.list = id; x.filter = "all"; ptRefresh(g.id); } return true;
+      case "grp-pt-arch": if (x) { x.arch = !x.arch; x.list = GTL.nextListId(x.lists, x.list, x.arch); ptRefresh(g.id); } return true;
+      case "grp-pt-filter": if (x) { x.filter = PT_FILTERS.some(f => f[0] === el.dataset.f) ? el.dataset.f : "all"; ptRefresh(g.id); } return true;
+      case "grp-pt-list-new": if (g && x) ptListSheet(g, null); return true;
+      case "grp-pt-list-edit": { const l = x && x.lists.find(k => k.id === id); if (l) ptListSheet(g, l); return true; }
+      case "grp-pt-list-arch": { const l = x && x.lists.find(k => k.id === id); if (!l) return true;
+        if (l.archived && !GTL.canAddList(x.lists)) { toast(`A group can keep ${GTL.LIM.lists} active task lists. Archive another one first.`); return true; }
+        if (dlg.open) dlg.close();
+        const was = l.archived; l.archived = !was; x.list = GTL.nextListId(x.lists, was ? l.id : x.list, x.arch); deriveMineFor(g.id); ptRefresh(g.id);
+        api.ptUpdList(l.id, {archived: !was}).then(() => toast(was ? `Restored ${l.title}` : `Archived ${l.title}`)).catch(e => { l.archived = was; deriveMineFor(g.id); ptRefresh(g.id); toast(e.message); });
+        return true; }
+      case "grp-pt-list-del": { const l = x && x.lists.find(k => k.id === id); if (!l) return true;
+        if (dlg.open) dlg.close();
+        confirmSheet(`Delete ${l.title}?`, "The list and every task on it are deleted for the whole group. Archive it instead to keep them.", "Delete List", async () => {
+          try { await api.ptDelList(l.id); x.lists = x.lists.filter(k => k.id !== l.id); x.tasks = x.tasks.filter(k => k.list_id !== l.id); x.list = GTL.nextListId(x.lists, x.list, x.arch); deriveMineFor(g.id); ptRefresh(g.id); toast(`Deleted ${l.title}`); }
+          catch(e) { toast(e.message); } });
+        return true; }
+      case "grp-pt-done": { const t = ptTaskOf(id); ptToggle(id, t ? t.group_id : gid); return true; }
+      case "grp-pt-claim": { const t = ptTaskOf(id); if (t) ptMutate(t.group_id, id, {assignee_id: myId()}); return true; }
+      case "grp-pt-edit": { const t = ptTaskOf(id); if (t) ptEditSheet(t); return true; }
+      case "grp-pt-move": { const t = ptTaskOf(id); if (t) ptMove(t.group_id, id, Number(el.dataset.dir) < 0 ? -1 : 1); return true; }
+      case "grp-pt-del": { const t = ptTaskOf(id); if (!t) return true;
+        if (dlg.open) dlg.close();
+        confirmSheet("Delete This Task?", `${t.title} is removed for the whole group.`, "Delete", async () => {
+          const xx = ptX(t.group_id); if (!xx) return; const i = xx.tasks.findIndex(k => k.id === id), snap = xx.tasks[i];
+          xx.tasks.splice(i, 1); deriveMineFor(t.group_id); ptRefresh(t.group_id);
+          try { await api.ptDel(id); toast("Task deleted"); } catch(e) { xx.tasks.splice(Math.min(i, xx.tasks.length), 0, snap); deriveMineFor(t.group_id); ptRefresh(t.group_id); toast(e.message); } });
+        return true; }
+      case "grp-pt-nudge": { const t = ptTaskOf(id), gg = t && groupOf(t.group_id); if (!t || !gg || !t.assignee_id) return true;
+        const key = "t:" + id + ":" + todayISO(); if (S.nudged[key]) return true;
+        const name = mName(gg.id, t.assignee_id), l = (ptX(gg.id).lists.find(k => k.id === t.list_id) || {}).title || "the list";
+        S.nudged[key] = 1; ptRefresh(gg.id);
+        ensureName(async () => { try {
+          const row = await api.post(gg.id, `Nudge for ${name}: “${str(t.title, 80)}” on ${l} ${t.due_at ? "was due " + fmtShort(t.due_at) : "is waiting"}. Need a hand or a new date?`);
+          if (row && S.msgs[gg.id] && !S.msgs[gg.id].some(k => k.id === row.id)) S.msgs[gg.id].unshift(row);
+          toast(`Nudged ${name}`); patch(gg.id);
+        } catch(e) { delete S.nudged[key]; toast(e.message); ptRefresh(gg.id); } });
+        return true; }
+      case "grp-pt-open": { const r = mineRows().find(k => k.id === id) || {gid: el.dataset.g, listId: el.dataset.l}; if (r.gid) openGroupTask(r); return true; }
+    }
+    return false;
+  });
+  document.addEventListener("submit", e => {
+    const f = e.target; if (!f || f.id !== "grpPTAdd") return;
+    e.preventDefault();
+    const fd = new FormData(f), gid = f.dataset.gid, title = String(fd.get("title") || "");
+    if (!title.trim()) { const i = $("#ptTitle"); if (i) i.focus(); return; }
+    ptAddTask(gid, f.dataset.list, title, String(fd.get("who") || ""), String(fd.get("due") || "")).then(ok => { if (ok) { const i = $("#ptTitle"); if (i) i.focus(); } });
+  });
+  document.addEventListener("input", e => {
+    const t = e.target; if (!t || !ui.grp || !["ptTitle", "ptWho", "ptDue"].includes(t.id)) return;
+    const x = ptInit(ui.grp); x.draft = Object.assign({title: "", who: "", due: ""}, x.draft, {[t.id === "ptTitle" ? "title" : t.id === "ptWho" ? "who" : "due"]: t.value});
+  });
+  // The planner reads group tasks through this (documented above). complete() finishes one from anywhere.
+  window.SBGROUPTASKS = {
+    version: 1,
+    mine: opts => mineRows(opts).map(r => Object.assign({}, r)),
+    count: () => mineRows().length,
+    dueThisWeek: () => GTL.weekDue(mineRows(), todayISO()),
+    complete: id => { const r = mineRows().find(k => k.id === id); return r ? ptToggle(id, r.gid) : Promise.resolve(); },
+    open: id => { const r = mineRows().find(k => k.id === id); if (r) openGroupTask(r); }
+  };
+  hook("render", tab => {
+    if (tab !== "board") return;
+    mineRows(); decorateBoard();
+    if (online() && Date.now() - S.mineAt > 300000) loadMine();
+  });
+
   /* ---------- Safety: report and block (Apple App Review guideline 1.2) ----------
      Anyone in a group can report a message, a shared item or a member, and block a member. Reports are written to group_reports, which only
      the app's owner can read (supabase-moderation.sql); the person reporting never sees them again. Blocking hides everything that person
@@ -32632,7 +33238,7 @@ const RM_CORE = (() => {
     if (!g || !root || root.dataset.gid !== gid) { if (ui.tab === "groups") render(); return; }
     const swap = (id, html) => { const el = $("#" + id); if (el) el.outerHTML = html; };
     swap("grpHead", headHtml(g)); swap("grpChallenge", challengeHtml(g)); swap("grpDecks", decksHtml(g)); swap("grpQuizzes", quizzesHtml(g)); swap("grpSessions", sessionsHtml(g));
-    swap("grpTasks", tasksHtml(g)); swap("grpCheckin", checkinHtml(g)); swap("grpMembers", membersHtml(g)); swap("grpPins", pinsHtml(g));
+    swap("grpTasks", tasksHtml(g)); swapPT(g); swap("grpCheckin", checkinHtml(g)); swap("grpMembers", membersHtml(g)); swap("grpPins", pinsHtml(g));
     const ml = $("#grpMsgList"); if (ml) ml.innerHTML = msgsHtml(g);
     const eb = $(".grp-err", root); if (eb && !S.errG[gid]) eb.remove();
   }
@@ -32642,7 +33248,7 @@ const RM_CORE = (() => {
     const id = online() ? myId() : "";
     if (S.uid === id) return;
     unsubscribe();
-    Object.assign(S, {uid: id, groups: null, members: {}, items: {}, msgs: {}, err: "", setup: false, errG: {}, name: undefined, shares: null, drafts: {}, changed: {}, linkChecked: {}, linkNew: {}, ext: {}, lb: {}, rep: {}, pick: "", blocked: new Set(), blocksFor: ""});
+    Object.assign(S, {uid: id, groups: null, members: {}, items: {}, msgs: {}, err: "", setup: false, errG: {}, name: undefined, shares: null, drafts: {}, changed: {}, linkChecked: {}, linkNew: {}, ext: {}, lb: {}, rep: {}, pick: "", blocked: new Set(), blocksFor: "", pt: {}, ptPend: new Map(), mine: {}, mineFor: "", mineAt: 0, mineOff: false});
     ui.grp = null; checked = false; updateNavBadge();
   }
   VIEWS.groups = () => {
