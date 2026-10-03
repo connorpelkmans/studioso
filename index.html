@@ -3344,6 +3344,12 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-acc-tile{border:1.5px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);padding:8px 6px;display:grid;justify-items:center;gap:2px;font:inherit;cursor:pointer;min-height:44px}
 .cp-acc-tile.on{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)}
 .cp-acc-tile.off{opacity:.55;cursor:default}
+.cp-how{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.cp-how li{display:grid;gap:4px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.cp-how-ways{display:grid;gap:6px}
+.cp-how-way{display:grid;gap:1px;font-size:.78rem}
+.cp-how-bar{display:block;height:5px;border-radius:3px;background:var(--line);overflow:hidden}
+.cp-how-bar i{display:block;height:100%;border-radius:3px;background:var(--accent)}
 .cp-acc-tile.off .cp-acc-ic{filter:grayscale(1)}
 .cp-acc-ic{width:44px;height:44px;display:block;--cp-wear:var(--accent)}
 .cp-acc-ic svg{width:100%;height:100%;overflow:visible}
@@ -3719,6 +3725,11 @@ dialog:has(.ph-sheet){width:min(900px,calc(100% - 24px))}
 .sbk-m.got .sbk-pt{color:var(--accent-2,var(--accent));opacity:1;font-weight:600}
 .sbk-pbar{display:block;height:6px;border-radius:4px;background:var(--line);overflow:hidden;margin:3px 0 1px}
 .sbk-pbar i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent,#7C8CF8),var(--accent-2,#FF8FB0))}
+.sbk-paths{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:5px}
+.sbk-paths li{display:grid;gap:1px;font-size:.74rem}
+.sbk-paths .sbk-pn{font-weight:700}
+.sbk-paths li.ok .sbk-pn:after{content:" \2713";color:var(--accent-2,var(--accent))}
+.sbk-paths .sbk-pbar{height:4px;margin:1px 0}
 /* Sheets */
 .sbk-caprow{display:flex;gap:8px}
 .sbk-caprow input{flex:1;min-width:0}
@@ -44963,13 +44974,21 @@ var COMP_KIT = (() => {
     tailSwish: "tail", earTwitch: "earL|earR", wingFlutter: "wingL,wingR|armL,armR", finWiggle: "armL|armR|tail|wingL|wingR",
     wave: "armL|armR", headTilt: "head", topBob: "top", bounce: "", hop: "", spin: "", sway: "", waddle: "", sparkle: ""
   };
+  /* Props (accessories). Each is earned by ANY ONE of its paths: `hours` (lifetime focus hours, the original way, kept as is for
+     everyone who already has them) or `paths: [[stat, n], ...]` using the lifetime stats in PROP_STATS below. Once earned a prop is
+     remembered in settings.comp.earned and never taken away, even if a stat later drops (a deleted deck, an archived term). */
   const ACC = [
-    {id: "scarf", name: "Cozy Scarf", hours: 1, free: true},
-    {id: "hat", name: "Tiny Hat", hours: 5, free: true},
-    {id: "glasses", name: "Round Glasses", hours: 15},
-    {id: "backpack", name: "Little Backpack", hours: 30},
-    {id: "star", name: "Star Badge", hours: 60},
-    {id: "cap", name: "Graduation Cap", hours: 100}
+    {id: "scarf", name: "Cozy Scarf", hours: 1, free: true, paths: [["ontime", 3], ["checkins", 3]]},
+    {id: "hat", name: "Tiny Hat", hours: 5, free: true, paths: [["streak", 3], ["notes", 3]]},
+    {id: "bowtie", name: "Party Bow Tie", free: true, paths: [["ontime", 10], ["early", 4], ["checkins", 7]]},
+    {id: "glasses", name: "Round Glasses", hours: 15, paths: [["cards", 150], ["quizzes", 3]]},
+    {id: "backpack", name: "Little Backpack", hours: 30, paths: [["ontime", 25], ["stickers", 5], ["groups", 1]]},
+    {id: "medal", name: "Champion Medal", paths: [["quizzes", 6], ["cards", 400], ["prep", 6]]},
+    {id: "cape", name: "Hero Cape", paths: [["streak", 7], ["ontime", 50], ["checkins", 21]]},
+    {id: "star", name: "Star Badge", hours: 60, paths: [["stickers", 15], ["streak", 14], ["focusWeeks", 4]]},
+    {id: "beanie", name: "Festive Beanie", paths: [["festive", 1]]},
+    {id: "cap", name: "Graduation Cap", hours: 100, paths: [["prep", 12], ["ontime", 100]]},
+    {id: "crown", name: "Little Crown", paths: [["streak", 30], ["stickers", 30], ["hours", 150]]}
   ];
   const GENERIC = {
     tap: ["Hi hi! I'm so happy you're here!", "You're doing amazing today!", "One step at a time, and you're crushing it!", "I believe in you so much!", "Yay, it's you! Hello!", "Let's keep this streak of awesome going!"],
@@ -45049,6 +45068,11 @@ var COMP_KIT = (() => {
     hat: `<path d="M-15 1C-15.5 -14 -8 -20 0 -20S15.5 -14 15 1Z" ${WEAR} ${OUT(2.4)}/><path d="M-6 -16Q-10 -9 -10 -1M5 -17Q9 -9 9 -1" fill="none" stroke="#fff" stroke-opacity=".32" stroke-width="2" stroke-linecap="round"/><rect x="-17" y="-4" width="34" height="8.5" rx="4.2" ${WEAR} ${OUT(2.4)}/><rect x="-15" y="-2.4" width="30" height="5.2" rx="2.6" fill="#fff" opacity=".4"/><circle cx="0" cy="-21" r="5.4" fill="#FFF8F0" ${OUT(2.4)}/><circle cx="-1.6" cy="-22.6" r="1.6" fill="#fff"/>`,
     backpack: `<rect x="-12" y="-14" width="24" height="29" rx="8" ${WEAR} ${OUT(2.4)}/><path d="M-12 -4Q0 2 12 -4V-6Q12 -14 4 -14H-4Q-12 -14 -12 -6Z" fill="#fff" opacity=".3"/><path d="M-12 -4Q0 2 12 -4" fill="none" ${OUT(2)}/><rect x="-7" y="5" width="14" height="7" rx="3" fill="${INK}" opacity=".16"/><rect x="-2" y="-2.2" width="4" height="5" rx="1.4" fill="#FFD35A" ${OUT(1.4)}/>`,
     star: `<path d="M-5 5L-7 14L-3 12L-1 15L0 6ZM5 5L7 14L3 12L1 15L0 6Z" fill="#FF7A9C" ${OUT(1.6)}/><path d="M0 -8.2L2.4 -3.1L8 -2.5L3.8 1.3L5 6.8L0 4L-5 6.8L-3.8 1.3L-8 -2.5L-2.4 -3.1Z" fill="#FFD35A" ${OUT(1.8)}/><path d="M-1.6 -3.2L0 -6" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>`,
+    bowtie: `<path d="M0 0L-16 -9Q-20.5 0 -16 9Z" ${WEAR} ${OUT(2.4)}/><path d="M0 0L16 -9Q20.5 0 16 9Z" ${WEAR} ${OUT(2.4)}/><path d="M-13 -4.5L-6 -1.5M13 -4.5L6 -1.5" stroke="#fff" stroke-opacity=".5" stroke-width="2" stroke-linecap="round"/><rect x="-4.6" y="-5.4" width="9.2" height="10.8" rx="3.6" ${WEAR} ${OUT(2.4)}/><rect x="-2" y="-3.6" width="2.4" height="4" rx="1.2" fill="#fff" opacity=".5"/>`,
+    cape: `<path d="M-15 -14Q0 -7 15 -14L25 25Q0 35 -25 25Z" ${WEAR} ${OUT(2.4)}/><path d="M-9 -8Q-11 8 -15 24M9 -8Q11 8 15 24" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2.2" stroke-linecap="round"/><path d="M-15 -14Q0 -7 15 -14V-11Q0 -4 -15 -11Z" fill="#FFD35A" ${OUT(2)}/><circle cx="-14" cy="-12.5" r="2.4" fill="#FFF8F0" ${OUT(1.4)}/><circle cx="14" cy="-12.5" r="2.4" fill="#FFF8F0" ${OUT(1.4)}/>`,
+    medal: `<path d="M-9 -11L-1.5 5H3.5L-4 -11Z" fill="#5A95FF" ${OUT(1.6)}/><path d="M9 -11L1.5 5H-3.5L4 -11Z" fill="#FF7A9C" ${OUT(1.6)}/><circle cx="0" cy="10" r="8.6" fill="#FFD35A" ${OUT(1.9)}/><circle cx="0" cy="10" r="5.6" fill="none" stroke="#E8A317" stroke-width="1.5"/><path d="M0 5.6L1.5 8.6L4.8 9.1L2.4 11.4L3 14.7L0 13.1L-3 14.7L-2.4 11.4L-4.8 9.1L-1.5 8.6Z" fill="#fff" opacity=".9"/><path d="M-5 6Q-3 3.6 0 3.4" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none" opacity=".7"/>`,
+    crown: `<path d="M-14 3L-17 -13L-8 -5.5L0 -17L8 -5.5L17 -13L14 3Z" fill="#FFD35A" ${OUT(2.4)}/><rect x="-14.5" y="-1" width="29" height="7" rx="3" fill="#F2B63A" ${OUT(2.2)}/><circle cx="-17" cy="-14" r="2.7" fill="#FF7A9C" ${OUT(1.4)}/><circle cx="0" cy="-18.5" r="3" fill="#5A95FF" ${OUT(1.4)}/><circle cx="17" cy="-14" r="2.7" fill="#FF7A9C" ${OUT(1.4)}/><circle cx="-7" cy="2.6" r="1.5" fill="#fff"/><circle cx="0" cy="2.6" r="1.5" fill="#fff"/><circle cx="7" cy="2.6" r="1.5" fill="#fff"/><path d="M-9 -3L-12 -9" stroke="#fff" stroke-opacity=".6" stroke-width="2" stroke-linecap="round"/>`,
+    beanie: `<path d="M-15 1C-15.5 -14 -8 -19 0 -19S15.5 -14 15 1Z" fill="#E5484D" ${OUT(2.4)}/><path d="M-6 -16Q-10 -9 -10 -1M5 -17Q9 -9 9 -1" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2" stroke-linecap="round"/><path d="M-8 -17L-2 0M2 -18.5L8 0" stroke="#fff" stroke-opacity=".75" stroke-width="3.2" stroke-linecap="round"/><rect x="-17" y="-4" width="34" height="8.5" rx="4.2" fill="#FFF8F0" ${OUT(2.4)}/><circle cx="0" cy="-20.5" r="5.2" fill="#fff" ${OUT(2.4)}/><circle cx="-1.6" cy="-22" r="1.5" fill="#E8F1FF"/>`,
     cap: `<path d="M-12 -7V1.5Q0 7.5 12 1.5V-7Z" fill="#3A3450" ${OUT(2.4)}/><path d="M-23 -9.5L0 -18L23 -9.5L0 -1Z" fill="#4A4366" ${OUT(2.4)}/><path d="M-14 -11L0 -16" stroke="#fff" stroke-opacity=".3" stroke-width="2" stroke-linecap="round"/><path d="M0 -9.5L15 -7V3" fill="none" stroke="#F2C14E" stroke-width="2" stroke-linecap="round"/><path d="M13 2.5h4l1 6h-6Z" fill="#F2C14E" ${OUT(1.4)}/><circle cx="0" cy="-9.5" r="2" fill="#F2C14E" ${OUT(1.2)}/>`
   };
   function glassesSvg(e){
@@ -45087,9 +45111,9 @@ var COMP_KIT = (() => {
     const hands = pt(A.hands) ? A.hands : [60, 92];
     const face = `${g("face")}${cheeksSvg(c)}${eyesSvg(c.eyes)}${mouthSvg(c)}${wear === "glasses" ? glassesSvg(c.eyes) : ""}`;
     const svg = `<svg class="cp-svg" viewBox="0 0 ${VB} ${VB}" overflow="visible" aria-hidden="true" focusable="false" data-e="${o.eyes || "open"}" data-m="${o.mouth || "neutral"}" data-prop="${o.prop || ""}">
-      <g class="cp-rig">${acc("backpack", A.back)}${g("back")}${g("tail")}${g("wingL")}${g("wingR")}${hasHead ? "" : g("earL") + g("earR")}${g("feet")}
-        <g class="cp-bodyg">${g("body")}${acc("scarf", A.neck)}${acc("star", A.chest)}<g class="cp-prop">${at([hands[0], hands[1], num(hands[2]) ? hands[2] : 1], BOOK)}</g>${g("armL")}${g("armR")}</g>
-        <g class="cp-headg"${hasHead ? ` style="transform-origin:${c.neck[0]}px ${c.neck[1]}px${headRot}"` : ""}>${hasHead ? g("earL") + g("earR") : ""}${g("head")}${face}${g("top")}${acc("hat", A.top)}${acc("cap", A.top)}
+      <g class="cp-rig">${acc("backpack", A.back)}${acc("cape", A.back)}${g("back")}${g("tail")}${g("wingL")}${g("wingR")}${hasHead ? "" : g("earL") + g("earR")}${g("feet")}
+        <g class="cp-bodyg">${g("body")}${acc("scarf", A.neck)}${acc("bowtie", A.neck)}${acc("star", A.chest)}${acc("medal", A.chest)}<g class="cp-prop">${at([hands[0], hands[1], num(hands[2]) ? hands[2] : 1], BOOK)}</g>${g("armL")}${g("armR")}</g>
+        <g class="cp-headg"${hasHead ? ` style="transform-origin:${c.neck[0]}px ${c.neck[1]}px${headRot}"` : ""}>${hasHead ? g("earL") + g("earR") : ""}${g("head")}${face}${g("top")}${acc("hat", A.top)}${acc("cap", A.top)}${acc("crown", A.top)}${acc("beanie", A.top)}
           <g class="cp-zs"><text x="${f1((c.eyes.rx || 72) + 14)}" y="${f1((c.eyes.y || 60) - 12)}" font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="11" fill="#8C87A8" stroke="#fff" stroke-width="3" paint-order="stroke">z</text><text x="${f1((c.eyes.rx || 72) + 22)}" y="${f1((c.eyes.y || 60) - 22)}" font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="8" fill="#8C87A8" stroke="#fff" stroke-width="2.5" paint-order="stroke">z</text></g>
         </g>
       </g></svg>`;
@@ -45102,7 +45126,7 @@ var COMP_KIT = (() => {
   const cfg = () => { const s = state.settings && state.settings.comp; return s && typeof s === "object" ? s : {}; };
   function setCfg(patch){
     const cur = cfg(), next = Object.assign({}, cur, patch);
-    ["pick", "names", "wear"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
+    ["pick", "names", "wear", "earned"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
     state.settings = Object.assign({}, state.settings, {comp: next});
     saveSettings();
     // A different companion, a new name or the companion switched on/off: refresh its name and face everywhere now
@@ -45126,8 +45150,51 @@ var COMP_KIT = (() => {
   }
   const nameOf = c => { const n = (cfg().names || {})[c.id]; return typeof n === "string" && n.trim() ? n.trim() : c.name; };
   const hours = () => { try { return typeof SBSTATS !== "undefined" ? SBSTATS.totalFocusMinutes() / 60 : 0; } catch (e) { return 0; } };
-  const unlocked = h => ACC.filter(a => (h == null ? hours() : h) >= a.hours);
-  const canWear = a => !!a && hours() >= a.hours && (a.free || pro());
+  /* ---------- Earning props: lifetime stats and what each prop needs ---------- */
+  const PROP_UNIT = {hours: "h of focus", ontime: "tasks done on time", early: "tasks done 2+ days early", streak: "day streak", cards: "cards reviewed", quizzes: "quizzes passed",
+    notes: "notes written", stickers: "scrapbook stickers", prep: "study-plan sessions done", checkins: "daily check-ins", groups: "study group or room", focusWeeks: "weeks with 4+ focus days", festive: "winter holiday visit"};
+  const PROP_ASK = {hours: n => `Focus for ${n} ${n === 1 ? "hour" : "hours"}`, ontime: n => `Finish ${n} tasks on or before their due date`, early: n => `Finish ${n} tasks at least 2 days early`,
+    streak: n => `Reach a ${n}-day streak`, cards: n => `Review ${n} flashcards`, quizzes: n => `Pass ${n} practice quizzes (70% or more)`, notes: n => `Write ${n} notes`,
+    stickers: n => `Earn ${n} Term Scrapbook stickers`, prep: n => `Finish ${n} study-plan sessions`, checkins: n => `Open Studyboard on ${n} different days`,
+    groups: () => "Join a study group or a Study Together room", focusWeeks: n => `Focus on 4 or more days in ${n} different weeks`, festive: () => "Visit between Dec 1 and Jan 6"};
+  let pStat = null, pStatAt = 0;
+  // Lifetime numbers, cached for a few seconds (the picker and the unlock check ask a lot)
+  function propStats(){
+    const now = Date.now(); if (pStat && now - pStatAt < 4000) return pStat;
+    const s = {hours: 0, ontime: 0, early: 0, streak: 0, cards: 0, quizzes: 0, notes: 0, stickers: 0, prep: 0, checkins: 0, groups: 0, focusWeeks: 0, festive: 0};
+    const tr = f => { try { f(); } catch (e) {} };
+    tr(() => { s.hours = hours(); });
+    tr(() => Object.values(state.tasks || {}).forEach(t => {
+      if (t.status !== "done" || !t.doneAt || (t.created && t.doneAt - t.created < 60000)) return;   // added already finished: never counts
+      if (t.prepFor) { s.prep++; return; }
+      if (!t.due) return;
+      const d = iso(new Date(t.doneAt));
+      if (d <= t.due) s.ontime++;
+      if (d <= addDays(t.due, -2)) s.early++;
+    }));
+    tr(() => { const k = streakOf(); s.streak = Math.max(Number(k.best) || 0, Number(k.cur) || 0); });
+    tr(() => Object.values(state.decks || {}).forEach(d => {
+      (d.cards || []).forEach(x => { s.cards += Number(x.seen) || 0; });
+      (d.quizzes || []).concat(...(d.aiQuizzes || []).map(q => q.results || [])).forEach(r => { if (r && Number(r.total) >= 3 && Number(r.score) / Number(r.total) >= 0.7) s.quizzes++; });
+    }));
+    tr(() => { s.notes = Object.values(state.notes || {}).filter(n => String(n.text || "").trim().length >= 15).length; });
+    tr(() => { const sc = state.settings && state.settings.scrap; if (sc) { s.stickers = [sc.cur].concat(sc.past || []).reduce((n, p) => n + (p && p.g ? Object.keys(p.g).length : 0), 0);
+      s.groups = ["gp", "rm"].filter(k => sc.f && sc.f[k]).length; } });
+    tr(() => { s.checkins = (cfg().ci || []).length; });
+    tr(() => { const per = {}; Object.entries(SBSTATS.focusDays()).forEach(([d, m]) => { if (Number(m) >= 15) { const w = mondayOf(d); per[w] = (per[w] || 0) + 1; } }); s.focusWeeks = Object.values(per).filter(n => n >= 4).length; });
+    tr(() => { const d = new Date(), m = d.getMonth(), day = d.getDate(); s.festive = m === 11 || (m === 0 && day <= 6) ? 1 : 0; });
+    pStat = s; pStatAt = now;
+    return s;
+  }
+  const pathsOf = a => (a.hours ? [["hours", a.hours]] : []).concat(a.paths || []);
+  const wasEarned = a => !!(cfg().earned || {})[a.id];
+  // How far along each way of getting this prop is
+  const propProg = a => { const s = propStats(); return pathsOf(a).map(([k, n]) => { const v = Math.min(Number(s[k]) || 0, n); return {k, n, v: k === "hours" ? Math.round(v * 10) / 10 : Math.floor(v), p: v / n, ask: PROP_ASK[k](n), unit: PROP_UNIT[k]}; }); };
+  const isEarned = a => !!a && (wasEarned(a) || propProg(a).some(x => x.p >= 1));
+  const unlocked = () => ACC.filter(isEarned);
+  const closestPath = a => propProg(a).sort((x, y) => y.p - x.p)[0];
+  const pathShort = x => x.k === "festive" || x.k === "groups" ? x.unit : `${x.v} of ${x.n} ${x.unit}`;
+  const canWear = a => !!a && isEarned(a) && (a.free || pro());
   const wearOf = c => { const w = (cfg().wear || {})[c.id]; const a = ACC.find(x => x.id === w); return canWear(a) ? w : ""; };
   function wearColor(c){
     if (c.wearColor) return c.wearColor;
@@ -45759,6 +45826,7 @@ var COMP_KIT = (() => {
     if (act) act.stopAll();
     const keepMood = cur && cur.id === c.id ? mood : null;
     cur = c; curSig = sig; homeSig = "";
+    compChanged();
     if (box) box.remove();
     layer.insertAdjacentHTML("beforeend", `<div class="cp cp-${c.pose}" data-id="${esc(c.id)}"><span class="cp-shadow"></span><div class="cp-move"><div class="cp-breathe">${rigSvg(c, {wear: wearOf(c)})}</div></div><div class="cp-fx"></div><div class="cp-hit" tabindex="0" role="button" aria-label="${esc(nameOf(c))}, your study companion. Press to say hi. Press and hold, or right click, to choose a companion."></div></div>`);
     box = layer.querySelector(".cp");
@@ -45779,6 +45847,20 @@ var COMP_KIT = (() => {
     if (layer) layer.remove(); if (front) front.remove();
     document.body.classList.remove("cp-on"); document.documentElement.style.removeProperty("--cp-reserve");
     layer = front = box = act = cur = null; curSig = ""; home = ""; homeSig = "";
+    compChanged();
+  }
+  // One place that announces "the companion (or its name/outfit) changed": every live AI icon is swapped to the new face
+  // right away (not on the next render), labels that use aiWho() are re-rendered, and listeners get a "sb:companion" event.
+  // build()/teardown() call it, so picking one, a new theme, a rename, an outfit, Pro changing or turning it off all land here.
+  let compNote = null;
+  function compChanged(){
+    const key = cur ? [cur.id, wearOf(cur), nameOf(cur)].join("|") : "";
+    if (key === compNote) return;
+    const first = compNote === null; compNote = key;
+    try { if (typeof faceSwapNow === "function") faceSwapNow(); } catch (e) {}
+    if (first) return;
+    try { window.dispatchEvent(new CustomEvent("sb:companion", {detail: {id: cur ? cur.id : "", name: cur ? nameOf(cur) : ""}})); } catch (e) {}
+    setTimeout(() => { try { scheduleRender(); } catch (e) {} }, 0);
   }
 
   /* ---------- Reactions ---------- */
@@ -45844,21 +45926,47 @@ var COMP_KIT = (() => {
     later(checkUnlocks, 5000);
   }
   // A new accessory: a small sparkle moment (with its one unprompted bubble), and it's put on if nothing is worn yet.
+  // Props can be earned many ways (focus hours, tasks on time, streaks, cards, quizzes, notes, stickers, check-ins, the season...).
+  // Whatever is earned is remembered in comp.earned so it is never lost, and the first run quietly records what's already
+  // earned (the old focus-hour props, and anything the old "seen" count says was already celebrated).
+  const LEGACY_ACC = ["scarf", "hat", "glasses", "backpack", "star", "cap"];
+  let lastUnlockChk = 0;
+  function checkIn(){
+    try {
+      if (document.hidden || !isOn()) return;
+      const t = todayISO(), ci = cfg().ci || [];
+      if (ci[ci.length - 1] === t) return;
+      setCfg({ci: ci.concat(t).slice(-400)});
+      pStat = null;
+    } catch (e) {}
+  }
   function checkUnlocks(){
-    const n = unlocked().length, seen = Number(cfg().seen);
-    if (!Number.isFinite(seen)) { setCfg({seen: n}); if (!n) return; }
-    else if (n <= seen) return;
-    else setCfg({seen: n});
+    lastUnlockChk = Date.now();
+    checkIn();
+    const have = cfg().earned, seen = Number(cfg().seen);
+    const earnedNow = ACC.filter(isEarned);
+    if (!have) {
+      const quiet = earnedNow.filter(a => !LEGACY_ACC.includes(a.id) || !Number.isFinite(seen) || LEGACY_ACC.indexOf(a.id) < seen);
+      setCfg({earned: Object.fromEntries(quiet.map(a => [a.id, 1]))});
+      if (!Number.isFinite(seen) && !quiet.length) return;
+      if (earnedNow.length === quiet.length) return;
+    }
+    const got = cfg().earned || {};
+    const fresh = earnedNow.filter(a => !got[a.id]);
+    if (!fresh.length) return;
+    setCfg({earned: Object.fromEntries(fresh.map(a => [a.id, Date.now()]))});
     if (!act || !cur) return;
-    const fresh = ACC.slice(Number.isFinite(seen) ? seen : n - 1, n).filter(canWear);
-    const a = fresh[fresh.length - 1]; if (!a) return;
-    if (!wearOf(cur)) setCfg({wear: {[cur.id]: a.id}});
+    const wearable = fresh.filter(canWear), a = wearable[wearable.length - 1] || fresh[fresh.length - 1];
+    if (a && canWear(a) && !wearOf(cur)) setCfg({wear: {[cur.id]: a.id}});
     build();
     hold(2200);
     act.eyes("happy"); act.motion("hop"); spawnFx("sparkle", 5);
-    if (talkOn()) say(`Ooh, I got a ${a.name.replace(/^(Cozy|Tiny|Round|Little) /, m => m.toLowerCase())}! Thanks for studying with me!`);
+    if (talkOn()) say(fresh.length > 1 ? `Ooh, ${fresh.length} new props: ${fresh.map(x => x.name).join(", ")}! Look in my wardrobe!` : `Ooh, a new prop: the ${a.name}! Thanks for working so hard!`);
     later(() => act && act.eyes(mood === "doze" ? "sleepy" : "open"), 2000);
+    try { refreshPicker(); } catch (e) {}
   }
+  // Checked as you go (not only at the daily hello): a throttled look after renders, so a prop shows up soon after you earn it
+  hook("render", () => { if (Date.now() - lastUnlockChk > 20000 && !document.hidden) setTimeout(checkUnlocks, 1500); });
 
   /* ---------- What to say on a tap: the day's AI lines, small memories, or its own lines ---------- */
   const shortT = (s, n) => { s = String(s || "").replace(/\s+/g, " ").trim(); return s.length > (n || 26) ? s.slice(0, (n || 26) - 1).replace(/\s+\S*$/, "") + "..." : s; };
@@ -46452,21 +46560,24 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
         ${locked ? `<button type="button" class="btn small" data-act="comp-pick" data-slot="${i}">🔒 Unlock</button>` : on ? `<span class="cp-chosen" role="status">✓ ${want !== i && !canSlot(want) ? "In Use" : "Chosen"}</span>` : `<button type="button" class="btn small primary" data-act="comp-pick" data-slot="${i}">Choose</button>`}
       </div>`;
     }).join("");
-    const h = hours(), next = ACC.find(a => h < a.hours);
+    const h = hours(), nGot = ACC.filter(isEarned).length, locked = ACC.filter(a => !isEarned(a));
     const hLabel = h < 1 ? `${Math.round(h * 60)} min` : `${h < 10 ? h.toFixed(1).replace(/\.0$/, "") : Math.round(h)} h`;
     const wear = c ? wearOf(c) : "";
+    const howRow = a => `<li><b>${esc(a.name)}</b><span class="cp-how-ways">${propProg(a).map(x => `<span class="cp-how-way"><span class="cp-how-t">${esc(x.ask)}</span><span class="cp-how-bar" aria-hidden="true"><i style="width:${Math.round(x.p * 100)}%"></i></span><span class="mini">${esc(pathShort(x))}</span></span>`).join("")}</span></li>`;
     const accTile = a => {
-      const got = h >= a.hours, can = canWear(a), on = wear === a.id;
-      const icon = `<svg viewBox="-26 -26 52 52" aria-hidden="true">${a.id === "glasses" ? glassesSvg({lx: -11, rx: 11, y: 0, r: 5}) : a.id === "hat" || a.id === "cap" ? `<g transform="translate(0 10)">${ACC_ART[a.id]}</g>` : a.id === "scarf" ? `<g transform="translate(0 -6)">${ACC_ART[a.id]}</g>` : ACC_ART[a.id]}</svg>`;
+      const got = isEarned(a), can = canWear(a), on = wear === a.id;
+      const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id];
+      const icon = `<svg viewBox="-26 -26 52 52" aria-hidden="true">${a.id === "glasses" ? glassesSvg({lx: -11, rx: 11, y: 0, r: 5}) : lift ? `<g transform="translate(0 ${lift})">${ACC_ART[a.id]}</g>` : ACC_ART[a.id]}</svg>`;
       return `<button type="button" class="cp-acc-tile${on ? " on" : ""}${got ? "" : " off"}" data-act="comp-wear" data-acc="${a.id}" aria-pressed="${on}" ${got ? "" : `aria-disabled="true"`}>
-        <span class="cp-acc-ic">${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : `At ${a.hours} h of focus`}</span></button>`;
+        <span class="cp-acc-ic">${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
     };
     return `<p class="mini" style="margin:0">A little friend who lives in your ${esc(skin ? skin.name : "")} ${key === "plain" ? "theme" : "scene"}. It sits beside the Add Task button. Tap it to say hi, and it studies with you during Focus.</p>
       <div class="cp-tiles">${tiles}</div>
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="18" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
       <h3 class="fsec">Accessories</h3>
-      <p class="mini" style="margin:0">Focus time unlocks little things to wear. You've focused ${hLabel} so far${next ? `. Next: ${esc(next.name)} at ${next.hours} h.` : ". You've unlocked everything!"}</p>
+      <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, tasks done on time, streaks, flashcards, quizzes, notes and more. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
       <div class="cp-accs"><button type="button" class="cp-acc-tile${wear ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear ? "Take Off" : "Wearing"}</span></button>${ACC.map(accTile).join("")}</div>
+      ${locked.length ? `<h3 class="fsec">How to Earn More</h3><p class="mini" style="margin:0">Any one way unlocks a prop.</p><ul class="cp-how">${locked.map(howRow).join("")}</ul>` : `<p class="mini" style="margin:0">You've earned every prop. Wow!</p>`}
       <h3 class="fsec">Options</h3>
       <div class="cap-row"><span style="flex:1;font-weight:600">Show Companion<span class="sub">Turn it off to hide it everywhere.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on" ${isOn() ? "checked" : ""}> On</label></div>
       <div class="cap-row"><span style="flex:1;font-weight:600">Speech Bubbles<span class="sub">A few friendly words when you tap it, a little cheer after you finish a task, and a hello about once an hour. Never while you're focusing or typing.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="talk" ${talkOn() ? "checked" : ""}> On</label></div>
@@ -46522,7 +46633,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     }
     if (a === "comp-wear") {
       const id = el.dataset.acc || "", acc = ACC.find(x => x.id === id), c = current(); if (!c) return true;
-      if (id && hours() < acc.hours) { toast(`${acc.name} unlocks after ${acc.hours} hours of focus.`); return true; }
+      if (id && !isEarned(acc)) { const w = closestPath(acc); toast(`${acc.name}: ${w.ask}. ${pathShort(w)}.`); return true; }
       if (id && !canWear(acc)) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Every companion accessory comes with Studyboard Pro."); return true; }
       setCfg({wear: {[c.id]: id}}); curSig = ""; build(); refreshPicker();
       if (id && act) { act.motion("bounce"); spawnFx("sparkle", 2); }
@@ -46735,7 +46846,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   let faceSig = "", faceHtml = "";
   function faceFor(){
     if (!aiName()) return "";
-    const sig = cur.id + "|" + wearOf(cur);
+    const sig = cur.id + "|" + wearOf(cur) + "|" + nameOf(cur);
     if (sig !== faceSig) { faceSig = sig; faceHtml = rigSvg(cur, {eyes: "happy", mouth: "smile", wear: wearOf(cur)}).replace(/<g class="cp-zs">[\s\S]*?<\/g>/, ""); }
     return faceHtml;
   }
@@ -46754,6 +46865,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     });
     document.querySelectorAll(".cp-ai-face").forEach(el => { if (el.dataset.sig !== faceSig) { const orig = el.querySelector(":scope > svg.ai-ic-orig"); el.innerHTML = html; if (orig) el.appendChild(orig); el.dataset.sig = faceSig; el.title = aiName(); el.style.setProperty("--cp-wear", wearColor(cur)); } });
   }
+  function faceSwapNow(){ try { swapFaces(document); } catch (e) {} faceSoon(); }
   let faceQ = 0;
   const faceSoon = () => { if (faceQ) return; faceQ = requestAnimationFrame(() => { faceQ = 0; try { swapFaces(document); } catch (e) {} }); };
   try { new MutationObserver(muts => { for (const m of muts) for (const n of m.addedNodes) if (n.nodeType === 1 && (n.matches("svg.ai-ic") || n.querySelector("svg.ai-ic"))) { faceSoon(); return; } }).observe(document.documentElement, {childList: true, subtree: true}); } catch (e) {}
@@ -48419,6 +48531,7 @@ var SCRAP_ART = (() => {
   const ST = {
     /* Term */
     "term-start": `${DEF(LG("pt", "#FFA77E", "#E8704A"))}<path d="M32 33V19" stroke="${D}" stroke-width="5" stroke-linecap="round"/><path d="M32 33V19" stroke="#4CB86F" stroke-width="2.4" stroke-linecap="round"/><path d="M32 24c-3-10-15-12-19-6 4 7.5 13 9.5 19 6z" fill="#7FDB9A" ${S(2.2)}/><path d="M32 20c3-10 15-12.5 19-7-4 8-12.5 10-19 7z" fill="#9BE8B0" ${S(2.2)}/><path d="M15 38h34l-4.5 20h-25z" fill="url(#pt)" ${S()}/><rect x="11.5" y="31.5" width="41" height="9" rx="3.5" fill="#FFB892" ${S()}/>${eyes(26, 38, 47, 2.3)}${smile(32, 50.5, 2.6, 2)}${blush(21.5, 42.5, 51, 2.5)}${spark(11, 11, 5.5)}${spark(55, 33, 3.6, "#9BE7FF")}`,
+    "term-bronze": rosette("bronze", "I", "#FFB88F"), "term-silver": rosette("silver", "II", "#8FB8FF"), "term-gold": rosette("gold", "III", "#FF7FA6"),
     "term-end": `<rect x="11" y="45" width="42" height="12" rx="6" fill="#FFF3D1" ${S(2.2)}/><circle cx="12" cy="51" r="5.2" fill="#FFE7A8" ${S(2)}/><rect x="29" y="44" width="6" height="14" fill="#FF6F91" ${S(1.8)}/><path d="M16 23v11c0 7 32 7 32 0V23" fill="#343A68" ${S()}/><path d="M32 6L61 18.5 32 31 3 18.5z" fill="#47508A" ${S()}/><path d="M32 18.5l17 5.5v12" fill="none" stroke="#FFD23F" stroke-width="2.4" stroke-linecap="round"/><rect x="45.8" y="34" width="6.4" height="8.5" rx="2" fill="#FFD23F" ${S(1.8)}/><circle cx="32" cy="18.5" r="2.8" fill="#FFD23F" ${S(1.6)}/>${spark(7, 36, 4.2)}${spark(58, 6, 4.2, "#FFB3C7")}${heart(56, 50, 3.2)}`,
     /* Getting started */
     "first-course": `${DEF(LG("nb", "#9CC3FF", "#5A90F0"))}<rect x="13" y="6" width="40" height="51" rx="6" fill="url(#nb)" ${S()}/><path d="M19 6v51" stroke="${D}" stroke-width="2"/><g fill="#fff" ${S(1.8)}><circle cx="13" cy="15" r="2.8"/><circle cx="13" cy="26" r="2.8"/><circle cx="13" cy="37" r="2.8"/><circle cx="13" cy="48" r="2.8"/></g><rect x="25" y="13" width="22" height="9" rx="2.5" fill="#FFFDF6" ${S(1.8)}/><path d="M29 17.5h14" stroke="#FF8FA8" stroke-width="2" stroke-linecap="round"/>${eyes(30, 42, 35, 2.5)}${smile(36, 39.6, 2.8, 2)}${blush(26, 46, 40.5, 2.5)}${shine(40, 50, 4, 2, -20)}${spark(55, 8, 5)}`,
@@ -48599,14 +48712,54 @@ window.__scrapArt = SCRAP_ART;   // for tests
   const edit = fn => { const sc = clone(SC()); if (!sc) return null; fn(sc); saveSc(sc); return sc; };
 
   /* ---------- Milestones ---------- */
-  const CATS = [["start", "Getting Started"], ["tasks", "Tasks"], ["grades", "Grades"], ["streaks", "Streaks"], ["focus", "Focus"], ["cards", "Flashcards and Practice"], ["together", "Together"], ["term", "Term"]];
+  const CATS = [["start", "Getting Started"], ["goals", "Term Goals"], ["tasks", "Tasks"], ["grades", "Grades"], ["streaks", "Streaks"], ["focus", "Focus"], ["cards", "Flashcards and Practice"], ["together", "Together"], ["term", "Term"]];
   const pctTxt = v => Math.round(v) + "%";
   const cnt = (need, unit, key) => ({need, unit, v: c => c[key]});
+  /* Term Goals: Bronze, Silver and Gold stickers you can reach down several different paths, so a planner, a crammer, a
+     flashcard fan and a note-and-grades person can all get there. ANY ONE path earns the tier. Targets are for a typical
+     15-week term and shrink or grow with the real length of this one (the span from the page's start to the last due date,
+     8 to 20 weeks), so a summer session is not held to a fall semester. Nothing is ever taken away: earned stickers stay on the page.
+                      Bronze    Silver    Gold      (15-week term)
+       Tasks done     18        40        70
+       On-time rate   70%+ of   80%+ of   90%+ of   (with at least 10 / 22 / 36 tasks done on time)
+       Focus hours    8         20        40
+       Best streak    5 days    14 days   28 days   (days in a row with progress; scales half as much as the rest)
+       Cards reviewed 150       400       900
+       Practice quiz  3         6         12        (quizzes finished)
+       Marks logged   3         6         10        (gold also needs a 70% average, so it's effort plus results) */
+  const GOAL_TIERS = [["bronze", "Bronze"], ["silver", "Silver"], ["gold", "Gold"]];
+  const cntSt = (v, n, unit) => ({p: Math.min(1, v / n), text: `${Math.min(v, n).toLocaleString()} of ${n.toLocaleString()} ${unit}`});
+  const GOAL_PATHS = [
+    {k: "tasks", name: "Tasks", t: [18, 40, 70], st: (c, n) => cntSt(c.nDone, n, "tasks done")},
+    {k: "ontime", name: "On-Time Rate", t: [10, 22, 36], r: [70, 80, 90], st: (c, n, r) => {
+      const rate = c.nDue ? c.nOnTime / c.nDue * 100 : 0;
+      return {p: Math.min(1, c.nOnTime / n, rate / r), text: `${Math.min(c.nOnTime, n)} of ${n} tasks done on time, ${c.nDue ? Math.round(rate) : 0}% so far (need ${r}%)`}; }},
+    {k: "focus", name: "Focus", t: [8, 20, 40], st: (c, n) => cntSt(Math.floor(c.focusMin / 6) / 10, n, "focus hours")},
+    {k: "streak", name: "Streak", t: [5, 14, 28], half: true, st: (c, n) => cntSt(c.streak, n, "days in a row")},
+    {k: "cards", name: "Flashcards", t: [150, 400, 900], st: (c, n) => cntSt(c.reviewed, n, "cards reviewed")},
+    {k: "quiz", name: "Practice Quizzes", t: [3, 6, 12], st: (c, n) => cntSt(c.quizzes.length, n, "quizzes finished")},
+    {k: "marks", name: "Marks Logged", t: [3, 6, 10], avg: [0, 0, 70], st: (c, n, r, a) => {
+      const avg = c.marks.length ? c.marks.reduce((s, t) => s + markPct(t), 0) / c.marks.length : 0;
+      return {p: Math.min(1, c.marks.length / n, a ? avg / a : 1), text: `${Math.min(c.marks.length, n)} of ${n} marks recorded${a ? `, average ${c.marks.length ? Math.round(avg) : 0}% (need ${a}%)` : ""}`}; }}
+  ];
+  // The paths for one tier, with this term's scaled targets and how far along each is
+  function goalPaths(i, c){
+    return GOAL_PATHS.map(p => {
+      const f = p.half ? .5 + c.scale / 2 : c.scale, n = Math.max(p.half ? 3 : 2, Math.round(p.t[i] * f));
+      return Object.assign({k: p.k, name: p.name, n}, p.st(c, n, p.r ? p.r[i] : 0, p.avg ? p.avg[i] : 0));
+    });
+  }
+  const goalTier = (i, id, name, goal) => ({id, cat: "goals", name, goal, need: 1, special: i === 2, tier: i,
+    v: c => Math.max(...goalPaths(i, c).map(p => p.p)),
+    prog: c => { const b = goalPaths(i, c).sort((a, z) => z.p - a.p)[0]; return `Closest path: ${b.name}. ${b.text}`; }});
   const M = [
     {id: "term-start", cat: "start", name: "Hello, New Term", goal: "Earned when your term's page opens.", need: 1, v: () => 1},
     {id: "first-course", cat: "start", name: "First Course Added", goal: "Add a course for this term.", need: 1, v: c => c.courses ? 1 : 0},
     {id: "first-task", cat: "start", name: "First Task Done", goal: "Finish your first task this term.", need: 1, v: c => c.done.length},
     {id: "week-planned", cat: "start", name: "First Week Planned", goal: "Have 5 tasks with due dates in one week.", need: 5, unit: "tasks due in one week", v: c => c.bestWeekPlanned},
+    goalTier(0, "term-bronze", "Bronze Term Goal", "Reach any one Bronze path: tasks, on-time rate, focus, streak, flashcards, quizzes or marks."),
+    goalTier(1, "term-silver", "Silver Term Goal", "Reach any one Silver path. A steady term, your way."),
+    goalTier(2, "term-gold", "Gold Term Goal", "Reach any one Gold path. A standout term."),
     Object.assign({id: "tasks-10", cat: "tasks", name: "10 Tasks Done", goal: "Finish 10 tasks this term."}, cnt(10, "tasks done", "nDone")),
     Object.assign({id: "tasks-25", cat: "tasks", name: "25 Tasks Done", goal: "Finish 25 tasks this term."}, cnt(25, "tasks done", "nDone")),
     Object.assign({id: "tasks-50", cat: "tasks", name: "50 Tasks Done", goal: "Finish 50 tasks this term."}, cnt(50, "tasks done", "nDone")),
@@ -48656,7 +48809,7 @@ window.__scrapArt = SCRAP_ART;   // for tests
     {id: "term-end", cat: "term", name: "Term Complete", goal: "Finish the term with Start a New Term. Your page is kept in the Archive.", need: 1, v: () => 0, special: true}
   ];
   // Tier level of the ribbon (bronze 1, silver 2, gold 3, rainbow 4): used to pick which sticker a batched toast names
-  const TIER = {"tasks-10": 1, "tasks-25": 2, "tasks-50": 3, "tasks-100": 4, "streak-7": 1, "streak-14": 2, "streak-30": 3, "streak-60": 4, "focus-5": 1, "focus-15": 2, "focus-30": 3, "focus-60": 4, "cards-100": 2, "cards-500": 3, "mark-80": 2, "mark-90": 3};
+  const TIER = {"term-bronze": 2, "term-silver": 3, "term-gold": 4, "tasks-10": 1, "tasks-25": 2, "tasks-50": 3, "tasks-100": 4, "streak-7": 1, "streak-14": 2, "streak-30": 3, "streak-60": 4, "focus-5": 1, "focus-15": 2, "focus-30": 3, "focus-60": 4, "cards-100": 2, "cards-500": 3, "mark-80": 2, "mark-90": 3};
   const MI = Object.fromEntries(M.map((m, i) => [m.id, Object.assign(m, {i})]));
   const rewardKey = (i, streak) => `rw${i + 1}_${streak}`;
   const isReward = k => /^rw\d+_\d+$/.test(k);
@@ -48679,6 +48832,12 @@ window.__scrapArt = SCRAP_ART;   // for tests
       flag: k => sc.f && sc.f[k] >= startMin ? 1 : 0};
     c.nEarly = done.filter(t => t.doneAt && t.due && !t.prepFor && dayOf(t.doneAt) <= addDays(t.due, -2)).length;
     c.nExams = done.filter(t => MILESTONE(t.type)).length;
+    // On-time rate (for the Term Goals), and the real length of this term so goals scale to it
+    const dueDone = done.filter(t => t.due && !t.prepFor);
+    c.nDue = dueDone.length; c.nOnTime = dueDone.filter(t => t.doneAt && dayOf(t.doneAt) <= t.due).length;
+    const lastDue = active.reduce((m, t) => t.due && t.due >= start && t.due > m ? t.due : m, start);
+    c.termWeeks = lastDue === start ? 15 : Math.max(8, Math.min(20, Math.round((parse(lastDue < today ? today : lastDue) - startMs) / (7 * 864e5))));
+    c.scale = c.termWeeks / 15;
     // Weeks: planning and clean sweeps
     const onTime = t => t.status === "done" && (t.doneAt ? dayOf(t.doneAt) <= t.due : true);
     const weeks = []; for (let m = mondayOf(start); m <= addDays(mondayOf(today), 7); m = addDays(m, 7)) weeks.push(m);
@@ -48969,7 +49128,8 @@ window.__scrapArt = SCRAP_ART;   // for tests
         return `<li class="sbk-m ${has ? "got" : "locked"}${m.special ? " special" : ""}" data-mid="${m.id}"><button type="button" class="sbk-mi" ${has ? `data-act="sbk-find" data-id="${esc(m.repeat ? rw[rw.length - 1] : m.id)}" aria-label="Show ${esc(m.name)} on the page"` : `tabindex="-1" aria-hidden="true"`}><img src="${A.sticker(art)}" alt="" loading="lazy"></button>
           <div class="sbk-mt"><b>${esc(m.name)}</b><span class="sbk-goal">${esc(m.goal)}</span>
           ${cur && !has && !m.repeat && m.id !== "term-end" && (m.need > 1 || m.prog) ? `<span class="sbk-pbar" aria-hidden="true"><i style="width:${Math.round(pr.p * 100)}%"></i></span>` : ""}
-          <span class="sbk-pt">${esc(has && !m.repeat ? when : cur ? pr.text : has ? when : "Not earned this term")}</span></div></li>`; }).join("")}</ul>`;
+          <span class="sbk-pt">${esc(has && !m.repeat ? when : cur ? pr.text : has ? when : "Not earned this term")}</span>
+          ${cur && !has && m.tier != null ? `<ul class="sbk-paths">${goalPaths(m.tier, c).map(p => `<li${p.p >= 1 ? ` class="ok"` : ""}><span class="sbk-pn">${esc(p.name)}</span><span class="sbk-pbar" aria-hidden="true"><i style="width:${Math.round(p.p * 100)}%"></i></span><span class="mini">${esc(p.text)}</span></li>`).join("")}</ul>` : ""}</div></li>`; }).join("")}</ul>`;
     }).join("");
   }
   function summaryHtml(page){
