@@ -1301,6 +1301,8 @@ button.pr-why:hover{background:var(--soft);color:var(--ink)}
 @media (max-width:979px){.pview-tabs{max-width:none}}
 /* App tour (coach marks) and the bug report form */
 .tour{position:fixed;inset:0;z-index:9000}
+dialog.tour{width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;overflow:visible;color:inherit}
+dialog.tour::backdrop{background:transparent}
 .tour [hidden]{display:none!important}
 .tour-block{position:absolute;inset:0}
 .tour-spot{position:absolute;border-radius:14px;box-shadow:0 0 0 9999px rgba(8,14,30,.64),0 0 0 3px var(--accent-2,var(--accent));transition:left .25s,top .25s,width .25s,height .25s;pointer-events:none}
@@ -28422,66 +28424,112 @@ Return JSON only.`;
 /* App Tour: a coach-mark walk around the app. A dimmed page with one spotlight, a card that says what it is, and Back / Next.
    It shows once, right after a brand-new person finishes (or closes) the welcome setup above. Anyone who already has data
    never sees it on its own. It can be replayed from Settings, Search Everywhere and the end of the welcome tour.
-   A step whose target isn't on screen (a hidden tab, an empty page) is skipped, so the tour never points at nothing. */
+   Each step opens the real tab or sheet it talks about (Plan Ahead's Timeline then Schedule, announcements, focus timer, search,
+   Settings) and the tour puts the person back on their own tab when it ends. A step whose feature isn't on this device (no
+   Groups on a phone, no bell without a school site) is left out, so the tour never points at nothing. */
 (() => {
   const KEY = "studyboard:tour", OB = "sb:onboarded";
   const flag = () => { try { return localStorage.getItem(KEY) || ""; } catch (e) { return "done"; } };
   const setFlag = v => { try { localStorage.setItem(KEY, v); } catch (e) {} };
   const phone = () => !!(window.matchMedia && matchMedia("(max-width:719px)").matches);
   const NAV = t => `nav.tabs [data-tab="${t}"]`;
-  const SETTINGS = ['nav.tabs .nav-tool[data-act="menu"]', 'header.top [data-act="menu"]'];
 
-  // tab: page to show first (ui.tab). sel: where to point, first one that is on screen wins. No sel: a centred card.
+  // Each step opens the real screen it talks about, then points at part of it.
+  //  tab: page to show (ui.tab). panel: a sheet to open on top ("settings", "ann", "pomo", "search"); it stays open across the
+  //  steps that name it and is closed when the tour moves on. sel: where to point, first one on screen wins (none: a centred card).
+  //  fresh: reopen the sheet at its first screen. prep: runs once the sheet is open (Settings: go to its App section).
+  //  has: what must exist on this device for the step to be in the tour at all (a phone has no Groups, no bell until a school
+  //  site is connected). Without it the step is kept when sel can be found after opening its tab.
+  const SETTINGS = ['nav.tabs .nav-tool[data-act="menu"]', 'header.top [data-act="menu"]'];
+  const BELL = ['header.top .ann-btn', 'nav.tabs .ann-btn'], POMO = ["#navPomo", "#pomoBtn"], SEARCH = ['nav.tabs .nav-tool[data-act="search"]', 'header.top [data-act="search"]'];
   const STEPS = [
-    {id: "welcome", title: "Welcome to Studyboard", text: () => "A quick tour, about a minute. It shows where everything lives. Use the arrow keys or the buttons, and skip any time.", tab: "board"},
+    {id: "welcome", title: "Welcome to Studyboard", tab: "board",
+      text: () => "A quick tour, about a minute. We'll open each screen as we go. Use the arrow keys or the buttons, and skip any time."},
     {id: "add", title: "Add Your Work", tab: "board", sel: [".qa-wrap .qa-bar", "#fab"],
-      text: () => "Type a sentence like \"Essay due Friday 5pm\" and press Enter. Studyboard works out the course, date and type. The + button opens the full task form."},
+      text: () => "Type a sentence like \"Essay due Friday 5pm\" and press Enter. Studyboard fills in the course, date and type. The + button opens the full form."},
     {id: "today", title: "Today's Plan and the Board", tab: "board", sel: [".bview-tabs", ".focus.plan", ".board-sec-head", NAV("board")],
-      text: () => phone() ? "Switch between Today's Plan, what to work on and for how long, and your Task Board of every task by status." : "Today's Plan lines up what to work on next and for how long. Your Task Board with every task sits below it."},
-    {id: "plan", title: "Plan Ahead", tab: "timeline", sel: [NAV("plan")],
-      text: () => "Timeline and Schedule now share one tab. See every deadline across your courses, and your weekly classes and events."},
-    {id: "planswitch", title: "Timeline or Schedule", tab: "timeline", sel: [".pview-tabs"],
-      text: () => "Tap here to switch. Timeline shows deadlines as bars or a month calendar. Schedule is your week of classes, with room for shifts and appointments. Studyboard remembers your choice."},
+      text: () => phone() ? "Switch between Today's Plan, what to work on and for how long, and your Task Board of every task by status." : "Today's Plan lines up what to work on next and for how long. Below it, the Task Board holds every task by status."},
+    {id: "timeline", title: "Plan Ahead: Timeline", tab: "timeline", sel: [".pview-tabs", NAV("plan")],
+      text: () => "Every deadline across your courses, as bars or a month calendar. Plan Ahead has two views, Timeline and Schedule."},
+    {id: "schedule", title: "Plan Ahead: Schedule", tab: "schedule", sel: [".pview-tabs", NAV("plan")],
+      text: () => "Your week of classes, labs, shifts and appointments. Study time is planned around it. Studyboard remembers the view you used last."},
     {id: "cards", title: "Flashcards and Quizzes", tab: "flashcards", sel: [NAV("flashcards")],
-      text: () => "Make decks by hand or have AI build cards and practice quizzes from your notes and readings. Study with spaced repetition so reviews come due at the right time."},
+      text: () => "Make decks by hand, or let AI build cards and practice quizzes from your notes and readings. Spaced repetition brings reviews back at the right time."},
     {id: "notes", title: "Notes and Stickers", tab: "notes", sel: [NAV("notes")],
-      text: () => "A sticky-note board for quick thoughts. Pin notes to tasks, colour them and decorate them with stickers."},
+      text: () => "Sticky notes for quick thoughts. Pin them to tasks, colour them and decorate them with stickers."},
     {id: "files", title: "Files", tab: "files", sel: [NAV("files")],
-      text: () => "Keep readings, slides and handouts with the course they belong to, and attach them to tasks."},
+      text: () => "Keep readings, slides and handouts with their course, and attach them to tasks. Search can read inside them."},
     {id: "courses", title: "Courses and School Sites", tab: "courses", sel: [NAV("courses")],
-      text: () => "Add your courses with class times and grade weights. To pull in deadlines automatically, connect Brightspace, Canvas or Blackboard from Settings, under School and Groups."},
-    {id: "focus", title: "Focus Timer", tab: "board", sel: ["#navPomo", "#pomoBtn"],
-      text: () => "Start a focus session on any task. Time you spend is counted toward the task and your streak."},
-    {id: "groups", title: "Study Groups", tab: "board", sel: [NAV("groups")],
-      text: () => "Study with classmates: share decks, notes and tasks, and chat in a group. Groups are also in Settings under School and Groups."},
-    {id: "settings", title: "Settings, AI and Pro", tab: "board", sel: SETTINGS,
-      text: () => "This is the control centre: your study companion and AI helper, themes and dark mode, reminders, calendar sync, backups, sign in and Studyboard Pro."},
-    {id: "help", title: "Found a Bug? Tell Us", tab: "board", sel: SETTINGS,
-      text: () => "Open Settings and choose Report a Bug or Send Feedback. It sends what happened, with an optional screenshot, straight to the people who make Studyboard. You can replay this tour from there too."},
+      text: () => "Add courses with class times and grade weights, and the Grade Tracker shows what you need on what's left. Connect Brightspace, Canvas or Blackboard in Settings to bring in deadlines and grades."},
+    {id: "ann", title: "Announcements", panel: "ann", has: BELL, sel: ["#dlg .ann-sheet .sheet-head", "#dlg .ann-sheet"],
+      text: () => "Announcements from your school site collect here, with a dot for the ones you haven't read."},
+    {id: "focus", title: "Focus Timer and Companion", panel: "pomo", has: POMO, sel: ["#pomoDlg .pomo-dial", "#pomoDlg .sheet", "#pomoDlg"],
+      text: () => "Start a focus session on any task. The time counts toward the task and your streak, and your study companion keeps you company and cheers you on."},
+    {id: "search", title: "Search and Ask AI", panel: "search", has: SEARCH, sel: ["#sxDlg .sx-field", "#sxDlg"],
+      text: () => "Find tasks, cards, notes and text inside your files from anywhere (Ctrl or Cmd K). Switch to Ask With AI to ask questions about your own material."},
+    {id: "groups", title: "Study Groups", tab: "groups", has: [NAV("groups")], sel: [NAV("groups")],
+      text: () => "Study with classmates: share decks, notes and tasks, and chat in a group. Groups are also in Settings."},
+    {id: "settings", title: "Settings", panel: "settings", fresh: true, has: SETTINGS, sel: ["#dlg .us-cats", '#dlg [data-act="plan-open"]', "#dlg .menu-list", "#dlg .sheet"],
+      text: () => "Themes and dark mode, study hours, reminders, calendar sync, AI, backups, sign in and Studyboard Pro all live here."},
+    {id: "help", title: "Found a Bug? Tell Us", panel: "settings", has: SETTINGS, prep: () => { const c = $('#dlg [data-us="app"]'); if (c) c.click(); },
+      sel: ['#dlg [data-act="bug-open"]', "#dlg .us-cats", "#dlg .sheet"],
+      text: () => "Choose Report a Bug or Send Feedback. It goes straight to the people who make Studyboard, with an optional screenshot. You can replay this tour from here too."},
     {id: "done", title: "You're Ready", tab: "board",
       text: () => "That's the tour. Add your first task and Today's Plan takes it from there."}
   ];
 
-  let steps = [], i = 0, root = null, spot = null, card = null, tgt = null, opened = null, saved = null, onKey = null, raf = 0, active = false;
+  let steps = [], i = 0, root = null, spot = null, card = null, tgt = null, opened = null, saved = null, onKey = null, raf = 0, active = false, seq = 0, panel = "";
 
   const visible = el => { if (!el || !el.isConnected) return false; const r = el.getBoundingClientRect(); if (r.width < 2 || r.height < 2 || !el.getClientRects().length) return false; const cs = getComputedStyle(el); return cs.visibility !== "hidden" && cs.display !== "none"; };
-  const find = s => { for (const q of s.sel || []) { let el = null; try { el = document.querySelector(q); } catch (e) {} if (visible(el)) return el; } return null; };
+  const findIn = list => { for (const q of list || []) { let el = null; try { el = document.querySelector(q); } catch (e) {} if (visible(el)) return el; } return null; };
+  const find = s => findIn(s.sel);
+  const wait = ms => new Promise(r => setTimeout(r, ms));
   const gotoTab = t => {
     if (!t) return;
     if (ui.tab !== t) { if (t === "flashcards") { ui.fc = null; ui.deckId = null; } if (t !== "courses") ui.courseId = null; if (t === "timeline") ui.tlJump = true; ui.tab = t; render(); window.scrollTo(0, 0); }
   };
+  // Sheets the tour opens on top of the page. Closed again when the tour moves to a step that doesn't need them.
+  const press = list => { const b = findIn(list); if (b) b.click(); };
+  const PANELS = {
+    settings: {dlg: () => dlg, open: () => menuSheet()},
+    ann: {dlg: () => dlg, open: () => press(BELL)},
+    pomo: {dlg: () => $("#pomoDlg"), open: () => press(POMO)},
+    search: {dlg: () => $("#sxDlg"), open: () => press(SEARCH)}
+  };
+  function closePanel(){
+    if (!panel) return;
+    const d = PANELS[panel].dlg(); panel = "";
+    try { if (d && d.open) d.close(); } catch (e) {}
+  }
+  // The tour is itself a modal dialog, so it can sit above the sheets it opens: re-showing it puts it back on top of them.
+  function raise(){
+    if (!root) return;
+    try { if (root.open) root.close(); root.showModal(); } catch (e) { root.setAttribute("open", ""); }
+  }
+  async function enter(s, my){
+    if (panel && panel !== s.panel) closePanel();
+    if (s.panel) {
+      if (panel === s.panel && s.fresh) closePanel();    // coming back to the first screen of a sheet
+      if (panel !== s.panel) { if (dlg.open && PANELS[s.panel].dlg() === dlg) dlg.close(); panel = s.panel; try { PANELS[s.panel].open(); } catch (e) { console.error(e); } raise(); }
+      if (s.prep) { try { s.prep(); } catch (e) {} }
+    } else gotoTab(s.tab);
+    // Wait for the screen to draw: poll for the target, then fall back to a centred card
+    for (let n = 0; s.sel && n < 16 && my === seq && active; n++) { if (find(s)) break; await wait(50); }
+  }
 
   /* ---------- Drawing ---------- */
   function build(){
-    root = document.createElement("div"); root.id = "sbTour"; root.className = "tour";
+    root = document.createElement("dialog"); root.id = "sbTour"; root.className = "tour"; root.setAttribute("aria-label", "App tour");
     root.innerHTML = `<div class="tour-block"></div><div class="tour-spot" aria-hidden="true"></div>
-      <div class="tour-card" role="dialog" aria-modal="true" aria-labelledby="tourT" aria-describedby="tourD" tabindex="-1">
+      <div class="tour-card" role="document" aria-labelledby="tourT" aria-describedby="tourD" tabindex="-1">
         <div class="tour-step mini" id="tourN"></div><h2 id="tourT"></h2><p id="tourD"></p>
         <div class="tour-dots" id="tourDots" aria-hidden="true"></div>
         <div class="tour-foot"><button type="button" class="btn small tour-skip" data-tour="skip">Skip Tour</button><span class="spacer"></span><button type="button" class="btn small" data-tour="back">Back</button><button type="button" class="btn small primary" data-tour="next">Next</button></div>
       </div>`;
     document.body.appendChild(root);
     spot = root.querySelector(".tour-spot"); card = root.querySelector(".tour-card");
+    raise();
+    root.addEventListener("cancel", e => { e.preventDefault(); finish(false); });
     root.addEventListener("click", e => {
       const b = e.target.closest("[data-tour]"); if (!b) return;
       e.preventDefault(); e.stopPropagation();
@@ -28540,12 +28588,14 @@ Return JSON only.`;
     });
   }
 
-  function show(){
+  async function show(){
     const s = steps[i]; if (!s) { finish(true); return; }
-    gotoTab(s.tab);
+    const my = ++seq;
+    await enter(s, my);                       // open its tab or sheet, wait for it to draw
+    if (my !== seq || !active || !card) return;
     tgt = find(s);
-    // Targets inside the page (not the fixed side or bottom bars) need to be scrolled into view
-    if (tgt && !tgt.closest("nav,header,#fab")) { try { tgt.scrollIntoView({block: "center", behavior: "auto"}); } catch (e) {} }
+    // Targets inside the page (not the fixed side or bottom bars or a sheet) need to be scrolled into view
+    if (tgt && !tgt.closest("nav,header,#fab,#sbTour")) { try { tgt.scrollIntoView({block: "center", behavior: "auto"}); } catch (e) {} }
     $("#tourN").textContent = `${i + 1} of ${steps.length}`;
     $("#tourT").textContent = s.title;
     $("#tourD").textContent = s.text();
@@ -28558,48 +28608,47 @@ Return JSON only.`;
     try { next.focus({preventScroll: true}); } catch (e) { next.focus(); }
   }
 
-  // dir 1 or -1. A step whose target can't be found is taken out of the tour (the dots shrink) and the next one is tried.
+  // dir 1 or -1. Every step sets up its own screen, so Back and Next both land on the right one.
   function move(dir){
     if (!active) return;
-    let k = i + dir;
-    while (k >= 0 && k < steps.length) {
-      const s = steps[k];
-      if (!s.sel) break;
-      gotoTab(s.tab);
-      if (find(s)) break;
-      steps.splice(k, 1);
-      if (dir < 0) k--;
-    }
+    const k = i + dir;
     if (k >= steps.length) { finish(true); return; }
-    if (k < 0) k = 0;
+    if (k < 0) return;
     i = k; show();
   }
 
   function finish(completed){
     if (!active) return;
-    active = false;
+    active = false; seq++;
     cancelAnimationFrame(raf);
     document.removeEventListener("keydown", onKey, true);
     window.removeEventListener("resize", place);
     window.removeEventListener("scroll", place, true);
-    if (root) root.remove();
+    if (root) { try { if (root.open) root.close(); } catch (e) {} root.remove(); }
     root = spot = card = tgt = null;
+    closePanel();
     setFlag("done");
-    if (saved && saved.planView) { try { planViewSet(saved.planView); } catch (e) {} }
-    ui.tab = "board"; ui.courseId = null; render(); window.scrollTo(0, 0);
+    // Put the person back where they were: the same tab, view and course
+    const s = saved || {tab: "board"};
+    try { if (s.planView) planViewSet(s.planView); } catch (e) {}
+    ui.tab = s.tab || "board"; ui.courseId = s.courseId || null;
+    if (ui.tab === "flashcards") { ui.fc = s.fc || null; ui.deckId = s.deckId || null; }
+    render(); window.scrollTo(0, s.scrollY || 0);
     if (opened && opened.isConnected) { try { opened.focus({preventScroll: true}); } catch (e) {} }
     saved = null; opened = null;
-    if (completed) setTimeout(() => { const q = $("#qaIn"); if (q && !dlg.open) { const bar = q.closest(".qa-bar"); if (bar) { bar.classList.add("ob-glow"); setTimeout(() => bar.classList.remove("ob-glow"), 2600); } } }, 200);
+    if (completed && ui.tab === "board") setTimeout(() => { const q = $("#qaIn"); if (q && !dlg.open) { const bar = q.closest(".qa-bar"); if (bar) { bar.classList.add("ob-glow"); setTimeout(() => bar.classList.remove("ob-glow"), 2600); } } }, 200);
   }
 
   function start(){
     if (active) return;
     if (dlg.open) dlg.close();
     try { const p = $("#pomoDlg"); if (p && p.open) p.close(); } catch (e) {}
-    active = true; opened = document.activeElement;
-    saved = {planView: ui.planView};
-    // Take out every step that can't be shown on this screen (a hidden tab, an empty page) so the dots are right
-    steps = STEPS.filter(s => { if (!s.sel) return true; gotoTab(s.tab); return !!find(s); });
+    try { const x = $("#sxDlg"); if (x && x.open) x.close(); } catch (e) {}
+    active = true; opened = document.activeElement; panel = "";
+    saved = {tab: ui.tab, planView: ui.planView, courseId: ui.courseId, fc: ui.fc, deckId: ui.deckId, scrollY: window.scrollY};
+    // Take out every step that can't be shown on this screen (no Groups on a phone, no bell until a school site is connected)
+    // so the dots are right. Steps that open a tab are checked by opening it; the tour puts everything back when it ends.
+    steps = STEPS.filter(s => s.has ? !!findIn(s.has) : !s.sel || (gotoTab(s.tab), !!find(s)));
     i = 0;
     build();
     show();
