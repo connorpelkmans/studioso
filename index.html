@@ -9440,7 +9440,7 @@ function viewSchedule(){
     <div class="sch-nav"><button class="icon-btn" data-act="sch-prev" aria-label="Previous week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
     <span class="sch-range">${esc(fmtShort(mon))} – ${esc(fmtShort(addDays(mon, 6)))}</span>
     <button class="icon-btn" data-act="sch-next" aria-label="Next week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
-    <button class="btn small" data-act="sch-today">This Week</button>
+    <button class="btn small" data-act="sch-today" ${mon === mondayOf(today) && ui.schDay == null ? 'disabled aria-pressed="true" title="You are viewing this week"' : 'aria-pressed="false"'}>This Week</button>
     <button class="btn small" data-act="sch-add">+ Event</button>
     <button class="btn small" data-act="sch-ics" title="Import from Apple Calendar, Google Calendar or Outlook">Import Calendar</button></div></div>`;
   const withEvents = new Set(eventsArr().map(e => e.courseId).filter(Boolean));
@@ -12478,7 +12478,7 @@ document.addEventListener("click", e => {
     case "arch-course-restore": restoreCourse(id); break;
     case "new-term": if (dlg.open) dlg.close(); setTimeout(newTermSheet, 30); break;
     case "sch-prev": case "sch-next": ui.schWeek = addDays(ui.schWeek || mondayOf(todayISO()), act === "sch-prev" ? -7 : 7); render(); break;
-    case "sch-today": ui.schWeek = mondayOf(todayISO()); ui.schDay = null; render(); break;
+    case "sch-today": ui.schWeek = mondayOf(todayISO()); ui.schDay = null; render(); break;   // disabled while already on this week with today selected
     case "sch-day": ui.schDay = Number(id); render(); break;
     case "sch-occ": occSheet(el.dataset.type, id, el.dataset.key); break;
     case "sch-add": { const wk = ui.schWeek || mondayOf(todayISO()); eventForm(null, {date: wk === mondayOf(todayISO()) ? todayISO() : wk}); break; }
@@ -12949,12 +12949,15 @@ var PLAN = null;
   const write = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
   const numOr = (v, d) => v === null ? null : typeof v === "number" && isFinite(v) ? v : d;
   // Merge server rows ({key: value}) over the defaults. null in a limit means "no limit".
+  // These three limits are set here, not by the table or a cached copy of it, so the Free vs Pro table can never show an old number
+  // (the server enforces the same values: supabase-plans.sql).
+  const PINNED = {free: ["devices", "groupMembers", "groupMsgDays"], pro: ["devices", "groupMembers", "groupMsgDays"]};
   function mergeCfg(rows){
     const c = JSON.parse(JSON.stringify(PLAN_CONFIG, (k, v) => v === Infinity ? "Infinity" : v), (k, v) => v === "Infinity" ? Infinity : v);
     if (!rows || typeof rows !== "object") return c;
     if (rows.limits && typeof rows.limits === "object") ["free", "pro"].forEach(t => {
       const src = rows.limits[t]; if (!src || typeof src !== "object") return;
-      Object.keys(c.limits[t]).forEach(k => { if (k in src) { const v = numOr(src[k], c.limits[t][k]); c.limits[t][k] = v === null && k !== "groupMsgDays" ? Infinity : v; } });
+      Object.keys(c.limits[t]).forEach(k => { if (k in src && !PINNED[t].includes(k)) { const v = numOr(src[k], c.limits[t][k]); c.limits[t][k] = v === null && k !== "groupMsgDays" ? Infinity : v; } });
     });
     if (rows.prices && typeof rows.prices === "object") Object.assign(c.prices, rows.prices);
     ["checkout_url_monthly", "checkout_url_yearly", "manage_url"].forEach(k => { if (typeof rows[k] === "string" && /^https:\/\//.test(rows[k])) c[k] = rows[k]; });
@@ -13165,14 +13168,14 @@ var PLAN = null;
     const f = lims("free"), p = lims("pro");
     const freeThemes = SKINS.filter(s => s.tier === "free").length;
     return [
-      ["Devices", num(f.devices), p.devices === Infinity ? "Unlimited" : num(p.devices)],
+      ["Devices", `${f.devices} Devices`, p.devices === Infinity ? "Unlimited Devices" : `${p.devices} Devices`],
       ["Cloud File Storage", fmtMB(f.fileMB), fmtMB(p.fileMB)],
       ["Synced Data", fmtMB(f.dataMB), fmtMB(p.dataMB)],
       ["Themes", `${freeThemes} Plain Colors`, `All ${SKINS.length} Themes`],
       ["Card Styles, Pins and Stickers", "The Free Set", "Every Style"],
       ["Online Backups", f.cloudBackupDays ? `${f.cloudBackupDays} Days` : "On Your Device", `${p.cloudBackupDays} Days Online`],
-      ["Study Groups", `${f.groupMembers} Members`, `${p.groupMembers} Members`],
-      ["Group Messages", f.groupMsgDays ? `Kept ${f.groupMsgDays} Days` : "Kept Forever", p.groupMsgDays ? `Kept ${p.groupMsgDays} Days` : "Full History"]
+      ["Study Group Members", `Up to ${f.groupMembers} Members`, p.groupMembers === Infinity ? "Unlimited Members" : `Up to ${p.groupMembers} Members`],
+      ["Group Message History", f.groupMsgDays ? `Kept ${f.groupMsgDays} Days` : "Unlimited History", p.groupMsgDays ? `Kept ${p.groupMsgDays} Days` : "Unlimited History"]
     ];
   }
   function meter(label, used, max){
@@ -31029,7 +31032,7 @@ const RM_CORE = (() => {
       ${pinsHtml(g)}
       <form class="grp-post" id="grpPost" data-gid="${esc(g.id)}"><textarea id="grpMsgIn" rows="2" maxlength="2000" aria-label="Write a message to the group" placeholder="Write to the group…">${esc(S.drafts[g.id] || "")}</textarea><button type="submit" class="btn primary small">Post</button></form>
       <ul class="grp-msgs" id="grpMsgList" aria-live="polite">${msgsHtml(g)}</ul>
-      ${days ? `<p class="mini" style="margin:8px 0 0">Messages are kept ${days} days in Free groups. <button class="link-btn" data-act="grp-upgrade" data-r="Pro keeps your group's full message history.">Go Pro</button> to keep them all.</p>` : ""}</section>`;
+      ${days ? `<p class="mini" style="margin:8px 0 0">Messages are kept ${days} days in Free groups. <button class="link-btn" data-act="grp-upgrade" data-r="Pro keeps your group's message history for good.">Go Pro</button> to keep them all.</p>` : ""}</section>`;
   }
   function membersHtml(g){
     const ms = (S.members[g.id] || []).slice().sort((a, b) => (b.role === "owner") - (a.role === "owner") || String(a.display_name).localeCompare(String(b.display_name)));
@@ -47096,12 +47099,34 @@ var COMP_KIT = (() => {
      It can carry small buttons: an idea (Let's Do It, Not Now) or Ask (a tiny question box); then it takes clicks. */
   let bubbleT = 0, bubbleIdea = null, bubbleAsk = false;
   const order = {};
+  /* One shared guard so the companion never says the same line twice in a row, whichever code path (taps, daily hello,
+     task done, focus, idle chatter, AI lines, quips) or category the line comes from. It remembers the last line overall
+     and per category (kept in localStorage so a reload doesn't repeat it either). Lines compare by their letters only. */
+  function speechGuard(store){
+    const KEY = "studyboard:comp:lastline";
+    const norm = t => String(t == null ? "" : t).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    let st = {all: "", cats: {}};
+    try { const v = JSON.parse(store.getItem(KEY) || "null"); if (v && typeof v === "object") st = {all: String(v.all || ""), cats: v.cats && typeof v.cats === "object" ? v.cats : {}}; } catch (e) {}
+    const save = () => { try { const k = Object.keys(st.cats); if (k.length > 60) k.slice(0, k.length - 60).forEach(x => delete st.cats[x]); store.setItem(KEY, JSON.stringify(st)); } catch (e) {} };
+    // Fine to say: it isn't the last line overall (nor the last of its own category, when one is given)
+    const ok = (text, cat) => { const n = norm(text); return !!n && n !== st.all && !(cat && n === st.cats[cat]); };
+    const note = (text, cat) => { const n = norm(text); if (!n) return; st.all = n; if (cat) { delete st.cats[cat]; st.cats[cat] = n; } save(); };
+    // Choose among the alternatives, never the last one; a pool with nothing else to offer gives "" so the caller can try another category or stay quiet
+    const choose = (list, cat, rnd) => { const c = (list || []).filter(t => ok(t, cat)); return c.length ? c[Math.floor((rnd || Math.random)() * c.length)] : ""; };
+    return {norm, ok, note, choose, last: () => st.all, reset: () => { st = {all: "", cats: {}}; save(); }};
+  }
+  const SPEECH = speechGuard(localStorage);
+  const pickedCat = {};   // which pool a line came from, so say() can remember it per category
+  // Walks the pool in a shuffled order (every line once before any repeats), skipping whatever was said last; "" when nothing else fits
   function pickFrom(key, list){
     if (!list || !list.length) return "";
-    let o = order[key];
-    if (!o || !o.q.length) { const q = list.map((_, i) => i).sort(() => Math.random() - 0.5); if (o && q.length > 1 && q[0] === o.last) q.push(q.shift()); o = order[key] = {q, last: o ? o.last : -1}; }
-    const i = o.q.shift(); o.last = i;
-    return list[i] || list[0];
+    for (let n = 0; n < list.length + 1; n++) {
+      let o = order[key];
+      if (!o || !o.q.length) { const q = list.map((_, i) => i).sort(() => Math.random() - 0.5); if (o && q.length > 1 && q[0] === o.last) q.push(q.shift()); o = order[key] = {q, last: o ? o.last : -1}; }
+      const i = o.q.shift(); o.last = i;
+      if (SPEECH.ok(list[i], key)) { pickedCat[SPEECH.norm(list[i])] = key; return list[i]; }
+    }
+    return "";
   }
   const ownLines = kind => cur && Array.isArray(cur.lines[kind]) && cur.lines[kind].length ? cur.lines[kind] : GENERIC[kind] || GENERIC.tap;
   const bubbleOpen = () => !!(front && front.querySelector(".cp-bubble.on"));
@@ -47121,6 +47146,8 @@ var COMP_KIT = (() => {
   function say(text, opts){
     if (!front || !cur || !box || box.hidden || document.hidden || !text) return;
     opts = opts || {};
+    if (!opts.again && !SPEECH.ok(text)) return;   // never the same line twice in a row, from any path
+    SPEECH.note(text, opts.cat || pickedCat[SPEECH.norm(text)]);
     const b = front.querySelector(".cp-bubble");
     b.classList.remove("on", "has-idea", "asking", "long", "cheer");
     if (opts && opts.long) b.classList.add("long");
@@ -47229,9 +47256,10 @@ var COMP_KIT = (() => {
     b.innerHTML = `<span class="cp-b-t cp-thinking"><i></i><i></i><i></i></span>`;
     placeBubble(b); b.classList.add("on");
     if (act) { hold(4000); act.look(0.5, -0.6); }
-    const r = await aiAsk(q, useScreen ? await screenCtx() : null);
+    let r = await aiAsk(q, useScreen ? await screenCtx() : null);
     if (!act) return;
     act.look(0, 0);
+    if (r && r.answer && !SPEECH.ok(r.answer)) r = {why: pickFrom("ask:same", ["Hmm, I'd say the same thing again! Try asking another way?", "That's my answer again! Want to ask it differently?", "I keep landing on the same answer! Give me a different question?"])};
     if (r && r.answer) { say(r.answer, {idea: r.idea, ms: Math.min(60000, Math.max(14000, 6000 + r.answer.length * 75)), long: r.answer.length > 200}); act.eyes("happy"); later(() => act && act.eyes("open"), 1200); }
     else say(r && r.why ? r.why : "I can't think of an answer right now. Try again later?", {ms: 5000});
   }
@@ -47400,7 +47428,7 @@ var COMP_KIT = (() => {
     if (talkOn()) {
       const idea = wasMood === "idle" && now - lastIdea > 2 * 3600000 && Math.random() < 0.5 ? ideaNow() : null;
       const ask = askAvailable();
-      if (idea) { lastIdea = now; say(idea.text, {idea, ask}); }
+      if (idea && SPEECH.ok(idea.text)) { lastIdea = now; say(idea.text, {idea, ask}); }
       else say(tapLine(), {ask});
     }
     later(() => { if (!act) return; act.eyes(mood === "doze" ? "sleepy" : "open"); act.mouth(mood === "doze" ? "sleepy" : "neutral"); }, 1300);
@@ -47522,7 +47550,13 @@ var COMP_KIT = (() => {
     return out.filter(s => s.length <= 60);
   }
   let helloSaid = false;
+  // Never the same line as last time: re-roll (the branches below are partly random), then fall back to other categories
   function tapLine(){
+    for (let n = 0; n < 8; n++) { const t = tapLineRaw(); if (t && SPEECH.ok(t)) return t; }
+    for (const k of ["tap", "hello", "morning", "night", "pet", "done"]) { const t = pickFrom(cur.id + ":" + k, ownLines(k)); if (t) return t; }
+    return "";
+  }
+  function tapLineRaw(){
     const m = momentLine(); if (m) return m;
     const plan = aiPlan(), kinds = contextKinds();
     if (plan) {
@@ -47833,7 +47867,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     (s.moments || []).forEach(x => { if (x === pickL || (pickL.about !== "tap" && x.about === pickL.about && x.at === pickL.at)) x.used = true; });
     aiWrite(s);
     if (fresh.filter(x => x.about === "tap" && !x.used).length < 2) later(() => { const s3 = aiRead(); if (!(s3.queue || []).some(x => x.about === "tap")) queueMoment({about: "tap", detail: "a few fresh tap lines for later today"}); }, 800);
-    return pickL.text;
+    return SPEECH.ok(pickL.text) ? pickL.text : "";
   }
   // Ask Me
   const askAvailable = () => { const s = aiRead(); return aiMode() === "lite" && !aiPaused(s) && (today0(s).n || 0) < LITE_MAX && navigator.onLine !== false; };
@@ -48433,7 +48467,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     home: () => ({home, rect: box && !box.hidden ? box.getBoundingClientRect().toJSON() : null}),
     brain: () => ({mood, energy: BR.energy, taskDone: BR.taskDone && BR.taskDone.title, context: contextKinds()}),
     ai: () => aiRead(), aiRun: force => aiMaybe("test", !!force), think, idle: ms => { BR.input = Date.now() - ms; think(); },
-    line: () => tapLine(), idea: () => ideaNow(), offer: () => { const i = ideaNow(); if (i) say(i.text, {idea: i, ask: askAvailable()}); return i ? i.text : ""; },
+    _speech: SPEECH, _speechGuard: speechGuard, line: () => tapLine(), idea: () => ideaNow(), offer: () => { const i = ideaNow(); if (i) say(i.text, {idea: i, ask: askAvailable()}); return i ? i.text : ""; },
     peek: () => screenPeek(), askScreen: async q => aiAsk(q, await screenCtx()),
     usage: () => aiUsage(), flush: () => aiFlush(), queue: m => queueMoment(m), ask: q => aiAsk(q), askOpen: () => { say("Hi!", {ask: askAvailable()}); openAsk(); }, askAvailable: () => askAvailable(),
     setPomo: min => { state.settings = Object.assign({}, state.settings, {pomo: Object.assign({}, state.settings.pomo, {focus: min})}); saveSettings(); },

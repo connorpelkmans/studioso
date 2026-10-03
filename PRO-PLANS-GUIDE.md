@@ -22,7 +22,7 @@ You can do the setup below any time before launch (in any order). While the payw
 - **10 GB** of cloud file storage and **250 MB** of synced data.
 - Every premium theme, including the 4 seasons (Winter, Spring, Summer and Autumn Leaves), plus every premium card style, note shape, pin and sticker pack, and all 46 Theme Collections.
 - 30 days of online backup history.
-- Study groups of up to **100 members** with full message history.
+- Study groups of up to **100 members** with unlimited message history.
 - Later: grade and study insights, and built-in AI credits (both are switches that stay off for now).
 
 In the app, **Settings > Studyboard Pro** shows the plan, what Pro adds, how much storage you use, and **Your Devices**.
@@ -44,7 +44,7 @@ Run `supabase-groups.sql` before `supabase-plans.sql`, so the group limits can b
 
 If you see a notice that the file storage triggers were skipped, that's OK. Some Supabase projects don't allow extra rules on file storage. The app still checks the storage limit before each upload.
 
-**Change a price or a limit:** in **Table Editor**, open **studyboard_config** and edit the **value** of a row. For example, `limits` holds both plans. A blank (`null`) limit means no limit.
+**Change a price or a limit:** in **Table Editor**, open **studyboard_config** and edit the **value** of a row. For example, `limits` holds both plans. A blank (`null`) limit means no limit. The app always shows devices, group members and group message history as 2 / 3 / 60 days on Free and unlimited / 100 / unlimited on Pro, whatever this row says; changing those three needs an app update (and the matching change in `supabase-plans.sql`).
 
 **Give someone Pro for free** (a friend, a tester, yourself), in **SQL Editor**:
 ```sql
@@ -134,6 +134,6 @@ To turn the paywall off again, set both switches back to `false`. Nobody loses a
 
 - **People who already have a season theme on** will see it switch to Classic after launch unless they have Pro. Their choice is remembered, so it comes back the moment they go Pro.
 - **Offline:** the app remembers each person's plan on their device, so Pro keeps working without internet.
-- **Devices:** the free plan counts devices when people sign in. On a 4th device, Studyboard shows the devices on the account with **Remove** buttons, and **Go Pro**.
+- **Devices:** the free plan counts devices when people sign in. On a 3rd device, Studyboard shows the devices on the account with **Remove** buttons, and **Go Pro**.
 - **Limits are checked twice:** the app explains the limit before an upload, and Supabase refuses anything over the limit even if someone changes the app.
 - **Single items or packs:** the shop can also sell single cosmetic items later. Set `item_purchases` to `true` and hook up a checkout for them. Pro always unlocks everything.
