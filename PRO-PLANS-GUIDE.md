@@ -8,10 +8,10 @@ You can do the setup below any time before launch (in any order). While the payw
 
 **Free, forever** (this is what gets people to download Studyboard):
 - The whole planner: Board, Timeline, Schedule, Today's Plan, Focus, notes and stickers, flashcards and quizzes, Grade Tracker, Rough Week Rescue and Search Everywhere.
-- Sync on up to **3 devices**.
+- Sync on up to **2 devices**.
 - Brightspace, Canvas and Blackboard sync, with the desktop sign-in or calendar links.
 - Reminders and notifications, including phone push.
-- Study groups (up to **30 members**, messages kept **120 days**) and deck sharing.
+- Study groups (up to **3 members**, messages kept **60 days**) and deck sharing.
 - AI with your own Gemini key.
 - The 14 plain color themes, and the free card styles, note shapes, pins and sticker packs.
 - **100 MB** of cloud file storage (plus unlimited files kept on the device, or links to Google Drive or OneDrive), and **25 MB** of synced data.
@@ -38,7 +38,7 @@ It adds:
 - **studyboard_entitlements:** who has Pro and until when. People can see only their own row. Only the payment function below can change it.
 - **studyboard_devices:** the devices signed in to each account.
 - **studyboard_usage:** a running total of each account's data and files.
-- Checks that keep free accounts to their limits (only once the paywall is on), and a nightly clean-up of group messages older than 120 days in groups owned by free accounts.
+- Checks that keep free accounts to their limits (only once the paywall is on), and a nightly clean-up of group messages older than 60 days in groups owned by free accounts.
 
 Run `supabase-groups.sql` before `supabase-plans.sql`, so the group limits can be added. If you run `supabase-groups.sql` later, run `supabase-plans.sql` again after it.
 
