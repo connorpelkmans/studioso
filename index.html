@@ -1586,6 +1586,26 @@ body.sch-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .plan-heads .ph-x{width:26px;height:26px;min-width:26px;opacity:.6}
 .plan-heads .ph-x svg{width:14px;height:14px}
 
+.auto-badge{display:inline-block;font:700 .62rem/1 var(--display);letter-spacing:.05em;text-transform:uppercase;padding:2px 6px;border-radius:999px;color:#6D3FD0;background:color-mix(in srgb,#8B5CF6 14%,var(--surface));border:1px solid color-mix(in srgb,#8B5CF6 30%,var(--line));vertical-align:middle}
+.auto-ins{margin:10px 0 0;padding:10px 12px;border-radius:12px;border:1px solid color-mix(in srgb,#8B5CF6 28%,var(--line));background:color-mix(in srgb,#8B5CF6 5%,var(--surface))}
+.auto-ins .ai-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.auto-ins .ph-label{display:inline-flex;align-items:center;gap:6px;font:700 .72rem/1 var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.auto-ins .ph-label .ai-ic{width:13px;height:13px}
+.auto-ins ul{list-style:none;margin:8px 0 4px;padding:0;display:grid;gap:8px}
+.auto-ins li{display:flex;align-items:flex-start;gap:8px;font-size:.9rem;line-height:1.35;padding-top:8px;border-top:1px solid var(--line)}
+.auto-ins li:first-child{border-top:0;padding-top:0}
+.auto-ins .ins-body{flex:1;min-width:0}
+.auto-ins .ins-k{display:block;font:700 .64rem/1.3 var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.auto-ins li[data-kind=attn] .ins-k{color:var(--warn)}
+.auto-ins .ins-acts{display:flex;align-items:center;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;max-width:46%}
+.auto-ins .ph-x{width:26px;height:26px;min-width:26px;opacity:.6}
+.auto-ins .ph-x svg{width:14px;height:14px}
+.auto-ins .ins-more ol{margin:4px 0 0;padding-left:18px}
+.ann-ai{margin:4px 0 0;font-size:.85rem}
+.ann-attn{display:inline-block;font:700 .66rem/1 var(--display);text-transform:uppercase;letter-spacing:.04em;padding:3px 6px;border-radius:6px;background:color-mix(in srgb,var(--warn) 18%,var(--surface));color:var(--warn)}
+.ap-row{padding:8px 0;border-top:1px solid var(--line)}
+@media (max-width:560px){.auto-ins li{flex-direction:column}.auto-ins .ins-acts{max-width:none;justify-content:flex-start}}
+
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}
@@ -4924,7 +4944,7 @@ const AI_TASKS = {
   ask: ["reason", "high"], tutor: ["reason", "medium"], cards: ["reason", "medium"], quiz: ["reason", "medium"], cases: ["reason", "medium"],
   syllabus: ["reason", "medium"], examplan: ["reason", "medium"], plan: ["reason", "medium"], practice: ["reason", "medium"],
   topics: ["mid", "medium"], explain: ["mid", "medium"], summary: ["mid", "medium"], photo: ["mid", "medium"], tune: ["mid", "low"], estimate: ["mid", "low"],
-  quickadd: ["lite", "low"], grade: ["lite", "low"], news: ["lite", "low"], classify: ["lite", "low"], tag: ["lite", "low"], rewrite: ["lite", "low"], ping: ["lite", "low"]
+  quickadd: ["lite", "low"], grade: ["lite", "low"], news: ["lite", "low"], triage: ["lite", "low"], annintel: ["lite", "low"], coach: ["mid", "low"], weekly: ["mid", "low"], classify: ["lite", "low"], tag: ["lite", "low"], rewrite: ["lite", "low"], ping: ["lite", "low"]
 };
 const aiTask = (task, fast) => { const t = AI_TASKS[task]; return t ? {tier: t[0], think: t[1], task} : fast ? {tier: "lite", think: "low", task: ""} : {tier: "mid", think: "medium", task: ""}; };
 const AI_PROVIDERS = {
@@ -5679,6 +5699,7 @@ function aiSetupSheet(fromFeature){
         <p class="mini" style="margin:0">When this is on, the AI works in the background without you pressing anything: it picks <b>Do This Next</b> and the alternatives for Something Else, estimates hours for tasks you didn't estimate using how long your past tasks took, estimates the work left on started tasks from your focus time and progress, judges how ready you are for each exam from your study sessions, flashcards and quizzes, tunes the next study sessions to what you keep missing, and prepares the practice test before a practice day. It only runs when something changed, and a few times a day.</p>
         <label class="f"><span class="lh">Model for Automatic AI</span><select id="aiAutoModel"><option value="free" ${((state.settings.ai || {}).autoModel || "free") === "free" ? "selected" : ""}>Free Gemini (no cost)</option><option value="default" ${(state.settings.ai || {}).autoModel === "default" ? "selected" : ""}>My default model</option></select></label>
         <p class="ai-disclaimer mini" id="aiAutoWarn" hidden style="margin:0"></p>
+        <button type="button" class="btn small" data-act="auto-panel">What Automatic AI is doing</button>
       </fieldset>
       <p class="mini" style="margin:0">Your keys are saved to your Studyboard account so they work on all your devices, and they're left out of backup files you export. On Google's free tier, Google may use what you send to improve its products, so don't upload private information such as patient details.</p>
     </div>
@@ -6807,11 +6828,13 @@ async function autoRun(){
     job = async () => { const prev = AUTO.sig, prevAt = AUTO.planAt; AUTO.sig = sig; AUTO.planAt = Date.now(); try { await autoPlan(a); } catch(e) { AUTO.sig = prev; AUTO.planAt = prevAt; throw e; } };   // a failed plan retries after the error back-off, not 3 hours later
   if (!job) { const t = tasksArr().find(x => x.type === "Study" && x.prepFor && x.status !== "done" && (x.due === today || x.due === tomorrow) && !x.aiTuned); if (t) job = () => autoTune(t); }
   if (!job) { const t = tasksArr().find(x => x.type === "Study" && x.studyKind === "practice" && x.status !== "done" && x.due && dayDiff(today, x.due) <= 2 && dayDiff(today, x.due) >= 0 && !x.practiceQuiz); if (t) job = () => autoPractice(t); }
+  if (!job) { try { job = autoExtraJob(a); } catch(e) { console.warn("Automatic AI:", e); } }   // small extras: tidy tasks, announcements, exam plans, weekly review
   if (!job) return;
   autoBusy = true; AUTO.n = (AUTO.n || 0) + 1; autoSave();
   try { await job(); autoErr = null; AUTO.lastAt = Date.now(); }
-  catch(e) { console.warn("Automatic AI:", e); autoErr = {at: Date.now(), code: e && e.code, msg: e && e.message}; }
+  catch(e) { console.warn("Automatic AI:", e); autoErr = {at: Date.now(), code: e && e.code, msg: e && e.message}; if (e && (e.code === "offline" || e.code === "auto-off" || e.code === "nokey" || e.code === "preview")) AUTO.n = Math.max(0, (AUTO.n || 1) - 1); }   // a request that never left the device doesn't use up the day's budget
   autoBusy = false; autoSave();
+  scheduleRender();                                   // show anything the job produced (suggestions, the chip's time)
   autoKick(1500);                                     // anything else waiting?
 }
 setInterval(() => autoKick(0), 10 * 60000);
@@ -6829,7 +6852,7 @@ function autoPaidConfirmSheet(cfg, onDone){
   const P = AI_PROVIDERS[cfg.provider], name = aiModelName(cfg.provider, cfg.model);
   openSheet(`<form class="sheet">${head("Use a Paid Model Automatically?")}
     <div class="sheet-body">
-      <p class="ai-disclaimer" style="margin:0"><b>This costs money.</b> Automatic AI would use <b>${esc(name)}</b>, billed per use to your ${esc(P.label.split(" ")[0])} account. It runs in the background whenever your tasks change and a few times a day: up to 12 requests a day on a paid model. Each request is small (your task list, no files), except the occasional practice test.</p>
+      <p class="ai-disclaimer" style="margin:0"><b>This costs money.</b> Automatic AI would use <b>${esc(name)}</b>, billed per use to your ${esc(P.label.split(" ")[0])} account. It runs in the background whenever your tasks change and a few times a day: up to 12 requests a day on a paid model. Each request is small (your task list, new announcements or a few tasks, no files), except the occasional practice test. Smaller extras (tidying new tasks, announcement alerts, exam study plans, a weekly review) only run while plenty of the day's requests are left, and each can be turned off under "What Automatic AI is doing".</p>
       <p style="margin:0">To use it for free instead, add a Gemini key and choose "Free Gemini" for automatic AI.</p>
       <label class="mi-check"><input type="checkbox" id="apOk"> I understand automatic AI will use my paid ${esc(P.short)} account in the background and may cost money.</label>
     </div>
@@ -6837,6 +6860,464 @@ function autoPaidConfirmSheet(cfg, onDone){
   $("#apOk").addEventListener("change", e => { $("#apYes").disabled = !e.target.checked; });
   $("#apNo").addEventListener("click", () => { dlg.close(); onDone(false); });
   $("#apYes").addEventListener("click", () => { if (!$("#apOk").checked) return; dlg.close(); onDone(true); });
+}
+
+/* ---------- Automatic AI, more quiet jobs: tidy new tasks, announcement alerts, exam study plans, weekly review, nudges ----------
+   The app prepares the facts (pure functions in AINS, unit tested); the model only judges and writes, and everything it says is
+   checked against real tasks, courses and dates before it's shown. Nothing is created or changed without a tap.
+   Each job is cached by what it looked at, capped per day, and falls back to plain rules if the AI fails. */
+/*AINS-START*/
+const AINS = (() => {
+  const P2 = n => String(n).padStart(2, "0");
+  const isoD = d => `${d.getFullYear()}-${P2(d.getMonth() + 1)}-${P2(d.getDate())}`;
+  const parseD = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+  const add = (s, n) => { const d = parseD(s); d.setDate(d.getDate() + n); return isoD(d); };
+  const diff = (a, b) => Math.round((parseD(b) - parseD(a)) / 864e5);
+  const isD = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && isoD(parseD(s)) === s;
+  const isT = s => typeof s === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
+  const clean = (s, n) => String(s == null ? "" : s).replace(/\s+/g, " ").replace(/\s*[—–]\s*/g, ", ").replace(/[<>{}]|https?:\S*/g, "").trim().slice(0, n);
+  const ms = t => t.type === "Exam" || t.type === "Quiz";
+  const open = t => t && t.status !== "done";
+  const isNumv = v => v !== null && v !== "" && v !== undefined && !isNaN(Number(v));
+  const words = s => String(s || "").toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 2);
+  const similar = (a, b) => { const x = words(a), y = words(b); if (!x.length || !y.length) return false; const hit = x.filter(w => y.includes(w)).length; return hit / Math.min(x.length, y.length) >= 0.7; };
+  const CATS = ["exam", "deadline", "cancel", "room", "other"];
+
+  // ----- 1. Tidy new tasks -----
+  const GENERIC = /^(hw|homework|assignment|assign|task|project|reading|read|lab|quiz|exam|test|midterm|final|essay|paper|report|work|stuff|todo|misc|study|review|ch|chapter|unit|module|week|due|submit|submission|ps|pset|worksheet)[\s\d.#:\-_]*$/i;
+  function vague(title){
+    const s = String(title || "").trim();
+    if (s.length <= 5 || GENERIC.test(s)) return true;
+    if (/^[a-z]{1,4}\s?\d+[a-z]?(\s+[a-z]{1,2}\d+)?$/i.test(s)) return true;      // "hw3", "ps 4", "ch5 q2"
+    return s.split(/\s+/).length <= 2 && s.length <= 12 && s === s.toLowerCase();
+  }
+  const triSig = t => [t.title, t.type, t.courseId, t.due].join("|");
+  function triageCandidates({tasks, today, done, max}){
+    return (tasks || []).filter(t => open(t) && !t.prepFor && (vague(t.title) || !t.courseId || t.type === "Other") && (done || {})[t.id] !== triSig(t)
+      && (!t.due || (diff(today, t.due) <= 45 && diff(today, t.due) >= -14)))
+      .sort((a, b) => (b.created || 0) - (a.created || 0)).slice(0, max || 6);
+  }
+  // raw: model answer; back: ref -> task; cback: ref -> course id. Only checked, real, changing fields survive.
+  function cleanTriage(raw, back, cback, types){
+    const out = [], seen = new Set();
+    (raw && Array.isArray(raw.items) ? raw.items : []).forEach(x => {
+      const t = x && back[String(x.ref || "").trim()]; if (!t || seen.has(t.id)) return; seen.add(t.id);
+      const p = {}, title = clean(x.title, 120);
+      if (vague(t.title) && title.length >= 6 && title.toLowerCase() !== String(t.title).trim().toLowerCase() && !vague(title)
+        && (String(t.title).match(/\d+/g) || []).every(n => title.includes(n))) p.title = title;
+      const ty = (types || []).includes(x.type) ? x.type : "";
+      if (ty && ty !== t.type && (t.type === "Other" || t.type === "Assignment")) {
+        if (!ms({type: ty}) || /exam|test|midterm|final|quiz/i.test(t.title + " " + (t.notes || ""))) p.type = ty;
+      }
+      if (["low", "med", "high", "urgent"].includes(x.priority) && t.priority === "med" && x.priority !== "med") p.priority = x.priority;
+      const h = Number(x.hours), fin = p.type || t.type;
+      if (!isNumv(t.hours) && !ms({type: fin}) && h >= 0.25 && h <= 40) p.hours = Math.round(h * 4) / 4;
+      const cid = cback[String(x.courseRef || "").trim()];
+      if (!t.courseId && cid) p.courseId = cid;
+      if (Object.keys(p).length) out.push({id: t.id, sig: triSig(t), patch: p, why: clean(x.why, 120)});
+    });
+    return out;
+  }
+
+  // ----- 2. Announcements -----
+  function annCandidates({items, seen, today, maxAgeDays, max}){
+    const lim = Date.parse(today + "T00:00:00") - (maxAgeDays || 21) * 864e5;
+    return (items || []).filter(n => n && n.key && !(seen || {})[n.key] && (n.title || n.text) && (!n.date || isNaN(Date.parse(n.date)) || Date.parse(n.date) >= lim)).slice(0, max || 5);
+  }
+  // Plain-rule read of an announcement, used when the AI can't be reached
+  function annKeyword(text){
+    const s = String(text || "");
+    if (/cancel+ed|no class|class is off|will not meet|won't meet/i.test(s)) return "cancel";
+    if (/room (change|has changed)|moved to (room|building|hall)|new (room|location)|location (change|has changed)/i.test(s)) return "room";
+    if (/\b(exam|midterm|final|quiz|test)\b[^.]{0,80}\b(moved|rescheduled|postponed|scheduled|will be held)\b|\b(moved|rescheduled|postponed) (the |to )/i.test(s)) return "exam";
+    if (/(deadline|due date)[^.]{0,60}(extended|changed|moved|now)|extended (until|to)|due (date )?(is )?(now|has been)/i.test(s)) return "deadline";
+    return "";
+  }
+  function cleanAnn(raw, back, ctx){
+    const out = [], seen = new Set(), today = ctx.today;
+    (raw && Array.isArray(raw.items) ? raw.items : []).forEach(x => {
+      const n = x && back[String(x.ref || "").trim()]; if (!n || seen.has(n.key)) return; seen.add(n.key);
+      const first = String(n.text || n.title || "").replace(/\s+/g, " ").split(/(?<=[.!?])\s/)[0];
+      const sum = clean(x.summary, 170) || clean(first, 170);
+      const kw = annKeyword(n.title + ". " + n.text);
+      let cat = CATS.includes(x.category) ? x.category : "other";
+      const imp = !!x.important && (cat !== "other" || !!kw);
+      if (imp && cat === "other") cat = kw;
+      const props = [];
+      (Array.isArray(x.items) ? x.items : []).slice(0, 3).forEach(p => {
+        if (!p || (p.kind !== "task" && p.kind !== "event")) return;
+        const title = clean(p.title, 100), date = p.date;
+        if (title.length < 3 || !isD(date) || diff(today, date) < -1 || diff(today, date) > 240) return;
+        if ((ctx.tasks || []).some(t => t.due === date && similar(t.title, title))) return;
+        if ((ctx.events || []).some(e => e.date === date && similar(e.title, title))) return;
+        if (props.some(q => q.date === date && similar(q.title, title))) return;
+        const type = (ctx.types || []).includes(p.type) ? p.type : "Assignment";
+        props.push({kind: p.kind, title, date, time: isT(p.time) ? p.time : "", type, cid: n.cid || ""});
+      });
+      out.push({key: n.key, sum, imp, cat: imp ? cat : "other", props});
+    });
+    return out;
+  }
+
+  // ----- 3. Exam coach -----
+  function examCandidates({tasks, today, sessionsOf, maxDays}){
+    return (tasks || []).filter(t => t.type === "Exam" && open(t) && t.due && diff(today, t.due) >= 1 && diff(today, t.due) <= (maxDays || 14) && !sessionsOf(t.id))
+      .sort((a, b) => a.due < b.due ? -1 : 1);
+  }
+  function examTotalHours(t){
+    const w = Number(t.weight) || 0;
+    let h = w >= 30 ? 10 : w >= 15 ? 8 : w > 0 ? 6 : 7;
+    if (t.difficulty === "hard") h += 2; else if (t.difficulty === "easy") h -= 1;
+    return Math.max(3, Math.min(14, h));
+  }
+  // Spread `total` hours over the days before the exam, never more than a day's free time or `maxPer` hours, never under `minPer`.
+  function examSlots({today, due, avail, total, maxPer, minPer}){
+    maxPer = maxPer || 2; minPer = minPer || 0.5;
+    let days = [];
+    for (let d = add(today, 1); d < due; d = add(d, 1)) days.push({date: d, cap: Math.min(maxPer, Math.floor(Math.max(0, avail(d)) * 2) / 2)});
+    const t0 = avail(today); if (t0 >= 1) days.unshift({date: today, cap: Math.min(maxPer, Math.floor(t0 * 2) / 2)});
+    days = days.filter(d => d.cap >= minPer);
+    for (let guard = 0; guard < 20 && days.length; guard++) {
+      const cap = days.reduce((s, d) => s + d.cap, 0), tot = Math.min(total, cap), k = tot / cap;
+      days.forEach(d => { d.hours = Math.round(d.cap * k * 4) / 4; });
+      const low = days.filter(d => d.hours < minPer);
+      if (!low.length) break;
+      const worst = low.reduce((a, b) => a.hours <= b.hours ? a : b);
+      days = days.filter(d => d !== worst);
+    }
+    return days.filter(d => d.hours >= minPer).map(d => ({date: d.date, hours: d.hours}));
+  }
+  const GEN_FOCUS = ["Learn the core ideas", "Practice problems and recall", "Mixed practice questions", "Teach it back and fix gaps", "Final review of weak spots"];
+  function cleanCoach(raw, n){
+    const arr = raw && Array.isArray(raw.sessions) ? raw.sessions : [], out = [];
+    for (let i = 0; i < n; i++) {
+      const s = arr[i] || {}, steps = (Array.isArray(s.steps) ? s.steps : []).map(x => clean(x, 160)).filter(Boolean).slice(0, 4);
+      const g = i === n - 1 && n > 1 ? GEN_FOCUS[4] : GEN_FOCUS[Math.min(i, 3)];
+      out.push({focus: clean(s.focus, 70) || g, steps: steps.length ? steps : ["Review your notes and slides, then close them and write what you remember", "Do practice questions on the same material"]});
+    }
+    return out;
+  }
+
+  // ----- 4. Study material suggestions (no AI used) -----
+  function materialSuggest({exams, today, materialOf, hasDeck, maxDays}){
+    return (exams || []).filter(t => open(t) && ms(t) && t.courseId && t.due && diff(today, t.due) >= 0 && diff(today, t.due) <= (maxDays || 10) && materialOf(t.courseId) > 0 && !hasDeck(t.courseId))
+      .map(t => ({id: t.id, days: diff(today, t.due), cid: t.courseId, n: materialOf(t.courseId)}));
+  }
+
+  // ----- 5. Weekly review -----
+  // The Monday that starts the week to review: the week ending today on a Sunday, last week on a Monday, otherwise none.
+  function reviewWeek(today){
+    const wd = parseD(today).getDay();
+    return wd === 0 ? add(today, -6) : wd === 1 ? add(today, -7) : "";
+  }
+  function weeklyStats({tasks, today, weekStart}){
+    const a = parseD(weekStart).getTime(), b = a + 7 * 864e5, nextStart = add(weekStart, 7), nextEnd = add(nextStart, 7);
+    const all = (tasks || []).filter(t => !t.prepFor);
+    const done = all.filter(t => t.status === "done" && t.doneAt >= a && t.doneAt < b);
+    const slipped = all.filter(t => open(t) && t.due && t.due >= weekStart && t.due < nextStart && t.due < today);
+    const nx = {}; all.filter(t => open(t) && t.due && t.due >= nextStart && t.due < nextEnd).forEach(t => { (nx[t.due] = nx[t.due] || []).push(t.title); });
+    const next = Object.keys(nx).sort().map(d => ({date: d, count: nx[d].length, titles: nx[d].slice(0, 4)}));
+    const heavy = next.filter(d => d.count >= 2).sort((x, y) => y.count - x.count || (x.date < y.date ? -1 : 1)).slice(0, 2);
+    const exams = all.filter(t => ms(t) && open(t) && t.due >= nextStart && t.due < nextEnd).map(t => ({title: t.title, date: t.due}));
+    return {done: done.length, doneTitles: done.slice(0, 6).map(t => t.title), slipped: slipped.slice(0, 5).map(t => ({id: t.id, title: t.title, due: t.due})), slippedN: slipped.length, next, heavy, exams, nextTotal: next.reduce((s, d) => s + d.count, 0)};
+  }
+  function weeklyFallback(s, dayName){
+    const bits = [`You finished ${s.done} task${s.done === 1 ? "" : "s"} last week${s.slippedN ? ` and ${s.slippedN} slipped past ${s.slippedN === 1 ? "its" : "their"} due date` : ""}.`];
+    if (s.heavy.length) bits.push(`${dayName(s.heavy[0].date)} is the heavy day next week with ${s.heavy[0].count} deadlines.`);
+    else if (s.nextTotal) bits.push(`${s.nextTotal} deadline${s.nextTotal === 1 ? "" : "s"} are coming up next week.`);
+    const sug = s.slippedN ? `Start by finishing or rescheduling “${s.slipped[0].title}”.` : s.heavy.length ? `Get ahead on one ${dayName(s.heavy[0].date)} task early in the week.` : "Pick your top task for Monday now so you can start right away.";
+    return {recap: bits.join(" "), suggestion: sug};
+  }
+
+  // ----- 6. Nudges: crowded days, stalled work, overdue tasks (no AI used) -----
+  function overloadDays({tasks, today, horizon, minCount, hoursOf, capHours}){
+    const by = {};
+    (tasks || []).filter(t => open(t) && !t.prepFor && t.due && diff(today, t.due) >= 0 && diff(today, t.due) <= (horizon || 7)).forEach(t => { (by[t.due] = by[t.due] || []).push(t); });
+    const load = d => (by[d] || []).length, hrs = t => hoursOf ? hoursOf(t) : 0;
+    return Object.keys(by).sort().filter(d => by[d].length >= (minCount || 3) || by[d].reduce((s, t) => s + hrs(t), 0) >= (capHours || 99)).map(d => {
+      const list = by[d], movable = list.filter(t => !ms(t)).sort((a, b) => (a.priority === "low" ? 0 : 1) - (b.priority === "low" ? 0 : 1) || hrs(b) - hrs(a))[0];
+      let to = "", best = 99;
+      if (movable) for (let i = diff(today, d) - 1; i >= 0; i--) { const dd = add(today, i), l = load(dd); if (l < best && l <= 1) { best = l; to = dd; } }
+      return {date: d, count: list.length, titles: list.slice(0, 4).map(t => t.title), move: movable && to ? {id: movable.id, title: movable.title, to, lms: !!movable._lms} : null};
+    });
+  }
+  function stalledTasks({tasks, today, nowMs, days}){
+    return (tasks || []).filter(t => t.status === "doing" && !t.prepFor && !ms(t) && t.due && diff(today, t.due) >= -3 && diff(today, t.due) <= 10 && (Number(t.pct) || 0) < 100).map(t => {
+      const last = Math.max(t.created || 0, ...(t.history || []).map(h => h.at || 0));
+      return {id: t.id, title: t.title, idle: Math.floor((nowMs - last) / 864e5), dueIn: diff(today, t.due)};
+    }).filter(x => x.idle >= (days || 5)).sort((a, b) => a.dueIn - b.dueIn).slice(0, 3);
+  }
+  function overdueMoves({tasks, today, max}){
+    const load = {}; (tasks || []).filter(t => open(t) && t.due && t.due >= today).forEach(t => { load[t.due] = (load[t.due] || 0) + 1; });
+    const out = [];
+    (tasks || []).filter(t => open(t) && !t.prepFor && !ms(t) && t.due && t.due < today && !t._lms && !t._lateOk).sort((a, b) => a.due < b.due ? -1 : 1).slice(0, max || 3).forEach(t => {
+      let to = "";
+      for (let i = 1; i <= 6 && !to; i++) { const d = add(today, i); if ((load[d] || 0) < 2) to = d; }
+      if (!to) to = add(today, 1);
+      load[to] = (load[to] || 0) + 1;
+      out.push({id: t.id, title: t.title, late: diff(t.due, today), to});
+    });
+    return out;
+  }
+
+  // ----- 7. Grade risk (no AI used) -----
+  function gradeAlerts(list){
+    return (list || []).filter(g => g && (g.risk === "risk" || g.risk === "out")).map(g => ({
+      id: g.cid + ":" + g.risk + ":" + Math.round(g.current || 0), cid: g.cid,
+      text: g.risk === "out" ? `${g.name} can't reach the ${Math.round(g.pass)}% pass mark on paper: you're at ${Math.round(g.current)}% so far.`
+        : `${g.name} is at ${Math.round(g.current)}% so far${g.need != null && g.need <= 100 ? `, and you'd need about ${Math.round(g.need)}% on the rest to reach the ${Math.round(g.pass)}% pass mark` : ""}.`}));
+  }
+  return {vague, triSig, triageCandidates, cleanTriage, annCandidates, annKeyword, cleanAnn, examCandidates, examTotalHours, examSlots, cleanCoach, materialSuggest, reviewWeek, weeklyStats, weeklyFallback, overloadDays, stalledTasks, overdueMoves, gradeAlerts, similar, clean};
+})();
+/*AINS-END*/
+
+const AUTO_FEATS = [
+  {id: "triage", name: "Tidy New Tasks", ai: true, cap: 3, desc: "Suggests a clearer title, type, priority, hours and course for new or imported tasks that are vague or missing details."},
+  {id: "news", name: "Announcement Alerts", ai: true, cap: 4, desc: "Summarises school announcements, flags exam, deadline, cancellation and room changes, and offers tasks or events to add."},
+  {id: "coach", name: "Exam Study Plans", ai: true, cap: 2, desc: "For exams in the next 14 days, drafts day-by-day study sessions that fit your real free time."},
+  {id: "weekly", name: "Weekly Review", ai: true, cap: 1, desc: "On Sunday or Monday, recaps what got done and what slipped, and gives one suggestion for the week ahead."},
+  {id: "materials", name: "Study Material Tips", ai: false, desc: "When an exam is close and the course has files or notes but no flashcards, offers to make a deck. Nothing is made until you tap."},
+  {id: "nudge", name: "Crowded Days and Overdue Work", ai: false, desc: "Spots days with several deadlines, stalled tasks and overdue tasks, and offers to move work to a lighter day."},
+  {id: "grades", name: "Grade Risk Alerts", ai: false, desc: "Warns when a course is at risk of missing its pass mark, from the marks you've entered."}
+];
+const autoFeatOn = id => !(((state.settings && state.settings.autoFeat) || {})[id] === false);
+const autoFeatUse = id => { AUTO.feat = AUTO.feat || {}; const f = AUTO.feat[id] = AUTO.feat[id] || {}, d = todayISO(); if (f.day !== d) { f.day = d; f.n = 0; } return f; };
+const TRIAGE_SCHEMA = {type: "OBJECT", properties: {items: {type: "ARRAY", items: {type: "OBJECT", properties: {
+  ref: {type: "STRING"}, title: {type: "STRING", description: "A clearer title only if the given one is vague (keep any numbers); otherwise empty"},
+  type: {type: "STRING", enum: TYPES}, priority: {type: "STRING", enum: ["low", "med", "high", "urgent"]}, hours: {type: "NUMBER", description: "Total hours the task takes a student, only if no estimate is given"},
+  courseRef: {type: "STRING", description: "Course ref (c1...) only if the task has no course and one clearly fits, else empty"}, why: {type: "STRING", description: "Under 100 characters"}}, required: ["ref"]}}}, required: ["items"]};
+const ANNINTEL_SCHEMA = {type: "OBJECT", properties: {items: {type: "ARRAY", items: {type: "OBJECT", properties: {
+  ref: {type: "STRING"}, summary: {type: "STRING", description: "One plain sentence, under 150 characters"}, important: {type: "BOOLEAN", description: "True only for an exam or quiz date, a deadline change, a cancellation or a room or time change"},
+  category: {type: "STRING", enum: ["exam", "deadline", "cancel", "room", "other"]},
+  items: {type: "ARRAY", items: {type: "OBJECT", properties: {kind: {type: "STRING", enum: ["task", "event"]}, title: {type: "STRING"}, date: {type: "STRING", description: "YYYY-MM-DD"}, time: {type: "STRING", description: "HH:MM 24 hour, or empty"}, type: {type: "STRING", enum: TYPES}}, required: ["kind", "title", "date"]}, description: "Only things the announcement clearly states with a date, as a task to do or an event to attend. Empty if none."}}, required: ["ref", "summary"]}}}, required: ["items"]};
+const COACH_SCHEMA = {type: "OBJECT", properties: {sessions: {type: "ARRAY", items: {type: "OBJECT", properties: {focus: {type: "STRING", description: "What this session covers, under 60 characters"}, steps: {type: "ARRAY", items: {type: "STRING"}, description: "2 to 4 concrete active study steps"}}, required: ["focus"]}}}, required: ["sessions"]};
+const WEEKLY_SCHEMA = {type: "OBJECT", properties: {recap: {type: "STRING", description: "Two short sentences on last week, honest and kind"}, suggestion: {type: "STRING", description: "One concrete suggestion for the week ahead, under 140 characters"}}, required: ["recap", "suggestion"]};
+const dayNameOf = d => parse(d).toLocaleDateString("en-US", {weekday: "long"});
+const autoTransient = e => !!e && ["offline", "limit", "busy", "slow", "auto-off", "nokey", "preview", "key"].includes(e.code);
+
+function insAdd(e){
+  AUTO.ins = (AUTO.ins || []).filter(x => x.id !== e.id && Date.now() - x.at < 21 * 864e5).concat([Object.assign({at: Date.now()}, e)]).slice(-60);
+}
+async function autoTriage(){
+  const today = todayISO(), cands = AINS.triageCandidates({tasks: tasksArr(), today, done: AUTO.tri || {}, max: 6});
+  if (!cands.length) return;
+  const back = {}, cback = {}, cs = coursesArr().slice(0, 30);
+  cands.forEach((t, i) => { back["t" + (i + 1)] = t; });
+  cs.forEach((c, i) => { cback["c" + (i + 1)] = c.id; });
+  const mark = () => { AUTO.tri = AUTO.tri || {}; cands.forEach(t => { AUTO.tri[t.id] = AINS.triSig(t); }); const k = Object.keys(AUTO.tri); if (k.length > 300) k.slice(0, k.length - 300).forEach(x => delete AUTO.tri[x]); };
+  try {
+    const r = await aiCall({task: "triage", auto: true, fast: true, maxTokens: 2500, temperature: 0.1, schema: TRIAGE_SCHEMA, parts: [{text: `Today is ${dayNameOf(today)} ${today}.\nCourses:\n${cs.map((c, i) => `c${i + 1} | ${courseLabel(c)} | ${c.name}`).join("\n") || "none"}\nTasks:\n${cands.map((t, i) => `t${i + 1} | ${t.title} | type ${t.type} | priority ${t.priority} | ${t.courseId && courseOf(t.courseId) ? "course " + courseLabel(courseOf(t.courseId)) : "no course"} | ${t.due ? "due " + t.due : "no due date"} | ${isNum(t.hours) ? "estimate " + t.hours + "h" : "no estimate"}${t.weight ? " | worth " + t.weight + "%" : ""}${t.notes ? ` | notes: "${String(t.notes).replace(/\s+/g, " ").slice(0, 200)}"` : ""}`).join("\n")}`}],
+      system: "You quietly tidy a student's new tasks. For each task: if the title is vague (like 'hw3' or 'reading'), write a clearer title that keeps its numbers and uses only facts given (course, notes); otherwise leave title empty. Pick the type (Assignment, Exam, Quiz, Reading, Project, Lab, Study, Other) from the title and notes. Suggest a priority only when the deadline, weight or wording clearly warrants it. Give total hours only when there's no estimate. Give courseRef only when the task has no course and one clearly fits. Never invent facts. Return JSON only."});
+    const res = AINS.cleanTriage(r.data, back, cback, TYPES);
+    mark();
+    res.forEach(x => insAdd({id: "tri:" + x.id, kind: "triage", tid: x.id, sig: x.sig, patch: x.patch, why: x.why}));
+  } catch(e) { if (!autoTransient(e)) mark(); throw e; }
+}
+async function autoNews(){
+  const today = todayISO(), items = window.SBANN ? window.SBANN.items() : [];
+  const cands = AINS.annCandidates({items, seen: AUTO.ann || {}, today, max: 5});
+  if (!cands.length) return;
+  const back = {}; cands.forEach((n, i) => { back["a" + (i + 1)] = n; });
+  AUTO.ann = AUTO.ann || {};
+  const prune = () => { const k = Object.keys(AUTO.ann); if (k.length > 250) k.sort((a, b) => (AUTO.ann[a].at || 0) - (AUTO.ann[b].at || 0)).slice(0, k.length - 250).forEach(x => delete AUTO.ann[x]); };
+  const flagAttn = (n, cat, sum) => insAdd({id: "attn:" + n.key, kind: "attn", key: n.key, cat, text: sum, title: n.title, course: n.course});
+  try {
+    const r = await aiCall({task: "annintel", auto: true, fast: true, maxTokens: 4000, temperature: 0.1, schema: ANNINTEL_SCHEMA, parts: [{text: `Today is ${dayNameOf(today)} ${today}.\n${cands.map((n, i) => `a${i + 1} | ${n.course} | posted ${String(n.date || "").slice(0, 10)} | ${n.title}\n${String(n.text || "").replace(/\s+/g, " ").slice(0, 900)}`).join("\n\n")}`}],
+      system: "You read a student's class announcements and help them not miss anything. For each: write a one-sentence summary; set important true only if it announces or changes an exam or quiz date, a deadline, a cancellation, or a room or time change (category exam, deadline, cancel or room; otherwise other). List items only for things the announcement clearly states with a specific date: a task to do (an assignment due) or an event to attend (a make-up class, a review session, an exam). Work out dates from today's date when the text says things like 'next Friday'. Never guess a date that isn't stated. Return JSON only."});
+    const res = AINS.cleanAnn(r.data, back, {today, tasks: tasksArr(), events: eventsArr(), types: TYPES});
+    const got = new Set();
+    res.forEach(x => {
+      const n = cands.find(c => c.key === x.key); got.add(x.key);
+      AUTO.ann[x.key] = {sum: x.sum, imp: x.imp, cat: x.cat, at: Date.now()};
+      if (x.imp) flagAttn(n, x.cat, x.sum);
+      x.props.forEach((p, i) => insAdd({id: `annp:${x.key}:${i}`, kind: "annp", key: x.key, prop: p, from: n.title, course: n.course}));
+    });
+    cands.filter(n => !got.has(n.key)).forEach(n => { AUTO.ann[n.key] = {sum: "", imp: false, cat: "other", at: Date.now()}; });
+    prune();
+  } catch(e) {
+    if (!autoTransient(e)) cands.forEach(n => {          // the AI couldn't read these: fall back to plain keyword rules, once
+      const cat = AINS.annKeyword(n.title + ". " + n.text);
+      AUTO.ann[n.key] = {sum: "", imp: !!cat, cat: cat || "other", at: Date.now(), fb: true};
+      if (cat) flagAttn(n, cat, "");
+    });
+    prune(); throw e;
+  }
+}
+const examSessionsOf = id => planSessions(id).length > 0;
+const coachSig = t => [t.due, t.title].join("|");
+const coachNext = today => AINS.examCandidates({tasks: tasksArr(), today, sessionsOf: examSessionsOf, maxDays: 14}).find(t => (AUTO.coach || {})[t.id] !== coachSig(t));
+async function autoCoach(){
+  const today = todayISO(), F = FOCUS || computeFocus(), ex = coachNext(today);
+  if (!ex) return;
+  const done = AUTO.coach = AUTO.coach || {}, sig = coachSig(ex);
+  const avail = d => { const i = dayDiff(today, d); return F.day && F.day[i] != null ? F.day[i] : dailyHours(); };
+  const slots = AINS.examSlots({today, due: ex.due, avail, total: AINS.examTotalHours(ex), maxPer: 2, minPer: 0.5});
+  if (slots.length < 2) { done[ex.id] = sig; return; }               // no real free time to plan around: nothing to offer
+  const put = (plan, fb) => insAdd({id: "coach:" + ex.id, kind: "coach", eid: ex.id, sig, fb: !!fb, sessions: slots.map((s, i) => Object.assign({}, s, plan[i]))});
+  const c = courseOf(ex.courseId), decks = decksArr().filter(d => d.courseId && d.courseId === ex.courseId);
+  const files = Object.values(state.files || {}).filter(f => f.courseId === ex.courseId && f.kind === "file").slice(0, 10).map(f => f.name);
+  const cards = decks.flatMap(d => d.cards.slice(0, 15).map(x => String(x.front).slice(0, 60))).slice(0, 30);
+  try {
+    const r = await aiCall({task: "coach", auto: true, fast: true, maxTokens: 3500, temperature: 0.3, schema: COACH_SCHEMA, parts: [{text: `Course: ${c ? c.name : "not given"}\nExam: ${ex.title} on ${ex.due} (${dayDiff(today, ex.due)} days away)${ex.weight ? `, worth ${ex.weight}%` : ""}\nWhat it covers: ${(ex.planTopics || []).map(x => x.name).join("; ") || String(ex.notes || "").replace(/\s+/g, " ").slice(0, 400) || "not given"}\nCourse files: ${files.join("; ") || "none"}\nFlashcard fronts: ${cards.join("; ") || "none"}\nStudy sessions to fill (${slots.length}), in order:\n${slots.map((s, i) => `${i + 1}. ${dayNameOf(s.date)} ${s.date}, ${Math.round(s.hours * 60)} minutes`).join("\n")}`}],
+      system: "You're a study coach. The app already chose the study days and lengths from the student's real free time. For each session in order, say what to cover (spread the material, start with the basics, leave practice and weak spots for the later sessions) and give 2 to 4 concrete active steps (draw it from memory, work problems, explain aloud; never just 'reread'). Use only the topics, files and cards given; if none, keep the focus generic for the subject. Return exactly one entry per session. Return JSON only."});
+    done[ex.id] = sig; put(AINS.cleanCoach(r.data, slots.length));
+  } catch(e) {
+    if (!autoTransient(e)) { done[ex.id] = sig; put(AINS.cleanCoach(null, slots.length), true); }
+    throw e;
+  }
+}
+async function autoWeekly(){
+  const today = todayISO(), ws = AINS.reviewWeek(today);
+  if (!ws || AUTO.wk === ws) return;
+  const s = AINS.weeklyStats({tasks: allTasks(), today, weekStart: ws});
+  if (!s.done && !s.slippedN && !s.nextTotal) { AUTO.wk = ws; return; }
+  let out = null;
+  try {
+    const r = await aiCall({task: "weekly", auto: true, fast: true, maxTokens: 1200, temperature: 0.4, schema: WEEKLY_SCHEMA, parts: [{text: `Last week (${ws} to ${addDays(ws, 6)}): finished ${s.done}${s.doneTitles.length ? ": " + s.doneTitles.join("; ") : ""}. Slipped (due last week, still open): ${s.slipped.map(x => `${x.title} (due ${x.due})`).join("; ") || "none"}.\nNext week: ${s.next.map(d => `${dayNameOf(d.date)} ${d.count} due (${d.titles.join("; ")})`).join("; ") || "nothing due"}.${s.exams.length ? " Exams: " + s.exams.map(x => `${x.title} on ${dayNameOf(x.date)}`).join("; ") + "." : ""}`}],
+      system: "You write a student's short weekly review inside their planner. Two honest, kind sentences on last week using only the numbers given, then one concrete suggestion for the week ahead (name a task or day). Never invent tasks. Return JSON only."});
+    const d = r.data || {}, recap = AINS.clean(d.recap, 300), suggestion = AINS.clean(d.suggestion, 170);
+    if (recap && suggestion) out = {recap, suggestion};
+  } catch(e) { if (autoTransient(e)) throw e; }
+  AUTO.wk = ws;
+  const fb = !out; if (!out) out = AINS.weeklyFallback(s, dayNameOf);
+  insAdd({id: "wk:" + ws, kind: "weekly", recap: out.recap, suggestion: out.suggestion, fb});
+}
+// The next small background job, if any: only when the main jobs are done and enough of today's budget is left
+function autoExtraJob(a){
+  if (autoBudget(a.paid) < (a.paid ? 5 : 12)) return null;
+  const today = todayISO(), ok = id => autoFeatOn(id) && autoFeatUse(id).n < AUTO_FEATS.find(f => f.id === id).cap;
+  const wrap = (id, fn) => async () => { const u = autoFeatUse(id); u.n++; u.at = Date.now(); try { await fn(); u.err = ""; } catch(e) { if (!autoTransient(e)) u.err = (e && e.message) || "failed"; throw e; } };
+  if (ok("news") && window.SBANN && AINS.annCandidates({items: window.SBANN.items(), seen: AUTO.ann || {}, today, max: 1}).length) return wrap("news", autoNews);
+  if (ok("triage") && AINS.triageCandidates({tasks: tasksArr(), today, done: AUTO.tri || {}, max: 1}).length) return wrap("triage", autoTriage);
+  if (ok("coach") && coachNext(today)) return wrap("coach", autoCoach);
+  if (ok("weekly") && AINS.reviewWeek(today) && AUTO.wk !== AINS.reviewWeek(today)) return wrap("weekly", autoWeekly);
+  return null;
+}
+
+// What shows in the Suggestions tray: stored AI results (checked again against today's data) plus live rule-based nudges
+let INS_MEMO = {k: "", list: []};
+function autoLiveInsights(){
+  const today = todayISO(), k = (state.updated || 0) + "|" + today + "|" + Math.floor(Date.now() / 36e5);
+  if (INS_MEMO.k === k) return INS_MEMO.list;
+  const list = [], stamp = id => { autoFeatUse(id).at = Date.now(); };
+  try {
+    const tasks = tasksArr().map(t => Object.assign({}, t, {_lms: !!lmsOf(t), _lateOk: !!lateUntilOf(t) || lateOf(t) === "free"}));
+    if (autoFeatOn("nudge")) {
+      stamp("nudge");
+      AINS.overloadDays({tasks, today, horizon: 7, minCount: 3, hoursOf: t => isNum(t.hours) ? Number(t.hours) : 0, capHours: Math.max(6, dailyHours() * 2)}).slice(0, 2).forEach(o => {
+        list.push({id: `ov:${o.date}:${o.count}:${o.move ? o.move.id : ""}`, kind: "overload", text: `${dayNameOf(o.date)} has ${o.count} deadlines (${o.titles.slice(0, 3).join(", ")}${o.count > 3 ? ", …" : ""}).`,
+          move: o.move, btn: o.move ? `${o.move.lms ? "Start" : "Move"} “${o.move.title.slice(0, 28)}” ${o.move.lms ? "on" : "to"} ${dayNameOf(o.move.to)}` : ""});
+      });
+      AINS.stalledTasks({tasks, today, nowMs: Date.now(), days: 5}).forEach(s => list.push({id: `st:${s.id}:${Math.floor(s.idle / 3)}`, kind: "stalled", tid: s.id, act: "pomo-task", text: `“${s.title}” hasn't moved in ${s.idle} days and is ${s.dueIn < 0 ? "overdue" : s.dueIn === 0 ? "due today" : `due in ${s.dueIn} day${s.dueIn === 1 ? "" : "s"}`}.`, btn: "Start a Focus"}));
+      AINS.overdueMoves({tasks, today, max: 3}).forEach(o => list.push({id: `od:${o.id}:${today}`, kind: "overdue", tid: o.id, to: o.to, text: `“${o.title}” is ${o.late} day${o.late === 1 ? "" : "s"} overdue.`, btn: `Move to ${dayNameOf(o.to)}`}));
+    }
+    if (autoFeatOn("materials")) {
+      stamp("materials");
+      const mat = cid => Object.values(state.files || {}).filter(f => f.courseId === cid && f.kind === "file" && (f.revs || []).length).length + Object.values(state.notes || {}).filter(n => n.courseId === cid && !n.archived && String(n.text || "").length > 40).length;
+      AINS.materialSuggest({exams: tasks, today, materialOf: mat, hasDeck: cid => decksArr().some(d => d.courseId === cid && (d.cards || []).length >= 5), maxDays: 10}).slice(0, 2).forEach(m => {
+        const ex = state.tasks[m.id], c = courseOf(m.cid);
+        list.push({id: `mat:${m.id}`, kind: "material", tid: m.id, act: "fc-ai", text: `${ex.title} is ${m.days === 0 ? "today" : `in ${m.days} day${m.days === 1 ? "" : "s"}`} and ${c ? courseLabel(c) : "this course"} has ${m.n} file${m.n === 1 ? "" : "s"} or note${m.n === 1 ? "" : "s"} but no flashcards.`, btn: "Make Flashcards"});
+      });
+    }
+    if (autoFeatOn("grades")) {
+      stamp("grades");
+      AINS.gradeAlerts(coursesArr().map(c => { const g = courseRisk(c.id); return g && g.marked && g.marked.length && g.current != null ? {cid: c.id, name: courseLabel(c), risk: g.risk, current: g.current, pass: g.g.pass, need: g.need ? g.need(g.g.pass) : null} : null; }).filter(Boolean)).slice(0, 2)
+        .forEach(g => list.push({id: "gr:" + g.id, kind: "grade", text: g.text}));
+    }
+  } catch(e) { console.warn("Automatic AI insights:", e); }
+  INS_MEMO = {k, list};
+  return list;
+}
+function autoStoredInsights(){
+  const out = [], today = todayISO();
+  (AUTO.ins || []).forEach(e => {
+    if (e.kind === "triage") { const t = state.tasks[e.tid]; if (!t || t.status === "done" || AINS.triSig(t) !== e.sig || !autoFeatOn("triage")) return; out.push(e); }
+    else if (e.kind === "annp") { if (!autoFeatOn("news") || dayDiff(today, e.prop.date) < -1) return; out.push(e); }
+    else if (e.kind === "attn") { if (!autoFeatOn("news")) return; const n = window.SBANN && window.SBANN.items().find(x => x.key === e.key); if (!n || (n.date && Date.now() - Date.parse(n.date) > 14 * 864e5)) return; out.push(e); }
+    else if (e.kind === "coach") { const t = state.tasks[e.eid]; if (!t || t.status === "done" || examSessionsOf(t.id) || !autoFeatOn("coach") || coachSig(t) !== e.sig) return; const s = e.sessions.filter(x => x.date >= today); if (s.length < 2) return; out.push(Object.assign({}, e, {sessions: s})); }
+    else if (e.kind === "weekly") { if (!autoFeatOn("weekly") || Date.now() - e.at > 3 * 864e5) return; out.push(e); }
+  });
+  return out;
+}
+function insightsAll(){
+  if (!AUTO_ON) return [];
+  const dis = AUTO.dis || {}, order = {attn: 0, annp: 1, coach: 2, weekly: 3, triage: 6};
+  return autoStoredInsights().concat(autoLiveInsights()).filter(e => !dis[e.id]).sort((a, b) => (order[a.kind] ?? 4) - (order[b.kind] ?? 4));
+}
+function insText(e){
+  const c = e.kind;
+  if (c === "triage") { const t = state.tasks[e.tid], p = e.patch, bits = []; if (p.title) bits.push(`rename to “${p.title}”`); if (p.type) bits.push(`type ${p.type}`); if (p.priority) bits.push(`${PRIO[p.priority]} priority`); if (p.hours) bits.push(`about ${p.hours}h`); if (p.courseId && courseOf(p.courseId)) bits.push(`course ${courseLabel(courseOf(p.courseId))}`); return {h: `Tidy up “${t.title}”`, t: bits.join(", "), btn: "Apply"}; }
+  if (c === "annp") { const p = e.prop; return {h: `${p.kind === "event" ? "Add event" : "Add task"}: ${p.title}`, t: `${fmtDate(p.date)}${p.time ? " at " + fmtTime(p.time) : ""}, from the announcement “${e.from}”.`, btn: p.kind === "event" ? "Add Event" : "Add Task"}; }
+  if (c === "attn") return {h: e.title, t: `${e.course ? e.course + ". " : ""}${e.text || ({exam: "Mentions an exam change.", deadline: "Mentions a deadline change.", cancel: "Mentions a cancellation.", room: "Mentions a room change."})[e.cat] || ""}`, btn: "Open Announcements"};
+  if (c === "coach") { const ex = state.tasks[e.eid], tot = e.sessions.reduce((s, x) => s + x.hours, 0); return {h: `Study plan for ${ex.title} (${fmtShort(ex.due)})`, t: `${e.sessions.length} sessions, ${fmtHM(tot)} in total, placed in your free time.`, btn: "Add Study Sessions", more: `<details class="ins-more"><summary>See the plan</summary><ol>${e.sessions.map(s => `<li><b>${esc(fmtShort(s.date))}</b>, ${esc(fmtHM(s.hours))}: ${esc(s.focus)}</li>`).join("")}</ol></details>`}; }
+  if (c === "weekly") return {h: "Your week in review", t: `${e.recap} ${e.suggestion}`, btn: ""};
+  return {h: "", t: e.text, btn: e.btn};
+}
+const INS_LABEL = {attn: "Needs attention", overload: "Crowded day", stalled: "Stalled", overdue: "Overdue", material: "Study tip", grade: "Grade check", triage: "Tidy up", annp: "From announcement", coach: "Exam plan", weekly: "Weekly review"};
+function insightsHtml(){
+  if (!AUTO_ON) return "";
+  let list; try { list = insightsAll(); } catch(e) { console.warn(e); return ""; }
+  if (!list.length) return "";
+  const more = !!ui.insMore, shown = more ? list : list.slice(0, 3);
+  return `<div class="auto-ins" role="region" aria-label="Automatic AI suggestions"><div class="ai-top"><span class="ph-label">${AI_ICON} ${aiWho() ? esc(aiWho()) + " Suggests" : "Suggestions"} <span class="auto-badge">Auto</span></span><span class="spacer"></span><button class="link-btn" data-act="auto-panel">What's Automatic AI doing?</button></div>
+    <ul>${shown.map(e => { const x = insText(e); return `<li data-kind="${esc(e.kind)}"><div class="ins-body"><span class="ins-k">${esc(INS_LABEL[e.kind] || "")}</span>${x.h ? `<b>${esc(x.h)}</b> ` : ""}<span>${esc(x.t)}</span>${x.more || ""}</div><div class="ins-acts">${x.btn ? (e.act ? `<button class="btn small" data-act="${esc(e.act)}" data-id="${esc(e.tid || "")}">${esc(x.btn)}</button>` : `<button class="btn small" data-act="ins-do" data-id="${esc(e.id)}">${esc(x.btn)}</button>`) : ""}<button class="icon-btn sm ph-x" data-act="ins-x" data-id="${esc(e.id)}" aria-label="Dismiss">${CLOSE}</button></div></li>`; }).join("")}</ul>
+    ${list.length > 3 ? `<button class="link-btn" data-act="ins-more">${more ? "Show Fewer" : `Show ${list.length - 3} More`}</button>` : ""}</div>`;
+}
+function insDismiss(id){ AUTO.dis = AUTO.dis || {}; AUTO.dis[id] = Date.now(); Object.keys(AUTO.dis).forEach(k => { if (Date.now() - AUTO.dis[k] > 45 * 864e5) delete AUTO.dis[k]; }); autoSave(); }
+function insDo(e){
+  if (e.kind === "triage") {
+    const t = state.tasks[e.tid]; if (!t) return;
+    const n = Object.assign(clone(t), e.patch);
+    applyChanges([{kind: "task", id: t.id, after: n}], `Updated “${n.title}”`); insDismiss(e.id);
+  } else if (e.kind === "annp") {
+    const p = e.prop;
+    if (p.kind === "event") { const ev = normEvent({id: uid(), title: p.title, courseId: p.cid || "", date: p.date, start: p.time || "", allDay: !p.time, notes: `From the announcement “${e.from}”.`}); applyChanges([{kind: "event", id: ev.id, after: ev}], `Added event: ${p.title}`); }
+    else { const t = newTask({title: p.title, type: p.type, courseId: p.cid || "", due: p.date, time: p.time || "", notes: `From the announcement “${e.from}”.`}); applyChanges([{kind: "task", id: t.id, after: t}], `Added: ${p.title}`); }
+    insDismiss(e.id);
+  } else if (e.kind === "attn") { insDismiss(e.id); const b = document.querySelector(".ann-btn"); if (b) b.click(); }
+  else if (e.kind === "coach") {
+    const ex = state.tasks[e.eid]; if (!ex) return;
+    let order = nextOrder("todo"); const changes = [];
+    e.sessions.forEach((s, i) => {
+      const last = i === e.sessions.length - 1 && e.sessions.length > 1;
+      const t = newTask({title: `Study: ${s.focus}`.slice(0, 120), type: "Study", courseId: ex.courseId || "", start: s.date, due: s.date, hours: s.hours, priority: last ? "high" : "med", order, prepFor: ex.id, studyKind: last ? "final" : "learn", studyDecks: [],
+        checklist: s.steps.map(x => ({id: uid(), text: x, done: false})), notes: `Part of your study plan for ${ex.title} (${fmtDate(ex.due)}), drafted by Automatic AI.`});
+      order += 10; changes.push({kind: "task", id: t.id, after: t});
+    });
+    applyChanges(changes, `Added ${changes.length} study sessions for ${ex.title}`); insDismiss(e.id);
+  } else if (e.kind === "overload" || e.kind === "overdue") {
+    const mv = e.kind === "overload" ? e.move : {id: e.tid, to: e.to}, t = mv && state.tasks[mv.id]; if (!t) return;
+    const n = clone(t);
+    if (e.kind === "overload" && mv.lms) n.start = mv.to; else { n.due = mv.to; if (n.start && n.start > n.due) n.start = n.due; }
+    applyChanges([{kind: "task", id: t.id, after: n}], mv.lms ? `“${t.title}” now starts ${fmtShort(mv.to)}` : `Moved “${t.title}” to ${fmtShort(mv.to)}`); insDismiss(e.id);
+  }
+}
+hook("act", (act, el) => {
+  switch (act) {
+    case "ins-do": { const e = insightsAll().find(x => x.id === el.dataset.id); if (e) insDo(e); return true; }
+    case "ins-x": insDismiss(el.dataset.id); scheduleRender(); return true;
+    case "ins-more": ui.insMore = !ui.insMore; render(); return true;
+    case "auto-panel": autoPanelSheet(); return true;
+  }
+  return false;
+});
+const agoText = ms => { const m = Math.round((Date.now() - ms) / 60000); return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`; };
+function autoPanelSheet(){
+  const a = autoState(), lim = a.paid ? 12 : 40; autoBudget(a.paid); const used = AUTO.n || 0;
+  const row = f => { const u = (AUTO.feat || {})[f.id] || {}, on = autoFeatOn(f.id);
+    const last = f.ai ? (u.at ? `Last ran ${agoText(u.at)}${u.day === todayISO() ? `, ${u.n || 0} of ${f.cap} runs today` : ""}${u.err ? `. Last problem: ${u.err}` : ""}` : "Hasn't run yet") : (u.at ? `Last checked ${agoText(u.at)}, uses no AI requests` : "Checks live, uses no AI requests");
+    return `<div class="ap-row"><label class="mi-check"><input type="checkbox" data-feat="${f.id}" ${on ? "checked" : ""}> <b>${esc(f.name)}</b> <span class="auto-badge">${f.ai ? "Uses AI" : "No AI"}</span></label><p class="mini" style="margin:2px 0 0 26px">${esc(f.desc)}</p><p class="mini ap-last" style="margin:2px 0 0 26px">${esc(on ? last : "Turned off")}</p></div>`; };
+  openSheet(`<form class="sheet">${head("What Automatic AI Is Doing")}
+    <div class="sheet-body">
+      <p class="mini" style="margin:0">${a.on ? `Automatic AI is on${a.paid ? " (paid model)" : " (free)"}. ${used} of ${lim} automatic requests used today. Every job runs quietly, remembers what it already looked at, and never changes your data without a tap.` : a.reason === "confirm" ? "Automatic AI is paused until you confirm paid use." : "Automatic AI is off, so none of these run."} <button type="button" class="link-btn" data-act="ai-setup">AI Settings</button></p>
+      ${AUTO_FEATS.map(row).join("")}
+    </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></form>`);
+  $$("[data-feat]", dlg).forEach(i => i.addEventListener("change", () => {
+    const m = Object.assign({}, (state.settings && state.settings.autoFeat) || {}); if (i.checked) delete m[i.dataset.feat]; else m[i.dataset.feat] = false;
+    state.settings = Object.assign({}, state.settings, {autoFeat: m}); saveSettings(); INS_MEMO.k = ""; scheduleRender(); autoKick(1500);
+    const p = i.closest(".ap-row").querySelector(".ap-last"); if (p) p.textContent = i.checked ? "Turned on" : "Turned off";
+  }));
+  if (!dlg.open) dlg.showModal();
 }
 
 // Stickers: original drawings, 64 by 64. Free packs are flat and plain; PRO packs are shaded, outlined and full of character.
@@ -8641,7 +9122,7 @@ function focusHtml(){
       <div class="fh-ctl"><div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button><b title="${F.doneToday >= 0.25 ? `${fmtHM(F.doneToday)} done so far, ${fmtHM(F.th)} left` : ""}">${fmtHM(F.thSet) || "0m"}</b><button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></div>
       ${autoChipHtml()}
       <button class="btn small fh-hide" data-act="focus-toggle" aria-expanded="${ui.focusOpen}">${ui.focusOpen ? "Hide" : "Show"}</button></div></div>
-    ${ui.focusOpen ? `${nextUpHtml(F, hero)}${headsHtml()}${warn}${(() => { const n = allDueCount(); return n ? `<div class="plan-fc">${FC_ICON}<span><b>${n}</b> flashcard${n === 1 ? "" : "s"} due for review</span><button class="btn small" data-act="fc-review-all">Review</button></div>` : ""; })()}
+    ${ui.focusOpen ? `${nextUpHtml(F, hero)}${headsHtml()}${insightsHtml()}${warn}${(() => { const n = allDueCount(); return n ? `<div class="plan-fc">${FC_ICON}<span><b>${n}</b> flashcard${n === 1 ? "" : "s"} due for review</span><button class="btn small" data-act="fc-review-all">Review</button></div>` : ""; })()}
       ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>` : heroId ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}
       <div class="plan-foot">${more ? foot("more", `Full Ranking${nBlk ? `, Waiting (${nBlk})` : ""}${nLater ? `, Coming Up (${nLater})` : ""}`, moreOpen) : ""}${foot("how", "How This Is Ranked", howOpen)}</div>
       ${more ? `<div class="plan-more" id="plan-more" role="region" aria-label="Full Ranking"${moreOpen ? "" : " hidden"}>
@@ -33519,6 +34000,7 @@ window.SBEST = SBEST;
   }
   const isNew = (n, rs) => !rs.has(n.key) && (!n.date || Date.parse(n.date) > Date.now() - FRESH_DAYS * 864e5);
   const unread = () => { const rs = readSet(); return items().filter(n => isNew(n, rs)).length; };
+  window.SBANN = {items, info: key => { try { return AUTO_ON && autoFeatOn("news") && AUTO.ann && AUTO.ann[key] || null; } catch(e) { return null; } }};      // for Automatic AI (announcement alerts)
   function badge(){
     const on = plats().length > 0, n = on ? unread() : 0;
     $$(".ann-btn").forEach(b => {
@@ -33535,7 +34017,8 @@ window.SBEST = SBEST;
     all.forEach(n => { const k = n.cid || n.plat + n.ou; let g = groups.find(x => x.k === k); if (!g) groups.push(g = {k, name: n.course, color: n.color, list: []}); g.list.push(n); });
     groups.sort((a, b) => (b.list.some(n => isNew(n, rs)) - a.list.some(n => isNew(n, rs))) || String(b.list[0].date).localeCompare(String(a.list[0].date)));
     const row = n => { const un = isNew(n, rs);
-      return `<li class="${un ? "unread" : ""}"><b>${esc(n.title)}</b><span class="mini">${esc(n.plat)}${n.date && !isNaN(Date.parse(n.date)) ? ` · ${esc(fmtShort(iso(new Date(n.date))))}` : ""}${un ? " · New" : ""}</span>
+      const ai = window.SBANN.info(n.key), AB = ai && (ai.imp || ai.sum) ? `<p class="ann-ai">${ai.imp ? `<span class="ann-attn">Needs attention</span> ` : ""}${ai.sum ? esc(ai.sum) : ""} <span class="auto-badge">Auto</span></p>` : "";
+      return `<li class="${un ? "unread" : ""}${ai && ai.imp ? " attn" : ""}"><b>${esc(n.title)}</b><span class="mini">${esc(n.plat)}${n.date && !isNaN(Date.parse(n.date)) ? ` · ${esc(fmtShort(iso(new Date(n.date))))}` : ""}${un ? " · New" : ""}</span>${AB}
         ${n.text ? (n.text.length > 200 || n.long ? `<details><summary>${esc(n.text.slice(0, 120).replace(/\s+/g, " "))}… Read more</summary><p class="ann-txt">${esc(n.text)}${n.long ? "…" : ""}</p></details>` : `<p class="ann-txt">${esc(n.text)}</p>`) : ""}
         <span class="bs-btns">${n.url ? `<button type="button" class="btn small" data-act="ann-go" data-key="${esc(n.key)}" data-url="${esc(n.url)}">Open in ${esc(n.plat)}</button>` : ""}<button type="button" class="btn small" data-act="ann-read" data-key="${esc(n.key)}">${un ? "Mark Read" : "Mark Unread"}</button></span></li>`; };
     openSheet(`<div class="sheet ann-sheet">${head("Class Announcements")}
