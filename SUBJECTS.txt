@@ -1,0 +1,8 @@
+Paste each subject line into the matching template in the dashboard (Authentication, then Emails):
+
+confirm-signup: Your Studyboard code: {{ .Token }}
+reset-password: Reset your Studyboard password: {{ .Token }}
+magic-link: Your Studyboard sign-in code: {{ .Token }}
+change-email: Confirm your new Studyboard email: {{ .Token }}
+invite: You're invited to Studyboard
+reauthentication: Your Studyboard security code: {{ .Token }}

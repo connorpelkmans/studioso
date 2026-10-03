@@ -1,0 +1,15 @@
+{
+  "date": "Open Studyboard to see your day",
+  "hasNext": false,
+  "next": { "id": "", "title": "", "sub": "" },
+  "hasTasks": false,
+  "left": "",
+  "tasks": [],
+  "hasMore": false,
+  "moreText": "",
+  "empty": "Your next task and today's list show up here after you open Studyboard.",
+  "hasCards": false,
+  "cards": "",
+  "hasStreak": false,
+  "streak": ""
+}

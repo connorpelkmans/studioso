@@ -41,5 +41,87 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Quick Add",
+      "short_name": "Quick Add",
+      "description": "Add a task by typing a sentence",
+      "url": "./?action=quickadd",
+      "icons": [
+        {
+          "src": "icons/shortcut-add.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Today",
+      "short_name": "Today",
+      "description": "Today's Plan and what to do next",
+      "url": "./?action=today",
+      "icons": [
+        {
+          "src": "icons/shortcut-today.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Focus Timer",
+      "short_name": "Focus",
+      "description": "Start a focus session",
+      "url": "./?action=focus",
+      "icons": [
+        {
+          "src": "icons/shortcut-focus.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Search",
+      "short_name": "Search",
+      "description": "Search tasks, notes and courses",
+      "url": "./?action=search",
+      "icons": [
+        {
+          "src": "icons/shortcut-search.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "widgets": [
+    {
+      "name": "Studyboard Today",
+      "short_name": "Today",
+      "description": "What to do next, today's list, flashcards due and your streak",
+      "tag": "today",
+      "template": "today",
+      "ms_ac_template": "widgets/today-template.json",
+      "data": "widgets/today-data.json",
+      "type": "application/json",
+      "screenshots": [
+        {
+          "src": "widgets/today-screenshot.png",
+          "sizes": "300x304",
+          "label": "The Studyboard Today widget"
+        }
+      ],
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ],
+      "auth": false,
+      "update": 3600
+    }
   ]
 }

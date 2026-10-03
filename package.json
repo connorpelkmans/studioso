@@ -1,0 +1,128 @@
+{
+  "name": "studyboard",
+  "productName": "Studyboard",
+  "version": "1.12.4",
+  "description": "Studyboard: a student planner for courses, deadlines, study sessions and flashcards",
+  "author": {
+    "name": "Studyboard"
+  },
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "node scripts/prepare.js && electron .",
+    "prep": "node scripts/prepare.js",
+    "dist": "node scripts/prepare.js && electron-builder --win nsis --x64",
+    "dist:mac": "node scripts/prepare.js && electron-builder --mac dmg --arm64",
+    "dist:linux": "node scripts/prepare.js && electron-builder --linux AppImage",
+    "dist:mac-intel": "node scripts/prepare.js && electron-builder --mac dmg --x64 -c.mac.artifactName=Studyboard-${version}-mac-intel.${ext}"
+  },
+  "devDependencies": {
+    "@fontsource/atkinson-hyperlegible": "^5.3.0",
+    "@fontsource/atkinson-hyperlegible-next": "^5.3.0",
+    "@fontsource/lexend": "^5.3.0",
+    "@supabase/supabase-js": "^2.117.2",
+    "electron": "^38.8.6",
+    "electron-builder": "^26.15.3",
+    "pdfjs-dist": "^3.11.174"
+  },
+  "homepage": "https://github.com",
+  "build": {
+    "appId": "com.studioso.app",
+    "productName": "Studyboard",
+    "copyright": "Copyright © 2026 Studyboard",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "lms.js",
+      "widget/**/*",
+      "app/**/*",
+      "build/icon.ico",
+      "build/icon.png",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "executableName": "Studyboard",
+      "legalTrademarks": "Studyboard"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Studyboard",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/uninstallerSidebar.bmp",
+      "installerHeader": "build/installerHeader.bmp",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "Studyboard-Setup-${version}.${ext}",
+      "uninstallDisplayName": "Studyboard"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build/icon.icns",
+      "category": "public.app-category.education",
+      "artifactName": "Studyboard-${version}-mac.${ext}",
+      "minimumSystemVersion": "12.0",
+      "darkModeSupport": true,
+      "extendInfo": {
+        "NSDocumentsFolderUsageDescription": "Studyboard keeps your data, daily backups and files in a Studyboard folder in Documents.",
+        "NSDownloadsFolderUsageDescription": "Studyboard saves files you export to Downloads."
+      },
+      "identity": "-"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "build/icon.png",
+      "category": "Education",
+      "artifactName": "Studyboard-${version}.${ext}"
+    },
+    "publish": null,
+    "dmg": {
+      "title": "Studyboard ${version}",
+      "iconSize": 112,
+      "window": {
+        "width": 560,
+        "height": 380
+      },
+      "contents": [
+        {
+          "x": 150,
+          "y": 190
+        },
+        {
+          "x": 410,
+          "y": 190,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
+  }
+}

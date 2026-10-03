@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Studyboard Notification Keys</title>
+<style>
+:root{--bg:#EEF3FB;--card:#fff;--ink:#15233F;--muted:#5A6A86;--line:#DCE6F7;--accent:#1F6FEB}
+@media (prefers-color-scheme:dark){:root{--bg:#0B1428;--card:#14203A;--ink:#E7EEFA;--muted:#9FB0CC;--line:#26365A;--accent:#5B9BFF}}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:24px 16px}
+main{max-width:620px;margin:0 auto;background:var(--card);border-radius:18px;padding:24px;box-shadow:0 6px 24px rgba(20,40,90,.08)}
+h1{margin:0 0 6px;font-size:1.4rem}p{margin:0 0 14px;color:var(--muted)}
+button{font:600 15px inherit;font-family:inherit;border:0;border-radius:12px;padding:11px 18px;background:var(--accent);color:#fff;cursor:pointer}
+.small{padding:6px 12px;font-size:13px;background:transparent;color:var(--accent);border:1px solid var(--line)}
+label{display:block;font-weight:600;margin:16px 0 6px}label span{font-weight:400;color:var(--muted);font-size:13px}
+.row{display:flex;gap:8px}input,textarea{flex:1;min-width:0;font:13px ui-monospace,Menlo,Consolas,monospace;padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--ink)}
+textarea{width:100%;box-sizing:border-box;height:74px;resize:vertical}
+ol{padding-left:20px;color:var(--muted)}li{margin:6px 0}#out{display:none}
+</style></head>
+<body><main>
+<h1>Notification Keys</h1>
+<p>Makes the keys that let Studyboard send reminders to phones and computers while the app is closed. You only need to do this once for everyone. Nothing leaves this page.</p>
+<button id="go">Make Keys</button>
+<div id="out">
+  <label>Public Key <span>secret name VAPID_PUBLIC_KEY</span></label><div class="row"><input id="pub" readonly><button class="small" data-c="pub">Copy</button></div>
+  <label>Private Key <span>secret name VAPID_PRIVATE_KEY. Copy it now: it isn't saved anywhere.</span></label><div class="row"><input id="priv" readonly><button class="small" data-c="priv">Copy</button></div>
+  <label>Contact <span>secret name VAPID_SUBJECT</span></label><div class="row"><input id="subj" value="mailto:you@example.com"><button class="small" data-c="subj">Copy</button></div>
+  <label>SQL <span>so every copy of Studyboard knows the public key</span></label><textarea id="sql" readonly></textarea><div class="row" style="margin-top:6px"><button class="small" data-c="sql">Copy SQL</button></div>
+  <ol>
+    <li>In your server's dashboard, open <b>Edge Functions</b>, then <b>Secrets</b>, and add the three values above with the names shown (use your own email in the Contact).</li>
+    <li>Open <b>SQL Editor</b>, paste the SQL and click <b>Run</b>.</li>
+    <li>Make sure the <b>send-reminders</b> function is deployed with <b>Verify JWT</b> off (see Reminders in the setup guide).</li>
+  </ol>
+</div>
+<script>
+const b64u = u8 => { let s = ""; u8.forEach(b => { s += String.fromCharCode(b); }); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
+document.getElementById("go").onclick = async () => {
+  const kp = await crypto.subtle.generateKey({name: "ECDSA", namedCurve: "P-256"}, true, ["sign", "verify"]);
+  const pub = b64u(new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey)));
+  const d = (await crypto.subtle.exportKey("jwk", kp.privateKey)).d;
+  document.getElementById("pub").value = pub; document.getElementById("priv").value = d;
+  document.getElementById("sql").value = `insert into public.studyboard_config (key, value) values ('vapid_public', '"${pub}"')\n  on conflict (key) do update set value = excluded.value, updated_at = now();`;
+  document.getElementById("out").style.display = "block"; document.getElementById("go").textContent = "Make New Keys";
+};
+document.addEventListener("click", e => { const id = e.target.dataset && e.target.dataset.c; if (!id) return; const el = document.getElementById(id); el.select(); navigator.clipboard.writeText(el.value).then(() => { e.target.textContent = "Copied"; setTimeout(() => { e.target.textContent = id === "sql" ? "Copy SQL" : "Copy"; }, 1500); }); });
+</script>
+</main></body></html>

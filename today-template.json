@@ -1,0 +1,70 @@
+{
+  "type": "AdaptiveCard",
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "ColumnSet",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "stretch",
+          "items": [
+            { "type": "TextBlock", "text": "Today", "weight": "Bolder", "size": "Medium" },
+            { "type": "TextBlock", "text": "${date}", "isSubtle": true, "size": "Small", "spacing": "None", "wrap": false }
+          ]
+        },
+        {
+          "type": "Column",
+          "width": "auto",
+          "verticalContentAlignment": "Center",
+          "$when": "${hasStreak}",
+          "items": [ { "type": "TextBlock", "text": "${streak}", "weight": "Bolder", "size": "Small" } ]
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "$when": "${hasNext}",
+      "style": "emphasis",
+      "spacing": "Medium",
+      "selectAction": { "type": "Action.Execute", "verb": "task", "data": { "id": "${next.id}" } },
+      "items": [
+        { "type": "TextBlock", "text": "DO THIS NEXT", "size": "Small", "weight": "Bolder", "color": "Accent" },
+        { "type": "TextBlock", "text": "${next.title}", "weight": "Bolder", "wrap": true, "maxLines": 2, "spacing": "None" },
+        { "type": "TextBlock", "text": "${next.sub}", "isSubtle": true, "size": "Small", "wrap": true, "maxLines": 2, "spacing": "None" }
+      ]
+    },
+    { "type": "TextBlock", "text": "${left}", "weight": "Bolder", "size": "Small", "spacing": "Medium", "$when": "${hasTasks}" },
+    {
+      "type": "ColumnSet",
+      "$data": "${tasks}",
+      "spacing": "Small",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "auto",
+          "verticalContentAlignment": "Center",
+          "selectAction": { "type": "Action.Execute", "verb": "done", "data": { "id": "${id}" }, "tooltip": "Mark done" },
+          "items": [ { "type": "TextBlock", "text": "○", "size": "Large", "color": "Accent" } ]
+        },
+        {
+          "type": "Column",
+          "width": "stretch",
+          "selectAction": { "type": "Action.Execute", "verb": "task", "data": { "id": "${id}" }, "tooltip": "Open in Studyboard" },
+          "items": [
+            { "type": "TextBlock", "text": "${title}", "wrap": false, "maxLines": 1 },
+            { "type": "TextBlock", "text": "${sub}", "isSubtle": true, "size": "Small", "spacing": "None", "maxLines": 1 }
+          ]
+        }
+      ]
+    },
+    { "type": "TextBlock", "text": "${moreText}", "isSubtle": true, "size": "Small", "$when": "${hasMore}" },
+    { "type": "TextBlock", "text": "${empty}", "isSubtle": true, "wrap": true, "spacing": "Medium", "$when": "${!hasTasks}" },
+    { "type": "TextBlock", "text": "${cards}", "size": "Small", "spacing": "Medium", "$when": "${hasCards}" }
+  ],
+  "actions": [
+    { "type": "Action.Execute", "title": "Open Studyboard", "verb": "open" },
+    { "type": "Action.Execute", "title": "Quick Add", "verb": "quickadd" }
+  ]
+}

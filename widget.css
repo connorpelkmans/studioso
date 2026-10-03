@@ -1,0 +1,65 @@
+/* Studyboard Today widget. Colors come from the Studyboard page's current theme; these are the fallbacks. */
+:root{
+  --bg:#F3F5F8; --surface:#FFFFFF; --ink:#1C2433; --muted:#667085; --line:#DFE3EA; --soft:#EEF1F6;
+  --accent:#2C55D6; --accent-ink:#FFFFFF; --late:#C8352E; --tomato:#E0673B;
+  --display:"Lexend","Segoe UI",system-ui,sans-serif; --body:"Atkinson Hyperlegible Next","Atkinson Hyperlegible","Segoe UI",system-ui,sans-serif;
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --bg:#11141A; --surface:#1A1F28; --ink:#E9ECF2; --muted:#9AA3B4; --line:#2B3240; --soft:#222834;
+  --accent:#7F9CFF; --accent-ink:#0F1320; --late:#FF7A70; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden}
+body{background:var(--surface);color:var(--ink);font:14px/1.4 var(--body);-webkit-font-smoothing:antialiased;user-select:none}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;text-align:left}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.w{display:flex;flex-direction:column;height:100%}
+/* The header is the handle for moving the widget around. */
+.w-head{display:flex;align-items:center;gap:6px;padding:10px 8px 8px 14px;-webkit-app-region:drag;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
+.w-head button,.w-head .w-streak{-webkit-app-region:no-drag}
+.w-brand{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;-webkit-app-region:drag}
+.w-brand *{pointer-events:none}
+.w-h1{font:700 1.15rem/1.1 var(--display);letter-spacing:-.01em}
+.w-date{font-size:.8rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.w-streak{font:700 .8rem/1 var(--display);padding:6px 9px;border-radius:999px;background:color-mix(in srgb,var(--tomato) 16%,var(--surface))}
+.w-streak.dim{opacity:.65}
+.w-ic{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;color:var(--muted)}
+.w-ic:hover{background:var(--soft);color:var(--ink)}
+.w-ic svg{width:17px;height:17px}
+.w-ic[aria-pressed="true"]{color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--surface))}
+.w-body{flex:1;overflow-y:auto;padding:12px 12px 6px;scrollbar-width:thin}
+.w-next{display:flex;flex-direction:column;gap:3px;padding:12px 12px 12px 14px;border-radius:14px;background:var(--bg);border:1px solid var(--line);border-left:5px solid var(--c,var(--accent));margin-bottom:12px}
+.w-lbl{font:700 .68rem/1.2 var(--display);text-transform:uppercase;letter-spacing:.08em;color:var(--accent)}
+.w-next-title{font:600 1rem/1.3 var(--display)}
+.w-next-title:hover,.w-main:hover .w-title{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+.w-next .w-btn{margin-top:8px;align-self:flex-start}
+.w-meta{font-size:.78rem;color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.w-h{display:flex;align-items:baseline;justify-content:space-between;margin:2px 2px 6px;font:700 .82rem/1.2 var(--display)}
+.w-h span{font:400 .78rem var(--body);color:var(--muted)}
+.w-list{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.w-row{display:flex;align-items:center;gap:10px;padding:5px 4px;border-radius:10px}
+.w-row:hover{background:var(--soft)}
+.w-check{flex:none;width:24px;height:24px;border-radius:50%;border:2px solid var(--c,var(--accent));display:grid;place-items:center}
+.w-check svg{width:13px;height:13px;opacity:0;color:#fff}
+.w-row.is-done .w-check{background:var(--c,var(--accent))}
+.w-row.is-done .w-check svg{opacity:1}
+.w-row.is-done .w-title{text-decoration:line-through;color:var(--muted)}
+.w-row.is-late .w-meta{color:var(--late)}
+.w-main{flex:1;min-width:0;padding:3px 0}
+.w-title{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.w-more{font-size:.8rem;color:var(--accent);padding:6px 4px}
+.w-empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:28px 12px;color:var(--muted)}
+.w-empty strong{color:var(--ink);font:600 1rem var(--display)}
+.w-empty.small{padding:14px 8px}
+.w-btn{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:6px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:600;font-size:.85rem}
+.w-btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.w-btn:hover{filter:brightness(1.06)}
+.w-foot{display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px 12px;border-top:1px solid var(--line)}
+.w-foot:empty{display:none}
+.w-chip{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:5px 11px;border-radius:999px;background:var(--soft);font-size:.8rem;font-weight:600}
+.w-chip:hover{background:color-mix(in srgb,var(--accent) 14%,var(--soft))}
+.w-chip svg{width:15px;height:15px}
+.w-body::-webkit-scrollbar{width:8px}
+.w-body::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--muted) 35%,transparent);border-radius:8px;border:2px solid var(--surface)}
+.w-body::-webkit-scrollbar-track{background:transparent}
