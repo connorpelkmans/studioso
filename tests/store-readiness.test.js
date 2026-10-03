@@ -35,6 +35,9 @@ for (const [t, v] of Object.entries(tables)) {
   // cascade tables are removed with the auth row; the explicit list in the worker is a belt-and-braces and gives the audit row counts
   for (const c of v.cascade) ok(mentioned(t) || t === "study_groups", `${t}.${c} cascades from auth.users but is not in the worker list (add it so the Edge Function path deletes it before the auth row goes)`);
 }
+// client_errors (crash reports) has no user id by design: a random per-install id only. Exempt, with the reason asserted.
+ok(!/client_errors[\s\S]*?user_id/.test(read("supabase-error-reports.sql").match(/create table if not exists public\.client_errors[\s\S]*?\n\);/)[0]) && /anon_id\s+text/.test(read("supabase-error-reports.sql")), "client_errors holds no user id (random anon_id only), so deletion has nothing to unlink");
+ok(mentioned("capture_inbox") && mentioned("capture_tokens") && mentioned("group_tasks"), "worker covers capture tables and group tasks");
 ok(/split_part\(name, '\/', 1\) = p_uid::text/.test(worker) && /delete from storage\.objects/.test(worker), "worker sweeps storage rows it is allowed to");
 ok(/studyboard_pro_grants[\s\S]*email = null/.test(worker) && /studyboard_billing_events[\s\S]*user_id = null/.test(worker), "grants and billing events are anonymized");
 ok(/revoke all on function public\.studyboard_delete_user_data\(uuid\) from public, anon, authenticated/.test(lean), "worker is service-role only");
@@ -54,7 +57,7 @@ ok(hApp.length >= 16, "in-app policy has its sections");
 assert.deepStrictEqual(hApp, hWeb, "in-app and website privacy sections must be the same, in the same order");
 const dateApp = (app.match(/const UPDATED = "([^"]+)"/) || [])[1], dateWeb = (webPrivacy.match(/Effective: ([A-Za-z]+ \d+, \d{4})/) || [])[1];
 ok(dateApp && dateApp === dateWeb, `effective date must match (app ${dateApp}, website ${dateWeb})`);
-const FACTS = [/supabase auth/, /salted hash/, /gemini/, /anthropic/, /openai/, /your own key/, /improve its products/, /not pass through our servers|does not pass through/, /anonymous crash reports \(no personal content\)/, /turn this off at any time in settings/,
+const FACTS = [/supabase auth/, /salted hash/, /gemini/, /anthropic/, /openai/, /your own key/, /improve its products/, /not pass through our servers|does not pass through/, /anonymous crash report/, /send anonymous crash reports/, /not linked to you/, /export my data/, /recently deleted/, /capture token/,
   /bug report/, /stays on your device/, /stripe/, /app store/, /only your plan status|we receive only your plan status/, /email delivery provider/, /support@your-domain|your-domain/, /45 days/, /30 days/, /13 and over/, /up to 16/, /international transfers/, /standard contractual clauses/,
   /delete my account and data/, /export a backup file/, /cancel/, /no analytics, no ads, no tracking/, /your rights/];
 for (const re of FACTS) { ok(re.test(norm(appPrivacy)) || re.test(norm(appPrivacy.replace(/\$\{contact\(\)\}/g, "support@YOUR-DOMAIN"))), "in-app privacy must say: " + re); ok(re.test(norm(webPrivacy)), "website privacy must say: " + re); }

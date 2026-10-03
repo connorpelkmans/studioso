@@ -6,13 +6,17 @@ A calm student planner for courses, deadlines, study sessions and flashcards. It
 
 - **Board and Today's Plan:** every task and deadline in one place, with a ranked plan for today that fits your study hours.
 - **Plan Ahead:** a Timeline and a Schedule (classes, exams and events) in one tab.
+- **Availability blocks:** add work, shifts and placements (including overnight and rotating rosters), travel time, other commitments and protected time. Today's Plan only schedules into the free time left and shows when. Free.
+- **Crunch Forecast:** a third Plan Ahead view that colours every day and week of the term from calm to crunch, counting prep time before exams, papers and projects, so a week with three exams and a paper glows red weeks ahead. Tap a week for what is driving it, preview pulling work forward, and apply it with undo (school-synced tasks move their start date, not the due date). A card on Today and one gentle companion suggestion appear only for heavy weeks, once per week, and can be dismissed. Free, works offline, no AI.
 - **Courses, grades and syllabi:** import a syllabus PDF, track grades, "What do I need?" and Rough Week Rescue.
 - **Flashcards and quizzes**, notes with stickers, files, and Search Everywhere.
 - **Focus timer** with sounds, and a study companion.
 - **School sites:** Brightspace, Canvas and Blackboard (read only) on desktop, or calendar links anywhere.
-- **Reminders and calendar sync** on phones and desktop; study groups, shared decks and Study Together rooms.
+- **Reminders and calendar sync** on phones and desktop; study groups with shared Project Tasks (task lists with assignees and due dates, workload view, tasks assigned to you show up on your Board), shared decks and Study Together rooms.
 - **Themes and styles**, light and dark mode, reduced motion, keyboard and screen reader support.
 - **Optional AI helpers** that use your own Gemini, Claude or ChatGPT key.
+- **Undo and Recently Deleted:** every delete has an 8-second Undo (Ctrl/Cmd+Z too) and waits in Settings > Recently Deleted for 30 days (decks keep their cards, courses keep their tasks). Restore, Delete Forever and Empty Bin are there.
+- **Export My Data:** Settings > Export My Data makes a ZIP (complete JSON with a schema header, plus CSV files for tasks, notes, grades, flashcards, courses, events and study sessions, and an Anki text file). Built on the device, works offline, never includes secrets; the JSON restores through Import from a Backup File. Also serves as data portability (GDPR-style access).
 - **Privacy:** no ads and no analytics. Privacy Policy, Terms and About are in the app (Settings), and **Delete My Account and Data** is under Settings > Account and Sync.
 
 ## Run it

@@ -72,6 +72,8 @@ select set_config('request.jwt.claim.sub', 'bbbbbbbb-0000-4000-8000-00000000000b
 insert into public.group_messages (group_id, body) values ('11111111-1111-4111-8111-111111111111', 'hello from B');
 insert into public.group_reports (group_id, reporter_id, reported_user_id, target_kind, target_id, reason)
   values ('11111111-1111-4111-8111-111111111111', 'bbbbbbbb-0000-4000-8000-00000000000b', 'aaaaaaaa-0000-4000-8000-00000000000a', 'member', 'aaaaaaaa-0000-4000-8000-00000000000a', 'spam');
+insert into public.capture_tokens (user_id, token_hash, label) values ('aaaaaaaa-0000-4000-8000-00000000000a', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'a'), ('bbbbbbbb-0000-4000-8000-00000000000b', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', 'b');
+insert into public.capture_inbox (user_id, text) values ('aaaaaaaa-0000-4000-8000-00000000000a', 'note from a'), ('bbbbbbbb-0000-4000-8000-00000000000b', 'note from b');
 select set_config('request.jwt.claim.sub', '', true);
 insert into storage.objects (bucket_id, name) values ('studioso-files', 'aaaaaaaa-0000-4000-8000-00000000000a/f.pdf'), ('studioso-files', 'bbbbbbbb-0000-4000-8000-00000000000b/f.pdf');
 insert into public.studyboard_rate (key, bucket, n) values ('code:aaaaaaaa-0000-4000-8000-00000000000a', now(), 1), ('code:bbbbbbbb-0000-4000-8000-00000000000b', now(), 1);
@@ -116,6 +118,8 @@ select public.sbd_ok(public.sbd_n($$select 1 from public.group_messages where us
 select public.sbd_ok(public.sbd_n($$select 1 from public.group_members where user_id = 'aaaaaaaa-0000-4000-8000-00000000000a'$$) = 0, 'A is in no group any more');
 select public.sbd_ok(public.sbd_n($$select 1 from storage.objects where name like 'aaaaaaaa-0000-4000-8000-00000000000a/%'$$) = 0, 'A''s file rows are gone (the Edge Function removes the file bytes)');
 select public.sbd_ok(public.sbd_n($$select 1 from public.studyboard_rate where key like '%aaaaaaaa-0000-4000-8000-00000000000a'$$) = 0, 'A''s rate counters are gone');
+select public.sbd_ok(public.sbd_n($$select 1 from public.capture_tokens where user_id = 'aaaaaaaa-0000-4000-8000-00000000000a' union all select 1 from public.capture_inbox where user_id = 'aaaaaaaa-0000-4000-8000-00000000000a'$$) = 0, 'A''s voice-capture tokens and inbox are gone');
+select public.sbd_ok(public.sbd_n($$select 1 from public.capture_tokens where user_id = 'bbbbbbbb-0000-4000-8000-00000000000b' union all select 1 from public.capture_inbox where user_id = 'bbbbbbbb-0000-4000-8000-00000000000b'$$) = 2, 'B''s voice-capture rows are untouched');
 -- groups
 select public.sbd_ok((select owner_id from public.study_groups where id = '11111111-1111-4111-8111-111111111111') = 'bbbbbbbb-0000-4000-8000-00000000000b', 'G1 (A owned, B member) now belongs to B');
 select public.sbd_ok((select role from public.group_members where group_id = '11111111-1111-4111-8111-111111111111' and user_id = 'bbbbbbbb-0000-4000-8000-00000000000b') = 'owner', 'B is marked owner in G1');

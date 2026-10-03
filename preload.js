@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld("studiosoDesktop", {
     set: (name, value) => ipcRenderer.invoke("secret:set", secretName(name), String(value == null ? "" : value)),
     remove: name => ipcRenderer.invoke("secret:remove", secretName(name))
   },
+  // Tells the desktop app whether "Send Anonymous Crash Reports" is on, so its own (main-process) crash reports follow the same choice.
+  setCrashReports: on => ipcRenderer.send("crash:set", on === true),
   onFlush: fn => ipcRenderer.on("app:flush", () => fn()),
   flushed: () => ipcRenderer.send("app:flushed"),
   setTitleBar: color => ipcRenderer.send("app:titlebar", color),

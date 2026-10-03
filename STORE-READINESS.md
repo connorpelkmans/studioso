@@ -9,14 +9,14 @@ node tests/store-readiness.test.js
 node --experimental-strip-types supabase-functions/tools/test-functions.mjs
 node tests/e2e/store-flows.e2e.js            # Playwright, stubbed Supabase client + mock purchase bridge (test only)
 node tests/ai-quality.test.js && node tests/ains-gates.test.js
-# Supabase SQL Editor (rolls back, safe on production): supabase-delete-selftest.sql  ->  "ALL 39 ACCOUNT-DELETION CHECKS PASSED"
+# Supabase SQL Editor (rolls back, safe on production): supabase-delete-selftest.sql  ->  "ALL 41 ACCOUNT-DELETION CHECKS PASSED"
 ```
 
 ## Summary table
 
 | # | Item | Status | Where | How verified | Remaining owner action |
 |---|---|---|---|---|---|
-| 1a | Delete account removes **server data** (database) | Done | `supabase-lean.sql`: `studyboard_delete_user_data(uuid)` (service role only) and `studyboard_delete_my_account()` (caller only, fallback path) | `supabase-delete-selftest.sql` (39 attacker-style checks, run on PostgreSQL 16 with a stubbed auth/storage schema); `tests/store-readiness.test.js` scans every `supabase-*.sql` for tables holding a user id and fails if one is not covered | Re-run `supabase-lean.sql` on production, run the self-test once in the SQL Editor |
+| 1a | Delete account removes **server data** (database) | Done | `supabase-lean.sql`: `studyboard_delete_user_data(uuid)` (service role only) and `studyboard_delete_my_account()` (caller only, fallback path) | `supabase-delete-selftest.sql` (41 attacker-style checks, run on PostgreSQL 16 with a stubbed auth/storage schema); `tests/store-readiness.test.js` scans every `supabase-*.sql` for tables holding a user id and fails if one is not covered | Re-run `supabase-lean.sql` on production, run the self-test once in the SQL Editor |
 | 1b | Uploaded files (storage bytes) deleted | Done | `supabase-functions/delete-account/index.ts` lists and removes every object under `<uid>/` in `studioso-files` (recursive, 100 per call), service role; SQL also sweeps the metadata rows where allowed; app fallback deletes with the person's own session | Mock tests in `test-functions.mjs` (order: Stripe, files, DB rows, auth user; paths asserted); e2e fallback test asserts `storage.remove` | Deploy the function (Verify JWT **On**); test once with a real file |
 | 1c | Re-authentication, typed confirmation, rate limit, idempotent | Done | same function: `last_sign_in_at` within 10 min **or** password re-entry (verified against `/auth/v1/token`), `confirm` must be DELETE, `studyboard_plan_rate_hit` 5/hour, every step safe to repeat (auth user already gone = success) | `test-functions.mjs` (stale sign-in 403, wrong password 403, no confirm 400, rate limit 429, second run 200) | None |
 | 1d | Subscriptions | Done | Stripe: server cancels all active subscriptions first and **stops if Stripe fails** (billing is never left running). App Store/Google: 409 `store_subscription`, the sheet shows a warning, the link `https://apps.apple.com/account/subscriptions` and requires a checkbox | mock tests (cancel order, Stripe 500 leaves the account intact, Apple needs ack); e2e (ack row appears, retried with `ack_store_subscription: true`) | Set `STRIPE_SECRET_KEY` and `SITE_ORIGINS` secrets on the function; test with a Stripe test-mode subscription |

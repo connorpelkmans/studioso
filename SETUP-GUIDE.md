@@ -95,8 +95,10 @@ Open **SQL Editor > New query** in Supabase, paste a whole file and click **Run*
 | 6 | `supabase-bug-reports.sql` | Report a Bug or Send Feedback | Recommended |
 | 7 | `supabase-plans.sql` | Free and Pro plans, limits, devices (run after step 2 so group limits are added) | Before you sell Pro, and for notification keys |
 | 8 | `supabase-lean.sql` | Lean Sync and **Delete My Account and Data** (run it last) | Required for a public launch |
+| 9 | `supabase-capture.sql` | Voice and shortcut capture (Siri, Gemini, Bixby, share sheet). Run it after step 8 so account deletion also clears it, then deploy the `capture-task` function with Verify JWT **off**. Optional check: `supabase-capture-selftest.sql`. See `VOICE-CAPTURE.md` | Optional |
 
-If you run `supabase-groups.sql` or `supabase-calendar-feed.sql` later, run `supabase-plans.sql` and `supabase-lean.sql` again afterwards.
+If you run `supabase-groups.sql` or `supabase-calendar-feed.sql` later, run `supabase-plans.sql` and `supabase-lean.sql` again afterwards. Running `supabase-groups.sql` again also resets who can see blocked people's tasks, so run `supabase-moderation.sql` again after it.
+If you run `supabase-groups.sql` or `supabase-calendar-feed.sql` later, run `supabase-plans.sql` and `supabase-lean.sql` again afterwards (and `supabase-capture.sql` if you use voice capture).
 
 **Edge Functions** (pasted into Supabase under Edge Functions > Deploy a new function > Via Editor). In this repository they are saved as plain `index.ts` files, so match them by their first line:
 
@@ -786,6 +788,9 @@ The first time you share or join, Studyboard asks what classmates should call yo
 - Changed the deck? Open **Share** again and tap **Update Shared Copy**. People who added it see **Get Update**, which adds the new cards and keeps their progress.
 - **Stop Sharing** turns the link and code off. Copies people already added stay theirs.
 
+### Project Tasks (new in 1.13)
+Each group page has a **Project Tasks** section: shared task lists (for example "BIOL 201 Poster") with assignees, due dates, a progress bar, filters (All, Mine, Unassigned, Overdue, Done) and a per-person workload line that shows an uneven split. Anyone can add and edit tasks and mark them done, anyone can claim an unassigned task, and only the person a task is assigned to (or the group owner) can reassign it. Tasks assigned to you also appear under Today's Plan on your Board. A group keeps up to 20 active lists with up to 200 tasks each. To turn it on, run `supabase-groups.sql` again (it is safe to repeat), then `supabase-moderation.sql` again. Until then, the group owner sees a note saying to run it and other members see nothing. Run `supabase-plans-selftest.sql` afterwards to confirm the new tables and functions are locked down (section 9 covers them).
+
 ### Study groups
 - Open **Groups** (in the sidebar on a computer, or from the Flashcards page or **Settings** on a phone) and tap **New Group**. Add a name and, if you like, a course.
 - Tap **Invite Classmates** to send the invite link or code. They tap **Enter a Code** on the Groups page (or just open the link) and then **Join Group**.
@@ -1103,7 +1108,7 @@ Work through this before you tell the public about Studyboard.
 - [ ] Custom SMTP set up and the six email templates pasted in (Part 1b, steps 3 and 4). The built-in sender only allows a few emails an hour.
 - [ ] Email confirmation on, password length 8, Site URL and Redirect URLs set to your real web address.
 - [ ] Edge Functions deployed with the right Verify JWT setting (table above) and their secrets set.
-- [ ] Deploy the `delete-account` Edge Function (Verify JWT **On**) and run `supabase-delete-selftest.sql` (expect "ALL 39 ACCOUNT-DELETION CHECKS PASSED").
+- [ ] Deploy the `delete-account` Edge Function (Verify JWT **On**) and run `supabase-delete-selftest.sql` (expect "ALL 41 ACCOUNT-DELETION CHECKS PASSED").
 - [ ] Test **Delete My Account and Data** with a spare account that has an uploaded file: it signs out, the account is gone from Authentication > Users, the rows are gone, and the file is gone from Storage > studioso-files. Also test with a spare Stripe test-mode subscription: it is cancelled in the Stripe dashboard.
 - [ ] A weekly backup of the database turned on (Supabase paid plans) or a regular export of your tables, and the keep-awake workflow running if you stay on the free plan.
 - [ ] Row Level Security shows **enabled** on every table in Table Editor, and the secret or service_role key appears nowhere in the app or repository.
@@ -1119,3 +1124,9 @@ Work through this before you tell the public about Studyboard.
 - [ ] Desktop installers built from a tagged release (`v1.13.0`) with the GitHub workflow and tested on a clean Windows and Mac. Decide about code signing (see the Windows and Mac sections above).
 - [ ] The website is served over HTTPS and Add to Home Screen works on a phone.
 - [ ] If you sell Pro: finish `PRO-PLANS-GUIDE.md` and its Launch Day steps. If you do not, leave the paywall off.
+
+## Recently Deleted and Export My Data (no setup needed)
+
+- Deleted items are kept for 30 days in a bin that syncs like the rest of your data. It uses the existing `items` table with `kind = 'trash'`, so there is no SQL to run. Bin entries count toward each account's data size like any other item (a deleted deck still takes its space until the 30 days pass or it is deleted forever). Stored files are not removed from storage until the bin lets go of them.
+- If the same item is edited on another device after it was deleted, the live copy wins and the bin entry is hidden until it expires. Nothing is removed from the account because of a conflict.
+- Settings > Export My Data builds a ZIP (JSON plus CSV files) on the device; nothing is sent to the server.

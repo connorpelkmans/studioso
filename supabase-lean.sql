@@ -203,6 +203,8 @@ end $$;
 --   * Study groups: if the person owns a group and someone else is a member, ownership moves to the longest-standing other
 --     member (the group carries on). If nobody else is in it, the group and its content are deleted.
 --   * What the person wrote in groups (messages, items, quiz scores, RSVPs, reactions, check-ins, stats) is deleted with the account.
+--   * Shared group tasks and lists stay for the group with their author, assignee and completer links removed.
+--   * Voice-capture tokens and inbox (capture_tokens, capture_inbox) are deleted.
 --   * Reports they made or that were made about them (group_reports) stay for safety but lose the link to the account
 --     (reporter_id and reported_user_id become null by the foreign keys).
 --   * Payment bookkeeping that must be kept (studyboard_billing_events, studyboard_pro_grants) is anonymized: the user id,
@@ -224,6 +226,7 @@ declare
     ['group_quiz_scores','user_id'], ['group_messages','user_id'], ['group_items','user_id'], ['group_blocks','blocker_id'],
     ['group_blocks','blocked_id'], ['group_members','user_id'], ['shared_decks','owner_id'], ['study_profiles','user_id'],
     ['study_room_people','user_id'], ['study_rooms','started_by'],
+    ['capture_inbox','user_id'], ['capture_tokens','user_id'],
     ['reminder_queue','user_id'], ['push_subscriptions','user_id'], ['calendar_feeds','user_id'],
     ['studyboard_deletions','user_id'], ['studyboard_archive','user_id'], ['studyboard_devices','user_id'],
     ['studyboard_device_removals','user_id'], ['studyboard_usage','user_id'], ['studyboard_billing_customers','user_id'],
@@ -266,6 +269,18 @@ begin
     update public.studyboard_pro_grants set user_id = null, email = null, reason = null
       where user_id = p_uid or (email is not null and lower(email) = (select lower(u.email) from auth.users u where u.id = p_uid));
     get diagnostics n = row_count; res := res || jsonb_build_object('studyboard_pro_grants_anonymized', n);
+  end if;
+  -- Shared group tasks and lists stay for the group but lose every link to the person (the foreign keys set null; done here too so it holds before the auth row goes)
+  if to_regclass('public.group_tasks') is not null then
+    update public.group_tasks set assignee_id = case when assignee_id = p_uid then null else assignee_id end,
+      created_by = case when created_by = p_uid then null else created_by end,
+      updated_by = case when updated_by = p_uid then null else updated_by end,
+      completed_by = case when completed_by = p_uid then null else completed_by end
+      where p_uid in (assignee_id, created_by, updated_by, completed_by);
+    get diagnostics n = row_count; res := res || jsonb_build_object('group_tasks_unlinked', n);
+  end if;
+  if to_regclass('public.group_task_lists') is not null then
+    update public.group_task_lists set created_by = null where created_by = p_uid;
   end if;
   -- Reports made by or about them stay (safety) without the link to the account.
   if to_regclass('public.group_reports') is not null then

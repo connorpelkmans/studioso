@@ -1,0 +1,20 @@
+// UNTESTED: written without Android Studio. Lines to MERGE into the Capacitor Android project. Versions marked VERIFY must be checked against the
+// current releases (I had no network access to a Maven index while writing this).
+
+// ---- android/build.gradle (project level): plugins ----
+//   id "org.jetbrains.kotlin.android" version "VERIFY"  apply false      // Capacitor's template is Java; Kotlin is needed for these sources
+//   id "com.google.devtools.ksp" version "VERIFY-matching-kotlin"  apply false   // only for AppFunctions (the androidx.appfunctions compiler uses KSP)
+
+// ---- android/app/build.gradle ----
+// plugins { id "org.jetbrains.kotlin.android"; id "com.google.devtools.ksp" }   // ksp only with AppFunctions
+// android { compileSdk 36 /* VERIFY: AppFunctions needs a recent compileSdk */ ; defaultConfig { minSdk 24 }
+//           kotlinOptions { jvmTarget = "17" } }
+dependencies {
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1"   // VERIFY latest 1.x
+
+    // --- AppFunctions (EXPERIMENTAL: verify artifact names, versions and that they are not still alpha-only) ---
+    implementation "androidx.appfunctions:appfunctions:VERIFY_VERSION"
+    implementation "androidx.appfunctions:appfunctions-service:VERIFY_VERSION"
+    ksp "androidx.appfunctions:appfunctions-compiler:VERIFY_VERSION"
+}
+// ksp { arg("appfunctions:aggregateAppFunctions", "true") }   // VERIFY: the current docs list KSP arguments for the compiler; copy them from there

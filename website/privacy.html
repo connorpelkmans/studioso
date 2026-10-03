@@ -36,11 +36,11 @@
 <p>Your courses, tasks, notes, flashcards, files, settings, themes, daily backups, AI keys and your school-site connections are saved on the device you use (in the browser's storage on the website, or in the app's folder on desktop and phone). If you turn on folder backups on desktop, copies are also written to the folder you pick. Nothing leaves your device unless you use one of the optional features below.</p>
 
 <h2>No analytics, no ads, no tracking</h2>
-<p>Studyboard has no analytics, advertising or tracking tools, and it sets no tracking cookies. We do not track you across other apps or websites, and we do not sell or share your data for advertising. The only things stored in your browser are the ones needed to work: your data, settings and sign-in.</p>
+<p>Studyboard has no analytics, advertising or tracking tools, and it sets no tracking cookies. We do not track you across other apps or websites, and we do not sell or share your data for advertising. The only things stored in your browser are the ones needed to work: your data, settings and sign-in. The one thing Studyboard can send on its own is an anonymous crash report, described next.</p>
 
+<!-- CRASH-REPORTING-PARAGRAPH: keep in step with the crash-reporting feature (49-errreport.js). -->
 <h2>Anonymous crash reports</h2>
-<!-- CRASH-REPORTING-PARAGRAPH: keep in step with the crash-reporting feature. Remove this section if that feature is not shipped. -->
-<p>Studyboard sends anonymous crash reports (no personal content) to our error-reporting service so we can fix bugs. A report holds the error message, the app version and the type of device and browser. It never holds your tasks, notes, files, name or email address, and it is not linked to your account. You can turn this off at any time in Settings.</p>
+<p>When Studyboard hits an error (a crash, a failed sync or a broken screen), it can send a short report so we can fix the bug. A report holds the kind of error and where in the code it happened, the app version, the platform (website, installed app, desktop or iPhone/iPad app), whether you have a free or paid plan, the theme in use, and the last few actions of the app itself (such as which tab was open). It never contains your tasks, notes, courses, files, email address, account id, AI keys or anything you typed, and it is not linked to you: it carries only a random number made on your device that is not your account and is deleted when you switch reports off. We do not use reports for advertising or tracking and never share them. They are kept for about 30 days. This is on by default (off if your browser sends Do Not Track or Global Privacy Control). Turn it off any time in Settings, Send Anonymous Crash Reports. On iPhone and iPad, Apple may also give us crash logs through App Store Connect if you chose to share app analytics with developers in your device's settings.</p>
 
 <h2>Your account and synced data</h2>
 <p>If you create an account, we store your email address and your password, which is kept only as a salted hash by our hosting provider, Supabase (Supabase Auth). Signing in also syncs your planner between your devices, so your courses, tasks, notes, flashcards, settings and file records are stored on our Supabase project, in your account. Each account can only read its own rows. We also keep the name and type of each device signed in to your account, how much storage your account uses (for the plan limits), and your plan status. Your AI keys are never sent to your account: they stay on the device and are left out of the backup files you export.</p>
@@ -56,7 +56,7 @@
 <p>If you connect Brightspace, Canvas or Blackboard, the connection stays on your device. On desktop you sign in on your school's own page (Studyboard never sees your password) and the sign-in is kept in a private store on your computer. If you paste a calendar link instead, it is saved on your device; on the website and phone the link is passed through a small function on our server that fetches the calendar for you and stores nothing. Studyboard only reads from your school's site. What it brings in (due dates, grades, announcements) becomes part of your planner and syncs like everything else if you have an account.</p>
 
 <h2>Optional: reminders, calendar link, study groups</h2>
-<p><b>Phone and desktop reminders</b> need your device's push address and your upcoming reminders (task titles and times for the next two weeks) to be stored on our server so a notification can arrive when Studyboard is closed. The notification itself is delivered by your browser or phone maker's push service (Google, Apple or Mozilla). <b>Calendar Sync</b> stores a private link token and your choices so your calendar app can fetch your deadlines. <b>Study groups, shared decks and Study Together rooms</b> share the display name and the decks, deadlines and messages you choose to share with the people in that group. Turn any of these off, or leave a group, and it stops.</p>
+<p><b>Phone and desktop reminders</b> need your device's push address and your upcoming reminders (task titles and times for the next two weeks) to be stored on our server so a notification can arrive when Studyboard is closed. The notification itself is delivered by your browser or phone maker's push service (Google, Apple or Mozilla). <b>Calendar Sync</b> stores a private link token and your choices so your calendar app can fetch your deadlines. <b>Study groups, shared decks and Study Together rooms</b> share the display name and the decks, deadlines and messages you choose to share with the people in that group. Turn any of these off, or leave a group, and it stops. <b>Voice and shortcut capture</b> (optional, for example "Hey Siri, add a task") stores a private capture token (only a hash of it, shown to you once) and the short notes you send, in an inbox on our server until your app collects them; you can revoke the token any time, and everything is deleted with your account.</p>
 
 <h2>Bug reports and feedback</h2>
 <p>If you send a report, it includes what you wrote, an optional screenshot you attach, an optional email address for a reply, and basic technical details (app version, browser and device type, screen size, your plan and recent error messages). It contains none of your tasks or notes unless you type them. Only the app's owner can read reports.</p>
@@ -75,13 +75,15 @@
 <li><b>Your account and planner:</b> until you delete them. Deleted items are remembered for 45 days only so your other devices can catch up.</li>
 <li><b>After you delete your account:</b> your data is removed from our database and storage straight away. Encrypted backups can hold a copy for up to 30 days before they are overwritten; nothing is restored for a deleted account.</li>
 <li><b>Payment records:</b> Stripe and the app stores keep them as tax and accounting law requires. We keep only anonymous plan and payment-event records with no link to your account.</li>
-<li><b>Crash reports:</b> kept for a limited time, then deleted.</li>
+<li><b>Crash reports:</b> kept for about 30 days, then deleted. They are anonymous and not linked to your account.</li>
 <li><b>Bug reports:</b> kept only as long as needed to fix the problem. Reports sent while signed in are deleted with your account.</li>
 </ul>
 
 <h2>Your choices and your data</h2>
 <ul>
 <li><b>Export:</b> Settings, Data and Backups, Export a Backup File gives you everything in one file.</li>
+<li><b>Get a copy of your data (access and portability):</b> Settings, Data and Backups, Export My Data makes a ZIP with one JSON file and spreadsheet (CSV) files of your tasks, notes, grades, flashcards, courses, schedule and study sessions. It is made on your device, works offline, and never includes AI keys, sign-in details or device ids.</li>
+<li><b>Deleted by mistake:</b> things you delete wait in Settings, Data and Backups, Recently Deleted for 30 days (synced with your account like the rest of your data), then are removed for good.</li>
 <li><b>Delete everything on this device:</b> Settings, Data and Backups, Clear All Data. Clearing your browser's site data also removes it.</li>
 <li><b>Delete your account and online data:</b> Settings, Account and Sync, Delete My Account and Data. This removes your account, synced data, uploaded files, reminders, devices, calendar links and plan record from our server, and cancels a card subscription for you. Study groups you own pass to another member, or are deleted if nobody else is in them, and your group messages are deleted. Subscriptions bought through the App Store or Google Play must be cancelled by you in your store account, because we cannot cancel them. You can also email us from the address on the account to ask for deletion.</li>
 <li><b>Your rights:</b> depending on where you live (for example the EU, UK or California) you may have the right to access, correct, delete or port your data and to object to its use. Use the steps above, or contact us.</li>
@@ -98,6 +100,7 @@
 
 <h2>Changes and contact</h2>
 <p>If this policy changes in a way that matters, we will update the effective date above and tell you in the app. Questions or requests about your data: <a class="support-email" href="mailto:support@YOUR-DOMAIN">support@YOUR-DOMAIN</a>.</p>
+
 
 </div></section>
 </main>

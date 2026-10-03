@@ -1,9 +1,9 @@
 node_modules/
-dist/
-app/
-build/
-widget/
-site/
+/dist/
+/app/
+/build/
+/widget/
+/site/
 .env
 .env.*
 *.pem

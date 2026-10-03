@@ -114,3 +114,21 @@ drop policy if exists "item member read" on public.group_items;
 create policy "item member read" on public.group_items for select to authenticated
   using (public.sbg_is_member(group_id)
          and not exists (select 1 from public.group_blocks b where b.blocker_id = auth.uid() and b.blocked_id = group_items.user_id));
+
+-- Project Tasks (groups.sql 1.13): lists and tasks added by someone you blocked are hidden too (the tasks still on a hidden list go with it in the app).
+-- Skipped quietly if the task tables aren't there yet (run supabase-groups.sql again, then this file).
+do $$
+begin
+  if to_regclass('public.group_tasks') is null or to_regclass('public.group_task_lists') is null then
+    raise notice 'Project Task tables not found: run supabase-groups.sql again, then run this file again to hide blocked people''s tasks.';
+    return;
+  end if;
+  execute 'drop policy if exists "tasklist member read" on public.group_task_lists';
+  execute $p$create policy "tasklist member read" on public.group_task_lists for select to authenticated
+    using (public.sbg_is_member(group_id)
+           and not exists (select 1 from public.group_blocks b where b.blocker_id = auth.uid() and b.blocked_id = group_task_lists.created_by))$p$;
+  execute 'drop policy if exists "gtask member read" on public.group_tasks';
+  execute $p$create policy "gtask member read" on public.group_tasks for select to authenticated
+    using (public.sbg_is_member(group_id)
+           and not exists (select 1 from public.group_blocks b where b.blocker_id = auth.uid() and b.blocked_id = group_tasks.created_by))$p$;
+end $$;
