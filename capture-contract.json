@@ -1,0 +1,87 @@
+{
+  "_comment": "Single source of truth for the Studyboard capture endpoint contract used by the NATIVE clients (iOS App Intents / Share extension, Android AppFunctions / share receiver) and by tests/capture-contract.test.js. cap-server owns the real function (supabase-functions/capture-task): if it changes a field or limit, change it here too and re-run `node tests/capture-contract.test.js`. STATUS: confirmed against supabase-functions/capture-task (cap-server).",
+  "version": 1,
+  "path": "/functions/v1/capture-task",
+  "method": "POST",
+  "scheme": "https",
+  "hostSuffix": ".supabase.co",
+  "timeoutSeconds": 8,
+  "headers": {
+    "required": [
+      "Authorization",
+      "Content-Type",
+      "Idempotency-Key"
+    ],
+    "authorizationScheme": "Bearer",
+    "contentType": "application/json",
+    "idempotencyKeyPattern": "^[A-Za-z0-9-]{8,64}$",
+    "note": "X-Studyboard-Token is accepted instead of Authorization; the server accepts any Idempotency-Key up to 80 chars (or an 'id' body field) and dedupes for 10 minutes"
+  },
+  "bodyFields": {
+    "text": {
+      "type": "string",
+      "required": true,
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "due": {
+      "type": "string",
+      "required": false,
+      "maxLength": 64,
+      "note": "free text such as 'friday 5pm' or an ISO date (2026-10-09 or 2026-10-09T17:00); the server stores natural language raw and the app's own parser reads it in the user's time zone; the server keeps the first 60 characters of free text"
+    },
+    "course": {
+      "type": "string",
+      "required": false,
+      "maxLength": 80,
+      "note": "longer than 60 is cut to 60 by the server (a course hint only needs to match a course name)"
+    },
+    "source": {
+      "type": "string",
+      "required": false,
+      "enum": [
+        "siri",
+        "shortcut",
+        "share",
+        "android-share",
+        "gemini",
+        "tile",
+        "bixby",
+        "http",
+        "app"
+      ],
+      "note": "the server accepts any short label (letters, digits . _ -, 24 max); 'test' is used by the in-app Test it button"
+    }
+  },
+  "response": {
+    "ok": "boolean",
+    "message": "string",
+    "speech": "string (one short sentence, safe to read aloud)"
+  },
+  "limits": {
+    "maxRequestBytes": 4096,
+    "speechMaxChars": 200
+  },
+  "deepLinks": {
+    "add": "studyboard://add?text=&due=&course=&source=",
+    "capturePhoto": "studyboard://capture?photo=1"
+  },
+  "sharedQueueItem": {
+    "_comment": "Shape of one item that the native layer (App Group container on iOS, files dir on Android) hands to window.SBCAPTURE.ingest(item) through the StudyboardSharedQueue plugin.",
+    "fields": [
+      "id",
+      "kind",
+      "text",
+      "due",
+      "course",
+      "source",
+      "createdAt",
+      "image",
+      "url"
+    ],
+    "kinds": [
+      "task",
+      "route"
+    ]
+  }
+}

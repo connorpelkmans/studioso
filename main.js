@@ -71,9 +71,11 @@ const DEEP_SCHEME = "studyboard";
 function parseDeepLink(raw) {
   try {
     const s = String(raw || "");
-    if (s.length > 600) return null;
+    if (s.length > 2400) return null;
     const u = new URL(s);
     if (u.protocol !== DEEP_SCHEME + ":" || u.username || u.password || u.port) return null;
+    if (u.host === "add" || u.host === "capture") return { type: "capture", url: s };       // quick capture: the page validates it and only ever makes a draft
+    if (s.length > 600) return null;
     if (u.host === "open") {
       const id = u.searchParams.get("task");
       return id && /^[\w.:-]{1,200}$/.test(id) ? { type: "task", id } : { type: "main" };
@@ -90,7 +92,7 @@ function handleDeepLink(raw) {
   const d = parseDeepLink(raw);
   if (!d) return false;
   if (!app.isReady()) { pendingDeepLink = raw; return true; }
-  if (d.type === "task") openTask(d.id); else if (d.type === "action") sendAction(d.name); else showMain();
+  if (d.type === "capture") { showMain(); toPage("desk:capture", d.url); } else if (d.type === "task") openTask(d.id); else if (d.type === "action") sendAction(d.name); else showMain();
   return true;
 }
 try {
@@ -121,6 +123,51 @@ function writeJson(name, obj) {
   } catch (e) {}
 }
 let cfg = {};
+
+// ---------- Crash and error reports for the main process (ERROR-REPORTING.md) ----------
+// Sends anonymous error events (no paths, no personal content) to the same Sentry project as the page, using Node's https. It uses the page's own pure
+// scrubbing and envelope code (prepare.js copies it to app/errreport-core.js) and the DSN in app/error-config.json, and it is on only when the person
+// has not turned off "Send Anonymous Crash Reports" in Settings (the page tells us at start). With no DSN, or running from source, nothing is sent.
+const https = require("https");
+let ERRC = null, errConf = null, errLim = null, procId = "";
+function errInit() {
+  if (errConf !== null) return !!ERRC;
+  errConf = {};
+  try { errConf = JSON.parse(fs.readFileSync(path.join(APP_DIR, "error-config.json"), "utf8")) || {}; ERRC = require(path.join(APP_DIR, "errreport-core.js")); errLim = ERRC.makeLimiter({ maxSession: 10 }); } catch (e) { ERRC = null; }
+  return !!ERRC;
+}
+const crashOn = () => { try { return (cfg.crashReports !== undefined ? cfg.crashReports : readCfg().crashReports) === true; } catch (e) { return false; } };
+function mainReport(kind, err, extra) {
+  try {
+    if (!errInit() || !errConf.dsn || !crashOn()) return;
+    const dsn = ERRC.parseDsn(errConf.dsn); if (!dsn || errLim.blocked()) return;
+    const e = err && typeof err === "object" ? err : { message: String(err) };
+    const info = { kind, type: (extra && extra.type) || e.name || "Error", message: e.message, stack: e.stack, tags: Object.assign({ process: "main", pro: "n-a" }, extra && extra.tags) };
+    if (!procId) procId = ERRC.newId().slice(0, 16);
+    let home = ""; try { home = require("os").homedir(); } catch (x) {}
+    const ev = ERRC.finish(ERRC.buildEvent(info, { release: errConf.release || app.getVersion(), environment: errConf.environment, build: errConf.build, platform: "electron", theme: process.platform, anon: cfg.crashId || procId, own: [], redact: [home] }));
+    if (!errLim.allow(ev.fingerprint[0], kind)) return;
+    const body = ERRC.envelope(ev, dsn), u = new URL(dsn.url);
+    const req = https.request({ method: "POST", hostname: u.hostname, port: u.port || 443, path: u.pathname + u.search, timeout: 8000,
+      headers: { "Content-Type": "text/plain;charset=UTF-8", "Content-Length": Buffer.byteLength(body) } }, res => { res.resume(); if (res.statusCode >= 500 || res.statusCode === 429) errLim.fail(); else errLim.ok(); });
+    req.on("error", () => { try { errLim.fail(); } catch (x) {} });
+    req.on("timeout", () => req.destroy());
+    req.end(body);
+  } catch (x) { /* never let reporting break the app */ }
+}
+// Electron's own behaviour for an uncaught main-process error is its error box; a listener replaces that, so show the same box.
+process.on("uncaughtException", err => { mainReport("main-uncaught", err); try { if (app.isReady()) dialog.showErrorBox("A JavaScript error occurred in the main process", String((err && err.stack) || err)); else console.error(err); } catch (x) {} });
+process.on("unhandledRejection", reason => { mainReport("main-promise", reason, { type: "UnhandledRejection" }); console.error("Unhandled rejection in the main process:", reason); });
+app.on("render-process-gone", (e, wc, d) => { if (d && d.reason !== "clean-exit") mainReport("renderer-gone", new Error("render-process-gone: " + d.reason), { type: "RenderProcessGone", tags: { process: "renderer", reason: d.reason, exit: d.exitCode } }); });
+app.on("child-process-gone", (e, d) => { if (d && d.reason !== "clean-exit") mainReport("child-gone", new Error("child-process-gone: " + d.type + " " + d.reason), { type: "ChildProcessGone", tags: { process: d.type, reason: d.reason, exit: d.exitCode } }); });
+app.on("gpu-process-crashed", (e, killed) => { mainReport("gpu-crashed", new Error("gpu-process-crashed" + (killed ? " (killed)" : "")), { type: "GpuProcessCrashed", tags: { process: "gpu" } }); });   // older Electron; newer ones report this through child-process-gone
+// Native minidumps are off unless a minidump address is configured (STUDYBOARD_MINIDUMP_URL when running prepare.js) AND crash reports are on; they can hold fragments of memory.
+try { if (!IS_MAS && errInit() && /^https:\/\//.test(errConf.minidump || "") && crashOn()) require("electron").crashReporter.start({ submitURL: errConf.minidump, uploadToServer: true, compress: true, extra: { build: String(errConf.build || "") } }); } catch (e) {}
+ipcMain.on("crash:set", (e, on) => {
+  if (!fromMain(e)) return;
+  const v = on === true;
+  if (cfg.crashReports !== v) { cfg.crashReports = v; if (v) cfg.crashId = cfg.crashId || (errInit() ? ERRC.newId().slice(0, 16) : ""); else delete cfg.crashId; writeCfgSoon(); }
+});
 // "Keep Running in the Background" is on unless it was turned off. It needs the tray icon, so there's a way back in.
 const bgOn = () => cfg.background !== false && !!tray;
 const dataRoot = () => cfg.dataDir || path.join(app.getPath("documents"), "Studyboard");
@@ -245,7 +292,7 @@ function backgroundTip() {
 // ---------- Messages to the page ----------
 // The page says which messages it's ready for (see preload.js). Until then they wait here, for example
 // when a reminder is clicked while the window is still opening.
-const PAGE_CHANNELS = ["desk:action", "desk:open-task", "desk:power"];
+const PAGE_CHANNELS = ["desk:action", "desk:open-task", "desk:capture", "desk:power"];
 const listening = new Set();
 let pendingMsgs = [];
 function toPage(channel, ...args) {
@@ -687,7 +734,7 @@ if (GOT_LOCK) app.whenReady().then(async () => {
       const rel = decodeURIComponent(u.pathname).replace(/^\/+/, "") || (dir === WIDGET_DIR ? "widget.html" : "index.html");
       if (rel.includes("\0")) return new Response("Not found", { status: 404 });
       const p = path.resolve(dir, rel);
-      if (!p.startsWith(dir + path.sep) || (dir === WIDGET_DIR && /preload/i.test(rel)) || (dir === APP_DIR && rel === "csp-hashes.json")) return new Response("Not found", { status: 404 });
+      if (!p.startsWith(dir + path.sep) || (dir === WIDGET_DIR && /preload/i.test(rel)) || (dir === APP_DIR && /^(csp-hashes|error-config)\.json$|^errreport-core\.js$/.test(rel))) return new Response("Not found", { status: 404 });
       const r = await net.fetch(pathToFileURL(p).toString());
       const h = new Headers(r.headers);
       h.set("X-Content-Type-Options", "nosniff");

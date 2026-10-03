@@ -6,6 +6,7 @@ This folder holds everything needed to wrap the Studyboard web build in a native
 | --- | --- |
 | `capacitor.config.json` | Capacitor settings: app id `com.studioso.app`, bundled web files (no remote `server.url`), navigation allow-list, no cleartext, no native HTTP/cookie plugins. |
 | `native-bridge.js` | Small native glue loaded before the page: Keychain session storage, safe external links, deep links, push registration. |
+| `native/` | **Quick capture (UNTESTED Swift sources):** App Intents for Siri/Shortcuts, Share Extension, Capacitor plugins `StudyboardCaptureToken` and `StudyboardSharedQueue`. See `native/capture.md` and `../VOICE-CAPTURE-NATIVE.md`. |
 | `Info.plist.additions.plist` | Keys to merge into `ios/App/App/Info.plist` (encryption flag, usage strings, push background mode, URL scheme). |
 | `App.entitlements.template.plist` | Push and associated-domains entitlements. |
 | `apple-app-site-association.template.json` | The universal-links file to host on the website. |
@@ -71,6 +72,10 @@ In Xcode (App target):
 | `NSCameraUsageDescription` | The same pickers offer "Take Photo". |
 | (none) microphone, location, contacts, calendars, tracking | Not used. Do not add them: an unused permission string is a rejection reason, and an unexplained use is a crash. `NSUserTrackingUsageDescription` is deliberately absent because nothing tracks (see the checklist). |
 
+### 3b. Quick capture: Siri, Shortcuts, share sheet (optional, untested)
+
+Needs the App Groups and Keychain Sharing capabilities, the Swift files in `native/`, a Share Extension target and the plugin registration in `MainViewController`. Follow `native/capture.md` section 2 step by step; the test plan is section 5 there. Nothing in `native/` has been compiled: expect to fix errors, and do not advertise Siri support before a device test. Plugin names are already listed in `capacitor.config.json` (`StudyboardCaptureToken`, `StudyboardSharedQueue`). Capacitor 5 or older: plugins need a `.m` file with `CAP_PLUGIN(...)` instead of `CAPBridgedPlugin`.
+
 ## 4. Build, test and submit
 
 ```bash
@@ -83,6 +88,7 @@ Then in Xcode: run on a device, test with the checklist, **Product > Archive**, 
 
 * The **Supabase session** (access and refresh tokens) must not sit in the web view's `localStorage`, which is a plain file inside the app container. `native-bridge.js` sets `window.StudyboardAuthStorage`; `index.html` hands that to supabase-js (`authStorage()`), so the tokens live in the iOS Keychain (`capacitor-secure-storage-plugin` stores with `kSecAttrAccessibleAfterFirstUnlock` by default; if you want them unreadable while the phone is locked after a restart choose the stricter accessibility option in the plugin's settings). An older copy found in localStorage is moved into the Keychain on first start.
 * **AI keys** (the person's own Gemini/Claude/OpenAI key) are always device-only: never in the settings that sync to the account, never in backups, wiped at sign-out. On iOS they sit in `localStorage` unless you extend `native-bridge.js` the same way as the session (copy the `StudyboardAuthStorage` pattern for the `studyboard:aiKeys` key). Doing this is recommended before submission; the review does not require it.
+* The **capture token** (Quick Capture, for Siri and the share extension) lives in a shared Keychain group, set through `window.StudyboardNative.saveCaptureToken(token, supabaseUrl)` and removed with `clearCaptureToken()`; see `native/capture.md`.
 * Never ship secrets in the bundle: only the Supabase **publishable** key (`sb_publishable_...`) belongs in the app. No service-role key, no RevenueCat secret key (only the public SDK key), no Stripe keys, no AI keys.
 
 ## 6. Universal links and deep links
@@ -97,6 +103,34 @@ Then in Xcode: run on a device, test with the checklist, **Product > Archive**, 
 * Pro is a digital subscription: in this app it must be sold with **In-App Purchase** through RevenueCat. The web build's Stripe payment link must never appear in the iOS app. `index.html` already treats `window.Capacitor` and `window.StudyboardNative` as a store build (`nativeStore()` in the plan module) and `native-bridge.js` refuses to open payment hosts. Re-check after the Pro work is merged (`APP-STORE-CHECKLIST.md` section 3).
 * "Restore Purchases" must be reachable from the Pro screen (the `plan-restore` hook).
 * Subscription terms (price, length, auto-renew, how to cancel, links to Privacy Policy and Terms) must be shown next to the buy button.
+### Purchase bridge contract (page <-> native)
+
+The page (`index.html`, plan module) never talks to RevenueCat itself. In a store build (`nativeStore()` is true: `window.Capacitor` native, `window.StudyboardNative`, or the `studyboardStore` message handler) Buy, Manage Plan and Restore Purchases only use this contract, and the page never shows a Stripe or website link (unless `EXTERNAL_PURCHASE_ALLOWED` is changed in the plan module).
+
+Page to native: three **cancelable** window events. The native side calls `event.preventDefault()` to say "I'm handling this"; if nobody does, the page tells the person the feature isn't available in this build.
+
+| Event | `event.detail` | Meaning |
+| --- | --- | --- |
+| `studyboard:plan-checkout` | `{period: "monthly" or "yearly", userId}` | Start the Apple purchase sheet for that package. `userId` is the Supabase user id, use it as the RevenueCat app user id. |
+| `studyboard:plan-restore` | `{userId}` | Run `restorePurchases()` and re-link the purchase to this account. |
+| `studyboard:plan-manage` | `{entitlement}` | Open the App Store subscription management screen. |
+
+(The same three calls are also run through the page's internal `hook("plan-checkout" / "plan-restore" / "plan-manage")` list, used by the desktop app and tests.)
+
+Native to page: when the action finishes, answer with
+
+```js
+window.dispatchEvent(new CustomEvent("studyboard:purchase-result", {detail: {action, status, message}}));
+```
+
+* `action`: `"checkout"`, `"restore"` or `"manage"`.
+* `status`: `"success"`, `"cancelled"` (the person backed out, no error shown), `"nothing"` (a restore that found no purchase) or `"error"`.
+* `message` (optional, max 200 characters, plain text): shown to the person on `"error"`. Do not put secrets or stack traces in it.
+
+What the page does with the answer: it shows progress ("Restoring your purchases…" and a disabled Restore button), then "Purchases restored. Pro is on.", "Nothing to restore…", "Restore cancelled." or the error text. After a success it re-reads the plan from the server (up to 5 tries, 2 s apart, because RevenueCat tells the server through its webhook first). **A result never turns Pro on by itself**: Pro only appears when the signed entitlement from the server says so. Unanswered restores time out after 60 s and fall back to one plan refresh.
+
+`native-bridge.js` section 6 is a minimal working example of the native side with `@revenuecat/purchases-capacitor` (set `RC_KEY`, an offering with monthly and annual packages, and an entitlement named `pro`). Restore Purchases is reachable from: the Pro sheet, Settings (the "Restore Purchases" row under Studyboard Pro), and every paywall prompt (they all open the Pro sheet).
+
 * Reader-app style links to an outside payment page are only allowed under Apple's external-purchase entitlement rules for your storefront; leave them out unless you apply for that entitlement.
 
 ## 8. Security checklist for the wrapper
@@ -114,6 +148,14 @@ Then in Xcode: run on a device, test with the checklist, **Product > Archive**, 
 - [ ] Push token is sent only to your own backend (Supabase) after sign-in; reminders contain the task title, so consider "Show Previews" behaviour in your privacy text.
 - [ ] Apple Sign-In: not required (email and password only; see the checklist).
 - [ ] Review the plugin list: `npm ls --prod` should show only the plugins above; run `npm audit --omit=dev`.
+
+## 8b. Crash and error reporting (no third-party SDK)
+
+* **Native crashes** (the app dies, the web view process is killed, memory kills) are collected by **Apple**: App Store Connect > your app > TestFlight > Crashes, and Xcode > Window > Organizer > Crashes. Apple only sends logs from people who chose "Share With App Developers" in their iPhone's Analytics settings, so you need no SDK, no `NSPrivacyTracking`, and no extra App Privacy answer for these logs. Symbolicate with the dSYM Xcode uploads with the archive.
+* **Web errors** (a JavaScript exception, a failed sync, a broken screen, a storage-full failure) are reported by the page itself, in the same module as the website and desktop app (`index.html`, `49-errreport.js`). Nothing native is involved: it is one `fetch` POST of a scrubbed event to your Sentry project (or your Supabase `error-ingest` function), so it works the same inside Capacitor. The event's `platform` tag is `ios-wrapper` (the page checks `window.Capacitor.isNativePlatform()`), so you can filter iOS-wrapper issues in Sentry. `native-bridge.js` does not need to do anything for this.
+* **The bridge**: there is none to build. If you later want native crash logs inside Sentry too, add the Sentry Capacitor plugin as a separate, deliberate step; it is a third-party SDK that must then be listed in the App Privacy answers and in `PrivacyInfo.xcprivacy` (Crash Data and Performance Data are already declared there, not linked, no tracking, app functionality).
+* **Before submitting**: the privacy manifest in `build-resources/ios/PrivacyInfo.xcprivacy` declares `CrashData` and `PerformanceData`. If you ship with an empty DSN and no Supabase fallback (nothing is sent), delete those two entries and answer "not collected" for Crash Data and Performance Data in App Store Connect. The in-app switch is Settings, Send Anonymous Crash Reports (default on; off when Do Not Track / Global Privacy Control is set).
+* The build id (`1.13.0+<12 hex>`) is stamped into the staged page by `prepare.js`, so a stack line `index.html:LINE:COL` can be matched to the exact file in this build: see `ERROR-REPORTING.md`, "Reading a stack".
 
 ## 9. Known differences from the web app on iOS
 
