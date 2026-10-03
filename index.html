@@ -5337,30 +5337,33 @@ const aiSourceBytes = s => s.part.inline_data ? s.part.inline_data.data.length :
 /* ----- Study sets: flashcards and quizzes from your material ----- */
 // Ready-made styles, shown as quick-pick chips. [label, instructions for the AI, group]. More than one can be picked, and the student's own
 // text (the free-text box) always comes first and wins. Questions can only be one answer, select all, put in order, true/false or short answer,
-// so formats like NGN matrix or bow-tie items are described in terms of those.
-const AI_STYLE_GROUPS = ["Exam styles", "Question formats", "Focus"];
+// so formats like matrix or bow-tie items are described in terms of those.
+const AI_STYLE_GROUPS = ["General exam styles", "Question formats", "Focus", "Healthcare / nursing exams (NCLEX-style)", "Other standardized exams"];
 const AI_STYLES = [
-  ["NCLEX-RN", "NCLEX-RN style: client-centered stems about what the nurse should do, with prioritization (first, priority, most important, next), safety, delegation, infection control and therapeutic communication. Use NCLEX wording and include select-all-that-apply items. Every option plausible, and a rationale for why the right answer is right and the others are wrong.", 0],
-  ["NCLEX-RN Case Study (NGN)", "Next Generation NCLEX unfolding case study style: start each question with a short client scenario that includes chart data (age, history, vital signs, lab values, nurses' notes), then ask what the nurse should do, following the clinical judgment model: recognize cues (what findings matter), analyze cues (what they suggest), prioritize hypotheses (what is the likely problem), generate solutions (what to do), take action (what to do first) and evaluate outcomes (what shows it worked). Express matrix, highlight, drop-down and bow-tie items as select-all-that-apply or one-answer questions with the data in the stem, and give a rationale for each.", 0],
-  ["HESI / ATI Nursing", "HESI or ATI nursing exam style: application-level, single best answer questions with 4 options on priority actions, delegation, safe medication administration and patient teaching, mixed with some select-all-that-apply items and short dosage calculations.", 0],
-  ["USMLE Vignettes", "USMLE Step 1 and 2 style: a 3 to 6 sentence clinical vignette (age, sex, presentation, vital signs, exam and lab findings), then a question such as most likely diagnosis, underlying mechanism, best next step or most likely adverse effect. One best answer from 5 plausible options of the same category. Prefer second- and third-order reasoning (what the finding means, then what to do) over recall. Explain every option in the rationale.", 0],
-  ["MCAT Passages", "MCAT style: begin each question with a 100 to 150 word passage (an experiment, a data set described in words, or an argument), then a question that needs reasoning from the passage plus the course concepts, with 4 options. Include data interpretation, experimental design and 'what would happen if' questions. Test reasoning, not recall.", 0],
-  ["AP Exam", "AP exam style: stimulus-based multiple choice with 4 options (a short source, data description or scenario, then the question), plus a few free-response prompts as short-answer questions whose expected answer reads like a scoring guide: the key points a full-credit answer must make.", 0],
+  ["Mixed (multiple choice, true/false, short answer)", "A deliberate mix of question types: about 45% single best answer, 15% true/false, 15% select all that apply, 15% short answer and 10% put-in-order.", 0],
   ["University Midterm", "A typical university midterm: a balanced mix of multiple choice, true/false, a few select-all-that-apply and short-answer questions, ordered from straightforward recall to application.", 0],
   ["Multiple Choice", "Only single best answer multiple choice, 4 options each, with plausible distractors built from common mistakes. No 'all of the above' or 'none of the above'.", 1],
-  ["Mixed Formats", "A deliberate mix of question types: about 45% single best answer, 15% true/false, 15% select all that apply, 15% short answer and 10% put-in-order.", 1],
   ["True / False", "True or false statements, half true and half false. For each false statement the rationale gives the corrected true statement. Avoid trick wording and absolutes like 'always' and 'never'.", 1],
   ["Select All That Apply", "Mostly select-all-that-apply questions: 5 or 6 options, 2 to 4 correct, no 'all of the above'. Each option stands alone, and the rationale covers every option.", 1],
   ["Fill in the Blank", "Cloze-style: flashcard fronts are sentences with a ____ gap, and quiz questions are short-answer questions where the student types the missing term. Blank out the key term, never a trivial word.", 1],
   ["Short Answer", "Short-answer questions that need a 1 to 3 sentence explanation. The expected answer lists the key points a good answer must include.", 1],
   ["Put in Order", "Include put-the-steps-in-order questions for processes, pathways, procedures and sequences (4 to 6 steps), plus some single-answer questions about why the order matters.", 1],
   ["Conceptual (Why / How)", "Conceptual questions: why something happens, how it works, what would change if a variable changed, compare and contrast, and predict the effect. Avoid pure recall. Rationales explain the reasoning.", 1],
-  ["Calculation Problems", "Numerical problem-solving: give all the values in the stem, make the student calculate (short answer with the number and its units), vary the numbers, and show the worked steps in the rationale. Include unit conversions and, where relevant, dosage or IV rate calculations.", 1],
-  ["Scenario / Case-Based", "Each question starts with a short realistic scenario (a patient, a lab result, a client, a design problem), then asks for the best next step, the most likely cause or the key risk. Test application of the material, not recall.", 1],
-  ["Pharmacology", "Focus on drug class, mechanism of action, indications, key side effects and adverse effects, contraindications, nursing considerations, monitoring and patient teaching. Compare drugs within a class and flag high-alert medications.", 2],
+  ["Calculation Problems", "Numerical problem-solving: give all the values in the stem, make the student calculate (short answer with the number and its units), vary the numbers, and show the worked steps in the rationale. Include unit conversions and, where relevant, rates, concentrations or other applied calculations.", 1],
+  ["Scenario / Case-Based", "Each question starts with a short realistic scenario (a business situation, a lab result, a client, a design problem), then asks for the best next step, the most likely cause or the key risk. Test application of the material, not recall.", 1],
   ["Definitions", "Short term-and-definition flashcards and straightforward recall questions.", 2],
   ["Common Mistakes", "Target common misconceptions and look-alike concepts: write distractors from the mistakes students really make, and explain each misconception in the rationale.", 2],
-  ["Harder, Applied", "Application and analysis level questions that require combining ideas from different parts of the material, not just recall.", 2]
+  ["Harder, Applied", "Application and analysis level questions that require combining ideas from different parts of the material, not just recall.", 2],
+  ["Pharmacology (Drugs)", "Focus on drug class, mechanism of action, indications, key side effects and adverse effects, contraindications, clinical considerations, monitoring and patient counseling. Compare drugs within a class and flag high-alert medications.", 2],
+  ["NCLEX-RN", "NCLEX-RN style: client-centered stems about what the nurse should do, with prioritization (first, priority, most important, next), safety, delegation, infection control and therapeutic communication. Use NCLEX wording and include select-all-that-apply items. Every option plausible, and a rationale for why the right answer is right and the others are wrong.", 3],
+  ["NCLEX-RN Case Study (NGN)", "Next Generation NCLEX unfolding case study style: start each question with a short client scenario that includes chart data (age, history, vital signs, lab values, nurses' notes), then ask what the nurse should do, following the clinical judgment model: recognize cues (what findings matter), analyze cues (what they suggest), prioritize hypotheses (what is the likely problem), generate solutions (what to do), take action (what to do first) and evaluate outcomes (what shows it worked). Express matrix, highlight, drop-down and bow-tie items as select-all-that-apply or one-answer questions with the data in the stem, and give a rationale for each.", 3],
+  ["HESI / ATI Nursing", "HESI or ATI nursing exam style: application-level, single best answer questions with 4 options on priority actions, delegation, safe medication administration and patient teaching, mixed with some select-all-that-apply items and short dosage calculations.", 3],
+  ["USMLE Vignettes", "USMLE Step 1 and 2 style: a 3 to 6 sentence clinical vignette (age, sex, presentation, vital signs, exam and lab findings), then a question such as most likely diagnosis, underlying mechanism, best next step or most likely adverse effect. One best answer from 5 plausible options of the same category. Prefer second- and third-order reasoning (what the finding means, then what to do) over recall. Explain every option in the rationale.", 3],
+  ["MCAT Passages", "MCAT style: begin each question with a 100 to 150 word passage (an experiment, a data set described in words, or an argument), then a question that needs reasoning from the passage plus the course concepts, with 4 options. Include data interpretation, experimental design and 'what would happen if' questions. Test reasoning, not recall.", 4],
+  ["AP Exam", "AP exam style: stimulus-based multiple choice with 4 options (a short source, data description or scenario, then the question), plus a few free-response prompts as short-answer questions whose expected answer reads like a scoring guide: the key points a full-credit answer must make.", 4],
+  ["Bar Exam", "Bar exam style: a short fact pattern (a paragraph), then a question applying the rule of law: which party prevails, which claim or defense is strongest, or what the court is most likely to hold. Multiple choice with 4 options of plausible legal conclusions, rationales that state the governing rule and apply it to the facts, plus a few short-answer issue-spotting prompts.", 4],
+  ["CPA Exam", "CPA exam style: multiple-choice questions with 4 options on accounting, auditing, tax and business concepts, plus task-based simulations expressed as short-answer calculations or journal-entry questions with the numbers in the stem. Rationales show the worked steps.", 4],
+  ["Engineering FE", "FE (Fundamentals of Engineering) exam style: concise problem-solving questions with 4 options, numerical answers with units, standard formulas and reference-handbook style data given in the stem. Rationales show the worked solution and common unit or sign errors.", 4]
 ];
 // Builds the style text sent to the AI: the student's own words first (they win), then each picked preset's instructions.
 function aiComposeStyle(custom, picks){
@@ -5430,9 +5433,9 @@ async function aiMakeStudySet(opts, onStatus){
   const parts = sources.map(s => s.part);
   const jobs = [];
   if (cards) jobs.push(aiCall({task: "cards", maxTokens: 24000, onStatus, schema: CARD_SCHEMA, parts: parts.concat({text: `${ctx}\n\nMake ${cardCount === "auto" ? "as many flashcards as the material supports well (usually 15 to 40, at most 60)" : cardCount + " flashcards"} from the material above.`}),
-    system: "You write excellent flashcards for students. Each card tests one idea. Fronts are short (a term, a question, or a sentence with ____ for a cloze). Backs are accurate and concise (1 to 3 sentences). Favor high-yield, exam-relevant content: definitions, mechanisms, comparisons, steps, normal values, and clinical priorities where relevant. No duplicates. Put the slide or page in 'source' when you can. " + AI_RULES}));
+    system: "You write excellent flashcards for students. Each card tests one idea. Fronts are short (a term, a question, or a sentence with ____ for a cloze). Backs are accurate and concise (1 to 3 sentences). Favor high-yield, exam-relevant content: definitions, mechanisms, comparisons, steps, normal values, and key priorities where relevant. No duplicates. Put the slide or page in 'source' when you can. " + AI_RULES}));
   if (quiz) jobs.push(aiCall({task: "quiz", maxTokens: 32000, onStatus, schema: QUIZ_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite ${quizCount} practice questions from the material above.`}),
-    system: "You write high-quality practice exam questions. Question types: 'single' (one best answer, usually 4 options), 'multiple' (select all that apply: 5 or 6 options, 2 or more correct; start or end the stem with 'Select all that apply.'), 'order' (4 to 6 steps listed in scrambled order; 'correct' lists the option indexes in the right order), 'truefalse' (options exactly ['True','False']), and 'short' (a brief typed answer in 'answer'). 'correct' holds zero-based option indexes. Every question gets a rationale explaining why the answer is right and why the others are wrong, and 'optionNotes' with one short note per option. The student's style instructions decide the mix of question types, the stem length and format (passages, vignettes, case data, calculations) and the difficulty, so follow them exactly, including a custom format they describe in their own words. If they ask for NCLEX style, write client-centered stems about what the nurse should do, include priority, first-action, safety and delegation questions and select-all-that-apply items, and use NCLEX wording. For other named exams (MCAT, USMLE, AP, HESI, and so on) follow that exam's conventions. When no style is given, mix types sensibly. Avoid trivia and 'all of the above' or 'none of the above'. Spread questions across the whole material. Put the slide or page in 'source'. " + AI_RULES}));
+    system: "You write high-quality practice exam questions. Question types: 'single' (one best answer, usually 4 options), 'multiple' (select all that apply: 5 or 6 options, 2 or more correct; start or end the stem with 'Select all that apply.'), 'order' (4 to 6 steps listed in scrambled order; 'correct' lists the option indexes in the right order), 'truefalse' (options exactly ['True','False']), and 'short' (a brief typed answer in 'answer'). 'correct' holds zero-based option indexes. Every question gets a rationale explaining why the answer is right and why the others are wrong, and 'optionNotes' with one short note per option. The student's style instructions decide the mix of question types, the stem length and format (passages, vignettes, case data, calculations) and the difficulty, so follow them exactly, including a custom format they describe in their own words. If they name an exam (AP, MCAT, USMLE, NCLEX, HESI, bar exam, CPA, FE, a professor's midterm and so on), follow that exam's conventions; for example, NCLEX style uses client-centered stems about what the nurse should do, with priority, first-action, safety and delegation questions and select-all-that-apply items. When no style is given, mix types sensibly. Avoid trivia and 'all of the above' or 'none of the above'. Spread questions across the whole material. Put the slide or page in 'source'. " + AI_RULES}));
   if (cases) jobs.push(aiCall({task: "cases", maxTokens: 24000, onStatus, schema: CASE_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite ${caseCount || 1} case stud${Number(caseCount) === 1 ? "y" : "ies"} from the material above.`}), system: CASE_SYSTEM}));
   const settled = await Promise.allSettled(jobs);
   const failed = settled.filter(x => x.status === "rejected");
@@ -5464,10 +5467,10 @@ function aiStudySheet(deckId){
       <fieldset><legend>Make</legend>
         <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiCards" checked> Flashcards</label>${seg("aiCardN", [["auto", "Auto"], ["10", "10"], ["20", "20"], ["30", "30"], ["50", "50"]], "auto")}</div>
         <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiQuiz" checked> Practice quiz</label>${seg("aiQuizN", [["5", "5"], ["10", "10"], ["20", "20"], ["30", "30"]], "10")}</div>
-        <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiCase"> Case studies</label>${seg("aiCaseN", [["1", "1"], ["2", "2"], ["3", "3"]], "1")}<span class="mini">Realistic scenarios that unfold step by step, like NCLEX case studies</span></div>
+        <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiCase"> Case studies</label>${seg("aiCaseN", [["1", "1"], ["2", "2"], ["3", "3"]], "1")}<span class="mini">Realistic scenarios that unfold step by step and test how you apply the material</span></div>
       </fieldset>
       <fieldset><legend>Style</legend>
-        <label class="f"><span class="lh">Your Own Style or Exam Format <span class="hint">optional, comes first</span></span><textarea id="aiStyle" rows="2" maxlength="1500" placeholder="e.g. NCLEX-RN select-all-that-apply questions with rationales, or my professor's short case-study questions, or 60-minute midterm with 20 multiple choice and 5 short answers" data-noenter></textarea></label>
+        <label class="f"><span class="lh">Your Own Style or Exam Format <span class="hint">optional, comes first</span></span><textarea id="aiStyle" rows="2" maxlength="1500" placeholder="e.g. AP-style multiple choice with rationales, or my professor's short case-study questions, or 60-minute midterm with 20 multiple choice and 5 short answers" data-noenter></textarea></label>
         <div class="chips ai-recent" id="aiRecent" role="group" aria-label="Your recent styles"></div>
         ${AI_STYLE_GROUPS.map((g, gi) => `<p class="mini" style="margin:10px 0 4px">${esc(g)}</p><div class="chips ai-styles" role="group" aria-label="${esc(g)}">${AI_STYLES.map((x, i) => x[2] === gi ? `<button type="button" class="chip" data-style="${i}" aria-pressed="false" title="${esc(x[1])}">${esc(x[0])}</button>` : "").join("")}</div>`).join("")}
         <p class="mini" style="margin:8px 0 0">Pick as many ready-made styles as you like. They add to what you wrote.</p>
@@ -5475,7 +5478,7 @@ function aiStudySheet(deckId){
       <fieldset><legend>Difficulty</legend>${seg("aiDiff", [["mixed", "Mixed"], ["easier", "Easier"], ["harder", "Harder"]], "mixed")}</fieldset>
       ${deck ? "" : `<label class="f">Course<select id="aiCourse">${courseSelectHtml(courseId)}</select></label>`}
       ${aiModelBar()}
-      <p class="mini" style="margin:0">${aiCfg().provider === "gemini" ? "On Gemini's free tier, Google may use what you upload to improve its products, so leave out private information such as patient details. " : ""}AI can make mistakes; you can review everything before it's saved.</p>
+      <p class="mini" style="margin:0">${aiCfg().provider === "gemini" ? "On Gemini's free tier, Google may use what you upload to improve its products, so leave out private or sensitive information. " : ""}AI can make mistakes; you can review everything before it's saved.</p>
       <p class="status-msg" id="aiStatus" style="margin:0" aria-live="polite"></p>
     </div>
     <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="aiGo">${AI_ICON} Create</button></div>
@@ -5727,7 +5730,7 @@ function aiQuizzesHtml(d){
   const list = d.aiQuizzes || [];
   const w = weakSpots([d.id]);
   const btn = `<span class="aiq-btns">${w.n ? `<button class="btn small" data-act="fc-weak" data-id="${esc(d.id)}">Weak Spots <span class="n-badge">${w.n}</span></button>` : ""}${d.cards.length >= 3 && !inClaude() ? `<button class="btn small" data-act="fc-case" data-id="${esc(d.id)}">Case Study from Cards</button>` : ""}<button class="btn small ai-btn" data-act="fc-ai" data-id="${esc(d.id)}">${AI_ICON} Create with ${esc(aiWho("AI"))}</button></span>`;
-  if (!list.length) return `<div class="ai-callout">${AI_ICON}<span>Upload lecture slides or notes and let ${esc(aiWho("AI"))} write flashcards and practice questions in the style you want, like NCLEX, with rationales.</span>${btn}</div>`;
+  if (!list.length) return `<div class="ai-callout">${AI_ICON}<span>Upload lecture slides or notes and let ${esc(aiWho("AI"))} write flashcards and practice questions in the style you want, like an AP exam or your professor's midterm, with rationales.</span>${btn}</div>`;
   return `<h3 class="fsec">${AI_ICON}Practice Quizzes<span class="n">${list.length}</span><span class="spacer"></span>${btn}</h3>
     <ul class="aiq-list">${list.slice().reverse().map(qz => { const last = (qz.results || [])[qz.results.length - 1];
       return `<li class="${qz.kind === "case" ? "is-case" : ""}"><div class="aiq-main"><b>${qz.kind === "case" ? `<span class="pill">Case Study</span> ` : ""}${esc(qz.title)}</b><span class="mini">${qz.questions.length} questions${qz.style ? " · " + esc(qz.style.slice(0, 80)) + (qz.style.length > 80 ? "…" : "") : ""}${last ? ` · last score ${last.score}/${last.total}` : ""}</span></div>
@@ -5814,7 +5817,7 @@ function aiSetupSheet(fromFeature){
         <p class="ai-disclaimer mini" id="aiAutoWarn" hidden style="margin:0"></p>
         <button type="button" class="btn small" data-act="auto-panel">What Automatic AI is doing</button>
       </fieldset>
-      <p class="mini" style="margin:0">Your keys are saved on this device only. They are never sent to your Studyboard account, and they're left out of backup files you export. To use AI on another device, add the key there too. On Google's free tier, Google may use what you send to improve its products, so don't upload private information such as patient details.</p>
+      <p class="mini" style="margin:0">Your keys are saved on this device only. They are never sent to your Studyboard account, and they're left out of backup files you export. To use AI on another device, add the key there too. On Google's free tier, Google may use what you send to improve its products, so don't upload private or sensitive information.</p>
     </div>
     <div class="sheet-foot">${c.keys.gemini || c.keys.anthropic || c.keys.openai ? `<button type="button" class="btn danger" id="aiRemove">Turn Off</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="aiSave">Save</button></div>
   </form>`);
@@ -6216,7 +6219,7 @@ function nextUpHtml(F, pre){
 /* ---------- Explain this card or question ---------- */
 const EXPLAIN_SCHEMA = {type: "OBJECT", properties: {
   explanation: {type: "STRING", description: "2 to 4 plain sentences"}, analogy: {type: "STRING"}, memoryTip: {type: "STRING", description: "A mnemonic or memory hook"},
-  example: {type: "STRING", description: "A short real-world or clinical example"}, mistake: {type: "STRING", description: "The common mistake or confusion, if any"}}, required: ["explanation"]};
+  example: {type: "STRING", description: "A short real-world example"}, mistake: {type: "STRING", description: "The common mistake or confusion, if any"}}, required: ["explanation"]};
 // key: "c|deckId|cardId" for a flashcard, "q|deckId|quizId|questionId" for an AI quiz question
 function explainTarget(key){
   const [k, deckId, a, b] = key.split("|"), d = state.decks[deckId]; if (!d) return null;
@@ -6325,7 +6328,7 @@ const CASE_SCHEMA = {type: "OBJECT", properties: {cases: {type: "ARRAY", items: 
     type: {type: "STRING", enum: ["single", "multiple", "order", "truefalse", "short"]}, stem: {type: "STRING"}, options: {type: "ARRAY", items: {type: "STRING"}},
     correct: {type: "ARRAY", items: {type: "INTEGER"}}, answer: {type: "STRING"}, rationale: {type: "STRING"}, optionNotes: {type: "ARRAY", items: {type: "STRING"}}, topic: {type: "STRING"}},
     required: ["type", "stem", "rationale"]}}}, required: ["title", "scenario", "questions"]}}}, required: ["cases"]};
-const CASE_SYSTEM = "You write unfolding case studies that make students apply knowledge to a realistic situation. For nursing or health courses, follow the NCLEX Next Generation style: a client scenario that unfolds over time, with questions that walk through recognizing cues, analyzing cues, prioritizing hypotheses, generating solutions, taking action and evaluating outcomes. For other fields, use a realistic scenario from that field (a patient, a lab, a business, a design problem) that unfolds the same way. Each case has 5 or 6 questions in order. Before each question after the first, 'update' reveals what happens next (time passes, new findings, the result of an action). Use 'single', 'multiple' (select all that apply), and 'order' questions mostly. 'correct' holds zero-based option indexes; for 'order' the indexes in the right order. Every question has a rationale and one short note per option in 'optionNotes'. Base everything on the provided material. Return JSON only.";
+const CASE_SYSTEM = "You write unfolding case studies that make students apply knowledge to a realistic situation. Use a realistic scenario from the course's own field (a lab, a business, a historical event, a design problem, a client or patient for health courses) that unfolds over time, with questions that walk through recognizing what matters, analyzing it, choosing a response, acting and evaluating the outcome. For health courses, the NCLEX Next Generation case style is a good model. Each case has 5 or 6 questions in order. Before each question after the first, 'update' reveals what happens next (time passes, new findings, the result of an action). Use 'single', 'multiple' (select all that apply), and 'order' questions mostly. 'correct' holds zero-based option indexes; for 'order' the indexes in the right order. Every question has a rationale and one short note per option in 'optionNotes'. Base everything on the provided material. Return JSON only.";
 function aiCleanCases(list){
   return (Array.isArray(list) ? list : []).map(c => {
     const qs = aiCleanQuestions(c.questions);
@@ -6471,7 +6474,7 @@ function examPlanSheet(examId){
         <label class="f"><span class="lh">Minutes a Day <span class="hint">suggested ${S.suggest}</span></span><input type="number" id="epMin" min="15" max="480" step="15" value="${S.perDay}"></label></div>
         <div class="ep-days" role="group" aria-label="Study days">${DAY_ABBR.map((l, k) => `<button type="button" data-epday="${k}" aria-pressed="${S.days.includes(k)}">${l}</button>`).join("")}</div>
       </fieldset>
-      <label class="f"><span class="lh">Exam Format <span class="hint">optional</span></span><input type="text" id="epStyle" value="${esc(S.style)}" placeholder="e.g. NCLEX-style, 60 questions, select all that apply" maxlength="200"></label>
+      <label class="f"><span class="lh">Exam Format <span class="hint">optional</span></span><input type="text" id="epStyle" value="${esc(S.style)}" placeholder="e.g. 60 questions, multiple choice and short answer" maxlength="200"></label>
       ${aiReady() ? `<label class="mi-check"><input type="checkbox" id="epAi" checked> ${AI_ICON} Fill each session with specific things to do (AI)</label>${aiModelBar()}` : ""}
       <p class="status-msg" id="epStatus" style="margin:0" aria-live="polite"></p>`;
     foot.innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="epBuild">Build Plan</button>`;
@@ -6860,7 +6863,7 @@ async function autoPlan(a){
       t.notes && !t.prepFor && dayDiff(today, t.due) <= 21 ? `instructions: "${String(t.notes).replace(/\s+/g, " ").slice(0, 260)}"` : ""];
     return bits.filter(Boolean).join(" | ");
   }).join("\n");
-  // The student's week: classes, labs, clinical shifts, focus already done, course standings and fresh announcements
+  // The student's week: classes, labs, placements or work shifts, focus already done, course standings and fresh announcements
   const B = F.busy || {m: {}, what: {}};
   const week = [0, 1, 2, 3].map(i => { const d = addDays(today, i), h = B.m[d] || 0; let items = []; try { items = schOccurrences(d, d).filter(o => !o.skipped && !(o.type === "meet" && o.m && o.m.kind === "Office Hours")).map(o => `${o.label ? o.label + " " : ""}${o.title}${o.start ? " " + o.start + (o.end ? "-" + o.end : "") : " all day"}`).slice(0, 6); } catch(e) {} return `${i === 0 ? "Today" : parse(d).toLocaleDateString("en-US", {weekday: "long"})} ${d}: ${items.length ? items.join("; ") : "nothing scheduled"}${h ? ` (${fmtHM(h)} scheduled, about ${fmtHM(F.day && F.day[i] != null ? F.day[i] : F.dh)} left for study)` : ""}`; }).join("\n");
   const standings = coursesArr().map(c => { const g = courseRisk(c.id); if (!g || !g.marked || !g.marked.length || g.current == null) return ""; return `${courseLabel(c)}: ${Math.round(g.current)}% so far on ${Math.round(g.wMarked)}% of the grade, pass mark ${g.g.pass}%${g.risk ? ` (${g.risk === "risk" ? "at risk" : g.risk === "out" ? "can't reach the pass mark on paper" : "worth watching"})` : ""}`; }).filter(Boolean).join("; ") || "no marks yet";
@@ -6874,7 +6877,7 @@ async function autoPlan(a){
   const skipped = Object.entries(fbw.type).filter(e => e[1] <= -1.5).map(e => e[0]), liked = Object.entries(fbw.type).filter(e => e[1] >= 1.5).map(e => e[0]);
   const doneTodayN = allTasks().filter(t => t.status === "done" && t.doneAt && t.doneAt >= new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()).length;
   const r = await aiCall({task: "plan", auto: true, fast: true, maxTokens: 6000, temperature: 0.2, schema: NEXT_SCHEMA, parts: [{text: `Now: ${now.toLocaleDateString("en-US", {weekday: "long"})} ${today} ${pad(now.getHours())}:${pad(now.getMinutes())}${tz ? " (" + tz + ")" : ""}, ${dayPartOf(now.getHours())}. Study time left today: ${fmtHM(F.th)}${F.doneToday >= 0.25 ? ` (already focused ${fmtHM(F.doneToday)} today)` : ""}; usual per day: ${fmtHM(F.dh)}.${doneTodayN ? ` ${doneTodayN} task${doneTodayN === 1 ? "" : "s"} finished today.` : ""}\nThe next few days:\n${week}\nCourse standings: ${standings}\nRecent announcements from the school site:\n${newsTxt}\nThis student's history: ${hist}. They usually take ${L.ratio.toFixed(2)}x their own estimates.${peak ? ` They usually study around ${peak}.` : ""}${skipped.length ? ` They often skip suggestions of these types: ${skipped.join(", ")}.` : ""}${liked.length ? ` They usually accept: ${liked.join(", ")}.` : ""}\nOpen tasks (already ranked by the planner; "rank" 1 is its top choice; days are counted from today):\n${lines}`}],
-    system: "You're an expert study planner working quietly inside a student's planner app. The tasks come pre-ranked by the app's own planner (rank, planner score, days away); treat that ranking as a strong default and only move a task up or down with a concrete reason from the data, never invent a task or id. Using the tasks, the time of day, the time left today and the student's own history: (1) choose up to 5 tasks to work on right now, best first (deadlines come first: never put a task due weeks away ahead of one due in the next few days that still needs work, unless the far one is a big task that needs most of the time left before it; grade weight only breaks ties between similar deadlines), each with a one-sentence reason that's specific (deadline, grade weight, how much is left, what it unblocks, energy for the time of day), a concrete first step, and sensible session minutes (never pick an exam or quiz itself, since it happens at a set time; pick its study tasks instead); skip BLOCKED tasks. (2) Estimate total hours for tasks marked 'no estimate', leaning on how long this student's past tasks took. (3) For started tasks, estimate hours of work left, counting their focus time and progress and their tendency to underestimate. (4) For each exam or quiz, judge readiness 0 to 100 from study sessions done, flashcard mastery and quiz scores, with a short note. (5) Heads up: up to 3 real things the student could miss, read from the instructions, the announcements, the schedule and the standings (an earlier draft or pre-lab deadline, a changed due date or room, a full clinical day right before a deadline, a course near its pass mark); leave it empty rather than state the obvious. (6) Rate how demanding tasks marked 'difficulty not set' look. Consider the schedule: long class or clinical days leave little study time, so plan around them and favour short tasks just before a class. Late submissions: a task that still accepts late work is less urgent than one that closes at the due time, but never suggest planning to be late. Use the refs exactly (t1, t2...). Return JSON only."});
+    system: "You're an expert study planner working quietly inside a student's planner app. The tasks come pre-ranked by the app's own planner (rank, planner score, days away); treat that ranking as a strong default and only move a task up or down with a concrete reason from the data, never invent a task or id. Using the tasks, the time of day, the time left today and the student's own history: (1) choose up to 5 tasks to work on right now, best first (deadlines come first: never put a task due weeks away ahead of one due in the next few days that still needs work, unless the far one is a big task that needs most of the time left before it; grade weight only breaks ties between similar deadlines), each with a one-sentence reason that's specific (deadline, grade weight, how much is left, what it unblocks, energy for the time of day), a concrete first step, and sensible session minutes (never pick an exam or quiz itself, since it happens at a set time; pick its study tasks instead); skip BLOCKED tasks. (2) Estimate total hours for tasks marked 'no estimate', leaning on how long this student's past tasks took. (3) For started tasks, estimate hours of work left, counting their focus time and progress and their tendency to underestimate. (4) For each exam or quiz, judge readiness 0 to 100 from study sessions done, flashcard mastery and quiz scores, with a short note. (5) Heads up: up to 3 real things the student could miss, read from the instructions, the announcements, the schedule and the standings (an earlier draft or pre-lab deadline, a changed due date or room, a full lab, placement or work day right before a deadline, a course near its pass mark); leave it empty rather than state the obvious. (6) Rate how demanding tasks marked 'difficulty not set' look. Consider the schedule: long class, lab or placement days leave little study time, so plan around them and favour short tasks just before a class. Late submissions: a task that still accepts late work is less urgent than one that closes at the due time, but never suggest planning to be late. Use the refs exactly (t1, t2...). Return JSON only."});
   const d = r.data || {}, changes = [];
   // Only real, open, unblocked, non-exam tasks, once each: anything the model invents or repeats is dropped (nextUp falls back to the planner's own ranking)
   const next = autoCleanNext(d.next, back, id => { const t = state.tasks[id]; return !!t && t.status !== "done" && !MILESTONE(t.type) && !blockers(t).length; });
@@ -8949,7 +8952,7 @@ const weightOf = t => hasWeight(t) ? Number(t.weight) : t.prepFor && state.tasks
 
 /* ---------- What the planner knows beyond the task itself (1.11) ----------
    - School sync (Brightspace, Canvas, Blackboard): when submissions close (late window), points, instructions.
-   - Your Schedule: classes, labs and clinical days make some days much shorter for study.
+   - Your Schedule: classes, labs and placement days make some days much shorter for study.
    - The Grade Tracker's standing per course goes to the AI (90-grades.js boosts courses near the pass mark itself).
    - Focus time already done today comes off today's time. */
 const lmsOf = t => (t && (t.bs || t.cv || t.bb)) || null;
@@ -8971,8 +8974,8 @@ function pointsWeights(){
   Object.values(by).forEach(b => { if (b.weighted || b.items.length < 3) return; const sum = b.items.reduce((s, x) => s + x[1], 0); if (sum > 0) b.items.forEach(([id, o]) => { out[id] = Math.max(0.5, Math.min(60, o / sum * 100)); }); });
   return out;
 }
-// Hours already taken up each day by classes, labs, clinical shifts and events (office hours don't count)
-const CLINICAL_RX = /clinical|practicum|placement|preceptor|\bshift\b|practice (day|experience)|hospital|sim(ulation)? lab|site visit/i;
+// Hours already taken up each day by classes, labs, placements, work shifts and events (office hours don't count)
+const CLINICAL_RX = /clinical|practicum|placement|internship|co-?op|field ?work|preceptor|\bshift\b|practice (day|experience)|hospital|sim(ulation)? lab|site visit/i;
 let BUSY_CACHE = {k: "", m: {}, what: {}};
 function busyDays(from, to){
   const k = from + "|" + to + "|" + (state.updated || 0);
@@ -8993,7 +8996,7 @@ function busyDays(from, to){
   BUSY_CACHE = {k, m, what};
   return BUSY_CACHE;
 }
-// A typical class day leaves your usual study time; a long day (a clinical shift) leaves much less
+// A typical class day leaves your usual study time; a long day (a lab, placement or work shift) leaves much less
 const busyFactor = h => Math.max(0.3, Math.min(1, 1 - Math.max(0, h - 3) / 8));
 const courseRisk = cid => { try { const g = window.__sbGrades && cid && courseOf(cid) ? window.__sbGrades.courseGrade(cid) : null; return g || null; } catch(e) { return null; } };
 // Instructions that mention an earlier step with its own deadline (a draft, a pre-lab, a sign-up...)
@@ -9021,7 +9024,7 @@ function dueDayFrac(t){
   return t.time < "12:00" ? 0 : t.time < "18:00" ? 0.4 : 0.75;
 }
 // Study hours available from now until the task is due. cum[i] = hours from today through day i-1 (day 0 is today's time left);
-// each later day is your usual study time, less on long class or clinical days.
+// each later day is your usual study time, less on long class, lab or placement days.
 function capacityUntil(t, today, dh, th, cum, day){
   const dl = dayDiff(today, t.due);
   if (dl < 0) return 0;
@@ -9095,7 +9098,7 @@ function computeFocus(){
     if (x.own >= 1 && x.dl >= 0) mul(1.15, "fit");                          // won't fit unless it gets time now
     x.early = !ms && x.dl >= 1 && EARLY_STEP_RX.test(t.notes || "");
     if (x.early) mul(1.06);
-    // A long day (like a clinical shift) coming up before it's due: better to get ahead now
+    // A long day (like a placement or work shift) coming up before it's due: better to get ahead now
     const fullDay = [1, 2].map(i => addDays(today, i)).find(d => d <= t.due && (B.m[d] || 0) >= 7);
     if (fullDay && x.dl >= 1 && x.dl <= 4 && x.R > 0) { mul(1.12); x.fullDay = fullDay; }
     if (ms && x.dl >= 0 && x.dl <= 7) mul(1.1);                               // study for exams across the week before, not the night before
@@ -9245,8 +9248,8 @@ function focusHtml(){
         ${nLater ? `<h3 class="fsec">Not Started Yet</h3><ul class="plan-list">${F.later.filter(inView).map((x, i) => planRow(x, i, true, true)).join("")}</ul>` : ""}
       </div>` : ""}
       <div class="plan-how" id="plan-how" role="region" aria-label="How This Is Ranked"${howOpen ? "" : " hidden"}>
-        <p><b>Deadlines come first.</b> Each task's score starts from how close its exact due time is: something due tomorrow counts about five times as much as something due in a week, and dozens of times more than something due in a month. Anything due in the next week always stays above work due 10 or more days after it. The one exception is a big task that needs most of your study time before its deadline (or more than you have), which climbs early so it gets started in time. <b>Grade weight</b> then fine-tunes the order between similar deadlines (a 40% project counts about twice a 1% reading, not more). After that it adjusts for your priority, the late-work policy, tasks already in progress or nearly done, small tasks due soon, hard tasks, work left alone for days, a full clinical or class day coming up, and tasks that others depend on.</p>
-        <p>${aiWho() ? `${esc(aiWho())}, your study companion, uses this ranking to choose Do This Next and the ideas it offers you.${AUTO_ON ? ` With automatic AI on, ${esc(aiWho())} also does the AI work for you and signs it with its face.` : ""} ` : ""}Today's time is split in score order. Each task gets its fair share of the days left before it's due, more if it can't fit otherwise. Hard tasks are front-loaded, and exam studying is spread over the week before. Work left comes from your hours estimate and progress, minus time you've already spent in focus sessions. When a task has no estimate, Studyboard uses how long your past tasks of that type actually took, and if you usually take longer than you estimate, it allows for that. <b>Do This Next</b> picks from the top of the ranking for right now: something due later today first, what you were just working on, hard tasks in the morning, and shorter ones late at night.${AUTO_ON ? " <b>Automatic AI is on</b>, so the AI also reads your whole list a few times a day: it picks Do This Next and the alternatives, estimates hours for tasks you didn't estimate (using how long your past tasks took), estimates the work left on started tasks from your focus time and progress, judges how ready you are for each exam from your study sessions, flashcards and quizzes, tunes the next study sessions to what you keep missing, and prepares the practice test for practice days. Marked with ✦." : ""} For exams and quizzes it comes from difficulty, grade weight and how prepared you are. It also reads your Schedule (long class, lab and clinical days leave less study time, and it suggests something short when a class is coming up), takes off the focus time you've already done today, and uses what school sync knows: when late submissions close, how many points each item is worth when the gradebook isn't weighted, and word or page counts in the instructions for time estimates. Exams and quizzes are never Do This Next; their study sessions are.${AUTO_ON ? " The AI also reads your instructions, recent announcements, your schedule and your course standings, and lists anything easy to miss under Heads Up." : ""} Set your usual study hours per day in Settings.</p>
+        <p><b>Deadlines come first.</b> Each task's score starts from how close its exact due time is: something due tomorrow counts about five times as much as something due in a week, and dozens of times more than something due in a month. Anything due in the next week always stays above work due 10 or more days after it. The one exception is a big task that needs most of your study time before its deadline (or more than you have), which climbs early so it gets started in time. <b>Grade weight</b> then fine-tunes the order between similar deadlines (a 40% project counts about twice a 1% reading, not more). After that it adjusts for your priority, the late-work policy, tasks already in progress or nearly done, small tasks due soon, hard tasks, work left alone for days, a full placement or class day coming up, and tasks that others depend on.</p>
+        <p>${aiWho() ? `${esc(aiWho())}, your study companion, uses this ranking to choose Do This Next and the ideas it offers you.${AUTO_ON ? ` With automatic AI on, ${esc(aiWho())} also does the AI work for you and signs it with its face.` : ""} ` : ""}Today's time is split in score order. Each task gets its fair share of the days left before it's due, more if it can't fit otherwise. Hard tasks are front-loaded, and exam studying is spread over the week before. Work left comes from your hours estimate and progress, minus time you've already spent in focus sessions. When a task has no estimate, Studyboard uses how long your past tasks of that type actually took, and if you usually take longer than you estimate, it allows for that. <b>Do This Next</b> picks from the top of the ranking for right now: something due later today first, what you were just working on, hard tasks in the morning, and shorter ones late at night.${AUTO_ON ? " <b>Automatic AI is on</b>, so the AI also reads your whole list a few times a day: it picks Do This Next and the alternatives, estimates hours for tasks you didn't estimate (using how long your past tasks took), estimates the work left on started tasks from your focus time and progress, judges how ready you are for each exam from your study sessions, flashcards and quizzes, tunes the next study sessions to what you keep missing, and prepares the practice test for practice days. Marked with ✦." : ""} For exams and quizzes it comes from difficulty, grade weight and how prepared you are. It also reads your Schedule (long class, lab and placement days leave less study time, and it suggests something short when a class is coming up), takes off the focus time you've already done today, and uses what school sync knows: when late submissions close, how many points each item is worth when the gradebook isn't weighted, and word or page counts in the instructions for time estimates. Exams and quizzes are never Do This Next; their study sessions are.${AUTO_ON ? " The AI also reads your instructions, recent announcements, your schedule and your course standings, and lists anything easy to miss under Heads Up." : ""} Set your usual study hours per day in Settings.</p>
       <${"!--"}plan-how-end--></div>` : ""}
   </section>`;
 }
@@ -9919,7 +9922,7 @@ function icsHelpSheet(){
 /* ---------- Daily quote and progress streak ---------- */
 const DAILY_QUOTES = [
   ["You're not behind. You're exactly where your next step starts.", ""],
-  ["Every patient you'll ever help is part of why today's studying matters.", ""],
+  ["Every person you'll ever help is part of why today's studying matters.", ""],
   ["You may encounter many defeats, but you must not be defeated.", "Maya Angelou"],
   ["Courage doesn't always roar. Sometimes it's the quiet voice at the end of the day saying, “I will try again tomorrow.”", "Mary Anne Radmacher"],
   ["You've already done hard things to get here. This is just the next one.", ""],
@@ -9934,7 +9937,7 @@ const DAILY_QUOTES = [
   ["One task at a time. You're allowed to make it that simple.", ""],
   ["Focus on progress, not perfection.", ""],
   ["You are more capable than you feel right now.", ""],
-  ["Every nurse you look up to once sat exactly where you're sitting.", ""],
+  ["Everyone you look up to once sat exactly where you're sitting.", ""],
   ["Consistency beats intensity. Showing up today is the win.", ""],
   ["Twenty focused minutes can change how your whole day feels.", ""],
   ["Your only competition is who you were yesterday, and you're already ahead.", ""],
@@ -9956,7 +9959,7 @@ const DAILY_QUOTES = [
   ["You gain strength, courage and confidence by every experience in which you really stop to look fear in the face.", "Eleanor Roosevelt"],
   ["Teach it to someone else today, and watch it finally click.", ""],
   ["Tiny habits, huge results.", ""],
-  ["Be the student your future patients will be grateful for.", ""],
+  ["Be the student your future self will be grateful for.", ""],
   ["Confusion isn't a wall. It's the door learning comes through.", ""],
   ["Keep going. Every step counts, even the wobbly ones.", ""],
   ["It's okay to go slow, as long as you keep going.", ""],
@@ -9970,17 +9973,17 @@ const DAILY_QUOTES = [
   ["The expert in anything was once a beginner.", "Helen Hayes"],
   ["Be kind to yourself. You're doing better than you think.", ""],
   ["You chose a career of caring for people. Care for yourself on the way there.", ""],
-  ["Nobody is born knowing pharmacology. Everybody who knows it learned it one card at a time.", ""],
-  ["The fact that you're trying means you care. That's the heart of a good nurse.", ""],
+  ["Nobody is born knowing it all. Everybody who knows it learned it one card at a time.", ""],
+  ["The fact that you're trying means you care. That's the heart of a good student.", ""],
   ["You don't have to be great to start, but you have to start to be great.", ""],
-  ["Clinical nerves mean you take it seriously. That's a strength.", ""],
+  ["Exam nerves mean you take it seriously. That's a strength.", ""],
   ["One good hour of focus is worth more than a whole day of worrying.", ""],
   ["You're not starting over. You're starting with experience.", ""],
   ["The work you do now is what you'll lean on when it really counts.", ""],
   ["Today's effort is tomorrow's confidence.", ""],
   ["You belong in this program. Keep proving it to yourself.", ""],
   ["Finish one thing today and let that be enough to feel good about.", ""],
-  ["Someday a patient will be calmer because you knew exactly what to do. Today builds that.", ""],
+  ["Someday you'll be glad you knew exactly what to do. Today builds that.", ""],
   ["Every chapter you finish makes the next one easier.", ""],
   ["Energy follows action. Start small and it'll come.", ""],
   ["Bad days don't cancel out good progress.", ""]
@@ -27110,7 +27113,9 @@ var MAJ_THEMES = [];
     pulmonary: ["lung", "respiratory"], lung: ["pulmonary"], lungs: ["pulmonary"], respiratory: ["breathing"],
     exam: ["test", "midterm", "final"], test: ["exam", "quiz"], midterm: ["exam"], final: ["exam"], hw: ["homework", "assignment"], homework: ["assignment"],
     assignment: ["homework"], paper: ["essay"], essay: ["paper"], due: ["deadline"], deadline: ["due"], cough: ["coughing"], pain: ["analgesic"],
-    analgesic: ["pain"], fever: ["pyrexia", "temperature"], nausea: ["antiemetic", "vomiting"], lecture: ["class"], clinical: ["placement", "shift"], placement: ["clinical"]
+    analgesic: ["pain"], fever: ["pyrexia", "temperature"], nausea: ["antiemetic", "vomiting"], lecture: ["class"], clinical: ["placement", "shift"], placement: ["clinical", "internship"], internship: ["placement"],
+    calc: ["calculus"], calculus: ["calc", "derivative", "integral"], bio: ["biology"], biology: ["bio"], chem: ["chemistry"], chemistry: ["chem"], psych: ["psychology"], psychology: ["psych"],
+    econ: ["economics"], economics: ["econ"], stats: ["statistics"], statistics: ["stats"], lit: ["literature"], lab: ["laboratory", "practical"], practical: ["lab"]
   };
   function hash(s){
     let a = 0x811c9dc5, b = 0x9747b28c ^ s.length;
@@ -27880,7 +27885,7 @@ var MAJ_THEMES = [];
     return [t.title, [kind ? (kind === "quiz" ? "Quiz" : "Exam") : t.type, courseTag(D, t)].filter(Boolean).join(", "), `due ${rel(n)}${clock(t.time) ? " at " + clock(t.time) : ""}`, hasWeight(t) ? `${t.weight}%` : "", t.prepFor ? "study session" : ""].filter(Boolean).join(" | ");
   }
   const GENERIC_NAME = new Set("introduction intro principles fundamentals course studies applied advanced general topics".split(" "));
-  // Which courses the question names (by code like "pharm 101" or by a word from the name). Ties are kept.
+  // Which courses the question names (by code like "bio 101" or by a word from the name). Ties are kept.
   function coursesInQ(D, q){
     const qt = toks(q).filter(x => !STOP.has(x)), qs = new Set(qt), flat = fold(q).replace(/[^a-z0-9]/g, "");
     const pre = w => w.length >= 3 && qt.some(x => x.length >= 3 && (x.startsWith(w) || w.startsWith(x)));
@@ -28258,7 +28263,7 @@ Return JSON only.`;
       if (inClaude()) h += `<div class="sx-callout">${AI_ICON}<span>Ask With AI works in the Studyboard app and on your website. Here it finds related things by their words.</span></div>`;
       else if (!aiReady() && !semOn()) h += `<div class="sx-callout">${AI_ICON}<span>Set up AI to search by meaning and get short answers from your own notes and files. It's free with a Google Gemini key. For now, this finds related words.</span><button type="button" class="btn small ai-btn" data-sx="setup">Set Up AI</button></div>`;
       else if (!semOn() && aiReady()) h += `<div class="sx-callout">${AI_ICON}<span>Search by meaning needs a free Gemini key. Your current AI can still answer from what word search finds.</span><button type="button" class="btn small" data-sx="setup">Add a Gemini Key</button></div>`;
-      if (!fresh) h += q ? `<p class="sx-hint">Press Enter to ask. You can describe it in your own words, like “the slide about ACE inhibitors and cough”.</p>` : `<p class="sx-hint">Describe what you're looking for in your own words, like “the slide about ACE inhibitors and cough” or “when is my pharm midterm”.</p>`;
+      if (!fresh) h += q ? `<p class="sx-hint">Press Enter to ask. You can describe it in your own words, like “the slide about photosynthesis and light”.</p>` : `<p class="sx-hint">Describe what you're looking for in your own words, like “the slide about photosynthesis and light” or “when is my bio midterm”.</p>`;
     }
     if (fresh && S.mode === "ask") {
       if (A.state === "search") h += (A.answer && A.answer.det ? ansBox(A, A.answer) : "") + `<div class="sx-ans busy"><span class="sx-dots" aria-hidden="true"><i></i><i></i><i></i></span>Looking through your things…</div>`;
@@ -28585,8 +28590,8 @@ Return JSON only.`;
       ${list}
       <div class="ob-cadd">
         <div class="ob-cfields">
-          <label class="f ob-code">Course Code<input type="text" id="obCode" maxlength="30" placeholder="e.g. BSNC 1110" autocomplete="off" data-noenter></label>
-          <label class="f ob-name">Course Name<input type="text" id="obName" maxlength="120" placeholder="e.g. Health Assessment" autocomplete="off" data-noenter></label>
+          <label class="f ob-code">Course Code<input type="text" id="obCode" maxlength="30" placeholder="e.g. BIOL 101" autocomplete="off" data-noenter></label>
+          <label class="f ob-name">Course Name<input type="text" id="obName" maxlength="120" placeholder="e.g. Biology 101" autocomplete="off" data-noenter></label>
         </div>
         <div class="ob-crow">
           <div class="swatches ob-sw" role="radiogroup" aria-label="Course color">${COLORS.map((x, i) => `<label><input type="radio" name="obColor" value="${x}" ${x === newColor ? "checked" : ""} aria-label="Color ${i + 1}"><span style="--c:${x}"></span></label>`).join("")}</div>
@@ -31730,7 +31735,7 @@ const RM_CORE = (() => {
   function eventSheet(g){
     const tom = addDays(todayISO(), 1);
     openSheet(`<form class="sheet">${head("Propose a Study Session")}<div class="sheet-body">${REQ_NOTE}
-      <label class="f"><span class="lh">What Will You Study? ${REQ}</span><input type="text" name="title" required maxlength="120" autofocus placeholder="e.g. Pharm midterm review"></label>
+      <label class="f"><span class="lh">What Will You Study? ${REQ}</span><input type="text" name="title" required maxlength="120" autofocus placeholder="e.g. Biology midterm review"></label>
       <div class="two"><label class="f"><span class="lh">Day ${REQ}</span><input type="date" name="date" required value="${tom}" min="${todayISO()}"></label>
       <label class="f"><span class="lh">Time ${REQ}</span><input type="time" name="time" required value="18:00"></label></div>
       <label class="f"><span class="lh">Where <span class="hint">optional</span></span><input type="text" name="where" maxlength="120" placeholder="e.g. Library room 204, or a video call link"></label>
@@ -32019,8 +32024,8 @@ const RM_CORE = (() => {
     const edit = !!g;
     const opts = coursesArr().map(c => `<option value="${esc(courseLabel(c))}">${esc(c.name)}</option>`).join("");
     openSheet(`<form class="sheet">${head(edit ? "Edit Group" : "New Study Group")}<div class="sheet-body">${REQ_NOTE}
-      <label class="f"><span class="lh">Group Name ${REQ}</span><input type="text" name="name" required maxlength="80" value="${esc(edit ? g.name : "")}" autofocus placeholder="e.g. Pharm Study Squad"></label>
-      <label class="f"><span class="lh">Course <span class="hint">optional</span></span><input type="text" name="course" maxlength="80" list="grpCourses" value="${esc(edit ? g.course : (ui.filter !== "all" && courseOf(ui.filter) ? courseLabel(courseOf(ui.filter)) : ""))}" placeholder="e.g. BSNC 1120"><datalist id="grpCourses">${opts}</datalist></label>
+      <label class="f"><span class="lh">Group Name ${REQ}</span><input type="text" name="name" required maxlength="80" value="${esc(edit ? g.name : "")}" autofocus placeholder="e.g. Biology Study Squad"></label>
+      <label class="f"><span class="lh">Course <span class="hint">optional</span></span><input type="text" name="course" maxlength="80" list="grpCourses" value="${esc(edit ? g.course : (ui.filter !== "all" && courseOf(ui.filter) ? courseLabel(courseOf(ui.filter)) : ""))}" placeholder="e.g. PSYC 101"><datalist id="grpCourses">${opts}</datalist></label>
       ${edit ? `<label class="f"><span class="lh">Weekly Focus Goal <span class="hint">optional, minutes per member</span></span><input type="number" name="goal" min="0" max="10080" step="15" inputmode="numeric" value="${Number(g.weekly_goal) || ""}" placeholder="e.g. 120 (leave empty for no goal)"></label>` : ""}
       ${edit ? `<div class="cap-row"><span style="flex:1;font-weight:600">Invite Code<span class="sub">${esc(g.invite_code)}. Make a new one if the old code got passed around. The old link stops working.</span></span><button type="button" class="btn small" id="grpNewCode">New Code</button></div>` : `<p class="mini" style="margin:0">You'll get an invite link and code to send to classmates. You can rename the group, remove members or delete it later.</p>`}</div>
       <div class="sheet-foot">${edit ? `<button type="button" class="btn danger" id="grpDel">Delete Group</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit id="grpSave">${edit ? "Save" : "Create Group"}</button></div></form>`, fd => {
@@ -32717,7 +32722,7 @@ const RM_CORE = (() => {
         <p style="margin:0"><b>${esc(c.name)}</b>${c.code ? ` <span class="mini">${esc(c.code)}</span>` : ""}</p>
         <div class="gr-passbox">
           <label class="f"><span class="lh">Pass Mark <span class="hint">% needed to pass this course</span></span><input type="number" name="pass" min="0" max="100" step="0.5" inputmode="decimal" value="${esc(r1(g.pass))}" required></label>
-          <p class="mini" style="margin:0">Many BCIT nursing courses need a minimum grade to pass, and some need a pass on each part (like the exams). Check your course outline and set it here.</p>
+          <p class="mini" style="margin:0">Many courses need a minimum grade to pass, and some need a pass on each part (like the exams). Check your course outline and set it here.</p>
         </div>
         <label class="f"><span class="lh">Your Goal <span class="hint">optional, the final grade you're aiming for</span></span><input type="number" name="goal" min="0" max="100" step="0.5" inputmode="decimal" value="${g.goal != null ? esc(r1(g.goal)) : ""}" placeholder="e.g. 80"></label>
         <label class="f"><span class="lh">Letter Scale <span class="hint">one per line, the lowest percent for each letter</span></span><textarea name="scale" rows="6" data-noenter class="gr-scale-in">${esc(scaleText(g.scale))}</textarea></label>
@@ -32971,7 +32976,7 @@ const RM_CORE = (() => {
       const h = p.heavy.t, tm = new Date().getHours() >= 17 ? addDays(p.w.today, 1) : p.w.today;
       const due = h.due < tm ? h.due : tm;
       const x = newTask({title: `Talk to your instructor about an extension: ${h.title}`, courseId: h.courseId, type: "Other", start: p.w.today, due, hours: 0.25, priority: "high", extFor: h.id,
-        notes: `Reach out before it's due. Say briefly what's making this week hard and suggest a new date that works for you. If you're struggling more broadly, BCIT's student support services can help too.`});
+        notes: `Reach out before it's due. Say briefly what's making this week hard and suggest a new date that works for you. If you're struggling more broadly, your school's student support services can help too.`});
       ch.push({kind: "task", id: x.id, after: x});
     }
     return ch;
@@ -32998,7 +33003,7 @@ Moving later: ${p.sugg.filter(s => s.on).map(s => `${nm(s.t)}: ${s.label}`).join
 ${p.ext && p.heavy ? `Adding a reminder to ask for an extension on ${nm(p.heavy.t)}.` : ""}`;
     try {
       const r = await aiCall({task: "rewrite", fast: true, maxTokens: 1200, temperature: 0.5, schema: {type: "OBJECT", properties: {summary: {type: "STRING"}}, required: ["summary"]},
-        parts: [{text}], system: "You're a kind, practical study coach for a nursing student having a heavy week. Write 3 to 5 short sentences in plain, warm words: what to protect first, what was moved and why that's okay, and one small first step for today. No lists, no em dashes, no medical or academic-policy claims, and don't invent tasks or dates. Return JSON only."});
+        parts: [{text}], system: "You're a kind, practical study coach for a student having a heavy week. Write 3 to 5 short sentences in plain, warm words: what to protect first, what was moved and why that's okay, and one small first step for today. No lists, no em dashes, no medical or academic-policy claims, and don't invent tasks or dates. Return JSON only."});
       const s = String((r.data || {}).summary || "").replace(/\s*[—–]\s*/g, ", ").trim();
       if (dlg.open && $("#rwAiOut")) $("#rwAiOut").textContent = s || "The AI didn't send anything back. Try again.";
     } catch(e) {
@@ -33124,7 +33129,7 @@ var SBEST = (() => {
     S.busy = true; S.msg = ""; draw(true);
     try {
       const r = await aiCall({task: "estimate", fast: true, maxTokens: 3000, temperature: 0.2, schema: EST_SCHEMA_ALL, parts: [{text: `Tasks (ref: title | type | course | due | extra):\n${lines.join("\n")}\n\nThis student's history (focused time actually spent): ${hist}. They take about ${Lr.ratio.toFixed(2)}x their own estimates.`}],
-        system: "For each task, estimate the hours of focused work it will take this nursing or health student, using their history when relevant and otherwise typical times for a college student. Round to the nearest quarter hour. Return JSON only, one estimate per ref."});
+        system: "For each task, estimate the hours of focused work it will take this student, using their history when relevant and otherwise typical times for a college student. Round to the nearest quarter hour. Return JSON only, one estimate per ref."});
       let n = 0;
       ((r.data && r.data.estimates) || []).forEach(x => { const id = back[String(x.ref || "").trim()], h = Number(x.hours); if (id && h > 0 && h <= 200) { S.sug[id] = {h: Math.max(0.25, Math.round(h * 4) / 4), ai: true}; n++; } });
       S.msg = n ? `The AI suggested times for ${n} task${n === 1 ? "" : "s"}. Tap Use All Suggestions to keep them, or pick your own.` : "The AI couldn't estimate these. The suggestions shown are from your own history.";
@@ -33673,7 +33678,7 @@ window.SBEST = SBEST;
       let r;
       try {
         r = await aiCall({task: "news", auto: !manual, fast: true, maxTokens: 2000, schema: NEWS_SCHEMA,
-          system: "You read course announcements for a nursing student and pull out only concrete dates: new deadlines, tests, or changes to due dates. Ignore anything without a specific date. Return JSON only. If there is nothing, return an empty list.",
+          system: "You read course announcements for a student and pull out only concrete dates: new deadlines, tests, or changes to due dates. Ignore anything without a specific date. Return JSON only. If there is nothing, return an empty list.",
           parts: [{text: `Today is ${todayISO()} (${new Date().toLocaleDateString(undefined, {weekday: "long"})}).\nCourse: ${course ? course.name + (course.code ? " (" + course.code + ")" : "") : "unknown"}\nTasks already listed:\n${ts.map(t => `- ${t.title}: due ${t.due}${t.time ? " " + t.time : ""}`).join("\n") || "(none)"}\n\nAnnouncement "${n.title}" posted ${n.date ? String(n.date).slice(0, 10) : ""}:\n${n.text}`}]});
       } catch(e) { if (manual) throw e; break; }
       scanned.push(n.ou + "|" + n.id);
@@ -48607,13 +48612,13 @@ var COMP_KIT = (() => {
     ].join("\n");
     return {text, refs, dueWeek};
   }
-  const VOICE = `You are the voice of a small, cute study companion character who lives in a student planner app used by nursing and health students. You get a summary of the student's day and the character's personality. Reply with JSON only.
+  const VOICE = `You are the voice of a small, cute study companion character who lives in a student planner app used by students of all subjects. You get a summary of the student's day and the character's personality. Reply with JSON only.
 Rules for every line: natural spoken English with lots of genuine enthusiasm, like the student's biggest, most excited fan. Bubbly, upbeat and celebratory, with the character's personality and its own little sounds where they fit (one per line at most). Exclamation marks are welcome (one or two per line). Celebrate finished work BIG. During focus sessions and late at night, stay excited but softer. Short and clear: every line must make sense on its own, with no inside jokes, no strained or forced puns (a light pun only if it lands instantly), no slang or meme speak, no baby talk, no flirting. Never nag, never guilt, never mention failing, being behind, grades or weight. No em dashes or en dashes, no ellipses, no lists, no emoji, no quotes, plain text only.
-Good examples: "WOO! That's one off the list!" "Pharm quiz tomorrow! Quick card round together?" "Good morning! Let's make today awesome!" "Go go go! I'm cheering right here!" "It's late! Rest is a win too."`;
+Good examples: "WOO! That's one off the list!" "Bio quiz tomorrow! Quick card round together?" "Good morning! Let's make today awesome!" "Go go go! I'm cheering right here!" "It's late! Rest is a win too."`;
   const PLAN_SYSTEM = VOICE + `
-Write 8 to 12 short lines, each tagged with when to say it: tap (any time the student taps it), focus (during a focus session), task (just after finishing a task), morning, evening, exam (an exam or quiz is close), streak (the student has a study streak), rest (late at night or after lots of focus: gently suggest a break or sleep). Each under 60 characters, specific to the summary when it helps ("Pharm quiz tomorrow. Want a quick card round?"). Nothing clinical or medical (no patients, blood, needles, illness). Pick a mood for the day. Optionally offer one small idea the student could say yes to: a focus session on one of the next deadlines (action "focus" with its ref, like t1), or reviewing flashcards (action "review"); use "none" if nothing fits.`;
+Write 8 to 12 short lines, each tagged with when to say it: tap (any time the student taps it), focus (during a focus session), task (just after finishing a task), morning, evening, exam (an exam or quiz is close), streak (the student has a study streak), rest (late at night or after lots of focus: gently suggest a break or sleep). Each under 60 characters, specific to the summary when it helps ("Bio quiz tomorrow. Want a quick card round?"). Nothing clinical or medical (no patients, blood, needles, illness). Pick a mood for the day. Optionally offer one small idea the student could say yes to: a focus session on one of the next deadlines (action "focus" with its ref, like t1), or reviewing flashcards (action "review"); use "none" if nothing fits.`;
   const PACK_SYSTEM = VOICE + `
-Write lines for the moments listed under "Moments", 2 lines for each, tagged with its "about" value. Each under 60 characters and specific to the moment (name the finished task in a friendly short way, like "Drug cards DONE! That was a big one!"). Nothing clinical or medical.`;
+Write lines for the moments listed under "Moments", 2 lines for each, tagged with its "about" value. Each under 60 characters and specific to the moment (name the finished task in a friendly short way, like "Bio cards DONE! That was a big one!"). Nothing clinical or medical.`;
   const ASK_SYSTEM = VOICE + `
 The student typed a short question to the companion. Answer in one or two short sentences, under 200 characters, in character and full of excitement to help. Use the summary for questions about what to do next (suggest one of the next deadlines, and set action "focus" with its ref, or "review" for flashcards). If they ask to be quizzed, ask one short study question that fits one of their courses or deadlines, and don't give the answer yet. Be accurate and gentle; for anything about their health, safety or real clinical decisions, kindly suggest they talk to their instructor or a professional. Don't make things up about their schedule.`;
 
@@ -50606,7 +50611,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       ${room.goal ? `<p class="room-goal"><span class="mini">Goal</span> ${esc(room.goal)}</p>` : ""}
       ${peopleHtml(list, false)}
       <div class="room-join">
-        <input type="text" id="roomGoalIn" maxlength="80" aria-label="Your goal for this session (optional)" placeholder="Your goal (optional), like Pharm chapter 5" autocomplete="off">
+        <input type="text" id="roomGoalIn" maxlength="80" aria-label="Your goal for this session (optional)" placeholder="Your goal (optional), like Biology chapter 5" autocomplete="off">
         <button class="btn primary" data-act="room-join" data-id="${esc(room.id)}" ${full ? "disabled" : ""}>${again ? "Rejoin" : "Join"}</button>
       </div>
       <p class="room-seats mini">${full ? `The room is full (${lim.people} people).${lim.paywall && !lim.pro ? " The group owner can go Pro for rooms of up to " + LIMITS.pro.people + "." : ""}` : `${plural(list.length, "person", "people")} studying · room for ${lim.people}`}</p>
@@ -50865,7 +50870,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       <p style="margin:0">Everyone in <b>${esc(g.name || "the group")}</b> who has Studyboard open gets a gentle note, and can join any time before it ends.</p>
       <fieldset><legend>Length</legend><div class="seg room-lens">${LENGTHS.map(v => opt(v, v + " Min", v === def)).join("")}<label><input type="radio" name="len" value="custom"><span>Custom</span></label></div></fieldset>
       <label class="f" id="roomCustomL" hidden><span class="lh">Minutes</span><input type="number" name="custom" min="5" max="${lim.minutes}" step="5" value="${Math.min(45, lim.minutes)}" inputmode="numeric"></label>
-      <label class="f"><span class="lh">Your Goal <span class="hint">optional</span></span><input type="text" name="goal" maxlength="80" value="${esc(R.mine && R.mine.goal || "")}" placeholder="e.g. Pharm chapter 5" autocomplete="off"></label>
+      <label class="f"><span class="lh">Your Goal <span class="hint">optional</span></span><input type="text" name="goal" maxlength="80" value="${esc(R.mine && R.mine.goal || "")}" placeholder="e.g. Biology chapter 5" autocomplete="off"></label>
       <p class="mini room-lim" style="margin:0">Rooms in this group hold up to ${plural(lim.people, "person", "people")} for up to ${esc(minLabel(lim.minutes))}.${proNote ? (ownerMe ? ` With Pro, your rooms hold ${LIMITS.pro.people} people for up to ${minLabel(LIMITS.pro.minutes)}. <button type="button" class="link-btn" data-act="room-pro">See Pro</button>` : ` Pro groups get rooms of ${LIMITS.pro.people} for up to ${minLabel(LIMITS.pro.minutes)}. It follows the group owner's plan.`) : ""}</p>
     </div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit id="roomGo">Start Session</button></div></form>`, fd => {
@@ -50883,7 +50888,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   function goalSheet(){
     const m = R.mine; if (!inRoom()) return;
     openSheet(`<form class="sheet">${head(m.goal ? "Change My Goal" : "Add a Goal")}<div class="sheet-body">
-      <label class="f"><span class="lh">Your Goal</span><input type="text" name="goal" maxlength="80" value="${esc(m.goal || "")}" autofocus placeholder="e.g. Pharm chapter 5" autocomplete="off"></label>
+      <label class="f"><span class="lh">Your Goal</span><input type="text" name="goal" maxlength="80" value="${esc(m.goal || "")}" autofocus placeholder="e.g. Biology chapter 5" autocomplete="off"></label>
       <p class="mini" style="margin:0">Everyone in the room sees it next to your name.</p></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save</button></div></form>`, fd => {
       m.goal = str(String(fd.get("goal") || "").trim(), 80); saveMine();
