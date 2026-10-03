@@ -27,8 +27,8 @@ If the rel-sec agent's `<meta http-equiv="Content-Security-Policy">` is also in 
 
 ### What the Content-Security-Policy allows, and why
 
-* `script-src 'self'` plus the two inline scripts (hash or `'unsafe-inline'`) plus `cdn.jsdelivr.net` (supabase-js) and `cdnjs.cloudflare.com` (no longer used by pdf.js: it is served from `vendor/pdfjs/` on your own site, so deploy that folder next to `index.html`). If you host supabase-js yourself (the desktop app already does, see `prepare.js`), delete both hosts from the policy. Serve `.mjs` files as `text/javascript` (Netlify, Cloudflare Pages, nginx and Apache with current defaults do).
-* `style-src ... https://fonts.googleapis.com` and `font-src ... https://fonts.gstatic.com`: the Google Fonts stylesheet. Self-hosting the fonts removes them.
+* `script-src 'self'` plus the two inline scripts (hash or `'unsafe-inline'`) plus `cdn.jsdelivr.net` (only the fallback copy of supabase-js, which is SRI-pinned; the primary copy is `vendor/supabase-js-2.117.2.umd.js` on your own site) (no cdnjs: pdf.js is served from `vendor/pdfjs/` on your own site, so deploy the `vendor/` folder with the site; serve `.mjs` as `text/javascript`, which Netlify, Cloudflare Pages, nginx and Apache do by default). If you also drop the fallback copy of supabase-js, delete `cdn.jsdelivr.net` from the policy.
+* `style-src 'self' 'unsafe-inline'` and `font-src 'self' data:`: fonts are self-hosted from `vendor/fonts/` (the Google Fonts hosts were removed from the policy).
 * `connect-src 'self' https: wss: blob: data:`: the Supabase project (its address is chosen by the person, or by you) and the AI company the person picked with their own key (`generativelanguage.googleapis.com`, `api.anthropic.com`, `api.openai.com`). If you only ever use your own Supabase project and only these three AI hosts, replace `https:` with those exact hosts. That is stricter and recommended for the App Store build, but it would block people who point the app at their own server.
 * `img-src ... https:`: pictures in LMS announcements and links. `object-src 'none'`, `frame-ancestors 'none'`, `base-uri 'none'` close the remaining doors.
 * The page has **no inline event handlers** (`onclick=` and friends) and does not use `eval` or `new Function`, so `'unsafe-eval'` is not needed (pdf.js is started with `isEvalSupported: false`).
@@ -43,7 +43,7 @@ add_header Permissions-Policy "accelerometer=(), camera=(), display-capture=(), 
 add_header Cross-Origin-Opener-Policy "same-origin" always;
 add_header X-Frame-Options "DENY" always;
 # One line. Copy the value from _headers (or _headers.strict) after "Content-Security-Policy:".
-add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: blob: data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'; upgrade-insecure-requests" always;
+add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: blob: data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'; upgrade-insecure-requests" always;
 
 location = /sw.js { add_header Cache-Control "no-cache"; add_header Service-Worker-Allowed "/"; # repeat the add_header lines above here: nginx drops inherited headers when a location sets its own
 }
@@ -62,7 +62,7 @@ Note: in nginx, `add_header` lines inside a `location` replace (not add to) the 
   Header always set Permissions-Policy "accelerometer=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), usb=(), serial=(), hid=(), bluetooth=(), clipboard-write=(self), fullscreen=(self)"
   Header always set Cross-Origin-Opener-Policy "same-origin"
   Header always set X-Frame-Options "DENY"
-  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: blob: data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'; upgrade-insecure-requests"
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: blob: data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'; upgrade-insecure-requests"
   <FilesMatch "^(sw\.js|index\.html|manifest\.webmanifest|today\.webmanifest)$">
     Header set Cache-Control "no-cache"
   </FilesMatch>
@@ -90,7 +90,7 @@ GitHub Pages cannot set response headers. Either put Cloudflare (free) in front 
 ## Service worker notes (`sw.js`)
 
 * **Scope**: the worker sits at the site root, so it controls the whole origin. Do not host other apps on the same origin (or add a `Service-Worker-Allowed` / different path for them), because they would be served through Studyboard's cache rules.
-* **What it caches**: the app shell and same-origin files (GET only), plus fonts and the two libraries by host name. Your data, your Supabase account and AI calls are never cached (they are other origins and are not on the list, and non-GET requests are ignored). Cached copies hold no sign-in tokens.
+* **What it caches**: the app shell and same-origin files (GET only), plus the vendored fonts and supabase-js (precached) and the CDN libraries by host name. Your data, your Supabase account and AI calls are never cached (they are other origins and are not on the list, and non-GET requests are ignored). Cached copies hold no sign-in tokens.
 * **Messages**: the worker only accepts "widget data" messages from Studyboard's own pages (checked by `event.source.url`), and the page only listens to its own worker. There is no `window.postMessage` listener anywhere in the app, so there is no cross-origin message surface.
 * **Update behaviour**: `skipWaiting` + `clients.claim` means a new worker takes over immediately. With `no-cache` on `sw.js` and `index.html` (above) a fixed version reaches people on their next visit.
 * **Push**: reminder pushes are shown with data from the push payload. Only your own Supabase function can send them (the push service authenticates the sender with your VAPID key). The "Snooze" and "Mark done" buttons call the address in the payload, which must be `https:`; keep the VAPID private key secret.

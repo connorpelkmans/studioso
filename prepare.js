@@ -19,7 +19,10 @@ fs.mkdirSync(path.join(vendor, "fonts"), { recursive: true });
 const nm = p => path.join(root, "node_modules", p);
 const copy = (from, to) => fs.copyFileSync(nm(from), path.join(vendor, to));
 
-copy("@supabase/supabase-js/dist/umd/supabase.js", "supabase.js");
+// The same file the website serves (vendor/ next to index.html, verified against its SRI hash in index.html); fall back to the npm package.
+const vendoredSb = path.join(root, "vendor", "supabase-js-2.117.2.umd.js");
+if (fs.existsSync(vendoredSb)) fs.copyFileSync(vendoredSb, path.join(vendor, "supabase-js-2.117.2.umd.js"));
+else copy("@supabase/supabase-js/dist/umd/supabase.js", "supabase-js-2.117.2.umd.js");
 // PDF.js is loaded by index.html with import() from vendor/pdfjs/ (the same relative path the web page uses), so no URL rewrite is needed.
 // The legacy build (ES modules plus polyfills for older WebViews) is staged from the installed package, and must match the copy committed in vendor/pdfjs/.
 fs.mkdirSync(path.join(vendor, "pdfjs"), { recursive: true });
@@ -39,8 +42,8 @@ fs.writeFileSync(path.join(vendor, "fonts.css"), css);
 let html = fs.readFileSync(src, "utf8");
 const swaps = [
   [/<link rel="preconnect" href="https:\/\/fonts\.(googleapis|gstatic)\.com"[^>]*>\s*/g, ""],
-  [/<link href="https:\/\/fonts\.googleapis\.com\/css2\?[^"]+" rel="stylesheet">/, '<link href="vendor/fonts.css" rel="stylesheet">'],
-  ["https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js", "vendor/supabase.js"]
+  [/<link href="https:\/\/fonts\.googleapis\.com\/css2\?[^"]+" rel="stylesheet">/g, '<link href="vendor/fonts.css" rel="stylesheet">'],
+  ["https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js", "vendor/supabase-js-2.117.2.umd.js"]
 ];
 for (const [a, b] of swaps) {
   const before = html;
