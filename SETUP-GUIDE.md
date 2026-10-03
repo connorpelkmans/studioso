@@ -298,6 +298,7 @@ Things to know:
 
 ## Schedule and Calendar
 
+- **Plan Ahead:** Timeline and Schedule are one tab, **Plan Ahead**, with a **Timeline | Schedule** switch at the top. Studyboard remembers which one you last used.
 - **Your classes** come from each course's class times. **+ Event** adds your own events: appointments, work shifts, study groups. They can be one-time or repeat every week or every 2 weeks.
 - **This week only:** if a class or office hours moves for one week, drag it on the Schedule to the new time or day (on a phone, press and hold it first). You can also tap it and change the date and time for that week, or **Skip This Week**. Every other week stays the same. Moved classes are outlined and marked "This week only", and skipped ones show faintly so you can bring them back. **Reset to Usual Time** undoes a change, and **Edit All Weeks** changes the class itself.
 - **Import Calendar** reads a calendar file (.ics):
@@ -451,6 +452,33 @@ There's nothing to set up for it. A few things to know:
 - **With Supabase**, the tour waits until you've connected and signed in, and only shows if your account has nothing in it yet. If you sign in on a new phone to an account that already has your courses, you won't see it.
 - **It shows once per device.** Closing it early counts too, so it won't keep popping up.
 - **Want to see it again?** Open **Settings** and choose **Replay Welcome Tour**.
+
+## App Tour
+
+New people get a short guided tour (a spotlight and a card for each main tab and control, with Back, Next, Skip and progress dots; arrow keys and Esc work too). It shows once per device, right after the welcome setup above is finished or closed, and never on its own for anyone who already has courses or tasks. Open **Settings** and choose **Take the App Tour** to see it again (it's also in Search Everywhere). If a tab or control isn't on screen (for example Groups on a phone), that step is skipped.
+
+## Bug Reports and Feedback
+
+Settings has **Report a Bug or Send Feedback** (also in Search Everywhere). People pick a category, describe what happened, can add steps and a screenshot, and can tick a box to let you email them. Studyboard attaches only technical details: app version, browser and screen size, current page, plan and recent error messages, never their tasks, notes or files. It works signed in or signed out. If the person is offline, the report is kept on their device and sent when they're back online.
+
+### One-time setup
+
+1. In Supabase, open **SQL Editor > New query**, paste all of `supabase-bug-reports.sql` and click **Run**. It is safe to run again.
+2. That's it. Reports can now be sent by anyone using the app, but only you can read them (the app has no way to read, change or delete reports). Each device or account is limited to 5 reports an hour, and 200 an hour overall.
+
+### Reading your reports
+
+- **Table Editor:** open **Table Editor > bug_reports**. Newest first; sort by `created_at`. `diagnostics` holds the version, browser and recent errors.
+- **SQL Editor:** run `select * from public.bug_reports_inbox limit 50;` for a tidy list (no screenshots). To see one screenshot, run `select screenshot from public.bug_reports where id = '...';` and paste the value into a browser address bar.
+- **Mark one handled:** `update public.bug_reports set status = 'fixed' where id = '...';`
+
+### Getting an email or chat message for each report (optional)
+
+In Supabase open **Database > Webhooks > Create a new hook**, pick the `bug_reports` table and the **Insert** event, and point it at a URL that forwards the message: a Slack or Discord incoming webhook, a Zapier or Make "catch hook", or an Edge Function that sends you an email. The new row (category, message, version, and the contact email if they gave one) is in the webhook body.
+
+### Without Supabase
+
+If your copy of Studyboard has no server, reports can't be delivered. They stay saved on the device and the form says so.
 
 ## Calendar Sync (Apple, Google and Outlook Calendar)
 
