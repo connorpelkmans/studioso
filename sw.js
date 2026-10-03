@@ -1,13 +1,21 @@
 // Studyboard offline support: keeps a copy of the app so it opens with no internet.
 // Your data is never stored here; it lives in the app itself and in your Supabase account.
-const CACHE = "studyboard-v3";
+const CACHE = "studyboard-v4";
 // CORE must exist for the app to work offline. OPTIONAL files (icons) may be missing, in the icons/ folder layout or the
 // flat layout; a missing one never stops the service worker from installing.
 const CORE = ["./", "./index.html"];
 const OPTIONAL = ["./manifest.webmanifest", "./today.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/maskable-512.png", "./icons/apple-touch-icon.png",
-  "./icon-192.png", "./icon-512.png", "./maskable-512.png", "./apple-touch-icon.png"];
+  "./icon-192.png", "./icon-512.png", "./maskable-512.png", "./apple-touch-icon.png",
+  "./vendor/supabase-js-2.117.2.umd.js", "./vendor/fonts.css",
+  "./vendor/fonts/lexend-latin-400-normal.woff2", "./vendor/fonts/lexend-latin-500-normal.woff2", "./vendor/fonts/lexend-latin-600-normal.woff2",
+  "./vendor/fonts/lexend-latin-700-normal.woff2", "./vendor/fonts/lexend-latin-800-normal.woff2",
+  "./vendor/fonts/atkinson-hyperlegible-next-latin-400-normal.woff2", "./vendor/fonts/atkinson-hyperlegible-next-latin-500-normal.woff2",
+  "./vendor/fonts/atkinson-hyperlegible-next-latin-700-normal.woff2",
+  "./vendor/fonts/atkinson-hyperlegible-latin-400-normal.woff2", "./vendor/fonts/atkinson-hyperlegible-latin-700-normal.woff2"];
+// Same-origin vendored libraries and fonts are precached (OPTIONAL, so a missing one never blocks install). The CDN copy is only the
+// fallback the page uses if the vendored file can't load; it is cached opportunistically and never required.
 const LIBS = ["https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"];
-const LIB_HOSTS = ["cdn.jsdelivr.net", "cdnjs.cloudflare.com", "fonts.googleapis.com", "fonts.gstatic.com"];
+const LIB_HOSTS = ["cdn.jsdelivr.net", "cdnjs.cloudflare.com"];
 
 self.addEventListener("install", e => {
   e.waitUntil((async () => {

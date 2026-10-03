@@ -12,7 +12,7 @@ Studyboard itself is released under the MIT License (see `LICENSE`). It includes
 | Electron | The desktop app (includes Chromium and Node.js, whose own notices ship inside the installer as `LICENSES.chromium.html`) | Copyright (c) Electron contributors; Copyright (c) 2013-2020 GitHub Inc. | MIT |
 | electron-builder | Building the desktop installers (build tool, not shipped) | electron-userland contributors | MIT |
 
-On the website the fonts load from Google Fonts and pdf.js and supabase-js load from public CDNs (jsDelivr, cdnjs). The desktop app ships local copies of all of them (`npm run prep` copies them from `node_modules`).
+On the website the fonts (Latin subsets from `@fontsource`, SIL OFL 1.1, licenses in `vendor/fonts/`) and supabase-js (`vendor/`, MIT, license beside it) are served from the site itself; pdf.js still loads from a public CDN (cdnjs). The desktop app ships local copies of all of them (`npm run prep` copies them from `node_modules` and `vendor/`).
 
 ## MIT License (applies to the MIT-licensed components above)
 

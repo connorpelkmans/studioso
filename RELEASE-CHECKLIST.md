@@ -17,7 +17,7 @@ This repository is a flat copy of an intended layout. Nothing was moved or renam
 
 **Recommended owner decision:** make the repository match the intended layout in one commit (`git mv`), then simplify:
 - `desktop/` gets `package.json`, `package-lock.json`, `main.js`, `preload.js`, `lms.js`, `scripts/prepare.js`, `widget/` (the `widget.*` files and `widget-preload.js`) and `build/` (the icon and installer artwork). Delete the root `build-desktop.yml` and the `.github/workflows` copy's flat tweaks (put `working-directory: desktop` back; `prepare.js` also works in that layout).
-- `site/` (or the root) gets `index.html`, `sw.js`, both manifests, plus `icons/` (`icon-*.png`, `maskable-*.png`, `apple-touch-icon.png`, `shortcut-*.png`) and `widgets/` (`today-data.json`, `today-template.json`, `today-screenshot.png`). `.gitignore` already lists `site/`; change that if `site/` is meant to be committed.
+- `site/` (or the root) gets `index.html`, `sw.js`, `vendor/` (supabase-js, fonts), both manifests, plus `icons/` (`icon-*.png`, `maskable-*.png`, `apple-touch-icon.png`, `shortcut-*.png`) and `widgets/` (`today-data.json`, `today-template.json`, `today-screenshot.png`). `.gitignore` already lists `site/`; change that if `site/` is meant to be committed.
 - `supabase/functions/<name>/index.ts` for the four functions, and an `email-templates/` folder.
 - Also missing from the repo and referenced by the guides: `build.py` (fills `SB_DEFAULT` from `server.json`), `supabase-update-flashcards.sql` and the original `supabase-setup.sql`. If you still have them, add them back.
 
@@ -81,7 +81,11 @@ This repository is a flat copy of an intended layout. Nothing was moved or renam
 | Manifest: name, short name, description, start URL, scope, display, colors, categories, language, 192/512 and maskable icons | Done |
 | Shortcuts (Quick Add, Today, Focus, Search) checked against the code: all four `?action=` values are handled; Timeline and Schedule were merged into Plan Ahead and no shortcut points at them | Done |
 | Page `<head>`: description, theme color, application name, Apple web-app meta tags, `apple-touch-icon`, favicon | Done |
-| Service worker: installs even when `icons/` does not exist, new cache name `studyboard-v3` | Done (tested over HTTP) |
+| Service worker: installs even when `icons/` does not exist, new cache name `studyboard-v4`, precaches the vendored supabase-js and fonts | Done (tested over HTTP) |
+| Static `<link rel="manifest" href="manifest.webmanifest">` in `<head>` (the script only adds one if it is missing, never two; the manifest lists icons for both layouts) | Done |
+| Third-party code: supabase-js and fonts are served from `vendor/` (deploy that folder next to `index.html`, in the `site/` folder if you move files); supabase-js is loaded with SRI, jsDelivr is only a fallback. Google Fonts is no longer used | Done |
+| Confirm the SRI hash against the CDN once: `curl -s https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js \| openssl dgst -sha384 -binary \| openssl base64 -A` must print `Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok` (it was computed from the npm file; only the fallback depends on it) | Owner |
+| pdf.js still loads from cdnjs without SRI (being handled separately) | Open |
 | Widgets entry in the manifest needs `widgets/today-*.json` and screenshot | Owner (follows the layout decision above) |
 
 ## 7. Documentation

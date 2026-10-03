@@ -19,7 +19,10 @@ fs.mkdirSync(path.join(vendor, "fonts"), { recursive: true });
 const nm = p => path.join(root, "node_modules", p);
 const copy = (from, to) => fs.copyFileSync(nm(from), path.join(vendor, to));
 
-copy("@supabase/supabase-js/dist/umd/supabase.js", "supabase.js");
+// The same file the website serves (vendor/ next to index.html, verified against its SRI hash in index.html); fall back to the npm package.
+const vendoredSb = path.join(root, "vendor", "supabase-js-2.117.2.umd.js");
+if (fs.existsSync(vendoredSb)) fs.copyFileSync(vendoredSb, path.join(vendor, "supabase-js-2.117.2.umd.js"));
+else copy("@supabase/supabase-js/dist/umd/supabase.js", "supabase-js-2.117.2.umd.js");
 copy("pdfjs-dist/build/pdf.min.js", "pdf.min.js");
 copy("pdfjs-dist/build/pdf.worker.min.js", "pdf.worker.min.js");
 
@@ -35,8 +38,8 @@ fs.writeFileSync(path.join(vendor, "fonts.css"), css);
 let html = fs.readFileSync(src, "utf8");
 const swaps = [
   [/<link rel="preconnect" href="https:\/\/fonts\.(googleapis|gstatic)\.com"[^>]*>\s*/g, ""],
-  [/<link href="https:\/\/fonts\.googleapis\.com\/css2\?[^"]+" rel="stylesheet">/, '<link href="vendor/fonts.css" rel="stylesheet">'],
-  ["https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js", "vendor/supabase.js"],
+  [/<link href="https:\/\/fonts\.googleapis\.com\/css2\?[^"]+" rel="stylesheet">/g, '<link href="vendor/fonts.css" rel="stylesheet">'],
+  ["https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js", "vendor/supabase-js-2.117.2.umd.js"],
   ["https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js", new URL("vendor/pdf.worker.min.js", BASE).href],
   ["https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js", "vendor/pdf.min.js"]
 ];
