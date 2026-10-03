@@ -4797,9 +4797,27 @@ const AI_ICON = '<svg class="ai-ic" viewBox="0 0 24 24" width="16" height="16" f
 const aiWho = (fb) => { try { const n = window.SBCOMP && SBCOMP.aiName ? SBCOMP.aiName() : ""; return n || fb || ""; } catch(e) { return fb || ""; } };
 // Free Gemini models, best first. "Auto" moves down this list silently when one is busy or out of free requests.
 const AI_MODELS = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
+// Paid Gemini models (billing needed). Only tried first for hard "reason" jobs, and only for "Smartest First" or when picked by name.
+const AI_PRO_MODELS = ["gemini-3.1-pro-preview"];
+/* Task routing: every AI call names its job and the job decides which models are tried, smartest to cheapest.
+   reason: Q&A over your data, exam plans, quizzes and study sets from documents. mid: explanations, summaries, topic lists.
+   lite: quick add, grading, tagging, short rewrites. Free models spread over the tiers so one daily limit isn't used up by small jobs.
+   Each job is [tier, thinking level]. A paid model is never used unless the picker is on a paid choice (see geminiOrder). */
+const AI_TIERS = {
+  reason: ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"],
+  mid: ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"],
+  lite: ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash"]
+};
+const AI_TASKS = {
+  ask: ["reason", "high"], tutor: ["reason", "medium"], cards: ["reason", "medium"], quiz: ["reason", "medium"], cases: ["reason", "medium"],
+  syllabus: ["reason", "medium"], examplan: ["reason", "medium"], plan: ["reason", "medium"], practice: ["reason", "medium"],
+  topics: ["mid", "medium"], explain: ["mid", "medium"], summary: ["mid", "medium"], photo: ["mid", "medium"], tune: ["mid", "low"], estimate: ["mid", "low"],
+  quickadd: ["lite", "low"], grade: ["lite", "low"], news: ["lite", "low"], classify: ["lite", "low"], tag: ["lite", "low"], rewrite: ["lite", "low"], ping: ["lite", "low"]
+};
+const aiTask = (task, fast) => { const t = AI_TASKS[task]; return t ? {tier: t[0], think: t[1], task} : fast ? {tier: "lite", think: "low", task: ""} : {tier: "mid", think: "medium", task: ""}; };
 const AI_PROVIDERS = {
   gemini: {label: "Google Gemini", short: "Gemini", keyLabel: "Gemini API Key", keyUrl: "https://aistudio.google.com/apikey", keyHint: "Free from Google AI Studio",
-    models: [["auto", "Gemini, Auto (free, recommended)", "free"], ["gemini-3.8-flash", "Gemini 3.8 Flash (free)", "free"], ["gemini-3.7-flash", "Gemini 3.7 Flash (free)", "free"], ["gemini-3.5-flash", "Gemini 3.5 Flash (free)", "free"], ["gemini-3.5-flash-lite", "Gemini 3.5 Flash-Lite (free, fastest)", "free"], ["gemini-3.1-pro-preview", "Gemini 3.1 Pro (paid, needs billing)", "paid"]]},
+    models: [["auto", "Gemini, Auto (free, smartest first, picks the right model per job, recommended)", "free"], ["gemini-3.8-flash", "Gemini 3.8 Flash (free)", "free"], ["gemini-3.7-flash", "Gemini 3.7 Flash (free)", "free"], ["gemini-3.6-flash", "Gemini 3.6 Flash (free)", "free"], ["gemini-3.5-flash", "Gemini 3.5 Flash (free)", "free"], ["gemini-3.5-flash-lite", "Gemini 3.5 Flash-Lite (free, fastest)", "free"], ["gemini-3.1-pro-preview", "Gemini 3.1 Pro (paid, needs billing)", "paid"], ["auto-pro", "Gemini, Smartest First (Pro for hard jobs, paid, needs billing)", "paid"]]},
   anthropic: {label: "Anthropic Claude", short: "Claude", keyLabel: "Claude API Key", keyUrl: "https://console.anthropic.com/settings/keys", keyHint: "Paid, billed per use by Anthropic",
     models: [["claude-sonnet-5", "Claude Sonnet 5 (paid)", "paid"], ["claude-opus-5-5", "Claude Opus 5.5 (paid, most capable)", "paid"], ["claude-haiku-4-5-20251001", "Claude Haiku 4.5 (paid, cheapest)", "paid"]]},
   openai: {label: "OpenAI ChatGPT", short: "ChatGPT", keyLabel: "OpenAI API Key", keyUrl: "https://platform.openai.com/api-keys", keyHint: "Paid, billed per use by OpenAI",
@@ -4853,15 +4871,16 @@ function toJsonSchema(s){
 const AI_MEM = "studyboard:aiModels";
 function aiMem(){ try { return JSON.parse(localStorage.getItem(AI_MEM) || "{}") || {}; } catch(e) { return {}; } }
 function aiMemSet(fn){ try { const m = aiMem(); fn(m); localStorage.setItem(AI_MEM, JSON.stringify(m)); } catch(e) {} }
-function geminiOrder(pinned){
+// Models to try, in order, for a job. "auto" follows the job's tier, "auto-pro" puts the paid Pro model first for hard jobs only,
+// and a model picked by name goes first (except for quick jobs, which stay on the fast models so they come back sooner and cost less).
+function geminiOrder(pinned, tier = "reason"){
   const m = aiMem(), now = Date.now();
-  let list = AI_MODELS.slice();
-  if (pinned && pinned !== "auto") list = [pinned].concat(list.filter(x => x !== pinned));
   const cool = x => (m.cool && m.cool[x] || 0) > now;
-  const good = !pinned || pinned === "auto" ? m.good : null;
-  list.sort((a, b) => (cool(a) - cool(b)) || ((b === good) - (a === good)) || 0);
-  if (pinned && pinned !== "auto") { list = list.filter(x => x !== pinned); list.unshift(pinned); }
-  return list;
+  const free = (AI_TIERS[tier] || AI_MODELS).slice().sort((a, b) => cool(a) - cool(b));
+  if (!pinned || pinned === "auto") return free;
+  if (pinned === "auto-pro") { const pro = AI_PRO_MODELS.filter(x => !cool(x)); return tier === "reason" ? pro.concat(free) : free; }
+  const rest = free.filter(x => x !== pinned);
+  return tier === "lite" ? rest.concat(pinned) : [pinned].concat(rest);
 }
 function fetchT(url, opts, ms){
   const ac = typeof AbortController === "function" ? new AbortController() : null;
@@ -4872,8 +4891,9 @@ const offlineErr = who => aiErr("offline", navigator.onLine === false ? "You're 
 async function errMsg(res){ try { const e = await res.json(); return (e.error && (e.error.message || e.error.type)) || e.message || ""; } catch(e) { return ""; } }
 
 /* One call, any provider. parts are Gemini-style: {text} or {inline_data: {mime_type, data}}.
-   fast: quick jobs (grading, quick add, explanations) ask for less thinking so they come back sooner. */
-async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, fast = false, timeout, auto = false}){
+   fast: quick jobs (grading, quick add, explanations) ask for less thinking so they come back sooner.
+   task: the job's name in AI_TASKS, which picks the model tier (smartest for hard jobs, lite for quick ones) and the thinking level. */
+async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, fast = false, timeout, auto = false, task = ""}){
   let cfg = aiCfg();
   if (auto) { const a = autoState(); if (!a.on) throw aiErr("auto-off", "Automatic AI is off."); cfg = a.cfg; }   // never a paid model unless confirmed
   if (inClaude()) throw aiErr("preview", "AI features work in the Studyboard app and on your website, not in this preview.");
@@ -4884,16 +4904,16 @@ async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0
   try {
     if (cfg.provider === "anthropic") return await claudeCall(cfg, {system, parts, schema, maxTokens, ms});
     if (cfg.provider === "openai") return await openaiCall(cfg, {system, parts, schema, maxTokens, ms});
-    return await geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms});
+    return await geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task});
   } finally { clearTimeout(slow); }
 }
-async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms}){
-  const models = geminiOrder(cfg.model);
+async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task}){
+  const T = aiTask(task, fast), models = geminiOrder(cfg.model, T.tier);
   let thinking = true, lastErr = null;
   const bodyFor = () => {
     const gc = {responseMimeType: "application/json", temperature, maxOutputTokens: maxTokens};
     if (schema) gc.responseSchema = schema;
-    if (thinking) gc.thinkingConfig = {thinkingLevel: fast ? "low" : "medium"};
+    if (thinking) gc.thinkingConfig = {thinkingLevel: T.think};
     return JSON.stringify({contents: [{role: "user", parts}], systemInstruction: {parts: [{text: system}]}, generationConfig: gc});
   };
   for (let i = 0; i < models.length; i++) {
@@ -4918,6 +4938,8 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
     }
     const msg = await errMsg(res);
     if (res.status === 400 && thinking && /thinking/i.test(msg)) { thinking = false; i--; continue; }   // older model without thinking settings
+    // Pro needs billing on the Google account: if it's refused, drop to the free models instead of failing the job
+    if (AI_PRO_MODELS.includes(m) && i < models.length - 1 && res.status !== 401 && !/api[ _-]?key/i.test(msg)) { aiMemSet(x => { x.cool = x.cool || {}; x.cool[m] = Date.now() + 30 * 60000; }); lastErr = lastErr || aiErr("model", `The model ${m} isn't available on your key.`); continue; }
     if (res.status === 401 || res.status === 403 || (res.status === 400 && /api[ _-]?key/i.test(msg))) throw aiErr("key", "Google didn't accept your Gemini key. Check it in Settings, then AI Features.");
     if (res.status === 413 || /too large|payload size|exceeds.*(size|limit)/i.test(msg)) throw aiErr("big", "Those files are too big to send at once. Try fewer or smaller files (PDF works best).");
     if (res.status === 404 || (res.status === 400 && /model/i.test(msg) && !/token|size|large/i.test(msg))) { lastErr = lastErr || aiErr("model", `The model ${m} isn't available on your key.`); continue; }
@@ -5068,17 +5090,49 @@ async function aiSourceFromFile(file){
 const aiSourceBytes = s => s.part.inline_data ? s.part.inline_data.data.length : s.part.text.length;
 
 /* ----- Study sets: flashcards and quizzes from your material ----- */
+// Ready-made styles, shown as quick-pick chips. [label, instructions for the AI, group]. More than one can be picked, and the student's own
+// text (the free-text box) always comes first and wins. Questions can only be one answer, select all, put in order, true/false or short answer,
+// so formats like NGN matrix or bow-tie items are described in terms of those.
+const AI_STYLE_GROUPS = ["Exam styles", "Question formats", "Focus"];
 const AI_STYLES = [
-  ["NCLEX-RN", "NCLEX-RN style: client-centered stems about what the nurse should do, prioritization (first, priority, next), safety, delegation, and select-all-that-apply questions, with rationales."],
-  ["Select All That Apply", "Mostly select-all-that-apply questions (5 to 6 options, 2 or more correct)."],
-  ["Pharmacology", "Focus on drug class, mechanism, indications, key side effects, nursing considerations and patient teaching."],
-  ["Clinical Vignettes", "USMLE-style clinical vignettes: a short patient case, then one best answer."],
-  ["MCAT Passages", "MCAT style: short passage-based questions that test reasoning, not recall."],
-  ["Definitions", "Short term-and-definition flashcards and straightforward recall questions."],
-  ["Fill in the Blank", "Cloze-style flashcards (fronts are sentences with a ____ gap) and short-answer questions."],
-  ["Put in Order", "Include put-the-steps-in-order questions for processes and procedures."],
-  ["Harder, Applied", "Application and analysis level questions that require combining ideas, not just recall."]
+  ["NCLEX-RN", "NCLEX-RN style: client-centered stems about what the nurse should do, with prioritization (first, priority, most important, next), safety, delegation, infection control and therapeutic communication. Use NCLEX wording and include select-all-that-apply items. Every option plausible, and a rationale for why the right answer is right and the others are wrong.", 0],
+  ["NCLEX-RN Case Study (NGN)", "Next Generation NCLEX unfolding case study style: start each question with a short client scenario that includes chart data (age, history, vital signs, lab values, nurses' notes), then ask what the nurse should do, following the clinical judgment model: recognize cues (what findings matter), analyze cues (what they suggest), prioritize hypotheses (what is the likely problem), generate solutions (what to do), take action (what to do first) and evaluate outcomes (what shows it worked). Express matrix, highlight, drop-down and bow-tie items as select-all-that-apply or one-answer questions with the data in the stem, and give a rationale for each.", 0],
+  ["HESI / ATI Nursing", "HESI or ATI nursing exam style: application-level, single best answer questions with 4 options on priority actions, delegation, safe medication administration and patient teaching, mixed with some select-all-that-apply items and short dosage calculations.", 0],
+  ["USMLE Vignettes", "USMLE Step 1 and 2 style: a 3 to 6 sentence clinical vignette (age, sex, presentation, vital signs, exam and lab findings), then a question such as most likely diagnosis, underlying mechanism, best next step or most likely adverse effect. One best answer from 5 plausible options of the same category. Prefer second- and third-order reasoning (what the finding means, then what to do) over recall. Explain every option in the rationale.", 0],
+  ["MCAT Passages", "MCAT style: begin each question with a 100 to 150 word passage (an experiment, a data set described in words, or an argument), then a question that needs reasoning from the passage plus the course concepts, with 4 options. Include data interpretation, experimental design and 'what would happen if' questions. Test reasoning, not recall.", 0],
+  ["AP Exam", "AP exam style: stimulus-based multiple choice with 4 options (a short source, data description or scenario, then the question), plus a few free-response prompts as short-answer questions whose expected answer reads like a scoring guide: the key points a full-credit answer must make.", 0],
+  ["University Midterm", "A typical university midterm: a balanced mix of multiple choice, true/false, a few select-all-that-apply and short-answer questions, ordered from straightforward recall to application.", 0],
+  ["Multiple Choice", "Only single best answer multiple choice, 4 options each, with plausible distractors built from common mistakes. No 'all of the above' or 'none of the above'.", 1],
+  ["Mixed Formats", "A deliberate mix of question types: about 45% single best answer, 15% true/false, 15% select all that apply, 15% short answer and 10% put-in-order.", 1],
+  ["True / False", "True or false statements, half true and half false. For each false statement the rationale gives the corrected true statement. Avoid trick wording and absolutes like 'always' and 'never'.", 1],
+  ["Select All That Apply", "Mostly select-all-that-apply questions: 5 or 6 options, 2 to 4 correct, no 'all of the above'. Each option stands alone, and the rationale covers every option.", 1],
+  ["Fill in the Blank", "Cloze-style: flashcard fronts are sentences with a ____ gap, and quiz questions are short-answer questions where the student types the missing term. Blank out the key term, never a trivial word.", 1],
+  ["Short Answer", "Short-answer questions that need a 1 to 3 sentence explanation. The expected answer lists the key points a good answer must include.", 1],
+  ["Put in Order", "Include put-the-steps-in-order questions for processes, pathways, procedures and sequences (4 to 6 steps), plus some single-answer questions about why the order matters.", 1],
+  ["Conceptual (Why / How)", "Conceptual questions: why something happens, how it works, what would change if a variable changed, compare and contrast, and predict the effect. Avoid pure recall. Rationales explain the reasoning.", 1],
+  ["Calculation Problems", "Numerical problem-solving: give all the values in the stem, make the student calculate (short answer with the number and its units), vary the numbers, and show the worked steps in the rationale. Include unit conversions and, where relevant, dosage or IV rate calculations.", 1],
+  ["Scenario / Case-Based", "Each question starts with a short realistic scenario (a patient, a lab result, a client, a design problem), then asks for the best next step, the most likely cause or the key risk. Test application of the material, not recall.", 1],
+  ["Pharmacology", "Focus on drug class, mechanism of action, indications, key side effects and adverse effects, contraindications, nursing considerations, monitoring and patient teaching. Compare drugs within a class and flag high-alert medications.", 2],
+  ["Definitions", "Short term-and-definition flashcards and straightforward recall questions.", 2],
+  ["Common Mistakes", "Target common misconceptions and look-alike concepts: write distractors from the mistakes students really make, and explain each misconception in the rationale.", 2],
+  ["Harder, Applied", "Application and analysis level questions that require combining ideas from different parts of the material, not just recall.", 2]
 ];
+// Builds the style text sent to the AI: the student's own words first (they win), then each picked preset's instructions.
+function aiComposeStyle(custom, picks){
+  custom = String(custom || "").trim();
+  const ps = (picks || []).map(i => AI_STYLES[i]).filter(Boolean);
+  const style = [custom].concat(ps.map(x => x[1])).filter(Boolean).join(" ");
+  const name = custom ? custom.split(/[.:;\n]/)[0].trim().slice(0, 60) : ps.slice(0, 2).map(x => x[0]).join(" and ");
+  return {style, name};
+}
+// Custom styles the student typed before, newest first, to reuse next time
+const AI_STYLE_MEM = "studyboard:aiStyles";
+function aiRecentStyles(){ try { const l = JSON.parse(localStorage.getItem(AI_STYLE_MEM) || "[]"); return Array.isArray(l) ? l.filter(x => typeof x === "string" && x.trim()).slice(0, 8) : []; } catch(e) { return []; } }
+function aiRememberStyle(text){
+  text = String(text || "").trim(); if (text.length < 4) return;
+  try { localStorage.setItem(AI_STYLE_MEM, JSON.stringify([text].concat(aiRecentStyles().filter(x => x !== text)).slice(0, 8))); } catch(e) {}
+}
+function aiForgetStyle(text){ try { localStorage.setItem(AI_STYLE_MEM, JSON.stringify(aiRecentStyles().filter(x => x !== text))); } catch(e) {} }
 const CARD_SCHEMA = {type: "OBJECT", properties: {
   deckTitle: {type: "STRING", description: "Short name for this set of cards, 2 to 6 words"},
   cards: {type: "ARRAY", items: {type: "OBJECT", properties: {
@@ -5127,14 +5181,14 @@ const AI_RULES = "Use only the provided course material (and standard facts that
 async function aiMakeStudySet(opts, onStatus){
   const {sources, style, difficulty, cards, quiz, cases, caseCount, cardCount, quizCount, courseName} = opts;
   const diff = difficulty === "easier" ? "Keep it approachable: core facts and main ideas." : difficulty === "harder" ? "Make it challenging: application, analysis and tricky distinctions." : "Mix easier recall with harder application.";
-  const ctx = `Course: ${courseName || "not given"}. Student's style and instructions: ${style || "Clear, exam-focused study material."} Difficulty: ${diff}`;
+  const ctx = `Course: ${courseName || "not given"}. Student's style and instructions (follow them exactly; if they name an exam or describe a professor's format, imitate that exam's wording, structure and difficulty; where they conflict with your defaults, they win): ${style || "Clear, exam-focused study material."} Difficulty: ${diff}`;
   const parts = sources.map(s => s.part);
   const jobs = [];
-  if (cards) jobs.push(aiCall({maxTokens: 24000, onStatus, schema: CARD_SCHEMA, parts: parts.concat({text: `${ctx}\n\nMake ${cardCount === "auto" ? "as many flashcards as the material supports well (usually 15 to 40, at most 60)" : cardCount + " flashcards"} from the material above.`}),
+  if (cards) jobs.push(aiCall({task: "cards", maxTokens: 24000, onStatus, schema: CARD_SCHEMA, parts: parts.concat({text: `${ctx}\n\nMake ${cardCount === "auto" ? "as many flashcards as the material supports well (usually 15 to 40, at most 60)" : cardCount + " flashcards"} from the material above.`}),
     system: "You write excellent flashcards for students. Each card tests one idea. Fronts are short (a term, a question, or a sentence with ____ for a cloze). Backs are accurate and concise (1 to 3 sentences). Favor high-yield, exam-relevant content: definitions, mechanisms, comparisons, steps, normal values, and clinical priorities where relevant. No duplicates. Put the slide or page in 'source' when you can. " + AI_RULES}));
-  if (quiz) jobs.push(aiCall({maxTokens: 32000, onStatus, schema: QUIZ_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite ${quizCount} practice questions from the material above.`}),
-    system: "You write high-quality practice exam questions. Question types: 'single' (one best answer, usually 4 options), 'multiple' (select all that apply: 5 or 6 options, 2 or more correct; start or end the stem with 'Select all that apply.'), 'order' (4 to 6 steps listed in scrambled order; 'correct' lists the option indexes in the right order), 'truefalse' (options exactly ['True','False']), and 'short' (a brief typed answer in 'answer'). 'correct' holds zero-based option indexes. Every question gets a rationale explaining why the answer is right and why the others are wrong, and 'optionNotes' with one short note per option. If the student asks for NCLEX style, write client-centered stems about what the nurse should do, include priority, first-action, safety and delegation questions and select-all-that-apply items, and use NCLEX wording. For other named exams (MCAT, USMLE, and so on) follow that exam's conventions. Avoid trivia and 'all of the above' or 'none of the above'. Spread questions across the whole material. Put the slide or page in 'source'. " + AI_RULES}));
-  if (cases) jobs.push(aiCall({maxTokens: 24000, onStatus, schema: CASE_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite ${caseCount || 1} case stud${Number(caseCount) === 1 ? "y" : "ies"} from the material above.`}), system: CASE_SYSTEM}));
+  if (quiz) jobs.push(aiCall({task: "quiz", maxTokens: 32000, onStatus, schema: QUIZ_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite ${quizCount} practice questions from the material above.`}),
+    system: "You write high-quality practice exam questions. Question types: 'single' (one best answer, usually 4 options), 'multiple' (select all that apply: 5 or 6 options, 2 or more correct; start or end the stem with 'Select all that apply.'), 'order' (4 to 6 steps listed in scrambled order; 'correct' lists the option indexes in the right order), 'truefalse' (options exactly ['True','False']), and 'short' (a brief typed answer in 'answer'). 'correct' holds zero-based option indexes. Every question gets a rationale explaining why the answer is right and why the others are wrong, and 'optionNotes' with one short note per option. The student's style instructions decide the mix of question types, the stem length and format (passages, vignettes, case data, calculations) and the difficulty, so follow them exactly, including a custom format they describe in their own words. If they ask for NCLEX style, write client-centered stems about what the nurse should do, include priority, first-action, safety and delegation questions and select-all-that-apply items, and use NCLEX wording. For other named exams (MCAT, USMLE, AP, HESI, and so on) follow that exam's conventions. When no style is given, mix types sensibly. Avoid trivia and 'all of the above' or 'none of the above'. Spread questions across the whole material. Put the slide or page in 'source'. " + AI_RULES}));
+  if (cases) jobs.push(aiCall({task: "cases", maxTokens: 24000, onStatus, schema: CASE_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite ${caseCount || 1} case stud${Number(caseCount) === 1 ? "y" : "ies"} from the material above.`}), system: CASE_SYSTEM}));
   const settled = await Promise.allSettled(jobs);
   const failed = settled.filter(x => x.status === "rejected");
   if (failed.length === settled.length) throw failed[0].reason;
@@ -5168,8 +5222,10 @@ function aiStudySheet(deckId){
         <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiCase"> Case studies</label>${seg("aiCaseN", [["1", "1"], ["2", "2"], ["3", "3"]], "1")}<span class="mini">Realistic scenarios that unfold step by step, like NCLEX case studies</span></div>
       </fieldset>
       <fieldset><legend>Style</legend>
-        <div class="chips ai-styles" role="group" aria-label="Style ideas">${AI_STYLES.map(([l], i) => `<button type="button" class="chip" data-style="${i}">${esc(l)}</button>`).join("")}</div>
-        <textarea id="aiStyle" rows="3" maxlength="1500" placeholder="Describe what you want, e.g. NCLEX-style questions with rationales, mostly prioritization and select-all-that-apply, plus flashcards on each drug's class, action and side effects." data-noenter></textarea>
+        <label class="f"><span class="lh">Your Own Style or Exam Format <span class="hint">optional, comes first</span></span><textarea id="aiStyle" rows="2" maxlength="1500" placeholder="e.g. NCLEX-RN select-all-that-apply questions with rationales, or my professor's short case-study questions, or 60-minute midterm with 20 multiple choice and 5 short answers" data-noenter></textarea></label>
+        <div class="chips ai-recent" id="aiRecent" role="group" aria-label="Your recent styles"></div>
+        ${AI_STYLE_GROUPS.map((g, gi) => `<p class="mini" style="margin:10px 0 4px">${esc(g)}</p><div class="chips ai-styles" role="group" aria-label="${esc(g)}">${AI_STYLES.map((x, i) => x[2] === gi ? `<button type="button" class="chip" data-style="${i}" aria-pressed="false" title="${esc(x[1])}">${esc(x[0])}</button>` : "").join("")}</div>`).join("")}
+        <p class="mini" style="margin:8px 0 0">Pick as many ready-made styles as you like. They add to what you wrote.</p>
       </fieldset>
       <fieldset><legend>Difficulty</legend>${seg("aiDiff", [["mixed", "Mixed"], ["easier", "Easier"], ["harder", "Harder"]], "mixed")}</fieldset>
       ${deck ? "" : `<label class="f">Course<select id="aiCourse">${courseSelectHtml(courseId)}</select></label>`}
@@ -5207,11 +5263,17 @@ function aiStudySheet(deckId){
     catch(e) { status.textContent = `Couldn't get ${f.name}${navigator.onLine === false ? " while offline" : ""}.`; }
   });
   srcList.addEventListener("click", e => { const b = e.target.closest("[data-rm]"); if (b) { job.sources.splice(Number(b.dataset.rm), 1); drawSrcs(); status.textContent = ""; } });
-  $$(".ai-styles [data-style]", dlg).forEach(b => b.addEventListener("click", () => {
-    const t = $("#aiStyle"), add = AI_STYLES[Number(b.dataset.style)][1];
-    b.classList.toggle("on");
-    t.value = b.classList.contains("on") ? (t.value.trim() ? t.value.trim() + " " : "") + add : t.value.replace(add, "").replace(/\s{2,}/g, " ").trim();
-  }));
+  $$(".ai-styles [data-style]", dlg).forEach(b => b.addEventListener("click", () => { b.classList.toggle("on"); b.setAttribute("aria-pressed", b.classList.contains("on")); }));
+  const drawRecent = () => {
+    const r = aiRecentStyles(), box = $("#aiRecent");
+    box.innerHTML = r.length ? `<span class="mini" style="align-self:center">Recent:</span>` + r.map((t, i) => `<span class="chip" style="display:inline-flex;gap:4px;align-items:center"><button type="button" data-recent="${i}" style="all:unset;cursor:pointer" title="${esc(t)}">${esc(t.length > 44 ? t.slice(0, 43) + "…" : t)}</button><button type="button" data-forget="${i}" style="all:unset;cursor:pointer;opacity:.6" aria-label="Forget this style">×</button></span>`).join("") : "";
+  };
+  drawRecent();
+  $("#aiRecent").addEventListener("click", e => {
+    const r = aiRecentStyles(), u = e.target.closest("[data-recent]"), f = e.target.closest("[data-forget]");
+    if (u && r[Number(u.dataset.recent)]) { $("#aiStyle").value = r[Number(u.dataset.recent)]; $("#aiStyle").focus(); }
+    if (f && r[Number(f.dataset.forget)]) { aiForgetStyle(r[Number(f.dataset.forget)]); drawRecent(); }
+  });
   if (deck && deck.aiStyle) $("#aiStyle").value = deck.aiStyle;
   $("#aiGo").addEventListener("click", async () => {
     if (job.busy) return;
@@ -5223,13 +5285,15 @@ function aiStudySheet(deckId){
     const wantCards = $("#aiCards").checked, wantQuiz = $("#aiQuiz").checked, wantCase = $("#aiCase").checked;
     if (!wantCards && !wantQuiz && !wantCase) { status.textContent = "Pick flashcards, a quiz, case studies, or a mix."; return; }
     const val = n => (dlg.querySelector(`input[name=${n}]:checked`) || {}).value;
-    const style = $("#aiStyle").value.trim(), cId = deck ? deck.courseId : ($("#aiCourse") ? $("#aiCourse").value : "");
+    const custom = $("#aiStyle").value.trim(), picks = $$(".ai-styles .chip.on", dlg).map(b => Number(b.dataset.style));
+    const {style, name: styleName} = aiComposeStyle(custom, picks), cId = deck ? deck.courseId : ($("#aiCourse") ? $("#aiCourse").value : "");
     job.busy = true; const go = $("#aiGo"); go.disabled = true; go.classList.add("busy");
     status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(aiModelName(aiCfg().provider, aiCfg().model))} is reading your material and writing ${[wantCards && "flashcards", wantQuiz && "a quiz", wantCase && "case studies"].filter(Boolean).join(" and ")}. This usually takes 20 to 60 seconds…`;
     try {
       const r = await aiMakeStudySet({sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : ""}, m => { status.textContent = m; });
       if (!r.cards.length && !r.questions.length && !r.cases.length) throw aiErr("empty", "The AI couldn't make anything from that material. Try adding more content, or a PDF version.");
-      aiReviewSheet(r, {deck, courseId: cId, style, sources: sources.map(s => s.name)});
+      aiRememberStyle(custom);
+      aiReviewSheet(r, {deck, courseId: cId, style, styleName, sources: sources.map(s => s.name)});
     } catch(e) {
       console.warn(e); status.textContent = e.code ? e.message : "Something went wrong. Try again.";
       job.busy = false; go.disabled = false; go.classList.remove("busy");
@@ -5245,7 +5309,7 @@ function aiReviewSheet(r, ctx){
     <div class="sheet-body">
       <p style="margin:0">${cards.length ? `<b>${cards.length}</b> flashcard${cards.length === 1 ? "" : "s"}` : ""}${cards.length && qs.length ? " and " : ""}${qs.length ? `<b>${qs.length}</b> quiz question${qs.length === 1 ? "" : "s"}` : ""}${(cards.length || qs.length) && cs.length ? " and " : ""}${cs.length ? `<b>${cs.length}</b> case stud${cs.length === 1 ? "y" : "ies"}` : ""} ready. Edit or remove anything, then save.${r.truncated ? " (The AI ran long, so a few may be missing.)" : ""}${r.partial ? ` Part of it couldn't be made: ${esc(r.partial)}` : ""}</p>
       ${ctx.deck ? `<p class="mini" style="margin:0">Saving to <b>${esc(ctx.deck.name)}</b>.</p>` : `<div class="two"><label class="f"><span class="lh">Save To</span><select id="arDeck"><option value="">A new deck</option>${decks.map(d => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join("")}</select></label><label class="f" id="arNameL"><span class="lh">New Deck Name ${REQ}</span><input type="text" id="arName" maxlength="120" value="${esc(defName)}"></label></div>`}
-      ${qs.length ? `<label class="f"><span class="lh">Quiz Name</span><input type="text" id="arQuizName" maxlength="120" value="${esc(r.quizTitle || (ctx.style ? ctx.style.split(/[.:,]/)[0].slice(0, 60) : "Practice Quiz"))}"></label>` : ""}
+      ${qs.length ? `<label class="f"><span class="lh">Quiz Name</span><input type="text" id="arQuizName" maxlength="120" value="${esc(r.quizTitle || ctx.styleName || (ctx.style ? ctx.style.split(/[.:,]/)[0].slice(0, 60) : "Practice Quiz"))}"></label>` : ""}
       ${cards.length ? `<h3 class="fsec">Flashcards<span class="n" id="arCardN">${cards.length}</span></h3><ul class="ar-cards" id="arCards">${cards.map((c, i) => `<li data-i="${i}"><textarea data-f="front" rows="2" aria-label="Front">${esc(c.front)}</textarea><textarea data-f="back" rows="2" aria-label="Back">${esc(c.back)}</textarea><button type="button" class="x-btn" data-rmc="${i}" aria-label="Remove card">${CLOSE}</button>${c.source ? `<span class="mini src">${esc(c.source)}</span>` : ""}</li>`).join("")}</ul>` : ""}
       ${qs.length ? `<h3 class="fsec">Quiz Questions<span class="n" id="arQN">${qs.length}</span></h3><ol class="ar-qs" id="arQs">${qs.map((q, i) => `<li data-i="${i}"><div class="ar-q-head"><span class="pill">${typeLabel[q.type]}</span>${q.source ? `<span class="mini">${esc(q.source)}</span>` : ""}<span class="spacer"></span><button type="button" class="x-btn" data-rmq="${i}" aria-label="Remove question">${CLOSE}</button></div>
           <p class="ar-stem">${esc(q.stem)}</p>
@@ -5446,7 +5510,7 @@ const SYL_SCHEMA = {type: "OBJECT", properties: {
   required: ["course", "items"]};
 async function aiReadSyllabus(parts, onStatus){
   const today = todayISO();
-  const res = await aiCall({maxTokens: 32000, temperature: 0.1, onStatus, schema: SYL_SCHEMA, parts: parts.concat({text: `Today is ${today}. Read this course syllabus and extract the course details and every dated deliverable.`}),
+  const res = await aiCall({task: "syllabus", maxTokens: 32000, temperature: 0.1, onStatus, schema: SYL_SCHEMA, parts: parts.concat({text: `Today is ${today}. Read this course syllabus and extract the course details and every dated deliverable.`}),
     system: `You extract structured data from college course syllabi for a student planner. Be precise and complete.
 Rules:
 - One item per graded deliverable or required reading with a date: each homework, problem set, quiz, exam (midterms and the final), lab or lab report, project milestone, paper, presentation, and each dated reading assignment. Do not list holidays, "no class" days, add/drop deadlines, office hours, or policy text as items.
@@ -5531,7 +5595,7 @@ function aiSetupSheet(fromFeature){
     const prev = state.settings.ai;
     state.settings = Object.assign({}, state.settings, {ai: {provider: p, model, keys: Object.assign({}, aiCfg().keys, {[p]: key})}});
     msg.textContent = "Testing…"; b.disabled = true;
-    try { const r = await aiCall({fast: true, maxTokens: 400, temperature: 0, parts: [{text: "Reply with {\"ok\": true}"}], system: "Reply with JSON only.", schema: {type: "OBJECT", properties: {ok: {type: "BOOLEAN"}}, required: ["ok"]}}); msg.textContent = `It works. Connected to ${r.model}.`; }
+    try { const r = await aiCall({task: "ping", fast: true, maxTokens: 400, temperature: 0, parts: [{text: "Reply with {\"ok\": true}"}], system: "Reply with JSON only.", schema: {type: "OBJECT", properties: {ok: {type: "BOOLEAN"}}, required: ["ok"]}}); msg.textContent = `It works. Connected to ${r.model}.`; }
     catch(e) { msg.textContent = e.message; }
     state.settings = Object.assign({}, state.settings, {ai: prev}); b.disabled = false;
   }));
@@ -5633,7 +5697,7 @@ async function qaRun(text){
     try {
       const today = todayISO(), d = parse(today);
       const courses = coursesArr().map(c => `${c.code || c.name}${c.code ? ` (${c.name})` : ""}`).join("; ") || "none";
-      const r = await aiCall({fast: true, maxTokens: 3000, temperature: 0.1, schema: QA_SCHEMA, parts: [{text: `Today is ${d.toLocaleDateString("en-US", {weekday: "long"})} ${today}. Courses: ${courses}.\nStudent wrote: "${text}"`}],
+      const r = await aiCall({task: "quickadd", fast: true, maxTokens: 3000, temperature: 0.1, schema: QA_SCHEMA, parts: [{text: `Today is ${d.toLocaleDateString("en-US", {weekday: "long"})} ${today}. Courses: ${courses}.\nStudent wrote: "${text}"`}],
         system: `You turn a student's quick note into planner tasks. Resolve relative dates from today: a weekday name means the next one on or after today, "next Friday" means the Friday of next week, "end of the month" means its last day. Leave due empty if no date is given. Match the course to one of the listed codes when the note clearly refers to it (abbreviations like "bio", "chem", "calc" count). Titles are short and specific, like "Homework 3" or "Quiz 2: Cell Membranes", without the course name or date. Make one task per separate deliverable. hours: a realistic estimate of focused work for a typical college student (0 for exams and quizzes). Only set weight if a percentage is stated. Return JSON only.`});
       const byCode = {}; coursesArr().forEach(c => { byCode[(c.code || c.name).toLowerCase()] = c.id; byCode[c.name.toLowerCase()] = c.id; });
       items = (r.data.tasks || []).map(x => ({title: String(x.title || "").trim(), type: TYPES.includes(x.type) ? x.type : "Assignment", due: isDate(x.due) ? x.due : "", time: /^\d\d:\d\d$/.test(x.time || "") ? x.time : "", start: isDate(x.start) ? x.start : "",
@@ -5742,7 +5806,7 @@ const EST_SCHEMA = {type: "OBJECT", properties: {hours: {type: "NUMBER"}, low: {
 async function aiEstimate(t){
   const L = learned(), c = courseOf(t.courseId);
   const hist = Object.entries(L.byType).map(([k, v]) => `${k}: ${v.length} done, typical ${fmtHM(median(v.map(x => x.h)))}`).join("; ") || "no history yet";
-  const r = await aiCall({fast: true, maxTokens: 1500, temperature: 0.2, schema: EST_SCHEMA, parts: [{text: `Task: ${t.title}\nType: ${t.type}\nCourse: ${c ? c.name : "none"}\nDifficulty: ${DIFF_LABEL[t.difficulty] || "Medium"}\nGrade weight: ${t.weight || "unknown"}%\nNotes: ${t.notes || "none"}\nChecklist: ${(t.checklist || []).map(i => i.text).join("; ") || "none"}\nThis student's history (focused time actually spent): ${hist}. They take about ${L.ratio.toFixed(2)}x their own estimates.`}],
+  const r = await aiCall({task: "estimate", fast: true, maxTokens: 1500, temperature: 0.2, schema: EST_SCHEMA, parts: [{text: `Task: ${t.title}\nType: ${t.type}\nCourse: ${c ? c.name : "none"}\nDifficulty: ${DIFF_LABEL[t.difficulty] || "Medium"}\nGrade weight: ${t.weight || "unknown"}%\nNotes: ${t.notes || "none"}\nChecklist: ${(t.checklist || []).map(i => i.text).join("; ") || "none"}\nThis student's history (focused time actually spent): ${hist}. They take about ${L.ratio.toFixed(2)}x their own estimates.`}],
     system: "Estimate how many hours of focused work this task will take this particular student. Use their history when it's relevant, otherwise typical times for a college student. Give a best guess plus a low-high range, a one-sentence reason, and a few concrete steps to do it. Return JSON only."});
   const h = Number(r.data.hours);
   if (!(h > 0)) throw aiErr("bad", "The AI couldn't estimate that. Try adding a few notes about the task.");
@@ -5882,7 +5946,7 @@ async function runExplain(key, given){
   ui.explain = {key, busy: true}; render();
   try {
     const c = courseOf(x.d.courseId);
-    const r = await aiCall({fast: true, maxTokens: 2500, temperature: 0.4, schema: EXPLAIN_SCHEMA, parts: [{text: `Course: ${c ? c.name : x.d.name}\nQuestion or card front: ${x.prompt}\nCorrect answer: ${x.answer}${x.rationale ? `\nRationale given: ${x.rationale}` : ""}${given ? `\nThe student answered: ${given}` : ""}`}],
+    const r = await aiCall({task: "explain", fast: true, maxTokens: 2500, temperature: 0.4, schema: EXPLAIN_SCHEMA, parts: [{text: `Course: ${c ? c.name : x.d.name}\nQuestion or card front: ${x.prompt}\nCorrect answer: ${x.answer}${x.rationale ? `\nRationale given: ${x.rationale}` : ""}${given ? `\nThe student answered: ${given}` : ""}`}],
       system: "You're a patient tutor. Explain why the answer is right so it sticks: plain words first, then an analogy, a quick example, a memory tip, and the usual mistake (address the student's answer if they got it wrong). Keep every part short. Don't repeat the question. Return JSON only."});
     const d = clone(state.decks[x.d.id]);
     const item = key[0] === "c" ? d.cards.find(y => y.id === x.item.id) : d.aiQuizzes.find(y => y.id === x.qz.id).questions.find(y => y.id === x.item.id);
@@ -5896,7 +5960,7 @@ async function runExplain(key, given){
 /* ---------- Grading typed answers by meaning ---------- */
 const GRADE_SCHEMA = {type: "OBJECT", properties: {verdict: {type: "STRING", enum: ["correct", "partly", "incorrect"]}, feedback: {type: "STRING", description: "One or two sentences to the student"}}, required: ["verdict", "feedback"]};
 async function aiGrade(question, expected, given){
-  const r = await aiCall({fast: true, maxTokens: 800, temperature: 0, schema: GRADE_SCHEMA, parts: [{text: `Question: ${question}\nExpected answer: ${expected}\nStudent's answer: ${given}`}],
+  const r = await aiCall({task: "grade", fast: true, maxTokens: 800, temperature: 0, schema: GRADE_SCHEMA, parts: [{text: `Question: ${question}\nExpected answer: ${expected}\nStudent's answer: ${given}`}],
     system: "Grade a student's short typed answer by meaning, not wording. Accept synonyms, abbreviations, reasonable spelling mistakes, and fuller answers that are still correct. Use 'partly' when the key idea is there but something required is missing or slightly off, and 'incorrect' when the main idea is wrong or missing. Feedback speaks to the student in one or two sentences: what they got right and what was missing or wrong. Return JSON only."});
   const v = ["correct", "partly", "incorrect"].includes(r.data.verdict) ? r.data.verdict : "incorrect";
   return {correct: v === "correct", partly: v === "partly", ai: String(r.data.feedback || "").trim()};
@@ -5941,7 +6005,7 @@ function weakSheet(deckIds){
     const home = single || w.cards.concat(w.qs).map(x => x.d).sort((a, b) => w.cards.concat(w.qs).filter(x => x.d === b).length - w.cards.concat(w.qs).filter(x => x.d === a).length)[0];
     const material = w.cards.slice(0, 40).map(x => `Card: ${x.c.front} => ${x.c.back} (missed ${x.c.wrong}x)`).concat(w.qs.slice(0, 25).map(x => `Missed question${x.q.topic ? ` [${x.q.topic}]` : ""}: ${x.q.stem} Correct: ${x.q.type === "short" ? x.q.answer : x.q.correct.map(i => x.q.options[i]).join("; ")}`)).join("\n");
     try {
-      const r = await aiCall({maxTokens: 24000, schema: QUIZ_SCHEMA, onStatus: m => { status.textContent = m; }, parts: [{text: `Concepts this student keeps missing:\n${material}\n\nStyle: ${home.aiStyle || "Clear, exam-style questions"}\nWrite ${n} new questions.`}],
+      const r = await aiCall({task: "quiz", maxTokens: 24000, schema: QUIZ_SCHEMA, onStatus: m => { status.textContent = m; }, parts: [{text: `Concepts this student keeps missing:\n${material}\n\nStyle: ${home.aiStyle || "Clear, exam-style questions"}\nWrite ${n} new questions.`}],
         system: "You write targeted practice questions on a student's weak spots. Test the SAME underlying concepts as the missed items but with new wording, new scenarios and different angles (application, comparison, 'which is NOT', cause and effect), so the student must understand rather than recognize. Mix types: 'single' (usually 4 options), 'multiple' (select all that apply, 5 or 6 options, 2 or more correct), 'order' when there's a sequence, and 'short'. 'correct' holds zero-based option indexes; for 'order' the indexes in the right order. Every question gets a rationale and one short note per option in 'optionNotes', plus a 'topic'. Return JSON only."});
       const qs = aiCleanQuestions(r.data.questions);
       if (!qs.length) throw aiErr("empty", "The AI didn't write any usable questions. Try again.");
@@ -5975,7 +6039,7 @@ async function caseFromDeck(deckId){
   const st = aiBusySheet("Case Study", "Writing a case study from your cards. This usually takes 20 to 40 seconds…");
   try {
     const c = courseOf(d.courseId);
-    const r = await aiCall({maxTokens: 16000, schema: CASE_SCHEMA, onStatus: m => st(m), parts: [{text: `Course: ${c ? c.name : d.name}\nStyle: ${d.aiStyle || "realistic, exam-style"}\nMaterial (flashcards):\n${d.cards.slice(0, 120).map(x => `${x.front} => ${x.back}`).join("\n")}\n\nWrite 1 case study.`}], system: CASE_SYSTEM});
+    const r = await aiCall({task: "cases", maxTokens: 16000, schema: CASE_SCHEMA, onStatus: m => st(m), parts: [{text: `Course: ${c ? c.name : d.name}\nStyle: ${d.aiStyle || "realistic, exam-style"}\nMaterial (flashcards):\n${d.cards.slice(0, 120).map(x => `${x.front} => ${x.back}`).join("\n")}\n\nWrite 1 case study.`}], system: CASE_SYSTEM});
     const cs = aiCleanCases(r.data.cases);
     if (!cs.length) throw aiErr("empty", "The AI couldn't write a case from these cards. Try again.");
     const nd = clone(state.decks[deckId]);
@@ -6143,7 +6207,7 @@ function examPlanSheet(examId){
         const parts = [];
         for (const cb of $$("[data-epf]:checked", body)) { const f = state.files[cb.dataset.epf]; if (!f) continue; const r = curRev(f); const bytes = await assetBytes(r.assetId); parts.push((await aiSourceFromFile(new File([bytes], r.name || f.name, {type: r.type || ""}))).part); }
         const c = courseOf(ex.courseId);
-        const r = await aiCall({maxTokens: 4000, schema: TOPICS_SCHEMA, parts: parts.concat({text: `Course: ${c ? c.name : ""}\nExam: ${ex.title} on ${ex.due}\nWhat the exam covers (student's notes): ${ex.notes || "not given"}\nList the topics this exam will most likely test, in teaching order, 4 to 15 topics.`}), system: "You list the topics a course exam will cover, using the course files and the exam notes. Topic names are short (2 to 6 words). Return JSON only."});
+        const r = await aiCall({task: "topics", maxTokens: 4000, schema: TOPICS_SCHEMA, parts: parts.concat({text: `Course: ${c ? c.name : ""}\nExam: ${ex.title} on ${ex.due}\nWhat the exam covers (student's notes): ${ex.notes || "not given"}\nList the topics this exam will most likely test, in teaching order, 4 to 15 topics.`}), system: "You list the topics a course exam will cover, using the course files and the exam notes. Topic names are short (2 to 6 words). Return JSON only."});
         const have = new Set(S.topics.map(t => t.name.toLowerCase()));
         const add = (r.data.topics || []).map(t => String(t.name || "").trim()).filter(n => n && !have.has(n.toLowerCase()));
         add.forEach(n => S.topics.push({name: n, conf: "ok"}));
@@ -6171,7 +6235,7 @@ function examPlanSheet(examId){
         b.disabled = true; status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Planning specific study steps for each topic…`;
         try {
           const c = courseOf(ex.courseId);
-          const r = await aiCall({maxTokens: 12000, schema: EP_SCHEMA, onStatus: m => { status.textContent = m; }, parts: [{text: `Course: ${c ? c.name : "not given"}\nExam: ${ex.title}, ${dayDiff(today, ex.due)} days away\nFormat: ${S.style || "not given"}\nWhat it covers (student's notes): ${ex.notes || "not given"}\nTopics and how well the student knows them:\n${S.topics.map(t => `- ${t.name} (${CONF_OPTS.find(x => x[0] === t.conf)[1]})`).join("\n")}\nFlashcard decks: ${S.deckIds.map(id => state.decks[id] && state.decks[id].name).filter(Boolean).join(", ") || "none"}`}],
+          const r = await aiCall({task: "examplan", maxTokens: 12000, schema: EP_SCHEMA, onStatus: m => { status.textContent = m; }, parts: [{text: `Course: ${c ? c.name : "not given"}\nExam: ${ex.title}, ${dayDiff(today, ex.due)} days away\nFormat: ${S.style || "not given"}\nWhat it covers (student's notes): ${ex.notes || "not given"}\nTopics and how well the student knows them:\n${S.topics.map(t => `- ${t.name} (${CONF_OPTS.find(x => x[0] === t.conf)[1]})`).join("\n")}\nFlashcard decks: ${S.deckIds.map(id => state.decks[id] && state.decks[id].name).filter(Boolean).join(", ") || "none"}`}],
             system: "You're an expert study coach. For each topic, give 2 or 3 concrete active-learning steps (drawing a diagram from memory, working problems, teaching it aloud, comparing similar ideas in a table; never just 'reread') and 3 specific recall prompts the student answers from memory, written for this subject and exam format. Use the topic names exactly as given. Also say how to do the practice test for this exam, what to do the day before, and up to 4 short tips. Return JSON only."});
           detail = r.data;
         } catch(err) { status.textContent = `${err.message} Built the plan without AI details.`; }
@@ -6260,7 +6324,7 @@ async function summarizeFile(fid, again){
   const st = aiBusySheet("Summary: " + f.name, "Reading the file and writing a summary…");
   try {
     const src = await fileSource(f), c = courseOf(f.courseId);
-    const r = await aiCall({maxTokens: 8000, schema: SUM_SCHEMA, onStatus: m => st(m), parts: [src.part, {text: `Course: ${c ? c.name : "not given"}. Summarize this file for studying.`}],
+    const r = await aiCall({task: "summary", maxTokens: 8000, schema: SUM_SCHEMA, onStatus: m => st(m), parts: [src.part, {text: `Course: ${c ? c.name : "not given"}. Summarize this file for studying.`}],
       system: "You summarize course material for a student who will be tested on it. Be accurate and specific to the file (names, numbers, mechanisms, steps), not generic. Include the key terms with short definitions and the questions an instructor would most likely ask. Return JSON only."});
     const n = clone(state.files[fid]);
     n.summary = {at: Date.now(), model: r.model, provider: r.provider, overview: String(r.data.overview || ""), keyPoints: (r.data.keyPoints || []).map(String), keyTerms: (r.data.keyTerms || []).filter(k => k && k.term && k.definition).map(k => ({term: String(k.term), definition: String(k.definition)})), questions: (r.data.questions || []).map(String)};
@@ -6314,7 +6378,7 @@ function photoNoteSheet(){
     go.disabled = true; go.classList.add("busy"); status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> Reading your photos…`;
     try {
       const today = todayISO(), courses = coursesArr().map(c => c.code || c.name).join("; ") || "none";
-      const r = await aiCall({maxTokens: 8000, schema: PHOTO_SCHEMA, onStatus: m => { status.textContent = m; }, parts: S.srcs.map(s => s.part).concat({text: `Today is ${today}. Courses: ${courses}. Turn these class photos into study notes.`}),
+      const r = await aiCall({task: "photo", maxTokens: 8000, schema: PHOTO_SCHEMA, onStatus: m => { status.textContent = m; }, parts: S.srcs.map(s => s.part).concat({text: `Today is ${today}. Courses: ${courses}. Turn these class photos into study notes.`}),
         system: "You turn photos of whiteboards, lecture slides and handwritten notes into clean, organized typed study notes. Transcribe everything that matters, fix obvious typos, expand cryptic abbreviations only when you're sure, keep formulas and numbers exactly, and organize with short headings and bullets. If something is unreadable, write [unclear]. Describe diagrams briefly in words. List any due dates or exam dates you see, resolving them relative to today. Return JSON only."});
       const d = r.data, cSel = $("#pnCourse").value, guess = coursesArr().find(c => (c.code || c.name).toLowerCase() === String(d.course || "").toLowerCase());
       S.result = {title: String(d.title || "").trim(), notes: String(d.notes || "").trim(), courseId: cSel || (guess ? guess.id : ""), dates: (d.dates || []).filter(x => x && x.title && isDate(x.due)).map(x => ({title: String(x.title), type: TYPES.includes(x.type) ? x.type : "Assignment", due: x.due, time: /^\d\d:\d\d$/.test(x.time || "") ? x.time : "", on: true}))};
@@ -6415,7 +6479,7 @@ function askSheet(courseId){
       m.status = "Thinking…"; drawLog();
       const hist = A.msgs.filter(x => x !== m && x.a).slice(-6).map(x => `Student: ${x.q}\nTutor: ${x.a.answer}`).join("\n\n");
       parts.push({text: `${A.info ? courseInfo() + "\n\n" : ""}${hist ? "Conversation so far:\n" + hist + "\n\n" : ""}Student's question: ${q}`});
-      const r = await aiCall({maxTokens: 6000, schema: ASK_SCHEMA, onStatus: s => { m.status = s; drawLog(); }, parts,
+      const r = await aiCall({task: "tutor", maxTokens: 6000, schema: ASK_SCHEMA, onStatus: s => { m.status = s; drawLog(); }, parts,
         system: "You're a friendly, sharp tutor for this course. Answer from the provided course files first and cite the file name and slide or page for what you use. If the files don't cover it, say so and answer from general knowledge (set inFiles false). Be concise and clear for a student: short paragraphs or bullets, define jargon, and give an example when it helps. If asked to quiz them, ask the questions without giving answers away. Return JSON only."});
       m.a = {answer: String(r.data.answer || ""), sources: (r.data.sources || []).filter(s => s && s.file).slice(0, 6), inFiles: r.data.inFiles, followUps: (r.data.followUps || []).map(String).slice(0, 3)};
     } catch(e) { m.err = e.message || "Couldn't answer that right now."; }
@@ -6502,7 +6566,7 @@ async function autoPlan(a){
   let news = []; try { news = typeof window.SBLMS_NEWS === "function" ? window.SBLMS_NEWS(7) : []; } catch(e) {}
   const newsTxt = news.map(n => { const c = courseOf(n.courseId); return `- ${c ? courseLabel(c) : ""} (${String(n.date || "").slice(0, 10)}): ${n.title}. ${String(n.text || "").replace(/\s+/g, " ").slice(0, 220)}`; }).join("\n") || "none";
   const hist = Object.entries(L.byType).map(([k, v]) => `${k}: ${v.length} finished, median ${fmtHM(median(v.map(x => x.h)))} of focused time`).join("; ") || "none yet";
-  const r = await aiCall({auto: true, fast: true, maxTokens: 6000, temperature: 0.2, schema: NEXT_SCHEMA, parts: [{text: `Now: ${now.toLocaleDateString("en-US", {weekday: "long"})} ${today} ${pad(now.getHours())}:${pad(now.getMinutes())}. Study time left today: ${fmtHM(F.th)}${F.doneToday >= 0.25 ? ` (already focused ${fmtHM(F.doneToday)} today)` : ""}; usual per day: ${fmtHM(F.dh)}.\nThe next few days:\n${week}\nCourse standings: ${standings}\nRecent announcements from the school site:\n${newsTxt}\nThis student's history: ${hist}. They usually take ${L.ratio.toFixed(2)}x their own estimates.\nOpen tasks:\n${lines}`}],
+  const r = await aiCall({task: "plan", auto: true, fast: true, maxTokens: 6000, temperature: 0.2, schema: NEXT_SCHEMA, parts: [{text: `Now: ${now.toLocaleDateString("en-US", {weekday: "long"})} ${today} ${pad(now.getHours())}:${pad(now.getMinutes())}. Study time left today: ${fmtHM(F.th)}${F.doneToday >= 0.25 ? ` (already focused ${fmtHM(F.doneToday)} today)` : ""}; usual per day: ${fmtHM(F.dh)}.\nThe next few days:\n${week}\nCourse standings: ${standings}\nRecent announcements from the school site:\n${newsTxt}\nThis student's history: ${hist}. They usually take ${L.ratio.toFixed(2)}x their own estimates.\nOpen tasks:\n${lines}`}],
     system: "You're an expert study planner working quietly inside a student's planner app. Using the tasks, the time of day, the time left today and the student's own history: (1) choose up to 5 tasks to work on right now, best first (deadlines come first: never put a task due weeks away ahead of one due in the next few days that still needs work, unless the far one is a big task that needs most of the time left before it; grade weight only breaks ties between similar deadlines), each with a one-sentence reason that's specific (deadline, grade weight, how much is left, what it unblocks, energy for the time of day), a concrete first step, and sensible session minutes (never pick an exam or quiz itself, since it happens at a set time; pick its study tasks instead); skip BLOCKED tasks. (2) Estimate total hours for tasks marked 'no estimate', leaning on how long this student's past tasks took. (3) For started tasks, estimate hours of work left, counting their focus time and progress and their tendency to underestimate. (4) For each exam or quiz, judge readiness 0 to 100 from study sessions done, flashcard mastery and quiz scores, with a short note. (5) Heads up: up to 3 real things the student could miss, read from the instructions, the announcements, the schedule and the standings (an earlier draft or pre-lab deadline, a changed due date or room, a full clinical day right before a deadline, a course near its pass mark); leave it empty rather than state the obvious. (6) Rate how demanding tasks marked 'difficulty not set' look. Consider the schedule: long class or clinical days leave little study time, so plan around them and favour short tasks just before a class. Late submissions: a task that still accepts late work is less urgent than one that closes at the due time, but never suggest planning to be late. Use the refs exactly (t1, t2...). Return JSON only."});
   const d = r.data || {}, changes = [];
   const next = (d.next || []).filter(x => back[x.ref]).map(x => ({id: back[x.ref], why: String(x.why || "").slice(0, 220), step: String(x.step || "").slice(0, 120), min: Math.max(10, Math.min(180, Number(x.minutes) || 0)) || null})).slice(0, 5);
@@ -6525,7 +6589,7 @@ async function autoTune(t){
   const deckIds = (t.studyDecks || []).filter(id => state.decks[id]);
   const w = weakSpots(deckIds);
   const cards = deckIds.flatMap(id => state.decks[id].cards.map(x => ({id: x.id, f: x.front, box: x.box, wrong: x.wrong}))).slice(0, 150);
-  const r = await aiCall({auto: true, fast: true, maxTokens: 3000, temperature: 0.3, schema: TUNE_SCHEMA, parts: [{text: `Course: ${c ? c.name : ""}\nExam: ${ex.title || ""} on ${ex.due || "?"}, format: ${ex.planStyle || "not given"}\nTopics and confidence: ${(ex.planTopics || []).map(x => `${x.name} (${x.conf})`).join("; ") || "not given"}\nThis session (${t.due}, about ${Math.round((Number(t.hours) || 1) * 60)} minutes): ${(t.checklist || []).map(i => i.text).join(" / ")}\nThings the student keeps missing: ${w.cards.slice(0, 15).map(x => x.c.front).concat(w.qs.slice(0, 10).map(x => x.q.topic || x.q.stem.slice(0, 80))).join("; ") || "nothing recorded yet"}\nFlashcards (id: front, level 0-5, times wrong):\n${cards.map(x => `${x.id}: ${x.f.slice(0, 80)} (L${x.box}, wrong ${x.wrong})`).join("\n") || "none"}`}],
+  const r = await aiCall({task: "tune", auto: true, fast: true, maxTokens: 3000, temperature: 0.3, schema: TUNE_SCHEMA, parts: [{text: `Course: ${c ? c.name : ""}\nExam: ${ex.title || ""} on ${ex.due || "?"}, format: ${ex.planStyle || "not given"}\nTopics and confidence: ${(ex.planTopics || []).map(x => `${x.name} (${x.conf})`).join("; ") || "not given"}\nThis session (${t.due}, about ${Math.round((Number(t.hours) || 1) * 60)} minutes): ${(t.checklist || []).map(i => i.text).join(" / ")}\nThings the student keeps missing: ${w.cards.slice(0, 15).map(x => x.c.front).concat(w.qs.slice(0, 10).map(x => x.q.topic || x.q.stem.slice(0, 80))).join("; ") || "nothing recorded yet"}\nFlashcards (id: front, level 0-5, times wrong):\n${cards.map(x => `${x.id}: ${x.f.slice(0, 80)} (L${x.box}, wrong ${x.wrong})`).join("\n") || "none"}`}],
     system: "You tune one study session of a student's exam plan so it targets what they actually need. Keep the session's purpose and total time, but make the steps specific: name the concepts, the diagrams to draw, the problems to do, and fold in what they keep missing. Pick the flashcard ids most worth reviewing (weak and relevant first). Return JSON only."});
   const d = r.data || {}, n = clone(state.tasks[t.id]); if (!n) return;
   const steps = (d.steps || []).map(s => String(s).trim()).filter(Boolean).slice(0, 8);
@@ -6541,7 +6605,7 @@ async function autoPractice(t){
   const cards = deckIds.flatMap(id => state.decks[id].cards).slice(0, 150);
   const topics = (ex.planTopics || []).map(x => `${x.name} (${x.conf})`);
   if (!deckIds.length || (cards.length < 5 && !topics.length)) { const n = clone(state.tasks[t.id]); n.practiceQuiz = {none: true}; applyChanges([{kind: "task", id: t.id, after: n}], null); return; }
-  const r = await aiCall({auto: true, maxTokens: 24000, schema: QUIZ_SCHEMA, parts: [{text: `Course: ${c ? c.name : ""}\nExam: ${ex.title || ""}, format: ${ex.planStyle || "exam-style"}\nTopics (and how well the student knows them): ${topics.join("; ") || "see cards"}\nMaterial (flashcards):\n${cards.map(x => `${x.front} => ${x.back}`).join("\n")}\n\nWrite a 15-question practice test.`}],
+  const r = await aiCall({task: "practice", auto: true, maxTokens: 24000, schema: QUIZ_SCHEMA, parts: [{text: `Course: ${c ? c.name : ""}\nExam: ${ex.title || ""}, format: ${ex.planStyle || "exam-style"}\nTopics (and how well the student knows them): ${topics.join("; ") || "see cards"}\nMaterial (flashcards):\n${cards.map(x => `${x.front} => ${x.back}`).join("\n")}\n\nWrite a 15-question practice test.`}],
     system: "You write a realistic practice test for an upcoming exam in its format, weighted toward the student's shaky topics. Mix types: 'single' (usually 4 options), 'multiple' (select all that apply), 'order' for sequences, and a few 'short'. 'correct' holds zero-based option indexes; for 'order' the indexes in the right order. Every question gets a rationale, one short note per option in 'optionNotes', and a 'topic'. Return JSON only."});
   const qs = aiCleanQuestions((r.data || {}).questions);
   const n = clone(state.tasks[t.id]); if (!n) return;
@@ -26829,11 +26893,208 @@ var MAJ_THEMES = [];
     return `${{task: "Task", note: "Sticky note", card: "Flashcard", question: "Practice question", file: "File", course: "Course", event: "Event", deck: "Deck", quiz: "Practice quiz", class: "Class"}[d.type] || "Item"}: ${String(d.title).slice(0, 80)}`;
   }
 
+  /* ---------- What the assistant knows: a dated snapshot of the planner, plus exact answers for common questions ----------
+     The model used to see only a few search hits, so "when is my next exam" had nothing to work from. Now every answer gets a snapshot
+     (today's date and time, upcoming exams sorted with days away, deadlines, classes, grades), and the questions that have one right
+     answer (next exam, due today, grades, classes) are worked out here with real date math, no AI needed. D is the planner's data:
+     {now, today, tz, tasks, courses, course(id), standing(cid), occ(from, to)}. */
+  const EXAM_RE = /\b(mid-?terms?|exams?|tests?|examinations?|finals?(?!\s+(?:project|paper|essay|presentation|report|draft|assignment|portfolio|submission|reflection|care|grade|mark)))\b/i;
+  const NOT_EXAM_RE = /\b(study|studying|review|prep|prepare|practice|plan|session|flashcards?|notes?)\b/i;
+  // "exam", "quiz" or "" for a task. Study sessions made for an exam are never the exam itself.
+  function examKind(t){
+    if (!t || t.prepFor) return "";
+    if (t.type === "Exam") return "exam";
+    if (t.type === "Quiz") return "quiz";
+    if (!["Assignment", "Other", "Lab"].includes(t.type)) return "";
+    const ti = String(t.title || "");
+    return EXAM_RE.test(ti) && !NOT_EXAM_RE.test(ti) ? "exam" : "";
+  }
+  const hhmm = d => pad(d.getHours()) + ":" + pad(d.getMinutes());
+  const longDate = s => parse(s).toLocaleDateString("en-US", {weekday: "long", month: "long", day: "numeric"});
+  const rel = n => n === 0 ? "today" : n === 1 ? "tomorrow" : n === -1 ? "yesterday" : n > 0 ? `in ${n} days` : `${-n} days ago`;
+  const clock = t => /^\d{1,2}:\d{2}/.test(t || "") ? fmtTime(t) : "";
+  const courseTag = (D, t) => { const c = t.courseId ? D.course(t.courseId) : null; return c ? courseLabel(c) : ""; };
+  // Every exam or quiz with how far away it is. passed: already happened (earlier date, or earlier today by its time). done: marked Taken.
+  function examsOf(D, kinds){
+    const out = [];
+    D.tasks.forEach(t => {
+      const k = examKind(t); if (!k || !kinds.includes(k) || !isDate(t.due)) return;
+      const days = dayDiff(D.today, t.due), tm = /^\d{1,2}:\d{2}$/.test(t.time || "") ? pad(Number(t.time.split(":")[0])) + ":" + t.time.split(":")[1] : "";
+      out.push({t, k, days, time: t.time || "", passed: days < 0 || (days === 0 && !!tm && tm < hhmm(D.now)), done: t.status === "done"});
+    });
+    return out.sort((a, b) => (a.t.due + (a.time || "99:99")).localeCompare(b.t.due + (b.time || "99:99")));
+  }
+  const upcomingExams = (D, kinds) => examsOf(D, kinds).filter(x => !x.passed && !x.done);
+  function examLine(D, x, extra, pre){
+    const t = x.t, bits = [(pre ? (x.k === "quiz" ? "Quiz: " : "Exam: ") : "") + t.title, courseTag(D, t), `${longDate(t.due)} (${rel(x.days)})`, clock(t.time) ? "at " + clock(t.time) : "", t.location ? "in " + t.location : "", hasWeight(t) ? `worth ${t.weight}% of the grade` : ""];
+    let s = bits.filter(Boolean).join(", ");
+    if (extra && t.notes) s += `. Covers: ${String(t.notes).replace(/\s+/g, " ").slice(0, 200)}`;
+    return s;
+  }
+  // Tasks still to do between two dates (inclusive). Study sessions are listed apart from real deadlines.
+  function dueBetween(D, from, to){
+    const gone = new Set(examsOf(D, ["exam", "quiz"]).filter(x => x.passed).map(x => x.t));   // an exam earlier today is over
+    return D.tasks.filter(t => isDate(t.due) && t.status !== "done" && t.due >= from && t.due <= to && !gone.has(t))
+      .sort((a, b) => (a.due + (a.time || "99:99")).localeCompare(b.due + (b.time || "99:99")));
+  }
+  const overdueOf = D => D.tasks.filter(t => isDate(t.due) && t.status !== "done" && t.due < D.today && !MILESTONE(t.type) && !t.prepFor).sort((a, b) => a.due < b.due ? -1 : 1);
+  function taskLine(D, t){
+    const n = dayDiff(D.today, t.due), kind = examKind(t);
+    return [t.title, [kind ? (kind === "quiz" ? "Quiz" : "Exam") : t.type, courseTag(D, t)].filter(Boolean).join(", "), `due ${rel(n)}${clock(t.time) ? " at " + clock(t.time) : ""}`, hasWeight(t) ? `${t.weight}%` : "", t.prepFor ? "study session" : ""].filter(Boolean).join(" | ");
+  }
+  const GENERIC_NAME = new Set("introduction intro principles fundamentals course studies applied advanced general topics".split(" "));
+  // Which courses the question names (by code like "pharm 101" or by a word from the name). Ties are kept.
+  function coursesInQ(D, q){
+    const qt = toks(q).filter(x => !STOP.has(x)), qs = new Set(qt), flat = fold(q).replace(/[^a-z0-9]/g, "");
+    const pre = w => w.length >= 3 && qt.some(x => x.length >= 3 && (x.startsWith(w) || w.startsWith(x)));
+    let best = [], top = 0;
+    D.courses.forEach(c => {
+      let s = 0;
+      const code = fold(c.code || "").replace(/[^a-z0-9]/g, ""), ct = toks(c.code || "");
+      if (code.length >= 3 && flat.includes(code)) s += 3;
+      else if (ct.length) {
+        const letters = ct.filter(x => /^[a-z]+$/.test(x)), nums = ct.filter(x => /\d/.test(x));
+        if (letters.some(x => pre(x)) && (!nums.length || nums.some(x => qs.has(x)))) s += 2.5;
+        else if (letters.some(x => x.length >= 3 && pre(x))) s += 1.6;
+      }
+      toks(c.name || "").filter(x => x.length >= 4 && !GENERIC_NAME.has(x)).forEach(x => { if (qs.has(x)) s += 1; else if (pre(x)) s += 0.8; });
+      if (s > top + 1e-9) { top = s; best = [c]; } else if (s > 0 && Math.abs(s - top) < 1e-9) best.push(c);
+    });
+    return top >= 1.5 ? best : [];
+  }
+  const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+  // A day the question points at: today, tomorrow or a weekday name (the next one). Returns {date, name} or null.
+  function dayInQ(D, ql){
+    if (/\btoday\b|\btonight\b/.test(ql)) return {date: D.today, name: "today"};
+    if (/\btomorrow\b/.test(ql)) return {date: addDays(D.today, 1), name: "tomorrow"};
+    const w = WEEKDAYS.findIndex(x => new RegExp("\\b" + x + "\\b").test(ql));
+    if (w >= 0) { const d0 = parse(D.today).getDay(); let n = (w - d0 + 7) % 7; if (n === 0 && /\bnext\b/.test(ql)) n = 7; return {date: addDays(D.today, n), name: n === 0 ? "today" : longDate(addDays(D.today, n))}; }
+    return null;
+  }
+  function gradeLine(D, c){
+    const g = D.standing(c.id); if (!g || g.current == null) return null;
+    const sc = g.g && Array.isArray(g.g.scale) ? g.g.scale : [], le = sc.find(x => g.current >= Number(x[1]) - 1e-9);
+    return `${courseLabel(c)}: ${Math.round(g.current * 10) / 10}%${le ? " (" + le[0] + ")" : ""} on ${Math.round(g.wMarked)}% of the grade marked so far, pass mark ${g.g.pass}%${g.risk ? (g.risk === "risk" ? ", at risk" : g.risk === "out" ? ", can't reach the pass mark on paper" : ", worth watching") : ""}`;
+  }
+  const askItems = ts => ts.slice(0, 6).map(t => ({id: t.id, title: t.title}));
+  const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+  /* The exact answer for a question, or null when it needs reading (then the model gets the snapshot). Returns {text, items, kind}. */
+  function exactAnswer(D, q){
+    const ql = fold(q).replace(/[^a-z0-9' ]+/g, " ").replace(/\s+/g, " ").trim();
+    if (!ql) return null;
+    if (/\b(study|studying|prepare|preparing|prep|tips?|advice|explain|why|plan|how (do|should|can|would|to) i?)\b/.test(ql)) return null;
+    const cs = coursesInQ(D, q), only = cs.length ? t => cs.some(c => c.id === t.courseId) : () => true, forC = cs.length ? ` for ${cs.map(courseLabel).join(" and ")}` : "";
+    const when = /\b(when|next|upcoming|soon|soonest|first|date|dates|how long|how many|how soon|coming up|any|which|list|all|remaining|left|away|until|till|what (exams?|tests?|quizz?es)|do i have|am i having|is there)\b/.test(ql);
+    // Grades
+    if (/\b(grades?|marks?|gpa|standing|standings|passing|average|how am i doing|how'?s my)\b/.test(ql) && !/\b(due|when|date)\b/.test(ql)) {
+      const list = (cs.length ? cs : D.courses).map(c => ({c, line: gradeLine(D, c)}));
+      const have = list.filter(x => x.line);
+      if (!have.length) return {kind: "grades", text: cs.length ? `No marks are entered for ${cs.map(courseLabel).join(" or ")} yet, so there's no grade to work out.` : "No marks are entered in any course yet, so there's no grade to work out.", items: []};
+      return {kind: "grades", text: (have.length > 1 ? "Your standing so far:\n" : "") + have.map(x => (have.length > 1 ? "• " : "") + x.line + ".").join("\n"), items: []};
+    }
+    // Exams and quizzes: next one, or the list
+    const wantExam = /\b(exams?|mid-?terms?|finals?|tests?|examinations?)\b/.test(ql), wantQuiz = /\b(quiz|quizz?es)\b/.test(ql);
+    if ((wantExam || wantQuiz) && when) {
+      const kinds = wantExam && wantQuiz ? ["exam", "quiz"] : wantQuiz ? ["quiz"] : /\btests?\b/.test(ql) ? ["exam", "quiz"] : ["exam"];
+      const noun = kinds.length === 2 ? "exam or quiz" : kinds[0];
+      let up = upcomingExams(D, kinds).filter(x => only(x.t));
+      const hint = /\bmid-?terms?\b/.test(ql) ? /mid-?term/i : /\bfinals?\b/.test(ql) ? /\bfinal/i : null;
+      let hinted = false;
+      if (hint) { const h = up.filter(x => hint.test(x.t.title)); if (h.length) { up = h; hinted = true; } }
+      const listAll = /\b(all|list|exams|tests|quizzes|quizes|how many|which|what exams|any|remaining|upcoming exams)\b/.test(ql) && !/\bnext\b|\bfirst\b|\bsoonest\b/.test(ql);
+      if (!up.length) {
+        const past = examsOf(D, kinds).filter(x => only(x.t) && (x.passed || x.done)).pop();
+        return {kind: "exam", items: past ? askItems([past.t]) : [], text: `You have no upcoming ${noun}${forC} in your planner.${past ? ` The most recent was ${past.t.title}${courseTag(D, past.t) ? " (" + courseTag(D, past.t) + ")" : ""} on ${longDate(past.t.due)}${past.done ? ", marked as taken" : ""}.` : ""}`};
+      }
+      if (listAll) return {kind: "exam", items: askItems(up.map(x => x.t)), text: `You have ${plural(up.length, noun)} coming up${forC}:\n` + up.slice(0, 12).map(x => "• " + examLine(D, x)).join("\n") + (up.length > 12 ? `\n…and ${up.length - 12} more.` : "")};
+      const n = up[0], nx = up[1];
+      return {kind: "exam", items: askItems(up.slice(0, 2).map(x => x.t)), text: `Your next ${noun} is ${examLine(D, n, true)}.${nx ? ` After that: ${examLine(D, nx)}.` : ""}`};
+    }
+    // "When is X due?" for one named task
+    if (/\b(when|due date|what day|what date)\b/.test(ql) && !/\b(today|tomorrow|tonight|this week|next week)\b/.test(ql)) {
+      const qt = new Set(toks(q)), scored = D.tasks.filter(t => isDate(t.due) && !t.prepFor && only(t)).map(t => {
+        const tt = [...new Set(toks(t.title))].filter(x => !STOP.has(x)); if (!tt.length) return {t, s: 0};
+        const hit = tt.filter(x => qt.has(x) || (x.length > 3 && qt.has(x.replace(/s$/, "")))).length, num = tt.filter(x => /^\d+$/.test(x)), numOk = !num.length || num.every(x => qt.has(x));
+        return {t, s: numOk ? hit / tt.length : 0, hit};
+      }).filter(x => x.s >= 0.75 && x.hit >= 1).sort((a, b) => b.s - a.s || (a.t.status === "done") - (b.t.status === "done") || (a.t.due < b.t.due ? -1 : 1));
+      if (scored.length && (scored.length === 1 || scored[0].s > scored[1].s || scored[0].t.status !== "done")) {
+        const t = scored[0].t, n = dayDiff(D.today, t.due);
+        return {kind: "task", items: askItems([t]), text: `${t.title}${courseTag(D, t) ? " (" + courseTag(D, t) + ")" : ""} is due ${longDate(t.due)}${clock(t.time) ? " at " + clock(t.time) : ""}, which is ${rel(n)}${t.status === "done" ? ". You've marked it complete" : n < 0 ? ". It's past due" : ""}.`};
+      }
+    }
+    // Overdue
+    if (/\b(overdue|late|behind|missed|past due)\b/.test(ql) && /\b(what|which|any|do i|have|list|how many)\b/.test(ql)) {
+      const od = overdueOf(D).filter(only);
+      return {kind: "due", items: askItems(od), text: od.length ? `${plural(od.length, "task")} overdue${forC}:\n` + od.slice(0, 12).map(t => "• " + taskLine(D, t)).join("\n") : `Nothing is overdue${forC}.`};
+    }
+    // What's due (a day, this week, or the next stretch)
+    if (/\b(due|deadlines?|to ?do|homework|assignments?|tasks?|coming up|on my plate|hand in|submit)\b/.test(ql) && /\b(what|which|any|do i|list|how many|anything|show|have|due)\b/.test(ql) && !/\b(classes|class|lectures?|clinical)\b/.test(ql)) {
+      const dq = dayInQ(D, ql);
+      let from = D.today, to = addDays(D.today, 7), label = "in the next 7 days";
+      if (dq) { from = to = dq.date; label = dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name; }
+      else if (/\bthis week\b/.test(ql)) { to = addDays(mondayOf(D.today), 6); label = "this week (through Sunday)"; }
+      else if (/\bnext week\b/.test(ql)) { from = addDays(mondayOf(D.today), 7); to = addDays(from, 6); label = "next week"; }
+      else if (/\b(tonight)\b/.test(ql)) { to = from; label = "today"; }
+      else if (/\bnext (\d+) days\b/.test(ql)) { const k = Math.min(60, Number(ql.match(/\bnext (\d+) days\b/)[1])); to = addDays(D.today, k); label = `in the next ${k} days`; }
+      const items = dueBetween(D, from, to).filter(only), od = from === D.today ? overdueOf(D).filter(only) : [];
+      const real = items.filter(t => !t.prepFor), study = items.filter(t => t.prepFor);
+      if (!real.length && !study.length && !od.length) return {kind: "due", items: [], text: `Nothing is due ${label}${forC}.`};
+      let text = real.length ? `${plural(real.length, "thing")} due ${label}${forC}:\n` + real.slice(0, 15).map(t => "• " + taskLine(D, t)).join("\n") + (real.length > 15 ? `\n…and ${real.length - 15} more.` : "") : `Nothing has a deadline ${label}${forC}.`;
+      if (study.length) text += `\nStudy sessions planned: ` + study.slice(0, 6).map(t => t.title).join("; ") + ".";
+      if (od.length) text += `\nOverdue: ` + od.slice(0, 6).map(t => `${t.title} (${rel(dayDiff(D.today, t.due))})`).join("; ") + ".";
+      return {kind: "due", items: askItems(real.concat(od)), text};
+    }
+    // Classes on a day
+    if (/\b(classes|class|lectures?|labs?|clinicals?|schedule|what time|where)\b/.test(ql) && /\b(what|which|do i|when|where|schedule|have|any)\b/.test(ql) && dayInQ(D, ql)) {
+      const dq = dayInQ(D, ql), occ = D.occ(dq.date, dq.date).filter(o => !cs.length || (o.c && cs.some(c => c.id === o.c.id)) || (o.course && cs.some(c => c.id === o.course.id)))
+        .sort((a, b) => String(a.start || "").localeCompare(String(b.start || "")));
+      if (!occ.length) return {kind: "classes", items: [], text: `Nothing is scheduled ${dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name}${forC}.`};
+      return {kind: "classes", items: [], text: `Scheduled ${dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name}${forC}:\n` + occ.slice(0, 12).map(o => `• ${o.start ? fmtTime(o.start) + (o.end ? "–" + fmtTime(o.end) : "") + ": " : "All day: "}${o.title}${o.label ? " " + o.label : ""}${o.where ? ", " + o.where : ""}`).join("\n")};
+    }
+    return null;
+  }
+  /* The snapshot the model reads with every question. Dates come pre-computed so the model never has to do date math. */
+  function snapshotText(D){
+    const L = [], tz = D.tz ? ` (${D.tz})` : "";
+    L.push(`NOW: ${D.now.toLocaleDateString("en-US", {weekday: "long", month: "long", day: "numeric", year: "numeric"})} (${D.today}), ${hhmm(D.now)}${tz}. "Days away" below counts from this date; 0 means today.`);
+    const ex = examsOf(D, ["exam", "quiz"]), up = ex.filter(x => !x.passed && !x.done), pastE = ex.filter(x => x.passed || x.done);
+    const ue = up.filter(x => x.k === "exam"), uq = up.filter(x => x.k === "quiz");
+    L.push(ue.length ? `NEXT EXAM: ${examLine(D, ue[0], true, true)}` : "NEXT EXAM: none. There are no upcoming exams in the planner.");
+    L.push("UPCOMING EXAMS (soonest first):" + (ue.length ? "\n" + ue.slice(0, 15).map((x, i) => `${i + 1}. ${examLine(D, x, true, true)}`).join("\n") : " none"));
+    L.push("UPCOMING QUIZZES (soonest first):" + (uq.length ? "\n" + uq.slice(0, 12).map((x, i) => `${i + 1}. ${examLine(D, x, true, true)}`).join("\n") : " none"));
+    if (pastE.length) L.push("PAST OR TAKEN EXAMS AND QUIZZES (most recent first):\n" + pastE.slice(-6).reverse().map(x => `- ${examLine(D, x, false, true)}${x.done ? " [marked taken]" : ""}`).join("\n"));
+    const today = dueBetween(D, D.today, D.today).filter(t => !examKind(t)), soon = dueBetween(D, addDays(D.today, 1), addDays(D.today, 21)).filter(t => !examKind(t));
+    L.push("DUE TODAY (not exams):" + (today.length ? "\n" + today.slice(0, 20).map(t => "- " + taskLine(D, t)).join("\n") : " nothing"));
+    L.push("DEADLINES IN THE NEXT 21 DAYS (not exams, soonest first):" + (soon.length ? "\n" + soon.slice(0, 40).map(t => "- " + taskLine(D, t)).join("\n") + (soon.length > 40 ? `\n(${soon.length - 40} more later)` : "") : " nothing"));
+    const od = overdueOf(D); if (od.length) L.push("OVERDUE (not done, past due):\n" + od.slice(0, 15).map(t => "- " + taskLine(D, t)).join("\n"));
+    const days = [0, 1, 2, 3, 4, 5, 6].map(i => { const d = addDays(D.today, i), occ = D.occ(d, d).sort((a, b) => String(a.start || "").localeCompare(String(b.start || ""))); return occ.length ? `${i === 0 ? "Today" : longDate(d)}: ` + occ.slice(0, 8).map(o => `${o.start ? fmtTime(o.start) + (o.end ? "-" + fmtTime(o.end) : "") + " " : "all day "}${o.title}${o.label ? " " + o.label : ""}${o.where ? " @" + o.where : ""}`).join("; ") : ""; }).filter(Boolean);
+    L.push("CLASSES AND EVENTS, NEXT 7 DAYS:" + (days.length ? "\n" + days.join("\n") : " none scheduled"));
+    const gl = D.courses.map(c => gradeLine(D, c)).filter(Boolean);
+    L.push("GRADES:" + (gl.length ? "\n" + gl.map(x => "- " + x).join("\n") : " no marks entered"));
+    L.push("COURSES: " + (D.courses.map(c => courseLabel(c) + (c.name && c.name !== courseLabel(c) ? " (" + c.name + ")" : "") + (c.instructor ? ", " + c.instructor : "")).join("; ") || "none"));
+    return L.join("\n");
+  }
+  function askData(){
+    const now = new Date(); let tz = ""; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch(e) {}
+    return {now, today: iso(now), tz, tasks: tasksArr(), courses: coursesArr(), course: id => courseOf(id),
+      standing: cid => { try { return window.__sbGrades ? window.__sbGrades.courseGrade(cid) : null; } catch(e) { return null; } },
+      occ: (a, b) => { try { return schOccurrences(a, b).filter(o => !o.skipped && !(o.type === "meet" && o.m && o.m.kind === "Office Hours")); } catch(e) { return []; } }};
+  }
+
   /* ---------- Ask With AI ---------- */
   const ANSWER_SCHEMA = {type: "OBJECT", properties: {
-    answer: {type: "STRING", description: "2 to 4 short, plain sentences that answer the question from the sources, citing them like [2]"},
-    sources: {type: "ARRAY", items: {type: "INTEGER"}, description: "Numbers of the sources the answer used"},
-    found: {type: "BOOLEAN", description: "false if the sources don't answer the question"}}, required: ["answer", "found"]};
+    answer: {type: "STRING", description: "A direct, concise answer (1 to 4 short sentences, or a short list for several items) using only the planner snapshot and the numbered sources. Cite numbered sources like [2]; facts from the snapshot need no number."},
+    sources: {type: "ARRAY", items: {type: "INTEGER"}, description: "Numbers of the numbered sources the answer used (empty if it came only from the snapshot)"},
+    found: {type: "BOOLEAN", description: "false if neither the snapshot nor the sources answer the question"}}, required: ["answer", "found"]};
+  const ASK_SYSTEM = `You answer questions for a student inside their own planner app, using ONLY the PLANNER SNAPSHOT and the numbered SOURCES in the message. Nothing else is known about them.
+Rules:
+- The snapshot is exact and already dated: "days away" and "today" are computed for you from NOW. Never recompute dates, and never call a past item upcoming. "Next exam" means the first entry of UPCOMING EXAMS (or the NEXT EXAM line). Quizzes are not exams unless asked. Study sessions are not exams.
+- A question about the planner (exams, deadlines, classes, grades, what to do today) is answered from the snapshot. A question about course content, notes, flashcards or files is answered from the numbered sources. Cite those like [2], and give a file's page or slide only if its source line shows one.
+- Be direct and concise: lead with the answer (a date, a name, a number), then at most one useful detail. Use a short list only when several items are asked for. No filler, no restating the question, no advice nobody asked for.
+- Say dates the way a person would ("Friday, October 9, in 6 days"). Say times with am or pm.
+- If the snapshot and sources don't contain the answer, set found to false and say in one sentence what is missing. Never invent dates, grades, page numbers or facts, and never answer course-content questions from general knowledge.
+- If a line "ALREADY WORKED OUT" is given, it is correct; build on it instead of contradicting it.
+Return JSON only.`;
   function answerPlan(){
     if (!aiReady()) return null;
     const c = aiCfg();
@@ -26844,7 +27105,10 @@ var MAJ_THEMES = [];
   async function runAsk(){
     const q = S.q.trim(); if (!q) return;
     const seq = ++S.seq;
-    S.mode = "ask"; S.ask = {q, state: "search", rows: [], note: "", answer: null};
+    // Questions with one right answer (next exam, what's due, grades, classes) are worked out exactly, with no AI and before the search finishes
+    let det = null; try { det = exactAnswer(askData(), q); } catch(e) { console.warn(e); }
+    const detAns = det ? {state: "done", text: det.text, found: true, used: [], items: det.items || [], det: true, model: ""} : null;
+    S.mode = "ask"; S.ask = {q, state: "search", rows: [], note: "", answer: detAns, det: detAns};
     pushRecent(q); syncModeUi(); draw();
     ensureItems();
     if (!FT.loaded) { try { await Promise.race([loadTexts(), wait(4000)]); } catch(e) {} }
@@ -26862,26 +27126,28 @@ var MAJ_THEMES = [];
     }
     if (seq !== S.seq) return;
     const rows = fuse(kw, sm);
-    S.ask = {q, P, state: "done", rows, note, answer: null, err: "", byMeaning: sm.length > 0};
+    S.ask = {q, P, state: "done", rows, note, answer: detAns, det: detAns, err: "", byMeaning: sm.length > 0};
     draw();
     const plan = answerPlan();
-    if (plan && rows.length && !(plan.kind === "paid" && !plan.ok)) getAnswer(seq);
+    if (!detAns && plan && !(plan.kind === "paid" && !plan.ok)) getAnswer(seq);
   }
   async function getAnswer(seq){
-    const A = S.ask; if (!A || !A.rows.length) return;
+    const A = S.ask; if (!A) return;
     const plan = answerPlan(); if (!plan) return;
+    const prior = A.det;
     A.answer = {state: "loading"}; draw();
     const src = A.rows.slice(0, 8).map((x, i) => {
       const d = x.doc, body = x.text || (d.type === "chunk" ? d.text : [d.title, d.text].filter(Boolean).join("\n"));
       return `[${i + 1}] ${citeOf(x)}\n${String(body).slice(0, 1500)}`;
     }).join("\n\n");
-    const args = {schema: ANSWER_SCHEMA, fast: true, maxTokens: 2000, temperature: 0.2,
-      system: "You help a nursing student find things in their own study materials: tasks, notes, flashcards, practice questions and the text of their files. Answer only from the numbered sources. Keep it short and plain. Cite the sources you used in square brackets, like [2]. If the sources don't answer it, set found to false and say in one sentence that you couldn't find it in their things. Never invent page numbers or facts. Return JSON only.",
-      parts: [{text: `Question: ${A.q}\n\nSources:\n${src}`}]};
+    // The strongest model (task "ask": smartest first, thinking on) reads a dated snapshot of the planner plus the search hits
+    let snap = ""; try { snap = snapshotText(askData()); } catch(e) { console.warn(e); }
+    const args = {task: "ask", schema: ANSWER_SCHEMA, maxTokens: 8000, temperature: 0.1, timeout: 90000, system: ASK_SYSTEM,
+      parts: [{text: `PLANNER SNAPSHOT\n${snap}\n\nNUMBERED SOURCES (search results from the student's notes, files, cards and tasks)\n${src || "none found for this question"}\n\n${prior ? `ALREADY WORKED OUT (correct): ${prior.text}\n\n` : ""}QUESTION: ${A.q}`}]};
     try {
-      const r = plan.kind === "gemini" ? await geminiCall(plan.cfg, Object.assign({ms: 60000}, args)) : await aiCall(args);
+      const r = plan.kind === "gemini" ? await geminiCall(plan.cfg, Object.assign({ms: 90000}, args)) : await aiCall(args);
       if (seq !== S.seq) return;
-      A.answer = {state: "done", text: String(r.data.answer || ""), found: r.data.found !== false, used: (r.data.sources || []).map(Number).filter(n => n >= 1 && n <= A.rows.length), model: aiModelName(r.provider || "gemini", r.model || "")};
+      A.answer = {state: "done", text: String(r.data.answer || ""), found: r.data.found !== false, used: [...new Set((r.data.sources || []).map(Number).filter(n => n >= 1 && n <= A.rows.length))], items: prior ? prior.items : [], model: aiModelName(r.provider || "gemini", r.model || "")};
     } catch(e) {
       if (seq !== S.seq) return;
       A.answer = {state: "error", text: e.message || "Couldn't get an answer right now. Try again."};
@@ -27040,6 +27306,13 @@ var MAJ_THEMES = [];
     }
     return {rows, html: html.join("")};
   }
+  // The answer card: cited numbered sources for model answers, the planner items used for exact ones
+  function ansBox(A, an){
+    const txt = esc(an.text).replace(/\[(\d+)\]/g, (m, n) => Number(n) >= 1 && Number(n) <= A.rows.length ? `<button type="button" class="sx-cite" data-sx="cite" data-id="${Number(n) - 1}" aria-label="Open source ${n}">${n}</button>` : m);
+    const from = (an.used || []).filter(n => A.rows[n - 1]).map(n => `<button type="button" class="sx-src" data-sx="cite" data-id="${n - 1}"><span>${n}</span>${esc(citeOf(A.rows[n - 1]))}</button>`)
+      .concat((an.items || []).filter(i => state.tasks[i.id]).map(i => `<button type="button" class="sx-src" data-sx="task" data-id="${esc(i.id)}">${esc(String(i.title).slice(0, 60))}</button>`));
+    return `<div class="sx-ans${an.found ? "" : " miss"}"><div class="sx-ans-h">${AI_ICON}<b>${an.found ? "Answer" : "Not Found in Your Things"}</b></div><p style="white-space:pre-line">${txt}</p>${from.length ? `<p class="sx-from">From ${from.join("")}</p>` : ""}<p class="mini">${an.det ? "Worked out from your planner's dates and marks, so no AI guessing." : `Answered by ${esc(an.model)}. AI can make mistakes; check the source.`}</p></div>`;
+  }
   function drawAskArea(){
     const A = S.ask, box = $("#sxAnswer"), q = S.q.trim();
     const fresh = A && A.q === q;
@@ -27051,15 +27324,14 @@ var MAJ_THEMES = [];
       if (!fresh) h += q ? `<p class="sx-hint">Press Enter to ask. You can describe it in your own words, like “the slide about ACE inhibitors and cough”.</p>` : `<p class="sx-hint">Describe what you're looking for in your own words, like “the slide about ACE inhibitors and cough” or “when is my pharm midterm”.</p>`;
     }
     if (fresh && S.mode === "ask") {
-      if (A.state === "search") h += `<div class="sx-ans busy"><span class="sx-dots" aria-hidden="true"><i></i><i></i><i></i></span>Looking through your things…</div>`;
+      if (A.state === "search") h += (A.answer && A.answer.det ? ansBox(A, A.answer) : "") + `<div class="sx-ans busy"><span class="sx-dots" aria-hidden="true"><i></i><i></i><i></i></span>Looking through your things…</div>`;
       else {
         if (A.note) h += `<p class="sx-hint">${esc(A.note)}</p>`;
-        const plan = answerPlan(), an = A.answer;
-        if (!A.rows.length) h += `<div class="sx-empty"><strong>Nothing Found</strong>Try describing it another way, or with a word you remember from it.</div>`;
-        else if (an && an.state === "loading") h += `<div class="sx-ans busy">${AI_ICON}<span class="sx-dots" aria-hidden="true"><i></i><i></i><i></i></span>${aiWho() ? esc(aiWho()) + " is writing" : "Writing"} a short answer…</div>`;
+        const plan = answerPlan(), an = A.answer, det = an && an.state === "done" && an.det;
+        if (an && an.state === "loading") h += `<div class="sx-ans busy">${AI_ICON}<span class="sx-dots" aria-hidden="true"><i></i><i></i><i></i></span>${aiWho() ? esc(aiWho()) + " is writing" : "Writing"} a short answer…</div>`;
         else if (an && an.state === "done") {
-          const txt = esc(an.text).replace(/\[(\d+)\]/g, (m, n) => Number(n) >= 1 && Number(n) <= A.rows.length ? `<button type="button" class="sx-cite" data-sx="cite" data-id="${Number(n) - 1}" aria-label="Open source ${n}">${n}</button>` : m);
-          h += `<div class="sx-ans${an.found ? "" : " miss"}"><div class="sx-ans-h">${AI_ICON}<b>${an.found ? "Answer" : "Not Found in Your Things"}</b></div><p>${txt}</p>${an.used && an.used.length ? `<p class="sx-from">From ${an.used.map(n => `<button type="button" class="sx-src" data-sx="cite" data-id="${n - 1}"><span>${n}</span>${esc(citeOf(A.rows[n - 1]))}</button>`).join("")}</p>` : ""}<p class="mini">Answered by ${esc(an.model)}. AI can make mistakes; check the source.</p></div>`;
+          h += ansBox(A, an);
+          if (det && plan && !(plan.kind === "paid" && !plan.ok)) h += `<div class="sx-ans-row"><button type="button" class="btn small ai-btn" data-sx="answer">${AI_ICON} Ask AI to Explain More</button></div>`;
         }
         else if (an && an.state === "error") h += `<div class="sx-ans miss"><p>${esc(an.text)}</p><button type="button" class="btn small" data-sx="answer">Try Again</button></div>`;
         else if (plan && plan.kind === "paid" && !plan.ok) h += `<div class="sx-ans"><p style="margin:0"><b>A short answer costs money.</b> It would use <b>${esc(plan.name)}</b>, billed per use to your ${esc(plan.P.label.split(" ")[0])} account. Each answer is one small request.</p>
@@ -27067,6 +27339,8 @@ var MAJ_THEMES = [];
           <div class="sx-ans-btns"><button type="button" class="btn small primary" data-sx="paid-yes" disabled id="sxPaidYes">Confirm and Get an Answer</button></div></div>`;
         else if (plan) h += `<div class="sx-ans-row"><button type="button" class="btn small ai-btn" data-sx="answer">${AI_ICON} ${aiWho() ? `Ask ${esc(aiWho())} for a Short Answer` : "Get a Short Answer"}</button></div>`;
         if (A.rows.length) h += `<div class="sx-gh"><span>${A.byMeaning ? "Best Matches by Meaning" : "Best Matches"}</span><span class="n">${A.rows.length}</span></div>`;
+        else if (!an || an.state !== "done") h += `<div class="sx-empty"><strong>Nothing Found</strong>Try describing it another way, or with a word you remember from it.</div>`;
+        else if (!an.det) h += `<p class="sx-hint">No notes, files or cards matched, so this came from your planner.</p>`;
       }
     }
     box.innerHTML = h;
@@ -27230,6 +27504,7 @@ var MAJ_THEMES = [];
         else if (k === "settings") settingsSheet();
         else if (k === "answer") getAnswer(S.seq);
         else if (k === "paid-yes") { const cb = $("#sxPaidOk"), p = answerPlan(); if (!cb || !cb.checked || !p) return; sxSave({paidOk: p.sig}); getAnswer(S.seq); }
+        else if (k === "task") { const t = state.tasks[b.dataset.id]; if (t) { close(); setTimeout(() => openDoc({type: "task", id: t.id}), 0); } }
         else if (k === "cite") { const x = S.ask && S.ask.rows[Number(b.dataset.id)]; if (x) { close(); setTimeout(() => openDoc(x.doc), 0); } }
         return;
       }
@@ -31338,7 +31613,7 @@ Can't move: ${p.fixed.map(x => `${nm(x.t)}, due ${x.t.due}, ${x.why}`).join("; "
 Moving later: ${p.sugg.filter(s => s.on).map(s => `${nm(s.t)}: ${s.label}`).join("; ") || "nothing"}.
 ${p.ext && p.heavy ? `Adding a reminder to ask for an extension on ${nm(p.heavy.t)}.` : ""}`;
     try {
-      const r = await aiCall({fast: true, maxTokens: 1200, temperature: 0.5, schema: {type: "OBJECT", properties: {summary: {type: "STRING"}}, required: ["summary"]},
+      const r = await aiCall({task: "rewrite", fast: true, maxTokens: 1200, temperature: 0.5, schema: {type: "OBJECT", properties: {summary: {type: "STRING"}}, required: ["summary"]},
         parts: [{text}], system: "You're a kind, practical study coach for a nursing student having a heavy week. Write 3 to 5 short sentences in plain, warm words: what to protect first, what was moved and why that's okay, and one small first step for today. No lists, no em dashes, no medical or academic-policy claims, and don't invent tasks or dates. Return JSON only."});
       const s = String((r.data || {}).summary || "").replace(/\s*[—–]\s*/g, ", ").trim();
       if (dlg.open && $("#rwAiOut")) $("#rwAiOut").textContent = s || "The AI didn't send anything back. Try again.";
@@ -31464,7 +31739,7 @@ var SBEST = (() => {
     const Lr = learned(), hist = Object.entries(Lr.byType).map(([k, v]) => `${k}: ${v.length} done, typical ${fmtHM(median(v.map(x => x.h)))}`).join("; ") || "no history yet";
     S.busy = true; S.msg = ""; draw(true);
     try {
-      const r = await aiCall({fast: true, maxTokens: 3000, temperature: 0.2, schema: EST_SCHEMA_ALL, parts: [{text: `Tasks (ref: title | type | course | due | extra):\n${lines.join("\n")}\n\nThis student's history (focused time actually spent): ${hist}. They take about ${Lr.ratio.toFixed(2)}x their own estimates.`}],
+      const r = await aiCall({task: "estimate", fast: true, maxTokens: 3000, temperature: 0.2, schema: EST_SCHEMA_ALL, parts: [{text: `Tasks (ref: title | type | course | due | extra):\n${lines.join("\n")}\n\nThis student's history (focused time actually spent): ${hist}. They take about ${Lr.ratio.toFixed(2)}x their own estimates.`}],
         system: "For each task, estimate the hours of focused work it will take this nursing or health student, using their history when relevant and otherwise typical times for a college student. Round to the nearest quarter hour. Return JSON only, one estimate per ref."});
       let n = 0;
       ((r.data && r.data.estimates) || []).forEach(x => { const id = back[String(x.ref || "").trim()], h = Number(x.hours); if (id && h > 0 && h <= 200) { S.sug[id] = {h: Math.max(0.25, Math.round(h * 4) / 4), ai: true}; n++; } });
@@ -32011,7 +32286,7 @@ window.SBEST = SBEST;
       const ts = allTasks().filter(t => t.courseId === cid && t.due && t.due >= addDays(todayISO(), -7)).slice(0, 60);
       let r;
       try {
-        r = await aiCall({auto: !manual, fast: true, maxTokens: 2000, schema: NEWS_SCHEMA,
+        r = await aiCall({task: "news", auto: !manual, fast: true, maxTokens: 2000, schema: NEWS_SCHEMA,
           system: "You read course announcements for a nursing student and pull out only concrete dates: new deadlines, tests, or changes to due dates. Ignore anything without a specific date. Return JSON only. If there is nothing, return an empty list.",
           parts: [{text: `Today is ${todayISO()} (${new Date().toLocaleDateString(undefined, {weekday: "long"})}).\nCourse: ${course ? course.name + (course.code ? " (" + course.code + ")" : "") : "unknown"}\nTasks already listed:\n${ts.map(t => `- ${t.title}: due ${t.due}${t.time ? " " + t.time : ""}`).join("\n") || "(none)"}\n\nAnnouncement "${n.title}" posted ${n.date ? String(n.date).slice(0, 10) : ""}:\n${n.text}`}]});
       } catch(e) { if (manual) throw e; break; }
@@ -46860,7 +47135,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     aiBusy = true;
     const req = build();
     try {
-      const r = mode === "lite" ? await liteCall(req) : await aiCall({auto: true, fast: true, maxTokens: req.maxTokens || 2000, temperature: 0.8, schema: req.schema, system: req.system, parts: [{text: req.text}]});
+      const r = mode === "lite" ? await liteCall(req) : await aiCall({task: "rewrite", auto: true, fast: true, maxTokens: req.maxTokens || 2000, temperature: 0.8, schema: req.schema, system: req.system, parts: [{text: req.text}]});
       const s2 = aiRead(); delete s2.err; s2.model = r && r.model; aiWrite(s2);
       return r && r.data;
     } catch (e) {
