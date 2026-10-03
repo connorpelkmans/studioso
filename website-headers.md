@@ -27,7 +27,7 @@ If the rel-sec agent's `<meta http-equiv="Content-Security-Policy">` is also in 
 
 ### What the Content-Security-Policy allows, and why
 
-* `script-src 'self'` plus the two inline scripts (hash or `'unsafe-inline'`) plus `cdn.jsdelivr.net` (supabase-js) and `cdnjs.cloudflare.com` (pdf.js). If you host those two libraries yourself (the desktop app already does, see `prepare.js`), delete both hosts from the policy.
+* `script-src 'self'` plus the two inline scripts (hash or `'unsafe-inline'`) plus `cdn.jsdelivr.net` (supabase-js) and `cdnjs.cloudflare.com` (no longer used by pdf.js: it is served from `vendor/pdfjs/` on your own site, so deploy that folder next to `index.html`). If you host supabase-js yourself (the desktop app already does, see `prepare.js`), delete both hosts from the policy. Serve `.mjs` files as `text/javascript` (Netlify, Cloudflare Pages, nginx and Apache with current defaults do).
 * `style-src ... https://fonts.googleapis.com` and `font-src ... https://fonts.gstatic.com`: the Google Fonts stylesheet. Self-hosting the fonts removes them.
 * `connect-src 'self' https: wss: blob: data:`: the Supabase project (its address is chosen by the person, or by you) and the AI company the person picked with their own key (`generativelanguage.googleapis.com`, `api.anthropic.com`, `api.openai.com`). If you only ever use your own Supabase project and only these three AI hosts, replace `https:` with those exact hosts. That is stricter and recommended for the App Store build, but it would block people who point the app at their own server.
 * `img-src ... https:`: pictures in LMS announcements and links. `object-src 'none'`, `frame-ancestors 'none'`, `base-uri 'none'` close the remaining doors.

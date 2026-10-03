@@ -6,6 +6,8 @@ const CACHE = "studyboard-v3";
 const CORE = ["./", "./index.html"];
 const OPTIONAL = ["./manifest.webmanifest", "./today.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/maskable-512.png", "./icons/apple-touch-icon.png",
   "./icon-192.png", "./icon-512.png", "./maskable-512.png", "./apple-touch-icon.png"];
+// PDF.js (same-origin, ES modules) is saved too so a PDF can be imported offline; if it isn't there the fetch handler saves it on first use.
+OPTIONAL.push("./vendor/pdfjs/pdf.min.mjs", "./vendor/pdfjs/pdf.worker.min.mjs");
 const LIBS = ["https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"];
 const LIB_HOSTS = ["cdn.jsdelivr.net", "cdnjs.cloudflare.com", "fonts.googleapis.com", "fonts.gstatic.com"];
 

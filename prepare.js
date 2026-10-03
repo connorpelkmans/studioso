@@ -20,8 +20,12 @@ const nm = p => path.join(root, "node_modules", p);
 const copy = (from, to) => fs.copyFileSync(nm(from), path.join(vendor, to));
 
 copy("@supabase/supabase-js/dist/umd/supabase.js", "supabase.js");
-copy("pdfjs-dist/build/pdf.min.js", "pdf.min.js");
-copy("pdfjs-dist/build/pdf.worker.min.js", "pdf.worker.min.js");
+// PDF.js is loaded by index.html with import() from vendor/pdfjs/ (the same relative path the web page uses), so no URL rewrite is needed.
+// The legacy build (ES modules plus polyfills for older WebViews) is staged from the installed package, and must match the copy committed in vendor/pdfjs/.
+fs.mkdirSync(path.join(vendor, "pdfjs"), { recursive: true });
+copy("pdfjs-dist/legacy/build/pdf.min.mjs", "pdfjs/pdf.min.mjs");
+copy("pdfjs-dist/legacy/build/pdf.worker.min.mjs", "pdfjs/pdf.worker.min.mjs");
+copy("pdfjs-dist/LICENSE", "pdfjs/LICENSE");
 
 const faces = [["Lexend", "lexend", [400, 500, 600, 700, 800]], ["Atkinson Hyperlegible Next", "atkinson-hyperlegible-next", [400, 500, 700]], ["Atkinson Hyperlegible", "atkinson-hyperlegible", [400, 700]]];
 let css = "";
@@ -36,9 +40,7 @@ let html = fs.readFileSync(src, "utf8");
 const swaps = [
   [/<link rel="preconnect" href="https:\/\/fonts\.(googleapis|gstatic)\.com"[^>]*>\s*/g, ""],
   [/<link href="https:\/\/fonts\.googleapis\.com\/css2\?[^"]+" rel="stylesheet">/, '<link href="vendor/fonts.css" rel="stylesheet">'],
-  ["https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js", "vendor/supabase.js"],
-  ["https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js", new URL("vendor/pdf.worker.min.js", BASE).href],
-  ["https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js", "vendor/pdf.min.js"]
+  ["https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js", "vendor/supabase.js"]
 ];
 for (const [a, b] of swaps) {
   const before = html;

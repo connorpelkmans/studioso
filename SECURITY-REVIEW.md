@@ -33,7 +33,7 @@ Added: all file/dir IPC handlers now require the main window as sender; `fs:writ
 - `bug_reports`: insert-only for clients, server stamps `user_id`, size limits, 5/hour per device or account and 200/hour overall.
 - Billing webhook (`index (1).ts`): Stripe HMAC with timestamp tolerance and constant-time compare, RevenueCat bearer compare, "Verify JWT" off as documented.
 - Service worker only caches same-origin GET files and CDN libraries; Supabase/API calls always go to the network.
-- pdf.js is called with `isEvalSupported: false` (mitigates CVE-2024-4367 in the pinned 3.11.174).
+- pdf.js is called with `isEvalSupported: false` (defence in depth for CVE-2024-4367, which is fixed in 4.2.67+; the app now ships pdf.js 5.7.284 from `vendor/pdfjs/`, with XFA, wasm and scripting off).
 - Secret scan of the whole tree and the last 8 commits: only the Supabase **publishable** key and URL (`SB_DEFAULT` in `index.html`) are committed, which is by design. No service-role key, `sk-`, `AIza`, `whsec_`, private keys, passwords or personal emails found.
 - Diagnostics in bug reports: version, browser, page, plan, signed-in flag, scrubbed error messages. No task or note content.
 - Data goes to AI providers only when a key is saved (opt-in) and the user triggers an AI feature or enables "Automatic AI".
@@ -56,4 +56,4 @@ Added: all file/dir IPC handlers now require the main window as sender; `fs:writ
 - `connect-src https:` is broad because the app fetches user-supplied calendar links and several AI hosts.
 
 ## Dependencies (package.json, report only)
-`electron ^38.8.6`, `electron-builder ^26.15.3`, `@supabase/supabase-js ^2.117.2`, `pdfjs-dist ^3.11.174` (old line; CVE-2024-4367 is fixed in 4.2.67+, currently mitigated by `isEvalSupported:false`; plan an upgrade to 4.x or later), fonts only otherwise. Run `npm audit` and keep Electron on the latest stable line for each release (it ships Chromium security fixes). Edge functions pin `@supabase/supabase-js@2.117.2` and `web-push@3.6.7`.
+`electron ^38.8.6`, `electron-builder ^26.15.3`, `@supabase/supabase-js ^2.117.2`, `pdfjs-dist 5.7.284` (exact pin; upgraded from 3.11.174, so CVE-2024-4367 is fixed, and `isEvalSupported:false` is kept; the committed `vendor/pdfjs/*.mjs` must match `node_modules/pdfjs-dist/legacy/build/`), fonts only otherwise. Run `npm audit` and keep Electron on the latest stable line for each release (it ships Chromium security fixes). Edge functions pin `@supabase/supabase-js@2.117.2` and `web-push@3.6.7`.
