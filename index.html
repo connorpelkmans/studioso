@@ -124,6 +124,36 @@ body.wide .wrap{max-width:1180px}
 .card-course{font-size:.75rem;font-weight:700;color:color-mix(in srgb,var(--c) 78%,var(--ink))}
 .card-title{font-weight:600;margin:2px 0 8px;overflow-wrap:anywhere;line-height:1.35}
 .card.is-done .card-title{text-decoration:line-through;color:var(--muted)}
+.ann-btn{position:relative}
+.ann-btn[hidden]{display:none}
+.ann-n{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--late,#C0392B);color:#fff;font:700 .68rem/18px var(--body);text-align:center;box-sizing:border-box}
+.nav-tool.ann-btn .ann-n{top:2px;right:calc(50% - 26px)}
+.ann-sheet .sheet-body{gap:10px}
+.ann-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ann-bar .spacer{flex:1}
+.ann-course{display:flex;align-items:center;gap:8px;margin:8px 0 0;font:700 .98rem var(--display)}
+.ann-course .sd{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
+.ann-course .n{font:600 .75rem var(--body);color:var(--muted);margin-left:auto}
+.ann-list{list-style:none;margin:0;padding:0;display:grid}
+.ann-list li{padding:10px 2px 10px 14px;border-bottom:1px solid var(--line);position:relative}
+.ann-list li.unread::before{content:"";position:absolute;left:0;top:17px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.ann-list li b{display:block;overflow-wrap:anywhere}
+.ann-list li:not(.unread) b{font-weight:600;color:var(--muted)}
+.ann-list .mini{display:block}
+.ann-list details summary{cursor:pointer;color:var(--accent);font-size:.8rem;margin-top:4px}
+.ann-list .ann-txt{margin:4px 0 0;font-size:.88rem;white-space:pre-line;overflow-wrap:anywhere}
+.ann-list .bs-btns{margin-top:6px}
+.lms-go{flex:none;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--accent);display:inline-grid;place-items:center;padding:0;cursor:pointer}
+.lms-go:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--surface))}
+li.task>.lms-go{align-self:center;margin-right:12px}
+.card-foot .lms-go{width:24px;height:24px;margin-left:auto}
+.card-foot .lms-go svg{width:13px;height:13px}
+.nu-row>.lms-go{align-self:center}
+.plan-side .lms-go{margin-right:6px}
+.course-wrap{position:relative;display:flow-root}
+.course-wrap>.lms-go{position:absolute;right:12px;bottom:12px;width:auto;height:30px;border-radius:15px;padding:0 10px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;font:600 .78rem var(--body)}
+.course-wrap:has(>.lms-go) .course-card .prog{margin-right:104px}
+.course-wrap>.lms-go svg{width:13px;height:13px}
 .card-foot{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:.8rem;color:var(--muted)}
 .card-foot .late{color:var(--late);font-weight:600}
 .placeholder{border:2px dashed var(--accent);border-radius:12px;background:color-mix(in srgb,var(--accent) 8%,transparent)}
@@ -3845,6 +3875,7 @@ button.snd-head:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
       <div class="head-actions">
         <button class="pomo-btn" id="pomoBtn" data-act="pomo-open" aria-label="Open focus timer"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 7.2c-4.6 0-8 2.9-8 6.7C4 17.8 7.6 21 12 21s8-3.2 8-7.1c0-3.8-3.4-6.7-8-6.7z" fill="currentColor"/><path d="M12 7.5V4.2M12 6.6c-1.4-1.6-3.4-1.9-4.8-1.3 1.2.4 2.4 1.3 3 2.6M12 6.6c1.4-1.6 3.4-1.9 4.8-1.3-1.2.4-2.4 1.3-3 2.6" fill="none" stroke="var(--leaf,#1E9E74)" stroke-width="1.8" stroke-linecap="round"/></svg><span id="pomoBtnTime" data-pomo-time hidden></span></button>
         <button class="icon-btn theme-btn" data-act="theme-toggle" aria-label="Switch to dark mode"><svg class="ti-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg><svg class="ti-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg></button>
+        <button class="icon-btn ann-btn" data-act="ann-open" aria-label="Class announcements" title="Class announcements" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><span class="ann-n" hidden></span></button>
         <button class="icon-btn" data-act="search" aria-label="Search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
         </button>
@@ -3877,7 +3908,7 @@ button.snd-head:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
   <button data-tab="files"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>Files</button>
   <button data-tab="courses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M8 7h7"/></svg>Courses</button>
   <button class="nav-focus" id="navPomo" data-act="pomo-open" aria-label="Open focus timer"></button>
-</div><div class="nav-foot"><button class="nav-tool" data-act="search" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><span>Search</span></button><span class="nav-sync" id="syncSide" aria-hidden="true"></span><button class="nav-tool theme-btn" data-act="theme-toggle" aria-label="Switch to dark mode"><svg class="ti-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg><svg class="ti-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg><span class="tl-l">Dark</span></button><button class="nav-tool style-btn" data-act="shop" aria-label="Style Shop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 2-2 0-1.5-1.2-1.8-1.2-3s.9-2 2.2-2H17a4 4 0 0 0 4-4c0-4-4-7-9-7z"/><circle cx="7.5" cy="11" r="1.3" fill="currentColor"/><circle cx="10.5" cy="7" r="1.3" fill="currentColor"/><circle cx="15" cy="7.5" r="1.3" fill="currentColor"/></svg><span>Style</span></button><button class="nav-tool" data-act="menu" aria-label="Settings, backups and import"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Settings</span></button></div></nav>
+</div><div class="nav-foot"><button class="nav-tool ann-btn" data-act="ann-open" aria-label="Class announcements" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><span>Announcements</span><span class="ann-n" hidden></span></button><button class="nav-tool" data-act="search" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><span>Search</span></button><span class="nav-sync" id="syncSide" aria-hidden="true"></span><button class="nav-tool theme-btn" data-act="theme-toggle" aria-label="Switch to dark mode"><svg class="ti-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg><svg class="ti-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg><span class="tl-l">Dark</span></button><button class="nav-tool style-btn" data-act="shop" aria-label="Style Shop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 2-2 0-1.5-1.2-1.8-1.2-3s.9-2 2.2-2H17a4 4 0 0 0 4-4c0-4-4-7-9-7z"/><circle cx="7.5" cy="11" r="1.3" fill="currentColor"/><circle cx="10.5" cy="7" r="1.3" fill="currentColor"/><circle cx="15" cy="7.5" r="1.3" fill="currentColor"/></svg><span>Style</span></button><button class="nav-tool" data-act="menu" aria-label="Settings, backups and import"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Settings</span></button></div></nav>
 
 <dialog id="dlg"></dialog>
 <dialog id="pomoDlg" aria-label="Focus timer"></dialog>
@@ -5765,6 +5796,7 @@ function nextUpHtml(F, pre){
         <span class="nu-why">${n.why.map(esc).join(" · ")}</span>
         ${n.step ? `<span class="nu-step">Next step: ${esc(n.step.text)}</span>` : ""}
       </div>
+      ${lmsGoBtn(t)}
       <div class="nu-acts"><button class="btn primary small" data-act="pomo-task" data-id="${esc(t.id)}">${TOMATO}Start a ${n.mins}m Focus</button>${t.type === "Study" && (t.studyDecks || []).length ? `<button class="btn small" data-act="fc-study-plan" data-id="${esc(t.id)}">Study Cards</button>` : ""}${n.left ? `<button class="btn small" data-act="nu-skip" data-id="${esc(t.id)}">Something Else</button>` : ""}</div>
     </div>
   </div>`;
@@ -7746,6 +7778,29 @@ function safeUrl(u){
   try { const x = new URL(u); return (x.protocol === "http:" || x.protocol === "https:") ? x.href : null; } catch(e){ return null; }
 }
 
+// The page for a task on the school's learning site (Canvas, Brightspace, Blackboard): the link school sync saved on the task.
+// A link you typed yourself works the same way, so the button shows whenever the task has a web address.
+const LMS_NAMES = {bs: "Brightspace", cv: "Canvas", bb: "Blackboard"};
+const LMS_GO = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/></svg>';
+const lmsSite = t => { const k = t && Object.keys(LMS_NAMES).find(f => t[f] && t[f].key); return k ? LMS_NAMES[k] : ""; };
+function lmsGoBtn(t, cls){
+  const u = t && t.link ? safeUrl(t.link) : null; if (!u) return "";
+  const where = lmsSite(t) || "the school site";
+  return `<button type="button" class="lms-go ${cls || ""}" data-act="lms-go" data-url="${esc(u)}" title="Open in ${esc(where)}" aria-label="Open ${esc(t.title)} in ${esc(where)}">${LMS_GO}</button>`;
+}
+// A course's home page on the school's site: the link school sync added to the course (labelled with the platform's name)
+function lmsCourseLink(c){
+  const names = Object.values(LMS_NAMES), l = ((c && c.links) || []).find(x => x && names.includes(x.label) && safeUrl(x.url));
+  return l ? {name: l.label, url: safeUrl(l.url)} : null;
+}
+function lmsCourseBtn(c){
+  const l = lmsCourseLink(c); if (!l) return "";
+  return `<button type="button" class="lms-go" data-act="lms-go" data-url="${esc(l.url)}" title="Open ${esc(c.name)} in ${esc(l.name)}" aria-label="Open ${esc(c.name)} in ${esc(l.name)}">${LMS_GO}<span>${esc(l.name)}</span></button>`;
+}
+// Opens in a new tab, or in the computer's own browser in the desktop app
+function openOutside(u){ u = safeUrl(u); if (!u) return; try { window.open(u, "_blank", "noopener,noreferrer"); } catch(e) { location.href = u; } }
+hook("act", (act, el) => { if (act !== "lms-go") return false; openOutside(el.dataset.url); return true; });
+
 /* ---------- Workload ---------- */
 function workloadByDay(ts){
   const per = {};
@@ -7797,7 +7852,7 @@ function taskRow(t, opts = {}){
     <button class="task-main" data-act="edit-task" data-id="${esc(t.id)}">
       <span class="task-title">${esc(t.title)}</span>
       <span class="task-meta">${meta.join("")}</span>
-    </button></li>`;
+    </button>${lmsGoBtn(t)}</li>`;
 }
 const taskList = (ts, opts) => `<ul class="tasks">${ts.map(t => taskRow(t, opts)).join("")}</ul>`;
 function section(title, ts, cls = "", opts){
@@ -7814,7 +7869,7 @@ function card(t){
     ${c ? `<div class="card-course">${esc(courseLabel(c))}</div>` : ""}
     <div class="card-title">${esc(t.title)}</div>
     ${(t.reading && t.type === "Reading") || (t.location && (MILESTONE(t.type) || t.type === "Lab")) ? `<div class="card-sub">${esc(t.type === "Reading" ? t.reading : t.location)}</div>` : ""}
-    <div class="card-foot">${t.priority && t.priority !== "med" ? prioBadge(t.priority) : ""}${(() => { if (!t.due) return ""; if (late) return `<span class="soon late">${esc(relDue(t))}</span>`; const sb = soonBadge(t); return sb ? sb + (t.time && !/Due in \d+h/.test(sb) ? `<span>${esc(fmtTime(t.time))}</span>` : "") : ""; })()}${statusBadges(t)}<span>${esc(t.type || "Task")}</span>${t.due && !late && !soonBadge(t) ? `<span>${esc(relDue(t).replace(/^Due /, ""))}</span>` : ""}${isNum(t.hours) && !MILESTONE(t.type) ? `<span>${fmtH(Number(t.hours))}</span>` : ""}${t.seriesId ? `<span title="Repeats">${REPEAT}</span>` : ""}${nf ? `<span title="${nf} attached file${nf === 1 ? "" : "s"}">${CLIP}${nf}</span>` : ""}${(nn => nn ? `<span class="note-count" title="${nn} sticky note${nn === 1 ? "" : "s"}">${NOTE_ICON}${nn}</span>` : "")(notesOfTask(t.id).length)}${t.pomos ? `<span class="pomo-count" title="${t.pomos} focus session${t.pomos === 1 ? "" : "s"}, ${fmtHM((t.focusMin || 0) / 60)}">${TOMATO}${t.pomos}</span>` : ""}</div>
+    <div class="card-foot">${t.priority && t.priority !== "med" ? prioBadge(t.priority) : ""}${(() => { if (!t.due) return ""; if (late) return `<span class="soon late">${esc(relDue(t))}</span>`; const sb = soonBadge(t); return sb ? sb + (t.time && !/Due in \d+h/.test(sb) ? `<span>${esc(fmtTime(t.time))}</span>` : "") : ""; })()}${statusBadges(t)}<span>${esc(t.type || "Task")}</span>${t.due && !late && !soonBadge(t) ? `<span>${esc(relDue(t).replace(/^Due /, ""))}</span>` : ""}${isNum(t.hours) && !MILESTONE(t.type) ? `<span>${fmtH(Number(t.hours))}</span>` : ""}${t.seriesId ? `<span title="Repeats">${REPEAT}</span>` : ""}${nf ? `<span title="${nf} attached file${nf === 1 ? "" : "s"}">${CLIP}${nf}</span>` : ""}${(nn => nn ? `<span class="note-count" title="${nn} sticky note${nn === 1 ? "" : "s"}">${NOTE_ICON}${nn}</span>` : "")(notesOfTask(t.id).length)}${t.pomos ? `<span class="pomo-count" title="${t.pomos} focus session${t.pomos === 1 ? "" : "s"}, ${fmtHM((t.focusMin || 0) / 60)}">${TOMATO}${t.pomos}</span>` : ""}${lmsGoBtn(t)}</div>
     ${p.prep ? (t.status !== "done" ? `<div class="prog"><span class="track"><i style="width:${(p.frac * 100).toFixed(0)}%"></i></span>${Math.round(p.frac * 100)}% prepared</div>` : "") : p.total ? `<div class="prog"><span class="track"><i style="width:${(p.frac * 100).toFixed(0)}%"></i></span>${p.done}/${p.total}</div>` : (t.status !== "done" && p.frac > 0 ? `<div class="prog"><span class="track"><i style="width:${(p.frac * 100).toFixed(0)}%"></i></span>${Math.round(p.frac * 100)}%</div>` : "")}
   </div>`;
 }
@@ -8146,7 +8201,7 @@ function planRow(x, i, showScore, noRank){
     <button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>
     <button class="plan-main" data-act="edit-task" data-id="${esc(t.id)}" title="${esc(rs.join("\n"))}"><span class="task-title">${esc(t.title)}</span>${c ? `<span class="pr-chip">${esc(courseLabel(c))}</span>` : ""}</button>
     ${lead ? rest.length ? `<button class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}" data-act="plan-why" data-id="${esc(key)}" aria-expanded="${open}" aria-controls="pw-${esc(key)}" title="${esc(lead)}. Show all ${rs.length} reasons"><span class="pr-lead">${esc(lead)}</span><span class="pr-n" aria-hidden="true">+${rest.length}</span></button>` : `<span class="pr-why${/^(Overdue|Past due)/.test(lead) ? " late" : ""}"><span class="pr-lead">${esc(lead)}</span></span>` : `<span class="pr-why"></span>`}
-    <span class="plan-side">${side}${showScore ? "" : `<button class="focus-go" data-act="pomo-task" data-id="${esc(t.id)}" aria-label="Start a focus session on ${esc(t.title)}" title="Start a focus session">${TOMATO}</button>`}</span>
+    <span class="plan-side">${lmsGoBtn(t)}${side}${showScore ? "" : `<button class="focus-go" data-act="pomo-task" data-id="${esc(t.id)}" aria-label="Start a focus session on ${esc(t.title)}" title="Start a focus session">${TOMATO}</button>`}</span>
     ${rest.length ? `<ul class="pr-more" id="pw-${esc(key)}"${open ? "" : " hidden"}>${rest.map(r => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
   </li>`;
 }
@@ -8318,14 +8373,14 @@ function viewCourses(){
     const next = open.filter(t => t.due && t.due >= today).sort(sortTasks)[0];
     const hrs = weekHours(open, mondayOf(today));
     const doneN = ts.length - open.length, nFiles = Object.values(state.files).filter(f => f.courseId === c.id).length;
-    return `<button class="course-card" style="--c:${esc(c.color)}" data-code="${esc(courseLabel(c))}" data-act="open-course" data-id="${esc(c.id)}">
+    return `<div class="course-wrap"><button class="course-card" style="--c:${esc(c.color)}" data-code="${esc(courseLabel(c))}" data-act="open-course" data-id="${esc(c.id)}">
       <span class="swatch"></span><span class="body">
         <h3>${esc(c.name)}</h3>
         ${c.code || c.schedule ? `<div class="code">${esc([c.code, c.schedule].filter(Boolean).join(", "))}</div>` : ""}
         <div class="stats"><span><b>${open.length}</b> open</span>${late ? `<span class="late"><b>${late}</b> late</span>` : ""}${hrs > 0 ? `<span><b>${fmtH(hrs)}</b> this week</span>` : ""}</div>
         ${next ? `<div class="code" style="margin-top:4px">Next: ${esc(next.title)}, ${esc(relDue(next).replace(/^Due /, ""))}</div>` : ""}
         ${ts.length ? `<div class="prog" style="--c:${esc(c.color)}"><span class="track"><i style="width:${(doneN / ts.length * 100).toFixed(0)}%"></i></span>${doneN}/${ts.length} complete${nFiles ? `, ${nFiles} file${nFiles === 1 ? "" : "s"}` : ""}</div>` : ""}
-      </span></button>`;
+      </span></button>${lmsCourseBtn(c)}</div>`;
   }).join("");
   return `<div style="display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap"><h2 class="sec" style="margin:0;flex:1"><span class="t">Your Courses</span><span class="n">${cs.length}</span></h2>${imp}<button class="btn small" data-act="new-course">Add course</button></div><div class="course-list">${cards}</div>
     <div class="term-bar"><span>${ARCHIVE_SM}Term over? Put its courses and tasks away, and bring anything back later.</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${(n => n ? ` (${n})` : "")(allCourses().filter(c => c.archived).length)}</button></div>`;
@@ -8338,7 +8393,7 @@ function viewCourseDetail(c){
   const links = (c.links || []).map(l => { const u = safeUrl(l.url); return u ? `<dt>${esc(l.label || "Link")}</dt><dd><a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(u.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a></dd>` : ""; }).join("");
   return `<button class="back" data-act="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>All Courses</button>
     <div class="detail-head" style="--c:${esc(c.color)}"><h2>${esc(c.name)}</h2>${c.code ? `<div class="code">${esc(c.code)}</div>` : ""}</div>
-    <div class="row-actions"><button class="btn small primary" data-act="new-task" data-course="${esc(c.id)}">Add task</button><button class="btn small" data-act="import-syllabus" data-course="${esc(c.id)}">Import syllabus</button><button class="btn small" data-act="edit-course" data-id="${esc(c.id)}">Edit Course</button>${inClaude() ? "" : `<button class="btn small ai-btn" data-act="ask-course" data-id="${esc(c.id)}">${AI_ICON} Ask ${esc(aiWho("AI"))}</button>`}${tasksArr().some(t => t.courseId === c.id && MILESTONE(t.type) && t.status !== "done" && t.due > todayISO()) ? `<button class="btn small" data-act="exam-plan" data-id="${esc((tasksArr().filter(t => t.courseId === c.id && MILESTONE(t.type) && t.status !== "done" && t.due > todayISO()).sort(sortTasks)[0] || {}).id || "")}">Exam Study Plan</button>` : ""}</div>
+    <div class="row-actions"><button class="btn small primary" data-act="new-task" data-course="${esc(c.id)}">Add task</button><button class="btn small" data-act="import-syllabus" data-course="${esc(c.id)}">Import syllabus</button><button class="btn small" data-act="edit-course" data-id="${esc(c.id)}">Edit Course</button>${(l => l ? `<button class="btn small" data-act="lms-go" data-url="${esc(l.url)}">Open in ${esc(l.name)}</button>` : "")(lmsCourseLink(c))}${inClaude() ? "" : `<button class="btn small ai-btn" data-act="ask-course" data-id="${esc(c.id)}">${AI_ICON} Ask ${esc(aiWho("AI"))}</button>`}${tasksArr().some(t => t.courseId === c.id && MILESTONE(t.type) && t.status !== "done" && t.due > todayISO()) ? `<button class="btn small" data-act="exam-plan" data-id="${esc((tasksArr().filter(t => t.courseId === c.id && MILESTONE(t.type) && t.status !== "done" && t.due > todayISO()).sort(sortTasks)[0] || {}).id || "")}">Exam Study Plan</button>` : ""}</div>
     ${facts || links ? `<dl class="facts">${facts}${links}</dl>` : ""}
     ${c.notes ? `<h2 class="sec"><span class="t">Notes</span></h2><p class="notes">${esc(c.notes)}</p>` : ""}
     ${courseFilesHtml(c)}
@@ -9282,7 +9337,7 @@ function taskForm(t, preset = {}){
           <p class="mini est-hint" id="estHint" hidden aria-live="polite"></p>
           <label class="f" data-fld="location"><span class="lbl">Location</span><input type="text" name="location" maxlength="120" value="${esc(t.location)}" placeholder="e.g. Loew Hall 101"></label>
           <label class="f" data-fld="team"><span class="lbl">Team Members</span><input type="text" name="team" maxlength="200" value="${esc(t.team)}" placeholder="e.g. Ana, Ben, Chris"></label>
-          <label class="f" data-fld="link"><span class="lbl">Link</span><input type="url" name="link" maxlength="500" value="${esc(t.link)}" placeholder="https://…"></label>
+          <label class="f" data-fld="link"><span class="lh"><span class="lbl">Link</span>${t.link && safeUrl(t.link) ? `<button type="button" class="link-btn" data-act="lms-go" data-url="${esc(safeUrl(t.link))}">Open in ${esc(lmsSite(t) || "browser")}</button>` : ""}</span><input type="url" name="link" maxlength="500" value="${esc(t.link)}" placeholder="https://…"></label>
           <fieldset class="plan-fs"><legend>Planning Details <span class="hint">used to rank Today's Plan</span></legend>
             <div class="two">
               <label class="f"><span class="lh">Grade Weight <span class="hint">% of course grade</span></span><input type="number" name="weight" min="0" max="100" step="0.5" inputmode="decimal" value="${hasWeight(t) ? esc(t.weight) : ""}"></label>
@@ -12172,6 +12227,7 @@ $("#searchInput").addEventListener("keydown", e => { if (e.key === "Escape") tog
 let drag = null;
 document.addEventListener("pointerdown", e => {
   if (drag || (e.pointerType === "mouse" && e.button !== 0)) return;
+  if (e.target.closest && e.target.closest(".lms-go")) return;
   const rotEl = e.target.closest && e.target.closest(".note-rot");
   if (rotEl) {
     const nEl = rotEl.closest(".note");
@@ -31217,7 +31273,15 @@ window.SBEST = SBEST;
     const used = coursesArr().map(x => x.color);
     const courseFor = ou => {
       const m = map[ou]; if (!m || m === "skip") return null;
-      if (m !== "new") return m;
+      if (m !== "new") {
+        // A course you already had (or matched) gets its home page link from the platform once, so it can be opened from Courses.
+        // If you remove the link later it stays removed.
+        const ex = cur("course", m), home = data.origin && P.courseHome(data.origin, ou);
+        if (ex && home && !(ex[F] && ex[F].home) && !(ex.links || []).some(l => l && l.url === home)) {
+          const nc = clone(ex); nc.links = (nc.links || []).concat([{label: P.name, url: home}]).slice(0, 12); nc[F] = Object.assign({}, nc[F] || {}, {ou, home: 1}); put("course", nc);
+        }
+        return m;
+      }
       const id = F + "c_" + hid(ou);
       if (cur("course", id)) return id;
       const bc = data.courses.find(x => x.ou === ou) || {ou};
@@ -31236,6 +31300,7 @@ window.SBEST = SBEST;
         || (cid && r.due && tasks.find(t => free(t) && t.courseId === cid && t.due === r.due && sim(t.title, r.title) >= 0.6))
         || null;
     };
+    data.courses.forEach(bc => { const m = map[bc.ou]; if (m && m !== "new" && m !== "skip") courseFor(bc.ou); });   // adds each course's home page link, even with nothing due
     const seen = new Set();
     data.recs.forEach(r => {
       const key = r.ou + "|" + titleKey(r.title), id = F + "_" + hid(key);
@@ -31427,7 +31492,7 @@ window.SBEST = SBEST;
     const log = lines.map(l => Object.assign({at}, l)).concat(c.log).slice(0, 60);
     const goneIds = p.rep.gone.map(t => t.id);
     save({map: newMap, courses, newsItems, finals, log, last: at, lastSrc: how, name: data.name || c.name, gone: [...new Set(c.gone.filter(id => state.tasks[id]).concat(goneIds))].slice(0, 30)});
-    setLocal({lastTry: at, lastOk: at, needLogin: how === "api" ? false : local().needLogin, err: ""});
+    setLocal({lastTry: at, lastOk: at, fails: 0, needLogin: how === "api" ? false : local().needLogin, err: ""});
     const s = summary(p.rep, had.size || c.last ? fresh.length : 0);
     if (quiet) { if (s) toast(`${P.name}: ${s}`, null, {label: "See Changes", fn: () => bsSheet("log")}); }
     else toast(s ? `Synced with ${P.name}: ${s}` : `Synced with ${P.name}. Everything's up to date.`, inv && inv.length ? () => { applyChanges(inv, null); toast("Undone"); } : null);
@@ -31449,20 +31514,25 @@ window.SBEST = SBEST;
       if (r.needLogin) {
         setLocal({needLogin: true});
         if (cfg().feed) { r = await getData("feed"); used = "feed"; }
-        if (r.needLogin || r.error) { if (!o.quiet) signInAgain(); else scheduleRender(); return null; }
+        if (r.needLogin || r.error) { setLocal({fails: (local().fails || 0) + 1}); if (!o.quiet) signInAgain(); else scheduleRender(); return null; }
         if (!o.quiet) toast(`Your ${P.name} sign-in ran out, so Studyboard used your calendar link. Sign in again for grades and announcements.`);
       }
-      if (r.error) { setLocal({err: r.text}); if (!o.quiet) toast(r.text); scheduleRender(); return null; }
+      if (r.error) { setLocal({err: r.text, fails: (local().fails || 0) + 1}); if (!o.quiet) toast(r.text); scheduleRender(); return null; }
       const p = plan(r.data);
       return applyPlan(r.data, p, used, !!o.quiet);
     })().catch(e => { console.error(P.id + " sync", e); if (!(opts && opts.quiet)) toast(`Something went wrong syncing ${P.name}. Try again.`); return null; }).finally(() => { running = null; });
     return running;
   }
-  function autoTick(){
+  // Automatic checks. why: "timer" (the regular heartbeat), or "focus", "resume", "online", "change" (something just happened, so
+  // look sooner). Every kind keeps a minimum gap since the last try, and the gap grows after failed tries (up to 8x), so the
+  // school's site is never hammered. A sync someone starts by hand is never held back by this.
+  function autoTick(why){
     const c = cfg();
     if (!connected(c) || !c.auto || inClaude() || !navigator.onLine) return;
     const how = howNow(); if (!how) return;
-    const L = local(), wait = how === "api" ? 45 * 60000 : 90 * 60000;
+    const L = local(), api = how === "api", fast = why && why !== "timer";
+    const base = fast ? (api ? 5 : 10) * 60000 : (api ? 20 : 45) * 60000;
+    const wait = base * Math.min(8, Math.pow(2, Math.min(3, L.fails || 0)));
     if (Date.now() - (L.lastTry || 0) < wait) return;
     if (how === "feed" && c.lastSrc === "api" && Date.now() - (c.last || 0) < 3 * 3600000) return;   // your computer synced everything recently
     if (document.hidden && !bsDesk()) return;
@@ -31802,7 +31872,7 @@ window.SBEST = SBEST;
     return false;
   });
 
-  return {P, cfg, save, connected, statusLine, bsSheet, connectSheet, syncNow, autoTick, courseCard, local,
+  return {P, cfg, save, connected, statusLine, bsSheet, connectSheet, syncNow, autoTick, isRunning: () => !!running, courseCard, local,
     fromApi: P.fromApi, fromFeed, plan, applyPlan, cleanTitle, titleKey, codeOf, mapping, reviewSheet, scanNews, doLogin, feedConnect};
   }
 
@@ -31910,10 +31980,26 @@ window.SBEST = SBEST;
     const k = html.indexOf(`<h2 class="sec"><span class="t">Files</span>`);
     return k >= 0 ? html.slice(0, k) + cards + html.slice(k) : html + cards;
   };
-  const tickAll = () => ALL().forEach((L, i) => setTimeout(() => L.autoTick(), i * 20000));
-  hook("boot", () => { setTimeout(tickAll, 4000); setInterval(tickAll, 5 * 60000); });
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(tickAll, 1500); });
-  window.addEventListener("online", () => setTimeout(tickAll, 3000));
+  const tickAll = why => ALL().forEach((L, i) => setTimeout(() => L.autoTick(why), i * 20000));
+  // Heartbeat every 2 minutes; a long gap between beats means the computer was asleep, which counts as coming back to the app.
+  let beat = Date.now();
+  hook("boot", () => { setTimeout(() => tickAll("timer"), 4000); setInterval(() => { const gap = Date.now() - beat; beat = Date.now(); tickAll(gap > 6 * 60000 ? "resume" : "timer"); }, 2 * 60000); });
+  // Coming back to the app, or the window getting focus: look soon (the per-platform minimum gap still applies)
+  let focusT = 0;
+  const comeBack = why => { if (document.hidden) return; clearTimeout(focusT); focusT = setTimeout(() => tickAll(why), 1500); };
+  document.addEventListener("visibilitychange", () => comeBack("focus"));
+  window.addEventListener("focus", () => comeBack("focus"));
+  window.addEventListener("pageshow", () => comeBack("resume"));
+  window.addEventListener("online", () => setTimeout(() => tickAll("online"), 3000));
+  // Something changed in the app (a task completed, an edit): check the school's site shortly after, so the two stay in step.
+  // Changes the sync itself makes don't count (the sync is "running" while it applies them).
+  let changeT = 0;
+  hook("changed", changes => {
+    if (ALL().some(L => L.isRunning())) return;
+    const tk = (changes || []).filter(c => c.kind === "task"); if (!tk.length) return;
+    const done = tk.some(c => c.after && c.after.status === "done");
+    clearTimeout(changeT); changeT = setTimeout(() => tickAll("change"), done ? 6000 : 25000);
+  });
 
   // For tests
   const T = {st: () => state, applyChanges, clone, pickerSheet, go: (tab, cid) => { if (dlg.open) dlg.close(); ui.tab = tab; ui.courseId = cid || null; render(); }, scroll: () => { const b = dlg.querySelector(".sheet-body"); if (b) b.scrollTop = 99999; }};
@@ -31925,6 +32011,83 @@ window.SBEST = SBEST;
     return out.sort((a, b) => Date.parse(b.date) - Date.parse(a.date)).slice(0, 12);
   };
   window.SBBS = Object.assign({}, LMS.brightspace, T);
+})();
+
+
+/* ===== module: 95-announce.js ===== */
+/* Class announcements in one place: a bell in the header (and the side bar) opens a panel with the announcements school sync
+   brought in, grouped by course. Unread ones have a dot; opening one or pressing Mark Read clears it. Which ones you've read
+   stays on this device. Announcements come from the school connections (Brightspace, Canvas, Blackboard) module above. */
+(() => {
+  const KEY = "studyboard:annRead", FRESH_DAYS = 21;
+  const plats = () => ["brightspace", "canvas", "blackboard"].map(k => window.SBLMS && window.SBLMS[k]).filter(L => L && L.cfg && L.connected(L.cfg()));
+  let readMem = null;
+  const readSet = () => { if (!readMem) { try { readMem = new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); } catch(e) { readMem = new Set(); } } return readMem; };
+  const saveRead = () => { try { localStorage.setItem(KEY, JSON.stringify([...readSet()].slice(-600))); } catch(e) {} };
+  // Everything announced, newest first: {key, ou, id, title, text, long, date, url, plat, cid, course}
+  function items(){
+    const out = [];
+    plats().forEach(L => {
+      const c = L.cfg(), seen = new Set();
+      (c.newsItems || []).forEach(n => {
+        const m = c.map && c.map[n.ou]; if (m === "skip") return;
+        const key = L.P.id + "|" + n.ou + "|" + n.id; if (seen.has(key)) return; seen.add(key);
+        const cr = m && m !== "new" ? state.courses[m] : null, bc = (c.courses || {})[n.ou] || {};
+        out.push({key, ou: n.ou, id: n.id, title: n.title || "(No title)", text: n.text || "", long: !!n.long, date: n.date || "", url: safeUrl(n.url) || "", plat: L.P.name,
+          cid: cr ? cr.id : "", course: cr ? cr.name : (bc.name || bc.code || L.P.name + " Course"), color: cr ? cr.color : "#8A94A6"});
+      });
+    });
+    return out.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  }
+  const isNew = (n, rs) => !rs.has(n.key) && (!n.date || Date.parse(n.date) > Date.now() - FRESH_DAYS * 864e5);
+  const unread = () => { const rs = readSet(); return items().filter(n => isNew(n, rs)).length; };
+  function badge(){
+    const on = plats().length > 0, n = on ? unread() : 0;
+    $$(".ann-btn").forEach(b => {
+      b.hidden = !on;
+      const dot = b.querySelector(".ann-n"); if (dot) { dot.hidden = !n; dot.textContent = n > 9 ? "9+" : String(n); }
+      b.setAttribute("aria-label", n ? `Class announcements, ${n} unread` : "Class announcements");
+    });
+  }
+  function sheet(){
+    const body0 = dlg.querySelector(".ann-sheet .sheet-body"), top = body0 ? body0.scrollTop : 0;
+    const rs = readSet(), all = items(), np = plats();
+    const nUn = all.filter(n => isNew(n, rs)).length;
+    const groups = [];
+    all.forEach(n => { const k = n.cid || n.plat + n.ou; let g = groups.find(x => x.k === k); if (!g) groups.push(g = {k, name: n.course, color: n.color, list: []}); g.list.push(n); });
+    groups.sort((a, b) => (b.list.some(n => isNew(n, rs)) - a.list.some(n => isNew(n, rs))) || String(b.list[0].date).localeCompare(String(a.list[0].date)));
+    const row = n => { const un = isNew(n, rs);
+      return `<li class="${un ? "unread" : ""}"><b>${esc(n.title)}</b><span class="mini">${esc(n.plat)}${n.date && !isNaN(Date.parse(n.date)) ? ` · ${esc(fmtShort(iso(new Date(n.date))))}` : ""}${un ? " · New" : ""}</span>
+        ${n.text ? (n.text.length > 200 || n.long ? `<details><summary>${esc(n.text.slice(0, 120).replace(/\s+/g, " "))}… Read more</summary><p class="ann-txt">${esc(n.text)}${n.long ? "…" : ""}</p></details>` : `<p class="ann-txt">${esc(n.text)}</p>`) : ""}
+        <span class="bs-btns">${n.url ? `<button type="button" class="btn small" data-act="ann-go" data-key="${esc(n.key)}" data-url="${esc(n.url)}">Open in ${esc(n.plat)}</button>` : ""}<button type="button" class="btn small" data-act="ann-read" data-key="${esc(n.key)}">${un ? "Mark Read" : "Mark Unread"}</button></span></li>`; };
+    openSheet(`<div class="sheet ann-sheet">${head("Class Announcements")}
+      <div class="sheet-body">
+        ${np.length ? `<div class="ann-bar"><span class="mini">${nUn ? `${nUn} unread` : "All caught up"}</span><span class="spacer"></span>${nUn ? `<button class="btn small" data-act="ann-readall">Mark All Read</button>` : ""}<button class="btn small" data-act="ann-check">Check Now</button></div>` : ""}
+        ${groups.map(g => `<h3 class="ann-course" style="--c:${esc(g.color)}"><span class="sd"></span>${esc(g.name)}${(u => u ? `<span class="n">${u} new</span>` : "")(g.list.filter(n => isNew(n, rs)).length)}</h3><ul class="ann-list">${g.list.map(row).join("")}</ul>`).join("")}
+        ${!np.length ? `<div class="empty"><strong>No School Site Connected</strong>Connect Brightspace, Canvas or Blackboard in Settings and your class announcements show up here.</div>` : !all.length ? `<div class="empty"><strong>No Announcements Yet</strong>When your instructors post one, it shows up here after the next sync. ${bsDesk() ? "" : "Announcements come in from the desktop app."}</div>` : ""}
+      </div></div>`);
+    if (!dlg.open) dlg.showModal();
+    const b = dlg.querySelector(".ann-sheet .sheet-body"); if (b && top) b.scrollTop = top;
+    badge();
+  }
+  const bsDesk = () => !!(window.studiosoDesktop && window.studiosoDesktop.lms);
+  const mark = (key, on) => { on ? readSet().add(key) : readSet().delete(key); saveRead(); };
+  hook("act", (act, el) => {
+    switch (act) {
+      case "ann-open": sheet(); return true;
+      case "ann-read": { const rs = readSet(), n = items().find(x => x.key === el.dataset.key); if (n) mark(n.key, isNew(n, rs)); else mark(el.dataset.key, !rs.has(el.dataset.key)); sheet(); return true; }
+      case "ann-readall": items().forEach(n => readSet().add(n.key)); saveRead(); sheet(); return true;
+      case "ann-go": mark(el.dataset.key, true); openOutside(el.dataset.url); sheet(); return true;
+      case "ann-check": {
+        el.disabled = true; el.textContent = "Checking…";
+        Promise.all(plats().map(L => L.syncNow({quiet: true}))).catch(() => {}).then(() => { if (dlg.querySelector(".ann-sheet")) sheet(); });
+        return true;
+      }
+    }
+    return false;
+  });
+  hook("render", () => badge());
+  hook("boot", () => { badge(); setTimeout(badge, 3000); });
 })();
 
 
