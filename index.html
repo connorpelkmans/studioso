@@ -13597,7 +13597,7 @@ SCENES.sakura = function (W, H, dk, rnd) {
   add(mid, 'e', rf, dk ? 'rgba(170,80,120,0.25)' : 'rgba(240,160,190,0.3)');
   var gx = W * (ph ? 0.2 : 0.14), gy = b2_y(hz, sw, gx) + 1, gs = ph ? 0.75 : 1, pg = '';
   for (i = 0; i < 4; i++) { var ry = gy - 14 * gs - i * 17 * gs, rw = (30 - i * 5) * gs; pg += poly([[gx - rw, ry], [gx - rw * 0.6, ry - 6 * gs], [gx + rw * 0.6, ry - 6 * gs], [gx + rw, ry], [gx + rw * 0.8, ry + 3 * gs], [gx - rw * 0.8, ry + 3 * gs]]) + rect(gx - rw * 0.5, ry + 2, rw, 13 * gs); }
-  pg += rect(gx - 1.5 * gs, gy - 96 * gs, 3 * gs, 20 * gs);
+  pg += rect(gx - 1.5 * gs, gy - 96 * gs, 3 * gs, 28 * gs);
   add(mid, 'f', pg, dk ? '#2A1424' : '#8A4A56');
   if (dk) add(far, 'd', circ(gx, gy - 40, 40), 'rgba(255,160,120,0.35)');
   // water ripples + floating petals
@@ -14328,7 +14328,7 @@ SCENES.arcade = function (W, H, dk, rnd) {
   var gl = '', gg = '', vx = cx;
   for (var n = 1; n <= 16; n++) { var z = 1 / (n * 0.09), yy = hz + (H - hz) * (1 / (1 + (16 - n) * 0.33)); if (!ANIM) gl += seg(-10, yy, W + 10, yy); }
   if (ANIM) ANIM.grid = {vx: vx, c: dk ? 'rgba(255,47,179,0.55)' : 'rgba(208,16,127,0.3)', g: dk ? 'rgba(255,47,179,0.16)' : 'rgba(255,120,190,0.14)'};
-  for (var m = -30; m <= 30; m++) { var bx = vx + m * (ph ? 56 : 92); gl += seg(vx + m * 6, hz, bx, H + 20); }
+  for (var m = -Math.ceil(Math.max(vx, W - vx) / 6 + 2), mEnd = -m; m <= mEnd; m++) { var bx = vx + m * (ph ? 56 : 92); gl += seg(vx + m * 6, hz, bx, H + 20); }
   stk(mid, 't', gl, dk ? 'rgba(255,47,179,0.55)' : 'rgba(208,16,127,0.3)', 1.2); // under the palms
   stk(far, 's', gl, dk ? 'rgba(255,47,179,0.6)' : 'rgba(255,120,190,0.35)', 5);
   add(near, 'c', rect(-10, hz - 0.8, W + 20, 1.6), dk ? '#FF9ADF' : 'rgba(208,16,127,0.55)');
@@ -14762,11 +14762,11 @@ SCENES.reading = function (W, H, dk, rnd) {
   var sl = R.sill, seatTop = sl.y + (ph ? 26 : 44), seat = rect(sl.x, seatTop, sl.w, fy + 6 - seatTop), cush = rrect(sl.x - 4, seatTop - (ph ? 12 : 16), sl.w + 8, ph ? 14 : 20, 7);
   var pil = b5_pillow(sl.x + sl.w * 0.17, seatTop - (ph ? 22 : 34), ph ? 18 : 30, -10) + b5_pillow(sl.x + sl.w * 0.83, seatTop - (ph ? 22 : 34), ph ? 18 : 30, 12);
   var drw = ''; for (var d = 0; d < 3; d++) drw += rrect(sl.x + sl.w * (0.06 + d * 0.315), seatTop + (ph ? 10 : 16), sl.w * 0.25, fy - seatTop - (ph ? 22 : 34), 4);
-  add(mid, 'c', fr + seat + pot, dk ? '#4A3228' : '#A0704E');
+  add(mid, 'c', fr + seat, dk ? '#4A3228' : '#A0704E');
   add(mid, 'd', back, dk ? '#1E1512' : '#7A5240');
   add(mid, 'e', bks[0] + cush, dk ? '#8E3E48' : '#A8474F');
   add(mid, 'f', bks[1] + pil, dk ? '#4E6A5C' : '#7FA08A');
-  add(mid, 'g', bks[2], dk ? '#B08A52' : '#E2B868');
+  add(mid, 'g', bks[2] + pot, dk ? '#B08A52' : '#E2B868');   // the plant pots go on the shelf after the cell backs, or the backs would hide them
   add(mid, 'h', lv, dk ? '#4F7A58' : '#6FA06A');
   // arc lamp over the seat
   var lb = ph ? [W * 0.935, fy + 30] : [W * 0.79, fy + 34], lt = ph ? [W * 0.82, H * 0.47] : [W * 0.73, H * 0.2];
@@ -16067,7 +16067,7 @@ SCENES.balloons = function (W, H, dk, rnd) {
 };
 
 // 2. Koi Pond: seen from above, so the water fills any shape of screen evenly.
-function fish(x, y, L, ang) { var up = [], lo = [], N = 14; for (var i = 0; i <= N; i++) { var t = i / N * 0.8, w = L * 0.15 * Math.pow(Math.sin(Math.PI * Math.min(0.999, 0.1 + t * 1.05)), 0.75) * (1 - 0.45 * t), bend = Math.sin(t * 3) * L * 0.04; up.push([t * L, bend - w]); lo.unshift([t * L, bend + w]); } return {body: poly(rotp(up.concat(lo), x, y, ang)), tail: poly(rotp([[L * 0.76, 0], [L * 1.02, -L * 0.14], [L * 0.94, 0], [L * 1.02, L * 0.14]], x, y, ang)), fins: rotEll.apply(null, [].concat(rotp([[L * 0.26, -L * 0.14]], x, y, ang)[0], [L * 0.09, L * 0.035, ang - 50])) + rotEll.apply(null, [].concat(rotp([[L * 0.26, L * 0.14]], x, y, ang)[0], [L * 0.09, L * 0.035, ang + 50])), at: function (t, o) { return rotp([[t * L, o * L]], x, y, ang)[0]; }}; }
+function fish(x, y, L, ang) { var up = [], lo = [], N = 14; for (var i = 0; i <= N; i++) { var t = i / N * 0.8, w = L * 0.15 * Math.pow(Math.sin(Math.PI * Math.min(0.999, 0.1 + t * 1.05)), 0.75) * (1 - 0.45 * t) * Math.min(1, Math.sqrt(i / 2.2)), bend = Math.sin(t * 3) * L * 0.04; up.push([t * L, bend - w]); lo.unshift([t * L, bend + w]); } return {body: poly(rotp(up.concat(lo), x, y, ang)), tail: poly(rotp([[L * 0.76, 0], [L * 1.02, -L * 0.14], [L * 0.94, 0], [L * 1.02, L * 0.14]], x, y, ang)), fins: rotEll.apply(null, [].concat(rotp([[L * 0.26, -L * 0.14]], x, y, ang)[0], [L * 0.09, L * 0.035, ang - 50])) + rotEll.apply(null, [].concat(rotp([[L * 0.26, L * 0.14]], x, y, ang)[0], [L * 0.09, L * 0.035, ang + 50])), at: function (t, o) { return rotp([[t * L, o * L]], x, y, ang)[0]; }}; }
 function pad(x, y, r, a0) { var pts = [[x, y]]; for (var i = 0; i <= 26; i++) { var a = a0 + 0.3 + i / 26 * (Math.PI * 2 - 0.6); pts.push([x + r * Math.cos(a), y + r * Math.sin(a)]); } return poly(pts); }
 SCENES.koi = function (W, H, dk, rnd) {
   var far = Lay(16), mid = Lay(0.9), near = Lay(0);
@@ -16241,7 +16241,8 @@ SCENES.lavender = function (W, H, dk, rnd) {
   add(far, 'e', ell(W / 2, hz + 30, W * 0.9, 40), dk ? 'rgba(255,150,130,0.25)' : 'rgba(255,255,255,0.55)');
   var vx = W * 0.55, vy = hz - 30, step = ph ? 40 : 46, rw = step * 0.8, gaps = '', rows = '', sp = ['', '', ''], hi = '';
   function xAt(bx, y) { return vx + (bx - vx) * (y - vy) / (H - vy); }
-  for (var bx = vx - W * 3; bx < vx + W * 3; bx += step) { var y0 = hz + 8;
+  var reach = Math.max(W * 3, Math.max(vx, W - vx) * (H - vy) / 38 + step * 2);   // the rows must fan out far enough to reach both screen edges at the horizon
+  for (var bx = vx - reach; bx < vx + reach; bx += step) { var y0 = hz + 8;
     if (xAt(bx + step, H) < -40 || xAt(bx, H) > W + 40) { if (xAt(bx, y0) > W + 40 || xAt(bx + step, y0) < -40) continue; }
     gaps += poly([[xAt(bx + rw, y0), y0], [xAt(bx + step, y0), y0], [bx + step, H + 10], [bx + rw, H + 10]]);
     rows += poly([[xAt(bx, y0), y0], [xAt(bx + rw, y0), y0], [bx + rw, H + 10], [bx, H + 10]]);
@@ -17295,10 +17296,14 @@ SCENES.comms = function (W, H, dk, rnd) {
   nDet += spring(base2, el, 9 * s) + spring(el, tip, 9 * s);
   nSh += ell(mk[0] + 10, dy + 2, 30 * s, 3);
   nDk += rrect(mx0, my0, mws, mhs, mws / 2); nMe += rrect(mx0 + 4, my0 + 4, mws - 8, mhs * 0.5, (mws - 8) / 2);
-  var grille = ''; for (var gy = my0 + 12; gy < my0 + mhs * 0.52; gy += 6.5) grille += seg(mx0 + 7, gy, mx0 + mws - 7, gy); for (var gx = mx0 + 10; gx < mx0 + mws - 6; gx += 6.5) grille += seg(gx, my0 + 7, gx, my0 + mhs * 0.52); nDet += grille;
+  var grille = '', gR = (mws - 8) / 2 - 3, gTop = my0 + 4 + gR + 3, gBot = my0 + 4 + mhs * 0.5 - gR - 3;   // grille lines are clipped to the rounded mesh capsule, so none poke out past its curved ends
+  function gHalf(y) { var d = y < gTop ? gTop - y : y > gBot ? y - gBot : 0; return d >= gR ? 0 : Math.sqrt(gR * gR - d * d); }
+  for (var gy = my0 + 12; gy < my0 + mhs * 0.52 - 4; gy += 6.5) { var hw = gHalf(gy); if (hw > 1) grille += seg(mk[0] - hw, gy, mk[0] + hw, gy); }
+  for (var gx = mx0 + 10; gx < mx0 + mws - 6; gx += 6.5) { var dx2 = gx - mk[0]; if (Math.abs(dx2) >= gR) continue; var hh = Math.sqrt(gR * gR - dx2 * dx2); grille += seg(gx, gTop - hh, gx, gBot + hh); }
+  nDet += grille;
   nAc += rect(mx0, my0 + mhs * 0.53, mws, 6 * s); nHl += rrect(mx0 + 9, my0 + mhs * 0.6, 5, mhs * 0.3, 2) + rrect(mx0 + 10, my0 + 10, 5, mhs * 0.3, 2);
   var ringY = mk[1] + mhs * 0.08; nDk += poly(m2_ellPts(mk[0], ringY, mws * 0.82, 10 * s, 0, 28)) + poly(m2_ellPts(mk[0], ringY, mws * 0.68, 6.5 * s, 0, 28).reverse()) + bar([mk[0] + mws * 0.8, ringY], tip, 7 * s);
-  var cb0 = [mk[0], mk[1] + mhs * 0.5 - 2], cpts = []; for (var ci = 0; ci <= 20; ci++) { var cu = ci / 20, c1 = [mk[0] - 4, dy - 30], c2 = [clampX - 60, dy - 4], c3 = [clampX - 18, dy - 2], iu = 1 - cu; cpts.push([iu * iu * iu * cb0[0] + 3 * iu * iu * cu * c1[0] + 3 * iu * cu * cu * c2[0] + cu * cu * cu * c3[0], iu * iu * iu * cb0[1] + 3 * iu * iu * cu * c1[1] + 3 * iu * cu * cu * c2[1] + cu * cu * cu * c3[1]]); }
+  var cb0 = [mk[0], mk[1] + mhs * 0.5 - 2], cpts = []; for (var ci = 0; ci <= 20; ci++) { var cu = ci / 20, c1 = [mk[0] - 4, dy - 30], c2 = [clampX - 60, dy - 4], c3 = [clampX - 10 * s, dy - 2], iu = 1 - cu; cpts.push([iu * iu * iu * cb0[0] + 3 * iu * iu * cu * c1[0] + 3 * iu * cu * cu * c2[0] + cu * cu * cu * c3[0], iu * iu * iu * cb0[1] + 3 * iu * iu * cu * c1[1] + 3 * iu * cu * cu * c2[1] + cu * cu * cu * c3[1]]); }
   nDk += m2_tube(cpts, 3.2 * s) + rrect(mk[0] - 4 * s, mk[1] + mhs * 0.5 - 4, 8 * s, 12 * s, 2);
   // a pendant lamp over the desk (lit at night)
   var lpX = W * (ph ? 0.2 : 0.6), lpY = H * (ph ? 0.68 : 0.28), lw2 = ph ? 30 : 44 * Z;
@@ -17645,7 +17650,7 @@ SCENES.writing = function (W, H, dk, rnd) {
   for (x = Math.max(0, deskX0) + 20; x + (ph ? 100 : 150) < W; x += (ph ? 100 : 150) + 18) dr += rrect(x, deskY + 32, ph ? 100 : 150, (H - deskY) * 0.4, 5);
   add(near, 'b', dTop + dr, dk ? '#6A4A38' : '#CC9466');
   // typewriter with a page
-  var ts = ph ? 0.7 : 0.95, tx = W * (ph ? 0.52 : 0.62), T = m3_typewriter(tx, deskY, ts), pgW = 120 * ts, pgH = (ph ? 110 : 150) * ts, pgX = tx - pgW / 2, pgY = T.top - pgH + 6 * ts;
+  var ts = ph ? 0.7 : 0.95, tx = W * (ph ? 0.52 : 0.62), T = m3_typewriter(tx, deskY, ts), pgW = 120 * ts, pgH = (ph ? 110 : 150) * ts, pgX = tx - pgW / 2, pgY = T.top - pgH;   // the page ends at the top of the roller (it feeds up from behind it, not over it)
   add(near, 'c', T.body, dk ? '#4EA898' : '#7ED8C0');
   var lines = ''; for (i = 0; i < 3; i++) lines += seg(pgX + 12 * ts, pgY + (18 + i * 11) * ts, pgX + pgW - (20 + rnd() * 30) * ts, pgY + (18 + i * 11) * ts);
   if (Q) Q.page = {x: pgX, y: pgY, w: pgW, h: pgH, s: ts, n0: 3};
@@ -17667,7 +17672,7 @@ SCENES.writing = function (W, H, dk, rnd) {
   [-120, -95, -70, -50, -135, -150, -30].forEach(function (a, j) { lv += leaf(px, py - 24, 26 + (j % 3) * 7, 7, a); });
   add(near, 'c', lv, null);
   add(near, 'd', T.dark + inkPot, dk ? '#2A2830' : '#3A3640');
-  add(near, 'e', rect(pgX, pgY, pgW, pgH + 8 * ts) + T.caps + (Q ? '' : quill) + wax + stack.e + cup, dk ? '#EDE4D2' : '#FFFCF4');
+  add(near, 'e', rect(pgX, pgY, pgW, pgH) + T.caps + (Q ? '' : quill) + wax + stack.e + cup, dk ? '#EDE4D2' : '#FFFCF4');
   add(near, 'f', stack.f + pot, dk ? '#9A4E3E' : '#C4684A'); add(near, 'g', stack.g, dk ? '#3E6A6A' : '#4E8A86');
   var knobs = ''; for (x = Math.max(0, deskX0) + 20; x + (ph ? 100 : 150) < W; x += (ph ? 100 : 150) + 18) knobs += circ(x + (ph ? 50 : 75), deskY + 32 + (H - deskY) * 0.2, 5);
   add(near, 'h', brass + knobs, dk ? '#C9A35E' : '#D4AA62');
@@ -18011,7 +18016,7 @@ function m4_trackGear(G, O, ph) {
     var X = sd * 55, cb = 9, hw = 7, top = 33, P = {z: zc, yel: '', white: '', net: '', dark: ''};
     P.yel += m4_pole(G, X + sd * 2.4, zc, 0, cb, 0.9) + m4_bar3(G, [X + sd * 2.4, zc, cb], [X, zc, cb + 0.4], 0.7) + m4_bar3(G, [X, zc - hw - 0.3, cb], [X, zc + hw + 0.3, cb], 0.6) + m4_pole(G, X, zc - hw, cb, top, 0.45) + m4_pole(G, X, zc + hw, cb, top, 0.45);
     P.dark += m4_pole(G, X + sd * 2.4, zc, 0, 2.6, 1.6);
-    var gx = X - sd * 1.2, gw = 7.5, gh = 6, gd = 4.5;
+    var gx = X - sd * 3.2, gw = 7.5, gh = 6, gd = 3;   // the goal sits wholly inside the end line, so the yellow post stands clear behind its net instead of through it
     P.white += m4_pole(G, gx, zc - gw, 0, gh, 0.5) + m4_pole(G, gx, zc + gw, 0, gh, 0.5) + m4_bar3(G, [gx, zc - gw - 0.25, gh], [gx, zc + gw + 0.25, gh], 0.5);
     for (var k = 0; k <= 10; k++) { var Z = zc - gw + 2 * gw * k / 10; P.net += m4_line3(G, [gx, Z, gh], [gx + sd * gd, Z, gh * 0.55]) + m4_line3(G, [gx + sd * gd, Z, gh * 0.55], [gx + sd * gd, Z, 0]); }
     for (var j = 1; j <= 4; j++) { var h = gh * 0.55 * j / 5; P.net += m4_line3(G, [gx + sd * gd, zc - gw, h], [gx + sd * gd, zc + gw, h]); }
@@ -18737,7 +18742,7 @@ SCENES.sketchcity = function (W, H, dk, rnd) {
   stk(mid, 's', g1, dk ? 'rgba(190,220,255,0.08)' : 'rgba(70,120,190,0.08)', 1);
   stk(mid, 't', g2, dk ? 'rgba(190,220,255,0.16)' : 'rgba(70,120,190,0.15)', 1);
   // sun (or moon), drawn with a compass, and sketched clouds
-  var sx = W * (ph ? 0.76 : 0.83), sy = H * (ph ? 0.13 : 0.16), sr = ph ? 26 : 36;
+  var sx = W * (ph ? 0.76 : 0.92), sy = H * (ph ? 0.13 : 0.14), sr = ph ? 26 : 36;   // desktop: clear of the second crane's counterweight
   add(mid, 'a', circ(sx + 3, sy + 2, sr * 0.96), dk ? 'rgba(220,235,255,0.16)' : 'rgba(246,200,96,0.45)');
   var o = {ln: '', th: '', win: '', fill: {a: '', b: '', c: ''}, lit: []};
   o.th += circ(sx, sy, sr) + (ANIM ? '' : m5_ov(sx - 5, sy, sx + 5, sy, 0) + m5_ov(sx, sy - 5, sx, sy + 5, 0) + seg(sx, sy, sx + sr * 0.7, sy - sr * 0.7));
@@ -18766,7 +18771,7 @@ SCENES.sketchcity = function (W, H, dk, rnd) {
   add(mid, 'c', shadow + poly([[ssx + 4, ssy + 3], [ssx + ss + 4, ssy + 3], [ssx + 4, ssy - ss * 0.62 + 3]]), dk ? 'rgba(0,10,30,0.25)' : 'rgba(80,70,50,0.1)');
   // a crayon rainbow behind the town (chalk pastels at night)
   var rcx = W * (ph ? 0.34 : 0.33), rcy = yg - H * (ph ? 0.22 : 0.18), rr0 = W * (ph ? 0.36 : 0.2), rbw = ph ? 7 : 10;
-  (dk ? ['rgba(255,160,200,0.35)', 'rgba(255,230,140,0.35)', 'rgba(150,240,210,0.35)', 'rgba(180,170,255,0.35)'] : ['#F7A6B8', '#F8D57A', '#9EDCC2', '#B9A6EC']).forEach(function (col, k) { var ro = rr0 - k * rbw, ri = ro - rbw + 1, pts = [], j; for (j = 0; j <= 36; j++) { var a = Math.PI + j / 36 * Math.PI; pts.push([rcx + ro * Math.cos(a) + (rnd() - 0.5) * 1.6, rcy + ro * Math.sin(a) + (rnd() - 0.5) * 1.6]); } for (j = 36; j >= 0; j--) { a = Math.PI + j / 36 * Math.PI; pts.push([rcx + ri * Math.cos(a) + (rnd() - 0.5) * 1.6, rcy + ri * Math.sin(a) + (rnd() - 0.5) * 1.6]); } add(mid, 'defg'[k], poly(pts), col); });
+  (dk ? ['rgba(255,160,200,0.35)', 'rgba(255,230,140,0.35)', 'rgba(150,240,210,0.35)', 'rgba(180,170,255,0.35)'] : ['#F7A6B8', '#F8D57A', '#9EDCC2', '#B9A6EC']).forEach(function (col, k) { var ro = rr0 - k * rbw, ri = ro - rbw + 1, pts = [], j; for (j = 0; j <= 36; j++) { var a = Math.PI + j / 36 * Math.PI; pts.push([rcx + ro * Math.cos(a) + (rnd() - 0.5) * 1.6, rcy + ro * Math.sin(a) + (rnd() - 0.5) * 1.6]); } for (j = 36; j >= 0; j--) { a = Math.PI + j / 36 * Math.PI; pts.push([rcx + ri * Math.cos(a) + (rnd() - 0.5) * 1.6, rcy + ri * Math.sin(a) + (rnd() - 0.5) * 1.6]); } add(mid, 'defg'[k], poly(pts) + rect(rcx - ro, rcy - 1, rbw, yg - rcy + 1) + rect(rcx + ri, rcy - 1, rbw, yg - rcy + 1), col); });   // the arch's two legs come down to the ground line instead of stopping in mid-air
   // sticky notes held by washi tape, with little doodles
   var notes = ph ? [[0.05, 0.05, 'c', -0.06], [0.8, 0.27, 'a', 0.08]] : [[0.02, 0.05, 'c', -0.06], [0.11, 0.16, 'b', 0.05], [0.68, 0.05, 'a', 0.07]], ns = ph ? 46 : 62;
   notes.forEach(function (q, k) { var x = W * q[0], y = H * q[1], c = Math.cos(q[3]), sn = Math.sin(q[3]), Rt = function (u, v) { return [x + u * c - v * sn, y + u * sn + v * c]; };
@@ -18785,7 +18790,7 @@ SCENES.sketchcity = function (W, H, dk, rnd) {
   if (ANIM) { ANIM.lot = lot; ANIM.fh = fh; ANIM.cranes = cr; ANIM.yg = yg; ANIM.lit = o.lit; ANIM.sun = [sx, sy, sr];
     var hb = tops.filter(function (q) { return q[3].kind === 'half'; })[0]; if (hb) { var Bh = hb[3], dn = Math.round(Bh.f * 0.55); ANIM.workers = [{x: Bh.x + Bh.w * 0.3, y: yg - (dn + 2) * fh, k: 0}, {x: Bh.x + Bh.w * 0.7, y: yg - (dn + 5) * fh, k: 1}, {x: Bh.x + Bh.w * 0.5, y: yg - dn * fh, k: 2}]; }
     var dome = tops.filter(function (q) { return q[3].roof === 'gable' && q[3].kind === 'done'; })[0]; if (dome) ANIM.cat = [dome[0] + dome[1] * 0.5, dome[2] - dome[1] * 0.38 + 2];
-    ANIM.dog = ph ? [W * 0.05, W * 0.55] : [W * 0.3, W * 0.62]; ANIM.balloon = [W * (ph ? 0.2 : 0.55), H * (ph ? 0.2 : 0.22)]; ANIM.doodle = ph ? [W * 0.62, H * 0.15] : [W * 0.6, H * 0.14]; }
+    ANIM.dog = ph ? [W * 0.05, W * 0.55] : [W * 0.3, W * 0.62]; ANIM.balloon = [W * (ph ? 0.2 : 0.55), H * (ph ? 0.2 : 0.22)]; ANIM.doodle = ph ? [W * 0.5, H * 0.1] : [W * 0.6, H * 0.14]; }
   else { var cl = ''; cr.forEach(function (C) { var top = yg - C.h, a = C.x + C.dir * C.Lm, b = C.x - C.dir * C.Lc, hx = C.x + C.dir * C.ho; cl += seg(C.x - 5, yg, C.x - 5, top) + seg(C.x + 5, yg, C.x + 5, top) + seg(a, top, b, top) + seg(a, top - 8, b, top - 8) + seg(C.x, top - 8, C.x, top - 30) + seg(C.x, top - 30, a, top - 8) + seg(C.x, top - 30, b, top - 8) + seg(hx, top, hx, top + C.h * 0.4); for (var yy = yg; yy > top; yy -= 10) cl += seg(C.x - 5, yy, C.x + 5, yy - 10); });
     if (lot) { var dl = ''; for (var y = yg; y > yg - lot.f * fh; y -= 12) dl += seg(lot.x, y, lot.x, y - 6) + seg(lot.x + lot.w, y, lot.x + lot.w, y - 6); for (var x = lot.x; x < lot.x + lot.w; x += 12) dl += seg(x, yg - lot.f * fh, x + 6, yg - lot.f * fh); cl += dl; }
     stk(near, 't', cl); }
@@ -18877,7 +18882,7 @@ function rgba(hex, a) { var n = parseInt(hex.slice(1), 16); return 'rgba(' + (n 
     A.fish.forEach(function (o, i) { fish.push({x: o.x, y: o.y, L: o.L, dir: (o.ang + 180) * Math.PI / 180, v: 14 + hash(i + 3) * 10, ph: hash(i) * 6.28, white: o.white, turn: 0, seed: i * 1.7}); });
     function pts(F, t, f) {
       var L = F.L, up = [], lo = [], N = 14, sp = t * 4.2 * f.s + F.ph, bendA = L * 0.07 * f.a;
-      for (var i = 0; i <= N; i++) { var u = i / N * 0.8, w = L * 0.15 * Math.pow(Math.sin(Math.PI * Math.min(0.999, 0.1 + u * 1.05)), 0.75) * (1 - 0.45 * u), b = Math.sin(sp - u * 5) * bendA * Math.pow(u, 1.4) + F.turn * L * 0.25 * u * u; up.push([-u * L, b - w]); lo.unshift([-u * L, b + w]); }
+      for (var i = 0; i <= N; i++) { var u = i / N * 0.8, w = L * 0.15 * Math.pow(Math.sin(Math.PI * Math.min(0.999, 0.1 + u * 1.05)), 0.75) * (1 - 0.45 * u) * Math.min(1, Math.sqrt(i / 2.2)), b = Math.sin(sp - u * 5) * bendA * Math.pow(u, 1.4) + F.turn * L * 0.25 * u * u; up.push([-u * L, b - w]); lo.unshift([-u * L, b + w]); }
       var tb = Math.sin(sp - 0.8 * 5) * bendA * Math.pow(0.8, 1.4) + F.turn * L * 0.16, tb2 = Math.sin(sp - 5) * bendA + F.turn * L * 0.25;
       return {body: up.concat(lo), tail: [[-L * 0.76, tb], [-L * 1.02, tb2 - L * 0.14], [-L * 0.94, tb2], [-L * 1.02, tb2 + L * 0.14]], mid: function (u) { return Math.sin(sp - u * 5) * bendA * Math.pow(u, 1.4) + F.turn * L * 0.25 * u * u; }};
     }
@@ -22472,7 +22477,7 @@ function m1_nurseLife(A, v, dk) {
   var cw = ph ? 34 : 44, chh = ph ? 28 : 36, pics = ph ? [{k: 1, x: wr[2] + 14, y: wr[1] + 10, r: 0.06}] : [{k: 0, x: wr[0] + 4, y: wr[3] + 26, r: -0.06}, {k: 1, x: wr[0] + 62, y: wr[3] + 30, r: 0.05}, {k: 4, x: wr[0] + 122, y: wr[3] + 24, r: -0.03}, {k: 3, x: wr[2] + 10, y: wr[1] + 40, r: 0.05}];
   pics.forEach(function (p) { var sp = m1_crayon(p.k, cw, chh, dk); o.save(); o.translate(p.x + sp.w / 2, p.y + sp.h / 2); o.rotate(p.r); o.drawImage(sp.cv, -sp.w / 2, -sp.h / 2, sp.w, sp.h); o.fillStyle = 'rgba(255,214,120,0.75)'; o.fillRect(-8, -sp.h / 2 - 2, 16, 6); o.restore(); });
   // 6. scrubs, nurse cap and badge reel on hooks (desktop)
-  if (!ph) { var hx0 = W * 0.546, hyk = H * 0.37, hbw = W * 0.115; o.fillStyle = P.wood; rr(o, hx0, hyk - 6, hbw, 9, 3); o.fill(); o.strokeStyle = P.metal; o.lineWidth = 2.6; [hx0 + 58, hx0 + hbw - 22].forEach(function (x) { o.beginPath(); o.moveTo(x, hyk); o.quadraticCurveTo(x, hyk + 8, x + 5, hyk + 6); o.stroke(); });
+  if (!ph) { var hx0 = W * 0.546, hyk = H * 0.37, hbw = W * 0.115; o.fillStyle = P.wood; rr(o, hx0, hyk - 6, hbw, 9, 3); o.fill(); o.strokeStyle = P.metal; o.lineWidth = 2.6; [hx0 + 58, hx0 + hbw - 22].forEach(function (x, hi) { o.beginPath(); o.moveTo(x, hyk); if (hi) o.quadraticCurveTo(x, hyk + 8, x + 5, hyk + 6); else o.lineTo(x, hyk + 16); o.stroke(); });
     o.save(); o.translate(hx0 + 58, hyk); o.scale(2.2, 2.2); var tx = 0, tw = 46, th = 64; hyk = 0; o.fillStyle = P.scrub; o.beginPath(); o.moveTo(tx - 8, hyk + 6); o.lineTo(tx + 8, hyk + 6); o.lineTo(tx + tw * 0.62, hyk + 14); o.lineTo(tx + tw * 0.56, hyk + 26); o.lineTo(tx + tw * 0.44, hyk + 24); o.lineTo(tx + tw * 0.42, hyk + th); o.lineTo(tx - tw * 0.42, hyk + th); o.lineTo(tx - tw * 0.44, hyk + 24); o.lineTo(tx - tw * 0.56, hyk + 26); o.lineTo(tx - tw * 0.62, hyk + 14); o.closePath(); o.fill();
     o.fillStyle = dk ? '#3E9A8C' : '#48B0A2'; o.beginPath(); o.moveTo(tx - 8, hyk + 6); o.lineTo(tx, hyk + 20); o.lineTo(tx + 8, hyk + 6); o.fill(); o.fillRect(tx + 6, hyk + 30, 12, 10);
     o.strokeStyle = '#FF7A9A'; o.lineWidth = 1.2; o.beginPath(); o.moveTo(tx + 12, hyk + 30); o.lineTo(tx + 12, hyk + 44); o.stroke(); o.fillStyle = '#FF7A9A'; o.beginPath(); o.arc(tx + 12, hyk + 30, 3, 0, 7); o.fill(); o.fillStyle = '#FFFFFF'; rr(o, tx + 6, hyk + 44, 12, 15, 2); o.fill(); o.fillStyle = '#9ED4EC'; o.fillRect(tx + 8, hyk + 46, 8, 6); o.fill(new Path2D(poly(m1_heartPts(tx + 12, hyk + 55, 0.12, 10))));
@@ -22491,7 +22496,7 @@ function m1_nurseLife(A, v, dk) {
     drip = ivPole(W * 0.828, H * 0.36, fy);
     var wcx = W * 0.925, wcy = fy + (H - fy) * 0.78, WS = 2.15; o.save(); o.translate(wcx, wcy); o.scale(WS, WS);
     o.strokeStyle = P.chair; o.lineWidth = 3.4; o.beginPath(); o.moveTo(14, -78); o.lineTo(14, -34); o.lineTo(-22, -34); o.lineTo(-28, -8); o.lineTo(-36, -8); o.moveTo(14, -78); o.lineTo(24, -80); o.moveTo(-18, -34); o.lineTo(-18, -12); o.stroke();
-    o.fillStyle = P.seat; rr(o, -24, -40, 40, 9, 4); o.fill(); rr(o, 8, -76, 10, 40, 4); o.fill(); rr(o, -16, -52, 22, 5, 2); o.fill();
+    o.fillStyle = P.seat; rr(o, -24, -40, 40, 9, 4); o.fill(); rr(o, 8, -76, 10, 40, 4); o.fill(); rr(o, -16, -52, 26, 5, 2); o.fill();
     o.strokeStyle = '#5A5A72'; o.lineWidth = 4; o.beginPath(); o.arc(0, -24, 22, 0, 7); o.stroke(); o.strokeStyle = P.metal; o.lineWidth = 1.2; for (i = 0; i < 8; i++) { var aw = i / 8 * 6.28; o.beginPath(); o.moveTo(0, -24); o.lineTo(Math.cos(aw) * 20, -24 + Math.sin(aw) * 20); o.stroke(); } o.strokeStyle = P.chair; o.lineWidth = 1.6; o.beginPath(); o.arc(0, -24, 16, 0, 7); o.stroke();
     o.fillStyle = '#5A5A72'; o.beginPath(); o.arc(-22, -4, 4.5, 0, 7); o.fill(); o.fillStyle = '#FFFFFF'; o.fill(new Path2D(poly(m1_heartPts(13, -60, 0.2, 12)))); o.restore();
     bal = {ax: wcx + 24 * WS, ay: wcy - 80 * WS, x: wcx - 30, y: fy - 260};
@@ -22537,7 +22542,8 @@ function m1_nurseLife(A, v, dk) {
     c.fillStyle = '#7ED6C2'; c.beginPath(); c.ellipse(-6, -17 * br, 16, 13 * br, 0, 0, 7); c.fill(); c.fillStyle = '#FFFFFF'; c.fill(new Path2D(poly(m1_heartPts(-6, -18, 0.32, 14))));
     var hy = -22 - lift * 12 + Math.sin(t * 0.4) * 1.5, hx = 30; c.fillStyle = dogC[0]; c.beginPath(); c.ellipse(hx, hy, 15, 13, 0, 0, 7); c.fill(); c.fillStyle = dogC[1]; c.beginPath(); c.ellipse(hx + 9, hy + 5, 9, 6, 0, 0, 7); c.fill(); c.fillStyle = '#3B2A2E'; c.beginPath(); c.ellipse(hx + 16, hy + 2, 3.4, 2.6, 0, 0, 7); c.fill();
     c.fillStyle = dogC[2]; c.save(); c.translate(hx - 8, hy - 6); c.rotate(0.35 + Math.sin(t * 0.7) * 0.06); c.beginPath(); c.ellipse(0, 10, 6, 12, 0, 0, 7); c.fill(); c.restore();
-    m1_face(c, hx + 2, hy - 2, 10, big ? {happy: true, open: true} : {sleep: Math.sin(t * 0.15) > 0, blink: m1_blinkAt(t, 4)}); c.restore(); }
+    m1_face(c, hx + 2, hy - 2, 10, big ? {happy: true, open: true, nomouth: true} : {sleep: Math.sin(t * 0.15) > 0, blink: m1_blinkAt(t, 4), nomouth: true});
+    /* mouth sits on the muzzle, just under the nose */ c.save(); c.lineCap = 'round'; c.strokeStyle = '#3B2A3E'; c.lineWidth = 0.9; if (big) { c.fillStyle = '#E8607A'; c.beginPath(); c.ellipse(hx + 13, hy + 8.5, 2.6, 2.2, 0, 0, 7); c.fill(); } else { c.beginPath(); c.moveTo(hx + 16, hy + 4.5); c.lineTo(hx + 16, hy + 6.5); c.stroke(); c.beginPath(); c.arc(hx + 13, hy + 6.5, 3, Math.PI * 0.15, Math.PI * 0.85); c.stroke(); } c.restore(); c.restore(); }
   function balloon(c, t, big) { if (!bal) return; var bx = bal.x + Math.sin(t * 0.9) * 6 * (1 + big * 2), byy = bal.y + Math.sin(t * 1.3) * 4 * (1 + big * 2) - big * 14, k = ph ? 1.0 : 1.35;
     c.strokeStyle = dk ? 'rgba(240,220,255,0.6)' : 'rgba(120,90,110,0.55)'; c.lineWidth = 1; c.beginPath(); c.moveTo(bal.ax, bal.ay); c.quadraticCurveTo(bx + 14, (byy + bal.ay) / 2, bx, byy + 17 * k + 2); c.stroke();
     c.fillStyle = dk ? '#FF6A90' : '#FF7A9A'; c.fill(new Path2D(poly(m1_heartPts(bx, byy, k, 32)))); c.fillStyle = 'rgba(255,255,255,0.55)'; c.beginPath(); c.ellipse(bx - 7 * k, byy - 6 * k, 3 * k, 2 * k, -0.6, 0, 7); c.fill(); }
@@ -24685,6 +24691,7 @@ ENGINES.observatory = function (A, v, dk) {
     ring(L1 - R * 0.2, w * 1.3, R * 0.22, C.tube); ring(L1 - R * 0.22, w * 1.32, R * 0.06, C.ring); ring(R * 0.85, w * 1.12, R * 0.08, C.ring);
     // finder scope
     var fx = px + nx * w * 1.9, fy = py + ny * w * 1.9; c.strokeStyle = C.tube; c.lineWidth = R * 0.07; c.lineCap = 'round'; c.beginPath(); c.moveTo(fx + dx * R * 1.0, fy + dy * R * 1.0); c.lineTo(fx + dx * R * 1.4, fy + dy * R * 1.4); c.stroke();
+    c.lineWidth = R * 0.05; c.beginPath(); [1.05, 1.35].forEach(function (u) { c.moveTo(px + dx * R * u + nx * w * 0.8, py + dy * R * u + ny * w * 0.8); c.lineTo(fx + dx * R * u, fy + dy * R * u); }); c.stroke();   // brackets that mount the finder scope on the tube
     c.restore();
     c.fillStyle = shellG; c.fill(new Path2D(poly(g.shell) + poly(g.slit)), 'evenodd');
     // ribs turn with the dome
