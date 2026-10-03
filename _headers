@@ -1,0 +1,30 @@
+# Security headers for the Studyboard website (Netlify and Cloudflare Pages read this file; copy it next to index.html).
+# What each one does is explained in website-headers.md. For other hosts use the nginx / Apache snippets there.
+#
+# This is the relaxed baseline: the page has two inline <script> blocks, so script-src needs 'unsafe-inline'. For the stricter version that
+# allows exactly those scripts by hash, run `node make-headers.js` and deploy the result (_headers.strict) as `_headers`.
+
+/*
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: accelerometer=(), autoplay=(self), camera=(), display-capture=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), usb=(), serial=(), hid=(), bluetooth=(), clipboard-write=(self), fullscreen=(self)
+  Cross-Origin-Opener-Policy: same-origin
+  X-Frame-Options: DENY
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: blob: data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'; upgrade-insecure-requests
+
+# The service worker must always be fetched fresh (a cached old worker keeps old code alive) and may control the whole site.
+/sw.js
+  Cache-Control: no-cache
+  Service-Worker-Allowed: /
+
+/index.html
+  Cache-Control: no-cache
+
+/manifest.webmanifest
+  Cache-Control: no-cache
+  Content-Type: application/manifest+json
+
+/today.webmanifest
+  Cache-Control: no-cache
+  Content-Type: application/manifest+json

@@ -2278,6 +2278,12 @@ button.grp-item-main{cursor:pointer;min-height:44px}
 .grp-pins p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.92rem}
 
 
+.grp-members li.blocked{opacity:.75}
+.grp-msg-top .link-btn,.grp-members .link-btn,.grp-item-btns .link-btn{font-size:.78rem;opacity:.8}
+.grp-msg-top .link-btn:hover,.grp-msg-top .link-btn:focus-visible,.grp-members .link-btn:hover,.grp-members .link-btn:focus-visible{opacity:1}
+.grp-report fieldset{border:0;margin:0;padding:0;display:grid;gap:6px}
+.grp-report legend{font-weight:600;padding:0;margin-bottom:6px}
+dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:auto}
 /* ===== module: 90-grades.css ===== */
 /* Grade Tracker and Rough Week Rescue */
 .gr-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:12px}
@@ -4203,7 +4209,9 @@ const HOOK = {}, VIEWS = {};
 /* Recent errors, kept in memory only (never saved or sent on their own), so a bug report can say what went wrong. */
 const ERRLOG = [];
 (() => {
-  const add = (k, m) => { try { ERRLOG.push({t: Date.now(), k, m: String(m || "").slice(0, 240)}); if (ERRLOG.length > 15) ERRLOG.shift(); } catch(e) {} };
+  // Error text goes into bug-report diagnostics, so anything shaped like an API key or token is blanked first.
+  const scrub = t => String(t || "").replace(/AIza[\w-]{20,}|sk-[\w-]{16,}|sb_(?:publishable|secret)_[\w-]{8,}|eyJ[\w-]{10,}\.[\w-]{10,}\.[\w-]{6,}|[Bb]earer\s+[\w.~+/=-]{12,}/g, "[removed]");
+  const add = (k, m) => { try { ERRLOG.push({t: Date.now(), k, m: scrub(m).slice(0, 240)}); if (ERRLOG.length > 15) ERRLOG.shift(); } catch(e) {} };
   window.addEventListener("error", e => add("error", (e.message || "error") + (e.filename ? " @" + String(e.filename).split("/").pop().split("?")[0] + ":" + e.lineno : "")));
   window.addEventListener("unhandledrejection", e => add("promise", e.reason && e.reason.message || e.reason));
   const ce = console.error;
@@ -4535,6 +4543,31 @@ function sbErr(e){
     : status === 429 ? "rate_limited" : e && e.code === "23514" ? "schema" : (e && e.code) || "error";
   return x;
 }
+/* Where the sign-in session (the Supabase tokens) is kept. In a browser that is localStorage, as always.
+   - iOS app (Capacitor): the wrapper sets window.StudyboardAuthStorage to a Keychain-backed adapter (ios-wrapper/README-IOS.md), used as is.
+   - Desktop app: tokens are locked with the system keychain (safeStorage) when it is available; an older plain copy is moved on first use.
+   Both are asynchronous, which supabase-js supports. */
+const deskAuthStorage = DESK && DESK.secrets ? (() => {
+  const nm = k => "sb-" + String(k).toLowerCase().replace(/[^a-z0-9:_-]/g, "_").slice(0, 60);
+  let ok = null; const avail = async () => ok === null ? (ok = await DESK.secrets.available().catch(() => false)) : ok;
+  return {
+    async getItem(k){
+      if (await avail()) {
+        const v = await DESK.secrets.get(nm(k)); if (v != null) return v;
+        const old = localStorage.getItem(k);
+        if (old != null && await DESK.secrets.set(nm(k), old)) localStorage.removeItem(k);
+        return old;
+      }
+      return localStorage.getItem(k);
+    },
+    async setItem(k, v){ if (await avail() && await DESK.secrets.set(nm(k), String(v))) { localStorage.removeItem(k); return; } localStorage.setItem(k, String(v)); },
+    async removeItem(k){ localStorage.removeItem(k); if (await avail()) await DESK.secrets.remove(nm(k)); }
+  };
+})() : null;
+const authStorage = () => {
+  const n = window.StudyboardAuthStorage;
+  return n && typeof n.getItem === "function" && typeof n.setItem === "function" && typeof n.removeItem === "function" ? n : deskAuthStorage;
+};
 async function initSupabase(ask){
   const cfg = sbConfig() || (ask && SB_HOSTED ? SB_DEFAULT : null);
   if (!cfg) { syncLabel(); if (!sbLocalOnly() || ask) setTimeout(() => { if (!dlg.open || ask) sbSetupSheet(); }, ask ? 0 : 400); return; }
@@ -4544,7 +4577,7 @@ async function initSupabase(ask){
     catch(e) { syncLabel(); return; } // offline: keep working on this device, the retry timer reconnects later
   }
   if (!sb) {
-    sb = window.supabase.createClient(cfg.url, cfg.key, {auth: {persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: "studioso-auth"}});
+    sb = window.supabase.createClient(cfg.url, cfg.key, {auth: Object.assign({persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: "studioso-auth"}, authStorage() ? {storage: authStorage()} : {})});
     sb.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY") setTimeout(() => sbNewPasswordSheet(), 300);
       const u = session && session.user;
@@ -4814,6 +4847,7 @@ function sbSetupSheet(){
   const bk = $("#sbBack"); if (bk) bk.addEventListener("click", () => confirmSheet("Switch to a Studyboard account?", "You'll be signed out of your own server on this device. Your data there isn't touched.", "Switch", async () => {
     try { if (sb) await sb.auth.signOut(); } catch(e) {}
     try { localStorage.removeItem(SB_CFG); localStorage.removeItem(LS2); localStorage.removeItem(OUTBOX); } catch(e) {}
+    aiWipeLocal();
     location.reload();
   }));
 }
@@ -4938,6 +4972,7 @@ async function sbSignOut(){
   confirmSheet("Sign out?", "Your data stays safe in your Studyboard account. This device's copy is removed, so sign back in to see it here again.", "Sign Out", async () => {
     try { await sb.auth.signOut(); } catch(e) {}
     try { localStorage.removeItem(LS2); localStorage.removeItem(OUTBOX); } catch(e) {}
+    aiWipeLocal();
     location.reload();
   });
 }
@@ -5031,9 +5066,80 @@ const AI_PROVIDERS = {
     models: [["gpt-6-sol", "GPT-6 Sol (paid)", "paid"], ["gpt-6-luna", "GPT-6 Luna (paid, cheapest)", "paid"], ["gpt-6-astra", "GPT-6 Astra (paid, most capable)", "paid"]]}
 };
 const AI_LIMIT_BYTES = 18 * 1024 * 1024;
+/* ----- Where AI keys are kept -----
+   Two places, chosen in the AI setup window ("Keep my keys on this device only"):
+   - device only (the default for new setups): one namespaced key in this browser (AI_KEYS_LS), never synced, never exported, and wiped at sign-out.
+     In the desktop app the keys are locked with the computer's keychain instead (safeStorage), and any plain copy is moved there.
+   - synced: inside your settings, so they reach your other devices (this is how older versions worked).
+   Keys are never in backup files (exportArrays) and are scrubbed from bug-report diagnostics. */
+const AI_KEYS_LS = "studyboard:aiKeys", AI_SECRET = "ai-keys";
+let aiLocalKeys = (() => { try { const k = JSON.parse(localStorage.getItem(AI_KEYS_LS) || "null"); return k && typeof k === "object" && !Array.isArray(k) ? k : {}; } catch(e) { return {}; } })();
+let aiKeychain = false;
+function aiKeysPersist(){
+  const has = Object.values(aiLocalKeys).some(Boolean);
+  if (aiKeychain && DESK && DESK.secrets) {
+    DESK.secrets[has ? "set" : "remove"](AI_SECRET, JSON.stringify(aiLocalKeys)).catch(() => {});
+    try { localStorage.removeItem(AI_KEYS_LS); } catch(e) {}
+  } else { try { if (has) localStorage.setItem(AI_KEYS_LS, JSON.stringify(aiLocalKeys)); else localStorage.removeItem(AI_KEYS_LS); } catch(e) {} }
+}
+function aiKeysSetLocal(keys){ aiLocalKeys = {}; Object.entries(keys || {}).forEach(([p, k]) => { if (k && AI_PROVIDERS[p]) aiLocalKeys[p] = String(k); }); aiKeysPersist(); }
+// Sign-out, "Turn Off" and switching servers: nothing of the last person's AI setup stays on this device.
+function aiWipeLocal(){
+  aiLocalKeys = {};
+  try { localStorage.removeItem(AI_KEYS_LS); localStorage.removeItem(AI_CONSENT_LS); localStorage.removeItem(AI_MEM); } catch(e) {}
+  try { if (DESK && DESK.secrets) DESK.secrets.remove(AI_SECRET).catch(() => {}); } catch(e) {}
+}
+if (DESK && DESK.secrets) (async () => {
+  try {
+    if (!(await DESK.secrets.available())) return;
+    aiKeychain = true;
+    const raw = await DESK.secrets.get(AI_SECRET);
+    if (raw) aiLocalKeys = Object.assign({}, JSON.parse(raw), aiLocalKeys);
+    if (localStorage.getItem(AI_KEYS_LS)) aiKeysPersist();        // move an older plain-text copy into the keychain
+    scheduleRender();
+  } catch(e) {}
+})();
+
+/* ----- Consent before anything is sent to an AI company (Apple App Review guideline 5.1.1(i) and 5.1.2) -----
+   Studyboard has no AI servers of its own: with the person's own key, the text and files for a job go straight from this device to the
+   provider they chose. Before the first job for each provider, a window says who gets what and asks for a clear yes.
+   Automatic (background) AI never asks: it stays off until the person has said yes. Saying no changes nothing else in the app. */
+const AI_CONSENT_LS = "studyboard:aiConsent", AI_CONSENT_V = 1;
+const AI_WHO = {
+  gemini: {company: "Google", product: "Gemini", host: "generativelanguage.googleapis.com", policy: "https://policies.google.com/privacy"},
+  anthropic: {company: "Anthropic", product: "Claude", host: "api.anthropic.com", policy: "https://www.anthropic.com/legal/privacy"},
+  openai: {company: "OpenAI", product: "ChatGPT", host: "api.openai.com", policy: "https://openai.com/policies/privacy-policy"}
+};
+const aiConsentMap = () => { try { const m = JSON.parse(localStorage.getItem(AI_CONSENT_LS) || "{}"); return m && typeof m === "object" && !Array.isArray(m) ? m : {}; } catch(e) { return {}; } };
+const aiConsented = provider => ((aiConsentMap()[provider] || {}).v || 0) >= AI_CONSENT_V;
+function aiConsentSet(provider){ try { const m = aiConsentMap(); m[provider] = {v: AI_CONSENT_V, at: Date.now()}; localStorage.setItem(AI_CONSENT_LS, JSON.stringify(m)); } catch(e) {} }
+let aiAsking = null;
+function aiConsentAsk(provider){
+  const W = AI_WHO[provider]; if (!W) return Promise.resolve(false);
+  if (aiConsented(provider)) return Promise.resolve(true);
+  if (aiAsking && aiAsking.provider === provider) return aiAsking.promise;
+  const d = document.createElement("dialog"); d.className = "ai-consent"; d.setAttribute("aria-labelledby", "aiConsentTitle");
+  d.innerHTML = `<div class="sheet"><div class="sheet-head"><h2 id="aiConsentTitle">Send Your Content to ${esc(W.company)}?</h2></div>
+    <div class="sheet-body">
+      <p style="margin:0">Studyboard's AI features use <b>${esc(W.company)} ${esc(W.product)}</b> with the API key you added. To answer, they send the content of each request directly from this device to <b>${esc(W.host)}</b>. Studyboard's own servers are not involved.</p>
+      <p style="margin:0"><b>What is sent:</b> what you type into an AI window, plus the material for that job, such as the task, note, flashcards, file, slides or photo you choose, and your course names, deadlines and progress when you ask about your schedule or plan. If Automatic AI is on, short summaries of your tasks and deadlines are also sent in the background.</p>
+      <p style="margin:0"><b>What is not sent:</b> your Studyboard password, your email address, or anything when you aren't using an AI feature.</p>
+      <p class="mini" style="margin:0">${esc(W.company)} handles it under its own terms and <a href="${esc(W.policy)}" target="_blank" rel="noopener noreferrer">privacy policy</a>${provider === "gemini" ? ". On Google's free tier, Google may use what you send to improve its products" : ""}. Don't send anything private, such as health records or other people's personal details. You can turn AI off at any time in Settings, AI Features.</p>
+    </div>
+    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-no>Not Now</button><button type="button" class="btn primary" data-yes>I Agree, Use ${esc(W.product)}</button></div></div>`;
+  let done;
+  const promise = new Promise(res => { done = res; });
+  const finish = ok => { if (!aiAsking || aiAsking.d !== d) return; if (ok) aiConsentSet(provider); aiAsking = null; try { d.close(); } catch(e) {} d.remove(); done(ok); if (ok) { try { scheduleRender(); } catch(e) {} } };
+  d.addEventListener("cancel", e => { e.preventDefault(); finish(false); });
+  d.querySelector("[data-yes]").addEventListener("click", () => finish(true));
+  d.querySelector("[data-no]").addEventListener("click", () => finish(false));
+  aiAsking = {provider, promise, d};
+  document.body.appendChild(d); d.showModal();
+  return promise;
+}
 function aiCfg(){
   const raw = (state.settings && state.settings.ai) || {};
-  const keys = Object.assign({gemini: "", anthropic: "", openai: ""}, raw.keys || {});
+  const keys = Object.assign({gemini: "", anthropic: "", openai: ""}, raw.keys || {}, aiLocalKeys);
   if (raw.key && !keys.gemini) keys.gemini = raw.key;                 // settings from version 1.2
   let provider = AI_PROVIDERS[raw.provider] ? raw.provider : "gemini";
   let model = raw.model || (provider === "gemini" ? "auto" : AI_PROVIDERS[provider].models[0][0]);
@@ -5048,8 +5154,10 @@ function aiModelName(provider, model){
   return m ? m[1].replace(/ \(.*$/, "").replace(/, Auto$/, "") : model;
 }
 function aiSaveCfg(patch){
-  const c = aiCfg();
-  const next = {provider: patch.provider || c.provider, model: patch.model || c.model, keys: Object.assign({}, c.keys, patch.keys || {})};
+  const c = aiCfg(), raw = (state.settings && state.settings.ai) || {};
+  // Only what's already in the synced settings is written back: keys kept on this device only never get copied into them.
+  const next = {provider: patch.provider || c.provider, model: patch.model || c.model, keys: Object.assign({}, raw.keys || {}, patch.keys || {})};
+  if (raw.local !== undefined) next.local = raw.local;
   if (patch.provider && !patch.model) next.model = patch.provider === "gemini" ? "auto" : AI_PROVIDERS[patch.provider].models[0][0];
   state.settings = Object.assign({}, state.settings, {ai: next}); saveSettings();
 }
@@ -5105,6 +5213,10 @@ async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0
   if (auto) { const a = autoState(); if (!a.on) throw aiErr("auto-off", "Automatic AI is off."); cfg = a.cfg; }   // never a paid model unless confirmed
   if (inClaude()) throw aiErr("preview", "AI features work in the Studyboard app and on your website, not in this preview.");
   if (!cfg.key) throw aiErr("nokey", "Set up AI in Settings first.");
+  if (!aiConsented(cfg.provider)) {
+    if (auto) throw aiErr("no-consent", "Automatic AI is waiting for your OK.");
+    if (!(await aiConsentAsk(cfg.provider))) throw aiErr("no-consent", `AI is off until you agree to send content to ${(AI_WHO[cfg.provider] || {}).company || "the AI company"}. You can agree the next time you use an AI feature.`);
+  }
   const ms = timeout || (fast ? 60000 : 180000);
   // Only reassure after a while; never announce retries.
   const slow = onStatus ? setTimeout(() => onStatus(fast ? "Still thinking…" : "Still working. Big files can take up to a minute…"), fast ? 9000 : 20000) : null;
@@ -5244,21 +5356,38 @@ document.addEventListener("change", e => {
 /* Reading files for the AI: PDFs and images go as they are; PowerPoint and Word files are turned into text here. */
 function bytesToB64(u8){ let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
 const xmlDecode = s => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#(\d+);/g, (m, n) => String.fromCharCode(Number(n))).replace(/&#x([0-9a-f]+);/gi, (m, n) => String.fromCharCode(parseInt(n, 16))).replace(/&amp;/g, "&");
+// Reading a PowerPoint or Word file is limited so a booby-trapped file (a zip bomb: tiny, but it unpacks to gigabytes) can't hang or crash the app:
+// at most ZIP_MAX_IN bytes in, ZIP_MAX_ENTRIES entries, and ZIP_MAX_OUT bytes unpacked per part, checked while unpacking, not just from the header.
+const ZIP_MAX_IN = 60 * 1024 * 1024, ZIP_MAX_ENTRIES = 5000, ZIP_MAX_OUT = 40 * 1024 * 1024;
+async function inflateCapped(data, max){
+  const rd = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw")).getReader(), parts = []; let n = 0;
+  for (;;) {
+    const {done, value} = await rd.read(); if (done) break;
+    n += value.length;
+    if (n > max) { try { await rd.cancel(); } catch(e) {} throw aiErr("big", "That file unpacks to far more than a normal document. Studyboard won't open it."); }
+    parts.push(value);
+  }
+  return new TextDecoder().decode(await new Blob(parts).arrayBuffer());
+}
 async function unzipText(buf, want){
+  if (buf.byteLength > ZIP_MAX_IN) throw aiErr("big", "That file is too big to read here. Export it as a PDF instead.");
   const u = new Uint8Array(buf), dv = new DataView(u.buffer, u.byteOffset, u.byteLength);
   let eocd = -1;
   for (let i = u.length - 22; i >= Math.max(0, u.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
   if (eocd < 0) throw new Error("not a zip");
-  const n = dv.getUint16(eocd + 10, true); let p = dv.getUint32(eocd + 16, true);
+  const n = Math.min(dv.getUint16(eocd + 10, true), ZIP_MAX_ENTRIES); let p = dv.getUint32(eocd + 16, true);
   const dec = new TextDecoder(), out = {};
   for (let k = 0; k < n && p + 46 <= u.length; k++) {
     if (dv.getUint32(p, true) !== 0x02014b50) break;
     const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), off = dv.getUint32(p + 42, true);
     const name = dec.decode(u.subarray(p + 46, p + 46 + nl)); p += 46 + nl + xl + cl;
     if (!want(name)) continue;
-    const start = off + 30 + dv.getUint16(off + 26, true) + dv.getUint16(off + 28, true), data = u.subarray(start, start + csize);
+    if (off + 30 > u.length || dv.getUint32(off, true) !== 0x04034b50) continue;
+    const start = off + 30 + dv.getUint16(off + 26, true) + dv.getUint16(off + 28, true);
+    if (start + csize > u.length || dv.getUint32(p - 46 - nl - xl - cl + 24, true) > ZIP_MAX_OUT) continue;      // out of bounds, or claims to unpack too big
+    const data = u.subarray(start, start + csize);
     if (method === 0) out[name] = dec.decode(data);
-    else if (method === 8 && typeof DecompressionStream === "function") out[name] = await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text();
+    else if (method === 8 && typeof DecompressionStream === "function") out[name] = await inflateCapped(data, ZIP_MAX_OUT);
   }
   return out;
 }
@@ -5281,13 +5410,15 @@ async function docxText(buf){
 const AI_IMG = {png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", heic: "image/heic", heif: "image/heif"};
 // Returns {name, kind, size, part} where part is a Gemini content part.
 async function aiSourceFromFile(file){
-  const ext = (file.name.split(".").pop() || "").toLowerCase(), buf = await file.arrayBuffer();
+  const ext = (file.name.split(".").pop() || "").toLowerCase();
+  if (file.size > 100 * 1024 * 1024) throw aiErr("big", `${file.name} is too big (over 100 MB).`);
+  const buf = await file.arrayBuffer();
   if (ext === "pdf" || file.type === "application/pdf") return {name: file.name, kind: "PDF", size: buf.byteLength, part: {inline_data: {mime_type: "application/pdf", data: bytesToB64(new Uint8Array(buf))}}};
   if (AI_IMG[ext] || /^image\//.test(file.type)) return {name: file.name, kind: "Image", size: buf.byteLength, part: {inline_data: {mime_type: AI_IMG[ext] || file.type, data: bytesToB64(new Uint8Array(buf))}}};
   let text = "";
   if (ext === "pptx") text = await pptxText(buf);
   else if (ext === "docx") text = await docxText(buf);
-  else if (/^(txt|md|markdown|csv|tsv|rtf|html?)$/.test(ext) || /^text\//.test(file.type)) text = new TextDecoder().decode(buf);
+  else if (/^(txt|md|markdown|csv|tsv|rtf|html?)$/.test(ext) || /^text\//.test(file.type)) text = new TextDecoder().decode(buf.byteLength > 20e6 ? buf.slice(0, 20e6) : buf);
   else throw aiErr("type", `${file.name}: this file type can't be read. Use PDF, PowerPoint (.pptx), Word (.docx), images or text. Older .ppt/.doc files can be saved as PDF first.`);
   text = text.trim();
   if (!text) throw aiErr("empty", `${file.name} has no readable text. If it's mostly pictures, export it as a PDF instead.`);
@@ -5776,7 +5907,8 @@ function aiSetupSheet(fromFeature){
         <p class="ai-disclaimer mini" id="aiAutoWarn" hidden style="margin:0"></p>
         <button type="button" class="btn small" data-act="auto-panel">What Automatic AI is doing</button>
       </fieldset>
-      <p class="mini" style="margin:0">Your keys are saved to your Studyboard account so they work on all your devices, and they're left out of backup files you export. On Google's free tier, Google may use what you send to improve its products, so don't upload private information such as patient details.</p>
+      <label class="mi-check"><input type="checkbox" id="aiLocal" ${(raw => raw.local !== undefined ? raw.local : !Object.values(raw.keys || {}).some(Boolean))((state.settings && state.settings.ai) || {}) ? "checked" : ""}> Keep my keys on this device only</label>
+      <p class="mini" style="margin:0">${DESK ? "On this computer your keys are locked with your system keychain." : "Your keys stay in this browser."} They are not saved to your Studyboard account, so you paste them once on each device. Untick this to sync them to your other devices instead. Either way they're left out of backup files you export, and removed when you sign out. When you use an AI feature, what you ask about is sent to the AI company you chose. You'll be asked to agree first. On Google's free tier, Google may use what you send to improve its products, so don't upload private information such as patient details.</p>
     </div>
     <div class="sheet-foot">${c.keys.gemini || c.keys.anthropic || c.keys.openai ? `<button type="button" class="btn danger" id="aiRemove">Turn Off</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="aiSave">Save</button></div>
   </form>`);
@@ -5815,9 +5947,11 @@ function aiSetupSheet(fromFeature){
     if (k.anthropic && !/^sk-ant-/.test(k.anthropic)) { dlg.querySelector('[data-msg="anthropic"]').textContent = "Claude API keys start with sk-ant-."; return; }
     const [p, m] = ($("#aiDefault").value || "gemini|auto").split("|");
     const prev = state.settings.ai || {};
-    const next = {provider: k[p] ? p : "gemini", model: k[p] ? m : "auto", keys: k, auto: $("#aiAuto").checked, autoModel: $("#aiAutoModel").value, autoPaidOk: prev.autoPaidOk || ""};
+    const localOnly = $("#aiLocal").checked;
+    const next = {provider: k[p] ? p : "gemini", model: k[p] ? m : "auto", keys: localOnly ? {} : k, local: localOnly, auto: $("#aiAuto").checked, autoModel: $("#aiAutoModel").value, autoPaidOk: prev.autoPaidOk || ""};
     const e = autoEngine(), paid = !isFreeModel(e.provider, e.model), tag = `${e.provider}|${e.model}`;
-    const finish = msg => { state.settings = Object.assign({}, state.settings, {ai: next}); saveSettings(); AUTO.sig = ""; AUTO.planAt = 0; autoErr = null; autoSave(); if (dlg.open) dlg.close(); toast(msg); scheduleRender(); };
+    const finish = msg => { aiKeysSetLocal(localOnly ? k : {}); state.settings = Object.assign({}, state.settings, {ai: next}); saveSettings(); AUTO.sig = ""; AUTO.planAt = 0; autoErr = null; autoSave(); if (dlg.open) dlg.close(); toast(msg); scheduleRender();
+      const pv = next.provider; if (!aiConsented(pv)) setTimeout(() => aiConsentAsk(pv), 300); };
     if (next.auto && paid && next.autoPaidOk !== tag) {
       autoPaidConfirmSheet(e, ok => { if (ok) { next.autoPaidOk = tag; finish("AI settings saved. Automatic AI will use your paid model."); } else { next.auto = false; finish("AI settings saved. Automatic AI is off."); } });
       return;
@@ -5825,7 +5959,7 @@ function aiSetupSheet(fromFeature){
     if (!next.auto) next.autoPaidOk = "";
     finish("AI settings saved");
   });
-  const rm = $("#aiRemove"); if (rm) rm.addEventListener("click", () => { state.settings = Object.assign({}, state.settings, {ai: null}); saveSettings(); dlg.close(); toast("AI features turned off. Your keys were removed."); scheduleRender(); });
+  const rm = $("#aiRemove"); if (rm) rm.addEventListener("click", () => { aiWipeLocal(); state.settings = Object.assign({}, state.settings, {ai: null}); saveSettings(); dlg.close(); toast("AI features turned off. Your keys were removed."); scheduleRender(); });
 }
 // Exported backup files never include your AI keys.
 function exportArrays(){ const a = clone(toArrays()); if (a.settings && a.settings.ai) delete a.settings.ai; return a; }
@@ -6769,6 +6903,7 @@ function autoState(){
   const want = raw.auto !== undefined ? !!raw.auto : isFreeModel(c.provider, c.model);
   if (!want) return {on: false, reason: "off"};
   const cfg = raw.autoModel !== "default" && c.keys.gemini ? {provider: "gemini", model: "auto", keys: c.keys, key: c.keys.gemini} : c;
+  if (!aiConsented(cfg.provider)) return {on: false, reason: "consent", cfg};          // never before the person has said yes to that provider
   const paid = !isFreeModel(cfg.provider, cfg.model);
   if (paid && raw.autoPaidOk !== `${cfg.provider}|${cfg.model}`) return {on: false, reason: "confirm", cfg, paid};
   return {on: true, cfg, paid};
@@ -11284,7 +11419,8 @@ function importSheet(courseId){
     $("#impResult").innerHTML = ""; $("#impAdd").hidden = true;
     try {
       srcFile = null; let aiNote = "";
-      if (/\.txt$/i.test(f.name) || f.type === "text/plain") { const t = await f.text(); if (useAI()) { await aiShow([{text: "Syllabus text:\n\n" + t}], t, f.name); return; } show(t, f.name); return; }
+      if (f.size > 60 * 1024 * 1024) { status.textContent = "That file is too big to read here (over 60 MB)."; return; }
+      if (/\.txt$/i.test(f.name) || f.type === "text/plain") { const t = (await f.text()).slice(0, 2e6); if (useAI()) { await aiShow([{text: "Syllabus text:\n\n" + t}], t, f.name); return; } show(t, f.name); return; }
       const isImg = /^image\//.test(f.type) || /\.(png|jpe?g|webp|heic|heif)$/i.test(f.name);
       if (isImg && useAI()) {
         if (f.size > AI_LIMIT_BYTES) { status.textContent = "That photo is too large. Try a smaller one."; return; }
@@ -12646,6 +12782,7 @@ function unzipStored(buf){
   while (p + 30 <= u.length && dv.getUint32(p, true) === 0x04034b50) {
     const method = dv.getUint16(p + 8, true), size = dv.getUint32(p + 18, true), nl = dv.getUint16(p + 26, true), xl = dv.getUint16(p + 28, true);
     if (method !== 0) throw new Error("compressed");
+    if (out.length >= 20000 || p + 30 + nl + xl + size > u.length) throw new Error("damaged");
     const name = dec.decode(u.subarray(p + 30, p + 30 + nl)), start = p + 30 + nl + xl;
     out.push({name, data: u.slice(start, start + size)});
     p = start + size;
@@ -12995,12 +13132,15 @@ async function exportBackup(){
 $("#importFile").addEventListener("change", async e => {
   const f = e.target.files && e.target.files[0]; e.target.value = "";
   if (!f) return;
+  const isZip = /\.zip$/i.test(f.name) || f.type === "application/zip";
+  if (f.size > (isZip ? 3 * 1024 ** 3 : 200e6)) { toast("That file is too big to be a Studyboard backup"); return; }
   try {
     let entries = null, text;
-    if (/\.zip$/i.test(f.name) || f.type === "application/zip") {
+    if (isZip) {
       entries = unzipStored(await f.arrayBuffer());
       const j = entries.find(x => /(^|\/)(studioso|studyboard)-backup\.json$/.test(x.name));
       if (!j) throw new Error("no backup in zip");
+      if (j.data.length > 200e6) throw new Error("too big");
       text = new TextDecoder().decode(j.data);
     } else text = await f.text();
     const d = fromArrays(JSON.parse(text));
@@ -13741,7 +13881,7 @@ var PLAN = null;
   }
 
   /* ---------- Checkout (stubs a store layer can take over) ---------- */
-  const nativeStore = () => !!(window.Capacitor || window.StudyboardNative || window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.studyboardStore);
+  const nativeStore = () => !!(window.Capacitor || window.StudyboardNative || (DESK && DESK.store === "mas") || window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.studyboardStore);   // App Store builds (iOS wrapper, Mac App Store) never open an outside payment page
   let pollUntil = 0;
   function pollAfterCheckout(){
     pollUntil = now() + 15 * 60000;
@@ -27562,7 +27702,7 @@ var MAJ_THEMES = [];
   const SEM = {vecs: new Map(), loaded: false, loading: null, running: false, err: "", timer: 0, left: 0, total: 0};
   const embState = () => { try { return JSON.parse(localStorage.getItem(LS_EMB) || "{}") || {}; } catch(e) { return {}; } };
   const embSet = p => { const s = Object.assign(embState(), p); try { localStorage.setItem(LS_EMB, JSON.stringify(s)); } catch(e) {} return s; };
-  const embKey = () => inClaude() ? "" : (aiCfg().keys.gemini || "");
+  const embKey = () => inClaude() || !aiConsented("gemini") ? "" : (aiCfg().keys.gemini || "");
   const semOn = () => !!embKey() && sxCfg().meaning !== false;
   const embModel = () => embState().model || EMB_MODELS[0];
   const fmtDoc = (m, title, text) => m === "gemini-embedding-001" ? text : `title: ${String(title || "none").replace(/\s+/g, " ").slice(0, 120)} | text: ${text}`;
@@ -31022,6 +31162,11 @@ const RM_CORE = (() => {
     removeItem: id => q(cli().from("group_items").delete().eq("id", id)),
     post: (gid, body) => q(cli().from("group_messages").insert({group_id: gid, body}).select().single()),
     unpost: id => q(cli().from("group_messages").delete().eq("id", id)),
+    // Safety (supabase-moderation.sql): reports go to the app's owner only (nobody can read them back), blocks are private to the blocker.
+    fileReport: row => q(cli().from("group_reports").insert(row)),
+    blocks: () => q(cli().from("group_blocks").select("blocked_id").eq("blocker_id", myId())),
+    block: id => q(cli().from("group_blocks").insert({blocked_id: id})),
+    unblock: id => q(cli().from("group_blocks").delete().eq("blocker_id", myId()).eq("blocked_id", id)),
     listen(gid, cb){
       const c = cli(); if (!c || typeof c.channel !== "function") return () => {};
       const ch = c.channel("sbg-" + gid + "-" + uid());
@@ -31050,7 +31195,7 @@ const RM_CORE = (() => {
   /* ---------- Small helpers ---------- */
   const S = {groups: null, members: {}, items: {}, msgs: {}, busy: false, err: "", setup: false, loadingG: {}, errG: {},
     name: undefined, shares: null, sharesBusy: false, unsub: null, subGid: null, drafts: {}, changed: {}, pushQ: new Set(), pushT: 0, linkChecked: {}, linkNew: {},
-    ext: {}, lb: {}, rep: {}, repT: 0, extT: 0, unsubX: null, subX: null, pick: "", nudged: {}};
+    ext: {}, lb: {}, rep: {}, repT: 0, extT: 0, unsubX: null, subX: null, pick: "", nudged: {}, blocked: new Set(), blocksFor: ""};
   const str = (x, n) => String(x == null ? "" : x).slice(0, n);
   const hashOf = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
   const plural = (n, w, ws) => `${n} ${n === 1 ? w : (ws || w + "s")}`;
@@ -31280,11 +31425,11 @@ const RM_CORE = (() => {
     if (S.loadingG[gid] || !online()) return;
     S.loadingG[gid] = true;
     try {
-      const [g, items, msgs, ms] = await Promise.all([api.group(gid), api.items(gid), api.messages(gid), api.members([gid])]);
+      const [g, items, msgs, ms] = await Promise.all([api.group(gid), api.items(gid), api.messages(gid), api.members([gid]), loadBlocks()]);
       if (!g) { S.groups = (S.groups || []).filter(x => x.id !== gid); if (ui.grp === gid) { ui.grp = null; toast("You're not in that group anymore."); } unsubscribe(); }
       else {
         const k = (S.groups || []).findIndex(x => x.id === gid); if (k >= 0) S.groups[k] = g; else S.groups = (S.groups || []).concat(g);
-        S.items[gid] = items || []; S.msgs[gid] = msgs || []; S.members[gid] = ms || [];
+        S.items[gid] = (items || []).filter(x => !S.blocked.has(x.user_id)); S.msgs[gid] = (msgs || []).filter(x => !S.blocked.has(x.user_id)); S.members[gid] = ms || [];
         indexItems(gid, S.items[gid]); delete S.errG[gid];
         const n = (S.items[gid] || []).filter(it => { const c = it.kind === "task" ? copyOfTask(it.id) : copyOfItem(it.id), ref = c && (c.groupRef || c.sharedFrom); return ref && it.user_id !== myId() && ts(it.updated_at) > ts(ref.v) + 1000; }).length;
         if (n) S.changed[gid] = n; else delete S.changed[gid];
@@ -31420,7 +31565,7 @@ const RM_CORE = (() => {
       return `<li class="grp-item${upd ? " is-upd" : ""}"><button class="grp-item-main" data-act="grp-item-view" data-id="${esc(it.id)}"><b>${esc(it.title)}</b>
           <span class="mini">${plural(nc, "card")}${nq ? `, ${plural(nq, "practice quiz", "practice quizzes")}` : ""} · ${mine ? "Shared by you" : "Shared by " + esc(it.author_name || "a member")}${copy && !upd ? " · In your Flashcards" : ""}</span>
           ${upd ? `<span class="grp-chg">Updated ${esc(ago(it.updated_at, 1))}. Get the new cards and keep your progress.</span>` : stale ? `<span class="grp-chg">You changed this deck. Update the group's copy?</span>` : ""}</button>
-        <div class="grp-item-btns">${btns}${mine || owner ? `<button class="x-btn" data-act="grp-item-del" data-id="${esc(it.id)}" aria-label="Remove ${esc(it.title)} from the group">${CLOSE}</button>` : ""}</div></li>`;
+        <div class="grp-item-btns">${btns}${mine ? "" : repBtn(it)}${mine || owner ? `<button class="x-btn" data-act="grp-item-del" data-id="${esc(it.id)}" aria-label="Remove ${esc(it.title)} from the group">${CLOSE}</button>` : ""}</div></li>`;
     }).join("");
     return `<section class="grp-sec" id="grpDecks"><h3 class="fsec">${FC_ICON}Shared Decks<span class="n">${its.length}</span><span class="spacer"></span><button class="btn small" data-act="grp-share-deck" data-id="${esc(g.id)}">Share a Deck</button></h3>
       ${loadingLine(g.id) || (its.length ? `<ul class="grp-list">${rows}</ul>` : `<p class="grp-none">No decks yet. Share one of yours so everyone can study it.</p>`)}</section>`;
@@ -31439,7 +31584,7 @@ const RM_CORE = (() => {
         <div class="grp-item-main"><b>${esc(f.title)}</b>
           <span class="mini">${[cl && esc(cl), esc(f.type), f.time && esc(fmtTime(f.time)), d && esc(d.toLocaleDateString(undefined, {weekday: "short"})), mine ? "Shared by you" : "Shared by " + esc(it.author_name || "a member")].filter(Boolean).join(" · ")}${copy && !upd ? " · On your board" : ""}</span>
           ${upd ? `<span class="grp-chg">Changed ${esc(ago(it.updated_at, 1))}${diff.length ? ": " + esc(diff.join(", ")) : ""}</span>` : ""}</div>
-        <div class="grp-item-btns">${mine ? "" : copy ? (upd ? `<button class="btn small primary" data-act="grp-task-update" data-id="${esc(it.id)}">Update My Copy</button>` : `<button class="btn small" data-act="grp-task-open" data-id="${esc(it.id)}">Open</button>`) : `<button class="btn small primary" data-act="grp-task-add" data-id="${esc(it.id)}">Add to My Board</button>`}${mine || owner ? `<button class="x-btn" data-act="grp-item-del" data-id="${esc(it.id)}" aria-label="Remove ${esc(f.title)} from the group">${CLOSE}</button>` : ""}</div></li>`;
+        <div class="grp-item-btns">${mine ? "" : copy ? (upd ? `<button class="btn small primary" data-act="grp-task-update" data-id="${esc(it.id)}">Update My Copy</button>` : `<button class="btn small" data-act="grp-task-open" data-id="${esc(it.id)}">Open</button>`) : `<button class="btn small primary" data-act="grp-task-add" data-id="${esc(it.id)}">Add to My Board</button>`}${mine ? "" : repBtn(it)}${mine || owner ? `<button class="x-btn" data-act="grp-item-del" data-id="${esc(it.id)}" aria-label="Remove ${esc(f.title)} from the group">${CLOSE}</button>` : ""}</div></li>`;
     }).join("");
     const nPast = its.filter(x => x.f.due && x.f.due < today).length;
     return `<section class="grp-sec" id="grpTasks"><h3 class="fsec"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>Shared Deadlines<span class="n">${its.length - nPast}${nPast ? ` upcoming, ${nPast} past` : ""}</span><span class="spacer"></span><button class="btn small" data-act="grp-share-tasks" data-id="${esc(g.id)}">Share Deadlines</button></h3>
@@ -31601,7 +31746,7 @@ const RM_CORE = (() => {
       return `<li class="grp-item${upd ? " is-upd" : ""}"><button class="grp-item-main" data-act="grp-quiz-scores" data-id="${esc(it.id)}"><b>${esc(it.title)}</b>
           <span class="mini">${plural(nq, "question")} · ${mine ? "Shared by you" : "Shared by " + esc(it.author_name || "a member")}${ext ? ` · ${sc.length ? plural(sc.length, "member") + " took it" : "No scores yet"}` : ""}${my ? ` · Your best ${gPct(my.best_correct, my.best_total)}%` : ""}</span>
           ${upd ? `<span class="grp-chg">Updated ${esc(ago(it.updated_at, 1))}. Taking it uses the new questions.</span>` : stale ? `<span class="grp-chg">You changed this quiz. Update the group's copy?</span>` : top && sc.length > 1 ? `<span class="grp-chg">Top score: ${esc(mName(g.id, top.user_id))}, ${gPct(top.best_correct, top.best_total)}%</span>` : ""}</button>
-        <div class="grp-item-btns">${stale ? `<button class="btn small primary" data-act="grp-quiz-push" data-id="${esc(it.id)}">Update</button>` : ""}<button class="btn small${stale ? "" : " primary"}" data-act="grp-quiz-take" data-id="${esc(it.id)}">${my ? "Retake" : "Take Quiz"}</button>${ext ? `<button class="btn small" data-act="grp-quiz-scores" data-id="${esc(it.id)}">Scores</button>` : ""}${mine || owner ? `<button class="x-btn" data-act="grp-item-del" data-id="${esc(it.id)}" aria-label="Remove ${esc(it.title)} from the group">${CLOSE}</button>` : ""}</div></li>`;
+        <div class="grp-item-btns">${stale ? `<button class="btn small primary" data-act="grp-quiz-push" data-id="${esc(it.id)}">Update</button>` : ""}<button class="btn small${stale ? "" : " primary"}" data-act="grp-quiz-take" data-id="${esc(it.id)}">${my ? "Retake" : "Take Quiz"}</button>${ext ? `<button class="btn small" data-act="grp-quiz-scores" data-id="${esc(it.id)}">Scores</button>` : ""}${mine ? "" : repBtn(it)}${mine || owner ? `<button class="x-btn" data-act="grp-item-del" data-id="${esc(it.id)}" aria-label="Remove ${esc(it.title)} from the group">${CLOSE}</button>` : ""}</div></li>`;
     }).join("");
     return `<section class="grp-sec" id="grpQuizzes"><h3 class="fsec">${I_QUIZ}Shared Quizzes<span class="n">${its.length}</span><span class="spacer"></span><button class="btn small" data-act="grp-share-quiz" data-id="${esc(g.id)}">Share a Quiz</button></h3>
       ${loadingLine(g.id) || (its.length ? `<ul class="grp-list">${rows}</ul>` : `<p class="grp-none">No quizzes yet. Share a practice quiz so everyone can test themselves and compare scores.</p>`)}</section>`;
@@ -31680,7 +31825,7 @@ const RM_CORE = (() => {
           <span class="mini">${esc(gWhen(it.data.start))}${it.data.where ? " · " + esc(it.data.where) : ""} · ${mine ? "Proposed by you" : "Proposed by " + esc(it.author_name || "a member")}</span>
           ${it.data.notes ? `<span class="mini">${esc(str(it.data.notes, 300))}</span>` : ""}
           <span class="mini grp-rsvp-sum"><b>${yes.length}</b> going${maybe.length ? `, ${maybe.length} maybe` : ""}${yes.length ? ` · ${esc(yes.slice(0, 6).join(", "))}${yes.length > 6 ? ` +${yes.length - 6}` : ""}` : ""}</span></div>
-        <div class="grp-item-btns">${isPast ? "" : btn("yes", "I'm In") + btn("maybe", "Maybe") + btn("no", "Can't")}${mine || owner ? `<button class="x-btn" data-act="grp-item-del" data-id="${esc(it.id)}" aria-label="Remove ${esc(it.title)} from the group">${CLOSE}</button>` : ""}</div></li>`;
+        <div class="grp-item-btns">${isPast ? "" : btn("yes", "I'm In") + btn("maybe", "Maybe") + btn("no", "Can't")}${mine ? "" : repBtn(it)}${mine || owner ? `<button class="x-btn" data-act="grp-item-del" data-id="${esc(it.id)}" aria-label="Remove ${esc(it.title)} from the group">${CLOSE}</button>` : ""}</div></li>`;
     };
     return `<section class="grp-sec" id="grpSessions"><h3 class="fsec">${I_CAL}Study Sessions<span class="n">${up.length} upcoming</span><span class="spacer"></span><button class="btn small" data-act="grp-event-new" data-id="${esc(g.id)}">Propose a Time</button></h3>
       ${loadingLine(g.id) || (all.length ? `<ul class="grp-list">${up.map(it => row(it, false)).join("")}${past.map(it => row(it, true)).join("")}</ul>` : `<p class="grp-none">Nothing planned. Propose a time, like Thursday at 6 pm, and see who can make it.</p>`)}</section>`;
@@ -31713,14 +31858,76 @@ const RM_CORE = (() => {
     });
   }
 
+  /* ---------- Safety: report and block (Apple App Review guideline 1.2) ----------
+     Anyone in a group can report a message, a shared item or a member, and block a member. Reports are written to group_reports, which only
+     the app's owner can read (supabase-moderation.sql); the person reporting never sees them again. Blocking hides everything that person
+     posts or shares from you: the server filters it out when supabase-moderation.sql has been run, and this page hides it either way
+     (the block list is also kept on this device, so it works before the server side is set up). */
+  const blkKey = () => "sb:blocked:" + myId();
+  const localBlocks = () => { try { const a = JSON.parse(localStorage.getItem(blkKey()) || "[]"); return Array.isArray(a) ? a.filter(x => typeof x === "string") : []; } catch(e) { return []; } };
+  const saveBlocks = () => { try { localStorage.setItem(blkKey(), JSON.stringify([...S.blocked].slice(0, 500))); } catch(e) {} };
+  async function loadBlocks(){
+    if (S.blocksFor === myId()) return;
+    S.blocksFor = myId(); S.blocked = new Set(localBlocks());
+    try { (await api.blocks() || []).forEach(r => { if (r && r.blocked_id) S.blocked.add(r.blocked_id); }); saveBlocks(); } catch(e) { /* the table may not exist yet: the local list still works */ }
+  }
+  const dropBlocked = gid => { S.msgs[gid] = (S.msgs[gid] || []).filter(x => !S.blocked.has(x.user_id)); S.items[gid] = (S.items[gid] || []).filter(x => !S.blocked.has(x.user_id)); };
+  async function blockUser(id, name){
+    if (!id || id === myId()) return;
+    S.blocked.add(id); saveBlocks();
+    Object.keys(S.msgs).concat(Object.keys(S.items)).forEach(gid => dropBlocked(gid));
+    try { await api.block(id); } catch(e) { if (!(e && (e.setup || /duplicate|23505/i.test(String(e.message))))) { /* kept on this device only */ } }
+    if (ui.grp) patch(ui.grp);
+  }
+  async function unblockUser(id){
+    S.blocked.delete(id); saveBlocks();
+    try { await api.unblock(id); } catch(e) {}
+    if (ui.grp) loadGroup(ui.grp);
+  }
+  const REPORT_REASONS = [["harassment", "Harassment or bullying"], ["hate", "Hate or discrimination"], ["sexual", "Sexual or inappropriate content"], ["threat", "Threats, violence or self-harm"], ["spam", "Spam or scams"], ["privacy", "Private information about someone"], ["other", "Something else"]];
+  const repBtn = it => `<button class="link-btn" data-act="grp-report" data-kind="item" data-id="${esc(it.id)}" aria-label="Report ${esc(str(it.title, 60))}">Report</button>`;
+  function reportSheet(g, kind, id){
+    let who = "", name = "", excerpt = "", targetId = id;
+    if (kind === "message") { const m = (S.msgs[g.id] || []).find(x => x.id === id); if (!m) return; who = m.user_id; name = m.author_name; excerpt = str(m.body, 500); }
+    else if (kind === "item") { const it = (S.items[g.id] || []).find(x => x.id === id); if (!it) return; who = it.user_id; name = it.author_name; excerpt = str(`${it.kind}: ${it.title}`, 500); }
+    else { const m = (S.members[g.id] || []).find(x => x.user_id === id); if (!m) return; who = m.user_id; name = m.display_name; targetId = m.user_id; }
+    if (!who || who === myId()) return;
+    const label = name || "this member";
+    openSheet(`<form class="sheet grp-report">${head("Report " + (kind === "message" ? "Message" : kind === "item" ? "Shared Item" : "Member"))}
+      <div class="sheet-body">
+        <p style="margin:0">Reports go privately to the people who run Studyboard, not to the group. We review them and remove content or accounts that break the rules.${excerpt ? ` <span class="mini">Reporting: “${esc(excerpt.slice(0, 120))}${excerpt.length > 120 ? "…" : ""}” from ${esc(label)}.</span>` : ` <span class="mini">Reporting ${esc(label)}.</span>`}</p>
+        <fieldset><legend>What's wrong?</legend>${REPORT_REASONS.map(([k, t], i) => `<label class="mi-check"><input type="radio" name="reason" value="${k}" ${i === 0 ? "checked" : ""}> ${esc(t)}</label>`).join("")}</fieldset>
+        <label class="f"><span class="lh">Details <span class="hint">Optional</span></span><textarea name="details" rows="3" maxlength="500" placeholder="Anything that helps us understand"></textarea></label>
+        <label class="mi-check"><input type="checkbox" name="block" checked> Also block ${esc(label)} (you won't see what they post or share)</label>
+        <p class="status-msg" id="grpRepMsg" aria-live="polite" style="margin:0"></p>
+      </div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Send Report</button></div></form>`, fd => {
+      const reason = REPORT_REASONS.some(r => r[0] === fd.get("reason")) ? fd.get("reason") : "other", details = str(fd.get("details"), 500).trim(), alsoBlock = !!fd.get("block");
+      (async () => {
+        const msg = $("#grpRepMsg"), go = $("[data-submit]", dlg); if (go) go.disabled = true;
+        try {
+          await api.fileReport({group_id: g.id, target_kind: kind, target_id: String(targetId), reported_user_id: who, reason, details: details || null, excerpt: excerpt || null});
+          if (alsoBlock) await blockUser(who, name);
+          if (dlg.open) dlg.close();
+          toast(alsoBlock ? `Report sent and ${label} is blocked. Thank you.` : "Report sent. Thank you.");
+        } catch(e) {
+          if (go) go.disabled = false;
+          if (msg) msg.textContent = e.setup ? "Reporting isn't switched on for this server yet. Use Settings, Report a Bug or Send Feedback to tell us instead." : e.message;
+          if (e.setup && alsoBlock) { await blockUser(who, name); if (msg) msg.textContent += ` ${label} is blocked on this device.`; }
+        }
+      })();
+      return false;
+    });
+  }
+
   /* Messages: reactions and pins */
   function pinsHtml(g){
-    const list = (S.msgs[g.id] || []).filter(m => m.pinned);
+    const list = (S.msgs[g.id] || []).filter(m => m.pinned && !S.blocked.has(m.user_id));
     if (!list.length) return `<div id="grpPins"></div>`;
     return `<ul class="grp-pins" id="grpPins" aria-label="Pinned messages">${list.map(m => `<li>${I_PIN}<div><span class="mini">Pinned · ${esc(m.user_id === myId() ? "You" : m.author_name || "Member")}</span><p>${esc(str(m.body, 300))}</p></div>${canPin(g, m) ? `<button class="link-btn" data-act="grp-pin" data-id="${esc(m.id)}">Unpin</button>` : ""}</li>`).join("")}</ul>`;
   }
   function msgsHtml(g){
-    const owner = isOwner(g), list = S.msgs[g.id], ext = extOf(g.id);
+    const owner = isOwner(g), ext = extOf(g.id), all = S.msgs[g.id], list = all && all.filter(m => !S.blocked.has(m.user_id));
     if (!list) return loadingLine(g.id);
     if (!list.length) return `<p class="grp-none">No messages yet. Say hi, or plan your next study session.</p>`;
     const by = {}; if (ext) ext.reactions.forEach(r => { (by[r.message_id] = by[r.message_id] || []).push(r); });
@@ -31728,7 +31935,7 @@ const RM_CORE = (() => {
       const chips = REACTS.map(([k, e, label]) => { const who = rs.filter(r => r.kind === k); if (!who.length) return ""; const on = who.some(r => r.user_id === myId());
         return `<button class="grp-react${on ? " on" : ""}" data-act="grp-react" data-id="${esc(m.id)}" data-k="${k}" aria-pressed="${on}" title="${esc(label + ": " + who.map(r => r.user_id === myId() ? "You" : mName(g.id, r.user_id)).join(", "))}"><span aria-hidden="true">${e}</span>${who.length}</button>`; }).join("");
       const picker = ext && S.pick === m.id ? `<span class="grp-picker">${REACTS.map(([k, e, label]) => `<button type="button" class="grp-react" data-act="grp-react" data-id="${esc(m.id)}" data-k="${k}" aria-label="${esc(label)}">${e}</button>`).join("")}</span>` : "";
-      return `<li class="grp-msg${mine ? " mine" : ""}${m.pinned ? " pinned" : ""}">${av(m.author_name, m.user_id)}<div class="grp-msg-main"><div class="grp-msg-top"><b>${esc(mine ? "You" : m.author_name || "Member")}</b><span class="mini" title="${esc(new Date(m.created_at).toLocaleString())}">${esc(ago(m.created_at))}</span>${m.pinned ? `<span class="pill">Pinned</span>` : ""}</div><p>${esc(m.body)}</p>
+      return `<li class="grp-msg${mine ? " mine" : ""}${m.pinned ? " pinned" : ""}">${av(m.author_name, m.user_id)}<div class="grp-msg-main"><div class="grp-msg-top"><b>${esc(mine ? "You" : m.author_name || "Member")}</b><span class="mini" title="${esc(new Date(m.created_at).toLocaleString())}">${esc(ago(m.created_at))}</span>${m.pinned ? `<span class="pill">Pinned</span>` : ""}${mine ? "" : `<button class="link-btn" data-act="grp-report" data-kind="message" data-id="${esc(m.id)}" aria-label="Report message from ${esc(m.author_name || "member")}">Report</button>`}</div><p>${esc(m.body)}</p>
         ${ext ? `<div class="grp-msg-acts">${chips}${picker || `<button class="grp-react add" data-act="grp-react-open" data-id="${esc(m.id)}" aria-label="Add a reaction">+</button>`}${canPin(g, m) ? `<button class="link-btn" data-act="grp-pin" data-id="${esc(m.id)}">${m.pinned ? "Unpin" : "Pin"}</button>` : ""}</div>` : ""}</div>${mine || owner ? `<button class="x-btn" data-act="grp-msg-del" data-id="${esc(m.id)}" aria-label="Delete message">${CLOSE}</button>` : ""}</li>`; }).join("");
   }
   function boardHtml(g){
@@ -31746,7 +31953,8 @@ const RM_CORE = (() => {
       <ul class="grp-members">${ms.map(m => {
         const st = ext ? streakOf(ext, m.user_id) : 0, bd = ext ? badgesFor(g, m.user_id) : [], me2 = m.user_id === myId();
         const checked = ext && ext.checkins.some(c => c.user_id === m.user_id && c.day === today), nudge = ext && !me2 && !checked && !S.nudged[g.id + ":" + m.user_id + ":" + today];
-        return `<li>${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")}${me2 ? ` <span class="mini">(You)</span>` : ""}${bd.length ? `<span class="grp-badges">${bd.map(b => `<span class="grp-badge ${b[0]}" title="${esc(b[2])}">${esc(b[1])}</span>`).join("")}</span>` : ""}${st >= 2 && !bd.some(b => b[0] === "streak") ? `<span class="mini">${st}-day streak</span>` : ""}</span>${m.role === "owner" ? `<span class="pill">Owner</span>` : ""}${nudge ? `<button class="btn small" data-act="grp-nudge" data-id="${esc(m.user_id)}" title="Remind ${esc(m.display_name)} to check in">Nudge</button>` : ""}${owner && !me2 ? `<button class="x-btn" data-act="grp-member-del" data-id="${esc(m.user_id)}" aria-label="Remove ${esc(m.display_name)} from the group">${CLOSE}</button>` : ""}</li>`; }).join("")}</ul>
+        if (!me2 && S.blocked.has(m.user_id)) return `<li class="blocked">${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")} <span class="pill">Blocked</span></span><button class="btn small" data-act="grp-unblock" data-id="${esc(m.user_id)}">Unblock</button>${owner ? `<button class="x-btn" data-act="grp-member-del" data-id="${esc(m.user_id)}" aria-label="Remove ${esc(m.display_name)} from the group">${CLOSE}</button>` : ""}</li>`;
+        return `<li>${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")}${me2 ? ` <span class="mini">(You)</span>` : ""}${bd.length ? `<span class="grp-badges">${bd.map(b => `<span class="grp-badge ${b[0]}" title="${esc(b[2])}">${esc(b[1])}</span>`).join("")}</span>` : ""}${st >= 2 && !bd.some(b => b[0] === "streak") ? `<span class="mini">${st}-day streak</span>` : ""}</span>${m.role === "owner" ? `<span class="pill">Owner</span>` : ""}${nudge ? `<button class="btn small" data-act="grp-nudge" data-id="${esc(m.user_id)}" title="Remind ${esc(m.display_name)} to check in">Nudge</button>` : ""}${me2 ? "" : `<button class="link-btn" data-act="grp-report" data-kind="member" data-id="${esc(m.user_id)}" aria-label="Report or block ${esc(m.display_name)}">Report</button>`}${owner && !me2 ? `<button class="x-btn" data-act="grp-member-del" data-id="${esc(m.user_id)}" aria-label="Remove ${esc(m.display_name)} from the group">${CLOSE}</button>` : ""}</li>`; }).join("")}</ul>
       ${isOwner(g) && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !PLAN.isPro() ? `<p class="mini" style="margin:8px 0 0">Free groups hold up to ${PLAN.limits().groupMembers} members (${ms.length} now). <button class="link-btn" data-act="grp-upgrade" data-r="Pro groups hold up to 100 members.">Go Pro</button> for up to 100.</p>` : ""}</section>`;
   }
   // Update parts of the open group page in place, so a message you're typing isn't lost.
@@ -31765,7 +31973,7 @@ const RM_CORE = (() => {
     const id = online() ? myId() : "";
     if (S.uid === id) return;
     unsubscribe();
-    Object.assign(S, {uid: id, groups: null, members: {}, items: {}, msgs: {}, err: "", setup: false, errG: {}, name: undefined, shares: null, drafts: {}, changed: {}, linkChecked: {}, linkNew: {}, ext: {}, lb: {}, rep: {}, pick: ""});
+    Object.assign(S, {uid: id, groups: null, members: {}, items: {}, msgs: {}, err: "", setup: false, errG: {}, name: undefined, shares: null, drafts: {}, changed: {}, linkChecked: {}, linkNew: {}, ext: {}, lb: {}, rep: {}, pick: "", blocked: new Set(), blocksFor: ""});
     ui.grp = null; checked = false; updateNavBadge();
   }
   VIEWS.groups = () => {
@@ -32152,6 +32360,8 @@ const RM_CORE = (() => {
       case "grp-task-add": { const it = itemOf(id); if (it && g) { addTaskCopy(it, g); ui.tab = "groups"; } return true; }
       case "grp-task-update": { const it = itemOf(id); if (it && g) { updateTaskCopy(it, g); if (S.changed[g.id]) { S.changed[g.id]--; updateNavBadge(); } } return true; }
       case "grp-task-open": openTask(copyOfTask(id)); return true;
+      case "grp-report": { const k = el && el.dataset ? el.dataset.kind : ""; if (g && ["message", "item", "member"].includes(k)) reportSheet(g, k, id); return true; }
+      case "grp-unblock": unblockUser(id); return true;
       case "grp-msg-del": { const m = g && (S.msgs[g.id] || []).find(x => x.id === id); if (!m) return true;
         confirmSheet("Delete Message?", "It's removed for everyone in the group.", "Delete", async () => {
           try { await api.unpost(m.id); S.msgs[g.id] = (S.msgs[g.id] || []).filter(x => x.id !== m.id); patch(g.id); } catch(e) { toast(e.message); } });

@@ -4,7 +4,11 @@
 const fs = require("fs"), path = require("path");
 const root = path.join(__dirname, "..");
 const src = path.resolve(process.argv[2] || path.join(root, "..", "index.html"));
-const out = path.join(root, "app"), vendor = path.join(out, "vendor");
+// STUDYBOARD_OUT (a folder inside this project, default app/) and STUDYBOARD_BASE (the page's own address, default app://studioso/) let the same
+// script stage the iOS wrapper's web folder: STUDYBOARD_OUT=ios-www STUDYBOARD_BASE=capacitor://localhost/ node scripts/prepare.js (see ios-wrapper/README-IOS.md).
+const out = process.env.STUDYBOARD_OUT ? path.resolve(root, process.env.STUDYBOARD_OUT) : path.join(root, "app"), vendor = path.join(out, "vendor");
+if (!out.startsWith(root + path.sep)) throw new Error("prepare: STUDYBOARD_OUT must be a folder inside " + root);
+const BASE = process.env.STUDYBOARD_BASE || "app://studioso/";
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(path.join(vendor, "fonts"), { recursive: true });
 const nm = p => path.join(root, "node_modules", p);
@@ -28,7 +32,7 @@ const swaps = [
   [/<link rel="preconnect" href="https:\/\/fonts\.(googleapis|gstatic)\.com"[^>]*>\s*/g, ""],
   [/<link href="https:\/\/fonts\.googleapis\.com\/css2\?[^"]+" rel="stylesheet">/, '<link href="vendor/fonts.css" rel="stylesheet">'],
   ["https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js", "vendor/supabase.js"],
-  ["https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js", new URL("vendor/pdf.worker.min.js", "app://studioso/").href],
+  ["https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js", new URL("vendor/pdf.worker.min.js", BASE).href],
   ["https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js", "vendor/pdf.min.js"]
 ];
 for (const [a, b] of swaps) {
@@ -37,4 +41,14 @@ for (const [a, b] of swaps) {
   if (html === before && !(a instanceof RegExp && a.global)) throw new Error("prepare: couldn't find " + a);
 }
 fs.writeFileSync(path.join(out, "index.html"), html);
-console.log("Prepared app/ from", src);
+
+// Content-Security-Policy support for the desktop app: main.js allows exactly these inline scripts (by SHA-256 hash) and no others.
+// The page must keep working without inline event handlers (on...="") and with no script from the network, so both are checked here.
+const crypto = require("crypto");
+const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => "sha256-" + crypto.createHash("sha256").update(m[1], "utf8").digest("base64"));
+const markup = html.replace(/<script[\s\S]*?<\/script>/gi, "");          // the page's HTML without the code inside its scripts
+if (/<script\b[^>]*\ssrc=["']https?:/i.test(markup)) console.warn("prepare: a script is still loaded from the network; the app's CSP will block it");
+if (/<script\b(?![^>]*\ssrc=)[^>]+>/i.test(html.replace(/<script>[\s\S]*?<\/script>/gi, "<!--s-->"))) console.warn("prepare: a script tag with attributes is not covered by the CSP hashes");
+if (/<[a-z][^>]*\son(click|load|error|change|input|submit|keydown|keyup|mouse\w+)=["']/i.test(markup)) console.warn("prepare: inline event handlers (onclick=...) are blocked by the app's CSP");
+fs.writeFileSync(path.join(out, "csp-hashes.json"), JSON.stringify(inline));
+console.log("Prepared app/ from", src, `(${inline.length} inline scripts hashed for the CSP)`);

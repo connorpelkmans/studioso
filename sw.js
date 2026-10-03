@@ -177,6 +177,8 @@ async function sbwClick(verb, id){
 // The page's latest Today data (see modules/70-widgets.js).
 self.addEventListener("message", e => {
   const m = e.data;
+  // Only Studyboard's own pages (inside this worker's scope) may feed the widget.
+  if (!e.source || typeof e.source.url !== "string" || !e.source.url.startsWith(self.registration.scope)) return;
   if (!m || m.type !== "sb-widget-data" || !m.data || typeof m.data !== "object") return;
   let text; try { text = JSON.stringify(m.data); } catch (err) { return; }
   if (text.length > 100000) return;

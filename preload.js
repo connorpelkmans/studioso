@@ -1,21 +1,34 @@
 // The only things the Studyboard page can do on your computer: read and write inside the Studyboard folder,
-// open files and the folder, pick a different folder, show reminders, feed the Today widget and its settings,
+// open files and the folder, pick a different folder, keep a few secrets in the system keychain, show reminders, feed the Today widget and its settings,
 // and read (never change) your Brightspace, Canvas or Blackboard.
 const { contextBridge, ipcRenderer } = require("electron");
+// Nothing here hands the page ipcRenderer or any Node module: every function sends one fixed channel with plain, checked values.
 const version = (process.argv.find(a => a.startsWith("--studioso-version=")) || "").split("=")[1] || "";
+// "mas" in the Mac App Store build, "direct" otherwise. The page uses it to follow the store's purchase rules (no outside payment links).
+const store = (process.argv.find(a => a.startsWith("--studioso-store=")) || "").split("=")[1] === "mas" ? "mas" : "direct";
+const relOk = rel => (typeof rel === "string" ? rel : "").slice(0, 1024);
+const secretName = n => String(n || "").toLowerCase().slice(0, 64);
 contextBridge.exposeInMainWorld("studiosoDesktop", {
   version,
+  store,
   platform: process.platform,
   dataDir: () => ipcRenderer.invoke("dir:get"),
   chooseDir: () => ipcRenderer.invoke("dir:choose"),
-  openDir: rel => ipcRenderer.invoke("dir:open", rel || ""),
-  mkdir: rel => ipcRenderer.invoke("fs:mkdir", rel),
-  exists: rel => ipcRenderer.invoke("fs:exists", rel),
-  write: (rel, data) => ipcRenderer.invoke("fs:write", rel, data),
-  read: rel => ipcRenderer.invoke("fs:read", rel),
-  list: rel => ipcRenderer.invoke("fs:list", rel || ""),
-  remove: rel => ipcRenderer.invoke("fs:remove", rel),
-  openFile: rel => ipcRenderer.invoke("fs:open", rel),
+  openDir: rel => ipcRenderer.invoke("dir:open", relOk(rel)),
+  mkdir: rel => ipcRenderer.invoke("fs:mkdir", relOk(rel)),
+  exists: rel => ipcRenderer.invoke("fs:exists", relOk(rel)),
+  write: (rel, data) => ipcRenderer.invoke("fs:write", relOk(rel), data),
+  read: rel => ipcRenderer.invoke("fs:read", relOk(rel)),
+  list: rel => ipcRenderer.invoke("fs:list", relOk(rel)),
+  remove: rel => ipcRenderer.invoke("fs:remove", relOk(rel)),
+  openFile: rel => ipcRenderer.invoke("fs:open", relOk(rel)),
+  // Secrets kept encrypted by the operating system's keychain (never plain text on disk). available() is false when the system has none.
+  secrets: {
+    available: () => ipcRenderer.invoke("secret:available"),
+    get: name => ipcRenderer.invoke("secret:get", secretName(name)),
+    set: (name, value) => ipcRenderer.invoke("secret:set", secretName(name), String(value == null ? "" : value)),
+    remove: name => ipcRenderer.invoke("secret:remove", secretName(name))
+  },
   onFlush: fn => ipcRenderer.on("app:flush", () => fn()),
   flushed: () => ipcRenderer.send("app:flushed"),
   setTitleBar: color => ipcRenderer.send("app:titlebar", color),

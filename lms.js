@@ -61,7 +61,7 @@ const busy = {};
 function originOf(host) {
   let s = String(host || "").trim();
   if (!s || s.length > 300) return null;
-  if (process.env.STUDYBOARD_BS_TEST === "1" && /^http:\/\/127\.0\.0\.1:\d+$/.test(s)) return s;   // automated tests only
+  if (TEST_MODE && /^http:\/\/127\.0\.0\.1:\d+$/.test(s)) return s;   // automated tests only
   if (!/^https?:\/\//i.test(s)) s = "https://" + s;
   try {
     const u = new URL(s);
@@ -72,7 +72,35 @@ function originOf(host) {
 }
 // Some sign-in pages turn away browsers they don't recognise, so the windows use a plain Chrome user agent.
 function chromeUA() { return String(app.userAgentFallback || "").replace(/\s(Electron|studyboard|Studyboard|studioso)\/\S+/g, ""); }
-const prefs = P => ({ partition: P.part, contextIsolation: true, nodeIntegration: false, sandbox: true });
+// Security: the school windows are sandboxed and isolated like the app's own, have no developer tools in the packaged app, and
+// can't use the camera, microphone, location, notifications or any other permission. They only ever speak https.
+const prefs = P => ({ partition: P.part, contextIsolation: true, nodeIntegration: false, nodeIntegrationInWorker: false, nodeIntegrationInSubFrames: false, sandbox: true,
+  webSecurity: true, allowRunningInsecureContent: false, webviewTag: false, navigateOnDragDrop: false, safeDialogs: true, devTools: !app.isPackaged });
+const TEST_MODE = process.env.STUDYBOARD_BS_TEST === "1" && !app.isPackaged;   // automated tests only, never in an installed app
+const httpsOnly = raw => { try { const u = new URL(String(raw)); return u.protocol === "https:" || (TEST_MODE && u.protocol === "http:" && u.hostname === "127.0.0.1"); } catch (e) { return false; } };
+const locked = new Set();
+function lockPartition(part) {
+  if (locked.has(part)) return; locked.add(part);
+  const ses = session.fromPartition(part);
+  ses.setPermissionRequestHandler((wc, perm, cb) => cb(false));
+  ses.setPermissionCheckHandler(() => false);
+  ses.setDevicePermissionHandler(() => false);
+  try { ses.setDisplayMediaRequestHandler((req, cb) => cb({})); } catch (e) {}
+  ses.webRequest.onBeforeRequest({ urls: ["http://*/*", "ws://*/*", "ftp://*/*"] }, (d, cb) => {
+    let local = false; try { local = TEST_MODE && new URL(d.url).hostname === "127.0.0.1"; } catch (e) {}
+    cb({ cancel: !local });
+  });
+}
+// Sign-in pop-ups (Microsoft, Google, Duo) stay in the same private store, but only for https addresses, and they are locked down the same way.
+function guardWindow(w, Pv, sameOrigin) {
+  const wc = w.webContents;
+  wc.on("will-attach-webview", e => e.preventDefault());
+  const nav = (e, url) => { if (!httpsOnly(url) || (sameOrigin && (() => { try { return new URL(url).origin !== sameOrigin; } catch (err) { return true; } })())) e.preventDefault(); };
+  wc.on("will-navigate", nav); wc.on("will-redirect", nav);
+  if (app.isPackaged) wc.on("devtools-opened", () => { try { wc.closeDevTools(); } catch (e) {} });
+  wc.setWindowOpenHandler(({ url }) => sameOrigin || !httpsOnly(url) ? { action: "deny" } : { action: "allow", overrideBrowserWindowOptions: { autoHideMenuBar: true, webPreferences: prefs(Pv) } });
+  wc.on("did-create-window", child => guardWindow(child, Pv, null));
+}
 const timeout = (ms, what) => new Promise((_, rej) => setTimeout(() => rej(new Error(what || "timeout")), ms));
 
 // ---------- Who's signed in (run inside the platform's own page) ----------
@@ -426,10 +454,11 @@ function connect(id, host, parent) {
   if (!Pv) return Promise.resolve({ ok: false, error: "bad-provider" });
   if (!origin) return Promise.resolve({ ok: false, error: "bad-host" });
   return new Promise(resolve => {
+    lockPartition(Pv.part);
     const w = new BrowserWindow({ width: 1000, height: 780, parent: parent || undefined, title: "Sign In", autoHideMenuBar: true, show: true, webPreferences: prefs(Pv) });
     w.webContents.setUserAgent(chromeUA());
     // Sign-in pages sometimes open a pop-up (Microsoft, Google, Duo). Those stay in the same private cookie store.
-    w.webContents.setWindowOpenHandler(() => ({ action: "allow", overrideBrowserWindowOptions: { autoHideMenuBar: true, webPreferences: prefs(Pv) } }));
+    guardWindow(w, Pv, null);
     let done = false, timer = null;
     const finish = r => { if (done) return; done = true; clearInterval(timer); if (!w.isDestroyed()) w.close(); resolve(r); };
     const check = async () => {
@@ -449,9 +478,10 @@ function connect(id, host, parent) {
 
 // A hidden page on the platform's own site to run things in, so your sign-in applies.
 async function withPage(Pv, origin, fn) {
+  lockPartition(Pv.part);
   const w = new BrowserWindow({ show: false, width: 800, height: 600, webPreferences: prefs(Pv) });
   w.webContents.setUserAgent(chromeUA());
-  w.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  guardWindow(w, Pv, origin);                                   // a hidden page may follow redirects on the school's own site only
   try {
     try { await w.loadURL(origin + Pv.ctx); } catch (e) { /* a redirect or a non-HTML page can reject; checked below */ }
     let here = "";
@@ -483,14 +513,17 @@ async function sync(id, host, opts) {
 
 // Downloads a file with your sign-in (Canvas files are handed to a storage server, so this follows the download like a browser).
 function downloadVia(Pv, url, name) {
+  lockPartition(Pv.part);
   const ses = session.fromPartition(Pv.part);
   const w = new BrowserWindow({ show: false, webPreferences: prefs(Pv) });
+  guardWindow(w, Pv, null);
   const tmp = path.join(app.getPath("temp"), "studyboard-dl-" + Date.now() + "-" + Math.random().toString(36).slice(2));
   return new Promise(resolve => {
     let t = null;
     const done = r => { ses.removeListener("will-download", onDl); clearTimeout(t); if (!w.isDestroyed()) w.destroy(); resolve(r); };
     const onDl = (e, item, wc) => {
       if (wc !== w.webContents) return;
+      if (item.getTotalBytes() > 52428800) { item.cancel(); return done({ error: "too-large" }); }
       item.setSavePath(tmp);
       item.once("done", async (ev, st) => {
         if (st !== "completed") return done({ error: st });
@@ -534,7 +567,7 @@ function feedOk(id, url) {
   const Pv = prov(id); if (!Pv) return null;
   try {
     const u = new URL(String(url || "").trim().replace(/^webcals?:\/\//i, "https://"));
-    const okProto = u.protocol === "https:" || (process.env.STUDYBOARD_BS_TEST === "1" && u.origin.startsWith("http://127.0.0.1:"));
+    const okProto = u.protocol === "https:" || (TEST_MODE && u.origin.startsWith("http://127.0.0.1:"));
     return okProto && Pv.feed.test(u.pathname) && !!originOf(u.origin) ? u.href : null;
   } catch (e) { return null; }
 }
@@ -544,6 +577,8 @@ async function feed(id, url) {
   try {
     const r = await Promise.race([net.fetch(href, { headers: { Accept: "text/calendar, */*" } }), timeout(30000)]);
     if (!r.ok) return { error: "HTTP " + r.status, status: r.status };
+    if (r.url && !httpsOnly(r.url)) return { error: "bad-url" };                         // never follow a redirect off https
+    if (Number(r.headers.get("content-length") || 0) > 8e6) return { error: "too-large" };
     const text = await r.text();
     if (text.length > 8e6) return { error: "too-large" };
     if (!/BEGIN:VCALENDAR/i.test(text)) return { error: "not-calendar" };
@@ -556,8 +591,9 @@ async function signOut(id) {
   try { await session.fromPartition(Pv.part).clearStorageData(); await session.fromPartition(Pv.part).clearCache(); return true; } catch (e) { return false; }
 }
 
-function register(getMain) {
-  const fromMain = e => { const w = getMain(); return !!(w && !w.isDestroyed() && e.sender === w.webContents); };
+// trusted(e): main.js passes its check that the message comes from the top frame of Studyboard's own window (event.senderFrame.url).
+function register(getMain, trusted) {
+  const fromMain = e => { const w = getMain(); return !!(w && !w.isDestroyed() && e.sender === w.webContents) && (typeof trusted !== "function" || trusted(e)); };
   ipcMain.handle("lms:connect", (e, id, host) => fromMain(e) ? connect(String(id), host, getMain()) : null);
   ipcMain.handle("lms:sync", (e, id, host, opts) => fromMain(e) ? sync(String(id), host, opts) : null);
   ipcMain.handle("lms:file", (e, id, host, spec) => fromMain(e) ? file(String(id), host, spec) : null);

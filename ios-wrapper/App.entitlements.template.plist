@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Template for ios/App/App/App.entitlements (Xcode creates this file when you add capabilities; add only these). -->
+<plist version="1.0">
+<dict>
+  <!-- Push Notifications. Use "production" for App Store / TestFlight builds (Xcode switches this automatically when archiving). -->
+  <key>aps-environment</key>
+  <string>development</string>
+  <!-- Universal links: https://studyboard.example/ opens the app. Replace the domain with the site that hosts the web app, and host
+       /.well-known/apple-app-site-association there (see README-IOS.md section 6). -->
+  <key>com.apple.developer.associated-domains</key>
+  <array>
+    <string>applinks:YOUR-DOMAIN.example</string>
+  </array>
+  <!-- In-app purchase needs the capability switched on in Xcode but no entitlement key. Keychain: the default app keychain group is enough. -->
+</dict>
+</plist>
