@@ -23,6 +23,18 @@ const PATHS: Record<string, RegExp> = {
   blackboard: /(\/calendarfeed\/|\.ics$)/i,
 };
 
+// Where a redirect may lead: a real https host name (never an address, localhost or an internal name) on the normal port.
+export function hostOk(raw: unknown): string | null {
+  try {
+    const u = new URL(String(raw || ""));
+    const h = u.hostname.toLowerCase();
+    if (u.protocol !== "https:" || !/^[a-z0-9.-]+\.[a-z]{2,}$/.test(h)) return null;
+    if (/^(localhost|\d+\.\d+\.\d+\.\d+)$/.test(h) || /(^|\.)(internal|local|localhost)$/.test(h)) return null;
+    if (u.port && u.port !== "443") return null;
+    return u.href;
+  } catch (_e) { return null; }
+}
+
 export function feedOk(raw: unknown, lms?: unknown): string | null {
   try {
     const u = new URL(String(raw || "").trim().replace(/^webcals?:\/\//i, "https://"));
@@ -71,7 +83,14 @@ export async function handle(req: Request, fetcher: typeof fetch = fetch, limite
   try {
     const headers: Record<string, string> = { Accept: "text/calendar, */*", "User-Agent": "Studyboard calendar reader" };
     if (lastTag && lastHash) headers["If-None-Match"] = lastTag;
-    const r = await fetcher(href, { headers, redirect: "follow", signal: ctl.signal });
+    // Redirects are followed by hand (up to 3), so a redirect can't send this function to an internal address.
+    let cur = href, r: Response = await fetcher(cur, { headers, redirect: "manual", signal: ctl.signal });
+    for (let hop = 0; hop < 3 && r.status >= 300 && r.status < 400 && r.headers.get("Location"); hop++) {
+      const next = hostOk(new URL(r.headers.get("Location") as string, cur).href);
+      if (!next) return json({ error: "bad-url" }, 200);
+      cur = next;
+      r = await fetcher(cur, { headers, redirect: "manual", signal: ctl.signal });
+    }
     if (r.status === 304 && lastHash) return json({ ok: true, unchanged: true, hash: lastHash, etag: lastTag });
     if (!r.ok) return json({ error: "http", status: r.status }, 200);
     const text = await r.text();

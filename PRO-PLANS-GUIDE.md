@@ -29,7 +29,7 @@ In the app, **Settings > Studyboard Pro** shows the plan, what Pro adds, how muc
 
 ### 1. Add the Plan Tables (Once)
 
-You'll need `supabase-plans.sql` from the zip.
+You'll need `supabase-plans.sql` from the zip. Run the SQL files in the order listed in `SETUP-GUIDE.md` ("Run the SQL files in this order"): `supabase-setup.sql` first, `supabase-groups.sql` before this file, and `supabase-lean.sql` last.
 
 In Supabase open **SQL Editor**, then **New query**. Paste everything from `supabase-plans.sql` and click **Run**. You should see *Success. No rows returned*. It's safe to run again any time, and it never changes values you've edited.
 
@@ -117,18 +117,39 @@ Apple and Google require their own payment systems inside phone apps from their 
 - In Supabase **Edge Functions > Secrets**, add `REVENUECAT_WEBHOOK_AUTH` with that same password.
 - Click **Send Test Event** in RevenueCat. It should say it was delivered.
 
+### Entitlement Signing Key (once, before launch)
+
+The app does not trust a "Pro" flag saved on the device. It asks the `entitlement-token` function for a short-lived **signed token** (valid for at most 7 days, refreshed while the subscription is active) and checks the signature with a public key built into the app. The token says `{tier, exp, uid, iat, sig}`, and `sig` is an Ed25519 signature (base64url) over the text `studyboard-ent-v1|<uid>|<tier>|<exp>|<iat>`.
+
+Make the key pair once, on your own computer (Node 18 or newer):
+```bash
+node -e "const c=require('crypto');const k=c.generateKeyPairSync('ed25519');console.log('PUBLIC  (put in index.html ENT_PUBKEY):',k.publicKey.export({format:'jwk'}).x);console.log('PRIVATE (put in the Supabase secret ENT_SIGNING_KEY):',k.privateKey.export({format:'der',type:'pkcs8'}).toString('base64url'))"
+```
+- Copy the **PUBLIC** value into `const ENT_PUBKEY = "..."` at the top of the Plans module in `index.html` (it says "REPLACE with the output of the key-generation step"). Until you do, the app falls back to reading each person's own plan row from Supabase, which still works but can't be checked offline.
+- Put the **PRIVATE** value in the Supabase secret the `entitlement-token` function uses. Never put it in the app or in git.
+
+Honest note: Studyboard is a client-side app, so a determined person can always edit their own copy of `index.html`. The themes, companions and stickers are locked for everyone else, and the things that cost you money (file and data storage, the device limit, group size and message history, online backups) are enforced by Supabase itself, so they stay limited no matter what the app says.
+
 ### Launch Day
 
+There is **one switch in the app** and **one in the server**, and either one turns Pro on:
+- **App switch:** `const PRO_ENFORCED = false;` just above `const STORE` in `index.html`, under the heading *FLIP TO true TO LAUNCH PRO*.
+- **Server switch:** `studyboard_config.paywall`. Setting it to `true` in Supabase turns Pro on for every copy of the app, with no new build. The app remembers a `true` answer, so deleting local data can't switch it off; only the server answering `false` (or you changing the app constant and the server) switches it back.
+
+Nothing on the device can turn Pro enforcement off once either switch says on. (A tester can force it **on** with `localStorage.setItem("studyboard:paywall-test","1")`.)
+
 When you're ready to start selling Pro:
-1. Check the steps above are done: `supabase-plans.sql` run, payment links in `studyboard_config`, the `billing-webhook` function deployed with its secrets, and Stripe switched from Test mode to live (make live payment links and a live webhook, and update the links and secret).
-2. **Turn on the server switch.** In **SQL Editor**:
+1. Check the steps above are done: `supabase-plans.sql` run, the `billing-webhook` and `entitlement-token` functions deployed with their secrets, the signing key in place (`ENT_PUBKEY`), your website's account page live, and Stripe switched from Test mode to live.
+2. **Set your website address.** In `index.html` set `const SITE_URL = "https://your-site"` (or set `site_url` in `studyboard_config` with `update public.studyboard_config set value = to_jsonb('https://your-site'::text) where key = 'site_url';`, inserting the row first if needed). **Buy** and **Manage Plan** open `https://your-site/account?plan=monthly|yearly&src=app` in the person's browser. People log in there with their Studyboard account and pay with Stripe Checkout; the app notices by itself (when they come back to the window, plus a check every 10 seconds for 2 minutes, plus an **I've Purchased: Refresh** button).
+3. **Turn on the server switch.** In **SQL Editor**:
    ```sql
    update public.studyboard_config set value = 'true' where key = 'paywall';
    ```
-3. **Turn on the app switch.** In `base/app.js`, find `const STORE = {paywall: false};` and change it to `const STORE = {paywall: true};`. Build the app and upload the new `index.html` like any update.
-4. Open Studyboard, go to **Settings > Studyboard Pro**, and check that it says **You're on the Free Plan** with the two prices. Buy Pro once yourself (or use `studyboard_grant_pro`) and check it switches to **You Have Studyboard Pro**.
+4. **Turn on the app switch.** In `index.html`, change `const PRO_ENFORCED = false;` to `const PRO_ENFORCED = true;`. Build the app and upload the new `index.html` like any update. (If you only did step 3, Pro is already on for people who open the app online; step 4 makes it on from the first moment, also offline.)
+5. **App Store and Google Play builds** use the store's own in-app purchase automatically (the `plan-checkout` event, see RevenueCat above), because Apple requires it for subscriptions sold inside the app. The constant `EXTERNAL_PURCHASE_ALLOWED` (default `false`) lets store builds use your website instead; only change it if your storefronts allow external purchase links.
+6. Open Studyboard, go to **Settings > Studyboard Pro**, and check that it says **You're on the Free Plan** with the two prices. Buy Pro once yourself (or use `studyboard_grant_pro`) and check it switches to **You Have Studyboard Pro**. In Settings the plan reads **Free**, **Pro until <date>** or **Pro (granted)**.
 
-To turn the paywall off again, set both switches back to `false`. Nobody loses anything: items people bought or earned stay theirs.
+To turn Pro off again, set both switches back to `false`. Nobody loses anything: items people bought or earned stay theirs, and anyone's chosen theme comes back as soon as they have Pro again.
 
 ### Good to Know
 
@@ -137,3 +158,13 @@ To turn the paywall off again, set both switches back to `false`. Nobody loses a
 - **Devices:** the free plan counts devices when people sign in. On a 3rd device, Studyboard shows the devices on the account with **Remove** buttons, and **Go Pro**.
 - **Limits are checked twice:** the app explains the limit before an upload, and Supabase refuses anything over the limit even if someone changes the app.
 - **Single items or packs:** the shop can also sell single cosmetic items later. Set `item_purchases` to `true` and hook up a checkout for them. Pro always unlocks everything.
+
+### Public Launch Checklist (Pro)
+
+- [ ] Stripe is in **live** mode: live payment links saved in `studyboard_config`, a live webhook pointing at `billing-webhook/stripe`, and the live `STRIPE_WEBHOOK_SECRET` set.
+- [ ] You bought Pro yourself with a real card, saw it switch on, then cancelled and refunded it. The **Manage** link in `studyboard_config` (`manage_url`) opens the Stripe customer portal.
+- [ ] Prices, the trial length and the refund policy shown on the Stripe checkout page match the Terms of Service in the app.
+- [ ] `PRIVACY` and `TERMS` in the app mention Stripe (they do) and your support address is set (see the Public Launch Checklist in `SETUP-GUIDE.md`).
+- [ ] You know that **Delete My Account and Data does not cancel a Stripe subscription**. Tell people to cancel first (the app says so), and cancel subscriptions yourself in Stripe if someone writes asking you to remove their account.
+- [ ] The paywall switches (the `paywall` row and `const STORE` in `index.html`) are set the way you want, and the "early access" wording in the Style Shop and welcome tour disappears once the paywall is on.
+- [ ] App Store and Google Play (only if you ship a store app): RevenueCat webhook tested, subscriptions cancellable from each store, Restore Purchase works, and each store's privacy label and data-safety form match the Privacy Policy.

@@ -1,14 +1,19 @@
 // Studyboard offline support: keeps a copy of the app so it opens with no internet.
 // Your data is never stored here; it lives in the app itself and in your Supabase account.
-const CACHE = "studyboard-v2";
-const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/maskable-512.png", "./icons/apple-touch-icon.png", "./today.webmanifest"];
+const CACHE = "studyboard-v3";
+// CORE must exist for the app to work offline. OPTIONAL files (icons) may be missing, in the icons/ folder layout or the
+// flat layout; a missing one never stops the service worker from installing.
+const CORE = ["./", "./index.html"];
+const OPTIONAL = ["./manifest.webmanifest", "./today.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/maskable-512.png", "./icons/apple-touch-icon.png",
+  "./icon-192.png", "./icon-512.png", "./maskable-512.png", "./apple-touch-icon.png"];
 const LIBS = ["https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"];
 const LIB_HOSTS = ["cdn.jsdelivr.net", "cdnjs.cloudflare.com", "fonts.googleapis.com", "fonts.gstatic.com"];
 
 self.addEventListener("install", e => {
   e.waitUntil((async () => {
     const c = await caches.open(CACHE);
-    await c.addAll(SHELL);
+    await c.addAll(CORE);
+    await Promise.all(OPTIONAL.map(u => c.add(u).catch(() => {})));
     await Promise.all(LIBS.map(u => fetch(u, {mode: "cors"}).then(r => r.ok && c.put(u, r)).catch(() => {})));
     await self.skipWaiting();
   })());
@@ -22,14 +27,18 @@ self.addEventListener("activate", e => {
 const timeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
 self.addEventListener("fetch", e => {
   const req = e.request, url = new URL(req.url);
-  if (req.method !== "GET") return;
+  if (req.method !== "GET" || !/^https?:$/.test(url.protocol)) return;
+  if (req.headers.has("range") || req.headers.has("authorization")) return;   // never cache ranged or authenticated requests
+  const isApp = url.origin === location.origin && /\/(index\.html)?$/.test(url.pathname);
+  // Other pages next to the app (invite, reset-password...) go straight to the network and never replace the saved app page.
+  if (req.mode === "navigate" && url.origin === location.origin && !isApp) return;
   // The app page: newest version when online, the saved copy when not.
-  if (req.mode === "navigate" || (url.origin === location.origin && /\/(index\.html)?$/.test(url.pathname))) {
+  if (isApp || req.mode === "navigate") {
     e.respondWith((async () => {
       const c = await caches.open(CACHE);
       try {
         const r = await timeout(fetch(req), 5000);
-        if (r.ok) c.put("./index.html", r.clone());
+        if (r.ok && r.type === "basic" && isApp) c.put("./index.html", r.clone());
         return r;
       } catch (err) { return (await c.match("./index.html")) || (await c.match("./")) || Response.error(); }
     })());
@@ -37,7 +46,13 @@ self.addEventListener("fetch", e => {
   }
   // Icons and other files next to the app.
   if (url.origin === location.origin) {
-    e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(r => { if (r.ok) caches.open(CACHE).then(c => c.put(req, r.clone())); return r; })));
+    // Saved copy right away, refreshed in the background so updated files arrive on the next visit.
+    e.respondWith((async () => {
+      const c = await caches.open(CACHE), hit = await c.match(req);
+      const net = fetch(req).then(r => { if (r.ok && r.type === "basic") c.put(req, r.clone()); return r; }).catch(() => null);
+      if (hit) { e.waitUntil(net); return hit; }
+      return (await net) || Response.error();
+    })());
     return;
   }
   // Fonts and libraries: use the saved copy right away and refresh it in the background.

@@ -6,6 +6,7 @@ const version = (process.argv.find(a => a.startsWith("--studioso-version=")) || 
 contextBridge.exposeInMainWorld("studiosoDesktop", {
   version,
   platform: process.platform,
+  mas: !!process.mas,   // true in the Mac App Store build: Pro is then bought with in-app purchase (see PLAN.buy in index.html)
   dataDir: () => ipcRenderer.invoke("dir:get"),
   chooseDir: () => ipcRenderer.invoke("dir:choose"),
   openDir: rel => ipcRenderer.invoke("dir:open", rel || ""),

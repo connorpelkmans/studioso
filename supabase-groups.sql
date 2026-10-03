@@ -180,7 +180,20 @@ begin
     new.user_id := auth.uid();
     new.author_name := public.sbg_my_name();
     new.created_at := now();
-    if tg_table_name = 'group_items' then new.updated_at := now(); end if;
+    if tg_table_name = 'group_items' then
+      new.updated_at := now();
+      -- Stops one account filling a group: at most 500 shared items per person in a group.
+      if (select count(*) from public.group_items where group_id = new.group_id and user_id = new.user_id) >= 500 then
+        raise exception 'This group already holds 500 of your shared items. Remove some first.';
+      end if;
+    end if;
+    if tg_table_name = 'group_messages' then
+      -- Pins only change through pin_message (so the 3-pin limit and the owner/author rule can't be skipped), and posting is limited to 20 a minute.
+      new.pinned := false;
+      if (select count(*) from public.group_messages where user_id = new.user_id and created_at > now() - interval '1 minute') >= 20 then
+        raise exception 'You are posting too fast. Try again in a minute.';
+      end if;
+    end if;
   else
     new.id := old.id; new.group_id := old.group_id; new.user_id := old.user_id;
     new.author_name := old.author_name; new.created_at := old.created_at;
