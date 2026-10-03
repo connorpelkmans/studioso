@@ -1,7 +1,7 @@
 // Studyboard desktop app (formerly Studioso): a window around the Studyboard page, with a real folder on this computer
 // for your data, backups and files. Sync with your account happens inside the page (Supabase).
 // Since 1.11: a tray icon, native reminders that keep working with the window closed, and the Today widget.
-const { app, BrowserWindow, ipcMain, dialog, shell, protocol, net, Menu, nativeTheme, Tray, Notification, nativeImage, powerMonitor, screen } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, protocol, net, Menu, nativeTheme, Tray, Notification, nativeImage, powerMonitor, screen, session } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const fsp = fs.promises;
@@ -116,8 +116,9 @@ function createWindow(hidden) {
   win.webContents.on("did-start-loading", () => listening.clear());
   win.loadURL("app://studioso/index.html");
   // Links open in your normal browser; the app window only ever shows Studyboard.
-  win.webContents.setWindowOpenHandler(({ url }) => { if (/^(https?|mailto):/i.test(url)) shell.openExternal(url); return { action: "deny" }; });
-  win.webContents.on("will-navigate", (e, url) => { if (!url.startsWith("app://studioso/")) { e.preventDefault(); if (/^(https?|mailto):/i.test(url)) shell.openExternal(url); } });
+  win.webContents.setWindowOpenHandler(({ url }) => { openSafely(url); return { action: "deny" }; });
+  win.webContents.on("will-navigate", (e, url) => { if (!url.startsWith("app://studioso/")) { e.preventDefault(); openSafely(url); } });
+  win.webContents.on("will-redirect", (e, url) => { if (!url.startsWith("app://studioso/")) e.preventDefault(); });
   win.on("resize", saveWindowState); win.on("move", saveWindowState);
   // Give the page a moment to write its latest copy to the Studyboard folder before closing.
   win.on("close", e => {
@@ -180,6 +181,27 @@ function sendAction(action, arg, stayHidden) {
   toPage("desk:action", action, typeof arg === "string" ? arg.slice(0, 200) : "");
 }
 function openTask(id) { showMain(); toPage("desk:open-task", String(id).slice(0, 200)); }
+
+// ---------- Hardening: every window and web contents ----------
+// Links only ever leave the app as http, https or mailto, and never through a window of our own. No <webview>,
+// no permission prompts (camera, location and so on) for the app's pages.
+function openSafely(url) {
+  try {
+    const u = new URL(String(url));
+    if (/^(https?:|mailto:)$/.test(u.protocol) && String(url).length < 4000) shell.openExternal(u.href);
+  } catch (e) {}
+}
+app.on("web-contents-created", (e, wc) => {
+  wc.on("will-attach-webview", ev => ev.preventDefault());
+});
+function lockPermissions(ses) {
+  try {
+    ses.setPermissionRequestHandler((wc, permission, cb) => cb(permission === "clipboard-sanitized-write" || permission === "notifications"));
+    ses.setPermissionCheckHandler((wc, permission) => permission === "clipboard-sanitized-write" || permission === "notifications");
+  } catch (e) {}
+}
+// Files saved in the Studyboard folder can be opened by the system, but programs and scripts never are.
+const RISKY_EXT = /\.(exe|msi|bat|cmd|com|scr|pif|lnk|url|ps1|psm1|vbs|vbe|js|jse|jar|wsf|wsh|hta|cpl|reg|dll|sh|command|app|appimage|desktop|workflow|action|scpt|terminal|inf|msc|gadget|chm|docm|xlsm|pptm)$/i;
 
 // ---------- Small checks for anything that comes from a page ----------
 const str = (v, max) => typeof v === "string" ? v.slice(0, max) : "";
@@ -422,9 +444,10 @@ ipcMain.handle("desk:settings:set", (e, key, value) => {
 });
 
 // ---------- Folder access for the page ----------
-ipcMain.handle("dir:get", () => dataRoot());
-ipcMain.handle("dir:open", async (e, rel) => { await ensureRoot(); return shell.openPath(resolveRel(rel || "")); });
-ipcMain.handle("dir:choose", async () => {
+ipcMain.handle("dir:get", e => fromMain(e) ? dataRoot() : null);
+ipcMain.handle("dir:open", async (e, rel) => { if (!fromMain(e)) return "denied"; await ensureRoot(); return shell.openPath(resolveRel(rel || "")); });
+ipcMain.handle("dir:choose", async e => {
+  if (!fromMain(e)) return null;
   const r = await dialog.showOpenDialog(win, { title: "Choose where Studyboard keeps your things", defaultPath: dataRoot(), properties: ["openDirectory", "createDirectory"], buttonLabel: "Use This Folder" });
   if (r.canceled || !r.filePaths[0]) return null;
   let target = r.filePaths[0];
@@ -437,9 +460,11 @@ ipcMain.handle("dir:choose", async () => {
   cfg.dataDir = target; writeCfg(cfg); await ensureRoot();
   return target;
 });
-ipcMain.handle("fs:mkdir", async (e, rel) => { await fsp.mkdir(resolveRel(rel), { recursive: true }); return true; });
-ipcMain.handle("fs:exists", async (e, rel) => { try { await fsp.access(resolveRel(rel)); return true; } catch (err) { return false; } });
+ipcMain.handle("fs:mkdir", async (e, rel) => { if (!fromMain(e)) return false; await fsp.mkdir(resolveRel(rel), { recursive: true }); return true; });
+ipcMain.handle("fs:exists", async (e, rel) => { if (!fromMain(e)) return false; try { await fsp.access(resolveRel(rel)); return true; } catch (err) { return false; } });
 ipcMain.handle("fs:write", async (e, rel, data) => {
+  if (!fromMain(e)) return false;
+  if (typeof data !== "string" && !(data instanceof Uint8Array) && !ArrayBuffer.isView(data)) return false;
   const p = resolveRel(rel);
   await fsp.mkdir(path.dirname(p), { recursive: true });
   const tmp = p + ".partial";
@@ -447,15 +472,21 @@ ipcMain.handle("fs:write", async (e, rel, data) => {
   await fsp.rename(tmp, p);                      // never leaves a half-written file behind
   return true;
 });
-ipcMain.handle("fs:read", async (e, rel) => { try { return new Uint8Array(await fsp.readFile(resolveRel(rel))); } catch (err) { return null; } });
-ipcMain.handle("fs:list", async (e, rel) => { try { return (await fsp.readdir(resolveRel(rel), { withFileTypes: true })).map(d => ({ name: d.name, dir: d.isDirectory() })); } catch (err) { return []; } });
+ipcMain.handle("fs:read", async (e, rel) => { if (!fromMain(e)) return null; try { return new Uint8Array(await fsp.readFile(resolveRel(rel))); } catch (err) { return null; } });
+ipcMain.handle("fs:list", async (e, rel) => { if (!fromMain(e)) return []; try { return (await fsp.readdir(resolveRel(rel), { withFileTypes: true })).map(d => ({ name: d.name, dir: d.isDirectory() })); } catch (err) { return []; } });
 ipcMain.handle("fs:remove", async (e, rel) => {
+  if (!fromMain(e)) return false;
   // Only old daily backups are ever removed by Studyboard.
   const p = resolveRel(rel);
   if (!/Daily backups[\\/]+(studioso|studyboard)-\d{4}-\d{2}-\d{2}\.json$/.test(p)) return false;
   try { await fsp.unlink(p); return true; } catch (err) { return false; }
 });
-ipcMain.handle("fs:open", async (e, rel) => shell.openPath(resolveRel(rel)));
+ipcMain.handle("fs:open", async (e, rel) => {
+  if (!fromMain(e)) return "denied";
+  const p = resolveRel(rel);
+  try { if (RISKY_EXT.test(p) && !fs.statSync(p).isDirectory()) return "blocked: programs and scripts are not opened from here"; } catch (err) {}
+  return shell.openPath(p);
+});
 // After the final save: close the window, and finish quitting if that's what was asked (Cmd+Q on a Mac).
 function finishClose() { if (flushed) return; flushed = true; if (win && !win.isDestroyed()) win.close(); if (quitting) setTimeout(() => app.quit(), 50); }
 ipcMain.on("app:flushed", finishClose);
@@ -477,6 +508,7 @@ function openedAtLogin() {
 }
 app.whenReady().then(async () => {
   cfg = readCfg();
+  lockPermissions(session.defaultSession);
   migrateDataFolder();
   writeCfg(cfg);
   await ensureRoot();

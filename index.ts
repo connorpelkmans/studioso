@@ -460,7 +460,9 @@ async function handle(req){
   }
   if (!feed) return textResponse(404, "This calendar link was turned off or reset. Get the current link in Studyboard > Settings > Calendar Sync.");
   // Lean: a calendar app asking too often gets told to come back later (needs lean.sql; skipped without it).
-  if (!(await rateOk(db, "cal:" + token, 120, 3600))) return textResponse(429, "Too many requests for this calendar. Try again in an hour.", {"Retry-After": "3600"});
+  // The limiter keeps a fingerprint of the link, never the link itself.
+  const fp = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token))).slice(0, 12), b => b.toString(16).padStart(2, "0")).join("");
+  if (!(await rateOk(db, "cal:" + fp, 120, 3600))) return textResponse(429, "Too many requests for this calendar. Try again in an hour.", {"Retry-After": "3600"});
   // Lean: reuse the calendar built last time when nothing changed (needs lean.sql's cache columns; skipped without it).
   const ckey = await changeKey(db, feed);
   const etag = ckey ? '"' + ckey + '"' : "";
