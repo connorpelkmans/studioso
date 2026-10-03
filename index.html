@@ -5943,7 +5943,7 @@ function aiSetupSheet(fromFeature){
       <label class="f"><span class="lh">Default Model <span class="hint">you can also switch in any AI window</span></span><select id="aiDefault">${modelOpts()}</select></label>
       <fieldset class="ai-auto"><legend>Automatic AI</legend>
         <label class="mi-check"><input type="checkbox" id="aiAuto" ${(ai => ai.auto !== undefined ? ai.auto : isFreeModel(c.provider, c.model))((state.settings && state.settings.ai) || {}) ? "checked" : ""}> Improve Today's Plan and study sessions automatically</label>
-        <p class="mini" style="margin:0">When this is on, the AI works in the background without you pressing anything: it picks <b>Do This Next</b> and the alternatives for Something Else, estimates hours for tasks you didn't estimate using how long your past tasks took, estimates the work left on started tasks from your focus time and progress, judges how ready you are for each exam from your study sessions, flashcards and quizzes, tunes the next study sessions to what you keep missing, and prepares the practice test before a practice day. It only runs when something changed, and a few times a day.</p>
+        <p class="mini" style="margin:0">When this is on, the AI quietly helps in the background and never changes anything without a tap: it helps choose <b>Do This Next</b>, estimates hours for tasks you didn't estimate, can flag a few things you might miss (like an earlier deadline buried in instructions), tunes study sessions to your weak cards, and drafts exam study plans, announcement alerts and a weekly review. Anything it writes must point at your own tasks and dates or it is thrown away. Pick exactly which parts you want in <button type="button" class="link-btn" data-act="auto-panel">What each part does</button>.</p>
         <label class="f"><span class="lh">Model for Automatic AI</span><select id="aiAutoModel"><option value="free" ${((state.settings.ai || {}).autoModel || "free") === "free" ? "selected" : ""}>Free Gemini (no cost)</option><option value="default" ${(state.settings.ai || {}).autoModel === "default" ? "selected" : ""}>My default model</option></select></label>
         <p class="ai-disclaimer mini" id="aiAutoWarn" hidden style="margin:0"></p>
         <button type="button" class="btn small" data-act="auto-panel">What Automatic AI is doing</button>
@@ -6259,13 +6259,15 @@ function peakStudyHours(hist, now){
   return `${pad(bi)}:00 to ${pad((bi + 3) % 24)}:00`;
 }
 // Keep only picks that are real, open, unblocked, non-exam tasks, once each, in order; text cleaned (no dashes, links or markup)
-function autoCleanNext(raw, back, ok){
-  const seen = new Set(), out = [], tx = (s, n) => String(s || "").replace(/\s+/g, " ").replace(/\s*[—–]\s*/g, ", ").replace(/[<>{}]|https?:\S*/g, "").trim().slice(0, n);
+function autoCleanNext(raw, back, ok, textOf){
+  const seen = new Set(), out = [];
   (Array.isArray(raw) ? raw : []).forEach(x => {
     const id = x && back[String(x.ref || "").trim()];
     if (!id || seen.has(id) || !ok(id)) return;
     seen.add(id);
-    out.push({id, why: tx(x.why, 220), step: tx(x.step, 120), min: Math.max(10, Math.min(180, Number(x.minutes) || 0)) || null});
+    // Generic or title-restating text is dropped, so Do This Next shows the app's own concrete reasons instead
+    const tt = textOf ? textOf(id, x.why, x.step) : {why: String(x.why || ""), step: String(x.step || "")};
+    out.push({id, why: tt.why, step: tt.step, min: Math.max(10, Math.min(180, Number(x.minutes) || 0)) || null});
   });
   return out.slice(0, 5);
 }
@@ -6310,7 +6312,7 @@ function nextUp(F){
   deadlineGuard(scored, y => y.x, "s");
   scored.sort((a, b) => b.s - a.s);
   // The AI's list is only trusted for the day it was made and for 8 hours (a morning pick shouldn't steer the evening); its ids are checked against the real, unskipped pool
-  let aiPick = AUTO_ON && AUTO.next && AUTO.next.day === today && Date.now() - (AUTO.next.at || 0) < 8 * 3600000 ? (AUTO.next.list || []).find(x => scored.some(y => y.x.t.id === x.id)) : null;
+  let aiPick = autoPlanOn() && AUTO.next && AUTO.next.day === today && Date.now() - (AUTO.next.at || 0) < 8 * 3600000 ? (AUTO.next.list || []).find(x => scored.some(y => y.x.t.id === x.id)) : null;
   // The AI's pick is a second opinion: it can't bury something due today that you're short of time for, or pick from far down the list
   if (aiPick) {
     const idx = scored.findIndex(y => y.x.t.id === aiPick.id), y = scored[idx], top = scored[0];
@@ -6330,18 +6332,19 @@ function nextUp(F){
 }
 // Heads Up: things the automatic AI noticed that are easy to miss (from instructions, announcements, your schedule, grades)
 const HEADS_HIDE = "studyboard:heads:hide";
+const headKey = h => h.id ? "t:" + h.id : "x:" + h.text;     // dismissed per task for 3 days, so a reworded line doesn't come back
 function headsHtml(){
-  if (!AUTO_ON || !AUTO.heads || AUTO.heads.day !== todayISO()) return "";
+  if (!autoPlanOn() || !AUTO.heads || AUTO.heads.day !== todayISO()) return "";
   let hid = {}; try { hid = JSON.parse(localStorage.getItem(HEADS_HIDE) || "{}") || {}; } catch(e) {}
-  const list = (AUTO.heads.list || []).filter(h => !hid[todayISO() + "|" + h.text] && (!h.id || (state.tasks[h.id] && state.tasks[h.id].status !== "done")));
+  const list = (AUTO.heads.list || []).filter(h => !(Date.now() - (hid[headKey(h)] || 0) < 3 * 864e5) && (!h.id || (state.tasks[h.id] && state.tasks[h.id].status !== "done")));
   if (!list.length) return "";
-  return `<div class="plan-heads" role="note"><span class="ph-label">${AI_ICON} ${aiWho() ? esc(aiWho()) + " Noticed" : "Heads Up"}</span><ul>${list.map(h => `<li><span>${esc(h.text)}</span>${h.id ? `<button class="link-btn" data-act="edit-task" data-id="${esc(h.id)}">Open</button>` : ""}<button class="icon-btn sm ph-x" data-act="heads-hide" data-id="${esc(h.text)}" aria-label="Dismiss">${CLOSE}</button></li>`).join("")}</ul></div>`;
+  return `<div class="plan-heads" role="note"><span class="ph-label">Heads Up</span><ul>${list.map(h => `<li><span>${esc(h.text)}</span>${h.id ? `<button class="link-btn" data-act="edit-task" data-id="${esc(h.id)}">Open</button>` : ""}<button class="icon-btn sm ph-x" data-act="heads-hide" data-id="${esc(headKey(h))}" aria-label="Dismiss">${CLOSE}</button></li>`).join("")}</ul></div>`;
 }
 function nextUpHtml(F, pre){
   const n = arguments.length > 1 ? pre : nextUp(F); if (!n) return "";
   const t = n.x.t, c = courseOf(t.courseId);
   return `<div class="next-up" style="--c:${esc(colorOf(t.courseId))}">
-    <div class="nu-top"><span class="nu-label">Do This Next${aiWho() ? ` <span class="nu-who">${AI_ICON} ${esc(aiWho())}'s Pick</span>` : n.ai ? ` ${AI_ICON}` : ""}</span>${n.x.alloc > 0 ? `<span class="nu-alloc" title="Suggested time today">${fmtHM(n.x.alloc)} today</span>` : ""}</div>
+    <div class="nu-top"><span class="nu-label">Do This Next${n.ai ? ` <span class="nu-who">${AI_ICON} ${aiWho() ? esc(aiWho()) + "'s pick" : "AI pick"}</span>` : ""}</span>${n.x.alloc > 0 ? `<span class="nu-alloc" title="Suggested time today">${fmtHM(n.x.alloc)} today</span>` : ""}</div>
     <div class="nu-row">
       <button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="Mark complete: ${esc(t.title)}">${CHECK}</button>
       <div class="nu-body">
@@ -7016,18 +7019,24 @@ async function autoPlan(a){
   const skipped = Object.entries(fbw.type).filter(e => e[1] <= -1.5).map(e => e[0]), liked = Object.entries(fbw.type).filter(e => e[1] >= 1.5).map(e => e[0]);
   const doneTodayN = allTasks().filter(t => t.status === "done" && t.doneAt && t.doneAt >= new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()).length;
   const r = await aiCall({task: "plan", auto: true, fast: true, maxTokens: 6000, temperature: 0.2, schema: NEXT_SCHEMA, parts: [{text: `Now: ${now.toLocaleDateString("en-US", {weekday: "long"})} ${today} ${pad(now.getHours())}:${pad(now.getMinutes())}${tz ? " (" + tz + ")" : ""}, ${dayPartOf(now.getHours())}. Study time left today: ${fmtHM(F.th)}${F.doneToday >= 0.25 ? ` (already focused ${fmtHM(F.doneToday)} today)` : ""}; usual per day: ${fmtHM(F.dh)}.${doneTodayN ? ` ${doneTodayN} task${doneTodayN === 1 ? "" : "s"} finished today.` : ""}\nThe next few days:\n${week}\nCourse standings: ${standings}\nRecent announcements from the school site:\n${newsTxt}\nThis student's history: ${hist}. They usually take ${L.ratio.toFixed(2)}x their own estimates.${peak ? ` They usually study around ${peak}.` : ""}${skipped.length ? ` They often skip suggestions of these types: ${skipped.join(", ")}.` : ""}${liked.length ? ` They usually accept: ${liked.join(", ")}.` : ""}\nOpen tasks (already ranked by the planner; "rank" 1 is its top choice; days are counted from today):\n${lines}`}],
-    system: "You're an expert study planner working quietly inside a student's planner app. The tasks come pre-ranked by the app's own planner (rank, planner score, days away); treat that ranking as a strong default and only move a task up or down with a concrete reason from the data, never invent a task or id. Using the tasks, the time of day, the time left today and the student's own history: (1) choose up to 5 tasks to work on right now, best first (deadlines come first: never put a task due weeks away ahead of one due in the next few days that still needs work, unless the far one is a big task that needs most of the time left before it; grade weight only breaks ties between similar deadlines), each with a one-sentence reason that's specific (deadline, grade weight, how much is left, what it unblocks, energy for the time of day), a concrete first step, and sensible session minutes (never pick an exam or quiz itself, since it happens at a set time; pick its study tasks instead); skip BLOCKED tasks. (2) Estimate total hours for tasks marked 'no estimate', leaning on how long this student's past tasks took. (3) For started tasks, estimate hours of work left, counting their focus time and progress and their tendency to underestimate. (4) For each exam or quiz, judge readiness 0 to 100 from study sessions done, flashcard mastery and quiz scores, with a short note. (5) Heads up: up to 3 real things the student could miss, read from the instructions, the announcements, the schedule and the standings (an earlier draft or pre-lab deadline, a changed due date or room, a full lab, placement or work day right before a deadline, a course near its pass mark); leave it empty rather than state the obvious. (6) Rate how demanding tasks marked 'difficulty not set' look. Consider the schedule: long class, lab or placement days leave little study time, so plan around them and favour short tasks just before a class. Late submissions: a task that still accepts late work is less urgent than one that closes at the due time, but never suggest planning to be late. Use the refs exactly (t1, t2...). Return JSON only."});
+    system: "You're an expert study planner working quietly inside a student's planner app. The tasks come pre-ranked by the app's own planner (rank, planner score, days away); treat that ranking as a strong default and only move a task up or down with a concrete reason from the data, never invent a task or id. Using the tasks, the time of day, the time left today and the student's own history: (1) choose up to 5 tasks to work on right now, best first (deadlines come first: never put a task due weeks away ahead of one due in the next few days that still needs work, unless the far one is a big task that needs most of the time left before it; grade weight only breaks ties between similar deadlines), each with a one-sentence reason that cites the evidence in the data (due day, grade weight, hours left, what it unblocks; never just repeat the title or say it is merely important), a concrete first step, and sensible session minutes (never pick an exam or quiz itself, since it happens at a set time; pick its study tasks instead); skip BLOCKED tasks. (2) Estimate total hours for tasks marked 'no estimate', leaning on how long this student's past tasks took. (3) For started tasks, estimate hours of work left, counting their focus time and progress and their tendency to underestimate. (4) For each exam or quiz, judge readiness 0 to 100 from study sessions done, flashcard mastery and quiz scores, with a short note. (5) Heads up: up to 3 real things the student could miss, read from the instructions, the announcements, the schedule and the standings (an earlier draft or pre-lab deadline, a changed due date or room, a full clinical day right before a deadline, a course near its pass mark); leave it empty rather than state the obvious. Every heads-up must name the specific task, course, day or number it is based on (for example 'Bio lab pre-quiz is due Wed, a day before the report') and must never be general advice like 'stay organized' or 'plan ahead'. (6) Rate how demanding tasks marked 'difficulty not set' look. Consider the schedule: long class or clinical days leave little study time, so plan around them and favour short tasks just before a class. Late submissions: a task that still accepts late work is less urgent than one that closes at the due time, but never suggest planning to be late. Use the refs exactly (t1, t2...). Return JSON only."});
   const d = r.data || {}, changes = [];
   // Only real, open, unblocked, non-exam tasks, once each: anything the model invents or repeats is dropped (nextUp falls back to the planner's own ranking)
-  const next = autoCleanNext(d.next, back, id => { const t = state.tasks[id]; return !!t && t.status !== "done" && !MILESTONE(t.type) && !blockers(t).length; });
+  const qctx = {titles: open.map(t => t.title), courses: coursesArr().map(c => courseLabel(c))};
+  const next = autoCleanNext(d.next, back, id => { const t = state.tasks[id]; return !!t && t.status !== "done" && !MILESTONE(t.type) && !blockers(t).length; }, (id, why, step) => AINS.cleanPickText(why, step, (state.tasks[id] || {}).title, qctx));
   AUTO.next = {day: today, at: Date.now(), list: next, model: r.model};
   const patch = (id, fn) => { const cur = changes.find(c => c.id === id); const n = cur ? cur.after : clone(state.tasks[id]); if (fn(n) !== false && !cur) changes.push({kind: "task", id, after: n}); };
-  (d.estimates || []).forEach(x => { const id = back[x.ref], t = id && state.tasks[id], h = Number(x.hours); if (!t || MILESTONE(t.type) || isNum(t.hours) || !(h > 0) || h > 200) return; if (t.aiHours && Math.abs(t.aiHours.h - h) / h < 0.15) return; patch(id, n => { n.aiHours = {h: Math.round(h * 4) / 4, at: Date.now()}; }); });
-  (d.remaining || []).forEach(x => { const id = back[x.ref], t = id && state.tasks[id], h = Number(x.hours); if (!t || MILESTONE(t.type) || !(h >= 0) || h > 200) return; const sig = leftSig(t); if (t.aiLeft && t.aiLeft.sig === sig && Math.abs(t.aiLeft.h - h) < 0.25) return; patch(id, n => { n.aiLeft = {h: Math.round(h * 4) / 4, sig, at: Date.now()}; }); });
-  const heads = (d.headsUp || []).map(x => ({id: back[String(x.ref || "").trim()] || "", text: String(x.text || "").replace(/\s+/g, " ").replace(/\s*[—–]\s*/g, ", ").trim()})).filter(x => x.text && x.text.length <= 180 && !/https?:|[<>{}]/.test(x.text)).slice(0, 3);
+  (d.estimates || []).forEach(x => { const id = back[x.ref], t = id && state.tasks[id]; if (!t || MILESTONE(t.type) || isNum(t.hours)) return; const h = AINS.hoursSane(x.hours, localEstimate(t).hours); if (!h) return; if (t.aiHours && Math.abs(t.aiHours.h - h) / h < 0.15) return; patch(id, n => { n.aiHours = {h: Math.round(h * 4) / 4, at: Date.now()}; }); });
+  (d.remaining || []).forEach(x => { const id = back[x.ref], t = id && state.tasks[id], h = Number(x.hours); if (!t || MILESTONE(t.type) || !(h >= 0) || h > 40) return; const sig = leftSig(t); if (t.aiLeft && t.aiLeft.sig === sig && Math.abs(t.aiLeft.h - h) < 0.25) return; patch(id, n => { n.aiLeft = {h: Math.round(h * 4) / 4, sig, at: Date.now()}; }); });
+  // Heads-up lines must name real data, not repeat what the Suggestions tray already says, and be few
+  let seenTxt = []; try { seenTxt = autoLiveInsights().map(e => insText(e).t); } catch(e) {}
+  const heads = AINS.cleanHeads(d.headsUp, back, Object.assign({titleOf: id => (state.tasks[id] || {}).title, visible: seenTxt, openCount: open.length, countOn: dow => open.filter(t => dayDiff(today, t.due) >= 0 && dayDiff(today, t.due) <= 7 && parse(t.due).getDay() === dow).length, hasSource: id => !!(id && state.tasks[id] && String(state.tasks[id].notes || "").length > 30) || news.length > 0}, qctx));
   AUTO.heads = {day: today, at: Date.now(), list: heads};
   (d.difficulty || []).forEach(x => { const id = back[x.ref], t = id && state.tasks[id]; if (!t || (t.difficulty && t.difficulty !== "med") || MILESTONE(t.type) || !["easy", "med", "hard"].includes(x.level)) return; if (t.aiDiff && t.aiDiff.level === x.level) return; patch(id, n => { n.aiDiff = {level: x.level, at: Date.now()}; }); });
-  (d.readiness || []).forEach(x => { const id = back[x.ref], t = id && state.tasks[id], p = Math.max(0, Math.min(100, Math.round(Number(x.pct)))); if (!t || !MILESTONE(t.type) || isNaN(p)) return; if (t.aiPrep && Math.abs(t.aiPrep.pct - p) < 3 && autoFresh(t.aiPrep, 1)) return; patch(id, n => { n.aiPrep = {pct: p, note: String(x.note || "").slice(0, 120), at: Date.now()}; }); });
+  (d.readiness || []).forEach(x => { const id = back[x.ref], t = id && state.tasks[id], p = Math.max(0, Math.min(100, Math.round(Number(x.pct)))); if (!t || !MILESTONE(t.type) || isNaN(p)) return;
+    // A readiness number with nothing behind it is a guess: only accept it when there are sessions done, flashcard progress or a quiz score to base it on
+    const ev = planSessions(t.id).some(z => z.status === "done") || decksArr().some(dk => dk.courseId && dk.courseId === t.courseId && (() => { const st = deckStats(dk); return st.mastery > 0 || !!st.last; })()); if (!ev) return;
+    x.note = AINS.vet(x.note, {max: 90, min: 6}) ; if (t.aiPrep && Math.abs(t.aiPrep.pct - p) < 3 && autoFresh(t.aiPrep, 1)) return; patch(id, n => { n.aiPrep = {pct: p, note: x.note || "", at: Date.now()}; }); });
   if (changes.length) applyChanges(changes, null); else scheduleRender();
 }
 const TUNE_SCHEMA = {type: "OBJECT", properties: {
@@ -7079,10 +7088,10 @@ async function autoRun(){
   const today = todayISO(), tomorrow = addDays(today, 1);
   let job = null;
   const sig = planSig();
-  if (tasksArr().some(t => t.status !== "done" && t.due) && (AUTO.sig !== sig ? Date.now() - (AUTO.planAt || 0) > 90000 : Date.now() - (AUTO.planAt || 0) > 3 * 3600000))
+  if (autoFeatOn("plan") && tasksArr().some(t => t.status !== "done" && t.due) && (AUTO.sig !== sig ? Date.now() - (AUTO.planAt || 0) > 90000 : Date.now() - (AUTO.planAt || 0) > 3 * 3600000))
     job = async () => { const prev = AUTO.sig, prevAt = AUTO.planAt; AUTO.sig = sig; AUTO.planAt = Date.now(); try { await autoPlan(a); } catch(e) { AUTO.sig = prev; AUTO.planAt = prevAt; throw e; } };   // a failed plan retries after the error back-off, not 3 hours later
-  if (!job) { const t = tasksArr().find(x => x.type === "Study" && x.prepFor && x.status !== "done" && (x.due === today || x.due === tomorrow) && !x.aiTuned); if (t) job = () => autoTune(t); }
-  if (!job) { const t = tasksArr().find(x => x.type === "Study" && x.studyKind === "practice" && x.status !== "done" && x.due && dayDiff(today, x.due) <= 2 && dayDiff(today, x.due) >= 0 && !x.practiceQuiz); if (t) job = () => autoPractice(t); }
+  if (!job && autoFeatOn("sessions")) { const t = tasksArr().find(x => x.type === "Study" && x.prepFor && x.status !== "done" && (x.due === today || x.due === tomorrow) && !x.aiTuned); if (t) job = () => autoTune(t); }
+  if (!job && autoFeatOn("sessions")) { const t = tasksArr().find(x => x.type === "Study" && x.studyKind === "practice" && x.status !== "done" && x.due && dayDiff(today, x.due) <= 2 && dayDiff(today, x.due) >= 0 && !x.practiceQuiz); if (t) job = () => autoPractice(t); }
   if (!job) { try { job = autoExtraJob(a); } catch(e) { console.warn("Automatic AI:", e); } }   // small extras: tidy tasks, announcements, exam plans, weekly review
   if (!job) return;
   autoBusy = true; AUTO.n = (AUTO.n || 0) + 1; autoSave();
@@ -7096,18 +7105,17 @@ setInterval(() => autoKick(0), 10 * 60000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) autoKick(1500); });
 window.addEventListener("online", () => autoKick(1500));
 function autoChipHtml(){
+  // Only shown when it needs the student: paused for a paid-model confirmation. Otherwise Automatic AI stays out of the way (settings: AI Features, Suggestions > Manage).
   const a = autoState();
-  if (a.reason === "confirm") return `<button class="ai-chip paused" data-act="ai-setup" title="Automatic AI is paused because it would use a paid model">${AI_ICON} Automatic AI paused</button>`;
-  if (!a.on) return "";
-  const at = AUTO.next && AUTO.next.day === todayISO() ? new Date(AUTO.next.at) : null;
-  return `<button class="ai-chip" data-act="ai-setup" title="${autoErr ? esc(autoErr.msg || "") : "Automatic AI settings"}">${AI_ICON} ${aiWho() ? (autoBusy ? `${esc(aiWho())} is planning…` : autoErr ? `${esc(aiWho())} will try again soon` : at ? `Planned by ${esc(aiWho())}, ${at.toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"})}` : `Planned by ${esc(aiWho())}`) : autoBusy ? "AI updating…" : autoErr ? "AI will retry soon" : at ? `AI-enhanced, ${at.toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"})}` : "AI-enhanced"}</button>`;
+  if (a.reason === "confirm") return `<button class="ai-chip paused" data-act="ai-setup" title="Automatic AI is paused because it would use a paid model">Automatic AI paused: confirm</button>`;
+  return "";
 }
 // Confirmation before automatic AI may use a paid model.
 function autoPaidConfirmSheet(cfg, onDone){
   const P = AI_PROVIDERS[cfg.provider], name = aiModelName(cfg.provider, cfg.model);
   openSheet(`<form class="sheet">${head("Use a Paid Model Automatically?")}
     <div class="sheet-body">
-      <p class="ai-disclaimer" style="margin:0"><b>This costs money.</b> Automatic AI would use <b>${esc(name)}</b>, billed per use to your ${esc(P.label.split(" ")[0])} account. It runs in the background whenever your tasks change and a few times a day: up to 12 requests a day on a paid model. Each request is small (your task list, new announcements or a few tasks, no files), except the occasional practice test. Smaller extras (tidying new tasks, announcement alerts, exam study plans, a weekly review) only run while plenty of the day's requests are left, and each can be turned off under "What Automatic AI is doing".</p>
+      <p class="ai-disclaimer" style="margin:0"><b>This costs money.</b> Automatic AI would use <b>${esc(name)}</b>, billed per use to your ${esc(P.label.split(" ")[0])} account. It runs in the background whenever your tasks change and a few times a day: up to 12 requests a day on a paid model. Each request is small (your task list, new announcements or a few tasks, no files), except the occasional practice test. Smaller extras (tidying new tasks, announcement alerts, exam study plans, a weekly review) only run while plenty of the day's requests are left, and each can be turned off under Suggestions, Manage.</p>
       <p style="margin:0">To use it for free instead, add a Gemini key and choose "Free Gemini" for automatic AI.</p>
       <label class="mi-check"><input type="checkbox" id="apOk"> I understand automatic AI will use my paid ${esc(P.short)} account in the background and may cost money.</label>
     </div>
@@ -7138,6 +7146,94 @@ const AINS = (() => {
   const similar = (a, b) => { const x = words(a), y = words(b); if (!x.length || !y.length) return false; const hit = x.filter(w => y.includes(w)).length; return hit / Math.min(x.length, y.length) >= 0.7; };
   const CATS = ["exam", "deadline", "cancel", "room", "other"];
 
+  // ----- 0. Quality gates: nothing the model writes is shown unless it is specific to this student's data -----
+  // Generic advice that could be said to anyone ("stay organized", "don't forget", "make sure to...")
+  const FILLER = [
+    /\b(stay|keep|remain) (organi[sz]ed|on track|focused|motivated|positive|consistent|calm)\b/i,
+    /\btime[- ]management\b|\b(manage|use|plan) your time\b/i,
+    /\bdon'?t (forget|procrastinate|stress|worry|panic)\b/i,
+    /\b(you('ve| have) got this|keep up the (good|great) work|great job|good luck|stay strong|believe in yourself|do your best|you can do it)\b/i,
+    /\b(it'?s|it is) (important|essential|crucial|key|vital) (to|that)\b/i,
+    /\b(make|be) sure (to|you|that)\b/i,
+    /\b(prioriti[sz]e (your )?(tasks|work|assignments|deadlines)|break (it|tasks|things|them) (down|into)|plan ahead|(get|have) a head start|start early|be proactive|work smart|stay on top of|stay ahead)\b/i,
+    /\b(deadlines?|exams?) (are|is) (approaching|coming up|near|around the corner)\b|\bbusy (week|day)s? ahead\b|\b(lots?|a lot) of (work|things|tasks)\b/i,
+    /^(consider|try to|remember to|be careful|keep in mind)\b/i
+  ];
+  const STEP_GENERIC = /^(start|begin|continue|resume|work|get started|finish|complete|do)( working| on)?( on)? (it|this|that|the task|your task|your work|the assignment)\.?$/i;
+  const STOP = new Set("the and for this that with your you are its it's is to of on in a an task tasks work working do doing finish start complete now then also just".split(" "));
+  const generic = text => FILLER.some(r => r.test(String(text || "")));
+  const facts = text => String(text || "").toLowerCase().split(/[^a-z0-9]+/).filter(w => w && !STOP.has(w) && (w.length > 2 || /^\d+$/.test(w)));
+  // True when the text adds fewer than 2 facts beyond the task's own title
+  const restates = (text, title) => { const tw = new Set(facts(title)); return facts(text).filter(w => !tw.has(w)).length < 2; };
+  const WEEKDAY = /\b(mon|tues?|wed(nes)?|thu(rs)?|fri|sat(ur)?|sun)(day)?\b/i;
+  // Does the text point at something real: a number, a day, or a word from a real task or course title?
+  function cites(text, o){
+    const t = String(text || "");
+    if (/\d/.test(t) || WEEKDAY.test(t) || /\b(today|tonight|tomorrow|overdue|this week|next week)\b/i.test(t)) return true;
+    const have = new Set(facts(t).filter(w => w.length >= 4));
+    return [].concat((o && o.titles) || [], (o && o.courses) || []).some(x => facts(x).some(w => w.length >= 4 && have.has(w)));
+  }
+  // One gate for any short model-written line. Returns the cleaned text, or "" if it should not be shown.
+  function vet(text, o){
+    o = o || {};
+    const t = clean(text, 2000);
+    if (!t || t.length > (o.max || 160) || t.length < (o.min || 8)) return "";
+    if (generic(t) || (o.step && STEP_GENERIC.test(t))) return "";
+    if (o.title && restates(t, o.title)) return "";
+    if (o.needCite && !cites(t, o)) return "";
+    return t;
+  }
+  // "Thursday has 3 deadlines" must match the real count for that day; "5 tasks due" can't exceed what is actually open
+  const DOW = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+  function countClaimOk(text, ctx){
+    if (!ctx || !ctx.countOn) return true;
+    const m = /\b(\d+)\s+(deadlines?|tasks?|assignments?|exams?|quizzes|things|items)\b/i.exec(text); if (!m) return true;
+    const w = WEEKDAY.exec(text);
+    return w ? ctx.countOn(DOW.indexOf(w[0].toLowerCase().slice(0, 3))) === Number(m[1]) : Number(m[1]) <= (ctx.openCount || 0);
+  }
+  const SOURCE_CLAIM = /\b(instructions?|description|syllabus|rubric|announce(d|ment|ments)?|posted|notes? (say|state|mention))\b/i;
+  // Heads-up lines: real task (or none), cite the data, not already said by another surface, never more than 2
+  function cleanHeads(raw, back, ctx){
+    const out = [];
+    (Array.isArray(raw) ? raw : []).forEach(x => {
+      if (!x) return;
+      const ref = String(x.ref || "").trim(), id = ref ? back[ref] || "" : "";
+      if (ref && !id) return;                                           // an id the model made up
+      const text = vet(x.text, {max: 140, title: id && ctx.titleOf ? ctx.titleOf(id) : "", needCite: true, titles: ctx.titles, courses: ctx.courses});
+      if (!text) return;
+      // "the instructions say..." is only believable if there are instructions or announcements to read
+      if (SOURCE_CLAIM.test(text) && ctx.hasSource && !ctx.hasSource(id)) return;
+      if (!countClaimOk(text, ctx)) return;
+      if (out.some(o => similar(o.text, text)) || (ctx.visible || []).some(v => similar(v, text))) return;
+      out.push({id, text});
+    });
+    return out.slice(0, 2);
+  }
+  // The "why" and "first step" under Do This Next: dropped (the app's own reasons show instead) if generic or just the title again
+  function cleanPickText(why, step, title, ctx){
+    return {why: vet(why, {max: 150, title, needCite: true, titles: ctx && ctx.titles, courses: ctx && ctx.courses}), step: vet(step, {max: 80, min: 6, title, step: true})};
+  }
+  // An hours estimate must be believable next to the app's own estimate for that task
+  function hoursSane(h, local){
+    h = Number(h); if (!(h >= 0.25 && h <= 40)) return null;
+    local = Number(local); if (local > 0 && (h / local > 3.5 || h / local < 1 / 3.5)) return null;
+    return Math.round(h * 4) / 4;
+  }
+  // A weekly review is only worth showing if something happened or something is coming
+  function weeklyWorth(s){ return !!(s.slippedN || s.heavy.length || s.exams.length || s.done >= 3); }
+  // Counts in the recap must be real; the suggestion must name a real task or day
+  function vetWeekly(d, s, dayName){
+    d = d || {};
+    const recap = vet(d.recap, {max: 300, min: 20}), sug = vet(d.suggestion, {max: 170, min: 12});
+    if (!recap || !sug) return null;
+    const real = new Set([s.done, s.slippedN, s.nextTotal].concat(s.next.map(x => x.count), s.heavy.map(x => x.count), [s.exams.length]));
+    if ((recap.match(/\b\d+\b/g) || []).some(n => !real.has(Number(n)))) return null;
+    const titles = [].concat(s.slipped.map(x => x.title), s.doneTitles || [], s.exams.map(x => x.title), ...s.next.map(x => x.titles));
+    const sw = new Set(facts(sug));
+    if (!WEEKDAY.test(sug) && !titles.some(x => facts(x).some(w => w.length >= 4 && sw.has(w)))) return null;
+    return {recap, suggestion: sug};
+  }
+
   // ----- 1. Tidy new tasks -----
   const GENERIC = /^(hw|homework|assignment|assign|task|project|reading|read|lab|quiz|exam|test|midterm|final|essay|paper|report|work|stuff|todo|misc|study|review|ch|chapter|unit|module|week|due|submit|submission|ps|pset|worksheet)[\s\d.#:\-_]*$/i;
   function vague(title){
@@ -7153,11 +7249,11 @@ const AINS = (() => {
       .sort((a, b) => (b.created || 0) - (a.created || 0)).slice(0, max || 6);
   }
   // raw: model answer; back: ref -> task; cback: ref -> course id. Only checked, real, changing fields survive.
-  function cleanTriage(raw, back, cback, types){
+  function cleanTriage(raw, back, cback, types, cnames){
     const out = [], seen = new Set();
     (raw && Array.isArray(raw.items) ? raw.items : []).forEach(x => {
       const t = x && back[String(x.ref || "").trim()]; if (!t || seen.has(t.id)) return; seen.add(t.id);
-      const p = {}, title = clean(x.title, 120);
+      const p = {}, title = clean(x.title, 80);
       if (vague(t.title) && title.length >= 6 && title.toLowerCase() !== String(t.title).trim().toLowerCase() && !vague(title)
         && (String(t.title).match(/\d+/g) || []).every(n => title.includes(n))) p.title = title;
       const ty = (types || []).includes(x.type) ? x.type : "";
@@ -7166,9 +7262,12 @@ const AINS = (() => {
       }
       if (["low", "med", "high", "urgent"].includes(x.priority) && t.priority === "med" && x.priority !== "med") p.priority = x.priority;
       const h = Number(x.hours), fin = p.type || t.type;
-      if (!isNumv(t.hours) && !ms({type: fin}) && h >= 0.25 && h <= 40) p.hours = Math.round(h * 4) / 4;
+      if (!isNumv(t.hours) && !ms({type: fin}) && h >= 0.25 && h <= 20) p.hours = Math.round(h * 4) / 4;
       const cid = cback[String(x.courseRef || "").trim()];
-      if (!t.courseId && cid) p.courseId = cid;
+      // A course is only suggested when the task's own title or notes point at it (a code or a name word); a guess from nothing isn't offered
+      const evid = cid && (!cnames || (() => { const src = new Set(facts(t.title + " " + (t.notes || ""))); return facts(cnames[cid] || "").some(w => w.length >= 3 && src.has(w)); })());
+      if (!t.courseId && cid && evid) p.courseId = cid;
+      if (!p.title && !p.type && !p.priority && !p.courseId) delete p.hours;        // a bare hours guess just restates the app's own estimate
       if (Object.keys(p).length) out.push({id: t.id, sig: triSig(t), patch: p, why: clean(x.why, 120)});
     });
     return out;
@@ -7193,7 +7292,9 @@ const AINS = (() => {
     (raw && Array.isArray(raw.items) ? raw.items : []).forEach(x => {
       const n = x && back[String(x.ref || "").trim()]; if (!n || seen.has(n.key)) return; seen.add(n.key);
       const first = String(n.text || n.title || "").replace(/\s+/g, " ").split(/(?<=[.!?])\s/)[0];
-      const sum = clean(x.summary, 170) || clean(first, 170);
+      const dfmt = txt => ctx.fmt ? String(txt).replace(/\b\d{4}-\d{2}-\d{2}\b/g, m => isD(m) ? ctx.fmt(m) : m) : txt;
+      const sum0 = dfmt(String(x.summary || "")), first0 = dfmt(first);
+      const sum = vet(sum0, {max: 170, min: 12, title: n.title}) || (restates(first0, n.title) ? "" : vet(first0, {max: 170, min: 12}));
       const kw = annKeyword(n.title + ". " + n.text);
       let cat = CATS.includes(x.category) ? x.category : "other";
       const imp = !!x.important && (cat !== "other" || !!kw);
@@ -7206,6 +7307,8 @@ const AINS = (() => {
         if ((ctx.tasks || []).some(t => t.due === date && similar(t.title, title))) return;
         if ((ctx.events || []).some(e => e.date === date && similar(e.title, title))) return;
         if (props.some(q => q.date === date && similar(q.title, title))) return;
+        const src = new Set(facts(n.title + " " + n.text));
+        if (!facts(title).some(w => w.length >= 4 && src.has(w))) return;                    // must come from the announcement itself
         const type = (ctx.types || []).includes(p.type) ? p.type : "Assignment";
         props.push({kind: p.kind, title, date, time: isT(p.time) ? p.time : "", type, cid: n.cid || ""});
       });
@@ -7226,12 +7329,13 @@ const AINS = (() => {
     return Math.max(3, Math.min(14, h));
   }
   // Spread `total` hours over the days before the exam, never more than a day's free time or `maxPer` hours, never under `minPer`.
-  function examSlots({today, due, avail, total, maxPer, minPer}){
+  function examSlots({today, due, avail, total, maxPer, minPer, maxN}){
     maxPer = maxPer || 2; minPer = minPer || 0.5;
     let days = [];
     for (let d = add(today, 1); d < due; d = add(d, 1)) days.push({date: d, cap: Math.min(maxPer, Math.floor(Math.max(0, avail(d)) * 2) / 2)});
     const t0 = avail(today); if (t0 >= 1) days.unshift({date: today, cap: Math.min(maxPer, Math.floor(t0 * 2) / 2)});
     days = days.filter(d => d.cap >= minPer);
+    if (maxN && days.length > maxN) { const all = days; days = Array.from({length: maxN}, (_, i) => all[Math.round(i * (all.length - 1) / Math.max(1, maxN - 1))]); }   // a few real sessions beat a dozen 30-minute ones
     for (let guard = 0; guard < 20 && days.length; guard++) {
       const cap = days.reduce((s, d) => s + d.cap, 0), tot = Math.min(total, cap), k = tot / cap;
       days.forEach(d => { d.hours = Math.round(d.cap * k * 4) / 4; });
@@ -7242,13 +7346,15 @@ const AINS = (() => {
     }
     return days.filter(d => d.hours >= minPer).map(d => ({date: d.date, hours: d.hours}));
   }
-  const GEN_FOCUS = ["Learn the core ideas", "Practice problems and recall", "Mixed practice questions", "Teach it back and fix gaps", "Final review of weak spots"];
+  const GEN_FOCUS = ["Learn the core ideas", "Practice problems and recall", "Mixed practice questions", "Teach it back and fix gaps", "Timed practice under exam conditions", "Final review of weak spots"];
+  const GEN_STEPS = [["Skim the slides and notes, then close them and write what you remember", "Make a one-page list of the key terms and formulas"], ["Do practice problems without looking at your notes", "Check each answer and mark what you got wrong"], ["Work mixed practice questions from different topics", "Redo the ones you missed"], ["Explain each topic out loud as if teaching it", "Fix the gaps you find"], ["Do a past paper or practice test in the real time limit", "Mark it and list your three weakest topics"], ["Review only your weak spots and mistakes", "Write a short cheat sheet from memory and check it"]];
   function cleanCoach(raw, n){
     const arr = raw && Array.isArray(raw.sessions) ? raw.sessions : [], out = [];
     for (let i = 0; i < n; i++) {
-      const s = arr[i] || {}, steps = (Array.isArray(s.steps) ? s.steps : []).map(x => clean(x, 160)).filter(Boolean).slice(0, 4);
-      const g = i === n - 1 && n > 1 ? GEN_FOCUS[4] : GEN_FOCUS[Math.min(i, 3)];
-      out.push({focus: clean(s.focus, 70) || g, steps: steps.length ? steps : ["Review your notes and slides, then close them and write what you remember", "Do practice questions on the same material"]});
+      const s = arr[i] || {}, steps = (Array.isArray(s.steps) ? s.steps : []).map(x => clean(x, 160)).filter(x => x.length >= 15 && !generic(x) && !/^(re-?read|review|study|go over|look over)\b[^,.;:]{0,30}$/i.test(x)).slice(0, 4);
+      const gi = n > 1 && i === n - 1 ? 5 : Math.min(i, 4), g = GEN_FOCUS[gi];
+      let focus = clean(s.focus, 70); if (generic(focus) || out.some(o => o.focus.toLowerCase() === focus.toLowerCase())) focus = "";
+      out.push({focus: focus || g, steps: steps.length ? steps : GEN_STEPS[gi]});
     }
     return out;
   }
@@ -7322,19 +7428,22 @@ const AINS = (() => {
       text: g.risk === "out" ? `${g.name} can't reach the ${Math.round(g.pass)}% pass mark on paper: you're at ${Math.round(g.current)}% so far.`
         : `${g.name} is at ${Math.round(g.current)}% so far${g.need != null && g.need <= 100 ? `, and you'd need about ${Math.round(g.need)}% on the rest to reach the ${Math.round(g.pass)}% pass mark` : ""}.`}));
   }
-  return {vague, triSig, triageCandidates, cleanTriage, annCandidates, annKeyword, cleanAnn, examCandidates, examTotalHours, examSlots, cleanCoach, materialSuggest, reviewWeek, weeklyStats, weeklyFallback, overloadDays, stalledTasks, overdueMoves, gradeAlerts, similar, clean};
+  return {vague, triSig, triageCandidates, cleanTriage, annCandidates, annKeyword, cleanAnn, examCandidates, examTotalHours, examSlots, cleanCoach, materialSuggest, reviewWeek, weeklyStats, weeklyFallback, overloadDays, stalledTasks, overdueMoves, gradeAlerts, similar, clean, generic, restates, cites, vet, cleanHeads, cleanPickText, hoursSane, weeklyWorth, vetWeekly};
 })();
 /*AINS-END*/
 
 const AUTO_FEATS = [
-  {id: "triage", name: "Tidy New Tasks", ai: true, cap: 3, desc: "Suggests a clearer title, type, priority, hours and course for new or imported tasks that are vague or missing details."},
-  {id: "news", name: "Announcement Alerts", ai: true, cap: 4, desc: "Summarises school announcements, flags exam, deadline, cancellation and room changes, and offers tasks or events to add."},
-  {id: "coach", name: "Exam Study Plans", ai: true, cap: 2, desc: "For exams in the next 14 days, drafts day-by-day study sessions that fit your real free time."},
-  {id: "weekly", name: "Weekly Review", ai: true, cap: 1, desc: "On Sunday or Monday, recaps what got done and what slipped, and gives one suggestion for the week ahead."},
-  {id: "materials", name: "Study Material Tips", ai: false, desc: "When an exam is close and the course has files or notes but no flashcards, offers to make a deck. Nothing is made until you tap."},
-  {id: "nudge", name: "Crowded Days and Overdue Work", ai: false, desc: "Spots days with several deadlines, stalled tasks and overdue tasks, and offers to move work to a lighter day."},
-  {id: "grades", name: "Grade Risk Alerts", ai: false, desc: "Warns when a course is at risk of missing its pass mark, from the marks you've entered."}
+  {id: "plan", name: "Smarter Today's Plan", ai: true, core: true, desc: "Chooses Do This Next, estimates hours for tasks that have none, and flags a couple of things you could easily miss.", ex: "Heads up: Bio lab pre-quiz is due Wed, a day before the report.", fb: "Today still ranks your tasks by deadline, grade weight and effort."},
+  {id: "sessions", name: "Tune Study Sessions", ai: true, core: true, desc: "Tomorrow's exam-plan sessions get steps that target your weak flashcards, and practice sessions get a practice test.", ex: "20m: redo the 6 cards you missed on glycolysis.", fb: "Sessions keep the steps they were created with."},
+  {id: "triage", name: "Fix Vague Tasks", ai: true, cap: 3, desc: "Offers a clearer title, type, hours or course for new tasks that are vague or missing details.", ex: "\u201chw3\u201d \u2192 \u201cHomework 3: Chapter 3 problems\u201d.", fb: "Nothing is offered."},
+  {id: "news", name: "Important Announcements", ai: true, cap: 4, desc: "Flags exam, deadline, cancellation and room changes in your school announcements, and offers tasks or events to add when a date is stated.", ex: "Midterm moved to Fri Oct 17: add it to your calendar.", fb: "Plain keyword rules still flag the obvious changes."},
+  {id: "coach", name: "Exam Study Plans", ai: true, cap: 2, desc: "For an exam in the next 14 days with no study plan, drafts day-by-day sessions that fit your real free time.", ex: "Tue 1h: draw the Krebs cycle from memory; Thu 1.5h: practice problems.", fb: "The same days and hours with generic steps."},
+  {id: "weekly", name: "Weekly Review", ai: true, cap: 1, desc: "On Sunday or Monday, only if the week had something worth saying: what slipped, a heavy day ahead, an exam. Skipped on quiet weeks.", ex: "2 tasks slipped. Thursday has 3 deadlines, so do the Stats HW Tuesday.", fb: "A plain recap with the same numbers."},
+  {id: "materials", name: "Study Material Tips", ai: false, desc: "When an exam is close and the course has files or notes but no flashcards, offers to make a deck. Nothing is made until you tap.", ex: "Midterm is in 3 days and Bio has 4 files but no flashcards."},
+  {id: "nudge", name: "Crowded Days and Overdue Work", ai: false, desc: "Spots a day with 3 or more deadlines, a task that hasn't moved in 5 days, and overdue tasks, and offers to move work to a lighter day.", ex: "Thursday has 3 deadlines (Bio lab, Stats HW, Essay draft)."},
+  {id: "grades", name: "Grade Risk Alerts", ai: false, desc: "Warns when a course may miss its pass mark, from the marks you've entered.", ex: "Chemistry is at 52% so far; you'd need 68% on the rest to pass."}
 ];
+const autoPlanOn = () => AUTO_ON && autoFeatOn("plan");
 const autoFeatOn = id => !(((state.settings && state.settings.autoFeat) || {})[id] === false);
 const autoFeatUse = id => { AUTO.feat = AUTO.feat || {}; const f = AUTO.feat[id] = AUTO.feat[id] || {}, d = todayISO(); if (f.day !== d) { f.day = d; f.n = 0; } return f; };
 const TRIAGE_SCHEMA = {type: "OBJECT", properties: {items: {type: "ARRAY", items: {type: "OBJECT", properties: {
@@ -7363,7 +7472,7 @@ async function autoTriage(){
   try {
     const r = await aiCall({task: "triage", auto: true, fast: true, maxTokens: 2500, temperature: 0.1, schema: TRIAGE_SCHEMA, parts: [{text: `Today is ${dayNameOf(today)} ${today}.\nCourses:\n${cs.map((c, i) => `c${i + 1} | ${courseLabel(c)} | ${c.name}`).join("\n") || "none"}\nTasks:\n${cands.map((t, i) => `t${i + 1} | ${t.title} | type ${t.type} | priority ${t.priority} | ${t.courseId && courseOf(t.courseId) ? "course " + courseLabel(courseOf(t.courseId)) : "no course"} | ${t.due ? "due " + t.due : "no due date"} | ${isNum(t.hours) ? "estimate " + t.hours + "h" : "no estimate"}${t.weight ? " | worth " + t.weight + "%" : ""}${t.notes ? ` | notes: "${String(t.notes).replace(/\s+/g, " ").slice(0, 200)}"` : ""}`).join("\n")}`}],
       system: "You quietly tidy a student's new tasks. For each task: if the title is vague (like 'hw3' or 'reading'), write a clearer title that keeps its numbers and uses only facts given (course, notes); otherwise leave title empty. Pick the type (Assignment, Exam, Quiz, Reading, Project, Lab, Study, Other) from the title and notes. Suggest a priority only when the deadline, weight or wording clearly warrants it. Give total hours only when there's no estimate. Give courseRef only when the task has no course and one clearly fits. Never invent facts. Return JSON only."});
-    const res = AINS.cleanTriage(r.data, back, cback, TYPES);
+    const res = AINS.cleanTriage(r.data, back, cback, TYPES, Object.fromEntries(cs.map(c => [c.id, c.code + " " + c.name])));
     mark();
     res.forEach(x => insAdd({id: "tri:" + x.id, kind: "triage", tid: x.id, sig: x.sig, patch: x.patch, why: x.why}));
   } catch(e) { if (!autoTransient(e)) mark(); throw e; }
@@ -7379,7 +7488,7 @@ async function autoNews(){
   try {
     const r = await aiCall({task: "annintel", auto: true, fast: true, maxTokens: 4000, temperature: 0.1, schema: ANNINTEL_SCHEMA, parts: [{text: `Today is ${dayNameOf(today)} ${today}.\n${cands.map((n, i) => `a${i + 1} | ${n.course} | posted ${String(n.date || "").slice(0, 10)} | ${n.title}\n${String(n.text || "").replace(/\s+/g, " ").slice(0, 900)}`).join("\n\n")}`}],
       system: "You read a student's class announcements and help them not miss anything. For each: write a one-sentence summary; set important true only if it announces or changes an exam or quiz date, a deadline, a cancellation, or a room or time change (category exam, deadline, cancel or room; otherwise other). List items only for things the announcement clearly states with a specific date: a task to do (an assignment due) or an event to attend (a make-up class, a review session, an exam). Work out dates from today's date when the text says things like 'next Friday'. Never guess a date that isn't stated. Return JSON only."});
-    const res = AINS.cleanAnn(r.data, back, {today, tasks: tasksArr(), events: eventsArr(), types: TYPES});
+    const res = AINS.cleanAnn(r.data, back, {today, tasks: tasksArr(), events: eventsArr(), types: TYPES, fmt: fmtDate});
     const got = new Set();
     res.forEach(x => {
       const n = cands.find(c => c.key === x.key); got.add(x.key);
@@ -7406,7 +7515,7 @@ async function autoCoach(){
   if (!ex) return;
   const done = AUTO.coach = AUTO.coach || {}, sig = coachSig(ex);
   const avail = d => { const i = dayDiff(today, d); return F.day && F.day[i] != null ? F.day[i] : dailyHours(); };
-  const slots = AINS.examSlots({today, due: ex.due, avail, total: AINS.examTotalHours(ex), maxPer: 2, minPer: 0.5});
+  const slots = AINS.examSlots({today, due: ex.due, avail, total: AINS.examTotalHours(ex), maxPer: 2, minPer: 0.75, maxN: 6});
   if (slots.length < 2) { done[ex.id] = sig; return; }               // no real free time to plan around: nothing to offer
   const put = (plan, fb) => insAdd({id: "coach:" + ex.id, kind: "coach", eid: ex.id, sig, fb: !!fb, sessions: slots.map((s, i) => Object.assign({}, s, plan[i]))});
   const c = courseOf(ex.courseId), decks = decksArr().filter(d => d.courseId && d.courseId === ex.courseId);
@@ -7425,13 +7534,12 @@ async function autoWeekly(){
   const today = todayISO(), ws = AINS.reviewWeek(today);
   if (!ws || AUTO.wk === ws) return;
   const s = AINS.weeklyStats({tasks: allTasks(), today, weekStart: ws});
-  if (!s.done && !s.slippedN && !s.nextTotal) { AUTO.wk = ws; return; }
+  if (!AINS.weeklyWorth(s)) { AUTO.wk = ws; return; }              // a quiet week with nothing coming: say nothing
   let out = null;
   try {
     const r = await aiCall({task: "weekly", auto: true, fast: true, maxTokens: 1200, temperature: 0.4, schema: WEEKLY_SCHEMA, parts: [{text: `Last week (${ws} to ${addDays(ws, 6)}): finished ${s.done}${s.doneTitles.length ? ": " + s.doneTitles.join("; ") : ""}. Slipped (due last week, still open): ${s.slipped.map(x => `${x.title} (due ${x.due})`).join("; ") || "none"}.\nNext week: ${s.next.map(d => `${dayNameOf(d.date)} ${d.count} due (${d.titles.join("; ")})`).join("; ") || "nothing due"}.${s.exams.length ? " Exams: " + s.exams.map(x => `${x.title} on ${dayNameOf(x.date)}`).join("; ") + "." : ""}`}],
-      system: "You write a student's short weekly review inside their planner. Two honest, kind sentences on last week using only the numbers given, then one concrete suggestion for the week ahead (name a task or day). Never invent tasks. Return JSON only."});
-    const d = r.data || {}, recap = AINS.clean(d.recap, 300), suggestion = AINS.clean(d.suggestion, 170);
-    if (recap && suggestion) out = {recap, suggestion};
+      system: "You write a student's short weekly review inside their planner. Two honest, kind sentences on last week using only the numbers given (never any other number), then one concrete suggestion for the week ahead that names a specific task from the lists or a weekday, with the reason (for example 'Do the Stats HW on Tuesday: Thursday already has 3 deadlines'). Never general advice, never invent tasks. Return JSON only."});
+    out = AINS.vetWeekly(r.data, s, dayNameOf);                     // real counts, names a real task or day, not generic
   } catch(e) { if (autoTransient(e)) throw e; }
   AUTO.wk = ws;
   const fb = !out; if (!out) out = AINS.weeklyFallback(s, dayNameOf);
@@ -7463,13 +7571,13 @@ function autoLiveInsights(){
         list.push({id: `ov:${o.date}:${o.count}:${o.move ? o.move.id : ""}`, kind: "overload", text: `${dayNameOf(o.date)} has ${o.count} deadlines (${o.titles.slice(0, 3).join(", ")}${o.count > 3 ? ", …" : ""}).`,
           move: o.move, btn: o.move ? `${o.move.lms ? "Start" : "Move"} “${o.move.title.slice(0, 28)}” ${o.move.lms ? "on" : "to"} ${dayNameOf(o.move.to)}` : ""});
       });
-      AINS.stalledTasks({tasks, today, nowMs: Date.now(), days: 5}).forEach(s => list.push({id: `st:${s.id}:${Math.floor(s.idle / 3)}`, kind: "stalled", tid: s.id, act: "pomo-task", text: `“${s.title}” hasn't moved in ${s.idle} days and is ${s.dueIn < 0 ? "overdue" : s.dueIn === 0 ? "due today" : `due in ${s.dueIn} day${s.dueIn === 1 ? "" : "s"}`}.`, btn: "Start a Focus"}));
-      AINS.overdueMoves({tasks, today, max: 3}).forEach(o => list.push({id: `od:${o.id}:${today}`, kind: "overdue", tid: o.id, to: o.to, text: `“${o.title}” is ${o.late} day${o.late === 1 ? "" : "s"} overdue.`, btn: `Move to ${dayNameOf(o.to)}`}));
+      AINS.stalledTasks({tasks, today, nowMs: Date.now(), days: 5}).slice(0, 1).forEach(s => list.push({id: `st:${s.id}`, kind: "stalled", tid: s.id, act: "pomo-task", text: `“${s.title}” hasn't moved in ${s.idle} days and is ${s.dueIn < 0 ? "overdue" : s.dueIn === 0 ? "due today" : `due in ${s.dueIn} day${s.dueIn === 1 ? "" : "s"}`}.`, btn: "Start a Focus"}));
+      AINS.overdueMoves({tasks, today, max: 2}).forEach(o => list.push({id: `od:${o.id}`, kind: "overdue", tid: o.id, to: o.to, text: `“${o.title}” is ${o.late} day${o.late === 1 ? "" : "s"} overdue.`, btn: `Move to ${dayNameOf(o.to)}`}));
     }
     if (autoFeatOn("materials")) {
       stamp("materials");
       const mat = cid => Object.values(state.files || {}).filter(f => f.courseId === cid && f.kind === "file" && (f.revs || []).length).length + Object.values(state.notes || {}).filter(n => n.courseId === cid && !n.archived && String(n.text || "").length > 40).length;
-      AINS.materialSuggest({exams: tasks, today, materialOf: mat, hasDeck: cid => decksArr().some(d => d.courseId === cid && (d.cards || []).length >= 5), maxDays: 10}).slice(0, 2).forEach(m => {
+      AINS.materialSuggest({exams: tasks, today, materialOf: mat, hasDeck: cid => decksArr().some(d => d.courseId === cid && (d.cards || []).length >= 5), maxDays: 10}).slice(0, 1).forEach(m => {
         const ex = state.tasks[m.id], c = courseOf(m.cid);
         list.push({id: `mat:${m.id}`, kind: "material", tid: m.id, act: "fc-ai", text: `${ex.title} is ${m.days === 0 ? "today" : `in ${m.days} day${m.days === 1 ? "" : "s"}`} and ${c ? courseLabel(c) : "this course"} has ${m.n} file${m.n === 1 ? "" : "s"} or note${m.n === 1 ? "" : "s"} but no flashcards.`, btn: "Make Flashcards"});
       });
@@ -7497,7 +7605,9 @@ function autoStoredInsights(){
 function insightsAll(){
   if (!AUTO_ON) return [];
   const dis = AUTO.dis || {}, order = {attn: 0, annp: 1, coach: 2, weekly: 3, triage: 6};
-  return autoStoredInsights().concat(autoLiveInsights()).filter(e => !dis[e.id]).sort((a, b) => (order[a.kind] ?? 4) - (order[b.kind] ?? 4));
+  const cap = {triage: 2, coach: 1, annp: 2, attn: 2}, used = {};
+  return autoStoredInsights().concat(autoLiveInsights()).filter(e => !dis[e.id] && !insSnoozed(e.kind)).sort((a, b) => (order[a.kind] ?? 4) - (order[b.kind] ?? 4))
+    .filter(e => cap[e.kind] == null || (used[e.kind] = (used[e.kind] || 0) + 1) <= cap[e.kind]).slice(0, 6);       // never a wall of suggestions: a few per kind, six at most
 }
 function insText(e){
   const c = e.kind;
@@ -7508,18 +7618,44 @@ function insText(e){
   if (c === "weekly") return {h: "Your week in review", t: `${e.recap} ${e.suggestion}`, btn: ""};
   return {h: "", t: e.text, btn: e.btn};
 }
+const INS_AI = {attn: 1, annp: 1, coach: 1, triage: 1, weekly: 1};
 const INS_LABEL = {attn: "Needs attention", overload: "Crowded day", stalled: "Stalled", overdue: "Overdue", material: "Study tip", grade: "Grade check", triage: "Tidy up", annp: "From announcement", coach: "Exam plan", weekly: "Weekly review"};
 function insightsHtml(){
   if (!AUTO_ON) return "";
   let list; try { list = insightsAll(); } catch(e) { console.warn(e); return ""; }
   if (!list.length) return "";
   const more = !!ui.insMore, shown = more ? list : list.slice(0, 3);
-  return `<div class="auto-ins" role="region" aria-label="Automatic AI suggestions"><div class="ai-top"><span class="ph-label">${AI_ICON} ${aiWho() ? esc(aiWho()) + " Suggests" : "Suggestions"} <span class="auto-badge">Auto</span></span><span class="spacer"></span><button class="link-btn" data-act="auto-panel">What's Automatic AI doing?</button></div>
-    <ul>${shown.map(e => { const x = insText(e); return `<li data-kind="${esc(e.kind)}"><div class="ins-body"><span class="ins-k">${esc(INS_LABEL[e.kind] || "")}</span>${x.h ? `<b>${esc(x.h)}</b> ` : ""}<span>${esc(x.t)}</span>${x.more || ""}</div><div class="ins-acts">${x.btn ? (e.act ? `<button class="btn small" data-act="${esc(e.act)}" data-id="${esc(e.tid || "")}">${esc(x.btn)}</button>` : `<button class="btn small" data-act="ins-do" data-id="${esc(e.id)}">${esc(x.btn)}</button>`) : ""}<button class="icon-btn sm ph-x" data-act="ins-x" data-id="${esc(e.id)}" aria-label="Dismiss">${CLOSE}</button></div></li>`; }).join("")}</ul>
+  return `<div class="auto-ins" role="region" aria-label="Automatic AI suggestions"><div class="ai-top"><span class="ph-label">Suggestions</span><button class="link-btn" data-act="auto-panel" style="margin-left:auto">Manage</button></div>
+    <ul>${shown.map(e => { const x = insText(e); return `<li data-kind="${esc(e.kind)}"><div class="ins-body"><span class="ins-k">${esc(INS_LABEL[e.kind] || "")}${INS_AI[e.kind] && !e.fb ? " · AI draft" : ""}</span>${x.h ? `<b>${esc(x.h)}</b> ` : ""}<span>${esc(x.t)}</span>${x.more || ""}</div><div class="ins-acts">${x.btn ? (e.act ? `<button class="btn small" data-act="${esc(e.act)}" data-id="${esc(e.tid || "")}">${esc(x.btn)}</button>` : `<button class="btn small" data-act="ins-do" data-id="${esc(e.id)}">${esc(x.btn)}</button>`) : ""}<button class="icon-btn sm ph-x" data-act="ins-x" data-id="${esc(e.id)}" aria-label="Dismiss">${CLOSE}</button></div></li>`; }).join("")}</ul>
     ${list.length > 3 ? `<button class="link-btn" data-act="ins-more">${more ? "Show Fewer" : `Show ${list.length - 3} More`}</button>` : ""}</div>`;
+}
+// Which Automatic AI feature each kind of suggestion belongs to (for "Stop these" and the settings list)
+const INS_FEAT = {triage: "triage", annp: "news", attn: "news", coach: "coach", weekly: "weekly", material: "materials", overload: "nudge", stalled: "nudge", overdue: "nudge", grade: "grades"};
+const insSnoozed = kind => !!((AUTO.snz || {})[kind] > Date.now());
+function autoFeatSet(id, on){
+  const m = Object.assign({}, (state.settings && state.settings.autoFeat) || {}); if (on) delete m[id]; else m[id] = false;
+  state.settings = Object.assign({}, state.settings, {autoFeat: m}); saveSettings();
+  if (on) Object.keys(INS_FEAT).filter(k => INS_FEAT[k] === id).forEach(k => { if (AUTO.snz) delete AUTO.snz[k]; if (AUTO.dc) delete AUTO.dc[k]; });
+  autoSave(); INS_MEMO.k = ""; scheduleRender(); autoKick(1500);
+}
+// Dismissing: remembered (never re-shown), undoable, and three dismissals of one kind within a week pause that kind for a week
+function insReject(e){
+  const wasDc = ((AUTO.dc || {})[e.kind] || []).slice(), wasDis = (AUTO.dis || {})[e.id];
+  insDismiss(e.id);
+  AUTO.dc = AUTO.dc || {}; const now = Date.now(), a = (AUTO.dc[e.kind] || []).filter(t => now - t < 7 * 864e5).concat([now]);
+  let paused = false; AUTO.dc[e.kind] = a;
+  if (a.length >= 3) { AUTO.snz = AUTO.snz || {}; AUTO.snz[e.kind] = now + 7 * 864e5; AUTO.dc[e.kind] = []; paused = true; }
+  autoSave();
+  const f = AUTO_FEATS.find(x => x.id === INS_FEAT[e.kind]), label = INS_LABEL[e.kind] || "these";
+  toast(paused ? `Hiding "${label}" suggestions for a week` : "Dismissed", () => {
+    if (wasDis) AUTO.dis[e.id] = wasDis; else delete (AUTO.dis || {})[e.id];
+    AUTO.dc[e.kind] = wasDc; if (paused && AUTO.snz) delete AUTO.snz[e.kind];
+    autoSave(); INS_MEMO.k = ""; scheduleRender();
+  }, f ? {label: `Turn off ${f.name}`.slice(0, 34), fn: () => autoFeatSet(f.id, false)} : null);
 }
 function insDismiss(id){ AUTO.dis = AUTO.dis || {}; AUTO.dis[id] = Date.now(); Object.keys(AUTO.dis).forEach(k => { if (Date.now() - AUTO.dis[k] > 45 * 864e5) delete AUTO.dis[k]; }); autoSave(); }
 function insDo(e){
+  if (AUTO.dc) delete AUTO.dc[e.kind];                  // acting on one means the kind is useful: reset the dismiss streak
   if (e.kind === "triage") {
     const t = state.tasks[e.tid]; if (!t) return;
     const n = Object.assign(clone(t), e.patch);
@@ -7550,7 +7686,7 @@ function insDo(e){
 hook("act", (act, el) => {
   switch (act) {
     case "ins-do": { const e = insightsAll().find(x => x.id === el.dataset.id); if (e) insDo(e); return true; }
-    case "ins-x": insDismiss(el.dataset.id); scheduleRender(); return true;
+    case "ins-x": { const e = insightsAll().find(x => x.id === el.dataset.id); if (e) insReject(e); else insDismiss(el.dataset.id); INS_MEMO.k = ""; scheduleRender(); return true; }
     case "ins-more": ui.insMore = !ui.insMore; render(); return true;
     case "auto-panel": autoPanelSheet(); return true;
   }
@@ -7560,16 +7696,16 @@ const agoText = ms => { const m = Math.round((Date.now() - ms) / 60000); return 
 function autoPanelSheet(){
   const a = autoState(), lim = a.paid ? 12 : 40; autoBudget(a.paid); const used = AUTO.n || 0;
   const row = f => { const u = (AUTO.feat || {})[f.id] || {}, on = autoFeatOn(f.id);
-    const last = f.ai ? (u.at ? `Last ran ${agoText(u.at)}${u.day === todayISO() ? `, ${u.n || 0} of ${f.cap} runs today` : ""}${u.err ? `. Last problem: ${u.err}` : ""}` : "Hasn't run yet") : (u.at ? `Last checked ${agoText(u.at)}, uses no AI requests` : "Checks live, uses no AI requests");
-    return `<div class="ap-row"><label class="mi-check"><input type="checkbox" data-feat="${f.id}" ${on ? "checked" : ""}> <b>${esc(f.name)}</b> <span class="auto-badge">${f.ai ? "Uses AI" : "No AI"}</span></label><p class="mini" style="margin:2px 0 0 26px">${esc(f.desc)}</p><p class="mini ap-last" style="margin:2px 0 0 26px">${esc(on ? last : "Turned off")}</p></div>`; };
+    const snz = Object.keys(INS_FEAT).filter(k => INS_FEAT[k] === f.id && insSnoozed(k)).map(k => AUTO.snz[k]).sort()[0];
+    const last = snz ? `Paused until ${fmtShort(iso(new Date(snz)))} because you dismissed several. Turn it off and on to resume.` : f.core ? (u.at || (f.id === "plan" && AUTO.planAt) ? `Last ran ${agoText(u.at || AUTO.planAt)}` : "Runs when your tasks change") : f.ai ? (u.at ? `Last ran ${agoText(u.at)}${u.day === todayISO() ? `, ${u.n || 0} of ${f.cap} runs today` : ""}${u.err ? `. Last problem: ${u.err}` : ""}` : "Hasn't run yet") : (u.at ? `Last checked ${agoText(u.at)}, uses no AI requests` : "Checks live, uses no AI requests");
+    return `<div class="ap-row"><label class="mi-check"><input type="checkbox" data-feat="${f.id}" ${on ? "checked" : ""}> <b>${esc(f.name)}</b> <span class="auto-badge">${f.ai ? "Uses AI" : "No AI"}</span></label><p class="mini" style="margin:2px 0 0 26px">${esc(f.desc)}</p><p class="mini" style="margin:2px 0 0 26px"><i>Example: ${esc(f.ex)}</i>${f.fb ? ` Without AI: ${esc(f.fb)}` : ""}</p><p class="mini ap-last" style="margin:2px 0 0 26px">${esc(on ? last : "Turned off")}</p></div>`; };
   openSheet(`<form class="sheet">${head("What Automatic AI Is Doing")}
     <div class="sheet-body">
-      <p class="mini" style="margin:0">${a.on ? `Automatic AI is on${a.paid ? " (paid model)" : " (free)"}. ${used} of ${lim} automatic requests used today. Every job runs quietly, remembers what it already looked at, and never changes your data without a tap.` : a.reason === "confirm" ? "Automatic AI is paused until you confirm paid use." : "Automatic AI is off, so none of these run."} <button type="button" class="link-btn" data-act="ai-setup">AI Settings</button></p>
+      <p class="mini" style="margin:0">${a.on ? `Automatic AI is on${a.paid ? " (paid model)" : " (free)"}. ${used} of ${lim} automatic requests used today. Suggestions appear on Today only when they cite your own tasks and dates, each one is undoable, and nothing changes without a tap. Dismiss three of one kind and it pauses for a week.` : a.reason === "confirm" ? "Automatic AI is paused until you confirm paid use." : "Automatic AI is off, so none of these run."} <button type="button" class="link-btn" data-act="ai-setup">AI Settings</button></p>
       ${AUTO_FEATS.map(row).join("")}
     </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></form>`);
   $$("[data-feat]", dlg).forEach(i => i.addEventListener("change", () => {
-    const m = Object.assign({}, (state.settings && state.settings.autoFeat) || {}); if (i.checked) delete m[i.dataset.feat]; else m[i.dataset.feat] = false;
-    state.settings = Object.assign({}, state.settings, {autoFeat: m}); saveSettings(); INS_MEMO.k = ""; scheduleRender(); autoKick(1500);
+    autoFeatSet(i.dataset.feat, i.checked);
     const p = i.closest(".ap-row").querySelector(".ap-last"); if (p) p.textContent = i.checked ? "Turned on" : "Turned off";
   }));
   if (!dlg.open) dlg.showModal();
@@ -8677,7 +8813,7 @@ const AI_ACTS = {
   "qa-rm": el => { if (ui.qa) { ui.qa.items.splice(Number(el.dataset.i), 1); if (!ui.qa.items.length) ui.qa = null; render(); } },
   "tf-est": el => tfEstimate(el),
   "nu-skip": el => { if (ui.skipNext) ui.skipNext.ids.push(el.dataset.id); nufbAdd("skip", state.tasks[el.dataset.id]); render(); },
-  "heads-hide": el => { let h = {}; try { h = JSON.parse(localStorage.getItem(HEADS_HIDE) || "{}") || {}; } catch(e) {} const d = todayISO(); Object.keys(h).forEach(k => { if (!k.startsWith(d)) delete h[k]; }); h[d + "|" + el.dataset.id] = 1; try { localStorage.setItem(HEADS_HIDE, JSON.stringify(h)); } catch(e) {} render(); },
+  "heads-hide": el => { let h = {}; try { h = JSON.parse(localStorage.getItem(HEADS_HIDE) || "{}") || {}; } catch(e) {} Object.keys(h).forEach(k => { if (Date.now() - h[k] > 4 * 864e5 || h[k] === 1) delete h[k]; }); h[el.dataset.id] = Date.now(); try { localStorage.setItem(HEADS_HIDE, JSON.stringify(h)); } catch(e) {} render(); },
   "ai-explain": el => runExplain(el.dataset.key, el.dataset.given),
   "fc-weak": el => weakSheet(el.dataset.id ? [el.dataset.id] : decksArr().filter(d => ui.filter === "all" || d.courseId === ui.filter).map(d => d.id)),
   "fc-case": el => caseFromDeck(el.dataset.id),
@@ -8796,7 +8932,7 @@ function progress(t){
   if (MILESTONE(t.type)) {
     const ps = t.status === "done" ? [] : allTasks().filter(x => x.prepFor === t.id);
     const pm = ps.reduce((s, x) => s + (Number(x.hours) || 0), 0), dm = ps.filter(x => x.status === "done").reduce((s, x) => s + (Number(x.hours) || 0), 0);
-    const ai = AUTO_ON && t.status !== "done" && t.aiPrep && autoFresh(t.aiPrep, 4) ? t.aiPrep : null;
+    const ai = autoPlanOn() && t.status !== "done" && t.aiPrep && autoFresh(t.aiPrep, 4) ? t.aiPrep : null;
     return {total, done, frac: t.status === "done" ? 1 : ai ? ai.pct / 100 : Math.max((Number(t.pct) || 0) / 100, pm ? dm / pm : 0), prep: true, plan: ps.length, ai};
   }
   return {total, done, frac: total ? done / total : (t.status === "done" ? 1 : (Number(t.pct) || 0) / 100)};
@@ -9096,7 +9232,7 @@ const weightOf = t => hasWeight(t) ? Number(t.weight) : t.prepFor && state.tasks
    - Focus time already done today comes off today's time. */
 const lmsOf = t => (t && (t.bs || t.cv || t.bb)) || null;
 // Difficulty: yours when you've set Easy or Hard; otherwise the automatic AI's read of the task (when it's on)
-const diffOf = t => t.difficulty && t.difficulty !== "med" ? t.difficulty : AUTO_ON && t.aiDiff && autoFresh(t.aiDiff, 14) ? t.aiDiff.level : (t.difficulty || "med");
+const diffOf = t => t.difficulty && t.difficulty !== "med" ? t.difficulty : autoPlanOn() && t.aiDiff && autoFresh(t.aiDiff, 14) ? t.aiDiff.level : (t.difficulty || "med");
 // Late policy: yours if you set one, otherwise what the platform's submission window says ("penalty" = still accepted for a while)
 function lateOf(t){
   if (t.late && t.late !== "unknown") return t.late;
@@ -9146,13 +9282,13 @@ function effortOf(t){
   if (MILESTONE(t.type)) return d.h * dm * Math.min(2, Math.sqrt(weightOf(t) / d.w));
   // Your own hours estimate, adjusted by how long your estimates usually turn out to take; otherwise learned from your past tasks.
   if (isNum(t.hours) && Number(t.hours) > 0) return Number(t.hours) * (t.prepFor ? 1 : learned().ratio);
-  return AUTO_ON && t.aiHours && t.aiHours.h > 0 ? t.aiHours.h : localEstimate(t).hours;
+  return autoPlanOn() && t.aiHours && t.aiHours.h > 0 ? t.aiHours.h : localEstimate(t).hours;
 }
 function remainingOf(t){
   if (t.status === "done") return 0;
   if (MILESTONE(t.type) && planSessions(t.id).length) return 0;          // the study plan's sessions carry the work
   const e = effortOf(t), p = progress(t).frac, fm = (Number(t.focusMin) || 0) / 60;
-  if (AUTO_ON && !MILESTONE(t.type) && t.aiLeft && t.aiLeft.sig === leftSig(t)) return Math.min(t.aiLeft.h, e * 1.5);   // AI's read of the work left
+  if (autoPlanOn() && !MILESTONE(t.type) && t.aiLeft && t.aiLeft.sig === leftSig(t)) return Math.min(t.aiLeft.h, e * 1.5);   // AI's read of the work left
   if (p === 0 && fm > 0 && !MILESTONE(t.type)) return Math.max(e * 0.15, e - fm);   // time already focused counts when there's no checklist or progress set
   return e * (1 - p);
 }
@@ -9388,7 +9524,7 @@ function focusHtml(){
       </div>` : ""}
       <div class="plan-how" id="plan-how" role="region" aria-label="How This Is Ranked"${howOpen ? "" : " hidden"}>
         <p><b>Deadlines come first.</b> Each task's score starts from how close its exact due time is: something due tomorrow counts about five times as much as something due in a week, and dozens of times more than something due in a month. Anything due in the next week always stays above work due 10 or more days after it. The one exception is a big task that needs most of your study time before its deadline (or more than you have), which climbs early so it gets started in time. <b>Grade weight</b> then fine-tunes the order between similar deadlines (a 40% project counts about twice a 1% reading, not more). After that it adjusts for your priority, the late-work policy, tasks already in progress or nearly done, small tasks due soon, hard tasks, work left alone for days, a full placement or class day coming up, and tasks that others depend on.</p>
-        <p>${aiWho() ? `${esc(aiWho())}, your study companion, uses this ranking to choose Do This Next and the ideas it offers you.${AUTO_ON ? ` With automatic AI on, ${esc(aiWho())} also does the AI work for you and signs it with its face.` : ""} ` : ""}Today's time is split in score order. Each task gets its fair share of the days left before it's due, more if it can't fit otherwise. Hard tasks are front-loaded, and exam studying is spread over the week before. Work left comes from your hours estimate and progress, minus time you've already spent in focus sessions. When a task has no estimate, Studyboard uses how long your past tasks of that type actually took, and if you usually take longer than you estimate, it allows for that. <b>Do This Next</b> picks from the top of the ranking for right now: something due later today first, what you were just working on, hard tasks in the morning, and shorter ones late at night.${AUTO_ON ? " <b>Automatic AI is on</b>, so the AI also reads your whole list a few times a day: it picks Do This Next and the alternatives, estimates hours for tasks you didn't estimate (using how long your past tasks took), estimates the work left on started tasks from your focus time and progress, judges how ready you are for each exam from your study sessions, flashcards and quizzes, tunes the next study sessions to what you keep missing, and prepares the practice test for practice days. Marked with ✦." : ""} For exams and quizzes it comes from difficulty, grade weight and how prepared you are. It also reads your Schedule (long class, lab and placement days leave less study time, and it suggests something short when a class is coming up), takes off the focus time you've already done today, and uses what school sync knows: when late submissions close, how many points each item is worth when the gradebook isn't weighted, and word or page counts in the instructions for time estimates. Exams and quizzes are never Do This Next; their study sessions are.${AUTO_ON ? " The AI also reads your instructions, recent announcements, your schedule and your course standings, and lists anything easy to miss under Heads Up." : ""} Set your usual study hours per day in Settings.</p>
+        <p>${aiWho() ? `${esc(aiWho())}, your study companion, uses this ranking to choose Do This Next and the ideas it offers you. ` : ""}Today's time is split in score order. Each task gets its fair share of the days left before it's due, more if it can't fit otherwise. Hard tasks are front-loaded, and exam studying is spread over the week before. Work left comes from your hours estimate and progress, minus time you've already spent in focus sessions. When a task has no estimate, Studyboard uses how long your past tasks of that type actually took, and if you usually take longer than you estimate, it allows for that. <b>Do This Next</b> picks from the top of the ranking for right now: something due later today first, what you were just working on, hard tasks in the morning, and shorter ones late at night.${AUTO_ON ? " <b>Automatic AI is on</b>, so the AI also reads your whole list a few times a day: it picks Do This Next and the alternatives, estimates hours for tasks you didn't estimate (using how long your past tasks took), estimates the work left on started tasks from your focus time and progress, judges how ready you are for each exam from your study sessions, flashcards and quizzes, tunes the next study sessions to what you keep missing, and prepares the practice test for practice days. Each part can be turned off under Suggestions, Manage." : ""} For exams and quizzes it comes from difficulty, grade weight and how prepared you are. It also reads your Schedule (long class, lab and placement days leave less study time, and it suggests something short when a class is coming up), takes off the focus time you've already done today, and uses what school sync knows: when late submissions close, how many points each item is worth when the gradebook isn't weighted, and word or page counts in the instructions for time estimates. Exams and quizzes are never Do This Next; their study sessions are.${AUTO_ON ? " The AI also reads your instructions, recent announcements, your schedule and your course standings, and lists anything easy to miss under Heads Up." : ""} Set your usual study hours per day in Settings.</p>
       <${"!--"}plan-how-end--></div>` : ""}
   </section>`;
 }
@@ -34366,7 +34502,7 @@ window.SBEST = SBEST;
     const cur = groups.find(g => g.k === tab);
     const tid = k => "annTab_" + String(k).replace(/[^\w-]/g, "_");
     const row = (n, chip) => { const un = isNew(n, rs), when = n.date && !isNaN(Date.parse(n.date)) ? rel(n.date) : "";
-      const ai = window.SBANN.info(n.key), AB = ai && (ai.imp || ai.sum) ? `<p class="ann-ai">${ai.imp ? `<span class="ann-attn">Needs attention</span> ` : ""}${ai.sum ? esc(ai.sum) : ""} <span class="auto-badge">Auto</span></p>` : "";
+      const ai = window.SBANN.info(n.key), AB = ai && ai.imp ? `<p class="ann-ai"><span class="ann-attn">Needs attention</span> ${ai.sum ? esc(ai.sum) : ""}</p>` : "";
       return `<li class="${un ? "unread" : ""}${ai && ai.imp ? " attn" : ""}">${chip ? `<span class="ann-chip" style="--c:${esc(n.color)}"><span class="sd"></span>${esc(n.course)}</span>` : ""}<b>${esc(n.title)}</b><span class="mini">${esc(n.plat)}${when ? ` · <span title="${esc(fmtShort(iso(new Date(n.date))))}">${esc(when)}</span>` : ""}${un ? " · New" : ""}</span>${AB}
         ${n.text ? (n.text.length > 200 || n.long ? `<details><summary>${esc(n.text.slice(0, 120).replace(/\s+/g, " "))}… Read more</summary><p class="ann-txt">${esc(n.text)}${n.long ? "…" : ""}</p></details>` : `<p class="ann-txt">${esc(n.text)}</p>`) : ""}
         <span class="bs-btns">${n.url ? `<button type="button" class="btn small" data-act="ann-go" data-key="${esc(n.key)}" data-url="${esc(n.url)}">Open in ${esc(n.plat)}</button>` : ""}<button type="button" class="btn small" data-act="ann-read" data-key="${esc(n.key)}">${un ? "Mark Read" : "Mark Unread"}</button></span></li>`; };
