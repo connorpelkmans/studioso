@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- TEMPLATE (Capacitor: add this file to the App target in Xcode (ios/App/App/PrivacyInfo.xcprivacy)). Keep it in step with the App Privacy answers in App Store Connect (APP-STORE-CHECKLIST.md section 6). Collected data: email, display name, user id, device id, user content, photos (attachments and bug screenshots), purchase history (Pro), study minutes shared with a group, and diagnostics inside a bug report the person sends. All are for app functionality, linked to the account, and none is used for tracking. Required-reason API reasons are the ones a WKWebView/Chromium wrapper uses: re-check after adding a plugin (each plugin ships its own manifest and Xcode merges them). Quick capture (ios-wrapper/native) uses the Keychain, URLSession and App Group FILES only, so it adds no entry; if you add App Group UserDefaults(suiteName:), add reason 1C8F.1 to the user defaults entry (verify against Apple's current required-reason list). -->
+<!-- TEMPLATE (Capacitor: add this file to the App target in Xcode (ios/App/App/PrivacyInfo.xcprivacy)). Keep it in step with the App Privacy answers in App Store Connect (APP-STORE-CHECKLIST.md section 6). Collected data: email, display name, user id, device id, user content, photos (attachments and bug screenshots), purchase history (Pro), study minutes shared with a group, diagnostics inside a bug report the person sends, and anonymous crash and error reports (CrashData and PerformanceData: NOT linked to identity, not used for tracking, purpose app functionality; they carry only a random per-install id, never the account id; see ERROR-REPORTING.md). All are for app functionality, linked to the account, and none is used for tracking. Required-reason API reasons are the ones a WKWebView/Chromium wrapper uses: re-check after adding a plugin (each plugin ships its own manifest and Xcode merges them). Quick capture (ios-wrapper/native) uses the Keychain, URLSession and App Group FILES only, so it adds no entry; if you add App Group UserDefaults(suiteName:), add reason 1C8F.1 to the user defaults entry (verify against Apple's current required-reason list). -->
 <plist version="1.0">
 <dict>
 	<key>NSPrivacyAccessedAPITypes</key>
@@ -142,6 +142,30 @@
 			<string>NSPrivacyCollectedDataTypeOtherDiagnosticData</string>
 			<key>NSPrivacyCollectedDataTypeLinked</key>
 			<true/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeCrashData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypePerformanceData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
