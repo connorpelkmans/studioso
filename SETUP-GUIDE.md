@@ -24,7 +24,7 @@ Throughout, replace `USERNAME` with your GitHub username.
 - **Reminders and notifications** before things are due, a Morning Summary, study nudges, flashcards due and quiet hours. They reach you even when Studyboard is closed: through the desktop app, and on your phone through your Supabase project.
 - **Widgets:** a Today widget on your desktop, a tray icon with Quick Add, app shortcuts (press and hold the Studyboard icon), a Today card you can add to your phone's Home Screen, and the Windows 11 Widgets board.
 - **Search Everywhere** (Ctrl+K or ⌘K): tasks, courses, flashcards, notes, events and what's inside your files. With AI set up, **Ask With AI** finds things by meaning and can answer with where it found it.
-- **Share Decks and Study Groups:** share a deck with a link or code, and make study groups with shared decks, shared deadlines and a message board.
+- **Share Decks and Study Groups:** share a deck with a link or code, and make study groups with shared decks, quizzes (with everyone's scores), deadlines, proposed study sessions with RSVPs, a weekly focus challenge, daily check-ins and a message board with reactions and pins.
 - **Brightspace, Canvas and Blackboard sync:** connect your school's learning platform once, and your assignments, quizzes, discussions and exams land on your Board and Timeline by themselves, with due-date changes, submitted work marked done, grades in the Grade Tracker, announcements on each course page, and AI that spots new dates in announcements.
 - **Theme Collections:** every scene theme now has its own sticker pack (8 stickers), 2 pins and a flashcard style: 528 stickers, 132 pins and 66 flashcard styles in all. Find them in the Style Shop under Theme Collections; your current theme's set comes first, and its sticker pack opens by default in the sticker envelope.
 - **Grade Tracker:** add your marks, see your current and projected grade and your pass mark, and find out what you need on the rest.
@@ -674,7 +674,7 @@ This uses your **free Google Gemini key** (see AI Features above). There's nothi
 
 ## Share Decks and Study Groups
 
-Share a flashcard deck with a link or a short code, or make a study group where classmates share decks, upcoming deadlines and a simple message board. It all runs through your own Supabase project, so it needs one extra piece of setup SQL. You'll need the file `supabase-groups.sql` that came with this update.
+Share a flashcard deck with a link or a short code, or make a study group where classmates share decks, upcoming deadlines, quizzes, study sessions and a message board. It all runs through your own Supabase project, so it needs one extra piece of setup SQL. You'll need the file `supabase-groups.sql` that came with this update.
 
 **1. Run the groups SQL (once)**
 In Supabase, open **SQL Editor**, then **New query**. Open `supabase-groups.sql`, copy everything into the editor and click **Run**. You should see *Success. No rows returned*. It's safe to run again later if you're not sure it worked.
@@ -987,7 +987,7 @@ Update the `calendar-feed` and `lms-feed` functions too (Edge Functions > the fu
 ## Studyboard Pro
 
 Studyboard has a Free plan and a Pro plan built in, but the paywall is **switched off**. Right now everything is unlocked for everyone and nothing is limited. You don't need to set anything up until you decide to launch Pro.
-- **Free, forever:** the whole planner, sync on up to 3 devices, Brightspace, Canvas and Blackboard sync, reminders, study groups (up to 30 members, messages kept 120 days), AI with your own Gemini key, the 14 plain color themes and the free styles, 100 MB of cloud files and 25 MB of synced data.
+- **Free, forever:** the whole planner, sync on up to 2 devices, Brightspace, Canvas and Blackboard sync, reminders, study groups (up to 3 members, messages kept 60 days), AI with your own Gemini key, the 14 plain color themes and the free styles, 100 MB of cloud files and 25 MB of synced data.
 - **Pro ($2.99 a month or $19.99 a year, with a 7-day free trial):** unlimited devices, 10 GB of cloud files and 250 MB of synced data, every premium theme (including the 4 seasons) and style, 30 days of online backups, and study groups of up to 100 members with full message history.
 - **See it:** Settings → **Studyboard Pro** shows the plan, what Pro adds and how much storage you use.
 

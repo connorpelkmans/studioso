@@ -8,7 +8,7 @@
 -- What it adds:
 --  * studyboard_config        prices, limits and switches. Everyone can read it; only you (the SQL Editor or the service role) can change it.
 --  * studyboard_entitlements  who has Pro and until when. You can read your own row; only the billing-webhook function writes it.
---  * studyboard_devices       the devices signed in to each account (free plan: up to 3).
+--  * studyboard_devices       the devices signed in to each account (free plan: up to 2).
 --  * studyboard_usage         a small running total of each account's synced data and files, kept up to date by triggers.
 --  * Limit checks on your data table, file storage and study groups, and a daily clean-up of old group messages on free groups.
 -- All the triggers are named plans_... so they never clash with other setup files.
@@ -30,7 +30,7 @@ grant select on public.studyboard_config to anon, authenticated;
 insert into public.studyboard_config (key, value) values
   ('paywall', 'false'),
   ('prices', '{"monthly": "$2.99", "yearly": "$19.99", "trialDays": 7, "currency": "USD"}'),
-  ('limits', '{"free": {"devices": 3, "fileMB": 100, "dataMB": 25, "groupMembers": 30, "groupMsgDays": 120, "cloudBackupDays": 0},
+  ('limits', '{"free": {"devices": 2, "fileMB": 100, "dataMB": 25, "groupMembers": 3, "groupMsgDays": 60, "cloudBackupDays": 0},
                "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}'),
   ('checkout_url_monthly', '""'),
   ('checkout_url_yearly', '""'),
@@ -39,6 +39,13 @@ insert into public.studyboard_config (key, value) values
   ('item_purchases', 'false'),
   ('features', '{"insights": false, "ai_credits": false}')
 on conflict (key) do nothing;
+
+-- The free limits were lowered (devices 3 -> 2, group members 30 -> 3, group messages 120 -> 60 days).
+-- "on conflict do nothing" above would keep the old row, so move it over only if you never edited those values.
+update public.studyboard_config set
+  value = jsonb_set(value, '{free}', (value -> 'free') || '{"devices": 2, "groupMembers": 3, "groupMsgDays": 60}'::jsonb), updated_at = now()
+where key = 'limits'
+  and value -> 'free' @> '{"devices": 3, "groupMembers": 30, "groupMsgDays": 120}'::jsonb;
 
 -- ---------- Who has Pro ----------
 create table if not exists public.studyboard_entitlements (
@@ -80,7 +87,7 @@ create or replace function public.studyboard_limit(uid uuid, name text) returns 
 language plpgsql stable security definer set search_path = public as $$
 declare
   tier text := case when public.studyboard_is_pro(uid) then 'pro' else 'free' end;
-  defaults constant jsonb := '{"free": {"devices": 3, "fileMB": 100, "dataMB": 25, "groupMembers": 30, "groupMsgDays": 120, "cloudBackupDays": 0},
+  defaults constant jsonb := '{"free": {"devices": 2, "fileMB": 100, "dataMB": 25, "groupMembers": 3, "groupMsgDays": 60, "cloudBackupDays": 0},
                                "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}';
   lim jsonb := coalesce((select value from public.studyboard_config where key = 'limits'), defaults);
   v jsonb;
@@ -116,7 +123,7 @@ revoke all on public.studyboard_devices from anon;
 revoke truncate, references, trigger on public.studyboard_devices from authenticated;
 grant select, insert, update, delete on public.studyboard_devices to authenticated;
 
--- A 4th device on the free plan is turned away (only while the paywall is on). The app shows the devices so you can remove one.
+-- A 3rd device on the free plan is turned away (only while the paywall is on). The app shows the devices so you can remove one.
 create or replace function public.plans_device_limit() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare lim bigint;
@@ -269,7 +276,7 @@ begin
 end $$;
 
 -- ---------- Study groups: size and message history ----------
--- A group's size follows its owner's plan: 30 members on Free, 100 on Pro (join_group in groups.sql also stops at 100).
+-- A group's size follows its owner's plan: 3 members on Free, 100 on Pro (join_group in groups.sql also stops at 100).
 create or replace function public.plans_group_member_limit() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare owner uuid; lim bigint; pro_lim bigint;
@@ -297,7 +304,7 @@ begin
   execute 'create trigger plans_group_member_limit before insert on public.group_members for each row execute function public.plans_group_member_limit()';
 end $$;
 
--- Deletes messages older than the owner's plan allows (120 days on Free). Does nothing while the paywall is off.
+-- Deletes messages older than the owner's plan allows (60 days on Free). Does nothing while the paywall is off.
 create or replace function public.studyboard_prune_group_messages() returns integer
 language plpgsql security definer set search_path = public as $$
 declare n integer := 0;

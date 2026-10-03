@@ -2093,6 +2093,64 @@ button.grp-item-main{cursor:pointer;min-height:44px}
 .grp-sub{display:flex;flex-wrap:wrap;gap:4px 22px}
 .grp-sub .link-btn{min-height:40px}
 .grp-stop{color:var(--late)!important}
+/* 1.12: challenge, check-ins, sessions, reactions, pins, badges */
+.grp-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.grp-chip{display:grid;gap:1px;padding:8px 12px;border-radius:12px;background:var(--surface);border:1px solid var(--line);min-width:0;max-width:100%}
+.grp-chip small{font:700 .66rem var(--display);text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.grp-chip b{overflow-wrap:anywhere}
+.grp-chip em{font-style:normal;font-size:.82rem;color:var(--muted)}
+.grp-chip.soon{border-color:color-mix(in srgb,var(--late) 50%,var(--line))}
+.grp-chip.soon em{color:var(--late);font-weight:600}
+.grp-card2{display:grid;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.grp-goal{display:grid;gap:6px}
+.grp-goal-top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline}
+.grp-seg{display:inline-flex;justify-self:start;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.grp-seg button{border:0;background:none;color:inherit;padding:6px 14px;min-height:36px;font-weight:600;font-size:.88rem}
+.grp-seg button.on{background:var(--accent);color:#fff}
+.grp-lb{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.grp-lb li{display:flex;align-items:center;gap:10px;min-height:44px;padding:2px 6px;border-radius:10px}
+.grp-lb li.me{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.grp-lb li.none{opacity:.6}
+.grp-lb .rk{flex:none;width:22px;text-align:center;font:700 .9rem var(--display);color:var(--muted)}
+.grp-lb .rk.top{color:#fff;background:var(--accent);border-radius:50%;width:22px;height:22px;line-height:22px}
+.grp-lb .nm{flex:1 1 90px;min-width:0;font-weight:600;overflow-wrap:anywhere;display:grid}
+.grp-lb .bar{flex:1 1 60px;height:8px;border-radius:4px;background:var(--soft);overflow:hidden}
+.grp-lb .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent-2),var(--leaf))}
+.grp-lb > li > b{flex:none;min-width:44px;text-align:right}
+.grp-lb.scores .bar{display:none}
+.grp-champ{margin:0}
+@media (max-width:560px){.grp-lb .bar{display:none}}
+.grp-check{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;margin-bottom:6px}
+.grp-check input{min-width:0;min-height:44px}
+.grp-check .btn{min-height:44px}
+@media (max-width:560px){.grp-check{grid-template-columns:1fr 1fr}.grp-check input{grid-column:1/-1}}
+.grp-streak{margin:0 0 10px}
+.grp-checks{list-style:none;margin:0;padding:6px 8px 6px 12px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.grp-checks li{display:flex;align-items:center;gap:10px;min-height:44px;border-top:1px solid var(--line)}
+.grp-checks li:first-child{border-top:0}
+.grp-checks .nm{flex:1;min-width:0;display:grid}
+.grp-checks .nm .mini{overflow-wrap:anywhere}
+.pill.ok{background:color-mix(in srgb,var(--leaf) 20%,transparent);color:var(--ink)}
+.grp-rsvp-sum{overflow-wrap:anywhere}
+.grp-item-btns .btn.small[aria-pressed="true"]{box-shadow:inset 0 0 0 1px var(--accent)}
+.grp-badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+.grp-badge{font-size:.7rem;font-weight:700;border-radius:999px;padding:1px 8px;background:var(--soft);color:var(--ink);white-space:nowrap}
+.grp-badge.streak{background:color-mix(in srgb,var(--tomato) 18%,transparent)}
+.grp-badge.goal,.grp-badge.quiz{background:color-mix(in srgb,var(--leaf) 22%,transparent)}
+.grp-badge.champ{background:color-mix(in srgb,var(--accent) 20%,transparent)}
+.grp-msg-acts{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin-top:6px}
+.grp-react{display:inline-flex;align-items:center;gap:4px;min-height:30px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);background:var(--field);color:inherit;font-size:.82rem}
+.grp-react.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--surface))}
+.grp-react.add{color:var(--muted);font-weight:700}
+.grp-picker{display:inline-flex;gap:2px;padding:2px;border-radius:999px;border:1px solid var(--line);background:var(--surface)}
+.grp-picker .grp-react{border-color:transparent;background:none;font-size:1rem}
+.grp-msg-acts .link-btn{font-size:.8rem;min-height:30px}
+.grp-msg.pinned{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.grp-pins{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:6px}
+.grp-pins li{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:12px;background:color-mix(in srgb,var(--accent) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line))}
+.grp-pins li > svg{flex:none;margin-top:2px;color:var(--accent)}
+.grp-pins li > div{flex:1;min-width:0}
+.grp-pins p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.92rem}
 
 
 /* ===== module: 90-grades.css ===== */
@@ -5233,6 +5291,7 @@ function aiFinish(){
   }
   d.quizzes = d.quizzes.concat({at: Date.now(), score: right, total, ai: true}).slice(-20);
   saveDeck(d, null);
+  fire("ai-quiz-done", {deckId: f.deckId, quizId: f.quizId, right, total, partial: !qz || f.qs.length !== qz.questions.length});
 }
 function viewAiQuiz(){
   const f = ui.fc, q = f.qs[f.i], a = f.ans[f.i], d = state.decks[f.deckId];
@@ -12516,7 +12575,7 @@ var PLAN = null;
   /* ---------- Config: one place for limits and prices. The studyboard_config table can override any of it. ---------- */
   const PLAN_CONFIG = {
     limits: {
-      free: {devices: 3, fileMB: 100, dataMB: 25, groupMembers: 30, groupMsgDays: 120, cloudBackupDays: 0},
+      free: {devices: 2, fileMB: 100, dataMB: 25, groupMembers: 3, groupMsgDays: 60, cloudBackupDays: 0},
       pro: {devices: Infinity, fileMB: 10240, dataMB: 250, groupMembers: 100, groupMsgDays: null, cloudBackupDays: 30}
     },
     prices: {monthly: "$2.99", yearly: "$19.99", trialDays: 7},
@@ -29248,6 +29307,7 @@ const RM_CORE = (() => {
     if (/Sign in first|JWT|not authenticated/i.test(m)) return new Error("Sign in to Studyboard first, then try again.");
     if (code === "42501" || /row-level security|permission denied/i.test(m)) return new Error("You don't have permission to do that in this group.");
     if (code === "PGRST116") return new Error("That item isn't there anymore. It may have been removed.");
+    if (/group_items_kind_check/.test(m)) return Object.assign(new Error(srvSetup("Sharing quizzes and study sessions", "groups.sql")), {setup: true});
     if (code === "23514" || /check constraint|too long/i.test(m)) return new Error("That's too long or empty. Shorten it and try again.");
     return new Error(m.slice(0, 160) || "Something went wrong. Try again.");
   }
@@ -29262,12 +29322,24 @@ const RM_CORE = (() => {
     getDeck: async code => first(await q(cli().rpc("get_shared_deck", {p_code: code}))),
     myShares: () => q(cli().from("shared_decks").select("code,deck_id,name,card_count,updated_at").eq("owner_id", myId()).order("updated_at", {ascending: false})),
     stopShare: code => q(cli().from("shared_decks").delete().eq("code", code).eq("owner_id", myId())),
-    groups: () => q(cli().from("study_groups").select("id,name,course,owner_id,invite_code,created_at").order("created_at")),
+    groups: () => q(cli().from("study_groups").select("*").order("created_at")),
     members: ids => q(cli().from("group_members").select("group_id,user_id,role,display_name,joined_at").in("group_id", ids).order("joined_at")),
     stamps: ids => q(cli().from("group_items").select("id,group_id,kind,user_id,ref_id,updated_at").in("group_id", ids)),
     items: gid => q(cli().from("group_items").select("*").eq("group_id", gid).order("created_at", {ascending: false})),
     messages: gid => q(cli().from("group_messages").select("*").eq("group_id", gid).order("created_at", {ascending: false}).limit(150)),
-    group: gid => q(cli().from("study_groups").select("id,name,course,owner_id,invite_code,created_at").eq("id", gid).maybeSingle()),
+    group: gid => q(cli().from("study_groups").select("*").eq("id", gid).maybeSingle()),
+    // 1.12 extras (quiz scores, study sessions, weekly challenge, check-ins, reactions). They only exist once the newer groups.sql has been run.
+    scores: gid => q(cli().from("group_quiz_scores").select("*").eq("group_id", gid)),
+    rsvps: gid => q(cli().from("group_rsvps").select("*").eq("group_id", gid)),
+    stats: (gid, since) => q(cli().from("group_stats").select("*").eq("group_id", gid).gte("week", since)),
+    checkins: (gid, since) => q(cli().from("group_checkins").select("*").eq("group_id", gid).gte("day", since)),
+    reactions: gid => q(cli().from("group_reactions").select("message_id,user_id,kind").eq("group_id", gid).limit(3000)),
+    submitScore: (item, right, total) => q(cli().rpc("submit_quiz_score", {p_item: item, p_correct: right, p_total: total})),
+    rsvp: (item, status) => q(cli().rpc("set_rsvp", {p_item: item, p_status: status})),
+    report: (gid, week, focus, quizzes) => q(cli().rpc("group_report", {p_group: gid, p_week: week, p_focus: focus, p_quizzes: quizzes})),
+    checkin: (gid, day, plan, done) => q(cli().rpc("group_checkin", {p_group: gid, p_day: day, p_plan: plan, p_done: done})),
+    react: (msg, kind) => q(cli().rpc("toggle_reaction", {p_msg: msg, p_kind: kind})),
+    pin: (msg, on) => q(cli().rpc("pin_message", {p_msg: msg, p_pin: on})),
     createGroup: (name, course) => q(cli().rpc("create_group", {p_name: name, p_course: course})),
     preview: async code => first(await q(cli().rpc("group_preview", {p_code: code}))),
     join: code => q(cli().rpc("join_group", {p_code: code})),
@@ -29291,12 +29363,24 @@ const RM_CORE = (() => {
       ch.on("postgres_changes", {event: "*", schema: "public", table: "study_groups", filter: "id=eq." + gid}, p => cb("study_groups", p));
       try { ch.subscribe(); } catch(e) {}
       return () => { try { c.removeChannel(ch); } catch(e) {} };
+    },
+    // A second channel for the 1.12 tables, only opened once they are known to exist (a missing table would break the whole channel).
+    listenExtras(gid, cb){
+      const c = cli(); if (!c || typeof c.channel !== "function") return () => {};
+      const ch = c.channel("sbx-" + gid + "-" + uid());
+      ["group_quiz_scores", "group_rsvps", "group_stats", "group_checkins", "group_reactions"].forEach(t => {
+        ch.on("postgres_changes", {event: "*", schema: "public", table: t, filter: "group_id=eq." + gid}, () => cb());
+        ch.on("postgres_changes", {event: "DELETE", schema: "public", table: t}, () => cb());
+      });
+      try { ch.subscribe(); } catch(e) {}
+      return () => { try { c.removeChannel(ch); } catch(e) {} };
     }
   };
 
   /* ---------- Small helpers ---------- */
   const S = {groups: null, members: {}, items: {}, msgs: {}, busy: false, err: "", setup: false, loadingG: {}, errG: {},
-    name: undefined, shares: null, sharesBusy: false, unsub: null, subGid: null, drafts: {}, changed: {}, pushQ: new Set(), pushT: 0, linkChecked: {}, linkNew: {}};
+    name: undefined, shares: null, sharesBusy: false, unsub: null, subGid: null, drafts: {}, changed: {}, pushQ: new Set(), pushT: 0, linkChecked: {}, linkNew: {},
+    ext: {}, lb: {}, rep: {}, repT: 0, extT: 0, unsubX: null, subX: null, pick: "", nudged: {}};
   const str = (x, n) => String(x == null ? "" : x).slice(0, n);
   const hashOf = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
   const plural = (n, w, ws) => `${n} ${n === 1 ? w : (ws || w + "s")}`;
@@ -29509,12 +29593,13 @@ const RM_CORE = (() => {
     S.busy = false;
     if (ui.tab === "groups") render();
     updateNavBadge();
+    reportStats();
   }
   // Count shared items that changed since you copied them, per group.
   function markChanges(stamps){
     const ch = {};
     stamps.forEach(s => {
-      const t = s.kind === "task" ? copyOfTask(s.id) : null, d = s.kind === "deck" ? copyOfItem(s.id) : null;
+      const t = s.kind === "task" ? copyOfTask(s.id) : null, d = s.kind === "deck" || s.kind === "quiz" ? copyOfItem(s.id) : null;
       const ref = t ? t.groupRef : d ? d.sharedFrom : null;
       if (ref && s.user_id !== myId() && ts(s.updated_at) > ts(ref.v) + 1000) ch[s.group_id] = (ch[s.group_id] || 0) + 1;
     });
@@ -29538,6 +29623,7 @@ const RM_CORE = (() => {
     } catch(e) { S.errG[gid] = e.message; }
     S.loadingG[gid] = false;
     if (ui.tab === "groups" && ui.grp === gid && $("#grpDetail") && S.items[gid]) patch(gid); else if (ui.tab === "groups") render();
+    if (S.items[gid]) loadExtras(gid);
   }
   let refreshT = 0;
   function subscribe(gid){
@@ -29552,8 +29638,15 @@ const RM_CORE = (() => {
       }
       clearTimeout(refreshT); refreshT = setTimeout(() => loadGroup(gid), 350);
     });
+    if (extOf(gid)) subscribeExtras(gid);
   }
-  function unsubscribe(){ if (S.unsub) S.unsub(); S.unsub = null; S.subGid = null; }
+  function unsubscribe(){ if (S.unsub) S.unsub(); S.unsub = null; S.subGid = null; if (S.unsubX) S.unsubX(); S.unsubX = null; S.subX = null; }
+  function subscribeExtras(gid){
+    if (S.subX === gid || S.subGid !== gid) return;
+    if (S.unsubX) S.unsubX();
+    S.subX = gid;
+    S.unsubX = api.listenExtras(gid, () => { clearTimeout(S.extT); S.extT = setTimeout(() => loadExtras(gid), 500); });
+  }
   function updateNavBadge(){
     const b = $('nav.tabs [data-tab="groups"]'); if (!b) return;
     const n = Object.values(S.changed).reduce((a, x) => a + x, 0);
@@ -29596,7 +29689,7 @@ const RM_CORE = (() => {
     }).join("");
     const name = S.name || (() => { try { return localStorage.getItem(NAMEK()); } catch(e) { return ""; } })();
     return `<div class="view-head"><h2>Study Groups</h2><button class="btn small" data-act="grp-code">Enter a Code</button><button class="btn small primary" data-act="grp-new">New Group</button></div>
-      <p class="grp-intro">Study with classmates: share flashcard decks and upcoming deadlines, and keep a simple message board.</p>
+      <p class="grp-intro">Study with classmates: share decks, quizzes and deadlines, plan study sessions, check in daily, climb the weekly leaderboard and chat on the message board.</p>
       ${S.err ? errBox(S.err, S.setup) : ""}
       ${gs == null ? (S.err ? "" : `<p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Loading your groups…</p>`)
         : gs.length ? `<div class="grp-grid">${cards}</div>`
@@ -29627,8 +29720,9 @@ const RM_CORE = (() => {
       <button class="back" data-act="grp-back">${BACK}All Groups</button>
       ${headHtml(g)}
       ${S.errG[gid] ? errBox(S.errG[gid]) : ""}
-      <div class="grp-cols"><div class="grp-col">${decksHtml(g)}${tasksHtml(g)}</div>
-      <div class="grp-col">${boardHtml(g)}${membersHtml(g)}</div></div></div>`;
+      ${setupNote(g)}
+      <div class="grp-cols"><div class="grp-col">${challengeHtml(g)}${decksHtml(g)}${quizzesHtml(g)}${sessionsHtml(g)}${tasksHtml(g)}</div>
+      <div class="grp-col">${checkinHtml(g)}${boardHtml(g)}${membersHtml(g)}</div></div></div>`;
   }
   const BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>';
   function headHtml(g){
@@ -29636,7 +29730,8 @@ const RM_CORE = (() => {
     return `<div class="deck-head grp-head" id="grpHead" style="--c:${esc(grpColor(g))}">
       <span class="deck-tab">${esc(g.course || "Study Group")}</span>
       <h2>${esc(g.name)}</h2>
-      <div class="deck-stats"><span><b>${ms.length}</b> member${ms.length === 1 ? "" : "s"}</span>${(n => `<span><b>${n}</b> deck${n === 1 ? "" : "s"}</span>`)(its.filter(x => x.kind === "deck").length)}${(n => `<span><b>${n}</b> deadline${n === 1 ? "" : "s"}</span>`)(its.filter(x => x.kind === "task").length)}</div>
+      <div class="deck-stats"><span><b>${ms.length}</b> member${ms.length === 1 ? "" : "s"}</span>${(n => `<span><b>${n}</b> deck${n === 1 ? "" : "s"}</span>`)(its.filter(x => x.kind === "deck").length)}${(n => `<span><b>${n}</b> quiz${n === 1 ? "" : "zes"}</span>`)(its.filter(x => x.kind === "quiz").length)}${(n => `<span><b>${n}</b> deadline${n === 1 ? "" : "s"}</span>`)(its.filter(x => x.kind === "task").length)}</div>
+      ${nextUpHtml(g)}
       <div class="row-actions"><button class="btn primary" data-act="grp-invite" data-id="${esc(g.id)}">Invite Classmates</button>${isOwner(g) ? `<button class="btn" data-act="grp-edit" data-id="${esc(g.id)}">Edit Group</button>` : `<button class="btn" data-act="grp-leave" data-id="${esc(g.id)}">Leave Group</button>`}</div>
     </div>`;
   }
@@ -29680,30 +29775,317 @@ const RM_CORE = (() => {
     return `<section class="grp-sec" id="grpTasks"><h3 class="fsec"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>Shared Deadlines<span class="n">${its.length - nPast}${nPast ? ` upcoming, ${nPast} past` : ""}</span><span class="spacer"></span><button class="btn small" data-act="grp-share-tasks" data-id="${esc(g.id)}">Share Deadlines</button></h3>
       ${loadingLine(g.id) || (its.length ? `<ul class="grp-list">${rows}</ul>` : `<p class="grp-none">No deadlines yet. Share a course's upcoming tasks so nobody misses one.</p>`)}</section>`;
   }
+  /* ---------- 1.12: message reactions, pins, check-ins, challenge, quizzes and study sessions ---------- */
+  const REACTS = [["like", "\u{1F44D}", "Like"], ["love", "\u2764\uFE0F", "Love"], ["laugh", "\u{1F602}", "Funny"], ["party", "\u{1F389}", "Celebrate"], ["fire", "\u{1F525}", "Fire"], ["think", "\u{1F914}", "Hmm"]];
+  const gi = d => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const I_PIN = gi('<path d="M9 4h6l-1 6 3 3H7l3-3z"/><path d="M12 13v7"/>');
+  const I_QUIZ = gi('<circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 114 2c-.9.6-1.6 1.1-1.6 2.1M12 16.8v.1"/>');
+  const I_CAL = gi('<rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v3M16 3v3M8 14l2.5 2.5L16 12"/>');
+  const I_TROPHY = gi('<path d="M8 4h8v5a4 4 0 01-8 0zM8 6H4.5c0 3 1.5 4.5 3.5 5M16 6h3.5c0 3-1.5 4.5-3.5 5M12 13v4M8.5 20h7M10 17h4"/>');
+  const I_CHECK = gi('<circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.7 2.7L16 9.5"/>');
+  const wkStart = t => { const d = t || todayISO(); return addDays(d, -((parse(d).getDay() + 6) % 7)); };
+  const extOf = gid => { const x = S.ext[gid]; return x && x.ok ? x : null; };
+  const mName = (gid, id) => { const m = (S.members[gid] || []).find(x => x.user_id === id); return m ? m.display_name || "Member" : "Member"; };
+  const gPct = (c, t) => t ? Math.round(c / t * 100) : 0;
+  const gMins = n => n >= 60 ? `${Math.floor(n / 60)}h${n % 60 ? " " + (n % 60) + "m" : ""}` : `${n}m`;
+  const gWhen = x => { const d = new Date(x); return isNaN(d) ? "" : d.toLocaleString(undefined, {weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}); };
+  const relDays = n => n <= 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`;
+  const canPin = (g, m) => isOwner(g) || m.user_id === myId();
+
+  // Your own totals for this week, from this device's data.
+  function myWeek(){
+    const wk = wkStart(); let focus = 0, quizzes = 0;
+    try { focus = SBSTATS.focusMinutes(wk, todayISO()); } catch(e) {}
+    const t0 = parse(wk).getTime();
+    decksArr().forEach(d => {
+      (d.aiQuizzes || []).forEach(qz => (qz.results || []).forEach(r => { if (r && r.at >= t0) quizzes++; }));
+      (d.quizzes || []).forEach(r => { if (r && !r.ai && r.at >= t0) quizzes++; });
+    });
+    return {wk, focus: Math.max(0, Math.round(focus)), quizzes};
+  }
+  // Tell every group your totals for the week (the server keeps the higher number, so devices never undo each other).
+  function reportStats(){
+    if (!online() || !S.groups || !S.groups.length) return;
+    const w = myWeek(), key = `${w.wk}|${w.focus}|${w.quizzes}`;
+    S.groups.forEach(g => {
+      const ext = S.ext[g.id];
+      if ((ext && !ext.ok) || S.rep[g.id] === key) return;
+      S.rep[g.id] = key;
+      api.report(g.id, w.wk, w.focus, w.quizzes).then(() => {
+        const x = extOf(g.id); if (!x) return;
+        const r = x.stats.find(s => s.user_id === myId() && s.week === w.wk);
+        if (r) { r.focus_min = Math.max(r.focus_min, w.focus); r.quizzes = Math.max(r.quizzes, w.quizzes); } else x.stats.push({group_id: g.id, user_id: myId(), week: w.wk, focus_min: w.focus, quizzes: w.quizzes});
+        if (ui.tab === "groups" && ui.grp === g.id) patch(g.id);
+      }).catch(e => { if (e.setup) S.ext[g.id] = Object.assign(S.ext[g.id] || {}, {ok: false, setup: true}); else delete S.rep[g.id]; });
+    });
+  }
+  const reportSoon = () => { clearTimeout(S.repT); S.repT = setTimeout(reportStats, 2500); };
+  async function loadExtras(gid){
+    if (!online() || (S.ext[gid] && S.ext[gid].busy)) return;
+    const prev = S.ext[gid]; S.ext[gid] = prev && prev.ok ? Object.assign(prev, {busy: true}) : {ok: false, busy: true};
+    try {
+      const [scores, rsvps, stats, checkins, reactions] = await Promise.all([api.scores(gid), api.rsvps(gid), api.stats(gid, addDays(wkStart(), -7)), api.checkins(gid, addDays(todayISO(), -60)), api.reactions(gid)]);
+      S.ext[gid] = {ok: true, scores: scores || [], rsvps: rsvps || [], stats: stats || [], checkins: checkins || [], reactions: reactions || []};
+      if (ui.grp === gid) subscribeExtras(gid);
+    } catch(e) { S.ext[gid] = {ok: false, setup: !!e.setup}; }
+    if (S.ext[gid].ok) reportStats();
+    if (ui.tab === "groups" && ui.grp === gid && $("#grpDetail")) patch(gid);
+  }
+  // Owners see a note until the newer groups.sql has been run (everyone else just doesn't see the new sections).
+  function setupNote(g){
+    const x = S.ext[g.id];
+    if (!x || x.ok || !x.setup || !isOwner(g)) return `<div id="grpSetup"></div>`;
+    return `<div class="grp-note" id="grpSetup">The weekly challenge, check-ins, study sessions, reactions and pins need the latest <b>groups.sql</b>. ${esc(srvSetup("These features", "groups.sql"))}</div>`;
+  }
+
+  /* Streaks and badges */
+  function streakOf(ext, uid2){
+    const days = new Set(ext.checkins.filter(c => c.user_id === uid2).map(c => c.day));
+    let d = todayISO(); if (!days.has(d)) d = addDays(d, -1);
+    let n = 0; while (days.has(d)) { n++; d = addDays(d, -1); }
+    return n;
+  }
+  function weekVal(ext, gid, uid2, week, field){
+    const r = ext.stats.find(s => s.user_id === uid2 && s.week === week);
+    let v = r ? Number(r[field]) || 0 : 0;
+    if (uid2 === myId() && week === wkStart()) { const w = myWeek(); v = Math.max(v, field === "quizzes" ? w.quizzes : w.focus); }
+    return v;
+  }
+  function badgesFor(g, uid2){
+    const ext = extOf(g.id); if (!ext) return [];
+    const out = [], st = streakOf(ext, uid2), its = S.items[g.id] || [];
+    if (st >= 7) out.push(["streak", "Week Streak", "Checked in 7 days in a row"]); else if (st >= 3) out.push(["streak", "3-Day Streak", "Checked in 3 days in a row"]);
+    const goal = Number(g.weekly_goal) || 0;
+    if (goal && weekVal(ext, g.id, uid2, wkStart(), "focus_min") >= goal) out.push(["goal", "Goal Met", `Reached the weekly goal of ${gMins(goal)}`]);
+    const last = ext.stats.filter(s => s.week === addDays(wkStart(), -7) && s.focus_min > 0).sort((a, b) => b.focus_min - a.focus_min)[0];
+    if (last && last.user_id === uid2) out.push(["champ", "Last Week's Champ", `Most focus time last week (${gMins(last.focus_min)})`]);
+    if (ext.scores.some(s => s.user_id === uid2 && s.best_total >= 5 && gPct(s.best_correct, s.best_total) >= 90)) out.push(["quiz", "Quiz Whiz", "Scored 90% or more on a shared quiz"]);
+    if (its.filter(x => x.user_id === uid2).length >= 3) out.push(["share", "Resource Hero", "Shared 3 or more things with the group"]);
+    return out;
+  }
+
+  /* Exam countdown and next study session in the group header */
+  function nextUpHtml(g){
+    const its = S.items[g.id] || [], today = todayISO(), chips = [];
+    const ex = its.filter(x => x.kind === "task").map(x => ({it: x, f: taskFields(x.data)})).filter(x => MILESTONE(x.f.type) && x.f.due && x.f.due >= today)
+      .sort((a, b) => a.f.due.localeCompare(b.f.due) || (a.f.time || "").localeCompare(b.f.time || ""))[0];
+    if (ex) { const n = dayDiff(today, ex.f.due); chips.push(`<span class="grp-chip${n <= 3 ? " soon" : ""}"><small>Next ${esc(ex.f.type.toLowerCase())}</small><b>${esc(ex.f.title)}</b><em>${n <= 0 ? "Today" : n === 1 ? "Tomorrow" : `${n} days away`} · ${esc(fmtShort(ex.f.due))}</em></span>`); }
+    const ev = its.filter(x => x.kind === "event" && x.data && ts(x.data.start) > Date.now() - 36e5).sort((a, b) => ts(a.data.start) - ts(b.data.start))[0];
+    if (ev) chips.push(`<span class="grp-chip"><small>Next study session</small><b>${esc(ev.title)}</b><em>${esc(gWhen(ev.data.start))}</em></span>`);
+    return chips.length ? `<div class="grp-chips">${chips.join("")}</div>` : "";
+  }
+
+  /* Weekly challenge */
+  function challengeHtml(g){
+    const ext = extOf(g.id); if (!ext) return `<div id="grpChallenge"></div>`;
+    const wk = wkStart(), last = addDays(wk, -7), mode = S.lb[g.id] || "focus", field = mode === "quiz" ? "quizzes" : "focus_min";
+    const ms = S.members[g.id] || [], goal = Number(g.weekly_goal) || 0;
+    const rows = ms.map(m => ({m, v: weekVal(ext, g.id, m.user_id, wk, field), f: weekVal(ext, g.id, m.user_id, wk, "focus_min")}))
+      .sort((a, b) => b.v - a.v || String(a.m.display_name).localeCompare(String(b.m.display_name)));
+    const max = Math.max(1, ...rows.map(r => r.v)), total = rows.reduce((a, r) => a + r.f, 0), need = goal * ms.length;
+    const champ = ext.stats.filter(s => s.week === last && s.focus_min > 0).sort((a, b) => b.focus_min - a.focus_min)[0];
+    const mine = rows.find(r => r.m.user_id === myId());
+    const left = parse(addDays(wk, 7)) - Date.now(), dl = Math.max(0, Math.ceil(left / 864e5));
+    return `<section class="grp-sec" id="grpChallenge"><h3 class="fsec">${I_TROPHY}Weekly Challenge<span class="n">resets in ${dl} day${dl === 1 ? "" : "s"}</span></h3>
+      <div class="grp-card2">
+        ${goal ? `<div class="grp-goal"><div class="grp-goal-top"><b>Group goal</b><span class="mini">${gMins(total)} of ${gMins(need)} (${gMins(goal)} each)</span></div><div class="score-bar"><i style="width:${Math.min(100, gPct(total, need))}%"></i></div>${total >= need ? `<span class="grp-chg">Goal reached. Nice teamwork.</span>` : mine && mine.f >= goal ? `<span class="grp-chg">You've hit your ${gMins(goal)}. Help the others get there.</span>` : mine ? `<span class="mini">You need ${gMins(Math.max(0, goal - mine.f))} more for your share.</span>` : ""}</div>` : ""}
+        <div class="grp-seg" role="group" aria-label="Rank by"><button type="button" class="${mode === "focus" ? "on" : ""}" data-act="grp-lb" data-m="focus" aria-pressed="${mode === "focus"}">Focus Time</button><button type="button" class="${mode === "quiz" ? "on" : ""}" data-act="grp-lb" data-m="quiz" aria-pressed="${mode === "quiz"}">Quizzes Taken</button></div>
+        <ol class="grp-lb">${rows.map((r, i) => `<li class="${r.m.user_id === myId() ? "me" : ""}"><span class="rk${i === 0 && r.v > 0 ? " top" : ""}">${i + 1}</span>${av(r.m.display_name, r.m.user_id)}<span class="nm">${esc(r.m.display_name || "Member")}${r.m.user_id === myId() ? ` <span class="mini">(You)</span>` : ""}</span><span class="bar" aria-hidden="true"><i style="width:${Math.round(r.v / max * 100)}%"></i></span><b>${mode === "quiz" ? r.v : gMins(r.v)}</b></li>`).join("")}</ol>
+        ${champ ? `<p class="mini grp-champ">Last week's champion: <b>${esc(mName(g.id, champ.user_id))}</b> with ${gMins(champ.focus_min)} of focus time.</p>` : `<p class="mini grp-champ">Focus sessions and quizzes you finish count automatically. Resets every Monday.</p>`}
+      </div></section>`;
+  }
+
+  /* Daily check-in */
+  function checkinHtml(g){
+    const ext = extOf(g.id); if (!ext) return `<div id="grpCheckin"></div>`;
+    const today = todayISO(), ms = S.members[g.id] || [], mine = ext.checkins.find(c => c.user_id === myId() && c.day === today);
+    const todays = ext.checkins.filter(c => c.day === today).sort((a, b) => ts(a.updated_at) - ts(b.updated_at));
+    const st = streakOf(ext, myId());
+    return `<section class="grp-sec" id="grpCheckin"><h3 class="fsec">${I_CHECK}Daily Check-in<span class="n">${todays.length} of ${ms.length} today</span></h3>
+      <form class="grp-check" id="grpCheck" data-gid="${esc(g.id)}"><input type="text" name="plan" maxlength="140" value="${esc(mine ? mine.plan : "")}" placeholder="What are you studying today?" aria-label="What are you studying today?" autocomplete="off"><button type="submit" class="btn primary small">${mine ? "Update" : "Check In"}</button>${mine ? `<button type="button" class="btn small" data-act="grp-check-done">${mine.done ? "Undo Done" : "Mark Done"}</button>` : ""}</form>
+      ${st ? `<p class="mini grp-streak">Your streak: <b>${st} day${st === 1 ? "" : "s"}</b> in a row${mine ? "" : ". Check in today to keep it going"}.</p>` : `<p class="mini grp-streak">Check in on 3 days in a row for a streak badge.</p>`}
+      ${todays.length ? `<ul class="grp-checks">${todays.map(c => `<li class="${c.done ? "done" : ""}">${av(mName(g.id, c.user_id), c.user_id)}<span class="nm"><b>${esc(c.user_id === myId() ? "You" : mName(g.id, c.user_id))}</b><span class="mini">${esc(c.plan || "Checked in")}</span></span>${c.done ? `<span class="pill ok">Done</span>` : ""}</li>`).join("")}</ul>` : `<p class="grp-none">Nobody has checked in yet today. Be the first and set the pace.</p>`}</section>`;
+  }
+
+  /* Quizzes */
+  function quizPayload(qz, courseId){
+    const c = courseOf(courseId), p = {v: 1, type: "quiz", quiz: cleanQuiz(qz), course: c ? {code: c.code || "", name: c.name || ""} : null};
+    p.hash = hashOf(JSON.stringify(p.quiz));
+    return p;
+  }
+  function cleanQuizPayload(p){
+    if (!p || typeof p !== "object" || !p.quiz) return null;
+    const cp = cleanPayload({name: "", cards: [], quizzes: [p.quiz], course: p.course});
+    return cp && cp.quizzes[0] ? {quiz: cp.quizzes[0], course: cp.course} : null;
+  }
+  const quizSource = it => { const [did, qid] = String(it.ref_id || "").split(":"), d = state.decks[did], qz = d && (d.aiQuizzes || []).find(x => x.id === qid); return qz ? {d, qz} : null; };
+  const scoresOf = (gid, itemId) => { const x = extOf(gid); return x ? x.scores.filter(s => s.item_id === itemId) : []; };
+  function quizzesHtml(g){
+    const its = (S.items[g.id] || []).filter(x => x.kind === "quiz"), owner = isOwner(g), ext = extOf(g.id);
+    const rows = its.map(it => {
+      const p = it.data || {}, nq = p.quiz && Array.isArray(p.quiz.questions) ? p.quiz.questions.length : 0, mine = it.user_id === myId();
+      const sc = scoresOf(g.id, it.id), my = sc.find(s => s.user_id === myId());
+      const src = mine ? quizSource(it) : null, stale = src && quizPayload(src.qz, src.d.courseId).hash !== p.hash;
+      const copy = mine ? null : copyOfItem(it.id), upd = copy && ts(it.updated_at) > ts(copy.sharedFrom.v) + 1000;
+      const top = sc.slice().sort((a, b) => gPct(b.best_correct, b.best_total) - gPct(a.best_correct, a.best_total))[0];
+      return `<li class="grp-item${upd ? " is-upd" : ""}"><button class="grp-item-main" data-act="grp-quiz-scores" data-id="${esc(it.id)}"><b>${esc(it.title)}</b>
+          <span class="mini">${plural(nq, "question")} · ${mine ? "Shared by you" : "Shared by " + esc(it.author_name || "a member")}${ext ? ` · ${sc.length ? plural(sc.length, "member") + " took it" : "No scores yet"}` : ""}${my ? ` · Your best ${gPct(my.best_correct, my.best_total)}%` : ""}</span>
+          ${upd ? `<span class="grp-chg">Updated ${esc(ago(it.updated_at, 1))}. Taking it uses the new questions.</span>` : stale ? `<span class="grp-chg">You changed this quiz. Update the group's copy?</span>` : top && sc.length > 1 ? `<span class="grp-chg">Top score: ${esc(mName(g.id, top.user_id))}, ${gPct(top.best_correct, top.best_total)}%</span>` : ""}</button>
+        <div class="grp-item-btns">${stale ? `<button class="btn small primary" data-act="grp-quiz-push" data-id="${esc(it.id)}">Update</button>` : ""}<button class="btn small${stale ? "" : " primary"}" data-act="grp-quiz-take" data-id="${esc(it.id)}">${my ? "Retake" : "Take Quiz"}</button>${ext ? `<button class="btn small" data-act="grp-quiz-scores" data-id="${esc(it.id)}">Scores</button>` : ""}${mine || owner ? `<button class="x-btn" data-act="grp-item-del" data-id="${esc(it.id)}" aria-label="Remove ${esc(it.title)} from the group">${CLOSE}</button>` : ""}</div></li>`;
+    }).join("");
+    return `<section class="grp-sec" id="grpQuizzes"><h3 class="fsec">${I_QUIZ}Shared Quizzes<span class="n">${its.length}</span><span class="spacer"></span><button class="btn small" data-act="grp-share-quiz" data-id="${esc(g.id)}">Share a Quiz</button></h3>
+      ${loadingLine(g.id) || (its.length ? `<ul class="grp-list">${rows}</ul>` : `<p class="grp-none">No quizzes yet. Share a practice quiz so everyone can test themselves and compare scores.</p>`)}</section>`;
+  }
+  function shareQuizSheet(g){
+    const list = [];
+    decksArr().forEach(d => (d.aiQuizzes || []).forEach(qz => { if (qz.questions && qz.questions.length) list.push({d, qz}); }));
+    if (!list.length) { toast("You have no practice quizzes yet. Open a deck and make one in Practice Quizzes."); return; }
+    const mineIn = new Map((S.items[g.id] || []).filter(x => x.kind === "quiz" && x.user_id === myId()).map(x => [x.ref_id, x]));
+    openSheet(`<form class="sheet">${head("Share a Quiz")}<div class="sheet-body">
+      <p style="margin:0">Members take it right in their own app, and everyone's best score shows on the quiz. They get your questions, not your results.</p>
+      <fieldset><legend>Quizzes</legend><div class="check-list grp-pick">${list.map(({d, qz}, i) => `<label class="mi-check"><input type="checkbox" name="q" value="${esc(d.id + ":" + qz.id)}" ${i === 0 ? "checked" : ""}> <span><b>${esc(qz.title || "Practice Quiz")}</b> <span class="mini">${esc(d.name)} · ${plural(qz.questions.length, "question")}${mineIn.has(d.id + ":" + qz.id) ? " · already shared, sharing again updates it" : ""}</span></span></label>`).join("")}</div></fieldset></div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit id="grpQGo">Share with ${esc(g.name.length > 22 ? "Group" : g.name)}</button></div></form>`, fd => {
+      const picks = fd.getAll("q").map(v => { const [did, qid] = String(v).split(":"), d = state.decks[did], qz = d && (d.aiQuizzes || []).find(x => x.id === qid); return qz ? {d, qz, ref: v} : null; }).filter(Boolean);
+      if (!picks.length) { toast("Tick the quizzes you want to share"); return false; }
+      const b = $("#grpQGo"); busyBtn(b, true);
+      ensureName(async () => {
+        try {
+          const add = [];
+          for (const {d, qz, ref} of picks) {
+            const p = quizPayload(qz, d.courseId), title = str(qz.title, 300) || "Practice Quiz", ex = mineIn.get(ref);
+            if (ex) await api.updateItem(ex.id, {title, data: p}); else add.push({group_id: g.id, kind: "quiz", ref_id: ref, title, data: p});
+          }
+          if (add.length) await api.addItems(add);
+          if (dlg.open) dlg.close(); toast(`Shared ${plural(picks.length, "quiz", "quizzes")} with ${g.name}`); loadGroup(g.id);
+        } catch(e) { busyBtn(b, false); toast(e.message); }
+      });
+      return false;
+    });
+  }
+  // Take a group quiz: members get a copy in their Flashcards (so retakes, rationales and review work as usual) and the score is posted to the group.
+  function takeQuiz(it){
+    const cq = cleanQuizPayload(it.data); if (!cq) { toast("That quiz couldn't be read."); return; }
+    const g = groupOf(it.group_id), src = it.user_id === myId() ? quizSource(it) : null;
+    if (dlg.open) dlg.close();
+    if (src) { startAiQuiz(src.d.id, src.qz.id); return; }
+    const meta = {g: it.group_id, i: it.id, v: it.updated_at, by: it.author_name, n: g ? g.name : "", q: 1}, run = nd => { if (nd && nd.aiQuizzes[0]) startAiQuiz(nd.id, nd.aiQuizzes[0].id); };
+    const ex = copyOfItem(it.id);
+    if (!ex) { addDeckCopy({name: str(it.title, 120) || "Group Quiz", cards: [], quizzes: [cq.quiz]}, meta, matchCourse(cq.course) || matchCourse(g && g.course), run, true); return; }
+    const cur = ex.aiQuizzes[0];
+    if (!cur || ts(it.updated_at) > ts(ex.sharedFrom.v) + 1000) {
+      const nd = clone(ex), nq = localQuiz(cq.quiz);
+      if (cur) { nq.id = cur.id; nq.results = cur.results || []; }
+      nd.aiQuizzes = [nq]; nd.sharedFrom = Object.assign({}, ex.sharedFrom, meta);
+      saveDeck(nd, null);
+      if (S.changed[it.group_id]) { S.changed[it.group_id]--; if (S.changed[it.group_id] <= 0) delete S.changed[it.group_id]; updateNavBadge(); }
+      run(state.decks[nd.id] || nd); return;
+    }
+    run(ex);
+  }
+  function scoresSheet(it){
+    const g = groupOf(it.group_id), ext = extOf(it.group_id), sc = scoresOf(it.group_id, it.id), ms = S.members[it.group_id] || [];
+    const rows = ms.map(m => ({m, s: sc.find(x => x.user_id === m.user_id)}))
+      .sort((a, b) => (b.s ? gPct(b.s.best_correct, b.s.best_total) : -1) - (a.s ? gPct(a.s.best_correct, a.s.best_total) : -1) || String(a.m.display_name).localeCompare(String(b.m.display_name)));
+    const avg = sc.length ? Math.round(sc.reduce((a, s) => a + gPct(s.best_correct, s.best_total), 0) / sc.length) : 0;
+    openSheet(`<div class="sheet">${head(it.title)}<div class="sheet-body">
+      ${ext ? `<p style="margin:0">${sc.length ? `${plural(sc.length, "member")} of ${ms.length} took it. Class average (best scores): <b>${avg}%</b>.` : "Nobody has taken this quiz yet. Be the first."}</p>
+      <ol class="grp-lb scores">${rows.map((r, i) => `<li class="${r.m.user_id === myId() ? "me" : ""}${r.s ? "" : " none"}"><span class="rk${i === 0 && r.s ? " top" : ""}">${r.s ? i + 1 : "–"}</span>${av(r.m.display_name, r.m.user_id)}<span class="nm">${esc(r.m.display_name || "Member")}${r.m.user_id === myId() ? ` <span class="mini">(You)</span>` : ""}${r.s ? `<span class="mini">${plural(r.s.attempts, "attempt")}${r.s.attempts > 1 ? `, latest ${gPct(r.s.last_correct, r.s.last_total)}%` : ""}</span>` : `<span class="mini">Not taken yet</span>`}</span>${r.s ? `<b>${r.s.best_correct}/${r.s.best_total}<span class="mini"> ${gPct(r.s.best_correct, r.s.best_total)}%</span></b>` : ""}</li>`).join("")}</ol>`
+      : `<p style="margin:0">Scores need the latest groups.sql. ${esc(srvSetup("Quiz scores", "groups.sql"))}</p>`}</div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button><button type="button" class="btn primary" data-act="grp-quiz-take" data-id="${esc(it.id)}">${sc.some(s => s.user_id === myId()) ? "Retake Quiz" : "Take Quiz"}</button></div></div>`);
+  }
+
+  /* Study sessions: propose a time, everyone answers yes / maybe / no */
+  function sessionsHtml(g){
+    const ext = extOf(g.id); if (!ext) return `<div id="grpSessions"></div>`;
+    const now = Date.now(), all = (S.items[g.id] || []).filter(x => x.kind === "event" && x.data && ts(x.data.start)), owner = isOwner(g);
+    const up = all.filter(x => ts(x.data.start) >= now - 72e5).sort((a, b) => ts(a.data.start) - ts(b.data.start)), past = all.filter(x => ts(x.data.start) < now - 72e5).sort((a, b) => ts(b.data.start) - ts(a.data.start)).slice(0, 3);
+    const row = (it, isPast) => {
+      const d = new Date(it.data.start), rs = ext.rsvps.filter(r => r.item_id === it.id), my = rs.find(r => r.user_id === myId()), mine = it.user_id === myId();
+      const names = st => rs.filter(r => r.status === st).map(r => r.user_id === myId() ? "You" : mName(g.id, r.user_id));
+      const yes = names("yes"), maybe = names("maybe");
+      const btn = (s, label) => `<button class="btn small${my && my.status === s ? " primary" : ""}" data-act="grp-rsvp" data-id="${esc(it.id)}" data-s="${s}" aria-pressed="${!!(my && my.status === s)}">${label}</button>`;
+      return `<li class="grp-item grp-task${isPast ? " is-past" : ""}">
+        <span class="grp-date" style="--c:var(--accent)"><small>${esc(d.toLocaleDateString(undefined, {month: "short"}))}</small><b>${d.getDate()}</b></span>
+        <div class="grp-item-main"><b>${esc(it.title)}</b>
+          <span class="mini">${esc(gWhen(it.data.start))}${it.data.where ? " · " + esc(it.data.where) : ""} · ${mine ? "Proposed by you" : "Proposed by " + esc(it.author_name || "a member")}</span>
+          ${it.data.notes ? `<span class="mini">${esc(str(it.data.notes, 300))}</span>` : ""}
+          <span class="mini grp-rsvp-sum"><b>${yes.length}</b> going${maybe.length ? `, ${maybe.length} maybe` : ""}${yes.length ? ` · ${esc(yes.slice(0, 6).join(", "))}${yes.length > 6 ? ` +${yes.length - 6}` : ""}` : ""}</span></div>
+        <div class="grp-item-btns">${isPast ? "" : btn("yes", "I'm In") + btn("maybe", "Maybe") + btn("no", "Can't")}${mine || owner ? `<button class="x-btn" data-act="grp-item-del" data-id="${esc(it.id)}" aria-label="Remove ${esc(it.title)} from the group">${CLOSE}</button>` : ""}</div></li>`;
+    };
+    return `<section class="grp-sec" id="grpSessions"><h3 class="fsec">${I_CAL}Study Sessions<span class="n">${up.length} upcoming</span><span class="spacer"></span><button class="btn small" data-act="grp-event-new" data-id="${esc(g.id)}">Propose a Time</button></h3>
+      ${loadingLine(g.id) || (all.length ? `<ul class="grp-list">${up.map(it => row(it, false)).join("")}${past.map(it => row(it, true)).join("")}</ul>` : `<p class="grp-none">Nothing planned. Propose a time, like Thursday at 6 pm, and see who can make it.</p>`)}</section>`;
+  }
+  function eventSheet(g){
+    const tom = addDays(todayISO(), 1);
+    openSheet(`<form class="sheet">${head("Propose a Study Session")}<div class="sheet-body">${REQ_NOTE}
+      <label class="f"><span class="lh">What Will You Study? ${REQ}</span><input type="text" name="title" required maxlength="120" autofocus placeholder="e.g. Pharm midterm review"></label>
+      <div class="two"><label class="f"><span class="lh">Day ${REQ}</span><input type="date" name="date" required value="${tom}" min="${todayISO()}"></label>
+      <label class="f"><span class="lh">Time ${REQ}</span><input type="time" name="time" required value="18:00"></label></div>
+      <label class="f"><span class="lh">Where <span class="hint">optional</span></span><input type="text" name="where" maxlength="120" placeholder="e.g. Library room 204, or a video call link"></label>
+      <label class="f"><span class="lh">Notes <span class="hint">optional</span></span><textarea name="notes" rows="2" maxlength="500" placeholder="What to bring or cover"></textarea></label>
+      <p class="mini" style="margin:0">Members answer I'm In, Maybe or Can't. Propose a few times to find the one that works for most people.</p></div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit id="grpEvGo">Propose</button></div></form>`, fd => {
+      const title = String(fd.get("title") || "").trim().slice(0, 120), date = String(fd.get("date") || ""), time = String(fd.get("time") || "");
+      if (!title || !isDate(date) || !/^\d\d:\d\d$/.test(time)) return false;
+      const start = new Date(`${date}T${time}`); if (isNaN(start)) return false;
+      const b = $("#grpEvGo"); busyBtn(b, true);
+      ensureName(async () => {
+        try {
+          const data = {v: 1, type: "event", start: start.toISOString(), where: str(fd.get("where"), 120).trim(), notes: str(fd.get("notes"), 500).trim()};
+          const rows = await api.addItems([{group_id: g.id, kind: "event", ref_id: "", title, data}]);
+          if (dlg.open) dlg.close(); toast(`Proposed ${title}`);
+          if (rows && S.items[g.id]) { S.items[g.id] = rows.concat(S.items[g.id]); patch(g.id); }
+          api.rsvp(rows && rows[0] ? rows[0].id : "", "yes").then(() => loadExtras(g.id)).catch(() => {});
+          loadGroup(g.id);
+        } catch(e) { busyBtn(b, false); toast(e.message); }
+      });
+      return false;
+    });
+  }
+
+  /* Messages: reactions and pins */
+  function pinsHtml(g){
+    const list = (S.msgs[g.id] || []).filter(m => m.pinned);
+    if (!list.length) return `<div id="grpPins"></div>`;
+    return `<ul class="grp-pins" id="grpPins" aria-label="Pinned messages">${list.map(m => `<li>${I_PIN}<div><span class="mini">Pinned · ${esc(m.user_id === myId() ? "You" : m.author_name || "Member")}</span><p>${esc(str(m.body, 300))}</p></div>${canPin(g, m) ? `<button class="link-btn" data-act="grp-pin" data-id="${esc(m.id)}">Unpin</button>` : ""}</li>`).join("")}</ul>`;
+  }
   function msgsHtml(g){
-    const owner = isOwner(g), list = S.msgs[g.id];
+    const owner = isOwner(g), list = S.msgs[g.id], ext = extOf(g.id);
     if (!list) return loadingLine(g.id);
     if (!list.length) return `<p class="grp-none">No messages yet. Say hi, or plan your next study session.</p>`;
-    return list.map(m => { const mine = m.user_id === myId();
-      return `<li class="grp-msg${mine ? " mine" : ""}">${av(m.author_name, m.user_id)}<div class="grp-msg-main"><div class="grp-msg-top"><b>${esc(mine ? "You" : m.author_name || "Member")}</b><span class="mini" title="${esc(new Date(m.created_at).toLocaleString())}">${esc(ago(m.created_at))}</span></div><p>${esc(m.body)}</p></div>${mine || owner ? `<button class="x-btn" data-act="grp-msg-del" data-id="${esc(m.id)}" aria-label="Delete message">${CLOSE}</button>` : ""}</li>`; }).join("");
+    const by = {}; if (ext) ext.reactions.forEach(r => { (by[r.message_id] = by[r.message_id] || []).push(r); });
+    return list.map(m => { const mine = m.user_id === myId(), rs = by[m.id] || [];
+      const chips = REACTS.map(([k, e, label]) => { const who = rs.filter(r => r.kind === k); if (!who.length) return ""; const on = who.some(r => r.user_id === myId());
+        return `<button class="grp-react${on ? " on" : ""}" data-act="grp-react" data-id="${esc(m.id)}" data-k="${k}" aria-pressed="${on}" title="${esc(label + ": " + who.map(r => r.user_id === myId() ? "You" : mName(g.id, r.user_id)).join(", "))}"><span aria-hidden="true">${e}</span>${who.length}</button>`; }).join("");
+      const picker = ext && S.pick === m.id ? `<span class="grp-picker">${REACTS.map(([k, e, label]) => `<button type="button" class="grp-react" data-act="grp-react" data-id="${esc(m.id)}" data-k="${k}" aria-label="${esc(label)}">${e}</button>`).join("")}</span>` : "";
+      return `<li class="grp-msg${mine ? " mine" : ""}${m.pinned ? " pinned" : ""}">${av(m.author_name, m.user_id)}<div class="grp-msg-main"><div class="grp-msg-top"><b>${esc(mine ? "You" : m.author_name || "Member")}</b><span class="mini" title="${esc(new Date(m.created_at).toLocaleString())}">${esc(ago(m.created_at))}</span>${m.pinned ? `<span class="pill">Pinned</span>` : ""}</div><p>${esc(m.body)}</p>
+        ${ext ? `<div class="grp-msg-acts">${chips}${picker || `<button class="grp-react add" data-act="grp-react-open" data-id="${esc(m.id)}" aria-label="Add a reaction">+</button>`}${canPin(g, m) ? `<button class="link-btn" data-act="grp-pin" data-id="${esc(m.id)}">${m.pinned ? "Unpin" : "Pin"}</button>` : ""}</div>` : ""}</div>${mine || owner ? `<button class="x-btn" data-act="grp-msg-del" data-id="${esc(m.id)}" aria-label="Delete message">${CLOSE}</button>` : ""}</li>`; }).join("");
   }
   function boardHtml(g){
+    const free = isOwner(g) && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !PLAN.isPro(), days = free ? PLAN.limits().groupMsgDays : 0;
     return `<section class="grp-sec" id="grpBoard"><h3 class="fsec"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Message Board</h3>
+      ${pinsHtml(g)}
       <form class="grp-post" id="grpPost" data-gid="${esc(g.id)}"><textarea id="grpMsgIn" rows="2" maxlength="2000" aria-label="Write a message to the group" placeholder="Write to the group…">${esc(S.drafts[g.id] || "")}</textarea><button type="submit" class="btn primary small">Post</button></form>
-      <ul class="grp-msgs" id="grpMsgList" aria-live="polite">${msgsHtml(g)}</ul></section>`;
+      <ul class="grp-msgs" id="grpMsgList" aria-live="polite">${msgsHtml(g)}</ul>
+      ${days ? `<p class="mini" style="margin:8px 0 0">Messages are kept ${days} days in Free groups. <button class="link-btn" data-act="grp-upgrade" data-r="Pro keeps your group's full message history.">Go Pro</button> to keep them all.</p>` : ""}</section>`;
   }
   function membersHtml(g){
     const ms = (S.members[g.id] || []).slice().sort((a, b) => (b.role === "owner") - (a.role === "owner") || String(a.display_name).localeCompare(String(b.display_name)));
-    const owner = isOwner(g);
+    const owner = isOwner(g), ext = extOf(g.id), today = todayISO();
     return `<section class="grp-sec" id="grpMembers"><h3 class="fsec">${ICON_GROUP}Members<span class="n">${ms.length}</span></h3>
-      <ul class="grp-members">${ms.map(m => `<li>${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")}${m.user_id === myId() ? ` <span class="mini">(You)</span>` : ""}</span>${m.role === "owner" ? `<span class="pill">Owner</span>` : ""}${owner && m.user_id !== myId() ? `<button class="x-btn" data-act="grp-member-del" data-id="${esc(m.user_id)}" aria-label="Remove ${esc(m.display_name)} from the group">${CLOSE}</button>` : ""}</li>`).join("")}</ul></section>`;
+      <ul class="grp-members">${ms.map(m => {
+        const st = ext ? streakOf(ext, m.user_id) : 0, bd = ext ? badgesFor(g, m.user_id) : [], me2 = m.user_id === myId();
+        const checked = ext && ext.checkins.some(c => c.user_id === m.user_id && c.day === today), nudge = ext && !me2 && !checked && !S.nudged[g.id + ":" + m.user_id + ":" + today];
+        return `<li>${av(m.display_name, m.user_id)}<span class="nm">${esc(m.display_name || "Member")}${me2 ? ` <span class="mini">(You)</span>` : ""}${bd.length ? `<span class="grp-badges">${bd.map(b => `<span class="grp-badge ${b[0]}" title="${esc(b[2])}">${esc(b[1])}</span>`).join("")}</span>` : ""}${st >= 2 && !bd.some(b => b[0] === "streak") ? `<span class="mini">${st}-day streak</span>` : ""}</span>${m.role === "owner" ? `<span class="pill">Owner</span>` : ""}${nudge ? `<button class="btn small" data-act="grp-nudge" data-id="${esc(m.user_id)}" title="Remind ${esc(m.display_name)} to check in">Nudge</button>` : ""}${owner && !me2 ? `<button class="x-btn" data-act="grp-member-del" data-id="${esc(m.user_id)}" aria-label="Remove ${esc(m.display_name)} from the group">${CLOSE}</button>` : ""}</li>`; }).join("")}</ul>
+      ${isOwner(g) && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !PLAN.isPro() ? `<p class="mini" style="margin:8px 0 0">Free groups hold up to ${PLAN.limits().groupMembers} members (${ms.length} now). <button class="link-btn" data-act="grp-upgrade" data-r="Pro groups hold up to 100 members.">Go Pro</button> for up to 100.</p>` : ""}</section>`;
   }
   // Update parts of the open group page in place, so a message you're typing isn't lost.
   function patch(gid){
     const g = groupOf(gid), root = $("#grpDetail");
     if (!g || !root || root.dataset.gid !== gid) { if (ui.tab === "groups") render(); return; }
     const swap = (id, html) => { const el = $("#" + id); if (el) el.outerHTML = html; };
-    swap("grpHead", headHtml(g)); swap("grpDecks", decksHtml(g)); swap("grpTasks", tasksHtml(g)); swap("grpMembers", membersHtml(g));
+    swap("grpHead", headHtml(g)); swap("grpChallenge", challengeHtml(g)); swap("grpDecks", decksHtml(g)); swap("grpQuizzes", quizzesHtml(g)); swap("grpSessions", sessionsHtml(g));
+    swap("grpTasks", tasksHtml(g)); swap("grpCheckin", checkinHtml(g)); swap("grpMembers", membersHtml(g)); swap("grpPins", pinsHtml(g));
     const ml = $("#grpMsgList"); if (ml) ml.innerHTML = msgsHtml(g);
     const eb = $(".grp-err", root); if (eb && !S.errG[gid]) eb.remove();
   }
@@ -29713,7 +30095,7 @@ const RM_CORE = (() => {
     const id = online() ? myId() : "";
     if (S.uid === id) return;
     unsubscribe();
-    Object.assign(S, {uid: id, groups: null, members: {}, items: {}, msgs: {}, err: "", setup: false, errG: {}, name: undefined, shares: null, drafts: {}, changed: {}, linkChecked: {}, linkNew: {}});
+    Object.assign(S, {uid: id, groups: null, members: {}, items: {}, msgs: {}, err: "", setup: false, errG: {}, name: undefined, shares: null, drafts: {}, changed: {}, linkChecked: {}, linkNew: {}, ext: {}, lb: {}, rep: {}, pick: ""});
     ui.grp = null; checked = false; updateNavBadge();
   }
   VIEWS.groups = () => {
@@ -29871,7 +30253,7 @@ const RM_CORE = (() => {
     openSheet(`<form class="sheet">${head("Join a Study Group")}<div class="sheet-body">
       <div class="grp-prev" style="--c:${esc(grpColor(pv))}"><span class="deck-tab">${esc(pv.course || "Study Group")}</span><b class="grp-prev-name">${esc(pv.name)}</b>
         <span class="mini">${plural(pv.member_count, "member")}${pv.owner_name ? ` · Started by ${esc(pv.owner_name)}` : ""}</span></div>
-      <p style="margin:0">${pv.is_member ? "You're already in this group." : "Members see each other's display names, shared decks, shared deadlines and the message board. You can leave any time."}</p></div>
+      <p style="margin:0">${pv.is_member ? "You're already in this group." : "Members see each other's display names, shared decks, quizzes, deadlines, study sessions, weekly stats and the message board. You can leave any time."}</p></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit id="grpJoin">${pv.is_member ? "Open Group" : "Join Group"}</button></div></form>`, () => {
       if (pv.is_member) { openGroup(pv.id); return; }
       const b = $("#grpJoin"); busyBtn(b, true);
@@ -29927,13 +30309,16 @@ const RM_CORE = (() => {
     openSheet(`<form class="sheet">${head(edit ? "Edit Group" : "New Study Group")}<div class="sheet-body">${REQ_NOTE}
       <label class="f"><span class="lh">Group Name ${REQ}</span><input type="text" name="name" required maxlength="80" value="${esc(edit ? g.name : "")}" autofocus placeholder="e.g. Pharm Study Squad"></label>
       <label class="f"><span class="lh">Course <span class="hint">optional</span></span><input type="text" name="course" maxlength="80" list="grpCourses" value="${esc(edit ? g.course : (ui.filter !== "all" && courseOf(ui.filter) ? courseLabel(courseOf(ui.filter)) : ""))}" placeholder="e.g. BSNC 1120"><datalist id="grpCourses">${opts}</datalist></label>
+      ${edit ? `<label class="f"><span class="lh">Weekly Focus Goal <span class="hint">optional, minutes per member</span></span><input type="number" name="goal" min="0" max="10080" step="15" inputmode="numeric" value="${Number(g.weekly_goal) || ""}" placeholder="e.g. 120 (leave empty for no goal)"></label>` : ""}
       ${edit ? `<div class="cap-row"><span style="flex:1;font-weight:600">Invite Code<span class="sub">${esc(g.invite_code)}. Make a new one if the old code got passed around. The old link stops working.</span></span><button type="button" class="btn small" id="grpNewCode">New Code</button></div>` : `<p class="mini" style="margin:0">You'll get an invite link and code to send to classmates. You can rename the group, remove members or delete it later.</p>`}</div>
       <div class="sheet-foot">${edit ? `<button type="button" class="btn danger" id="grpDel">Delete Group</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit id="grpSave">${edit ? "Save" : "Create Group"}</button></div></form>`, fd => {
       const name = String(fd.get("name") || "").trim().slice(0, 80), course = String(fd.get("course") || "").trim().slice(0, 80);
       if (!name) return false;
       const b = $("#grpSave"); busyBtn(b, true);
       if (edit) {
-        (async () => { try { await api.updateGroup(g.id, {name, course}); Object.assign(g, {name, course}); if (dlg.open) dlg.close(); toast("Group saved"); if (ui.grp === g.id) patch(g.id); else render(); } catch(e) { busyBtn(b, false); toast(e.message); } })();
+        const goal = Math.max(0, Math.min(10080, Math.round(Number(fd.get("goal")) || 0))), patchG = {name, course};
+        if (goal !== (Number(g.weekly_goal) || 0)) patchG.weekly_goal = goal;
+        (async () => { try { await api.updateGroup(g.id, patchG); Object.assign(g, patchG); if (dlg.open) dlg.close(); toast("Group saved"); if (ui.grp === g.id) patch(g.id); else render(); } catch(e) { busyBtn(b, false); toast(e.message); } })();
       } else ensureName(async () => {
         try { const gid = await api.createGroup(name, course); if (dlg.open) dlg.close(); S.groups = null; ui.tab = "groups"; ui.grp = gid; render(); await loadGroups(); toast(`${name} is ready. Invite your classmates.`, null, {label: "Invite", fn: () => inviteSheet(groupOf(gid))}); }
         catch(e) { busyBtn(b, false); toast(e.message); }
@@ -29955,6 +30340,7 @@ const RM_CORE = (() => {
     const link = linkFor("group", g.invite_code);
     openSheet(`<div class="sheet">${head("Invite to " + g.name)}<div class="sheet-body">
       <p style="margin:0">Send this link or code to classmates. After they sign in to Studyboard, they can join. ${isOwner(g) ? "You can make a new code in Edit Group." : ""}</p>
+      ${(() => { if (!isOwner(g) || typeof PLAN === "undefined" || !PLAN || !PLAN.paywall() || PLAN.isPro()) return ""; const n = (S.members[g.id] || []).length, lim = PLAN.limits().groupMembers; return `<div class="grp-note">Free groups hold up to ${lim} members${n >= lim ? " and yours is full" : ` (${n} now)`}. <button type="button" class="link-btn" data-act="grp-upgrade" data-r="Pro groups hold up to 100 members.">Go Pro</button> for up to 100.</div>`; })()}
       <div class="grp-code-big" aria-label="Invite code">${esc(g.invite_code)}</div>
       ${link ? `<div class="grp-link"><input type="text" readonly value="${esc(link)}" aria-label="Invite link" id="grpInvLink"><button type="button" class="btn small" id="grpInvCopy">Copy Link</button></div>` : `<p class="mini" style="margin:0">They can type the code in Studyboard: Groups, then Enter a Code.</p>`}</div>
       <div class="sheet-foot"><button type="button" class="btn" id="grpInvCode">Copy Code</button><span class="spacer"></span><button type="button" class="btn primary" id="grpInvSend">Send Invite</button></div></div>`);
@@ -30059,7 +30445,7 @@ const RM_CORE = (() => {
       case "grp-new": if (needOnline()) newGroupSheet(null); return true;
       case "grp-edit": if (g && isOwner(g)) newGroupSheet(g); return true;
       case "grp-invite": inviteSheet(groupOf(id) || g); return true;
-      case "grp-leave": if (g) confirmSheet(`Leave ${g.name}?`, "You'll stop seeing its decks, deadlines and messages. Anything you added to your own board or flashcards stays. You can rejoin with the invite code.", "Leave Group", async () => {
+      case "grp-leave": if (g) confirmSheet(`Leave ${g.name}?`, "You'll stop seeing its decks, quizzes, sessions and messages. Anything you added to your own board or flashcards stays. You can rejoin with the invite code.", "Leave Group", async () => {
         try { await api.removeMember(g.id, myId()); S.groups = (S.groups || []).filter(x => x.id !== g.id); ui.grp = null; unsubscribe(); render(); toast(`You left ${g.name}`); } catch(e) { toast(e.message); } }); return true;
       case "grp-member-del": { const m = g && (S.members[g.id] || []).find(x => x.user_id === id); if (!m) return true;
         confirmSheet(`Remove ${m.display_name || "This Member"}?`, `They'll stop seeing ${g.name}. What they shared stays unless you remove it. They could rejoin with the invite code, so make a new code in Edit Group if needed.`, "Remove", async () => {
@@ -30100,6 +30486,46 @@ const RM_CORE = (() => {
         confirmSheet("Delete Message?", "It's removed for everyone in the group.", "Delete", async () => {
           try { await api.unpost(m.id); S.msgs[g.id] = (S.msgs[g.id] || []).filter(x => x.id !== m.id); patch(g.id); } catch(e) { toast(e.message); } });
         return true; }
+      case "grp-share-quiz": if (g) shareQuizSheet(g); return true;
+      case "grp-quiz-take": { const it = itemOf(id); if (it) takeQuiz(it); return true; }
+      case "grp-quiz-scores": { const it = itemOf(id); if (it) scoresSheet(it); return true; }
+      case "grp-quiz-push": { const it = itemOf(id), src = it && quizSource(it); if (!src) return true;
+        busyBtn(el, true);
+        (async () => { try { const row = await api.updateItem(it.id, {title: str(src.qz.title, 300) || "Practice Quiz", data: quizPayload(src.qz, src.d.courseId)}); Object.assign(it, row || {}); toast("Updated the quiz for the group"); patch(it.group_id); } catch(e) { busyBtn(el, false); toast(e.message); } })();
+        return true; }
+      case "grp-event-new": if (g) eventSheet(g); return true;
+      case "grp-rsvp": { const x = g && extOf(g.id), it = itemOf(id); if (!x || !it) return true;
+        const status = el.dataset.s, cur = x.rsvps.find(r => r.item_id === id && r.user_id === myId()), next = cur && cur.status === status ? null : status;
+        x.rsvps = x.rsvps.filter(r => !(r.item_id === id && r.user_id === myId()));
+        if (next) x.rsvps.push({item_id: id, group_id: g.id, user_id: myId(), status: next});
+        patch(g.id);
+        api.rsvp(id, next).catch(e => { toast(e.message); loadExtras(g.id); });
+        return true; }
+      case "grp-lb": if (g) { S.lb[g.id] = el.dataset.m === "quiz" ? "quiz" : "focus"; patch(g.id); } return true;
+      case "grp-check-done": { const x = g && extOf(g.id), mine = x && x.checkins.find(c => c.user_id === myId() && c.day === todayISO()); if (!mine) return true;
+        mine.done = !mine.done; patch(g.id);
+        api.checkin(g.id, mine.day, mine.plan, mine.done).then(() => { if (mine.done) toast("Nice work. Marked as done."); }).catch(e => { toast(e.message); loadExtras(g.id); });
+        return true; }
+      case "grp-nudge": { const m = g && (S.members[g.id] || []).find(x => x.user_id === id); if (!m) return true;
+        S.nudged[g.id + ":" + id + ":" + todayISO()] = 1; patch(g.id);
+        ensureName(async () => { try {
+          const row = await api.post(g.id, `Nudge for ${m.display_name || "you"}: time for today's check-in. What are you studying?`);
+          if (row && S.msgs[g.id] && !S.msgs[g.id].some(x => x.id === row.id)) S.msgs[g.id].unshift(row);
+          toast(`Nudged ${m.display_name || "member"}`); patch(g.id);
+        } catch(e) { delete S.nudged[g.id + ":" + id + ":" + todayISO()]; toast(e.message); patch(g.id); } });
+        return true; }
+      case "grp-react-open": S.pick = S.pick === id ? "" : id; if (g) patch(g.id); return true;
+      case "grp-react": { const x = g && extOf(g.id); if (!x) return true; const kind = el.dataset.k;
+        const i = x.reactions.findIndex(r => r.message_id === id && r.user_id === myId() && r.kind === kind);
+        if (i >= 0) x.reactions.splice(i, 1); else x.reactions.push({message_id: id, user_id: myId(), kind});
+        S.pick = ""; patch(g.id);
+        api.react(id, kind).catch(e => { toast(e.message); loadExtras(g.id); });
+        return true; }
+      case "grp-pin": { const m = g && (S.msgs[g.id] || []).find(x => x.id === id); if (!m) return true;
+        const on = !m.pinned; m.pinned = on; patch(g.id);
+        api.pin(id, on).catch(e => { m.pinned = !on; toast(e.message); patch(g.id); });
+        return true; }
+      case "grp-upgrade": if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(el.dataset.r || ""); return true;
       case "grp-link-update": { const d = state.decks[id]; if (!d || !d.sharedFrom || !d.sharedFrom.code) return true;
         busyBtn(el, true);
         (async () => { try { const r = await api.getDeck(d.sharedFrom.code); const p = r && cleanPayload(r.data);
@@ -30129,13 +30555,46 @@ const RM_CORE = (() => {
       busyBtn($("#grpPost button[type=submit]"), false);
     });
   });
+  // Daily check-in
+  document.addEventListener("submit", e => {
+    if (!e.target || e.target.id !== "grpCheck") return;
+    e.preventDefault();
+    const gid = e.target.dataset.gid, x = extOf(gid), plan = String(new FormData(e.target).get("plan") || "").trim().slice(0, 140), day = todayISO();
+    if (!x) return;
+    const btn = $("button[type=submit]", e.target); busyBtn(btn, true);
+    ensureName(async () => {
+      const cur = x.checkins.find(c => c.user_id === myId() && c.day === day), done = cur ? cur.done : false;
+      try {
+        await api.checkin(gid, day, plan, done);
+        if (cur) { cur.plan = plan; cur.updated_at = new Date().toISOString(); } else { x.checkins.push({group_id: gid, user_id: myId(), day, plan, done, updated_at: new Date().toISOString()}); toast("Checked in. Have a good session."); }
+        patch(gid);
+      } catch(err) { toast(err.message); }
+      busyBtn($("#grpCheck button[type=submit]"), false);
+    });
+  });
   document.addEventListener("input", e => { if (e.target && e.target.id === "grpMsgIn" && ui.grp) S.drafts[ui.grp] = e.target.value; });
   document.addEventListener("keydown", e => {
     if (e.target && e.target.id === "grpMsgIn" && e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); const f = $("#grpPost"); if (f) f.requestSubmit ? f.requestSubmit() : f.dispatchEvent(new Event("submit", {cancelable: true, bubbles: true})); }
   });
 
   /* ---------- Hooks into the rest of the app ---------- */
-  hook("menu", () => `<button data-act="grp-page"><span>Study Groups<span class="sub">Share decks and deadlines with classmates, and chat on a group board</span></span></button>`);
+  hook("menu", () => `<button data-act="grp-page"><span>Study Groups<span class="sub">Share decks, quizzes and deadlines, plan sessions, and compete on a weekly challenge</span></span></button>`);
+  // Your focus time and quiz results feed the weekly challenge; a finished group quiz posts its score.
+  hook("stats-focus", reportSoon);
+  hook("ai-quiz-done", e => {
+    reportSoon();
+    if (!e || e.partial || !online()) return;
+    const d = state.decks[e.deckId]; if (!d) return;
+    let itemId = "";
+    if (d.sharedFrom && d.sharedFrom.q && d.sharedFrom.i) itemId = d.sharedFrom.i;
+    else { const ref = e.deckId + ":" + e.quizId; for (const k in S.items) { const it = (S.items[k] || []).find(x => x.kind === "quiz" && x.user_id === myId() && x.ref_id === ref); if (it) { itemId = it.id; break; } } }
+    if (!itemId) return;
+    api.submitScore(itemId, e.right, e.total).then(() => {
+      const it = itemOf(itemId), gid = (it && it.group_id) || (d.sharedFrom && d.sharedFrom.g);
+      toast(`Score posted${groupOf(gid) ? " to " + groupOf(gid).name : ""}: ${e.right}/${e.total}`);
+      if (gid && S.ext[gid] && S.ext[gid].ok) loadExtras(gid);
+    }).catch(() => {});
+  });
 
   hook("render", tab => {
     checkUser();
