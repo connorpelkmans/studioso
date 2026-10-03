@@ -128,7 +128,7 @@ body.wide .wrap{max-width:1180px}
 .ann-btn[hidden]{display:none}
 .ann-n{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--late,#C0392B);color:#fff;font:700 .68rem/18px var(--body);text-align:center;box-sizing:border-box}
 .nav-tool.ann-btn .ann-n{top:2px;right:calc(50% - 26px)}
-.ann-sheet .sheet-body{gap:10px}
+.ann-sheet .sheet-body{gap:10px;align-content:start;grid-auto-rows:max-content}
 .ann-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .ann-bar .spacer{flex:1}
 .ann-course{display:flex;align-items:center;gap:8px;margin:8px 0 0;font:700 .98rem var(--display)}
@@ -143,6 +143,29 @@ body.wide .wrap{max-width:1180px}
 .ann-list details summary{cursor:pointer;color:var(--accent);font-size:.8rem;margin-top:4px}
 .ann-list .ann-txt{margin:4px 0 0;font-size:.88rem;white-space:pre-line;overflow-wrap:anywhere}
 .ann-list .bs-btns{margin-top:6px}
+.ann-tabs{flex:none;display:flex;gap:6px;overflow-x:auto;padding:2px 2px 8px;margin:0 -2px;scrollbar-width:thin;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;overscroll-behavior-x:contain}
+.ann-tab{flex:none;display:inline-flex;align-items:center;gap:6px;max-width:min(70vw,220px);min-height:36px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 .82rem var(--body);cursor:pointer;scroll-snap-align:start}
+.ann-tab .sd{width:9px;height:9px;border-radius:50%;flex:none}
+.ann-tab .ann-tl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.ann-tab[aria-selected="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.ann-tab:focus-visible,#annPanel:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ann-pill{flex:none;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--accent);color:var(--accent-ink);font:700 .68rem/18px var(--body);text-align:center}
+.ann-tab[aria-selected="true"] .ann-pill{background:var(--bg);color:var(--ink)}
+#annPanel{flex:none;outline:none;display:grid;gap:2px}
+.ann-bar,.ann-status{flex:none}
+.ann-home-h{margin:6px 0 0;font:700 1.05rem var(--display)}
+.ann-home-note{margin:0 0 4px}
+.ann-chip{display:inline-flex;align-items:center;gap:6px;max-width:100%;margin:0 0 3px;padding:2px 9px 2px 7px;border-radius:999px;border:1px solid var(--line);background:var(--soft);font:600 .74rem var(--body);color:var(--ink)}
+.ann-chip .sd{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
+.ann-chip .n{color:var(--muted);font-weight:500}
+.ann-list li>.ann-chip{display:flex;width:max-content}
+.ann-browse{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.ann-browse .btn-chip{cursor:pointer;padding:6px 11px;font-size:.8rem}
+.ann-browse .btn-chip:hover{border-color:var(--accent)}
+.ann-status{margin:0;padding:8px 10px;border-radius:10px;font-size:.86rem;background:var(--soft);overflow-wrap:anywhere}
+.ann-status[data-kind="err"]{background:color-mix(in srgb,var(--late) 12%,var(--surface));color:var(--ink)}
+.ann-status[data-kind="ok"]{background:color-mix(in srgb,var(--accent) 10%,var(--surface))}
+.ann-status .btn{margin-left:6px}
 .lms-go{flex:none;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--accent);display:inline-grid;place-items:center;padding:0;cursor:pointer}
 .lms-go:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--surface))}
 li.task>.lms-go{align-self:center;margin-right:12px}
@@ -150,9 +173,8 @@ li.task>.lms-go{align-self:center;margin-right:12px}
 .card-foot .lms-go svg{width:13px;height:13px}
 .nu-row>.lms-go{align-self:center}
 .plan-side .lms-go{margin-right:6px}
-.course-wrap{position:relative;display:flow-root}
-.course-wrap>.lms-go{position:absolute;right:12px;bottom:12px;width:auto;height:30px;border-radius:15px;padding:0 10px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;font:600 .78rem var(--body)}
-.course-wrap:has(>.lms-go) .course-card .prog{margin-right:104px}
+.course-wrap{display:flex;flex-direction:column;align-items:stretch}
+.course-wrap>.lms-go{align-self:flex-end;width:auto;height:30px;margin:6px 6px 0;border-radius:15px;padding:0 10px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;font:600 .78rem var(--body)}
 .course-wrap>.lms-go svg{width:13px;height:13px}
 .card-foot{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:.8rem;color:var(--muted)}
 .card-foot .late{color:var(--late);font-weight:600}
@@ -1267,6 +1289,8 @@ button.pr-why:hover{background:var(--soft);color:var(--ink)}
   .plan .fh-ctl{margin-left:0;width:100%}
   .plan .fh-hide{margin-left:auto}
   .nu-top{margin-left:38px}
+  .nu-body{flex-basis:150px}
+  .nu-row>.lms-go{align-self:flex-start}
   .nu-acts{flex-basis:100%;margin-left:0;padding-left:38px}
   .plan-row{grid-template-columns:26px minmax(0,1fr) auto;grid-template-areas:"chk main side" "chk why side" ". more more";column-gap:12px;padding:8px 0}
   .plan-row>.check{align-self:start;width:26px;height:26px;margin-top:2px}
@@ -4099,6 +4123,57 @@ const $ = (s, el=document) => el.querySelector(s);
 const DESK = window.studiosoDesktop || null;
 const $$ = (s, el=document) => [...el.querySelectorAll(s)];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+// Readable plain text from HTML-ish text (LMS text, entity-encoded markup). Pure string work: nothing is parsed into a live DOM, so nothing can run.
+// Handles tags (with line breaks for p/br/li/headings), named, numeric and double-encoded entities (&amp;amp;), and collapses whitespace.
+// opts.line: one line only. opts.max: cut length.
+const HT_ENT = {amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ensp: " ", emsp: " ", thinsp: " ", zwnj: "", zwj: "", shy: "", lrm: "", rlm: "",
+  lsquo: "\u2018", rsquo: "\u2019", sbquo: "\u201A", ldquo: "\u201C", rdquo: "\u201D", bdquo: "\u201E", laquo: "\u00AB", raquo: "\u00BB", lsaquo: "\u2039", rsaquo: "\u203A",
+  ndash: "\u2013", mdash: "\u2014", hellip: "\u2026", bull: "\u2022", middot: "\u00B7", sdot: "\u22C5", dagger: "\u2020", Dagger: "\u2021", prime: "\u2032", Prime: "\u2033",
+  copy: "\u00A9", reg: "\u00AE", trade: "\u2122", deg: "\u00B0", plusmn: "\u00B1", times: "\u00D7", divide: "\u00F7", minus: "\u2212", frac12: "\u00BD", frac14: "\u00BC", frac34: "\u00BE",
+  sup1: "\u00B9", sup2: "\u00B2", sup3: "\u00B3", micro: "\u00B5", para: "\u00B6", sect: "\u00A7", cent: "\u00A2", pound: "\u00A3", yen: "\u00A5", euro: "\u20AC", curren: "\u00A4",
+  iexcl: "\u00A1", iquest: "\u00BF", ne: "\u2260", le: "\u2264", ge: "\u2265", asymp: "\u2248", infin: "\u221E", larr: "\u2190", rarr: "\u2192", uarr: "\u2191", darr: "\u2193", harr: "\u2194", check: "\u2713",
+  alpha: "\u03B1", beta: "\u03B2", gamma: "\u03B3", delta: "\u03B4", mu: "\u03BC", pi: "\u03C0", sigma: "\u03C3", omega: "\u03C9", Omega: "\u03A9", Delta: "\u0394", ordf: "\u00AA", ordm: "\u00BA",
+  szlig: "\u00DF", aelig: "\u00E6", AElig: "\u00C6", oslash: "\u00F8", Oslash: "\u00D8", ntilde: "\u00F1", Ntilde: "\u00D1", ccedil: "\u00E7", Ccedil: "\u00C7"};
+const HT_ACC = {grave: "\u0300", acute: "\u0301", circ: "\u0302", tilde: "\u0303", uml: "\u0308", ring: "\u030A", cedil: "\u0327"};
+// Only real HTML tag names count as markup, so text like "<Chapter 3>" or "a < b" is left alone.
+const HT_TAGS = "a|abbr|address|article|aside|audio|b|bdi|bdo|big|blockquote|body|br|button|canvas|caption|center|cite|code|col|colgroup|dd|del|details|dfn|dialog|div|dl|dt|em|fieldset|figcaption|figure|font|footer|form|h[1-6]|header|hr|html|i|img|input|ins|kbd|label|legend|li|link|main|mark|meta|nav|o:p|ol|optgroup|option|p|pre|q|s|samp|section|select|small|source|span|strike|strong|sub|summary|sup|table|tbody|td|textarea|tfoot|th|thead|time|tr|tt|u|ul|var|video|wbr|!doctype|\\?xml";
+const HT_TAGRE = new RegExp("<\\/?(?:" + HT_TAGS + ")(?=[\\s/>])(?:\"[^\"]*\"|'[^']*'|[^<>\"'])*>", "gi");
+const HT_OPENRE = new RegExp("<\\/?(?:" + HT_TAGS + ")(?:\\s[^<>]*)?$", "i");
+const HT_HAS = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+function htmlText(s, opts){
+  const o = opts || {};
+  if (s == null || s === "") return "";
+  const t0 = typeof s === "string" ? s : typeof s === "object" ? "" : String(s);
+  if (!t0) return "";
+  let t = t0;
+  const dec = (m, name) => {
+    if (name[0] === "#") { const n = name[1] === "x" || name[1] === "X" ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10); return n > 0 && n <= 0x10FFFF && !(n >= 0xD800 && n <= 0xDFFF) ? (n === 160 ? " " : String.fromCodePoint(n)) : ""; }
+    if (HT_HAS(HT_ENT, name)) return HT_ENT[name];
+    const lm = /^([A-Za-z])(grave|acute|circ|tilde|uml|ring|cedil)$/.exec(name); if (lm) return (lm[1] + HT_ACC[lm[2]]).normalize("NFC");
+    return m;
+  };
+  // Each pass strips markup then decodes entities, so "&lt;p&gt;Tom &amp;amp; Jo" (double-encoded) peels one layer per pass.
+  for (let i = 0; i < 5; i++) {
+    const before = t;
+    t = t.replace(/<!--[\s\S]*?(-->|$)/g, "").replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+      .replace(/<(script|style|head|template|noscript|iframe|object|embed|svg|math)\b[\s\S]*?(<\/\1\s*>|$)/gi, " ")
+      .replace(/<\s*br\b[^>]*>/gi, "\n").replace(/<\s*li\b[^>]*>/gi, "\n\u2022 ")
+      .replace(/<\/\s*(p|div|h[1-6]|tr|ul|ol|table|blockquote|section|article|pre|dl|dt|dd|header|footer|figure)\s*>/gi, "\n")
+      .replace(/<\s*(p|div|h[1-6]|tr|ul|ol|table|blockquote|hr)\b[^>]*>/gi, "\n").replace(/<\/\s*(td|th)\s*>/gi, " ")
+      .replace(HT_TAGRE, "").replace(HT_OPENRE, "")
+      .replace(/&(#[xX][0-9a-fA-F]+|#\d+|[A-Za-z][A-Za-z0-9]{1,9});?/g, (m, n) => m.endsWith(";") || n[0] === "#" || HT_HAS(HT_ENT, n) ? dec(m, n) : m);
+    if (t === before) break;
+  }
+  t = t.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u200B-\u200D\u2060\uFEFF\u00AD]/g, "").replace(/[ \t\f\v\u00A0\u2000-\u200A\u202F\u205F\u3000]+/g, " ").replace(/\r\n?/g, "\n");
+  t = o.line ? t.replace(/\s+/g, " ") : t.replace(/ *\n */g, "\n").replace(/\n{3,}/g, "\n\n");
+  t = t.trim();
+  return o.max && t.length > o.max ? t.slice(0, o.max) : t;
+}
+const htmlLine = s => htmlText(s, {line: true});   // same, on one line (titles, names)
+// Text that still carries markup or entities (<p>, &amp;, &#39;): cleaned when data is loaded or shown, so already-stored school text is fixed too.
+const HT_DIRTY = new RegExp("<\\/?(?:" + HT_TAGS + ")(?=[\\s/>])|&(?:#\\d+|#[xX][0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]{1,9});");
+const scrubText = (s, line) => typeof s === "string" && HT_DIRTY.test(s) ? htmlText(s, {line}) : s;
+function scrubFields(o, lineKeys, blockKeys){ lineKeys.forEach(k => { if (o[k]) o[k] = scrubText(o[k], true); }); (blockKeys || []).forEach(k => { if (o[k]) o[k] = scrubText(o[k], false); }); return o; }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 /* ---------- Hooks: how the 1.11 feature modules plug into the app ----------
    hook(name, fn) registers; fire(name, ...args) calls every fn and returns their results. VIEWS[tab] adds a page. */
@@ -4181,7 +4256,7 @@ function normTask(t){
   if (!isDate(t.due)) t.due = "";
   if (!isDate(t.start)) t.start = "";
   delete t.earned; delete t.possible;
-  return t;
+  return scrubFields(t, ["title", "location", "team", "reading"], ["notes"]);
 }
 function normFile(f){
   f = Object.assign({name:"Untitled", courseId:"", folderId:"other", kind:"file", revs:[], taskIds:[], desc:"", url:""}, f);
@@ -4203,12 +4278,12 @@ function normEvent(e){
   if (e.repeat) e.repeat = {days: [...new Set(e.repeat.days.map(Number))].filter(d => d >= 0 && d <= 6).sort(), every: Math.max(1, Math.min(4, Number(e.repeat.every) || 1)), until: isDate(e.repeat.until) ? e.repeat.until : ""};
   if (!Array.isArray(e.exdates)) e.exdates = [];
   if (!e.moved || typeof e.moved !== "object" || Array.isArray(e.moved)) e.moved = {};
-  return e;
+  return scrubFields(e, ["title", "where"], ["notes"]);
 }
 const norm = (kind, o) => kind === "task" ? normTask(o) : kind === "file" ? normFile(o) : kind === "note" ? normNote(o) : kind === "deck" ? normDeck(o) : kind === "event" ? normEvent(o) : o;
 function fromArrays(o){
   const s = {courses:{}, tasks:{}, files:{}, notes:{}, decks:{}, events:{}, settings:Object.assign({capacity:15}, (o && o.settings) || {}), updated:(o && o.updated) || 0};
-  ((o && Array.isArray(o.courses)) ? o.courses : []).forEach(c => { if (c && c.id) s.courses[c.id] = clone(c); });
+  ((o && Array.isArray(o.courses)) ? o.courses : []).forEach(c => { if (c && c.id) s.courses[c.id] = scrubFields(clone(c), ["name", "code"]); });
   ((o && Array.isArray(o.tasks)) ? o.tasks : []).forEach(t => { if (t && t.id) s.tasks[t.id] = normTask(clone(t)); });
   ((o && Array.isArray(o.files)) ? o.files : []).forEach(f => { if (f && f.id) s.files[f.id] = normFile(clone(f)); });
   ((o && Array.isArray(o.notes)) ? o.notes : []).forEach(n => { if (n && n.id) s.notes[n.id] = normNote(clone(n)); });
@@ -9092,7 +9167,7 @@ function icsParse(text){
   }
   return items;
 }
-const icsTxt = s => String(s || "").replace(/\\n/gi, "\n").replace(/\\([,;\\])/g, "$1").trim();
+const icsTxt = s => scrubText(String(s || "").replace(/\\n/gi, "\n").replace(/\\([,;\\])/g, "$1").trim(), false);   // calendar text often carries HTML
 function icsTz(y, mo, d, h, mi, tz){
   try {
     const guess = Date.UTC(y, mo - 1, d, h, mi);
@@ -9123,7 +9198,7 @@ function icsPlan(text){
     const status = txt("STATUS").toUpperCase(), uidv = txt("UID") || uid();
     if (it.type === "VEVENT" && g("RECURRENCE-ID")) { overrides.push({uid: uidv, rid: icsWhen(g("RECURRENCE-ID")), s: icsWhen(g("DTSTART")), e: icsWhen(g("DTEND")), dur: icsDur(txt("DURATION")), cancel: status === "CANCELLED"}); return; }
     if (status === "CANCELLED") return;
-    const title = txt("SUMMARY") || "Untitled";
+    const title = txt("SUMMARY").replace(/\s+/g, " ").trim() || "Untitled";
     if (it.type === "VTODO") {
       const due = icsWhen(g("DUE")) || icsWhen(g("DTSTART")); if (!due) return;
       out.push({kind: "task", uid: uidv, title, due: due.date, time: due.allDay ? "" : due.time, notes: txt("DESCRIPTION"), where: txt("LOCATION"), done: status === "COMPLETED", past: due.date < addDays(today, -30)});
@@ -11151,7 +11226,7 @@ function normNote(n){
   if (n.shape === "taped") { n.shape = ""; n.pin = n.pin || "tape"; }
   if (!Array.isArray(n.stickers)) n.stickers = [];
   n.x = Math.max(0, Number(n.x) || 0); n.y = Math.max(0, Number(n.y) || 0);
-  return n;
+  return scrubFields(n, [], ["text"]);
 }
 const notesArr = () => Object.values(state.notes || {});
 const NOTE_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;margin-right:2px"><path d="M4 4h16v10l-6 6H4z"/><path d="M14 20v-6h6"/></svg>';
@@ -26626,7 +26701,8 @@ var MAJ_THEMES = [];
   }
   function buildItems(){
     const ix = newIx(), sem = [];
-    const put = (doc, title, text, extra) => { doc.title = title; doc.text = text || ""; addDoc(ix, doc, title, (text || "") + " " + (extra || "")); return doc; };
+    // Already-stored school text can still hold tags or entities (<p>, &amp;), so it's cleaned before it's indexed or shown.
+    const put = (doc, title, text, extra) => { title = scrubText(title, true); text = scrubText(text, false); extra = scrubText(extra, false); doc.title = title; doc.text = text || ""; addDoc(ix, doc, title, (text || "") + " " + (extra || "")); return doc; };
     const semAdd = (doc, title, text) => {
       text = String(text || "").trim(); if (!text) return;
       const parts = text.length > 2200 ? chunkText(text, 1200, 1800) : [text];
@@ -27036,7 +27112,7 @@ var MAJ_THEMES = [];
     return true;
   }
   function snippet(text, hs, len = 160){
-    text = String(text || "").replace(/\s+/g, " ").trim(); if (!text) return "";
+    text = scrubText(String(text || ""), true).replace(/\s+/g, " ").trim(); if (!text) return "";
     const ms = [];
     if (hs && hs.size) {
       const re = /[\p{L}\p{N}]+/gu, s = text.length > 30000 ? text.slice(0, 30000) : text; let m;
@@ -32454,8 +32530,10 @@ window.SBEST = SBEST;
   const synced = () => (state.settings && state.settings[P.id]) || {};
   const cfg = () => {
     const s = synced(), b = bulk();
-    const newsItems = (s.newsItems || []).map(n => { const full = b.texts[n.ou + "|" + n.id]; return full && full.length > String(n.text || "").length ? Object.assign({}, n, {text: full}) : n; });
-    return Object.assign({}, DEF, s, {log: s.log && s.log.length ? s.log : b.log, scanned: s.scanned && s.scanned.length ? s.scanned : b.scanned, newsItems});
+    // Text saved before the sync cleaned it can still carry <p> or &amp;, so it's cleaned again on the way out.
+    const newsItems = (s.newsItems || []).map(n => { const full = b.texts[n.ou + "|" + n.id]; return scrubFields(full && full.length > String(n.text || "").length ? Object.assign({}, n, {text: full}) : Object.assign({}, n), ["title"], ["text"]); });
+    const courses = s.courses ? Object.fromEntries(Object.entries(s.courses).map(([k, v]) => [k, scrubFields(Object.assign({}, v), ["name", "code"])])) : DEF.courses;
+    return Object.assign({}, DEF, s, {log: s.log && s.log.length ? s.log : b.log, scanned: s.scanned && s.scanned.length ? s.scanned : b.scanned, newsItems, courses});
   };
   const slimSynced = obj => {
     const b = bulk(), out = Object.assign({}, obj);
@@ -32604,7 +32682,7 @@ window.SBEST = SBEST;
     });
     out.courses = Object.values(courses);
     out.synced = out.courses.map(c => c.ou);
-    return out;
+    return cleanData(out);
   }
 
   /* ---------- Matching the platform courses to yours ---------- */
@@ -33188,7 +33266,18 @@ window.SBEST = SBEST;
     });
     return out;
   }
-  P.fromApi = P.id === "brightspace" ? bsFromApi : fromCommon;
+  // Everything the school hands over is turned into readable plain text here, so no tags or entities (<p>, &amp;) reach the app.
+  const cleanData = d => {
+    const L = htmlLine, T = x => htmlText(x);
+    (d.courses || []).forEach(c => { c.name = L(c.name); c.code = L(c.code); });
+    (d.recs || []).forEach(r => { r.title = L(r.title); r.notes = T(r.notes); if (r.location != null) r.location = L(r.location); });
+    (d.evs || []).forEach(e => { e.title = L(e.title); e.notes = T(e.notes); e.where = L(e.where); });
+    (d.grades || []).forEach(g => { g.name = L(g.name); });
+    (d.news || []).forEach(n => { n.title = L(n.title); n.text = T(n.text); });
+    return d;
+  };
+  const fromApi0 = P.id === "brightspace" ? bsFromApi : fromCommon;
+  P.fromApi = h => cleanData(fromApi0(h));
 
   /* ---------- On each course page: announcements, files and the platform's grade ---------- */
   function courseCard(course){
@@ -33381,14 +33470,20 @@ window.SBEST = SBEST;
 
 /* ===== module: 95-announce.js ===== */
 /* Class announcements in one place: a bell in the header (and the side bar) opens a panel with the announcements school sync
-   brought in, grouped by course. Unread ones have a dot; opening one or pressing Mark Read clears it. Which ones you've read
-   stays on this device. Announcements come from the school connections (Brightspace, Canvas, Blackboard) module above. */
+   brought in. A Home tab shows the 3 newest across every class; each class that has announcements gets its own tab. Unread ones
+   have a dot; opening one or pressing Mark Read clears it. Which ones you've read (and the last tab you looked at) stays on this
+   device. Announcements come from the school connections (Brightspace, Canvas, Blackboard) module above.
+   Check Now runs a real sync by hand: the sync scheduler's minimum gaps and back-off only hold back the automatic checks. */
 (() => {
-  const KEY = "studyboard:annRead", FRESH_DAYS = 21;
+  const KEY = "studyboard:annRead", TAB_KEY = "studyboard:annTab", FRESH_DAYS = 21, HOME = "home";
   const plats = () => ["brightspace", "canvas", "blackboard"].map(k => window.SBLMS && window.SBLMS[k]).filter(L => L && L.cfg && L.connected(L.cfg()));
   let readMem = null;
   const readSet = () => { if (!readMem) { try { readMem = new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); } catch(e) { readMem = new Set(); } } return readMem; };
   const saveRead = () => { try { localStorage.setItem(KEY, JSON.stringify([...readSet()].slice(-600))); } catch(e) {} };
+  let tab = HOME; try { tab = localStorage.getItem(TAB_KEY) || HOME; } catch(e) {}
+  const setTab = k => { tab = k; try { localStorage.setItem(TAB_KEY, k); } catch(e) {} };
+  // The last Check Now: {busy, kind: "ok" | "err" | "info", msg, btn: {act, plat, label}}
+  let st = {busy: false, kind: "", msg: "", btn: null};
   // Everything announced, newest first: {key, ou, id, title, text, long, date, url, plat, cid, course}
   function items(){
     const out = [];
@@ -33398,8 +33493,8 @@ window.SBEST = SBEST;
         const m = c.map && c.map[n.ou]; if (m === "skip") return;
         const key = L.P.id + "|" + n.ou + "|" + n.id; if (seen.has(key)) return; seen.add(key);
         const cr = m && m !== "new" ? state.courses[m] : null, bc = (c.courses || {})[n.ou] || {};
-        out.push({key, ou: n.ou, id: n.id, title: n.title || "(No title)", text: n.text || "", long: !!n.long, date: n.date || "", url: safeUrl(n.url) || "", plat: L.P.name,
-          cid: cr ? cr.id : "", course: cr ? cr.name : (bc.name || bc.code || L.P.name + " Course"), color: cr ? cr.color : "#8A94A6"});
+        out.push({key, ou: n.ou, id: n.id, title: htmlLine(n.title) || "(No title)", text: htmlText(n.text), long: !!n.long, date: n.date || "", url: safeUrl(n.url) || "", plat: L.P.name,
+          cid: cr ? cr.id : "", course: htmlLine(cr ? cr.name : (bc.name || bc.code || L.P.name + " Course")), color: cr ? cr.color : "#8A94A6"});
       });
     });
     return out.sort((a, b) => String(b.date).localeCompare(String(a.date)));
@@ -33414,42 +33509,127 @@ window.SBEST = SBEST;
       b.setAttribute("aria-label", n ? `Class announcements, ${n} unread` : "Class announcements");
     });
   }
+  // "today", "yesterday", "3 days ago", "2 weeks ago", else the date
+  function rel(d){
+    const t = Date.parse(d); if (isNaN(t)) return "";
+    const n = Math.floor((Date.now() - t) / 864e5);
+    return n <= 0 ? "today" : n === 1 ? "yesterday" : n < 14 ? `${n} days ago` : n < 60 ? `${Math.floor(n / 7)} weeks ago` : fmtShort(iso(new Date(t)));
+  }
+  const ago = ms => { const m = Math.floor((Date.now() - ms) / 6e4); return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.floor(m / 60)} h ago` : `${Math.floor(m / 1440)} d ago`; };
+  const bsDesk = () => !!(window.studiosoDesktop && window.studiosoDesktop.lms);
+  // Can this connection fetch announcements from this device? "api" yes; otherwise why not.
+  function how(L){
+    const c = L.cfg();
+    if (!bsDesk()) return "web";
+    if (c.mode !== "api" || !c.host) return "feed";
+    return c.news === false ? "off" : "api";
+  }
+  const lastChecked = () => { const t = Math.max(0, ...plats().map(L => (L.cfg().last || 0))); return t > 1e11 ? t : 0; };
+
   function sheet(){
-    const body0 = dlg.querySelector(".ann-sheet .sheet-body"), top = body0 ? body0.scrollTop : 0;
+    const body0 = dlg.querySelector(".ann-sheet .sheet-body"), top = body0 ? body0.scrollTop : 0, hadFocus = !!(document.activeElement && document.activeElement.closest && document.activeElement.closest(".ann-tabs"));
     const rs = readSet(), all = items(), np = plats();
     const nUn = all.filter(n => isNew(n, rs)).length;
     const groups = [];
     all.forEach(n => { const k = n.cid || n.plat + n.ou; let g = groups.find(x => x.k === k); if (!g) groups.push(g = {k, name: n.course, color: n.color, list: []}); g.list.push(n); });
-    groups.sort((a, b) => (b.list.some(n => isNew(n, rs)) - a.list.some(n => isNew(n, rs))) || String(b.list[0].date).localeCompare(String(a.list[0].date)));
-    const row = n => { const un = isNew(n, rs);
-      return `<li class="${un ? "unread" : ""}"><b>${esc(n.title)}</b><span class="mini">${esc(n.plat)}${n.date && !isNaN(Date.parse(n.date)) ? ` · ${esc(fmtShort(iso(new Date(n.date))))}` : ""}${un ? " · New" : ""}</span>
+    groups.forEach(g => { g.un = g.list.filter(n => isNew(n, rs)).length; });
+    groups.sort((a, b) => (!!b.un - !!a.un) || String(b.list[0].date).localeCompare(String(a.list[0].date)));
+    if (tab !== HOME && !groups.some(g => g.k === tab)) tab = HOME;
+    const cur = groups.find(g => g.k === tab);
+    const tid = k => "annTab_" + String(k).replace(/[^\w-]/g, "_");
+    const row = (n, chip) => { const un = isNew(n, rs), when = n.date && !isNaN(Date.parse(n.date)) ? rel(n.date) : "";
+      return `<li class="${un ? "unread" : ""}">${chip ? `<span class="ann-chip" style="--c:${esc(n.color)}"><span class="sd"></span>${esc(n.course)}</span>` : ""}<b>${esc(n.title)}</b><span class="mini">${esc(n.plat)}${when ? ` · <span title="${esc(fmtShort(iso(new Date(n.date))))}">${esc(when)}</span>` : ""}${un ? " · New" : ""}</span>
         ${n.text ? (n.text.length > 200 || n.long ? `<details><summary>${esc(n.text.slice(0, 120).replace(/\s+/g, " "))}… Read more</summary><p class="ann-txt">${esc(n.text)}${n.long ? "…" : ""}</p></details>` : `<p class="ann-txt">${esc(n.text)}</p>`) : ""}
         <span class="bs-btns">${n.url ? `<button type="button" class="btn small" data-act="ann-go" data-key="${esc(n.key)}" data-url="${esc(n.url)}">Open in ${esc(n.plat)}</button>` : ""}<button type="button" class="btn small" data-act="ann-read" data-key="${esc(n.key)}">${un ? "Mark Read" : "Mark Unread"}</button></span></li>`; };
+    const tabBtn = (k, label, un, color) => `<button type="button" role="tab" class="ann-tab" id="${tid(k)}" data-act="ann-tab" data-ann="${esc(k)}" aria-selected="${tab === k}" aria-controls="annPanel" tabindex="${tab === k ? 0 : -1}"${un ? ` aria-label="${esc(label)}, ${un} unread"` : ""}>${color ? `<span class="sd" style="background:${esc(color)}"></span>` : ""}<span class="ann-tl">${esc(label)}</span>${un ? `<span class="ann-pill" aria-hidden="true">${un}</span>` : ""}</button>`;
+    let panel;
+    if (!all.length) panel = "";
+    else if (tab === HOME) {
+      const recent = all.slice(0, 3);
+      panel = `<h3 class="ann-home-h">${recent.length === 1 ? "Most recent announcement" : `${recent.length} most recent announcements`}</h3>
+        <p class="mini ann-home-note">Newest first, from all your classes together. Pick a class tab above to see everything that class has posted.</p>
+        <ul class="ann-list">${recent.map(n => row(n, true)).join("")}</ul>
+        ${groups.length ? `<h3 class="ann-course" style="margin-top:14px">Browse by class</h3><div class="ann-browse">${groups.map(g => `<button type="button" class="ann-chip btn-chip" style="--c:${esc(g.color)}" data-act="ann-tab" data-ann="${esc(g.k)}"><span class="sd"></span>${esc(g.name)}<span class="n">${g.list.length}${g.un ? ` · ${g.un} new` : ""}</span></button>`).join("")}</div>` : ""}`;
+    } else {
+      panel = `<h3 class="ann-course" style="--c:${esc(cur.color)}"><span class="sd"></span>${esc(cur.name)}<span class="n">${cur.list.length} announcement${cur.list.length === 1 ? "" : "s"}${cur.un ? `, ${cur.un} new` : ""}</span></h3>
+        <ul class="ann-list">${cur.list.map(n => row(n, false)).join("")}</ul>`;
+    }
+    const status = st.busy ? `<p class="ann-status" role="status" aria-live="polite" data-kind="busy">Checking your school site for new announcements…</p>`
+      : st.msg ? `<p class="ann-status" role="status" aria-live="polite" data-kind="${esc(st.kind)}">${esc(st.msg)}${st.btn ? ` <button type="button" class="btn small" data-act="${esc(st.btn.act)}" data-plat="${esc(st.btn.plat || "")}">${esc(st.btn.label)}</button>` : ""}</p>` : "";
+    const lc = lastChecked();
     openSheet(`<div class="sheet ann-sheet">${head("Class Announcements")}
       <div class="sheet-body">
-        ${np.length ? `<div class="ann-bar"><span class="mini">${nUn ? `${nUn} unread` : "All caught up"}</span><span class="spacer"></span>${nUn ? `<button class="btn small" data-act="ann-readall">Mark All Read</button>` : ""}<button class="btn small" data-act="ann-check">Check Now</button></div>` : ""}
-        ${groups.map(g => `<h3 class="ann-course" style="--c:${esc(g.color)}"><span class="sd"></span>${esc(g.name)}${(u => u ? `<span class="n">${u} new</span>` : "")(g.list.filter(n => isNew(n, rs)).length)}</h3><ul class="ann-list">${g.list.map(row).join("")}</ul>`).join("")}
-        ${!np.length ? `<div class="empty"><strong>No School Site Connected</strong>Connect Brightspace, Canvas or Blackboard in Settings and your class announcements show up here.</div>` : !all.length ? `<div class="empty"><strong>No Announcements Yet</strong>When your instructors post one, it shows up here after the next sync. ${bsDesk() ? "" : "Announcements come in from the desktop app."}</div>` : ""}
+        ${np.length ? `<div class="ann-bar"><span class="mini">${nUn ? `${nUn} unread` : "All caught up"}${lc ? ` · checked ${esc(ago(lc))}` : ""}</span><span class="spacer"></span>${nUn ? `<button class="btn small" data-act="ann-readall">Mark All Read</button>` : ""}<button class="btn small" data-act="ann-check" ${st.busy ? "disabled" : ""}>${st.busy ? "Checking…" : "Check Now"}</button></div>${status}` : ""}
+        ${all.length ? `<div class="ann-tabs" role="tablist" aria-label="Announcements by class">${tabBtn(HOME, "Home", nUn)}${groups.map(g => tabBtn(g.k, g.name, g.un, g.color)).join("")}</div><div id="annPanel" role="tabpanel" aria-labelledby="${tid(tab)}" tabindex="0">${panel}</div>` : ""}
+        ${!np.length ? `<div class="empty"><strong>No School Site Connected</strong>Connect Brightspace, Canvas or Blackboard in Settings and your class announcements show up here.</div>` : !all.length ? `<div class="empty"><strong>No Announcements Yet</strong>When your instructors post one, it shows up here after the next sync. ${bsDesk() ? "Press Check Now to look right away." : "Announcements come in from the desktop app."}</div>` : ""}
       </div></div>`);
     if (!dlg.open) dlg.showModal();
     const b = dlg.querySelector(".ann-sheet .sheet-body"); if (b && top) b.scrollTop = top;
+    const act = dlg.querySelector(".ann-tab[aria-selected=true]");
+    if (act) { try { const bar = act.parentElement; bar.scrollLeft = Math.max(0, act.offsetLeft - bar.clientWidth / 2 + act.offsetWidth / 2); } catch(e) {} if (hadFocus) act.focus({preventScroll: true}); }
     badge();
   }
-  const bsDesk = () => !!(window.studiosoDesktop && window.studiosoDesktop.lms);
   const mark = (key, on) => { on ? readSet().add(key) : readSet().delete(key); saveRead(); };
+
+  // Check Now: a real sync, started by hand. syncNow() has no minimum gap of its own (only the automatic checks do), so this
+  // always asks the school; if a check is already running it waits for that one instead of starting a second.
+  async function check(){
+    if (st.busy) return;
+    const ps = plats();
+    if (!ps.length) { st = {busy: false, kind: "info", msg: "No school site is connected yet. Connect one in Settings.", btn: null}; sheet(); return; }
+    if (!navigator.onLine) { st = {busy: false, kind: "err", msg: "You're offline. Connect to the internet and try again.", btn: null}; sheet(); return; }
+    const can = ps.filter(L => how(L) === "api"), cant = ps.filter(L => how(L) !== "api");
+    // Why some connections can't be checked from here
+    let why = "", btn = null;
+    if (cant.length) {
+      const w = cant[0], h = how(w), nm = cant.map(L => L.P.name).join(" and ");
+      why = h === "web" ? `${nm} announcements can only be fetched by the Studyboard desktop app, because your school's site needs your own sign-in. The web and phone versions show what the desktop app already brought in.`
+        : h === "feed" ? `${nm} is connected with a calendar link, which has no announcements in it. Sign in through the desktop app to get them.`
+        : `Announcements are switched off for ${nm}. Turn them on in its school settings.`;
+      if (h !== "web") btn = {act: "ann-setup", plat: w.P.id, label: "Open Settings"};
+    }
+    if (!can.length) { st = {busy: false, kind: "info", msg: why, btn}; sheet(); return; }
+    const before = new Set(items().map(n => n.key)), t0 = Date.now();
+    st = {busy: true, kind: "", msg: "", btn: null}; sheet();
+    const slow = new Promise(r => setTimeout(() => r("slow"), 90000));
+    const results = await Promise.all(can.map(L => Promise.race([L.syncNow({quiet: true}).then(() => "done", () => "fail"), slow])));
+    const errs = [], login = [];
+    can.forEach((L, i) => {
+      const lo = L.local();
+      if (results[i] === "slow") errs.push(`${L.P.name} took too long to answer.`);
+      else if (lo.needLogin) login.push(L);
+      else if (!(lo.lastOk >= t0)) errs.push(lo.err || `Couldn't finish checking ${L.P.name}. Try again in a minute.`);
+    });
+    const fresh = items().filter(n => !before.has(n.key) && isNew(n, readSet())).length;
+    let kind = "ok", msg;
+    if (login.length) { kind = "err"; msg = `Your ${login.map(L => L.P.name).join(" and ")} sign-in ran out, so announcements couldn't be fetched.`; btn = {act: login[0].P.k + "-login", plat: login[0].P.id, label: "Sign In"}; }
+    else if (errs.length) { kind = "err"; msg = errs.join(" "); btn = null; }
+    else msg = fresh ? `${fresh} new announcement${fresh === 1 ? "" : "s"}.` : "Up to date. No new announcements.";
+    if (!login.length && why) msg += " " + why;
+    st = {busy: false, kind, msg, btn: login.length || !errs.length ? btn : null};
+    if (dlg.querySelector(".ann-sheet")) sheet(); else badge();
+  }
+
   hook("act", (act, el) => {
     switch (act) {
       case "ann-open": sheet(); return true;
+      case "ann-tab": setTab(el.dataset.ann || HOME); sheet(); return true;
       case "ann-read": { const rs = readSet(), n = items().find(x => x.key === el.dataset.key); if (n) mark(n.key, isNew(n, rs)); else mark(el.dataset.key, !rs.has(el.dataset.key)); sheet(); return true; }
       case "ann-readall": items().forEach(n => readSet().add(n.key)); saveRead(); sheet(); return true;
       case "ann-go": mark(el.dataset.key, true); openOutside(el.dataset.url); sheet(); return true;
-      case "ann-check": {
-        el.disabled = true; el.textContent = "Checking…";
-        Promise.all(plats().map(L => L.syncNow({quiet: true}))).catch(() => {}).then(() => { if (dlg.querySelector(".ann-sheet")) sheet(); });
-        return true;
-      }
+      case "ann-setup": { const L = plats().find(x => x.P.id === el.dataset.plat); if (L) { dlg.close(); L.bsSheet(); } return true; }
+      case "ann-check": check(); return true;
     }
     return false;
+  });
+  // Arrow keys, Home and End move between the tabs (the tab list is one stop in the Tab order)
+  document.addEventListener("keydown", e => {
+    const t = e.target && e.target.closest && e.target.closest(".ann-tab"); if (!t || e.altKey || e.ctrlKey || e.metaKey) return;
+    const tabs = [...t.parentElement.querySelectorAll(".ann-tab")], i = tabs.indexOf(t);
+    const j = e.key === "ArrowRight" ? (i + 1) % tabs.length : e.key === "ArrowLeft" ? (i - 1 + tabs.length) % tabs.length : e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 : -1;
+    if (j < 0) return;
+    e.preventDefault(); setTab(tabs[j].dataset.ann); sheet();
+    const nt = dlg.querySelector(".ann-tab[aria-selected=true]"); if (nt) nt.focus({preventScroll: true});
   });
   hook("render", () => badge());
   hook("boot", () => { badge(); setTimeout(badge, 3000); });
