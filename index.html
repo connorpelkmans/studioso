@@ -1388,6 +1388,27 @@ body.stk-dragging,body.stk-dragging *{cursor:grabbing!important;user-select:none
 .env-name{display:flex;align-items:center;gap:6px;color:#4A3014;font-size:.85rem}
 .env-sheet{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:#FFFDF8;border-radius:10px;padding:8px;box-shadow:0 2px 6px rgba(60,35,10,.2),inset 0 0 0 1px rgba(0,0,0,.05);background-image:linear-gradient(rgba(0,0,0,.03) 1px,transparent 1px);background-size:100% 12px}
 .env-sheet.locked{opacity:.55}
+.env-results{display:grid;gap:8px}
+.env-search{position:relative}
+.env-q{width:100%;box-sizing:border-box;min-height:36px;padding:6px 30px 6px 10px;border-radius:10px;border:1px solid rgba(74,48,20,.3);background:rgba(255,255,255,.75);color:#3A260F;font:600 .85rem var(--body)}
+.env-q::placeholder{color:#8A6A3C;font-weight:500}
+.env-q::-webkit-search-cancel-button{display:none}
+.env-q:focus-visible{outline:2px solid #8A5A1E;outline-offset:1px;background:#fff}
+.env-qx{position:absolute;right:3px;top:50%;transform:translateY(-50%);width:30px;height:30px;border:0;border-radius:50%;background:none;color:#6B4A22;font-size:1.1rem;line-height:1;cursor:pointer}
+.env-qx:hover{background:rgba(74,48,20,.12)}
+.env-qx:focus-visible{outline:2px solid #8A5A1E}
+.env-qx[hidden]{display:none}
+.env.searching .env-packs button.on{background:rgba(255,255,255,.35);border-color:transparent;box-shadow:none}
+.env-name .mini{color:#6B4A22;font-weight:500}
+.env-sub{font:700 .72rem var(--display);letter-spacing:.06em;text-transform:uppercase;color:#6B4A22}
+.env-recent{display:grid;gap:3px}
+.env-found{max-height:260px;overflow-y:auto}
+.env-stk[data-locked]{opacity:.5}
+.env-stk:focus-visible{outline:2px solid #8A5A1E;outline-offset:2px;border-radius:8px}
+.env-empty{display:grid;gap:6px;justify-items:center;text-align:center;background:#FFFDF8;border-radius:10px;padding:14px 10px;color:#4A3014;font-size:.82rem;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05)}
+.env-try{display:flex;flex-wrap:wrap;gap:4px;justify-content:center}
+.env-try button{border:1px solid rgba(74,48,20,.3);background:rgba(255,255,255,.8);color:#4A3014;border-radius:99px;padding:4px 10px;min-height:30px;font:600 .78rem var(--body);cursor:pointer}
+.env-try button:hover{background:#fff}
 .env-stk{display:block;aspect-ratio:1;cursor:grab;touch-action:none;filter:drop-shadow(1.3px 0 0 #fff) drop-shadow(-1.3px 0 0 #fff) drop-shadow(0 1.3px 0 #fff) drop-shadow(0 -1.3px 0 #fff) drop-shadow(0 2px 2px rgba(0,0,0,.2));transition:transform .12s}
 .env-stk:hover{transform:scale(1.12) rotate(-4deg)}
 .env-stk svg{width:100%;height:100%;display:block;pointer-events:none;overflow:visible}
@@ -1405,6 +1426,7 @@ body.stk-dragging,body.stk-dragging *{cursor:grabbing!important;user-select:none
   .env-packs button{flex:none;width:34px}
   .env-sheet{display:flex;overflow-x:auto;touch-action:pan-x}
   .env-stk{flex:none;width:52px;touch-action:pan-x}
+  .env-found{max-height:none}
 }
 /* shop */
 dialog:has(.sheet.shop){width:min(960px,calc(100% - 24px))}
@@ -3418,6 +3440,8 @@ html.ph-on body{background-image:none}
 /* Readability over the photo, like the scene themes: titles get a soft halo, loose lines a frosted backing. Cards are opaque. */
 html.ph-on #view :is(.view-head h2,.board-sec-head h2,.tl-controls h2,.sec .t,.sec .n,.board-ctl .mini,.sch-range,.fcrumb){text-shadow:0 0 2px var(--paper),0 0 6px var(--paper),0 0 12px var(--paper)}
 html.ph-on #view :is(.hint-line,.sch-sum,.sch-legend,.tl-legend,.term-bar){background:color-mix(in srgb,var(--paper) 84%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-radius:10px;padding:4px 10px;width:fit-content;max-width:100%;box-sizing:border-box}
+/* Glass cards (a photo theme's "Glass" slider): cards keep a share of their color and frost the photo behind them */
+html.ph-glass #view :is(ul.tasks,.course-card,.card,.deck,.day,.notes,.facts,.focus,.ftree,.flist,.sch-wrap,.tl-scroll,.empty,.qod,.qa-bar,.done-card,.q-card,.arch-list){background:color-mix(in srgb,var(--surface) var(--ph-gl,100%),transparent);-webkit-backdrop-filter:blur(var(--ph-glb,0px)) saturate(1.15);backdrop-filter:blur(var(--ph-glb,0px)) saturate(1.15)}
 
 /* Style Shop */
 .ph-intro{margin:0 0 2px}
@@ -3491,6 +3515,34 @@ dialog:has(.ph-sheet){width:min(900px,calc(100% - 24px))}
 .ph-sheet div.f .lh{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 6px}
 .ph-sheet div.f .hint{font-weight:400;color:var(--muted)}
 .ph-made .mini{margin-right:2px;font-weight:500}
+.ph-card{background:color-mix(in srgb,var(--surface) var(--ph-gl,100%),transparent);-webkit-backdrop-filter:blur(var(--ph-glb,0px));backdrop-filter:blur(var(--ph-glb,0px))}
+.ph-fx{display:grid;gap:8px}
+.ph-grp{border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.ph-grp>summary{cursor:pointer;list-style:none;padding:10px 14px;font:700 .92rem var(--display);display:flex;align-items:center;gap:8px;min-height:44px;border-radius:12px}
+.ph-grp>summary::-webkit-details-marker{display:none}
+.ph-grp>summary::after{content:"";margin-left:auto;width:8px;height:8px;border:solid var(--muted);border-width:0 2px 2px 0;transform:rotate(45deg);transition:transform .15s}
+.ph-grp[open]>summary::after{transform:rotate(-135deg)}
+.ph-grp>summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.ph-grp>summary .hint{font:400 .8rem var(--body);color:var(--muted)}
+.ph-grp-b{display:grid;gap:12px;padding:2px 14px 14px}
+.ph-grp-b .f{display:grid;gap:5px;font-size:.88rem;font-weight:600;margin:0}
+.ph-grp-b .f .hint{font-weight:400;color:var(--muted)}
+.ph-grp-b input[type=range]{min-height:32px}
+.ph-own{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ph-own input[type=color],.ph-stops input[type=color],.ph-tintrow input[type=color]{width:44px;height:40px;padding:2px;border-radius:10px;border:1px solid var(--line);background:var(--field,var(--surface));cursor:pointer}
+.ph-own input[type=text]{width:7.5em;min-height:40px;border-radius:10px;border:1px solid var(--line);background:var(--field,var(--surface));color:var(--ink);padding:0 10px;font:600 .88rem ui-monospace,monospace;text-transform:uppercase}
+.ph-own input[type=text][aria-invalid=true]{border-color:var(--late)}
+.ph-gprev{height:54px;border-radius:12px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.ph-presets{display:flex;flex-wrap:wrap;gap:8px}
+.ph-pre{width:44px;height:44px;border-radius:12px;border:3px solid var(--surface);box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}
+.ph-pre:hover{transform:scale(1.06)}
+.ph-pre:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.ph-stops,.ph-tintrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ph-tintrow select{min-height:40px;border-radius:10px;border:1px solid var(--line);background:var(--field,var(--surface));color:var(--ink);padding:0 10px;font:600 .88rem var(--body)}
+.ph-grp-b .segb button{min-height:38px}
+.ph-grp-b [hidden],.ph-stops [hidden]{display:none!important}
+.ph-sug{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+@media (prefers-reduced-motion:reduce){.ph-grp>summary::after,.ph-pre:hover{transition:none;transform:none}}
 .ph-ctl{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
 .ph-focus-wrap{display:grid;gap:8px;justify-items:center}
 .ph-focus-wrap > .lh{justify-self:start}
@@ -7379,20 +7431,140 @@ function shopRow(){
 function noteStickersHtml(n){
   return (n.stickers || []).filter(x => STICKERS[x.k]).map((x, i) => `<span class="stk" data-stk="${i}" title="Drag to move, drag off the note to remove, tap to resize" style="left:${x.x}%;top:${x.yp != null ? x.yp + "px" : (x.y || 50) + "%"};--r:${x.r || 0}deg;--s:${x.s || 1}">${stickerSvg(x.k)}</span>`).join("");
 }
+/* Sticker search: every sticker in every pack is findable by its name, a few keywords (and emoji), or its pack and theme.
+   Words below are for the built-in packs; theme packs fall back on their own names. Recents are kept on this device. */
+const STK_WORDS = {
+  dot: "circle ball blue", fstar: "star favorite gold yellow rating important ⭐", fheart: "heart love like red favorite ❤", fcheck: "check tick done complete yes correct green ✅", fx: "cross no wrong cancel close delete ❌",
+  farrow: "arrow next right direction purple →", ftri: "triangle warning shape", fsquare: "square box shape", fbang: "exclamation important alert warning urgent !", fq: "question help unsure confused ?",
+  ldue: "due deadline date label tag soon", lread: "read reading label tag book",
+  star: "⭐ night shine", heart: "❤ love", sparkle: "✨ glitter shine magic", smile: "😊 happy face", rainbow: "🌈 colorful", bolt: "⚡ lightning energy electric power", moon: "🌙 night sleep", sun: "☀ sunny day bright", cloud: "☁ sky weather", flower: "🌸 blossom bloom",
+  aplus: "grade top mark excellent exam a+", check: "done complete tick yes", hundred: "💯 100 perfect score", pencil: "✏ write writing draw", book: "📖 read reading study textbook", coffee: "☕ cafe drink tea caffeine", bulb: "💡 idea light lightbulb thought", trophy: "🏆 win winner award prize champion", flask: "🧪 science chemistry lab experiment", brain: "🧠 think smart mind memory",
+  cat: "🐱 kitten kitty pet", dog: "🐶 puppy pet", fox: "🦊", panda: "🐼 bear", frog: "🐸 toad", bear: "🐻 teddy", bunny: "🐰 rabbit easter", owl: "🦉 bird night wise", penguin: "🐧 bird arctic", chick: "🐤 bird baby chicken",
+  pizza: "🍕 slice", donut: "🍩 doughnut sweet dessert", avocado: "🥑", strawberry: "🍓 berry fruit", icecream: "🍦 ice cream dessert sweet", boba: "🧋 bubble tea drink", cookie: "🍪 biscuit dessert", taco: "🌮 mexican",
+  planet: "🪐 saturn", rocket: "🚀 launch ship", ufo: "🛸 alien flying saucer", alien: "👽 extraterrestrial", comet: "☄ shooting star meteor", astro: "🧑‍🚀 astronaut spaceman",
+  fish: "🐟", whale: "🐋", octopus: "🐙", crab: "🦀", shell: "🐚 seashell beach", jelly: "jellyfish", turtle: "🐢 tortoise", starfish: "sea star",
+  cactus: "🌵 desert", sunflower: "🌻", tulip: "🌷 flower", mushroom: "🍄 toadstool", leaf: "🍃 plant green nature", succulent: "plant", bee: "🐝 honey insect", blossom: "🌸 flower cherry",
+  trex: "🦖 t-rex tyrannosaurus dinosaur", stego: "🦕 stegosaurus dinosaur", longneck: "🦕 brontosaurus sauropod dinosaur", egg: "🥚 dinosaur easter", ptero: "pterodactyl flying dinosaur", volcano: "🌋 lava", bone: "🦴 fossil", footprint: "🐾 paw print track",
+  unicorn: "🦄 horse magic", dragon: "🐉 fire", crystal: "💎 gem magic", castle: "🏰 kingdom", wand: "🪄 magic wizard", potion: "🧪 magic brew", crown: "👑 king queen royal", mushhouse: "🍄 fairy house",
+  love: "😍 heart eyes crush", lol: "😂 laughing laugh funny joy", wow: "😮 surprised shocked amazed", sleepy: "😴 tired sleep zzz", cool: "😎 sunglasses", grumpy: "😠 angry mad annoyed", party: "🥳 celebrate birthday", think: "🤔 thinking hmm wonder",
+  headphones: "🎧 listen", note: "🎵 song melody music", guitar: "🎸", mic: "🎤 microphone sing karaoke", vinyl: "record disc", speaker: "🔊 sound loud",
+  pumpkin: "🎃 halloween", ghost: "👻 halloween spooky", snowman: "⛄ winter christmas snow", gift: "🎁 present birthday christmas", cane: "candy cane christmas", balloon: "🎈 party birthday", clover: "🍀 lucky st patrick irish", egg2: "easter egg",
+  umbrella: "☂ rain", snowflake: "❄ winter cold snow", rain: "🌧 rainy drizzle", storm: "⛈ thunder lightning", rainbow2: "🌈 colorful", thermo: "🌡 temperature hot cold",
+  petal: "🌸 flower", maple: "🍁 fall autumn canada", snow: "❄ winter", bubble: "bubbles soap", drop: "💧 water rain", ring: "💍", lemon: "🍋 citrus", candy: "🍬 sweet", butterfly: "🦋", ball: "⚽ sport", paw: "🐾 pet", yarn: "🧶 knit knitting", pixel: "game gaming", coin: "🪙 money", gem: "💎", bat: "🦇 halloween", lantern: "🏮 lunar new year diwali", dreidel: "hanukkah spinning top", confetti: "🎉 party celebrate", flame: "🔥 fire hot", acorn: "🌰 fall", cupcake: "🧁 dessert", camera: "📷 photo", print: "stamp"
+};
+let stkIdx = null, stkIdxSig = "";
+const stkNorm = t => String(t).toLowerCase().replace(/\uFE0F/g, "");
+// Every pack ever seen (the theme-pack module hides its packs from STICKER_PACKS while it draws the envelope, so search keeps its own list).
+const stkPacks = new Map();
+function stkPackInfo(id){
+  STICKER_PACKS.forEach((p, i) => { if (!stkPacks.has(p.id)) stkPacks.set(p.id, {id: p.id, name: p.name, tier: p.tier, theme: p.theme, i}); });
+  return stkPacks.get(id) || null;
+}
+const stkOwns = k => { const i = stkPackInfo((STICKERS[k] || {}).pack); return !STORE.paywall || !i || i.tier !== "pro" || (typeof PLAN !== "undefined" && !!PLAN && PLAN.isPro()) || ((state.settings && state.settings.owned) || []).includes(`sticker:${i.id}`); };
+function stkIndex(){
+  stkPackInfo("");
+  const sig = Object.keys(STICKERS).length + ":" + stkPacks.size;
+  if (stkIdx && sig === stkIdxSig) return stkIdx;
+  stkIdxSig = sig;
+  stkIdx = Object.keys(STICKERS).map(k => {
+    const p = stkPackInfo(STICKERS[k].pack) || {}, pi = p.i == null ? 99 : p.i;
+    const th = p.theme ? ((SKINS.find(x => x.id === p.theme) || {}).name || "") : "";
+    // Basics are named f<name> (fstar) and labels l<name>: drop the prefix so "star" and "due" find them
+    const base = p.id === "basics" && k !== "dot" ? k.slice(1) : p.id === "labels" ? k.slice(1) : k;
+    const nm = stkNorm(base.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_\d]+/g, " ").trim());
+    const ws = stkNorm(STK_WORDS[k] || "").split(/[\s,]+/).filter(Boolean).concat(nm.split(" "));
+    const pw = stkNorm(`${p.name || ""} ${th}`).split(/[^a-z0-9']+/).filter(Boolean);
+    return {k, nm, ws, pw, pi, text: `${nm} ${ws.join(" ")} ${pw.join(" ")}`};
+  });
+  return stkIdx;
+}
+function stkSearch(q){
+  const toks = stkNorm(q).split(/\s+/).filter(Boolean).map(t => t.length > 3 && t.endsWith("s") && !t.endsWith("ss") ? t.slice(0, -1) : t);
+  if (!toks.length) return [];
+  const out = [];
+  stkIndex().forEach(e => {
+    let sc = 0;
+    for (const t of toks) {
+      const s = e.nm === t ? 100 : e.nm.startsWith(t) ? 70 : e.ws.includes(t) ? 50 : e.ws.some(w => w.startsWith(t)) ? 35 : e.pw.some(w => w.startsWith(t)) ? 20 : t.length >= 3 && e.text.includes(t) ? 8 : 0;
+      if (!s) return;
+      sc += s;
+    }
+    out.push({k: e.k, sc, pi: e.pi});
+  });
+  out.sort((a, b) => b.sc - a.sc || a.pi - b.pi);
+  return out.slice(0, 80).map(x => x.k);
+}
+const STK_RECENT = "studyboard:stk:recent";
+const stkRecent = () => { try { const a = JSON.parse(localStorage.getItem(STK_RECENT) || "[]"); return Array.isArray(a) ? a.filter(k => typeof k === "string" && STICKERS[k]).slice(0, 10) : []; } catch(e) { return []; } };
+function stkRemember(k){ try { localStorage.setItem(STK_RECENT, JSON.stringify([k].concat(stkRecent().filter(x => x !== k)).slice(0, 10))); } catch(e) {} }
+// One sticker in the envelope. mark: show the lock on a single sticker (search results and recents mix packs).
+const stkCellHtml = (k, mark) => `<span class="env-stk" data-stk-src="${k}" ${mark && !stkOwns(k) ? 'data-locked="1"' : ""} role="button" tabindex="0" aria-label="${esc(k)} sticker. Press Enter to put it on the top note." title="${esc(k)}">${stickerSvg(k)}</span>`;
+function stkParts(){
+  const q = (ui.stkQ || "").trim(), cur = STICKER_PACKS.find(p => p.id === ui.stkPack) || STICKER_PACKS[0];
+  if (q) {
+    const ks = stkSearch(q);
+    return {name: `<b>${ks.length ? `${ks.length} sticker${ks.length === 1 ? "" : "s"}` : "No stickers found"}</b><span class="mini">for “${esc(q.slice(0, 24))}”</span>`,
+      results: ks.length ? `<div class="env-sheet env-found" role="group" aria-label="Sticker search results">${ks.map(k => stkCellHtml(k, true)).join("")}</div>`
+        : `<div class="env-empty" role="status"><b>Nothing matches “${esc(q.slice(0, 24))}”</b><span>Try a shorter word, or one of these:</span><span class="env-try">${["heart", "star", "cat", "study", "happy"].map(w => `<button type="button" data-act="stk-try" data-id="${w}">${w}</button>`).join("")}</span><button type="button" class="link-btn" data-act="stk-qclear">Clear search</button></div>`};
+  }
+  const locked = !owns("sticker", cur.id), rec = stkRecent();
+  return {name: `<b>${esc(cur.name)}</b>${cur.tier === "pro" ? PRO_BADGE : ""}`,
+    results: (rec.length ? `<div class="env-recent"><span class="env-sub" id="envRecentLbl">Recent</span><div class="env-sheet env-recent-row" role="group" aria-labelledby="envRecentLbl">${rec.map(k => stkCellHtml(k, true)).join("")}</div></div>` : "")
+      + `<div class="env-sheet ${locked ? "locked" : ""}">${Object.keys(cur.items).map(k => stkCellHtml(k)).join("")}</div>`};
+}
+// Search as you type: only the name line and the sticker area change, so the box keeps focus.
+function stkRefresh(){
+  const env = document.querySelector(".env"); if (!env) return;
+  const p = stkParts(), n = env.querySelector(".env-name"), r = env.querySelector(".env-results"), x = env.querySelector(".env-qx"), inp = env.querySelector(".env-q");
+  if (n) n.innerHTML = p.name; if (r) r.innerHTML = p.results;
+  if (x) x.hidden = !(ui.stkQ || "").length;
+  if (inp && inp.value !== (ui.stkQ || "")) inp.value = ui.stkQ || "";
+  env.classList.toggle("searching", !!(ui.stkQ || "").trim());
+}
 function envelopeHtml(){
-  const cur = STICKER_PACKS.find(p => p.id === ui.stkPack) || STICKER_PACKS[0], locked = !owns("sticker", cur.id);
+  const cur = STICKER_PACKS.find(p => p.id === ui.stkPack) || STICKER_PACKS[0], p = stkParts(), q = ui.stkQ || "";
   const open = ui.envOpen !== false;
-  return `<aside class="env ${open ? "" : "closed"}" aria-label="Sticker envelope">
+  return `<aside class="env ${open ? "" : "closed"} ${q.trim() ? "searching" : ""}" aria-label="Sticker envelope">
     <button type="button" class="env-head" data-act="env-toggle" aria-expanded="${open}"><span class="env-title">Stickers</span><span class="env-caret" aria-hidden="true">${open ? "▾" : "▸"}</span></button>
     <div class="env-body">
+      <div class="env-search" role="search"><input type="search" class="env-q" placeholder="Search stickers" aria-label="Search all sticker packs" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" maxlength="40" value="${esc(q)}"><button type="button" class="env-qx" data-act="stk-qclear" aria-label="Clear search" ${q ? "" : "hidden"}>×</button></div>
       <div class="env-packs" role="group" aria-label="Sticker packs">${STICKER_PACKS.map(p => `<button type="button" data-act="stk-pack" data-id="${p.id}" class="${p === cur ? "on" : ""}" title="${esc(p.name)}${p.tier === "pro" ? " (Pro)" : ""}" aria-label="${esc(p.name)}" aria-pressed="${p === cur}">${stickerSvg(Object.keys(p.items)[0])}${owns("sticker", p.id) ? "" : `<i class="lock">🔒</i>`}</button>`).join("")}</div>
-      <div class="env-name"><b>${esc(cur.name)}</b>${cur.tier === "pro" ? PRO_BADGE : ""}</div>
-      <div class="env-sheet ${locked ? "locked" : ""}">${Object.keys(cur.items).map(k => `<span class="env-stk" data-stk-src="${k}" ${locked ? 'data-locked="1"' : ""} role="img" aria-label="${k} sticker">${stickerSvg(k)}</span>`).join("")}</div>
-      <p class="env-hint tip-everyday">Drag a sticker onto a note.</p>
+      <div class="env-name">${p.name}</div>
+      <div class="env-results">${p.results}</div>
+      <p class="env-hint tip-everyday">Drag onto a note, or press Enter.</p>
     </div>
     <div class="env-pocket" aria-hidden="true"></div>
   </aside>`;
 }
+// Keyboard: put a sticker on the top note (the last one drawn). The toast has Undo.
+function stkKeyAdd(k){
+  if (!STICKERS[k]) return;
+  if (!stkOwns(k)) { shopUnlock("sticker", STICKERS[k].pack); return; }
+  const els = $$(".nb-board .note"), el = els[els.length - 1], n = el && state.notes[el.dataset.note];
+  if (!n) { toast("Add a sticky note first, then put stickers on it"); return; }
+  const t = clone(n); t.stickers = (t.stickers || []).concat({k, r: Math.round(Math.random() * 30 - 15), s: 1, x: 50 + Math.round(Math.random() * 30 - 15), yp: Math.round(Math.min(el.offsetHeight, 140) * 0.5)}).slice(-16);
+  stkRemember(k); applyChanges([{kind: "note", id: n.id, after: t}], "Sticker added to your top note");
+}
+document.addEventListener("input", e => { const t = e.target; if (t && t.classList && t.classList.contains("env-q")) { ui.stkQ = t.value.slice(0, 40); stkRefresh(); } });
+document.addEventListener("keydown", e => {
+  const t = e.target; if (!t || !t.classList) return;
+  const env = t.closest && t.closest(".env"); if (!env) return;
+  if (t.classList.contains("env-q")) {
+    if (e.key === "Escape") { if (t.value) { e.preventDefault(); e.stopPropagation(); ui.stkQ = ""; stkRefresh(); } else t.blur(); }
+    else if (e.key === "ArrowDown" || e.key === "Enter") { const f = env.querySelector(".env-results .env-stk"); if (f) { e.preventDefault(); f.focus(); } }
+    return;
+  }
+  if (!t.classList.contains("env-stk") || !t.dataset.stkSrc) return;
+  const cells = [...env.querySelectorAll(".env-results .env-stk")], i = cells.indexOf(t);
+  const go = j => { const c = cells[Math.max(0, Math.min(cells.length - 1, j))]; if (c) { e.preventDefault(); c.focus(); c.scrollIntoView({block: "nearest", inline: "nearest"}); } };
+  // Up and down move by a row, which is however many stickers share the top edge of the first one
+  const per = Math.max(1, cells.filter(c => Math.abs(c.offsetTop - cells[0].offsetTop) < 4).length);
+  if (e.key === "ArrowRight") go(i + 1); else if (e.key === "ArrowLeft") go(i - 1);
+  else if (e.key === "ArrowDown") go(i + per); else if (e.key === "Home") go(0); else if (e.key === "End") go(cells.length - 1);
+  else if (e.key === "ArrowUp") { if (i - per < 0) { const q = env.querySelector(".env-q"); if (q) { e.preventDefault(); q.focus(); } } else go(i - per); }
+  else if (e.key === "Escape") { const q = env.querySelector(".env-q"); if (q) { e.preventDefault(); q.focus(); } }
+  else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); stkKeyAdd(t.dataset.stkSrc); }
+});
 // Where a screen point lands on a (possibly rotated) note: x as % of its width, y in pixels from its top.
 function noteLocalPoint(noteEl, px, py){
   const r = noteEl.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
@@ -7430,6 +7602,7 @@ function stkEnd(ok, e){
   if (!tid || !state.notes[tid]) { if (!d.fromNote) toast("Drop stickers onto a sticky note"); return; }
   const t = clone(state.notes[tid]);
   const s = Object.assign(moved || {k: d.k, r: Math.round(Math.random() * 30 - 15), s: 1}, noteLocalPoint(target, e.clientX, e.clientY)); delete s.y;
+  if (!moved) stkRemember(d.k);
   t.stickers = (t.stickers || []).concat(s).slice(-16);
   changes.push({kind: "note", id: tid, after: t});
   applyChanges(changes, "");
@@ -7439,7 +7612,7 @@ document.addEventListener("pointerdown", e => {
   const src = e.target.closest && e.target.closest("[data-stk-src]");
   const on = !src && e.target.closest && e.target.closest(".nb-board .note .stk");
   if (!src && !on) return;
-  if (src && src.dataset.locked) { shopUnlock("sticker", ui.stkPack); e.preventDefault(); return; }
+  if (src && (src.dataset.locked || src.closest(".env-sheet.locked"))) { shopUnlock("sticker", (STICKERS[src.dataset.stkSrc] || {}).pack || ui.stkPack); e.preventDefault(); return; }
   const noteEl = on && on.closest(".note");
   const n = noteEl && state.notes[noteEl.dataset.note], i = on ? Number(on.dataset.stk) : -1;
   sDrag = {fromNote: !!on, k: src ? src.dataset.stkSrc : n && n.stickers[i] && n.stickers[i].k, el: on || null, noteId: noteEl && noteEl.dataset.note, i, x0: e.clientX, y0: e.clientY, pid: e.pointerId, moved: false, size: on ? on.getBoundingClientRect().width : 48};
@@ -7479,7 +7652,9 @@ const STYLE_ACTS = {
     else if (k === "pin") saveStyle({pin: id, pinAuto: false});
     render(); styleShop();
   },
-  "stk-pack": el => { ui.stkPack = el.dataset.id; render(); },
+  "stk-pack": el => { ui.stkPack = el.dataset.id; ui.stkQ = ""; render(); },
+  "stk-qclear": () => { ui.stkQ = ""; stkRefresh(); const q = document.querySelector(".env-q"); if (q) q.focus(); },
+  "stk-try": el => { ui.stkQ = el.dataset.id || ""; stkRefresh(); const q = document.querySelector(".env-q"); if (q) q.focus(); },
   "motion-toggle": el => { saveStyle({motion: !!el.checked}); artSig = ""; renderSkinArt(); },
   "anim-toggle": el => { saveStyle({[el.dataset.key]: !!el.checked}); artSig = ""; renderSkinArt(); },
   "kit-follow": el => { saveStyle({[el.dataset.kind + "Auto"]: true}); render(); styleShop(); },
@@ -46825,7 +47000,11 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
    Drawing: one fixed element (#photoArt) with one CSS background: a flat scrim and a flat dim layer over the
    pre-blurred photo (blurred once with a canvas, cached in IndexedDB). No per-frame work.
    Only the active photo theme is registered in SKINS and THEME_KIT, so the rest of the app treats it like any
-   built-in theme. Switching to it never changes the note shape or pin. */
+   built-in theme. Switching to it never changes the note shape or pin.
+   Looks (1.11.1): besides blur and brightness a photo theme can carry its own accent color (ac, a hex that wins over
+   the photo swatches), a gradient (gr: linear or radial, 2 or 3 stops, used over the photo or instead of it), a tint
+   with a blend mode (tn), a vignette (vg) and glass cards (gl). They are drawn as extra layers of the same #photoArt
+   background (see stack()), so there's still no per-frame work, and they ride along in state.settings.photoThemes. */
 (() => {
   const MAX = 5, LONG = 2400, QUAL = 0.82, THUMB = 520, REND = 1600, PFX = "ph-";
   const REASON = "Make a theme from your own photo with Studyboard Pro";
@@ -46843,6 +47022,20 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const canFetch = () => inClaude() || sbActive();
 
   /* ---------- Records (state.settings.photoThemes) ---------- */
+  const BLENDS = [["normal", "Normal"], ["multiply", "Multiply"], ["screen", "Screen"], ["overlay", "Overlay"], ["soft-light", "Soft Light"], ["color", "Color"]];
+  const hexOr = (h, d) => typeof h === "string" && HEX.test(h) ? h.toUpperCase() : d;
+  // Gradient: m is off, over (on top of the photo) or only (instead of the photo); c has 2 or 3 stops spread evenly.
+  function cleanGr(g, sw){
+    g = g && typeof g === "object" ? g : {};
+    const d = [sw[0], sw[1] || sw[0], sw[2] || sw[1] || sw[0]].map(h => h.toUpperCase());
+    let c = (Array.isArray(g.c) ? g.c : []).map((h, i) => hexOr(h, d[i])).slice(0, 3);
+    if (c.length < 2) c = d.slice(0, 2);
+    return {m: g.m === "over" || g.m === "only" ? g.m : "off", t: g.t === "radial" ? "radial" : "linear", a: Math.round(num(g.a, 135, 0, 360)), c, op: Math.round(num(g.op, 55, 5, 100))};
+  }
+  function cleanTn(t){
+    t = t && typeof t === "object" ? t : {};
+    return {c: hexOr(t.c, "#FF8A5C"), a: Math.round(num(t.a, 0, 0, 100)), b: BLENDS.some(x => x[0] === t.b) ? t.b : "normal"};
+  }
   function clean(r){
     if (!r || !isPh(r.id)) return null;
     const sw = (Array.isArray(r.sw) ? r.sw : []).filter(h => typeof h === "string" && HEX.test(h)).slice(0, 8);
@@ -46851,6 +47044,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const q = Array.isArray(r.q) && r.q.length === 7 ? r.q.map(v => num(v, 128, 0, 255)) : [40, 60, 95, 130, 170, 200, 215];
     return {id: r.id, name: String(r.name || "My Photo").slice(0, 40), fx: num(r.fx, 50, 0, 100), fy: num(r.fy, 50, 0, 100),
       blur: num(r.blur, 35, 0, 100), bright: num(r.bright, 0, -100, 100), ai: Number.isInteger(r.ai) && r.ai >= 0 && r.ai < sw.length ? r.ai : -1,
+      ac: typeof r.ac === "string" && HEX.test(r.ac) ? r.ac.toUpperCase() : "", gr: cleanGr(r.gr, sw), tn: cleanTn(r.tn), gl: num(r.gl, 0, 0, 100), vg: num(r.vg, 0, 0, 100),
       sw, wt, q, tiny: typeof r.tiny === "string" && r.tiny.length < 4000 && TINY.test(r.tiny) ? r.tiny : "",
       asset: typeof r.asset === "string" && r.asset && r.asset.length < 300 ? r.asset : null, w: num(r.w, 1600, 1, 20000), h: num(r.h, 1000, 1, 20000), at: num(r.at, 0, 0, 9e15)};
   }
@@ -46898,6 +47092,38 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     return {hex: x, L};
   }
 
+  /* ---------- Looks: gradient, tint, vignette (extra layers of the one background) ---------- */
+  const grCss = (g, alpha) => {
+    const c = g.c.map(h => alpha >= 1 ? h : rgba(h, alpha)), st = c.map((x, i) => `${x} ${Math.round(i / (c.length - 1) * 100)}%`).join(",");
+    return g.t === "radial" ? `radial-gradient(ellipse at 50% 38%,${st})` : `linear-gradient(${g.a}deg,${st})`;
+  };
+  // Layers above the photo (top first). Each has its image, size, position and blend mode so the page and the previews match.
+  function stack(rec, photoImg){
+    const L = [], g = rec.gr, tn = rec.tn, add = (i, b) => L.push({i, s: "100% 100%", p: "0 0", b: b || "normal"});
+    if (rec.vg > 0) add(`radial-gradient(ellipse at 50% 45%,rgba(0,0,0,0) 45%,rgba(0,0,0,${(rec.vg / 100 * 0.6).toFixed(3)}) 100%)`);
+    if (g.m === "over") add(grCss(g, g.op / 100));
+    if (tn.a > 0) add(flat(tn.c, tn.a / 100), tn.b);
+    if (g.m === "only") add(grCss(g, 1));
+    else if (photoImg) L.push({i: photoImg, s: "cover", p: `${rec.fx}% ${rec.fy}%`, b: "normal"});
+    return L;
+  }
+  const lay = (pre, L, key) => pre.concat(L.map(x => x[key]));
+  // How light the photo looks once the gradient, tint and vignette are on it (7 grey quantiles, like rec.q), so the readability scrim stays right.
+  function effQ(rec){
+    let q = rec.q.slice(); const g = rec.gr, tn = rec.tn;
+    const gs = g.c.map(h => toSrgb(lumRgb(hex2rgb(h)))), gmin = Math.min(...gs), gmax = Math.max(...gs);
+    if (g.m === "only") q = q.map((_, i) => gmin + (gmax - gmin) * i / 6);
+    else if (g.m === "over") { const a = g.op / 100; q = q.map((v, i) => v * (1 - a) + (gmin + (gmax - gmin) * i / 6) * a); }
+    if (tn.a > 0) {
+      const a = tn.a / 100, t = toSrgb(lumRgb(hex2rgb(tn.c)));
+      const ovl = v => v < 128 ? 2 * v * t / 255 : 255 - 2 * (255 - v) * (255 - t) / 255;
+      const f = {multiply: v => v * t / 255, screen: v => 255 - (255 - v) * (255 - t) / 255, overlay: ovl, "soft-light": v => (v + ovl(v)) / 2, color: v => v}[tn.b] || (() => t);
+      q = q.map(v => v * (1 - a) + f(v) * a);
+    }
+    if (rec.vg > 0) q = q.map((v, i) => i <= 2 ? v * (1 - rec.vg / 100 * 0.45) : v);
+    return q.map(v => clamp(Math.round(v), 0, 255));
+  }
+
   /* ---------- Theme from a record ---------- */
   // Luminance of a grey photo value after the dim layer and a scrim of strength a in the page colour.
   const overLum = (g, layers, paper, a) => { const Pc = hex2rgb(paper); let c = [g, g, g]; layers.forEach(([hx, al]) => { const k = hex2rgb(hx); c = c.map((v, i) => v * (1 - al) + k[i] * al); }); return lumRgb(c.map((v, i) => v * (1 - a) + Pc[i] * a)); };
@@ -46911,10 +47137,13 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const cl = rec.sw.map((h, i) => Object.assign(hex2lch(h), {w: rec.wt[i] || 0, i}));
     const dom = cl[0];
     const scored = cl.map(c => ({c, s: c.C * (0.35 + Math.sqrt(c.w)) * (c.L > 0.22 && c.L < 0.94 ? 1 : 0.4)})).sort((a, b) => b.s - a.s);
-    const acc = rec.ai >= 0 && cl[rec.ai] ? cl[rec.ai] : scored[0].c;
-    const neutral = acc.C < 0.03, picked = rec.ai >= 0;
+    // A color of your own (rec.ac) wins over a photo swatch; both win over the automatic pick.
+    const own = HEX.test(rec.ac) ? hex2lch(rec.ac) : null, q = effQ(rec);
+    const acc = own || (rec.ai >= 0 && cl[rec.ai] ? cl[rec.ai] : scored[0].c);
+    const neutral = acc.C < 0.03, picked = rec.ai >= 0 || !!own;
     const ha = neutral && !picked ? 255 : acc.h;
-    const Cacc = neutral ? (picked ? 0.03 : 0.1) : clamp(acc.C * 1.15, 0.075, 0.16);
+    const Cacc = own ? (neutral ? acc.C : clamp(acc.C * 1.05, 0.04, 0.2)) : neutral ? (picked ? 0.03 : 0.1) : clamp(acc.C * 1.15, 0.075, 0.16);
+    const Ls = own ? clamp(acc.L, 0.42, 0.62) : 0.6, Ld = own ? clamp(acc.L, 0.62, 0.8) : 0.74;
     const sec = scored.map(x => x.c).find(c => c !== acc && c.C >= 0.035 && hueDist(c.h, ha) >= 25);
     const h2 = sec ? sec.h : (ha + 32) % 360;
     const hn = dom.C >= 0.02 ? dom.h : ha, cn = clamp(dom.C * 0.22, 0.004, 0.018);
@@ -46924,14 +47153,14 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // Light
     const L0 = [lch(0.962, cn, hn), "", lch(0.995, cn * 0.35, hn), lch(0.245, clamp(cn * 1.6, 0.01, 0.035), hn), lch(0.49, clamp(cn * 1.3, 0.008, 0.03), hn), lch(0.885, cn * 1.3, hn), lch(0.935, cn * 1.5 + 0.004, hn), lch(0.978, cn * 0.5, hn)];
     const dl = dimLight(L0.concat(["#000000", "#000000", "#000000", "#000000", "#000000", "#000000", "#000000"]));   // the app tones light mode down a touch
-    const aL = fit(0.6, Cacc, ha, [dl[2], dl[0], dl[6], dl[7], "#FFFFFF"], 4.6, -1);
+    const aL = fit(Ls, Cacc, ha, [dl[2], dl[0], dl[6], dl[7], "#FFFFFF"], 4.6, -1);
     const bL = fit(aL.L, Cacc, h2, ["#FFFFFF"], 4.6, -1).hex;
     const selL = fit(Math.min(aL.L, 0.5), Cacc * 0.9, ha, ["#FFFFFF"], 4.6, -1).hex;
     const spL = lch(0.33, cs, hs);
     const light = [L0[0], rgba(aL.hex, 0.1), L0[2], L0[3], L0[4], L0[5], L0[6], L0[7], aL.hex, lch(aL.L + 0.1, Cacc * 0.85, ha), "#FFFFFF", selL, spL, lch(0.9, 0.025, hs), lch(0.93, 0.11, hm)];
     // Dark
     const D = [lch(0.175, cn + 0.008, hn), "", lch(0.215, cn + 0.01, hn), lch(0.95, 0.012, hn), lch(0.75, 0.02, hn), lch(0.33, cn + 0.012, hn), lch(0.265, cn + 0.014, hn), lch(0.195, cn + 0.01, hn)];
-    const aD = fit(0.74, Cacc * 0.95, ha, [D[2], D[0], D[6], D[7]], 4.6, 1);
+    const aD = fit(Ld, Cacc * 0.95, ha, [D[2], D[0], D[6], D[7]], 4.6, 1);
     let inkD = lch(0.2, 0.04, ha); if (contrast(inkD, aD.hex) < 4.6) inkD = "#0B0D12";
     const bD = fit(aD.L, Cacc * 0.95, h2, [inkD, D[2]], 4.6, 1).hex;
     const selD = fit(0.45, Cacc * 0.7, ha, ["#FFFFFF"], 4.6, -1).hex;
@@ -46942,7 +47171,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const beta = rec.bright / 100;
     const dimL = beta < 0 ? ["#000000", -beta * 0.55] : ["#FFFFFF", beta * 0.6];
     const dimD = ["#000000", clamp(0.42 - beta * (beta > 0 ? 0.3 : 0.38), 0.08, 0.82)];
-    const scL = scrimFor(rec.q, [dimL], dl[0], L0[3], false), scD = scrimFor(rec.q, [dimD], D[0], D[3], true);
+    const scL = scrimFor(q, [dimL], dl[0], L0[3], false), scD = scrimFor(q, [dimD], D[0], D[3], true);
     const ov = {l: `${flat(dl[0], scL)},${flat(dimL[0], dimL[1])}`, d: `${flat(D[0], scD)},${flat(dimD[0], dimD[1])}`};
 
     // Flashcards and sticky notes
@@ -46956,17 +47185,17 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       get shape(){ const s = styleCfg().note; return NOTE_SHAPES.some(x => x.id === s) ? s : "classic"; },
       get pin(){ const p = styleCfg().pin; return PINS.some(x => x.id === p) ? p : "pin"; }};
 
-    const img = rec.tiny ? `url(${rec.tiny})` : `linear-gradient(160deg,${rec.sw[0]},${rec.sw[1] || rec.sw[0]})`;
+    const img = stack(rec, rec.tiny ? `url(${rec.tiny})` : `linear-gradient(160deg,${rec.sw[0]},${rec.sw[1] || rec.sw[0]})`).map(x => x.i).join(",");
     const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
     const skin = {id: rec.id, name: rec.name, tier: "pro", group: "photo", photo: true, desc: "Your own photo.", light, dark,
       glow: [`${ov.l},${img}`, `${ov.d},${img}`], spine: [lg(lch(0.4, cs, hs), spL), lg(lch(0.22, cs, hs), spD)], btn: [lg2(aL.hex, bL), lg2(aD.hex, bD)]};
     // Text straight on the photo (titles) against the photo's middle and its worst tenth, for tests and the editor
-    const read = (layers, paper, a, ink, dark) => ({mid: contrast(lum(ink), overLum(rec.q[3], layers, paper, a)), worst: contrast(lum(ink), overLum(dark ? rec.q[5] : rec.q[1], layers, paper, a))});
+    const read = (layers, paper, a, ink, dark) => ({mid: contrast(lum(ink), overLum(q[3], layers, paper, a)), worst: contrast(lum(ink), overLum(dark ? q[5] : q[1], layers, paper, a))});
     return {skin, kit, ov, scL, scD, accent: [aL.hex, aD.hex], read: {l: read([dimL], dl[0], scL, L0[3], false), d: read([dimD], D[0], scD, D[3], true)}};
   }
   const tcache = new Map();
   function themeOf(r){
-    const sig = JSON.stringify([r.name, r.sw, r.wt, r.q, r.ai, r.bright, r.tiny.length]);
+    const sig = JSON.stringify([r.name, r.sw, r.wt, r.q, r.ai, r.ac, r.bright, r.gr, r.tn, r.vg, r.tiny.length]);
     const c = tcache.get(r.id); if (c && c.sig === sig) return c.t;
     const t = buildTheme(r); tcache.set(r.id, {sig, t}); return t;
   }
@@ -47165,22 +47394,30 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const side = r && r.left < 4 && r.height > innerHeight * 0.6 ? Math.round(r.right) : 0;
     return {side, W: Math.max(1, innerWidth - side), H: Math.max(1, innerHeight)};
   }
-  function teardown(){ const el = document.getElementById("photoArt"); if (el) el.remove(); root.classList.remove("ph-on"); }
+  // Glass cards: how much of the card color stays (a share) and how much the photo behind it is blurred.
+  const glassVars = gl => ({"--ph-gl": `${Math.round(100 - gl * 0.62)}%`, "--ph-glb": `${(gl * 0.16).toFixed(1)}px`});
+  function teardown(){
+    const el = document.getElementById("photoArt"); if (el) el.remove();
+    root.classList.remove("ph-on", "ph-glass"); ["--ph-gl", "--ph-glb"].forEach(k => root.style.removeProperty(k));
+  }
   function paint(){
     const id = root.dataset.skin, rec = isPh(id) ? recOf(id) : null;
     if (!rec || !SKINS.some(s => s.id === id)) { teardown(); return false; }
     const t = themeOf(rec), dk = isDarkNow(), g = geo();
     let el = document.getElementById("photoArt");
     if (!el) { el = document.createElement("div"); el.id = "photoArt"; el.setAttribute("aria-hidden", "true"); document.body.prepend(el); }
-    const url = urls.get(`bg|${rec.id}|${rec.blur}`);
-    if (!url) ensureBg(rec).then(u => { if (u && root.dataset.skin === rec.id) paint(); });
-    const img = url ? `url("${url}")` : rec.tiny ? `url(${rec.tiny})` : "";
-    const bi = [dk ? t.ov.d : t.ov.l, img].filter(Boolean).join(","), bp = `0 0,0 0,${rec.fx}% ${rec.fy}%`;
+    const only = rec.gr.m === "only", url = only ? "" : urls.get(`bg|${rec.id}|${rec.blur}`);
+    if (!url && !only) ensureBg(rec).then(u => { if (u && root.dataset.skin === rec.id) paint(); });
+    const img = url ? `url("${url}")` : rec.tiny ? `url(${rec.tiny})` : "", L = stack(rec, img), pre = ["0 0", "0 0"];
+    const bi = [dk ? t.ov.d : t.ov.l].concat(L.map(x => x.i)).join(",");
     el.style.left = g.side + "px"; el.style.width = g.W + "px"; el.style.height = g.H + "px";
     if (el.style.backgroundImage !== bi) el.style.backgroundImage = bi;
-    el.style.backgroundPosition = bp; el.style.backgroundSize = "100% 100%,100% 100%,cover";
-    el.dataset.state = url ? "photo" : "placeholder";
-    root.classList.add("ph-on");
+    el.style.backgroundPosition = lay(pre, L, "p").join(","); el.style.backgroundSize = lay(["100% 100%", "100% 100%"], L, "s").join(",");
+    el.style.backgroundBlendMode = lay(["normal", "normal"], L, "b").join(",");
+    el.dataset.state = only ? "gradient" : url ? "photo" : "placeholder";
+    root.classList.add("ph-on"); root.classList.toggle("ph-glass", rec.gl > 0);
+    if (rec.gl > 0) Object.entries(glassVars(rec.gl)).forEach(([k, v]) => root.style.setProperty(k, v));
+    else ["--ph-gl", "--ph-glb"].forEach(k => root.style.removeProperty(k));
     return true;
   }
   hook("skinart", () => paint());
@@ -47193,9 +47430,9 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     return "";
   }
   function thumbStyle(rec, dark){
-    const t = themeOf(rec), u = thumbUrl(rec.id), img = u ? `url(${u})` : rec.tiny ? `url(${rec.tiny})` : "";
-    const b = Math.min(4, blurFrac(rec.blur) * 180);
-    return `background-image:${[dark ? t.ov.d : t.ov.l, img].filter(Boolean).join(",")};background-position:0 0,0 0,${rec.fx}% ${rec.fy}%;background-size:100% 100%,100% 100%,cover${b > 0.3 ? `;filter:blur(${b.toFixed(1)}px)` : ""}`;
+    const t = themeOf(rec), u = thumbUrl(rec.id), img = u ? `url(${u})` : rec.tiny ? `url(${rec.tiny})` : "", L = stack(rec, rec.gr.m === "only" ? "" : img);
+    const b = rec.gr.m === "only" ? 0 : Math.min(4, blurFrac(rec.blur) * 180);
+    return `background-image:${[dark ? t.ov.d : t.ov.l].concat(L.map(x => x.i)).join(",")};background-position:${lay(["0 0", "0 0"], L, "p").join(",")};background-size:${lay(["100% 100%", "100% 100%"], L, "s").join(",")};background-blend-mode:${lay(["normal", "normal"], L, "b").join(",")}${b > 0.3 ? `;filter:blur(${b.toFixed(1)}px)` : ""}`;
   }
   function refreshThumbs(id){
     const rec = recOf(id); if (!rec) return;
@@ -47320,8 +47557,58 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
         <span class="ph-card"><span class="ph-row"><i class="ph-ck"></i><b>Midterm Exam</b></span><span class="ph-row"><i class="ph-ck"></i><b>Med Math</b></span><span class="ph-btn">Focus</span></span>
         <span class="ph-note" style="--nc:var(--n0)">Quiz Friday!</span></span>
       <span class="ph-bar"><i class="on"></i><i></i><i></i><i></i><i></i></span></span>`;
+  /* Accent suggestions from the photo's swatches: livelier versions of its colors, plus a color that sits well beside the lead one. */
+  function suggest(d){
+    const out = [];
+    const add = (L, C, h) => { const x = lch(L, C, h); if (!out.some(o => hueDist(hex2lch(o).h, h) < 16 && Math.abs(hex2lch(o).L - L) < 0.12)) out.push(x); };
+    const cl = d.sw.map((h, i) => Object.assign(hex2lch(h), {w: d.wt[i] || 0})).sort((a, b) => b.C * (0.4 + Math.sqrt(b.w)) - a.C * (0.4 + Math.sqrt(a.w)));
+    cl.filter(c => c.C >= 0.03).forEach(c => add(clamp(c.L, 0.5, 0.7), clamp(c.C * 1.35, 0.1, 0.19), c.h));
+    const lead = cl.find(c => c.C >= 0.03);
+    if (lead) { add(0.62, 0.15, (lead.h + 180) % 360); add(0.64, 0.14, (lead.h + 35) % 360); }
+    else [25, 145, 255, 330].forEach(h => add(0.62, 0.15, h));
+    return out.slice(0, 8);
+  }
+  const GRADS = [["Sunset", ["#FFB36B", "#FF5E78", "#7B3FA0"]], ["Ocean", ["#43C6AC", "#2B7FD8", "#191654"]], ["Aurora", ["#3EF0B5", "#4C7DFF", "#B14CFF"]], ["Peach", ["#FFE0C2", "#FFB4A2"]],
+    ["Forest", ["#A8E063", "#2E8B57", "#0B3B2E"]], ["Candy", ["#FF9ACB", "#C58BFF", "#74C8FF"]], ["Midnight", ["#2C3E75", "#141E3C", "#05070F"]], ["Slate", ["#E8ECF2", "#9AA7BD"]]];
+  const grWord = g => g.m === "only" ? "Instead of your photo" : g.m === "over" ? "On top of your photo" : "Off";
+  const gradStops = (d, i) => `<input type="color" data-ph-gc="${i}" value="${d.gr.c[i] || d.gr.c[d.gr.c.length - 1]}" aria-label="Gradient color ${i + 1}">`;
+  function fxHtml(d){
+    const sug = suggest(d).map(h => `<button type="button" class="ph-swb c" data-ph-sug="${h}" style="--c:${h}" aria-label="Use ${h} for buttons and accents" aria-pressed="false"></button>`).join("");
+    const pre = [["From Your Photo", d.sw.slice(0, 3)]].concat(GRADS).map(([n, c], i) => `<button type="button" class="ph-pre" data-ph-gp="${i}" title="${esc(n)}" aria-label="${esc(n)} gradient" style="background:${grCss({t: "linear", a: 135, c}, 1)}"></button>`).join("");
+    const blends = BLENDS.map(([k, l]) => `<option value="${k}">${l}</option>`).join("");
+    return `<div class="ph-fx">
+      <details class="ph-grp" open><summary>Your Own Color <span class="hint" id="phAccV"></span></summary><div class="ph-grp-b">
+        <div class="f"><span class="lh">Suggested for This Photo <span class="hint">livelier versions of its colors</span></span><div class="ph-sug" role="group" aria-label="Suggested colors">${sug}</div></div>
+        <div class="f"><span class="lh">Pick Any Color <span class="hint">used for buttons, highlights and links</span></span>
+          <div class="ph-own"><input type="color" id="phAcc" value="${d.ac || "#3D7FE0"}" aria-label="Pick a custom color"><input type="text" id="phAccHex" maxlength="7" spellcheck="false" autocomplete="off" placeholder="#RRGGBB" aria-label="Color as a hex code" value="${d.ac}"><button type="button" class="btn small" id="phAccClr">Use the Photo's Colors</button></div></div>
+      </div></details>
+      <details class="ph-grp"><summary>Gradient <span class="hint" id="phGV"></span></summary><div class="ph-grp-b">
+        <div class="segb" role="group" aria-label="Where to use the gradient"><button type="button" data-ph-gm="off">Off</button><button type="button" data-ph-gm="over">On Your Photo</button><button type="button" data-ph-gm="only">Instead of Photo</button></div>
+        <div class="ph-gbody" id="phGBody" style="display:grid;gap:12px">
+          <div class="ph-gprev" id="phGPrev" aria-hidden="true"></div>
+          <div class="f"><span class="lh">Presets</span><div class="ph-presets" role="group" aria-label="Gradient presets">${pre}</div></div>
+          <div class="segb" role="group" aria-label="Gradient shape"><button type="button" data-ph-gt="linear">Linear</button><button type="button" data-ph-gt="radial">Radial</button></div>
+          <div class="f" id="phGAWrap"><span class="lh">Angle <span class="hint" id="phGAV"></span></span><input type="range" id="phGA" min="0" max="360" step="5" value="${d.gr.a}"></div>
+          <div class="f"><span class="lh">Colors <span class="hint">two or three</span></span><div class="ph-stops" id="phStops">${[0, 1, 2].map(i => gradStops(d, i)).join("")}<button type="button" class="btn small" id="phG3"></button></div></div>
+          <div class="f" id="phGOWrap"><span class="lh">Strength <span class="hint" id="phGOV"></span></span><input type="range" id="phGO" min="5" max="100" step="5" value="${d.gr.op}"></div>
+        </div>
+      </div></details>
+      <details class="ph-grp"><summary>Tint &amp; Light <span class="hint" id="phTV"></span></summary><div class="ph-grp-b">
+        <div class="f"><span class="lh">Color Tint <span class="hint" id="phTAV"></span></span>
+          <div class="ph-tintrow"><input type="color" id="phTC" value="${d.tn.c}" aria-label="Tint color"><select id="phTB" aria-label="How the tint blends">${blends}</select></div>
+          <input type="range" id="phTA" min="0" max="100" step="5" value="${d.tn.a}" aria-label="Tint strength"></div>
+        <label class="f"><span class="lh">Vignette <span class="hint" id="phVV"></span></span><input type="range" id="phVG" min="0" max="100" step="5" value="${d.vg}"></label>
+      </div></details>
+      <details class="ph-grp"><summary>Glass Cards <span class="hint" id="phLV"></span></summary><div class="ph-grp-b">
+        <label class="f"><span class="lh">See-Through Cards <span class="hint">cards and lists let the background show through, softly frosted</span></span><input type="range" id="phGL" min="0" max="100" step="5" value="${d.gl}"></label>
+        <div><button type="button" class="btn small" id="phFxReset">Reset All Looks</button></div>
+      </div></details>
+    </div>`;
+  }
   function editor(o){
     const d = o.rec ? Object.assign({}, o.rec) : {id: PFX + uid(), name: o.name || "My Photo", fx: 50, fy: 50, blur: 35, bright: 0, ai: -1, sw: o.P.A.sw, wt: o.P.A.wt, tiny: o.P.tiny, w: o.P.w, h: o.P.h, asset: null, at: 0};
+    // Looks: a private copy the sliders edit (clean() fills the defaults).
+    { const c0 = clean(Object.assign({}, d)); d.ac = c0.ac; d.gr = c0.gr; d.tn = c0.tn; d.gl = c0.gl; d.vg = c0.vg; }
     const url = URL.createObjectURL(o.P.blob);
     E = {o, d, url, A: o.P.A, qc: {}, dark: isDarkNow(), raf: 0};
     const sw = d.sw.map((h, i) => `<button type="button" class="ph-swb c" data-ph-ai="${i}" style="--c:${h}" aria-label="Use this color for buttons and accents" aria-pressed="false"></button>`).join("");
@@ -47341,6 +47628,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
             <div class="ph-made" id="phMade" aria-hidden="true"><span class="mini">Your Theme</span><span class="ph-mk acc"></span><span class="ph-mk btn"></span>${[0, 1, 2, 3, 4, 5].map(i => `<span class="ph-mk nt" style="background:var(--n${i})"></span>`).join("")}<span class="ph-mk fc"></span></div>
           </div>
         </div>
+        ${fxHtml(d)}
       </div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="ph-back">Back</button><span class="spacer"></span><button type="button" class="btn primary" data-submit id="phSave">${o.isNew ? "Save and Use" : "Save Changes"}</button></div></form>`, () => { save(); return false; });
     const sheet = dlg.querySelector(".ph-sheet"); if (!sheet) return;
@@ -47349,7 +47637,29 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     q("#phBright").addEventListener("input", e => { d.bright = +e.target.value; queue(); });
     q("#phName").addEventListener("input", e => { d.name = e.target.value; });
     sheet.querySelectorAll("[data-ph-mode]").forEach(b => b.addEventListener("click", () => { E.dark = b.dataset.phMode === "dark"; queue(); }));
-    sheet.querySelectorAll("[data-ph-ai]").forEach(b => b.addEventListener("click", () => { d.ai = +b.dataset.phAi; queue(); }));
+    // Picking a photo swatch (or Auto) lets go of a color of your own, so the last thing you tapped always wins.
+    sheet.querySelectorAll("[data-ph-ai]").forEach(b => b.addEventListener("click", () => { d.ai = +b.dataset.phAi; d.ac = ""; queue(); }));
+    sheet.querySelectorAll("[data-ph-sug]").forEach(b => b.addEventListener("click", () => { d.ac = b.dataset.phSug; queue(); }));
+    q("#phAcc").addEventListener("input", e => { d.ac = e.target.value.toUpperCase(); queue(); });
+    const hx = q("#phAccHex");
+    hx.addEventListener("input", () => { let v = hx.value.trim(); if (v && v[0] !== "#") v = "#" + v; const ok = HEX.test(v); hx.setAttribute("aria-invalid", String(!!hx.value && !ok)); if (ok) { d.ac = v.toUpperCase(); queue(); } else if (!hx.value) { d.ac = ""; queue(); } });
+    q("#phAccClr").addEventListener("click", () => { d.ac = ""; d.ai = -1; queue(); });
+    sheet.querySelectorAll("[data-ph-gm]").forEach(b => b.addEventListener("click", () => { d.gr.m = b.dataset.phGm; queue(); }));
+    sheet.querySelectorAll("[data-ph-gt]").forEach(b => b.addEventListener("click", () => { d.gr.t = b.dataset.phGt; queue(); }));
+    sheet.querySelectorAll("[data-ph-gp]").forEach(b => b.addEventListener("click", () => {
+      const c = (+b.dataset.phGp ? GRADS[+b.dataset.phGp - 1][1] : d.sw.slice(0, 3)).map(h => h.toUpperCase());
+      d.gr.c = c.length < 2 ? [c[0], c[0]] : c.slice(0, 3); if (d.gr.m === "off") d.gr.m = "over"; queue();
+    }));
+    sheet.querySelectorAll("[data-ph-gc]").forEach(inp => inp.addEventListener("input", () => { const i = +inp.dataset.phGc; if (i < d.gr.c.length) { d.gr.c[i] = inp.value.toUpperCase(); queue(); } }));
+    q("#phG3").addEventListener("click", () => { if (d.gr.c.length > 2) d.gr.c.length = 2; else d.gr.c.push(d.gr.c[1]); queue(); });
+    q("#phGA").addEventListener("input", e => { d.gr.a = +e.target.value; queue(); });
+    q("#phGO").addEventListener("input", e => { d.gr.op = +e.target.value; queue(); });
+    q("#phTC").addEventListener("input", e => { d.tn.c = e.target.value.toUpperCase(); if (!d.tn.a) d.tn.a = 30; queue(); });
+    q("#phTA").addEventListener("input", e => { d.tn.a = +e.target.value; queue(); });
+    q("#phTB").addEventListener("change", e => { d.tn.b = e.target.value; if (!d.tn.a) d.tn.a = 30; queue(); });
+    q("#phVG").addEventListener("input", e => { d.vg = +e.target.value; queue(); });
+    q("#phGL").addEventListener("input", e => { d.gl = +e.target.value; queue(); });
+    q("#phFxReset").addEventListener("click", () => { const z = clean({id: d.id, sw: d.sw, wt: d.wt}); d.ac = ""; d.ai = -1; d.gr = z.gr; d.tn = z.tn; d.gl = 0; d.vg = 0; queue(); });
     const fo = q("#phFocus"), dot = q("#phDot");
     let drag = false;
     const move = e => { const r = fo.getBoundingClientRect(); d.fx = Math.round(clamp((e.clientX - r.left) / r.width * 100, 0, 100)); d.fy = Math.round(clamp((e.clientY - r.top) / r.height * 100, 0, 100)); queue(); };
@@ -47379,14 +47689,15 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     d.q = E.qc[d.blur];
     const rec = clean(Object.assign({}, d, {name: d.name || "My Photo"})), t = buildTheme(rec), dk = E.dark;
     const stage = sheet.querySelector("#phStage");
-    const vars = `${skinVars(t.skin, dk)};${kitCss(t.kit)};${t.kit.notes.map((c, i) => `--n${i}:${c}`).join(";")}`;
+    const gv = rec.gl > 0 ? glassVars(rec.gl) : {};
+    const vars = `${skinVars(t.skin, dk)};${kitCss(t.kit)};${t.kit.notes.map((c, i) => `--n${i}:${c}`).join(";")}${Object.entries(gv).map(([k, v]) => `;${k}:${v}`).join("")}`;
     stage.setAttribute("style", vars); sheet.querySelector("#phMade").setAttribute("style", vars);
     stage.classList.toggle("dk", dk);
     stage.querySelectorAll(".ph-frame").forEach(fr => {
       const r = fr.getBoundingClientRect(), fw = r.width || 300, fh = r.height || 200;
       const k = Math.max(fw / d.w, fh / d.h), sig = blurFrac(d.blur) * Math.max(d.w, d.h) * k, pad = sig > 0.3 ? Math.ceil(sig * 2) : 0;
-      const bg = fr.querySelector(".ph-bg");
-      bg.style.cssText = `background-image:url("${E.url}");background-position:${d.fx}% ${d.fy}%;inset:${-pad}px;${pad ? `filter:blur(${sig.toFixed(1)}px)` : ""}`;
+      const bg = fr.querySelector(".ph-bg"), only = rec.gr.m === "only", L = stack(rec, `url("${E.url}")`);
+      bg.style.cssText = `background-image:${L.map(x => x.i).join(",")};background-position:${L.map(x => x.p).join(",")};background-size:${L.map(x => x.s).join(",")};background-blend-mode:${L.map(x => x.b).join(",")};inset:${-pad}px;${pad && !only ? `filter:blur(${sig.toFixed(1)}px)` : ""}`;
       fr.querySelector(".ph-ov").style.backgroundImage = dk ? t.ov.d : t.ov.l;
     });
     // Crop outlines on the focus picker (sized to fit: at most 260 px tall, never wider than its column)
@@ -47402,7 +47713,25 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     sheet.querySelector("#phBlurV").textContent = blurWord(d.blur);
     sheet.querySelector("#phBrV").textContent = brightWord(d.bright);
     sheet.querySelectorAll("[data-ph-mode]").forEach(b => b.setAttribute("aria-pressed", String((b.dataset.phMode === "dark") === dk)));
-    sheet.querySelectorAll("[data-ph-ai]").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.phAi === d.ai)));
+    sheet.querySelectorAll("[data-ph-ai]").forEach(b => b.setAttribute("aria-pressed", String(!d.ac && +b.dataset.phAi === d.ai)));
+    sheet.querySelectorAll("[data-ph-sug]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.phSug === d.ac)));
+    const setv = (el, v) => { if (el && el !== document.activeElement && el.value.toLowerCase() !== String(v).toLowerCase()) el.value = v; };
+    setv(sheet.querySelector("#phAcc"), d.ac || t.accent[dk ? 1 : 0]);
+    if (document.activeElement !== sheet.querySelector("#phAccHex")) { const hx = sheet.querySelector("#phAccHex"); hx.value = d.ac; hx.removeAttribute("aria-invalid"); }
+    sheet.querySelector("#phAccV").textContent = d.ac ? d.ac : d.ai >= 0 ? "From a Photo Color" : "Automatic";
+    const g = d.gr, one = id => sheet.querySelector(id);
+    sheet.querySelectorAll("[data-ph-gm]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.phGm === g.m)));
+    sheet.querySelectorAll("[data-ph-gt]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.phGt === g.t)));
+    one("#phGBody").style.display = g.m === "off" ? "none" : "grid";
+    one("#phGV").textContent = g.m === "off" ? "Off" : g.m === "only" ? "Instead of Photo" : "On Your Photo";
+    one("#phGPrev").style.background = grCss(g, 1);
+    sheet.querySelectorAll("[data-ph-gc]").forEach(inp => { const i = +inp.dataset.phGc; inp.hidden = i >= g.c.length; if (i < g.c.length) setv(inp, g.c[i]); });
+    one("#phG3").textContent = g.c.length > 2 ? "Use Two Colors" : "Add a Third Color";
+    one("#phGAWrap").hidden = g.t === "radial"; one("#phGAV").textContent = `${g.a}°`; setv(one("#phGA"), String(g.a));
+    one("#phGOWrap").hidden = g.m !== "over"; one("#phGOV").textContent = `${g.op}%`; setv(one("#phGO"), String(g.op));
+    setv(one("#phTC"), d.tn.c); setv(one("#phTB"), d.tn.b); setv(one("#phTA"), String(d.tn.a)); setv(one("#phVG"), String(d.vg)); setv(one("#phGL"), String(d.gl));
+    one("#phTAV").textContent = d.tn.a ? `${d.tn.a}%` : "Off"; one("#phVV").textContent = d.vg ? `${d.vg}%` : "Off";
+    one("#phTV").textContent = d.tn.a || d.vg ? "On" : "Off"; one("#phLV").textContent = d.gl ? `${d.gl}%` : "Off";
     const a = dk ? t.scD : t.scL;
     sheet.querySelector("#phRead").innerHTML = `<i aria-hidden="true">✓</i> ${a < 0.04 ? "Text Is Easy to Read" : "Easy to Read, With a Soft Shade"}${!dk && t.scL >= 0.45 ? `<span class="ph-tip">Looks Best in Dark Mode</span>` : ""}`;
     sheet.querySelector("#phRead").dataset.scrim = a.toFixed(2);
@@ -47438,6 +47767,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   }
   async function edit(id){
     const rec = recOf(id); if (!rec) return;
+    if (!canUse()) { paywall(); return; }
     const it = await DB.get("img", id).catch(() => null);
     if (!it || !it.blob) { toast(canFetch() && rec.asset ? "This photo is still downloading. Try again in a moment." : "This photo is on another device. Sign in there and here to sync it."); if (rec.asset) housekeeping(true); return; }
     let src = null; try { src = await decode(it.blob); } catch (e) {}
