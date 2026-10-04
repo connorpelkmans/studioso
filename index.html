@@ -2333,6 +2333,14 @@ nav.tabs .in .nav-groups{display:none}
 .grp-head{border-top:3px solid var(--c)}
 .grp-cols{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:0 26px;align-items:start}
 @media (max-width:900px){.grp-cols{grid-template-columns:1fr}}
+.grp-tabs{display:flex;gap:4px;margin:18px 0 6px;border-bottom:1px solid var(--line);overflow-x:auto}
+.grp-tabs button{border:0;background:none;color:var(--muted);padding:10px 14px;min-height:44px;font:600 .95rem var(--display);border-bottom:3px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.grp-tabs button.on{color:var(--ink);border-bottom-color:var(--accent)}
+.grp-pane[hidden]{display:none}
+.grp-more{position:relative;display:inline-block}
+.grp-more summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center}
+.grp-more summary::-webkit-details-marker{display:none}
+.grp-menu{position:absolute;z-index:5;top:calc(100% + 4px);left:0;display:grid;gap:4px;min-width:160px;padding:6px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
 .grp-sec .fsec{flex-wrap:wrap}
 .grp-sec .fsec > svg,.grp-shares .fsec > svg{width:18px;height:18px;flex:none}
 .grp-sec .fsec .spacer{flex:1}
@@ -6909,6 +6917,8 @@ const AI_STYLES = [
   ["AP Exam", "AP exam style: stimulus-based multiple choice with 4 options (a short source, data description or scenario, then the question), plus a few free-response prompts as short-answer questions whose expected answer reads like a scoring guide: the key points a full-credit answer must make.", 4],
   ["Bar Exam", "Bar exam style: a short fact pattern (a paragraph), then a question applying the rule of law: which party prevails, which claim or defense is strongest, or what the court is most likely to hold. Multiple choice with 4 options of plausible legal conclusions, rationales that state the governing rule and apply it to the facts, plus a few short-answer issue-spotting prompts.", 4],
   ["CPA Exam", "CPA exam style: multiple-choice questions with 4 options on accounting, auditing, tax and business concepts, plus task-based simulations expressed as short-answer calculations or journal-entry questions with the numbers in the stem. Rationales show the worked steps.", 4],
+  ["SAT", "SAT style (digital SAT): single best answer multiple choice with exactly 4 options labeled A, B, C, D and one correct answer, no 'all of the above'. Reading and Writing questions each use a short passage of 25 to 150 words (a literary, science, history or social-science excerpt, or notes) followed by one question on central idea, details, inference, vocabulary in context, evidence, transitions, rhetorical synthesis or standard English conventions (grammar, punctuation, sentence structure). Math questions are multiple choice or short-answer ('student-produced response': a number in 'answer') on algebra, advanced math, problem-solving and data analysis, or geometry and trigonometry, with the numbers in the stem, a short real-world context where natural, and rationales that show the worked steps. Use the mix of reading and writing and math that fits the material, and spread difficulty from easy to hard. Never type letters in the option text (the app adds A, B, C, D).", 4],
+  ["ACT", "ACT style: single best answer multiple choice with exactly 4 options per question (the real test labels them A, B, C, D on English, Reading and Science and alternates A, B, C, D with F, G, H, J on Math; the app adds the letters, so never type letters in the option text). English: a passage with an underlined portion, then options that rewrite it, where the first option is 'NO CHANGE', testing grammar, usage, punctuation, rhetorical skills, organization and style. Reading: a 150 to 250 word passage (prose fiction, social science, humanities or natural science) followed by detail, inference, main idea, vocabulary and author's purpose questions. Science: a described experiment, data table or pair of conflicting viewpoints, then data interpretation, investigation design and evaluation of models. Math: pre-algebra through trigonometry with the numbers in the stem and worked steps in the rationale. Use the mix of these sections that fits the material.", 4],
   ["Engineering FE", "FE (Fundamentals of Engineering) exam style: concise problem-solving questions with 4 options, numerical answers with units, standard formulas and reference-handbook style data given in the stem. Rationales show the worked solution and common unit or sign errors.", 4]
 ];
 // Builds the style text sent to the AI: the student's own words first (they win), then each picked preset's instructions.
@@ -6972,7 +6982,7 @@ const AI_QUIZ_SYSTEM = "You write high-quality practice exam questions. Question
 async function aiRetry(fn){ try { return await fn(); } catch(e) { if (e && (e.code === "bad" || e.code === "long")) return await fn(); throw e; } }
 const AI_GROUND = "Ground every item in the material above: use its own terms, numbers, names and wording. Never add a fact, number, date, example or definition that is not in the material, and skip a topic rather than guess. Write in the same language as the material. Plain text only (no markdown, HTML or LaTeX); write chemistry and math directly, like H₂O, CO₂, x², Δ, →. The 'source' field is required: the slide number or page (like 'Slide 12' or 'p. 4'), or the section heading when the material has no pages.";
 async function aiMakeStudySet(opts, onStatus){
-  const {sources, style, difficulty, cards, quiz, cases, caseCount, cardCount, quizCount, courseName, signal} = opts;
+  const {sources, style, difficulty, cards, quiz, cases, caseCount, caseStyle, cardCount, quizCount, courseName, signal} = opts;
   const diff = difficulty === "easier" ? "Keep it approachable: core facts and main ideas." : difficulty === "harder" ? "Make it challenging: application, analysis and tricky distinctions." : "Mix easier recall with harder application.";
   const ctx = `Course: ${courseName || "not given"}. Student's style and instructions (follow them exactly; if they name an exam or describe a professor's format, imitate that exam's wording, structure and difficulty; where they conflict with your defaults, they win): ${style || "Clear, exam-focused study material."} Difficulty: ${diff}`;
   const parts = sources.map(s => s.part);
@@ -6984,7 +6994,7 @@ async function aiMakeStudySet(opts, onStatus){
     system: "You write excellent flashcards for students. Each card tests exactly one idea. Fronts are short (a term, a question of at most 20 words, or a sentence with ____ for a cloze). Backs are accurate and concise (1 to 2 sentences). Favor high-yield, exam-relevant content: definitions, mechanisms, comparisons, steps, normal values, and key priorities where relevant. Every card must be answerable from the material alone. No two cards may ask the same thing, and skip trivia such as the lecture title, agenda, instructor names and logistics. " + AI_GROUND + " " + AI_RULES})));
   if (quiz) jobs.push(aiRetry(() => aiCall({task: "quiz", signal, maxTokens: 32000, onStatus, schema: QUIZ_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite exactly ${quizCount} practice questions from the material above, spread across all of its topics. Every question must be answerable from the material, and its rationale must say where.`}),
     system: AI_QUIZ_SYSTEM + " " + AI_GROUND})));
-  if (cases) jobs.push(aiRetry(() => aiCall({task: "cases", signal, maxTokens: 24000, onStatus, schema: CASE_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite ${caseCount || 1} case stud${Number(caseCount) === 1 ? "y" : "ies"} from the material above.`}), system: CASE_SYSTEM})));
+  if (cases) jobs.push(aiRetry(() => aiCall({task: "cases", signal, maxTokens: 24000, onStatus, schema: CASE_SCHEMA, parts: parts.concat({text: `${ctx}\n${aiCaseStyleText(caseStyle, courseName)}\n\nWrite ${caseCount || 1} case stud${Number(caseCount) === 1 ? "y" : "ies"} from the material above.`}), system: CASE_SYSTEM})));
   const settled = await Promise.allSettled(jobs);
   const failed = settled.filter(x => x.status === "rejected");
   if (failed.length === settled.length) throw failed[0].reason;
@@ -7017,7 +7027,7 @@ function aiStudySheet(deckId){
       <fieldset><legend>Make</legend>
         <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiCards" checked> Flashcards</label>${seg("aiCardN", [["auto", "Auto"], ["10", "10"], ["20", "20"], ["30", "30"], ["50", "50"]], "auto")}</div>
         <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiQuiz" checked> Practice quiz</label>${seg("aiQuizN", [["5", "5"], ["10", "10"], ["20", "20"], ["30", "30"]], "10")}</div>
-        <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiCase"> Case studies</label>${seg("aiCaseN", [["1", "1"], ["2", "2"], ["3", "3"]], "1")}<span class="mini">Realistic scenarios that unfold step by step and test how you apply the material</span></div>
+        <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiCase"> Case studies</label>${seg("aiCaseN", [["1", "1"], ["2", "2"], ["3", "3"]], "1")}${caseStyleSelect("aiCaseStyle")}<span class="mini">Realistic scenarios that unfold step by step and test how you apply the material. NCLEX format is only used for nursing or when you pick it.</span></div>
       </fieldset>
       <fieldset><legend>Style</legend>
         <label class="f"><span class="lh">Your Own Style or Exam Format <span class="hint">optional, comes first</span></span><textarea id="aiStyle" rows="2" maxlength="1500" placeholder="e.g. AP-style multiple choice with rationales, or my professor's short case-study questions, or 60-minute midterm with 20 multiple choice and 5 short answers" data-noenter></textarea></label>
@@ -7090,7 +7100,7 @@ function aiStudySheet(deckId){
     if (ac) dlg.addEventListener("close", () => ac.abort(), {once: true});   // closing the window stops the request
     status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(aiModelName(aiCfg().provider, aiCfg().model))} is reading your material and writing ${[wantCards && "flashcards", wantQuiz && "a quiz", wantCase && "case studies"].filter(Boolean).join(" and ")}. This usually takes 20 to 60 seconds…`;
     try {
-      const r = await aiMakeStudySet({sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : "", signal: ac && ac.signal}, m => { status.textContent = m; });
+      const r = await aiMakeStudySet({sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : "", signal: ac && ac.signal}, m => { status.textContent = m; });
       if (ac && ac.signal.aborted) return;
       if (!r.cards.length && !r.questions.length && !r.cases.length) throw aiErr("empty", "The AI couldn't make anything from that material. Try adding more content, or a PDF version.");
       aiRememberStyle(custom);
@@ -7906,6 +7916,26 @@ function weakSheet(deckIds){
 }
 
 /* ---------- Case studies ---------- */
+// Case study styles. [key, label, instructions]. "auto" picks from the course name: NCLEX only for nursing, a fitting general style otherwise.
+const CASE_STYLES = [
+  ["auto", "Match my course", ""],
+  ["general", "General scenario", "Case style: a realistic scenario from the course's own field that unfolds in stages, with a mix of single best answer, select-all-that-apply and put-in-order questions about what matters, why, and what to do next."],
+  ["business", "Business case", "Case style: a business case (a company, a market, a decision with numbers such as revenue, costs, timelines and stakeholder views). Questions ask the student to identify the key issue, analyze the data, weigh options and trade-offs, recommend an action and evaluate the result. Mix single best answer with a few short-answer questions."],
+  ["legal", "Legal fact pattern", "Case style: a legal fact pattern (parties, events, key facts, procedural history). Questions ask for the issue, the governing rule, how it applies to the facts, the strongest argument for each side and the likely outcome. Mix single best answer with short-answer issue-spotting questions; rationales state the rule and apply it."],
+  ["clinical", "Clinical vignette (not nursing)", "Case style: a clinical vignette for a health science, medicine, pharmacy or similar course (patient age, presentation, history, findings, results) that unfolds as new findings arrive. Questions ask for the likely diagnosis, mechanism, best next step, treatment choice and monitoring. Do not use nurse-specific or NCLEX wording."],
+  ["short", "Short-answer case", "Case style: a scenario followed by questions that the student answers in their own words ('short' questions, 1 to 3 sentences, with the key points a full answer needs in 'answer'). Use at most one or two multiple choice questions."],
+  ["analysis", "Analysis (data / argument)", "Case style: an analysis case. Give the student a source, data set described in words, experiment, argument or design problem, then ask them to interpret it, find the flaw or assumption, compare explanations, justify a conclusion and propose what to check next. Mix single best answer and short-answer questions."],
+  ["nclex", "NCLEX-style (nursing)", "Case style: NCLEX Next Generation unfolding nursing case study. The client scenario includes chart data (age, history, vital signs, lab values, nurses' notes), and the questions follow the clinical judgment model: recognize cues, analyze cues, prioritize hypotheses, generate solutions, take action, evaluate outcomes. Express matrix, highlight, drop-down and bow-tie items as select-all-that-apply or one-answer questions with the data in the stem, and give a rationale for each."]
+];
+const CASE_NURSING_RX = /\b(nursing|nclex|hesi|bsn|lpn|med[- ]?surg)\b|\b(rn|ati)\b/i;
+function aiCaseStyleText(key, courseName){
+  const k = CASE_STYLES.some(x => x[0] === key) ? key : "auto";
+  if (k === "auto") return CASE_NURSING_RX.test(String(courseName || ""))
+    ? CASE_STYLES.find(x => x[0] === "nclex")[2]
+    : "Case style: choose the realistic case format that fits the course's field (business, legal, scientific, historical, technical, clinical or general). Do NOT use the NCLEX or nursing format.";
+  return CASE_STYLES.find(x => x[0] === k)[2];
+}
+const caseStyleSelect = id => `<select id="${id}" aria-label="Case study style">${CASE_STYLES.map(x => `<option value="${x[0]}">${esc(x[1])}</option>`).join("")}</select>`;
 const CASE_SCHEMA = {type: "OBJECT", properties: {cases: {type: "ARRAY", items: {type: "OBJECT", properties: {
   title: {type: "STRING"}, scenario: {type: "STRING", description: "The opening situation: who, where, history, first findings. 3 to 6 sentences."},
   questions: {type: "ARRAY", items: {type: "OBJECT", properties: {
@@ -7913,21 +7943,28 @@ const CASE_SCHEMA = {type: "OBJECT", properties: {cases: {type: "ARRAY", items: 
     type: {type: "STRING", enum: ["single", "multiple", "order", "truefalse", "short"]}, stem: {type: "STRING"}, options: {type: "ARRAY", items: {type: "STRING"}},
     correct: {type: "ARRAY", items: {type: "INTEGER"}}, answer: {type: "STRING"}, rationale: {type: "STRING"}, optionNotes: {type: "ARRAY", items: {type: "STRING"}}, topic: {type: "STRING"}},
     required: ["type", "stem", "rationale"]}}}, required: ["title", "scenario", "questions"]}}}, required: ["cases"]};
-const CASE_SYSTEM = "You write unfolding case studies that make students apply knowledge to a realistic situation. Use a realistic scenario from the course's own field (a lab, a business, a historical event, a design problem, a client or patient for health courses) that unfolds over time, with questions that walk through recognizing what matters, analyzing it, choosing a response, acting and evaluating the outcome. For health courses, the NCLEX Next Generation case style is a good model. Each case has 5 or 6 questions in order. Before each question after the first, 'update' reveals what happens next (time passes, new findings, the result of an action). Use 'single', 'multiple' (select all that apply), and 'order' questions mostly. 'correct' holds zero-based option indexes; for 'order' the indexes in the right order. Every question has a rationale and one short note per option in 'optionNotes'. Base everything on the provided material. Return JSON only.";
+const CASE_SYSTEM = "You write unfolding case studies that make students apply knowledge to a realistic situation. Use a realistic scenario from the course's own field (a lab, a business, a historical event, a design problem, a client or patient for health courses) that unfolds over time, with questions that walk through recognizing what matters, analyzing it, choosing a response, acting and evaluating the outcome. Follow the 'Case style' given with the request. Only use the NCLEX Next Generation nursing format when that style is chosen (it is meant for nursing courses); never use nurse, client or NCLEX wording for other courses. Each case has 5 or 6 questions in order. Before each question after the first, 'update' reveals what happens next (time passes, new findings, the result of an action). Use 'single', 'multiple' (select all that apply), and 'order' questions mostly ('short' for the short-answer and analysis styles). 'correct' holds zero-based option indexes; for 'order' the indexes in the right order. Every question has a rationale and one short note per option in 'optionNotes'. Base everything on the provided material. Return JSON only.";
 function aiCleanCases(list){
   return (Array.isArray(list) ? list : []).map(c => {
     const qs = aiCleanQuestions(c.questions);
     return qs.length >= 2 && String(c.scenario || "").trim() ? {title: String(c.title || "Case Study").trim(), scenario: String(c.scenario).trim(), questions: qs} : null;
   }).filter(Boolean);
 }
-async function caseFromDeck(deckId){
+// Asks which kind of case study to write before making one from a deck's cards.
+function caseStyleSheet(deckId){
+  const d = state.decks[deckId]; if (!d) return;
+  if (!aiReady()) { aiSetupSheet(true); return; }
+  openSheet(`<form class="sheet">${head("Case Study from Cards")}<div class="sheet-body"><label class="f">Case study style${caseStyleSelect("csStyle")}</label><p class="mini" style="margin:0">Match my course uses the NCLEX format only for nursing courses. Pick another style for anything else.</p></div><div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="csGo">${AI_ICON} Write It</button></div></form>`);
+  $("#csGo").addEventListener("click", () => caseFromDeck(deckId, $("#csStyle").value));
+}
+async function caseFromDeck(deckId, caseStyle){
   const d = state.decks[deckId]; if (!d) return;
   if (!aiReady()) { aiSetupSheet(true); return; }
   if (d.cards.length < 3) { toast("Add a few cards first, or use Create with AI to make a case from your slides."); return; }
   const st = aiBusySheet("Case Study", "Writing a case study from your cards. This usually takes 20 to 40 seconds…");
   try {
     const c = courseOf(d.courseId);
-    const r = await aiCall({task: "cases", maxTokens: 16000, schema: CASE_SCHEMA, onStatus: m => st(m), parts: [{text: `Course: ${c ? c.name : d.name}\nStyle: ${d.aiStyle || "realistic, exam-style"}\nMaterial (flashcards):\n${d.cards.slice(0, 120).map(x => `${x.front} => ${x.back}`).join("\n")}\n\nWrite 1 case study.`}], system: CASE_SYSTEM});
+    const r = await aiCall({task: "cases", maxTokens: 16000, schema: CASE_SCHEMA, onStatus: m => st(m), parts: [{text: `Course: ${c ? c.name : d.name}\nStyle: ${d.aiStyle || "realistic, exam-style"}\n${aiCaseStyleText(caseStyle, c ? c.name : d.name)}\nMaterial (flashcards):\n${d.cards.slice(0, 120).map(x => `${x.front} => ${x.back}`).join("\n")}\n\nWrite 1 case study.`}], system: CASE_SYSTEM});
     const cs = aiCleanCases(r.data.cases);
     if (!cs.length) throw aiErr("empty", "The AI couldn't write a case from these cards. Try again.");
     const nd = clone(state.decks[deckId]);
@@ -10450,7 +10487,7 @@ const AI_ACTS = {
   "heads-hide": el => { let h = {}; try { h = JSON.parse(localStorage.getItem(HEADS_HIDE) || "{}") || {}; } catch(e) {} Object.keys(h).forEach(k => { if (Date.now() - h[k] > 4 * 864e5 || h[k] === 1) delete h[k]; }); h[el.dataset.id] = Date.now(); try { localStorage.setItem(HEADS_HIDE, JSON.stringify(h)); } catch(e) {} render(); },
   "ai-explain": el => runExplain(el.dataset.key, el.dataset.given),
   "fc-weak": el => weakSheet(el.dataset.id ? [el.dataset.id] : decksArr().filter(d => ui.filter === "all" || d.courseId === ui.filter).map(d => d.id)),
-  "fc-case": el => caseFromDeck(el.dataset.id),
+  "fc-case": el => caseStyleSheet(el.dataset.id),
   "exam-plan": el => examPlanSheet(el.dataset.id),
   "fc-study-plan": el => { const t = state.tasks[el.dataset.id]; const ids = ((t && t.studyDecks) || []).filter(id => state.decks[id]); if (dlg.open) dlg.close(); if (!ids.length) return; const only = AUTO_ON && (t.studyCardIds || []).length ? t.studyCardIds : null; startStudy(ids, only); },
   "fc-practice-plan": el => { const t = state.tasks[el.dataset.id]; const ids = ((t && t.studyDecks) || []).filter(id => state.decks[id]); if (dlg.open) dlg.close();
@@ -35625,7 +35662,7 @@ hook("boot", boot);
   const S = {groups: null, members: {}, items: {}, msgs: {}, busy: false, err: "", setup: false, loadingG: {}, errG: {},
     name: undefined, shares: null, sharesBusy: false, unsub: null, subGid: null, drafts: {}, changed: {}, pushQ: new Set(), pushT: 0, linkChecked: {}, linkNew: {},
     ext: {}, lb: {}, rep: {}, repT: 0, extT: 0, unsubX: null, subX: null, pick: "", nudged: {}, blocked: new Set(), blocksFor: "",
-    pt: {}, ptPend: new Map(), ptT: 0, unsubT: null, subT: null, mine: {}, mineFor: "", mineAt: 0, mineBusy: false, mineOff: false};
+    pt: {}, ptPend: new Map(), ptT: 0, unsubT: null, subT: null, mine: {}, mineFor: "", mineAt: 0, mineBusy: false, mineOff: false, tab: {}};
   const str = (x, n) => String(x == null ? "" : x).slice(0, n);
   const hashOf = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); };
   const plural = (n, w, ws) => `${n} ${n === 1 ? w : (ws || w + "s")}`;
@@ -35967,9 +36004,17 @@ hook("boot", boot);
       ${headHtml(g)}
       ${S.errG[gid] ? errBox(S.errG[gid]) : ""}
       ${setupNote(g)}
-      <div class="grp-cols"><div class="grp-col">${challengeHtml(g)}${ptHtml(g)}${decksHtml(g)}${quizzesHtml(g)}${sessionsHtml(g)}${tasksHtml(g)}</div>
-      <div class="grp-col">${checkinHtml(g)}${boardHtml(g)}${membersHtml(g)}</div></div></div>`;
+      ${tabsHtml(g)}
+      <div class="grp-pane" data-pane="tasks"${paneOn(g, "tasks")}>${ptHtml(g)}${tasksHtml(g)}</div>
+      <div class="grp-pane" data-pane="study"${paneOn(g, "study")}>${decksHtml(g)}${quizzesHtml(g)}${sessionsHtml(g)}</div>
+      <div class="grp-pane" data-pane="chat"${paneOn(g, "chat")}>${checkinHtml(g)}${boardHtml(g)}</div>
+      <div class="grp-pane" data-pane="members"${paneOn(g, "members")}>${challengeHtml(g)}${membersHtml(g)}</div></div>`;
   }
+  // Sections of the group page, one at a time, so the page isn't one long scroll. Every section stays in the page (just hidden) so updates still land.
+  const GTABS = [["tasks", "Tasks"], ["study", "Study Sets"], ["chat", "Chat"], ["members", "Members"]];
+  const curTab = g => GTABS.some(x => x[0] === S.tab[g.id]) ? S.tab[g.id] : "tasks";
+  const paneOn = (g, k) => curTab(g) === k ? "" : " hidden";
+  const tabsHtml = g => `<div class="grp-tabs" role="tablist" aria-label="Group sections">${GTABS.map(([k, l]) => `<button type="button" role="tab" id="grpTab-${k}" class="${curTab(g) === k ? "on" : ""}" aria-selected="${curTab(g) === k}" data-act="grp-tab" data-t="${k}">${l}</button>`).join("")}</div>`;
   const BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>';
   function headHtml(g){
     const ms = S.members[g.id] || [], its = S.items[g.id] || [];
@@ -35978,7 +36023,7 @@ hook("boot", boot);
       <h2>${esc(g.name)}</h2>
       <div class="deck-stats"><span><b>${ms.length}</b> member${ms.length === 1 ? "" : "s"}</span>${(n => `<span><b>${n}</b> deck${n === 1 ? "" : "s"}</span>`)(its.filter(x => x.kind === "deck").length)}${(n => `<span><b>${n}</b> quiz${n === 1 ? "" : "zes"}</span>`)(its.filter(x => x.kind === "quiz").length)}${(n => `<span><b>${n}</b> deadline${n === 1 ? "" : "s"}</span>`)(its.filter(x => x.kind === "task").length)}</div>
       ${nextUpHtml(g)}
-      <div class="row-actions"><button class="btn primary" data-act="grp-invite" data-id="${esc(g.id)}">Invite Classmates</button>${isOwner(g) ? `<button class="btn" data-act="grp-edit" data-id="${esc(g.id)}">Edit Group</button>` : `<button class="btn" data-act="grp-leave" data-id="${esc(g.id)}">Leave Group</button>`}</div>
+      <div class="row-actions"><button class="btn primary" data-act="grp-invite" data-id="${esc(g.id)}">Invite Classmates</button><details class="grp-more"><summary class="btn" aria-label="More group actions">More</summary><div class="grp-menu">${isOwner(g) ? `<button class="btn" data-act="grp-edit" data-id="${esc(g.id)}">Edit Group</button>` : `<button class="btn" data-act="grp-leave" data-id="${esc(g.id)}">Leave Group</button>`}</div></details></div>
     </div>`;
   }
   const loadingLine = gid => S.items[gid] ? "" : `<p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Loading…</p>`;
@@ -36436,7 +36481,7 @@ hook("boot", boot);
   }
   function openGroupTask(r){
     if (!r) return;
-    const x = ptInit(r.gid); x.list = r.listId || x.list;
+    const x = ptInit(r.gid); x.list = r.listId || x.list; S.tab[r.gid] = "tasks";
     openGroup(r.gid); setTimeout(() => { const s = $("#grpPT"); if (s) s.scrollIntoView({block: "start"}); }, 500);
   }
   // The card under Today's Plan on the Board tab: tasks assigned to me, with a group badge, due date and a checkbox.
@@ -37205,6 +37250,9 @@ hook("boot", boot);
         patch(g.id);
         api.rsvp(id, next).catch(e => { toast(e.message); loadExtras(g.id); });
         return true; }
+      case "grp-tab": if (g && GTABS.some(x => x[0] === el.dataset.t)) { S.tab[g.id] = el.dataset.t;
+        $$("#grpDetail .grp-pane").forEach(p => { p.hidden = p.dataset.pane !== el.dataset.t; });
+        $$("#grpDetail .grp-tabs [role=tab]").forEach(b => { const on = b.dataset.t === el.dataset.t; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); }); } return true;
       case "grp-lb": if (g) { S.lb[g.id] = el.dataset.m === "quiz" ? "quiz" : "focus"; patch(g.id); } return true;
       case "grp-check-done": { const x = g && extOf(g.id), mine = x && x.checkins.find(c => c.user_id === myId() && c.day === todayISO()); if (!mine) return true;
         mine.done = !mine.done; patch(g.id);
