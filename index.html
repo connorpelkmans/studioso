@@ -1610,8 +1610,6 @@ body.stk-dragging,body.stk-dragging *{cursor:grabbing!important;user-select:none
 .env-qx[hidden]{display:none}
 .env.searching .env-packs button.on{background:rgba(255,255,255,.35);border-color:transparent;box-shadow:none}
 .env-name .mini{color:#6B4A22;font-weight:500}
-.env-sub{font:700 .72rem var(--display);letter-spacing:.06em;text-transform:uppercase;color:#6B4A22}
-.env-recent{display:grid;gap:3px}
 .env-found{max-height:260px;overflow-y:auto}
 .env-stk[data-locked]{opacity:.5}
 .env-stk:focus-visible{outline:2px solid #8A5A1E;outline-offset:2px;border-radius:8px}
@@ -10265,10 +10263,7 @@ function stkSearch(q){
   out.sort((a, b) => b.sc - a.sc || a.pi - b.pi);
   return out.slice(0, 80).map(x => x.k);
 }
-const STK_RECENT = "studyboard:stk:recent";
-const stkRecent = () => { try { const a = JSON.parse(localStorage.getItem(STK_RECENT) || "[]"); return Array.isArray(a) ? a.filter(k => typeof k === "string" && STICKERS[k]).slice(0, 10) : []; } catch(e) { return []; } };
-function stkRemember(k){ try { localStorage.setItem(STK_RECENT, JSON.stringify([k].concat(stkRecent().filter(x => x !== k)).slice(0, 10))); } catch(e) {} }
-// One sticker in the envelope. mark: show the lock on a single sticker (search results and recents mix packs).
+// One sticker in the envelope. mark: show the lock on a single sticker (search results mix packs).
 const stkCellHtml = (k, mark) => `<span class="env-stk" data-stk-src="${k}" ${mark && !stkOwns(k) ? 'data-locked="1"' : ""} role="button" tabindex="0" aria-label="${esc(k)} sticker. Press Enter to put it on the top note." title="${esc(k)}">${stickerSvg(k)}</span>`;
 function stkParts(){
   const q = (ui.stkQ || "").trim(), cur = STICKER_PACKS.find(p => p.id === ui.stkPack) || STICKER_PACKS[0];
@@ -10278,10 +10273,9 @@ function stkParts(){
       results: ks.length ? `<div class="env-sheet env-found" role="group" aria-label="Sticker search results">${ks.map(k => stkCellHtml(k, true)).join("")}</div>`
         : `<div class="env-empty" role="status"><b>Nothing matches “${esc(q.slice(0, 24))}”</b><span>Try a shorter word, or one of these:</span><span class="env-try">${["heart", "star", "cat", "study", "happy"].map(w => `<button type="button" data-act="stk-try" data-id="${w}">${w}</button>`).join("")}</span><button type="button" class="link-btn" data-act="stk-qclear">Clear search</button></div>`};
   }
-  const locked = !owns("sticker", cur.id), rec = stkRecent();
+  const locked = !owns("sticker", cur.id);
   return {name: `<b>${esc(cur.name)}</b>${cur.tier === "pro" ? PRO_BADGE : ""}`,
-    results: (rec.length ? `<div class="env-recent"><span class="env-sub" id="envRecentLbl">Recent</span><div class="env-sheet env-recent-row" role="group" aria-labelledby="envRecentLbl">${rec.map(k => stkCellHtml(k, true)).join("")}</div></div>` : "")
-      + `<div class="env-sheet ${locked ? "locked" : ""}">${Object.keys(cur.items).map(k => stkCellHtml(k)).join("")}</div>`};
+    results: `<div class="env-sheet ${locked ? "locked" : ""}">${Object.keys(cur.items).map(k => stkCellHtml(k)).join("")}</div>`};
 }
 // Search as you type: only the name line and the sticker area change, so the box keeps focus.
 function stkRefresh(){
@@ -10314,7 +10308,7 @@ function stkKeyAdd(k){
   const els = $$(".nb-board .note"), el = els[els.length - 1], n = el && state.notes[el.dataset.note];
   if (!n) { toast("Add a sticky note first, then put stickers on it"); return; }
   const t = clone(n); t.stickers = (t.stickers || []).concat({k, r: Math.round(Math.random() * 30 - 15), s: 1, x: 50 + Math.round(Math.random() * 30 - 15), yp: Math.round(Math.min(el.offsetHeight, 140) * 0.5)}).slice(-16);
-  stkRemember(k); applyChanges([{kind: "note", id: n.id, after: t}], "Sticker added to your top note");
+  applyChanges([{kind: "note", id: n.id, after: t}], "Sticker added to your top note");
 }
 document.addEventListener("input", e => { const t = e.target; if (t && t.classList && t.classList.contains("env-q")) { ui.stkQ = t.value.slice(0, 40); stkRefresh(); } });
 document.addEventListener("keydown", e => {
@@ -10373,7 +10367,6 @@ function stkEnd(ok, e){
   if (!tid || !state.notes[tid]) { if (!d.fromNote) toast("Drop stickers onto a sticky note"); return; }
   const t = clone(state.notes[tid]);
   const s = Object.assign(moved || {k: d.k, r: Math.round(Math.random() * 30 - 15), s: 1}, noteLocalPoint(target, e.clientX, e.clientY)); delete s.y;
-  if (!moved) stkRemember(d.k);
   t.stickers = (t.stickers || []).concat(s).slice(-16);
   changes.push({kind: "note", id: tid, after: t});
   applyChanges(changes, "");
