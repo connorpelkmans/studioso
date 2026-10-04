@@ -52802,7 +52802,7 @@ var COMP_KIT = (() => {
   let travelAnim = null, followRaf = 0;
   function puff(x, y, big){
     if (!front || still()) return;
-    const d = document.createElement("span"); d.className = "cp-dust" + (big ? " big" : ""), S = safeRect();
+    const d = document.createElement("span"); d.className = "cp-dust" + (big ? " big" : ""); const S = safeRect();
     x = Math.max(S.l + 23, Math.min(S.r - 23, x)); y = Math.max(S.t + 10, Math.min(S.b - 8, y));   // effects stay on screen too
     d.style.left = Math.round(x) + "px"; d.style.top = Math.round(y) + "px";
     front.appendChild(d); setTimeout(() => d.remove(), 700);
