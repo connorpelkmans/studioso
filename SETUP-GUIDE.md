@@ -355,6 +355,7 @@ When you have a study companion out, it's the one handling Studyboard's smart fe
 - **Photo to Note** (Notes): photos of the whiteboard or slides become typed notes, and dates in them can become tasks.
 - **Ask AI** (a course, or Files with a course open): chat with your course files. Answers cite the file and slide. Every question re-sends the checked files, so check only what you need.
 - **Syllabus import**: reads dates, weights, class times and now work-hour estimates.
+- **Break It Down** (a big paper or project): words the milestones for your assignment text. It never picks dates; those come from your calendar, and it falls back to a template if the answer isn't usable.
 
 Things to know:
 - On Google's free tier, Google may use what you upload to improve its products. Don't upload private information such as personal or sensitive details.
@@ -362,6 +363,10 @@ Things to know:
 - About 13 MB of files can go in one request. Split very large PDFs.
 - AI can get things wrong, so check cards, rationales and summaries against your notes.
 - AI needs an internet connection and doesn't work inside the Claude preview; use the app or your website.
+
+## Big Assignment Breakdown
+
+Open a paper, project, lab report or presentation and tap **Break It Down** (also on the task row, under Courses, or from the menu to paste a prompt or rubric or add a PDF). You get 3 to 8 milestones, scheduled backward from the due date, with the last one a day before it by default. You can edit titles, dates and hours, move a milestone off a heavy day, and create them all at once; one Undo reverses everything. It needs no setup and works offline; if AI Features are on, the steps are worded for your assignment (the dates and hours always come from your calendar). When a syllabus is imported, big assignments have a "Break down into milestones" checkbox. The parent task keeps the real due date and shows "3 of 6 milestones done". If its due date changes later, Studyboard offers to re-plan the open milestones, and an overdue milestone offers a catch-up plan. Nothing to run on the server: milestones are ordinary tasks and sync with everything else.
 
 ## Quick Capture
 
