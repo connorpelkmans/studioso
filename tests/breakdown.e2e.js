@@ -286,7 +286,7 @@ const AI_STAGES = {kind: "paper", stages: [
       ok(pl.next !== "mid" && !pl.ranked.some(r => r.id === "mid" && r.R > 0), "Do This Next never shows the in-person midterm (next: " + pl.next + ")");
       ok(pl.ranked.find(r => r.id === "t1").R === 0.25 && kids.some(k => pl.ranked.find(r => r.id === k.id && r.R > 0)), "the plan counts the milestones, the parent only 0.25h");
       const cr = await page.evaluate(() => SBCRUNCH.input().tasks.map(t => ({id: t.id, rem: t.rem, bd: t.bd})));
-      ok(cr.find(t => t.id === "t1").rem === 0.25 && cr.filter(t => t.bd).length === kids.length && cr.find(t => t.id === "mid").rem === 0 || cr.find(t => t.id === "mid"), "Crunch counts the milestones, not the parent");
+      ok(cr.find(t => t.id === "t1").rem === 0.25 && cr.filter(t => t.bd).length === kids.length && cr.some(t => t.id === "mid"), "Crunch counts the milestones, not the parent (the parent paper 0.25h; the in-person midterm still appears for its own lead-up load)");
       ok(await page.evaluate(() => window.__sbRemote.of("qz").can) === true && pl.ranked.find(r => r.id === "qz").R > 0, "a take-home (remote yes) quiz is still eligible and gets study time");
       ok(page.errs.length === 0, "no page errors: " + page.errs.join("; "));
       await page.close(); await ctx.close();
