@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- UNTESTED: written without Android Studio. A MERGE GUIDE, not a drop-in manifest: copy each marked block into android/app/src/main/AndroidManifest.xml
+     of the project that `npx cap add android` generates. Package/appId: com.studioso.app (change the class names' package if yours differs). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- No notification permission is needed for any of this (the share toast and the tile need none). -->
+
+    <!-- (1) On the existing <application ...> element add these attributes (and keep the others Capacitor generated):
+           android:name=".capture.StudyboardApplication"                (only if you keep the AppFunctions experiment; else leave Capacitor's default)
+           android:networkSecurityConfig="@xml/network_security_config"
+           android:usesCleartextTraffic="false"
+           android:allowBackup="false"
+           android:dataExtractionRules="@xml/data_extraction_rules"
+           android:fullBackupContent="@xml/backup_rules" -->
+    <application
+        android:name=".capture.StudyboardApplication"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:usesCleartextTraffic="false"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules">
+
+        <!-- (2) Inside Capacitor's existing MainActivity <activity> (launchMode="singleTask"): keep its MAIN/LAUNCHER filter and ADD these. -->
+        <activity android:name=".MainActivity" android:exported="true">
+            <!-- Custom scheme: studyboard://add?text=...  studyboard://capture?photo=1  studyboard://action/quickadd (used by shortcuts, the tile, Bixby, Tasker) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="studyboard" />
+            </intent-filter>
+            <!-- https App Links: replace YOUR-DOMAIN.example, host /.well-known/assetlinks.json with the app's package + SHA-256 signing cert fingerprint
+                 (README-ANDROID.md section 5). autoVerify makes the links open the app without a chooser. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="YOUR-DOMAIN.example" />
+            </intent-filter>
+            <!-- Static launcher shortcuts (long-press the icon): res/xml/shortcuts.xml -->
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+        </activity>
+
+        <!-- (3) Share target: "Share > Studyboard" from any app. Separate translucent activity so text shares never open the full app. -->
+        <activity
+            android:name=".capture.ShareReceiverActivity"
+            android:exported="true"
+            android:label="@string/share_label"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+        </activity>
+
+        <!-- (4) Quick Settings tile "Quick capture" (user adds it from the tile editor; Android does not add it automatically). -->
+        <service
+            android:name=".capture.QuickCaptureTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_quick_capture"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!-- (5) NOT included on purpose: android.intent.action.CREATE_NOTE (Android 14+) is for the user's default NOTES app role, not a task manager;
+             registering for it would misrepresent the app. Google Assistant App Actions (actions.xml / built-in intents): see README-ANDROID.md section 4. -->
+
+        <!-- (6) AppFunctions (experimental, verify): the androidx.appfunctions compiler generates the service/metadata. Depending on the release it may
+             require an extra manifest entry or permission: follow the current androidx.appfunctions documentation. Nothing is declared here because
+             an invented manifest entry would be worse than none. -->
+    </application>
+</manifest>

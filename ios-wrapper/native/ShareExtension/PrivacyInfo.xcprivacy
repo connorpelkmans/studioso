@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- UNTESTED template. Privacy manifest for the Share Extension target. The extension only uses the Keychain, URLSession and files in the App Group
+     container (no required-reason API calls: it reads no file timestamps and does not use UserDefaults). Re-run Xcode's privacy report to confirm. -->
+<plist version="1.0">
+<dict>
+  <key>NSPrivacyTracking</key>
+  <false/>
+  <key>NSPrivacyTrackingDomains</key>
+  <array/>
+  <key>NSPrivacyCollectedDataTypes</key>
+  <array/>
+  <key>NSPrivacyAccessedAPITypes</key>
+  <array/>
+</dict>
+</plist>

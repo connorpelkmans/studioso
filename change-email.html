@@ -1,6 +1,7 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"><title>Confirm your new email</title></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"><title>Confirm your new email - Studyboard</title></head>
 <body style="margin:0;padding:0;background:#EEF3FB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#15233F">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">Confirm the new email for your Studyboard account.</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EEF3FB;padding:32px 12px">
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#FFFFFF;border-radius:18px;box-shadow:0 6px 24px rgba(20,40,90,.08);overflow:hidden">
@@ -18,11 +19,12 @@
 <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:12px;background:#1F6FEB">
 <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:13px 24px;font-size:15px;font-weight:700;color:#FFFFFF;text-decoration:none;border-radius:12px">Confirm New Email</a>
 </td></tr></table>
+<p style="margin:14px 0 0;font-size:12px;line-height:1.5;color:#7A879C;word-break:break-all">If the button doesn't work, copy this link into your browser:<br>{{ .ConfirmationURL }}</p>
 </td></tr>
 <tr><td style="padding:22px 28px 28px">
 <p style="margin:0;font-size:13px;line-height:1.5;color:#7A879C">If you didn't ask for this, you can ignore this email and nothing changes.</p>
 </td></tr>
 </table>
-<p style="margin:18px 0 0;font-size:12px;color:#8A95A8">Studyboard, the planner made by a student for students.</p>
+<p style="margin:18px 0 0;font-size:12px;line-height:1.5;color:#8A95A8">Studyboard, the planner made by a student for students.<br>Sent to {{ .Email }} because of an action on a Studyboard account. <a href="{{ .SiteURL }}" style="color:#8A95A8">Studyboard website</a></p>
 </td></tr></table>
 </body></html>

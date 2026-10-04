@@ -42,6 +42,11 @@
     </dict>
   </array>
 
+  <!-- Quick capture (UNTESTED): Keychain group shared with the Share Extension and App Intents (Xcode expands $(AppIdentifierPrefix)). See native/SBCapture.swift.
+       No NSSiriUsageDescription: that key is only for the old SiriKit intents extension; App Intents / App Shortcuts need no usage string. -->
+  <key>SBKeychainAccessGroup</key>
+  <string>$(AppIdentifierPrefix)com.studioso.app.shared</string>
+
   <key>LSApplicationCategoryType</key>
   <string>public.app-category.education</string>
   <key>UIRequiresFullScreen</key>

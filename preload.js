@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld("studiosoDesktop", {
     set: (name, value) => ipcRenderer.invoke("secret:set", secretName(name), String(value == null ? "" : value)),
     remove: name => ipcRenderer.invoke("secret:remove", secretName(name))
   },
+  // Tells the desktop app whether "Send Anonymous Crash Reports" is on, so its own (main-process) crash reports follow the same choice.
+  setCrashReports: on => ipcRenderer.send("crash:set", on === true),
   onFlush: fn => ipcRenderer.on("app:flush", () => fn()),
   flushed: () => ipcRenderer.send("app:flushed"),
   setTitleBar: color => ipcRenderer.send("app:titlebar", color),
@@ -41,7 +43,12 @@ contextBridge.exposeInMainWorld("studiosoDesktop", {
   onOpenTask: fn => { ipcRenderer.on("desk:open-task", (e, id) => fn(String(id))); ipcRenderer.send("desk:listen", "desk:open-task"); },
   // fn(action, arg): the tray, the widget or a shortcut asks for "quickadd", "today", "focus", "search", "flashcards",
   // "settings", "toggle" (arg = task id) or "focus-task" (arg = task id).
+  // fn(url): a studyboard://add?... or studyboard://capture?... link. The page checks it (allowed fields only) and shows a draft.
+  onCapture: fn => { ipcRenderer.on("desk:capture", (e, url) => fn(String(url || "").slice(0, 2400))); ipcRenderer.send("desk:listen", "desk:capture"); },
   onAction: fn => { ipcRenderer.on("desk:action", (e, action, arg) => fn(String(action), String(arg || ""))); ipcRenderer.send("desk:listen", "desk:action"); },
+  // {onBattery, thermal: "unknown"|"nominal"|"fair"|"serious"|"critical", locked}: read-only power state for the animation governor.
+  getPower: () => ipcRenderer.invoke("power:get"),
+  onPower: fn => { ipcRenderer.on("desk:power", (e, o) => { if (o && typeof o === "object") fn({ onBattery: o.onBattery === true, thermal: String(o.thermal || "unknown"), locked: o.locked === true }); }); ipcRenderer.send("desk:listen", "desk:power"); },
   // What the Today widget shows (built by the widgets module).
   setWidgetData: data => ipcRenderer.send("widget:set", data),
   // {background, tray, openAtLogin, canLogin, widget, widgetPinned, pausedUntil, notifications}

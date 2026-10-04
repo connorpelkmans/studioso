@@ -50,6 +50,17 @@ for (const [a, b] of swaps) {
   html = typeof a === "string" ? html.split(a).join(b) : html.replace(a, b);
   if (html === before && !(a instanceof RegExp && a.global)) throw new Error("prepare: couldn't find " + a);
 }
+// Crash reports: stamp the build id (version + hash of this exact file) into the staged page, and give main.js (the desktop app's own main process)
+// the reporter settings and the same pure scrubbing / envelope code the page uses, so both send identical, scrubbed events. See ERROR-REPORTING.md.
+const bid = require("./build-id.js");
+html = bid.stamp(html);
+{
+  const pick = re => (re.exec(html) || [])[1] || "";
+  const core = html.slice(html.indexOf("/*ERRREPORT-START*/"), html.indexOf("/*ERRREPORT-END*/"));
+  if (!core) console.warn("prepare: crash-report core not found in the page; main-process reports are off");
+  else fs.writeFileSync(path.join(out, "errreport-core.js"), core + "\nmodule.exports = ERRCORE;\n");
+  fs.writeFileSync(path.join(out, "error-config.json"), JSON.stringify({ dsn: pick(/const ERROR_REPORTING = \{\s*dsn: "([^"]*)"/), environment: pick(/environment: "([^"]*)"/), release: pick(/const APP_VERSION = "([^"]+)"/), build: pick(/const BUILD_ID = "([^"]+)"/), minidump: process.env.STUDYBOARD_MINIDUMP_URL || "" }));
+}
 fs.writeFileSync(path.join(out, "index.html"), html);
 
 // Content-Security-Policy support for the desktop app: main.js allows exactly these inline scripts (by SHA-256 hash) and no others.
@@ -76,4 +87,5 @@ if (flat) {
   stage("widget", ["widget.html", "widget.css", "widget.js", { from: "widget-preload.js", to: "widget-preload.js" }]);
   stage("build", ["icon.ico", "icon.png", "icon.icns", "installerSidebar.bmp", "uninstallerSidebar.bmp", "installerHeader.bmp"]);
 }
+console.log("Build id " + (/const BUILD_ID = "([^"]+)"/.exec(html) || [])[1] + ".");
 console.log("Prepared app/ from", src, `(${inline.length} inline scripts hashed for the CSP)`);

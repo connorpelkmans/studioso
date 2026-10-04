@@ -23,6 +23,7 @@ const ent = await load("supabase-functions/entitlement-token/index.ts");
 const wh = await load("index (1).ts");
 const co = await load("supabase-functions/create-checkout/index.ts");
 const pt = await load("supabase-functions/create-portal-session/index.ts");
+const da = await load("supabase-functions/delete-account/index.ts");
 
 const UID = "11111111-2222-4333-8444-555555555555";
 const OTHER = "99999999-2222-4333-8444-555555555555";
@@ -298,6 +299,74 @@ await test("portal: only the caller's own customer; none gives 404", async () =>
   assert.equal(p.customer, "cus_mine"); assert.equal(p.return_url, SITE + "/account/");
   assert.equal((await pt.handle(req(), coDeps().deps)).status, 404);
   assert.equal((await pt.handle(new Request("https://x/", { method: "POST", body: "{}" }), coDeps().deps)).status, 401);
+});
+
+// ---- delete-account
+function delDeps(o = {}) {
+  const calls = [];
+  const env = (k) => ({ SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "anon", SUPABASE_SERVICE_ROLE_KEY: "svc", STRIPE_SECRET_KEY: "sk_test_x", SITE_ORIGINS: SITE, ...(o.env || {}) }[k] ?? "");
+  const files = o.files || { [UID]: [{ id: "f1", name: "a.pdf" }, { id: null, name: "sub" }], [UID + "/sub"]: [{ id: "f2", name: "b.png" }] };
+  const f = async (url, init = {}) => {
+    const u = String(url); calls.push([init.method || "GET", u, init.body ? String(init.body) : ""]);
+    if (u.endsWith("/auth/v1/user")) return o.badAuth ? new Response("{}", { status: 401 }) : new Response(JSON.stringify({ id: UID, email: "me@example.com", last_sign_in_at: new Date(o.signedInAgo === undefined ? 60e3 : o.signedInAgo, 0).getTime() === 0 ? undefined : new Date(NOW - (o.signedInAgo ?? 60e3)).toISOString() }));
+    if (u.includes("/auth/v1/token?grant_type=password")) return new Response("{}", { status: o.pwOk ? 200 : 400 });
+    if (u.includes("rpc/studyboard_plan_rate_hit")) return new Response(JSON.stringify(o.limited ? false : true));
+    if (u.includes("studyboard_entitlements")) return new Response(JSON.stringify(o.ent ? [o.ent] : []));
+    if (u.includes("studyboard_billing_customers")) return new Response(JSON.stringify(o.customer ? [{ stripe_customer_id: o.customer }] : []));
+    if (u.includes("rpc/studyboard_delete_user_data")) return new Response(JSON.stringify({ items: 3 }));
+    if (u.startsWith("https://api.stripe.com/v1/subscriptions?")) return o.stripeDown ? new Response("{}", { status: 500 }) : new Response(JSON.stringify({ data: [{ id: "sub_1", status: "active" }, { id: "sub_2", status: "canceled" }] }));
+    if (u.startsWith("https://api.stripe.com/v1/subscriptions/")) return new Response("{}");
+    if (u.includes("/storage/v1/object/list/")) { const b = JSON.parse(init.body); return new Response(JSON.stringify(b.offset ? [] : (files[b.prefix] || []))); }
+    if (u.includes("/storage/v1/object/studioso-files") && init.method === "DELETE") return new Response("[]");
+    if (u.includes("/auth/v1/admin/users/")) return new Response("{}", { status: o.alreadyGone ? 404 : 200 });
+    return new Response("{}", { status: 500 });
+  };
+  return { deps: { env, fetch: f, now: () => NOW, log }, calls };
+}
+const delReq = (b = { confirm: "DELETE" }, auth = "Bearer jwt") => new Request("https://x/functions/v1/delete-account", { method: "POST", headers: { ...(auth ? { authorization: auth } : {}), origin: SITE }, body: JSON.stringify(b) });
+await test("delete-account: full run deletes files (recursively), data, Stripe subs and the auth user, in order, for the caller only", async () => {
+  const { deps, calls } = delDeps({ customer: "cus_mine", ent: { plan: "pro", source: "stripe", external_id: "cus_mine", pro_until: new Date(NOW + 864e5).toISOString(), will_renew: true } });
+  const r = await da.handle(delReq({ confirm: "delete", uid: OTHER }), deps);
+  assert.equal(r.status, 200);
+  const j = await r.json();
+  assert.equal(j.ok, true); assert.equal(j.deleted.files_deleted, 2); assert.equal(j.deleted.stripe_subscriptions_cancelled, 1); assert.equal(j.deleted.account, true); assert.ok(j.retained.length >= 2);
+  const urls = calls.map(c => c[0] + " " + c[1]);
+  const idx = (re) => urls.findIndex(u => re.test(u));
+  assert.ok(idx(/sub_1/) > -1 && !urls.some(u => /sub_2/.test(u)), "cancels the active subscription only");
+  assert.ok(idx(/DELETE .*subscriptions\/sub_1/) < idx(/DELETE .*storage\/v1\/object\/studioso-files/), "Stripe before files");
+  assert.ok(idx(/DELETE .*storage/) < idx(/delete_user_data/), "files before database rows");
+  assert.ok(idx(/delete_user_data/) < idx(/DELETE .*auth\/v1\/admin\/users/), "database rows before the auth user");
+  const rm = calls.find(c => c[0] === "DELETE" && c[1].includes("/storage/"));
+  assert.deepEqual(JSON.parse(rm[2]).prefixes, [UID + "/a.pdf", UID + "/sub/b.png"]);
+  assert.ok(!calls.some(c => c[1].includes(OTHER) || c[2].includes(OTHER)), "a uid in the body is ignored");
+  assert.ok(calls.some(c => c[1].endsWith("/auth/v1/admin/users/" + UID)));
+});
+await test("delete-account: needs sign-in, the typed word, a recent sign-in or the right password", async () => {
+  assert.equal((await da.handle(delReq(undefined, ""), delDeps().deps)).status, 401);
+  assert.equal((await da.handle(delReq(undefined), delDeps({ badAuth: true }).deps)).status, 401);
+  const noWord = delDeps(); assert.equal((await da.handle(delReq({ confirm: "nope" }), noWord.deps)).status, 400);
+  assert.ok(!noWord.calls.some(c => c[0] === "DELETE"), "nothing deleted without confirmation");
+  const stale = delDeps({ signedInAgo: 3600e3 });
+  const r = await da.handle(delReq(), stale.deps); assert.equal(r.status, 403); assert.equal((await r.json()).error, "reauth_required");
+  assert.ok(!stale.calls.some(c => c[0] === "DELETE"));
+  const bad = delDeps({ signedInAgo: 3600e3, pwOk: false }); assert.equal((await da.handle(delReq({ confirm: "DELETE", password: "x" }), bad.deps)).status, 403);
+  assert.ok(!bad.calls.some(c => c[0] === "DELETE"));
+  assert.equal((await da.handle(delReq({ confirm: "DELETE", password: "right" }), delDeps({ signedInAgo: 3600e3, pwOk: true }).deps)).status, 200);
+});
+await test("delete-account: rate limit, Stripe failure stops everything, Apple subscription needs acknowledgement, idempotent", async () => {
+  assert.equal((await da.handle(delReq(), delDeps({ limited: true }).deps)).status, 429);
+  const sd = delDeps({ customer: "cus_mine", stripeDown: true });
+  assert.equal((await da.handle(delReq(), sd.deps)).status, 500);
+  assert.ok(!sd.calls.some(c => c[1].includes("delete_user_data") || c[1].includes("/storage/v1/object/studioso") && c[0] === "DELETE" || c[1].includes("admin/users")), "billing failure leaves the account intact");
+  const apple = { plan: "pro", source: "revenuecat", will_renew: true, pro_until: new Date(NOW + 864e5).toISOString() };
+  const a1 = delDeps({ ent: apple }); const r1 = await da.handle(delReq(), a1.deps);
+  assert.equal(r1.status, 409); assert.match((await r1.json()).manage_url, /apps\.apple\.com\/account\/subscriptions/);
+  assert.ok(!a1.calls.some(c => c[1].includes("admin/users")));
+  assert.equal((await da.handle(delReq({ confirm: "DELETE", ack_store_subscription: true }), delDeps({ ent: apple }).deps)).status, 200);
+  assert.equal((await da.handle(delReq(), delDeps({ alreadyGone: true }).deps)).status, 200, "a second run (auth user already gone) still succeeds");
+  assert.equal((await da.handle(new Request("https://x/", { method: "GET" }), delDeps().deps)).status, 405);
+  const evil = await da.handle(new Request("https://x/", { method: "POST", headers: { authorization: "Bearer j", origin: "https://evil.example" }, body: JSON.stringify({ confirm: "DELETE" }) }), delDeps().deps);
+  assert.equal(evil.headers.get("access-control-allow-origin"), null);
 });
 
 console.log(`\n${passed} checks passed`);

@@ -369,6 +369,32 @@ const SC = [
     return {out: `toast=${JSON.stringify(toast)}; badge=${JSON.stringify(badge)}; settings entry ${entry ? "found" : "MISSING"}; sheet shows both: ${/\(A\)/.test(sheet) && /\(B\)/.test(sheet)}; after Keep both: markers gone=${!/───/.test(sv.text)} both kept=${sv.text.includes("(A)") && sv.text.includes("(B)")} flag cleared=${!sv.conflict} badge gone=${left.length === 0}`,
       ok: /edited|collid|both/i.test(toast) && /two devices/i.test(badge) && !!entry && /\(A\)/.test(sheet) && !/───/.test(sv.text) && sv.text.includes("(A)") && sv.text.includes("(B)") && !sv.conflict && left.length === 0, noLoss: sv.text.includes("(A)") && sv.text.includes("(B)")};
   }],
+  ["12a Recently Deleted: A deletes a note (goes to the bin), B edits it offline", async (b, srv) => {
+    const {A, B} = await fresh(b, srv, s => s.seed("note", "n1", noteRow("n1", "Chem notes\nline"), HOUR));
+    A.goOffline(); B.goOffline();
+    await A.eval(() => window.__sbSync.applyChanges([{kind: "note", id: "n1", after: null}], "Note deleted"));
+    await B.set("note", "n1", {text: "Chem notes\nline\nB typed this on the train"});
+    await A.settle(); await B.settle(); await coming(A, B); await converge(A, B);
+    const sv = srv.get("note", "n1"), trashRows = [...srv.rows.keys()].filter(k => k.startsWith("trash|")).length;
+    const vis = async d => d.eval(() => window.__sbSync.trashVisible().length);
+    const aLive = await A.state("note", "n1"), bLive = await B.state("note", "n1");
+    return {out: `server note live with B's edit: ${!!sv && sv.text.includes("B typed this")}; bin entries hidden on A=${await vis(A) === 0} B=${await vis(B) === 0} (rows kept: ${trashRows}); A sees note: ${!!aLive}`,
+      ok: !!sv && sv.text.includes("B typed this") && await vis(A) === 0 && await vis(B) === 0 && !!aLive && !!bLive, noLoss: !!sv && sv.text.includes("B typed this")};
+  }],
+  ["12b Recently Deleted: A restores a note, B deletes it forever", async (b, srv) => {
+    const {A, B} = await fresh(b, srv, s => s.seed("note", "n1", noteRow("n1", "Keep me"), HOUR));
+    await A.eval(() => window.__sbSync.applyChanges([{kind: "note", id: "n1", after: null}], "Note deleted"));
+    await A.settle(); await B.pull(); await B.settle();
+    const bin = await A.eval(() => window.__sbSync.trashVisible().map(e => e.id));
+    A.goOffline(); B.goOffline();
+    await A.eval(ids => window.__sbSync.trashRestore(ids), bin);
+    await B.eval(ids => window.__sbSync.trashForever(ids), bin);
+    await A.settle(); await B.settle(); await coming(A, B); await converge(A, B);
+    const sv = srv.get("note", "n1"), rows = [...srv.rows.keys()].filter(k => k.startsWith("trash|")).length;
+    const bLive = await B.state("note", "n1");
+    return {out: `bin had ${bin.length} entry; server note ${sv ? "live: " + JSON.stringify(sv.text) : "GONE"}; bin rows left=${rows}; B sees it live: ${!!bLive}`,
+      ok: bin.length === 1 && !!sv && sv.text === "Keep me" && rows === 0 && !!bLive, noLoss: !!sv};
+  }],
 ];
 
 (async () => {

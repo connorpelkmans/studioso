@@ -207,6 +207,15 @@ t("settings: the data format version never goes down, even when only this device
   assert.strictEqual(r.merged.schema, 3); assert.strictEqual(r.merged.settings.a, 2);
 });
 
+t("settings: availability blocks (settings.avail) merge by id, not as one blob", () => {
+  const blk = (id, d) => ({id, days: [d], start: 540, end: 600});
+  const base = {schema: 2, settings: {avail: {v: 1, blocks: [blk("w1", 1), blk("w2", 2)], cfg: {set: true, buf: 10}}}};
+  const mine = {schema: 2, settings: {avail: {v: 1, blocks: [blk("w1", 1), blk("w2", 2), blk("mine", 3)], cfg: {set: true, buf: 10}}}};
+  const theirs = {schema: 2, settings: {avail: {v: 1, blocks: [blk("w1", 4), blk("w2", 2), blk("theirs", 5)], cfg: {set: true, buf: 15}}}};
+  const a = SM.mergeItem("meta", base, mine, theirs, {now: T0}).merged.settings.avail;
+  assert.deepStrictEqual(a.blocks.map(x => x.id).sort(), ["mine", "theirs", "w1", "w2"]); assert.deepStrictEqual(a.blocks.find(x => x.id === "w1").days, [4]); assert.strictEqual(a.cfg.buf, 15);
+});
+
 /* ---- schema differences / unknown fields / compatibility ---- */
 t("schema: fields only one version knows are kept (unknown keys are never dropped)", () => {
   const r = SM.mergeItem("task", task(), task({future: {a: 1}}), task({otherNew: "x", status: "doing"}), {now: T0}); assert.deepStrictEqual(r.merged.future, {a: 1}); assert.strictEqual(r.merged.otherNew, "x"); assert.strictEqual(r.merged.status, "doing");

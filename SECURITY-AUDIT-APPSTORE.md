@@ -90,6 +90,8 @@ Added: `notarize.js`, `build-resources/` (five entitlements files, `ios/PrivacyI
 
 Layout: the flat repo as merged (rel-polish's `prepare.js` detects it and stages `app/`, `widget/`, `build/`). `package.json` refers to `prepare.js`, `notarize.js` (`afterSign`) and `build-resources/...`, all at the project root; in a nested layout put `build-resources/` and `notarize.js` in the project folder next to `package.json`. `main.js` reads `app/csp-hashes.json` written by `prepare.js`. CI: `.github/workflows/build-desktop.yml` (flat) now also has the manual `signed` and `mas` jobs.
 
+Crash and error reporting (trust-crash branch): added `build-id.js`, `ERROR-REPORTING.md`, `supabase-error-reports.sql`, `supabase-functions/error-ingest/`, `tests/error-report.test.js`, `tests/error-report.pw.js`; edited `index.html` (module `49-errreport.js`), `main.js`, `preload.js`, `sw.js`, `prepare.js`. No SDK and no third-party script; the CSP is unchanged because `connect-src` already allows `https:` (see website-headers.md). Reports are scrubbed in the page, opt-out, off with Do Not Track / Global Privacy Control, and declared as Crash Data / Performance Data (not linked, no tracking) in the privacy manifests.
+
 ## 4. Owner must do
 
 1. Apple Developer Program account, Team ID, App ID `com.studioso.app`, certificates (Developer ID Application; Apple Distribution or 3rd Party Mac Developer Application; 3rd Party Mac Developer Installer), Mac App Store and development **provisioning profiles** saved to `build-resources/` (not committed), App Store Connect API key and an APNs key. Details: `APP-STORE-CHECKLIST.md` section 1.

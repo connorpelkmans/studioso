@@ -44,6 +44,7 @@
         <button type="button" role="tab" id="tab-reset" aria-selected="false" aria-controls="form-reset" tabindex="-1">Reset password</button>
       </div>
       <div id="auth-msg" class="msg" hidden role="alert"></div>
+      <p id="link-expired" hidden><button class="btn block" type="button" id="expired-new">Send a new link</button></p>
 
       <form id="form-signin" novalidate>
         <label class="f">Email<input type="email" name="email" autocomplete="email" required inputmode="email"></label>
@@ -68,12 +69,14 @@
         <p id="code-intro">Type the 6-digit code from your email.</p>
         <label class="f">Code<input class="code" type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" pattern="[0-9]*" required></label>
         <button class="btn primary block" type="submit">Confirm</button>
-        <p><button class="linklike" type="button" id="code-back">Back</button></p>
+        <p><button class="linklike" type="button" id="code-resend">Send a new code</button> &middot; <button class="linklike" type="button" id="code-back">Back</button></p>
       </form>
 
       <form id="form-newpass" hidden novalidate>
         <p>Choose a new password.</p>
         <label class="f">New password<span class="hint">At least 8 characters.</span><input type="password" name="password" autocomplete="new-password" required minlength="8"></label>
+        <p class="muted" id="np-strength" aria-live="polite"></p>
+        <label class="f">Confirm new password<input type="password" name="confirm" autocomplete="new-password" required minlength="8"></label>
         <button class="btn primary block" type="submit">Save password</button>
       </form>
     </div>
@@ -102,6 +105,15 @@
       <h2>Billing</h2>
       <p class="muted">Change your card, download invoices or cancel your subscription.</p>
       <button class="btn" type="button" id="btn-manage">Manage billing</button>
+    </div>
+    <div class="panel" id="delete-panel">
+      <h2>Delete account</h2>
+      <p class="muted">Permanently deletes your Studyboard account and everything stored online for it: your synced planner, uploaded files, reminders, devices and plan record. A card subscription is cancelled for you. This can't be undone. You can also do this in the app: Settings, Account and Sync, Delete My Account and Data.</p>
+      <form id="form-delete" novalidate>
+        <label class="f">Your password<input type="password" name="password" autocomplete="current-password"></label>
+        <label class="f">Type DELETE to confirm<input type="text" name="confirm" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>
+        <button class="btn" type="submit" id="btn-delete">Delete my account</button>
+      </form>
     </div>
     <p id="back-app" hidden><a class="btn app-link" id="back-link" href="../">Back to Studyboard</a></p>
   </div>

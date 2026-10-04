@@ -95,9 +95,10 @@ Open **SQL Editor > New query** in Supabase, paste a whole file and click **Run*
 | 6 | `supabase-bug-reports.sql` | Report a Bug or Send Feedback | Recommended |
 | 7 | `supabase-plans.sql` | Free and Pro plans, limits, devices (run after step 2 so group limits are added) | Before you sell Pro, and for notification keys |
 | 8 | `supabase-lean.sql` | Lean Sync and **Delete My Account and Data** (run it last) | Required for a public launch |
-| 9 | `supabase-sync-conflicts.sql` | Sync conflicts: two devices editing the same thing never overwrite each other (run it after `supabase-lean.sql`; see "Two devices, one note" below) | Strongly recommended |
+| 9 | `supabase-capture.sql` | Voice and shortcut capture (Siri, Gemini, Bixby, share sheet). Run it after step 8 so account deletion also clears it, then deploy the `capture-task` function with Verify JWT **off**. Optional check: `supabase-capture-selftest.sql`. See `VOICE-CAPTURE.md` | Optional |
+| 10 | `supabase-sync-conflicts.sql` | Sync conflicts: two devices editing the same thing never overwrite each other (run it after `supabase-lean.sql`; see "Two devices, one note" below) | Strongly recommended |
 
-If you run `supabase-groups.sql` or `supabase-calendar-feed.sql` later, run `supabase-plans.sql` and `supabase-lean.sql` again afterwards.
+If you run `supabase-groups.sql` or `supabase-calendar-feed.sql` later, run `supabase-plans.sql` and `supabase-lean.sql` again afterwards. Running `supabase-groups.sql` again also resets who can see blocked people's tasks, so run `supabase-moderation.sql` again after it.
 
 **Edge Functions** (pasted into Supabase under Edge Functions > Deploy a new function > Via Editor). In this repository they are saved as plain `index.ts` files, so match them by their first line:
 
@@ -107,6 +108,9 @@ If you run `supabase-groups.sql` or `supabase-calendar-feed.sql` later, run `sup
 | `index (1).ts` | `billing-webhook` | Off |
 | `index (2).ts` | `lms-feed` | On |
 | `index (3).ts` | `send-reminders` | Off |
+| `supabase-functions/delete-account/index.ts` | `delete-account` | **On** |
+
+**delete-account** is what makes "Delete My Account and Data" remove everything on the server, including the uploaded files themselves (SQL cannot delete files in Storage; this function uses the service role to list and remove every file under `<user id>/` in the `studioso-files` bucket, then runs `studyboard_delete_user_data` from `supabase-lean.sql`, then deletes the sign-in account, which ends every session). It also cancels a Stripe card subscription so billing never keeps running, asks for a recent sign-in or the password, and allows 5 tries an hour. Secrets: `STRIPE_SECRET_KEY` (the one the billing functions use; skip if you never took card payments) and `SITE_ORIGINS` (your web address, same value as for `create-checkout`). Without this function the app falls back to deleting files and rows with the person's own sign-in, but it cannot cancel Stripe, so it asks them to cancel first. Test it with `node --experimental-strip-types supabase-functions/tools/test-functions.mjs` and, in Supabase, with `supabase-delete-selftest.sql` (SQL Editor, run after `supabase-lean.sql`; it rolls back).
 
 ---
 
@@ -123,9 +127,13 @@ Put your Project URL and publishable key (from Part 1, step 4) into a file calle
 
 **2. Email sign-in settings** (Authentication, then Sign In / Providers, then Email)
 - **Enable Email provider:** on. **Confirm email:** on.
-- **Minimum password length:** 8.
+- **Minimum password length:** 8 (or more). Turn on **Prevent use of leaked passwords** (Authentication, Sign In / Providers, Email; a Pro plan feature) and require letters and digits if you like.
+- **Secure email change:** on (a change needs a confirmation from the old AND the new address; it uses the `change-email.html` template). **Secure password change:** on (asks for a fresh code, `reauthentication.html`, when the sign-in is old). **Prevent use of leaked passwords:** see above.
+- **CAPTCHA protection:** turn it on before a big public launch (Authentication, Attack Protection; hCaptcha or Turnstile) if you see fake sign-ups. If you turn it on, the sign-in forms need the CAPTCHA token added to `signUp`, `signInWithPassword` and `resetPasswordForEmail` in `index.html` and `website/account/account.js`; the apps do not send one today, so test sign-up right after switching it on.
 - **Email OTP Expiration:** 3600 seconds (1 hour). **Email OTP Length:** 6.
-- Under **URL Configuration**, keep the Site URL and Redirect URL from Part 1, step 3. The links in emails open the website; the codes work everywhere, including the desktop app.
+- Under **URL Configuration**, keep the Site URL and Redirect URL from Part 1, step 3. The links in emails open the website; the codes work everywhere, including the desktop app. See "Redirect URLs allowlist" below for the full list.
+- **Unconfirmed accounts:** with **Confirm email** on, a new account has no session until the code or link is used: the app shows "Check Your Email", says that until then Studyboard works on this device only and does not sync, and the **Send a New Code** button has a 30 second cooldown. Signing in before confirming sends a new code automatically.
+- **No account guessing:** sign-up for an existing address, "forgot password" for an unknown address and a wrong password all show the same words in the app and on the website. Keep it that way if you edit the messages.
 
 **3. Send emails from Studyboard (custom SMTP, free)**
 Supabase's built-in email sender only sends a few emails an hour and is meant for testing, so set up your own before real students sign up. Pick one:
@@ -149,13 +157,35 @@ In **Authentication**, then **Emails**, then **Templates**, open each template, 
 - Invite user: `invite.html`
 - Reauthentication: `reauthentication.html`
 
-Each email shows a big 6-digit code (Studyboard asks for it) and a button that does the same thing on the web. Send yourself a test: create an account in Studyboard with a spare email.
+The six files are in the repository root (not in a folder). Each email shows a big 6-digit code (Studyboard asks for it), a button that does the same thing on the web, the link written out in plain text for mail apps that hide buttons, the app name, and a link to your site (`{{ .SiteURL }}`). They use only these Supabase variables: `{{ .Token }}`, `{{ .ConfirmationURL }}`, `{{ .Email }}`, `{{ .NewEmail }}` (change email only) and `{{ .SiteURL }}`. They contain no images, scripts or trackers (`node tests/store-readiness.test.js` checks this). Send yourself a test of every template: sign up (confirm-signup), forgot password (reset-password), change email in Settings (change-email, sent to both addresses), change password when asked for a code (reauthentication). Magic link and invite are only used if you switch those flows on in Supabase; the app has no magic-link button.
+
+**4b. Custom SMTP checklist (emails that actually arrive)**
+- [ ] **From address on your own domain** (for example `hello@yourdomain.com`), not a free webmail address, and the **Sender name** is `Studyboard`.
+- [ ] **SPF:** one TXT record on the domain that includes your provider (the provider shows the exact value, for example `v=spf1 include:amazonses.com ~all`). Only one SPF record per domain.
+- [ ] **DKIM:** add the CNAME/TXT records your provider gives you and wait until the provider shows "verified".
+- [ ] **DMARC:** TXT record on `_dmarc.yourdomain.com`, start with `v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com`, move to `quarantine` once reports look clean.
+- [ ] **Test deliverability:** send each template to a Gmail, an Outlook and a school address; check inbox vs junk and the "Show original" headers say SPF, DKIM and DMARC = PASS (or use mail-tester.com).
+- [ ] **Template variables:** open each template in the dashboard after pasting and check the preview shows a code, not `{{ .Token }}`. Subjects come from `SUBJECTS.txt`.
+- [ ] **Token expiry:** Email OTP Expiration 3600 seconds, length 6 (the emails say "1 hour").
+- [ ] **Rate limits:** Authentication, Rate Limits: emails per hour matches your provider; sign-ups and sign-ins per hour per IP left at the defaults or lower. The app shows "Too many tries just now" for them.
+- [ ] **Bounces and spam complaints** are monitored in your provider's dashboard; add the provider to your privacy policy ("Email delivery", fill in the provider name).
+
+**4c. Redirect URLs allowlist** (Authentication, URL Configuration)
+- **Site URL:** your website address, for example `https://app.yourdomain.com` (also the address of `website/` if hosted together; if the account page lives on a different host, add it below).
+- **Redirect URLs** (all of these; wildcards allowed only where shown):
+  - `https://app.yourdomain.com/**` (the web app and the website's `account/` page)
+  - `https://www.yourdomain.com/**` (if the marketing website is on another host)
+  - `studyboard://**` (iOS and desktop deep links)
+  - `capacitor://localhost/**` (the Capacitor iOS app's own address)
+  - `http://localhost:3000/**` only while developing; remove it before launch.
+- The desktop and phone apps do not send an `emailRedirectTo`, so their emails use the Site URL; the 6-digit code works there regardless of the link.
+- An email link that is expired or already used lands on the app with `#error_code=otp_expired`; the app and the account page then show "That link has expired or was already used" with buttons to send a new one.
 
 **5. Phone notifications for everyone** (after Reminders is set up, see below)
 Open `notification-keys.html` (it came with this guide) in your browser and click **Make Keys**. Add the three values to **Edge Functions**, then **Secrets**, and run the SQL line it gives you. From then on, students just tap **Turn On for This Device** in Reminders. (`supabase-plans.sql` must be run first, because the public key is kept in its settings table.)
 
 **6. Later, if you want**
-- **Google sign-in:** hold off until students ask for it. When you add it (Authentication, then Sign In / Providers, then Google), set the Google consent screen's app name to **Studyboard**.
+- **Google sign-in (careful):** Studyboard has no Google, Facebook or other social login today, which is why the iPhone app does not need Sign in with Apple (App Store guideline 4.8). **If you add Google sign-in later you must also add Sign in with Apple** in the same release, or Apple rejects the app. See `APP-STORE-CHECKLIST.md`, "If you add Google sign-in later you must also add Sign in with Apple".
 - **Custom domain** (a paid Supabase add-on): the one place the Supabase address still shows is the live calendar link students paste into their calendar app (and a Google sign-in popup, if you add one). Only pay for a custom domain if that bothers people.
 
 ---
@@ -332,6 +362,16 @@ Things to know:
 - About 13 MB of files can go in one request. Split very large PDFs.
 - AI can get things wrong, so check cards, rationales and summaries against your notes.
 - AI needs an internet connection and doesn't work inside the Claude preview; use the app or your website.
+
+## Quick Capture
+
+Settings > Quick Capture explains each way in, with a Try it button for each, and three switches: Add right away when I'm sure (on), Keep photos with tasks (off), Use AI to read photos (on once AI is set up).
+
+- **Typing:** press **C** anywhere (or open `./?capture=1`, or the "Quick capture" app shortcut). Type a sentence such as `bio lab report fri 5pm`, `exam 12/5 9am`, `chem201 pset in 3 days 2h` or `read ch 4 wk 9`. **Enter** adds, **Ctrl/Cmd+Enter** adds and keeps the window open for the next one, **Esc** cancels. One task per line. Dates are read on the device (today, tomorrow, fri, next tue, oct 28, 10/28, in 3 days, end of the month, wk N), so no network is needed. A clear sentence with a date is added at once with an Undo button ("Added: Bio lab report, due Fri 5 PM"). Anything unsure (no date, a second course that fits, "next week") opens a small check sheet where one Enter adds everything.
+- **Photo:** the camera button beside the add bar (or the "Capture photo" shortcut, or paste or drop a picture on the Board) shrinks the photo on the device (1600 px, no location data), then sends it to your own AI provider after the AI consent sheet. You get a list to check next to the photo. Items the AI is unsure about start unchecked, and dates that are not in the photo are removed. Without AI, or if you say no, the photo stays on screen while you type it in, or you can save it as a note. Photos taken offline are kept (up to 50) and offered when you are back online.
+- **Share sheet:** Android, ChromeOS and desktop installs of the web app appear in Share (the manifest `share_target` posts to `share-target`, handled by `sw.js`: images only, 10 files, 15 MB each, held only until the page reads them). iPhone Safari web apps cannot receive shares; the iOS app has a share extension (see `ios-wrapper`).
+- **Shortcuts and links:** `./?capture=<text>&due=YYYY-MM-DD&time=HH:MM&course=BIO101&source=ios-shortcut`, the same after `#`, and `studyboard://add?title=...&due=...` or `studyboard://capture?photo=1`. Only those fields are read; text is stripped of HTML and capped. A link only ever makes a draft and always shows the check sheet (one Enter adds it): custom link schemes can be launched by any app or website, so links are never added silently. Items handed over directly by the native app (Siri action, share extension, tile) are added straight away. More than 10 links a minute are ignored.
+- **For developers:** `window.SBCAPTURE.handleUrl(url)`, `ingest(draftsOrItem, {source})`, `registerInbox(fn)` and `settingsExtra(fn)` are documented at the top of the "75-capture" module. Tests: `node tests/capture.test.js` (parser, links, photo-answer checks) and `node tests/capture.e2e.js` (Playwright and Chromium).
 
 ## Schedule and Calendar
 
@@ -758,6 +798,9 @@ The first time you share or join, Studyboard asks what classmates should call yo
 - Changed the deck? Open **Share** again and tap **Update Shared Copy**. People who added it see **Get Update**, which adds the new cards and keeps their progress.
 - **Stop Sharing** turns the link and code off. Copies people already added stay theirs.
 
+### Project Tasks (new in 1.13)
+Each group page has a **Project Tasks** section: shared task lists (for example "BIOL 201 Poster") with assignees, due dates, a progress bar, filters (All, Mine, Unassigned, Overdue, Done) and a per-person workload line that shows an uneven split. Anyone can add and edit tasks and mark them done, anyone can claim an unassigned task, and only the person a task is assigned to (or the group owner) can reassign it. Tasks assigned to you also appear under Today's Plan on your Board. A group keeps up to 20 active lists with up to 200 tasks each. To turn it on, run `supabase-groups.sql` again (it is safe to repeat), then `supabase-moderation.sql` again. Until then, the group owner sees a note saying to run it and other members see nothing. Run `supabase-plans-selftest.sql` afterwards to confirm the new tables and functions are locked down (section 9 covers them).
+
 ### Study groups
 - Open **Groups** (in the sidebar on a computer, or from the Flashcards page or **Settings** on a phone) and tap **New Group**. Add a name and, if you like, a course.
 - Tap **Invite Classmates** to send the invite link or code. They tap **Enter a Code** on the Groups page (or just open the link) and then **Join Group**.
@@ -1085,7 +1128,8 @@ Work through this before you tell the public about Studyboard.
 - [ ] Custom SMTP set up and the six email templates pasted in (Part 1b, steps 3 and 4). The built-in sender only allows a few emails an hour.
 - [ ] Email confirmation on, password length 8, Site URL and Redirect URLs set to your real web address.
 - [ ] Edge Functions deployed with the right Verify JWT setting (table above) and their secrets set.
-- [ ] Test **Delete My Account and Data** with a spare account: it signs out, the account is gone from Authentication > Users, and its rows and files are gone.
+- [ ] Deploy the `delete-account` Edge Function (Verify JWT **On**) and run `supabase-delete-selftest.sql` (expect "ALL 41 ACCOUNT-DELETION CHECKS PASSED").
+- [ ] Test **Delete My Account and Data** with a spare account that has an uploaded file: it signs out, the account is gone from Authentication > Users, the rows are gone, and the file is gone from Storage > studioso-files. Also test with a spare Stripe test-mode subscription: it is cancelled in the Stripe dashboard.
 - [ ] A weekly backup of the database turned on (Supabase paid plans) or a regular export of your tables, and the keep-awake workflow running if you stay on the free plan.
 - [ ] Row Level Security shows **enabled** on every table in Table Editor, and the secret or service_role key appears nowhere in the app or repository.
 
@@ -1100,3 +1144,9 @@ Work through this before you tell the public about Studyboard.
 - [ ] Desktop installers built from a tagged release (`v1.13.0`) with the GitHub workflow and tested on a clean Windows and Mac. Decide about code signing (see the Windows and Mac sections above).
 - [ ] The website is served over HTTPS and Add to Home Screen works on a phone.
 - [ ] If you sell Pro: finish `PRO-PLANS-GUIDE.md` and its Launch Day steps. If you do not, leave the paywall off.
+
+## Recently Deleted and Export My Data (no setup needed)
+
+- Deleted items are kept for 30 days in a bin that syncs like the rest of your data. It uses the existing `items` table with `kind = 'trash'`, so there is no SQL to run. Bin entries count toward each account's data size like any other item (a deleted deck still takes its space until the 30 days pass or it is deleted forever). Stored files are not removed from storage until the bin lets go of them.
+- If the same item is edited on another device after it was deleted, the live copy wins and the bin entry is hidden until it expires. Nothing is removed from the account because of a conflict.
+- Settings > Export My Data builds a ZIP (JSON plus CSV files) on the device; nothing is sent to the server.

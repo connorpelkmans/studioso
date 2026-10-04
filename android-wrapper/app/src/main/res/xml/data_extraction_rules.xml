@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- UNTESTED: Android 12+ backup and device-transfer rules for the capture token and the pending queue. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="sb_capture.xml" />
+        <exclude domain="file" path="pending-captures/" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="sb_capture.xml" />
+        <exclude domain="file" path="pending-captures/" />
+    </device-transfer>
+</data-extraction-rules>
