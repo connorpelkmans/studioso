@@ -400,6 +400,13 @@ nav.tabs button{font-size:.75rem!important}
 .note-tag{display:inline-block;font-size:.7rem;font-weight:700;padding:1px 6px;border-radius:5px;background:color-mix(in srgb,var(--c) 22%,rgba(255,255,255,.6));color:color-mix(in srgb,var(--c) 70%,#1a1a1a);margin-bottom:6px;border-left:3px solid var(--c)}
 .note-text{width:100%;min-height:120px;border:0;background:rgba(255,255,255,.45);border-radius:6px;padding:8px;font:inherit;color:#2A2418;resize:vertical}
 .note-text:focus-visible{outline:2px solid rgba(42,36,24,.4)}
+.note-conflict{display:block;width:100%;margin:0 0 6px;border:1px dashed rgba(42,36,24,.55);background:rgba(255,255,255,.55);color:#2A2418;border-radius:8px;padding:5px 8px;font:600 .74rem var(--body);text-align:left;cursor:pointer}
+.sync-issue{border:1px solid var(--line);border-radius:12px;padding:12px;margin:0 0 10px;background:var(--surface);display:grid;gap:8px}
+.sync-cols{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:480px){.sync-cols{grid-template-columns:1fr}}
+.sync-cols>div{min-width:0;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--bg)}
+.sync-txt{white-space:pre-wrap;overflow-wrap:anywhere;max-height:9em;overflow:auto;font-size:.9rem;margin-top:4px}
+.sync-btns{display:flex;flex-wrap:wrap;gap:8px}
 .note-tools{display:grid;gap:8px;margin-top:8px}
 .note-colors{display:flex;gap:6px;flex-wrap:wrap}
 .nc{width:22px;height:22px;border-radius:50%;border:2px solid rgba(42,36,24,.25);padding:0}
@@ -4389,6 +4396,241 @@ function loadLocal(){
   } catch(e){}
 }
 
+/* SYNC-MERGE-START
+   Conflict policy for synced items (pure functions: no DOM, no network, no app globals; tests/sync-merge.test.js loads this block as is).
+   Principle: never silently lose what someone typed.
+   mergeItem(kind, base, mine, theirs, opts) is a three-way merge:
+     base   = the version this device last saw from the server (null when unknown), mine = this device's edit, theirs = what the server has now.
+   - only one side changed since base: take that side.   - both changed: field by field (arrays of records by id, sets by value).
+   - same field changed on both: text (note text, task notes, card sides) is merged by line (diff3) and, where the edits overlap, BOTH are kept
+     inside the text between friendly dividers; other fields take the later edit (this device's edit time, corrected for clock skew, against the
+     server's time for the other version; within SKEW_GUARD the device merging last wins) and the loser is written to syncLog.
+   - task status: done is sticky (done beats not-done unless one side explicitly reopened it, which is a one-sided change and so wins).
+   - deletions (null, or any {deleted|trashed|deletedAt|trashedAt} tombstone) against an edit: the edit wins and the item is restored,
+     unless the soft deletion is newer than the edit by more than DELETE_MARGIN. A hard delete (null) never beats an edit made elsewhere.
+   - adds on both sides are unioned (ids are time + random, so they cannot collide). */
+const SyncMerge = (() => {
+  const CAP = {hist: 5, histChars: 12000, log: 12, logChars: 200, cells: 4e6, history: 30};
+  const SKEW_GUARD = 5 * 60e3, DELETE_MARGIN = 24 * 36e5;
+  const TOMB_KEYS = ["deleted", "trashed", "deletedAt", "trashedAt"];
+  const TEXT_KEYS = {note: ["text"], task: ["notes"], event: ["notes"], deck: ["front", "back", "notes"], course: ["notes"], file: ["desc"]};
+  const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
+  const copy = v => v === undefined ? undefined : JSON.parse(JSON.stringify(v));
+  const eq = (a, b) => {
+    if (a === b) return true;
+    if (!a || !b || typeof a !== "object" || typeof b !== "object" || Array.isArray(a) !== Array.isArray(b)) return false;
+    if (Array.isArray(a)) return a.length === b.length && a.every((x, i) => eq(x, b[i]));
+    const ka = Object.keys(a).filter(k => a[k] !== undefined), kb = Object.keys(b).filter(k => b[k] !== undefined);
+    return ka.length === kb.length && ka.every(k => eq(a[k], b[k]));
+  };
+  const has = (arr, x) => arr.some(y => eq(x, y));
+  const ms = v => typeof v === "number" ? v : v ? (Date.parse(v) || 0) : 0;
+  const tombAt = o => {
+    if (!isObj(o)) return 0;
+    const t = Math.max(ms(o.deletedAt), ms(o.trashedAt));
+    return t || (o.deleted === true || o.trashed === true || o.deletedAt === true || o.trashedAt === true ? 1 : 0);
+  };
+  const isTomb = o => o === null || tombAt(o) > 0;
+  const untomb = o => { const x = copy(o); TOMB_KEYS.forEach(k => { delete x[k]; }); return x; };
+  const skewFrom = (serverNow, t0, t1) => ms(serverNow) ? ms(serverNow) - Math.round((t0 + t1) / 2) : 0;   // server clock minus this device's clock
+  const fmtAt = at => { try { return new Date(at).toLocaleString("en-US", {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}); } catch(e) { return ""; } };
+
+  /* ----- text: diff3 by line ----- */
+  const MARK = {mine: "─── Your edit on this device ───", end: "─── End of conflicting edit ───", theirsRe: /^─── Conflicting edit from your other device( \(.*\))? ───$/};
+  const theirsMark = at => "─── Conflicting edit from your other device" + (at ? " (" + fmtAt(at) + ")" : "") + " ───";
+  const hasMarks = t => typeof t === "string" && t.includes(MARK.mine) && t.includes(MARK.end);
+  function lcs(a, b){
+    let s = 0; while (s < a.length && s < b.length && a[s] === b[s]) s++;
+    let ea = a.length, eb = b.length; while (ea > s && eb > s && a[ea - 1] === b[eb - 1]) { ea--; eb--; }
+    const pairs = []; for (let i = 0; i < s; i++) pairs.push([i, i]);
+    const n = ea - s, m = eb - s;
+    if (n && m) {
+      if (n * m > CAP.cells) return null;
+      const w = m + 1, t = new Uint16Array((n + 1) * w);
+      for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) t[i * w + j] = a[s + i] === b[s + j] ? t[(i + 1) * w + j + 1] + 1 : Math.max(t[(i + 1) * w + j], t[i * w + j + 1]);
+      let i = 0, j = 0;
+      while (i < n && j < m) { if (a[s + i] === b[s + j]) { pairs.push([s + i, s + j]); i++; j++; } else if (t[(i + 1) * w + j] >= t[i * w + j + 1]) i++; else j++; }
+    }
+    for (let k = 0; k < a.length - ea; k++) pairs.push([ea + k, eb + k]);
+    return pairs;
+  }
+  // Classic diff3 over arrays of lines. Returns parts: {ok: [...]} or {mine: [...], theirs: [...], base: [...]}; null when too big to compare.
+  function diff3(base, mine, theirs){
+    const pa = lcs(base, mine), pb = lcs(base, theirs);
+    if (!pa || !pb) return null;
+    const ma = new Map(pa), mb = new Map(pb), anchors = [];
+    for (let i = 0; i < base.length; i++) if (ma.has(i) && mb.has(i)) anchors.push([i, ma.get(i), mb.get(i)]);
+    anchors.push([base.length, mine.length, theirs.length]);
+    const sameArr = (x, y) => x.length === y.length && x.every((v, i) => v === y[i]);
+    const out = []; let bi = 0, ai = 0, ci = 0;
+    for (const [i, a, c] of anchors) {
+      const B = base.slice(bi, i), A = mine.slice(ai, a), C = theirs.slice(ci, c);
+      if (sameArr(A, B)) out.push({ok: C}); else if (sameArr(C, B) || sameArr(A, C)) out.push({ok: A}); else out.push({mine: A, theirs: C, base: B});
+      if (i < base.length) out.push({ok: [base[i]]});
+      bi = i + 1; ai = a + 1; ci = c + 1;
+    }
+    return out;
+  }
+  function mergeText(base, mine, theirs, o){
+    o = o || {}; mine = String(mine == null ? "" : mine); theirs = String(theirs == null ? "" : theirs);
+    if (mine === theirs) return {text: mine, conflicts: 0};
+    if (typeof base === "string") { if (mine === base) return {text: theirs, conflicts: 0}; if (theirs === base) return {text: mine, conflicts: 0}; }
+    const whole = () => ({text: [MARK.mine, ...mine.split("\n"), theirsMark(o.theirsAt), ...theirs.split("\n"), MARK.end].join("\n"), conflicts: 1});
+    if (typeof base !== "string") {
+      if (!mine.trim()) return {text: theirs, conflicts: 0};
+      if (!theirs.trim() || mine.includes(theirs)) return {text: mine, conflicts: 0};
+      if (theirs.includes(mine)) return {text: theirs, conflicts: 0};
+      return whole();
+    }
+    const parts = diff3(base.split("\n"), mine.split("\n"), theirs.split("\n"));
+    if (!parts) return whole();
+    const lines = []; let conflicts = 0;
+    parts.forEach(p => {
+      if (p.ok) { lines.push(...p.ok); return; }
+      if (!p.base.length) { lines.push(...p.mine, ...p.theirs); return; }        // both added text at the same spot: keep both, in order
+      if (!p.mine.length) { lines.push(...p.theirs); return; }                   // one side deleted lines the other edited: the edit wins
+      if (!p.theirs.length) { lines.push(...p.mine); return; }
+      conflicts++; lines.push(MARK.mine, ...p.mine, theirsMark(o.theirsAt), ...p.theirs, MARK.end);
+    });
+    return {text: lines.join("\n"), conflicts};
+  }
+  // choice: "mine" | "theirs" | "both". Resolves every conflict block in the text.
+  function resolveText(text, choice){
+    const out = []; let mode = 0, A = [], C = [];
+    const flush = () => { if (choice === "mine") out.push(...A); else if (choice === "theirs") out.push(...C); else { out.push(...A); if (A.join("\n") !== C.join("\n")) out.push(...C); } };
+    String(text).split("\n").forEach(ln => {
+      if (mode === 0) { if (ln === MARK.mine) { mode = 1; A = []; C = []; } else out.push(ln); }
+      else if (mode === 1) { if (MARK.theirsRe.test(ln)) mode = 2; else A.push(ln); }
+      else if (ln === MARK.end) { flush(); mode = 0; } else C.push(ln);
+    });
+    if (mode === 1) out.push(MARK.mine, ...A); else if (mode === 2) out.push(MARK.mine, ...A, theirsMark(0), ...C);
+    return out.join("\n");
+  }
+  // The two sides of the first conflict block, for showing in the Resolve sheet.
+  function conflictParts(text){
+    const lines = String(text).split("\n"), res = []; let mode = 0, A = [], C = [], at = "";
+    lines.forEach(ln => {
+      if (mode === 0) { if (ln === MARK.mine) { mode = 1; A = []; C = []; at = ""; } }
+      else if (mode === 1) { if (MARK.theirsRe.test(ln)) { mode = 2; const m = /\((.*)\)/.exec(ln); at = m ? m[1] : ""; } else A.push(ln); }
+      else if (ln === MARK.end) { res.push({mine: A.join("\n"), theirs: C.join("\n"), at}); mode = 0; } else C.push(ln);
+    });
+    return res;
+  }
+
+  /* ----- values ----- */
+  const pickMine = o => {
+    if (o.mineAt == null) return false;                       // nothing proves this device's edit is the later one
+    if (o.theirsAt == null) return true;
+    return !(ms(o.theirsAt) - (o.mineAt + (o.skew || 0)) > SKEW_GUARD);
+  };
+  const shorten = v => { let s; try { s = typeof v === "string" ? v : JSON.stringify(v); } catch(e) { s = String(v); } s = s === undefined ? "(empty)" : s; return s.length > CAP.logChars ? s.slice(0, CAP.logChars) + "..." : s; };
+  function mv(path, b, m, t, c){
+    if (eq(m, t)) return m;
+    if (c.hasBase) { if (eq(m, b)) return t; if (eq(t, b)) return m; }
+    if (m === undefined) return t;
+    if (t === undefined) return m;
+    const key = path[path.length - 1];
+    if (path.length === 1 && key === "schema" && typeof m === "number" && typeof t === "number") return Math.max(m, t);     // the data format version only goes up
+    if (path.length === 1 && key === "status" && c.kind === "task" && (m === "done") !== (t === "done")) {
+      const win = m === "done" ? m : t, lost = m === "done" ? t : m;
+      c.losers.push({field: "status", lost, from: m === "done" ? "other" : "this"});
+      return win;
+    }
+    if (isObj(m) && isObj(t)) return mo(isObj(b) ? b : undefined, m, t, c, path);
+    if (Array.isArray(m) && Array.isArray(t)) return ma(Array.isArray(b) ? b : undefined, m, t, c, path);
+    if (typeof m === "string" && typeof t === "string" && c.textKeys.includes(key)) {
+      const r = mergeText(typeof b === "string" ? b : (c.hasBase ? "" : null), m, t, c.o);
+      c.texts++; c.tconf += r.conflicts; c.textFields.add(path.join(".")); return r.text;
+    }
+    const mine = pickMine(c.o);
+    c.losers.push({field: path.join("."), lost: mine ? t : m, from: mine ? "other" : "this"});
+    return mine ? m : t;
+  }
+  function mo(b, m, t, c, path){
+    const out = {};
+    new Set([...Object.keys(t), ...Object.keys(m)]).forEach(k => { const v = mv(path.concat(k), b ? b[k] : undefined, m[k], t[k], c); if (v !== undefined) out[k] = v; });
+    return out;
+  }
+  function ma(b, m, t, c, path){
+    const all = [...m, ...t];
+    if (all.length && all.every(x => isObj(x) && x.id != null)) return byId(b, m, t, c, path);
+    // sets of values or of records without ids: removals are honoured when the base is known, additions from both sides are kept
+    let res;
+    if (c.hasBase && b) {
+      const rm = b.filter(x => !has(m, x)), rt = b.filter(x => !has(t, x));
+      res = t.filter(x => !has(rm, x));
+      m.forEach(x => { if (!has(res, x) && !has(b, x) && !has(rt, x)) res.push(x); });
+    } else { res = t.slice(); m.forEach(x => { if (!has(res, x)) res.push(x); }); }
+    if (res.length && res.every(x => isObj(x) && typeof x.at === "number")) res.sort((x, y) => x.at - y.at);
+    return res;
+  }
+  function byId(b, m, t, c, path){
+    const bm = new Map((b || []).map(x => [x.id, x])), mm = new Map(m.map(x => [x.id, x])), tm = new Map(t.map(x => [x.id, x]));
+    const idsB = (b || []).map(x => x.id), idsM = m.map(x => x.id), idsT = t.map(x => x.id);
+    const reordered = ids => !eq(idsB.filter(i => ids.includes(i)), ids.filter(i => idsB.includes(i)));
+    const mineOrder = c.hasBase && reordered(idsM) && !reordered(idsT);       // only this device moved things: keep its order
+    const order = (mineOrder ? idsM : idsT).slice();
+    (mineOrder ? idsT : idsM).forEach(i => { if (!order.includes(i)) order.push(i); });
+    const out = [];
+    order.forEach(id => {
+      const bi = bm.get(id), mi = mm.get(id), ti = tm.get(id);
+      if (mi && ti) out.push(eq(mi, ti) ? mi : mo(bi, mi, ti, c, path.concat(id)));
+      else if (mi) { if (!(c.hasBase && bi !== undefined && eq(mi, bi))) out.push(mi); }     // gone on the other side: removed only if untouched here
+      else if (ti) { if (!(c.hasBase && bi !== undefined && eq(ti, bi))) out.push(ti); }
+    });
+    return out;
+  }
+  const titleOf = (kind, o) => {
+    if (!isObj(o)) return "";
+    const s = kind === "note" ? String(o.text || "").trim().split("\n")[0] : kind === "deck" || kind === "course" ? o.name : o.title;
+    return String(s || "").slice(0, 40);
+  };
+  function histPush(obj, text, from, at){
+    if (typeof text !== "string" || !text.trim()) return;
+    const h = (Array.isArray(obj.hist) ? obj.hist : []).slice();
+    if (h.some(x => x && x.text === text.slice(0, CAP.histChars))) return;
+    h.push({at, from, text: text.slice(0, CAP.histChars)});
+    obj.hist = h.sort((x, y) => (x.at || 0) - (y.at || 0)).slice(-CAP.hist);
+  }
+  function mergeItem(kind, base, mine, theirs, o){
+    o = o || {}; const now = o.now || Date.now();
+    if (base === undefined) base = null;
+    const R = (merged, state, extra) => {
+      const r = Object.assign({merged: copy(merged === undefined ? null : merged), state, conflict: false, losers: [], title: titleOf(kind, merged || mine || theirs || base)}, extra);
+      if (kind === "meta" && isObj(r.merged) && typeof r.merged.schema === "number") r.merged.schema = Math.max(r.merged.schema, (mine && mine.schema) || 0, (theirs && theirs.schema) || 0);   // the data format version never goes down
+      return r;
+    };
+    if (eq(mine, theirs)) return R(mine, "same");
+    if (base !== null && eq(mine, base)) return R(theirs, "theirs");
+    if (base !== null && eq(theirs, base)) return R(mine, "mine");
+    const mt = isTomb(mine), tt = isTomb(theirs);
+    if (mt || tt) {
+      if (mt && tt) return R(theirs, "theirs");
+      if (mt) {                                              // deleted here, edited elsewhere
+        if (mine !== null && tombAt(mine) + (o.skew || 0) - ms(o.theirsAt) > DELETE_MARGIN && o.theirsAt != null) return R(mine, "deleted");
+        return R(theirs, "restored");
+      }
+      if (theirs !== null && o.mineAt != null && (ms(o.theirsAt) || tombAt(theirs)) - (o.mineAt + (o.skew || 0)) > DELETE_MARGIN) return R(theirs, "deleted");
+      return R(untomb(mine), "restored");                    // deleted elsewhere (or gone from the server), edited here
+    }
+    const c = {kind, o, hasBase: base !== null, losers: [], texts: 0, tconf: 0, textFields: new Set(), textKeys: TEXT_KEYS[kind] || []};
+    const merged = mo(isObj(base) ? base : undefined, mine, theirs, c, []);
+    if (kind === "note" && c.texts) { [["this device", mine], ["other device", theirs]].forEach(([from, x]) => { if (x && x.text !== merged.text) histPush(merged, x.text, from, now); }); }
+    if (Array.isArray(merged.history)) merged.history = merged.history.slice(-CAP.history);
+    if (Array.isArray(merged.hist)) merged.hist = merged.hist.sort((x, y) => (x.at || 0) - (y.at || 0)).slice(-CAP.hist);
+    const marked = TEXT_KEYS[kind] ? TEXT_KEYS[kind].some(k => hasMarks(merged[k])) : false;
+    if (c.tconf || marked) merged.conflict = {at: now, n: Math.max(1, c.tconf), theirsAt: ms(o.theirsAt) || now};
+    else if (merged.conflict) delete merged.conflict;
+    if (c.losers.length && kind !== "meta" && kind !== "backup") {
+      merged.syncLog = (Array.isArray(merged.syncLog) ? merged.syncLog : []).concat(c.losers.map(l => ({at: now, field: l.field, lost: shorten(l.lost), from: l.from}))).slice(-CAP.log);
+      if (kind === "task" && Array.isArray(merged.history)) c.losers.forEach(l => { if (/^(due|start|status|title|priority|time|courseId|type)$/.test(l.field)) merged.history = merged.history.concat([{at: now, text: "Sync: kept the " + (l.from === "other" ? "newer" : "this device's") + " " + l.field + "; the other value was " + shorten(l.lost)}]).slice(-CAP.history); });
+    }
+    return R(merged, "merged", {conflict: !!(c.tconf || marked), losers: c.losers, texts: c.texts});
+  }
+  return {mergeItem, mergeText, diff3, resolveText, conflictParts, hasMarks, isTomb, tombAt, untomb, skewFrom, pickMine, eq, MARK, CAP, SKEW_GUARD, DELETE_MARGIN, titleOf};
+})();
+/* SYNC-MERGE-END */
+
 /* ---------- Cloud sync: one document per task and per course ---------- */
 const cloud = {on:false, base:null, tasks:null, courses:null, files:null, notes:null, decks:null, events:null, backups:null};
 const KIND_MAP = {task:"tasks", course:"courses", file:"files", note:"notes", deck:"decks", event:"events"};
@@ -4414,6 +4656,7 @@ function syncLabel(){
 }
 function queueWrite(kind, id, data){
   // Every change is written to the outbox first, so nothing is lost if the page closes before it reaches Supabase.
+  if (cloud.on && cloud.noteBase && !inClaude()) { try { cloud.noteBase(kind, kind === "meta" ? "planner" : id); } catch(e) {} }
   outboxAdd(kind, id, data);
   if (!cloud.on) return;
   const key = kind + ":" + id;
@@ -4431,14 +4674,15 @@ async function runQueue(key, e){
   while (e.next) {
     const job = e.next; e.next = null;
     try {
-      if (job.data === null) await e.ref.delete(); else await e.ref.set(job.data);
+      const res = job.data === null ? await e.ref.delete() : await e.ref.set(job.data);
       tries = 0; syncError = false;
       outboxDone(key, job.data);
+      if (res && res.merge) syncAdopt(key, job.data, res);
     } catch(err) {
       const code = err && err.code;
       if ((code === "unavailable" || code === "resource_exhausted") && tries < 4) {
         tries++; syncError = true; syncLabel();
-        await sleep(900 * tries + Math.random() * 700);
+        await sleep((window.__SB_RETRY_MS || 900) * tries + Math.random() * 700);
         if (!e.next) e.next = job;
       } else {
         syncError = true; console.warn("Save failed", code, err && err.message);
@@ -4458,8 +4702,11 @@ function applySnap(kind, snap){
     v.id = d.id;
     m[d.id] = norm(kind, v);
   });
-  intended.forEach((v, key) => {
-    const i = key.indexOf(":"), k = key.slice(0, i), id = key.slice(i + 1);
+  // Changes not yet on the server stay on screen (in flight, or waiting in the outbox): the push merges them with what the server has.
+  const pending = Object.assign({}, inClaude() ? {} : outboxGet());
+  intended.forEach((v, key) => { pending[key] = v; });
+  Object.keys(pending).forEach(key => {
+    const i = key.indexOf(":"), k = key.slice(0, i), id = key.slice(i + 1), v = pending[key];
     if (k !== kind) return;
     if (v === null) delete m[id]; else m[id] = norm(kind, clone(v));
   });
@@ -4492,9 +4739,12 @@ async function initCloud(){
 async function connectBackend(b){
   const snap = await b.base.get();
   const md = snap.exists ? clone(snap.data()) : null;
-  Object.assign(cloud, {base: b.base, tasks: b.tasks, courses: b.courses, files: b.files, notes: b.notes, decks: b.decks, events: b.events || null, backups: b.backups, refresh: b.refresh || null});
-  if (md && md.schema === 2) {
-    if (md.settings) {
+  if (b.hooks) b.hooks.onMeta = applyRemoteSettings;
+  Object.assign(cloud, {noteBase: b.noteBase || null, base: b.base, tasks: b.tasks, courses: b.courses, files: b.files, notes: b.notes, decks: b.decks, events: b.events || null, backups: b.backups, refresh: b.refresh || null});
+  // A newer version of Studyboard may already have saved a newer schema: an older one must not "migrate" (overwrite) the account, and never writes the schema number down.
+  cloud.schema = md && Number(md.schema) > 2 ? Number(md.schema) : 2;
+  if (md && md.schema >= 2) {
+    if (md.settings && !("meta:meta" in outboxGet())) {
       // AI keys live on this device only. Keys an older version saved to the account are kept here once, then removed from the account.
       const rAi = md.settings.ai, lAi = state.settings && state.settings.ai;
       state.settings = Object.assign({capacity:15}, md.settings);
@@ -4552,16 +4802,119 @@ async function flushOutbox(){
   const o = outboxGet(), keys = Object.keys(o);
   if (!keys.length) return;
   flushing = true;
-  let sent = 0;
+  let sent = 0; const merged = [];
   for (const k of keys) {
     const i = k.indexOf(":"), kind = k.slice(0, i), id = k.slice(i + 1);
-    try { const r = refFor(kind, id); if (o[k] === null) await r.delete(); else await r.set(o[k]); delete o[k]; sent++; }
+    if (queue.has(k)) continue;   // the save loop for this item is already retrying it: sending it twice would merge it against its own earlier result
+    try {
+      const r = refFor(kind, id), res = o[k] === null ? await r.delete({outbox: true}) : await r.set(o[k], {outbox: true});
+      const sentData = o[k]; delete o[k]; sent++;
+      if (res && res.merge) { merged.push([k, sentData, res]); }
+    }
     catch(e) { break; }
   }
-  try { localStorage.setItem(OUTBOX, JSON.stringify(o)); } catch(e) {}
+  try { const cur = outboxGet(); Object.keys(cur).forEach(k => { if (!(k in o) && keys.includes(k) === false) o[k] = cur[k]; }); localStorage.setItem(OUTBOX, JSON.stringify(o)); } catch(e) {}
   flushing = false;
-  if (sent) { toast(`Synced ${sent} change${sent === 1 ? "" : "s"} made while offline`); syncLabel(); }
+  merged.forEach(([k, sentData, res]) => syncAdopt(k, sentData, res));
+  if (sent && !merged.some(m => m[2].merge.state === "merged" || m[2].merge.state === "restored")) { toast(`Synced ${sent} change${sent === 1 ? "" : "s"} made while offline`); }
+  if (sent) syncLabel();
 }
+
+/* ---------- Sync conflicts: what happens after a push finds that another device changed the same item ----------
+   The merge itself is SyncMerge.mergeItem (above). This folds the result into what's on screen and says what happened, quietly. */
+const syncNotes = [];
+let syncNoteT = 0;
+function syncNotify(info){
+  syncNotes.push(info);
+  clearTimeout(syncNoteT);
+  syncNoteT = setTimeout(() => {
+    const list = syncNotes.splice(0), say = list.filter(i => i && (i.state === "merged" || i.state === "restored"));
+    if (!say.length) return;
+    const bad = say.filter(i => i.conflict), nm = i => `"${i.title || "Untitled"}"`;
+    if (say.length === 1 && bad.length) toast(`Two of your devices edited ${nm(say[0])} at once. Both versions are kept in the note.`, null, {label: "Resolve", fn: () => syncIssuesSheet()});
+    else if (bad.length) toast(`${bad.length} notes were edited on two devices at once. Both versions are kept.`, null, {label: "Review", fn: () => syncIssuesSheet()});
+    else if (say.length === 1) toast(say[0].state === "restored" ? (say[0].kept ? `${nm(say[0])} was edited on your other device, so it was kept.` : `${nm(say[0])} was deleted on another device, but you edited it here. It's back.`) : `Merged edits to ${nm(say[0])} from your other device`);
+    else toast(`Merged edits to ${say.length} items from your other device`);
+  }, 80);
+}
+function adoptSettings(st){
+  const keep = state.settings && state.settings.ai;
+  state.settings = Object.assign({capacity: 15}, st);
+  if (keep) state.settings.ai = Object.assign({}, state.settings.ai || {}, keep.keys ? {keys: keep.keys} : {}, keep.key ? {key: keep.key} : {});
+}
+// Settings changed on another device: take them unless this device has changes of its own still waiting (those are merged when they're sent).
+function applyRemoteSettings(md){
+  try {
+    if (md && md.schema > (cloud.schema || 2)) cloud.schema = Number(md.schema);   // learned from another device: this app must never write an older number back
+    if (!md || !(md.schema >= 2) || !md.settings || "meta:meta" in outboxGet() || intended.has("meta:meta")) return;
+    if (SyncMerge.eq(syncSettings(state.settings), md.settings)) return;
+    adoptSettings(md.settings); saveLocal(); scheduleRender();
+  } catch(e) { console.warn(e); }
+}
+function syncAdopt(key, sent, res){
+  try {
+    const i = key.indexOf(":"), kind = key.slice(0, i), id = key.slice(i + 1), info = res.merge, merged = res.merged;
+    if (merged === undefined) return;
+    if (kind === "meta") {
+      const curData = {schema: Math.max(2, cloud.schema || 2), settings: syncSettings(state.settings)};
+      let next = merged;
+      if (sent && !SyncMerge.eq(curData, sent)) next = SyncMerge.mergeItem("meta", sent, curData, merged, {mineAt: Date.now()}).merged;
+      if (next && next.settings) { adoptSettings(next.settings); saveLocal(); scheduleRender(); }
+      if (next && !SyncMerge.eq(next, merged)) queueWrite("meta", "meta", {schema: Math.max(2, cloud.schema || 2), settings: syncSettings(state.settings)});
+      return;
+    }
+    const m = mapOf(kind); if (!m) return;
+    if (merged === null) { delete m[id]; }
+    else {
+      const cur = m[id] || null;
+      if (sent !== null && !cur) return;                          // deleted here since: the delete that follows settles it
+      let next = merged;
+      if (sent !== null && cur && !SyncMerge.eq(norm(kind, clone(cur)), norm(kind, clone(sent)))) next = SyncMerge.mergeItem(kind, sent, cur, merged, {mineAt: Date.now()}).merged;
+      if (next === null) delete m[id]; else m[id] = norm(kind, clone(next));
+      if (next !== null && !SyncMerge.eq(next, merged)) queueWrite(kind, id, m[id]);
+    }
+    state.updated = Date.now(); saveLocal(); scheduleRender();
+    syncNotify(info);
+  } catch(e) { console.warn("sync merge", e); }
+}
+
+// Sync issues: notes (and other items) where two devices edited the same text at once. Both versions are already in the text between dividers;
+// this lets someone keep one side or both. Whatever is replaced stays recoverable in the note's hidden history.
+const SYNC_KINDS = ["note", "task", "event", "deck", "course"];
+const syncConflicts = () => SYNC_KINDS.flatMap(k => Object.values(mapOf(k) || {}).filter(o => o && o.conflict).map(o => ({kind: k, id: o.id, o})));
+function syncPartsOf(o){
+  let found = null;
+  (function walk(v){ if (found) return; if (typeof v === "string") { if (SyncMerge.hasMarks(v)) { const p = SyncMerge.conflictParts(v)[0]; if (p) found = p; } } else if (Array.isArray(v)) v.forEach(walk); else if (v && typeof v === "object") Object.keys(v).forEach(k => { if (k !== "hist" && k !== "syncLog") walk(v[k]); }); })(o);
+  return found || {mine: "", theirs: "", at: ""};
+}
+function syncResolve(kind, id, choice){
+  const o = getItem(kind, id); if (!o) return;
+  const walk = v => typeof v === "string" ? (SyncMerge.hasMarks(v) ? SyncMerge.resolveText(v, choice) : v) : Array.isArray(v) ? v.map(walk) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, k === "hist" || k === "syncLog" ? x : walk(x)])) : v;
+  const n = walk(clone(o)); delete n.conflict;
+  if (kind === "note" && o.text !== n.text) n.hist = (Array.isArray(o.hist) ? o.hist : []).concat([{at: Date.now(), from: "before you chose", text: String(o.text).slice(0, SyncMerge.CAP.histChars)}]).slice(-SyncMerge.CAP.hist);
+  applyChanges([{kind, id, after: n}], choice === "mine" ? "Kept your version" : choice === "theirs" ? "Kept the other device's version" : "Kept both versions");
+}
+function syncIssuesSheet(){
+  const list = syncConflicts(), sh = t => esc(String(t || "").slice(0, 600)) || '<span class="mini">(empty)</span>';
+  openSheet(`<div class="sheet">${head("Sync issues")}<div class="sheet-body">
+    ${list.length ? `<p style="margin:0 0 10px">These were edited on two of your devices at the same time. Nothing was lost: both versions are in the item, between dividers. Choose what to keep.</p>`
+      : `<p style="margin:0">Nothing needs your attention. When two devices edit the same thing, Studyboard merges the changes by itself.</p>`}
+    ${list.map(({kind, id, o}) => { const p = syncPartsOf(o), title = SyncMerge.titleOf(kind, o) || "Untitled";
+      return `<div class="sync-issue"><div><b>${esc(title)}</b> <span class="mini">${kind === "note" ? "Note" : kind === "deck" ? "Deck" : kind === "task" ? "Task" : "Item"}${o.conflict && o.conflict.at ? " · " + esc(new Date(o.conflict.at).toLocaleString(undefined, {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"})) : ""}</span></div>
+        <div class="sync-cols"><div><span class="mini"><b>This device</b></span><div class="sync-txt">${sh(p.mine)}</div></div><div><span class="mini"><b>Your other device</b>${p.at ? " · " + esc(p.at) : ""}</span><div class="sync-txt">${sh(p.theirs)}</div></div></div>
+        <div class="sync-btns"><button type="button" class="btn small" data-act="sync-resolve" data-kind="${kind}" data-id="${esc(id)}" data-choice="mine">Keep mine</button><button type="button" class="btn small" data-act="sync-resolve" data-kind="${kind}" data-id="${esc(id)}" data-choice="theirs">Keep theirs</button><button type="button" class="btn small primary" data-act="sync-resolve" data-kind="${kind}" data-id="${esc(id)}" data-choice="both">Keep both</button></div></div>`; }).join("")}
+    </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
+}
+hook("act", (act, el, id) => {
+  switch (act) {
+    case "note-resolve": case "sb-issues": if (dlg.open && act === "sb-issues") dlg.close(); setTimeout(syncIssuesSheet, act === "sb-issues" ? 30 : 0); return true;
+    case "sync-resolve": syncResolve(el.dataset.kind, id, el.dataset.choice); if (syncConflicts().length) syncIssuesSheet(); else if (dlg.open) dlg.close(); return true;
+  }
+});
+hook("menu", () => { try { const n = inClaude() ? 0 : syncConflicts().length; return n ? `<button data-act="sb-issues" data-group="account"><span>Sync Issues<span class="sub">${n} ${n === 1 ? "item was" : "items were"} edited on two devices. Choose what to keep.</span></span></button>` : ""; } catch(e) { return ""; } });
+
+// Test handle (only when a test page sets window.__SB_TEST): lets tests/sync-two-device.e2e.js drive two simulated devices. Not present in normal use.
+if (window.__SB_TEST) setTimeout(() => { window.__sbSync = {get state(){ return state; }, mapOf, getItem, applyChanges, clone, saveSettings, outboxGet, idle: () => queue.size === 0 && !flushing, get cloud(){ return cloud; }, toastText: () => $("#toastMsg").textContent, refresh: () => cloud.refresh && cloud.refresh()}; }, 0);
 
 /* ---------- Studyboard accounts (the server behind them is a Supabase project) ----------
    build.py fills SB_DEFAULT from server.json, so people only ever see "Sign In to Studyboard".
@@ -4709,6 +5062,11 @@ const SBC = {
   all(store){ return this.run(store, "readonly", s => s.getAll()).catch(() => []); },
   keys(store){ return this.run(store, "readonly", s => s.getAllKeys()).catch(() => []); }
 };
+// This device's id (shared with the device list in Studyboard Pro), stamped on every synced write so conflicts can say where an edit came from.
+function sbDevice(){
+  let id = ""; try { id = localStorage.getItem("studyboard:deviceId") || ""; if (!id) { id = crypto.randomUUID ? crypto.randomUUID() : uid() + uid(); localStorage.setItem("studyboard:deviceId", id); } } catch(e) {}
+  return id.slice(0, 64) || "web";
+}
 const SB_OVERLAP = 2 * 60000, SB_FULL_EVERY = 7 * 864e5, SB_DELTA_MAX_AGE = 30 * 864e5, SB_REALTIME_IDLE = 60000;
 const SB_STATS = {mode: "", full: 0, delta: 0, rows: 0, at: 0};   // for Settings and tests
 async function sbBackend(client, userId){
@@ -4722,18 +5080,39 @@ async function sbBackend(client, userId){
   let lean = false;
   // Is supabase/lean.sql installed? (the deletions list exists)
   try { const {error} = await client.from("studyboard_deletions").select("id").limit(1); lean = !error; } catch(e) {}
+  // Is supabase-sync-conflicts.sql installed? (every row carries a revision, and writes are compare-and-set). Without it, sync behaves as before,
+  // except that a device coming back from offline (or one that heard of a change while editing) reads the row first and merges instead of overwriting.
+  let revCol = false;
+  try { const {error} = await client.from(T).select("rev").limit(1); revCol = !error; } catch(e) {}
+  const COLS = "kind,id,data,updated_at" + (revCol ? ",rev" : "");
+  const revs = new Map();      // "kind:id" -> the revision last seen from the server
+  let pbase = new Map();       // "kind:id" -> {rev, data, at}: the server version an unsent local edit started from (the base of the three-way merge)
+  const foreign = new Set();   // keys with an unsent edit that another device changed meanwhile
+  const bkey = (kind, id) => kind === "meta" ? "meta:planner" : kind + ":" + id;
+  const skewKey = "studioso:skew";
+  let skew = 0; try { skew = Number(localStorage.getItem(skewKey)) || 0; } catch(e) {}
+  if (revCol) {   // learn how far this device's clock is from the server's (so an edit's time can be compared fairly with another device's)
+    try { const t0 = Date.now(), {data: now, error} = await client.rpc("studyboard_clock"); if (!error && now) { const k = SyncMerge.skewFrom(now, t0, Date.now()); if (Math.abs(k) < 30 * 864e5) { skew = k; try { localStorage.setItem(skewKey, String(k)); } catch(e) {} } } } catch(e) {}
+  }
+  const noteForeign = (kind, id, data) => { const k = bkey(kind, id), b = pbase.get(k); if (b && !SyncMerge.eq(b.data, data)) foreign.add(k); };
+  let pbT = 0;
+  const pbSave = () => { clearTimeout(pbT); pbT = setTimeout(() => SBC.put("rows", "pb:" + userId, {v: 1, items: [...pbase.entries()]}), 150); };
+  try {   // bases of edits that were still unsent when this device last closed (kept only while the edit is still waiting in the outbox)
+    const s = await SBC.get("rows", "pb:" + userId), ob = outboxGet();
+    if (s && s.v === 1) (s.items || []).forEach(([k, v]) => { if (k in ob || (k === "meta:planner" && "meta:meta" in ob)) pbase.set(k, v); });
+  } catch(e) {}
   let persistT = 0;
   const persist = () => { if (!lean) return; clearTimeout(persistT); persistT = setTimeout(() => {
     const rows = {}; KINDS.forEach(k => { rows[k] = [...cache[k].entries()]; });
-    SBC.put("rows", userId, {v: 1, cursor: saved.cursor, fullAt: saved.fullAt, at: saved.at, rows});
+    SBC.put("rows", userId, {v: 1, cursor: saved.cursor, fullAt: saved.fullAt, at: saved.at, rows, revs: [...revs.entries()]});
   }, 1500); };
   const later = (a, b) => !a ? b || "" : !b ? a : (Date.parse(b) > Date.parse(a) ? b : a);
   const loadAll = async () => {
     const fresh = blank(); let cursor = "", n = 0;
     for (let from = 0; ; from += 1000) {
-      const {data, error} = await client.from(T).select("kind,id,data,updated_at").neq("kind", "backup").order("kind").order("id").range(from, from + 999);
+      const {data, error} = await client.from(T).select(COLS).neq("kind", "backup").order("kind").order("id").range(from, from + 999);
       if (error) throw sbErr(error);
-      (data || []).forEach(r => { if (fresh[r.kind]) fresh[r.kind].set(r.id, r.data); cursor = later(cursor, r.updated_at); n++; });
+      (data || []).forEach(r => { if (fresh[r.kind]) { fresh[r.kind].set(r.id, r.data); if (r.rev != null) revs.set(bkey(r.kind, r.id), r.rev); } cursor = later(cursor, r.updated_at); n++; });
       if (!data || data.length < 1000) break;
     }
     cache = fresh;
@@ -4747,13 +5126,14 @@ async function sbBackend(client, userId){
     const since = new Date(Date.parse(saved.cursor) - SB_OVERLAP).toISOString();
     const got = new Map(), changed = new Set(); let cursor = saved.cursor, n = 0;
     for (let from = 0; ; from += 1000) {
-      const {data, error} = await client.from(T).select("kind,id,data,updated_at").neq("kind", "backup").gt("updated_at", since).order("updated_at").range(from, from + 999);
+      const {data, error} = await client.from(T).select(COLS).neq("kind", "backup").gt("updated_at", since).order("updated_at").range(from, from + 999);
       if (error) throw sbErr(error);
       (data || []).forEach(r => {
         cursor = later(cursor, r.updated_at); n++;
         if (!cache[r.kind]) return;
         got.set(r.kind + "|" + r.id, r.updated_at);
-        if (JSON.stringify(cache[r.kind].get(r.id)) !== JSON.stringify(r.data)) { cache[r.kind].set(r.id, r.data); changed.add(r.kind); }
+        if (r.rev != null) revs.set(bkey(r.kind, r.id), r.rev);
+        if (JSON.stringify(cache[r.kind].get(r.id)) !== JSON.stringify(r.data)) { cache[r.kind].set(r.id, r.data); changed.add(r.kind); noteForeign(r.kind, r.id, r.data); }
       });
       if (!data || data.length < 1000) break;
     }
@@ -4776,6 +5156,9 @@ async function sbBackend(client, userId){
     const s = await SBC.get("rows", userId);
     if (s && s.v === 1 && s.cursor && Date.now() - (s.fullAt || 0) < SB_FULL_EVERY && Date.now() - (s.at || 0) < SB_DELTA_MAX_AGE) {
       cache = blank(); KINDS.forEach(k => { (s.rows[k] || []).forEach(([id, d]) => cache[k].set(id, d)); });
+      (s.revs || []).forEach(([k, v]) => revs.set(k, v));
+      // An unsent edit whose saved base was lost: the copy of the server's version kept on this device is the next best base.
+      try { Object.keys(outboxGet()).forEach(k => { const pk = k === "meta:meta" ? "meta:planner" : k, i = pk.indexOf(":"), kd = pk.slice(0, i); if (!pbase.has(pk) && cache[kd]) pbase.set(pk, {rev: revs.get(pk) || 0, data: cache[kd].get(pk.slice(i + 1)) ?? null, at: null}); }); } catch(e) {}
       saved.cursor = s.cursor; saved.fullAt = s.fullAt; saved.at = s.at || 0;
       try { await pullDelta(); started = true; } catch(e) { console.warn("Delta sync failed, loading everything", e); }
     }
@@ -4787,24 +5170,103 @@ async function sbBackend(client, userId){
       try { const {data} = await client.rpc("studyboard_restore_archive"); if (Number(data) > 0) { toast("Welcome back! Your planner has been restored."); await loadAll(); } } catch(e) {}
     }
   }
-  const upsert = async (kind, id, d) => {
-    const {error} = await client.from(T).upsert({user_id: userId, kind, id, data: d, updated_at: new Date().toISOString()}, {onConflict: "user_id,kind,id"});
-    if (error) throw sbErr(error);
-    if (cache[kind]) { cache[kind].set(id, d); persist(); }
+  /* Writes. With supabase-sync-conflicts.sql installed, a write names the revision it was based on and the server refuses it if the row moved on
+     (compare-and-set); the device then merges the server's version into its own edit (SyncMerge.mergeItem) and tries again. Nothing is ever
+     overwritten blindly, and a device that was offline for weeks cannot undo newer work. The result tells the app what was merged. */
+  const baseOf = (kind, id) => pbase.get(bkey(kind, id)) || {rev: revs.get(bkey(kind, id)) || 0, data: cache[kind] && cache[kind].has(id) ? cache[kind].get(id) : null, at: null};
+  const mopts = (b, theirsAt) => ({mineAt: b.at, theirsAt, skew, now: Date.now()});
+  const learnSkew = (serverNow, t0) => {
+    const k = SyncMerge.skewFrom(serverNow, t0, Date.now());
+    if (serverNow && Math.abs(k) < 30 * 864e5) { skew = k; try { localStorage.setItem(skewKey, String(k)); } catch(e) {} }
   };
-  const remove = async (kind, id) => {
+  const settle = (kind, id, d, rev) => { const k = bkey(kind, id); if (rev != null) revs.set(k, rev); if (cache[kind]) { cache[kind].set(id, d); persist(); } pbase.delete(k); foreign.delete(k); pbSave(); };
+  const plainUpsert = async (kind, id, d) => {
+    const {data, error} = await client.from(T).upsert({user_id: userId, kind, id, data: d, updated_at: new Date().toISOString()}, {onConflict: "user_id,kind,id"}).select("updated_at");
+    if (error) throw sbErr(error);
+    return data && data[0] && data[0].updated_at;
+  };
+  const upsert = async (kind, id, d, o) => {
+    o = o || {};
+    const k = bkey(kind, id);
+    if (kind === "backup") { await plainUpsert(kind, id, d); if (cache[kind]) { cache[kind].set(id, d); persist(); } return; }
+    let b = baseOf(kind, id), cur = d, info = null, theirs = null;
+    const floor = x => kind === "meta" && x && b.data && b.data.schema > x.schema ? Object.assign({}, x, {schema: b.data.schema}) : x;   // the data format version never goes down
+    cur = floor(cur);
+    if (revCol && !upsert.noRpc) {
+      for (let tries = 0; tries < 5; tries++) {
+        const t0 = Date.now();
+        const {data: res, error} = await client.rpc("studyboard_item_put", {p_kind: kind, p_id: id, p_data: cur, p_base_rev: b.rev || 0, p_device: sbDevice(), p_edited_at: b.at ? new Date(b.at + skew).toISOString() : null});
+        if (error) {
+          if (/PGRST202|42883|could not find the function/i.test((error.code || "") + " " + (error.message || ""))) { upsert.noRpc = true; break; }
+          throw sbErr(error);
+        }
+        learnSkew(res.now, t0);
+        if (res.ok) { settle(kind, id, cur, res.rev); return info ? {merged: cur, merge: info} : (res.restored ? {merged: cur, merge: {state: "restored", title: SyncMerge.titleOf(kind, cur)}} : undefined); }
+        theirs = res.data;
+        const r = SyncMerge.mergeItem(kind, b.data, cur, theirs, mopts(b, res.edited_at || res.updated_at));
+        info = info ? Object.assign(r, {conflict: r.conflict || info.conflict}) : r;
+        cache[kind] && cache[kind].set(id, theirs);
+        b = {rev: res.rev, data: theirs, at: b.at};
+        cur = floor(cur);
+        if (r.state === "theirs" || r.state === "same") { settle(kind, id, theirs, res.rev); return {merged: theirs, merge: info}; }
+        cur = r.merged;
+      }
+      if (!upsert.noRpc) throw sbErr({message: "Couldn't settle a sync conflict, will retry", status: 503});
+    }
+    // Without the conflict SQL: read the row first when this edit may be stale (it waited in the outbox, or another device changed the row meanwhile; settings are always checked).
+    if (o.outbox || foreign.has(k) || kind === "meta") {
+      const {data: row, error} = await client.from(T).select("data,updated_at").eq("user_id", userId).eq("kind", kind).eq("id", id).maybeSingle();
+      if (error) throw sbErr(error);
+      if (row && !SyncMerge.eq(row.data, b.data)) {
+        const r = SyncMerge.mergeItem(kind, b.data, cur, row.data, mopts(b, row.updated_at));
+        if (r.state === "theirs" || r.state === "same") { settle(kind, id, row.data, null); return {merged: row.data, merge: r}; }
+        info = r; cur = r.merged;
+      }
+    }
+    const at = await plainUpsert(kind, id, cur);
+    if (at && lean) learnSkew(at, Date.now() - 200);
+    settle(kind, id, cur, null);
+    return info && !SyncMerge.eq(cur, d) ? {merged: cur, merge: info} : undefined;
+  };
+  const remove = async (kind, id, o) => {
+    o = o || {};
+    const k = bkey(kind, id);
+    let b = baseOf(kind, id), keep = null;
+    if (kind !== "backup" && revCol && !upsert.noRpc) {
+      for (let tries = 0; tries < 3 && !keep; tries++) {
+        const {data: res, error} = await client.rpc("studyboard_item_delete", {p_kind: kind, p_id: id, p_base_rev: b.rev || 0});
+        if (error) { if (/PGRST202|42883|could not find the function/i.test((error.code || "") + " " + (error.message || ""))) { upsert.noRpc = true; break; } throw sbErr(error); }
+        if (res.ok) { if (cache[kind]) { cache[kind].delete(id); persist(); } revs.delete(k); pbase.delete(k); foreign.delete(k); pbSave(); return; }
+        if (SyncMerge.eq(res.data, b.data)) { b = {rev: res.rev, data: b.data, at: b.at}; continue; }   // unchanged elsewhere: our rev was just out of date
+        keep = res;
+      }
+      if (keep) { cache[kind] && cache[kind].set(id, keep.data); revs.set(k, keep.rev); pbase.delete(k); foreign.delete(k); pbSave(); persist(); return {merged: keep.data, merge: {state: "restored", title: SyncMerge.titleOf(kind, keep.data), kept: true}}; }
+      if (!upsert.noRpc) throw sbErr({message: "Couldn't settle a sync conflict, will retry", status: 503});
+    }
+    if (o.outbox || foreign.has(k)) {
+      const {data: row, error} = await client.from(T).select("data,updated_at").eq("user_id", userId).eq("kind", kind).eq("id", id).maybeSingle();
+      if (error) throw sbErr(error);
+      if (row && !SyncMerge.eq(row.data, b.data)) { cache[kind] && cache[kind].set(id, row.data); pbase.delete(k); foreign.delete(k); pbSave(); return {merged: row.data, merge: {state: "restored", title: SyncMerge.titleOf(kind, row.data), kept: true}}; }
+    }
     const {error} = await client.from(T).delete().eq("user_id", userId).eq("kind", kind).eq("id", id);
     if (error) throw sbErr(error);
     if (cache[kind]) { cache[kind].delete(id); persist(); }
+    revs.delete(k); pbase.delete(k); foreign.delete(k); pbSave();
   };
   // Live updates from your other devices, only while Studyboard is on screen
   let chan = null, idleT = 0;
+  const hooks = {};
   const subscribe = () => {
     if (chan) return;
     chan = client.channel("studioso-" + userId).on("postgres_changes", {event: "*", schema: "public", table: T, filter: "user_id=eq." + userId}, p => {
       const row = p.eventType === "DELETE" ? p.old : p.new;
+      if (row && row.kind === "meta" && p.eventType !== "DELETE" && (!row.user_id || row.user_id === userId)) {   // settings changed on another device
+        cache.meta.set(row.id, row.data); if (row.rev != null) revs.set(bkey("meta", row.id), row.rev); noteForeign("meta", row.id, row.data);
+        if (hooks.onMeta) hooks.onMeta(row.data);
+        return;
+      }
       if (!row || (row.user_id && row.user_id !== userId) || !listeners[row.kind]) return;
-      if (p.eventType === "DELETE") cache[row.kind].delete(row.id); else { cache[row.kind].set(row.id, row.data); if (row.updated_at) saved.cursor = later(saved.cursor, row.updated_at); }
+      if (p.eventType === "DELETE") cache[row.kind].delete(row.id); else { cache[row.kind].set(row.id, row.data); if (row.rev != null) revs.set(bkey(row.kind, row.id), row.rev); noteForeign(row.kind, row.id, row.data); if (row.updated_at) saved.cursor = later(saved.cursor, row.updated_at); }
       persist();
       emit(row.kind);
     }).subscribe();
@@ -4820,6 +5282,7 @@ async function sbBackend(client, userId){
     try {
       if (lean && saved.cursor && Date.now() - saved.fullAt < SB_FULL_EVERY && Date.now() - saved.at < SB_DELTA_MAX_AGE) (await pullDelta()).forEach(k => emit(k));
       else { await loadAll(); ["task", "course", "file", "note", "deck", "event"].forEach(emit); }
+      if (hooks.onMeta && cache.meta.get("planner")) hooks.onMeta(cache.meta.get("planner"));
     } catch(e) {}
     refreshing = null;
   })());
@@ -4834,8 +5297,8 @@ async function sbBackend(client, userId){
       if (error) throw sbErr(error);
       return {exists: !!data, data: () => data ? data.data : undefined};
     },
-    set: d => upsert(kind, id, d),
-    delete: () => remove(kind, id)});
+    set: (d, o) => upsert(kind, id, d, o),
+    delete: o => remove(kind, id, o)});
   const col = kind => ({doc: id => doc(kind, id), onSnapshot: cb => { listeners[kind].push(cb); setTimeout(() => cb(snapOf(kind)), 0); return () => {}; }});
   const backups = {doc: id => doc("backup", id),
     orderBy: () => ({limit: n => ({get: async () => {
@@ -4843,7 +5306,12 @@ async function sbBackend(client, userId){
       if (error) throw sbErr(error);
       return {docs: (data || []).map(r => ({id: r.id, data: () => r.data}))};
     }})})};
-  return {base: doc("meta", "planner"), tasks: col("task"), courses: col("course"), files: col("file"), notes: col("note"), decks: col("deck"), events: col("event"), backups, refresh, lean: () => lean, stop: unsubscribe};
+  const noteBase = (kind, id) => {   // called before every local change is queued: remember what the server version was, and when this device last edited
+    const k = bkey(kind, id), b = pbase.get(k);
+    if (b) b.at = Date.now(); else pbase.set(k, {rev: revs.get(k) || 0, data: cache[kind] && cache[kind].has(id) ? JSON.parse(JSON.stringify(cache[kind].get(id))) : null, at: Date.now()});
+    pbSave();
+  };
+  return {noteBase, hooks, revCol: () => revCol, base: doc("meta", "planner"), tasks: col("task"), courses: col("course"), files: col("file"), notes: col("note"), decks: col("deck"), events: col("event"), backups, refresh, lean: () => lean, stop: unsubscribe};
 }
 const sbAssets = {
   upload: async (file, opts) => {
@@ -5118,7 +5586,7 @@ function syncSettings(st){
 }
 function saveSettings(){
   state.updated = Date.now(); saveLocal();
-  queueWrite("meta", "meta", {schema:2, settings: syncSettings(state.settings)});
+  queueWrite("meta", "meta", {schema: Math.max(2, cloud.schema || 2), settings: syncSettings(state.settings)});
 }
 
 /* ---------- AI: Google Gemini (free) by default, or paid Gemini, Claude or ChatGPT with your own key ---------- */
@@ -12385,6 +12853,7 @@ function noteHtml(n){
     ${editing ? "" : `<span class="note-rot" data-rot="${esc(n.id)}" title="Drag to rotate" aria-hidden="true">${ROT_ICON}</span>`}
     ${noteStickersHtml(n, editing)}
     ${c ? `<span class="note-tag" style="--c:${esc(c.color)}">${esc(courseLabel(c))}</span>` : ""}
+    ${n.conflict ? `<button type="button" class="note-conflict" data-act="note-resolve" data-id="${esc(n.id)}">Edited on two devices. Tap to review.</button>` : ""}
     ${tk ? `<button type="button" class="note-task-tag" data-act="edit-task" data-id="${esc(tk.id)}" title="Open ${esc(tk.title)}">${CLIP}${esc(tk.title)}</button>` : ""}
     ${body}
   </div>`;
@@ -13618,7 +14087,7 @@ document.addEventListener("click", e => {
   if (ui.tab === "notes" && !e.target.closest("dialog")) {
     const nEl = e.target.closest(".note");
     if (e.target.closest(".note-rot")) return;
-    if (nEl && !nEl.classList.contains("editing") && !e.target.closest(".note-task-tag")) { if (noteEditing) saveNoteText(); noteEditing = nEl.dataset.note; render(); setTimeout(() => { const t = $("#noteText"); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 30); return; }
+    if (nEl && !nEl.classList.contains("editing") && !e.target.closest(".note-task-tag") && !e.target.closest(".note-conflict")) { if (noteEditing) saveNoteText(); noteEditing = nEl.dataset.note; render(); setTimeout(() => { const t = $("#noteText"); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 30); return; }
     if (noteEditing && !e.target.closest(".note.editing") && !e.target.closest("[data-act^=note]")) { saveNoteText(); }
   }
   const el = e.target.closest("[data-act]");
@@ -40217,7 +40686,7 @@ var TP_DATA = [];
   const CAT = Object.fromEntries(CATS.map(c => [c.k, c]));
   // Where each row goes, by its data-act (or input id). Also sets the order inside a category.
   const ORDER = {
-    account: ["sb-signout", "sb-signin", "sb-connect", "plan-open"],
+    account: ["sb-signout", "sb-signin", "sb-connect", "sb-issues", "plan-open"],
     appearance: ["theme-set", "shop", "anim-toggle", "daily-quote", "scene-moment"],
     study: ["dailyIn", "capIn", "g-grades", "ai-setup", "sx-settings"],
     school: ["lms-open", "cal-export", "cal-sync", "import-syllabus", "grp-page"],
@@ -40226,7 +40695,7 @@ var TP_DATA = [];
   };
   // Extra words people might search for, per row
   const SYN = {"theme-set": "dark light mode night", shop: "theme colors stickers pins cards", "anim-toggle": "motion confetti",
-    "sb-connect": "sync cloud online login", "sb-signin": "sync login", "sb-signout": "log out logout", "plan-open": "pro upgrade subscription devices storage",
+    "sb-connect": "sync cloud online login", "sb-signin": "sync login", "sb-issues": "conflict merge two devices edited resolve", "sb-signout": "log out logout", "plan-open": "pro upgrade subscription devices storage",
     dailyIn: "study time plan", capIn: "weekly limit", "ai-setup": "gemini key chatbot", "sx-settings": "find ctrl k", "g-grades": "marks gpa",
     "lms-open": "d2l lms school sites", "cal-export": "calendar ics google outlook apple", "import-syllabus": "pdf course", "grp-page": "classmates share",
     "rm-open": "alerts push notify", "sbw-open": "widget tray startup desktop", "ob-replay": "tour help welcome start", "tour-open": "tour help guide orientation walkthrough tutorial", "bug-open": "bug report feedback problem issue idea support contact", "pwa-install": "home screen app",

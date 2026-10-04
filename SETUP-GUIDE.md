@@ -95,6 +95,7 @@ Open **SQL Editor > New query** in Supabase, paste a whole file and click **Run*
 | 6 | `supabase-bug-reports.sql` | Report a Bug or Send Feedback | Recommended |
 | 7 | `supabase-plans.sql` | Free and Pro plans, limits, devices (run after step 2 so group limits are added) | Before you sell Pro, and for notification keys |
 | 8 | `supabase-lean.sql` | Lean Sync and **Delete My Account and Data** (run it last) | Required for a public launch |
+| 9 | `supabase-sync-conflicts.sql` | Sync conflicts: two devices editing the same thing never overwrite each other (run it after `supabase-lean.sql`; see "Two devices, one note" below) | Strongly recommended |
 
 If you run `supabase-groups.sql` or `supabase-calendar-feed.sql` later, run `supabase-plans.sql` and `supabase-lean.sql` again afterwards.
 
@@ -1029,6 +1030,16 @@ Only work you finish counts. Tasks that arrive already done (from your school si
 
 **Term**
 - **Term Complete:** finish the term with Start a New Term.
+
+## Two Devices, One Note (Sync Conflicts)
+
+Students edit on a phone on the bus and a laptop at home, often offline. Without this step, whichever device saves last silently replaces the whole item, so an edit made on the other device can vanish. Run `supabase-sync-conflicts.sql` once (SQL Editor > New query > paste > Run, after `supabase-lean.sql`; it is safe to run again) and Studyboard stops that from happening:
+
+- A device that was offline merges what happened meanwhile before it sends its own changes, so a phone that was in a drawer for three weeks cannot undo this week's work.
+- Notes are merged line by line. If both devices changed the same line, **both versions are kept** in the note under a friendly divider, the note shows "Edited on two devices", and **Settings > Account and Sync > Sync Issues** lets the student keep theirs, the other, or both. Other things (task fields, flashcards, settings) are merged field by field, and the value that loses is written to a hidden history.
+- Nothing is blocked and nothing needs your attention as the app owner. The rules are in `SYNC-POLICY.md`.
+
+If you skip the file, sync keeps working as before, and devices coming back from offline still read before they write; but two devices saving at the same moment can still overwrite each other, because only the server can check that safely. Update the app and run the file together, in either order.
 
 ## Keeping Supabase Free (Lean Sync)
 
