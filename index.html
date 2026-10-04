@@ -3609,9 +3609,12 @@ h2.sec .pill{align-self:center}
 /* Study Companions: it sits in its own spot just left of the Add Task button, in front of the page (never over content:
    pages keep that bottom corner free for the button). Only the companion itself takes clicks. */
 .cp-layer{position:fixed;inset:0;z-index:-1;pointer-events:none}
-.cp-front .cp{position:absolute;pointer-events:none;touch-action:none;transition:opacity .2s ease,translate .25s ease}
-.cp-front .cp.cp-duck{opacity:0;translate:0 14px}
-.cp-front .cp.cp-duck .cp-hit{pointer-events:none}
+.cp-front .cp{position:absolute;pointer-events:none;touch-action:none;transition:opacity .2s ease,scale .25s ease}
+/* Stepping aside for a toast: it fades and shrinks in place (it never slides, so it is never even briefly off screen) */
+.cp-front .cp.cp-duck{opacity:0;scale:.8}
+.cp-front .cp.cp-duck .cp-hit,.cp-front .cp-hit.cp-hit-off{pointer-events:none}
+/* The placement guard (SBCOMP.clamp) reads the safe area through this probe: env() insets, or --sb-sai-top/right/bottom/left when set (tests, native shells) */
+.cp-probe{position:fixed;left:0;top:0;width:0;height:0;box-sizing:content-box;visibility:hidden;pointer-events:none;padding:var(--sb-sai-top,env(safe-area-inset-top,0px)) var(--sb-sai-right,env(safe-area-inset-right,0px)) var(--sb-sai-bottom,env(safe-area-inset-bottom,0px)) var(--sb-sai-left,env(safe-area-inset-left,0px))}
 .cp-front .cp-hit{position:absolute;left:10%;right:10%;top:4%;bottom:0;border-radius:46% 46% 40% 40%;pointer-events:auto;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent;touch-action:none}
 .cp-front .cp-hit:focus-visible{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 60%,transparent)}
 /* Pages keep 120 px free at the bottom for the Add Task button; on phones the button sits higher, so leave room for both */
@@ -3694,7 +3697,7 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-bubble.cheer.on::before{opacity:1;animation:cpSparkSpin 1.4s ease-in-out 2}
 .cp-bubble.long,.cp-bubble.long.on{animation:none}
 @keyframes cpBubbleWobble{0%,100%{transform:none}35%{transform:rotate(-1.6deg)}70%{transform:rotate(1.2deg)}}
-@keyframes cpBubbleCheer{0%,100%{transform:none}20%{transform:scale(1.07) rotate(-3deg)}45%{transform:scale(1.04) rotate(3deg)}70%{transform:scale(1.02) rotate(-1.5deg)}}
+@keyframes cpBubbleCheer{0%,100%{transform:none}20%{transform:translateY(-3px) rotate(-3deg)}45%{transform:translateY(-2px) rotate(3deg)}70%{transform:translateY(-1px) rotate(-1.5deg)}}
 @keyframes cpSparkSpin{0%,100%{transform:scale(1) rotate(0)}50%{transform:scale(1.25) rotate(45deg)}}
 .cp-front.cp-still .cp-bubble,.cp-front.cp-still .cp-bubble::before{animation:none!important;transition:opacity .2s!important}
 .cp-front.cp-still .cp-bubble.on{transform:none}
@@ -52536,6 +52539,7 @@ var COMP_KIT = (() => {
     const anim = (el, frames, ms, o) => {
       if (!el || still() || !el.animate) return null;
       const a = el.animate(frames, Object.assign({duration: ms, easing: "ease-in-out"}, o));
+      if (opts.watch) opts.watch(ms);   // the placement guard looks at it every frame while it runs
       running.add(a); a.onfinish = a.oncancel = () => running.delete(a);
       return a;
     };
@@ -52594,7 +52598,7 @@ var COMP_KIT = (() => {
   const later = (fn, ms) => { const t = setTimeout(() => { timers.delete(t); fn(); }, ms); timers.add(t); return t; };
   const clearTimers = () => { timers.forEach(t => clearTimeout(t)); timers.clear(); };
   const phone = () => innerWidth < 640;
-  const sizePx = c => { const s = c ? c.size : 1; return phone() ? Math.round(Math.max(62, Math.min(72, 66 * s))) : Math.round(Math.max(86, Math.min(108, 96 * s))); };
+  const sizePx = c => { const s = c ? c.size : 1; return Math.round((phone() ? Math.max(62, Math.min(72, 66 * s)) : Math.max(86, Math.min(108, 96 * s))) * shrink); };
   const GAP = 26;   // room between it and the Add Task button
 
   function geometry(){
@@ -52602,6 +52606,158 @@ var COMP_KIT = (() => {
     const sideNav = !!(r && r.width && r.left < 4 && r.height > innerHeight * 0.6);
     const side = sideNav ? Math.round(r.right) : 0;
     return {nav, r, sideNav, side};
+  }
+
+  /* ---------- The placement guard: the whole companion is on screen at all times ----------
+     SAFE RECT = the visual viewport (visualViewport: pinch zoom, soft keyboard, collapsing toolbars) minus the safe-area
+     insets (notch, rounded corners, home indicator) minus MARGIN. The insets are read from the .cp-probe element, whose
+     padding is env(safe-area-inset-*) unless --sb-sai-top/right/bottom/left are set on <html> (tests and native shells do that).
+     TRUE VISUAL BOUNDS = the union of the sprite group (every part, prop and outfit piece, as it is drawn right now, with
+     any animation transform), its shadow and its tap area, plus a little for the soft outline. clamp() measures them,
+     compares with the SAFE RECT and moves the companion until they are inside; it never shrinks it to a sliver or tucks it
+     away. Placement (choose) already only offers spots whose whole art plus room for its own hops fits (range), travel()
+     fits every keyframe of a trip inside, and clamp() runs on first placement, resize, orientation, visual viewport,
+     scroll, layout changes, text size, fonts, animation steps, the bubble, closing windows, the keyboard, and every 2 s. */
+  const MARGIN = 8;                              // air between the art and the edge of the safe area
+  const AN_UP = 26, AN_SIDE = 6, AN_DN = 3;      // room its own hops, waves and squashes need beyond the art at rest
+  let probe = null, vext = null, shrink = 1, guardFixes = 0, guardLast = null, sCache = null, sAt = 0;
+  function insets(){
+    try {
+      if (!probe || !probe.isConnected) { probe = document.createElement("div"); probe.className = "cp-probe"; probe.setAttribute("aria-hidden", "true"); document.body.appendChild(probe); }
+      const cs = getComputedStyle(probe), n = v => Math.max(0, parseFloat(v) || 0);
+      return {t: n(cs.paddingTop), r: n(cs.paddingRight), b: n(cs.paddingBottom), l: n(cs.paddingLeft)};
+    } catch (e) { return {t: 0, r: 0, b: 0, l: 0}; }
+  }
+  // In the coordinates fixed elements use (the layout viewport)
+  function safeRect(fresh){
+    const now = performance.now();
+    if (!fresh && sCache && now - sAt < 40) return sCache;
+    const vv = window.visualViewport, ins = insets(), de = document.documentElement;
+    const lw = de.clientWidth || innerWidth, lh = de.clientHeight || innerHeight;
+    let l = 0, t = 0, r = lw, b = lh;
+    if (vv) {
+      const l2 = Math.max(l, vv.offsetLeft), t2 = Math.max(t, vv.offsetTop), r2 = Math.min(r, vv.offsetLeft + vv.width), b2 = Math.min(b, vv.offsetTop + vv.height);
+      // a visual viewport that does not overlap the layout viewport (an odd zoomed-and-scrolled state) says nothing useful: keep the layout viewport
+      if (r2 - l2 >= 100 && b2 - t2 >= 100) { l = l2; t = t2; r = r2; b = b2; }
+    }
+    l = Math.max(l, ins.l); t = Math.max(t, ins.t); r = Math.min(r, lw - ins.r); b = Math.min(b, lh - ins.b);
+    sCache = {l: l + MARGIN, t: t + MARGIN, r: r - MARGIN, b: b - MARGIN}; sAt = now;
+    return sCache;
+  }
+  // Zoomed ancestors (CSS zoom) scale left/top: how many viewport pixels one style pixel is
+  const zf = () => { try { const w = front && front.offsetWidth; const z = w ? front.getBoundingClientRect().width / w : 1; return z > 0.25 && z < 4 ? z : 1; } catch (e) { return 1; } };
+  // The art as drawn right now, in client pixels (sprite with props and outfit, shadow, tap area), with room for its outline and glow
+  function visual(){
+    if (!box || box.hidden) return null;
+    let L = 1e9, T = 1e9, R = -1e9, B = -1e9;
+    const add = (r, pad) => { if (!r || (!r.width && !r.height)) return; L = Math.min(L, r.left - pad); T = Math.min(T, r.top - pad); R = Math.max(R, r.right + pad); B = Math.max(B, r.bottom + pad); };
+    const pad = Math.ceil((box.offsetWidth || 66) * 0.04) + 2;
+    const rig = box.querySelector(".cp-rig"), sh = box.querySelector(".cp-shadow"), hit = box.querySelector(".cp-hit");
+    if (rig) add(rig.getBoundingClientRect(), pad);
+    if (sh) add(sh.getBoundingClientRect(), 0);
+    if (hit) add(hit.getBoundingClientRect(), 0);
+    return L > R ? null : {left: L, top: T, right: R, bottom: B, width: R - L, height: B - T};
+  }
+  // How far the art reaches from the box's top-left corner, as a share of the box size (measured at rest, once per drawing)
+  function measureArt(){
+    try {
+      if (!box || !box.isConnected || box.hidden) return null;
+      const V = visual(), b = box.getBoundingClientRect(); if (!V || b.width < 20 || !(b.width > 0)) return null;
+      return (vext = {l: (V.left - b.left) / b.width, t: (V.top - b.top) / b.height, r: (V.right - b.left) / b.width, b: (V.bottom - b.top) / b.height});
+    } catch (e) { return null; }
+  }
+  const DEF_ART = {l: 0.04, t: 0.04, r: 0.96, b: 1};
+  // The box positions (left/top) whose art, with room for its own motions, is inside the safe rect (and clear of a side nav)
+  function range(px, fresh){
+    const S = safeRect(fresh), g = geometry(), e = vext || measureArt() || DEF_ART;
+    return {L: Math.max(S.l, g.side + 6) - e.l * px + AN_SIDE, R: S.r - e.r * px - AN_SIDE, T: S.t - e.t * px + AN_UP, B: S.b - e.b * px - AN_DN};
+  }
+  const feasible = rg => rg.L <= rg.R && rg.T <= rg.B;
+  let guardDepth = 0;
+  // The authority: measure, compare, move. Returns true when it had to move the companion.
+  function clamp(why){
+    if (!box || box.hidden || !cur || !front || guardDepth) return false;
+    const S = safeRect(true); if (S.r - S.l < 60 || S.b - S.t < 60) return false;
+    let V = visual(); if (!V) return false;
+    if ((V.width > S.r - S.l || V.height > S.b - S.t) && shrink > 0.5) {   // bigger than the room there is: a smaller companion, not a missing one
+      guardDepth++; try { shrink = Math.max(0.5, shrink * Math.min((S.r - S.l) / V.width, (S.b - S.t) / V.height) * 0.95); homeSig = ""; place(false); } finally { guardDepth--; }
+      return true;
+    }
+    let dx = 0, dy = 0;
+    if (V.left < S.l) dx = S.l - V.left; else if (V.right > S.r) dx = S.r - V.right;
+    if (V.top < S.t) dy = S.t - V.top; else if (V.bottom > S.b) dy = S.b - V.bottom;
+    if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) { if (bubbleOut()) { const b = front.querySelector(".cp-bubble.on"); if (b) placeBubble(b); } return false; }
+    const z = zf(), x = (parseFloat(box.style.left) || +box.dataset.x || 0) + dx / z, y = (parseFloat(box.style.top) || +box.dataset.y || 0) + dy / z;
+    box.style.left = f1(x) + "px"; box.style.top = f1(y) + "px";
+    box.dataset.x = f1(x); box.dataset.y = f1(y); homeSig = [f1(x), f1(y), box.dataset.px].join(",");
+    guardFixes++; guardLast = {why, dx: f1(dx), dy: f1(dy), w: innerWidth, h: innerHeight};
+    if ((why === "watchdog" || why === "anim") && Math.hypot(dx, dy) >= 3 && guardFixes <= 3) { try { if (window.SBERR) SBERR.flow("companion-bounds", new Error(`companion was off screen (${why}) by ${Math.round(dx)},${Math.round(dy)} at ${innerWidth}x${innerHeight}, ${mood}`)); } catch (e) {} }
+    const b = front.querySelector(".cp-bubble.on"); if (b) placeBubble(b);
+    fitHitSoon();
+    return true;
+  }
+  const bubbleOut = () => {
+    const b = front && front.querySelector(".cp-bubble.on"); if (!b) return false;
+    const r = b.getBoundingClientRect(), S = safeRect();
+    return r.left < S.l - 0.5 || r.right > S.r + 0.5 || r.top < S.t - 0.5 || r.bottom > S.b + 0.5;
+  };
+  let gT = 0;
+  const guardSoon = (why, ms) => { if (gT) return; gT = setTimeout(() => { gT = 0; try { clamp(why); } catch (e) { console.warn("companion guard", e); } fitHitSoon(); }, ms == null ? 60 : ms); };
+  // While any of its animations runs, look at it every frame (one rect read) and nudge it back in if a move strays out
+  let mwEnd = 0, mwRaf = 0;
+  function motionWatch(ms){
+    if (still()) return;   // nothing moves in static mode, so nothing to watch (and no frame callbacks at all)
+    mwEnd = Math.max(mwEnd, performance.now() + (ms || 1000) + 100);
+    if (mwRaf) return;
+    const step = () => { mwRaf = 0; if (!box || box.hidden || still()) return; try { clamp("anim"); } catch (e) {} if (performance.now() < mwEnd) mwRaf = requestAnimationFrame(step); };
+    mwRaf = requestAnimationFrame(step);
+  }
+  /* Controls (buttons, links, fields) under its tap area: it never steals their taps. Where the art has to overlap one, the tap
+     area shrinks to the largest part that is clear of every control (or switches off when no part is). */
+  const CTL_SEL = "button,a[href],input,select,textarea,summary,[role=button],[data-tab],#fab";
+  function controlRects(){
+    const out = [], W = innerWidth, H = innerHeight;
+    document.querySelectorAll(CTL_SEL).forEach(el => {
+      if ((layer && layer.contains(el)) || (front && front.contains(el)) || el.closest("#compFront,#compLayer")) return;
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2 || r.bottom <= 0 || r.right <= 0 || r.top >= H || r.left >= W || r.width * r.height > W * H * 0.3) return;
+      if (el.checkVisibility && !el.checkVisibility({checkVisibilityCSS: true})) return;
+      out.push(r);
+    });
+    return out;
+  }
+  let fitT = 0;
+  const fitHitSoon = () => { clearTimeout(fitT); fitT = setTimeout(fitHit, 120); };
+  function fitHit(){
+    try {
+      if (!box || box.hidden) return;
+      const hit = box.querySelector(".cp-hit"); if (!hit) return;
+      hit.style.left = hit.style.right = hit.style.top = hit.style.bottom = ""; hit.classList.remove("cp-hit-off");
+      const z = zf(), px = (+box.dataset.px || box.offsetWidth) * z;
+      // the tap area at rest (the 10% / 4% insets of .cp-hit), in client pixels, ignoring a trip in progress
+      const base = {l: (parseFloat(box.style.left) || 0) * z + px * 0.1, r: (parseFloat(box.style.left) || 0) * z + px * 0.9, t: (parseFloat(box.style.top) || 0) * z + px * 0.04, b: (parseFloat(box.style.top) || 0) * z + px};
+      const hits = controlRects().filter(c => c.left < base.r && c.right > base.l && c.top < base.b && c.bottom > base.t);
+      box.dataset.over = hits.length ? "1" : "";
+      if (!hits.length) return;
+      let free = [base];
+      hits.forEach(c => {
+        const next = [];
+        free.forEach(f => {
+          if (c.left >= f.r || c.right <= f.l || c.top >= f.b || c.bottom <= f.t) { next.push(f); return; }
+          if (c.top > f.t) next.push({l: f.l, r: f.r, t: f.t, b: c.top});
+          if (c.bottom < f.b) next.push({l: f.l, r: f.r, t: c.bottom, b: f.b});
+          if (c.left > f.l) next.push({l: f.l, r: c.left, t: Math.max(f.t, c.top), b: Math.min(f.b, c.bottom)});
+          if (c.right < f.r) next.push({l: c.right, r: f.r, t: Math.max(f.t, c.top), b: Math.min(f.b, c.bottom)});
+        });
+        free = next.filter(f => f.r - f.l > 1 && f.b - f.t > 1);
+      });
+      free.sort((a, b) => (b.r - b.l) * (b.b - b.t) - (a.r - a.l) * (a.b - a.t));
+      const best = free[0], need = Math.max(22, px * 0.3);
+      if (!best || best.r - best.l < need || best.b - best.t < need) { hit.classList.add("cp-hit-off"); return; }
+      const left = (parseFloat(box.style.left) || 0) * z, top = (parseFloat(box.style.top) || 0) * z;
+      hit.style.left = f1((best.l - left) / z) + "px"; hit.style.right = f1((px - (best.r - left)) / z) + "px";
+      hit.style.top = f1((best.t - top) / z) + "px"; hit.style.bottom = f1((px - (best.b - top)) / z) + "px";
+    } catch (e) { console.warn("companion hit", e); }
   }
 
   // Is an element see-through layout (nothing a student would read or press)?
@@ -52627,6 +52783,7 @@ var COMP_KIT = (() => {
   function ours(x, y){
     if (!box || !act || box.hidden) return false;
     const hit = box.querySelector(".cp-hit"), r = hit.getBoundingClientRect();
+    if (hit.classList.contains("cp-hit-off")) return false;
     if (x < r.left || x > r.right || y < r.top || y > r.bottom) return false;
     for (const el of document.elementsFromPoint(x, y)) { if (el === hit) return true; if (box.contains(el)) continue; if (!passthrough(el)) return false; }
     return false;
@@ -52682,8 +52839,8 @@ var COMP_KIT = (() => {
   }
   let RECTS = null;
   function spotCheck(c, px, f){
-    const L = geometry().side + 6;
-    if (c.left < L || c.top < 6 || c.left + px > innerWidth - 4 || c.top + px > innerHeight - 2) return {hard: true};
+    const rg = range(px);   // the whole art (props and room for its hops) inside the safe area, clear of a side nav
+    if (c.left < rg.L - 0.5 || c.left > rg.R + 0.5 || c.top < rg.T - 0.5 || c.top > rg.B + 0.5) return {hard: true};
     if (f.shown && c.left + px * 0.9 > f.left - 4 && c.left + px * 0.1 < f.right + 4 && c.top + px > f.top - 4 && c.top < f.bottom + 4) return {hard: true};
     const t = document.getElementById("toast");
     if (t && t.classList.contains("show")) { const q = t.getBoundingClientRect(); if (c.left < q.right && c.left + px > q.left && c.top < q.bottom && c.top + px > q.top) return {hard: true}; }
@@ -52703,21 +52860,21 @@ var COMP_KIT = (() => {
     return pageWant.x;
   }
   function candidates(px, f, fresh){
-    const feet = px * (112 / 120), ground = Math.round(f.bottom - feet), L = geometry().side + 6, R = innerWidth - px - 8, out = [];
+    const rg = range(px), feet = px * (112 / 120), ground = Math.round(Math.min(f.bottom - feet, rg.B)), L = rg.L, R = Math.max(rg.L, rg.R), out = [];
     const want = L + (R - L) * wantX(fresh), span = Math.max(1, R - L);
     const home = {left: Math.round(f.left - GAP - px), top: ground, kind: "home"};
     home.score = Math.abs(home.left - want) / span * 220 - 12;
     out.push(home);
     // the ground line, right across the bottom of the scene (both sides of the Add Task button)
     for (let x = L; x <= R; x += px * 0.5) out.push({left: Math.round(x), top: ground, kind: "ground", score: Math.abs(x - want) / span * 220});
-    for (let y = f.top - px - 10, k = 1; y >= 40; y -= px * 0.7, k++) out.push({left: Math.round(R - 2), top: Math.round(y), kind: "side", score: 240 + k * 16});
+    for (let y = f.top - px - 10, k = 1; y >= Math.max(40, rg.T); y -= px * 0.7, k++) out.push({left: Math.round(R - 2), top: Math.round(y), kind: "side", score: 240 + k * 16});
     const float = cur && cur.pose === "float";
-    for (let y = innerHeight - px - 16, ky = 0; y >= 30; y -= px * 0.8, ky++) for (let x = R - 2, kx = 0; x >= L; x -= px * 0.8, kx++) out.push({left: Math.round(x), top: Math.round(y), kind: "open", score: 320 + kx * 5 + ky * (float ? 5 : 12)});
+    for (let y = Math.min(innerHeight - px - 16, rg.B), ky = 0; y >= Math.max(30, rg.T); y -= px * 0.8, ky++) for (let x = R - 2, kx = 0; x >= L; x -= px * 0.8, kx++) out.push({left: Math.round(x), top: Math.round(y), kind: "open", score: 320 + kx * 5 + ky * (float ? 5 : 12)});
     return out;
   }
   let spotKind = "", spotSig = "";
   // fresh: choose from scratch (a new page); otherwise stay put unless something now covers it
-  function choose(fresh){
+  function choose1(fresh){
     const px = sizePx(cur), f = fabRect();
     const here = box && box.dataset.x ? {left: +box.dataset.x, top: +box.dataset.y} : null;
     RECTS = null;
@@ -52734,23 +52891,54 @@ var COMP_KIT = (() => {
       if (b.surface) { if (c.kind !== "home" && c.kind !== "ground") continue; c.score += 45; }
       if (!best || c.score < best.score) best = c;
     }
-    // Nowhere open. On a phone it never sits over what you press: it tucks into the page's side gutter and peeks in from the right
-    // edge (only a sliver shows), at the lowest height where that gutter is clear, and steps back out when a clear spot appears.
-    if (!best && phone()) best = dockSpot(px, f);
-    if (!best) best = list.find(c => c.kind === "home") || list[0];   // nowhere open: it floats beside Add Task like the button itself, with room reserved below the page
+    // Nowhere open (a dense page on a small screen): it still stays fully on screen. It takes the on-screen spot, along the
+    // edges and corners or anywhere else inside the safe area, where it covers the least (controls count most) and is nearest home;
+    // where it must overlap a control, that control keeps its taps (fitHit) or the companion gets a little smaller (choose).
+    if (!best) best = edgeSpot(px, f, list, here, fresh);
     return Object.assign(best, {px, fab: f});
   }
-  const DOCK_VIS = 15;
-  function dockSpot(px, f){
-    const left = Math.round(innerWidth - DOCK_VIS - px * 0.08), ground = Math.round(f.bottom - px * (112 / 120));
-    const rects = RECTS || (RECTS = contentRects()), stripL = innerWidth - DOCK_VIS - 1;
-    let pick = null;
-    for (let y = ground; y >= 40 && !pick; y -= Math.round(px * 0.5)) {
-      if (f.shown && stripL < f.right + 4 && y + px > f.top - 4 && y < f.bottom + 4) continue;
-      const a = {t: y + px * 0.1, b: y + px * 0.97};
-      if (!rects.some(q => q.right > stripL && q.top < a.b && q.bottom > a.t)) pick = y;
+  function choose(fresh){
+    // a window too small for it at full size: smaller, never off screen
+    shrink = 1;
+    while (shrink > 0.55 && !feasible(range(sizePx(cur), true))) shrink = Math.round((shrink - 0.05) * 100) / 100;
+    const fit = shrink;
+    let s = choose1(fresh);
+    if (s.kind === "edge" && s.over > 0 && fit >= 1 && sizePx(cur) > 52) {   // still covering something: try a smaller one (0.82x) and keep it if that covers clearly less
+      shrink = 0.82;
+      const t = choose1(fresh);
+      if (t.kind !== "edge" || t.over < s.over * 0.6) s = t; else shrink = fit;
     }
-    return {left, top: pick == null ? ground : pick, kind: "dock", score: 999};
+    return s;
+  }
+  // The best fully-on-screen spot when no open spot exists. Score = covered area (controls, the Add Task button and the tab bar count
+  // several times; text and pictures once) + distance from where it is happiest (home beside Add Task) + a pull toward the edges.
+  function edgeSpot(px, f, list, here, fresh){
+    const rg = range(px), rects = (RECTS || (RECTS = contentRects())).slice(0, 1800), ctl = controlRects();
+    const e = vext || DEF_ART, S = safeRect(), g = geometry();
+    const X0 = rg.L, X1 = Math.max(rg.L, rg.R), Y0 = rg.T, Y1 = Math.max(rg.T, rg.B);
+    const home = list.find(c => c.kind === "home") || {left: X1, top: Y1};
+    const hx = Math.min(X1, Math.max(X0, home.left)), hy = Math.min(Y1, Math.max(Y0, home.top));
+    const heavy = [];
+    if (f.shown) heavy.push({left: f.left - 4, right: f.right + 4, top: f.top - 4, bottom: f.bottom + 4});
+    if (g.nav && g.r && g.r.width) heavy.push(g.r);
+    const step = Math.max(px * 0.5, Math.sqrt(Math.max(1, (X1 - X0) * (Y1 - Y0)) / 260));
+    const xs = [], ys = [];
+    for (let x = X0; x < X1; x += step) xs.push(x); xs.push(X1);
+    for (let y = Y0; y < Y1; y += step) ys.push(y); ys.push(Y1);
+    const hitA = (x, y, a, rs) => { let t = 0; for (const q of rs) { const ox = Math.min(a.r, q.right) - Math.max(a.l, q.left), oy = Math.min(a.b, q.bottom) - Math.max(a.t, q.top); if (ox > 0 && oy > 0) t += ox * oy; } return t; };
+    let best = null;
+    const test = (x, y, kind) => {
+      x = Math.round(x); y = Math.round(y);
+      const a = {l: x + px * e.l + 3, r: x + px * e.r - 3, t: y + px * e.t + 3, b: y + px * e.b - 3};
+      const over = hitA(x, y, a, rects) + 6 * hitA(x, y, a, ctl) + 10 * hitA(x, y, a, heavy);
+      const edge = Math.min(x - X0, X1 - x, y - Y0, Y1 - y);
+      let score = over + Math.hypot(x - hx, y - hy) * 0.5 + Math.min(edge, 200) * 0.3;
+      if (here && !fresh && Math.hypot(x - here.left, y - here.top) < px * 0.6) score -= 150;
+      if (!best || score < best.score) best = {left: x, top: y, kind: "edge", score, over: Math.round(over), at: kind};
+    };
+    ys.forEach(y => xs.forEach(x => test(x, y, "grid")));
+    test(hx, hy, "home"); test(X0, Y1, "corner"); test(X1, Y1, "corner"); test(X0, Y0, "corner"); test(X1, Y0, "corner");
+    return best || {left: Math.round(hx), top: Math.round(hy), kind: "edge", score: 999, over: 0};
   }
   // Travel to a new spot in character, picked from a few fun styles:
   //   walkers: a trail of bouncy hops (squash on landing, a puff of dust each time), or one big leap with a flip
@@ -52759,13 +52947,16 @@ var COMP_KIT = (() => {
   let travelAnim = null, followRaf = 0;
   function puff(x, y, big){
     if (!front || still()) return;
-    const d = document.createElement("span"); d.className = "cp-dust" + (big ? " big" : "");
+    const d = document.createElement("span"); d.className = "cp-dust" + (big ? " big" : ""), S = safeRect();
+    x = Math.max(S.l + 23, Math.min(S.r - 23, x)); y = Math.max(S.t + 10, Math.min(S.b - 8, y));   // effects stay on screen too
     d.style.left = Math.round(x) + "px"; d.style.top = Math.round(y) + "px";
     front.appendChild(d); setTimeout(() => d.remove(), 700);
   }
   function lines(fromX, y, dir){
     if (!front || still()) return;
-    const d = document.createElement("span"); d.className = "cp-speed"; d.style.left = Math.round(fromX) + "px"; d.style.top = Math.round(y) + "px";
+    const d = document.createElement("span"), S = safeRect(); d.className = "cp-speed";
+    fromX = Math.max(S.l + 40 + 40, Math.min(S.r - 40 - 40, fromX)); y = Math.max(S.t + 16, Math.min(S.b - 16, y));   // the lines move 40 px sideways, so they start well inside
+    d.style.left = Math.round(fromX) + "px"; d.style.top = Math.round(y) + "px";
     d.style.setProperty("--dir", dir); front.appendChild(d); setTimeout(() => d.remove(), 800);
   }
   function followBubble(){
@@ -52773,7 +52964,31 @@ var COMP_KIT = (() => {
     const step = () => { const b = front && front.querySelector(".cp-bubble.on"); if (b) placeBubble(b); if (travelAnim) followRaf = requestAnimationFrame(step); };
     followRaf = requestAnimationFrame(step);
   }
-  function travel(from, to, px){
+  // Every keyframe of a trip (arcs, loops, leaps, a dash's overshoot, squash and spin) is shifted so the art, as it is drawn in that
+  // frame (translated, rotated and scaled about the box centre), stays inside the safe area. The first and last frames are the two spots.
+  function fitFrames(frames, to, px){
+    try {
+      const S = safeRect(true), e = vext || measureArt() || DEF_ART, pad = Math.ceil(px * 0.04) + 2;
+      const cx = to.left + px / 2, cy = to.top + px / 2;
+      const corners = [[e.l, e.t], [e.r, e.t], [e.r, e.b], [e.l, e.b]].map(([a, b]) => [a * px - px / 2 - (a < 0.5 ? pad : -pad), b * px - px / 2 - (b < 0.5 ? pad : -pad)]);
+      frames.forEach(fr => {
+        const m = /^translate\(([-\d.]+)px,\s*([-\d.]+)px\)(.*)$/.exec(fr.transform || ""); if (!m || fr.offset === 1) return;
+        let x = +m[1], y = +m[2];
+        const ops = []; m[3].replace(/(rotate|scale)\(([^)]*)\)/g, (all, k, v) => { const n = v.split(",").map(t => parseFloat(t)); ops.push(k === "rotate" ? {a: n[0] * Math.PI / 180} : {sx: n[0], sy: n.length > 1 ? n[1] : n[0]}); return all; });
+        let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+        corners.forEach(([px0, py0]) => {
+          let X = px0, Y = py0;
+          for (let i = ops.length - 1; i >= 0; i--) { const o = ops[i]; if (o.a != null) { const c = Math.cos(o.a), sn = Math.sin(o.a), nx = X * c - Y * sn; Y = X * sn + Y * c; X = nx; } else { X *= o.sx; Y *= o.sy; } }
+          minX = Math.min(minX, X); maxX = Math.max(maxX, X); minY = Math.min(minY, Y); maxY = Math.max(maxY, Y);
+        });
+        const L = cx + x + minX, R = cx + x + maxX, T = cy + y + minY, B = cy + y + maxY;
+        if (L < S.l) x += S.l - L; else if (R > S.r) x -= R - S.r;
+        if (T < S.t) y += S.t - T; else if (B > S.b) y -= B - S.b;
+        fr.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)${m[3]}`;
+      });
+    } catch (err) { console.warn("companion trip", err); }
+  }
+  function travel(from, to, px, force){
     if (!box || !from || still() || document.hidden) return;
     const dx = from.left - to.left, dy = from.top - to.top, d = Math.hypot(dx, dy);
     if (d < 6) return;
@@ -52781,7 +52996,7 @@ var COMP_KIT = (() => {
     const float = cur.pose === "float", dir = to.left > from.left ? 1 : -1, feetY = to.top + px * (112 / 120);
     const frames = []; let dur, easing = "linear";
     const T = (t, x, y, extra) => frames.push({transform: `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)${extra || ""}`, offset: t});
-    const style = d > Math.max(innerWidth * 0.55, 620) ? "dash" : float ? (Math.random() < 0.55 ? "loop" : "wave") : (d > 260 && Math.random() < 0.4 ? "leap" : "hops");
+    const style = force || d > Math.max(innerWidth * 0.55, 620) ? (force || "dash") : float ? (Math.random() < 0.55 ? "loop" : "wave") : (d > 260 && Math.random() < 0.4 ? "leap" : "hops");
     if (style === "dash") {
       dur = 900;
       T(0, dx, dy, " scale(1)"); T(0.14, dx + dir * 14, dy, ` scale(.86,1.12) rotate(${-dir * 6}deg)`);
@@ -52823,12 +53038,14 @@ var COMP_KIT = (() => {
       easing = "ease-in-out";
       for (let i = 1; i < 4; i++) later(() => spawnFx("sparkle", 1), dur * i / 4);
     }
+    fitFrames(frames, to, px);
     travelAnim = box.animate(frames, {duration: dur, easing});
     box.dataset.travel = style;
+    motionWatch(dur);
     busyUntil = Math.max(busyUntil, performance.now() + dur + 200);
     followBubble();
     travelAnim.onfinish = travelAnim.oncancel = () => {
-      travelAnim = null; delete box.dataset.travel;
+      travelAnim = null; delete box.dataset.travel; clamp("anim-end");
       const b = front && front.querySelector(".cp-bubble.on"); if (b) placeBubble(b);
       if (act && mood === "idle" && !still()) { act.mouth("smile"); later(() => act && mood === "idle" && act.mouth("neutral"), 900); const r = box.getBoundingClientRect(); glanceAt(r.left + (dir > 0 ? -220 : r.width + 220), r.top + r.height * 0.4, 900); }
     };
@@ -52847,8 +53064,9 @@ var COMP_KIT = (() => {
     const sig = [s.left, s.top, s.px].join(",");
     if (sig === homeSig) {
       // New page, same spot: a small hop and a look around, so it feels like it noticed
-      if (fresh && !still() && !document.hidden && !travelAnim && cur.pose !== "float") box.animate([{transform: "translateY(0)"}, {transform: "translateY(-12px)", offset: 0.4}, {transform: "translateY(0) scale(1.05,.94)", offset: 0.8}, {transform: "translateY(0)"}], {duration: 420, easing: "ease-out"});
-      else if (fresh && !still() && !document.hidden && !travelAnim) box.animate([{transform: "translateY(0)"}, {transform: "translateY(-8px)"}, {transform: "translateY(0)"}], {duration: 700, easing: "ease-in-out"});
+      if (fresh && !still() && !document.hidden && !travelAnim && cur.pose !== "float") { box.animate([{transform: "translateY(0)"}, {transform: "translateY(-12px)", offset: 0.4}, {transform: "translateY(0) scale(1.05,.94)", offset: 0.8}, {transform: "translateY(0)"}], {duration: 420, easing: "ease-out"}); motionWatch(420); }
+      else if (fresh && !still() && !document.hidden && !travelAnim) { box.animate([{transform: "translateY(0)"}, {transform: "translateY(-8px)"}, {transform: "translateY(0)"}], {duration: 700, easing: "ease-in-out"}); motionWatch(700); }
+      clamp("place"); fitHitSoon();
       return;
     }
     const from = box.dataset.x ? {left: +box.dataset.x, top: +box.dataset.y} : null;
@@ -52856,6 +53074,7 @@ var COMP_KIT = (() => {
     box.dataset.x = s.left; box.dataset.y = s.top; box.dataset.px = s.px; box.dataset.spot = s.kind;
     if (from && homeSig) travel(from, s, s.px);
     homeSig = sig;
+    clamp("place"); fitHitSoon();
     duck();
   }
   let placeT = 0;
@@ -52870,7 +53089,7 @@ var COMP_KIT = (() => {
     }, ms == null ? 250 : ms);
   };
   // Content scrolling under it: when scrolling settles, it moves only if something now sits beneath it
-  addEventListener("scroll", () => placeSoon(320), {passive: true, capture: true});
+  addEventListener("scroll", () => { placeSoon(320); guardSoon("scroll", 120); }, {passive: true, capture: true});
   // A toast that overlaps it: it steps down out of the way until the toast is gone
   function duck(){
     if (!box) return;
@@ -52943,23 +53162,41 @@ var COMP_KIT = (() => {
   }
   const ownLines = kind => cur && Array.isArray(cur.lines[kind]) && cur.lines[kind].length ? cur.lines[kind] : GENERIC[kind] || GENERIC.tap;
   const bubbleOpen = () => !!(front && front.querySelector(".cp-bubble.on"));
-  function hideBubble(){ clearTimeout(bubbleT); bubbleIdea = null; bubbleAsk = false; if (front) { const b = front.querySelector(".cp-bubble"); if (b) b.classList.remove("on", "has-idea", "asking"); } }
+  function hideBubble(){ clearTimeout(bubbleT); bubbleIdea = null; bubbleAsk = false; if (front) { const b = front.querySelector(".cp-bubble"); if (b) b.classList.remove("on", "has-idea", "asking"); } guardSoon("bubble", 300); }
   let bRects = null, bRectsAt = 0;
   const bubbleRects = () => { const n = performance.now(); if (!bRects || n - bRectsAt > 700) { try { bRects = contentRects(); } catch (e) { bRects = []; } bRectsAt = n; } return bRects; };
   // Where the bubble goes: its right edge lines up with the Add Task button's right edge, just above the companion
   function placeBubble(b){
-    // Centred over the companion (kept on screen), with its pointer always aimed at it, wherever it stands or travels
-    const r = box.getBoundingClientRect(), g = geometry(), cx = r.left + r.width / 2;
-    const maxW = Math.min(phone() ? 300 : 280, innerWidth - g.side - 20);
+    // Centred over the companion, with its pointer always aimed at it, wherever it stands or travels, and always whole inside the
+    // safe area: its width and height are capped to it (taller text scrolls inside), and it flips above/below or slides to fit.
+    // PL/PR/PT/PB leave room for the arrow and the sparkle that stick out of it.
+    const r = box.getBoundingClientRect(), g = geometry(), S = safeRect(), cx = r.left + r.width / 2;
+    let PL = 4, PR = 14, PT = 14, PB = 8;
+    const maxW = Math.max(120, Math.min(phone() ? 300 : 280, S.r - PR - Math.max(S.l, g.side + MARGIN) - PL - 8));
     if (b.dataset.mw !== String(maxW)) { b.style.maxWidth = maxW + "px"; b.dataset.mw = maxW; }
-    const w = b.offsetWidth, h = b.offsetHeight;
-    const left = Math.max(g.side + 10, Math.min(innerWidth - 10 - w, cx - w / 2));
-    let top = Math.max(8, r.top + r.height * 0.06 - h);
+    // measured at the left edge (an absolute box shrinks to what is left of the screen beside its left), then pinned to that width
+    b.style.width = ""; b.style.left = "0px";
+    const w = b.offsetWidth + 1; b.style.width = w + "px";
+    const maxH = Math.max(60, Math.floor(S.b - S.t - PT - PB - 16)), mh = b.classList.contains("long") ? Math.min(maxH, Math.round(Math.min(innerHeight * 0.46, 340))) : maxH;
+    if (b.dataset.mh !== String(mh)) { b.style.maxHeight = mh + "px"; b.dataset.mh = mh; }
+    b.style.overflowY = b.scrollHeight > mh + 1 ? "auto" : "";   // only a bubble that must be cut scrolls (the arrow is outside it)
+    const h = b.offsetHeight;
+    // its wobble tilts it a few degrees: a tall box swings sideways, a wide one up and down
+    const tx = Math.ceil(h / 2 * 0.06), ty = Math.ceil(w / 2 * 0.06); PL += tx; PR += tx; PT += ty; PB += ty;
+    const lo = Math.max(S.l, g.side + MARGIN) + PL, hi = S.r - PR;
+    const left = Math.max(lo, Math.min(hi - w, cx - w / 2));
+    const minT = S.t + PT, maxT = S.b - PB - h;
+    let top = r.top + r.height * 0.06 - h;
     // Over the page it should cover as little as possible: above the companion, or below it when that hides fewer controls and text
-    const topB = Math.min(innerHeight - h - 8, r.bottom + 4);
+    const topB = r.bottom + 4;
+    const aboveFits = top >= minT, belowFits = topB <= maxT;
     const cover = t => { let a = 0; const x1 = left, x2 = left + w, y2 = t + h; for (const q of bubbleRects()) { const ox = Math.min(x2, q.right) - Math.max(x1, q.left), oy = Math.min(y2, q.bottom) - Math.max(t, q.top); if (ox > 0 && oy > 0) a += ox * oy; } return a; };
-    const below = topB > r.bottom - h * 0.5 && cover(topB) + 400 < cover(top);
+    let below = false;
+    if (aboveFits && belowFits) below = topB > r.bottom - h * 0.5 && cover(topB) + 400 < cover(top);
+    else if (!aboveFits && belowFits) below = true;
+    else if (!aboveFits && !belowFits) below = (S.b - r.bottom) > (r.top - S.t);   // neither side has room for all of it: take the roomier side and keep it inside
     if (below) top = topB;
+    top = Math.max(minT, Math.min(maxT, top));
     b.classList.toggle("below", below);
     b.style.left = Math.round(left) + "px"; b.style.top = Math.round(top) + "px";
     b.style.setProperty("--tx", Math.round(Math.max(16, Math.min(w - 16, r.left + r.width / 2 - left))) + "px");
@@ -52983,6 +53220,7 @@ var COMP_KIT = (() => {
     if (btns.length) { b.classList.add("has-idea"); b.insertAdjacentHTML("beforeend", `<span class="cp-b-acts">${btns.join("")}</span>`); }
     placeBubble(b);
     void b.offsetWidth; b.classList.add("on");
+    guardSoon("bubble", 450);
     clearTimeout(bubbleT);
     bubbleT = setTimeout(hideBubble, opts.ms || (btns.length ? 9000 : Math.max(2600, 1400 + text.length * 55)));
     act.mouth("open"); later(() => { if (act && mood !== "doze" && mood !== "nap") act.mouth(mood === "study" ? "neutral" : "smile"); later(() => { if (act && mood === "idle") act.mouth("neutral"); }, 1400); }, 420);
@@ -53195,8 +53433,9 @@ var COMP_KIT = (() => {
     compChanged();
     if (box) box.remove();
     layer.insertAdjacentHTML("beforeend", `<div class="cp cp-${c.pose}" data-id="${esc(c.id)}"><span class="cp-shadow"></span><div class="cp-move"><div class="cp-breathe">${rigSvg(c, {wear: wearOf(c)})}</div></div><div class="cp-fx"></div><div class="cp-hit" tabindex="0" role="button" aria-label="${esc(nameOf(c))}, your study companion. Press to say hi. Press and hold, or right click, to choose a companion."></div></div>`);
-    box = layer.querySelector(".cp");
-    act = actor(c, box, {spawn: spawnFx});
+    box = layer.querySelector(".cp"); vext = null;
+    { const px0 = sizePx(c); box.style.cssText = `left:0px;top:0px;width:${px0}px;height:${px0}px`; front.appendChild(box); }   // sized and in the front layer before anything measures it
+    act = actor(c, box, {spawn: spawnFx, watch: motionWatch});
     applyVars();
     place();
     const running = typeof pomo !== "undefined" && pomo && pomo.running;
@@ -53212,7 +53451,7 @@ var COMP_KIT = (() => {
     clearTimers(); clearInterval(tickT); if (act) act.stopAll();
     if (layer) layer.remove(); if (front) front.remove();
     document.body.classList.remove("cp-on"); document.documentElement.style.removeProperty("--cp-reserve");
-    layer = front = box = act = cur = null; curSig = ""; home = ""; homeSig = "";
+    layer = front = box = act = cur = null; curSig = ""; home = ""; homeSig = ""; vext = null; shrink = 1;
     compChanged();
   }
   // One place that announces "the companion (or its name/outfit) changed": every live AI icon is swapped to the new face
@@ -53785,16 +54024,26 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     if (!layer) return;
     [layer, front].forEach(el => el && el.classList.toggle("cp-paused", document.hidden));
     if (document.hidden) { clearTimers(); if (act) act.stopAll(); aiSeen(); }
-    else { const s = aiRead(); awayMs = s.seen ? Date.now() - s.seen : 0; noteInput(); schedule(); welcomeBack(); aiMaybe("back"); }
+    else { const s = aiRead(); awayMs = s.seen ? Date.now() - s.seen : 0; noteInput(); schedule(); welcomeBack(); aiMaybe("back"); sAt = 0; guardSoon("visible"); }
   });
   if (mq) (mq.addEventListener ? mq.addEventListener("change", () => { applyVars(); if (act) act.stopAll(); schedule(); }) : mq.addListener(() => { applyVars(); schedule(); }));
   let refreshT = 0;
   const refresh = ms => { clearTimeout(refreshT); refreshT = setTimeout(() => { try { passCacheReset(); build(); } catch (e) { console.warn("companion", e); } }, ms || 0); };
   new MutationObserver(() => refresh(60)).observe(document.documentElement, {attributes: true, attributeFilter: ["data-skin", "data-theme"]});
-  addEventListener("resize", () => placeSoon(200));
+  // The placement guard's triggers (see clamp): the window, the visual viewport (zoom, keyboard, toolbars), rotation, layout, text size, fonts
+  addEventListener("resize", () => { sAt = 0; try { clamp("resize"); } catch (e) {} placeSoon(200); });
+  addEventListener("orientationchange", () => { sAt = 0; try { clamp("rotate"); } catch (e) {} placeSoon(350); guardSoon("rotate", 700); });
+  addEventListener("pageshow", () => { sAt = 0; guardSoon("pageshow"); });
+  if (window.visualViewport) ["resize", "scroll"].forEach(k => visualViewport.addEventListener(k, () => { sAt = 0; guardSoon("viewport", 30); if (k === "resize") placeSoon(250); }));
+  document.addEventListener("focusin", () => { guardSoon("focus", 350); guardSoon("keyboard", 800); });
+  document.addEventListener("focusout", () => guardSoon("blur", 350));
+  new MutationObserver(() => { sAt = 0; vext = null; guardSoon("text-size", 100); placeSoon(150); }).observe(document.documentElement, {attributes: true, attributeFilter: ["data-ts", "data-hc"]});
+  try { if (document.fonts) { document.fonts.ready.then(() => guardSoon("fonts")); document.fonts.addEventListener("loadingdone", () => guardSoon("fonts", 100)); } } catch (e) {}
+  // The safety net: one rect read every 2 s while it is showing, so even a path nobody thought of is corrected (and reported in the error log ring)
+  setInterval(() => { if (box && !box.hidden && !document.hidden) { try { clamp("watchdog"); } catch (e) {} if (!travelAnim && !press) fitHit(); } }, 2000);
   { const nav = document.querySelector("nav.tabs"); if (nav) new MutationObserver(() => placeSoon(80)).observe(nav, {attributes: true, attributeFilter: ["data-fit"]}); }
   // The page changing shape under it (a banner or card appearing, a list growing): look again once things settle
-  try { const v = document.getElementById("view"); if (v && window.ResizeObserver) new ResizeObserver(() => { if (!travelAnim && !press) placeSoon(450); }).observe(v); } catch (e) {}
+  try { const v = document.getElementById("view"); if (v && window.ResizeObserver) new ResizeObserver(() => { guardSoon("layout", 100); if (!travelAnim && !press) placeSoon(450); }).observe(v); } catch (e) {}
   let lastTab = "", lastRoam = Date.now(), nextRoam = Date.now() + rand(12, 25) * 60000;
   const roamDue = chance => Date.now() - lastRoam > 4 * 60000 && Math.random() < chance;
   // A stroll on its own every 12 to 25 minutes while you're around (never during a focus session or with a window open)
@@ -53807,7 +54056,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   }, 30000);
   hook("render", tab => {
     if (!layer) { if (isOn()) refresh(0); return; }
-    applyVars();
+    applyVars(); fitHitSoon();
     // It stays where it is when you switch pages (unless something there would be covered), and only now and then
     // takes the chance to wander somewhere new, so it feels fresh without hopping about on every click.
     const newTab = tab !== lastTab, first = !lastTab, wander = newTab && !first && roamDue(0.2);
@@ -54003,7 +54252,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     if (body.classList.contains("cp-pickbody")) { body.innerHTML = pickerBody(); body.scrollTop = top; wirePreviews(body); }
     else { const sb = body.closest(".sheet-body"), st = sb ? sb.scrollTop : 0; body.innerHTML = shopBody(); wirePreviews(body); if (sb) sb.scrollTop = st; }
   }
-  const DLG_CLOSE = () => stopPreviews();
+  const DLG_CLOSE = () => { stopPreviews(); guardSoon("dialog", 80); };
   dlg.addEventListener("close", DLG_CLOSE);
 
   hook("act", (a, el) => {
@@ -54292,6 +54541,17 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     themes: () => Object.keys(REG), list: k => (REG[k] ? REG[k].list : []).map(c => ({id: c.id, name: c.name, kind: c.kind, pose: c.pose})),
     current: () => current() && current().id, mood: () => mood, el: () => box, open: openPicker,
     tap: () => react(), cheer: k => { lastCheer = 0; cheer(k || "task"); }, greet: () => { try { sessionStorage.removeItem(GREET_KEY); } catch (e) {} greet(); },
+    say: (t, o) => say(t, Object.assign({again: true}, o)),
+    // A trip to a corner or any point (clamped into the allowed range), in a chosen style (dash, leap, hops, loop, wave); for tests
+    trip: (x, y, style) => {
+      if (!box || !cur) return false;
+      const px = +box.dataset.px, rg = range(px, true), from = {left: +box.dataset.x, top: +box.dataset.y};
+      const to = {left: Math.round(Math.max(rg.L, Math.min(rg.R, x))), top: Math.round(Math.max(rg.T, Math.min(rg.B, y))), kind: "ground", px};
+      box.style.left = to.left + "px"; box.style.top = to.top + "px"; box.dataset.x = to.left; box.dataset.y = to.top; homeSig = [to.left, to.top, px].join(",");
+      travel(from, to, px, style); return true;
+    },
+    range: () => cur ? range(sizePx(cur), true) : null,
+    clamp: why => clamp(why || "api"), safe: () => safeRect(true), bounds: () => { const V = visual(), b = front && front.querySelector(".cp-bubble.on"), r = b && b.getBoundingClientRect(); return {visual: V, safe: safeRect(true), bubble: r ? r.toJSON() : null, hit: box ? box.querySelector(".cp-hit").getBoundingClientRect().toJSON() : null, shrink, fixes: guardFixes, last: guardLast, ext: vext, range: cur ? range(sizePx(cur), true) : null, fab: fabRect(), over: box ? box.dataset.over : "", spot: box ? box.dataset.spot : "", hitOff: box ? box.querySelector(".cp-hit").classList.contains("cp-hit-off") : false}; },
     hit: (x, y) => ours(x, y), refresh: () => { curSig = ""; build(); }, place: fresh => { passCacheReset(); homeSig = ""; place(fresh !== false); },
     motion: n => act && act.motion(n), ACC: ACC.map(a => Object.assign({}, a)), IDLES: Object.keys(IDLES),
     wearing: () => cur ? wearOf(cur) : "", hours,
