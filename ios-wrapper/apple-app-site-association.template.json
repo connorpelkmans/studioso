@@ -1,0 +1,14 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["TEAMID.com.studioso.app"],
+        "components": [
+          { "/": "/", "?": { "deck": "*" }, "comment": "shared deck links" },
+          { "/": "/", "?": { "group": "*" }, "comment": "study group invites" },
+          { "/": "/", "?": { "task": "*" }, "comment": "open a task" }
+        ]
+      }
+    ]
+  }
+}

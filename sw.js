@@ -1,14 +1,29 @@
 // Studyboard offline support: keeps a copy of the app so it opens with no internet.
 // Your data is never stored here; it lives in the app itself and in your Supabase account.
-const CACHE = "studyboard-v2";
-const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/maskable-512.png", "./icons/apple-touch-icon.png", "./today.webmanifest"];
+const CACHE = "studyboard-v4";
+// CORE must exist for the app to work offline. OPTIONAL files (icons) may be missing, in the icons/ folder layout or the
+// flat layout; a missing one never stops the service worker from installing.
+const CORE = ["./", "./index.html"];
+const OPTIONAL = ["./manifest.webmanifest", "./today.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/maskable-512.png", "./icons/apple-touch-icon.png",
+  "./icon-192.png", "./icon-512.png", "./maskable-512.png", "./apple-touch-icon.png",
+  "./vendor/supabase-js-2.117.2.umd.js", "./vendor/fonts.css",
+  "./vendor/fonts/lexend-latin-400-normal.woff2", "./vendor/fonts/lexend-latin-500-normal.woff2", "./vendor/fonts/lexend-latin-600-normal.woff2",
+  "./vendor/fonts/lexend-latin-700-normal.woff2", "./vendor/fonts/lexend-latin-800-normal.woff2",
+  "./vendor/fonts/atkinson-hyperlegible-next-latin-400-normal.woff2", "./vendor/fonts/atkinson-hyperlegible-next-latin-500-normal.woff2",
+  "./vendor/fonts/atkinson-hyperlegible-next-latin-700-normal.woff2",
+  "./vendor/fonts/atkinson-hyperlegible-latin-400-normal.woff2", "./vendor/fonts/atkinson-hyperlegible-latin-700-normal.woff2"];
+// PDF.js (same-origin, ES modules) is saved too so a PDF can be imported offline; if it isn't there the fetch handler saves it on first use.
+OPTIONAL.push("./vendor/pdfjs/pdf.min.mjs", "./vendor/pdfjs/pdf.worker.min.mjs");
+// Same-origin vendored libraries and fonts are precached (OPTIONAL, so a missing one never blocks install). The CDN copy is only the
+// fallback the page uses if the vendored file can't load; it is cached opportunistically and never required.
 const LIBS = ["https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"];
-const LIB_HOSTS = ["cdn.jsdelivr.net", "cdnjs.cloudflare.com", "fonts.googleapis.com", "fonts.gstatic.com"];
+const LIB_HOSTS = ["cdn.jsdelivr.net"];
 
 self.addEventListener("install", e => {
   e.waitUntil((async () => {
     const c = await caches.open(CACHE);
-    await c.addAll(SHELL);
+    await c.addAll(CORE);
+    await Promise.all(OPTIONAL.map(u => c.add(u).catch(() => {})));
     await Promise.all(LIBS.map(u => fetch(u, {mode: "cors"}).then(r => r.ok && c.put(u, r)).catch(() => {})));
     await self.skipWaiting();
   })());
@@ -22,14 +37,20 @@ self.addEventListener("activate", e => {
 const timeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
 self.addEventListener("fetch", e => {
   const req = e.request, url = new URL(req.url);
-  if (req.method !== "GET") return;
+  // Quick capture: the Web Share Target (manifest share_target) POSTs shared text and photos here. Handled, never cached.
+  if (req.method === "POST" && url.origin === location.origin && /\/share-target$/.test(url.pathname)) { e.respondWith(sbcShare(req)); return; }
+  if (req.method !== "GET" || !/^https?:$/.test(url.protocol)) return;
+  if (req.headers.has("range") || req.headers.has("authorization")) return;   // never cache ranged or authenticated requests
+  const isApp = url.origin === location.origin && /\/(index\.html)?$/.test(url.pathname);
+  // Other pages next to the app (invite, reset-password...) go straight to the network and never replace the saved app page.
+  if (req.mode === "navigate" && url.origin === location.origin && !isApp) return;
   // The app page: newest version when online, the saved copy when not.
-  if (req.mode === "navigate" || (url.origin === location.origin && /\/(index\.html)?$/.test(url.pathname))) {
+  if (isApp || req.mode === "navigate") {
     e.respondWith((async () => {
       const c = await caches.open(CACHE);
       try {
         const r = await timeout(fetch(req), 5000);
-        if (r.ok) c.put("./index.html", r.clone());
+        if (r.ok && r.type === "basic" && isApp) c.put("./index.html", r.clone());
         return r;
       } catch (err) { return (await c.match("./index.html")) || (await c.match("./")) || Response.error(); }
     })());
@@ -37,7 +58,13 @@ self.addEventListener("fetch", e => {
   }
   // Icons and other files next to the app.
   if (url.origin === location.origin) {
-    e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(r => { if (r.ok) caches.open(CACHE).then(c => c.put(req, r.clone())); return r; })));
+    // Saved copy right away, refreshed in the background so updated files arrive on the next visit.
+    e.respondWith((async () => {
+      const c = await caches.open(CACHE), hit = await c.match(req);
+      const net = fetch(req).then(r => { if (r.ok && r.type === "basic") c.put(req, r.clone()); return r; }).catch(() => null);
+      if (hit) { e.waitUntil(net); return hit; }
+      return (await net) || Response.error();
+    })());
     return;
   }
   // Fonts and libraries: use the saved copy right away and refresh it in the background.
@@ -174,9 +201,25 @@ async function sbwClick(verb, id){
   const q = ok === "quickadd" ? "?action=quickadd" : ok === "task" && id ? "?task=" + encodeURIComponent(id) : ok === "done" && id ? "?action=done&task=" + encodeURIComponent(id) : "?action=today";
   try { await self.clients.openWindow(sbwUrl("./") + q); } catch (e) {}
 }
+// Crash reports (ERROR-REPORTING.md): the page asks which worker version it has, and gets told about this worker's own errors. The page scrubs and sends them; the worker never makes a network call for this.
+self.addEventListener("message", e => {
+  const m = e.data;
+  if (m && m.type === "sb-sw-ping" && e.source && typeof e.source.postMessage === "function") { try { e.source.postMessage({type: "sb-sw-info", v: CACHE}); } catch (err) {} }
+});
+async function sbTell(err) {
+  try {
+    const cs = await self.clients.matchAll({type: "window"});
+    const m = {type: "sb-sw-error", name: String((err && err.name) || "Error").slice(0, 40), msg: String((err && err.message) || err || "").slice(0, 200), stack: String((err && err.stack) || "").slice(0, 2000)};
+    if (cs[0]) cs[0].postMessage(m);
+  } catch (e) {}
+}
+self.addEventListener("error", e => { sbTell(e.error || e.message); });
+self.addEventListener("unhandledrejection", e => { sbTell(e.reason); });
 // The page's latest Today data (see modules/70-widgets.js).
 self.addEventListener("message", e => {
   const m = e.data;
+  // Only Studyboard's own pages (inside this worker's scope) may feed the widget.
+  if (!e.source || typeof e.source.url !== "string" || !e.source.url.startsWith(self.registration.scope)) return;
   if (!m || m.type !== "sb-widget-data" || !m.data || typeof m.data !== "object") return;
   let text; try { text = JSON.stringify(m.data); } catch (err) { return; }
   if (text.length > 100000) return;
@@ -186,3 +229,38 @@ self.addEventListener("message", e => {
     await sbwRenderAll();
   })().catch(() => {}));
 });
+
+// ---------- Quick capture: share target (Studyboard 1.12) ----------
+// Android, ChromeOS and desktop installs list Studyboard in the system Share menu. The shared text and photos are checked (images only, at most
+// 10 files, 15 MB each), kept for a few minutes in a private cache so the page can read them after the redirect, and the page deletes them as it reads.
+// Anything not read is swept out after 10 minutes. iPhone Safari web apps don't support share targets (the iOS app has a share extension instead).
+const SBC_STAGE = "sb-capture-stage", SBC_FILES = 10, SBC_BYTES = 15 * 1048576, SBC_TTL = 10 * 60 * 1000, SBC_IMG = /^image\/(png|jpe?g|webp|gif|heic|heif|avif|bmp)$/i;
+async function sbcSweep(c) {
+  const now = Date.now();
+  for (const k of await c.keys()) {
+    const m = k.url.match(/__share\/([a-z0-9]+)\//);
+    if (m && now - parseInt(m[1].slice(0, 8), 36) > SBC_TTL) await c.delete(k);
+  }
+}
+async function sbcShare(req) {
+  const base = new URL("./", self.registration.scope).href;
+  const go = q => Response.redirect(base + "?share=1" + q, 303);
+  try {
+    if (!/^multipart\/form-data/i.test(req.headers.get("content-type") || "")) return go("&err=type");
+    if (Number(req.headers.get("content-length") || 0) > SBC_FILES * SBC_BYTES + 1048576) return go("&err=big");
+    const fd = await req.formData();
+    const str = (k, n) => { const v = fd.get(k); return typeof v === "string" ? v.slice(0, n) : ""; };
+    const all = fd.getAll("files").filter(f => f && typeof f === "object" && typeof f.size === "number");
+    if (all.length > SBC_FILES) return go("&err=many");
+    if (all.some(f => f.size > SBC_BYTES)) return go("&err=big");
+    const files = all.filter(f => SBC_IMG.test(f.type || ""));
+    const id = Date.now().toString(36).padStart(8, "0") + Math.random().toString(36).slice(2, 8);
+    const c = await caches.open(SBC_STAGE);
+    await sbcSweep(c);
+    await c.put(base + "__share/" + id + "/meta", new Response(JSON.stringify({title: str("title", 300), text: str("text", 4000), url: str("url", 500), n: files.length, skipped: all.length - files.length}), {headers: {"content-type": "application/json"}}));
+    for (let i = 0; i < files.length; i++) {
+      await c.put(base + "__share/" + id + "/f" + i, new Response(files[i], {headers: {"content-type": files[i].type, "x-name": encodeURIComponent(String(files[i].name || "shared").slice(0, 120))}}));
+    }
+    return go("&sw=" + id);
+  } catch (err) { return go("&err=fail"); }
+}

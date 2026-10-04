@@ -1,7 +1,7 @@
 // Studyboard desktop app (formerly Studioso): a window around the Studyboard page, with a real folder on this computer
 // for your data, backups and files. Sync with your account happens inside the page (Supabase).
 // Since 1.11: a tray icon, native reminders that keep working with the window closed, and the Today widget.
-const { app, BrowserWindow, ipcMain, dialog, shell, protocol, net, Menu, nativeTheme, Tray, Notification, nativeImage, powerMonitor, screen } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, protocol, net, Menu, nativeTheme, Tray, Notification, nativeImage, powerMonitor, screen, session, safeStorage } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const fsp = fs.promises;
@@ -12,6 +12,36 @@ const WIDGET_DIR = path.join(__dirname, "widget");
 const ICON = path.join(__dirname, "build", process.platform === "win32" ? "icon.ico" : "icon.png");
 const LOGIN_ARGS = ["--background"];
 protocol.registerSchemesAsPrivileged([{ scheme: "app", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }]);
+
+// ---------- Security baseline (Apple App Store / notarization review, see APP-STORE-CHECKLIST.md) ----------
+// Every window is sandboxed, isolated, and only ever shows Studyboard's own pages (app://studioso/ and app://widget/).
+// Anything else opens in the person's browser after a check (https or mailto only). Permissions are denied unless listed here.
+const IS_MAS = !!process.mas;                          // Mac App Store build (sandboxed, no auto-update, no login-item API)
+const IS_DEV = !app.isPackaged;
+const MAIN_ORIGIN = "app://studioso", WIDGET_ORIGIN = "app://widget";
+const ALLOWED_PERMISSIONS = new Set(["notifications", "clipboard-sanitized-write", "fullscreen"]);   // only what Studyboard uses
+if (!process.argv.includes("--no-sandbox")) app.enableSandbox();   // sandbox every renderer, even ones created without webPreferences.sandbox (the flag exists only so tests can run as root in a container)
+// A link is only ever handed to the operating system when it is a plain https page or a mailto address.
+function safeExternal(raw) {
+  try {
+    const s = String(raw || "");
+    if (!s || s.length > 4096) return null;
+    const u = new URL(s);
+    if (u.protocol === "https:") {
+      if (u.username || u.password) return null;
+      // App Store rule 3.1.1: the Mac App Store build never sends people to an outside payment page (Pro is bought with Apple's in-app purchase there).
+      if (IS_MAS && /(^|\.)(stripe\.com|paypal\.com|paypal\.me|paddle\.com|lemonsqueezy\.com|gumroad\.com|ko-fi\.com|buymeacoffee\.com|patreon\.com)$/i.test(u.hostname)) return null;
+      return u.href;
+    }
+    if (u.protocol === "mailto:") return /^mailto:[^\s<>"']{1,1000}$/i.test(u.href) ? u.href : null;
+  } catch (e) {}
+  return null;
+}
+function openExternalSafe(raw) { const u = safeExternal(raw); if (u) shell.openExternal(u).catch(() => {}); return !!u; }
+// webSecurity and the other safe defaults are never switched off; devTools only exists when running from source.
+const SAFE_PREFS = { contextIsolation: true, nodeIntegration: false, nodeIntegrationInWorker: false, nodeIntegrationInSubFrames: false, sandbox: true, webSecurity: true,
+  allowRunningInsecureContent: false, experimentalFeatures: false, webviewTag: false, navigateOnDragDrop: false, safeDialogs: true, devTools: IS_DEV };
+const isAppUrl = (raw, origin) => { try { const u = new URL(String(raw)); return u.protocol === "app:" && (origin ? u.origin === origin || ("app://" + u.host) === origin : u.host === "studioso" || u.host === "widget"); } catch (e) { return false; } };
 
 // ---------- Moving over from the Studioso name ----------
 // App data (sign-in, settings, the working copy) moves from ...\Studioso to ...\Studyboard the first time Studyboard runs.
@@ -30,8 +60,49 @@ protocol.registerSchemesAsPrivileged([{ scheme: "app", privileges: { standard: t
   } catch (e) {}
 })();
 
-if (!app.requestSingleInstanceLock()) { app.quit(); }
+// One copy at a time. A second launch just brings the first one forward (and passes along any studyboard:// link).
+const GOT_LOCK = app.requestSingleInstanceLock();
+if (!GOT_LOCK) { app.quit(); }
 app.setAppUserModelId("com.studioso.app");
+
+// ---------- Deep links: studyboard://open?task=ID and studyboard://action/NAME ----------
+// Nothing else is accepted. The link can only ask the app to open a task or one of its own screens, never to run, read or write anything.
+const DEEP_SCHEME = "studyboard";
+function parseDeepLink(raw) {
+  try {
+    const s = String(raw || "");
+    if (s.length > 2400) return null;
+    const u = new URL(s);
+    if (u.protocol !== DEEP_SCHEME + ":" || u.username || u.password || u.port) return null;
+    if (u.host === "add" || u.host === "capture") return { type: "capture", url: s };       // quick capture: the page validates it and only ever makes a draft
+    if (s.length > 600) return null;
+    if (u.host === "open") {
+      const id = u.searchParams.get("task");
+      return id && /^[\w.:-]{1,200}$/.test(id) ? { type: "task", id } : { type: "main" };
+    }
+    if (u.host === "action") {
+      const name = u.pathname.replace(/^\/+|\/+$/g, "");
+      return ["quickadd", "today", "focus", "search", "flashcards", "settings"].includes(name) ? { type: "action", name } : null;
+    }
+  } catch (e) {}
+  return null;
+}
+let pendingDeepLink = null;
+function handleDeepLink(raw) {
+  const d = parseDeepLink(raw);
+  if (!d) return false;
+  if (!app.isReady()) { pendingDeepLink = raw; return true; }
+  if (d.type === "capture") { showMain(); toPage("desk:capture", d.url); } else if (d.type === "task") openTask(d.id); else if (d.type === "action") sendAction(d.name); else showMain();
+  return true;
+}
+try {
+  // Not in the Mac App Store build (it registers the scheme through Info.plist) and not when running from source.
+  if (app.isPackaged && !IS_MAS) {
+    if (process.defaultApp && process.argv.length >= 2) app.setAsDefaultProtocolClient(DEEP_SCHEME, process.execPath, [path.resolve(process.argv[1])]);
+    else app.setAsDefaultProtocolClient(DEEP_SCHEME);
+  }
+} catch (e) {}
+app.on("open-url", (e, url) => { e.preventDefault(); handleDeepLink(url); });          // macOS
 
 // ---------- Settings kept next to the app's own data ----------
 const cfgPath = () => path.join(app.getPath("userData"), "studyboard-desktop.json");
@@ -52,6 +123,51 @@ function writeJson(name, obj) {
   } catch (e) {}
 }
 let cfg = {};
+
+// ---------- Crash and error reports for the main process (ERROR-REPORTING.md) ----------
+// Sends anonymous error events (no paths, no personal content) to the same Sentry project as the page, using Node's https. It uses the page's own pure
+// scrubbing and envelope code (prepare.js copies it to app/errreport-core.js) and the DSN in app/error-config.json, and it is on only when the person
+// has not turned off "Send Anonymous Crash Reports" in Settings (the page tells us at start). With no DSN, or running from source, nothing is sent.
+const https = require("https");
+let ERRC = null, errConf = null, errLim = null, procId = "";
+function errInit() {
+  if (errConf !== null) return !!ERRC;
+  errConf = {};
+  try { errConf = JSON.parse(fs.readFileSync(path.join(APP_DIR, "error-config.json"), "utf8")) || {}; ERRC = require(path.join(APP_DIR, "errreport-core.js")); errLim = ERRC.makeLimiter({ maxSession: 10 }); } catch (e) { ERRC = null; }
+  return !!ERRC;
+}
+const crashOn = () => { try { return (cfg.crashReports !== undefined ? cfg.crashReports : readCfg().crashReports) === true; } catch (e) { return false; } };
+function mainReport(kind, err, extra) {
+  try {
+    if (!errInit() || !errConf.dsn || !crashOn()) return;
+    const dsn = ERRC.parseDsn(errConf.dsn); if (!dsn || errLim.blocked()) return;
+    const e = err && typeof err === "object" ? err : { message: String(err) };
+    const info = { kind, type: (extra && extra.type) || e.name || "Error", message: e.message, stack: e.stack, tags: Object.assign({ process: "main", pro: "n-a" }, extra && extra.tags) };
+    if (!procId) procId = ERRC.newId().slice(0, 16);
+    let home = ""; try { home = require("os").homedir(); } catch (x) {}
+    const ev = ERRC.finish(ERRC.buildEvent(info, { release: errConf.release || app.getVersion(), environment: errConf.environment, build: errConf.build, platform: "electron", theme: process.platform, anon: cfg.crashId || procId, own: [], redact: [home] }));
+    if (!errLim.allow(ev.fingerprint[0], kind)) return;
+    const body = ERRC.envelope(ev, dsn), u = new URL(dsn.url);
+    const req = https.request({ method: "POST", hostname: u.hostname, port: u.port || 443, path: u.pathname + u.search, timeout: 8000,
+      headers: { "Content-Type": "text/plain;charset=UTF-8", "Content-Length": Buffer.byteLength(body) } }, res => { res.resume(); if (res.statusCode >= 500 || res.statusCode === 429) errLim.fail(); else errLim.ok(); });
+    req.on("error", () => { try { errLim.fail(); } catch (x) {} });
+    req.on("timeout", () => req.destroy());
+    req.end(body);
+  } catch (x) { /* never let reporting break the app */ }
+}
+// Electron's own behaviour for an uncaught main-process error is its error box; a listener replaces that, so show the same box.
+process.on("uncaughtException", err => { mainReport("main-uncaught", err); try { if (app.isReady()) dialog.showErrorBox("A JavaScript error occurred in the main process", String((err && err.stack) || err)); else console.error(err); } catch (x) {} });
+process.on("unhandledRejection", reason => { mainReport("main-promise", reason, { type: "UnhandledRejection" }); console.error("Unhandled rejection in the main process:", reason); });
+app.on("render-process-gone", (e, wc, d) => { if (d && d.reason !== "clean-exit") mainReport("renderer-gone", new Error("render-process-gone: " + d.reason), { type: "RenderProcessGone", tags: { process: "renderer", reason: d.reason, exit: d.exitCode } }); });
+app.on("child-process-gone", (e, d) => { if (d && d.reason !== "clean-exit") mainReport("child-gone", new Error("child-process-gone: " + d.type + " " + d.reason), { type: "ChildProcessGone", tags: { process: d.type, reason: d.reason, exit: d.exitCode } }); });
+app.on("gpu-process-crashed", (e, killed) => { mainReport("gpu-crashed", new Error("gpu-process-crashed" + (killed ? " (killed)" : "")), { type: "GpuProcessCrashed", tags: { process: "gpu" } }); });   // older Electron; newer ones report this through child-process-gone
+// Native minidumps are off unless a minidump address is configured (STUDYBOARD_MINIDUMP_URL when running prepare.js) AND crash reports are on; they can hold fragments of memory.
+try { if (!IS_MAS && errInit() && /^https:\/\//.test(errConf.minidump || "") && crashOn()) require("electron").crashReporter.start({ submitURL: errConf.minidump, uploadToServer: true, compress: true, extra: { build: String(errConf.build || "") } }); } catch (e) {}
+ipcMain.on("crash:set", (e, on) => {
+  if (!fromMain(e)) return;
+  const v = on === true;
+  if (cfg.crashReports !== v) { cfg.crashReports = v; if (v) cfg.crashId = cfg.crashId || (errInit() ? ERRC.newId().slice(0, 16) : ""); else delete cfg.crashId; writeCfgSoon(); }
+});
 // "Keep Running in the Background" is on unless it was turned off. It needs the tray icon, so there's a way back in.
 const bgOn = () => cfg.background !== false && !!tray;
 const dataRoot = () => cfg.dataDir || path.join(app.getPath("documents"), "Studyboard");
@@ -68,10 +184,31 @@ function migrateDataFolder() {
 
 // Every path from the page is relative to the Studyboard folder and can't step outside it.
 function resolveRel(rel) {
+  if (typeof rel !== "string" && rel != null) throw new Error("Bad path");
+  rel = String(rel || "");
+  if (rel.length > 1024 || rel.includes("\0")) throw new Error("Bad path");
   const root = path.resolve(dataRoot());
-  const p = path.resolve(root, String(rel || "").replace(/\\/g, "/"));
+  const p = path.resolve(root, rel.replace(/\\/g, "/"));
   if (p !== root && !p.startsWith(root + path.sep)) throw new Error("Path outside the Studyboard folder");
+  // A shortcut (symlink) inside the folder must not lead out of it either: the closest part that exists has to stay inside.
+  try {
+    let q = p; while (q.length > root.length && !fs.existsSync(q)) q = path.dirname(q);
+    const realRoot = fs.realpathSync.native(root), realQ = fs.realpathSync.native(q);
+    if (realQ !== realRoot && !realQ.startsWith(realRoot + path.sep)) throw new Error("Path outside the Studyboard folder");
+  } catch (e) { if (/outside/.test(String(e && e.message))) throw e; }
   return p;
+}
+// Files Studyboard will open with the computer's default app. Anything else (programs, scripts, shortcuts) is only shown in its folder,
+// so a page can never make the computer run something it wrote.
+const OPENABLE = new Set(["pdf", "txt", "md", "rtf", "csv", "tsv", "json", "ics", "png", "jpg", "jpeg", "gif", "webp", "heic", "heif", "bmp", "tif", "tiff",
+  "doc", "docx", "ppt", "pptx", "xls", "xlsx", "odt", "ods", "odp", "pages", "numbers", "key", "mp3", "m4a", "wav", "aac", "flac", "ogg", "mp4", "mov", "m4v", "webm", "mkv", "zip"]);
+async function openSafely(p) {
+  let st; try { st = await fsp.stat(p); } catch (e) { return "Not found"; }
+  if (st.isDirectory()) return shell.openPath(p);
+  if (RISKY_EXT.test(p)) return "blocked: programs and scripts are not opened from here";      // never, not even shown
+  const ext = path.extname(p).slice(1).toLowerCase();
+  if (OPENABLE.has(ext)) return shell.openPath(p);
+  shell.showItemInFolder(p); return "";
 }
 async function ensureRoot() {
   await fsp.mkdir(dataRoot(), { recursive: true });
@@ -108,7 +245,7 @@ function createWindow(hidden) {
     titleBarStyle: "hidden",
     trafficLightPosition: { x: 14, y: 10 },
     titleBarOverlay: process.platform === "darwin" ? undefined : { color: spine(), symbolColor: "#FFFFFF", height: 34 },
-    webPreferences: { preload: path.join(__dirname, "preload.js"), additionalArguments: ["--studioso-version=" + app.getVersion()], contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: true }
+    webPreferences: { ...SAFE_PREFS, preload: path.join(__dirname, "preload.js"), additionalArguments: ["--studioso-version=" + app.getVersion(), "--studioso-store=" + (IS_MAS ? "mas" : "direct")], spellcheck: true }
   });
   // Started at sign-in: the page loads out of sight (so reminders, sync and the widget work) until you open it.
   if (st.maximized) { if (hidden) pendingMax = true; else win.maximize(); }
@@ -116,8 +253,9 @@ function createWindow(hidden) {
   win.webContents.on("did-start-loading", () => listening.clear());
   win.loadURL("app://studioso/index.html");
   // Links open in your normal browser; the app window only ever shows Studyboard.
-  win.webContents.setWindowOpenHandler(({ url }) => { if (/^(https?|mailto):/i.test(url)) shell.openExternal(url); return { action: "deny" }; });
-  win.webContents.on("will-navigate", (e, url) => { if (!url.startsWith("app://studioso/")) { e.preventDefault(); if (/^(https?|mailto):/i.test(url)) shell.openExternal(url); } });
+  // (The same rules apply to every window of the default session through lockWebContents below.)
+  win.webContents.setWindowOpenHandler(({ url }) => { openExternalSafe(url); return { action: "deny" }; });
+  win.webContents.on("will-navigate", (e, url) => { if (!isAppUrl(url, MAIN_ORIGIN)) { e.preventDefault(); openExternalSafe(url); } });
   win.on("resize", saveWindowState); win.on("move", saveWindowState);
   // Give the page a moment to write its latest copy to the Studyboard folder before closing.
   win.on("close", e => {
@@ -154,7 +292,7 @@ function backgroundTip() {
 // ---------- Messages to the page ----------
 // The page says which messages it's ready for (see preload.js). Until then they wait here, for example
 // when a reminder is clicked while the window is still opening.
-const PAGE_CHANNELS = ["desk:action", "desk:open-task"];
+const PAGE_CHANNELS = ["desk:action", "desk:open-task", "desk:capture", "desk:power"];
 const listening = new Set();
 let pendingMsgs = [];
 function toPage(channel, ...args) {
@@ -163,8 +301,11 @@ function toPage(channel, ...args) {
   pendingMsgs.push({ channel, args, at: Date.now() });
   if (!win || win.isDestroyed()) createWindow(true);
 }
-const fromMain = e => !!(win && !win.isDestroyed() && e.sender === win.webContents);
-const fromWidget = e => !!(widget && !widget.isDestroyed() && e.sender === widget.webContents);
+// An IPC message is only believed when it comes from the top frame of our own window, showing our own page.
+const frameUrl = e => { try { return String((e.senderFrame && e.senderFrame.url) || ""); } catch (err) { return ""; } };
+const topFrame = e => { try { return !!e.senderFrame && e.senderFrame === e.sender.mainFrame; } catch (err) { return false; } };
+const fromMain = e => !!(win && !win.isDestroyed() && e.sender === win.webContents && topFrame(e) && isAppUrl(frameUrl(e), MAIN_ORIGIN));
+const fromWidget = e => !!(widget && !widget.isDestroyed() && e.sender === widget.webContents && topFrame(e) && isAppUrl(frameUrl(e), WIDGET_ORIGIN));
 ipcMain.on("desk:listen", (e, channel) => {
   if (!fromMain(e) || !PAGE_CHANNELS.includes(channel)) return;
   listening.add(channel);
@@ -180,6 +321,9 @@ function sendAction(action, arg, stayHidden) {
   toPage("desk:action", action, typeof arg === "string" ? arg.slice(0, 200) : "");
 }
 function openTask(id) { showMain(); toPage("desk:open-task", String(id).slice(0, 200)); }
+
+// Files saved in the Studyboard folder can be opened by the system, but programs and scripts never are.
+const RISKY_EXT = /\.(exe|msi|bat|cmd|com|scr|pif|lnk|url|ps1|psm1|vbs|vbe|js|jse|jar|wsf|wsh|hta|cpl|reg|dll|sh|command|app|appimage|desktop|workflow|action|scpt|terminal|inf|msc|gadget|chm|docm|xlsm|pptm)$/i;
 
 // ---------- Small checks for anything that comes from a page ----------
 const str = (v, max) => typeof v === "string" ? v.slice(0, max) : "";
@@ -355,13 +499,14 @@ function createWidget() {
     ...widgetBounds(), minWidth: 260, minHeight: 300, maxWidth: 640, maxHeight: 900,
     frame: false, resizable: true, maximizable: false, minimizable: false, fullscreenable: false, skipTaskbar: true,
     alwaysOnTop: s.pinned, show: false, title: "Studyboard Today", icon: ICON, backgroundColor: widgetBg(), roundedCorners: true,
-    webPreferences: { preload: path.join(WIDGET_DIR, "widget-preload.js"), contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false }
+    webPreferences: { ...SAFE_PREFS, preload: path.join(WIDGET_DIR, "widget-preload.js"), spellcheck: false }
   });
   if (s.pinned) widget.setAlwaysOnTop(true, "floating");
   widget.once("ready-to-show", () => { if (widget && !widget.isDestroyed()) widget.showInactive(); });
   widget.loadURL("app://widget/widget.html");
   widget.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   widget.webContents.on("will-navigate", e => e.preventDefault());
+  widget.webContents.on("will-redirect", e => e.preventDefault());
   const keep = () => {
     if (!widget || widget.isDestroyed()) return;
     const b = widget.getBounds();
@@ -404,17 +549,28 @@ ipcMain.on("widget:pin", (e, on) => { if (fromWidget(e)) setWidgetPinned(on === 
 ipcMain.on("widget:hide", e => { if (fromWidget(e)) setWidgetShown(false); });
 
 // ---------- Desktop settings for the page (Settings, Widgets and Desktop) ----------
-const canLogin = () => process.platform === "win32" || process.platform === "darwin";
+const canLogin = () => process.platform === "win32" || (process.platform === "darwin" && !IS_MAS);   // the Mac App Store build has no start-at-login (it would need a separate helper app)
 function loginOn() { try { return canLogin() && !!app.getLoginItemSettings(process.platform === "win32" ? { args: LOGIN_ARGS } : undefined).openAtLogin; } catch (e) { return false; } }
 function deskSettings() {
   return { background: cfg.background !== false, tray: !!tray, openAtLogin: loginOn(), canLogin: canLogin(), widget: !!(widget && !widget.isDestroyed()), widgetPinned: widgetState().pinned, pausedUntil: remindersPaused() ? cfg.pauseUntil : 0, notifications: Notification.isSupported() };
 }
+// Power state for the page's animation governor: on battery, thermal pressure and a locked screen. Plain values only, read-only.
+function powerState() {
+  const o = { onBattery: false, thermal: "unknown", locked: powerLocked };
+  try { o.onBattery = !!powerMonitor.isOnBatteryPower(); } catch (err) {}
+  try { const t = String(powerMonitor.getCurrentThermalState()); o.thermal = ["nominal", "fair", "serious", "critical"].includes(t) ? t : "unknown"; } catch (err) {}
+  return o;
+}
+let powerLocked = false;
+function pushPower() { try { if (win && !win.isDestroyed() && listening.has("desk:power")) win.webContents.send("desk:power", powerState()); } catch (err) {} }
+ipcMain.handle("power:get", e => fromMain(e) ? powerState() : null);
 ipcMain.handle("desk:settings:get", e => fromMain(e) ? deskSettings() : null);
 ipcMain.handle("desk:settings:set", (e, key, value) => {
   if (!fromMain(e)) return null;
+  if (!["background", "openAtLogin", "widget", "widgetPinned", "pauseReminders"].includes(key)) return deskSettings();
   const on = value === true;
   if (key === "background") { cfg.background = on; writeCfg(cfg); }
-  else if (key === "openAtLogin" && canLogin()) { try { app.setLoginItemSettings({ openAtLogin: on, args: LOGIN_ARGS }); } catch (err) {} }
+  else if (key === "openAtLogin" && canLogin() && !IS_MAS) { try { app.setLoginItemSettings({ openAtLogin: on, args: LOGIN_ARGS }); } catch (err) {} }
   else if (key === "widget") setWidgetShown(on);
   else if (key === "widgetPinned") setWidgetPinned(on);
   else if (key === "pauseReminders") { const m = int(value, 24 * 60); if (m) pauseReminders(m); else resumeReminders(); }
@@ -422,11 +578,14 @@ ipcMain.handle("desk:settings:set", (e, key, value) => {
 });
 
 // ---------- Folder access for the page ----------
-ipcMain.handle("dir:get", () => dataRoot());
-ipcMain.handle("dir:open", async (e, rel) => { await ensureRoot(); return shell.openPath(resolveRel(rel || "")); });
-ipcMain.handle("dir:choose", async () => {
-  const r = await dialog.showOpenDialog(win, { title: "Choose where Studyboard keeps your things", defaultPath: dataRoot(), properties: ["openDirectory", "createDirectory"], buttonLabel: "Use This Folder" });
+ipcMain.handle("dir:get", e => fromMain(e) ? dataRoot() : null);
+ipcMain.handle("dir:open", async (e, rel) => { if (!fromMain(e)) return "denied"; await ensureRoot(); return openSafely(resolveRel(rel || "")); });
+ipcMain.handle("dir:choose", async e => {
+  if (!fromMain(e)) return null;
+  // In the Mac App Store build the chosen folder is remembered with a security-scoped bookmark, or access would end at the next launch.
+  const r = await dialog.showOpenDialog(win, { title: "Choose where Studyboard keeps your things", defaultPath: dataRoot(), properties: ["openDirectory", "createDirectory"], buttonLabel: "Use This Folder", securityScopedBookmarks: IS_MAS });
   if (r.canceled || !r.filePaths[0]) return null;
+  if (IS_MAS && r.bookmarks && r.bookmarks[0]) { cfg.dataDirBookmark = r.bookmarks[0]; startBookmarkAccess(); }
   let target = r.filePaths[0];
   if (!/^(studyboard|studioso)$/i.test(path.basename(target))) target = path.join(target, "Studyboard");
   const old = dataRoot();
@@ -437,65 +596,159 @@ ipcMain.handle("dir:choose", async () => {
   cfg.dataDir = target; writeCfg(cfg); await ensureRoot();
   return target;
 });
-ipcMain.handle("fs:mkdir", async (e, rel) => { await fsp.mkdir(resolveRel(rel), { recursive: true }); return true; });
-ipcMain.handle("fs:exists", async (e, rel) => { try { await fsp.access(resolveRel(rel)); return true; } catch (err) { return false; } });
+const MAX_WRITE = 1536 * 1024 * 1024;           // one file per call; far above anything Studyboard writes in one piece
+ipcMain.handle("fs:mkdir", async (e, rel) => { if (!fromMain(e)) return false; await fsp.mkdir(resolveRel(rel), { recursive: true }); return true; });
+ipcMain.handle("fs:exists", async (e, rel) => { if (!fromMain(e)) return false; try { await fsp.access(resolveRel(rel)); return true; } catch (err) { return false; } });
 ipcMain.handle("fs:write", async (e, rel, data) => {
+  if (!fromMain(e)) return false;
+  const isBin = data instanceof Uint8Array || data instanceof ArrayBuffer;
+  if (typeof data !== "string" && !isBin) throw new Error("Bad data");
+  if ((typeof data === "string" ? Buffer.byteLength(data) : data.byteLength) > MAX_WRITE) throw new Error("File too large");
   const p = resolveRel(rel);
   await fsp.mkdir(path.dirname(p), { recursive: true });
   const tmp = p + ".partial";
-  await fsp.writeFile(tmp, typeof data === "string" ? data : Buffer.from(data));
+  await fsp.writeFile(tmp, typeof data === "string" ? data : Buffer.from(data instanceof ArrayBuffer ? new Uint8Array(data) : data));
   await fsp.rename(tmp, p);                      // never leaves a half-written file behind
   return true;
 });
-ipcMain.handle("fs:read", async (e, rel) => { try { return new Uint8Array(await fsp.readFile(resolveRel(rel))); } catch (err) { return null; } });
-ipcMain.handle("fs:list", async (e, rel) => { try { return (await fsp.readdir(resolveRel(rel), { withFileTypes: true })).map(d => ({ name: d.name, dir: d.isDirectory() })); } catch (err) { return []; } });
+ipcMain.handle("fs:read", async (e, rel) => { if (!fromMain(e)) return null; try { return new Uint8Array(await fsp.readFile(resolveRel(rel))); } catch (err) { return null; } });
+ipcMain.handle("fs:list", async (e, rel) => { if (!fromMain(e)) return []; try { return (await fsp.readdir(resolveRel(rel), { withFileTypes: true })).map(d => ({ name: d.name, dir: d.isDirectory() })); } catch (err) { return []; } });
 ipcMain.handle("fs:remove", async (e, rel) => {
+  if (!fromMain(e)) return false;
   // Only old daily backups are ever removed by Studyboard.
   const p = resolveRel(rel);
   if (!/Daily backups[\\/]+(studioso|studyboard)-\d{4}-\d{2}-\d{2}\.json$/.test(p)) return false;
   try { await fsp.unlink(p); return true; } catch (err) { return false; }
 });
-ipcMain.handle("fs:open", async (e, rel) => shell.openPath(resolveRel(rel)));
+ipcMain.handle("fs:open", async (e, rel) => fromMain(e) ? openSafely(resolveRel(rel)) : "denied");
 // After the final save: close the window, and finish quitting if that's what was asked (Cmd+Q on a Mac).
 function finishClose() { if (flushed) return; flushed = true; if (win && !win.isDestroyed()) win.close(); if (quitting) setTimeout(() => app.quit(), 50); }
-ipcMain.on("app:flushed", finishClose);
+ipcMain.on("app:flushed", e => { if (fromMain(e)) finishClose(); });
 app.on("before-quit", () => { quitting = true; });
 ipcMain.on("app:titlebar", (e, color) => {
-  if (!win || process.platform === "darwin" || !/^#[0-9a-f]{3,8}$/i.test(String(color))) return;
+  if (!fromMain(e) || !win || process.platform === "darwin" || !/^#[0-9a-f]{3,8}$/i.test(String(color))) return;
   try { win.setTitleBarOverlay({ color, symbolColor: "#FFFFFF" }); win.setBackgroundColor(color); } catch (err) {}
 });
 
 // ---------- Brightspace, Canvas and Blackboard (read-only sync of your courses, due dates, grades and announcements) ----------
-require("./lms").register(() => win);
+require("./lms").register(() => win, fromMain);
+
+// ---------- Secrets (encrypted with the operating system's keychain via safeStorage) ----------
+// For things that must not sit in plain text on disk: the page can keep a few named secrets here (for example its AI keys).
+// Each one is encrypted with Keychain / DPAPI / libsecret and written to its own file next to the settings.
+// If the system has no keychain available the secret is simply not stored (never written as plain text).
+const SECRET_NAME = /^[a-z0-9:_-]{1,64}$/;
+const SECRET_FILE = "studyboard-secrets.json";
+const secretsOn = () => { try { return safeStorage.isEncryptionAvailable() && !(process.platform === "linux" && safeStorage.getSelectedStorageBackend && safeStorage.getSelectedStorageBackend() === "basic_text"); } catch (e) { return false; } };
+const readSecrets = () => { const o = readJson(SECRET_FILE, {}); return o && typeof o === "object" && !Array.isArray(o) ? o : {}; };
+ipcMain.handle("secret:available", e => fromMain(e) && secretsOn());
+ipcMain.handle("secret:get", (e, name) => {
+  if (!fromMain(e) || typeof name !== "string" || !SECRET_NAME.test(name) || !secretsOn()) return null;
+  const b = readSecrets()[name]; if (typeof b !== "string") return null;
+  try { return safeStorage.decryptString(Buffer.from(b, "base64")); } catch (err) { return null; }
+});
+ipcMain.handle("secret:set", (e, name, value) => {
+  if (!fromMain(e) || typeof name !== "string" || !SECRET_NAME.test(name) || typeof value !== "string" || value.length > 20000 || !secretsOn()) return false;
+  const o = readSecrets();
+  try { o[name] = safeStorage.encryptString(value).toString("base64"); } catch (err) { return false; }
+  writeJson(SECRET_FILE, o); return true;
+});
+ipcMain.handle("secret:remove", (e, name) => {
+  if (!fromMain(e) || typeof name !== "string" || !SECRET_NAME.test(name)) return false;
+  const o = readSecrets(); delete o[name]; writeJson(SECRET_FILE, o); return true;
+});
+
+// Mac App Store: a folder the person picked outside the app's own container is only reachable while its bookmark is open.
+let stopBookmark = null;
+function startBookmarkAccess() {
+  if (!IS_MAS || !cfg.dataDirBookmark) return;
+  try { if (stopBookmark) stopBookmark(); } catch (e) {}
+  try { stopBookmark = app.startAccessingSecurityScopedResource(cfg.dataDirBookmark); } catch (e) { stopBookmark = null; }
+  writeCfg(cfg);
+}
+
+// ---------- Locking down every window and session ----------
+// CSP for Studyboard's own pages. The page's inline scripts are allowed by hash (prepare.js writes the hashes); with no hashes file
+// (running from source) inline scripts are allowed so development still works. connect-src allows any https host because the person can
+// use their own Supabase server and their own AI provider; nothing else (no http, no frames, no plugins, no form posts) is allowed.
+let scriptHashes = null;
+function loadScriptHashes() { try { const h = JSON.parse(fs.readFileSync(path.join(APP_DIR, "csp-hashes.json"), "utf8")); scriptHashes = Array.isArray(h) && h.every(x => /^sha256-[A-Za-z0-9+/=]+$/.test(x)) ? h : null; } catch (e) { scriptHashes = null; } }
+function appCsp() {
+  const scripts = scriptHashes && scriptHashes.length ? scriptHashes.map(h => `'${h}'`).join(" ") : "'unsafe-inline'";
+  return ["default-src 'self'", `script-src 'self' ${scripts}`, "worker-src 'self' blob:", "style-src 'self' 'unsafe-inline'", "font-src 'self' data: app://studioso",
+    "img-src 'self' data: blob: https:", "media-src 'self' data: blob: https:", "connect-src 'self' https: wss: blob: data:", "object-src 'none'", "base-uri 'none'",
+    "form-action 'none'", "frame-src 'none'", "frame-ancestors 'none'"].join("; ");
+}
+const WIDGET_CSP = "default-src 'none'; script-src 'self'; style-src 'self' app://studioso; font-src app://studioso; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'";
+function lockSession(ses) {
+  // Nothing is allowed unless it is on the list, and only for our own pages.
+  ses.setPermissionRequestHandler((wc, permission, cb, details) => cb(ALLOWED_PERMISSIONS.has(permission) && isAppUrl((details && details.requestingUrl) || (wc && wc.getURL()))));
+  ses.setPermissionCheckHandler((wc, permission, origin, details) => ALLOWED_PERMISSIONS.has(permission) && isAppUrl((details && (details.requestingUrl || details.embeddingOrigin)) || origin));
+  ses.setDevicePermissionHandler(() => false);
+  try { ses.setDisplayMediaRequestHandler((req, cb) => cb({})); } catch (e) {}
+  // No plain-text network traffic at all (the same promise as Apple's App Transport Security).
+  ses.webRequest.onBeforeRequest({ urls: ["http://*/*", "ws://*/*", "ftp://*/*"] }, (d, cb) => cb({ cancel: true }));
+  // Defence in depth for the CSP (the app:// handler already sets it on each response).
+  ses.webRequest.onHeadersReceived({ urls: ["app://*/*", "file://*/*"] }, (d, cb) => {
+    const h = Object.assign({}, d.responseHeaders);
+    for (const k of Object.keys(h)) if (/^content-security-policy$/i.test(k)) delete h[k];
+    let host = ""; try { host = new URL(d.url).host; } catch (e) {}
+    h["Content-Security-Policy"] = [host === "widget" ? WIDGET_CSP : appCsp()];
+    cb({ responseHeaders: h });
+  });
+}
+// Every window of the default session: no webviews, no navigation away from our pages, links only out to the browser, no developer tools when packaged.
+app.on("web-contents-created", (e, wc) => {
+  wc.on("will-attach-webview", ev => ev.preventDefault());
+  if (!IS_DEV) wc.on("devtools-opened", () => { try { wc.closeDevTools(); } catch (err) {} });
+  if (wc.session !== session.defaultSession) return;           // the school sign-in windows have their own rules in lms.js
+  const guard = (ev, url) => { if (!isAppUrl(url)) { ev.preventDefault(); openExternalSafe(url); } };
+  wc.on("will-navigate", guard);
+  wc.on("will-redirect", guard);
+  wc.on("will-frame-navigate", guard);
+  wc.setWindowOpenHandler(({ url }) => { openExternalSafe(url); return { action: "deny" }; });
+});
 
 // ---------- Start ----------
-app.on("second-instance", () => showMain());
+app.on("second-instance", (e, argv) => { const link = (argv || []).find(a => typeof a === "string" && a.startsWith(DEEP_SCHEME + "://")); if (!(link && handleDeepLink(link))) showMain(); });
 // Opened at sign-in (Windows passes --background; a Mac says so itself): start quietly in the tray.
 function openedAtLogin() {
   if (process.argv.includes("--background")) return true;
   try { return process.platform === "darwin" && !!app.getLoginItemSettings().wasOpenedAtLogin; } catch (e) { return false; }
 }
-app.whenReady().then(async () => {
+if (GOT_LOCK) app.whenReady().then(async () => {
   cfg = readCfg();
+  startBookmarkAccess();
+  loadScriptHashes();
+  lockSession(session.defaultSession);
   migrateDataFolder();
   writeCfg(cfg);
   await ensureRoot();
   protocol.handle("app", async req => {
-    const u = new URL(req.url);
-    // app://widget/ is the Today widget's own little page; app://studioso/ is the Studyboard page.
-    const dir = u.host === "widget" ? WIDGET_DIR : APP_DIR;
-    let rel = decodeURIComponent(u.pathname).replace(/^\/+/, "") || "index.html";
-    const p = path.resolve(dir, rel);
-    if (!p.startsWith(dir + path.sep) || (dir === WIDGET_DIR && /preload/i.test(rel))) return new Response("Not found", { status: 404 });
-    const r = await net.fetch(pathToFileURL(p).toString());
-    // The widget uses the app's own fonts, which need permission to be read from app://widget/.
-    if (dir === APP_DIR && /^vendor\/fonts\//.test(rel)) { const h = new Headers(r.headers); h.set("Access-Control-Allow-Origin", "app://widget"); return new Response(r.body, { status: r.status, headers: h }); }
-    return r;
+    try {
+      if (req.method !== "GET" && req.method !== "HEAD") return new Response("Method not allowed", { status: 405 });
+      const u = new URL(req.url);
+      // app://widget/ is the Today widget's own little page; app://studioso/ is the Studyboard page. No other host exists.
+      if (u.host !== "widget" && u.host !== "studioso") return new Response("Not found", { status: 404 });
+      const dir = u.host === "widget" ? WIDGET_DIR : APP_DIR;
+      const rel = decodeURIComponent(u.pathname).replace(/^\/+/, "") || (dir === WIDGET_DIR ? "widget.html" : "index.html");
+      if (rel.includes("\0")) return new Response("Not found", { status: 404 });
+      const p = path.resolve(dir, rel);
+      if (!p.startsWith(dir + path.sep) || (dir === WIDGET_DIR && /preload/i.test(rel)) || (dir === APP_DIR && /^(csp-hashes|error-config)\.json$|^errreport-core\.js$/.test(rel))) return new Response("Not found", { status: 404 });
+      const r = await net.fetch(pathToFileURL(p).toString());
+      const h = new Headers(r.headers);
+      h.set("X-Content-Type-Options", "nosniff");
+      h.set("Referrer-Policy", "no-referrer");
+      if (/\.html?$/i.test(rel)) h.set("Content-Security-Policy", dir === WIDGET_DIR ? WIDGET_CSP : appCsp());
+      // The widget uses the app's own fonts, which need permission to be read from app://widget/.
+      if (dir === APP_DIR && /^vendor\/fonts\//.test(rel)) h.set("Access-Control-Allow-Origin", "app://widget");
+      return new Response(r.body, { status: r.status, headers: h });
+    } catch (e) { return new Response("Not found", { status: 404 }); }
   });
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     ...(process.platform === "darwin" ? [{ role: "appMenu" }] : []),
     { label: "Edit", submenu: [{ role: "undo" }, { role: "redo" }, { type: "separator" }, { role: "cut" }, { role: "copy" }, { role: "paste" }, { role: "selectAll" }] },
-    { label: "View", submenu: [{ role: "reload" }, { role: "resetZoom" }, { role: "zoomIn" }, { role: "zoomOut" }, { type: "separator" }, { role: "togglefullscreen" }, { role: "toggleDevTools", visible: false }] },
+    { label: "View", submenu: [{ role: "reload" }, { role: "resetZoom" }, { role: "zoomIn" }, { role: "zoomOut" }, { type: "separator" }, { role: "togglefullscreen" }, ...(IS_DEV ? [{ role: "toggleDevTools" }] : [])] },
     { role: "windowMenu" }
   ]));
   createTray();
@@ -505,6 +758,9 @@ app.whenReady().then(async () => {
   createWindow(openedAtLogin() && bgOn());
   if (widgetState().show) createWidget();
   checkReminders();
+  const startLink = pendingDeepLink || process.argv.find(a => typeof a === "string" && a.startsWith(DEEP_SCHEME + "://"));
+  pendingDeepLink = null; if (startLink) handleDeepLink(startLink);
+  try { ["on-battery", "on-ac", "thermal-state-change", "resume"].forEach(ev => { try { powerMonitor.on(ev, pushPower); } catch (err) {} }); powerMonitor.on("lock-screen", () => { powerLocked = true; pushPower(); }); powerMonitor.on("unlock-screen", () => { powerLocked = false; pushPower(); }); } catch (e) {}
   try { powerMonitor.on("resume", checkReminders); powerMonitor.on("unlock-screen", checkReminders); powerMonitor.on("shutdown", () => { quitting = true; }); } catch (e) {}
   app.on("activate", () => showMain());
 });

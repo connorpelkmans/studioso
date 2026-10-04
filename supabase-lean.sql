@@ -10,7 +10,9 @@
 --  * Accounts not used for 6 months are packed into one compressed row (studyboard_archive) and unpacked
 --    automatically the next time that person opens Studyboard.
 --  * Daily clean-ups of old deletion records and rate counters.
--- The app works with or without this file. Without it, every device downloads everything each time, like before.
+-- It also adds the "Delete My Account" function (studyboard_delete_my_account) that the in-app account deletion calls.
+-- That part is required for a public launch. Sync itself works with or without this file (without it, every device
+-- downloads everything each time, like before).
 
 -- ---------- Server time on every change ----------
 alter table public.items add column if not exists updated_at timestamptz not null default now();
@@ -191,3 +193,133 @@ begin
   perform cron.schedule('studyboard-lean-daily', '17 4 * * *', 'select public.studyboard_purge_deletions(); select public.studyboard_purge_rate();');
   perform cron.schedule('studyboard-archive-monthly', '43 4 2 * *', 'select public.studyboard_archive_inactive(180, 500);');
 end $$;
+
+-- ---------- Delete My Account (Settings > Account and Sync > Delete My Account and Data) ----------
+-- Permanently deletes the signed-in person's account and everything stored for it. The rules (also shown in the app, the
+-- privacy policy and STORE-READINESS.md):
+--   * Their own data is deleted: synced items, deletion log, archive, devices, device-removal log, plan, usage, billing link
+--     (the Stripe customer link, not Stripe's own records), reminders, push devices, calendar links, profile, shared decks,
+--     bug reports (and the contact email on them), rate counters.
+--   * Study groups: if the person owns a group and someone else is a member, ownership moves to the longest-standing other
+--     member (the group carries on). If nobody else is in it, the group and its content are deleted.
+--   * What the person wrote in groups (messages, items, quiz scores, RSVPs, reactions, check-ins, stats) is deleted with the account.
+--   * Shared group tasks and lists stay for the group with their author, assignee and completer links removed.
+--   * Voice-capture tokens and inbox (capture_tokens, capture_inbox) are deleted.
+--   * Reports they made or that were made about them (group_reports) stay for safety but lose the link to the account
+--     (reporter_id and reported_user_id become null by the foreign keys).
+--   * Payment bookkeeping that must be kept (studyboard_billing_events, studyboard_pro_grants) is anonymized: the user id,
+--     email and free-text reason are removed; only event ids, dates and plan facts remain.
+--   * Uploaded files in the studioso-files bucket (<uid>/...) must be deleted through the Storage API (Supabase does not
+--     allow deleting storage rows from SQL). The delete-account Edge Function does that with the service role; the app falls
+--     back to deleting them with the person's own sign-in. The block below only sweeps up what SQL is allowed to.
+-- It can only ever act on the caller (auth.uid()), does nothing for anonymous visitors, and is safe to call twice.
+-- It does NOT cancel a Pro subscription at Stripe, the App Store or Google Play (the delete-account Edge Function cancels Stripe).
+
+-- The shared worker. Service role only (the Edge Function) and the caller-bound wrapper below. Returns what it removed, by table.
+create or replace function public.studyboard_delete_user_data(p_uid uuid) returns jsonb
+language plpgsql security definer set search_path = public, auth, storage as $$
+declare
+  res jsonb := '{}'::jsonb; n bigint; g record; heir uuid; t text[];
+  -- table, column: rows deleted outright (explicit so it works even before the auth row goes)
+  del text[][] := array[
+    ['group_reactions','user_id'], ['group_checkins','user_id'], ['group_stats','user_id'], ['group_rsvps','user_id'],
+    ['group_quiz_scores','user_id'], ['group_messages','user_id'], ['group_items','user_id'], ['group_blocks','blocker_id'],
+    ['group_blocks','blocked_id'], ['group_members','user_id'], ['shared_decks','owner_id'], ['study_profiles','user_id'],
+    ['study_room_people','user_id'], ['study_rooms','started_by'],
+    ['capture_inbox','user_id'], ['capture_tokens','user_id'],
+    ['reminder_queue','user_id'], ['push_subscriptions','user_id'], ['calendar_feeds','user_id'],
+    ['studyboard_deletions','user_id'], ['studyboard_archive','user_id'], ['studyboard_devices','user_id'],
+    ['studyboard_device_removals','user_id'], ['studyboard_usage','user_id'], ['studyboard_billing_customers','user_id'],
+    ['studyboard_entitlements','user_id'], ['bug_reports','user_id'], ['items','user_id']];
+begin
+  if p_uid is null then raise exception 'SB_NO_USER' using errcode = '22023'; end if;
+  -- Groups they own: hand over to the longest-standing other member, or delete the group when nobody else is in it.
+  if to_regclass('public.study_groups') is not null and to_regclass('public.group_members') is not null then
+    n := 0;
+    for g in select id from public.study_groups where owner_id = p_uid loop
+      select m.user_id into heir from public.group_members m where m.group_id = g.id and m.user_id <> p_uid order by m.joined_at, m.user_id limit 1;
+      if heir is null then
+        delete from public.study_groups where id = g.id;
+      else
+        update public.study_groups set owner_id = heir where id = g.id;
+        update public.group_members set role = 'owner' where group_id = g.id and user_id = heir;
+        n := n + 1;
+      end if;
+    end loop;
+    res := res || jsonb_build_object('groups_transferred', n);
+  end if;
+  foreach t slice 1 in array del loop
+    if to_regclass('public.' || t[1]) is not null then
+      execute format('delete from public.%I where %I = $1', t[1], t[2]) using p_uid;
+      get diagnostics n = row_count;
+      res := jsonb_set(res, array[t[1]], to_jsonb(coalesce((res ->> t[1])::bigint, 0) + n));
+    end if;
+  end loop;
+  -- Bug reports sent while signed out that left this account's email as the contact address
+  if to_regclass('public.bug_reports') is not null then
+    delete from public.bug_reports where contact_email is not null and lower(contact_email) = (select lower(u.email) from auth.users u where u.id = p_uid);
+    get diagnostics n = row_count; res := jsonb_set(res, '{bug_reports}', to_jsonb(coalesce((res ->> 'bug_reports')::bigint, 0) + n));
+  end if;
+  -- Payment and grant bookkeeping we must keep: anonymize it instead of deleting it.
+  if to_regclass('public.studyboard_billing_events') is not null then
+    update public.studyboard_billing_events set user_id = null where user_id = p_uid;
+    get diagnostics n = row_count; res := res || jsonb_build_object('studyboard_billing_events_anonymized', n);
+  end if;
+  if to_regclass('public.studyboard_pro_grants') is not null then
+    update public.studyboard_pro_grants set user_id = null, email = null, reason = null
+      where user_id = p_uid or (email is not null and lower(email) = (select lower(u.email) from auth.users u where u.id = p_uid));
+    get diagnostics n = row_count; res := res || jsonb_build_object('studyboard_pro_grants_anonymized', n);
+  end if;
+  -- Shared group tasks and lists stay for the group but lose every link to the person (the foreign keys set null; done here too so it holds before the auth row goes)
+  if to_regclass('public.group_tasks') is not null then
+    update public.group_tasks set assignee_id = case when assignee_id = p_uid then null else assignee_id end,
+      created_by = case when created_by = p_uid then null else created_by end,
+      updated_by = case when updated_by = p_uid then null else updated_by end,
+      completed_by = case when completed_by = p_uid then null else completed_by end
+      where p_uid in (assignee_id, created_by, updated_by, completed_by);
+    get diagnostics n = row_count; res := res || jsonb_build_object('group_tasks_unlinked', n);
+  end if;
+  if to_regclass('public.group_task_lists') is not null then
+    update public.group_task_lists set created_by = null where created_by = p_uid;
+  end if;
+  -- Reports made by or about them stay (safety) without the link to the account.
+  if to_regclass('public.group_reports') is not null then
+    update public.group_reports set reporter_id = null where reporter_id = p_uid;
+    update public.group_reports set reported_user_id = null where reported_user_id = p_uid;
+  end if;
+  -- Rate counters whose key contains their id
+  foreach t slice 1 in array array[['studyboard_rate','key'], ['studyboard_plan_rate','key']] loop
+    if to_regclass('public.' || t[1]) is not null then
+      execute format('delete from public.%I where %I like $1', t[1], t[2]) using '%:' || p_uid::text;
+    end if;
+  end loop;
+  begin
+    if to_regclass('storage.objects') is not null then
+      delete from storage.objects where bucket_id = 'studioso-files' and split_part(name, '/', 1) = p_uid::text;
+      get diagnostics n = row_count; res := res || jsonb_build_object('storage_rows', n);
+    end if;
+  exception when others then
+    raise notice 'Uploaded files were not deleted from SQL (%). They are removed through the Storage API instead.', sqlerrm;
+  end;
+  return res;
+end $$;
+revoke all on function public.studyboard_delete_user_data(uuid) from public, anon, authenticated;
+do $$ begin
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    grant execute on function public.studyboard_delete_user_data(uuid) to service_role;
+  end if;
+end $$;
+
+-- What the app calls (fallback when the delete-account Edge Function is not deployed). Acts on the caller only.
+create or replace function public.studyboard_delete_my_account() returns void
+language plpgsql security definer set search_path = public, auth, storage as $$
+declare me uuid := auth.uid();
+begin
+  if me is null then
+    raise exception 'SB_NOT_SIGNED_IN: Sign in first.' using errcode = '28000';
+  end if;
+  perform public.studyboard_delete_user_data(me);
+  delete from auth.users where id = me;
+end $$;
+revoke all on function public.studyboard_delete_my_account() from public, anon;
+grant execute on function public.studyboard_delete_my_account() to authenticated;

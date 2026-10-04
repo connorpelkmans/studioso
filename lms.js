@@ -4,6 +4,53 @@
 // ("persist:brightspace", "persist:canvas", "persist:blackboard"), separate from Studyboard's, and Studyboard only
 // ever reads (GET requests): your courses, due dates, submissions, grades, announcements and calendar.
 // It never submits, posts or changes anything there.
+/* Readable plain text from HTML (same helper as index.html: no DOM, so it works in the main process). */
+// Readable plain text from HTML-ish text (LMS text, entity-encoded markup). Pure string work: nothing is parsed into a live DOM, so nothing can run.
+// Handles tags (with line breaks for p/br/li/headings), named, numeric and double-encoded entities (&amp;amp;), and collapses whitespace.
+// opts.line: one line only. opts.max: cut length.
+const HT_ENT = {amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ensp: " ", emsp: " ", thinsp: " ", zwnj: "", zwj: "", shy: "", lrm: "", rlm: "",
+  lsquo: "\u2018", rsquo: "\u2019", sbquo: "\u201A", ldquo: "\u201C", rdquo: "\u201D", bdquo: "\u201E", laquo: "\u00AB", raquo: "\u00BB", lsaquo: "\u2039", rsaquo: "\u203A",
+  ndash: "\u2013", mdash: "\u2014", hellip: "\u2026", bull: "\u2022", middot: "\u00B7", sdot: "\u22C5", dagger: "\u2020", Dagger: "\u2021", prime: "\u2032", Prime: "\u2033",
+  copy: "\u00A9", reg: "\u00AE", trade: "\u2122", deg: "\u00B0", plusmn: "\u00B1", times: "\u00D7", divide: "\u00F7", minus: "\u2212", frac12: "\u00BD", frac14: "\u00BC", frac34: "\u00BE",
+  sup1: "\u00B9", sup2: "\u00B2", sup3: "\u00B3", micro: "\u00B5", para: "\u00B6", sect: "\u00A7", cent: "\u00A2", pound: "\u00A3", yen: "\u00A5", euro: "\u20AC", curren: "\u00A4",
+  iexcl: "\u00A1", iquest: "\u00BF", ne: "\u2260", le: "\u2264", ge: "\u2265", asymp: "\u2248", infin: "\u221E", larr: "\u2190", rarr: "\u2192", uarr: "\u2191", darr: "\u2193", harr: "\u2194", check: "\u2713",
+  alpha: "\u03B1", beta: "\u03B2", gamma: "\u03B3", delta: "\u03B4", mu: "\u03BC", pi: "\u03C0", sigma: "\u03C3", omega: "\u03C9", Omega: "\u03A9", Delta: "\u0394", ordf: "\u00AA", ordm: "\u00BA",
+  szlig: "\u00DF", aelig: "\u00E6", AElig: "\u00C6", oslash: "\u00F8", Oslash: "\u00D8", ntilde: "\u00F1", Ntilde: "\u00D1", ccedil: "\u00E7", Ccedil: "\u00C7"};
+const HT_ACC = {grave: "\u0300", acute: "\u0301", circ: "\u0302", tilde: "\u0303", uml: "\u0308", ring: "\u030A", cedil: "\u0327"};
+// Only real HTML tag names count as markup, so text like "<Chapter 3>" or "a < b" is left alone.
+const HT_TAGS = "a|abbr|address|article|aside|audio|b|bdi|bdo|big|blockquote|body|br|button|canvas|caption|center|cite|code|col|colgroup|dd|del|details|dfn|dialog|div|dl|dt|em|fieldset|figcaption|figure|font|footer|form|h[1-6]|header|hr|html|i|img|input|ins|kbd|label|legend|li|link|main|mark|meta|nav|o:p|ol|optgroup|option|p|pre|q|s|samp|section|select|small|source|span|strike|strong|sub|summary|sup|table|tbody|td|textarea|tfoot|th|thead|time|tr|tt|u|ul|var|video|wbr|!doctype|\\?xml";
+const HT_TAGRE = new RegExp("<\\/?(?:" + HT_TAGS + ")(?=[\\s/>])(?:\"[^\"]*\"|'[^']*'|[^<>\"'])*>", "gi");
+const HT_OPENRE = new RegExp("<\\/?(?:" + HT_TAGS + ")(?:\\s[^<>]*)?$", "i");
+const HT_HAS = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+function htmlText(s, opts){
+  const o = opts || {};
+  if (s == null || s === "") return "";
+  const t0 = typeof s === "string" ? s : typeof s === "object" ? "" : String(s);
+  if (!t0) return "";
+  let t = t0;
+  const dec = (m, name) => {
+    if (name[0] === "#") { const n = name[1] === "x" || name[1] === "X" ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10); return n > 0 && n <= 0x10FFFF && !(n >= 0xD800 && n <= 0xDFFF) ? (n === 160 ? " " : String.fromCodePoint(n)) : ""; }
+    if (HT_HAS(HT_ENT, name)) return HT_ENT[name];
+    const lm = /^([A-Za-z])(grave|acute|circ|tilde|uml|ring|cedil)$/.exec(name); if (lm) return (lm[1] + HT_ACC[lm[2]]).normalize("NFC");
+    return m;
+  };
+  // Each pass strips markup then decodes entities, so "&lt;p&gt;Tom &amp;amp; Jo" (double-encoded) peels one layer per pass.
+  for (let i = 0; i < 5; i++) {
+    const before = t;
+    t = t.replace(/<!--[\s\S]*?(-->|$)/g, "").replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+      .replace(/<(script|style|head|template|noscript|iframe|object|embed|svg|math)\b[\s\S]*?(<\/\1\s*>|$)/gi, " ")
+      .replace(/<\s*br\b[^>]*>/gi, "\n").replace(/<\s*li\b[^>]*>/gi, "\n\u2022 ")
+      .replace(/<\/\s*(p|div|h[1-6]|tr|ul|ol|table|blockquote|section|article|pre|dl|dt|dd|header|footer|figure)\s*>/gi, "\n")
+      .replace(/<\s*(p|div|h[1-6]|tr|ul|ol|table|blockquote|hr)\b[^>]*>/gi, "\n").replace(/<\/\s*(td|th)\s*>/gi, " ")
+      .replace(HT_TAGRE, "").replace(HT_OPENRE, "")
+      .replace(/&(#[xX][0-9a-fA-F]+|#\d+|[A-Za-z][A-Za-z0-9]{1,9});?/g, (m, n) => m.endsWith(";") || n[0] === "#" || HT_HAS(HT_ENT, n) ? dec(m, n) : m);
+    if (t === before) break;
+  }
+  t = t.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u200B-\u200D\u2060\uFEFF\u00AD]/g, "").replace(/[ \t\f\v\u00A0\u2000-\u200A\u202F\u205F\u3000]+/g, " ").replace(/\r\n?/g, "\n");
+  t = o.line ? t.replace(/\s+/g, " ") : t.replace(/ *\n */g, "\n").replace(/\n{3,}/g, "\n\n");
+  t = t.trim();
+  return o.max && t.length > o.max ? t.slice(0, o.max) : t;
+}
 const { BrowserWindow, ipcMain, net, session, app } = require("electron");
 const path = require("path");
 const fsp = require("fs").promises;
@@ -14,7 +61,7 @@ const busy = {};
 function originOf(host) {
   let s = String(host || "").trim();
   if (!s || s.length > 300) return null;
-  if (process.env.STUDYBOARD_BS_TEST === "1" && /^http:\/\/127\.0\.0\.1:\d+$/.test(s)) return s;   // automated tests only
+  if (TEST_MODE && /^http:\/\/127\.0\.0\.1:\d+$/.test(s)) return s;   // automated tests only
   if (!/^https?:\/\//i.test(s)) s = "https://" + s;
   try {
     const u = new URL(s);
@@ -25,7 +72,35 @@ function originOf(host) {
 }
 // Some sign-in pages turn away browsers they don't recognise, so the windows use a plain Chrome user agent.
 function chromeUA() { return String(app.userAgentFallback || "").replace(/\s(Electron|studyboard|Studyboard|studioso)\/\S+/g, ""); }
-const prefs = P => ({ partition: P.part, contextIsolation: true, nodeIntegration: false, sandbox: true });
+// Security: the school windows are sandboxed and isolated like the app's own, have no developer tools in the packaged app, and
+// can't use the camera, microphone, location, notifications or any other permission. They only ever speak https.
+const prefs = P => ({ partition: P.part, contextIsolation: true, nodeIntegration: false, nodeIntegrationInWorker: false, nodeIntegrationInSubFrames: false, sandbox: true,
+  webSecurity: true, allowRunningInsecureContent: false, webviewTag: false, navigateOnDragDrop: false, safeDialogs: true, devTools: !app.isPackaged });
+const TEST_MODE = process.env.STUDYBOARD_BS_TEST === "1" && !app.isPackaged;   // automated tests only, never in an installed app
+const httpsOnly = raw => { try { const u = new URL(String(raw)); return u.protocol === "https:" || (TEST_MODE && u.protocol === "http:" && u.hostname === "127.0.0.1"); } catch (e) { return false; } };
+const locked = new Set();
+function lockPartition(part) {
+  if (locked.has(part)) return; locked.add(part);
+  const ses = session.fromPartition(part);
+  ses.setPermissionRequestHandler((wc, perm, cb) => cb(false));
+  ses.setPermissionCheckHandler(() => false);
+  ses.setDevicePermissionHandler(() => false);
+  try { ses.setDisplayMediaRequestHandler((req, cb) => cb({})); } catch (e) {}
+  ses.webRequest.onBeforeRequest({ urls: ["http://*/*", "ws://*/*", "ftp://*/*"] }, (d, cb) => {
+    let local = false; try { local = TEST_MODE && new URL(d.url).hostname === "127.0.0.1"; } catch (e) {}
+    cb({ cancel: !local });
+  });
+}
+// Sign-in pop-ups (Microsoft, Google, Duo) stay in the same private store, but only for https addresses, and they are locked down the same way.
+function guardWindow(w, Pv, sameOrigin) {
+  const wc = w.webContents;
+  wc.on("will-attach-webview", e => e.preventDefault());
+  const nav = (e, url) => { if (!httpsOnly(url) || (sameOrigin && (() => { try { return new URL(url).origin !== sameOrigin; } catch (err) { return true; } })())) e.preventDefault(); };
+  wc.on("will-navigate", nav); wc.on("will-redirect", nav);
+  if (app.isPackaged) wc.on("devtools-opened", () => { try { wc.closeDevTools(); } catch (e) {} });
+  wc.setWindowOpenHandler(({ url }) => sameOrigin || !httpsOnly(url) ? { action: "deny" } : { action: "allow", overrideBrowserWindowOptions: { autoHideMenuBar: true, webPreferences: prefs(Pv) } });
+  wc.on("did-create-window", child => guardWindow(child, Pv, null));
+}
 const timeout = (ms, what) => new Promise((_, rej) => setTimeout(() => rej(new Error(what || "timeout")), ms));
 
 // ---------- Who's signed in (run inside the platform's own page) ----------
@@ -79,8 +154,8 @@ async function bsHarvest(o) {
   };
   const txt = (h, n) => {
     if (h && typeof h === "object") h = h.Text && typeof h.Text === "object" ? h.Text : h;
-    if (h && typeof h === "object") h = h.Text || (h.Html ? String(h.Html).replace(/<(br|\/p|\/li|\/div)[^>]*>/gi, "\n").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#39;|&rsquo;/g, "'").replace(/&quot;/g, '"') : "");
-    return String(h || "").replace(/[ \t]+/g, " ").replace(/\s*\n\s*/g, "\n").trim().slice(0, n || 4000);
+    if (h && typeof h === "object") h = h.Text || h.Html || "";
+    return htmlText(h, { max: n || 4000 });
   };
   const dt = x => (x && typeof x === "string" && !isNaN(Date.parse(x))) ? x : null;
 
@@ -184,7 +259,7 @@ async function cvHarvest(o) {
     }
     return out;
   };
-  const txt = (h, n) => String(h || "").replace(/<(br|\/p|\/li|\/div|\/h\d)[^>]*>/gi, "\n").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#39;|&rsquo;/g, "'").replace(/&quot;/g, '"').replace(/[ \t]+/g, " ").replace(/\s*\n\s*/g, "\n").trim().slice(0, n || 4000);
+  const txt = (h, n) => htmlText(h, { max: n || 4000 });
   const dt = x => (x && typeof x === "string" && !isNaN(Date.parse(x))) ? x : null;
   const filesIn = h => { const out = [], seen = {}; const re = /<a[^>]+href="[^"]*\/files\/(\d+)[^"]*"[^>]*>([\s\S]*?)<\/a>/gi; let m; while ((m = re.exec(String(h || ""))) && out.length < 12) { if (seen[m[1]]) continue; seen[m[1]] = 1; out.push({ id: m[1], name: txt(m[2], 120) || "File " + m[1], size: 0 }); } return out; };
 
@@ -276,7 +351,7 @@ async function bbHarvest(o) {
     for (let i = 1; next && i < (max || 6); i++) { let r; try { r = await req(next); } catch (e) { break; } out.push(...listOf(r)); next = r.paging && r.paging.nextPage; }
     return out;
   };
-  const txt = (h, n) => { if (h && typeof h === "object") h = h.rawText || h.displayText || h.text || ""; return String(h || "").replace(/<(br|\/p|\/li|\/div|\/h\d)[^>]*>/gi, "\n").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#39;|&rsquo;/g, "'").replace(/&quot;/g, '"').replace(/[ \t]+/g, " ").replace(/\s*\n\s*/g, "\n").trim().slice(0, n || 4000); };
+  const txt = (h, n) => { if (h && typeof h === "object") h = h.rawText || h.displayText || h.text || ""; return htmlText(h, { max: n || 4000 }); };
   const dt = x => (x && typeof x === "string" && !isNaN(Date.parse(x))) ? x : null;
 
   let me = null;
@@ -379,10 +454,11 @@ function connect(id, host, parent) {
   if (!Pv) return Promise.resolve({ ok: false, error: "bad-provider" });
   if (!origin) return Promise.resolve({ ok: false, error: "bad-host" });
   return new Promise(resolve => {
+    lockPartition(Pv.part);
     const w = new BrowserWindow({ width: 1000, height: 780, parent: parent || undefined, title: "Sign In", autoHideMenuBar: true, show: true, webPreferences: prefs(Pv) });
     w.webContents.setUserAgent(chromeUA());
     // Sign-in pages sometimes open a pop-up (Microsoft, Google, Duo). Those stay in the same private cookie store.
-    w.webContents.setWindowOpenHandler(() => ({ action: "allow", overrideBrowserWindowOptions: { autoHideMenuBar: true, webPreferences: prefs(Pv) } }));
+    guardWindow(w, Pv, null);
     let done = false, timer = null;
     const finish = r => { if (done) return; done = true; clearInterval(timer); if (!w.isDestroyed()) w.close(); resolve(r); };
     const check = async () => {
@@ -402,9 +478,10 @@ function connect(id, host, parent) {
 
 // A hidden page on the platform's own site to run things in, so your sign-in applies.
 async function withPage(Pv, origin, fn) {
+  lockPartition(Pv.part);
   const w = new BrowserWindow({ show: false, width: 800, height: 600, webPreferences: prefs(Pv) });
   w.webContents.setUserAgent(chromeUA());
-  w.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  guardWindow(w, Pv, origin);                                   // a hidden page may follow redirects on the school's own site only
   try {
     try { await w.loadURL(origin + Pv.ctx); } catch (e) { /* a redirect or a non-HTML page can reject; checked below */ }
     let here = "";
@@ -436,14 +513,17 @@ async function sync(id, host, opts) {
 
 // Downloads a file with your sign-in (Canvas files are handed to a storage server, so this follows the download like a browser).
 function downloadVia(Pv, url, name) {
+  lockPartition(Pv.part);
   const ses = session.fromPartition(Pv.part);
   const w = new BrowserWindow({ show: false, webPreferences: prefs(Pv) });
+  guardWindow(w, Pv, null);
   const tmp = path.join(app.getPath("temp"), "studyboard-dl-" + Date.now() + "-" + Math.random().toString(36).slice(2));
   return new Promise(resolve => {
     let t = null;
     const done = r => { ses.removeListener("will-download", onDl); clearTimeout(t); if (!w.isDestroyed()) w.destroy(); resolve(r); };
     const onDl = (e, item, wc) => {
       if (wc !== w.webContents) return;
+      if (item.getTotalBytes() > 52428800) { item.cancel(); return done({ error: "too-large" }); }
       item.setSavePath(tmp);
       item.once("done", async (ev, st) => {
         if (st !== "completed") return done({ error: st });
@@ -487,7 +567,7 @@ function feedOk(id, url) {
   const Pv = prov(id); if (!Pv) return null;
   try {
     const u = new URL(String(url || "").trim().replace(/^webcals?:\/\//i, "https://"));
-    const okProto = u.protocol === "https:" || (process.env.STUDYBOARD_BS_TEST === "1" && u.origin.startsWith("http://127.0.0.1:"));
+    const okProto = u.protocol === "https:" || (TEST_MODE && u.origin.startsWith("http://127.0.0.1:"));
     return okProto && Pv.feed.test(u.pathname) && !!originOf(u.origin) ? u.href : null;
   } catch (e) { return null; }
 }
@@ -497,6 +577,8 @@ async function feed(id, url) {
   try {
     const r = await Promise.race([net.fetch(href, { headers: { Accept: "text/calendar, */*" } }), timeout(30000)]);
     if (!r.ok) return { error: "HTTP " + r.status, status: r.status };
+    if (r.url && !httpsOnly(r.url)) return { error: "bad-url" };                         // never follow a redirect off https
+    if (Number(r.headers.get("content-length") || 0) > 8e6) return { error: "too-large" };
     const text = await r.text();
     if (text.length > 8e6) return { error: "too-large" };
     if (!/BEGIN:VCALENDAR/i.test(text)) return { error: "not-calendar" };
@@ -509,8 +591,9 @@ async function signOut(id) {
   try { await session.fromPartition(Pv.part).clearStorageData(); await session.fromPartition(Pv.part).clearCache(); return true; } catch (e) { return false; }
 }
 
-function register(getMain) {
-  const fromMain = e => { const w = getMain(); return !!(w && !w.isDestroyed() && e.sender === w.webContents); };
+// trusted(e): main.js passes its check that the message comes from the top frame of Studyboard's own window (event.senderFrame.url).
+function register(getMain, trusted) {
+  const fromMain = e => { const w = getMain(); return !!(w && !w.isDestroyed() && e.sender === w.webContents) && (typeof trusted !== "function" || trusted(e)); };
   ipcMain.handle("lms:connect", (e, id, host) => fromMain(e) ? connect(String(id), host, getMain()) : null);
   ipcMain.handle("lms:sync", (e, id, host, opts) => fromMain(e) ? sync(String(id), host, opts) : null);
   ipcMain.handle("lms:file", (e, id, host, spec) => fromMain(e) ? file(String(id), host, spec) : null);

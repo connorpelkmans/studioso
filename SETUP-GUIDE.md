@@ -5,6 +5,14 @@ About 20 minutes, done once. You'll need the three files that came with this gui
 
 Throughout, replace `USERNAME` with your GitHub username.
 
+## What's New in 1.13
+
+- **Ready for everyone:** Privacy Policy, Terms of Service and an About page (version, credits and licenses) are now in the app, in **Settings > App and Notifications** and on the sign-in screen.
+- **Delete My Account and Data:** signed-in people can permanently remove their account and everything stored online from **Settings > Account and Sync**. Run `supabase-lean.sql` once more to switch it on (see "Run the SQL files in this order" below).
+- **Easier to use:** every sheet has a name for screen readers, Left and Right Arrow move between tabs, closing a sheet puts the keyboard focus back, bigger tap targets on phones, stronger text contrast, and animations stop when a device asks for reduced motion.
+- **Faster start:** the sticker picture cache is built only when the page is quiet.
+- **Desktop build fixes:** `npm run prep`, `start` and `dist` work from the repository root, and the Intel Mac build uses a current GitHub runner.
+
 ## What's New in 1.12
 
 - **1.12.4:** Study Fields scenes only keep animals that fit the subject (like the cells and microbes in Cell Garden, the class hamster and fish tank, the therapy dog at Night Shift, the farm animals in Green Valley and the Ruins cat) and move more calmly, with rare little surprises. Switching your study companion now updates its name and face across the page right away. Today's Plan is calmer: Do This Next shows once, the other tasks are single tidy lines with the main reason (tap +2 for the rest), Full Ranking and How This Is Ranked share one line, and Board cards drop the default Medium pill and repeated dates.
@@ -41,7 +49,7 @@ Throughout, replace `USERNAME` with your GitHub username.
 
 ### Updating to 1.11 (one time)
 
-1. **Website:** upload everything from `studyboard-github-files-1.11.0.zip` to your GitHub repository, replacing what's there: `index.html`, `sw.js`, `manifest.webmanifest`, `today.webmanifest`, the `icons` and `widgets` folders, and the `desktop` and `.github` folders. If you had filled in `SB_DEFAULT` in the old `index.html`, fill it in again first.
+1. **Website:** upload everything from `studyboard-github-files-1.13.0.zip` to your GitHub repository, replacing what's there: `index.html`, `sw.js`, `manifest.webmanifest`, `today.webmanifest`, the `icons` and `widgets` folders, and the `desktop` and `.github` folders. If you had filled in `SB_DEFAULT` in the old `index.html`, fill it in again first.
 2. **Database:** in Supabase open **SQL Editor**, then **New query**, and run each of these once: `supabase-groups.sql`, `supabase-calendar-feed.sql`, `supabase-reminders.sql` (paste your Project URL and publishable key into the two lines marked PASTE in the reminders file first) `supabase-rooms.sql` (for Study Together) and, last, `supabase-lean.sql`. `supabase-plans.sql` can wait until you want to sell Pro. The sections below explain what each one is for.
 3. **Small Supabase functions** (for Calendar Sync, phone notifications, and optionally school-platform calendar links on your phone): the steps are in the Calendar Sync, Reminders and Brightspace, Canvas and Blackboard sections below. All are pasted into the Supabase dashboard, with no command line.
 4. **Desktop:** run the new installer for your computer. Your data stays as it is.
@@ -73,6 +81,39 @@ Never use the **secret** or **service_role** key. The app refuses them.
 
 ---
 
+## Run the SQL files in this order
+
+Open **SQL Editor > New query** in Supabase, paste a whole file and click **Run**. Every file is safe to run again. Run them in this order on a new project:
+
+| Step | File | What it is for | Needed? |
+|---|---|---|---|
+| 1 | `supabase-setup.sql` | Your synced data table (`items`) and the private file storage | Required |
+| 2 | `supabase-groups.sql` | Share decks and study groups | Recommended |
+| 3 | `supabase-calendar-feed.sql` | The live calendar link | Optional |
+| 4 | `supabase-rooms.sql` | Study Together rooms (needs step 2) | Optional |
+| 5 | `supabase-reminders.sql` | Phone and desktop reminders (paste your Project URL and key into the two lines marked PASTE first) | Optional |
+| 6 | `supabase-bug-reports.sql` | Report a Bug or Send Feedback | Recommended |
+| 7 | `supabase-plans.sql` | Free and Pro plans, limits, devices (run after step 2 so group limits are added) | Before you sell Pro, and for notification keys |
+| 8 | `supabase-lean.sql` | Lean Sync and **Delete My Account and Data** (run it last) | Required for a public launch |
+| 9 | `supabase-capture.sql` | Voice and shortcut capture (Siri, Gemini, Bixby, share sheet). Run it after step 8 so account deletion also clears it, then deploy the `capture-task` function with Verify JWT **off**. Optional check: `supabase-capture-selftest.sql`. See `VOICE-CAPTURE.md` | Optional |
+| 10 | `supabase-sync-conflicts.sql` | Sync conflicts: two devices editing the same thing never overwrite each other (run it after `supabase-lean.sql`; see "Two devices, one note" below) | Strongly recommended |
+
+If you run `supabase-groups.sql` or `supabase-calendar-feed.sql` later, run `supabase-plans.sql` and `supabase-lean.sql` again afterwards. Running `supabase-groups.sql` again also resets who can see blocked people's tasks, so run `supabase-moderation.sql` again after it.
+
+**Edge Functions** (pasted into Supabase under Edge Functions > Deploy a new function > Via Editor). In this repository they are saved as plain `index.ts` files, so match them by their first line:
+
+| File in this repository | Function name | Verify JWT |
+|---|---|---|
+| `index.ts` | `calendar-feed` | Off |
+| `index (1).ts` | `billing-webhook` | Off |
+| `index (2).ts` | `lms-feed` | On |
+| `index (3).ts` | `send-reminders` | Off |
+| `supabase-functions/delete-account/index.ts` | `delete-account` | **On** |
+
+**delete-account** is what makes "Delete My Account and Data" remove everything on the server, including the uploaded files themselves (SQL cannot delete files in Storage; this function uses the service role to list and remove every file under `<user id>/` in the `studioso-files` bucket, then runs `studyboard_delete_user_data` from `supabase-lean.sql`, then deletes the sign-in account, which ends every session). It also cancels a Stripe card subscription so billing never keeps running, asks for a recent sign-in or the password, and allows 5 tries an hour. Secrets: `STRIPE_SECRET_KEY` (the one the billing functions use; skip if you never took card payments) and `SITE_ORIGINS` (your web address, same value as for `create-checkout`). Without this function the app falls back to deleting files and rows with the person's own sign-in, but it cannot cancel Stripe, so it asks them to cancel first. Test it with `node --experimental-strip-types supabase-functions/tools/test-functions.mjs` and, in Supabase, with `supabase-delete-selftest.sql` (SQL Editor, run after `supabase-lean.sql`; it rolls back).
+
+---
+
 ## Part 1b: Studyboard Accounts (one server for everyone)
 
 This makes your Supabase project the Studyboard server for every student. They never see a "connect" screen or the word Supabase: they just **Sign In to Studyboard** or **Create Account**, and the emails come from Studyboard.
@@ -86,9 +127,13 @@ Put your Project URL and publishable key (from Part 1, step 4) into a file calle
 
 **2. Email sign-in settings** (Authentication, then Sign In / Providers, then Email)
 - **Enable Email provider:** on. **Confirm email:** on.
-- **Minimum password length:** 8.
+- **Minimum password length:** 8 (or more). Turn on **Prevent use of leaked passwords** (Authentication, Sign In / Providers, Email; a Pro plan feature) and require letters and digits if you like.
+- **Secure email change:** on (a change needs a confirmation from the old AND the new address; it uses the `change-email.html` template). **Secure password change:** on (asks for a fresh code, `reauthentication.html`, when the sign-in is old). **Prevent use of leaked passwords:** see above.
+- **CAPTCHA protection:** turn it on before a big public launch (Authentication, Attack Protection; hCaptcha or Turnstile) if you see fake sign-ups. If you turn it on, the sign-in forms need the CAPTCHA token added to `signUp`, `signInWithPassword` and `resetPasswordForEmail` in `index.html` and `website/account/account.js`; the apps do not send one today, so test sign-up right after switching it on.
 - **Email OTP Expiration:** 3600 seconds (1 hour). **Email OTP Length:** 6.
-- Under **URL Configuration**, keep the Site URL and Redirect URL from Part 1, step 3. The links in emails open the website; the codes work everywhere, including the desktop app.
+- Under **URL Configuration**, keep the Site URL and Redirect URL from Part 1, step 3. The links in emails open the website; the codes work everywhere, including the desktop app. See "Redirect URLs allowlist" below for the full list.
+- **Unconfirmed accounts:** with **Confirm email** on, a new account has no session until the code or link is used: the app shows "Check Your Email", says that until then Studyboard works on this device only and does not sync, and the **Send a New Code** button has a 30 second cooldown. Signing in before confirming sends a new code automatically.
+- **No account guessing:** sign-up for an existing address, "forgot password" for an unknown address and a wrong password all show the same words in the app and on the website. Keep it that way if you edit the messages.
 
 **3. Send emails from Studyboard (custom SMTP, free)**
 Supabase's built-in email sender only sends a few emails an hour and is meant for testing, so set up your own before real students sign up. Pick one:
@@ -112,13 +157,35 @@ In **Authentication**, then **Emails**, then **Templates**, open each template, 
 - Invite user: `invite.html`
 - Reauthentication: `reauthentication.html`
 
-Each email shows a big 6-digit code (Studyboard asks for it) and a button that does the same thing on the web. Send yourself a test: create an account in Studyboard with a spare email.
+The six files are in the repository root (not in a folder). Each email shows a big 6-digit code (Studyboard asks for it), a button that does the same thing on the web, the link written out in plain text for mail apps that hide buttons, the app name, and a link to your site (`{{ .SiteURL }}`). They use only these Supabase variables: `{{ .Token }}`, `{{ .ConfirmationURL }}`, `{{ .Email }}`, `{{ .NewEmail }}` (change email only) and `{{ .SiteURL }}`. They contain no images, scripts or trackers (`node tests/store-readiness.test.js` checks this). Send yourself a test of every template: sign up (confirm-signup), forgot password (reset-password), change email in Settings (change-email, sent to both addresses), change password when asked for a code (reauthentication). Magic link and invite are only used if you switch those flows on in Supabase; the app has no magic-link button.
+
+**4b. Custom SMTP checklist (emails that actually arrive)**
+- [ ] **From address on your own domain** (for example `hello@yourdomain.com`), not a free webmail address, and the **Sender name** is `Studyboard`.
+- [ ] **SPF:** one TXT record on the domain that includes your provider (the provider shows the exact value, for example `v=spf1 include:amazonses.com ~all`). Only one SPF record per domain.
+- [ ] **DKIM:** add the CNAME/TXT records your provider gives you and wait until the provider shows "verified".
+- [ ] **DMARC:** TXT record on `_dmarc.yourdomain.com`, start with `v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com`, move to `quarantine` once reports look clean.
+- [ ] **Test deliverability:** send each template to a Gmail, an Outlook and a school address; check inbox vs junk and the "Show original" headers say SPF, DKIM and DMARC = PASS (or use mail-tester.com).
+- [ ] **Template variables:** open each template in the dashboard after pasting and check the preview shows a code, not `{{ .Token }}`. Subjects come from `SUBJECTS.txt`.
+- [ ] **Token expiry:** Email OTP Expiration 3600 seconds, length 6 (the emails say "1 hour").
+- [ ] **Rate limits:** Authentication, Rate Limits: emails per hour matches your provider; sign-ups and sign-ins per hour per IP left at the defaults or lower. The app shows "Too many tries just now" for them.
+- [ ] **Bounces and spam complaints** are monitored in your provider's dashboard; add the provider to your privacy policy ("Email delivery", fill in the provider name).
+
+**4c. Redirect URLs allowlist** (Authentication, URL Configuration)
+- **Site URL:** your website address, for example `https://app.yourdomain.com` (also the address of `website/` if hosted together; if the account page lives on a different host, add it below).
+- **Redirect URLs** (all of these; wildcards allowed only where shown):
+  - `https://app.yourdomain.com/**` (the web app and the website's `account/` page)
+  - `https://www.yourdomain.com/**` (if the marketing website is on another host)
+  - `studyboard://**` (iOS and desktop deep links)
+  - `capacitor://localhost/**` (the Capacitor iOS app's own address)
+  - `http://localhost:3000/**` only while developing; remove it before launch.
+- The desktop and phone apps do not send an `emailRedirectTo`, so their emails use the Site URL; the 6-digit code works there regardless of the link.
+- An email link that is expired or already used lands on the app with `#error_code=otp_expired`; the app and the account page then show "That link has expired or was already used" with buttons to send a new one.
 
 **5. Phone notifications for everyone** (after Reminders is set up, see below)
 Open `notification-keys.html` (it came with this guide) in your browser and click **Make Keys**. Add the three values to **Edge Functions**, then **Secrets**, and run the SQL line it gives you. From then on, students just tap **Turn On for This Device** in Reminders. (`supabase-plans.sql` must be run first, because the public key is kept in its settings table.)
 
 **6. Later, if you want**
-- **Google sign-in:** hold off until students ask for it. When you add it (Authentication, then Sign In / Providers, then Google), set the Google consent screen's app name to **Studyboard**.
+- **Google sign-in (careful):** Studyboard has no Google, Facebook or other social login today, which is why the iPhone app does not need Sign in with Apple (App Store guideline 4.8). **If you add Google sign-in later you must also add Sign in with Apple** in the same release, or Apple rejects the app. See `APP-STORE-CHECKLIST.md`, "If you add Google sign-in later you must also add Sign in with Apple".
 - **Custom domain** (a paid Supabase add-on): the one place the Supabase address still shows is the live calendar link students paste into their calendar app (and a Google sign-in popup, if you add one). Only pay for a custom domain if that bothers people.
 
 ---
@@ -189,7 +256,7 @@ There are two ways to install Studyboard. Both sync through your Supabase accoun
 
 ### On your Windows computer: the Studyboard app
 
-1. Run **Studyboard-Setup-1.11.0.exe**. Windows may say "Windows protected your PC", because the installer isn't signed with a paid code-signing certificate. Click **More info**, then **Run anyway**.
+1. Run **Studyboard-Setup-1.13.0.exe**. Windows may say "Windows protected your PC", because the installer isn't signed with a paid code-signing certificate. Click **More info**, then **Run anyway**.
 2. Pick where to install (the default is fine) and finish. Studyboard gets a Start menu entry, a desktop shortcut and an uninstaller in Settings > Apps.
 3. The first time it opens, choose **Connect to Supabase** and paste the same Project URL and publishable key as on the website, then sign in. Or choose **Use Without an Account** to work only on this computer, and connect later in Settings.
 
@@ -205,7 +272,7 @@ Updating: installing a newer version over the old one keeps all your data. To bu
 
 ### On a Mac (macOS 12 or newer, Apple Silicon)
 
-Use **Studyboard-1.11.0-mac.dmg** on Apple silicon Macs (M1 and newer) and **Studyboard-1.11.0-mac-intel.dmg** on Intel Macs. The Intel version needs macOS 12 Monterey or newer, which covers the last generation of Intel Macs (2018 to 2020). Not sure which you have? Apple menu > About This Mac shows either "Chip: Apple M…" or "Processor: Intel".
+Use **Studyboard-1.13.0-mac.dmg** on Apple silicon Macs (M1 and newer) and **Studyboard-1.13.0-mac-intel.dmg** on Intel Macs. The Intel version needs macOS 12 Monterey or newer, which covers the last generation of Intel Macs (2018 to 2020). Not sure which you have? Apple menu > About This Mac shows either "Chip: Apple M…" or "Processor: Intel".
 
 1. Open the .dmg for your Mac and drag **Studyboard** onto **Applications**.
 2. The first time, macOS says it can't verify the developer, because the app isn't notarized by Apple (that needs a paid Apple Developer account, $99 a year). Click **Done**, then open **System Settings › Privacy & Security**, scroll down and click **Open Anyway** next to Studyboard, and confirm. After that it opens normally.
@@ -219,7 +286,7 @@ This build is for Macs with Apple silicon (M1 and newer), which is every Mac tha
 On a phone, the Board tab has two tabs at the top, **Today's Plan** and **Task Board**, so you see one at a time. Press and hold a card to drag it; the board stays on the column you drop it in.
 
 
-1. Upload the files from **studyboard-github-files-1.11.0.zip** to your GitHub repository, next to `index.html` (replace it too): `manifest.webmanifest`, `sw.js`, the `icons` folder, and optionally the `desktop` and `.github` folders so GitHub can build the Windows app for you.
+1. Upload the files from **studyboard-github-files-1.13.0.zip** to your GitHub repository, next to `index.html` (replace it too): `manifest.webmanifest`, `sw.js`, the `icons` folder, and optionally the `desktop` and `.github` folders so GitHub can build the Windows app for you.
 2. Open your Studyboard site once while online.
 3. On an **iPhone**, tap **Share**, then **Add to Home Screen**. On **Android** or in **Chrome/Edge** on a computer, open the browser menu and choose **Install app** (or **Add to Home screen**). Studyboard's Settings also shows an **Install** button when the browser offers one.
 
@@ -229,8 +296,8 @@ After that it has its own icon and window and opens without internet. Changes ma
 
 Studioso is now called **Studyboard**. Nothing about your account or data changes:
 
-- **Website:** upload the new files from `studyboard-github-files-1.11.0.zip` as usual. Your GitHub repository and web address can keep their old names; if you rename the repository, update the Site URL in Supabase (Authentication > URL Configuration) to the new address.
-- **Windows app:** run `Studyboard-Setup-1.11.0.exe`. It replaces Studioso (the old shortcuts go away and new Studyboard ones appear). The first time Studyboard opens, it renames **Documents\Studioso** to **Documents\Studyboard** and brings over your sign-in and settings. The old app data is left in place as a spare copy.
+- **Website:** upload the new files from `studyboard-github-files-1.13.0.zip` as usual. Your GitHub repository and web address can keep their old names; if you rename the repository, update the Site URL in Supabase (Authentication > URL Configuration) to the new address.
+- **Windows app:** run `Studyboard-Setup-1.13.0.exe`. It replaces Studioso (the old shortcuts go away and new Studyboard ones appear). The first time Studyboard opens, it renames **Documents\Studioso** to **Documents\Studyboard** and brings over your sign-in and settings. The old app data is left in place as a spare copy.
 - **Phone:** the home-screen app updates itself the next time you open it online. To get the new name under the icon, remove it and add it to the Home Screen again.
 - **Behind the scenes:** Supabase names (like the `studioso-files` storage bucket) stay as they are, so everything keeps syncing.
 
@@ -255,7 +322,7 @@ Your keys sync to your other devices through your account, and they're left out 
 - judges how ready you are for each exam from your study sessions, flashcards and quizzes
 - tunes the next study sessions to what you keep missing, and picks the flashcards for Study Cards
 - prepares the practice test before a practice day, so Practice Quiz is ready to go
-- reads each task's instructions, your next few days on the Schedule, your course standings from the Grade Tracker and recent announcements from Brightspace, Canvas or Blackboard, and lists up to 3 things you could easily miss under **Heads Up** in Today's Plan (an earlier draft or pre-lab deadline, a changed due date, a full clinical day right before something is due). Dismiss one with ×.
+- reads each task's instructions, your next few days on the Schedule, your course standings from the Grade Tracker and recent announcements from Brightspace, Canvas or Blackboard, and lists up to 3 things you could easily miss under **Heads Up** in Today's Plan (an earlier draft or pre-lab deadline, a changed due date, a full lab, placement or work day right before something is due). Dismiss one with ×.
 - rates how demanding tasks look when you haven't set Easy or Hard, so hard ones get more time and start earlier
 
 It only runs when something changed and a few times a day, and anything it changed is marked with ✦. It's on by default only if your default model is free Gemini. It can run on free Gemini even when your default is a paid model. It will never use a paid model unless you choose that, tick "I understand", and press **Confirm and Turn On**, and it asks again if you switch to a different paid model. If you turned on billing for your Gemini key, even "free" Gemini requests may be billed.
@@ -267,18 +334,18 @@ It only runs when something changed and a few times a day, and anything it chang
 
 **How Today's Plan decides** (all on your device, no AI needed)
 - **Deadlines come first:** the closer the exact due time, the higher the task. Due tomorrow counts about five times as much as due in a week, and dozens of times more than due in a month. Anything due in the next week always stays above work due 10 or more days after it, unless that later task is big enough to need most of your study time before its deadline (then it climbs early so it gets started in time, and the plan says why).
-- **Your time:** your study hours per day, less on long class, lab or clinical days from your Schedule (an all-day event called Clinical, Practicum or Placement counts as a full day). Focus time you've already done today comes off today's time.
+- **Your time:** your study hours per day, less on long class, lab or placement days from your Schedule (an all-day event called Placement, Practicum, Internship or Clinical counts as a full day). Focus time you've already done today comes off today's time.
 - **Deadlines and workload:** everything due before each deadline is added up and compared with the time you have, so you see a warning before you fall behind.
 - **Grade impact:** each task's weight fine-tunes the order between similar deadlines (a 40% project counts about twice a 1% reading, not more). If your school's gradebook isn't weighted, school sync works it out from the points (a 40-point assignment in a 200-point course is about 20%).
 - **Late submissions:** from school sync, when each item stops accepting work. Something that still accepts late work is less urgent than something that closes at the due time, and anything that can't be handed in any more stops taking up your time.
 - **Instructions:** word or page counts ("1500 words, APA") make time estimates more realistic, and an earlier step with its own deadline (a draft, an outline, a pre-lab) is pointed out.
-- **Other things it weighs:** your priority, tasks already started or nearly finished, small tasks due within 2 days (quick to clear), hard tasks due within 5 days, started work left alone for 5+ days, a full clinical or class day coming up before the due date, tasks other tasks are waiting on, and courses close to their pass mark. After 2 hours on one course in a day, Do This Next leans toward a different course for a change of subject.
+- **Other things it weighs:** your priority, tasks already started or nearly finished, small tasks due within 2 days (quick to clear), hard tasks due within 5 days, started work left alone for 5+ days, a full placement or class day coming up before the due date, tasks other tasks are waiting on, and courses close to their pass mark. After 2 hours on one course in a day, Do This Next leans toward a different course for a change of subject.
 - **Right now:** with a class coming up within the hour, Do This Next suggests something that fits in the gap and sizes the focus session to it. Hard work goes in the morning, short tasks late at night, and exams and quizzes are never Do This Next (their study sessions are).
 - **Automatic AI** (when it's on) is a second opinion: it can reorder the picks, but it can't bury something due today that you're short of time for, or jump to something due weeks away ahead of work due in the next few days.
 
 **Your study companion does the AI work**
 When you have a study companion out, it's the one handling Studyboard's smart features: its little face replaces the ✦ AI mark, Do This Next shows as its pick ("Mochi's Pick"), Heads Up becomes "Mochi Noticed", and buttons say things like **Create with Mochi** and **Ask Mochi**. When you start something like making flashcards or a summary, your companion says it's on it, then cheers when it's ready. Turn companions off and everything goes back to the plain AI labels.
-- **Create with AI** (Flashcards): flashcards, practice quizzes and case studies from your slides, in any style (NCLEX, select all that apply, pharmacology, and more).
+- **Create with AI** (Flashcards): flashcards, practice quizzes and case studies from your slides, in any style (AP, MCAT, USMLE, NCLEX, bar exam, CPA, select all that apply, a general mixed quiz, and more).
 - **Explain This**: on a flipped flashcard or an answered question, get a plain explanation, an analogy, an example and a memory tip.
 - **Typed answers graded by meaning**: "K+" counts for "Potassium". You still have "I was right" if you disagree.
 - **Weak Spots**: gathers the cards and questions you keep missing and writes fresh questions on those ideas.
@@ -290,11 +357,21 @@ When you have a study companion out, it's the one handling Studyboard's smart fe
 - **Syllabus import**: reads dates, weights, class times and now work-hour estimates.
 
 Things to know:
-- On Google's free tier, Google may use what you upload to improve its products. Don't upload private information such as real patient details.
+- On Google's free tier, Google may use what you upload to improve its products. Don't upload private information such as personal or sensitive details.
 - PDF is the best format for slides, because the AI also sees pictures and diagrams. From .pptx and .docx files only the text and speaker notes are used.
 - About 13 MB of files can go in one request. Split very large PDFs.
 - AI can get things wrong, so check cards, rationales and summaries against your notes.
 - AI needs an internet connection and doesn't work inside the Claude preview; use the app or your website.
+
+## Quick Capture
+
+Settings > Quick Capture explains each way in, with a Try it button for each, and three switches: Add right away when I'm sure (on), Keep photos with tasks (off), Use AI to read photos (on once AI is set up).
+
+- **Typing:** press **C** anywhere (or open `./?capture=1`, or the "Quick capture" app shortcut). Type a sentence such as `bio lab report fri 5pm`, `exam 12/5 9am`, `chem201 pset in 3 days 2h` or `read ch 4 wk 9`. **Enter** adds, **Ctrl/Cmd+Enter** adds and keeps the window open for the next one, **Esc** cancels. One task per line. Dates are read on the device (today, tomorrow, fri, next tue, oct 28, 10/28, in 3 days, end of the month, wk N), so no network is needed. A clear sentence with a date is added at once with an Undo button ("Added: Bio lab report, due Fri 5 PM"). Anything unsure (no date, a second course that fits, "next week") opens a small check sheet where one Enter adds everything.
+- **Photo:** the camera button beside the add bar (or the "Capture photo" shortcut, or paste or drop a picture on the Board) shrinks the photo on the device (1600 px, no location data), then sends it to your own AI provider after the AI consent sheet. You get a list to check next to the photo. Items the AI is unsure about start unchecked, and dates that are not in the photo are removed. Without AI, or if you say no, the photo stays on screen while you type it in, or you can save it as a note. Photos taken offline are kept (up to 50) and offered when you are back online.
+- **Share sheet:** Android, ChromeOS and desktop installs of the web app appear in Share (the manifest `share_target` posts to `share-target`, handled by `sw.js`: images only, 10 files, 15 MB each, held only until the page reads them). iPhone Safari web apps cannot receive shares; the iOS app has a share extension (see `ios-wrapper`).
+- **Shortcuts and links:** `./?capture=<text>&due=YYYY-MM-DD&time=HH:MM&course=BIO101&source=ios-shortcut`, the same after `#`, and `studyboard://add?title=...&due=...` or `studyboard://capture?photo=1`. Only those fields are read; text is stripped of HTML and capped. A link only ever makes a draft and always shows the check sheet (one Enter adds it): custom link schemes can be launched by any app or website, so links are never added silently. Items handed over directly by the native app (Siri action, share extension, tile) are added straight away. More than 10 links a minute are ignored.
+- **For developers:** `window.SBCAPTURE.handleUrl(url)`, `ingest(draftsOrItem, {source})`, `registerInbox(fn)` and `settingsExtra(fn)` are documented at the top of the "75-capture" module. Tests: `node tests/capture.test.js` (parser, links, photo-answer checks) and `node tests/capture.e2e.js` (Playwright and Chromium).
 
 ## Schedule and Calendar
 
@@ -691,14 +768,14 @@ You can turn this off, or clear the saved text and start over, in **Settings →
 
 ### Ask With AI (search by meaning)
 
-Switch search to **Ask With AI** and describe what you want in your own words, like "that slide about ACE inhibitors and cough" or "when is my pharm midterm". It finds the best matches by meaning, even if they use different words, and writes a short answer with numbered links to where it found it (for example "Week 3 Antihypertensives.pptx, slide 3"). Tap a number to open it.
+Switch search to **Ask With AI** and describe what you want in your own words, like "that slide about photosynthesis and light" or "when is my bio midterm". It finds the best matches by meaning, even if they use different words, and writes a short answer with numbered links to where it found it (for example "Week 3 Antihypertensives.pptx, slide 3"). Tap a number to open it.
 
 This uses your **free Google Gemini key** (see AI Features above). There's nothing extra to set up:
 - After you've used search, Studyboard quietly sends short pieces of your tasks, notes, flashcards, practice questions and file text to Gemini so it can "understand" them. This happens a little at a time in the background, only for things that are new or changed, and the results are saved on this device. With a lot of files the first time can take a while, and the footer of the search window shows how far along it is.
 - It uses Google's free embedding model (gemini-embedding-2, or gemini-embedding-001 if your key doesn't have the newer one). If you hit the free limit it just pauses and picks up later.
 - The short answer uses free Gemini too. If your only AI key is a paid one (Claude or ChatGPT), search asks you to tick "I understand" and confirm before it ever uses it for answers, and it asks again if you switch to a different paid model.
 
-**Without a Gemini key**, Ask With AI still works: it looks for your words plus common nursing abbreviations and synonyms (like BP and blood pressure, or "ACE inhibitor" and drugs ending in -pril), and offers **Set Up AI**.
+**Without a Gemini key**, Ask With AI still works: it looks for your words plus common abbreviations and synonyms (like calc and calculus, bio and biology, or BP and blood pressure), and offers **Set Up AI**.
 
 ## Share Decks and Study Groups
 
@@ -720,6 +797,9 @@ The first time you share or join, Studyboard asks what classmates should call yo
 - Anyone with Studyboard can open the link, or tap **Enter a Share Code** on the Flashcards page. They see a preview and tap **Add to My Flashcards** to get their own copy with fresh study progress.
 - Changed the deck? Open **Share** again and tap **Update Shared Copy**. People who added it see **Get Update**, which adds the new cards and keeps their progress.
 - **Stop Sharing** turns the link and code off. Copies people already added stay theirs.
+
+### Project Tasks (new in 1.13)
+Each group page has a **Project Tasks** section: shared task lists (for example "BIOL 201 Poster") with assignees, due dates, a progress bar, filters (All, Mine, Unassigned, Overdue, Done) and a per-person workload line that shows an uneven split. Anyone can add and edit tasks and mark them done, anyone can claim an unassigned task, and only the person a task is assigned to (or the group owner) can reassign it. Tasks assigned to you also appear under Today's Plan on your Board. A group keeps up to 20 active lists with up to 200 tasks each. To turn it on, run `supabase-groups.sql` again (it is safe to repeat), then `supabase-moderation.sql` again. Until then, the group owner sees a note saying to run it and other members see nothing. Run `supabase-plans-selftest.sql` afterwards to confirm the new tables and functions are locked down (section 9 covers them).
 
 ### Study groups
 - Open **Groups** (in the sidebar on a computer, or from the Flashcards page or **Settings** on a phone) and tap **New Group**. Add a name and, if you like, a course.
@@ -856,7 +936,7 @@ Every theme has 3 little companions to choose from (201 in all). Yours lives in 
 - **Choosing a companion:** the one you pick gets a clear highlight and a check mark.
 - **It grows with you:** focus hours unlock accessories: Cozy Scarf (1 hour), Tiny Hat (5), Round Glasses (15), Little Backpack (30), Star Badge (60) and Graduation Cap (100).
 - **Ideas when you tap:** sometimes it suggests a next step, like starting a focus on the top task in Today's Plan or reviewing due flashcards. **Let's Do It** starts it; **Not Now** stops ideas for the day.
-- **Smart Lines (with AI):** if you've set up AI and turned on automatic AI, your companion writes its lines from what's actually going on ("Pharm quiz tomorrow. One card round?"). It reacts to the task you just finished, the end of a focus session, coming back after a break, a new exam or a busy week, and it keeps fresh lines for your taps. Each request writes lines for several moments at once, and everything is kept on your device.
+- **Smart Lines (with AI):** if you've set up AI and turned on automatic AI, your companion writes its lines from what's actually going on ("Bio quiz tomorrow. One card round?"). It reacts to the task you just finished, the end of a focus session, coming back after a break, a new exam or a busy week, and it keeps fresh lines for your taps. Each request writes lines for several moments at once, and everything is kept on your device.
   - **It never takes from your other AI features:** with free Gemini it has its own daily allowance (up to 50 small requests a day, at least 2 minutes apart, never while Studyboard is hidden) and only uses Gemini's Flash-Lite models, which have their own free quota, separate from the models the rest of Studyboard uses. If Google says the free quota is used up, it simply rests until tomorrow. The companion settings show how many it has used today. With a paid model it keeps to one small plan a few times a day.
   - **Ask About This:** while you're studying a flashcard, editing a note, looking at a course, or just after opening a file, the Ask button becomes **Ask About This**. Ask things like "explain this card", "quiz me on this note" or "summarize this reading". Only when you ask (and only if **About this ...** stays ticked) does it send what's on screen: the card, the note, the course's task list, or the text inside the file. The task window has its own **Ask About This Task** link under Notes, for "what is this assignment asking me to do?". Please don't use it with real patient information.
   - **Ask Me:** after a tap, tap **Ask** and type a short question ("what should I do next?", "quiz me on something"). It answers in a sentence or two in character, and can offer to start a focus on the right task.
@@ -885,7 +965,7 @@ That's all. It adds a small table for each group's current session, the rules th
 
 ### Starting a session
 - Open **Groups**, then your group. Near the top you'll see **Study Together**.
-- Tap **Start a Session**, pick a length (**25**, **50** or **90 minutes**, or **Custom**) and, if you like, a short goal like *Pharm chapter 5*. Tap **Start Session**.
+- Tap **Start a Session**, pick a length (**25**, **50** or **90 minutes**, or **Custom**) and, if you like, a short goal like *Biology chapter 5*. Tap **Start Session**.
 - Everyone in the group who has Studyboard open gets a small note (and sees a **Studying Now** banner on the Groups page). They can join any time before it ends.
 
 ### In the room
@@ -994,6 +1074,16 @@ Only work you finish counts. Tasks that arrive already done (from your school si
 **Term**
 - **Term Complete:** finish the term with Start a New Term.
 
+## Two Devices, One Note (Sync Conflicts)
+
+Students edit on a phone on the bus and a laptop at home, often offline. Without this step, whichever device saves last silently replaces the whole item, so an edit made on the other device can vanish. Run `supabase-sync-conflicts.sql` once (SQL Editor > New query > paste > Run, after `supabase-lean.sql`; it is safe to run again) and Studyboard stops that from happening:
+
+- A device that was offline merges what happened meanwhile before it sends its own changes, so a phone that was in a drawer for three weeks cannot undo this week's work.
+- Notes are merged line by line. If both devices changed the same line, **both versions are kept** in the note under a friendly divider, the note shows "Edited on two devices", and **Settings > Account and Sync > Sync Issues** lets the student keep theirs, the other, or both. Other things (task fields, flashcards, settings) are merged field by field, and the value that loses is written to a hidden history.
+- Nothing is blocked and nothing needs your attention as the app owner. The rules are in `SYNC-POLICY.md`.
+
+If you skip the file, sync keeps working as before, and devices coming back from offline still read before they write; but two devices saving at the same moment can still overwrite each other, because only the server can check that safely. Update the app and run the file together, in either order.
+
 ## Keeping Supabase Free (Lean Sync)
 
 Supabase's free plan counts how much data it sends out each month (5 GB), how much it stores, and how busy the database is. Lean Sync keeps all three low so one free project can carry a lot of students.
@@ -1016,7 +1106,7 @@ Update the `calendar-feed` and `lms-feed` functions too (Edge Functions > the fu
 
 Studyboard has a Free plan and a Pro plan built in, but the paywall is **switched off**. Right now everything is unlocked for everyone and nothing is limited. You don't need to set anything up until you decide to launch Pro.
 - **Free, forever:** the whole planner, sync on up to 2 devices, Brightspace, Canvas and Blackboard sync, reminders, study groups (up to 3 members, messages kept 60 days), AI with your own Gemini key, the 14 plain color themes and the free styles, 100 MB of cloud files and 25 MB of synced data.
-- **Pro ($2.99 a month or $19.99 a year, with a 7-day free trial):** unlimited devices, 10 GB of cloud files and 250 MB of synced data, every premium theme (including the 4 seasons) and style, 30 days of online backups, and study groups of up to 100 members with full message history.
+- **Pro ($2.99 a month or $19.99 a year, with a 7-day free trial):** unlimited devices, 10 GB of cloud files and 250 MB of synced data, every premium theme (including the 4 seasons) and style, 30 days of online backups, and study groups of up to 100 members with unlimited message history.
 - **See it:** Settings → **Studyboard Pro** shows the plan, what Pro adds and how much storage you use.
 
 When you're ready to sell Pro, follow the step-by-step guide in `PRO-PLANS-GUIDE.md` (Studyboard Pro: Plans and Payments), which comes in the same zip. It covers running `supabase-plans.sql`, making Stripe payment links, the `billing-webhook` function, App Store and Google Play through RevenueCat, and a short Launch Day checklist.
@@ -1025,5 +1115,38 @@ When you're ready to sell Pro, follow the step-by-step guide in `PRO-PLANS-GUIDE
 
 To install a new version, upload the new `index.html` to your GitHub repository (Add file, Upload files) and replace the old one. Your data stays in Supabase, so nothing is lost. If you had filled in `SB_DEFAULT` in the old file, fill it in again in the new one before uploading.
 
-**Flashcards update (one time).** Flashcard decks need a small database change before they can sync. In Supabase open **SQL Editor**, then **New query**. Paste the contents of `supabase-update-flashcards.sql` and click **Run**. Supabase may show a "Potential issue detected" warning because the query drops a rule. It's safe: it only swaps the rule on which kinds of items are allowed, and no data is deleted. Confirm and run it. Until you do, decks are still saved on each device, and Studyboard shows a reminder.
+**Flashcards update (one time, only if your project was made before 1.11 with an older `supabase-setup.sql`).** Flashcard decks need a small database change before they can sync. In Supabase open **SQL Editor**, then **New query**. Paste the contents of `supabase-update-flashcards.sql` and click **Run**. Supabase may show a "Potential issue detected" warning because the query drops a rule. It's safe: it only swaps the rule on which kinds of items are allowed, and no data is deleted. Confirm and run it. Until you do, decks are still saved on each device, and Studyboard shows a reminder.
 
+---
+
+## Public launch checklist
+
+Work through this before you tell the public about Studyboard.
+
+**Server (Supabase)**
+- [ ] All SQL files run in the order above, ending with `supabase-lean.sql` (it adds Delete My Account and Data).
+- [ ] Custom SMTP set up and the six email templates pasted in (Part 1b, steps 3 and 4). The built-in sender only allows a few emails an hour.
+- [ ] Email confirmation on, password length 8, Site URL and Redirect URLs set to your real web address.
+- [ ] Edge Functions deployed with the right Verify JWT setting (table above) and their secrets set.
+- [ ] Deploy the `delete-account` Edge Function (Verify JWT **On**) and run `supabase-delete-selftest.sql` (expect "ALL 41 ACCOUNT-DELETION CHECKS PASSED").
+- [ ] Test **Delete My Account and Data** with a spare account that has an uploaded file: it signs out, the account is gone from Authentication > Users, the rows are gone, and the file is gone from Storage > studioso-files. Also test with a spare Stripe test-mode subscription: it is cancelled in the Stripe dashboard.
+- [ ] A weekly backup of the database turned on (Supabase paid plans) or a regular export of your tables, and the keep-awake workflow running if you stay on the free plan.
+- [ ] Row Level Security shows **enabled** on every table in Table Editor, and the secret or service_role key appears nowhere in the app or repository.
+
+**Legal and contact**
+- [ ] In `index.html`, change `const SUPPORT = "support@YOUR-DOMAIN"` (in the 99-release module) to your real support address, and monitor that inbox.
+- [ ] Read the in-app Privacy Policy and Terms of Service (Settings > App and Notifications) and have them checked for your country or state. They describe the app as built; change them if you change what Studyboard collects.
+- [ ] Add your legal name or business name where you are required to, and the governing law in the Terms.
+- [ ] Switch the same support address into Stripe, your email templates and the store listings.
+
+**App**
+- [ ] Version is the same everywhere (`package.json`, `APP_VERSION`, the installer file names in this guide).
+- [ ] Desktop installers built from a tagged release (`v1.13.0`) with the GitHub workflow and tested on a clean Windows and Mac. Decide about code signing (see the Windows and Mac sections above).
+- [ ] The website is served over HTTPS and Add to Home Screen works on a phone.
+- [ ] If you sell Pro: finish `PRO-PLANS-GUIDE.md` and its Launch Day steps. If you do not, leave the paywall off.
+
+## Recently Deleted and Export My Data (no setup needed)
+
+- Deleted items are kept for 30 days in a bin that syncs like the rest of your data. It uses the existing `items` table with `kind = 'trash'`, so there is no SQL to run. Bin entries count toward each account's data size like any other item (a deleted deck still takes its space until the 30 days pass or it is deleted forever). Stored files are not removed from storage until the bin lets go of them.
+- If the same item is edited on another device after it was deleted, the live copy wins and the bin entry is hidden until it expires. Nothing is removed from the account because of a conflict.
+- Settings > Export My Data builds a ZIP (JSON plus CSV files) on the device; nothing is sent to the server.

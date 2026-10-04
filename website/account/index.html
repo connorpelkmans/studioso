@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://*.supabase.co; form-action 'self'; base-uri 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="color-scheme" content="light dark">
+<title>Your account - Studyboard</title>
+<meta name="description" content="Sign in to your Studyboard account, start Pro and manage billing.">
+<link rel="icon" type="image/png" href="../assets/icon-192.png">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to the content</a>
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="../"><img src="../assets/icon-192.png" alt="" width="32" height="32">Studyboard</a>
+    <nav class="main" aria-label="Main">
+      <a href="../index.html#features">Features</a>
+      <a href="../index.html#pricing">Pricing</a>
+      <a href="./">Account</a>
+      <button class="icon-btn" id="theme-toggle" type="button" aria-pressed="false" aria-label="Switch theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+    </nav>
+  </div>
+</header>
+<main id="main">
+<section class="block"><div class="wrap narrow">
+  <h1>Your account</h1>
+
+  <div id="v-loading" class="panel" role="status">Loading...</div>
+
+  <div id="v-config" class="panel" hidden>
+    <p class="msg error"><strong>This website isn't connected yet.</strong> The owner needs to fill in <code>config.js</code> (the Supabase address and the public key) before sign-in works.</p>
+  </div>
+
+  <div id="v-auth" hidden>
+    <div id="plan-intent" class="msg" hidden></div>
+    <div class="panel">
+      <div class="tabs" role="tablist" aria-label="Account">
+        <button type="button" role="tab" id="tab-signin" aria-selected="true" aria-controls="form-signin">Sign in</button>
+        <button type="button" role="tab" id="tab-signup" aria-selected="false" aria-controls="form-signup" tabindex="-1">Create account</button>
+        <button type="button" role="tab" id="tab-reset" aria-selected="false" aria-controls="form-reset" tabindex="-1">Reset password</button>
+      </div>
+      <div id="auth-msg" class="msg" hidden role="alert"></div>
+      <p id="link-expired" hidden><button class="btn block" type="button" id="expired-new">Send a new link</button></p>
+
+      <form id="form-signin" novalidate>
+        <label class="f">Email<input type="email" name="email" autocomplete="email" required inputmode="email"></label>
+        <label class="f">Password<input type="password" name="password" autocomplete="current-password" required></label>
+        <button class="btn primary block" type="submit">Sign in</button>
+        <p class="muted">Use the same email and password as in the Studyboard app.</p>
+      </form>
+
+      <form id="form-signup" hidden novalidate>
+        <label class="f">Email<input type="email" name="email" autocomplete="email" required inputmode="email"></label>
+        <label class="f">Password<span class="hint">At least 8 characters.</span><input type="password" name="password" autocomplete="new-password" required minlength="8"></label>
+        <button class="btn primary block" type="submit">Create account</button>
+        <p class="muted">By creating an account you agree to the <a href="../terms.html">Terms</a> and <a href="../privacy.html">Privacy Policy</a>. We email you a code to confirm your address.</p>
+      </form>
+
+      <form id="form-reset" hidden novalidate>
+        <label class="f">Email<span class="hint">We'll send a code and a link to set a new password.</span><input type="email" name="email" autocomplete="email" required inputmode="email"></label>
+        <button class="btn primary block" type="submit">Send reset email</button>
+      </form>
+
+      <form id="form-code" hidden novalidate>
+        <p id="code-intro">Type the 6-digit code from your email.</p>
+        <label class="f">Code<input class="code" type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" pattern="[0-9]*" required></label>
+        <button class="btn primary block" type="submit">Confirm</button>
+        <p><button class="linklike" type="button" id="code-resend">Send a new code</button> &middot; <button class="linklike" type="button" id="code-back">Back</button></p>
+      </form>
+
+      <form id="form-newpass" hidden novalidate>
+        <p>Choose a new password.</p>
+        <label class="f">New password<span class="hint">At least 8 characters.</span><input type="password" name="password" autocomplete="new-password" required minlength="8"></label>
+        <p class="muted" id="np-strength" aria-live="polite"></p>
+        <label class="f">Confirm new password<input type="password" name="confirm" autocomplete="new-password" required minlength="8"></label>
+        <button class="btn primary block" type="submit">Save password</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="v-account" hidden>
+    <div id="acct-msg" class="msg" hidden role="alert"></div>
+    <div class="panel">
+      <h2>Signed in</h2>
+      <p>Account: <strong id="acct-email"></strong></p>
+      <div class="plan-line"><span>Plan:</span><span class="tag" id="plan-tag">Free</span></div>
+      <p class="muted" id="plan-detail"></p>
+      <p><button class="btn" id="btn-signout" type="button">Sign out</button></p>
+    </div>
+
+    <div class="panel" id="buy-panel">
+      <h2>Studyboard Pro</h2>
+      <p class="muted">7-day free trial for new subscribers. Cancel any time. Paid by card through Stripe.</p>
+      <div class="row">
+        <div class="card"><h3>Monthly</h3><p class="price">$2.99 <small>/ month</small></p><button class="btn primary block" type="button" id="buy-monthly">Choose monthly</button></div>
+        <div class="card featured"><h3>Yearly</h3><p class="price">$19.99 <small>/ year</small></p><button class="btn primary block" type="button" id="buy-yearly">Choose yearly</button></div>
+      </div>
+    </div>
+
+    <div class="panel" id="manage-panel">
+      <h2>Billing</h2>
+      <p class="muted">Change your card, download invoices or cancel your subscription.</p>
+      <button class="btn" type="button" id="btn-manage">Manage billing</button>
+    </div>
+    <div class="panel" id="delete-panel">
+      <h2>Delete account</h2>
+      <p class="muted">Permanently deletes your Studyboard account and everything stored online for it: your synced planner, uploaded files, reminders, devices and plan record. A card subscription is cancelled for you. This can't be undone. You can also do this in the app: Settings, Account and Sync, Delete My Account and Data.</p>
+      <form id="form-delete" novalidate>
+        <label class="f">Your password<input type="password" name="password" autocomplete="current-password"></label>
+        <label class="f">Type DELETE to confirm<input type="text" name="confirm" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>
+        <button class="btn" type="submit" id="btn-delete">Delete my account</button>
+      </form>
+    </div>
+    <p id="back-app" hidden><a class="btn app-link" id="back-link" href="../">Back to Studyboard</a></p>
+  </div>
+</div></section>
+</main>
+<footer class="site">
+  <div class="wrap">
+    <span>Studyboard, the planner made by a student for students.</span>
+    <a href="../privacy.html">Privacy</a>
+    <a href="../terms.html">Terms</a>
+    <a class="support-email" href="mailto:support@YOUR-DOMAIN">support@YOUR-DOMAIN</a>
+  </div>
+</footer>
+<script src="../config.js"></script>
+<script src="../assets/site.js"></script>
+<script src="../vendor/supabase-js-2.117.2.umd.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok"></script>
+<script src="account.js"></script>
+</body>
+</html>

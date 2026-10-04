@@ -1,4 +1,4 @@
--- Studyboard 1.11: Share Decks and Study Groups (1.12 adds shared quizzes, study sessions, weekly challenge, check-ins, reactions and pins)
+-- Studyboard 1.11: Share Decks and Study Groups (1.12 adds shared quizzes, study sessions, weekly challenge, check-ins, reactions and pins; 1.13 adds Project Tasks)
 -- Run this once in Supabase: SQL Editor > New query > paste everything > Run.
 -- It is safe to run again (it only creates what is missing and refreshes the rules).
 --
@@ -180,7 +180,20 @@ begin
     new.user_id := auth.uid();
     new.author_name := public.sbg_my_name();
     new.created_at := now();
-    if tg_table_name = 'group_items' then new.updated_at := now(); end if;
+    if tg_table_name = 'group_items' then
+      new.updated_at := now();
+      -- Stops one account filling a group: at most 500 shared items per person in a group.
+      if (select count(*) from public.group_items where group_id = new.group_id and user_id = new.user_id) >= 500 then
+        raise exception 'This group already holds 500 of your shared items. Remove some first.';
+      end if;
+    end if;
+    if tg_table_name = 'group_messages' then
+      -- Pins only change through pin_message (so the 3-pin limit and the owner/author rule can't be skipped), and posting is limited to 20 a minute.
+      new.pinned := false;
+      if (select count(*) from public.group_messages where user_id = new.user_id and created_at > now() - interval '1 minute') >= 20 then
+        raise exception 'You are posting too fast. Try again in a minute.';
+      end if;
+    end if;
   else
     new.id := old.id; new.group_id := old.group_id; new.user_id := old.user_id;
     new.author_name := old.author_name; new.created_at := old.created_at;
@@ -515,11 +528,253 @@ revoke all on function public.submit_quiz_score(uuid, int, int), public.set_rsvp
 grant execute on function public.submit_quiz_score(uuid, int, int), public.set_rsvp(uuid, text), public.group_report(uuid, date, int, int),
   public.group_checkin(uuid, date, text, boolean), public.toggle_reaction(uuid, text), public.pin_message(uuid, boolean) to authenticated;
 
+-- ---------- 1.13: Project Tasks (shared task lists with assignees and due dates) ----------
+-- A group can keep up to 20 active task lists (40 in all, counting archived ones), each holding up to 200 tasks.
+-- Everyone in the group can read them. Nobody writes to these tables directly: every change goes through the functions below,
+-- which check that you are a member, that an assignee is a current member, and who may do what.
+create table if not exists public.group_task_lists (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references public.study_groups(id) on delete cascade,
+  title text not null check (char_length(btrim(title)) between 1 and 80),
+  course_code text not null default '' check (char_length(course_code) <= 40),
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  archived boolean not null default false,
+  unique (id, group_id)
+);
+create index if not exists group_task_lists_group_idx on public.group_task_lists (group_id);
+
+create table if not exists public.group_tasks (
+  id uuid primary key default gen_random_uuid(),
+  list_id uuid not null,
+  group_id uuid not null references public.study_groups(id) on delete cascade,
+  title text not null check (char_length(btrim(title)) between 1 and 200),
+  notes text not null default '' check (char_length(notes) <= 1000),
+  status text not null default 'todo' check (status in ('todo', 'doing', 'done')),
+  assignee_id uuid references auth.users(id) on delete set null,
+  due_at date,
+  priority text check (priority is null or priority in ('low', 'med', 'high', 'urgent')),
+  position int not null default 0,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_by uuid references auth.users(id) on delete set null,
+  updated_at timestamptz not null default now(),
+  completed_at timestamptz,
+  completed_by uuid references auth.users(id) on delete set null,
+  deleted boolean not null default false,
+  -- a task can only sit in a list of its own group
+  foreign key (list_id, group_id) references public.group_task_lists (id, group_id) on delete cascade
+);
+create index if not exists group_tasks_list_idx on public.group_tasks (list_id, position);
+create index if not exists group_tasks_group_idx on public.group_tasks (group_id);
+create index if not exists group_tasks_assignee_idx on public.group_tasks (assignee_id) where assignee_id is not null;
+
+alter table public.group_task_lists enable row level security;
+alter table public.group_tasks enable row level security;
+drop policy if exists "tasklist member read" on public.group_task_lists;
+create policy "tasklist member read" on public.group_task_lists for select to authenticated using (public.sbg_is_member(group_id));
+drop policy if exists "gtask member read" on public.group_tasks;
+create policy "gtask member read" on public.group_tasks for select to authenticated using (public.sbg_is_member(group_id));
+revoke all on public.group_task_lists, public.group_tasks from anon, authenticated;
+grant select on public.group_task_lists, public.group_tasks to authenticated;
+
+-- Stamps who and when, keeps the immutable columns put, tracks completion, and enforces the caps (also when something is edited in the SQL Editor).
+create or replace function public.sbg_task_stamp() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare me uuid := auth.uid();
+begin
+  if tg_table_name = 'group_task_lists' then
+    if tg_op = 'INSERT' then
+      new.created_by := me; new.created_at := now();
+      perform pg_advisory_xact_lock(hashtextextended('sb-tlist:' || new.group_id::text, 0));
+      if (select count(*) from public.group_task_lists where group_id = new.group_id and not archived) >= 20 and not new.archived then
+        raise exception 'A group can keep up to 20 task lists. Archive or delete one first.';
+      end if;
+      if (select count(*) from public.group_task_lists where group_id = new.group_id) >= 40 then
+        raise exception 'This group already has 40 task lists (counting archived ones). Delete an old one first.';
+      end if;
+      if me is not null and (select count(*) from public.group_task_lists where created_by = me and created_at > now() - interval '1 minute') >= 10 then
+        raise exception 'You are adding lists too fast. Try again in a minute.';
+      end if;
+    else
+      new.id := old.id; new.group_id := old.group_id; new.created_by := old.created_by; new.created_at := old.created_at;
+      if old.archived and not new.archived then
+        perform pg_advisory_xact_lock(hashtextextended('sb-tlist:' || new.group_id::text, 0));
+        if (select count(*) from public.group_task_lists where group_id = new.group_id and not archived) >= 20 then
+          raise exception 'A group can keep up to 20 task lists. Archive or delete one first.';
+        end if;
+      end if;
+    end if;
+    return new;
+  end if;
+  -- group_tasks
+  if tg_op = 'INSERT' then
+    new.created_by := me; new.created_at := now(); new.updated_by := me; new.updated_at := now(); new.deleted := false;
+    perform pg_advisory_xact_lock(hashtextextended('sb-gtask:' || new.list_id::text, 0));
+    if (select count(*) from public.group_tasks where list_id = new.list_id and not deleted) >= 200 then
+      raise exception 'A task list holds up to 200 tasks. Archive this list or start a new one.';
+    end if;
+    if me is not null and (select count(*) from public.group_tasks where created_by = me and created_at > now() - interval '1 minute') >= 40 then
+      raise exception 'You are adding tasks too fast. Try again in a minute.';
+    end if;
+    if new.status = 'done' then new.completed_at := now(); new.completed_by := me; else new.completed_at := null; new.completed_by := null; end if;
+  else
+    new.id := old.id; new.list_id := old.list_id; new.group_id := old.group_id; new.created_by := old.created_by; new.created_at := old.created_at;
+    new.updated_by := me; new.updated_at := now();
+    if new.status = 'done' and old.status <> 'done' then new.completed_at := now(); new.completed_by := me;
+    elsif new.status <> 'done' then new.completed_at := null; new.completed_by := null;
+    else new.completed_at := old.completed_at; new.completed_by := old.completed_by; end if;
+  end if;
+  -- An assignee has to be a current member of the group.
+  if new.assignee_id is not null and (tg_op = 'INSERT' or new.assignee_id is distinct from old.assignee_id)
+     and not exists (select 1 from public.group_members m where m.group_id = new.group_id and m.user_id = new.assignee_id) then
+    raise exception 'You can only assign a task to someone in the group.';
+  end if;
+  return new;
+end $$;
+drop trigger if exists sbg_tasklists_stamp on public.group_task_lists;
+create trigger sbg_tasklists_stamp before insert or update on public.group_task_lists for each row execute function public.sbg_task_stamp();
+drop trigger if exists sbg_tasks_stamp on public.group_tasks;
+create trigger sbg_tasks_stamp before insert or update on public.group_tasks for each row execute function public.sbg_task_stamp();
+
+-- When someone leaves (or is removed), their tasks become unassigned.
+create or replace function public.sbg_task_member_left() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  update public.group_tasks set assignee_id = null where group_id = old.group_id and assignee_id = old.user_id;
+  return old;
+end $$;
+drop trigger if exists sbg_task_member_left on public.group_members;
+create trigger sbg_task_member_left after delete on public.group_members for each row execute function public.sbg_task_member_left();
+
+-- Make a task list. Any member can.
+create or replace function public.create_task_list(p_group uuid, p_title text, p_course text) returns public.group_task_lists
+language plpgsql security definer set search_path = public as $$
+declare r public.group_task_lists; me uuid := auth.uid();
+begin
+  if me is null then raise exception 'Sign in first'; end if;
+  if not public.sbg_is_member(p_group) then raise exception 'You''re not in that group'; end if;
+  insert into public.group_task_lists (group_id, title, course_code) values (p_group, btrim(coalesce(p_title, '')), left(btrim(coalesce(p_course, '')), 40)) returning * into r;
+  return r;
+end $$;
+
+-- Rename or archive a list (p_patch keys: title, course_code, archived). Any member can.
+create or replace function public.update_task_list(p_list uuid, p_patch jsonb) returns public.group_task_lists
+language plpgsql security definer set search_path = public as $$
+declare r public.group_task_lists; gid uuid; me uuid := auth.uid();
+begin
+  if me is null then raise exception 'Sign in first'; end if;
+  select group_id into gid from public.group_task_lists where id = p_list;
+  if gid is null or not public.sbg_is_member(gid) then raise exception 'That list isn''t in one of your groups'; end if;
+  p_patch := coalesce(p_patch, '{}'::jsonb);
+  update public.group_task_lists set
+    title = case when p_patch ? 'title' then btrim(coalesce(p_patch ->> 'title', '')) else title end,
+    course_code = case when p_patch ? 'course_code' then left(btrim(coalesce(p_patch ->> 'course_code', '')), 40) else course_code end,
+    archived = case when p_patch ? 'archived' then coalesce((p_patch ->> 'archived')::boolean, false) else archived end
+  where id = p_list returning * into r;
+  return r;
+end $$;
+
+-- Delete a list and everything on it. Only the person who made it, or the group owner.
+create or replace function public.delete_task_list(p_list uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare gid uuid; maker uuid; me uuid := auth.uid();
+begin
+  if me is null then raise exception 'Sign in first'; end if;
+  select group_id, created_by into gid, maker from public.group_task_lists where id = p_list;
+  if gid is null or not public.sbg_is_member(gid) then raise exception 'That list isn''t in one of your groups'; end if;
+  if not (maker = me or public.sbg_is_owner(gid)) then raise exception 'Only the group owner or whoever made the list can delete it'; end if;
+  delete from public.group_task_lists where id = p_list;
+end $$;
+
+-- Add a task to a list. Any member can; the assignee (optional) has to be a member.
+create or replace function public.add_group_task(p_list uuid, p_title text, p_assignee uuid, p_due date, p_notes text, p_priority text) returns public.group_tasks
+language plpgsql security definer set search_path = public as $$
+declare r public.group_tasks; gid uuid; arch boolean; me uuid := auth.uid();
+begin
+  if me is null then raise exception 'Sign in first'; end if;
+  select group_id, archived into gid, arch from public.group_task_lists where id = p_list;
+  if gid is null or not public.sbg_is_member(gid) then raise exception 'That list isn''t in one of your groups'; end if;
+  if arch then raise exception 'That list is archived. Restore it to add tasks.'; end if;
+  insert into public.group_tasks (list_id, group_id, title, notes, assignee_id, due_at, priority, position)
+    values (p_list, gid, btrim(coalesce(p_title, '')), left(btrim(coalesce(p_notes, '')), 1000), p_assignee, p_due, nullif(p_priority, ''),
+            coalesce((select max(position) from public.group_tasks where list_id = p_list), 0) + 1)
+    returning * into r;
+  -- Tidy up: tasks deleted more than two weeks ago.
+  delete from public.group_tasks where group_id = gid and deleted and updated_at < now() - interval '14 days';
+  return r;
+end $$;
+
+-- Change a task (p_patch keys: title, notes, status, assignee_id, due_at, priority). Any member can edit and mark done.
+-- Changing who a task is assigned to: anyone can assign an unassigned task; once it has an owner, only that person or the group owner can reassign it.
+create or replace function public.update_group_task(p_task uuid, p_patch jsonb) returns public.group_tasks
+language plpgsql security definer set search_path = public as $$
+declare r public.group_tasks; t public.group_tasks; me uuid := auth.uid();
+begin
+  if me is null then raise exception 'Sign in first'; end if;
+  select * into t from public.group_tasks where id = p_task and not deleted;
+  if t.id is null or not public.sbg_is_member(t.group_id) then raise exception 'That task isn''t in one of your groups'; end if;
+  p_patch := coalesce(p_patch, '{}'::jsonb);
+  if p_patch ? 'assignee_id' and (p_patch ->> 'assignee_id') is distinct from t.assignee_id::text then
+    if t.assignee_id is not null and not (t.assignee_id = me or public.sbg_is_owner(t.group_id)) then
+      raise exception 'Only the person it''s assigned to, or the group owner, can reassign this task';
+    end if;
+  end if;
+  update public.group_tasks set
+    title = case when p_patch ? 'title' then btrim(coalesce(p_patch ->> 'title', '')) else title end,
+    notes = case when p_patch ? 'notes' then left(btrim(coalesce(p_patch ->> 'notes', '')), 1000) else notes end,
+    status = case when p_patch ? 'status' then coalesce(p_patch ->> 'status', status) else status end,
+    assignee_id = case when p_patch ? 'assignee_id' then (p_patch ->> 'assignee_id')::uuid else assignee_id end,
+    due_at = case when p_patch ? 'due_at' then (p_patch ->> 'due_at')::date else due_at end,
+    priority = case when p_patch ? 'priority' then nullif(p_patch ->> 'priority', '') else priority end
+  where id = p_task returning * into r;
+  return r;
+end $$;
+
+-- Move a task up (-1) or down (1) among the tasks of its list that are in the same state (open or done). Any member can.
+create or replace function public.move_group_task(p_task uuid, p_dir int) returns void
+language plpgsql security definer set search_path = public as $$
+declare t public.group_tasks; me uuid := auth.uid(); ids uuid[]; i int; j int;
+begin
+  if me is null then raise exception 'Sign in first'; end if;
+  select * into t from public.group_tasks where id = p_task and not deleted;
+  if t.id is null or not public.sbg_is_member(t.group_id) then raise exception 'That task isn''t in one of your groups'; end if;
+  perform pg_advisory_xact_lock(hashtextextended('sb-gtask:' || t.list_id::text, 0));
+  -- number the whole list 1..n in its current order, then swap this task with its neighbour of the same kind
+  update public.group_tasks g set position = x.n from (select id, row_number() over (order by position, created_at, id) as n from public.group_tasks where list_id = t.list_id and not deleted) x
+    where g.id = x.id and g.position <> x.n;
+  select array_agg(id order by position, id) into ids from public.group_tasks where list_id = t.list_id and not deleted and (status = 'done') = (t.status = 'done');
+  i := array_position(ids, p_task); j := i + case when p_dir < 0 then -1 else 1 end;
+  if i is null or j < 1 or j > array_length(ids, 1) then return; end if;
+  update public.group_tasks g set position = case g.id when p_task then o.position else n.position end
+    from (select position from public.group_tasks where id = ids[j]) o, (select position from public.group_tasks where id = p_task) n
+    where g.id in (p_task, ids[j]);
+end $$;
+
+-- Remove a task (kept out of sight for two weeks, then tidied away). Only whoever added it, or the group owner.
+create or replace function public.delete_group_task(p_task uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare t public.group_tasks; me uuid := auth.uid();
+begin
+  if me is null then raise exception 'Sign in first'; end if;
+  select * into t from public.group_tasks where id = p_task and not deleted;
+  if t.id is null or not public.sbg_is_member(t.group_id) then raise exception 'That task isn''t in one of your groups'; end if;
+  if not (t.created_by = me or public.sbg_is_owner(t.group_id)) then raise exception 'Only the group owner or whoever added the task can remove it'; end if;
+  update public.group_tasks set deleted = true where id = p_task;
+end $$;
+
+revoke all on function public.sbg_task_stamp(), public.sbg_task_member_left(), public.create_task_list(uuid, text, text), public.update_task_list(uuid, jsonb),
+  public.delete_task_list(uuid), public.add_group_task(uuid, text, uuid, date, text, text), public.update_group_task(uuid, jsonb),
+  public.move_group_task(uuid, int), public.delete_group_task(uuid) from public, anon, authenticated;
+grant execute on function public.create_task_list(uuid, text, text), public.update_task_list(uuid, jsonb), public.delete_task_list(uuid),
+  public.add_group_task(uuid, text, uuid, date, text, text), public.update_group_task(uuid, jsonb), public.move_group_task(uuid, int),
+  public.delete_group_task(uuid) to authenticated;
+
 -- ---------- Live updates for groups ----------
 do $$
 declare t text;
 begin
-  foreach t in array array['study_groups', 'group_members', 'group_items', 'group_messages', 'group_quiz_scores', 'group_rsvps', 'group_stats', 'group_checkins', 'group_reactions'] loop
+  foreach t in array array['study_groups', 'group_members', 'group_items', 'group_messages', 'group_quiz_scores', 'group_rsvps', 'group_stats', 'group_checkins', 'group_reactions', 'group_task_lists', 'group_tasks'] loop
     if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
       execute format('alter publication supabase_realtime add table public.%I', t);
     end if;

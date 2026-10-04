@@ -1,0 +1,31 @@
+{
+  "appId": "com.studioso.app",
+  "appName": "Studyboard",
+  "webDir": "ios-www",
+  "server": {
+    "iosScheme": "capacitor",
+    "hostname": "localhost",
+    "cleartext": false,
+    "allowNavigation": [
+      "*.supabase.co",
+      "generativelanguage.googleapis.com",
+      "api.anthropic.com",
+      "api.openai.com"
+    ]
+  },
+  "ios": {
+    "contentInset": "always",
+    "allowsLinkPreview": false,
+    "webContentsDebuggingEnabled": false,
+    "preferredContentMode": "mobile",
+    "backgroundColor": "#0E2A56"
+  },
+  "plugins": {
+    "CapacitorHttp": { "enabled": false },
+    "CapacitorCookies": { "enabled": false },
+    "StudyboardCaptureToken": {},
+    "StudyboardSharedQueue": {},
+    "PushNotifications": { "presentationOptions": ["badge", "sound", "alert"] },
+    "SplashScreen": { "launchAutoHide": true, "launchShowDuration": 0 }
+  }
+}

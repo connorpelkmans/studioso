@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Keys to MERGE into ios/App/App/Info.plist (Xcode: App target > Info tab, or paste each key/value pair inside the existing top-level <dict>).
+     This file is a template, not a replacement Info.plist. Every usage string below is for a feature the app really has (see README-IOS.md section 3). -->
+<plist version="1.0">
+<dict>
+  <!-- Encryption export compliance: the app only uses Apple's built-in HTTPS/TLS and the iOS keychain, which are exempt.
+       With this set to false App Store Connect stops asking the export-compliance question on every build. -->
+  <key>ITSAppUsesNonExemptEncryption</key>
+  <false/>
+
+  <!-- App Transport Security: DO NOT add NSAllowsArbitraryLoads or NSExceptionDomains. All traffic is https. Leaving the key out keeps ATS fully on. -->
+
+  <!-- Photos: "Attach a Screenshot" in Report a Bug, photo notes, photo flashcards and file attachments open the photo picker. -->
+  <key>NSPhotoLibraryUsageDescription</key>
+  <string>Studyboard uses your photos only when you choose one to attach to a task, note or flashcard, or to send with a bug report.</string>
+  <!-- Camera: the same pickers offer "Take Photo". Only used when you tap it. -->
+  <key>NSCameraUsageDescription</key>
+  <string>Studyboard uses the camera only when you choose Take Photo to add a picture of notes, a board or a page to a note or flashcard.</string>
+
+  <!-- Notifications need no usage string. Push needs the Push Notifications capability (Signing &amp; Capabilities) and, for background
+       delivery, the remote-notification background mode below. -->
+  <key>UIBackgroundModes</key>
+  <array>
+    <string>remote-notification</string>
+  </array>
+
+  <!-- Deliberately NOT present (the app does not use them): NSMicrophoneUsageDescription, NSLocationWhenInUseUsageDescription,
+       NSContactsUsageDescription, NSCalendarsUsageDescription, NSUserTrackingUsageDescription (no tracking, so no ATT prompt),
+       NSFaceIDUsageDescription (add it only if you add biometric lock), NSPhotoLibraryAddUsageDescription (add it only if you add "Save to Photos"). -->
+
+  <!-- Custom URL scheme for deep links such as studyboard://open?task=ID (optional; universal links below are preferred). -->
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key>
+      <string>com.studioso.app</string>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>studyboard</string>
+      </array>
+    </dict>
+  </array>
+
+  <!-- Quick capture (UNTESTED): Keychain group shared with the Share Extension and App Intents (Xcode expands $(AppIdentifierPrefix)). See native/SBCapture.swift.
+       No NSSiriUsageDescription: that key is only for the old SiriKit intents extension; App Intents / App Shortcuts need no usage string. -->
+  <key>SBKeychainAccessGroup</key>
+  <string>$(AppIdentifierPrefix)com.studioso.app.shared</string>
+
+  <key>LSApplicationCategoryType</key>
+  <string>public.app-category.education</string>
+  <key>UIRequiresFullScreen</key>
+  <false/>
+</dict>
+</plist>

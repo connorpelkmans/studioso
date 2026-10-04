@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- UNTESTED: written without Xcode. Info.plist of the "StudyboardShare" Share Extension target (Xcode: File > New > Target > Share Extension, then replace
+     the generated NSExtension block with this one and delete the generated storyboard + the NSExtensionMainStoryboard key).
+     The activation rule is a DICTIONARY (a TRUEPREDICATE string is rejected in review). Text, one web URL and one image; nothing else. -->
+<plist version="1.0">
+<dict>
+  <key>CFBundleDisplayName</key>
+  <string>Add to Studyboard</string>
+  <key>ITSAppUsesNonExemptEncryption</key>
+  <false/>
+  <!-- Same value as the App target: Xcode expands $(AppIdentifierPrefix) at build time. Must match the Keychain Sharing group. -->
+  <key>SBKeychainAccessGroup</key>
+  <string>$(AppIdentifierPrefix)com.studioso.app.shared</string>
+  <key>NSExtension</key>
+  <dict>
+    <key>NSExtensionPointIdentifier</key>
+    <string>com.apple.share-services</string>
+    <key>NSExtensionPrincipalClass</key>
+    <string>$(PRODUCT_MODULE_NAME).ShareViewController</string>
+    <key>NSExtensionAttributes</key>
+    <dict>
+      <key>NSExtensionActivationRule</key>
+      <dict>
+        <key>NSExtensionActivationSupportsText</key>
+        <true/>
+        <key>NSExtensionActivationSupportsWebURLWithMaxCount</key>
+        <integer>1</integer>
+        <key>NSExtensionActivationSupportsImageWithMaxCount</key>
+        <integer>1</integer>
+      </dict>
+    </dict>
+  </dict>
+</dict>
+</plist>

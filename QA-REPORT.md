@@ -1,0 +1,30 @@
+# Studyboard release QA report
+
+Scope: static scan + Playwright (Chromium) smoke tests at 1280x800, 390x800, 360x740 and 320x640, with empty and seeded data (3 courses incl. very long and CJK/emoji names, tasks of all 8 types, a 400-char title with RTL text, Feb 29 / DST / due-today-23:59 tasks, notes, decks incl. empty deck, file and link metadata, a repeating event), plus the service worker on localhost.
+
+## What was tested
+- Static: every rendered `data-act` / `act:` value vs. every handled case (no dead buttons found); every `getElementById` / `$("#id")` target exists; ESLint `no-undef`/dupe-keys/etc. over all inline scripts (only guarded `window.X &&` globals and intentional function re-wrapping reported); `node --check` on all JS; duplicate ids in the live DOM on every tab and sheet (none).
+- Dynamic: every nav tab, header button (focus timer, theme, search, settings, add task), all six Settings categories, and a click-through crawl of every visible `data-act` (plus one level of buttons inside the sheet each opens) on every tab and in Settings: ~470 actions on desktop and phone, ~170 on empty data. Zero `pageerror`s or app `console.error`s (only external CDN/network failures from the sandbox proxy).
+- Horizontal overflow on every tab and sheet; task/course/deck/note detail sheets at 320/360/390/1280.
+- Offline with the real service worker (install, controlled reload, offline reload serves the app), reload persistence, backup export then import round trip, corrupt/odd localStorage payloads (`{not json`, `null`, wrong types, `[]`), simulated storage-full, signed-out and unreachable Supabase (sign-in, connect, School and Groups, Groups tab), fake-clock runs at 23:59, Feb 29 2028, DST start/end and four time zones, unicode/emoji/HTML in the quick-add box (no XSS, no duplicate tasks after 10 rapid clicks and Enter presses), 30x rapid header-button toggling and 120 rapid tab switches.
+
+## Bugs found and fixed
+1. **Service worker install could fail completely.** `cache.addAll(SHELL)` is all-or-nothing and the shell lists files (`icons/...`) that 404 in some deploy layouts, so the SW never installed and the app had no offline support. Install now caches each file independently.
+2. **SW cached the wrong page.** Any navigation (e.g. to another same-origin html page) overwrote the cached `index.html`. Now only the app page is cached as the app shell; other pages go to the network.
+3. **SW same-origin files were cache-first forever** (stale icons, manifests, widget data). Now stale-while-revalidate; only same-origin `basic` 200 responses are cached; ranged and `Authorization` requests and non-http(s) schemes are never cached. Supabase/API traffic was and remains network-only.
+4. **Cache bumped to `studyboard-v3`** so old caches are purged on activate (skipWaiting + clients.claim kept; index.html stays network-first with an offline fallback).
+5. **Silent data loss when browser storage is full/blocked.** `saveLocal` swallowed the quota error. It now shows a (rate limited) toast telling the person to export a backup.
+6. **Tapping Sign In while offline did nothing** (a "Connecting..." toast that just vanished). It now says it can't reach the sign-in service and that work is saved on the device.
+7. **Courses tab overflowed horizontally** (page 3000+px wide) when a course's next task had a long unbroken title. Course card text now wraps.
+8. **Edit Task sheet overflowed on phones <= 360px**: the Advanced Settings summary line, grid columns and the 4-button footer (Save was clipped off-screen). Fixed with `min-width:0` on grid/details and a wrapping sheet footer.
+
+## Fixed after the report
+- Stacked sheets: the sheet dialog, focus timer and Search Everywhere are now exclusive (opening one closes the others and keeps the original opener for focus restore; the tour is exempt). Header and nav buttons ignore double clicks and ghost taps while their sheet is open.
+- Companion over controls on phones: when no clear spot exists it tucks into the right-hand gutter (a sliver peeks in) instead of standing over buttons, re-checks when the page changes shape, and its speech bubble flips below it when that covers less.
+
+## Known remaining issues / notes
+- The app has no `<link rel="manifest">` in the static HTML (it is injected by script); installability checks that don't run scripts won't see it. Not changed.
+- Shell/manifest icon paths point to `icons/...` and the widget files to `widgets/...`, which don't exist in this flat repo layout; make sure the deploy layout provides them (the SW no longer breaks if not).
+- The Groups tab is hidden in the phone bottom nav (reachable via Settings, School and Groups).
+- Supabase-backed flows (sign-in success, groups, announcements, uploads, push) could not be exercised: the sandbox blocks the Supabase CDN and API. Only signed-out and failure behaviour was verified.
+- Electron (`main.js`, `prepare.js`, widget) was only syntax-checked, not launched.
