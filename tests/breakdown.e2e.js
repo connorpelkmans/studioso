@@ -34,7 +34,7 @@ const AI_STAGES = {kind: "paper", stages: [
     await ctx.addInitScript(([seed, ai]) => {
       try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done");
         if (ai) { localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } } } catch (e) {}
-    }, [SEED(), opts.ai !== false]);
+    }, [opts.seed ? opts.seed(SEED()) : SEED(), opts.ai !== false]);
     await ctx.route(/generativelanguage\.googleapis\.com/, async route => { ctx.aiCalls = (ctx.aiCalls || 0) + 1;
       route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({candidates: [{content: {parts: [{text: JSON.stringify(ctx.aiReply || {items: []})}]}, finishReason: "STOP"}]})}); });
     return ctx;
@@ -272,6 +272,23 @@ const AI_STAGES = {kind: "paper", stages: [
       const tray = await page.evaluate(() => SBBREAK.trayItem());
       ok(tray && tray.kind === "breakdown" && tray.act === "bd-open" && /Break It Down/.test(tray.btn), "Suggestions tray gets a deterministic 'Break It Down' item: " + (tray && tray.text));
       ok(["t1", "t5"].includes(tray.tid), "tray picks the biggest un-broken-down task (the paper)");
+      await page.close(); await ctx.close();
+    }
+    // ---- integration with the take-home gate: in-person midterm + big paper with milestones, both due next week
+    {
+      const ctx = await mkCtx({seed: sd => { sd.tasks = sd.tasks.filter(t => ["t1"].includes(t.id)); Object.assign(sd.tasks[0], {due: addD(7)});
+        sd.tasks.push({id: "mid", title: "Midterm exam", courseId: "c1", type: "Exam", due: addD(7), start: addD(7), status: "todo", priority: "high", remote: "no", remoteSrc: "user", created: Date.now() - 864e5},
+          {id: "qz", title: "Quiz 3", courseId: "c1", type: "Quiz", due: addD(6), start: addD(6), status: "todo", priority: "med", remote: "yes", remoteSrc: "user", created: Date.now() - 864e5}); return sd; }});
+      const page = await open(ctx);
+      await openTask(page, "t1"); await page.click('#dlg [data-act="bd-open"]'); await page.waitForSelector("#bdList li"); await page.click("#bdGo"); await page.waitForTimeout(400);
+      const kids = kidsOf(await tasks(page), "t1"); ok(kids.length >= 3, "paper broken into milestones next to an in-person midterm");
+      const pl = await page.evaluate(() => { const p = window.__sbPlan(); return {next: p.next && p.next.id, ranked: p.ranked.map(r => ({id: r.id, R: r.R}))}; });
+      ok(pl.next !== "mid" && !pl.ranked.some(r => r.id === "mid" && r.R > 0), "Do This Next never shows the in-person midterm (next: " + pl.next + ")");
+      ok(pl.ranked.find(r => r.id === "t1").R === 0.25 && kids.some(k => pl.ranked.find(r => r.id === k.id && r.R > 0)), "the plan counts the milestones, the parent only 0.25h");
+      const cr = await page.evaluate(() => SBCRUNCH.input().tasks.map(t => ({id: t.id, rem: t.rem, bd: t.bd})));
+      ok(cr.find(t => t.id === "t1").rem === 0.25 && cr.filter(t => t.bd).length === kids.length && cr.find(t => t.id === "mid").rem === 0 || cr.find(t => t.id === "mid"), "Crunch counts the milestones, not the parent");
+      ok(await page.evaluate(() => window.__sbRemote.of("qz").can) === true && pl.ranked.find(r => r.id === "qz").R > 0, "a take-home (remote yes) quiz is still eligible and gets study time");
+      ok(page.errs.length === 0, "no page errors: " + page.errs.join("; "));
       await page.close(); await ctx.close();
     }
     // ---- export CSV columns

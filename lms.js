@@ -204,7 +204,8 @@ async function bsHarvest(o) {
     }));
     c.folders = fl.slice(0, 120).map(f => ({ id: String(f.Id), name: String(f.Name || ""), due: dt(f.DueDate), start: dt(f.Availability && f.Availability.StartDate), end: dt(f.Availability && f.Availability.EndDate),
       text: txt(f.CustomInstructions), files: (f.Attachments || []).slice(0, 12).map(a => ({ id: String(a.FileId), name: String(a.FileName || "file"), size: Number(a.Size) || 0 })),
-      gid: f.GradeItemId != null ? String(f.GradeItemId) : "", outOf: f.Assessment && f.Assessment.ScoreDenominator != null ? Number(f.Assessment.ScoreDenominator) : null, sub: subs[f.Id] === undefined ? null : subs[f.Id] }));
+      gid: f.GradeItemId != null ? String(f.GradeItemId) : "", outOf: f.Assessment && f.Assessment.ScoreDenominator != null ? Number(f.Assessment.ScoreDenominator) : null, sub: subs[f.Id] === undefined ? null : subs[f.Id],
+      sbt: f.SubmissionType != null && Number(f.SubmissionType) >= 0 && Number(f.SubmissionType) <= 9 ? Number(f.SubmissionType) : null }));   // 0 file, 1 text, 2 on paper, 3 observed in person
     c.quizzes = quizzes.filter(x => x && x.IsActive !== false).slice(0, 120).map(x => ({ id: String(x.QuizId), name: String(x.Name || ""), due: dt(x.DueDate), start: dt(x.StartDate), end: dt(x.EndDate),
       gid: x.GradeItemId != null ? String(x.GradeItemId) : "", text: txt(x.Description || x.Instructions, 1500), limit: x.TimeLimitValue || (x.TimeLimit && x.TimeLimit.TimeLimitValue) || null }));
     c.grades = listOf(grades).slice(0, 200).map(g => ({ gid: String(g.GradeObjectIdentifier || ""), name: String(g.GradeObjectName || ""), type: Number(g.GradeObjectType) || 0,
@@ -277,11 +278,24 @@ async function cvHarvest(o) {
 
   const detail = async c => {
     const id = c.ou, raw = c.raw; delete c.raw;
-    const [asg, groups, events] = await Promise.all([
+    const [asg, groups, events, qzs] = await Promise.all([
       pages(`/api/v1/courses/${id}/assignments?include[]=submission&per_page=100&order_by=due_at`),
       soft(`/api/v1/courses/${id}/assignment_groups?per_page=100`, true),
-      pages(`/api/v1/calendar_events?type=event&context_codes[]=course_${id}&start_date=${enc(fromISO)}&end_date=${enc(toISO)}&per_page=100`, true, 4)
+      pages(`/api/v1/calendar_events?type=event&context_codes[]=course_${id}&start_date=${enc(fromISO)}&end_date=${enc(toISO)}&per_page=100`, true, 4),
+      pages(`/api/v1/courses/${id}/quizzes?per_page=100`, true, 3)          // time limit, quiz type, lockdown browser and open window: tells whether a quiz is taken from home
     ]);
+    const qz = {}; qzs.forEach(x => { if (x && x.id != null) qz[String(x.id)] = x; });
+    // How an item is handed in, in a small plain form (nothing from the page is passed on untouched)
+    const rxOf = a => {
+      const qq = a.quiz_id != null ? qz[String(a.quiz_id)] || null : null, o = {};
+      const st = (Array.isArray(a.submission_types) ? a.submission_types : []).map(x => String(x).slice(0, 24)).slice(0, 8);
+      if (st.length) o.st = st;
+      if (a.is_quiz_assignment || a.quiz_id || st.includes("online_quiz")) o.k = "quiz"; else if (st.includes("discussion_topic")) o.k = "discussion"; else o.k = "assign";
+      if (qq) { if (qq.quiz_type) o.qt = String(qq.quiz_type).slice(0, 24); if (Number(qq.time_limit) > 0) o.tl = Number(qq.time_limit); if (qq.one_question_at_a_time) o.oq = 1; if (qq.ip_filter) o.ip = 1; if (qq.require_lockdown_browser) o.ld = 1; if (qq.unlock_at) o.ul = String(qq.unlock_at); if (qq.lock_at) o.ll = String(qq.lock_at); }
+      if (a.require_lockdown_browser) o.ld = 1;
+      if (a.ip_filter) o.ip = 1;
+      return o;
+    };
     const live = asg.filter(a => a && a.published !== false);
     // Weights: when the course weights its assignment groups, each item's share is its group's weight times its share of the group's points
     const gw = {}; (Array.isArray(groups) ? groups : []).forEach(g => { gw[g.id] = Number(g.group_weight) || 0; });
@@ -295,7 +309,7 @@ async function cvHarvest(o) {
       const done = s ? (!!s.submitted_at || ["submitted", "pending_review"].includes(s.workflow_state) || (s.workflow_state === "graded" && s.score != null) || !!s.excused) && !s.missing : null;
       const due = dt(a.due_at);
       if (due || s && s.score != null) c.items.push({ kind, id: String(a.id), name: String(a.name || ""), due, start: dt(a.unlock_at), end: dt(a.lock_at), text: txt(a.description), url: String(a.html_url || ""), gid: String(a.id),
-        outOf: Number(a.points_possible) > 0 ? Number(a.points_possible) : null, done, files: filesIn(a.description) });
+        outOf: Number(a.points_possible) > 0 ? Number(a.points_possible) : null, done, files: filesIn(a.description), rx: rxOf(a) });
       if (Number(a.points_possible) > 0 && (s && s.score != null || wOf(a) != null))
         c.grades.push({ gid: String(a.id), name: String(a.name || ""), num: s && s.score != null && !s.excused ? Number(s.score) : null, den: Number(a.points_possible), weight: wOf(a), shown: s && s.grade != null ? String(s.grade) : "", at: dt(s && s.graded_at) });
     });
@@ -323,7 +337,7 @@ async function cvHarvest(o) {
     const have = c.items.find(x => key(x.name) === key(name));
     if (have) { if (doneP) have.done = true; return; }
     if (!due) return;
-    c.items.push({ kind: t === "quiz" ? "quiz" : t === "discussion_topic" ? "discussion" : "other", id: String(p.plannable_id), name, due, start: null, end: null, text: "", url: String(p.html_url || ""), gid: "", outOf: null, done: doneP, files: [] });
+    c.items.push({ kind: t === "quiz" ? "quiz" : t === "discussion_topic" ? "discussion" : "other", id: String(p.plannable_id), name, due, start: null, end: null, text: "", url: String(p.html_url || ""), gid: "", outOf: null, done: doneP, files: [], rx: t === "quiz" ? { k: "quiz", st: ["online_quiz"] } : undefined });
   });
   return { ok: true, origin: location.origin, me: { name: String(me.name || ""), id: String(me.id || "") },
     all: all.map(c => ({ ou: String(c.id), code: String(c.course_code || ""), name: String(c.name || "") })), courses, errors: errors.slice(0, 30), ms: Date.now() - T0 };
@@ -393,7 +407,7 @@ async function bbHarvest(o) {
       if (col.externalGrade) { if (my && (shown || score != null)) c.final = { shown: shown || (possible && score != null ? Math.round(score / possible * 1000) / 10 + "%" : String(score)), pct: possible && score != null ? Math.round(score / possible * 1000) / 10 : null }; return; }
       if (col.grading && col.grading.type === "Calculated") return;
       const done = my ? (["NeedsGrading", "Graded", "Completed"].includes(String(my.status)) || score != null) : null;
-      if (due) c.items.push({ kind: /\b(test|quiz|exam|midterm)\b/i.test(col.name || "") ? "quiz" : "assignment", id: String(col.id), name: String(col.name || ""), due, start: null, end: null, text: txt(col.description), url: courseUrl, gid: String(col.id), outOf: possible, done, files: [] });
+      if (due) c.items.push({ kind: /\b(test|quiz|exam|midterm)\b/i.test(col.name || "") ? "quiz" : "assignment", id: String(col.id), name: String(col.name || ""), due, start: null, end: null, text: txt(col.description), url: courseUrl, gid: String(col.id), outOf: possible, done, files: [], rx: col.grading && col.grading.type ? { gt: String(col.grading.type).slice(0, 16) } : undefined });   // Attempts = marked from an online attempt, Manual = entered by the instructor
       if (possible && score != null) c.grades.push({ gid: String(col.id), name: String(col.name || ""), num: score, den: possible, weight: null, shown, at: dt(my.modified || my.lastModified) });
     });
     c.news = news.slice(0, 25).map(n => ({ id: String(n.id), title: String(n.title || ""), text: txt(n.body, 3000), date: dt(n.created) || dt(n.availability && n.availability.duration && n.availability.duration.start), url: `${location.origin}/ultra/courses/${id}/announcements` }));
