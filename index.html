@@ -623,7 +623,7 @@ header.top{background:color-mix(in srgb,var(--paper) 86%,transparent);-webkit-ba
 .pomo-btn svg{width:20px;height:20px;flex:none}
 /* Navigation: floating dock on phones */
 nav.tabs{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));padding:6px;border:0;border-radius:20px;background:var(--spine);box-shadow:0 10px 30px rgba(8,20,50,.35)}
-nav.tabs .in{grid-template-columns:repeat(7,1fr)!important;max-width:760px;gap:1px}
+nav.tabs .in{grid-template-columns:none!important;grid-auto-flow:column;grid-auto-columns:1fr;max-width:760px;gap:1px}
 nav.tabs .in button{color:var(--spine-ink);font:500 .66rem/1.1 var(--display)!important;padding:7px 1px 6px;border-radius:14px;gap:3px;width:100%}
 nav.tabs .in button svg{width:22px;height:22px;flex:none}
 nav.tabs .in button[aria-current="page"]{color:#fff;background:var(--spine-hi);font-weight:700}
@@ -1445,7 +1445,7 @@ button.pr-why:hover{background:var(--soft);color:var(--ink)}
 .bview[data-bview=board] .board-sec{margin-top:0;padding-top:0;border-top:0}
 .bview[data-bview=board] .board-sec::before{display:none}
 .bview[data-bview=board] .board-sec-head h2,.bview[data-bview=plan] .focus-head h2{display:none}
-/* Plan Ahead's Timeline / Schedule switch: the same look as the phone's Today's Plan / Task Board switch, on every screen size */
+/* Calendar's Timeline / Schedule switch: the same look as the phone's Today's Plan / Task Board switch, on every screen size */
 .pview-tabs{display:flex;gap:4px;padding:4px;margin:0 0 12px;background:var(--soft);border:1px solid var(--line);border-radius:14px;max-width:420px}
 .pview-tabs button{flex:1;border:0;background:transparent;border-radius:10px;padding:10px 8px;font:700 .95rem var(--display);color:var(--muted);display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
 .pview-tabs button[aria-selected=true]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
@@ -4403,7 +4403,7 @@ button.snd-head:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
 }
 @media (pointer:coarse),(max-width:719px){
   .icon-btn,.pomo-btn,nav.tabs button,.btn,.btn.small,.icon-btn.sm,.seg label span,.segb button,.chips button,.chip,.bview-tabs button,.pview-tabs button,[role="tab"],.menu-list>button,.cap-row>.btn,
-  [data-act="plan-view"],[data-act="bview"],[data-act="tl-mode"],[data-act="tl-zoom"],[data-act="f-sort"],.env-head,.pf-link,.plan .btn.small.fh-hide,.est-btn{min-height:max(40px,2.5rem)}
+  [data-act="plan-view"],[data-act="cf-view"],[data-act="bview"],[data-act="tl-mode"],[data-act="tl-zoom"],[data-act="f-sort"],.env-head,.pf-link,.plan .btn.small.fh-hide,.est-btn{min-height:max(40px,2.5rem)}
   .icon-btn,.icon-btn.sm{min-width:max(40px,2.5rem)}
   select,input[type="text"],input[type="number"],input[type="date"],input[type="time"],input[type="search"],input[type="email"],input[type="url"],input[type="password"]{min-height:max(40px,2.5rem)}
   /* small round controls keep their look but get a bigger tap area */
@@ -4483,16 +4483,15 @@ nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sy
 
 <button class="fab" data-act="new-task" id="fab">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-  <span>Add task</span>
+  <span>Add Task</span>
 </button>
 
 <nav class="tabs" aria-label="Views"><div class="nav-brand"><img src="data:image/webp;base64,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" alt="Studyboard" width="116" height="79"><div class="nav-date" id="navDate" aria-hidden="true"></div></div><div class="in">
   <button data-tab="board"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/></svg>Board</button>
-  <button data-tab="plan" aria-label="Plan Ahead: Timeline, Schedule and Crunch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/><rect x="6.5" y="11.5" width="4" height="3" rx=".6" fill="currentColor" stroke="none"/><rect x="13" y="15" width="4.5" height="3" rx=".6" fill="currentColor" stroke="none"/></svg>Plan Ahead</button>
+  <button data-tab="plan" aria-label="Calendar: Timeline, Schedule and Crunch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/><rect x="6.5" y="11.5" width="4" height="3" rx=".6" fill="currentColor" stroke="none"/><rect x="13" y="15" width="4.5" height="3" rx=".6" fill="currentColor" stroke="none"/></svg>Calendar</button>
   <button data-tab="flashcards"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="14" height="13" rx="2"/><path d="M7 4h12a2 2 0 0 1 2 2v11"/><path d="M7 12h6M7 15.5h4"/></svg>Flashcards</button>
   <button data-tab="notes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v10l-6 6H4z"/><path d="M14 20v-6h6"/></svg>Notes</button>
-  <button data-tab="files"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>Files</button>
-  <button data-tab="courses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M8 7h7"/></svg>Courses</button>
+  <button data-tab="courses" aria-label="Courses and Files"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M8 7h7"/></svg>Courses</button>
   <button data-tab="companion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M9 10.5h.01M12.5 10.5h.01M16 10.5h.01" stroke-width="2.6"/></svg>Companion</button>
   <button class="nav-focus" id="navPomo" data-act="pomo-open" aria-label="Open focus timer"></button>
 </div><div class="nav-foot"><button class="nav-tool ann-btn" data-act="ann-open" aria-label="Class announcements" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><span>Announcements</span><span class="ann-n" hidden></span></button><button class="nav-tool" data-act="search" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><span>Search</span></button><span class="nav-sync" id="syncSide" aria-hidden="true"></span><button class="nav-tool theme-btn" data-act="theme-toggle" aria-label="Switch to dark mode"><svg class="ti-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg><svg class="ti-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg><span class="tl-l">Dark</span></button><button class="nav-tool style-btn" data-act="shop" aria-label="Style Shop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 2-2 0-1.5-1.2-1.8-1.2-3s.9-2 2.2-2H17a4 4 0 0 0 4-4c0-4-4-7-9-7z"/><circle cx="7.5" cy="11" r="1.3" fill="currentColor"/><circle cx="10.5" cy="7" r="1.3" fill="currentColor"/><circle cx="15" cy="7.5" r="1.3" fill="currentColor"/></svg><span>Style</span></button><button class="nav-tool" data-act="menu" aria-label="Settings, backups and import"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Settings</span></button></div></nav>
@@ -5614,7 +5613,7 @@ function syncIssuesSheet(){
     ${list.map(({kind, id, o}) => { const p = syncPartsOf(o), title = SyncMerge.titleOf(kind, o) || "Untitled";
       return `<div class="sync-issue"><div><b>${esc(title)}</b> <span class="mini">${kind === "note" ? "Note" : kind === "deck" ? "Deck" : kind === "task" ? "Task" : "Item"}${o.conflict && o.conflict.at ? " · " + esc(new Date(o.conflict.at).toLocaleString(undefined, {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"})) : ""}</span></div>
         <div class="sync-cols"><div><span class="mini"><b>This device</b></span><div class="sync-txt">${sh(p.mine)}</div></div><div><span class="mini"><b>Your other device</b>${p.at ? " · " + esc(p.at) : ""}</span><div class="sync-txt">${sh(p.theirs)}</div></div></div>
-        <div class="sync-btns"><button type="button" class="btn small" data-act="sync-resolve" data-kind="${kind}" data-id="${esc(id)}" data-choice="mine">Keep mine</button><button type="button" class="btn small" data-act="sync-resolve" data-kind="${kind}" data-id="${esc(id)}" data-choice="theirs">Keep theirs</button><button type="button" class="btn small primary" data-act="sync-resolve" data-kind="${kind}" data-id="${esc(id)}" data-choice="both">Keep both</button></div></div>`; }).join("")}
+        <div class="sync-btns"><button type="button" class="btn small" data-act="sync-resolve" data-kind="${kind}" data-id="${esc(id)}" data-choice="mine">Keep Mine</button><button type="button" class="btn small" data-act="sync-resolve" data-kind="${kind}" data-id="${esc(id)}" data-choice="theirs">Keep Theirs</button><button type="button" class="btn small primary" data-act="sync-resolve" data-kind="${kind}" data-id="${esc(id)}" data-choice="both">Keep Both</button></div></div>`; }).join("")}
     </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
 }
 hook("act", (act, el, id) => {
@@ -6153,8 +6152,8 @@ function sbSignInSheet(mode, email, note){
     reset: `<p style="margin:0">If an account uses <b>${esc(email)}</b>, we sent it a code. Enter the code with your new password.</p>${codeIn}${pwIn("New Password", "new-password")}<p class="mini" id="sbStrength" style="margin:0" aria-live="polite"></p>`
   }[mode];
   const links = {
-    signin: `<button type="button" class="link-btn" data-sbm="forgot">Forgot password?</button> · <button type="button" class="link-btn" id="sbLater">${first ? "Use Without an Account" : "Not Now"}</button>`,
-    signup: `<button type="button" class="link-btn" data-sbm="signin">I already have an account</button> · <button type="button" class="link-btn" id="sbLater">${first ? "Use Without an Account" : "Not Now"}</button>`,
+    signin: `<button type="button" class="link-btn" data-sbm="forgot">Forgot Password?</button> · <button type="button" class="link-btn" id="sbLater">${first ? "Use Without an Account" : "Not Now"}</button>`,
+    signup: `<button type="button" class="link-btn" data-sbm="signin">I Already Have an Account</button> · <button type="button" class="link-btn" id="sbLater">${first ? "Use Without an Account" : "Not Now"}</button>`,
     confirm: `<button type="button" class="link-btn" id="sbResend">Send a New Code</button> · <button type="button" class="link-btn" data-sbm="signin">Back to Sign In</button>`,
     forgot: `<button type="button" class="link-btn" data-sbm="signin">Back to Sign In</button>`,
     reset: `<button type="button" class="link-btn" id="sbResend">Send a New Code</button> · <button type="button" class="link-btn" data-sbm="signin">Back to Sign In</button>`
@@ -6282,7 +6281,7 @@ function sbLinkErrorSheet(){
   openSheet(`<div class="sheet sb-acct">${head("That Link Didn't Work")}
     <div class="sheet-body"><p style="margin:0" role="status">This link has expired or was already used. Links in Studyboard emails work once, for 1 hour.</p>
       <p class="mini" style="margin:0">Ask for a new one:</p>
-      <div class="menu-list"><button type="button" data-sbm="forgot"><span>Send a New Password Reset</span></button><button type="button" data-sbm="signup"><span>Send a New Confirmation Code (new account)</span></button><button type="button" data-sbm="signin"><span>Back to Sign In</span></button></div></div>
+      <div class="menu-list"><button type="button" data-sbm="forgot"><span>Send a New Password Reset</span></button><button type="button" data-sbm="signup"><span>Send a New Confirmation Code (New Account)</span></button><button type="button" data-sbm="signin"><span>Back to Sign In</span></button></div></div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></div>`);
   dlg.querySelectorAll("[data-sbm]").forEach(b => b.addEventListener("click", () => sbSignInSheet(b.dataset.sbm)));
 }
@@ -7241,7 +7240,7 @@ function viewAiQuiz(){
   }
   const verdict = a ? (a.correct ? (a.partial && a.partial.close ? "Close enough, counted as correct." : "Correct.") : q.type === "multiple" && a.partial ? `Not quite. You found ${a.partial.hit} of ${a.partial.of} correct answers${a.partial.extra ? ` and picked ${a.partial.extra} wrong one${a.partial.extra === 1 ? "" : "s"}` : ""}.` : "Not quite.") : "";
   const aiFb = f.aiFb && f.aiFb[f.i];
-  const fb = a ? `<div class="feedback ${a.correct ? "ok" : "no"}" role="status"><b>${a.partial && a.partial.partly ? "Partly right." : verdict}</b>${q.type === "short" && !a.correct ? ` The answer is <span class="ans">${esc(q.answer)}</span>. <button class="link-btn" data-act="ai-override">I was right</button>` : ""}${aiFb ? `<p class="ai-fb">${AI_ICON}${esc(aiFb)}</p>` : ""}</div>
+  const fb = a ? `<div class="feedback ${a.correct ? "ok" : "no"}" role="status"><b>${a.partial && a.partial.partly ? "Partly right." : verdict}</b>${q.type === "short" && !a.correct ? ` The answer is <span class="ans">${esc(q.answer)}</span>. <button class="link-btn" data-act="ai-override">I Was Right</button>` : ""}${aiFb ? `<p class="ai-fb">${AI_ICON}${esc(aiFb)}</p>` : ""}</div>
       ${q.rationale ? `<div class="rationale"><span class="face-label">Rationale</span><p>${esc(q.rationale)}</p>${q.source ? `<span class="mini">From ${esc(q.source)}</span>` : ""}</div>` : ""}
       ${explainHtml(`q|${f.deckId}|${f.quizId}|${q.id}`, q.type === "short" ? a.given : "")}
       <div class="row-actions"><button class="btn primary" data-act="ai-next" id="aiNext">${f.i + 1 < f.qs.length ? "Next Question" : "See Results"}</button></div>` : "";
@@ -7387,10 +7386,10 @@ function aiSetupSheet(fromFeature){
       <label class="f"><span class="lh">Default Model <span class="hint">you can also switch in any AI window</span></span><select id="aiDefault">${modelOpts()}</select></label>
       <fieldset class="ai-auto"><legend>Automatic AI</legend>
         <label class="mi-check"><input type="checkbox" id="aiAuto" ${(ai => ai.auto !== undefined ? ai.auto : isFreeModel(c.provider, c.model))((state.settings && state.settings.ai) || {}) ? "checked" : ""}> Improve Today's Plan and study sessions automatically</label>
-        <p class="mini" style="margin:0">When this is on, the AI quietly helps in the background and never changes anything without a tap: it helps choose <b>Do This Next</b>, estimates hours for tasks you didn't estimate, can flag a few things you might miss (like an earlier deadline buried in instructions), tunes study sessions to your weak cards, and drafts exam study plans, announcement alerts and a weekly review. Anything it writes must point at your own tasks and dates or it is thrown away. Pick exactly which parts you want in <button type="button" class="link-btn" data-act="auto-panel">What each part does</button>.</p>
+        <p class="mini" style="margin:0">When this is on, the AI quietly helps in the background and never changes anything without a tap: it helps choose <b>Do This Next</b>, estimates hours for tasks you didn't estimate, can flag a few things you might miss (like an earlier deadline buried in instructions), tunes study sessions to your weak cards, and drafts exam study plans, announcement alerts and a weekly review. Anything it writes must point at your own tasks and dates or it is thrown away. Pick exactly which parts you want in <button type="button" class="link-btn" data-act="auto-panel">What Each Part Does</button>.</p>
         <label class="f"><span class="lh">Model for Automatic AI</span><select id="aiAutoModel"><option value="free" ${((state.settings.ai || {}).autoModel || "free") === "free" ? "selected" : ""}>Free Gemini (no cost)</option><option value="default" ${(state.settings.ai || {}).autoModel === "default" ? "selected" : ""}>My default model</option></select></label>
         <p class="ai-disclaimer mini" id="aiAutoWarn" hidden style="margin:0"></p>
-        <button type="button" class="btn small" data-act="auto-panel">What Automatic AI is doing</button>
+        <button type="button" class="btn small" data-act="auto-panel">What Automatic AI Is Doing</button>
       </fieldset>
       <p class="mini" style="margin:0">Your keys are saved on this device only${DESK ? ", locked with your system keychain" : ""}. They are never sent to your Studyboard account, they're left out of backup files you export, and they're removed when you sign out. To use AI on another device, add the key there too. When you use an AI feature, what you ask about is sent to the AI company you chose (you'll be asked to agree first). On Google's free tier, Google may use what you send to improve its products, so don't upload private or sensitive information.</p>
     </div>
@@ -7667,7 +7666,7 @@ async function tfEstimate(btn){
   try {
     const e = await aiEstimate(t);
     hi.value = e.hours; hi.dispatchEvent(new Event("input", {bubbles: true}));
-    out.innerHTML = `${AI_ICON} ${aiWho() ? esc(aiWho()) + " thinks about" : "About"} <b>${fmtHM(e.hours)}</b>${e.low && e.high ? ` (${fmtHM(e.low)} to ${fmtHM(e.high)})` : ""}. ${esc(e.why)}${e.steps.length && !t.checklist.length ? ` <button type="button" class="link-btn" id="estSteps">Add ${e.steps.length} steps to the checklist</button>` : ""}`;
+    out.innerHTML = `${AI_ICON} ${aiWho() ? esc(aiWho()) + " thinks about" : "About"} <b>${fmtHM(e.hours)}</b>${e.low && e.high ? ` (${fmtHM(e.low)} to ${fmtHM(e.high)})` : ""}. ${esc(e.why)}${e.steps.length && !t.checklist.length ? ` <button type="button" class="link-btn" id="estSteps">Add ${e.steps.length} Steps to the Checklist</button>` : ""}`;
     const sb = $("#estSteps");
     if (sb) sb.addEventListener("click", () => { const inp = $("#clNew"), add = $("#clAdd"); e.steps.forEach(s => { inp.value = s; add.click(); }); sb.remove(); });
   } catch(err) { const l = localEstimate(t); hi.value = l.hours; out.textContent = `${err.message} Used your usual time instead: about ${fmtHM(l.hours)}.`; }
@@ -8384,7 +8383,7 @@ window.addEventListener("online", () => autoKick(1500));
 function autoChipHtml(){
   // Only shown when it needs the student: paused for a paid-model confirmation. Otherwise Automatic AI stays out of the way (settings: AI Features, Suggestions > Manage).
   const a = autoState();
-  if (a.reason === "confirm") return `<button class="ai-chip paused" data-act="ai-setup" title="Automatic AI is paused because it would use a paid model">Automatic AI paused: confirm</button>`;
+  if (a.reason === "confirm") return `<button class="ai-chip paused" data-act="ai-setup" title="Automatic AI is paused because it would use a paid model">Automatic AI Paused: Confirm</button>`;
   return "";
 }
 // Confirmation before automatic AI may use a paid model.
@@ -9224,7 +9223,7 @@ function insightsHtml(){
   if (!list.length) return "";
   const more = !!ui.insMore, shown = more ? list : list.slice(0, 3);
   return `<div class="auto-ins" role="region" aria-label="Automatic AI suggestions"><div class="ai-top"><span class="ph-label">Suggestions</span><button class="link-btn" data-act="auto-panel" style="margin-left:auto">Manage</button></div>
-    <ul>${shown.map(e => { const x = insText(e); return `<li data-kind="${esc(e.kind)}"><div class="ins-body"><span class="ins-k">${esc(INS_LABEL[e.kind] || "")}${INS_AI[e.kind] && !e.fb ? " · AI draft" : ""}</span>${x.h ? `<b>${esc(x.h)}</b> ` : ""}<span>${esc(x.t)}</span>${x.more || ""}</div><div class="ins-acts">${e.kind === "remote" ? `<button class="btn small" data-act="rmt-set" data-id="${esc(e.tid)}" data-v="yes">Yes, from home</button><button class="btn small" data-act="rmt-set" data-id="${esc(e.tid)}" data-v="no">No, in person</button>` : x.btn ? (e.act ? `<button class="btn small" data-act="${esc(e.act)}" data-id="${esc(e.tid || "")}">${esc(x.btn)}</button>` : `<button class="btn small" data-act="ins-do" data-id="${esc(e.id)}">${esc(x.btn)}</button>`) : ""}<button class="icon-btn sm ph-x" data-act="ins-x" data-id="${esc(e.id)}" aria-label="Dismiss">${CLOSE}</button></div></li>`; }).join("")}</ul>
+    <ul>${shown.map(e => { const x = insText(e); return `<li data-kind="${esc(e.kind)}"><div class="ins-body"><span class="ins-k">${esc(INS_LABEL[e.kind] || "")}${INS_AI[e.kind] && !e.fb ? " · AI draft" : ""}</span>${x.h ? `<b>${esc(x.h)}</b> ` : ""}<span>${esc(x.t)}</span>${x.more || ""}</div><div class="ins-acts">${e.kind === "remote" ? `<button class="btn small" data-act="rmt-set" data-id="${esc(e.tid)}" data-v="yes">Yes, From Home</button><button class="btn small" data-act="rmt-set" data-id="${esc(e.tid)}" data-v="no">No, in Person</button>` : x.btn ? (e.act ? `<button class="btn small" data-act="${esc(e.act)}" data-id="${esc(e.tid || "")}">${esc(x.btn)}</button>` : `<button class="btn small" data-act="ins-do" data-id="${esc(e.id)}">${esc(x.btn)}</button>`) : ""}<button class="icon-btn sm ph-x" data-act="ins-x" data-id="${esc(e.id)}" aria-label="Dismiss">${CLOSE}</button></div></li>`; }).join("")}</ul>
     ${list.length > 3 ? `<button class="link-btn" data-act="ins-more">${more ? "Show Fewer" : `Show ${list.length - 3} More`}</button>` : ""}</div>`;
 }
 // Which Automatic AI feature each kind of suggestion belongs to (for "Stop these" and the settings list)
@@ -10313,7 +10312,7 @@ function stkParts(){
     const ks = stkSearch(q);
     return {name: `<b>${ks.length ? `${ks.length} sticker${ks.length === 1 ? "" : "s"}` : "No stickers found"}</b><span class="mini">for “${esc(q.slice(0, 24))}”</span>`,
       results: ks.length ? `<div class="env-sheet env-found" role="group" aria-label="Sticker search results">${ks.map(k => stkCellHtml(k, true)).join("")}</div>`
-        : `<div class="env-empty" role="status"><b>Nothing matches “${esc(q.slice(0, 24))}”</b><span>Try a shorter word, or one of these:</span><span class="env-try">${["heart", "star", "cat", "study", "happy"].map(w => `<button type="button" data-act="stk-try" data-id="${w}">${w}</button>`).join("")}</span><button type="button" class="link-btn" data-act="stk-qclear">Clear search</button></div>`};
+        : `<div class="env-empty" role="status"><b>Nothing matches “${esc(q.slice(0, 24))}”</b><span>Try a shorter word, or one of these:</span><span class="env-try">${["heart", "star", "cat", "study", "happy"].map(w => `<button type="button" data-act="stk-try" data-id="${w}">${w}</button>`).join("")}</span><button type="button" class="link-btn" data-act="stk-qclear">Clear Search</button></div>`};
   }
   const locked = !owns("sticker", cur.id), rec = stkRecent();
   return {name: `<b>${esc(cur.name)}</b>${cur.tier === "pro" ? PRO_BADGE : ""}`,
@@ -10478,6 +10477,7 @@ document.addEventListener("change", e => {
 });
 
 const AI_ACTS = {
+  "cf-view": el => { ui.tab = el.dataset.id === "files" ? "files" : "courses"; ui.courseId = null; render(); window.scrollTo(0, 0); },
   "plan-view": el => { const t = el.dataset.id === "schedule" || el.dataset.id === "crunch" ? el.dataset.id : "timeline"; if (t === "timeline" && ui.tab !== "timeline") ui.tlJump = true; ui.tab = t; render(); window.scrollTo(0, 0); },
   "bview": el => { ui.bview = el.dataset.id; try { localStorage.setItem("studyboard:bview", ui.bview); } catch(e) {} render(); window.scrollTo(0, 0); },
   "qa-add": () => qaAdd(), "qa-full": () => qaFull(), "qa-cancel": () => { ui.qa = null; render(); },
@@ -10784,9 +10784,9 @@ function chipsHtml(){
 }
 function searchNote(){
   if (!ui.q.trim()) return "";
-  if (ui.tab === "files") { const n = filesVisible().length; return `<div class="search-note">${n} file${n === 1 ? "" : "s"} match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear search</button></div>`; }
+  if (ui.tab === "files") { const n = filesVisible().length; return `<div class="search-note">${n} file${n === 1 ? "" : "s"} match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>`; }
   const n = visibleTasks().length;
-  return `<div class="search-note">${n} task${n === 1 ? "" : "s"} match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear search</button></div>`;
+  return `<div class="search-note">${n} task${n === 1 ? "" : "s"} match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>`;
 }
 function taskRow(t, opts = {}){
   const c = courseOf(t.courseId);
@@ -10846,7 +10846,7 @@ ui.colOpen = {};
 document.addEventListener("toggle", e => { const d = e.target; if (d && d.classList && d.classList.contains("col-more")) ui.colOpen[d.dataset.col] = d.open; if (d && d.id === "planExtra") ui.planExtraOpen = d.open; }, true);
 function viewBoard(){
   const hasAny = tasksArr().length || coursesArr().length;
-  const banner = coursesArr().length ? "" : `<div class="empty" style="margin-top:14px;text-align:left;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span style="flex:1;min-width:200px"><strong>${hasAny ? "Color-Code by Class" : "Let's Set Up Your Term"}</strong>Add your courses so each card gets its class color, or import one straight from a syllabus PDF.</span><button class="btn primary small" data-act="import-syllabus">Import a syllabus</button><button class="btn small" data-act="new-course">Add a course</button></div>`;
+  const banner = coursesArr().length ? "" : `<div class="empty" style="margin-top:14px;text-align:left;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span style="flex:1;min-width:200px"><strong>${hasAny ? "Color-Code by Class" : "Let's Set Up Your Term"}</strong>Add your courses so each card gets its class color, or import one straight from a syllabus PDF.</span><button class="btn primary small" data-act="import-syllabus">Import a Syllabus</button><button class="btn small" data-act="new-course">Add a Course</button></div>`;
   const ts = visibleTasks();
   const weekAgo = Date.now() - 7 * 864e5;
   const colsFor = (tsx, laneId) => STATUSES.map(([k, label, col]) => {
@@ -10857,10 +10857,10 @@ function viewBoard(){
       <div class="col-head"><span class="sd"></span>${label}<span class="n">${list.length + older}</span></div>
       <div class="col-list">${list.slice(0, COL_MAX).map(card).join("")}</div>
       ${list.length > COL_MAX ? (() => { const key = (laneId == null ? "all" : laneId || "none") + ":" + k, more = list.length - COL_MAX; return `<details class="col-more" data-col="${esc(key)}" ${ui.colOpen[key] ? "open" : ""}><summary><span class="cm-open">Show ${more} more</span><span class="cm-close">Show less</span></summary><div class="col-list">${list.slice(COL_MAX).map(card).join("")}</div></details>`; })() : ""}
-      ${older ? `<button class="show-old" data-act="show-old" style="width:100%;margin-top:8px">Show ${older} completed more than a week ago</button>` : ""}
-      ${k === "done" && ui.showOldDone ? `<button class="show-old" data-act="hide-old" style="width:100%;margin-top:8px">Hide older completed tasks</button>` : ""}
+      ${older ? `<button class="show-old" data-act="show-old" style="width:100%;margin-top:8px">Show ${older} Completed More Than a Week Ago</button>` : ""}
+      ${k === "done" && ui.showOldDone ? `<button class="show-old" data-act="hide-old" style="width:100%;margin-top:8px">Hide Older Completed Tasks</button>` : ""}
       ${nArch ? `<button class="arch-link" data-act="archive-open">${ARCHIVE_SM}${nArch} finished more than 2 weeks ago are in the Archive</button>` : ""}
-      <button class="col-add" data-act="new-task" data-status="${k}" ${laneId ? `data-course="${esc(laneId)}"` : ""}>+ Add task</button>
+      <button class="col-add" data-act="new-task" data-status="${k}" ${laneId ? `data-course="${esc(laneId)}"` : ""}>+ Add Task</button>
     </section>`;
   }).join("");
   const groupCtl = `<div class="board-ctl"><span class="mini">Group By</span><div class="segb" role="group" aria-label="Group board"><button data-act="group" data-id="none" aria-pressed="${ui.groupBy !== "course"}">None</button><button data-act="group" data-id="course" aria-pressed="${ui.groupBy === "course"}">Course</button></div></div>`;
@@ -11332,7 +11332,7 @@ function viewCalendar(mode){
     </div>
     <div class="cal">${dows.join("")}${cells}</div>
     <h2 class="sec ${ui.calDay === today ? "hl" : ""}"><span class="t">Due ${esc(dayLabel)}</span><span class="n">${dayTasks.length || ""}</span></h2>
-    ${dayTasks.length ? taskList(dayTasks) : `<div class="empty">Nothing due. <button class="link-btn" data-act="new-task" data-due="${ui.calDay}">Add a task due this day</button></div>`}`;
+    ${dayTasks.length ? taskList(dayTasks) : `<div class="empty">Nothing due. <button class="link-btn" data-act="new-task" data-due="${ui.calDay}">Add a Task Due This Day</button></div>`}`;
 }
 
 /* ---------- Courses ---------- */
@@ -11343,8 +11343,8 @@ function viewCourses(){
     ui.courseId = null;
   }
   const cs = coursesArr();
-  const imp = `<button class="btn small" data-act="import-syllabus">Import a syllabus</button>`;
-  if (!cs.length) return `<div class="empty" style="margin-top:18px"><strong>No Courses Yet</strong>Add each class you're taking this term.<br><button class="btn primary" data-act="new-course">Add a course</button> ${imp}</div>${(n => n ? `<div class="term-bar"><span>${ARCHIVE_SM}${n} course${n === 1 ? " is" : "s are"} in the Archive from past terms.</span><button class="btn small" data-act="archive-open">Open Archive (${n})</button></div>` : "")(allCourses().filter(c => c.archived).length)}`;
+  const imp = `<button class="btn small" data-act="import-syllabus">Import a Syllabus</button>`;
+  if (!cs.length) return `<div class="empty" style="margin-top:18px"><strong>No Courses Yet</strong>Add each class you're taking this term.<br><button class="btn primary" data-act="new-course">Add a Course</button> ${imp}</div>${(n => n ? `<div class="term-bar"><span>${ARCHIVE_SM}${n} course${n === 1 ? " is" : "s are"} in the Archive from past terms.</span><button class="btn small" data-act="archive-open">Open Archive (${n})</button></div>` : "")(allCourses().filter(c => c.archived).length)}`;
   const today = todayISO();
   const cards = cs.map(c => {
     const ts = tasksArr().filter(t => t.courseId === c.id);
@@ -11362,7 +11362,7 @@ function viewCourses(){
         ${ts.length ? `<div class="prog" style="--c:${esc(c.color)}"><span class="track"><i style="width:${(doneN / ts.length * 100).toFixed(0)}%"></i></span>${doneN}/${ts.length} complete${nFiles ? `, ${nFiles} file${nFiles === 1 ? "" : "s"}` : ""}</div>` : ""}
       </span></button>${lmsCourseBtn(c)}</div>`;
   }).join("");
-  return `<div style="display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap"><h2 class="sec" style="margin:0;flex:1"><span class="t">Your Courses</span><span class="n">${cs.length}</span></h2>${imp}${trashBtn("course")}<button class="btn small" data-act="new-course">Add course</button></div><div class="course-list">${cards}</div>
+  return `<div style="display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap"><h2 class="sec" style="margin:0;flex:1"><span class="t">Your Courses</span><span class="n">${cs.length}</span></h2>${imp}${trashBtn("course")}<button class="btn small" data-act="new-course">Add Course</button></div><div class="course-list">${cards}</div>
     <div class="term-bar"><span>${ARCHIVE_SM}Term over? Put its courses and tasks away, and bring anything back later.</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${(n => n ? ` (${n})` : "")(allCourses().filter(c => c.archived).length)}</button></div>`;
 }
 function viewCourseDetail(c){
@@ -11373,7 +11373,7 @@ function viewCourseDetail(c){
   const links = (c.links || []).map(l => { const u = safeUrl(l.url); return u ? `<dt>${esc(l.label || "Link")}</dt><dd><a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(u.replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a></dd>` : ""; }).join("");
   return `<button class="back" data-act="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>All Courses</button>
     <div class="detail-head" style="--c:${esc(c.color)}"><h2>${esc(c.name)}</h2>${c.code ? `<div class="code">${esc(c.code)}</div>` : ""}</div>
-    <div class="row-actions"><button class="btn small primary" data-act="new-task" data-course="${esc(c.id)}">Add task</button><button class="btn small" data-act="import-syllabus" data-course="${esc(c.id)}">Import syllabus</button><button class="btn small" data-act="bd-new-course" data-course="${esc(c.id)}">Break down an assignment</button><button class="btn small" data-act="edit-course" data-id="${esc(c.id)}">Edit Course</button>${(l => l ? `<button class="btn small" data-act="lms-go" data-url="${esc(l.url)}">Open in ${esc(l.name)}</button>` : "")(lmsCourseLink(c))}${inClaude() ? "" : `<button class="btn small ai-btn" data-act="ask-course" data-id="${esc(c.id)}">${AI_ICON} Ask ${esc(aiWho("AI"))}</button>`}${tasksArr().some(t => t.courseId === c.id && MILESTONE(t.type) && t.status !== "done" && t.due > todayISO()) ? `<button class="btn small" data-act="exam-plan" data-id="${esc((tasksArr().filter(t => t.courseId === c.id && MILESTONE(t.type) && t.status !== "done" && t.due > todayISO()).sort(sortTasks)[0] || {}).id || "")}">Plan My Prep</button>` : ""}</div>
+    <div class="row-actions"><button class="btn small primary" data-act="new-task" data-course="${esc(c.id)}">Add Task</button><button class="btn small" data-act="import-syllabus" data-course="${esc(c.id)}">Import Syllabus</button><button class="btn small" data-act="bd-new-course" data-course="${esc(c.id)}">Break Down an Assignment</button><button class="btn small" data-act="edit-course" data-id="${esc(c.id)}">Edit Course</button>${(l => l ? `<button class="btn small" data-act="lms-go" data-url="${esc(l.url)}">Open in ${esc(l.name)}</button>` : "")(lmsCourseLink(c))}${inClaude() ? "" : `<button class="btn small ai-btn" data-act="ask-course" data-id="${esc(c.id)}">${AI_ICON} Ask ${esc(aiWho("AI"))}</button>`}${tasksArr().some(t => t.courseId === c.id && MILESTONE(t.type) && t.status !== "done" && t.due > todayISO()) ? `<button class="btn small" data-act="exam-plan" data-id="${esc((tasksArr().filter(t => t.courseId === c.id && MILESTONE(t.type) && t.status !== "done" && t.due > todayISO()).sort(sortTasks)[0] || {}).id || "")}">Plan My Prep</button>` : ""}</div>
     ${facts || links ? `<dl class="facts">${facts}${links}</dl>` : ""}
     ${c.notes ? `<h2 class="sec"><span class="t">Notes</span></h2><p class="notes">${esc(c.notes)}</p>` : ""}
     ${courseFilesHtml(c)}
@@ -11390,7 +11390,7 @@ function courseFilesHtml(c){
   const byF = foldersOf(c.id).map(fo => [fo, fs.filter(f => f.folderId === fo.id).length]).filter(x => x[1]);
   return `<h2 class="sec"><span class="t">Files</span><span class="n">${fs.length || ""}</span></h2>
     <div class="facts" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">${byF.map(([fo, n]) => `<button class="chip" data-act="f-go" data-c="${esc(c.id)}" data-f="${esc(fo.id)}">${FOLDER}${esc(fo.name)} <span class="mini">${n}</span></button>`).join("") || `<span class="mini" style="flex:1">No files yet. Keep the syllabus, assignment sheets and notes for this course here.</span>`}
-    <button class="btn small" data-act="f-go" data-c="${esc(c.id)}" data-f="">Open files</button></div>`;
+    <button class="btn small" data-act="f-go" data-c="${esc(c.id)}" data-f="">Open Files</button></div>`;
 }
 
 
@@ -11432,7 +11432,7 @@ function viewArchive(){
     <p class="mini" style="margin:6px 0 0;max-width:70ch">Completed tasks move here ${ARCHIVE_DAYS} days after you finish them, and past terms move here when you start a new term. Move anything back to To Do or In Work whenever you need it.</p>
     ${chipsHtml()}${searchNote()}
     <h3 class="fsec">${ARCHIVE_SM}Completed Tasks<span class="n">${done.length}</span></h3>
-    ${done.length ? `<ul class="arch-list">${shown.map(archRow).join("")}</ul>${done.length > shown.length ? `<button class="show-old" data-act="arch-all" style="width:100%;margin-top:8px">Show all ${done.length}</button>` : ""}` : `<div class="empty">Nothing here yet. Tasks you finish show up here two weeks later.</div>`}
+    ${done.length ? `<ul class="arch-list">${shown.map(archRow).join("")}</ul>${done.length > shown.length ? `<button class="show-old" data-act="arch-all" style="width:100%;margin-top:8px">Show All ${done.length}</button>` : ""}` : `<div class="empty">Nothing here yet. Tasks you finish show up here two weeks later.</div>`}
     <h3 class="fsec">${ARCHIVE_SM}Past Terms<span class="n">${termList.length}</span></h3>
     ${termHtml || `<div class="empty">No past terms yet. When a term ends, choose Start a New Term to put its courses and tasks away here.</div>`}`;
 }
@@ -11896,7 +11896,7 @@ function availStripHtml(F){
   const a = F.avail; if (!a || !a.show) return "";
   const chips = a.res.windows.map(w => `<button type="button" class="av-chip" data-act="avail-focus" data-s="${w.s}" data-e="${w.e}" aria-label="Start a focus session in your free time, ${esc(availRange(w.s, w.e))}"><b>${esc(availRange(w.s, w.e))}</b><small>${esc(fmtHM(w.min / 60))}</small></button>`).join("");
   return `<div class="av-strip" role="region" aria-label="Free time today">
-    <div class="av-top"><h3 class="plan-sub">Free Time Today</h3><span class="av-acts"><button type="button" class="btn small" data-act="avail-add">+ Shift or work</button><button type="button" class="btn small" data-act="avail-open">Availability</button></span></div>
+    <div class="av-top"><h3 class="plan-sub">Free Time Today</h3><span class="av-acts"><button type="button" class="btn small" data-act="avail-add">+ Shift or Work</button><button type="button" class="btn small" data-act="avail-open">Availability</button></span></div>
     <p class="av-line">${esc(a.line)}</p>
     ${chips ? `<div class="av-chips" role="group" aria-label="Free windows. Tap one to start a focus session">${chips}</div>` : ""}
     ${a.note ? `<p class="av-note">${esc(a.note)}</p>` : ""}
@@ -11929,7 +11929,7 @@ function availManager(){
     <div class="sheet-body">
       <p class="mini" style="margin:0">Add work, shifts and placements, travel, and time the planner must never use. Today's Plan only schedules into the free time that's left. Classes from your courses and calendar already count, so you don't need to add them again.</p>
       <ul class="av-list">${rows}</ul>
-      <button type="button" class="btn small" data-act="avail-add">+ Add shift or work</button>
+      <button type="button" class="btn small" data-act="avail-add">+ Add Shift or Work</button>
       <fieldset class="av-set"><legend>Study Time</legend>
         <div class="two"><label class="f">Day starts<input type="time" name="dayStart" value="${esc(AVAIL.toT(c.dayStart))}" required></label><label class="f">Day ends<input type="time" name="dayEnd" value="${esc(AVAIL.toT(c.dayEnd))}" required></label></div>
         <div class="two"><label class="f">Shortest useful gap (min)<input type="number" name="minChunk" min="5" max="180" step="5" value="${c.minChunk}"></label><label class="f">Longest single session (min)<input type="number" name="maxSession" min="15" max="240" step="5" value="${c.maxSession}"></label></div>
@@ -12698,15 +12698,15 @@ function viewSchedule(){
     <button class="icon-btn" data-act="sch-next" aria-label="Next week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
     <button class="btn small" data-act="sch-today" ${mon === mondayOf(today) && ui.schDay == null ? 'disabled aria-pressed="true" title="You are viewing this week"' : 'aria-pressed="false"'}>This Week</button>
     <button class="btn small" data-act="sch-add">+ Event</button>
-    <button class="btn small" data-act="avail-add" title="Add work, a shift or placement, travel, or protected time so Today's Plan only uses free time">+ Add shift or work</button>
+    <button class="btn small" data-act="avail-add" title="Add work, a shift or placement, travel, or protected time so Today's Plan only uses free time">+ Add Shift or Work</button>
     <button class="btn small" data-act="avail-open" title="See and edit your work, shifts and free-time settings">Availability</button>
     <button class="btn small" data-act="sch-ics" title="Import from Apple Calendar, Google Calendar or Outlook">Import Calendar</button></div></div>`;
   const withEvents = new Set(eventsArr().map(e => e.courseId).filter(Boolean));
   const missing = cs.filter(c => !courseMeetings(c).length && !withEvents.has(c.id));
   const hasAny = cs.some(c => courseMeetings(c).length) || eventsArr().length || availBlocks().length;
   if (!hasAny) return nav + `<div class="empty" style="margin-top:14px;text-align:left"><strong>Add Your Class Times</strong>Your weekly schedule fills in from each course's class times: lectures, labs, discussions and office hours. You can also add your own events, or import your Apple, Google or Outlook calendar.
-    ${cs.length ? `<div class="sch-missing">${cs.map(c => `<button class="chip" style="--c:${esc(c.color)}" data-act="edit-course" data-id="${esc(c.id)}"><span class="dot"></span>${esc(courseLabel(c))}: Add class times</button>`).join("")}</div>` : `<br><button class="btn primary" data-act="new-course" style="margin-top:10px">Add a course</button>`}
-    <div class="sch-missing"><button class="btn small" data-act="sch-add">+ Add an Event</button><button class="btn small" data-act="avail-add">+ Add shift or work</button><button class="btn small" data-act="sch-ics">Import a Calendar File</button></div></div>`;
+    ${cs.length ? `<div class="sch-missing">${cs.map(c => `<button class="chip" style="--c:${esc(c.color)}" data-act="edit-course" data-id="${esc(c.id)}"><span class="dot"></span>${esc(courseLabel(c))}: Add Class Times</button>`).join("")}</div>` : `<br><button class="btn primary" data-act="new-course" style="margin-top:10px">Add a Course</button>`}
+    <div class="sch-missing"><button class="btn small" data-act="sch-add">+ Add an Event</button><button class="btn small" data-act="avail-add">+ Add Shift or Work</button><button class="btn small" data-act="sch-ics">Import a Calendar File</button></div></div>`;
   const occ = schOccurrences(mon, addDays(mon, 6));
   const hasWeekend = occ.some(o => { const w = parse(o.date).getDay(); return w === 0 || w === 6; });
   const days = []; for (let i = 0; i < (hasWeekend ? 7 : 5); i++) { const iso = addDays(mon, i); days.push({i, iso, wd: parse(iso).getDay()}); }
@@ -12766,7 +12766,7 @@ function viewSchedule(){
     <div class="sch-legend mini"><span class="lg k-lecture">Lecture</span><span class="lg k-lab">Lab</span><span class="lg k-discussion">Discussion</span><span class="lg k-officehours">Office Hours</span><span class="lg k-event">Event</span><span class="lg sch-exam">Exam or Quiz</span>${avKinds.map(k => `<span class="lg k-av k-av-${k}" style="--c:${esc(AVAIL.TYPES[k].color)}">${esc(AVAIL.TYPES[k].label)}</span>`).join("")}</div>`;
 }
 
-/* ---------- Plan Ahead: Timeline and Schedule share one tab ---------- */
+/* ---------- Calendar: Timeline and Schedule share one tab ---------- */
 const isPlanTab = t => t === "timeline" || t === "schedule" || t === "crunch";
 function planViewSet(t){
   if (ui.planView === t) return;
@@ -12775,7 +12775,14 @@ function planViewSet(t){
 }
 function planSwitchHtml(){
   const t = ui.tab;
-  return `<div class="pview-tabs" role="tablist" aria-label="Plan Ahead view"><button role="tab" data-act="plan-view" data-id="timeline" aria-selected="${t === "timeline"}">Timeline</button><button role="tab" data-act="plan-view" data-id="schedule" aria-selected="${t === "schedule"}">Schedule</button><button role="tab" data-act="plan-view" data-id="crunch" aria-selected="${t === "crunch"}">Crunch</button></div>`;
+  return `<div class="pview-tabs" role="tablist" aria-label="Calendar view"><button role="tab" data-act="plan-view" data-id="timeline" aria-selected="${t === "timeline"}">Timeline</button><button role="tab" data-act="plan-view" data-id="schedule" aria-selected="${t === "schedule"}">Schedule</button><button role="tab" data-act="plan-view" data-id="crunch" aria-selected="${t === "crunch"}">Crunch</button></div>`;
+}
+
+/* Courses and Files share one nav tab: ui.tab stays "courses" or "files", and this switch moves between them */
+const isCfTab = t => t === "courses" || t === "files";
+function cfSwitchHtml(){
+  const t = ui.tab;
+  return `<div class="pview-tabs cf-tabs" role="tablist" aria-label="Courses and Files"><button role="tab" data-act="cf-view" data-id="courses" aria-selected="${t === "courses"}">Courses</button><button role="tab" data-act="cf-view" data-id="files" aria-selected="${t === "files"}">Files</button></div>`;
 }
 
 /* ---------- Render ---------- */
@@ -12792,10 +12799,10 @@ function render(){
   computeFocus(); remoteStoreSoon();
   { const nd = new Date(); $("#navDate").textContent = nd.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"}); }
   { const sk = streakOf(); $("#todayLabel").innerHTML = `<span class="wd">${esc(new Date().toLocaleDateString(undefined, {weekday:"long"}))}</span> ${esc(new Date().toLocaleDateString(undefined, {month:"long", day:"numeric"}))}${sk.cur >= 2 ? `<button class="streak-chip" data-act="daily-quote" title="${esc(streakLine())}">🔥 ${sk.cur}</button>` : ""}`; }
-  // "plan" (Plan Ahead) is one tab with two views, Timeline and Schedule. The rest of the app can still say "timeline" or "schedule".
+  // "plan" (Calendar) is one tab with two views, Timeline and Schedule. The rest of the app can still say "timeline" or "schedule".
   if (ui.tab === "plan" || ui.tab === "calendar") ui.tab = ui.planView;
   if (isPlanTab(ui.tab)) planViewSet(ui.tab);
-  const navTab = isPlanTab(ui.tab) ? "plan" : ui.tab;
+  const navTab = isPlanTab(ui.tab) ? "plan" : ui.tab === "files" ? "courses" : ui.tab;
   $$("nav.tabs button").forEach(b => b.setAttribute("aria-current", b.dataset.tab === navTab ? "page" : "false"));
   document.body.classList.toggle("wide", ui.tab !== "courses");
   const v = $("#view");
@@ -12803,7 +12810,7 @@ function render(){
   const nt = $("#noteText"), ntVal = nt ? nt.value : null, ntFocus = nt && document.activeElement === nt, ntSel = nt ? [nt.selectionStart, nt.selectionEnd] : null;
   const nbs = $("#nbScroll"), nbPos = nbs ? [nbs.scrollLeft, nbs.scrollTop] : null;
   const bds = $$(".board").map(b => b.scrollLeft);
-  v.innerHTML = (isPlanTab(ui.tab) ? planSwitchHtml() : "") + (VIEWS[ui.tab] ? VIEWS[ui.tab]() : ui.tab === "archive" ? viewArchive() : ui.tab === "schedule" ? viewSchedule() : ui.tab === "timeline" ? viewTimeline() : ui.tab === "courses" ? viewCourses() : ui.tab === "files" ? viewFiles() : ui.tab === "notes" ? viewNotes() : ui.tab === "flashcards" ? viewFlashcards() : viewBoard());
+  v.innerHTML = (isPlanTab(ui.tab) ? planSwitchHtml() : isCfTab(ui.tab) && !(ui.tab === "courses" && ui.courseId) ? cfSwitchHtml() : "") + (VIEWS[ui.tab] ? VIEWS[ui.tab]() : ui.tab === "archive" ? viewArchive() : ui.tab === "schedule" ? viewSchedule() : ui.tab === "timeline" ? viewTimeline() : ui.tab === "courses" ? viewCourses() : ui.tab === "files" ? viewFiles() : ui.tab === "notes" ? viewNotes() : ui.tab === "flashcards" ? viewFlashcards() : viewBoard());
   $("#fab").style.display = (VIEWS[ui.tab] || ui.tab === "archive" || (ui.tab === "courses" && ui.courseId) || ui.tab === "files" || ui.tab === "notes" || ui.tab === "flashcards") ? "none" : "";
   document.body.dataset.view = ui.tab;
   const nbs2 = $("#nbScroll"); if (nbs2 && nbPos) { nbs2.scrollLeft = nbPos[0]; nbs2.scrollTop = nbPos[1]; }
@@ -12992,7 +12999,7 @@ function taskForm(t, preset = {}){
       ${!isNew && t.seriesId ? `<p class="mini" style="margin:0">${REPEAT} Part of a repeating series. Changes here apply to this task only.</p>` : ""}
       ${!isNew && t.history.length ? `<details class="hist"><summary>History (${t.history.length})</summary><ul>${t.history.slice().reverse().map(h => `<li><span>${esc(h.text)}</span><time>${esc(new Date(h.at).toLocaleString(undefined, {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}</time></li>`).join("")}</ul></details>` : ""}
     </div>
-    <div class="sheet-foot">${isNew ? "" : `<button type="button" class="btn danger" data-act="delete-task" data-id="${esc(t.id)}">Delete</button>${canDoNow(t) ? `<button type="button" class="btn focus-btn" data-act="pomo-task" data-id="${esc(t.id)}">${TOMATO}Focus</button>` : ""}${MILESTONE(t.type) && t.due > todayISO() && t.status !== "done" ? (ps => `<button type="button" class="btn" data-act="exam-plan" data-id="${esc(t.id)}">${ps.length ? `Prep Plan (${ps.filter(x => x.status === "done").length}/${ps.length})` : "Plan My Prep"}</button>`)(planSessions(t.id)) : ""}${t.type === "Study" && (t.studyDecks || []).some(id => state.decks[id]) ? `<button type="button" class="btn" data-act="${t.studyKind === "practice" ? "fc-practice-plan" : "fc-study-plan"}" data-id="${esc(t.id)}">${t.studyKind === "practice" ? "Practice Quiz" : "Study Cards"}</button>` : ""}`}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button>${isNew ? `<button type="button" class="btn" id="tfPlanPrep" hidden>Add &amp; Plan Prep</button>` : ""}<button type="button" class="btn primary" data-submit>${isNew ? "Add task" : "Save task"}</button></div>
+    <div class="sheet-foot">${isNew ? "" : `<button type="button" class="btn danger" data-act="delete-task" data-id="${esc(t.id)}">Delete</button>${canDoNow(t) ? `<button type="button" class="btn focus-btn" data-act="pomo-task" data-id="${esc(t.id)}">${TOMATO}Focus</button>` : ""}${MILESTONE(t.type) && t.due > todayISO() && t.status !== "done" ? (ps => `<button type="button" class="btn" data-act="exam-plan" data-id="${esc(t.id)}">${ps.length ? `Prep Plan (${ps.filter(x => x.status === "done").length}/${ps.length})` : "Plan My Prep"}</button>`)(planSessions(t.id)) : ""}${t.type === "Study" && (t.studyDecks || []).some(id => state.decks[id]) ? `<button type="button" class="btn" data-act="${t.studyKind === "practice" ? "fc-practice-plan" : "fc-study-plan"}" data-id="${esc(t.id)}">${t.studyKind === "practice" ? "Practice Quiz" : "Study Cards"}</button>` : ""}`}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button>${isNew ? `<button type="button" class="btn" id="tfPlanPrep" hidden>Add &amp; Plan Prep</button>` : ""}<button type="button" class="btn primary" data-submit>${isNew ? "Add Task" : "Save Task"}</button></div>
   </form>`, fd => {
     const title = String(fd.get("title") || "").trim();
     if (!title) return false;
@@ -13229,7 +13236,7 @@ function deleteTask(id){
   if (prep.length) { dlg.close(); applyChanges([t].concat(prep).map(x => ({kind:"task", id:x.id, after:null})), `Deleted ${t.title} and ${prep.length} prep session${prep.length === 1 ? "" : "s"}`); return; }
   if (!later.length) { dlg.close(); applyChanges([{kind:"task", id, after:null}], `Deleted ${t.title}`); return; }
   openSheet(`<form class="sheet">${head("Delete Repeating Task")}<div class="sheet-body"><p style="margin:0">${esc(t.title)} repeats. Delete just this one, or this one and the ${later.length} after it?</p></div>
-    <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn" id="delOne">Just this one</button><button type="button" class="btn primary" id="delAll" style="background:var(--late);border-color:var(--late);color:#fff">This and later</button></div></form>`);
+    <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn" id="delOne">Just This One</button><button type="button" class="btn primary" id="delAll" style="background:var(--late);border-color:var(--late);color:#fff">This and Later</button></div></form>`);
   $("#delOne").addEventListener("click", () => { dlg.close(); applyChanges([{kind:"task", id, after:null}], `Deleted ${t.title}`); });
   $("#delAll").addEventListener("click", () => { dlg.close(); applyChanges([t, ...later].map(x => ({kind:"task", id:x.id, after:null})), `Deleted ${later.length + 1} tasks`); });
 }
@@ -13257,7 +13264,7 @@ function courseForm(c){
       <label class="f"><span class="lh">Links <span class="hint">one per line, optionally "Label | url"</span></span><textarea name="links" placeholder="Syllabus | https://…&#10;Canvas | https://…">${esc(linksText)}</textarea></label>
       <label class="f">Notes<textarea name="notes" maxlength="10000" placeholder="Grading breakdown, exam dates, TA contact…">${esc(c.notes)}</textarea></label>
     </div>
-    <div class="sheet-foot">${isNew ? "" : `<button type="button" class="btn danger" data-act="delete-course" data-id="${esc(c.id)}">Delete</button>`}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>${isNew ? "Add course" : "Save course"}</button></div>
+    <div class="sheet-foot">${isNew ? "" : `<button type="button" class="btn danger" data-act="delete-course" data-id="${esc(c.id)}">Delete</button>`}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>${isNew ? "Add Course" : "Save Course"}</button></div>
   </form>`, fd => {
     const name = String(fd.get("name") || "").trim();
     if (!name) return false;
@@ -13927,7 +13934,7 @@ function importSheet(courseId){
       ${aiReady() ? `<label class="mi-check ai-toggle"><input type="checkbox" id="impAI" checked> ${AI_ICON}<span><b>Read with AI</b><span class="mini" style="display:block">Smarter at dates, weights and class times, and reads scanned PDFs and photos. Uses ${esc(aiModelName(aiCfg().provider, aiCfg().model))}; turn off to read it only on this device.</span></span></label>` : inClaude() ? "" : `<p class="mini" style="margin:0">${AI_ICON} Want smarter reading that also handles scanned PDFs? <button type="button" class="link-btn" data-act="ai-setup">Turn on AI Features</button></p>`}
       <details id="impPaste"><summary>Or Paste the Text Instead</summary>
         <textarea id="impText" style="min-height:150px;margin-top:8px" placeholder="Paste the syllabus or just its schedule…" data-noenter></textarea>
-        <button type="button" class="btn small" id="impRead" style="margin-top:8px">Read pasted text</button>
+        <button type="button" class="btn small" id="impRead" style="margin-top:8px">Read Pasted Text</button>
       </details>
       <p class="status-msg" id="impStatus" style="margin:0" aria-live="polite"></p>
       <div id="impResult"></div>
@@ -14028,7 +14035,7 @@ function importSheet(courseId){
     const rows = `<ul class="imp-list">${rowsDated}</ul>` + (undated.length ? `<details class="imp-group"><summary>No Date Found (${undated.length})</summary><p class="mini" style="margin:0 0 8px">These were mentioned without a date. Check any you want and add the date yourself.</p><ul class="imp-list">${undated.map(n => rowOf(r.items[n], n)).join("")}</ul></details>` : "");
     $("#impDrop").hidden = true; $("#impPaste").hidden = true; $$(".ai-toggle", dlg).forEach(x => { x.hidden = true; });
     $("#impResult").innerHTML = `
-      <p style="margin:0"><button type="button" class="link-btn" id="impAgain">Choose a different file</button></p>
+      <p style="margin:0"><button type="button" class="link-btn" id="impAgain">Choose a Different File</button></p>
       <fieldset class="imp-course"><legend>Course</legend>
         <label class="f">Add To<select id="impTarget"><option value="new">A new course</option>${cs.map(x => `<option value="${esc(x.id)}" ${match && match.id === x.id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>
         <div id="impNew" class="imp-grid">
@@ -14043,7 +14050,7 @@ function importSheet(courseId){
         <label class="mi-check" id="impFillWrap"><input type="checkbox" id="impFill" checked> Fill in missing course details from the syllabus</label>
         ${srcFile && caps.assets ? `<label class="mi-check"><input type="checkbox" id="impSave" checked> Save the PDF in the course's Syllabus folder</label>` : ""}
       </fieldset>
-      ${r.items.length ? `<div class="imp-head"><strong>Tasks</strong><span class="spacer"></span><button type="button" class="link-btn" id="impAll">Select all</button><button type="button" class="link-btn" id="impNone">Select none</button></div><div id="impLists">${rows}</div>` : ""}`;
+      ${r.items.length ? `<div class="imp-head"><strong>Tasks</strong><span class="spacer"></span><button type="button" class="link-btn" id="impAll">Select All</button><button type="button" class="link-btn" id="impNone">Select None</button></div><div id="impLists">${rows}</div>` : ""}`;
     $("#impAgain").addEventListener("click", () => { result = null; $("#impResult").innerHTML = ""; $("#impAdd").hidden = true; status.textContent = ""; $("#impDrop").hidden = false; $("#impPaste").hidden = false; $$(".ai-toggle", dlg).forEach(x => { x.hidden = false; }); });
     const target = $("#impTarget");
     const syncTarget = () => { const isNew = target.value === "new"; $("#impNew").hidden = !isNew; $("#impFillWrap").hidden = isNew; updateAdd(); };
@@ -14075,7 +14082,7 @@ function importSheet(courseId){
     const btn = $("#impAdd"); if (!result) return;
     const n = picked().length, isNew = $("#impTarget").value === "new";
     btn.hidden = false;
-    btn.textContent = isNew ? (n ? `Add course and ${n} task${n === 1 ? "" : "s"}` : "Add course") : `Add ${n} task${n === 1 ? "" : "s"}`;
+    btn.textContent = isNew ? (n ? `Add Course and ${n} Task${n === 1 ? "" : "s"}` : "Add Course") : `Add ${n} Task${n === 1 ? "" : "s"}`;
     btn.disabled = !isNew && !n;
   }
   $("#impAdd").addEventListener("click", () => {
@@ -14274,10 +14281,10 @@ function viewFiles(){
   } else list = `<ul class="flist">${fs.map(fileRow).join("")}</ul>`;
   const canUpload = !!caps.assets;
   const actions = `<div class="factions">
-      ${canUpload ? `<button class="btn primary small" data-act="f-upload">Upload files</button>` : ""}
-      <button class="btn small" data-act="f-link">Add link</button>
-      ${trashBtn("file")}${ui.fCourse !== "all" ? `<button class="btn small" data-act="f-newfolder">New folder</button>` : ""}
-      ${folder ? `<button class="btn small" data-act="f-folder-edit">Edit folder</button>` : ""}
+      ${canUpload ? `<button class="btn primary small" data-act="f-upload">Upload Files</button>` : ""}
+      <button class="btn small" data-act="f-link">Add Link</button>
+      ${trashBtn("file")}${ui.fCourse !== "all" ? `<button class="btn small" data-act="f-newfolder">New Folder</button>` : ""}
+      ${folder ? `<button class="btn small" data-act="f-folder-edit">Edit Folder</button>` : ""}
       ${ui.fCourse !== "all" && !inClaude() ? `<button class="btn small ai-btn" data-act="ask-course" data-id="${esc(ui.fCourse)}">${AI_ICON} Ask ${aiWho() ? esc(aiWho()) + " " : ""}About These Files</button>` : ""}
       <span class="spacer"></span>
       <div class="segb" role="group" aria-label="Sort"><button data-act="f-sort" data-id="date" aria-pressed="${ui.fSort !== "name"}">Newest</button><button data-act="f-sort" data-id="name" aria-pressed="${ui.fSort === "name"}">Name</button></div>
@@ -14312,7 +14319,7 @@ function fileSheet(f){
       <label class="f">Description<textarea name="desc" maxlength="2000" placeholder="What this is, where it came from…">${esc(f.desc)}</textarea></label>
       <fieldset><legend>Attached to Tasks</legend><div class="dep-list" id="fsTasks"></div><select id="fsTaskAdd" aria-label="Attach to a task"></select></fieldset>
       ${isLink ? "" : `<fieldset><legend>Revisions</legend><ul class="revs">${f.revs.map((r, i) => ({r, i})).reverse().map(({r, i}) => `<li><span class="rev">Rev ${revLetter(i)}</span><span class="mini">${esc(new Date(r.at).toLocaleString(undefined, {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}, ${fmtSize(r.size)}${r.name && r.name !== f.name ? ", " + esc(r.name) : ""}</span><span class="spacer"></span><a class="link-btn" href="${esc(assetHref(r.assetId))}" ${assetAttr(r.assetId)} target="_blank" rel="noopener noreferrer">Open</a><button type="button" class="link-btn" data-dl="${i}">Download</button></li>`).join("")}</ul>
-        ${caps.assets ? `<button type="button" class="btn small" id="fsNewRev">Upload a new revision</button><input type="file" id="fsRevIn" class="sr" tabindex="-1">` : ""}</fieldset>`}
+        ${caps.assets ? `<button type="button" class="btn small" id="fsNewRev">Upload a New Revision</button><input type="file" id="fsRevIn" class="sr" tabindex="-1">` : ""}</fieldset>`}
     </div>
     <div class="sheet-foot"><button type="button" class="btn danger" id="fsDel">Delete</button><span class="spacer"></span>${!isLink && !inClaude() && readableFile(f) ? `<button type="button" class="btn ai-btn" data-act="f-summarize" data-id="${esc(f.id)}">${AI_ICON} ${f.summary ? "Summary" : "Summarize"}</button>` : ""}<a class="btn" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">Open</a><button type="button" class="btn primary" data-submit>Save</button></div>
   </form>`, fd => {
@@ -14374,7 +14381,7 @@ function linkSheet(){
         <label class="f">Folder<select name="folderId" id="lkFolder">${folderSelectHtml(tgt.courseId, tgt.folderId)}</select></label>
       </div>
     </div>
-    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Add link</button></div>
+    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Add Link</button></div>
   </form>`, fd => {
     const u = safeUrl(fd.get("url")); if (!u) { toast("Enter a valid web address"); return false; }
     let name = String(fd.get("name") || "").trim();
@@ -14391,7 +14398,7 @@ function folderSheet(existing){
   openSheet(`<form class="sheet">${head(existing ? "Folder" : "New Folder")}
     <div class="sheet-body">${REQ_NOTE}<label class="f"><span class="lh">Folder Name ${REQ}</span><input type="text" name="name" required maxlength="60" value="${esc(existing ? existing.name : "")}" autofocus placeholder="e.g. Lab reports"></label>
     ${existing && existing.id !== "other" ? `<p class="mini" style="margin:0">Deleting this folder moves its ${n} file${n === 1 ? "" : "s"} to Other.</p>` : ""}</div>
-    <div class="sheet-foot">${existing && existing.id !== "other" ? `<button type="button" class="btn danger" id="fdDel">Delete folder</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>${existing ? "Save" : "Create folder"}</button></div>
+    <div class="sheet-foot">${existing && existing.id !== "other" ? `<button type="button" class="btn danger" id="fdDel">Delete Folder</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>${existing ? "Save" : "Create Folder"}</button></div>
   </form>`, fd => {
     const name = String(fd.get("name") || "").trim(); if (!name) return false;
     const next = existing ? folders.map(fo => fo.id === existing.id ? {id: fo.id, name} : fo) : folders.concat({id: uid(), name});
@@ -14563,9 +14570,9 @@ function viewNotes(){
   const maxY = onBoard.reduce((m, n) => Math.max(m, n.y), 0), maxX = onBoard.reduce((m, n) => Math.max(m, n.x), 0);
   // The board fills its frame and only grows (with scroll bars) when notes sit past its edge; fitNoteBoard() measures after drawing
   const W = maxX ? maxX + NOTE_W() + 40 : 0, H = maxY ? maxY + 260 : 0;
-  return `<div class="tl-controls"><h2>Notes</h2><button class="btn primary small" data-act="note-new">+ New note</button>${inClaude() ? "" : `<button class="btn small ai-btn" data-act="note-photo">${AI_ICON} Photo to Note</button>`}${trashBtn("note")}<button class="btn small" data-act="note-archive-open">Archive${archived ? ` (${archived})` : ""}</button></div>
+  return `<div class="tl-controls"><h2>Notes</h2><button class="btn primary small" data-act="note-new">+ New Note</button>${inClaude() ? "" : `<button class="btn small ai-btn" data-act="note-photo">${AI_ICON} Photo to Note</button>`}${trashBtn("note")}<button class="btn small" data-act="note-archive-open">Archive${archived ? ` (${archived})` : ""}</button></div>
     ${noteBoardBar()}
-    ${ui.q.trim() ? `<div class="search-note">Notes that don't match “${esc(ui.q.trim())}” are faded. <button class="link-btn" data-act="search-clear">Clear search</button></div>` : ""}
+    ${ui.q.trim() ? `<div class="search-note">Notes that don't match “${esc(ui.q.trim())}” are faded. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     <div class="nb-wrap"><div class="nb-main">
       <div class="nb-scroll" id="nbScroll">
         <div class="nb-board" id="nbBoard" style="width:${W}px;height:${H}px">
@@ -14620,7 +14627,7 @@ function archiveSheet(){
     $("#arList").innerHTML = list.map(n => { const c = courseOf(n.courseId); return `<div class="ar-note" style="--nc:${noteColor(n.color)}">
       <div class="ar-text">${esc(n.text) || `<span class="note-empty">Empty note</span>`}</div>
       <div class="ar-meta">${c ? `<span class="note-tag" style="--c:${esc(c.color)}">${esc(courseLabel(c))}</span>` : ""}<span class="mini">Archived ${esc(new Date(n.archivedAt || n.updated || n.created || Date.now()).toLocaleDateString(undefined, {month:"short", day:"numeric", year:"numeric"}))}</span><span class="spacer"></span>
-        <button type="button" class="link-btn" data-ar="restore" data-id="${esc(n.id)}">Put back</button>
+        <button type="button" class="link-btn" data-ar="restore" data-id="${esc(n.id)}">Put Back</button>
         ${caps.assets ? `<button type="button" class="link-btn" data-ar="file" data-id="${esc(n.id)}">Save to Files</button>` : ""}
         <button type="button" class="link-btn danger-link" data-ar="delete" data-id="${esc(n.id)}">Delete</button></div></div>`; }).join("")
       || `<p class="status-msg">${q ? "No archived notes match." : "Nothing archived yet. Drag a note onto the folder to archive it."}</p>`;
@@ -14703,7 +14710,7 @@ function viewFlashcards(){
       ${(w => w.n ? `<button class="btn small" data-act="fc-weak">Weak Spots <span class="n-badge">${w.n}</span></button>` : "")(weakSpots(decksArr().filter(d => ui.filter === "all" || d.courseId === ui.filter).map(d => d.id)))}
       ${inClaude() ? "" : `<button class="btn small ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}
       ${trashBtn("deck")}<button class="btn small primary" data-act="fc-new">New Deck</button></div>
-    ${chipsHtml()}${ui.q.trim() ? `<div class="search-note">Showing decks that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear search</button></div>` : ""}
+    ${chipsHtml()}${ui.q.trim() ? `<div class="search-note">Showing decks that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${ds.length ? `<div class="deck-grid">${tiles}</div>` : `<div class="empty" style="margin-top:14px"><strong>${decksArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Make a deck for a course, add cards (or paste a list from Quizlet or your notes), then study them or take an auto-made quiz." + (inClaude() ? "" : " Or upload your lecture slides and let " + esc(aiWho("AI")) + " make the cards and a practice quiz.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inClaude() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}
     <p class="hint-line tip-everyday">Study shows each card again after 1, 3, 7, 14 and 30 days as you get it right, so reviews land just before you'd forget.</p>`;
 }
@@ -14993,7 +15000,7 @@ function viewQuiz(){
   else if (q.type === "tf") body = `<div class="tf-pair"><span class="mini">Matching ${kind[1]}</span><p>${esc(q.shown)}</p></div>
       <div class="mc two-col">${[["true", "True"], ["false", "False"]].map(([v, l]) => { const isRight = (v === "true") === q.truth; const cls = a ? (isRight ? "right" : a.given === v ? "wrong" : "") : ""; return `<button class="opt ${cls}" data-act="fc-answer" data-val="${v}" ${a ? "disabled" : ""}><span class="key">${l[0]}</span><span>${l}</span></button>`; }).join("")}</div>`;
   else body = `<form class="written" id="qForm"><label class="f">Your answer<input type="text" id="qWritten" autocomplete="off" ${a ? `value="${esc(a.given)}" disabled` : ""} data-noenter></label>${a ? "" : `<button type="submit" class="btn primary">Check</button>`}</form>`;
-  const fb = a ? `<div class="feedback ${a.correct ? "ok" : "no"}" role="status"><b>${a.correct ? (a.close ? "Close enough, counted as correct." : "Correct.") : "Not quite."}</b>${a.correct && !a.close ? "" : ` The answer is <span class="ans">${esc(q.answer)}</span>.`}${!a.correct && q.type === "written" ? ` <button class="link-btn" data-act="fc-override">I was right</button>` : ""}${a.ai ? `<p class="ai-fb">${AI_ICON}${esc(a.ai)}</p>` : ""}</div>
+  const fb = a ? `<div class="feedback ${a.correct ? "ok" : "no"}" role="status"><b>${a.correct ? (a.close ? "Close enough, counted as correct." : "Correct.") : "Not quite."}</b>${a.correct && !a.close ? "" : ` The answer is <span class="ans">${esc(q.answer)}</span>.`}${!a.correct && q.type === "written" ? ` <button class="link-btn" data-act="fc-override">I Was Right</button>` : ""}${a.ai ? `<p class="ai-fb">${AI_ICON}${esc(a.ai)}</p>` : ""}</div>
       ${explainHtml(`c|${q.deckId}|${q.cardId}`, q.type === "written" ? a.given : "")}
       <div class="row-actions"><button class="btn primary" data-act="fc-next" id="qNext">${f.i + 1 < f.qs.length ? "Next Question" : "See Results"}</button></div>` : "";
   return `<div class="view-head"><h2>Quiz</h2><span class="mini">Question ${f.i + 1} of ${f.qs.length}</span><button class="btn small" data-act="fc-exit">Quit</button></div>
@@ -15344,7 +15351,7 @@ function calExportSheet(){
   openSheet(`<div class="sheet">${head("Add Deadlines to Your Calendar")}<div class="sheet-body">
     <p style="margin:0">This downloads a calendar file with your ${count} upcoming deadline${count === 1 ? "" : "s"}, each with a reminder the day before.</p>
     <p class="status-msg" style="margin:0">Unzip the download, then open the .ics file inside. Apple Calendar and Outlook import it when you open it. For Google Calendar, go to Settings, then Import & export. Importing again after changes can create duplicates in some calendars. To add a single task, open it here and choose Add to Google Calendar.</p>
-    </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="calDl" ${count ? "" : "disabled"}>Download calendar file</button></div></div>`);
+    </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="calDl" ${count ? "" : "disabled"}>Download Calendar File</button></div></div>`);
   $("#calDl").addEventListener("click", async () => {
     const {text} = buildIcs();
     const dl = caps.downloads || await useCap("downloads");
@@ -15781,6 +15788,7 @@ document.addEventListener("click", e => {
     if (tab.dataset.tab === "flashcards" && ui.tab === "flashcards") { ui.fc = null; ui.deckId = null; }
     let want = tab.dataset.tab;
     if (want === "plan" || want === "calendar") want = isPlanTab(ui.tab) ? ui.tab : ui.planView;
+    if (want === "courses" && ui.tab === "files") want = "files";   // the Courses tab also holds Files: stay on the sub-tab already open
     if (want === "timeline" && ui.tab !== "timeline") ui.tlJump = true;
     if (want === ui.tab && ui.tab === "courses") ui.courseId = null;
     ui.tab = want; if (ui.tab !== "courses") ui.courseId = null;
@@ -32582,7 +32590,7 @@ const ERRCORE = (() => {
 /* App Tour: a coach-mark walk around the app. A dimmed page with one spotlight, a card that says what it is, and Back / Next.
    It shows once, right after a brand-new person finishes (or closes) the welcome setup above. Anyone who already has data
    never sees it on its own. It can be replayed from Settings, Search Everywhere and the end of the welcome tour.
-   Each step opens the real tab or sheet it talks about (Plan Ahead's Timeline then Schedule, announcements, focus timer, search,
+   Each step opens the real tab or sheet it talks about (Calendar's Timeline then Schedule, announcements, focus timer, search,
    Settings) and the tour puts the person back on their own tab when it ends. A step whose feature isn't on this device (no
    Groups on a phone, no bell without a school site) is left out, so the tour never points at nothing. */
 (() => {
@@ -32607,19 +32615,19 @@ const ERRCORE = (() => {
       text: () => "Type a sentence like \"Essay due Friday 5pm\" and press Enter. Studyboard fills in the course, date and type. The + button opens the full form."},
     {id: "today", title: "Today's Plan and the Board", tab: "board", sel: [".bview-tabs", ".focus.plan", ".board-sec-head", NAV("board")],
       text: () => phone() ? "Switch between Today's Plan, what to work on and for how long, and your Task Board of every task by status." : "Today's Plan lines up what to work on next and for how long. Below it, the Task Board holds every task by status."},
-    {id: "timeline", title: "Plan Ahead: Timeline", tab: "timeline", sel: [".pview-tabs", NAV("plan")],
-      text: () => "Every deadline across your courses, as bars or a month calendar. Plan Ahead has three views: Timeline, Schedule and Crunch."},
-    {id: "schedule", title: "Plan Ahead: Schedule", tab: "schedule", sel: [".pview-tabs", NAV("plan")],
+    {id: "timeline", title: "Calendar: Timeline", tab: "timeline", sel: [".pview-tabs", NAV("plan")],
+      text: () => "Every deadline across your courses, as bars or a month calendar. Calendar has three views: Timeline, Schedule and Crunch."},
+    {id: "schedule", title: "Calendar: Schedule", tab: "schedule", sel: [".pview-tabs", NAV("plan")],
       text: () => "Your week of classes, labs, shifts and appointments. Study time is planned around it. Studyboard remembers the view you used last."},
-    {id: "crunch", title: "Plan Ahead: Crunch", tab: "crunch", sel: [".pview-tabs", NAV("plan")],
+    {id: "crunch", title: "Calendar: Crunch", tab: "crunch", sel: [".pview-tabs", NAV("plan")],
       text: () => "A heatmap of your term. A week with several exams and a paper glows red weeks ahead, and tapping it shows what to start early."},
     {id: "cards", title: "Flashcards and Quizzes", tab: "flashcards", sel: [NAV("flashcards")],
       text: () => "Make decks by hand, or let AI build cards and practice quizzes from your notes and readings. Spaced repetition brings reviews back at the right time."},
     {id: "notes", title: "Notes and Stickers", tab: "notes", sel: [NAV("notes")],
       text: () => "Sticky notes for quick thoughts. Pin them to tasks, colour them and decorate them with stickers."},
-    {id: "files", title: "Files", tab: "files", sel: [NAV("files")],
+    {id: "files", title: "Files", tab: "files", sel: [".cf-tabs", NAV("courses")],
       text: () => "Keep readings, slides and handouts with their course, and attach them to tasks. Search can read inside them."},
-    {id: "courses", title: "Courses and School Sites", tab: "courses", sel: [NAV("courses")],
+    {id: "courses", title: "Courses and School Sites", tab: "courses", sel: [".cf-tabs", NAV("courses")],
       text: () => "Add courses with class times and grade weights, and the Grade Tracker shows what you need on what's left. Connect Brightspace, Canvas or Blackboard in Settings to bring in deadlines and grades."},
     {id: "ann", title: "Announcements", panel: "ann", has: BELL, sel: ["#dlg .ann-sheet .sheet-head", "#dlg .ann-sheet"],
       text: () => "Announcements from your school site collect here, with a dot for the ones you haven't read."},
@@ -35127,7 +35135,7 @@ const TRY = {
 const tryIt = k => { if (TRY[k]) TRY[k](); };
 function settingsHtml(){
   const p = prefs(), tg = (k, label, sub) => `<label class="cap-tg"><input type="checkbox" data-cap-pref="${k}" ${p[k] ? "checked" : ""}><span><b>${label}</b><span class="sub">${sub}</span></span></label>`;
-  const ep = (k, name, sub, b) => `<li><div><b>${name}</b><span class="sub">${sub}</span></div>${b ? `<button type="button" class="btn small" data-act="cap-try" data-try="${k}">Try it</button>` : ""}</li>`;
+  const ep = (k, name, sub, b) => `<li><div><b>${name}</b><span class="sub">${sub}</span></div>${b ? `<button type="button" class="btn small" data-act="cap-try" data-try="${k}">Try It</button>` : ""}</li>`;
   let extra = ""; settingsFns.forEach(fn => { try { extra += fn() || ""; } catch (e) {} });
   return `<div class="cap-set" data-group="capture">
     <div class="cap-tgs">${tg("auto", "Add right away when I'm sure", "Clear sentences with a date are added with an Undo button instead of asking first")}${tg("keep", "Keep photos with tasks", "Save the photo in the course's Lecture Notes folder with the tasks you add from it")}${tg("ai", "Use AI to read photos", aiReady() ? "Photos are sent to your AI provider only when you take or choose one" : "Set up AI in Study and AI first. Until then you type in what is on the photo")}</div>
@@ -36235,7 +36243,7 @@ hook("boot", boot);
     openSheet(`<form class="sheet">${head("Share a Quiz")}<div class="sheet-body">
       <p style="margin:0">Members take it right in their own app, and everyone's best score shows on the quiz. They get your questions, not your results.</p>
       <fieldset><legend>Quizzes</legend><div class="check-list grp-pick">${list.map(({d, qz}, i) => `<label class="mi-check"><input type="checkbox" name="q" value="${esc(d.id + ":" + qz.id)}" ${i === 0 ? "checked" : ""}> <span><b>${esc(qz.title || "Practice Quiz")}</b> <span class="mini">${esc(d.name)} · ${plural(qz.questions.length, "question")}${mineIn.has(d.id + ":" + qz.id) ? " · already shared, sharing again updates it" : ""}</span></span></label>`).join("")}</div></fieldset></div>
-      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit id="grpQGo">Share with ${esc(g.name.length > 22 ? "Group" : g.name)}</button></div></form>`, fd => {
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit id="grpQGo">Share With ${esc(g.name.length > 22 ? "Group" : g.name)}</button></div></form>`, fd => {
       const picks = fd.getAll("q").map(v => { const [did, qid] = String(v).split(":"), d = state.decks[did], qz = d && (d.aiQuizzes || []).find(x => x.id === qid); return qz ? {d, qz, ref: v} : null; }).filter(Boolean);
       if (!picks.length) { toast("Tick the quizzes you want to share"); return false; }
       const b = $("#grpQGo"); busyBtn(b, true);
@@ -36366,7 +36374,7 @@ hook("boot", boot);
     const who = t.assignee_id && ms.some(m => m.user_id === t.assignee_id) ? t.assignee_id : "";
     const chip = who ? `<span class="pt-who">${av(mName(g.id, who), who)}<span>${esc(who === me ? "You" : mName(g.id, who))}</span></span>` : `<span class="pt-who none">Unassigned</span>`;
     const nudgeKey = "t:" + t.id + ":" + today, mini = done ? `Done${t.completed_by ? " by " + esc(ptWho(g.id, t.completed_by)) : ""}` : "";
-    const btns = (!done && !who ? `<button type="button" class="btn small" data-act="grp-pt-claim" data-id="${esc(t.id)}">Claim this</button>` : "")
+    const btns = (!done && !who ? `<button type="button" class="btn small" data-act="grp-pt-claim" data-id="${esc(t.id)}">Claim This</button>` : "")
       + (late && who && who !== me ? (S.nudged[nudgeKey] ? `<span class="mini pt-nudged">Nudged</span>` : `<button type="button" class="btn small" data-act="grp-pt-nudge" data-id="${esc(t.id)}" aria-label="Nudge ${esc(mName(g.id, who))} about ${esc(str(t.title, 60))}">Nudge</button>`) : "");
     return `<li class="pt-task${done ? " is-done" : ""}${late ? " is-late" : ""}${t._tmp ? " is-saving" : ""}" data-id="${esc(t.id)}"${t._tmp ? ' aria-busy="true"' : ""}>
       <button type="button" class="pt-check" role="checkbox" aria-checked="${done}" data-act="grp-pt-done" data-id="${esc(t.id)}" aria-label="${done ? "Mark not done" : "Mark done"}: ${esc(str(t.title, 80))}"><span class="pt-box">${CHECK}</span></button>
@@ -36392,7 +36400,7 @@ hook("boot", boot);
       const n = x.tasks.filter(t => t.list_id === l.id && t.status !== "done" && !t.deleted).length;
       return `<button type="button" class="pt-chip${l.id === curId ? " on" : ""}${l.archived ? " arch" : ""}" data-act="grp-pt-list" data-id="${esc(l.id)}" aria-pressed="${l.id === curId}"><span>${esc(l.title)}</span><small>${l.archived ? "archived" : n + " open"}</small></button>`;
     }).join("");
-    const archBtn = nArch ? `<button type="button" class="link-btn" data-act="grp-pt-arch" aria-pressed="${!!x.arch}">${x.arch ? "Hide" : "Show"} archived (${nArch})</button>` : "";
+    const archBtn = nArch ? `<button type="button" class="link-btn" data-act="grp-pt-arch" aria-pressed="${!!x.arch}">${x.arch ? "Hide" : "Show"} Archived (${nArch})</button>` : "";
     if (!cur) return `<section class="grp-sec grp-pt" id="grpPT">${top}${err}<div class="pt-lists">${chips}</div>${archBtn}<p class="grp-none">All your lists are archived. Make a new one, or show the archived ones.</p></section>`;
     const tasks = x.tasks.filter(t => t.list_id === cur.id && !t.deleted), pr = GTL.progress(tasks), cnt = GTL.counts(tasks, me, today);
     const shown = GTL.filter(tasks, x.filter, me, today), wl = ms.length > 1 ? GTL.workload(x.tasks.filter(t => activeIds.has(t.list_id)), ms, today) : null;
@@ -36497,7 +36505,7 @@ hook("boot", boot);
         <button type="button" class="gm-main" data-act="grp-pt-open" data-g="${esc(r.gid)}" data-l="${esc(r.listId)}" data-id="${esc(r.id)}"><span class="gm-title">${esc(r.title)}</span>
           <span class="pt-meta"><span class="gm-badge" title="${esc(r.groupName)}">${esc(r.badge)}</span>${r.due ? `<span class="pt-due${c.late ? " late" : c.soon ? " soon" : ""}">${esc(ptDueTxt(r.due))}</span>` : ""}<span class="mini">about ${r.hours}h</span></span></button></li>`; };
     pane.insertAdjacentHTML("beforeend", `<section class="grp-mine" id="grpMine" aria-label="Group tasks assigned to you"><h3 class="fsec">${PT_ICON}My Group Tasks<span class="n">${rows.length}</span></h3>
-      <p class="mini gm-sum">${esc(sum)}. <button type="button" class="link-btn" data-act="${one ? "grp-pt-open" : "grp-page"}" data-g="${esc(rows[0].gid)}" data-l="${esc(rows[0].listId)}">${one ? "Open the group" : "Open Study Groups"}</button></p>
+      <p class="mini gm-sum">${esc(sum)}. <button type="button" class="link-btn" data-act="${one ? "grp-pt-open" : "grp-page"}" data-g="${esc(rows[0].gid)}" data-l="${esc(rows[0].listId)}">${one ? "Open the Group" : "Open Study Groups"}</button></p>
       <ul class="gm-list">${shown.map(li).join("")}</ul>${rows.length > shown.length ? `<p class="mini">+${rows.length - shown.length} more in your groups</p>` : ""}</section>`);
   }
 
@@ -37104,7 +37112,7 @@ hook("boot", boot);
       <p style="margin:0">Members can study it right away or add their own copy. They get your cards, not your study progress.</p>
       <fieldset><legend>Deck</legend><div class="check-list grp-pick">${ds.map((d, i) => `<label class="mi-check"><input type="radio" name="deck" value="${esc(d.id)}" ${i === 0 ? "checked" : ""}> <span><b>${esc(d.name)}</b> <span class="mini">${plural(d.cards.length, "card")}${(d.aiQuizzes || []).length ? `, ${plural(d.aiQuizzes.length, "quiz", "quizzes")}` : ""}${mineIn.has(d.id) ? " · already shared, sharing again updates it" : ""}</span></span></label>`).join("")}</div></fieldset>
       ${ds.some(d => (d.aiQuizzes || []).length) ? `<label class="mi-check"><input type="checkbox" name="withQ" checked> Include practice quizzes</label>` : ""}</div>
-      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit id="grpShareGo">Share with ${esc(g.name.length > 22 ? "Group" : g.name)}</button></div></form>`, fd => {
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit id="grpShareGo">Share With ${esc(g.name.length > 22 ? "Group" : g.name)}</button></div></form>`, fd => {
       const d = state.decks[fd.get("deck")]; if (!d) return false;
       const p = deckPayload(d, !!fd.get("withQ")), b = $("#grpShareGo"); busyBtn(b, true);
       ensureName(async () => {
@@ -38896,7 +38904,7 @@ window.SBEST = SBEST;
           ${!desk && !cloud ? `<p class="mini bs-note">On the website and phone, this needs your Studyboard account connected (Settings, Sync). Or download the calendar file from ${P.name} and import it below.</p>` : ""}
           <label class="f"><span class="lh">Calendar Link <span class="hint">${P.name}, ${esc(P.feedWhere)}</span></span><input type="url" id="bsFeedIn" placeholder="${esc(P.feedPh)}" autocomplete="off" spellcheck="false"></label>
           <div class="bs-acts"><button class="btn ${desk ? "" : "primary"}" data-act="${A}-feed-connect">Connect</button><button class="btn" data-act="${A}-feed-help">How to Find It</button></div></div>
-        <p class="mini" style="margin:0">Don't want to connect? <button class="linklike" data-act="${A}-file">Import a downloaded ${P.name} calendar file</button> instead.</p>
+        <p class="mini" style="margin:0">Don't want to connect? <button class="linklike" data-act="${A}-file">Import a Downloaded ${P.name} Calendar File</button> instead.</p>
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button></div></div>`);
   }
@@ -39201,7 +39209,7 @@ window.SBEST = SBEST;
     if (ui.courseId) return html;
     const on = ALL().filter(L => L.connected());
     const label = on.length === 1 ? on[0].P.name : "School Sites";
-    return html.replace(`<button class="btn small" data-act="new-course">Add course</button>`, m => `<button class="btn small" data-act="${on.length === 1 ? on[0].P.k + "-open" : "lms-open"}">${esc(label)}</button>` + m);
+    return html.replace(`<button class="btn small" data-act="new-course">Add Course</button>`, m => `<button class="btn small" data-act="${on.length === 1 ? on[0].P.k + "-open" : "lms-open"}">${esc(label)}</button>` + m);
   };
   // A small tag on tasks that came from a platform
   const origCard = card;
@@ -54944,7 +54952,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       : !ready ? `<div class="cpt-gate"><p style="margin:0"><b>Chat needs AI.</b> Add a free Google Gemini key (about a minute) and you can ask your companion about anything in Studyboard.</p><button type="button" class="btn primary small" data-act="ai-setup">Set Up AI</button></div>` : "";
     return `${gate}<div class="cpt-log" id="cptLog" aria-live="polite">${logHtml()}</div>
       <form class="cpt-form" data-cpt-form><textarea id="cptIn" rows="2" maxlength="1000" placeholder="${esc((info() || {}).name ? "Ask " + info().name + " anything…" : "Ask anything…")}" aria-label="Your question" ${ready ? "" : "disabled"}>${esc(T.draft || "")}</textarea><button type="submit" class="btn primary" id="cptGo" ${ready && !T.busy ? "" : "disabled"}>Ask</button></form>
-      <p class="mini cpt-priv">Each question sends only the parts of your planner it needs (tasks, notes, grades, flashcards, file text) to your AI provider. ${T.id ? `<button type="button" class="link-btn" data-act="cpt-new">New chat</button>` : ""}</p>`;
+      <p class="mini cpt-priv">Each question sends only the parts of your planner it needs (tasks, notes, grades, flashcards, file text) to your AI provider. ${T.id ? `<button type="button" class="link-btn" data-act="cpt-new">New Chat</button>` : ""}</p>`;
   }
   function historyHtml(){
     const chats = rd();
@@ -58627,7 +58635,7 @@ var SOUNDS_HOOK = hook;
 
 
 /* ===== module: 97-crunch.js ===== */
-/* Crunch Forecast (Plan Ahead, third view). A heatmap of the term's workload, a week-by-week summary, a detail sheet with
+/* Crunch Forecast (Calendar, third view). A heatmap of the term's workload, a week-by-week summary, a detail sheet with
    "Move earlier" / "Start now" and a what-if preview, a card on Today, and one companion suggestion. Free, works offline, no AI. */
 (() => {
 /*CRUNCH-START*/
@@ -58641,11 +58649,11 @@ var SOUNDS_HOOK = hook;
 //   - stress: the due day itself costs extra (exam 1.5h, paper 1h, ...), scaled by the grade weight.
 //   - overdue work lands on today. Done tasks, and work that can't be turned in any more, count for nothing.
 //   - capacity: your usual study hours a day, shortened by classes, labs, shifts and events (same rule as Today's Plan).
-// Day level from load / capacity: calm < 0.4 <= steady < 0.7 <= busy < 1.0 <= heavy < 1.4 <= crunch.
+// Day level from load / capacity: calm < 0.4 <= steady < 1.1 <= busy < 1.3 <= heavy < 2.0 <= crunch. (1x your usual study time is normal, so it is steady, never heavy.)
 // A week blends its worst day with its overall load, and a week with 3+ big deadlines is at least heavy (4+ is crunch).
 const CRUNCH = (() => {
   const LEVELS = ["calm", "steady", "busy", "heavy", "crunch"];
-  const CUTS = [0.4, 0.7, 1.0, 1.4];
+  const CUTS = [0.4, 1.1, 1.3, 2.0];
   const levelOf = r => r >= CUTS[3] ? 4 : r >= CUTS[2] ? 3 : r >= CUTS[1] ? 2 : r >= CUTS[0] ? 1 : 0;
   const pad = n => String(n).padStart(2, "0");
   const pd = s => { const [y, m, d] = String(s).split("-").map(Number); return new Date(y, m - 1, d); };
@@ -58961,7 +58969,7 @@ const store = {
 .cr-scroll{overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
 .cr-grid{display:grid;gap:3px;min-width:352px}
 .cr-row,.cr-dow{display:grid;grid-template-columns:54px repeat(7,minmax(40px,1fr));gap:2px;align-items:stretch}
-@media (min-width:760px){.cr-row,.cr-dow{grid-template-columns:78px repeat(7,minmax(44px,60px)) minmax(160px,1fr);gap:3px}}
+@media (min-width:760px){.cr-row,.cr-dow{grid-template-columns:84px repeat(7,minmax(64px,1fr)) minmax(120px,170px);gap:5px}}
 .cr-dow span{font:700 .72rem var(--display);color:var(--muted);text-align:center;padding:2px 0;text-transform:uppercase;letter-spacing:.04em}
 .cr-wk{border:1px solid transparent;background:transparent;border-radius:10px;padding:2px 3px;text-align:left;display:flex;flex-direction:column;justify-content:center;gap:1px;min-height:44px;font:600 .78rem/1.15 var(--body);color:var(--ink)}
 .cr-wk:hover{background:var(--soft)}
@@ -58971,7 +58979,8 @@ const store = {
 .cr-bar{display:block;height:4px;border-radius:3px;background:var(--soft);overflow:hidden;margin-top:2px}
 .cr-bar i{display:block;height:100%;background:var(--cr3)}
 .cr-bar.lv4 i{background:var(--cr4)}.cr-bar.lv1 i{background:var(--cr2)}.cr-bar.lv0 i{background:var(--cr1)}
-.cr-d{position:relative;min-height:44px;border-radius:8px;border:1px solid color-mix(in srgb,var(--ink) 12%,transparent);padding:3px 3px 2px;text-align:left;color:var(--ink);font:600 .78rem/1 var(--body);background:var(--cr0);display:block;overflow:hidden}
+.cr-d{position:relative;min-height:54px;border-radius:8px;border:1px solid color-mix(in srgb,var(--ink) 12%,transparent);padding:3px 3px 2px;text-align:left;color:var(--ink);font:600 .78rem/1 var(--body);background:var(--cr0);display:block;overflow:hidden}
+@media (min-width:760px){.cr-grid .cr-d{min-height:68px;padding:5px 6px 3px}.cr-grid .cr-d .dn{font-size:1rem}.cr-wk{min-height:68px}}
 .cr-d.lv1{background:var(--cr1)}
 .cr-d.lv2{background:repeating-linear-gradient(45deg,var(--cr-hatch) 0 2px,transparent 2px 7px),var(--cr2)}
 .cr-d.lv3{background:repeating-linear-gradient(45deg,var(--cr-hatch) 0 3px,transparent 3px 6px),var(--cr3);color:var(--cr-t3)}
@@ -58987,7 +58996,10 @@ button.cr-d:hover{filter:brightness(.95)}
 .cr-d .nb{position:absolute;right:3px;bottom:3px;font:800 .62rem/1 var(--display);min-width:14px;height:14px;border-radius:7px;display:grid;place-items:center;background:var(--ink);color:var(--surface);padding:0 3px}
 .cr-d .td{position:absolute;right:3px;top:2px;font:800 .55rem var(--display);text-transform:uppercase}
 .cr-sum{display:none;font-size:.8rem;color:var(--muted);align-self:center;min-width:0}
-@media (min-width:760px){.cr-sum{display:block}}
+@media (min-width:760px){.cr-sum{display:flex;flex-wrap:wrap;gap:4px 10px}}
+.cr-ty{display:inline-flex;align-items:center;gap:4px;color:var(--ink)}
+.cr-ty b{font:700 .95rem var(--display)}
+.cr-ty svg{width:20px;height:20px;color:var(--muted)}
 .cr-sum b{color:var(--ink)}
 .cr-empty{margin-top:4px}
 .cr-more{justify-self:start}
@@ -59073,6 +59085,12 @@ function cellHtml(D, o){
   if (D.past) return `<span class="${cls}" role="gridcell" aria-label="${esc(dayLabel(D))}" aria-disabled="true">${inner}</span>`;
   return `<button type="button" class="${cls}" role="gridcell" tabindex="${o.tab ? 0 : -1}" data-act="cr-day" data-id="${D.date}" aria-label="${esc(dayLabel(D))}" title="${esc(dayLabel(D))}">${inner}</button>`;
 }
+// What is due in a week: the Timeline's type icons, each with its count to the left ("2 [exam icon]")
+const ICON_OF = {exam: "Exam", quiz: "Quiz", paper: "Assignment", project: "Project", lab: "Lab", assignment: "Assignment", reading: "Reading", study: "Study", other: "Other"};
+function typeCounts(W){
+  const by = {}; Object.keys(W.counts).forEach(c => { const k = ICON_OF[c] || "Other"; by[k] = (by[k] || 0) + W.counts[c]; });
+  return ["Exam", "Quiz", "Assignment", "Project", "Lab", "Reading", "Study", "Other"].filter(k => by[k]).map(k => `<span class="cr-ty" title="${by[k]} ${esc(k)} due"><b>${by[k]}</b>${typeIcon(k)}</span>`).join("");
+}
 function viewCrunch(){
   const m = modelNow(), today = todayISO();
   const head = `<div class="cr-head"><h2>Crunch Forecast</h2><span class="mini">Which weeks will be busy, so you can start early.</span></div>`;
@@ -59084,7 +59102,7 @@ function viewCrunch(){
   let est = "";
   if (m.noEstimate > 0) {
     let n = 0; try { n = SBEST.count(); } catch (e) {}
-    est = `<p class="cr-note">${m.noEstimate >= m.tasks ? "No time estimates yet, so this uses typical hours for each kind of task. Treat it as a rough guide." : `${m.noEstimate} of ${m.tasks} tasks have no time estimate, so typical hours are used for them.`}${n ? ` <button type="button" class="link-btn" data-act="cr-est">Add times</button>` : ""}</p>`;
+    est = `<p class="cr-note">${m.noEstimate >= m.tasks ? "No time estimates yet, so this uses typical hours for each kind of task. Treat it as a rough guide." : `${m.noEstimate} of ${m.tasks} tasks have no time estimate, so typical hours are used for them.`}${n ? ` <button type="button" class="link-btn" data-act="cr-est">Add Times</button>` : ""}</p>`;
   }
   const legend = `<div class="cr-legend" aria-label="Legend">${[0, 1, 2, 3, 4].map(i => `<span class="lg"><span class="cr-sw cr-d lv${i}" style="min-height:0;padding:0"></span>${LV_WORD[i]}</span>`).join("")}<span class="lg"><i class="mk" style="font-style:normal;font-weight:800">E</i> exam</span><span class="lg"><i style="font-style:normal;font-weight:800">Q</i> quiz</span><span class="lg"><i style="font-style:normal;font-weight:800">P</i> paper or project</span><span class="lg">number = items due</span></div>`;
   const shownDays = new Set(); (ui.crAll ? m.weeks : m.weeks.filter(W => !W.past).slice(0, 6)).forEach(W => W.days.forEach(d => shownDays.add(d)));
@@ -59100,10 +59118,10 @@ function viewCrunch(){
     return `<div class="cr-row" role="row" aria-label="${esc(weekLabel(W))}">
       <button type="button" class="cr-wk" role="rowheader" data-act="cr-week" data-id="${W.start}" aria-label="${esc(weekLabel(W) + ". Open week details")}" ${W.past ? "disabled" : ""}><b>${esc(wd.toLocaleDateString(undefined, {month: "short", day: "numeric"}))}</b><span class="lvw">${W.past ? "past" : LV_WORD[W.levelIdx]}</span><span class="cr-bar lv${W.levelIdx}" aria-hidden="true"><i style="width:${W.past ? 0 : bar}%"></i></span></button>
       ${ds.map(D => cellHtml(D, {tab: D.date === focusDate})).join("")}
-      <div class="cr-sum" role="gridcell">${W.past ? "" : W.levelIdx >= 2 ? `<b>${LV_WORD[W.levelIdx]}</b><br>${esc(W.reasons || "")}` : `<span class="mini">${LV_WORD[W.levelIdx]}</span>`}</div></div>`;
+      <div class="cr-sum" role="gridcell">${W.past ? "" : typeCounts(W)}</div></div>`;
   }).join("");
   const help = `<details class="cr-help"><summary>How to read this</summary><div class="cr-help-b"><p class="mini" id="crHint" style="margin:0">Each square is a day. Darker, hatched squares are heavier. Tap a day or a week for details. Arrow keys move around.</p>${legend}${est}</div></details>`;
-  const more = hiddenWeeks > 0 ? `<button type="button" class="btn small cr-more" data-act="cr-all">Show ${hiddenWeeks} later week${hiddenWeeks === 1 ? "" : "s"}</button>` : ui.crAll && upcoming.length > SHOW ? `<button type="button" class="btn small cr-more" data-act="cr-all">Show fewer weeks</button>` : "";
+  const more = hiddenWeeks > 0 ? `<button type="button" class="btn small cr-more" data-act="cr-all">Show ${hiddenWeeks} Later Week${hiddenWeeks === 1 ? "" : "s"}</button>` : ui.crAll && upcoming.length > SHOW ? `<button type="button" class="btn small cr-more" data-act="cr-all">Show Fewer Weeks</button>` : "";
   return `<section class="cr" aria-label="Crunch Forecast">${head}${call}
     <div class="cr-scroll"><div class="cr-grid" role="grid" aria-label="Workload by day, one row per week" aria-describedby="crHint">
       <div class="cr-dow" role="row"><span role="columnheader" aria-label="Week"></span>${dow.map(d => `<span role="columnheader">${d}</span>`).join("")}<span class="cr-sum" role="columnheader" style="text-align:left">Week</span></div>
@@ -59164,7 +59182,7 @@ function itemHtml(it, ws, mv, today){
   return `<li><div class="ttl"><button type="button" class="link-btn" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}</button><span class="cr-chip">${esc(typeName(it.cls))}</span>${prep ? `<span class="cr-chip">Prep</span>` : ""}${it.synced ? `<span class="cr-chip">School sync</span>` : ""}</div>
     <div class="mini">${esc(bits.join(" · "))}</div>
     ${mv ? `<div class="mini"><b>Suggested:</b> ${esc(moveText(mv))}.</div>` : ""}
-    <div class="cr-acts">${mv ? `<button type="button" class="btn small primary" data-act="cr-move" data-id="${esc(t.id)}" data-ws="${ws}">Move earlier</button><button type="button" class="btn small" data-act="cr-preview" data-id="${esc(t.id)}" data-ws="${ws}">Preview</button>` : ""}${canStart ? `<button type="button" class="btn small${mv ? "" : " primary"}" data-act="pomo-task" data-id="${esc(t.id)}">Start now</button>` : ""}</div></li>`;
+    <div class="cr-acts">${mv ? `<button type="button" class="btn small primary" data-act="cr-move" data-id="${esc(t.id)}" data-ws="${ws}">Move Earlier</button><button type="button" class="btn small" data-act="cr-preview" data-id="${esc(t.id)}" data-ws="${ws}">Preview</button>` : ""}${canStart ? `<button type="button" class="btn small${mv ? "" : " primary"}" data-act="pomo-task" data-id="${esc(t.id)}">Start Now</button>` : ""}</div></li>`;
 }
 function showSheet(){
   if (!SH) return;
@@ -59193,7 +59211,7 @@ function showSheet(){
       <div class="cr-acts">${pv ? `<button type="button" class="btn primary" data-act="cr-apply" data-ws="${ws}">Confirm${n > 1 ? ` ${n} Moves` : ""}</button><button type="button" class="btn" data-act="cr-cancel" data-ws="${ws}">Cancel</button>` : `<button type="button" class="btn primary" data-act="cr-preview" data-ws="${ws}" ${SH.focus ? "autofocus" : ""}>Preview the Change</button><button type="button" class="btn" data-act="cr-apply" data-ws="${ws}">Move ${n === 1 ? "It" : `All ${n}`} Now</button>`}</div></div>`;
   } else if (!W.past && W.levelIdx >= 2) box = `<div class="cr-box"><h3>Pulling work forward</h3><p class="mini" style="margin:0">Nothing here can move earlier in a way that helps. Exams and quizzes stay put, and work that's blocked or has little left isn't suggested. Starting the biggest item now still spreads the load.</p></div>`;
   const strip = isDay ? "" : `<div class="cr-strip" role="group" aria-label="Days of this week">${W.days.map(d => { const x = m.days.find(y => y.date === d); return cellHtml(x, {tab: true}); }).join("")}</div>`;
-  const dayEx = isDay ? `<p class="mini" style="margin:0">${D.capacity < dailyHours() - 0.05 ? `Classes or events leave about ${fmtHM(D.capacity)} of study time. ` : ""}Load ${fmtHM(D.demand)} against ${fmtHM(D.capacity)} of study time. <button type="button" class="link-btn" data-act="cr-week" data-id="${ws}">See the whole week</button></p>` : `<p class="mini" style="margin:0">About ${fmtHM(W.demand)} of work and deadline pressure against ${fmtHM(W.capacity)} of study time. The busiest day is ${W.peakDay ? esc(dayWord(W.peakDay)) : "none"} at ${ratioText(W.peak)}.</p>`;
+  const dayEx = isDay ? `<p class="mini" style="margin:0">${D.capacity < dailyHours() - 0.05 ? `Classes or events leave about ${fmtHM(D.capacity)} of study time. ` : ""}Load ${fmtHM(D.demand)} against ${fmtHM(D.capacity)} of study time. <button type="button" class="link-btn" data-act="cr-week" data-id="${ws}">See the Whole Week</button></p>` : `<p class="mini" style="margin:0">About ${fmtHM(W.demand)} of work and deadline pressure against ${fmtHM(W.capacity)} of study time. The busiest day is ${W.peakDay ? esc(dayWord(W.peakDay)) : "none"} at ${ratioText(W.peak)}.</p>`;
   const html = `<form class="sheet cr-sheet">${head(title)}<div class="sheet-body">
     <div class="cr-sl"><span class="cr-pill lv${lvIdx}">${LV_WORD[lvIdx]}</span><span><b>${ratioText(ratio)}</b> your usual study time · ${esc(reasons)}</span></div>
     ${dayEx}${strip}${box}
@@ -59561,7 +59579,7 @@ async function capProcess(rows, d){
       ${S.tok ? `<div class="capv-box" role="status"><b>Copy your new token now</b>
         <p class="mini" style="margin:0">This is the only time it is shown. It isn't stored anywhere in readable form, so if you lose it, revoke it and make a new one.</p>
         ${copyBox("Token", S.tok.token, "tok")}${copyBox("Header", bearer(), "bearer")}
-        <button type="button" class="btn small" data-capx="hide">I've saved it, hide it</button></div>` : ""}
+        <button type="button" class="btn small" data-capx="hide">I've Saved It, Hide It</button></div>` : ""}
       <form class="capv-box" data-capx-form="create">
         <b>Make a token</b>
         <div class="capv-tok">${PRESETS.map(p => `<button type="button" class="btn small" data-capx="preset" data-v="${esc(p)}">${esc(p)}</button>`).join("")}</div>
@@ -59642,7 +59660,7 @@ async function capProcess(rows, d){
     else if (k === "signin") { if (dlg.open) dlg.close(); setTimeout(() => { try { sbAsk(); } catch (err) {} }, 60); }
   });
   dlg.addEventListener("submit", e => { const f = e.target.closest && e.target.closest("[data-capx-form]"); if (f) { e.preventDefault(); create(f); } });
-  const rowHtml = group => `<button data-act="cap-voice-open" data-group="${group}"><span>Voice assistants &amp; shortcuts<span class="sub">Add tasks by asking Siri, Gemini or Bixby, or from the share sheet</span></span></button>`;
+  const rowHtml = group => `<button data-act="cap-voice-open" data-group="${group}"><span>Voice Assistants &amp; Shortcuts<span class="sub">Add tasks by asking Siri, Gemini or Bixby, or from the share sheet</span></span></button>`;
   hook("act", act => { if (act !== "cap-voice-open") return false; if (dlg.open) dlg.close(); setTimeout(open, 40); return true; });
   // With the capture pipeline present, the row lives in its Quick capture category; without it, a row under Account and Sync.
   let registered = false;
@@ -60303,7 +60321,7 @@ function topicLi(t){
     ${links.length && !open ? `<span class="mini pp-mat-s">${esc(links.slice(0, 3).map(l => linkIcon(l.k) + ": " + l.title).join(" · "))}</span>` : ""}
     ${open ? `<div class="pp-mat">${links.length ? `<ul>${links.map((l, i) => `<li><span class="pp-lk">${linkIcon(l.k)}</span> ${esc(l.title)}${l.k === "deck" ? ` <span class="mini">${l.cardIds ? l.total + " matching cards" : l.total + " cards"}${l.due ? `, ${l.due} due` : ""}</span>` : ""}<button type="button" class="x-btn" data-pp="unlink" data-id="${esc(t.id)}" data-i="${i}" aria-label="Remove link to ${esc(l.title)}">${CLOSE}</button></li>`).join("")}</ul>` : `<p class="mini" style="margin:0">Nothing matched this topic in this course.</p>`}
       <div class="cl-new"><select data-pp-add="${esc(t.id)}" aria-label="Link a deck, note, quiz or file"><option value="">Link something…</option>${opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("")}</select><button type="button" class="btn small" data-pp="rematch" data-id="${esc(t.id)}">Re-match</button></div>
-      ${!links.length ? `<p class="mini pp-gen">No material for ${esc(t.name)}: <button type="button" class="link-btn" data-pp="gen">make flashcards from your notes</button></p>` : ""}</div>` : ""}
+      ${!links.length ? `<p class="mini pp-gen">No material for ${esc(t.name)}: <button type="button" class="link-btn" data-pp="gen">Make Flashcards from Your Notes</button></p>` : ""}</div>` : ""}
     ${dead ? `<span class="mini">${dead} linked item${dead === 1 ? " is" : "s are"} gone and will be skipped.</span>` : ""}
   </li>`;
 }
@@ -60317,7 +60335,7 @@ function drawPlan(){
     const s = out.summary;
     bits.push(`<p class="pp-sum"><b>${out.sessions.length}</b> session${out.sessions.length === 1 ? "" : "s"} over <b>${s.days}</b> day${s.days === 1 ? "" : "s"}, <b>${fmtHM(s.minutes / 60)}</b> in all, across <b>${s.topics}</b> topic${s.topics === 1 ? "" : "s"}${out.crash ? ". <b>Crash plan</b>" : ""}.${have.length ? ` Your ${done} finished session${done === 1 ? "" : "s"} stay${done === 1 ? "s" : ""}; the rest are re-spread.` : ""}</p>`);
     if (out.warnings.length) bits.push(`<ul class="ep-warn">${out.warnings.map(w => `<li>${esc(w)}</li>`).join("")}</ul>`);
-    if (out.offers.length) bits.push(`<p class="mini pp-offer">${out.offers.slice(0, 3).map(o => esc(o.text)).join(". ")}. <button type="button" class="link-btn" data-pp="gen">Open the card maker</button></p>`);
+    if (out.offers.length) bits.push(`<p class="mini pp-offer">${out.offers.slice(0, 3).map(o => esc(o.text)).join(". ")}. <button type="button" class="link-btn" data-pp="gen">Open the Card Maker</button></p>`);
     const byDate = {}; out.sessions.forEach(x => { (byDate[x.date] = byDate[x.date] || []).push(x); });
     bits.push(`<details class="pp-prev" ${S.open.prev ? "open" : ""}><summary>Preview the days</summary><ol class="ep-days-list">${Object.keys(byDate).sort().map(d => `<li class="ep-day"><div class="ep-day-head"><b>${esc(fmtDate(d))}</b><span class="mini">${fmtHM(byDate[d].reduce((a, x) => a + x.min, 0) / 60)}</span></div><ul>${byDate[d].map(x => `<li class="ep-b k-${x.kind === "cards" ? "cards" : x.kind === "past" ? "practice" : x.kind === "light" ? "final" : x.kind === "recap" ? "final" : x.kind === "questions" ? "mistakes" : x.kind === "learn" ? "learn" : "recall"}"><span class="ep-k">${esc(x.kind === "past" || x.kind === "light" ? EXAMPREP.KIND_LABEL[x.kind] : x.topic + ": " + KLOW[x.kind])}</span><span class="mini">${x.min}m${x.slot ? " · " + esc(fmtTime(hmm(x.slot.s))) : ""}</span><span class="ep-t">${esc(x.text)}</span></li>`).join("")}</ul></li>`).join("")}</ol></details>`);
   } else bits.push(`<p class="ep-warn pp-err" role="status" style="margin:0;padding:8px 12px">${esc((out && out.warnings[0]) || "Pick the exam date to see the plan.")}</p>`);
@@ -60361,7 +60379,7 @@ function drawView(){
   const topicRows = P.topics.map(t => { const b = r.byTopic[t.id] || {cov: 0, pct: 0}, ls = liveLinks(t.links);
     return `<li class="pp-cov"><div class="pp-cov-top"><b>${esc(t.name)}</b><span class="mini">${esc((CONF3.find(c => c[0] === t.conf) || [0, "OK"])[1])}${t.done ? ", studied" : ""}</span><span class="spacer"></span><span class="mini">${b.cov}% covered${b.mastery != null ? `, cards ${b.mastery}%` : ""}${b.quiz != null ? `, quiz ${b.quiz}%` : ""}</span></div>
       <div class="pp-bar" role="img" aria-label="${esc(t.name)}: ${b.cov}% of its sessions done"><i style="width:${b.cov}%"></i></div>
-      <div class="mini pp-links">${ls.length ? ls.map(l => esc(linkIcon(l.k) + ": " + l.title)).join(" · ") : "No linked material. "}${ls.length ? "" : `<button type="button" class="link-btn" data-pp="gen">Make flashcards from your notes</button>`}</div></li>`; }).join("");
+      <div class="mini pp-links">${ls.length ? ls.map(l => esc(linkIcon(l.k) + ": " + l.title)).join(" · ") : "No linked material. "}${ls.length ? "" : `<button type="button" class="link-btn" data-pp="gen">Make Flashcards from Your Notes</button>`}</div></li>`; }).join("");
   const agenda = Object.keys(byDate).sort().map(d => `<li class="pp-day${d === today ? " is-today" : ""}${d < today ? " is-past" : ""}" ${d === today ? 'aria-current="date"' : ""}><div class="ep-day-head"><b>${esc(fmtDate(d))}</b>${d === today ? `<span class="pp-badge">Today</span>` : ""}<span class="mini">${fmtHM(byDate[d].reduce((a, x) => a + minOf(x), 0) / 60)}</span></div>
       <ul>${byDate[d].map(s => `<li class="pp-sess${s.status === "done" ? " is-done" : ""}${s.status !== "done" && d < today ? " is-missed" : ""}">
         <div class="pp-sess-top"><button type="button" class="check pp-check" data-act="prep-done" data-id="${esc(s.id)}" aria-label="${s.status === "done" ? "Mark not done" : "Mark done"}: ${esc(s.title)}">${CHECK}</button>
@@ -60371,9 +60389,9 @@ function drawView(){
     <div class="pp-head"><p class="pp-line"><b>${esc(sm.line)}</b></p>
       ${r.gate ? `<p class="mini" style="margin:0">Readiness is worked out from ${esc(evTxt)}.</p>` : `<p class="mini" style="margin:0">Readiness shows once you finish a session, make progress on a linked deck, or score a quiz. Until then it would be a guess.</p>`}
       <div class="pp-bar big" role="img" aria-label="${r.pct == null ? "Readiness not yet known" : "Readiness " + r.pct + " percent"}"><i style="width:${r.pct == null ? Math.round(sm.done / Math.max(1, sm.total) * 100) : r.pct}%"></i></div></div>
-    ${sm.moved && !past ? `<p class="pp-note"><b>The exam date changed</b> (${esc(fmtDate(P.examDue))} to ${esc(fmtDate(ex.due))}). <button type="button" class="link-btn" data-pp="catch">Re-plan to the new date</button></p>` : ""}
+    ${sm.moved && !past ? `<p class="pp-note"><b>The exam date changed</b> (${esc(fmtDate(P.examDue))} to ${esc(fmtDate(ex.due))}). <button type="button" class="link-btn" data-pp="catch">Re-Plan to the New Date</button></p>` : ""}
     ${sm.missed && !past ? `<p class="pp-note"><b>${sm.missed} session${sm.missed === 1 ? "" : "s"} slipped.</b> No problem: spread them over the days that are left. <button type="button" class="link-btn" data-pp="catch">Catch Up</button></p>` : ""}
-    ${past ? `<p class="pp-note"><b>${esc(ex.title)} was on ${esc(fmtDate(ex.due))}.</b> How did it go? <button type="button" class="link-btn" data-pp="wrap">Add my mark and wrap up</button></p>` : ""}
+    ${past ? `<p class="pp-note"><b>${esc(ex.title)} was on ${esc(fmtDate(ex.due))}.</b> How did it go? <button type="button" class="link-btn" data-pp="wrap">Add My Mark and Wrap Up</button></p>` : ""}
     <h3 class="fsec">Day by Day</h3><ol class="pp-agenda">${agenda}</ol>
     <h3 class="fsec">Topics</h3><ul class="pp-covs">${topicRows}</ul>`;
   foot.innerHTML = `<button type="button" class="btn" data-act="close">Close</button><span class="spacer"></span><button type="button" class="btn" data-pp="edit">Edit Topics</button>${sm.missed && !past ? `<button type="button" class="btn" data-pp="catch">Catch Up</button>` : ""}<button type="button" class="btn primary" data-pp="replan">Re-plan</button>`;
@@ -61132,7 +61150,7 @@ function draw(){
   list.innerHTML = S.ms.map((m, i) => {
     if (m.locked) return `<li class="bd-m is-done"><span class="bd-n" aria-hidden="true">${CHECK}</span><div class="bd-f"><span class="bd-t">${esc(m.title)}</span><span class="mini">Done · ${esc(fmtShort(m.due))} · ${esc(hm(m.hours))}</span></div></li>`;
     const k = open.indexOf(m);
-    const warn = m.heavy ? `<p class="bd-w" role="status"><span>${m.level >= 4 ? "Crunch day" : "Heavy day"}: ${esc(fmtShort(m.due))} already looks full.</span> <button type="button" class="btn small" data-a="lighter" data-i="${i}">Move to lighter day</button></p>` : "";
+    const warn = m.heavy ? `<p class="bd-w" role="status"><span>${m.level >= 4 ? "Crunch day" : "Heavy day"}: ${esc(fmtShort(m.due))} already looks full.</span> <button type="button" class="btn small" data-a="lighter" data-i="${i}">Move to Lighter Day</button></p>` : "";
     const past = m.due < today && !S.allowPast ? `<p class="bd-w" role="status">This date is in the past.</p>` : m.due > S.due ? `<p class="bd-w" role="status">This is after the due date.</p>` : "";
     const uns = m.unsupported && m.unsupported.length ? `<p class="mini bd-u">The AI's wording mentioned ${esc(m.unsupported.slice(0, 2).join(", "))}, which isn't in your text, so it was left out.</p>` : "";
     return `<li class="bd-m" data-i="${i}"><span class="bd-n">${k + 1}</span><div class="bd-f">
@@ -61241,12 +61259,12 @@ function sheetHtml(S){
         <ol id="bdList" class="bd-list" aria-label="Milestones in date order"></ol>
         <div class="bd-act"><button type="button" class="btn small" id="bdAdd">+ Add a Milestone</button>
           <label class="mi-check"><input type="checkbox" id="bdShift"> Shift the rest when I change a date</label></div>
-        ${replan ? `<div class="bd-act"><button type="button" class="btn small" id="bdRespread">Spread them again from ${esc(fmtShort(S.start))}</button></div>` : `<div class="bd-act">
-          <button type="button" class="btn small ai-btn" id="bdAi">${AI_ICON} Regenerate with AI</button><button type="button" class="btn small" id="bdTpl">Use simple template</button><span class="mini" id="bdAiMsg" aria-live="polite"></span></div>`}
+        ${replan ? `<div class="bd-act"><button type="button" class="btn small" id="bdRespread">Spread Them Again From ${esc(fmtShort(S.start))}</button></div>` : `<div class="bd-act">
+          <button type="button" class="btn small ai-btn" id="bdAi">${AI_ICON} Regenerate with AI</button><button type="button" class="btn small" id="bdTpl">Use Simple Template</button><span class="mini" id="bdAiMsg" aria-live="polite"></span></div>`}
         <p id="bdTotal" class="mini bd-total" aria-live="polite"></p>
       </div>
     </div>
-    <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="bdGo" ${isNew ? "hidden" : ""}>Create milestones</button></div></form>`;
+    <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="bdGo" ${isNew ? "hidden" : ""}>Create Milestones</button></div></form>`;
 }
 function wire(S){
   const root = dlg.querySelector(".bd-sheet");
@@ -61421,7 +61439,7 @@ function wireNew(S){
     const hh = $("#bdHours"); if (hh) hh.value = "";
     S.hours = ""; S.aiStages = null; S.aiN = 0;
     $("#bdIn").classList.add("bd-in-done"); $("#bdPlan").hidden = false; $("#bdGo").hidden = false;
-    const summ = document.createElement("div"); summ.className = "bd-sum"; summ.innerHTML = `<b>${esc(title)}</b><span class="mini">Due ${esc(fmtDate(due))}</span> <button type="button" class="link-btn" id="bdEditIn">Edit details</button>`;
+    const summ = document.createElement("div"); summ.className = "bd-sum"; summ.innerHTML = `<b>${esc(title)}</b><span class="mini">Due ${esc(fmtDate(due))}</span> <button type="button" class="link-btn" id="bdEditIn">Edit Details</button>`;
     $("#bdIn").before(summ); $("#bdIn").hidden = true;
     summ.querySelector("#bdEditIn").addEventListener("click", () => { $("#bdIn").hidden = false; summ.remove(); $("#bdPlan").hidden = true; $("#bdGo").hidden = true; });
     rebuild();
@@ -61435,7 +61453,7 @@ function wireNew(S){
 /* ---------- Where it shows up: task sheet, rows, tray, offers ---------- */
 const bigBtnTypes = {Project: 1, Assignment: 1, Lab: 1};
 function formHtml(t, isNew){
-  if (isNew) return `<p class="mini bd-new-link"><button type="button" class="link-btn" data-act="bd-new">Big assignment? Break it into milestones instead</button></p>`;
+  if (isNew) return `<p class="mini bd-new-link"><button type="button" class="link-btn" data-act="bd-new">Big Assignment? Break It into Milestones Instead</button></p>`;
   if (!t || t.status === "done" && !t.breakdownParent) return "";
   const today = todayISO();
   if (t.breakdownOf) {
@@ -61454,7 +61472,7 @@ function formHtml(t, isNew){
   }
   if (!bigBtnTypes[t.type] || t.status === "done" || t.prepFor) return "";
   return BD.isBig(t) ? `<div class="bd-panel offer"><div><b>This looks big.</b><span class="mini" style="display:block">Split it into milestones, scheduled backward from the due date.</span></div><button type="button" class="btn small primary" data-act="bd-open" data-id="${esc(t.id)}">Break It Down</button></div>`
-    : `<p class="mini bd-new-link"><button type="button" class="link-btn" data-act="bd-open" data-id="${esc(t.id)}">Break it into milestones</button></p>`;
+    : `<p class="mini bd-new-link"><button type="button" class="link-btn" data-act="bd-open" data-id="${esc(t.id)}">Break It into Milestones</button></p>`;
 }
 function rowBtn(t){
   if (!t || !t.due || t.status === "done" || t.due < todayISO() || !BD.isBig(t) || (t.breakdownParent && kidsOfTask(t.id).length)) return "";
@@ -61483,7 +61501,7 @@ function deleteHook(id){
   const kids = kidsOfTask(id); if (!kids.length) return false;
   const openK = kids.filter(k => k.status !== "done");
   openSheet(`<form class="sheet">${head("Delete Assignment")}<div class="sheet-body"><p style="margin:0">“${esc(t.title)}” has ${kids.length} milestone${kids.length === 1 ? "" : "s"} (${openK.length} not done). Delete just the assignment, or its milestones too?</p></div>
-    <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn" id="bdDelOne">Keep milestones</button><button type="button" class="btn primary danger" id="bdDelAll">Delete all ${kids.length + 1}</button></div></form>`);
+    <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn" id="bdDelOne">Keep Milestones</button><button type="button" class="btn primary danger" id="bdDelAll">Delete All ${kids.length + 1}</button></div></form>`);
   $("#bdDelOne").addEventListener("click", () => { dlg.close(); applyChanges([{kind: "task", id, after: null}].concat(kids.map(k => ({kind: "task", id: k.id, after: Object.assign(clone(k), {breakdownOf: ""})}))), `Deleted ${t.title}`); });
   $("#bdDelAll").addEventListener("click", () => { dlg.close(); applyChanges([t].concat(kids).map(x => ({kind: "task", id: x.id, after: null})), `Deleted ${kids.length + 1} tasks`); });
   return true;
@@ -61881,7 +61899,7 @@ window.SBBREAK = {open: openFor, openNew, formHtml, rowBtn, rowMeta, trayItem, d
           <p class="mini" style="margin:0"><b>Your Pro plan is billed by the App Store or Google Play.</b> Deleting your account does not cancel it. Cancel it first in your store account (iPhone and iPad: Settings, your name, Subscriptions, or <a href="${APPLE_SUBS}" target="_blank" rel="noopener">${APPLE_SUBS}</a>).</p>
           <label class="mi-check"><input type="checkbox" name="ack"> I understand that I must cancel my App Store or Google Play subscription myself</label>
         </div>
-        <p class="mini" style="margin:0">The copy on this device is erased too unless you untick the box below. <button type="button" class="link-btn" data-act="export">Export a backup first</button></p>
+        <p class="mini" style="margin:0">The copy on this device is erased too unless you untick the box below. <button type="button" class="link-btn" data-act="export">Export a Backup First</button></p>
         <label class="mi-check"><input type="checkbox" name="wipe" checked> Also erase the copy of my data on this device</label>
         <label class="f"><span class="lh">Your password <span class="hint">Needed if you signed in more than 10 minutes ago</span></span><input type="password" name="password" id="delPw" autocomplete="current-password" data-noenter></label>
         <label class="f"><span class="lh">Type DELETE to confirm</span><input type="text" name="confirm" id="delConfirm" autocomplete="off" autocapitalize="characters" spellcheck="false" data-noenter></label>
@@ -62289,7 +62307,7 @@ window.SBBREAK = {open: openFor, openNew, formHtml, rowBtn, rowMeta, trayItem, d
     if (!SBTZ_CORE.zoneChanged(home, cur) || ls(ACK_KEY) === cur || document.getElementById("tzNote")) return;
     const el = document.createElement("div"); el.id = "tzNote"; el.className = "tz-note"; el.setAttribute("role", "region"); el.setAttribute("aria-label", "Time zone changed");
     el.innerHTML = `<p><b>This device is now on ${esc(city(cur))} time.</b> Your due dates and times stay just as you set them: 11:59 PM is still 11:59 PM wherever you are, and reminders now follow the local clock. School sites keep using ${esc(city(home))} time unless you switch.</p>
-      <div class="tz-act"><button type="button" class="btn small" data-act="tz-keep">Keep my times</button><button type="button" class="btn small primary" data-act="tz-shift">Use ${esc(city(cur))} time for school sites</button></div>`;
+      <div class="tz-act"><button type="button" class="btn small" data-act="tz-keep">Keep My Times</button><button type="button" class="btn small primary" data-act="tz-shift">Use ${esc(city(cur))} Time for School Sites</button></div>`;
     document.body.appendChild(el);
     refreshAfterZone();
   }
