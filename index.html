@@ -416,6 +416,17 @@ nav.tabs button{font-size:.75rem!important}
 .note-btns .nb{border:0;background:rgba(255,255,255,.5);border-radius:8px;width:36px;height:34px;display:grid;place-items:center;color:#2A2418}
 .note-btns .nb svg{width:18px;height:18px}
 .note-btns .btn{margin-left:auto}
+.note-hbtns{display:flex;flex-wrap:wrap;gap:4px}
+.note-hbtns .btn{padding:3px 8px;font-size:.78rem;background:rgba(255,255,255,.5);color:#2A2418;border-color:transparent}
+.nx-list{display:grid;gap:4px;max-height:38vh;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:6px}
+.nx-list label{display:flex;gap:8px;align-items:flex-start;font-size:.88rem;padding:3px 2px}
+.nx-list .nx-h{font-weight:700;margin-top:4px}
+.nx-list .nx-t{display:block;color:var(--muted);font-size:.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:46ch}
+.nx-btns{display:flex;flex-wrap:wrap;gap:8px}
+.nv-list{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-height:50vh;overflow:auto}
+.nv-list li{border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:grid;gap:4px}
+.nv-list .nv-top{display:flex;gap:8px;align-items:center;justify-content:space-between;font-size:.82rem;color:var(--muted)}
+.nv-list .nv-pre{font-size:.86rem;white-space:pre-wrap;word-break:break-word;max-height:4.6em;overflow:hidden}
 .nb-empty{position:absolute;left:50%;top:120px;transform:translateX(-50%);background:rgba(255,255,255,.85);color:#3A2E1C;border-radius:12px;padding:16px 20px;text-align:center;max-width:300px}
 .nb-empty strong{display:block;font:700 1.05rem var(--display)}
 .nb-targets{position:absolute;right:14px;bottom:14px;display:flex;gap:12px;pointer-events:none}
@@ -14454,6 +14465,7 @@ function noteHtml(n){
          <select class="note-task" data-id="${esc(n.id)}" aria-label="Attach to a task">${noteTaskOpts(n)}</select>
          <select class="note-course" data-id="${esc(n.id)}" aria-label="Course">${`<option value="">No course</option>` + coursesArr().map(x => `<option value="${esc(x.id)}" ${x.id === n.courseId ? "selected" : ""}>${esc(courseLabel(x))}</option>`).join("")}</select>
          <div class="note-row2"><select class="note-shape" data-id="${esc(n.id)}" aria-label="Note shape" title="Shape"><option value="">${esc((NOTE_SHAPES.find(x => x.id === styleCfg().note) || NOTE_SHAPES[0]).name)} (default)</option>${NOTE_SHAPES.map(x => `<option value="${x.id}" ${n.shape === x.id ? "selected" : ""} ${owns("note", x.id) ? "" : "disabled"}>${esc(x.name)}${x.tier === "pro" ? " ✦" : ""}</option>`).join("")}</select><select class="note-pin" data-id="${esc(n.id)}" aria-label="Pin" title="Pin">${`<option value="">${esc((PINS.find(x => x.id === styleCfg().pin) || PINS[0]).name)} (default)</option>`}${PINS.map(x => `<option value="${x.id}" ${n.pin === x.id ? "selected" : ""} ${owns("pin", x.id) ? "" : "disabled"}>${esc(x.name)}${x.tier === "pro" ? " ✦" : ""}</option>`).join("")}</select></div>
+         <div class="note-hbtns" role="group" aria-label="Undo and export"><button type="button" class="btn small" data-act="note-undo" title="Undo your last change (Ctrl+Z also works)" aria-label="Undo change">↶ Undo</button><button type="button" class="btn small" data-act="note-redo" title="Redo" aria-label="Redo change">↷ Redo</button><button type="button" class="btn small" data-act="note-versions" data-id="${esc(n.id)}" title="Restore an earlier version of this note">Versions</button><button type="button" class="btn small" data-act="note-export" data-id="${esc(n.id)}" title="Make a Word or Google Doc from this note">Export</button></div>
          <div class="note-btns"><button type="button" class="nb" data-act="note-archive" data-id="${esc(n.id)}" title="Archive" aria-label="Archive note">${ARCHIVE}</button><button type="button" class="nb" data-act="note-trash" data-id="${esc(n.id)}" title="Delete" aria-label="Delete note">${TRASH}</button><button type="button" class="btn small" data-act="note-done">Done</button></div>
        </div>`
     : `<div class="note-body">${n.text.trim() ? esc(n.text) : `<span class="note-empty">Empty note. Tap to write.</span>`}</div>`;
@@ -14526,7 +14538,7 @@ function viewNotes(){
   const maxY = onBoard.reduce((m, n) => Math.max(m, n.y), 0), maxX = onBoard.reduce((m, n) => Math.max(m, n.x), 0);
   // The board fills its frame and only grows (with scroll bars) when notes sit past its edge; fitNoteBoard() measures after drawing
   const W = maxX ? maxX + NOTE_W() + 40 : 0, H = maxY ? maxY + 260 : 0;
-  return `<div class="tl-controls"><h2>Notes</h2><button class="btn primary small" data-act="note-new">+ New note</button>${inClaude() ? "" : `<button class="btn small ai-btn" data-act="note-photo">${AI_ICON} Photo to Note</button>`}${trashBtn("note")}<button class="btn small" data-act="note-archive-open">Archive${archived ? ` (${archived})` : ""}</button></div>
+  return `<div class="tl-controls"><h2>Notes</h2><button class="btn primary small" data-act="note-new">+ New note</button>${inClaude() ? "" : `<button class="btn small ai-btn" data-act="note-photo">${AI_ICON} Photo to Note</button>`}${trashBtn("note")}<button class="btn small" data-act="note-export" title="Make a Word or Google Doc from your notes">Word / Google Docs</button><button class="btn small" data-act="note-archive-open">Archive${archived ? ` (${archived})` : ""}</button></div>
     ${noteBoardBar()}
     ${ui.q.trim() ? `<div class="search-note">Notes that don't match “${esc(ui.q.trim())}” are faded. <button class="link-btn" data-act="search-clear">Clear search</button></div>` : ""}
     <div class="nb-wrap"><div class="nb-main">
@@ -14560,8 +14572,254 @@ function saveNoteText(){
   noteEditing = null;
   if (!t || !id || !state.notes[id]) { render(); return; }
   const n = state.notes[id];
-  if (t.value !== n.text) applyChanges([{kind:"note", id, after: Object.assign(clone(n), {text: t.value, updated: Date.now()})}], "");
+  if (t.value !== n.text) { nhRecord(id, n.text, "Before this edit"); applyChanges([{kind:"note", id, after: Object.assign(clone(n), {text: t.value, updated: Date.now()})}], ""); }
   else render();
+}
+/* ---------- Note versions: undo for accidental edits ----------
+   Each note keeps a short history of its earlier texts on this device (not synced, so it never grows what is sent).
+   A snapshot of the text as it was is taken before each burst of typing, right before a big delete or replace (a cut, a paste
+   over a selection, select-all and type), and when you press Done. Undo and Redo walk through those versions and put the
+   text back with the browser's own edit command, so Ctrl+Z still works on top of them. "Versions" lists them all. */
+/*NOTEHIST-START*/
+const NH_CAP = {per: 20, perChars: 60000, total: 300000, big: 40, text: 8000};
+// How many characters were replaced or removed going from a to b (what is left after trimming the common start and end).
+function nhRemoved(a, b){
+  const m = Math.min(a.length, b.length); let i = 0;
+  while (i < m && a.charCodeAt(i) === b.charCodeAt(i)) i++;
+  let j = 0;
+  while (j < m - i && a.charCodeAt(a.length - 1 - j) === b.charCodeAt(b.length - 1 - j)) j++;
+  return a.length - i - j;
+}
+// Adds a snapshot to one note's list (oldest first); blank text and a repeat of the newest are skipped. Returns the same list if nothing changed.
+function nhAdd(list, text, at, label, cap){
+  cap = cap || NH_CAP; list = Array.isArray(list) ? list : [];
+  text = String(text == null ? "" : text).slice(0, cap.text || 8000);
+  if (!text.trim()) return list;
+  const last = list[list.length - 1];
+  if (last && last.text === text) return list;
+  const out = list.concat([{at: Number(at) || Date.now(), text, label: String(label || "").slice(0, 40)}]);
+  while (out.length > cap.per) out.shift();
+  let chars = out.reduce((s, x) => s + x.text.length, 0);
+  while (out.length > 1 && chars > cap.perChars) chars -= out.shift().text.length;
+  return out;
+}
+// Keeps only notes that still exist, and drops the oldest snapshots across all notes until the total fits.
+function nhTrimAll(map, keep, total){
+  const out = {}; let chars = 0;
+  Object.keys(map || {}).forEach(id => { const l = map[id]; if (Array.isArray(l) && l.length && keep(id)) { out[id] = l.filter(x => x && typeof x.text === "string"); chars += out[id].reduce((s, x) => s + x.text.length, 0); } });
+  while (chars > total) {
+    let oid = "", oat = Infinity;
+    Object.keys(out).forEach(id => { if (out[id].length && out[id][0].at < oat) { oat = out[id][0].at; oid = id; } });
+    if (!oid) break;
+    chars -= out[oid].shift().text.length; if (!out[oid].length) delete out[oid];
+  }
+  return out;
+}
+// The versions Undo and Redo step through: the saved texts oldest first, without repeats, ending with the text on screen.
+function nhChain(texts, current){
+  const out = [];
+  texts.concat([current]).forEach(t => { if (!out.length || out[out.length - 1] !== t) out.push(t); });
+  return out;
+}
+/*NOTEHIST-END*/
+const NH_KEY = "studyboard:noteHist";
+let nhMem = null;
+const nhAll = () => {
+  if (!nhMem) { try { const o = JSON.parse(localStorage.getItem(NH_KEY) || "{}"); nhMem = o && typeof o === "object" && !Array.isArray(o) ? o : {}; } catch (e) { nhMem = {}; } }
+  return nhMem;
+};
+function nhRecord(id, text, label){
+  const all = nhAll(), next = nhAdd(all[id], text, Date.now(), label);
+  if (next === all[id]) return;
+  all[id] = next;
+  nhMem = nhTrimAll(all, k => !!(state.notes && state.notes[k]), NH_CAP.total);
+  try { localStorage.setItem(NH_KEY, JSON.stringify(nhMem)); } catch (e) { /* storage full or blocked: the history stays in memory for this visit */ }
+}
+const nhS = {id: "", ta: null, last: "", burst: false, timer: 0, chain: null, cur: 0, busy: false};
+function nhInit(t){
+  if (nhS.ta === t && nhS.id === noteEditing) return;
+  clearTimeout(nhS.timer);
+  Object.assign(nhS, {ta: t, id: noteEditing, last: (state.notes[noteEditing] || {}).text || "", burst: false, chain: null, cur: 0});
+}
+document.addEventListener("input", e => {
+  const t = e.target;
+  if (!t || t.id !== "noteText" || !noteEditing || !state.notes[noteEditing]) return;
+  nhInit(t);
+  const prev = nhS.last, now = t.value; nhS.last = now;
+  if (!nhS.busy) nhS.chain = null;
+  if (nhRemoved(prev, now) >= NH_CAP.big) nhRecord(nhS.id, prev, "Before a big change");
+  else if (!nhS.burst) nhRecord(nhS.id, prev, "Before editing");
+  nhS.burst = true; clearTimeout(nhS.timer); nhS.timer = setTimeout(() => { nhS.burst = false; }, 1500);
+});
+// Puts text into the note box the way typing would, so the browser's own undo (Ctrl+Z) still works afterwards.
+function noteSetText(t, text){
+  nhInit(t); nhS.busy = true;
+  try {
+    t.focus(); t.select();
+    let ok = false;
+    try { ok = text ? document.execCommand("insertText", false, text) : document.execCommand("delete"); } catch (e) { ok = false; }
+    if (!ok || t.value !== text) { const prev = t.value; t.value = text; if (prev !== text) t.dispatchEvent(new Event("input", {bubbles: true})); }
+    nhS.last = t.value;
+  } finally { nhS.busy = false; }
+}
+function noteUndoRedo(dir){
+  const t = $("#noteText"), id = noteEditing; if (!t || !id || !state.notes[id]) return;
+  nhInit(t);
+  if (!nhS.chain) { nhS.chain = nhChain((nhAll()[id] || []).map(x => x.text), t.value); nhS.cur = nhS.chain.length - 1; }
+  const j = nhS.cur + dir;
+  if (j < 0 || j >= nhS.chain.length) { toast(dir < 0 ? "No earlier version of this note" : "Nothing to redo"); t.focus(); return; }
+  const target = nhS.chain[j], chain = nhS.chain;
+  nhRecord(id, t.value, "Before undo");
+  noteSetText(t, target);
+  nhS.chain = chain; nhS.cur = j;
+}
+function noteVersionsSheet(id){
+  const n = state.notes[id]; if (!n) return;
+  const t = $("#noteText"), cur = t ? t.value : n.text;
+  const when = at => new Date(at).toLocaleString(undefined, {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"});
+  const list = (nhAll()[id] || []).filter(x => x.text !== cur).slice().reverse();
+  openSheet(`<div class="sheet">${head("Earlier Versions")}<div class="sheet-body">
+    <p class="mini" style="margin:0">Studyboard keeps the last few versions of each note on this device. Restoring one keeps what you have now in this list, so you can switch back.</p>
+    ${list.length ? `<ul class="nv-list">${list.map((x, i) => `<li><div class="nv-top"><span>${esc(when(x.at))}${x.label ? " · " + esc(x.label) : ""}</span><button type="button" class="btn small" data-nv="${i}">Restore</button></div><div class="nv-pre">${esc(x.text.slice(0, 300))}</div></li>`).join("")}</ul>` : `<p class="status-msg">No earlier versions yet. They appear as you edit.</p>`}
+    </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></div>`);
+  dlg.querySelectorAll("[data-nv]").forEach(b => b.addEventListener("click", () => {
+    const v = list[+b.dataset.nv]; if (!v) return;
+    const box = $("#noteText");
+    if (box && noteEditing === id) { nhRecord(id, box.value, "Before restoring"); noteSetText(box, v.text); }
+    else applyChanges([{kind: "note", id, after: Object.assign(clone(n), {text: v.text, updated: Date.now()})}], "");
+    dlg.close(); toast("Earlier version restored");
+  }));
+}
+
+/* ---------- Notes to Word or Google Docs ----------
+   The Word file is a real .docx made here (a few small XML parts in a zip, using the same zip writer as backups): no library, no upload.
+   Google Docs has no API in this app, so there are two routes: copy the notes as formatted text and open a new Google Doc to paste into,
+   or download the .docx and open it from Google Drive with Google Docs. */
+/*NOTEDOC-START*/
+const NX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+const nxX = s => String(s == null ? "" : s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g, "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+// notes: [{text, courseId, created}]; o: {title, date, courseName(id), taskTitle(note), when(note)}. A note's first line is its heading.
+function noteDocModel(notes, o){
+  o = o || {}; const groups = new Map();
+  notes.slice().sort((a, b) => (a.created || 0) - (b.created || 0)).forEach(n => {
+    const lines = String(n.text || "").replace(/\r\n?/g, "\n").split("\n");
+    while (lines.length && !lines[0].trim()) lines.shift();
+    while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+    const first = lines.shift() || "";
+    let title = first.trim() || "Untitled note";
+    if (title.length > 100) { lines.unshift(first); title = title.slice(0, 80).trim() + "…"; }
+    const key = n.courseId || "";
+    if (!groups.has(key)) groups.set(key, {name: key ? ((o.courseName && o.courseName(key)) || "Course") : "Other notes", notes: []});
+    groups.get(key).notes.push({title, body: lines, task: (o.taskTitle && o.taskTitle(n)) || "", when: (o.when && o.when(n)) || ""});
+  });
+  const list = [...groups.entries()].sort((a, b) => (a[0] === "") - (b[0] === "") || a[1].name.localeCompare(b[1].name)).map(x => x[1]);
+  return {title: o.title || "Studyboard Notes", date: o.date || "", groups: list, count: notes.length};
+}
+const nxMeta = n => [n.task ? "Attached to: " + n.task : "", n.when ? "Edited " + n.when : ""].filter(Boolean).join("  ·  ");
+function noteDocHtml(m){
+  const paras = lines => { const out = []; let cur = []; lines.forEach(l => { if (l.trim()) cur.push(nxX(l)); else if (cur.length) { out.push(cur); cur = []; } }); if (cur.length) out.push(cur); return out.map(p => `<p>${p.join("<br>")}</p>`).join(""); };
+  return `<h1>${nxX(m.title)}</h1>${m.date ? `<p style="color:#6b7280">${nxX(m.date)}</p>` : ""}` + (m.groups.length ? m.groups.map(g =>
+    `<h2>${nxX(g.name)}</h2>` + g.notes.map(n => `<h3>${nxX(n.title)}</h3>${paras(n.body)}${nxMeta(n) ? `<p style="color:#6b7280"><i>${nxX(nxMeta(n))}</i></p>` : ""}`).join("")).join("") : "<p>No notes selected.</p>");
+}
+function noteDocText(m){
+  return [m.title, m.date].filter(Boolean).join("\n") + "\n\n" + m.groups.map(g => g.name.toUpperCase() + "\n\n" + g.notes.map(n => [n.title].concat(n.body, nxMeta(n) ? ["(" + nxMeta(n) + ")"] : []).join("\n")).join("\n\n")).join("\n\n\n") + "\n";
+}
+// The .docx: Title, Heading 1 per course, Heading 2 per note. zip(entries) is the app's zipMany.
+function noteDocx(m, zip){
+  const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main", H = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+  const p = (t, st) => `<w:p>${st ? `<w:pPr><w:pStyle w:val="${st}"/></w:pPr>` : ""}${t === "" ? "" : `<w:r><w:t xml:space="preserve">${nxX(String(t).replace(/\t/g, "    "))}</w:t></w:r>`}</w:p>`;
+  let body = p(m.title, "Title") + (m.date ? p(m.date, "NoteMeta") : "");
+  if (!m.groups.length) body += p("No notes selected.");
+  m.groups.forEach(g => { body += p(g.name, "Heading1"); g.notes.forEach(n => { body += p(n.title, "Heading2") + n.body.map(l => p(l)).join("") + (nxMeta(n) ? p(nxMeta(n), "NoteMeta") : ""); }); });
+  const sect = '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr>';
+  const sty = (id, name, rpr, ppr, extra) => `<w:style w:type="paragraph" w:styleId="${id}"><w:name w:val="${name}"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/>${extra || ""}<w:pPr>${ppr}</w:pPr><w:rPr>${rpr}</w:rPr></w:style>`;
+  const styles = H + `<w:styles xmlns:w="${W}"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="Calibri" w:cs="Calibri"/><w:sz w:val="22"/><w:szCs w:val="22"/><w:lang w:val="en-US"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="264" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>`
+    + `<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>`
+    + sty("Title", "Title", '<w:b/><w:sz w:val="48"/><w:szCs w:val="48"/>', '<w:spacing w:after="60"/>')
+    + sty("Heading1", "heading 1", '<w:b/><w:color w:val="1F3A5F"/><w:sz w:val="32"/><w:szCs w:val="32"/>', '<w:keepNext/><w:spacing w:before="360" w:after="120"/><w:outlineLvl w:val="0"/>')
+    + sty("Heading2", "heading 2", '<w:b/><w:sz w:val="26"/><w:szCs w:val="26"/>', '<w:keepNext/><w:spacing w:before="240" w:after="80"/><w:outlineLvl w:val="1"/>')
+    + sty("NoteMeta", "Note Meta", '<w:i/><w:color w:val="6B7280"/><w:sz w:val="18"/><w:szCs w:val="18"/>', '<w:spacing w:after="120"/>')
+    + `</w:styles>`;
+  return zip([
+    {name: "[Content_Types].xml", data: H + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>'},
+    {name: "_rels/.rels", data: H + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'},
+    {name: "word/document.xml", data: H + `<w:document xmlns:w="${W}"><w:body>${body}${sect}</w:body></w:document>`},
+    {name: "word/_rels/document.xml.rels", data: H + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'},
+    {name: "word/styles.xml", data: styles}
+  ]);
+}
+/*NOTEDOC-END*/
+const GDOC_NEW = "https://docs.google.com/document/create", GDRIVE = "https://drive.google.com/drive/my-drive";
+function noteDocFor(ids){
+  const list = ids.map(i => state.notes[i]).filter(Boolean);
+  const stamp = (n) => { const d = n.updated || n.created; return d ? new Date(d).toLocaleDateString(undefined, {month: "short", day: "numeric", year: "numeric"}) : ""; };
+  const m = noteDocModel(list, {
+    title: list.length === 1 ? "Studyboard Note" : "Studyboard Notes", date: new Date().toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric", year: "numeric"}),
+    courseName: id => { const c = courseOf(id); return c ? (c.code && c.name && c.code !== c.name ? c.code + " · " + c.name : courseLabel(c)) : "Course"; },
+    taskTitle: n => { const t = n.taskId && state.tasks[n.taskId]; return t ? t.title : ""; }, when: stamp
+  });
+  const first = m.groups[0] && m.groups[0].notes[0];
+  const base = list.length === 1 && first ? first.title.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 50) : "Studyboard Notes";
+  return {m, file: `${base || "Studyboard Notes"} ${todayISO()}.docx`};
+}
+async function noteFileSave(filename, data, mime){
+  try { const dl = caps.downloads || await useCap("downloads"); if (dl) { await dl.save({filename, data}); return true; } } catch (e) { if (e && e.code === "declined") return false; }
+  if (inClaude()) { toast("Downloads aren't available here"); return false; }
+  saveBlob(filename, data, mime); return true;
+}
+async function noteCopyRich(html, text){
+  try { if (navigator.clipboard && window.ClipboardItem) { await navigator.clipboard.write([new ClipboardItem({"text/html": new Blob([html], {type: "text/html"}), "text/plain": new Blob([text], {type: "text/plain"})})]); return true; } } catch (e) { /* fall back below */ }
+  try {
+    const d = document.createElement("div"); d.contentEditable = "true"; d.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0"; d.innerHTML = html; document.body.appendChild(d);
+    const r = document.createRange(); r.selectNodeContents(d); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    const ok = document.execCommand("copy"); sel.removeAllRanges(); d.remove(); return !!ok;
+  } catch (e) { return false; }
+}
+function noteExportSheet(preId){
+  const live = notesArr().filter(n => !n.archived);
+  const board = noteBoardId();
+  const sel = new Set(preId && state.notes[preId] ? [preId] : live.filter(n => noteBoardOf(n) === board).map(n => n.id));
+  const first = n => (String(n.text || "").split("\n").find(l => l.trim()) || "Empty note").trim().slice(0, 70);
+  const byCourse = new Map();
+  live.forEach(n => { const k = n.courseId && courseOf(n.courseId) ? n.courseId : ""; if (!byCourse.has(k)) byCourse.set(k, []); byCourse.get(k).push(n); });
+  const keys = [...byCourse.keys()].sort((a, b) => (a === "") - (b === "") || String(a && courseLabel(courseOf(a))).localeCompare(String(b && courseLabel(courseOf(b)))));
+  const cName = k => k ? courseLabel(courseOf(k)) : "No course";
+  openSheet(`<div class="sheet">${head("Notes to Word or Google Docs")}<div class="sheet-body">
+    ${live.length ? `<div class="nx-btns" role="group" aria-label="Choose notes"><button type="button" class="btn small" data-nx="all">All notes (${live.length})</button>${board || noteBoards().length ? `<button type="button" class="btn small" data-nx="board">This board</button>` : ""}${keys.map(k => `<button type="button" class="btn small" data-nx="course" data-k="${esc(k)}">${esc(cName(k))} (${byCourse.get(k).length})</button>`).join("")}<button type="button" class="btn small" data-nx="none">None</button></div>
+    <div class="nx-list" id="nxList">${keys.map(k => `<div class="nx-h">${esc(cName(k))}</div>${byCourse.get(k).map(n => `<label><input type="checkbox" data-nxc="${esc(n.id)}" ${sel.has(n.id) ? "checked" : ""}><span><span>${esc(first(n))}</span></span></label>`).join("")}`).join("")}</div>
+    <p class="mini" id="nxCount" style="margin:0"></p>
+    <div class="nx-btns"><button type="button" class="btn primary" data-nx="word">Download Word (.docx)</button><button type="button" class="btn" data-nx="gdoc">Copy and Open Google Docs</button><button type="button" class="btn" data-nx="gdrive">Download for Google Drive</button></div>
+    <p class="mini" style="margin:0"><strong>Google Docs:</strong> Copy and Open puts your notes on the clipboard as formatted text and opens a new blank Google Doc. Press Ctrl+V (Cmd+V on a Mac) there. Or download the Word file, upload it to Google Drive, open it with Google Docs, then choose File, Save as Google Docs.</p>` : `<p class="status-msg">You have no notes to export yet.</p>`}
+    </div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></div>`);
+  if (!live.length) return;
+  const root = dlg.querySelector(".sheet"), boxes = () => [...root.querySelectorAll("[data-nxc]")];
+  const draw = () => { boxes().forEach(b => { b.checked = sel.has(b.dataset.nxc); }); const c = sel.size; root.querySelector("#nxCount").textContent = c ? `${c} note${c === 1 ? "" : "s"} selected` : "Choose at least one note."; root.querySelectorAll('[data-nx="word"],[data-nx="gdoc"],[data-nx="gdrive"]').forEach(b => { b.disabled = !c; }); };
+  draw();
+  const pick = ids => { sel.clear(); ids.forEach(i => sel.add(i)); draw(); };
+  root.addEventListener("change", e => { const b = e.target.closest && e.target.closest("[data-nxc]"); if (b) { if (b.checked) sel.add(b.dataset.nxc); else sel.delete(b.dataset.nxc); draw(); } });
+  root.addEventListener("click", async e => {
+    const b = e.target.closest && e.target.closest("[data-nx]"); if (!b) return;
+    const k = b.dataset.nx;
+    if (k === "all") pick(live.map(n => n.id));
+    else if (k === "none") pick([]);
+    else if (k === "board") pick(live.filter(n => noteBoardOf(n) === noteBoardId()).map(n => n.id));
+    else if (k === "course") pick((byCourse.get(b.dataset.k) || []).map(n => n.id));
+    else if (sel.size) {
+      const ids = live.filter(n => sel.has(n.id)).map(n => n.id), {m, file} = noteDocFor(ids);
+      if (k === "gdoc") {
+        // Open the tab first (it has to happen in this click), then copy
+        let w = null; try { w = window.open(GDOC_NEW, "_blank", "noopener"); } catch (err) {}
+        const ok = await noteCopyRich(noteDocHtml(m), noteDocText(m));
+        toast(ok ? (w ? "Copied. Paste into the new Google Doc with Ctrl+V (Cmd+V on a Mac)." : "Copied. Open a new Google Doc and paste with Ctrl+V (Cmd+V on a Mac).") : "Couldn't copy. Download the Word file instead.");
+      } else {
+        const bytes = noteDocx(m, zipMany);
+        if (await noteFileSave(file, bytes, NX_MIME)) {
+          if (k === "gdrive") { try { window.open(GDRIVE, "_blank", "noopener"); } catch (err) {} toast("Saved. Upload it to Google Drive, open it with Google Docs, then File, Save as Google Docs."); }
+          else toast("Word file saved");
+        }
+      }
+    }
+  });
 }
 function noteToTrash(id){
   const n = state.notes[id]; if (!n) return;
@@ -15845,6 +16103,10 @@ document.addEventListener("click", e => {
     case "nb-new": if (noteEditing) saveNoteText(); noteBoardSheet(""); break;
     case "nb-edit": noteBoardSheet(el.dataset.id); break;
     case "note-done": saveNoteText(); break;
+    case "note-undo": noteUndoRedo(-1); break;
+    case "note-redo": noteUndoRedo(1); break;
+    case "note-versions": noteVersionsSheet(id); break;
+    case "note-export": if (noteEditing && !id) saveNoteText(); noteExportSheet(id || ""); break;
     case "note-color": { const n = state.notes[id]; if (!n) break; const t = $("#noteText"); applyChanges([{kind:"note", id, after: Object.assign(clone(n), {color: el.dataset.color, text: t ? t.value : n.text})}], ""); break; }
     case "note-archive": noteToArchive(id); break;
     case "note-trash": noteToTrash(id); break;
@@ -55006,9 +55268,10 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
    Only the active photo theme is registered in SKINS and THEME_KIT, so the rest of the app treats it like any
    built-in theme. Switching to it never changes the note shape or pin.
    Looks (1.11.1): besides blur and brightness a photo theme can carry its own accent color (ac, a hex that wins over
-   the photo swatches), a gradient (gr: linear or radial, 2 or 3 stops, used over the photo or instead of it), a tint
-   with a blend mode (tn), a vignette (vg) and glass cards (gl). They are drawn as extra layers of the same #photoArt
-   background (see stack()), so there's still no per-frame work, and they ride along in state.settings.photoThemes. */
+   the photo swatches), a gradient (gr: linear or radial, 2 or 3 stops), a tint (tn), a vignette (vg) and glass cards
+   (gl). The picked colors and the gradient style the THEME (accent, buttons, sidebar, and the tint of the page and
+   card colors, see buildTheme()); they never paint over the photo, which stays as it was. Only the vignette is drawn
+   on the #photoArt background (see stack()), so there's still no per-frame work. They ride along in state.settings.photoThemes. */
 (() => {
   const MAX = 5, LONG = 2400, QUAL = 0.82, THUMB = 520, REND = 1600, PFX = "ph-";
   const REASON = "Make a theme from your own photo with Studyboard Pro";
@@ -55034,7 +55297,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const d = [sw[0], sw[1] || sw[0], sw[2] || sw[1] || sw[0]].map(h => h.toUpperCase());
     let c = (Array.isArray(g.c) ? g.c : []).map((h, i) => hexOr(h, d[i])).slice(0, 3);
     if (c.length < 2) c = d.slice(0, 2);
-    return {m: g.m === "over" || g.m === "only" ? g.m : "off", t: g.t === "radial" ? "radial" : "linear", a: Math.round(num(g.a, 135, 0, 360)), c, op: Math.round(num(g.op, 55, 5, 100))};
+    return {m: g.m === "on" || g.m === "over" || g.m === "only" ? "on" : "off", t: g.t === "radial" ? "radial" : "linear", a: Math.round(num(g.a, 135, 0, 360)), c, op: Math.round(num(g.op, 55, 5, 100))};
   }
   function cleanTn(t){
     t = t && typeof t === "object" ? t : {};
@@ -55102,28 +55365,17 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     return g.t === "radial" ? `radial-gradient(ellipse at 50% 38%,${st})` : `linear-gradient(${g.a}deg,${st})`;
   };
   // Layers above the photo (top first). Each has its image, size, position and blend mode so the page and the previews match.
+  // The photo is never covered by the picked color or gradient: those style the theme (see buildTheme). Only the vignette sits on it.
   function stack(rec, photoImg){
-    const L = [], g = rec.gr, tn = rec.tn, add = (i, b) => L.push({i, s: "100% 100%", p: "0 0", b: b || "normal"});
+    const L = [], add = (i, b) => L.push({i, s: "100% 100%", p: "0 0", b: b || "normal"});
     if (rec.vg > 0) add(`radial-gradient(ellipse at 50% 45%,rgba(0,0,0,0) 45%,rgba(0,0,0,${(rec.vg / 100 * 0.6).toFixed(3)}) 100%)`);
-    if (g.m === "over") add(grCss(g, g.op / 100));
-    if (tn.a > 0) add(flat(tn.c, tn.a / 100), tn.b);
-    if (g.m === "only") add(grCss(g, 1));
-    else if (photoImg) L.push({i: photoImg, s: "cover", p: `${rec.fx}% ${rec.fy}%`, b: "normal"});
+    if (photoImg) L.push({i: photoImg, s: "cover", p: `${rec.fx}% ${rec.fy}%`, b: "normal"});
     return L;
   }
   const lay = (pre, L, key) => pre.concat(L.map(x => x[key]));
-  // How light the photo looks once the gradient, tint and vignette are on it (7 grey quantiles, like rec.q), so the readability scrim stays right.
+  // How light the photo looks once the vignette is on it (7 grey quantiles, like rec.q), so the readability scrim stays right.
   function effQ(rec){
-    let q = rec.q.slice(); const g = rec.gr, tn = rec.tn;
-    const gs = g.c.map(h => toSrgb(lumRgb(hex2rgb(h)))), gmin = Math.min(...gs), gmax = Math.max(...gs);
-    if (g.m === "only") q = q.map((_, i) => gmin + (gmax - gmin) * i / 6);
-    else if (g.m === "over") { const a = g.op / 100; q = q.map((v, i) => v * (1 - a) + (gmin + (gmax - gmin) * i / 6) * a); }
-    if (tn.a > 0) {
-      const a = tn.a / 100, t = toSrgb(lumRgb(hex2rgb(tn.c)));
-      const ovl = v => v < 128 ? 2 * v * t / 255 : 255 - 2 * (255 - v) * (255 - t) / 255;
-      const f = {multiply: v => v * t / 255, screen: v => 255 - (255 - v) * (255 - t) / 255, overlay: ovl, "soft-light": v => (v + ovl(v)) / 2, color: v => v}[tn.b] || (() => t);
-      q = q.map(v => v * (1 - a) + f(v) * a);
-    }
+    let q = rec.q.slice();
     if (rec.vg > 0) q = q.map((v, i) => i <= 2 ? v * (1 - rec.vg / 100 * 0.45) : v);
     return q.map(v => clamp(Math.round(v), 0, 255));
   }
@@ -55150,7 +55402,11 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const Ls = own ? clamp(acc.L, 0.42, 0.62) : 0.6, Ld = own ? clamp(acc.L, 0.62, 0.8) : 0.74;
     const sec = scored.map(x => x.c).find(c => c !== acc && c.C >= 0.035 && hueDist(c.h, ha) >= 25);
     const h2 = sec ? sec.h : (ha + 32) % 360;
-    const hn = dom.C >= 0.02 ? dom.h : ha, cn = clamp(dom.C * 0.22, 0.004, 0.018);
+    let hn = dom.C >= 0.02 ? dom.h : ha, cn = clamp(dom.C * 0.22, 0.004, 0.018);
+    // The picked tint and gradient colors lean the page, card and line colors their way (theme tint, not a layer on the photo).
+    const gOn = rec.gr.m === "on", wash = (hx, a) => { const c = hex2lch(hx); if (c.C >= 0.02) hn = mixHue(hn, c.h, clamp(a, 0, 1)); cn += clamp(c.C, 0, 0.12) * 0.3 * clamp(a, 0, 1); };
+    if (rec.tn.a > 0) wash(rec.tn.c, rec.tn.a / 100);
+    if (gOn) { const gw = rec.gr.op / 100 * 0.8; wash(rec.gr.c[0], gw / 2); wash(rec.gr.c[rec.gr.c.length - 1], gw / 2); }
     const hs = dom.C >= 0.03 ? dom.h : ha, cs = clamp((dom.C >= 0.03 ? dom.C : Cacc) * 0.55, 0.02, 0.075);
     const warm = cl.filter(c => c.C > 0.05 && c.h > 55 && c.h < 115).sort((a, b) => b.w - a.w)[0], hm = warm ? warm.h : 95;
 
@@ -55189,10 +55445,14 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       get shape(){ const s = styleCfg().note; return NOTE_SHAPES.some(x => x.id === s) ? s : "classic"; },
       get pin(){ const p = styleCfg().pin; return PINS.some(x => x.id === p) ? p : "pin"; }};
 
+    // A gradient styles the buttons and the sidebar (stops kept readable against button text and the sidebar's text)
+    const gst = gOn ? rec.gr.c.map(hex2lch) : null;
+    const gbtn = (dk) => gst && `linear-gradient(135deg,${gst.map(c => (dk ? fit(clamp(c.L, 0.62, 0.8), Math.max(c.C, 0.02), c.h, [inkD], 4.6, 1) : fit(clamp(c.L, 0.42, 0.6), Math.max(c.C, 0.02), c.h, ["#FFFFFF"], 4.6, -1)).hex).join(",")})`;
+    const gspn = (dk) => gst && `linear-gradient(180deg,${gst.map(c => lch(dk ? Math.min(c.L, 0.22) : Math.min(c.L, 0.4), c.C, c.h)).join(",")})`;
     const img = stack(rec, rec.tiny ? `url(${rec.tiny})` : `linear-gradient(160deg,${rec.sw[0]},${rec.sw[1] || rec.sw[0]})`).map(x => x.i).join(",");
     const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
     const skin = {id: rec.id, name: rec.name, tier: "pro", group: "photo", photo: true, desc: "Your own photo.", light, dark,
-      glow: [`${ov.l},${img}`, `${ov.d},${img}`], spine: [lg(lch(0.4, cs, hs), spL), lg(lch(0.22, cs, hs), spD)], btn: [lg2(aL.hex, bL), lg2(aD.hex, bD)]};
+      glow: [`${ov.l},${img}`, `${ov.d},${img}`], spine: [gspn(false) || lg(lch(0.4, cs, hs), spL), gspn(true) || lg(lch(0.22, cs, hs), spD)], btn: [gbtn(false) || lg2(aL.hex, bL), gbtn(true) || lg2(aD.hex, bD)]};
     // Text straight on the photo (titles) against the photo's middle and its worst tenth, for tests and the editor
     const read = (layers, paper, a, ink, dark) => ({mid: contrast(lum(ink), overLum(q[3], layers, paper, a)), worst: contrast(lum(ink), overLum(dark ? q[5] : q[1], layers, paper, a))});
     return {skin, kit, ov, scL, scD, accent: [aL.hex, aD.hex], read: {l: read([dimL], dl[0], scL, L0[3], false), d: read([dimD], D[0], scD, D[3], true)}};
@@ -55410,15 +55670,15 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const t = themeOf(rec), dk = isDarkNow(), g = geo();
     let el = document.getElementById("photoArt");
     if (!el) { el = document.createElement("div"); el.id = "photoArt"; el.setAttribute("aria-hidden", "true"); document.body.prepend(el); }
-    const only = rec.gr.m === "only", url = only ? "" : urls.get(`bg|${rec.id}|${rec.blur}`);
-    if (!url && !only) ensureBg(rec).then(u => { if (u && root.dataset.skin === rec.id) paint(); });
+    const url = urls.get(`bg|${rec.id}|${rec.blur}`);
+    if (!url) ensureBg(rec).then(u => { if (u && root.dataset.skin === rec.id) paint(); });
     const img = url ? `url("${url}")` : rec.tiny ? `url(${rec.tiny})` : "", L = stack(rec, img), pre = ["0 0", "0 0"];
     const bi = [dk ? t.ov.d : t.ov.l].concat(L.map(x => x.i)).join(",");
     el.style.left = g.side + "px"; el.style.width = g.W + "px"; el.style.height = g.H + "px";
     if (el.style.backgroundImage !== bi) el.style.backgroundImage = bi;
     el.style.backgroundPosition = lay(pre, L, "p").join(","); el.style.backgroundSize = lay(["100% 100%", "100% 100%"], L, "s").join(",");
     el.style.backgroundBlendMode = lay(["normal", "normal"], L, "b").join(",");
-    el.dataset.state = only ? "gradient" : url ? "photo" : "placeholder";
+    el.dataset.state = url ? "photo" : "placeholder";
     root.classList.add("ph-on"); root.classList.toggle("ph-glass", rec.gl > 0);
     if (rec.gl > 0) Object.entries(glassVars(rec.gl)).forEach(([k, v]) => root.style.setProperty(k, v));
     else ["--ph-gl", "--ph-glb"].forEach(k => root.style.removeProperty(k));
@@ -55434,8 +55694,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     return "";
   }
   function thumbStyle(rec, dark){
-    const t = themeOf(rec), u = thumbUrl(rec.id), img = u ? `url(${u})` : rec.tiny ? `url(${rec.tiny})` : "", L = stack(rec, rec.gr.m === "only" ? "" : img);
-    const b = rec.gr.m === "only" ? 0 : Math.min(4, blurFrac(rec.blur) * 180);
+    const t = themeOf(rec), u = thumbUrl(rec.id), img = u ? `url(${u})` : rec.tiny ? `url(${rec.tiny})` : "", L = stack(rec, img);
+    const b = Math.min(4, blurFrac(rec.blur) * 180);
     return `background-image:${[dark ? t.ov.d : t.ov.l].concat(L.map(x => x.i)).join(",")};background-position:${lay(["0 0", "0 0"], L, "p").join(",")};background-size:${lay(["100% 100%", "100% 100%"], L, "s").join(",")};background-blend-mode:${lay(["normal", "normal"], L, "b").join(",")}${b > 0.3 ? `;filter:blur(${b.toFixed(1)}px)` : ""}`;
   }
   function refreshThumbs(id){
@@ -55574,12 +55834,10 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   }
   const GRADS = [["Sunset", ["#FFB36B", "#FF5E78", "#7B3FA0"]], ["Ocean", ["#43C6AC", "#2B7FD8", "#191654"]], ["Aurora", ["#3EF0B5", "#4C7DFF", "#B14CFF"]], ["Peach", ["#FFE0C2", "#FFB4A2"]],
     ["Forest", ["#A8E063", "#2E8B57", "#0B3B2E"]], ["Candy", ["#FF9ACB", "#C58BFF", "#74C8FF"]], ["Midnight", ["#2C3E75", "#141E3C", "#05070F"]], ["Slate", ["#E8ECF2", "#9AA7BD"]]];
-  const grWord = g => g.m === "only" ? "Instead of your photo" : g.m === "over" ? "On top of your photo" : "Off";
   const gradStops = (d, i) => `<input type="color" data-ph-gc="${i}" value="${d.gr.c[i] || d.gr.c[d.gr.c.length - 1]}" aria-label="Gradient color ${i + 1}">`;
   function fxHtml(d){
     const sug = suggest(d).map(h => `<button type="button" class="ph-swb c" data-ph-sug="${h}" style="--c:${h}" aria-label="Use ${h} for buttons and accents" aria-pressed="false"></button>`).join("");
     const pre = [["From Your Photo", d.sw.slice(0, 3)]].concat(GRADS).map(([n, c], i) => `<button type="button" class="ph-pre" data-ph-gp="${i}" title="${esc(n)}" aria-label="${esc(n)} gradient" style="background:${grCss({t: "linear", a: 135, c}, 1)}"></button>`).join("");
-    const blends = BLENDS.map(([k, l]) => `<option value="${k}">${l}</option>`).join("");
     return `<div class="ph-fx">
       <details class="ph-grp" open><summary>Your Own Color <span class="hint" id="phAccV"></span></summary><div class="ph-grp-b">
         <div class="f"><span class="lh">Suggested for This Photo <span class="hint">livelier versions of its colors</span></span><div class="ph-sug" role="group" aria-label="Suggested colors">${sug}</div></div>
@@ -55587,7 +55845,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
           <div class="ph-own"><input type="color" id="phAcc" value="${d.ac || "#3D7FE0"}" aria-label="Pick a custom color"><input type="text" id="phAccHex" maxlength="7" spellcheck="false" autocomplete="off" placeholder="#RRGGBB" aria-label="Color as a hex code" value="${d.ac}"><button type="button" class="btn small" id="phAccClr">Use the Photo's Colors</button></div></div>
       </div></details>
       <details class="ph-grp"><summary>Gradient <span class="hint" id="phGV"></span></summary><div class="ph-grp-b">
-        <div class="segb" role="group" aria-label="Where to use the gradient"><button type="button" data-ph-gm="off">Off</button><button type="button" data-ph-gm="over">On Your Photo</button><button type="button" data-ph-gm="only">Instead of Photo</button></div>
+        <div class="segb" role="group" aria-label="Use a gradient in the theme"><button type="button" data-ph-gm="off">Off</button><button type="button" data-ph-gm="on">Use in Theme</button></div>
+        <span class="hint">Colors the buttons, sidebar and page tint. Your photo stays as it is.</span>
         <div class="ph-gbody" id="phGBody" style="display:grid;gap:12px">
           <div class="ph-gprev" id="phGPrev" aria-hidden="true"></div>
           <div class="f"><span class="lh">Presets</span><div class="ph-presets" role="group" aria-label="Gradient presets">${pre}</div></div>
@@ -55598,8 +55857,9 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
         </div>
       </div></details>
       <details class="ph-grp"><summary>Tint &amp; Light <span class="hint" id="phTV"></span></summary><div class="ph-grp-b">
-        <div class="f"><span class="lh">Color Tint <span class="hint" id="phTAV"></span></span>
-          <div class="ph-tintrow"><input type="color" id="phTC" value="${d.tn.c}" aria-label="Tint color"><select id="phTB" aria-label="How the tint blends">${blends}</select></div>
+        <div class="f"><span class="lh">Theme Tint <span class="hint" id="phTAV"></span></span>
+          <span class="hint">Leans the page and card colors your way. Your photo stays as it is.</span>
+          <div class="ph-tintrow"><input type="color" id="phTC" value="${d.tn.c}" aria-label="Tint color"></div>
           <input type="range" id="phTA" min="0" max="100" step="5" value="${d.tn.a}" aria-label="Tint strength"></div>
         <label class="f"><span class="lh">Vignette <span class="hint" id="phVV"></span></span><input type="range" id="phVG" min="0" max="100" step="5" value="${d.vg}"></label>
       </div></details>
@@ -55652,7 +55912,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     sheet.querySelectorAll("[data-ph-gt]").forEach(b => b.addEventListener("click", () => { d.gr.t = b.dataset.phGt; queue(); }));
     sheet.querySelectorAll("[data-ph-gp]").forEach(b => b.addEventListener("click", () => {
       const c = (+b.dataset.phGp ? GRADS[+b.dataset.phGp - 1][1] : d.sw.slice(0, 3)).map(h => h.toUpperCase());
-      d.gr.c = c.length < 2 ? [c[0], c[0]] : c.slice(0, 3); if (d.gr.m === "off") d.gr.m = "over"; queue();
+      d.gr.c = c.length < 2 ? [c[0], c[0]] : c.slice(0, 3); if (d.gr.m === "off") d.gr.m = "on"; queue();
     }));
     sheet.querySelectorAll("[data-ph-gc]").forEach(inp => inp.addEventListener("input", () => { const i = +inp.dataset.phGc; if (i < d.gr.c.length) { d.gr.c[i] = inp.value.toUpperCase(); queue(); } }));
     q("#phG3").addEventListener("click", () => { if (d.gr.c.length > 2) d.gr.c.length = 2; else d.gr.c.push(d.gr.c[1]); queue(); });
@@ -55660,7 +55920,6 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     q("#phGO").addEventListener("input", e => { d.gr.op = +e.target.value; queue(); });
     q("#phTC").addEventListener("input", e => { d.tn.c = e.target.value.toUpperCase(); if (!d.tn.a) d.tn.a = 30; queue(); });
     q("#phTA").addEventListener("input", e => { d.tn.a = +e.target.value; queue(); });
-    q("#phTB").addEventListener("change", e => { d.tn.b = e.target.value; if (!d.tn.a) d.tn.a = 30; queue(); });
     q("#phVG").addEventListener("input", e => { d.vg = +e.target.value; queue(); });
     q("#phGL").addEventListener("input", e => { d.gl = +e.target.value; queue(); });
     q("#phFxReset").addEventListener("click", () => { const z = clean({id: d.id, sw: d.sw, wt: d.wt}); d.ac = ""; d.ai = -1; d.gr = z.gr; d.tn = z.tn; d.gl = 0; d.vg = 0; queue(); });
@@ -55700,8 +55959,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     stage.querySelectorAll(".ph-frame").forEach(fr => {
       const r = fr.getBoundingClientRect(), fw = r.width || 300, fh = r.height || 200;
       const k = Math.max(fw / d.w, fh / d.h), sig = blurFrac(d.blur) * Math.max(d.w, d.h) * k, pad = sig > 0.3 ? Math.ceil(sig * 2) : 0;
-      const bg = fr.querySelector(".ph-bg"), only = rec.gr.m === "only", L = stack(rec, `url("${E.url}")`);
-      bg.style.cssText = `background-image:${L.map(x => x.i).join(",")};background-position:${L.map(x => x.p).join(",")};background-size:${L.map(x => x.s).join(",")};background-blend-mode:${L.map(x => x.b).join(",")};inset:${-pad}px;${pad && !only ? `filter:blur(${sig.toFixed(1)}px)` : ""}`;
+      const bg = fr.querySelector(".ph-bg"), L = stack(rec, `url("${E.url}")`);
+      bg.style.cssText = `background-image:${L.map(x => x.i).join(",")};background-position:${L.map(x => x.p).join(",")};background-size:${L.map(x => x.s).join(",")};background-blend-mode:${L.map(x => x.b).join(",")};inset:${-pad}px;${pad ? `filter:blur(${sig.toFixed(1)}px)` : ""}`;
       fr.querySelector(".ph-ov").style.backgroundImage = dk ? t.ov.d : t.ov.l;
     });
     // Crop outlines on the focus picker (sized to fit: at most 260 px tall, never wider than its column)
@@ -55727,13 +55986,13 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     sheet.querySelectorAll("[data-ph-gm]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.phGm === g.m)));
     sheet.querySelectorAll("[data-ph-gt]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.phGt === g.t)));
     one("#phGBody").style.display = g.m === "off" ? "none" : "grid";
-    one("#phGV").textContent = g.m === "off" ? "Off" : g.m === "only" ? "Instead of Photo" : "On Your Photo";
+    one("#phGV").textContent = g.m === "off" ? "Off" : "In the Theme";
     one("#phGPrev").style.background = grCss(g, 1);
     sheet.querySelectorAll("[data-ph-gc]").forEach(inp => { const i = +inp.dataset.phGc; inp.hidden = i >= g.c.length; if (i < g.c.length) setv(inp, g.c[i]); });
     one("#phG3").textContent = g.c.length > 2 ? "Use Two Colors" : "Add a Third Color";
     one("#phGAWrap").hidden = g.t === "radial"; one("#phGAV").textContent = `${g.a}°`; setv(one("#phGA"), String(g.a));
-    one("#phGOWrap").hidden = g.m !== "over"; one("#phGOV").textContent = `${g.op}%`; setv(one("#phGO"), String(g.op));
-    setv(one("#phTC"), d.tn.c); setv(one("#phTB"), d.tn.b); setv(one("#phTA"), String(d.tn.a)); setv(one("#phVG"), String(d.vg)); setv(one("#phGL"), String(d.gl));
+    one("#phGOWrap").hidden = g.m !== "on"; one("#phGOV").textContent = `${g.op}%`; setv(one("#phGO"), String(g.op));
+    setv(one("#phTC"), d.tn.c); setv(one("#phTA"), String(d.tn.a)); setv(one("#phVG"), String(d.vg)); setv(one("#phGL"), String(d.gl));
     one("#phTAV").textContent = d.tn.a ? `${d.tn.a}%` : "Off"; one("#phVV").textContent = d.vg ? `${d.vg}%` : "Off";
     one("#phTV").textContent = d.tn.a || d.vg ? "On" : "Off"; one("#phLV").textContent = d.gl ? `${d.gl}%` : "Off";
     const a = dk ? t.scD : t.scL;
@@ -55874,14 +56133,28 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     } catch (e) { console.warn("photo theme sync", e); }
     hkBusy = false;
   }
+  // A photo theme whose record is missing is only given up after it has been missing for the whole grace time (it was deleted on
+  // another device). A settings update from a device that doesn't have it yet, a sync in progress or a restore used to reset the
+  // theme at once to the one used before the photo (saved and synced), so the theme seemed to change on its own.
+  let missAt = 0, missTimer = 0;
   hook("render", () => {
     try {
       const id = styleCfg().skin;
       if (isPh(id)) {
         const rec = recOf(id);
-        if (!rec) { setTimeout(() => { const c = styleCfg(); if (isPh(c.skin) && !recOf(c.skin)) { saveStyle({skin: prevSkin()}); applySkin(); scheduleRender(); } }, 0); }
-        else if (root.dataset.skin === id && JSON.stringify(rec) !== appliedSig) applySkin();
-      }
+        if (!rec) {
+          if (!missAt) missAt = Date.now();
+          if (!missTimer) missTimer = setTimeout(function chk(){
+            missTimer = 0;
+            const c = styleCfg();
+            if (!isPh(c.skin) || recOf(c.skin)) { missAt = 0; return; }
+            const left = grace - (Date.now() - missAt);
+            if (left > 0) { missTimer = setTimeout(chk, left + 50); return; }
+            missAt = 0; saveStyle({skin: prevSkin()}); applySkin(); scheduleRender();
+          }, grace + 50);
+        }
+        else { missAt = 0; if (root.dataset.skin === id && JSON.stringify(rec) !== appliedSig) applySkin(); }
+      } else missAt = 0;
     } catch (e) { console.warn("photo theme", e); }
     clearTimeout(hkTimer); hkTimer = setTimeout(() => housekeeping(false), 1500);
   });
