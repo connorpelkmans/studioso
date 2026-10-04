@@ -1621,8 +1621,6 @@ body.stk-dragging,body.stk-dragging *{cursor:grabbing!important;user-select:none
 .env-qx[hidden]{display:none}
 .env.searching .env-packs button.on{background:rgba(255,255,255,.35);border-color:transparent;box-shadow:none}
 .env-name .mini{color:#6B4A22;font-weight:500}
-.env-sub{font:700 .72rem var(--display);letter-spacing:.06em;text-transform:uppercase;color:#6B4A22}
-.env-recent{display:grid;gap:3px}
 .env-found{max-height:260px;overflow-y:auto}
 .env-stk[data-locked]{opacity:.5}
 .env-stk:focus-visible{outline:2px solid #8A5A1E;outline-offset:2px;border-radius:8px}
@@ -3863,6 +3861,13 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-acc-tile.off .cp-acc-ic{filter:grayscale(1)}
 .cp-acc-ic{width:44px;height:44px;display:block;--cp-wear:var(--accent)}
 .cp-acc-ic svg{width:100%;height:100%;overflow:visible}
+.cp-tints{display:grid;gap:8px}
+.cp-tint{display:grid;gap:4px}
+.cp-tint-n{font:600 .8rem/1.2 var(--display)}
+.cp-tint-sw{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.cp-sw{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--line);padding:0;cursor:pointer;box-shadow:inset 0 0 0 2px var(--surface)}
+.cp-sw.on{border-color:var(--accent);box-shadow:inset 0 0 0 2px var(--surface),0 0 0 2px var(--accent)}
+.cp-tint-in{width:30px;height:30px;padding:0;border:0;background:none;cursor:pointer}
 .cp-acc-ic.cp-none{border:2px dashed var(--line);border-radius:50%;width:30px;height:30px;margin:7px}
 .cp-acc-n{font:600 .8rem/1.2 var(--display);display:flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:center}
 .cp-acc-n .pro-badge{font-size:.55rem;padding:1px 4px}
@@ -6157,7 +6162,7 @@ function sbSignInSheet(mode, email, note){
   const pwIn = (lbl, ac) => `<label class="f"><span class="lh">${lbl} ${REQ}</span><input type="password" name="password" required minlength="8" autocomplete="${ac}" ${email && mode !== "reset" ? "autofocus" : ""}></label>`;
   const body = {
     signin: `${first ? `<p style="margin:0">Sign in to keep your tasks, notes and files safe online and in sync on all your devices.</p>` : ""}${emailIn()}${pwIn("Password", "current-password")}`,
-    signup: `<p style="margin:0">Free, and it keeps your planner in sync on your phone, laptop and the web.</p>${emailIn()}${pwIn("Password", "new-password")}<p class="mini" style="margin:0">At least 8 characters.</p>`,
+    signup: `<p style="margin:0">Free, and it keeps your planner in sync on your phone, laptop and the web.</p><label class="f"><span class="lh">Name <span class="hint">Optional. Your study companion uses it to say hi</span></span><input type="text" name="name" maxlength="40" autocomplete="given-name"></label>${emailIn()}${pwIn("Password", "new-password")}<p class="mini" style="margin:0">At least 8 characters.</p>`,
     confirm: `<p style="margin:0">If <b>${esc(email)}</b> can be used for a new account, we sent a code to it. Type it here to finish, or open the link in the email.</p><p class="mini" style="margin:0">Until you confirm your email, Studyboard works on this device only and your planner doesn't sync. Already have an account? Use Back to Sign In.</p>${codeIn}`,
     forgot: `<p style="margin:0">Enter your email and, if an account uses it, we'll send you a code to set a new password.</p>${emailIn()}`,
     reset: `<p style="margin:0">If an account uses <b>${esc(email)}</b>, we sent it a code. Enter the code with your new password.</p>${codeIn}${pwIn("New Password", "new-password")}<p class="mini" id="sbStrength" style="margin:0" aria-live="polite"></p>`
@@ -6203,7 +6208,9 @@ function sbSignInSheet(mode, email, note){
         } else if (mode === "signup") {
           if (pw.length < 8) { say("Use a password of at least 8 characters."); return; }
           say("Creating your account…");
-          const {data, error} = await sb.auth.signUp({email: em, password: pw, options: redirect ? {} : {emailRedirectTo: back}});
+          const nm = String(fd.get("name") || "").replace(/\s+/g, " ").trim().slice(0, 40);
+          if (nm) try { localStorage.setItem("studyboard:comp:uname", nm); } catch(e) {}
+          const {data, error} = await sb.auth.signUp({email: em, password: pw, options: Object.assign(redirect ? {} : {emailRedirectTo: back}, nm ? {data: {first_name: nm.split(" ")[0], full_name: nm}} : {})});
           if (error) throw error;
           // An address that already has an account looks the same as a new one here, so nobody can use this screen to find out who has an account.
           if (data && data.session) { done("Welcome to Studyboard!"); return; }
@@ -10312,10 +10319,7 @@ function stkSearch(q){
   out.sort((a, b) => b.sc - a.sc || a.pi - b.pi);
   return out.slice(0, 80).map(x => x.k);
 }
-const STK_RECENT = "studyboard:stk:recent";
-const stkRecent = () => { try { const a = JSON.parse(localStorage.getItem(STK_RECENT) || "[]"); return Array.isArray(a) ? a.filter(k => typeof k === "string" && STICKERS[k]).slice(0, 10) : []; } catch(e) { return []; } };
-function stkRemember(k){ try { localStorage.setItem(STK_RECENT, JSON.stringify([k].concat(stkRecent().filter(x => x !== k)).slice(0, 10))); } catch(e) {} }
-// One sticker in the envelope. mark: show the lock on a single sticker (search results and recents mix packs).
+// One sticker in the envelope. mark: show the lock on a single sticker (search results mix packs).
 const stkCellHtml = (k, mark) => `<span class="env-stk" data-stk-src="${k}" ${mark && !stkOwns(k) ? 'data-locked="1"' : ""} role="button" tabindex="0" aria-label="${esc(k)} sticker. Press Enter to put it on the top note." title="${esc(k)}">${stickerSvg(k)}</span>`;
 function stkParts(){
   const q = (ui.stkQ || "").trim(), cur = STICKER_PACKS.find(p => p.id === ui.stkPack) || STICKER_PACKS[0];
@@ -10325,10 +10329,9 @@ function stkParts(){
       results: ks.length ? `<div class="env-sheet env-found" role="group" aria-label="Sticker search results">${ks.map(k => stkCellHtml(k, true)).join("")}</div>`
         : `<div class="env-empty" role="status"><b>Nothing matches “${esc(q.slice(0, 24))}”</b><span>Try a shorter word, or one of these:</span><span class="env-try">${["heart", "star", "cat", "study", "happy"].map(w => `<button type="button" data-act="stk-try" data-id="${w}">${w}</button>`).join("")}</span><button type="button" class="link-btn" data-act="stk-qclear">Clear Search</button></div>`};
   }
-  const locked = !owns("sticker", cur.id), rec = stkRecent();
+  const locked = !owns("sticker", cur.id);
   return {name: `<b>${esc(cur.name)}</b>${cur.tier === "pro" ? PRO_BADGE : ""}`,
-    results: (rec.length ? `<div class="env-recent"><span class="env-sub" id="envRecentLbl">Recent</span><div class="env-sheet env-recent-row" role="group" aria-labelledby="envRecentLbl">${rec.map(k => stkCellHtml(k, true)).join("")}</div></div>` : "")
-      + `<div class="env-sheet ${locked ? "locked" : ""}">${Object.keys(cur.items).map(k => stkCellHtml(k)).join("")}</div>`};
+    results: `<div class="env-sheet ${locked ? "locked" : ""}">${Object.keys(cur.items).map(k => stkCellHtml(k)).join("")}</div>`};
 }
 // Search as you type: only the name line and the sticker area change, so the box keeps focus.
 function stkRefresh(){
@@ -10361,7 +10364,7 @@ function stkKeyAdd(k){
   const els = $$(".nb-board .note"), el = els[els.length - 1], n = el && state.notes[el.dataset.note];
   if (!n) { toast("Add a sticky note first, then put stickers on it"); return; }
   const t = clone(n); t.stickers = (t.stickers || []).concat({k, r: Math.round(Math.random() * 30 - 15), s: 1, x: 50 + Math.round(Math.random() * 30 - 15), yp: Math.round(Math.min(el.offsetHeight, 140) * 0.5)}).slice(-16);
-  stkRemember(k); applyChanges([{kind: "note", id: n.id, after: t}], "Sticker added to your top note");
+  applyChanges([{kind: "note", id: n.id, after: t}], "Sticker added to your top note");
 }
 document.addEventListener("input", e => { const t = e.target; if (t && t.classList && t.classList.contains("env-q")) { ui.stkQ = t.value.slice(0, 40); stkRefresh(); } });
 document.addEventListener("keydown", e => {
@@ -10420,7 +10423,6 @@ function stkEnd(ok, e){
   if (!tid || !state.notes[tid]) { if (!d.fromNote) toast("Drop stickers onto a sticky note"); return; }
   const t = clone(state.notes[tid]);
   const s = Object.assign(moved || {k: d.k, r: Math.round(Math.random() * 30 - 15), s: 1}, noteLocalPoint(target, e.clientX, e.clientY)); delete s.y;
-  if (!moved) stkRemember(d.k);
   t.stickers = (t.stickers || []).concat(s).slice(-16);
   changes.push({kind: "note", id: tid, after: t});
   applyChanges(changes, "");
@@ -52869,17 +52871,32 @@ var COMP_KIT = (() => {
     scarf: `<path d="M-21 -5Q0 2 21 -5Q25 0 21 5.5Q0 12 -21 5.5Q-25 0 -21 -5Z" ${WEAR} ${OUT(2.4)}/><path d="M-19 -1.5Q0 5 19 -1.5" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2.2" stroke-linecap="round"/><path d="M6 4L9 21L18 19.5L13 3Z" ${WEAR} ${OUT(2.4)}/><path d="M10.5 14.5L16 13.6" stroke="#fff" stroke-opacity=".55" stroke-width="2" stroke-linecap="round"/><path d="M10 21.4l-.4 2.6M13.4 20.8l-.2 2.6M16.6 20.2l.2 2.6" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/><circle cx="9.5" cy="4" r="4.4" ${WEAR} ${OUT(2.4)}/>`,
     hat: `<path d="M-15 1C-15.5 -14 -8 -20 0 -20S15.5 -14 15 1Z" ${WEAR} ${OUT(2.4)}/><path d="M-6 -16Q-10 -9 -10 -1M5 -17Q9 -9 9 -1" fill="none" stroke="#fff" stroke-opacity=".32" stroke-width="2" stroke-linecap="round"/><rect x="-17" y="-4" width="34" height="8.5" rx="4.2" ${WEAR} ${OUT(2.4)}/><rect x="-15" y="-2.4" width="30" height="5.2" rx="2.6" fill="#fff" opacity=".4"/><circle cx="0" cy="-21" r="5.4" fill="#FFF8F0" ${OUT(2.4)}/><circle cx="-1.6" cy="-22.6" r="1.6" fill="#fff"/>`,
     backpack: `<rect x="-12" y="-14" width="24" height="29" rx="8" ${WEAR} ${OUT(2.4)}/><path d="M-12 -4Q0 2 12 -4V-6Q12 -14 4 -14H-4Q-12 -14 -12 -6Z" fill="#fff" opacity=".3"/><path d="M-12 -4Q0 2 12 -4" fill="none" ${OUT(2)}/><rect x="-7" y="5" width="14" height="7" rx="3" fill="${INK}" opacity=".16"/><rect x="-2" y="-2.2" width="4" height="5" rx="1.4" fill="#FFD35A" ${OUT(1.4)}/>`,
-    star: `<path d="M-5 5L-7 14L-3 12L-1 15L0 6ZM5 5L7 14L3 12L1 15L0 6Z" fill="#FF7A9C" ${OUT(1.6)}/><path d="M0 -8.2L2.4 -3.1L8 -2.5L3.8 1.3L5 6.8L0 4L-5 6.8L-3.8 1.3L-8 -2.5L-2.4 -3.1Z" fill="#FFD35A" ${OUT(1.8)}/><path d="M-1.6 -3.2L0 -6" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>`,
+    star: `<path d="M-5 5L-7 14L-3 12L-1 15L0 6ZM5 5L7 14L3 12L1 15L0 6Z" fill="#FF7A9C" ${OUT(1.6)}/><path d="M0 -8.2L2.4 -3.1L8 -2.5L3.8 1.3L5 6.8L0 4L-5 6.8L-3.8 1.3L-8 -2.5L-2.4 -3.1Z" ${WEAR} ${OUT(1.8)}/><path d="M-1.6 -3.2L0 -6" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>`,
     bowtie: `<path d="M0 0L-16 -9Q-20.5 0 -16 9Z" ${WEAR} ${OUT(2.4)}/><path d="M0 0L16 -9Q20.5 0 16 9Z" ${WEAR} ${OUT(2.4)}/><path d="M-13 -4.5L-6 -1.5M13 -4.5L6 -1.5" stroke="#fff" stroke-opacity=".5" stroke-width="2" stroke-linecap="round"/><rect x="-4.6" y="-5.4" width="9.2" height="10.8" rx="3.6" ${WEAR} ${OUT(2.4)}/><rect x="-2" y="-3.6" width="2.4" height="4" rx="1.2" fill="#fff" opacity=".5"/>`,
     cape: `<path d="M-15 -14Q0 -7 15 -14L25 25Q0 35 -25 25Z" ${WEAR} ${OUT(2.4)}/><path d="M-9 -8Q-11 8 -15 24M9 -8Q11 8 15 24" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2.2" stroke-linecap="round"/><path d="M-15 -14Q0 -7 15 -14V-11Q0 -4 -15 -11Z" fill="#FFD35A" ${OUT(2)}/><circle cx="-14" cy="-12.5" r="2.4" fill="#FFF8F0" ${OUT(1.4)}/><circle cx="14" cy="-12.5" r="2.4" fill="#FFF8F0" ${OUT(1.4)}/>`,
-    medal: `<path d="M-9 -11L-1.5 5H3.5L-4 -11Z" fill="#5A95FF" ${OUT(1.6)}/><path d="M9 -11L1.5 5H-3.5L4 -11Z" fill="#FF7A9C" ${OUT(1.6)}/><circle cx="0" cy="10" r="8.6" fill="#FFD35A" ${OUT(1.9)}/><circle cx="0" cy="10" r="5.6" fill="none" stroke="#E8A317" stroke-width="1.5"/><path d="M0 5.6L1.5 8.6L4.8 9.1L2.4 11.4L3 14.7L0 13.1L-3 14.7L-2.4 11.4L-4.8 9.1L-1.5 8.6Z" fill="#fff" opacity=".9"/><path d="M-5 6Q-3 3.6 0 3.4" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none" opacity=".7"/>`,
-    crown: `<path d="M-14 3L-17 -13L-8 -5.5L0 -17L8 -5.5L17 -13L14 3Z" fill="#FFD35A" ${OUT(2.4)}/><rect x="-14.5" y="-1" width="29" height="7" rx="3" fill="#F2B63A" ${OUT(2.2)}/><circle cx="-17" cy="-14" r="2.7" fill="#FF7A9C" ${OUT(1.4)}/><circle cx="0" cy="-18.5" r="3" fill="#5A95FF" ${OUT(1.4)}/><circle cx="17" cy="-14" r="2.7" fill="#FF7A9C" ${OUT(1.4)}/><circle cx="-7" cy="2.6" r="1.5" fill="#fff"/><circle cx="0" cy="2.6" r="1.5" fill="#fff"/><circle cx="7" cy="2.6" r="1.5" fill="#fff"/><path d="M-9 -3L-12 -9" stroke="#fff" stroke-opacity=".6" stroke-width="2" stroke-linecap="round"/>`,
-    beanie: `<path d="M-15 1C-15.5 -14 -8 -19 0 -19S15.5 -14 15 1Z" fill="#E5484D" ${OUT(2.4)}/><path d="M-6 -16Q-10 -9 -10 -1M5 -17Q9 -9 9 -1" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2" stroke-linecap="round"/><path d="M-8 -17L-2 0M2 -18.5L8 0" stroke="#fff" stroke-opacity=".75" stroke-width="3.2" stroke-linecap="round"/><rect x="-17" y="-4" width="34" height="8.5" rx="4.2" fill="#FFF8F0" ${OUT(2.4)}/><circle cx="0" cy="-20.5" r="5.2" fill="#fff" ${OUT(2.4)}/><circle cx="-1.6" cy="-22" r="1.5" fill="#E8F1FF"/>`,
-    cap: `<path d="M-12 -7V1.5Q0 7.5 12 1.5V-7Z" fill="#3A3450" ${OUT(2.4)}/><path d="M-23 -9.5L0 -18L23 -9.5L0 -1Z" fill="#4A4366" ${OUT(2.4)}/><path d="M-14 -11L0 -16" stroke="#fff" stroke-opacity=".3" stroke-width="2" stroke-linecap="round"/><path d="M0 -9.5L15 -7V3" fill="none" stroke="#F2C14E" stroke-width="2" stroke-linecap="round"/><path d="M13 2.5h4l1 6h-6Z" fill="#F2C14E" ${OUT(1.4)}/><circle cx="0" cy="-9.5" r="2" fill="#F2C14E" ${OUT(1.2)}/>`
+    medal: `<path d="M-9 -11L-1.5 5H3.5L-4 -11Z" fill="#5A95FF" ${OUT(1.6)}/><path d="M9 -11L1.5 5H-3.5L4 -11Z" fill="#FF7A9C" ${OUT(1.6)}/><circle cx="0" cy="10" r="8.6" ${WEAR} ${OUT(1.9)}/><circle cx="0" cy="10" r="5.6" fill="none" stroke="#E8A317" stroke-width="1.5"/><path d="M0 5.6L1.5 8.6L4.8 9.1L2.4 11.4L3 14.7L0 13.1L-3 14.7L-2.4 11.4L-4.8 9.1L-1.5 8.6Z" fill="#fff" opacity=".9"/><path d="M-5 6Q-3 3.6 0 3.4" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none" opacity=".7"/>`,
+    crown: `<path d="M-14 3L-17 -13L-8 -5.5L0 -17L8 -5.5L17 -13L14 3Z" ${WEAR} ${OUT(2.4)}/><rect x="-14.5" y="-1" width="29" height="7" rx="3" fill="#F2B63A" ${OUT(2.2)}/><circle cx="-17" cy="-14" r="2.7" fill="#FF7A9C" ${OUT(1.4)}/><circle cx="0" cy="-18.5" r="3" fill="#5A95FF" ${OUT(1.4)}/><circle cx="17" cy="-14" r="2.7" fill="#FF7A9C" ${OUT(1.4)}/><circle cx="-7" cy="2.6" r="1.5" fill="#fff"/><circle cx="0" cy="2.6" r="1.5" fill="#fff"/><circle cx="7" cy="2.6" r="1.5" fill="#fff"/><path d="M-9 -3L-12 -9" stroke="#fff" stroke-opacity=".6" stroke-width="2" stroke-linecap="round"/>`,
+    beanie: `<path d="M-15 1C-15.5 -14 -8 -19 0 -19S15.5 -14 15 1Z" ${WEAR} ${OUT(2.4)}/><path d="M-6 -16Q-10 -9 -10 -1M5 -17Q9 -9 9 -1" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2" stroke-linecap="round"/><path d="M-8 -17L-2 0M2 -18.5L8 0" stroke="#fff" stroke-opacity=".75" stroke-width="3.2" stroke-linecap="round"/><rect x="-17" y="-4" width="34" height="8.5" rx="4.2" fill="#FFF8F0" ${OUT(2.4)}/><circle cx="0" cy="-20.5" r="5.2" fill="#fff" ${OUT(2.4)}/><circle cx="-1.6" cy="-22" r="1.5" fill="#E8F1FF"/>`,
+    cap: `<path d="M-12 -7V1.5Q0 7.5 12 1.5V-7Z" fill="#3A3450" ${OUT(2.4)}/><path d="M-23 -9.5L0 -18L23 -9.5L0 -1Z" ${WEAR} ${OUT(2.4)}/><path d="M-14 -11L0 -16" stroke="#fff" stroke-opacity=".3" stroke-width="2" stroke-linecap="round"/><path d="M0 -9.5L15 -7V3" fill="none" stroke="#F2C14E" stroke-width="2" stroke-linecap="round"/><path d="M13 2.5h4l1 6h-6Z" fill="#F2C14E" ${OUT(1.4)}/><circle cx="0" cy="-9.5" r="2" fill="#F2C14E" ${OUT(1.2)}/>`
   };
-  function glassesSvg(e){
+  /* Body regions: an item declares the one it covers, and two items can be worn together only when their regions differ.
+     Putting one on takes off just the item in the same region. (feet is reserved for future shoes.) */
+  const ACC_SLOT = {hat: "head", cap: "head", crown: "head", beanie: "head", glasses: "face", scarf: "neck", bowtie: "neck", star: "chest", medal: "chest", backpack: "back", cape: "back"};
+  const slotOf = id => ACC_SLOT[id] || id;
+  // The colour these were drawn in (the others follow the theme colour); a picked colour replaces either
+  const ACC_DEF = {star: "#FFD35A", medal: "#FFD35A", crown: "#FFD35A", beanie: "#E5484D", cap: "#4A4366", glasses: "#2B2233"};
+  const TINTS = ["#E5484D", "#F2994A", "#FFD35A", "#4CB782", "#2FB5C9", "#5A95FF", "#8E6BE0", "#FF7A9C", "#8B6A4F", "#3A3450", "#FFFFFF"];
+  const hexOk = v => typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v);
+  // "hat_scarf" (presence), an array or a single id, to a clean list with one item per region
+  const wornList = w => {
+    const seen = new Set(), out = [];
+    (Array.isArray(w) ? w : typeof w === "string" ? w.split(/[_,]/) : []).forEach(id => { if (ACC_ART[id] || id === "glasses") { const k = slotOf(id); if (!seen.has(k)) { seen.add(k); out.push(id); } } });
+    return out;
+  };
+  function glassesSvg(e, col){
     const R = Math.max(6.5, e.r * 1.8), y = e.y;
-    return `<g class="cp-acc cp-acc-glasses"><circle cx="${e.lx}" cy="${y}" r="${f1(R)}" fill="#fff" fill-opacity=".16" ${OUT(2.2)}/><circle cx="${e.rx}" cy="${y}" r="${f1(R)}" fill="#fff" fill-opacity=".16" ${OUT(2.2)}/><path d="M${f1(e.lx + R)} ${f1(y - 1)}Q${f1((e.lx + e.rx) / 2)} ${f1(y - 4.5)} ${f1(e.rx - R)} ${f1(y - 1)}" fill="none" ${OUT(2.2)}/><path d="M${f1(e.lx - R * 0.55)} ${f1(y - R * 0.5)}q${f1(R * 0.3)} ${f1(-R * 0.3)} ${f1(R * 0.7)} ${f1(-R * 0.35)}M${f1(e.rx - R * 0.55)} ${f1(y - R * 0.5)}q${f1(R * 0.3)} ${f1(-R * 0.3)} ${f1(R * 0.7)} ${f1(-R * 0.35)}" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width="1.6" stroke-linecap="round"/></g>`;
+    const lens = col ? `fill="${col}" fill-opacity=".3" ${OUT(2.2).replace(INK, col)}` : `fill="#fff" fill-opacity=".16" ${OUT(2.2)}`;
+    return `<g class="cp-acc cp-acc-glasses"><circle cx="${e.lx}" cy="${y}" r="${f1(R)}" ${lens}/><circle cx="${e.rx}" cy="${y}" r="${f1(R)}" ${lens}/><path d="M${f1(e.lx + R)} ${f1(y - 1)}Q${f1((e.lx + e.rx) / 2)} ${f1(y - 4.5)} ${f1(e.rx - R)} ${f1(y - 1)}" fill="none" ${col ? OUT(2.2).replace(INK, col) : OUT(2.2)}/><path d="M${f1(e.lx - R * 0.55)} ${f1(y - R * 0.5)}q${f1(R * 0.3)} ${f1(-R * 0.3)} ${f1(R * 0.7)} ${f1(-R * 0.35)}M${f1(e.rx - R * 0.55)} ${f1(y - R * 0.5)}q${f1(R * 0.3)} ${f1(-R * 0.3)} ${f1(R * 0.7)} ${f1(-R * 0.35)}" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width="1.6" stroke-linecap="round"/></g>`;
   }
   const BOOK = `<path d="M0 0Q-9 -4.5 -18 -1.5V11Q-9 8 0 12.5Q9 8 18 11V-1.5Q9 -4.5 0 0Z" ${WEAR} ${OUT(2.2)}/><path d="M0 -1.6Q-7.5 -5.6 -15.5 -3.4V8.4Q-7.5 6 0 10Z" fill="#FFFDF7" ${OUT(1.6)}/><path d="M0 -1.6Q7.5 -5.6 15.5 -3.4V8.4Q7.5 6 0 10Z" fill="#FFFDF7" ${OUT(1.6)}/><path d="M-12.5 0.4q5 -1.4 9.5 0.6M-12.5 3.6q5 -1.4 9.5 0.6M3 1q5 -1.8 9.5 -0.6M3 4.2q5 -1.8 9.5 -0.6" fill="none" stroke="#B9B2C4" stroke-width="1.2" stroke-linecap="round"/><g class="cp-page" style="transform-origin:0px 0px"><path d="M0 -1.6Q7.5 -5.6 15.5 -3.4V8.4Q7.5 6 0 10Z" fill="#FFF7E6" ${OUT(1.4)}/></g>`;
 
@@ -52906,12 +52923,13 @@ var COMP_KIT = (() => {
       const st = pv ? `transform-origin:${pv[0]}px ${pv[1]}px${r ? ";transform:" + r : ""}` : "";
       return `<g class="cp-p cp-${name}"${st ? ` style="${st}"` : ""}${extra || ""}>${inner}</g>`;
     };
-    const wear = o.wear || "";
-    const acc = (id, a) => wear === id ? `<g class="cp-acc cp-acc-${id}">${at(a, ACC_ART[id])}</g>` : "";
+    const worn = wornList(o.wear), tints = o.tint || cfg().tint || {};
+    const tintOf = id => hexOk(tints[id]) ? tints[id] : "";
+    const acc = (id, a) => worn.includes(id) ? `<g class="cp-acc cp-acc-${id}"${tintOf(id) || ACC_DEF[id] ? ` style="--cp-wear:${tintOf(id) || ACC_DEF[id]}"` : ""}>${at(a, ACC_ART[id])}</g>` : "";
     const hasHead = !!partSvg(P.head);
     const headRot = rot.head ? `;transform:rotate(${rot.head}deg)` : "";
     const hands = pt(A.hands) ? A.hands : [60, 92];
-    const face = `${g("face")}${cheeksSvg(c)}${eyesSvg(c.eyes)}${mouthSvg(c)}${wear === "glasses" ? glassesSvg(c.eyes) : ""}`;
+    const face = `${g("face")}${cheeksSvg(c)}${eyesSvg(c.eyes)}${mouthSvg(c)}${worn.includes("glasses") ? glassesSvg(c.eyes, tintOf("glasses")) : ""}`;
     const svg = `<svg class="cp-svg" viewBox="0 0 ${VB} ${VB}" overflow="visible" aria-hidden="true" focusable="false" data-e="${o.eyes || "open"}" data-m="${o.mouth || "neutral"}" data-prop="${o.prop || ""}">
       <g class="cp-rig">${acc("backpack", A.back)}${acc("cape", A.back)}${g("back")}${g("tail")}${g("wingL")}${g("wingR")}${hasHead ? "" : g("earL") + g("earR")}${g("feet")}
         <g class="cp-bodyg">${g("body")}${acc("scarf", A.neck)}${acc("bowtie", A.neck)}${acc("star", A.chest)}${acc("medal", A.chest)}<g class="cp-prop">${at([hands[0], hands[1], num(hands[2]) ? hands[2] : 1], BOOK)}</g>${g("armL")}${g("armR")}</g>
@@ -52928,11 +52946,11 @@ var COMP_KIT = (() => {
   const cfg = () => { const s = state.settings && state.settings.comp; return s && typeof s === "object" ? s : {}; };
   function setCfg(patch){
     const cur = cfg(), next = Object.assign({}, cur, patch);
-    ["pick", "names", "wear", "earned"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
+    ["pick", "names", "wear", "earned", "tint"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
     state.settings = Object.assign({}, state.settings, {comp: next});
     saveSettings();
     // A different companion, a new name or the companion switched on/off: refresh its name and face everywhere now
-    if (patch.pick || patch.names || patch.wear || "on" in patch) setTimeout(() => {
+    if (patch.pick || patch.names || patch.wear || patch.tint || "on" in patch) setTimeout(() => {
       try { if (typeof faceSoon === "function") faceSoon(); } catch (e) {}
       try { scheduleRender(); } catch (e) {}
     }, 0);
@@ -53000,7 +53018,8 @@ var COMP_KIT = (() => {
   const closestPath = a => propProg(a).sort((x, y) => y.p - x.p)[0];
   const pathShort = x => x.k === "festive" || x.k === "groups" ? x.unit : `${x.v} of ${x.n} ${x.unit}`;
   const canWear = a => !!a && isEarned(a) && owns("prop", a.id);
-  const wearOf = c => { const w = (cfg().wear || {})[c.id]; const a = ACC.find(x => x.id === w); return canWear(a) ? w : ""; };
+  // What it wears now: a list of item ids, one per body region. Older saves kept a single id here, and read the same way.
+  const wearOf = c => wornList((cfg().wear || {})[c.id]).filter(id => canWear(ACC.find(x => x.id === id)));
   function wearColor(c){
     if (c.wearColor) return c.wearColor;
     const s = SKINS.find(x => x.id === skinId());
@@ -53161,6 +53180,7 @@ var COMP_KIT = (() => {
   // The authority: measure, compare, move. Returns true when it had to move the companion.
   function clamp(why){
     if (!box || box.hidden || !cur || !front || guardDepth) return false;
+    if (glideAnim && performance.now() < glideEnd) return false;   // still easing into a corrected spot: look again when it lands (see glideBy)
     const S = safeRect(true); if (S.r - S.l < 60 || S.b - S.t < 60) return false;
     let V = visual(); if (!V) return false;
     if ((V.width > S.r - S.l || V.height > S.b - S.t) && shrink > 0.5) {   // bigger than the room there is: a smaller companion, not a missing one
@@ -53173,12 +53193,33 @@ var COMP_KIT = (() => {
     if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) { if (bubbleOut()) { const b = front.querySelector(".cp-bubble.on"); if (b) placeBubble(b); } return false; }
     const z = zf(), x = (parseFloat(box.style.left) || +box.dataset.x || 0) + dx / z, y = (parseFloat(box.style.top) || +box.dataset.y || 0) + dy / z;
     box.style.left = f1(x) + "px"; box.style.top = f1(y) + "px";
+    if (why !== "anim" && why !== "anim-end" && Math.hypot(dx, dy) <= 240) glideBy(-dx / z, -dy / z);   // the move itself is instant; what is drawn eases from where it was (a far-off state is just recovered)
     box.dataset.x = f1(x); box.dataset.y = f1(y); homeSig = [f1(x), f1(y), box.dataset.px].join(",");
     guardFixes++; guardLast = {why, dx: f1(dx), dy: f1(dy), w: innerWidth, h: innerHeight};
     if ((why === "watchdog" || why === "anim") && Math.hypot(dx, dy) >= 3 && guardFixes <= 3) { try { if (window.SBERR) SBERR.flow("companion-bounds", new Error(`companion was off screen (${why}) by ${Math.round(dx)},${Math.round(dy)} at ${innerWidth}x${innerHeight}, ${mood}`)); } catch (e) {} }
     const b = front.querySelector(".cp-bubble.on"); if (b) placeBubble(b);
     fitHitSoon();
     return true;
+  }
+  /* Smooth moves only. The box's left/top/size change at once (everything that measures it needs the real spot), and what is
+     drawn eases from where it was seen to where it now is, with a transform animation. glideBy adds to whatever is already
+     running (a trip, a hop), so a correction never cancels or restarts it. */
+  let glideAnim = null, glideEnd = 0;
+  function glideBy(ox, oy, sc, replace){
+    if (!box || still() || document.hidden || !box.animate) return;
+    const d = Math.hypot(ox, oy), ms = Math.round(Math.max(220, Math.min(520, 200 + d * 1.2)));
+    if (d < 0.5 && (!sc || Math.abs(sc - 1) < 0.01)) return;
+    if (glideAnim) try { glideAnim.cancel(); } catch (e) {}
+    const me = glideAnim = box.animate([{transform: `translate(${f1(ox)}px,${f1(oy)}px)${sc ? ` scale(${f1(sc)})` : ""}`}, {transform: "translate(0px,0px) scale(1)"}], Object.assign({duration: ms, easing: "cubic-bezier(.22,.8,.3,1)"}, replace ? {} : {composite: "add"}));
+    glideEnd = performance.now() + ms; followBubble();
+    const end = () => { if (glideAnim !== me) return; glideAnim = null; glideEnd = 0; try { clamp("glide-end"); } catch (e) {} const b = front && front.querySelector(".cp-bubble.on"); if (b) placeBubble(b); fitHitSoon(); };
+    me.onfinish = me.oncancel = end;
+  }
+  const stopTravel = () => { if (!travelAnim) return; try { travelAnim.cancel(); } catch (e) {} travelAnim = null; if (box) delete box.dataset.travel; };
+  // Where the box is drawn now (its centre, in style pixels), counting a trip or glide in progress
+  function drawnCentre(){
+    const r = box.getBoundingClientRect(), z = zf();
+    return {x: (r.left + r.right) / 2 / z, y: (r.top + r.bottom) / 2 / z};
   }
   const bubbleOut = () => {
     const b = front && front.querySelector(".cp-bubble.on"); if (!b) return false;
@@ -53445,7 +53486,7 @@ var COMP_KIT = (() => {
   }
   function followBubble(){
     cancelAnimationFrame(followRaf);
-    const step = () => { const b = front && front.querySelector(".cp-bubble.on"); if (b) placeBubble(b); if (travelAnim) followRaf = requestAnimationFrame(step); };
+    const step = () => { const b = front && front.querySelector(".cp-bubble.on"); if (b) placeBubble(b); if (travelAnim || glideAnim) followRaf = requestAnimationFrame(step); };
     followRaf = requestAnimationFrame(step);
   }
   // Every keyframe of a trip (arcs, loops, leaps, a dash's overshoot, squash and spin) is shifted so the art, as it is drawn in that
@@ -53523,12 +53564,13 @@ var COMP_KIT = (() => {
       for (let i = 1; i < 4; i++) later(() => spawnFx("sparkle", 1), dur * i / 4);
     }
     fitFrames(frames, to, px);
-    travelAnim = box.animate(frames, {duration: dur, easing});
+    const me = travelAnim = box.animate(frames, {duration: dur, easing});
     box.dataset.travel = style;
     motionWatch(dur);
     busyUntil = Math.max(busyUntil, performance.now() + dur + 200);
     followBubble();
-    travelAnim.onfinish = travelAnim.oncancel = () => {
+    me.onfinish = me.oncancel = () => {
+      if (travelAnim !== me) return;   // replaced by a newer trip: that one owns the state now
       travelAnim = null; delete box.dataset.travel; clamp("anim-end");
       const b = front && front.querySelector(".cp-bubble.on"); if (b) placeBubble(b);
       if (act && mood === "idle" && !still()) { act.mouth("smile"); later(() => act && mood === "idle" && act.mouth("neutral"), 900); const r = box.getBoundingClientRect(); glanceAt(r.left + (dir > 0 ? -220 : r.width + 220), r.top + r.height * 0.4, 900); }
@@ -53553,10 +53595,18 @@ var COMP_KIT = (() => {
       clamp("place"); fitHitSoon();
       return;
     }
-    const from = box.dataset.x ? {left: +box.dataset.x, top: +box.dataset.y} : null;
+    // From where it is drawn right now (a trip or glide may be half way), so a new spot never makes it jump back first
+    const moving = !!(travelAnim || glideAnim), oldPx = +box.dataset.px || s.px;
+    const dc = box.dataset.x && moving ? drawnCentre() : null;
+    const from = box.dataset.x ? (dc ? {left: dc.x - s.px / 2, top: dc.y - s.px / 2} : {left: +box.dataset.x, top: +box.dataset.y}) : null;
+    const was = box.dataset.x ? {x: +box.dataset.x + oldPx / 2, y: +box.dataset.y + oldPx / 2} : null;
     box.style.cssText = `left:${s.left}px;top:${s.top}px;width:${s.px}px;height:${s.px}px`;
     box.dataset.x = s.left; box.dataset.y = s.top; box.dataset.px = s.px; box.dataset.spot = s.kind;
-    if (from && homeSig) travel(from, s, s.px);
+    if (from && homeSig) {
+      if (Math.abs(oldPx - s.px) > 1) { const c = dc || was; stopTravel(); glideBy(c.x - (s.left + s.px / 2), c.y - (s.top + s.px / 2), oldPx / s.px, true); }
+      else if (Math.hypot(from.left - s.left, from.top - s.top) >= 6 && !still() && !document.hidden) travel(from, s, s.px);
+      else if (Math.hypot(from.left - s.left, from.top - s.top) >= 0.5) { stopTravel(); glideBy(from.left - s.left, from.top - s.top, 0, true); }
+    }
     homeSig = sig;
     clamp("place"); fitHitSoon();
     duck();
@@ -53685,9 +53735,45 @@ var COMP_KIT = (() => {
     b.style.left = Math.round(left) + "px"; b.style.top = Math.round(top) + "px";
     b.style.setProperty("--tx", Math.round(Math.max(16, Math.min(w - 16, r.left + r.width / 2 - left))) + "px");
   }
+  /* ---------- Using the student's name ---------- */
+  // The name given at sign-up (kept in the account), else the name used in study groups; first name only. "" when there isn't one.
+  function userName(){
+    const clean = v => String(v || "").replace(/[^\p{L}\p{M}'\- ]/gu, "").trim().split(/\s+/)[0].slice(0, 20);
+    try {
+      const md = (typeof sbUser !== "undefined" && sbUser && sbUser.user_metadata) || {};
+      const n = clean(md.first_name || md.given_name || md.full_name || md.name);
+      if (n) return n;
+      if (typeof sbUser !== "undefined" && sbUser) { const g = clean(localStorage.getItem("sb:grpName:" + sbUser.id)); if (g) return g; }
+      return clean(localStorage.getItem("studyboard:comp:uname"));
+    } catch (e) { return ""; }
+  }
+  // Now and then (about one line in six, never two close together) a short line gets the name before its last mark: "Nice work, Sam!"
+  let nameGap = 3;
+  function withName(text, opts){
+    if (opts.name === false || opts.long || opts.idea || opts.ask || text.length > 70) return text;
+    const n = userName(); if (!n || text.toLowerCase().includes(n.toLowerCase())) return text;
+    if (--nameGap > 0 || Math.random() > 0.3) return text;
+    const m = /^(.*?)([.!?\u2026]+)?$/.exec(text.trim()); if (!m || !m[1]) return text;
+    nameGap = 5;
+    return `${m[1].replace(/[,;:]$/, "")}, ${n}${m[2] || "."}`;
+  }
+  // The first time it's out each local day (or right after signing in), it says hello by name. The day is remembered on this device.
+  const HELLO_KEY = "studyboard:comp:helloDay";
+  function dailyHello(){
+    try {
+      if (!talkOn() || !act || !cur || !box || box.hidden || document.hidden || mood !== "idle") return;
+      const t = todayISO(), n = userName(); if (!n || localStorage.getItem(HELLO_KEY) === t) return;
+      localStorage.setItem(HELLO_KEY, t);
+      const h = new Date().getHours();
+      const pool = h >= 22 || h < 5 ? [`Still up, ${n}? Let's keep it gentle tonight.`, `Hi ${n}. A little night study?`]
+        : h < 11 ? [`Good morning, ${n}!`, `Morning, ${n}! Ready for today?`] : h < 17 ? [`Good afternoon, ${n}!`, `Hi ${n}! Good to see you.`] : [`Good evening, ${n}!`, `Hi ${n}! How was your day?`];
+      say(pick(pool), {again: true, name: false});
+    } catch (e) {}
+  }
   function say(text, opts){
     if (!front || !cur || !box || box.hidden || document.hidden || !text) return;
     opts = opts || {};
+    text = withName(text, opts);
     if (!opts.again && !SPEECH.ok(text)) return;   // never the same line twice in a row, from any path
     SPEECH.note(text, opts.cat || pickedCat[SPEECH.norm(text)]);
     const b = front.querySelector(".cp-bubble");
@@ -53839,7 +53925,7 @@ var COMP_KIT = (() => {
     if ((aiRead().queue || []).length) aiFlush();
   }
   let tickT = 0;
-  const startTick = () => { clearInterval(tickT); tickT = setInterval(() => { if (!document.hidden && act) think(); }, 60000); };
+  const startTick = () => { clearInterval(tickT); tickT = setInterval(() => { if (!document.hidden && act) { dailyHello(); think(); } }, 60000); };
   function wake(){
     if (mood !== "nap" || !act) return;
     setMood("idle"); hold(1600);
@@ -53900,7 +53986,7 @@ var COMP_KIT = (() => {
   function build(){
     const c = current();
     if (!isOn() || !c) { teardown(); return; }
-    const sig = [c.id, wearOf(c), pro() ? 1 : 0, nameOf(c)].join("|");
+    const sig = [c.id, wearOf(c), JSON.stringify(cfg().tint || {}), pro() ? 1 : 0, nameOf(c)].join("|");
     if (layer && sig === curSig) { applyVars(); placeSoon(0); return; }
     const first = !layer;
     if (!layer) {
@@ -53913,19 +53999,23 @@ var COMP_KIT = (() => {
     }
     if (act) act.stopAll();
     const keepMood = cur && cur.id === c.id ? mood : null;
+    // Redrawn (new outfit, name, companion): the new drawing stands exactly where the old one was drawn, so nothing pops or restarts its position
+    let keepAt = null;
+    if (box && box.dataset.x && homeSig) { const o = +box.dataset.px || sizePx(c), dc = travelAnim || glideAnim ? drawnCentre() : {x: +box.dataset.x + o / 2, y: +box.dataset.y + o / 2}; keepAt = {x: dc.x, y: dc.y}; }
     cur = c; curSig = sig; homeSig = "";
     compChanged();
-    if (box) box.remove();
+    if (box) { stopTravel(); if (glideAnim) try { glideAnim.cancel(); } catch (e) {} box.remove(); }
     layer.insertAdjacentHTML("beforeend", `<div class="cp cp-${c.pose}" data-id="${esc(c.id)}"><span class="cp-shadow"></span><div class="cp-move"><div class="cp-breathe">${rigSvg(c, {wear: wearOf(c)})}</div></div><div class="cp-fx"></div><div class="cp-hit" tabindex="0" role="button" aria-label="${esc(nameOf(c))}, your study companion. Press to say hi. Press and hold, or right click, to choose a companion."></div></div>`);
     box = layer.querySelector(".cp"); vext = null;
-    { const px0 = sizePx(c); box.style.cssText = `left:0px;top:0px;width:${px0}px;height:${px0}px`; front.appendChild(box); }   // sized and in the front layer before anything measures it
+    { const px0 = sizePx(c); box.style.cssText = `left:0px;top:0px;width:${px0}px;height:${px0}px`; front.appendChild(box);
+      if (keepAt) { const l = Math.round(keepAt.x - px0 / 2), t = Math.round(keepAt.y - px0 / 2); box.style.left = l + "px"; box.style.top = t + "px"; box.dataset.x = l; box.dataset.y = t; box.dataset.px = px0; homeSig = [l, t, px0].join(","); } }   // sized and in the front layer before anything measures it
     act = actor(c, box, {spawn: spawnFx, watch: motionWatch});
     applyVars();
     place();
     const running = typeof pomo !== "undefined" && pomo && pomo.running;
     setMood(keepMood || (running ? (pomo.mode === "focus" ? (c.sleepy ? "doze" : "study") : "break") : "idle"));
     startTick();
-    if (first) { setTimeout(greet, 1500); setTimeout(() => { welcomeBack(); weekCheck(); aiMaybe("open"); }, 6000); }
+    if (first) { setTimeout(greet, 1500); setTimeout(dailyHello, 2600); setTimeout(() => { welcomeBack(); weekCheck(); aiMaybe("open"); }, 6000); }
   }
   function applyVars(){
     if (!layer || !cur) return;
@@ -53943,7 +54033,7 @@ var COMP_KIT = (() => {
   // build()/teardown() call it, so picking one, a new theme, a rename, an outfit, Pro changing or turning it off all land here.
   let compNote = null;
   function compChanged(){
-    const key = cur ? [cur.id, wearOf(cur), nameOf(cur)].join("|") : "";
+    const key = cur ? [cur.id, wearOf(cur), JSON.stringify(cfg().tint || {}), nameOf(cur)].join("|") : "";
     if (key === compNote) return;
     const first = compNote === null; compNote = key;
     try { if (typeof faceSwapNow === "function") faceSwapNow(); } catch (e) {}
@@ -54046,7 +54136,7 @@ var COMP_KIT = (() => {
     setCfg({earned: Object.fromEntries(fresh.map(a => [a.id, Date.now()]))});
     if (!act || !cur) return;
     const wearable = fresh.filter(canWear), a = wearable[wearable.length - 1] || fresh[fresh.length - 1];
-    if (a && canWear(a) && !wearOf(cur)) setCfg({wear: {[cur.id]: a.id}});
+    if (a && canWear(a) && !wearOf(cur).length) setCfg({wear: {[cur.id]: [a.id]}});
     build();
     hold(2200);
     act.eyes("happy"); act.motion("hop"); spawnFx("sparkle", 5);
@@ -54691,21 +54781,27 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     }).join("");
     const h = hours(), nGot = ACC.filter(isEarned).length, locked = ACC.filter(a => !isEarned(a));
     const hLabel = h < 1 ? `${Math.round(h * 60)} min` : `${h < 10 ? h.toFixed(1).replace(/\.0$/, "") : Math.round(h)} h`;
-    const wear = c ? wearOf(c) : "";
+    const wear = c ? wearOf(c) : [], tints = cfg().tint || {};
+    const colOf = id => hexOk(tints[id]) ? tints[id] : ACC_DEF[id] || wearColor(c || {});
     const howRow = a => `<li><b>${esc(a.name)}</b><span class="cp-how-ways">${propProg(a).map(x => `<span class="cp-how-way"><span class="cp-how-t">${esc(x.ask)}</span><span class="cp-how-bar" aria-hidden="true"><i style="width:${Math.round(x.p * 100)}%"></i></span><span class="mini">${esc(pathShort(x))}</span></span>`).join("")}</span></li>`;
     const accTile = a => {
-      const got = isEarned(a), can = canWear(a), on = wear === a.id;
+      const got = isEarned(a), can = canWear(a), on = wear.includes(a.id);
       const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id];
-      const icon = `<svg viewBox="-26 -26 52 52" aria-hidden="true">${a.id === "glasses" ? glassesSvg({lx: -11, rx: 11, y: 0, r: 5}) : lift ? `<g transform="translate(0 ${lift})">${ACC_ART[a.id]}</g>` : ACC_ART[a.id]}</svg>`;
+      const icon = `<svg viewBox="-26 -26 52 52" aria-hidden="true">${a.id === "glasses" ? glassesSvg({lx: -11, rx: 11, y: 0, r: 5}, hexOk(tints[a.id]) ? tints[a.id] : "") : lift ? `<g transform="translate(0 ${lift})">${ACC_ART[a.id]}</g>` : ACC_ART[a.id]}</svg>`;
       return `<button type="button" class="cp-acc-tile${on ? " on" : ""}${got ? "" : " off"}" data-act="comp-wear" data-acc="${a.id}" aria-pressed="${on}" ${got ? "" : `aria-disabled="true"`}>
-        <span class="cp-acc-ic">${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
+        <span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
     };
+    // One row per worn item: pick a colour (swatches, or any colour), or put the original back
+    const tintRow = id => { const a = ACC.find(x => x.id === id), cur = colOf(id);
+      return `<div class="cp-tint" role="group" aria-label="${esc(a.name)} colour"><span class="cp-tint-n">${esc(a.name)}</span><span class="cp-tint-sw">${TINTS.map(h => `<button type="button" class="cp-sw${cur.toLowerCase() === h.toLowerCase() ? " on" : ""}" style="background:${h}" data-act="comp-tint" data-acc="${id}" data-color="${h}" aria-label="${h}" aria-pressed="${cur.toLowerCase() === h.toLowerCase()}"></button>`).join("")}<input type="color" class="cp-tint-in" data-acc="${id}" value="${cur}" aria-label="Pick any colour for ${esc(a.name)}"><button type="button" class="btn small" data-act="comp-tint" data-acc="${id}" data-color="" ${hexOk(tints[id]) ? "" : "disabled"}>Reset</button></span></div>`; };
     return `<p class="mini" style="margin:0">A little friend who lives in your ${esc(skin ? skin.name : "")} ${key === "plain" ? "theme" : "scene"}. It sits beside the Add Task button. Tap it to say hi, and it studies with you during Focus.</p>
       <div class="cp-tiles">${tiles}</div>
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="18" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
       <h3 class="fsec">Accessories</h3>
       <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, tasks done on time, streaks, flashcards, quizzes, notes and more. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
-      <div class="cp-accs"><button type="button" class="cp-acc-tile${wear ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear ? "Take Off" : "Wearing"}</span></button>${ACC.map(accTile).join("")}</div>
+      <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button>${ACC.map(accTile).join("")}</div>
+      <p class="mini" style="margin:0">Wear one thing for each part of the body: head, face, neck, chest and back. Putting on another for the same part swaps it.</p>
+      ${wear.length ? `<h3 class="fsec">Colours</h3><div class="cp-tints">${wear.map(tintRow).join("")}</div>` : ""}
       ${locked.length ? `<h3 class="fsec">How to Earn More</h3><p class="mini" style="margin:0">Any one way unlocks a prop.</p><ul class="cp-how">${locked.map(howRow).join("")}</ul>` : `<p class="mini" style="margin:0">You've earned every prop. Wow!</p>`}
       <h3 class="fsec">Options</h3>
       <div class="cap-row"><span style="flex:1;font-weight:600">Show Companion<span class="sub">Turn it off to hide it everywhere.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on" ${isOn() ? "checked" : ""}> On</label></div>
@@ -54747,6 +54843,10 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     if (body.classList.contains("cp-pickbody")) { body.innerHTML = pickerBody(); body.scrollTop = top; wirePreviews(body); }
     else { const sb = body.closest(".sheet-body"), st = sb ? sb.scrollTop : 0; body.innerHTML = shopBody(); wirePreviews(body); if (sb) sb.scrollTop = st; }
   }
+  dlg.addEventListener("change", e => {
+    const t = e.target; if (!t || !t.classList || !t.classList.contains("cp-tint-in") || !hexOk(t.value) || !ACC.some(x => x.id === t.dataset.acc)) return;
+    setCfg({tint: {[t.dataset.acc]: t.value.toLowerCase()}}); curSig = ""; build(); refreshPicker();
+  });
   const DLG_CLOSE = () => { stopPreviews(); guardSoon("dialog", 80); };
   dlg.addEventListener("close", DLG_CLOSE);
 
@@ -54766,8 +54866,16 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const id = el.dataset.acc || "", acc = ACC.find(x => x.id === id), c = current(); if (!c) return true;
       if (id && !isEarned(acc)) { const w = closestPath(acc); toast(`${acc.name}: ${w.ask}. ${pathShort(w)}.`); return true; }
       if (id && !canWear(acc)) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Every companion accessory comes with Studyboard Pro."); return true; }
-      setCfg({wear: {[c.id]: id}}); curSig = ""; build(); refreshPicker();
-      if (id && act) { act.motion("bounce"); spawnFx("sparkle", 2); }
+      // "Nothing" takes everything off; a worn item comes off when tapped again; a new one replaces only what shares its body region
+      const now = wearOf(c), next = !id ? [] : now.includes(id) ? now.filter(x => x !== id) : now.filter(x => slotOf(x) !== slotOf(id)).concat(id);
+      setCfg({wear: {[c.id]: next}}); curSig = ""; build(); refreshPicker();
+      if (id && next.includes(id) && act) { act.motion("bounce"); spawnFx("sparkle", 2); }
+      return true;
+    }
+    if (a === "comp-tint") {
+      const id = el.dataset.acc, col = el.dataset.color || "";
+      if (!ACC.some(x => x.id === id) || (col && !hexOk(col))) return true;
+      setCfg({tint: {[id]: col.toLowerCase()}}); curSig = ""; build(); refreshPicker();
       return true;
     }
     if (a === "comp-rename") {
@@ -54977,7 +55085,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   let faceSig = "", faceHtml = "";
   function faceFor(){
     if (!aiName()) return "";
-    const sig = cur.id + "|" + wearOf(cur) + "|" + nameOf(cur);
+    const sig = cur.id + "|" + wearOf(cur) + "|" + JSON.stringify(cfg().tint || {}) + "|" + nameOf(cur);
     if (sig !== faceSig) { faceSig = sig; faceHtml = rigSvg(cur, {eyes: "happy", mouth: "smile", wear: wearOf(cur)}).replace(/<g class="cp-zs">[\s\S]*?<\/g>/, ""); }
     return faceHtml;
   }
@@ -55049,7 +55157,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     clamp: why => clamp(why || "api"), safe: () => safeRect(true), bounds: () => { const V = visual(), b = front && front.querySelector(".cp-bubble.on"), r = b && b.getBoundingClientRect(); return {visual: V, safe: safeRect(true), bubble: r ? r.toJSON() : null, hit: box ? box.querySelector(".cp-hit").getBoundingClientRect().toJSON() : null, shrink, fixes: guardFixes, last: guardLast, ext: vext, range: cur ? range(sizePx(cur), true) : null, fab: fabRect(), over: box ? box.dataset.over : "", spot: box ? box.dataset.spot : "", hitOff: box ? box.querySelector(".cp-hit").classList.contains("cp-hit-off") : false}; },
     hit: (x, y) => ours(x, y), refresh: () => { curSig = ""; build(); }, place: fresh => { passCacheReset(); homeSig = ""; place(fresh !== false); },
     motion: n => act && act.motion(n), ACC: ACC.map(a => Object.assign({}, a)), IDLES: Object.keys(IDLES),
-    wearing: () => cur ? wearOf(cur) : "", hours,
+    wearing: () => cur ? wearOf(cur).join("_") : "", hours,
     _actor: (id, el) => BYID[id] ? actor(BYID[id], el, {}) : null,
     // For tests
     settings: () => JSON.parse(JSON.stringify(cfg())), setCfg: patch => { setCfg(patch); curSig = ""; build(); },
@@ -55264,7 +55372,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
         if (m && m.a) { addNoteText(`${m.q}\n\n${m.a.answer}`.slice(0, 8000), "", "green"); el.textContent = "Saved to Notes"; el.disabled = true; }
         return true;
       }
-      case "comp-pick": case "comp-wear": case "comp-rename": case "comp-set":
+      case "comp-pick": case "comp-wear": case "comp-tint": case "comp-rename": case "comp-set":
         if (ui.tab === "companion") setTimeout(() => { if (ui.tab === "companion") render(); }, 60);
         return false;
     }
