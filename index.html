@@ -52862,6 +52862,7 @@ var COMP_KIT = (() => {
   // The authority: measure, compare, move. Returns true when it had to move the companion.
   function clamp(why){
     if (!box || box.hidden || !cur || !front || guardDepth) return false;
+    if (glideAnim && performance.now() < glideEnd) return false;   // still easing into a corrected spot: look again when it lands (see glideBy)
     const S = safeRect(true); if (S.r - S.l < 60 || S.b - S.t < 60) return false;
     let V = visual(); if (!V) return false;
     if ((V.width > S.r - S.l || V.height > S.b - S.t) && shrink > 0.5) {   // bigger than the room there is: a smaller companion, not a missing one
@@ -52874,12 +52875,33 @@ var COMP_KIT = (() => {
     if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) { if (bubbleOut()) { const b = front.querySelector(".cp-bubble.on"); if (b) placeBubble(b); } return false; }
     const z = zf(), x = (parseFloat(box.style.left) || +box.dataset.x || 0) + dx / z, y = (parseFloat(box.style.top) || +box.dataset.y || 0) + dy / z;
     box.style.left = f1(x) + "px"; box.style.top = f1(y) + "px";
+    if (why !== "anim" && why !== "anim-end" && Math.hypot(dx, dy) <= 240) glideBy(-dx / z, -dy / z);   // the move itself is instant; what is drawn eases from where it was (a far-off state is just recovered)
     box.dataset.x = f1(x); box.dataset.y = f1(y); homeSig = [f1(x), f1(y), box.dataset.px].join(",");
     guardFixes++; guardLast = {why, dx: f1(dx), dy: f1(dy), w: innerWidth, h: innerHeight};
     if ((why === "watchdog" || why === "anim") && Math.hypot(dx, dy) >= 3 && guardFixes <= 3) { try { if (window.SBERR) SBERR.flow("companion-bounds", new Error(`companion was off screen (${why}) by ${Math.round(dx)},${Math.round(dy)} at ${innerWidth}x${innerHeight}, ${mood}`)); } catch (e) {} }
     const b = front.querySelector(".cp-bubble.on"); if (b) placeBubble(b);
     fitHitSoon();
     return true;
+  }
+  /* Smooth moves only. The box's left/top/size change at once (everything that measures it needs the real spot), and what is
+     drawn eases from where it was seen to where it now is, with a transform animation. glideBy adds to whatever is already
+     running (a trip, a hop), so a correction never cancels or restarts it. */
+  let glideAnim = null, glideEnd = 0;
+  function glideBy(ox, oy, sc, replace){
+    if (!box || still() || document.hidden || !box.animate) return;
+    const d = Math.hypot(ox, oy), ms = Math.round(Math.max(220, Math.min(520, 200 + d * 1.2)));
+    if (d < 0.5 && (!sc || Math.abs(sc - 1) < 0.01)) return;
+    if (glideAnim) try { glideAnim.cancel(); } catch (e) {}
+    const me = glideAnim = box.animate([{transform: `translate(${f1(ox)}px,${f1(oy)}px)${sc ? ` scale(${f1(sc)})` : ""}`}, {transform: "translate(0px,0px) scale(1)"}], Object.assign({duration: ms, easing: "cubic-bezier(.22,.8,.3,1)"}, replace ? {} : {composite: "add"}));
+    glideEnd = performance.now() + ms; followBubble();
+    const end = () => { if (glideAnim !== me) return; glideAnim = null; glideEnd = 0; try { clamp("glide-end"); } catch (e) {} const b = front && front.querySelector(".cp-bubble.on"); if (b) placeBubble(b); fitHitSoon(); };
+    me.onfinish = me.oncancel = end;
+  }
+  const stopTravel = () => { if (!travelAnim) return; try { travelAnim.cancel(); } catch (e) {} travelAnim = null; if (box) delete box.dataset.travel; };
+  // Where the box is drawn now (its centre, in style pixels), counting a trip or glide in progress
+  function drawnCentre(){
+    const r = box.getBoundingClientRect(), z = zf();
+    return {x: (r.left + r.right) / 2 / z, y: (r.top + r.bottom) / 2 / z};
   }
   const bubbleOut = () => {
     const b = front && front.querySelector(".cp-bubble.on"); if (!b) return false;
@@ -53146,7 +53168,7 @@ var COMP_KIT = (() => {
   }
   function followBubble(){
     cancelAnimationFrame(followRaf);
-    const step = () => { const b = front && front.querySelector(".cp-bubble.on"); if (b) placeBubble(b); if (travelAnim) followRaf = requestAnimationFrame(step); };
+    const step = () => { const b = front && front.querySelector(".cp-bubble.on"); if (b) placeBubble(b); if (travelAnim || glideAnim) followRaf = requestAnimationFrame(step); };
     followRaf = requestAnimationFrame(step);
   }
   // Every keyframe of a trip (arcs, loops, leaps, a dash's overshoot, squash and spin) is shifted so the art, as it is drawn in that
@@ -53224,12 +53246,13 @@ var COMP_KIT = (() => {
       for (let i = 1; i < 4; i++) later(() => spawnFx("sparkle", 1), dur * i / 4);
     }
     fitFrames(frames, to, px);
-    travelAnim = box.animate(frames, {duration: dur, easing});
+    const me = travelAnim = box.animate(frames, {duration: dur, easing});
     box.dataset.travel = style;
     motionWatch(dur);
     busyUntil = Math.max(busyUntil, performance.now() + dur + 200);
     followBubble();
-    travelAnim.onfinish = travelAnim.oncancel = () => {
+    me.onfinish = me.oncancel = () => {
+      if (travelAnim !== me) return;   // replaced by a newer trip: that one owns the state now
       travelAnim = null; delete box.dataset.travel; clamp("anim-end");
       const b = front && front.querySelector(".cp-bubble.on"); if (b) placeBubble(b);
       if (act && mood === "idle" && !still()) { act.mouth("smile"); later(() => act && mood === "idle" && act.mouth("neutral"), 900); const r = box.getBoundingClientRect(); glanceAt(r.left + (dir > 0 ? -220 : r.width + 220), r.top + r.height * 0.4, 900); }
@@ -53254,10 +53277,18 @@ var COMP_KIT = (() => {
       clamp("place"); fitHitSoon();
       return;
     }
-    const from = box.dataset.x ? {left: +box.dataset.x, top: +box.dataset.y} : null;
+    // From where it is drawn right now (a trip or glide may be half way), so a new spot never makes it jump back first
+    const moving = !!(travelAnim || glideAnim), oldPx = +box.dataset.px || s.px;
+    const dc = box.dataset.x && moving ? drawnCentre() : null;
+    const from = box.dataset.x ? (dc ? {left: dc.x - s.px / 2, top: dc.y - s.px / 2} : {left: +box.dataset.x, top: +box.dataset.y}) : null;
+    const was = box.dataset.x ? {x: +box.dataset.x + oldPx / 2, y: +box.dataset.y + oldPx / 2} : null;
     box.style.cssText = `left:${s.left}px;top:${s.top}px;width:${s.px}px;height:${s.px}px`;
     box.dataset.x = s.left; box.dataset.y = s.top; box.dataset.px = s.px; box.dataset.spot = s.kind;
-    if (from && homeSig) travel(from, s, s.px);
+    if (from && homeSig) {
+      if (Math.abs(oldPx - s.px) > 1) { const c = dc || was; stopTravel(); glideBy(c.x - (s.left + s.px / 2), c.y - (s.top + s.px / 2), oldPx / s.px, true); }
+      else if (Math.hypot(from.left - s.left, from.top - s.top) >= 6 && !still() && !document.hidden) travel(from, s, s.px);
+      else if (Math.hypot(from.left - s.left, from.top - s.top) >= 0.5) { stopTravel(); glideBy(from.left - s.left, from.top - s.top, 0, true); }
+    }
     homeSig = sig;
     clamp("place"); fitHitSoon();
     duck();
@@ -53650,12 +53681,16 @@ var COMP_KIT = (() => {
     }
     if (act) act.stopAll();
     const keepMood = cur && cur.id === c.id ? mood : null;
+    // Redrawn (new outfit, name, companion): the new drawing stands exactly where the old one was drawn, so nothing pops or restarts its position
+    let keepAt = null;
+    if (box && box.dataset.x && homeSig) { const o = +box.dataset.px || sizePx(c), dc = travelAnim || glideAnim ? drawnCentre() : {x: +box.dataset.x + o / 2, y: +box.dataset.y + o / 2}; keepAt = {x: dc.x, y: dc.y}; }
     cur = c; curSig = sig; homeSig = "";
     compChanged();
-    if (box) box.remove();
+    if (box) { stopTravel(); if (glideAnim) try { glideAnim.cancel(); } catch (e) {} box.remove(); }
     layer.insertAdjacentHTML("beforeend", `<div class="cp cp-${c.pose}" data-id="${esc(c.id)}"><span class="cp-shadow"></span><div class="cp-move"><div class="cp-breathe">${rigSvg(c, {wear: wearOf(c)})}</div></div><div class="cp-fx"></div><div class="cp-hit" tabindex="0" role="button" aria-label="${esc(nameOf(c))}, your study companion. Press to say hi. Press and hold, or right click, to choose a companion."></div></div>`);
     box = layer.querySelector(".cp"); vext = null;
-    { const px0 = sizePx(c); box.style.cssText = `left:0px;top:0px;width:${px0}px;height:${px0}px`; front.appendChild(box); }   // sized and in the front layer before anything measures it
+    { const px0 = sizePx(c); box.style.cssText = `left:0px;top:0px;width:${px0}px;height:${px0}px`; front.appendChild(box);
+      if (keepAt) { const l = Math.round(keepAt.x - px0 / 2), t = Math.round(keepAt.y - px0 / 2); box.style.left = l + "px"; box.style.top = t + "px"; box.dataset.x = l; box.dataset.y = t; box.dataset.px = px0; homeSig = [l, t, px0].join(","); } }   // sized and in the front layer before anything measures it
     act = actor(c, box, {spawn: spawnFx, watch: motionWatch});
     applyVars();
     place();
