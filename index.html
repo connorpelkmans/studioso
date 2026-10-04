@@ -6144,7 +6144,7 @@ function sbSignInSheet(mode, email, note){
   const pwIn = (lbl, ac) => `<label class="f"><span class="lh">${lbl} ${REQ}</span><input type="password" name="password" required minlength="8" autocomplete="${ac}" ${email && mode !== "reset" ? "autofocus" : ""}></label>`;
   const body = {
     signin: `${first ? `<p style="margin:0">Sign in to keep your tasks, notes and files safe online and in sync on all your devices.</p>` : ""}${emailIn()}${pwIn("Password", "current-password")}`,
-    signup: `<p style="margin:0">Free, and it keeps your planner in sync on your phone, laptop and the web.</p>${emailIn()}${pwIn("Password", "new-password")}<p class="mini" style="margin:0">At least 8 characters.</p>`,
+    signup: `<p style="margin:0">Free, and it keeps your planner in sync on your phone, laptop and the web.</p><label class="f"><span class="lh">Name <span class="hint">Optional. Your study companion uses it to say hi</span></span><input type="text" name="name" maxlength="40" autocomplete="given-name"></label>${emailIn()}${pwIn("Password", "new-password")}<p class="mini" style="margin:0">At least 8 characters.</p>`,
     confirm: `<p style="margin:0">If <b>${esc(email)}</b> can be used for a new account, we sent a code to it. Type it here to finish, or open the link in the email.</p><p class="mini" style="margin:0">Until you confirm your email, Studyboard works on this device only and your planner doesn't sync. Already have an account? Use Back to Sign In.</p>${codeIn}`,
     forgot: `<p style="margin:0">Enter your email and, if an account uses it, we'll send you a code to set a new password.</p>${emailIn()}`,
     reset: `<p style="margin:0">If an account uses <b>${esc(email)}</b>, we sent it a code. Enter the code with your new password.</p>${codeIn}${pwIn("New Password", "new-password")}<p class="mini" id="sbStrength" style="margin:0" aria-live="polite"></p>`
@@ -6190,7 +6190,9 @@ function sbSignInSheet(mode, email, note){
         } else if (mode === "signup") {
           if (pw.length < 8) { say("Use a password of at least 8 characters."); return; }
           say("Creating your account…");
-          const {data, error} = await sb.auth.signUp({email: em, password: pw, options: redirect ? {} : {emailRedirectTo: back}});
+          const nm = String(fd.get("name") || "").replace(/\s+/g, " ").trim().slice(0, 40);
+          if (nm) try { localStorage.setItem("studyboard:comp:uname", nm); } catch(e) {}
+          const {data, error} = await sb.auth.signUp({email: em, password: pw, options: Object.assign(redirect ? {} : {emailRedirectTo: back}, nm ? {data: {first_name: nm.split(" ")[0], full_name: nm}} : {})});
           if (error) throw error;
           // An address that already has an account looks the same as a new one here, so nobody can use this screen to find out who has an account.
           if (data && data.session) { done("Welcome to Studyboard!"); return; }
@@ -53384,9 +53386,45 @@ var COMP_KIT = (() => {
     b.style.left = Math.round(left) + "px"; b.style.top = Math.round(top) + "px";
     b.style.setProperty("--tx", Math.round(Math.max(16, Math.min(w - 16, r.left + r.width / 2 - left))) + "px");
   }
+  /* ---------- Using the student's name ---------- */
+  // The name given at sign-up (kept in the account), else the name used in study groups; first name only. "" when there isn't one.
+  function userName(){
+    const clean = v => String(v || "").replace(/[^\p{L}\p{M}'\- ]/gu, "").trim().split(/\s+/)[0].slice(0, 20);
+    try {
+      const md = (typeof sbUser !== "undefined" && sbUser && sbUser.user_metadata) || {};
+      const n = clean(md.first_name || md.given_name || md.full_name || md.name);
+      if (n) return n;
+      if (typeof sbUser !== "undefined" && sbUser) { const g = clean(localStorage.getItem("sb:grpName:" + sbUser.id)); if (g) return g; }
+      return clean(localStorage.getItem("studyboard:comp:uname"));
+    } catch (e) { return ""; }
+  }
+  // Now and then (about one line in six, never two close together) a short line gets the name before its last mark: "Nice work, Sam!"
+  let nameGap = 3;
+  function withName(text, opts){
+    if (opts.name === false || opts.long || opts.idea || opts.ask || text.length > 70) return text;
+    const n = userName(); if (!n || text.toLowerCase().includes(n.toLowerCase())) return text;
+    if (--nameGap > 0 || Math.random() > 0.3) return text;
+    const m = /^(.*?)([.!?\u2026]+)?$/.exec(text.trim()); if (!m || !m[1]) return text;
+    nameGap = 5;
+    return `${m[1].replace(/[,;:]$/, "")}, ${n}${m[2] || "."}`;
+  }
+  // The first time it's out each local day (or right after signing in), it says hello by name. The day is remembered on this device.
+  const HELLO_KEY = "studyboard:comp:helloDay";
+  function dailyHello(){
+    try {
+      if (!talkOn() || !act || !cur || !box || box.hidden || document.hidden || mood !== "idle") return;
+      const t = todayISO(), n = userName(); if (!n || localStorage.getItem(HELLO_KEY) === t) return;
+      localStorage.setItem(HELLO_KEY, t);
+      const h = new Date().getHours();
+      const pool = h >= 22 || h < 5 ? [`Still up, ${n}? Let's keep it gentle tonight.`, `Hi ${n}. A little night study?`]
+        : h < 11 ? [`Good morning, ${n}!`, `Morning, ${n}! Ready for today?`] : h < 17 ? [`Good afternoon, ${n}!`, `Hi ${n}! Good to see you.`] : [`Good evening, ${n}!`, `Hi ${n}! How was your day?`];
+      say(pick(pool), {again: true, name: false});
+    } catch (e) {}
+  }
   function say(text, opts){
     if (!front || !cur || !box || box.hidden || document.hidden || !text) return;
     opts = opts || {};
+    text = withName(text, opts);
     if (!opts.again && !SPEECH.ok(text)) return;   // never the same line twice in a row, from any path
     SPEECH.note(text, opts.cat || pickedCat[SPEECH.norm(text)]);
     const b = front.querySelector(".cp-bubble");
@@ -53538,7 +53576,7 @@ var COMP_KIT = (() => {
     if ((aiRead().queue || []).length) aiFlush();
   }
   let tickT = 0;
-  const startTick = () => { clearInterval(tickT); tickT = setInterval(() => { if (!document.hidden && act) think(); }, 60000); };
+  const startTick = () => { clearInterval(tickT); tickT = setInterval(() => { if (!document.hidden && act) { dailyHello(); think(); } }, 60000); };
   function wake(){
     if (mood !== "nap" || !act) return;
     setMood("idle"); hold(1600);
@@ -53624,7 +53662,7 @@ var COMP_KIT = (() => {
     const running = typeof pomo !== "undefined" && pomo && pomo.running;
     setMood(keepMood || (running ? (pomo.mode === "focus" ? (c.sleepy ? "doze" : "study") : "break") : "idle"));
     startTick();
-    if (first) { setTimeout(greet, 1500); setTimeout(() => { welcomeBack(); weekCheck(); aiMaybe("open"); }, 6000); }
+    if (first) { setTimeout(greet, 1500); setTimeout(dailyHello, 2600); setTimeout(() => { welcomeBack(); weekCheck(); aiMaybe("open"); }, 6000); }
   }
   function applyVars(){
     if (!layer || !cur) return;
