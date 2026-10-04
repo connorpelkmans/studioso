@@ -324,6 +324,7 @@ Your keys sync to your other devices through your account, and they're left out 
 - prepares the practice test before a practice day, so Practice Quiz is ready to go
 - reads each task's instructions, your next few days on the Schedule, your course standings from the Grade Tracker and recent announcements from Brightspace, Canvas or Blackboard, and lists up to 3 things you could easily miss under **Heads Up** in Today's Plan (an earlier draft or pre-lab deadline, a changed due date, a full lab, placement or work day right before something is due). Dismiss one with ×.
 - rates how demanding tasks look when you haven't set Easy or Hard, so hard ones get more time and start earlier
+- checks whether a new exam or quiz can be **taken from home** (Exam Location Check): it only reads the instructions your school site already gave Studyboard, never guesses without a quote from them, and an exam that isn't known to be take-home is never suggested as Do This Next. Switch it off under Suggestions, Manage; it never uses more than 6 requests a day
 
 It only runs when something changed and a few times a day, and anything it changed is marked with ✦. It's on by default only if your default model is free Gemini. It can run on free Gemini even when your default is a paid model. It will never use a paid model unless you choose that, tick "I understand", and press **Confirm and Turn On**, and it asks again if you switch to a different paid model. If you turned on billing for your Gemini key, even "free" Gemini requests may be billed.
 
@@ -340,7 +341,7 @@ It only runs when something changed and a few times a day, and anything it chang
 - **Late submissions:** from school sync, when each item stops accepting work. Something that still accepts late work is less urgent than something that closes at the due time, and anything that can't be handed in any more stops taking up your time.
 - **Instructions:** word or page counts ("1500 words, APA") make time estimates more realistic, and an earlier step with its own deadline (a draft, an outline, a pre-lab) is pointed out.
 - **Other things it weighs:** your priority, tasks already started or nearly finished, small tasks due within 2 days (quick to clear), hard tasks due within 5 days, started work left alone for 5+ days, a full placement or class day coming up before the due date, tasks other tasks are waiting on, and courses close to their pass mark. After 2 hours on one course in a day, Do This Next leans toward a different course for a change of subject.
-- **Right now:** with a class coming up within the hour, Do This Next suggests something that fits in the gap and sizes the focus session to it. Hard work goes in the morning, short tasks late at night, and exams and quizzes are never Do This Next (their study sessions are).
+- **Right now:** with a class coming up within the hour, Do This Next suggests something that fits in the gap and sizes the focus session to it. Hard work goes in the morning, short tasks late at night, and an exam or quiz is only Do This Next when it can be taken from home (Studyboard works that out from your school site and the instructions, and asks you if it can't tell; you can also set it under Where is this taken? on the exam). In-person exams and quizzes stay on the calendar, and their study sessions are what gets suggested.
 - **Automatic AI** (when it's on) is a second opinion: it can reorder the picks, but it can't bury something due today that you're short of time for, or jump to something due weeks away ahead of work due in the next few days.
 
 **Your study companion does the AI work**
@@ -350,11 +351,12 @@ When you have a study companion out, it's the one handling Studyboard's smart fe
 - **Typed answers graded by meaning**: "K+" counts for "Potassium". You still have "I was right" if you disagree.
 - **Weak Spots**: gathers the cards and questions you keep missing and writes fresh questions on those ideas.
 - **Case studies**: scenarios that unfold step by step with new information before each question.
-- **Exam Study Plan** (open an exam, or Courses → the course): list the topics and how well you know each, set your minutes per day and study days, and get a day-by-day plan with spaced review, a practice test a few days before, a mistakes review and a light final review. Each day becomes a Study task, and finishing them raises how prepared the exam shows.
+- **Exam Prep Planner** (**Plan My Prep** on any exam or quiz: its row, its detail sheet, the Courses page, a prompt on Today when an exam is within 3 weeks, the New exam form, a captured exam, or Search): enter the date, type or paste the topics (or tap **Suggest Topics** to fill them from the course's decks, notes, files and the chapters named in the exam notes), and mark each one Shaky, OK or Strong with an optional weight. It spreads sessions across the days before the exam (learn, reviews a day, three days and six days later, a recap in the last 2 days, a timed practice 3 to 5 days out, a light review the night before), fits them into your free time and away from crunch days, and links each topic to its matching decks, notes, quizzes and files (editable). Each session is a Study task that opens the deck, note or quiz. With very little time you get a crash plan that lists what it dropped. The **Prep plan** view shows the day-by-day agenda, coverage per topic and readiness (shown only once you have a finished session, flashcard progress or a quiz score), with **Catch Up** for missed days and **Re-plan** if the exam moves. It works fully offline; if AI is set up it can word each session's instruction (dates and minutes always stay exact). Older study plans keep working.
 - **Summarize** (open a file in Files): key points, key terms, likely exam questions, with buttons to turn the terms into flashcards or pin the summary as a note.
 - **Photo to Note** (Notes): photos of the whiteboard or slides become typed notes, and dates in them can become tasks.
 - **Ask AI** (a course, or Files with a course open): chat with your course files. Answers cite the file and slide. Every question re-sends the checked files, so check only what you need.
 - **Syllabus import**: reads dates, weights, class times and now work-hour estimates.
+- **Break It Down** (a big paper or project): words the milestones for your assignment text. It never picks dates; those come from your calendar, and it falls back to a template if the answer isn't usable.
 
 Things to know:
 - On Google's free tier, Google may use what you upload to improve its products. Don't upload private information such as personal or sensitive details.
@@ -362,6 +364,10 @@ Things to know:
 - About 13 MB of files can go in one request. Split very large PDFs.
 - AI can get things wrong, so check cards, rationales and summaries against your notes.
 - AI needs an internet connection and doesn't work inside the Claude preview; use the app or your website.
+
+## Big Assignment Breakdown
+
+Open a paper, project, lab report or presentation and tap **Break It Down** (also on the task row, under Courses, or from the menu to paste a prompt or rubric or add a PDF). You get 3 to 8 milestones, scheduled backward from the due date, with the last one a day before it by default. You can edit titles, dates and hours, move a milestone off a heavy day, and create them all at once; one Undo reverses everything. It needs no setup and works offline; if AI Features are on, the steps are worded for your assignment (the dates and hours always come from your calendar). When a syllabus is imported, big assignments have a "Break down into milestones" checkbox. The parent task keeps the real due date and shows "3 of 6 milestones done". If its due date changes later, Studyboard offers to re-plan the open milestones, and an overdue milestone offers a catch-up plan. Nothing to run on the server: milestones are ordinary tasks and sync with everything else.
 
 ## Quick Capture
 
