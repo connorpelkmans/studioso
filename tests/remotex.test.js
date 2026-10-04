@@ -209,7 +209,8 @@ const TB = new Function(block("/*TRASH-START*/", "/*TRASH-END*/") + ";return TB;
 t("export: tasks.csv has a take_home column (yes / no / blank)", () => {
   const f = TB.toCsvFiles({courses: [], tasks: [{id: "1", title: "Mid", type: "Exam", remote: "no"}, {id: "2", title: "Qz", type: "Quiz", remote: "yes"}, {id: "3", title: "HW", type: "Assignment"}, {id: "4", title: "Old", type: "Exam"}, {id: "5", title: "Odd", type: "Assignment", remote: "yes"}], notes: [], decks: [], events: [], files: []}, {tasks: true})["tasks.csv"];
   const rows = f.replace(/^﻿/, "").trim().split("\r\n"), head = rows[0].split(",");
-  assert.strictEqual(head[head.length - 1], "take_home"); assert(rows[1].endsWith(",no") && rows[2].endsWith(",yes") && rows[3].endsWith(",") && rows[4].endsWith(",") && rows[5].endsWith(","), rows.join("\n"));
+  const ti = head.indexOf("take_home"), v = i => rows[i].split(",")[ti];     // columns added later (prep_for_exam, topic) follow take_home
+  assert(ti > 0); assert(v(1) === "no" && v(2) === "yes" && v(3) === "" && v(4) === "" && v(5) === "", rows.join("\n"));
 });
 
 console.log(`remotex.test.js: ${n - fail} of ${n} checks passed`);
