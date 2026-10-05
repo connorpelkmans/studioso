@@ -4,8 +4,8 @@
 
 **Bixby Capsules are discontinued for new developers** (Samsung stopped accepting new capsule development), so there is no supported way to build a "Studyboard capsule". The routes that remain:
 
-## 1. Gemini on Galaxy (same code as Pixel)
-Recent Galaxy phones ship Gemini as the main assistant, and Galaxy AI features use Gemini models. The **AppFunctions** code (`StudyboardAppFunctions.kt`) and the share sheet/shortcuts are the same as on Pixel. Whether Gemini on a given Galaxy can call third-party app functions depends on the One UI / Android version, the Gemini app version and the region: **verify per device**. Test: side-button/"Hey Google" > "Add a task to Studyboard". See README-ANDROID.md section 6.
+## 1. Gemini on Galaxy
+Recent Galaxy phones ship Gemini as the main assistant. The v1 app has **no** AppFunctions integration (removed as experimental; see README-ANDROID.md "Optional later: Gemini AppFunctions"), so Gemini cannot add a task directly. Use "Hey Google, open Studyboard", the share sheet, the shortcuts/tile, or the routines in section 2 onwards.
 
 ## 2. Bixby Voice Quick Commands, and Modes and Routines (deep link)
 * **Bixby Quick Command** (Settings > Advanced features > Bixby Voice > Quick commands, or the Bixby app): phrase **"Add task"** > action **Open app** > Studyboard (or an "Open URL" step with `studyboard://action/quickadd`). Result: the app opens on the quick-add screen; the person then types or dictates the task. Using `studyboard://add?text=` with fixed text only suits a *fixed* task ("Add task: take vitamins"): quick commands cannot pass what you say as a parameter.
@@ -49,7 +49,7 @@ Samsung's share sheet lists Studyboard for text and images exactly as on Pixel (
 
 | Route | Needs the wrapper app? | Expected to work | Notes |
 | --- | --- | --- | --- |
-| Gemini AppFunctions "add a task to Studyboard" | Yes | Maybe (experimental) | Android 16+, Gemini support per device/region: verify |
+| Gemini AppFunctions "add a task to Studyboard" | n/a | No (not in v1) | Optional later: README-ANDROID.md |
 | Bixby Quick Command > Open app / quickadd link | Yes (deep link) or PWA install | Likely | Opens the app; no spoken parameter |
 | Bixby Capsule | n/a | No | Discontinued for new developers |
 | Routines "Open app / link" | Yes | Likely for app, uncertain for custom scheme | verify |

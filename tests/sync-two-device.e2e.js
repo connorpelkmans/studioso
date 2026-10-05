@@ -5,10 +5,9 @@
 // The stand-in server mirrors supabase-lean.sql (server-stamped updated_at, deletions list) and, when MODE=cas, supabase-sync-conflicts.sql
 // (rev, compare-and-set RPCs). The SQL itself was run on PostgreSQL 16 separately; this checks the client's behaviour against that contract.
 const fs = require("fs"), path = require("path"), assert = require("assert"), http = require("http");
-let chromium; try { ({chromium} = require("playwright")); } catch (e) { ({chromium} = require("/opt/node-tools/node_modules/playwright")); }
+const {chromium, executablePath} = require("./pw");
 const INDEX = path.resolve(process.env.INDEX || path.join(__dirname, "..", "index.html"));
 const MODE = process.env.MODE || "cas", OBSERVE = !!process.env.OBSERVE, ONLY = process.env.ONLY ? process.env.ONLY.split(",") : null;
-const EXE = fs.existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined;
 const HOUR = 36e5, DAY = 864e5;
 // The page is served from a tiny local web server (a real origin): localStorage on file:// pages is not reliable across reloads in a headless browser.
 let BASE = "";
@@ -400,7 +399,7 @@ const SC = [
 (async () => {
   await new Promise(r => web.listen(0, "127.0.0.1", r)); BASE = "http://127.0.0.1:" + web.address().port;
   const srv = new Server(MODE === "cas");
-  const browser = await chromium.launch({executablePath: EXE});
+  const browser = await chromium.launch({executablePath});
   let bad = 0, lost = 0;
   for (const [name, fn] of SC) {
     if (ONLY && !ONLY.some(o => name.startsWith(o + " "))) continue;

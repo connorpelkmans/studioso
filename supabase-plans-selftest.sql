@@ -334,7 +334,10 @@ begin
   execute 'reset role'; perform public.sbt_blocked(r, 'a Pro account used backup rows as unlimited storage');
   perform set_config('request.jwt.claims', '', true);
   if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'items' and column_name = 'updated_at') then
+    -- (lean.sql's trigger stamps updated_at with the server clock on every change, so it is paused to age the backup; the rollback undoes this)
+    if exists (select 1 from pg_trigger where tgrelid = 'public.items'::regclass and tgname = 'lean_items_touch') then execute 'alter table public.items disable trigger lean_items_touch'; end if;
     update public.items set updated_at = now() - interval '40 days' where user_id = ua and kind = 'backup';
+    if exists (select 1 from pg_trigger where tgrelid = 'public.items'::regclass and tgname = 'lean_items_touch') then execute 'alter table public.items enable trigger lean_items_touch'; end if;
     perform public.sbt_ok(public.studyboard_prune_backups() = 1, 'backups older than 30 days are removed for Pro');
   end if;
   perform public.studyboard_revoke_pro_uid(ua, 'selftest');
@@ -630,6 +633,27 @@ begin
     end if;
   end;
   end if;
+
+  -- ===== 10. A free trial can't be had twice by deleting the account and signing up again with the same email =====
+  declare tx uuid := gen_random_uuid(); ty uuid := gen_random_uuid(); em text := 'selftest.trial-' || substr(gen_random_uuid()::text, 1, 8) || '@gmail.com';
+  begin
+    update public.studyboard_config set value = 'true'::jsonb where key = 'app_trial';
+    insert into auth.users (id, instance_id, aud, role, email) values (tx, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', em);
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', tx, 'role', 'authenticated')::text, true);
+    perform public.studyboard_start_trial();
+    perform public.sbt_ok(exists (select 1 from public.studyboard_trial_uses where email_hash = public.plans_email_hash(em)), 'starting a trial is not remembered by email hash');
+    perform public.sbt_ok(not exists (select 1 from public.studyboard_trial_uses where email_hash = em or email_hash like '%@%'), 'the trial record holds the email itself');
+    -- the account is deleted (the worker when lean.sql is installed), then made again with the same address written differently
+    if to_regprocedure('public.studyboard_delete_user_data(uuid)') is not null then perform public.studyboard_delete_user_data(tx); end if;
+    delete from public.studyboard_entitlements where user_id = tx;
+    delete from auth.users where id = tx;
+    insert into auth.users (id, instance_id, aud, role, email) values (ty, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', upper(replace(em, '@', '+again@')));
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', ty, 'role', 'authenticated')::text, true);
+    r := 'ok';
+    begin perform public.studyboard_start_trial(); exception when others then r := sqlerrm; end;
+    perform public.sbt_ok(r like 'SB_TRIAL_USED%', 'a second free trial was started by deleting the account and signing up again (got ' || r || ')');
+    perform set_config('request.jwt.claims', '', true);
+  end;
 
   -- ===== Done =====
   select count(*) into n from public.sbt_log;

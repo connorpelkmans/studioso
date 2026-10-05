@@ -426,9 +426,35 @@ end $$;
 
 -- ---------- Free trial started in the app (no card), once per account ----------
 -- Only works when the "app_trial" row is true. Store trials (Stripe, App Store, Google Play) don't need this.
+-- "Once" survives deleting the account and making a new one with the same email: studyboard_trial_uses keeps a SHA-256 of the
+-- tidied email address (lower case, "+anything" dropped, dots ignored for Gmail) and nothing else: no account id, no date of birth,
+-- not the address itself. studyboard_delete_user_data (supabase-lean.sql) leaves it in place, the way the privacy policy keeps
+-- billing bookkeeping. Server only: row level security on, no policies, no grants.
+create table if not exists public.studyboard_trial_uses (
+  email_hash text primary key check (email_hash ~ '^[0-9a-f]{64}$'),
+  used_at timestamptz not null default now()
+);
+alter table public.studyboard_trial_uses enable row level security;
+revoke all on public.studyboard_trial_uses from public, anon, authenticated;
+
+create or replace function public.plans_email_hash(p_email text) returns text
+language sql immutable set search_path = '' as $$
+  select case when x is null or position('@' in x) = 0 then null else encode(sha256(convert_to(
+    case when split_part(x, '@', 2) in ('gmail.com', 'googlemail.com')
+         then replace(split_part(split_part(x, '@', 1), '+', 1), '.', '') || '@gmail.com'
+         else split_part(split_part(x, '@', 1), '+', 1) || '@' || split_part(x, '@', 2) end, 'UTF8')), 'hex') end
+  from (select nullif(lower(btrim(p_email)), '') as x) q
+$$;
+
+-- Trials already used (by an app or store trial) count too.
+insert into public.studyboard_trial_uses (email_hash)
+  select distinct public.plans_email_hash(u.email) from public.studyboard_entitlements e join auth.users u on u.id = e.user_id
+  where e.trial_until is not null and public.plans_email_hash(u.email) is not null
+on conflict (email_hash) do nothing;
+
 create or replace function public.studyboard_start_trial() returns timestamptz
 language plpgsql security definer set search_path = public, pg_temp as $$
-declare me uuid := auth.uid(); days int; until timestamptz;
+declare me uuid := auth.uid(); days int; until timestamptz; eh text;
 begin
   if me is null then raise exception 'SB_AUTH: Sign in first, then try again.'; end if;
   if coalesce((select value from public.studyboard_config where key = 'app_trial'), 'false'::jsonb) <> 'true'::jsonb then
@@ -437,12 +463,17 @@ begin
   if exists (select 1 from public.studyboard_entitlements where user_id = me and trial_until is not null) then
     raise exception 'SB_TRIAL_USED: You''ve already used your free trial.';
   end if;
+  eh := public.plans_email_hash((select u.email from auth.users u where u.id = me));
+  if eh is not null and exists (select 1 from public.studyboard_trial_uses where email_hash = eh) then
+    raise exception 'SB_TRIAL_USED: You''ve already used your free trial.';
+  end if;
   if public.studyboard_is_pro(me) then raise exception 'SB_ALREADY_PRO: You already have Pro.'; end if;
   days := coalesce((select (value ->> 'trialDays')::int from public.studyboard_config where key = 'prices'), 7);
   until := now() + make_interval(days => greatest(days, 1));
   insert into public.studyboard_entitlements as e (user_id, plan, trial_until, source, updated_at)
   values (me, 'free', until, 'promo', now())
   on conflict (user_id) do update set trial_until = until, updated_at = now();
+  if eh is not null then insert into public.studyboard_trial_uses (email_hash) values (eh) on conflict (email_hash) do nothing; end if;
   return until;
 end $$;
 revoke all on function public.studyboard_start_trial() from public, anon;
@@ -764,14 +795,14 @@ begin
   -- The service role (Edge Functions) needs table access; it skips row level security by design.
   if exists (select 1 from pg_roles where rolname = 'service_role') then
     foreach t in array array['studyboard_config', 'studyboard_entitlements', 'studyboard_devices', 'studyboard_usage', 'studyboard_billing_customers',
-                              'studyboard_billing_events', 'studyboard_pro_grants', 'studyboard_plan_rate', 'studyboard_device_removals'] loop
+                              'studyboard_billing_events', 'studyboard_pro_grants', 'studyboard_plan_rate', 'studyboard_device_removals', 'studyboard_trial_uses'] loop
       execute format('grant all on public.%I to service_role', t);
     end loop;
   end if;
   -- None of these tables is sent over Realtime (nobody needs to listen to a plan, a grant or a setting).
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime' and not puballtables) then
     foreach t in array array['studyboard_config', 'studyboard_entitlements', 'studyboard_usage', 'studyboard_billing_customers', 'studyboard_billing_events',
-                              'studyboard_pro_grants', 'studyboard_plan_rate', 'studyboard_device_removals'] loop
+                              'studyboard_pro_grants', 'studyboard_plan_rate', 'studyboard_device_removals', 'studyboard_trial_uses'] loop
       if exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
         execute format('alter publication supabase_realtime drop table public.%I', t);
       end if;

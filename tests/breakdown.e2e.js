@@ -2,7 +2,7 @@
 // Big assignment breakdown: detail-sheet entry, drop-in text flow, syllabus review checkbox, edit/shift/heavy-day/tight banner, create + one Undo, parent progress,
 // complete/delete offers, due-date re-plan offer, LMS-synced parent, offline template fallback, AI path, phone width. Screenshots go to $SHOTS.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
-const {chromium} = require("/opt/node-tools/node_modules/playwright");
+const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, ".."), SHOTS = process.env.SHOTS || path.join(require("os").tmpdir(), "bd-shots");
 fs.mkdirSync(SHOTS, {recursive: true});
 const MIME = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".css": "text/css", ".woff2": "font/woff2", ".svg": "image/svg+xml"};
@@ -28,7 +28,7 @@ const AI_STAGES = {kind: "paper", stages: [
   {title: "Revise, cite and submit on the course site", steps: ["Check the citation style"], weight: 1.5}]};
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
-  const browser = await chromium.launch({executablePath: "/opt/pw-browsers/chromium"});
+  const browser = await chromium.launch({executablePath});
   const mkCtx = async (opts = {}) => {
     const ctx = await browser.newContext({viewport: {width: opts.w || 1280, height: opts.h || 900}});
     await ctx.addInitScript(([seed, ai]) => {

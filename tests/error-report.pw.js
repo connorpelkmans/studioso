@@ -1,8 +1,7 @@
 // Browser tests for crash/error reporting with a mock Sentry endpoint (no network). Run: node tests/error-report.pw.js
-// Needs Playwright + Chromium (PLAYWRIGHT_MODULE / CHROMIUM_PATH override the defaults used in this repo's CI image).
+// Needs Playwright + Chromium (see tests/pw.js for how Playwright and Chromium are found).
 const fs = require("fs"), os = require("os"), path = require("path"), assert = require("assert");
-const {chromium} = require(process.env.PLAYWRIGHT_MODULE || "/opt/node-tools/node_modules/playwright");
-const exe = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium";
+const {chromium, executablePath} = require("./pw");
 const src = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 const DSN = "https://0123456789abcdef0123456789abcdef@o4501.ingest.sentry.io/4507001";
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sb-err-"));
@@ -48,7 +47,7 @@ const parseEnv = body => { const l = body.split("\n"); return {head: JSON.parse(
 const noPII = (blob, why) => PII.forEach(x => ok(!blob.includes(x), `${why}: payload leaks ${x}`));
 
 (async () => {
-  const browser = await chromium.launch({executablePath: exe, args: ["--no-sandbox"]});
+  const browser = await chromium.launch({executablePath, args: ["--no-sandbox"]});
   try {
     // 1. An injected error is sent to the Sentry envelope endpoint, scrubbed, and the page shows no CSP violations.
     {

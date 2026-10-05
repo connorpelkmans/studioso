@@ -5,7 +5,7 @@ This folder holds everything needed to wrap the Studyboard web build in a native
 | File here | Use |
 | --- | --- |
 | `capacitor.config.json` | Capacitor settings: app id `com.studioso.app`, bundled web files (no remote `server.url`), navigation allow-list, no cleartext, no native HTTP/cookie plugins. |
-| `native-bridge.js` | Small native glue loaded before the page: Keychain session storage, safe external links, deep links, push registration. |
+| `native-bridge.js` | Small native glue loaded before the page (shared with Android): Keychain session storage, `StudyboardSecrets` for AI keys, safe external links, deep links, native push registration, RevenueCat purchases. |
 | `native/` | **Quick capture (UNTESTED Swift sources):** App Intents for Siri/Shortcuts, Share Extension, Capacitor plugins `StudyboardCaptureToken` and `StudyboardSharedQueue`. See `native/capture.md` and `../VOICE-CAPTURE-NATIVE.md`. |
 | `Info.plist.additions.plist` | Keys to merge into `ios/App/App/Info.plist` (encryption flag, usage strings, push background mode, URL scheme). |
 | `App.entitlements.template.plist` | Push and associated-domains entitlements. |
@@ -87,7 +87,7 @@ Then in Xcode: run on a device, test with the checklist, **Product > Archive**, 
 ## 5. Tokens and secrets: Keychain, not localStorage
 
 * The **Supabase session** (access and refresh tokens) must not sit in the web view's `localStorage`, which is a plain file inside the app container. `native-bridge.js` sets `window.StudyboardAuthStorage`; `index.html` hands that to supabase-js (`authStorage()`), so the tokens live in the iOS Keychain (`capacitor-secure-storage-plugin` stores with `kSecAttrAccessibleAfterFirstUnlock` by default; if you want them unreadable while the phone is locked after a restart choose the stricter accessibility option in the plugin's settings). An older copy found in localStorage is moved into the Keychain on first start.
-* **AI keys** (the person's own Gemini/Claude/OpenAI key) are always device-only: never in the settings that sync to the account, never in backups, wiped at sign-out. On iOS they sit in `localStorage` unless you extend `native-bridge.js` the same way as the session (copy the `StudyboardAuthStorage` pattern for the `studyboard:aiKeys` key). Doing this is recommended before submission; the review does not require it.
+* **AI keys** (the person's own Gemini/Claude/OpenAI key) are always device-only: never in the settings that sync to the account, never in backups, wiped at sign-out. In the wrappers `native-bridge.js` exposes `window.StudyboardSecrets` (same API as the desktop app's `secrets`: `available()`, `get(name)`, `set(name, value)`, `remove(name)`; Keychain via `capacitor-secure-storage-plugin`, keys prefixed `studyboard.secret.`), and `index.html` uses `DESK.secrets || window.StudyboardSecrets`, so the keys are no longer in `localStorage` when the plugin is installed.
 * The **capture token** (Quick Capture, for Siri and the share extension) lives in a shared Keychain group, set through `window.StudyboardNative.saveCaptureToken(token, supabaseUrl)` and removed with `clearCaptureToken()`; see `native/capture.md`.
 * Never ship secrets in the bundle: only the Supabase **publishable** key (`sb_publishable_...`) belongs in the app. No service-role key, no RevenueCat secret key (only the public SDK key), no Stripe keys, no AI keys.
 
@@ -97,6 +97,24 @@ Then in Xcode: run on a device, test with the checklist, **Product > Archive**, 
 2. Put `applinks:YOUR-DOMAIN.example` in the Associated Domains capability.
 3. `native-bridge.js` accepts only `?deck=`, `?group=`, `?task=` (codes of letters, digits, `.:-`) and `studyboard://action/<name>`; everything else in a link is ignored.
 4. Add the domain to `server.allowNavigation` in `capacitor.config.json` only if the app must navigate to it inside the web view (it normally does not: links open in the in-app browser).
+
+## 6b. Push reminders (APNs)
+
+Web Push does not exist inside WKWebView, so the app uses native push through `@capacitor/push-notifications`:
+
+1. Xcode > App target > Signing & Capabilities: add **Push Notifications** (gives `aps-environment`, see `App.entitlements.template.plist`) and **Background Modes > Remote notifications** (`UIBackgroundModes` in `Info.plist.additions.plist`).
+2. Add the two methods the plugin needs to `ios/App/App/AppDelegate.swift`:
+   ```swift
+   func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+       NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
+   }
+   func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+       NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+   }
+   ```
+3. Apple Developer > Keys: create an **APNs Auth Key** (.p8). Note the Key ID and your Team ID. Give the .p8, Key ID, Team ID and bundle id `com.studioso.app` to the server as secrets (never ship them in the app). Debug builds get sandbox tokens (`api.sandbox.push.apple.com`), TestFlight/App Store builds production tokens (`api.push.apple.com`).
+4. The page calls `window.StudyboardNative.enablePush()` from the reminders switch; it resolves `{platform: "ios", kind: "apns", token}` (hex device token) or `null`. `StudyboardNative.pushAvailable` tells the page whether to offer it. Call `enablePush({prompt: false})` on every start to pick up a changed token. The server sends through APNs directly (or through FCM only if you add the Firebase iOS SDK, which this setup does not).
+5. A tap on a notification whose data carries `taskId` / `rid` opens `?sbtask=&sbrid=` (the same parameters as the web push click).
 
 ## 7. Purchases (guideline 3.1.1, 3.1.3)
 
@@ -129,7 +147,7 @@ window.dispatchEvent(new CustomEvent("studyboard:purchase-result", {detail: {act
 
 What the page does with the answer: it shows progress ("Restoring your purchases…" and a disabled Restore button), then "Purchases restored. Pro is on.", "Nothing to restore…", "Restore cancelled." or the error text. After a success it re-reads the plan from the server (up to 5 tries, 2 s apart, because RevenueCat tells the server through its webhook first). **A result never turns Pro on by itself**: Pro only appears when the signed entitlement from the server says so. Unanswered restores time out after 60 s and fall back to one plan refresh.
 
-`native-bridge.js` section 6 is a minimal working example of the native side with `@revenuecat/purchases-capacitor` (set `RC_KEY`, an offering with monthly and annual packages, and an entitlement named `pro`). Restore Purchases is reachable from: the Pro sheet, Settings (the "Restore Purchases" row under Studyboard Pro), and every paywall prompt (they all open the Pro sheet).
+`native-bridge.js` section 6 is a minimal working example of the native side with `@revenuecat/purchases-capacitor` (set `RC_KEYS.ios` to the `appl_...` public key and `RC_KEYS.android` to the `goog_...` key, an offering with monthly and annual packages, and an entitlement named `pro`). The key is picked by `Capacitor.getPlatform()`. **`window.StudyboardNative.purchasesAvailable`** is `false` when the plugin is missing or the key for this platform is still a placeholder: then the bridge does not claim `plan-checkout` / `plan-restore` (the page shows "isn't available in this build"), and the page should hide the Buy buttons. Manage opens RevenueCat's `managementURL`, else the App Store / Google Play subscriptions page. Restore Purchases is reachable from: the Pro sheet, Settings (the "Restore Purchases" row under Studyboard Pro), and every paywall prompt (they all open the Pro sheet).
 
 * Reader-app style links to an outside payment page are only allowed under Apple's external-purchase entitlement rules for your storefront; leave them out unless you apply for that entitlement.
 
@@ -145,7 +163,7 @@ What the page does with the answer: it shows progress ("Restoring your purchases
 - [ ] Web files come from `prepare.js` (libraries and fonts bundled; the page makes no request to a CDN or Google Fonts).
 - [ ] Certificate pinning is **not** used (Supabase rotates certificates; pinning would lock people out). Standard iOS TLS validation applies.
 - [ ] Jailbreak detection, screenshot blocking and similar are not needed and not added.
-- [ ] Push token is sent only to your own backend (Supabase) after sign-in; reminders contain the task title, so consider "Show Previews" behaviour in your privacy text.
+- [ ] Push token (APNs, `enablePush()`) is sent only to your own backend (Supabase) after sign-in; reminders contain the task title, so consider "Show Previews" behaviour in your privacy text.
 - [ ] Apple Sign-In: not required (email and password only; see the checklist).
 - [ ] Review the plugin list: `npm ls --prod` should show only the plugins above; run `npm audit --omit=dev`.
 
@@ -159,6 +177,6 @@ What the page does with the answer: it shows progress ("Restoring your purchases
 
 ## 9. Known differences from the web app on iOS
 
-* There is no service worker inside the app (WKWebView only allows them for "app-bound domains"); the bundled files make the app work offline anyway. Reminders come from APNs instead of web push.
+* There is no service worker inside the app (WKWebView only allows them for "app-bound domains"); the bundled files make the app work offline anyway. Reminders come from APNs instead of web push (section 6b).
 * `navigator.clipboard`, file pickers and downloads behave like Safari; "Save backup" uses the share sheet or the Filesystem plugin.
 * The desktop-only features (tray, global shortcuts, the data folder in Documents) do not exist on iOS; the web code hides them when `window.studiosoDesktop` is missing.

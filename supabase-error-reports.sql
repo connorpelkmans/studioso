@@ -6,7 +6,7 @@
 --  * client_errors: one row per report. Reports hold no personal content (the app scrubs them before sending and the function checks them again).
 --  * Row Level Security is ON and there are NO policies: the app (anon / signed-in users) can neither read nor write this table.
 --    Only the error-ingest function (service role) inserts, and only you can read (Table Editor, SQL Editor or the summary view below).
---  * client_errors_allow(): the function's rate limit (per anonymous id, per network address hash, and overall).
+--  * client_errors_allow(): the function's rate limit (per anonymous id, per network address hash, 500 an hour overall, 20000 rows at most).
 --  * 30-day retention: a daily clean-up with pg_cron when it is available (Database > Extensions > pg_cron).
 
 create table if not exists public.client_errors (
@@ -50,8 +50,11 @@ create index if not exists client_errors_ip_idx on public.client_errors (ip_hash
 alter table public.client_errors enable row level security;
 revoke all on public.client_errors from anon, authenticated;
 
--- Rate limit used by the function: true when there is room for one more report from this id / address, and overall.
-create or replace function public.client_errors_allow(p_anon text, p_ip text, p_anon_max int default 30, p_ip_max int default 60, p_all_max int default 2000)
+-- Rate limit used by the function: true when there is room for one more report from this id / address, overall this hour,
+-- and in the table as a whole (a ceiling on stored rows, so a slow flood can't fill the database; the 30-day clean-up makes room again).
+drop function if exists public.client_errors_allow(text, text, int, int, int);
+create or replace function public.client_errors_allow(p_anon text, p_ip text, p_anon_max int default 30, p_ip_max int default 60, p_all_max int default 500,
+  p_total_max int default 20000)
 returns boolean language plpgsql security definer set search_path = public as $$
 declare a int; i int; t int;
 begin
@@ -60,10 +63,12 @@ begin
   select count(*) into i from public.client_errors where p_ip is not null and ip_hash = p_ip and created_at > now() - interval '1 hour';
   if i >= p_ip_max then return false; end if;
   select count(*) into t from public.client_errors where created_at > now() - interval '1 hour';
-  return t < p_all_max;
+  if t >= p_all_max then return false; end if;
+  select count(*) into t from (select 1 from public.client_errors limit greatest(p_total_max, 0)) x;   -- stops counting at the ceiling
+  return t < p_total_max;
 end $$;
-revoke all on function public.client_errors_allow(text, text, int, int, int) from public, anon, authenticated;
-grant execute on function public.client_errors_allow(text, text, int, int, int) to service_role;
+revoke all on function public.client_errors_allow(text, text, int, int, int, int) from public, anon, authenticated;
+grant execute on function public.client_errors_allow(text, text, int, int, int, int) to service_role;
 
 -- For you: what is breaking, most frequent first (last 7 days). Not reachable from the app.
 create or replace view public.client_errors_summary with (security_invoker = true) as

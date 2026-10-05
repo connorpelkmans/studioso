@@ -1,0 +1,53 @@
+# Studyboard: Supabase CLI settings for the Edge Functions.
+# The function code lives in ../supabase-functions/<name>/index.ts (not supabase/functions/), so each function names its
+# entrypoint here. "verify_jwt" is the dashboard's "Verify JWT" switch; it must match what each function's header says.
+#
+# Deploy from the repository root (Supabase CLI 2.x, logged in with `supabase login`), one function at a time:
+#   supabase functions deploy calendar-feed --project-ref <your-project-ref>
+# SETUP-GUIDE.md ("Edge Functions") lists the command for every function, with --no-verify-jwt where it belongs, so the
+# switch is right even with an older CLI that ignores "entrypoint" or this file.
+# Only the [functions.*] sections are used; nothing here changes your database or your project's other settings.
+
+project_id = "studyboard"
+
+# Signed-in callers only (the gateway checks the sign-in before the function runs)
+[functions.lms-feed]
+verify_jwt = true
+entrypoint = "../supabase-functions/lms-feed/index.ts"
+
+[functions.delete-account]
+verify_jwt = true
+entrypoint = "../supabase-functions/delete-account/index.ts"
+
+[functions.create-checkout]
+verify_jwt = true
+entrypoint = "../supabase-functions/create-checkout/index.ts"
+
+[functions.create-portal-session]
+verify_jwt = true
+entrypoint = "../supabase-functions/create-portal-session/index.ts"
+
+[functions.entitlement-token]
+verify_jwt = true
+entrypoint = "../supabase-functions/entitlement-token/index.ts"
+
+# Callers that can't sign in; each of these checks its own secret or token instead
+[functions.calendar-feed]        # calendar apps; the private token in the link
+verify_jwt = false
+entrypoint = "../supabase-functions/calendar-feed/index.ts"
+
+[functions.billing-webhook]      # Stripe signature / RevenueCat Authorization header
+verify_jwt = false
+entrypoint = "../supabase-functions/billing-webhook/index.ts"
+
+[functions.send-reminders]       # the schedule secret from Vault, or the reminder's own code
+verify_jwt = false
+entrypoint = "../supabase-functions/send-reminders/index.ts"
+
+[functions.capture-task]         # the person's capture token
+verify_jwt = false
+entrypoint = "../supabase-functions/capture-task/index.ts"
+
+[functions.error-ingest]         # anonymous crash reports, rate limited
+verify_jwt = false
+entrypoint = "../supabase-functions/error-ingest/index.ts"

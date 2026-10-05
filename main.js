@@ -170,7 +170,10 @@ ipcMain.on("crash:set", (e, on) => {
 });
 // "Keep Running in the Background" is on unless it was turned off. It needs the tray icon, so there's a way back in.
 const bgOn = () => cfg.background !== false && !!tray;
-const dataRoot = () => cfg.dataDir || path.join(app.getPath("documents"), "Studyboard");
+// dataDirLost: the chosen folder couldn't be reached at start (a removed drive, or a Mac App Store bookmark that no longer opens). Studyboard then
+// saves to the default folder for this session only (the choice is kept, so the next start tries it again) and says so.
+let dataDirLost = false;
+const dataRoot = () => (!dataDirLost && cfg.dataDir) || path.join(app.getPath("documents"), "Studyboard");
 // Documents\Studioso becomes Documents\Studyboard (renamed in place; copied if it can't be renamed).
 function migrateDataFolder() {
   if (cfg.dataDir) return;
@@ -191,21 +194,25 @@ function resolveRel(rel) {
   const p = path.resolve(root, rel.replace(/\\/g, "/"));
   if (p !== root && !p.startsWith(root + path.sep)) throw new Error("Path outside the Studyboard folder");
   // A shortcut (symlink) inside the folder must not lead out of it either: the closest part that exists has to stay inside.
-  try {
-    let q = p; while (q.length > root.length && !fs.existsSync(q)) q = path.dirname(q);
-    const realRoot = fs.realpathSync.native(root), realQ = fs.realpathSync.native(q);
-    if (realQ !== realRoot && !realQ.startsWith(realRoot + path.sep)) throw new Error("Path outside the Studyboard folder");
-  } catch (e) { if (/outside/.test(String(e && e.message))) throw e; }
+  // "Exists" counts the link itself (lstat), so a broken shortcut is refused instead of being skipped over like a missing file.
+  let realRoot; try { realRoot = fs.realpathSync.native(root); } catch (e) { return p; }      // folder not made yet: nothing inside it to follow
+  const there = f => { try { fs.lstatSync(f); return true; } catch (e) { return false; } };
+  let q = p; while (q.length > root.length && !there(q)) q = path.dirname(q);
+  let realQ; try { realQ = fs.realpathSync.native(q); } catch (e) { throw new Error("Path outside the Studyboard folder (broken shortcut)"); }
+  if (realQ !== realRoot && !realQ.startsWith(realRoot + path.sep)) throw new Error("Path outside the Studyboard folder");
   return p;
 }
+const insideRoot = async dir => { const r = await fsp.realpath(dataRoot()), d = await fsp.realpath(dir); return d === r || d.startsWith(r + path.sep); };
 // Files Studyboard will open with the computer's default app. Anything else (programs, scripts, shortcuts) is only shown in its folder,
 // so a page can never make the computer run something it wrote.
 const OPENABLE = new Set(["pdf", "txt", "md", "rtf", "csv", "tsv", "json", "ics", "png", "jpg", "jpeg", "gif", "webp", "heic", "heif", "bmp", "tif", "tiff",
   "doc", "docx", "ppt", "pptx", "xls", "xlsx", "odt", "ods", "odp", "pages", "numbers", "key", "mp3", "m4a", "wav", "aac", "flac", "ogg", "mp4", "mov", "m4v", "webm", "mkv", "zip"]);
+// The program check comes before the folder check: a Mac app, workflow or installer is a folder ("bundle") on disk, and opening it runs it.
 async function openSafely(p) {
   let st; try { st = await fsp.stat(p); } catch (e) { return "Not found"; }
-  if (st.isDirectory()) return shell.openPath(p);
+  if (MAC_BUNDLE.test(p)) { shell.showItemInFolder(p); return "blocked: programs and scripts are not opened from here"; }   // shown in Finder, never opened
   if (RISKY_EXT.test(p)) return "blocked: programs and scripts are not opened from here";      // never, not even shown
+  if (st.isDirectory()) return shell.openPath(p);
   const ext = path.extname(p).slice(1).toLowerCase();
   if (OPENABLE.has(ext)) return shell.openPath(p);
   shell.showItemInFolder(p); return "";
@@ -323,7 +330,9 @@ function sendAction(action, arg, stayHidden) {
 function openTask(id) { showMain(); toPage("desk:open-task", String(id).slice(0, 200)); }
 
 // Files saved in the Studyboard folder can be opened by the system, but programs and scripts never are.
-const RISKY_EXT = /\.(exe|msi|bat|cmd|com|scr|pif|lnk|url|ps1|psm1|vbs|vbe|js|jse|jar|wsf|wsh|hta|cpl|reg|dll|sh|command|app|appimage|desktop|workflow|action|scpt|terminal|inf|msc|gadget|chm|docm|xlsm|pptm)$/i;
+const RISKY_EXT = /\.(exe|msi|bat|cmd|com|scr|pif|lnk|url|ps1|psm1|vbs|vbe|js|jse|jar|wsf|wsh|hta|cpl|reg|dll|sh|command|tool|appimage|desktop|scpt|terminal|inf|msc|gadget|chm|docm|xlsm|pptm|webloc|inetloc|fileloc)$/i;
+// macOS bundles and installers (folders or files that run or install something when opened). Only ever shown in Finder.
+const MAC_BUNDLE = /\.(app|workflow|action|prefpane|bundle|framework|kext|pkg|mpkg|dmg|scptd|service|saver|qlgenerator|mdimporter|plugin|appex|xpc)[\\/]*$/i;
 
 // ---------- Small checks for anything that comes from a page ----------
 const str = (v, max) => typeof v === "string" ? v.slice(0, max) : "";
@@ -649,23 +658,64 @@ ipcMain.handle("shot:now", e => { if (!fromMain(e)) return false; setTimeout(() 
 // ---------- Folder access for the page ----------
 ipcMain.handle("dir:get", e => fromMain(e) ? dataRoot() : null);
 ipcMain.handle("dir:open", async (e, rel) => { if (!fromMain(e)) return "denied"; await ensureRoot(); return openSafely(resolveRel(rel || "")); });
-ipcMain.handle("dir:choose", async e => {
-  if (!fromMain(e)) return null;
+ipcMain.handle("dir:choose", async e => fromMain(e) ? chooseDataDir() : null);
+// {path, chosen, inContainer, lost}: inContainer is true in the Mac App Store build while the data is still in the app's hidden container folder,
+// so the page can offer "Choose Folder".
+ipcMain.handle("dir:info", e => fromMain(e) ? { path: dataRoot(), chosen: !!cfg.dataDir && !dataDirLost, inContainer: IS_MAS && (!cfg.dataDir || dataDirLost), lost: dataDirLost } : null);
+let choosing = null;
+function chooseDataDir() {
+  if (!choosing) choosing = pickDataDir().finally(() => { choosing = null; });
+  return choosing;
+}
+async function pickDataDir() {
   // In the Mac App Store build the chosen folder is remembered with a security-scoped bookmark, or access would end at the next launch.
-  const r = await dialog.showOpenDialog(win, { title: "Choose where Studyboard keeps your things", defaultPath: dataRoot(), properties: ["openDirectory", "createDirectory"], buttonLabel: "Use This Folder", securityScopedBookmarks: IS_MAS });
+  const r = await dialog.showOpenDialog(win && !win.isDestroyed() ? win : undefined, { title: "Choose where Studyboard keeps your things", defaultPath: dataRoot(), properties: ["openDirectory", "createDirectory"], buttonLabel: "Use This Folder", securityScopedBookmarks: IS_MAS });
   if (r.canceled || !r.filePaths[0]) return null;
-  if (IS_MAS && r.bookmarks && r.bookmarks[0]) { cfg.dataDirBookmark = r.bookmarks[0]; startBookmarkAccess(); }
+  const bookmark = IS_MAS && r.bookmarks && r.bookmarks[0] ? r.bookmarks[0] : null;
+  let stopNew = null;
+  if (bookmark) { try { stopNew = app.startAccessingSecurityScopedResource(bookmark); } catch (e) { stopNew = null; } }
+  // The old folder's access stays open until everything has been copied out of it; only then is it swapped for the new one.
+  const adopt = () => {
+    if (!bookmark) return;
+    const prev = stopBookmark; stopBookmark = stopNew; cfg.dataDirBookmark = bookmark;
+    try { if (prev) prev(); } catch (e) {}
+  };
   let target = r.filePaths[0];
   if (!/^(studyboard|studioso)$/i.test(path.basename(target))) target = path.join(target, "Studyboard");
   const old = dataRoot();
-  if (path.resolve(target) === path.resolve(old)) return target;
-  await fsp.mkdir(target, { recursive: true });
-  // Bring everything along (nothing is deleted from the old folder).
-  try { await fsp.cp(old, target, { recursive: true, force: false, errorOnExist: false }); } catch (e) {}
-  cfg.dataDir = target; writeCfg(cfg); await ensureRoot();
+  try {
+    if (path.resolve(target) !== path.resolve(old)) {
+      await fsp.mkdir(target, { recursive: true });
+      // Bring everything along (nothing is deleted from the old folder).
+      try { await fsp.cp(old, target, { recursive: true, force: false, errorOnExist: false }); } catch (e) {}
+    }
+  } catch (e) { try { if (stopNew) stopNew(); } catch (x) {} throw e; }
+  adopt();
+  cfg.dataDir = target; dataDirLost = false; writeCfg(cfg); await ensureRoot();
   return target;
-});
-const MAX_WRITE = 1536 * 1024 * 1024;           // one file per call; far above anything Studyboard writes in one piece
+}
+// Mac App Store build: the sandbox's Documents folder is a hidden one inside the app's container (~/Library/Containers/...), which is hard to find
+// in Finder and isn't the folder people expect. The first time the window is shown with no folder chosen, Studyboard offers the same Choose Folder
+// flow as Settings. It never holds up starting (the data is safe in the container meanwhile), and the answer is remembered, so it asks once
+// (again only if a chosen folder can't be reached).
+function masFolderPrompt() {
+  if (!IS_MAS || (!dataDirLost && (cfg.dataDir || cfg.masFolderAsked))) return;
+  const w = win; if (!w || w.isDestroyed()) return;
+  const ask = () => setTimeout(async () => {
+    if (!w || w.isDestroyed() || choosing) return;
+    const r = await dialog.showMessageBox(w, { type: "info", buttons: ["Choose Folder\u2026", "Keep It Inside the App"], defaultId: 0, cancelId: 1,
+      message: dataDirLost ? "Studyboard can't reach its folder" : "Where should Studyboard keep your things?",
+      detail: (dataDirLost ? `${cfg.dataDir} couldn't be opened, so Studyboard is saving to its own app folder for now. ` : "Studyboard keeps your data, daily backups and files in a folder on this Mac. Right now that is inside the app's own storage, which Finder doesn't show. ") +
+        "Choose a folder (for example in Documents or iCloud Drive) to keep them where you can see them. You can change this any time in Settings." }).catch(() => ({ response: 1 }));
+    cfg.masFolderAsked = true; writeCfg(cfg);
+    if (r.response === 0) { const p = await chooseDataDir().catch(() => null); if (p) showNote({ title: "Studyboard Folder Changed", body: `Studyboard now keeps your things in ${p}.` }); }
+  }, 1200);
+  if (w.isVisible()) ask(); else w.once("show", ask);
+}
+// One file per call. The largest things the page writes are the full backup (studyboard-latest.json and the daily copies; synced data is
+// capped at 250 MB even on Pro) and single files (50 MB each on desktop), so 512 MiB leaves room while stopping a runaway page from filling the disk
+// (and the main process's memory: the whole buffer crosses IPC at once).
+const MAX_WRITE = 512 * 1024 * 1024;
 ipcMain.handle("fs:mkdir", async (e, rel) => { if (!fromMain(e)) return false; await fsp.mkdir(resolveRel(rel), { recursive: true }); return true; });
 ipcMain.handle("fs:exists", async (e, rel) => { if (!fromMain(e)) return false; try { await fsp.access(resolveRel(rel)); return true; } catch (err) { return false; } });
 ipcMain.handle("fs:write", async (e, rel, data) => {
@@ -674,10 +724,22 @@ ipcMain.handle("fs:write", async (e, rel, data) => {
   if (typeof data !== "string" && !isBin) throw new Error("Bad data");
   if ((typeof data === "string" ? Buffer.byteLength(data) : data.byteLength) > MAX_WRITE) throw new Error("File too large");
   const p = resolveRel(rel);
+  if (p === path.resolve(dataRoot())) throw new Error("Bad path");
   await fsp.mkdir(path.dirname(p), { recursive: true });
-  const tmp = p + ".partial";
-  await fsp.writeFile(tmp, typeof data === "string" ? data : Buffer.from(data instanceof ArrayBuffer ? new Uint8Array(data) : data));
-  await fsp.rename(tmp, p);                      // never leaves a half-written file behind
+  // Checked again now the folders exist: the real folder must be inside the Studyboard folder, and neither the file nor its
+  // temporary copy may be a shortcut (symlink), which would make the write land wherever it points.
+  const dir = await fsp.realpath(path.dirname(p));
+  if (!(await insideRoot(dir))) throw new Error("Path outside the Studyboard folder");
+  const target = path.join(dir, path.basename(p)), tmp = target + ".partial";
+  const st = await fsp.lstat(target).catch(() => null);
+  if (st && !st.isFile()) throw new Error("Not a plain file");
+  const tst = await fsp.lstat(tmp).catch(() => null);
+  if (tst) { if (tst.isDirectory()) throw new Error("Not a plain file"); await fsp.unlink(tmp); }   // left over from an interrupted write, or a shortcut: removed, never followed
+  const fh = await fsp.open(tmp, "wx");          // O_EXCL: fails instead of following anything that appears there in the meantime
+  try {
+    try { await fh.writeFile(typeof data === "string" ? data : Buffer.from(data instanceof ArrayBuffer ? new Uint8Array(data) : data)); } finally { await fh.close(); }
+    await fsp.rename(tmp, target);               // never leaves a half-written file behind
+  } catch (err) { await fsp.unlink(tmp).catch(() => {}); throw err; }
   return true;
 });
 ipcMain.handle("fs:read", async (e, rel) => { if (!fromMain(e)) return null; try { return new Uint8Array(await fsp.readFile(resolveRel(rel))); } catch (err) { return null; } });
@@ -711,6 +773,8 @@ const SECRET_FILE = "studyboard-secrets.json";
 const secretsOn = () => { try { return safeStorage.isEncryptionAvailable() && !(process.platform === "linux" && safeStorage.getSelectedStorageBackend && safeStorage.getSelectedStorageBackend() === "basic_text"); } catch (e) { return false; } };
 const readSecrets = () => { const o = readJson(SECRET_FILE, {}); return o && typeof o === "object" && !Array.isArray(o) ? o : {}; };
 ipcMain.handle("secret:available", e => fromMain(e) && secretsOn());
+// The plain value goes back to the page that stored it: the point is that it is never on disk unencrypted, not that the page can't read it
+// (the page needs the key to call the AI provider). Only the top frame of Studyboard's own window can ask (fromMain), and the page's CSP limits scripts.
 ipcMain.handle("secret:get", (e, name) => {
   if (!fromMain(e) || typeof name !== "string" || !SECRET_NAME.test(name) || !secretsOn()) return null;
   const b = readSecrets()[name]; if (typeof b !== "string") return null;
@@ -729,11 +793,11 @@ ipcMain.handle("secret:remove", (e, name) => {
 
 // Mac App Store: a folder the person picked outside the app's own container is only reachable while its bookmark is open.
 let stopBookmark = null;
+// Used once at start; choosing a new folder swaps the access itself (pickDataDir), after copying out of the old one.
 function startBookmarkAccess() {
   if (!IS_MAS || !cfg.dataDirBookmark) return;
   try { if (stopBookmark) stopBookmark(); } catch (e) {}
   try { stopBookmark = app.startAccessingSecurityScopedResource(cfg.dataDirBookmark); } catch (e) { stopBookmark = null; }
-  writeCfg(cfg);
 }
 
 // ---------- Locking down every window and session ----------
@@ -757,7 +821,8 @@ function lockSession(ses) {
   try { ses.setDisplayMediaRequestHandler((req, cb) => cb({})); } catch (e) {}
   // No plain-text network traffic at all (the same promise as Apple's App Transport Security).
   ses.webRequest.onBeforeRequest({ urls: ["http://*/*", "ws://*/*", "ftp://*/*"] }, (d, cb) => cb({ cancel: true }));
-  // Defence in depth for the CSP (the app:// handler already sets it on each response).
+  // Defence in depth for the CSP: the app:// handler already sets it on HTML responses, and this replaces any CSP header on every app:// response
+  // as well (webRequest does see protocol.handle responses for the privileged app:// scheme; checked with Electron 44). file:// is never loaded.
   ses.webRequest.onHeadersReceived({ urls: ["app://*/*", "file://*/*"] }, (d, cb) => {
     const h = Object.assign({}, d.responseHeaders);
     for (const k of Object.keys(h)) if (/^content-security-policy$/i.test(k)) delete h[k];
@@ -792,7 +857,12 @@ if (GOT_LOCK) app.whenReady().then(async () => {
   lockSession(session.defaultSession);
   migrateDataFolder();
   writeCfg(cfg);
-  await ensureRoot();
+  try { await ensureRoot(); }
+  catch (e) {
+    if (!cfg.dataDir) throw e;
+    dataDirLost = true;                         // the chosen folder is gone or locked: keep starting, with the default folder for now
+    try { await ensureRoot(); } catch (x) {}
+  }
   protocol.handle("app", async req => {
     try {
       if (req.method !== "GET" && req.method !== "HEAD") return new Response("Method not allowed", { status: 405 });
@@ -826,6 +896,8 @@ if (GOT_LOCK) app.whenReady().then(async () => {
   widgetData = readJson(WIDGET_FILE, null);
   if (remindersPaused()) pauseTimer = setTimeout(resumeReminders, cfg.pauseUntil - Date.now()); else if (cfg.pauseUntil) resumeReminders();
   createWindow(openedAtLogin() && bgOn());
+  if (dataDirLost && !IS_MAS) win.once("show", () => showNote({ title: "Studyboard Folder Not Found", body: `${cfg.dataDir} couldn't be opened, so Studyboard is saving to ${dataRoot()} for now. Reconnect the drive and restart, or choose a folder in Settings.` }));
+  masFolderPrompt();
   if (widgetState().show) createWidget();
   checkReminders();
   const startLink = pendingDeepLink || process.argv.find(a => typeof a === "string" && a.startsWith(DEEP_SCHEME + "://"));

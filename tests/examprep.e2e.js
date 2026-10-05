@@ -3,11 +3,10 @@
 // one Undo, the agenda, opening a deck session in study mode, marking done (coverage and readiness change), missed days (fake clock) -> catch up, a new exam date -> re-plan,
 // no AI -> offline plan, AI wording, no material -> the generator offer, and that every old entry point lands in the same flow with nothing duplicated.
 const path = require("path"), fs = require("fs"), assert = require("assert"), os = require("os");
-const {chromium} = require(process.env.PW_MODULE || "/opt/node-tools/node_modules/playwright");
+const {chromium, executablePath} = require("./pw");
 const FILE = "file://" + path.join(__dirname, "..", "index.html");
 const OUT = process.argv[2] || fs.mkdtempSync(path.join(os.tmpdir(), "sbprep-"));
 fs.mkdirSync(OUT, {recursive: true});
-const exe = fs.existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined;
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const NOW = new Date(2026, 9, 4, 10, 0, 0);          // Sunday Oct 4 2026, 10:00
@@ -55,7 +54,7 @@ const noHScroll = page => page.evaluate(() => document.documentElement.scrollWid
 const dlgScroll = page => page.evaluate(() => { const d = document.querySelector("#dlg"); return d ? d.scrollWidth <= d.clientWidth + 1 : true; });
 
 (async () => {
-  const browser = await chromium.launch({executablePath: exe});
+  const browser = await chromium.launch({executablePath});
   try {
     for (const [W, H] of process.env.ONLY ? [] : [[1280, 800], [390, 844]]) {
       const tag = W + "w";

@@ -1,20 +1,32 @@
-// UNTESTED: written without Android Studio. Lines to MERGE into the Capacitor Android project. Versions marked VERIFY must be checked against the
-// current releases (I had no network access to a Maven index while writing this).
-
-// ---- android/build.gradle (project level): plugins ----
-//   id "org.jetbrains.kotlin.android" version "VERIFY"  apply false      // Capacitor's template is Java; Kotlin is needed for these sources
-//   id "com.google.devtools.ksp" version "VERIFY-matching-kotlin"  apply false   // only for AppFunctions (the androidx.appfunctions compiler uses KSP)
-
+// Lines to MERGE into the Capacitor 8 Android project that `npx cap add android` generates (Groovy DSL, as Capacitor generates it).
+// Versions checked on 2026-10-05 against Maven Central and the Capacitor 8.5.2 android template (variables.gradle). Re-check before a release.
+//
+// ---- android/variables.gradle (Capacitor already generates these values; keep them, they are the Play requirement) ----
+//   minSdkVersion = 24        // Capacitor 8 minimum (Capacitor 7 was 23). Every API used in capture/ is guarded or available at 24.
+//   compileSdkVersion = 36
+//   targetSdkVersion = 36     // Google Play: new apps and updates must target API 35 since 31 Aug 2025; 36 = Android 16, Capacitor 8's default.
+//
+// ---- android/build.gradle (project level): buildscript { dependencies { ... } } ----
+//   classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.20'   // Capacitor's template is Java; Kotlin is needed for capture/*.kt.
+//                                                                  // 2.2.20 = the version @revenuecat/purchases-capacitor 13.x pins, so both agree.
+//   (com.google.gms:google-services:4.4.4 is already in Capacitor 8's template; it is applied automatically once app/google-services.json exists.)
+//
 // ---- android/app/build.gradle ----
-// plugins { id "org.jetbrains.kotlin.android"; id "com.google.devtools.ksp" }   // ksp only with AppFunctions
-// android { compileSdk 36 /* VERIFY: AppFunctions needs a recent compileSdk */ ; defaultConfig { minSdk 24 }
-//           kotlinOptions { jvmTarget = "17" } }
+// apply plugin: 'org.jetbrains.kotlin.android'        // right after apply plugin: 'com.android.application'
+// android {
+//     compileSdk = rootProject.ext.compileSdkVersion   // 36
+//     defaultConfig {
+//         minSdkVersion rootProject.ext.minSdkVersion  // 24
+//         targetSdkVersion rootProject.ext.targetSdkVersion   // 36: make sure nothing overrides this lower
+//     }
+//     compileOptions { sourceCompatibility JavaVersion.VERSION_21; targetCompatibility JavaVersion.VERSION_21 }
+// }
+// kotlin { compilerOptions { jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21 } }   // match compileOptions (Capacitor 8 uses Java 21);
+//                                                                                              // the old android { kotlinOptions {} } block is deprecated in Kotlin 2.2
 dependencies {
-    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1"   // VERIFY latest 1.x
-
-    // --- AppFunctions (EXPERIMENTAL: verify artifact names, versions and that they are not still alpha-only) ---
-    implementation "androidx.appfunctions:appfunctions:VERIFY_VERSION"
-    implementation "androidx.appfunctions:appfunctions-service:VERIFY_VERSION"
-    ksp "androidx.appfunctions:appfunctions-compiler:VERIFY_VERSION"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2"   // ShareReceiverActivity, CaptureClient (1.11.x also fine with Kotlin 2.2)
+    implementation "androidx.exifinterface:exifinterface:1.3.7"                // EXIF orientation of shared photos (1.4.x is newer and also fine)
 }
-// ksp { arg("appfunctions:aggregateAppFunctions", "true") }   // VERIFY: the current docs list KSP arguments for the compiler; copy them from there
+// No AppFunctions / KSP lines for v1 (see README-ANDROID.md, "Optional later: Gemini AppFunctions").
+// Push and purchases need no lines here: @capacitor/push-notifications (firebase-messaging 25.x) and @revenuecat/purchases-capacitor bring their
+// own Gradle modules through `npx cap sync android`.

@@ -13,7 +13,7 @@
 | `StudyboardPlugins.swift` | App | Capacitor plugins `StudyboardCaptureToken` (`save`, `clear`) and `StudyboardSharedQueue` (`drain`, `ack`). |
 | `MainViewController.swift` | App | Registers the two plugins (Capacitor 6/7 style, verify for your version). |
 | `ShareExtension/ShareViewController.swift` | ShareExtension | The share sheet entry. |
-| `ShareExtension/Info.plist.snippet.plist`, `ShareExtension.entitlements`, `PrivacyInfo.xcprivacy` | ShareExtension | Extension configuration. |
+| `ShareExtension/Info.plist.snippet.plist`, `ShareExtension.entitlements`, `PrivacyInfo.xcprivacy` | ShareExtension | Extension configuration (the Info.plist needs `SBKeychainAccessGroup`, not only `NSExtension`). |
 | `../native-bridge.js` | web | `saveCaptureToken`, `clearCaptureToken`, shared-queue drain on start and `appStateChange`, deep-link forwarding to `SBCAPTURE.handleUrl`. |
 
 ## 2. Wiring it into the Xcode project (once, on a Mac)
@@ -21,7 +21,7 @@
 1. `npx cap add ios`, then merge `Info.plist.additions.plist` and the entitlements as README-IOS.md says.
 2. **App target > Signing & Capabilities**: add **App Groups** with `group.com.studioso.app` and **Keychain Sharing** with `com.studioso.app.shared` (Xcode stores it as `$(AppIdentifierPrefix)com.studioso.app.shared`). Compare with `../App.entitlements.template.plist`. If your bundle id differs, change `SBCaptureConfig.appGroupID`, `keychainService`, and the Info.plist `SBKeychainAccessGroup` value.
 3. Drag `SBCapture.swift`, `AddTaskIntent.swift`, `OpenCaptureIntent.swift`, `StudyboardShortcuts.swift`, `StudyboardPlugins.swift`, `MainViewController.swift` into the **App** group (target membership: App). In `Main.storyboard` set the view controller's class to `MainViewController` (Module `App`).
-4. **File > New > Target > Share Extension**, name `StudyboardShare`, bundle id `com.studioso.app.share`, embed in App. Replace its `ShareViewController.swift` with `ShareExtension/ShareViewController.swift`, delete the generated storyboard, replace the `NSExtension` block with `ShareExtension/Info.plist.snippet.plist`, set its entitlements to `ShareExtension.entitlements` (same App Group + Keychain group), add `PrivacyInfo.xcprivacy`, and tick the extension target for `SBCapture.swift`. Deployment target iOS 16+ for both.
+4. **File > New > Target > Share Extension**, name `StudyboardShare`, bundle id `com.studioso.app.share`, embed in App. Replace its `ShareViewController.swift` with `ShareExtension/ShareViewController.swift`, delete the generated storyboard, merge **every top-level key** of `ShareExtension/Info.plist.snippet.plist` into the extension's Info.plist (the `NSExtension` block replaces the generated one, and **`SBKeychainAccessGroup` must be added too**: without it the extension looks in a different Keychain group, cannot see the token, and every share silently ends up queued as "not configured"; check the built `StudyboardShare.appex/Info.plist`), set its entitlements to `ShareExtension.entitlements` (same App Group + Keychain group), add `PrivacyInfo.xcprivacy`, and tick the extension target for `SBCapture.swift`. Deployment target iOS 16+ for both.
 5. `npm i` the plugins in README-IOS.md section 2, copy `native-bridge.js` as usual, `npx cap sync ios`.
 6. **The token handoff (cap-server's Settings UI must do this).** When the person creates (or regenerates) a capture token, and on every app start while one exists, call:
 
@@ -33,6 +33,8 @@
 7. **The queue handoff (cap-core).** `native-bridge.js` calls `window.SBCAPTURE.ingest(item)` for every queued item (`{id, kind:"task", text, due, course, source, createdAt, image?}` where `image` is a `data:image/jpeg;base64,...` URL) and acks it unless `ingest` returns `false` or rejects. Route items (`kind:"route"`) call `SBCAPTURE.handleUrl(url)` if younger than 2 minutes. If cap-core's `ingest` has a different signature, adapt `drainSharedQueue` in the bridge (one place).
 
 ## 3. Decisions and deviations from the brief (read these)
+
+* **Queue files are decoded tolerantly.** `PendingCapture` has a hand-written `init(from:)` (every key optional, defaults otherwise) and `pendingItems()` takes the id from the file name, so an older or hand-written queue file is delivered and acked instead of being skipped forever.
 
 * **Keychain group.** A Keychain access group is `<TeamID>.<name>`; I used `$(AppIdentifierPrefix)com.studioso.app.shared` and a build-time Info.plist key instead of the literal `group.<bundle>`. (App Group ids can reportedly also act as access groups; I could not confirm it, so I used the plain, documented form.) There is **no App Group UserDefaults fallback**: it would put the token in a plain file. If Keychain Sharing is not set up the intent saves the task to the queue and says so.
 * **Accessibility `AfterFirstUnlockThisDeviceOnly`** so Siri works with the phone locked after the first unlock since boot; the item never leaves the device (no backup, no iCloud). Whether Siri may run the intent while locked depends on iOS (`authenticationPolicy`, iOS 17+: verify) and the person's Siri settings.

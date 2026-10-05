@@ -4,11 +4,10 @@
 // uploaded syllabus and reviewed, edited, checked off, coverage, flashcards per objective, objectives as Exam Prep topics, and
 // SBSEARCH.retrieve (the retrieval the companion now shares with Search Everywhere's Ask With AI) finding text inside a file and a note.
 const path = require("path"), fs = require("fs"), assert = require("assert"), os = require("os");
-const {chromium} = require(process.env.PW_MODULE || "/opt/node-tools/node_modules/playwright");
+const {chromium, executablePath} = require("./pw");
 const FILE = "file://" + path.join(__dirname, "..", "index.html");
 const OUT = process.argv[2] || fs.mkdtempSync(path.join(os.tmpdir(), "sbqadd-"));
 fs.mkdirSync(OUT, {recursive: true});
-const exe = fs.existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined;
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 const NOW = new Date(2026, 9, 4, 10, 0, 0);
 const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -61,7 +60,7 @@ const noHScroll = page => page.evaluate(() => document.documentElement.scrollWid
 const pick = (page, list) => page.setInputFiles("#qaIn", list.map(([name, text]) => ({name, mimeType: "text/plain", buffer: Buffer.from(text)})));
 
 (async () => {
-  const browser = await chromium.launch({executablePath: exe});
+  const browser = await chromium.launch({executablePath});
   try {
     for (const [W, H] of [[1280, 800], [390, 844]]) {
       const tag = W + "w";

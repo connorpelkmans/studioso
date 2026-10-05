@@ -7,6 +7,8 @@
 --   * checks payment/grant bookkeeping was anonymized (no user id, no email) rather than left linked,
 --   * plays an attacker: B tries to delete C, to call the worker function for C, to delete auth.users directly, and an
 --     anonymous visitor tries to delete anything. Every attempt must FAIL.
+--   * checks the in-app fallback refuses (and deletes nothing) for D, whose last sign-in is old (re-authentication needed),
+--     and for E, who has a running Stripe card subscription that only the Edge Function can cancel.
 -- Failure shows as   ERROR: DELETE TEST FAILED: <what>   Success shows   ALL n ACCOUNT-DELETION CHECKS PASSED.
 -- Everything runs in one transaction that ends in ROLLBACK, so nothing real is touched. If you stop half way, run: rollback;
 
@@ -28,15 +30,22 @@ begin execute 'select count(*) from (' || q || ') s' into n; return n; end $f$;
 grant execute on function public.sbd_ok(boolean, text), public.sbd_try(text), public.sbd_n(text) to public;
 
 -- accounts and data (as the database owner)
-insert into auth.users (id, email) values
-  ('aaaaaaaa-0000-4000-8000-00000000000a', 'a-delete-test@example.com'),
-  ('bbbbbbbb-0000-4000-8000-00000000000b', 'b-delete-test@example.com'),
-  ('cccccccc-0000-4000-8000-00000000000c', 'c-delete-test@example.com');
+insert into auth.users (id, email, last_sign_in_at) values
+  ('aaaaaaaa-0000-4000-8000-00000000000a', 'a-delete-test@example.com', now()),
+  ('bbbbbbbb-0000-4000-8000-00000000000b', 'b-delete-test@example.com', now()),
+  ('cccccccc-0000-4000-8000-00000000000c', 'c-delete-test@example.com', now()),
+  ('dddddddd-0000-4000-8000-00000000000d', 'd-delete-test@example.com', now() - interval '2 hours'),
+  ('eeeeeeee-0000-4000-8000-00000000000e', 'e-delete-test@example.com', now());
 insert into public.items (user_id, kind, id, data) values
   ('aaaaaaaa-0000-4000-8000-00000000000a', 'task', 't1', '{"t":"a"}'), ('bbbbbbbb-0000-4000-8000-00000000000b', 'task', 't1', '{"t":"b"}'),
   ('cccccccc-0000-4000-8000-00000000000c', 'task', 't1', '{"t":"c"}');
-insert into public.studyboard_entitlements (user_id, plan) values
-  ('aaaaaaaa-0000-4000-8000-00000000000a', 'pro'), ('bbbbbbbb-0000-4000-8000-00000000000b', 'pro');
+insert into public.studyboard_entitlements (user_id, plan, trial_until) values
+  ('aaaaaaaa-0000-4000-8000-00000000000a', 'pro', now() - interval '20 days'), ('bbbbbbbb-0000-4000-8000-00000000000b', 'pro', null);
+insert into public.studyboard_entitlements (user_id, plan, source, external_id, pro_until, will_renew) values
+  ('eeeeeeee-0000-4000-8000-00000000000e', 'pro', 'stripe', 'cus_deltest', now() + interval '20 days', true);
+insert into public.studyboard_billing_customers (user_id, stripe_customer_id) values ('eeeeeeee-0000-4000-8000-00000000000e', 'cus_deltest');
+insert into public.items (user_id, kind, id, data) values
+  ('dddddddd-0000-4000-8000-00000000000d', 'task', 't1', '{"t":"d"}'), ('eeeeeeee-0000-4000-8000-00000000000e', 'task', 't1', '{"t":"e"}');
 insert into public.studyboard_devices (user_id, device_id) values
   ('aaaaaaaa-0000-4000-8000-00000000000a', 'device-aaaaaaaa'), ('bbbbbbbb-0000-4000-8000-00000000000b', 'device-bbbbbbbb');
 insert into public.studyboard_pro_grants (user_id, email, action, reason) values
@@ -53,7 +62,7 @@ insert into public.calendar_feeds (token, user_id) values ('tok-a-delete-test-01
 insert into public.reminder_queue (user_id, id, fire_at) values
   ('aaaaaaaa-0000-4000-8000-00000000000a', 'r1', now()), ('bbbbbbbb-0000-4000-8000-00000000000b', 'r1', now());
 insert into public.push_subscriptions (user_id, endpoint, p256dh, auth) values
-  ('aaaaaaaa-0000-4000-8000-00000000000a', 'https://push.example/a', 'k', 'k'), ('bbbbbbbb-0000-4000-8000-00000000000b', 'https://push.example/b', 'k', 'k');
+  ('aaaaaaaa-0000-4000-8000-00000000000a', 'https://fcm.googleapis.com/fcm/send/a', 'k', 'k'), ('bbbbbbbb-0000-4000-8000-00000000000b', 'https://fcm.googleapis.com/fcm/send/b', 'k', 'k');
 -- group 1: A owns, B and A are members (ownership must go to B). group 2: A owns alone (must be deleted). group 3: C owns, A is a member.
 insert into public.study_groups (id, name, owner_id, invite_code) values
   ('11111111-1111-4111-8111-111111111111', 'G1', 'aaaaaaaa-0000-4000-8000-00000000000a', 'DEL-TST1'),
@@ -96,6 +105,20 @@ reset role;
 select public.sbd_ok(public.sbd_n($$select 1 from auth.users where id in ('aaaaaaaa-0000-4000-8000-00000000000a','bbbbbbbb-0000-4000-8000-00000000000b','cccccccc-0000-4000-8000-00000000000c')$$) = 3, 'nobody was deleted by the attacks');
 select public.sbd_ok(public.sbd_n($$select 1 from public.items where user_id = 'cccccccc-0000-4000-8000-00000000000c'$$) = 1, 'C''s data survived the attacks');
 
+-- ---------- the in-app fallback refuses without a recent sign-in, and with a running card subscription ----------
+set role authenticated;
+select set_config('request.jwt.claim.sub', 'dddddddd-0000-4000-8000-00000000000d', true);
+select public.sbd_ok(public.studyboard_delete_my_account_check() = 'SB_REAUTH', 'the check reports that D must sign in again');
+select public.sbd_ok(public.sbd_try($$select public.studyboard_delete_my_account()$$) like 'err:%', 'D (last sign-in 2 hours ago) can NOT delete the account without signing in again');
+select set_config('request.jwt.claim.sub', 'eeeeeeee-0000-4000-8000-00000000000e', true);
+select public.sbd_ok(public.studyboard_delete_my_account_check() = 'SB_CARD_SUBSCRIPTION', 'the check reports E''s running card subscription');
+select public.sbd_ok(public.sbd_try($$select public.studyboard_delete_my_account()$$) like 'err:%', 'E (running Stripe subscription) can NOT use the fallback that cannot cancel it');
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-4000-8000-00000000000a', true);
+select public.sbd_ok(public.studyboard_delete_my_account_check() is null, 'the check allows A (recent sign-in, no card subscription)');
+reset role;
+select public.sbd_ok(public.sbd_n($$select 1 from auth.users where id in ('dddddddd-0000-4000-8000-00000000000d','eeeeeeee-0000-4000-8000-00000000000e')$$) = 2, 'D and E still have accounts');
+select public.sbd_ok(public.sbd_n($$select 1 from public.items where user_id in ('dddddddd-0000-4000-8000-00000000000d','eeeeeeee-0000-4000-8000-00000000000e')$$) = 2, 'D''s and E''s data was not touched by the refused deletes');
+
 -- ---------- A deletes their own account (twice: it must be safe to repeat) ----------
 set role authenticated;
 select set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-4000-8000-00000000000a', true);
@@ -130,6 +153,7 @@ select public.sbd_ok(public.sbd_n($$select 1 from public.studyboard_pro_grants w
 select public.sbd_ok(public.sbd_n($$select 1 from public.studyboard_pro_grants where user_id is null and email is null and reason is null$$) >= 1, 'A''s grant record is kept, anonymized (no user, email or reason)');
 select public.sbd_ok(public.sbd_n($$select 1 from public.studyboard_billing_events where event_id = 'evt_a' and user_id is null$$) = 1, 'A''s billing event is kept but no longer linked to A');
 select public.sbd_ok(public.sbd_n($$select 1 from public.group_reports where reported_user_id is null and reporter_id = 'bbbbbbbb-0000-4000-8000-00000000000b'$$) = 1, 'the report about A stays (safety) with no link to A');
+select public.sbd_ok(public.sbd_n($$select 1 from public.studyboard_trial_uses where email_hash = public.plans_email_hash('a-delete-test@example.com')$$) = 1, 'A''s used trial is remembered as an email hash only (no second trial after re-signing up)');
 -- others untouched
 select public.sbd_ok(public.sbd_n($$select 1 from public.items where user_id = 'bbbbbbbb-0000-4000-8000-00000000000b'$$) = 1, 'B''s items are untouched');
 select public.sbd_ok(public.sbd_n($$select 1 from public.items where user_id = 'cccccccc-0000-4000-8000-00000000000c'$$) = 1, 'C''s items are untouched');

@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- UNTESTED: written without Xcode. Info.plist of the "StudyboardShare" Share Extension target (Xcode: File > New > Target > Share Extension, then replace
-     the generated NSExtension block with this one and delete the generated storyboard + the NSExtensionMainStoryboard key).
+<!-- UNTESTED: written without Xcode. Info.plist of the "StudyboardShare" Share Extension target (Xcode: File > New > Target > Share Extension).
+     MERGE EVERY TOP-LEVEL KEY BELOW into the extension's Info.plist, not only NSExtension: replace the generated NSExtension block with this one,
+     delete the generated storyboard + the NSExtensionMainStoryboard key, AND add SBKeychainAccessGroup. Without SBKeychainAccessGroup the extension
+     reads the capture token from a different Keychain group than the app wrote it to, and every share ends in "not configured" / the queue.
+     Check after building: the built StudyboardShare.appex/Info.plist must show SBKeychainAccessGroup = <TEAMID>.com.studioso.app.shared.
      The activation rule is a DICTIONARY (a TRUEPREDICATE string is rejected in review). Text, one web URL and one image; nothing else. -->
 <plist version="1.0">
 <dict>
@@ -9,7 +12,8 @@
   <string>Add to Studyboard</string>
   <key>ITSAppUsesNonExemptEncryption</key>
   <false/>
-  <!-- Same value as the App target: Xcode expands $(AppIdentifierPrefix) at build time. Must match the Keychain Sharing group. -->
+  <!-- REQUIRED. Same value as the App target (Info.plist.additions.plist): Xcode expands $(AppIdentifierPrefix) at build time. Must match the
+       keychain-access-groups entry in ShareExtension.entitlements and in the App's entitlements. -->
   <key>SBKeychainAccessGroup</key>
   <string>$(AppIdentifierPrefix)com.studioso.app.shared</string>
   <key>NSExtension</key>

@@ -33,7 +33,7 @@ Added: all file/dir IPC handlers now require the main window as sender; `fs:writ
 - `bug_reports`: insert-only for clients, server stamps `user_id`, size limits, 5/hour per device or account and 200/hour overall.
 - Billing webhook (`index (1).ts`): Stripe HMAC with timestamp tolerance and constant-time compare, RevenueCat bearer compare, "Verify JWT" off as documented.
 - Service worker only caches same-origin GET files and CDN libraries; Supabase/API calls always go to the network.
-- pdf.js is called with `isEvalSupported: false` (defence in depth for CVE-2024-4367, which is fixed in 4.2.67+; the app now ships pdf.js 5.7.284 from `vendor/pdfjs/`, with XFA, wasm and scripting off).
+- pdf.js is called with `isEvalSupported: false` (defence in depth for CVE-2024-4367, which is fixed in 4.2.67+; the app now ships pdf.js 6.4.299 from `vendor/pdfjs/`, with XFA, wasm and scripting off).
 - Secret scan of the whole tree and the last 8 commits: only the Supabase **publishable** key and URL (`SB_DEFAULT` in `index.html`) are committed, which is by design. No service-role key, `sk-`, `AIza`, `whsec_`, private keys, passwords or personal emails found.
 - Diagnostics in bug reports: version, browser, page, plan, signed-in flag, scrubbed error messages. No task or note content.
 - Data goes to AI providers only when a key is saved (opt-in) and the user triggers an AI feature or enables "Automatic AI".

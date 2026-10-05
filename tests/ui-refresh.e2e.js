@@ -1,9 +1,8 @@
 // UI refresh: timeline icons, Board tabs on desktop, Crunch and Today's Plan decluttering, settings sub-tabs, area of study,
 // note boards, Grades tab in Courses, and the Companion tab (chat answered by a stubbed Gemini).  Run: node tests/ui-refresh.e2e.js
 const path = require("path"), assert = require("assert");
-const {chromium} = require(process.env.PW_MODULE || "/opt/node-tools/node_modules/playwright");
+const {chromium, executablePath} = require("./pw");
 const FILE = "file://" + path.join(__dirname, "..", "index.html");
-const exe = require("fs").existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined;
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 const NOW = new Date(2026, 9, 4, 10, 0, 0);
 const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -21,7 +20,7 @@ const tab = (p, t) => p.evaluate(t => { const b = document.querySelector(`[data-
 const act = (p, a, i) => p.evaluate(([a, i]) => { const b = document.createElement("button"); b.dataset.act = a; if (i) b.dataset.id = i; b.style.display = "none"; document.body.appendChild(b); b.click(); b.remove(); }, [a, i]).then(() => p.waitForTimeout(350));
 const stored = p => p.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")));
 (async () => {
-  const browser = await chromium.launch({executablePath: exe});
+  const browser = await chromium.launch({executablePath});
   try {
     for (const W of [1280, 390]) {
       console.log("== " + W);

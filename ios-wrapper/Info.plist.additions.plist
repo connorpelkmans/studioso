@@ -18,8 +18,10 @@
   <key>NSCameraUsageDescription</key>
   <string>Studyboard uses the camera only when you choose Take Photo to add a picture of notes, a board or a page to a note or flashcard.</string>
 
-  <!-- Notifications need no usage string. Push needs the Push Notifications capability (Signing &amp; Capabilities) and, for background
-       delivery, the remote-notification background mode below. -->
+  <!-- Push reminders are real in the wrapper: native-bridge.js StudyboardNative.enablePush() registers with APNs through @capacitor/push-notifications
+       (README-IOS.md "Push"). Notifications need no usage string. Needs the Push Notifications capability (aps-environment in
+       App.entitlements.template.plist) and this background mode (lets iOS wake the app for content-available pushes; plain alert pushes work without
+       it, but keep it so a future silent "sync now" push works). Remove BOTH this and aps-environment if you ship without push. -->
   <key>UIBackgroundModes</key>
   <array>
     <string>remote-notification</string>
@@ -43,6 +45,8 @@
   </array>
 
   <!-- Quick capture (UNTESTED): Keychain group shared with the Share Extension and App Intents (Xcode expands $(AppIdentifierPrefix)). See native/SBCapture.swift.
+       The Share Extension's own Info.plist needs the SAME key and value (native/ShareExtension/Info.plist.snippet.plist), or the extension cannot
+       find the capture token and silently queues every share as "not configured".
        No NSSiriUsageDescription: that key is only for the old SiriKit intents extension; App Intents / App Shortcuts need no usage string. -->
   <key>SBKeychainAccessGroup</key>
   <string>$(AppIdentifierPrefix)com.studioso.app.shared</string>
