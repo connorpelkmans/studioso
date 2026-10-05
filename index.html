@@ -2598,6 +2598,7 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:au
 .gr-work li{display:flex;align-items:center;gap:10px;border-top:1px solid var(--line);padding:6px 0}
 .gr-work li:first-child{border-top:0}
 .gp{display:grid;gap:14px;margin-top:4px}
+.gp>.view-head{margin-top:0}
 .gp-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .gp-head h2{margin:0;font:700 1.25rem var(--display)}
 .gp-sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
@@ -11451,7 +11452,7 @@ function viewCourses(){
         ${ts.length ? `<div class="prog" style="--c:${esc(c.color)}"><span class="track"><i style="width:${(doneN / ts.length * 100).toFixed(0)}%"></i></span>${doneN}/${ts.length} complete${nFiles ? `, ${nFiles} file${nFiles === 1 ? "" : "s"}` : ""}</div>` : ""}
       </span></button>${lmsCourseBtn(c)}</div>`;
   }).join("");
-  return `<div style="display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap"><h2 class="sec" style="margin:0;flex:1"><span class="t">Your Courses</span><span class="n">${cs.length}</span></h2>${imp}${trashBtn("course")}<button class="btn small" data-act="new-course">Add Course</button></div><div class="course-list">${cards}</div>
+  return `<div class="view-head"><h2>Your Courses<span class="n" style="font:500 .85rem var(--body);color:var(--muted);margin-left:8px">${cs.length}</span></h2></div><div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;justify-content:flex-end">${imp}${trashBtn("course")}<button class="btn small" data-act="new-course">Add Course</button></div><div class="course-list">${cards}</div>
     <div class="term-bar"><span>${ARCHIVE_SM}Term over? Put its courses and tasks away, and bring anything back later.</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${(n => n ? ` (${n})` : "")(allCourses().filter(c => c.archived).length)}</button></div>`;
 }
 function viewCourseDetail(c){
@@ -38241,7 +38242,7 @@ hook("boot", boot);
         <button class="icon-btn" data-act="g-course-set" data-id="${esc(c.id)}" aria-label="Grade settings for ${esc(c.name)}" title="Grade Settings"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button></li>`;
     }).join("");
     const wait = waiting.length ? `<h3 class="fsec">Waiting for a Mark</h3><ul class="gs-wait">${waiting.slice(0, 12).map(t => { const c = courseOf(t.courseId); return `<li style="--c:${esc(colorOf(t.courseId))}"><span class="gs-name">${esc(t.title)}<span class="mini">${c ? esc(courseLabel(c)) + ", " : ""}worth ${esc(fmtW(Number(t.weight)))}</span></span><button class="btn small" data-act="g-mark" data-id="${esc(t.id)}">Add Mark</button></li>`; }).join("")}</ul>` : "";
-    return `<section class="gp" aria-label="Grades"><div class="gp-head"><h2>Grades</h2><span class="mini">Your marks so far, and what you need on the rest.</span></div>
+    return `<section class="gp" aria-label="Grades"><div class="view-head"><h2>Grades<span class="mini" style="font-weight:400;margin-left:10px">Your marks so far, and what you need on the rest.</span></h2></div>
       ${sum}<ul class="gp-list">${cards}</ul>${wait}
       <details class="gp-opts"${ui.gpOpts ? " open" : ""}><summary>Grade Options</summary><div class="menu-list">
         <div class="cap-row"><label for="gPassIn" style="flex:1;font-weight:600">Default Pass Mark<span class="sub">For courses where you haven't set one. Check each course outline.</span></label><input type="number" id="gPassIn" min="0" max="100" step="0.5" value="${esc(r1(s.pass))}"> %</div>
@@ -55515,7 +55516,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   function note(){ return `<p class="mini em-note">Reads and answers your Canvas inbox. Brightspace and Blackboard don't let apps read their messages, so those inboxes stay on your school's site.${tok() && !(canvas() && hasDesk()) ? ` <button type="button" class="link-btn" data-act="em-disconnect">Disconnect Canvas</button>` : ""}</p>`; }
   function gate(){
     const head = `<div class="view-head"><h2>Emails</h2></div>`, c = canvas();
-    return `${head}<div class="empty em-empty" style="text-align:left"><strong>Connect Canvas to See Your Emails</strong>
+    return `${head}<div class="empty em-empty" style="text-align:left;margin-top:12px"><strong>Connect Canvas to See Your Emails</strong>
       ${hasDesk() ? `In the desktop app, sign in to Canvas under Settings, School Sites and your inbox appears here. <button class="btn small" data-act="lms-open">Connect a School Site</button><br><br>Or use an access token, which also works on the website:` : `On the website, use a Canvas access token. In Canvas, open Account, Settings, then New Access Token, and paste it here.`}
       <form class="em-conn" data-em-conn><label class="f"><span class="lh">Your Canvas address</span><input type="text" name="host" placeholder="school.instructure.com" value="${esc(c ? c.host.replace(/^https?:\/\//, "") : "")}" autocomplete="off" required data-noenter></label>
         <label class="f"><span class="lh">Access token</span><input type="password" name="token" autocomplete="off" required data-noenter></label>
