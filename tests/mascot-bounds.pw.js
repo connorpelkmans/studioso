@@ -126,7 +126,7 @@ const sim = (p, ins) => p.evaluate(i => { ["top", "right", "bottom", "left"].for
     await p.evaluate(() => { window.scrollTo(600, 400); }); await settle(p, 900); await now(p, tag, "wide overflowing page, scrolled");
     await p.evaluate(() => { window.scrollTo(0, 0); document.getElementById("wideTest").remove(); }); await settle(p, 500);
     // (g) props, speech bubble, picker
-    for (const prop of ["crown", "cape", "backpack"]) {
+    for (const prop of ["crown", "cape", "beanie"]) {
       await p.evaluate(pr => { const id = SBCOMP.current(), earned = {}; SBCOMP.ACC.forEach(a => earned[a.id] = 1); SBCOMP.setCfg({earned, wear: {[id]: pr}}); }, prop);
       await settle(p, 900); const wearing = await p.evaluate(() => SBCOMP.wearing());
       await now(p, tag, `wearing ${prop} (worn: ${wearing || "none"})`);
