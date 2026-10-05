@@ -154,4 +154,12 @@ t("vision prompt and schema", () => {
   assert.match(u, /Saturday 2026-10-03/); assert.match(s, /Never invent/i); assert.match(s, /next <weekday>/); assert.deepStrictEqual(CAP.VISION_SCHEMA.required, ["items", "rawText"]);
   assert.ok(CAP.VISION_SCHEMA.properties.items.items.properties.dueDate && CAP.VISION_SCHEMA.properties.items.items.properties.confidence);
 });
+t("screenshot prompt and schema classify what the picture is", () => {
+  const S = CAP.shotSystem();
+  assert.match(S, /Never invent/i); assert.match(S, /syllabus/); assert.match(S, /timetable/); assert.match(S, /empty items array/i);
+  assert.deepStrictEqual(CAP.SHOT_KINDS, ["tasks", "syllabus", "course", "notes", "other"]);
+  assert.deepStrictEqual(CAP.SHOT_SCHEMA.properties.kind.enum, CAP.SHOT_KINDS); assert.ok(CAP.SHOT_SCHEMA.required.includes("kind"));
+  assert.ok(CAP.SHOT_SCHEMA.properties.items && CAP.SHOT_SCHEMA.properties.rawText);        // everything a photo returns, plus the kind
+  assert.deepStrictEqual(CAP.VISION_SCHEMA.required, ["items", "rawText"]);                 // photos are unchanged
+});
 console.log(n + " capture tests passed");

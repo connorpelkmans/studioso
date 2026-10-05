@@ -576,6 +576,52 @@ async function file(id, host, spec) {
   } catch (e) { return { error: String(e && e.message || e).slice(0, 200) }; }
 }
 
+// ---------- Canvas messages (Inbox): list, read and reply, with your sign-in. Brightspace and Blackboard have no mail API for apps. ----------
+// Runs inside a hidden Canvas page. Self-contained.
+async function cvMail(s) {
+  const hdr = { Accept: "application/json" };
+  const parse = async r => { const t = await r.text(); try { return JSON.parse(t.replace(/^while\(1\);/, "")); } catch (e) { return null; } };
+  const bad = r => (r.status === 401 || r.status === 403) ? { needLogin: true } : { error: "HTTP " + r.status };
+  const clean = (x, n) => String(x == null ? "" : x).replace(/\r/g, "").trim().slice(0, n);
+  if (s.op === "list") {
+    const r = await fetch("/api/v1/conversations?scope=" + (s.scope === "sent" ? "sent" : "inbox") + "&per_page=30", { credentials: "include", headers: hdr });
+    if (!r.ok) return bad(r);
+    const a = await parse(r);
+    return { ok: true, items: (Array.isArray(a) ? a : []).map(c => ({ id: String(c.id), subject: clean(c.subject, 160) || "(No subject)", preview: clean(c.last_message || c.last_authored_message, 200), at: c.last_message_at || c.last_authored_message_at || "",
+      count: Number(c.message_count) || 0, unread: c.workflow_state === "unread", course: clean(c.context_name, 80), names: (c.participants || []).slice(0, 4).map(x => clean(x.name, 60)) })) };
+  }
+  if (s.op === "get") {
+    const [r, me] = await Promise.all([fetch("/api/v1/conversations/" + s.id + "?auto_mark_as_read=true", { credentials: "include", headers: hdr }), fetch("/api/v1/users/self", { credentials: "include", headers: hdr })]);
+    if (!r.ok) return bad(r);
+    const c = await parse(r), u = me.ok ? await parse(me) : null;
+    if (!c) return { error: "empty" };
+    const who = {}; (c.participants || []).forEach(x => { who[x.id] = x.name; });
+    const meId = u && u.id;
+    return { ok: true, subject: clean(c.subject, 160) || "(No subject)", course: clean(c.context_name, 80), names: (c.participants || []).map(x => clean(x.name, 60)).filter(Boolean).slice(0, 8),
+      messages: (c.messages || []).slice().reverse().map(m => ({ id: String(m.id), from: clean(who[m.author_id], 60) || "Someone", mine: meId != null && m.author_id === meId, at: m.created_at || "", body: clean(m.body, 6000), files: (m.attachments || []).length })) };
+  }
+  if (s.op === "send") {
+    const m = document.cookie.match(/(?:^|;\s*)_csrf_token=([^;]+)/);
+    const token = m ? decodeURIComponent(m[1]) : "";
+    const r = await fetch("/api/v1/conversations/" + s.id + "/add_message", { method: "POST", credentials: "include", headers: Object.assign({ "Content-Type": "application/x-www-form-urlencoded", "X-CSRF-Token": token }, hdr), body: "body=" + encodeURIComponent(s.body) });
+    if (!r.ok) return bad(r);
+    return { ok: true };
+  }
+  return { error: "bad-request" };
+}
+async function mail(id, host, spec) {
+  const Pv = prov(id), origin = originOf(host), q = spec && typeof spec === "object" ? spec : {};
+  if (!Pv || !origin) return { error: "bad-request" };
+  if (id !== "canvas") return { error: "unsupported" };
+  const op = ["list", "get", "send"].includes(q.op) ? q.op : null;
+  if (!op) return { error: "bad-request" };
+  const safe = { op, scope: q.scope === "sent" ? "sent" : "inbox", id: String(q.id || ""), body: typeof q.body === "string" ? q.body.trim().slice(0, 10000) : "" };
+  if (op !== "list" && !/^\d{1,14}$/.test(safe.id)) return { error: "bad-request" };
+  if (op === "send" && !safe.body) return { error: "empty" };
+  try { return await withPage(Pv, origin, w => Promise.race([w.webContents.executeJavaScript(`(${cvMail.toString()})(${JSON.stringify(safe)})`, true), timeout(45000)])); }
+  catch (e) { return { error: String(e && e.message || e).slice(0, 200) }; }
+}
+
 // The calendar subscription link (it has its own private key in it, so no sign-in is needed).
 function feedOk(id, url) {
   const Pv = prov(id); if (!Pv) return null;
@@ -611,8 +657,9 @@ function register(getMain, trusted) {
   ipcMain.handle("lms:connect", (e, id, host) => fromMain(e) ? connect(String(id), host, getMain()) : null);
   ipcMain.handle("lms:sync", (e, id, host, opts) => fromMain(e) ? sync(String(id), host, opts) : null);
   ipcMain.handle("lms:file", (e, id, host, spec) => fromMain(e) ? file(String(id), host, spec) : null);
+  ipcMain.handle("lms:mail", (e, id, host, spec) => fromMain(e) ? mail(String(id), host, spec) : null);
   ipcMain.handle("lms:feed", (e, id, url) => fromMain(e) ? feed(String(id), url) : null);
   ipcMain.handle("lms:signout", (e, id) => fromMain(e) ? signOut(String(id)) : null);
 }
 
-module.exports = { register, bsHarvest, cvHarvest, bbHarvest, originOf, feedOk, connect, sync, file, feed, signOut };
+module.exports = { register, bsHarvest, cvHarvest, bbHarvest, originOf, feedOk, connect, sync, file, feed, signOut, mail };
