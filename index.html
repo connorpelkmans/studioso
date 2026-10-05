@@ -5514,8 +5514,9 @@ async function connectBackend(b){
   if (md && md.schema >= 2) {
     if (md.settings && !("meta:meta" in outboxGet())) {
       // AI keys live on this device only. Keys an older version saved to the account are kept here once, then removed from the account.
-      const rAi = md.settings.ai, lAi = state.settings && state.settings.ai;
+      const rAi = md.settings.ai, lAi = state.settings && state.settings.ai, mineS = state.settings;
       state.settings = Object.assign({capacity:15}, md.settings);
+      { const was = md.settings.style && md.settings.style.skin; keepNewerSkin(state.settings, mineS); if ((state.settings.style || {}).skin !== was) setTimeout(() => { try { saveSettings(); } catch(e) {} }, 1500); }
       if (rAi || lAi) state.settings.ai = Object.assign({}, rAi || {}, lAi || {}, {keys: Object.assign({}, rAi && rAi.keys, lAi && lAi.keys)});
       if (rAi && (rAi.keys || rAi.key)) setTimeout(() => { try { saveSettings(); } catch(e) {} }, 1500);
     }
@@ -5605,9 +5606,19 @@ function syncNotify(info){
     else toast(`Merged edits to ${say.length} items from your other device`);
   }, 80);
 }
+// Your theme choice carries the time you made it (style.skinAt), so settings arriving from the account, another device or a reload can
+// never put back an older choice over a newer one made here.
+function keepNewerSkin(next, mine){
+  try {
+    const m = mine && mine.style, t = next && next.style;
+    if (m && m.skin && (Number(m.skinAt) || 0) > ((t && Number(t.skinAt)) || 0) && (!t || t.skin !== m.skin)) next.style = Object.assign({}, t || {}, {skin: m.skin, skinAt: m.skinAt});
+  } catch (e) {}
+  return next;
+}
 function adoptSettings(st){
-  const keep = state.settings && state.settings.ai;
+  const keep = state.settings && state.settings.ai, mine = state.settings;
   state.settings = Object.assign({capacity: 15}, st);
+  keepNewerSkin(state.settings, mine);
   if (keep) state.settings.ai = Object.assign({}, state.settings.ai || {}, keep.keys ? {keys: keep.keys} : {}, keep.key ? {key: keep.key} : {});
 }
 // Settings changed on another device: take them unless this device has changes of its own still waiting (those are merged when they're sent).
@@ -5617,6 +5628,7 @@ function applyRemoteSettings(md){
     if (!md || !(md.schema >= 2) || !md.settings || "meta:meta" in outboxGet() || intended.has("meta:meta")) return;
     if (SyncMerge.eq(syncSettings(state.settings), md.settings)) return;
     adoptSettings(md.settings); saveLocal(); scheduleRender();
+    if (!SyncMerge.eq(syncSettings(state.settings), md.settings)) queueWrite("meta", "meta", {schema: Math.max(2, cloud.schema || 2), settings: syncSettings(state.settings)});   // a newer local choice (the theme) is kept and sent back
   } catch(e) { console.warn(e); }
 }
 function syncAdopt(key, sent, res){
@@ -10248,6 +10260,7 @@ function saveStyle(patch){
   const cur = styleCfg();
   // Switching themes keeps your note shape and pin. They only follow the theme if you chose "Always Match Theme".
   if (patch.skin && patch.skin !== cur.skin) {
+    patch.skinAt = Date.now();
     if (cur.noteAuto === undefined && !("noteAuto" in patch)) Object.assign(patch, {note: noteShapeOf(null), noteAuto: false});
     if (cur.pinAuto === undefined && !("pinAuto" in patch)) Object.assign(patch, {pin: notePinOf(null), pinAuto: false});
   }
@@ -55419,7 +55432,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     _actor: (id, el) => BYID[id] ? actor(BYID[id], el, {}) : null,
     // For tests
     settings: () => JSON.parse(JSON.stringify(cfg())), setCfg: patch => { setCfg(patch); curSig = ""; build(); },
-    setSkin: id => { state.settings = Object.assign({}, state.settings, {style: Object.assign({}, state.settings.style, {skin: id})}); saveSettings(); applySkin(); },
+    setSkin: id => { state.settings = Object.assign({}, state.settings, {style: Object.assign({}, state.settings.style, {skin: id, skinAt: Date.now()})}); saveSettings(); applySkin(); },
     plan: () => ({paywall: paywall(), pro: pro()}), pomoMinutes: () => Number((state.settings.pomo || {}).focus) || 25,
     home: () => ({home, rect: box && !box.hidden ? box.getBoundingClientRect().toJSON() : null}),
     brain: () => ({mood, energy: BR.energy, taskDone: BR.taskDone && BR.taskDone.title, context: contextKinds()}),
