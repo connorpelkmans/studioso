@@ -206,9 +206,9 @@ li.task>.lms-go{align-self:center;margin-right:12px}
 .tl{position:relative}
 .tl-bg{position:absolute;top:0;bottom:0;pointer-events:none;z-index:0}
 .tl-bg .we{position:absolute;top:0;bottom:0;background:var(--soft)}
-.tl-bg-top{z-index:2}
+.tl-bg-top{z-index:1}
 .tl-bg .today-line{position:absolute;top:58px;bottom:0;width:2px;background:var(--late)}
-.tl-row{display:flex;position:relative;z-index:1;height:46px;border-top:1px solid var(--line)}
+.tl-row{display:flex;position:relative;z-index:auto;height:46px;border-top:1px solid var(--line)}
 .tl-headrow{height:30px;border-top:0}
 .tl-headrow + .tl-headrow{height:28px}
 .tl-label{position:sticky;left:0;z-index:3;flex:none;background:var(--surface);border:0;border-right:1px solid var(--line);text-align:left;padding:3px 10px;display:flex;flex-direction:column;justify-content:center;overflow:hidden;font-size:.84rem;font-weight:600;white-space:nowrap;border-radius:0}
@@ -1479,6 +1479,8 @@ button.pr-why:hover{background:var(--soft);color:var(--ink)}
 .pview-tabs{display:flex;gap:4px;padding:4px;margin:0 0 12px;background:var(--soft);border:1px solid var(--line);border-radius:14px;max-width:420px}
 .pview-tabs button{flex:1;border:0;background:transparent;border-radius:10px;padding:10px 8px;font:700 .95rem var(--display);color:var(--muted);display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
 .pview-tabs button[aria-selected=true]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.pview-tabs.cf-tabs{box-sizing:border-box;width:min(420px,100%);max-width:420px;align-self:flex-start;margin-left:0;margin-right:auto}
+.pview-tabs.cf-tabs button{flex:1 1 0;min-width:0}
 @media (max-width:979px){.pview-tabs{max-width:none}}
 /* App tour (coach marks) and the bug report form */
 .tour{position:fixed;inset:0;z-index:9000}
@@ -12870,7 +12872,7 @@ function planSwitchHtml(){
 const isCfTab = t => t === "courses" || t === "files";
 function cfSwitchHtml(){
   const t = ui.tab, g = t === "courses" && ui.courseTab === "grades", hasCourses = typeof coursesArr === "function" && coursesArr().length > 0;
-  return `<div class="pview-tabs cf-tabs" role="tablist" aria-label="Courses, Files and Grades"><button role="tab" data-act="cf-view" data-id="courses" aria-selected="${t === "courses" && !g}">Courses</button><button role="tab" data-act="cf-view" data-id="files" aria-selected="${t === "files"}">Files</button>${hasCourses ? `<button role="tab" data-act="cf-view" data-id="grades" aria-selected="${g}">Grades</button>` : ""}</div>`;
+  return `<div class="pview-tabs cf-tabs" role="tablist" aria-label="Courses, Files and Grades"><button role="tab" data-act="cf-view" data-id="courses" aria-selected="${t === "courses" && !g}">Courses</button>${hasCourses ? `<button role="tab" data-act="cf-view" data-id="grades" aria-selected="${g}">Grades</button>` : ""}<button role="tab" data-act="cf-view" data-id="files" aria-selected="${t === "files"}">Files</button></div>`;
 }
 
 /* ---------- Render ---------- */
@@ -55439,6 +55441,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   if (!window.SBCOMP || !SBCOMP.tab) return;
   const CH_KEY = "studyboard:comp:chats", MAXC = 30, MAXM = 40;
   const T = ui.cpt = ui.cpt || {tab: "chat", id: null, busy: null, draft: ""};
+  T.att = T.att || []; T.srcs = T.srcs || {};
   const rd = () => { try { const a = JSON.parse(localStorage.getItem(CH_KEY) || "[]"); return Array.isArray(a) ? a.filter(c => c && c.id && Array.isArray(c.msgs)) : []; } catch (e) { return []; } };
   const wr = a => {
     a = a.slice(0, MAXC);
@@ -55464,6 +55467,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
         return `- ${courseLabel(c)}: ${c.name}${c.instructor ? ", " + c.instructor : ""}${ms ? ", meets " + ms : c.schedule ? ", " + c.schedule : ""}${c.office ? ", office hours " + c.office : ""}`;
       }).join("\n")); src.push("Courses");
     }
+    { const nb = noteBoards(); L.push("NOTE BOARDS: My Notes (the main board)" + (nb.length ? "; " + nb.map(b => b.name + (b.courseId && courseOf(b.courseId) ? " (" + courseLabel(courseOf(b.courseId)) + ")" : "")).join("; ") : "")); }
     const open = tasksArr().filter(t => t.status !== "done").sort(sortTasks);
     const tl = t => { const c = courseOf(t.courseId); return `- ${t.title} (${c ? courseLabel(c) + ", " : ""}${t.type}${t.due ? ", due " + t.due + (t.time ? " " + t.time : "") : ", no due date"}${hasWeight(t) ? ", worth " + t.weight + "%" : ""}${t.status === "doing" ? ", in progress" : ""}${isNum(t.hours) ? ", ~" + t.hours + "h" : ""}${t.pct ? ", " + t.pct + "% done" : ""}${t.notes ? ", note: " + clip(t.notes, 80) : ""})`; };
     if (open.length) { L.push(`OPEN TASKS (${open.length}, soonest first):\n` + open.slice(0, 40).map(tl).join("\n")); src.push("Tasks"); }
@@ -55504,27 +55508,56 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const SCHEMA = {type: "OBJECT", properties: {
     answer: {type: "STRING", description: "The reply, in the companion's friendly voice. Plain text; short paragraphs or '- ' bullets, **bold** sparingly."},
     sources: {type: "ARRAY", items: {type: "STRING"}, description: "Short labels for the parts of the student's data used, like 'Task: Lab report', 'Notes', 'Grades', 'File: Ch4.pdf'"},
-    followUps: {type: "ARRAY", items: {type: "STRING"}, description: "Up to 3 short things the student might ask next"}}, required: ["answer"]};
+    followUps: {type: "ARRAY", items: {type: "STRING"}, description: "Up to 3 short things the student might ask next"},
+    actions: {type: "ARRAY", description: "Things the student can tap to have done in Studyboard. Only when they asked for it or it clearly fits what they attached. Empty otherwise.", items: {type: "OBJECT", properties: {
+      type: {type: "STRING", enum: ["flashcards", "quiz", "case_study", "note", "tasks"]},
+      label: {type: "STRING", description: "Short button text, like 'Make 20 flashcards' or 'Save to Biology board'"},
+      deckName: {type: "STRING", description: "flashcards, quiz, case_study: a short name"},
+      style: {type: "STRING", description: "flashcards, quiz, case_study: the student's wishes for style, focus or format, in their words. Empty if none."},
+      count: {type: "INTEGER", description: "flashcards or quiz: how many, only if the student said"},
+      course: {type: "STRING", description: "The course code or name from COURSES this belongs to, or empty"},
+      board: {type: "STRING", description: "note: the note board's name from NOTE BOARDS; a new name makes a new board; empty for My Notes"},
+      noteTitle: {type: "STRING"},
+      text: {type: "STRING", description: "note: the full clean typed note (transcribe photos and slides fully, keep formulas and numbers exact, headings and '- ' bullets). flashcards, quiz or case_study with nothing attached: the study material to use."},
+      tasks: {type: "ARRAY", items: {type: "OBJECT", properties: {title: {type: "STRING"}, type: {type: "STRING", enum: ["Assignment", "Exam", "Quiz", "Reading", "Project", "Lab", "Other"]}, due: {type: "STRING", description: "YYYY-MM-DD"}, time: {type: "STRING", description: "HH:MM, 24-hour, or empty"}}, required: ["title", "due"]}}},
+      required: ["type", "label"]}}}, required: ["answer"]};
+  const ACT_TYPES = ["flashcards", "quiz", "case_study", "note", "tasks"];
+  const cleanActions = (list, hasFiles) => (Array.isArray(list) ? list : []).map(a => {
+    if (!a || !ACT_TYPES.includes(a.type)) return null;
+    const o = {type: a.type, label: clip(a.label, 60) || ({flashcards: "Make flashcards", quiz: "Make a quiz", case_study: "Make a case study", note: "Save as a note", tasks: "Add tasks"})[a.type],
+      deckName: clip(a.deckName, 80), style: clip(a.style, 400), count: Math.max(0, Math.min(100, Number(a.count) || 0)), course: clip(a.course, 60), board: clip(a.board, 40), noteTitle: clip(a.noteTitle, 80),
+      text: String(a.text || "").trim().slice(0, 12000)};
+    if (a.type === "note") { if (o.text.length < 3) return null; }
+    else if (a.type === "tasks") { o.tasks = (a.tasks || []).filter(x => x && x.title && /^\d{4}-\d{2}-\d{2}$/.test(String(x.due || ""))).slice(0, 20).map(x => ({title: clip(x.title, 120), type: TYPES.includes(x.type) ? x.type : "Assignment", due: x.due, time: /^\d{1,2}:\d{2}$/.test(String(x.time || "")) ? x.time : ""})); if (!o.tasks.length) return null; }
+    else if (!hasFiles && o.text.length < 80) return null;
+    return o;
+  }).filter(Boolean).slice(0, 4);
 
   async function ask(q){
     q = String(q || "").replace(/\s+/g, " ").trim().slice(0, 1000);
-    if (!q || T.busy) return;
+    const att = T.att.slice();
+    if ((!q && !att.length) || T.busy) return;
+    if (!q) q = "Here's what I attached. What can you do with it?";
+    if (att.reduce((n, x) => n + aiSourceBytes(x), 0) > AI_LIMIT_BYTES) { toast("Those files are too big to send at once. Remove some."); return; }
     if (!aiOk()) { if (inClaude()) toast("Chat works in the Studyboard app and on your own Studyboard website"); else aiSetupSheet(false); return; }
-    { const ta = $("#cptIn"); if (ta) ta.value = ""; }
+    { const ta = $("#cptIn"); if (ta) { ta.value = ""; ta.style.height = ""; } }
+    T.att = [];
     const chats = rd();
     let c = chats.find(x => x.id === T.id);
     if (!c) { c = {id: uid(), title: clip(q, 56), at: Date.now(), msgs: []}; chats.unshift(c); T.id = c.id; wr(chats); }
     T.busy = {id: c.id, q}; T.draft = ""; T.status = "Looking through your stuff…"; draw();
     let m = {q, at: Date.now()};
+    if (att.length) { m.files = att.map(x => clip(x.name, 50)); T.srcs[m.at] = att; }
     try {
       const me = info() || {}, ctx = await context(q);
       T.status = "Thinking…"; draw();
       const hist = c.msgs.filter(x => x.a).slice(-6).map(x => `Student: ${x.q}\n${me.name || "Companion"}: ${clip(x.a.answer, 500)}`).join("\n\n");
-      const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. ${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}Speak warmly and briefly, like a supportive study buddy. No emojis. Answer from the student's own data below whenever the question is about their work, courses, deadlines, grades, notes, flashcards or files. If the data doesn't contain what they ask about, say so plainly and don't invent facts, dates or marks. For general study or subject questions, answer with your own knowledge, clearly and correctly. Keep it short: a few sentences or a short list. Suggest a concrete next step when it helps.`;
-      const r = await aiCall({task: "tutor", maxTokens: 3000, schema: SCHEMA, system, onStatus: s => { T.status = s; drawStatus(); },
-        parts: [{text: `THE STUDENT'S PLANNER (only what's relevant):\n${ctx.text}\n\n${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}STUDENT'S QUESTION: ${q}`}]});
+      const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. ${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}Speak warmly and briefly, like a supportive study buddy. No emojis. Answer from the student's own data below whenever the question is about their work, courses, deadlines, grades, notes, flashcards or files. If the data doesn't contain what they ask about, say so plainly and don't invent facts, dates or marks. For general study or subject questions, answer with your own knowledge, clearly and correctly. Keep it short: a few sentences or a short list. Suggest a concrete next step when it helps.
+You can also DO things in Studyboard, but only when the student asks or what they attached clearly calls for it, and only by offering actions they tap to confirm (never say it is already done). Actions: flashcards, quiz or case_study (made from the attached files, or from the material you put in "text"), note (a clean typed note from a photo, slides or anything else, optionally onto a named note board and course), and tasks (due dates you find in what they attached or told you). Photos of whiteboards, slides or handwriting: read them fully and offer a note. Slides, PDFs or readings: offer flashcards, and a quiz if they want to practise. Say in your answer what you are offering, in a sentence or two. If they attached something and gave no instructions, say what you see and offer the most useful one or two actions.`;
+      const r = await aiCall({task: "tutor", maxTokens: att.length ? 12000 : 3000, schema: SCHEMA, system, onStatus: s => { T.status = s; drawStatus(); },
+        parts: att.map(x => x.part).concat([{text: `THE STUDENT'S PLANNER (only what's relevant):\n${ctx.text}\n\n${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}${att.length ? "THE STUDENT ATTACHED: " + att.map(x => x.name + " (" + x.kind + ")").join(", ") + "\n\n" : ""}STUDENT'S QUESTION: ${q}`}])});
       const d = r.data || {};
-      m.a = {answer: clip2(d.answer, 2400), sources: (d.sources || []).map(x => clip(x, 40)).filter(Boolean).slice(0, 6), followUps: (d.followUps || []).map(x => clip(x, 90)).filter(Boolean).slice(0, 3)};
+      m.a = {answer: clip2(d.answer, 2400), sources: (d.sources || []).map(x => clip(x, 40)).filter(Boolean).slice(0, 6), followUps: (d.followUps || []).map(x => clip(x, 90)).filter(Boolean).slice(0, 3), actions: cleanActions(d.actions, att.length > 0 || !!T.srcs[m.at])};
       if (!m.a.answer) throw new Error("I couldn't come up with an answer. Try asking it another way?");
       if (!m.a.sources.length) m.a.sources = ctx.src.slice(0, 4);
     } catch (e) { m.err = clip((e && e.message) || "I couldn't answer that just now. Try again in a bit?", 200); }
@@ -55551,9 +55584,10 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   }
   function msgHtml(m){
     const me = info() || {};
-    return `<div class="cpt-q">${esc(m.q)}</div>
+    const acts = m.a && m.a.actions && m.a.actions.length ? `<div class="cpt-actions">${m.a.actions.map((a, i) => `<div class="cpt-action"><span class="cpt-action-t">${esc(a.label)}</span>${a.done ? `<span class="mini cpt-done">${esc(a.done)}</span>` : `<button type="button" class="btn small primary" data-act="cpt-do" data-m="${esc(String(m.at))}" data-i="${i}">${a.type === "note" ? "Save Note" : a.type === "tasks" ? "Add Tasks" : "Make It"}</button>`}</div>`).join("")}</div>` : "";
+    return `<div class="cpt-q">${esc(m.q)}${m.files && m.files.length ? `<div class="cpt-qf">${m.files.map(f => `<span>${esc(f)}</span>`).join("")}</div>` : ""}</div>
       <div class="cpt-a">${m.err ? `<p class="mini">${esc(m.err)}</p>` : `${miniMd(m.a.answer)}
-        ${m.a.sources && m.a.sources.length ? `<div class="cpt-src" aria-label="Looked at">${m.a.sources.map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div>` : ""}`}
+        ${m.a.sources && m.a.sources.length ? `<div class="cpt-src" aria-label="Looked at">${m.a.sources.map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div>` : ""}${acts}`}
         ${m.a && !m.err ? `<div class="cpt-acts"><button type="button" class="link-btn" data-act="cpt-note" data-id="${esc(String(m.at))}">Save as Note</button></div>` : ""}</div>`;
   }
   function logHtml(){
@@ -55567,13 +55601,67 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     return msgs.map(msgHtml).join("") + (busy ? `<div class="cpt-q">${esc(busy.q)}</div><div class="cpt-a cpt-wait"><p><span class="ai-spin" aria-hidden="true"></span> <span id="cptStatus">${esc(T.status || "Thinking…")}</span></p></div>` : "")
       + (last && last.a && !busy && (last.a.followUps || []).length ? `<div class="cpt-chips fu">${last.a.followUps.map(f => `<button type="button" class="chip" data-act="cpt-ask" data-q="${esc(f)}">${esc(f)}</button>`).join("")}</div>` : "");
   }
+  const ATT_IC = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.9-8.9a3.7 3.7 0 0 1 5.2 5.2l-8.9 8.9a1.8 1.8 0 0 1-2.6-2.6l8.2-8.2"/></svg>';
+  const attHtml = () => T.att.map((a, i) => `<span class="cpt-chip"><b>${a.kind === "Image" ? "IMG" : a.kind === "PDF" ? "PDF" : a.kind === "Slides" ? "PPT" : "DOC"}</b>${esc(clip(a.name, 28))}<button type="button" data-act="cpt-att-rm" data-id="${i}" aria-label="Remove ${esc(a.name)}">&times;</button></span>`).join("");
+  const drawAtt = () => { const el = $("#cptAtt"); if (el) el.innerHTML = attHtml(); };
+  async function addFiles(list){
+    for (const f of list) {
+      if (T.att.length >= 8) { toast("That's the most I can read at once: 8 files."); break; }
+      try { T.att.push(await aiSourceFromFile(f)); drawAtt(); } catch (e) { toast((e && e.message) || "I couldn't read that file."); }
+    }
+  }
+  const findCourse = q => { q = String(q || "").trim().toLowerCase(); if (!q) return null; return coursesArr().find(c => courseLabel(c).toLowerCase() === q || (c.code || "").toLowerCase() === q || c.name.toLowerCase() === q) || coursesArr().find(c => (c.code && q.includes(c.code.toLowerCase())) || c.name.toLowerCase().includes(q) || q.includes(c.name.toLowerCase())) || null; };
+  function boardFor(name, course){
+    name = String(name || "").trim(); if (!name || /^my notes$/i.test(name)) return {id: "", name: "My Notes"};
+    let b = noteBoards().find(x => x.name.toLowerCase() === name.toLowerCase());
+    if (!b) { b = {id: uid(), name: name.slice(0, 40), courseId: course ? course.id : ""}; state.settings = Object.assign({}, state.settings, {noteBoards: noteBoards().concat(b)}); saveSettings(); }
+    return b;
+  }
+  function addNoteTo(boardId, text, courseId){
+    const all = notesArr().filter(n => !n.archived && noteBoardOf(n) === boardId);
+    const z = all.reduce((m, n) => Math.max(m, n.z || 0), 0) + 1, col = all.length % 5, row = Math.floor(all.length / 5) % 4;
+    const n = normNote({id: uid(), board: boardId, text: text.slice(0, 8000), color: "yellow", x: 40 + col * (NOTE_W() + 30) + Math.round(Math.random() * 20), y: 40 + row * 240 + Math.round(Math.random() * 20), z, rot: Math.round((Math.random() * 4 - 2) * 10) / 10, courseId: courseId || "", created: Date.now()});
+    applyChanges([{kind: "note", id: n.id, after: n}], null); return n;
+  }
+  async function runAction(el){
+    const chats = rd(), c = chats.find(x => x.id === T.id), m = c && c.msgs.find(x => String(x.at) === el.dataset.m), a = m && m.a && m.a.actions && m.a.actions[Number(el.dataset.i)];
+    if (!a || a.done) return;
+    const course = findCourse(a.course), mark = txt => { a.done = txt; wr(chats); draw(); };
+    try {
+      if (a.type === "note") {
+        const b = boardFor(a.board, course), text = (a.noteTitle ? a.noteTitle + "\n\n" : "") + a.text;
+        addNoteTo(b.id, text, course ? course.id : "");
+        if (b.id) { ui.noteBoard = b.id; try { localStorage.setItem(NB_KEY, b.id); } catch (e) {} }
+        mark("Saved to " + b.name); toast("Saved to " + b.name, null, {label: "Open", fn: () => { ui.tab = "notes"; render(); window.scrollTo(0, 0); }});
+      } else if (a.type === "tasks") {
+        const cid = course ? course.id : "";
+        applyChanges(a.tasks.map(x => { const st = MILESTONE(x.type) ? x.due : addDays(x.due, -(SPAN[x.type] ?? 3)); const t = newTask({title: x.title, type: x.type, courseId: cid, due: x.due, time: x.time, start: st < todayISO() ? todayISO() : st, priority: x.type === "Exam" ? "high" : "med"}); return {kind: "task", id: t.id, after: t}; }), `Added ${a.tasks.length} task${a.tasks.length === 1 ? "" : "s"}`);
+        mark(`Added ${a.tasks.length} task${a.tasks.length === 1 ? "" : "s"}`);
+      } else {
+        let srcs = T.srcs[m.at];
+        if (!srcs || !srcs.length) srcs = a.text.length >= 80 ? [{name: a.deckName || "Chat material", kind: "Text", size: a.text.length, part: {text: a.text}}] : null;
+        if (!srcs) { toast("Attach the file again and ask me once more. Files aren't kept after a refresh."); return; }
+        if (!aiOk()) { aiSetupSheet(false); return; }
+        el.disabled = true; const was = el.textContent; el.textContent = "Working…";
+        try {
+          const r = await aiMakeStudySet({sources: srcs, style: a.style, difficulty: "mixed", cards: a.type === "flashcards", quiz: a.type === "quiz", cases: a.type === "case_study", caseCount: "1", caseStyle: "auto",
+            cardCount: a.type === "flashcards" && a.count ? String(a.count) : "auto", quizCount: a.type === "quiz" && a.count ? String(a.count) : "10", courseName: course ? course.name : ""}, s => { el.textContent = clip(s, 28); });
+          if (!r.cards.length && !r.questions.length && !r.cases.length) throw new Error("I couldn't make anything from that. Try a PDF version, or tell me what to focus on.");
+          if (a.deckName) { r.title = a.deckName; if (r.questions.length) r.quizTitle = r.quizTitle || a.deckName; }
+          aiReviewSheet(r, {deck: null, courseId: course ? course.id : "", style: a.style, styleName: "", sources: srcs.map(x => x.name)});
+        } finally { el.disabled = false; el.textContent = was; }
+      }
+    } catch (e) { console.warn("companion action", e); toast((e && e.message) || "That didn't work. Try again?"); }
+  }
   function chatHtml(){
     const ready = aiOk();
     const gate = inClaude() ? `<div class="cpt-gate"><p class="mini" style="margin:0">Chat works in the Studyboard app and on your own Studyboard website. There's nothing to set up in this preview.</p></div>`
       : !ready ? `<div class="cpt-gate"><p style="margin:0"><b>Chat needs AI.</b> Add a free Google Gemini key (about a minute) and you can ask your companion about anything in Studyboard.</p><button type="button" class="btn primary small" data-act="ai-setup">Set Up AI</button></div>` : "";
     return `${gate}<div class="cpt-log" id="cptLog" aria-live="polite">${logHtml()}</div>
-      <form class="cpt-form" data-cpt-form><textarea id="cptIn" rows="1" maxlength="1000" placeholder="${esc((info() || {}).name ? "Ask " + info().name + " anything…" : "Ask anything…")}" aria-label="Your question" ${ready ? "" : "disabled"}>${esc(T.draft || "")}</textarea><button type="submit" class="btn primary" id="cptGo" ${ready && !T.busy ? "" : "disabled"}>Ask</button></form>
-      <p class="mini cpt-priv">Each question sends only the parts of your planner it needs (tasks, notes, grades, flashcards, file text) to your AI provider. ${T.id ? `<button type="button" class="link-btn" data-act="cpt-new">New Chat</button>` : ""}</p>`;
+      <div class="cpt-att" id="cptAtt">${attHtml()}</div>
+      <form class="cpt-form" data-cpt-form><button type="button" class="btn cpt-attach" data-act="cpt-attach" aria-label="Add attachment" title="Attach slides, a PDF, a document or photos" ${ready ? "" : "disabled"}>${ATT_IC}</button><textarea id="cptIn" rows="1" maxlength="1000" placeholder="${esc((info() || {}).name ? "Ask " + info().name + " anything, or attach slides or photos…" : "Ask anything, or attach slides or photos…")}" aria-label="Your question" ${ready ? "" : "disabled"}>${esc(T.draft || "")}</textarea><button type="submit" class="btn primary" id="cptGo" ${ready && !T.busy ? "" : "disabled"}>Ask</button></form>
+      <input type="file" id="cptFile" multiple accept=".pdf,.pptx,.docx,.txt,.md,.csv,.png,.jpg,.jpeg,.webp,.heic,application/pdf,image/*,text/plain" class="sr" tabindex="-1" aria-hidden="true">
+      <p class="mini cpt-priv">Each question sends only the parts of your planner it needs (tasks, notes, grades, flashcards, file text), plus anything you attach, to your AI provider. ${T.id ? `<button type="button" class="link-btn" data-act="cpt-new">New Chat</button>` : ""}</p>`;
   }
   function historyHtml(){
     const chats = rd();
@@ -55613,6 +55701,9 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   hook("act", (act, el, id) => {
     switch (act) {
       case "cpt-tab": T.tab = id; render(); return true;
+      case "cpt-attach": { const f = $("#cptFile"); if (f) f.click(); return true; }
+      case "cpt-att-rm": T.att.splice(Number(id), 1); drawAtt(); return true;
+      case "cpt-do": runAction(el); return true;
       case "cpt-ask": T.tab = "chat"; if (ui.tab === "companion") ask(el.dataset.q); return true;
       case "cpt-new": T.id = null; T.draft = ""; T.tab = "chat"; render(); setTimeout(() => { const i = $("#cptIn"); if (i) i.focus(); }, 30); return true;
       case "cpt-open": T.id = id; T.tab = "chat"; render(); return true;
@@ -55635,6 +55726,10 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     }
     return false;
   });
+  document.addEventListener("change", e => { if (e.target.id === "cptFile") { const l = [...e.target.files]; e.target.value = ""; addFiles(l); } });
+  document.addEventListener("paste", e => { if (e.target.id !== "cptIn") return; const l = [...((e.clipboardData && e.clipboardData.files) || [])]; if (l.length) { e.preventDefault(); addFiles(l); } });
+  document.addEventListener("dragover", e => { if (e.target.closest && e.target.closest(".cpt") && e.dataTransfer && [...(e.dataTransfer.types || [])].includes("Files")) e.preventDefault(); });
+  document.addEventListener("drop", e => { if (e.target.closest && e.target.closest(".cpt") && e.dataTransfer && e.dataTransfer.files.length) { e.preventDefault(); addFiles([...e.dataTransfer.files]); } });
   document.addEventListener("submit", e => { const f = e.target.closest && e.target.closest("[data-cpt-form]"); if (!f) return; e.preventDefault(); const i = $("#cptIn"); if (i) ask(i.value); });
   document.addEventListener("keydown", e => { if (e.target.id === "cptIn" && e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); ask(e.target.value); } });
   const cptGrow = t => { t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 9 * parseFloat(getComputedStyle(t).fontSize)) + "px"; };
@@ -55647,11 +55742,11 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
 .cpt-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
 .cpt-face{flex:none;width:104px;height:104px;display:grid;place-items:center}
 .cpt-id{flex:1 1 220px;min-width:0;display:grid;gap:3px}
-.cpt-id h2{margin:0;font:800 1.35rem var(--display)}
+.cpt-id h2{margin:0;font:800 1.85rem/1.15 var(--display)}
 .cpt-id p{margin:0}
 .cpt-bio{font-size:1rem;line-height:1.4;color:var(--ink);opacity:.85}
 .cpt-tabs{max-width:none}
-.cpt-dress{min-height:48px;padding:12px 22px;font-size:1.05rem}
+.cpt-dress{min-height:42px;padding:9px 16px;font-size:.95rem}
 .cpt-pane{display:grid;gap:10px}
 .cpt-log{display:grid;gap:10px;align-content:start;min-height:260px;max-height:min(56vh,560px);overflow:auto;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
 .cpt-q{justify-self:end;max-width:86%;background:var(--accent);color:var(--accent-ink,#fff);padding:8px 13px;border-radius:16px 16px 4px 16px;font-size:.95rem;white-space:pre-wrap;overflow-wrap:anywhere}
@@ -55669,6 +55764,18 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
 .cpt-manage{display:grid;gap:12px;padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
 .cpt-manage .mini,.cpt-manage .sub{color:var(--ink);opacity:.8}
 .cpt-priv{margin:0}
+.cpt-attach{min-height:44px;min-width:44px;padding:0;display:grid;place-items:center;flex:none}
+.cpt-att{display:flex;flex-wrap:wrap;gap:6px}
+.cpt-att:empty{display:none}
+.cpt-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 8px;border:1px solid var(--line);border-radius:999px;background:var(--surface);font-size:.85rem}
+.cpt-chip b{font:700 .65rem var(--display);color:var(--accent)}
+.cpt-chip button{border:0;background:none;color:var(--muted);font-size:1.1rem;line-height:1;padding:0 4px;cursor:pointer}
+.cpt-qf{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.cpt-qf span{font-size:.75rem;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.22)}
+.cpt-actions{display:grid;gap:6px;margin-top:8px}
+.cpt-action{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.cpt-action-t{font-weight:600;font-size:.9rem;min-width:0;overflow-wrap:anywhere}
+.cpt-done{color:var(--leaf,#1E9E74);font-weight:600}
 .cpt-gate{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
 .cpt-gate p{flex:1 1 240px}
 .cpt-hist{list-style:none;margin:0;padding:0;display:grid;gap:8px}
