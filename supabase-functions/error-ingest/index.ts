@@ -5,7 +5,9 @@
 // Deploy with "Verify JWT" turned OFF (the app sends reports signed out too; the public key in the "apikey" header is enough for the gateway).
 // Secrets: none to add. Supabase supplies SUPABASE_URL and the service key itself. Optional: ERROR_INGEST_SALT (any random text) to salt the address hash.
 //
-// Limits: body at most 24 KB, 30 reports an hour per anonymous id, 60 per network address (hashed with a daily salt, never stored raw), 2000 an hour overall.
+// Limits: body at most 24 KB (counted while it arrives, so a huge or endless body is cut off early), 30 reports an hour per anonymous id,
+// 60 per network address (hashed with a daily salt, never stored raw), 500 an hour overall, and no new rows once the table holds 20000
+// (client_errors_allow in supabase-error-reports.sql; the 30-day clean-up makes room again).
 
 type Env = (k: string) => string;
 type Deps = { env: Env; fetch: typeof fetch; now: () => number; log: (...a: unknown[]) => void };
@@ -58,6 +60,25 @@ export function validate(body: unknown, now: number): { ok: true; row: Row } | {
   } };
 }
 
+// Reads the body but stops as soon as it passes max bytes (null = too big). Content-Length alone can't be trusted (or may be missing).
+export async function readLimited(req: Request, max: number): Promise<string | null> {
+  const cl = Number(req.headers.get("content-length") || 0);
+  if (cl > max) return null;
+  if (!req.body) return "";
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = []; let n = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    n += value.byteLength;
+    if (n > max) { try { await reader.cancel(); } catch (_e) { /* ignore */ } return null; }
+    chunks.push(value);
+  }
+  const all = new Uint8Array(n); let o = 0;
+  for (const c of chunks) { all.set(c, o); o += c.byteLength; }
+  return new TextDecoder().decode(all);
+}
+
 async function sha(s: string): Promise<string> {
   const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return [...new Uint8Array(d)].map(x => x.toString(16).padStart(2, "0")).join("").slice(0, 32);
@@ -72,10 +93,8 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
   try {
-    const len = Number(req.headers.get("content-length") || 0);
-    if (len > MAX_BODY) return json({ error: "too large" }, 413);
-    const raw = await req.text();
-    if (raw.length > MAX_BODY) return json({ error: "too large" }, 413);
+    const raw = await readLimited(req, MAX_BODY);
+    if (raw === null) return json({ error: "too large" }, 413);
     let body: unknown; try { body = JSON.parse(raw); } catch (_e) { return json({ error: "bad json" }, 400); }
     const v = validate(body, d.now());
     if (!v.ok) return json({ error: "invalid", why: v.why }, 400);

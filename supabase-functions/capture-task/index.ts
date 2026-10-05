@@ -11,7 +11,8 @@
 //   JSON  {"text":"Read chapter 4","due":"friday 5pm" | "2026-10-09" | "2026-10-09T17:00","course":"Bio 101","source":"siri","id":"<idempotency key>"}
 //   or application/x-www-form-urlencoded with the same field names.  Max body 4 KB.
 //   Natural-language "due" is NOT parsed here: it is stored as text and the app (which knows the time zone and course list) reads it.
-//   Idempotency: "Idempotency-Key" header or "id" field; the same key within 10 minutes adds nothing twice (Siri retries).
+//   Idempotency: "Idempotency-Key" header or "id" field; the same key within 7 days adds nothing twice (Siri retries,
+//   a share queued offline and sent again; capture_idem in supabase-capture.sql).
 // GET ?token=...&text=...  only works for tokens the owner switched on "allow GET" (URLs get logged). The query string is never logged here.
 // HEAD or GET ?ping=1: health check, no token needed.
 // Answer: {ok:true, message:"Added to your Studyboard inbox", speech:"Added to Studyboard: ..."}  (Siri's Speak action can say "speech").

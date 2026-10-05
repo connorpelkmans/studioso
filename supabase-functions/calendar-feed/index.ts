@@ -6,6 +6,8 @@
 // Setup: see "Calendar Sync" in the setup guide. "Verify JWT" must be OFF for this function,
 // because calendar apps can't sign in. The private token in the link is what protects your calendar.
 // It uses SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, which Supabase provides to every Edge Function.
+// The link is looked up by the SHA-256 of its token (calendar_feeds.token_hash, see supabase-calendar-feed.sql), and the
+// token itself never goes into a database query. Errors shown to calendar apps are short and never describe the setup.
 
 // ==== STUDYBOARD ICS CORE START ====
 // Shared by the app (download) and the calendar-feed Edge Function (live link). Plain JavaScript, no imports.
@@ -397,11 +399,42 @@ function dbClient(){
   return {rest};
 }
 
-async function loadFeed(db, token){
+export async function tokenHash(token){
+  const h = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)));
+  return Array.from(h, b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Finds the link by the hash of its token. (A project that hasn't run the newer calendar-feed.sql has no token_hash column
+// yet; then the older lookup is used until it does.)
+async function loadFeed(db, token, hash){
+  const by = "token_hash=eq." + hash;
   let rows;
-  try { rows = await db.rest("calendar_feeds?select=user_id,options,last_fetched_at,cache_key,cache_text&token=eq." + encodeURIComponent(token) + "&limit=1"); }
-  catch (e) { if (!/cache_key|cache_text|42703|PGRST204/.test(String(e.body || e.message))) throw e; rows = await db.rest("calendar_feeds?select=user_id,options,last_fetched_at&token=eq." + encodeURIComponent(token) + "&limit=1"); }
-  return rows && rows[0] ? rows[0] : null;
+  try { rows = await db.rest("calendar_feeds?select=user_id,options,last_fetched_at,cache_key,cache_text&" + by + "&limit=1"); }
+  catch (e) {
+    const b = String(e.body || e.message);
+    if (/token_hash/.test(b)) { const f = await db.rest("calendar_feeds?select=user_id,options,last_fetched_at&token=eq." + encodeURIComponent(token) + "&limit=1"); return f && f[0] ? Object.assign(f[0], {_by: "token=eq." + encodeURIComponent(token)}) : null; }
+    if (!/cache_key|cache_text|42703|PGRST204/.test(b)) throw e;
+    rows = await db.rest("calendar_feeds?select=user_id,options,last_fetched_at&" + by + "&limit=1");
+  }
+  return rows && rows[0] ? Object.assign(rows[0], {_by: by}) : null;
+}
+
+// Every text value from the stored data and options loses control characters (CR, LF, tabs and the rest) before it goes
+// near the calendar, so nothing can start a new line in the file (UID, URL, RRULE, DTSTART and DTEND are written as-is).
+// Multi-line notes keep their line breaks; the core escapes those as \n.
+const MULTI = new Set(["notes", "desc", "description", "body", "text"]);
+export function cleanDeep(v, key, depth){
+  depth = depth || 0;
+  if (typeof v === "string") return MULTI.has(key) ? v.replace(/\r\n?/g, "\n").replace(/[\u0000-\u0009\u000B-\u001F\u007F\u2028\u2029]/g, "") : v.replace(/[\u0000-\u001F\u007F\u2028\u2029]+/g, " ");
+  if (!v || typeof v !== "object" || depth > 12) return typeof v === "object" ? null : v;
+  if (Array.isArray(v)) return v.map(x => cleanDeep(x, key, depth + 1));
+  const o = {};
+  for (const k of Object.keys(v)) o[k] = cleanDeep(v[k], k, depth + 1);
+  return o;
+}
+// The finished file is checked once more: every line must be a property line (NAME: or NAME;) or a folded continuation.
+export function icsSafe(text){
+  return String(text).split("\r\n").every(l => l === "" || l[0] === " " || /^[A-Z][A-Z0-9-]*[;:]/.test(l));
 }
 
 // Lean: a short fingerprint of "what changed and when". The same fingerprint means the same calendar, so it isn't rebuilt.
@@ -439,7 +472,7 @@ async function loadItems(db, userId){
   return data;
 }
 
-async function handle(req){
+export async function handle(req){
   if (req.method === "OPTIONS") return new Response(null, {status: 204, headers: CORS});
   if (req.method !== "GET" && req.method !== "HEAD") return textResponse(405, "Only GET works here.", {Allow: "GET, HEAD, OPTIONS"});
   const url = new URL(req.url);
@@ -450,18 +483,19 @@ async function handle(req){
   const token = (url.searchParams.get("token") || "").trim().replace(/\.ics$/i, "");
   if (!TOKEN_RE.test(token)) return textResponse(404, "This calendar link isn't complete. Copy it again from Studyboard > Settings > Calendar Sync.");
   let db;
-  try { db = dbClient(); } catch (e) { return textResponse(500, "The calendar feed isn't set up yet: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing."); }
+  try { db = dbClient(); } catch (e) { console.error("calendar-feed: SUPABASE_URL or the service key is missing"); return textResponse(503, "This calendar isn't available right now. Try again later.", {"Retry-After": "3600"}); }
+  const hash = await tokenHash(token);
   let feed;
-  try { feed = await loadFeed(db, token); }
+  try { feed = await loadFeed(db, token, hash); }
   catch (e) {
-    if (/calendar_feeds|PGRST205|42P01/.test(String(e.body || e.message))) return textResponse(500, "The calendar_feeds table is missing. Run calendar-feed.sql in the Supabase SQL Editor.");
-    console.error("feed lookup failed", e);
-    return textResponse(503, "Couldn't reach the database. Try again in a few minutes.", {"Retry-After": "300"});
+    // The details (for example "run calendar-feed.sql") go to the function's logs only, never to whoever has the link.
+    console.error("feed lookup failed", String(e.status || ""), String(e.body || e.message || e).slice(0, 300));
+    return textResponse(503, "This calendar isn't available right now. Try again in a few minutes.", {"Retry-After": "300"});
   }
   if (!feed) return textResponse(404, "This calendar link was turned off or reset. Get the current link in Studyboard > Settings > Calendar Sync.");
   // Lean: a calendar app asking too often gets told to come back later (needs lean.sql; skipped without it).
   // The limiter keeps a fingerprint of the link, never the link itself.
-  const fp = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token))).slice(0, 12), b => b.toString(16).padStart(2, "0")).join("");
+  const fp = hash.slice(0, 24);
   if (!(await rateOk(db, "cal:" + fp, 120, 3600))) return textResponse(429, "Too many requests for this calendar. Try again in an hour.", {"Retry-After": "3600"});
   // Lean: reuse the calendar built last time when nothing changed (needs lean.sql's cache columns; skipped without it).
   const ckey = await changeKey(db, feed);
@@ -473,17 +507,19 @@ async function handle(req){
     let data;
     try { data = await loadItems(db, feed.user_id); }
     catch (e) { console.error("items failed", e); return textResponse(503, "Couldn't load your calendar. Try again in a few minutes.", {"Retry-After": "300"}); }
-    try { out = SBICS.build(data, feed.options || {}, Date.now(), true); }
-    catch (e) { console.error("build failed", e); return textResponse(500, "Couldn't build your calendar. Check for updates to Studyboard's calendar-feed function."); }
-    if (ckey) { try { await db.rest("calendar_feeds?token=eq." + encodeURIComponent(token), {method: "PATCH", headers: {Prefer: "return=minimal"}, body: JSON.stringify({cache_key: ckey, cache_text: out.text})}); } catch (e) { /* cache is optional */ } }
+    try { out = SBICS.build(cleanDeep(data), cleanDeep(feed.options || {}), Date.now(), true); }
+    catch (e) { console.error("build failed", e); return textResponse(500, "Couldn't build your calendar. Try again later."); }
+    if (!icsSafe(out.text)) { console.error("build produced an unsafe line"); return textResponse(500, "Couldn't build your calendar. Try again later."); }
+    if (ckey) { try { await db.rest("calendar_feeds?" + feed._by, {method: "PATCH", headers: {Prefer: "return=minimal"}, body: JSON.stringify({cache_key: ckey, cache_text: out.text})}); } catch (e) { /* cache is optional */ } }
   }
   // Note when a calendar app last checked, so the app can show it (at most every 10 minutes).
   const last = feed.last_fetched_at ? Date.parse(feed.last_fetched_at) : 0;
   if (!last || Date.now() - last > 6e5) {
-    try { await db.rest("calendar_feeds?token=eq." + encodeURIComponent(token), {method: "PATCH", headers: {Prefer: "return=minimal"}, body: JSON.stringify({last_fetched_at: new Date().toISOString()})}); } catch (e) { /* not important */ }
+    try { await db.rest("calendar_feeds?" + feed._by, {method: "PATCH", headers: {Prefer: "return=minimal"}, body: JSON.stringify({last_fetched_at: new Date().toISOString()})}); } catch (e) { /* not important */ }
   }
   const headers = Object.assign({"Content-Type": "text/calendar; charset=utf-8", "Content-Disposition": "inline; filename=\"studyboard.ics\"", "Cache-Control": "private, max-age=900", "X-Robots-Tag": "noindex"}, CORS, etag ? {ETag: etag} : {});
   return new Response(req.method === "HEAD" ? null : out.text, {status: 200, headers});
 }
 
-Deno.serve(handle);
+// Only in Supabase, not when the offline tests load this file.
+if (typeof Deno !== "undefined" && Deno && typeof Deno.serve === "function") Deno.serve(handle);

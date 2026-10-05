@@ -147,8 +147,8 @@ t("ICS round trip across the November clock change", () => {
   assert.strictEqual(new Date(ms("2026-10-25", "23:59", "Europe/Berlin")).toISOString(), "2026-10-25T22:59:00.000Z");
   assert.strictEqual(new Date(ms("2026-03-29", "12:00", "Europe/London")).toISOString(), "2026-03-29T11:00:00.000Z");
 });
-t("calendar-feed core in index.ts is identical to the app's copy", () => {
-  const ts = fs.readFileSync(path.join(__dirname, "..", "index.ts"), "utf8");
+t("calendar-feed core in supabase-functions/calendar-feed/index.ts is identical to the app's copy", () => {
+  const ts = fs.readFileSync(path.join(__dirname, "..", "supabase-functions", "calendar-feed", "index.ts"), "utf8");
   const blk = s => { const a = s.indexOf("// ==== STUDYBOARD ICS CORE START ===="), b = s.indexOf("// ==== STUDYBOARD ICS CORE END ===="); return s.slice(a, b).replace(/\r\n/g, "\n"); };
   assert.strictEqual(blk(ts).trim(), blk(src).trim());
 });

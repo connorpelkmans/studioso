@@ -11,10 +11,13 @@ const secretName = n => String(n || "").toLowerCase().slice(0, 64);
 contextBridge.exposeInMainWorld("studiosoDesktop", {
   version,
   store,
+  // true in the Mac App Store build: Pro is then bought with in-app purchase (see PLAN.buy in index.html). Taken from the main process's flag
+  // (--studioso-store), because a sandboxed preload's process object doesn't reliably carry process.mas.
   mas: store === "mas",
   platform: process.platform,
-  mas: !!process.mas,   // true in the Mac App Store build: Pro is then bought with in-app purchase (see PLAN.buy in index.html)
   dataDir: () => ipcRenderer.invoke("dir:get"),
+  // {path, chosen, inContainer, lost}: inContainer is true in the Mac App Store build while data is still in the app's hidden container (offer "Choose Folder").
+  dataDirInfo: () => ipcRenderer.invoke("dir:info"),
   chooseDir: () => ipcRenderer.invoke("dir:choose"),
   openDir: rel => ipcRenderer.invoke("dir:open", relOk(rel)),
   mkdir: rel => ipcRenderer.invoke("fs:mkdir", relOk(rel)),

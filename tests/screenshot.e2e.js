@@ -1,7 +1,7 @@
 // node tests/capture.e2e.js  (Playwright + Chromium; serves the app over http so the service worker runs; the AI network call is stubbed)
 // Checks: typed capture speed, undo, confirm sheet, URL handler, share-target manifest + service-worker POST, paste, photo flow, offline queue, ingest contract. Writes screenshots to $SHOTS.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
-const {chromium} = require("/opt/node-tools/node_modules/playwright");
+const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, ".."), SHOTS = process.env.SHOTS || path.join(require("os").tmpdir(), "cap-shots");
 fs.mkdirSync(SHOTS, {recursive: true});
 const MIME = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".css": "text/css", ".woff2": "font/woff2"};
@@ -18,7 +18,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Intro Biology", code: "BIO101", 
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
-  const browser = await chromium.launch({executablePath: "/opt/pw-browsers/chromium"});
+  const browser = await chromium.launch({executablePath});
   const mkCtx = async (opts = {}) => {
     const ctx = await browser.newContext(Object.assign({viewport: {width: 1280, height: 800}, acceptDownloads: false}, opts.ctx || {}));
     await ctx.addInitScript(([seed, ai, native]) => {

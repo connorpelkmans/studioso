@@ -5,10 +5,9 @@
 // The stand-in server mirrors supabase-lean.sql (server-stamped updated_at, deletions list) and, when MODE=cas, supabase-sync-conflicts.sql
 // (rev, compare-and-set RPCs). The SQL itself was run on PostgreSQL 16 separately; this checks the client's behaviour against that contract.
 const fs = require("fs"), path = require("path"), assert = require("assert"), http = require("http");
-let chromium; try { ({chromium} = require("playwright")); } catch (e) { ({chromium} = require("/opt/node-tools/node_modules/playwright")); }
+const {chromium, executablePath} = require("./pw");
 const INDEX = path.resolve(process.env.INDEX || path.join(__dirname, "..", "index.html"));
 const MODE = process.env.MODE || "cas", OBSERVE = !!process.env.OBSERVE, ONLY = process.env.ONLY ? process.env.ONLY.split(",") : null;
-const EXE = fs.existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined;
 const HOUR = 36e5, DAY = 864e5;
 // The page is served from a tiny local web server (a real origin): localStorage on file:// pages is not reliable across reloads in a headless browser.
 let BASE = "";
@@ -20,13 +19,14 @@ const web = http.createServer((req, res) => {
 /* ---------------- the stand-in server ---------------- */
 class Server {
   constructor(cas){ this.cas = cas; this.rows = new Map(); this.deletions = []; this.devs = {}; this.writes = 0; }
-  reset(){ this.rows.clear(); this.deletions = []; this.writes = 0; }
+  reset(){ this.rows.clear(); this.deletions = []; this.writes = 0; this.watch = null; }
   k(kind, id){ return kind + "|" + id; }
   stamp(){ return new Date().toISOString(); }
   seed(kind, id, data, ageMs, rev){ this.rows.set(this.k(kind, id), {user_id: "u1", kind, id, data, rev: rev || (this.cas ? 1 : undefined), updated_at: new Date(Date.now() - (ageMs || 0)).toISOString(), edited_at: new Date(Date.now() - (ageMs || 0)).toISOString(), updated_by: "seed"}); }
   get(kind, id){ const r = this.rows.get(this.k(kind, id)); return r ? r.data : undefined; }
   write(kind, id, data, dev, opts){
     const key = this.k(kind, id), old = this.rows.get(key), now = this.stamp();
+    if (this.watch) this.watch(kind, id, data, dev);                // a scenario can see every row written, not only the end state
     const row = {user_id: "u1", kind, id, data, updated_at: now, edited_at: (opts && opts.editedAt) || now, updated_by: dev};
     if (this.cas) row.rev = old ? (JSON.stringify(old.data) !== JSON.stringify(data) ? old.rev + 1 : old.rev) : 1;
     this.rows.set(key, row); this.writes++;
@@ -156,6 +156,12 @@ async function device(browser, srv, name, opts) {
     await dev.page.waitForTimeout(150);
   };
   dev.open = open;
+  kit(dev);
+  await open();
+  return dev;
+}
+// The test helpers of one open copy of the app (a device's tab, or a second tab of the same browser: see tab()).
+function kit(dev) {
   // "Close and reopen the app": reload the same tab (closing the tab itself can drop recent localStorage writes in a headless browser context).
   dev.reload = async () => { await dev.page.waitForTimeout(300); await dev.page.reload(); await dev.page.waitForFunction(() => window.__sbSync && window.__sbSync.cloud.on === true, null, {timeout: 20000}); await dev.page.waitForTimeout(150); };
   dev.reopen = async () => { dev.online = true; await dev.reload(); };      // the app is closed and opened again with the network back
@@ -172,8 +178,17 @@ async function device(browser, srv, name, opts) {
   dev.set = (kind, id, patchOrNull) => dev.page.evaluate(([k, i, p]) => { const S = window.__sbSync; S.applyChanges([{kind: k, id: i, after: p === null ? null : Object.assign(S.clone(S.getItem(k, i) || {id: i}), p)}], null); }, [kind, id, patchOrNull]);
   dev.outbox = () => dev.page.evaluate(() => Object.keys(window.__sbSync.outboxGet()));
   dev.toasts = () => dev.page.evaluate(() => window.__sbSync.toastText());
-  await open();
   return dev;
+}
+// A second tab of the app in the same browser profile as dev (shares its localStorage, cookies and network). It gets no realtime
+// events until it is registered with live(tab, true): a backgrounded tab whose realtime connection was dropped, holding a stale copy.
+async function tab(dev, srv) {
+  const t = {name: dev.name + "2", online: true, ctx: null, srv, page: await dev.ctx.newPage(), errors: []};
+  t.page.on("pageerror", e => t.errors.push(e.message));
+  await t.page.goto(BASE + "/" + path.basename(INDEX));
+  await t.page.waitForFunction(() => window.__sbSync && window.__sbSync.cloud.on === true, null, {timeout: 20000});
+  await t.page.waitForTimeout(150);
+  return kit(t);
 }
 
 /* ---------------- scenarios ---------------- */
@@ -192,6 +207,38 @@ async function fresh(browser, srv, seedFn, opts) {
 }
 const coming = async (...devs) => { for (const d of devs) { await d.goOnline(); await d.settle(); } };
 async function converge(A, B) { for (let i = 0; i < 2; i++) { await A.pull(); await B.pull(); await A.settle(); await B.settle(); } }
+
+// Photo themes ("Your Photo", ids "ph-...") live in settings.photoThemes; settings.photoGone holds the deleted ones ({id, at}) and a
+// theme's ed is its last edit time. These do what the photo theme editor does to settings (save, edit, delete), without the photo.
+const phRec = (id, name) => ({id, name, sw: ["#336699", "#CC8844"], at: Date.now()});
+const phMake = (d, recs, skin) => d.eval(([rs, sk]) => { const S = window.__sbSync; S.state.settings = Object.assign({}, S.state.settings, {photoThemes: (S.state.settings.photoThemes || []).concat(rs), style: Object.assign({}, S.state.settings.style, {skin: sk, skinAt: Date.now()})}); S.saveSettings(); }, [recs, skin]);
+const phEdit = (d, id, name) => d.eval(([i, n]) => { const S = window.__sbSync; S.state.settings = Object.assign({}, S.state.settings, {photoThemes: (S.state.settings.photoThemes || []).map(r => r.id === i ? Object.assign({}, r, {name: n, ed: Date.now()}) : r)}); S.saveSettings(); }, [id, name]);
+const phDelete = (d, id) => d.eval(i => { const S = window.__sbSync, st = S.state.settings; S.state.settings = Object.assign({}, st, {photoThemes: (st.photoThemes || []).filter(r => r.id !== i), photoGone: (st.photoGone || []).filter(g => g.id !== i).concat([{id: i, at: Date.now()}])}); S.saveSettings(); }, id);
+const setSetting = (d, patch) => d.eval(p => { const S = window.__sbSync; S.state.settings = Object.assign({}, S.state.settings, p); S.saveSettings(); }, patch);
+const pause = (d, ms) => d.eval(m => new Promise(r => setTimeout(r, m)), ms);
+// What a copy of the settings says: {skin, ph: "id:name,...", ...the named plain settings}
+const phLook = (st, keys) => { st = st || {}; const o = {skin: (st.style || {}).skin, ph: (st.photoThemes || []).map(r => r.id + ":" + r.name).join(",")}; (keys || []).forEach(k => { o[k] = st[k]; }); return o; };
+const phSeen = async (srv, devs, keys) => { const o = {server: phLook((srv.get("meta", "planner") || {}).settings, keys)}; for (const d of devs) o[d.name] = phLook(await d.settings(), keys); return o; };
+const phShow = o => Object.entries(o).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(" ");
+const phAll = (o, fn) => Object.values(o).every(fn);
+// The end state can look right after a theme vanished for a moment (on screen the theme reverts, and the photo is purged once a theme
+// has been missing for the grace time), so each copy of the app is watched the whole time: once it has had ph-test1 (as its theme),
+// the newer edit of it, or has seen ph-test2 deleted, it must never go back.
+const phWatchDevice = d => d.eval(() => {
+  const w = window.__phw = {bad: []}, bad = m => { if (!w.bad.includes(m)) w.bad.push(m); };
+  setInterval(() => {
+    const s = (window.__sbSync && window.__sbSync.state.settings) || {}, ph = Array.isArray(s.photoThemes) ? s.photoThemes : [], r1 = ph.find(r => r && r.id === "ph-test1"), has2 = ph.some(r => r && r.id === "ph-test2"), skin = (s.style || {}).skin;
+    if (r1) w.had1 = true; else if (w.had1) bad("ph-test1 vanished");
+    if (skin === "ph-test1") w.skin1 = true; else if (w.skin1) bad("theme reverted to " + skin);
+    if (r1 && /Newer edit/.test(r1.name)) w.newer = true; else if (w.newer && r1) bad("newer edit replaced by " + JSON.stringify(r1.name));
+    if (has2) { w.had2 = true; if (w.gone2) bad("deleted ph-test2 came back"); } else if (w.had2) w.gone2 = true;
+  }, 20);
+});
+const phDeviceBad = async devs => { const o = []; for (const d of devs) (await d.eval(() => window.__phw ? window.__phw.bad.splice(0) : [])).forEach(m => o.push(d.name + ": " + m)); return o; };
+// Every settings row the server is given is checked while a rule is set (a device reading the row in between would adopt it).
+const phWatchServer = srv => { const w = {bad: [], rule: null}; srv.watch = (kind, id, data, dev) => { const why = kind === "meta" && w.rule && w.rule((data && data.settings) || {}); if (why && !w.bad.includes(why)) w.bad.push(why); }; return w; };
+const phMissing = st => { const l = phLook(st); return !l.ph.includes("ph-test1") ? "a copy without ph-test1 (theme " + l.skin + ")" : l.skin !== "ph-test1" ? "a copy with the theme reverted to " + l.skin : ""; };
+const phWhy = a => a.length ? " [" + a.join("; ") + "]" : "";
 
 const SC = [
   ["1 same note edited offline on A and B", async (b, srv) => {
@@ -395,12 +442,89 @@ const SC = [
     return {out: `bin had ${bin.length} entry; server note ${sv ? "live: " + JSON.stringify(sv.text) : "GONE"}; bin rows left=${rows}; B sees it live: ${!!bLive}`,
       ok: bin.length === 1 && !!sv && sv.text === "Keep me" && rows === 0 && !!bLive, noLoss: !!sv};
   }],
+  ["13a two tabs: a stale tab's queued settings never wipe a photo theme", async (b, srv) => {
+    // Tab A2 is a second, backgrounded tab of the same browser (it shares the localStorage outbox) that missed A's new photo theme. Its
+    // settings save is queued in the shared outbox; A's next flush sent A2's stale copy: the photo theme vanished and the theme reverted.
+    srv.reset(); Object.keys(srv.devs).forEach(k => delete srv.devs[k]);
+    srv.seed("meta", "planner", {schema: 2, settings: {capacity: 15, style: {skin: "classic", skinAt: Date.now() - DAY}}}, HOUR);
+    const A = await device(b, srv, "A"), T = await tab(A, srv), sw = phWatchServer(srv);
+    // A2's connection: off = it misses realtime and its saves wait in the outbox (mid-request, or its socket dropped while in the background)
+    const live = on => { if (on) srv.devs[T.name] = T; else delete srv.devs[T.name]; return T.eval(v => { window.__sbSync.cloud.on = v; if (v) window.dispatchEvent(new Event("online")); }, on); };
+    await A.eval(() => window.SBPHOTO && window.SBPHOTO.grace(1500));   // a theme whose record is missing is given up after 1.5 s, not 30 s
+    await phWatchDevice(A); await phWatchDevice(T);
+    await phMake(A, [phRec("ph-test1", "Mine"), phRec("ph-test2", "Second")], "ph-test1"); await A.settle(); await pause(T, 300);
+    sw.rule = phMissing;
+    await live(false);
+    await setSetting(T, {tips: "always"});                               // A2 saves an unrelated setting from its stale copy
+    await A.eval(() => window.dispatchEvent(new Event("online")));      // A's retry timer / 'online' event flushes the outbox
+    await pause(A, 2500); await A.settle();
+    await live(true); await T.settle(); await converge(A, T);
+    sw.rule = null;
+    const s1 = await phSeen(srv, [A, T], ["tips"]), b1 = sw.bad.splice(0).map(m => "server got " + m).concat(await phDeviceBad([A, T]));
+    const kept = !b1.length && phAll(s1, v => v.skin === "ph-test1" && v.ph.includes("ph-test1:Mine") && v.ph.includes("ph-test2"));
+    // the newer edit wins: A2 (no connection) renames ph-test1 first, A renames it later; A2's older edit arrives last
+    await live(false); await phEdit(T, "ph-test1", "Older edit (A2)"); await pause(A, 300);
+    await phEdit(A, "ph-test1", "Newer edit (A)"); await A.settle();
+    await live(true); await T.settle(); await converge(A, T);
+    const s2 = await phSeen(srv, [A, T]), b2 = await phDeviceBad([A, T]);
+    const edited = !b2.length && phAll(s2, v => v.ph.includes("ph-test1:Newer edit (A)") && !v.ph.includes("Older edit"));
+    // a deletion sticks: A deletes ph-test2 while A2 (no connection) saves settings from a copy that still has it
+    await live(false); await phDelete(A, "ph-test2"); await A.settle();
+    await setSetting(T, {tips: "never"});
+    await live(true); await T.settle(); await converge(A, T);
+    const s3 = await phSeen(srv, [A, T], ["tips"]), b3 = await phDeviceBad([A, T]);
+    const deleted = !b3.length && phAll(s3, v => !v.ph.includes("ph-test2") && v.ph.includes("ph-test1") && v.skin === "ph-test1");
+    // (Not asserted: A2's own "tips" change. Both tabs queue settings under the one outbox key "meta:meta", so when A saves settings
+    // before A2 reconnects, A's entry replaces A2's and A2's change is dropped; whether that happens here depends on startup timing.)
+    return {out: `photo theme and A's theme kept: ${kept}${phWhy(b1)}  ${phShow(s1)}\n      newer edit wins: ${edited}${phWhy(b2)}  ${phShow(s2)}\n      deletion sticks: ${deleted}${phWhy(b3)}  ${phShow(s3)}`,
+      ok: kept && edited && deleted, noLoss: kept && edited, wiped: !kept};
+  }],
+  ["13b slow device: a late settings write never wipes a photo theme", async (b, srv) => {
+    // B (a phone on a slow connection, 600 ms per request) has settings writes queued while A makes a photo theme. Without
+    // supabase-sync-conflicts.sql each write is a read-merge-upsert, so B's late write of an older copy overwrote the newer row.
+    const {A, B} = await fresh(b, srv, s => s.seed("meta", "planner", {schema: 2, settings: {capacity: 15, style: {skin: "classic"}}}, HOUR));
+    const sw = phWatchServer(srv);
+    await A.settle(); await B.settle(); await pause(A, 500);
+    await A.eval(() => window.SBPHOTO && window.SBPHOTO.grace(1500));
+    await phWatchDevice(A); await phWatchDevice(B);
+    await B.eval(() => { const o = window.__srv; window.__srv = s => new Promise(r => setTimeout(r, 600)).then(() => o(s)); });
+    // B saves settings twice in a row (say the scrapbook's start-up save, then a change): the second waits in the queue
+    await B.eval(() => { const S = window.__sbSync; S.state.settings = Object.assign({}, S.state.settings, {t1: 1}); S.saveSettings(); S.state.settings = Object.assign({}, S.state.settings, {t1: 1}); });
+    await pause(B, 650);                                                 // B's first write landed; the next one waits behind it
+    await setSetting(B, {t2: 1}); await pause(B, 200);
+    await phMake(A, [phRec("ph-test1", "Mine"), phRec("ph-test2", "Second")], "ph-test1");   // meanwhile you make a photo theme on A
+    await A.settle(); sw.rule = phMissing; await B.settle(); await pause(B, 300);
+    await setSetting(B, {t3: 1});                                        // later B saves an unrelated setting
+    await B.settle(); await A.settle(); await pause(A, 2500); await converge(A, B);
+    sw.rule = null;
+    const s1 = await phSeen(srv, [A, B], ["t1", "t2", "t3"]), b1 = await phDeviceBad([A, B]), sv1 = sw.bad.splice(0);
+    const kept = !b1.length && phAll(s1, v => v.skin === "ph-test1" && v.ph.includes("ph-test1:Mine") && v.ph.includes("ph-test2"));
+    const bKept = s1.server.t1 === 1 && s1.server.t2 === 1 && s1.server.t3 === 1;
+    // the newer edit wins: B (offline) renames ph-test1 first, A renames it later; B's older edit arrives last
+    B.goOffline(); await phEdit(B, "ph-test1", "Older edit (B)"); await B.settle(); await pause(A, 300);
+    await phEdit(A, "ph-test1", "Newer edit (A)"); await A.settle();
+    await coming(B); await converge(A, B);
+    const s2 = await phSeen(srv, [A, B]), b2 = await phDeviceBad([A, B]);
+    const edited = !b2.length && phAll(s2, v => v.ph.includes("ph-test1:Newer edit (A)") && !v.ph.includes("Older edit"));
+    // a deletion sticks: A deletes ph-test2 while B (offline) saves settings from a copy that still has it
+    B.goOffline(); await phDelete(A, "ph-test2"); await A.settle();
+    await setSetting(B, {t4: 1}); await B.settle();
+    await coming(B); await converge(A, B);
+    const s3 = await phSeen(srv, [A, B], ["t4"]), b3 = await phDeviceBad([A, B]);
+    const deleted = !b3.length && phAll(s3, v => !v.ph.includes("ph-test2") && v.ph.includes("ph-test1") && v.skin === "ph-test1");
+    const own = bKept && s3.server.t4 === 1;
+    // (Without the SQL, B's read-merge-upsert can still put a row without the theme on the server for a moment: that's allowed, since
+    // every device merges photo themes by id and only a deletion (photoGone) removes one. It is printed, not asserted.)
+    return {out: `photo theme and A's theme kept: ${kept}${phWhy(b1)}; B's own settings kept: ${own}${sv1.length ? "; (server briefly got " + sv1.join("; ") + ")" : ""}  ${phShow(s1)}` +
+      `\n      newer edit wins: ${edited}${phWhy(b2)}  ${phShow(s2)}\n      deletion sticks: ${deleted}${phWhy(b3)}  ${phShow(s3)}`,
+      ok: kept && own && edited && deleted, noLoss: kept && own && edited, wiped: !kept};
+  }],
 ];
 
 (async () => {
   await new Promise(r => web.listen(0, "127.0.0.1", r)); BASE = "http://127.0.0.1:" + web.address().port;
   const srv = new Server(MODE === "cas");
-  const browser = await chromium.launch({executablePath: EXE});
+  const browser = await chromium.launch({executablePath});
   let bad = 0, lost = 0;
   for (const [name, fn] of SC) {
     if (ONLY && !ONLY.some(o => name.startsWith(o + " "))) continue;

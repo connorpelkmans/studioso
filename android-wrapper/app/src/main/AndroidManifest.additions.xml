@@ -4,17 +4,18 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- No notification permission is needed for any of this (the share toast and the tile need none). -->
+    <!-- Push reminders (@capacitor/push-notifications + FCM): Android 13+ asks for this at runtime when the page calls
+         StudyboardNative.enablePush(). firebase-messaging also declares it; listing it here makes the requirement explicit.
+         Capture (share sheet, tile, shortcuts) needs no extra permission. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- (1) On the existing <application ...> element add these attributes (and keep the others Capacitor generated):
-           android:name=".capture.StudyboardApplication"                (only if you keep the AppFunctions experiment; else leave Capacitor's default)
            android:networkSecurityConfig="@xml/network_security_config"
            android:usesCleartextTraffic="false"
            android:allowBackup="false"
            android:dataExtractionRules="@xml/data_extraction_rules"
            android:fullBackupContent="@xml/backup_rules" -->
     <application
-        android:name=".capture.StudyboardApplication"
         android:networkSecurityConfig="@xml/network_security_config"
         android:usesCleartextTraffic="false"
         android:allowBackup="false"
@@ -30,8 +31,9 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="studyboard" />
             </intent-filter>
-            <!-- https App Links: replace YOUR-DOMAIN.example, host /.well-known/assetlinks.json with the app's package + SHA-256 signing cert fingerprint
-                 (README-ANDROID.md section 5). autoVerify makes the links open the app without a chooser. -->
+            <!-- https App Links: replace YOUR-DOMAIN.example (the SAME domain as applinks: in ../ios-wrapper/App.entitlements.template.plist) and host
+                 ../../../assetlinks.template.json as https://YOUR-DOMAIN.example/.well-known/assetlinks.json (README-ANDROID.md section 5).
+                 autoVerify makes the links open the app without a chooser. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -42,7 +44,8 @@
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>
 
-        <!-- (3) Share target: "Share > Studyboard" from any app. Separate translucent activity so text shares never open the full app. -->
+        <!-- (3) Share target: "Share > Studyboard" from any app. Exported (it must be), so it never acts without the person's tap: it shows a
+             confirmation dialog first (ShareReceiverActivity.kt). Translucent theme: only the dialog is visible; text shares never open the full app. -->
         <activity
             android:name=".capture.ShareReceiverActivity"
             android:exported="true"
@@ -83,8 +86,7 @@
         <!-- (5) NOT included on purpose: android.intent.action.CREATE_NOTE (Android 14+) is for the user's default NOTES app role, not a task manager;
              registering for it would misrepresent the app. Google Assistant App Actions (actions.xml / built-in intents): see README-ANDROID.md section 4. -->
 
-        <!-- (6) AppFunctions (experimental, verify): the androidx.appfunctions compiler generates the service/metadata. Depending on the release it may
-             require an extra manifest entry or permission: follow the current androidx.appfunctions documentation. Nothing is declared here because
-             an invented manifest entry would be worse than none. -->
+        <!-- (6) Push: nothing to add. @capacitor/push-notifications merges its own FCM MessagingService; google-services.json (README-ANDROID.md
+             "Push") supplies the Firebase config. Optional: com.google.firebase.messaging.default_notification_icon / _channel_id meta-data. -->
     </application>
 </manifest>

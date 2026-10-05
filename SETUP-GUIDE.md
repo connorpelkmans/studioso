@@ -100,15 +100,22 @@ Open **SQL Editor > New query** in Supabase, paste a whole file and click **Run*
 
 If you run `supabase-groups.sql` or `supabase-calendar-feed.sql` later, run `supabase-plans.sql` and `supabase-lean.sql` again afterwards. Running `supabase-groups.sql` again also resets who can see blocked people's tasks, so run `supabase-moderation.sql` again after it.
 
-**Edge Functions** (pasted into Supabase under Edge Functions > Deploy a new function > Via Editor). In this repository they are saved as plain `index.ts` files, so match them by their first line:
+**Edge Functions.** Each one lives in its own folder, `supabase-functions/<name>/index.ts`. Deploy it either by pasting the file into Supabase (Edge Functions > Deploy a new function > Via Editor, named exactly as below, then set the Verify JWT switch in its Details), or with the Supabase CLI from the repository root. `supabase/config.toml` records the same names, entrypoints and Verify JWT settings, but the commands below set the switch themselves, so they are right with any CLI version:
 
-| File in this repository | Function name | Verify JWT |
-|---|---|---|
-| `index.ts` | `calendar-feed` | Off |
-| `index (1).ts` | `billing-webhook` | Off |
-| `index (2).ts` | `lms-feed` | On |
-| `index (3).ts` | `send-reminders` | Off |
-| `supabase-functions/delete-account/index.ts` | `delete-account` | **On** |
+| File in this repository | Function name | Verify JWT | CLI command (add `--project-ref <your-project-ref>`) |
+|---|---|---|---|
+| `supabase-functions/calendar-feed/index.ts` | `calendar-feed` | Off | `supabase functions deploy calendar-feed --no-verify-jwt` |
+| `supabase-functions/billing-webhook/index.ts` | `billing-webhook` | Off | `supabase functions deploy billing-webhook --no-verify-jwt` |
+| `supabase-functions/lms-feed/index.ts` | `lms-feed` | On | `supabase functions deploy lms-feed` |
+| `supabase-functions/send-reminders/index.ts` | `send-reminders` | Off | `supabase functions deploy send-reminders --no-verify-jwt` |
+| `supabase-functions/delete-account/index.ts` | `delete-account` | **On** | `supabase functions deploy delete-account` |
+| `supabase-functions/create-checkout/index.ts` | `create-checkout` | On | `supabase functions deploy create-checkout` |
+| `supabase-functions/create-portal-session/index.ts` | `create-portal-session` | On | `supabase functions deploy create-portal-session` |
+| `supabase-functions/entitlement-token/index.ts` | `entitlement-token` | On | `supabase functions deploy entitlement-token` |
+| `supabase-functions/capture-task/index.ts` | `capture-task` | Off | `supabase functions deploy capture-task --no-verify-jwt` |
+| `supabase-functions/error-ingest/index.ts` | `error-ingest` | Off | `supabase functions deploy error-ingest --no-verify-jwt` |
+
+The CLI looks for functions in `supabase/functions/` unless your version reads the `entrypoint` lines in `supabase/config.toml`. If yours says it can't find a function, deploy that one by pasting it in the dashboard instead (or copy the folder to `supabase/functions/<name>/` first). Offline checks for the functions: `node --experimental-strip-types supabase-functions/tools/test-functions.mjs` and `node --experimental-strip-types supabase-functions/tools/test-capture.mjs`.
 
 **delete-account** is what makes "Delete My Account and Data" remove everything on the server, including the uploaded files themselves (SQL cannot delete files in Storage; this function uses the service role to list and remove every file under `<user id>/` in the `studioso-files` bucket, then runs `studyboard_delete_user_data` from `supabase-lean.sql`, then deletes the sign-in account, which ends every session). It also cancels a Stripe card subscription so billing never keeps running, asks for a recent sign-in or the password, and allows 5 tries an hour. Secrets: `STRIPE_SECRET_KEY` (the one the billing functions use; skip if you never took card payments) and `SITE_ORIGINS` (your web address, same value as for `create-checkout`). Without this function the app falls back to deleting files and rows with the person's own sign-in, but it cannot cancel Stripe, so it asks them to cancel first. Test it with `node --experimental-strip-types supabase-functions/tools/test-functions.mjs` and, in Supabase, with `supabase-delete-selftest.sql` (SQL Editor, run after `supabase-lean.sql`; it rolls back).
 
@@ -586,7 +593,7 @@ You need the two files that came with this update: `supabase-calendar-feed.sql` 
 **1. Create the table**
 In Supabase, open **SQL Editor**, then **New query**. Open `supabase-calendar-feed.sql`, copy everything into the editor and click **Run**. You should see *Success. No rows returned*. This makes a small table for your private calendar links, locked so only your account can see or change yours.
 
-(In Studyboard, **Calendar Sync > Live Link** also has a **Copy Setup SQL** button with the same text.)
+(In Studyboard, **Calendar Sync > Live Link** also has a **Copy Setup SQL** button. Use the file if they differ: the file is newer.) The function finds your link by a SHA-256 fingerprint of its private code (`token_hash`), which the database fills in by itself. If you update the calendar-feed function, run `supabase-calendar-feed.sql` again so older links get their fingerprint.
 
 **2. Add the calendar function**
 - In the left sidebar open **Edge Functions**.
@@ -680,7 +687,15 @@ Click **Save**. Copy the private key now: Studyboard doesn't keep it. If you los
 
 **4. Add the send-reminders function**
 Still in **Edge Functions**, click **Deploy a new function**, then **Via Editor**. Name it exactly `send-reminders`. Delete the sample code, paste everything from `supabase-functions/send-reminders/index.ts`, and click **Deploy function**.
-Then open the function's **Details** and turn **off** the **Verify JWT** switch (it may be called *Enforce JWT Verification*), and save. The 5-minute schedule and the Snooze and Mark Done buttons don't sign in, so they need this off. It's still safe: the function only sends reminders that are already due, and each Snooze or Mark Done button carries its own random code that works for that one reminder only.
+Then open the function's **Details** and turn **off** the **Verify JWT** switch (it may be called *Enforce JWT Verification*), and save. The 5-minute schedule and the Snooze and Mark Done buttons don't sign in, so they need this off. It's still safe: sending only happens when the call carries the schedule secret, each Snooze or Mark Done button carries its own random code that works for that one reminder only, and notifications only ever go to the real push services (Google, Mozilla, Microsoft and Apple).
+
+The schedule secret needs nothing from you: `supabase-reminders.sql` makes it (a long random value kept in Vault as `studyboard_cron_secret`), the 5-minute schedule sends it in an `x-studyboard-cron` header, and the function checks it with the database. If you update the function from an older version, run `supabase-reminders.sql` again too (with your two PASTE values), or the function answers the schedule with "Not allowed" and nothing is sent. Optional: to check the secret without asking the database, copy it (`select decrypted_secret from vault.decrypted_secrets where name = 'studyboard_cron_secret';` in the SQL Editor) into an Edge Function secret named `REMINDERS_CRON_SECRET`. To change it, delete the `studyboard_cron_secret` row in **Vault**, run `supabase-reminders.sql` again, and update `REMINDERS_CRON_SECRET` if you set it.
+
+**4b. (Optional) Reminders through the Android and iPhone apps**
+The phone apps get reminders through Google's and Apple's own push services instead of Web Push. Each is optional: if its secrets are missing, those devices are simply skipped (nothing breaks, and browsers keep working). Add these in **Edge Functions > Secrets**:
+- **Android (Firebase Cloud Messaging):** in the Firebase console open **Project settings > Service accounts > Generate new private key**. Add a secret `FCM_SERVICE_ACCOUNT` whose value is the whole downloaded JSON file. `FIREBASE_PROJECT_ID` is optional (it is read from the JSON).
+- **iPhone and iPad (APNs):** in the Apple Developer site open **Certificates, Identifiers & Profiles > Keys**, make a key with **Apple Push Notifications service (APNs)** and download the `.p8` file. Add `APNS_KEY_P8` (the whole text of the `.p8` file, including the BEGIN and END lines), `APNS_KEY_ID` (the key's 10-character id), `APNS_TEAM_ID` (your 10-character Team ID) and, if your bundle id isn't `com.studioso.app`, `APNS_TOPIC` (the bundle id). Development builds register sandbox tokens; the function tries the production server first and then the sandbox one.
+Devices whose token Google or Apple reports as no longer valid are removed automatically. Run `supabase-reminders.sql` again after updating, so the device list accepts phone app tokens (the `kind` column).
 
 **5. Turn it on for each device**
 On each phone or computer you want reminders on, open Studyboard, go to **Set Up Phone Notifications**, click **Turn On for This Device**, and allow notifications. Then click **Send a Test Now**. A test notification should arrive within a few seconds.
@@ -694,7 +709,8 @@ On each phone or computer you want reminders on, open Studyboard, go to **Set Up
 - **Snooze 1 Hour** and **Mark Done** appear on the notification on Android, Windows, Mac and Chrome. iPhone doesn't show these buttons; tap the notification to open the task.
 - A reminder that's already shown on a device that has Studyboard open isn't sent again by phone.
 - If your Supabase project is paused, phone reminders stop until it's running again. The keep-awake ping from Part 2 of the setup prevents this.
-- **Not arriving?** Check that the three secrets are spelled exactly as above, that **Verify JWT** is off, and that notifications are allowed for Studyboard in your phone's settings. In Supabase, **Edge Functions > send-reminders > Logs** shows each run, and **Integrations > Cron** shows the 5-minute schedule.
+- Each account can have up to 10 devices; turning notifications on for an 11th replaces the one that hasn't checked in for the longest time.
+- **Not arriving?** Check that the three secrets are spelled exactly as above, that **Verify JWT** is off, that you ran `supabase-reminders.sql` after your last update of the function (Logs show "Not allowed" otherwise), and that notifications are allowed for Studyboard in your phone's settings. In Supabase, **Edge Functions > send-reminders > Logs** shows each run, and **Integrations > Cron** shows the 5-minute schedule.
 - **Turn it off on a device:** Set Up Phone Notifications, then **Turn Off Here**.
 
 ## Widgets and Shortcuts
@@ -1107,7 +1123,7 @@ What it does:
 - **Limits against runaway use.** Each account can check a school calendar link 60 times an hour, each live calendar link can be read 120 times an hour, and invite or deck codes can be looked up 30 times an hour. Normal use never comes close.
 - **Quiet accounts are packed away.** Accounts with no sign-in and no changes for 6 months are packed into one compressed record once a month. The next time that person opens Studyboard, everything is unpacked automatically in a second or two. Their files are not touched.
 
-Update the `calendar-feed` and `lms-feed` functions too (Edge Functions > the function > Code, paste the new `index.ts`, Deploy), and run `supabase-groups.sql` again if you use study groups.
+Update the `calendar-feed` and `lms-feed` functions too (Edge Functions > the function > Code, paste the new `supabase-functions/<name>/index.ts`, Deploy), and run `supabase-groups.sql` again if you use study groups.
 
 ## Studyboard Pro
 

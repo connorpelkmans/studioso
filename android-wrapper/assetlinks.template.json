@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.studioso.app",
+      "sha256_cert_fingerprints": [
+        "REPLACE:WITH:THE:PLAY:APP:SIGNING:KEY:SHA256:FINGERPRINT:FROM:PLAY:CONSOLE:APP:INTEGRITY",
+        "REPLACE:WITH:YOUR:UPLOAD:OR:DEBUG:KEY:SHA256:FINGERPRINT:OPTIONAL"
+      ]
+    }
+  }
+]

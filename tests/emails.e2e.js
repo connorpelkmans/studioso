@@ -1,7 +1,7 @@
 // node tests/emails.e2e.js  (Playwright + Chromium; the desktop app's Canvas mail bridge is stubbed)
 // Checks: the Emails tab sits between Grades and Files, lists the inbox, opens a thread, drafts and sends a reply; the tab selector doesn't move.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
-const {chromium} = require("/opt/node-tools/node_modules/playwright");
+const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, "http://x"); let p = decodeURIComponent(u.pathname); if (p === "/") p = "/index.html";
@@ -12,7 +12,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Intro Biology", code: "BIO101", 
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
-  const browser = await chromium.launch({executablePath: "/opt/pw-browsers/chromium"});
+  const browser = await chromium.launch({executablePath});
   const ctx = await browser.newContext({viewport: {width: 1280, height: 800}});
   await ctx.addInitScript(seed => {
     try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); } } catch (e) {}

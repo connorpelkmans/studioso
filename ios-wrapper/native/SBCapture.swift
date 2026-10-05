@@ -1,4 +1,4 @@
-// UNTESTED: written without compiler access (no Xcode / Swift toolchain was available). Review, build and run on a device before relying on it.
+// UNTESTED: written without compiler access (no Xcode / Swift toolchain was available; swiftc could not be downloaded either). Review, build and run on a device before relying on it.
 //
 // SBCapture.swift: shared capture core. Add to THREE targets: App, ShareExtension (and the App Intents live in the App target).
 // Contract: ../../capture-contract.json (kept in sync by tests/capture-contract.test.js, which also greps this file for the constants below).
@@ -7,7 +7,7 @@
 // - Network: HTTPS only, *.supabase.co only, 8 second timeout, Idempotency-Key header, the token is never logged.
 // - Offline / failure: the item is queued as a JSON file in the App Group container; the app drains it on launch/resume (StudyboardSharedQueuePlugin).
 //
-// Replace the two identifiers below if the bundle id differs. They must match the entitlements (see ios-wrapper/native/entitlements).
+// Replace the two identifiers below if the bundle id differs. They must match the entitlements (../App.entitlements.template.plist and ShareExtension/ShareExtension.entitlements).
 import Foundation
 import Security
 
@@ -37,6 +37,11 @@ struct PendingCapture: Codable {
     var imageFile: String? = nil         // file name inside the queue directory (JPEG), set by the share extension
     var createdAt: Double = Date().timeIntervalSince1970 * 1000   // milliseconds, like Date.now() in JS
 
+    // Explicit keys: used by the synthesized encode(to:) and by the tolerant init(from:) in the extension below.
+    enum CodingKeys: String, CodingKey {
+        case id, kind, text, due, course, source, url, imageFile, createdAt
+    }
+
     /// Trimmed copies that respect the contract limits. Returns nil when there is no usable text.
     func sanitized() -> PendingCapture? {
         func clip(_ s: String?, _ n: Int) -> String? {
@@ -49,6 +54,29 @@ struct PendingCapture: Codable {
         c.course = clip(course, SBCaptureConfig.maxCourseLength)
         if let s = source, !SBCaptureConfig.allowedSources.contains(s) { c.source = nil }
         return c.text == nil ? nil : c
+    }
+}
+
+// Tolerant decoding: the synthesized Decodable would throw on any missing or mistyped key, and pendingItems() would then skip the file
+// silently forever (older app versions, a field added later, a hand-written test file). Every field falls back to its default instead.
+// It lives in an extension so the memberwise initializer PendingCapture(text:source:...) stays available.
+extension PendingCapture {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        func str(_ k: CodingKeys) -> String? {
+            guard let v = try? c.decodeIfPresent(String.self, forKey: k) else { return nil }
+            return v
+        }
+        self.init()
+        if let v = str(.id), !v.isEmpty { id = v }
+        if let v = str(.kind), v == "task" || v == "route" { kind = v }
+        text = str(.text)
+        due = str(.due)
+        course = str(.course)
+        source = str(.source)
+        url = str(.url)
+        imageFile = str(.imageFile)
+        if let d = try? c.decodeIfPresent(Double.self, forKey: .createdAt), d.isFinite, d > 0 { createdAt = d }
     }
 }
 
@@ -79,6 +107,11 @@ enum SBCapture {
         if let group = Bundle.main.object(forInfoDictionaryKey: SBCaptureConfig.keychainAccessGroupInfoKey) as? String,
            !group.isEmpty, !group.contains("$(") {
             q[kSecAttrAccessGroup as String] = group
+        } else {
+            // Without the key the App and the Share Extension would use different default Keychain groups and the extension would report
+            // "not configured". Both Info.plists need SBKeychainAccessGroup (Info.plist.additions.plist, ShareExtension/Info.plist.snippet.plist).
+            // No logging here on purpose (tests/capture-contract.test.js forbids log calls in the capture client).
+            assertionFailure("SBKeychainAccessGroup missing from Info.plist")   // debug builds only; compiled out in release
         }
         return q
     }
@@ -190,7 +223,15 @@ enum SBCapture {
         guard let dir = queueDirectory,
               let files = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else { return [] }
         return files.filter { $0.pathExtension == "json" }
-            .compactMap { try? JSONDecoder().decode(PendingCapture.self, from: Data(contentsOf: $0)) }
+            .compactMap { file -> PendingCapture? in
+                guard let data = try? Data(contentsOf: file), var it = try? JSONDecoder().decode(PendingCapture.self, from: data) else { return nil }
+                // The file name is the id enqueue() used: take it from there so ack/remove(id:) always deletes THIS file, even when the JSON
+                // had no (or a different) id. Otherwise the item would come back on every drain under a new random id.
+                let stem = file.deletingPathExtension().lastPathComponent
+                guard stem.range(of: "^[A-Za-z0-9-]{1,64}$", options: .regularExpression) != nil else { return nil }
+                it.id = stem
+                return it
+            }
             .sorted { $0.createdAt < $1.createdAt }
     }
 

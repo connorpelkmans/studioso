@@ -11,14 +11,14 @@ This repository is a flat copy of an intended layout. Nothing was moved or renam
 | `icons/` and `widgets/` folders next to `index.html` | Icons, `shortcut-*.png`, `today-*.json/png` sit in the root | `manifest.webmanifest` and `today.webmanifest` list both `icons/...` and root paths (the browser skips whichever 404s). `sw.js` caches the app shell and treats every icon as optional, so it installs in either layout. Widget `data`/`ms_ac_template`/`screenshots` still point at `widgets/` (a manifest field takes one path), so the Windows Widgets board needs the `widgets/` folder (see below). |
 | `desktop/` project with `scripts/prepare.js`, `widget/`, `app/`, `build/` | `package.json`, `main.js`, `preload.js`, `lms.js`, `prepare.js`, `widget*.{html,css,js}`, icons all in the root | `prepare.js` detects the flat layout, builds `app/` from `./index.html`, and stages `widget/` and `build/` from the flat files. `package.json` scripts now call `node prepare.js`, so `npm run prep`, `start` and `dist*` work from the root. `app/`, `build/`, `widget/`, `dist/` are in `.gitignore` (none of them holds committed files). |
 | `.github/workflows/build-desktop.yml` | `build-desktop.yml` in the root (GitHub ignores it there) with `working-directory: desktop` | Added a working copy at `.github/workflows/build-desktop.yml` for the flat layout. The root file is kept, marked as a template for the nested layout. |
-| `supabase-functions/<name>/index.ts` | `index.ts`, `index (1).ts`, `index (2).ts`, `index (3).ts` | Documented the mapping (`index.ts` = calendar-feed, `(1)` = billing-webhook, `(2)` = lms-feed, `(3)` = send-reminders) in SETUP-GUIDE and README. |
+| `supabase-functions/<name>/index.ts` | `index.ts`, `index (1).ts`, `index (2).ts`, `index (3).ts` | Done: moved to `supabase-functions/calendar-feed`, `billing-webhook`, `lms-feed` and `send-reminders` (`git mv`), with `supabase/config.toml` and per-function deploy commands in SETUP-GUIDE. |
 | `email-templates/` folder | `confirm-signup.html`, `reset-password.html`, ... in the root | Nothing to do for the app; the guide says "email-templates folder". |
-| (nothing) | A file called `download` containing `node_modules/ app/ dist/` | A stray ignore list. Safe to delete. |
+| (nothing) | A file called `download` containing `node_modules/ app/ dist/` | A stray ignore list. Deleted. |
 
 **Recommended owner decision:** make the repository match the intended layout in one commit (`git mv`), then simplify:
 - `desktop/` gets `package.json`, `package-lock.json`, `main.js`, `preload.js`, `lms.js`, `scripts/prepare.js`, `widget/` (the `widget.*` files and `widget-preload.js`) and `build/` (the icon and installer artwork). Delete the root `build-desktop.yml` and the `.github/workflows` copy's flat tweaks (put `working-directory: desktop` back; `prepare.js` also works in that layout).
 - `site/` (or the root) gets `index.html`, `sw.js`, `vendor/` (supabase-js, fonts), both manifests, plus `icons/` (`icon-*.png`, `maskable-*.png`, `apple-touch-icon.png`, `shortcut-*.png`) and `widgets/` (`today-data.json`, `today-template.json`, `today-screenshot.png`). `.gitignore` already lists `site/`; change that if `site/` is meant to be committed.
-- `supabase/functions/<name>/index.ts` for the four functions, and an `email-templates/` folder.
+- The four functions are now in `supabase-functions/<name>/index.ts` (done). Still to do: an `email-templates/` folder.
 - Also missing from the repo and referenced by the guides: `build.py` (fills `SB_DEFAULT` from `server.json`), `supabase-update-flashcards.sql` and the original `supabase-setup.sql`. If you still have them, add them back.
 
 ## 2. Version and packaging
@@ -67,7 +67,7 @@ This repository is a flat copy of an intended layout. Nothing was moved or renam
 | In-app **Privacy Policy** and **Terms of Service** sheets, reachable from Settings > App and Notifications and from the sign-in and sign-up screens (with a Back button that returns to the form with the email kept) | Done |
 | In-app **About** page: version, copyright, credits and licenses (Atkinson Hyperlegible and Lexend under SIL OFL 1.1, pdf.js under Apache-2.0, supabase-js and Electron under MIT) | Done |
 | `THIRD-PARTY-NOTICES.md` with the license texts | Done |
-| PDF.js 5.7.284 (legacy ES-module build) vendored in `vendor/pdfjs/` (deploy this folder with the web page; `prepare.js` stages it for the desktop app); re-test a PDF syllabus import after any pdf.js update | Done |
+| PDF.js 6.4.299 (legacy ES-module build) vendored in `vendor/pdfjs/` (deploy this folder with the web page; `prepare.js` stages it for the desktop app); re-test a PDF syllabus import after any pdf.js update | Done |
 | **Delete My Account and Data** (Settings > Account and Sync, signed-in only): explains what is removed, offers an export first, requires typing DELETE, optionally erases this device's copy, clear messages for "server not set up", offline and signed-out. Calls `studyboard_delete_my_account()` after removing the user's files through the Storage API. Tested with a stubbed server (3 outcomes) | Done |
 | `studyboard_delete_my_account()` in `supabase-lean.sql`: SECURITY DEFINER, `search_path` set, acts on `auth.uid()` only, execute granted to `authenticated` only, safe to run twice, tolerates Supabase blocking SQL deletes on storage | Done. Owner: run `supabase-lean.sql` and test with a spare account |
 | Contact address is the clearly marked placeholder `support@YOUR-DOMAIN` (one constant, `SUPPORT`, in the 99-release module of `index.html`) | Owner: replace it |
@@ -86,7 +86,7 @@ This repository is a flat copy of an intended layout. Nothing was moved or renam
 | Static `<link rel="manifest" href="manifest.webmanifest">` in `<head>` (the script only adds one if it is missing, never two; the manifest lists icons for both layouts) | Done |
 | Third-party code: supabase-js and fonts are served from `vendor/` (deploy that folder next to `index.html`, in the `site/` folder if you move files); supabase-js is loaded with SRI, jsDelivr is only a fallback. Google Fonts is no longer used | Done |
 | Confirm the SRI hash against the CDN once: `curl -s https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js \| openssl dgst -sha384 -binary \| openssl base64 -A` must print `Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok` (it was computed from the npm file; only the fallback depends on it) | Owner |
-| pdf.js is self-hosted (`vendor/pdfjs/`, 5.7.284); cdnjs is no longer used or allowed in the CSP | Done |
+| pdf.js is self-hosted (`vendor/pdfjs/`, 6.4.299); cdnjs is no longer used or allowed in the CSP | Done |
 | Widgets entry in the manifest needs `widgets/today-*.json` and screenshot | Owner (follows the layout decision above) |
 
 ## 7. Documentation

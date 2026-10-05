@@ -1,9 +1,8 @@
 // Browser tests for the store-readiness flows, against a STUBBED Supabase client and a MOCK purchase bridge (both live only in this
-// test, nothing here ships). Run: node tests/e2e/store-flows.e2e.js   (needs Playwright; set PW_MODULE / PW_CHROMIUM if yours live elsewhere)
+// test, nothing here ships). Run: node tests/e2e/store-flows.e2e.js   (needs Playwright; see tests/pw.js)
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const root = path.join(__dirname, "..", "..");
-const {chromium} = require(process.env.PW_MODULE || "/opt/node-tools/node_modules/playwright");
-const EXE = process.env.PW_CHROMIUM || "/opt/pw-browsers/chromium";
+const {chromium, executablePath} = require("../pw");
 const TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".webmanifest": "application/json", ".png": "image/png", ".svg": "image/svg+xml", ".woff2": "font/woff2"};
 const server = http.createServer((q, r) => {
   let p = decodeURIComponent(q.url.split("?")[0]); if (p === "/") p = "/index.html";
@@ -99,7 +98,7 @@ const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries
 
 (async () => {
   await new Promise(r => server.listen(0, "127.0.0.1", r));
-  const browser = await chromium.launch({executablePath: EXE});
+  const browser = await chromium.launch({executablePath});
 
   await test("sign up -> unverified/confirm state -> resend cooldown (survives reopening) -> wrong code -> verified", async () => {
     const {ctx, page, errs} = await newPage(browser);

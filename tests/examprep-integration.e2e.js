@@ -2,11 +2,10 @@
 // An in-person exam with a prep plan, a take-home quiz, and a big paper with milestones. Checks: Do This Next never shows the in-person exam, prep sessions and milestones
 // can be suggested, Crunch counts each piece of work once, the exam edit sheet shows both "Where is this taken?" and the prep block, and Plan My Prep works.
 const path = require("path"), fs = require("fs"), assert = require("assert"), os = require("os");
-const {chromium} = require(process.env.PW_MODULE || "/opt/node-tools/node_modules/playwright");
+const {chromium, executablePath} = require("./pw");
 const FILE = "file://" + path.join(__dirname, "..", "index.html");
 const OUT = process.argv[2] || fs.mkdtempSync(path.join(os.tmpdir(), "sbint-"));
 fs.mkdirSync(OUT, {recursive: true});
-const exe = fs.existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined;
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 const NOW = new Date(2026, 9, 4, 10, 0, 0);
 const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -25,7 +24,7 @@ const act = (page, a, id) => page.evaluate(([a, i]) => { const b = document.crea
 const store = page => page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")));
 const vis = (page, sel) => page.evaluate(s => { const e = document.querySelector(s); return !!e && !!(e.offsetWidth || e.offsetHeight); }, sel);
 (async () => {
-  const browser = await chromium.launch({executablePath: exe});
+  const browser = await chromium.launch({executablePath});
   try {
     for (const [W, H] of [[1280, 800], [390, 844]]) {
       console.log("== " + W);

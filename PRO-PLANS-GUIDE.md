@@ -60,7 +60,7 @@ The app only ever **asks**. The server decides who is Pro: money arrives through
 
 Files (all in the zip):
 - `supabase-plans.sql` (tables, limits, grants, lock-down) and `supabase-plans-selftest.sql` (attack simulation)
-- `billing-webhook` (`index (1).ts` in the flat copy), `supabase-functions/create-checkout`, `supabase-functions/create-portal-session`, `supabase-functions/entitlement-token`
+- `supabase-functions/billing-webhook`, `supabase-functions/create-checkout`, `supabase-functions/create-portal-session`, `supabase-functions/entitlement-token`
 - `supabase-functions/tools/gen-ent-key.mjs` (key pair) and `supabase-functions/tools/test-functions.mjs` (offline tests)
 - `website/` (landing, pricing, account, privacy, terms, success, cancel)
 
@@ -84,7 +84,7 @@ Do these in test mode first. Everything stays free for everyone until Launch Day
 | `create-checkout` | `supabase-functions/create-checkout/index.ts` | **ON** |
 | `create-portal-session` | `supabase-functions/create-portal-session/index.ts` | **ON** |
 | `entitlement-token` | `supabase-functions/entitlement-token/index.ts` | **ON** |
-| `billing-webhook` | `index (1).ts` (the billing webhook) | **OFF** (Stripe and RevenueCat can't sign in; each request is verified with its own secret) |
+| `billing-webhook` | `supabase-functions/billing-webhook/index.ts` | **OFF** (Stripe and RevenueCat can't sign in; each request is verified with its own secret) |
 
 **5. Secrets** (**Edge Functions > Secrets**):
 - `ENT_SIGNING_KEY` (step 2)

@@ -61,6 +61,13 @@ html = bid.stamp(html);
   else fs.writeFileSync(path.join(out, "errreport-core.js"), core + "\nmodule.exports = ERRCORE;\n");
   fs.writeFileSync(path.join(out, "error-config.json"), JSON.stringify({ dsn: pick(/const ERROR_REPORTING = \{\s*dsn: "([^"]*)"/), environment: pick(/environment: "([^"]*)"/), release: pick(/const APP_VERSION = "([^"]+)"/), build: pick(/const BUILD_ID = "([^"]+)"/), minidump: process.env.STUDYBOARD_MINIDUMP_URL || "" }));
 }
+// The page's own CSP (a meta tag set by its first inline script) allows inline scripts by hash; the edits above (build id, local supabase) change
+// script text, so the hashes are recomputed here from the final page. The header hashes below are then taken from this same final html.
+{
+  const cspJs = [path.join(root, "scripts", "csp.js"), path.join(root, "..", "scripts", "csp.js")].find(f => fs.existsSync(f));
+  if (cspJs) html = require(cspJs).apply(html);
+  else console.warn("prepare: scripts/csp.js not found; the page's own CSP hashes may be stale");
+}
 fs.writeFileSync(path.join(out, "index.html"), html);
 
 // Content-Security-Policy support for the desktop app: main.js allows exactly these inline scripts (by SHA-256 hash) and no others.

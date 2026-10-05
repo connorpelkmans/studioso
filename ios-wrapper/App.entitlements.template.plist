@@ -3,11 +3,14 @@
 <!-- Template for ios/App/App/App.entitlements (Xcode creates this file when you add capabilities; add only these). -->
 <plist version="1.0">
 <dict>
-  <!-- Push Notifications. Use "production" for App Store / TestFlight builds (Xcode switches this automatically when archiving). -->
+  <!-- Push Notifications (native-bridge.js enablePush, APNs). Keep "development" here: Xcode signs App Store / TestFlight archives with
+       "production" automatically (the provisioning profile decides). The server must use the matching APNs host: api.sandbox.push.apple.com for
+       debug builds, api.push.apple.com for TestFlight/App Store. Remove this and UIBackgroundModes/remote-notification together if push is dropped. -->
   <key>aps-environment</key>
   <string>development</string>
-  <!-- Universal links: https://studyboard.example/ opens the app. Replace the domain with the site that hosts the web app, and host
-       /.well-known/apple-app-site-association there (see README-IOS.md section 6). -->
+  <!-- Universal links: https://YOUR-DOMAIN.example/ opens the app. Replace the domain with the site that hosts the web app (the SAME domain as
+       android:host in ../android-wrapper/app/src/main/AndroidManifest.additions.xml), and host /.well-known/apple-app-site-association there
+       (see README-IOS.md section 6). -->
   <key>com.apple.developer.associated-domains</key>
   <array>
     <string>applinks:YOUR-DOMAIN.example</string>

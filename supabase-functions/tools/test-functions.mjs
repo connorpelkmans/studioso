@@ -1,4 +1,4 @@
-// Offline checks for the Studyboard Pro Edge Functions (no network, no Supabase). Run from the repo root:
+// Offline checks for the Studyboard Edge Functions (Pro, account deletion, calendar-feed, lms-feed, send-reminders; no network, no Supabase). Run from the repo root:
 //   node --experimental-strip-types supabase-functions/tools/test-functions.mjs
 // (Node 22.6 or newer.) It loads the real function files with fake network calls and checks the rules.
 import assert from "node:assert/strict";
@@ -20,10 +20,13 @@ const PUB = out.match(/ENT_PUBKEY=(\S+)/)[1];
 const b64urlToBytes = (s) => Uint8Array.from(Buffer.from(s.replace(/-/g, "+").replace(/_/g, "/"), "base64"));
 
 const ent = await load("supabase-functions/entitlement-token/index.ts");
-const wh = await load("index (1).ts");
+const wh = await load("supabase-functions/billing-webhook/index.ts");
 const co = await load("supabase-functions/create-checkout/index.ts");
 const pt = await load("supabase-functions/create-portal-session/index.ts");
 const da = await load("supabase-functions/delete-account/index.ts");
+const cf = await load("supabase-functions/calendar-feed/index.ts");
+const lf = await load("supabase-functions/lms-feed/index.ts");
+const sr = await load("supabase-functions/send-reminders/index.ts");
 
 const UID = "11111111-2222-4333-8444-555555555555";
 const OTHER = "99999999-2222-4333-8444-555555555555";
@@ -367,6 +370,335 @@ await test("delete-account: rate limit, Stripe failure stops everything, Apple s
   assert.equal((await da.handle(new Request("https://x/", { method: "GET" }), delDeps().deps)).status, 405);
   const evil = await da.handle(new Request("https://x/", { method: "POST", headers: { authorization: "Bearer j", origin: "https://evil.example" }, body: JSON.stringify({ confirm: "DELETE" }) }), delDeps().deps);
   assert.equal(evil.headers.get("access-control-allow-origin"), null);
+});
+
+// ---- calendar-feed (looked up by token hash, ICS values cleaned, generic errors)
+const sha256hex = async (t) => Buffer.from(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t))).toString("hex");
+const CAL_TOKEN = "Tok_abcdefghijklmnopqrstuvwxyz0123456789";
+function calEnv(o = {}) {
+  const calls = [];
+  globalThis.Deno = { env: { get: (k) => (o.noEnv ? {} : { SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "svc" })[k] } };
+  globalThis.fetch = async (url, init = {}) => {
+    const u = String(url); calls.push([init.method || "GET", u]);
+    if (o.dbDown) return new Response('{"code":"42P01","message":"relation \\"calendar_feeds\\" does not exist"}', { status: 404 });
+    if (u.includes("/rest/v1/calendar_feeds?select=")) {
+      if (o.noHashCol && u.includes("token_hash=")) return new Response('{"code":"42703","message":"column calendar_feeds.token_hash does not exist"}', { status: 400 });
+      const want = "token_hash=eq." + (await sha256hex(CAL_TOKEN));
+      const hit = u.includes(want) || (o.noHashCol && u.includes("token=eq." + CAL_TOKEN));
+      return new Response(JSON.stringify(hit ? [{ user_id: UID, options: { tz: "UTC", appUrl: "https://app.example/\r\nATTACH:x" }, last_fetched_at: null, cache_key: null, cache_text: null }] : []));
+    }
+    if (u.includes("rpc/studyboard_rate_hit")) return new Response("true");
+    if (u.includes("items?select=updated_at") || u.includes("studyboard_deletions")) return new Response("[]");
+    if (u.includes("items?select=kind,id,data")) return new Response(JSON.stringify([
+      { kind: "task", id: "t1", data: { id: "t1\r\nATTACH:https://evil.example/x", title: "Essay\r\nBEGIN:VALARM", due: "2030-01-10", time: "09:00", type: "Exam" } },
+      { kind: "event", id: "e1", data: { id: "e1\nX-EVIL:1", title: "Lab", date: "2030-01-11", start: "10:00", end: "11:00", repeat: { days: [1], every: "2\r\nRRULE:FREQ=SECONDLY", until: "2030-03-01" }, notes: "line one\r\nline two" } },
+    ]));
+    if (init.method === "PATCH") return new Response(null, { status: 204 });
+    return new Response("{}", { status: 500 });
+  };
+  return calls;
+}
+const calReq = (t = CAL_TOKEN) => new Request("https://x/functions/v1/calendar-feed?token=" + encodeURIComponent(t));
+const realFetch = globalThis.fetch;
+
+await test("calendar-feed: looks the link up by SHA-256 of the token; the token never goes into a query", async () => {
+  const calls = calEnv();
+  const res = await cf.handle(calReq());
+  assert.equal(res.status, 200);
+  const text = await res.text();
+  assert.match(text, /BEGIN:VCALENDAR/);
+  assert.ok(calls.every(([, u]) => !u.includes(CAL_TOKEN)), "raw token must not appear in any database request");
+  assert.ok(calls.some(([m, u]) => m === "PATCH" && u.includes("token_hash=eq.")), "updates also go by hash");
+  assert.equal(await cf.tokenHash(CAL_TOKEN), await sha256hex(CAL_TOKEN));
+  assert.equal((await cf.handle(calReq("Tok_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"))).status, 404);
+  assert.equal((await cf.handle(calReq("short"))).status, 404);
+  // a project that hasn't run the new SQL yet still works (older lookup by token)
+  calEnv({ noHashCol: true });
+  assert.equal((await cf.handle(calReq())).status, 200);
+});
+await test("calendar-feed: CR/LF in stored ids, titles, repeat rules and options can't inject ICS lines", async () => {
+  calEnv();
+  const text = await (await cf.handle(calReq())).text();
+  const lines = text.split("\r\n");
+  assert.ok(!lines.some(l => /^(ATTACH|X-EVIL|RRULE:FREQ=SECONDLY)/.test(l)), "no injected property lines");
+  assert.equal(lines.filter(l => l === "BEGIN:VALARM").length, lines.filter(l => l === "END:VALARM").length);
+  assert.ok(cf.icsSafe(text));
+  assert.equal(cf.icsSafe("BEGIN:VCALENDAR\r\nUID:x\r\nnot a property\r\n"), false);
+  assert.deepEqual(cf.cleanDeep({ id: "a\r\nB:1", notes: "x\r\ny\u0000", n: [1, "c\nd"] }), { id: "a B:1", notes: "x\ny", n: [1, "c d"] });
+});
+await test("calendar-feed: errors are generic (no setup details)", async () => {
+  calEnv({ dbDown: true });
+  let res = await cf.handle(calReq());
+  assert.equal(res.status, 503);
+  let t = await res.text();
+  assert.doesNotMatch(t, /calendar_feeds|table|sql|SUPABASE|secret|missing/i);
+  calEnv({ noEnv: true });
+  res = await cf.handle(calReq()); t = await res.text();
+  assert.equal(res.status, 503); assert.doesNotMatch(t, /SUPABASE|SERVICE_ROLE|secret|missing/i);
+  globalThis.fetch = realFetch; delete globalThis.Deno;
+});
+
+// ---- lms-feed (sign-in checked, public addresses only on every hop, size cap, generic errors, limiter fails closed)
+const FEED = "https://school.example.com/d2l/le/calendar/feed/user/feed.ics?token=abc";
+const ICS = "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n";
+function lmsDeps(o = {}) {
+  const fetched = [];
+  const dns = Object.assign({ "school.example.com": ["93.184.216.34"], "cdn.example.net": ["2606:2800:220:1::1"] }, o.dns || {});
+  return {
+    fetched,
+    deps: {
+      user: async () => (o.noUser ? null : UID),
+      limiter: async () => !o.limited,
+      resolve: async (host, type) => { const all = dns[host]; if (!all) throw new Error("NXDOMAIN"); const r = all.filter(ip => (type === "AAAA") === ip.includes(":")); if (!r.length) throw new Error("NotFound"); return r; },
+      fetch: async (url, init) => { fetched.push([String(url), init && init.redirect]); return o.respond ? o.respond(String(url), fetched.length) : new Response(ICS, { headers: { ETag: '"e1"' } }); },
+    },
+  };
+}
+const lmsReq = (body = { url: FEED, lms: "brightspace" }, auth = "Bearer eyJabc") => new Request("https://x/functions/v1/lms-feed", { method: "POST", headers: auth ? { authorization: auth } : {}, body: JSON.stringify(body) });
+
+await test("lms-feed: sign-in is checked inside the function, and the limiter fails closed", async () => {
+  let r = await lf.handle(lmsReq(), lmsDeps({ noUser: true }).deps);
+  assert.equal(r.status, 401);
+  const l = lmsDeps(); r = await lf.handle(lmsReq(), l.deps);
+  assert.equal(r.status, 200); assert.equal((await r.json()).ics, ICS);
+  assert.equal(l.fetched[0][1], "manual", "redirects are never followed automatically");
+  assert.equal((await lf.handle(lmsReq(), lmsDeps({ limited: true }).deps)).status, 429);
+  // the real helpers: no env, an error or a non-true answer all mean "no"
+  globalThis.Deno = { env: { get: (k) => ({ SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "anon" })[k] } };
+  assert.equal(await lf.rateOk(lmsReq(), async () => { throw new Error("down"); }), false);
+  assert.equal(await lf.rateOk(lmsReq(), async () => new Response("null")), false);
+  assert.equal(await lf.rateOk(lmsReq(), async () => new Response("{}", { status: 500 })), false);
+  assert.equal(await lf.rateOk(lmsReq(), async () => new Response("true")), true);
+  const seen = [];
+  assert.equal(await lf.userFrom(lmsReq(), async (u, i) => { seen.push([String(u), i.headers.Authorization]); return new Response(JSON.stringify({ id: UID })); }), UID);
+  assert.deepEqual(seen[0], ["https://x.supabase.co/auth/v1/user", "Bearer eyJabc"]);
+  assert.equal(await lf.userFrom(lmsReq(), async () => new Response("{}", { status: 401 })), null);
+  assert.equal(await lf.userFrom(lmsReq(undefined, ""), async () => new Response(JSON.stringify({ id: UID }))), null);
+  delete globalThis.Deno;
+  assert.equal(await lf.rateOk(lmsReq(), async () => new Response("true")), false, "no env: refused");
+});
+await test("lms-feed: private, loopback, link-local, CGNAT, ULA and mapped addresses are refused", async () => {
+  for (const ip of ["10.1.2.3", "127.0.0.1", "169.254.169.254", "100.64.0.1", "172.16.5.4", "192.168.1.1", "0.0.0.0", "224.0.0.1", "198.18.0.1",
+    "::1", "::", "fd00::1", "fe80::1", "::ffff:127.0.0.1", "::ffff:7f00:1", "64:ff9b::a00:1", "2002:a00:1::1", "2001:db8::1", "2001::1", "ff02::1", "not-an-ip"]) {
+    assert.equal(lf.ipPublic(ip), false, ip + " must be refused");
+  }
+  for (const ip of ["93.184.216.34", "8.8.8.8", "2606:2800:220:1::1", "2a00:1450:4001:80b::200e"]) assert.equal(lf.ipPublic(ip), true, ip + " is public");
+  for (const ips of [["10.0.0.5"], ["93.184.216.34", "127.0.0.1"], ["fd12::3"]]) {
+    const l = lmsDeps({ dns: { "school.example.com": ips } });
+    const r = await lf.handle(lmsReq(), l.deps);
+    assert.equal((await r.json()).error, "bad-url", ips.join(","));
+    assert.equal(l.fetched.length, 0, "nothing is fetched");
+  }
+  const nx = lmsDeps({ dns: { "school.example.com": undefined } });
+  delete nx.deps.resolve; nx.deps.resolve = async () => { throw new Error("NXDOMAIN"); };
+  assert.equal((await (await lf.handle(lmsReq(), nx.deps)).json()).error, "bad-url", "no DNS answer: refused");
+  assert.equal(lf.feedOk("https://127.0.0.1/d2l/le/calendar/feed/x"), null);
+  assert.equal(lf.feedOk("https://user:pw@school.example.com/d2l/le/calendar/feed/x"), null);
+  assert.equal(lf.feedOk("https://school.example.com:8443/d2l/le/calendar/feed/x"), null);
+});
+await test("lms-feed: every redirect is checked again (DNS too), at most 3", async () => {
+  const to = (loc) => new Response(null, { status: 302, headers: { Location: loc } });
+  let l = lmsDeps({ dns: { "evil.example.com": ["127.0.0.1"] }, respond: (u, n) => n === 1 ? to("https://evil.example.com/x.ics") : new Response(ICS) });
+  assert.equal((await (await lf.handle(lmsReq(), l.deps)).json()).error, "bad-url");
+  assert.equal(l.fetched.length, 1, "the internal address was never fetched");
+  l = lmsDeps({ respond: (u, n) => n === 1 ? to("http://cdn.example.net/x.ics") : new Response(ICS) });
+  assert.equal((await (await lf.handle(lmsReq(), l.deps)).json()).error, "bad-url", "no downgrade to http");
+  l = lmsDeps({ respond: (u, n) => n === 1 ? to("https://cdn.example.net/x.ics") : new Response(ICS) });
+  const ok = await (await lf.handle(lmsReq(), l.deps)).json();
+  assert.equal(ok.ok, true); assert.equal(l.fetched[1][0], "https://cdn.example.net/x.ics");
+  l = lmsDeps({ respond: () => to("https://cdn.example.net/again.ics") });
+  assert.equal((await (await lf.handle(lmsReq(), l.deps)).json()).error, "fetch");
+  assert.equal(l.fetched.length, 4, "the link plus 3 redirects, then it stops");
+});
+await test("lms-feed: the body is capped while it streams, and errors carry no upstream detail", async () => {
+  const big = () => new Response(new ReadableStream({ start(c) { for (let i = 0; i < 9; i++) c.enqueue(new Uint8Array(1_000_000)); c.close(); } }));
+  assert.equal((await (await lf.handle(lmsReq(), lmsDeps({ respond: big }).deps)).json()).error, "too-large");
+  assert.equal((await (await lf.handle(lmsReq(), lmsDeps({ respond: () => new Response("x", { headers: { "content-length": "9000000" } }) }).deps)).json()).error, "too-large");
+  const boom = await (await lf.handle(lmsReq(), lmsDeps({ respond: () => { throw new Error("connect ECONNREFUSED 10.9.8.7:443"); } }).deps)).json();
+  assert.deepEqual(boom, { error: "fetch" });
+  assert.deepEqual(await (await lf.handle(lmsReq(), lmsDeps({ respond: () => new Response("oops", { status: 502 }) }).deps)).json(), { error: "http" });
+  assert.deepEqual(await (await lf.handle(lmsReq(), lmsDeps({ respond: () => new Response("no", { status: 401 }) }).deps)).json(), { error: "refused", status: 403 });
+  assert.equal((await (await lf.handle(lmsReq(), lmsDeps({ respond: () => new Response("<html>") }).deps)).json()).error, "not-calendar");
+});
+
+// ---- send-reminders (schedule secret, push endpoint allowlist)
+function remStore(o = {}) {
+  const log = { dropped: [], released: [] };
+  const rows = [{ user_id: UID, id: "r:1", title: "T", body: "B", url: "", task_id: "t1", tok: "tok1", tries: 0 }];
+  const subs = o.subs || [
+    { id: "s1", user_id: UID, endpoint: "https://fcm.googleapis.com/fcm/send/abc", p256dh: "k", auth: "a" },
+    { id: "s2", user_id: UID, endpoint: "https://169.254.169.254/latest/meta-data", p256dh: "k", auth: "a" },
+    { id: "s3", user_id: UID, endpoint: "https://web.push.apple.com/xyz", p256dh: "k", auth: "a" },
+  ];
+  return {
+    log,
+    store: {
+      claimDue: async () => rows, release: async (r) => log.released.push(r.id), subsFor: async () => subs, dropSub: async (id) => log.dropped.push(id),
+      cleanup: async () => {}, byToken: async (id, tok) => (id === "r:1" && tok === "tok1" ? rows[0] : null),
+      addSnooze: async () => { log.snoozed = true; }, markDone: async () => true, userFrom: async () => null,
+      cronOk: async (s) => s === "c".repeat(64),
+    },
+  };
+}
+function fakePush() { const sent = []; return { sent, setVapidDetails() {}, sendNotification: async (sub) => { sent.push(sub.endpoint); return {}; } }; }
+const remReq = (body, headers = {}) => new Request("https://x/functions/v1/send-reminders", { method: "POST", headers, body: JSON.stringify(body) });
+const remOpts = (o = {}) => ({ now: NOW, api: "https://x.supabase.co/functions/v1/send-reminders", k: "anon", vapidOk: true, ...o });
+
+await test("send-reminders: sending needs the schedule secret", async () => {
+  const p = fakePush();
+  assert.equal((await sr.handle(remReq({ action: "send" }), remStore().store, p, remOpts())).status, 401);
+  assert.equal((await sr.handle(remReq({}), remStore().store, p, remOpts())).status, 401, "the default action is send, and it needs the secret too");
+  assert.equal((await sr.handle(remReq({ action: "send" }, { "x-studyboard-cron": "wrong".repeat(10) }), remStore().store, p, remOpts())).status, 401);
+  assert.equal((await sr.handle(remReq({ action: "send" }, { "x-studyboard-cron": "c".repeat(64) }), remStore().store, p, remOpts({ cronSecret: "d".repeat(64) }))).status, 401, "the env secret wins when set");
+  assert.equal(p.sent.length, 0);
+  assert.equal((await sr.handle(remReq({ action: "send" }, { "x-studyboard-cron": "c".repeat(64) }), remStore().store, p, remOpts())).status, 200);
+  assert.equal((await sr.handle(remReq({ action: "send" }, { "x-studyboard-cron": "d".repeat(64) }), remStore().store, fakePush(), remOpts({ cronSecret: "d".repeat(64) }))).status, 200);
+  assert.equal((await sr.handle(remReq({ action: "nope" }), remStore().store, p, remOpts())).status, 400);
+  // Snooze from a notification still works with only the reminder's own code
+  const s = remStore();
+  assert.equal((await sr.handle(remReq({ action: "snooze", id: "r:1", tok: "tok1" }), s.store, p, remOpts())).status, 200);
+  assert.equal(s.log.snoozed, true);
+  assert.equal((await sr.handle(remReq({ action: "snooze", id: "r:1", tok: "bad" }), remStore().store, p, remOpts())).status, 404);
+  // the real store asks the database (service role) and treats errors as "no"
+  const db = (ans) => ({ rpc: async (fn, args) => { db.last = [fn, args]; return ans; } });
+  const d1 = db({ data: true, error: null });
+  assert.equal(await sr.supabaseStore(d1).cronOk("c".repeat(64)), true);
+  assert.equal(await sr.supabaseStore(db({ data: null, error: { message: "x" } })).cronOk("c".repeat(64)), false);
+  assert.equal(await sr.supabaseStore(d1).cronOk("short"), false);
+});
+await test("send-reminders: pushes only go to the real push services", async () => {
+  for (const e of ["https://fcm.googleapis.com/fcm/send/x", "https://updates.push.services.mozilla.com/wpush/v2/x", "https://foo.push.services.mozilla.com/x",
+    "https://wns2-by3p.notify.windows.com/w/?token=x", "https://web.push.apple.com/abc", "https://api.push.apple.com/3/device/x"]) assert.equal(sr.pushHostOk(e), true, e);
+  for (const e of ["http://fcm.googleapis.com/x", "https://fcm.googleapis.com:8443/x", "https://fcm.googleapis.com.evil.com/x", "https://evilfcm.googleapis.com/x",
+    "https://169.254.169.254/x", "https://localhost/x", "https://user@fcm.googleapis.com/x", "https://push.apple.com.evil/x", "https://notify.windows.com/x", ""]) assert.equal(sr.pushHostOk(e), false, e);
+  const s = remStore(), p = fakePush();
+  const out = await (await sr.handle(remReq({ action: "send" }, { "x-studyboard-cron": "c".repeat(64) }), s.store, p, remOpts())).json();
+  assert.deepEqual(p.sent.sort(), ["https://fcm.googleapis.com/fcm/send/abc", "https://web.push.apple.com/xyz"]);
+  assert.deepEqual(s.log.dropped, ["s2"], "a non-push address is removed, never contacted");
+  assert.equal(out.sent, 1);
+  // the real store filters too
+  const db = { from: () => ({ select: () => ({ in: async () => ({ data: remStore().store && [
+    { id: "a", user_id: UID, endpoint: "https://fcm.googleapis.com/fcm/send/1" }, { id: "b", user_id: UID, endpoint: "https://10.0.0.1/x" }], error: null }) }) }) };
+  assert.deepEqual((await sr.supabaseStore(db).subsFor([UID])).map(x => x.id), ["a"]);
+});
+
+// ---- send-reminders: phone apps (FCM HTTP v1 for Android, APNs for iPhone)
+import { generateKeyPairSync, createPublicKey, verify as nodeVerify } from "node:crypto";
+const rsa = generateKeyPairSync("rsa", { modulusLength: 2048 });
+const ec = generateKeyPairSync("ec", { namedCurve: "P-256" });
+const SA = { type: "service_account", project_id: "sb-proj", client_email: "push@sb-proj.iam.gserviceaccount.com", private_key: rsa.privateKey.export({ type: "pkcs8", format: "pem" }) };
+const P8 = ec.privateKey.export({ type: "pkcs8", format: "pem" });
+const jwtParts = (j) => { const [h, c, sg] = j.split("."); const dec = (x) => JSON.parse(Buffer.from(x, "base64url").toString()); return { h: dec(h), c: dec(c), input: h + "." + c, sig: Buffer.from(sg, "base64url") }; };
+const FCM_TOKEN = "fcm:" + "dQw4w9WgXcQ:APA91b" + "x".repeat(140);
+const APNS_TOKEN = "apns:" + "ab".repeat(32);
+function nativeDeps(o = {}) {
+  const calls = [];
+  const envs = Object.assign({ FCM_SERVICE_ACCOUNT: JSON.stringify(SA), APNS_KEY_P8: P8, APNS_KEY_ID: "KEY1234567", APNS_TEAM_ID: "TEAM123456" }, o.env || {});
+  const f = async (url, init = {}) => {
+    const u = String(url); calls.push({ u, init });
+    if (u === "https://oauth2.googleapis.com/token") return new Response(JSON.stringify({ access_token: "ya29.tok", expires_in: 3600 }));
+    if (u.startsWith("https://fcm.googleapis.com/v1/")) return o.fcm ? o.fcm(init) : new Response(JSON.stringify({ name: "projects/sb-proj/messages/1" }));
+    if (u.includes("push.apple.com/3/device/")) return o.apns ? o.apns(u, init) : new Response("", { status: 200 });
+    return new Response("{}", { status: 500 });
+  };
+  return { calls, deps: { env: (k) => envs[k] ?? "", fetch: f, now: () => NOW, log } };
+}
+const MSG = { title: "Due soon", body: "Essay at 5 pm", rid: "r:1", taskId: "t1", url: "https://app.example/?task=t1", tok: "tok1", api: "https://x.supabase.co/functions/v1/send-reminders", k: "anon" };
+
+await test("send-reminders: FCM mints an OAuth token (RS256 JWT grant), caches it, and sends the v1 message shape", async () => {
+  const n = nativeDeps(); const ns = sr.nativeSender(n.deps);
+  assert.equal(await ns.fcm({ id: "f1", user_id: UID, endpoint: FCM_TOKEN, p256dh: "", auth: "", kind: "fcm" }, MSG), "ok");
+  assert.equal(await ns.fcm({ id: "f1", user_id: UID, endpoint: FCM_TOKEN, p256dh: "", auth: "", kind: "fcm" }, MSG), "ok");
+  const mint = n.calls.filter(c => c.u === "https://oauth2.googleapis.com/token");
+  assert.equal(mint.length, 1, "the access token is cached");
+  const form = new URLSearchParams(mint[0].init.body);
+  assert.equal(form.get("grant_type"), "urn:ietf:params:oauth:grant-type:jwt-bearer");
+  const j = jwtParts(form.get("assertion"));
+  assert.deepEqual(j.h, { alg: "RS256", typ: "JWT" });
+  assert.equal(j.c.iss, SA.client_email); assert.equal(j.c.aud, "https://oauth2.googleapis.com/token");
+  assert.equal(j.c.scope, "https://www.googleapis.com/auth/firebase.messaging"); assert.equal(j.c.exp - j.c.iat, 3600); assert.equal(j.c.iat, S);
+  assert.equal(nodeVerify("RSA-SHA256", Buffer.from(j.input), rsa.publicKey, j.sig), true, "signed with the service account key");
+  const send = n.calls.find(c => c.u.startsWith("https://fcm.googleapis.com/"));
+  assert.equal(send.u, "https://fcm.googleapis.com/v1/projects/sb-proj/messages:send");
+  assert.equal(send.init.headers.Authorization, "Bearer ya29.tok");
+  const body = JSON.parse(send.init.body);
+  assert.equal(body.message.token, FCM_TOKEN.slice(4));
+  assert.deepEqual(body.message.notification, { title: "Due soon", body: "Essay at 5 pm" });
+  assert.deepEqual(body.message.data, { taskId: "t1", rid: "r:1", url: MSG.url, tok: "tok1", api: MSG.api, k: "anon" });
+  assert.ok(Object.values(body.message.data).every(v => typeof v === "string"), "FCM data values are all strings");
+  assert.deepEqual(body.message.android, { priority: "HIGH", ttl: "21600s" });
+  // FIREBASE_PROJECT_ID wins over the JSON's project
+  const n2 = nativeDeps({ env: { FIREBASE_PROJECT_ID: "other-proj" } });
+  await sr.nativeSender(n2.deps).fcm({ id: "f1", user_id: UID, endpoint: FCM_TOKEN, kind: "fcm" }, MSG);
+  assert.ok(n2.calls.some(c => c.u === "https://fcm.googleapis.com/v1/projects/other-proj/messages:send"));
+});
+await test("send-reminders: dead FCM tokens (404 UNREGISTERED, 400 INVALID_ARGUMENT token) are removed; other errors retry", async () => {
+  const sub = { id: "f1", user_id: UID, endpoint: FCM_TOKEN, kind: "fcm" };
+  const r404 = () => new Response(JSON.stringify({ error: { code: 404, status: "NOT_FOUND", details: [{ errorCode: "UNREGISTERED" }] } }), { status: 404 });
+  const r400 = () => new Response(JSON.stringify({ error: { code: 400, status: "INVALID_ARGUMENT", message: "The registration token is not a valid FCM registration token" } }), { status: 400 });
+  const r500 = () => new Response("{}", { status: 503 });
+  assert.equal(await sr.nativeSender(nativeDeps({ fcm: r404 }).deps).fcm(sub, MSG), "gone");
+  assert.equal(await sr.nativeSender(nativeDeps({ fcm: r400 }).deps).fcm(sub, MSG), "gone");
+  assert.equal(await sr.nativeSender(nativeDeps({ fcm: r500 }).deps).fcm(sub, MSG), "fail");
+  // through sendDue: the dead token's row is dropped
+  const st = remStore({ subs: [sub] });
+  const out = await sr.sendDue(st.store, fakePush(), NOW, MSG.api, "anon", sr.nativeSender(nativeDeps({ fcm: r404 }).deps));
+  assert.deepEqual(st.log.dropped, ["f1"]); assert.equal(out.removed, 1);
+});
+await test("send-reminders: APNs uses an ES256 JWT (kid, iss, iat; cached), the right headers and body, and drops dead tokens", async () => {
+  const n = nativeDeps(); const ns = sr.nativeSender(n.deps);
+  const sub = { id: "a1", user_id: UID, endpoint: APNS_TOKEN, p256dh: "", auth: "", kind: "apns", apns_env: null };
+  assert.equal(await ns.apns(sub, MSG), "ok");
+  assert.equal(await ns.apns(sub, MSG), "ok");
+  const c = n.calls.filter(x => x.u.includes("/3/device/"));
+  assert.equal(c[0].u, "https://api.push.apple.com/3/device/" + "ab".repeat(32));
+  const h = c[0].init.headers;
+  assert.equal(h["apns-topic"], "com.studioso.app"); assert.equal(h["apns-push-type"], "alert"); assert.equal(h["apns-priority"], "10");
+  assert.equal(h["apns-expiration"], String(S + 6 * 3600));
+  const tok = h.authorization.replace(/^bearer /, "");
+  assert.equal(c[1].init.headers.authorization, h.authorization, "the provider token is cached");
+  const j = jwtParts(tok);
+  assert.deepEqual(j.h, { alg: "ES256", kid: "KEY1234567" }); assert.deepEqual(j.c, { iss: "TEAM123456", iat: S });
+  assert.equal(j.sig.length, 64, "JOSE r||s signature");
+  assert.equal(nodeVerify("SHA256", Buffer.from(j.input), { key: createPublicKey(ec.privateKey), dsaEncoding: "ieee-p1363" }, j.sig), true);
+  assert.deepEqual(JSON.parse(c[0].init.body), { aps: { alert: { title: "Due soon", body: "Essay at 5 pm" }, sound: "default" }, taskId: "t1", rid: "r:1", url: MSG.url, tok: "tok1", api: MSG.api, k: "anon" });
+  // APNS_TOPIC secret, sandbox rows
+  const n2 = nativeDeps({ env: { APNS_TOPIC: "com.example.other" } });
+  await sr.nativeSender(n2.deps).apns({ ...sub, apns_env: "sandbox" }, MSG);
+  assert.ok(n2.calls[0].u.startsWith("https://api.sandbox.push.apple.com/3/device/")); assert.equal(n2.calls[0].init.headers["apns-topic"], "com.example.other");
+  // unknown environment: production first, then sandbox on BadDeviceToken
+  const bad = () => new Response(JSON.stringify({ reason: "BadDeviceToken" }), { status: 400 });
+  const n3 = nativeDeps({ apns: (u) => u.includes("sandbox") ? new Response("", { status: 200 }) : bad() });
+  assert.equal(await sr.nativeSender(n3.deps).apns(sub, MSG), "ok");
+  assert.deepEqual(n3.calls.map(x => new URL(x.u).host), ["api.push.apple.com", "api.sandbox.push.apple.com"]);
+  assert.equal(await sr.nativeSender(nativeDeps({ apns: bad }).deps).apns(sub, MSG), "gone", "bad on both servers: removed");
+  assert.equal(await sr.nativeSender(nativeDeps({ apns: bad }).deps).apns({ ...sub, apns_env: "production" }, MSG), "gone");
+  assert.equal(await sr.nativeSender(nativeDeps({ apns: () => new Response(JSON.stringify({ reason: "Unregistered" }), { status: 410 }) }).deps).apns(sub, MSG), "gone");
+  assert.equal(await sr.nativeSender(nativeDeps({ apns: () => new Response(JSON.stringify({ reason: "TooManyRequests" }), { status: 429 }) }).deps).apns(sub, MSG), "fail");
+});
+await test("send-reminders: phone kinds are skipped (rows kept) when their secrets aren't set; bad tokens never sent", async () => {
+  const subs = [{ id: "f1", user_id: UID, endpoint: FCM_TOKEN, kind: "fcm" }, { id: "a1", user_id: UID, endpoint: APNS_TOKEN, kind: "apns" },
+    { id: "w1", user_id: UID, endpoint: "https://fcm.googleapis.com/fcm/send/abc", p256dh: "k", auth: "a", kind: "webpush" },
+    { id: "x1", user_id: UID, endpoint: "fcm:short", kind: "fcm" }, { id: "x2", user_id: UID, endpoint: "https://web.push.apple.com/x", kind: "apns" }];
+  const n = nativeDeps({ env: { FCM_SERVICE_ACCOUNT: "", APNS_KEY_P8: "" } }); const ns = sr.nativeSender(n.deps);
+  assert.equal(ns.configured(), false);
+  assert.equal(await ns.fcm(subs[0], MSG), "skip"); assert.equal(await ns.apns(subs[1], MSG), "skip");
+  const st = remStore({ subs }), p = fakePush();
+  const out = await sr.sendDue(st.store, p, NOW, MSG.api, "anon", ns);
+  assert.equal(n.calls.length, 0, "nothing contacted for unconfigured kinds");
+  assert.deepEqual(p.sent, ["https://fcm.googleapis.com/fcm/send/abc"]);
+  assert.deepEqual(st.log.dropped.sort(), ["x1", "x2"], "malformed rows are removed; skipped ones stay");
+  assert.equal(out.sent, 1);
+  for (const [sub, ok] of [[subs[0], true], [subs[1], true], [subs[3], false], [subs[4], false], [{ endpoint: "apns:" + "zz".repeat(32), kind: "apns" }, false]]) assert.equal(sr.subOk(sub), ok, sub.endpoint);
+  // no VAPID keys but FCM set up: sending still works for the phone app, browsers are skipped
+  const st2 = remStore({ subs: [subs[0], subs[2]] }), p2 = fakePush(), n2 = nativeDeps();
+  const r2 = await sr.handle(remReq({ action: "send" }, { "x-studyboard-cron": "c".repeat(64) }), st2.store, p2, remOpts({ vapidOk: false, native: sr.nativeSender(n2.deps) }));
+  assert.equal(r2.status, 200); assert.equal(p2.sent.length, 0); assert.ok(n2.calls.some(c => c.u.startsWith("https://fcm.googleapis.com/v1/")));
+  assert.equal((await sr.handle(remReq({ action: "send" }, { "x-studyboard-cron": "c".repeat(64) }), st2.store, p2, remOpts({ vapidOk: false, native: ns }))).status, 500, "nothing set up at all: the setup message");
+  // the real store reads kind/apns_env, and falls back on a project without those columns
+  let asked = [];
+  const db = { from: () => ({ select: (cols) => ({ in: async () => { asked.push(cols); return cols.includes("kind") ? { data: null, error: { code: "42703", message: "column push_subscriptions.kind does not exist" } } : { data: [{ id: "w", user_id: UID, endpoint: "https://fcm.googleapis.com/fcm/send/1" }], error: null }; } }) }) };
+  assert.deepEqual((await sr.supabaseStore(db).subsFor([UID])).map(x => x.id), ["w"]); assert.equal(asked.length, 2);
 });
 
 console.log(`\n${passed} checks passed`);

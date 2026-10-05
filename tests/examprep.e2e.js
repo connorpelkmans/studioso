@@ -3,11 +3,10 @@
 // one Undo, the agenda, opening a deck session in study mode, marking done (coverage and readiness change), missed days (fake clock) -> catch up, a new exam date -> re-plan,
 // no AI -> offline plan, AI wording, no material -> the generator offer, and that every old entry point lands in the same flow with nothing duplicated.
 const path = require("path"), fs = require("fs"), assert = require("assert"), os = require("os");
-const {chromium} = require(process.env.PW_MODULE || "/opt/node-tools/node_modules/playwright");
+const {chromium, executablePath} = require("./pw");
 const FILE = "file://" + path.join(__dirname, "..", "index.html");
 const OUT = process.argv[2] || fs.mkdtempSync(path.join(os.tmpdir(), "sbprep-"));
 fs.mkdirSync(OUT, {recursive: true});
-const exe = fs.existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined;
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const NOW = new Date(2026, 9, 4, 10, 0, 0);          // Sunday Oct 4 2026, 10:00
@@ -33,7 +32,8 @@ async function mk(browser, w, h, o = {}) {
   const ctx = await browser.newContext({viewport: {width: w, height: h}});
   await ctx.clock.install({time: o.time || NOW});
   await ctx.addInitScript(([seed, ai]) => {
-    try { if (!sessionStorage.getItem("seeded")) { sessionStorage.setItem("seeded", "1"); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("coursework:v2", JSON.stringify(seed));
+    // seed once per context: a reload can come back without the sessionStorage flag (seen with file:// in headless Chromium), so a saved planner also counts as seeded
+    try { if (!sessionStorage.getItem("seeded") && !localStorage.getItem("coursework:v2")) { sessionStorage.setItem("seeded", "1"); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("coursework:v2", JSON.stringify(seed));
       if (ai) { localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } } } catch (e) {}
   }, [o.seed || SEED, !!o.ai]);
   ctx.aiCalls = [];
@@ -46,6 +46,13 @@ async function mk(browser, w, h, o = {}) {
 const act = (page, a, id, extra) => page.evaluate(([a, i, x]) => { const b = document.createElement("button"); b.dataset.act = a; if (i) b.dataset.id = i; x && Object.entries(x).forEach(([k, v]) => { b.dataset[k] = v; }); b.style.display = "none"; document.body.appendChild(b); b.click(); b.remove(); }, [a, id, extra]);
 const goCourse = async (page, id) => { await page.evaluate(() => { const b = document.querySelector('[data-tab="courses"]'); if (b) b.click(); }); await page.waitForTimeout(200); await act(page, "open-course", id); await page.waitForTimeout(300); };
 const goBoard = async page => { await page.evaluate(() => { const b = document.querySelector('[data-tab="board"]'); if (b) b.click(); }); await page.waitForTimeout(200); await act(page, "bview", "plan"); await page.waitForTimeout(300); };
+// The exam-prep banner sits in Today's Plan's folded "More for Today" section, inside its own "Plan My Prep" fold (4d8c952).
+// Wait (by textContent, since folded text has no innerText) until it matches, then open both folds so it can be read and clicked.
+const openPrep = async (page, re, timeout = 5000) => {
+  if (re) await page.waitForFunction(r => new RegExp(r).test((document.querySelector("#planExtra .pe-item[data-k=prep] .pp-today") || {textContent: ""}).textContent), re, {timeout}).catch(() => {});
+  await page.evaluate(() => { const d = document.querySelector("#planExtra"); if (d && !d.open) d.querySelector("summary").click(); }); await page.waitForTimeout(150);
+  await page.evaluate(() => { const d = document.querySelector("#planExtra .pe-item[data-k=prep]"); if (d && !d.open) d.querySelector("summary").click(); }); await page.waitForTimeout(200);
+};
 const store = page => page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")));
 const sessions = async (page, ex = "ex1") => (await store(page)).tasks.filter(t => t.prepFor === ex);
 const exam = async (page, id = "ex1") => (await store(page)).tasks.find(t => t.id === id);
@@ -55,7 +62,7 @@ const noHScroll = page => page.evaluate(() => document.documentElement.scrollWid
 const dlgScroll = page => page.evaluate(() => { const d = document.querySelector("#dlg"); return d ? d.scrollWidth <= d.clientWidth + 1 : true; });
 
 (async () => {
-  const browser = await chromium.launch({executablePath: exe});
+  const browser = await chromium.launch({executablePath});
   try {
     for (const [W, H] of process.env.ONLY ? [] : [[1280, 800], [390, 844]]) {
       const tag = W + "w";
@@ -186,7 +193,9 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       // ---- missed days (fake clock) -> banner and catch up
       await page.evaluate(() => { try { sessionStorage.setItem("seeded", "1"); } catch (e) {} });
       await ctx.clock.setSystemTime(new Date(2026, 9, 8, 10, 0, 0)); await page.reload(); await page.waitForTimeout(1500);
-      await page.waitForFunction(() => /slipped/.test((document.querySelector(".pp-today") || {innerText: ""}).innerText), null, {timeout: 5000}).catch(() => {});
+      await page.waitForFunction(() => /slipped/.test((document.querySelector("#planExtra .pp-today") || {textContent: ""}).textContent), null, {timeout: 5000}).catch(() => {});
+      ok(/Exam Prep/.test(await txt(page, "#planExtra > summary")), "the folded More for Today names Exam Prep: " + (await txt(page, "#planExtra > summary")).replace(/\n/g, " "));
+      await openPrep(page, "slipped");
       ok(await vis(page, ".pp-today"), "a gentle banner on Today when sessions were missed");
       ok(/slipped/.test(await txt(page, ".pp-today")), "it says sessions slipped: " + (await txt(page, ".pp-today")).replace(/\n/g, " ").slice(0, 100));
       await page.evaluate(() => { const e = document.querySelector(".pp-today"); if (e) e.scrollIntoView({block: "center"}); }); await page.waitForTimeout(200); await page.screenshot({path: path.join(OUT, `missed-${tag}.png`)});
@@ -277,14 +286,14 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
     {
       console.log("== exam passed and the Today prompt");
       const {ctx, page} = await mk(browser, 1280, 800);
-      await goBoard(page);
+      await goBoard(page); await openPrep(page, "Midterm");
       ok(/Midterm/.test(await txt(page, ".pp-today")) && /Plan My Prep/.test(await txt(page, ".pp-today")), "Today offers the planner once for an exam within 21 days with no plan: " + (await txt(page, ".pp-today")).replace(/\n/g, " ").slice(0, 120));
       await page.click(".pp-today [data-act=prep-dismiss]"); await page.waitForTimeout(300);
       ok(!/Midterm/.test(await txt(page, ".pp-today")), "Not now silences it for that exam");
       await act(page, "exam-plan", "ex1"); await page.waitForTimeout(400); await page.click("#ppCreate"); await page.waitForTimeout(500);
       ok((await sessions(page)).length >= 4, "a plan for the exam: " + (await sessions(page)).length);
       await ctx.clock.setSystemTime(new Date(2026, 9, 16, 10, 0, 0)); await page.reload(); await page.waitForTimeout(1500);
-      await goBoard(page); await page.waitForFunction(() => /passed/.test((document.querySelector(".pp-today") || {innerText: ""}).innerText), null, {timeout: 8000}).catch(() => {});
+      await goBoard(page); await openPrep(page, "passed", 8000);
       ok(/passed/.test(await txt(page, ".pp-today")), "after the exam: 'How did it go?' " + (await txt(page, ".pp-today")).replace(/\n/g, " ").slice(0, 300));
       await page.click(".pp-today [data-act=prep-wrap]"); await page.waitForTimeout(900);
       const ex = await exam(page); ok(ex.status === "done" && ex.prep.archived, "wrapping up marks the exam done and archives its plan");

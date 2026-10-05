@@ -17,9 +17,9 @@
 | iOS 16+ | Share sheet: text/URL (Safari, Notes...) | yes | yes | yes | untested here |
 | iOS 16+ | Share sheet: image (Photos) | yes | no | no: finish in app | untested here |
 | iOS (any) | `studyboard://add?text=...` / `studyboard://capture?photo=1` (links, QR, other apps) | yes | no | no (opens app) | needs cap-core router; untested |
-| Pixel | "Hey Google / Gemini, add a task to Studyboard" via AppFunctions | yes | yes | yes | **experimental, unverified**: depends on `androidx.appfunctions`, Android 16+ and Gemini support |
+| Pixel | "Hey Google / Gemini, add a task to Studyboard" via AppFunctions | yes | yes | yes | **removed for v1** (not in the first release; optional later). Was experimental: depends on `androidx.appfunctions`, Android 16+ and Gemini support |
 | Pixel | Google Assistant App Actions / built-in intents | yes | n/a | n/a | **not implemented**: could not confirm a supported intent |
-| Samsung Galaxy | Gemini on Galaxy (same AppFunctions) | yes | yes | yes | **experimental, unverified** per device/One UI version |
+| Samsung Galaxy | Gemini on Galaxy (same AppFunctions) | yes | yes | yes | **removed for v1** (optional later) |
 | Samsung Galaxy | Bixby Quick Command / Routine opening `studyboard://action/quickadd` | yes | no | no | likely; untested |
 | Samsung Galaxy | Bixby capsule | n/a | n/a | n/a | **not possible** (discontinued for new developers) |
 | Android (any) | Share sheet text (silent) / image (opens app) | yes | text: yes | text yes | untested here |
@@ -35,7 +35,7 @@
         |                           |                              |
   AddTaskIntent (iOS)         ShareViewController (iOS)     studyboard://add | capture
   AppFunctions.addTask         ShareReceiverActivity (A)            |
-  (Android, experimental)             |                             v
+  (Android: removed for v1)           |                             v
         |                             |                   MainActivity / app (Capacitor)
         |  text, due, course, source  |                   native-bridge.js appUrlOpen
         v                             v                             |
@@ -71,7 +71,7 @@ The contract (`capture-contract.json`) is the single source for the path, header
 
 Give the reviewer a demo account that already has a token, or say where to create it. If the Siri phrase is flaky for the reviewer, say they can run "Add Task" from the Shortcuts app.
 
-**Play:** no new permission, no new SDK; Data safety is unchanged (task text already goes to the app's own backend). For AppFunctions mention in the listing/notes only that the assistant can add tasks on the user's request. There is no restricted permission here (no accessibility, overlay or SMS).
+**Play:** no new permission, no new SDK; Data safety is unchanged (task text already goes to the app's own backend). AppFunctions is removed for v1, so the listing should not mention Gemini adding tasks; if it comes back later, mention only that the assistant can add tasks on the user's request. There is no restricted permission here (no accessibility, overlay or SMS).
 
 ## 5. Owner verification checklist (prioritised)
 
@@ -83,7 +83,7 @@ Give the reviewer a demo account that already has a token, or say where to creat
 
 **P1: the assistant claims (each separately, record versions)**
 5. **iOS 26 / iOS 27 beta:** Siri with Apple Intelligence: does "add a task to Studyboard" still trigger the intent? Does speaking the task in the same sentence work? Check Siri's behaviour with the phone locked. Re-read Apple's current App Intents / App Shortcuts docs for changes (phrase rules, assistant schemas, `authenticationPolicy`).
-6. **Pixel:** Gemini app: does it list or offer Studyboard (AppFunctions)? "Hey Google, add a task to Studyboard." Verify `androidx.appfunctions` artifact names, versions, annotations, manifest/permission needs against current docs; fix `StudyboardAppFunctions.kt` and `build.gradle.additions.txt` (VERIFY markers). If unsupported, remove the experiment (README-ANDROID.md section 4).
+6. **Pixel (later, AppFunctions is removed for v1):** if the experiment is brought back: Gemini app: does it list or offer Studyboard (AppFunctions)? "Hey Google, add a task to Studyboard." Verify `androidx.appfunctions` artifact names, versions, annotations, manifest/permission needs against current docs; fix `StudyboardAppFunctions.kt` and `build.gradle.additions.txt` (VERIFY markers). If unsupported, remove the experiment (README-ANDROID.md section 4).
 7. **Samsung Galaxy:** same Gemini test on the Galaxy's One UI/Android version; Bixby Quick Command "Add task" opening the quick-add link; test the HTTP Request Shortcuts / Tasker configs. Update `SAMSUNG-BIXBY.md` with what the menus really say.
 
 **P2: polish and compliance**

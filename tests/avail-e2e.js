@@ -1,6 +1,6 @@
 // Browser checks for availability blocks (Playwright + Chromium). Run: node tests/avail-e2e.js [outDir]
 // Fixed clock: Monday 2026-10-05 15:00 in New York. Checks run at 1280 and 390 wide and save screenshots to outDir.
-const {chromium} = require("/opt/node-tools/node_modules/playwright");
+const {chromium, executablePath} = require("./pw");
 const path = require("path"), fs = require("fs"), assert = require("assert");
 const OUT = process.argv[2] || "/tmp/avail-shots", FILE = "file://" + path.join(__dirname, "..", "index.html");
 fs.mkdirSync(OUT, {recursive: true});
@@ -50,7 +50,7 @@ async function addBlock(p, o) {
 const blocks = p => p.evaluate(() => window.__sbAvail.state().blocks);
 
 (async () => {
-  const browser = await chromium.launch({executablePath: "/opt/pw-browsers/chromium"});
+  const browser = await chromium.launch({executablePath});
   for (const W of [1280, 390]) {
     const tag = W + "w", {ctx, p, errs} = await open(browser, W);
     // Today tab with no blocks: nothing new shows up

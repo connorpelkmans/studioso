@@ -168,10 +168,18 @@ begin
   j := public.capture_add(hA, 'Retry me', null, null, null, 'siri', 'idem-1');
   perform public.sbc_ok((j->>'ok')::boolean and not (j->>'dup')::boolean, 'first call with an idempotency key adds');
   j := public.capture_add(hA, 'Retry me', null, null, null, 'siri', 'idem-1');
-  perform public.sbc_ok((j->>'ok')::boolean and (j->>'dup')::boolean and (select count(*) from public.capture_inbox where idem_key = 'idem-1') = 1, 'the same idempotency key within 10 minutes does not double-add');
-  update public.capture_inbox set created_at = now() - interval '11 minutes' where idem_key = 'idem-1';
+  perform public.sbc_ok((j->>'ok')::boolean and (j->>'dup')::boolean and (select count(*) from public.capture_inbox where idem_key = 'idem-1') = 1, 'the same idempotency key does not double-add');
+  update public.capture_inbox set created_at = now() - interval '6 days' where idem_key = 'idem-1';
+  update public.capture_idem set created_at = now() - interval '6 days' where idem_key = 'idem-1';
   j := public.capture_add(hA, 'Retry me', null, null, null, 'siri', 'idem-1');
-  perform public.sbc_ok(not (j->>'dup')::boolean, 'an idempotency key older than 10 minutes adds again');
+  perform public.sbc_ok((j->>'dup')::boolean, 'the same idempotency key 6 days later still does not double-add');
+  update public.capture_inbox set idem_key = null where idem_key = 'idem-1';   -- as if the capture itself had been synced and cleaned up
+  j := public.capture_add(hA, 'Retry me', null, null, null, 'siri', 'idem-1');
+  perform public.sbc_ok((j->>'dup')::boolean, 'the key is remembered on its own (capture_idem), not only through the stored capture');
+  update public.capture_idem set created_at = now() - interval '8 days' where idem_key = 'idem-1';
+  j := public.capture_add(hA, 'Retry me', null, null, null, 'siri', 'idem-1');
+  perform public.sbc_ok(not (j->>'dup')::boolean, 'an idempotency key older than 7 days adds again');
+  perform public.sbc_ok(not has_table_privilege('authenticated', 'public.capture_idem', 'select') and not has_table_privilege('anon', 'public.capture_idem', 'select'), 'the app can not read idempotency keys');
   -- GET flag
   j := public.capture_add(hA, 'via url', null, null, null, 'x', null, null, 'get');
   perform public.sbc_ok(j->>'error' = 'get_disabled', 'GET is refused unless the token allows it');
@@ -232,6 +240,7 @@ begin
   perform public.capture_purge();
   perform public.sbc_ok((select count(*) from public.capture_inbox where user_id = ua) = 1 and exists (select 1 from public.capture_inbox where text = 'done recently'), 'purge removes processed > 7 days and unprocessed > 30 days only');
   perform set_config('request.jwt.claims', jsonb_build_object('sub', ub, 'role', 'authenticated')::text, true);
+  update auth.users set last_sign_in_at = now() where id = ub;   -- the in-app delete needs a sign-in in the last 10 minutes
   perform public.studyboard_delete_my_account();
   perform public.sbc_ok(not exists (select 1 from public.capture_tokens where user_id = ub) and not exists (select 1 from public.capture_inbox where user_id = ub), 'deleting an account removes its capture tokens and inbox');
 

@@ -70,9 +70,22 @@ create index if not exists capture_inbox_token_idx on public.capture_inbox (toke
 create index if not exists capture_inbox_user_created_idx on public.capture_inbox (user_id, created_at desc);
 create index if not exists capture_inbox_idem_idx on public.capture_inbox (user_id, idem_key, created_at desc) where idem_key is not null;
 
+-- Idempotency keys seen in the last 7 days (Siri, Shortcuts and the share sheet may resend the same capture much later, for
+-- example after the phone was offline). One row per account and key; capture_purge removes rows older than 7 days.
+create table if not exists public.capture_idem (
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  idem_key   text not null check (char_length(idem_key) between 1 and 80),
+  inbox_id   uuid,
+  created_at timestamptz not null default now(),
+  primary key (user_id, idem_key)
+);
+create index if not exists capture_idem_created_idx on public.capture_idem (created_at);
+
 -- RLS on, no policies, no grants: the app can only use the functions below.
 alter table public.capture_tokens enable row level security;
 alter table public.capture_inbox enable row level security;
+alter table public.capture_idem enable row level security;
+revoke all on public.capture_idem from public, anon, authenticated;
 revoke all on public.capture_tokens, public.capture_inbox from public, anon, authenticated;
 
 -- ---------- For the signed-in app ----------
@@ -182,10 +195,14 @@ begin
   end if;
   src := left(src, 24);
 
-  -- same request sent again within 10 minutes (Siri retries): answer with the first one, add nothing
+  -- same request sent again within 7 days (Siri retries, a queued share sent again): answer with the first one, add nothing
   if idem is not null then
-    select i.id into dup from public.capture_inbox i
-      where i.user_id = tk.user_id and i.idem_key = idem and i.created_at > now() - interval '10 minutes' order by i.created_at desc limit 1;
+    select x.inbox_id into dup from public.capture_idem x
+      where x.user_id = tk.user_id and x.idem_key = idem and x.created_at > now() - interval '7 days';
+    if dup is null then   -- captures stored before capture_idem existed
+      select i.id into dup from public.capture_inbox i
+        where i.user_id = tk.user_id and i.idem_key = idem and i.created_at > now() - interval '7 days' order by i.created_at desc limit 1;
+    end if;
     if dup is not null then return jsonb_build_object('ok', true, 'id', dup, 'dup', true, 'limit_hour', 30, 'remaining_hour', 0); end if;
   end if;
 
@@ -200,15 +217,21 @@ begin
   insert into public.capture_inbox (user_id, token_id, text, due_date, due_time, due_text, course_hint, source, idem_key)
     values (tk.user_id, tk.id, txt, p_due_date, case when p_due_date is null then null else p_due_time end, dtx, hint, src, idem)
     returning id into new_id;
+  if idem is not null then
+    insert into public.capture_idem (user_id, idem_key, inbox_id) values (tk.user_id, idem, new_id)
+      on conflict (user_id, idem_key) do update set inbox_id = excluded.inbox_id, created_at = now();
+  end if;
   update public.capture_tokens set last_used_at = now(), use_count = use_count + 1 where id = tk.id;
   return jsonb_build_object('ok', true, 'id', new_id, 'dup', false, 'limit_hour', 30, 'remaining_hour', 30 - h - 1);
 end $$;
 
 -- ---------- Clean-up ----------
--- Done captures are removed after 7 days, ones the app never picked up after 30 days, old revoked tokens after 90 days.
+-- Done captures are removed after 7 days, ones the app never picked up after 30 days, idempotency keys after 7 days,
+-- old revoked tokens after 90 days.
 create or replace function public.capture_purge() returns void
 language sql volatile security definer set search_path = pg_catalog, public as $$
   delete from public.capture_inbox where (processed_at is not null and processed_at < now() - interval '7 days') or created_at < now() - interval '30 days';
+  delete from public.capture_idem where created_at < now() - interval '7 days';
   delete from public.capture_tokens where revoked_at is not null and revoked_at < now() - interval '90 days';
 $$;
 

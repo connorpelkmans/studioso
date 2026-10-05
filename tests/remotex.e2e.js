@@ -1,9 +1,18 @@
 // Browser checks for "can this exam or quiz be taken from home?" (Playwright + Chromium). Run: node tests/remotex.e2e.js [outDir]
 // Fixed clock: Monday 2026-10-05 15:00 in New York. Runs at 1280 and 390 wide; the AI is stubbed. Screenshots go to outDir.
-const {chromium} = require("/opt/node-tools/node_modules/playwright");
-const path = require("path"), fs = require("fs");
-const OUT = process.argv[2] || "/tmp/remotex-shots", FILE = "file://" + path.join(__dirname, "..", "index.html");
+// The page is served over http://127.0.0.1, not file://: Chromium sometimes drops a file:// page's whole localStorage across a reload in a
+// fresh browser context (seen as "persists after reload" failures), which made this test flaky. Waits are on conditions, not fixed sleeps.
+const {chromium, executablePath} = require("./pw");
+const path = require("path"), fs = require("fs"), http = require("http"), os = require("os");
+const OUT = process.argv[2] || path.join(os.tmpdir(), "remotex-shots"), ROOT = path.join(__dirname, "..");
 fs.mkdirSync(OUT, {recursive: true});
+const MIME = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".webmanifest": "application/manifest+json", ".css": "text/css", ".png": "image/png", ".svg": "image/svg+xml", ".woff2": "font/woff2"};
+const server = http.createServer((req, res) => {
+  let f; try { f = path.join(ROOT, decodeURIComponent(new URL(req.url, "http://x").pathname)); } catch (e) { res.writeHead(400); res.end(); return; }
+  if (!f.startsWith(ROOT + path.sep) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end(); return; }
+  res.writeHead(200, {"content-type": MIME[path.extname(f)] || "application/octet-stream"}); fs.createReadStream(f).pipe(res);
+});
+let FILE = "";
 let checks = 0; const ok = (c, m) => { checks++; if (!c) { console.log("FAIL:", m); process.exitCode = 1; } };
 
 const T = (id, title, type, due, o) => Object.assign({id, title, courseId: "c1", type, start: type === "Exam" || type === "Quiz" ? due : "2026-10-01", due, time: "", priority: "med", status: "todo", notes: "", hours: type === "Assignment" || type === "Study" ? 2 : null, checklist: [], pct: 0, dependsOn: [], history: [], created: 1, order: 10}, o || {});
@@ -36,7 +45,7 @@ const REPLIES = {"Anatomy Exam 1": {takeHome: "no", confidence: 0.85, evidence: 
 
 async function open(browser, W, scenario, o) {
   o = o || {};
-  const ctx = await browser.newContext({viewport: {width: W, height: W > 600 ? 900 : 844}, timezoneId: "America/New_York", locale: "en-US"});
+  const ctx = await browser.newContext({viewport: {width: W, height: W > 600 ? 900 : 844}, timezoneId: "America/New_York", locale: "en-US", serviceWorkers: "block"});
   ctx.aiCalls = [];
   await ctx.route(/generativelanguage\.googleapis\.com/, async route => {
     const body = route.request().postData() || ""; ctx.aiCalls.push(body);
@@ -48,10 +57,17 @@ async function open(browser, W, scenario, o) {
   p.on("pageerror", e => errs.push(e.message));
   await p.clock.install({time: new Date("2026-10-05T15:00:00-04:00")});
   await p.addInitScript(c => { window.__COURSE = c; }, COURSE);
-  await p.addInitScript(seedFn, [SC[scenario], !!o.ai]);
-  await p.goto(FILE); await p.waitForTimeout(1500);
+  await p.addInitScript(seedFn, [Array.isArray(scenario) ? scenario : SC[scenario], !!o.ai]);
+  await p.goto(FILE); await booted(p); await p.waitForTimeout(1000);   // let the start-up passes (the 700 ms store pass among them) run
   return {ctx, p, errs};
 }
+// The app has started and loaded the planner from localStorage.
+const booted = p => p.waitForFunction(() => window.__sbRemote && window.__sbAvail && window.__sbPlan && document.readyState === "complete", null, {timeout: 20000});
+// After a reload: wait (bounded) until the task is back with the expected answer, so a slow start doesn't read a half-booted page.
+const reloadUntil = async (p, id, v) => {
+  await p.reload(); await booted(p);
+  await p.waitForFunction(([i, want]) => { const r = window.__sbRemote.of(i); return r && r.v === want; }, [id, v], {timeout: 10000}).catch(() => {});
+};
 const overflow = p => p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
 const txt = (p, sel) => p.evaluate(s => Array.from(document.querySelectorAll(s)).map(e => e.textContent.replace(/\s+/g, " ").trim()), sel);
 const plan = p => p.evaluate(() => window.__sbPlan());
@@ -60,7 +76,8 @@ const stored = (p, id) => p.evaluate(i => (JSON.parse(localStorage.getItem("cour
 const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bview: "plan"}));
 
 (async () => {
-  const browser = await chromium.launch({executablePath: "/opt/pw-browsers/chromium"});
+  await new Promise(r => server.listen(0, "127.0.0.1", r)); FILE = "http://127.0.0.1:" + server.address().port + "/index.html";
+  const browser = await chromium.launch({executablePath});
   for (const W of [1280, 390]) {
     const tag = W + "w";
     // ---------- 1. Mixed list, no AI: rules and the one-tap question ----------
@@ -109,8 +126,8 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       ok((await p.locator('.auto-ins li[data-kind="remote"]').count()) === 0, tag + " question is gone");
       const st1 = await stored(p, "m1"), stq = await stored(p, "q1");
       ok(st1.remote === "no" && st1.remoteSrc === "rule" && stq.remote === "yes" && stq.remoteSrc === "lms", tag + " rule and school-site answers are saved on the tasks");
-      await p.reload(); await p.waitForTimeout(1200);
-      const m2c = await eff(p, "m2"); ok(m2c.v === "yes" && m2c.src === "user", tag + " persists after reload");
+      await reloadUntil(p, "m2", "yes");
+      const m2c = await eff(p, "m2") || {}; ok(m2c.v === "yes" && m2c.src === "user", tag + " persists after reload");
       // a school sync can't overwrite it: rules never touch a user answer
       await p.waitForTimeout(1200);
       ok((await stored(p, "m2")).remoteSrc === "user", tag + " user answer survives the store pass");
@@ -143,8 +160,8 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       const m1 = await eff(p, "m1"); ok(m1.v === "yes" && m1.src === "user" && m1.can, tag + " From home saved as your answer, eligible now");
       pl = await plan(p);
       ok(pl.ranked.some(x => x.id === "m1" && x.alloc > 0) || pl.next.id === "m1", tag + " the midterm now takes study time or leads");
-      await p.reload(); await p.waitForTimeout(1200);
-      ok((await eff(p, "m1")).v === "yes", tag + " still From home after reload");
+      await reloadUntil(p, "m1", "yes");
+      ok((await eff(p, "m1") || {}).v === "yes", tag + " still From home after reload");
       ok(errs.length === 0, tag + " no page errors: " + errs.join("|"));
       await ctx.close();
     }
@@ -200,11 +217,17 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
     ok(out.r.length === 3 && out.r[0].type === "Quiz" && out.r[1].type === "Exam" && out.r[2].type === "Exam", 'school sync' + " mapper keeps types: " + out.r.map(x => x.type).join());
     ok(JSON.stringify(Object.keys(out.r[0].rx).sort()) === JSON.stringify(["k", "ld", "ll", "st", "tl", "ul"]) && !("evil" in out.r[0].rx) && !("junk" in out.r[2].rx), 'school sync' + " extra fields are dropped: " + JSON.stringify(out.r[0].rx));
     ok(out.tasks.length === 3 && out.tasks.every(t => t.cv && t.cv.rx), 'school sync' + " the sync stores how each item is handed in on the task");
-    // put them on the board and ask what Studyboard now believes
-    await p.evaluate(ts => { const s = JSON.parse(localStorage.getItem("coursework:v2")); s.tasks = s.tasks.concat(ts); s.updated = Date.now(); localStorage.setItem("coursework:v2", JSON.stringify(s)); }, out.tasks);
-    await p.reload(); await p.waitForTimeout(1200);
-    const ids = out.tasks.map(t => t.id), e = [];
-    for (const id of ids) e.push(await eff(p, id));
+    SC.lmsTasks = out.tasks || [];
+    ok(errs.length === 0, 'school sync' + " no page errors while mapping: " + errs.join("|"));
+    await ctx.close();
+  }
+  {
+    // put them on the board (seeded before the app starts, never written behind a running app's back, which its next save would undo)
+    // and ask what Studyboard now believes
+    const {ctx, p, errs} = await open(browser, 1280, SC.unknown.concat(SC.lmsTasks));
+    const ids = SC.lmsTasks.map(t => t.id), e = [];
+    await p.waitForFunction(is => is.every(i => window.__sbRemote.of(i)), ids, {timeout: 10000}).catch(() => {});
+    for (const id of ids) e.push(await eff(p, id) || {});
     ok(e[0].v === "yes" && e[0].src === "lms", 'school sync' + " online quiz from Canvas is take-home (" + e[0].why + ")");
     ok(e[1].v === "no" && e[1].src === "lms", 'school sync' + " exam with nothing handed in online is in person (" + e[1].why + ")");
     ok(e[2].v === "no", 'school sync' + " exam handed in on paper is in person (" + e[2].why + ")");
@@ -224,6 +247,6 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
     ok((await p.evaluate(() => window.__sbRemote.questions())).length === 0, "turning it off hides the question");
     await ctx.close();
   }
-  await browser.close();
+  await browser.close(); server.close();
   console.log(`remotex.e2e: ${checks} checks ${process.exitCode ? "FAILED" : "passed"}`);
 })().catch(e => { console.error(e); process.exit(1); });
