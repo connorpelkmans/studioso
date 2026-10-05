@@ -70,6 +70,7 @@ nav.tabs button[aria-current="page"] svg{color:var(--accent)}
 
 .fab{position:fixed;right:max(18px,calc(50% - 362px));bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:6;border:0;border-radius:18px;background:var(--accent);color:var(--accent-ink);padding:14px 18px;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:0 6px 18px rgba(20,40,120,.25)}
 .fab svg{width:20px;height:20px}
+.fab span{position:relative;top:-1.5px}
 
 /* Sections */
 h2.sec{font:700 1.05rem/1.2 var(--display);margin:26px 0 10px;display:flex;align-items:baseline;gap:8px}
@@ -207,8 +208,8 @@ li.task>.lms-go{align-self:center;margin-right:12px}
 .tl-bg .we{position:absolute;top:0;bottom:0;background:var(--soft)}
 .tl-bg .today-line{position:absolute;top:0;bottom:0;width:2px;background:var(--late)}
 .tl-row{display:flex;position:relative;z-index:1;height:46px;border-top:1px solid var(--line)}
-.tl-headrow{height:24px;border-top:0}
-.tl-headrow + .tl-headrow{height:26px}
+.tl-headrow{height:30px;border-top:0}
+.tl-headrow + .tl-headrow{height:28px}
 .tl-label{position:sticky;left:0;z-index:3;flex:none;background:var(--surface);border:0;border-right:1px solid var(--line);text-align:left;padding:3px 10px;display:flex;flex-direction:column;justify-content:center;overflow:hidden;font-size:.84rem;font-weight:600;white-space:nowrap;border-radius:0}
 .tl-label .tt{overflow:hidden;text-overflow:ellipsis}
 .tl-label small{font-weight:400;color:var(--muted);font-size:.72rem}
@@ -217,8 +218,9 @@ li.task>.lms-go{align-self:center;margin-right:12px}
 .tl-group .tl-label{flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;font:700 .88rem var(--display);background:color-mix(in srgb,var(--c) 7%,var(--surface))}
 .tl-group .sd{width:10px;height:10px;border-radius:3px;background:var(--c);flex:none}
 .tl-track{position:relative;flex:none}
-.tl-m{position:absolute;top:4px;font-size:.78rem;font-weight:700;padding-left:5px;white-space:nowrap;border-left:1px solid var(--line)}
-.tl-d{position:absolute;top:4px;text-align:center;font-size:.72rem;color:var(--muted)}
+.tl-m{position:absolute;top:0;bottom:0;display:flex;align-items:center;font:700 .92rem var(--display);letter-spacing:.01em;padding-left:8px;white-space:nowrap;border-left:1px solid var(--line)}
+.tl-m small{font:600 .78rem var(--body);color:var(--muted);margin-left:6px}
+.tl-d{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:.84rem;font-weight:500;color:var(--muted)}
 .tl-d.is-today{color:var(--late);font-weight:700}
 .tlbar{position:absolute;top:9px;height:28px;border-radius:7px;border:1.5px solid var(--c);background:color-mix(in srgb,var(--c) 20%,var(--surface));color:var(--ink);font-size:.75rem;font-weight:600;text-align:left;padding:0 8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:10px}
 .tlbar.st-doing{background:var(--c);color:#fff}
@@ -1341,7 +1343,8 @@ li.task .pp-row-btn{margin-left:auto;flex:none}
 .ask-empty{display:flex;flex-wrap:wrap;gap:6px}
 .ask-empty p{flex-basis:100%;margin:0}
 .ask-foot{align-items:flex-end}
-.ask-foot textarea{flex:1;min-height:0;resize:vertical}
+.ask-foot textarea{flex:1;min-height:0;resize:none;max-height:9em;overflow-y:auto;line-height:1.35}
+.ask-foot .btn{align-self:flex-end}
 .note-body{max-height:420px;overflow:auto;white-space:pre-wrap}
 .qa-item>*{width:auto!important}
 .qa-item input[type=text]{flex:1 1 220px!important}
@@ -8201,7 +8204,7 @@ function askSheet(courseId){
       <div class="ask-log" id="askLog" aria-live="polite"></div>
       ${aiModelBar()}
     </div>
-    <div class="sheet-foot ask-foot"><textarea id="askIn" rows="2" placeholder="Ask anything about this course, e.g. What's the difference between systolic and diastolic heart failure?" maxlength="2000" aria-label="Your question"></textarea><button type="button" class="btn primary" id="askGo">Ask</button></div>
+    <div class="sheet-foot ask-foot"><textarea id="askIn" rows="1" placeholder="Ask anything about this course, e.g. What's the difference between systolic and diastolic heart failure?" maxlength="2000" aria-label="Your question"></textarea><button type="button" class="btn primary" id="askGo">Ask</button></div>
   </form>`);
   const log = $("#askLog");
   const selSize = () => A.sel.reduce((s, id) => s + ((state.files[id] && curRev(state.files[id]).size) || 0), 0);
@@ -8231,7 +8234,7 @@ function askSheet(courseId){
     q = String(q || "").trim(); if (!q) return;
     if (A.msgs.some(m => m.busy)) return;
     if (selSize() > AI_LIMIT_BYTES) { toast("The checked files are too big to send at once. Uncheck some."); return; }
-    const m = {q, busy: true}; A.msgs.push(m); $("#askIn").value = ""; drawLog();
+    const m = {q, busy: true}; A.msgs.push(m); $("#askIn").value = ""; askGrow(); drawLog();
     try {
       const parts = [];
       for (const id of A.sel) { const f = state.files[id]; if (!f) continue; m.status = `Reading ${f.name}…`; drawLog(); const s = await fileSource(f); parts.push({text: `File: ${f.name}`}); parts.push(s.part); }
@@ -8246,6 +8249,8 @@ function askSheet(courseId){
   };
   $("#askGo").addEventListener("click", () => send($("#askIn").value));
   $("#askIn").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(e.target.value); } });
+  const askGrow = () => { const t = $("#askIn"); if (!t) return; t.style.height = "auto"; t.style.height = t.scrollHeight + "px"; };
+  $("#askIn").addEventListener("input", askGrow);
   log.addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return;
     if (b.dataset.askq) send(b.dataset.askq);
@@ -11338,9 +11343,9 @@ function viewBars(mode){
   for (let i = 0; i < days; i++) {
     const k = addDays(min, i), d = parse(k), wd = d.getDay();
     if (wd === 0 || wd === 6) bg += `<i class="we" style="left:${i*dw}px;width:${dw}px"></i>`;
-    if (i === 0 || d.getDate() === 1) months += `<span class="tl-m" style="left:${i*dw}px">${esc(d.toLocaleDateString(undefined, {month: dw >= 20 ? "long" : "short", year: (i === 0 || d.getMonth() === 0) ? "numeric" : undefined}))}</span>`;
+    if (i === 0 || d.getDate() === 1) months += `<span class="tl-m" style="left:${i*dw}px">${esc(d.toLocaleDateString(undefined, {month: dw >= 20 ? "long" : "short"}))}${(i === 0 || d.getMonth() === 0) ? `<small>${d.getFullYear()}</small>` : ""}</span>`;
     if (dw >= 20) dayh += `<span class="tl-d ${k === today ? "is-today" : ""}" style="left:${i*dw}px;width:${dw}px">${d.getDate()}</span>`;
-    else if (wd === 1) dayh += `<span class="tl-d" style="left:${i*dw}px;width:${dw*7}px;text-align:left;padding-left:3px">${d.getDate()}</span>`;
+    else if (wd === 1) dayh += `<span class="tl-d" style="left:${i*dw}px;width:${dw*7}px;justify-content:flex-start;padding-left:4px">${d.getDate()}</span>`;
   }
   bg += `<i class="today-line" style="left:${x(today) + dw/2 - 1}px"></i>`;
   const groups = coursesArr().map(c => ({c, list: ts.filter(t => t.courseId === c.id)}));
@@ -59560,7 +59565,7 @@ const store = {
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--cr0:#222834;--cr1:#4A4120;--cr2:#7C5C1C;--cr3:#B5581D;--cr4:#D93A2B;--cr-t3:#FFFFFF;--cr-hatch:rgba(255,255,255,.2);--cr-ring:#E9ECF2}}
 :root[data-theme="dark"]{--cr0:#222834;--cr1:#4A4120;--cr2:#7C5C1C;--cr3:#B5581D;--cr4:#D93A2B;--cr-t3:#FFFFFF;--cr-hatch:rgba(255,255,255,.2);--cr-ring:#E9ECF2}
 .cr{display:grid;gap:12px}
-.cr-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.cr-head{display:flex;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:var(--shadow)}
 .cr-head h2{margin:0;font:700 1.25rem var(--display)}
 .cr-call{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
 .cr-call .cr-ct{flex:1 1 220px;min-width:0}
@@ -59705,7 +59710,7 @@ function typeCounts(W){
 }
 function viewCrunch(){
   const m = modelNow(), today = todayISO();
-  const head = `<div class="cr-head"><h2>Crunch Forecast</h2><span class="mini">Which weeks will be busy, so you can start early.</span></div>`;
+  const head = `<div class="cr-head"><h2>Crunch Forecast</h2></div>`;
   if (m.empty) return `<section class="cr" aria-label="Crunch Forecast">${head}<div class="empty cr-empty"><strong>Nothing due yet</strong>Add tasks with due dates and this page will show which weeks get heavy, weeks ahead.<div style="margin-top:12px"><button class="btn primary" data-act="new-task">Add a Task</button></div></div></section>`;
   const hv = C.heaviest(m, 0);
   let call;
