@@ -27,7 +27,10 @@
     "test:e2e": "node scripts/run-tests.js --e2e --no-unit --no-slow",
     "test:slow": "node scripts/run-tests.js --e2e --no-unit --only-slow",
     "test:all": "node scripts/run-tests.js --e2e",
-    "lint": "eslint . && node scripts/lint-inline.js"
+    "lint": "eslint . && node scripts/lint-inline.js",
+    "csp": "node scripts/csp.js",
+    "build:site": "node scripts/build-site.js",
+    "check:release": "node scripts/check-release.js"
   },
   "devDependencies": {
     "@electron/notarize": "^3.1.1",
@@ -45,7 +48,7 @@
   "build": {
     "appId": "com.studioso.app",
     "productName": "Studyboard",
-    "copyright": "Copyright © 2026 Studyboard",
+    "copyright": "Copyright \u00a9 2026 Studyboard",
     "directories": {
       "output": "dist",
       "buildResources": "build"
