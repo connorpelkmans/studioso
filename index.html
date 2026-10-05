@@ -10558,7 +10558,7 @@ document.addEventListener("change", e => {
 });
 
 const AI_ACTS = {
-  "cf-view": el => { const v = el.dataset.id; ui.tab = v === "files" ? "files" : "courses"; ui.courseId = null; ui.courseTab = v === "grades" ? "grades" : ""; ui.courseTabFor = null; render(); window.scrollTo(0, 0); },
+  "cf-view": el => { const v = el.dataset.id; ui.tab = v === "files" ? "files" : v === "emails" ? "emails" : "courses"; ui.courseId = null; ui.courseTab = v === "grades" ? "grades" : ""; ui.courseTabFor = null; render(); window.scrollTo(0, 0); },
   "plan-view": el => { const t = el.dataset.id === "schedule" || el.dataset.id === "crunch" ? el.dataset.id : "timeline"; if (t === "timeline" && ui.tab !== "timeline") ui.tlJump = true; ui.tab = t; render(); window.scrollTo(0, 0); },
   "bview": el => { ui.bview = el.dataset.id; try { localStorage.setItem("studyboard:bview", ui.bview); } catch(e) {} render(); window.scrollTo(0, 0); },
   "qa-add": () => qaAdd(), "qa-full": () => qaFull(), "qa-cancel": () => { ui.qa = null; render(); },
@@ -12869,10 +12869,10 @@ function planSwitchHtml(){
 }
 
 /* Courses and Files share one nav tab: ui.tab stays "courses" or "files", and this switch moves between them */
-const isCfTab = t => t === "courses" || t === "files";
+const isCfTab = t => t === "courses" || t === "files" || t === "emails";
 function cfSwitchHtml(){
   const t = ui.tab, g = t === "courses" && ui.courseTab === "grades", hasCourses = typeof coursesArr === "function" && coursesArr().length > 0;
-  return `<div class="pview-tabs cf-tabs" role="tablist" aria-label="Courses, Files and Grades"><button role="tab" data-act="cf-view" data-id="courses" aria-selected="${t === "courses" && !g}">Courses</button>${hasCourses ? `<button role="tab" data-act="cf-view" data-id="grades" aria-selected="${g}">Grades</button>` : ""}<button role="tab" data-act="cf-view" data-id="files" aria-selected="${t === "files"}">Files</button></div>`;
+  return `<div class="pview-tabs cf-tabs" role="tablist" aria-label="Courses, Grades, Emails and Files"><button role="tab" data-act="cf-view" data-id="courses" aria-selected="${t === "courses" && !g}">Courses</button>${hasCourses ? `<button role="tab" data-act="cf-view" data-id="grades" aria-selected="${g}">Grades</button>` : ""}<button role="tab" data-act="cf-view" data-id="emails" aria-selected="${t === "emails"}">Emails</button><button role="tab" data-act="cf-view" data-id="files" aria-selected="${t === "files"}">Files</button></div>`;
 }
 
 /* ---------- Render ---------- */
@@ -12892,9 +12892,9 @@ function render(){
   // "plan" (Calendar) is one tab with two views, Timeline and Schedule. The rest of the app can still say "timeline" or "schedule".
   if (ui.tab === "plan" || ui.tab === "calendar") ui.tab = ui.planView;
   if (isPlanTab(ui.tab)) planViewSet(ui.tab);
-  const navTab = isPlanTab(ui.tab) ? "plan" : ui.tab === "files" ? "courses" : ui.tab;
+  const navTab = isPlanTab(ui.tab) ? "plan" : ui.tab === "files" || ui.tab === "emails" ? "courses" : ui.tab;
   $$("nav.tabs button").forEach(b => b.setAttribute("aria-current", b.dataset.tab === navTab ? "page" : "false"));
-  document.body.classList.toggle("wide", ui.tab !== "courses");
+  document.body.classList.toggle("wide", ui.tab !== "courses" && ui.tab !== "files" && ui.tab !== "emails");
   const v = $("#view");
   const y = window.scrollY;
   const nt = $("#noteText"), ntVal = nt ? nt.value : null, ntFocus = nt && document.activeElement === nt, ntSel = nt ? [nt.selectionStart, nt.selectionEnd] : null;
@@ -16150,7 +16150,7 @@ document.addEventListener("click", e => {
     if (tab.dataset.tab === "flashcards" && ui.tab === "flashcards") { ui.fc = null; ui.deckId = null; }
     let want = tab.dataset.tab;
     if (want === "plan" || want === "calendar") want = isPlanTab(ui.tab) ? ui.tab : ui.planView;
-    if (want === "courses" && ui.tab === "files") want = "files";   // the Courses tab also holds Files: stay on the sub-tab already open
+    if (want === "courses" && (ui.tab === "files" || ui.tab === "emails")) want = ui.tab;   // the Courses tab also holds Files: stay on the sub-tab already open
     if (want === "timeline" && ui.tab !== "timeline") ui.tlJump = true;
     if (want === ui.tab && ui.tab === "courses") ui.courseId = null;
     ui.tab = want; if (ui.tab !== "courses") ui.courseId = null;
@@ -55432,6 +55432,110 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
 })();
 
 
+/* ===== module: 97b-emails.js ===== */
+/* Emails (Courses, between Grades and Files): your school's messages, read and answered from Studyboard with your school sign-in.
+   Works in the desktop app with Canvas (its Inbox is reachable with your sign-in). Brightspace and Blackboard don't offer a
+   mail API to apps, so they can't be read here. Nothing is sent without a tap on Send. */
+(() => {
+  const E = ui.em = ui.em || {list: null, loading: false, err: "", open: null, thread: null, tLoading: false, draft: "", ask: "", sending: false, drafting: false};
+  const canvas = () => { try { const L = window.SBLMS && SBLMS.canvas; const c = L && L.cfg(); return L && c && c.mode === "api" && c.host ? c : null; } catch (e) { return null; } };
+  const hasDesk = () => !!(DESK && DESK.lms && DESK.lms.mail);
+  const when = iso => { const d = new Date(iso); if (isNaN(d)) return ""; const days = Math.floor((Date.now() - d.getTime()) / 864e5); return days <= 0 ? d.toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"}) : days < 7 ? d.toLocaleDateString(undefined, {weekday: "short"}) : d.toLocaleDateString(undefined, {month: "short", day: "numeric"}); };
+  const whenLong = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleString(undefined, {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}); };
+  const errText = r => !r ? "Couldn't reach your school site." : r.needLogin ? "Your school sign-in has expired. Sign in again under Settings, School Sites." : r.error === "unsupported" ? "This school site can't be read for messages." : "Something went wrong (" + String(r.error || "unknown").slice(0, 60) + "). Try again.";
+  async function load(){
+    const c = canvas(); if (!c || !hasDesk()) return;
+    E.loading = true; E.err = ""; if (ui.tab === "emails") render();
+    try { const r = await DESK.lms.mail("canvas", c.host, {op: "list"}); if (r && r.ok) E.list = r.items; else E.err = errText(r); } catch (e) { E.err = errText(null); }
+    E.loading = false; if (ui.tab === "emails") render();
+  }
+  async function openThread(id){
+    const c = canvas(); if (!c) return;
+    E.open = id; E.thread = null; E.tLoading = true; E.draft = ""; E.ask = ""; E.err = ""; render();
+    try { const r = await DESK.lms.mail("canvas", c.host, {op: "get", id}); if (r && r.ok) { E.thread = r; const it = (E.list || []).find(x => x.id === id); if (it) it.unread = false; } else E.err = errText(r); } catch (e) { E.err = errText(null); }
+    E.tLoading = false; if (ui.tab === "emails") render();
+  }
+  const threadText = () => (E.thread ? E.thread.messages.slice(-8).map(m => `${m.mine ? "Me" : m.from} (${whenLong(m.at)}): ${m.body}`).join("\n\n") : "");
+  async function draft(){
+    if (!E.thread || E.drafting) return;
+    if (!aiReady()) { aiSetupSheet(true); return; }
+    const ta = $("#emDraft"), ask = $("#emAsk"); if (ta) E.draft = ta.value; if (ask) E.ask = ask.value;
+    E.drafting = true; render();
+    try {
+      const r = await aiCall({task: "rewrite", fast: true, maxTokens: 1500, temperature: 0.5,
+        schema: {type: "OBJECT", properties: {reply: {type: "STRING", description: "The reply text only, no subject line"}}, required: ["reply"]},
+        system: "You write replies for a college student to a message in their school's inbox (from an instructor, TA or classmate). Be polite, clear and brief, in the student's own voice (first person, natural, no flowery language). Answer what was asked. Don't invent facts, dates, grades or promises the student didn't state: if you need a detail from them, put a short [bracketed placeholder]. No subject line, no emojis. End with a simple sign-off only if it suits a message. Return JSON only.",
+        parts: [{text: `Subject: ${E.thread.subject}\nCourse: ${E.thread.course || "unknown"}\n\nThe conversation so far:\n${threadText()}\n\n${E.draft ? "The student's draft so far (improve it):\n" + E.draft + "\n\n" : ""}${E.ask ? "What the student wants to say: " + E.ask : "Write a suitable reply to the last message."}`}]});
+      const t = String((r.data || {}).reply || "").trim(); if (t) E.draft = t; else toast("I couldn't write a reply. Try telling me what to say.");
+    } catch (e) { toast((e && e.message) || "I couldn't write a reply just now."); }
+    E.drafting = false; if (ui.tab === "emails") render();
+  }
+  async function send(){
+    const c = canvas(), ta = $("#emDraft"); if (!c || !E.open || E.sending) return;
+    E.draft = ta ? ta.value : E.draft; const body = E.draft.trim(); if (!body) { toast("Write a reply first."); return; }
+    if (!confirm(`Send this reply to ${(E.thread && E.thread.names.filter(n => n).join(", ")) || "them"} through your school's inbox?`)) return;
+    E.sending = true; render();
+    try { const r = await DESK.lms.mail("canvas", c.host, {op: "send", id: E.open, body}); if (r && r.ok) { E.draft = ""; E.ask = ""; toast("Reply sent"); E.sending = false; await openThread(E.open); return; } toast(errText(r)); } catch (e) { toast(errText(null)); }
+    E.sending = false; if (ui.tab === "emails") render();
+  }
+  function note(){ return `<p class="mini em-note">Reads and answers your Canvas inbox with your school sign-in. Brightspace and Blackboard don't let apps read their messages, so those inboxes stay on your school's site.</p>`; }
+  function gate(){
+    const head = `<div class="view-head"><h2>Emails</h2></div>`;
+    if (!hasDesk()) return `${head}<div class="empty em-empty"><strong>Emails Need the Desktop App</strong>Your school's inbox can only be read with your school sign-in, which the Studyboard desktop app holds. Open Studyboard on your computer and connect Canvas under Settings, School Sites.${note()}</div>`;
+    return `${head}<div class="empty em-empty"><strong>Connect Canvas to See Your Emails</strong>Sign in to your school's Canvas under Settings, School Sites, and your inbox shows up here. You can read messages and answer them without leaving Studyboard.<div style="margin-top:12px"><button class="btn primary" data-act="lms-open">Connect a School Site</button></div>${note()}</div>`;
+  }
+  function viewEmails(){
+    if (!canvas() || !hasDesk()) return gate();
+    if (E.list === null && !E.loading && !E.err) setTimeout(load, 0);
+    if (E.open) {
+      const t = E.thread, who = t ? t.names.filter(Boolean).join(", ") : "";
+      return `<div class="view-head"><button class="icon-btn" data-act="em-back" aria-label="Back to your inbox"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button><h2>${esc(t ? t.subject : "Message")}</h2></div>
+        ${E.err ? `<p class="mini em-err">${esc(E.err)}</p>` : ""}
+        ${E.tLoading ? `<p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Opening…</p>` : t ? `<p class="mini em-meta">${esc([t.course, who].filter(Boolean).join(" · "))}</p>
+        <div class="em-thread">${t.messages.map(m => `<div class="em-msg${m.mine ? " mine" : ""}"><div class="em-from"><b>${esc(m.mine ? "You" : m.from)}</b><span class="mini">${esc(whenLong(m.at))}</span></div><div class="em-body">${esc(m.body)}</div>${m.files ? `<span class="mini">${m.files} attachment${m.files === 1 ? "" : "s"} (open it on your school's site)</span>` : ""}</div>`).join("")}</div>
+        <div class="em-reply"><h3 class="fsec">Reply</h3>
+          <div class="em-ai"><input type="text" id="emAsk" maxlength="300" placeholder="Tell ${aiWho("the AI")} what to say, like &quot;ask for an extension until Friday&quot;" value="${esc(E.ask)}" data-noenter><button type="button" class="btn small" data-act="em-draft" ${E.drafting ? "disabled" : ""}>${AI_ICON} ${E.drafting ? "Writing…" : "Draft With AI"}</button></div>
+          <textarea id="emDraft" rows="6" maxlength="10000" placeholder="Write your reply…" aria-label="Your reply">${esc(E.draft)}</textarea>
+          <div class="row-actions"><span class="mini">Nothing is sent until you tap Send.</span><span class="spacer"></span><button type="button" class="btn primary" data-act="em-send" ${E.sending ? "disabled" : ""}>${E.sending ? "Sending…" : "Send Reply"}</button></div></div>` : ""}`;
+    }
+    const list = E.list || [];
+    return `<div class="view-head"><h2>Emails</h2><button class="btn small" data-act="em-refresh" ${E.loading ? "disabled" : ""}>${E.loading ? "Loading…" : "Refresh"}</button></div>
+      ${E.err ? `<p class="mini em-err">${esc(E.err)}</p>` : ""}
+      ${E.loading && !list.length ? `<p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Reading your Canvas inbox…</p>` : !list.length && !E.err ? `<div class="empty em-empty"><strong>Your Inbox Is Empty</strong>No messages in Canvas right now.</div>` : `<ul class="em-list">${list.map(c => `<li><button type="button" class="em-item${c.unread ? " unread" : ""}" data-act="em-open" data-id="${esc(c.id)}"><span class="em-top"><b>${esc(c.subject)}</b><span class="mini">${esc(when(c.at))}</span></span><span class="mini em-who">${esc([c.course, c.names.filter(Boolean).join(", ")].filter(Boolean).join(" · "))}</span><span class="em-prev">${esc(c.preview)}</span></button></li>`).join("")}</ul>`}
+      ${note()}`;
+  }
+  VIEWS.emails = viewEmails;
+  hook("act", (act, el) => {
+    switch (act) {
+      case "em-open": openThread(el.dataset.id); return true;
+      case "em-back": E.open = null; E.thread = null; E.err = ""; render(); return true;
+      case "em-refresh": load(); return true;
+      case "em-draft": draft(); return true;
+      case "em-send": send(); return true;
+    }
+    return false;
+  });
+  document.addEventListener("input", e => { if (e.target.id === "emDraft") E.draft = e.target.value; else if (e.target.id === "emAsk") E.ask = e.target.value; });
+  const st = document.createElement("style");
+  st.textContent = `.em-list{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px}
+.em-item{display:grid;gap:3px;width:100%;text-align:left;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);cursor:pointer;position:relative}
+.em-item.unread{border-color:var(--accent);padding-left:22px}
+.em-item.unread::before{content:"";position:absolute;left:9px;top:18px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.em-top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.em-top b{font:700 .98rem var(--display);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.em-prev{font-size:.88rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.em-note{margin:14px 0 0}.em-err{color:var(--late);margin:8px 0}.em-meta{margin:6px 0 0}
+.em-thread{display:grid;gap:10px;margin-top:10px}
+.em-msg{padding:10px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.em-msg.mine{background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
+.em-from{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin-bottom:4px}
+.em-body{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.95rem}
+.em-reply{display:grid;gap:10px;margin-top:14px}
+.em-ai{display:flex;gap:8px;align-items:center}.em-ai input{flex:1;min-width:0}
+.em-reply textarea{min-height:130px}`;
+  document.head.appendChild(st);
+})();
+
 /* ===== module: 98-companion-tab.js ===== */
 /* The Companion tab: your companion's home. Chat with it about anything in the app (tasks, courses, grades, notes, flashcards,
    files), see past chats, and manage everything about it (pick, name, accessories, speech, Smart Lines).
@@ -55510,7 +55614,10 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     sources: {type: "ARRAY", items: {type: "STRING"}, description: "Short labels for the parts of the student's data used, like 'Task: Lab report', 'Notes', 'Grades', 'File: Ch4.pdf'"},
     followUps: {type: "ARRAY", items: {type: "STRING"}, description: "Up to 3 short things the student might ask next"},
     actions: {type: "ARRAY", description: "Things the student can tap to have done in Studyboard. Only when they asked for it or it clearly fits what they attached. Empty otherwise.", items: {type: "OBJECT", properties: {
-      type: {type: "STRING", enum: ["flashcards", "quiz", "case_study", "note", "tasks"]},
+      type: {type: "STRING", enum: ["flashcards", "quiz", "case_study", "note", "tasks", "edit_tasks", "quick_add", "syllabus", "breakdown", "estimate", "exam_plan", "ask_materials", "summarize_file", "save_file"]},
+      target: {type: "STRING", description: "breakdown, exam_plan: the task or exam's title. summarize_file: the file's name in Files."},
+      deck: {type: "STRING", description: "flashcards, quiz, case_study: the name of an EXISTING deck to add to, or empty for a new deck"},
+      edits: {type: "ARRAY", description: "edit_tasks: changes to existing open tasks", items: {type: "OBJECT", properties: {task: {type: "STRING", description: "The task's title as listed under OPEN TASKS"}, due: {type: "STRING", description: "New YYYY-MM-DD, or empty"}, time: {type: "STRING"}, hours: {type: "NUMBER", description: "New estimate in hours, or 0 to leave"}, priority: {type: "STRING", enum: ["", "low", "med", "high", "urgent"]}, status: {type: "STRING", enum: ["", "todo", "doing", "done"]}}, required: ["task"]}},
       label: {type: "STRING", description: "Short button text, like 'Make 20 flashcards' or 'Save to Biology board'"},
       deckName: {type: "STRING", description: "flashcards, quiz, case_study: a short name"},
       style: {type: "STRING", description: "flashcards, quiz, case_study: the student's wishes for style, focus or format, in their words. Empty if none."},
@@ -55518,20 +55625,28 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       course: {type: "STRING", description: "The course code or name from COURSES this belongs to, or empty"},
       board: {type: "STRING", description: "note: the note board's name from NOTE BOARDS; a new name makes a new board; empty for My Notes"},
       noteTitle: {type: "STRING"},
-      text: {type: "STRING", description: "note: the full clean typed note (transcribe photos and slides fully, keep formulas and numbers exact, headings and '- ' bullets). flashcards, quiz or case_study with nothing attached: the study material to use."},
+      text: {type: "STRING", description: "quick_add: the sentence to add tasks from, as the student would type it. note: the full clean typed note (transcribe photos and slides fully, keep formulas and numbers exact, headings and '- ' bullets). flashcards, quiz or case_study with nothing attached: the study material to use."},
       tasks: {type: "ARRAY", items: {type: "OBJECT", properties: {title: {type: "STRING"}, type: {type: "STRING", enum: ["Assignment", "Exam", "Quiz", "Reading", "Project", "Lab", "Other"]}, due: {type: "STRING", description: "YYYY-MM-DD"}, time: {type: "STRING", description: "HH:MM, 24-hour, or empty"}}, required: ["title", "due"]}}},
       required: ["type", "label"]}}}, required: ["answer"]};
-  const ACT_TYPES = ["flashcards", "quiz", "case_study", "note", "tasks"];
+  const ACT_TYPES = ["flashcards", "quiz", "case_study", "note", "tasks", "edit_tasks", "quick_add", "syllabus", "breakdown", "estimate", "exam_plan", "ask_materials", "summarize_file", "save_file"];
+  const FILE_ACTS = ["syllabus", "save_file"], GEN_ACTS = ["flashcards", "quiz", "case_study"];
+  const ACT_LABEL = {flashcards: "Make flashcards", quiz: "Make a quiz", case_study: "Make a case study", note: "Save as a note", tasks: "Add tasks", edit_tasks: "Update tasks", quick_add: "Add tasks", syllabus: "Import syllabus", breakdown: "Break it down", estimate: "Estimate times", exam_plan: "Plan exam prep", ask_materials: "Ask your course materials", summarize_file: "Summarize the file", save_file: "Save to Files"};
+  const ACT_BTN = {note: "Save Note", tasks: "Add Tasks", edit_tasks: "Apply", quick_add: "Add", syllabus: "Import", breakdown: "Open", estimate: "Open", exam_plan: "Open", ask_materials: "Open", summarize_file: "Summarize", save_file: "Save"};
   const cleanActions = (list, hasFiles) => (Array.isArray(list) ? list : []).map(a => {
     if (!a || !ACT_TYPES.includes(a.type)) return null;
-    const o = {type: a.type, label: clip(a.label, 60) || ({flashcards: "Make flashcards", quiz: "Make a quiz", case_study: "Make a case study", note: "Save as a note", tasks: "Add tasks"})[a.type],
-      deckName: clip(a.deckName, 80), style: clip(a.style, 400), count: Math.max(0, Math.min(100, Number(a.count) || 0)), course: clip(a.course, 60), board: clip(a.board, 40), noteTitle: clip(a.noteTitle, 80),
+    const o = {type: a.type, label: clip(a.label, 60) || ACT_LABEL[a.type],
+      deckName: clip(a.deckName, 80), deck: clip(a.deck, 80), target: clip(a.target, 120), style: clip(a.style, 400), count: Math.max(0, Math.min(100, Number(a.count) || 0)), course: clip(a.course, 60), board: clip(a.board, 40), noteTitle: clip(a.noteTitle, 80),
       text: String(a.text || "").trim().slice(0, 12000)};
     if (a.type === "note") { if (o.text.length < 3) return null; }
     else if (a.type === "tasks") { o.tasks = (a.tasks || []).filter(x => x && x.title && /^\d{4}-\d{2}-\d{2}$/.test(String(x.due || ""))).slice(0, 20).map(x => ({title: clip(x.title, 120), type: TYPES.includes(x.type) ? x.type : "Assignment", due: x.due, time: /^\d{1,2}:\d{2}$/.test(String(x.time || "")) ? x.time : ""})); if (!o.tasks.length) return null; }
-    else if (!hasFiles && o.text.length < 80) return null;
+    else if (a.type === "edit_tasks") { o.edits = (a.edits || []).filter(x => x && x.task).slice(0, 25).map(x => ({task: clip(x.task, 120), due: /^\d{4}-\d{2}-\d{2}$/.test(String(x.due || "")) ? x.due : "", time: /^\d{1,2}:\d{2}$/.test(String(x.time || "")) ? x.time : "", hours: Math.max(0, Math.min(200, Number(x.hours) || 0)), priority: ["low", "med", "high", "urgent"].includes(x.priority) ? x.priority : "", status: ["todo", "doing", "done"].includes(x.status) ? x.status : ""})).filter(x => x.due || x.time || x.hours || x.priority || x.status); if (!o.edits.length) return null; }
+    else if (a.type === "quick_add") { if (o.text.length < 4) return null; }
+    else if (FILE_ACTS.includes(a.type)) { if (!hasFiles) return null; }
+    else if (a.type === "breakdown" || a.type === "exam_plan") { if (!o.target) return null; }
+    else if (a.type === "summarize_file") { if (!o.target) return null; }
+    else if (GEN_ACTS.includes(a.type) && !hasFiles && o.text.length < 80) return null;
     return o;
-  }).filter(Boolean).slice(0, 4);
+  }).filter(Boolean).slice(0, 5);
 
   async function ask(q){
     q = String(q || "").replace(/\s+/g, " ").trim().slice(0, 1000);
@@ -55547,13 +55662,13 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     if (!c) { c = {id: uid(), title: clip(q, 56), at: Date.now(), msgs: []}; chats.unshift(c); T.id = c.id; wr(chats); }
     T.busy = {id: c.id, q}; T.draft = ""; T.status = "Looking through your stuff…"; draw();
     let m = {q, at: Date.now()};
-    if (att.length) { m.files = att.map(x => clip(x.name, 50)); T.srcs[m.at] = att; }
+    if (att.length) { m.files = att.map(x => clip(x.name, 50)); T.srcs[m.at] = att; idbPut(String(m.at), att.map(x => ({name: x.name, kind: x.kind, size: x.size, part: x.part}))); }
     try {
       const me = info() || {}, ctx = await context(q);
       T.status = "Thinking…"; draw();
       const hist = c.msgs.filter(x => x.a).slice(-6).map(x => `Student: ${x.q}\n${me.name || "Companion"}: ${clip(x.a.answer, 500)}`).join("\n\n");
       const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. ${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}Speak warmly and briefly, like a supportive study buddy. No emojis. Answer from the student's own data below whenever the question is about their work, courses, deadlines, grades, notes, flashcards or files. If the data doesn't contain what they ask about, say so plainly and don't invent facts, dates or marks. For general study or subject questions, answer with your own knowledge, clearly and correctly. Keep it short: a few sentences or a short list. Suggest a concrete next step when it helps.
-You can also DO things in Studyboard, but only when the student asks or what they attached clearly calls for it, and only by offering actions they tap to confirm (never say it is already done). Actions: flashcards, quiz or case_study (made from the attached files, or from the material you put in "text"), note (a clean typed note from a photo, slides or anything else, optionally onto a named note board and course), and tasks (due dates you find in what they attached or told you). Photos of whiteboards, slides or handwriting: read them fully and offer a note. Slides, PDFs or readings: offer flashcards, and a quiz if they want to practise. Say in your answer what you are offering, in a sentence or two. If they attached something and gave no instructions, say what you see and offer the most useful one or two actions.`;
+You can also DO things in Studyboard, but only when the student asks or what they attached clearly calls for it, and only by offering actions they tap to confirm (never say it is already done). Actions: flashcards, quiz or case_study (made from the attached files, or from the material you put in "text"; set "deck" to add to an existing deck; they are saved straight to the student's decks); note (a clean typed note from a photo, slides or anything else, optionally onto a named note board and course); tasks (due dates you find in what they attached or told you); edit_tasks (move a due date, change an estimate, priority or status of existing open tasks, using their titles exactly); quick_add (open Quick Add with a sentence to turn into tasks); syllabus (read an attached syllabus into a course and its deadlines); breakdown (split a big task into milestones; "target" is the task title); estimate (estimate times for tasks with none); exam_plan (build an exam prep plan; "target" is the exam title); ask_materials (open Ask Your Course Materials for a course); summarize_file ("target" is a file name from FILES); save_file (store the attached files in the course's Files). Things you can simply answer in chat, do that instead of an action: explaining a task or topic, summarizing what was attached or their notes, a weekly review, quizzing them one question at a time, checking an answer they wrote, listing exam topics, rewriting or tidying text. Photos of whiteboards, slides or handwriting: read them fully and offer a note. Slides, PDFs or readings: offer flashcards, and a quiz if they want to practise. Say in your answer what you are offering, in a sentence or two. If they attached something and gave no instructions, say what you see and offer the most useful one or two actions.`;
       const r = await aiCall({task: "tutor", maxTokens: att.length ? 12000 : 3000, schema: SCHEMA, system, onStatus: s => { T.status = s; drawStatus(); },
         parts: att.map(x => x.part).concat([{text: `THE STUDENT'S PLANNER (only what's relevant):\n${ctx.text}\n\n${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}${att.length ? "THE STUDENT ATTACHED: " + att.map(x => x.name + " (" + x.kind + ")").join(", ") + "\n\n" : ""}STUDENT'S QUESTION: ${q}`}])});
       const d = r.data || {};
@@ -55584,7 +55699,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
   }
   function msgHtml(m){
     const me = info() || {};
-    const acts = m.a && m.a.actions && m.a.actions.length ? `<div class="cpt-actions">${m.a.actions.map((a, i) => `<div class="cpt-action"><span class="cpt-action-t">${esc(a.label)}</span>${a.done ? `<span class="mini cpt-done">${esc(a.done)}</span>` : `<button type="button" class="btn small primary" data-act="cpt-do" data-m="${esc(String(m.at))}" data-i="${i}">${a.type === "note" ? "Save Note" : a.type === "tasks" ? "Add Tasks" : "Make It"}</button>`}</div>`).join("")}</div>` : "";
+    const acts = m.a && m.a.actions && m.a.actions.length ? `<div class="cpt-actions">${m.a.actions.map((a, i) => `<div class="cpt-action"><span class="cpt-action-t">${esc(a.label)}</span>${a.done ? `<span class="mini cpt-done">${esc(a.done)}</span>` : `<button type="button" class="btn small primary" data-act="cpt-do" data-m="${esc(String(m.at))}" data-i="${i}">${ACT_BTN[a.type] || "Make It"}</button>`}${a.deckId && state.decks[a.deckId] ? `<button type="button" class="btn small" data-act="cpt-open-deck" data-id="${esc(a.deckId)}">Open Deck</button>` : ""}</div>`).join("")}</div>` : "";
     return `<div class="cpt-q">${esc(m.q)}${m.files && m.files.length ? `<div class="cpt-qf">${m.files.map(f => `<span>${esc(f)}</span>`).join("")}</div>` : ""}</div>
       <div class="cpt-a">${m.err ? `<p class="mini">${esc(m.err)}</p>` : `${miniMd(m.a.answer)}
         ${m.a.sources && m.a.sources.length ? `<div class="cpt-src" aria-label="Looked at">${m.a.sources.map(s => `<span class="chip">${esc(s)}</span>`).join("")}</div>` : ""}${acts}`}
@@ -55601,13 +55716,32 @@ You can also DO things in Studyboard, but only when the student asks or what the
     return msgs.map(msgHtml).join("") + (busy ? `<div class="cpt-q">${esc(busy.q)}</div><div class="cpt-a cpt-wait"><p><span class="ai-spin" aria-hidden="true"></span> <span id="cptStatus">${esc(T.status || "Thinking…")}</span></p></div>` : "")
       + (last && last.a && !busy && (last.a.followUps || []).length ? `<div class="cpt-chips fu">${last.a.followUps.map(f => `<button type="button" class="chip" data-act="cpt-ask" data-q="${esc(f)}">${esc(f)}</button>`).join("")}</div>` : "");
   }
+  // Attached files are kept on this device (IndexedDB) for as long as the chat message exists, so an action can run after a refresh without attaching again.
+  const IDBN = "studyboard-cpt-files";
+  const idb = (mode, fn) => new Promise(res => { try { const rq = indexedDB.open(IDBN, 1); rq.onupgradeneeded = () => rq.result.createObjectStore("f"); rq.onerror = () => res(null); rq.onsuccess = () => { try { const db = rq.result, tx = db.transaction("f", mode), out = fn(tx.objectStore("f")); tx.oncomplete = () => { db.close(); res(out && "result" in out ? out.result : true); }; tx.onerror = tx.onabort = () => { db.close(); res(null); }; } catch (e) { res(null); } }; } catch (e) { res(null); } });
+  const idbPut = (k, v) => idb("readwrite", st => st.put(v, k));
+  const idbGet = k => idb("readonly", st => st.get(k));
+  const idbDel = ks => idb("readwrite", st => ks.forEach(k => st.delete(k)));
+  const idbKeys = () => idb("readonly", st => st.getAllKeys());
+  async function srcsOf(at){
+    if (T.srcs[at] && T.srcs[at].length) return T.srcs[at];
+    const v = await idbGet(String(at)); if (Array.isArray(v) && v.length) { T.srcs[at] = v; return v; }
+    return null;
+  }
+  setTimeout(async () => { try { const ks = await idbKeys(); if (!ks || !ks.length) return; const live = new Set(); rd().forEach(c => c.msgs.forEach(m => { if (m.files) live.add(String(m.at)); })); const dead = ks.filter(k => !live.has(String(k))); if (dead.length) idbDel(dead); } catch (e) {} }, 4000);
+  function fileFrom(src){
+    if (src.file) return src.file; const p = src.part;
+    if (p.inline_data) { const bin = atob(p.inline_data.data), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new File([u], src.name, {type: p.inline_data.mime_type}); }
+    return new File([String(p.text || "").replace(/^Source file: [^\n]*\n\n/, "")], src.name.replace(/\.[^.]+$/, "") + ".txt", {type: "text/plain"});
+  }
+  const findTask = q => { q = String(q || "").trim().toLowerCase(); if (!q) return null; const open = tasksArr().filter(t => t.status !== "done"); return open.find(t => t.title.toLowerCase() === q) || open.find(t => t.title.toLowerCase().includes(q) || q.includes(t.title.toLowerCase())) || tasksArr().find(t => t.title.toLowerCase() === q) || null; };
   const ATT_IC = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.9-8.9a3.7 3.7 0 0 1 5.2 5.2l-8.9 8.9a1.8 1.8 0 0 1-2.6-2.6l8.2-8.2"/></svg>';
   const attHtml = () => T.att.map((a, i) => `<span class="cpt-chip"><b>${a.kind === "Image" ? "IMG" : a.kind === "PDF" ? "PDF" : a.kind === "Slides" ? "PPT" : "DOC"}</b>${esc(clip(a.name, 28))}<button type="button" data-act="cpt-att-rm" data-id="${i}" aria-label="Remove ${esc(a.name)}">&times;</button></span>`).join("");
   const drawAtt = () => { const el = $("#cptAtt"); if (el) el.innerHTML = attHtml(); };
   async function addFiles(list){
     for (const f of list) {
       if (T.att.length >= 8) { toast("That's the most I can read at once: 8 files."); break; }
-      try { T.att.push(await aiSourceFromFile(f)); drawAtt(); } catch (e) { toast((e && e.message) || "I couldn't read that file."); }
+      try { const sc = await aiSourceFromFile(f); sc.file = f; T.att.push(sc); drawAtt(); } catch (e) { toast((e && e.message) || "I couldn't read that file."); }
     }
   }
   const findCourse = q => { q = String(q || "").trim().toLowerCase(); if (!q) return null; return coursesArr().find(c => courseLabel(c).toLowerCase() === q || (c.code || "").toLowerCase() === q || c.name.toLowerCase() === q) || coursesArr().find(c => (c.code && q.includes(c.code.toLowerCase())) || c.name.toLowerCase().includes(q) || q.includes(c.name.toLowerCase())) || null; };
@@ -55637,18 +55771,65 @@ You can also DO things in Studyboard, but only when the student asks or what the
         const cid = course ? course.id : "";
         applyChanges(a.tasks.map(x => { const st = MILESTONE(x.type) ? x.due : addDays(x.due, -(SPAN[x.type] ?? 3)); const t = newTask({title: x.title, type: x.type, courseId: cid, due: x.due, time: x.time, start: st < todayISO() ? todayISO() : st, priority: x.type === "Exam" ? "high" : "med"}); return {kind: "task", id: t.id, after: t}; }), `Added ${a.tasks.length} task${a.tasks.length === 1 ? "" : "s"}`);
         mark(`Added ${a.tasks.length} task${a.tasks.length === 1 ? "" : "s"}`);
+      } else if (a.type === "edit_tasks") {
+        const ch = [], miss = [];
+        a.edits.forEach(x => {
+          const t = findTask(x.task); if (!t) { miss.push(x.task); return; }
+          const n = clone(t);
+          if (x.due) { n.due = x.due; if (n.start && n.start > n.due) n.start = n.due; }
+          if (x.time) n.time = x.time;
+          if (x.hours) n.hours = x.hours;
+          if (x.priority) n.priority = x.priority;
+          if (x.status) { n.status = x.status; n.doneAt = x.status === "done" ? Date.now() : null; }
+          ch.push({kind: "task", id: t.id, after: n});
+        });
+        if (!ch.length) { toast("I couldn't find those tasks any more."); return; }
+        applyChanges(ch, `Updated ${ch.length} task${ch.length === 1 ? "" : "s"}`);
+        mark(`Updated ${ch.length} task${ch.length === 1 ? "" : "s"}${miss.length ? ", " + miss.length + " not found" : ""}`);
+      } else if (a.type === "quick_add") {
+        ui.tab = "board"; render(); window.scrollTo(0, 0); qaRun(a.text); mark("Opened in Quick Add");
+      } else if (a.type === "syllabus") {
+        const srcs = await srcsOf(m.at); if (!srcs) { toast("I can't find the file for this one any more. Attach it again."); return; }
+        const sy = srcs.find(x => /syllab/i.test(x.name)) || srcs[0];
+        importSheet(course ? course.id : "", fileFrom(sy)); mark("Opened the syllabus import");
+      } else if (a.type === "breakdown") {
+        const t = findTask(a.target); if (!t) { toast("I couldn't find that task."); return; }
+        if (!window.SBBREAK) return; SBBREAK.open(t.id); mark("Opened the breakdown");
+      } else if (a.type === "estimate") {
+        if (!window.SBEST) return; SBEST.open(false); mark("Opened Estimate Times");
+      } else if (a.type === "exam_plan") {
+        const t = findTask(a.target); if (!window.SBPREP) return; SBPREP.open(t ? t.id : ""); mark("Opened the exam prep plan");
+      } else if (a.type === "ask_materials") {
+        askSheet(course ? course.id : ""); mark("Opened Ask Your Course Materials");
+      } else if (a.type === "summarize_file") {
+        const q = a.target.toLowerCase(), f = Object.values(state.files).find(x => x.kind === "file" && x.name.toLowerCase() === q) || Object.values(state.files).find(x => x.kind === "file" && x.name.toLowerCase().includes(q));
+        if (!f) { toast("I couldn't find that file in Files."); return; }
+        summarizeFile(f.id); mark("Summarizing " + f.name);
+      } else if (a.type === "save_file") {
+        const srcs = await srcsOf(m.at); if (!srcs) { toast("I can't find the file for this one any more. Attach it again."); return; }
+        await uploadFiles(srcs.map(fileFrom), {courseId: course ? course.id : "", folderId: ""}); mark(`Saved ${srcs.length} file${srcs.length === 1 ? "" : "s"} to Files`);
       } else {
-        let srcs = T.srcs[m.at];
-        if (!srcs || !srcs.length) srcs = a.text.length >= 80 ? [{name: a.deckName || "Chat material", kind: "Text", size: a.text.length, part: {text: a.text}}] : null;
-        if (!srcs) { toast("Attach the file again and ask me once more. Files aren't kept after a refresh."); return; }
+        let srcs = await srcsOf(m.at);
+        if (!srcs) srcs = a.text.length >= 80 ? [{name: a.deckName || "Chat material", kind: "Text", size: a.text.length, part: {text: a.text}}] : null;
+        if (!srcs) { toast("I can't find the file for this one any more. Attach it again and ask once more."); return; }
         if (!aiOk()) { aiSetupSheet(false); return; }
         el.disabled = true; const was = el.textContent; el.textContent = "Working…";
         try {
           const r = await aiMakeStudySet({sources: srcs, style: a.style, difficulty: "mixed", cards: a.type === "flashcards", quiz: a.type === "quiz", cases: a.type === "case_study", caseCount: "1", caseStyle: "auto",
             cardCount: a.type === "flashcards" && a.count ? String(a.count) : "auto", quizCount: a.type === "quiz" && a.count ? String(a.count) : "10", courseName: course ? course.name : ""}, s => { el.textContent = clip(s, 28); });
-          if (!r.cards.length && !r.questions.length && !r.cases.length) throw new Error("I couldn't make anything from that. Try a PDF version, or tell me what to focus on.");
-          if (a.deckName) { r.title = a.deckName; if (r.questions.length) r.quizTitle = r.quizTitle || a.deckName; }
-          aiReviewSheet(r, {deck: null, courseId: course ? course.id : "", style: a.style, styleName: "", sources: srcs.map(x => x.name)});
+          const cards = r.cards.filter(x => !x.check && x.front.trim() && x.back.trim()), qs = r.questions.filter(x => !x.check), cs = r.cases || [];
+          if (!cards.length && !qs.length && !cs.length) throw new Error("I couldn't make anything from that. Try a PDF version, or tell me what to focus on.");
+          const ex = a.deck && decksArr().find(x => x.name.toLowerCase() === a.deck.toLowerCase());
+          const d = ex ? clone(ex) : normDeck({id: uid(), created: Date.now(), name: (a.deckName || r.title || srcs[0].name.replace(/\.[^.]+$/, "") || "Study Set").slice(0, 80), courseId: course ? course.id : ""});
+          d.cards = d.cards.concat(cards.map(x => ({id: uid(), front: x.front.trim(), back: x.back.trim(), box: 0, due: "", seen: 0, right: 0, wrong: 0, ai: true, src: x.source || ""})));
+          const names = srcs.map(x => x.name);
+          if (qs.length) d.aiQuizzes = (d.aiQuizzes || []).concat({id: uid(), title: r.quizTitle || a.deckName || "Practice Quiz", style: a.style || "", created: Date.now(), sources: names, questions: qs, results: []});
+          cs.forEach(x => { d.aiQuizzes = (d.aiQuizzes || []).concat(Object.assign({id: uid(), style: a.style || "", created: Date.now(), sources: names, results: [], kind: "case"}, x)); });
+          if (a.style) d.aiStyle = a.style;
+          d.updated = Date.now();
+          const what = [cards.length ? cards.length + " card" + (cards.length === 1 ? "" : "s") : "", qs.length ? "a " + qs.length + "-question quiz" : "", cs.length ? cs.length + " case stud" + (cs.length === 1 ? "y" : "ies") : ""].filter(Boolean).join(" and ");
+          a.deckId = d.id; saveDeck(d, `Saved ${what} to ${d.name}`);
+          mark(`Saved ${what} to "${d.name}"`);
         } finally { el.disabled = false; el.textContent = was; }
       }
     } catch (e) { console.warn("companion action", e); toast((e && e.message) || "That didn't work. Try again?"); }
@@ -55704,11 +55885,12 @@ You can also DO things in Studyboard, but only when the student asks or what the
       case "cpt-attach": { const f = $("#cptFile"); if (f) f.click(); return true; }
       case "cpt-att-rm": T.att.splice(Number(id), 1); drawAtt(); return true;
       case "cpt-do": runAction(el); return true;
+      case "cpt-open-deck": ui.tab = "flashcards"; ui.fc = null; ui.deckId = id; render(); window.scrollTo(0, 0); return true;
       case "cpt-ask": T.tab = "chat"; if (ui.tab === "companion") ask(el.dataset.q); return true;
       case "cpt-new": T.id = null; T.draft = ""; T.tab = "chat"; render(); setTimeout(() => { const i = $("#cptIn"); if (i) i.focus(); }, 30); return true;
       case "cpt-open": T.id = id; T.tab = "chat"; render(); return true;
-      case "cpt-del": { const a = rd().filter(c => c.id !== id); wr(a); if (T.id === id) T.id = null; render(); return true; }
-      case "cpt-clear": if (confirm("Delete all your chats with your companion? This can't be undone.")) { wr([]); T.id = null; render(); } return true;
+      case "cpt-del": { const gone = rd().find(c => c.id === id); if (gone) idbDel(gone.msgs.filter(m => m.files).map(m => String(m.at))); const a = rd().filter(c => c.id !== id); wr(a); if (T.id === id) T.id = null; render(); return true; }
+      case "cpt-clear": if (confirm("Delete all your chats with your companion? This can't be undone.")) { idbKeys().then(ks => ks && ks.length && idbDel(ks)); wr([]); T.id = null; render(); } return true;
       case "cpt-note": {
         const c = rd().find(x => x.id === T.id), m = c && c.msgs.find(x => String(x.at) === id);
         if (!m || !m.a) return true;
@@ -55746,7 +55928,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
 .cpt-id p{margin:0}
 .cpt-bio{font-size:1rem;line-height:1.4;color:var(--ink);opacity:.85}
 .cpt-tabs{max-width:none}
-.cpt-dress{min-height:42px;padding:9px 16px;font-size:.95rem}
+.cpt-dress{min-height:46px;padding:11px 20px;font-size:1rem}
 .cpt-pane{display:grid;gap:10px}
 .cpt-log{display:grid;gap:10px;align-content:start;min-height:260px;max-height:min(56vh,560px);overflow:auto;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
 .cpt-q{justify-self:end;max-width:86%;background:var(--accent);color:var(--accent-ink,#fff);padding:8px 13px;border-radius:16px 16px 4px 16px;font-size:.95rem;white-space:pre-wrap;overflow-wrap:anywhere}

@@ -65,6 +65,7 @@ contextBridge.exposeInMainWorld("studiosoDesktop", {
     connect: (id, host) => ipcRenderer.invoke("lms:connect", String(id), String(host || "")),
     sync: (id, host, opts) => ipcRenderer.invoke("lms:sync", String(id), String(host || ""), opts && typeof opts === "object" ? JSON.parse(JSON.stringify(opts)) : {}),
     file: (id, host, spec) => ipcRenderer.invoke("lms:file", String(id), String(host || ""), spec && typeof spec === "object" ? JSON.parse(JSON.stringify(spec)) : {}),
+    mail: (id, host, spec) => ipcRenderer.invoke("lms:mail", String(id), String(host || ""), spec && typeof spec === "object" ? JSON.parse(JSON.stringify(spec)) : {}),
     feed: (id, url) => ipcRenderer.invoke("lms:feed", String(id), String(url || "")),
     signOut: id => ipcRenderer.invoke("lms:signout", String(id))
   }
