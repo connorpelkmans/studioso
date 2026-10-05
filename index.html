@@ -10501,6 +10501,14 @@ const coursesArr = () => allCourses().filter(c => !c.archived);
 const courseOf = id => id ? state.courses[id] : null;
 const colorOf = id => { const c = courseOf(id); return c ? c.color : "#8A94A6"; };
 const courseLabel = c => c.code || c.name;
+// A course code from a school site (Brightspace, Canvas, Blackboard) is only used when it reads like one ("NURS 1010", "BIO-101L").
+// Their raw ids and section stubs ("0", "HY1", "12345") are not codes: the code in the course name is used instead, and with none
+// the full name is shown, never a stub.
+const COURSE_CODE_RX = /\b([A-Za-z]{2,6})[\s_-]?(\d{2,4}[A-Za-z]?)\b/;
+const cleanCourseCode = (raw, name) => {
+  for (const s of [raw, name]) { const m = String(s || "").match(COURSE_CODE_RX); if (m) return m[1].toUpperCase() + " " + m[2].toUpperCase(); }
+  return "";
+};
 function startOf(t){
   if (MILESTONE(t.type) && t.due) return t.due;
   let s = t.start || (t.created ? iso(new Date(t.created)) : t.due);
@@ -11173,7 +11181,7 @@ function viewBars(mode){
   let rows = "";
   groups.filter(g => g.list.length).forEach(g => {
     const col = g.c ? g.c.color : "#8A94A6";
-    rows += `<div class="tl-row tl-group" style="--c:${esc(col)}"><div class="tl-label" style="width:${LW}px"><span class="sd"></span><span class="tt">${esc(g.c ? g.c.name : "No Course")}</span></div><div class="tl-track" style="width:${W}px"></div></div>`;
+    rows += `<div class="tl-row tl-group" style="--c:${esc(col)}"><div class="tl-label" style="width:${LW}px"><span class="sd"></span><span class="tt"${g.c && g.c.code && g.c.name ? ` title="${esc(g.c.name)}"` : ""}>${esc(g.c ? courseLabel(g.c) : "No Course")}</span></div><div class="tl-track" style="width:${W}px"></div></div>`;
     g.list.slice().sort((a, b) => (startOf(a) < startOf(b) ? -1 : startOf(a) > startOf(b) ? 1 : sortTasks(a, b))).forEach(t => {
       const s = startOf(t), left = x(s), w = (dayDiff(s, t.due) + 1) * dw;
       const late = t.status !== "done" && t.due < today;
@@ -26168,7 +26176,8 @@ function m1_off(w, h, k) { var cv = document.createElement('canvas'); cv.width =
 function m1_calm(eng, slow) { var tw = 0, k = slow, mom = 0; return {
   step: function (dt, t, f) { var want = mom > 0 ? 1 : slow; k += (want - k) * Math.min(1, dt * 1.5); mom -= dt; tw += dt * k; eng.step(dt * k, tw, f); },
   draw: function (ca, cb, t, f) { eng.draw(ca, cb, tw, f); },
-  finish: function (t) { mom = 6.2; k = Math.max(k, 0.8); eng.finish(tw); }
+  finish: function (t) { mom = 6.2; k = Math.max(k, 0.8); eng.finish(tw); },
+  stat: eng.stat, set hosted(v) { eng.hosted = v; }   // an engine's unchanging decor, painted once by the host (see build())
 }; }
 var m1_K = function () { return Math.min(2, Math.max(1.5, window.devicePixelRatio || 1)); };
 
@@ -26558,7 +26567,7 @@ function m1_nurseLife(A, v, dk) {
     },
     drawB: function (cb, t, f) {
       var T = t - T0, big = T > 0 && T < 5 ? Math.sin(Math.min(1, T / 5) * Math.PI) : 0, heartOn = T > 0.6 && T < 4.8;
-      cb.drawImage(dec.cv, 0, 0, W, H);
+      if (!this.hosted) cb.drawImage(dec.cv, 0, 0, W, H);   // the host paints it once into its own canvas (see eng.stat)
       // call lights blink (and spell a heart in the moment)
       cb.save(); cb.globalCompositeOperation = dk ? 'lighter' : 'source-over';
       lights.forEach(function (L, j) { var a = 0, r = j / cols | 0, c = j % cols; if (heartOn) a = heartMask[r][c] === 'X' ? 0.75 + 0.25 * Math.sin(t * 8 + j) : 0; else if (L.t0 !== undefined && t - L.t0 < L.d) a = Math.sin((t - L.t0) / L.d * Math.PI);
@@ -26581,7 +26590,8 @@ function m1_nurseLife(A, v, dk) {
       if (dog && !(t - T0 > 0 && t - T0 < 5) && Math.sin(t * 0.15) > 0) { var z = (t * 0.4) % 1; cb.fillStyle = dk ? 'rgba(230,220,255,' + Math.sin(z * Math.PI) + ')' : 'rgba(120,100,160,' + Math.sin(z * Math.PI) + ')'; cb.font = '700 ' + Math.round(10 + z * 5) + 'px sans-serif'; cb.fillText('z', dog.x + 50 + z * 12, dog.y - 46 - z * 22); }
     },
     finish: function (t) { T0 = t; },
-    big: function (t) { var T = t - T0; return T > 0 && T < 5 ? Math.sin(T / 5 * Math.PI) : 0; }
+    big: function (t) { var T = t - T0; return T > 0 && T < 5 ? Math.sin(T / 5 * Math.PI) : 0; },
+    stat: dec.cv, hosted: false
   };
 }
 // ---------- Night Shift: the monitor traces a calm heartbeat, steam curls from the mug, fairy lights and the lamp glow, the city twinkles.
@@ -26603,6 +26613,7 @@ ENGINES.nursing = function (A, v, dk) {
   function cloud(c, x, y, s) { c.beginPath(); c.ellipse(x, y, 70 * s, 14 * s, 0, 0, 7); c.ellipse(x + 26 * s, y - 9 * s, 34 * s, 15 * s, 0, 0, 7); c.ellipse(x - 22 * s, y - 5 * s, 26 * s, 11 * s, 0, 0, 7); c.fill(); }
   function strokePart(c, a, b, w, col) { c.beginPath(); c.moveTo(hp[a][0], hp[a][1]); for (var i = a + 1; i <= b; i++) c.lineTo(hp[i][0], hp[i][1]); c.lineWidth = w; c.strokeStyle = col; c.stroke(); }
   return {
+    stat: life.stat, set hosted(v) { life.hosted = v; },
     step: function (dt, t, f) {
       life.step(dt, t, f);
       if (dk) { nextW -= dt * f.s; if (nextW <= 0 && wins.length) { nextW = 0.6 + Math.random() * 0.9; var i = Math.floor(Math.random() * wins.length); if (!fades.some(function (q) { return q.i === i; })) fades.push({i: i, t0: t, to: wins[i][2] ? 0 : 1}); } }
@@ -29261,10 +29272,14 @@ return {buildScene: buildScene, buildSceneAt: buildSceneAt, SCENES: SCENES, ENGI
     el.style.cssText = `left:${g.side}px;top:0;width:${g.W}px;height:${g.H}px;background:${v.sky}`;
     const band = v.band.h ? `<div class="sc-band" style="top:${v.band.top * k}px;height:${v.band.h * k}px;background:${v.band.bg}"></div>` : "";
     el.innerHTML = band + layerHtml(v.far, true, v, k) + layerHtml(v.refl, true, v, k) + layerHtml(v.mid, true, v, k)
-      + (eng ? `<canvas class="sc-cv sc-a"></canvas>` : "") + layerHtml(v.near, false, v, k) + (eng ? `<canvas class="sc-cv sc-b"></canvas>` : "");
+      + (eng ? `<canvas class="sc-cv sc-a"></canvas>` : "") + layerHtml(v.near, false, v, k) + (eng && eng.stat ? `<canvas class="sc-cv sc-s"></canvas>` : "") + (eng ? `<canvas class="sc-cv sc-b"></canvas>` : "");
     const dpr = Math.min(g.W * g.H > BIG_AREA ? DPR_BIG : DPR_MAX, window.devicePixelRatio || 1) * (MO() ? MO().dprScale() : 1), s = k * dpr;
     const cvs = eng ? [el.querySelector(".sc-a"), el.querySelector(".sc-b")] : [];
     cvs.forEach(c => { c.width = Math.round(g.W * dpr); c.height = Math.round(g.H * dpr); c.style.width = g.W + "px"; c.style.height = g.H + "px"; });
+    // An engine's unchanging decor (eng.stat, an offscreen canvas) is painted ONCE into its own canvas between the near layer and
+    // the animated canvas, instead of being blitted across the whole screen on every frame.
+    const sCv = eng && eng.stat ? el.querySelector(".sc-s") : null;
+    if (sCv) { sCv.width = eng.stat.width; sCv.height = eng.stat.height; sCv.style.width = g.W + "px"; sCv.style.height = g.H + "px"; sCv.getContext("2d").drawImage(eng.stat, 0, 0); eng.hosted = true; }
     stopLoop(); last = 0; T = 0;
     document.documentElement.classList.add("sc-on");
     cur = {id, sc, dk, sig: sigOf(id, dk, g), g, v, eng, s, el, dprK: MO() ? MO().dprScale() : 1, ctx: cvs.map(c => c.getContext("2d"))};
@@ -38191,7 +38206,7 @@ window.SBEST = SBEST;
       const id = F + "c_" + hid(ou);
       if (cur("course", id)) return id;
       const bc = data.courses.find(x => x.ou === ou) || {ou};
-      const code = bc.code || codeOf(bc.name);
+      const code = cleanCourseCode(bc.code, bc.name);
       const color = COLORS.find(x => !used.includes(x)) || COLORS[used.length % COLORS.length]; used.push(color);
       const nc = {id, created: Date.now(), name: courseName(bc.name, code) || code || `${P.name} Course`, code: code || "", instructor: "", schedule: "", room: "", office: "", color, notes: "", links: data.origin && P.courseHome(data.origin, ou) ? [{label: P.name, url: P.courseHome(data.origin, ou)}] : [], meetings: [], [F]: {ou}};
       put("course", nc); rep.courses.push(nc.name); return id;
@@ -38558,7 +38573,7 @@ window.SBEST = SBEST;
     const t = focus === "suggest" ? $("#bsSuggest") : focus === "log" ? $("#bsLog") : null;
     if (t) setTimeout(() => t.scrollIntoView({block: "start"}), 60);
   }
-  const newsRow = n => { const c = cfg(), bc = c.courses[n.ou] || {}; return `<li><div class="bs-main"><b>${esc(n.title)}</b><span class="mini">${esc(bc.code || bc.name || "")}${n.date ? ` · ${esc(fmtShort(iso(new Date(n.date))))}` : ""}</span><p class="bs-news-text">${esc(n.text)}${n.long ? "…" : ""}</p></div>
+  const newsRow = n => { const c = cfg(), bc = c.courses[n.ou] || {}; return `<li><div class="bs-main"><b>${esc(n.title)}</b><span class="mini">${esc(cleanCourseCode(bc.code, bc.name) || bc.name || "")}${n.date ? ` · ${esc(fmtShort(iso(new Date(n.date))))}` : ""}</span><p class="bs-news-text">${esc(n.text)}${n.long ? "…" : ""}</p></div>
     <span class="bs-btns">${n.url ? `<a class="btn small" href="${esc(safeUrl(n.url) || "#")}" target="_blank" rel="noopener noreferrer">Open</a>` : ""}${aiReady() ? `<button class="btn small" data-act="${A}-scan" data-ou="${esc(n.ou)}" data-id="${esc(n.id)}">Check for Dates</button>` : ""}</span></li>`; };
 
   function connectSheet(){
@@ -38706,7 +38721,7 @@ window.SBEST = SBEST;
     const add = r => { const k = r.ou + "|" + titleKey(r.title); const p = byKey[k]; if (p) { ["due", "time", "start", "url", "notes", "gid", "outOf", "lateUntil", "rx", "location"].forEach(f => { if (!p[f] && r[f]) p[f] = r[f]; }); if (r.done) p.done = true; if (r.files && r.files.length && !(p.files || []).length) p.files = r.files; return p; } byKey[k] = r; out.recs.push(r); return r; };
     (h.courses || []).forEach(c => {
       out.synced.push(c.ou);
-      out.courses.push({ou: c.ou, code: codeOf(c.name) || codeOf(c.code) || String(c.code || "").slice(0, 24), name: c.name});
+      out.courses.push({ou: c.ou, code: codeOf(c.name) || codeOf(c.code) || cleanCourseCode(c.code, c.name), name: c.name});
       (c.items || []).forEach(x => {
         const sameDay = x.kind === "quiz" && x.start && x.end && localDT(x.start).date === localDT(x.end).date;
         const due = localDT(x.due || (sameDay ? x.start : x.end)); if (!due) return;
@@ -38959,7 +38974,8 @@ window.SBEST = SBEST;
         const key = L.P.id + "|" + n.ou + "|" + n.id; if (seen.has(key)) return; seen.add(key);
         const cr = m && m !== "new" ? state.courses[m] : null, bc = (c.courses || {})[n.ou] || {};
         out.push({key, ou: n.ou, id: n.id, title: htmlLine(n.title) || "(No title)", text: htmlText(n.text), long: !!n.long, date: n.date || "", url: safeUrl(n.url) || "", plat: L.P.name,
-          cid: cr ? cr.id : "", course: htmlLine(cr ? cr.name : (bc.name || bc.code || L.P.name + " Course")), color: cr ? cr.color : "#8A94A6"});
+          cid: cr ? cr.id : "", course: htmlLine(cr ? courseLabel(cr) : (cleanCourseCode(bc.code, bc.name) || bc.name || L.P.name + " Course")),
+          courseName: htmlLine(cr ? cr.name : (bc.name || "")), color: cr ? cr.color : "#8A94A6"});
       });
     });
     return out.sort((a, b) => String(b.date).localeCompare(String(a.date)));
@@ -38997,7 +39013,7 @@ window.SBEST = SBEST;
     const rs = readSet(), all = items(), np = plats();
     const nUn = all.filter(n => isNew(n, rs)).length;
     const groups = [];
-    all.forEach(n => { const k = n.cid || n.plat + n.ou; let g = groups.find(x => x.k === k); if (!g) groups.push(g = {k, name: n.course, color: n.color, list: []}); g.list.push(n); });
+    all.forEach(n => { const k = n.cid || n.plat + n.ou; let g = groups.find(x => x.k === k); if (!g) groups.push(g = {k, name: n.course, full: n.courseName, color: n.color, list: []}); g.list.push(n); });
     groups.forEach(g => { g.un = g.list.filter(n => isNew(n, rs)).length; });
     groups.sort((a, b) => (!!b.un - !!a.un) || String(b.list[0].date).localeCompare(String(a.list[0].date)));
     if (tab !== HOME && !groups.some(g => g.k === tab)) tab = HOME;
@@ -39005,10 +39021,10 @@ window.SBEST = SBEST;
     const tid = k => "annTab_" + String(k).replace(/[^\w-]/g, "_");
     const row = (n, chip) => { const un = isNew(n, rs), when = n.date && !isNaN(Date.parse(n.date)) ? rel(n.date) : "";
       const ai = window.SBANN.info(n.key), AB = ai && ai.imp ? `<p class="ann-ai"><span class="ann-attn">Needs attention</span> ${ai.sum ? esc(ai.sum) : ""}</p>` : "";
-      return `<li class="${un ? "unread" : ""}${ai && ai.imp ? " attn" : ""}">${chip ? `<span class="ann-chip" style="--c:${esc(n.color)}"><span class="sd"></span>${esc(n.course)}</span>` : ""}<b>${esc(n.title)}</b><span class="mini">${esc(n.plat)}${when ? ` · <span title="${esc(fmtShort(iso(new Date(n.date))))}">${esc(when)}</span>` : ""}${un ? " · New" : ""}</span>${AB}
+      return `<li class="${un ? "unread" : ""}${ai && ai.imp ? " attn" : ""}">${chip ? `<span class="ann-chip" style="--c:${esc(n.color)}"${n.courseName && n.courseName !== n.course ? ` title="${esc(n.courseName)}"` : ""}><span class="sd"></span>${esc(n.course)}</span>` : ""}<b>${esc(n.title)}</b><span class="mini">${esc(n.plat)}${when ? ` · <span title="${esc(fmtShort(iso(new Date(n.date))))}">${esc(when)}</span>` : ""}${un ? " · New" : ""}</span>${AB}
         ${n.text ? (n.text.length > 200 || n.long ? `<details><summary>${esc(n.text.slice(0, 120).replace(/\s+/g, " "))}… Read more</summary><p class="ann-txt">${esc(n.text)}${n.long ? "…" : ""}</p></details>` : `<p class="ann-txt">${esc(n.text)}</p>`) : ""}
         <span class="bs-btns">${n.url ? `<button type="button" class="btn small" data-act="ann-go" data-key="${esc(n.key)}" data-url="${esc(n.url)}">Open in ${esc(n.plat)}</button>` : ""}<button type="button" class="btn small" data-act="ann-read" data-key="${esc(n.key)}">${un ? "Mark Read" : "Mark Unread"}</button></span></li>`; };
-    const tabBtn = (k, label, un, color) => `<button type="button" role="tab" class="ann-tab" id="${tid(k)}" data-act="ann-tab" data-ann="${esc(k)}" aria-selected="${tab === k}" aria-controls="annPanel" tabindex="${tab === k ? 0 : -1}"${un ? ` aria-label="${esc(label)}, ${un} unread"` : ""}>${color ? `<span class="sd" style="background:${esc(color)}"></span>` : ""}<span class="ann-tl">${esc(label)}</span>${un ? `<span class="ann-pill" aria-hidden="true">${un}</span>` : ""}</button>`;
+    const tabBtn = (k, label, un, color, full) => `<button type="button" role="tab" class="ann-tab" id="${tid(k)}"${full && full !== label ? ` title="${esc(full)}"` : ""} data-act="ann-tab" data-ann="${esc(k)}" aria-selected="${tab === k}" aria-controls="annPanel" tabindex="${tab === k ? 0 : -1}"${un ? ` aria-label="${esc(label)}, ${un} unread"` : ""}>${color ? `<span class="sd" style="background:${esc(color)}"></span>` : ""}<span class="ann-tl">${esc(label)}</span>${un ? `<span class="ann-pill" aria-hidden="true">${un}</span>` : ""}</button>`;
     let panel;
     if (!all.length) panel = "";
     else if (tab === HOME) {
@@ -39016,9 +39032,9 @@ window.SBEST = SBEST;
       panel = `<h3 class="ann-home-h">${recent.length === 1 ? "Most recent announcement" : `${recent.length} most recent announcements`}</h3>
         <p class="mini ann-home-note">Newest first, from all your classes together. Pick a class tab above to see everything that class has posted.</p>
         <ul class="ann-list">${recent.map(n => row(n, true)).join("")}</ul>
-        ${groups.length ? `<h3 class="ann-course" style="margin-top:14px">Browse by class</h3><div class="ann-browse">${groups.map(g => `<button type="button" class="ann-chip btn-chip" style="--c:${esc(g.color)}" data-act="ann-tab" data-ann="${esc(g.k)}"><span class="sd"></span>${esc(g.name)}<span class="n">${g.list.length}${g.un ? ` · ${g.un} new` : ""}</span></button>`).join("")}</div>` : ""}`;
+        ${groups.length ? `<h3 class="ann-course" style="margin-top:14px">Browse by class</h3><div class="ann-browse">${groups.map(g => `<button type="button" class="ann-chip btn-chip" style="--c:${esc(g.color)}" data-act="ann-tab" data-ann="${esc(g.k)}"${g.full && g.full !== g.name ? ` title="${esc(g.full)}"` : ""}><span class="sd"></span>${esc(g.name)}<span class="n">${g.list.length}${g.un ? ` · ${g.un} new` : ""}</span></button>`).join("")}</div>` : ""}`;
     } else {
-      panel = `<h3 class="ann-course" style="--c:${esc(cur.color)}"><span class="sd"></span>${esc(cur.name)}<span class="n">${cur.list.length} announcement${cur.list.length === 1 ? "" : "s"}${cur.un ? `, ${cur.un} new` : ""}</span></h3>
+      panel = `<h3 class="ann-course" style="--c:${esc(cur.color)}"><span class="sd"></span>${esc(cur.name)}${cur.full && cur.full !== cur.name ? ` <span class="mini">${esc(cur.full)}</span>` : ""}<span class="n">${cur.list.length} announcement${cur.list.length === 1 ? "" : "s"}${cur.un ? `, ${cur.un} new` : ""}</span></h3>
         <ul class="ann-list">${cur.list.map(n => row(n, false)).join("")}</ul>`;
     }
     const status = st.busy ? `<p class="ann-status" role="status" aria-live="polite" data-kind="busy">Checking your school site for new announcements…</p>`
@@ -39027,7 +39043,7 @@ window.SBEST = SBEST;
     openSheet(`<div class="sheet ann-sheet">${head("Class Announcements")}
       <div class="sheet-body">
         ${np.length ? `<div class="ann-bar"><span class="mini">${nUn ? `${nUn} unread` : "All caught up"}${lc ? ` · checked ${esc(ago(lc))}` : ""}</span><span class="spacer"></span>${nUn ? `<button class="btn small" data-act="ann-readall">Mark All Read</button>` : ""}<button class="btn small" data-act="ann-check" ${st.busy ? "disabled" : ""}>${st.busy ? "Checking…" : "Check Now"}</button></div>${status}` : ""}
-        ${all.length ? `<div class="ann-tabs" role="tablist" aria-label="Announcements by class">${tabBtn(HOME, "Home", nUn)}${groups.map(g => tabBtn(g.k, g.name, g.un, g.color)).join("")}</div><div id="annPanel" role="tabpanel" aria-labelledby="${tid(tab)}" tabindex="0">${panel}</div>` : ""}
+        ${all.length ? `<div class="ann-tabs" role="tablist" aria-label="Announcements by class">${tabBtn(HOME, "Home", nUn)}${groups.map(g => tabBtn(g.k, g.name, g.un, g.color, g.full)).join("")}</div><div id="annPanel" role="tabpanel" aria-labelledby="${tid(tab)}" tabindex="0">${panel}</div>` : ""}
         ${!np.length ? `<div class="empty"><strong>No School Site Connected</strong>Connect Brightspace, Canvas or Blackboard in Settings and your class announcements show up here.</div>` : !all.length ? `<div class="empty"><strong>No Announcements Yet</strong>When your instructors post one, it shows up here after the next sync. ${bsDesk() ? "Press Check Now to look right away." : "Announcements come in from the desktop app."}</div>` : ""}
       </div></div>`);
     if (!dlg.open) dlg.showModal();
