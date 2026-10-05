@@ -32,7 +32,8 @@ async function mk(browser, w, h, o = {}) {
   const ctx = await browser.newContext({viewport: {width: w, height: h}});
   await ctx.clock.install({time: o.time || NOW});
   await ctx.addInitScript(([seed, ai]) => {
-    try { if (!sessionStorage.getItem("seeded")) { sessionStorage.setItem("seeded", "1"); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("coursework:v2", JSON.stringify(seed));
+    // seed once per context: a reload can come back without the sessionStorage flag (seen with file:// in headless Chromium), so a saved planner also counts as seeded
+    try { if (!sessionStorage.getItem("seeded") && !localStorage.getItem("coursework:v2")) { sessionStorage.setItem("seeded", "1"); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("coursework:v2", JSON.stringify(seed));
       if (ai) { localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } } } catch (e) {}
   }, [o.seed || SEED, !!o.ai]);
   ctx.aiCalls = [];
@@ -195,7 +196,6 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       await page.waitForFunction(() => /slipped/.test((document.querySelector("#planExtra .pp-today") || {textContent: ""}).textContent), null, {timeout: 5000}).catch(() => {});
       ok(/Exam Prep/.test(await txt(page, "#planExtra > summary")), "the folded More for Today names Exam Prep: " + (await txt(page, "#planExtra > summary")).replace(/\n/g, " "));
       await openPrep(page, "slipped");
-      if (!/slipped/.test(await txt(page, ".pp-today"))) console.log("DBG", W, (await sessions(page)).length, await page.evaluate(() => SBPREP.sessions("ex1").length + " date=" + new Date().toString() + " " + JSON.stringify(SBPREP.summary(state.tasks.ex1)) + " " + (document.querySelector(".pp-today")||{}).textContent));
       ok(await vis(page, ".pp-today"), "a gentle banner on Today when sessions were missed");
       ok(/slipped/.test(await txt(page, ".pp-today")), "it says sessions slipped: " + (await txt(page, ".pp-today")).replace(/\n/g, " ").slice(0, 100));
       await page.evaluate(() => { const e = document.querySelector(".pp-today"); if (e) e.scrollIntoView({block: "center"}); }); await page.waitForTimeout(200); await page.screenshot({path: path.join(OUT, `missed-${tag}.png`)});

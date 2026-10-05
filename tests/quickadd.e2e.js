@@ -55,7 +55,10 @@ const files = page => page.evaluate(() => Object.values(__sbQadd.state().files).
 const course = (page, id) => page.evaluate(i => JSON.parse(JSON.stringify(__sbQadd.state().courses[i])), id);
 const vis = (page, sel) => page.evaluate(s => { const e = document.querySelector(s); return !!e && !!(e.offsetWidth || e.offsetHeight); }, sel);
 const goTab = async (page, t) => { await page.evaluate(t => { const b = document.querySelector(`[data-tab="${t}"]`); if (b) b.click(); }, t); await page.waitForTimeout(250); };
-const goCourse = async (page, id) => { await goTab(page, "courses"); await page.evaluate(i => { __sbQadd.ui.courseId = i; __sbQadd.render(); }, id); await page.waitForTimeout(250); };
+// Files is a sub-tab of Courses since 658555c (Courses and Files tabs merged): open Courses, then its Files tab
+const goFiles = async page => { await goTab(page, "courses"); const has = await page.evaluate(() => { const b = document.querySelector('[data-act="cf-view"][data-id="files"]'); if (b) b.click(); return !!b; }); assert(has, "Courses has a Files tab"); await page.waitForTimeout(250); };
+// the Courses tab remembers its sub-tab (Files stays open), so pick the Courses sub-tab before opening a course
+const goCourse = async (page, id) => { await goTab(page, "courses"); await page.evaluate(() => { const b = document.querySelector('[data-act="cf-view"][data-id="courses"]'); if (b) b.click(); }); await page.waitForTimeout(150); await page.evaluate(i => { __sbQadd.ui.courseId = i; __sbQadd.render(); }, id); await page.waitForTimeout(250); };
 const noHScroll = page => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
 const pick = (page, list) => page.setInputFiles("#qaIn", list.map(([name, text]) => ({name, mimeType: "text/plain", buffer: Buffer.from(text)})));
 
@@ -66,7 +69,7 @@ const pick = (page, list) => page.setInputFiles("#qaIn", list.map(([name, text])
       const tag = W + "w";
       console.log("== " + W + " wide, no AI");
       const {ctx, page} = await mk(browser, W, H, false);
-      await goTab(page, "files");
+      await goFiles(page);
       ok(await vis(page, '[data-act="f-quick"]'), "the Files tab has Quick Add");
       await page.click('[data-act="f-quick"]'); await page.waitForTimeout(300);
       ok(await vis(page, "#qaDrop"), "the Quick Add sheet opens with a drop area and no course or type to pick");
@@ -138,7 +141,7 @@ const pick = (page, list) => page.setInputFiles("#qaIn", list.map(([name, text])
     console.log("== with AI");
     {
       const {ctx, page} = await mk(browser, 1280, 800, true);
-      await goTab(page, "files");
+      await goFiles(page);
       await page.click('[data-act="f-quick"]'); await page.waitForTimeout(300);
       ok(await vis(page, "#qaAI"), "AI toggle shows when AI is set up");
       await pick(page, [["notes_a.txt", SYLLABUS], ["b.txt", HW], ["c.txt", MYSTERY]]);
