@@ -45,6 +45,13 @@ async function mk(browser, w, h, o = {}) {
 const act = (page, a, id, extra) => page.evaluate(([a, i, x]) => { const b = document.createElement("button"); b.dataset.act = a; if (i) b.dataset.id = i; x && Object.entries(x).forEach(([k, v]) => { b.dataset[k] = v; }); b.style.display = "none"; document.body.appendChild(b); b.click(); b.remove(); }, [a, id, extra]);
 const goCourse = async (page, id) => { await page.evaluate(() => { const b = document.querySelector('[data-tab="courses"]'); if (b) b.click(); }); await page.waitForTimeout(200); await act(page, "open-course", id); await page.waitForTimeout(300); };
 const goBoard = async page => { await page.evaluate(() => { const b = document.querySelector('[data-tab="board"]'); if (b) b.click(); }); await page.waitForTimeout(200); await act(page, "bview", "plan"); await page.waitForTimeout(300); };
+// The exam-prep banner sits in Today's Plan's folded "More for Today" section, inside its own "Plan My Prep" fold (4d8c952).
+// Wait (by textContent, since folded text has no innerText) until it matches, then open both folds so it can be read and clicked.
+const openPrep = async (page, re, timeout = 5000) => {
+  if (re) await page.waitForFunction(r => new RegExp(r).test((document.querySelector("#planExtra .pe-item[data-k=prep] .pp-today") || {textContent: ""}).textContent), re, {timeout}).catch(() => {});
+  await page.evaluate(() => { const d = document.querySelector("#planExtra"); if (d && !d.open) d.querySelector("summary").click(); }); await page.waitForTimeout(150);
+  await page.evaluate(() => { const d = document.querySelector("#planExtra .pe-item[data-k=prep]"); if (d && !d.open) d.querySelector("summary").click(); }); await page.waitForTimeout(200);
+};
 const store = page => page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")));
 const sessions = async (page, ex = "ex1") => (await store(page)).tasks.filter(t => t.prepFor === ex);
 const exam = async (page, id = "ex1") => (await store(page)).tasks.find(t => t.id === id);
@@ -185,7 +192,10 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       // ---- missed days (fake clock) -> banner and catch up
       await page.evaluate(() => { try { sessionStorage.setItem("seeded", "1"); } catch (e) {} });
       await ctx.clock.setSystemTime(new Date(2026, 9, 8, 10, 0, 0)); await page.reload(); await page.waitForTimeout(1500);
-      await page.waitForFunction(() => /slipped/.test((document.querySelector(".pp-today") || {innerText: ""}).innerText), null, {timeout: 5000}).catch(() => {});
+      await page.waitForFunction(() => /slipped/.test((document.querySelector("#planExtra .pp-today") || {textContent: ""}).textContent), null, {timeout: 5000}).catch(() => {});
+      ok(/Exam Prep/.test(await txt(page, "#planExtra > summary")), "the folded More for Today names Exam Prep: " + (await txt(page, "#planExtra > summary")).replace(/\n/g, " "));
+      await openPrep(page, "slipped");
+      if (!/slipped/.test(await txt(page, ".pp-today"))) console.log("DBG", W, (await sessions(page)).length, await page.evaluate(() => SBPREP.sessions("ex1").length + " date=" + new Date().toString() + " " + JSON.stringify(SBPREP.summary(state.tasks.ex1)) + " " + (document.querySelector(".pp-today")||{}).textContent));
       ok(await vis(page, ".pp-today"), "a gentle banner on Today when sessions were missed");
       ok(/slipped/.test(await txt(page, ".pp-today")), "it says sessions slipped: " + (await txt(page, ".pp-today")).replace(/\n/g, " ").slice(0, 100));
       await page.evaluate(() => { const e = document.querySelector(".pp-today"); if (e) e.scrollIntoView({block: "center"}); }); await page.waitForTimeout(200); await page.screenshot({path: path.join(OUT, `missed-${tag}.png`)});
@@ -276,14 +286,14 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
     {
       console.log("== exam passed and the Today prompt");
       const {ctx, page} = await mk(browser, 1280, 800);
-      await goBoard(page);
+      await goBoard(page); await openPrep(page, "Midterm");
       ok(/Midterm/.test(await txt(page, ".pp-today")) && /Plan My Prep/.test(await txt(page, ".pp-today")), "Today offers the planner once for an exam within 21 days with no plan: " + (await txt(page, ".pp-today")).replace(/\n/g, " ").slice(0, 120));
       await page.click(".pp-today [data-act=prep-dismiss]"); await page.waitForTimeout(300);
       ok(!/Midterm/.test(await txt(page, ".pp-today")), "Not now silences it for that exam");
       await act(page, "exam-plan", "ex1"); await page.waitForTimeout(400); await page.click("#ppCreate"); await page.waitForTimeout(500);
       ok((await sessions(page)).length >= 4, "a plan for the exam: " + (await sessions(page)).length);
       await ctx.clock.setSystemTime(new Date(2026, 9, 16, 10, 0, 0)); await page.reload(); await page.waitForTimeout(1500);
-      await goBoard(page); await page.waitForFunction(() => /passed/.test((document.querySelector(".pp-today") || {innerText: ""}).innerText), null, {timeout: 8000}).catch(() => {});
+      await goBoard(page); await openPrep(page, "passed", 8000);
       ok(/passed/.test(await txt(page, ".pp-today")), "after the exam: 'How did it go?' " + (await txt(page, ".pp-today")).replace(/\n/g, " ").slice(0, 300));
       await page.click(".pp-today [data-act=prep-wrap]"); await page.waitForTimeout(900);
       const ex = await exam(page); ok(ex.status === "done" && ex.prep.archived, "wrapping up marks the exam done and archives its plan");
