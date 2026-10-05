@@ -227,6 +227,8 @@ declare
   n_data bigint := 0; n_bk bigint := 0; o_data bigint := 0; o_bk bigint := 0; sz bigint;
 begin
   if not public.studyboard_paywall() then return new; end if;
+  -- Restoring an archived account puts back what the person already had; the limits apply to new writes, not to a restore.
+  if current_setting('studyboard.restoring', true) = '1' then return new; end if;
   -- Online backups are a Pro extra: a free account can't write them at all (the "cloudBackupDays" limit is 0 on Free).
   if new.kind = 'backup' and coalesce(public.studyboard_limit(new.user_id, 'cloudBackupDays'), 0) <= 0 then
     raise exception 'SB_BACKUP_PRO: Online backups are a Pro feature. Your backups on this device are not affected.' using errcode = 'P0001';
@@ -263,6 +265,7 @@ create or replace function public.plans_items_usage() returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare sz bigint;
 begin
+  if tg_op = 'DELETE' and not exists (select 1 from auth.users u where u.id = old.user_id) then return null; end if;   -- the account itself is being deleted
   if tg_op in ('UPDATE', 'DELETE') then
     sz := octet_length(old.data::text);
     perform public.plans_add_usage(old.user_id, case when old.kind = 'backup' then 0 else -sz end, 0, case when old.kind = 'backup' then -sz else 0 end);
@@ -399,7 +402,8 @@ begin
     using public.study_groups g
     where m.group_id = g.id
       and public.studyboard_limit(g.owner_id, 'groupMsgDays') is not null
-      and m.created_at < now() - make_interval(days => public.studyboard_limit(g.owner_id, 'groupMsgDays')::int)
+      and not coalesce(m.pinned, false)   -- pinned messages stay
+      and m.created_at < now() - make_interval(days => public.studyboard_limit(g.owner_id, 'groupMsgDays')::int + 30)   -- plus a grace period
     returning 1)
   select count(*) into n from gone;
   return n;
@@ -548,7 +552,9 @@ begin
   with gone as (
     delete from public.items i
     where i.kind = 'backup'
-      and i.updated_at < now() - make_interval(days => greatest(coalesce(public.studyboard_limit(i.user_id, 'cloudBackupDays'), 0), 0)::int)
+      and public.studyboard_limit(i.user_id, 'cloudBackupDays') is not null   -- no limit means keep them all
+      -- 30 days of grace past the plan's window, so turning plans on or a lapsed plan never wipes a backup the same night
+      and i.updated_at < now() - make_interval(days => greatest(public.studyboard_limit(i.user_id, 'cloudBackupDays'), 0)::int + 30)
     returning 1)
   select count(*) into n from gone;
   return n;
