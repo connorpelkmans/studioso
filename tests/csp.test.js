@@ -14,9 +14,9 @@ ok(!csp.stale(html), "script hashes in index.html are current (run `node scripts
 const H = (first.match(/\/\*CSP-HASHES\*\/"([^"]*)"/) || [])[1] || "";
 const want = scripts.slice(1).map(s => "'sha256-" + crypto.createHash("sha256").update(s, "utf8").digest("base64") + "'");
 ok(H === want.join(" "), `every inline script after the injector is hashed (${want.length})`);
-ok(/script-src 'self' "\+\(lax\?"'unsafe-inline'":H\)\+"/.test(first), "script-src uses the hashes; 'unsafe-inline' only in Claude's artifact preview");
+ok(/script-src 'self' "\+\(lax\?"'unsafe-inline'":H\)\+" https:\/\/cdn\.jsdelivr\.net;/.test(first), "script-src uses the hashes; 'unsafe-inline' only in Claude's artifact preview");
 ok(/lax=!H\|\|\/\(\^\|\\\.\)claudeusercontent\\\.com\$\/\.test\(location\.hostname\)/.test(first), "the lax case is limited to *.claudeusercontent.com (or no hashes at all)");
-ok(!/cdn\.jsdelivr\.net/.test(first), "no CDN in the page's script-src (supabase-js is served from vendor/)");
+ok(/SBJS_SRI/.test(html) && /loadScript\(src, SBJS_SRI\)/.test(html), "the only CDN script (the supabase-js fallback) is loaded with its pinned SRI hash");
 for (const d of ["object-src 'none'", "frame-src 'none'", "base-uri 'self'", "form-action 'self'", "default-src 'self'"]) ok(first.includes(d), "policy keeps " + d);
 ok(!/\son[a-z]+\s*=\s*["']/i.test(html.replace(/<script>[\s\S]*?<\/script>/g, "")), "no inline event handler attributes in the page markup (they would be blocked)");
 
