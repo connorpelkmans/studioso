@@ -18,8 +18,11 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } } catch (e) {} }, SEED);
   const reply = {answer: "I read your slide notes. I can save them to a Biology board and add the exam.", sources: [], followUps: [], actions: [
     {type: "note", label: "Save to Biology board", board: "Biology", course: "BIO101", noteTitle: "Cell Basics", text: "- Mitochondria make ATP\n- Nucleus holds DNA"},
-    {type: "tasks", label: "Add the exam", course: "BIO101", tasks: [{title: "Cells Exam", type: "Exam", due: "2030-05-01"}]}]};
-  await ctx.route(/generativelanguage\.googleapis\.com/, route => { ctx.last = route.request().postData(); route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({candidates: [{content: {parts: [{text: JSON.stringify(reply)}]}, finishReason: "STOP"}]})}); });
+    {type: "tasks", label: "Add the exam", course: "BIO101", tasks: [{title: "Cells Exam", type: "Exam", due: "2030-05-01"}]},
+    {type: "flashcards", label: "Make flashcards", course: "BIO101", deckName: "Cell Basics"},
+    {type: "edit_tasks", label: "Move the exam", edits: [{task: "Cells Exam", due: "2030-05-03"}]}]};
+  const cardsReply = {deckTitle: "Cell Basics", cards: [{front: "What do mitochondria make?", back: "ATP"}, {front: "What does the nucleus hold?", back: "DNA"}]};
+  await ctx.route(/generativelanguage\.googleapis\.com/, route => { const body = route.request().postData(); if (!/You write excellent flashcards/.test(body)) ctx.last = body; route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({candidates: [{content: {parts: [{text: JSON.stringify(/You write excellent flashcards/.test(body) ? cardsReply : reply)}]}, finishReason: "STOP"}]})}); });
   const page = await ctx.newPage(); const errs = []; page.on("pageerror", e => errs.push(e.message));
   await page.goto(base); await page.waitForFunction(() => window.SBCOMP && SBCOMP.tab);
   await page.evaluate(() => SBCOMPTAB.open());
@@ -30,7 +33,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   ok((await page.textContent(".cpt-chip")).includes("slides.txt"), "attachment shows as a chip");
   await page.click("#cptGo");
   await page.waitForSelector(".cpt-action");
-  ok((await page.$$(".cpt-action")).length === 2, "two actions offered");
+  ok((await page.$$(".cpt-action")).length === 4, "four actions offered");
   ok(ctx.last && ctx.last.includes("Mitochondria make ATP"), "the attachment went to the AI");
   await page.click('[data-act="cpt-do"][data-i="0"]');
   await page.waitForSelector(".cpt-done");
@@ -40,6 +43,17 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   await page.click('[data-act="cpt-do"][data-i="1"]');
   await page.waitForFunction(() => (JSON.parse(localStorage.getItem("coursework:v2")).tasks || []).some(t => t.title === "Cells Exam"));
   ok(true, "the exam task was added");
+  await page.click('[data-act="cpt-do"][data-i="3"]');
+  await page.waitForFunction(() => (JSON.parse(localStorage.getItem("coursework:v2")).tasks || []).some(t => t.title === "Cells Exam" && t.due === "2030-05-03"));
+  ok(true, "edit_tasks moved the exam");
+  // refresh, then make the flashcards without attaching the file again
+  await page.reload(); await page.waitForFunction(() => window.SBCOMPTAB); await page.evaluate(() => SBCOMPTAB.open());
+  await page.click('[data-act="cpt-tab"][data-id="history"]'); await page.click(".cpt-hmain");
+  await page.waitForSelector('[data-act="cpt-do"][data-i="2"]');
+  await page.click('[data-act="cpt-do"][data-i="2"]');
+  await page.waitForSelector('[data-act="cpt-open-deck"]');
+  const decks = await page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")).decks || []);
+  ok(decks.length === 1 && decks[0].name === "Cell Basics" && decks[0].cards.length === 2, "flashcards were saved to a deck after a refresh, with no re-upload");
   ok(errs.length === 0, "no page errors: " + errs.join("; "));
   await browser.close(); server.close(); console.log(n + " checks passed");
 })().catch(e => { console.error(e); process.exit(1); });
