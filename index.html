@@ -10107,7 +10107,7 @@ function styleShop(tab){
   let body = "";
   if (ui.shopTab === "themes") {
     body = `<div class="shop-mode"><span class="mini">Preview in</span>${themeRow().replace(/^[\s\S]*?(<div class="segb)/, "$1").replace(/<\/div>\s*$/, "")}<label class="motion-tog"><input type="checkbox" id="motionTog" data-act="motion-toggle" ${cfg.motion !== false ? "checked" : ""}> Background Animations</label></div>
-      ${[["plain", "Free · Plain Colors"], ["season", `${PRO_BADGE} Pro · Seasons`], ["pro", `${PRO_BADGE} Pro · Scenes`], ["majors", `${PRO_BADGE} Pro · Study Fields`], ["hobby", `${PRO_BADGE} Pro · Cozy and Hobbies`], ["holiday", `${PRO_BADGE} Pro · Holidays`]].map(([g, t]) => section(t, SKINS.filter(s => (s.group || "plain") === g), s => `<div class="shop-tile ${cfg.skin === s.id ? "on" : ""}"><div class="skin-pair">${skinPreview(s, false)}${skinPreview(s, true)}</div>${nameRow(s)}${btnFor("skin", s, cfg.skin === s.id)}</div>`)).join("")}`;
+      ${[["plain", "Free · Plain Colors"], ["season", `${PRO_BADGE} Pro · Seasons`], ["pro", `${PRO_BADGE} Pro · Scenes`], ["majors", `${PRO_BADGE} Pro · Fields`], ["hobby", `${PRO_BADGE} Pro · Hobbies`], ["holiday", `${PRO_BADGE} Pro · Holidays`]].map(([g, t]) => section(t, SKINS.filter(s => (s.group || "plain") === g || (g === "pro" && s.group === "newscenes")), s => `<div class="shop-tile ${cfg.skin === s.id ? "on" : ""}"><div class="skin-pair">${skinPreview(s, false)}${skinPreview(s, true)}</div>${nameRow(s)}${btnFor("skin", s, cfg.skin === s.id)}</div>`)).join("")}`;
   } else if (ui.shopTab === "cards") {
     body = `<p class="mini" style="margin:0">How flashcards look while you study. You can also give one deck its own style under Edit Deck.</p>
       ${split(CARD_STYLES.filter(c => c.id !== "theme" || themeKit()), c => `<div class="shop-tile ${cardStyleOf(null) === c.id ? "on" : ""}"><div class="cs-demo cs-${c.id}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div>${nameRow(c)}${btnFor("card", c, cardStyleOf(null) === c.id, "Use for All Decks")}</div>`)}`;
@@ -29185,14 +29185,9 @@ return {buildScene: buildScene, buildSceneAt: buildSceneAt, SCENES: SCENES, ENGI
     const r = origShop.apply(this, arguments);
     try {
       if (ui.shopTab !== "themes") return r;
-      const body = dlg.querySelector(".sheet.shop .sheet-body"); if (!body || body.querySelector(".sc-newsec")) return r;
+      const body = dlg.querySelector(".sheet.shop .sheet-body"); if (!body) return r;
       const mode = body.querySelector(".shop-mode"); if (mode && !mode.querySelector(".sc-moment")) mode.insertAdjacentHTML("beforeend", momentBtn());
-      const list = SKINS.filter(s => s.group === "newscenes"); if (!list.length) return r;
-      const cfg = styleCfg();
-      const btn = s => !owns("skin", s.id) ? `<button type="button" class="btn small" data-act="shop-unlock" data-kind="skin" data-id="${s.id}">🔒 Unlock</button>` : cfg.skin === s.id ? `<button type="button" class="btn small" disabled>In Use</button>` : `<button type="button" class="btn small primary" data-act="shop-use" data-kind="skin" data-id="${s.id}">Use</button>`;
-      const html = `<h3 class="fsec shop-sec sc-newsec">${PRO_BADGE} Pro · New Scenes</h3><div class="shop-grid">${list.map(s => `<div class="shop-tile ${cfg.skin === s.id ? "on" : ""}"><div class="skin-pair">${skinPreview(s, false)}${skinPreview(s, true)}</div><div class="shop-name"><b>${esc(s.name)}</b>${PRO_BADGE}</div><p class="mini">${esc(s.desc || "")}</p>${btn(s)}</div>`).join("")}</div>`;
-      const anchor = [...body.querySelectorAll("h3.shop-sec")].find(h => /Pro · Scenes/.test(h.textContent));
-      if (anchor) anchor.insertAdjacentHTML("beforebegin", html); else body.insertAdjacentHTML("beforeend", html);
+      // The newer scenes now sit in the one Pro · Scenes section (styleShop above)
     } catch (e) { console.warn("scenes shop", e); }
     return r;
   };
@@ -52528,6 +52523,8 @@ var COMP_KIT = (() => {
     return {L: Math.max(S.l, g.side + 6) - e.l * px + AN_SIDE, R: S.r - e.r * px - AN_SIDE, T: S.t - e.t * px + AN_UP, B: S.b - e.b * px - AN_DN};
   }
   const feasible = rg => rg.L <= rg.R && rg.T <= rg.B;
+  // It stays in the lower part of the screen (the bottom 40% of the safe area) so it never wanders somewhere distracting
+  const lowTop = (rg, fresh) => { const S = safeRect(fresh); return Math.min(rg.B, Math.max(rg.T, S.t + (S.b - S.t) * 0.6)); };
   let guardDepth = 0;
   // The authority: measure, compare, move. Returns true when it had to move the companion.
   function clamp(why){
@@ -52722,9 +52719,10 @@ var COMP_KIT = (() => {
     out.push(home);
     // the ground line, right across the bottom of the scene (both sides of the Add Task button)
     for (let x = L; x <= R; x += px * 0.5) out.push({left: Math.round(x), top: ground, kind: "ground", score: Math.abs(x - want) / span * 220});
-    for (let y = f.top - px - 10, k = 1; y >= Math.max(40, rg.T); y -= px * 0.7, k++) out.push({left: Math.round(R - 2), top: Math.round(y), kind: "side", score: 240 + k * 16});
+    const lowT = lowTop(rg);
+    for (let y = f.top - px - 10, k = 1; y >= Math.max(40, rg.T, lowT); y -= px * 0.7, k++) out.push({left: Math.round(R - 2), top: Math.round(y), kind: "side", score: 240 + k * 16});
     const float = cur && cur.pose === "float";
-    for (let y = Math.min(innerHeight - px - 16, rg.B), ky = 0; y >= Math.max(30, rg.T); y -= px * 0.8, ky++) for (let x = R - 2, kx = 0; x >= L; x -= px * 0.8, kx++) out.push({left: Math.round(x), top: Math.round(y), kind: "open", score: 320 + kx * 5 + ky * (float ? 5 : 12)});
+    for (let y = Math.min(innerHeight - px - 16, rg.B), ky = 0; y >= Math.max(30, rg.T, lowT); y -= px * 0.8, ky++) for (let x = R - 2, kx = 0; x >= L; x -= px * 0.8, kx++) out.push({left: Math.round(x), top: Math.round(y), kind: "open", score: 320 + kx * 5 + ky * (float ? 5 : 12)});
     return out;
   }
   let spotKind = "", spotSig = "";
@@ -52770,7 +52768,7 @@ var COMP_KIT = (() => {
   function edgeSpot(px, f, list, here, fresh){
     const rg = range(px), rects = (RECTS || (RECTS = contentRects())).slice(0, 1800), ctl = controlRects();
     const e = vext || DEF_ART, S = safeRect(), g = geometry();
-    const X0 = rg.L, X1 = Math.max(rg.L, rg.R), Y0 = rg.T, Y1 = Math.max(rg.T, rg.B);
+    const X0 = rg.L, X1 = Math.max(rg.L, rg.R), Y1 = Math.max(rg.T, rg.B), Y0 = Math.min(Y1, Math.max(rg.T, lowTop(rg)));
     const home = list.find(c => c.kind === "home") || {left: X1, top: Y1};
     const hx = Math.min(X1, Math.max(X0, home.left)), hy = Math.min(Y1, Math.max(Y0, home.top));
     const heavy = [];
@@ -58356,7 +58354,7 @@ const store = {
 .cr-legend{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:.8rem;color:var(--muted)}
 .cr-legend span.lg{display:inline-flex;align-items:center;gap:5px}
 .cr-sw{width:18px;height:18px;border-radius:5px;border:1px solid var(--line);display:inline-block}
-.cr-scroll{overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.cr-scroll{overflow-x:auto;padding:10px;margin-top:8px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);-webkit-overflow-scrolling:touch}
 .cr-grid{display:grid;gap:3px;min-width:352px}
 .cr-row,.cr-dow{display:grid;grid-template-columns:54px repeat(7,minmax(40px,1fr));gap:2px;align-items:stretch}
 @media (min-width:760px){.cr-row,.cr-dow{grid-template-columns:78px repeat(7,minmax(44px,60px)) minmax(160px,1fr);gap:3px}}
@@ -58381,7 +58379,8 @@ button.cr-d:hover{filter:brightness(.95)}
 .cr-d.lv3 .dn,.cr-d.lv4 .dn{background:rgba(0,0,0,.5);color:#fff;border-radius:4px;padding:1px 3px;display:inline-block}
 .cr-d .dn small{font-weight:600;font-size:.62rem;margin-right:2px;text-transform:uppercase}
 .cr-d .mk{position:absolute;left:3px;bottom:3px;display:flex;gap:2px}
-.cr-d .mk i{font:800 .6rem/1 var(--display);font-style:normal;min-width:13px;height:13px;border-radius:4px;display:grid;place-items:center;background:var(--surface);color:var(--ink);border:1px solid color-mix(in srgb,var(--ink) 40%,transparent)}
+.cr-legend .mk-ic{display:inline-grid;place-items:center;vertical-align:middle;font-style:normal;margin-right:2px}
+.cr-d .mk i{font:800 .6rem/1 var(--display);font-style:normal;min-width:15px;height:15px;border-radius:4px;display:grid;place-items:center;background:var(--surface);color:var(--ink);border:1px solid color-mix(in srgb,var(--ink) 40%,transparent)}
 .cr-d .nb{position:absolute;right:3px;bottom:3px;font:800 .62rem/1 var(--display);min-width:14px;height:14px;border-radius:7px;display:grid;place-items:center;background:var(--ink);color:var(--surface);padding:0 3px}
 .cr-d .td{position:absolute;right:3px;top:2px;font:800 .55rem var(--display);text-transform:uppercase}
 .cr-sum{display:none;font-size:.8rem;color:var(--muted);align-self:center;min-width:0}
@@ -58455,7 +58454,12 @@ const cap1 = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 const typeName = c => ({exam: "Exam", quiz: "Quiz", paper: "Paper", project: "Project", lab: "Lab", assignment: "Assignment", reading: "Reading", study: "Study", other: "Task"})[c] || "Task";
 
 /* ---------- The heatmap ---------- */
-const MK = {exam: "E", quiz: "Q", paper: "P", project: "P"};
+const MK = {
+  exam: '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M9 13l2 2 4-4"/></svg>',
+  quiz: '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7"/><path d="M12 17h.01"/></svg>',
+  paper: '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h5"/></svg>',
+  project: '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h5"/></svg>'
+};
 function cellHtml(D, o){
   o = o || {};
   const cls = `cr-d lv${D.levelIdx}${D.past ? " is-past" : ""}${D.today ? " is-today" : ""}`;
@@ -58480,7 +58484,7 @@ function viewCrunch(){
     let n = 0; try { n = SBEST.count(); } catch (e) {}
     est = `<p class="cr-note">${m.noEstimate >= m.tasks ? "No time estimates yet, so this uses typical hours for each kind of task. Treat it as a rough guide." : `${m.noEstimate} of ${m.tasks} tasks have no time estimate, so typical hours are used for them.`}${n ? ` <button type="button" class="link-btn" data-act="cr-est">Add times</button>` : ""}</p>`;
   }
-  const legend = `<div class="cr-legend" aria-label="Legend">${[0, 1, 2, 3, 4].map(i => `<span class="lg"><span class="cr-sw cr-d lv${i}" style="min-height:0;padding:0"></span>${LV_WORD[i]}</span>`).join("")}<span class="lg"><i class="mk" style="font-style:normal;font-weight:800">E</i> exam</span><span class="lg"><i style="font-style:normal;font-weight:800">Q</i> quiz</span><span class="lg"><i style="font-style:normal;font-weight:800">P</i> paper or project</span><span class="lg">number = items due</span></div>`;
+  const legend = `<div class="cr-legend" aria-label="Legend">${[0, 1, 2, 3, 4].map(i => `<span class="lg"><span class="cr-sw cr-d lv${i}" style="min-height:0;padding:0"></span>${LV_WORD[i]}</span>`).join("")}<span class="lg"><i class="mk-ic">${MK.exam}</i> exam</span><span class="lg"><i class="mk-ic">${MK.quiz}</i> quiz</span><span class="lg"><i class="mk-ic">${MK.paper}</i> paper or project</span><span class="lg">number = items due</span></div>`;
   const focusDate = ui.crFocus && m.days.some(d => d.date === ui.crFocus && !d.past) ? ui.crFocus : today;
   const dow = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const rows = m.weeks.map(W => {
