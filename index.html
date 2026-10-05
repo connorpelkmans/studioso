@@ -206,7 +206,7 @@ li.task>.lms-go{align-self:center;margin-right:12px}
 .tl{position:relative}
 .tl-bg{position:absolute;top:0;bottom:0;pointer-events:none;z-index:0}
 .tl-bg .we{position:absolute;top:0;bottom:0;background:var(--soft)}
-.tl-bg .today-line{position:absolute;top:0;bottom:0;width:2px;background:var(--late)}
+.tl-bg .today-line{position:absolute;top:58px;bottom:0;width:2px;background:var(--late)}
 .tl-row{display:flex;position:relative;z-index:1;height:46px;border-top:1px solid var(--line)}
 .tl-headrow{height:30px;border-top:0}
 .tl-headrow + .tl-headrow{height:28px}
@@ -218,9 +218,11 @@ li.task>.lms-go{align-self:center;margin-right:12px}
 .tl-group .tl-label{flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;font:700 .88rem var(--display);background:color-mix(in srgb,var(--c) 7%,var(--surface))}
 .tl-group .sd{width:10px;height:10px;border-radius:3px;background:var(--c);flex:none}
 .tl-track{position:relative;flex:none}
-.tl-m{position:absolute;top:0;bottom:0;display:flex;align-items:center;font:700 .92rem var(--display);letter-spacing:.01em;padding-left:8px;white-space:nowrap;border-left:1px solid var(--line)}
+.tl-m{position:absolute;top:0;bottom:0;overflow:hidden;box-sizing:border-box;display:flex;align-items:center;font:700 .92rem var(--display);letter-spacing:.01em;padding-left:8px;white-space:nowrap;border-left:1px solid var(--line)}
 .tl-m small{font:600 .78rem var(--body);color:var(--muted);margin-left:6px}
 .tl-d{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:.84rem;font-weight:500;color:var(--muted)}
+.tl-d b{font:inherit}
+.tl-d.is-today b{background:var(--late);color:#fff;border-radius:999px;min-width:22px;padding:1px 4px;text-align:center;font-weight:700}
 .tl-d.is-today{color:var(--late);font-weight:700}
 .tlbar{position:absolute;top:9px;height:28px;border-radius:7px;border:1.5px solid var(--c);background:color-mix(in srgb,var(--c) 20%,var(--surface));color:var(--ink);font-size:.75rem;font-weight:600;text-align:left;padding:0 8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:10px}
 .tlbar.st-doing{background:var(--c);color:#fff}
@@ -262,6 +264,10 @@ li.task>.lms-go{align-self:center;margin-right:12px}
 .day[aria-pressed="true"]{border-color:var(--ink)}
 .dots{display:flex;gap:3px;flex-wrap:wrap;justify-content:center;max-width:34px}
 .dots i{width:6px;height:6px;border-radius:50%;background:var(--c)}
+.dots i.ci{display:grid;place-items:center;width:13px;height:13px;margin:0;border-radius:50%;color:#fff;transform:none}
+.dots i.ci svg{width:9px;height:9px;stroke-width:2.4}
+.dots{gap:1px;max-width:100%}
+.dots .ci-more{font:700 .6rem/13px var(--body);color:var(--muted)}
 
 /* Dialog */
 dialog{border:0;padding:0;background:var(--surface);color:var(--ink);width:min(560px,100%);max-height:92vh;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
@@ -11341,11 +11347,12 @@ function viewBars(mode){
   const x = d => dayDiff(min, d) * dw;
 
   let bg = "", months = "", dayh = "";
+  const mStarts = []; for (let i = 0; i < days; i++) { const d = parse(addDays(min, i)); if (i === 0 || d.getDate() === 1) mStarts.push(i); }
   for (let i = 0; i < days; i++) {
     const k = addDays(min, i), d = parse(k), wd = d.getDay();
     if (wd === 0 || wd === 6) bg += `<i class="we" style="left:${i*dw}px;width:${dw}px"></i>`;
-    if (i === 0 || d.getDate() === 1) months += `<span class="tl-m" style="left:${i*dw}px">${esc(d.toLocaleDateString(undefined, {month: dw >= 20 ? "long" : "short"}))}${(i === 0 || d.getMonth() === 0) ? `<small>${d.getFullYear()}</small>` : ""}</span>`;
-    if (dw >= 20) dayh += `<span class="tl-d ${k === today ? "is-today" : ""}" style="left:${i*dw}px;width:${dw}px">${d.getDate()}</span>`;
+    if (i === 0 || d.getDate() === 1) { const nx = mStarts[mStarts.indexOf(i) + 1], span = ((nx == null ? days : nx) - i) * dw; months += `<span class="tl-m" style="left:${i*dw}px;width:${span}px">${esc(d.toLocaleDateString(undefined, {month: dw >= 20 && span >= 120 ? "long" : "short"}))}${(i === 0 || d.getMonth() === 0) && span >= 130 ? `<small>${d.getFullYear()}</small>` : ""}</span>`; }
+    if (dw >= 20) dayh += `<span class="tl-d ${k === today ? "is-today" : ""}" style="left:${i*dw}px;width:${dw}px"><b>${d.getDate()}</b></span>`;
     else if (wd === 1) dayh += `<span class="tl-d" style="left:${i*dw}px;width:${dw*7}px;justify-content:flex-start;padding-left:4px">${d.getDate()}</span>`;
   }
   bg += `<i class="today-line" style="left:${x(today) + dw/2 - 1}px"></i>`;
@@ -11398,7 +11405,7 @@ function viewCalendar(mode){
     const k = iso(d);
     const ts = (byDay[k] || []).slice().sort(sortTasks);
     const out = d.getMonth() !== m.getMonth();
-    const dots = ts.slice(0, 6).map(t => `<i class="${MILESTONE(t.type) ? "dd" : ""}" title="${esc(t.title)}" style="--c:${esc(colorOf(t.courseId))};${t.status === "done" ? "opacity:.35" : ""}"></i>`).join("");
+    const dots = ts.slice(0, 4).map(t => `<i class="ci" title="${esc(t.type)}: ${esc(t.title)}" style="--c:${esc(colorOf(t.courseId))};${t.status === "done" ? "opacity:.35" : ""}">${typeIcon(t.type)}</i>`).join("") + (ts.length > 4 ? `<b class="ci-more">+${ts.length - 4}</b>` : "");
     cells += `<button class="day ${out ? "out" : ""} ${k === today ? "is-today" : ""}" data-act="pick-day" data-id="${k}" aria-pressed="${k === ui.calDay}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday:"long", month:"long", day:"numeric"}))}, ${ts.length} task${ts.length === 1 ? "" : "s"} due"><span class="num">${d.getDate()}</span><span class="dots">${dots}</span></button>`;
   }
   const dayTasks = (byDay[ui.calDay] || []).slice().sort(sortTasks);
