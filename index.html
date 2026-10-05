@@ -24,7 +24,7 @@
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);
   padding-bottom:env(safe-area-inset-bottom,0px);
-  --bg:#F3F5F8; --surface:#FFFFFF; --ink:#1C2433; --muted:#636E83; --line:#DFE3EA;
+  --bg:#E9ECF1; --surface:#F4F6FA; --ink:#1C2433; --muted:#636E83; --line:#DFE3EA;
   --accent:#2C55D6; --accent-ink:#FFFFFF; --mark:#FFE14D; --late:#C8352E; --soft:#EEF1F6;
   --display:"Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
   --body:"Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -206,6 +206,7 @@ li.task>.lms-go{align-self:center;margin-right:12px}
 .tl{position:relative}
 .tl-bg{position:absolute;top:0;bottom:0;pointer-events:none;z-index:0}
 .tl-bg .we{position:absolute;top:0;bottom:0;background:var(--soft)}
+.tl-bg-top{z-index:2}
 .tl-bg .today-line{position:absolute;top:58px;bottom:0;width:2px;background:var(--late)}
 .tl-row{display:flex;position:relative;z-index:1;height:46px;border-top:1px solid var(--line)}
 .tl-headrow{height:30px;border-top:0}
@@ -1464,7 +1465,7 @@ button.pr-why:hover{background:var(--soft);color:var(--ink)}
 .plan-extra .pe-item>summary::-webkit-details-marker{display:none}
 .plan-extra .pe-item>summary::after{content:"";margin-left:auto;width:7px;height:7px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s}
 .plan-extra .pe-item[open]>summary::after{transform:rotate(-135deg)}
-.pe-dot{flex:none;width:9px;height:9px;border-radius:50%;background:var(--late,#C0392B);margin-left:-2px}
+.pe-dot{flex:none;display:inline-grid;place-items:center;min-width:19px;height:19px;padding:0 5px;box-sizing:border-box;border-radius:10px;background:var(--late,#C0392B);color:#fff;font:700 .68rem/1 var(--body);font-style:normal;margin-left:2px}
 .plan-extra .pe-item>:not(summary){margin:0 8px 8px}
 .bview-tabs{display:flex;gap:4px;padding:4px;margin:0 0 12px;background:var(--soft);border:1px solid var(--line);border-radius:14px;max-width:460px}
 .bview-tabs button{flex:1;border:0;background:transparent;border-radius:10px;padding:10px 8px;font:700 .95rem var(--display);color:var(--muted);display:flex;align-items:center;justify-content:center;gap:6px}
@@ -3858,7 +3859,7 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-tile.on{border:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 9%,var(--surface));box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 16%,transparent),0 6px 18px color-mix(in srgb,var(--accent) 18%,transparent)}
 .cp-tile.on::after{content:"✓";position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font:700 .78rem/22px var(--display,inherit);text-align:center;box-shadow:0 2px 6px color-mix(in srgb,var(--accent) 40%,transparent)}
 .cp-chosen{display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:999px;background:var(--accent);color:#fff;font-weight:700;font-size:.85rem}
-.cp-tile .mini{margin:0;min-height:2.6em}
+.cp-tile .cp-bio{margin:0;font-size:.92rem;line-height:1.35;color:var(--ink);opacity:.85;min-height:2.7em}
 .cp-tile .btn{margin-top:4px}
 .cp-tile-t{display:flex;align-items:center;gap:6px;font:700 1rem var(--display)}
 .cp-kind{font:600 .78rem var(--display);color:var(--muted)}
@@ -3907,7 +3908,7 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
   .cp-tiles{grid-template-columns:1fr}
   .cp-tile{grid-template-columns:92px 1fr;justify-items:start;text-align:left;column-gap:12px}
   .cp-tile .cp-prev{grid-row:1/span 5}
-  .cp-tile .mini{min-height:0}
+  .cp-tile .cp-bio{min-height:0}
 }
 /* Preview tool gallery */
 #cpGallery{position:absolute;left:0;top:0;right:0;z-index:50;background:#F4F1EA;padding:18px 22px;font:14px/1.4 system-ui,sans-serif;color:#222}
@@ -10260,7 +10261,7 @@ function shopUnlock(kind, id){ toast("This item is part of Studyboard Pro."); }
 /* The shop */
 const PRO_BADGE = `<span class="pro-badge">PRO</span>`, FREE_BADGE = `<span class="free-badge">Free</span>`;
 function skinPreview(s, dark){
-  const vars = s.light ? skinVars(s, dark) : dark ? "--paper:#0A1428;--grid:rgba(96,160,255,.07);--surface:#111E38;--ink:#E7EEFA;--muted:#93A3C2;--line:#22355C;--accent:#5B9DFF;--accent-ink:#071430;--spine:#060F24;--spine-ink:#A9BADC;--mark:#8C7713;--soft:#172848" : "--paper:#F2F5FA;--grid:rgba(57,136,254,.09);--surface:#FFFFFF;--ink:#0F1F3D;--muted:#5A6A86;--line:#D9E2EF;--accent:#1F6FEB;--accent-ink:#FFFFFF;--spine:#0E2A56;--spine-ink:#C9D7F2;--mark:#FFE45C;--soft:#EAF0F8";
+  const vars = s.light ? skinVars(s, dark) : dark ? "--paper:#0A1428;--grid:rgba(96,160,255,.07);--surface:#111E38;--ink:#E7EEFA;--muted:#93A3C2;--line:#22355C;--accent:#5B9DFF;--accent-ink:#071430;--spine:#060F24;--spine-ink:#A9BADC;--mark:#8C7713;--soft:#172848" : "--paper:#E6EBF3;--grid:rgba(57,136,254,.09);--surface:#F4F6FA;--ink:#0F1F3D;--muted:#5A6A86;--line:#D9E2EF;--accent:#1F6FEB;--accent-ink:#FFFFFF;--spine:#0E2A56;--spine-ink:#C9D7F2;--mark:#FFE45C;--soft:#E3EAF4";
   return `<div class="skin-prev" style="${esc(vars)}" aria-hidden="true">${artThumb(s.id, dark)}<span class="sp-spine"><i></i><i></i><i></i></span><span class="sp-main"><span class="sp-card"><b></b><em></em></span><span class="sp-card sm"><b></b></span><span class="sp-btn"></span></span><span class="sp-mode">${dark ? "Dark" : "Light"}</span></div>`;
 }
 function noteDemo(shape, pin, i, stk){
@@ -11292,7 +11293,7 @@ function focusHtml(){
     const prepH = window.SBPREP ? SBPREP.todayHtml() : "", headH = headsHtml(), insH = insightsHtml();
     const fcH = fcN ? `<div class="plan-fc">${FC_ICON}<span><b>${fcN}</b> flashcard${fcN === 1 ? "" : "s"} due for review</span><button class="btn small" data-act="fc-review-all">Review</button></div>` : "";
     if (prepH) parts.push("Exam Prep"); if (headH) parts.push("Heads Up"); if (insH) parts.push("Suggestions"); if (fcH) parts.push(fcN + " Flashcard" + (fcN === 1 ? "" : "s") + " Due");
-    if (parts.length) extraHtml = `<details class="plan-extra" id="planExtra"${ui.planExtraOpen || /data-act="rmt-set"/.test(insH) ? " open" : ""}><summary><span class="pe-t">More for Today<i class="pe-dot" aria-hidden="true" style="display:inline-block;margin-left:7px"></i></span><span class="pe-s">${esc(parts.join(", "))}</span></summary><div class="pe-b">${fcH}${prepH}${headH}${insH}</div></details>`;
+    if (parts.length) extraHtml = `<details class="plan-extra" id="planExtra"${ui.planExtraOpen || /data-act="rmt-set"/.test(insH) ? " open" : ""}><summary><span class="pe-t">More for Today<i class="pe-dot" aria-hidden="true" style="margin-left:7px"></i></span><span class="pe-s">${esc(parts.join(", "))}</span></summary><div class="pe-b">${fcH}${prepH}${headH}${insH}</div></details>`;
   }
   return `<section class="focus plan" aria-label="Today's Plan">
     <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2><div class="focus-sum">${sum.join(", ") || "Nothing due yet. Add tasks with due dates to get a plan."}</div></div>
@@ -11355,7 +11356,6 @@ function viewBars(mode){
     if (dw >= 20) dayh += `<span class="tl-d ${k === today ? "is-today" : ""}" style="left:${i*dw}px;width:${dw}px"><b>${d.getDate()}</b></span>`;
     else if (wd === 1) dayh += `<span class="tl-d" style="left:${i*dw}px;width:${dw*7}px;justify-content:flex-start;padding-left:4px">${d.getDate()}</span>`;
   }
-  bg += `<i class="today-line" style="left:${x(today) + dw/2 - 1}px"></i>`;
   const groups = coursesArr().map(c => ({c, list: ts.filter(t => t.courseId === c.id)}));
   groups.push({c: null, list: ts.filter(t => !courseOf(t.courseId))});
   let rows = "";
@@ -11380,7 +11380,7 @@ function viewBars(mode){
   if (!ts.length) return head + chipsHtml() + searchNote() + `<div class="empty" style="margin-top:14px"><strong>Nothing to Show Yet</strong>Tasks appear here once they have a due date. Each one gets an icon on its due date.${noDue ? `<br>${noDue} task${noDue === 1 ? " has" : "s have"} no due date.` : ""}</div>`;
   return head + chipsHtml() + searchNote() + `<div class="tl-scroll" data-today="${x(today)}" data-dw="${dw}">
       <div class="tl" style="width:${LW + W}px" data-lw="${LW}">
-        <div class="tl-bg" style="left:${LW}px;width:${W}px">${bg}</div>
+        <div class="tl-bg" style="left:${LW}px;width:${W}px">${bg}</div><div class="tl-bg tl-bg-top" style="left:${LW}px;width:${W}px"><i class="today-line" style="left:${x(today) + dw/2 - 1}px"></i></div>
         <div class="tl-row tl-headrow"><div class="tl-label" style="width:${LW}px"></div><div class="tl-track" style="width:${W}px">${months}</div></div>
         <div class="tl-row tl-headrow"><div class="tl-label" style="width:${LW}px"></div><div class="tl-track" style="width:${W}px">${dayh}</div></div>
         ${rows}
@@ -14655,7 +14655,26 @@ function noteToBoard(id, board){
   const c = board && (noteBoards().find(b => b.id === board) || {}).courseId;
   applyChanges([{kind: "note", id, after: Object.assign(clone(n), {board, courseId: n.courseId || c || ""})}], `Moved to ${nbName(board)}`);
 }
+// Boards live in the synced settings, so a settings reload (a refresh, a new deployment, or a sync that arrived without them)
+// could drop a board while its notes still point at it, and they'd pile onto My Notes. Boards are backed up on this device,
+// and any board a note still points at is brought back (under its saved name) before the notes are drawn.
+const NB_BAK = "studyboard:noteBoardsBak";
+function repairNoteBoards(){
+  try {
+    const have = noteBoards(), ids = new Set(have.map(b => b.id));
+    let bak = []; try { bak = JSON.parse(localStorage.getItem(NB_BAK) || "[]") || []; } catch (e) {}
+    const lost = [...new Set(notesArr().map(n => n.board).filter(b => b && !ids.has(b)))];
+    if (lost.length) {
+      const back = lost.map((id, i) => bak.find(b => b && b.id === id) || {id, name: "Recovered Board" + (lost.length > 1 ? " " + (i + 1) : "")});
+      state.settings = Object.assign({}, state.settings, {noteBoards: have.concat(back)}); saveSettings();
+    }
+    const now = noteBoards();
+    const union = now.concat(bak.filter(b => b && b.id && !now.some(x => x.id === b.id) && notesArr().some(n => n.board === b.id)));
+    localStorage.setItem(NB_BAK, JSON.stringify(now.length ? now : union));
+  } catch (e) {}
+}
 function viewNotes(){
+  repairNoteBoards();
   const curBoard = noteBoardId();
   const onBoard = notesArr().filter(n => !n.archived && noteBoardOf(n) === curBoard);
   const archived = notesArr().filter(n => n.archived).length;
@@ -38720,22 +38739,23 @@ var SBEST = (() => {
     if (tab !== "board") return;
     const body = document.querySelector("section.plan .pe-b"); if (!body || body.querySelector(".pe-item")) return;
     const titleOf = el => {
-      if (el.classList.contains("plan-est")) { const n = el.querySelector("b"); const c = n ? n.textContent : ""; return ["est", `${c} Task${c === "1" ? "" : "s"} Due With No Estimate`, "Estimates Needed"]; }
-      if (el.classList.contains("plan-fc")) { const n = el.querySelector("b"); const c = n ? n.textContent : ""; return ["fc", `${c} Flashcard${c === "1" ? "" : "s"} Due for Review`, `${c} Flashcard${c === "1" ? "" : "s"} Due`]; }
-      if (el.classList.contains("pp-today")) return ["prep", "Plan My Prep", "Exam Prep"];
-      if (el.classList.contains("plan-heads")) return ["heads", "Heads Up"];
-      if (el.classList.contains("auto-ins")) return ["sugg", "Suggestions"];
+      if (el.classList.contains("plan-est")) { const n = el.querySelector("b"); const c = n ? n.textContent : ""; return ["est", "Tasks Due With No Estimate", "Estimates Needed", Number(c) || 1]; }
+      if (el.classList.contains("plan-fc")) { const n = el.querySelector("b"); const c = n ? n.textContent : ""; return ["fc", "Flashcards Due for Review", "Flashcards Due", Number(c) || 1]; }
+      if (el.classList.contains("pp-today")) return ["prep", "Plan My Prep", "Exam Prep", el.querySelectorAll(".pp-today-row").length || 1];
+      if (el.classList.contains("plan-heads")) return ["heads", "Heads Up", "Heads Up", el.querySelectorAll("li").length || 1];
+      if (el.classList.contains("auto-ins")) return ["sugg", "Suggestions", "Suggestions", el.querySelectorAll("ul > li").length || 1];
       return null;
     };
-    const names = [];
+    const names = []; let total = 0;
     [...body.children].forEach(el => {
       const t = titleOf(el); if (!t) return;
       const d = document.createElement("details"); d.className = "pe-item"; d.dataset.k = t[0]; d.open = !!PE_OPEN[t[0]] || !!el.querySelector('[data-act="rmt-set"]');
-      const sm = document.createElement("summary"); sm.textContent = t[1]; { const dot = document.createElement("i"); dot.className = "pe-dot"; dot.setAttribute("aria-hidden", "true"); sm.appendChild(dot); }
+      const sm = document.createElement("summary"); sm.textContent = t[1]; { const dot = document.createElement("i"); dot.className = "pe-dot"; dot.setAttribute("aria-hidden", "true"); dot.textContent = t[3] > 99 ? "99+" : String(t[3]); sm.appendChild(dot); total += t[3]; }
       body.replaceChild(d, el); d.appendChild(sm); d.appendChild(el);
       names.push(t[2] || t[1]);
     });
     const sub = document.querySelector("section.plan .pe-s"); if (sub && names.length) sub.textContent = names.join(", ");
+    const top = document.querySelector("section.plan .pe-t .pe-dot"); if (top) top.textContent = total > 99 ? "99+" : String(total || "");
   });
 
   /* ---------- After a big import ---------- */
@@ -49561,7 +49581,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "koi-koi", name: "Koko", kind: "Baby Koi", pose: "float", wearColor: "#2E8C80",
-        bio: "A round baby koi who swims happy circles around your notes.",
+        bio: "A baby koi who swims happy circles around your notes.",
         idle: ["tailSwish", "finWiggle", "topBob"], cheer: "spin",
         parts: {
           back: `<circle cx="60" cy="64" r="41" fill="#E6F6F3" fill-opacity=".55" stroke="#FFFFFF" stroke-width="2.4" stroke-opacity=".9"/>
@@ -55003,8 +55023,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       return `<div class="cp-tile${on ? " on" : ""}${locked ? " locked" : ""}" data-id="${esc(x.id)}" aria-current="${on ? "true" : "false"}">
         ${previewHtml(x, on ? wearOf(x) : "", 92)}
         <div class="cp-tile-t"><b>${esc(on ? nameOf(x) : (cfg().names || {})[x.id] || x.name)}</b>${compTier(x) === "pro" ? PRO_BADGE : FREE_BADGE}</div>
-        <div class="cp-kind">${esc(x.kind || "")}</div>
-        <p class="mini">${esc(x.bio || "")}</p>
+        <p class="cp-bio">${esc(x.bio || "")}</p>
         ${locked ? `<button type="button" class="btn small" data-act="comp-pick" data-slot="${i}">🔒 Go Pro</button>` : on ? `<span class="cp-chosen" role="status">✓ ${want !== i && !canSlot(want) ? "In Use" : "Chosen"}</span>` : `<button type="button" class="btn small primary" data-act="comp-pick" data-slot="${i}">Choose</button>`}
       </div>`;
     }).join("");
@@ -55562,15 +55581,14 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     return `<ul class="cpt-hist">${chats.map(c => { const last = c.msgs[c.msgs.length - 1], a = last && last.a ? last.a.answer : ""; return `<li class="cpt-h"><button type="button" class="cpt-hmain" data-act="cpt-open" data-id="${esc(c.id)}"><b>${esc(c.title)}</b><span class="mini">${esc(clip(a, 110))}</span><span class="mini">${esc(new Date(c.at).toLocaleDateString(undefined, {month: "short", day: "numeric"}))} · ${c.msgs.length} message${c.msgs.length === 1 ? "" : "s"}</span></button><button type="button" class="icon-btn sm" data-act="cpt-del" data-id="${esc(c.id)}" aria-label="Delete this chat" title="Delete">${CLOSE}</button></li>`; }).join("")}</ul>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn small" data-act="cpt-clear">Delete All Chats</button><span class="mini" style="align-self:center">Chats stay on this device.</span></div>`;
   }
-  function manageHtml(){ return `<div class="cpt-manage">${SBCOMP.tab.pickerBody()}</div>`; }
   function view(){
-    const me = info(), tab = ["chat", "history", "manage"].includes(T.tab) ? T.tab : "chat";
+    const me = info(), tab = ["chat", "history"].includes(T.tab) ? T.tab : "chat";
     const area = window.SBAREA ? SBAREA.label() : "";
-    const head = me ? `<div class="cpt-head">${SBCOMP.tab.faceHtml(104)}<div class="cpt-id"><h2>${esc(me.name)}</h2><span class="mini">${esc(me.kind ? "A " + me.kind.toLowerCase() : "Study companion")}${area ? " · studying with you: " + esc(area) : ""}</span>${me.bio ? `<p class="mini">${esc(me.bio)}</p>` : ""}</div>
-        <div class="cpt-hbtn"><button type="button" class="btn small" data-act="cpt-tab" data-id="manage">Change or Dress Up</button></div></div>`
+    const head = me ? `<div class="cpt-head">${SBCOMP.tab.faceHtml(104)}<div class="cpt-id"><h2>${esc(me.name)}</h2>${me.bio ? `<p class="cpt-bio">${esc(me.bio)}</p>` : `<span class="mini">Study companion</span>`}${area ? `<span class="mini">Studying with you: ${esc(area)}</span>` : ""}</div>
+        <div class="cpt-hbtn"><button type="button" class="btn primary cpt-dress" data-act="comp-open">Change or Dress Up</button></div></div>`
       : `<div class="cpt-head"><div class="cpt-id"><h2>Companion</h2><p class="mini">Your companion is turned off. Turn it on to chat and to see it beside the Add Task button.</p></div><div class="cpt-hbtn"><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on"> On</label></div></div>`;
-    const tabs = `<div class="bview-tabs cpt-tabs" role="tablist" aria-label="Companion">${[["chat", "Chat"], ["history", "History"], ["manage", "Manage"]].map(([k, l]) => `<button type="button" role="tab" data-act="cpt-tab" data-id="${k}" aria-selected="${tab === k}">${l}</button>`).join("")}</div>`;
-    return `<section class="cpt" aria-label="Companion">${head}${tabs}<div class="cpt-pane">${tab === "chat" ? chatHtml() : tab === "history" ? historyHtml() : manageHtml()}</div></section>`;
+    const tabs = `<div class="bview-tabs cpt-tabs" role="tablist" aria-label="Companion">${[["chat", "Chat"], ["history", "History"]].map(([k, l]) => `<button type="button" role="tab" data-act="cpt-tab" data-id="${k}" aria-selected="${tab === k}">${l}</button>`).join("")}</div>`;
+    return `<section class="cpt" aria-label="Companion">${head}${tabs}<div class="cpt-pane">${tab === "chat" ? chatHtml() : historyHtml()}</div></section>`;
   }
   VIEWS.companion = view;
 
@@ -55631,7 +55649,9 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
 .cpt-id{flex:1 1 220px;min-width:0;display:grid;gap:3px}
 .cpt-id h2{margin:0;font:800 1.35rem var(--display)}
 .cpt-id p{margin:0}
+.cpt-bio{font-size:1rem;line-height:1.4;color:var(--ink);opacity:.85}
 .cpt-tabs{max-width:none}
+.cpt-dress{min-height:48px;padding:12px 22px;font-size:1.05rem}
 .cpt-pane{display:grid;gap:10px}
 .cpt-log{display:grid;gap:10px;align-content:start;min-height:260px;max-height:min(56vh,560px);overflow:auto;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
 .cpt-q{justify-self:end;max-width:86%;background:var(--accent);color:var(--accent-ink,#fff);padding:8px 13px;border-radius:16px 16px 4px 16px;font-size:.95rem;white-space:pre-wrap;overflow-wrap:anywhere}
@@ -59618,7 +59638,7 @@ button.cr-d:hover{filter:brightness(.95)}
 .cr-d .nb{position:absolute;right:3px;bottom:3px;font:800 .62rem/1 var(--display);min-width:14px;height:14px;border-radius:7px;display:grid;place-items:center;background:var(--ink);color:var(--surface);padding:0 3px}
 .cr-d .td{position:absolute;right:3px;top:2px;font:800 .55rem var(--display);text-transform:uppercase}
 .cr-sum{display:none;font-size:.8rem;color:var(--muted);align-self:center;min-width:0}
-@media (min-width:760px){.cr-sum{display:flex;flex-wrap:wrap;gap:4px 10px}}
+@media (min-width:760px){.cr-sum{display:flex;flex-wrap:wrap;gap:4px 10px;justify-content:center}}
 .cr-ty{display:inline-flex;align-items:center;gap:4px;color:var(--ink)}
 .cr-ty b{font:700 .95rem var(--display)}
 .cr-ty svg{width:20px;height:20px;color:var(--muted)}
@@ -59751,7 +59771,7 @@ function viewCrunch(){
   const more = hiddenWeeks > 0 ? `<button type="button" class="btn small cr-more" data-act="cr-all">Show ${hiddenWeeks} Later Week${hiddenWeeks === 1 ? "" : "s"}</button>` : ui.crAll && upcoming.length > SHOW ? `<button type="button" class="btn small cr-more" data-act="cr-all">Show Fewer Weeks</button>` : "";
   return `<section class="cr" aria-label="Crunch Forecast">${head}${call}
     <div class="cr-scroll"><div class="cr-grid" role="grid" aria-label="Workload by day, one row per week" aria-describedby="crHint">
-      <div class="cr-dow" role="row"><span role="columnheader" aria-label="Week"></span>${dow.map(d => `<span role="columnheader">${d}</span>`).join("")}<span class="cr-sum" role="columnheader" style="text-align:left">Week</span></div>
+      <div class="cr-dow" role="row"><span role="columnheader" aria-label="Week"></span>${dow.map(d => `<span role="columnheader">${d}</span>`).join("")}<span class="cr-sum" role="columnheader" style="text-align:center">Week</span></div>
       ${rows}</div></div>${more}${help}</section>`;
 }
 VIEWS.crunch = viewCrunch;
