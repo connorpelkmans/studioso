@@ -1448,6 +1448,12 @@ button.pr-why:hover{background:var(--soft);color:var(--ink)}
 .plan-extra .pe-t{font:700 .95rem var(--display)}
 .plan-extra .pe-s{font-size:.82rem;color:var(--muted)}
 .plan-extra .pe-b{display:grid;gap:12px;padding:0 12px 12px}
+.plan-extra .pe-item{border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.plan-extra .pe-item>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:8px 12px;font:600 .9rem var(--display)}
+.plan-extra .pe-item>summary::-webkit-details-marker{display:none}
+.plan-extra .pe-item>summary::after{content:"";margin-left:auto;width:7px;height:7px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s}
+.plan-extra .pe-item[open]>summary::after{transform:rotate(-135deg)}
+.plan-extra .pe-item>:not(summary){margin:0 8px 8px}
 .bview-tabs{display:flex;gap:4px;padding:4px;margin:0 0 12px;background:var(--soft);border:1px solid var(--line);border-radius:14px;max-width:460px}
 .bview-tabs button{flex:1;border:0;background:transparent;border-radius:10px;padding:10px 8px;font:700 .95rem var(--display);color:var(--muted);display:flex;align-items:center;justify-content:center;gap:6px}
 .bview-tabs button[aria-selected=true]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
@@ -1504,6 +1510,10 @@ nav.tabs{background:var(--spine-bg,var(--spine))}
 body.desk::before{background:var(--spine-bg,var(--spine))}
 .btn.primary,.fab{background:var(--btn-bg,var(--accent))}
 .btn.primary{border-color:transparent}
+/* No stray line of the wrong colour beside or under a themed button: a gradient or picture fill is drawn across the whole box (not repeated
+   into the border edge), and the thin shadow under plain buttons is not drawn under coloured ones */
+.btn.primary,.fab{background-origin:border-box !important;background-clip:border-box !important}
+.btn.primary{box-shadow:none}
 :root[data-skin] .btn.primary:hover,:root[data-skin] .fab:hover{background:var(--btn-bg,color-mix(in srgb,var(--accent) 88%,#000));filter:brightness(.95)}
 /* flashcard styles */
 .cs-plain .face{background:#fff;background-image:none;border-radius:22px;border-color:#E3E8F0}
@@ -7213,6 +7223,7 @@ function aiFinish(){
   }
   d.quizzes = d.quizzes.concat({at: Date.now(), score: right, total, ai: true}).slice(-20);
   saveDeck(d, null);
+  if (total > 0 && right / total >= 0.8) { try { celebrate("check"); } catch (e) {} }
   fire("ai-quiz-done", {deckId: f.deckId, quizId: f.quizId, right, total, partial: !qz || f.qs.length !== qz.questions.length});
 }
 function viewAiQuiz(){
@@ -9784,6 +9795,37 @@ function celebrate(kind){
   if (!fx) { fxUntil = performance.now() + 4500; return kind === "check" ? fireworks() : confetti(); }
   runThemeFx(fx);
 }
+/* A good grade gets the same celebration as finishing a task. A quiz or assignment mark of 80% or more (from school sync or typed in)
+   plays it once, as soon as the mark shows up while the app is open, or soon after it is reopened if the mark arrived while it was closed.
+   Marks already there the first time this runs are remembered without a celebration, and each mark celebrates only once. */
+const GRADE_CHEER = (() => {
+  const KEY = "studyboard:gradeCheer", MIN = 80;
+  const read = () => { try { const o = JSON.parse(localStorage.getItem(KEY) || "null"); return o && typeof o === "object" ? o : null; } catch (e) { return null; } };
+  const write = o => { try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {} };
+  const pctOf = t => t && t.mark && Number(t.mark.outOf) > 0 && t.mark.got !== "" && t.mark.got != null && !isNaN(Number(t.mark.got)) ? Number(t.mark.got) / Number(t.mark.outOf) * 100 : null;
+  const good = t => { const p = pctOf(t); return p != null && p >= MIN && (t.type === "Quiz" || t.type === "Assignment") && !t.deleted && !t.archived; };
+  const sigOf = t => `${t.mark.got}/${t.mark.outOf}`;
+  let T = 0;
+  function scan(){
+    let seen = null; try { seen = read(); } catch (e) {}
+    const list = typeof tasksArr === "function" ? tasksArr() : [];
+    const now = list.filter(good);
+    if (!seen) { const o = {}; now.forEach(t => { o[t.id] = sigOf(t); }); write(o); return; }
+    const fresh = now.filter(t => seen[t.id] !== sigOf(t));
+    if (!fresh.length) return;
+    if (document.hidden) return;                                   // plays when the app is back in view
+    fresh.forEach(t => { seen[t.id] = sigOf(t); });
+    write(seen);
+    try { celebrate("check"); } catch (e) {}
+    const t = fresh[0], p = Math.round(pctOf(t));
+    try { toast(fresh.length === 1 ? `${p}% on ${t.title}. Great work!` : `${fresh.length} new grades of ${MIN}% or more. Great work!`); } catch (e) {}
+  }
+  const soon = ms => { clearTimeout(T); T = setTimeout(() => { try { scan(); } catch (e) { console.warn("grade cheer", e); } }, ms); };
+  hook("render", () => soon(1500));
+  hook("changed", () => soon(600));
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) soon(1200); });
+  return {scan};
+})();
 const FX_SHAPES = (() => {
   const r1 = n => Math.round(n * 100) / 100;
   const circ = (x, y, r) => `M${x - r} ${y}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0`;
@@ -10223,7 +10265,7 @@ function styleShop(tab){
   let body = "";
   if (ui.shopTab === "themes") {
     body = `<div class="shop-mode"><span class="mini">Preview in</span>${themeRow().replace(/^[\s\S]*?(<div class="segb)/, "$1").replace(/<\/div>\s*$/, "")}<label class="motion-tog"><input type="checkbox" id="motionTog" data-act="motion-toggle" ${cfg.motion !== false ? "checked" : ""}> Background Animations</label></div>
-      ${[["plain", "Free · Plain Colors"], ["season", `${PRO_BADGE} Pro · Seasons`], ["pro", `${PRO_BADGE} Pro · Scenes`], ["majors", `${PRO_BADGE} Pro · Study Fields`], ["hobby", `${PRO_BADGE} Pro · Cozy and Hobbies`], ["holiday", `${PRO_BADGE} Pro · Holidays`]].map(([g, t]) => section(t, SKINS.filter(s => (s.group || "plain") === g), s => `<div class="shop-tile ${cfg.skin === s.id ? "on" : ""}"><div class="skin-pair">${skinPreview(s, false)}${skinPreview(s, true)}</div>${nameRow(s)}${btnFor("skin", s, cfg.skin === s.id)}</div>`)).join("")}`;
+      ${[["plain", "Free · Plain Colors"], ["season", `${PRO_BADGE} Pro · Seasons`], ["pro", `${PRO_BADGE} Pro · Scenes`], ["majors", `${PRO_BADGE} Pro · Fields`], ["hobby", `${PRO_BADGE} Pro · Hobbies`], ["holiday", `${PRO_BADGE} Pro · Holidays`]].map(([g, t]) => section(t, SKINS.filter(s => (s.group || "plain") === g || (g === "pro" && s.group === "newscenes")), s => `<div class="shop-tile ${cfg.skin === s.id ? "on" : ""}"><div class="skin-pair">${skinPreview(s, false)}${skinPreview(s, true)}</div>${nameRow(s)}${btnFor("skin", s, cfg.skin === s.id)}</div>`)).join("")}`;
   } else if (ui.shopTab === "cards") {
     body = `<p class="mini" style="margin:0">How flashcards look while you study. You can also give one deck its own style under Edit Deck.</p>
       ${split(CARD_STYLES.filter(c => c.id !== "theme" || themeKit()), c => `<div class="shop-tile ${cardStyleOf(null) === c.id ? "on" : ""}"><div class="cs-demo cs-${c.id}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div>${nameRow(c)}${btnFor("card", c, cardStyleOf(null) === c.id, "Use for All Decks")}</div>`)}`;
@@ -10490,7 +10532,7 @@ document.addEventListener("change", e => {
 });
 
 const AI_ACTS = {
-  "cf-view": el => { ui.tab = el.dataset.id === "files" ? "files" : "courses"; ui.courseId = null; render(); window.scrollTo(0, 0); },
+  "cf-view": el => { const v = el.dataset.id; ui.tab = v === "files" ? "files" : "courses"; ui.courseId = null; ui.courseTab = v === "grades" ? "grades" : ""; ui.courseTabFor = null; render(); window.scrollTo(0, 0); },
   "plan-view": el => { const t = el.dataset.id === "schedule" || el.dataset.id === "crunch" ? el.dataset.id : "timeline"; if (t === "timeline" && ui.tab !== "timeline") ui.tlJump = true; ui.tab = t; render(); window.scrollTo(0, 0); },
   "bview": el => { ui.bview = el.dataset.id; try { localStorage.setItem("studyboard:bview", ui.bview); } catch(e) {} render(); window.scrollTo(0, 0); },
   "qa-add": () => qaAdd(), "qa-full": () => qaFull(), "qa-cancel": () => { ui.qa = null; render(); },
@@ -11218,7 +11260,7 @@ function focusHtml(){
     const fcN = allDueCount(), parts = [];
     const prepH = window.SBPREP ? SBPREP.todayHtml() : "", headH = headsHtml(), insH = insightsHtml();
     const fcH = fcN ? `<div class="plan-fc">${FC_ICON}<span><b>${fcN}</b> flashcard${fcN === 1 ? "" : "s"} due for review</span><button class="btn small" data-act="fc-review-all">Review</button></div>` : "";
-    if (prepH) parts.push("exam prep"); if (headH) parts.push("heads up"); if (insH) parts.push("suggestions"); if (fcH) parts.push(fcN + " flashcard" + (fcN === 1 ? "" : "s") + " due");
+    if (prepH) parts.push("Exam Prep"); if (headH) parts.push("Heads Up"); if (insH) parts.push("Suggestions"); if (fcH) parts.push(fcN + " Flashcard" + (fcN === 1 ? "" : "s") + " Due");
     if (parts.length) extraHtml = `<details class="plan-extra" id="planExtra"${ui.planExtraOpen || /data-act="rmt-set"/.test(insH) ? " open" : ""}><summary><span class="pe-t">More for Today</span><span class="pe-s">${esc(parts.join(", "))}</span></summary><div class="pe-b">${fcH}${prepH}${headH}${insH}</div></details>`;
   }
   return `<section class="focus plan" aria-label="Today's Plan">
@@ -12795,8 +12837,8 @@ function planSwitchHtml(){
 /* Courses and Files share one nav tab: ui.tab stays "courses" or "files", and this switch moves between them */
 const isCfTab = t => t === "courses" || t === "files";
 function cfSwitchHtml(){
-  const t = ui.tab;
-  return `<div class="pview-tabs cf-tabs" role="tablist" aria-label="Courses and Files"><button role="tab" data-act="cf-view" data-id="courses" aria-selected="${t === "courses"}">Courses</button><button role="tab" data-act="cf-view" data-id="files" aria-selected="${t === "files"}">Files</button></div>`;
+  const t = ui.tab, g = t === "courses" && ui.courseTab === "grades", hasCourses = typeof coursesArr === "function" && coursesArr().length > 0;
+  return `<div class="pview-tabs cf-tabs" role="tablist" aria-label="Courses, Files and Grades"><button role="tab" data-act="cf-view" data-id="courses" aria-selected="${t === "courses" && !g}">Courses</button><button role="tab" data-act="cf-view" data-id="files" aria-selected="${t === "files"}">Files</button>${hasCourses ? `<button role="tab" data-act="cf-view" data-id="grades" aria-selected="${g}">Grades</button>` : ""}</div>`;
 }
 
 /* ---------- Render ---------- */
@@ -15237,6 +15279,9 @@ function finishQuiz(){
   f.qs.forEach((q, i) => { const b = byDeck[q.deckId] = byDeck[q.deckId] || {score: 0, total: 0}; b.total++; if (f.ans[i] && f.ans[i].correct) b.score++; });
   const changes = Object.entries(byDeck).map(([id, r]) => { const d = clone(state.decks[id]); if (!d) return null; d.quizzes = d.quizzes.concat({at: Date.now(), score: r.score, total: r.total}).slice(-20); return {kind: "deck", id, after: d}; }).filter(Boolean);
   applyChanges(changes, null);
+  // 80% or better on a practice quiz gets the celebration
+  const sc = Object.values(byDeck).reduce((a, r) => a + r.score, 0), tot = Object.values(byDeck).reduce((a, r) => a + r.total, 0);
+  if (tot > 0 && sc / tot >= 0.8) { try { celebrate("check"); } catch (e) {} }
 }
 function viewQuiz(){
   const f = ui.fc, q = f.qs[f.i], a = f.ans[f.i];
@@ -29623,14 +29668,9 @@ return {buildScene: buildScene, buildSceneAt: buildSceneAt, SCENES: SCENES, ENGI
     const r = origShop.apply(this, arguments);
     try {
       if (ui.shopTab !== "themes") return r;
-      const body = dlg.querySelector(".sheet.shop .sheet-body"); if (!body || body.querySelector(".sc-newsec")) return r;
+      const body = dlg.querySelector(".sheet.shop .sheet-body"); if (!body) return r;
       const mode = body.querySelector(".shop-mode"); if (mode && !mode.querySelector(".sc-moment")) mode.insertAdjacentHTML("beforeend", momentBtn());
-      const list = SKINS.filter(s => s.group === "newscenes"); if (!list.length) return r;
-      const cfg = styleCfg();
-      const btn = s => !owns("skin", s.id) ? `<button type="button" class="btn small" data-act="shop-unlock" data-kind="skin" data-id="${s.id}">🔒 Unlock</button>` : cfg.skin === s.id ? `<button type="button" class="btn small" disabled>In Use</button>` : `<button type="button" class="btn small primary" data-act="shop-use" data-kind="skin" data-id="${s.id}">Use</button>`;
-      const html = `<h3 class="fsec shop-sec sc-newsec">${PRO_BADGE} Pro · New Scenes</h3><div class="shop-grid">${list.map(s => `<div class="shop-tile ${cfg.skin === s.id ? "on" : ""}"><div class="skin-pair">${skinPreview(s, false)}${skinPreview(s, true)}</div><div class="shop-name"><b>${esc(s.name)}</b>${PRO_BADGE}</div><p class="mini">${esc(s.desc || "")}</p>${btn(s)}</div>`).join("")}</div>`;
-      const anchor = [...body.querySelectorAll("h3.shop-sec")].find(h => /Pro · Scenes/.test(h.textContent));
-      if (anchor) anchor.insertAdjacentHTML("beforebegin", html); else body.insertAdjacentHTML("beforeend", html);
+      // The newer scenes now sit in the one Pro · Scenes section (styleShop above)
     } catch (e) { console.warn("scenes shop", e); }
     return r;
   };
@@ -38053,10 +38093,9 @@ hook("boot", boot);
     const html = origCourses.apply(this, arguments);
     if (ui.courseId) return html;
     if (!coursesArr().length) return html;
-    const tab = ui.courseTab === "grades" ? "grades" : "list";
-    const tabs = courseTabs(tab, [["list", "Courses"], ["grades", "Grades"]]);
-    if (tab === "grades") { try { return tabs + gradesPage(); } catch (err) { console.warn("grades: page", err); return tabs + html; } }
-    return tabs + html;
+    // The Courses / Files / Grades switch is one row at the top of the page (cfSwitchHtml)
+    if (ui.courseTab === "grades") { try { return gradesPage(); } catch (err) { console.warn("grades: page", err); return html; } }
+    return html;
   };
   // Every course side by side, then the marks still to enter, then options
   function gradesPage(){
@@ -38568,6 +38607,33 @@ var SBEST = (() => {
     if (extra) extra.insertAdjacentHTML("afterbegin", html);
     else if (at) at.insertAdjacentHTML("afterend", html);
     else { const list = plan.querySelector(".plan-list"); if (list) list.insertAdjacentHTML("beforebegin", html); }
+  });
+
+  /* ---------- More for Today: each card folds up on its own ---------- */
+  // Runs after the line above is added. Every card inside More for Today gets its own heading that expands it;
+  // the heading on the closed section is rebuilt from the same list.
+  const PE_OPEN = {};
+  document.addEventListener("toggle", e => { const d = e.target; if (d && d.classList && d.classList.contains("pe-item")) PE_OPEN[d.dataset.k] = d.open; }, true);
+  hook("render", tab => {
+    if (tab !== "board") return;
+    const body = document.querySelector("section.plan .pe-b"); if (!body || body.querySelector(".pe-item")) return;
+    const titleOf = el => {
+      if (el.classList.contains("plan-est")) { const n = el.querySelector("b"); const c = n ? n.textContent : ""; return ["est", `${c} Task${c === "1" ? "" : "s"} Due With No Estimate`, "Estimates Needed"]; }
+      if (el.classList.contains("plan-fc")) { const n = el.querySelector("b"); const c = n ? n.textContent : ""; return ["fc", `${c} Flashcard${c === "1" ? "" : "s"} Due for Review`, `${c} Flashcard${c === "1" ? "" : "s"} Due`]; }
+      if (el.classList.contains("pp-today")) return ["prep", "Plan My Prep", "Exam Prep"];
+      if (el.classList.contains("plan-heads")) return ["heads", "Heads Up"];
+      if (el.classList.contains("auto-ins")) return ["sugg", "Suggestions"];
+      return null;
+    };
+    const names = [];
+    [...body.children].forEach(el => {
+      const t = titleOf(el); if (!t) return;
+      const d = document.createElement("details"); d.className = "pe-item"; d.dataset.k = t[0]; d.open = !!PE_OPEN[t[0]] || !!el.querySelector('[data-act="rmt-set"]');
+      const sm = document.createElement("summary"); sm.textContent = t[1];
+      body.replaceChild(d, el); d.appendChild(sm); d.appendChild(el);
+      names.push(t[2] || t[1]);
+    });
+    const sub = document.querySelector("section.plan .pe-s"); if (sub && names.length) sub.textContent = names.join(", ");
   });
 
   /* ---------- After a big import ---------- */
@@ -44279,7 +44345,7 @@ var TP_DATA = [];
   if (!ui.shopTab && S.tab) ui.shopTab = S.tab;
 
   const CHEV = `<svg class="ui-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`;
-  const GROUPS = [["seasons", "Seasons"], ["scenes", "Scenes"], ["majors", "Study Fields"], ["hobby", "Cozy and Hobbies"], ["holidays", "Holidays"]];
+  const GROUPS = [["seasons", "Seasons"], ["scenes", "Scenes"], ["majors", "Fields"], ["hobby", "Hobbies"], ["holidays", "Holidays"]];
   const CHIPS = {
     themes: [["all", "All"], ["free", "Free"]].concat(GROUPS),
     collections: [["all", "All"]].concat(GROUPS),
@@ -44292,7 +44358,7 @@ var TP_DATA = [];
   const secKind = (tab, title, tp) => {
     if (tp) return "collections";
     const t = title.toLowerCase();
-    if (tab === "themes") return /plain/.test(t) ? "free" : /season/.test(t) ? "seasons" : /study field/.test(t) ? "majors" : /hobb|cozy/.test(t) ? "hobby" : /holiday/.test(t) ? "holidays" : "scenes";
+    if (tab === "themes") return /plain/.test(t) ? "free" : /season/.test(t) ? "seasons" : /field/.test(t) ? "majors" : /hobb|cozy/.test(t) ? "hobby" : /holiday/.test(t) ? "holidays" : "scenes";
     return /^\s*free/.test(t) ? "free" : "pro";
   };
   const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -53217,6 +53283,8 @@ var COMP_KIT = (() => {
     return {L: Math.max(S.l, g.side + 6) - e.l * px + AN_SIDE, R: S.r - e.r * px - AN_SIDE, T: S.t - e.t * px + AN_UP, B: S.b - e.b * px - AN_DN};
   }
   const feasible = rg => rg.L <= rg.R && rg.T <= rg.B;
+  // It stays in the lower part of the screen (the bottom 40% of the safe area) so it never wanders somewhere distracting
+  const lowTop = (rg, fresh) => { const S = safeRect(fresh); return Math.min(rg.B, Math.max(rg.T, S.t + (S.b - S.t) * 0.6)); };
   let guardDepth = 0;
   // The authority: measure, compare, move. Returns true when it had to move the companion.
   function clamp(why){
@@ -53433,15 +53501,27 @@ var COMP_KIT = (() => {
     out.push(home);
     // the ground line, right across the bottom of the scene (both sides of the Add Task button)
     for (let x = L; x <= R; x += px * 0.5) out.push({left: Math.round(x), top: ground, kind: "ground", score: Math.abs(x - want) / span * 220});
-    for (let y = f.top - px - 10, k = 1; y >= Math.max(40, rg.T); y -= px * 0.7, k++) out.push({left: Math.round(R - 2), top: Math.round(y), kind: "side", score: 240 + k * 16});
+    const lowT = lowTop(rg);
+    for (let y = f.top - px - 10, k = 1; y >= Math.max(40, rg.T, lowT); y -= px * 0.7, k++) out.push({left: Math.round(R - 2), top: Math.round(y), kind: "side", score: 240 + k * 16});
     const float = cur && cur.pose === "float";
-    for (let y = Math.min(innerHeight - px - 16, rg.B), ky = 0; y >= Math.max(30, rg.T); y -= px * 0.8, ky++) for (let x = R - 2, kx = 0; x >= L; x -= px * 0.8, kx++) out.push({left: Math.round(x), top: Math.round(y), kind: "open", score: 320 + kx * 5 + ky * (float ? 5 : 12)});
+    for (let y = Math.min(innerHeight - px - 16, rg.B), ky = 0; y >= Math.max(30, rg.T, lowT); y -= px * 0.8, ky++) for (let x = R - 2, kx = 0; x >= L; x -= px * 0.8, kx++) out.push({left: Math.round(x), top: Math.round(y), kind: "open", score: 320 + kx * 5 + ky * (float ? 5 : 12)});
     return out;
   }
   let spotKind = "", spotSig = "";
   // fresh: choose from scratch (a new page); otherwise stay put unless something now covers it
+  // On the Companion page the companion stands where the picture beside its name would be, instead of a second copy appearing there
+  function slotSpot(px){
+    if (typeof ui === "undefined" || ui.tab !== "companion") return null;
+    const el = document.querySelector(".cpt-face-slot"); if (!el) return null;
+    const r = el.getBoundingClientRect(), S = safeRect();
+    if (r.width < 20 || r.bottom < S.t || r.top > S.b) return null;
+    const rg = range(px);
+    const left = Math.round(Math.min(rg.R, Math.max(rg.L, r.left + (r.width - px) / 2))), top = Math.round(Math.min(rg.B, Math.max(rg.T, r.top + (r.height - px) / 2)));
+    return {left, top, kind: "slot"};
+  }
   function choose1(fresh){
     const px = sizePx(cur), f = fabRect();
+    { const sl = slotSpot(px); if (sl) return Object.assign(sl, {px, fab: f}); }
     const here = box && box.dataset.x ? {left: +box.dataset.x, top: +box.dataset.y} : null;
     RECTS = null;
     if (!fresh && here && +box.dataset.px === px && spotKind) { const b = spotCheck(here, px, f); if (!b.hard) return Object.assign(here, {kind: spotKind, px, fab: f}); }
@@ -53481,7 +53561,7 @@ var COMP_KIT = (() => {
   function edgeSpot(px, f, list, here, fresh){
     const rg = range(px), rects = (RECTS || (RECTS = contentRects())).slice(0, 1800), ctl = controlRects();
     const e = vext || DEF_ART, S = safeRect(), g = geometry();
-    const X0 = rg.L, X1 = Math.max(rg.L, rg.R), Y0 = rg.T, Y1 = Math.max(rg.T, rg.B);
+    const X0 = rg.L, X1 = Math.max(rg.L, rg.R), Y1 = Math.max(rg.T, rg.B), Y0 = Math.min(Y1, Math.max(rg.T, lowTop(rg)));
     const home = list.find(c => c.kind === "home") || {left: X1, top: Y1};
     const hx = Math.min(X1, Math.max(X0, home.left)), hy = Math.min(Y1, Math.max(Y0, home.top));
     const heavy = [];
@@ -55218,7 +55298,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // For the Companion tab
     tab: {
       pickerBody, wirePreviews, stopPreviews,
-      faceHtml: px => { const c = current(); return c && isOn() ? `<div class="cpt-face" data-id="${esc(c.id)}">${previewHtml(c, wearOf(c), px)}</div>` : ""; },
+      faceHtml: px => { const c = current(); return c && isOn() ? `<div class="cpt-face cpt-face-slot" data-id="${esc(c.id)}" aria-hidden="true"></div>` : ""; },   // empty: the real companion walks over and stands here (see slotSpot)
       info: () => { const c = current(); return c && isOn() ? {id: c.id, name: nameOf(c), kind: c.kind || "", bio: c.bio || ""} : null; }
     }
   };
@@ -55383,7 +55463,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const head = me ? `<div class="cpt-head">${SBCOMP.tab.faceHtml(104)}<div class="cpt-id"><h2>${esc(me.name)}</h2><span class="mini">${esc(me.kind ? "A " + me.kind.toLowerCase() : "Study companion")}${area ? " · studying with you: " + esc(area) : ""}</span>${me.bio ? `<p class="mini">${esc(me.bio)}</p>` : ""}</div>
         <div class="cpt-hbtn"><button type="button" class="btn small" data-act="cpt-tab" data-id="manage">Change or Dress Up</button></div></div>`
       : `<div class="cpt-head"><div class="cpt-id"><h2>Companion</h2><p class="mini">Your companion is turned off. Turn it on to chat and to see it beside the Add Task button.</p></div><div class="cpt-hbtn"><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on"> On</label></div></div>`;
-    const tabs = `<div class="bview-tabs cpt-tabs" role="tablist" aria-label="Companion">${[["chat", "Chat"], ["history", "Chats"], ["manage", "Manage"]].map(([k, l]) => `<button type="button" role="tab" data-act="cpt-tab" data-id="${k}" aria-selected="${tab === k}">${l}</button>`).join("")}</div>`;
+    const tabs = `<div class="bview-tabs cpt-tabs" role="tablist" aria-label="Companion">${[["chat", "Chat"], ["history", "History"], ["manage", "Manage"]].map(([k, l]) => `<button type="button" role="tab" data-act="cpt-tab" data-id="${k}" aria-selected="${tab === k}">${l}</button>`).join("")}</div>`;
     return `<section class="cpt" aria-label="Companion">${head}${tabs}<div class="cpt-pane">${tab === "chat" ? chatHtml() : tab === "history" ? historyHtml() : manageHtml()}</div></section>`;
   }
   VIEWS.companion = view;
@@ -55415,9 +55495,15 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       case "cpt-clear": if (confirm("Delete all your chats with your companion? This can't be undone.")) { wr([]); T.id = null; render(); } return true;
       case "cpt-note": {
         const c = rd().find(x => x.id === T.id), m = c && c.msgs.find(x => String(x.at) === id);
-        if (m && m.a) { addNoteText(`${m.q}\n\n${m.a.answer}`.slice(0, 8000), "", "green"); el.textContent = "Saved to Notes"; el.disabled = true; }
+        if (!m || !m.a) return true;
+        const text = `${m.q}\n\n${m.a.answer}`.slice(0, 8000), done = board => { addNoteText(text, "", "green", board == null ? {} : {board}); el.textContent = "Saved to Notes"; el.disabled = true; };
+        // One board: save straight to it. Several: ask which one first.
+        if (!noteBoards().length) { done(); return true; }
+        T.pendingNote = done;
+        openSheet(`<div class="sheet">${head("Save to Which Board?")}<div class="sheet-body"><div class="row-actions" style="flex-wrap:wrap">${[["", "My Notes"]].concat(noteBoards().map(b => [b.id, b.name])).map(([bid, nm]) => `<button type="button" class="btn${bid === noteBoardId() ? " primary" : ""}" data-act="cpt-note-to" data-id="${esc(bid)}">${esc(nm)}</button>`).join("")}</div></div></div>`);
         return true;
       }
+      case "cpt-note-to": { const f = T.pendingNote; T.pendingNote = null; const dd = el.closest("dialog") || dlg; dd.close(); if (f) f(id); return true; }
       case "comp-pick": case "comp-wear": case "comp-tint": case "comp-rename": case "comp-set":
         if (ui.tab === "companion") setTimeout(() => { if (ui.tab === "companion") render(); }, 60);
         return false;
@@ -59393,7 +59479,7 @@ const store = {
 .cr-legend{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:.8rem;color:var(--muted)}
 .cr-legend span.lg{display:inline-flex;align-items:center;gap:5px}
 .cr-sw{width:18px;height:18px;border-radius:5px;border:1px solid var(--line);display:inline-block}
-.cr-scroll{overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.cr-scroll{overflow-x:auto;padding:10px;margin-top:8px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);-webkit-overflow-scrolling:touch}
 .cr-grid{display:grid;gap:3px;min-width:352px}
 .cr-row,.cr-dow{display:grid;grid-template-columns:54px repeat(7,minmax(40px,1fr));gap:2px;align-items:stretch}
 @media (min-width:760px){.cr-row,.cr-dow{grid-template-columns:84px repeat(7,minmax(64px,1fr)) minmax(120px,170px);gap:5px}}
@@ -59419,7 +59505,8 @@ button.cr-d:hover{filter:brightness(.95)}
 .cr-d.lv3 .dn,.cr-d.lv4 .dn{background:rgba(0,0,0,.5);color:#fff;border-radius:4px;padding:1px 3px;display:inline-block}
 .cr-d .dn small{font-weight:600;font-size:.62rem;margin-right:2px;text-transform:uppercase}
 .cr-d .mk{position:absolute;left:3px;bottom:3px;display:flex;gap:2px}
-.cr-d .mk i{font:800 .6rem/1 var(--display);font-style:normal;min-width:13px;height:13px;border-radius:4px;display:grid;place-items:center;background:var(--surface);color:var(--ink);border:1px solid color-mix(in srgb,var(--ink) 40%,transparent)}
+.cr-legend .mk-ic{display:inline-grid;place-items:center;vertical-align:middle;font-style:normal;margin-right:2px}
+.cr-d .mk i{font:800 .6rem/1 var(--display);font-style:normal;min-width:15px;height:15px;border-radius:4px;display:grid;place-items:center;background:var(--surface);color:var(--ink);border:1px solid color-mix(in srgb,var(--ink) 40%,transparent)}
 .cr-d .nb{position:absolute;right:3px;bottom:3px;font:800 .62rem/1 var(--display);min-width:14px;height:14px;border-radius:7px;display:grid;place-items:center;background:var(--ink);color:var(--surface);padding:0 3px}
 .cr-d .td{position:absolute;right:3px;top:2px;font:800 .55rem var(--display);text-transform:uppercase}
 .cr-sum{display:none;font-size:.8rem;color:var(--muted);align-self:center;min-width:0}
@@ -59500,7 +59587,12 @@ const cap1 = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 const typeName = c => ({exam: "Exam", quiz: "Quiz", paper: "Paper", project: "Project", lab: "Lab", assignment: "Assignment", reading: "Reading", study: "Study", other: "Task"})[c] || "Task";
 
 /* ---------- The heatmap ---------- */
-const MK = {exam: "E", quiz: "Q", paper: "P", project: "P"};
+const MK = {
+  exam: '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M9 13l2 2 4-4"/></svg>',
+  quiz: '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7"/><path d="M12 17h.01"/></svg>',
+  paper: '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h5"/></svg>',
+  project: '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h5"/></svg>'
+};
 function cellHtml(D, o){
   o = o || {};
   const cls = `cr-d lv${D.levelIdx}${D.past ? " is-past" : ""}${D.today ? " is-today" : ""}`;
@@ -59531,7 +59623,7 @@ function viewCrunch(){
     let n = 0; try { n = SBEST.count(); } catch (e) {}
     est = `<p class="cr-note">${m.noEstimate >= m.tasks ? "No time estimates yet, so this uses typical hours for each kind of task. Treat it as a rough guide." : `${m.noEstimate} of ${m.tasks} tasks have no time estimate, so typical hours are used for them.`}${n ? ` <button type="button" class="link-btn" data-act="cr-est">Add Times</button>` : ""}</p>`;
   }
-  const legend = `<div class="cr-legend" aria-label="Legend">${[0, 1, 2, 3, 4].map(i => `<span class="lg"><span class="cr-sw cr-d lv${i}" style="min-height:0;padding:0"></span>${LV_WORD[i]}</span>`).join("")}<span class="lg"><i class="mk" style="font-style:normal;font-weight:800">E</i> exam</span><span class="lg"><i style="font-style:normal;font-weight:800">Q</i> quiz</span><span class="lg"><i style="font-style:normal;font-weight:800">P</i> paper or project</span><span class="lg">number = items due</span></div>`;
+  const legend = `<div class="cr-legend" aria-label="Legend">${[0, 1, 2, 3, 4].map(i => `<span class="lg"><span class="cr-sw cr-d lv${i}" style="min-height:0;padding:0"></span>${LV_WORD[i]}</span>`).join("")}<span class="lg"><i class="mk-ic">${MK.exam}</i> exam</span><span class="lg"><i class="mk-ic">${MK.quiz}</i> quiz</span><span class="lg"><i class="mk-ic">${MK.paper}</i> paper or project</span><span class="lg">number = items due</span></div>`;
   const shownDays = new Set(); (ui.crAll ? m.weeks : m.weeks.filter(W => !W.past).slice(0, 6)).forEach(W => W.days.forEach(d => shownDays.add(d)));
   const focusDate = ui.crFocus && shownDays.has(ui.crFocus) && m.days.some(d => d.date === ui.crFocus && !d.past) ? ui.crFocus : today;
   const dow = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
