@@ -43,7 +43,7 @@
   color-scheme:dark;
 }
 *,*::before,*::after{box-sizing:inherit}
-html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px);scrollbar-gutter:stable}
 body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:1rem/1.5 var(--body);-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
@@ -55440,19 +55440,53 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const E = ui.em = ui.em || {list: null, loading: false, err: "", open: null, thread: null, tLoading: false, draft: "", ask: "", sending: false, drafting: false};
   const canvas = () => { try { const L = window.SBLMS && SBLMS.canvas; const c = L && L.cfg(); return L && c && c.mode === "api" && c.host ? c : null; } catch (e) { return null; } };
   const hasDesk = () => !!(DESK && DESK.lms && DESK.lms.mail);
+  // Two ways in. The desktop app uses your school sign-in. Anywhere else (the website, a phone) uses a Canvas access token you make in
+  // Canvas (Account, Settings, New Access Token), kept on this device only and never synced. Tokens go straight to your school's Canvas.
+  const TK = "studyboard:cvmail";
+  const tok = () => { try { const t = JSON.parse(localStorage.getItem(TK) || "null"); return t && t.host && t.token ? t : null; } catch (e) { return null; } };
+  const via = () => (canvas() && hasDesk() ? {kind: "desk", host: canvas().host} : tok() ? {kind: "token", host: tok().host, token: tok().token} : null);
+  const cleanT = (x, n) => String(x == null ? "" : x).replace(/\r/g, "").trim().slice(0, n);
+  async function webMail(host, token, q){
+    const hdr = {Accept: "application/json", Authorization: "Bearer " + token};
+    const parse = async r => { const t = await r.text(); try { return JSON.parse(t.replace(/^while\(1\);/, "")); } catch (e) { return null; } };
+    const bad = r => (r.status === 401 || r.status === 403) ? {needLogin: true, token: true} : {error: "HTTP " + r.status};
+    const get = p => fetch(host + p, {headers: hdr});
+    try {
+      if (q.op === "list") {
+        const r = await get("/api/v1/conversations?scope=inbox&per_page=30"); if (!r.ok) return bad(r);
+        const a = await parse(r);
+        return {ok: true, items: (Array.isArray(a) ? a : []).map(c => ({id: String(c.id), subject: cleanT(c.subject, 160) || "(No subject)", preview: cleanT(c.last_message || c.last_authored_message, 200), at: c.last_message_at || c.last_authored_message_at || "", count: Number(c.message_count) || 0, unread: c.workflow_state === "unread", course: cleanT(c.context_name, 80), names: (c.participants || []).slice(0, 4).map(x => cleanT(x.name, 60))}))};
+      }
+      if (q.op === "get") {
+        const [r, me] = await Promise.all([get("/api/v1/conversations/" + q.id + "?auto_mark_as_read=true"), get("/api/v1/users/self")]);
+        if (!r.ok) return bad(r);
+        const c = await parse(r), u = me.ok ? await parse(me) : null; if (!c) return {error: "empty"};
+        const who = {}; (c.participants || []).forEach(x => { who[x.id] = x.name; });
+        return {ok: true, subject: cleanT(c.subject, 160) || "(No subject)", course: cleanT(c.context_name, 80), names: (c.participants || []).map(x => cleanT(x.name, 60)).filter(Boolean).slice(0, 8),
+          messages: (c.messages || []).slice().reverse().map(m => ({id: String(m.id), from: cleanT(who[m.author_id], 60) || "Someone", mine: !!u && m.author_id === u.id, at: m.created_at || "", body: cleanT(m.body, 6000), files: (m.attachments || []).length}))};
+      }
+      if (q.op === "send") {
+        const r = await fetch(host + "/api/v1/conversations/" + q.id + "/add_message", {method: "POST", headers: Object.assign({"Content-Type": "application/x-www-form-urlencoded"}, hdr), body: "body=" + encodeURIComponent(q.body)});
+        return r.ok ? {ok: true} : bad(r);
+      }
+      if (q.op === "check") { const r = await get("/api/v1/users/self"); if (!r.ok) return bad(r); const u = await parse(r); return {ok: true, name: cleanT(u && u.name, 80)}; }
+    } catch (e) { return {error: "network"}; }
+    return {error: "bad-request"};
+  }
+  const mailCall = spec => { const v = via(); if (!v) return Promise.resolve({error: "none"}); return v.kind === "desk" ? DESK.lms.mail("canvas", v.host, spec) : webMail(v.host, v.token, spec); };
   const when = iso => { const d = new Date(iso); if (isNaN(d)) return ""; const days = Math.floor((Date.now() - d.getTime()) / 864e5); return days <= 0 ? d.toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"}) : days < 7 ? d.toLocaleDateString(undefined, {weekday: "short"}) : d.toLocaleDateString(undefined, {month: "short", day: "numeric"}); };
   const whenLong = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleString(undefined, {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}); };
-  const errText = r => !r ? "Couldn't reach your school site." : r.needLogin ? "Your school sign-in has expired. Sign in again under Settings, School Sites." : r.error === "unsupported" ? "This school site can't be read for messages." : "Something went wrong (" + String(r.error || "unknown").slice(0, 60) + "). Try again.";
+  const errText = r => !r ? "Couldn't reach your school site." : r.error === "network" ? "Your school's Canvas didn't answer. It may not allow access from here, or you may be offline." : r.needLogin && r.token ? "Canvas didn't accept your access token. It may have expired or been removed. Disconnect and add a new one." : r.needLogin ? "Your school sign-in has expired. Sign in again under Settings, School Sites." : r.error === "unsupported" ? "This school site can't be read for messages." : "Something went wrong (" + String(r.error || "unknown").slice(0, 60) + "). Try again.";
   async function load(){
-    const c = canvas(); if (!c || !hasDesk()) return;
+    if (!via()) return;
     E.loading = true; E.err = ""; if (ui.tab === "emails") render();
-    try { const r = await DESK.lms.mail("canvas", c.host, {op: "list"}); if (r && r.ok) E.list = r.items; else E.err = errText(r); } catch (e) { E.err = errText(null); }
+    try { const r = await mailCall({op: "list"}); if (r && r.ok) E.list = r.items; else E.err = errText(r); } catch (e) { E.err = errText(null); }
     E.loading = false; if (ui.tab === "emails") render();
   }
   async function openThread(id){
-    const c = canvas(); if (!c) return;
+    if (!via()) return;
     E.open = id; E.thread = null; E.tLoading = true; E.draft = ""; E.ask = ""; E.err = ""; render();
-    try { const r = await DESK.lms.mail("canvas", c.host, {op: "get", id}); if (r && r.ok) { E.thread = r; const it = (E.list || []).find(x => x.id === id); if (it) it.unread = false; } else E.err = errText(r); } catch (e) { E.err = errText(null); }
+    try { const r = await mailCall({op: "get", id}); if (r && r.ok) { E.thread = r; const it = (E.list || []).find(x => x.id === id); if (it) it.unread = false; } else E.err = errText(r); } catch (e) { E.err = errText(null); }
     E.tLoading = false; if (ui.tab === "emails") render();
   }
   const threadText = () => (E.thread ? E.thread.messages.slice(-8).map(m => `${m.mine ? "Me" : m.from} (${whenLong(m.at)}): ${m.body}`).join("\n\n") : "");
@@ -55471,21 +55505,37 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     E.drafting = false; if (ui.tab === "emails") render();
   }
   async function send(){
-    const c = canvas(), ta = $("#emDraft"); if (!c || !E.open || E.sending) return;
+    const ta = $("#emDraft"); if (!via() || !E.open || E.sending) return;
     E.draft = ta ? ta.value : E.draft; const body = E.draft.trim(); if (!body) { toast("Write a reply first."); return; }
     if (!confirm(`Send this reply to ${(E.thread && E.thread.names.filter(n => n).join(", ")) || "them"} through your school's inbox?`)) return;
     E.sending = true; render();
-    try { const r = await DESK.lms.mail("canvas", c.host, {op: "send", id: E.open, body}); if (r && r.ok) { E.draft = ""; E.ask = ""; toast("Reply sent"); E.sending = false; await openThread(E.open); return; } toast(errText(r)); } catch (e) { toast(errText(null)); }
+    try { const r = await mailCall({op: "send", id: E.open, body}); if (r && r.ok) { E.draft = ""; E.ask = ""; toast("Reply sent"); E.sending = false; await openThread(E.open); return; } toast(errText(r)); } catch (e) { toast(errText(null)); }
     E.sending = false; if (ui.tab === "emails") render();
   }
-  function note(){ return `<p class="mini em-note">Reads and answers your Canvas inbox with your school sign-in. Brightspace and Blackboard don't let apps read their messages, so those inboxes stay on your school's site.</p>`; }
+  function note(){ return `<p class="mini em-note">Reads and answers your Canvas inbox. Brightspace and Blackboard don't let apps read their messages, so those inboxes stay on your school's site.${tok() && !(canvas() && hasDesk()) ? ` <button type="button" class="link-btn" data-act="em-disconnect">Disconnect Canvas</button>` : ""}</p>`; }
   function gate(){
-    const head = `<div class="view-head"><h2>Emails</h2></div>`;
-    if (!hasDesk()) return `${head}<div class="empty em-empty"><strong>Emails Need the Desktop App</strong>Your school's inbox can only be read with your school sign-in, which the Studyboard desktop app holds. Open Studyboard on your computer and connect Canvas under Settings, School Sites.${note()}</div>`;
-    return `${head}<div class="empty em-empty"><strong>Connect Canvas to See Your Emails</strong>Sign in to your school's Canvas under Settings, School Sites, and your inbox shows up here. You can read messages and answer them without leaving Studyboard.<div style="margin-top:12px"><button class="btn primary" data-act="lms-open">Connect a School Site</button></div>${note()}</div>`;
+    const head = `<div class="view-head"><h2>Emails</h2></div>`, c = canvas();
+    return `${head}<div class="empty em-empty" style="text-align:left"><strong>Connect Canvas to See Your Emails</strong>
+      ${hasDesk() ? `In the desktop app, sign in to Canvas under Settings, School Sites and your inbox appears here. <button class="btn small" data-act="lms-open">Connect a School Site</button><br><br>Or use an access token, which also works on the website:` : `On the website, use a Canvas access token. In Canvas, open Account, Settings, then New Access Token, and paste it here.`}
+      <form class="em-conn" data-em-conn><label class="f"><span class="lh">Your Canvas address</span><input type="text" name="host" placeholder="school.instructure.com" value="${esc(c ? c.host.replace(/^https?:\/\//, "") : "")}" autocomplete="off" required data-noenter></label>
+        <label class="f"><span class="lh">Access token</span><input type="password" name="token" autocomplete="off" required data-noenter></label>
+        <p class="mini" style="margin:0">The token stays on this device only, is never synced, and goes straight to your school's Canvas. Some schools switch token creation off. If yours has, use the desktop app.</p>
+        <button type="submit" class="btn primary" ${E.connecting ? "disabled" : ""}>${E.connecting ? "Checking…" : "Connect"}</button></form>
+      ${E.err ? `<p class="mini em-err">${esc(E.err)}</p>` : ""}${note()}</div>`;
+  }
+  async function connect(form){
+    const fd = new FormData(form); let host = String(fd.get("host") || "").trim(), token = String(fd.get("token") || "").trim();
+    if (!host || !token) return;
+    try { const u = new URL(/^https?:\/\//i.test(host) ? host : "https://" + host); if (u.protocol !== "https:") throw 0; host = u.origin; } catch (e) { E.err = "That doesn't look like a Canvas address."; render(); return; }
+    E.connecting = true; E.err = ""; render();
+    const r = await webMail(host, token, {op: "check"});
+    E.connecting = false;
+    if (r && r.ok) { try { localStorage.setItem(TK, JSON.stringify({host, token})); } catch (e) {} E.list = null; toast("Canvas connected" + (r.name ? ": " + r.name : "")); }
+    else E.err = errText(r);
+    render();
   }
   function viewEmails(){
-    if (!canvas() || !hasDesk()) return gate();
+    if (!via()) return gate();
     if (E.list === null && !E.loading && !E.err) setTimeout(load, 0);
     if (E.open) {
       const t = E.thread, who = t ? t.names.filter(Boolean).join(", ") : "";
@@ -55511,10 +55561,12 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       case "em-back": E.open = null; E.thread = null; E.err = ""; render(); return true;
       case "em-refresh": load(); return true;
       case "em-draft": draft(); return true;
+      case "em-disconnect": try { localStorage.removeItem(TK); } catch (e) {} E.list = null; E.open = null; E.thread = null; E.err = ""; render(); return true;
       case "em-send": send(); return true;
     }
     return false;
   });
+  document.addEventListener("submit", e => { const f = e.target.closest && e.target.closest("[data-em-conn]"); if (!f) return; e.preventDefault(); connect(f); });
   document.addEventListener("input", e => { if (e.target.id === "emDraft") E.draft = e.target.value; else if (e.target.id === "emAsk") E.ask = e.target.value; });
   const st = document.createElement("style");
   st.textContent = `.em-list{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px}
@@ -55532,7 +55584,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
 .em-body{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.95rem}
 .em-reply{display:grid;gap:10px;margin-top:14px}
 .em-ai{display:flex;gap:8px;align-items:center}.em-ai input{flex:1;min-width:0}
-.em-reply textarea{min-height:130px}`;
+.em-reply textarea{min-height:130px}
+.em-conn{display:grid;gap:10px;margin-top:10px;max-width:420px}`;
   document.head.appendChild(st);
 })();
 
