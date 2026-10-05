@@ -26177,7 +26177,7 @@ function m1_calm(eng, slow) { var tw = 0, k = slow, mom = 0; return {
   step: function (dt, t, f) { var want = mom > 0 ? 1 : slow; k += (want - k) * Math.min(1, dt * 1.5); mom -= dt; tw += dt * k; eng.step(dt * k, tw, f); },
   draw: function (ca, cb, t, f) { eng.draw(ca, cb, tw, f); },
   finish: function (t) { mom = 6.2; k = Math.max(k, 0.8); eng.finish(tw); },
-  stat: eng.stat, set hosted(v) { eng.hosted = v; }   // an engine's unchanging decor, painted once by the host (see build())
+  get uses() { return eng.uses; }, stat: eng.stat, set hosted(v) { eng.hosted = v; }   // an engine's unchanging decor, painted once by the host (see build())
 }; }
 var m1_K = function () { return Math.min(2, Math.max(1.5, window.devicePixelRatio || 1)); };
 
@@ -26609,12 +26609,16 @@ ENGINES.nursing = function (A, v, dk) {
     for (var i = 1; i < hp.length; i++) Ls.push(Ls[i - 1] + Math.hypot(hp[i][0] - hp[i - 1][0], hp[i][1] - hp[i - 1][1])); })();
   var heartP = new Path2D(poly(m1_heartPts(hcx, yb - 17 * k, k, 60)));
   var clouds = dk ? [] : [0, 1, 2].map(function (i) { return {x: wr[0] + ww * (0.15 + i * 0.33), y: wr[1] + wh * (0.12 + 0.1 * (i % 2)), s: 0.8 + i * 0.15, v: 3 + i}; });
-  var plane = null, nextPlane = 6;
+  var plane = null, nextPlane = 6, skyNow = false;   // step() flips it first
   function cloud(c, x, y, s) { c.beginPath(); c.ellipse(x, y, 70 * s, 14 * s, 0, 0, 7); c.ellipse(x + 26 * s, y - 9 * s, 34 * s, 15 * s, 0, 0, 7); c.ellipse(x - 22 * s, y - 5 * s, 26 * s, 11 * s, 0, 0, 7); c.fill(); }
   function strokePart(c, a, b, w, col) { c.beginPath(); c.moveTo(hp[a][0], hp[a][1]); for (var i = a + 1; i <= b; i++) c.lineTo(hp[i][0], hp[i][1]); c.lineWidth = w; c.strokeStyle = col; c.stroke(); }
   return {
     stat: life.stat, set hosted(v) { life.hosted = v; },
+    // The sky canvas (moon, stars, clouds, window lights) changes slowly, so it is cleared and redrawn on every other frame only;
+    // the host leaves a canvas alone on frames where "uses" doesn't name it.
+    get uses() { return skyNow ? "ab" : "b"; },
     step: function (dt, t, f) {
+      skyNow = !skyNow;
       life.step(dt, t, f);
       if (dk) { nextW -= dt * f.s; if (nextW <= 0 && wins.length) { nextW = 0.6 + Math.random() * 0.9; var i = Math.floor(Math.random() * wins.length); if (!fades.some(function (q) { return q.i === i; })) fades.push({i: i, t0: t, to: wins[i][2] ? 0 : 1}); } }
       fades = fades.filter(function (q) { if (t - q.t0 > 1.4) { wins[q.i][2] = q.to; return false; } return true; });
@@ -26627,12 +26631,14 @@ ENGINES.nursing = function (A, v, dk) {
     draw: function (ca, cb, t, f) {
       var i;
       // sky: moon glow, twinkling stars, clouds, a passing plane
+      if (skyNow) {
       if (A.moon) { m1_glowAt(ca, moonG, A.moon[0], A.moon[1], 100, 1); }
       if (A.stars) for (i = 0; i < A.stars.length; i += 3) { var s = A.stars[i], tw = Math.pow(0.5 + 0.5 * Math.sin(t * 1.1 * f.s + i * 1.7), 3); if (tw > 0.05) m1_glowAt(ca, starG, s[0], s[1], 2 + s[2] * 3, tw * 0.8); }
       ca.fillStyle = 'rgba(255,236,230,0.6)'; clouds.forEach(function (c) { cloud(ca, c.x, c.y, c.s); });
       if (plane) { ca.strokeStyle = dk ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.7)'; ca.lineWidth = 1.4; ca.beginPath(); ca.moveTo(plane.x - 60, plane.y + 3); ca.lineTo(plane.x - 4, plane.y); ca.stroke(); ca.fillStyle = 'rgba(255,255,255,0.9)'; ca.beginPath(); ca.arc(plane.x, plane.y, 1.4, 0, 7); ca.fill(); if (dk && Math.sin(t * 2) > 0.7) { ca.fillStyle = 'rgba(255,120,110,0.9)'; ca.beginPath(); ca.arc(plane.x - 4, plane.y + 1, 1.5, 0, 7); ca.fill(); } }
       life.drawA(ca, t, f);
       fades.forEach(function (q) { var w = wins[q.i], kk = m1_ease((t - q.t0) / 1.4); ca.globalAlpha = kk; ca.fillStyle = A.winC[q.to]; ca.fillRect(w[0], w[1], 4, 5); }); ca.globalAlpha = 1;
+      }
       life.drawB(cb, t, f);
       // monitor trace
       var head = (t * spd * f.s) % (S.w - 12), gap = 16, x0 = S.x + 6, y0 = S.y + S.h * 0.6, n = ecg.length, hi = Math.min(n - 1, Math.round(head / 2)), gi = Math.min(n - 1, Math.round((head + gap) / 2)), lowA = 1 - 0.8 * head / (S.w - 12);
