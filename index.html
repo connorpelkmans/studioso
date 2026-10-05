@@ -24,7 +24,7 @@
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);
   padding-bottom:env(safe-area-inset-bottom,0px);
-  --bg:#F3F5F8; --surface:#FFFFFF; --ink:#1C2433; --muted:#636E83; --line:#DFE3EA;
+  --bg:#E9ECF1; --surface:#F4F6FA; --ink:#1C2433; --muted:#636E83; --line:#DFE3EA;
   --accent:#2C55D6; --accent-ink:#FFFFFF; --mark:#FFE14D; --late:#C8352E; --soft:#EEF1F6;
   --display:"Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
   --body:"Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -206,6 +206,7 @@ li.task>.lms-go{align-self:center;margin-right:12px}
 .tl{position:relative}
 .tl-bg{position:absolute;top:0;bottom:0;pointer-events:none;z-index:0}
 .tl-bg .we{position:absolute;top:0;bottom:0;background:var(--soft)}
+.tl-bg-top{z-index:2}
 .tl-bg .today-line{position:absolute;top:58px;bottom:0;width:2px;background:var(--late)}
 .tl-row{display:flex;position:relative;z-index:1;height:46px;border-top:1px solid var(--line)}
 .tl-headrow{height:30px;border-top:0}
@@ -3858,7 +3859,7 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-tile.on{border:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 9%,var(--surface));box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 16%,transparent),0 6px 18px color-mix(in srgb,var(--accent) 18%,transparent)}
 .cp-tile.on::after{content:"✓";position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font:700 .78rem/22px var(--display,inherit);text-align:center;box-shadow:0 2px 6px color-mix(in srgb,var(--accent) 40%,transparent)}
 .cp-chosen{display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:999px;background:var(--accent);color:#fff;font-weight:700;font-size:.85rem}
-.cp-tile .mini{margin:0;min-height:2.6em}
+.cp-tile .cp-bio{margin:0;font-size:.92rem;line-height:1.35;color:var(--ink);opacity:.85;min-height:2.7em}
 .cp-tile .btn{margin-top:4px}
 .cp-tile-t{display:flex;align-items:center;gap:6px;font:700 1rem var(--display)}
 .cp-kind{font:600 .78rem var(--display);color:var(--muted)}
@@ -3907,7 +3908,7 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
   .cp-tiles{grid-template-columns:1fr}
   .cp-tile{grid-template-columns:92px 1fr;justify-items:start;text-align:left;column-gap:12px}
   .cp-tile .cp-prev{grid-row:1/span 5}
-  .cp-tile .mini{min-height:0}
+  .cp-tile .cp-bio{min-height:0}
 }
 /* Preview tool gallery */
 #cpGallery{position:absolute;left:0;top:0;right:0;z-index:50;background:#F4F1EA;padding:18px 22px;font:14px/1.4 system-ui,sans-serif;color:#222}
@@ -10260,7 +10261,7 @@ function shopUnlock(kind, id){ toast("This item is part of Studyboard Pro."); }
 /* The shop */
 const PRO_BADGE = `<span class="pro-badge">PRO</span>`, FREE_BADGE = `<span class="free-badge">Free</span>`;
 function skinPreview(s, dark){
-  const vars = s.light ? skinVars(s, dark) : dark ? "--paper:#0A1428;--grid:rgba(96,160,255,.07);--surface:#111E38;--ink:#E7EEFA;--muted:#93A3C2;--line:#22355C;--accent:#5B9DFF;--accent-ink:#071430;--spine:#060F24;--spine-ink:#A9BADC;--mark:#8C7713;--soft:#172848" : "--paper:#F2F5FA;--grid:rgba(57,136,254,.09);--surface:#FFFFFF;--ink:#0F1F3D;--muted:#5A6A86;--line:#D9E2EF;--accent:#1F6FEB;--accent-ink:#FFFFFF;--spine:#0E2A56;--spine-ink:#C9D7F2;--mark:#FFE45C;--soft:#EAF0F8";
+  const vars = s.light ? skinVars(s, dark) : dark ? "--paper:#0A1428;--grid:rgba(96,160,255,.07);--surface:#111E38;--ink:#E7EEFA;--muted:#93A3C2;--line:#22355C;--accent:#5B9DFF;--accent-ink:#071430;--spine:#060F24;--spine-ink:#A9BADC;--mark:#8C7713;--soft:#172848" : "--paper:#E6EBF3;--grid:rgba(57,136,254,.09);--surface:#F4F6FA;--ink:#0F1F3D;--muted:#5A6A86;--line:#D9E2EF;--accent:#1F6FEB;--accent-ink:#FFFFFF;--spine:#0E2A56;--spine-ink:#C9D7F2;--mark:#FFE45C;--soft:#E3EAF4";
   return `<div class="skin-prev" style="${esc(vars)}" aria-hidden="true">${artThumb(s.id, dark)}<span class="sp-spine"><i></i><i></i><i></i></span><span class="sp-main"><span class="sp-card"><b></b><em></em></span><span class="sp-card sm"><b></b></span><span class="sp-btn"></span></span><span class="sp-mode">${dark ? "Dark" : "Light"}</span></div>`;
 }
 function noteDemo(shape, pin, i, stk){
@@ -11355,7 +11356,6 @@ function viewBars(mode){
     if (dw >= 20) dayh += `<span class="tl-d ${k === today ? "is-today" : ""}" style="left:${i*dw}px;width:${dw}px"><b>${d.getDate()}</b></span>`;
     else if (wd === 1) dayh += `<span class="tl-d" style="left:${i*dw}px;width:${dw*7}px;justify-content:flex-start;padding-left:4px">${d.getDate()}</span>`;
   }
-  bg += `<i class="today-line" style="left:${x(today) + dw/2 - 1}px"></i>`;
   const groups = coursesArr().map(c => ({c, list: ts.filter(t => t.courseId === c.id)}));
   groups.push({c: null, list: ts.filter(t => !courseOf(t.courseId))});
   let rows = "";
@@ -11380,7 +11380,7 @@ function viewBars(mode){
   if (!ts.length) return head + chipsHtml() + searchNote() + `<div class="empty" style="margin-top:14px"><strong>Nothing to Show Yet</strong>Tasks appear here once they have a due date. Each one gets an icon on its due date.${noDue ? `<br>${noDue} task${noDue === 1 ? " has" : "s have"} no due date.` : ""}</div>`;
   return head + chipsHtml() + searchNote() + `<div class="tl-scroll" data-today="${x(today)}" data-dw="${dw}">
       <div class="tl" style="width:${LW + W}px" data-lw="${LW}">
-        <div class="tl-bg" style="left:${LW}px;width:${W}px">${bg}</div>
+        <div class="tl-bg" style="left:${LW}px;width:${W}px">${bg}</div><div class="tl-bg tl-bg-top" style="left:${LW}px;width:${W}px"><i class="today-line" style="left:${x(today) + dw/2 - 1}px"></i></div>
         <div class="tl-row tl-headrow"><div class="tl-label" style="width:${LW}px"></div><div class="tl-track" style="width:${W}px">${months}</div></div>
         <div class="tl-row tl-headrow"><div class="tl-label" style="width:${LW}px"></div><div class="tl-track" style="width:${W}px">${dayh}</div></div>
         ${rows}
@@ -49561,7 +49561,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "koi-koi", name: "Koko", kind: "Baby Koi", pose: "float", wearColor: "#2E8C80",
-        bio: "A round baby koi who swims happy circles around your notes.",
+        bio: "A baby koi who swims happy circles around your notes.",
         idle: ["tailSwish", "finWiggle", "topBob"], cheer: "spin",
         parts: {
           back: `<circle cx="60" cy="64" r="41" fill="#E6F6F3" fill-opacity=".55" stroke="#FFFFFF" stroke-width="2.4" stroke-opacity=".9"/>
@@ -55003,8 +55003,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       return `<div class="cp-tile${on ? " on" : ""}${locked ? " locked" : ""}" data-id="${esc(x.id)}" aria-current="${on ? "true" : "false"}">
         ${previewHtml(x, on ? wearOf(x) : "", 92)}
         <div class="cp-tile-t"><b>${esc(on ? nameOf(x) : (cfg().names || {})[x.id] || x.name)}</b>${compTier(x) === "pro" ? PRO_BADGE : FREE_BADGE}</div>
-        <div class="cp-kind">${esc(x.kind || "")}</div>
-        <p class="mini">${esc(x.bio || "")}</p>
+        <p class="cp-bio">${esc(x.bio || "")}</p>
         ${locked ? `<button type="button" class="btn small" data-act="comp-pick" data-slot="${i}">🔒 Go Pro</button>` : on ? `<span class="cp-chosen" role="status">✓ ${want !== i && !canSlot(want) ? "In Use" : "Chosen"}</span>` : `<button type="button" class="btn small primary" data-act="comp-pick" data-slot="${i}">Choose</button>`}
       </div>`;
     }).join("");
@@ -55566,7 +55565,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   function view(){
     const me = info(), tab = ["chat", "history", "manage"].includes(T.tab) ? T.tab : "chat";
     const area = window.SBAREA ? SBAREA.label() : "";
-    const head = me ? `<div class="cpt-head">${SBCOMP.tab.faceHtml(104)}<div class="cpt-id"><h2>${esc(me.name)}</h2><span class="mini">${esc(me.kind ? "A " + me.kind.toLowerCase() : "Study companion")}${area ? " · studying with you: " + esc(area) : ""}</span>${me.bio ? `<p class="mini">${esc(me.bio)}</p>` : ""}</div>
+    const head = me ? `<div class="cpt-head">${SBCOMP.tab.faceHtml(104)}<div class="cpt-id"><h2>${esc(me.name)}</h2>${me.bio ? `<p class="cpt-bio">${esc(me.bio)}</p>` : `<span class="mini">Study companion</span>`}${area ? `<span class="mini">Studying with you: ${esc(area)}</span>` : ""}</div>
         <div class="cpt-hbtn"><button type="button" class="btn small" data-act="cpt-tab" data-id="manage">Change or Dress Up</button></div></div>`
       : `<div class="cpt-head"><div class="cpt-id"><h2>Companion</h2><p class="mini">Your companion is turned off. Turn it on to chat and to see it beside the Add Task button.</p></div><div class="cpt-hbtn"><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on"> On</label></div></div>`;
     const tabs = `<div class="bview-tabs cpt-tabs" role="tablist" aria-label="Companion">${[["chat", "Chat"], ["history", "History"], ["manage", "Manage"]].map(([k, l]) => `<button type="button" role="tab" data-act="cpt-tab" data-id="${k}" aria-selected="${tab === k}">${l}</button>`).join("")}</div>`;
@@ -55631,6 +55630,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
 .cpt-id{flex:1 1 220px;min-width:0;display:grid;gap:3px}
 .cpt-id h2{margin:0;font:800 1.35rem var(--display)}
 .cpt-id p{margin:0}
+.cpt-bio{font-size:1rem;line-height:1.4;color:var(--ink);opacity:.85}
 .cpt-tabs{max-width:none}
 .cpt-pane{display:grid;gap:10px}
 .cpt-log{display:grid;gap:10px;align-content:start;min-height:260px;max-height:min(56vh,560px);overflow:auto;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
