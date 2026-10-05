@@ -105,3 +105,49 @@ The core product is well built. Output escaping is careful (all 168 HTML sinks w
 3. **Before desktop releases:** sign and notarize (Mac), Authenticode (Windows), fix the MAS CI and the data folder, publish only signed builds, fix the `openSafely` order and the `.partial` symlink.
 4. **Before store submission:** generate the Capacitor iOS and Android projects, set `targetSdk 36`, compile and device-test the native code, implement native push (APNs/FCM) or drop the reminder promise and the entitlement, hide web-only install and widget text in native builds, configure RevenueCat for both stores, add a confirm step to the Android share receiver, and remove AppFunctions.
 5. **Then:** performance work (lazy-load decoration, split JS for caching), the Low items, and docs consolidation.
+
+---
+
+## 8. Remediation status (2026-10-05, same day)
+
+Every finding above was worked through. Verification on the final tree:
+
+- `npm run lint`: 0 errors.
+- `npm test`: 23/23 unit files pass.
+- `npm run test:e2e`: 18/18 browser suites pass.
+- `npm run test:slow`: the mascot suite passes.
+- `node scripts/csp.js --check` and `node scripts/build-site.js --check` both pass.
+- `npm audit`: 0 vulnerabilities.
+- The SQL was loaded into PostgreSQL 16 and the self-tests pass: delete 49, plans 366, capture 70, sync-conflicts.
+
+| # | Status | Fix |
+|---|---|---|
+| B1 | Fixed | `puff()` declares `const S`. ESLint `no-undef` over the inline script now runs in `npm run lint`. |
+| B2 | Fixed | `lms.js` `harvestScript()` injects `htmlText` and its constants with each harvest. `tests/lms-harvest.test.js` runs the real injected string in an empty VM. |
+| B3 | Fixed | `join_group` enforces the lookup limit on every call. New codes are 10 characters (about 49 bits) without modulo bias; old 6-character codes still work in the app. |
+| B4 | Fixed | `normNote()` coerces every field that reaches a `style` attribute. The web CSP is now hash-based (`scripts/csp.js`), so injected handlers are blocked. |
+| B5 | Fixed | pdfjs-dist 6.4.299, re-vendored, with `tests/pdf-import.e2e.js`. CI runs `npm audit --audit-level=high`. |
+| B6 | Fixed | Shares always open the confirm sheet. |
+| B7 | Fixed | Bug reports: per-account limits, no anonymous screenshots, smaller caps, a 30/180-day purge. |
+| B8 | Fixed | Push-host allowlist, 10 devices per account, `reminder_queue` written only through RPCs, and the cron call needs a Vault secret. |
+| B9 | Fixed | The SQL delete fallback requires a recent sign-in and refuses while a card plan renews; the app pre-checks before deleting files. |
+| §3 iOS/Android | Fixed in code; device build left to the owner | **Push:** native APNs/FCM in `native-bridge.js` and `send-reminders`, wired into the reminders module. **Native builds:** web-only text is hidden; Buy/Restore are hidden when no RevenueCat key is set; Google Play renewal wording on Android. **Wrapper sources:** `targetSdk 36`, a confirm dialog on the Android share receiver, an idempotent capture outbox, a tolerant Swift decoding and keychain-group fix, `StudyboardSecrets` (Keychain/Keystore) for AI keys, and an `assetlinks` template. |
+| §4 Desktop | Fixed | **App:** bundles are never launched; symlink-safe writes; the MAS folder prompt and safe folder switch; LAN/redirect-safe feeds; the sign-in window shows its host; school-page data is validated; `MAX_WRITE` is 512 MiB. **Signing and release:** DMG notarization and stapling; Windows signing config; signed-only releases. **CI:** `contents: read` permissions, SHA-pinned actions, and a fixed MAS check. |
+| §5 Low | Fixed | **lms-feed:** DNS and private-range checks on every hop, a streaming size cap, generic errors, an in-function JWT check, and the limiter refuses when it can't check. **Calendar feed:** hashed tokens and cleaned ICS output. **Reminders:** a send secret. **Trial:** reuse blocked by a hashed-email record. **error-ingest:** byte cap and a row ceiling. **CSP:** hashes; `connect-src https:` stays because school (Canvas) hosts are arbitrary. **AI keys:** keychain on mobile. |
+| §6 Quality | Fixed | **Tests and CI:** `npm test`, `test:e2e`, `test:slow`, `lint`, `.github/workflows/tests.yml`; flaky remotex fixed; stale UI tests updated; function tests for calendar-feed, lms-feed and send-reminders. **Repo:** edge functions moved to `supabase-functions/<name>/` with `supabase/config.toml`; `scripts/build-site.js` builds the deployable `site/`; stray `download` file removed. |
+
+**Deliberately not changed, and why:**
+
+- **Sign-out data:** on the owner's instruction, sign-out keeps the device-only note history, chats, the Canvas token and similar data.
+- **First-load size:** lazy-loading the 1.6 MB scene library saves about 200 ms of CPU on a 4× throttled phone. It would mean reworking theme registration and drawing, and scene-theme users would see a plain background flash at startup. Skipped to keep the look intact.
+- **Duplicate installer images:** electron-builder references them by name.
+- **Docs:** no folder reshuffle; the cross-references would break.
+- **jsDelivr in `script-src`:** kept for the SRI-pinned supabase-js fallback.
+
+**Owner steps that remain:**
+
+- `npm run check:release` lists every placeholder still to fill in: legal identity, support email, domain, Supabase and website config, `ENT_PUBKEY`, RevenueCat keys, Apple Team ID, provisioning profiles and signing certificates.
+- Delete `android-wrapper/.../StudyboardAppFunctions.kt` and `StudyboardApplication.kt`. They are unreferenced; the agent's delete was blocked by a permission check.
+- Generate the Capacitor projects and device-test them. Add the APNs key and `google-services.json`, then set `PUSH_READY.android`.
+- Have the legal text reviewed.
+- Re-run the changed SQL files and redeploy the functions in the order given in SETUP-GUIDE.
