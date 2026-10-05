@@ -4377,6 +4377,14 @@ html[data-hc="1"].sc-on{--scrim:96%}
 nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sync{display:block;text-align:center;text-overflow:ellipsis}
 nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sync::before{display:inline-block;margin:0 5px 0 0;vertical-align:middle}
 @media (forced-colors:active){#sceneArt,.confetti,#sbFlash{display:none!important}}
+/* Optical centring of button labels: the fonts' ascent is taller than the descent, so a label with no descenders ("New Deck", "Add")
+   sat about 1px above the middle. 0.8px more padding on top than at the bottom moves the label down by 0.8px. */
+.btn{padding-top:10.8px;padding-bottom:9.2px}
+.btn.small,.segb button,.ann-tab,.ai-chip,.av-chip{padding-top:6.8px;padding-bottom:5.2px}
+.btn.big{padding-top:14.8px;padding-bottom:13.2px}
+.pview-tabs button{padding-top:10.8px;padding-bottom:9.2px}
+.fab{padding-top:14.8px;padding-bottom:13.2px}
+.plan-sheet .sheet-foot .btn{padding-top:10.8px;padding-bottom:9.2px}
 </style>
 </head>
 <body>
@@ -52147,7 +52155,6 @@ var COMP_KIT = (() => {
     {id: "hat", name: "Tiny Hat", hours: 5, free: true, paths: [["streak", 3], ["notes", 3]]},
     {id: "bowtie", name: "Party Bow Tie", free: true, paths: [["ontime", 10], ["early", 4], ["checkins", 7]]},
     {id: "glasses", name: "Round Glasses", hours: 15, paths: [["cards", 150], ["quizzes", 3]]},
-    {id: "backpack", name: "Little Backpack", hours: 30, paths: [["ontime", 25], ["stickers", 5], ["groups", 1]]},
     {id: "medal", name: "Champion Medal", paths: [["quizzes", 6], ["cards", 400], ["prep", 6]]},
     {id: "cape", name: "Hero Cape", paths: [["streak", 7], ["ontime", 50], ["checkins", 21]]},
     {id: "star", name: "Star Badge", hours: 60, paths: [["stickers", 15], ["streak", 14], ["focusWeeks", 4]]},
@@ -52239,13 +52246,13 @@ var COMP_KIT = (() => {
   const ACC_ART = {
     scarf: `<path d="M-21 -5Q0 2 21 -5Q25 0 21 5.5Q0 12 -21 5.5Q-25 0 -21 -5Z" ${WEAR} ${OUT(2.4)}/><path d="M-19 -1.5Q0 5 19 -1.5" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2.2" stroke-linecap="round"/><path d="M6 4L9 21L18 19.5L13 3Z" ${WEAR} ${OUT(2.4)}/><path d="M10.5 14.5L16 13.6" stroke="#fff" stroke-opacity=".55" stroke-width="2" stroke-linecap="round"/><path d="M10 21.4l-.4 2.6M13.4 20.8l-.2 2.6M16.6 20.2l.2 2.6" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/><circle cx="9.5" cy="4" r="4.4" ${WEAR} ${OUT(2.4)}/>`,
     hat: `<path d="M-15 1C-15.5 -14 -8 -20 0 -20S15.5 -14 15 1Z" ${WEAR} ${OUT(2.4)}/><path d="M-6 -16Q-10 -9 -10 -1M5 -17Q9 -9 9 -1" fill="none" stroke="#fff" stroke-opacity=".32" stroke-width="2" stroke-linecap="round"/><rect x="-17" y="-4" width="34" height="8.5" rx="4.2" ${WEAR} ${OUT(2.4)}/><rect x="-15" y="-2.4" width="30" height="5.2" rx="2.6" fill="#fff" opacity=".4"/><circle cx="0" cy="-21" r="5.4" fill="#FFF8F0" ${OUT(2.4)}/><circle cx="-1.6" cy="-22.6" r="1.6" fill="#fff"/>`,
-    backpack: `<rect x="-12" y="-14" width="24" height="29" rx="8" ${WEAR} ${OUT(2.4)}/><path d="M-12 -4Q0 2 12 -4V-6Q12 -14 4 -14H-4Q-12 -14 -12 -6Z" fill="#fff" opacity=".3"/><path d="M-12 -4Q0 2 12 -4" fill="none" ${OUT(2)}/><rect x="-7" y="5" width="14" height="7" rx="3" fill="${INK}" opacity=".16"/><rect x="-2" y="-2.2" width="4" height="5" rx="1.4" fill="#FFD35A" ${OUT(1.4)}/>`,
     star: `<path d="M-5 5L-7 14L-3 12L-1 15L0 6ZM5 5L7 14L3 12L1 15L0 6Z" fill="#FF7A9C" ${OUT(1.6)}/><path d="M0 -8.2L2.4 -3.1L8 -2.5L3.8 1.3L5 6.8L0 4L-5 6.8L-3.8 1.3L-8 -2.5L-2.4 -3.1Z" fill="#FFD35A" ${OUT(1.8)}/><path d="M-1.6 -3.2L0 -6" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>`,
     bowtie: `<path d="M0 0L-16 -9Q-20.5 0 -16 9Z" ${WEAR} ${OUT(2.4)}/><path d="M0 0L16 -9Q20.5 0 16 9Z" ${WEAR} ${OUT(2.4)}/><path d="M-13 -4.5L-6 -1.5M13 -4.5L6 -1.5" stroke="#fff" stroke-opacity=".5" stroke-width="2" stroke-linecap="round"/><rect x="-4.6" y="-5.4" width="9.2" height="10.8" rx="3.6" ${WEAR} ${OUT(2.4)}/><rect x="-2" y="-3.6" width="2.4" height="4" rx="1.2" fill="#fff" opacity=".5"/>`,
-    cape: `<path d="M-15 -14Q0 -7 15 -14L25 25Q0 35 -25 25Z" ${WEAR} ${OUT(2.4)}/><path d="M-9 -8Q-11 8 -15 24M9 -8Q11 8 15 24" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2.2" stroke-linecap="round"/><path d="M-15 -14Q0 -7 15 -14V-11Q0 -4 -15 -11Z" fill="#FFD35A" ${OUT(2)}/><circle cx="-14" cy="-12.5" r="2.4" fill="#FFF8F0" ${OUT(1.4)}/><circle cx="14" cy="-12.5" r="2.4" fill="#FFF8F0" ${OUT(1.4)}/>`,
+    cape: `<path d="M-14 -3Q0 3 14 -3L38 28Q28 34 19 30Q9.5 36 0 31Q-9.5 36 -19 30Q-28 34 -38 28Z" ${WEAR} ${OUT(2.4)}/><path d="M-8 4Q-12 16 -20 27M8 4Q12 16 20 27M0 8V28" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2" stroke-linecap="round"/>`,
+    capeCollar: `<path d="M-14 -3Q0 3 14 -3V0.5Q0 6.5 -14 0.5Z" fill="#FFD35A" ${OUT(2)}/><circle cx="0" cy="4" r="3" fill="#FFF8F0" ${OUT(1.6)}/><circle cx="-0.8" cy="3.2" r="0.9" fill="#fff"/>`,
     medal: `<path d="M-9 -11L-1.5 5H3.5L-4 -11Z" fill="#5A95FF" ${OUT(1.6)}/><path d="M9 -11L1.5 5H-3.5L4 -11Z" fill="#FF7A9C" ${OUT(1.6)}/><circle cx="0" cy="10" r="8.6" fill="#FFD35A" ${OUT(1.9)}/><circle cx="0" cy="10" r="5.6" fill="none" stroke="#E8A317" stroke-width="1.5"/><path d="M0 5.6L1.5 8.6L4.8 9.1L2.4 11.4L3 14.7L0 13.1L-3 14.7L-2.4 11.4L-4.8 9.1L-1.5 8.6Z" fill="#fff" opacity=".9"/><path d="M-5 6Q-3 3.6 0 3.4" stroke="#fff" stroke-width="1.5" stroke-linecap="round" fill="none" opacity=".7"/>`,
     crown: `<path d="M-14 3L-17 -13L-8 -5.5L0 -17L8 -5.5L17 -13L14 3Z" fill="#FFD35A" ${OUT(2.4)}/><rect x="-14.5" y="-1" width="29" height="7" rx="3" fill="#F2B63A" ${OUT(2.2)}/><circle cx="-17" cy="-14" r="2.7" fill="#FF7A9C" ${OUT(1.4)}/><circle cx="0" cy="-18.5" r="3" fill="#5A95FF" ${OUT(1.4)}/><circle cx="17" cy="-14" r="2.7" fill="#FF7A9C" ${OUT(1.4)}/><circle cx="-7" cy="2.6" r="1.5" fill="#fff"/><circle cx="0" cy="2.6" r="1.5" fill="#fff"/><circle cx="7" cy="2.6" r="1.5" fill="#fff"/><path d="M-9 -3L-12 -9" stroke="#fff" stroke-opacity=".6" stroke-width="2" stroke-linecap="round"/>`,
-    beanie: `<path d="M-15 1C-15.5 -14 -8 -19 0 -19S15.5 -14 15 1Z" fill="#E5484D" ${OUT(2.4)}/><path d="M-6 -16Q-10 -9 -10 -1M5 -17Q9 -9 9 -1" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2" stroke-linecap="round"/><path d="M-8 -17L-2 0M2 -18.5L8 0" stroke="#fff" stroke-opacity=".75" stroke-width="3.2" stroke-linecap="round"/><rect x="-17" y="-4" width="34" height="8.5" rx="4.2" fill="#FFF8F0" ${OUT(2.4)}/><circle cx="0" cy="-20.5" r="5.2" fill="#fff" ${OUT(2.4)}/><circle cx="-1.6" cy="-22" r="1.5" fill="#E8F1FF"/>`,
+    beanie: `<path d="M-14.5 1C-16 -13 -9 -19 0 -19S16 -13 14.5 1Z" fill="#E5484D" ${OUT(2.4)}/><path d="M-8 -16Q-11 -9 -10.5 -1M-3 -18.2Q-4.6 -9 -4.2 -1M3 -18.2Q4.6 -9 4.2 -1M8 -16Q11 -9 10.5 -1" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="1.8" stroke-linecap="round"/><path d="M-13.6 -7.5Q0 -4 13.6 -7.5" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="1.2 3.6"/><rect x="-17" y="-3.2" width="34" height="8.4" rx="4.2" fill="#FFF8F0" ${OUT(2.4)}/><path d="M-11.5 -1.6V3.6M-6 -1.6V3.6M-0.5 -1.6V3.6M5 -1.6V3.6M10.5 -1.6V3.6" stroke="#E9D6C4" stroke-width="1.6" stroke-linecap="round"/><circle cx="0" cy="-20.5" r="5.4" fill="#fff" ${OUT(2.4)}/><path d="M-2.8 -21.6Q-1 -24 1.8 -23.6" fill="none" stroke="#DCE7F7" stroke-width="1.5" stroke-linecap="round"/>`,
     cap: `<path d="M-12 -7V1.5Q0 7.5 12 1.5V-7Z" fill="#3A3450" ${OUT(2.4)}/><path d="M-23 -9.5L0 -18L23 -9.5L0 -1Z" fill="#4A4366" ${OUT(2.4)}/><path d="M-14 -11L0 -16" stroke="#fff" stroke-opacity=".3" stroke-width="2" stroke-linecap="round"/><path d="M0 -9.5L15 -7V3" fill="none" stroke="#F2C14E" stroke-width="2" stroke-linecap="round"/><path d="M13 2.5h4l1 6h-6Z" fill="#F2C14E" ${OUT(1.4)}/><circle cx="0" cy="-9.5" r="2" fill="#F2C14E" ${OUT(1.2)}/>`
   };
   function glassesSvg(e){
@@ -52278,14 +52285,18 @@ var COMP_KIT = (() => {
       return `<g class="cp-p cp-${name}"${st ? ` style="${st}"` : ""}${extra || ""}>${inner}</g>`;
     };
     const wear = o.wear || "";
+    // The cape hangs from the shoulders, centred behind the body (the side-offset "back" anchor was made for a backpack)
+    const na = pt(A.neck) ? A.neck : [60, c.neck[1], 1], capeA = [na[0], na[1], f1((num(na[2]) ? na[2] : 1) * 0.95)];
+    const chestA = pt(A.chest) ? [A.chest[0], A.chest[1], f1((num(A.chest[2]) ? A.chest[2] : 1) * 1.3)] : A.chest;   // badges read small at the stored chest scale
+    const capePart = art => wear === "cape" ? `<g class="cp-acc cp-acc-cape">${at(capeA, art)}</g>` : "";
     const acc = (id, a) => wear === id ? `<g class="cp-acc cp-acc-${id}">${at(a, ACC_ART[id])}</g>` : "";
     const hasHead = !!partSvg(P.head);
     const headRot = rot.head ? `;transform:rotate(${rot.head}deg)` : "";
     const hands = pt(A.hands) ? A.hands : [60, 92];
     const face = `${g("face")}${cheeksSvg(c)}${eyesSvg(c.eyes)}${mouthSvg(c)}${wear === "glasses" ? glassesSvg(c.eyes) : ""}`;
     const svg = `<svg class="cp-svg" viewBox="0 0 ${VB} ${VB}" overflow="visible" aria-hidden="true" focusable="false" data-e="${o.eyes || "open"}" data-m="${o.mouth || "neutral"}" data-prop="${o.prop || ""}">
-      <g class="cp-rig">${acc("backpack", A.back)}${acc("cape", A.back)}${g("back")}${g("tail")}${g("wingL")}${g("wingR")}${hasHead ? "" : g("earL") + g("earR")}${g("feet")}
-        <g class="cp-bodyg">${g("body")}${acc("scarf", A.neck)}${acc("bowtie", A.neck)}${acc("star", A.chest)}${acc("medal", A.chest)}<g class="cp-prop">${at([hands[0], hands[1], num(hands[2]) ? hands[2] : 1], BOOK)}</g>${g("armL")}${g("armR")}</g>
+      <g class="cp-rig">${capePart(ACC_ART.cape)}${g("back")}${g("tail")}${g("wingL")}${g("wingR")}${hasHead ? "" : g("earL") + g("earR")}${g("feet")}
+        <g class="cp-bodyg">${g("body")}${capePart(ACC_ART.capeCollar)}${acc("scarf", A.neck)}${acc("bowtie", A.neck)}${acc("star", chestA)}${acc("medal", chestA)}<g class="cp-prop">${at([hands[0], hands[1], num(hands[2]) ? hands[2] : 1], BOOK)}</g>${g("armL")}${g("armR")}</g>
         <g class="cp-headg"${hasHead ? ` style="transform-origin:${c.neck[0]}px ${c.neck[1]}px${headRot}"` : ""}>${hasHead ? g("earL") + g("earR") : ""}${g("head")}${face}${g("top")}${acc("hat", A.top)}${acc("cap", A.top)}${acc("crown", A.top)}${acc("beanie", A.top)}
           <g class="cp-zs"><text x="${f1((c.eyes.rx || 72) + 14)}" y="${f1((c.eyes.y || 60) - 12)}" font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="11" fill="#8C87A8" stroke="#fff" stroke-width="3" paint-order="stroke">z</text><text x="${f1((c.eyes.rx || 72) + 22)}" y="${f1((c.eyes.y || 60) - 22)}" font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="8" fill="#8C87A8" stroke="#fff" stroke-width="2.5" paint-order="stroke">z</text></g>
         </g>
@@ -52332,7 +52343,7 @@ var COMP_KIT = (() => {
   const PROP_ASK = {hours: n => `Focus for ${n} ${n === 1 ? "hour" : "hours"}`, ontime: n => `Finish ${n} tasks on or before their due date`, early: n => `Finish ${n} tasks at least 2 days early`,
     streak: n => `Reach a ${n}-day streak`, cards: n => `Review ${n} flashcards`, quizzes: n => `Pass ${n} practice quizzes (70% or more)`, notes: n => `Write ${n} notes`,
     stickers: n => `Earn ${n} Term Scrapbook stickers`, prep: n => `Finish ${n} study-plan sessions`, checkins: n => `Open Studyboard on ${n} different days`,
-    groups: () => "Join a study group or a Study Together room", focusWeeks: n => `Focus on 4 or more days in ${n} different weeks`, festive: () => "Visit between Dec 1 and Jan 6"};
+    groups: () => "Join a study group or a Study Together room", focusWeeks: n => `Focus for 15+ minutes on 4 or more days in ${n} different ${n === 1 ? "week" : "weeks"}`, festive: () => "Visit between Dec 1 and Jan 6"};
   let pStat = null, pStatAt = 0;
   // Lifetime numbers, cached for a few seconds (the picker and the unlock check ask a lot)
   function propStats(){
@@ -53389,7 +53400,7 @@ var COMP_KIT = (() => {
   // Props can be earned many ways (focus hours, tasks on time, streaks, cards, quizzes, notes, stickers, check-ins, the season...).
   // Whatever is earned is remembered in comp.earned so it is never lost, and the first run quietly records what's already
   // earned (the old focus-hour props, and anything the old "seen" count says was already celebrated).
-  const LEGACY_ACC = ["scarf", "hat", "glasses", "backpack", "star", "cap"];
+  const LEGACY_ACC = ["scarf", "hat", "glasses", "backpack", "star", "cap"];   // order matters (cfg.seen indexes it); "backpack" was retired but keeps its slot
   let lastUnlockChk = 0;
   function checkIn(){
     try {
@@ -54067,7 +54078,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const accTile = a => {
       const got = isEarned(a), can = canWear(a), on = wear === a.id;
       const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id];
-      const icon = `<svg viewBox="-26 -26 52 52" aria-hidden="true">${a.id === "glasses" ? glassesSvg({lx: -11, rx: 11, y: 0, r: 5}) : lift ? `<g transform="translate(0 ${lift})">${ACC_ART[a.id]}</g>` : ACC_ART[a.id]}</svg>`;
+      const icon = `<svg viewBox="-26 -26 52 52" aria-hidden="true">${a.id === "glasses" ? glassesSvg({lx: -11, rx: 11, y: 0, r: 5}) : lift ? `<g transform="translate(0 ${lift})">${ACC_ART[a.id]}</g>` : a.id === "cape" ? `<g transform="translate(0 -8) scale(.85)">${ACC_ART.cape}${ACC_ART.capeCollar}</g>` : ACC_ART[a.id]}</svg>`;
       return `<button type="button" class="cp-acc-tile${on ? " on" : ""}${got ? "" : " off"}" data-act="comp-wear" data-acc="${a.id}" aria-pressed="${on}" ${got ? "" : `aria-disabled="true"`}>
         <span class="cp-acc-ic">${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
     };
