@@ -22,7 +22,12 @@
     "dist:mas-dev": "node prepare.js && electron-builder --mac mas-dev --universal",
     "check:store": "node notarize.js --check mas",
     "check:mas-dev": "node notarize.js --check mas-dev",
-    "check:signed": "node notarize.js --check signed"
+    "check:signed": "node notarize.js --check signed",
+    "test": "node scripts/run-tests.js",
+    "test:e2e": "node scripts/run-tests.js --e2e --no-unit --no-slow",
+    "test:slow": "node scripts/run-tests.js --e2e --no-unit --only-slow",
+    "test:all": "node scripts/run-tests.js --e2e",
+    "lint": "eslint . && node scripts/lint-inline.js"
   },
   "devDependencies": {
     "@electron/notarize": "^3.1.1",
