@@ -45,7 +45,12 @@ const AI_STAGES = {kind: "paper", stages: [
   const toastOf = page => page.evaluate(() => { const t = document.querySelector("#toast"); return t.classList.contains("show") ? t.textContent : ""; });
   const noOverflow = async (page, what) => { const o = await page.evaluate(() => { const d = document.querySelector("#dlg"); return {page: document.documentElement.scrollWidth - document.documentElement.clientWidth, dlg: d ? d.scrollWidth - d.clientWidth : 0, body: (document.querySelector("#dlg .sheet-body") || {}).scrollWidth - (document.querySelector("#dlg .sheet-body") || {}).clientWidth}; }); ok(o.page <= 0 && o.dlg <= 0 && !(o.body > 0), `no horizontal overflow ${what} (${JSON.stringify(o)})`); };
   const targets = async (page, what) => { const small = await page.evaluate(() => [...document.querySelectorAll("#dlg .bd-sheet button, #dlg .bd-sheet input, #dlg .bd-sheet select, #dlg .bd-sheet summary")].filter(e => e.offsetParent && !e.classList.contains("sr") && e.type !== "checkbox").map(e => { const r = e.getBoundingClientRect(); return {t: (e.getAttribute("aria-label") || e.textContent || e.id).trim().slice(0, 30), h: Math.round(r.height), w: Math.round(r.width)}; }).filter(x => x.h < 40 || x.w < 40)); ok(small.length === 0, `touch targets are 40px or more ${what} ${JSON.stringify(small.slice(0, 4))}`); };
-  const openTask = (page, id) => page.locator(`#view [data-act="edit-task"][data-id="${id}"]:visible`).first().click();
+  // The Board shows Today's Plan or the Task Board, one at a time on every screen size: if the task isn't in the current view, switch to the board
+  const openTask = async (page, id) => {
+    const row = page.locator(`#view [data-act="edit-task"][data-id="${id}"]:visible`);
+    if (!(await row.count())) await page.evaluate(() => { const b = document.querySelector('[data-act="bview"][data-id="board"]'); if (b) b.click(); });
+    await row.first().click();
+  };
   const undo = async page => { await page.click("#toastUndo"); await page.waitForTimeout(200); };
   try {
     for (const W of [1280, 390]) {
