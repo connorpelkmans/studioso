@@ -1,6 +1,6 @@
 # Studyboard security and privacy review (pre-release)
 
-Scope: web/PWA (`index.html`, `sw.js`), Electron app (`main.js`, `preload.js`, `widget-preload.js`, `lms.js`), Supabase SQL and edge functions (`index.ts`, `index (1..3).ts`), repo secrets, dependencies. No secret values appear here, only locations.
+Scope: web/PWA (`index.html`, `sw.js`), Electron app (`main.js`, `preload.js`, `widget-preload.js`, `lms.js`), Supabase SQL and edge functions (`supabase-functions/*/index.ts`; calendar-feed, billing-webhook, lms-feed and send-reminders were at the repo root as `index.ts`, `index (1..3).ts` at the time), repo secrets, dependencies. No secret values appear here, only locations.
 
 ## Fixed in this pass
 
@@ -10,7 +10,7 @@ Scope: web/PWA (`index.html`, `sw.js`), Electron app (`main.js`, `preload.js`, `
 | 2 | High | Privacy | Signing out only removed `coursework:v2` and the outbox. The IndexedDB sync cache (every task, note, deck, and old AI keys), search index, photos, local backups, queued bug reports and Today-widget data stayed on a shared computer. | New `wipeDeviceData()` runs on sign-out and "switch to own server". It clears those stores and signs out the LMS cookie stores in the desktop app. |
 | 3 | Medium | Supabase | `group_messages` insert policy let a member insert `pinned = true`, skipping the 3-pin cap and the owner/author rule. No flood limits on group messages or shared items. | `sbg_stamp()` forces `pinned = false` on insert, limits posting to 20 messages a minute per person and 500 shared items per person per group. |
 | 4 | Medium | Supabase/edge | `push_subscriptions.endpoint` accepted any string and `send-reminders` called it: a signed-in user could make the function request an arbitrary URL (SSRF). | `https://` check constraint (`NOT VALID`, so old rows are left alone) in `supabase-reminders.sql`, plus an `https` filter in `subsFor()` (`index (3).ts`). |
-| 5 | Medium | Edge | `lms-feed` (`index (2).ts`) followed redirects blindly, so a public feed URL could redirect it to an internal address. | Redirects are followed by hand (max 3), each hop must pass a new `hostOk()` check (https, real hostname, no IP/localhost/internal, port 443). |
+| 5 | Medium | Edge | `lms-feed` (`supabase-functions/lms-feed/index.ts`) followed redirects blindly, so a public feed URL could redirect it to an internal address. | Redirects are followed by hand (max 3), each hop must pass a new `hostOk()` check (https, real hostname, no IP/localhost/internal, port 443). |
 | 6 | Medium | XSS/CSP | No Content-Security-Policy. | CSP added at the top of `index.html` (inserted by a tiny script, see note below): `default-src 'self'`; scripts from self, inline and jsdelivr only (cdnjs was removed once pdf.js was self-hosted); styles and fonts self and inline only (fonts are self-hosted in `vendor/fonts/`); `connect-src 'self' https: wss: blob: data:`; `img-src` self/data/blob/https; `frame-src 'none'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`. Verified with Playwright: 0 violations or page errors across tabs, and an injected http image, iframe and foreign script were blocked. |
 | 7 | Medium | XSS | A stored HTML/SVG file opened from Files ran as a blob page inside the app's origin. | `sbOpenAsset()` hands html/svg/xml/js files over as `application/octet-stream` (download, not render). |
 | 8 | Low-Med | XSS (CSS) | Course `color` from imports/backups was put into `style="--c:..."` (esc() cannot stop `;background:url(...)` tracking or CSS injection). | `fromArrays()` (the single load/import path) now only accepts hex, rgb/hsl or a plain color name, otherwise a neutral gray. |
@@ -31,7 +31,7 @@ Added: all file/dir IPC handlers now require the main window as sender; `fs:writ
 ## Reviewed, no change needed
 - RLS present on every table in the repo's SQL; group tables are read-only to clients except through `SECURITY DEFINER` functions, all with `set search_path`, `auth.uid()` checks, and `revoke ... from public, anon`. Invite/share code lookups are rate limited (30/hour).
 - `bug_reports`: insert-only for clients, server stamps `user_id`, size limits, 5/hour per device or account and 200/hour overall.
-- Billing webhook (`index (1).ts`): Stripe HMAC with timestamp tolerance and constant-time compare, RevenueCat bearer compare, "Verify JWT" off as documented.
+- Billing webhook (`supabase-functions/billing-webhook/index.ts`): Stripe HMAC with timestamp tolerance and constant-time compare, RevenueCat bearer compare, "Verify JWT" off as documented.
 - Service worker only caches same-origin GET files and CDN libraries; Supabase/API calls always go to the network.
 - pdf.js is called with `isEvalSupported: false` (defence in depth for CVE-2024-4367, which is fixed in 4.2.67+; the app now ships pdf.js 6.4.299 from `vendor/pdfjs/`, with XFA, wasm and scripting off).
 - Secret scan of the whole tree and the last 8 commits: only the Supabase **publishable** key and URL (`SB_DEFAULT` in `index.html`) are committed, which is by design. No service-role key, `sk-`, `AIza`, `whsec_`, private keys, passwords or personal emails found.

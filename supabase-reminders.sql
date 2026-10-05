@@ -8,7 +8,7 @@
 -- Never paste the secret or service_role key here.
 --
 -- What this sets up:
---  * push_subscriptions: the phones and browsers you turned notifications on for.
+--  * push_subscriptions: the phones and browsers you turned notifications on for (Web Push, and the Android and iPhone apps' own push).
 --  * reminder_queue: your reminders for the next 14 days. Studyboard keeps it up to date whenever you use it.
 --  * A schedule that runs every 5 minutes and asks the send-reminders Edge Function to send what's due. It sends a random
 --    schedule secret (made here, kept in Vault as studyboard_cron_secret) that the function checks, so nobody else can

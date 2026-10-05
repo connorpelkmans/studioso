@@ -58,7 +58,7 @@ function appGlobals(html) {
   return set;
 }
 
-async function lintFile(file, eslint, base) {
+async function lintFile(file, eslint) {
   const html = fs.readFileSync(file, "utf8");
   const scripts = inlineScripts(html), shared = appGlobals(html);
   RUNTIME_GLOBALS.forEach(n => shared.add(n));
@@ -92,7 +92,11 @@ async function main() {
     files: ["**/*.js"],
     languageOptions: {ecmaVersion: "latest", sourceType: "script", globals: {...globals.browser}},
     linterOptions: {reportUnusedDisableDirectives: "off"},
-    rules: Object.assign({}, bugRules, {"no-redeclare": ["error", {builtinGlobals: false}]}),
+    rules: Object.assign({}, bugRules, {
+      "no-func-assign": "off",   // the page extends its own functions on purpose: render = (o => function(){ ...; o(); })(render)
+      "no-redeclare": "off",     // only function-scoped var reuse in the drawing code (var p in two loops); let/const redeclares are syntax errors anyway
+      "no-self-assign": "warn",  // a few no-op "x = x" lines: worth a look, not a broken page
+    }),
   }]});
   const results = [];
   for (const f of files) results.push(await lintFile(f, eslint));

@@ -45,7 +45,7 @@ npm run dist         # Windows installer in dist/   (also: dist:mac, dist:mac-in
 
 ## Deploy
 
-1. **Supabase (optional, for accounts and sync).** Create a free project and run the SQL files in the order in [SETUP-GUIDE.md](SETUP-GUIDE.md) ("Run the SQL files in this order"). Deploy the four Edge Functions (`index.ts`, `index (1).ts`, `index (2).ts`, `index (3).ts`) as described there.
+1. **Supabase (optional, for accounts and sync).** Create a free project and run the SQL files in the order in [SETUP-GUIDE.md](SETUP-GUIDE.md) ("Run the SQL files in this order"). Deploy the Edge Functions in `supabase-functions/<name>/index.ts` (calendar-feed, billing-webhook, lms-feed, send-reminders, delete-account and the others) as described there; `supabase/config.toml` holds each one's Verify JWT setting.
 2. **Website.** Upload `index.html`, `sw.js`, the two `.webmanifest` files and the icons to GitHub Pages or any static host.
 3. **Desktop.** Tag a release, or run `npm run dist` locally.
 4. **Before going public,** work through the *Public launch checklist* at the end of the setup guide and [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md).

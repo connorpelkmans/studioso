@@ -69,7 +69,7 @@ The web layer calls the same functions as on iOS (cap-server's Settings UI): `wi
   * 401/403 (token revoked): moved to the app queue, so the person sees it in the web app's confirm sheet; never retried against the server.
   * 408/429/5xx/network: kept with an attempt count and backoff (30 s, 1, 2, 5, 15, 60 min), retried on app start/resume and after the next successful share. After 6 attempts or 7 days it is moved to the app queue instead. Nothing loops forever.
   * `clearCaptureToken()` (sign-out/revoke) wipes the outbox, so one account's captures are never sent with the next account's token. App-queue items the web app never accepts are dropped after 30 days.
-  * Server note: `capture-task` dedupes an `Idempotency-Key` for **10 minutes**. A retry more than 10 minutes after an attempt whose response was lost can add a duplicate; a longer server window (for example 7 days) removes that without app changes.
+  * Server note: `capture-task` dedupes an `Idempotency-Key` for **7 days**, which covers the whole retry window above, so a retry after a lost response never adds a duplicate.
 * **Deep links** (`MainActivity`): `studyboard://add?text=...`, `studyboard://capture?photo=1`, `studyboard://action/quickadd`; the bridge forwards the first two to `SBCAPTURE.handleUrl` (cap-core), which always opens the confirm sheet.
 * **Launcher shortcuts** (`shortcuts.xml`): long-press the icon: "Add task", "Capture photo".
 * **Quick Settings tile** (`QuickCaptureTileService`): the person adds it from the tile editor; it opens `studyboard://capture`.

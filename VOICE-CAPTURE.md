@@ -30,7 +30,7 @@ The contract used by the native apps is in `capture-contract.json` (tested by `n
 - **No token oracle**: unknown, revoked and malformed tokens get the same 401. Logs are structured JSON without tokens, text or query strings.
 - **GET with `?token=`** is off by default and enabled per token ("Also allow use in a link"). Use it only for tools that cannot send headers (some Bixby Quick Commands): URLs end up in logs, browser history and backups, so a token in a URL is easier to leak. The query string is never logged by this function.
 - **Natural-language dates are not parsed on the server.** `due: "friday 5pm"` is stored as text; the app parses it with the person's own time zone and courses. ISO dates (`2026-10-09`, `2026-10-09T17:00`) fill the date and time directly (a trailing `Z`/offset is ignored, so send local time).
-- Duplicates: the same `Idempotency-Key` header (or `id` field) within 10 minutes adds nothing twice; the app also drops the same text and due within 10 minutes. Task ids are derived from the inbox id, so a retry after a crash cannot double-add.
+- Duplicates: the same `Idempotency-Key` header (or `id` field) within 7 days adds nothing twice (keys are kept in `capture_idem`, cleaned up after 7 days); the app also drops the same text and due within 10 minutes. Task ids are derived from the inbox id, so a retry after a crash cannot double-add.
 - Account deletion removes both tables' rows (`studyboard_delete_my_account()` in `supabase-lean.sql`).
 
 ## Deploy (owner)
@@ -62,7 +62,7 @@ The in-app guide (Settings, Voice assistants & shortcuts) has the same steps wit
 | iPhone share sheet | The same shortcut with "Show in Share Sheet" using Shortcut Input | Shortcuts app + token | Not tested on device |
 | iPhone, "Hey Siri, add <task> to Studyboard" with no setup | App Intents in the native wrapper | Installed Studyboard iOS app (cap-native) | Wrapper code exists; not testable here |
 | Pixel, Gemini | HTTP Shortcuts (or Tasker) app sends the request; Gemini opens the app or shortcut | Free HTTP Shortcuts app + token | Not tested on a real Pixel. Gemini cannot call URLs itself, and launching a shortcut by name depends on the Android/Gemini version |
-| Pixel, direct "Hey Google, add ... to Studyboard" | App Actions / AppFunctions in the native wrapper | Installed Studyboard Android app (cap-native) | Wrapper code exists; not testable here |
+| Pixel, direct "Hey Google, add ... to Studyboard" | App Actions / AppFunctions in the native wrapper | Installed Studyboard Android app (cap-native) | **Removed for v1** (AppFunctions is not shipped in the first release; may come back later). Use the share sheet or a Shortcut/Routine instead |
 | Samsung Galaxy, Bixby / Modes and Routines | Routine opens HTTP Shortcuts (a routine cannot send the request itself); links with `?token=` only if the token allows it | HTTP Shortcuts + token | Not tested on a real Galaxy |
 | Samsung Galaxy, Gemini | Same as Pixel | HTTP Shortcuts + token | Not tested |
 
