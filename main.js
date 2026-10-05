@@ -1,7 +1,7 @@
 // Studyboard desktop app (formerly Studioso): a window around the Studyboard page, with a real folder on this computer
 // for your data, backups and files. Sync with your account happens inside the page (Supabase).
 // Since 1.11: a tray icon, native reminders that keep working with the window closed, and the Today widget.
-const { app, BrowserWindow, ipcMain, dialog, shell, protocol, net, Menu, nativeTheme, Tray, Notification, nativeImage, powerMonitor, screen, session, safeStorage } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, protocol, net, Menu, nativeTheme, Tray, Notification, nativeImage, powerMonitor, screen, session, safeStorage, desktopCapturer, globalShortcut, systemPreferences } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const fsp = fs.promises;
@@ -292,7 +292,7 @@ function backgroundTip() {
 // ---------- Messages to the page ----------
 // The page says which messages it's ready for (see preload.js). Until then they wait here, for example
 // when a reminder is clicked while the window is still opening.
-const PAGE_CHANNELS = ["desk:action", "desk:open-task", "desk:capture", "desk:power"];
+const PAGE_CHANNELS = ["desk:action", "desk:open-task", "desk:capture", "desk:power", "desk:screenshot"];
 const listening = new Set();
 let pendingMsgs = [];
 function toPage(channel, ...args) {
@@ -354,6 +354,7 @@ function updateTray() {
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: "Open Studyboard", click: () => showMain() },
     { label: "Quick Add Task", click: () => sendAction("quickadd") },
+    { label: "Screenshot to Task", click: () => setTimeout(() => startShot(), 250) },
     { label: "Show Today Widget", type: "checkbox", checked: !!(widget && !widget.isDestroyed()), click: m => setWidgetShown(m.checked) },
     { type: "separator" },
     paused ? { label: `Reminders Paused Until ${clock(cfg.pauseUntil)}`, enabled: false } : null,
@@ -552,7 +553,7 @@ ipcMain.on("widget:hide", e => { if (fromWidget(e)) setWidgetShown(false); });
 const canLogin = () => process.platform === "win32" || (process.platform === "darwin" && !IS_MAS);   // the Mac App Store build has no start-at-login (it would need a separate helper app)
 function loginOn() { try { return canLogin() && !!app.getLoginItemSettings(process.platform === "win32" ? { args: LOGIN_ARGS } : undefined).openAtLogin; } catch (e) { return false; } }
 function deskSettings() {
-  return { background: cfg.background !== false, tray: !!tray, openAtLogin: loginOn(), canLogin: canLogin(), widget: !!(widget && !widget.isDestroyed()), widgetPinned: widgetState().pinned, pausedUntil: remindersPaused() ? cfg.pauseUntil : 0, notifications: Notification.isSupported() };
+  return { background: cfg.background !== false, tray: !!tray, openAtLogin: loginOn(), canLogin: canLogin(), widget: !!(widget && !widget.isDestroyed()), widgetPinned: widgetState().pinned, pausedUntil: remindersPaused() ? cfg.pauseUntil : 0, notifications: Notification.isSupported(), shot: cfg.shot !== false, shotKey: shotKey(), shotKeys: SHOT_KEYS, shotOn: !!shotRegistered };
 }
 // Power state for the page's animation governor: on battery, thermal pressure and a locked screen. Plain values only, read-only.
 function powerState() {
@@ -567,15 +568,83 @@ ipcMain.handle("power:get", e => fromMain(e) ? powerState() : null);
 ipcMain.handle("desk:settings:get", e => fromMain(e) ? deskSettings() : null);
 ipcMain.handle("desk:settings:set", (e, key, value) => {
   if (!fromMain(e)) return null;
-  if (!["background", "openAtLogin", "widget", "widgetPinned", "pauseReminders"].includes(key)) return deskSettings();
+  if (!["background", "openAtLogin", "widget", "widgetPinned", "pauseReminders", "shot", "shotKey"].includes(key)) return deskSettings();
   const on = value === true;
   if (key === "background") { cfg.background = on; writeCfg(cfg); }
   else if (key === "openAtLogin" && canLogin() && !IS_MAS) { try { app.setLoginItemSettings({ openAtLogin: on, args: LOGIN_ARGS }); } catch (err) {} }
   else if (key === "widget") setWidgetShown(on);
   else if (key === "widgetPinned") setWidgetPinned(on);
   else if (key === "pauseReminders") { const m = int(value, 24 * 60); if (m) pauseReminders(m); else resumeReminders(); }
+  else if (key === "shot") { cfg.shot = on; writeCfg(cfg); registerShotKey(); }
+  else if (key === "shotKey") { if (SHOT_KEYS.includes(value)) { cfg.shotKey = value; writeCfg(cfg); registerShotKey(); } }
   return deskSettings();
 });
+
+
+// ---------- Screenshot to Studyboard ----------
+// A global shortcut (works while Studyboard is in the background) freezes the screen under the mouse, lets the person drag a box around
+// anything on it, and sends only that part to the page, which reads it with AI and turns it into a task, a course, a syllabus or a note.
+// The picture goes nowhere else: it is not saved to disk, and the picker window can only send back four numbers or a cancel.
+const SHOT_KEYS = ["CommandOrControl+Alt+C", "CommandOrControl+Shift+Alt+C", "CommandOrControl+Alt+X", "CommandOrControl+Alt+Q"];
+const shotKey = () => SHOT_KEYS.includes(cfg.shotKey) ? cfg.shotKey : SHOT_KEYS[0];
+let shotRegistered = "", shotWin = null, shotImg = null, shotBusy = false;
+function registerShotKey() {
+  try { if (shotRegistered) globalShortcut.unregister(shotRegistered); } catch (e) {}
+  shotRegistered = "";
+  if (cfg.shot === false) return;
+  try { if (globalShortcut.register(shotKey(), () => startShot())) shotRegistered = shotKey(); } catch (e) {}
+}
+function shotNote(body) { showNote({ title: "Studyboard screenshot", body }); }
+async function startShot() {
+  if (shotBusy || (shotWin && !shotWin.isDestroyed())) return;
+  shotBusy = true;
+  try {
+    if (process.platform === "darwin") {
+      let st = "granted"; try { st = systemPreferences.getMediaAccessStatus("screen"); } catch (e) {}
+      if (st === "denied" || st === "restricted") { shotNote("Allow Studyboard under System Settings > Privacy & Security > Screen Recording, then try again."); shotBusy = false; return; }
+    }
+    const d = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()), sf = d.scaleFactor || 1;
+    const sources = await desktopCapturer.getSources({ types: ["screen"], thumbnailSize: { width: Math.round(d.size.width * sf), height: Math.round(d.size.height * sf) } });
+    const src = sources.find(x => String(x.display_id) === String(d.id)) || sources[0];
+    if (!src || src.thumbnail.isEmpty()) { shotNote("Couldn't take a picture of the screen. Check that Studyboard is allowed to record the screen."); shotBusy = false; return; }
+    shotImg = src.thumbnail;
+    shotWin = new BrowserWindow({
+      ...d.bounds, frame: false, resizable: false, movable: false, minimizable: false, maximizable: false, fullscreenable: false, skipTaskbar: true,
+      alwaysOnTop: true, show: false, hasShadow: false, enableLargerThanScreen: true, backgroundColor: "#000000", title: "Studyboard Screenshot",
+      webPreferences: { ...SAFE_PREFS, preload: path.join(WIDGET_DIR, "shot-preload.js"), spellcheck: false }
+    });
+    shotWin.setAlwaysOnTop(true, "screen-saver");
+    shotWin.loadURL("app://widget/shot.html");
+    shotWin.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+    shotWin.webContents.on("will-navigate", e => e.preventDefault());
+    shotWin.webContents.on("will-redirect", e => e.preventDefault());
+    shotWin.webContents.once("did-finish-load", () => {
+      if (!shotWin || shotWin.isDestroyed()) return;
+      shotWin.webContents.send("shot:init", shotImg.toDataURL());
+      shotWin.show(); shotWin.focus();
+    });
+    shotWin.on("closed", () => { shotWin = null; shotImg = null; shotBusy = false; });
+  } catch (e) { shotBusy = false; shotNote("Couldn't take a picture of the screen."); }
+}
+function closeShot() { try { if (shotWin && !shotWin.isDestroyed()) shotWin.close(); } catch (e) {} }
+const fromShot = e => !!(shotWin && !shotWin.isDestroyed() && e.sender === shotWin.webContents && topFrame(e) && isAppUrl(frameUrl(e), WIDGET_ORIGIN));
+ipcMain.on("shot:cancel", e => { if (fromShot(e)) closeShot(); });
+ipcMain.on("shot:done", (e, r) => {
+  if (!fromShot(e)) return;
+  const img = shotImg; closeShot();
+  try {
+    if (!img || !r || typeof r !== "object") return;
+    const f = v => Math.max(0, Math.min(1, Number(v) || 0)), { width, height } = img.getSize();
+    const x = Math.round(f(r.x) * width), y = Math.round(f(r.y) * height);
+    const w = Math.max(1, Math.min(width - x, Math.round(f(r.w) * width))), h = Math.max(1, Math.min(height - y, Math.round(f(r.h) * height)));
+    if (w < 8 || h < 8) return;
+    const out = (x === 0 && y === 0 && w === width && h === height ? img : img.crop({ x, y, width: w, height: h })).toJPEG(92);
+    if (!out || !out.length || out.length > 40 * 1024 * 1024) return;
+    showMain(); toPage("desk:screenshot", out);
+  } catch (err) { shotNote("Couldn't use that part of the screen."); }
+});
+// The Try it button on the settings page.
+ipcMain.handle("shot:now", e => { if (!fromMain(e)) return false; setTimeout(() => startShot(), 250); return true; });
 
 // ---------- Folder access for the page ----------
 ipcMain.handle("dir:get", e => fromMain(e) ? dataRoot() : null);
@@ -752,6 +821,7 @@ if (GOT_LOCK) app.whenReady().then(async () => {
     { role: "windowMenu" }
   ]));
   createTray();
+  registerShotKey();
   loadReminders();
   widgetData = readJson(WIDGET_FILE, null);
   if (remindersPaused()) pauseTimer = setTimeout(resumeReminders, cfg.pauseUntil - Date.now()); else if (cfg.pauseUntil) resumeReminders();
@@ -764,4 +834,5 @@ if (GOT_LOCK) app.whenReady().then(async () => {
   try { powerMonitor.on("resume", checkReminders); powerMonitor.on("unlock-screen", checkReminders); powerMonitor.on("shutdown", () => { quitting = true; }); } catch (e) {}
   app.on("activate", () => showMain());
 });
+app.on("will-quit", () => { try { globalShortcut.unregisterAll(); } catch (e) {} });
 app.on("window-all-closed", () => { if (process.platform !== "darwin" && !bgOn()) app.quit(); });

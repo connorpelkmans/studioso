@@ -45,6 +45,10 @@ contextBridge.exposeInMainWorld("studiosoDesktop", {
   // "settings", "toggle" (arg = task id) or "focus-task" (arg = task id).
   // fn(url): a studyboard://add?... or studyboard://capture?... link. The page checks it (allowed fields only) and shows a draft.
   onCapture: fn => { ipcRenderer.on("desk:capture", (e, url) => fn(String(url || "").slice(0, 2400))); ipcRenderer.send("desk:listen", "desk:capture"); },
+  // fn(bytes): the part of the screen the person boxed with the screenshot shortcut, as a JPEG. The page reads it with AI and shows what it found.
+  onScreenshot: fn => { ipcRenderer.on("desk:screenshot", (e, bytes) => { try { fn(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)); } catch (err) {} }); ipcRenderer.send("desk:listen", "desk:screenshot"); },
+  // Starts the same screenshot picker as the shortcut (the Try it button in Settings).
+  captureScreen: () => ipcRenderer.invoke("shot:now"),
   onAction: fn => { ipcRenderer.on("desk:action", (e, action, arg) => fn(String(action), String(arg || ""))); ipcRenderer.send("desk:listen", "desk:action"); },
   // {onBattery, thermal: "unknown"|"nominal"|"fair"|"serious"|"critical", locked}: read-only power state for the animation governor.
   getPower: () => ipcRenderer.invoke("power:get"),

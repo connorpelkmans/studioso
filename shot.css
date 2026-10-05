@@ -1,0 +1,6 @@
+html,body{margin:0;height:100%;overflow:hidden;background:#000;cursor:crosshair;user-select:none;-webkit-user-select:none;font:600 14px/1.3 system-ui,"Segoe UI",sans-serif}
+#pic{position:fixed;inset:0;width:100%;height:100%;display:block;pointer-events:none}
+#dim{position:fixed;inset:0;background:rgba(10,14,30,.45);pointer-events:none}
+#sel{position:fixed;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.55),0 0 0 100vmax rgba(10,14,30,.45);background:transparent;pointer-events:none;box-sizing:border-box}
+#sel:not([hidden]) ~ #tip{opacity:0}
+#tip{position:fixed;left:50%;top:22px;transform:translateX(-50%);padding:9px 16px;border-radius:999px;background:rgba(20,26,50,.92);color:#fff;pointer-events:none;transition:opacity .15s;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis}

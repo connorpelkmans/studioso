@@ -84,7 +84,7 @@ if (flat) {
       fs.copyFileSync(from, path.join(d, n.to || n));
     }
   };
-  stage("widget", ["widget.html", "widget.css", "widget.js", { from: "widget-preload.js", to: "widget-preload.js" }]);
+  stage("widget", ["widget.html", "widget.css", "widget.js", { from: "widget-preload.js", to: "widget-preload.js" }, "shot.html", "shot.css", "shot.js", { from: "shot-preload.js", to: "shot-preload.js" }]);
   stage("build", ["icon.ico", "icon.png", "icon.icns", "installerSidebar.bmp", "uninstallerSidebar.bmp", "installerHeader.bmp"]);
 }
 console.log("Build id " + (/const BUILD_ID = "([^"]+)"/.exec(html) || [])[1] + ".");
