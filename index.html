@@ -2597,8 +2597,15 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:au
 .gr-work{list-style:none;margin:0;padding:0}
 .gr-work li{display:flex;align-items:center;gap:10px;border-top:1px solid var(--line);padding:6px 0}
 .gr-work li:first-child{border-top:0}
-.gp{display:grid;gap:14px;margin-top:4px}
-.gp>.view-head{margin-top:0}
+.gp{display:grid;gap:12px;margin-top:0}
+.gp>.view-head{margin-bottom:0}
+/* One rhythm for every sub-tab page (Courses, Grades, Emails, Files, Timeline, Schedule, Crunch): 12px from the tab selector to the heading, 12px from the heading to the content */
+.pview-tabs + .view-head,.pview-tabs + .tl-controls,.pview-tabs + .cr > .cr-head,.pview-tabs + .gp > .view-head,.pview-tabs + .view-head{margin-top:0}
+.pview-tabs + .view-head,.pview-tabs + .tl-controls{row-gap:12px}
+.pview-tabs + .view-head > h2,.pview-tabs + .tl-controls > h2{flex:1 0 100%}
+.view-head,.tl-controls{margin-bottom:12px}
+.pview-tabs + .cr,.cr{gap:12px}
+.cr-head{margin:0}
 .gp-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .gp-head h2{margin:0;font:700 1.25rem var(--display)}
 .gp-sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
