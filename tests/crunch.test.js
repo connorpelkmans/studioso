@@ -207,4 +207,20 @@ const day = (m, d) => m.days.find(x => x.date === d);
   ok(C.moveFor(inp, "2026-11-09", "e1") === null && C.moveFor(inp, "2026-11-09", "nope") === null, "exam / unknown not movable");
   ok(C.moveFor({today: "2026-10-05", tasks: [T("x", "Assignment", "2026-10-09", {rem: 2})], dailyHours: 3}, "2026-10-05", "x") === null, "a calm week has nothing worth moving");
 }
+// learned pace: capScale / wkScale (from 92-accuracy.js) scale capacity, are clamped, and do nothing when absent
+{
+  const tasks = [T("e1", "Exam", "2026-10-14", {rem: 8})];
+  const base = build(tasks), same = build(tasks, {capScale: 1, wkScale: null}), none = build(tasks, {capScale: undefined, wkScale: [1, 1, 1, 1, 1, 1, 1]});
+  ok(day(base, "2026-10-13").capacity === day(same, "2026-10-13").capacity && day(none, "2026-10-13").capacity === day(base, "2026-10-13").capacity, "no scale = today's numbers");
+  const slow = build(tasks, {capScale: 0.8});
+  ok(Math.abs(day(slow, "2026-10-13").capacity - 2.4) < 0.01 && day(slow, "2026-10-13").ratio > day(base, "2026-10-13").ratio, "a lower scale shrinks capacity and raises the load ratio");
+  ok(build(tasks, {capScale: 9}).days[0].capacity === 3.75 && build(tasks, {capScale: 0.1}).days[0].capacity === 2.25, "capScale is clamped to 0.75-1.25");
+  // Sunday-first weekday factors: 2026-10-11 is a Sunday
+  const wk = build(tasks, {wkScale: [0.8, 1, 1, 1, 1, 1, 1.2]});
+  ok(Math.abs(day(wk, "2026-10-11").capacity - 2.4) < 0.01 && Math.abs(day(wk, "2026-10-10").capacity - 3.6) < 0.01 && day(wk, "2026-10-12").capacity === 3, "weekday factors apply by weekday");
+  ok(build(tasks, {wkScale: [5, 5, 5, 5, 5, 5, 5]}).days[0].capacity <= 3.6 + 1e-9 && build(tasks, {wkScale: [1, 1]}).days[0].capacity === 3, "wkScale clamped, and ignored unless it has 7 entries");
+  ok(day(slow, "2026-10-13").cap0 === 2.4 && slow.capScale === 0.8, "cap0 is the study time before classes");
+  const busy = build(tasks, {capScale: 0.8, busy: {"2026-10-13": 7}});
+  ok(day(busy, "2026-10-13").capacity < day(busy, "2026-10-13").cap0, "classes still come out of the scaled capacity");
+}
 console.log(`crunch tests ok (${n} checks)`);
