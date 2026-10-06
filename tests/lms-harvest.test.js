@@ -163,7 +163,7 @@ const BB = [
 
   await t("school addresses: home-network names and private addresses are refused", async () => {
     for (const h of ["printer.local", "nas.lan", "router.home", "x.internal", "a.localhost", "10.0.0.1", "localhost"]) assert.strictEqual(L.originOf(h), null, h);
-    assert.strictEqual(L.originOf("learn.bcit.ca"), "https://learn.bcit.ca");
+    assert.strictEqual(L.originOf("learn.example.edu"), "https://learn.example.edu");
     for (const ip of ["10.1.2.3", "127.0.0.1", "169.254.169.254", "172.20.0.1", "192.168.1.1", "100.64.0.1", "0.0.0.0", "::1", "fe80::1", "fd00::1", "::ffff:192.168.0.1", "::ffff:c0a8:0001"]) assert.strictEqual(L.privateIp(ip), true, ip);
     for (const ip of ["8.8.8.8", "142.250.1.1", "2607:f8b0:4004:800::200e", "172.32.0.1", "100.128.0.1"]) assert.strictEqual(L.privateIp(ip), false, ip);
   });
