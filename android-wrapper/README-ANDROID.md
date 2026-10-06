@@ -51,6 +51,7 @@ class MainActivity : BridgeActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         registerPlugin(StudyboardCaptureTokenPlugin::class.java)
         registerPlugin(StudyboardSharedQueuePlugin::class.java)
+        registerPlugin(StudyboardLmsPlugin::class.java)          // school site sign-in and sync (StudyboardLms.kt)
         super.onCreate(savedInstanceState)
     }
 }
@@ -133,3 +134,14 @@ Manual: long-press the icon (shortcuts), add the tile (swipe down twice > pencil
 ## Optional later: Gemini AppFunctions
 
 Android 16 introduced `AppFunctions` (an app exposes functions an agent such as Gemini can call, similar to App Intents on iOS). An experimental `StudyboardAppFunctions.addTask` + `StudyboardApplication` (`AppFunctionConfiguration.Provider`) draft exists in this folder but is **not part of v1**: the `androidx.appfunctions` artifact names, KSP arguments, manifest requirements and Gemini/device/region availability were never verified. To try it later: check the current `androidx.appfunctions` docs, add its dependencies + KSP plugin, set `android:name=".capture.StudyboardApplication"` on `<application>`, add keep rules for both classes, call `CaptureClient.send(..., source = "gemini")` (note the `CaptureResult` shape changed: `NotConfigured(queued)` and `Rejected`), and test on a supported device before saying it works.
+
+## School sites on Android (full sync: grades, announcements, due dates)
+
+The Android app can sign in to Brightspace, Canvas and Blackboard itself, like the desktop app, and read the same information. **UNTESTED on a device.**
+
+* `app/src/main/java/com/studioso/app/capture/StudyboardLms.kt` is the Capacitor plugin `StudyboardLms` (`connect`, `run`, `signOut`). Register it in `MainActivity` (section 2 above shows the line).
+* The web side is `lms-mobile.js`, built from `lms-mobile.src.js` and `lms.js` by `scripts/build-lms-mobile.js`. `node prepare.js` with `STUDYBOARD_OUT=android-www` builds it into the staged folder and adds the script tag by itself. It runs the desktop app's exact harvest scripts and cleans results with lms.js's own code, and switches on only when the plugin exists.
+* No new permissions are needed (the app already has `INTERNET`). The web views get no camera, microphone or location.
+* Android keeps one cookie jar for the app, so platforms are separated by site and sign-out removes the cookies of that school's site and its parent domains.
+* Play: the sign-in page shows the real address, Studyboard never sees the password, and it only reads. Describe this in the Data safety form and review notes.
+* Test on a real device with a real account for each platform. Google single sign-on is expected to be refused inside an embedded WebView; Microsoft usually works. See `../MOBILE-SCHOOL-SYNC-SCOPE.md` for the fallbacks.

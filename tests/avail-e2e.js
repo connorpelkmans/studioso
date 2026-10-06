@@ -30,6 +30,7 @@ const txt = (p, sel) => p.evaluate(s => Array.from(document.querySelectorAll(s))
 const minTarget = (p, sel) => p.evaluate(s => Array.from(document.querySelectorAll(s)).filter(e => e.offsetParent).map(e => { const r = e.getBoundingClientRect(); return Math.min(r.width, r.height); }), sel);
 
 async function addBlock(p, o) {
+  if (!(await p.locator('[data-act="avail-add"]:visible').count())) { await p.click('[data-act="avail-open"] >> visible=true >> nth=0'); await p.waitForSelector('dialog[open] [data-act="avail-add"]'); }
   await p.click('[data-act="avail-add"] >> visible=true >> nth=0');
   await p.waitForSelector("dialog[open] .av-form");
   const f = p.locator("dialog[open] form");
@@ -62,7 +63,7 @@ const blocks = p => p.evaluate(() => window.__sbAvail.state().blocks);
     // Schedule view and add each block type through the form
     await p.evaluate(() => window.__sbAvail.view({tab: "schedule"}));
     await p.waitForSelector(".sch-nav");
-    ok(await p.locator('.sch-nav [data-act="avail-add"]').count() === 1, tag + " + Add shift or work in the schedule");
+    ok(await p.locator('.sch-nav [data-act="avail-open"]').count() === 1, tag + " Availability button in the schedule");
     await addBlock(p, {type: "class", title: "Anatomy lab", days: [3], start: "13:00", end: "15:00"});
     await addBlock(p, {type: "work", title: "Cafe shift", days: [1, 4], start: "16:00", end: "21:00", bufB: 20, bufA: 10, shot: `02-form-${tag}.png`});
     await addBlock(p, {type: "shift", title: "Ward placement", days: [2, 5], every: 2, start: "07:00", end: "15:30"});
@@ -84,6 +85,7 @@ const blocks = p => p.evaluate(() => window.__sbAvail.state().blocks);
     await p.evaluate(() => window.__sbAvail.view({tab: "schedule"}));
 
     // Roster mode: typed dates plus calendar taps, with an overnight shift
+    if (!(await p.locator('[data-act="avail-add"]:visible').count())) { await p.click('[data-act="avail-open"] >> visible=true >> nth=0'); await p.waitForSelector('dialog[open] [data-act="avail-add"]'); }
     await p.click('[data-act="avail-add"] >> visible=true >> nth=0');
     await p.waitForSelector("dialog[open] .av-form");
     let f = p.locator("dialog[open] form");
