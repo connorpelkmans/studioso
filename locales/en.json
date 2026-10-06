@@ -239,6 +239,7 @@
   "review.card.titleLast": "Last week in review",
   "review.close": "Close",
   "review.done.h": "What got done",
+  "review.less": "Show fewer",
   "review.done.more": "and {n} more|and {n} more",
   "review.done.n": "task finished {when}|tasks finished {when}",
   "review.done.none": "A quieter week for finishing tasks. That happens, and a fresh week is right around the corner.",

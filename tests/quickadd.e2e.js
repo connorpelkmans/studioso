@@ -60,7 +60,7 @@ const goFiles = async page => { await goTab(page, "courses"); const has = await 
 // the Courses tab remembers its sub-tab (Files stays open), so pick the Courses sub-tab before opening a course
 const goCourse = async (page, id) => { await goTab(page, "courses"); await page.evaluate(() => { const b = document.querySelector('[data-act="cf-view"][data-id="courses"]'); if (b) b.click(); }); await page.waitForTimeout(150); await page.evaluate(i => { __sbQadd.ui.courseId = i; __sbQadd.render(); }, id); await page.waitForTimeout(250); };
 const noHScroll = page => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
-const pick = (page, list) => page.setInputFiles("#qaIn", list.map(([name, text]) => ({name, mimeType: "text/plain", buffer: Buffer.from(text)})));
+const pick = (page, list) => page.setInputFiles("#qaFileIn", list.map(([name, text]) => ({name, mimeType: "text/plain", buffer: Buffer.from(text)})));
 
 (async () => {
   const browser = await chromium.launch({executablePath});
