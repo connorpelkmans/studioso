@@ -756,8 +756,11 @@ ul.tasks,.plan-list,.flist,.fc-list{box-shadow:var(--shadow);border-color:var(--
 .course-card .swatch{display:none}
 .course-card::before{content:attr(data-code);position:absolute;left:-1px;top:-18px;height:18px;padding:1px 10px 0;border-radius:8px 8px 0 0;background:color-mix(in srgb,var(--c) 66%,#000);color:#fff;font:700 .68rem/17px var(--display);letter-spacing:.03em}
 .course-list{gap:10px}
-.detail-head{border-left:0;padding:0}
-.detail-head h2{font-size:1.9rem}
+.back{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:6px 14px 6px 8px;min-height:36px;font-weight:600}   /* a solid pill, so it stays readable on a theme's scene */
+/* The course name sits on its own solid card, so a theme's scene or photo behind the page can never swallow it */
+.detail-head{border:1px solid var(--line);border-left:0;border-radius:14px;padding:14px 18px;background:var(--surface);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.detail-head h2{font-size:1.9rem;color:var(--ink);text-shadow:none;overflow-wrap:anywhere}
+.detail-head .code{color:var(--muted);text-shadow:none}
 .detail-head::before{content:"";display:block;width:48px;height:6px;border-radius:3px;background:var(--c);margin-bottom:10px}
 /* Flashcards */
 .deck-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:26px 22px;margin-top:22px}
