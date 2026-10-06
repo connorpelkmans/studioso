@@ -2,7 +2,18 @@
 
 Goal: the iOS and Android apps get the same school information as the desktop app (courses, due dates, submissions, grades, announcements, calendar, file downloads, Canvas inbox) for Brightspace, Canvas and Blackboard, not only the calendar link.
 
-Status of this document: a plan based on reading the code. Nothing here has been built or run on a device.
+Status: **built, but untested on any device.** The shared layer is done and tested here; the Swift and Kotlin plugins are written but were never compiled or run (no Xcode, Android Studio, emulator or school account was available).
+
+| Piece | State |
+| --- | --- |
+| `lms-mobile.src.js` + `scripts/build-lms-mobile.js` -> `lms-mobile.js` (same harvest scripts and result cleaning as desktop, copied from `lms.js` at build time) | Done. `tests/lms-mobile.test.js` (11 checks) and `tests/lms-mobile.e2e.js` (7 checks, real page, stand-in plugin running the real Brightspace harvest against a fake school) pass. |
+| `index.html`: `lmsBridge()` so the desktop bridge or the phone bridge feeds the same sync, grades, announcements, files and Canvas inbox code; 10 minute checks; Sync Now; copy for phones | Done and tested. |
+| `prepare.js`: builds `lms-mobile.js` into staged iOS/Android folders and loads it | Written; not run (needs `npm ci`). |
+| `ios-wrapper/native/StudyboardLms.swift` | Written, UNTESTED, never compiled. |
+| `android-wrapper/.../StudyboardLms.kt` | Written, UNTESTED, never compiled. |
+| READMEs: plugin registration and store notes | Done. |
+
+Original plan follows.
 
 ## 1. How the desktop app does it today
 

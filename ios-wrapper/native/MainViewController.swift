@@ -8,5 +8,6 @@ class MainViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(StudyboardCaptureTokenPlugin())
         bridge?.registerPluginInstance(StudyboardSharedQueuePlugin())
+        bridge?.registerPluginInstance(StudyboardLmsPlugin())          // school site sign-in and sync (StudyboardLms.swift)
     }
 }
