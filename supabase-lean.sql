@@ -48,7 +48,8 @@ grant select on public.studyboard_deletions to authenticated;
 create or replace function public.studyboard_log_delete() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
-  if old.kind <> 'backup' and coalesce(current_setting('studyboard.archiving', true), '') <> 'on' then
+  if old.kind <> 'backup' and coalesce(current_setting('studyboard.archiving', true), '') <> 'on'
+     and exists (select 1 from auth.users u where u.id = old.user_id) then   -- not while the account itself is being deleted (its row is already gone)
     insert into public.studyboard_deletions (user_id, kind, id) values (old.user_id, old.kind, old.id);
   end if;
   return old;
@@ -168,6 +169,7 @@ begin
   if me is null then return 0; end if;
   select * into a from public.studyboard_archive where user_id = me;
   if not found then return 0; end if;
+  perform set_config('studyboard.restoring', '1', true);   -- this transaction only: the plan limits don't apply to putting your own data back
   insert into public.items (user_id, kind, id, data)
     select me, x.kind, x.id, x.data from jsonb_to_recordset(a.items) as x(kind text, id text, data jsonb, updated_at timestamptz)
     on conflict (user_id, kind, id) do nothing;

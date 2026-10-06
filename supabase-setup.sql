@@ -63,3 +63,5 @@ begin
     alter publication supabase_realtime add table public.items;
   end if;
 end $$;
+-- A delete event carries the whole old row (including its kind), so other open devices see deletions live instead of at the next refresh.
+alter table public.items replica identity full;

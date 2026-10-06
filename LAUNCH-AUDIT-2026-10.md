@@ -124,7 +124,7 @@ Every finding above was worked through. Verification on the final tree:
 |---|---|---|
 | B1 | Fixed | `puff()` declares `const S`. ESLint `no-undef` over the inline script now runs in `npm run lint`. |
 | B2 | Fixed | `lms.js` `harvestScript()` injects `htmlText` and its constants with each harvest. `tests/lms-harvest.test.js` runs the real injected string in an empty VM. |
-| B3 | Fixed | `join_group` enforces the lookup limit on every call. New codes are 10 characters (about 49 bits) without modulo bias; old 6-character codes still work in the app. |
+| B3 | Fixed | `join_group` enforces the lookup limit on every call. New codes are 8 characters (about 40 bits; the lookup limit is the real guard) without modulo bias; old 6-character codes still work in the app. |
 | B4 | Fixed | `normNote()` coerces every field that reaches a `style` attribute. The web CSP is now hash-based (`scripts/csp.js`), so injected handlers are blocked. |
 | B5 | Fixed | pdfjs-dist 6.4.299, re-vendored, with `tests/pdf-import.e2e.js`. CI runs `npm audit --audit-level=high`. |
 | B6 | Fixed | Shares always open the confirm sheet. |
