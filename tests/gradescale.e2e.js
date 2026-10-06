@@ -104,8 +104,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const body = ctx.bodies[0], txt = JSON.stringify(body);
       ok(!body.tools, "no web search is requested");
       ok(/learn\.testu\.ca/.test(txt) && !/Biology|BIO1/.test(txt), "only the site address is sent, nothing about the student's courses");
-      await page.click('[data-submit]'); await page.waitForTimeout(250);
-      const gr = await page.evaluate(() => { const d = JSON.parse(localStorage.getItem("coursework:v2")); return {pass: ((d.settings || {}).grades || {}).pass, scale: ((d.settings || {}).grades || {}).scale}; }); ok(gr.pass === 55 && gr.scale.length === 8, "saving keeps what was found, for all courses");
+      await page.click('[data-submit]'); await page.waitForFunction(() => { try { return ((JSON.parse(localStorage.getItem("coursework:v2")).settings || {}).grades || {}).pass === 55; } catch (e) { return false; } }, null, {timeout: 5000}).catch(() => {});
+      const gr = await page.evaluate(() => { const d = JSON.parse(localStorage.getItem("coursework:v2")); return {pass: ((d.settings || {}).grades || {}).pass, scale: ((d.settings || {}).grades || {}).scale}; }); ok(gr.pass === 55 && gr.scale && gr.scale.length === 8, "saving keeps what was found, for all courses: " + JSON.stringify(gr));
       await ctx.close(); }
     for (const [what, reply] of [["found: false", {found: false, scale: []}], ["too few letters", FOUND({scale: SCALE8.slice(0, 2)})]]) {
       const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply});
@@ -119,6 +119,21 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await openSettings(page); await page.click("#gsFind"); ok(/Type your school's name/.test(await msg(page)) && ctx.calls === 0, "asks for the school's name when no site is connected");
       await page.fill("#gsSchoolName", "Test University"); await page.click("#gsFind"); await page.waitForFunction(() => /best knowledge/.test(document.querySelector("#gsSchool").textContent));
       ok(/Test University/.test(JSON.stringify(ctx.bodies[0])), "the typed name is what is asked about"); ok((await rows(page)).length === 8, "and the boxes fill in"); await ctx.close(); }
+    { // a program with its own scale: asked about, flagged as that program's
+      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND({scope: "program", program: "Nursing"})});
+      await openSettings(page); ok(await page.locator("#gsProgram").count() === 1, "there is a program box");
+      await page.fill("#gsProgram", "Nursing"); await page.click("#gsFind"); await page.waitForFunction(() => /the Nursing scale at Test University/.test(document.querySelector("#gsSchool").textContent));
+      ok(/program: Nursing/.test(JSON.stringify(ctx.bodies[0])), "the program is sent with the school");
+      ok(await page.inputValue("#gsProgram") === "Nursing", "the program box keeps what was typed");
+      ok((await rows(page)).length === 8, "and the program's scale fills in"); await ctx.close(); }
+    { // no separate program scale: the school's general scale is used, and it says so
+      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND({scope: "school"})});
+      await openSettings(page); await page.fill("#gsProgram", "Geology"); await page.click("#gsFind");
+      await page.waitForFunction(() => /general scale \(no separate Geology scale found\)/.test(document.querySelector("#gsSchool").textContent));
+      ok((await rows(page)).length === 8, "falls back to the school's scale"); await ctx.close(); }
+    { // the program starts as the major from Area of Study
+      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL, {area: {id: "health", text: "Nursing"}}), reply: FOUND()});
+      await openSettings(page); ok(await page.inputValue("#gsProgram") === "Nursing", "prefilled from the area of study"); await ctx.close(); }
     { // a rate limit shows Google's own words
       const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND(), limitSearch: true});
       ctx.limitAll = true; await openSettings(page); await page.click("#gsFind"); await page.waitForFunction(() => /Google said/.test(document.querySelector("#gsMsg").textContent));
