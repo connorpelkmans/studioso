@@ -848,13 +848,13 @@ The desktop app uses the website address for share links. If a share sheet in th
 
 ## Brightspace, Canvas and Blackboard
 
-Studyboard can bring in everything from your school's learning platform on its own: **Brightspace** (D2L, like BCIT's Learning Hub), **Canvas** or **Blackboard Learn**. Assignments, quizzes, discussions and exams go on your Board and Timeline with their due dates, instructor calendar events go on your Schedule, and your grades go into the Grade Tracker. Open **Settings > Brightspace, Canvas and Blackboard**, or the **School Sites** button on the Courses page, and pick your platform. Using more than one? Connect each; they stay separate and nothing is added twice.
+Studyboard can bring in everything from your school's learning platform on its own: **Brightspace** (D2L, the learning site many schools use), **Canvas** or **Blackboard Learn**. Assignments, quizzes, discussions and exams go on your Board and Timeline with their due dates, instructor calendar events go on your Schedule, and your grades go into the Grade Tracker. Open **Settings > Brightspace, Canvas and Blackboard**, or the **School Sites** button on the Courses page, and pick your platform. Using more than one? Connect each; they stay separate and nothing is added twice.
 
 Studyboard only ever **reads** from these sites. It never submits, posts or changes anything there.
 
 ### Two ways to connect
 
-**Sign In (desktop app, recommended).** Type your school's address (Brightspace is filled in as `learn.bcit.ca`; Canvas is usually like `yourschool.instructure.com`, Blackboard like `yourschool.blackboard.com`), click **Sign In**, and the platform's own sign-in page opens in a small window. Sign in the way you always do, including any two-step check. Studyboard never sees your password; each platform's sign-in is kept in its own private storage on your computer. This brings in the most:
+**Sign In (desktop app, recommended).** Type your school's address (Brightspace is usually like `yourschool.brightspace.com`, Canvas like `yourschool.instructure.com`, Blackboard like `yourschool.blackboard.com`), click **Sign In**, and the platform's own sign-in page opens in a small window. Sign in the way you always do, including any two-step check. Studyboard never sees your password; each platform's sign-in is kept in its own private storage on your computer. This brings in the most:
 - Everything with a due date, with the instructions in the task's notes and a link straight to it.
 - Whether you've **submitted**: the task is marked done for you (only once, so you can undo it). For Brightspace **discussions**, it checks whether you've posted in the topic, and marks it done once you have. (A calendar link can't tell whether you've posted, so this needs Sign In.)
 - **Grades:** your marks go into the Grade Tracker, with each item's weight when the platform has it (Brightspace weighted gradebooks, Canvas weighted assignment groups). Graded things you don't have as tasks, like participation, are added as finished tasks so your course grade adds up. A mark you typed yourself is never replaced.
@@ -927,9 +927,13 @@ Open the task and type your mark in the **Mark** box, like `43/50` or `86%`. The
 
 **3. Check each course's pass mark**
 Open **Settings > Grades**, tap the sliders button next to a course (or **Grade Settings** on the course page), and set:
-- **Pass Mark:** the minimum grade to pass. It starts at 65%. Check your course outline, since some courses also need a pass on each part, like the exams.
+- **Pass Mark:** the minimum grade to pass. It starts at 50%, or at your school's own pass mark when Studyboard finds it (see below). Check your course outline, since some courses also need a pass on each part, like the exams.
 - **Your Goal:** optional, the final grade you're aiming for.
-- **Letter Scale:** starts with BCIT's usual scale. Change it if your course outline uses a different one.
+- **Letter Scale:** one box for each letter and one for the lowest percent that earns it. Add or remove letters as needed. It starts with a common scale, and there are three ways to fill in your school's real one:
+  - **Find My School's Scale.** If you've connected Brightspace, Canvas or Blackboard, Studyboard works out your school from the site's address and, using your own AI key, searches the web for the school's official letter scale **and pass mark**. Only the site's address (or the school name you type) is sent, never your marks or tasks. When the scale comes from the school's own website it is filled in for all your courses, with an Undo; when it comes from anywhere else, Studyboard asks you to check it first. With **Automatic AI** on, this happens by itself once per school (turn it off under Suggestions, Manage, Find My School's Grading).
+  - **Upload Screenshot** of the scale from your course outline or your school's site. You can also paste a screenshot straight into the sheet. AI reads it into the boxes.
+  - **Paste a Scale** as text, like `A+ 90-100`, one letter per line. It works without AI too.
+  Whatever is filled in, check it against your course outline before you save.
 
 Each course page then shows your grade so far, your projected final, and what you need on the rest to reach your goal and to pass. When a course gets close to its pass mark, Today's Plan moves that course's graded work up a little.
 

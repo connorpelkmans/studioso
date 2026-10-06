@@ -69,7 +69,7 @@ const dns = require("dns");
 
 const busy = {};
 
-// "learn.bcit.ca", "https://learn.bcit.ca/d2l/home" or similar -> "https://learn.bcit.ca". Only real https hostnames.
+// "learn.example.edu", "https://learn.example.edu/d2l/home" or similar -> "https://learn.example.edu". Only real https hostnames.
 function originOf(host) {
   let s = String(host || "").trim();
   if (!s || s.length > 300) return null;
