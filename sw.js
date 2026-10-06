@@ -13,7 +13,7 @@ const OPTIONAL = ["./manifest.webmanifest", "./today.webmanifest", "./icons/icon
   "./vendor/fonts/atkinson-hyperlegible-next-latin-700-normal.woff2",
   "./vendor/fonts/atkinson-hyperlegible-latin-400-normal.woff2", "./vendor/fonts/atkinson-hyperlegible-latin-700-normal.woff2"];
 // PDF.js (same-origin, ES modules) is saved too so a PDF can be imported offline; if it isn't there the fetch handler saves it on first use.
-OPTIONAL.push("./vendor/pdfjs/pdf.min.mjs", "./vendor/pdfjs/pdf.worker.min.mjs");
+OPTIONAL.push("./vendor/pdfjs/pdf.min.mjs", "./vendor/pdfjs/pdf.worker.min.mjs", "./locales/es.json");
 // Same-origin vendored libraries and fonts are precached (OPTIONAL, so a missing one never blocks install). The CDN copy is only the
 // fallback the page uses if the vendored file can't load; it is cached opportunistically and never required.
 const LIBS = ["https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"];
