@@ -98,6 +98,7 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       ok(rowsFocus === 0, tag + " no focus button on exam rows");
       const fixed = await txt(p, ".plan-fixed li");
       ok(fixed.length === 2 && /Midterm 2/.test(fixed[0]) && /In person/.test(fixed[0]) && /Final Exam/.test(fixed[1]) && /Not sure/.test(fixed[1]), tag + " On the Calendar lists both exams: " + fixed.join(" | "));
+      await p.evaluate(() => document.querySelectorAll("#planExtra, #planExtra .pe-item").forEach(d => { d.open = true; }));
       const q = await txt(p, '.auto-ins li[data-kind="remote"]');
       ok(q.length === 1 && /Can you take “Final Exam” from home\?/.test(q[0]), tag + " one question for the final: " + q.join("|"));
       ok(await p.locator('[data-act="rmt-set"]').count() === 2, tag + " Yes and No buttons");
@@ -171,6 +172,7 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       await showToday(p); await p.waitForTimeout(700);
       let pl = await plan(p);
       ok(pl.next && pl.next.id === "a1", tag + " an unsure exam due tomorrow is not suggested; the assignment is (" + (pl.next && pl.next.id) + ")");
+      await p.evaluate(() => document.querySelectorAll("#planExtra, #planExtra .pe-item").forEach(d => { d.open = true; }));
       await p.click('[data-act="rmt-set"][data-v="no"]'); await p.waitForTimeout(400);
       ok((await eff(p, "m2")).v === "no", tag + " In person answer");
       pl = await plan(p); ok(pl.next.id === "a1", tag + " still not suggested after saying In person");
