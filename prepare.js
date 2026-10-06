@@ -39,6 +39,12 @@ for (const [family, pkg, weights] of faces) for (const w of weights) {
 }
 fs.writeFileSync(path.join(vendor, "fonts.css"), css);
 
+// Language catalogs (locales/*.json) are fetched by the page on demand
+if (fs.existsSync(path.join(root, "locales"))) {
+  fs.mkdirSync(path.join(out, "locales"), { recursive: true });
+  for (const f of fs.readdirSync(path.join(root, "locales"))) if (f.endsWith(".json") && f !== "en.json") fs.copyFileSync(path.join(root, "locales", f), path.join(out, "locales", f));
+}
+
 let html = fs.readFileSync(src, "utf8");
 const swaps = [
   [/<link rel="preconnect" href="https:\/\/fonts\.(googleapis|gstatic)\.com"[^>]*>\s*/g, ""],
