@@ -46,10 +46,14 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(/pins?$/.test((await page.textContent("#ppCount")).trim()), "a count of matching pins is announced: " + (await page.textContent("#ppCount")));
       await page.screenshot({path: path.join(SHOTS, `picker-${W}.png`)});
       // search narrows across every theme, even folded ones
+      const openBefore = await page.locator("details.pp-group[open]").count();
       await page.fill("#ppQ", "heart"); await page.waitForTimeout(100);
       const heart = await page.$$eval(".pp-tile .pp-name", els => els.map(e => e.textContent.trim()));
       ok(heart.length >= 1 && heart.every(x => /heart/i.test(x) || true) && heart.some(x => /Heart/.test(x)), "search finds Heart Pin: " + heart.slice(0, 4).join(", "));
       ok(heart.length < total, "search shows fewer pins than the full list");
+      await page.fill("#ppQ", ""); await page.waitForTimeout(150);
+      ok(await page.locator("details.pp-group[open]").count() === openBefore, "after a search is cleared, the groups it opened fold away again");
+      await page.fill("#ppQ", "heart"); await page.waitForTimeout(100);
       await page.fill("#ppQ", "zzzzzz"); await page.waitForTimeout(80);
       ok(await page.locator(".pp-tile").count() === 0 && /No pins match/.test(await page.textContent("#ppRes")), "a friendly empty state");
       await page.fill("#ppQ", ""); await page.click('.pp-chip[data-id="basic"]'); await page.waitForTimeout(80);

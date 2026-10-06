@@ -139,6 +139,33 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await openSettings(page); await page.click("#gsFind"); ok(/Type your school's name/.test(await msg(page)) && ctx.calls === 0, "asks for the school's name when no site is connected");
       await page.fill("#gsSchoolName", "Test University"); await page.click("#gsFind"); await page.waitForFunction(() => /Found/.test(document.querySelector("#gsSchool").textContent));
       ok(/Test University/.test(JSON.stringify(ctx.bodies[0])), "the typed name is what is searched"); ok((await rows(page)).length === 8, "and the boxes fill in"); await ctx.close(); }
+
+    { // review fixes: Undo keeps the default pass mark, a chosen pass mark is kept, a reset link, own pass marks only when different
+      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS), reply: FOUND(), grounding: GROUND("registrar.testu.ca")});
+      await page.evaluate(() => window.__sbGrades.schoolAuto()); await page.waitForTimeout(400); await page.click("#toastUndo"); await page.waitForTimeout(250);
+      const g = await page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")).settings.grades || {});
+      ok(!("pass" in g) && !("scale" in g) && !("school" in g), "Undo removes what was added instead of leaving empty values: " + JSON.stringify(g));
+      await openSettings(page); ok(await page.inputValue('input[name="pass"]') === "50", "the pass mark is back to the default 50, not blank");
+      await ctx.close(); }
+    { const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, {grades: {pass: 60}}), reply: FOUND(), grounding: GROUND("registrar.testu.ca")});
+      await page.evaluate(() => window.__sbGrades.schoolAuto()); await page.waitForTimeout(400);
+      const g = await page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")).settings.grades);
+      ok(g.pass === 60 && g.scale && g.school, "a pass mark the student already chose is not replaced (the scale still is)");
+      await ctx.close(); }
+    { const {ctx, page} = await mk({});
+      await openSettings(page); await page.fill('#gsRows .gr-scale-row:nth-child(1) input[name="sl"]', "Z"); await page.click("#gsStd");
+      ok((await rows(page))[0][0] === "A+" && /standard scale/.test(await msg(page)), "Reset to a standard scale brings the boxes back");
+      await page.click("[data-submit]"); await page.waitForTimeout(250);
+      const c = await page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")).courses[0].grading);
+      ok(c.pass === null, "a course saved with the default pass mark keeps following the default (not pinned): " + JSON.stringify(c.pass));
+      await ctx.close(); }
+    { const {ctx, page} = await mk({});
+      const t = await page.evaluate(() => { const G = window.__sbGrades, S = [{letter: "A", min: 90}, {letter: "B", min: 80}, {letter: "C", min: 70}, {letter: "D", min: 50}], mk = (n, url) => ({data: {found: true, school: n, scale: S, sourceUrl: url}, sources: [{url: "https://vertexaisearch.cloud.google.com/r", title: "registrar.testu.ca"}]});
+        return {ok: G.vetSchool(mk("Test U", "https://registrar.testu.ca/x"), "learn.testu.ca"), parent: G.vetSchool(mk("Test U", "https://testu.ca/x"), "learn.testu.ca"), short: G.vetSchool({data: {found: true, school: "Test U", scale: S.slice(0, 3), sourceUrl: "https://registrar.testu.ca/x"}, sources: [{url: "https://x", title: "registrar.testu.ca"}]}, "learn.testu.ca"), noname: G.vetSchool(mk("", "https://registrar.testu.ca/x"), "learn.testu.ca")}; });
+      ok(t.ok && t.ok.official, "an official, complete scale from a page the search used");
+      ok(t.parent === null, "a page whose address is only a parent of a search result is not accepted");
+      ok(t.short && t.short.official === false && t.noname && t.noname.official === false, "a short scale, or one with no school name, is never filled in by itself");
+      await ctx.close(); }
     { const {ctx, page} = await mk({});
       const t = await page.evaluate(() => { const G = window.__sbGrades; return {a: G.baseDomain("learn.example.edu"), b: G.baseDomain("moodle.abc.ac.uk"), c: G.baseDomain("x.edu"), v: G.vetSchool({data: {found: true, school: "S", scale: [{letter: "A", min: 90}, {letter: "B", min: 80}, {letter: "C", min: 70}], pass: 50, sourceUrl: "https://registrar.testu.ca/x"}, sources: [{url: "https://vertexaisearch.cloud.google.com/r", title: "testu.ca"}]}, "x.instructure.com"), n: G.vetSchool({data: {found: true, scale: [{letter: "A", min: 90}, {letter: "B", min: 80}, {letter: "C", min: 70}], sourceUrl: "https://registrar.testu.ca/x"}}, "learn.testu.ca")}; });
       ok(t.a === "example.edu" && t.b === "abc.ac.uk" && t.c === "x.edu", "school domain: " + [t.a, t.b, t.c]);
@@ -147,6 +174,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     { const {ctx, page} = await mk({});
       const t = await page.evaluate(() => { const G = window.__sbGrades; return {a: G.parseScale("A+ 90-100%\nA: 85\nB = 80 to 84\nnonsense\nC 100-70"), b: G.cleanScale([{letter: "a +", min: 90}, {letter: "A+", min: 88}, {letter: "B", min: 500}, {letter: "C", min: 70}], null), c: G.cleanScale([{letter: "A", min: 90}, {letter: "B", min: 80}], "A 90-100\nB 85-89")}; });
       ok(JSON.stringify(t.a) === JSON.stringify([["A+", 90], ["A", 85], ["B", 80], ["C", 70]]), "plain reader: lower end of ranges: " + JSON.stringify(t.a));
+      const t2 = await page.evaluate(() => window.__sbGrades.parseScale("A  4.0  85-89\nB 3.0 80\nC 70%\nD 60 to 69\nF below 50\nGrade scale:"));
+      ok(JSON.stringify(t2) === JSON.stringify([["A", 85], ["B", 80], ["C", 70], ["D", 60], ["F", 0]]), "plain reader skips GPA columns, reads a % sign, and \"below 50\" means the letter starts at 0: " + JSON.stringify(t2));
       ok(JSON.stringify(t.b) === JSON.stringify([["A+", 90], ["C", 70]]), "cleaner drops bad letters, repeats and out of range: " + JSON.stringify(t.b));
       ok(t.c === null, "cleaner drops numbers that are not in the text (leaving too few)");
       await ctx.close(); }
