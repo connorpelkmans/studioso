@@ -1,0 +1,13 @@
+{
+  "lang.auto": "Automático",
+  "lang.sub": "Automático sigue tu dispositivo. Lo que aún no está traducido se queda en inglés.",
+  "lang.title": "Idioma",
+  "nav.board": "Tablero",
+  "nav.courses": "Cursos",
+  "nav.flashcards": "Tarjetas",
+  "nav.notes": "Notas",
+  "nav.plan": "Calendario",
+  "nav.plan.aria": "Calendario: línea de tiempo, horario y carga de trabajo",
+  "nav.courses.aria": "Cursos y archivos",
+  "nav.companion": "Compañero"
+}
