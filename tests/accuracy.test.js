@@ -113,9 +113,10 @@ const done = (o) => Object.assign({id: "t" + Math.random(), type: "Assignment", 
 // when you work
 {
   const at = (h) => new Date(2026, 9, 1, h, 30).getTime();
-  const T = [{status: "todo", history: [{at: at(20), text: "Focus session: 50m"}, {at: at(21), text: "Logged time: 45m"}, {at: at(20), text: "Created"}]}];
+  const T = [{status: "todo", history: [{at: at(20), text: "Focus session: 50m"}, {at: at(21), text: "Focus session: 45m"}, {at: at(23), text: "Logged time: 120m"}, {at: at(20), text: "Created"}]}];
   const b = A.bins(T, [], NOW).bins;
-  ok(b[20] === 50 && b[21] === 45, "history minutes land in their hour");
+  ok(b[20] === 50 && b[21] === 45, "timer sessions land in their hour");
+  ok(b[23] === 0, "hand-logged time says nothing about when you work (it is stamped when typed in)");
   const none = A.peakOf(b, 200); ok(none === null, "below the threshold there is no peak");
   const p = A.peakOf(b, 90); ok(p && p.hours.includes(20) && p.hours.includes(21) && /^\d\d:00 to \d\d:00$/.test(p.text), "peak: " + (p && p.text));
   // never uses the timer: finished tasks and ticks
