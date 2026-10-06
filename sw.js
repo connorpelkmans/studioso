@@ -1,6 +1,6 @@
 // Studyboard offline support: keeps a copy of the app so it opens with no internet.
 // Your data is never stored here; it lives in the app itself and in your Supabase account.
-const CACHE = "studyboard-v5";
+const CACHE = "studyboard-v4";
 // CORE must exist for the app to work offline. OPTIONAL files (icons) may be missing, in the icons/ folder layout or the
 // flat layout; a missing one never stops the service worker from installing.
 const CORE = ["./", "./index.html"];
