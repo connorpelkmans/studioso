@@ -1,4 +1,4 @@
-// UNTESTED: written without compiler access. Capacitor Android local plugins (Capacitor 5/6/7 annotation API: @CapacitorPlugin / @PluginMethod; verify).
+// UNTESTED on a device (kotlinc type-check against Capacitor 7 core only). Capacitor Android local plugins (@CapacitorPlugin / @PluginMethod, Capacitor 5-8).
 //   StudyboardCaptureToken: save({token, endpoint}) / clear()        <- window.StudyboardNative.saveCaptureToken / clearCaptureToken (native-bridge.js)
 //   StudyboardSharedQueue:  drain() -> {items:[...]} / ack({ids})    <- native-bridge.js, then SBCAPTURE.ingest(item)
 // Register both in MainActivity BEFORE super.onCreate (see README-ANDROID.md).
@@ -24,6 +24,7 @@ class StudyboardCaptureTokenPlugin : Plugin() {
     @PluginMethod
     fun clear(call: PluginCall) {
         CaptureStore.clear(context)
+        CaptureOutbox.clear(context)        // signed out / token revoked: unsent captures belong to that account, never replay them for the next one
         call.resolve()
     }
 }
@@ -32,6 +33,7 @@ class StudyboardCaptureTokenPlugin : Plugin() {
 class StudyboardSharedQueuePlugin : Plugin() {
     @PluginMethod
     fun drain(call: PluginCall) {
+        CaptureClient.flushInBackground(context)   // app start/resume: retry captures the native side still owes the server (CaptureClient.kt)
         val arr = JSArray()
         for (j in CaptureQueue.items(context).take(50)) {
             val o = JSObject(j.toString())

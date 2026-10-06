@@ -1,7 +1,7 @@
 // node tests/capture.e2e.js  (Playwright + Chromium; serves the app over http so the service worker runs; the AI network call is stubbed)
 // Checks: typed capture speed, undo, confirm sheet, URL handler, share-target manifest + service-worker POST, paste, photo flow, offline queue, ingest contract. Writes screenshots to $SHOTS.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
-const {chromium} = require("/opt/node-tools/node_modules/playwright");
+const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, ".."), SHOTS = process.env.SHOTS || path.join(require("os").tmpdir(), "cap-shots");
 fs.mkdirSync(SHOTS, {recursive: true});
 const MIME = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".css": "text/css", ".woff2": "font/woff2"};
@@ -18,7 +18,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Intro Biology", code: "BIO101", 
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
-  const browser = await chromium.launch({executablePath: "/opt/pw-browsers/chromium"});
+  const browser = await chromium.launch({executablePath});
   const mkCtx = async (opts = {}) => {
     const ctx = await browser.newContext(Object.assign({viewport: {width: 1280, height: 800}, acceptDownloads: false}, opts.ctx || {}));
     await ctx.addInitScript(([seed, ai, native]) => {
@@ -208,7 +208,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await page.locator('[data-act="menu"]:visible').first().click(); await page.waitForSelector(".us-cat");
     await page.click('.us-cat[data-us="capture"]'); await page.waitForSelector('[data-cap-pref="auto"]');
     ok(await page.isChecked('[data-cap-pref="auto"]') && !(await page.isChecked('[data-cap-pref="keep"]')) && await page.isChecked('[data-cap-pref="ai"]'), "settings: auto-add ON, keep photos OFF, use AI ON by default");
-    ok((await page.$$('[data-act="cap-try"]')).length === 4 && await page.isVisible('[data-cap-slot="voice"]') && await page.isVisible("#extraProbe"), "settings: 4 Try it buttons, Voice placeholder, settingsExtra content");
+    ok((await page.$$('[data-act="cap-try"]')).length === 4 && !(await page.$('[data-cap-slot="voice"]')) && !(await page.$('[data-cap-shot]')) && await page.isVisible("#extraProbe"), "settings (web): 4 Try it buttons, no empty voice placeholder, no desktop-only screenshot row, settingsExtra content");
     await page.screenshot({path: path.join(SHOTS, "settings-1280.png")});
     await page.click('[data-cap-pref="auto"]'); ok((await page.evaluate(() => SBCAPTURE.prefs())).auto === false, "toggle saves");
     await page.click('[data-act="cap-try"][data-try="sheet"]'); await page.waitForSelector("#qcIn"); ok(/Will add/.test(await page.textContent("#capPv")), "Try it opens the capture sheet"); await page.keyboard.press("Escape");

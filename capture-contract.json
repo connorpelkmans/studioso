@@ -15,7 +15,7 @@
     "authorizationScheme": "Bearer",
     "contentType": "application/json",
     "idempotencyKeyPattern": "^[A-Za-z0-9-]{8,64}$",
-    "note": "X-Studyboard-Token is accepted instead of Authorization; the server accepts any Idempotency-Key up to 80 chars (or an 'id' body field) and dedupes for 10 minutes"
+    "note": "X-Studyboard-Token is accepted instead of Authorization; the server accepts any Idempotency-Key up to 80 chars (or an 'id' body field) and dedupes for 7 days"
   },
   "bodyFields": {
     "text": {

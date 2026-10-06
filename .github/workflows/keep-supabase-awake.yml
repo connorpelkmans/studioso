@@ -29,7 +29,7 @@ jobs:
           if [ "$code" = "000" ] || [ "$code" -ge 500 ]; then exit 1; fi
 
       - name: Check out the repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
 
       # GitHub switches off scheduled jobs in public repositories after 60 days without any commits.
       # This makes a tiny commit every 45 days so the ping never stops.

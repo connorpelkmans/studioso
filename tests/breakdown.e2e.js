@@ -1,8 +1,9 @@
 // node tests/breakdown.e2e.js  (Playwright + Chromium; the AI network call is stubbed)
 // Big assignment breakdown: detail-sheet entry, drop-in text flow, syllabus review checkbox, edit/shift/heavy-day/tight banner, create + one Undo, parent progress,
 // complete/delete offers, due-date re-plan offer, LMS-synced parent, offline template fallback, AI path, phone width. Screenshots go to $SHOTS.
+/* global state, ui, render, applyChanges, clone, importSheet, lmsOf, newTask, allTasks, remainingOf, TB -- copied onto window from __sbBreakdown in open() below */
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
-const {chromium} = require("/opt/node-tools/node_modules/playwright");
+const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, ".."), SHOTS = process.env.SHOTS || path.join(require("os").tmpdir(), "bd-shots");
 fs.mkdirSync(SHOTS, {recursive: true});
 const MIME = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".css": "text/css", ".woff2": "font/woff2", ".svg": "image/svg+xml"};
@@ -28,7 +29,7 @@ const AI_STAGES = {kind: "paper", stages: [
   {title: "Revise, cite and submit on the course site", steps: ["Check the citation style"], weight: 1.5}]};
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
-  const browser = await chromium.launch({executablePath: "/opt/pw-browsers/chromium"});
+  const browser = await chromium.launch({executablePath});
   const mkCtx = async (opts = {}) => {
     const ctx = await browser.newContext({viewport: {width: opts.w || 1280, height: opts.h || 900}});
     await ctx.addInitScript(([seed, ai]) => {
@@ -45,7 +46,12 @@ const AI_STAGES = {kind: "paper", stages: [
   const toastOf = page => page.evaluate(() => { const t = document.querySelector("#toast"); return t.classList.contains("show") ? t.textContent : ""; });
   const noOverflow = async (page, what) => { const o = await page.evaluate(() => { const d = document.querySelector("#dlg"); return {page: document.documentElement.scrollWidth - document.documentElement.clientWidth, dlg: d ? d.scrollWidth - d.clientWidth : 0, body: (document.querySelector("#dlg .sheet-body") || {}).scrollWidth - (document.querySelector("#dlg .sheet-body") || {}).clientWidth}; }); ok(o.page <= 0 && o.dlg <= 0 && !(o.body > 0), `no horizontal overflow ${what} (${JSON.stringify(o)})`); };
   const targets = async (page, what) => { const small = await page.evaluate(() => [...document.querySelectorAll("#dlg .bd-sheet button, #dlg .bd-sheet input, #dlg .bd-sheet select, #dlg .bd-sheet summary")].filter(e => e.offsetParent && !e.classList.contains("sr") && e.type !== "checkbox").map(e => { const r = e.getBoundingClientRect(); return {t: (e.getAttribute("aria-label") || e.textContent || e.id).trim().slice(0, 30), h: Math.round(r.height), w: Math.round(r.width)}; }).filter(x => x.h < 40 || x.w < 40)); ok(small.length === 0, `touch targets are 40px or more ${what} ${JSON.stringify(small.slice(0, 4))}`); };
-  const openTask = (page, id) => page.locator(`#view [data-act="edit-task"][data-id="${id}"]:visible`).first().click();
+  // The Board shows Today's Plan or the Task Board, one at a time on every screen size: if the task isn't in the current view, switch to the board
+  const openTask = async (page, id) => {
+    const row = page.locator(`#view [data-act="edit-task"][data-id="${id}"]:visible`);
+    if (!(await row.count())) await page.evaluate(() => { const b = document.querySelector('[data-act="bview"][data-id="board"]'); if (b) b.click(); });
+    await row.first().click();
+  };
   const undo = async page => { await page.click("#toastUndo"); await page.waitForTimeout(200); };
   try {
     for (const W of [1280, 390]) {

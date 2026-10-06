@@ -13,13 +13,24 @@
     "start": "node prepare.js && electron .",
     "prep": "node prepare.js",
     "dist": "node prepare.js && electron-builder --win nsis --x64",
+    "dist:win-signed": "node prepare.js && electron-builder --win nsis --x64 --config build-resources/electron-builder.win-signed.js",
     "dist:mac": "node prepare.js && electron-builder --mac dmg --arm64 -c.mac.identity=-",
     "dist:linux": "node prepare.js && electron-builder --linux AppImage",
     "dist:mac-intel": "node prepare.js && electron-builder --mac dmg --x64 -c.mac.identity=- '-c.mac.artifactName=Studyboard-${version}-mac-intel.${ext}'",
-    "dist:mac-signed": "node prepare.js && electron-builder --mac dmg --universal '-c.mac.artifactName=Studyboard-${version}-mac-universal.${ext}'",
+    "dist:mac-signed": "node prepare.js && electron-builder --mac dmg --universal -c.dmg.sign=true '-c.mac.artifactName=Studyboard-${version}-mac-universal.${ext}'",
     "dist:mas": "node prepare.js && electron-builder --mac mas --universal",
     "dist:mas-dev": "node prepare.js && electron-builder --mac mas-dev --universal",
-    "check:store": "node notarize.js --check"
+    "check:store": "node notarize.js --check mas",
+    "check:mas-dev": "node notarize.js --check mas-dev",
+    "check:signed": "node notarize.js --check signed",
+    "test": "node scripts/run-tests.js",
+    "test:e2e": "node scripts/run-tests.js --e2e --no-unit --no-slow",
+    "test:slow": "node scripts/run-tests.js --e2e --no-unit --only-slow",
+    "test:all": "node scripts/run-tests.js --e2e",
+    "lint": "eslint . && node scripts/lint-inline.js",
+    "csp": "node scripts/csp.js",
+    "build:site": "node scripts/build-site.js",
+    "check:release": "node scripts/check-release.js"
   },
   "devDependencies": {
     "@electron/notarize": "^3.1.1",
@@ -29,12 +40,15 @@
     "@supabase/supabase-js": "^2.117.2",
     "electron": "^44.5.1",
     "electron-builder": "^26.15.3",
-    "pdfjs-dist": "5.7.284"
+    "eslint": "^9.39.5",
+    "globals": "^16.5.0",
+    "pdfjs-dist": "6.4.299",
+    "playwright": "1.56.1"
   },
   "build": {
     "appId": "com.studioso.app",
     "productName": "Studyboard",
-    "copyright": "Copyright © 2026 Studyboard",
+    "copyright": "Copyright \u00a9 2026 Studyboard",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -171,6 +185,7 @@
       ]
     },
     "afterSign": "notarize.js",
+    "afterAllArtifactBuild": "notarize.js",
     "electronFuses": {
       "runAsNode": false,
       "enableCookieEncryption": true,
@@ -190,6 +205,6 @@
     ]
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.12"
   }
 }

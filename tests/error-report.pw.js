@@ -1,12 +1,14 @@
 // Browser tests for crash/error reporting with a mock Sentry endpoint (no network). Run: node tests/error-report.pw.js
-// Needs Playwright + Chromium (PLAYWRIGHT_MODULE / CHROMIUM_PATH override the defaults used in this repo's CI image).
+// Needs Playwright + Chromium (see tests/pw.js for how Playwright and Chromium are found).
 const fs = require("fs"), os = require("os"), path = require("path"), assert = require("assert");
-const {chromium} = require(process.env.PLAYWRIGHT_MODULE || "/opt/node-tools/node_modules/playwright");
-const exe = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium";
+const {chromium, executablePath} = require("./pw");
 const src = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 const DSN = "https://0123456789abcdef0123456789abcdef@o4501.ingest.sentry.io/4507001";
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sb-err-"));
-const page = (name, patch) => { const f = path.join(dir, name + "/index.html"); fs.mkdirSync(path.dirname(f), {recursive: true}); fs.writeFileSync(f, patch(src)); return "file://" + f; };
+// These pages patch the main script (a test DSN) and inject inline scripts to throw "app" errors, which the page's hash-based CSP would block.
+// Their copies use the policy's relaxed mode (no hash list = 'unsafe-inline'); the strict policy itself is covered by tests/csp.test.js.
+const laxCsp = s => s.replace(/\/\*CSP-HASHES\*\/"[^"]*"/, '/*CSP-HASHES*/""');
+const page = (name, patch) => { const f = path.join(dir, name + "/index.html"); fs.mkdirSync(path.dirname(f), {recursive: true}); fs.writeFileSync(f, laxCsp(patch(src))); return "file://" + f; };
 const withDsn = s => s.replace('dsn: "",', `dsn: "${DSN}",`);
 const URLS = {on: page("on", withDsn), off: page("off", s => s), fb: page("fb", s => s.replace("supabaseFallback: false", "supabaseFallback: true"))};
 // Personal content that must never appear in any payload.
@@ -48,7 +50,7 @@ const parseEnv = body => { const l = body.split("\n"); return {head: JSON.parse(
 const noPII = (blob, why) => PII.forEach(x => ok(!blob.includes(x), `${why}: payload leaks ${x}`));
 
 (async () => {
-  const browser = await chromium.launch({executablePath: exe, args: ["--no-sandbox"]});
+  const browser = await chromium.launch({executablePath, args: ["--no-sandbox"]});
   try {
     // 1. An injected error is sent to the Sentry envelope endpoint, scrubbed, and the page shows no CSP violations.
     {

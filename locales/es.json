@@ -4,9 +4,10 @@
   "lang.title": "Idioma",
   "nav.board": "Tablero",
   "nav.courses": "Cursos",
-  "nav.files": "Archivos",
   "nav.flashcards": "Tarjetas",
   "nav.notes": "Notas",
-  "nav.plan": "Planificar",
-  "nav.plan.aria": "Planificar: calendario, horario y carga de trabajo"
+  "nav.plan": "Calendario",
+  "nav.plan.aria": "Calendario: línea de tiempo, horario y carga de trabajo",
+  "nav.courses.aria": "Cursos y archivos",
+  "nav.companion": "Compañero"
 }

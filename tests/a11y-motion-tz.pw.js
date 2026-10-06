@@ -1,8 +1,7 @@
 // Browser checks for Animations (reduced motion / low power), text size, contrast and time zones. Run: node tests/a11y-motion-tz.pw.js [index.html]
-// Needs Playwright + Chromium (PLAYWRIGHT_MODULE / CHROMIUM_PATH override the defaults used in this repo's CI image).
+// Needs Playwright + Chromium (see tests/pw.js for how Playwright and Chromium are found).
 const path = require("path"), assert = require("assert");
-const {chromium} = require(process.env.PLAYWRIGHT_MODULE || "/opt/node-tools/node_modules/playwright");
-const exe = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium";
+const {chromium, executablePath} = require("./pw");
 const F = "file://" + path.resolve(process.argv[2] || path.join(__dirname, "..", "index.html"));
 let n = 0; const ok = (c, m) => { assert(c, m); n++; console.log("ok -", m); };
 const seed = skin => ({courses: [{id: "c1", name: "Biology 101", code: "BIO 101", color: "#2C55D6"}], tasks: [
@@ -16,7 +15,7 @@ async function mk(b, opts, skin, init) {
   const p = await ctx.newPage(); p.errs = []; p.on("pageerror", e => p.errs.push(e.message)); return {ctx, p};
 }
 (async () => {
-  const b = await chromium.launch({executablePath: exe});
+  const b = await chromium.launch({executablePath});
   const count = async p => { const a = await p.evaluate(() => window.__raf); await p.waitForTimeout(2500); return (await p.evaluate(() => window.__raf)) - a; };
   const batt = l => `navigator.getBattery=()=>Promise.resolve(Object.assign(new EventTarget(),{level:${l},charging:false}));`;
   // 1. Animation modes: callbacks over 2.5 s on a theme with an engine

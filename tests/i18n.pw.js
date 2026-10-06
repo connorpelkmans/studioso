@@ -26,7 +26,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await page.goto(base); await page.waitForFunction(() => /Tablero/.test(document.querySelector('nav.tabs [data-tab="board"]').textContent), null, {timeout: 8000});
     ok(/Tarjetas/.test(await page.textContent('nav.tabs [data-tab="flashcards"]')), "Spanish nav label");
     ok(await page.evaluate(() => document.documentElement.lang) === "es-es", "html lang follows the language");
-    ok(await page.evaluate(() => document.querySelector('nav.tabs [data-tab="plan"]').getAttribute("aria-label")).then(t => /Planificar/.test(t)), "aria-label translated");
+    ok(await page.evaluate(() => document.querySelector('nav.tabs [data-tab="plan"]').getAttribute("aria-label")).then(t => /Calendario/.test(t)), "aria-label translated");
     ok(await page.evaluate(() => document.querySelector('nav.tabs [data-tab="board"] svg') !== null), "icons survive translation");
     ok(errs.length === 0, "no page errors: " + errs.join("; "));
     await ctx.close();

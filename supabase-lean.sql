@@ -48,7 +48,8 @@ grant select on public.studyboard_deletions to authenticated;
 create or replace function public.studyboard_log_delete() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
-  if old.kind <> 'backup' and coalesce(current_setting('studyboard.archiving', true), '') <> 'on' then
+  if old.kind <> 'backup' and coalesce(current_setting('studyboard.archiving', true), '') <> 'on'
+     and exists (select 1 from auth.users u where u.id = old.user_id) then   -- not while the account itself is being deleted (its row is already gone)
     insert into public.studyboard_deletions (user_id, kind, id) values (old.user_id, old.kind, old.id);
   end if;
   return old;
@@ -168,6 +169,7 @@ begin
   if me is null then return 0; end if;
   select * into a from public.studyboard_archive where user_id = me;
   if not found then return 0; end if;
+  perform set_config('studyboard.restoring', '1', true);   -- this transaction only: the plan limits don't apply to putting your own data back
   insert into public.items (user_id, kind, id, data)
     select me, x.kind, x.id, x.data from jsonb_to_recordset(a.items) as x(kind text, id text, data jsonb, updated_at timestamptz)
     on conflict (user_id, kind, id) do nothing;
@@ -209,6 +211,7 @@ end $$;
 --     (reporter_id and reported_user_id become null by the foreign keys).
 --   * Payment bookkeeping that must be kept (studyboard_billing_events, studyboard_pro_grants) is anonymized: the user id,
 --     email and free-text reason are removed; only event ids, dates and plan facts remain.
+--   * A used free trial stays recorded as a SHA-256 of the tidied email only (studyboard_trial_uses), so it can't be reused.
 --   * Uploaded files in the studioso-files bucket (<uid>/...) must be deleted through the Storage API (Supabase does not
 --     allow deleting storage rows from SQL). The delete-account Edge Function does that with the service role; the app falls
 --     back to deleting them with the person's own sign-in. The block below only sweeps up what SQL is allowed to.
@@ -226,7 +229,7 @@ declare
     ['group_quiz_scores','user_id'], ['group_messages','user_id'], ['group_items','user_id'], ['group_blocks','blocker_id'],
     ['group_blocks','blocked_id'], ['group_members','user_id'], ['shared_decks','owner_id'], ['study_profiles','user_id'],
     ['study_room_people','user_id'], ['study_rooms','started_by'],
-    ['capture_inbox','user_id'], ['capture_tokens','user_id'],
+    ['capture_idem','user_id'], ['capture_inbox','user_id'], ['capture_tokens','user_id'],
     ['reminder_queue','user_id'], ['push_subscriptions','user_id'], ['calendar_feeds','user_id'],
     ['studyboard_deletions','user_id'], ['studyboard_archive','user_id'], ['studyboard_devices','user_id'],
     ['studyboard_device_removals','user_id'], ['studyboard_usage','user_id'], ['studyboard_billing_customers','user_id'],
@@ -247,6 +250,15 @@ begin
       end if;
     end loop;
     res := res || jsonb_build_object('groups_transferred', n);
+  end if;
+  -- A used free trial is remembered as a hash of the email only (supabase-plans.sql), so deleting and re-creating the account
+  -- doesn't give a second trial. No account id or address is kept.
+  if to_regclass('public.studyboard_trial_uses') is not null and to_regclass('public.studyboard_entitlements') is not null
+     and to_regprocedure('public.plans_email_hash(text)') is not null then
+    insert into public.studyboard_trial_uses (email_hash)
+      select public.plans_email_hash(u.email) from auth.users u join public.studyboard_entitlements e on e.user_id = u.id
+      where u.id = p_uid and e.trial_until is not null and public.plans_email_hash(u.email) is not null
+    on conflict (email_hash) do nothing;
   end if;
   foreach t slice 1 in array del loop
     if to_regclass('public.' || t[1]) is not null then
@@ -311,12 +323,50 @@ do $$ begin
 end $$;
 
 -- What the app calls (fallback when the delete-account Edge Function is not deployed). Acts on the caller only.
+-- Because this path can't cancel a card subscription or check a password, it refuses (and deletes nothing) when:
+--   * the last sign-in was more than 10 minutes ago (auth.users.last_sign_in_at; a token refresh doesn't count), so a stolen
+--     or left-open session can't delete the account: sign in again (or enter the password) first;
+--   * the account has a running Stripe card subscription (or a Stripe customer whose plan isn't known to have ended): it
+--     must be cancelled first, or the delete-account Edge Function (which cancels it) must be used.
+-- studyboard_delete_my_account_check() answers the same question without deleting anything (null = allowed), so the app
+-- can ask before it starts removing files.
+create or replace function public.studyboard_delete_my_account_check() returns text
+language plpgsql stable security definer set search_path = public, auth as $$
+declare me uuid := auth.uid(); signed_in timestamptz; has_user boolean := false;
+begin
+  if me is null then return 'SB_NOT_SIGNED_IN'; end if;
+  select true, u.last_sign_in_at into has_user, signed_in from auth.users u where u.id = me;
+  if not coalesce(has_user, false) then return null; end if;   -- already deleted: calling again is harmless
+  if signed_in is null or signed_in < now() - interval '10 minutes' or signed_in > now() + interval '1 minute' then return 'SB_REAUTH'; end if;
+  if to_regclass('public.studyboard_entitlements') is not null and exists (
+       select 1 from public.studyboard_entitlements e where e.user_id = me and e.source = 'stripe' and e.plan = 'pro'
+         and e.will_renew and (e.pro_until is null or e.pro_until > now())) then
+    return 'SB_CARD_SUBSCRIPTION';
+  end if;
+  if to_regclass('public.studyboard_billing_customers') is not null and exists (select 1 from public.studyboard_billing_customers c where c.user_id = me)
+     and not exists (select 1 from public.studyboard_entitlements e where e.user_id = me and e.source = 'stripe'
+                       and (not e.will_renew or (e.pro_until is not null and e.pro_until <= now()))) then
+    return 'SB_CARD_SUBSCRIPTION';
+  end if;
+  return null;
+end $$;
+revoke all on function public.studyboard_delete_my_account_check() from public, anon;
+grant execute on function public.studyboard_delete_my_account_check() to authenticated;
+
 create or replace function public.studyboard_delete_my_account() returns void
 language plpgsql security definer set search_path = public, auth, storage as $$
-declare me uuid := auth.uid();
+declare me uuid := auth.uid(); why text;
 begin
   if me is null then
     raise exception 'SB_NOT_SIGNED_IN: Sign in first.' using errcode = '28000';
+  end if;
+  why := public.studyboard_delete_my_account_check();
+  if why = 'SB_REAUTH' then
+    raise exception 'SB_REAUTH: For your safety, sign in again (or enter your password), then delete your account within 10 minutes.' using errcode = '28000';
+  elsif why = 'SB_CARD_SUBSCRIPTION' then
+    raise exception 'SB_CARD_SUBSCRIPTION: Cancel your Studyboard Pro card subscription first (Studyboard Pro, Manage Plan), then try again.' using errcode = 'P0001';
+  elsif why is not null then
+    raise exception '%: Account deletion was refused.', why using errcode = 'P0001';
   end if;
   perform public.studyboard_delete_user_data(me);
   delete from auth.users where id = me;

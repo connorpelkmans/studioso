@@ -1,6 +1,6 @@
 // The study companion is ENTIRELY on screen at all times (sprite + props/outfit + shadow + tap area, and its speech bubble when open).
 // Run: node tests/mascot-bounds.pw.js [index.html]          (ONLY=320x480,390x844 limits the matrix; QUICK=1 skips the slow trips)
-// Needs Playwright + Chromium (PLAYWRIGHT_MODULE / CHROMIUM_PATH override the defaults used in this repo's CI image).
+// Needs Playwright + Chromium (see tests/pw.js for how Playwright and Chromium are found).
 //
 // What is measured: independently of the app's own guard, the test unions getBoundingClientRect() of EVERY element drawn inside the
 // sprite (.cp-rig *: parts, props, outfit pieces, with whatever animation transform is applied at that instant), its shadow, its tap area
@@ -10,8 +10,7 @@
 // Also asserted: at the default spot the companion's tap area covers no button, link or field (the earlier overlap property), and there is
 // no gutter "sliver" any more (the companion is never partly off screen, even for one frame).
 const path = require("path"), assert = require("assert");
-const {chromium} = require(process.env.PLAYWRIGHT_MODULE || "/opt/node-tools/node_modules/playwright");
-const exe = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium";
+const {chromium, executablePath} = require("./pw");
 const F = "file://" + path.resolve(process.argv[2] || path.join(__dirname, "..", "index.html"));
 const MARGIN = 8, TOL = 0.6;
 const VIEWPORTS = [[320, 480, 3, 1], [360, 640, 3, 1], [375, 667, 2, 1], [390, 844, 3, 1], [393, 852, 3, 1], [412, 915, 2.6, 1], [430, 932, 3, 1],
@@ -91,7 +90,7 @@ async function open(b, w, h, dsf, touch, opts) {
 const sim = (p, ins) => p.evaluate(i => { ["top", "right", "bottom", "left"].forEach((k, n) => document.documentElement.style.setProperty("--sb-sai-" + k, i[n] + "px")); window.dispatchEvent(new Event("resize")); }, ins);
 
 (async () => {
-  const b = await chromium.launch({executablePath: exe});
+  const b = await chromium.launch({executablePath});
   for (const [w, h, dsf, touch] of VIEWPORTS) {
     const tag = `${w}x${h}`; if (only.length && !only.includes(tag)) continue;
     console.log("==", tag, "dsf", dsf, touch ? "touch" : "mouse");
@@ -126,7 +125,7 @@ const sim = (p, ins) => p.evaluate(i => { ["top", "right", "bottom", "left"].for
     await p.evaluate(() => { window.scrollTo(600, 400); }); await settle(p, 900); await now(p, tag, "wide overflowing page, scrolled");
     await p.evaluate(() => { window.scrollTo(0, 0); document.getElementById("wideTest").remove(); }); await settle(p, 500);
     // (g) props, speech bubble, picker
-    for (const prop of ["crown", "cape", "backpack"]) {
+    for (const prop of ["crown", "cape", "beanie"]) {
       await p.evaluate(pr => { const id = SBCOMP.current(), earned = {}; SBCOMP.ACC.forEach(a => earned[a.id] = 1); SBCOMP.setCfg({earned, wear: {[id]: pr}}); }, prop);
       await settle(p, 900); const wearing = await p.evaluate(() => SBCOMP.wearing());
       await now(p, tag, `wearing ${prop} (worn: ${wearing || "none"})`);

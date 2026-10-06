@@ -2,11 +2,19 @@
 # the working copy for this repository is .github/workflows/build-desktop.yml.
 name: Build Studyboard desktop app
 
+# Releases: pushing a v* tag builds the signed + notarized Mac DMG and (when its secrets exist) the signed Windows installer, and only those are
+# attached to the GitHub Release. Unsigned builds (the "build" job) are never published there: they are workflow artifacts for testing only
+# (Actions > the run > Artifacts). Ad-hoc Mac builds open only on the Mac that trusts them; other Macs and SmartScreen warn or refuse.
+#
+# Hardening: the default token is read-only and only the release job can write (to create the Release); every action is pinned to a commit
+# (the comment shows its version); checkout does not leave the token in .git; npm audit fails the build on a high or critical advisory in any
+# dependency (they are all devDependencies, so --omit=dev would check nothing).
+
 on:
   workflow_dispatch:
     inputs:
       kind:
-        description: "unsigned (default builds), signed (Developer ID + notarized DMG) or mas (Mac App Store package)"
+        description: "unsigned (default builds), signed (Developer ID + notarized DMG, and signed Windows installer if its secrets exist) or mas (Mac App Store package)"
         type: choice
         options: [unsigned, signed, mas]
         default: unsigned
@@ -14,7 +22,7 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -37,52 +45,64 @@ jobs:
       run:
         working-directory: desktop
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          node-version: 20
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
       - run: npm ci
+      - run: npm audit --audit-level=high
       - run: npm run ${{ matrix.script }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      - uses: actions/upload-artifact@v4
+      # Unsigned: a workflow artifact for testing, never a Release asset.
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: Studyboard-${{ matrix.os }}
+          name: Studyboard-unsigned-${{ matrix.os }}
           path: ${{ matrix.files }}
-      - if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ matrix.files }}
 
   # ---------------------------------------------------------------------------------------------------------------
-  # Signed + notarized macOS DMG (Developer ID) and the Mac App Store package. Manual runs only (Actions > Run workflow),
-  # because they need your Apple Developer account. See APP-STORE-CHECKLIST.md for how to create each secret.
+  # Signed + notarized macOS DMG (Developer ID), the signed Windows installer and the Mac App Store package. They run on a v* tag (signed
+  # builds) or by hand (Actions > Run workflow), because they need your Apple Developer account and signing certificates. See
+  # APP-STORE-CHECKLIST.md for how to create each secret.
   #   CSC_LINK / CSC_KEY_PASSWORD            Developer ID Application certificate (.p12, base64) + its password
   #   MAS_CSC_LINK / MAS_CSC_KEY_PASSWORD    "Apple Distribution" or "3rd Party Mac Developer Application" certificate (.p12, base64)
   #   MAS_INSTALLER_LINK                     "3rd Party Mac Developer Installer" certificate (.p12, base64, same password as MAS_CSC_KEY_PASSWORD)
   #   MAS_PROFILE_BASE64                     the Mac App Store provisioning profile, base64
   #   APPLE_API_KEY_BASE64 / APPLE_API_KEY_ID / APPLE_API_ISSUER   App Store Connect API key (notarization and upload)
   #   APPLE_TEAM_ID
+  # Windows (optional; without them the release has no Windows installer, see build-resources/electron-builder.win-signed.js):
+  #   AZURE_TENANT_ID / AZURE_CLIENT_ID / AZURE_CLIENT_SECRET / AZURE_SIGN_ENDPOINT / AZURE_SIGN_ACCOUNT / AZURE_SIGN_PROFILE / WIN_PUBLISHER_NAME
+  #                                          Azure Trusted Signing, or
+  #   WIN_CSC_LINK / WIN_CSC_KEY_PASSWORD    a code signing certificate (.pfx, base64) + its password
   # ---------------------------------------------------------------------------------------------------------------
   mac-signed:
-    if: github.event_name == 'workflow_dispatch' && inputs.kind == 'signed'
+    if: (github.event_name == 'workflow_dispatch' && inputs.kind == 'signed') || startsWith(github.ref, 'refs/tags/v')
     runs-on: macos-latest
     defaults:
       run:
         working-directory: desktop
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          node-version: 20
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
       - run: npm ci
-      - run: npm audit --omit=dev
+      - run: npm audit --audit-level=high
       - name: Write the notarization key
         run: |
           echo "$APPLE_API_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
           echo "APPLE_API_KEY=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
         env:
           APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+      - run: npm run check:signed
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+      # Notarizes and staples the app (afterSign) and then the DMG (afterAllArtifactBuild); REQUIRE_NOTARIZATION makes a skip an error.
       - run: npm run dist:mac-signed
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -90,10 +110,98 @@ jobs:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           REQUIRE_NOTARIZATION: "1"
-      - uses: actions/upload-artifact@v4
+      - name: Check the DMG is notarized and stapled
+        run: |
+          for f in desktop/dist/*.dmg; do xcrun stapler validate "$f"; spctl -a -t open --context context:primary-signature -vv "$f"; done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: Studyboard-mac-signed
           path: desktop/dist/*.dmg
+
+  win-signed:
+    if: (github.event_name == 'workflow_dispatch' && inputs.kind == 'signed') || startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    outputs:
+      signed: ${{ steps.creds.outputs.signed }}
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - name: Are Windows signing secrets set?
+        id: creds
+        shell: bash
+        working-directory: .                 # runs before the checkout, when desktop/ does not exist yet
+        run: |
+          if [ -n "$AZURE_CLIENT_SECRET" ] || [ -n "$WIN_CSC_LINK" ]; then echo "signed=true" >> "$GITHUB_OUTPUT"
+          else echo "signed=false" >> "$GITHUB_OUTPUT"; echo "::notice::No Windows signing secrets, so no Windows installer is built for the release (unsigned ones come from the build job, as workflow artifacts only)."; fi
+        env:
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+      - if: steps.creds.outputs.signed == 'true'
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - if: steps.creds.outputs.signed == 'true'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - if: steps.creds.outputs.signed == 'true'
+        run: npm ci
+      - if: steps.creds.outputs.signed == 'true'
+        run: npm audit --audit-level=high
+      - if: steps.creds.outputs.signed == 'true'
+        run: npm run dist:win-signed
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_SIGN_ENDPOINT: ${{ secrets.AZURE_SIGN_ENDPOINT }}
+          AZURE_SIGN_ACCOUNT: ${{ secrets.AZURE_SIGN_ACCOUNT }}
+          AZURE_SIGN_PROFILE: ${{ secrets.AZURE_SIGN_PROFILE }}
+          WIN_PUBLISHER_NAME: ${{ secrets.WIN_PUBLISHER_NAME }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+      - if: steps.creds.outputs.signed == 'true'
+        name: Check the installer is signed
+        shell: pwsh
+        run: |
+          Get-ChildItem desktop/dist/*.exe | ForEach-Object { $s = Get-AuthenticodeSignature $_.FullName; if ($s.Status -ne 'Valid') { throw "$($_.Name): signature $($s.Status)" } }
+      - if: steps.creds.outputs.signed == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: Studyboard-win-signed
+          path: desktop/dist/*.exe
+
+  # The only job that can write to the repository: it attaches the signed files to the tag's Release, and runs only when the signed builds passed.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [mac-signed, win-signed]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - run: npm audit --audit-level=high
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: Studyboard-mac-signed
+          path: release
+      - if: needs.win-signed.outputs.signed == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: Studyboard-win-signed
+          path: release
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        with:
+          files: release/*
 
   mac-store:
     if: github.event_name == 'workflow_dispatch' && inputs.kind == 'mas'
@@ -102,16 +210,19 @@ jobs:
       run:
         working-directory: desktop
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          node-version: 20
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
       - run: npm ci
-      - run: npm audit --omit=dev
+      - run: npm audit --audit-level=high
       - name: Provisioning profile
         run: echo "$MAS_PROFILE_BASE64" | base64 --decode > build-resources/Studyboard_MAS.provisionprofile
         env:
           MAS_PROFILE_BASE64: ${{ secrets.MAS_PROFILE_BASE64 }}
+      # Checks only what the "mas" target needs (build.mas and Studyboard_MAS.provisionprofile), not the mas-dev profile.
       - run: npm run check:store
       - run: npm run dist:mas
         env:
@@ -119,7 +230,7 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.MAS_CSC_KEY_PASSWORD }}
           CSC_INSTALLER_LINK: ${{ secrets.MAS_INSTALLER_LINK }}
           CSC_INSTALLER_KEY_PASSWORD: ${{ secrets.MAS_CSC_KEY_PASSWORD }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: Studyboard-mas
           path: desktop/dist/mas*/*.pkg

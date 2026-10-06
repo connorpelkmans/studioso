@@ -1,7 +1,7 @@
 // Browser test for Recently Deleted and Export My Data.  Run: node tests/trash-export.e2e.js [outDir]
-// Needs Playwright with Chromium (set PW_MODULE / PW_CHROMIUM if they live elsewhere).
+// Needs Playwright with Chromium (see tests/pw.js for how Playwright and Chromium are found).
 const path = require("path"), fs = require("fs"), assert = require("assert"), cp = require("child_process"), os = require("os");
-const {chromium} = require(process.env.PW_MODULE || "/opt/node-tools/node_modules/playwright");
+const {chromium, executablePath} = require("./pw");
 const FILE = "file://" + path.join(__dirname, "..", "index.html");
 const OUT = process.argv[2] || fs.mkdtempSync(path.join(os.tmpdir(), "sbtrash-"));
 const today = new Date(); const iso = d => d.toISOString().slice(0, 10); const plus = n => iso(new Date(today.getTime() + n * 864e5));
@@ -50,7 +50,7 @@ async function deleteEach(page) {
 }
 
 (async () => {
-  const browser = await chromium.launch({executablePath: process.env.PW_CHROMIUM || "/opt/pw-browsers/chromium"});
+  const browser = await chromium.launch({executablePath});
   for (const [w, h] of [[1280, 800], [390, 800]]) {
     const tag = "w" + w;
     // ---- undo for every kind (the toast Undo button), nothing lingers in the bin

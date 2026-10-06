@@ -1,12 +1,10 @@
 // Browser checks for Project Tasks with an in-memory stand-in for the Supabase client (window.__sbGroupsStub).
-// Run: node tests/grouptasks.e2e.js [path/to/index.html] [screenshot-dir]      (needs Playwright; uses /opt/node-tools and /opt/pw-browsers when present)
+// Run: node tests/grouptasks.e2e.js [path/to/index.html] [screenshot-dir]      (needs Playwright; see tests/pw.js for how it and Chromium are found)
 const path = require("path"), fs = require("fs"), assert = require("assert");
 const file = path.resolve(process.argv[2] || path.join(__dirname, "..", "index.html"));
 const shots = path.resolve(process.argv[3] || path.join(__dirname, "..", "tests-out"));
 fs.mkdirSync(shots, {recursive: true});
-let chromium;
-try { chromium = require("playwright").chromium; } catch(e) { chromium = require("/opt/node-tools/node_modules/playwright").chromium; }
-const exe = fs.existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined;
+const {chromium, executablePath} = require("./pw");
 let checks = 0; const ok = (c, m) => { checks++; assert(c, m); };
 
 // The stand-in client: tables in memory, the Project Task RPCs with the same rules as groups.sql, and channels you can fire by hand.
@@ -126,7 +124,7 @@ async function scenario(browser, w){
   let rows = await page.$$eval(".pt-task", els => els.map(e => e.innerText.replace(/\s+/g, " ")));
   ok(rows.length === 4, tag + " four tasks listed, got " + rows.length);
   ok(/Draft the intro.*Sam.*Due/.test(rows[0]), tag + " assignee chip and due pill: " + rows[0]);
-  ok(/Find three figures.*Unassigned/.test(rows[1]) && /Claim this/.test(rows[1]), tag + " unassigned task offers Claim this: " + JSON.stringify(rows));
+  ok(/Find three figures.*Unassigned/.test(rows[1]) && /Claim this/i.test(rows[1]), tag + " unassigned task offers Claim this: " + JSON.stringify(rows));
   ok(/overdue|yesterday/.test(rows[2]) && /You/.test(rows[2]), tag + " my overdue task: " + rows[2]);
   ok(await page.$$eval(".pt-due.late", e => e.length) === 2, tag + " two overdue pills");
   ok(await page.$$eval(".pt-due.soon", e => e.length) === 1, tag + " one due-soon pill");
@@ -278,7 +276,7 @@ async function plannerRollback(browser){
 }
 
 (async () => {
-  const browser = await chromium.launch({executablePath: exe});
+  const browser = await chromium.launch({executablePath});
   try {
     await scenario(browser, 1280); await scenario(browser, 390);
     await plainMember(browser); await sqlNotRun(browser);

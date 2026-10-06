@@ -100,15 +100,22 @@ Open **SQL Editor > New query** in Supabase, paste a whole file and click **Run*
 
 If you run `supabase-groups.sql` or `supabase-calendar-feed.sql` later, run `supabase-plans.sql` and `supabase-lean.sql` again afterwards. Running `supabase-groups.sql` again also resets who can see blocked people's tasks, so run `supabase-moderation.sql` again after it.
 
-**Edge Functions** (pasted into Supabase under Edge Functions > Deploy a new function > Via Editor). In this repository they are saved as plain `index.ts` files, so match them by their first line:
+**Edge Functions.** Each one lives in its own folder, `supabase-functions/<name>/index.ts`. Deploy it either by pasting the file into Supabase (Edge Functions > Deploy a new function > Via Editor, named exactly as below, then set the Verify JWT switch in its Details), or with the Supabase CLI from the repository root. `supabase/config.toml` records the same names, entrypoints and Verify JWT settings, but the commands below set the switch themselves, so they are right with any CLI version:
 
-| File in this repository | Function name | Verify JWT |
-|---|---|---|
-| `index.ts` | `calendar-feed` | Off |
-| `index (1).ts` | `billing-webhook` | Off |
-| `index (2).ts` | `lms-feed` | On |
-| `index (3).ts` | `send-reminders` | Off |
-| `supabase-functions/delete-account/index.ts` | `delete-account` | **On** |
+| File in this repository | Function name | Verify JWT | CLI command (add `--project-ref <your-project-ref>`) |
+|---|---|---|---|
+| `supabase-functions/calendar-feed/index.ts` | `calendar-feed` | Off | `supabase functions deploy calendar-feed --no-verify-jwt` |
+| `supabase-functions/billing-webhook/index.ts` | `billing-webhook` | Off | `supabase functions deploy billing-webhook --no-verify-jwt` |
+| `supabase-functions/lms-feed/index.ts` | `lms-feed` | On | `supabase functions deploy lms-feed` |
+| `supabase-functions/send-reminders/index.ts` | `send-reminders` | Off | `supabase functions deploy send-reminders --no-verify-jwt` |
+| `supabase-functions/delete-account/index.ts` | `delete-account` | **On** | `supabase functions deploy delete-account` |
+| `supabase-functions/create-checkout/index.ts` | `create-checkout` | On | `supabase functions deploy create-checkout` |
+| `supabase-functions/create-portal-session/index.ts` | `create-portal-session` | On | `supabase functions deploy create-portal-session` |
+| `supabase-functions/entitlement-token/index.ts` | `entitlement-token` | On | `supabase functions deploy entitlement-token` |
+| `supabase-functions/capture-task/index.ts` | `capture-task` | Off | `supabase functions deploy capture-task --no-verify-jwt` |
+| `supabase-functions/error-ingest/index.ts` | `error-ingest` | Off | `supabase functions deploy error-ingest --no-verify-jwt` |
+
+The CLI looks for functions in `supabase/functions/` unless your version reads the `entrypoint` lines in `supabase/config.toml`. If yours says it can't find a function, deploy that one by pasting it in the dashboard instead (or copy the folder to `supabase/functions/<name>/` first). Offline checks for the functions: `node --experimental-strip-types supabase-functions/tools/test-functions.mjs` and `node --experimental-strip-types supabase-functions/tools/test-capture.mjs`.
 
 **delete-account** is what makes "Delete My Account and Data" remove everything on the server, including the uploaded files themselves (SQL cannot delete files in Storage; this function uses the service role to list and remove every file under `<user id>/` in the `studioso-files` bucket, then runs `studyboard_delete_user_data` from `supabase-lean.sql`, then deletes the sign-in account, which ends every session). It also cancels a Stripe card subscription so billing never keeps running, asks for a recent sign-in or the password, and allows 5 tries an hour. Secrets: `STRIPE_SECRET_KEY` (the one the billing functions use; skip if you never took card payments) and `SITE_ORIGINS` (your web address, same value as for `create-checkout`). Without this function the app falls back to deleting files and rows with the person's own sign-in, but it cannot cancel Stripe, so it asks them to cancel first. Test it with `node --experimental-strip-types supabase-functions/tools/test-functions.mjs` and, in Supabase, with `supabase-delete-selftest.sql` (SQL Editor, run after `supabase-lean.sql`; it rolls back).
 
@@ -371,12 +378,13 @@ Open a paper, project, lab report or presentation and tap **Break It Down** (als
 
 ## Quick Capture
 
-Settings > Quick Capture explains each way in, with a Try it button for each, and three switches: Add right away when I'm sure (on), Keep photos with tasks (off), Use AI to read photos (on once AI is set up).
+Settings > Quick Capture explains each way in that works on your device (the share sheet and Siri link rows are for the web and phone apps; the screenshot row is for the desktop app), with a Try it button for each, and three switches: Add right away when I'm sure (on), Keep photos with tasks (off), Use AI to read photos (on once AI is set up).
 
 - **Typing:** press **C** anywhere (or open `./?capture=1`, or the "Quick capture" app shortcut). Type a sentence such as `bio lab report fri 5pm`, `exam 12/5 9am`, `chem201 pset in 3 days 2h` or `read ch 4 wk 9`. **Enter** adds, **Ctrl/Cmd+Enter** adds and keeps the window open for the next one, **Esc** cancels. One task per line. Dates are read on the device (today, tomorrow, fri, next tue, oct 28, 10/28, in 3 days, end of the month, wk N), so no network is needed. A clear sentence with a date is added at once with an Undo button ("Added: Bio lab report, due Fri 5 PM"). Anything unsure (no date, a second course that fits, "next week") opens a small check sheet where one Enter adds everything.
 - **Photo:** the camera button beside the add bar (or the "Capture photo" shortcut, or paste or drop a picture on the Board) shrinks the photo on the device (1600 px, no location data), then sends it to your own AI provider after the AI consent sheet. You get a list to check next to the photo. Items the AI is unsure about start unchecked, and dates that are not in the photo are removed. Without AI, or if you say no, the photo stays on screen while you type it in, or you can save it as a note. Photos taken offline are kept (up to 50) and offered when you are back online.
 - **Share sheet:** Android, ChromeOS and desktop installs of the web app appear in Share (the manifest `share_target` posts to `share-target`, handled by `sw.js`: images only, 10 files, 15 MB each, held only until the page reads them). iPhone Safari web apps cannot receive shares; the iOS app has a share extension (see `ios-wrapper`).
 - **Shortcuts and links:** `./?capture=<text>&due=YYYY-MM-DD&time=HH:MM&course=BIO101&source=ios-shortcut`, the same after `#`, and `studyboard://add?title=...&due=...` or `studyboard://capture?photo=1`. Only those fields are read; text is stripped of HTML and capped. A link only ever makes a draft and always shows the check sheet (one Enter adds it): custom link schemes can be launched by any app or website, so links are never added silently. Items handed over directly by the native app (Siri action, share extension, tile) are added straight away. More than 10 links a minute are ignored.
+- **Screenshot anything (Windows, Mac and Linux desktop app only):** press **Ctrl/Cmd+Alt+C** anywhere on the computer, even with Studyboard in the background (Settings > Quick Capture can switch it off or pick another of four shortcuts; the tray menu has **Screenshot to Task** too). The screen under the mouse freezes, you drag a box around what you want (**Esc** cancels, **Enter** takes the whole screen), and only that part is sent to the Studyboard window as a JPEG (never saved to disk). The AI first says what it is: deadlines, an assignment page, an email or announcement become tasks on the usual Check and Add sheet; a syllabus or timetable opens **Import a Syllabus** on the same picture; lecture slides, a textbook page or an article open **Photo to Note**; anything else says so and offers typing it in. It needs AI Features turned on and your AI consent, like a photo. On a Mac, allow Studyboard under System Settings > Privacy & Security > Screen Recording the first time. Code: `startShot()` in `main.js`, the picker in `shot.html`, `shot.js`, `shot.css`, `shot-preload.js` (staged into `widget/` by `prepare.js`), and `routeShot()` in the capture module. Test: `node tests/screenshot.e2e.js`.
 - **For developers:** `window.SBCAPTURE.handleUrl(url)`, `ingest(draftsOrItem, {source})`, `registerInbox(fn)` and `settingsExtra(fn)` are documented at the top of the "75-capture" module. Tests: `node tests/capture.test.js` (parser, links, photo-answer checks) and `node tests/capture.e2e.js` (Playwright and Chromium).
 
 ## Schedule and Calendar
@@ -585,7 +593,7 @@ You need the two files that came with this update: `supabase-calendar-feed.sql` 
 **1. Create the table**
 In Supabase, open **SQL Editor**, then **New query**. Open `supabase-calendar-feed.sql`, copy everything into the editor and click **Run**. You should see *Success. No rows returned*. This makes a small table for your private calendar links, locked so only your account can see or change yours.
 
-(In Studyboard, **Calendar Sync > Live Link** also has a **Copy Setup SQL** button with the same text.)
+(In Studyboard, **Calendar Sync > Live Link** also has a **Copy Setup SQL** button. Use the file if they differ: the file is newer.) The function finds your link by a SHA-256 fingerprint of its private code (`token_hash`), which the database fills in by itself. If you update the calendar-feed function, run `supabase-calendar-feed.sql` again so older links get their fingerprint.
 
 **2. Add the calendar function**
 - In the left sidebar open **Edge Functions**.
@@ -679,7 +687,15 @@ Click **Save**. Copy the private key now: Studyboard doesn't keep it. If you los
 
 **4. Add the send-reminders function**
 Still in **Edge Functions**, click **Deploy a new function**, then **Via Editor**. Name it exactly `send-reminders`. Delete the sample code, paste everything from `supabase-functions/send-reminders/index.ts`, and click **Deploy function**.
-Then open the function's **Details** and turn **off** the **Verify JWT** switch (it may be called *Enforce JWT Verification*), and save. The 5-minute schedule and the Snooze and Mark Done buttons don't sign in, so they need this off. It's still safe: the function only sends reminders that are already due, and each Snooze or Mark Done button carries its own random code that works for that one reminder only.
+Then open the function's **Details** and turn **off** the **Verify JWT** switch (it may be called *Enforce JWT Verification*), and save. The 5-minute schedule and the Snooze and Mark Done buttons don't sign in, so they need this off. It's still safe: sending only happens when the call carries the schedule secret, each Snooze or Mark Done button carries its own random code that works for that one reminder only, and notifications only ever go to the real push services (Google, Mozilla, Microsoft and Apple).
+
+The schedule secret needs nothing from you: `supabase-reminders.sql` makes it (a long random value kept in Vault as `studyboard_cron_secret`), the 5-minute schedule sends it in an `x-studyboard-cron` header, and the function checks it with the database. If you update the function from an older version, run `supabase-reminders.sql` again too (with your two PASTE values), or the function answers the schedule with "Not allowed" and nothing is sent. Optional: to check the secret without asking the database, copy it (`select decrypted_secret from vault.decrypted_secrets where name = 'studyboard_cron_secret';` in the SQL Editor) into an Edge Function secret named `REMINDERS_CRON_SECRET`. To change it, delete the `studyboard_cron_secret` row in **Vault**, run `supabase-reminders.sql` again, and update `REMINDERS_CRON_SECRET` if you set it.
+
+**4b. (Optional) Reminders through the Android and iPhone apps**
+The phone apps get reminders through Google's and Apple's own push services instead of Web Push. Each is optional: if its secrets are missing, those devices are simply skipped (nothing breaks, and browsers keep working). Add these in **Edge Functions > Secrets**:
+- **Android (Firebase Cloud Messaging):** in the Firebase console open **Project settings > Service accounts > Generate new private key**. Add a secret `FCM_SERVICE_ACCOUNT` whose value is the whole downloaded JSON file. `FIREBASE_PROJECT_ID` is optional (it is read from the JSON).
+- **iPhone and iPad (APNs):** in the Apple Developer site open **Certificates, Identifiers & Profiles > Keys**, make a key with **Apple Push Notifications service (APNs)** and download the `.p8` file. Add `APNS_KEY_P8` (the whole text of the `.p8` file, including the BEGIN and END lines), `APNS_KEY_ID` (the key's 10-character id), `APNS_TEAM_ID` (your 10-character Team ID) and, if your bundle id isn't `com.studioso.app`, `APNS_TOPIC` (the bundle id). Development builds register sandbox tokens; the function tries the production server first and then the sandbox one.
+Devices whose token Google or Apple reports as no longer valid are removed automatically. Run `supabase-reminders.sql` again after updating, so the device list accepts phone app tokens (the `kind` column).
 
 **5. Turn it on for each device**
 On each phone or computer you want reminders on, open Studyboard, go to **Set Up Phone Notifications**, click **Turn On for This Device**, and allow notifications. Then click **Send a Test Now**. A test notification should arrive within a few seconds.
@@ -693,7 +709,8 @@ On each phone or computer you want reminders on, open Studyboard, go to **Set Up
 - **Snooze 1 Hour** and **Mark Done** appear on the notification on Android, Windows, Mac and Chrome. iPhone doesn't show these buttons; tap the notification to open the task.
 - A reminder that's already shown on a device that has Studyboard open isn't sent again by phone.
 - If your Supabase project is paused, phone reminders stop until it's running again. The keep-awake ping from Part 2 of the setup prevents this.
-- **Not arriving?** Check that the three secrets are spelled exactly as above, that **Verify JWT** is off, and that notifications are allowed for Studyboard in your phone's settings. In Supabase, **Edge Functions > send-reminders > Logs** shows each run, and **Integrations > Cron** shows the 5-minute schedule.
+- Each account can have up to 10 devices; turning notifications on for an 11th replaces the one that hasn't checked in for the longest time.
+- **Not arriving?** Check that the three secrets are spelled exactly as above, that **Verify JWT** is off, that you ran `supabase-reminders.sql` after your last update of the function (Logs show "Not allowed" otherwise), and that notifications are allowed for Studyboard in your phone's settings. In Supabase, **Edge Functions > send-reminders > Logs** shows each run, and **Integrations > Cron** shows the 5-minute schedule.
 - **Turn it off on a device:** Set Up Phone Notifications, then **Turn Off Here**.
 
 ## Widgets and Shortcuts
@@ -940,7 +957,7 @@ Every theme has 3 little companions to choose from (201 in all). Yours lives in 
 - **It lives alongside you:** it has more energy in the morning and gets sleepy late at night, naps when you've been away for a few minutes and wakes when you're back, glances at what you're doing, studies with you (or dozes) during a focus session, stretches on breaks, and celebrates when you finish a task.
 - **What it says:** a few friendly words when you tap it, a little cheer about 15 seconds after you finish a task, and a hello about once an hour. It stays quiet while you're focusing, typing or have a window open. Every built-in line was reviewed to keep them calm and natural, with no cringey puns.
 - **Choosing a companion:** the one you pick gets a clear highlight and a check mark.
-- **It grows with you:** focus hours unlock accessories: Cozy Scarf (1 hour), Tiny Hat (5), Round Glasses (15), Little Backpack (30), Star Badge (60) and Graduation Cap (100).
+- **It grows with you:** focus hours unlock accessories: Cozy Scarf (1 hour), Tiny Hat (5), Round Glasses (15), Star Badge (60) and Graduation Cap (100).
 - **Ideas when you tap:** sometimes it suggests a next step, like starting a focus on the top task in Today's Plan or reviewing due flashcards. **Let's Do It** starts it; **Not Now** stops ideas for the day.
 - **Smart Lines (with AI):** if you've set up AI and turned on automatic AI, your companion writes its lines from what's actually going on ("Bio quiz tomorrow. One card round?"). It reacts to the task you just finished, the end of a focus session, coming back after a break, a new exam or a busy week, and it keeps fresh lines for your taps. Each request writes lines for several moments at once, and everything is kept on your device.
   - **It never takes from your other AI features:** with free Gemini it has its own daily allowance (up to 50 small requests a day, at least 2 minutes apart, never while Studyboard is hidden) and only uses Gemini's Flash-Lite models, which have their own free quota, separate from the models the rest of Studyboard uses. If Google says the free quota is used up, it simply rests until tomorrow. The companion settings show how many it has used today. With a paid model it keeps to one small plan a few times a day.
@@ -1106,7 +1123,7 @@ What it does:
 - **Limits against runaway use.** Each account can check a school calendar link 60 times an hour, each live calendar link can be read 120 times an hour, and invite or deck codes can be looked up 30 times an hour. Normal use never comes close.
 - **Quiet accounts are packed away.** Accounts with no sign-in and no changes for 6 months are packed into one compressed record once a month. The next time that person opens Studyboard, everything is unpacked automatically in a second or two. Their files are not touched.
 
-Update the `calendar-feed` and `lms-feed` functions too (Edge Functions > the function > Code, paste the new `index.ts`, Deploy), and run `supabase-groups.sql` again if you use study groups.
+Update the `calendar-feed` and `lms-feed` functions too (Edge Functions > the function > Code, paste the new `supabase-functions/<name>/index.ts`, Deploy), and run `supabase-groups.sql` again if you use study groups.
 
 ## Studyboard Pro
 

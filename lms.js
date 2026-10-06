@@ -51,9 +51,21 @@ function htmlText(s, opts){
   t = t.trim();
   return o.max && t.length > o.max ? t.slice(0, o.max) : t;
 }
+// The harvest functions below run inside the school's page (executeJavaScript), where nothing from this file exists.
+// HARVEST_PRELUDE is the source of htmlText and the constants it uses, put in front of each harvest so the injected script is self-contained
+// (tests/lms-harvest.test.js runs the exact injected string in an empty context, so a new outside name is caught there).
+const HARVEST_PRELUDE = [
+  "const HT_ENT = " + JSON.stringify(HT_ENT) + ";",
+  "const HT_ACC = " + JSON.stringify(HT_ACC) + ";",
+  "const HT_TAGRE = " + HT_TAGRE.toString() + ";",
+  "const HT_OPENRE = " + HT_OPENRE.toString() + ";",
+  "const HT_HAS = " + HT_HAS.toString() + ";",
+  htmlText.toString()
+].join("\n");
 const { BrowserWindow, ipcMain, net, session, app } = require("electron");
 const path = require("path");
 const fsp = require("fs").promises;
+const dns = require("dns");
 
 const busy = {};
 
@@ -66,9 +78,25 @@ function originOf(host) {
   try {
     const u = new URL(s);
     const h = u.hostname.toLowerCase();
-    if (u.protocol !== "https:" || !/^[a-z0-9.-]+\.[a-z]{2,}$/.test(h) || /^(localhost|\d+\.\d+\.\d+\.\d+)$/.test(h)) return null;
+    if (u.protocol !== "https:" || !/^[a-z0-9.-]+\.[a-z]{2,}$/.test(h) || /^(localhost|\d+\.\d+\.\d+\.\d+)$/.test(h) || LOCAL_SUFFIX.test(h)) return null;
     return "https://" + h + (u.port && u.port !== "443" ? ":" + u.port : "");
   } catch (e) { return null; }
+}
+// Names that only mean something on a home or office network, never a school's public site.
+const LOCAL_SUFFIX = /(^|\.)(local|lan|home|internal|localhost|intranet|corp|home\.arpa)$/;
+// Addresses that are not on the public internet: private, loopback, link-local, carrier-grade NAT, multicast and reserved ranges.
+function privateIp(ip) {
+  const s = String(ip || "").toLowerCase().replace(/^\[|\]$/g, "").replace(/%.*$/, "");
+  const v4 = s.match(/^(?:::ffff:)?(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])];
+    return a === 0 || a === 10 || a === 127 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) || (a === 192 && b === 0 && Number(v4[3]) === 0) || (a === 198 && (b === 18 || b === 19)) || a >= 224;
+  }
+  if (!s.includes(":")) return true;                                   // not an address at all: treat as unsafe
+  const m = s.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);          // v4-mapped written in hex
+  if (m) { const n = parseInt(m[1], 16), k = parseInt(m[2], 16); return privateIp([n >> 8, n & 255, k >> 8, k & 255].join(".")); }
+  return s === "::" || s === "::1" || /^f[cd]/.test(s) || /^fe[89ab]/.test(s) || /^ff/.test(s) || /^64:ff9b:/.test(s) || /^2001:db8:/.test(s) || /^::ffff:/.test(s);
 }
 // Some sign-in pages turn away browsers they don't recognise, so the windows use a plain Chrome user agent.
 function chromeUA() { return String(app.userAgentFallback || "").replace(/\s(Electron|studyboard|Studyboard|studioso)\/\S+/g, ""); }
@@ -99,7 +127,16 @@ function guardWindow(w, Pv, sameOrigin) {
   wc.on("will-navigate", nav); wc.on("will-redirect", nav);
   if (app.isPackaged) wc.on("devtools-opened", () => { try { wc.closeDevTools(); } catch (e) {} });
   wc.setWindowOpenHandler(({ url }) => sameOrigin || !httpsOnly(url) ? { action: "deny" } : { action: "allow", overrideBrowserWindowOptions: { autoHideMenuBar: true, webPreferences: prefs(Pv) } });
-  wc.on("did-create-window", child => guardWindow(child, Pv, null));
+  wc.on("did-create-window", child => { guardWindow(child, Pv, null); showHost(child); });
+}
+// The sign-in window and its pop-ups always show which site is on screen ("Studyboard – sign in: login.microsoftonline.com"), never
+// a title the page picks, so it is clear which domain a password is typed into.
+function showHost(w) {
+  const wc = w.webContents;
+  const set = () => { if (w.isDestroyed()) return; let h = ""; try { h = new URL(wc.getURL()).host; } catch (e) {} if (h) w.setTitle("Studyboard \u2013 sign in: " + h); };
+  w.on("page-title-updated", e => { e.preventDefault(); set(); });
+  wc.on("did-navigate", set); wc.on("did-navigate-in-page", set); wc.on("did-redirect-navigation", set);
+  w.once("ready-to-show", set);
 }
 const timeout = (ms, what) => new Promise((_, rej) => setTimeout(() => rej(new Error(what || "timeout")), ms));
 
@@ -461,6 +498,50 @@ const P = {
   blackboard: { part: "persist:blackboard", home: "/ultra/stream", ctx: "/robots.txt", harvest: bbHarvest, feed: /(\/calendarfeed\/|\.ics$)/i }
 };
 const prov = id => (Object.prototype.hasOwnProperty.call(P, id) ? P[id] : null);
+// The exact script run in the school's page for a sync: htmlText and its constants, then the platform's harvest, called with the checked options.
+const harvestScript = (Pv, safe) => `(() => {\n${HARVEST_PRELUDE}\nreturn (${Pv.harvest.toString()})(${JSON.stringify(safe)});\n})()`;
+
+// ---------- What comes back from the school's page ----------
+// The page could be anything (a hijacked school site, a browser extension in that session), so its answer is copied into plain data
+// with known limits before it reaches Studyboard: short plain keys, strings and lists cut to size, finite numbers only, a few levels deep,
+// and address fields kept only when they lead to an https page.
+const KEY_OK = /^[A-Za-z][A-Za-z0-9]{0,23}$/;
+const URL_KEYS = new Set(["url", "home"]);
+function plain(v, origin, depth, key) {
+  if (v === null || typeof v === "boolean") return v;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (typeof v === "string") {
+    if (URL_KEYS.has(key)) { if (!v) return ""; try { return httpsOnly(new URL(v, origin).href) ? v.slice(0, 2000) : ""; } catch (e) { return ""; } }
+    return v.slice(0, 8000);
+  }
+  if (depth > 6 || typeof v !== "object") return undefined;
+  if (Array.isArray(v)) return v.slice(0, 1000).map(x => plain(x, origin, depth + 1, "")).filter(x => x !== undefined);
+  const out = {};
+  for (const k of Object.keys(v).slice(0, 60)) { if (!KEY_OK.test(k)) continue; const x = plain(v[k], origin, depth + 1, k); if (x !== undefined) out[k] = x; }
+  return out;
+}
+const failOf = r => !r || typeof r !== "object" || Array.isArray(r) ? { error: "bad-result" } : r.needLogin === true ? { needLogin: true } : typeof r.error === "string" ? { error: r.error.slice(0, 200) } : null;
+const listCap = (a, n, origin) => Array.isArray(a) ? plain(a.slice(0, n), origin, 1, "") : [];
+function cleanHarvest(r, origin) {
+  const f = failOf(r); if (f) return f;
+  if (r.ok !== true) return { error: "bad-result" };
+  const me = r.me && typeof r.me === "object" ? r.me : {};
+  const out = { ok: true, origin, me: { name: String(me.name || "").slice(0, 200), id: String(me.id || "").slice(0, 80) },
+    all: listCap(r.all, 400, origin), courses: listCap(r.courses, 40, origin), errors: (Array.isArray(r.errors) ? r.errors : []).slice(0, 30).map(x => String(x).slice(0, 300)), ms: Number(r.ms) || 0 };
+  if (r.items !== undefined) out.items = listCap(r.items, 800, origin);
+  if (r.completions !== undefined) out.completions = listCap(r.completions, 800, origin);
+  for (const k of ["lp", "le"]) if (typeof r[k] === "string" && /^\d{1,3}\.\d{1,3}$/.test(r[k])) out[k] = r[k];
+  return out;
+}
+// A file as base64: real base64 only, and never more than the 50 MB the readers allow.
+const MAX_FILE = 52428800;
+const B64 = /^[A-Za-z0-9+/]*={0,2}$/;
+function cleanFile(r) {
+  const f = failOf(r); if (f) return f;
+  if (r.ok !== true || typeof r.b64 !== "string" || r.b64.length % 4 || r.b64.length > Math.ceil(MAX_FILE / 3) * 4 || !B64.test(r.b64)) return { error: "bad-file" };
+  const type = typeof r.type === "string" && /^[\w.+-]{1,60}\/[\w.+-]{1,100}(\s*;[^\r\n]{0,100})?$/.test(r.type) ? r.type : "";
+  return { ok: true, name: String(r.name || "").replace(/[\u0000-\u001F\u007F/\\]/g, "_").slice(0, 255), type, b64: r.b64 };
+}
 
 // ---------- Sign in ----------
 function connect(id, host, parent) {
@@ -469,10 +550,11 @@ function connect(id, host, parent) {
   if (!origin) return Promise.resolve({ ok: false, error: "bad-host" });
   return new Promise(resolve => {
     lockPartition(Pv.part);
-    const w = new BrowserWindow({ width: 1000, height: 780, parent: parent || undefined, title: "Sign In", autoHideMenuBar: true, show: true, webPreferences: prefs(Pv) });
+    const w = new BrowserWindow({ width: 1000, height: 780, parent: parent || undefined, title: "Studyboard \u2013 sign in: " + new URL(origin).host, autoHideMenuBar: true, show: true, webPreferences: prefs(Pv) });
     w.webContents.setUserAgent(chromeUA());
     // Sign-in pages sometimes open a pop-up (Microsoft, Google, Duo). Those stay in the same private cookie store.
     guardWindow(w, Pv, null);
+    showHost(w);
     let done = false, timer = null;
     const finish = r => { if (done) return; done = true; clearInterval(timer); if (!w.isDestroyed()) w.close(); resolve(r); };
     const check = async () => {
@@ -518,7 +600,7 @@ async function sync(id, host, opts) {
     skip: Array.isArray(o.skip) ? o.skip.map(String).filter(idOk).slice(0, 200) : [] };
   busy[id] = (async () => {
     try {
-      return await withPage(Pv, origin, w => Promise.race([w.webContents.executeJavaScript(`(${Pv.harvest.toString()})(${JSON.stringify(safe)})`, true), timeout(150000)]));
+      return cleanHarvest(await withPage(Pv, origin, w => Promise.race([w.webContents.executeJavaScript(harvestScript(Pv, safe), true), timeout(150000)])), origin);
     } catch (e) { return { error: String(e && e.message || e).slice(0, 200) }; }
     finally { busy[id] = null; }
   })();
@@ -560,20 +642,67 @@ async function file(id, host, spec) {
   try {
     if (id === "brightspace") {
       if (!num(s.ou) || !num(s.folder) || !num(s.id)) return { error: "bad-request" };
-      return await withPage(Pv, origin, w => Promise.race([w.webContents.executeJavaScript(BS_FILE(s.ou, s.folder, s.id), true), timeout(120000)]));
+      return cleanFile(await withPage(Pv, origin, w => Promise.race([w.webContents.executeJavaScript(BS_FILE(s.ou, s.folder, s.id), true), timeout(120000)])));
     }
     if (id === "canvas") {
       if (!num(s.id)) return { error: "bad-request" };
       const meta = await withPage(Pv, origin, w => Promise.race([w.webContents.executeJavaScript(CV_FILE(s.id), true), timeout(30000)]));
-      if (!meta || meta.needLogin || meta.error) return meta || { error: "none" };
+      const bad = meta && (meta.needLogin || meta.error) ? failOf(meta) : null; if (!meta || bad) return bad || { error: "none" };
+      if (typeof meta.url !== "string" || meta.url.length > 4000) return { error: "bad-url" };
       let u; try { u = new URL(meta.url, origin); } catch (e) { return { error: "bad-url" }; }
       if (u.origin !== origin) return { error: "bad-url" };                       // the download always starts on your school's site
-      const r = await downloadVia(Pv, u.href, meta.name);
-      if (r.ok && !r.type) r.type = meta.type;
-      return r;
+      const r = await downloadVia(Pv, u.href, typeof meta.name === "string" ? meta.name.slice(0, 255) : "");
+      if (r.ok && !r.type && typeof meta.type === "string") r.type = meta.type.slice(0, 160);
+      return cleanFile(r);
     }
     return { error: "unsupported" };
   } catch (e) { return { error: String(e && e.message || e).slice(0, 200) }; }
+}
+
+// ---------- Canvas messages (Inbox): list, read and reply, with your sign-in. Brightspace and Blackboard have no mail API for apps. ----------
+// Runs inside a hidden Canvas page. Self-contained.
+async function cvMail(s) {
+  const hdr = { Accept: "application/json" };
+  const parse = async r => { const t = await r.text(); try { return JSON.parse(t.replace(/^while\(1\);/, "")); } catch (e) { return null; } };
+  const bad = r => (r.status === 401 || r.status === 403) ? { needLogin: true } : { error: "HTTP " + r.status };
+  const clean = (x, n) => String(x == null ? "" : x).replace(/\r/g, "").trim().slice(0, n);
+  if (s.op === "list") {
+    const r = await fetch("/api/v1/conversations?scope=" + (s.scope === "sent" ? "sent" : "inbox") + "&per_page=30", { credentials: "include", headers: hdr });
+    if (!r.ok) return bad(r);
+    const a = await parse(r);
+    return { ok: true, items: (Array.isArray(a) ? a : []).map(c => ({ id: String(c.id), subject: clean(c.subject, 160) || "(No subject)", preview: clean(c.last_message || c.last_authored_message, 200), at: c.last_message_at || c.last_authored_message_at || "",
+      count: Number(c.message_count) || 0, unread: c.workflow_state === "unread", course: clean(c.context_name, 80), names: (c.participants || []).slice(0, 4).map(x => clean(x.name, 60)) })) };
+  }
+  if (s.op === "get") {
+    const [r, me] = await Promise.all([fetch("/api/v1/conversations/" + s.id + "?auto_mark_as_read=true", { credentials: "include", headers: hdr }), fetch("/api/v1/users/self", { credentials: "include", headers: hdr })]);
+    if (!r.ok) return bad(r);
+    const c = await parse(r), u = me.ok ? await parse(me) : null;
+    if (!c) return { error: "empty" };
+    const who = {}; (c.participants || []).forEach(x => { who[x.id] = x.name; });
+    const meId = u && u.id;
+    return { ok: true, subject: clean(c.subject, 160) || "(No subject)", course: clean(c.context_name, 80), names: (c.participants || []).map(x => clean(x.name, 60)).filter(Boolean).slice(0, 8),
+      messages: (c.messages || []).slice().reverse().map(m => ({ id: String(m.id), from: clean(who[m.author_id], 60) || "Someone", mine: meId != null && m.author_id === meId, at: m.created_at || "", body: clean(m.body, 6000), files: (m.attachments || []).length })) };
+  }
+  if (s.op === "send") {
+    const m = document.cookie.match(/(?:^|;\s*)_csrf_token=([^;]+)/);
+    const token = m ? decodeURIComponent(m[1]) : "";
+    const r = await fetch("/api/v1/conversations/" + s.id + "/add_message", { method: "POST", credentials: "include", headers: Object.assign({ "Content-Type": "application/x-www-form-urlencoded", "X-CSRF-Token": token }, hdr), body: "body=" + encodeURIComponent(s.body) });
+    if (!r.ok) return bad(r);
+    return { ok: true };
+  }
+  return { error: "bad-request" };
+}
+async function mail(id, host, spec) {
+  const Pv = prov(id), origin = originOf(host), q = spec && typeof spec === "object" ? spec : {};
+  if (!Pv || !origin) return { error: "bad-request" };
+  if (id !== "canvas") return { error: "unsupported" };
+  const op = ["list", "get", "send"].includes(q.op) ? q.op : null;
+  if (!op) return { error: "bad-request" };
+  const safe = { op, scope: q.scope === "sent" ? "sent" : "inbox", id: String(q.id || ""), body: typeof q.body === "string" ? q.body.trim().slice(0, 10000) : "" };
+  if (op !== "list" && !/^\d{1,14}$/.test(safe.id)) return { error: "bad-request" };
+  if (op === "send" && !safe.body) return { error: "empty" };
+  try { const r = await withPage(Pv, origin, w => Promise.race([w.webContents.executeJavaScript(`(${cvMail.toString()})(${JSON.stringify(safe)})`, true), timeout(45000)])); return failOf(r) || plain(r, origin, 0, ""); }
+  catch (e) { return { error: String(e && e.message || e).slice(0, 200) }; }
 }
 
 // The calendar subscription link (it has its own private key in it, so no sign-in is needed).
@@ -585,18 +714,56 @@ function feedOk(id, url) {
     return okProto && Pv.feed.test(u.pathname) && !!originOf(u.origin) ? u.href : null;
   } catch (e) { return null; }
 }
+// Redirects are followed by hand (at most 3), and every address on the way is checked again: https, a public name (originOf), and a
+// name that resolves only to public internet addresses, so a feed link can't be used to reach a printer or router on the person's network.
+// (Chromium resolves the name again when it connects; this check is the guard against links that point inside, not a DNS-rebinding defence.)
+const FEED_MAX = 8e6;
+async function publicHost(u) {
+  if (TEST_MODE && u.hostname === "127.0.0.1") return true;                // automated tests only, never in an installed app
+  if (!originOf(u.origin)) return false;
+  try { const list = await dns.promises.lookup(u.hostname, { all: true, verbatim: true }); return list.length > 0 && list.every(a => !privateIp(a.address)); } catch (e) { return false; }
+}
+function feedHop(href) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const end = v => { if (settled) return; settled = true; resolve(v); };
+    const req = net.request({ url: href, method: "GET", redirect: "manual", credentials: "omit", useSessionCookies: false });
+    req.setHeader("Accept", "text/calendar, */*");
+    req.on("redirect", (status, method, to) => { end({ status, redirect: String(to || "") }); try { req.abort(); } catch (e) {} });
+    req.on("response", res => {
+      const head = k => [].concat(res.headers[k] || [])[0] || "";
+      if (Number(head("content-length") || 0) > FEED_MAX) { end({ status: res.statusCode, tooLarge: true }); try { req.abort(); } catch (e) {} return; }
+      const chunks = []; let n = 0;
+      res.on("data", c => { n += c.length; if (n > FEED_MAX) { end({ status: res.statusCode, tooLarge: true }); try { req.abort(); } catch (e) {} } else chunks.push(c); });
+      res.on("end", () => end({ status: res.statusCode, text: Buffer.concat(chunks).toString("utf8") }));
+      res.on("error", e => { if (!settled) { settled = true; reject(e); } });
+    });
+    req.on("error", e => { if (!settled) { settled = true; reject(e); } });
+    req.end();
+  });
+}
 async function feed(id, url) {
-  const href = feedOk(id, url);
+  let href = feedOk(id, url);
   if (!href) return { error: "bad-url" };
   try {
-    const r = await Promise.race([net.fetch(href, { headers: { Accept: "text/calendar, */*" } }), timeout(30000)]);
-    if (!r.ok) return { error: "HTTP " + r.status, status: r.status };
-    if (r.url && !httpsOnly(r.url)) return { error: "bad-url" };                         // never follow a redirect off https
-    if (Number(r.headers.get("content-length") || 0) > 8e6) return { error: "too-large" };
-    const text = await r.text();
-    if (text.length > 8e6) return { error: "too-large" };
-    if (!/BEGIN:VCALENDAR/i.test(text)) return { error: "not-calendar" };
-    return { ok: true, text };
+    const run = async () => {
+      for (let hop = 0; hop <= 3; hop++) {
+        const u = new URL(href);
+        if (!httpsOnly(u.href) || !(await publicHost(u))) return { error: "bad-url" };
+        const r = await feedHop(u.href);
+        if (r.redirect !== undefined) {
+          let next; try { next = new URL(r.redirect, u.href); } catch (e) { return { error: "bad-url" }; }
+          if (!httpsOnly(next.href)) return { error: "bad-url" };                  // never follow a redirect off https
+          href = next.href; continue;
+        }
+        if (r.tooLarge) return { error: "too-large" };
+        if (r.status < 200 || r.status > 299) return { error: "HTTP " + r.status, status: r.status };
+        if (!/BEGIN:VCALENDAR/i.test(r.text)) return { error: "not-calendar" };
+        return { ok: true, text: r.text };
+      }
+      return { error: "too-many-redirects" };
+    };
+    return await Promise.race([run(), timeout(30000)]);
   } catch (e) { return { error: String(e && e.message || e).slice(0, 200) }; }
 }
 
@@ -611,8 +778,10 @@ function register(getMain, trusted) {
   ipcMain.handle("lms:connect", (e, id, host) => fromMain(e) ? connect(String(id), host, getMain()) : null);
   ipcMain.handle("lms:sync", (e, id, host, opts) => fromMain(e) ? sync(String(id), host, opts) : null);
   ipcMain.handle("lms:file", (e, id, host, spec) => fromMain(e) ? file(String(id), host, spec) : null);
+  ipcMain.handle("lms:mail", (e, id, host, spec) => fromMain(e) ? mail(String(id), host, spec) : null);
   ipcMain.handle("lms:feed", (e, id, url) => fromMain(e) ? feed(String(id), url) : null);
   ipcMain.handle("lms:signout", (e, id) => fromMain(e) ? signOut(String(id)) : null);
 }
 
-module.exports = { register, bsHarvest, cvHarvest, bbHarvest, originOf, feedOk, connect, sync, file, feed, signOut };
+// harvestScript, cleanHarvest, cleanFile and privateIp are exported for tests/lms-harvest.test.js only (nothing in the app reads them from here).
+module.exports = { register, bsHarvest, cvHarvest, bbHarvest, originOf, feedOk, connect, sync, file, feed, signOut, mail, harvestScript, cleanHarvest, cleanFile, privateIp, P };

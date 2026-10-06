@@ -9,25 +9,39 @@
 --  * Share codes and invite codes are looked up one at a time through the functions at the bottom,
 --    so nobody can list every shared deck or group.
 
--- ---------- Codes like K7P-4QD (no 0/O or 1/I/L, made from secure random bytes) ----------
+-- ---------- Codes like K7P4-QD9X (no 0/O or 1/I/L, made from secure random bytes) ----------
+-- 8 characters from 31 letters and digits (about 40 bits); the 30-lookups-an-hour limit per account is what makes guessing one hopeless.
+-- Each character comes from one random byte; bytes 248-255 are skipped so every character is equally likely (no modulo bias).
+-- Codes made by older versions (6 or 10 characters, like K7P-4QD or K7P4Q-D9XWM) keep working.
 create or replace function public.sbg_new_code() returns text
 language plpgsql volatile set search_path = public as $$
 declare
   a constant text := 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-  b bytea := uuid_send(gen_random_uuid()) || uuid_send(gen_random_uuid());
+  b bytea;
   s text := '';
   i int;
+  v int;
 begin
-  for i in 0..5 loop
-    s := s || substr(a, 1 + (get_byte(b, i) % length(a)), 1);
-    if i = 2 then s := s || '-'; end if;
+  while length(s) < 9 loop
+    b := uuid_send(gen_random_uuid()) || uuid_send(gen_random_uuid());
+    for i in 0..31 loop
+      continue when i in (6, 8, 22, 24);          -- the uuid version and variant bytes are not fully random
+      v := get_byte(b, i);
+      continue when v >= 248;                     -- 248 = 8 * 31: keep only bytes that divide evenly
+      s := s || substr(a, 1 + (v % 31), 1);
+      if length(s) = 4 then s := s || '-'; end if;
+      exit when length(s) = 9;
+    end loop;
   end loop;
   return s;
 end $$;
 
+-- Tidies a typed or pasted code: K7P4QD9X, k7p4-qd9x and "K7P4 QD9X" all become K7P4-QD9X; old 6- and 10-character codes keep their own shapes (K7P-4QD, K7P4Q-D9XWM).
 create or replace function public.sbg_norm_code(p text) returns text
 language sql immutable set search_path = public as $$
-  select case when length(x) = 6 then substr(x, 1, 3) || '-' || substr(x, 4, 3) else x end
+  select case length(x) when 6 then substr(x, 1, 3) || '-' || substr(x, 4, 3)
+                        when 8 then substr(x, 1, 4) || '-' || substr(x, 5, 4)
+                        when 10 then substr(x, 1, 5) || '-' || substr(x, 6, 5) else x end
   from (select upper(regexp_replace(coalesce(p, ''), '[^A-Za-z0-9]', '', 'g')) as x) q
 $$;
 
@@ -301,12 +315,11 @@ language plpgsql security definer set search_path = public as $$
 declare g uuid; me uuid := auth.uid();
 begin
   if me is null then raise exception 'Sign in first'; end if;
+  -- Every call counts against the hourly code limit (shared with group_preview and get_shared_deck), before the code is looked at.
+  if not public.sbg_lookup_ok() then raise exception 'Too many code lookups. Try again in an hour.'; end if;
   select id into g from public.study_groups where invite_code = public.sbg_norm_code(p_code);
-  if g is null then
-    -- Returning (not raising) keeps this failed guess counted against the hourly limit.
-    perform public.sbg_lookup_ok();
-    return null;
-  end if;
+  -- Returning (not raising) keeps this failed guess counted against the hourly limit.
+  if g is null then return null; end if;
   if not exists (select 1 from public.group_members where group_id = g and user_id = me) then
     if (select count(*) from public.group_members where group_id = g) >= 100 then raise exception 'This group is full (100 members)'; end if;
     insert into public.group_members (group_id, user_id, role, display_name) values (g, me, 'member', public.sbg_my_name());

@@ -7,7 +7,7 @@ Studyboard itself is released under the MIT License (see `LICENSE`). It includes
 | Atkinson Hyperlegible and Atkinson Hyperlegible Next (typefaces) | Body text | Copyright 2020 Braille Institute of America, Inc. (https://www.brailleinstitute.org/), with Reserved Font Name "Atkinson Hyperlegible" | SIL Open Font License 1.1 |
 | Lexend (typeface) | Headings | Copyright 2018 The Lexend Project Authors (https://github.com/googlefonts/lexend) | SIL Open Font License 1.1 |
 | @fontsource/atkinson-hyperlegible, @fontsource/atkinson-hyperlegible-next, @fontsource/lexend | Packaged font files for the desktop app (offline use) | Fontsource contributors | MIT (the fonts inside keep their OFL license) |
-| pdfjs-dist (PDF.js) 5.7.284 | Reading PDFs you import (syllabi, study material); the unmodified legacy build is served from `vendor/pdfjs/` | Copyright 2012 Mozilla Foundation | Apache License 2.0 |
+| pdfjs-dist (PDF.js) 6.4.299 | Reading PDFs you import (syllabi, study material); the unmodified legacy build is served from `vendor/pdfjs/` | Copyright 2012 Mozilla Foundation | Apache License 2.0 |
 | @supabase/supabase-js | Optional account sign-in and sync | Copyright (c) 2020 Supabase | MIT |
 | Electron | The desktop app (includes Chromium and Node.js, whose own notices ship inside the installer as `LICENSES.chromium.html`) | Copyright (c) Electron contributors; Copyright (c) 2013-2020 GitHub Inc. | MIT |
 | electron-builder | Building the desktop installers (build tool, not shipped) | electron-userland contributors | MIT |

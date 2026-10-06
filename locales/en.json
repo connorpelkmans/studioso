@@ -3,10 +3,11 @@
   "lang.sub": "Auto follows your device. Anything not translated yet stays in English.",
   "lang.title": "Language",
   "nav.board": "Board",
+  "nav.companion": "Companion",
   "nav.courses": "Courses",
-  "nav.files": "Files",
+  "nav.courses.aria": "Courses and Files",
   "nav.flashcards": "Flashcards",
   "nav.notes": "Notes",
-  "nav.plan": "Plan Ahead",
-  "nav.plan.aria": "Plan Ahead: Timeline, Schedule and Crunch"
+  "nav.plan": "Calendar",
+  "nav.plan.aria": "Calendar: Timeline, Schedule and Crunch"
 }
