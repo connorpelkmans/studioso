@@ -54,7 +54,7 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
     await page.waitForTimeout(300);
     const need = await page.locator(".gp-need").textContent();
     ok(/What Do I Need\?/.test(need) && /You need [\d.]+% on the rest of/.test(need), "top line names a course and what it needs: " + need);
-    const card = await page.locator('.gp-course', {hasText: 'Marine'}).first().textContent();
+    const card = await page.locator('.gp-course', {hasText: 'BIO210'}).first().textContent();
     ok(/pts (above|to) goal/.test(card), "a course with a goal shows the distance to it: " + card.replace(/\s+/g, " ").slice(0, 160));
     await goCourse(page, "c1");
     ok(/Biggest swing:\s*Final is worth 20%/.test(await page.locator(".gr-need").textContent()), "biggest swing names the heaviest unmarked item");
