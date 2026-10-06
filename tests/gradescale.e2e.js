@@ -15,12 +15,13 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch();
-  const mk = async ({ai, reply, w = 1280, settings, grounding} = {}) => {
+  const mk = async ({ai, reply, w = 1280, settings, grounding, limitSearch} = {}) => {
     const ctx = await browser.newContext({viewport: {width: w, height: w < 500 ? 780 : 900}});
     await ctx.addInitScript(([seed, ai]) => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done");
       if (ai) { localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } } } catch (e) {} }, [SEED(settings), !!ai]);
-    ctx.calls = 0; ctx.bodies = []; ctx.reply = reply; ctx.grounding = grounding;
+    ctx.calls = 0; ctx.bodies = []; ctx.reply = reply; ctx.grounding = grounding; ctx.limitSearch = limitSearch;
     await ctx.route(/generativelanguage\.googleapis\.com/, route => { ctx.calls++; try { ctx.bodies.push(route.request().postDataJSON()); } catch (e) {}
+      if (ctx.limitSearch && ctx.bodies[ctx.bodies.length - 1] && ctx.bodies[ctx.bodies.length - 1].tools) { route.fulfill({status: 429, contentType: "application/json", body: JSON.stringify({error: {message: "Quota exceeded for grounding"}})}); return; }
       const cand = {content: {parts: [{text: JSON.stringify(ctx.reply || {scale: []})}]}, finishReason: "STOP"}; if (ctx.grounding) cand.groundingMetadata = {groundingChunks: ctx.grounding};
       route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({candidates: [cand]})}); });
     const page = await ctx.newPage(); page.errs = []; page.on("pageerror", e => page.errs.push(e.message));
@@ -83,8 +84,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     // saved scale and pass mark reach the course
     { const {ctx, page} = await mk({}); await openSettings(page);
       await page.fill('input[name="pass"]', "55"); await page.fill('#gsRows .gr-scale-row:nth-child(1) input[name="sp"]', "93"); await page.click("[data-submit]"); await page.waitForTimeout(250);
-      const c = await page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")).courses[0].grading);
-      ok(c && c.pass === 55 && c.scale && c.scale[0][1] === 93, "saving stores the pass mark and the edited scale: " + JSON.stringify(c && [c.pass, c.scale && c.scale[0]]));
+      const sv = await page.evaluate(() => { const d = JSON.parse(localStorage.getItem("coursework:v2")); return {c: d.courses[0].grading, g: (d.settings || {}).grades || {}}; });
+      ok(sv.c && sv.c.pass === 55 && sv.g.scale && sv.g.scale[0][1] === 93, "saving stores the pass mark on the course and the edited scale for all courses (the default): " + JSON.stringify([sv.c && sv.c.pass, sv.g.scale && sv.g.scale[0]]));
       await ctx.close(); }
 
     // ---- the school lookup: found from the connected learning site, by web search ----
@@ -104,7 +105,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(body.tools && body.tools[0].google_search && !body.generationConfig.responseMimeType, "it asks Google to search the web");
       ok(/learn\.testu\.ca/.test(txt) && !/Biology|BIO1/.test(txt), "only the site address is sent, nothing about the student's courses");
       await page.click('[data-submit]'); await page.waitForTimeout(250);
-      const gr = await page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")).courses[0].grading); ok(gr.pass === 55 && gr.scale.length === 8, "saving keeps what was found");
+      const gr = await page.evaluate(() => { const d = JSON.parse(localStorage.getItem("coursework:v2")); return {pass: ((d.settings || {}).grades || {}).pass, scale: ((d.settings || {}).grades || {}).scale}; }); ok(gr.pass === 55 && gr.scale.length === 8, "saving keeps what was found, for all courses");
       await ctx.close(); }
     { // a page that is not the school's own: filled in, with a warning
       const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND({sourceUrl: "https://randomsite.com/scale"}), grounding: GROUND("randomsite.com")});
@@ -134,6 +135,12 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await openSettings(page); ok(/Is this your school/.test(await page.textContent("#gsSchool")), "the suggestion is asked about in Grade Settings");
       await page.click("#gsSugYes"); ok((await rows(page)).length === 8 && await page.inputValue('input[name="pass"]') === "55", "Use It fills the boxes");
       await ctx.close(); }
+    { // web search over its free quota: the AI answers from what it knows, flagged as unchecked, and the scale still fills in
+      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND(), grounding: GROUND("registrar.testu.ca"), limitSearch: true});
+      await openSettings(page); await page.click("#gsFind"); await page.waitForFunction(() => /hasn't been checked online/.test(document.querySelector("#gsSchool").textContent));
+      ok((await rows(page)).length === 8, "search refused with 429: the boxes still fill in from the AI's own knowledge");
+      ok(await page.locator('input[name="all"]').isChecked(), "and Use This Scale for All My Courses is ticked");
+      ok(ctx.bodies.some(b => !b.tools), "the second request has no web search tool"); await ctx.close(); }
     { // no learning site connected: type the school's name
       const {ctx, page} = await mk({ai: true, settings: MANUAL, reply: FOUND(), grounding: GROUND("registrar.testu.ca")});
       await openSettings(page); await page.click("#gsFind"); ok(/Type your school's name/.test(await msg(page)) && ctx.calls === 0, "asks for the school's name when no site is connected");
