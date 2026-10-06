@@ -167,6 +167,20 @@ t("deck: reorder on one side + edit on the other", () => {
   const r = SM.mergeItem("deck", base, deck([base.cards[2], base.cards[0], base.cards[1]]), deck([base.cards[0], Object.assign({}, base.cards[1], {back: "B!"}), base.cards[2]]), {now: T0});
   assert.deepStrictEqual(r.merged.cards.map(c => c.id), ["c3", "c1", "c2"]); assert.strictEqual(r.merged.cards[2].back, "B!");
 });
+t("deck: cards made from a note keep srcNote through a merge (both devices add cards from notes; one edits a card the other made)", () => {
+  const base = deck([card("c1", "q1", "a1", {srcNote: "n1"})]);
+  const mine = deck([card("c1", "q1 edited", "a1", {srcNote: "n1"}), card("cm", "mine", "m", {srcNote: "n2"})]);
+  const theirs = deck([card("c1", "q1", "a1", {srcNote: "n1", box: 2}), card("ct", "theirs", "t", {srcNote: "n3", ai: true})]);
+  const r = SM.mergeItem("deck", base, mine, theirs, {now: T0}), by = id => r.merged.cards.find(c => c.id === id);
+  assert.deepStrictEqual(r.merged.cards.map(c => c.id).sort(), ["c1", "cm", "ct"]);
+  assert.strictEqual(by("c1").srcNote, "n1"); assert.strictEqual(by("c1").front, "q1 edited"); assert.strictEqual(by("c1").box, 2);
+  assert.strictEqual(by("cm").srcNote, "n2"); assert.strictEqual(by("ct").srcNote, "n3"); assert.strictEqual(by("ct").ai, true);
+});
+t("deck: srcNote added to an older card on one device is kept next to the other device's edit", () => {
+  const base = deck([card("c1", "q", "a")]);
+  const r = SM.mergeItem("deck", base, deck([card("c1", "q", "a", {srcNote: "n9"})]), deck([card("c1", "q", "a2")]), {now: T0});
+  assert.strictEqual(r.merged.cards[0].srcNote, "n9"); assert.strictEqual(r.merged.cards[0].back, "a2");
+});
 
 /* ---- deletions ---- */
 t("tombstone: deleted here, edited there -> edit wins (restored)", () => {

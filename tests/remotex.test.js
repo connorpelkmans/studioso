@@ -131,7 +131,7 @@ const mkNext = eff => {
   const ctx = {
     todayISO: () => "2026-10-05", ui: {}, inFilter: () => true, pad: x => String(x).padStart(2, "0"), pomoCfg: () => ({focus: 25}), schOccurrences: () => [], tasksArr: () => [],
     nufbLoad: () => ({}), nufbWeights: () => ({}), nufbMult: () => 1, diffOf: () => "med", deadlineGuard: () => {}, autoPlanOn: () => false, AUTO: {}, fmtTime: x => x,
-    canDoNow: t => R.canDoNow(t, {v: eff[t.id] || ""}), Date, Number, Math
+    canDoNow: t => R.canDoNow(t, {v: eff[t.id] || ""}), accOf: () => null, Date, Number, Math
   };
   vm.createContext(ctx); vm.runInContext(fnText("nextUp"), ctx); return F => ctx.nextUp(F);
 };
@@ -159,7 +159,7 @@ t("nextUp: the alternatives (left) never count an ineligible exam", () => {
 });
 t("nextUp: the AI's stored pick can't bring back an exam that has become ineligible", () => {
   const ctx = {todayISO: () => "2026-10-05", ui: {}, inFilter: () => true, pad: x => String(x).padStart(2, "0"), pomoCfg: () => ({focus: 25}), schOccurrences: () => [], tasksArr: () => [], nufbLoad: () => ({}), nufbWeights: () => ({}), nufbMult: () => 1, diffOf: () => "med", deadlineGuard: () => {},
-    autoPlanOn: () => true, AUTO: {next: {day: "2026-10-05", at: Date.now(), list: [{id: "m", why: "x"}]}}, fmtTime: x => x, canDoNow: t => R.canDoNow(t, {v: ""}), Date, Number, Math};
+    autoPlanOn: () => true, AUTO: {next: {day: "2026-10-05", at: Date.now(), list: [{id: "m", why: "x"}]}}, fmtTime: x => x, canDoNow: t => R.canDoNow(t, {v: ""}), accOf: () => null, Date, Number, Math};
   vm.createContext(ctx); vm.runInContext(fnText("nextUp"), ctx);
   const r = ctx.nextUp({ranked: [X("m", "Exam", 99), X("hw", "Assignment", 40)]}); assert.strictEqual(r.x.t.id, "hw"); assert.strictEqual(r.ai, false);
 });
