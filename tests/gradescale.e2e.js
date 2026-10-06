@@ -21,7 +21,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       if (ai) { localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } } } catch (e) {} }, [SEED(settings), !!ai]);
     ctx.calls = 0; ctx.bodies = []; ctx.reply = reply; ctx.grounding = grounding; ctx.limitSearch = limitSearch;
     await ctx.route(/generativelanguage\.googleapis\.com/, route => { ctx.calls++; try { ctx.bodies.push(route.request().postDataJSON()); } catch (e) {}
-      if (ctx.limitSearch && ctx.bodies[ctx.bodies.length - 1] && ctx.bodies[ctx.bodies.length - 1].tools) { route.fulfill({status: 429, contentType: "application/json", body: JSON.stringify({error: {message: "Quota exceeded for grounding"}})}); return; }
+      if (ctx.limitAll || (ctx.limitSearch && ctx.bodies[ctx.bodies.length - 1] && ctx.bodies[ctx.bodies.length - 1].tools)) { route.fulfill({status: 429, contentType: "application/json", body: JSON.stringify({error: {message: "Quota exceeded for grounding"}})}); return; }
       const cand = {content: {parts: [{text: JSON.stringify(ctx.reply || {scale: []})}]}, finishReason: "STOP"}; if (ctx.grounding) cand.groundingMetadata = {groundingChunks: ctx.grounding};
       route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({candidates: [cand]})}); });
     const page = await ctx.newPage(); page.errs = []; page.on("pageerror", e => page.errs.push(e.message));
@@ -88,77 +88,41 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(sv.c && sv.c.pass === 55 && sv.g.scale && sv.g.scale[0][1] === 93, "saving stores the pass mark on the course and the edited scale for all courses (the default): " + JSON.stringify([sv.c && sv.c.pass, sv.g.scale && sv.g.scale[0]]));
       await ctx.close(); }
 
-    // ---- the school lookup: found from the connected learning site, by web search ----
+    // ---- the school lookup: the AI answers from what it knows (no web search); always offered for checking ----
     const LMS = {brightspace: {host: "learn.testu.ca", mode: "api", name: ""}}, MANUAL = {ai: {auto: false}};
     const SCALE8 = [["A+", 90], ["A", 85], ["A-", 80], ["B+", 76], ["B", 72], ["C", 60], ["D", 50], ["F", 0]].map(([letter, min]) => ({letter, min}));
-    const FOUND = (o) => Object.assign({found: true, school: "Test University", scale: SCALE8, pass: 55, sourceUrl: "https://registrar.testu.ca/grades", note: ""}, o || {});
-    const GROUND = t => [{web: {uri: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc", title: t}}];
-    { // on demand, the school's own site
-      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND(), grounding: GROUND("registrar.testu.ca")});
+    const FOUND = (o) => Object.assign({found: true, school: "Test University", scale: SCALE8, pass: 55, note: ""}, o || {});
+    { // on demand, from the connected learning site
+      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND()});
       await openSettings(page);
       ok(/learn\.testu\.ca/.test(await page.textContent("#gsSchool")) && await page.locator("#gsFind").count() === 1, "the connected learning site is recognised");
-      ok(ctx.calls === 0, "nothing is searched until it is asked for (Automatic AI is off here)");
-      await page.click("#gsFind"); await page.waitForFunction(() => /own website/.test(document.querySelector("#gsSchool").textContent));
+      ok(ctx.calls === 0, "nothing is asked until the button is pressed, and nothing runs in the background");
+      await page.click("#gsFind"); await page.waitForFunction(() => /hasn't been checked online/.test(document.querySelector("#gsSchool").textContent));
       ok(JSON.stringify(await rows(page)) === JSON.stringify(SCALE8.map(x => [x.letter, String(x.min)])), "the scale boxes are filled in");
       ok(await page.inputValue('input[name="pass"]') === "55", "the pass mark is filled in too");
+      ok(await page.locator('input[name="all"]').isChecked(), "Use This Scale for All My Courses is ticked");
       const body = ctx.bodies[0], txt = JSON.stringify(body);
-      ok(body.tools && body.tools[0].google_search && !body.generationConfig.responseMimeType, "it asks Google to search the web");
+      ok(!body.tools, "no web search is requested");
       ok(/learn\.testu\.ca/.test(txt) && !/Biology|BIO1/.test(txt), "only the site address is sent, nothing about the student's courses");
       await page.click('[data-submit]'); await page.waitForTimeout(250);
       const gr = await page.evaluate(() => { const d = JSON.parse(localStorage.getItem("coursework:v2")); return {pass: ((d.settings || {}).grades || {}).pass, scale: ((d.settings || {}).grades || {}).scale}; }); ok(gr.pass === 55 && gr.scale.length === 8, "saving keeps what was found, for all courses");
       await ctx.close(); }
-    { // a page that is not the school's own: filled in, with a warning
-      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND({sourceUrl: "https://randomsite.com/scale"}), grounding: GROUND("randomsite.com")});
-      await openSettings(page); await page.click("#gsFind"); await page.waitForFunction(() => /isn't the school's own website/.test(document.querySelector("#gsSchool").textContent));
-      ok((await rows(page)).length === 8, "an unofficial source still fills the boxes, with a warning to check"); await ctx.close(); }
-    for (const [what, reply, grounding] of [["a page the search never used", FOUND(), GROUND("someothersite.org")], ["nothing grounded at all", FOUND(), undefined], ["found: false", {found: false, scale: []}, GROUND("registrar.testu.ca")], ["too few letters", FOUND({scale: SCALE8.slice(0, 2)}), GROUND("registrar.testu.ca")]]) {
-      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply, grounding});
+    for (const [what, reply] of [["found: false", {found: false, scale: []}], ["too few letters", FOUND({scale: SCALE8.slice(0, 2)})]]) {
+      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply});
       await openSettings(page); const before = JSON.stringify(await rows(page)); await page.click("#gsFind"); await page.waitForFunction(() => /Upload a screenshot or paste/.test(document.querySelector("#gsMsg").textContent));
       ok(JSON.stringify(await rows(page)) === before && await page.evaluate(() => !document.querySelector("#gsPasteBox").hidden), `${what}: nothing is filled in, and the screenshot / paste box opens`); await ctx.close(); }
     { // no AI set up
       const {ctx, page} = await mk({settings: Object.assign({}, LMS)}); await openSettings(page); await page.click("#gsFind");
       ok(/needs AI/.test(await msg(page)) && ctx.calls === 0, "without AI it says so and offers upload / paste"); await ctx.close(); }
-    { // automatic: official source fills in everything for all courses, once, with an Undo
-      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS), reply: FOUND(), grounding: GROUND("registrar.testu.ca")});
-      await page.evaluate(() => window.__sbGrades.schoolAuto()); await page.waitForTimeout(400);
-      let g = await page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")).settings.grades || {});
-      ok(g.pass === 55 && g.scale && g.scale.length === 8 && g.school && g.school.host === "registrar.testu.ca" && g.school.official, "automatic: the school's scale and pass mark are filled in for all courses");
-      ok(/Test University's grade scale and 55% pass mark/.test(await page.evaluate(() => document.querySelector("#toast").textContent)), "and a note says so");
-      await page.evaluate(() => window.__sbGrades.schoolAuto()); ok(ctx.calls === 1, "the same school is not searched again");
-      await page.click("#toastUndo"); await page.waitForTimeout(250);
-      g = await page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")).settings.grades || {}); ok(!g.scale && !g.school && (g.pass == null || g.pass === 50), "Undo puts the old scale and pass mark back: " + JSON.stringify(g));
-      await ctx.close(); }
-    { // automatic but not the school's own page: a suggestion to check, never filled in silently
-      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS), reply: FOUND({sourceUrl: "https://randomsite.com/s"}), grounding: GROUND("randomsite.com")});
-      await page.evaluate(() => window.__sbGrades.schoolAuto()); await page.waitForTimeout(400);
-      const g = await page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")).settings.grades || {}); ok(!g.scale && g.suggest && g.suggest.host === "randomsite.com", "automatic, unofficial: kept as a suggestion only");
-      await openSettings(page); ok(/Is this your school/.test(await page.textContent("#gsSchool")), "the suggestion is asked about in Grade Settings");
-      await page.click("#gsSugYes"); ok((await rows(page)).length === 8 && await page.inputValue('input[name="pass"]') === "55", "Use It fills the boxes");
-      await ctx.close(); }
-    { // web search over its free quota: the AI answers from what it knows, flagged as unchecked, and the scale still fills in
-      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND(), grounding: GROUND("registrar.testu.ca"), limitSearch: true});
-      await openSettings(page); await page.click("#gsFind"); await page.waitForFunction(() => /hasn't been checked online/.test(document.querySelector("#gsSchool").textContent));
-      ok((await rows(page)).length === 8, "search refused with 429: the boxes still fill in from the AI's own knowledge");
-      ok(await page.locator('input[name="all"]').isChecked(), "and Use This Scale for All My Courses is ticked");
-      ok(ctx.bodies.some(b => !b.tools), "the second request has no web search tool"); await ctx.close(); }
     { // no learning site connected: type the school's name
-      const {ctx, page} = await mk({ai: true, settings: MANUAL, reply: FOUND(), grounding: GROUND("registrar.testu.ca")});
+      const {ctx, page} = await mk({ai: true, settings: MANUAL, reply: FOUND()});
       await openSettings(page); await page.click("#gsFind"); ok(/Type your school's name/.test(await msg(page)) && ctx.calls === 0, "asks for the school's name when no site is connected");
-      await page.fill("#gsSchoolName", "Test University"); await page.click("#gsFind"); await page.waitForFunction(() => /Found/.test(document.querySelector("#gsSchool").textContent));
-      ok(/Test University/.test(JSON.stringify(ctx.bodies[0])), "the typed name is what is searched"); ok((await rows(page)).length === 8, "and the boxes fill in"); await ctx.close(); }
-
-    { // review fixes: Undo keeps the default pass mark, a chosen pass mark is kept, a reset link, own pass marks only when different
-      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS), reply: FOUND(), grounding: GROUND("registrar.testu.ca")});
-      await page.evaluate(() => window.__sbGrades.schoolAuto()); await page.waitForTimeout(400); await page.click("#toastUndo"); await page.waitForTimeout(250);
-      const g = await page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")).settings.grades || {});
-      ok(!("pass" in g) && !("scale" in g) && !("school" in g), "Undo removes what was added instead of leaving empty values: " + JSON.stringify(g));
-      await openSettings(page); ok(await page.inputValue('input[name="pass"]') === "50", "the pass mark is back to the default 50, not blank");
-      await ctx.close(); }
-    { const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, {grades: {pass: 60}}), reply: FOUND(), grounding: GROUND("registrar.testu.ca")});
-      await page.evaluate(() => window.__sbGrades.schoolAuto()); await page.waitForTimeout(400);
-      const g = await page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")).settings.grades);
-      ok(g.pass === 60 && g.scale && g.school, "a pass mark the student already chose is not replaced (the scale still is)");
-      await ctx.close(); }
+      await page.fill("#gsSchoolName", "Test University"); await page.click("#gsFind"); await page.waitForFunction(() => /best knowledge/.test(document.querySelector("#gsSchool").textContent));
+      ok(/Test University/.test(JSON.stringify(ctx.bodies[0])), "the typed name is what is asked about"); ok((await rows(page)).length === 8, "and the boxes fill in"); await ctx.close(); }
+    { // a rate limit shows Google's own words
+      const {ctx, page} = await mk({ai: true, settings: Object.assign({}, LMS, MANUAL), reply: FOUND(), limitSearch: true});
+      ctx.limitAll = true; await openSettings(page); await page.click("#gsFind"); await page.waitForFunction(() => /Google said/.test(document.querySelector("#gsMsg").textContent));
+      ok(/Quota exceeded/.test(await msg(page)), "the rate-limit message includes what Google said"); await ctx.close(); }
     { const {ctx, page} = await mk({});
       await openSettings(page); await page.fill('#gsRows .gr-scale-row:nth-child(1) input[name="sl"]', "Z"); await page.click("#gsStd");
       ok((await rows(page))[0][0] === "A+" && /standard scale/.test(await msg(page)), "Reset to a standard scale brings the boxes back");
@@ -167,16 +131,10 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(c.pass === null, "a course saved with the default pass mark keeps following the default (not pinned): " + JSON.stringify(c.pass));
       await ctx.close(); }
     { const {ctx, page} = await mk({});
-      const t = await page.evaluate(() => { const G = window.__sbGrades, S = [{letter: "A", min: 90}, {letter: "B", min: 80}, {letter: "C", min: 70}, {letter: "D", min: 50}], mk = (n, url) => ({data: {found: true, school: n, scale: S, sourceUrl: url}, sources: [{url: "https://vertexaisearch.cloud.google.com/r", title: "registrar.testu.ca"}]});
-        return {ok: G.vetSchool(mk("Test U", "https://registrar.testu.ca/x"), "learn.testu.ca"), parent: G.vetSchool(mk("Test U", "https://testu.ca/x"), "learn.testu.ca"), short: G.vetSchool({data: {found: true, school: "Test U", scale: S.slice(0, 3), sourceUrl: "https://registrar.testu.ca/x"}, sources: [{url: "https://x", title: "registrar.testu.ca"}]}, "learn.testu.ca"), noname: G.vetSchool(mk("", "https://registrar.testu.ca/x"), "learn.testu.ca")}; });
-      ok(t.ok && t.ok.official, "an official, complete scale from a page the search used");
-      ok(t.parent === null, "a page whose address is only a parent of a search result is not accepted");
-      ok(t.short && t.short.official === false && t.noname && t.noname.official === false, "a short scale, or one with no school name, is never filled in by itself");
-      await ctx.close(); }
-    { const {ctx, page} = await mk({});
-      const t = await page.evaluate(() => { const G = window.__sbGrades; return {a: G.baseDomain("learn.example.edu"), b: G.baseDomain("moodle.abc.ac.uk"), c: G.baseDomain("x.edu"), v: G.vetSchool({data: {found: true, school: "S", scale: [{letter: "A", min: 90}, {letter: "B", min: 80}, {letter: "C", min: 70}], pass: 50, sourceUrl: "https://registrar.testu.ca/x"}, sources: [{url: "https://vertexaisearch.cloud.google.com/r", title: "testu.ca"}]}, "x.instructure.com"), n: G.vetSchool({data: {found: true, scale: [{letter: "A", min: 90}, {letter: "B", min: 80}, {letter: "C", min: 70}], sourceUrl: "https://registrar.testu.ca/x"}}, "learn.testu.ca")}; });
-      ok(t.a === "example.edu" && t.b === "abc.ac.uk" && t.c === "x.edu", "school domain: " + [t.a, t.b, t.c]);
-      ok(t.v && t.v.official === false && t.n === null, "a vendor-hosted site can't prove a source is official; no sources at all means no result"); await ctx.close(); }
+      const t = await page.evaluate(() => { const G = window.__sbGrades, S = [{letter: "A", min: 90}, {letter: "B", min: 80}, {letter: "C", min: 70}, {letter: "D", min: 50}]; return {ok: G.vetSchool({data: {found: true, school: "Test U", scale: S, pass: 50}}), few: G.vetSchool({data: {found: true, scale: S.slice(0, 2)}}), no: G.vetSchool({data: {found: false}}), badPass: G.vetSchool({data: {found: true, scale: S, pass: 500}})}; });
+      ok(t.ok && t.ok.official === false && t.ok.recalled && t.ok.pass === 50, "a complete scale is accepted but never marked official");
+      ok(t.few === null && t.no === null, "a short scale or found: false gives nothing");
+      ok(t.badPass && t.badPass.pass === null, "an impossible pass mark is dropped"); await ctx.close(); }
     // parser and cleaner
     { const {ctx, page} = await mk({});
       const t = await page.evaluate(() => { const G = window.__sbGrades; return {a: G.parseScale("A+ 90-100%\nA: 85\nB = 80 to 84\nnonsense\nC 100-70"), b: G.cleanScale([{letter: "a +", min: 90}, {letter: "A+", min: 88}, {letter: "B", min: 500}, {letter: "C", min: 70}], null), c: G.cleanScale([{letter: "A", min: 90}, {letter: "B", min: 80}], "A 90-100\nB 85-89")}; });
