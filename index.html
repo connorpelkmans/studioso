@@ -40070,8 +40070,11 @@ window.SBEST = SBEST;
       const num = (c.grades || []).filter(g => (g.type === 1 || g.type === 3) && g.name);
       const wsum = num.reduce((s, g) => s + (isNum(g.wden) ? Number(g.wden) : 0), 0);
       const weighted = wsum > 0 && wsum <= 100.5;
+      // A points-based course has no percentages to read, so each item is worth its share of all the points (otherwise it never reaches the Grades tab)
+      const pts = num.reduce((s, g) => s + (isNum(g.den) && Number(g.den) > 0 ? Number(g.den) : 0), 0);
+      const wOf = g => weighted && isNum(g.wden) && Number(g.wden) > 0 ? Number(g.wden) : !weighted && pts > 0 && isNum(g.den) && Number(g.den) > 0 ? Math.round(Number(g.den) / pts * 10000) / 100 : null;
       num.forEach(g => out.grades.push({ou: c.ou, gid: g.gid, name: g.name, got: isNum(g.num) ? Number(g.num) : null, outOf: isNum(g.den) && Number(g.den) > 0 ? Number(g.den) : null,
-        weight: weighted && isNum(g.wden) && Number(g.wden) > 0 ? Number(g.wden) : null, shown: g.shown || "", at: g.at || null}));
+        weight: wOf(g), shown: g.shown || "", at: g.at || null}));
       if (c.final && (c.final.shown || isNum(c.final.num))) out.finals[c.ou] = {shown: c.final.shown || "", pct: isNum(c.final.num) && isNum(c.final.den) && Number(c.final.den) > 0 ? Math.round(Number(c.final.num) / Number(c.final.den) * 1000) / 10 : null, at: Date.now()};
       (c.news || []).forEach(n => out.news.push({ou: c.ou, id: n.id, title: n.title, text: String(n.text || "").slice(0, 900), long: String(n.text || "").length > 900, date: n.date, url: absUrl(origin, `/d2l/le/news/${c.ou}/${n.id}/view`)}));
     });
