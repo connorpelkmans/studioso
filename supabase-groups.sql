@@ -793,3 +793,21 @@ begin
     end if;
   end loop;
 end $$;
+
+-- ---------- 1.14: group projects ----------
+-- A group is either a study group (the default) or a group project, which can have a due date. Only the owner changes either.
+alter table public.study_groups add column if not exists kind text not null default 'study';
+alter table public.study_groups drop constraint if exists study_groups_kind_check;
+alter table public.study_groups add constraint study_groups_kind_check check (kind in ('study', 'project'));
+alter table public.study_groups add column if not exists project_due date;
+grant update (name, course, weekly_goal, project_due) on public.study_groups to authenticated;
+
+create or replace function public.set_group_kind(p_group uuid, p_kind text, p_due date) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.sbg_is_owner(p_group) then raise exception 'Only the owner can do that'; end if;
+  if p_kind not in ('study', 'project') then raise exception 'Unknown group type'; end if;
+  update public.study_groups set kind = p_kind, project_due = case when p_kind = 'project' then p_due else null end where id = p_group;
+end $$;
+revoke all on function public.set_group_kind(uuid, text, date) from public, anon;
+grant execute on function public.set_group_kind(uuid, text, date) to authenticated;
