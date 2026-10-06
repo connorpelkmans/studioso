@@ -40061,7 +40061,7 @@ window.SBEST = SBEST;
         const s = localDT(e.start); if (!s) return;
         const en = localDT(e.end), ct = cleanTitle(e.title);
         if (WORKISH.test(ct.title) && /\b(quiz|test|exam|midterm|final|due|deadline)\b/i.test(e.title)) {
-          add({ou: c.ou, title: ct.title, type: typeFor(ct.title), due: s.date, time: e.allDay ? "" : s.time, notes: e.text || "", url: absUrl(origin, e.url), location: e.where || ""});
+          add({ou: c.ou, title: ct.title, type: typeFor(ct.title), due: s.date, time: e.allDay ? "" : s.time, notes: e.text || "", url: P.taskLink ? P.taskLink(absUrl(origin, e.url), ct.title, c.ou) : absUrl(origin, e.url), location: e.where || ""});
           return;
         }
         out.evs.push({ou: c.ou, key: c.ou + "|" + titleKey(ct.title) + "|" + s.date + (e.allDay ? "" : "|" + s.time), title: ct.title, date: s.date, allDay: !!e.allDay, start: e.allDay ? "" : s.time, end: e.allDay || !en ? "" : en.date === s.date ? en.time : "23:59",
@@ -40118,7 +40118,7 @@ window.SBEST = SBEST;
       const when = gp.due || gp.event || (gp.ends && WORKISH.test(gp.title) ? gp.ends : null);
       if (!when) return;                                               // only "available from" dates, or a content module closing
       const st = gp.starts && gp.starts.date < when.date && gp.starts.date >= addDays(when.date, -45) ? gp.starts.date : "";
-      out.recs.push({ou: gp.ou, title: gp.title, type: typeFor(gp.title), due: when.date, time: when.allDay ? "" : when.time, start: gp.event ? "" : st, notes: gp.notes, url: gp.link, location: gp.where || ""});
+      out.recs.push({ou: gp.ou, title: gp.title, type: typeFor(gp.title), due: when.date, time: when.allDay ? "" : when.time, start: gp.event ? "" : st, notes: gp.notes, url: P.taskLink ? P.taskLink(gp.link, gp.title, gp.ou) : gp.link, location: gp.where || ""});
     });
     out.courses = Object.values(courses);
     out.synced = out.courses.map(c => c.ou);
@@ -40785,6 +40785,15 @@ window.SBEST = SBEST;
         "Pick <b>All Courses</b> if it asks, then copy the link it shows. It starts with https or webcal and ends with a long token.",
         "Paste it into Studyboard."],
       courseHome: (o, ou) => /^\d+$/.test(ou) ? `${o}/d2l/home/${ou}` : "",
+      // The calendar feed only links to the event on Brightspace's calendar, and it doesn't say which assignment it belongs to.
+      // Send a due item to the course's list of that kind of work instead, where it can be opened and submitted.
+      taskLink: (link, title, ou) => {
+        let o; try { o = new URL(link).origin; } catch (e) { return link; }
+        if (!/^\d+$/.test(ou) || !/\/d2l\/le\/calendar\//i.test(link)) return link;
+        if (/\b(quiz|test|exam|midterm)\b/i.test(title)) return `${o}/d2l/lms/quizzing/user/quizzes_list.d2l?ou=${ou}`;
+        if (/\bdiscussion\b/i.test(title)) return `${o}/d2l/le/${ou}/discussions/List`;
+        return `${o}/d2l/lms/dropbox/user/folders_list.d2l?ou=${ou}`;
+      },
       feedInfo: (x, H) => {
         const m = (x.url + " " + x.desc).match(/\/d2l\/le\/calendar\/(\d{3,})\//) || (x.url + " " + x.desc).match(/[?&](?:ou|feedOU)=(\d{3,})/);
         const code = H.codeOf(x.loc) || H.codeOf(x.sum);
