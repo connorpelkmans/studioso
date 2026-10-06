@@ -784,4 +784,4 @@ function register(getMain, trusted) {
 }
 
 // harvestScript, cleanHarvest, cleanFile and privateIp are exported for tests/lms-harvest.test.js only (nothing in the app reads them from here).
-module.exports = { register, bsHarvest, cvHarvest, bbHarvest, originOf, feedOk, connect, sync, file, feed, signOut, mail, harvestScript, cleanHarvest, cleanFile, privateIp, P };
+module.exports = { WHO, BS_FILE, CV_FILE, cvMail, HARVEST_PRELUDE, register, bsHarvest, cvHarvest, bbHarvest, originOf, feedOk, connect, sync, file, feed, signOut, mail, harvestScript, cleanHarvest, cleanFile, privateIp, P };
