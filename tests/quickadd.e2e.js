@@ -70,7 +70,8 @@ const pick = (page, list) => page.setInputFiles("#qaFileIn", list.map(([name, te
       console.log("== " + W + " wide, no AI");
       const {ctx, page} = await mk(browser, W, H, false);
       await goFiles(page);
-      ok(await vis(page, '[data-act="f-quick"]'), "the Files tab has Quick Add");
+      await page.click("#fab"); await page.waitForTimeout(300);
+      ok(await vis(page, '[data-act="f-quick"]'), "the Add File menu has Quick Add");
       await page.click('[data-act="f-quick"]'); await page.waitForTimeout(300);
       ok(await vis(page, "#qaDrop"), "the Quick Add sheet opens with a drop area and no course or type to pick");
       await pick(page, [["BIO101_syllabus.txt", SYLLABUS], ["hw3.txt", HW], ["scan.txt", MYSTERY]]);
@@ -142,7 +143,7 @@ const pick = (page, list) => page.setInputFiles("#qaFileIn", list.map(([name, te
     {
       const {ctx, page} = await mk(browser, 1280, 800, true);
       await goFiles(page);
-      await page.click('[data-act="f-quick"]'); await page.waitForTimeout(300);
+      await page.click("#fab"); await page.waitForTimeout(300); await page.click('[data-act="f-quick"]'); await page.waitForTimeout(300);
       ok(await vis(page, "#qaAI"), "AI toggle shows when AI is set up");
       await pick(page, [["notes_a.txt", SYLLABUS], ["b.txt", HW], ["c.txt", MYSTERY]]);
       await page.waitForFunction(() => document.querySelectorAll(".qa-row .qa-why").length === 3 && /Sorted by AI/.test(document.querySelector(".qa-list").innerText), null, {timeout: 8000});
