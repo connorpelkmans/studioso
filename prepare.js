@@ -74,6 +74,15 @@ html = bid.stamp(html);
   if (cspJs) html = require(cspJs).apply(html);
   else console.warn("prepare: scripts/csp.js not found; the page's own CSP hashes may be stale");
 }
+// The iPhone and Android apps (a staged STUDYBOARD_OUT folder) also get the school site layer: the same harvest scripts the desktop app runs, built from lms.js,
+// loaded before the page. It only switches on when the native StudyboardLms plugin exists (see ios-wrapper/README-IOS.md, "School sites").
+{
+  const lmsBuild = path.join(root, "scripts", "build-lms-mobile.js");
+  if (process.env.STUDYBOARD_OUT && fs.existsSync(lmsBuild) && fs.existsSync(path.join(root, "lms.js"))) {
+    require(lmsBuild).build(path.join(out, "lms-mobile.js"));
+    if (!html.includes("lms-mobile.js")) html = html.replace("<head>", '<head>\n<script src="lms-mobile.js"></script>');
+  }
+}
 fs.writeFileSync(path.join(out, "index.html"), html);
 
 // Content-Security-Policy support for the desktop app: main.js allows exactly these inline scripts (by SHA-256 hash) and no others.

@@ -54,7 +54,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await page.evaluate(() => { ui.fc = null; ui.tab = "flashcards"; ui.deckId = "d1"; render(); });
       await page.waitForSelector(".deck-head");
       ok(await page.locator("#view #fcAdd").count() === 0, "no add-card form at the top of a deck");
-      const fab = page.locator('.fc-fab'); ok(await fab.count() === 1 && /Add Card/.test(await fab.textContent()), "a + Add Card button");
+      const fab = page.locator('#fab'); ok(await fab.count() === 1 && /Add Card/.test(await fab.textContent()), "a + Add Card button");
       const bb = await fab.boundingBox(), vp = page.viewportSize();
       ok(bb.x + bb.width > vp.width * 0.6 && bb.y + bb.height > vp.height * 0.6, "it sits at the bottom right");
       await fab.click(); await page.waitForSelector("#dlg[open] #fcFront");
