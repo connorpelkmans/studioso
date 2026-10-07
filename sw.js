@@ -1,6 +1,6 @@
 // Studyboard offline support: keeps a copy of the app so it opens with no internet.
 // Your data is never stored here; it lives in the app itself and in your Supabase account.
-const CACHE = "studyboard-v4";
+const CACHE = "studyboard-v5";
 // CORE must exist for the app to work offline. OPTIONAL files (icons) may be missing, in the icons/ folder layout or the
 // flat layout; a missing one never stops the service worker from installing.
 const CORE = ["./", "./index.html"];
@@ -44,15 +44,16 @@ self.addEventListener("fetch", e => {
   const isApp = url.origin === location.origin && /\/(index\.html)?$/.test(url.pathname);
   // Other pages next to the app (invite, reset-password...) go straight to the network and never replace the saved app page.
   if (req.mode === "navigate" && url.origin === location.origin && !isApp) return;
-  // The app page: newest version when online, the saved copy when not.
+  // The app page: the saved copy opens right away (the page is several MB, so waiting for the network left a blank screen on every refresh),
+  // and the newest version is fetched in the background and used on the next open. First visit or nothing saved: the network, then offline fallback.
   if (isApp || req.mode === "navigate") {
     e.respondWith((async () => {
       const c = await caches.open(CACHE);
-      try {
-        const r = await timeout(fetch(req), 5000);
-        if (r.ok && r.type === "basic" && isApp) c.put("./index.html", r.clone());
-        return r;
-      } catch (err) { return (await c.match("./index.html")) || (await c.match("./")) || Response.error(); }
+      const hit = isApp ? await c.match("./index.html") : null;
+      const net = fetch(req).then(r => { if (r.ok && r.type === "basic" && isApp) c.put("./index.html", r.clone()); return r; });
+      if (hit) { e.waitUntil(net.catch(() => null)); return hit; }
+      try { return await timeout(net, 5000); }
+      catch (err) { return (await c.match("./index.html")) || (await c.match("./")) || Response.error(); }
     })());
     return;
   }
