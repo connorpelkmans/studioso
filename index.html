@@ -17367,7 +17367,7 @@ var PLAN = null;
 
   // Your website. REPLACE with the real address (no trailing slash). studyboard_config "site_url" overrides it without a rebuild.
   // Buy / Manage Plan open <site>/account?plan=monthly|yearly&src=app in the person's browser.
-  const SITE_URL = "https://studyboard.example";
+  const SITE_URL = "https://studyboardapp.com";
 
   // App Store / Play builds must sell digital subscriptions with the store's own in-app purchase (Apple guideline 3.1.1), so
   // Buy goes to the native layer (the "plan-checkout" event, RevenueCat) there. Set this to true ONLY if you are sure that your
@@ -17390,7 +17390,7 @@ var PLAN = null;
       free: {devices: 2, fileMB: 100, dataMB: 25, groupMembers: 3, groupMsgDays: 60, cloudBackupDays: 0},
       pro: {devices: Infinity, fileMB: 10240, dataMB: 250, groupMembers: 100, groupMsgDays: null, cloudBackupDays: 30}
     },
-    prices: {monthly: "$2.99", yearly: "$19.99", trialDays: 7},
+    prices: {monthly: "$3", yearly: "$19.99", trialDays: 7},
     checkout_url_monthly: "", checkout_url_yearly: "", manage_url: "", site_url: "",
     app_trial: false,                 // a no-card trial started in the app (studyboard_start_trial). Store trials work without this.
     item_purchases: false,            // single cosmetic items or packs for sale on their own (optional)
@@ -66264,7 +66264,7 @@ window.SBSTREAK = {on: gentleOn, line: () => streakLineText(streakNow()), state:
 (() => {
   const VERSION = "1.13.0";   // keep in step with package.json and APP_VERSION above
   // OWNER: replace this with your real support address before the public launch (it is shown in the policies and About).
-  const SUPPORT = "support@YOUR-DOMAIN";
+  const SUPPORT = "support@studyboardapp.com";
   const UPDATED = "October 3, 2026";
   const FIRST_YEAR = 2026;
   const ph = t => `<b>${esc(t)}</b>`;   // OWNER placeholder, shown in bold until replaced
@@ -66275,7 +66275,7 @@ window.SBSTREAK = {on: gentleOn, line: () => streakLineText(streakNow()), state:
   /* ---------- Texts ---------- */
   const PRIVACY = () => `
     <p class="legal-meta">Effective ${UPDATED}</p>
-<p>Studyboard is a planner for courses, deadlines, notes and flashcards, run by ${ph("YOUR NAME OR COMPANY")} ("we"). This page explains, in plain words, what we collect, why, who else handles it, how long we keep it and how to delete it. The short version: your work stays on your device unless you choose to sync it, there are no ads, and nothing in Studyboard tracks you or sells your data.</p>
+<p>Studyboard is a planner for courses, deadlines, notes and flashcards, run by ${ph("Studyboard")} ("we"). This page explains, in plain words, what we collect, why, who else handles it, how long we keep it and how to delete it. The short version: your work stays on your device unless you choose to sync it, there are no ads, and nothing in Studyboard tracks you or sells your data.</p>
 
 <h3>What stays on your device</h3>
 <p>Your courses, tasks, notes, flashcards, files, settings, themes, daily backups, AI keys and your school-site connections are saved on the device you use (in the browser's storage on the website, or in the app's folder on desktop and phone). If you turn on folder backups on desktop, copies are also written to the folder you pick. Nothing leaves your device unless you use one of the optional features below.</p>
@@ -66336,7 +66336,7 @@ window.SBSTREAK = {on: gentleOn, line: () => streakLineText(streakNow()), state:
 </ul>
 
 <h3>International transfers</h3>
-<p>Our servers are in ${ph("YOUR REGION")}. Supabase, Stripe, RevenueCat, Sentry, our email provider and the AI provider you choose may process data in other countries, including the United States. Where the law requires it we rely on safeguards such as standard contractual clauses.</p>
+<p>Our servers are in ${ph("the United States (US West)")}. Supabase, Stripe, RevenueCat, Sentry, our email provider and the AI provider you choose may process data in other countries, including the United States. Where the law requires it we rely on safeguards such as standard contractual clauses.</p>
 
 <h3>Children</h3>
 <p>Studyboard is for students aged 13 and over. In the European Economic Area and the UK, where the age of digital consent is higher in some countries (up to 16), a person under that age needs a parent or guardian's permission to make an account. If you are younger than 13, please do not create an account. If you think a child has given us personal data, contact us and we will delete it.</p>

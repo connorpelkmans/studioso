@@ -20,7 +20,7 @@ window.STUDYBOARD_SITE = {
   APP_URL: "https://YOUR-APP-ADDRESS",
 
   // Where people write to you. Shown on the Privacy and Terms pages. Replace with a real address.
-  SUPPORT_EMAIL: "support@YOUR-DOMAIN",
+  SUPPORT_EMAIL: "support@studyboardapp.com",
 
   // The ONLY addresses the account page may send people back to when a link contains "&return=...".
   // Anything else is ignored (this stops open redirects). Origins only, https only. APP_URL is allowed automatically.
