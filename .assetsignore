@@ -1,0 +1,12 @@
+node_modules
+.git
+.github
+.env*
+package.json
+package-lock.json
+wrangler.jsonc
+*.md
+main.js
+preload.js
+build
+dist
