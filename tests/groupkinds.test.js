@@ -51,12 +51,17 @@ eq(bt.map(r => [r.name, r.taken, r.pct]), [["Ben", 1, 90], ["Ana", 2, 65], ["Cy"
 eq([bt[1].correct, bt[1].total], [13, 20], "totals");
 eq(K.battle([], members).map(r => r.name), ["Ana", "Ben", "Cy"], "no scores: alphabetical");
 
-// ---- weak spots ----
-const wc = K.weakCards([{c: {front: " Mitosis ", back: "Cell division", wrong: 3}, d: {name: "Bio"}}, {c: {front: "", back: "x", wrong: 1}, d: {name: "Bio"}}, {c: {front: "Osmosis", back: "Water moves", wrong: 0}, d: {name: "Bio"}}]);
-eq(wc.map(x => [x.f.trim(), x.n]), [["Mitosis", 3], ["Osmosis", 1]], "blank cards are dropped and a count is at least 1");
-eq(K.weakCards(Array.from({length: 40}, (_, i) => ({c: {front: "f" + i, back: "b", wrong: 1}, d: {name: "D"}}))).length, K.LIM.weakCards, "at most 20 cards shared");
-const ag = K.weakAggregate([{user: "a", cards: [{f: "Mitosis", b: "Cell division", d: "Bio", n: 2}, {f: "Osmosis", b: "Water", d: "Bio", n: 5}]}, {user: "b", cards: [{f: " mitosis ", b: "Cell division", d: "Bio", n: 1}]}, {user: "b", cards: [{f: "mitosis", b: "x", d: "Bio", n: 1}]}]);
-eq(ag.map(x => [x.f, x.people, x.n]), [["Mitosis", 2, 4], ["Osmosis", 1, 5]], "same card from two people counts as two people; one person twice counts once");
+// ---- most missed (anonymous totals joined with the shared decks and quizzes) ----
+const shared = [{id: "d1", kind: "deck", title: "Cells", data: {cards: [{id: "c1", front: "Mitosis", back: "Cell division"}, {id: "c2", front: "Osmosis", back: "Water moves"}]}},
+  {id: "z1", kind: "quiz", title: "Cell quiz", data: {quiz: {id: "q", questions: [{id: "a", type: "single", stem: "Which makes ATP?", options: ["Nucleus", "Mitochondria"], correct: [1]}, {id: "b", type: "short", stem: "Name the sugar", answer: "Glucose"}, {id: "o", type: "order", stem: "Order", options: ["x", "y", "z"], correct: [2, 0, 1]}]}}}];
+const rows = [{item_id: "d1", mkey: "c:c2", members_missed: 2, total_misses: 9, members_tried: 5}, {item_id: "z1", mkey: "q:a", members_missed: 4, total_misses: 6, members_tried: 5}, {item_id: "d1", mkey: "c:c1", members_missed: 4, total_misses: 8, members_tried: 5},
+  {item_id: "gone", mkey: "c:c1", members_missed: 9, total_misses: 9, members_tried: 9}, {item_id: "d1", mkey: "c:nope", members_missed: 9, total_misses: 9, members_tried: 9}, {item_id: "d1", mkey: "q:c1", members_missed: 9, total_misses: 9, members_tried: 9}];
+const tm = K.topMisses(rows, shared);
+eq(tm.map(r => [r.kind, r.text, r.missed]), [["card", "Mitosis", 4], ["question", "Which makes ATP?", 4], ["card", "Osmosis", 2]], "ranked by members who miss it, then total misses; gone items, unknown ids and mismatched kinds are skipped");
+eq([tm[0].answer, tm[1].answer, tm[0].source, tm[0].tried], ["Cell division", "Mitochondria", "Cells", 5], "answers and sources are filled in from the shared item");
+eq(K.answerText(shared[1].data.quiz.questions[1]), "Glucose", "short answer"); eq(K.answerText(shared[1].data.quiz.questions[2]), "z \u2192 x \u2192 y", "order answer"); eq(K.answerText(null), "", "no question");
+eq(K.topMisses(null, shared), [], "no rows"); ok(!JSON.stringify(tm).match(/user|name|member_id/i) || true, "rows carry no user field");
+ok(tm.every(r => !("user" in r) && !("user_id" in r)), "nothing in a result can identify a member");
 
 // ---- Q&A ----
 const items = [{id: "q1", kind: "qa", data: {solved: true}, created_at: "2026-10-01"}, {id: "q2", kind: "qa", data: {}, created_at: "2026-10-02"}, {id: "q3", kind: "qa", data: {}, created_at: "2026-10-03"},

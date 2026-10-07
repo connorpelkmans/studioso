@@ -17,7 +17,7 @@ function stubInit(opts){
       {id: "g2", name: "Poster Team", course: "BIOL 201", owner_id: "u1", invite_code: "XYZ-123", created_at: "2026-01-02", weekly_goal: 0, kind: "project", project_due: day(opts.due == null ? 10 : opts.due)}],
     group_members: ["g1", "g2"].flatMap(g => [mem(g, "u1", "owner", "Connor"), mem(g, "u2", "member", "Sam"), mem(g, "u3", "member", "Jo")]),
     group_items: [], group_messages: [], study_profiles: [{user_id: opts.me, display_name: NAMES[opts.me]}], shared_decks: [], group_blocks: [],
-    group_quiz_scores: [], group_rsvps: [], group_stats: [], group_checkins: [], group_reactions: [], group_task_lists: [], group_tasks: [], group_peer_ratings: []
+    group_quiz_scores: [], group_misses: [], group_rsvps: [], group_stats: [], group_checkins: [], group_reactions: [], group_task_lists: [], group_tasks: [], group_peer_ratings: []
   };
   let n = 0; const id = p => p + (++n), nowIso = () => new Date().toISOString();
   window.__DB = DB; window.__calls = []; window.__chans = [];
@@ -54,6 +54,14 @@ function stubInit(opts){
       DB.group_tasks.push(r); return {data: r}; },
     update_group_task(a) { const t = DB.group_tasks.find(x => x.id === a.p_task && !x.deleted); if (!t) return E("That task isn't in one of your groups"); Object.assign(t, a.p_patch);
       if (a.p_patch.status === "done") { t.completed_at = nowIso(); t.completed_by = me.id; } else if ("status" in a.p_patch) { t.completed_at = null; t.completed_by = null; } t.updated_by = me.id; t.updated_at = nowIso(); return {data: t}; },
+    create_group(a) { const g = {id: "gnew" + (++n), name: a.p_name, course: a.p_course || "", owner_id: me.id, invite_code: "NEW-" + n, created_at: nowIso(), weekly_goal: 0, kind: "study", project_due: null}; DB.study_groups.push(g); DB.group_members.push(mem(g.id, me.id, "owner", NAMES[me.id])); return {data: g.id}; },
+    set_group_kind(a) { const g = DB.study_groups.find(x => x.id === a.p_group); if (!g || g.owner_id !== me.id) return E("Only the owner can do that"); g.kind = a.p_kind; g.project_due = a.p_kind === "project" ? a.p_due : null; return {data: null}; },
+    report_misses(a) { DB.group_misses = DB.group_misses.filter(r => !(r.group_id === a.p_group && r.user_id === me.id));
+      a.p_rows.forEach(r => { if (DB.group_items.some(i => i.id === r.item && i.group_id === a.p_group)) DB.group_misses.push({group_id: a.p_group, item_id: r.item, mkey: r.k, user_id: me.id, misses: r.m, tries: r.t}); }); return {data: null}; },
+    forget_misses(a) { DB.group_misses = DB.group_misses.filter(r => !(r.group_id === a.p_group && r.user_id === me.id)); return {data: null}; },
+    top_misses(a) { const rows = DB.group_misses.filter(r => r.group_id === a.p_group); if (new Set(rows.map(r => r.user_id)).size < 3) return {data: []};
+      const by = {}; rows.forEach(r => { const k = r.item_id + "|" + r.mkey; (by[k] = by[k] || []).push(r); });
+      return {data: Object.values(by).map(g => ({item_id: g[0].item_id, mkey: g[0].mkey, members_missed: g.filter(r => r.misses > 0).length, total_misses: g.reduce((x, r) => x + r.misses, 0), members_tried: g.length})).filter(r => r.members_missed >= 2).sort((a, b) => b.members_missed - a.members_missed)}; },
     submit_peer(a) { if (a.p_to === me.id) return E("You can only rate someone else in the group"); if (a.p_score < 1 || a.p_score > 5) return E("Pick a score from 1 to 5");
       const ex = DB.group_peer_ratings.find(r => r.group_id === a.p_group && r.from_user === me.id && r.to_user === a.p_to);
       if (ex) Object.assign(ex, {score: a.p_score, note: a.p_note}); else DB.group_peer_ratings.push({group_id: a.p_group, from_user: me.id, to_user: a.p_to, score: a.p_score, note: a.p_note, updated_at: nowIso()}); return {data: null}; },
@@ -73,6 +81,9 @@ function stubInit(opts){
   window.__fire = table => { window.__chans.filter(c => !c.gone).forEach(c => c.h.forEach(h => { if (h.cfg.table === table) h.cb({eventType: "UPDATE", new: {}, old: {}}); })); };
   window.__day = day;
   try { localStorage.setItem("sb:grpName:" + me.id, NAMES[me.id]); } catch(e) {}
+  { const now = nowIso();
+    DB.group_items.push({id: "dk1", group_id: "g1", user_id: "u2", author_name: "Sam", kind: "deck", ref_id: "x", title: "Group deck", data: {cards: [{id: "s1", front: "Mitochondria", back: "Powerhouse of the cell"}, {id: "s2", front: "Ribosome", back: "Makes protein"}], quizzes: []}, created_at: now, updated_at: now},
+      {id: "qz1", group_id: "g1", user_id: "u2", author_name: "Sam", kind: "quiz", ref_id: "d:q", title: "Cell quiz", data: {quiz: {id: "qid", questions: [{id: "qq1", type: "single", stem: "Which organelle makes ATP?", options: ["Nucleus", "Mitochondria"], correct: [1]}]}}, created_at: now, updated_at: now}); }
   if (opts.seed) { try { localStorage.setItem("coursework:v2", JSON.stringify(opts.seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); } catch(e) {} }
 }
 
@@ -80,7 +91,12 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIOL 201", colo
   decks: [{id: "d1", name: "Cells", courseId: "c1", created: 1, cards: [
     {id: "k1", front: "Mitochondria", back: "Powerhouse of the cell", box: 1, due: "", seen: 3, right: 0, wrong: 3},
     {id: "k2", front: "Ribosome", back: "Makes protein", box: 1, due: "", seen: 2, right: 0, wrong: 2},
-    {id: "k3", front: "Nucleus", back: "Holds DNA", box: 4, due: "", seen: 4, right: 4, wrong: 0}]}]};
+    {id: "k3", front: "Nucleus", back: "Holds DNA", box: 4, due: "", seen: 4, right: 4, wrong: 0}]},
+  {id: "cp1", name: "Group deck", courseId: "c1", created: 2, sharedFrom: {g: "g1", i: "dk1", v: "2026-01-01T00:00:00Z", by: "Sam", n: "Bio Squad"}, cards: [
+    {id: "l1", sid: "s1", front: "Mitochondria", back: "Powerhouse of the cell", box: 1, due: "", seen: 3, right: 0, wrong: 3},
+    {id: "l2", sid: "s2", front: "Ribosome", back: "Makes protein", box: 3, due: "", seen: 2, right: 2, wrong: 0}]},
+  {id: "cp2", name: "Group quiz", courseId: "c1", created: 3, sharedFrom: {g: "g1", i: "qz1", v: "2026-01-01T00:00:00Z", by: "Sam", n: "Bio Squad", q: 1}, cards: [], aiQuizzes: [
+    {id: "lq", sid: "qid", title: "Cell quiz", questions: [{id: "qq1", type: "single", stem: "Which organelle makes ATP?", options: ["Nucleus", "Mitochondria"], correct: [1], rationale: "x", optionNotes: ["", ""], tries: 2, miss: 2}]}]}]};
 
 async function boot(browser, w, opts){
   const ctx = await browser.newContext({viewport: {width: w, height: w < 600 ? 844 : 900}});
@@ -132,29 +148,32 @@ async function studyGroup(browser, w){
   await page.screenshot({path: path.join(shots, `gk-study-${w}-thread.png`)});
   await page.keyboard.press("Escape"); await page.waitForTimeout(100);
   ok(/Solved/.test(await txt(page, "#grpQA")), tag + " list shows Solved");
-  // Weak spots
-  await page.click('[data-act="grp-weak-share"]'); await sheet(page, 'input[name="c"]');
-  eq(await page.$$eval('dialog input[name="c"]', e => e.length), 2, tag + " my two missed cards are offered (not the one I know)");
-  await page.uncheck('dialog input[name="c"] >> nth=1'); await page.click("dialog [data-submit]"); await page.waitForTimeout(300);
-  ok(/Mitochondria/.test(await txt(page, "#grpWeak")) && !/Ribosome/.test(await txt(page, "#grpWeak")), tag + " only the chosen card is shared");
-  ok(await page.evaluate(() => { const i = window.__DB.group_items.find(x => x.kind === "weak"); return i && i.data.cards.length === 1 && i.ref_id === "u1" && !("wrong" in i.data.cards[0]) && !("right" in i.data.cards[0]); }), tag + " no scores leave the device");
-  await page.evaluate(() => { window.__DB.group_items.push({id: "w-sam", group_id: "g1", user_id: "u2", author_name: "Sam", kind: "weak", ref_id: "u2", title: "Weak spots", data: {v: 1, cards: [{f: "mitochondria", b: "Powerhouse", d: "Cells", n: 2}, {f: "Golgi", b: "Packages proteins", d: "Cells", n: 1}]}, created_at: new Date().toISOString(), updated_at: new Date().toISOString()}); window.__fire("group_items"); });
-  await page.waitForTimeout(900);
-  const wk = await txt(page, "#grpWeak");
-  ok(/2 members keep missing this/.test(wk) && /1 member keeps missing this/.test(wk) && wk.indexOf("Mitochondria") < wk.indexOf("Golgi"), tag + " the group's most-missed card ranks first: " + wk);
+  // Most missed: anonymous
+  ok(/Share a deck or a quiz|Share your results/.test(await txt(page, "#grpWeak")) && /Anonymous/.test(await txt(page, "#grpWeak")), tag + " Most Missed explains it is anonymous");
+  await page.click('[data-act="grp-weak-on"]'); await page.waitForSelector("dialog[open] .btn.primary, dialog[open] button.danger"); await page.screenshot({path: path.join(shots, `gk-study-${w}-misses-consent.png`)});
+  await page.locator("dialog[open] button").filter({hasText: "Share Anonymously"}).click(); await page.waitForTimeout(800);
+  const sent = await page.evaluate(() => window.__calls.filter(c => c[1] === "report_misses").map(c => c[2]));
+  ok(sent.length >= 1 && sent[0].p_rows.length === 3 && sent[0].p_rows.some(r => r.k === "c:s1" && r.m === 3 && r.t === 3) && sent[0].p_rows.some(r => r.k === "q:qq1" && r.m === 2 && r.t === 2), tag + " my totals per shared card and question were sent: " + JSON.stringify(sent[0] && sent[0].p_rows));
+  ok(!/Connor|u1|front|back|stem|Mitochondria/.test(JSON.stringify(sent[0].p_rows)), tag + " the report holds no name and no card text");
+  ok(/at least 3 members/.test(await txt(page, "#grpWeak")), tag + " nothing is shown until 3 members take part: " + await txt(page, "#grpWeak"));
+  await page.evaluate(() => { const D = window.__DB; ["u2", "u3"].forEach((u, i) => D.group_misses.push({group_id: "g1", item_id: "dk1", mkey: "c:s1", user_id: u, misses: 2 + i, tries: 3}, {group_id: "g1", item_id: "qz1", mkey: "q:qq1", user_id: u, misses: 1, tries: 2}, {group_id: "g1", item_id: "dk1", mkey: "c:s2", user_id: u, misses: i, tries: 3})); window.__fire("group_items"); });
+  await page.waitForTimeout(1200);
+  const mm = await txt(page, "#grpWeak");
+  ok(/card\s+Mitochondria/i.test(mm) && /3 of 3 members miss this/.test(mm) && /question\s+Which organelle makes ATP\?/i.test(mm) && /Answer: Powerhouse of the cell/.test(mm) && /Answer: Mitochondria/.test(mm), tag + " the most-missed card and quiz question are listed: " + mm);
+  ok(mm.indexOf("Mitochondria") < mm.indexOf("Which organelle") && !/Ribosome/.test(mm), tag + " most missed first, and a card only one member missed is left out");
+  ok(!/Sam|Jo\b|Connor/.test(mm.replace(/Powerhouse/g, "")), tag + " no member is named anywhere in it");
   await page.click('[data-act="grp-weak-deck"]'); await page.waitForTimeout(300);
-  ok(await page.evaluate(() => Object.values(window.SBPINPICK ? window.SBPINPICK.state().decks : {}).some(d => /Weak Spots: Bio Squad/.test(d.name) && d.cards.length === 2)), tag + " a deck is made from the group's weak spots");
-  await page.click('[data-act="grp-weak-stop"]'); await page.waitForTimeout(300);
-  ok(await page.evaluate(() => !window.__DB.group_items.some(x => x.kind === "weak" && x.user_id === "u1")), tag + " I can stop sharing");
+  ok(await page.evaluate(() => Object.values(window.SBPINPICK.state().decks).some(d => /Most Missed: Bio Squad/.test(d.name) && d.cards.length === 1 && d.cards[0].front === "Mitochondria")), tag + " a deck can be made from the missed cards");
+  await page.click('[data-act="grp-weak-off"]'); await page.waitForTimeout(500);
+  ok(await page.evaluate(() => !window.__DB.group_misses.some(r => r.user_id === "u1")) && await page.evaluate(() => window.__calls.some(c => c[1] === "forget_misses")), tag + " stopping removes my numbers");
   await noOverflow(page, tag + " study tab");
   await page.screenshot({path: path.join(shots, `gk-study-${w}-study.png`), fullPage: true});
   // Sessions and Challenge tabs
   await tab(page, "sessions"); ok(await page.isVisible("#grpSessions") && /Study Sessions/.test(await txt(page, "#grpSessions")), tag + " Sessions tab");
   await tab(page, "challenge");
   ok(await page.isVisible("#grpChallenge") && await page.isVisible("#grpCheckin"), tag + " Challenge tab holds the weekly challenge and check-in");
-  ok(/Share a practice quiz/.test(await txt(page, "#grpBattle")), tag + " battle invites sharing a quiz");
+  ok(/Quiz Battle/.test(await txt(page, "#grpBattle")) && /Hasn't played yet/.test(await txt(page, "#grpBattle")), tag + " battle lists everyone before anyone has played");
   await page.evaluate(() => { const now = new Date().toISOString(), D = window.__DB;
-    D.group_items.push({id: "qz1", group_id: "g1", user_id: "u2", author_name: "Sam", kind: "quiz", ref_id: "d:q", title: "Cell quiz", data: {quiz: {questions: [{}]}}, created_at: now, updated_at: now});
     D.group_quiz_scores.push({item_id: "qz1", group_id: "g1", user_id: "u2", best_correct: 9, best_total: 10, last_correct: 9, last_total: 10, attempts: 1}, {item_id: "qz1", group_id: "g1", user_id: "u3", best_correct: 6, best_total: 10, last_correct: 6, last_total: 10, attempts: 2});
     window.__fire("group_items"); window.__fire("group_quiz_scores"); });
   await page.waitForTimeout(1200);
@@ -280,11 +299,23 @@ async function overdueAndSetup(browser){
   await r.ctx.close();
 }
 
+
+async function createProject(browser){
+  const {ctx, page, errs} = await boot(browser, 1280, {me: "u1"});
+  await act(page, "grp-page"); await page.waitForSelector("[data-grp-list]"); await act(page, "grp-new"); await sheet(page, ".grp-kind");
+  await page.click('dialog .grp-kind [data-kind="project"]');
+  await page.fill('dialog input[name="name"]', "History Paper"); await page.fill('dialog input[name="due"]', await page.evaluate(() => window.__day(20)));
+  await page.click("dialog #grpSave"); await page.waitForSelector("#grpDetail", {timeout: 8000}); await page.waitForTimeout(800);
+  eq(await page.evaluate(() => window.__DB.study_groups.find(g => g.name === "History Paper").kind), "project", "creating a group project saves it as a project");
+  eq(await tabs(page), ["Overview", "Tasks", "Files", "Meetings", "Chat", "Members"], "and opens with the project tabs: " + (await tabs(page)).join());
+  ok(errs.length === 0, "create: no page errors " + errs.join(" | ")); await ctx.close();
+}
+
 (async () => {
   const browser = await chromium.launch({executablePath});
   try {
     for (const w of [1280, 390]) { await studyGroup(browser, w); await projectGroup(browser, w); }
-    await memberView(browser); await overdueAndSetup(browser);
+    await memberView(browser); await overdueAndSetup(browser); await createProject(browser);
   } finally { await browser.close(); }
   console.log(`groupkinds.e2e.js: ${checks} checks passed. Screenshots in ${shots}`);
-})().catch(e => { console.error("FAILED:", e.message); process.exit(1); });
+})().catch(e => { console.error("FAILED:", e.message.split("\n")[0], (e.stack.match(/groupkinds.e2e.js:\d+/g) || []).join(" ")); process.exit(1); });
