@@ -925,3 +925,7 @@ begin
 end $$;
 revoke all on function public.report_misses(uuid, jsonb), public.forget_misses(uuid), public.top_misses(uuid, int) from public, anon;
 grant execute on function public.report_misses(uuid, jsonb), public.forget_misses(uuid), public.top_misses(uuid, int) to authenticated;
+
+-- ---------- A sticker as the icon of a study group or group project ----------
+alter table public.study_groups add column if not exists icon text not null default '' check (char_length(icon) <= 40);
+grant update (name, course, weekly_goal, project_due, icon) on public.study_groups to authenticated;
