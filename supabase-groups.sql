@@ -811,3 +811,57 @@ begin
 end $$;
 revoke all on function public.set_group_kind(uuid, text, date) from public, anon;
 grant execute on function public.set_group_kind(uuid, text, date) to authenticated;
+
+-- ---------- 1.15: more for study groups and group projects ----------
+-- Study groups: a Q&A board (questions and answers), and shared weak spots (the cards a member chooses to share that they keep missing).
+-- Group projects: roles (one per member), files and links, meeting notes, and a private contribution check-in.
+-- Everything except the check-in is stored as shared items, so the same rules apply: members read and add, you change your own, the owner can remove any.
+alter table public.group_items drop constraint if exists group_items_kind_check;
+alter table public.group_items add constraint group_items_kind_check
+  check (kind in ('deck', 'task', 'quiz', 'event', 'qa', 'answer', 'link', 'minutes', 'role', 'weak'));
+-- One role and one weak-spot list per person in a group (sharing again updates it).
+create unique index if not exists group_items_one_role on public.group_items (group_id, user_id) where kind = 'role';
+create unique index if not exists group_items_one_weak on public.group_items (group_id, user_id) where kind = 'weak';
+
+-- Contribution check-in: each member rates the others (1 to 5, with an optional note). You can only ever read what YOU wrote.
+-- The group owner reads totals only (how many people rated someone and the average), never who said what or the notes.
+create table if not exists public.group_peer_ratings (
+  group_id uuid not null references public.study_groups(id) on delete cascade,
+  from_user uuid not null references auth.users(id) on delete cascade,
+  to_user uuid not null references auth.users(id) on delete cascade,
+  score int not null check (score between 1 and 5),
+  note text not null default '' check (char_length(note) <= 300),
+  updated_at timestamptz not null default now(),
+  primary key (group_id, from_user, to_user),
+  check (from_user <> to_user)
+);
+alter table public.group_peer_ratings enable row level security;
+drop policy if exists "peer own read" on public.group_peer_ratings;
+create policy "peer own read" on public.group_peer_ratings for select to authenticated using (from_user = auth.uid());
+revoke all on public.group_peer_ratings from anon, authenticated;
+grant select on public.group_peer_ratings to authenticated;
+
+create or replace function public.submit_peer(p_group uuid, p_to uuid, p_score int, p_note text) returns void
+language plpgsql security definer set search_path = public as $$
+declare me uuid := auth.uid();
+begin
+  if me is null then raise exception 'Sign in first'; end if;
+  if not public.sbg_is_member(p_group) then raise exception 'You''re not in that group'; end if;
+  if not exists (select 1 from public.study_groups where id = p_group and kind = 'project') then raise exception 'Check-ins are for group projects'; end if;
+  if p_to = me or not exists (select 1 from public.group_members where group_id = p_group and user_id = p_to) then raise exception 'You can only rate someone else in the group'; end if;
+  if p_score is null or p_score < 1 or p_score > 5 then raise exception 'Pick a score from 1 to 5'; end if;
+  insert into public.group_peer_ratings as r (group_id, from_user, to_user, score, note, updated_at)
+    values (p_group, me, p_to, p_score, left(coalesce(btrim(p_note), ''), 300), now())
+  on conflict (group_id, from_user, to_user) do update set score = excluded.score, note = excluded.note, updated_at = now();
+end $$;
+
+-- Owner only: for each member, how many people rated them and the average. Nothing that says who rated whom.
+create or replace function public.peer_summary(p_group uuid) returns table (to_user uuid, raters int, avg_score numeric)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.sbg_is_owner(p_group) then raise exception 'Only the owner can see the summary'; end if;
+  return query select r.to_user, count(*)::int, round(avg(r.score)::numeric, 1)
+    from public.group_peer_ratings r where r.group_id = p_group group by r.to_user;
+end $$;
+revoke all on function public.submit_peer(uuid, uuid, int, text), public.peer_summary(uuid) from public, anon;
+grant execute on function public.submit_peer(uuid, uuid, int, text), public.peer_summary(uuid) to authenticated;
