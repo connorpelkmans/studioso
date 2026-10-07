@@ -2783,6 +2783,8 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:au
 .kb-dragging .kb-card{cursor:grabbing}
 .kb-col.over{outline:2px dashed var(--gk,var(--accent));outline-offset:-2px;background:color-mix(in srgb,var(--gk,var(--accent)) 8%,transparent)}
 .card.gcard{cursor:grab}
+/* A card with a tab on its top-left corner is square there, so the tab sits flush on it with no curved gap or overhang */
+.card.has-tab,.course-card,.deck,.grp-card,.deck-head,.grp-prev,.deck.deck-fc > .deck-face,.deck-fc .deck-lay .face{border-top-left-radius:0!important}
 .kb-col.k-done .pt-title{text-decoration:line-through;color:var(--muted)}
 .kb-btns{display:flex;flex-wrap:wrap;gap:6px}
 .kb-btns .btn.small{min-height:36px}
