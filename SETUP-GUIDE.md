@@ -802,7 +802,7 @@ This uses your **free Google Gemini key** (see AI Features above). There's nothi
 
 ## Share Decks and Study Groups
 
-Share a flashcard deck with a link or a short code, or make a study group where classmates share decks, upcoming deadlines, quizzes, study sessions and a message board. It all runs through your own Supabase project, so it needs one extra piece of setup SQL. You'll need the file `supabase-groups.sql` that came with this update.
+Share a flashcard deck with a link or a short code, or make a study group where classmates share decks, upcoming deadlines, quizzes, study sessions and a message board. Study groups and group projects each get their own tabs: study groups add a Quiz Battle, Q&A board and shared weak spots; group projects add a countdown overview, task board, roles, files and links, and meeting notes. Re-run `supabase-groups.sql` to turn the newest ones on. It all runs through your own Supabase project, so it needs one extra piece of setup SQL. You'll need the file `supabase-groups.sql` that came with this update.
 
 **1. Run the groups SQL (once)**
 In Supabase, open **SQL Editor**, then **New query**. Open `supabase-groups.sql`, copy everything into the editor and click **Run**. You should see *Success. No rows returned*. It's safe to run again later if you're not sure it worked.
@@ -930,7 +930,7 @@ Open **Settings > Grades**, tap the sliders button next to a course (or **Grade 
 - **Pass Mark:** the minimum grade to pass. It starts at 50%, or at your school's own pass mark when Studyboard finds it (see below). Check your course outline, since some courses also need a pass on each part, like the exams.
 - **Your Goal:** optional, the final grade you're aiming for.
 - **Letter Scale:** one box for each letter and one for the lowest percent that earns it. Add or remove letters as needed. It starts with a common scale, and there are three ways to fill in your school's real one:
-  - **Find My School's Scale.** If you've connected Brightspace, Canvas or Blackboard, Studyboard works out your school from the site's address and, using your own AI key, searches the web for the school's official letter scale **and pass mark**. Only the site's address (or the school name you type) is sent, never your marks or tasks. When the scale comes from the school's own website it is filled in for all your courses, with an Undo; when it comes from anywhere else, Studyboard asks you to check it first. With **Automatic AI** on, this happens by itself once per school (turn it off under Suggestions, Manage, Find My School's Grading).
+  - **Find My School's Scale.** If you've connected Brightspace, Canvas or Blackboard, Studyboard works out your school from the site's address (or from a name you type) and asks your own AI key for the school's letter scale **and pass mark**. The AI answers from what it knows, with no web search, so the result is always shown for you to check against your course outline before you save it. Only the site's address (or the school name you type) is sent, never your marks or tasks. If the AI isn't sure, you can upload a screenshot or paste the scale instead.
   - **Upload Screenshot** of the scale from your course outline or your school's site. You can also paste a screenshot straight into the sheet. AI reads it into the boxes.
   - **Paste a Scale** as text, like `A+ 90-100`, one letter per line. It works without AI too.
   Whatever is filled in, check it against your course outline before you save.

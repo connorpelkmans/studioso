@@ -227,7 +227,7 @@ async function bsHarvest(o) {
     const [folders, quizzes, grades, fin, news, events] = await Promise.all([
       soft(`${b}/dropbox/folders/`),
       pages(`${b}/quizzes/`, true),
-      q.grades === false ? null : soft(`${b}/grades/values/myGradeValues/`, true),
+      q.grades === false ? null : soft(`${b}/grades/values/myGradeValues/`),
       q.grades === false ? null : soft(`${b}/grades/final/values/myGradeValue`, true),
       q.news === false ? null : soft(`${b}/news/`, true),
       pages(`${b}/calendar/events/myEvents/?startDateTime=${enc(fromISO)}&endDateTime=${enc(toISO)}`, true)
@@ -245,6 +245,7 @@ async function bsHarvest(o) {
       sbt: f.SubmissionType != null && Number(f.SubmissionType) >= 0 && Number(f.SubmissionType) <= 9 ? Number(f.SubmissionType) : null }));   // 0 file, 1 text, 2 on paper, 3 observed in person
     c.quizzes = quizzes.filter(x => x && x.IsActive !== false).slice(0, 120).map(x => ({ id: String(x.QuizId), name: String(x.Name || ""), due: dt(x.DueDate), start: dt(x.StartDate), end: dt(x.EndDate),
       gid: x.GradeItemId != null ? String(x.GradeItemId) : "", text: txt(x.Description || x.Instructions, 1500), limit: x.TimeLimitValue || (x.TimeLimit && x.TimeLimit.TimeLimitValue) || null }));
+    c.gradeN = listOf(grades).length;          // how many grade rows the school sent (shown in settings when something looks missing)
     c.grades = listOf(grades).slice(0, 200).map(g => ({ gid: String(g.GradeObjectIdentifier || ""), name: String(g.GradeObjectName || ""), type: Number(g.GradeObjectType) || 0,
       num: g.PointsNumerator, den: g.PointsDenominator, wnum: g.WeightedNumerator, wden: g.WeightedDenominator, shown: String(g.DisplayedGrade || "").trim(), at: dt(g.ReleasedDate || g.LastModified) }));
     c.final = fin && typeof fin === "object" && !Array.isArray(fin) ? { num: fin.PointsNumerator, den: fin.PointsDenominator, wnum: fin.WeightedNumerator, wden: fin.WeightedDenominator, shown: String(fin.DisplayedGrade || "").trim() } : null;
@@ -784,4 +785,4 @@ function register(getMain, trusted) {
 }
 
 // harvestScript, cleanHarvest, cleanFile and privateIp are exported for tests/lms-harvest.test.js only (nothing in the app reads them from here).
-module.exports = { register, bsHarvest, cvHarvest, bbHarvest, originOf, feedOk, connect, sync, file, feed, signOut, mail, harvestScript, cleanHarvest, cleanFile, privateIp, P };
+module.exports = { WHO, BS_FILE, CV_FILE, cvMail, HARVEST_PRELUDE, register, bsHarvest, cvHarvest, bbHarvest, originOf, feedOk, connect, sync, file, feed, signOut, mail, harvestScript, cleanHarvest, cleanFile, privateIp, P };

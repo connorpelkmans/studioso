@@ -12,7 +12,7 @@ function stubInit(opts){
   const me = {id: opts.me, email: opts.me + "@x.com"};
   const day = n => { const d = new Date(); d.setDate(d.getDate() + n); const z = x => String(x).padStart(2, "0"); return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()); };
   const DB = {
-    study_groups: [{id: "g1", name: "Bio Squad", course: "BIOL 201", owner_id: "u1", invite_code: "ABC-DEF", created_at: "2026-01-01", weekly_goal: 0}],
+    study_groups: [{id: "g1", name: "Bio Squad", course: "BIOL 201", owner_id: "u1", invite_code: "ABC-DEF", created_at: "2026-01-01", weekly_goal: 0, kind: "project", project_due: null}],
     group_members: [{group_id: "g1", user_id: "u1", role: "owner", display_name: "Connor", joined_at: "2026-01-01"}, {group_id: "g1", user_id: "u2", role: "member", display_name: "Sam", joined_at: "2026-01-02"}, {group_id: "g1", user_id: "u3", role: "member", display_name: "Jo", joined_at: "2026-01-03"}],
     group_items: [], group_messages: [], study_profiles: [{user_id: opts.me, display_name: opts.me === "u1" ? "Connor" : "Sam"}], shared_decks: [], group_blocks: [],
     group_quiz_scores: [], group_rsvps: [], group_stats: [], group_checkins: [], group_reactions: [],
@@ -96,6 +96,7 @@ async function boot(browser, w, opts){
 const click = (page, sel) => page.evaluate(sel => { const b = document.createElement("button"); b.dataset.act = sel; document.body.appendChild(b); b.click(); b.remove(); }, sel);
 async function openGroup(page){
   await click(page, "grp-page"); await page.waitForSelector('[data-act="grp-open"]'); await page.click('[data-act="grp-open"]');
+  await page.waitForSelector('[data-act="grp-tab"][data-t="tasks"]', {timeout: 5000}); await page.click('[data-act="grp-tab"][data-t="tasks"]');   // a group project opens on Overview
   await page.waitForSelector("#grpPT", {timeout: 5000}); await page.waitForTimeout(700);
 }
 const txt = (page, sel) => page.evaluate(sel => { const e = document.querySelector(sel); return e ? e.innerText.replace(/\s+/g, " ") : ""; }, sel);
@@ -126,8 +127,8 @@ async function scenario(browser, w){
   ok(/Draft the intro.*Sam.*Due/.test(rows[0]), tag + " assignee chip and due pill: " + rows[0]);
   ok(/Find three figures.*Unassigned/.test(rows[1]) && /Claim this/i.test(rows[1]), tag + " unassigned task offers Claim this: " + JSON.stringify(rows));
   ok(/overdue|yesterday/.test(rows[2]) && /You/.test(rows[2]), tag + " my overdue task: " + rows[2]);
-  ok(await page.$$eval(".pt-due.late", e => e.length) === 2, tag + " two overdue pills");
-  ok(await page.$$eval(".pt-due.soon", e => e.length) === 1, tag + " one due-soon pill");
+  ok(await page.$$eval("#grpPT .pt-due.late", e => e.length) === 2, tag + " two overdue pills");
+  ok(await page.$$eval("#grpPT .pt-due.soon", e => e.length) === 1, tag + " one due-soon pill");
   ok(/0 of 4 done/.test(await txt(page, ".pt-prog")), tag + " progress 0 of 4");
   const load = await txt(page, ".pt-load"); ok(/Sam\s+1 open/.test(load) && /You\s+1 open/.test(load) && /Jo\s+1 open/.test(load) && /Unassigned\s+1 open/.test(load), tag + " workload summary: " + load.replace(/\s+/g, " "));
   ok(await page.evaluate(() => window.__DB.group_tasks.length) === 4, tag + " tasks reached the server stub");
@@ -223,10 +224,10 @@ async function sqlNotRun(browser){
     await openGroup(page).catch(() => {});
     await page.waitForTimeout(500);
     const t = await txt(page, "#grpPT");
-    if (who === "u1") { ok(/groups\.sql/.test(t) && /Project Tasks/.test(t), "owner sees the run groups.sql note: " + t.replace(/\s+/g, " ")); await page.screenshot({path: path.join(shots, "pt-1280-sql-not-run.png")}); }
+    if (who === "u1") { ok(/groups\.sql/.test(t) && /Tasks/.test(t), "owner sees the run groups.sql note: " + t.replace(/\s+/g, " ")); await page.screenshot({path: path.join(shots, "pt-1280-sql-not-run.png")}); }
     else ok(t.trim() === "", "members see nothing when the SQL isn't run");
     ok(await page.evaluate(() => !window.__chans.some(c => c.name.startsWith("sbt-"))), "no task channel is opened while the tables are missing (it would break the others)");
-    ok(await page.$("#grpDecks") !== null, "the rest of the group page still works");
+    ok(await page.$("#grpFiles") !== null, "the rest of the group page still works");
     eq(errs, [], "no errors (sql not run)");
     await ctx.close();
   }

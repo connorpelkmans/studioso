@@ -180,3 +180,13 @@ What the page does with the answer: it shows progress ("Restoring your purchases
 * There is no service worker inside the app (WKWebView only allows them for "app-bound domains"); the bundled files make the app work offline anyway. Reminders come from APNs instead of web push (section 6b).
 * `navigator.clipboard`, file pickers and downloads behave like Safari; "Save backup" uses the share sheet or the Filesystem plugin.
 * The desktop-only features (tray, global shortcuts, the data folder in Documents) do not exist on iOS; the web code hides them when `window.studiosoDesktop` is missing.
+
+## School sites on iPhone (full sync: grades, announcements, due dates)
+
+The iPhone app can sign in to Brightspace, Canvas and Blackboard itself, the way the desktop app does, and read the same information (courses, due dates, submissions, grades, announcements, Canvas inbox). **UNTESTED on a device.**
+
+* `native/StudyboardLms.swift` is the Capacitor plugin `StudyboardLms` (App target). It has three jobs only: a full-screen sign-in page on the school's own site (`connect`), a hidden page that runs a script and returns JSON (`run`), and forgetting the sign-in (`signOut`). Register it in `MainViewController` (already added in `native/MainViewController.swift`).
+* The web side is `lms-mobile.js`, built from `lms-mobile.src.js` and `lms.js` by `scripts/build-lms-mobile.js`. `node prepare.js` with `STUDYBOARD_OUT=ios-www` (step 2a) builds it into `ios-www/` and adds `<script src="lms-mobile.js">` to the page by itself. It runs the desktop app's exact harvest scripts and cleans their results with lms.js's own code, and it switches on only when the native plugin exists.
+* No extra Capacitor plugins, entitlements or Info.plist keys are needed. The school pages open in their own web views, so `allowNavigation` in `capacitor.config.json` does not change.
+* App Store: the sign-in page shows the real address, Studyboard never sees the password, and it only reads. Say so in the review notes, and mention it in the privacy answers (it reads the student's own courses, grades and announcements from their school and stores them on the device and in their own account). Per-platform separate sign-ins need iOS 17; on iOS 15 and 16 the platforms share one store and sign-out removes only that school's records.
+* Test on a real device with a real account for each platform. Google single sign-on is expected to be refused inside an embedded web view; Microsoft usually works. See `../MOBILE-SCHOOL-SYNC-SCOPE.md` for the fallbacks.
