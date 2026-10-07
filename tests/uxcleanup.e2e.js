@@ -137,6 +137,26 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       }
       await c3.close();
     }
+
+    // 8. the "short of time" warning follows the Time Today control
+    {
+      const day = n => { const d = new Date(); d.setDate(d.getDate() + n); const z = x => String(x).padStart(2, "0"); return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()); };
+      const sd = SEED(); sd.settings = {capacity: 15, dailyHours: 3};
+      sd.tasks = [{id: "t1", title: "Huge project", courseId: "c1", type: "Project", status: "todo", due: day(2), start: day(0), hours: 30, priority: "high", created: 1}];
+      const c4 = await browser.newContext({viewport: {width: 1280, height: 900}});
+      await c4.addInitScript(seed => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); } } catch (e) {} }, sd);
+      const p4 = await c4.newPage(); await p4.goto(base); await p4.waitForSelector("#view", {state: "attached"}); await p4.waitForFunction(() => window.SBPINPICK);
+      await p4.evaluate(() => { const T = window.SBPINPICK; window.ui = T.ui; window.render = T.render; ui.tab = "board"; ui.bview = "plan"; ui.focusOpen = true; render(); });
+      await p4.waitForSelector(".plan-warn");
+      const w0 = await p4.textContent(".plan-warn");
+      ok(/At 3h a day/.test(w0), "at the usual 3h the warning says so: " + w0.slice(0, 90));
+      for (let i = 0; i < 4; i++) await p4.click('[data-act="today-h"][data-id="0.5"]');
+      const w1 = await p4.textContent(".plan-warn");
+      ok(/With 5h today and 3h a day after/.test(w1) && w1 !== w0, "raising today's time changes the warning: " + w1.slice(0, 110));
+      const short = t => (t.match(/about (\d+h?\s?\d*m?) short/) || [])[1];
+      ok(short(w1) !== short(w0), "and so does how short you are (" + short(w0) + " then " + short(w1) + ")");
+      await c4.close();
+    }
   } finally { await browser.close(); server.close(); }
   console.log(`\n${n} checks passed.`);
 })().catch(e => { console.error(e); process.exit(1); });
