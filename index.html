@@ -11025,7 +11025,7 @@ const owns = (kind, id) => {
 const effSkinId = () => { const id = ((state.settings && state.settings.style) || {}).skin || "classic"; return SKINS.some(x => x.id === id) && owns("skin", id) ? id : "classic"; };
 const styleCfg = () => Object.assign({skin: "classic", card: "index", note: "classic", pin: "pin"}, (state.settings && state.settings.style) || {});
 const cardStyleOf = d => { const cfg = styleCfg(), kit = themeKit(); let s = (d && d.cardStyle) || (cfg.cardAuto !== false && kit ? "theme" : cfg.card); if (s === "theme") return kit ? "theme" : "index"; return owns("card", s) && CARD_STYLES.some(x => x.id === s) ? s : "index"; };
-const noteShapeOf = n => { const cfg = styleCfg(), kit = themeKit(); if (n && n.shape) return owns("note", n.shape) && NOTE_SHAPES.some(x => x.id === n.shape) ? n.shape : "classic"; if (cfg.noteAuto === true && kit) return kit.shape; const s = cfg.note; return owns("note", s) && NOTE_SHAPES.some(x => x.id === s) ? s : "classic"; };
+const noteShapeOf = n => { const cfg = styleCfg(); if (n && n.shape) return owns("note", n.shape) && NOTE_SHAPES.some(x => x.id === n.shape) ? n.shape : "classic"; const s = cfg.note; return owns("note", s) && NOTE_SHAPES.some(x => x.id === s) ? s : "classic"; };
 // The default pin is the Red Pin. A theme's own pin is used only after "Always Match Theme" (pinAuto true); any pin you pick, Washi Dots included, is used as picked.
 const notePinOf = n => { const cfg = styleCfg(), kit = themeKit(); if (n && n.pin) return owns("pin", n.pin) && PINS.some(x => x.id === n.pin) ? n.pin : "pin"; if (cfg.pinAuto === true && kit) return kit.pin; const s = cfg.pin; return owns("pin", s) && PINS.some(x => x.id === s) ? s : "pin"; };
 function saveStyle(patch){
@@ -11069,7 +11069,7 @@ function noteDemo(shape, pin, i, stk){
   return `<div class="ns-demo"><div class="note ns-${shape}" style="--nc:${noteColor(NOTE_COLORS[i % NOTE_COLORS.length][0])};--rot:${i % 2 ? 2 : -2}deg">${pinHtml(pin)}<div class="note-body">Quiz on Friday!</div>${stk ? `<span class="stk" style="left:80%;top:74px;--r:12deg">${stickerSvg(stk)}</span>` : ""}</div></div>`;
 }
 function kitFollow(kind, list, cur, auto){
-  const kit = themeKit(); if (!kit) return "";
+  const kit = themeKit(); if (!kit || kind === "note") return "";   // notes keep your own shape (Square by default); only pins can follow the theme
   const def = list.find(x => x.id === kit[kind === "note" ? "shape" : "pin"]);
   return `<div class="kit-row"><span>This theme's own ${kind === "note" ? "note shape" : "pin"}: <b>${esc(def ? def.name : "")}</b></span>${auto !== false ? `<span class="mini">In use${auto === true ? ", changes with your theme" : ""}</span>` : `<button type="button" class="btn small" data-act="kit-follow" data-kind="${kind}" title="Changes with each theme you pick">Always Match Theme</button>`}</div>`;
 }
@@ -11096,7 +11096,7 @@ function styleShop(tab){
       ${split(CARD_STYLES.filter(c => c.id !== "theme" || themeKit()), c => `<div class="shop-tile ${cardStyleOf(null) === c.id ? "on" : ""}"><div class="cs-demo cs-${c.id}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div>${nameRow(c)}${btnFor("card", c, cardStyleOf(null) === c.id, "Use for All Decks")}</div>`)}`;
   } else if (ui.shopTab === "notes") {
     body = `<p class="mini" style="margin:0">The shape of your sticky notes. Change one note's shape while editing it.</p>
-      ${kitFollow("note", NOTE_SHAPES, noteShapeOf(null), cfg.noteAuto === true)}${split(NOTE_SHAPES, (sh, i) => `<div class="shop-tile ${noteShapeOf(null) === sh.id ? "on" : ""}">${noteDemo(sh.id, notePinOf(null), NOTE_SHAPES.indexOf(sh))}${nameRow(sh)}${btnFor("note", sh, noteShapeOf(null) === sh.id && !(cfg.noteAuto !== false && themeKit()), "Use for Notes")}</div>`)}`;
+      ${split(NOTE_SHAPES, (sh, i) => `<div class="shop-tile ${noteShapeOf(null) === sh.id ? "on" : ""}">${noteDemo(sh.id, notePinOf(null), NOTE_SHAPES.indexOf(sh))}${nameRow(sh)}${btnFor("note", sh, noteShapeOf(null) === sh.id, "Use for Notes")}</div>`)}`;
   } else if (ui.shopTab === "pins") {
     body = `<p class="mini" style="margin:0">What holds your notes to the board. Pins work with any note shape; change one note's pin while editing it.</p>
       ${kitFollow("pin", PINS, notePinOf(null), cfg.pinAuto === true)}${section("All Pins", PINS, pn => `<div class="shop-tile ${notePinOf(null) === pn.id ? "on" : ""}">${noteDemo(noteShapeOf(null), pn.id, PINS.indexOf(pn) + 1)}${nameRow(pn)}${btnFor("pin", pn, notePinOf(null) === pn.id && !(cfg.pinAuto !== false && themeKit()), "Use for Notes")}</div>`)}`;
@@ -15432,6 +15432,7 @@ document.addEventListener("drop", e => {
 
 /* ---------- Sticky notes ---------- */
 const NOTE_COLORS = [["yellow","#FFE680"],["pink","#FFB8CC"],["blue","#AED6FF"],["green","#BDECA8"],["orange","#FFCB8E"],["purple","#D6C6FF"]];
+const NOTE_COLORS_SHOWN = NOTE_COLORS.map((c, i, a) => a[i === 0 ? 2 : i === 2 ? 0 : i]);   // selector order: blue and yellow swapped; NOTE_COLORS keeps its order for theme colors
 const noteColor = k => { const i = Math.max(0, NOTE_COLORS.findIndex(c => c[0] === k)), kit = themeKit(); return kit ? kit.notes[i] : NOTE_COLORS[i][1]; };
 // One width on every screen: a narrower note on a phone wraps its text taller than on desktop, so notes laid out on the desktop would overlap and lose their spacing there.
 const NOTE_W = () => 200;
@@ -15481,7 +15482,7 @@ function noteHtml(n){
   const body = editing
     ? `<textarea class="note-text" id="noteText" maxlength="8000" aria-label="Note text" placeholder="Write a note…">${esc(n.text)}</textarea>
        <div class="note-tools">
-         <div class="note-colors" role="group" aria-label="Note color">${NOTE_COLORS.map(([k, hex]) => `<button type="button" class="nc ${k === n.color ? "on" : ""}" style="background:${noteColor(k)}" data-act="note-color" data-id="${esc(n.id)}" data-color="${k}" aria-label="${k}"></button>`).join("")}</div>
+         <div class="note-colors" role="group" aria-label="Note color">${NOTE_COLORS_SHOWN.map(([k, hex]) => `<button type="button" class="nc ${k === n.color ? "on" : ""}" style="background:${noteColor(k)}" data-act="note-color" data-id="${esc(n.id)}" data-color="${k}" aria-label="${k}"></button>`).join("")}</div>
          <select class="note-task" data-id="${esc(n.id)}" aria-label="Attach to a task">${noteTaskOpts(n)}</select>
          <select class="note-course" data-id="${esc(n.id)}" aria-label="Course">${`<option value="">No course</option>` + coursesArr().map(x => `<option value="${esc(x.id)}" ${x.id === n.courseId ? "selected" : ""}>${esc(courseLabel(x))}</option>`).join("")}</select>
          <div class="note-row2"><select class="note-shape" data-id="${esc(n.id)}" aria-label="Note shape" title="Shape"><option value="">${esc((NOTE_SHAPES.find(x => x.id === styleCfg().note) || NOTE_SHAPES[0]).name)} (default)</option>${NOTE_SHAPES.map(x => `<option value="${x.id}" ${n.shape === x.id ? "selected" : ""} ${owns("note", x.id) ? "" : "disabled"}>${esc(x.name)}${x.tier === "pro" ? " ✦" : ""}</option>`).join("")}</select><select class="note-pin" data-id="${esc(n.id)}" aria-label="Pin" title="Pin">${pinOptionsHtml(n)}</select></div>
@@ -46990,7 +46991,7 @@ var TP_DATA = [];
     const cfg = styleCfg();
     if (kind === "skin") return cfg.skin;
     if (kind === "card") return cardStyleOf(null);
-    if (kind === "note") return cfg.noteAuto === true && themeKit() ? "" : noteShapeOf(null);
+    if (kind === "note") return noteShapeOf(null);
     if (kind === "pin") return cfg.pinAuto === true && themeKit() ? "" : notePinOf(null);
     return "";
   }
