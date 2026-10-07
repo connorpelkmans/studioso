@@ -1146,20 +1146,14 @@ canvas.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:n
   nav.tabs .in button span,nav.tabs .in button{font-size:.7rem!important}
   .nav-sync{display:none}
 }
-/* The side tabs always fit the window (no scrolling the sidebar): spacing and icons shrink with the window height, and the date and sync note give way first. */
-@media (min-width:980px){
-  nav.tabs{overflow:hidden;padding-top:clamp(6px,1.5vh,14px);gap:clamp(4px,1vh,10px)}
-  .nav-brand{gap:clamp(4px,1.2vh,14px)}
-  .nav-brand img{width:clamp(56px,9vh,88px)}
-  nav.tabs .in{gap:clamp(0px,.2vh,2px)}
-  nav.tabs .in button{padding:clamp(3px,.75vh,7px) 4px clamp(2px,.65vh,6px);gap:clamp(1px,.4vh,4px);font-size:clamp(.6rem,1.4vh,.74rem)!important}
-  nav.tabs .in button svg{width:clamp(15px,2.4vh,21px);height:clamp(15px,2.4vh,21px)}
-  .nav-foot{padding-top:clamp(2px,.8vh,8px)}
-  .nav-tool{padding:clamp(2px,.6vh,6px) 4px;font-size:clamp(.6rem,1.4vh,.74rem)}
-  .nav-tool svg{width:clamp(15px,2.2vh,20px);height:clamp(15px,2.2vh,20px)}
+/* The side tabs never scroll. They keep their usual size (logo, date, icons) and only tighten up when the window is really short. */
+@media (min-width:980px){nav.tabs{overflow:hidden}}
+@media (min-width:980px) and (max-height:640px){
+  nav.tabs{padding-top:8px;gap:6px}
+  nav.tabs .in button{padding-top:4px;padding-bottom:3px}
+  .nav-tool{padding-top:3px;padding-bottom:3px}
+  .nav-sync{display:none}
 }
-@media (min-width:980px) and (max-height:880px){.nav-date{display:none}}
-@media (min-width:980px) and (max-height:680px){.nav-sync{display:none}nav.tabs .in .nav-focus{display:none}}
 @media (max-width:420px){nav.tabs .in button{font-size:.6rem!important}nav.tabs .in button svg{width:20px;height:20px}}
 
 /* ---- desktop app window ---- */
