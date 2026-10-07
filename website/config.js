@@ -11,16 +11,16 @@
 // ============================================================================
 window.STUDYBOARD_SITE = {
   // Supabase > Project Settings > API > Project URL  (must be https)
-  SUPABASE_URL: "https://YOUR-PROJECT.supabase.co",
+  SUPABASE_URL: "https://pivcmrqcjseycjkbocmc.supabase.co",
 
   // Supabase > Project Settings > API > "anon" key, or the newer "publishable" key (sb_publishable_...). The PUBLIC one.
-  SUPABASE_ANON_KEY: "YOUR-ANON-OR-PUBLISHABLE-KEY",
+  SUPABASE_ANON_KEY: "sb_publishable_hoKTO5FRblXqHs6MvO686Q_81c5_gvd",
 
   // Where "Open Studyboard" and "Back to the app" go (https only).
-  APP_URL: "https://YOUR-APP-ADDRESS",
+  APP_URL: "https://studyboardapp.com",
 
   // Where people write to you. Shown on the Privacy and Terms pages. Replace with a real address.
-  SUPPORT_EMAIL: "support@YOUR-DOMAIN",
+  SUPPORT_EMAIL: "support@studyboardapp.com",
 
   // The ONLY addresses the account page may send people back to when a link contains "&return=...".
   // Anything else is ignored (this stops open redirects). Origins only, https only. APP_URL is allowed automatically.

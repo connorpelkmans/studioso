@@ -1146,20 +1146,14 @@ canvas.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:n
   nav.tabs .in button span,nav.tabs .in button{font-size:.7rem!important}
   .nav-sync{display:none}
 }
-/* The side tabs always fit the window (no scrolling the sidebar): spacing and icons shrink with the window height, and the date and sync note give way first. */
-@media (min-width:980px){
-  nav.tabs{overflow:hidden;padding-top:clamp(6px,1.5vh,14px);gap:clamp(4px,1vh,10px)}
-  .nav-brand{gap:clamp(4px,1.2vh,14px)}
-  .nav-brand img{width:clamp(56px,9vh,88px)}
-  nav.tabs .in{gap:clamp(0px,.2vh,2px)}
-  nav.tabs .in button{padding:clamp(3px,.75vh,7px) 4px clamp(2px,.65vh,6px);gap:clamp(1px,.4vh,4px);font-size:clamp(.6rem,1.4vh,.74rem)!important}
-  nav.tabs .in button svg{width:clamp(15px,2.4vh,21px);height:clamp(15px,2.4vh,21px)}
-  .nav-foot{padding-top:clamp(2px,.8vh,8px)}
-  .nav-tool{padding:clamp(2px,.6vh,6px) 4px;font-size:clamp(.6rem,1.4vh,.74rem)}
-  .nav-tool svg{width:clamp(15px,2.2vh,20px);height:clamp(15px,2.2vh,20px)}
+/* The side tabs never scroll. They keep their usual size (logo, date, icons) and only tighten up when the window is really short. */
+@media (min-width:980px){nav.tabs{overflow:hidden}}
+@media (min-width:980px) and (max-height:640px){
+  nav.tabs{padding-top:8px;gap:6px}
+  nav.tabs .in button{padding-top:4px;padding-bottom:3px}
+  .nav-tool{padding-top:3px;padding-bottom:3px}
+  .nav-sync{display:none}
 }
-@media (min-width:980px) and (max-height:880px){.nav-date{display:none}}
-@media (min-width:980px) and (max-height:680px){.nav-sync{display:none}nav.tabs .in .nav-focus{display:none}}
 @media (max-width:420px){nav.tabs .in button{font-size:.6rem!important}nav.tabs .in button svg{width:20px;height:20px}}
 
 /* ---- desktop app window ---- */
@@ -17886,7 +17880,7 @@ var PLAN = null;
 
   // Your website. REPLACE with the real address (no trailing slash). studyboard_config "site_url" overrides it without a rebuild.
   // Buy / Manage Plan open <site>/account?plan=monthly|yearly&src=app in the person's browser.
-  const SITE_URL = "https://studyboard.example";
+  const SITE_URL = "https://studyboardapp.com";
 
   // App Store / Play builds must sell digital subscriptions with the store's own in-app purchase (Apple guideline 3.1.1), so
   // Buy goes to the native layer (the "plan-checkout" event, RevenueCat) there. Set this to true ONLY if you are sure that your
@@ -17909,7 +17903,7 @@ var PLAN = null;
       free: {devices: 2, fileMB: 100, dataMB: 25, groupMembers: 3, groupMsgDays: 60, cloudBackupDays: 0},
       pro: {devices: Infinity, fileMB: 10240, dataMB: 250, groupMembers: 100, groupMsgDays: null, cloudBackupDays: 30}
     },
-    prices: {monthly: "$2.99", yearly: "$19.99", trialDays: 7},
+    prices: {monthly: "$3", yearly: "$19.99", trialDays: 7},
     checkout_url_monthly: "", checkout_url_yearly: "", manage_url: "", site_url: "",
     app_trial: false,                 // a no-card trial started in the app (studyboard_start_trial). Store trials work without this.
     item_purchases: false,            // single cosmetic items or packs for sale on their own (optional)
@@ -67860,7 +67854,7 @@ window.SBSTREAK = {on: gentleOn, line: () => streakLineText(streakNow()), state:
 (() => {
   const VERSION = "1.13.0";   // keep in step with package.json and APP_VERSION above
   // OWNER: replace this with your real support address before the public launch (it is shown in the policies and About).
-  const SUPPORT = "support@YOUR-DOMAIN";
+  const SUPPORT = "support@studyboardapp.com";
   const UPDATED = "October 3, 2026";
   const FIRST_YEAR = 2026;
   const ph = t => `<b>${esc(t)}</b>`;   // OWNER placeholder, shown in bold until replaced
@@ -67871,7 +67865,7 @@ window.SBSTREAK = {on: gentleOn, line: () => streakLineText(streakNow()), state:
   /* ---------- Texts ---------- */
   const PRIVACY = () => `
     <p class="legal-meta">Effective ${UPDATED}</p>
-<p>Studyboard is a planner for courses, deadlines, notes and flashcards, run by ${ph("YOUR NAME OR COMPANY")} ("we"). This page explains, in plain words, what we collect, why, who else handles it, how long we keep it and how to delete it. The short version: your work stays on your device unless you choose to sync it, there are no ads, and nothing in Studyboard tracks you or sells your data.</p>
+<p>Studyboard is a planner for courses, deadlines, notes and flashcards, run by ${ph("Studyboard")} ("we"). This page explains, in plain words, what we collect, why, who else handles it, how long we keep it and how to delete it. The short version: your work stays on your device unless you choose to sync it, there are no ads, and nothing in Studyboard tracks you or sells your data.</p>
 
 <h3>What stays on your device</h3>
 <p>Your courses, tasks, notes, flashcards, files, settings, themes, daily backups, AI keys and your school-site connections are saved on the device you use (in the browser's storage on the website, or in the app's folder on desktop and phone). If you turn on folder backups on desktop, copies are also written to the folder you pick. Nothing leaves your device unless you use one of the optional features below.</p>
@@ -67906,7 +67900,7 @@ window.SBSTREAK = {on: gentleOn, line: () => streakLineText(streakNow()), state:
 <p>Pro is sold through Stripe (website and desktop) or through the App Store and Google Play (iPhone, iPad and Android apps). Stripe and the app stores handle your card and billing details; we never see or store them. We receive only your plan status: whether you have Pro, when it ends and where you bought it. If you pay with Stripe we also keep a Stripe customer id so we can open your billing page. Purchases in the iPhone, iPad and Android apps are checked through RevenueCat (RevenueCat, Inc.), which receives your account id (a random number, not your email), the store's purchase record and your device's platform so it can confirm the subscription with Apple or Google and tell us your plan status.</p>
 
 <h3>Email delivery</h3>
-<p>Emails we send you (confirming your address, resetting your password, signing in) are sent through our email delivery provider, ${ph("YOUR EMAIL PROVIDER")}, which handles your email address and the message so it can be delivered. We send no marketing email.</p>
+<p>Emails we send you (confirming your address, resetting your password, signing in) are sent through our email delivery provider, ${ph("Supabase")}, which handles your email address and the message so it can be delivered. We send no marketing email.</p>
 
 <h3>Other services we use</h3>
 <p>Studyboard runs on Supabase (accounts, sync and storage). On the website, fonts, the sign-in library and the PDF reader are served from the same site as the page, so no other third party is contacted for them. If the sign-in library's copy can't be loaded the page falls back to a public content network (jsDelivr), which can then see your IP address as for any web page. Studyboard also contacts the AI provider you chose, only when you use AI, and Stripe when you pay on the website.</p>
@@ -67932,7 +67926,7 @@ window.SBSTREAK = {on: gentleOn, line: () => streakLineText(streakNow()), state:
 </ul>
 
 <h3>International transfers</h3>
-<p>Our servers are in ${ph("YOUR REGION")}. Supabase, Stripe, RevenueCat, Sentry, our email provider and the AI provider you choose may process data in other countries, including the United States. Where the law requires it we rely on safeguards such as standard contractual clauses.</p>
+<p>Our servers are in ${ph("the United States (US West)")}. Supabase, Stripe, RevenueCat, Sentry, our email provider and the AI provider you choose may process data in other countries, including the United States. Where the law requires it we rely on safeguards such as standard contractual clauses.</p>
 
 <h3>Children</h3>
 <p>Studyboard is for students aged 13 and over. In the European Economic Area and the UK, where the age of digital consent is higher in some countries (up to 16), a person under that age needs a parent or guardian's permission to make an account. If you are younger than 13, please do not create an account. If you think a child has given us personal data, contact us and we will delete it.</p>
