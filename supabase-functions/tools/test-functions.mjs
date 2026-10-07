@@ -238,7 +238,7 @@ function coDeps(extra = {}) {
     if (url.includes("studyboard_entitlements")) return new Response(JSON.stringify(extra.ent ? [extra.ent] : []));
     if (url.includes("studyboard_billing_customers")) { rest.push([init.method || "GET", url]); return new Response(JSON.stringify(init.method === "POST" ? [] : extra.customer ? [{ stripe_customer_id: extra.customer }] : (rest.filter(r => r[0] === "POST").length ? [{ stripe_customer_id: "cus_new" }] : []))); }
     if (url === "https://api.stripe.com/v1/customers") { stripeBodies.push(["customers", init.body]); return new Response(JSON.stringify({ id: "cus_new" })); }
-    if (url === "https://api.stripe.com/v1/checkout/sessions") { stripeBodies.push(["session", init.body]); return new Response(JSON.stringify({ url: "https://checkout.stripe.com/c/pay/abc" })); }
+    if (url === "https://api.stripe.com/v1/checkout/sessions") { stripeBodies.push(["session", init.body, init.headers]); return new Response(JSON.stringify({ url: "https://checkout.stripe.com/c/pay/abc" })); }
     if (url === "https://api.stripe.com/v1/billing_portal/sessions") { stripeBodies.push(["portal", init.body]); return new Response(JSON.stringify({ url: "https://billing.stripe.com/p/session/x" })); }
     return new Response("{}", { status: 500 });
   };
@@ -246,6 +246,17 @@ function coDeps(extra = {}) {
 }
 const coReq = (body, headers = {}) => new Request("https://x/functions/v1/create-checkout", { method: "POST", headers: { authorization: "Bearer jwt", origin: SITE, ...headers }, body: JSON.stringify(body) });
 const parse = (s) => Object.fromEntries(new URLSearchParams(s));
+
+await test("checkout: Managed Payments is off by default and, when switched on, sends the preview version and managed_payments[enabled]", async () => {
+  const off = coDeps(); await co.handle(coReq({ plan: "monthly" }), off.deps);
+  const a = off.stripeBodies.find(b => b[0] === "session");
+  assert.ok(!("managed_payments[enabled]" in parse(a[1]))); assert.ok(!("Stripe-Version" in a[2]));
+  const on = coDeps({ env: { STRIPE_MANAGED_PAYMENTS: "1" } }); const r = await co.handle(coReq({ plan: "yearly" }), on.deps);
+  assert.equal(r.status, 200);
+  const b = on.stripeBodies.find(x => x[0] === "session");
+  assert.equal(parse(b[1])["managed_payments[enabled]"], "true"); assert.equal(b[2]["Stripe-Version"], "2026-02-25.preview");
+  assert.ok(!("Stripe-Version" in (on.stripeBodies.find(x => x[0] === "customers")[2] || {})));
+});
 
 await test("checkout: monthly creates a customer + a server-priced session with uid, trial and allowlisted urls", async () => {
   const { deps, stripeBodies } = coDeps();

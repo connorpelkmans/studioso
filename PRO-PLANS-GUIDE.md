@@ -91,6 +91,7 @@ Do these in test mode first. Everything stays free for everyone until Launch Day
 - `STRIPE_SECRET_KEY` (step 3), `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY` (the two `price_...` ids)
 - `SITE_ORIGINS`: your website address, for example `https://studyboard.example` (comma separate more than one). The checkout only ever returns people to these addresses.
 - `STRIPE_WEBHOOK_SECRET` (step 6), and later `REVENUECAT_WEBHOOK_AUTH` (a long random password, 16 characters or more)
+- Optional: `STRIPE_MANAGED_PAYMENTS=1` turns on Stripe **Managed Payments** (Stripe handles sales tax, VAT, GST, fraud and order support for digital products). It needs Managed Payments enabled on your Stripe account and the Studyboard Pro product's **tax category** set to an eligible digital code (for example `txcd_10103100`, set in **Product catalog > Studyboard Pro > Tax category**). When on, `create-checkout` sends `managed_payments[enabled]=true` with Stripe API version `2026-02-25.preview` on the Checkout Session only. Leave it unset for a normal Checkout. With Managed Payments, Stripe is the seller of record, so read Stripe's terms and make sure `website/terms.html` and the refund wording match.
 - Optional: `STRIPE_PORTAL_CONFIG` (a `bpc_...` id), `RC_ALLOW_SANDBOX=1` (only while testing RevenueCat), `ALLOW_LOCALHOST=1` (only while testing the website on your computer)
 
 **6. Stripe webhook.** **Developers > Webhooks > Add endpoint**: `https://YOUR-PROJECT.supabase.co/functions/v1/billing-webhook/stripe` with the events `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `charge.refunded`, `charge.dispute.created` and `charge.dispute.closed`. Reveal the **Signing secret** (`whsec_...`) and save it as `STRIPE_WEBHOOK_SECRET`. (Live mode has its own endpoint and secret.)
@@ -99,7 +100,7 @@ Do these in test mode first. Everything stays free for everyone until Launch Day
 
 **8. Tell the database your site address.** In **SQL Editor**:
 ```sql
-update public.studyboard_config set value = to_jsonb('https://YOUR-SITE'::text) where key = 'site_url';
+update public.studyboard_config set value = to_jsonb('https://studyboardapp.com/website'::text) where key = 'site_url';
 ```
 (The app also has `SITE_URL` in `index.html`.) The checkout also allows this address, so you can add a second site later without touching secrets.
 
