@@ -79,6 +79,49 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(errs.length === 0, "no page errors " + errs.join(";"));
       await ctx.close();
     }
+    // 4. default note: plain Square and yellow, even when an old theme switch had saved Graph Paper (and the last note was blue)
+    for (const [style, want] of [[{skin: "arcade", note: "gridnote", noteAuto: false}, "classic"], [{skin: "arcade", note: "gridnote", noteAuto: false, notePicked: true}, "gridnote"], [{skin: "arcade", note: "gridnote", noteAuto: true}, "gridnote"]]) {
+      const c2 = await browser.newContext({viewport: {width: 1280, height: 900}}), sd = SEED(); sd.notes[0].color = "blue"; sd.settings = {capacity: 15, dailyHours: 3, style};
+      await c2.addInitScript(seed => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); } } catch (e) {} }, sd);
+      const p2 = await c2.newPage(); await p2.goto(base); await p2.waitForSelector("#view", {state: "attached"}); await p2.waitForFunction(() => window.SBPINPICK);
+      await p2.evaluate(() => { const T = window.SBPINPICK; Object.defineProperty(window, "state", {get: () => T.state(), configurable: true}); window.ui = T.ui; window.render = T.render; ui.tab = "notes"; render(); });
+      await p2.waitForSelector(".note[data-note]");
+      ok(await p2.locator(".note.ns-" + want).count() === 1, `saved ${style.note} (picked ${!!style.notePicked}, match theme ${!!style.noteAuto}) draws as ${want}`);
+      if (want === "classic") {
+        await p2.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "note-new"; document.body.appendChild(b); b.click(); b.remove(); }); await p2.waitForTimeout(250);
+        ok(await p2.evaluate(() => Object.values(state.notes).sort((a, b) => b.created - a.created)[0].color) === "yellow", "a new note is yellow even after a blue one");
+      }
+      await c2.close();
+    }
+
+    // 5. note boards are never renamed "Recovered Board"; 6. Photo to Note offers the camera on a phone; 7. Start a 45m Focus runs 45 minutes
+    {
+      const day = n => { const d = new Date(); d.setDate(d.getDate() + n); const z = x => String(x).padStart(2, "0"); return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()); };
+      const sd = SEED(); sd.settings = {capacity: 15, dailyHours: 3}; sd.notes[0].board = "b1"; sd.notes.push(Object.assign({}, sd.notes[0], {id: "n2", board: "b2"}));
+      sd.tasks = [{id: "t1", title: "Write the lab report", courseId: "c1", type: "Assignment", status: "todo", due: day(1), start: day(0), hours: 4, priority: "high", created: 1}];
+      const c3 = await browser.newContext({viewport: {width: 390, height: 844}, hasTouch: true, isMobile: true});
+      await c3.addInitScript(seed => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("studyboard:noteBoardsBak", JSON.stringify([{id: "b1", name: "Biology Ideas"}])); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); } } catch (e) {} }, sd);
+      const p3 = await c3.newPage(); await p3.goto(base); await p3.waitForSelector("#view", {state: "attached"}); await p3.waitForFunction(() => window.SBPINPICK);
+      await p3.evaluate(() => { const T = window.SBPINPICK; Object.defineProperty(window, "state", {get: () => T.state(), configurable: true}); window.ui = T.ui; window.render = T.render; ui.tab = "notes"; render(); });
+      await p3.waitForSelector(".note[data-note]");
+      const names = await p3.evaluate(() => state.settings.noteBoards.map(b => b.name));
+      ok(names.join() === "Biology Ideas", "a board known from this device's backup comes back under its real name, and an unknown one is not invented: " + names.join());
+      ok(!/Recovered Board/.test(await p3.evaluate(() => document.body.innerText)), "nothing is called Recovered Board");
+      await p3.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "note-photo"; document.body.appendChild(b); b.click(); b.remove(); });
+      await p3.waitForTimeout(400);
+      const dlgTxt = await p3.evaluate(() => document.querySelector("dialog[open]") ? document.querySelector("dialog[open]").innerText : "");
+      ok(/Take Photo/.test(dlgTxt) && /Choose Photos/.test(dlgTxt) || /key|AI|set up/i.test(dlgTxt), "Photo to Note offers Take Photo and Choose Photos on a phone (or asks for AI setup first)");
+      if (/Take Photo/.test(dlgTxt)) ok(await p3.getAttribute("#pnCam", "capture") === "environment" && await p3.getAttribute("#pnFile", "capture") === null, "Take Photo opens the rear camera; Choose Photos does not force it");
+      await p3.keyboard.press("Escape");
+      await p3.evaluate(() => { ui.tab = "board"; ui.bview = "plan"; ui.focusOpen = true; render(); });
+      const btn = p3.locator('.next-up [data-act="pomo-task"]');
+      if (await btn.count()) {
+        const want = await btn.getAttribute("data-mins"); await btn.click(); await p3.waitForTimeout(400);
+        const shown = await p3.evaluate(() => (document.querySelector("#pomoDlg").innerText.match(/\b(\d{1,3}):\d\d\b/) || [])[1]);
+        ok(Number(shown) === Number(want) || Number(shown) === Number(want) - 1, `Start a ${want}m Focus shows a ${want} minute timer (saw ${shown})`);
+      }
+      await c3.close();
+    }
   } finally { await browser.close(); server.close(); }
   console.log(`\n${n} checks passed.`);
 })().catch(e => { console.error(e); process.exit(1); });

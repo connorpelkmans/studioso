@@ -226,7 +226,7 @@ declare
   -- table, column: rows deleted outright (explicit so it works even before the auth row goes)
   del text[][] := array[
     ['group_reactions','user_id'], ['group_checkins','user_id'], ['group_stats','user_id'], ['group_rsvps','user_id'],
-    ['group_quiz_scores','user_id'], ['group_messages','user_id'], ['group_items','user_id'], ['group_blocks','blocker_id'],
+    ['group_quiz_scores','user_id'], ['group_peer_ratings','from_user'], ['group_peer_ratings','to_user'], ['group_messages','user_id'], ['group_items','user_id'], ['group_blocks','blocker_id'],
     ['group_blocks','blocked_id'], ['group_members','user_id'], ['shared_decks','owner_id'], ['study_profiles','user_id'],
     ['study_room_people','user_id'], ['study_rooms','started_by'],
     ['capture_idem','user_id'], ['capture_inbox','user_id'], ['capture_tokens','user_id'],
