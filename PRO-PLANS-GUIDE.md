@@ -100,7 +100,7 @@ Do these in test mode first. Everything stays free for everyone until Launch Day
 
 **8. Tell the database your site address.** In **SQL Editor**:
 ```sql
-update public.studyboard_config set value = to_jsonb('https://YOUR-SITE'::text) where key = 'site_url';
+update public.studyboard_config set value = to_jsonb('https://studyboardapp.com/website'::text) where key = 'site_url';
 ```
 (The app also has `SITE_URL` in `index.html`.) The checkout also allows this address, so you can add a second site later without touching secrets.
 
