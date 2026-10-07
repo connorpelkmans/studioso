@@ -336,9 +336,9 @@ begin
   if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'items' and column_name = 'updated_at') then
     -- (lean.sql's trigger stamps updated_at with the server clock on every change, so it is paused to age the backup; the rollback undoes this)
     if exists (select 1 from pg_trigger where tgrelid = 'public.items'::regclass and tgname = 'lean_items_touch') then execute 'alter table public.items disable trigger lean_items_touch'; end if;
-    update public.items set updated_at = now() - interval '40 days' where user_id = ua and kind = 'backup';
+    update public.items set updated_at = now() - interval '70 days' where user_id = ua and kind = 'backup';
     if exists (select 1 from pg_trigger where tgrelid = 'public.items'::regclass and tgname = 'lean_items_touch') then execute 'alter table public.items enable trigger lean_items_touch'; end if;
-    perform public.sbt_ok(public.studyboard_prune_backups() = 1, 'backups older than 30 days are removed for Pro');
+    perform public.sbt_ok(public.studyboard_prune_backups() = 1, 'backups past the Pro window (30 days plus 30 days of grace) are removed');
   end if;
   perform public.studyboard_revoke_pro_uid(ua, 'selftest');
   perform public.sbt_ok(not public.studyboard_is_pro(ua), 'revoking a grant should end Pro');
