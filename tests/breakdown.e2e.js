@@ -192,7 +192,8 @@ const AI_STAGES = {kind: "paper", stages: [
       const ctx = await mkCtx({w: W, h: 780}); const page = await open(ctx);
       await page.click('[data-act="tab"][data-id="courses"], [data-tab="courses"]').catch(() => {});
       await page.evaluate(() => { ui.tab = "courses"; ui.courseId = "c1"; render(); });
-      await page.waitForSelector('[data-act="bd-new-course"]'); await page.click('[data-act="bd-new-course"]');
+      await page.waitForSelector('[data-act="course-more"]'); await page.click('[data-act="course-more"]');
+      await page.waitForSelector('#dlg [data-act="bd-new-course"]'); await page.click('#dlg [data-act="bd-new-course"]');
       await page.waitForSelector("#bdText");
       await page.fill("#bdText", `Case Study Analysis 2\nDue: ${new Date(addD(12) + "T00:00").toLocaleDateString("en-US", {month: "long", day: "numeric"})} at 11:59 PM\nRead the Harvard case and answer the three questions in a 4 page memo.`);
       await page.waitForTimeout(100);
