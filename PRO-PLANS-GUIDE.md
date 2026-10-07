@@ -68,7 +68,7 @@ Files (all in the zip):
 
 Do these in test mode first. Everything stays free for everyone until Launch Day.
 
-**1. Run the SQL.** In Supabase **SQL Editor** paste all of `supabase-plans.sql` and **Run** (safe to run again; run `supabase-groups.sql` and the main setup first, and `supabase-lean.sql` if you use it; voice capture, `supabase-capture.sql`, is free for everyone and is not part of Pro, see `VOICE-CAPTURE.md`). Then paste `supabase-plans-selftest.sql` and **Run**. It must end with the notice **ALL n SECURITY CHECKS PASSED** (it changes nothing for real). Run it again after any future SQL change. If it ever stops with `EXPLOIT SUCCEEDED`, do not launch.
+**1. Run the SQL.** In Supabase **SQL Editor** paste all of `supabase-plans.sql` and **Run** (safe to run again; run `supabase-groups.sql` and the main setup first, and `supabase-lean.sql` if you use it; voice capture, `supabase-capture.sql`, is free for everyone and is not part of Pro, see `VOICE-CAPTURE.md`). Then paste `supabase-plans-selftest.sql` and **Run**. It ends with an error on purpose (so nothing is saved) that must read **SELF-TEST PASSED: ALL n SECURITY CHECKS HELD** (it changes nothing for real). Run it again after any future SQL change. If it ever stops with `EXPLOIT SUCCEEDED`, do not launch.
 
 **2. Make the signing key.** On your computer (Node 18+): `node supabase-functions/tools/gen-ent-key.mjs`. It prints a **PRIVATE** value (`ENT_SIGNING_KEY`, PKCS8 as base64url) and a **PUBLIC** value (`ENT_PUBKEY`, 43 characters). Put the private one in Supabase **Edge Functions > Secrets** as `ENT_SIGNING_KEY` (never in the app, the website or git). Paste the public one into `const ENT_PUBKEY = "..."` in `index.html` and ship the app. If the private key ever leaks, run the script again, replace both and ship the app again.
 
@@ -182,7 +182,7 @@ What this does **not** stop: someone who edits their own copy of the app can unl
 
 ### Public Launch Checklist (Pro)
 
-- [ ] `supabase-plans-selftest.sql` ends with **ALL n SECURITY CHECKS PASSED** on your live project.
+- [ ] `supabase-plans-selftest.sql` ends with **SELF-TEST PASSED: ALL n SECURITY CHECKS HELD** on your live project.
 - [ ] Stripe is in **live** mode: live price ids, restricted key and webhook secret saved as secrets, and the live webhook points at `billing-webhook/stripe` with all eight events.
 - [ ] You bought Pro yourself with a real card on the website, saw it switch on in the app, then cancelled and refunded it (Pro must switch off after the refund). **Manage billing** on the account page opens the Stripe portal.
 - [ ] Prices, the trial length and the refund policy on the Stripe checkout page match `website/terms.html` and the Terms in the app. The placeholders in `website/privacy.html` and `website/terms.html` are filled in, and `website/config.js` has your real values.
