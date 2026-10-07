@@ -79,6 +79,20 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(errs.length === 0, "no page errors " + errs.join(";"));
       await ctx.close();
     }
+    // 4. default note: plain Square and yellow, even when an old theme switch had saved Graph Paper (and the last note was blue)
+    for (const [style, want] of [[{skin: "arcade", note: "gridnote", noteAuto: false}, "classic"], [{skin: "arcade", note: "gridnote", noteAuto: false, notePicked: true}, "gridnote"], [{skin: "arcade", note: "gridnote", noteAuto: true}, "gridnote"]]) {
+      const c2 = await browser.newContext({viewport: {width: 1280, height: 900}}), sd = SEED(); sd.notes[0].color = "blue"; sd.settings = {capacity: 15, dailyHours: 3, style};
+      await c2.addInitScript(seed => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); } } catch (e) {} }, sd);
+      const p2 = await c2.newPage(); await p2.goto(base); await p2.waitForSelector("#view", {state: "attached"}); await p2.waitForFunction(() => window.SBPINPICK);
+      await p2.evaluate(() => { const T = window.SBPINPICK; Object.defineProperty(window, "state", {get: () => T.state(), configurable: true}); window.ui = T.ui; window.render = T.render; ui.tab = "notes"; render(); });
+      await p2.waitForSelector(".note[data-note]");
+      ok(await p2.locator(".note.ns-" + want).count() === 1, `saved ${style.note} (picked ${!!style.notePicked}, match theme ${!!style.noteAuto}) draws as ${want}`);
+      if (want === "classic") {
+        await p2.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "note-new"; document.body.appendChild(b); b.click(); b.remove(); }); await p2.waitForTimeout(250);
+        ok(await p2.evaluate(() => Object.values(state.notes).sort((a, b) => b.created - a.created)[0].color) === "yellow", "a new note is yellow even after a blue one");
+      }
+      await c2.close();
+    }
   } finally { await browser.close(); server.close(); }
   console.log(`\n${n} checks passed.`);
 })().catch(e => { console.error(e); process.exit(1); });
