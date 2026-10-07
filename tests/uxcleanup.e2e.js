@@ -43,6 +43,21 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await page.waitForSelector(".view-head");
       ok(await page.locator('[data-act="fc-review-menu"]').count() === 1, "one Review button");
       ok(await page.locator('.view-head [data-act="fc-review-all"], .view-head [data-act="fc-weak"]').count() === 0, "Review Due and Weak Spots are not separate buttons");
+      const tile = await page.textContent(".deck");
+      ok(!/due|new|quiz|practice/i.test(tile.replace(/Quiz|Archive|Study/g, "")), "a deck tile shows no due, new, last quiz or practice quiz text: " + tile.replace(/\s+/g, " "));
+      ok(/\b2 cards\b/.test(tile), "it shows the number of cards");
+      ok(await page.locator(".deck .mastery[aria-label$='prepared']").count() === 1, "and a Prepared bar");
+      const pre = Number((await page.getAttribute(".deck .mastery", "aria-label")).match(/\d+/)[0]);
+      ok(pre > 0 && pre < 60, "a deck with cards you keep missing is not ready: " + pre + "%");
+      const ab = await page.locator(".deck .deck-actions button").evaluateAll(b => b.map(x => x.innerText.trim()));
+      ok(ab.join() === "Study,Quiz,Archive", "Study, Quiz and Archive sit together at the bottom: " + ab.join());
+      const r1 = await page.locator(".deck .deck-arch").boundingBox(), r0 = await page.locator(".deck .deck-actions [data-act=fc-quiz]").boundingBox();
+      ok(r1.x > r0.x && Math.abs(r1.y - r0.y) < 8, "Archive is at the right end of that row");
+      await page.screenshot({path: "/tmp/ux-decks-" + W + ".png"});
+      await page.click(".deck .deck-arch"); await page.waitForTimeout(250);
+      ok(await page.locator(".deck").count() === 0 && /Archived Decks/.test(await page.textContent(".deck-archived summary")), "Archive moves the deck to Archived Decks");
+      await page.click(".deck-archived summary"); await page.click('[data-act="fc-unarchive"]'); await page.waitForTimeout(250);
+      ok(await page.locator(".deck").count() === 1 && await page.locator(".deck-archived").count() === 0, "Restore brings it back");
       await page.click('[data-act="fc-review-menu"]'); await page.waitForSelector('#dlg[open] [data-act="fc-weak"]');
       ok(await page.locator('#dlg [data-act="fc-review-all"]:not([disabled])').count() === 1 && await page.locator('#dlg [data-act="fc-weak"]:not([disabled])').count() === 1, "Review offers flashcards due and weak spots");
       await page.click('#dlg [data-act="fc-weak"]'); await page.waitForSelector("#dlg .sheet-head");
@@ -121,6 +136,26 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
         ok(Number(shown) === Number(want) || Number(shown) === Number(want) - 1, `Start a ${want}m Focus shows a ${want} minute timer (saw ${shown})`);
       }
       await c3.close();
+    }
+
+    // 8. the "short of time" warning follows the Time Today control
+    {
+      const day = n => { const d = new Date(); d.setDate(d.getDate() + n); const z = x => String(x).padStart(2, "0"); return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()); };
+      const sd = SEED(); sd.settings = {capacity: 15, dailyHours: 3};
+      sd.tasks = [{id: "t1", title: "Huge project", courseId: "c1", type: "Project", status: "todo", due: day(2), start: day(0), hours: 30, priority: "high", created: 1}];
+      const c4 = await browser.newContext({viewport: {width: 1280, height: 900}});
+      await c4.addInitScript(seed => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); } } catch (e) {} }, sd);
+      const p4 = await c4.newPage(); await p4.goto(base); await p4.waitForSelector("#view", {state: "attached"}); await p4.waitForFunction(() => window.SBPINPICK);
+      await p4.evaluate(() => { const T = window.SBPINPICK; window.ui = T.ui; window.render = T.render; ui.tab = "board"; ui.bview = "plan"; ui.focusOpen = true; render(); });
+      await p4.waitForSelector(".plan-warn");
+      const w0 = await p4.textContent(".plan-warn");
+      ok(/At 3h a day/.test(w0), "at the usual 3h the warning says so: " + w0.slice(0, 90));
+      for (let i = 0; i < 4; i++) await p4.click('[data-act="today-h"][data-id="0.5"]');
+      const w1 = await p4.textContent(".plan-warn");
+      ok(/With 5h today and 3h a day after/.test(w1) && w1 !== w0, "raising today's time changes the warning: " + w1.slice(0, 110));
+      const short = t => (t.match(/about (\d+h?\s?\d*m?) short/) || [])[1];
+      ok(short(w1) !== short(w0), "and so does how short you are (" + short(w0) + " then " + short(w1) + ")");
+      await c4.close();
     }
   } finally { await browser.close(); server.close(); }
   console.log(`\n${n} checks passed.`);

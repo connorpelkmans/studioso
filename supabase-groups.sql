@@ -813,15 +813,17 @@ revoke all on function public.set_group_kind(uuid, text, date) from public, anon
 grant execute on function public.set_group_kind(uuid, text, date) to authenticated;
 
 -- ---------- 1.15: more for study groups and group projects ----------
--- Study groups: a Q&A board (questions and answers), and shared weak spots (the cards a member chooses to share that they keep missing).
+-- Study groups: a Q&A board (questions and answers), and an anonymous list of the cards and quiz questions in the group's shared decks that members miss most.
 -- Group projects: roles (one per member), files and links, meeting notes, and a private contribution check-in.
 -- Everything except the check-in is stored as shared items, so the same rules apply: members read and add, you change your own, the owner can remove any.
+-- (An earlier draft kept each person's weak cards as a shared item that named them. Those are removed; most-missed cards are now anonymous, see group_misses below.)
+delete from public.group_items where kind = 'weak';
+drop index if exists public.group_items_one_weak;
 alter table public.group_items drop constraint if exists group_items_kind_check;
 alter table public.group_items add constraint group_items_kind_check
-  check (kind in ('deck', 'task', 'quiz', 'event', 'qa', 'answer', 'link', 'minutes', 'role', 'weak'));
--- One role and one weak-spot list per person in a group (sharing again updates it).
+  check (kind in ('deck', 'task', 'quiz', 'event', 'qa', 'answer', 'link', 'minutes', 'role'));
+-- One role per person in a group (choosing again updates it).
 create unique index if not exists group_items_one_role on public.group_items (group_id, user_id) where kind = 'role';
-create unique index if not exists group_items_one_weak on public.group_items (group_id, user_id) where kind = 'weak';
 
 -- Contribution check-in: each member rates the others (1 to 5, with an optional note). You can only ever read what YOU wrote.
 -- The group owner reads totals only (how many people rated someone and the average), never who said what or the notes.
@@ -865,3 +867,61 @@ begin
 end $$;
 revoke all on function public.submit_peer(uuid, uuid, int, text), public.peer_summary(uuid) from public, anon;
 grant execute on function public.submit_peer(uuid, uuid, int, text), public.peer_summary(uuid) to authenticated;
+
+-- Most missed (study groups): members who choose to take part send how often they missed each card and quiz question in the group's shared decks and quizzes.
+-- Nobody can read these rows, not even other members or the owner: the table has no read rule at all. The only way out is top_misses, which returns totals per card or question
+-- (how many members missed it) and nothing that names or identifies anyone. It returns nothing until at least 3 members have taken part, and only lists a card or question that at least 2 members missed.
+create table if not exists public.group_misses (
+  group_id uuid not null references public.study_groups(id) on delete cascade,
+  item_id uuid not null references public.group_items(id) on delete cascade,
+  mkey text not null check (char_length(mkey) between 1 and 80),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  misses int not null check (misses between 0 and 100000),
+  tries int not null check (tries between 0 and 100000),
+  updated_at timestamptz not null default now(),
+  primary key (item_id, mkey, user_id)
+);
+create index if not exists group_misses_group_idx on public.group_misses (group_id);
+alter table public.group_misses enable row level security;
+revoke all on public.group_misses from anon, authenticated;
+
+-- Replace your own numbers for a group. p_rows: [{"item": "<shared deck or quiz id>", "k": "c:<card id>" or "q:<question id>", "m": misses, "t": tries}], up to 300.
+create or replace function public.report_misses(p_group uuid, p_rows jsonb) returns void
+language plpgsql security definer set search_path = public as $$
+declare me uuid := auth.uid();
+begin
+  if me is null then raise exception 'Sign in first'; end if;
+  if not public.sbg_is_member(p_group) then raise exception 'You''re not in that group'; end if;
+  if p_rows is null or jsonb_typeof(p_rows) <> 'array' or jsonb_array_length(p_rows) > 300 then raise exception 'That report isn''t valid'; end if;
+  delete from public.group_misses where group_id = p_group and user_id = me;
+  insert into public.group_misses (group_id, item_id, mkey, user_id, misses, tries)
+    select p_group, i.id, left(r.k, 80), me, least(greatest(r.m, 0), 100000), least(greatest(r.t, r.m, 0), 100000)
+    from jsonb_to_recordset(p_rows) as r(item uuid, k text, m int, t int)
+    join public.group_items i on i.id = r.item and i.group_id = p_group and i.kind in ('deck', 'quiz')
+    where r.k is not null and char_length(r.k) between 1 and 80 and r.t > 0
+  on conflict (item_id, mkey, user_id) do update set misses = excluded.misses, tries = excluded.tries, updated_at = now();
+end $$;
+
+-- Stop taking part: removes your numbers.
+create or replace function public.forget_misses(p_group uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'Sign in first'; end if;
+  delete from public.group_misses where group_id = p_group and user_id = auth.uid();
+end $$;
+
+create or replace function public.top_misses(p_group uuid, p_limit int default 10) returns table (item_id uuid, mkey text, members_missed int, total_misses int, members_tried int)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if auth.uid() is null or not public.sbg_is_member(p_group) then raise exception 'You''re not in that group'; end if;
+  if (select count(distinct m.user_id) from public.group_misses m where m.group_id = p_group) < 3 then return; end if;
+  return query
+    select m.item_id, m.mkey, (count(*) filter (where m.misses > 0))::int, coalesce(sum(m.misses), 0)::int, count(*)::int
+    from public.group_misses m where m.group_id = p_group
+    group by m.item_id, m.mkey
+    having count(*) filter (where m.misses > 0) >= 2
+    order by 3 desc, 4 desc, 1, 2
+    limit least(greatest(coalesce(p_limit, 10), 1), 25);
+end $$;
+revoke all on function public.report_misses(uuid, jsonb), public.forget_misses(uuid), public.top_misses(uuid, int) from public, anon;
+grant execute on function public.report_misses(uuid, jsonb), public.forget_misses(uuid), public.top_misses(uuid, int) to authenticated;
