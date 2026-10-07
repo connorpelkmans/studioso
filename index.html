@@ -774,10 +774,12 @@ ul.tasks,.plan-list,.flist,.fc-list{box-shadow:var(--shadow);border-color:var(--
 .course-card{box-shadow:var(--shadow);border-radius:4px 14px 14px 14px;position:relative;margin-top:16px;border-color:var(--line)}
 .course-card .swatch{display:none}
 .course-card::before{content:attr(data-code);position:absolute;left:-1px;top:-18px;height:18px;padding:1px 10px 0;border-radius:8px 8px 0 0;background:color-mix(in srgb,var(--c) 66%,#000);color:#fff;font:700 .68rem/17px var(--display);letter-spacing:.03em}
-.course-list{gap:22px 14px;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));margin-top:20px}
+.course-list{gap:26px;grid-template-columns:1fr;margin-top:20px}
 .course-list > .course-wrap{display:flex;flex-direction:column;min-width:0}
 .course-list > .course-wrap > .course-card{flex:1;margin-top:0}
 .course-card .body{display:flex;flex-direction:column;gap:2px}
+.course-card h3{font-size:1.45rem;line-height:1.25}
+.course-card .code{font-size:1.05rem}
 .course-card .body > .prog{margin-top:auto;padding-top:10px}
 .course-card .body > .stats{margin-top:6px}
 .back{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:6px 14px 6px 8px;min-height:36px;font-weight:600}   /* a solid pill, so it stays readable on a theme's scene */
