@@ -802,7 +802,7 @@ This uses your **free Google Gemini key** (see AI Features above). There's nothi
 
 ## Share Decks and Study Groups
 
-Share a flashcard deck with a link or a short code, or make a study group where classmates share decks, upcoming deadlines, quizzes, study sessions and a message board. Study groups and group projects each get their own tabs: study groups add a Quiz Battle, Q&A board and shared weak spots; group projects add a countdown overview, task board, roles, files and links, meeting notes and a private contribution check-in. Re-run `supabase-groups.sql` to turn the newest ones on. It all runs through your own Supabase project, so it needs one extra piece of setup SQL. You'll need the file `supabase-groups.sql` that came with this update.
+Share a flashcard deck with a link or a short code, or make a study group where classmates share decks, upcoming deadlines, quizzes, study sessions and a message board. Study groups and group projects each get their own tabs: study groups add a Quiz Battle, Q&A board and shared weak spots; group projects add a countdown overview, task board, roles, files and links, and meeting notes. Re-run `supabase-groups.sql` to turn the newest ones on. It all runs through your own Supabase project, so it needs one extra piece of setup SQL. You'll need the file `supabase-groups.sql` that came with this update.
 
 **1. Run the groups SQL (once)**
 In Supabase, open **SQL Editor**, then **New query**. Open `supabase-groups.sql`, copy everything into the editor and click **Run**. You should see *Success. No rows returned*. It's safe to run again later if you're not sure it worked.
