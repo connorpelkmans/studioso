@@ -104,6 +104,10 @@ async function boot(browser, w, opts){
   page.on("pageerror", e => errs.push("pageerror: " + e.message));
   page.on("console", c => { if (c.type() === "error" && !/net::ERR|CORS|Failed to load resource|supabase-js/.test(c.text())) errs.push("console: " + c.text().slice(0, 200)); });
   await page.addInitScript(stubInit, Object.assign({seed: SEED}, opts));
+  // an AI key with consent, and a stand-in for the AI: Start From a Plan asks it for the project's tasks
+  await page.addInitScript(() => { try { localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } catch (e) {} });
+  await ctx.route(/generativelanguage\.googleapis\.com/, route => route.fulfill({status: 200, contentType: "application/json",
+    body: JSON.stringify({candidates: [{content: {parts: [{text: JSON.stringify(ctx.aiReply || {tasks: []})}]}, finishReason: "STOP"}]})}));
   await page.goto("file://" + file); await page.waitForTimeout(1500);
   return {ctx, page, errs};
 }
@@ -208,28 +212,44 @@ async function projectGroup(browser, w){
   // Tasks: plan from the due date, then the board
   await tab(page, "tasks");
   ok(await page.isVisible("#grpPT") && /Start From a Plan/.test(await txt(page, "#grpPT")), tag + " Tasks tab offers a plan");
-  await page.click('#grpPT [data-act="grp-pt-plan"]'); await sheet(page, "[data-act]"); await page.screenshot({path: path.join(shots, `gk-project-${w}-plan.png`)});
-  const confirmBtn = page.locator("dialog button.primary, dialog button.btn.danger").last(); await confirmBtn.click(); await page.waitForTimeout(1200);
+  // the AI suggests six milestones spaced out up to the due date; all are kept
+  { const due = await page.evaluate(() => window.__DB.study_groups[1].project_due), back = n => { const d = new Date(due + "T12:00:00"); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
+    ctx.aiReply = {tasks: ["Pick the topic", "Find sources", "Write the outline", "Draft the slides", "Rehearse together", "Present"].map((title, i) => ({title, due: back((5 - i) * 2)}))}; }
+  await page.click('#grpPT [data-act="grp-pt-plan"]'); await sheet(page, "#gpIdea");
+  await page.fill("#gpIdea", "A ten minute poster talk on how warming water bleaches coral reefs."); await page.screenshot({path: path.join(shots, `gk-project-${w}-plan.png`)});
+  await page.click("#gpGo"); await sheet(page, "#gpAdd"); ok(await page.locator("dialog [data-gp]").count() === 6, tag + " the plan suggests six tasks to review");
+  await page.click("#gpAdd"); await page.waitForTimeout(1200);
   const planTasks = await page.evaluate(() => window.__DB.group_tasks.map(t => [t.title, t.due_at]));
   eq(planTasks.length, 6, tag + " six milestones created"); eq(planTasks[5][1], await page.evaluate(() => window.__DB.study_groups[1].project_due), tag + " the last milestone is the due date");
   ok(planTasks.every((t, i) => !i || t[1] >= planTasks[i - 1][1]), tag + " milestones are in date order");
-  await page.click('#grpPT [data-act="grp-pt-view"][data-v="board"]'); await page.waitForTimeout(150);
+  // a group project's tasks are always on the board (there is no list view to switch from)
   eq(await page.$$eval("#grpPT .kb-col h4", e => e.map(x => x.innerText.replace(/\s+/g, " "))), ["To Do 6", "In Progress 0", "Done 0"], tag + " board columns");
-  await page.click('#grpPT .kb-card >> nth=0 >> [data-act="grp-pt-status"]'); await page.waitForTimeout(300);
-  eq(await page.$$eval("#grpPT .kb-col h4", e => e.map(x => x.innerText.replace(/\s+/g, " "))), ["To Do 5", "In Progress 1", "Done 0"], tag + " Start moves a card to In Progress");
-  await page.click('#grpPT .k-doing [data-act="grp-pt-status"] >> nth=-1'); await page.waitForTimeout(300);
-  eq(await page.$$eval("#grpPT .kb-col h4", e => e.map(x => x.innerText.replace(/\s+/g, " "))), ["To Do 5", "In Progress 0", "Done 1"], tag + " Done moves it to Done");
+  // cards change status by being dragged to another column
+  const drag = async (card, col) => { const a = await page.locator(card).first().boundingBox(), b = await page.locator(`#grpPT [data-kbcol="${col}"]`).boundingBox();
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2); await page.mouse.down();
+    for (let i = 1; i <= 12; i++) await page.mouse.move(a.x + a.width / 2 + (b.x + b.width / 2 - a.x - a.width / 2) * i / 12, a.y + a.height / 2 + (b.y + Math.min(b.height / 2, 60) - a.y - a.height / 2) * i / 12);
+    await page.mouse.up(); await page.waitForTimeout(400); };
+  // on a phone the columns stack and the next one is usually off screen, so status is changed in the card's Edit Task sheet there
+  const setStatus = async (card, to) => { await page.locator(card + " .pt-title").first().click(); await sheet(page, 'select[name="status"]');
+    await page.selectOption('dialog select[name="status"]', to); await page.click("dialog [data-submit]"); await page.waitForTimeout(500); };
+  const move = (card, to) => w < 760 ? setStatus(card, to) : drag(card, to);
+  await move("#grpPT .k-todo .kb-card", "doing");
+  eq(await page.$$eval("#grpPT .kb-col h4", e => e.map(x => x.innerText.replace(/\s+/g, " "))), ["To Do 5", "In Progress 1", "Done 0"], tag + " a card moved to In Progress");
+  await move("#grpPT .k-doing .kb-card", "done");
+  eq(await page.$$eval("#grpPT .kb-col h4", e => e.map(x => x.innerText.replace(/\s+/g, " "))), ["To Do 5", "In Progress 0", "Done 1"], tag + " and then to Done");
   ok(await page.evaluate(() => window.__DB.group_tasks.filter(t => t.status === "done").length) === 1, tag + " saved to the server");
   await noOverflow(page, tag + " board"); await page.screenshot({path: path.join(shots, `gk-project-${w}-board.png`), fullPage: true});
   await tab(page, "overview");
   ok(/17%/.test(await txt(page, "#grpOverview .gk-hero")) && /1 of 6 tasks done/.test(await txt(page, "#grpOverview .gk-hero")), tag + " overview progress follows the board: " + await txt(page, "#grpOverview .gk-hero"));
   await page.evaluate(() => { const t = window.__DB.group_tasks[2]; t.assignee_id = "u3"; t.due_at = window.__day(-2); window.__fire("group_tasks"); });
   await page.waitForTimeout(1200);
-  ok(/Jo/.test(await txt(page, "#grpOverview .gk-behind")) && /1 overdue task/.test(await txt(page, "#grpOverview .gk-behind")), tag + " Who's Behind names Jo: " + await txt(page, "#grpOverview"));
+  { const behind = await txt(page, "#grpOverview .gk-behind");
+    ok(/Write the outline/.test(behind) && /overdue/.test(behind) && /Jo/.test(behind) && await page.locator("#grpOverview .gk-behind li").count() === 1, tag + " What's Behind lists the late task and Jo: " + behind); }
   await page.screenshot({path: path.join(shots, `gk-project-${w}-overview.png`), fullPage: true});
   // Files and links
-  await tab(page, "files"); ok(/Add the first link/.test(await txt(page, "#grpFiles")), tag + " files empty state");
-  await page.click('[data-act="grp-link-new"]'); await sheet(page, 'input[name="url"]');
+  await tab(page, "files"); ok(/Keep everything in one place/.test(await txt(page, "#grpFiles")), tag + " files empty state");
+  // the Add File button at the bottom right offers an upload or a link
+  await page.click('[data-act="grp-file-new"]:visible'); await sheet(page, '[data-act="grp-link-new"]'); await page.click('dialog [data-act="grp-link-new"]'); await sheet(page, 'input[name="url"]');
   await page.fill('dialog input[name="title"]', "Poster draft"); await page.fill('dialog input[name="url"]', "not a link at all"); await page.click("dialog [data-submit]"); await page.waitForTimeout(150);
   ok(await page.evaluate(() => !window.__DB.group_items.some(i => i.kind === "link")), tag + " a bad link is refused");
   await page.fill('dialog input[name="url"]', "javascript:alert(1)"); await page.click("dialog [data-submit]"); await page.waitForTimeout(150);
@@ -253,20 +273,10 @@ async function projectGroup(browser, w){
   ok(/Kickoff call/.test(await txt(page, "#grpMinutes")) && /Actions added to Tasks/.test(await txt(page, "#grpMinutes")), tag + " notes are listed");
   await page.click("#grpMinutes summary"); ok(/Poster on cell respiration/.test(await txt(page, "#grpMinutes")), tag + " notes open to show the decisions");
   await noOverflow(page, tag + " meetings"); await page.screenshot({path: path.join(shots, `gk-project-${w}-meetings.png`), fullPage: true});
-  // Members: roles and the private check-in
+  // Members: roles (the contribution check-in was removed from group projects)
   await tab(page, "members");
   ok(/Editor/.test(await txt(page, "#grpMembers")), tag + " the member list shows roles");
-  ok(/Contribution Check-in/.test(await txt(page, "#grpPeer")) && /It's private/.test(await txt(page, "#grpPeer")) && /haven't rated anyone/.test(await txt(page, "#grpPeer")), tag + " check-in is open with 10 days left");
-  await page.evaluate(() => { window.__DB.group_peer_ratings.push({group_id: "g2", from_user: "u2", to_user: "u1", score: 5, note: "secret", updated_at: ""}, {group_id: "g2", from_user: "u3", to_user: "u1", score: 4, note: "", updated_at: ""}); });
-  await page.click('[data-act="grp-peer-open"]'); await sheet(page, ".gk-scale");
-  eq(await page.$$eval("dialog .gk-peer legend", e => e.map(x => x.innerText.trim().replace(/^\S+\s+/, ""))), ["Sam", "Jo"], tag + " I rate the others, not myself");
-  await page.click('dialog .gk-peer:has-text("Sam") label:has-text("Did more than their share")'); await page.fill('dialog input[name="n-u2"]', "Great at the figures");
-  await page.screenshot({path: path.join(shots, `gk-project-${w}-peer.png`)});
-  await page.click("dialog [data-submit]"); await page.waitForTimeout(900);
-  const mine = await page.evaluate(() => window.__DB.group_peer_ratings.filter(r => r.from_user === "u1").map(r => [r.to_user, r.score, r.note]));
-  eq(mine, [["u2", 4, "Great at the figures"]], tag + " my rating is saved");
-  ok(/rated 1 of 2/.test(await txt(page, "#grpPeer")), tag + " progress: " + await txt(page, "#grpPeer"));
-  const own = await txt(page, "#grpPeer"); ok(/Team Averages/.test(own) && /4\.5/.test(own) && /2 ratings/.test(own) && !/secret/.test(own) && !/Great at the figures/.test(own), tag + " the owner sees averages only, no notes: " + own);
+  ok(await page.locator("#grpPeer, [data-act=\"grp-peer-open\"]").count() === 0 && !/Contribution Check-in/.test(await txt(page, "#grpDetail")), tag + " no contribution check-in");
   await noOverflow(page, tag + " members");
   ok(errs.length === 0, tag + " no page errors " + errs.join(" | "));
   await ctx.close();
@@ -275,7 +285,7 @@ async function projectGroup(browser, w){
 async function memberView(browser){
   const {ctx, page, errs} = await boot(browser, 1280, {me: "u2", due: 30});
   await openGroup(page, "g2"); await tab(page, "members");
-  ok(/Opens two weeks before the due date/.test(await txt(page, "#grpPeer")), "member: check-in is closed with 30 days left");
+  ok(!/Contribution Check-in/.test(await txt(page, "#grpDetail")), "member: no contribution check-in");
   ok(/Owner|owner/.test(await txt(page, "#grpMembers")), "member: members list");
   await tab(page, "overview"); ok(/30 days left/.test(await txt(page, "#grpOverview .gk-hero")), "member: countdown");
   ok(!/Set a due date/.test(await txt(page, "#grpOverview")), "member: no owner prompts");
@@ -286,13 +296,11 @@ async function overdueAndSetup(browser){
   let r = await boot(browser, 1280, {me: "u1", due: -3});
   await openGroup(r.page, "g2");
   ok(/3 days overdue/.test(await txt(r.page, "#grpOverview .gk-hero")) && await r.page.$(".gk-hero.k-overdue") !== null, "overdue project shows the overdue state");
-  await tab(r.page, "members"); ok(/haven't rated anyone/.test(await txt(r.page, "#grpPeer")), "the check-in stays open after the due date");
   ok(r.errs.length === 0, "overdue: no page errors " + r.errs.join(" | ")); await r.ctx.close();
   // the new SQL has not been run: nothing breaks, the owner is told once, and adding something says what is missing
-  r = await boot(browser, 1280, {me: "u1", missing: ["group_peer_ratings"], kinds: ["deck", "task", "quiz", "event"]});
-  await openGroup(r.page, "g2"); await tab(r.page, "members");
-  ok(/groups\.sql/.test(await txt(r.page, "#grpPeer")), "owner sees the run groups.sql note for the check-in");
-  await tab(r.page, "files"); await r.page.click('[data-act="grp-link-new"]'); await sheet(r.page, 'input[name="url"]');
+  r = await boot(browser, 1280, {me: "u1", kinds: ["deck", "task", "quiz", "event"]});
+  await openGroup(r.page, "g2");
+  await tab(r.page, "files"); await r.page.click('[data-act="grp-file-new"]:visible'); await sheet(r.page, '[data-act="grp-link-new"]'); await r.page.click('dialog [data-act="grp-link-new"]'); await sheet(r.page, 'input[name="url"]');
   await r.page.fill('dialog input[name="title"]', "x"); await r.page.fill('dialog input[name="url"]', "https://example.com"); await r.page.click("dialog [data-submit]"); await r.page.waitForTimeout(500);
   ok(/groups\.sql|setup|available yet/i.test(await r.page.evaluate(() => document.querySelector("#toast, .toast") ? document.querySelector("#toast, .toast").innerText : document.body.innerText)), "adding a link without the new SQL says what's missing");
   ok(await r.page.isVisible("#grpFiles"), "the page still works");
