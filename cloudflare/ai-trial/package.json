@@ -1,0 +1,10 @@
+{
+  "name": "studyboard-ai-trial",
+  "private": true,
+  "type": "module",
+  "description": "A few free AI tries for signed-in Studyboard students, on the Workers AI free allocation, before they add their own Gemini key",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  }
+}
