@@ -316,7 +316,7 @@ Studyboard's AI uses Google Gemini by default because it's free. One student's s
 2. Click **Create API key**. Don't add billing to that project; without billing it can never charge you. If you hit the free limit, AI just pauses until it resets.
 3. Click **Copy** next to the key. In Studyboard, open **Settings → AI Features → Set Up** and tap **Paste My Key**. It checks the key with Google and turns AI on in one step. On the desktop app you don't even need to tap: come back to the AI Features window with the key copied and Studyboard picks it up. You can still paste the key into the box, press **Test**, then **Save**.
 
-Your keys stay on the device where you added them (in the system keychain in the apps). They never go to your Studyboard account, and they're left out of backup files you export.
+Your keys stay on the device where you added them (in the system keychain in the apps) and are left out of backup files you export. Signed in? **AI Keys on All My Devices** in Settings keeps them in step on every device, locked with a passphrase only you know.
 
 **Adding AI to your other devices.** On a device that's already set up, open **Settings → AI Features** and tap **Add AI to Another Device**. It shows a QR code and a code like `K7Q2-9XMD-4TRP`.
 - **Scan it** with your other device's camera, tap **Open Studyboard**, then **Add Keys**.
@@ -809,7 +809,7 @@ This uses your **free Google Gemini key** (see AI Features above). There's nothi
 
 ## Share Decks and Study Groups
 
-Share a flashcard deck with a link or a short code, or make a study group where classmates share decks, upcoming deadlines, quizzes, study sessions and a message board. It all runs through your own Supabase project, so it needs one extra piece of setup SQL. You'll need the file `supabase-groups.sql` that came with this update.
+Share a flashcard deck with a link or a short code, or make a study group where classmates share decks, upcoming deadlines, quizzes, study sessions and a message board. Study groups and group projects each get their own tabs: study groups add a Quiz Battle, Q&A board and shared weak spots; group projects add a countdown overview, task board, roles, files and links, and meeting notes. Re-run `supabase-groups.sql` to turn the newest ones on. It all runs through your own Supabase project, so it needs one extra piece of setup SQL. You'll need the file `supabase-groups.sql` that came with this update.
 
 **1. Run the groups SQL (once)**
 In Supabase, open **SQL Editor**, then **New query**. Open `supabase-groups.sql`, copy everything into the editor and click **Run**. You should see *Success. No rows returned*. It's safe to run again later if you're not sure it worked.
@@ -937,7 +937,7 @@ Open **Settings > Grades**, tap the sliders button next to a course (or **Grade 
 - **Pass Mark:** the minimum grade to pass. It starts at 50%, or at your school's own pass mark when Studyboard finds it (see below). Check your course outline, since some courses also need a pass on each part, like the exams.
 - **Your Goal:** optional, the final grade you're aiming for.
 - **Letter Scale:** one box for each letter and one for the lowest percent that earns it. Add or remove letters as needed. It starts with a common scale, and there are three ways to fill in your school's real one:
-  - **Find My School's Scale.** If you've connected Brightspace, Canvas or Blackboard, Studyboard works out your school from the site's address and, using your own AI key, searches the web for the school's official letter scale **and pass mark**. Only the site's address (or the school name you type) is sent, never your marks or tasks. When the scale comes from the school's own website it is filled in for all your courses, with an Undo; when it comes from anywhere else, Studyboard asks you to check it first. With **Automatic AI** on, this happens by itself once per school (turn it off under Suggestions, Manage, Find My School's Grading).
+  - **Find My School's Scale.** If you've connected Brightspace, Canvas or Blackboard, Studyboard works out your school from the site's address (or from a name you type) and asks your own AI key for the school's letter scale **and pass mark**. The AI answers from what it knows, with no web search, so the result is always shown for you to check against your course outline before you save it. Only the site's address (or the school name you type) is sent, never your marks or tasks. If the AI isn't sure, you can upload a screenshot or paste the scale instead.
   - **Upload Screenshot** of the scale from your course outline or your school's site. You can also paste a screenshot straight into the sheet. AI reads it into the boxes.
   - **Paste a Scale** as text, like `A+ 90-100`, one letter per line. It works without AI too.
   Whatever is filled in, check it against your course outline before you save.
@@ -1140,7 +1140,7 @@ Update the `calendar-feed` and `lms-feed` functions too (Edge Functions > the fu
 
 Studyboard has a Free plan and a Pro plan built in, but the paywall is **switched off**. Right now everything is unlocked for everyone and nothing is limited. You don't need to set anything up until you decide to launch Pro.
 - **Free, forever:** the whole planner, sync on up to 2 devices, Brightspace, Canvas and Blackboard sync, reminders, study groups (up to 3 members, messages kept 60 days), AI with your own Gemini key, the 14 plain color themes and the free styles, 100 MB of cloud files and 25 MB of synced data.
-- **Pro ($2.99 a month or $19.99 a year, with a 7-day free trial):** unlimited devices, 10 GB of cloud files and 250 MB of synced data, every premium theme (including the 4 seasons) and style, 30 days of online backups, and study groups of up to 100 members with unlimited message history.
+- **Pro ($2.99 a month or $24.99 a year, with a 7-day free trial):** unlimited devices, 10 GB of cloud files and 250 MB of synced data, every premium theme (including the 4 seasons) and style, 30 days of online backups, and study groups of up to 100 members with unlimited message history.
 - **See it:** Settings → **Studyboard Pro** shows the plan, what Pro adds and how much storage you use.
 
 When you're ready to sell Pro, follow the step-by-step guide in `PRO-PLANS-GUIDE.md` (Studyboard Pro: Plans and Payments), which comes in the same zip. It covers running `supabase-plans.sql`, making Stripe payment links, the `billing-webhook` function, App Store and Google Play through RevenueCat, and a short Launch Day checklist.

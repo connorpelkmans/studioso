@@ -1,6 +1,6 @@
 # Studyboard key relay (Cloudflare Worker)
 
-Powers **Settings > AI Features > Add AI to Another Device**. A student who has set up AI on one device can show a QR code (or a 12-character code) and bring their AI keys to another device without pasting the key again.
+Powers **Settings > AI Features > Add AI to Another Device**. A student who has set up AI on one device can show a QR code (or a 12-character code) and bring their AI keys to another device without pasting the key again. Unlike **AI Keys on All My Devices**, which keeps a passphrase-locked copy in the student's account, this needs no account and no passphrase, and nothing is kept.
 
 It runs on the **Workers Free plan**. When a free limit runs out, requests fail with an error until the daily reset (00:00 UTC). Nothing is ever billed, unless you upgrade the account yourself.
 

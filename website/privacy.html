@@ -10,27 +10,29 @@
 <meta name="description" content="Privacy Policy for Studyboard.">
 <link rel="icon" type="image/png" href="assets/icon-192.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/fonts.css">
 <link rel="stylesheet" href="assets/site.css">
 </head>
 <body>
 <a class="skip" href="#main">Skip to the content</a>
-<header class="site">
+<header class="top">
   <div class="wrap">
-    <a class="brand" href="./"><img src="assets/icon-192.png" alt="" width="32" height="32">Studyboard</a>
+    <a class="brand" href="./" aria-label="Studyboard home"><img class="logo-l" src="assets/logo-light.webp" alt="" width="136" height="30"><img class="logo-d" src="assets/logo-dark.webp" alt="" width="136" height="30"></a>
     <nav class="main" aria-label="Main">
-      <a href="index.html#features">Features</a>
+      <a href="index.html#features" class="hide-sm">Features</a>
+      <a href="index.html#sync" class="hide-sm">Sync &amp; backups</a>
       <a href="index.html#pricing">Pricing</a>
-      <a href="account/">Account</a>
+      <a href="account/" class="hide-sm">Account</a>
+      <a href="index.html#download" class="navbtn">Download</a>
       <button class="icon-btn" id="theme-toggle" type="button" aria-pressed="false" aria-label="Switch theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
     </nav>
   </div>
 </header>
 <main id="main">
 <section class="block"><div class="wrap narrow legal">
-<p class="msg"><strong>Owner:</strong> this is a plain-language starting point, not legal advice. Replace the highlighted placeholders (<span class="placeholder">YOUR NAME OR COMPANY</span>, <span class="placeholder">support@YOUR-DOMAIN</span>, <span class="placeholder">YOUR EMAIL PROVIDER</span>, <span class="placeholder">YOUR REGION</span>), have it reviewed for where you operate, then delete this box.</p>
 <h1>Privacy Policy</h1>
-<p class="muted">Effective: October 3, 2026</p>
-<p>Studyboard is a planner for courses, deadlines, notes and flashcards, run by <span class="placeholder">YOUR NAME OR COMPANY</span> ("we"). This page explains, in plain words, what we collect, why, who else handles it, how long we keep it and how to delete it. The short version: your work stays on your device unless you choose to sync it, there are no ads, and nothing in Studyboard tracks you or sells your data.</p>
+<p class="muted">Effective: October 8, 2026</p>
+<p>Studyboard is a planner for courses, deadlines, notes and flashcards, run by Studyboard ("we"). This page explains, in plain words, what we collect, why, who else handles it, how long we keep it and how to delete it. The short version: your work stays on your device unless you choose to sync it, there are no ads, and nothing in Studyboard tracks you or sells your data.</p>
 
 <h2>What stays on your device</h2>
 <p>Your courses, tasks, notes, flashcards, files, settings, themes, daily backups, AI keys and your school-site connections are saved on the device you use (in the browser's storage on the website, or in the app's folder on desktop and phone). If you turn on folder backups on desktop, copies are also written to the folder you pick. Nothing leaves your device unless you use one of the optional features below.</p>
@@ -40,17 +42,17 @@
 
 <!-- CRASH-REPORTING-PARAGRAPH: keep in step with the crash-reporting feature (49-errreport.js). -->
 <h2>Anonymous crash reports</h2>
-<p>When Studyboard hits an error (a crash, a failed sync or a broken screen), it can send a short report so we can fix the bug. A report holds the kind of error and where in the code it happened, the app version, the platform (website, installed app, desktop or iPhone/iPad app), whether you have a free or paid plan, the theme in use, and the last few actions of the app itself (such as which tab was open). It never contains your tasks, notes, courses, files, email address, account id, AI keys or anything you typed, and it is not linked to you: it carries only a random number made on your device that is not your account and is deleted when you switch reports off. We do not use reports for advertising or tracking and never share them. They are kept for about 30 days. This is on by default (off if your browser sends Do Not Track or Global Privacy Control). Turn it off any time in Settings, Send Anonymous Crash Reports. On iPhone and iPad, Apple may also give us crash logs through App Store Connect if you chose to share app analytics with developers in your device's settings. Reports go to our own Supabase project, and, if we turn it on, to Sentry (Functional Software, Inc.), an error-tracking service that receives the same anonymous report and keeps it for no more than 30 days.</p>
+<p>When Studyboard hits an error (a crash, a failed sync or a broken screen), it can send a short report so we can fix the bug. A report holds the kind of error and where in the code it happened, the app version, the platform (website, installed app, desktop or iPhone/iPad app), whether you have a free or paid plan, the theme in use, and the last few actions of the app itself (such as which tab was open). It never contains your tasks, notes, courses, files, email address, account id, AI keys or anything you typed, and it is not linked to you: it carries a random number made on your device that is not your account (deleted when you switch reports off) and a one-way scrambled form of your network address, scrambled with a code that changes every day so it can't be traced back or matched from one day to the next, kept with the report only to stop one device from flooding us with reports. We do not use reports for advertising or tracking and never share them. They are kept for about 30 days. This is on by default (off if your browser sends Do Not Track or Global Privacy Control). Turn it off any time in Settings, Send Anonymous Crash Reports. On iPhone and iPad, Apple may also give us crash logs through App Store Connect if you chose to share app analytics with developers in your device's settings. Reports go to our own Supabase project, and, if we turn it on, to Sentry (Functional Software, Inc.), an error-tracking service that receives the same anonymous report and keeps it for no more than 30 days.</p>
 
 <h2>Your account and synced data</h2>
-<p>If you create an account, we store your email address and your password, which is kept only as a salted hash by our hosting provider, Supabase (Supabase Auth). Signing in also syncs your planner between your devices, so your courses, tasks, notes, flashcards, settings and file records are stored on our Supabase project, in your account. Each account can only read its own rows. We also keep the name and type of each device signed in to your account, how much storage your account uses (for the plan limits), and your plan status. Your AI keys are never sent to your account: they stay on the device and are left out of the backup files you export.</p>
+<p>If you create an account, we store your email address and your password, which is kept only as a salted hash by our hosting provider, Supabase (Supabase Auth). Signing in also syncs your planner between your devices, so your courses, tasks, notes, flashcards, settings and file records are stored on our Supabase project, in your account. Each account can only read its own rows. We also keep the name and type of each device signed in to your account, how much storage your account uses (for the plan limits), and your plan status. Your AI keys stay on the device unless you turn on AI Keys on All My Devices in Settings (or use Add AI to Another Device, described under AI below): then they are locked on your device with a passphrase only you know, and only the scrambled copy is stored, so we cannot read them. They are always left out of the backup files you export. Your newest companion chats are also synced to your account.</p>
 <p>Like any online service, the people who run the server can technically reach what is stored on it. We only look at it to keep the service working, fix a problem you ask us to look into, or comply with the law.</p>
 
 <h2>Uploaded files</h2>
-<p>Files you attach (for example PDFs and images) are stored in a private storage area of our Supabase project, in a folder that only your account can open. They count toward your plan's storage limit and are deleted when you delete them or your account.</p>
+<p>Files you attach (for example PDFs and images) are stored in a private storage area of our Supabase project, in a folder that only your account can open. Photos you choose for your own theme are stored the same way, so they follow you to your other devices. They count toward your plan's storage limit and are deleted when you delete them or your account.</p>
 
 <h2>Optional: AI features, with your own key</h2>
-<p>AI is off until you add your own key from Google (Gemini), Anthropic (Claude) or OpenAI and agree, in a prompt that names the company, to send content to it. When you use an AI feature, the content it needs (for example task titles, notes, a syllabus or PDF you import, flashcards or your question) is sent straight from your device to the provider you chose, using your key. It does not pass through our servers. Your keys themselves stay on your device. The one exception is Add AI to Another Device: if you use it, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most. We can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time.</p>
+<p>AI is off until you add your own key from Google (Gemini), Anthropic (Claude) or OpenAI and agree, in a prompt that names the company, to send content to it. When you use an AI feature, the content it needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to the provider you chose, using your key. It does not pass through our servers. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time.</p>
 
 <h2>Optional: your school's learning platform</h2>
 <p>If you connect Brightspace, Canvas or Blackboard, the connection stays on your device. On desktop you sign in on your school's own page (Studyboard never sees your password) and the sign-in is kept in a private store on your computer. If you paste a calendar link instead, it is saved on your device; on the website and phone the link is passed through a small function on our server that fetches the calendar for you and stores nothing. Studyboard only reads from your school's site. What it brings in (due dates, grades, announcements) becomes part of your planner and syncs like everything else if you have an account.</p>
@@ -65,10 +67,10 @@
 <p>Pro is sold through Stripe (website and desktop) or through the App Store and Google Play (iPhone, iPad and Android apps). Stripe and the app stores handle your card and billing details; we never see or store them. We receive only your plan status: whether you have Pro, when it ends and where you bought it. If you pay with Stripe we also keep a Stripe customer id so we can open your billing page. Purchases in the iPhone, iPad and Android apps are checked through RevenueCat (RevenueCat, Inc.), which receives your account id (a random number, not your email), the store's purchase record and your device's platform so it can confirm the subscription with Apple or Google and tell us your plan status.</p>
 
 <h2>Email delivery</h2>
-<p>Emails we send you (confirming your address, resetting your password, signing in) are sent through our email delivery provider, <span class="placeholder">YOUR EMAIL PROVIDER</span>, which handles your email address and the message so it can be delivered. We send no marketing email.</p>
+<p>Emails we send you (confirming your address, resetting your password, signing in) are sent through our email delivery provider, Supabase, which handles your email address and the message so it can be delivered. We send no marketing email.</p>
 
 <h2>Other services we use</h2>
-<p>Studyboard runs on Supabase (accounts, sync and storage). On the website, fonts, the sign-in library and the PDF reader are served from the same site as the page, so no other third party is contacted for them. If the sign-in library's copy can't be loaded the page falls back to a public content network (jsDelivr), which can then see your IP address as for any web page. Studyboard also contacts the AI provider you chose, only when you use AI, and Stripe when you pay on the website.</p>
+<p>Studyboard runs on Supabase (accounts, sync and storage). On the website, fonts, the sign-in library and the PDF reader are served from the same site as the page, so no other third party is contacted for them. If the sign-in library's copy can't be loaded the page falls back to a public content network (jsDelivr), which can then see your IP address as for any web page. Studyboard also contacts the AI provider you chose, only when you use AI, and Stripe when you pay on the website. If you download the Windows or Mac installer from our website, the file is delivered by GitHub, which can see your IP address as for any download.</p>
 
 <h2>How long we keep things</h2>
 <ul>
@@ -91,7 +93,7 @@
 </ul>
 
 <h2>International transfers</h2>
-<p>Our servers are in <span class="placeholder">YOUR REGION</span>. Supabase, Stripe, RevenueCat, Sentry, our email provider and the AI provider you choose may process data in other countries, including the United States. Where the law requires it we rely on safeguards such as standard contractual clauses.</p>
+<p>Our servers are in the United States (US West). Supabase, Stripe, RevenueCat, Sentry, our email provider and the AI provider you choose may process data in other countries, including the United States. Where the law requires it we rely on safeguards such as standard contractual clauses.</p>
 
 <h2>Children</h2>
 <p>Studyboard is for students aged 13 and over. In the European Economic Area and the UK, where the age of digital consent is higher in some countries (up to 16), a person under that age needs a parent or guardian's permission to make an account. If you are younger than 13, please do not create an account. If you think a child has given us personal data, contact us and we will delete it.</p>
@@ -100,17 +102,16 @@
 <p>Connections are encrypted (HTTPS). Each account can only read its own rows, and plans can only be changed by our payment system, never from your device. No system is perfectly safe; if something affecting you goes wrong we will tell you.</p>
 
 <h2>Changes and contact</h2>
-<p>If this policy changes in a way that matters, we will update the effective date above and tell you in the app. Questions or requests about your data: <a class="support-email" href="mailto:support@YOUR-DOMAIN">support@YOUR-DOMAIN</a>.</p>
+<p>If this policy changes in a way that matters, we will update the effective date above and tell you in the app. Questions or requests about your data: <a class="support-email" href="mailto:support@studyboardapp.com">support@studyboardapp.com</a>.</p>
 
 
 </div></section>
 </main>
 <footer class="site">
   <div class="wrap">
-    <span>Studyboard, the planner made by a student for students.</span>
-    <a href="privacy.html">Privacy</a>
-    <a href="terms.html">Terms</a>
-    <a class="support-email" href="mailto:support@YOUR-DOMAIN">support@YOUR-DOMAIN</a>
+    <a class="brand" href="./" aria-label="Studyboard home"><img class="logo-l" src="assets/logo-light.webp" alt="" width="109" height="24"><img class="logo-d" src="assets/logo-dark.webp" alt="" width="109" height="24"></a>
+    <span>&copy; <span data-year>2026</span> Studyboard &middot; Version <span data-version>1.13.0</span>. The planner made by a student for students.</span>
+    <span class="links"><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="account/">Account</a><a class="support-email" href="mailto:support@studyboardapp.com">support@studyboardapp.com</a></span>
   </div>
 </footer>
 <script src="config.js"></script>

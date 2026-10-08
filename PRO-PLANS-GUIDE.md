@@ -14,10 +14,11 @@ You can do the setup below any time before launch (in any order). While the payw
 - Study groups (up to **3 members**, messages kept **60 days**), deck sharing and shared Project Tasks (no extra limits: the size limits come from the group size; after updating run `supabase-groups.sql` again, then `supabase-plans.sql`).
 - AI with your own Gemini key.
 - The 14 plain color themes, and the free card styles, note shapes, pins and sticker packs.
+- **Collection previews:** a free account can try **3 different** Pro Theme Collections for **5 minutes each** (a **Preview 5 Min** button on each collection in the Style Shop). The collection's theme, stickers, pins and flashcard style work during the preview, then the earlier theme comes back by itself; after 3 previews there are no more, and a collection can't be previewed twice. The count lives in the account's settings (`settings.collPreview`) so it follows the person to other devices. It is cosmetic only, like the rest of the shop.
 - **100 MB** of cloud file storage (plus unlimited files kept on the device, or links to Google Drive or OneDrive), and **25 MB** of synced data.
 - Backups on the device: the desktop folder, plus the last 14 days in the browser.
 
-**Pro** ($2.99 a month or $19.99 a year, with a 7-day free trial):
+**Pro** ($2.99 a month or $24.99 a year, with a 7-day free trial):
 - Unlimited devices.
 - **10 GB** of cloud file storage and **250 MB** of synced data.
 - Every premium theme, including the 4 seasons (Winter, Spring, Summer and Autumn Leaves), plus every premium card style, note shape, pin and sticker pack, and all 46 Theme Collections.
@@ -68,12 +69,12 @@ Files (all in the zip):
 
 Do these in test mode first. Everything stays free for everyone until Launch Day.
 
-**1. Run the SQL.** In Supabase **SQL Editor** paste all of `supabase-plans.sql` and **Run** (safe to run again; run `supabase-groups.sql` and the main setup first, and `supabase-lean.sql` if you use it; voice capture, `supabase-capture.sql`, is free for everyone and is not part of Pro, see `VOICE-CAPTURE.md`). Then paste `supabase-plans-selftest.sql` and **Run**. It must end with the notice **ALL n SECURITY CHECKS PASSED** (it changes nothing for real). Run it again after any future SQL change. If it ever stops with `EXPLOIT SUCCEEDED`, do not launch.
+**1. Run the SQL.** In Supabase **SQL Editor** paste all of `supabase-plans.sql` and **Run** (safe to run again; run `supabase-groups.sql` and the main setup first, and `supabase-lean.sql` if you use it; voice capture, `supabase-capture.sql`, is free for everyone and is not part of Pro, see `VOICE-CAPTURE.md`). Then paste `supabase-plans-selftest.sql` and **Run**. It ends with an error on purpose (so nothing is saved) that must read **SELF-TEST PASSED: ALL n SECURITY CHECKS HELD** (it changes nothing for real). Run it again after any future SQL change. If it ever stops with `EXPLOIT SUCCEEDED`, do not launch.
 
 **2. Make the signing key.** On your computer (Node 18+): `node supabase-functions/tools/gen-ent-key.mjs`. It prints a **PRIVATE** value (`ENT_SIGNING_KEY`, PKCS8 as base64url) and a **PUBLIC** value (`ENT_PUBKEY`, 43 characters). Put the private one in Supabase **Edge Functions > Secrets** as `ENT_SIGNING_KEY` (never in the app, the website or git). Paste the public one into `const ENT_PUBKEY = "..."` in `index.html` and ship the app. If the private key ever leaks, run the script again, replace both and ship the app again.
 
 **3. Stripe (test mode first).**
-- **Product catalog > Add product** "Studyboard Pro" with a **Recurring** price of $2.99 per month and another of $19.99 per year. Copy both price ids (`price_...`). No payment links are needed any more; the checkout is created by your server.
+- **Product catalog > Add product** "Studyboard Pro" with a **Recurring** price of $2.99 per month and another of $24.99 per year. Copy both price ids (`price_...`). No payment links are needed any more; the checkout is created by your server.
 - **Settings > Billing > Customer portal:** turn it on (allow cancel and card changes).
 - **Developers > API keys > Create restricted key** with **Write** on Customers, Checkout Sessions and Customer portal sessions, and **Read** on Subscriptions and Charges. This is `STRIPE_SECRET_KEY` (the webhook uses it to read renewal dates and to find the owner of a disputed charge).
 
@@ -91,6 +92,7 @@ Do these in test mode first. Everything stays free for everyone until Launch Day
 - `STRIPE_SECRET_KEY` (step 3), `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY` (the two `price_...` ids)
 - `SITE_ORIGINS`: your website address, for example `https://studyboard.example` (comma separate more than one). The checkout only ever returns people to these addresses.
 - `STRIPE_WEBHOOK_SECRET` (step 6), and later `REVENUECAT_WEBHOOK_AUTH` (a long random password, 16 characters or more)
+- Optional: `STRIPE_MANAGED_PAYMENTS=1` turns on Stripe **Managed Payments** (Stripe handles sales tax, VAT, GST, fraud and order support for digital products). It needs Managed Payments enabled on your Stripe account and the Studyboard Pro product's **tax category** set to an eligible digital code (for example `txcd_10103100`, set in **Product catalog > Studyboard Pro > Tax category**). When on, `create-checkout` sends `managed_payments[enabled]=true` with Stripe API version `2026-02-25.preview` on the Checkout Session only. Leave it unset for a normal Checkout. With Managed Payments, Stripe is the seller of record, so read Stripe's terms and make sure `website/terms.html` and the refund wording match.
 - Optional: `STRIPE_PORTAL_CONFIG` (a `bpc_...` id), `RC_ALLOW_SANDBOX=1` (only while testing RevenueCat), `ALLOW_LOCALHOST=1` (only while testing the website on your computer)
 
 **6. Stripe webhook.** **Developers > Webhooks > Add endpoint**: `https://YOUR-PROJECT.supabase.co/functions/v1/billing-webhook/stripe` with the events `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `charge.refunded`, `charge.dispute.created` and `charge.dispute.closed`. Reveal the **Signing secret** (`whsec_...`) and save it as `STRIPE_WEBHOOK_SECRET`. (Live mode has its own endpoint and secret.)
@@ -99,7 +101,7 @@ Do these in test mode first. Everything stays free for everyone until Launch Day
 
 **8. Tell the database your site address.** In **SQL Editor**:
 ```sql
-update public.studyboard_config set value = to_jsonb('https://YOUR-SITE'::text) where key = 'site_url';
+update public.studyboard_config set value = to_jsonb('https://studyboardapp.com/website'::text) where key = 'site_url';
 ```
 (The app also has `SITE_URL` in `index.html`.) The checkout also allows this address, so you can add a second site later without touching secrets.
 
@@ -182,7 +184,7 @@ What this does **not** stop: someone who edits their own copy of the app can unl
 
 ### Public Launch Checklist (Pro)
 
-- [ ] `supabase-plans-selftest.sql` ends with **ALL n SECURITY CHECKS PASSED** on your live project.
+- [ ] `supabase-plans-selftest.sql` ends with **SELF-TEST PASSED: ALL n SECURITY CHECKS HELD** on your live project.
 - [ ] Stripe is in **live** mode: live price ids, restricted key and webhook secret saved as secrets, and the live webhook points at `billing-webhook/stripe` with all eight events.
 - [ ] You bought Pro yourself with a real card on the website, saw it switch on in the app, then cancelled and refunded it (Pro must switch off after the refund). **Manage billing** on the account page opens the Stripe portal.
 - [ ] Prices, the trial length and the refund policy on the Stripe checkout page match `website/terms.html` and the Terms in the app. The placeholders in `website/privacy.html` and `website/terms.html` are filled in, and `website/config.js` has your real values.

@@ -2,109 +2,290 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://*.supabase.co; form-action 'self'; base-uri 'none'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="color-scheme" content="light dark">
 <title>Studyboard - Plan your semester</title>
-<meta name="description" content="Studyboard is a free planner for students, with an optional Pro plan.">
+<meta name="description" content="Studyboard keeps every class, deadline, note and file on one board, with Today's Plan, a study companion with optional AI, flashcards, grade tracking and study groups. Free to start, with an optional Pro plan.">
 <link rel="icon" type="image/png" href="assets/icon-192.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/fonts.css">
 <link rel="stylesheet" href="assets/site.css">
 </head>
 <body>
 <a class="skip" href="#main">Skip to the content</a>
-<header class="site">
+<header class="top">
   <div class="wrap">
-    <a class="brand" href="./"><img src="assets/icon-192.png" alt="" width="32" height="32">Studyboard</a>
+    <a class="brand" href="./" aria-label="Studyboard home"><img class="logo-l" src="assets/logo-light.webp" alt="" width="136" height="30"><img class="logo-d" src="assets/logo-dark.webp" alt="" width="136" height="30"></a>
     <nav class="main" aria-label="Main">
-      <a href="index.html#features">Features</a>
+      <a href="index.html#features" class="hide-sm">Features</a>
+      <a href="index.html#sync" class="hide-sm">Sync &amp; Backups</a>
       <a href="index.html#pricing">Pricing</a>
-      <a href="account/">Account</a>
+      <a href="account/" class="hide-sm">Account</a>
+      <a href="index.html#download" class="navbtn">Download</a>
       <button class="icon-btn" id="theme-toggle" type="button" aria-pressed="false" aria-label="Switch theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
     </nav>
   </div>
 </header>
 <main id="main">
 
-<section class="hero"><div class="wrap">
-  <span class="badge">Free to start. Pro when you want more.</span>
-  <h1>Your whole semester, on one board.</h1>
-  <p class="lead">Studyboard is a planner for students: deadlines, schedule, notes, flashcards, focus time and study groups, synced on your devices. Start free. Go Pro for unlimited devices, bigger storage and every theme.</p>
-  <div class="actions">
-    <a class="btn primary app-link" href="account/">Open Studyboard</a>
-    <a class="btn" href="#pricing">See Pro pricing</a>
-  </div>
-</div></section>
-
-<section class="block" id="features"><div class="wrap">
-  <h2>What you get</h2>
-  <div class="grid">
-    <div class="card"><h3>The whole planner, free</h3><p>Board, Timeline, Schedule, Today's Plan, Focus, notes, flashcards, quizzes, Grade Tracker and Search Everywhere. No ads, no time limit.</p></div>
-    <div class="card"><h3>Sync with your school</h3><p>Brightspace, Canvas and Blackboard calendars flow into your plan, with reminders and phone notifications.</p></div>
-    <div class="card"><h3>Study groups</h3><p>Share decks, quizzes and study sessions with classmates. Free groups hold 3 people; Pro groups hold up to 100.</p></div>
-    <div class="card"><h3>Light, dark and your style</h3><p>14 clean themes are free. Pro adds the four seasons and every premium card style, pin and sticker pack.</p></div>
-  </div>
-</div></section>
-
-<section class="block"><div class="wrap">
-  <h2>Free and Pro, side by side</h2>
-  <div class="table-scroll">
-  <table class="compare">
-    <thead><tr><th scope="col">What</th><th scope="col">Free</th><th scope="col">Pro</th></tr></thead>
-    <tbody>
-      <tr><th scope="row">The planner and every study tool</th><td>Everything</td><td>Everything</td></tr>
-      <tr><th scope="row">Devices that sync</th><td>2</td><td>Unlimited</td></tr>
-      <tr><th scope="row">Cloud file storage</th><td>100 MB</td><td>10 GB</td></tr>
-      <tr><th scope="row">Synced data</th><td>25 MB</td><td>250 MB</td></tr>
-      <tr><th scope="row">Themes and styles</th><td>14 plain themes</td><td>All themes, the 4 seasons and every premium style</td></tr>
-      <tr><th scope="row">Study group size and history</th><td>3 members, 60 days of messages</td><td>100 members, unlimited history</td></tr>
-      <tr><th scope="row">Online backup history</th><td>Backups stay on your device</td><td>30 days online</td></tr>
-    </tbody>
-  </table>
-  </div>
-</div></section>
-
-<section class="block" id="pricing"><div class="wrap">
-  <h2>Studyboard Pro</h2>
-  <p class="muted">Every plan starts with a 7-day free trial for new subscribers. Cancel any time from your account. Prices in USD.</p>
-  <div class="grid">
-    <div class="card">
-      <h3>Monthly</h3>
-      <p class="price">$2.99 <small>/ month</small></p>
-      <ul class="ticks"><li>7-day free trial</li><li>Cancel any time</li></ul>
-      <a class="btn primary block" href="account/?plan=monthly">Start free trial</a>
+<section class="hero" id="top">
+  <div class="wrap">
+    <div>
+      <div class="eyebrow">Student planner &middot; v<span data-version>1.13.0</span></div>
+      <h1>Your whole <span class="hl">semester</span> on one board.</h1>
+      <p class="lede">Studyboard keeps every class, deadline, note and file in one place. Let Today's Plan help you pick what to do next, get help from a study companion with optional AI enhancement, and study with flashcards and your classmates.</p>
+      <div class="dlpanel" id="heroDownloads" aria-live="polite"><div class="dlrow"><a class="dl primary app-link" href="account/"><span class="t"><small>Free &middot; works in any browser</small><b>Open Studyboard</b></span></a></div></div>
+      <p class="dlnote">The Windows and Mac installers are not code-signed yet, so Windows or macOS may warn you before opening them.
     </div>
-    <div class="card featured">
-      <h3>Yearly <span class="badge">Best value</span></h3>
-      <p class="price">$19.99 <small>/ year</small></p>
-      <ul class="ticks"><li>7-day free trial</li><li>About $1.67 a month</li></ul>
-      <a class="btn primary block" href="account/?plan=yearly">Start free trial</a>
+    <div class="shot"><img class="logo-l" src="assets/screens/hero-light.webp" alt="The Studyboard Task Board, with courses color-coded and tasks in To Do, In Work and Complete columns" width="1000" height="640"><img class="logo-d" src="assets/screens/hero-dark.webp" alt="" width="1000" height="640" loading="lazy"><div class="wcp-host" data-companion="plain-mochi" data-talk data-geo="hero"></div></div>
+  </div>
+</section>
+
+<section class="block" id="features">
+  <div class="wrap">
+    <div class="head">
+      <div class="eyebrow">What's Inside</div>
+      <h2>Everything a term throws at you, sorted.</h2>
+      <p>Built for how students actually work: lots of classes, shifting due dates and too many PDFs.</p>
+    </div>
+    <div class="features">
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg></div><h3>Today's Plan</h3><p>Picks what to work on next, puts deadlines first, fits it into your free time and tells you when a day is overbooked.</p></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></svg></div><h3>Study Companion &amp; AI</h3><p>A little companion who studies with you and, with AI on, explains what is on your screen, plans your exams and quizzes you. Optional, and you stay in control.</p></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-5 9 5-9 5z"/><path d="M7 11.5V16c0 1.2 2.2 2.5 5 2.5s5-1.3 5-2.5v-4.5"/></svg></div><h3>Syllabus &amp; School Sync</h3><p>Drop in a syllabus, or connect Brightspace, Canvas or Blackboard once and your assignments, quizzes and exams land on your board.</p></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg></div><h3>Rough Week Rescue</h3><p>When a week is overloaded, Studyboard suggests what to push and what cannot move, and applies it in one step.</p></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="14" height="12" rx="2"/><path d="M7 7V5h14v12h-4"/></svg></div><h3>Flashcards &amp; Quizzes</h3><p>Spaced-repetition flashcards and quizzes. With AI on, make a deck from your own notes or a PDF.</p></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="10" rx="1.5"/><rect x="17" y="4" width="4" height="13" rx="1.5"/></svg></div><h3>Board &amp; Timeline</h3><p>Drag work from To Do to In Work to Complete, then see the whole term on a timeline. Add your shifts or work and Studyboard knows when you are really free.</p></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></div><h3>Quick Add</h3><p>Type <b>bio quiz fri 2pm worth 5%</b> and the course, date, time and weight are filled in. Snap a photo or add by voice on your phone.</p></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 13l3-3M9 2h6"/></svg></div><h3>Focus &amp; Study Together</h3><p>A focus timer with your companion, and shared countdown rooms so your group can focus at the same time.</p></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></div><h3>Grade Tracker</h3><p>Add your marks, see your current and projected grade and your pass mark, and find out what you need on the rest.</p></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></div><h3>Search Everywhere</h3><p>Press <b>Ctrl+K</b> or <b>&#8984;K</b> to search tasks, courses, cards, notes, events and the text inside your files. Ask With AI finds things by meaning.</p></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14v11l-5 5H5z"/><path d="M14 20v-5h5"/></svg></div><h3>Notes &amp; Stickers</h3><p>A corkboard of sticky notes you can pin, decorate with stickers and keep beside the course they belong to.</p></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15 14.5c3 .2 5 2.2 5 5"/></svg></div><h3>Study Groups</h3><p>Share decks, quizzes and deadlines, plan sessions with RSVPs, take on a weekly focus challenge and chat. Free groups hold 3 people; Pro holds 100.</p></div>
     </div>
   </div>
-  <p class="muted">You pay on this website with a card through Stripe. We never see or store your card number. Sign in with the same Studyboard account you use in the app, and Pro appears in the app within moments.</p>
-  <p class="muted"><strong>Subscription details:</strong> Studyboard Pro is an auto-renewing subscription: $2.99 USD per month or $19.99 USD per year, with a 7-day free trial for new subscribers. Your card is charged when the trial ends unless you cancel before then, and again at the start of each month or year until you cancel. Cancel any time from <a href="account/">Manage billing</a>; you keep Pro until the end of the period you paid for. Subscriptions bought in the iPhone or iPad app are billed by Apple (cancel in your App Store account settings). By subscribing you agree to the <a href="terms.html">Terms of Use</a>; see the <a href="privacy.html">Privacy Policy</a>.</p>
-</div></section>
+</section>
 
-<section class="block"><div class="wrap narrow">
-  <h2>Questions</h2>
-  <details class="faq"><summary>Do I need an account?</summary><p>Yes, one Studyboard account, the same one you use in the app. Create it in the app or on the <a href="account/">account page</a>.</p></details>
-  <details class="faq"><summary>What happens when my trial ends?</summary><p>If you don't cancel, Pro continues at the price you chose. Cancel before the trial ends and you pay nothing.</p></details>
-  <details class="faq"><summary>What if I cancel?</summary><p>You keep Pro until the end of the time you paid for. Nothing you made is deleted; free accounts just have the free limits.</p></details>
-  <details class="faq"><summary>How do I manage billing?</summary><p>Sign in on the <a href="account/">account page</a> and choose Manage billing to change your card, see invoices or cancel.</p></details>
-  <details class="faq"><summary>I need help.</summary><p>Write to <a class="support-email" href="mailto:support@YOUR-DOMAIN">support@YOUR-DOMAIN</a>.</p></details>
-</div></section>
+<section class="block tight" id="companion">
+  <div class="wrap">
+    <div class="spot">
+      <div>
+        <div class="eyebrow">Companion &amp; AI</div>
+        <h2>Meet your study companion.</h2>
+        <p class="lede">Every theme has three little companions who live in your scene, study with you and cheer on your wins. Enable AI and your companion becomes your helper for the whole app.</p>
+        <ul>
+          <li><b>Ask About This.</b> Your companion explains the card, note, task, file or course on your screen.</li>
+          <li><b>Exam Prep Planner.</b> Turns an exam date, your notes and your decks into a day-by-day plan.</li>
+          <li><b>Make study material.</b> Flashcards, quizzes and study sets from your notes or a PDF.</li>
+          <li><b>Syllabus in, deadlines out.</b> Drop in a syllabus, and get quick time estimates for many tasks at once.</li>
+          <li><b>Ask With AI.</b> Search finds things by meaning and tells you where it found them.</li>
+          <li><b>Grows with you.</b> Companions unlock accessories as you study and celebrate when you finish things.</li>
+        </ul>
+        <p class="note">AI is optional and off until you add your own key (a free Google Gemini key, or Claude or ChatGPT). Each question sends only the parts of your planner it needs, straight from your device to the company you chose.</p>
+      </div>
+      <div>
+        <div class="shot"><img class="logo-l" src="assets/screens/companion-light.webp" alt="The Studyboard companion Mochi, with suggested questions such as What should I work on next" width="1120" height="700" loading="lazy"><img class="logo-d" src="assets/screens/companion-dark.webp" alt="" width="1120" height="700" loading="lazy"><div class="wcp-host corner" data-companion="plain-mochi"></div></div>
+        <p class="cap">Your companion, Mochi, ready to answer questions about your own deadlines, courses and notes. Free comes with 3 companions, Pro adds 192 more.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block tight" id="gallery">
+  <div class="wrap">
+    <div class="head">
+      <div class="eyebrow">See It in Action</div>
+      <h2>This is the real app.</h2>
+      <p>These are screens from Studyboard itself, with sample student data.</p>
+    </div>
+    <div class="gtabs" role="tablist" aria-label="Studyboard screens">
+      <button type="button" role="tab" id="gt-plan" aria-controls="gp-plan" aria-selected="true" tabindex="0">Today's Plan</button>
+      <button type="button" role="tab" id="gt-board" aria-controls="gp-board" aria-selected="false" tabindex="-1">Task Board</button>
+      <button type="button" role="tab" id="gt-calendar" aria-controls="gp-calendar" aria-selected="false" tabindex="-1">Timeline</button>
+      <button type="button" role="tab" id="gt-flashcards" aria-controls="gp-flashcards" aria-selected="false" tabindex="-1">Flashcards</button>
+      <button type="button" role="tab" id="gt-notes" aria-controls="gp-notes" aria-selected="false" tabindex="-1">Notes</button>
+      <button type="button" role="tab" id="gt-courses" aria-controls="gp-courses" aria-selected="false" tabindex="-1">Courses</button>
+      <button type="button" role="tab" id="gt-companion" aria-controls="gp-companion" aria-selected="false" tabindex="-1">Companion</button>
+      <button type="button" role="tab" id="gt-style" aria-controls="gp-style" aria-selected="false" tabindex="-1">Style Shop</button>
+    </div>
+    <div class="gpanel" role="tabpanel" id="gp-plan" aria-labelledby="gt-plan">
+      <div class="shot"><img class="logo-l" src="assets/screens/plan-light.webp" alt="The Studyboard Today's Plan screen" width="1120" height="700"><img class="logo-d" src="assets/screens/plan-dark.webp" alt="" width="1120" height="700" loading="lazy"></div>
+      <p class="cap">Today's Plan ranks what to work on, fits it into your free time and shows what is coming up on the calendar.</p>
+    </div>
+    <div class="gpanel" role="tabpanel" id="gp-board" aria-labelledby="gt-board" hidden>
+      <div class="shot"><img class="logo-l" src="assets/screens/board-light.webp" alt="The Studyboard Task Board screen" width="1120" height="700" loading="lazy"><img class="logo-d" src="assets/screens/board-dark.webp" alt="" width="1120" height="700" loading="lazy"></div>
+      <p class="cap">Drag work from To Do to In Work to Complete. Every class has its own color and filter.</p>
+    </div>
+    <div class="gpanel" role="tabpanel" id="gp-calendar" aria-labelledby="gt-calendar" hidden>
+      <div class="shot"><img class="logo-l" src="assets/screens/calendar-light.webp" alt="The Studyboard Timeline screen" width="1120" height="700" loading="lazy"><img class="logo-d" src="assets/screens/calendar-dark.webp" alt="" width="1120" height="700" loading="lazy"></div>
+      <p class="cap">See every deadline across the term as a chart, a calendar or a weekly schedule.</p>
+    </div>
+    <div class="gpanel" role="tabpanel" id="gp-flashcards" aria-labelledby="gt-flashcards" hidden>
+      <div class="shot"><img class="logo-l" src="assets/screens/flashcards-light.webp" alt="The Studyboard Flashcards screen" width="1120" height="700" loading="lazy"><img class="logo-d" src="assets/screens/flashcards-dark.webp" alt="" width="1120" height="700" loading="lazy"></div>
+      <p class="cap">Spaced-repetition decks to study, quiz yourself on or share with classmates.</p>
+    </div>
+    <div class="gpanel" role="tabpanel" id="gp-notes" aria-labelledby="gt-notes" hidden>
+      <div class="shot"><img class="logo-l" src="assets/screens/notes-light.webp" alt="The Studyboard Notes screen" width="1120" height="700" loading="lazy"><img class="logo-d" src="assets/screens/notes-dark.webp" alt="" width="1120" height="700" loading="lazy"></div>
+      <p class="cap">A corkboard of sticky notes with pins and stickers. Drop one on a course to keep it together.</p>
+    </div>
+    <div class="gpanel" role="tabpanel" id="gp-courses" aria-labelledby="gt-courses" hidden>
+      <div class="shot"><img class="logo-l" src="assets/screens/courses-light.webp" alt="The Studyboard Courses screen" width="1120" height="700" loading="lazy"><img class="logo-d" src="assets/screens/courses-dark.webp" alt="" width="1120" height="700" loading="lazy"></div>
+      <p class="cap">Every course with its progress, grades, emails and files in one place.</p>
+    </div>
+    <div class="gpanel" role="tabpanel" id="gp-companion" aria-labelledby="gt-companion" hidden>
+      <div class="shot"><img class="logo-l" src="assets/screens/companion-light.webp" alt="The Studyboard Companion screen" width="1120" height="700" loading="lazy"><img class="logo-d" src="assets/screens/companion-dark.webp" alt="" width="1120" height="700" loading="lazy"></div>
+      <p class="cap">Ask your companion what to work on next, what is due, or to quiz you on a deck.</p>
+    </div>
+    <div class="gpanel" role="tabpanel" id="gp-style" aria-labelledby="gt-style" hidden>
+      <div class="shot"><img class="logo-l" src="assets/screens/style-light.webp" alt="The Studyboard Style Shop screen" width="1120" height="700" loading="lazy"><img class="logo-d" src="assets/screens/style-dark.webp" alt="" width="1120" height="700" loading="lazy"></div>
+      <p class="cap">Pick a theme, or try a Pro collection free for five minutes.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block tight" id="style">
+  <div class="wrap">
+    <div class="head">
+      <div class="eyebrow">Make It Yours</div>
+      <h2>Study somewhere you like being.</h2>
+      <p>Studyboard comes with 14 color themes for free. Pro adds 66 living scene themes, from the four seasons to your major or your hobby. These are the real thing, each with its own animated scene and its own companions.</p>
+    </div>
+    <div class="themes">
+        <figure class="tile" data-scene="winter" data-comp="winter-penguin"><img class="logo-l" src="assets/screens/theme-winter-light.webp" alt="The Studyboard Task Board with the Winter theme" width="800" height="500" loading="lazy"><img class="logo-d" src="assets/screens/theme-winter-dark.webp" alt="" width="800" height="500" loading="lazy"><figcaption>Winter<small>Seasons</small></figcaption></figure>
+        <figure class="tile" data-scene="autumn" data-comp="autumn-fawn"><img class="logo-l" src="assets/screens/theme-autumn-light.webp" alt="The Studyboard Task Board with the Autumn Leaves theme" width="800" height="500" loading="lazy"><img class="logo-d" src="assets/screens/theme-autumn-dark.webp" alt="" width="800" height="500" loading="lazy"><figcaption>Autumn Leaves<small>Seasons</small></figcaption></figure>
+        <figure class="tile" data-scene="sakura" data-comp="sakura-shiba"><img class="logo-l" src="assets/screens/theme-sakura-light.webp" alt="The Studyboard Task Board with the Sakura theme" width="800" height="500" loading="lazy"><img class="logo-d" src="assets/screens/theme-sakura-dark.webp" alt="" width="800" height="500" loading="lazy"><figcaption>Sakura<small>Scenes</small></figcaption></figure>
+        <figure class="tile" data-scene="forest" data-comp="forest-hedgehog"><img class="logo-l" src="assets/screens/theme-forest-light.webp" alt="The Studyboard Task Board with the Evergreen theme" width="800" height="500" loading="lazy"><img class="logo-d" src="assets/screens/theme-forest-dark.webp" alt="" width="800" height="500" loading="lazy"><figcaption>Evergreen<small>Scenes</small></figcaption></figure>
+        <figure class="tile" data-scene="galaxy" data-comp="galaxy-planet"><img class="logo-l" src="assets/screens/theme-galaxy-light.webp" alt="The Studyboard Task Board with the Galaxy theme" width="800" height="500" loading="lazy"><img class="logo-d" src="assets/screens/theme-galaxy-dark.webp" alt="" width="800" height="500" loading="lazy"><figcaption>Galaxy<small>Scenes</small></figcaption></figure>
+        <figure class="tile" data-scene="sunset" data-comp="sunset-crab"><img class="logo-l" src="assets/screens/theme-sunset-light.webp" alt="The Studyboard Task Board with the Sunset Beach theme" width="800" height="500" loading="lazy"><img class="logo-d" src="assets/screens/theme-sunset-dark.webp" alt="" width="800" height="500" loading="lazy"><figcaption>Sunset Beach<small>Scenes</small></figcaption></figure>
+        <figure class="tile" data-scene="ocean" data-comp="ocean-otter"><img class="logo-l" src="assets/screens/theme-ocean-light.webp" alt="The Studyboard Task Board with the Ocean Waves theme" width="800" height="500" loading="lazy"><img class="logo-d" src="assets/screens/theme-ocean-dark.webp" alt="" width="800" height="500" loading="lazy"><figcaption>Ocean Waves<small>Scenes</small></figcaption></figure>
+        <figure class="tile" data-scene="nursing" data-comp="nursing-heart"><img class="logo-l" src="assets/screens/theme-nursing-light.webp" alt="The Studyboard Task Board with the Night Shift theme" width="800" height="500" loading="lazy"><img class="logo-d" src="assets/screens/theme-nursing-dark.webp" alt="" width="800" height="500" loading="lazy"><figcaption>Night Shift<small>Study Fields</small></figcaption></figure>
+        <figure class="tile" data-scene="compsci" data-comp="compsci-duck"><img class="logo-l" src="assets/screens/theme-compsci-light.webp" alt="The Studyboard Task Board with the Code Night theme" width="800" height="500" loading="lazy"><img class="logo-d" src="assets/screens/theme-compsci-dark.webp" alt="" width="800" height="500" loading="lazy"><figcaption>Code Night<small>Study Fields</small></figcaption></figure>
+    </div>
+    <p class="muted mt16">Every scene theme comes with its own stickers, pins and flashcard style.</p>
+    <ul class="perks mt16">
+      <li>Try 3 Pro collections free for 5 minutes each, right in the Style Shop.</li>
+      <li>Turn your own photo into a full theme with matching colors.</li>
+      <li>A term scrapbook fills with stickers for real milestones: grades, streaks and focus hours.</li>
+      <li>Made to be readable: Atkinson Hyperlegible type, screen reader labels and calm motion when you ask for it.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="block tight" id="sync">
+  <div class="wrap">
+    <div class="sync">
+      <div>
+        <div class="eyebrow">Sync &amp; Backups</div>
+        <h2>Start on your laptop, finish on your phone.</h2>
+        <p>Sign in once and your board follows you. Changes sync between your devices, and anything you do offline catches up the next time you are connected.</p>
+      </div>
+      <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M18 3v4h-4M6 21v-4h4"/></svg><div><b>Sync on Your Devices</b><span>Tasks, notes, decks and files follow you. Free syncs on 2 devices; Pro has no limit.</span></div></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0"/><path d="M3 3l18 18"/></svg><div><b>Works Offline</b><span>Keep working on a bus or a plane. Everything catches up the next time you are online.</span></div></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h6l2 2h8v10H4z"/><path d="M12 12v4M10 14h4"/></svg><div><b>Backups</b><span>A copy of your planner stays on your device. Pro adds 30 days of online backup history.</span></div></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><div><b>Your Calendar App Too</b><span>Add a live calendar link so deadlines, classes and events show up in Apple, Google or Outlook Calendar.</span></div></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><div><b>Your Data Is Yours</b><span>No ads, no tracking. Delete your account and everything stored online from Settings, any time.</span></div></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="block tight" id="pricing">
+  <div class="wrap">
+    <div class="head">
+      <div class="eyebrow">Pricing</div>
+      <h2>Free to start. Pro when you want more.</h2>
+      <p>Every Pro plan starts with a 7-day free trial for new subscribers. Cancel any time from your account. Prices in USD.</p>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <h3>Free</h3>
+        <p class="price">$0 <small></small></p>
+        <ul class="ticks"><li>The whole planner and every study tool</li><li>Sync on 2 devices</li><li>14 color themes</li><li>100 MB of cloud files</li></ul>
+        <a class="btn block app-link" href="account/">Open Studyboard</a>
+      </div>
+      <div class="card">
+        <h3>Pro Monthly</h3>
+        <p class="price">$2.99 <small>/ month</small></p>
+        <ul class="ticks"><li>7-day free trial</li><li>Cancel any time</li><li>Everything in Pro, below</li></ul>
+        <a class="btn primary block" href="account/?plan=monthly">Start Free Trial</a>
+      </div>
+      <div class="card featured">
+        <h3>Pro Yearly <span class="badge">Best Value</span></h3>
+        <p class="price">$24.99 <small>/ year</small></p>
+        <ul class="ticks"><li>7-day free trial</li><li>About $2.08 a month</li><li>Everything in Pro, below</li></ul>
+        <a class="btn primary block" href="account/?plan=yearly">Start Free Trial</a>
+      </div>
+    </div>
+
+    <h3 class="mt24">Free and Pro, Side by Side</h3>
+    <div class="table-scroll">
+    <table class="compare">
+      <thead><tr><th scope="col">What</th><th scope="col">Free</th><th scope="col">Pro</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">The planner and every study tool</th><td>Everything</td><td>Everything</td></tr>
+        <tr><th scope="row">Devices that sync</th><td>2</td><td>Unlimited</td></tr>
+        <tr><th scope="row">Cloud file storage</th><td>100 MB</td><td>10 GB</td></tr>
+        <tr><th scope="row">Synced data</th><td>25 MB</td><td>250 MB</td></tr>
+        <tr><th scope="row">Themes and styles</th><td>14 plain themes, plus 3 free 5-minute previews of Pro collections</td><td>All 66 animated themes and every premium flashcard style, pin and sticker pack</td></tr>
+        <tr><th scope="row">Study group size and history</th><td>3 members, 60 days of messages</td><td>100 members, unlimited history</td></tr>
+        <tr><th scope="row">Online backup history</th><td>Backups stay on your device</td><td>30 days online</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="muted mt16">You pay on this website with a card through Stripe. We never see or store your card number. Sign in with the same Studyboard account you use in the app, and Pro appears in the app within moments.</p>
+    <p class="muted"><strong>Subscription details:</strong> Studyboard Pro is an auto-renewing subscription: $2.99 USD per month or $24.99 USD per year, with a 7-day free trial for new subscribers. Your card is charged when the trial ends unless you cancel before then, and again at the start of each month or year until you cancel. Cancel any time from <a href="account/">Manage billing</a>; you keep Pro until the end of the period you paid for. Subscriptions bought in the iPhone or iPad app are billed by Apple (cancel in your App Store account settings). By subscribing you agree to the <a href="terms.html">Terms of Use</a>; see the <a href="privacy.html">Privacy Policy</a>.</p>
+  </div>
+</section>
+
+<section class="block tight" id="download">
+  <div class="wrap">
+    <div class="head">
+      <div class="eyebrow">Download</div>
+      <h2>Get Studyboard on every device.</h2>
+      <p>Use it in your browser today, or install the Windows or Mac app. The iPhone and Android apps are on their way, and everything syncs between them.</p>
+    </div>
+    <div class="groups" id="allDownloads"></div>
+    <div class="dlhelp" id="install-help">
+      <p class="dlnote">The Windows and Mac installers are not code-signed yet, so your computer may warn you. They are safe to open if you downloaded them from this page.</p>
+      <details class="which"><summary>How to open them</summary>
+        <p><b>Windows:</b> if you see &ldquo;Windows protected your PC&rdquo;, click <b>More info</b>, then <b>Run anyway</b>.</p>
+        <p><b>Mac:</b> open the .dmg and drag Studyboard to Applications. The first time, if macOS says it can&rsquo;t verify the app, open <b>System Settings &gt; Privacy &amp; Security</b>, scroll down and click <b>Open Anyway</b> next to Studyboard. Older macOS versions let you right-click the app and choose Open instead.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section class="block tight" id="faq">
+  <div class="wrap narrow">
+    <div class="head"><div class="eyebrow">Questions</div><h2>Good to know</h2></div>
+    <details class="faq"><summary>Is there a web version?</summary><p>Yes. Open Studyboard in any modern browser and it works right away. Use your browser's install option, or Add to Home Screen on a phone, to open it like an app.</p></details>
+    <details class="faq"><summary>When can I download the apps?</summary><p>The Windows and Mac apps are available now, and the Linux, iPhone and Android apps are being prepared. Those buttons switch on as soon as each one is published, and your account and data work the same everywhere.</p></details>
+    <details class="faq"><summary>Is the planner really free?</summary><p>Yes. The whole planner, flashcards, quizzes, Grade Tracker, Today's Plan, Focus and Search Everywhere are free, with no ads and no time limit. Pro adds unlimited devices, more storage, bigger groups and every theme.</p></details>
+    <details class="faq"><summary>Do I need an account?</summary><p>You need one Studyboard account to sync between devices and to buy Pro. Create it in the app or on the <a href="account/">account page</a>.</p></details>
+    <details class="faq"><summary>How does the AI work?</summary><p>AI is optional and off until you turn it on. You add your own free Gemini key (or a Claude or ChatGPT key), and the content for a request goes straight from your device to the company you chose. Your companion is the face of those features.</p></details>
+    <details class="faq"><summary>What happens when my trial ends?</summary><p>If you don't cancel, Pro continues at the price you chose. Cancel before the trial ends and you pay nothing.</p></details>
+    <details class="faq"><summary>What if I cancel?</summary><p>You keep Pro until the end of the time you paid for. Nothing you made is deleted; free accounts just have the free limits.</p></details>
+    <details class="faq"><summary>How do I manage billing?</summary><p>Sign in on the <a href="account/">account page</a> and choose Manage billing to change your card, see invoices or cancel.</p></details>
+    <details class="faq"><summary>I need help.</summary><p>Write to <a class="support-email" href="mailto:support@studyboardapp.com">support@studyboardapp.com</a>.</p></details>
+  </div>
+</section>
 
 </main>
 <footer class="site">
   <div class="wrap">
-    <span>Studyboard, the planner made by a student for students.</span>
-    <a href="privacy.html">Privacy</a>
-    <a href="terms.html">Terms</a>
-    <a class="support-email" href="mailto:support@YOUR-DOMAIN">support@YOUR-DOMAIN</a>
+    <a class="brand" href="./" aria-label="Studyboard home"><img class="logo-l" src="assets/logo-light.webp" alt="" width="109" height="24"><img class="logo-d" src="assets/logo-dark.webp" alt="" width="109" height="24"></a>
+    <span>&copy; <span data-year>2026</span> Studyboard &middot; Version <span data-version>1.13.0</span>. The planner made by a student for students.</span>
+    <span class="links"><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="account/">Account</a><a class="support-email" href="mailto:support@studyboardapp.com">support@studyboardapp.com</a></span>
   </div>
 </footer>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="config.js"></script>
 <script src="assets/site.js"></script>
+<script src="assets/home.js"></script>
+<script src="assets/tile-geo.js"></script>
+<script src="assets/companions.js"></script>
+<script src="assets/scenes.js"></script>
 </body>
 </html>

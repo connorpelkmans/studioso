@@ -58,11 +58,11 @@ assert.deepStrictEqual(hApp, hWeb, "in-app and website privacy sections must be 
 const dateApp = (app.match(/const UPDATED = "([^"]+)"/) || [])[1], dateWeb = (webPrivacy.match(/Effective: ([A-Za-z]+ \d+, \d{4})/) || [])[1];
 ok(dateApp && dateApp === dateWeb, `effective date must match (app ${dateApp}, website ${dateWeb})`);
 const FACTS = [/supabase auth/, /salted hash/, /gemini/, /anthropic/, /openai/, /your own key/, /improve its products/, /not pass through our servers|does not pass through/, /anonymous crash report/, /send anonymous crash reports/, /not linked to you/, /export my data/, /recently deleted/, /capture token/,
-  /bug report/, /stays on your device/, /stripe/, /app store/, /only your plan status|we receive only your plan status/, /email delivery provider/, /support@your-domain|your-domain/, /45 days/, /30 days/, /13 and over/, /up to 16/, /international transfers/, /standard contractual clauses/,
+  /bug report/, /stays on your device/, /stripe/, /app store/, /only your plan status|we receive only your plan status/, /email delivery provider/, /support@your-domain|support@studyboardapp\.com|your-domain/, /45 days/, /30 days/, /13 and over/, /up to 16/, /international transfers/, /standard contractual clauses/,
   /delete my account and data/, /export a backup file/, /cancel/, /no analytics, no ads, no tracking/, /your rights/];
 for (const re of FACTS) { ok(re.test(norm(appPrivacy)) || re.test(norm(appPrivacy.replace(/\$\{contact\(\)\}/g, "support@YOUR-DOMAIN"))), "in-app privacy must say: " + re); ok(re.test(norm(webPrivacy)), "website privacy must say: " + re); }
 // paragraph text of every section matches once placeholders are neutralized
-const body = h => norm(h.replace(/<h1>[\s\S]*?<\/h1>/, "").replace(/<p class="legal-meta">[\s\S]*?<\/p>/, "").replace(/<p class="muted">[\s\S]*?<\/p>/, "").replace(/<p class="msg">[\s\S]*?<\/p>/, "")).replace(/your name or company|your email provider|your region|support@your-domain/g, "").replace(/\s+/g, " ").trim();
+const body = h => norm(h.replace(/\$\{ph\("([^"]*)"\)\}/g, "$1").replace(/<h1>[\s\S]*?<\/h1>/, "").replace(/<p class="legal-meta">[\s\S]*?<\/p>/, "").replace(/<p class="muted">[\s\S]*?<\/p>/, "").replace(/<p class="msg">[\s\S]*?<\/p>/, "")).replace(/your name or company|your email provider|your region|support@your-domain|support@studyboardapp\.com/g, "").replace(/\s+/g, " ").trim();
 const sec = (h, i) => body(h.split(/<h[23]>/)[i + 1] || "");
 for (let i = 0; i < hApp.length; i++) {
   const a = sec(appPrivacy, i).replace(/^.*?<\/h[23]>/, ""), b = sec(webPrivacy, i);

@@ -10,6 +10,9 @@
 //   SITE_ORIGINS           the website address(es) that may be used for the return pages, comma separated, e.g. https://studyboard.example
 //                          (the "site_url" row of studyboard_config is allowed too)
 // Optional: ALLOW_LOCALHOST=1 lets http://localhost origins through while you test.
+//           STRIPE_MANAGED_PAYMENTS=1 turns on Stripe Managed Payments for the checkout (Stripe takes on sales tax / VAT / GST, fraud
+//           and order support). It needs Managed Payments enabled on your Stripe account, and the product's tax category set to an
+//           eligible digital code (for example txcd_10103100) on the Studyboard Pro product. Leave it unset for a normal Checkout.
 // Supabase adds SUPABASE_URL, SUPABASE_ANON_KEY and the service key by itself.
 //
 // What it does: checks the sign-in with Supabase Auth, limits each person to a few checkouts an hour, refuses people who already
@@ -75,13 +78,15 @@ function form(o: Record<string, unknown>, prefix = "", out: string[] = []): stri
   }
   return out.join("&");
 }
-async function stripe(d: Deps, path: string, body: Record<string, unknown>, idem?: string): Promise<any> {
+// Managed Payments is a preview: it needs this API version on the Checkout Session call (every other call keeps the account's default).
+const MANAGED_PAYMENTS_VERSION = "2026-02-25.preview";
+async function stripe(d: Deps, path: string, body: Record<string, unknown>, idem?: string, version?: string): Promise<any> {
   const r = await d.fetch(`https://api.stripe.com/v1/${path}`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${d.env("STRIPE_SECRET_KEY")}`, "Content-Type": "application/x-www-form-urlencoded", ...(idem ? { "Idempotency-Key": idem } : {}) },
+    headers: { Authorization: `Bearer ${d.env("STRIPE_SECRET_KEY")}`, "Content-Type": "application/x-www-form-urlencoded", ...(idem ? { "Idempotency-Key": idem } : {}), ...(version ? { "Stripe-Version": version } : {}) },
     body: form(body),
   });
-  if (!r.ok) throw new Error(`stripe ${path} ${r.status}`);
+  if (!r.ok) { const e = await r.json().catch(() => ({})) as { error?: { code?: string; message?: string } }; throw new Error(`stripe ${path} ${r.status} ${e.error?.code || ""} ${String(e.error?.message || "").slice(0, 200)}`.trim()); }   // Stripe's reason goes to the function log only
   return await r.json();
 }
 
@@ -154,6 +159,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     // A free trial only for accounts that never had one (an app trial, a store trial or a Stripe trial) and never subscribed
     const hadTrial = !!(ent && (ent.trial_until || ent.external_id || ent.source === "stripe"));
     const src = body.src === "app" ? "&src=app" : "";
+    const managed = d.env("STRIPE_MANAGED_PAYMENTS") === "1";
     const session = await stripe(d, "checkout/sessions", {
       mode: "subscription",
       customer,   // the customer already carries the account's email address
@@ -164,7 +170,8 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
       allow_promotion_codes: "true",
       success_url: safeReturn(body.success_url, origins, "/success.html", local, `?session_id={CHECKOUT_SESSION_ID}${src}`),
       cancel_url: safeReturn(body.cancel_url, origins, "/cancel.html", local, src ? "?src=app" : ""),
-    });
+      ...(managed ? { managed_payments: { enabled: "true" } } : {}),
+    }, undefined, managed ? MANAGED_PAYMENTS_VERSION : undefined);
     if (typeof session.url !== "string" || !/^https:\/\/checkout\.stripe\.com\//.test(session.url)) throw new Error("no checkout url");
     return json({ url: session.url }, 200, cors);
   } catch (err) {

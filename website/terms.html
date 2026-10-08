@@ -10,27 +10,29 @@
 <meta name="description" content="Terms of Service for Studyboard.">
 <link rel="icon" type="image/png" href="assets/icon-192.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/fonts.css">
 <link rel="stylesheet" href="assets/site.css">
 </head>
 <body>
 <a class="skip" href="#main">Skip to the content</a>
-<header class="site">
+<header class="top">
   <div class="wrap">
-    <a class="brand" href="./"><img src="assets/icon-192.png" alt="" width="32" height="32">Studyboard</a>
+    <a class="brand" href="./" aria-label="Studyboard home"><img class="logo-l" src="assets/logo-light.webp" alt="" width="136" height="30"><img class="logo-d" src="assets/logo-dark.webp" alt="" width="136" height="30"></a>
     <nav class="main" aria-label="Main">
-      <a href="index.html#features">Features</a>
+      <a href="index.html#features" class="hide-sm">Features</a>
+      <a href="index.html#sync" class="hide-sm">Sync &amp; backups</a>
       <a href="index.html#pricing">Pricing</a>
-      <a href="account/">Account</a>
+      <a href="account/" class="hide-sm">Account</a>
+      <a href="index.html#download" class="navbtn">Download</a>
       <button class="icon-btn" id="theme-toggle" type="button" aria-pressed="false" aria-label="Switch theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
     </nav>
   </div>
 </header>
 <main id="main">
 <section class="block"><div class="wrap narrow legal">
-<p class="msg"><strong>Owner:</strong> this is a plain-language starting point, not legal advice. Replace the highlighted placeholders (<span class="placeholder">YOUR NAME OR COMPANY</span>, <span class="placeholder">support@YOUR-DOMAIN</span>, <span class="placeholder">YOUR COUNTRY</span>), have it reviewed for where you operate, then delete this box.</p>
 <h1>Terms of Service</h1>
-<p class="muted">Effective: October 3, 2026</p>
-<p>These terms are between you and <span class="placeholder">YOUR NAME OR COMPANY</span> ("we") for using Studyboard, the app and this website. By using Studyboard you agree to them. Questions: <a class="support-email" href="mailto:support@YOUR-DOMAIN">support@YOUR-DOMAIN</a>.</p>
+<p class="muted">Effective: October 8, 2026</p>
+<p>These terms are between you and Studyboard ("we") for using Studyboard, the app and this website. By using Studyboard you agree to them. Questions: <a class="support-email" href="mailto:support@studyboardapp.com">support@studyboardapp.com</a>.</p>
 
 <h2>Using Studyboard</h2>
 <ul>
@@ -45,7 +47,7 @@
 <li>Studyboard has a free plan and an optional paid plan called Pro. What each includes, and the prices, are shown on the <a href="index.html#pricing">pricing page</a>. We may change prices or features for the future; if you subscribe, the price you agreed to stays the same until your next renewal after we tell you.</li>
 <li><strong>Free trial:</strong> new subscribers get 7 days free. If you don't cancel before it ends, your plan starts and your card is charged.</li>
 <li><strong>Renewal and cancelling:</strong> subscriptions renew automatically each month or year until you cancel. Cancel any time under <a href="account/">Manage billing</a>; you keep Pro until the end of the period you paid for.</li>
-<li><strong>Refunds:</strong> payments are generally not refunded for time already used, except where the law says otherwise. If something went wrong, write to us and we'll sort it out fairly: <a class="support-email" href="mailto:support@YOUR-DOMAIN">support@YOUR-DOMAIN</a>.</li>
+<li><strong>Refunds:</strong> payments are generally not refunded for time already used, except where the law says otherwise. If something went wrong, write to us and we'll sort it out fairly: <a class="support-email" href="mailto:support@studyboardapp.com">support@studyboardapp.com</a>.</li>
 <li><strong>Apple subscriptions (iPhone and iPad):</strong> Payment will be charged to your Apple ID account at confirmation of purchase. The subscription renews automatically unless it is cancelled at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours before the end of the current period. You can manage and cancel your subscriptions in your App Store account settings after purchase (https://apps.apple.com/account/subscriptions). Any unused portion of a free trial period, if offered, is forfeited when you buy a subscription.</li>
 <li>Purchases made in the App Store or Google Play follow Apple's or Google's rules for billing, cancelling and refunds.</li>
 <li>If a payment is reversed (a refund or a dispute), Pro for that payment ends.</li>
@@ -59,16 +61,15 @@
 <p>You can stop using Studyboard and ask us to delete your account at any time. We may suspend accounts that break these terms or abuse the service.</p>
 
 <h2>Changes and law</h2>
-<p>We may update these terms and will tell you about important changes. These terms are governed by the laws of <span class="placeholder">YOUR COUNTRY OR STATE</span>.</p>
+<p>We may update these terms and will tell you about important changes. These terms are governed by the laws of the State of Washington, United States.</p>
 
 </div></section>
 </main>
 <footer class="site">
   <div class="wrap">
-    <span>Studyboard, the planner made by a student for students.</span>
-    <a href="privacy.html">Privacy</a>
-    <a href="terms.html">Terms</a>
-    <a class="support-email" href="mailto:support@YOUR-DOMAIN">support@YOUR-DOMAIN</a>
+    <a class="brand" href="./" aria-label="Studyboard home"><img class="logo-l" src="assets/logo-light.webp" alt="" width="109" height="24"><img class="logo-d" src="assets/logo-dark.webp" alt="" width="109" height="24"></a>
+    <span>&copy; <span data-year>2026</span> Studyboard &middot; Version <span data-version>1.13.0</span>. The planner made by a student for students.</span>
+    <span class="links"><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="account/">Account</a><a class="support-email" href="mailto:support@studyboardapp.com">support@studyboardapp.com</a></span>
   </div>
 </footer>
 <script src="config.js"></script>

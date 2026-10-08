@@ -37,7 +37,7 @@ alter table public.studyboard_config add constraint studyboard_config_no_secrets
 -- A null limit means "no limit".
 insert into public.studyboard_config (key, value) values
   ('paywall', 'false'),
-  ('prices', '{"monthly": "$2.99", "yearly": "$19.99", "trialDays": 7, "currency": "USD"}'),
+  ('prices', '{"monthly": "$2.99", "yearly": "$24.99", "trialDays": 7, "currency": "USD"}'),
   ('limits', '{"free": {"devices": 2, "fileMB": 100, "dataMB": 25, "groupMembers": 3, "groupMsgDays": 60, "cloudBackupDays": 0},
                "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}'),
   ('checkout_url_monthly', '""'),

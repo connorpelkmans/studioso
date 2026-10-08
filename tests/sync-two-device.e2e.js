@@ -241,6 +241,71 @@ const phMissing = st => { const l = phLook(st); return !l.ph.includes("ph-test1"
 const phWhy = a => a.length ? " [" + a.join("; ") + "]" : "";
 
 const SC = [
+  ["0b clearing site data on a device, then signing in again, keeps the account's boards, theme and note placement", async (b, srv) => {
+    const boards = [{id: "bd1", name: "Biology", courseId: ""}, {id: "bd2", name: "History", courseId: ""}];
+    const style = {skin: "slate", skinAt: Date.now() - HOUR};
+    const {A, close} = await fresh(b, srv, s => { s.seed("meta", "planner", {schema: 2, settings: {capacity: 15, noteBoards: boards, style}}, HOUR); ["n1", "n2"].forEach((i, k) => s.seed("note", i, noteRow(i, "note " + i, {board: boards[k].id}), HOUR)); });
+    await A.settle(); await A.page.waitForTimeout(4500);
+    const before = await A.settings();
+    // "Clear site data": local storage and the device copy of the account's rows are gone, then the app is opened again
+    await A.eval(async () => { localStorage.clear(); try { await new Promise(r => { const q = indexedDB.deleteDatabase("studyboard-sync"); q.onsuccess = q.onerror = q.onblocked = () => r(); }); } catch (e) {} });
+    await A.page.addInitScript(() => { try { localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:tour", "done"); localStorage.setItem("sb:onboarded", "1"); } catch (e) {} });
+    await A.reopen(); await A.settle(); await A.page.waitForTimeout(5000); await A.settle();
+    const after = await A.settings(), srvSet = (srv.get("meta", "planner") || {}).settings || {};
+    const notes = await A.eval(() => Object.values(window.__sbSync.mapOf("note")).map(n => n.id + ":" + (n.board || "")).sort().join(","));
+    const names = o => ((o || {}).noteBoards || []).map(x => x.name).sort().join(",");
+    await close();
+    const okDevice = names(after) === "Biology,History" && (after.style || {}).skin === "slate";
+    const okServer = names(srvSet) === "Biology,History" && (srvSet.style || {}).skin === "slate";
+    return {out: `before ${names(before)}/${(before.style || {}).skin}; after-reopen device ${names(after)}/${(after.style || {}).skin}; server ${names(srvSet)}/${(srvSet.style || {}).skin}; notes ${notes}`,
+      ok: okDevice && okServer && notes === "n1:bd1,n2:bd2", noLoss: okServer};
+  }],
+  ["0c a device that writes empty settings can never wipe the account's boards and theme", async (b, srv) => {
+    const boards = [{id: "bd1", name: "Biology", courseId: ""}], style = {skin: "slate", skinAt: Date.now() - HOUR};
+    const {A, B, close} = await fresh(b, srv, s => s.seed("meta", "planner", {schema: 2, settings: {capacity: 15, noteBoards: boards, style}}, HOUR));
+    await A.settle(); await B.settle();
+    // Worst case: this device has the account's settings cached as its base but its own settings hold none of it
+    await A.eval(() => { const S = window.__sbSync; S.state.settings = {capacity: 15, marker: 1}; S.saveSettings(); });
+    await A.settle(); await B.settle(); await converge(A, B);
+    const st = (srv.get("meta", "planner") || {}).settings || {}, sa = await A.settings(), sb = await B.settings();
+    await close();
+    const keep = x => ((x.noteBoards || [])[0] || {}).name === "Biology" && (x.style || {}).skin === "slate";
+    return {out: `server ${JSON.stringify([(st.noteBoards || []).length, (st.style || {}).skin, st.marker])}; A ${keep(sa)}; B ${keep(sb)}`, ok: keep(st) && keep(sa) && keep(sb), noLoss: keep(st)};
+  }],
+  ["0d signing out wipes the device for good: a late save cannot bring the old account's data back, and the next account starts empty", async (b, srv) => {
+    const {A, close} = await fresh(b, srv, s => s.seed("task", "t1", taskRow("t1"), HOUR));
+    await A.settle();
+    const r1 = await A.eval(async () => {
+      const S = window.__sbSync, K = S.devKeys, before = Object.keys(S.state.tasks).length;
+      let err = ""; try { await S.wipeDeviceData(); } catch (e) { err = String(e && e.message); }            // what signing out does to the device
+      const ownerNow = localStorage.getItem(K.OWNER);
+      S.saveSettings();                    // a late save (a timer, a sync) while it was being cleared
+      await new Promise(r => setTimeout(r, 400)); const ownerLater = localStorage.getItem(K.OWNER);
+      return {ownerNow, ownerLater, err, before, ls2: localStorage.getItem(K.LS2), outbox: localStorage.getItem(K.OUTBOX), owner: localStorage.getItem(K.OWNER), tasks: Object.keys(S.state.tasks).length};
+    });
+    // Worst case: something from the old account is still on the device when the next account signs in
+    await A.eval(() => { const K = window.__sbSync.devKeys; localStorage.setItem(K.LS2, JSON.stringify({v: 2, tasks: [{id: "x1", title: "leftover from the first account", courseId: "", type: "Assignment", due: "2026-10-20", status: "todo"}], courses: [], notes: [], decks: [], files: [], events: [], settings: {capacity: 15}})); });
+    await A.reload(); await A.settle();
+    const leftover = await A.state("task", "x1"), onServer = srv.get("task", "x1");
+    await close();
+    const wiped = r1.before === 1 && !r1.ls2 && !r1.outbox && r1.owner === "none" && r1.tasks === 0;
+    return {out: `after wipe + late save: tasks ${r1.tasks}, saved copy ${r1.ls2 ? "BACK" : "none"}, queued writes ${r1.outbox ? "BACK" : "none"}, owner ${r1.owner} (now ${r1.ownerNow}, later ${r1.ownerLater})${r1.err ? " (error: " + r1.err + ")" : ""}; next account: leftover on device ${leftover ? "YES" : "no"}, on server ${onServer ? "YES" : "no"}`, ok: wiped && !leftover && !onServer, noLoss: true};
+  }],
+  ["0 theme picked on A (desktop) shows on B (phone), live and after coming back", async (b, srv) => {
+    const {A, B, close} = await fresh(b, srv, s => {});
+    const skinOf = d => d.eval(() => ({set: (window.__sbSync.state.settings.style || {}).skin, shown: document.documentElement.dataset.skin || "classic"}));
+    await A.eval(() => { const S = window.__sbSync; S.state.settings = Object.assign({}, S.state.settings, {style: Object.assign({}, S.state.settings.style, {skin: "slate", skinAt: Date.now()})}); S.saveSettings(); }); await A.settle(); await B.settle();
+    // a device that was only just opened can take a few seconds to send its own first settings before it takes the new ones
+    await B.page.waitForFunction(() => ((window.__sbSync.state.settings.style || {}).skin) === "slate", null, {timeout: 12000}).catch(() => {});
+    const live = await skinOf(B);
+    await B.pull(); await B.settle();
+    const pulled = await skinOf(B);
+    await B.reopen(); await B.settle();
+    const reopened = await skinOf(B);
+    await close();
+    const ok = [live, pulled, reopened].every(x => x.set === "slate");
+    return {out: `live ${JSON.stringify(live)}  pulled ${JSON.stringify(pulled)}  reopened ${JSON.stringify(reopened)}`, ok, noLoss: true};
+  }],
   ["1 same note edited offline on A and B", async (b, srv) => {
     const {A, B} = await fresh(b, srv, s => s.seed("note", "n1", noteRow("n1", "Bio\nCells are the unit of life\nMitochondria"), HOUR));
     A.goOffline(); B.goOffline();

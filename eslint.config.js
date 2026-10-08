@@ -40,7 +40,11 @@ function testGlobals() {
   const walk = d => fs.readdirSync(d, {withFileTypes: true}).forEach(e => {
     const f = path.join(d, e.name);
     if (e.isDirectory()) walk(f);
-    else if (/\.js$/.test(e.name)) for (const m of fs.readFileSync(f, "utf8").matchAll(/\bwindow\.([A-Za-z_$][\w$]*)\s*=(?!=)/g)) g[m[1]] = "writable";
+    else if (/\.js$/.test(e.name)) {
+      const src = fs.readFileSync(f, "utf8");
+      for (const m of src.matchAll(/\bwindow\.([A-Za-z_$][\w$]*)\s*=(?!=)/g)) g[m[1]] = "writable";
+      for (const m of src.matchAll(/\bObject\.defineProperty\(\s*window\s*,\s*["']([A-Za-z_$][\w$]*)["']/g)) g[m[1]] = "writable";   // e.g. a live getter for the page's state
+    }
   });
   try { walk(path.join(__dirname, "tests")); } catch (e) { /* no tests */ }
   for (const n of Object.keys(g)) if (n in globals.node || n in globals.browser) delete g[n];
@@ -65,8 +69,14 @@ module.exports = [
   // Renderer pages loaded with <script src>: widget and screenshot overlays, the marketing site
   {
     files: ["widget.js", "shot.js", "website/**/*.js"],
-    languageOptions: {ecmaVersion: 2024, sourceType: "script", globals: {...globals.browser, supabase: "readonly", SITE_CONFIG: "readonly"}},
+    // SCN20 and COMP_DATA are declared by scenes-lib.js and companions-data.js, loaded as separate scripts
+    languageOptions: {ecmaVersion: 2024, sourceType: "script", globals: {...globals.browser, supabase: "readonly", SITE_CONFIG: "readonly", SCN20: "readonly", COMP_DATA: "readonly"}},
     rules: bugRules,
+  },
+  // The app's scene and companion code, copied unchanged by tools/make-website-assets.py: same relaxations as the app's own inline lint (scripts/lint-inline.js)
+  {
+    files: ["website/assets/scenes-lib.js", "website/assets/companions-engine.js", "website/assets/companions-data.js"],
+    rules: {"no-redeclare": "off", "no-self-assign": "warn"},
   },
   // Service worker
   {
@@ -78,7 +88,8 @@ module.exports = [
   {
     files: ["tests/**/*.js"],
     languageOptions: {ecmaVersion: 2024, sourceType: "commonjs", globals: {...globals.node, ...globals.browser, ...testGlobals()}},
-    rules: bugRules,
+    // a test's own /* global ... */ comment may name a page global another test also exposes: that is not a redeclaration
+    rules: {...bugRules, "no-redeclare": ["error", {builtinGlobals: false}]},
   },
 ];
 module.exports.bugRules = bugRules;

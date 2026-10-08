@@ -29,6 +29,11 @@
     if (els[i].tagName === "A" && !/YOUR-DOMAIN/.test(mail)) els[i].setAttribute("href", "mailto:" + mail);
     if (/YOUR-DOMAIN/.test(mail)) els[i].classList.add("placeholder");
   }
+  // The year and the app version in the footer and the hero
+  var yr = document.querySelectorAll("[data-year]");
+  for (var y = 0; y < yr.length; y++) yr[y].textContent = String(new Date().getFullYear());
+  var vers = document.querySelectorAll("[data-version]");
+  for (var z = 0; z < vers.length; z++) if (typeof cfg.VERSION === "string" && /^[0-9][0-9A-Za-z.\-]*$/.test(cfg.VERSION)) vers[z].textContent = cfg.VERSION;
   var app = document.querySelectorAll("a.app-link");
   for (var j = 0; j < app.length; j++) {
     try { var u = new URL(cfg.APP_URL); if (u.protocol === "https:" && !/YOUR-APP/.test(u.hostname)) app[j].setAttribute("href", u.href); } catch (e) { /* keep the placeholder link */ }

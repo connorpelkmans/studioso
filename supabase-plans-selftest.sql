@@ -5,41 +5,54 @@
 -- as an ordinary account (or with only the public key): give themselves Pro, change a setting, read someone else's plan,
 -- run the grant function, edit their usage totals, and so on. Every attempt must FAIL. If one works, the test stops with
 --     ERROR: EXPLOIT SUCCEEDED: <what worked>
--- and you should NOT launch until that is fixed. When everything holds you see the notice "ALL n SECURITY CHECKS PASSED"
--- and a table listing every check.
+-- and you should NOT launch until that is fixed. When everything holds you see the error "SELF-TEST PASSED: ALL n SECURITY CHECKS HELD"
+-- (an error on purpose, so nothing is saved).
 --
--- It changes nothing for real: everything happens inside one transaction that ends with ROLLBACK (the test accounts, the
--- test data and the temporary paywall switch all disappear). It is safe to run on your live project, and safe to run again.
--- If you stop it half way, run: rollback;
+-- It changes nothing for real. The whole test is ONE statement that ends with an error ON PURPOSE, so the database undoes everything
+-- (the helpers it creates, the test accounts, the test data and the temporary paywall switch). When every attack was refused, that last
+-- error reads "SELF-TEST PASSED: ALL n SECURITY CHECKS HELD". Any other error means a check failed: do NOT launch.
+-- It is safe to run on your live project, and safe to run again.
 
-begin;
-
-create table public.sbt_log (n serial, name text);
-grant all on public.sbt_log to public;
-grant usage on sequence public.sbt_log_n_seq to public;
-
--- Runs one statement as whoever is current. Returns 'ok:<rows changed>' or 'err:<sqlstate>'.
+do $outer$
+begin
+  execute $q$
+create table public.sbt_log (n serial, name text)
+  $q$;
+  execute $q$
+grant all on public.sbt_log to public
+  $q$;
+  execute $q$
+grant usage on sequence public.sbt_log_n_seq to public
+  $q$;
+  execute $q$
 create function public.sbt_try(q text) returns text language plpgsql as $f$
 declare n bigint;
-begin execute q; get diagnostics n = row_count; return 'ok:' || n; exception when others then return 'err:' || sqlstate; end $f$;
--- Counts the rows a query can see (-1 if it is refused outright).
+begin execute q; get diagnostics n = row_count; return 'ok:' || n; exception when others then return 'err:' || sqlstate; end $f$
+  $q$;
+  execute $q$
 create function public.sbt_count(q text) returns bigint language plpgsql as $f$
 declare n bigint;
-begin execute 'select count(*) from (' || q || ') s' into n; return n; exception when others then return -1; end $f$;
--- The attempt must have been refused, or changed nothing.
+begin execute 'select count(*) from (' || q || ') s' into n; return n; exception when others then return -1; end $f$
+  $q$;
+  execute $q$
 create function public.sbt_blocked(r text, name text) returns void language plpgsql as $f$
 begin
   if r like 'ok:%' and r <> 'ok:0' then raise exception 'EXPLOIT SUCCEEDED: %', name; end if;
   insert into public.sbt_log (name) values (name);
-end $f$;
+end $f$
+  $q$;
+  execute $q$
 create function public.sbt_ok(cond boolean, name text) returns void language plpgsql as $f$
 begin
   if cond is not true then raise exception 'EXPLOIT SUCCEEDED / CHECK FAILED: %', name; end if;
   insert into public.sbt_log (name) values (name);
-end $f$;
-grant execute on function public.sbt_try(text), public.sbt_count(text), public.sbt_blocked(text, text), public.sbt_ok(boolean, text) to public;
-
-do $test$
+end $f$
+  $q$;
+  execute $q$
+grant execute on function public.sbt_try(text), public.sbt_count(text), public.sbt_blocked(text, text), public.sbt_ok(boolean, text) to public
+  $q$;
+  execute $q$
+create function public.sbt_main() returns void language plpgsql as $sbtmain$
 declare
   ua uuid := gen_random_uuid();   -- an ordinary free account (the "attacker")
   ub uuid := gen_random_uuid();   -- another account, with a gift from you
@@ -336,9 +349,9 @@ begin
   if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'items' and column_name = 'updated_at') then
     -- (lean.sql's trigger stamps updated_at with the server clock on every change, so it is paused to age the backup; the rollback undoes this)
     if exists (select 1 from pg_trigger where tgrelid = 'public.items'::regclass and tgname = 'lean_items_touch') then execute 'alter table public.items disable trigger lean_items_touch'; end if;
-    update public.items set updated_at = now() - interval '40 days' where user_id = ua and kind = 'backup';
+    update public.items set updated_at = now() - interval '70 days' where user_id = ua and kind = 'backup';
     if exists (select 1 from pg_trigger where tgrelid = 'public.items'::regclass and tgname = 'lean_items_touch') then execute 'alter table public.items enable trigger lean_items_touch'; end if;
-    perform public.sbt_ok(public.studyboard_prune_backups() = 1, 'backups older than 30 days are removed for Pro');
+    perform public.sbt_ok(public.studyboard_prune_backups() = 1, 'backups past the Pro window (30 days plus 30 days of grace) are removed');
   end if;
   perform public.studyboard_revoke_pro_uid(ua, 'selftest');
   perform public.sbt_ok(not public.studyboard_is_pro(ua), 'revoking a grant should end Pro');
@@ -659,8 +672,9 @@ begin
   select count(*) into n from public.sbt_log;
   raise notice 'ALL % SECURITY CHECKS PASSED. Nothing was changed for real (the test ends with a rollback).', n;
 end
-$test$;
-
-select n as "#", name as "attack tried or rule checked (every one held)" from public.sbt_log order by n;
-
-rollback;
+$sbtmain$
+  $q$;
+  perform public.sbt_main();
+  raise exception 'SELF-TEST PASSED: ALL % SECURITY CHECKS HELD. Nothing was saved (this error is on purpose, it undoes the test).', (select count(*) from public.sbt_log);
+end
+$outer$;
