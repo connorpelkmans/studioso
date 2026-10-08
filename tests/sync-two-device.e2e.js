@@ -241,10 +241,43 @@ const phMissing = st => { const l = phLook(st); return !l.ph.includes("ph-test1"
 const phWhy = a => a.length ? " [" + a.join("; ") + "]" : "";
 
 const SC = [
+  ["0b clearing site data on a device, then signing in again, keeps the account's boards, theme and note placement", async (b, srv) => {
+    const boards = [{id: "bd1", name: "Biology", courseId: ""}, {id: "bd2", name: "History", courseId: ""}];
+    const style = {skin: "slate", skinAt: Date.now() - HOUR};
+    const {A, close} = await fresh(b, srv, s => { s.seed("meta", "planner", {schema: 2, settings: {capacity: 15, noteBoards: boards, style}}, HOUR); ["n1", "n2"].forEach((i, k) => s.seed("note", i, noteRow(i, "note " + i, {board: boards[k].id}), HOUR)); });
+    await A.settle(); await A.page.waitForTimeout(4500);
+    const before = await A.settings();
+    // "Clear site data": local storage and the device copy of the account's rows are gone, then the app is opened again
+    await A.eval(async () => { localStorage.clear(); try { await new Promise(r => { const q = indexedDB.deleteDatabase("studyboard-sync"); q.onsuccess = q.onerror = q.onblocked = () => r(); }); } catch (e) {} });
+    await A.page.addInitScript(() => { try { localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:tour", "done"); localStorage.setItem("sb:onboarded", "1"); } catch (e) {} });
+    await A.reopen(); await A.settle(); await A.page.waitForTimeout(5000); await A.settle();
+    const after = await A.settings(), srvSet = (srv.get("meta", "planner") || {}).settings || {};
+    const notes = await A.eval(() => Object.values(window.__sbSync.mapOf("note")).map(n => n.id + ":" + (n.board || "")).sort().join(","));
+    const names = o => ((o || {}).noteBoards || []).map(x => x.name).sort().join(",");
+    await close();
+    const okDevice = names(after) === "Biology,History" && (after.style || {}).skin === "slate";
+    const okServer = names(srvSet) === "Biology,History" && (srvSet.style || {}).skin === "slate";
+    return {out: `before ${names(before)}/${(before.style || {}).skin}; after-reopen device ${names(after)}/${(after.style || {}).skin}; server ${names(srvSet)}/${(srvSet.style || {}).skin}; notes ${notes}`,
+      ok: okDevice && okServer && notes === "n1:bd1,n2:bd2", noLoss: okServer};
+  }],
+  ["0c a device that writes empty settings can never wipe the account's boards and theme", async (b, srv) => {
+    const boards = [{id: "bd1", name: "Biology", courseId: ""}], style = {skin: "slate", skinAt: Date.now() - HOUR};
+    const {A, B, close} = await fresh(b, srv, s => s.seed("meta", "planner", {schema: 2, settings: {capacity: 15, noteBoards: boards, style}}, HOUR));
+    await A.settle(); await B.settle();
+    // Worst case: this device has the account's settings cached as its base but its own settings hold none of it
+    await A.eval(() => { const S = window.__sbSync; S.state.settings = {capacity: 15, marker: 1}; S.saveSettings(); });
+    await A.settle(); await B.settle(); await converge(A, B);
+    const st = (srv.get("meta", "planner") || {}).settings || {}, sa = await A.settings(), sb = await B.settings();
+    await close();
+    const keep = x => ((x.noteBoards || [])[0] || {}).name === "Biology" && (x.style || {}).skin === "slate";
+    return {out: `server ${JSON.stringify([(st.noteBoards || []).length, (st.style || {}).skin, st.marker])}; A ${keep(sa)}; B ${keep(sb)}`, ok: keep(st) && keep(sa) && keep(sb), noLoss: keep(st)};
+  }],
   ["0 theme picked on A (desktop) shows on B (phone), live and after coming back", async (b, srv) => {
     const {A, B, close} = await fresh(b, srv, s => {});
     const skinOf = d => d.eval(() => ({set: (window.__sbSync.state.settings.style || {}).skin, shown: document.documentElement.dataset.skin || "classic"}));
     await A.eval(() => { const S = window.__sbSync; S.state.settings = Object.assign({}, S.state.settings, {style: Object.assign({}, S.state.settings.style, {skin: "slate", skinAt: Date.now()})}); S.saveSettings(); }); await A.settle(); await B.settle();
+    // a device that was only just opened can take a few seconds to send its own first settings before it takes the new ones
+    await B.page.waitForFunction(() => ((window.__sbSync.state.settings.style || {}).skin) === "slate", null, {timeout: 12000}).catch(() => {});
     const live = await skinOf(B);
     await B.pull(); await B.settle();
     const pulled = await skinOf(B);
