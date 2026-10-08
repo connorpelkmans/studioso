@@ -289,9 +289,10 @@ input.code{font:700 1.6rem ui-monospace,Menlo,Consolas,monospace;letter-spacing:
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .toast{background:#E7EEFA;color:#0A1428}}
 
 /* ---- Live theme tiles (assets/scenes.js): the app's own scene and animation, with a small Task Board in the theme's colors on top ---- */
-.tile.live > img{display:none}
+.tile.scn-on > img{display:none}
 .scn{position:relative;width:100%;aspect-ratio:8/5;overflow:hidden}
 .scn-art{position:absolute;overflow:hidden}
+.scn-in{position:absolute}
 .scn-l{position:absolute;display:block;max-width:none}
 .scn-cv{position:absolute;left:0;top:0;pointer-events:none;display:block}
 .scn-band{position:absolute;left:0;right:0}
