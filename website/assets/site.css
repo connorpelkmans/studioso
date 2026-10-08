@@ -135,6 +135,10 @@ footer.site a:hover{color:var(--accent)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .dl.store{background:#fff;border-color:#fff;color:#0B1223}:root:not([data-theme="light"]) .dl.store .t small{color:#4A5875}}
 .dlmeta{font-size:.92rem;color:var(--muted);margin:0}
 .dlmeta a{font-weight:700}
+.dlnote{font-size:.85rem;color:var(--muted);margin:10px 0 0;max-width:46ch}
+.dlnote a{font-weight:700}
+.dlhelp{margin-top:18px}
+.dlhelp .dlnote{max-width:none;margin:0 0 8px}
 .others{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .others span{font:500 .82rem var(--display);color:var(--muted);margin-right:2px}
 .chip{font:600 .84rem var(--display);color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:7px 13px;text-decoration:none;cursor:pointer;display:inline-flex;align-items:center;gap:7px}

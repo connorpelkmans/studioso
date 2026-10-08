@@ -58,6 +58,38 @@ jobs:
           name: Studyboard-unsigned-${{ matrix.os }}
           path: ${{ matrix.files }}
 
+  # Unsigned test builds, published to the same public bucket as the signed ones (when you run it by hand with kind: unsigned).
+  # Needs the SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY repository secrets. These files trigger SmartScreen / Gatekeeper warnings.
+  publish-unsigned:
+    if: github.event_name == 'workflow_dispatch' && inputs.kind == 'unsigned'
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: Studyboard-unsigned-*
+          merge-multiple: true
+          path: release
+      - name: Upload to Supabase Storage
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+          [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] || { echo "::error::Set the SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY repository secrets"; exit 1; }
+          V=$(node -p "require('./package.json').version")
+          ls -l release
+          for f in release/*; do
+            name=$(basename "$f")
+            curl -fsS -X POST "$SUPABASE_URL/storage/v1/object/downloads/v$V/$name" \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" -H "x-upsert: true" -H "Content-Type: application/octet-stream" \
+              --data-binary "@$f" >/dev/null
+            echo "$SUPABASE_URL/storage/v1/object/public/downloads/v$V/$name" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+
   # ---------------------------------------------------------------------------------------------------------------
   # Signed + notarized macOS DMG (Developer ID), the signed Windows installer and the Mac App Store package. They run on a v* tag (signed
   # builds) or by hand (Actions > Run workflow), because they need your Apple Developer account and signing certificates. See
