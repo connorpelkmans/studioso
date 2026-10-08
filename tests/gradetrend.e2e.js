@@ -1,6 +1,6 @@
 // node tests/gradetrend.e2e.js [screenshot-dir]   (Playwright + Chromium; see tests/pw.js)
 // Grade trend: chart in a course's Grades tab (weighted marks, goal line, summary, hidden data table, LMS-synced mark), empty states, sparkline on course cards, dark theme, XL text.
-// Study Groups on phones: the More button in the bottom bar and its sheet, aria-current on Groups, the "Study with a friend" Board card
+// Study Groups on phones: the Groups tab in the bottom bar (Board to Groups, no More button), aria-current on Groups, the "Study with a friend" Board card
 // (signed out, signed in with and without groups, Not now, Don't show again), desktop unchanged, no horizontal scroll, 44px targets.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
@@ -120,42 +120,25 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
       noErr(page, "with undated items"); await ctx.close();
     }
 
-    /* ---------- More menu and Groups card, phone ---------- */
+    /* ---------- Phone bar: Board to Groups, no More button (the three dots hold settings) ---------- */
     for (const W of [390, 360, 320]) {
       const ctx = await mkCtx({w: W, h: 760}); const page = await open(ctx);
-      const more = page.locator("nav.tabs .nav-more");
-      ok(await more.isVisible(), `More is in the bottom bar @${W}`);
-      const rects = await page.$$eval("nav.tabs .in > button", bs => bs.filter(b => b.offsetParent).map(b => { const r = b.getBoundingClientRect(); return {l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height, tx: b.textContent.trim()}; }));
-      ok(rects.length === 7, `7 buttons in the phone bar @${W}: ${rects.map(r => r.tx).join(",")}`);
+      ok(!(await page.locator("nav.tabs .nav-more").isVisible()), `no More button in the phone bar @${W}`);
+      const rects = await page.$$eval("nav.tabs .in > button", bs => bs.filter(b => b.offsetParent).map(b => { const r = b.getBoundingClientRect(); return {l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height, tx: b.textContent.trim(), tab: b.dataset.tab || ""}; }));
+      ok(rects.length === 7 && rects[0].tab === "board" && rects[6].tab === "groups", `7 tabs in the phone bar, Board to Groups @${W}: ${rects.map(r => r.tx).join(",")}`);
       ok(rects.every((r, i) => !i || r.l >= rects[i - 1].r - 0.5) && rects[0].l >= 0 && rects[6].r <= W, `bar buttons don't overlap and stay on screen @${W}`);
       ok(rects.every(r => r.h >= 44), `bar targets are at least 44px tall @${W}`);
       const spans = await page.$$eval("nav.tabs .in > button", bs => bs.filter(b => b.offsetParent).map(b => { const s = [...b.childNodes].find(x => x.nodeType === 3 && x.nodeValue.trim()) || b.querySelector(".nm-l").firstChild; const r = document.createRange(); r.selectNodeContents(s); const q = r.getBoundingClientRect(); return [q.left, q.right]; }));
       ok(spans.every((q, i) => !i || q[0] >= spans[i - 1][1] - 0.5), `bar labels never run into each other @${W}`);
       if (W === 390) await page.screenshot({path: path.join(SHOTS, "nav-390.png"), clip: {x: 0, y: 760 - 110, width: 390, height: 110}});
-      await more.click(); await page.waitForSelector("#dlg .more-sheet");
-      ok(await more.getAttribute("aria-expanded") === "true", "More reports expanded");
-      const labels = await page.$$eval("#dlg .more-sheet .menu-list button", b => b.map(x => x.firstElementChild.firstChild.textContent));
-      ok(labels.join("|") === "Study Groups|Files|Grades|Settings", "More lists Groups, Files, Grades, Settings: " + labels.join("|"));
-      const small = await page.$$eval("#dlg .more-sheet .menu-list button", b => b.filter(x => x.getBoundingClientRect().height < 44).length);
-      ok(small === 0, "More sheet targets are 44px+");
-      if (W === 390) await page.screenshot({path: path.join(SHOTS, "more-390.png")});
-      await page.keyboard.press("Escape"); await page.waitForTimeout(200);
-      ok(!(await page.evaluate(() => document.querySelector("#dlg").open)), "Escape closes the More sheet");
-      ok(await page.evaluate(() => document.activeElement && document.activeElement.classList.contains("nav-more")), "focus returns to More");
-      await more.click(); await page.click('#dlg [data-act="more-go-groups"]'); await page.waitForTimeout(300);
-      ok(await page.evaluate(() => document.body.dataset.view) === "groups" && /Study Groups/.test(await page.locator("#view h2").first().textContent()), "More opens the Study Groups page");
-      ok(await more.getAttribute("aria-current") === "page", "More is highlighted while on Groups");
-      ok(await page.locator('nav.tabs [data-tab][aria-current="page"]:visible').count() === 0, "no other visible tab claims to be current");
+      await page.click('nav.tabs [data-tab="groups"]'); await page.waitForTimeout(300);
+      ok(await page.evaluate(() => document.body.dataset.view) === "groups" && /Study Groups/.test(await page.locator("#view h2").first().textContent()), "the Groups tab opens the Study Groups page");
+      ok(await page.locator('nav.tabs [data-tab="groups"]').getAttribute("aria-current") === "page", "Groups is highlighted while on Groups");
+      ok(await page.locator('nav.tabs [data-tab][aria-current="page"]:visible').count() === 1, "no other visible tab claims to be current");
       ok(/Sign In|Set Up Sync/.test(await page.locator("#view .grp-offline").textContent()), "signed out, the Groups page offers Sign In");
       await page.click('nav.tabs [data-tab="board"]'); await page.waitForTimeout(200);
-      ok(await more.getAttribute("aria-current") === "false", "More no longer current after going to the Board");
-      await more.click(); await page.click('#dlg [data-act="more-go-files"]'); await page.waitForTimeout(250);
-      ok(await page.evaluate(() => document.body.dataset.view) === "files" && await page.locator('nav.tabs [data-tab="courses"]').getAttribute("aria-current") === "page", "Files via More keeps Courses highlighted");
-      await more.click(); await page.click('#dlg [data-act="g-grades"]'); await page.waitForTimeout(250);
-      ok(await page.locator("#view .gp").count() === 1, "Grades via More opens the grades page");
-      await more.click(); await page.click('#dlg [data-act="menu"]'); await page.waitForSelector('#dlg [data-act="grp-page"]', {state: "attached"});
-      ok(await page.locator('#dlg [data-act="grp-page"]').count() === 1, "Settings via More opens settings");
-      await page.keyboard.press("Escape"); await noOverflow(page, `with More @${W}`); noErr(page, `More menu @${W}`);
+      ok(await page.locator('nav.tabs [data-tab="groups"]').getAttribute("aria-current") !== "page", "Groups no longer current after going to the Board");
+      await noOverflow(page, `phone bar @${W}`); noErr(page, `phone bar @${W}`);
       await ctx.close();
     }
     // focus timer button and existing tabs still work
@@ -223,7 +206,7 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
     // landscape phone, tablet
     for (const [w, h, nm] of [[844, 390, "landscape"], [768, 1024, "tablet"]]) {
       const ctx = await mkCtx({w, h}); const page = await open(ctx);
-      ok(await page.locator("nav.tabs .nav-more").isVisible(), nm + ": More visible");
+      ok(!(await page.locator("nav.tabs .nav-more").isVisible()) && await page.locator('nav.tabs [data-tab="groups"]').isVisible(), nm + ": Groups is a tab, no More button");
       const rr = await page.$$eval("nav.tabs .in > button", bs => bs.filter(b => b.offsetParent).map(b => b.getBoundingClientRect()).map(r => [r.left, r.right]));
       ok(rr.every((r, i) => !i || r[0] >= rr[i - 1][1] - 0.5) && rr[rr.length - 1][1] <= w, nm + ": bar buttons don't overlap");
       await noOverflow(page, nm); noErr(page, nm); await ctx.close();
