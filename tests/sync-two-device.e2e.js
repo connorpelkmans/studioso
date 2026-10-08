@@ -123,7 +123,7 @@ const STUB = () => {
   };
   const client = {
     auth: {
-      getSession: async () => ({data: {session: {user: {id: "u1", email: "student@example.com"}, access_token: "t"}}}),
+      getSession: async () => ({data: {session: {user: Object.assign({id: "u1", email: "student@example.com"}, window.__created ? {created_at: window.__created} : {}), access_token: "t"}}}),
       onAuthStateChange: () => ({data: {subscription: {unsubscribe() {}}}}),
       signOut: async () => ({}), getUser: async () => ({data: {user: {id: "u1", email: "student@example.com"}}}),
     },
@@ -144,7 +144,9 @@ async function device(browser, srv, name, opts) {
   srv.devs[name] = dev;
   await ctx.exposeFunction("__srv", s => { const {op, a} = JSON.parse(s); return JSON.stringify(srv.call(name, op, a)); });
   await ctx.addInitScript({content: `
-    try { localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:tour", "done"); localStorage.setItem("sb:onboarded", "1"); } catch (e) {}
+    ${opts.toured ? `try { if (!localStorage.getItem("seen")) { localStorage.setItem("seen", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("sb:onboarded", "1"); } } catch (e) {}`
+      : `try { localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:tour", "done"); localStorage.setItem("sb:onboarded", "1"); } catch (e) {}`}
+    window.__created = ${JSON.stringify(opts.created || "")};
     window.__off = ${Number(opts.clockOffset || 0)}; window.__SB_TEST = true; window.__SB_RETRY_MS = 4;
     (function () { const RD = Date; class FD extends RD { constructor(...a) { if (a.length) super(...a); else super(RD.now() + window.__off); } static now() { return RD.now() + window.__off; } } window.Date = FD; })();
     (${STUB.toString()})();`});
@@ -290,6 +292,16 @@ const SC = [
     await close();
     const wiped = r1.before === 1 && !r1.ls2 && !r1.outbox && r1.owner === "none" && r1.tasks === 0;
     return {out: `after wipe + late save: tasks ${r1.tasks}, saved copy ${r1.ls2 ? "BACK" : "none"}, queued writes ${r1.outbox ? "BACK" : "none"}, owner ${r1.owner} (now ${r1.ownerNow}, later ${r1.ownerLater})${r1.err ? " (error: " + r1.err + ")" : ""}; next account: leftover on device ${leftover ? "YES" : "no"}, on server ${onServer ? "YES" : "no"}`, ok: wiped && !leftover && !onServer, noLoss: true};
+  }],
+  ["0e a brand-new account gets the welcome tour on a device that has had it before; an older account with an empty planner doesn't", async (b, srv) => {
+    srv.reset(); Object.keys(srv.devs).forEach(k => delete srv.devs[k]);
+    const tourUp = d => d.eval(() => !!document.querySelector("#dlg[open] #obH"));
+    const A = await device(b, srv, "A", {toured: true, created: new Date().toISOString()});
+    let shown = false; for (let i = 0; i < 12 && !shown; i++) { await A.page.waitForTimeout(500); shown = await tourUp(A); }
+    const B = await device(b, srv, "B", {toured: true, created: new Date(Date.now() - 30 * 864e5).toISOString()});
+    await B.page.waitForTimeout(4000); const old = await tourUp(B);
+    const flags = await A.eval(() => !!localStorage.getItem("sb:onboarded:u1"));
+    return {out: `new account: tour ${shown ? "shown" : "NOT shown"}; month-old account: tour ${old ? "shown" : "not shown"}`, ok: shown && !old && !flags, noLoss: true};
   }],
   ["0 theme picked on A (desktop) shows on B (phone), live and after coming back", async (b, srv) => {
     const {A, B, close} = await fresh(b, srv, s => {});
