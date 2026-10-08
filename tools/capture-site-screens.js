@@ -2,8 +2,8 @@
 // Runs the real app with made-up student data on a fixed date and saves screenshots (PNG, light and dark) for the website home page.
 // Convert them to WebP for website/assets/screens/ (for example with Pillow: Image.open(p).save(p.replace(".png", ".webp"), quality=82)).
 const http = require("http"), fs = require("fs"), path = require("path"), os = require("os");
-const {chromium} = require("/opt/node-tools/node_modules/playwright");
-const root = path.join(__dirname, ".."), OUT = process.argv[2] || fs.mkdtempSync(path.join(os.tmpdir(), "sbshots-"));
+const {chromium, executablePath} = require("../tests/pw");
+const root = path.join(__dirname, ".."), OUT = process.argv.slice(2).find(a => !a.startsWith("--")) || fs.mkdtempSync(path.join(os.tmpdir(), "sbshots-"));
 fs.mkdirSync(OUT, {recursive: true});
 const MIME = {".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".png": "image/png", ".css": "text/css", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".webp": "image/webp", ".webmanifest": "application/manifest+json"};
 const server = http.createServer((q, r) => { let p = decodeURIComponent(new URL(q.url, "http://x").pathname); if (p === "/") p = "/index.html"; const f = path.join(root, p);
@@ -101,4 +101,32 @@ async function captureHero(browser, scheme) {
   await page.evaluate(() => { const q = [...document.querySelectorAll("input")].find(i => /Add a task by typing/i.test(i.placeholder || "")); const row = q && (q.closest("form") || q.parentElement.parentElement); if (row) row.style.display = "none"; [...document.querySelectorAll("div,span,label")].filter(e => /^Group By/i.test(e.textContent.trim()) && e.textContent.length < 40 && e.querySelectorAll("button").length <= 2).forEach(e => { e.style.display = "none"; }); });
   await page.waitForTimeout(600); await page.screenshot({path: path.join(OUT, `hero-${scheme}.png`)}); console.log("saved", `hero-${scheme}.png`); await ctx.close();
 }
-(async () => { await new Promise(r => server.listen(0, r)); const browser = await chromium.launch(); try { for (const s of ["light", "dark"]) { await captureHero(browser, s); await captureThemes(browser, s); } for (const s of ["light", "dark"]) await capture(browser, s); } finally { await browser.close(); server.close(); } console.log("done:", OUT); })().catch(e => { console.error(e); process.exit(1); });
+
+// --overlays: the real interface on a transparent background (no scene, no companion) for the home page theme tiles and hero, plus where the scene and the
+// companion sit in that picture (geometry.json). The website draws the live scene behind the picture and the live companion in front of it.
+const GEO = {window: WINDOW, themes: {}, hero: {}};
+const measure = page => page.evaluate(() => {
+  const r = e => { if (!e) return null; const b = e.getBoundingClientRect(); return {left: +b.left.toFixed(1), top: +b.top.toFixed(1), width: +b.width.toFixed(1), height: +b.height.toFixed(1)}; };
+  const cp = document.querySelector(".cp .cp-breathe") || document.querySelector(".cp");
+  return {scene: r(document.getElementById("sceneArt")), comp: r(cp), vw: innerWidth, vh: innerHeight};
+});
+const clearArt = page => page.addStyleTag({content: "#sceneArt,.cp-layer,.cp-front,.cp,.cp-bubble{visibility:hidden!important} html,body{background:transparent!important;background-image:none!important}"});
+async function captureOverlays(browser, scheme) {
+  for (const th of THEMES) {
+    const seed = JSON.parse(JSON.stringify(SEED)); seed.settings.style = {skin: th}; seed.settings.owned = THEMES.map(t => "skin:" + t);
+    const {ctx, page} = await openSeeded(browser, scheme, seed, WINDOW);
+    await taskBoard(page); await page.waitForSelector(".cp .cp-svg", {timeout: 8000}).catch(() => {});
+    const g = await measure(page); (GEO.themes[th] = GEO.themes[th] || {})[scheme] = g;
+    await clearArt(page); await page.waitForTimeout(300);
+    await page.screenshot({path: path.join(OUT, `ui-${th}-${scheme}.png`), omitBackground: true}); console.log("saved", `ui-${th}-${scheme}.png`, JSON.stringify(g.comp)); await ctx.close();
+  }
+  const seed = JSON.parse(JSON.stringify(SEED)); const keep = new Set(["t3", "t4", "t2", "t1", "t5", "t8", "t9"]); seed.tasks = seed.tasks.filter(t => keep.has(t.id));
+  const {ctx, page} = await openSeeded(browser, scheme, seed, {width: 1000, height: 640});
+  await taskBoard(page); await page.waitForSelector(".cp .cp-svg", {timeout: 8000}).catch(() => {});
+  await page.evaluate(() => { const q = [...document.querySelectorAll("input")].find(i => /Add a task by typing/i.test(i.placeholder || "")); const row = q && (q.closest("form") || q.parentElement.parentElement); if (row) row.style.display = "none"; [...document.querySelectorAll("div,span,label")].filter(e => /^Group By/i.test(e.textContent.trim()) && e.textContent.length < 40 && e.querySelectorAll("button").length).forEach(e => { e.style.display = "none"; }); });
+  await page.waitForTimeout(600);
+  GEO.hero[scheme] = await measure(page);
+  await page.addStyleTag({content: ".cp-layer,.cp-front,.cp,.cp-bubble{visibility:hidden!important}"}); await page.waitForTimeout(300);
+  await page.screenshot({path: path.join(OUT, `hero-${scheme}.png`)}); console.log("saved", `hero-${scheme}.png`, JSON.stringify(GEO.hero[scheme].comp)); await ctx.close();
+}
+(async () => { await new Promise(r => server.listen(0, r)); const browser = await chromium.launch({executablePath}); try { if (process.argv.includes("--overlays")) { for (const s of ["light", "dark"]) await captureOverlays(browser, s); fs.writeFileSync(path.join(OUT, "geometry.json"), JSON.stringify(GEO, null, 1)); return; } for (const s of ["light", "dark"]) { await captureHero(browser, s); await captureThemes(browser, s); } for (const s of ["light", "dark"]) await capture(browser, s); } finally { await browser.close(); server.close(); } console.log("done:", OUT); })().catch(e => { console.error(e); process.exit(1); });

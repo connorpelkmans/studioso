@@ -8,7 +8,7 @@
   var root = document.documentElement, SVGNS = "http://www.w3.org/2000/svg";
   var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)");
   var L = null, loading = false, queue = [], broken = {};
-  var DESIGN_W = 1200, DESIGN_H = 750, FRAME_MS = 33, F = {s: 1, a: 1}, F_GENTLE = {s: 0.7, a: 0.7};
+  var FRAME_MS = 33, F = {s: 1, a: 1}, F_GENTLE = {s: 0.7, a: 0.7};
 
   function isDark() {
     var t = root.getAttribute("data-theme");
@@ -49,57 +49,44 @@
     parent.appendChild(svg);
   }
 
-  // A small stand-in for the Task Board in the theme's own colors, on top of the live scene.
-  function board(parent, v) {
-    var ui = el("div", "scn-ui", parent), c = v.c || {};
-    var set = function (n, val) { if (val) ui.style.setProperty(n, val); };
-    set("--s-spine", c.spine); set("--s-sf", c.sf); set("--s-ink", c.ink); set("--s-mu", c.mu); set("--s-ac", c.ac); set("--s-bt", c.bt); set("--s-bf", c.bf); set("--s-ln", c.ln);
-    var sp = el("div", "scn-spine", ui); el("b", "", sp).textContent = "Studyboard"; ["Board", "Calendar", "Flashcards", "Notes"].forEach(function (t, i) { var a = el("span", i ? "" : "on", sp); a.textContent = t; });
-    var main = el("div", "scn-main", ui);
-    el("div", "scn-add", main).textContent = "Add a task by typing, e.g. bio quiz fri 2pm";
-    var cols = el("div", "scn-cols", main);
-    [["To Do", ["Read Ch. 7-8", "Problem Set 5"]], ["In Work", ["Lab Report 4", "Essay 2 outline"]], ["Complete", ["Quiz 3", "Care plan draft"]]].forEach(function (col, ci) {
-      var d = el("div", "scn-col", cols); el("h5", "", d).textContent = col[0];
-      col[1].forEach(function (t) { var cd = el("div", "scn-card" + (ci === 2 ? " done" : ""), d); el("i", "", cd); el("span", "", cd).textContent = t; });
-    });
-    el("div", "scn-fab", ui).textContent = "+ Add Task";
-  }
-
   var live = []; // {tile, box, W, eng, ctx, s, T, drawn, visible}
   function teardown(rec) { if (rec.box && rec.box.parentNode) rec.box.parentNode.removeChild(rec.box); rec.tile.classList.remove("live"); rec.eng = null; rec.ctx = []; }
 
+  // The tile is a picture of the real app (a transparent interface picture made from the app itself) over the live scene, which sits exactly where it does in the app:
+  // to the right of the sidebar, drawn at the scale the app uses for that window size.
   function build(rec) {
     if (!L || !rec.tile.isConnected) return;
-    var tile = rec.tile, id = tile.getAttribute("data-scene"), dk = isDark();
-    var W = Math.round(tile.getBoundingClientRect().width), k, H;
-    if (!W) return;
-    k = W / DESIGN_W; H = Math.round(DESIGN_H * k);
+    var tile = rec.tile, id = tile.getAttribute("data-scene"), dk = isDark(), geo = window.SB_TILE_GEO, g = geo && geo.themes[id] && geo.themes[id][dk ? "dark" : "light"];
+    var W = Math.round(tile.getBoundingClientRect().width);
+    if (!W || !g) return;
+    var t = W / geo.w, H = Math.round(geo.h * t), sx = g.s[0] * t, sy = g.s[1] * t, sw = g.s[2] * t, sh = g.s[3] * t;
+    var kApp = Math.max(0.8, Math.min(3, Math.min(g.s[2] / 1200, g.s[3] / 800))), bw = Math.round(g.s[2] / kApp), bh = Math.round(g.s[3] / kApp), desk = g.s[2] / g.s[3] >= 0.9, k = kApp * t;
     var A = null, v = null, eng = null;
     if (L.ENGINES[id] && !broken[id]) {
-      try { A = {}; L.setAnim(A); v = L.buildSceneAt(id, dk, DESIGN_W, DESIGN_H, true); L.setAnim(null); eng = L.ENGINES[id](A, v, dk); }
+      try { A = {}; L.setAnim(A); v = L.buildSceneAt(id, dk, bw, bh, desk); L.setAnim(null); eng = L.ENGINES[id](A, v, dk); }
       catch (e) { L.setAnim(null); broken[id] = 1; v = null; eng = null; }
     }
-    if (!v) { try { L.setAnim(null); v = L.buildSceneAt(id, dk, DESIGN_W, DESIGN_H, true); } catch (e) { return; } }
+    if (!v) { try { L.setAnim(null); v = L.buildSceneAt(id, dk, bw, bh, desk); } catch (e) { return; } }
     teardown(rec);
     var box = el("div", "scn"); box.setAttribute("aria-hidden", "true");
-    box.style.background = v.sky;
     var art = el("div", "scn-art", box);
+    art.style.left = sx + "px"; art.style.top = sy + "px"; art.style.width = sw + "px"; art.style.height = sh + "px"; art.style.background = v.sky;
     if (v.band && v.band.h) { var b = el("div", "scn-band", art); b.style.top = (v.band.top * k) + "px"; b.style.height = (v.band.h * k) + "px"; b.style.background = v.band.bg; }
     layer(v.far, true, v, k, art); layer(v.refl, true, v, k, art); layer(v.mid, true, v, k, art);
     var cA = eng ? el("canvas", "scn-cv", art) : null;
     layer(v.near, false, v, k, art);
     var cS = eng && eng.stat ? el("canvas", "scn-cv", art) : null;
     var cB = eng ? el("canvas", "scn-cv", art) : null;
-    var dpr = Math.min(1.5, eng && eng.maxDpr || 9, window.devicePixelRatio || 1), s = k * dpr;
-    [cA, cB].forEach(function (c) { if (c) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); c.style.width = W + "px"; c.style.height = H + "px"; } });
-    if (cS) { cS.width = eng.stat.width; cS.height = eng.stat.height; cS.style.width = W + "px"; cS.style.height = H + "px"; cS.getContext("2d").drawImage(eng.stat, 0, 0); eng.hosted = true; }
-    board(box, v);
+    var dpr = Math.min(1.5, eng && eng.maxDpr || 9, window.devicePixelRatio || 1), sc = k * dpr;
+    [cA, cB].forEach(function (c) { if (c) { c.width = Math.round(sw * dpr); c.height = Math.round(sh * dpr); c.style.width = sw + "px"; c.style.height = sh + "px"; } });
+    if (cS) { cS.width = eng.stat.width; cS.height = eng.stat.height; cS.style.width = sw + "px"; cS.style.height = sh + "px"; cS.getContext("2d").drawImage(eng.stat, 0, 0); eng.hosted = true; }
+    var ui = el("img", "scn-ui-img", box); ui.alt = ""; ui.decoding = "async"; ui.src = "assets/screens/ui-" + id + "-" + (dk ? "dark" : "light") + ".webp";
     var comp = tile.getAttribute("data-comp"), host = null;
-    if (comp) { host = el("div", "wcp-host small", box); host.setAttribute("data-companion", comp); }
+    if (comp) { host = el("div", "wcp-host", box); host.setAttribute("data-companion", comp); host.style.left = (g.c[0] / geo.w * 100) + "%"; host.style.top = (g.c[1] / geo.h * 100) + "%"; host.style.width = (g.c[2] / geo.w * 100) + "%"; }
     tile.insertBefore(box, tile.firstChild);
     if (host && window.SBWebComp) window.SBWebComp.mount(host);
     tile.classList.add("live");
-    rec.box = box; rec.W = W; rec.eng = eng; rec.ctx = eng ? [cA.getContext("2d"), cB.getContext("2d")] : []; rec.s = s; rec.T = 0; rec.drawn = false; rec.dk = dk;
+    rec.box = box; rec.W = W; rec.eng = eng; rec.ctx = eng ? [cA.getContext("2d"), cB.getContext("2d")] : []; rec.s = sc; rec.T = 0; rec.drawn = false; rec.dk = dk;
     if (eng) frame(rec, 1 / 30);
   }
 
