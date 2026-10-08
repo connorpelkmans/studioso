@@ -69,14 +69,16 @@
     if (!v) { try { L.setAnim(null); v = L.buildSceneAt(id, dk, bw, bh, desk); } catch (e) { return; } }
     teardown(rec);
     var box = el("div", "scn"); box.setAttribute("aria-hidden", "true");
-    var art = el("div", "scn-art", box);
-    art.style.left = sx + "px"; art.style.top = sy + "px"; art.style.width = sw + "px"; art.style.height = sh + "px"; art.style.background = v.sky;
+    // The scene reaches a little way under the sidebar, so no hairline of the tile's own color can show where the picture's edge is scaled.
+    var pad = Math.max(3, 10 * t), art = el("div", "scn-art", box), inner = el("div", "scn-in", art);
+    art.style.left = (sx - pad) + "px"; art.style.top = sy + "px"; art.style.width = (sw + pad) + "px"; art.style.height = sh + "px"; art.style.background = v.sky;
+    inner.style.left = pad + "px"; inner.style.top = "0px"; inner.style.width = sw + "px"; inner.style.height = sh + "px";
     if (v.band && v.band.h) { var b = el("div", "scn-band", art); b.style.top = (v.band.top * k) + "px"; b.style.height = (v.band.h * k) + "px"; b.style.background = v.band.bg; }
-    layer(v.far, true, v, k, art); layer(v.refl, true, v, k, art); layer(v.mid, true, v, k, art);
-    var cA = eng ? el("canvas", "scn-cv", art) : null;
-    layer(v.near, false, v, k, art);
-    var cS = eng && eng.stat ? el("canvas", "scn-cv", art) : null;
-    var cB = eng ? el("canvas", "scn-cv", art) : null;
+    layer(v.far, true, v, k, inner); layer(v.refl, true, v, k, inner); layer(v.mid, true, v, k, inner);
+    var cA = eng ? el("canvas", "scn-cv", inner) : null;
+    layer(v.near, false, v, k, inner);
+    var cS = eng && eng.stat ? el("canvas", "scn-cv", inner) : null;
+    var cB = eng ? el("canvas", "scn-cv", inner) : null;
     var dpr = Math.min(1.5, eng && eng.maxDpr || 9, window.devicePixelRatio || 1), sc = k * dpr;
     [cA, cB].forEach(function (c) { if (c) { c.width = Math.round(sw * dpr); c.height = Math.round(sh * dpr); c.style.width = sw + "px"; c.style.height = sh + "px"; } });
     if (cS) { cS.width = eng.stat.width; cS.height = eng.stat.height; cS.style.width = sw + "px"; cS.style.height = sh + "px"; cS.getContext("2d").drawImage(eng.stat, 0, 0); eng.hosted = true; }
