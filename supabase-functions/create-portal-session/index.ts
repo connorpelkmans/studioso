@@ -92,7 +92,12 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     const r = await d.fetch("https://api.stripe.com/v1/billing_portal/sessions", {
       method: "POST", headers: { Authorization: `Bearer ${d.env("STRIPE_SECRET_KEY")}`, "Content-Type": "application/x-www-form-urlencoded" }, body: params.toString(),
     });
-    if (!r.ok) { const e = await r.json().catch(() => ({})) as { error?: { code?: string; message?: string } }; throw new Error(`stripe portal ${r.status} ${e.error?.code || ""} ${String(e.error?.message || "").slice(0, 200)}`.trim()); }   // Stripe's reason goes to the function log only (it never holds a key)
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({})) as { error?: { code?: string; message?: string } };
+      // A saved customer from the other Stripe mode (for example a test purchase while the live key is set) can't be opened here.
+      if (e.error?.code === "resource_missing") return json({ error: "billing_unavailable", message: "We couldn't find a card subscription for this account in live billing. If you subscribed during testing, it no longer applies. Start a new subscription from the account page, or write to support." }, 409, cors);
+      throw new Error(`stripe portal ${r.status} ${e.error?.code || ""} ${String(e.error?.message || "").slice(0, 200)}`.trim());   // Stripe's reason goes to the function log only (it never holds a key)
+    }
     const s = await r.json() as { url?: string };
     if (typeof s.url !== "string" || !/^https:\/\/billing\.stripe\.com\//.test(s.url)) throw new Error("no portal url");
     return json({ url: s.url }, 200, cors);

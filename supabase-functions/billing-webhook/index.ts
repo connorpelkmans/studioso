@@ -116,6 +116,10 @@ async function handleStripe(req: Request, d: Deps, raw: string): Promise<Respons
   try { ev = JSON.parse(raw); } catch (_e) { return json({ error: "bad request" }, 400); }
   const o = ev?.data?.object || {};
   if (typeof ev?.id !== "string" || typeof ev?.type !== "string") return json({ error: "bad request" }, 400);
+  // Test (sandbox) events must never change a live project, and live events never a test one: an event whose mode differs from the
+  // STRIPE_SECRET_KEY's is acknowledged (so Stripe stops retrying it) and ignored.
+  const sk = d.env("STRIPE_SECRET_KEY"), keyLive = /^[sr]k_live_/.test(sk) ? true : /^[sr]k_test_/.test(sk) ? false : null;
+  if (keyLive !== null && typeof ev.livemode === "boolean" && ev.livemode !== keyLive) { d.log("billing-webhook: ignored an event from the other Stripe mode", ev.id, ev.type); return json({ ignored: "other stripe mode" }); }
   const at = iso((Number(ev.created) || Math.floor(d.now() / 1000)) * 1000)!;
   const base = { event_id: ev.id, family: "stripe" as const, source: "stripe", type: ev.type, event_at: at };
   const done = async (row: Apply) => json({ ok: await apply(d, row) });

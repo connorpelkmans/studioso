@@ -146,6 +146,16 @@ await test("stripe: a verified event inside the 5 minute window is applied", asy
   assert.equal(applied[0].pro_until, new Date(NOW + 86400e3 + 3 * 86400e3).toISOString());
   assert.equal(applied[0].event_id, "evt_ok");
 });
+await test("stripe: an event from the other Stripe mode (sandbox event, live key) is acknowledged and ignored", async () => {
+  const ev = { id: "evt_sandbox", livemode: false, type: "customer.subscription.updated", created: S, data: { object: { customer: "cus_1", status: "active", current_period_end: S + 86400, metadata: { uid: UID } } } };
+  const live = whDeps({ env: { STRIPE_SECRET_KEY: "rk_live_x" } });
+  const r = await wh.handle(await stripeReq(ev), live.deps);
+  assert.equal(r.status, 200); assert.equal((await r.json()).ignored, "other stripe mode"); assert.equal(live.applied.length, 0);
+  const test_ = whDeps({ env: { STRIPE_SECRET_KEY: "sk_test_x" } });
+  await wh.handle(await stripeReq(ev), test_.deps); assert.equal(test_.applied.length, 1);
+  const liveEv = whDeps({ env: { STRIPE_SECRET_KEY: "rk_live_x" } });
+  await wh.handle(await stripeReq({ ...ev, id: "evt_live", livemode: true }), liveEv.deps); assert.equal(liveEv.applied.length, 1);
+});
 await test("stripe: checkout.session.completed needs client_reference_id == metadata.uid (our own checkout)", async () => {
   const sub = { status: "trialing", customer: "cus_1", current_period_end: S + 7 * 86400, trial_end: S + 7 * 86400 };
   const mk = (o) => ({ id: "evt_c", type: "checkout.session.completed", created: S, data: { object: { mode: "subscription", payment_status: "no_payment_required", customer: "cus_1", subscription: "sub_1", ...o } } });
