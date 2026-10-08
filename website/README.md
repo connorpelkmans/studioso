@@ -30,3 +30,7 @@ The nine theme tiles run the app's own scenes, and the companions are the app's 
 `assets/companions-engine.js` are copies made from `index.html`. After the app's scenes or companions change, run `python3 tools/make-website-assets.py` from the repo root
 and publish the new files. `assets/scenes.js` and `assets/companions.js` are the website's own code. They load the big files only when a tile or companion comes near the
 screen, stop when it is off screen or the tab is hidden, and respect "reduce motion" (no movement, but companions still say a line now and then).
+
+The tiles and the hero use real-interface pictures: `assets/screens/ui-<theme>-<light|dark>.webp` (the app's interface on a transparent background, with the scene and the companion taken out) and
+`assets/screens/hero-*.webp`, plus `assets/tile-geo.js`, which says where the scene and the companion sit. Make them again with `node tools/capture-site-screens.js --overlays <folder>`, convert the PNGs
+to WebP, and copy the numbers from `geometry.json` into `tile-geo.js`. Only the companion on the first screen (the hero) speaks; the others just move.
