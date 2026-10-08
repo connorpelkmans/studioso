@@ -27,5 +27,22 @@ window.STUDYBOARD_SITE = {
   RETURN_ALLOWLIST: [],
 
   // The names of your Edge Functions (leave as they are unless you deployed them under other names).
-  FUNCTIONS: { checkout: "create-checkout", portal: "create-portal-session" }
+  FUNCTIONS: { checkout: "create-checkout", portal: "create-portal-session" },
+
+  // ---- Downloads (home page) ----
+  // The version shown on the page.
+  VERSION: "1.13.0",
+
+  // Where each installer lives. While a url is "" the button stays on the page and says "coming soon" when pressed. Paste the link when
+  // the installer is published (https only). Tip for Windows, Mac and Linux: publish the installers as a GitHub Release, then a link like
+  //   https://github.com/YOUR-NAME/YOUR-REPO/releases/download/v1.13.0/Studyboard-Setup-1.13.0.exe
+  // points at one exact file. {version} in "file" is replaced by VERSION above (the names electron-builder makes).
+  DOWNLOADS: {
+    windows:  { label: "Windows",              url: "", file: "Studyboard-Setup-{version}.exe",       needs: "Windows 10 or 11, 64-bit" },
+    macArm:   { label: "Mac (Apple M-series)", url: "", file: "Studyboard-{version}-mac.dmg",         needs: "Macs with an M1 chip or newer" },
+    macIntel: { label: "Mac (Intel)",          url: "", file: "Studyboard-{version}-mac-intel.dmg",   needs: "Macs with an Intel processor" },
+    linux:    { label: "Linux",                url: "", file: "Studyboard-{version}.AppImage",        needs: "64-bit Linux, runs as an AppImage" },
+    ios:      { label: "App Store",            url: "", needs: "iPhone and iPad" },       // e.g. https://apps.apple.com/app/idXXXXXXXXXX
+    android:  { label: "Google Play",          url: "", needs: "Android phones and tablets" }   // e.g. https://play.google.com/store/apps/details?id=com.studioso.app
+  }
 };
