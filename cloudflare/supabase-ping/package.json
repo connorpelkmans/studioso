@@ -1,0 +1,7 @@
+{
+  "name": "studyboard-supabase-ping",
+  "private": true,
+  "type": "module",
+  "description": "Pings the Supabase project every third day so the free plan never pauses it",
+  "scripts": { "deploy": "wrangler deploy" }
+}

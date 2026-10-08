@@ -59,4 +59,4 @@ npm run dist         # Windows installer in dist/   (also: dist:mac, dist:mac-in
 
 ## License
 
-MIT, see [LICENSE](LICENSE). Third-party licenses are in THIRD-PARTY-NOTICES.md.
+Proprietary. Copyright (c) 2026 Connor Pelkmans (Studyboard), all rights reserved; see [LICENSE](LICENSE). Third-party licenses are in THIRD-PARTY-NOTICES.md.

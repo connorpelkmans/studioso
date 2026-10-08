@@ -6,7 +6,7 @@
   "author": {
     "name": "Studyboard"
   },
-  "license": "MIT",
+  "license": "UNLICENSED",
   "main": "main.js",
   "private": true,
   "scripts": {
