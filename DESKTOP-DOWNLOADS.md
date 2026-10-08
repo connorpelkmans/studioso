@@ -1,14 +1,12 @@
 # Publishing the desktop installers (signed) and linking the website buttons
 
-The repo is private, so installers are hosted in a public Supabase Storage bucket, not GitHub Releases.
+This repo is private, so its own Releases can't be downloaded by visitors. Installers are published as GitHub Releases in the public repo `connorpelkmans/installers` (Supabase's free plan caps files at 50 MB, too small for the installers).
 Mac builds can only be made on macOS, so everything is built by GitHub Actions (`.github/workflows/build-desktop.yml`) when you push a `v*` tag.
 
 ## One-time setup
 
-1. **Storage bucket.** Supabase > SQL Editor > run `supabase-downloads.sql`.
-2. **Repository secrets** (GitHub > Settings > Secrets and variables > Actions):
-   * `SUPABASE_URL` = `https://pivcmrqcjseycjkbocmc.supabase.co`
-   * `SUPABASE_SERVICE_ROLE_KEY` = Supabase > Project Settings > API > `service_role` key. Secret: never put it in the website or the app.
+1. **Public repo.** `connorpelkmans/installers` (public, with a README).
+2. **Token.** GitHub > Settings > Developer settings > Fine-grained tokens: only `connorpelkmans/installers`, Contents: read and write. Save it in this repo as the Actions secret `RELEASES_TOKEN`.
 3. **Mac signing** (Apple Developer Program, $99/yr). Secrets: `CSC_LINK` (Developer ID Application cert as base64 `.p12`), `CSC_KEY_PASSWORD`,
    `APPLE_API_KEY_BASE64` (App Store Connect API key `.p8`, base64), `APPLE_API_KEY_ID`, `APPLE_API_ISSUER`.
    Steps are in `APP-STORE-CHECKLIST.md` section 1. Base64 a file with `base64 -i cert.p12 | pbcopy`.
@@ -22,13 +20,13 @@ Mac builds can only be made on macOS, so everything is built by GitHub Actions (
 
 1. Bump `version` in `package.json` (and `VERSION` in `website/config.js`).
 2. `git tag v1.13.0 && git push origin v1.13.0`. Actions builds, signs, notarizes, then uploads to
-   `https://pivcmrqcjseycjkbocmc.supabase.co/storage/v1/object/public/downloads/v1.13.0/<file>` (the links are printed in the run summary).
+   `https://github.com/connorpelkmans/installers/releases/download/v1.13.0/<file>`.
 3. Fill the links in `website/config.js` and redeploy the website:
 
 ```js
-windows:  { ..., url: "https://pivcmrqcjseycjkbocmc.supabase.co/storage/v1/object/public/downloads/v1.13.0/Studyboard-Setup-1.13.0.exe", ... },
-macArm:   { ..., url: "https://pivcmrqcjseycjkbocmc.supabase.co/storage/v1/object/public/downloads/v1.13.0/Studyboard-1.13.0-mac-universal.dmg", ... },
-macIntel: { ..., url: "https://pivcmrqcjseycjkbocmc.supabase.co/storage/v1/object/public/downloads/v1.13.0/Studyboard-1.13.0-mac-universal.dmg", ... },
+windows:  { ..., url: "https://github.com/connorpelkmans/installers/releases/download/v1.13.0/Studyboard-Setup-1.13.0.exe", ... },
+macArm:   { ..., url: "https://github.com/connorpelkmans/installers/releases/download/v1.13.0/Studyboard-1.13.0-mac-universal.dmg", ... },
+macIntel: { ..., url: "https://github.com/connorpelkmans/installers/releases/download/v1.13.0/Studyboard-1.13.0-mac-universal.dmg", ... },
 ```
 
 Until a `url` is filled the button says "coming soon", so nothing 404s.
