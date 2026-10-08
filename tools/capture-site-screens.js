@@ -74,18 +74,31 @@ async function capture(browser, scheme) {
   await page.evaluate(() => { const t = document.querySelector('.sheet [data-act="shop-tab"][data-id="collections"]'); t && t.click(); }); await shot("style");
   await ctx.close();
 }
-const THEMES = ["winter", "sakura", "forest", "galaxy", "sunset", "ocean", "nursing", "compsci"];
-async function captureThemes(browser) {
+var THEMES = ["winter", "autumn", "sakura", "forest", "galaxy", "sunset", "ocean", "nursing", "compsci"];
+const WINDOW = {width: 1000, height: 625};   // a smaller window than the other shots, so the scenes and cards read larger on the website
+async function openSeeded(browser, scheme, seed, viewport) {
+  const ctx = await browser.newContext({viewport, colorScheme: scheme, deviceScaleFactor: 1, serviceWorkers: "block"});
+  await ctx.clock.setFixedTime(NOW);
+  await ctx.addInitScript(([seed, scheme]) => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("studioso:theme", scheme); } } catch (e) {} }, [seed, scheme]);
+  const page = await ctx.newPage(); await page.goto("http://localhost:" + server.address().port + "/"); await page.waitForSelector("#view", {state: "attached"}); await page.waitForTimeout(3000);
+  await page.addStyleTag({content: ".toast,#toast{display:none!important}"});
+  await dismiss(page);
+  return {ctx, page};
+}
+const taskBoard = async page => { await page.evaluate(() => { const b = [...document.querySelectorAll("button, [role=tab]")].find(e => /^Task Board$/i.test(e.textContent.trim())); b && b.click(); }); await page.waitForTimeout(1500); };
+async function captureThemes(browser, scheme) {
   for (const th of THEMES) {
     const seed = JSON.parse(JSON.stringify(SEED)); seed.settings.style = {skin: th}; seed.settings.owned = THEMES.map(t => "skin:" + t);   // Pro enforcement is on, so own the themes shown
-    const ctx = await browser.newContext({viewport: {width: 1280, height: 800}, colorScheme: "light", serviceWorkers: "block"});
-    await ctx.clock.setFixedTime(NOW);
-    await ctx.addInitScript(([seed]) => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("studioso:theme", "light"); } } catch (e) {} }, [seed]);
-    const page = await ctx.newPage(); await page.goto("http://localhost:" + server.address().port + "/"); await page.waitForSelector("#view", {state: "attached"}); await page.waitForTimeout(3000);
-    await page.addStyleTag({content: ".toast,#toast{display:none!important}"});
-    await dismiss(page);
-    await page.evaluate(() => { const b = [...document.querySelectorAll("button, [role=tab]")].find(e => /^Task Board$/i.test(e.textContent.trim())); b && b.click(); });
-    await page.waitForTimeout(1500); await page.screenshot({path: path.join(OUT, `theme-${th}.png`)}); console.log("saved", `theme-${th}.png`); await ctx.close();
+    const {ctx, page} = await openSeeded(browser, scheme, seed, WINDOW);
+    await taskBoard(page); await page.screenshot({path: path.join(OUT, `theme-${th}-${scheme}.png`)}); console.log("saved", `theme-${th}-${scheme}.png`); await ctx.close();
   }
 }
-(async () => { await new Promise(r => server.listen(0, r)); const browser = await chromium.launch(); try { for (const s of ["light", "dark"]) await capture(browser, s); await captureThemes(browser); } finally { await browser.close(); server.close(); } console.log("done:", OUT); })().catch(e => { console.error(e); process.exit(1); });
+// The home page hero: a calm Task Board with a few real cards, without the quick-add row
+async function captureHero(browser, scheme) {
+  const seed = JSON.parse(JSON.stringify(SEED)); const keep = new Set(["t3", "t4", "t2", "t1", "t5", "t8", "t9"]); seed.tasks = seed.tasks.filter(t => keep.has(t.id));
+  const {ctx, page} = await openSeeded(browser, scheme, seed, {width: 1000, height: 640});
+  await taskBoard(page);
+  await page.evaluate(() => { const q = [...document.querySelectorAll("input")].find(i => /Add a task by typing/i.test(i.placeholder || "")); const row = q && (q.closest("form") || q.parentElement.parentElement); if (row) row.style.display = "none"; [...document.querySelectorAll("div,span,label")].filter(e => /^Group By/i.test(e.textContent.trim()) && e.textContent.length < 40 && e.querySelectorAll("button").length <= 2).forEach(e => { e.style.display = "none"; }); });
+  await page.waitForTimeout(600); await page.screenshot({path: path.join(OUT, `hero-${scheme}.png`)}); console.log("saved", `hero-${scheme}.png`); await ctx.close();
+}
+(async () => { await new Promise(r => server.listen(0, r)); const browser = await chromium.launch(); try { for (const s of ["light", "dark"]) { await captureHero(browser, s); await captureThemes(browser, s); } for (const s of ["light", "dark"]) await capture(browser, s); } finally { await browser.close(); server.close(); } console.log("done:", OUT); })().catch(e => { console.error(e); process.exit(1); });
