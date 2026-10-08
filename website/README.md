@@ -19,3 +19,7 @@ See PRO-PLANS-GUIDE.md in the main folder for the full owner steps.
 - `assets/logo-light.webp` and `assets/logo-dark.webp` are the wordmark for light and dark.
 - **Installers:** open `config.js` and paste each link into `DOWNLOADS` (Windows, Mac Apple M-series, Mac Intel, Linux, App Store, Google Play). While a link is empty its button stays on the page and says "coming soon" when pressed. The home page detects the visitor's device and highlights the right one. To preview another device add `?os=` to the address: `windows`, `mac-arm`, `mac-intel`, `mac-unknown`, `linux`, `ios` or `android`.
 - `VERSION` in `config.js` is the version number shown on the page.
+
+## Screenshots of the real app
+
+The home page shows real screens from the app (`assets/screens/`, light and dark, plus one image per theme). To refresh them after the app changes, run `node tools/capture-site-screens.js <folder>` (Playwright and Chromium; it runs the app on a fixed date with made-up student data, with AI shown as switched on and no request made), then save the PNGs as WebP into `assets/screens/` (for example with Pillow, `Image.save(name + ".webp", quality=80)`; theme images at 640x400, the others at 1120x700).

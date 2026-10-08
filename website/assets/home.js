@@ -112,11 +112,27 @@
       var d = D[k] || {}, f = fileName(d);
       return '<div class="plat' + (mine === k ? " you" : "") + '">' + (mine === k ? '<span class="you-tag">Your device</span>' : "") + '<div class="ico">' + icon + "</div><h4>" + title + (ready(k) ? "" : '<span class="soon">Soon</span>') + "</h4><div><p>" + esc(d.needs || "") + "</p>" + (f ? '<p class="file">' + esc(f) + "</p>" : "") + '</div><a class="go" data-download="' + k + '" href="' + esc(hrefFor(k)) + '">' + ICONS.down + action + "</a></div>";
     }
-    var webCard = WEB ? '<div class="group"><h3>In your browser</h3><div class="plats"><div class="plat web"><div class="ico">' + ICONS.web + '</div><h4>Studyboard on the web<span class="live">Available now</span></h4><div><p>Works in Chrome, Edge, Safari and Firefox on any computer or phone. Use the browser\'s install option (or Add to Home Screen) to open it like an app.</p></div><a class="go" href="' + esc(WEB) + '">' + ICONS.web + "Open Studyboard</a></div></div></div>" : "";
+    var webCard = WEB ? '<div class="group"><h3>In your browser</h3><div class="plats"><div class="plat web"><div class="ico">' + ICONS.web + '</div><h4>Studyboard on the Web<span class="live">Available Now</span></h4><div><p>Works in Chrome, Edge, Safari and Firefox on any computer or phone. Use the browser\'s install option (or Add to Home Screen) to open it like an app.</p></div><a class="go" href="' + esc(WEB) + '">' + ICONS.web + "Open Studyboard</a></div></div></div>" : "";
     el.innerHTML = webCard +
       '<div class="group"><h3>Computer</h3><div class="plats">' + card("windows", ICONS.windows, "Windows", "Download .exe") + card("macArm", ICONS.mac, "Mac · Apple M-series", "Download .dmg") + card("macIntel", ICONS.mac, "Mac · Intel", "Download .dmg") + card("linux", ICONS.linux, "Linux", "Download AppImage") + "</div>" + macHelp.replace('class="which"', 'class="which mt12"') + "</div>" +
       '<div class="group"><h3>Phone &amp; tablet</h3><div class="plats">' + card("ios", ICONS.phone, "iPhone &amp; iPad", "App Store") + card("android", ICONS.phone, "Android", "Google Play") + "</div></div>";
   }
+
+  // ---- Gallery of real screens: tabs ----
+  (function () {
+    var tabs = Array.prototype.slice.call(document.querySelectorAll(".gtabs [role=tab]")); if (!tabs.length) return;
+    function pick(t, focus) {
+      tabs.forEach(function (x) { var on = x === t; x.setAttribute("aria-selected", String(on)); x.tabIndex = on ? 0 : -1; var p = document.getElementById(x.getAttribute("aria-controls")); if (p) p.hidden = !on; });
+      if (focus) t.focus();
+    }
+    tabs.forEach(function (t, i) {
+      t.addEventListener("click", function () { pick(t, false); });
+      t.addEventListener("keydown", function (e) {
+        var j = e.key === "ArrowRight" ? i + 1 : e.key === "ArrowLeft" ? i - 1 : e.key === "Home" ? 0 : e.key === "End" ? tabs.length - 1 : -1;
+        if (j < 0) return; e.preventDefault(); pick(tabs[(j + tabs.length) % tabs.length], true);
+      });
+    });
+  })();
 
   var forced = null; try { forced = PREVIEWS[new URLSearchParams(location.search).get("os")] || null; } catch (e) { /* ignore */ }
   detectPlatform().then(function (d) { var p = forced || d; renderHero(p); renderAll(p); });
