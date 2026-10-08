@@ -1,12 +1,26 @@
-node_modules
-.git
-.github
-.env*
-package.json
-package-lock.json
-wrangler.jsonc
+# What gets published at studyboardapp.com (wrangler.jsonc serves this folder). Only what the web app and the website load go up;
+# everything else in the repository stays private: SQL files, tests, Edge Function and Worker source, tools, build scripts, the desktop
+# and phone wrappers, email templates and docs. Same syntax as .gitignore: "/*" leaves out everything at the top level, and each "!" line
+# lets one thing back in. When the site needs a new top-level file, add a "!" line for it here.
+/*
+!/index.html
+!/sw.js
+!/manifest.webmanifest
+!/today.webmanifest
+!/_headers
+!/vendor/
+!/locales/
+!/website/
+!/icon.png
+!/icon-192.png
+!/icon-512.png
+!/maskable-192.png
+!/maskable-512.png
+!/apple-touch-icon.png
+!/shortcut-*.png
+!/today-screenshot.png
+!/today-data.json
+!/today-template.json
+# Inside the folders that are published: no notes, and the website's own copy of the headers (the root _headers is the one in use).
 *.md
-main.js
-preload.js
-build
-dist
+/website/_headers
