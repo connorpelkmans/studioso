@@ -38,9 +38,9 @@ window.STUDYBOARD_SITE = {
   //   https://github.com/YOUR-NAME/YOUR-REPO/releases/download/v1.13.0/Studyboard-Setup-1.13.0.exe
   // points at one exact file. {version} in "file" is replaced by VERSION above (the names electron-builder makes).
   DOWNLOADS: {
-    windows:  { label: "Windows",              url: "", file: "Studyboard-Setup-{version}.exe",       needs: "Windows 10 or 11, 64-bit" },
-    macArm:   { label: "Mac (Apple M-series)", url: "", file: "Studyboard-{version}-mac.dmg",         needs: "Macs with an M1 chip or newer" },
-    macIntel: { label: "Mac (Intel)",          url: "", file: "Studyboard-{version}-mac-intel.dmg",   needs: "Macs with an Intel processor" },
+    windows:  { label: "Windows",              url: "https://pivcmrqcjseycjkbocmc.supabase.co/storage/v1/object/public/downloads/v1.13.0/Studyboard-Setup-1.13.0.exe", file: "Studyboard-Setup-{version}.exe",       needs: "Windows 10 or 11, 64-bit" },
+    macArm:   { label: "Mac (Apple M-series)", url: "https://pivcmrqcjseycjkbocmc.supabase.co/storage/v1/object/public/downloads/v1.13.0/Studyboard-1.13.0-mac.dmg", file: "Studyboard-{version}-mac.dmg", needs: "Macs with an M1 chip or newer" },
+    macIntel: { label: "Mac (Intel)",          url: "https://pivcmrqcjseycjkbocmc.supabase.co/storage/v1/object/public/downloads/v1.13.0/Studyboard-1.13.0-mac-intel.dmg", file: "Studyboard-{version}-mac-intel.dmg", needs: "Macs with an Intel processor" },
     linux:    { label: "Linux",                url: "", file: "Studyboard-{version}.AppImage",        needs: "64-bit Linux, runs as an AppImage" },
     ios:      { label: "App Store",            url: "", needs: "iPhone and iPad" },       // e.g. https://apps.apple.com/app/idXXXXXXXXXX
     android:  { label: "Google Play",          url: "", needs: "Android phones and tablets" }   // e.g. https://play.google.com/store/apps/details?id=com.studioso.app
