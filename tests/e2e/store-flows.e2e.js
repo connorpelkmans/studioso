@@ -108,7 +108,7 @@ const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries
     assert.match(await dlgText(page), /Privacy Policy/, "sign-up links to the privacy policy");
     await fillSubmit(page, {email: "new@example.com", password: "correct horse 7"});
     const t = await dlgText(page);
-    assert.match(t, /Check Your Email/); assert.match(t, /If\s+new@example\.com\s+can be used/i); assert.match(t, /works on this device only/i);
+    assert.match(t, /Check Your Email/); assert.match(t, /If\s+new@example\.com\s+can be used/i); assert.match(t, /need to confirm your email before you can use Studyboard/i);   // an account is required on the hosted app (no device-only fallback)
     assert.equal((await calls(page, "signUp")).length, 1);
     await page.click("#sbResend"); await page.waitForTimeout(200);
     assert.equal((await calls(page, "resend")).length, 1);
@@ -250,7 +250,7 @@ const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries
     const {ctx, page, errs} = await newPage(browser, {signedIn: true, bridge: true});
     await proSheet(page);
     const t = await dlgText(page);
-    assert.match(t, /auto-renewing subscription: \$2\.99 per month or \$19\.99 per year, after a 7-day free trial/);
+    assert.match(t, /auto-renewing subscription: \$2\.99 per month or \$24\.99 per year, after a 7-day free trial/);
     assert.match(t, /renews automatically unless it is cancelled at least 24 hours before/); assert.match(t, /Terms of Use/); assert.match(t, /Privacy Policy/);
     assert.ok(!(await page.evaluate(() => /stripe|checkout|studyboard\.example/i.test(document.querySelector("dialog[open]").innerHTML))), "no Stripe or website link in the store Pro sheet");
     assert.ok(await page.isVisible('dialog[open] [data-act="plan-restore"]'));

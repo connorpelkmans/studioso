@@ -6,10 +6,12 @@ const F = "file://" + path.resolve(process.argv[2] || path.join(__dirname, "..",
 let n = 0; const ok = (c, m) => { assert(c, m); n++; console.log("ok -", m); };
 const seed = skin => ({courses: [{id: "c1", name: "Biology 101", code: "BIO 101", color: "#2C55D6"}], tasks: [
   {id: "t1", title: "Lab report", courseId: "c1", due: "2026-11-01", time: "23:59", status: "todo", type: "Assignment", created: 1},
-  {id: "t2", title: "Essay draft", courseId: "c1", due: "2026-11-02", time: "23:59", status: "todo", type: "Assignment", created: 1}], settings: {capacity: 15, style: {skin}}, updated: 1});
+  {id: "t2", title: "Essay draft", courseId: "c1", due: "2026-11-02", time: "23:59", status: "todo", type: "Assignment", created: 1}], settings: {capacity: 15, style: {skin},
+  // the scene themes are Pro: this free device is in its 5 minute preview of the theme (what "Preview 5 Min" in the Style Shop starts), so the scene really runs
+  collPreview: {used: [skin], active: {id: skin, until: Date.now() + 5 * 60000, prev: {}}}}, updated: 1});
 async function mk(b, opts, skin, init) {
   const ctx = await b.newContext(Object.assign({viewport: {width: 1280, height: 800}}, opts));
-  await ctx.addInitScript(([s, i]) => { try { localStorage.setItem("coursework:v2", JSON.stringify(s)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); } catch (e) {}
+  await ctx.addInitScript(([s, i]) => { try { localStorage.setItem("coursework:v2", JSON.stringify(s)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); } catch (e) {}
     window.__raf = 0; const o = window.requestAnimationFrame.bind(window); window.requestAnimationFrame = cb => o(t => { window.__raf++; cb(t); });
     if (i) try { eval(i); } catch (e) {} }, [seed(skin), init || ""]);
   const p = await ctx.newPage(); p.errs = []; p.on("pageerror", e => p.errs.push(e.message)); return {ctx, p};
@@ -22,12 +24,13 @@ async function mk(b, opts, skin, init) {
   const res = {};
   for (const [name, opts, init] of [["auto", {}, ""], ["reduced-media", {reducedMotion: "reduce"}, ""], ["off", {}, "localStorage.setItem('studyboard:anim','off')"], ["calm", {}, "localStorage.setItem('studyboard:anim','calm')"], ["battery15", {}, batt(0.15)], ["battery5", {}, batt(0.05)]]) {
     const {ctx, p} = await mk(b, opts, "ocean", init); await p.goto(F); await p.waitForTimeout(2200);
-    res[name] = {c: await count(p), lvl: await p.evaluate(() => SBMotion.level())}; ok(p.errs.length === 0, name + " loads without errors"); await ctx.close();
+    res[name] = {c: await count(p), lvl: await p.evaluate(() => SBMotion.level()), ms: await p.evaluate(() => SBMotion.frameMs())}; ok(p.errs.length === 0, name + " loads without errors"); await ctx.close();
   }
   ok(res.auto.c > 25 && res.auto.lvl === "full", "Auto plays the scene at full level");
   ok(res["reduced-media"].c <= 2 && res["reduced-media"].lvl === "static", "system Reduce Motion stops the loop");
   ok(res.off.c <= 2 && res.battery5.c <= 2, "Off and battery under 8% stop the loop");
-  ok(res.calm.lvl === "calm" && res.battery15.lvl === "calm" && res.calm.c < res.auto.c * 0.75, "Calm and low battery run at a lower rate");
+  // the rate each mode asks for is exact; the frames actually drawn depend on how busy the machine is, so that part only has to be lower
+  ok(res.calm.lvl === "calm" && res.battery15.lvl === "calm" && res.calm.ms > res.auto.ms && res.battery15.ms > res.auto.ms && res.calm.c < res.auto.c, "Calm and low battery run at a lower rate (" + res.calm.ms + " and " + res.battery15.ms + " ms a frame vs " + res.auto.ms + ")");
   // 2. Live toggle
   { const {ctx, p} = await mk(b, {}, "ocean"); await p.goto(F); await p.waitForTimeout(2000);
     await p.emulateMedia({reducedMotion: "reduce"}); await p.waitForTimeout(300); ok((await count(p)) <= 2, "reduce toggles live (stops)");
