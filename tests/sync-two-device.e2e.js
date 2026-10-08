@@ -272,6 +272,25 @@ const SC = [
     const keep = x => ((x.noteBoards || [])[0] || {}).name === "Biology" && (x.style || {}).skin === "slate";
     return {out: `server ${JSON.stringify([(st.noteBoards || []).length, (st.style || {}).skin, st.marker])}; A ${keep(sa)}; B ${keep(sb)}`, ok: keep(st) && keep(sa) && keep(sb), noLoss: keep(st)};
   }],
+  ["0d signing out wipes the device for good: a late save cannot bring the old account's data back, and the next account starts empty", async (b, srv) => {
+    const {A, close} = await fresh(b, srv, s => s.seed("task", "t1", taskRow("t1"), HOUR));
+    await A.settle();
+    const r1 = await A.eval(async () => {
+      const S = window.__sbSync, K = S.devKeys, before = Object.keys(S.state.tasks).length;
+      let err = ""; try { await S.wipeDeviceData(); } catch (e) { err = String(e && e.message); }            // what signing out does to the device
+      const ownerNow = localStorage.getItem(K.OWNER);
+      S.saveSettings();                    // a late save (a timer, a sync) while it was being cleared
+      await new Promise(r => setTimeout(r, 400)); const ownerLater = localStorage.getItem(K.OWNER);
+      return {ownerNow, ownerLater, err, before, ls2: localStorage.getItem(K.LS2), outbox: localStorage.getItem(K.OUTBOX), owner: localStorage.getItem(K.OWNER), tasks: Object.keys(S.state.tasks).length};
+    });
+    // Worst case: something from the old account is still on the device when the next account signs in
+    await A.eval(() => { const K = window.__sbSync.devKeys; localStorage.setItem(K.LS2, JSON.stringify({v: 2, tasks: [{id: "x1", title: "leftover from the first account", courseId: "", type: "Assignment", due: "2026-10-20", status: "todo"}], courses: [], notes: [], decks: [], files: [], events: [], settings: {capacity: 15}})); });
+    await A.reload(); await A.settle();
+    const leftover = await A.state("task", "x1"), onServer = srv.get("task", "x1");
+    await close();
+    const wiped = r1.before === 1 && !r1.ls2 && !r1.outbox && r1.owner === "none" && r1.tasks === 0;
+    return {out: `after wipe + late save: tasks ${r1.tasks}, saved copy ${r1.ls2 ? "BACK" : "none"}, queued writes ${r1.outbox ? "BACK" : "none"}, owner ${r1.owner} (now ${r1.ownerNow}, later ${r1.ownerLater})${r1.err ? " (error: " + r1.err + ")" : ""}; next account: leftover on device ${leftover ? "YES" : "no"}, on server ${onServer ? "YES" : "no"}`, ok: wiped && !leftover && !onServer, noLoss: true};
+  }],
   ["0 theme picked on A (desktop) shows on B (phone), live and after coming back", async (b, srv) => {
     const {A, B, close} = await fresh(b, srv, s => {});
     const skinOf = d => d.eval(() => ({set: (window.__sbSync.state.settings.style || {}).skin, shown: document.documentElement.dataset.skin || "classic"}));
