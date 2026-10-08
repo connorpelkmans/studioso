@@ -187,10 +187,12 @@ section.block.tight{padding-top:0}
 .gtabs button[aria-selected="true"]{background:var(--btn);color:var(--btn-ink);border-color:var(--btn)}
 
 /* Make it yours: the real themes */
-.themes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.themes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
 @media (max-width:900px){.themes{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.themes{grid-template-columns:1fr}}
 .tile{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
 .tile img{display:block;width:100%;height:auto;aspect-ratio:8/5;object-fit:cover}
+.tile .logo-l{display:var(--logo-l)} .tile .logo-d{display:var(--logo-d)}
 .tile figcaption{padding:10px 12px;font:600 .95rem var(--display);display:flex;justify-content:space-between;gap:8px;align-items:center}
 .tile figcaption small{font:500 .78rem var(--body);color:var(--muted)}
 .perks{list-style:none;margin:0 0 26px;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 28px}
