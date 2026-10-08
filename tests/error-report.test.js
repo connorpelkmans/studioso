@@ -74,7 +74,7 @@ ok(!C.parseDsn("https://abcdef0123456789:secretpart@sentry.example.com/12").dsn.
 ["", "nonsense", "http://abcdef0123456789@o1.ingest.sentry.io/1", "https://@o1.ingest.sentry.io/1", "https://abcdef0123456789@o1.ingest.sentry.io/", "https://abcdef0123456789@o1.ingest.sentry.io/abc", "https://abc@o1.ingest.sentry.io/1", "javascript:alert(1)", null, undefined].forEach(x => ok(C.parseDsn(x) === null, "invalid DSN " + x));
 
 // ---- event + envelope (Sentry envelope format)
-const ctx = {release: "1.13.0", environment: "production", build: "1.13.0+abc123def456", platform: "pwa", pro: true, theme: "aurora", dark: "dark", sw: "studyboard-v5", anon: "0123456789abcdef", own: OWN,
+const ctx = {release: "1.13.0", environment: "production", build: "1.13.0+abc123def456", platform: "pwa", pro: true, theme: "aurora", dark: "dark", sw: "studyboard-v6", anon: "0123456789abcdef", own: OWN,
   redact: ["Physics lab report"], crumbs: [], now: 1_800_000_000_000};
 C.addCrumb(ctx.crumbs, "nav", "board", ctx.now); C.addCrumb(ctx.crumbs, "act", "bug-open", ctx.now); C.addCrumb(ctx.crumbs, "sync", "fail", ctx.now);
 C.addCrumb(ctx.crumbs, "act", "Typed by user: buy milk", ctx.now); C.addCrumb(ctx.crumbs, "nav", "my secret tab", ctx.now); C.addCrumb(ctx.crumbs, "sheet", "Delete Physics lab report", ctx.now); C.addCrumb(ctx.crumbs, "bogus", "x", ctx.now);
@@ -82,7 +82,7 @@ eq(ctx.crumbs.map(c => c.category + ":" + c.message), ["nav:board", "act:bug-ope
 const ev = C.finish(C.buildEvent({kind: "error", type: "TypeError", message: "bad thing for jane@x.com in Physics lab report", stack: chrome}, ctx));
 ok(/^[0-9a-f]{32}$/.test(ev.event_id), "event id");
 ok(ev.timestamp === 1_800_000_000 && ev.platform === "javascript" && ev.release === "1.13.0" && ev.environment === "production", "basics");
-ok(ev.tags.pro === "yes" && ev.tags.platform === "pwa" && ev.tags.theme === "aurora" && ev.tags.sw === "studyboard-v5" && ev.tags.build === "1.13.0+abc123def456".replace("+", ""), JSON.stringify(ev.tags));
+ok(ev.tags.pro === "yes" && ev.tags.platform === "pwa" && ev.tags.theme === "aurora" && ev.tags.sw === "studyboard-v6" && ev.tags.build === "1.13.0+abc123def456".replace("+", ""), JSON.stringify(ev.tags));
 eq(ev.user, {id: "0123456789abcdef"}, "only the anonymous id");
 ok(!/jane|Physics/.test(JSON.stringify(ev)), "no personal data in the event");
 ok(ev.exception.values[0].stacktrace.frames.length === 3 && ev.fingerprint.length === 1, "frames and fingerprint");
