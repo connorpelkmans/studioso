@@ -77,7 +77,7 @@
 
   function desktopRow(k, p) {
     var n = NAMES[k], free = "Free · v" + VER + " · " + (D[k] && D[k].needs ? D[k].needs : n[2]);
-    if (ready(k)) return bigButton(k, ICONS[n[0]], free, "Download for " + n[1], true);
+    if (ready(k)) return webButton(true) + bigButton(k, ICONS[n[0]], free, "Download for " + n[1], false);
     return webButton(true) + bigButton(k, ICONS[n[0]], "Coming soon · " + n[2], n[1], false);
   }
 
@@ -86,7 +86,7 @@
     var html = "";
     if (p.os === "ios" || p.os === "android") {
       var first = p.os, second = p.os === "ios" ? "android" : "ios";
-      html = '<div class="dlrow">' + (ready(first) ? storeButton(first, true) + storeButton(second, false) : webButton(true) + storeButton(first, false)) + '</div><p class="dlmeta">Free · syncs with your computer. ' + seeAll + "</p>";
+      html = '<div class="dlrow">' + webButton(true) + (ready(first) ? storeButton(first, false) + storeButton(second, false) : storeButton(first, false)) + '</div><p class="dlmeta">Free · syncs with your computer. ' + seeAll + "</p>";
     } else if (p.os === "windows") {
       html = '<div class="dlrow">' + desktopRow("windows") + '</div><div class="others"><span>Also on</span>' + chip("macArm", ICONS.mac, "Mac M-series") + chip("macIntel", ICONS.mac, "Mac Intel") + chip("ios", ICONS.phone, "iPhone") + chip("android", ICONS.phone, "Android") + "</div>";
     } else if (p.os === "linux") {
@@ -96,7 +96,7 @@
         var k = p.chip === "arm" ? "macArm" : "macIntel", other = p.chip === "arm" ? "macIntel" : "macArm";
         html = '<div class="dlrow">' + desktopRow(k) + '</div><div class="others"><span>Also on</span>' + chip(other, ICONS.mac, p.chip === "arm" ? "Mac Intel" : "Mac M-series") + chip("windows", ICONS.windows, "Windows") + chip("ios", ICONS.phone, "iPhone") + chip("android", ICONS.phone, "Android") + "</div>";
       } else {
-        html = '<div class="dlrow">' + (ready("macArm") ? bigButton("macArm", ICONS.mac, "Free · v" + VER + " · Apple M-series", "Download for Mac", true) : webButton(true) + bigButton("macArm", ICONS.mac, "Coming soon · Apple M-series", "Mac", false)) + bigButton("macIntel", ICONS.mac, ready("macIntel") ? "Older Macs" : "Coming soon · older Macs", "Mac with Intel", false) + "</div>" + macHelp +
+        html = '<div class="dlrow">' + webButton(true) + (ready("macArm") ? bigButton("macArm", ICONS.mac, "Free · v" + VER + " · Apple M-series", "Download for Mac", false) : bigButton("macArm", ICONS.mac, "Coming soon · Apple M-series", "Mac", false)) + bigButton("macIntel", ICONS.mac, ready("macIntel") ? "Older Macs" : "Coming soon · older Macs", "Mac with Intel", false) + "</div>" + macHelp +
           '<div class="others"><span>Also on</span>' + chip("windows", ICONS.windows, "Windows") + chip("ios", ICONS.phone, "iPhone") + chip("android", ICONS.phone, "Android") + "</div>";
       }
     } else {
