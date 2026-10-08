@@ -241,6 +241,19 @@ const phMissing = st => { const l = phLook(st); return !l.ph.includes("ph-test1"
 const phWhy = a => a.length ? " [" + a.join("; ") + "]" : "";
 
 const SC = [
+  ["0 theme picked on A (desktop) shows on B (phone), live and after coming back", async (b, srv) => {
+    const {A, B, close} = await fresh(b, srv, s => {});
+    const skinOf = d => d.eval(() => ({set: (window.__sbSync.state.settings.style || {}).skin, shown: document.documentElement.dataset.skin || "classic"}));
+    await A.eval(() => { const S = window.__sbSync; S.state.settings = Object.assign({}, S.state.settings, {style: Object.assign({}, S.state.settings.style, {skin: "slate", skinAt: Date.now()})}); S.saveSettings(); }); await A.settle(); await B.settle();
+    const live = await skinOf(B);
+    await B.pull(); await B.settle();
+    const pulled = await skinOf(B);
+    await B.reopen(); await B.settle();
+    const reopened = await skinOf(B);
+    await close();
+    const ok = [live, pulled, reopened].every(x => x.set === "slate");
+    return {out: `live ${JSON.stringify(live)}  pulled ${JSON.stringify(pulled)}  reopened ${JSON.stringify(reopened)}`, ok, noLoss: true};
+  }],
   ["1 same note edited offline on A and B", async (b, srv) => {
     const {A, B} = await fresh(b, srv, s => s.seed("note", "n1", noteRow("n1", "Bio\nCells are the unit of life\nMitochondria"), HOUR));
     A.goOffline(); B.goOffline();
