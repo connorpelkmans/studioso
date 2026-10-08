@@ -314,9 +314,16 @@ Studyboard's AI uses Google Gemini by default because it's free. One student's s
 
 1. Go to [aistudio.google.com/apikey](https://aistudio.google.com/apikey) and sign in with a Google account.
 2. Click **Create API key**. Don't add billing to that project; without billing it can never charge you. If you hit the free limit, AI just pauses until it resets.
-3. In Studyboard, open **Settings → AI Features → Set Up**, paste the key, press **Test**, then **Save**.
+3. Click **Copy** next to the key. In Studyboard, open **Settings → AI Features → Set Up** and tap **Paste My Key**. It checks the key with Google and turns AI on in one step. On the desktop app you don't even need to tap: come back to the AI Features window with the key copied and Studyboard picks it up. You can still paste the key into the box, press **Test**, then **Save**.
 
-Your keys sync to your other devices through your account, and they're left out of backup files you export.
+Your keys stay on the device where you added them (in the system keychain in the apps). They never go to your Studyboard account, and they're left out of backup files you export.
+
+**Adding AI to your other devices.** On a device that's already set up, open **Settings → AI Features** and tap **Add AI to Another Device**. It shows a QR code and a code like `K7Q2-9XMD-4TRP`.
+- **Scan it** with your other device's camera, tap **Open Studyboard**, then **Add Keys**.
+- **Or type the code** on the other device under **AI Features → Already Set Up on Another Device?**
+- **Or copy it** from the page the QR code opens and tap **Paste My Key** in Studyboard.
+
+The code works once, for 10 minutes. Your keys are locked (encrypted) with it before they leave your device, and the locked copy is deleted as soon as the other device takes it. This needs the free key relay to be deployed once: see `cloudflare/key-relay/README.md`. Until it is, the button doesn't show.
 
 **Choosing a model.** Every AI window has a **Model** picker. "Gemini, Auto" is free and recommended: it uses the best free Gemini model and quietly moves to another one if Google's servers are busy. You can also use paid models:
 - **Paid Gemini** (like Gemini 3.1 Pro): turn on billing for your key in Google AI Studio.

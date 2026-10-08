@@ -1,0 +1,10 @@
+{
+  "name": "studyboard-key-relay",
+  "private": true,
+  "type": "module",
+  "description": "Passes an encrypted copy of a student's AI keys from one of their devices to another, once, within 10 minutes",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  }
+}
