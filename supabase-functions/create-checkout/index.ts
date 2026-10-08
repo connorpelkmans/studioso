@@ -86,7 +86,7 @@ async function stripe(d: Deps, path: string, body: Record<string, unknown>, idem
     headers: { Authorization: `Bearer ${d.env("STRIPE_SECRET_KEY")}`, "Content-Type": "application/x-www-form-urlencoded", ...(idem ? { "Idempotency-Key": idem } : {}), ...(version ? { "Stripe-Version": version } : {}) },
     body: form(body),
   });
-  if (!r.ok) throw new Error(`stripe ${path} ${r.status}`);
+  if (!r.ok) { const e = await r.json().catch(() => ({})) as { error?: { code?: string; message?: string } }; throw new Error(`stripe ${path} ${r.status} ${e.error?.code || ""} ${String(e.error?.message || "").slice(0, 200)}`.trim()); }   // Stripe's reason goes to the function log only
   return await r.json();
 }
 
