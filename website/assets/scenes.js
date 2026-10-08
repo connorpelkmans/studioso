@@ -94,7 +94,10 @@
     [cA, cB].forEach(function (c) { if (c) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); c.style.width = W + "px"; c.style.height = H + "px"; } });
     if (cS) { cS.width = eng.stat.width; cS.height = eng.stat.height; cS.style.width = W + "px"; cS.style.height = H + "px"; cS.getContext("2d").drawImage(eng.stat, 0, 0); eng.hosted = true; }
     board(box, v);
+    var comp = tile.getAttribute("data-comp"), host = null;
+    if (comp) { host = el("div", "wcp-host small", box); host.setAttribute("data-companion", comp); }
     tile.insertBefore(box, tile.firstChild);
+    if (host && window.SBWebComp) window.SBWebComp.mount(host);
     tile.classList.add("live");
     rec.box = box; rec.W = W; rec.eng = eng; rec.ctx = eng ? [cA.getContext("2d"), cB.getContext("2d")] : []; rec.s = s; rec.T = 0; rec.drawn = false; rec.dk = dk;
     if (eng) frame(rec, 1 / 30);

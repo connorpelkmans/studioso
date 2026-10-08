@@ -1,4 +1,4 @@
-/* Studyboard scene library, copied unchanged from the app (the 20-scenes-lib module in index.html). Do not edit by hand: re-copy it from the app. */
+/* Studyboard scene library, copied unchanged from the app (module 20-scenes-lib). Do not edit by hand: run tools/make-website-assets.py. */
 const SCN20 = (function () {
 var k;  // names some files assign without declaring
 
