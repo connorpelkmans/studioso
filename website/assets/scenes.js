@@ -50,14 +50,14 @@
   }
 
   var live = []; // {tile, box, W, eng, ctx, s, T, drawn, visible}
-  function teardown(rec) { if (rec.box && rec.box.parentNode) rec.box.parentNode.removeChild(rec.box); rec.tile.classList.remove("live"); rec.eng = null; rec.ctx = []; }
+  function teardown(rec) { if (rec.box && rec.box.parentNode) rec.box.parentNode.removeChild(rec.box); rec.tile.classList.remove("scn-on"); rec.eng = null; rec.ctx = []; }
 
   // The tile is a picture of the real app (a transparent interface picture made from the app itself) over the live scene, which sits exactly where it does in the app:
   // to the right of the sidebar, drawn at the scale the app uses for that window size.
   function build(rec) {
     if (!L || !rec.tile.isConnected) return;
     var tile = rec.tile, id = tile.getAttribute("data-scene"), dk = isDark(), geo = window.SB_TILE_GEO, g = geo && geo.themes[id] && geo.themes[id][dk ? "dark" : "light"];
-    var W = Math.round(tile.getBoundingClientRect().width);
+    var W = Math.round(tile.clientWidth);
     if (!W || !g) return;
     var t = W / geo.w, H = Math.round(geo.h * t), sx = g.s[0] * t, sy = g.s[1] * t, sw = g.s[2] * t, sh = g.s[3] * t;
     var kApp = Math.max(0.8, Math.min(3, Math.min(g.s[2] / 1200, g.s[3] / 800))), bw = Math.round(g.s[2] / kApp), bh = Math.round(g.s[3] / kApp), desk = g.s[2] / g.s[3] >= 0.9, k = kApp * t;
@@ -87,7 +87,7 @@
     if (comp) { host = el("div", "wcp-host", box); host.setAttribute("data-companion", comp); host.style.left = (g.c[0] / geo.w * 100) + "%"; host.style.top = (g.c[1] / geo.h * 100) + "%"; host.style.width = (g.c[2] / geo.w * 100) + "%"; }
     tile.insertBefore(box, tile.firstChild);
     if (host && window.SBWebComp) window.SBWebComp.mount(host);
-    tile.classList.add("live");
+    tile.classList.add("scn-on");
     rec.box = box; rec.W = W; rec.eng = eng; rec.ctx = eng ? [cA.getContext("2d"), cB.getContext("2d")] : []; rec.s = sc; rec.T = 0; rec.drawn = false; rec.dk = dk;
     if (eng) frame(rec, 1 / 30);
   }
@@ -142,7 +142,7 @@
     redrawT = setTimeout(function () {
       live.forEach(function (r) {
         if (!r.box || !L) return;
-        var w = Math.round(r.tile.getBoundingClientRect().width);
+        var w = Math.round(r.tile.clientWidth);
         if (force || isDark() !== r.dk || Math.abs(w - r.W) > 8) build(r);
       });
       run();
