@@ -15,7 +15,7 @@ const KEY = process.env.STRIPE_SECRET_KEY || "";
 if (!/^(sk|rk)_(test|live)_/.test(KEY)) { console.error("Set STRIPE_SECRET_KEY first (sk_test_... for test mode). See the top of this file."); process.exit(1); }
 if (/_live_/.test(KEY) && process.env.ALLOW_LIVE !== "1") { console.error("That is a LIVE key. Use a test key first, or set ALLOW_LIVE=1 to create the live product on purpose."); process.exit(1); }
 
-const MONTHLY_CENTS = 300, YEARLY_CENTS = 1999, TAX_CODE = "txcd_10103100";
+const MONTHLY_CENTS = 299, YEARLY_CENTS = 2499, TAX_CODE = "txcd_10103100";
 
 const form = (o, p = "", out = []) => { for (const [k, v] of Object.entries(o)) { const key = p ? `${p}[${k}]` : k; if (v && typeof v === "object") form(v, key, out); else out.push(`${encodeURIComponent(key)}=${encodeURIComponent(v)}`); } return out.join("&"); };
 async function call(path, body) {

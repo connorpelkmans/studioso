@@ -17,7 +17,7 @@ You can do the setup below any time before launch (in any order). While the payw
 - **100 MB** of cloud file storage (plus unlimited files kept on the device, or links to Google Drive or OneDrive), and **25 MB** of synced data.
 - Backups on the device: the desktop folder, plus the last 14 days in the browser.
 
-**Pro** ($3 a month or $19.99 a year, with a 7-day free trial):
+**Pro** ($2.99 a month or $24.99 a year, with a 7-day free trial):
 - Unlimited devices.
 - **10 GB** of cloud file storage and **250 MB** of synced data.
 - Every premium theme, including the 4 seasons (Winter, Spring, Summer and Autumn Leaves), plus every premium card style, note shape, pin and sticker pack, and all 46 Theme Collections.
@@ -73,7 +73,7 @@ Do these in test mode first. Everything stays free for everyone until Launch Day
 **2. Make the signing key.** On your computer (Node 18+): `node supabase-functions/tools/gen-ent-key.mjs`. It prints a **PRIVATE** value (`ENT_SIGNING_KEY`, PKCS8 as base64url) and a **PUBLIC** value (`ENT_PUBKEY`, 43 characters). Put the private one in Supabase **Edge Functions > Secrets** as `ENT_SIGNING_KEY` (never in the app, the website or git). Paste the public one into `const ENT_PUBKEY = "..."` in `index.html` and ship the app. If the private key ever leaks, run the script again, replace both and ship the app again.
 
 **3. Stripe (test mode first).**
-- **Product catalog > Add product** "Studyboard Pro" with a **Recurring** price of $3.00 per month and another of $19.99 per year. Copy both price ids (`price_...`). No payment links are needed any more; the checkout is created by your server.
+- **Product catalog > Add product** "Studyboard Pro" with a **Recurring** price of $2.99 per month and another of $24.99 per year. Copy both price ids (`price_...`). No payment links are needed any more; the checkout is created by your server.
 - **Settings > Billing > Customer portal:** turn it on (allow cancel and card changes).
 - **Developers > API keys > Create restricted key** with **Write** on Customers, Checkout Sessions and Customer portal sessions, and **Read** on Subscriptions and Charges. This is `STRIPE_SECRET_KEY` (the webhook uses it to read renewal dates and to find the owner of a disputed charge).
 
