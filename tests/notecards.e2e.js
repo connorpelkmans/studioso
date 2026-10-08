@@ -3,6 +3,7 @@
 // (toolbar button and keyboard shortcut, no selection), editing / deleting / adding / reordering / unticking cards, dedupe against an existing deck, the AI path
 // (stubbed reply with an ungrounded card that must be dropped, the "text was sent" notice, failure falls back, no consent sends nothing), AI off, the
 // links in both directions, sync merge of the new card field, phone width, dark theme, no page errors. Screenshots go to $SHOTS.
+/* global clone, SyncMerge -- clone is copied onto window from __sbNotecards in open() below; SyncMerge is only probed with typeof */
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, ".."), SHOTS = process.env.SHOTS || path.join(require("os").tmpdir(), "nc-shots");

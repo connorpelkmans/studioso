@@ -1,6 +1,6 @@
 // node tests/i18n.pw.js  (Playwright + Chromium) Localization groundwork: English untouched, a locale catalog swaps the nav, plurals and fallback work, no console errors.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
-const {chromium} = require("/opt/node-tools/node_modules/playwright");
+const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
 const MIME = {".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".css": "text/css", ".woff2": "font/woff2", ".svg": "image/svg+xml"};
 const server = http.createServer((req, res) => {
@@ -11,7 +11,7 @@ const server = http.createServer((req, res) => {
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({executablePath});
   try {
     // English (default): nothing changes
     let ctx = await browser.newContext({locale: "en-US"}), page = await ctx.newPage(); const errs = [];

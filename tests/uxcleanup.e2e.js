@@ -1,7 +1,7 @@
 // node tests/uxcleanup.e2e.js  (Playwright + Chromium)
 // Square default note, notes trash opens Recently Deleted, one Review button, + Add Card on a deck, fewer course-page buttons.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
-const {chromium} = require("/opt/node-tools/node_modules/playwright");
+const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
 const MIME = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".css": "text/css", ".svg": "image/svg+xml"};
 const server = http.createServer((req, res) => {
@@ -18,7 +18,7 @@ const SEED = () => ({v: 2, courses: [{id: "c1", name: "Biology", code: "BIO1", c
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({executablePath});
   try {
     for (const W of [1280, 390]) {
       console.log("\n=== width", W);
