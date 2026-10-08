@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld("studiosoDesktop", {
     set: (name, value) => ipcRenderer.invoke("secret:set", secretName(name), String(value == null ? "" : value)),
     remove: name => ipcRenderer.invoke("secret:remove", secretName(name))
   },
+  // A Gemini key or a code from another device on the clipboard, or "" (the main process never returns other clipboard text).
+  aiClipboard: () => ipcRenderer.invoke("clip:aikey"),
   // Tells the desktop app whether "Send Anonymous Crash Reports" is on, so its own (main-process) crash reports follow the same choice.
   setCrashReports: on => ipcRenderer.send("crash:set", on === true),
   onFlush: fn => ipcRenderer.on("app:flush", () => fn()),

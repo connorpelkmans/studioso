@@ -25,3 +25,5 @@ _headers.strict
 ios-www/
 # Screenshots written by the browser tests
 /tests-out/
+# Wrangler local dev state (cloudflare/key-relay)
+.wrangler/
