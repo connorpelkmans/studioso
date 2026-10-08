@@ -31,6 +31,8 @@ const q = h => Math.round(h * 4) / 4;
     await ctx.addInitScript(([seed, th]) => { try { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1");
       const d = new Date(), t = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); localStorage.setItem("coursework:today", JSON.stringify({d: t, h: th})); } catch (e) {} },
       [Object.assign({v: 2, courses: [{id: "c1", name: "Biology", code: "BIO1", color: "#3B6FE0"}], settings: {capacity: 15, dailyHours: 3}, updated: 1, tasks}, extra || {}), th]);
+    // midday, so the plan's late-night cap (it stops at about 1 am) never shortens today: this checks the split, whatever hour CI runs at
+    await ctx.clock.install({time: new Date(iso(new Date()) + "T12:00:00")});
     const page = await ctx.newPage(); page.errs = []; page.on("pageerror", e => page.errs.push(e.message));
     await page.goto(base); await page.waitForFunction(() => window.__sbPlan && document.querySelector(".focus.plan"), null, {timeout: 20000});
     return {ctx, page};
