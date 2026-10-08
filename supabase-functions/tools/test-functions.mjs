@@ -391,6 +391,10 @@ await test("delete-account: rate limit, Stripe failure stops everything, Apple s
   assert.equal((await da.handle(new Request("https://x/", { method: "GET" }), delDeps().deps)).status, 405);
   const evil = await da.handle(new Request("https://x/", { method: "POST", headers: { authorization: "Bearer j", origin: "https://evil.example" }, body: JSON.stringify({ confirm: "DELETE" }) }), delDeps().deps);
   assert.equal(evil.headers.get("access-control-allow-origin"), null);
+  for (const origin of ["app://studioso", "capacitor://localhost", "https://localhost", SITE]) {
+    const pre = await da.handle(new Request("https://x/", { method: "OPTIONS", headers: { origin } }), delDeps().deps);
+    assert.equal(pre.headers.get("access-control-allow-origin"), origin, `the app on ${origin} can reach it`);
+  }
 });
 
 // ---- calendar-feed (looked up by token hash, ICS values cleaned, generic errors)
