@@ -31,7 +31,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       // 1. notes
       await page.evaluate(() => { ui.tab = "notes"; render(); });
       await page.waitForSelector(".note[data-note]");
-      ok(await page.evaluate(() => document.documentElement.dataset.skin) === "sakura", "the Sakura theme (whose own note shape is scalloped) is on");
+      // Sakura (whose own note shape is scalloped) is a Pro theme: a free device that still holds it never draws scalloped notes either way
+      ok(await page.evaluate(() => state.settings.style && state.settings.style.skin) === "sakura", "the device holds the Sakura theme (note shape: scalloped)");
       ok(await page.locator(".note.ns-classic").count() === 1 && await page.locator(".note.ns-scallop").count() === 0, "the note is drawn square");
       ok(await page.locator('.tl-controls [data-act="note-archive-open"]').count() === 0, "no Archive button in the top row");
       ok(await page.locator('.tl-controls [data-act="trash-open"]').count() === 0, "no Recently Deleted button in the top row");
@@ -45,12 +46,12 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(await page.locator('.view-head [data-act="fc-review-all"], .view-head [data-act="fc-weak"]').count() === 0, "Review Due and Weak Spots are not separate buttons");
       const tile = await page.textContent(".deck");
       ok(!/due|new|quiz|practice/i.test(tile.replace(/Quiz|Archive|Study/g, "")), "a deck tile shows no due, new, last quiz or practice quiz text: " + tile.replace(/\s+/g, " "));
-      ok(/\b2 cards\b/.test(tile), "it shows the number of cards");
+      ok(await page.locator('.deck [aria-label="2 cards"]').count() === 1 && /\b2\b/.test(tile), "it shows the number of cards (a corner tag read out as 2 cards)");
       ok(await page.locator(".deck .mastery[aria-label$='prepared']").count() === 1, "and a Prepared bar");
       const pre = Number((await page.getAttribute(".deck .mastery", "aria-label")).match(/\d+/)[0]);
       ok(pre > 0 && pre < 60, "a deck with cards you keep missing is not ready: " + pre + "%");
-      const ab = await page.locator(".deck .deck-actions button").evaluateAll(b => b.map(x => x.innerText.trim()));
-      ok(ab.join() === "Study,Quiz,Archive", "Study, Quiz and Archive sit together at the bottom: " + ab.join());
+      const ab = await page.locator(".deck .deck-actions button").evaluateAll(b => b.map(x => x.innerText.trim() || x.getAttribute("aria-label") || ""));
+      ok(ab.join("|") === "Study|Quiz|Flashcard style for Cells|Archive", "Study, Quiz, the deck's style button and Archive sit together at the bottom: " + ab.join("|"));
       const r1 = await page.locator(".deck .deck-arch").boundingBox(), r0 = await page.locator(".deck .deck-actions [data-act=fc-quiz]").boundingBox();
       ok(r1.x > r0.x && Math.abs(r1.y - r0.y) < 8, "Archive is at the right end of that row");
       await page.screenshot({path: "/tmp/ux-decks-" + W + ".png"});
@@ -83,19 +84,19 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       // 3. course page
       await page.evaluate(() => { ui.tab = "courses"; ui.courseId = "c1"; render(); });
       await page.waitForSelector(".detail-head");
-      const top = await page.evaluate(() => [...document.querySelectorAll(".row-actions")].find(r => r.querySelector('[data-act="new-task"]')).querySelectorAll("button").length);
-      ok(top <= 4, "course page shows " + top + " buttons, not 7");
-      ok(await page.locator('.row-actions [data-act="import-syllabus"], .row-actions [data-act="bd-new-course"], .row-actions [data-act="edit-course"]').count() === 0, "rare actions moved out of the row");
-      await page.click('[data-act="course-more"]'); await page.waitForSelector('#dlg[open] [data-act="edit-course"]');
-      ok(await page.locator('#dlg [data-act="import-syllabus"]').count() === 1 && await page.locator('#dlg [data-act="bd-new-course"]').count() === 1, "More lists Import Syllabus and Break Down an Assignment");
-      await page.click('#dlg [data-act="edit-course"]'); await page.waitForSelector("#dlg .sheet-head");
-      ok(/Edit Course/.test(await page.textContent("#dlg .sheet-head")), "Edit Course opens from More");
+      // a short row: Import Syllabus and Edit Course, plus Ask AI and the school-site link when there is one (Add Task is the page's bottom-right button)
+      const row = await page.evaluate(() => [...(document.querySelector(".detail-head .row-actions, .row-actions") || {querySelectorAll: () => []}).querySelectorAll("button")].map(b => b.dataset.act));
+      ok(row.length <= 4 && row.includes("import-syllabus") && row.includes("edit-course"), "course page shows " + row.length + " buttons, not 7: " + row.join(","));
+      ok(await page.locator('[data-act="course-more"]').count() === 0, "no More menu on the course page");
+      await page.click('.row-actions [data-act="edit-course"]'); await page.waitForSelector("#dlg .sheet-head");
+      ok(/Edit Course/.test(await page.textContent("#dlg .sheet-head")), "Edit Course opens from the row");
       ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), "no sideways scroll");
       ok(errs.length === 0, "no page errors " + errs.join(";"));
       await ctx.close();
     }
-    // 4. default note: plain Square and yellow, even when an old theme switch had saved Graph Paper (and the last note was blue)
-    for (const [style, want] of [[{skin: "arcade", note: "gridnote", noteAuto: false}, "classic"], [{skin: "arcade", note: "gridnote", noteAuto: false, notePicked: true}, "gridnote"], [{skin: "arcade", note: "gridnote", noteAuto: true}, "gridnote"]]) {
+    // 4. default note: plain Square and yellow, even when an old theme switch had saved another shape (and the last note was blue).
+    //    A shape you picked yourself stays (Rounded is free); "match theme" on a Pro theme never hands a free device a Pro shape (Graph Paper).
+    for (const [style, want] of [[{skin: "arcade", note: "rounded", noteAuto: false}, "classic"], [{skin: "arcade", note: "rounded", noteAuto: false, notePicked: true}, "rounded"], [{skin: "arcade", note: "gridnote", noteAuto: true}, "classic"]]) {
       const c2 = await browser.newContext({viewport: {width: 1280, height: 900}}), sd = SEED(); sd.notes[0].color = "blue"; sd.settings = {capacity: 15, dailyHours: 3, style};
       await c2.addInitScript(seed => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); } } catch (e) {} }, sd);
       const p2 = await c2.newPage(); await p2.goto(base); await p2.waitForSelector("#view", {state: "attached"}); await p2.waitForFunction(() => window.SBPINPICK);
@@ -145,6 +146,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       sd.tasks = [{id: "t1", title: "Huge project", courseId: "c1", type: "Project", status: "todo", due: day(2), start: day(0), hours: 30, priority: "high", created: 1}];
       const c4 = await browser.newContext({viewport: {width: 1280, height: 900}});
       await c4.addInitScript(seed => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); } } catch (e) {} }, sd);
+      await c4.clock.install({time: new Date(day(0) + "T12:00:00")});   // midday: late at night the plan stops at about 1 am, so more time today can't shrink the gap
       const p4 = await c4.newPage(); await p4.goto(base); await p4.waitForSelector("#view", {state: "attached"}); await p4.waitForFunction(() => window.SBPINPICK);
       await p4.evaluate(() => { const T = window.SBPINPICK; window.ui = T.ui; window.render = T.render; ui.tab = "board"; ui.bview = "plan"; ui.focusOpen = true; render(); });
       await p4.waitForSelector(".plan-warn");
