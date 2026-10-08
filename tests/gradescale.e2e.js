@@ -1,7 +1,7 @@
 // node tests/gradescale.e2e.js  (Playwright + Chromium; the AI network call is stubbed)
 // Grade Settings: no school-specific wording, a default pass mark of 50, one box per letter and per percent, and a letter scale read from a screenshot or pasted text.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
-const {chromium} = require("/opt/node-tools/node_modules/playwright");
+const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
 const MIME = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".css": "text/css", ".woff2": "font/woff2", ".svg": "image/svg+xml"};
 const server = http.createServer((req, res) => {
@@ -14,7 +14,7 @@ const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({executablePath});
   const mk = async ({ai, reply, w = 1280, settings, grounding, limitSearch} = {}) => {
     const ctx = await browser.newContext({viewport: {width: w, height: w < 500 ? 780 : 900}});
     await ctx.addInitScript(([seed, ai]) => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done");

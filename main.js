@@ -1,7 +1,7 @@
 // Studyboard desktop app (formerly Studioso): a window around the Studyboard page, with a real folder on this computer
 // for your data, backups and files. Sync with your account happens inside the page (Supabase).
 // Since 1.11: a tray icon, native reminders that keep working with the window closed, and the Today widget.
-const { app, BrowserWindow, ipcMain, dialog, shell, protocol, net, Menu, nativeTheme, Tray, Notification, nativeImage, powerMonitor, screen, session, safeStorage, desktopCapturer, globalShortcut, systemPreferences } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, protocol, net, Menu, nativeTheme, Tray, Notification, nativeImage, powerMonitor, screen, session, safeStorage, clipboard, desktopCapturer, globalShortcut, systemPreferences } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const fsp = fs.promises;
@@ -775,6 +775,17 @@ const readSecrets = () => { const o = readJson(SECRET_FILE, {}); return o && typ
 ipcMain.handle("secret:available", e => fromMain(e) && secretsOn());
 // The plain value goes back to the page that stored it: the point is that it is never on disk unencrypted, not that the page can't read it
 // (the page needs the key to call the AI provider). Only the top frame of Studyboard's own window can ask (fromMain), and the page's CSP limits scripts.
+// AI Features > Paste My Key: the page gets only a Gemini key or a code from another device (XXXX-XXXX-XXXX, or a link carrying one)
+// found on the clipboard, never anything else that was copied. The page has no clipboard-read permission of its own (ALLOWED_PERMISSIONS).
+ipcMain.handle("clip:aikey", e => {
+  if (!fromMain(e)) return "";
+  try {
+    const t = clipboard.readText().slice(0, 4096), key = t.match(/AIza[0-9A-Za-z_-]{35}(?![0-9A-Za-z_-])/);
+    if (key) return key[0];
+    const link = t.match(/[#&?]sbkey=([0-9A-Za-z-]{12,16})/), code = t.trim().match(/^[0-9A-Za-z]{4}[\s-]?[0-9A-Za-z]{4}[\s-]?[0-9A-Za-z]{4}$/);
+    return link ? link[1] : code ? code[0] : "";
+  } catch (err) { return ""; }
+});
 ipcMain.handle("secret:get", (e, name) => {
   if (!fromMain(e) || typeof name !== "string" || !SECRET_NAME.test(name) || !secretsOn()) return null;
   const b = readSecrets()[name]; if (typeof b !== "string") return null;

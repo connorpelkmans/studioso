@@ -1,7 +1,7 @@
 // node tests/pinpicker.e2e.js  (Playwright + Chromium)
 // Notes: one "Red Pin (Default)" (the real default), Washi Dots listed below No Pin, and a searchable pin picker instead of a long drop-down.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
-const {chromium} = require("/opt/node-tools/node_modules/playwright");
+const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, ".."), SHOTS = process.env.SHOTS || path.join(require("os").tmpdir(), "pp-shots");
 fs.mkdirSync(SHOTS, {recursive: true});
 const MIME = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".css": "text/css", ".woff2": "font/woff2", ".svg": "image/svg+xml"};
@@ -15,7 +15,7 @@ const SEED = () => ({v: 2, courses: [{id: "c1", name: "Biology", code: "BIO1", c
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({executablePath});
   try {
     for (const W of [1280, 390]) {
       console.log("\n=== width", W);

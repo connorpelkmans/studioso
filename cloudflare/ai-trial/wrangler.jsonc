@@ -1,0 +1,29 @@
+// Studyboard's AI trial: a Cloudflare Worker on the FREE plan. See README.md, especially "You can never be billed".
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "studyboard-ai-trial",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-15",
+  "observability": { "enabled": false },
+  "ai": { "binding": "AI" },
+  "durable_objects": {
+    "bindings": [
+      { "name": "STUDENT", "class_name": "StudentMeter" },
+      { "name": "POOL", "class_name": "DayPool" }
+    ]
+  },
+  // SQLite-backed Durable Objects are the kind the Workers Free plan allows.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["StudentMeter", "DayPool"] }],
+  "vars": {
+    // Your Supabase project: the same public values the app ships with (SB_DEFAULT in index.html). Used only to check who is signed in.
+    "SUPABASE_URL": "https://pivcmrqcjseycjkbocmc.supabase.co",
+    "SUPABASE_KEY": "sb_publishable_hoKTO5FRblXqHs6MvO686Q_81c5_gvd",
+    // Free tries per student, ever, and at most this many a day. The daily pool below is shared by everyone.
+    "TRIAL_USES": "15",
+    "DAILY_USES": "5",
+    // Neurons the trial may use per UTC day. Workers AI gives 10,000 free a day; the code never allows more than 9,000, whatever this says.
+    "DAILY_NEURONS": "8000",
+    // "1" switches the trial off at once (every try answers "busy" and the app points students to their own Gemini key).
+    "TRIAL_OFF": ""
+  }
+}

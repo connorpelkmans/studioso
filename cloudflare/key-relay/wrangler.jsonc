@@ -1,0 +1,18 @@
+// The Studyboard key relay: a Cloudflare Worker (free plan) that holds an encrypted box for at most 10 minutes. See README.md.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "studyboard-key-relay",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-15",
+  "observability": { "enabled": false },
+  "durable_objects": {
+    "bindings": [{ "name": "HANDOFF", "class_name": "Handoff" }]
+  },
+  // SQLite-backed Durable Objects are the kind the Workers Free plan allows.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Handoff"] }],
+  "vars": {
+    // Your Studyboard web app address (https, no trailing slash), for the "Open Studyboard" button on the page a scanned QR code opens.
+    // Leave it empty and that page only shows the code to copy.
+    "APP_URL": ""
+  }
+}

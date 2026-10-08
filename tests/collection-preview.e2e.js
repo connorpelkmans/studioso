@@ -1,7 +1,7 @@
 // node tests/collection-preview.e2e.js  (Playwright + Chromium)
 // Free plan: 3 different Pro collections can be previewed for 5 minutes each; the earlier theme comes back when time is up; then no more previews.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
-const {chromium} = require("/opt/node-tools/node_modules/playwright");
+const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
 const MIME = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".css": "text/css", ".svg": "image/svg+xml", ".woff2": "font/woff2"};
 const server = http.createServer((req, res) => {
@@ -12,7 +12,7 @@ const server = http.createServer((req, res) => {
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({executablePath});
   try {
     const ctx = await browser.newContext({serviceWorkers: "block"});
     await ctx.addInitScript(() => { try { localStorage.setItem("studyboard:paywall-test", "1"); localStorage.setItem("sb:onboarded", "1"); } catch (e) {} });

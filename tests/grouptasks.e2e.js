@@ -12,13 +12,15 @@ function stubInit(opts){
   const me = {id: opts.me, email: opts.me + "@x.com"};
   const day = n => { const d = new Date(); d.setDate(d.getDate() + n); const z = x => String(x).padStart(2, "0"); return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()); };
   const DB = {
-    study_groups: [{id: "g1", name: "Bio Squad", course: "BIOL 201", owner_id: "u1", invite_code: "ABC-DEF", created_at: "2026-01-01", weekly_goal: 0, kind: "project", project_due: null}],
+    study_groups: [{id: "g1", name: "Bio Squad", course: "BIOL 201", owner_id: "u1", invite_code: "ABC-DEF", created_at: "2026-01-01", weekly_goal: 0, kind: opts.kind || "study", project_due: null}],   // task lists now live in study groups that already have one (a group project uses its board, see groupkinds.e2e.js)
     group_members: [{group_id: "g1", user_id: "u1", role: "owner", display_name: "Connor", joined_at: "2026-01-01"}, {group_id: "g1", user_id: "u2", role: "member", display_name: "Sam", joined_at: "2026-01-02"}, {group_id: "g1", user_id: "u3", role: "member", display_name: "Jo", joined_at: "2026-01-03"}],
     group_items: [], group_messages: [], study_profiles: [{user_id: opts.me, display_name: opts.me === "u1" ? "Connor" : "Sam"}], shared_decks: [], group_blocks: [],
     group_quiz_scores: [], group_rsvps: [], group_stats: [], group_checkins: [], group_reactions: [],
     group_task_lists: [], group_tasks: []
   };
   const nowIso = () => new Date().toISOString(); let n = 0; const id = p => p + (++n);
+  // lists can't be made any more: a study group shows the ones it already has (an empty one here, for the main scenario)
+  if (opts.emptyList) DB.group_task_lists.push({id: "L1", group_id: "g1", title: "BIOL 201 Poster", course_code: "BIOL 201", created_by: "u1", created_at: "2026-02-01T00:00:00Z", archived: false});
   if (opts.seed) {
     DB.group_task_lists.push({id: "L1", group_id: "g1", title: "BIOL 201 Poster", course_code: "BIOL 201", created_by: "u2", created_at: "2026-02-01T00:00:00Z", archived: false});
     const t = (i, title, who, due, extra) => Object.assign({id: i, list_id: "L1", group_id: "g1", title, notes: "", status: "todo", assignee_id: who, due_at: due, priority: null, position: DB.group_tasks.length + 1, created_by: "u2", created_at: "2026-02-01T00:00:0" + DB.group_tasks.length + "Z", updated_by: "u2", updated_at: "2026-02-01T00:00:00Z", completed_at: null, completed_by: null, deleted: false}, extra || {});
@@ -42,7 +44,12 @@ function stubInit(opts){
       return wait({data: out});
     };
     const api = {select() { return api; }, eq(c, v) { st.f.push(r => r[c] === v); return api; }, neq(c, v) { st.f.push(r => r[c] !== v); return api; }, in(c, v) { st.f.push(r => v.includes(r[c])); return api; },
-      gte(c, v) { st.f.push(r => r[c] >= v); return api; }, order(c, o) { st.order = [c, !(o && o.ascending === false)]; return api; }, limit() { return api; },
+      gte(c, v) { st.f.push(r => r[c] >= v); return api; },
+      // PostgREST's or=(col.op.value,...), as the planner asks for "not done, or finished in the last two weeks"
+      or(expr) { const ts = String(expr).split(",").map(x => { const i = x.indexOf("."), j = x.indexOf(".", i + 1); return [x.slice(0, i), x.slice(i + 1, j), x.slice(j + 1)]; });
+        const t1 = ([c, op, v], r) => op === "eq" ? String(r[c]) === v : op === "neq" ? String(r[c]) !== v : op === "gte" ? String(r[c] || "") >= v : op === "is" ? (v === "null" ? r[c] == null : String(r[c]) === v) : false;
+        st.f.push(r => ts.some(t => t1(t, r))); return api; },
+      order(c, o) { st.order = [c, !(o && o.ascending === false)]; return api; }, limit() { return api; },
       maybeSingle() { st.one = true; return run(); }, single() { st.one = true; return run(); },
       insert(rows) { st.op = "insert"; st.payload = rows; return api; }, update(p) { st.op = "update"; st.payload = p; return api; }, delete() { st.op = "delete"; return api; },
       upsert(r) { st.op = "insert"; st.payload = r; return api; }, then(res, rej) { return run().then(res, rej); }};
@@ -80,7 +87,7 @@ function stubInit(opts){
     removeChannel(c) { c.gone = true; }
   };
   window.__sbGroupsStub = {user: me, client};
-  try { localStorage.setItem("sb:grpName:" + me.id, me.id === "u1" ? "Connor" : "Sam"); } catch(e) {}
+  try { localStorage.setItem("sb:grpName:" + me.id, me.id === "u1" ? "Connor" : "Sam"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); } catch(e) {}
   window.__fire = (table, ev) => { window.__chans.filter(c => !c.gone).forEach(c => c.h.forEach(h => { if (h.cfg.table === table) h.cb({eventType: ev || "UPDATE", new: {}, old: {}}); })); };
 }
 
@@ -96,23 +103,22 @@ async function boot(browser, w, opts){
 const click = (page, sel) => page.evaluate(sel => { const b = document.createElement("button"); b.dataset.act = sel; document.body.appendChild(b); b.click(); b.remove(); }, sel);
 async function openGroup(page){
   await click(page, "grp-page"); await page.waitForSelector('[data-act="grp-open"]'); await page.click('[data-act="grp-open"]');
-  await page.waitForSelector('[data-act="grp-tab"][data-t="tasks"]', {timeout: 5000}); await page.click('[data-act="grp-tab"][data-t="tasks"]');   // a group project opens on Overview
-  await page.waitForSelector("#grpPT", {timeout: 5000}); await page.waitForTimeout(700);
+  // a study group opens on its Study tab, which holds the task lists it has; a group project opens on Overview
+  await page.waitForSelector("#grpDetail", {timeout: 5000});
+  if (await page.locator('[data-act="grp-tab"][data-t="tasks"]').count()) await page.click('[data-act="grp-tab"][data-t="tasks"]');
+  await page.waitForSelector("#grpPT", {state: "attached", timeout: 5000}); await page.waitForTimeout(700);
 }
+// the sign-in sheet may open over the Board (this stub signs in to groups, not to sync): close it, then show Today's Plan
+const toPlan = async page => { await page.evaluate(() => { const d = document.querySelector("#dlg"); if (d && d.open) d.close(); }); await page.click('[data-act="bview"][data-id="plan"]'); };
 const txt = (page, sel) => page.evaluate(sel => { const e = document.querySelector(sel); return e ? e.innerText.replace(/\s+/g, " ") : ""; }, sel);
 const noOverflow = async (page, label) => ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), "no horizontal overflow: " + label);
 
 async function scenario(browser, w){
   const tag = w + "px";
-  const {ctx, page, errs} = await boot(browser, w, {me: "u1"});
+  const {ctx, page, errs} = await boot(browser, w, {me: "u1", emptyList: true});
   await openGroup(page);
-  // empty state
-  ok(/Split up the work/.test(await txt(page, "#grpPT")), tag + " empty state wording");
   await page.screenshot({path: path.join(shots, `pt-${w}-0-empty.png`), fullPage: false});
-  // create a list
-  await page.click('[data-act="grp-pt-list-new"]'); await page.fill('dialog input[name="title"]', "BIOL 201 Poster"); await page.fill('dialog input[name="course"]', "BIOL 201");
-  await page.click("dialog [data-submit]"); await page.waitForTimeout(400);
-  ok(/BIOL 201 Poster/.test(await txt(page, ".pt-lists")), tag + " list chip shows");
+  ok(/BIOL 201 Poster/.test(await txt(page, "#grpPT")), tag + " the group's list shows");
   ok(/Split up the work: add the first task/.test(await txt(page, "#grpPT")), tag + " empty list wording");
   // add tasks
   const add = async (title, who, due) => { await page.fill("#ptTitle", title); if (who) await page.selectOption("#ptWho", who); if (due) await page.fill("#ptDue", due); await page.press("#ptTitle", "Enter"); await page.waitForTimeout(200); };
@@ -220,7 +226,8 @@ async function plainMember(browser){
 
 async function sqlNotRun(browser){
   for (const who of ["u1", "u2"]) {
-    const {ctx, page, errs} = await boot(browser, 1280, {me: who, missing: ["group_task_lists", "group_tasks"]});
+    // a group project, which always has a Tasks tab (a study group without lists shows no task section at all)
+    const {ctx, page, errs} = await boot(browser, 1280, {me: who, kind: "project", missing: ["group_task_lists", "group_tasks"]});
     await openGroup(page).catch(() => {});
     await page.waitForTimeout(500);
     const t = await txt(page, "#grpPT");
@@ -236,6 +243,7 @@ async function sqlNotRun(browser){
 async function planner(browser, w){
   const tag = "planner " + w;
   const {ctx, page, errs} = await boot(browser, w, {me: "u1", seed: true});
+  await toPlan(page);   // the card sits under Today's Plan (the Board can open on the Task Board)
   await page.waitForSelector("#grpMine", {timeout: 6000});
   const card = await txt(page, "#grpMine");
   ok(/Group: BIOL 201 Poster/.test(card), tag + " group badge: " + card.replace(/\s+/g, " "));
@@ -267,6 +275,7 @@ async function planner(browser, w){
 
 async function plannerRollback(browser){
   const {ctx, page, errs} = await boot(browser, 1280, {me: "u1", seed: true});
+  await toPlan(page);
   await page.waitForSelector("#grpMine", {timeout: 6000});
   await page.evaluate(() => { window.__fail = "update_group_task"; window.__failMsg = "Couldn't reach Studyboard. Check your internet connection and try again."; });
   await page.click('#grpMine li:has-text("Collect survey data") [data-act="grp-pt-done"]'); await page.waitForTimeout(500);

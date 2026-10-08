@@ -1,7 +1,7 @@
 // node tests/course-title.e2e.js  (Playwright + Chromium)
 // The course name on a course's page must stay readable on every theme, light and dark: it sits on its own solid card (opaque, with text/surface colors that contrast well).
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
-const {chromium} = require("/opt/node-tools/node_modules/playwright");
+const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, ".."), SHOTS = process.env.SHOTS || path.join(require("os").tmpdir(), "ct-shots");
 fs.mkdirSync(SHOTS, {recursive: true});
 const MIME = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".css": "text/css", ".woff2": "font/woff2", ".svg": "image/svg+xml"};
@@ -16,7 +16,7 @@ const rgba = s => (s.match(/[\d.]+/g) || []).map(Number);
 let n = 0; const ok = (c, m) => { n++; assert(c, m); if (!/^theme /.test(m)) console.log("ok -", m); };
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
-  const browser = await chromium.launch(); const bad = [];
+  const browser = await chromium.launch({executablePath}); const bad = [];
   try {
     let themes = null;
     for (const mode of ["light", "dark"]) {

@@ -2,7 +2,7 @@
 // Today's Plan: the suggested time on each task adds up to the study time the person set for today, unless there is a reason (which the plan then says).
 // Checks the model (__sbPlan) and what is on screen: hero + list rows + the "more tasks" summary row = the planned total.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
-const {chromium} = require("/opt/node-tools/node_modules/playwright");
+const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
 const MIME = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".css": "text/css", ".woff2": "font/woff2", ".svg": "image/svg+xml"};
 const server = http.createServer((req, res) => {
@@ -25,12 +25,14 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 const q = h => Math.round(h * 4) / 4;
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({executablePath});
   const open = async (tasks, th, extra) => {
     const ctx = await browser.newContext({viewport: {width: 1280, height: 900}});
     await ctx.addInitScript(([seed, th]) => { try { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1");
       const d = new Date(), t = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); localStorage.setItem("coursework:today", JSON.stringify({d: t, h: th})); } catch (e) {} },
       [Object.assign({v: 2, courses: [{id: "c1", name: "Biology", code: "BIO1", color: "#3B6FE0"}], settings: {capacity: 15, dailyHours: 3}, updated: 1, tasks}, extra || {}), th]);
+    // midday, so the plan's late-night cap (it stops at about 1 am) never shortens today: this checks the split, whatever hour CI runs at
+    await ctx.clock.install({time: new Date(iso(new Date()) + "T12:00:00")});
     const page = await ctx.newPage(); page.errs = []; page.on("pageerror", e => page.errs.push(e.message));
     await page.goto(base); await page.waitForFunction(() => window.__sbPlan && document.querySelector(".focus.plan"), null, {timeout: 20000});
     return {ctx, page};
