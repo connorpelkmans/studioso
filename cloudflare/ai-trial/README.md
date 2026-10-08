@@ -28,9 +28,20 @@ The Worker adds its own limits on top. None of them is needed on the Free plan; 
 
 Nothing else in Studyboard can bill you for AI. Students' Gemini, Claude and ChatGPT keys are their own, and AI requests go from their device straight to that company. No Supabase function and no other part of this repository holds an AI key or calls an AI service.
 
+## Turnstile (the "not a robot" check)
+
+When `TURNSTILE_SITE_KEY` (in `wrangler.jsonc`) and the `TURNSTILE_SECRET` secret are both set, each student passes one Cloudflare Turnstile check before their first try.
+
+1. The app asks this Worker for a check link. The link is signed for that student and lasts 15 minutes.
+2. The app opens the link in the browser. That works from the website, the desktop app and the phone apps alike.
+3. The page runs Turnstile and sends the result to this Worker, which confirms it with Cloudflare's siteverify.
+4. The app sees the check is done and carries on.
+
+Turnstile is free. Setup steps are in `cloudflare/PROTECTION.md`, section 6. While either key is missing there's no check, and everything else works the same.
+
 ## What it stores
 
-- **Per student:** a count of tries (total, and today), under their Supabase user id.
+- **Per student:** a count of tries (total, and today), and whether they passed the check, under their Supabase user id.
 - **Per day:** the neurons used. Old days are deleted after 3 days.
 
 What students send isn't stored. Logs are off (`observability.enabled: false`).

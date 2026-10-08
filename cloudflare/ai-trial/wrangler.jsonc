@@ -23,6 +23,10 @@
     "DAILY_USES": "5",
     // Neurons the trial may use per UTC day. Workers AI gives 10,000 free a day; the code never allows more than 9,000, whatever this says.
     "DAILY_NEURONS": "8000",
+    // Turnstile ("not a robot" check before a student's first try): the widget's site key. Its secret key goes in as a secret, never here:
+    //   npx wrangler secret put TURNSTILE_SECRET
+    // While either is missing there is no check (README.md, "Turnstile").
+    "TURNSTILE_SITE_KEY": "",
     // "1" switches the trial off at once (every try answers "busy" and the app points students to their own Gemini key).
     "TRIAL_OFF": ""
   }

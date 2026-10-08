@@ -28,7 +28,7 @@ This repository is a flat copy of an intended layout. Nothing was moved or renam
 | Version 1.13.0 in `package.json`, `package-lock.json`, `APP_VERSION` (feedback module), the new About module, SETUP-GUIDE installer and zip names | Done |
 | `dist:mac-intel` script quoting (`${version}` and `${ext}` were expanded empty by the shell) | Done |
 | CI runner `macos-13` (retired) replaced by `macos-15-intel` | Done |
-| `homepage` placeholder removed from `package.json`, `license` set to MIT | Done (add `homepage` back with your real URL if you want it) |
+| `homepage` placeholder removed from `package.json`, `license` set to UNLICENSED (proprietary, all rights reserved; see LICENSE) | Done (add `homepage` back with your real URL if you want it) |
 | Copyright line `Copyright © 2026 Studyboard` in `build.copyright` | Owner: put your legal name or business name there |
 | Windows and Mac installers are unsigned (SmartScreen / Gatekeeper warnings; the Mac build uses an ad-hoc identity) | Owner: buy a code-signing certificate / Apple Developer ID and notarize, or keep the guide's workaround text |
 | Node and `npm ci` of the desktop build were not run in this environment (no network for npm). `prepare.js` was tested against a stub `node_modules` | Owner: run `npm ci && npm run dist` once on each OS |

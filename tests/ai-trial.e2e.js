@@ -72,6 +72,9 @@ const STUB = () => {
     });
     ctx.google = 0;
     await ctx.route(/generativelanguage\.googleapis\.com/, route => { ctx.google++; route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({candidates: [{content: {parts: [{text: JSON.stringify(STAGES)}]}, finishReason: "STOP"}]})}); });
+    // A stand-in for Cloudflare's Turnstile script: it "passes" at once and calls back with a token the stand-in siteverify accepts.
+    await ctx.route(/challenges\.cloudflare\.com\/turnstile\/v0\/api\.js/, route => route.fulfill({status: 200, contentType: "text/javascript",
+      body: "window.turnstile = {render: function (el, o) { setTimeout(function () { o.callback(o.action === 'trial' ? 'pass' : 'wrong-action'); }, 300); }}; if (window.sbTurnstile) window.sbTurnstile();"}));
     await ctx.route(/aistudio\.google\.com/, route => route.fulfill({status: 200, contentType: "text/html", body: "AI Studio"}));
     const page = await ctx.newPage();
     page.on("pageerror", e => console.error("page error:", e.message));
@@ -149,6 +152,32 @@ const STUB = () => {
     await openBreakdown(B.page);
     await B.page.waitForFunction(() => /Used the AI/.test(document.querySelector("#bdAiMsg").textContent), null, {timeout: 10000});
     ok(aiCalls(B.ctx) === 0 && B.ctx.google > 0, "their AI goes to Gemini, never the trial");
+
+    // ---- 7. Turnstile: the one-time check, from "Try AI First", through the check page in a new window, back to the app.
+    students.clear(); env.TRIAL_USES = "3"; env.TURNSTILE_SITE_KEY = "0x4AAAtest"; env.TURNSTILE_SECRET = "test-secret";
+    const verified = []; deps.siteverify = async (e, token) => { verified.push(token); return token === "pass"; };
+    const C = await device(null);
+    await C.page.waitForFunction(() => /Turn On AI/.test((document.querySelector("#dlg[open] h2") || {}).textContent || ""), null, {timeout: 20000});
+    const popup = C.ctx.waitForEvent("page");
+    await C.page.click("#aiwTry");
+    await C.page.waitForSelector("#aiVerifyTitle");
+    ok(/not a robot/.test(await C.page.textContent("dialog.ai-consent[open]")), "Try AI First asks for the one-time check");
+    await C.page.waitForSelector("dialog.ai-consent[open] [data-go]:not([disabled])");
+    if (SHOTS) await C.page.locator("dialog.ai-consent[open]").screenshot({path: path.join(SHOTS, "trial-check.png")});
+    await C.page.click("dialog.ai-consent[open] [data-go]");
+    const check = await popup;
+    await check.waitForLoadState();
+    ok(/^https:\/\/trial\.test\/verify/.test(check.url()), "the check page opened in a new window");
+    await check.waitForFunction(() => /Done\./.test(document.getElementById("msg").textContent), null, {timeout: 10000});
+    ok(verified.includes("pass"), "the check page's token was verified by the server");
+    if (SHOTS) await check.screenshot({path: path.join(SHOTS, "trial-check-page.png")});
+    await C.page.waitForFunction(() => /Your free AI tries are ready/.test((document.querySelector("#toastMsg") || {}).textContent || ""), null, {timeout: 10000});
+    ok(!(await C.page.$("#aiVerifyTitle")), "the app saw it was done and closed the window by itself");
+    await openBreakdown(C.page);
+    await C.page.click("#bdAi");
+    await C.page.waitForSelector("dialog.ai-consent[open] [data-yes]"); await C.page.click("dialog.ai-consent[open] [data-yes]");
+    await C.page.waitForFunction(() => /Used the AI/.test(document.querySelector("#bdAiMsg").textContent), null, {timeout: 10000});
+    ok(aiCalls(C.ctx) === 1, "after the check, the first try just works");
 
     console.log(`ai-trial e2e: ${n} checks passed`);
   } finally { await browser.close(); }

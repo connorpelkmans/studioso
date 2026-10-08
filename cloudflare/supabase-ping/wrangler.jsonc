@@ -1,0 +1,18 @@
+// Keeps the free Supabase project awake: one small read every third day (Supabase pauses free projects after a week without activity).
+// Replaces .github/workflows/keep-supabase-awake.yml. Runs on the Workers FREE plan (Cron Triggers are included). See README.md.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "studyboard-supabase-ping",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-15",
+  "observability": { "enabled": false },
+  // 14:17 UTC every third day, like the GitHub schedule it replaces.
+  "triggers": { "crons": ["17 14 */3 * *"] },
+  // No public address: it only runs on its schedule.
+  "workers_dev": false,
+  "vars": {
+    // The same public values the app ships with (SB_DEFAULT in index.html).
+    "SUPABASE_URL": "https://pivcmrqcjseycjkbocmc.supabase.co",
+    "SUPABASE_KEY": "sb_publishable_hoKTO5FRblXqHs6MvO686Q_81c5_gvd"
+  }
+}
