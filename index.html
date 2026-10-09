@@ -68758,14 +68758,17 @@ window.SBSTREAK = {on: gentleOn, line: () => streakLineText(streakNow()), state:
   // Calls the delete-account Edge Function. kind: ok | missing (not deployed) | network | http
   async function callDelete(payload){
     let res;
+    // A function that isn't deployed, wasn't redeployed or is refused by the gateway often has no CORS headers, so the browser
+    // reports it like a lost connection. If the database still answers (read-only check), the server is reachable: use the fallback.
+    const unreachable = async error => { try { const {error: pe} = await sb.rpc("studyboard_delete_my_account_check"); if (!pe) return {kind: "missing"}; } catch (e) {} return {kind: "network", error}; };
     try { res = await sb.functions.invoke("delete-account", {body: payload}); }
-    catch (e) { return {kind: "network", error: e}; }
+    catch (e) { return unreachable(e); }
     if (!res || !res.error) return {kind: "ok", data: res && res.data};
     const err = res.error, c = err.context;
     let status = c && c.status || 0, body = null;
     try { if (c && typeof c.json === "function") body = await c.json(); } catch (e) {}
     if (status === 404 && !(body && body.error)) return {kind: "missing"};
-    if (!status) return {kind: "network", error: err};
+    if (!status) return unreachable(err);
     return {kind: "http", status, body: body || {}, error: err};
   }
   const deletedList = (data, wiped) => {
