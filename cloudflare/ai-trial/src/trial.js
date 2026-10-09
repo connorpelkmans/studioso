@@ -15,6 +15,7 @@
 //   POST /v1/verify/start                                      {url}: the check page for this student (link valid 15 minutes)
 //   POST /v1/verify/finish  {nonce, token}                     from the check page: Turnstile's token, checked with siteverify
 //   GET  /verify#<nonce>                                       the check page
+//   DELETE /v1/trial                                           {ok}: forget this student's count and check (sent by Delete My Account)
 //   POST /v1/ai      {task, system, text, schema?, maxTokens?, temperature?}
 //                    200 {data, model, left, todayLeft, total}
 //                    401 auth   403 unconfirmed | verify   413 too_long   429 used_up | today | busy   502 ai_failed
@@ -59,6 +60,8 @@ export class Student {
     return { left, total: cfg.trialUses, todayLeft: Math.min(left, Math.max(0, cfg.dailyUses - r.dayUsed)), daily: cfg.dailyUses, verify: !!cfg.turnstile && !(await this.s.get("human")) };
   }
   async setHuman() { await this.s.put("human", true); }
+  // Delete My Account: the count and the check flag go too (nothing about the student is left here).
+  async forget() { await this.s.deleteAll(); }
   // Counts the try before the model runs; refund() gives it back if the model then fails.
   async take(cfg) {
     const r = await this.read();
@@ -113,7 +116,7 @@ export async function siteverify(env, token, ip, fetchFn = fetch) {
   } catch (e) { return false; }
 }
 
-const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Max-Age": "86400" };
+const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Max-Age": "86400" };
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json", "Cache-Control": "no-store" } });
 
 // Who is signed in: Supabase checks the token (GET /auth/v1/user). Answers are kept a few minutes so a burst of tries is one check.
@@ -167,6 +170,13 @@ export async function handle(request, env, deps) {
     return json({ ok: true });
   }
   if (!["/v1/trial", "/v1/ai", "/v1/verify/start"].includes(url.pathname)) return json({ error: "not_found" }, 404);
+  // Forgetting works for every signed-in student (even unconfirmed, even with the trial switched off): it only ever deletes their own record.
+  if (url.pathname === "/v1/trial" && request.method === "DELETE") {
+    const who = await deps.user((request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, ""));
+    if (!who) return json({ error: "auth" }, 401);
+    await deps.student(who.id).forget();
+    return json({ ok: true });
+  }
   if (String(env.TRIAL_OFF || "") === "1") return json({ error: "busy", left: 0, total: 0, todayLeft: 0, daily: 0 }, 429);   // off switch
   const token = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
   const user = await deps.user(token);
