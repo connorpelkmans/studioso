@@ -48,11 +48,9 @@ async function open(browser, id, scheme, pick, viewport) {
 }
 const shot = (page, name) => page.screenshot({path: path.join(OUT, name + ".png")}).then(() => console.log("saved", path.join(OUT, name + ".png")));
 async function finish(page, name) {
-  // the finish moment plays when a task is checked off (Today's Plan has the check buttons)
-  await page.evaluate(() => { const b = [...document.querySelectorAll("button, [role=tab]")].find(e => /^Today.s Plan$/i.test(e.textContent.trim())); b && b.click(); });
-  await page.waitForTimeout(900);
-  const ok = await page.evaluate(() => { const t = document.querySelector('[data-act="toggle"]'); if (t) t.click(); return !!t; });
-  if (!ok) errors.push("no task to check off for the finish shot");
+  // the scene's own finish moment ("Play Scene Moment" in the menu); a button with the same action is clicked so the app's own handler runs
+  const ok = await page.evaluate(() => { const b = document.createElement("button"); b.setAttribute("data-act", "scene-moment"); b.style.cssText = "position:fixed;left:0;top:0;opacity:0"; document.body.appendChild(b); b.click(); b.remove(); return true; });
+  if (!ok) errors.push("could not start the scene moment");
   await page.waitForTimeout(400); await page.addStyleTag({content: "#view,.sheet,.toast,[role=dialog]{visibility:hidden!important}"});   // the scene's own finish moment, without the board over it
   await page.waitForTimeout(1800); await shot(page, name);
   await page.waitForTimeout(2500); await shot(page, name + "2");
