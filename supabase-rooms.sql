@@ -278,7 +278,7 @@ grant execute on function public.sbr_topic_ok(text) to authenticated;
 do $$
 begin
   if to_regclass('realtime.messages') is null then
-    raise notice 'realtime.messages not found, so the room channel rules were skipped. The app falls back to a regular channel.';
+    raise notice 'realtime.messages not found, so the room channel rules were skipped. The app then uses a regular channel for room changes only (no live presence or cheers).';
     return;
   end if;
   begin
@@ -287,7 +287,7 @@ begin
     execute 'drop policy if exists "studyboard room send" on realtime.messages';
     execute 'create policy "studyboard room send" on realtime.messages for insert to authenticated with check (realtime.messages.extension in (''broadcast'', ''presence'') and public.sbr_topic_ok((select realtime.topic())))';
   exception when insufficient_privilege then
-    raise notice 'Skipped the room channel rules (no permission on realtime.messages). The app falls back to a regular channel.';
+    raise notice 'Skipped the room channel rules (no permission on realtime.messages). The app then uses a regular channel for room changes only (no live presence or cheers).';
   end;
 end $$;
 

@@ -879,7 +879,7 @@ The sign-in lasts as long as your school allows (usually days to weeks). When it
 
 In the desktop app the link works right away. On the website and your phone it needs the small `lms-feed` Supabase function below. The link is private to you: anyone with it can see your calendar. If it ever gets out, reset it in the same place and paste the new one.
 
-You can use both: sign in on your computer, and add the calendar link so your phone can sync too. No connection at all? **Import a downloaded calendar file** does a one-time import.
+You can use both: sign in on your computer, and add the calendar link so your phone can sync too. A pasted calendar link stays on the device you pasted it on: it works like a password, so it is never synced to your account or put in a backup file. Paste it on each phone or browser that should sync. No connection at all? **Import a downloaded calendar file** does a one-time import.
 
 ### How syncing works
 

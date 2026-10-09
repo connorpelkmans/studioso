@@ -116,6 +116,11 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
         cancelled++;
       }
       done.stripe_subscriptions_cancelled = cancelled;
+      // Then the Stripe customer itself (it holds the email address and the account id). Stripe keeps its invoices and payments, as tax
+      // law requires, but no longer a customer profile tied to this person. Not fatal: the subscriptions are already cancelled above.
+      const xr = await d.fetch(`https://api.stripe.com/v1/customers/${encodeURIComponent(customer)}`, { method: "DELETE", headers: sh });
+      done.stripe_customer_deleted = xr.ok || xr.status === 404;
+      if (!done.stripe_customer_deleted) d.log("stripe customer delete", xr.status);
     } else if (customer) {
       done.stripe_subscriptions_cancelled = "skipped: STRIPE_SECRET_KEY not set";
     } else done.stripe_subscriptions_cancelled = 0;
@@ -131,18 +136,25 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
         const rows = await r.json() as { id?: string | null; name: string }[];
         if (!Array.isArray(rows) || !rows.length) break;
         for (const o of rows) {
-          if (o.id === null || o.id === undefined) { if (depth < 5) await walk(`${prefix}/${o.name}`, depth + 1); }
+          if (o.id === null || o.id === undefined) { if (depth < 32) await walk(`${prefix}/${o.name}`, depth + 1); }
           else files.push(`${prefix}/${o.name}`);
         }
         if (rows.length < 100) break;
       }
     };
-    await walk(uid, 0);
-    for (let i = 0; i < files.length; i += 100) {
-      const r = await d.fetch(`${base(d)}/storage/v1/object/${BUCKET}`, { method: "DELETE", headers: sh2, body: JSON.stringify({ prefixes: files.slice(i, i + 100) }) });
-      if (!r.ok) throw new Error(`storage remove ${r.status}`);
+    // More than MAX_FILES (or folders deeper than the walk): delete what was found and look again, until nothing is left.
+    let removed = 0;
+    for (let round = 0; round < 50; round++) {
+      files.length = 0;
+      await walk(uid, 0);
+      for (let i = 0; i < files.length; i += 100) {
+        const r = await d.fetch(`${base(d)}/storage/v1/object/${BUCKET}`, { method: "DELETE", headers: sh2, body: JSON.stringify({ prefixes: files.slice(i, i + 100) }) });
+        if (!r.ok) throw new Error(`storage remove ${r.status}`);
+      }
+      removed += files.length;
+      if (files.length < MAX_FILES) break;
     }
-    done.files_deleted = files.length;
+    done.files_deleted = removed;
 
     // 5. Database rows
     const dr = await rest("rpc/studyboard_delete_user_data", { method: "POST", body: JSON.stringify({ p_uid: uid }) });

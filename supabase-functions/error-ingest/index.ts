@@ -3,7 +3,8 @@
 // in client_errors (supabase-error-reports.sql). Nothing in the request is trusted: unknown fields are dropped, text is capped and re-scrubbed.
 //
 // Deploy with "Verify JWT" turned OFF (the app sends reports signed out too; the public key in the "apikey" header is enough for the gateway).
-// Secrets: none to add. Supabase supplies SUPABASE_URL and the service key itself. Optional: ERROR_INGEST_SALT (any random text) to salt the address hash.
+// Secrets: none to add. Supabase supplies SUPABASE_URL and the service key itself. Optional: ERROR_INGEST_SALT (any random text) as the secret
+// for the address hash. Without it the service key is that secret, so the hash is never a plain hash of a guessable address.
 //
 // Limits: body at most 24 KB (counted while it arrives, so a huge or endless body is cut off early), 30 reports an hour per anonymous id,
 // 60 per network address (hashed with a daily salt, never stored raw), 500 an hour overall, and no new rows once the table holds 20000
@@ -79,8 +80,12 @@ export async function readLimited(req: Request, max: number): Promise<string | n
   return new TextDecoder().decode(all);
 }
 
-async function sha(s: string): Promise<string> {
-  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+// A network address is a small space (every IPv4 address can be tried in minutes), so a plain hash of it, even with the date mixed in,
+// could be reversed. It is keyed instead (HMAC-SHA-256) with a server-only secret and the day, so it can't be reversed or matched across days.
+async function ipMac(secret: string, s: string): Promise<string> {
+  const enc = new TextEncoder();
+  const k = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const d = await crypto.subtle.sign("HMAC", k, enc.encode(s));
   return [...new Uint8Array(d)].map(x => x.toString(16).padStart(2, "0")).join("").slice(0, 32);
 }
 function serviceKey(d: Deps): string {
@@ -100,8 +105,9 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     if (!v.ok) return json({ error: "invalid", why: v.why }, 400);
     const ip = (req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "").split(",")[0].trim();
     const day = new Date(d.now()).toISOString().slice(0, 10);
-    const ipHash = ip ? await sha(`${d.env("ERROR_INGEST_SALT")}|${day}|${ip}`) : null;
     const key = serviceKey(d), base = d.env("SUPABASE_URL").replace(/\/+$/, "");
+    const secret = d.env("ERROR_INGEST_SALT") || key;
+    const ipHash = ip && secret ? await ipMac(secret, `${day}|${ip}`) : null;   // no secret at all: no address kept (the per-id and overall limits still apply)
     const h = { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
     const rl = await d.fetch(`${base}/rest/v1/rpc/client_errors_allow`, { method: "POST", headers: h, body: JSON.stringify({ p_anon: v.row.anon_id, p_ip: ipHash }) });
     if (!rl.ok) throw new Error("rate check " + rl.status);
