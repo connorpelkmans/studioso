@@ -18,8 +18,8 @@
         parts: {
           back: `${RB.map((c, i) => `<path d="M76 70L114 ${50 + i * 7}V${57 + i * 7}Z" fill="${c}"/>`).join("")}<path d="M76 70L114 50V92Z" fill="none" ${O2}/>${LINE("M4 58L40 68", "#FFFFFF", 4)}`,
           feet: feet("#B9D8F0", 46, 74),
-          body: `${LG("n5-pride-prism-g", [[0, "#FFFFFF"], [0.5, "#E6F4FF"], [1, "#B8DDF4"]], 0.2, 0, 0.8, 1)}
-            <path d="M60 24C62 24 63.5 25 64.6 27L97 100C98.4 103.4 96.6 106.5 93 106.5H27C23.4 106.5 21.6 103.4 23 100L55.4 27C56.5 25 58 24 60 24Z" fill="url(#n5-pride-prism-g)" ${O}/>
+          body: `${LG("pride-prism-pride-prism-g", [[0, "#FFFFFF"], [0.5, "#E6F4FF"], [1, "#B8DDF4"]], 0.2, 0, 0.8, 1)}
+            <path d="M60 24C62 24 63.5 25 64.6 27L97 100C98.4 103.4 96.6 106.5 93 106.5H27C23.4 106.5 21.6 103.4 23 100L55.4 27C56.5 25 58 24 60 24Z" fill="url(#pride-prism-pride-prism-g)" ${O}/>
             <path d="M56 36L34 92" stroke="#fff" stroke-width="4" stroke-linecap="round"/><path d="M64 34L82 76" stroke="#C8B4F0" stroke-width="2.4" stroke-linecap="round" opacity=".7"/>
             <path d="M32 98H88" stroke="#A8CCE8" stroke-width="2.4" stroke-linecap="round" opacity=".7"/>${twinkle(70, 92, 3, "#F8D54E")}`,
           ...arms(27, 93, 84, "#D6ECFA"),
@@ -46,12 +46,12 @@
         idle: ["headTilt", "wingFlutter", "sway"], cheer: "wingFlutter",
         parts: {
           feet: `${LINE("M60 98V110", "#F28AA0", 3)}<path d="M53 111.5H67" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><path d="M53 111.5H67" stroke="#F28AA0" stroke-width="2.4" stroke-linecap="round"/>${LINE("M66 97L74 104L68 106", "#F28AA0", 2.6)}`,
-          body: `${RG("n5-pride-fla-g", [[0, "#FFF0F4"], [0.6, "#FFC4D4"], [1, "#F59AB4"]], 0.42, 0.35, 0.75)}
-            <path d="${puff(60, 80, 21, 11, 1.2)}" fill="url(#n5-pride-fla-g)" ${O}/><path d="M48 90Q60 98 72 90" fill="none" stroke="#F59AB4" stroke-width="2.2" stroke-linecap="round" opacity=".7"/>`,
+          body: `${RG("pride-flamingo-pride-fla-g", [[0, "#FFF0F4"], [0.6, "#FFC4D4"], [1, "#F59AB4"]], 0.42, 0.35, 0.75)}
+            <path d="${puff(60, 80, 21, 11, 1.2)}" fill="url(#pride-flamingo-pride-fla-g)" ${O}/><path d="M48 90Q60 98 72 90" fill="none" stroke="#F59AB4" stroke-width="2.2" stroke-linecap="round" opacity=".7"/>`,
           wingL: {svg: `<path d="M41 76C30 78 26 90 32 96C38 94 44 86 43 78Z" fill="#FFB0C6" ${O}/>`, pivot: [42, 78]},
           wingR: {svg: `<path d="M79 76C90 78 94 90 88 96C82 94 76 86 77 78Z" fill="#FFB0C6" ${O}/>`, pivot: [78, 78]},
-          head: `${RG("n5-pride-flh-g", [[0, "#FFF4F7"], [0.7, "#FFCADA"], [1, "#F7A4BE"]], 0.4, 0.35, 0.8)}
-            ${LINE("M60 62V56", "#FFC4D4", 6)}<path d="${puff(60, 42, 17, 10, 1.15)}" fill="url(#n5-pride-flh-g)" ${O}/>
+          head: `${RG("pride-flamingo-pride-flh-g", [[0, "#FFF4F7"], [0.7, "#FFCADA"], [1, "#F7A4BE"]], 0.4, 0.35, 0.8)}
+            ${LINE("M60 62V56", "#FFC4D4", 6)}<path d="${puff(60, 42, 17, 10, 1.15)}" fill="url(#pride-flamingo-pride-flh-g)" ${O}/>
             <path d="M72 42C84 38 92 44 91 54C89 61 85 63 84 58C84 53 80 50 74 51Z" fill="#FFF4E6" ${O2}/><path d="M85 48C89 49 91 52 90.6 56C89.6 60 86 62 85 58Z" fill="${INK}"/>
             ${LINE("M58 25C56 20 60 17 62 20", "#F59AB4", 2.2)}`
         },
@@ -79,8 +79,8 @@
           back: `${RB.map((c, i) => `<path d="M${18 + i * 1.4} ${40 + i * 3.6}C${30 + i} ${20 + i * 2} ${50} ${26 + i * 3} ${60} ${50 + i * 2}" fill="none" stroke="${c}" stroke-width="3.8" stroke-linecap="round"/>`).join("")}
             ${RB.map((c, i) => `<path d="M${60} ${70 + i * 2}C${72} ${96 + i * 2} ${90 - i} ${106 - i} ${104 - i * 1.4} ${88 - i * 3.6}" fill="none" stroke="${c}" stroke-width="3.8" stroke-linecap="round"/>`).join("")}
             <path d="M15 38C28 14 52 22 61 48M60 70C72 104 92 112 107 86" fill="none" stroke="${INK}" stroke-width="2.2" stroke-linecap="round" opacity=".35"/>`,
-          body: `${RG("n5-pride-rib-g", [[0, "#FFFFFF"], [0.5, "#FFE6F2"], [1, "#F4B0D2"]], 0.4, 0.35, 0.75)}
-            <circle cx="60" cy="62" r="23" fill="url(#n5-pride-rib-g)" ${O}/>
+          body: `${RG("pride-ribbon-pride-rib-g", [[0, "#FFFFFF"], [0.5, "#FFE6F2"], [1, "#F4B0D2"]], 0.4, 0.35, 0.75)}
+            <circle cx="60" cy="62" r="23" fill="url(#pride-ribbon-pride-rib-g)" ${O}/>
             ${RB.map((c, i) => `<path d="M${40 + i * 0.6} ${74 + i * 1.6}Q60 ${82 + i * 1.2} ${80 - i * 0.6} ${74 + i * 1.6}" fill="none" stroke="${c}" stroke-width="1.8" opacity=".9"/>`).join("")}
             <ellipse cx="47" cy="51" rx="5" ry="3" transform="rotate(-38 47 51)" fill="#fff"/>${twinkle(84, 40, 3, "#F8D54E")}${twinkle(34, 86, 2.6, "#5498E0")}`,
           ...arms(36, 84, 66, "#F7C4DC", 25, 4.4, 5.8)
@@ -113,12 +113,12 @@
         idle: ["topBob", "sway", "headTilt"], cheer: "spin", hatTop: true,
         parts: {
           feet: feet("#1E3366", 48, 72),
-          body: `${LG("n5-grad-cap-b", [[0, "#4A6AB0"], [1, "#24386E"]])}
-            <path d="M38 80Q38 106 60 107Q82 106 82 80Z" fill="url(#n5-grad-cap-b)" ${O}/><path d="M52 82L60 94L68 82" fill="none" stroke="#F2B83A" stroke-width="3" stroke-linejoin="round"/>`,
+          body: `${LG("graduation-cap-grad-cap-b", [[0, "#4A6AB0"], [1, "#24386E"]])}
+            <path d="M38 80Q38 106 60 107Q82 106 82 80Z" fill="url(#graduation-cap-grad-cap-b)" ${O}/><path d="M52 82L60 94L68 82" fill="none" stroke="#F2B83A" stroke-width="3" stroke-linejoin="round"/>`,
           ...arms(36, 84, 92, "#3A5AA0"),
-          head: `${LG("n5-grad-cap-h", [[0, "#5A7ACC"], [1, "#2E4A8A"]])}${RG("n5-grad-cap-f", [[0, "#FFF6EC"], [1, "#F6DCC4"]], 0.42, 0.35, 0.8)}
-            <path d="M33 58C33 42 45 36 60 36C75 36 87 42 87 58C87 74 75 84 60 84C45 84 33 74 33 58Z" fill="url(#n5-grad-cap-f)" ${O}/>
-            <path d="M36 44Q38 34 60 33Q82 34 84 44Q72 40 60 40Q48 40 36 44Z" fill="url(#n5-grad-cap-h)" ${O}/>
+          head: `${LG("graduation-cap-grad-cap-h", [[0, "#5A7ACC"], [1, "#2E4A8A"]])}${RG("graduation-cap-grad-cap-f", [[0, "#FFF6EC"], [1, "#F6DCC4"]], 0.42, 0.35, 0.8)}
+            <path d="M33 58C33 42 45 36 60 36C75 36 87 42 87 58C87 74 75 84 60 84C45 84 33 74 33 58Z" fill="url(#graduation-cap-grad-cap-f)" ${O}/>
+            <path d="M36 44Q38 34 60 33Q82 34 84 44Q72 40 60 40Q48 40 36 44Z" fill="url(#graduation-cap-grad-cap-h)" ${O}/>
             <path d="M60 14L104 30L60 46L16 30Z" fill="#2E4A8A" ${O}/><path d="M26 29L58 17.6" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".35"/><circle cx="60" cy="30" r="3.6" fill="#F2B83A" ${O2}/>`,
           top: {svg: `${LINE("M60 30L92 38V58", "#F2B83A", 2.6)}<path d="M88 56H96L98 70H86Z" fill="#F2B83A" ${O2}/><path d="M89 60V68M92 60V68M95 60V68" stroke="#C88A1A" stroke-width="1.2"/>`, pivot: [60, 30]}
         },
@@ -144,8 +144,8 @@
         idle: ["topBob", "wave", "sparkle"], cheer: "bounce",
         parts: {
           feet: feet("#C9A866", 49, 71),
-          body: `${LG("n5-grad-dip-g", [[0, "#FFFBEE"], [0.55, "#F6E6C0"], [1, "#E2C890"]], 0, 0, 1, 0)}
-            <rect x="38" y="26" width="44" height="80" rx="20" fill="url(#n5-grad-dip-g)" ${O}/><ellipse cx="60" cy="31" rx="20" ry="6" fill="#FFF8E6" ${O2}/><ellipse cx="60" cy="31" rx="8" ry="2.6" fill="#E2C890"/>
+          body: `${LG("graduation-diploma-grad-dip-g", [[0, "#FFFBEE"], [0.55, "#F6E6C0"], [1, "#E2C890"]], 0, 0, 1, 0)}
+            <rect x="38" y="26" width="44" height="80" rx="20" fill="url(#graduation-diploma-grad-dip-g)" ${O}/><ellipse cx="60" cy="31" rx="20" ry="6" fill="#FFF8E6" ${O2}/><ellipse cx="60" cy="31" rx="8" ry="2.6" fill="#E2C890"/>
             <path d="M45 40V96" stroke="#fff" stroke-width="3.4" stroke-linecap="round" opacity=".8"/>
             <rect x="38" y="84" width="44" height="8" fill="#9A2E4A" ${O2}/><circle cx="72" cy="88" r="6" fill="#F2B83A" ${O2}/><circle cx="72" cy="88" r="2.6" fill="#FFE7A0"/>`,
           ...arms(33, 87, 72, "#F6E6C0"),
@@ -174,8 +174,8 @@
           back: `${[...Array(9)].map((_, i) => { const a = (150 + i * 30) * Math.PI / 180, x = +(60 + Math.cos(a) * 36).toFixed(1), y = +(64 + Math.sin(a) * 36).toFixed(1); return `<ellipse cx="${x}" cy="${y}" rx="10" ry="5" transform="rotate(${+(a * 57.3 + 115).toFixed(1)} ${x} ${y})" fill="${i % 2 ? "#8CCB7E" : "#6CB070"}" ${O2}/>`; }).join("")}
             ${[...Array(9)].map((_, i) => { const a = (30 - i * 30) * Math.PI / 180, x = +(60 + Math.cos(a) * 36).toFixed(1), y = +(64 + Math.sin(a) * 36).toFixed(1); return `<ellipse cx="${x}" cy="${y}" rx="10" ry="5" transform="rotate(${+(a * 57.3 + 65).toFixed(1)} ${x} ${y})" fill="${i % 2 ? "#8CCB7E" : "#6CB070"}" ${O2}/>`; }).join("")}
             <path d="M52 100Q60 94 68 100L66 110L60 105L54 110Z" fill="#9A2E4A" ${O2}/>`,
-          body: `${RG("n5-grad-lau-g", [[0, "#FFFCE8"], [0.55, "#FFE490"], [1, "#F2B83A"]], 0.42, 0.35, 0.75)}
-            <circle cx="60" cy="64" r="22" fill="url(#n5-grad-lau-g)" ${O}/><ellipse cx="48" cy="54" rx="5" ry="3" transform="rotate(-38 48 54)" fill="#fff"/>
+          body: `${RG("graduation-laurel-grad-lau-g", [[0, "#FFFCE8"], [0.55, "#FFE490"], [1, "#F2B83A"]], 0.42, 0.35, 0.75)}
+            <circle cx="60" cy="64" r="22" fill="url(#graduation-laurel-grad-lau-g)" ${O}/><ellipse cx="48" cy="54" rx="5" ry="3" transform="rotate(-38 48 54)" fill="#fff"/>
             ${twinkle(60, 22, 5, "#F2B83A")}${twinkle(20, 40, 3, "#FFE490")}${twinkle(100, 44, 3, "#FFE490")}`,
           ...arms(39, 81, 70, "#FFD86B", 25, 4.4, 5.8)
         },
@@ -207,8 +207,8 @@
         idle: ["topBob", "bounce", "sparkle"], cheer: "bounce",
         parts: {
           feet: feet("#E89A3A", 52, 68),
-          body: `${LG("n5-bday-pop-g", [[0, "#FFE890"], [1, "#F29A3A"]], 0, 0, 1, 1)}
-            <path d="M28 40H92L64 106Q60 110 56 106Z" fill="url(#n5-bday-pop-g)" ${O}/>
+          body: `${LG("birthday-popper-bday-pop-g", [[0, "#FFE890"], [1, "#F29A3A"]], 0, 0, 1, 1)}
+            <path d="M28 40H92L64 106Q60 110 56 106Z" fill="url(#birthday-popper-bday-pop-g)" ${O}/>
             <path d="M33 52L87 52M40 68L80 68M48 86L72 86" stroke="#FF7FA8" stroke-width="5"/><path d="M28 40H92L64 106Q60 110 56 106Z" fill="none" ${O}/>
             <ellipse cx="60" cy="40" rx="32" ry="7" fill="#FFF6E0" ${O}/><path d="M36 48L52 98" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".6"/>`,
           ...arms(30, 90, 66, "#FFD86B"),
@@ -240,9 +240,9 @@
             <path d="M35 78H85M35 85H85M35 92H85" stroke="${INK}" stroke-width="0"/><rect x="35.5" y="77" width="49" height="7" fill="#FFD45A"/><rect x="35.5" y="84" width="49" height="7" fill="#5CCFC0"/><rect x="36" y="91" width="48" height="5.5" rx="2" fill="#B58CF2"/>
             <rect x="34" y="70" width="52" height="28" rx="8" fill="none" ${O}/><path d="M38 73Q44 71 50 73" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".6"/>
             ${LINE("M34 76Q22 74 22 62", "#B58CF2", 4)}`,
-          head: `${RG("n5-bday-pin-h", [[0, "#FFFFFF"], [1, "#FFEEDC"]], 0.4, 0.35, 0.8)}
+          head: `${RG("birthday-pinata-bday-pin-h", [[0, "#FFFFFF"], [1, "#FFEEDC"]], 0.4, 0.35, 0.8)}
             <rect x="48" y="50" width="24" height="24" fill="#FFD45A" ${O}/><rect x="48.5" y="56" width="23" height="6" fill="#5CCFC0"/><rect x="48.5" y="62" width="23" height="6" fill="#FF8FB8"/><rect x="48" y="50" width="24" height="24" fill="none" ${O}/>
-            <path d="M60 22C76 22 82 32 82 40C82 50 74 56 60 56C46 56 38 50 38 40C38 32 44 22 60 22Z" fill="url(#n5-bday-pin-h)" ${O}/>
+            <path d="M60 22C76 22 82 32 82 40C82 50 74 56 60 56C46 56 38 50 38 40C38 32 44 22 60 22Z" fill="url(#birthday-pinata-bday-pin-h)" ${O}/>
             <ellipse cx="60" cy="49" rx="10" ry="6" fill="#FFF8F0" ${O2}/><path d="M57 48q3 2.4 6 0" fill="none" stroke="${INK}" stroke-width="1.6" stroke-linecap="round"/>
             <path d="M48 24Q60 18 72 24" fill="none" stroke="#FF8FB8" stroke-width="4" stroke-linecap="round"/>`,
           earL: {svg: `<path d="M44 30L38 10L52 24Z" fill="#FFF4E6" ${O}/><path d="M44 26L41 15L48.5 23Z" fill="#FFB3C6"/>`, pivot: [46, 27]},
@@ -276,8 +276,8 @@
         idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
         parts: {
           feet: feet("#E8A0B8", 48, 72),
-          body: `${LG("n5-bday-cak-g", [[0, "#FFF0D8"], [1, "#F2CC98"]])}
-            <path d="M24 50L96 50L92 104Q92 107 89 107H31Q28 107 28 104Z" fill="url(#n5-bday-cak-g)" ${O}/>
+          body: `${LG("birthday-cake-bday-cak-g", [[0, "#FFF0D8"], [1, "#F2CC98"]])}
+            <path d="M24 50L96 50L92 104Q92 107 89 107H31Q28 107 28 104Z" fill="url(#birthday-cake-bday-cak-g)" ${O}/>
             <path d="M26.5 68H94M27.4 86H93" stroke="#F49AB8" stroke-width="6"/><path d="M26.5 68H94M27.4 86H93" stroke="#FFD0E2" stroke-width="2.4"/>
             <path d="M24 50L96 50L92 104Q92 107 89 107H31Q28 107 28 104Z" fill="none" ${O}/>
             <path d="M22 50C22 42 30 38 60 38C90 38 98 42 98 50C98 56 92 54 90 60C88 56 84 55 82 60C80 55 74 55 72 59C70 55 64 55 62 60C60 55 54 55 52 59C50 55 44 55 42 60C40 55 34 55 32 60C30 55 22 56 22 50Z" fill="#FFF6FA" ${O}/>
@@ -313,11 +313,11 @@
         bio: "Plain on the outside, sparkly on the inside.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
         parts: {
-          body: `${RG("n5-geo-geo-r", [[0, "#D2C4B4"], [0.6, "#A8988A"], [1, "#7E6E62"]], 0.38, 0.3, 0.8)}${RG("n5-geo-geo-i", [[0, "#FFF0FF"], [0.45, "#C890F4"], [1, "#7A3EC8"]], 0.5, 0.5, 0.6)}
-            <path d="M60 30C84 30 98 50 98 72C98 96 82 109 60 109C38 109 22 96 22 72C22 50 36 30 60 30Z" fill="url(#n5-geo-geo-r)" ${O}/>
+          body: `${RG("geology-geode-geo-geo-r", [[0, "#D2C4B4"], [0.6, "#A8988A"], [1, "#7E6E62"]], 0.38, 0.3, 0.8)}${RG("geology-geode-geo-geo-i", [[0, "#FFF0FF"], [0.45, "#C890F4"], [1, "#7A3EC8"]], 0.5, 0.5, 0.6)}
+            <path d="M60 30C84 30 98 50 98 72C98 96 82 109 60 109C38 109 22 96 22 72C22 50 36 30 60 30Z" fill="url(#geology-geode-geo-geo-r)" ${O}/>
             <circle cx="36" cy="54" r="3" fill="#8A7A6C"/><circle cx="86" cy="60" r="2.4" fill="#8A7A6C"/><circle cx="80" cy="44" r="1.8" fill="#8A7A6C"/>
             <path d="M34 90L40 84L46 88L54 82L62 88L70 82L78 88L86 84L88 92Q78 104 60 104Q42 104 33 94Z" fill="#F4F0FA" ${O2}/>
-            <path d="M38 92L45 89L53 85L61 90L70 85L78 90L84 88Q76 100 60 100Q46 100 38 92Z" fill="url(#n5-geo-geo-i)"/>
+            <path d="M38 92L45 89L53 85L61 90L70 85L78 90L84 88Q76 100 60 100Q46 100 38 92Z" fill="url(#geology-geode-geo-geo-i)"/>
             ${[[44, 94], [52, 92], [60, 95], [68, 92], [76, 94]].map(([x, y]) => `<path d="M${x - 3} ${y + 4}L${x} ${y - 5}L${x + 3} ${y + 4}Z" fill="#E8C8FF" opacity=".9"/>`).join("")}
             <ellipse cx="44" cy="44" rx="6" ry="3.4" transform="rotate(-38 44 44)" fill="#fff" opacity=".6"/>`,
           ...arms(23, 97, 76, "#B4A496"),
@@ -344,12 +344,12 @@
         idle: ["waddle", "headTilt", "topBob"], cheer: "hop",
         parts: {
           feet: `${[36, 46, 56, 64, 74, 84].map((x, i) => `<path d="M${x} 98L${x + (i < 3 ? -4 : 4)} 110" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><path d="M${x} 98L${x + (i < 3 ? -4 : 4)} 110" stroke="#C8956A" stroke-width="2.4" stroke-linecap="round"/>`).join("")}`,
-          body: `${LG("n5-geo-tri-b", [[0, "#F2D2AC"], [1, "#C08A5E"]])}
-            <path d="M32 62H88L84 98Q72 108 60 108Q48 108 36 98Z" fill="url(#n5-geo-tri-b)" ${O}/>
+          body: `${LG("geology-trilobite-geo-tri-b", [[0, "#F2D2AC"], [1, "#C08A5E"]])}
+            <path d="M32 62H88L84 98Q72 108 60 108Q48 108 36 98Z" fill="url(#geology-trilobite-geo-tri-b)" ${O}/>
             ${[70, 78, 86, 94].map(y => `<path d="M${33 + (y - 62) * 0.12} ${y}Q60 ${y + 4} ${87 - (y - 62) * 0.12} ${y}" fill="none" stroke="${INK}" stroke-width="1.8" opacity=".45"/>`).join("")}
             <path d="M50 64V104M70 64V104" stroke="${INK}" stroke-width="1.8" opacity=".4"/><path d="M38 70Q38 88 44 98" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".5"/>`,
-          head: `${RG("n5-geo-tri-h", [[0, "#FAE4C6"], [1, "#D2A070"]], 0.4, 0.35, 0.8)}
-            <path d="M22 66C22 44 38 32 60 32C82 32 98 44 98 66Q60 72 22 66Z" fill="url(#n5-geo-tri-h)" ${O}/>
+          head: `${RG("geology-trilobite-geo-tri-h", [[0, "#FAE4C6"], [1, "#D2A070"]], 0.4, 0.35, 0.8)}
+            <path d="M22 66C22 44 38 32 60 32C82 32 98 44 98 66Q60 72 22 66Z" fill="url(#geology-trilobite-geo-tri-h)" ${O}/>
             <path d="M22 66L14 82M98 66L106 82" stroke="${INK}" stroke-width="5.4" stroke-linecap="round"/><path d="M22 66L14 82M98 66L106 82" stroke="#D2A070" stroke-width="2.6" stroke-linecap="round"/>
             <ellipse cx="44" cy="44" rx="6" ry="3.2" transform="rotate(-30 44 44)" fill="#fff" opacity=".6"/>`,
           top: {svg: `${LINE("M52 34Q46 18 36 14", "#C08A5E", 2.4)}${LINE("M68 34Q74 18 84 14", "#C08A5E", 2.4)}<circle cx="36" cy="14" r="3" fill="#F2D2AC" ${OW(1.6)}/><circle cx="84" cy="14" r="3" fill="#F2D2AC" ${OW(1.6)}/>`, pivot: [60, 34]}
@@ -376,8 +376,8 @@
         idle: ["sparkle", "spin", "topBob"], cheer: "spin",
         parts: {
           back: `<path d="M38 70C22 60 14 74 22 82C28 86 36 82 40 76Z" fill="#C8FAFF" fill-opacity=".85" ${O2}/><path d="M82 70C98 60 106 74 98 82C92 86 84 82 80 76Z" fill="#C8FAFF" fill-opacity=".85" ${O2}/>`,
-          body: `${LG("n5-geo-spr-a", [[0, "#F2E2FF"], [0.5, "#C29AFF"], [1, "#8A52E0"]], 0, 0, 1, 1)}
-            <path d="M60 22L84 52L78 100L60 110L42 100L36 52Z" fill="url(#n5-geo-spr-a)" ${O}/>
+          body: `${LG("geology-sprite-geo-spr-a", [[0, "#F2E2FF"], [0.5, "#C29AFF"], [1, "#8A52E0"]], 0, 0, 1, 1)}
+            <path d="M60 22L84 52L78 100L60 110L42 100L36 52Z" fill="url(#geology-sprite-geo-spr-a)" ${O}/>
             <path d="M60 22L60 110M36 52L60 60L84 52" fill="none" stroke="${INK}" stroke-width="1.6" opacity=".35"/><path d="M46 52L58 30" stroke="#fff" stroke-width="3.4" stroke-linecap="round" opacity=".8"/>
             ${twinkle(30, 40, 3.4, "#FFD8EE")}${twinkle(92, 98, 3, "#C8FAFF")}`,
           ...arms(36, 84, 78, "#D6BEFF", 25, 4.2, 5.6),
@@ -412,13 +412,13 @@
         parts: {
           tail: {svg: `<path d="M54 100L48 118L58 112L60 120L64 112L72 118L66 100Z" fill="#3E7AE0" ${O}/>`, pivot: [60, 100]},
           feet: `${LINE("M52 104L50 110M68 104L70 110", "#E8A070", 3)}`,
-          body: `${LG("n5-lang-par-b", [[0, "#8AE8A4"], [1, "#2EA05A"]])}
-            <path d="M60 60C78 60 86 74 86 86C86 100 74 106 60 106C46 106 34 100 34 86C34 74 42 60 60 60Z" fill="url(#n5-lang-par-b)" ${O}/>
+          body: `${LG("languages-parrot-lang-par-b", [[0, "#8AE8A4"], [1, "#2EA05A"]])}
+            <path d="M60 60C78 60 86 74 86 86C86 100 74 106 60 106C46 106 34 100 34 86C34 74 42 60 60 60Z" fill="url(#languages-parrot-lang-par-b)" ${O}/>
             <ellipse cx="60" cy="90" rx="13" ry="11" fill="#FFE07A" opacity=".85"/><path d="M52 86l3 3l3-3M62 86l3 3l3-3" fill="none" stroke="#E8A040" stroke-width="1.6" stroke-linecap="round"/>`,
           wingL: {svg: `<path d="M36 72C24 76 22 92 30 100C38 98 42 86 40 76Z" fill="#E8505B" ${O}/><path d="M30 92Q32 98 34 96" stroke="#FFD45A" stroke-width="2.4" stroke-linecap="round"/>`, pivot: [38, 74]},
           wingR: {svg: `<path d="M84 72C96 76 98 92 90 100C82 98 78 86 80 76Z" fill="#E8505B" ${O}/><path d="M90 92Q88 98 86 96" stroke="#FFD45A" stroke-width="2.4" stroke-linecap="round"/>`, pivot: [82, 74]},
-          head: `${RG("n5-lang-par-h", [[0, "#FF9A90"], [0.6, "#EE5A52"], [1, "#C83A3A"]], 0.4, 0.35, 0.8)}
-            <path d="M60 22C78 22 86 34 86 46C86 58 76 66 60 66C44 66 34 58 34 46C34 34 42 22 60 22Z" fill="url(#n5-lang-par-h)" ${O}/>
+          head: `${RG("languages-parrot-lang-par-h", [[0, "#FF9A90"], [0.6, "#EE5A52"], [1, "#C83A3A"]], 0.4, 0.35, 0.8)}
+            <path d="M60 22C78 22 86 34 86 46C86 58 76 66 60 66C44 66 34 58 34 46C34 34 42 22 60 22Z" fill="url(#languages-parrot-lang-par-h)" ${O}/>
             <ellipse cx="60" cy="47" rx="17" ry="13" fill="#FFF4E6" opacity=".95"/>
             <path d="M60 50C68 50 72 56 68 62C66 60 62 58 60 60C58 58 54 60 52 62C48 56 52 50 60 50Z" fill="#FFD45A" ${O2}/><path d="M56 59Q60 63 64 59" fill="none" stroke="${INK}" stroke-width="1.6" stroke-linecap="round"/>
             <ellipse cx="44" cy="32" rx="5" ry="2.8" transform="rotate(-35 44 32)" fill="#fff" opacity=".5"/>`,
@@ -452,9 +452,9 @@
         idle: ["topBob", "sway", "wave"], cheer: "bounce",
         parts: {
           feet: feet("#C2443E", 48, 72),
-          body: `${LG("n5-lang-stp-i", [[0, "#A8DCF0"], [1, "#6AB4D8"]])}
+          body: `${LG("languages-stamp-lang-stp-i", [[0, "#A8DCF0"], [1, "#6AB4D8"]])}
             <path d="${(() => { let d = "M30 28"; for (let i = 1; i <= 8; i++) d += `Q${30 + i * 7.5 - 3.75} ${31} ${30 + i * 7.5} 28`; for (let i = 1; i <= 10; i++) d += `Q${87} ${28 + i * 8 - 4} 90 ${28 + i * 8}`; for (let i = 1; i <= 8; i++) d += `Q${90 - i * 7.5 + 3.75} ${105} ${90 - i * 7.5} 108`; for (let i = 1; i <= 10; i++) d += `Q${33} ${108 - i * 8 + 4} 30 ${108 - i * 8}`; return d + "Z"; })()}" fill="#FFFFFF" ${O}/>
-            <rect x="37" y="35" width="46" height="66" rx="3" fill="url(#n5-lang-stp-i)" ${O2}/>
+            <rect x="37" y="35" width="46" height="66" rx="3" fill="url(#languages-stamp-lang-stp-i)" ${O2}/>
             <path d="M37 86Q50 76 60 84T83 80V101H37Z" fill="#7FC07A"/><circle cx="74" cy="44" r="5" fill="#FFE08A"/>
             <path d="M52 101V88H68V101" fill="#E8A898" ${OW(1.4)}/><path d="M50 88L60 81L70 88Z" fill="#D2704E" ${OW(1.4)}/>
             <text x="44" y="98" font-family="Lexend,Arial,sans-serif" font-weight="800" font-size="8" fill="#fff">50</text>`,
@@ -487,8 +487,8 @@
             <path d="M34 92Q44 82 52 88T70 84T86 78" fill="none" stroke="#E8505B" stroke-width="2" stroke-dasharray="3 3" stroke-linecap="round"/><path d="M34 74Q40 70 44 76T40 86Z" fill="#9CCB8C"/><path d="M76 86Q82 82 86 88T80 96Z" fill="#9CCB8C"/>
             <path d="M84 74C84 70 88 70 88 74C88 77 86 79 86 80C86 79 84 77 84 74Z" fill="#E8505B" ${OW(1.2)}/>`,
           ...arms(26, 94, 80, "#FFF4DC"),
-          head: `${LG("n5-lang-map-h", [[0, "#FFFAEC"], [1, "#F2E2C2"]])}
-            <path d="M28 30L48 24L60 30L72 24L92 30V64L72 58L60 64L48 58L28 64Z" fill="url(#n5-lang-map-h)" ${O}/>
+          head: `${LG("languages-map-lang-map-h", [[0, "#FFFAEC"], [1, "#F2E2C2"]])}
+            <path d="M28 30L48 24L60 30L72 24L92 30V64L72 58L60 64L48 58L28 64Z" fill="url(#languages-map-lang-map-h)" ${O}/>
             <path d="M48 24V58M60 30V64M72 24V58" stroke="${INK}" stroke-width="1.6" opacity=".3"/><path d="M28 30L48 24V58L28 64Z" fill="#E8D6B4" opacity=".5"/>
             <path d="M80 30L84 36L80 42L76 36Z" fill="#E8505B" ${OW(1.2)}/><path d="M80 34V38" stroke="#fff" stroke-width="1"/><path d="M33 36Q37 32 41 36" fill="none" stroke="#7FC4E0" stroke-width="2" stroke-linecap="round"/>`
         },

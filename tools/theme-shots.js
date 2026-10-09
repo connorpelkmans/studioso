@@ -1,16 +1,16 @@
-// node tools/theme-shots.js <theme id> [more ids] [--out dir] [--quick]     (Playwright + Chromium)
+// node tools/theme-shots.js <theme id> [more ids] [--out dir] [--quick | --gallery]     (Playwright + Chromium)
 // Opens the real app (index.html) with each theme on and saves screenshots, so new scenes and companions can be checked by eye:
 //   <id>-light-c0.png, -c1, -c2   Task Board in light mode with each of the theme's three companions
 //   <id>-dark-c0.png              the same in dark mode (night scene)
 //   <id>-light-finish.png / -dark-finish.png (+ finish2)   2.2 s and 4.7 s into the "task finished" moment, with the board hidden
 //   <id>-phone-light.png          a phone-sized window
-// --quick: only light-c0, dark-c0 and the two finish shots. Prints every console error and page error, and exits 1 if there were any.
+// --quick: only light-c0, dark-c0 and the finish shots. --gallery: the same plus the phone shot. Prints every console error and page error, and exits 1 if there were any.
 const http = require("http"), fs = require("fs"), path = require("path"), os = require("os");
 const {chromium, executablePath} = require("../tests/pw");
 const root = path.join(__dirname, "..");
 const args = process.argv.slice(2), oi = args.indexOf("--out");
 const OUT = oi >= 0 ? args[oi + 1] : fs.mkdtempSync(path.join(os.tmpdir(), "themeshots-"));
-const QUICK = args.includes("--quick");
+const QUICK = args.includes("--quick"), GALLERY = args.includes("--gallery");
 const IDS = args.filter((a, i) => !a.startsWith("--") && i !== oi + 1);
 fs.mkdirSync(OUT, {recursive: true});
 const MIME = {".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".png": "image/png", ".css": "text/css", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".webp": "image/webp", ".webmanifest": "application/manifest+json"};
@@ -63,7 +63,7 @@ async function finish(page, name) {
   try {
     for (const id of IDS) {
       for (const scheme of ["light", "dark"]) {
-        for (const pick of (QUICK || scheme === "dark") ? [0] : [0, 1, 2]) {
+        for (const pick of (QUICK || GALLERY || scheme === "dark") ? [0] : [0, 1, 2]) {
           const {ctx, page} = await open(browser, id, scheme, pick, DESK);
           await shot(page, `${id}-${scheme}-c${pick}`);
           if (pick === 0) await finish(page, `${id}-${scheme}-finish`);
