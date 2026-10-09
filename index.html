@@ -5665,6 +5665,8 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
    Bands with no course or group colour use the theme's main colour as it is in light mode (--accent-band), in both modes. */
 :root{--accent-band:#1A60D0}
 .g2-band,.c2-band,.gp-hero-band,.cr2-band,.next-up .nu-top,.g2-sheet-head,.cpt3-band,.tl-row.tl-group,.card.has-tab > .card-course,.fc-band{background:linear-gradient(135deg,color-mix(in srgb,var(--c) 86%,#000),var(--c))!important}
+/* sheet heads: the band is only the top strip; the title below sits on the sheet */
+.g2-sheet-head{background-size:100% 62px!important;background-repeat:no-repeat!important;background-position:top!important}
 .gp-hero-band{--c:var(--accent-band)!important}
 .gp-cap{color:var(--accent-band)!important}
 /* Side bar icons: drawn at their native 24px on whole pixels in the roomy layout, so each 2px line lands on the pixel grid (21px blurred
@@ -5735,6 +5737,30 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 .pt-panel .auto-ins .ai-top .ph-label,.pt-panel .plan-heads > .ph-label{display:none}
 .pt-panel .auto-ins .ai-top{justify-content:flex-end;margin-bottom:4px}
 @media (max-width:600px){.pw-main{flex:1 1 0}.pt-stats{grid-template-columns:1fr 1fr}.pt-stat{padding:10px 12px}.pt-stat b{font-size:1.25rem}.pw-tip{margin-left:32px}.pt-panel .plan-fixed li{flex-wrap:wrap;row-gap:4px}.pt-panel .plan-fixed .plan-main{flex-basis:100%}}
+/* ===== Phone visibility pass (phones only; the desktop layout is untouched) ===== */
+@media (max-width:600px){
+  /* Scene themes: the readability plate behind page titles and notes hugs the text instead of running the full width */
+  html.sc-on :is(.view-head > h2,.tl-controls > h2,.board-sec-head > h2,.hint-line,.fcrumb){width:fit-content!important;max-width:100%;flex:0 1 auto!important;margin-right:auto}
+  html.sc-on :is(.sch-sum){background:color-mix(in srgb,var(--surface) 94%,transparent)!important}
+  /* Groups: the "share without an account" text sat straight on the artwork */
+  html.sc-on .grp-file{padding:14px;border:1px solid var(--line);border-radius:16px;background:color-mix(in srgb,var(--surface) 94%,transparent)}
+  /* Timeline: the course's full name ran into the "N open" count; the code beside the icon already names it */
+  .tl-row.tl-group .tl-gname{display:none}
+  /* Grades: course names broke mid-word beside the grade; the name gets the whole row and the grade sits beside the bar */
+  .gp-hero .gp-main{grid-template-columns:40px minmax(0,1fr) auto!important;grid-template-areas:"ring who who" "ring bar grade" "ring line line"!important;gap:4px 10px!important}
+  .gp-who .gp-name{overflow-wrap:normal!important;word-break:normal!important}
+  .gp-hero .gp-grade b{font-size:1.15rem!important}
+  /* Companion: a long suggested question ran off both sides of the screen */
+  .cpt-chips .chip{max-width:100%;white-space:normal;text-align:center;height:auto;line-height:1.3;padding-block:8px}
+  /* Notes: Archive and Trash sat under the Stickers tab and the Add button at the bottom of the board */
+  .nb-targets{top:12px;bottom:auto!important;right:12px}
+  /* Crunch chart labels were under 10px */
+  .cr2-h,.cr2-x{font-size:.7rem!important}
+  /* White on light red or blue was hard to read */
+  .pw-ic,.tl-d.is-today b{background:color-mix(in srgb,var(--late) 72%,#000)!important}
+  .sch-head.is-today .sch-dn b{background:color-mix(in srgb,var(--accent) 70%,#000)!important}
+  :root[data-theme="light"] :is(.nu-chip.late,.g2-pill.late,.tl-dl em){color:color-mix(in srgb,var(--late) 80%,#000)!important}
+}
 </style>
 </head>
 <body>
