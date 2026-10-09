@@ -21,27 +21,26 @@ def find(pred, start=0, what=""):
         if pred(src[i]): return i
     sys.exit("not found: " + what)
 
-def remove_block(start_line, is_end):
-    """Removes the block that starts with the exact line start_line and runs until a line where is_end(line) is true."""
+# Each inserted part sits between its head line and a matching end line, so a rerun takes out exactly that part,
+# whatever comment lines the batch file itself contains.
+def remove_block(head, end):
     global src
-    if start_line not in src: return
-    a = src.index(start_line); b = a + 1
-    while b < len(src) and not is_end(src[b]): b += 1
-    src = src[:a] + src[b:]
+    while head in src:
+        a = src.index(head)
+        b = src.index(end, a) if end in src[a:] else sys.exit("no end line for " + head)
+        src = src[:a] + src[b + 1:]
 
-lib_end = lambda l: l.startswith("// ---- ") or l.startswith("function setAnim(a)")
-mod_end = lambda l: l.startswith("/* ===== module: ")
-
-def put_lib(head, text, before):
-    remove_block(head, lib_end)
+def put_lib(name, text, before):
+    head, end = "// ---- %s" % name, "// ---- end of %s" % name
+    remove_block(head, end)
     i = find(lambda l: l.startswith(before), 0, before)
-    src[i:i] = [head] + text.rstrip("\n").split("\n") + [""]
+    src[i:i] = [head] + text.rstrip("\n").split("\n") + [end, ""]
 
 def put_module(name, text, before):
-    head = "/* ===== module: %s ===== */" % name
-    remove_block(head, mod_end)
+    head, end = "/* ===== module: %s ===== */" % name, "/* end of module %s */" % name
+    remove_block(head, end)
     i = find(lambda l: l.startswith("/* ===== module: %s ===== */" % before), 0, before)
-    src[i:i] = [head] + text.rstrip("\n").split("\n") + ["", ""]
+    src[i:i] = [head] + text.rstrip("\n").split("\n") + [end, "", ""]
 
 def put_sounds(batch, mixes):
     global src
@@ -60,9 +59,9 @@ for b in batches:
     d = os.path.join(ROOT, b)
     rd = lambda f: open(os.path.join(d, f), encoding="utf-8").read() if os.path.exists(os.path.join(d, f)) else None
     t = rd("scenes.js")
-    if t: put_lib("// ---- scenes_%s.js" % b, t, "// ---- lib_tail.js")
+    if t: put_lib("scenes_%s.js" % b, t, "// ---- lib_tail.js")
     t = rd("engines.js")
-    if t: put_lib("// ---- engines_%s.js" % b, t, "function setAnim(a)")
+    if t: put_lib("engines_%s.js" % b, t, "function setAnim(a)")
     t = rd("maj.js")
     if t: put_module("20-scenes-maj-%s.js" % b, t, "20-scenes-majors.js")
     t = rd("tp.css")
