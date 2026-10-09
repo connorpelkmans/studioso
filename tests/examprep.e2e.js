@@ -276,7 +276,9 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       await page.fill("#qaIn", "midterm bio 101 oct 28 9am"); await page.press("#qaIn", "Enter"); await page.waitForTimeout(1200);
       const cap = (await store(page)).tasks.find(t => /midterm/i.test(t.title) && t.due === "2026-10-28");
       ok(cap && cap.type === "Exam" && cap.time === "09:00", "captured: " + JSON.stringify(cap && [cap.title, cap.type, cap.due, cap.time]));
-      ok(await vis(page, "#toast.show") && /Plan My Prep/.test(await txt(page, "#toastExtra")), "the capture toast offers Plan My Prep after creating the exam");
+      ok(await vis(page, "dialog[open] [data-rx]"), "adding the exam asks where it's taken");
+      await page.click('dialog[open] [data-rx="no"]'); await page.waitForTimeout(300);
+      ok(await vis(page, "#toast.show") && /Plan My Prep/.test(await txt(page, "#toastExtra")), "the toast still offers Plan My Prep after creating the exam");
       await page.click("#toastExtra"); await page.waitForTimeout(500);
       ok(await vis(page, "#ppBody") && /Plan My Prep/.test(await txt(page, "#ppTitle")) && (await page.evaluate(() => SBPREP._state().exId)) === cap.id, "which opens the planner on that exam");
       ok((await page.evaluate(() => document.querySelector("#ppDue").value)) === "2026-10-28" && (await page.evaluate(() => document.querySelector("#ppTime").value)) === "09:00", "prefilled with the captured date and time");

@@ -4,8 +4,10 @@
 const { contextBridge, ipcRenderer } = require("electron");
 // Nothing here hands the page ipcRenderer or any Node module: every function sends one fixed channel with plain, checked values.
 const version = (process.argv.find(a => a.startsWith("--studioso-version=")) || "").split("=")[1] || "";
-// "mas" in the Mac App Store build, "direct" otherwise. The page uses it to follow the store's purchase rules (no outside payment links).
-const store = (process.argv.find(a => a.startsWith("--studioso-store=")) || "").split("=")[1] === "mas" ? "mas" : "direct";
+// "mas" in the Mac App Store build, "msstore" in the Microsoft Store build, "direct" otherwise. The page uses it to follow the store's
+// purchase rules (the Mac App Store allows no outside payment links; the Microsoft Store allows them for apps, so "msstore" buys like "direct").
+const storeArg = (process.argv.find(a => a.startsWith("--studioso-store=")) || "").split("=")[1];
+const store = storeArg === "mas" || storeArg === "msstore" ? storeArg : "direct";
 const relOk = rel => (typeof rel === "string" ? rel : "").slice(0, 1024);
 const secretName = n => String(n || "").toLowerCase().slice(0, 64);
 contextBridge.exposeInMainWorld("studiosoDesktop", {
@@ -64,6 +66,8 @@ contextBridge.exposeInMainWorld("studiosoDesktop", {
   getDesktopSettings: () => ipcRenderer.invoke("desk:settings:get"),
   // key: "background" | "openAtLogin" | "widget" | "widgetPinned" (true or false), or "pauseReminders" (minutes, 0 resumes)
   setDesktopSetting: (key, value) => ipcRenderer.invoke("desk:settings:set", String(key), value),
+  // Microsoft Store build only: opens Windows Settings > Apps > Startup (where start-at-sign-in is switched on for a Store app).
+  openStartupSettings: () => ipcRenderer.invoke("desk:startup-settings"),
   // 1.11: Brightspace, Canvas and Blackboard (id = "brightspace" | "canvas" | "blackboard"). Read-only; you sign in on the
   // platform's own page, in a separate private cookie store for each.
   lms: {
