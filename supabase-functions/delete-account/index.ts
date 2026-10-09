@@ -33,7 +33,9 @@ const base = (d: Deps) => d.env("SUPABASE_URL").replace(/\/+$/, "");
 function originOf(u: string): string | null {
   try { const x = new URL(u); return x.protocol === "https:" && !x.username && !x.password ? x.origin : null; } catch (_e) { return null; }
 }
-const NATIVE_ORIGINS = ["capacitor://localhost", "ionic://localhost"];
+// The app's own origins: desktop (Electron app://), iPhone (Capacitor) and Android (Capacitor serves https://localhost).
+// A missing one is blocked by the browser and shows up in the app as "couldn't reach the server".
+const NATIVE_ORIGINS = ["app://studioso", "capacitor://localhost", "ionic://localhost", "https://localhost"];
 
 export async function handle(req: Request, d: Deps): Promise<Response> {
   const allowed = [...new Set([...d.env("SITE_ORIGINS").split(",").map(s => originOf(s.trim())).filter((o): o is string => !!o), ...NATIVE_ORIGINS])];

@@ -31,7 +31,7 @@ var COMP_KIT = (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
 
-  /* Plain colour themes (all 14 share these three) */
+  /* Plain colour themes (all 14 share these six) */
   COMP_DATA.push({
     theme: "plain",
     companions: [
@@ -133,6 +133,72 @@ var COMP_KIT = (() => {
           task: ["Hoo hoo! DONE!", "Another page turned! Wonderful!", "Wise work! I'm so proud!", "Yes! Well done, scholar!"],
           break: ["Stretch those wings! Flap flap!", "Break time! Give your eyes a happy rest!"]
         }
+      },
+      {
+        id: "plain-hilo", name: "Hilo", kind: "Highlighter", pose: "stand", wearColor: "#7C6FE0",
+        bio: "A bright little highlighter who only marks the parts that matter.",
+        idle: ["topBob", "sway", "wave"], cheer: "hop",
+        parts: {
+          feet: `<ellipse cx="51" cy="109.5" rx="6.6" ry="3.9" fill="#D9CF2E" ${O}/><ellipse cx="69" cy="109.5" rx="6.6" ry="3.9" fill="#D9CF2E" ${O}/>`,
+          body: `${LG("plain-hilo-g", [[0, "#FFFBA0"], [0.5, "#F8F25E"], [1, "#E4DB3A"]], 0, 0, 1, 0)}
+            <path d="M42 50H78V100Q78 107 71 107H49Q42 107 42 100Z" fill="url(#plain-hilo-g)" ${O}/>
+            <path d="M42.5 95H77.5" stroke="#B9E057" stroke-width="6"/><path d="M42 92H78M42 98H78" stroke="${INK}" stroke-width="2.2"/>
+            <path d="M48 64V86" stroke="#fff" stroke-width="3.2" stroke-linecap="round" opacity=".7"/>`,
+          armL: {svg: `<ellipse cx="37" cy="82" rx="4.6" ry="6.6" transform="rotate(24 37 82)" fill="#F2EB52" ${O}/>`, pivot: [42, 78]},
+          armR: {svg: `<ellipse cx="83" cy="82" rx="4.6" ry="6.6" transform="rotate(-24 83 82)" fill="#F2EB52" ${O}/>`, pivot: [78, 78]},
+          top: {svg: `${LG("plain-hilo-c", [[0, "#C9F27E"], [1, "#92D24A"]])}
+            <path d="M40 58V37Q40 28 49 28H71Q80 28 80 37V58Z" fill="url(#plain-hilo-c)" ${O}/>
+            <rect x="79" y="31" width="6" height="22" rx="3" fill="#82C23E" ${O2}/>
+            <path d="M46 35Q46 32 50 32" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".8"/>`, pivot: [60, 58]}
+        },
+        eyes: {lx: 52, rx: 68, y: 72, r: 4.6, style: "dot"},
+        mouth: {x: 60, y: 80, w: 3},
+        cheeks: {lx: 47, rx: 73, y: 79.5, w: 3.6, h: 2.4},
+        anchors: {top: [60, 30, 0.85], neck: [60, 62, 0.95], chest: [70, 90, 0.6], back: [80, 72, 0.8], hands: [60, 96, 0.8]},
+        lines: {tap: ["This part? Definitely important.", "I only light up the good stuff.", "You don't have to remember it all. Just the key bits.", "Hi! Ready to make things stand out?", "One clear line at a time.", "Bright idea incoming!"], pet: ["Hehe, careful, my cap pops off!", "Glowing extra bright now."], hello: ["You're back! Let's find the key ideas.", "Hi again! Cap's off, ready to go."], morning: ["Good morning! Today looks bright."], night: ["Cap on, lights low. Time to rest."], focus: ["Steady hand. You've got this.", "Marking the moment. Keep going."], done: ["Great session! That deserves a big bright line.", "Done! You really focused."], task: ["Done! Highlighted in gold.", "Yes! That one's marked finished.", "Another one done. Nice!"], break: ["Cap on for a minute. Stretch it out."]}
+      },
+      {
+        id: "plain-packy", name: "Packy", kind: "Backpack", pose: "sit", wearColor: "#4F8FE0",
+        bio: "A trusty backpack who has carried every book you've ever needed.",
+        idle: ["topBob", "bounce", "wave"], cheer: "hop",
+        parts: {
+          back: `<g transform="rotate(14 84 44)"><rect x="80" y="26" width="8" height="26" fill="#FFCB4F" ${O2}/><path d="M80 26L84 17L88 26Z" fill="#F7D9B0" ${O2}/><circle cx="84" cy="18.5" r="1.4" fill="${INK}"/></g>`,
+          body: `${LG("plain-packy-g", [[0, "#FFB3A3"], [0.55, "#FF8D7A"], [1, "#EC6F5E"]], 0.2, 0, 0.8, 1)}
+            <path d="M60 38C80 38 92 48 92 64V100Q92 108 84 108H36Q28 108 28 100V64C28 48 40 38 60 38Z" fill="url(#plain-packy-g)" ${O}/>
+            <path d="M38 84Q38 80 42 80H78Q82 80 82 84V100Q82 104 78 104H42Q38 104 38 100Z" fill="#F2786A" ${O}/>
+            <path d="M40 86H80" stroke="${INK}" stroke-width="1.8" stroke-dasharray="2.4 2"/>
+            <rect x="62" y="83" width="4" height="7" rx="1.5" fill="#FFD36A" ${OW(1.6)}/>
+            <path d="M50 92.5L51.4 95.3L54.4 95.7L52.2 97.8L52.8 100.8L50 99.4L47.2 100.8L47.8 97.8L45.6 95.7L48.6 95.3Z" fill="#FFE07A" ${OW(1.4)}/>
+            <path d="M36 62Q37 50 48 45" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" opacity=".6"/>`,
+          armL: {svg: `<path d="M31 62Q20 72 22 92Q24 97 28 95Q28 78 34 68Z" fill="#4F8FE0" ${O}/>`, pivot: [31, 64]},
+          armR: {svg: `<path d="M89 62Q100 72 98 92Q96 97 92 95Q92 78 86 68Z" fill="#4F8FE0" ${O}/>`, pivot: [89, 64]},
+          top: {svg: `<path d="M50 40Q50 28 60 28Q70 28 70 40" fill="none" stroke="${INK}" stroke-width="9" stroke-linecap="round"/><path d="M50 40Q50 28 60 28Q70 28 70 40" fill="none" stroke="#4F8FE0" stroke-width="3.6" stroke-linecap="round"/>`, pivot: [60, 40]}
+        },
+        eyes: {lx: 48, rx: 72, y: 62, r: 5.2, style: "dot"},
+        mouth: {x: 60, y: 70.5, w: 3.4},
+        cheeks: {lx: 39, rx: 81, y: 70, w: 4.8, h: 3},
+        anchors: {top: [60, 40, 1], neck: [60, 78, 1.2], chest: [75, 92, 0.75], back: [92, 64, 0.85], hands: [60, 100, 0.9]},
+        lines: {tap: ["Got everything? I double checked!", "I've got your back. Literally.", "Heavy day? We'll carry it together.", "Hi! Where are we headed today?", "One thing at a time, out of the bag.", "I packed you a little extra courage."], pet: ["Hehe, my zippers jingle!", "Pats! My favourite pocket feeling."], hello: ["You're back! Bag's packed and ready.", "Hi! Let's unpack today's plan."], morning: ["Good morning! Let's pack up the day's goals."], night: ["Zip it up for today. Rest well."], focus: ["Quiet zippers. You've got this.", "I'll keep everything safe while you work."], done: ["Session done! That's a load lighter.", "Amazing focus! Unpacked and done."], task: ["Done! One less thing to carry.", "Checked off! Feeling lighter already.", "Woo! Another one finished."], break: ["Put the load down. Stretch your shoulders!"]}
+      },
+      {
+        id: "plain-sum", name: "Sum", kind: "Calculator", pose: "stand", wearColor: "#F28C5A",
+        bio: "A tidy little calculator who's sure everything adds up in the end.",
+        idle: ["bounce", "wave", "sparkle"], cheer: "spin",
+        parts: {
+          feet: `<ellipse cx="48" cy="109.5" rx="7" ry="4" fill="#7466CC" ${O}/><ellipse cx="72" cy="109.5" rx="7" ry="4" fill="#7466CC" ${O}/>`,
+          body: `${LG("plain-sum-g", [[0, "#C7BEFA"], [0.55, "#A396EE"], [1, "#8676DD"]], 0.2, 0, 0.8, 1)}
+            <rect x="33" y="34" width="54" height="73" rx="9" fill="url(#plain-sum-g)" ${O}/>
+            <rect x="39" y="40" width="42" height="26" rx="4" fill="#DDF2CF" ${OW(2.4)}/>
+            <path d="M42.5 44H55" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".8"/>
+            ${[0, 1, 2].map(r => [0, 1, 2].map(k => `<rect x="${40 + k * 14}" y="${72 + r * 10.5}" width="11" height="8" rx="3" fill="${r === 2 && k === 2 ? "#FFA36E" : "#FFF7EC"}" ${OW(1.8)}/>`).join("")).join("")}`,
+          armL: {svg: `<ellipse cx="28" cy="80" rx="4.6" ry="6.6" transform="rotate(24 28 80)" fill="#A396EE" ${O}/>`, pivot: [33, 76]},
+          armR: {svg: `<ellipse cx="92" cy="80" rx="4.6" ry="6.6" transform="rotate(-24 92 80)" fill="#A396EE" ${O}/>`, pivot: [87, 76]}
+        },
+        eyes: {lx: 52, rx: 68, y: 51, r: 4.2, style: "dot", color: "#2F4A2A"},
+        mouth: {x: 60, y: 58.5, w: 2.8, color: "#2F4A2A"},
+        cheeks: {lx: 45.5, rx: 74.5, y: 58, w: 3.4, h: 2.2},
+        anchors: {top: [60, 35, 0.9], neck: [60, 68, 1.05], chest: [77, 98, 0.55], back: [87, 66, 0.8], hands: [60, 101, 0.85]},
+        lines: {tap: ["Hi! Let's figure this out together.", "Big problems are just small steps added up.", "You plus a plan equals progress.", "Show your work? You're doing great.", "Every little bit counts. I checked.", "Calm and steady. That's the formula."], pet: ["Hehe, that tickles my buttons!", "Beep boop! Happy!"], hello: ["You're back! Ready to crunch some numbers?", "Hi! Today's going to add up nicely."], morning: ["Good morning! Fresh start, clear screen."], night: ["Time to power down. You too."], focus: ["Quiet mode on. You've got this.", "Steady focus. Keep going."], done: ["Session done! That adds up to a lot.", "Great focus! The numbers love it."], task: ["Done! Plus one!", "Finished! That's a correct answer.", "Woo! Another one done."], break: ["Clear the screen. Stretch and breathe."]}
       }
     ]
   });

@@ -17,6 +17,10 @@ protocol.registerSchemesAsPrivileged([{ scheme: "app", privileges: { standard: t
 // Every window is sandboxed, isolated, and only ever shows Studyboard's own pages (app://studioso/ and app://widget/).
 // Anything else opens in the person's browser after a check (https or mailto only). Permissions are denied unless listed here.
 const IS_MAS = !!process.mas;                          // Mac App Store build (sandboxed, no auto-update, no login-item API)
+// Microsoft Store build (MSIX package, electron-builder's appx target). Windows gives the package its own identity, so the app ID, the
+// studyboard:// link and start-at-login come from the package manifest instead of the calls the direct download makes. The Store updates it.
+const IS_MSSTORE = !!process.windowsStore;
+const STORE = IS_MAS ? "mas" : IS_MSSTORE ? "msstore" : "direct";
 const IS_DEV = !app.isPackaged;
 const MAIN_ORIGIN = "app://studioso", WIDGET_ORIGIN = "app://widget";
 const ALLOWED_PERMISSIONS = new Set(["notifications", "clipboard-sanitized-write", "fullscreen"]);   // only what Studyboard uses
@@ -63,7 +67,8 @@ const isAppUrl = (raw, origin) => { try { const u = new URL(String(raw)); return
 // One copy at a time. A second launch just brings the first one forward (and passes along any studyboard:// link).
 const GOT_LOCK = app.requestSingleInstanceLock();
 if (!GOT_LOCK) { app.quit(); }
-app.setAppUserModelId("com.studioso.app");
+// A packaged (MSIX) app already has an app ID from its package; overriding it would send its notifications to an unknown app.
+if (!IS_MSSTORE) app.setAppUserModelId("com.studioso.app");
 
 // ---------- Deep links: studyboard://open?task=ID and studyboard://action/NAME ----------
 // Nothing else is accepted. The link can only ask the app to open a task or one of its own screens, never to run, read or write anything.
@@ -96,8 +101,9 @@ function handleDeepLink(raw) {
   return true;
 }
 try {
-  // Not in the Mac App Store build (it registers the scheme through Info.plist) and not when running from source.
-  if (app.isPackaged && !IS_MAS) {
+  // Not in the store builds (the Mac App Store build registers the scheme through Info.plist, the Microsoft Store build through its package
+  // manifest) and not when running from source.
+  if (app.isPackaged && !IS_MAS && !IS_MSSTORE) {
     if (process.defaultApp && process.argv.length >= 2) app.setAsDefaultProtocolClient(DEEP_SCHEME, process.execPath, [path.resolve(process.argv[1])]);
     else app.setAsDefaultProtocolClient(DEEP_SCHEME);
   }
@@ -156,7 +162,12 @@ function mainReport(kind, err, extra) {
   } catch (x) { /* never let reporting break the app */ }
 }
 // Electron's own behaviour for an uncaught main-process error is its error box; a listener replaces that, so show the same box.
-process.on("uncaughtException", err => { mainReport("main-uncaught", err); try { if (app.isReady()) dialog.showErrorBox("A JavaScript error occurred in the main process", String((err && err.stack) || err)); else console.error(err); } catch (x) {} });
+// The box says what happened in plain words; the technical details stay in the console (and in the crash report, when those are on).
+process.on("uncaughtException", err => {
+  mainReport("main-uncaught", err);
+  console.error(err);
+  try { if (app.isReady()) dialog.showErrorBox("Studyboard Ran Into a Problem", "Something went wrong inside Studyboard. Your work is saved on this computer.\n\nIf Studyboard stops responding, close it and open it again. If this keeps happening, write to support@studyboardapp.com."); } catch (x) {}
+});
 process.on("unhandledRejection", reason => { mainReport("main-promise", reason, { type: "UnhandledRejection" }); console.error("Unhandled rejection in the main process:", reason); });
 app.on("render-process-gone", (e, wc, d) => { if (d && d.reason !== "clean-exit") mainReport("renderer-gone", new Error("render-process-gone: " + d.reason), { type: "RenderProcessGone", tags: { process: "renderer", reason: d.reason, exit: d.exitCode } }); });
 app.on("child-process-gone", (e, d) => { if (d && d.reason !== "clean-exit") mainReport("child-gone", new Error("child-process-gone: " + d.type + " " + d.reason), { type: "ChildProcessGone", tags: { process: d.type, reason: d.reason, exit: d.exitCode } }); });
@@ -252,7 +263,7 @@ function createWindow(hidden) {
     titleBarStyle: "hidden",
     trafficLightPosition: { x: 14, y: 10 },
     titleBarOverlay: process.platform === "darwin" ? undefined : { color: spine(), symbolColor: "#FFFFFF", height: 34 },
-    webPreferences: { ...SAFE_PREFS, preload: path.join(__dirname, "preload.js"), additionalArguments: ["--studioso-version=" + app.getVersion(), "--studioso-store=" + (IS_MAS ? "mas" : "direct")], spellcheck: true }
+    webPreferences: { ...SAFE_PREFS, preload: path.join(__dirname, "preload.js"), additionalArguments: ["--studioso-version=" + app.getVersion(), "--studioso-store=" + STORE], spellcheck: true }
   });
   // Started at sign-in: the page loads out of sight (so reminders, sync and the widget work) until you open it.
   if (st.maximized) { if (hidden) pendingMax = true; else win.maximize(); }
@@ -559,10 +570,12 @@ ipcMain.on("widget:pin", (e, on) => { if (fromWidget(e)) setWidgetPinned(on === 
 ipcMain.on("widget:hide", e => { if (fromWidget(e)) setWidgetShown(false); });
 
 // ---------- Desktop settings for the page (Settings, Widgets and Desktop) ----------
-const canLogin = () => process.platform === "win32" || (process.platform === "darwin" && !IS_MAS);   // the Mac App Store build has no start-at-login (it would need a separate helper app)
+// The Mac App Store build has no start-at-login (it would need a separate helper app). The Microsoft Store build declares a startup task in its
+// manifest instead, which only Windows Settings can switch on, so Settings shows a button to that page there (startupSettings).
+const canLogin = () => (process.platform === "win32" && !IS_MSSTORE) || (process.platform === "darwin" && !IS_MAS);
 function loginOn() { try { return canLogin() && !!app.getLoginItemSettings(process.platform === "win32" ? { args: LOGIN_ARGS } : undefined).openAtLogin; } catch (e) { return false; } }
 function deskSettings() {
-  return { background: cfg.background !== false, tray: !!tray, openAtLogin: loginOn(), canLogin: canLogin(), widget: !!(widget && !widget.isDestroyed()), widgetPinned: widgetState().pinned, pausedUntil: remindersPaused() ? cfg.pauseUntil : 0, notifications: Notification.isSupported(), shot: cfg.shot !== false, shotKey: shotKey(), shotKeys: SHOT_KEYS, shotOn: !!shotRegistered };
+  return { background: cfg.background !== false, tray: !!tray, openAtLogin: loginOn(), canLogin: canLogin(), startupSettings: IS_MSSTORE, widget: !!(widget && !widget.isDestroyed()), widgetPinned: widgetState().pinned, pausedUntil: remindersPaused() ? cfg.pauseUntil : 0, notifications: Notification.isSupported(), shot: cfg.shot !== false, shotKey: shotKey(), shotKeys: SHOT_KEYS, shotOn: !!shotRegistered };
 }
 // Power state for the page's animation governor: on battery, thermal pressure and a locked screen. Plain values only, read-only.
 function powerState() {
@@ -574,6 +587,8 @@ function powerState() {
 let powerLocked = false;
 function pushPower() { try { if (win && !win.isDestroyed() && listening.has("desk:power")) win.webContents.send("desk:power", powerState()); } catch (err) {} }
 ipcMain.handle("power:get", e => fromMain(e) ? powerState() : null);
+// Microsoft Store build: opens Windows Settings > Apps > Startup, where Studyboard's startup task is switched on or off. A fixed address, never the page's.
+ipcMain.handle("desk:startup-settings", e => { if (!fromMain(e) || !IS_MSSTORE) return false; shell.openExternal("ms-settings:startupapps").catch(() => {}); return true; });
 ipcMain.handle("desk:settings:get", e => fromMain(e) ? deskSettings() : null);
 ipcMain.handle("desk:settings:set", (e, key, value) => {
   if (!fromMain(e)) return null;
@@ -594,7 +609,11 @@ ipcMain.handle("desk:settings:set", (e, key, value) => {
 // A global shortcut (works while Studyboard is in the background) freezes the screen under the mouse, lets the person drag a box around
 // anything on it, and sends only that part to the page, which reads it with AI and turns it into a task, a course, a syllabus or a note.
 // The picture goes nowhere else: it is not saved to disk, and the picker window can only send back four numbers or a cancel.
-const SHOT_KEYS = ["CommandOrControl+Alt+C", "CommandOrControl+Shift+Alt+C", "CommandOrControl+Alt+X", "CommandOrControl+Alt+Q"];
+// On Windows and Linux, Ctrl+Alt is the same as AltGr on many keyboards, and AltGr+letter types characters there (Ctrl+Alt+Q is @ on a German
+// keyboard, Ctrl+Alt+C is ć on a Polish one). A global shortcut takes the keys away from every app, so those choices start with Ctrl+Shift+Alt.
+const SHOT_KEYS = process.platform === "darwin"
+  ? ["CommandOrControl+Alt+C", "CommandOrControl+Shift+Alt+C", "CommandOrControl+Alt+X", "CommandOrControl+Alt+Q"]
+  : ["CommandOrControl+Shift+Alt+C", "CommandOrControl+Shift+Alt+S", "CommandOrControl+Shift+Alt+X", "CommandOrControl+Shift+Alt+Q"];
 const shotKey = () => SHOT_KEYS.includes(cfg.shotKey) ? cfg.shotKey : SHOT_KEYS[0];
 let shotRegistered = "", shotWin = null, shotImg = null, shotBusy = false;
 function registerShotKey() {
@@ -711,6 +730,18 @@ function masFolderPrompt() {
     if (r.response === 0) { const p = await chooseDataDir().catch(() => null); if (p) showNote({ title: "Studyboard Folder Changed", body: `Studyboard now keeps your things in ${p}.` }); }
   }, 1200);
   if (w.isVisible()) ask(); else w.once("show", ask);
+}
+// Microsoft Store build: the website's installer (NSIS, per user) may also be on this computer. Both answer studyboard:// links and share one
+// folder for your things, so say once which one to remove. Uninstalling it keeps the data (deleteAppDataOnUninstall is false).
+function dupInstallNote() {
+  if (!IS_MSSTORE || cfg.dupInstallNoted) return;
+  try {
+    const exe = path.join(process.env.LOCALAPPDATA || "", "Programs", "Studyboard", "Studyboard.exe");
+    if (!process.env.LOCALAPPDATA || !fs.existsSync(exe)) return;
+    cfg.dupInstallNoted = true; writeCfg(cfg);
+    const say = () => showNote({ title: "Studyboard Is Installed Twice", body: "The version from the Studyboard website is also on this computer. Remove it in Settings, Apps, Installed apps (your things stay); this Microsoft Store version updates itself." });
+    if (win && !win.isDestroyed() && win.isVisible()) setTimeout(say, 3000); else if (win) win.once("show", () => setTimeout(say, 3000));
+  } catch (e) {}
 }
 // One file per call. The largest things the page writes are the full backup (studyboard-latest.json and the daily copies; synced data is
 // capped at 250 MB even on Pro) and single files (50 MB each on desktop), so 512 MiB leaves room while stopping a runaway page from filling the disk
@@ -909,6 +940,7 @@ if (GOT_LOCK) app.whenReady().then(async () => {
   createWindow(openedAtLogin() && bgOn());
   if (dataDirLost && !IS_MAS) win.once("show", () => showNote({ title: "Studyboard Folder Not Found", body: `${cfg.dataDir} couldn't be opened, so Studyboard is saving to ${dataRoot()} for now. Reconnect the drive and restart, or choose a folder in Settings.` }));
   masFolderPrompt();
+  dupInstallNote();
   if (widgetState().show) createWidget();
   checkReminders();
   const startLink = pendingDeepLink || process.argv.find(a => typeof a === "string" && a.startsWith(DEEP_SCHEME + "://"));

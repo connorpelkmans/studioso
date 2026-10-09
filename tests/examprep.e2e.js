@@ -46,12 +46,11 @@ async function mk(browser, w, h, o = {}) {
 const act = (page, a, id, extra) => page.evaluate(([a, i, x]) => { const b = document.createElement("button"); b.dataset.act = a; if (i) b.dataset.id = i; x && Object.entries(x).forEach(([k, v]) => { b.dataset[k] = v; }); b.style.display = "none"; document.body.appendChild(b); b.click(); b.remove(); }, [a, id, extra]);
 const goCourse = async (page, id) => { await page.evaluate(() => { const b = document.querySelector('[data-tab="courses"]'); if (b) b.click(); }); await page.waitForTimeout(200); await act(page, "open-course", id); await page.waitForTimeout(300); };
 const goBoard = async page => { await page.evaluate(() => { const b = document.querySelector('[data-tab="board"]'); if (b) b.click(); }); await page.waitForTimeout(200); await act(page, "bview", "plan"); await page.waitForTimeout(300); };
-// The exam-prep banner sits in Today's Plan's folded "More for Today" section, inside its own "Plan My Prep" fold (4d8c952).
-// Wait (by textContent, since folded text has no innerText) until it matches, then open both folds so it can be read and clicked.
+// The exam-prep banner sits in Today's Plan's tab bar, under its own "Exam Prep" tab.
+// Wait (by textContent, since a hidden tab's text has no innerText) until it matches, then open that tab so it can be read and clicked.
 const openPrep = async (page, re, timeout = 5000) => {
   if (re) await page.waitForFunction(r => new RegExp(r).test((document.querySelector("#planExtra .pe-item[data-k=prep] .pp-today") || {textContent: ""}).textContent), re, {timeout}).catch(() => {});
-  await page.evaluate(() => { const d = document.querySelector("#planExtra"); if (d && !d.open) d.querySelector("summary").click(); }); await page.waitForTimeout(150);
-  await page.evaluate(() => { const d = document.querySelector("#planExtra .pe-item[data-k=prep]"); if (d && !d.open) d.querySelector("summary").click(); }); await page.waitForTimeout(200);
+  await page.evaluate(() => { const t = document.querySelector('.pt-tab[data-k="prep"]'); if (t) t.click(); }); await page.waitForTimeout(200);
 };
 const store = page => page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")));
 const sessions = async (page, ex = "ex1") => (await store(page)).tasks.filter(t => t.prepFor === ex);
@@ -194,7 +193,7 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       await page.evaluate(() => { try { sessionStorage.setItem("seeded", "1"); } catch (e) {} });
       await ctx.clock.setSystemTime(new Date(2026, 9, 8, 10, 0, 0)); await page.reload(); await page.waitForTimeout(1500);
       await page.waitForFunction(() => /slipped/.test((document.querySelector("#planExtra .pp-today") || {textContent: ""}).textContent), null, {timeout: 5000}).catch(() => {});
-      ok(/Exam Prep/.test(await txt(page, "#planExtra > summary")), "the folded More for Today names Exam Prep: " + (await txt(page, "#planExtra > summary")).replace(/\n/g, " "));
+      ok(/Exam Prep/.test(await txt(page, "#planExtra .pt-bar")), "the tab bar names Exam Prep: " + (await txt(page, "#planExtra .pt-bar")).replace(/\n/g, " "));
       await openPrep(page, "slipped");
       ok(await vis(page, ".pp-today"), "a gentle banner on Today when sessions were missed");
       ok(/slipped/.test(await txt(page, ".pp-today")), "it says sessions slipped: " + (await txt(page, ".pp-today")).replace(/\n/g, " ").slice(0, 100));
@@ -276,7 +275,9 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       await page.fill("#qaIn", "midterm bio 101 oct 28 9am"); await page.press("#qaIn", "Enter"); await page.waitForTimeout(1200);
       const cap = (await store(page)).tasks.find(t => /midterm/i.test(t.title) && t.due === "2026-10-28");
       ok(cap && cap.type === "Exam" && cap.time === "09:00", "captured: " + JSON.stringify(cap && [cap.title, cap.type, cap.due, cap.time]));
-      ok(await vis(page, "#toast.show") && /Plan My Prep/.test(await txt(page, "#toastExtra")), "the capture toast offers Plan My Prep after creating the exam");
+      ok(await vis(page, "dialog[open] [data-rx]"), "adding the exam asks where it's taken");
+      await page.click('dialog[open] [data-rx="no"]'); await page.waitForTimeout(300);
+      ok(await vis(page, "#toast.show") && /Plan My Prep/.test(await txt(page, "#toastExtra")), "the toast still offers Plan My Prep after creating the exam");
       await page.click("#toastExtra"); await page.waitForTimeout(500);
       ok(await vis(page, "#ppBody") && /Plan My Prep/.test(await txt(page, "#ppTitle")) && (await page.evaluate(() => SBPREP._state().exId)) === cap.id, "which opens the planner on that exam");
       ok((await page.evaluate(() => document.querySelector("#ppDue").value)) === "2026-10-28" && (await page.evaluate(() => document.querySelector("#ppTime").value)) === "09:00", "prefilled with the captured date and time");
