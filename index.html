@@ -5124,7 +5124,10 @@ nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sy
 .rw-banner .cc-t b{font-family:var(--display)}
 .rw-banner .cc-t .mini{display:block;color:var(--muted)}
 /* Courses: as wide as the other pages, cards side by side when there is room */
-body.wide .course-list{grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr))}
+body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:719px){body.wide .course-list{grid-template-columns:1fr}}
+/* Grades: course rows two across too */
+@media (min-width:720px){.gp-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .course-card .next{font-size:.92rem;color:var(--muted);margin-top:2px}
 .course-card .next b{color:var(--ink);font-weight:600}
 .course-card .next .late{color:var(--late);font-weight:600}
