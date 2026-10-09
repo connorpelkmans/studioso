@@ -106,7 +106,7 @@ const stored = p => p.evaluate(() => JSON.parse(localStorage.getItem("coursework
       await act(p, "cpt-tab", "history");
       ok((await p.locator(".cpt-h").count()) === 1, "the chat is kept under Chats");
       // the Manage tab was dropped (59d6efd): the tabs are Chat and History, and "Change or Dress Up" in the header opens the picker sheet
-      ok((await p.$$eval(".cpt-tabs [data-act=cpt-tab]", bs => bs.map(b => b.dataset.id).join())) === "chat,history", "the Companion tabs are Chat and History");
+      ok((await p.$$eval(".cpt3-tabs [data-act=cpt-tab]", bs => bs.map(b => b.dataset.id).join())) === "chat,history,wardrobe", "the Companion tabs are Chat, History and Wardrobe");
       await p.click(".cpt-head .cpt-dress"); await p.waitForTimeout(400);
       ok(await vis("#dlg[open] .cp-pickbody .cp-tile") && await vis("#dlg[open] #cpName"), "Change or Dress Up opens the picker with the companions and the name");
       await p.click('#dlg [data-act="close"]'); await p.waitForTimeout(300);
