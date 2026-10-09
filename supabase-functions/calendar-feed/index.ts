@@ -132,7 +132,7 @@ const SBICS = (() => {
     const out = [];
     String(text || "").split(/;|\n|\s\/\s|,\s(?=[A-Z][a-z]*\s*(?:lab|discussion|recitation)\b)/i).forEach(part => {
       const days = meetingDays(part), tr = timeRange(part);
-      if (days.length && tr) out.push({kind: /\blab\b/i.test(part) ? "Lab" : /discussion|recitation|\bdis\b/i.test(part) ? "Discussion" : kind || "Lecture", days, start: tr.start, end: tr.end, where: where || ""});
+      if (days.length && tr) out.push({kind: /\blab\b/i.test(part) ? "Lab" : /tutorial|\btut\b/i.test(part) ? "Tutorial" : /discussion|recitation|\bdis\b/i.test(part) ? "Discussion" : kind || "Lecture", days, start: tr.start, end: tr.end, where: where || ""});
     });
     return out;
   }
