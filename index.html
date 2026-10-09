@@ -5131,14 +5131,6 @@ body.wide .course-list{grid-template-columns:repeat(auto-fill,minmax(min(100%,34
 /* Deck Archive: the same folder icon as the notes Archive */
 .deck-actions .deck-arch{padding-inline:9px}
 .deck-actions .deck-arch svg{display:block}
-/* Desktop sidebar: Focus opens the timer, so it reads as a control, not as the current tab */
-@media (min-width:980px){
-  nav.tabs .in .nav-focus{margin:16px 4px 0;padding:8px 4px 7px;flex-direction:row;gap:6px;background:none;border:1px solid color-mix(in srgb,var(--tomato) 50%,rgba(255,255,255,.14));border-radius:999px;color:var(--spine-ink)}
-  nav.tabs .in .nav-focus::after{content:"";position:absolute;left:4px;right:4px;top:-9px;border-top:1px solid rgba(255,255,255,.1)}
-  nav.tabs .in .nav-focus:hover{background:rgba(255,255,255,.06);color:#fff}
-  nav.tabs .in .nav-focus svg{width:18px;height:18px}
-  nav.tabs .in .nav-focus.active{flex-direction:column;gap:3px;border-radius:14px;color:#fff}
-}
 /* Phones: the header frosts over the page once it scrolls; the Add button (and the companion beside it) step aside while the
    quick-add bar passes under them, and pages leave room at the bottom for both */
 @media (max-width:639px){
