@@ -98,7 +98,7 @@ t("due today / overdue at 23:58, 23:59:59 and 00:01", () => {
 
 // 5. Instants from school sites (Canvas due_at is UTC) become the wall-clock time in the HOME zone, so a trip doesn't move deadlines.
 t("wallIn / wallOfIso convert a UTC instant to a zone's wall clock", () => {
-  const cases = [["2026-11-02T07:59:00Z", "America/Los_Angeles", "2026-11-01", "23:59"], ["2026-11-02T07:59:00Z", "America/Vancouver", "2026-11-01", "23:59"],
+  const cases = [["2026-11-02T07:59:00Z", "America/Los_Angeles", "2026-11-01", "23:59"], ["2026-11-02T07:59:00Z", "America/Chicago", "2026-11-02", "01:59"],   // (not Vancouver: newer time zone data has British Columbia on permanent daylight time from 2026, so its answer depends on the runtime)
     ["2026-11-02T07:59:00Z", "Asia/Tokyo", "2026-11-02", "16:59"], ["2026-11-02T07:59:00Z", "Asia/Kolkata", "2026-11-02", "13:29"], ["2026-11-02T07:59:00Z", "Pacific/Kiritimati", "2026-11-02", "21:59"],
     ["2026-11-02T07:59:00Z", "Pacific/Auckland", "2026-11-02", "20:59"], ["2026-11-02T07:59:00Z", "Pacific/Apia", "2026-11-02", "20:59"],
     ["2026-10-30T06:59:00Z", "America/Los_Angeles", "2026-10-29", "23:59"],   // still PDT
