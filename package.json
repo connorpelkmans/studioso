@@ -4,7 +4,8 @@
   "version": "1.13.0",
   "description": "Studyboard: a student planner for courses, deadlines, study sessions and flashcards",
   "author": {
-    "name": "Studyboard"
+    "name": "Connor Pelkmans (Studyboard)",
+    "email": "support@studyboardapp.com"
   },
   "license": "UNLICENSED",
   "main": "main.js",
@@ -14,6 +15,8 @@
     "prep": "node prepare.js",
     "dist": "node prepare.js && electron-builder --win nsis --x64",
     "dist:win-signed": "node prepare.js && electron-builder --win nsis --x64 --config build-resources/electron-builder.win-signed.js",
+    "dist:msstore": "node prepare.js && electron-builder --win appx --x64 --arm64",
+    "check:msstore": "node scripts/check-release.js msstore",
     "dist:mac": "node prepare.js && electron-builder --mac dmg --arm64 -c.mac.identity=-",
     "dist:linux": "node prepare.js && electron-builder --linux AppImage",
     "dist:mac-intel": "node prepare.js && electron-builder --mac dmg --x64 -c.mac.identity=- '-c.mac.artifactName=Studyboard-${version}-mac-intel.${ext}'",
@@ -48,7 +51,7 @@
   "build": {
     "appId": "com.studioso.app",
     "productName": "Studyboard",
-    "copyright": "Copyright \u00a9 2026 Studyboard",
+    "copyright": "Copyright \u00a9 2026 Connor Pelkmans (Studyboard)",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -93,6 +96,23 @@
       "deleteAppDataOnUninstall": false,
       "artifactName": "Studyboard-Setup-${version}.${ext}",
       "uninstallDisplayName": "Studyboard"
+    },
+    "appx": {
+      "identityName": "REPLACE_WITH_PARTNER_CENTER_PACKAGE_IDENTITY_NAME",
+      "publisher": "CN=REPLACE_WITH_PARTNER_CENTER_PUBLISHER_ID",
+      "publisherDisplayName": "Connor Pelkmans (Studyboard)",
+      "applicationId": "Studyboard",
+      "displayName": "Studyboard",
+      "backgroundColor": "#11305F",
+      "showNameOnTiles": false,
+      "languages": [
+        "en-US"
+      ],
+      "minVersion": "10.0.17763.0",
+      "maxVersionTested": "10.0.26100.0",
+      "addAutoLaunchExtension": false,
+      "customExtensionsPath": "build-resources/appx-extensions.xml",
+      "artifactName": "Studyboard-${version}-${arch}.${ext}"
     },
     "mac": {
       "target": [

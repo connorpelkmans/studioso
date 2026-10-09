@@ -13,9 +13,9 @@ on:
   workflow_dispatch:
     inputs:
       kind:
-        description: "unsigned (default builds), signed (Developer ID + notarized DMG, and signed Windows installer if its secrets exist) or mas (Mac App Store package)"
+        description: "unsigned (default builds), signed (Developer ID + notarized DMG, and signed Windows installer if its secrets exist), mas (Mac App Store package) or msstore (Microsoft Store MSIX packages)"
         type: choice
-        options: [unsigned, signed, mas]
+        options: [unsigned, signed, mas, msstore]
         default: unsigned
   push:
     tags: ["v*"]
@@ -272,3 +272,27 @@ jobs:
         with:
           name: Studyboard-mas
           path: dist/mas*/*.pkg
+
+  # Microsoft Store packages (MSIX, x64 and arm64), uploaded by hand in Partner Center (MICROSOFT-STORE.md). They are left unsigned on purpose:
+  # the Store signs every package it accepts, so no certificate or secret is needed. check:msstore stops the job while package.json build.appx
+  # still holds the Partner Center placeholders (identityName, publisher), because a package with the wrong identity is refused at upload.
+  ms-store:
+    if: github.event_name == 'workflow_dispatch' && inputs.kind == 'msstore'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - run: npm run check:msstore
+      - run: npm run dist:msstore
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: Studyboard-msstore
+          path: dist/*.appx

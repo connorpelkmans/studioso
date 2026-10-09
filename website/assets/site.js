@@ -22,12 +22,11 @@
 
   // Put the owner's support address (config.js) into every .support-email element, as plain text and a mailto link.
   var cfg = window.STUDYBOARD_SITE || {};
-  var mail = typeof cfg.SUPPORT_EMAIL === "string" && /^[^\s@<>"]+@[^\s@<>"]+$/.test(cfg.SUPPORT_EMAIL) ? cfg.SUPPORT_EMAIL : "support@YOUR-DOMAIN";
+  var mail = typeof cfg.SUPPORT_EMAIL === "string" && /^[^\s@<>"]+@[^\s@<>"]+$/.test(cfg.SUPPORT_EMAIL) ? cfg.SUPPORT_EMAIL : "support@studyboardapp.com";
   var els = document.querySelectorAll(".support-email");
   for (var i = 0; i < els.length; i++) {
     els[i].textContent = mail;
-    if (els[i].tagName === "A" && !/YOUR-DOMAIN/.test(mail)) els[i].setAttribute("href", "mailto:" + mail);
-    if (/YOUR-DOMAIN/.test(mail)) els[i].classList.add("placeholder");
+    if (els[i].tagName === "A") els[i].setAttribute("href", "mailto:" + mail);
   }
   // The year and the app version in the footer and the hero
   var yr = document.querySelectorAll("[data-year]");
