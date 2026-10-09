@@ -5608,6 +5608,34 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .tl-dl em{font-style:normal;font:800 .66rem var(--display);padding:2px 7px;border-radius:999px;background:color-mix(in srgb,var(--late) 14%,var(--surface));color:var(--late)}
 .tl-label small{color:var(--muted)}
 .tl-controls .segb,.tl-controls .btn{border-radius:999px}
+/* ===== Schedule, Direction 1: tinted class blocks with a course-colour edge, a calmer grid ===== */
+.sch-wrap{border-radius:18px!important;box-shadow:0 2px 8px rgba(14,42,86,.08)!important}
+.sch-head{background:var(--surface)!important;min-height:58px;padding:10px 8px!important}
+.sch-dn span{font-size:.72rem!important;font-weight:700!important}
+.sch-dn b{font:800 1.2rem var(--display)!important}
+.sch-head.is-today{background:color-mix(in srgb,var(--accent) 8%,var(--surface))!important}
+.sch-head.is-today .sch-dn span{color:var(--accent)}
+.sch-head.is-today .sch-dn b{background:var(--accent)!important;color:#fff;border-radius:999px!important;padding:0 8px!important}
+.sch-col{background-image:repeating-linear-gradient(to bottom,transparent 0 55px,color-mix(in srgb,var(--line) 60%,transparent) 55px 56px)!important}
+.sch-col.is-today{background-color:color-mix(in srgb,var(--accent) 5%,transparent)}
+.sch-b{container-type:size;border-radius:10px!important;padding:6px 9px 6px 10px!important;background:color-mix(in srgb,var(--c) 16%,var(--surface))!important;color:var(--ink)!important;border:0!important;border-left:4px solid var(--c)!important;box-shadow:0 1px 3px rgba(8,20,50,.12)!important;gap:2px!important}
+.sch-b b{color:color-mix(in srgb,var(--c) 72%,var(--ink));font:800 .8rem/1.2 var(--display)!important}
+.sch-b span{opacity:1!important;color:var(--muted)}
+.sch-b:hover{filter:none!important;background:color-mix(in srgb,var(--c) 24%,var(--surface))!important}
+.sch-b.k-lab{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--c) 18%,var(--surface)) 0 8px,color-mix(in srgb,var(--c) 26%,var(--surface)) 8px 16px)!important}
+.sch-b.k-officehours{background:color-mix(in srgb,var(--c) 6%,var(--surface))!important;border:1.5px dashed color-mix(in srgb,var(--c) 70%,transparent)!important;border-left:4px solid var(--c)!important;box-shadow:none!important}
+.sch-b.k-discussion{background:color-mix(in srgb,var(--c) 10%,var(--surface))!important}
+.sch-b.k-other,.sch-b.k-event{background:color-mix(in srgb,var(--c) 12%,var(--surface))!important}
+.sch-b.sch-exam{background:color-mix(in srgb,var(--late) 10%,var(--surface))!important;border-left-color:var(--late)!important}
+.sch-b.sch-exam b{color:var(--late)}
+/* short classes: name and time only, nothing clipped */
+@container (max-height:44px){.sch-b span:nth-of-type(2),.sch-b span:nth-of-type(3){display:none}}
+@container (max-height:24px){.sch-b span{display:none}}
+.sch-chip{border-radius:8px!important;border-left-width:4px!important;padding:4px 7px!important;background:color-mix(in srgb,var(--c) 12%,var(--surface))!important;font-weight:700!important}
+.sch-sum{display:inline-flex;align-items:center;gap:8px;margin:10px 0 12px!important;padding:7px 14px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink)!important;font:600 .84rem var(--display)!important}
+.sch-nav .btn,.view-head .sch-nav .btn{border-radius:999px}
+.sch-now{height:2px!important}
+.sch-now::before{content:"";position:absolute;left:-5px;top:-4px;width:10px;height:10px;border-radius:50%;background:var(--late)}
 </style>
 </head>
 <body>
