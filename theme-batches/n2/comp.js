@@ -15,14 +15,14 @@
         idle: ["topBob", "sway", "sparkle"], cheer: "hop",
         parts: {
           feet: `<ellipse cx="47" cy="109.5" rx="9" ry="4.4" fill="#E6D2B8" ${O}/><ellipse cx="73" cy="109.5" rx="9" ry="4.4" fill="#E6D2B8" ${O}/>`,
-          body: `${LG("n2-mushrooms-toadie-s", [[0, "#FFFBF2"], [0.6, "#F8EBD8"], [1, "#E6D0B4"]], 0, 0, 1, 0)}
-            <path d="M42 52C40 70 36 92 38 104Q60 112 82 104C84 92 80 70 78 52Z" fill="url(#n2-mushrooms-toadie-s)" ${O}/>
+          body: `${LG("mushrooms-toadie-mushrooms-toadie-s", [[0, "#FFFBF2"], [0.6, "#F8EBD8"], [1, "#E6D0B4"]], 0, 0, 1, 0)}
+            <path d="M42 52C40 70 36 92 38 104Q60 112 82 104C84 92 80 70 78 52Z" fill="url(#mushrooms-toadie-mushrooms-toadie-s)" ${O}/>
             <path d="M44 100Q60 106 76 100" fill="none" stroke="#E2C8A8" stroke-width="2.4" stroke-linecap="round"/>
             <path d="M46 60Q45 72 46 84" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".9"/>`,
           armL: {svg: `<ellipse cx="35" cy="82" rx="5" ry="8" transform="rotate(28 35 82)" fill="#F6E8D4" ${O}/>`, pivot: [41, 77]},
           armR: {svg: `<ellipse cx="85" cy="82" rx="5" ry="8" transform="rotate(-28 85 82)" fill="#F6E8D4" ${O}/>`, pivot: [79, 77]},
-          top: {svg: `${RG("n2-mushrooms-toadie-c", [[0, "#FFA890"], [0.5, "#EC5A48"], [1, "#C23A32"]], 0.38, 0.28, 0.75)}
-            <path d="M14 52C14 28 34 14 60 14C86 14 106 28 106 52C106 58 100 60 92 60H28C20 60 14 58 14 52Z" fill="url(#n2-mushrooms-toadie-c)" ${O}/>
+          top: {svg: `${RG("mushrooms-toadie-mushrooms-toadie-c", [[0, "#FFA890"], [0.5, "#EC5A48"], [1, "#C23A32"]], 0.38, 0.28, 0.75)}
+            <path d="M14 52C14 28 34 14 60 14C86 14 106 28 106 52C106 58 100 60 92 60H28C20 60 14 58 14 52Z" fill="url(#mushrooms-toadie-mushrooms-toadie-c)" ${O}/>
             <path d="M24 56Q60 64 96 56" fill="none" stroke="#F4D8C0" stroke-width="3" stroke-linecap="round" opacity=".8"/>
             <ellipse cx="34" cy="38" rx="7" ry="5.4" fill="#FFF8EE"/><ellipse cx="58" cy="26" rx="8" ry="6" fill="#FFF8EE"/><ellipse cx="84" cy="38" rx="6.4" ry="5" fill="#FFF8EE"/><ellipse cx="50" cy="46" rx="4.4" ry="3.4" fill="#FFF8EE"/><ellipse cx="74" cy="22" rx="3.4" ry="2.6" fill="#FFF8EE"/><ellipse cx="96" cy="48" rx="3" ry="2.4" fill="#FFF8EE"/>
             ${shine(28, 28, 6, 3, -35)}`, pivot: [60, 58]}
@@ -50,13 +50,13 @@
         neck: [60, 66],
         parts: {
           feet: `<path d="M38 110Q60 102 82 110Q60 114 38 110Z" fill="#8A6A48" ${O2}/><path d="M44 108Q50 104 54 108M64 108Q70 104 76 108" fill="none" stroke="#B88E62" stroke-width="2" stroke-linecap="round"/>`,
-          body: `${LG("n2-mushrooms-fiddle-b", [[0, "#9ED676"], [1, "#5E9E4E"]])}
-            <path d="M52 66C50 80 50 96 52 108H68C70 96 70 80 68 66Z" fill="url(#n2-mushrooms-fiddle-b)" ${O}/>
+          body: `${LG("mushrooms-fiddle-mushrooms-fiddle-b", [[0, "#9ED676"], [1, "#5E9E4E"]])}
+            <path d="M52 66C50 80 50 96 52 108H68C70 96 70 80 68 66Z" fill="url(#mushrooms-fiddle-mushrooms-fiddle-b)" ${O}/>
             <path d="M56 72Q55 88 56 102" fill="none" stroke="#C8EEA8" stroke-width="2.4" stroke-linecap="round"/>`,
           armL: {svg: `<path d="M52 82C42 74 30 74 24 80C32 88 44 88 52 84Z" fill="#8CCB6A" ${O}/><path d="M50 83Q38 80 28 80" fill="none" stroke="#5E9E4E" stroke-width="1.8" stroke-linecap="round"/>`, pivot: [52, 83]},
           armR: {svg: `<path d="M68 82C78 74 90 74 96 80C88 88 76 88 68 84Z" fill="#8CCB6A" ${O}/><path d="M70 83Q82 80 92 80" fill="none" stroke="#5E9E4E" stroke-width="1.8" stroke-linecap="round"/>`, pivot: [68, 83]},
-          head: `${RG("n2-mushrooms-fiddle-h", [[0, "#C8F0A0"], [0.6, "#8CCB6A"], [1, "#5E9E4E"]], 0.4, 0.35, 0.7)}
-            <circle cx="60" cy="44" r="27" fill="url(#n2-mushrooms-fiddle-h)" ${O}/>
+          head: `${RG("mushrooms-fiddle-mushrooms-fiddle-h", [[0, "#C8F0A0"], [0.6, "#8CCB6A"], [1, "#5E9E4E"]], 0.4, 0.35, 0.7)}
+            <circle cx="60" cy="44" r="27" fill="url(#mushrooms-fiddle-mushrooms-fiddle-h)" ${O}/>
             <path d="M74 30a3 3 0 1 1 -5 3a8 8 0 1 1 8 -10a14 14 0 1 1 -24 -4" fill="none" stroke="#4E8E3E" stroke-width="2.6" stroke-linecap="round" opacity=".7"/>
             ${shine(46, 30, 6, 3, -35)}`,
           top: {svg: `${LINE("M66 18Q70 10 78 9", "#6DB35E", 2.4)}<path d="M78 9C84 4 92 6 92 12C86 14 80 13 78 9Z" fill="#A6DA7E" ${O2}/>`, pivot: [65, 19]}
@@ -83,19 +83,19 @@
         idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
         neck: [60, 74],
         parts: {
-          tail: {svg: `${LG("n2-mushrooms-dormy-t", [[0, "#F2B878"], [1, "#C8803E"]])}<path d="M82 96C98 94 108 80 104 64C102 56 94 54 90 60C96 70 92 82 80 88Z" fill="url(#n2-mushrooms-dormy-t)" ${O}/><path d="M96 66Q99 76 92 84" fill="none" stroke="#FFE2B8" stroke-width="2" stroke-linecap="round"/>`, pivot: [82, 92]},
-          feet: `${RG("n2-mushrooms-dormy-cup", [[0, "#FF9E86"], [1, "#C23A32"]], 0.4, 0.3, 0.8)}
-            <path d="M26 92Q26 114 60 114Q94 114 94 92Z" fill="url(#n2-mushrooms-dormy-cup)" ${O}/>
+          tail: {svg: `${LG("mushrooms-dormy-mushrooms-dormy-t", [[0, "#F2B878"], [1, "#C8803E"]])}<path d="M82 96C98 94 108 80 104 64C102 56 94 54 90 60C96 70 92 82 80 88Z" fill="url(#mushrooms-dormy-mushrooms-dormy-t)" ${O}/><path d="M96 66Q99 76 92 84" fill="none" stroke="#FFE2B8" stroke-width="2" stroke-linecap="round"/>`, pivot: [82, 92]},
+          feet: `${RG("mushrooms-dormy-mushrooms-dormy-cup", [[0, "#FF9E86"], [1, "#C23A32"]], 0.4, 0.3, 0.8)}
+            <path d="M26 92Q26 114 60 114Q94 114 94 92Z" fill="url(#mushrooms-dormy-mushrooms-dormy-cup)" ${O}/>
             <ellipse cx="40" cy="102" rx="4" ry="3" fill="#FFF8EE"/><ellipse cx="58" cy="108" rx="4.6" ry="3" fill="#FFF8EE"/><ellipse cx="78" cy="101" rx="3.6" ry="2.8" fill="#FFF8EE"/>`,
-          body: `${LG("n2-mushrooms-dormy-b", [[0, "#F6C690"], [1, "#D8904A"]])}
-            <path d="M34 94C34 76 44 68 60 68C76 68 86 76 86 94Z" fill="url(#n2-mushrooms-dormy-b)" ${O}/>
+          body: `${LG("mushrooms-dormy-mushrooms-dormy-b", [[0, "#F6C690"], [1, "#D8904A"]])}
+            <path d="M34 94C34 76 44 68 60 68C76 68 86 76 86 94Z" fill="url(#mushrooms-dormy-mushrooms-dormy-b)" ${O}/>
             <ellipse cx="60" cy="88" rx="13" ry="8" fill="#FFF2DE"/>`,
           armL: {svg: `<ellipse cx="46" cy="90" rx="6" ry="4.6" fill="#F2B878" ${O}/>`, pivot: [48, 88]},
           armR: {svg: `<ellipse cx="74" cy="90" rx="6" ry="4.6" fill="#F2B878" ${O}/>`, pivot: [72, 88]},
           earL: {svg: `<circle cx="38" cy="36" r="11" fill="#E8A462" ${O}/><circle cx="38" cy="36" r="6" fill="#FFC8C0"/>`, pivot: [44, 44]},
           earR: {svg: `<circle cx="82" cy="36" r="11" fill="#E8A462" ${O}/><circle cx="82" cy="36" r="6" fill="#FFC8C0"/>`, pivot: [76, 44]},
-          head: `${RG("n2-mushrooms-dormy-h", [[0, "#FAD2A0"], [0.7, "#ECA864"], [1, "#D88E48"]], 0.42, 0.35, 0.75)}
-            <ellipse cx="60" cy="54" rx="26" ry="23" fill="url(#n2-mushrooms-dormy-h)" ${O}/>
+          head: `${RG("mushrooms-dormy-mushrooms-dormy-h", [[0, "#FAD2A0"], [0.7, "#ECA864"], [1, "#D88E48"]], 0.42, 0.35, 0.75)}
+            <ellipse cx="60" cy="54" rx="26" ry="23" fill="url(#mushrooms-dormy-mushrooms-dormy-h)" ${O}/>
             ${shine(46, 40, 5, 2.6, -35)}`,
           face: `<ellipse cx="60" cy="64" rx="10" ry="7" fill="#FFF2DE"/><ellipse cx="60" cy="60.6" rx="2.6" ry="2" fill="#5A3A2A"/>
             <path d="M48 62H38M48 65L39 68M72 62H82M72 65L81 68" stroke="#8A5A3A" stroke-width="1.2" stroke-linecap="round"/>`
@@ -131,14 +131,14 @@
         neck: [60, 74],
         parts: {
           feet: `<ellipse cx="50" cy="109" rx="7.4" ry="4" fill="#4E8A34" ${O}/><ellipse cx="70" cy="109" rx="7.4" ry="4" fill="#4E8A34" ${O}/>`,
-          body: `${LG("n2-sunflowers-sole-b", [[0, "#9ED676"], [1, "#5E9A3E"]])}
-            <path d="M46 76C42 88 42 100 46 108H74C78 100 78 88 74 76Z" fill="url(#n2-sunflowers-sole-b)" ${O}/>
+          body: `${LG("sunflowers-sole-sunflowers-sole-b", [[0, "#9ED676"], [1, "#5E9A3E"]])}
+            <path d="M46 76C42 88 42 100 46 108H74C78 100 78 88 74 76Z" fill="url(#sunflowers-sole-sunflowers-sole-b)" ${O}/>
             <path d="M50 84Q49 94 51 102" fill="none" stroke="#C8EEA8" stroke-width="2.4" stroke-linecap="round"/>`,
           armL: {svg: `<path d="M46 86C36 78 24 80 20 88C30 94 40 92 46 90Z" fill="#7ABF56" ${O}/><path d="M44 88Q34 86 25 88" fill="none" stroke="#4E8A34" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [46, 88]},
           armR: {svg: `<path d="M74 86C84 78 96 80 100 88C90 94 80 92 74 90Z" fill="#7ABF56" ${O}/><path d="M76 88Q86 86 95 88" fill="none" stroke="#4E8A34" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [74, 88]},
-          head: `${LG("n2-sunflowers-sole-p", [[0, "#FFE680"], [1, "#F5A51A"]])}${RG("n2-sunflowers-sole-c", [[0, "#E0A060"], [0.6, "#C07A3A"], [1, "#9A5A28"]], 0.4, 0.35, 0.7)}
-            ${sunPetals(60, 44, 14, 38, 7, 18, "url(#n2-sunflowers-sole-p)")}
-            <circle cx="60" cy="44" r="22" fill="url(#n2-sunflowers-sole-c)" ${O}/>
+          head: `${LG("sunflowers-sole-sunflowers-sole-p", [[0, "#FFE680"], [1, "#F5A51A"]])}${RG("sunflowers-sole-sunflowers-sole-c", [[0, "#E0A060"], [0.6, "#C07A3A"], [1, "#9A5A28"]], 0.4, 0.35, 0.7)}
+            ${sunPetals(60, 44, 14, 38, 7, 18, "url(#sunflowers-sole-sunflowers-sole-p)")}
+            <circle cx="60" cy="44" r="22" fill="url(#sunflowers-sole-sunflowers-sole-c)" ${O}/>
             <circle cx="50" cy="32" r="1.4" fill="#E8B070" opacity=".7"/><circle cx="70" cy="34" r="1.2" fill="#E8B070" opacity=".7"/><circle cx="74" cy="52" r="1.3" fill="#E8B070" opacity=".7"/><circle cx="46" cy="54" r="1.2" fill="#E8B070" opacity=".7"/>
             ${shine(50, 34, 4, 2, -35)}`
         },
@@ -166,13 +166,13 @@
         parts: {
           tail: {svg: `<path d="M38 92L16 100L22 88L14 80L40 84Z" fill="#3A3440" ${O}/><path d="M22 92L34 90" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>`, pivot: [40, 88]},
           feet: `<path d="M50 104V111M46 111H54M70 104V111M66 111H74" stroke="#E8A050" stroke-width="3.4" stroke-linecap="round"/>`,
-          body: `${RG("n2-sunflowers-chirpy-b", [[0, "#FFF2A0"], [0.6, "#FFD83A"], [1, "#F0B020"]], 0.4, 0.35, 0.75)}
-            <ellipse cx="60" cy="86" rx="24" ry="21" fill="url(#n2-sunflowers-chirpy-b)" ${O}/>
+          body: `${RG("sunflowers-chirpy-sunflowers-chirpy-b", [[0, "#FFF2A0"], [0.6, "#FFD83A"], [1, "#F0B020"]], 0.4, 0.35, 0.75)}
+            <ellipse cx="60" cy="86" rx="24" ry="21" fill="url(#sunflowers-chirpy-sunflowers-chirpy-b)" ${O}/>
             <ellipse cx="60" cy="92" rx="13" ry="10" fill="#FFF8D8"/>`,
           wingL: {svg: `<path d="M38 76C26 80 24 96 34 104C40 98 44 88 42 78Z" fill="#3A3440" ${O}/><path d="M32 88L40 86M31 95L39 92" stroke="#fff" stroke-width="2" stroke-linecap="round"/>`, pivot: [40, 78]},
           wingR: {svg: `<path d="M82 76C94 80 96 96 86 104C80 98 76 88 78 78Z" fill="#3A3440" ${O}/><path d="M88 88L80 86M89 95L81 92" stroke="#fff" stroke-width="2" stroke-linecap="round"/>`, pivot: [80, 78]},
-          head: `${RG("n2-sunflowers-chirpy-h", [[0, "#FFF2A0"], [0.6, "#FFD83A"], [1, "#F0B020"]], 0.4, 0.35, 0.75)}
-            <circle cx="60" cy="48" r="22" fill="url(#n2-sunflowers-chirpy-h)" ${O}/>
+          head: `${RG("sunflowers-chirpy-sunflowers-chirpy-h", [[0, "#FFF2A0"], [0.6, "#FFD83A"], [1, "#F0B020"]], 0.4, 0.35, 0.75)}
+            <circle cx="60" cy="48" r="22" fill="url(#sunflowers-chirpy-sunflowers-chirpy-h)" ${O}/>
             <path d="M44 34Q50 24 62 26Q72 26 76 34Q66 30 60 34Q52 30 44 34Z" fill="#3A3440"/>
             ${shine(48, 40, 4.4, 2.4, -35)}`,
           top: {svg: `<path d="M58 28C56 18 60 12 66 10C66 16 64 22 62 28Z" fill="#3A3440" ${O2}/><path d="M62 28C64 20 70 16 76 18C74 22 70 26 64 29Z" fill="#E8504A" ${O2}/>`, pivot: [61, 29]}
@@ -205,8 +205,8 @@
         idle: ["topBob", "bounce", "waddle"], cheer: "bounce",
         parts: {
           feet: `<rect x="38" y="104" width="14" height="8" rx="4" fill="#B88A3E" ${O}/><rect x="68" y="104" width="14" height="8" rx="4" fill="#B88A3E" ${O}/>`,
-          body: `${LG("n2-sunflowers-bale-b", [[0, "#FFE29A"], [0.6, "#F2C66A"], [1, "#D9A040"]])}
-            <rect x="22" y="40" width="76" height="66" rx="14" fill="url(#n2-sunflowers-bale-b)" ${O}/>
+          body: `${LG("sunflowers-bale-sunflowers-bale-b", [[0, "#FFE29A"], [0.6, "#F2C66A"], [1, "#D9A040"]])}
+            <rect x="22" y="40" width="76" height="66" rx="14" fill="url(#sunflowers-bale-sunflowers-bale-b)" ${O}/>
             <path d="M28 56H92M28 92H92M30 74H40M80 74H90" stroke="#C8902E" stroke-width="2" stroke-linecap="round" opacity=".8"/>
             <path d="M38 40V106M82 40V106" stroke="#C8423A" stroke-width="4"/>
             <path d="M24 44l-6-6M30 40l-2-8M90 40l4-7M96 46l7-4M22 100l-6 4M98 100l6 4" stroke="#E0B050" stroke-width="2.6" stroke-linecap="round"/>
@@ -245,8 +245,8 @@
         parts: {
           tail: {svg: `<path d="${puff(92, 86, 9, 6, 1.2)}" fill="#F4F6FF" ${O}/>`, pivot: [84, 92]},
           feet: `<ellipse cx="44" cy="108" rx="9" ry="5.6" fill="#EAEEFF" ${O}/><ellipse cx="76" cy="108" rx="9" ry="5.6" fill="#EAEEFF" ${O}/>`,
-          body: `${RG("n2-cloudkingdom-nimbus-b", [[0, "#FFFFFF"], [0.6, "#F2F4FF"], [1, "#D6DCF6"]], 0.42, 0.35, 0.75)}
-            <path d="${puff(60, 72, 34, 11, 1.18)}" fill="url(#n2-cloudkingdom-nimbus-b)" ${O}/>
+          body: `${RG("cloudkingdom-nimbus-cloudkingdom-nimbus-b", [[0, "#FFFFFF"], [0.6, "#F2F4FF"], [1, "#D6DCF6"]], 0.42, 0.35, 0.75)}
+            <path d="${puff(60, 72, 34, 11, 1.18)}" fill="url(#cloudkingdom-nimbus-cloudkingdom-nimbus-b)" ${O}/>
             <path d="M42 98Q60 104 78 98" fill="none" stroke="#C8D0F0" stroke-width="2.4" stroke-linecap="round"/>
             ${shine(42, 52, 6, 3, -35)}`,
           earL: {svg: `<path d="M32 50C20 50 16 64 22 74C30 72 36 62 36 54Z" fill="#E2E8FF" ${O}/>`, pivot: [34, 52]},
@@ -275,9 +275,9 @@
         bio: "A little swirl of breeze that turns your pages for you.",
         idle: ["spin", "sway", "sparkle"], cheer: "spin",
         parts: {
-          tail: {svg: `${LINE("M44 92Q32 104 18 98Q10 94 16 88", "#BFE8FF", 3.4)}${LINE("M76 94Q86 106 100 102", "#D8D0FF", 3)}${LINE("M60 100Q60 110 52 114", "#BFF0E8", 2.6)}`, pivot: [60, 90]},
-          body: `${RG("n2-cloudkingdom-zephyr-b", [[0, "#FFFFFF"], [0.5, "#D4F0FF"], [1, "#94CCF2"]], 0.4, 0.32, 0.75)}
-            <path d="M60 28C82 28 94 44 94 62C94 82 80 96 60 96C40 96 26 82 26 62C26 50 32 40 42 34C40 42 44 48 52 46C46 38 50 28 60 28Z" fill="url(#n2-cloudkingdom-zephyr-b)" ${O}/>
+          tail: {svg: `${LINE("M44 92Q32 104 18 98Q10 94 16 88", "#BFE8FF", 3.4)}${LINE("M76 94Q86 106 100 102", "#D8D0FF", 3)}${LINE("M60 100Q60 108 53 111", "#BFF0E8", 2.6)}`, pivot: [60, 90]},
+          body: `${RG("cloudkingdom-zephyr-cloudkingdom-zephyr-b", [[0, "#FFFFFF"], [0.5, "#D4F0FF"], [1, "#94CCF2"]], 0.4, 0.32, 0.75)}
+            <path d="M60 28C82 28 94 44 94 62C94 82 80 96 60 96C40 96 26 82 26 62C26 50 32 40 42 34C40 42 44 48 52 46C46 38 50 28 60 28Z" fill="url(#cloudkingdom-zephyr-cloudkingdom-zephyr-b)" ${O}/>
             <path d="M74 84C84 78 86 66 80 58" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".9"/>
             <path d="M40 70Q46 84 62 86" fill="none" stroke="#9AD0F0" stroke-width="2.4" stroke-linecap="round" opacity=".7"/>
             ${twinkle(84, 40, 3.4, "#FFE38A")}${twinkle(32, 46, 2.4, "#fff")}`,
@@ -305,20 +305,20 @@
         bio: "Rises higher the longer you stay focused.",
         idle: ["sway", "topBob", "wave"], cheer: "spin",
         parts: {
-          back: `${LINE("M60 104Q52 108 58 112Q64 116 56 118", "#8A80B8", 1.6)}
-            <path d="M52 108L44 104L44 112Z M64 114L72 110L72 118Z" fill="#B9A0F0" ${OW(1.8)}/>`,
-          body: `<path d="M60 18L96 58L60 104L24 58Z" fill="#FF8FA8" ${O}/>
+          back: `<g transform="translate(0 -6)">${LINE("M60 104Q52 108 58 112Q64 116 56 118", "#8A80B8", 1.6)}
+            <path d="M52 108L44 104L44 112Z M64 114L72 110L72 118Z" fill="#B9A0F0" ${OW(1.8)}/></g>`,
+          body: `<g transform="translate(0 -6)"><path d="M60 18L96 58L60 104L24 58Z" fill="#FF8FA8" ${O}/>
             <path d="M60 18L96 58H60Z" fill="#FFD86B"/><path d="M24 58L60 104V58Z" fill="#8FD8FF"/><path d="M60 58L96 58L60 104Z" fill="#B9F0A8"/>
             <path d="M60 18L96 58L60 104L24 58Z" fill="none" ${O}/><path d="M60 18V104M24 58H96" stroke="${INK}" stroke-width="2"/>
-            ${shine(46, 44, 5, 2.4, -50)}`,
-          armL: {svg: `<ellipse cx="22" cy="66" rx="5" ry="7" transform="rotate(30 22 66)" fill="#FFB8C8" ${O}/>`, pivot: [27, 62]},
-          armR: {svg: `<ellipse cx="98" cy="66" rx="5" ry="7" transform="rotate(-30 98 66)" fill="#FFE08A" ${O}/>`, pivot: [93, 62]},
-          top: {svg: `<path d="M60 18L50 10L50 22Z M60 18L70 10L70 22Z" fill="#E8504A" ${O2}/><circle cx="60" cy="17" r="3" fill="#E8504A" ${O2}/>`, pivot: [60, 20]}
+            ${shine(46, 44, 5, 2.4, -50)}</g>`,
+          armL: {svg: `<g transform="translate(0 -6)"><ellipse cx="22" cy="66" rx="5" ry="7" transform="rotate(30 22 66)" fill="#FFB8C8" ${O}/></g>`, pivot: [27, 56]},
+          armR: {svg: `<g transform="translate(0 -6)"><ellipse cx="98" cy="66" rx="5" ry="7" transform="rotate(-30 98 66)" fill="#FFE08A" ${O}/></g>`, pivot: [93, 56]},
+          top: {svg: `<g transform="translate(0 -6)"><path d="M60 18L50 10L50 22Z M60 18L70 10L70 22Z" fill="#E8504A" ${O2}/><circle cx="60" cy="17" r="3" fill="#E8504A" ${O2}/></g>`, pivot: [60, 14]}
         },
-        eyes: {lx: 51, rx: 69, y: 58, r: 4.6, style: "round", color: "#2A1A2A"},
-        mouth: {x: 60, y: 67, w: 2.8, color: "#2A1A2A"},
-        cheeks: {lx: 44, rx: 76, y: 65, w: 3.8, h: 2.4, color: "#FF7A9A"},
-        anchors: {top: [60, 16, 0.85], neck: [60, 84, 0.8], chest: [60, 80, 0.55], back: [60, 40, 0.7], hands: [60, 86, 0.75]},
+        eyes: {lx: 51, rx: 69, y: 52, r: 4.6, style: "round", color: "#2A1A2A"},
+        mouth: {x: 60, y: 61, w: 2.8, color: "#2A1A2A"},
+        cheeks: {lx: 44, rx: 76, y: 59, w: 3.8, h: 2.4, color: "#FF7A9A"},
+        anchors: {top: [60, 10, 0.85], neck: [60, 78, 0.8], chest: [60, 74, 0.55], back: [60, 34, 0.7], hands: [60, 80, 0.75]},
         lines: {
           tap: ["Hi! The wind's just right for studying!", "The longer you focus, the higher I fly!", "Up, up, up! You're doing so well!", "Hold the string steady, I'll do the soaring!", "You've got a tailwind today!", "Water break? Kites like light snacks!", "Look how high we've climbed!"],
           pet: ["Wheee! You made me do a loop!", "Hehe! My tail bows are dancing!"],
@@ -344,8 +344,8 @@
         idle: ["topBob", "bounce", "sparkle"], cheer: "bounce",
         parts: {
           feet: `<circle cx="40" cy="104" r="9" fill="#3A3448" ${O}/><circle cx="80" cy="104" r="9" fill="#3A3448" ${O}/><circle cx="40" cy="104" r="3" fill="#D9A848"/><circle cx="80" cy="104" r="3" fill="#D9A848"/><path d="M32 104H88" stroke="#D9A848" stroke-width="3" stroke-linecap="round"/>`,
-          body: `${LG("n2-nighttrain-choo-b", [[0, "#F27060"], [0.6, "#D8463E"], [1, "#B0302E"]])}
-            <path d="M24 60Q24 46 38 46H82Q96 46 96 60V96H24Z" fill="url(#n2-nighttrain-choo-b)" ${O}/>
+          body: `${LG("nighttrain-choo-nighttrain-choo-b", [[0, "#F27060"], [0.6, "#D8463E"], [1, "#B0302E"]])}
+            <path d="M24 60Q24 46 38 46H82Q96 46 96 60V96H24Z" fill="url(#nighttrain-choo-nighttrain-choo-b)" ${O}/>
             <circle cx="60" cy="70" r="24" fill="#3A3448" ${O}/><circle cx="60" cy="70" r="19" fill="#FFF4DE"/>
             <rect x="18" y="92" width="84" height="9" rx="4" fill="#3A3448" ${O}/>
             <circle cx="30" cy="56" r="4.4" fill="#FFE08A" ${O2}/><circle cx="90" cy="56" r="4.4" fill="#FFE08A" ${O2}/>
@@ -378,13 +378,13 @@
         neck: [60, 76],
         parts: {
           feet: `<ellipse cx="50" cy="110" rx="7" ry="3.6" fill="#B8484C" ${O}/><ellipse cx="70" cy="110" rx="7" ry="3.6" fill="#B8484C" ${O}/>`,
-          body: `${LG("n2-nighttrain-stub-b", [[0, "#FFF4D8"], [1, "#F0D8A4"]])}
-            <path d="M38 76H82V108H38Z" fill="url(#n2-nighttrain-stub-b)" ${O}/>
+          body: `${LG("nighttrain-stub-nighttrain-stub-b", [[0, "#FFF4D8"], [1, "#F0D8A4"]])}
+            <path d="M38 76H82V108H38Z" fill="url(#nighttrain-stub-nighttrain-stub-b)" ${O}/>
             <path d="M46 88H74M46 96H66" stroke="#C8A070" stroke-width="2.4" stroke-linecap="round"/>`,
           armL: {svg: `<ellipse cx="32" cy="88" rx="4.6" ry="7" transform="rotate(28 32 88)" fill="#F6E2B8" ${O}/>`, pivot: [38, 84]},
           armR: {svg: `<ellipse cx="88" cy="88" rx="4.6" ry="7" transform="rotate(-28 88 88)" fill="#F6E2B8" ${O}/>`, pivot: [82, 84]},
-          head: `${LG("n2-nighttrain-stub-h", [[0, "#FFF8E4"], [1, "#F4DEB0"]])}
-            <path d="M28 22H92V40A6 6 0 0 0 92 52V76H28V52A6 6 0 0 0 28 40Z" fill="url(#n2-nighttrain-stub-h)" ${O}/>
+          head: `${LG("nighttrain-stub-nighttrain-stub-h", [[0, "#FFF8E4"], [1, "#F4DEB0"]])}
+            <path d="M28 22H92V40A6 6 0 0 0 92 52V76H28V52A6 6 0 0 0 28 40Z" fill="url(#nighttrain-stub-nighttrain-stub-h)" ${O}/>
             <path d="M30 76H90" stroke="#C8A070" stroke-width="2" stroke-dasharray="3 3"/>
             <path d="M34 28H86" stroke="#B8484C" stroke-width="4"/><circle cx="80" cy="64" r="4.4" fill="#2E2440" ${OW(1.8)}/>
             ${twinkle(38, 64, 3, "#D9A848")}`
@@ -411,8 +411,8 @@
         idle: ["topBob", "waddle", "wave"], cheer: "hop",
         parts: {
           feet: `<circle cx="38" cy="108" r="5" fill="#3A3448" ${O}/><circle cx="82" cy="108" r="5" fill="#3A3448" ${O}/>`,
-          body: `${LG("n2-nighttrain-satchel-b", [[0, "#D89A62"], [0.6, "#B87A44"], [1, "#94603A"]])}
-            <rect x="20" y="40" width="80" height="64" rx="12" fill="url(#n2-nighttrain-satchel-b)" ${O}/>
+          body: `${LG("nighttrain-satchel-nighttrain-satchel-b", [[0, "#D89A62"], [0.6, "#B87A44"], [1, "#94603A"]])}
+            <rect x="20" y="40" width="80" height="64" rx="12" fill="url(#nighttrain-satchel-nighttrain-satchel-b)" ${O}/>
             <path d="M36 40V104M84 40V104" stroke="#6A4428" stroke-width="4"/>
             <circle cx="48" cy="92" r="6" fill="#8FD8FF" ${OW(1.8)}/><path d="M45 92h6M48 89v6" stroke="#fff" stroke-width="1.6"/>
             <rect x="62" y="86" width="14" height="10" rx="2" fill="#FFD86B" ${OW(1.8)} transform="rotate(12 69 91)"/>
@@ -451,9 +451,9 @@
         idle: ["topBob", "bounce", "sparkle"], cheer: "hop",
         parts: {
           feet: `<ellipse cx="48" cy="110" rx="7.4" ry="3.8" fill="#F2E6D4" ${O}/><ellipse cx="72" cy="110" rx="7.4" ry="3.8" fill="#F2E6D4" ${O}/>`,
-          body: `${LG("n2-ramen-yolky-w", [[0, "#FFFFFF"], [0.7, "#FBF4EA"], [1, "#EADCC8"]], 0, 0, 1, 1)}${RG("n2-ramen-yolky-y", [[0, "#FFD27A"], [0.6, "#F8A02A"], [1, "#E07A10"]], 0.42, 0.38, 0.7)}
-            <path d="M60 26C82 26 96 50 96 74C96 96 80 108 60 108C40 108 24 96 24 74C24 50 38 26 60 26Z" fill="url(#n2-ramen-yolky-w)" ${O}/>
-            <circle cx="60" cy="76" r="22" fill="url(#n2-ramen-yolky-y)" ${OW(2.4)}/>
+          body: `${LG("ramen-yolky-ramen-yolky-w", [[0, "#FFFFFF"], [0.7, "#FBF4EA"], [1, "#EADCC8"]], 0, 0, 1, 1)}${RG("ramen-yolky-ramen-yolky-y", [[0, "#FFD27A"], [0.6, "#F8A02A"], [1, "#E07A10"]], 0.42, 0.38, 0.7)}
+            <path d="M60 26C82 26 96 50 96 74C96 96 80 108 60 108C40 108 24 96 24 74C24 50 38 26 60 26Z" fill="url(#ramen-yolky-ramen-yolky-w)" ${O}/>
+            <circle cx="60" cy="76" r="22" fill="url(#ramen-yolky-ramen-yolky-y)" ${OW(2.4)}/>
             <path d="M44 68Q46 60 54 57" fill="none" stroke="#FFE8B0" stroke-width="2.6" stroke-linecap="round"/>
             ${shine(38, 44, 6, 3, -40)}`,
           armL: {svg: `<ellipse cx="22" cy="80" rx="5" ry="7.4" transform="rotate(25 22 80)" fill="#FBF4EA" ${O}/>`, pivot: [27, 76]},
@@ -482,8 +482,8 @@
         idle: ["spin", "topBob", "sway"], cheer: "spin",
         parts: {
           feet: `<ellipse cx="50" cy="110" rx="7" ry="3.6" fill="#F6E8EC" ${O}/><ellipse cx="70" cy="110" rx="7" ry="3.6" fill="#F6E8EC" ${O}/>`,
-          body: `${RG("n2-ramen-naru-b", [[0, "#FFFFFF"], [0.7, "#FBF4F6"], [1, "#EADCE2"]], 0.42, 0.35, 0.75)}
-            <path d="${Array.from({length: 24}, (_, i) => { const a = -Math.PI / 2 + i / 24 * Math.PI * 2, r = i % 2 ? 36 : 39.5; return (i ? "L" : "M") + (60 + Math.cos(a) * r).toFixed(1) + " " + (70 + Math.sin(a) * r).toFixed(1); }).join("")}Z" fill="url(#n2-ramen-naru-b)" ${O}/>
+          body: `${RG("ramen-naru-ramen-naru-b", [[0, "#FFFFFF"], [0.7, "#FBF4F6"], [1, "#EADCE2"]], 0.42, 0.35, 0.75)}
+            <path d="${Array.from({length: 24}, (_, i) => { const a = -Math.PI / 2 + i / 24 * Math.PI * 2, r = i % 2 ? 36 : 39.5; return (i ? "L" : "M") + (60 + Math.cos(a) * r).toFixed(1) + " " + (70 + Math.sin(a) * r).toFixed(1); }).join("")}Z" fill="url(#ramen-naru-ramen-naru-b)" ${O}/>
             <path d="${Array.from({length: 31}, (_, k) => { const a = k / 30 * 10.5 + 2.4, r = 3 + k / 30 * 24; return (k ? "L" : "M") + (60 + Math.cos(a) * r).toFixed(1) + " " + (70 + Math.sin(a) * r * 0.95).toFixed(1); }).join("")}" fill="none" stroke="#F7A8C2" stroke-width="5" stroke-linecap="round" opacity=".75"/>
             ${shine(40, 50, 6, 3, -40)}`,
           armL: {svg: `<ellipse cx="20" cy="78" rx="5" ry="7.4" transform="rotate(25 20 78)" fill="#FBF0F4" ${O}/>`, pivot: [25, 74]},
@@ -512,14 +512,14 @@
         idle: ["sway", "wave", "headTilt"], cheer: "bounce",
         neck: [60, 82],
         parts: {
-          feet: `${LG("n2-ramen-nori-br", [[0, "#F6D888"], [1, "#E8B860"]])}<path d="M20 100Q60 92 100 100Q100 112 60 114Q20 112 20 100Z" fill="url(#n2-ramen-nori-br)" ${O}/>
+          feet: `${LG("ramen-nori-ramen-nori-br", [[0, "#F6D888"], [1, "#E8B860"]])}<path d="M20 100Q60 92 100 100Q100 112 60 114Q20 112 20 100Z" fill="url(#ramen-nori-ramen-nori-br)" ${O}/>
             <path d="M30 102Q40 98 48 103Q56 98 64 103Q72 98 82 102" fill="none" stroke="#FFEFB0" stroke-width="2.2" stroke-linecap="round"/>`,
-          body: `${LG("n2-ramen-nori-b", [[0, "#3E6A4A"], [1, "#24402E"]])}
-            <path d="M40 80H80V104H40Z" fill="url(#n2-ramen-nori-b)" ${O}/>`,
+          body: `${LG("ramen-nori-ramen-nori-b", [[0, "#3E6A4A"], [1, "#24402E"]])}
+            <path d="M40 80H80V104H40Z" fill="url(#ramen-nori-ramen-nori-b)" ${O}/>`,
           armL: {svg: `<path d="M40 84C30 82 24 88 26 94C32 94 38 92 42 90Z" fill="#2E5038" ${O}/>`, pivot: [41, 87]},
           armR: {svg: `<path d="M80 84C90 82 96 88 94 94C88 94 82 92 78 90Z" fill="#2E5038" ${O}/>`, pivot: [79, 87]},
-          head: `${LG("n2-ramen-nori-h", [[0, "#4E7E5A"], [0.6, "#3A6446"], [1, "#2A4A34"]], 0, 0, 1, 1)}
-            <path d="M34 20H86L84 82H36Z" fill="url(#n2-ramen-nori-h)" ${O}/>
+          head: `${LG("ramen-nori-ramen-nori-h", [[0, "#4E7E5A"], [0.6, "#3A6446"], [1, "#2A4A34"]], 0, 0, 1, 1)}
+            <path d="M34 20H86L84 82H36Z" fill="url(#ramen-nori-ramen-nori-h)" ${O}/>
             <path d="M42 30L48 34M70 28L76 32M44 72L50 70M72 74L78 70M58 24L62 27" stroke="#6A9A72" stroke-width="2" stroke-linecap="round" opacity=".8"/>
             <path d="M40 26V76" stroke="#7AAA82" stroke-width="2.6" stroke-linecap="round" opacity=".6"/>
             ${twinkle(80, 30, 2.6, "#C8F0D0")}`
@@ -529,7 +529,7 @@
         cheeks: {lx: 44, rx: 76, y: 57, w: 3.8, h: 2.4, color: "#FF8FA8"},
         anchors: {top: [60, 20, 0.9], neck: [60, 82, 0.8], chest: [60, 94, 0.55], back: [80, 60, 0.7], hands: [60, 96, 0.75]},
         lines: {
-          tap: ["Hi! Standing tall in the bowl for you!", "Crisp, salty and cheering you on!", "Stand up straight, you're doing great!", "I'm your little flag of focus!", "Wave hello! You've got this!", "Water break! I'm already soaking, ha!", "Every great bowl needs a nori. Every great study day needs you!"],
+          tap: ["Hi! Standing tall in the bowl for you!", "Crisp, salty and cheering you on!", "Stand up straight, you're doing great!", "I'm your little flag of focus!", "Wave hello! You've got this!", "Water break! I'm already soaking, ha!", "Every bowl needs a nori. Every study day needs you!"],
           pet: ["Hehe! Careful, I might get soggy!", "Aww! I feel extra crispy now!"],
           hello: ["You're back! Flag up, hello!", "Hello! Standing tall and ready!"],
           morning: ["Good morning! Fresh and crisp today!", "Morning! Let's raise the flag on a good day!"],
