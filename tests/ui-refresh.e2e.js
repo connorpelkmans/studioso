@@ -51,7 +51,7 @@ const stored = p => p.evaluate(() => JSON.parse(localStorage.getItem("coursework
 
       // Crunch: summary first, legend tucked away
       await act(p, "plan-view", "crunch");
-      ok(await vis(".cr-call") && await vis(".cr-help summary") && !(await p.locator(".cr-legend").isVisible()), "Crunch shows the summary and keeps the legend under How to read this");
+      ok(await vis(".cr2-now") && await vis(".cr-help summary") && !(await p.locator(".cr-legend").first().isVisible()), "Crunch shows this week's summary and keeps the legend under How to read this");
 
       // Settings: sub-tabs inside categories, search still finds everything
       await act(p, "menu");
