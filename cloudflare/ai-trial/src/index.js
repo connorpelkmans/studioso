@@ -8,6 +8,8 @@ export class StudentMeter extends DurableObject {
   status(cfg) { return this.m.status(cfg); }
   take(cfg) { return this.m.take(cfg); }
   refund(day) { return this.m.refund(day); }
+  setHuman() { return this.m.setHuman(); }
+  forget() { return this.m.forget(); }
 }
 
 // One per UTC day, named by the date: the neurons everyone's tries may use that day.

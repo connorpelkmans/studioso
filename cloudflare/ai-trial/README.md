@@ -41,7 +41,7 @@ Turnstile is free. Setup steps are in `cloudflare/PROTECTION.md`, section 6. Whi
 
 ## What it stores
 
-- **Per student:** a count of tries (total, and today), and whether they passed the check, under their Supabase user id.
+- **Per student:** a count of tries (total, and today), and whether they passed the check, under their Supabase user id. Deleted when the student uses Delete My Account (the app sends `DELETE /v1/trial` with their sign-in first).
 - **Per day:** the neurons used. Old days are deleted after 3 days.
 
 What students send isn't stored. Logs are off (`observability.enabled: false`).

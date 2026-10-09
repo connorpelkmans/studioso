@@ -137,6 +137,13 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   r = await ask("hi", null, "good", Object.assign({}, env, {TRIAL_OFF: "1"}));
   eq([r.status, (await r.json()).error], [429, "busy"], "TRIAL_OFF stops every try");
   eq((await call("OPTIONS", "/v1/ai")).headers.get("Access-Control-Allow-Headers"), "Authorization, Content-Type", "CORS preflight");
+  // Delete My Account: the student's record goes, only theirs, only when signed in (even with the trial switched off)
+  ok((await students.get("u1").read()).used > 0, "u1 has a count before forgetting");
+  eq((await call("DELETE", "/v1/trial", null, "nobody")).status, 401, "forgetting needs a sign-in");
+  r = await call("DELETE", "/v1/trial", null, "good", Object.assign({}, env, {TRIAL_OFF: "1"}));
+  eq([r.status, (await r.json()).ok], [200, true], "forgetting works even with the trial off");
+  eq(students.get("u1").s.m.size, 0, "nothing about the student is left");
+  ok(/DELETE/.test((await call("OPTIONS", "/v1/trial")).headers.get("Access-Control-Allow-Methods")), "CORS allows DELETE");
   // ---- Turnstile: one check per student before the first try
   T._forgetUsers(); students.clear(); pools.clear();
   const secret = "s3cret", tenv = Object.assign({}, env, {TURNSTILE_SITE_KEY: "0x4AAA", TURNSTILE_SECRET: secret});

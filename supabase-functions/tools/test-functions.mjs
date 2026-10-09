@@ -340,6 +340,7 @@ function delDeps(o = {}) {
     if (u.includes("rpc/studyboard_delete_user_data")) return new Response(JSON.stringify({ items: 3 }));
     if (u.startsWith("https://api.stripe.com/v1/subscriptions?")) return o.stripeDown ? new Response("{}", { status: 500 }) : new Response(JSON.stringify({ data: [{ id: "sub_1", status: "active" }, { id: "sub_2", status: "canceled" }] }));
     if (u.startsWith("https://api.stripe.com/v1/subscriptions/")) return new Response("{}");
+    if (u.startsWith("https://api.stripe.com/v1/customers/") && init.method === "DELETE") return new Response("{}", { status: o.customerDown ? 500 : 200 });
     if (u.includes("/storage/v1/object/list/")) { const b = JSON.parse(init.body); return new Response(JSON.stringify(b.offset ? [] : (files[b.prefix] || []))); }
     if (u.includes("/storage/v1/object/studioso-files") && init.method === "DELETE") return new Response("[]");
     if (u.includes("/auth/v1/admin/users/")) return new Response("{}", { status: o.alreadyGone ? 404 : 200 });
@@ -358,6 +359,8 @@ await test("delete-account: full run deletes files (recursively), data, Stripe s
   const idx = (re) => urls.findIndex(u => re.test(u));
   assert.ok(idx(/sub_1/) > -1 && !urls.some(u => /sub_2/.test(u)), "cancels the active subscription only");
   assert.ok(idx(/DELETE .*subscriptions\/sub_1/) < idx(/DELETE .*storage\/v1\/object\/studioso-files/), "Stripe before files");
+  assert.ok(idx(/DELETE .*subscriptions\/sub_1/) < idx(/DELETE .*customers\/cus_mine/), "the Stripe customer is deleted after its subscriptions are cancelled");
+  assert.equal(j.deleted.stripe_customer_deleted, true);
   assert.ok(idx(/DELETE .*storage/) < idx(/delete_user_data/), "files before database rows");
   assert.ok(idx(/delete_user_data/) < idx(/DELETE .*auth\/v1\/admin\/users/), "database rows before the auth user");
   const rm = calls.find(c => c[0] === "DELETE" && c[1].includes("/storage/"));
@@ -388,6 +391,9 @@ await test("delete-account: rate limit, Stripe failure stops everything, Apple s
   assert.ok(!a1.calls.some(c => c[1].includes("admin/users")));
   assert.equal((await da.handle(delReq({ confirm: "DELETE", ack_store_subscription: true }), delDeps({ ent: apple }).deps)).status, 200);
   assert.equal((await da.handle(delReq(), delDeps({ alreadyGone: true }).deps)).status, 200, "a second run (auth user already gone) still succeeds");
+  const cd = delDeps({ customer: "cus_mine", customerDown: true }); const rc = await da.handle(delReq(), cd.deps);
+  assert.equal(rc.status, 200, "a failed Stripe customer delete doesn't stop the account deletion (subscriptions are already cancelled)");
+  assert.equal((await rc.json()).deleted.stripe_customer_deleted, false);
   assert.equal((await da.handle(new Request("https://x/", { method: "GET" }), delDeps().deps)).status, 405);
   const evil = await da.handle(new Request("https://x/", { method: "POST", headers: { authorization: "Bearer j", origin: "https://evil.example" }, body: JSON.stringify({ confirm: "DELETE" }) }), delDeps().deps);
   assert.equal(evil.headers.get("access-control-allow-origin"), null);
