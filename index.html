@@ -5648,6 +5648,11 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .nb-target{width:auto!important;height:auto!important;flex-direction:row!important;gap:6px!important;padding:8px 14px!important;border-radius:999px!important;border:1px solid var(--line)!important;background:var(--surface)!important;box-shadow:0 2px 8px rgba(14,42,86,.14)!important;font:700 .8rem var(--display)!important}
 .nb-target svg{width:18px!important;height:18px!important}
 @media (min-width:721px){.env{margin-top:11px}}
+/* Rings at 1x: one solid ring hugging the white disc (no dark gap ring), so there are fewer hard edges to stair-step */
+.g2-ring{box-shadow:0 0 0 3px var(--c),0 3px 9px rgba(0,0,0,.18)!important}
+.gp-ring.sm,.pr-ring,.card-ring{box-shadow:0 0 0 2px var(--c)!important}
+.cpt3-ring{box-shadow:0 0 0 4px var(--c),0 6px 14px rgba(0,0,0,.18)!important}
+.ci-svg{stroke-width:1.5!important;--ci-ink:color-mix(in srgb,var(--c) 52%,#071022)!important}
 </style>
 </head>
 <body>
