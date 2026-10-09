@@ -5636,6 +5636,32 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .sch-nav .btn,.view-head .sch-nav .btn{border-radius:999px}
 .sch-now{height:2px!important}
 .sch-now::before{content:"";position:absolute;left:-5px;top:-4px;width:10px;height:10px;border-radius:50%;background:var(--late)}
+/* ===== Notes, Direction 1: the cork and stickers stay; the frame around them matches the rest of the app ===== */
+.nb-boards{gap:6px!important;padding:4px;border:1px solid var(--line);border-radius:999px;background:var(--surface);width:max-content;max-width:100%}
+.nb-tab{border:0!important;background:none!important;box-shadow:none!important;min-height:36px!important;padding:6px 14px!important;font-weight:700!important;color:var(--muted)!important}
+.nb-tab.on{background:color-mix(in srgb,var(--c,var(--accent)) 16%,var(--surface))!important;color:color-mix(in srgb,var(--c,var(--accent)) 65%,var(--ink))!important}
+.nb-tab .n{background:color-mix(in srgb,var(--line) 70%,transparent)!important}
+.nb-tab.add{color:var(--accent)!important}
+.nb-main{padding:10px;border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:0 2px 8px rgba(14,42,86,.08)}
+.nb-scroll{border-radius:12px!important;border:0!important}
+.nb-targets{gap:8px!important}
+.nb-target{width:auto!important;height:auto!important;flex-direction:row!important;gap:6px!important;padding:8px 14px!important;border-radius:999px!important;border:1px solid var(--line)!important;background:var(--surface)!important;box-shadow:0 2px 8px rgba(14,42,86,.14)!important;font:700 .8rem var(--display)!important}
+.nb-target svg{width:18px!important;height:18px!important}
+.env{background:var(--surface)!important;background-image:none!important;border:1px solid var(--line)!important;border-radius:18px!important;box-shadow:0 2px 8px rgba(14,42,86,.08)!important;overflow:hidden}
+.env.closed{border-radius:999px!important;box-shadow:0 4px 14px rgba(14,42,86,.2)!important}
+.env-tp{color:var(--muted)!important}
+@media (min-width:721px){.env{width:220px!important}}
+.env-head{clip-path:none!important;box-shadow:none!important;background:none!important;color:var(--ink)!important;padding:14px 14px 8px!important;font:800 1rem var(--display)!important}
+.env-head::before,.env-head::after,.env-head .pin,.env-head i{display:none!important}
+.env-name{color:var(--muted)!important;font:700 .78rem var(--display)!important;text-transform:uppercase;letter-spacing:.05em}
+.env-q{background:var(--bg)!important;border:1px solid var(--line)!important;color:var(--ink)!important;border-radius:999px!important;padding-left:14px!important}
+.env-qx{color:var(--muted)!important}
+.env-q::placeholder{color:var(--muted)!important}
+.env select{border-radius:999px;background:var(--bg);border:1px solid var(--line);color:var(--ink)}
+.env-sheet{background:var(--bg)!important;box-shadow:none!important;border:1px solid var(--line)}
+.env-hint{color:var(--muted)!important}
+.env-pocket{display:none!important}
+@media (max-width:720px){.env:not(.closed){box-shadow:0 -6px 24px rgba(14,42,86,.3)!important}.env-head{padding:10px 14px!important}}
 </style>
 </head>
 <body>
