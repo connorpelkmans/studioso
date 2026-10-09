@@ -5410,10 +5410,6 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .next-up .nu-alloc{color:#fff;font-weight:800;background:none}
 .next-up .nu-who{color:#fff}
 .next-up .nu-row{position:relative;padding:10px 16px 14px}
-.next-up:has(.nu-ring) .nu-top{padding-left:108px}
-.next-up:has(.nu-ring) .nu-row{padding-left:108px;min-height:62px}
-.nu-ring{position:absolute;left:18px;top:-30px;width:76px;height:76px}
-.next-up:has(.nu-ring) .nu-row > .check{position:absolute;left:84px;top:34px;width:28px;height:28px;z-index:2;background:var(--surface);border-radius:50%}
 .pr-ring{width:34px;height:34px;flex:none;box-shadow:0 0 0 2px var(--surface),0 0 0 3.5px var(--c)}
 .plan-row{align-items:center}
 .plan-fixed li{display:flex;align-items:center;gap:10px}
@@ -5426,14 +5422,10 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .rw-banner .rw-ic{border-radius:50%}
 .rw-banner.rw-crunch{border-left:1px solid var(--line)!important}
 .rw-banner.rw-crunch .rw-ic{color:#E8833A;background:color-mix(in srgb,#E8833A 14%,var(--surface))}
-@media (max-width:640px){.next-up:has(.nu-ring) .nu-top{padding-left:92px}.next-up:has(.nu-ring) .nu-row{padding-left:16px;padding-top:44px}.nu-ring{width:64px;height:64px;top:-26px}.next-up:has(.nu-ring) .nu-row > .check{left:66px;top:14px}}
 .plan-row:has(.pr-ring){grid-template-columns:26px 34px minmax(0,1fr) auto auto;grid-template-areas:"chk ring main why side" ". . slot slot slot" ". . more more more"}
 .plan-row .pr-ring{grid-area:ring}
 @media (max-width:600px){.plan-row:has(.pr-ring){grid-template-columns:26px 34px minmax(0,1fr) auto;grid-template-areas:"chk ring main side" "chk ring why side" ". . slot slot" ". . more more"}}
 .plan-fixed li:has(.pr-ring){border-left:0}
-.next-up:has(.nu-ring) .nu-row{min-height:96px}
-.next-up:has(.nu-ring) .nu-row > .check{left:42px;top:54px}
-@media (max-width:640px){.next-up:has(.nu-ring) .nu-row{min-height:0}.next-up:has(.nu-ring) .nu-row > .check{left:auto;right:16px;top:10px}}
 @media (max-width:600px){.plan-row .pr-ring,.plan-fixed .pr-ring{display:none}.plan-row:has(.pr-ring){grid-template-columns:26px minmax(0,1fr) auto;grid-template-areas:"chk main side" "chk why side" ". slot slot" ". more more"}}
 /* Task Board cards: a thin band in the course colour with the code, and the course sticker in a ring */
 .card.has-tab{margin-top:10px;padding-top:0!important;overflow:visible;border-radius:16px!important;border-top-left-radius:16px!important}
@@ -5487,7 +5479,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 /* Do This Next: a plain band, the course sticker beside the title */
 .next-up .nu-top{padding-left:16px!important}
 .next-up .nu-row{padding:12px 16px 14px!important;min-height:0!important}
-.next-up .nu-row > .check{position:static!important;width:auto;height:auto;background:none}
+
 .nu-ic{display:inline-grid;place-items:center;width:28px;height:28px;margin-right:8px;vertical-align:-7px}
 .nu-ic svg.ci-svg{width:100%;height:100%;transform:rotate(-6deg)}
 /* Task Board cards: slim band with sticker and code */
@@ -5514,6 +5506,12 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .cr2-big{display:grid;gap:2px}
 .cr2-big > span{font-size:.9rem}
 .cr2-courses li{grid-template-columns:minmax(0,120px) 1fr auto!important}
+/* Icons: crisp and centred (no filter, no tilt), filling more of the ring */
+.ci-svg{filter:none!important;transform:none!important;display:block;stroke-width:1.5}
+.g2-ring{display:grid!important;place-items:center!important}
+.g2-ring > svg.ci-svg{width:66%!important;height:66%!important;margin:0}
+.ci-grid svg{width:74%!important;height:74%!important}
+.nu-ic svg.ci-svg{transform:none!important}
 </style>
 </head>
 <body>
