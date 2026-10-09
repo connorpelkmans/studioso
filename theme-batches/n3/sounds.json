@@ -1,0 +1,1 @@
+{"greenhouse": "rain .5, birds .6, stream .3 | rain 1, pad .3", "pottery": "library .7, birds .3, fire .3 | fire 1, library .5", "campfire": "fire .8, birds .5, stream .3 | fire 1, crickets .8", "aquarium": "pad .8, stream .6 | pad 1, brown .4", "treehouse": "birds 1, wind .5 | crickets 1, wind .4"}
