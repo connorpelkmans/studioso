@@ -267,7 +267,7 @@
         bio: "Glows a little brighter as the night goes on.",
         idle: ["sway", "sparkle", "topBob"], cheer: "bounce",
         parts: {
-          back: `${RG("campfire-lumen-campfire-lumen-h", [[0, "#FFE08A", 0.55], [0.6, "#FFC24A", 0.18], [1, "#FFB040", 0]], 0.5, 0.5, 0.5)}<circle cx="60" cy="74" r="46" fill="url(#campfire-lumen-campfire-lumen-h)"/>`,
+          back: `${RG("campfire-lumen-campfire-lumen-h", [[0, "#FFE08A", 0.55], [0.6, "#FFC24A", 0.18], [1, "#FFB040", 0]], 0.5, 0.5, 0.5)}<circle cx="60" cy="72" r="42" fill="url(#campfire-lumen-campfire-lumen-h)"/>`,
           feet: `<ellipse cx="44" cy="111" rx="7" ry="3.4" fill="#24503E" ${O}/><ellipse cx="76" cy="111" rx="7" ry="3.4" fill="#24503E" ${O}/>`,
           body: `${RG("campfire-lumen-campfire-lumen-g", [[0, "#FFFBE0"], [0.55, "#FFD86A"], [1, "#F2A23A"]], 0.5, 0.5, 0.6)}${LG("campfire-lumen-campfire-lumen-f", [[0, "#5A9A7A"], [1, "#2E6A50"]])}
             <path d="M34 50H86L80 41H40Z" fill="url(#campfire-lumen-campfire-lumen-f)" ${O}/>
@@ -315,8 +315,8 @@
             <circle cx="52" cy="34" r="4" fill="#F0D6AE" ${O2}/><circle cx="68" cy="34" r="4" fill="#F0D6AE" ${O2}/>
             <ellipse cx="60" cy="52" rx="21" ry="18" fill="url(#campfire-moosey-campfire-moosey-h)" ${O}/>
             <path d="M54 35Q60 30 66 35Q62 38 60 41Q58 38 54 35Z" fill="#7A4E30"/>
-            <path d="M45 46Q47 40 52 38" fill="none" stroke="#F0C89A" stroke-width="2.6" stroke-linecap="round" opacity=".7"/>`,
-          face: `<ellipse cx="60" cy="66" rx="15" ry="10.5" fill="#B88058" ${O}/><ellipse cx="54.5" cy="65" rx="2" ry="2.6" fill="${INK}"/><ellipse cx="65.5" cy="65" rx="2" ry="2.6" fill="${INK}"/>`
+            <path d="M45 46Q47 40 52 38" fill="none" stroke="#F0C89A" stroke-width="2.6" stroke-linecap="round" opacity=".7"/>
+            <ellipse cx="60" cy="66" rx="15" ry="10.5" fill="#B88058" ${O}/><ellipse cx="54.5" cy="65" rx="2" ry="2.6" fill="${INK}"/><ellipse cx="65.5" cy="65" rx="2" ry="2.6" fill="${INK}"/>`
         },
         eyes: {lx: 50, rx: 70, y: 51, r: 4.6, style: "dot", color: "#2B1A10"},
         mouth: {x: 60, y: 71, w: 2.4, style: "cat", color: "#2B1A10"},
@@ -411,7 +411,7 @@
         neck: [58, 60],
         parts: {
           tail: {svg: `${LINE("M57 90Q49 102 56 109Q66 114 69 105Q71 97 63 97Q58 98 60 103", "#F7A24A", 5)}
-            <g transform="rotate(-12 74 104)"><rect x="66" y="96" width="16" height="18" rx="2" fill="#FFFFFF" ${O2}/><path d="M69 101H79M69 105H79M69 109H76" stroke="#8AA6D8" stroke-width="1.4" stroke-linecap="round"/><path d="M68 100l1 1 2-2" stroke="#4FB070" stroke-width="1.2" fill="none" stroke-linecap="round"/></g>`, pivot: [58, 90]},
+            <g transform="rotate(-12 74 100)"><rect x="66" y="92" width="16" height="18" rx="2" fill="#FFFFFF" ${O2}/><path d="M69 97H79M69 101H79M69 105H76" stroke="#8AA6D8" stroke-width="1.4" stroke-linecap="round"/><path d="M68 96l1 1 2-2" stroke="#4FB070" stroke-width="1.2" fill="none" stroke-linecap="round"/></g>`, pivot: [58, 90]},
           body: `${RG("aquarium-curly-aquarium-curly-b", [[0, "#FFE6A8"], [0.6, "#FFB04A"], [1, "#F2873A"]], 0.4, 0.35, 0.75)}
             <path d="M48 60Q38 75 47 89Q56 97 65 90Q73 79 66 63Z" fill="url(#aquarium-curly-aquarium-curly-b)" ${O}/>
             <path d="M46 70Q52 72 58 70M45 78Q52 80 59 78M48 86Q53 88 58 86" fill="none" stroke="#FFE6B8" stroke-width="2" stroke-linecap="round" opacity=".85"/>`,

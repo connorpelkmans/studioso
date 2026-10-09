@@ -410,7 +410,7 @@
         bio: "Says hello in twelve languages and goodbye in none.",
         idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter",
         parts: {
-          tail: {svg: `<path d="M54 100L48 118L58 112L60 120L64 112L72 118L66 100Z" fill="#3E7AE0" ${O}/>`, pivot: [60, 100]},
+          tail: {svg: `<path d="M54 100L45 112L57 108L60 114L63 108L75 112L66 100Z" fill="#3E7AE0" ${O}/>`, pivot: [60, 100]},
           feet: `${LINE("M52 104L50 110M68 104L70 110", "#E8A070", 3)}`,
           body: `${LG("languages-parrot-lang-par-b", [[0, "#8AE8A4"], [1, "#2EA05A"]])}
             <path d="M60 60C78 60 86 74 86 86C86 100 74 106 60 106C46 106 34 100 34 86C34 74 42 60 60 60Z" fill="url(#languages-parrot-lang-par-b)" ${O}/>

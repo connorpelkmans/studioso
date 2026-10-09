@@ -275,7 +275,7 @@
         bio: "A little swirl of breeze that turns your pages for you.",
         idle: ["spin", "sway", "sparkle"], cheer: "spin",
         parts: {
-          tail: {svg: `${LINE("M44 92Q32 104 18 98Q10 94 16 88", "#BFE8FF", 3.4)}${LINE("M76 94Q86 106 100 102", "#D8D0FF", 3)}${LINE("M60 100Q60 110 52 114", "#BFF0E8", 2.6)}`, pivot: [60, 90]},
+          tail: {svg: `${LINE("M44 92Q32 104 18 98Q10 94 16 88", "#BFE8FF", 3.4)}${LINE("M76 94Q86 106 100 102", "#D8D0FF", 3)}${LINE("M60 100Q60 108 53 111", "#BFF0E8", 2.6)}`, pivot: [60, 90]},
           body: `${RG("cloudkingdom-zephyr-cloudkingdom-zephyr-b", [[0, "#FFFFFF"], [0.5, "#D4F0FF"], [1, "#94CCF2"]], 0.4, 0.32, 0.75)}
             <path d="M60 28C82 28 94 44 94 62C94 82 80 96 60 96C40 96 26 82 26 62C26 50 32 40 42 34C40 42 44 48 52 46C46 38 50 28 60 28Z" fill="url(#cloudkingdom-zephyr-cloudkingdom-zephyr-b)" ${O}/>
             <path d="M74 84C84 78 86 66 80 58" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".9"/>
