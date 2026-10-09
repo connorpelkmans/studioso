@@ -51,7 +51,7 @@ const stored = p => p.evaluate(() => JSON.parse(localStorage.getItem("coursework
 
       // Crunch: summary first, legend tucked away
       await act(p, "plan-view", "crunch");
-      ok(await vis(".cr-call") && await vis(".cr-help summary") && !(await p.locator(".cr-legend").isVisible()), "Crunch shows the summary and keeps the legend under How to read this");
+      ok(await vis(".cr2-now") && await vis(".cr-help summary") && !(await p.locator(".cr-legend").first().isVisible()), "Crunch shows this week's summary and keeps the legend under How to read this");
 
       // Settings: sub-tabs inside categories, search still finds everything
       await act(p, "menu");
@@ -106,9 +106,9 @@ const stored = p => p.evaluate(() => JSON.parse(localStorage.getItem("coursework
       await act(p, "cpt-tab", "history");
       ok((await p.locator(".cpt-h").count()) === 1, "the chat is kept under Chats");
       // the Manage tab was dropped (59d6efd): the tabs are Chat and History, and "Change or Dress Up" in the header opens the picker sheet
-      ok((await p.$$eval(".cpt-tabs [data-act=cpt-tab]", bs => bs.map(b => b.dataset.id).join())) === "chat,history", "the Companion tabs are Chat and History");
+      ok((await p.$$eval(".cpt3-tabs [data-act=cpt-tab]", bs => bs.map(b => b.dataset.id).join())) === "chat,history,wardrobe", "the Companion tabs are Chat, History and Wardrobe");
       await p.click(".cpt-head .cpt-dress"); await p.waitForTimeout(400);
-      ok(await vis("#dlg[open] .cp-pickbody .cp-tile") && await vis("#dlg[open] #cpName"), "Change or Dress Up opens the picker with the companions and the name");
+      ok(await vis("#dlg[open] .cp-changebody .cp-tile") && await vis("#dlg[open] #cpName"), "Change opens the companion picker with the companions and the name");
       await p.click('#dlg [data-act="close"]'); await p.waitForTimeout(300);
       ok(!(await vis("#dlg[open]")) && await vis(".cpt-head"), "Done closes it, back on the Companion tab");
       ok(!errs.filter(e => !IGNORE.test(e)).length, "no page errors: " + errs.filter(e => !IGNORE.test(e)).join("; "));

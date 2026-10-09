@@ -98,7 +98,7 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       ok(rowsFocus === 0, tag + " no focus button on exam rows");
       const fixed = await txt(p, ".plan-fixed li");
       ok(fixed.length === 2 && /Midterm 2/.test(fixed[0]) && /In person/.test(fixed[0]) && /Final Exam/.test(fixed[1]) && /Not sure/.test(fixed[1]), tag + " On the Calendar lists both exams: " + fixed.join(" | "));
-      await p.evaluate(() => document.querySelectorAll("#planExtra, #planExtra .pe-item").forEach(d => { d.open = true; }));
+      await p.evaluate(() => { const t = document.querySelector('.pt-tab[data-k="sugg"]'); if (t) t.click(); });
       const q = await txt(p, '.auto-ins li[data-kind="remote"]');
       ok(q.length === 1 && /Can you take “Final Exam” from home\?/.test(q[0]), tag + " one question for the final: " + q.join("|"));
       ok(await p.locator('[data-act="rmt-set"]').count() === 2, tag + " Yes and No buttons");
@@ -111,7 +111,7 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       ok(qm === 1, tag + " one '?' hint on the unsure exam, none on the others (" + qm + ")");
       await p.evaluate(() => window.__sbAvail.view({tab: "board", bview: "plan"})); await p.waitForTimeout(200);
       // the edit sheet
-      await p.click('.plan-fixed [data-id="m1"]'); await p.waitForSelector("dialog[open] #rxFs");
+      await p.evaluate(() => { const t = document.querySelector('.pt-tab[data-k="cal"]'); if (t) t.click(); }); await p.click('.plan-fixed [data-id="m1"]'); await p.waitForSelector("dialog[open] #rxFs");
       ok(await p.locator("dialog[open] #rxFs legend").textContent() === "Where is this taken?", tag + " edit sheet asks where it is taken");
       const note = await p.locator("dialog[open] #rxNote").textContent();
       ok(/In person/.test(note) && /Detected by:\s*Auto/.test(note) && /in class/i.test(note), tag + " evidence line: " + note);
@@ -119,7 +119,8 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       ok(await p.locator("dialog[open] .focus-btn").count() === 0, tag + " no Focus button in the sheet for an in-person exam");
       await p.screenshot({path: path.join(OUT, `02-sheet-${tag}.png`)});
       await p.keyboard.press("Escape"); await p.waitForTimeout(150);
-      // answer the question: Yes
+      // answer the question: Yes (on the Suggestions tab)
+      await p.evaluate(() => { const t = document.querySelector('.pt-tab[data-k="sugg"]'); if (t) t.click(); });
       await p.click('[data-act="rmt-set"][data-v="yes"]'); await p.waitForTimeout(400);
       const m2b = await eff(p, "m2"), st = await stored(p, "m2");
       ok(m2b.v === "yes" && m2b.src === "user" && m2b.can, tag + " answering Yes makes the final eligible at once");
@@ -154,7 +155,7 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       ok(!(await p.evaluate(() => window.__sbAvail.pomo().running)) && /taken in person/.test(await p.textContent("#toastMsg")), tag + " a focus session can't be started on it");
       // answering "From home" in the sheet makes the midterm eligible, and it can then lead
       await p.evaluate(() => window.__sbAvail.view({tab: "board", bview: "plan"}));
-      await p.click('.plan-fixed [data-id="m1"]'); await p.waitForSelector("dialog[open] #rxFs");
+      await p.evaluate(() => { const t = document.querySelector('.pt-tab[data-k="cal"]'); if (t) t.click(); }); await p.click('.plan-fixed [data-id="m1"]'); await p.waitForSelector("dialog[open] #rxFs");
       await p.locator('dialog[open] input[name=remote][value="yes"]').check({force: true});
       ok(/You/.test(await p.locator("dialog[open] #rxNote").textContent()), tag + " note says you set it");
       await p.click("dialog[open] [data-submit]"); await p.waitForTimeout(500);
@@ -172,7 +173,7 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       await showToday(p); await p.waitForTimeout(700);
       let pl = await plan(p);
       ok(pl.next && pl.next.id === "a1", tag + " an unsure exam due tomorrow is not suggested; the assignment is (" + (pl.next && pl.next.id) + ")");
-      await p.evaluate(() => document.querySelectorAll("#planExtra, #planExtra .pe-item").forEach(d => { d.open = true; }));
+      await p.evaluate(() => { const t = document.querySelector('.pt-tab[data-k="sugg"]'); if (t) t.click(); });
       await p.click('[data-act="rmt-set"][data-v="no"]'); await p.waitForTimeout(400);
       ok((await eff(p, "m2")).v === "no", tag + " In person answer");
       pl = await plan(p); ok(pl.next.id === "a1", tag + " still not suggested after saying In person");

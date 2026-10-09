@@ -1,0 +1,7 @@
+
+        <!-- Microsoft Store (MSIX) build only, added by electron-builder's appx target (package.json build.appx.customExtensionsPath).
+             "Start When I Sign In to My Computer": an MSIX app can't switch this itself (Electron's setLoginItemSettings does nothing there),
+             so it is declared here, off until the person turns it on in Windows Settings > Apps > Startup (the app's Settings links there). -->
+        <desktop:Extension Category="windows.startupTask" Executable="app\Studyboard.exe" EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask TaskId="StudyboardStartup" Enabled="false" DisplayName="Studyboard" />
+        </desktop:Extension>

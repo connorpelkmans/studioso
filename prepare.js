@@ -108,6 +108,10 @@ if (flat) {
   };
   stage("widget", ["widget.html", "widget.css", "widget.js", { from: "widget-preload.js", to: "widget-preload.js" }, "shot.html", "shot.css", "shot.js", { from: "shot-preload.js", to: "shot-preload.js" }]);
   stage("build", ["icon.ico", "icon.png", "icon.icns", "installerSidebar.bmp", "uninstallerSidebar.bmp", "installerHeader.bmp"]);
+  // Microsoft Store (MSIX) tiles and logos (tools/make-appx-assets.py). Without build/appx electron-builder packs its own sample images.
+  const appxSrc = path.join(root, "build-resources", "appx");
+  if (fs.existsSync(appxSrc)) fs.cpSync(appxSrc, path.join(root, "build", "appx"), { recursive: true });
+  else console.warn("prepare: build-resources/appx missing; a Microsoft Store build would use electron-builder's sample tiles");
 }
 console.log("Build id " + (/const BUILD_ID = "([^"]+)"/.exec(html) || [])[1] + ".");
 console.log("Prepared app/ from", src, `(${inline.length} inline scripts hashed for the CSP)`);

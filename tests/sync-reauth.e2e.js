@@ -8,6 +8,9 @@
 //   3. server can't verify the token (signing keys changed): same
 //   4. the refused token can't be renewed either (signed out elsewhere): signed out cleanly, never stuck on "Connecting…"
 //   5. already connected when the server starts refusing the token: catching up renews it and stays connected
+//   6. another Studyboard tab has the device's sync database open while this one deletes it (signing out does): the other tab lets go,
+//      so after a reload this tab connects (it used to wait on the database forever and stay on "reconnecting" until site data was cleared)
+//   7. a tab that never lets go (an older version still open) holds it: sync connects anyway, without the device copy
 const fs = require("fs"), path = require("path"), http = require("http"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const ROOT = path.join(__dirname, "..");
@@ -16,6 +19,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("  ok " + m); }
 
 const web = http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split("?")[0]); if (p === "/") p = "/index.html";
+  if (p === "/__blank") { res.writeHead(200, {"content-type": "text/html"}); res.end("<!doctype html><title>holder</title>"); return; }
   const f = path.join(ROOT, p);
   if (!f.startsWith(ROOT)) { res.writeHead(404); res.end(); return; }
   fs.readFile(f, (e, b) => { if (e) { res.writeHead(404); res.end(); return; } res.writeHead(200, {"content-type": /\.html$/.test(p) ? "text/html" : /\.m?js$/.test(p) ? "text/javascript" : /\.css$/.test(p) ? "text/css" : "application/octet-stream"}); res.end(b); });
@@ -64,8 +68,8 @@ async function handle(route){
   return send(404, {});
 }
 
-async function open(browser, session){
-  const ctx = await browser.newContext({serviceWorkers: "block", viewport: {width: 1200, height: 800}});
+async function open(browser, session, ctxIn){
+  const ctx = ctxIn || await browser.newContext({serviceWorkers: "block", viewport: {width: 1200, height: 800}});
   await ctx.route(SB + "/**", handle);
   await ctx.addInitScript(([sb, sess]) => {
     if (sessionStorage.getItem("seeded")) return; sessionStorage.setItem("seeded", "1");
@@ -127,6 +131,27 @@ const reset = () => { S.skew = 0; S.badSig = new Set(); S.log = []; };
       ok(S.log.includes("POST /auth/v1/token"), "catching up renewed the refused token");
       ok(S.log.filter(l => l.startsWith("GET /rest/v1/items")).length >= 2, "and sent the request again");
       ok(/^Saved$/.test(await label(page)), "stays connected");
+      await ctx.close(); }
+
+    console.log("6. another Studyboard tab holds the sync database while this one deletes it");
+    { reset(); const s = mint();
+      const {ctx, page: A} = await open(browser, s);
+      ok(/^Saved$/.test(await until(A, /^Saved$/)), "tab A connects");
+      const B = await ctx.newPage(); await B.goto("http://127.0.0.1:" + web.address().port + "/__blank");
+      const del = await B.evaluate(() => new Promise(ok => { const r = indexedDB.deleteDatabase("studyboard-sync"); r.onsuccess = () => ok("deleted"); setTimeout(() => ok("still waiting"), 3000); }));
+      ok(del === "deleted", "the open tab lets go, so the delete finishes: " + del);
+      await A.reload();
+      ok(/^Saved$/.test(await until(A, /^Saved$/, 15000)), "after a reload the tab connects again");
+      await ctx.close(); }
+
+    console.log("7. a tab that never lets go holds the sync database");
+    { reset(); const s = mint();
+      const ctx = await browser.newContext({serviceWorkers: "block", viewport: {width: 1200, height: 800}});
+      const H = await ctx.newPage(); await H.goto("http://127.0.0.1:" + web.address().port + "/__blank");
+      await H.evaluate(() => new Promise(ok => { const r = indexedDB.open("studyboard-sync", 1); r.onupgradeneeded = () => r.result.createObjectStore("rows"); r.onsuccess = () => { window.keep = r.result; ok(); }; }));   // no onversionchange: never lets go
+      await H.evaluate(() => { indexedDB.deleteDatabase("studyboard-sync"); });   // a sign-out elsewhere: this delete now waits forever
+      const {page} = await open(browser, s, ctx);
+      ok(/^Saved$/.test(await until(page, /^Saved$/, 20000)), "sync connects anyway, without the device copy");
       await ctx.close(); }
 
     console.log("sync-reauth e2e ok (" + n + " checks)");

@@ -112,3 +112,4 @@ Measured with Playwright (Chromium, file load, local data): first contentful pai
 5. Get the legal texts reviewed; fill in your legal name.
 6. Build and test the installers on Windows and Mac; decide about signing.
 7. Decide about the repository layout (section 1).
+8. Microsoft Store: follow `MICROSOFT-STORE.md` (Individual account, copy the Partner Center identity into `package.json` build.appx, `npm run check:msstore`, Actions > Run workflow > msstore). Re-run `supabase-bug-reports.sql` so reported AI responses keep their own "ai" category (until then they arrive as "other", marked "[AI response]").
