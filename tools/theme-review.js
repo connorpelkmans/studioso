@@ -37,14 +37,14 @@ const moment = page => page.evaluate(() => { const b = document.createElement("b
 async function comps(browser, id) {
   const {ctx, page} = await open(browser, id, "light", {width: 1600, height: 900});
   const n = await page.evaluate(() => {
-    // the same joint swings the app's idle and cheer moves use (98-companion.js: headTilt 9/-4, tailSwish 14/-9, earTwitch 16, wingFlutter 26, finWiggle 10/-8, wave 115)
+    // the same joint swings the app's idle and cheer moves use, with its signs (side(): a left part raises with + rotation) (98-companion.js: headTilt 9/-4, tailSwish 14/-9, earTwitch 16, wingFlutter 26, finWiggle 10/-8, wave 115)
     const list = SBCOMP.list(document.documentElement.getAttribute("data-skin"));
     const host = document.createElement("div");
     host.id = "rvComps"; host.style.cssText = "position:fixed;inset:0;z-index:99999;background:#F4F1F8;display:grid;grid-template-columns:repeat(6,1fr);gap:6px;padding:10px;overflow:hidden;font:600 13px system-ui;color:#333";
     const POSES = [["rest", {}],
-      ["idle swing A", {rot: {head: 9, tail: 14, earL: 16, earR: -16, wingL: 26, wingR: -26, armL: 10, armR: -10}}],
+      ["idle swing A", {rot: {head: 9, tail: 14, earL: -16, earR: 16, wingL: 26, wingR: -26, armL: 10, armR: -10}}],
       ["idle swing B", {rot: {head: -4, tail: -9, earL: -5, earR: 5, wingL: 4, wingR: -4, armL: -8, armR: 8}}],
-      ["wave left arm", {rot: {armL: -115}}], ["wave right arm", {rot: {armR: 115}}], ["happy", {eyes: "happy", mouth: "smile"}]];
+      ["wave left arm", {rot: {armL: 115}}], ["wave right arm", {rot: {armR: -115}}], ["happy", {eyes: "happy", mouth: "smile"}]];
     list.forEach(c => {
       POSES.forEach(([label, o]) => host.insertAdjacentHTML("beforeend", `<div style="background:#fff;border-radius:10px;display:flex;flex-direction:column;align-items:center;padding:4px"><div class="rv-art">${SBCOMP.rigSvg(c.id, o)}</div><div>${c.name}: ${label}</div></div>`));
     });
