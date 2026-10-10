@@ -3,6 +3,8 @@
 //  - two assignments with the same name and different dates stay two tasks, and a task an older version made from them (one task, key "ou|title") is reused, not doubled
 //  - a second sync changes nothing (no flip-flopping between the twins)
 //  - a points-based course (no group weights) gives each graded item its share of the points, so the Grade Tracker can use it
+//  - work you finished in Studyboard (done, or dragged to Doing) stays that way when the school site still shows it unsubmitted,
+//    through repeated syncs, a moved due date, and the calendar link
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert"), vm = require("vm");
 const {chromium, executablePath} = require("./pw");
 const {build} = require("../scripts/build-lms-mobile.js");
@@ -63,6 +65,45 @@ const SEED = {v: 2, updated: 1, courses: [{id: "c1", created: 1, name: "History 
     await page.evaluate(() => SBLMS.canvas.syncNow({quiet: true})); await page.waitForTimeout(800);
     ts = await tasks();
     ok(JSON.stringify(ts.map(t => [t.id, t.due, t.cv && t.cv.key]).sort()) === snap, "a second sync changes nothing");
+    // You finish Reflection 2 in Studyboard; Canvas still says unsubmitted (it can't know you handed it in on paper, say)
+    const r2 = () => tasks().then(a => a.find(t => t.title === "Reflection" && t.due !== dateOf(4)));
+    const setStatus = (id, st) => page.evaluate(([id, st]) => { const t = SBLMS.clone(SBLMS.st().tasks[id]); t.status = st; t.doneAt = st === "done" ? Date.now() : null; if (st === "done") t.pct = 100; SBLMS.applyChanges([{kind: "task", id, after: t}], ""); }, [id, st]);
+    const id2 = (await r2()).id;
+    await setStatus(id2, "done");
+    for (let i = 0; i < 3; i++) { await page.evaluate(() => SBLMS.canvas.syncNow({quiet: true})); await page.waitForTimeout(500); }
+    ok((await r2()).status === "done", "a task you marked done stays done through repeated syncs while Canvas shows it unsubmitted");
+    // Canvas moves its due date and edits its description: the date follows Canvas, the status stays yours
+    CV[2][1][1] = Object.assign({}, CV[2][1][1], {due_at: at(13), description: "<p>Now 500 words</p>"});
+    await page.evaluate(() => SBLMS.canvas.syncNow({quiet: true})); await page.waitForTimeout(600);
+    let t2 = await r2();
+    ok(t2.due === dateOf(13) && t2.status === "done" && /500 words/.test(t2.notes), "Canvas moving the due date updates the date but keeps it done: " + JSON.stringify([t2.due, t2.status]));
+    // The calendar link (no submission info at all) doesn't reopen it either
+    const ics = ["BEGIN:VCALENDAR", "BEGIN:VEVENT", "UID:event-assignment-2", "SUMMARY:Reflection [HIS200]", "DTSTART:" + at(13).replace(/[-:]/g, "").slice(0, 15) + "Z", "DTEND:" + at(13).replace(/[-:]/g, "").slice(0, 15) + "Z",
+      "URL:https://x.instructure.com/calendar?include_contexts=course_201&month=10#assignment_2", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+    await page.evaluate(text => { const L = SBLMS.canvas, d = L.fromFeed(text, "feed"); L.applyPlan(d, L.plan(d), "feed", true); }, ics);
+    await page.waitForTimeout(300);
+    ok((await r2()).status === "done" && (await tasks()).filter(t => t.title === "Reflection").length === 2, "a calendar-link sync keeps it done (and matches it rather than adding a copy)");
+    // Dragged to Doing: stays Doing
+    const essayLike = (await tasks()).find(t => t.title === "Chapter 4 check");
+    await setStatus(essayLike.id, "doing");
+    await page.evaluate(() => SBLMS.canvas.syncNow({quiet: true})); await page.waitForTimeout(600);
+    ok((await tasks()).find(t => t.id === essayLike.id).status === "doing", "a task you dragged to Doing stays there");
+    // Reopening by hand is also respected: Canvas said submitted once, you moved it back to To Do, it isn't marked done again
+    const r1 = (await tasks()).find(t => t.title === "Reflection" && t.due === dateOf(4));
+    ok(r1.status === "done", "the submitted Reflection was marked done once");
+    await setStatus(r1.id, "todo");
+    await page.evaluate(() => SBLMS.canvas.syncNow({quiet: true})); await page.waitForTimeout(600);
+    ok((await tasks()).find(t => t.id === r1.id).status === "todo", "after you reopen it, a sync doesn't mark it done again");
+    // Deleted in Studyboard: a sync doesn't bring it back
+    await page.evaluate(id => SBLMS.applyChanges([{kind: "task", id, after: null}], ""), id2);
+    await page.evaluate(() => SBLMS.canvas.syncNow({quiet: true})); await page.waitForTimeout(600);
+    ok(!(await tasks()).some(t => t.title === "Reflection" && t.due === dateOf(13)), "a task you deleted isn't added back by the next sync");
+    // Deleting and then pressing Undo: it's a normal synced task again
+    const r1id = (await tasks()).find(t => t.title === "Reflection").id;
+    await page.evaluate(id => { const inv = SBLMS.applyChanges([{kind: "task", id, after: null}], "Deleted"); SBLMS.applyChanges(inv, null); }, r1id);
+    await page.evaluate(() => SBLMS.canvas.syncNow({quiet: true})); await page.waitForTimeout(600);
+    ok((await tasks()).some(t => t.id === r1id), "undo brings the task back and the next sync keeps it");
+    ok((await page.evaluate(() => SBLMS.canvas.cfg().dropped)).length === 1, "only the deleted task is remembered, not the one you restored with Undo");
     ok(!errs.length, "no page errors: " + errs.join(" | "));
     console.log("\nlms-accuracy.e2e: " + n + " checks passed");
   } finally { await browser.close(); server.close(); }
