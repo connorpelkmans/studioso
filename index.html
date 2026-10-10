@@ -50862,7 +50862,8 @@ window.SBEST = SBEST;
           <label class="f"><span class="lh">${P.name} Address</span><input type="text" id="bsHostIn" value="${esc(cfg().host || P.host)}" placeholder="${esc(P.hostPh)}" autocomplete="off" spellcheck="false" inputmode="url"></label>
           <button class="btn primary" data-act="${A}-login">Sign In</button></div>` : ""}
         <div class="bs-way${desk ? "" : " rec"}"><div class="bs-way-h"><b>Use Your Calendar Link</b>${desk ? "" : `<span class="bs-pill">Works Here</span>`}</div>
-          <p class="mini">Due dates, quizzes and calendar events${desk ? ", and it works on your phone too" : ""}. Grades and announcements need the desktop app.</p>
+          <p class="mini">Due dates, quizzes and calendar events${desk ? ", and it works on your phone too" : ""}. Submitted work, grades and announcements need the desktop app.</p>
+          ${!desk ? `<p class="mini bs-note"><b>Heads up:</b> a calendar link only brings in due dates. It can't tell which assignments you've already submitted, and it can't bring in grades. For the full picture, download the Studyboard desktop app and sign in to ${P.name} instead.</p>` : ""}
           ${!desk && !cloud ? `<p class="mini bs-note">On the website and phone, this needs your Studyboard account connected (Settings, Sync). Or download the calendar file from ${P.name} and import it below.</p>` : ""}
           <label class="f"><span class="lh">Calendar Link <span class="hint">${P.name}, ${esc(P.feedWhere)}</span></span><input type="url" id="bsFeedIn" placeholder="${esc(P.feedPh)}" autocomplete="off" spellcheck="false"></label>
           <div class="bs-acts"><button class="btn ${desk ? "" : "primary"}" data-act="${A}-feed-connect">Connect</button><button class="btn" data-act="${A}-feed-help">How to Find It</button></div></div>
