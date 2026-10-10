@@ -48,14 +48,25 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
     // Connect sheet on the website offers the bookmark; its sheet builds the bookmark
     await app.evaluate(() => SBLMS.canvas.connectSheet());
     ok(await app.locator('dialog [data-act="cv-grab"]').count() === 1, "the website's Connect Canvas sheet offers reading Canvas in this browser");
+    const ways = await app.evaluate(() => [...document.querySelectorAll("#dlg .bs-way")].map(w => ({t: w.querySelector("b").textContent, rec: w.classList.contains("rec"), pill: (w.querySelector(".bs-pill") || {}).textContent, text: w.innerText})));
+    ok(ways[0].t === "Read Canvas in This Browser" && ways[0].rec && ways[0].pill === "Recommended" && ways.filter(w => w.rec).length === 1, "on the website the bookmark comes first and is the one recommended: " + JSON.stringify(ways.map(w => [w.t, w.pill])));
+    ok(/holds a small program/.test(ways[0].text) && /only reads/.test(ways[0].text) && /never sent to any server/.test(ways[0].text) && /doesn't pass through Studyboard's servers/.test(ways[0].text) && /Delete the bookmark/.test(ways[0].text),
+      "it says plainly what the bookmark is, what it reads, where the data goes and how to stop it");
+    ok(/Due Dates Only/.test(ways[1].pill) && /can't see grades/.test(ways[1].text), "the calendar link is offered second, as due dates only");
     const fetched = []; app.on("request", r => fetched.push(new URL(r.url()).pathname));
     await app.click('dialog [data-act="cv-grab"]'); await app.waitForSelector("#grabLink", {timeout: 3000});
     ok(!fetched.some(p => /\.js$/.test(p)), "Set It Up opens its sheet without downloading anything: " + JSON.stringify(fetched));
     await app.click("#dlg [data-submit]");
     ok(await app.evaluate(() => { const t = document.querySelector("#toast"), r = t.getBoundingClientRect(), el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
       return /Click the bookmark/.test(t.innerText) && t.contains(el) && document.querySelector("#dlg").open; }), "a message from the sheet shows on top of it, not hidden behind it");
+    ok(await app.evaluate(async () => { SBLMS.canvas.connectSheet(); const a = !!document.querySelector("#toastMsg"); document.querySelector("#dlg").close(); await new Promise(r => setTimeout(r, 50)); return a && document.querySelector("#toast").parentNode === document.body; }),
+      "switching to another sheet while a message shows keeps the message (it isn't wiped with the old sheet), and closing hands it back to the page");
+    await app.evaluate(() => SBLMS.canvas.connectSheet()); await app.click('dialog [data-act="cv-grab"]'); await app.waitForSelector("#grabLink");
     const js = await app.getAttribute("#grabLink", "href");
+    ok(await app.evaluate(() => { const d = [...document.querySelectorAll("#dlg details")].find(x => /exact code/.test(x.querySelector("summary").textContent)); return !!d && decodeURIComponent(document.querySelector("#grabLink").getAttribute("href").slice(11)) === d.querySelector("pre").textContent; }),
+      "the sheet shows the exact code the bookmark runs, character for character");
     ok(/^javascript:/.test(js) && js.length < 60000, "the bookmark is a javascript: address of " + js.length + " characters");
+    ok(/^\u{1F393} Studyboard: Canvas$/u.test(await app.textContent("#grabLink")), "the bookmark is named with a 🎓, since browsers show a plain icon for every bookmark like it");
     await app.click("#grabLink");
     ok(await app.evaluate(() => !!document.querySelector("#grabLink")), "clicking the bookmark button in Studyboard runs nothing (it's for dragging)");
     // Run the bookmark on the school's page
@@ -65,6 +76,8 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
     await school.getByText("Open in Studyboard").waitFor({timeout: 30000});
     ok(asked.every(([m]) => m === "GET"), "the bookmark only read (GET) from the school site");
     ok(/Read 1 course and 1 grade/.test(await school.locator("div >> nth=0").evaluate(() => document.body.lastElementChild.shadowRoot.textContent)), "it says what it read");
+    ok(await school.evaluate(() => { const r = document.body.lastElementChild.shadowRoot, im = r.querySelector("img"); return !!im && im.complete && im.naturalWidth === 64 && /Studyboard/.test(r.textContent); }), "the panel on the school's page shows the Studyboard logo");
+    if (process.env.SHOT) await school.screenshot({path: process.env.SHOT});
     const href = await school.getByText("Open in Studyboard").getAttribute("href");
     ok(href.startsWith(base + "#sbgrab=SBG1"), "it links back to this Studyboard with the code in the address");
     // Open it: the code leaves the address, the review sheet shows, Import brings in tasks, grades and the announcement
