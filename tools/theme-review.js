@@ -12,7 +12,7 @@ const root = path.join(__dirname, "..");
 const args = process.argv.slice(2), oi = args.indexOf("--out"), ni = args.indexOf("--only");
 if (oi < 0) { console.log("usage: node tools/theme-review.js <theme id> [...] --out <dir> [--only scene,moment,still,phone,comp]"); process.exit(2); }
 const OUT = args[oi + 1], ONLY = ni >= 0 ? args[ni + 1].split(",") : ["scene", "moment", "still", "phone", "comp"];
-const IDS = args.filter((a, i) => !a.startsWith("--") && i !== oi + 1 && i !== ni + 1);
+const IDS = args.filter((a, i) => !a.startsWith("--") && i !== oi + 1 && !(ni >= 0 && i === ni + 1));
 fs.mkdirSync(OUT, {recursive: true});
 const MIME = {".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".png": "image/png", ".css": "text/css", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".webp": "image/webp", ".webmanifest": "application/manifest+json"};
 const server = http.createServer((q, r) => { let p = decodeURIComponent(new URL(q.url, "http://x").pathname); if (p === "/") p = "/index.html"; const f = path.join(root, p);
