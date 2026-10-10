@@ -2,10 +2,11 @@
 // The website's "Read it in this browser": the Studyboard bookmark, built by the page from lms-grab.js, is run on a stand-in Canvas
 // (https://canvas.example.edu, answered by Playwright) where the student is "signed in". It reads the courses there, its "Open in Studyboard"
 // link opens Studyboard with the code in the address, and Studyboard imports grades and announcements, which the calendar link can't bring.
-// Also: lms-grab.js is current with lms.js, forged or stale codes are refused, and the code leaves the address at once.
+// Also: the bookmark code built into index.html is current with lms.js, Set It Up works with nothing extra to download, its messages show
+// above the open sheet, forged or stale codes are refused, and the code leaves the address at once.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
-const {buildGrab} = require("../scripts/build-lms-mobile.js");
+const {grabIn} = require("../scripts/build-lms-mobile.js");
 const root = path.join(__dirname, "..");
 const DAY = 864e5, at = d => new Date(Math.floor(Date.now() / DAY) * DAY + d * DAY + 16 * 3600e3).toISOString();
 const SCHOOL = "https://canvas.example.edu";
@@ -26,7 +27,7 @@ const server = http.createServer((req, res) => {
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
 (async () => {
-  ok(fs.readFileSync(path.join(root, "lms-grab.js"), "utf8") === buildGrab(), "lms-grab.js is current with lms.js (run: node scripts/build-lms-mobile.js --grab)");
+  { const g = grabIn(fs.readFileSync(path.join(root, "index.html"), "utf8")); ok(g.now === g.withFresh.slice(g.withFresh.indexOf("/* LMS-GRAB-START"), g.withFresh.indexOf("/* LMS-GRAB-END */") + 18), "the bookmark code in index.html is current with lms.js (run: node scripts/build-lms-mobile.js --grab)"); }
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
   const ctx = await browser.newContext({viewport: {width: 1100, height: 900}, timezoneId: "UTC"});
@@ -47,7 +48,12 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
     // Connect sheet on the website offers the bookmark; its sheet builds the bookmark
     await app.evaluate(() => SBLMS.canvas.connectSheet());
     ok(await app.locator('dialog [data-act="cv-grab"]').count() === 1, "the website's Connect Canvas sheet offers reading Canvas in this browser");
-    await app.click('dialog [data-act="cv-grab"]'); await app.waitForSelector("#grabLink");
+    const fetched = []; app.on("request", r => fetched.push(new URL(r.url()).pathname));
+    await app.click('dialog [data-act="cv-grab"]'); await app.waitForSelector("#grabLink", {timeout: 3000});
+    ok(!fetched.some(p => /\.js$/.test(p)), "Set It Up opens its sheet without downloading anything: " + JSON.stringify(fetched));
+    await app.click("#dlg [data-submit]");
+    ok(await app.evaluate(() => { const t = document.querySelector("#toast"), r = t.getBoundingClientRect(), el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return /Click the bookmark/.test(t.innerText) && t.contains(el) && document.querySelector("#dlg").open; }), "a message from the sheet shows on top of it, not hidden behind it");
     const js = await app.getAttribute("#grabLink", "href");
     ok(/^javascript:/.test(js) && js.length < 60000, "the bookmark is a javascript: address of " + js.length + " characters");
     await app.click("#grabLink");
