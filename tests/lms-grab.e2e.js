@@ -54,7 +54,7 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
     await app.click("#dlg [data-submit]");
     ok(await app.evaluate(() => { const t = document.querySelector("#toast"), r = t.getBoundingClientRect(), el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
       return /Click the bookmark/.test(t.innerText) && t.contains(el) && document.querySelector("#dlg").open; }), "a message from the sheet shows on top of it, not hidden behind it");
-    ok(await app.evaluate(() => { SBLMS.canvas.connectSheet(); const a = !!document.querySelector("#toastMsg"); document.querySelector("#dlg").close(); return a && document.querySelector("#toast").parentNode === document.body; }),
+    ok(await app.evaluate(async () => { SBLMS.canvas.connectSheet(); const a = !!document.querySelector("#toastMsg"); document.querySelector("#dlg").close(); await new Promise(r => setTimeout(r, 50)); return a && document.querySelector("#toast").parentNode === document.body; }),
       "switching to another sheet while a message shows keeps the message (it isn't wiped with the old sheet), and closing hands it back to the page");
     await app.evaluate(() => SBLMS.canvas.connectSheet()); await app.click('dialog [data-act="cv-grab"]'); await app.waitForSelector("#grabLink");
     const js = await app.getAttribute("#grabLink", "href");
