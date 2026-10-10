@@ -24,8 +24,8 @@
             <path d="M24.5 95H95.5M26.6 104H93.4" stroke="${INK}" stroke-width="4.4"/><path d="M24.5 95H95.5M26.6 104H93.4" stroke="#D2D8E0" stroke-width="2.2"/>
             <path d="M40 87V110M60 87V111M80 87V110" stroke="#B07A46" stroke-width="1.4" opacity=".55"/>
             <path d="M34 84.5q6 2 12 0M70 86q6 2 12 0" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>`,
-          armL: {svg: `<ellipse cx="36" cy="85" rx="7" ry="5" fill="#B8845A" ${O}/>`, pivot: [40, 84]},
-          armR: {svg: `<ellipse cx="84" cy="85" rx="7" ry="5" fill="#B8845A" ${O}/>`, pivot: [80, 84]},
+          armL: {svg: `<path d="M36 77.6Q30.5 80.5 28.6 85" fill="none" stroke="${INK}" stroke-width="9.4" stroke-linecap="round"/><path d="M36 77.6Q30.5 80.5 28.6 85" fill="none" stroke="#B8845A" stroke-width="5.4" stroke-linecap="round"/><ellipse cx="27.6" cy="86" rx="6.6" ry="4.8" fill="#B8845A" ${O}/><path d="M25 88.6v-1.8M28 89.2v-1.8" stroke="#8A5A36" stroke-width="1.1" stroke-linecap="round"/>`, pivot: [36, 78]},
+          armR: {svg: `<path d="M84 77.6Q89.5 80.5 91.4 85" fill="none" stroke="${INK}" stroke-width="9.4" stroke-linecap="round"/><path d="M84 77.6Q89.5 80.5 91.4 85" fill="none" stroke="#B8845A" stroke-width="5.4" stroke-linecap="round"/><ellipse cx="92.4" cy="86" rx="6.6" ry="4.8" fill="#B8845A" ${O}/><path d="M95 88.6v-1.8M92 89.2v-1.8" stroke="#8A5A36" stroke-width="1.1" stroke-linecap="round"/>`, pivot: [84, 78]},
           earL: {svg: `<circle cx="40" cy="31" r="6" fill="#A8744A" ${O}/><circle cx="40.6" cy="31.6" r="2.6" fill="#E8A898"/>`, pivot: [42, 35]},
           earR: {svg: `<circle cx="80" cy="31" r="6" fill="#A8744A" ${O}/><circle cx="79.4" cy="31.6" r="2.6" fill="#E8A898"/>`, pivot: [78, 35]},
           head: `${RG("onsen-kapi-h", [[0, "#E8BC8C"], [0.6, "#CC9662"], [1, "#A8744A"]], 0.42, 0.3, 0.8)}
@@ -246,8 +246,8 @@
             <path d="M38 58C38 52 82 52 82 58V98Q82 106 72 106H48Q38 106 38 98Z" fill="url(#tidepool-annie-b)" ${O}/>
             <path d="M46 62V100M74 62V100" stroke="#FFC8DA" stroke-width="2.4" stroke-linecap="round" opacity=".8"/>
             <ellipse cx="60" cy="56" rx="23" ry="6.4" fill="#FFD6E4" ${O2}/>`,
-          armL: {svg: `${LINE("M40 64Q30 62 24 54", "#FF8FB8", 4.2)}<circle cx="24" cy="53.6" r="3.4" fill="#FFE0EC" ${OW(2)}/>`, pivot: [40, 64]},
-          armR: {svg: `${LINE("M80 64Q90 62 96 54", "#FF8FB8", 4.2)}<circle cx="96" cy="53.6" r="3.4" fill="#FFE0EC" ${OW(2)}/>`, pivot: [80, 64]},
+          armL: {svg: `${LINE("M41 69Q31 74 29.6 85", "#FF8FB8", 4.2)}<circle cx="29.4" cy="86" r="3.4" fill="#FFE0EC" ${OW(2)}/>`, pivot: [41, 69]},
+          armR: {svg: `${LINE("M79 69Q89 74 90.4 85", "#FF8FB8", 4.2)}<circle cx="90.6" cy="86" r="3.4" fill="#FFE0EC" ${OW(2)}/>`, pivot: [79, 69]},
           top: {svg: tentacles(60, 55, 9, 24, -168, -12, "#FF8FB8", "#FFE0EC"), pivot: [60, 56]}
         },
         eyes: {lx: 51, rx: 69, y: 76, r: 4.6, style: "sparkle", color: "#4A1830"},
@@ -521,8 +521,8 @@
           body: `${LG("savanna-sentry-b", [[0, "#ECD2A6"], [1, "#B88E5C"]])}
             <path d="M42 108C38 94 40 72 48 64H72C80 72 82 94 78 108Z" fill="url(#savanna-sentry-b)" ${O}/>
             <ellipse cx="60" cy="92" rx="10" ry="14" fill="#F6E6C8"/>`,
-          armL: {svg: `<path d="M48 72Q42 78 50 82" fill="none" stroke="${INK}" stroke-width="8" stroke-linecap="round"/><path d="M48 72Q42 78 50 82" fill="none" stroke="#C8A06E" stroke-width="4.4" stroke-linecap="round"/>`, pivot: [49, 71]},
-          armR: {svg: `<path d="M72 72Q78 78 70 82" fill="none" stroke="${INK}" stroke-width="8" stroke-linecap="round"/><path d="M72 72Q78 78 70 82" fill="none" stroke="#C8A06E" stroke-width="4.4" stroke-linecap="round"/>`, pivot: [71, 71]},
+          armL: {svg: `<path d="M49 72Q45.6 78.5 49 84" fill="none" stroke="${INK}" stroke-width="8" stroke-linecap="round"/><ellipse cx="50.6" cy="85.2" rx="3.6" ry="2.7" transform="rotate(20 50.6 85.2)" fill="#B8905E" ${OW(1.8)}/><path d="M49 72Q45.6 78.5 49 84" fill="none" stroke="#C8A06E" stroke-width="4.4" stroke-linecap="round"/><path d="M49.4 86.4l.6 1.4M51.8 86.2l.4 1.4" stroke="${INK}" stroke-width="1" stroke-linecap="round"/>`, pivot: [49, 71]},
+          armR: {svg: `<path d="M71 72Q74.4 78.5 71 84" fill="none" stroke="${INK}" stroke-width="8" stroke-linecap="round"/><ellipse cx="69.4" cy="85.2" rx="3.6" ry="2.7" transform="rotate(-20 69.4 85.2)" fill="#B8905E" ${OW(1.8)}/><path d="M71 72Q74.4 78.5 71 84" fill="none" stroke="#C8A06E" stroke-width="4.4" stroke-linecap="round"/><path d="M70.6 86.4l-.6 1.4M68.2 86.2l-.4 1.4" stroke="${INK}" stroke-width="1" stroke-linecap="round"/>`, pivot: [71, 71]},
           earL: {svg: `<circle cx="39" cy="40" r="4.6" fill="#6A4A32" ${O2}/>`, pivot: [42, 42]},
           earR: {svg: `<circle cx="81" cy="40" r="4.6" fill="#6A4A32" ${O2}/>`, pivot: [78, 42]},
           head: `${LG("savanna-sentry-h", [[0, "#EED6AA"], [1, "#BE9460"]])}

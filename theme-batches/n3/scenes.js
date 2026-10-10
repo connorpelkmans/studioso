@@ -42,6 +42,8 @@ function n3_clump(type, x, y, s, rnd, o) {
       [[-8, -26, -110], [9, -30, -70]].forEach(function (q) { o.acc1 += n3_monstera(x + q[0] * s, y + q[1] * s, 13 * s, q[2], 0); o.yel += n3_RE(x + q[0] * s + Math.cos(q[2] * Math.PI / 180) * 6 * s, y + q[1] * s + Math.sin(q[2] * Math.PI / 180) * 6 * s - 3 * s, 1.4 * s, 4 * s, q[2] + 100); }); }
 }
 function n3_bucket() { return {dark: '', mid: '', light: '', yel: '', acc1: '', acc2: '', stem: ''}; }
+// the night-bloom bud's bracts (quadratic curves in bud space: x along the bud, units of the flower scale); shared with the engine
+var N3_BRACTS = [[[1, 1], [8, 4.6], [15, 5.2]], [[1, -1], [9, -5], [16, -5.4]], [[3, 0.4], [8, 2.6], [12, 3.4]], [[3, -0.4], [9, -2.4], [13, -3]]];
 
 // ======================================================================
 // 1. Greenhouse: inside a Victorian glass greenhouse, seen down its length. Curved iron ribs recede toward the far glass wall
@@ -75,8 +77,17 @@ SCENES.greenhouse = function (W, H, dk, rnd) {
   var kwTop = n3_P([P(1, L, K), P(1, L, K - 3), P(1, -L, K - 3), P(1, -L, K)]) + n3_P([P(1, -Ae, B - hE), P(9, -Ae, B - hE), P(9, -Ae - 2.5, B - hE), P(1, -Ae - 2.5, B - hE)]) + n3_P([P(1, Ae + 2.5, B - hE), P(9, Ae + 2.5, B - hE), P(9, Ae, B - hE), P(1, Ae, B - hE)]);
   add(refl, 'd', kwTop, cols.kneeL);
   add(refl, 'e', n3_P([P(1, -Ae, B), P(1, Ae, B), P(9, Ae, B), P(9, -Ae, B)]), cols.floor);
-  var NT = 4, tiles = '', mk = [1]; while (mk[mk.length - 1] < 9) mk.push(mk[mk.length - 1] * 1.13);
-  for (var r = 0; r < mk.length - 1; r++) for (var c = 0; c < NT; c++) { if ((r + c) % 2) continue; var x0 = -Ae + 2 * Ae * c / NT, x1 = -Ae + 2 * Ae * (c + 1) / NT; tiles += n3_P([P(mk[r], x0, B), P(mk[r], x1, B), P(mk[r + 1], x1, B), P(mk[r + 1], x0, B)]); }
+  // a Victorian encaustic floor: a solid terracotta border down each side, then a checker of terracotta tiles with a cream diamond
+  // inlaid (a counter-clockwise hole) and cream tiles with a little terracotta diamond, grout lines between every tile
+  var NT = 4, tiles = '', grout = '', mk = [1]; while (mk[mk.length - 1] < 9) mk.push(mk[mk.length - 1] * 1.13);
+  var ix0 = -Ae * 0.84, ix1 = Ae * 0.84;
+  function dia(r, x0, x1, f) { var mA = mk[r], mB = mk[r + 1], mc = (mA + mB) / 2, xc = (x0 + x1) / 2, hw = (x1 - x0) / 2 * f, dm = (mB - mA) / 2 * f; return [P(mc - dm, xc, B), P(mc, xc + hw, B), P(mc + dm, xc, B), P(mc, xc - hw, B)]; }
+  tiles += n3_P([P(1, -Ae, B), P(1, ix0, B), P(9, ix0, B), P(9, -Ae, B)]) + n3_P([P(1, ix1, B), P(1, Ae, B), P(9, Ae, B), P(9, ix1, B)]);
+  for (var r = 0; r < mk.length - 1; r++) { grout += seg(P(mk[r], -Ae, B)[0], P(mk[r], -Ae, B)[1], P(mk[r], Ae, B)[0], P(mk[r], Ae, B)[1]);
+    for (var c = 0; c < NT; c++) { var x0 = ix0 + (ix1 - ix0) * c / NT, x1 = ix0 + (ix1 - ix0) * (c + 1) / NT;
+      if ((r + c) % 2) { tiles += n3_P(dia(r, x0, x1, 0.34)); continue; }
+      tiles += n3_P([P(mk[r], x0, B), P(mk[r], x1, B), P(mk[r + 1], x1, B), P(mk[r + 1], x0, B)]) + poly(n3_cw(dia(r, x0, x1, 0.62)).reverse()); } }
+  for (var c2 = 0; c2 <= NT; c2++) { var gx = ix0 + (ix1 - ix0) * c2 / NT; grout += seg(P(1, gx, B)[0], P(1, gx, B)[1], P(9, gx, B)[0], P(9, gx, B)[1]); }
   add(refl, 'f', tiles, cols.tile);
   add(refl, 'h', n3_P([P(1, L, B - hE), P(1, -Ae, B - hE), P(9, -Ae, B - hE), P(9, L, B - hE)]) + n3_P([P(1, Ae, B - hE), P(1, -L, B - hE), P(9, -L, B - hE), P(9, Ae, B - hE)]), cols.soil);
   // iron ribs (tubes that thicken toward us), the far door, mullions, purlins and a fanlight
@@ -91,7 +102,7 @@ SCENES.greenhouse = function (W, H, dk, rnd) {
   for (k2 = 1; k2 < 6; k2++) { var a = Math.PI - k2 / 6 * Math.PI; mull += seg(vx, vy + E, vx - L * Math.cos(a), vy + E + (R - E) * Math.sin(a)); }
   mull += 'M' + PT(vx + L * 0.3, vy + E) + ' A' + n1(-L * 0.3) + ' ' + n1(-(R - E) * 0.3) + ' 0 0 1 ' + PT(vx - L * 0.3, vy + E) + ' ' + seg(vx + L, vy + E, vx - L, vy + E);
   add(refl, 'g', ribs, cols.frame);
-  stk(refl, 's', mull, cols.thin, 1.6); stk(refl, 't', thin, cols.thin, 1.2);
+  stk(refl, 's', mull + thin, cols.thin, 1.4); stk(refl, 't', grout, dk ? 'rgba(0,0,0,0.32)' : 'rgba(150,96,62,0.3)', 1.1);
   // ---- planting: the far row, both beds (near halves go into the front layer), two palms
   var Mo = n3_bucket(), No = n3_bucket(), trunks = '';
   for (var bx = L + 8; bx < -L - 8; bx += ph ? 22 : 34) { if (Math.abs(bx) < dw + 6) continue; var p0 = P(1.02, bx, B); n3_clump(['bush', 'fern', 'spiky', 'anth', 'mon'][Math.floor(rnd() * 5)], p0[0], p0[1], (ph ? 0.4 : 0.55) * (0.8 + rnd() * 0.4), rnd, Mo); }
@@ -113,11 +124,19 @@ SCENES.greenhouse = function (W, H, dk, rnd) {
     for (var f = 0; f < 10; f++) { var ang = -180 + f * 20 + (rnd() - 0.5) * 8, fr = n3_frond(tx, ty, (96 + rnd() * 30) * s, ang, 11 * s, 0.45 + Math.abs(Math.cos(ang * Math.PI / 180)) * 0.35); if (f % 2) Mo.mid += fr; else Mo.dark += fr; }
     for (var k = 0; k < 5; k++) trunks += n3_RE(trunk[k * 2 + 1][0], trunk[k * 2 + 1][1], 8 * s, 2.6 * s, 0); });
   add(mid, 'a', Mo.dark, G.dark); add(mid, 'b', Mo.mid + Mo.stem, G.mid); add(mid, 'c', Mo.light, G.light); add(mid, 'd', Mo.yel, G.yel);
-  add(mid, 'e', Mo.acc1, G.acc1); add(mid, 'f', Mo.acc2, G.acc2); add(mid, 'h', trunks, dk ? '#4A3A2C' : '#A47A55');
+  // fallen leaves and petals scattered on the aisle tiles (lying flat, so squashed by the floor's perspective); seeded apart from rnd
+  var lr = SR(77 + (ph ? 1 : 0)), fallen = '', petals = '';
+  function flat(pts, cy, k) { return pts.map(function (p) { return [p[0], cy + (p[1] - cy) * k]; }); }
+  for (var q2 = 0; q2 < (ph ? 9 : 14); q2++) { var fm = 1.5 + Math.pow(lr(), 0.8) * (ph ? 3.4 : 4.4), fxx = (lr() * 2 - 1) * Ae * 0.72, fp = P(fm, fxx, B), sz = fm * (ph ? 0.9 : 1.2);
+    if (Math.abs(fxx) < Ae * 0.3 && Math.abs(fm - (ph ? 2.5 : 2.6)) < 0.5) continue;
+    if (lr() < 0.55) fallen += n3_P(flat(n3_leafPts(fp[0], fp[1], 9 * sz, 3 * sz, lr() * 360, 0.1), fp[1], 0.45));
+    else for (var pq = 0; pq < 3; pq++) petals += n3_E(fp[0] + (lr() - 0.5) * 8 * sz, fp[1] + (lr() - 0.5) * 2 * sz, 2.2 * sz, 1 * sz); }
+  add(mid, 'e', Mo.acc1 + petals, G.acc1); add(mid, 'f', Mo.acc2, G.acc2); add(mid, 'h', trunks, dk ? '#4A3A2C' : '#A47A55'); add(mid, 'c', fallen);
   // ---- hanging baskets, grow lamps and misting nozzles hang from the ribs (the engine moves them)
-  var baskets = []; (ph ? [[1.3, -0.62], [1.3, 0.62], [1.72, -0.2]] : [[1.3, -0.46], [1.3, 0.56], [1.72, -0.74], [1.72, 0.28], [2.38, -0.16]]).forEach(function (q, j) { var m = q[0], a = arch(m, q[1]), s = m * (ph ? 0.6 : 0.8);
-    baskets.push({x: a[0], y: Math.max(-12, a[1]), len: (30 + (j % 3) * 20) * s, s: s, k: j}); });
-  var lamps = (ph ? [[-0.22, 1.3]] : [[-0.12, 1.3], [0.5, 1.72]]).map(function (q) { var a = arch(q[1], q[0]); return {x: a[0], top: Math.max(-20, a[1]), y: Math.max(-20, a[1]) + (ph ? 40 : 64) * q[1] * 0.7, s: q[1] * (ph ? 0.6 : 0.8)}; });
+  // (a basket hanging from a nearer rib than a palm may cross in front of it; on the phone the left basket hangs from the rib in front of the palm)
+  var baskets = []; (ph ? [[1.72, -0.6], [1.3, 0.62], [1.72, 0.12]] : [[1.3, -0.46], [1.3, 0.56], [1.72, -0.74], [1.72, 0.28], [2.38, -0.16]]).forEach(function (q, j) { var m = q[0], a = arch(m, q[1]), s = m * (ph ? 0.6 : 0.8);
+    baskets.push({x: a[0], y: Math.max(-12, a[1]), len: (30 + (j % 3) * 20) * s, s: s, k: j, m: m}); });
+  var lamps = (ph ? [[-0.3, 1.3]] : [[-0.12, 1.3], [0.5, 1.72]]).map(function (q) { var a = arch(q[1], q[0]); return {x: a[0], top: Math.max(-20, a[1]), y: Math.max(-20, a[1]) + (ph ? 40 : 64) * q[1] * 0.7, s: q[1] * (ph ? 0.6 : 0.8), m: q[1]}; });
   var noz = []; (ph ? [-0.7, 0.08, 0.7] : [-0.84, -0.52, 0.12, 0.44, 0.84]).forEach(function (c) { var a = arch(1.3, c); if (a[1] > 4) noz.push({x: a[0], y: a[1] + 3, s: ph ? 0.8 : 1}); });
   // ---- front: the beds' near halves, the night-bloom pot in the aisle, a watering can
   var fl = P(ph ? 2.5 : 2.6, 0, B), fs = ph ? 1.1 : 1.6;
@@ -132,6 +151,9 @@ SCENES.greenhouse = function (W, H, dk, rnd) {
   var wc = P(ph ? 2.2 : 2.3, Ae * 0.55, B), ws = ph ? 0.85 : 1.15, cx = wc[0], cy = wc[1];
   var can = rrect(cx - 16 * ws, cy - 28 * ws, 32 * ws, 28 * ws, 6 * ws) + n3_tube([[cx + 12 * ws, cy - 9 * ws], [cx + 27 * ws, cy - 26 * ws], [cx + 34 * ws, cy - 37 * ws]], 5 * ws, 4 * ws) + n3_RE(cx + 36 * ws, cy - 39 * ws, 6 * ws, 3.5 * ws, -40) + n3_tube(n3_bz([cx - 12 * ws, cy - 26 * ws], [cx - 12 * ws, cy - 46 * ws], [cx + 8 * ws, cy - 46 * ws], [cx + 8 * ws, cy - 26 * ws], 10), 3.6 * ws, 3.6 * ws);
   add(near, 'd', can, dk ? '#4E7C86' : '#6FB4C0');
+  // the can's shaded right side, its rim band and the rose's holes (in the shade colour)
+  add(near, 'g', n3_P([[cx + 5 * ws, cy - 28 * ws], [cx + 10 * ws, cy - 28 * ws], [cx + 16 * ws, cy - 22 * ws], [cx + 16 * ws, cy - 6 * ws], [cx + 10 * ws, cy], [cx + 5 * ws, cy]]) + rect(cx - 16 * ws, cy - 24 * ws, 32 * ws, 2.2 * ws) + rect(cx - 16 * ws, cy - 7 * ws, 32 * ws, 2.2 * ws)
+    + n3_RE(cx + 37.5 * ws, cy - 40.5 * ws, 3.6 * ws, 1.8 * ws, -40) + n3_P(n3_leafPts(cx + 2 * ws, cy + 1, 30 * ws, 3 * ws, 0, 0)));
   // corner monsteras (the engine sways them)
   var corners = ph ? [{x: -14, y: H + 8, len: 120, ang: -60, sp: 3}, {x: W + 14, y: H + 8, len: 112, ang: -122, sp: 3}] :
     [{x: -24, y: H + 14, len: 200, ang: -54, sp: 3}, {x: -46, y: H * 0.8, len: 160, ang: -18, sp: 3}, {x: W + 24, y: H + 14, len: 190, ang: -128, sp: 3}, {x: W + 40, y: H * 0.78, len: 150, ang: -164, sp: 2}];
@@ -139,11 +161,29 @@ SCENES.greenhouse = function (W, H, dk, rnd) {
     ANIM.vp = [vx, vy]; ANIM.baskets = baskets; ANIM.corners = corners; ANIM.flower = {x: fl[0] + 10 * fs, y: fl[1] - 92 * fs, s: fs}; ANIM.lamps = lamps; ANIM.noz = noz;
     ANIM.glass = {L: L, E: E, R: R, vx: vx, vy: vy}; ANIM.ph = ph;
   } else {
-    var mon = '', bk = '', ch = '', bl = '';
+    // the still scene: the same baskets (three chains, a rounded pot with a rim, a dome of foliage, trailing vines, flowers on
+    // every other one), the grow lamps, the misting nozzles, the corner monsteras and the closed night-bloom bud
+    var mon = '', bk = '', ch = '', bl = '', bd = '', fw = '', sh = '', br = '';
     corners.forEach(function (c) { mon += n3_monstera(c.x, c.y, c.len, c.ang, c.sp); });
-    baskets.forEach(function (b) { ch += seg(b.x, b.y, b.x, b.y + b.len); bk += n3_P([[b.x - 15 * b.s, b.y + b.len], [b.x + 15 * b.s, b.y + b.len], [b.x + 9 * b.s, b.y + b.len + 12 * b.s], [b.x - 9 * b.s, b.y + b.len + 12 * b.s]]); for (var j = 0; j < 6; j++) bl += n3_leaf(b.x - 13 * b.s + j * 5.2 * b.s, b.y + b.len + 2 * b.s, (16 + (j * 7) % 18) * b.s, 3.4 * b.s, 70 + j * 8, 0); });
-    add(near, 'a', mon); add(mid, 'g', bk, dk ? '#7A4A36' : '#D9845C'); add(mid, 'b', bl); stk(mid, 't', ch, dk ? '#6A7A74' : '#8A8F88', 1);
-    add(near, 'h', n3_RE(fl[0] + 10 * fs, fl[1] - 98 * fs, 5 * fs, 12 * fs, 15));
+    baskets.forEach(function (b) { var s = b.s, x = b.x, y = b.y + b.len;
+      ch += seg(b.x, b.y, x - 14 * s, y) + seg(b.x, b.y, x + 14 * s, y) + seg(b.x, b.y, x + 3 * s, y - 2 * s);
+      bk += 'M' + PT(x - 15 * s, y) + ' L' + PT(x + 15 * s, y) + ' Q' + PT(x + 13 * s, y + 13 * s) + ' ' + PT(x, y + 14 * s) + ' Q' + PT(x - 13 * s, y + 13 * s) + ' ' + PT(x - 15 * s, y) + ' Z ' + rrect(x - 16 * s, y - 1.5 * s, 32 * s, 3.5 * s, 1.5 * s);
+      bd += n3_E(x, y - 2 * s, 14 * s, 6 * s); for (var j = 0; j < 5; j++) bl += n3_RE(x - 10 * s + j * 5 * s, y - 4 * s - (j % 2) * 2 * s, 3.4 * s, 2 * s, -23 + j * 11);
+      for (j = 0; j < 7; j++) { var vx0 = x - 12 * s + j * 4 * s, vl = (22 + ((j * 13 + b.k * 7) % 26)) * s; ch += 'M' + PT(vx0, y + 2 * s) + ' Q' + PT(vx0 + (j % 2 ? 3 : -3) * s, y + vl * 0.5) + ' ' + PT(vx0 + (j % 3 - 1) * 2 * s, y + vl) + ' ';
+        for (var q3 = 1; q3 <= 4; q3++) bl += n3_RE(vx0 + (q3 % 2 ? 2.5 : -2.5) * s, y + 2 * s + vl * q3 / 4, 2.6 * s, 1.6 * s, q3 % 2 ? 30 : -30); }
+      if (b.k % 2 === 0) for (j = 0; j < 3; j++) fw += n3_C(x - 8 * s + j * 8 * s, y - 5 * s + (j % 2) * 2 * s, 2.1 * s); });
+    lamps.forEach(function (lp) { var s = lp.s, x = lp.x, y = lp.y; ch += seg(x, lp.top, x, y - 6 * s); sh += 'M' + PT(x - 13 * s, y + 6 * s) + ' Q' + PT(x - 12 * s, y - 8 * s) + ' ' + PT(x, y - 8 * s) + ' Q' + PT(x + 12 * s, y - 8 * s) + ' ' + PT(x + 13 * s, y + 6 * s) + ' Z '; br += n3_C(x, y + 6 * s, 4.2 * s); });
+    noz.forEach(function (nz) { br += rect(nz.x - 1.5, nz.y - 3, 3, 4) + n3_P([[nz.x - 3, nz.y + 1], [nz.x + 3, nz.y + 1], [nz.x, nz.y + 4]]); });
+    add(near, 'a', mon); add(mid, 'g', bk, dk ? '#9A6048' : '#E8946A'); add(mid, 'b', bd + sh); add(mid, 'c', bl); add(mid, 'e', fw); add(mid, 'f', br); stk(mid, 't', ch, dk ? '#6A7A74' : '#8A8F88', 1);
+    // the closed bud: a plump, pointed bud on its arching stem, wrapped in thin reddish bracts, its tip blushing pink
+    var bx0 = fl[0] + 10 * fs, by0 = fl[1] - 92 * fs, bud = [], ax = -69;
+    for (var bi = 0; bi <= 16; bi++) { var bt = bi / 16; bud.push([bt * 30 * fs, 6.2 * fs * Math.pow(Math.sin(Math.PI * Math.pow(bt, 0.75)), 0.9) * (1 - 0.15 * bt)]); }
+    var budP = bud.concat(bud.slice(1, -1).reverse().map(function (p) { return [p[0], -p[1]]; }));
+    add(near, 'c', n3_P(rotp(budP, bx0, by0, ax)));
+    add(near, 'e', n3_P(rotp(budP.filter(function (p) { return p[0] > 25 * fs; }), bx0, by0, ax)));
+    var bracts = ''; N3_BRACTS.forEach(function (q) { var a = [q[0][0] * fs, q[0][1] * fs], b = [q[1][0] * fs, q[1][1] * fs], e = [q[2][0] * fs, q[2][1] * fs];
+      bracts += n3_tube(rotp(n3_bz(a, [a[0] + (b[0] - a[0]) * 2 / 3, a[1] + (b[1] - a[1]) * 2 / 3], [e[0] + (b[0] - e[0]) * 2 / 3, e[1] + (b[1] - e[1]) * 2 / 3], e, 8), bx0, by0, ax), 0.9 * fs, 0.35 * fs); });
+    add(near, 'f', bracts);
   }
   return {sky: sky, far: far, refl: refl, mid: mid, near: near};
 };
@@ -193,17 +233,19 @@ SCENES.pottery = function (W, H, dk, rnd) {
   var spl = ''; spread(0, fy + 8, W, H - fy - 8, ph ? 70 : 110, 40, rnd, 1).forEach(function (c) { if (c.q < 0.4) spl += n3_E(c.x, c.y, 4 + c.r * 9, 1.5 + c.k * 2.5); });
   add(refl, 'f', spl, dk ? 'rgba(160,130,110,0.22)' : 'rgba(165,125,95,0.28)');
   // ---- the shelf unit: uprights and boards full of pots
-  var shx0 = ph ? W * 0.6 : W * 0.355, shx1 = ph ? W * 1.04 : W * 0.78, shelfY = ph ? [H * 0.15, H * 0.28, H * 0.41, H * 0.54, H * 0.67] : [H * 0.2, H * 0.36, H * 0.52, H * 0.66], bt = ph ? 6 : 9, unit = '';
+  // (on the phone the unit stops short of the kiln's chimney, and has no row hidden behind the kiln)
+  var shx0 = ph ? W * 0.58 : W * 0.355, shx1 = ph ? W * 0.9 : W * 0.78, shelfY = ph ? [H * 0.16, H * 0.3, H * 0.44, H * 0.58] : [H * 0.2, H * 0.36, H * 0.52, H * 0.66], bt = ph ? 6 : 9, unit = '';
   shelfY.forEach(function (y) { unit += rect(shx0, y, shx1 - shx0, bt); });
   unit += rect(shx0 - 4, shelfY[0] - (ph ? 50 : 70), ph ? 7 : 10, fy - shelfY[0] + (ph ? 50 : 70)) + rect(shx1 - (ph ? 3 : 6), shelfY[0] - (ph ? 50 : 70), ph ? 7 : 10, fy - shelfY[0] + (ph ? 50 : 70)) + rect(shx0 - 6, shelfY[0] - (ph ? 54 : 76), shx1 - shx0 + 12, ph ? 6 : 9);
   add(refl, 'd', unit, dk ? '#5E4234' : '#B07A50');
   var gl = {grn: '', bsq: '', g1: '', g2: '', g3: '', g4: '', sh: '', hi: ''}, potList = [];
   var rowsTop = [shelfY[0] - (ph ? 50 : 70)].concat(shelfY);
-  shelfY.forEach(function (y, row) { var x = shx0 + 10, room = y - rowsTop[row] - 8; while (x < shx1 - 14) { var kind = Math.floor(rnd() * 6), h = Math.min(room, (ph ? 24 : 40) * (0.65 + rnd() * 0.55)) * (kind === 0 ? 0.6 : kind === 5 ? 0.85 : 1), w = h * (kind === 0 ? 2.2 : kind === 3 ? 0.8 : kind === 5 ? 1 : 1.0), cx = x + w / 2;
+  shelfY.forEach(function (y, row) { var x = shx0 + 10, room = y - rowsTop[row] - 8; while (x < shx1 - 14) { var kind = Math.floor(rnd() * 6), h = Math.min(room, (ph ? 38 : 56) * (0.65 + rnd() * 0.5)) * (kind === 0 ? 0.6 : kind === 5 ? 0.85 : 1), w = h * (kind === 0 ? 2.2 : kind === 3 ? 0.8 : kind === 5 ? 1 : 1.0), cx = x + w / 2;
     if (cx + w / 2 > shx1 - 8) break; var key = ['grn', 'grn', 'bsq', 'g1', 'g2', 'g3', 'g4'][Math.floor(rnd() * 7)]; if (row < 1 && rnd() < 0.5) key = 'grn';
     var pts = n3_potPts(kind, cx, y, w, h); gl[key] += n3_P(pts);
     var rs = pts.slice(0, 15); gl.sh += n3_P(rs.concat(rs.map(function (p) { return [cx + (p[0] - cx) * 0.35, p[1]]; }).reverse()));
     if (key !== 'grn') gl.hi += n3_RE(cx - w * 0.18, y - h * 0.55, Math.max(1.2, w * 0.05), h * 0.16, 8);
+    if (kind === 5) gl.sh += n3_C(cx, y - h * 0.5, w * 0.3);   // a plate standing on edge: its shallow well
     if (kind === 2) gl[key] += n3_tube(n3_bz([cx + w * 0.38, y - h * 0.78], [cx + w * 0.8, y - h * 0.82], [cx + w * 0.78, y - h * 0.3], [cx + w * 0.4, y - h * 0.34], 8), ph ? 2.2 : 3.2, ph ? 2.2 : 3.2);
     potList.push({x: cx, y: y - h * 0.5, w: w, h: h}); x += w + 3 + rnd() * 8; } });
   add(mid, 'a', gl.grn, dk ? '#8E8478' : '#DCD3C6'); add(mid, 'b', gl.bsq, dk ? '#A26A54' : '#EDAF90'); add(mid, 'c', gl.g1, dk ? '#2F7C7A' : '#3FA6A0'); add(mid, 'd', gl.g2, dk ? '#36508E' : '#4A68C0');
@@ -215,7 +257,7 @@ SCENES.pottery = function (W, H, dk, rnd) {
   // ---- the arched brick kiln with its chimney
   var kx0 = ph ? W * 0.58 : W * 0.8, kx1 = ph ? W * 1.06 : W * 1.02, kTop = fy - H * (ph ? 0.2 : 0.34), kSpring = kTop + (kx1 - kx0) * 0.32, kby = fy + 4, kcx = (kx0 + kx1) / 2;
   var kOut = [[kx0, kby], [kx0, kSpring]]; for (i = 1; i < 16; i++) { var a = Math.PI - i / 16 * Math.PI; kOut.push([kcx + Math.cos(a) * (kx1 - kx0) / 2, kSpring - Math.sin(a) * (kSpring - kTop)]); } kOut.push([kx1, kSpring], [kx1, kby]);
-  var chim = rect(kcx + (kx1 - kx0) * 0.12, -20, ph ? 16 : 24, kTop + 28);
+  var chim = rect(ph ? W * 0.93 : kcx + (kx1 - kx0) * 0.12, -20, ph ? 16 : 24, kTop + 28);
   add(near, 'f', n3_P(kOut) + chim, dk ? '#7A3E2C' : '#BC6442');
   var dx0 = kcx - (kx1 - kx0) * 0.26, dx1 = kcx + (kx1 - kx0) * 0.26, dy1 = kby - (kby - kTop) * 0.12, dSpring = kSpring + (kby - kSpring) * 0.18, dTop = dSpring - (dx1 - dx0) * 0.42;
   var door = [[dx0, dy1], [dx0, dSpring]]; for (i = 1; i < 12; i++) { a = Math.PI - i / 12 * Math.PI; door.push([kcx + Math.cos(a) * (dx1 - dx0) / 2, dSpring - Math.sin(a) * (dSpring - dTop)]); } door.push([dx1, dSpring], [dx1, dy1]);
@@ -243,25 +285,52 @@ SCENES.pottery = function (W, H, dk, rnd) {
   var bowls = n3_P(n3_potPts(0, bwx, tby, 46 * bws, 18 * bws)) + n3_P(n3_potPts(0, bwx, tby - 14 * bws, 40 * bws, 16 * bws)) + n3_P(n3_potPts(0, bwx, tby - 26 * bws, 34 * bws, 14 * bws));
   var fpots = n3_P(n3_potPts(4, W * (ph ? 0.08 : 0.38), fy + (ph ? 40 : 30), (ph ? 34 : 52), (ph ? 36 : 54))) + n3_P(n3_potPts(1, W * (ph ? 0.2 : 0.43), fy + (ph ? 34 : 26), (ph ? 22 : 34), (ph ? 44 : 66)));
   add(near, 'd', bowls + fpots, dk ? '#A26A54' : '#EDB596');
-  add(near, 'b', wood2 + sacks, dk ? '#4E3628' : '#946240');
-  var sackTop = n3_E(sk[0] - 4 * ss, sk[1] - 46 * ss, 14 * ss, 4 * ss);
+  // the clay sacks (in the clay colour, so they read apart from the table legs behind them), tied at the neck, with folds
+  add(near, 'b', wood2, dk ? '#4E3628' : '#946240'); add(near, 'c', sacks);
+  var sackTop = '', sackLines = 'M' + PT(sk[0] - 26 * ss, sk[1] - 42 * ss) + ' Q' + PT(sk[0] - 4 * ss, sk[1] - 38 * ss) + ' ' + PT(sk[0] + 20 * ss, sk[1] - 41 * ss) + ' M' + PT(sk[0] - 22 * ss, sk[1] - 30 * ss) + ' Q' + PT(sk[0] - 16 * ss, sk[1] - 14 * ss) + ' ' + PT(sk[0] - 24 * ss, sk[1] - 2 * ss)
+    + ' M' + PT(sk[0] + 6 * ss, sk[1] - 30 * ss) + ' Q' + PT(sk[0] + 12 * ss, sk[1] - 16 * ss) + ' ' + PT(sk[0] + 8 * ss, sk[1] - 4 * ss) + ' M' + PT(sk[0] + 26 * ss, sk[1] - 30 * ss) + ' Q' + PT(sk[0] + 44 * ss, sk[1] - 26 * ss) + ' ' + PT(sk[0] + 60 * ss, sk[1] - 29 * ss)
+    + ' M' + PT(sk[0] + 40 * ss, sk[1] - 20 * ss) + ' Q' + PT(sk[0] + 44 * ss, sk[1] - 8 * ss) + ' ' + PT(sk[0] + 40 * ss, sk[1] + 2 * ss) + ' ' + rect(sk[0] - 14 * ss, sk[1] - 34 * ss, 26 * ss, 9 * ss);
   var mug = [tbx0 + (tbx1 - tbx0) * 0.9, tby], ms = ph ? 0.75 : 1.1;
   var bucket = [W * (ph ? 0.3 : 0.47), fy + (ph ? 46 : 40)], bks = ph ? 0.8 : 1.2;
   add(near, 'e', rrect(mug[0] - 9 * ms, mug[1] - 20 * ms, 18 * ms, 20 * ms, 3 * ms) + n3_tube(n3_bz([mug[0] + 8 * ms, mug[1] - 16 * ms], [mug[0] + 16 * ms, mug[1] - 16 * ms], [mug[0] + 16 * ms, mug[1] - 5 * ms], [mug[0] + 8 * ms, mug[1] - 6 * ms], 8), 3 * ms, 3 * ms)
     + n3_P([[bucket[0] - 22 * bks, bucket[1] - 34 * bks], [bucket[0] + 22 * bks, bucket[1] - 34 * bks], [bucket[0] + 17 * bks, bucket[1]], [bucket[0] - 17 * bks, bucket[1]]]), dk ? '#3E7C8C' : '#5FAFC2');
-  add(mid, 'b', spot); add(mid, 'c', spl2); add(mid, 'f', sp); add(near, 'a', sackTop);
+  add(mid, 'b', spot); add(mid, 'c', spl2); add(mid, 'f', sp);
+  // rims and a wire handle for the floor pots and the bucket, the sacks' folds and printed labels (one fine dark line set)
+  var fpx = [W * (ph ? 0.08 : 0.38), W * (ph ? 0.2 : 0.43)], rims = sackLines + 'M' + PT(bucket[0] - 21 * bks, bucket[1] - 30 * bks) + ' L' + PT(bucket[0] + 21 * bks, bucket[1] - 30 * bks)
+    + ' M' + PT(bucket[0] - 20 * bks, bucket[1] - 33 * bks) + ' Q' + PT(bucket[0], bucket[1] - 58 * bks) + ' ' + PT(bucket[0] + 20 * bks, bucket[1] - 33 * bks)
+    + ' M' + PT(fpx[0] - (ph ? 7 : 10), fy + (ph ? 40 : 30) - (ph ? 30 : 45)) + ' L' + PT(fpx[0] + (ph ? 7 : 10), fy + (ph ? 40 : 30) - (ph ? 30 : 45)) + ' M' + PT(fpx[1] - (ph ? 4 : 6), fy + (ph ? 34 : 26) - (ph ? 36 : 54)) + ' L' + PT(fpx[1] + (ph ? 4 : 6), fy + (ph ? 34 : 26) - (ph ? 36 : 54)) + ' ';
+  stk(near, 't', rims, dk ? 'rgba(20,8,6,0.45)' : 'rgba(90,50,30,0.42)', 1.3);
   // ---- the potter's wheel: frame and splash pan rim; the engine draws the turning head, the clay and the pan's front lip
   var wx = ph ? W * 0.52 : W * 0.6, wy = H * (ph ? 0.9 : 0.88), ws = ph ? 0.95 : 1.5;
   add(near, 'b', rect(wx - 40 * ws, wy + 8 * ws, 9 * ws, H - wy + 20) + rect(wx + 31 * ws, wy + 8 * ws, 9 * ws, H - wy + 20) + rect(wx + 84 * ws, wy - 24 * ws, 38 * ws, 8 * ws) + rect(wx + 90 * ws, wy - 16 * ws, 6 * ws, H - wy + 40) + rect(wx + 112 * ws, wy - 16 * ws, 6 * ws, H - wy + 40));
   var panC = dk ? '#4C5A6A' : '#7FA3BC';
+  // contact shadows on the floor (under the wall layer's shade colour): floor pots, bucket, sacks, table legs, wheel and stool
+  add(refl, 'g', n3_E(fpx[0], fy + (ph ? 40 : 30), (ph ? 20 : 30), 4) + n3_E(fpx[1], fy + (ph ? 34 : 26), (ph ? 13 : 19), 3.4) + n3_E(bucket[0], bucket[1], 22 * bks, 4 * bks) + n3_E(sk[0] + 14 * ss, sk[1] + 2, 58 * ss, 6 * ss)
+    + n3_E(tbx0 + 10 + (ph ? 3 : 5), fy + 6, 12, 3) + n3_E(tbx1 - 20 + (ph ? 3 : 5), fy + 6, 12, 3) + n3_E(wx, H - 2, 90 * ws, 10 * ws) + n3_E(wx + 103 * ws, H - 2, 30 * ws, 6 * ws));
   var tiles = ''; var ty0 = bmH + (ph ? 4 : 6), tA = W * (ph ? 0.08 : 0.36), tB = W * (ph ? 0.56 : 0.76), sag = ph ? 18 : 30;
   if (ANIM) {
     ANIM.wheel = {x: wx, y: wy, s: ws, pan: panC}; ANIM.win = {x0: wx0, x1: wx1, y0: wy0, y1: wy1}; ANIM.kiln = {x0: kx0, x1: kx1, top: kTop, y1: kby, cx: kcx, peep: peep, door: door, dTop: dTop}; ANIM.pots = potList; ANIM.mug = [mug[0], mug[1] - 20 * ms, ms];
     ANIM.sill = {x: wx0 + (wx1 - wx0) * 0.36, y: wy1, s: ph ? 1.0 : 1.55}; ANIM.tiles = {a: tA, b: tB, y: ty0, sag: sag, n: ph ? 6 : 10}; ANIM.lamps = ph ? [[W * 0.7, bmH]] : [[W * 0.46, bmH], [W * 0.88, bmH]]; ANIM.ph = ph;
   } else {
-    for (var q = 1; q < 10; q++) { var u = q / 10, px = tA + (tB - tA) * u, py = ty0 + sag * 4 * u * (1 - u); tiles += rrect(px - 6, py + 2, 12, 14, 2); }
-    add(mid, 'b', tiles); stk(mid, 's', 'M' + PT(tA, ty0) + ' Q' + PT((tA + tB) / 2, ty0 + sag * 2) + ' ' + PT(tB, ty0) + ' ', dk ? '#8A7468' : '#8A6A55', 1);
-    add(near, 'g', n3_E(wx, wy, 72 * ws, 18 * ws)); add(near, 'c', n3_P(n3_potPts(4, wx, wy - 4 * ws, 42 * ws, 34 * ws)));
+    // the still scene (Style Shop): glazed test tiles on their string, the pendant lamps, the dozing cat on the sill and the wheel
+    var n = ph ? 6 : 10, ts = ph ? 0.75 : 1, gk = ['c', 'd', 'e', 'f'], gz = {c: '', d: '', e: '', f: ''}, cord = 'M' + PT(tA, ty0) + ' Q' + PT((tA + tB) / 2, ty0 + sag * 2) + ' ' + PT(tB, ty0) + ' ';
+    for (var q = 1; q < n; q++) { var u = q / n, px = tA + (tB - tA) * u, py = ty0 + sag * 4 * u * (1 - u); tiles += rect(px - 6 * ts, py + 2, 12 * ts, 15 * ts); gz[gk[q % 4]] += rect(px - 6 * ts, py + 2, 12 * ts, 9 * ts); }
+    var lampsS = ph ? [[W * 0.7, bmH]] : [[W * 0.46, bmH], [W * 0.88, bmH]], shade = '', bulb = '';
+    lampsS.forEach(function (l) { var x = l[0], y = l[1] + (ph ? 30 : 46), s = ph ? 0.75 : 1; cord += seg(x, l[1], x, y - 10 * s); bulb += n3_C(x, y + 2 * s, 4.5 * s);
+      shade += 'M' + PT(x - 16 * s, y + 3 * s) + ' Q' + PT(x - 14 * s, y - 12 * s) + ' ' + PT(x, y - 12 * s) + ' Q' + PT(x + 14 * s, y - 12 * s) + ' ' + PT(x + 16 * s, y + 3 * s) + ' Z '; });
+    var cs2 = ph ? 1.0 : 1.55, cx2 = wx0 + (wx1 - wx0) * 0.36, cy2 = wy1, catB = '', catP = '', catL = '';
+    function cp(x, y) { return [cx2 + x * cs2, cy2 + y * cs2]; }
+    catB += n3_RE(cp(-2, -8)[0], cp(-2, -8)[1], 15 * cs2, 8.5 * cs2, 0) + n3_C(cp(11, -14)[0], cp(11, -14)[1], 8.6 * cs2) + n3_P([cp(3, -16), cp(4, -26), cp(9.5, -21)]) + n3_P([cp(12.5, -21), cp(18, -26), cp(19, -16)])
+      + n3_tube(n3_bz(cp(-14, -4), cp(-21, -4), cp(-24, 1), cp(-22, 8), 10), 4 * cs2, 3.4 * cs2);
+    catP += n3_RE(cp(-6, -13)[0], cp(-6, -13)[1], 6 * cs2, 2.6 * cs2, 11) + n3_RE(cp(-13, -9)[0], cp(-13, -9)[1], 2.6 * cs2, 3.6 * cs2, 11) + n3_P([cp(9, -21.6), cp(11, -18), cp(13, -21.6)]);
+    catL += 'M' + PT(cp(5.8, -14.2)[0], cp(5.8, -14.2)[1]) + ' Q' + PT(cp(7.6, -12.4)[0], cp(7.6, -12.4)[1]) + ' ' + PT(cp(9.4, -14.2)[0], cp(9.4, -14.2)[1]) + ' M' + PT(cp(12.6, -14.2)[0], cp(12.6, -14.2)[1]) + ' Q' + PT(cp(14.4, -12.4)[0], cp(14.4, -12.4)[1]) + ' ' + PT(cp(16.2, -14.2)[0], cp(16.2, -14.2)[1]) + ' ';
+    add(mid, 'b', tiles + catB); add(mid, 'c', gz.c + shade); add(mid, 'd', gz.d); add(mid, 'e', gz.e); add(mid, 'f', gz.f); add(mid, 'g', catP); add(mid, 'h', bulb);
+    stk(mid, 's', cord, dk ? '#8A7468' : '#8A6A55', 1); stk(mid, 't', catL, '#3A2A33', 1.1);
+    // the wheel: splash pan wall and rim, the dark basin, a lump of red clay with throwing lines
+    add(near, 'e', 'M' + PT(wx - 74 * ws, wy) + ' A' + n1(74 * ws) + ' ' + n1(19 * ws) + ' 0 0 1 ' + PT(wx + 74 * ws, wy) + ' L' + PT(wx + 74 * ws, wy + 16 * ws) + ' A' + n1(74 * ws) + ' ' + n1(19 * ws) + ' 0 0 1 ' + PT(wx - 74 * ws, wy + 16 * ws) + ' Z ');
+    add(near, 'g', n3_E(wx, wy + 1 * ws, 66 * ws, 15 * ws));
+    add(near, 'h', n3_P(n3_potPts(4, wx, wy - 2 * ws, 46 * ws, 40 * ws)));
+    stk(near, 't', 'M' + PT(wx - 18 * ws, wy - 14 * ws) + ' Q' + PT(wx, wy - 10 * ws) + ' ' + PT(wx + 18 * ws, wy - 14 * ws) + ' M' + PT(wx - 21 * ws, wy - 24 * ws) + ' Q' + PT(wx, wy - 20 * ws) + ' ' + PT(wx + 21 * ws, wy - 24 * ws) + ' M' + PT(wx - 16 * ws, wy - 34 * ws) + ' Q' + PT(wx, wy - 31 * ws) + ' ' + PT(wx + 16 * ws, wy - 34 * ws) + ' ');
   }
   return {sky: sky, far: far, refl: refl, mid: mid, near: near};
 };
@@ -316,9 +385,9 @@ SCENES.campfire = function (W, H, dk, rnd) {
   add(near, 'c', clearing + strip, dk ? '#3A3430' : '#D8C49A');
   var flw = ''; if (!dk) spread(0, shore + 20, W, H - shore - 20, ph ? 40 : 54, 30, rnd, 1).forEach(function (c) { if (c.q > 0.3 || Math.hypot((c.x - fx) / 1.7, c.y - fyy) < 120 * fs) return; var s = 0.7 + (c.y - shore) / (H - shore); for (var q = 0; q < 5; q++) flw += n3_C(c.x + Math.cos(q * 1.257) * 2.2 * s, c.y + Math.sin(q * 1.257) * 2.2 * s, 1.6 * s); });
   // stones ringing the fire, and a few on the shore
-  var stones = ''; for (k = 0; k < 11; k++) { var a = k / 11 * Math.PI * 2, sx2 = fx + Math.cos(a) * 46 * fs, sy2 = fyy + Math.sin(a) * 13 * fs; stones += n3_E(sx2, sy2 - 3 * fs, (9 + (k % 3) * 2) * fs, 6.5 * fs); }
-  [[0.3, 0.72], [0.34, 0.73], [0.66, 0.705]].forEach(function (q) { if (ph) return; stones += n3_E(W * q[0], H * q[1], 14, 7); });
-  add(near, 'f', stones, dk ? '#4A4A52' : '#9EA2A8');
+  var stones = '', stonesF = '', stonesS = ''; for (k = 0; k < 11; k++) { var a = k / 11 * Math.PI * 2, sx2 = fx + Math.cos(a) * 46 * fs, sy2 = fyy + Math.sin(a) * 13 * fs, st1 = n3_E(sx2, sy2 - 3 * fs, (9 + (k % 3) * 2) * fs, 6.5 * fs); stones += st1; if (Math.sin(a) > 0.05) stonesF += st1; if (Math.sin(a) > 0 || Math.abs(Math.cos(a)) > 0.76) stonesS += st1; }
+  [[0.3, 0.72], [0.34, 0.73], [0.66, 0.705]].forEach(function (q) { if (ph) return; var e = n3_E(W * q[0], H * q[1], 14, 7); stones += e; stonesS += e; });
+  add(near, 'f', ANIM ? stones : stonesS, dk ? '#4A4A52' : '#9EA2A8');   // (the still fire hides the back stones behind its flames)
   // log seats: one behind-left, one to the right of the fire
   var logs = '', ends = '';
   [[fx - 150 * fs, fyy - 18 * fs, 120 * fs, -6], [fx + 120 * fs, fyy + 16 * fs, 100 * fs, 8]].forEach(function (q) { var lx = q[0], ly = q[1], L = q[2], r = 14 * fs; var p = rotp([[-L / 2, -r], [L / 2, -r], [L / 2, r], [-L / 2, r]], lx, ly, q[3]); logs += n3_P(p); var e = rotp([[L / 2, 0]], lx, ly, q[3])[0]; ends += n3_RE(e[0], e[1], r * 0.45, r, q[3]); });
@@ -326,7 +395,11 @@ SCENES.campfire = function (W, H, dk, rnd) {
   var fl = rotp([[-40, -6], [40, -6], [40, 6], [-40, 6]], fx, fyy - 4 * fs, 18).map(function (p) { return [fx + (p[0] - fx) * fs, fyy - 4 * fs + (p[1] - fyy + 4 * fs) * fs]; });
   var fl2 = rotp([[-40, -6], [40, -6], [40, 6], [-40, 6]], fx, fyy - 4 * fs, -16).map(function (p) { return [fx + (p[0] - fx) * fs, fyy - 4 * fs + (p[1] - fyy + 4 * fs) * fs]; });
   logs += n3_P(fl) + n3_P(fl2);
-  add(near, 'd', logs, dk ? '#4A3024' : '#8A5A3A'); add(near, 'e', ends + flw, dk ? '#8A6448' : '#F4E2B8');
+  add(near, 'd', logs, dk ? '#4A3024' : '#8A5A3A'); add(near, 'e', ends + flw, dk ? '#C89A6A' : '#F4E2B8');
+  // bark lines along the seat logs and growth rings on their cut ends
+  var bark = ''; [[fx - 150 * fs, fyy - 18 * fs, 120 * fs, -6], [fx + 120 * fs, fyy + 16 * fs, 100 * fs, 8]].forEach(function (q) { var L = q[2], r = 14 * fs;
+    [[-0.42, -0.5, 0.1], [-0.3, 0.1, 0.38], [0.2, -0.2, 0.3], [0.45, -0.46, -0.05], [-0.05, 0.05, 0.4]].forEach(function (b) { var p = rotp([[b[1] * L, b[0] * r * 1.6], [b[2] * L, b[0] * r * 1.6]], q[0], q[1], q[3]); bark += seg(p[0][0], p[0][1], p[1][0], p[1][1]); });
+    var e = rotp([[L / 2, 0]], q[0], q[1], q[3])[0]; bark += 'M' + PT(e[0], e[1] - r * 0.55) + ' A' + n1(r * 0.25) + ' ' + n1(r * 0.55) + ' 0 1 1 ' + PT(e[0], e[1] + r * 0.55) + ' A' + n1(r * 0.25) + ' ' + n1(r * 0.55) + ' 0 1 1 ' + PT(e[0], e[1] - r * 0.55) + ' '; });
   // the tent (A-frame) with its open door
   var tx = W * (ph ? 0.8 : 0.8), ty = H * (ph ? 0.8 : 0.81), tw = ph ? 84 : 150, th = ph ? 94 : 160;
   var tent = n3_P([[tx - tw, ty], [tx - tw * 0.12, ty - th], [tx + tw * 0.12, ty - th], [tx + tw * 1.05, ty], [tx + tw * 0.2, ty + 10]]);
@@ -335,7 +408,10 @@ SCENES.campfire = function (W, H, dk, rnd) {
   add(near, 'g', tent, dk ? '#B8562E' : '#F08A3E');
   add(near, 'h', tside + door, dk ? 'rgba(40,14,8,0.5)' : 'rgba(150,50,20,0.3)');
   var guys = seg(tx - tw * 0.12, ty - th, tx - tw * 1.5, ty + 6) + seg(tx + tw * 0.12, ty - th, tx + tw * 1.55, ty + 4) + seg(tx, ty - th, tx, ty - th - 10);
-  stk(near, 's', guys, dk ? 'rgba(200,190,170,0.5)' : 'rgba(110,80,60,0.6)', 1.2);
+  // the tent's ridge and front seams, and its pegs
+  var seams = seg(tx - tw * 0.12, ty - th, tx + tw * 0.12, ty - th) + seg(tx - tw * 0.12, ty - th, tx + tw * 0.2, ty + 10)
+    + seg(tx - tw * 1.5, ty + 6, tx - tw * 1.5, ty - 2) + seg(tx + tw * 1.55, ty + 4, tx + tw * 1.55, ty - 4) + seg(tx - tw, ty, tx - tw - 4, ty + 6) + seg(tx + tw * 1.05, ty, tx + tw * 1.05 + 4, ty + 6);
+  stk(near, 's', guys + seams + bark, dk ? 'rgba(200,190,170,0.5)' : 'rgba(110,80,60,0.6)', 1.2);
   // grass blades and reeds at the water's edge
   var grass = ''; spread(0, shore, W, H - shore, ph ? 26 : 34, ph ? 22 : 26, rnd, 1).forEach(function (c) { if (c.q > 0.5) return; if (Math.hypot((c.x - fx) / 1.7, c.y - fyy) < 110 * fs || (c.x > tx - tw && c.x < tx + tw * 1.1 && c.y < ty + 8 && c.y > ty - th)) return; var s = 0.6 + (c.y - shore) / (H - shore) * 1.2; grass += 'M' + PT(c.x - 3 * s, c.y) + ' L' + PT(c.x - 5 * s, c.y - 8 * s) + ' M' + PT(c.x, c.y) + ' L' + PT(c.x + 1 * s, c.y - 11 * s) + ' M' + PT(c.x + 3 * s, c.y) + ' L' + PT(c.x + 6 * s, c.y - 7 * s) + ' '; });
   var reeds = ''; for (x = 4; x < W; x += 9 + rnd() * 30) { if (ph && x > W * 0.3 && x < W * 0.7) continue; var rh = 14 + rnd() * 22, gy = shore + Math.sin(x / 90 + 1) * 4; reeds += 'M' + PT(x, gy + 2) + ' Q' + PT(x + 2, gy - rh * 0.5) + ' ' + PT(x + 4 * (rnd() - 0.3), gy - rh) + ' '; }
@@ -345,14 +421,21 @@ SCENES.campfire = function (W, H, dk, rnd) {
   var canoe = n3_P([[cx - cw, cy - 14], [cx - cw * 0.82, cy - 2], [cx - cw * 0.55, cy + 6], [cx + cw * 0.55, cy + 6], [cx + cw * 0.82, cy - 2], [cx + cw, cy - 14], [cx + cw * 0.8, cy - 6], [cx - cw * 0.8, cy - 6]]);
   add(mid, 'f', canoe, dk ? '#8A3A3A' : '#D8564A'); add(mid, 'g', rect(cx - cw * 0.8, cy - 6, cw * 1.6, 3) + n3_RE(cx + cw * 0.35, cy - 6, 20 * (ph ? 0.6 : 1), 2.4, -12), dk ? '#C8A07A' : '#F2D2A6');
   // marshmallow stick: rests on the left log, tip over the flames
-  var stA = [fx - 128 * fs, fyy - 30 * fs], stB = [fx - 40 * fs, fyy - 96 * fs];
+  // marshmallow stick: pushed into the ground in front of the left log, resting across its top, tip over the flames
+  var stA = [fx - 175 * fs, fyy + 5 * fs], stB = [fx - 40 * fs, fyy - 96 * fs];
+  add(near, 'c', n3_E(stA[0] + 1 * fs, stA[1] + 1 * fs, 7 * fs, 2.4 * fs));
   if (ANIM) {
-    ANIM.fire = {x: fx, y: fyy - 6 * fs, s: fs}; ANIM.stick = [stA, stB]; ANIM.tent = {x: tx, y: ty, w: tw, h: th}; ANIM.lake = {top: hz, bot: shore, mx: mx}; ANIM.moon = [mx, my, mr]; ANIM.twk = twk; ANIM.ph = ph;
+    ANIM.fire = {x: fx, y: fyy - 6 * fs, s: fs, stones: stonesF, logs: n3_P(fl) + n3_P(fl2), stoneC: dk ? '#4A4A52' : '#9EA2A8', logC: dk ? '#4A3024' : '#8A5A3A'}; ANIM.stick = [stA, stB]; ANIM.pines = sp + sp2; ANIM.tent = {x: tx, y: ty, w: tw, h: th}; ANIM.lake = {top: hz, bot: shore, mx: mx}; ANIM.moon = [mx, my, mr]; ANIM.twk = twk; ANIM.ph = ph;
   } else {
-    stk(near, 's', seg(stA[0], stA[1], stB[0], stB[1]));
-    add(near, 'e', n3_RE(stB[0], stB[1], 8 * fs, 6 * fs, -18));
-    var fla = n3_P([[fx - 30 * fs, fyy - 4 * fs], [fx - 18 * fs, fyy - 40 * fs], [fx - 6 * fs, fyy - 26 * fs], [fx + 2 * fs, fyy - 70 * fs], [fx + 12 * fs, fyy - 30 * fs], [fx + 22 * fs, fyy - 46 * fs], [fx + 30 * fs, fyy - 4 * fs]]);
-    add(near, 'g', fla);
+    // the still fire: the engine's five tongues in orange with a pale core showing through a hole in them; the peeled stick and its marshmallow
+    var stP = n3_bz(stA, [(stA[0] + stB[0]) / 2 - 10 * fs, (stA[1] + stB[1]) / 2 - 6 * fs], [(stA[0] + stB[0]) / 2 + 20 * fs, (stA[1] + stB[1]) / 2 - 8 * fs], stB, 12);
+    var sAng = Math.atan2(stB[1] - stA[1], stB[0] - stA[0]) * 180 / Math.PI;
+    add(near, 'e', n3_tube(stP, 3.4 * fs, 2.4 * fs) + n3_P(rotp([[-3 * fs, -6 * fs], [11 * fs, -6 * fs], [13 * fs, -3 * fs], [13 * fs, 3 * fs], [11 * fs, 6 * fs], [-3 * fs, 6 * fs], [-5 * fs, 3 * fs], [-5 * fs, -3 * fs]], stB[0], stB[1], sAng)));
+    var TG = [[-24, 0.48, 9], [-12, 0.78, 11], [0, 1, 12], [12, 0.74, 11], [23, 0.46, 9]], outer = n3_fn(fx - 42 * fs, fx + 42 * fs, 1.5 * fs, function (x) { var hm = 0; TG.forEach(function (q) { var u = Math.abs(x - fx - q[0] * fs * 1.15) / (q[2] * fs * 1.5); if (u < 1) hm = Math.max(hm, 74 * fs * q[1] * 1.05 * Math.pow(1 - u, 0.72)); }); return fyy - 6 * fs - hm; });
+    outer = n3_P(outer.concat([[fx + 42 * fs, fyy - 6 * fs], [fx - 42 * fs, fyy - 6 * fs]]));
+    var core = n3_fn(fx - 24 * fs, fx + 24 * fs, 2 * fs, function (x) { var u = (x - fx) / (24 * fs); return fyy - 7 * fs - 44 * fs * Math.pow(1 - u * u, 1.4) * (0.72 + 0.28 * Math.cos(u * 7.5)); });
+    core = core.concat([[fx + 24 * fs, fyy - 6 * fs], [fx - 24 * fs, fyy - 6 * fs]]);
+    add(near, 'g', outer + poly(n3_cw(core).reverse())); add(near, 'e', n3_P(core));
     twk.forEach(function (s) { stars += n3_spark(s.x, s.y, s.r); }); add(refl, 'd', stars);
   }
   return {sky: sky, far: far, refl: refl, mid: mid, near: near, band: {top: hz, bg: lake}};
@@ -365,7 +448,9 @@ SCENES.campfire = function (W, H, dk, rnd) {
 // branching coral: a few forking tubes from (x,y), scale s
 function n3_branch(x, y, s, rnd, depth, ang, len) { if (depth === undefined) { depth = 3; ang = -90; len = 26; } var a = ang * Math.PI / 180, x2 = x + Math.cos(a) * len * s, y2 = y + Math.sin(a) * len * s, d = n3_tube([[x, y], [(x + x2) / 2 + Math.sin(a) * 2 * s, (y + y2) / 2], [x2, y2]], (2.2 + depth * 1.4) * s, (1.6 + depth) * s) + n3_C(x2, y2, (1 + depth * 0.7) * s);
   if (depth > 0) { d += n3_branch(x2, y2, s, rnd, depth - 1, ang - 22 - rnd() * 16, len * 0.72); d += n3_branch(x2, y2, s, rnd, depth - 1, ang + 22 + rnd() * 16, len * 0.72); } return d; }
-function n3_fan(x, y, s) { var o = [[x, y]], i; for (i = 0; i <= 16; i++) { var a = Math.PI + i / 16 * Math.PI; o.push([x + Math.cos(a) * 30 * s, y - 6 * s + Math.sin(a) * 36 * s]); } return n3_P(o); }
+// a sea fan: a half disc on a short stalk, its lacy mesh made by small counter-clockwise holes (the water shows through)
+function n3_fan(x, y, s) { var o = [[x, y]], i, d; for (i = 0; i <= 16; i++) { var a = Math.PI + i / 16 * Math.PI; o.push([x + Math.cos(a) * 30 * s, y - 6 * s + Math.sin(a) * 36 * s]); } d = n3_P(o);
+  [[0.3, 3], [0.47, 5], [0.63, 7], [0.79, 9], [0.92, 11]].forEach(function (r, j) { for (var k = 0; k < r[1]; k++) { var a = Math.PI + (k + 0.5) / r[1] * Math.PI; d += ell(x + Math.cos(a) * 30 * s * r[0], y - 6 * s + Math.sin(a) * 36 * s * r[0], (1.7 - j * 0.15) * s, (1.3 - j * 0.1) * s); } }); return d; }
 SCENES.aquarium = function (W, H, dk, rnd) {
   var ph = H > W, far = Lay(6), refl = Lay(0), mid = Lay(0.3), near = Lay(0);
   var sky = dk ? 'linear-gradient(180deg,#06142A 0%,#081A33 28%,#0E2E52 62%,#1E4A6E 100%)' : 'linear-gradient(180deg,#4FB3D6 0%,#6FC3DF 26%,#A9E0EE 62%,#D7F1F4 100%)';
@@ -393,8 +478,9 @@ SCENES.aquarium = function (W, H, dk, rnd) {
   [1, 1.32, 1.78, 2.45, 3.45, 5, 7.4].forEach(function (m) { var p = rib(m, 40); seams += pline(p); });
   // long seams running from the far end toward us along the arch
   for (k = 0; k <= 10; k++) { var t = Math.PI + k / 10 * Math.PI, p0 = P(1, Math.cos(t) * a0, Math.sin(t) * R0); thin += seg(p0[0], p0[1], vx + (p0[0] - vx) * 9, vy + (p0[1] - vy) * 9); }
-  stk(refl, 's', seams, dk ? 'rgba(120,200,255,0.3)' : 'rgba(255,255,255,0.55)', 2.4);
-  stk(refl, 't', thin, dk ? 'rgba(120,200,255,0.12)' : 'rgba(255,255,255,0.28)', 1.2);
+  // (the acrylic seams are on the glass between us and the tank, so they go in the front layer: fish and coral pass behind them)
+  stk(near, 's', seams, dk ? 'rgba(120,200,255,0.3)' : 'rgba(255,255,255,0.55)', 2.4);
+  stk(near, 't', thin, dk ? 'rgba(120,200,255,0.12)' : 'rgba(255,255,255,0.28)', 1.2);
   // ---- coral gardens on both sides, outside the glass
   var cB = {rock: '', hi: '', pink: '', orange: '', purple: '', kelp: '', yel: '', teal: ''};
   [-1, 1].forEach(function (sd) {
@@ -409,7 +495,7 @@ SCENES.aquarium = function (W, H, dk, rnd) {
         else if (kind === 2) { cB.purple += n3_C(x, y - 14 * s, 14 * s); cB.hi += n3_E(x - 4 * s, y - 20 * s, 6 * s, 3 * s); }
         else if (kind === 3) { for (var q = 0; q < 4; q++) cB.yel += rrect(x - 12 * s + q * 6 * s, y - (18 + q * 5 % 11) * s - 8 * s, 5 * s, (18 + q * 5 % 11) * s, 2.4 * s); }
         else if (kind === 4) { for (q = 0; q < 9; q++) { var aa = -160 + q * 17.5; cB.teal += n3_leaf(x, y - 8 * s, 14 * s, 2.4 * s, aa, 0.2); } }
-        else { for (q = 0; q < 4; q++) { var kx = x + (q - 1.5) * 6 * s, kh2 = (50 + rnd() * 40) * s; cB.kelp += n3_tube([[kx, y - 4 * s], [kx + 6 * s, y - kh2 * 0.4], [kx - 4 * s, y - kh2 * 0.75], [kx + 3 * s, y - kh2]], 5 * s, 2.5 * s); } }
+        else { for (q = 0; q < 4; q++) { var kx = x + (q - 1.5) * 6 * s, kh2 = (50 + rnd() * 40) * s; cB.kelp += n3_tube(n3_bz([kx, y - 4 * s], [kx + 9 * s, y - kh2 * 0.35], [kx - 8 * s, y - kh2 * 0.7], [kx + 3 * s, y - kh2], 12), 5 * s, 2.2 * s); } }
       }
     }
   });
@@ -417,27 +503,33 @@ SCENES.aquarium = function (W, H, dk, rnd) {
   add(mid, 'f', cB.kelp, C.kelp); add(mid, 'a', cB.rock, C.rock); add(mid, 'b', cB.hi, C.hi); add(mid, 'c', cB.pink, C.pink); add(mid, 'd', cB.orange, C.orange); add(mid, 'e', cB.purple, C.purple); add(mid, 'g', cB.yel, C.yel); add(mid, 'h', cB.teal, C.teal);
   // ---- the walkway, its base ledges and LED strips
   var M = 12, wl = [P(1, -af, fB), P(1, af, fB), P(M, af, fB), P(M, -af, fB)];
-  add(near, 'a', n3_P(wl), dk ? '#0E1C2E' : '#3E5A72');
+  add(near, 'a', n3_P(wl), dk ? '#1A3150' : '#4A6884');
+  // a carpet runner down the middle with glowing edge piping
+  add(near, 'f', n3_P([P(1, -af * 0.5, fB), P(1, af * 0.5, fB), P(M, af * 0.5, fB), P(M, -af * 0.5, fB)]), dk ? '#132848' : '#2E4C6E');
+  add(near, 'g', n3_P([P(1, -af * 0.5, fB), P(1, -af * 0.46, fB), P(M, -af * 0.46, fB), P(M, -af * 0.5, fB)]) + n3_P([P(1, af * 0.46, fB), P(1, af * 0.5, fB), P(M, af * 0.5, fB), P(M, af * 0.46, fB)]), dk ? '#2E8FB0' : '#7FD8EE');
   var hL = H * 0.016, a1 = af * 1.06, ledge = n3_P([P(1, -a1, fB), P(1, -a1, fB - hL), P(M, -a1, fB - hL), P(M, -a1, fB)]) + n3_P([P(1, a1, fB - hL), P(1, a1, fB), P(M, a1, fB), P(M, a1, fB - hL)]);
   var ledgeTop = n3_P([P(1, -a1, fB - hL), P(1, -af * 0.95, fB - hL * 0.4), P(M, -af * 0.95, fB - hL * 0.4), P(M, -a1, fB - hL)]) + n3_P([P(1, af * 0.95, fB - hL * 0.4), P(1, a1, fB - hL), P(M, a1, fB - hL), P(M, af * 0.95, fB - hL * 0.4)]);
   add(near, 'b', ledge + ledgeTop, dk ? '#1A2A40' : '#2E465C');
   var leds = n3_P([P(1, -af * 0.95, fB - hL * 0.4), P(1, -af * 0.91, fB - hL * 0.4), P(M, -af * 0.91, fB - hL * 0.4), P(M, -af * 0.95, fB - hL * 0.4)]) + n3_P([P(1, af * 0.91, fB - hL * 0.4), P(1, af * 0.95, fB - hL * 0.4), P(M, af * 0.95, fB - hL * 0.4), P(M, af * 0.91, fB - hL * 0.4)]);
   add(near, 'c', leds, dk ? '#5FE0FF' : '#9FEFFF');
   var stripes = ''; for (k = 0; k < 14; k++) { var m1 = Math.pow(1.22, k), m2 = m1 * 1.06; stripes += n3_P([P(m1, -af * 0.85, fB), P(m1, af * 0.85, fB), P(m2, af * 0.85, fB), P(m2, -af * 0.85, fB)]); }
-  add(near, 'd', stripes, dk ? 'rgba(80,140,200,0.08)' : 'rgba(255,255,255,0.06)');
+  add(near, 'd', stripes, dk ? 'rgba(120,190,255,0.1)' : 'rgba(255,255,255,0.1)');
   // two visitors looking up (silhouettes): a parent and a pointing kid
   var pm = ph ? 2.1 : 2.4, pp = P(pm, -af * 0.5, fB), ps = pm * (ph ? 0.5 : 0.62), kp = P(pm, -af * 0.1, fB);
   var ppl = rrect(pp[0] - 9 * ps, pp[1] - 66 * ps, 18 * ps, 40 * ps, 7 * ps) + n3_C(pp[0], pp[1] - 74 * ps, 8 * ps) + rect(pp[0] - 7 * ps, pp[1] - 30 * ps, 5.5 * ps, 30 * ps) + rect(pp[0] + 1.5 * ps, pp[1] - 30 * ps, 5.5 * ps, 30 * ps);
   ppl += rrect(kp[0] - 6 * ps, kp[1] - 38 * ps, 12 * ps, 22 * ps, 5 * ps) + n3_C(kp[0], kp[1] - 44 * ps, 6.5 * ps) + rect(kp[0] - 5 * ps, kp[1] - 18 * ps, 4 * ps, 18 * ps) + rect(kp[0] + 1 * ps, kp[1] - 18 * ps, 4 * ps, 18 * ps) + n3_tube([[kp[0] + 4 * ps, kp[1] - 34 * ps], [kp[0] + 12 * ps, kp[1] - 46 * ps], [kp[0] + 16 * ps, kp[1] - 58 * ps]], 3.6 * ps, 3 * ps) + n3_C(kp[0] + 2 * ps, kp[1] - 50 * ps, 3.4 * ps);
   ppl += n3_tube([[pp[0] + 7 * ps, pp[1] - 60 * ps], [pp[0] + 14 * ps, pp[1] - 46 * ps], [kp[0] - 4 * ps, kp[1] - 36 * ps]], 4 * ps, 3.5 * ps);
-  add(near, 'e', ppl, dk ? '#06101E' : '#1E3448');
+  add(near, 'h', ppl, dk ? '#06101E' : '#1E3448');
   if (ANIM) {
     ANIM.vp = [vx, vy]; ANIM.tun = {a0: a0, af: af, fB: fB, R0: R0}; ANIM.floor = wl; ANIM.ph = ph;
     ANIM.bubbles = [P(1.6, -a0 * 1.6, fB), P(2.6, a0 * 1.9, fB), P(1.25, a0 * 1.4, fB)].map(function (p, i) { return {x: p[0], y: p[1] - 6, s: [1.6, 2.6, 1.25][i] * (ph ? 0.5 : 0.7)}; });
   } else {
-    var fish = '', fs2 = ph ? 1 : 1.5; [[0.2, 0.16, 1], [0.62, 0.1, -1], [0.8, 0.3, -1], [0.38, 0.28, 1]].forEach(function (sc) { for (var q = 0; q < 7; q++) { var x = W * sc[0] + (q % 4) * 22 * fs2 * sc[2] * -1 + (rnd() - 0.5) * 16, y = H * sc[1] + Math.floor(q / 4) * 16 * fs2 + (rnd() - 0.5) * 10, d = sc[2];
-      fish += n3_E(x, y, 10 * fs2, 5 * fs2) + n3_P([[x - d * 8 * fs2, y], [x - d * 15 * fs2, y - 5 * fs2], [x - d * 15 * fs2, y + 5 * fs2]]); } });
-    add(refl, 'a', fish, dk ? '#2A5A8A' : '#3E7FE0');
+    // the still scene's fish: the engine's blue tangs (yellow tail and dorsal fin) and yellow tangs, each with an eye and a pupil
+    var fish = '', fin = '', eye = '', pup = '', fs2 = ph ? 1 : 1.5; [[0.2, 0.16, 1, 0], [0.62, 0.1, -1, 1], [0.8, 0.3, -1, 0], [0.38, 0.28, 1, 1]].forEach(function (sc) { for (var q = 0; q < 7; q++) { var x = W * sc[0] + (q % 4) * 22 * fs2 * sc[2] * -1 + (rnd() - 0.5) * 16, y = H * sc[1] + Math.floor(q / 4) * 16 * fs2 + (rnd() - 0.5) * 10, d = sc[2], k = fs2 * (sc[3] ? 0.95 : 1);
+      var body = n3_E(x, y, 10 * k, (sc[3] ? 7 : 5.5) * k), tail = n3_P([[x - d * 7 * k, y], [x - d * 15 * k, y - 5.5 * k], [x - d * 13 * k, y], [x - d * 15 * k, y + 5.5 * k]]), dors = n3_P([[x - d * 3 * k, y - 4.4 * k], [x + d * 1 * k, y - (sc[3] ? 11 : 9) * k], [x + d * 4 * k, y - 4.6 * k]]);
+      if (sc[3]) fin += body + tail + dors; else { fish += body; fin += tail + dors; }
+      eye += n3_C(x + d * 5.5 * k, y - 1 * k, 1.9 * k); pup += n3_C(x + d * 6 * k, y - 1 * k, 1.2 * k); } });
+    add(refl, 'a', fish, dk ? '#2A5A8A' : '#3E7FE0'); add(refl, 'f', fin, dk ? '#B09A3A' : '#F2D24A'); add(refl, 'g', eye, dk ? '#C8D8E8' : '#FFFFFF'); add(refl, 'h', pup, '#1E2A3A');
   }
   return {sky: sky, far: far, refl: refl, mid: mid, near: near};
 };
@@ -471,26 +563,33 @@ SCENES.treehouse = function (W, H, dk, rnd) {
   add(refl, 'f', patches, dk ? '#1F2C25' : '#86B862');
   // ---- the oak: roots, trunk, branches
   var trunk = [], k, i;
-  for (k = 0; k <= 12; k++) { var u = k / 12, w = tw * (1.0 - u * 0.45) + (u < 0.12 ? (0.12 - u) * tw * 4 : 0), xc = tx + Math.sin(u * 2.2) * tw * 0.4; trunk.push([xc - w, gy + 4 - u * (gy - H * 0.02)]); }
-  var tR = []; for (k = 12; k >= 0; k--) { u = k / 12; w = tw * (1.0 - u * 0.45) + (u < 0.12 ? (0.12 - u) * tw * 4 : 0); xc = tx + Math.sin(u * 2.2) * tw * 0.4; tR.push([xc + w, gy + 4 - u * (gy - H * 0.02)]); }
+  // (the trunk runs up past the top edge into the canopy, so its top is never seen cut off)
+  var tTop = -H * 0.06;
+  function tAt(y) { var u = (gy + 4 - y) / (gy + 4 - tTop); return [tx + Math.sin(u * 2.2) * tw * 0.4, tw * (1.0 - u * 0.45) + (u < 0.12 ? (0.12 - u) * tw * 4 : 0)]; }   // trunk centre and half width at height y
+  for (k = 0; k <= 12; k++) { var u = k / 12, yy0 = gy + 4 - u * (gy + 4 - tTop), cw = tAt(yy0); trunk.push([cw[0] - cw[1], yy0]); }
+  var tR = []; for (k = 12; k >= 0; k--) { u = k / 12; var yy1 = gy + 4 - u * (gy + 4 - tTop), cw1 = tAt(yy1); tR.push([cw1[0] + cw1[1], yy1]); }
+  var w, xc;
   var bark = n3_P(trunk.concat(tR));
   var branches = n3_tube(n3_bz([tx, H * 0.42], [tx + tw * 2, H * 0.36], [tx + W * 0.18, H * 0.34], [tx + W * (ph ? 0.4 : 0.32), H * 0.4], 14), tw * 0.9, tw * 0.28)   // the swing branch (right)
     + n3_tube(n3_bz([tx, H * 0.3], [tx - tw * 2, H * 0.24], [tx - W * 0.2, H * 0.2], [tx - W * (ph ? 0.5 : 0.36), H * 0.12], 14), tw * 0.8, tw * 0.2)
     + n3_tube(n3_bz([tx, H * 0.2], [tx + tw * 2, H * 0.14], [tx + W * 0.2, H * 0.12], [tx + W * (ph ? 0.45 : 0.38), H * 0.06], 14), tw * 0.7, tw * 0.2)
     + n3_tube(n3_bz([tx - tw * 0.4, gy - 2], [tx - tw * 1.8, gy + 2], [tx - tw * 2.4, gy + 8], [tx - tw * 3.2, gy + 10], 8), tw * 0.5, tw * 0.12) + n3_tube(n3_bz([tx + tw * 0.4, gy - 2], [tx + tw * 1.6, gy + 2], [tx + tw * 2.6, gy + 6], [tx + tw * 3.4, gy + 12], 8), tw * 0.5, tw * 0.12);
   add(refl, 'c', bark + branches, dk ? '#4A3628' : '#8A5E3C');
-  var lines = ''; for (k = 0; k < 6; k++) { var bx = tx - tw * 0.6 + k * tw * 0.24; lines += n3_tube([[bx, gy - 6], [bx + Math.sin(k) * 4, gy - H * 0.2], [bx + 2, gy - H * 0.36]], 2.2, 1.2); }
+  // bark furrows that follow the trunk's lean and taper, fading out up under the deck
+  var lines = ''; for (k = 0; k < 6; k++) { var fk = -0.62 + k * 0.25 + Math.sin(k * 2.1) * 0.05, pts = [], y0 = gy - 4 - (k % 2) * H * 0.03, y1 = pY + H * (0.04 + (k % 3) * 0.05);
+    for (var q = 0; q <= 10; q++) { var yy = y0 + (y1 - y0) * q / 10, c2 = tAt(yy); pts.push([c2[0] + c2[1] * fk + Math.sin(q * 1.3 + k) * 1.5, yy]); } lines += n3_tube(pts, 2.4, 0.6); }
   lines += n3_E(tx + tw * 0.2, gy - H * 0.16, tw * 0.22, tw * 0.32);   // a knot hole
   add(refl, 'd', lines, dk ? '#33241A' : '#6A4428');
   add(refl, 'g', n3_P(trunk.concat(trunk.map(function (p) { return [p[0] + tw * 0.4, p[1]]; }).reverse())), dk ? 'rgba(255,220,180,0.06)' : 'rgba(255,230,190,0.18)');
   // ---- canopy behind the house: big clusters along the top
   var canB = '', canM = '', canF = '', canL = '';
-  var cl = ph ? [[0.05, 0.02, 80], [0.3, -0.02, 90], [0.55, 0.0, 100], [0.8, 0.02, 90], [1.0, 0.06, 80], [0.95, 0.3, 60], [0.05, 0.22, 60]] : [[0.02, 0.0, 120], [0.18, -0.04, 120], [0.36, -0.03, 130], [0.54, -0.05, 140], [0.74, -0.02, 140], [0.9, 0.02, 130], [1.02, 0.12, 120], [0.98, 0.34, 90], [0.86, 0.36, 70], [0.36, 0.14, 70], [0.12, 0.14, 80]];
+  var cl = ph ? [[0.05, 0.02, 80], [0.3, -0.02, 90], [0.55, 0.0, 100], [0.8, 0.02, 90], [1.0, 0.06, 80], [1.12, 0.26, 60], [0.05, 0.22, 60]] : [[0.02, 0.0, 120], [0.18, -0.04, 120], [0.36, -0.03, 130], [0.54, -0.05, 140], [0.74, -0.02, 140], [0.9, 0.02, 130], [1.02, 0.12, 120], [1.0, 0.34, 90], [0.36, 0.14, 70], [0.12, 0.14, 80]];   // (no cluster over the swing branch, so the swing's knots are seen on it)
   cl.forEach(function (c) { var x = W * c[0], y = H * c[1], r = c[2]; canB += n3_blob(x, y, r, rnd, 7); canM += n3_blob(x + r * 0.15, y - r * 0.1, r * 0.75, rnd, 6); canL += n3_blob(x + r * 0.05, y - r * 0.25, r * 0.4, rnd, 5); });
   add(refl, 'b', canB, dk ? '#1C3226' : '#4E9A50'); add(refl, 'h', canM, dk ? '#244034' : '#66B05E');
   // ---- the deck, the house, the roof
   var house = rect(hx0, hTop, hx1 - hx0, hBot - hTop), deck = rect(pX0, pY, pX1 - pX0, ph ? 8 : 12);
-  var braces = n3_tube([[pX0 + 14, pY + 10], [tx - tw * 0.5, pY + H * 0.1]], 6, 6) + n3_tube([[pX1 - 14, pY + 10], [tx + tw * 0.5, pY + H * 0.1]], 6, 6);
+  // the two deck braces end well inside the trunk (it leans, so its edges are found at the braces' height)
+  var bY = pY + H * 0.1, bT = tAt(bY), braces = n3_tube([[pX0 + 14, pY + 10], [bT[0] - bT[1] * 0.45, bY]], 6, 6) + n3_tube([[pX1 - 14, pY + 10], [bT[0] + bT[1] * 0.45, bY]], 6, 6);
   add(mid, 'a', house + deck + braces, dk ? '#8A5A3A' : '#D29A62');
   var planks = ''; for (var yy = hTop + (ph ? 10 : 14); yy < hBot; yy += ph ? 10 : 14) planks += rect(hx0, yy, hx1 - hx0, 1.6);
   planks += rect(hx0, hTop, 4, hBot - hTop) + rect(hx1 - 4, hTop, 4, hBot - hTop) + rect(pX0, pY + (ph ? 8 : 12), pX1 - pX0, 3);
@@ -507,7 +606,8 @@ SCENES.treehouse = function (W, H, dk, rnd) {
   var frm = n3_tube([[wcx - wwd / 2, wcy - wht / 2], [wcx + wwd / 2, wcy - wht / 2], [wcx + wwd / 2, wcy + wht / 2], [wcx - wwd / 2, wcy + wht / 2], [wcx - wwd / 2, wcy - wht / 2 - 1]], 3, 3) + rect(wcx - 1, wcy - wht / 2, 2, wht) + rect(wcx - wwd / 2, wcy - 1, wwd, 2);
   var dX = hx0 + (hx1 - hx0) * 0.58, dW = (hx1 - hx0) * 0.14, dH = (hBot - hTop) * 0.62;
   add(mid, 'e', frm + rect(rcx - rr, rcy - 1, rr * 2, 2) + rect(rcx - 1, rcy - rr, 2, rr * 2) + rect(wcx - wwd / 2 - wwd * 0.36, wcy - wht / 2, wwd * 0.3, wht) + rect(wcx + wwd / 2 + wwd * 0.06, wcy - wht / 2, wwd * 0.3, wht), dk ? '#E2D2B8' : '#FFF6E6');
-  add(mid, 'g', rrect(dX, hBot - dH, dW, dH, dW * 0.45), dk ? '#5A3A26' : '#9A6038'); add(mid, 'c', n3_P([[rx0 - 1, ry0], [rx0 - 1, ry0 - H * 0.06], [rx0 + W * 0.03, ry0 - H * 0.05], [rx0 + 1, ry0 - H * 0.04]]) + rect(rx0 - 1.5, ry0 - H * 0.06, 3, H * 0.06));
+  // (the old flag on the ridge ran off the top of the view, so it is gone)
+  add(mid, 'g', rrect(dX, hBot - dH, dW, dH, dW * 0.45), dk ? '#5A3A26' : '#9A6038');
   add(mid, 'e', n3_C(dX + dW * 0.75, hBot - dH * 0.45, Math.max(1.5, dW * 0.08)));
   // railing on the deck
   var rail = rect(pX0, pY - (ph ? 22 : 30), pX1 - pX0, ph ? 3.5 : 5); for (var rxp = pX0 + 2; rxp <= pX1 - 2; rxp += ph ? 14 : 20) { if (rxp > hx0 - 4 && rxp < hx1 + 4) continue; rail += rect(rxp - 1.6, pY - (ph ? 22 : 30), 3.2, ph ? 22 : 30); }
@@ -525,17 +625,28 @@ SCENES.treehouse = function (W, H, dk, rnd) {
   add(near, 'd', flw, dk ? '#C8B8E8' : '#FFFFFF'); add(near, 'e', flw2, dk ? '#D89A7A' : '#F7C64A');
   // ---- moving parts: rope ladder, tire swing, tin-can telephone, birds, fairy lights
   var ladTop = [pX0 + (hx0 - pX0) * 0.4 + W * 0.01, pY + (ph ? 8 : 12)], ladLen = gy - ladTop[1] - (ph ? 20 : 30), lw = ph ? 18 : 26;
-  var swB = [tx + W * (ph ? 0.3 : 0.24), H * 0.35], swLen = gy - swB[1] - H * (ph ? 0.12 : 0.13), tr = ph ? 22 : 34;
-  var can0 = [hx1 + 6, hTop + (hBot - hTop) * 0.3], can1 = [W * (ph ? 0.98 : 0.96), H * (ph ? 0.18 : 0.15)];
+  // the swing's ropes are tied round the swing branch itself; the near can hangs on a nail on the wall, the far one on a cord
+  // from the upper right branch (clear of the front leaves, which cover it where they overlap)
+  function onBz(b, x) { var best = b[0]; b.forEach(function (p) { if (Math.abs(p[0] - x) < Math.abs(best[0] - x)) best = p; }); return best; }
+  var swBr = n3_bz([tx, H * 0.42], [tx + tw * 2, H * 0.36], [tx + W * 0.18, H * 0.34], [tx + W * (ph ? 0.4 : 0.32), H * 0.4], 60), topBr = n3_bz([tx, H * 0.2], [tx + tw * 2, H * 0.14], [tx + W * 0.2, H * 0.12], [tx + W * (ph ? 0.45 : 0.38), H * 0.06], 60);
+  var swB = onBz(swBr, tx + W * (ph ? 0.28 : 0.24)), swLen = gy - swB[1] - H * (ph ? 0.12 : 0.13), tr = ph ? 22 : 34;
+  var hook1 = onBz(topBr, W * (ph ? 0.9 : 0.88)), can0 = [hx1 - (ph ? 8 : 12), hTop + (hBot - hTop) * 0.3], can1 = [hook1[0], hook1[1] + H * (ph ? 0.06 : 0.07)];
   var lightsA = [[pX0, pY - (ph ? 22 : 30)], [pX1, pY - (ph ? 22 : 30)]], roofL = [rP[0], rP[1], rP[2]];
   if (ANIM) {
-    ANIM.ladder = {x: ladTop[0], y: ladTop[1], len: ladLen, w: lw}; ANIM.swing = {x: swB[0], y: swB[1], len: swLen, r: tr}; ANIM.can = [can0, can1]; ANIM.rail = {x0: pX0, x1: pX1, y: pY - (ph ? 22 : 30), hx0: hx0, hx1: hx1};
-    ANIM.lights = [lightsA, roofL]; ANIM.win = {x: wcx, y: wcy, w: wwd, h: wht}; ANIM.round = [rcx, rcy, rr]; ANIM.tree = {x: tx, y: H * (ph ? 0.36 : 0.36), rx: W * (ph ? 0.42 : 0.3), ry: H * (ph ? 0.2 : 0.26)}; ANIM.gy = gy; ANIM.ph = ph; ANIM.canopy = cl.concat(fcl).map(function (c) { return [W * c[0], H * c[1], c[2]]; });
+    ANIM.ladder = {x: ladTop[0], y: ladTop[1], len: ladLen, w: lw}; ANIM.swing = {x: swB[0], y: swB[1], len: swLen, r: tr}; ANIM.can = [can0, can1, hook1];
+    ANIM.occ = bark + branches + canB + canM + house + deck + braces + n3_P(rP) + rail; ANIM.house = [hx0 - W * 0.05, hTop - H * 0.12, hx1 + W * 0.05, pY + H * 0.12]; ANIM.rail = {x0: pX0, x1: pX1, y: pY - (ph ? 22 : 30), hx0: hx0, hx1: hx1};
+    ANIM.lights = [lightsA, roofL]; ANIM.win = {x: wcx, y: wcy, w: wwd, h: wht}; ANIM.round = [rcx, rcy, rr]; ANIM.tree = {x: tx, y: H * (ph ? 0.36 : 0.36), rx: W * (ph ? 0.42 : 0.3), ry: H * (ph ? 0.2 : 0.26)}; ANIM.gy = gy; ANIM.ph = ph; ANIM.nBack = cl.length; ANIM.canopy = cl.concat(fcl).map(function (c) { return [W * c[0], H * c[1], c[2]]; });
   } else {
-    var ropes = seg(ladTop[0], ladTop[1], ladTop[0], ladTop[1] + ladLen) + seg(ladTop[0] + lw, ladTop[1], ladTop[0] + lw, ladTop[1] + ladLen) + seg(swB[0] - tr * 0.6, swB[1], swB[0] - tr * 0.6, swB[1] + swLen) + seg(swB[0] + tr * 0.6, swB[1], swB[0] + tr * 0.6, swB[1] + swLen) + 'M' + PT(can0[0], can0[1]) + ' Q' + PT((can0[0] + can1[0]) / 2, (can0[1] + can1[1]) / 2 + 20) + ' ' + PT(can1[0], can1[1]) + ' ';
-    stk(mid, 's', ropes, dk ? '#B8A080' : '#8A6A48', 1.6);
-    var rungs = ''; for (var ry = ladTop[1] + 16; ry < ladTop[1] + ladLen; ry += ph ? 14 : 20) rungs += rect(ladTop[0] - 2, ry, lw + 4, ph ? 3 : 4); add(mid, 'h', rungs, dk ? '#A07850' : '#E0B47E');
-    add(near, 'f', n3_E(swB[0], swB[1] + swLen + tr * 0.5, tr, tr * 0.45) + rrect(can1[0] - 5, can1[1], 10, 13, 2), dk ? '#22222A' : '#3A3A44');
+    // the still scene (Style Shop): rope ladder, the tire swing (a real ring) on its two ropes, the tin cans and their string,
+    // and the fairy-light bulbs along the railing and the roof
+    var cs = ph ? 0.8 : 1.15, ropes = seg(ladTop[0], ladTop[1], ladTop[0], ladTop[1] + ladLen) + seg(ladTop[0] + lw, ladTop[1], ladTop[0] + lw, ladTop[1] + ladLen) + seg(swB[0] - tr * 0.3, swB[1], swB[0] - tr * 0.5, swB[1] + swLen) + seg(swB[0] + tr * 0.3, swB[1], swB[0] + tr * 0.5, swB[1] + swLen)
+      + 'M' + PT(can0[0], can0[1]) + ' Q' + PT((can0[0] + can1[0]) / 2, (can0[1] + can1[1]) / 2 + 36) + ' ' + PT(can1[0], can1[1]) + ' ' + seg(hook1[0], hook1[1], can1[0], can1[1]);
+    var bulbs = '', strs = ''; [[lightsA, ph ? 5 : 8, ph ? 7 : 11], [roofL, ph ? 4 : 6, ph ? 5 : 7]].forEach(function (L) { var pts = L[0]; for (var s2 = 0; s2 < pts.length - 1; s2++) { var a = pts[s2], b = pts[s2 + 1], mcx = (a[0] + b[0]) / 2, mcy = (a[1] + b[1]) / 2 + L[1];
+      strs += 'M' + PT(a[0], a[1]) + ' Q' + PT(mcx, mcy) + ' ' + PT(b[0], b[1]) + ' '; for (var kk = 1; kk < L[2]; kk++) { var u2 = kk / L[2], bx2 = (1 - u2) * (1 - u2) * a[0] + 2 * (1 - u2) * u2 * mcx + u2 * u2 * b[0], by2 = (1 - u2) * (1 - u2) * a[1] + 2 * (1 - u2) * u2 * mcy + u2 * u2 * b[1]; bulbs += n3_E(bx2, by2 + 3, 2.2, 3); } } });
+    stk(mid, 's', ropes, dk ? '#B8A080' : '#8A6A48', 1.6); stk(mid, 't', strs, dk ? 'rgba(40,40,60,0.8)' : 'rgba(90,70,60,0.6)', 1);
+    var rungs = ''; for (var ry = ladTop[1] + 16; ry < ladTop[1] + ladLen; ry += ph ? 14 : 20) rungs += rect(ladTop[0] - 2, ry, lw + 4, ph ? 3 : 4); add(mid, 'h', rungs + bulbs, dk ? '#A07850' : '#E0B47E');
+    var tcx = swB[0], tcy = swB[1] + swLen + tr * 0.85;
+    add(near, 'f', n3_E(tcx, tcy, tr, tr * 0.92) + ell(tcx, tcy, tr * 0.52, tr * 0.46) + rect(can1[0] - 6 * cs, can1[1], 12 * cs, 15 * cs) + rect(can0[0] - 6 * cs, can0[1], 12 * cs, 15 * cs), dk ? '#22222A' : '#3A3A44');
   }
   return {sky: sky, far: far, refl: refl, mid: mid, near: near};
 };

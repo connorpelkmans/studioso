@@ -53,8 +53,8 @@
           body: `${LG("mushrooms-fiddle-mushrooms-fiddle-b", [[0, "#9ED676"], [1, "#5E9E4E"]])}
             <path d="M52 66C50 80 50 96 52 108H68C70 96 70 80 68 66Z" fill="url(#mushrooms-fiddle-mushrooms-fiddle-b)" ${O}/>
             <path d="M56 72Q55 88 56 102" fill="none" stroke="#C8EEA8" stroke-width="2.4" stroke-linecap="round"/>`,
-          armL: {svg: `<path d="M52 82C42 74 30 74 24 80C32 88 44 88 52 84Z" fill="#8CCB6A" ${O}/><path d="M50 83Q38 80 28 80" fill="none" stroke="#5E9E4E" stroke-width="1.8" stroke-linecap="round"/>`, pivot: [52, 83]},
-          armR: {svg: `<path d="M68 82C78 74 90 74 96 80C88 88 76 88 68 84Z" fill="#8CCB6A" ${O}/><path d="M70 83Q82 80 92 80" fill="none" stroke="#5E9E4E" stroke-width="1.8" stroke-linecap="round"/>`, pivot: [68, 83]},
+          armL: {svg: `<g transform="rotate(-46 52 83)"><path d="M52 82C42 74 30 74 24 80C32 88 44 88 52 84Z" fill="#8CCB6A" ${O}/><path d="M50 83Q38 80 28 80" fill="none" stroke="#5E9E4E" stroke-width="1.8" stroke-linecap="round"/></g>`, pivot: [52, 83]},
+          armR: {svg: `<g transform="rotate(46 68 83)"><path d="M68 82C78 74 90 74 96 80C88 88 76 88 68 84Z" fill="#8CCB6A" ${O}/><path d="M70 83Q82 80 92 80" fill="none" stroke="#5E9E4E" stroke-width="1.8" stroke-linecap="round"/></g>`, pivot: [68, 83]},
           head: `${RG("mushrooms-fiddle-mushrooms-fiddle-h", [[0, "#C8F0A0"], [0.6, "#8CCB6A"], [1, "#5E9E4E"]], 0.4, 0.35, 0.7)}
             <circle cx="60" cy="44" r="27" fill="url(#mushrooms-fiddle-mushrooms-fiddle-h)" ${O}/>
             <path d="M74 30a3 3 0 1 1 -5 3a8 8 0 1 1 8 -10a14 14 0 1 1 -24 -4" fill="none" stroke="#4E8E3E" stroke-width="2.6" stroke-linecap="round" opacity=".7"/>
@@ -134,8 +134,8 @@
           body: `${LG("sunflowers-sole-sunflowers-sole-b", [[0, "#9ED676"], [1, "#5E9A3E"]])}
             <path d="M46 76C42 88 42 100 46 108H74C78 100 78 88 74 76Z" fill="url(#sunflowers-sole-sunflowers-sole-b)" ${O}/>
             <path d="M50 84Q49 94 51 102" fill="none" stroke="#C8EEA8" stroke-width="2.4" stroke-linecap="round"/>`,
-          armL: {svg: `<path d="M46 86C36 78 24 80 20 88C30 94 40 92 46 90Z" fill="#7ABF56" ${O}/><path d="M44 88Q34 86 25 88" fill="none" stroke="#4E8A34" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [46, 88]},
-          armR: {svg: `<path d="M74 86C84 78 96 80 100 88C90 94 80 92 74 90Z" fill="#7ABF56" ${O}/><path d="M76 88Q86 86 95 88" fill="none" stroke="#4E8A34" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [74, 88]},
+          armL: {svg: `<g transform="rotate(-44 46 88)"><path d="M46 86C36 78 24 80 20 88C30 94 40 92 46 90Z" fill="#7ABF56" ${O}/><path d="M44 88Q34 86 25 88" fill="none" stroke="#4E8A34" stroke-width="1.6" stroke-linecap="round"/></g>`, pivot: [46, 88]},
+          armR: {svg: `<g transform="rotate(44 74 88)"><path d="M74 86C84 78 96 80 100 88C90 94 80 92 74 90Z" fill="#7ABF56" ${O}/><path d="M76 88Q86 86 95 88" fill="none" stroke="#4E8A34" stroke-width="1.6" stroke-linecap="round"/></g>`, pivot: [74, 88]},
           head: `${LG("sunflowers-sole-sunflowers-sole-p", [[0, "#FFE680"], [1, "#F5A51A"]])}${RG("sunflowers-sole-sunflowers-sole-c", [[0, "#E0A060"], [0.6, "#C07A3A"], [1, "#9A5A28"]], 0.4, 0.35, 0.7)}
             ${sunPetals(60, 44, 14, 38, 7, 18, "url(#sunflowers-sole-sunflowers-sole-p)")}
             <circle cx="60" cy="44" r="22" fill="url(#sunflowers-sole-sunflowers-sole-c)" ${O}/>
@@ -281,8 +281,8 @@
             <path d="M74 84C84 78 86 66 80 58" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".9"/>
             <path d="M40 70Q46 84 62 86" fill="none" stroke="#9AD0F0" stroke-width="2.4" stroke-linecap="round" opacity=".7"/>
             ${twinkle(84, 40, 3.4, "#FFE38A")}${twinkle(32, 46, 2.4, "#fff")}`,
-          armL: {svg: `<path d="M28 68C18 66 12 72 14 78C20 78 26 74 30 72Z" fill="#C8E8FF" ${O}/>`, pivot: [29, 70]},
-          armR: {svg: `<path d="M92 68C102 66 108 72 106 78C100 78 94 74 90 72Z" fill="#C8E8FF" ${O}/>`, pivot: [91, 70]}
+          armL: {svg: `<g transform="rotate(-42 29 70)"><path d="M28 68C18 66 12 72 14 78C20 78 26 74 30 72Z" fill="#C8E8FF" ${O}/></g>`, pivot: [29, 70]},
+          armR: {svg: `<g transform="rotate(42 91 70)"><path d="M92 68C102 66 108 72 106 78C100 78 94 74 90 72Z" fill="#C8E8FF" ${O}/></g>`, pivot: [91, 70]}
         },
         eyes: {lx: 51, rx: 71, y: 62, r: 4.6, style: "sparkle", color: "#1E2A48"},
         mouth: {x: 61, y: 71, w: 2.8, color: "#1E2A48"},
@@ -379,10 +379,10 @@
         parts: {
           feet: `<ellipse cx="50" cy="110" rx="7" ry="3.6" fill="#B8484C" ${O}/><ellipse cx="70" cy="110" rx="7" ry="3.6" fill="#B8484C" ${O}/>`,
           body: `${LG("nighttrain-stub-nighttrain-stub-b", [[0, "#FFF4D8"], [1, "#F0D8A4"]])}
-            <path d="M38 76H82V108H38Z" fill="url(#nighttrain-stub-nighttrain-stub-b)" ${O}/>
+            <path d="M38 68H82V108H38Z" fill="url(#nighttrain-stub-nighttrain-stub-b)" ${O}/>
             <path d="M46 88H74M46 96H66" stroke="#C8A070" stroke-width="2.4" stroke-linecap="round"/>`,
-          armL: {svg: `<ellipse cx="32" cy="88" rx="4.6" ry="7" transform="rotate(28 32 88)" fill="#F6E2B8" ${O}/>`, pivot: [38, 84]},
-          armR: {svg: `<ellipse cx="88" cy="88" rx="4.6" ry="7" transform="rotate(-28 88 88)" fill="#F6E2B8" ${O}/>`, pivot: [82, 84]},
+          armL: {svg: `<ellipse cx="36.4" cy="93" rx="4.6" ry="9.4" transform="rotate(10 36.4 93)" fill="#F6E2B8" ${O}/>`, pivot: [38, 84]},
+          armR: {svg: `<ellipse cx="83.6" cy="93" rx="4.6" ry="9.4" transform="rotate(-10 83.6 93)" fill="#F6E2B8" ${O}/>`, pivot: [82, 84]},
           head: `${LG("nighttrain-stub-nighttrain-stub-h", [[0, "#FFF8E4"], [1, "#F4DEB0"]])}
             <path d="M28 22H92V40A6 6 0 0 0 92 52V76H28V52A6 6 0 0 0 28 40Z" fill="url(#nighttrain-stub-nighttrain-stub-h)" ${O}/>
             <path d="M30 76H90" stroke="#C8A070" stroke-width="2" stroke-dasharray="3 3"/>
@@ -509,20 +509,19 @@
       {
         id: "ramen-nori", name: "Nori", kind: "Seaweed Sheet", pose: "stand", wearColor: "#F2C870",
         bio: "Stands up straight in the bowl like a little flag.",
-        idle: ["sway", "wave", "headTilt"], cheer: "bounce",
+        idle: ["sway", "wave", "bounce"], cheer: "bounce",
         neck: [60, 82],
         parts: {
           feet: `${LG("ramen-nori-ramen-nori-br", [[0, "#F6D888"], [1, "#E8B860"]])}<path d="M20 100Q60 92 100 100Q100 112 60 114Q20 112 20 100Z" fill="url(#ramen-nori-ramen-nori-br)" ${O}/>
             <path d="M30 102Q40 98 48 103Q56 98 64 103Q72 98 82 102" fill="none" stroke="#FFEFB0" stroke-width="2.2" stroke-linecap="round"/>`,
-          body: `${LG("ramen-nori-ramen-nori-b", [[0, "#3E6A4A"], [1, "#24402E"]])}
-            <path d="M40 80H80V104H40Z" fill="url(#ramen-nori-ramen-nori-b)" ${O}/>`,
-          armL: {svg: `<path d="M40 84C30 82 24 88 26 94C32 94 38 92 42 90Z" fill="#2E5038" ${O}/>`, pivot: [41, 87]},
-          armR: {svg: `<path d="M80 84C90 82 96 88 94 94C88 94 82 92 78 90Z" fill="#2E5038" ${O}/>`, pivot: [79, 87]},
-          head: `${LG("ramen-nori-ramen-nori-h", [[0, "#4E7E5A"], [0.6, "#3A6446"], [1, "#2A4A34"]], 0, 0, 1, 1)}
-            <path d="M34 20H86L84 82H36Z" fill="url(#ramen-nori-ramen-nori-h)" ${O}/>
+          body: `${LG("ramen-nori-ramen-nori-h", [[0, "#4E7E5A"], [0.6, "#3A6446"], [1, "#2A4A34"]], 0, 0, 1, 1)}
+            <path d="M34 20H86L83 104H37Z" fill="url(#ramen-nori-ramen-nori-h)" ${O}/>
             <path d="M42 30L48 34M70 28L76 32M44 72L50 70M72 74L78 70M58 24L62 27" stroke="#6A9A72" stroke-width="2" stroke-linecap="round" opacity=".8"/>
-            <path d="M40 26V76" stroke="#7AAA82" stroke-width="2.6" stroke-linecap="round" opacity=".6"/>
-            ${twinkle(80, 30, 2.6, "#C8F0D0")}`
+            <path d="M40 26V96" stroke="#7AAA82" stroke-width="2.6" stroke-linecap="round" opacity=".6"/>
+            ${twinkle(80, 30, 2.6, "#C8F0D0")}
+            <path d="M44 92L50 90M70 94L76 91" stroke="#6A9A72" stroke-width="1.8" stroke-linecap="round" opacity=".8"/>`,
+          armL: {svg: `<ellipse cx="33.6" cy="94" rx="4.4" ry="8.6" transform="rotate(25 33.6 94)" fill="#3A6446" ${O}/>`, pivot: [37, 87]},
+          armR: {svg: `<ellipse cx="86.4" cy="94" rx="4.4" ry="8.6" transform="rotate(-25 86.4 94)" fill="#3A6446" ${O}/>`, pivot: [83, 87]}
         },
         eyes: {lx: 51, rx: 69, y: 50, r: 4.6, style: "sparkle", color: "#0E1A12"},
         mouth: {x: 60, y: 60, w: 2.8, color: "#0E1A12"},

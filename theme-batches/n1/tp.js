@@ -338,18 +338,24 @@
         <circle cx="26" cy="21" r="2" fill="${O}"/><circle cx="38" cy="21" r="2" fill="${O}"/><circle cx="26.8" cy="20.2" r=".8" fill="#fff"/><circle cx="38.8" cy="20.2" r=".8" fill="#fff"/>
         <ellipse cx="32" cy="27.5" rx="2" ry="1.4" fill="${O}"/>${smile(32, 30, 1.6, 1.4)}`,
       savanna_sunset: `${rg("n1-ss-s", "#FFF4C0", "#FFB04A", .5, .45)}${lg("n1-ss-g", "#F2C46A", "#C8963A")}
-        <circle cx="32" cy="32" r="22" fill="url(#n1-ss-s)" ${SO}/>
-        <path d="M6 48C14 44 50 44 58 48V54Q58 58 54 58H10Q6 58 6 54Z" fill="url(#n1-ss-g)" ${SO}/>
-        <path d="M30 48L29 34L22 28M30 38L36 30M29 34L32 26" fill="none" stroke="${O}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M12 28C12 22 22 20 30 20C40 20 50 22 50 28C44 31 18 31 12 28Z" fill="#7E8E3A" ${S2}/>
+        <circle cx="32" cy="30" r="23" fill="url(#n1-ss-s)" ${SO}/>
+        <path d="M14 38H50M17.5 43.5H46.5" stroke="#FFE9B0" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M39 13q2-2 4 0q2-2 4 0M45 19q1.5-1.6 3 0q1.5-1.6 3 0" fill="none" stroke="${O}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M4 50C12 44.5 52 44.5 60 50V55Q60 59 56 59H8Q4 59 4 55Z" fill="url(#n1-ss-g)" ${SO}/>
+        <path d="M29.6 49.5L30.4 38.5L24 32.6L25.6 31.2L31 35.8L31.8 30.2H34L33.7 36.2L39 31.6L40.4 32.8L34.4 38.8L35 49.5Z" fill="#5E4232" ${S15}/>
+        <path d="M19.5 23C20.5 18.6 27.5 17.4 33 17.4C39 17.4 44 18.8 45 23Z" fill="#94A448" ${S2}/>
+        <path d="M9.5 29C9.5 23.4 20 21.4 31 21.4C43 21.4 53.5 23.4 53.5 29C46 32.6 17 32.6 9.5 29Z" fill="#7E8E3A" ${S2}/>
+        <path d="M15 26.4C19 24.4 26 23.8 31 23.8C38 23.8 44 24.4 48 26.2" fill="none" stroke="#A8B85A" stroke-width="2" stroke-linecap="round"/>
+        <path d="M12 52.5l-1.4-4M14.5 52.5l.2-4.6M17 52.5l1.6-4M45 52.5l-1.4-4M47.5 52.5l.2-4.6M50 52.5l1.6-4" stroke="#9A6A2A" stroke-width="1.6" stroke-linecap="round"/>
         ${spark(10, 10, 3.4, "#FFE07A")}`,
       savanna_zebra: `${rg("n1-sz-b", "#FFFFFF", "#DAD6E2", .4, .3)}
-        <path d="M18 12L24 22L14 22Z M46 12L40 22L50 22Z" fill="#fff" ${S2}/>
-        <path d="M24 10Q32 4 40 10L36 14H28Z" fill="#2E2A36" ${S2}/>
+        <path d="M19 10.5L25.5 21L13.5 22Z M45 10.5L38.5 21L50.5 22Z" fill="#fff" ${S2}/><path d="M18.4 14.2L22.6 20.2L16.2 20.8Z M45.6 14.2L41.4 20.2L47.8 20.8Z" fill="#FFB8C8"/>
+        <path d="M26.5 15.5Q25 9 27 5.6L29.4 6.4L30.4 3.2L32.6 4.8L34.4 2.6L35.6 6L37.6 5.4Q39 9 37.5 15.5Z" fill="#2E2A36" ${S2}/><path d="M29.6 8.4V13.6M32.2 7.4V13.6M34.8 8.4V13.6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
         <path d="M18 24C18 14 46 14 46 24C46 36 42 52 32 56C22 52 18 36 18 24Z" fill="url(#n1-sz-b)" ${SO}/>
-        <path d="M22 26Q26 24 28 27M36 27Q38 24 42 26M20 34Q25 32 26 36M38 36Q39 32 44 34M24 18Q28 20 30 18M34 18Q36 20 40 18" fill="none" stroke="#2E2A36" stroke-width="2.4" stroke-linecap="round"/>
-        <path d="M24 44C24 40 40 40 40 44C40 52 36 56 32 56C28 56 24 52 24 44Z" fill="#5A5262" ${S2}/><ellipse cx="29" cy="47" rx="1.2" ry="1.6" fill="${O}"/><ellipse cx="35" cy="47" rx="1.2" ry="1.6" fill="${O}"/>
-        ${EYES(25.5, 38.5, 31, 2.2)}<ellipse cx="22" cy="38" rx="2" ry="1.3" fill="#FF8FA8" opacity=".8"/><ellipse cx="42" cy="38" rx="2" ry="1.3" fill="#FF8FA8" opacity=".8"/>`,
+        <path d="M24 19.4Q28 22 32 19.8Q36 22 40 19.4M26.4 24.4Q32 27 37.6 24.4M18.8 28.4Q21.6 29.2 22.6 32.4M19.8 36.4Q22.6 37 24 40M45.2 28.4Q42.4 29.2 41.4 32.4M44.2 36.4Q41.4 37 40 40" fill="none" stroke="#2E2A36" stroke-width="2.3" stroke-linecap="round"/>
+        <path d="M24 44C24 40 40 40 40 44C40 52 36 56 32 56C28 56 24 52 24 44Z" fill="#5A5262" ${S2}/><ellipse cx="29" cy="46.6" rx="1.2" ry="1.6" fill="${O}"/><ellipse cx="35" cy="46.6" rx="1.2" ry="1.6" fill="${O}"/>
+        <path d="M29.6 51.4q2.4 1.8 4.8 0" fill="none" stroke="#C9C2D2" stroke-width="1.6" stroke-linecap="round"/>
+        ${EYES(26, 38, 30.6, 2.2)}<ellipse cx="23.4" cy="36.4" rx="2" ry="1.3" fill="#FF8FA8" opacity=".8"/><ellipse cx="40.6" cy="36.4" rx="2" ry="1.3" fill="#FF8FA8" opacity=".8"/>`,
       savanna_cub: `${rg("n1-sc-b", "#FFE0A0", "#E0A04A", .4, .3)}
         <circle cx="16" cy="18" r="6.4" fill="#E0A04A" ${S2}/><circle cx="48" cy="18" r="6.4" fill="#E0A04A" ${S2}/><circle cx="16" cy="18" r="3" fill="#F6C8A0"/><circle cx="48" cy="18" r="3" fill="#F6C8A0"/>
         <circle cx="32" cy="34" r="21" fill="url(#n1-sc-b)" ${SO}/>
