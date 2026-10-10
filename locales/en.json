@@ -460,6 +460,7 @@
   "sem.work.lms": "Your school's site",
   "sem.work.lms.b": "Connect School Site",
   "sem.work.lms.s": "Brightspace, Canvas or Blackboard. Studyboard only reads from it.",
+  "sem.work.lms.web": "Brightspace, Canvas or Blackboard: due dates, grades, announcements and what you've already submitted. Here on the website it uses a Studyboard bookmark you click on your school's site while you're signed in. It only reads, never sees your password, and you'll see exactly what it does before you add it.",
   "sem.work.paste": "Paste Text",
   "sem.work.pdf": "Syllabus PDFs",
   "sem.work.pdf.b": "Choose PDFs",
