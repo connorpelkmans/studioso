@@ -349,8 +349,8 @@
         parts: {
           feet: `${[36, 46, 56, 64, 74, 84].map((x, i) => `<path d="M${x} 98L${x + (i < 3 ? -4 : 4)} 110" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><path d="M${x} 98L${x + (i < 3 ? -4 : 4)} 110" stroke="#C8956A" stroke-width="2.4" stroke-linecap="round"/>`).join("")}`,
           body: `${LG("geology-trilobite-geo-tri-b", [[0, "#F2D2AC"], [1, "#C08A5E"]])}
-            <path d="M32 62H88L84 98Q72 108 60 108Q48 108 36 98Z" fill="url(#geology-trilobite-geo-tri-b)" ${O}/>
-            ${[70, 78, 86, 94].map(y => `<path d="M${33 + (y - 62) * 0.12} ${y}Q60 ${y + 4} ${87 - (y - 62) * 0.12} ${y}" fill="none" stroke="${INK}" stroke-width="1.8" opacity=".45"/>`).join("")}
+            <path d="M39 61Q60 58 81 61L84 98Q72 108 60 108Q48 108 36 98Z" fill="url(#geology-trilobite-geo-tri-b)" ${O}/>
+            ${[70, 78, 86, 94].map(y => `<path d="M${39 - (y - 62) * 0.08} ${y}Q60 ${y + 4} ${81 + (y - 62) * 0.08} ${y}" fill="none" stroke="${INK}" stroke-width="1.8" opacity=".45"/>`).join("")}
             <path d="M50 64V104M70 64V104" stroke="${INK}" stroke-width="1.8" opacity=".4"/><path d="M38 70Q38 88 44 98" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".5"/>`,
           head: `${RG("geology-trilobite-geo-tri-h", [[0, "#FAE4C6"], [1, "#D2A070"]], 0.4, 0.35, 0.8)}
             <path d="M22 66C22 44 38 32 60 32C82 32 98 44 98 66Q60 72 22 66Z" fill="url(#geology-trilobite-geo-tri-h)" ${O}/>
