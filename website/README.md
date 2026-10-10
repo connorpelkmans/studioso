@@ -22,7 +22,7 @@ See PRO-PLANS-GUIDE.md in the main folder for the full owner steps.
 
 ## Screenshots of the real app
 
-The home page shows real screens from the app (`assets/screens/`, light and dark, plus one image per theme). To refresh them after the app changes, run `node tools/capture-site-screens.js <folder>` (Playwright and Chromium; it runs the app on a fixed date with made-up student data, with AI shown as switched on and no request made), then save the PNGs as WebP into `assets/screens/` (for example with Pillow, `Image.save(name + ".webp", quality=80)`; theme images at 640x400, the others at 1120x700).
+The home page shows real screens from the app (`assets/screens/`, light and dark, plus one image per theme). To refresh them after the app changes, run `node tools/capture-site-screens.js <folder>` (Playwright and Chromium; it runs the app on a fixed date with made-up student data, with AI shown as switched on and no request made), then save the PNGs as WebP into `assets/screens/` (for example with Pillow, `Image.save(name + ".webp", quality=80)`; theme images at 800x500, the others at 1120x700; the hero and `ui-*` pictures come from `--overlays` and keep their size).
 
 ## Live theme tiles and companions (home page)
 
