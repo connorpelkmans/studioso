@@ -126,7 +126,7 @@
         ${Array.from({length: 16}, (_, i) => `<circle cx="${f1(12 + (i * 37 % 40))}" cy="${f1(27 + (i * 23 % 17))}" r=".9" fill="#FFF4DA"/>`).join("")}
         ${EYES(24, 40, 40, 2.2)}${blush(19, 45, 44.5, 2.2, 1.4)}${smile(32, 44, 2.2)}`,
       diadelosmuertos_candle: `${lg("n4-dm-cd", "#FFF8EA", "#EAD8C0")}${rg("n4-dm-fl", "#FFFBE0", "#FF9A2E", .5, .7)}
-        <circle cx="32" cy="15" r="13" fill="#FFD86B" opacity=".35"/>
+        <defs><radialGradient id="n4-dm-cg"><stop offset="0" stop-color="#FFE08A" stop-opacity=".75"/><stop offset=".55" stop-color="#FFE08A" stop-opacity=".3"/><stop offset="1" stop-color="#FFE08A" stop-opacity="0"/></radialGradient></defs><circle cx="32" cy="15" r="15" fill="url(#n4-dm-cg)"/>
         <path d="M32 3C37 10 38 16 32 22C26 16 27 10 32 3Z" fill="url(#n4-dm-fl)" ${S2}/>
         <path d="M32 22V25" stroke="${O}" stroke-width="2"/>
         <path d="M21 26H43V56Q32 60 21 56Z" fill="url(#n4-dm-cd)" ${SO}/>
@@ -256,7 +256,7 @@
   TP_DATA.push({
     theme: "ramadan",
     pack: {name: "Lantern Nights", items: {
-      ramadan_fanous: `<circle cx="32" cy="34" r="22" fill="#FFE08A" opacity=".3"/>${fanous(32, 34, 1.15, 0)}
+      ramadan_fanous: `<defs><radialGradient id="n4-rm-fg"><stop offset="0" stop-color="#FFE08A" stop-opacity=".75"/><stop offset=".55" stop-color="#FFE08A" stop-opacity=".3"/><stop offset="1" stop-color="#FFE08A" stop-opacity="0"/></radialGradient></defs><circle cx="32" cy="34" r="26" fill="url(#n4-rm-fg)"/>${fanous(32, 34, 1.15, 0)}
         <g transform="translate(32 34) scale(1.15)">${EYES(-2.6, 2.6, -2, 1.2)}<path d="M-1.4 1.6q1.4 1.2 2.8 0" fill="none" stroke="${O}" stroke-width="1.1" stroke-linecap="round"/></g>
         ${spark(56, 12, 4, "#F2C45A")}${spark(9, 50, 3.4, "#F2C45A")}`,
       ramadan_crescent: `${rg("n4-rm-mn", "#FFFBE6", "#F2C24A", .3, .4)}
@@ -287,7 +287,7 @@
         ${Array.from({length: 22}, (_, i) => `<circle cx="${f1(14 + (i * 41 % 36))}" cy="${f1(14 + (i * 29 % 36))}" r=".9" fill="#FFFFFF"/>`).join("")}
         ${EYES(27, 37, 31, 2.1)}${blush(23.5, 40.5, 35, 2, 1.3)}${smile(32, 34.6, 2)}`,
       ramadan_star: `${rg("n4-rm-st", "#FFF6C8", "#F2B030", .5, .5)}
-        <circle cx="32" cy="32" r="26" fill="#FFE08A" opacity=".25"/>
+        <defs><radialGradient id="n4-rm-sg"><stop offset="0" stop-color="#FFE08A" stop-opacity=".75"/><stop offset=".55" stop-color="#FFE08A" stop-opacity=".3"/><stop offset="1" stop-color="#FFE08A" stop-opacity="0"/></radialGradient></defs><circle cx="32" cy="32" r="30" fill="url(#n4-rm-sg)"/>
         <path d="${star(32, 32, 24, 17.6, 8)}" fill="url(#n4-rm-st)" ${SO}/>
         <path d="${star(32, 32, 14, 10.4, 8)}" fill="none" stroke="#C88A2E" stroke-width="1.4"/>
         ${EYES(27, 37, 31, 2.2)}${blush(23.5, 40.5, 35, 2, 1.3)}${smile(32, 34.6, 2)}
@@ -354,7 +354,7 @@
         <path d="M18 50Q12 30 26 22Q30 34 30 50Z" fill="url(#n4-ma-lp)" ${S2}/><path d="M46 50Q52 30 38 22Q34 34 34 50Z" fill="url(#n4-ma-lp)" ${S2}/>
         <path d="M32 50Q20 36 32 16Q44 36 32 50Z" fill="url(#n4-ma-lp)" ${SO}/>
         <rect x="29.5" y="28" width="5" height="8" rx="1" fill="#FFF6DC" ${SOw(1.4)}/><path d="M32 18C35 22 35 25 32 27C29 25 29 22 32 18Z" fill="#FFB040" ${SOw(1.2)}/>
-        <circle cx="32" cy="23" r="10" fill="#FFE08A" opacity=".3"/>
+        <defs><radialGradient id="n4-ma-lg"><stop offset="0" stop-color="#FFE08A" stop-opacity=".75"/><stop offset=".55" stop-color="#FFE08A" stop-opacity=".3"/><stop offset="1" stop-color="#FFE08A" stop-opacity="0"/></radialGradient></defs><circle cx="32" cy="23" r="12" fill="url(#n4-ma-lg)"/>
         ${EYES(28.6, 35.4, 42, 1.7)}${smile(32, 44.6, 1.6, 1.4)}`,
       midautumn_tea: `${lg("n4-ma-tp", "#E8F4EE", "#A8CDBE")}
         <path d="M22 12Q22 6 30 6Q38 6 38 12Z" fill="url(#n4-ma-tp)" ${S2}/><circle cx="30" cy="5" r="2.4" fill="#5E9A82" ${SOw(1.4)}/>

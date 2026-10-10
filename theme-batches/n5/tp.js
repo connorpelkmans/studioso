@@ -91,7 +91,7 @@
         <ellipse cx="32" cy="48" rx="11" ry="9" fill="#F6E7D3"/><circle cx="24" cy="36" r="7" fill="#FBF2E4" ${SOw(1.4)}/><circle cx="40" cy="36" r="7" fill="#FBF2E4" ${SOw(1.4)}/>
         ${EYES(24, 40, 36, 3)}<path d="M29.5 41.5L34.5 41.5L32 45z" fill="#F2A33A" ${SOw(1.4)}/>${blush(18, 46, 43, 2.4, 1.5)}
         ${capS(32, 16, 1.05)}${tube("M32 15L46 18V28", "#F2B83A", 1.8)}<path d="M44 27h4l1 6h-6z" fill="#F2B83A" ${SOw(1.4)}/><circle cx="32" cy="15" r="2" fill="#F2B83A"/>`,
-      graduation_medal: `${tube("M22 4L28 26M42 4L36 26", "#4A6AB0", 6)}<path d="M22 4L28 26M42 4L36 26" stroke="#9A2E4A" stroke-width="2.4"/>
+      graduation_medal: `<path d="M38 3H49L37 28H27Z" fill="#9A2E4A" ${S2}/><path d="M42.5 3L32 25.5" stroke="#F2B83A" stroke-width="1.8"/><path d="M15 3H26L37 28H27Z" fill="#3A5AA0" ${S2}/><path d="M20.5 3L31 25.5" stroke="#F2B83A" stroke-width="1.8"/>
         ${rg("n5-gm-g", "#FFF2B0", "#E0A02A")}<circle cx="32" cy="40" r="18" fill="url(#n5-gm-g)" ${SO}/><circle cx="32" cy="40" r="13" fill="none" stroke="#C88A1A" stroke-width="1.6"/>
         ${T("#1", 32, 46, 15, "#FFFFFF", 0, 2.6)}<ellipse cx="24" cy="31" rx="3.6" ry="2" fill="#fff" opacity=".6" transform="rotate(-35 24 31)"/>${spark(55, 54, 3.6, "#F2B83A")}${spark(9, 50, 3, "#7FB8F0")}`,
       graduation_books: `${lg("n5-gb-1", "#5A7ACC", "#2E4A8A")}${lg("n5-gb-2", "#C84A6A", "#9A2E4A")}${lg("n5-gb-3", "#5CC4A0", "#2E8A6A")}
@@ -191,8 +191,7 @@
         <path d="M14 24Q32 18 50 24" fill="none" ${S2}/>${EYES(24, 40, 15, 2.6)}${blush(18, 46, 20, 2.4, 1.5)}${smile(32, 19, 2, 1.7)}
         <path d="M10 24L4 34M54 24L60 34" stroke="${O}" stroke-width="3" stroke-linecap="round"/>`,
       geology_hammer: `${lg("n5-gh-h", "#D8DEE8", "#8A96AA")}${lg("n5-gh-w", "#E0A870", "#A8703E")}
-        <g transform="rotate(-35 32 32)"><rect x="28" y="22" width="8" height="40" rx="3" fill="url(#n5-gh-w)" ${SO}/><path d="M12 12H46L54 18L46 24H12Q8 18 12 12z" fill="url(#n5-gh-h)" ${SO}/><rect x="27" y="10" width="10" height="16" rx="2" fill="#6A7488" ${S2}/></g>
-        ${EYES(29, 37, 22, 1.8)}${smile(33, 25.4, 1.6, 1.5)}<path d="M44 50L50 46L56 52L50 58z" fill="#B58CF2" ${S2}/><path d="M10 52L14 48L18 54z" fill="#5CCFD8" ${S2}/>${spark(54, 30, 3, "#FFD45A")}`,
+        <g transform="rotate(-35 32 32)"><rect x="28" y="22" width="8" height="40" rx="3" fill="url(#n5-gh-w)" ${SO}/><path d="M12 12H46L54 18L46 24H12Q8 18 12 12z" fill="url(#n5-gh-h)" ${SO}/><rect x="27" y="10" width="10" height="16" rx="2" fill="#6A7488" ${S2}/>${EYES(16.5, 23.5, 17, 1.6)}${smile(20, 19.8, 1.3, 1.3)}</g><path d="M44 50L50 46L56 52L50 58z" fill="#B58CF2" ${S2}/><path d="M10 52L14 48L18 54z" fill="#5CCFD8" ${S2}/>${spark(54, 30, 3, "#FFD45A")}`,
       geology_volcano: `${lg("n5-gv-m", "#B88A6E", "#7A5040")}
         <path d="M4 58L22 22H42L60 58z" fill="url(#n5-gv-m)" ${SO}/><path d="M22 22Q26 30 30 26Q33 34 36 27Q39 31 42 22z" fill="#FF7A4A" ${S2}/>
         <path d="M24 18C18 14 20 6 27 8C30 2 38 4 38 10C44 8 46 16 40 18z" fill="#E8E2EE" ${S2}/>${face(32, 42, 6.4, 2.3)}<path d="M12 58L18 46M50 58L46 48" stroke="#5A3A30" stroke-width="1.6" opacity=".5"/>`,

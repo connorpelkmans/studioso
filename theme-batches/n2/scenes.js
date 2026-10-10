@@ -22,13 +22,21 @@ function n2_q(p0, p1, p2, n) { var o = []; for (var i = 0; i <= n; i++) { var t 
 function n2_tube(pts, w0, w1) { var L = [], R = [], n = pts.length; for (var i = 0; i < n; i++) { var a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], d = Math.sqrt(dx * dx + dy * dy) || 1, w = lerp(w0, w1, i / Math.max(1, n - 1)) / 2; L.push([pts[i][0] - dy / d * w, pts[i][1] + dx / d * w]); R.unshift([pts[i][0] + dy / d * w, pts[i][1] - dx / d * w]); } return poly(L.concat(R)); }
 // a puffy cloud: circles along a base, with a flat-ish bottom
 function n2_puff(x, y, w, h, rnd) { var d = '', n = Math.max(3, Math.round(w / (h * 0.9))); for (var i = 0; i < n; i++) { var u = (i + 0.5) / n, r = h * (0.45 + 0.4 * Math.sin(Math.PI * u)) * (0.85 + rnd() * 0.3); d += circ(x - w / 2 + u * w, y - r * 0.55, r); } return d + rrect(x - w / 2, y - h * 0.35, w, h * 0.35, h * 0.17); }
+// the same puff as a lit body over a shade copy shifted down by part of each circle's radius, so the shade only shows along the
+// bottom of each bump (two separately random puffs left thin crescents peeking out above); hi: a soft highlight on each bump
+function n2_puff2(x, y, w, h, rnd) { var n = Math.max(3, Math.round(w / (h * 0.9))), m = '', sh = '', hi = '', cs = [];
+  for (var i = 0; i < n; i++) { var u = (i + 0.5) / n, r = h * (0.45 + 0.4 * Math.sin(Math.PI * u)) * (0.85 + rnd() * 0.3), cx = x - w / 2 + u * w, cy = y - r * 0.55; cs.push([cx, cy, r]); m += circ(cx, cy, r); sh += circ(cx + r * 0.06, cy + r * 0.2, r); hi += ell(cx - r * 0.3, cy - r * 0.42, r * 0.36, r * 0.16); }
+  var base = rrect(x - w / 2, y - h * 0.35, w, h * 0.35, h * 0.17);
+  return {main: m + base, shade: sh + rrect(x - w / 2 + 2, y - h * 0.35 + h * 0.12, w, h * 0.35, h * 0.17), hi: hi, cs: cs}; }
 function n2_spark(x, y, r) { return poly([[x, y - r], [x + r * 0.22, y - r * 0.22], [x + r, y], [x + r * 0.22, y + r * 0.22], [x, y + r], [x - r * 0.22, y + r * 0.22], [x - r, y], [x - r * 0.22, y - r * 0.22]]); }
 // a fern frond: spine from (x,y) heading a0 (radians, -PI/2 = up), bending by `bend` and curling tight at the tip by `curl` (0..1)
 function n2_frondPts(x, y, len, a0, bend, curl) { var pts = [[x, y]], a = a0, n = 30, st = len / n; for (var i = 1; i <= n; i++) { var s = i / n; a += bend / n + curl * Math.pow(s, 4) * 0.9; x += Math.cos(a) * st * (1 - curl * 0.55 * s * s); y += Math.sin(a) * st * (1 - curl * 0.55 * s * s); pts.push([x, y]); } return pts; }
+// a small pointed leaflet (6 points instead of the 24 of leaf(): a fern frond has dozens of them)
+function n2_leaflet(x, y, len, w, ang) { return poly(rotp([[0, 0], [len * 0.3, w], [len * 0.7, w * 0.75], [len, 0], [len * 0.7, -w * 0.55], [len * 0.3, -w * 0.7]], x, y, ang)); }
 function n2_frond(x, y, len, a0, bend, curl, w) {
   var pts = n2_frondPts(x, y, len, a0, bend, curl), d = n2_tube(pts, w || len * 0.03, (w || len * 0.03) * 0.4), n = pts.length - 1;
   for (var i = 3; i < n - 2; i++) { var s = i / n, p = pts[i], q = pts[i + 1], ang = Math.atan2(q[1] - p[1], q[0] - p[0]) * 180 / Math.PI, sz = len * 0.2 * Math.pow(1 - s, 0.7) * (1 - curl * Math.pow(s, 1.5)); if (sz < 2) continue;
-    d += leaf(p[0], p[1], sz, sz * 0.26, ang - 62) + leaf(p[0], p[1], sz, sz * 0.26, ang + 62); }
+    d += n2_leaflet(p[0], p[1], sz, sz * 0.26, ang - 62) + n2_leaflet(p[0], p[1], sz, sz * 0.26, ang + 62); }
   return d;
 }
 
@@ -81,9 +89,9 @@ SCENES.mushrooms = function (W, H, dk, rnd) {
   add(mid, 'c', bush, C.bush);
   // the fallen log (left), lying a little downhill
   var lx0 = -40, lx1 = W * (ph ? 0.44 : 0.3), lth = ph ? 30 : 46, ly0 = gY(lx0) + (ph ? 6 : 10) - lth / 2, ly1 = gY(lx1) + (ph ? 14 : 22) - lth / 2;
-  var la = Math.atan2(ly1 - ly0, lx1 - lx0), lc = Math.cos(la), ls = Math.sin(la), nx = -ls, ny = lc;
-  add(mid, 'f', poly([[lx0 + nx * lth / 2, ly0 + ny * lth / 2], [lx1 + nx * lth / 2, ly1 + ny * lth / 2], [lx1 - nx * lth / 2, ly1 - ny * lth / 2], [lx0 - nx * lth / 2, ly0 - ny * lth / 2]]) + rotEll(lx0 + lc * W * 0.12, ly0 + ls * W * 0.12 - lth * 0.5, lth * 0.22, lth * 0.18, 0), C.log);
-  add(mid, 'g', rotEll(lx1, ly1, lth * 0.24, lth * 0.5, la * 180 / Math.PI), C.logE);
+  var la = Math.atan2(ly1 - ly0, lx1 - lx0), lc = Math.cos(la), ls = Math.sin(la), nx = -ls, ny = lc, sbx = lx0 + lc * W * 0.12, sby = ly0 + ls * W * 0.12 - lth * 0.4;   // a broken-off branch stub on the log
+  add(mid, 'f', poly([[lx0 + nx * lth / 2, ly0 + ny * lth / 2], [lx1 + nx * lth / 2, ly1 + ny * lth / 2], [lx1 - nx * lth / 2, ly1 - ny * lth / 2], [lx0 - nx * lth / 2, ly0 - ny * lth / 2]]) + n2_tube([[sbx, sby + lth * 0.2], [sbx - lth * 0.2, sby - lth * 0.5]], lth * 0.3, lth * 0.24), C.log);
+  add(mid, 'g', rotEll(lx1, ly1, lth * 0.24, lth * 0.5, la * 180 / Math.PI) + rotEll(sbx - lth * 0.2, sby - lth * 0.5, lth * 0.13, lth * 0.06, -20), C.logE);
   var rings = ''; for (k = 1; k <= 3; k++) rings += rotEll(lx1, ly1, lth * 0.24 * k / 4, lth * 0.5 * k / 4, la * 180 / Math.PI);
   var bk = ''; for (k = 0; k < 9; k++) { var u0 = 0.06 + k * 0.1, sx = lx0 + (lx1 - lx0) * u0, sy = ly0 + (ly1 - ly0) * u0, off = (k % 3 - 1) * lth * 0.22; bk += seg(sx + nx * off, sy + ny * off, sx + lc * 40 + nx * off, sy + ls * 40 + ny * off); }
   stk(mid, 't', rings + bk, C.ring, 1.4);
@@ -102,10 +110,10 @@ SCENES.mushrooms = function (W, H, dk, rnd) {
     else if (c.q < 0.6) { for (var p = 0; p < 5; p++) { var a = p / 5 * 6.283; flw += circ(c.x + Math.cos(a) * 2.2 * sc, c.y - 6 * sc + Math.sin(a) * 2.2 * sc, 1.6 * sc); } }
   });
   add(near, 'c', tufts, C.tuft); add(near, 'd', peb, C.peb); add(near, 'e', flw, C.flw);
-  var fr = '';
+  var fr = '', frB = '';
   if (ph) fr += n2_frond(-6, H + 6, H * 0.2, -1.2, 0.5, 0, 4) + n2_frond(W + 6, H + 8, H * 0.18, -1.9, -0.5, 0, 4);
-  else fr += n2_frond(-10, H + 8, H * 0.32, -1.15, 0.55, 0, 6) + n2_frond(20, H + 8, H * 0.24, -1.45, 0.7, 0, 5) + n2_frond(W + 10, H + 6, H * 0.3, -2.05, -0.5, 0, 6) + n2_frond(W * 0.62, gY(W * 0.62) + 30, H * 0.12, -1.75, 0.6, 0, 3) + n2_frond(W * 0.64, gY(W * 0.64) + 32, H * 0.1, -1.3, 0.4, 0, 3);
-  add(near, 'f', fr, C.fern);
+  else { fr += n2_frond(-10, H + 8, H * 0.32, -1.15, 0.55, 0, 6) + n2_frond(20, H + 8, H * 0.24, -1.45, 0.7, 0, 5) + n2_frond(W + 10, H + 6, H * 0.3, -2.05, -0.5, 0, 6); frB = n2_frond(W * 0.62, gY(W * 0.62) + 30, H * 0.12, -1.75, 0.6, 0, 3) + n2_frond(W * 0.64, gY(W * 0.64) + 32, H * 0.1, -1.3, 0.4, 0, 3); }
+  add(near, 'f', fr + frB, C.fern);
   var stones = ''; [[ph ? 0.6 : 0.36, 1], [ph ? 0.12 : 0.66, 0.8]].forEach(function (q) { var sx = W * q[0], sy = gY(sx) + H * 0.07, r = (ph ? 14 : 22) * q[1]; stones += ell(sx, sy, r * 1.4, r * 0.8) + ell(sx + r, sy + 3, r * 0.8, r * 0.5); });
   add(near, 'h', stones, C.stone);
   // the mushrooms: a big toadstool family (right), little ones by the log, and a fairy ring in front
@@ -114,19 +122,24 @@ SCENES.mushrooms = function (W, H, dk, rnd) {
   var bx = W * (ph ? 0.8 : 0.875), by = gY(bx) + H * (ph ? 0.1 : 0.12);
   M(bx, by, 150, 78, -8, 'toad', 0, 1); M(bx - 92 * S, by + 14 * S, 82, 46, 10, 'toad', 0, 2); M(bx + 70 * S, by + 18 * S, 56, 30, 6, 'toad', 0, 0);
   M(bx - 150 * S, by + 4 * S, 46, 40, -4, 'flat', 1, 0); M(bx + 118 * S, by - 6 * S, 64, 22, -6, 'bell', 2, 0);
-  var lgx = W * (ph ? 0.3 : 0.24); M(lgx, gY(lgx) + 20 * S, 44, 34, 4, 'flat', 1, 0); M(lgx + 34 * S, gY(lgx) + 26 * S, 30, 20, -4, 'flat', 1, 0); M(lgx - 44 * S, gY(lgx) + 4, 54, 18, 2, 'bell', 2, 0);
+  var lgx = W * (ph ? 0.3 : 0.24); M(lgx, gY(lgx) + 20 * S, 44, 34, 4, 'flat', 1, 0); M(lgx + 34 * S, gY(lgx) + 26 * S, 30, 20, -4, 'flat', 1, 0); M(lgx - 52 * S, gY(lgx) + 30 * S, 54, 18, 2, 'bell', 2, 0);
   if (!ph) { M(W * 0.13, ly0 + (ly1 - ly0) * 0.4 - lth * 0.3, 24, 18, 2, 'flat', 1, 0); M(W * 0.165, ly0 + (ly1 - ly0) * 0.52 - lth * 0.3, 16, 12, -2, 'flat', 1, 0); }
-  var rc = [W * (ph ? 0.5 : 0.45), H * (ph ? 0.9 : 0.925)], rx = W * (ph ? 0.33 : 0.17), ryy = H * (ph ? 0.032 : 0.036), RC = ['#F48A8A', '#F6B26B', '#F2D55E', '#9BD77A', '#6FD1C6', '#79A8F2', '#A98BEA', '#F49AC8'];
-  for (i = 0; i < 8; i++) { var aa = Math.PI * 0.5 + i / 8 * Math.PI * 2; M(rc[0] + Math.cos(aa) * rx, rc[1] + Math.sin(aa) * ryy, 34 + (i % 3) * 5, 22 + (i % 2) * 4, (i % 3 - 1) * 2, 'toad', 10 + i, i === 0 ? 3 : 0, i); }
+  var rc = [W * (ph ? 0.5 : 0.45), H * (ph ? 0.9 : 0.915)], rx = W * (ph ? 0.33 : 0.2), ryy = H * (ph ? 0.036 : 0.052), RC = ['#F48A8A', '#F6B26B', '#F2D55E', '#9BD77A', '#6FD1C6', '#79A8F2', '#A98BEA', '#F49AC8'];
+  for (i = 0; i < 8; i++) { var aa = Math.PI * 0.5 + i / 8 * Math.PI * 2; M(rc[0] + Math.cos(aa) * rx, rc[1] + Math.sin(aa) * ryy, (ph ? 34 : 46) + (i % 3) * 6, (ph ? 22 : 29) + (i % 2) * 5, (i % 3 - 1) * 2, 'toad', 10 + i, i === 0 ? 3 : 0, i); }
+  var rg = '', rf = ''; for (i = 0; i < 64; i++) { var ra = i / 64 * Math.PI * 2, rx1 = rc[0] + Math.cos(ra) * rx * 1.02, ry1 = rc[1] + Math.sin(ra) * ryy * 1.05; rg += ell(rx1, ry1 + 2, (ph ? 7 : 11) + (i % 3) * 2, (ph ? 2.2 : 3.2)); if (i % 4 === 1) for (var pk = 0; pk < 5; pk++) { var pa = pk / 5 * 6.283; rf += circ(rx1 + Math.cos(pa) * 1.6, ry1 - 3 + Math.sin(pa) * 1.6, 1.2); } }
+  add(near, 'b', rg); add(near, 'e', rf);
   shrooms.sort(function (p, q) { return p.y - q.y; });
   if (ANIM) {
+    ANIM.ferns = fr; ANIM.fernC = C.fern;
     ANIM.shrooms = shrooms; ANIM.gy = gy; ANIM.ring = {x: rc[0], y: rc[1], rx: rx, ry: ryy, cols: RC};
     ANIM.log = {x0: lx0, y0: ly0, x1: lx1, y1: ly1, th: lth}; ANIM.fern = {x: W * (ph ? 0.6 : 0.73), y: gY(W * (ph ? 0.6 : 0.73)) + H * 0.05, len: H * (ph ? 0.11 : 0.15)};
     ANIM.beams = (ph ? [0.05, 0.42, 0.78] : [0.06, 0.3, 0.55, 0.8]).map(function (f, k) { return [W * f + (ph ? 34 : 60) * 0.5, (ph ? 34 : 60) + k * 8, H * 0.42]; });
   } else {
     var st = '', cp = '', sp = '';
     shrooms.forEach(function (m) { var P = n2_shroom(m.x, m.y, m.h, m.r, m.lean, m.kind); st += P.stem; cp += P.cap; sp += P.spots; });
-    add(near, 'g', st, C.stem); add(near, 'h', stones + cp, C.cap); add(near, 'e', sp, C.flw);
+    // still scene order: stems, caps, the front ferns, then the cap spots with the little flowers; stones join the pebbles
+    var flwD = near.e.d; near.e.d = ''; near.f.d = ''; near.h.d = ''; near.d.d += stones;
+    near.c.d += frB; add(near, 'e', st, C.stem); add(near, 'f', cp, C.cap); add(near, 'g', fr, C.fern); add(near, 'h', sp + flwD, C.flw);
   }
   return n2_out({sky: sky, far: far, refl: refl, mid: mid, near: near});
 };
@@ -170,11 +183,11 @@ SCENES.sunflowers = function (W, H, dk, rnd) {
   var road = n2_q([W * (ph ? 0.22 : 0.3), H + 30], [W * (ph ? 0.5 : 0.55), H * 0.72], [bx, by + 2], 40), RL = [], RR = [];
   var rw = function (u) { return lerp(W * (ph ? 0.2 : 0.15), 10 * S, Math.pow(u, 0.6)); };
   road.forEach(function (p, j) { var w = rw(j / 40); RL.push([p[0] - w / 2, p[1]]); RR.unshift([p[0] + w / 2, p[1]]); });
-  function onRoad(x, y, pad) { for (var j = 0; j < road.length; j++) if (Math.abs(road[j][1] - y) < 14 && Math.abs(road[j][0] - x) < rw(j / 40) / 2 + pad) return true; return false; }
+  function onRoad(x, y, pad, fence) { for (var j = 0; j < road.length; j++) { var hw = rw(j / 40) / 2, dx = x - road[j][0]; if (Math.abs(road[j][1] - y) < 14 && (Math.abs(dx) < hw + pad || (fence && dx > 0 && dx < hw + 10 * S * (1 - j / 40) + 4 + pad + 6 * S))) return true; } return false; }
   var bands = '', dots = '', dotC = '', rows = ph ? 7 : 9;
   for (j = 0; j < rows; j++) { var z = j / (rows - 1), yy = lerp(fy0 + 6 * S, H * (ph ? 0.68 : 0.7), Math.pow(z, 1.25)), rr = lerp(1.6, 5.5, z) * S * (ph ? 1.3 : 1), stp = rr * 2.7;
     bands += below(n2_fn(-40, W + 40, 10, function (x) { return f1(x) - fy0 + yy + rr * 0.8 + Math.sin(x / 40 + j) * 1.5; }), H + 40);
-    for (x = -10 + (j % 2) * stp / 2; x < W + 10; x += stp) { y = f1(x) - fy0 + yy + (rnd() - 0.5) * rr * 0.6; if (onRoad(x, y, rr * 2) || (Math.abs(x - bx - 20 * s) < 120 * s && y < by + 4)) continue; dots += circ(x, y, rr); dotC += circ(x, y, rr * 0.42); } }
+    for (x = -10 + (j % 2) * stp / 2; x < W + 10; x += Math.max(stp, 6.2)) { y = f1(x) - fy0 + yy + (rnd() - 0.5) * rr * 0.6; if (onRoad(x, y, rr * 2) || (Math.abs(x - bx - 20 * s) < 120 * s && y < by + 4)) continue; dots += circ(x, y, rr); if (rr > 3.6) dotC += circ(x + rr * 0.06, y + rr * 0.04, rr * 0.3); } }
   add(near, 'b', bands, C.band); add(near, 'c', dots, C.dot); add(near, 'd', dotC, C.dotC);
   add(near, 'e', poly(RL.concat(RR)), C.road);
   var fence = '', fp = [], fb = [];
@@ -183,12 +196,19 @@ SCENES.sunflowers = function (W, H, dk, rnd) {
   // the sunflowers that turn are drawn by the engine; still scenes get them here
   var fl = [], rowsB = ph ? [[0.705, 9], [0.75, 12], [0.8, 16], [0.86, 22], [0.93, 30], [1.03, 42]] : [[0.71, 10], [0.745, 13], [0.785, 17], [0.835, 22], [0.895, 29], [0.97, 38], [1.07, 52]];
   rowsB.forEach(function (q, j) { var r = q[1] * (ph ? 0.85 : 1), yb = H * q[0], stp = r * 2.5, x0 = (j % 2) * stp * 0.5 - stp * 0.3;
-    for (var x = x0; x < W + r; x += stp * (0.9 + rnd() * 0.25)) { var y = yb + (rnd() - 0.5) * r * 0.3; if (onRoad(x, y - r * 1.4, r * 1.1)) continue; fl.push({x: x + (rnd() - 0.5) * r * 0.4, y: y, r: r * (0.88 + rnd() * 0.24), h: r * (2.6 + rnd() * 0.8), z: j / (rowsB.length - 1), ph: rnd() * 6.28, face: 0}); } });
+    for (var x = x0; x < W + r; x += stp * (0.9 + rnd() * 0.25)) { var y = yb + (rnd() - 0.5) * r * 0.3; if (onRoad(x, y, r * 1.25, true) || onRoad(x, y - r * 1.2, r * 0.6)) continue; fl.push({x: x + (rnd() - 0.5) * r * 0.4, y: y, r: r * (0.88 + rnd() * 0.24), h: r * (2.6 + rnd() * 0.8), z: j / (rowsB.length - 1), ph: rnd() * 6.28, face: 0}); } });
   var big = fl.filter(function (q) { return q.z === 1 && q.x > W * (ph ? 0.05 : 0.6) && q.x < W * 0.95; });
   if (big.length) { big[0].face = 1; if (big.length > 2) big[big.length - 1].face = 2; }
   if (ANIM) { ANIM.flowers = fl; ANIM.hz = H * (ph ? 0.52 : 0.5); ANIM.fieldTop = fy0; ANIM.barn = {x: bx, y: by, s: s, wins: [[bx + f + dpt * 0.25 + 7 * s, by - hgt * 0.62 + 6 * s], [bx + f + dpt * 0.65 + 7 * s, by - hgt * 0.62 + 6 * s], [bx, by - 85 * s]]}; }
-  else { var hd = '', cn = '', sm = ''; fl.forEach(function (q) { var hy = q.y - q.h; sm += n2_tube([[q.x, q.y + q.r], [q.x, hy]], q.r * 0.16, q.r * 0.12); hd += circ(q.x, hy, q.r); cn += circ(q.x, hy, q.r * 0.45); });
-    add(near, 'f', sm, dk ? '#2A5A3A' : '#4E8A34'); add(near, 'g', hd, dk ? '#C8A040' : '#F6C431'); add(near, 'h', cn, dk ? '#3A2418' : '#7A4A1E'); }
+  else { var hd = '', cn = '', sm = '', kept = [];
+    fl.slice().sort(function (p, q) { return q.z - p.z; }).forEach(function (q) { var hy = q.y - q.h; if (!kept.some(function (k) { var dx = k.x - q.x, dy = (k.y - k.h) - hy; return Math.sqrt(dx * dx + dy * dy) < (k.r + q.r) * 1.02; })) kept.push(q); });
+    kept.sort(function (p, q) { return p.z - q.z; }).forEach(function (q) { var hy = q.y - q.h + (dk ? q.r * 0.35 : 0), sx = q.x + (dk ? q.r * 0.15 : 0); sm += n2_tube([[q.x, q.y + q.r], [q.x, (q.y + hy) / 2], [sx, hy]], q.r * 0.16, q.r * 0.12);
+      if (q.r > 14) sm += n2_leaflet(q.x, q.y - q.h * 0.35, q.r * 1.1, q.r * 0.36, -160) + n2_leaflet(q.x, q.y - q.h * 0.15, q.r * 1.05, q.r * 0.34, -25);
+      var st2 = [], np = q.r > 16 ? 14 : 9; for (var k2 = 0; k2 < np * 2; k2++) { var a2 = k2 / (np * 2) * Math.PI * 2, rr2 = q.r * (k2 % 2 ? 0.66 : 1.02); st2.push([sx + Math.cos(a2) * rr2, hy + Math.sin(a2) * rr2 * (dk ? 0.8 : 1)]); }
+      hd += poly(st2); cn += ell(sx, hy, q.r * 0.4, q.r * 0.4 * (dk ? 0.8 : 1)); });
+    add(near, 'f', sm, dk ? '#2A5A3A' : '#4E8A34'); add(near, 'g', hd, dk ? '#C8A040' : '#F6C431'); add(near, 'h', cn, dk ? '#3A2418' : '#7A4A1E');
+    if (!dk) { add(mid, 'a', circ(W * 0.22, H * 0.17, 34 * S), '#FFD44A'); add(far, 'c', n2_puff(W * 0.42, H * 0.14, 150 * S, 40 * S, rnd) + n2_puff(W * 0.7, H * 0.08, 120 * S, 32 * S, rnd), '#FFFFFF'); }
+    else add(far, 'c', circ(W * 0.66, H * 0.15, 26 * S), '#FFF4D2'); }
   return n2_out({sky: sky, far: far, mid: mid, near: near});
 };
 
@@ -211,55 +231,89 @@ function n2_island(cx, ty, w, o) {
     wall = rect(hx - hw / 2, hy - hh, hw, hh + 2); roof = poly([[hx - hw / 2 - 7 * s2, hy - hh + 2], [hx, hy - hh - 30 * s2], [hx + hw / 2 + 7 * s2, hy - hh + 2]]); chim = rect(hx + hw * 0.18, hy - hh - 26 * s2, 8 * s2, 16 * s2);
     door = rrect(hx - 6 * s2, hy - 18 * s2, 12 * s2, 18 * s2, 5 * s2); win = circ(hx, hy - hh - 10 * s2, 4.5 * s2) + rrect(hx - hw * 0.4, hy - hh * 0.72, 9 * s2, 9 * s2, 2) + rrect(hx + hw * 0.4 - 9 * s2, hy - hh * 0.72, 9 * s2, 9 * s2, 2);
     wins = [[hx, hy - hh - 10 * s2, 5 * s2], [hx - hw * 0.4 + 4.5 * s2, hy - hh * 0.72 + 4.5 * s2, 6 * s2], [hx + hw * 0.4 - 4.5 * s2, hy - hh * 0.72 + 4.5 * s2, 6 * s2]]; tops.push(hy - hh - 32 * s2); }
+  var flag = '';
+  if (o.castle) { var c = w / 110, by = ty - w * 0.012, tw2 = 11 * c, k2;
+    // the keep, two side towers and a tall middle tower, each with a cone roof and a pennant
+    wall += rect(cx - 20 * c, by - 26 * c, 40 * c, 26 * c + 2) + rect(cx - 30 * c, by - 38 * c, tw2, 38 * c + 2) + rect(cx + 30 * c - tw2, by - 38 * c, tw2, 38 * c + 2) + rect(cx - 7 * c, by - 46 * c, 14 * c, 46 * c);
+    for (k2 = 0; k2 < 4; k2++) wall += rect(cx - 20 * c + k2 * 11 * c, by - 30 * c, 6 * c, 5 * c);
+    [[cx - 30 * c + tw2 / 2, by - 38 * c, tw2 * 0.75, 15 * c], [cx + 30 * c - tw2 / 2, by - 38 * c, tw2 * 0.75, 15 * c], [cx, by - 46 * c, 9.5 * c, 20 * c]].forEach(function (q) {
+      roof += poly([[q[0] - q[2], q[1] + 1], [q[0], q[1] - q[3]], [q[0] + q[2], q[1] + 1]]); flag += poly([[q[0], q[1] - q[3] - 7 * c], [q[0] + 7 * c, q[1] - q[3] - 5 * c], [q[0], q[1] - q[3] - 3 * c]]) + rect(q[0] - 0.5 * c, q[1] - q[3] - 7 * c, 1 * c, 7 * c); });
+    door += rrect(cx - 5 * c, by - 13 * c, 10 * c, 13 * c, 5 * c);
+    win += rrect(cx - 2.5 * c, by - 40 * c, 5 * c, 7 * c, 2.5 * c) + rrect(cx - 30 * c + tw2 / 2 - 2 * c, by - 30 * c, 4 * c, 6 * c, 2 * c) + rrect(cx + 30 * c - tw2 / 2 - 2 * c, by - 30 * c, 4 * c, 6 * c, 2 * c);
+    wins.push([cx, by - 36.5 * c, 4 * c], [cx - 30 * c + tw2 / 2, by - 27 * c, 3.5 * c], [cx + 30 * c - tw2 / 2, by - 27 * c, 3.5 * c]); tops.push(by - 76 * c); }
   var fls = ''; for (i = 0; i < 7; i++) { var fx = cx + (hash(sd + i * 3.3) - 0.5) * w * 0.8, fy = ty + (hash(sd * 2 + i) - 0.5) * w * 0.05; fls += circ(fx, fy, 1.6 * w / 260 + 0.6); }
   var top = Math.min.apply(null, tops.concat([ty - w * 0.1]));
-  return {rock: poly(rock), dark: poly(dark), strata: strata, grass: grass + drips, grassL: ell(cx - w * 0.06, ty - w * 0.018, w * 0.36, w * 0.038), tree: tree, treeD: treeD, trunk: trunk, wall: wall, roof: roof, chim: chim, door: door, win: win, wins: wins, fls: fls,
+  return {rock: poly(rock), dark: poly(dark), strata: strata, grass: grass + drips, grassL: ell(cx - w * 0.06, ty - w * 0.018, w * 0.36, w * 0.038), tree: tree, treeD: treeD, trunk: trunk, wall: wall, roof: roof, chim: chim, door: door, win: win, wins: wins, fls: fls, flag: flag,
     wf: o.wf ? [cx + o.wf * w * 0.44, ty + w * 0.03] : null, box: [cx - w / 2 - 12, top - 4, w + 24, ty + D * 1.6 - top + 8]};
 }
-function n2_islandCols(dk) { return dk ? {rock: '#5A4E86', dark: '#463C70', strata: 'rgba(30,24,60,0.35)', grass: '#3E7A78', grassL: '#4E9088', tree: '#2E5E62', treeD: 'rgba(10,20,40,0.3)', trunk: '#4A3A50', wall: '#E8DCF0', roof: '#B85A7A', chim: '#8A6A88', door: '#6A4A6A', win: '#FFD58A', fls: '#FFE6A8'} :
-  {rock: '#C9A58A', dark: '#A88470', strata: 'rgba(120,80,60,0.28)', grass: '#7FD06E', grassL: '#A8E68A', tree: '#5AB860', treeD: 'rgba(30,90,40,0.25)', trunk: '#8A6040', wall: '#FFF6EA', roof: '#F07A6A', chim: '#C9A08A', door: '#8A5A44', win: '#8AD0F0', fls: '#FFFFFF'}; }
+function n2_islandCols(dk) { return dk ? {flag: '#FFC8E0', rock: '#5A4E86', dark: '#463C70', strata: 'rgba(30,24,60,0.35)', grass: '#3E7A78', grassL: '#4E9088', tree: '#2E5E62', treeD: 'rgba(10,20,40,0.3)', trunk: '#4A3A50', wall: '#E8DCF0', roof: '#B85A7A', chim: '#8A6A88', door: '#6A4A6A', win: '#FFD58A', fls: '#FFE6A8'} :
+  {flag: '#FF8FA8', rock: '#C9A58A', dark: '#A88470', strata: 'rgba(120,80,60,0.28)', grass: '#7FD06E', grassL: '#A8E68A', tree: '#5AB860', treeD: 'rgba(30,90,40,0.25)', trunk: '#8A6040', wall: '#FFF6EA', roof: '#F07A6A', chim: '#C9A08A', door: '#8A5A44', win: '#8AD0F0', fls: '#FFFFFF'}; }
 SCENES.cloudkingdom = function (W, H, dk, rnd) {
-  var ph = H > W, far = Lay(ph ? 8 : 11), mid = Lay(0), near = Lay(0), i;
+  var ph = H > W, far = Lay(ph ? 8 : 11), refl = Lay(0), mid = Lay(0), near = Lay(0), i;
   var sky = dk ? 'linear-gradient(180deg,#1C1F4A 0%,#2A2960 36%,#3A3474 64%,#7E5C9E 100%)' : 'linear-gradient(180deg,#A9CDF5 0%,#C3DCF8 34%,#DCEBFB 62%,#FFEDE6 100%)';
   var sea = H * (ph ? 0.78 : 0.75);
-  var C = dk ? {bank: '#5A4E92', bank2: '#6E5CA0', glow: 'rgba(255,220,250,0.12)', dist: '#4E4A86', star: 'rgba(255,248,230,0.85)', front: '#8A7CC0', frontS: '#6A5CA6', frontL: '#B4A4DC'} :
-    {bank: '#F6F2FC', bank2: '#FFFFFF', glow: 'rgba(255,250,235,0.6)', dist: '#C2D2EE', star: 'rgba(255,255,255,0)', front: '#FFFFFF', frontS: '#E4DEF2', frontL: '#FFFFFF'};
-  // far: soft cloud banks on the horizon and the light of the sun
+  var C = dk ? {bank: '#5A4E92', bank2: '#6E5CA0', glow: 'rgba(255,220,250,0.08)', dist: '#4E4A86', star: 'rgba(255,248,230,0.85)'} :
+    {bank: '#F6F2FC', bank2: '#FFFFFF', glow: 'rgba(255,250,235,0.22)', dist: '#C2D2EE', star: 'rgba(255,255,255,0)'};
+  // far: soft cloud banks on the horizon and the light of the sun (moon), in three soft steps instead of one hard-edged oval
   var bank = '', bank2 = '';
   spread(-60, sea - H * 0.1, W + 120, H * 0.08, ph ? 90 : 150, 40, rnd, 0.6).forEach(function (c) { bank += n2_puff(c.x, c.y + 20, (ph ? 120 : 220) + c.r * 80, (ph ? 40 : 60) + c.k * 30, rnd); });
   spread(-60, H * 0.36, W + 120, H * 0.14, ph ? 140 : 260, 80, rnd, 0.8).forEach(function (c) { if (c.q < 0.6) bank2 += n2_puff(c.x, c.y, (ph ? 90 : 160) + c.r * 60, (ph ? 22 : 30) + c.k * 12, rnd); });
   add(far, 'a', bank2, C.bank2); add(far, 'b', bank, C.bank);
-  add(far, 'h', dk ? ell(W * 0.5, sea, W * 0.7, H * 0.12) : ell(W * 0.3, H * 0.2, W * 0.35, H * 0.25), C.glow);
-  // mid: stars and tiny distant islands
+  var gx = dk ? W * 0.5 : W * (ph ? 0.3 : 0.32), gy2 = dk ? sea : H * (ph ? 0.17 : 0.17), grx = dk ? W * 0.7 : W * 0.32, gry = dk ? H * 0.12 : H * 0.22;
+  add(far, 'f', ell(gx, gy2, grx, gry), C.glow); add(far, 'g', ell(gx, gy2, grx * 0.66, gry * 0.66), C.glow); add(far, 'h', ell(gx, gy2, grx * 0.36, gry * 0.36), C.glow);
+  // refl (crisp, behind the islands): stars, tiny distant islands
   var st = ''; if (dk) spread(0, 0, W, sea - H * 0.1, 30, 30, rnd, 1).forEach(function (c) { if (c.q < 0.5) st += circ(c.x, c.y, 0.5 + c.r * 1.1); });
-  add(mid, 'a', st, C.star);
+  add(refl, 'a', st, C.star);
   var dist = ''; (ph ? [[0.4, 0.5, 34], [0.92, 0.66, 26]] : [[0.3, 0.55, 44], [0.62, 0.48, 34], [0.94, 0.62, 30], [0.4, 0.66, 26]]).forEach(function (q, k) { var P = n2_island(W * q[0], H * q[1], q[2], {trees: [[-0.3, 1.6], [0.25, 1.3]], seed: k + 4}); dist += P.rock + P.grass + P.tree + P.trunk; });
-  add(mid, 'b', dist, C.dist);
-  // near: the front of the cloud sea
-  // rows of puffs, each with a shaded underside, stepping down toward us
-  var ROWS = dk ? [['#4A4282', '#665AA4'], ['#544A8E', '#7468B2'], ['#5E5498', '#8476C0']] : [['#C9CFEE', '#EAEDFB'], ['#D2D2F0', '#F3F2FD'], ['#DCD6F2', '#FFFFFF']], hl = '';
-  ROWS.forEach(function (rc, j) { var y0 = sea + H * (0.03 + j * (ph ? 0.06 : 0.075)), sh2 = '', mn = '', cw = (ph ? 120 : 210) * (1 + j * 0.25);
-    for (var x = -100 + (j % 2) * cw * 0.5; x < W + 100; x += cw * (0.7 + rnd() * 0.25)) { var w = cw * (0.9 + rnd() * 0.4), h = (ph ? 46 : 70) * (1 + j * 0.3) * (0.8 + rnd() * 0.4); sh2 += n2_puff(x, y0 + h * 0.62, w, h, rnd); mn += n2_puff(x - w * 0.04, y0 + h * 0.42, w * 0.94, h * 0.92, rnd); if (j === 2) hl += ell(x - w * 0.18, y0 - h * 0.3, w * 0.14, h * 0.1); }
-    sh2 += rect(-60, y0 + (ph ? 46 : 70) * (1 + j * 0.3) * 0.5, W + 120, H); add(near, 'abcdef'[j * 2], sh2, rc[0]); add(near, 'abcdef'[j * 2 + 1], mn, rc[1]); });
-  add(near, 'g', hl, dk ? '#A496D6' : '#FFFFFF');
-  // the islands (moving parts)
-  var IS = ph ? [{cx: 0.72, ty: 0.5, w: 190, o: {trees: [[0.45, 1.1], [0.62, 0.8], [-0.55, 0.9]], house: -0.08, wf: -1, seed: 1}}, {cx: 0.2, ty: 0.32, w: 132, o: {trees: [[-0.3, 1.2], [0.3, 0.9]], wf: 1, seed: 2}}, {cx: 0.74, ty: 0.17, w: 80, o: {trees: [[0, 1.3]], wf: 0, seed: 3}}] :
-    [{cx: 0.8, ty: 0.44, w: 300, o: {trees: [[0.5, 1.15], [0.68, 0.85], [-0.6, 0.95], [-0.42, 0.7]], house: 0.05, wf: -1, seed: 1}}, {cx: 0.11, ty: 0.34, w: 200, o: {trees: [[-0.35, 1.2], [0.05, 0.9], [0.4, 1]], wf: 1, seed: 2}}, {cx: 0.5, ty: 0.19, w: 110, o: {trees: [[0.1, 1.3]], wf: 0, seed: 3}}];
+  add(refl, 'b', dist, C.dist);
+  // near: the front of the cloud sea, rows of puffs stepping down toward us, each lit from above with its shade along the bottom
+  var ROWS = dk ? [['#4A4282', '#665AA4'], ['#544A8E', '#7468B2'], ['#5E5498', '#8476C0']] : [['#C9CFEE', '#EAEDFB'], ['#D2D2F0', '#F3F2FD'], ['#DCD6F2', '#FFFFFF']], hl = '', dim = '', spk = '', y2 = 0;
+  ROWS.forEach(function (rc, j) { var y0 = sea + H * (0.03 + j * (ph ? 0.06 : 0.075)), sh2 = '', mn = '', cw = (ph ? 120 : 210) * (1 + j * 0.25), hh = (ph ? 46 : 70) * (1 + j * 0.3);
+    for (var x = -100 + (j % 2) * cw * 0.5; x < W + 100; x += cw * (0.7 + rnd() * 0.25)) { var w = cw * (0.9 + rnd() * 0.4), h = hh * (0.8 + rnd() * 0.4), P = n2_puff2(x, y0 + h * 0.5, w, h, rnd); sh2 += P.shade; mn += P.main;
+      if (j === 2) { hl += P.hi; P.cs.forEach(function (c, n) { if (n % 2 === 0) spk += seg(c[0] + c[2] * 0.25, c[1] - c[2] * 0.62 - 3.5, c[0] + c[2] * 0.25, c[1] - c[2] * 0.62 + 3.5) + seg(c[0] + c[2] * 0.25 - 3.5, c[1] - c[2] * 0.62, c[0] + c[2] * 0.25 + 3.5, c[1] - c[2] * 0.62); }); } }
+    sh2 += rect(-60, y0 + hh * 0.5, W + 120, H); if (j === 2) y2 = y0 + hh * 0.55;
+    add(near, 'abcdef'[j * 2], sh2, rc[0]); add(near, 'abcdef'[j * 2 + 1], mn, rc[1]); });
+  // the deep cloud at the very bottom: a soft shadowed layer of big bellies rising from below, so the front is not one flat sheet
+  var bw2 = ph ? 70 : 120; for (var xx = -bw2 * 0.6; xx < W + bw2; xx += bw2 * (0.75 + rnd() * 0.3)) { var r2 = bw2 * (0.6 + rnd() * 0.3); dim += circ(xx, H + r2 * (0.15 + rnd() * 0.25) - (ph ? 18 : 28), r2); }
+  add(near, 'h', dim, dk ? 'rgba(52,40,110,0.28)' : 'rgba(176,166,232,0.2)');
+  if (!dk) add(near, 'g', hl, 'rgba(255,255,255,0.9)'); stk(near, 's', spk, dk ? 'rgba(255,240,255,0.6)' : 'rgba(214,206,246,0.9)', 1.4);
+  // the islands (moving parts); the small top one carries the kingdom's castle
+  var IS = ph ? [{cx: 0.72, ty: 0.5, w: 190, o: {trees: [[0.45, 1.1], [0.62, 0.8], [-0.55, 0.9]], house: -0.08, wf: -1, seed: 1}}, {cx: 0.2, ty: 0.32, w: 132, o: {trees: [[-0.3, 1.2], [0.3, 0.9]], wf: 1, seed: 2}}, {cx: 0.74, ty: 0.2, w: 96, o: {trees: [[-0.7, 0.8], [0.72, 0.7]], castle: 1, wf: 0, seed: 3}}] :
+    [{cx: 0.8, ty: 0.44, w: 300, o: {trees: [[0.5, 1.15], [0.68, 0.85], [-0.6, 0.95], [-0.42, 0.7]], house: 0.05, wf: -1, seed: 1}}, {cx: 0.11, ty: 0.34, w: 200, o: {trees: [[-0.35, 1.2], [0.05, 0.9], [0.4, 1]], wf: 1, seed: 2}}, {cx: 0.5, ty: 0.21, w: 130, o: {trees: [[-0.72, 0.9], [0.74, 0.75]], castle: 1, wf: 0, seed: 3}}];
   var isl = IS.map(function (q) { var P = n2_island(W * q.cx, H * q.ty, q.w, q.o); P.cx = W * q.cx; P.ty = H * q.ty; P.w = q.w; return P; });
   if (ANIM) { ANIM.isl = isl; ANIM.sea = sea; }
-  else { var K = n2_islandCols(dk), r = '', g = '', t = '', wl = '', rf = ''; isl.forEach(function (P) { r += P.rock; g += P.grass; t += P.tree; wl += P.wall; rf += P.roof; });
-    add(mid, 'c', r, K.rock); add(mid, 'd', g, K.grass); add(mid, 'e', t, K.tree); add(mid, 'f', wl, K.wall); add(mid, 'g', rf, K.roof); }
-  return n2_out({sky: sky, far: far, mid: mid, near: near});
+  else {
+    // the still scene: the islands with their trees, houses and castle, waterfalls into the cloud sea, a kite on its string
+    var K = n2_islandCols(dk), r = '', dkk = '', g = '', tr = '', t = '', wl = '', rf = '', wn = '', strata = '', wf = '', wfl = '', ks = '';
+    isl.forEach(function (P) { r += P.rock + P.chim; dkk += P.dark; g += P.grass; tr += P.trunk + P.door; t += P.tree; wl += P.wall; rf += P.roof + P.flag; wn += P.win;
+      P.strata.replace(/M([-\d.]+) ([-\d.]+) a([-\d.]+)/g, function (m0, x0, y0, rx0) { strata += seg(+x0 + 2, +y0, +x0 + 2 * rx0 - 2, +y0); return m0; });
+      if (P.wf) { var x0 = P.wf[0], ww = (ph ? 7 : 11) * P.w / 240 + 3, dir = x0 > P.cx ? 1 : -1, xb = x0 + dir * ww * 1.3;
+        wf += poly(n2_q([x0 - ww / 2, P.wf[1]], [x0 + dir * ww * 1.4, P.wf[1] - 2], [xb + ww / 2, P.wf[1] + ww * 1.5], 6).concat([[xb + ww * 0.7, sea + 30], [xb - ww * 0.7, sea + 30], [xb - ww / 2, P.wf[1] + ww * 1.5]]));
+        for (var k = 0; k < 3; k++) wfl += seg(xb + (k - 1) * ww * 0.3, P.wf[1] + ww * 2 + k * 30, xb + (k - 1) * ww * 0.3, P.wf[1] + ww * 2 + k * 30 + (sea - P.wf[1]) * 0.35); } });
+    var A0 = isl[0], ka = A0.wins.length ? [A0.wins[0][0], A0.wins[0][1] - 14] : [A0.cx, A0.ty - 40], kx = ka[0] + 110 * (ph ? 0.65 : 1), ky = ka[1] - 150 * (ph ? 0.65 : 1), ksz = ph ? 0.62 : 0.95;
+    var kite = poly([[kx, ky - 24 * ksz], [kx + 17 * ksz, ky - 2 * ksz], [kx, ky + 22 * ksz], [kx - 17 * ksz, ky - 2 * ksz]]);
+    for (k = 1; k <= 3; k++) { var bx = kx + Math.sin(k * 2.3) * 6, by = ky + 22 * ksz + k * 20 * ksz; kite += poly([[bx - 5, by - 3], [bx, by], [bx - 5, by + 3]]) + poly([[bx + 5, by - 3], [bx + 5, by + 3], [bx, by]]); }
+    ks = pline(n2_q(ka, [(ka[0] + kx) / 2 + 10, (ka[1] + ky) / 2 + 30], [kx, ky + 20 * ksz], 12)) + pline(n2_fn(0, 9, 1, function (k) { return k; }).map(function (q) { return [kx + Math.sin(q[0] * 0.7) * 5, ky + 22 * ksz + q[0] * 7 * ksz]; })) + seg(kx, ky - 24 * ksz, kx, ky + 22 * ksz) + seg(kx - 17 * ksz, ky - 2 * ksz, kx + 17 * ksz, ky - 2 * ksz);
+    add(refl, 'c', wf, dk ? '#8EA8E8' : '#9AD6F6'); stk(refl, 's', wfl, 'rgba(255,255,255,0.8)', 1.4);
+    add(mid, 'a', r, K.rock); add(mid, 'b', dkk, K.dark); add(mid, 'c', g, K.grass); add(mid, 'd', tr, K.trunk); add(mid, 'e', t, K.tree); add(mid, 'f', wl, K.wall); add(mid, 'g', rf + kite, K.roof); add(mid, 'h', wn, K.win);
+    stk(mid, 's', strata, K.strata, 2.4); stk(mid, 't', ks, dk ? 'rgba(220,220,255,0.6)' : 'rgba(90,80,120,0.55)', 1);
+    if (!dk) add(refl, 'd', circ(gx, gy2, 32 * (ph ? 0.65 : 1)), '#FFEFB8'); else add(refl, 'd', circ(W * (ph ? 0.32 : 0.34), H * (ph ? 0.17 : 0.16), 30 * (ph ? 0.65 : 1)), '#FFF6E0'); }
+  return n2_out({sky: sky, far: far, refl: refl, mid: mid, near: near});
 };
 
 // ================= 4. Night Train: inside a sleeper compartment, a wide window, a reading lamp, tea on the fold-down table =================
 // the window and the room around it, shared by the scene and its engine
 function n2_trainGeo(W, H) {
   var ph = H > W;
-  return ph ? {ph: ph, x0: W * 0.07, x1: W * 0.93, y0: H * 0.12, y1: H * 0.5, r: 22, fr: 12, ty: H * 0.5 + 16, bench: H * 0.83, lamp: [W * 0.83, H * 0.035], cup: [W * 0.72, H * 0.5 + 16], tbl: [W * 0.5, W * 0.96]} :
+  return ph ? {ph: ph, x0: W * 0.07, x1: W * 0.93, y0: H * 0.12, y1: H * 0.5, r: 22, fr: 12, ty: H * 0.5 + 16, bench: H * 0.83, lamp: [W * 0.2, H * 0.5 + 6], cup: [W * 0.72, H * 0.5 + 16], tbl: [W * 0.5, W * 0.96]} :
     {ph: ph, x0: W * 0.05, x1: W * 0.72, y0: H * 0.1, y1: H * 0.64, r: 30, fr: 16, ty: H * 0.64 + 22, bench: H * 0.86, lamp: [W * 0.865, H * 0.2], cup: [W * 0.6, H * 0.64 + 22], tbl: [W * 0.4, W * 0.76]};
 }
+// where the layers of land sit in the window: raised so the mountains and hills show above the board on desktop
+function n2_trainLand(G) { var wh = G.y1 - G.y0; return {m: G.y0 + wh * 0.37, ma: wh * 0.19, h0: G.y0 + wh * 0.47, h1: G.y0 + wh * 0.61, h2: G.y0 + wh * 0.76}; }
 // rolling land outside the window, as a function of world x (the train moves through it)
+function n2_mount(x) { return 0.66 * Math.pow(1 - Math.abs(Math.sin(x / 170 + 0.5)), 1.3) + 0.34 * (1 - Math.abs(Math.sin(x / 61 + 1.3))); }
+// the snow on the mountain tops: from the ridge down by a depth that grows with the height of the peak
+function n2_snow(x0, x1, m, ma, ox) { var top = [], bot = []; for (var x = x0; x <= x1; x += 6) { var n = n2_mount(x + ox), y = m - ma * n, d = Math.max(0, n - 0.6) * ma * 0.95 * (1 + 0.3 * Math.sin(x * 0.31)); top.push([x, y]); bot.unshift([x, y + d]); } return top.concat(bot); }
 function n2_land(k, x) { return k === 0 ? Math.sin(x / 260 + 1) * 0.5 + Math.sin(x / 97) * 0.22 + Math.sin(x / 41 + 2) * 0.08 : k === 1 ? Math.sin(x / 180) * 0.5 + Math.sin(x / 67 + 1) * 0.25 : Math.sin(x / 120 + 3) * 0.4 + Math.sin(x / 43) * 0.18; }
 SCENES.nighttrain = function (W, H, dk, rnd) {
   var G = n2_trainGeo(W, H), ph = G.ph, far = Lay(0), mid = Lay(0), near = Lay(0), S = ph ? 0.65 : 1, i;
@@ -291,7 +345,7 @@ SCENES.nighttrain = function (W, H, dk, rnd) {
   stk(near, 't', tuft + seg(-40, G.bench + 14 * S, W + 40, G.bench + 14 * S), dk ? '#1E3A3E' : '#2E6052', 2 * S);
   // luggage rack and wall details in brass
   var brass = '';
-  if (!ph) { var rx0 = G.x1 + G.fr + 40, rx1 = W + 10; brass += rrect(rx0, H * 0.06, rx1 - rx0, 7, 3) + rrect(rx0, H * 0.06 + 22, rx1 - rx0, 5, 2.5); for (x = rx0 + 10; x < rx1; x += 34) brass += rect(x, H * 0.06, 3, 26);
+  if (!ph) { var rx0 = G.x1 + G.fr + 40, rx1 = W + 10; brass += rrect(rx0, H * 0.085, rx1 - rx0, 7, 3) + rrect(rx0, H * 0.085 + 22, rx1 - rx0, 5, 2.5); for (x = rx0 + 10; x < rx1; x += 34) brass += rect(x, H * 0.085, 3, 26);
     brass += rrect(G.x1 + G.fr + 70, G.y0 + 190, 9, 9, 3) + rrect(W - 40, G.y0 + 190, 9, 9, 3); }
   brass += rrect(G.x0 + ww * 0.5 - 30 * S, G.y0 - G.fr - 8 * S, 60 * S, 6 * S, 3 * S);
   add(near, 'h', brass + btn2, C.brass);
@@ -299,15 +353,32 @@ SCENES.nighttrain = function (W, H, dk, rnd) {
   var st = ''; if (dk) spread(G.x0, G.y0, ww, wh * 0.55, 26, 26, rnd, 1).forEach(function (c) { if (c.q < 0.45) st += circ(c.x, c.y, 0.5 + c.r); });
   add(mid, 'a', st, C.star);
   if (ANIM) { ANIM.G = G; }
-  else { add(mid, 'b', below(n2_fn(G.x0 - 10, G.x1 + 10, 8, function (x) { return G.y0 + wh * (0.55 + 0.08 * n2_land(0, x)); }), G.y1 + 20), dk ? '#2E3A62' : '#A9C3DC'); add(mid, 'c', below(n2_fn(G.x0 - 10, G.x1 + 10, 8, function (x) { return G.y0 + wh * (0.74 + 0.07 * n2_land(1, x)); }), G.y1 + 20), dk ? '#1E2A44' : '#8DBB86'); }
+  else {
+    // the still scene: the same view the engine paints, without motion
+    var LC = dk ? ['#26305A', '#2C3762', '#1E2848', '#16203A', '#101830'] : ['#BCCFE6', '#A9C3DC', '#94C08A', '#72A866', '#4E8A4E'], lv = n2_trainLand(G);
+    var hl = function (base, amp, k) { return below(n2_fn(G.x0 - 10, G.x1 + 12, 8, function (x) { return base + amp * n2_land(k, x); }), G.y1 + 20); };
+    add(mid, 'b', below(n2_fn(G.x0 - 10, G.x1 + 12, 6, function (x) { return lv.m - lv.ma * n2_mount(x); }), G.y1 + 20), LC[0]);
+    add(mid, 'c', hl(lv.h0, wh * 0.1, 0), LC[1]); add(mid, 'd', hl(lv.h1, wh * 0.08, 1), LC[2]);
+    var tr = '', hs = '', rf = ''; for (x = G.x0 + 10; x < G.x1; x += 46) { var hv = hash(x * 0.37), ty = lv.h2 + wh * 0.06 * n2_land(2, x) + 3, ts = (0.7 + hv * 0.6) * S; if (hv < 0.55) tr += poly([[x - 9 * ts, ty], [x, ty - 30 * ts], [x + 9 * ts, ty]]); }
+    for (x = G.x0 + 60; x < G.x1; x += 170) { var hy2 = lv.h1 + wh * 0.08 * n2_land(1, x) + 2, s2 = S * 0.9; hs += rect(x - 10 * s2, hy2 - 12 * s2, 20 * s2, 12 * s2); rf += poly([[x - 13 * s2, hy2 - 11 * s2], [x, hy2 - 21 * s2], [x + 13 * s2, hy2 - 11 * s2]]); }
+    add(mid, 'e', hs + poly(n2_snow(G.x0 - 10, G.x1 + 12, lv.m, lv.ma, 0)), dk ? '#3E4470' : '#F6F0E6'); add(mid, 'f', hl(lv.h2, wh * 0.06, 2) + tr, LC[3]);
+    var bush = below(n2_fn(G.x0 - 10, G.x1 + 12, 10, function (x) { return G.y1 - wh * 0.05 - Math.abs(Math.sin(x / 37)) * wh * 0.05; }), G.y1 + 20), poles = '', wires = '', gap = 300 * S;
+    for (x = G.x0 + gap * 0.4; x < G.x1 + gap; x += gap) { var top = G.y0 + wh * 0.18; poles += seg(x, top, x, G.y1 + 20) + seg(x - 16 * S, top + 8 * S, x + 16 * S, top + 8 * S); [-12, 12].forEach(function (o) { wires += pline(n2_q([x - gap + o * S, top + 6 * S], [x - gap / 2, top + 6 * S + wh * 0.12], [x + o * S, top + 6 * S], 10)); }); }
+    add(mid, 'g', bush, dk ? '#0C1222' : '#3E7A44'); stk(mid, 's', wires, dk ? '#0A0E1A' : '#5A4A40', 1.2); stk(mid, 't', poles, dk ? '#0A0E1A' : '#5A4A40', 4 * S);
+    add(mid, 'h', rf + (dk ? circ(G.x0 + ww * 0.72, G.y0 + wh * 0.2, 20 * S) : n2_puff(G.x0 + ww * 0.3, G.y0 + wh * 0.08, 70 * S, 26 * S, rnd) + n2_puff(G.x0 + ww * 0.62, G.y0 + wh * 0.05, 56 * S, 20 * S, rnd)), dk ? '#FFF6DA' : '#FFFFFF');
+    // the lamp: a wall lamp right of the window (desktop), a table lamp on the sill (phone)
+    var L = G.lamp, sh = '', lb = '';
+    if (ph) { sh = poly([[L[0] - 9 * S, L[1] - 62 * S], [L[0] + 9 * S, L[1] - 62 * S], [L[0] + 20 * S, L[1] - 40 * S], [L[0] - 20 * S, L[1] - 40 * S]]); lb = rect(L[0] - 2 * S, L[1] - 44 * S, 4 * S, 42 * S) + ell(L[0], L[1] - 2 * S, 13 * S, 4 * S); }
+    else { sh = poly([[L[0] - 10, L[1] - 4], [L[0] + 10, L[1] - 4], [L[0] + 26, L[1] + 22], [L[0] - 26, L[1] + 22]]); lb = rrect(L[0] + 28, L[1] - 18, 10, 36, 4) + n2_tube(n2_q([L[0] + 33, L[1]], [L[0] + 10, L[1] - 6], [L[0], L[1] - 20], 8), 4, 4) + rect(L[0] - 1, L[1] - 20, 2, 16); }
+    add(near, 'e', sh); add(near, 'h', lb); }
   return n2_out({sky: sky, far: far, mid: mid, near: near});
 };
 
 // ================= 5. Ramen Shop: a late-night ramen counter with noren curtains, a steaming pot and rain on the window =================
 function n2_ramenGeo(W, H) {
   var ph = H > W;
-  return ph ? {ph: ph, S: 0.62, wx0: W * 0.05, wx1: W * 0.44, wy0: H * 0.2, wy1: H * 0.4, pass: W * 0.48, ct: H * 0.64, cf: H * 0.68, chef: [W * 0.66, H * 0.5], pot: [W * 0.9, H * 0.56], noren: [W * 0.48, W + 10, H * 0.035, H * 0.15], lant: [[W * 0.46, H * 0.05]], tags: [W * 0.5, W * 0.98, H * 0.19], shelf: [W * 0.05, W * 0.44, H * 0.47], neko: [W * 0.1, H * 0.64], bowl: [W * 0.3, H * 0.64], caddy: [W * 0.47, H * 0.64]} :
-    {ph: ph, S: 1, wx0: W * 0.035, wx1: W * 0.29, wy0: H * 0.14, wy1: H * 0.52, pass: W * 0.33, ct: H * 0.655, cf: H * 0.7, chef: [W * 0.66, H * 0.43], pot: [W * 0.87, H * 0.53], noren: [W * 0.33, W + 20, H * 0.035, H * 0.2], lant: [[W * 0.31, H * 0.05], [W * 0.975, H * 0.24]], tags: [W * 0.37, W * 0.56, H * 0.25], shelf: [W * 0.36, W * 0.56, H * 0.44], neko: [W * 0.05, H * 0.655], bowl: [W * 0.16, H * 0.655], caddy: [W * 0.27, H * 0.655]};
+  return ph ? {ph: ph, S: 0.62, wx0: W * 0.05, wx1: W * 0.44, wy0: H * 0.2, wy1: H * 0.4, pass: W * 0.48, ct: H * 0.64, cf: H * 0.68, chef: [W * 0.66, H * 0.5], pot: [W * 0.9, H * 0.56], noren: [W * 0.48, W + 10, H * 0.095, H * 0.2], lant: [[W * 0.455, H * 0.105]], tags: [W * 0.5, W * 0.98, H * 0.225], shelf: [W * 0.05, W * 0.44, H * 0.47], neko: [W * 0.1, H * 0.64], bowl: [W * 0.3, H * 0.64], caddy: [W * 0.47, H * 0.64]} :
+    {ph: ph, S: 1, wx0: W * 0.035, wx1: W * 0.29, wy0: H * 0.14, wy1: H * 0.52, pass: W * 0.33, ct: H * 0.655, cf: H * 0.7, chef: [W * 0.66, H * 0.43], pot: [W * 0.87, H * 0.53], noren: [W * 0.33, W + 20, H * 0.035, H * 0.2], lant: [[W * 0.31, H * 0.05], [W * 0.955, H * 0.24]], tags: [W * 0.37, W * 0.56, H * 0.25], shelf: [W * 0.36, W * 0.56, H * 0.44], neko: [W * 0.05, H * 0.655], bowl: [W * 0.16, H * 0.655], caddy: [W * 0.27, H * 0.655]};
 }
 SCENES.ramen = function (W, H, dk, rnd) {
   var G = n2_ramenGeo(W, H), ph = G.ph, S = G.S, far = Lay(ph ? 1 : 1.5), mid = Lay(0), near = Lay(0), i, x;
@@ -352,9 +423,21 @@ SCENES.ramen = function (W, H, dk, rnd) {
   add(near, 'd', pl + rect(-40, G.cf + 1, W + 80, 9 * S), dk ? '#432A26' : '#86543A'); var grain = ''; for (i = 0; i < 4; i++) grain += pline(n2_fn(-40, W + 40, 40, function (x) { return G.ct + (G.cf - G.ct) * (0.2 + i * 0.2) + Math.sin(x / 90 + i * 2) * 2; }));
   stk(near, 's', sl, C.slat, 2); stk(near, 't', grain, dk ? 'rgba(0,0,0,0.18)' : 'rgba(150,90,40,0.25)', 1.2);
   var st = ''; (ph ? [0.2, 0.8] : [0.12, 0.38, 0.62, 0.88]).forEach(function (f) { var cx = W * f, cy = H * 0.975, rx2 = (ph ? 46 : 74); st += ell(cx, cy, rx2, rx2 * 0.26) + rect(cx - rx2, cy, rx2 * 2, 40); });
-  add(near, 'e', st, C.stool);
+  if (ANIM) add(near, 'e', st, C.stool);
   if (ANIM) { ANIM.G = G; ANIM.sign = [sx, sy, sw]; ANIM.gy = gy; }
   else { var N = G.noren, np = (N[1] - N[0]) / (ph ? 3 : 5), nd = ''; for (i = 0; i < (ph ? 3 : 5); i++) nd += rect(N[0] + i * np + 2, N[2], np - 4, N[3] - N[2]); add(near, 'f', nd, dk ? '#26315E' : '#2B4078'); add(near, 'g', circ((N[0] + N[1]) / 2, (N[2] + N[3]) / 2, ph ? 18 : 28), '#FFFFFF');
-    var ln = ''; G.lant.forEach(function (L) { ln += ell(L[0], L[1] + 38 * S, 24 * S, 32 * S); }); add(near, 'h', ln, '#D2363E'); }
+    var ln = ''; G.lant.forEach(function (L) { ln += ell(L[0], L[1] + 38 * S, 24 * S, 32 * S); }); add(near, 'h', ln + st, '#D2363E');
+    var cx = G.chef[0], cy = G.chef[1], cs = S, P = G.pot, pw = 64 * S, coat = '', skin = '', hair = '', apron = '';
+    coat += poly(n2_q([cx - 48 * cs, cy + 40 * cs], [cx, cy + 26 * cs], [cx + 48 * cs, cy + 40 * cs], 6).concat([[cx + 60 * cs, G.ct], [cx - 60 * cs, G.ct]])) + n2_tube(n2_q([cx - 44 * cs, cy + 56 * cs], [cx - 66 * cs, cy + 96 * cs], [cx - 40 * cs, cy + 118 * cs], 8), 20 * cs, 20 * cs) + n2_tube(n2_q([cx + 44 * cs, cy + 56 * cs], [cx + 70 * cs, cy + 92 * cs], [cx + 104 * cs, cy + 100 * cs], 8), 20 * cs, 20 * cs);
+    var band = poly(n2_q([cx - 37 * cs, cy - 14 * cs], [cx, cy - 30 * cs], [cx + 37 * cs, cy - 14 * cs], 6).concat(n2_q([cx + 37 * cs, cy - 4 * cs], [cx, cy - 20 * cs], [cx - 37 * cs, cy - 4 * cs], 6))) + ell(cx + 34 * cs, cy - 16 * cs, 7 * cs, 5 * cs);
+    skin += circ(cx, cy, 36 * cs) + circ(cx - 36 * cs, cy + 2 * cs, 8 * cs) + circ(cx + 36 * cs, cy + 2 * cs, 8 * cs) + circ(cx - 40 * cs, cy + 120 * cs, 9 * cs) + circ(cx + 106 * cs, cy + 100 * cs, 9 * cs);
+    var straps = n2_tube([[cx - 30 * cs, cy + 104 * cs], [cx - 20 * cs, cy + 44 * cs]], 4 * cs, 4 * cs) + n2_tube([[cx + 30 * cs, cy + 104 * cs], [cx + 20 * cs, cy + 44 * cs]], 4 * cs, 4 * cs);
+    hair += 'M' + PT(cx - 35 * cs * Math.cos(0.25), cy - 6 * cs - 35 * cs * Math.sin(0.25)) + ' A' + n1(35 * cs) + ' ' + n1(35 * cs) + ' 0 0 1 ' + PT(cx + 35 * cs * Math.cos(0.25), cy - 6 * cs - 35 * cs * Math.sin(0.25)) + ' Z ' + circ(cx - 10 * cs, cy + 10 * cs, 3.4 * cs) + circ(cx + 10 * cs, cy + 10 * cs, 3.4 * cs);
+    apron += rect(cx - 46 * cs, Math.min(G.ct, cy + 104 * cs), 92 * cs, Math.max(0, G.ct - cy - 104 * cs));
+    var pot = rect(P[0] - pw, P[1], pw * 2, G.ct - P[1]) + rect(P[0] - pw - 8 * S, P[1] + 14 * S, 10 * S, 8 * S) + rect(P[0] + pw - 2, P[1] + 14 * S, 10 * S, 8 * S), bx = cx + 125 * S, bTop = G.ct - 34 * S;
+    pot += rect(bx - 46 * S, bTop, 92 * S, G.ct - bTop);
+    var steam = ''; [[P[0] - 20 * S, P[1] - 8 * S], [P[0] + 14 * S, P[1] - 14 * S], [bx, bTop - 8 * S]].forEach(function (q, k) { steam += pline(n2_fn(0, 10, 1, function (j) { return j; }).map(function (j) { return [q[0] + Math.sin(j[0] * 0.8 + k) * 6 * S, q[1] - j[0] * 6 * S]; })); });
+    add(mid, 'f', coat); add(mid, 'h', skin, '#F7D8B8'); add(near, 'd', hair); add(near, 'g', band); add(near, 'f', apron + straps); add(near, 'e', pot, C.steel); add(near, 'b', ell(P[0], P[1], pw, 9 * S) + ell(bx, bTop, 46 * S, 7 * S));
+    stk(mid, 't', steam, dk ? 'rgba(255,240,250,0.45)' : 'rgba(255,255,255,0.9)', 3.4 * S); }
   return n2_out({sky: sky, far: far, mid: mid, near: near});
 };
