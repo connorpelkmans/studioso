@@ -328,7 +328,7 @@ async function cvHarvest(o) {
       const qq = a.quiz_id != null ? qz[String(a.quiz_id)] || null : null, o = {};
       const st = (Array.isArray(a.submission_types) ? a.submission_types : []).map(x => String(x).slice(0, 24)).slice(0, 8);
       if (st.length) o.st = st;
-      if (a.is_quiz_assignment || a.quiz_id || st.includes("online_quiz")) o.k = "quiz"; else if (st.includes("discussion_topic")) o.k = "discussion"; else o.k = "assign";
+      if (a.is_quiz_assignment || a.is_quiz_lti_assignment || a.quiz_id || st.includes("online_quiz")) o.k = "quiz"; else if (st.includes("discussion_topic")) o.k = "discussion"; else o.k = "assign";
       if (qq) { if (qq.quiz_type) o.qt = String(qq.quiz_type).slice(0, 24); if (Number(qq.time_limit) > 0) o.tl = Number(qq.time_limit); if (qq.one_question_at_a_time) o.oq = 1; if (qq.ip_filter) o.ip = 1; if (qq.require_lockdown_browser) o.ld = 1; if (qq.unlock_at) o.ul = String(qq.unlock_at); if (qq.lock_at) o.ll = String(qq.lock_at); }
       if (a.require_lockdown_browser) o.ld = 1;
       if (a.ip_filter) o.ip = 1;
@@ -338,12 +338,15 @@ async function cvHarvest(o) {
     // Weights: when the course weights its assignment groups, each item's share is its group's weight times its share of the group's points
     const gw = {}; (Array.isArray(groups) ? groups : []).forEach(g => { gw[g.id] = Number(g.group_weight) || 0; });
     const weighted = !!raw.apply_assignment_group_weights && Object.values(gw).some(x => x > 0);
-    const gpts = {}; live.forEach(a => { if (!a.omit_from_final_grade && Number(a.points_possible) > 0) gpts[a.assignment_group_id] = (gpts[a.assignment_group_id] || 0) + Number(a.points_possible); });
-    const wOf = a => weighted && gw[a.assignment_group_id] && gpts[a.assignment_group_id] && Number(a.points_possible) > 0 && !a.omit_from_final_grade ? Math.round(gw[a.assignment_group_id] * Number(a.points_possible) / gpts[a.assignment_group_id] * 100) / 100 : null;
+    const gpts = {}; let tpts = 0; live.forEach(a => { if (!a.omit_from_final_grade && Number(a.points_possible) > 0) { gpts[a.assignment_group_id] = (gpts[a.assignment_group_id] || 0) + Number(a.points_possible); tpts += Number(a.points_possible); } });
+    // A points-based course (no group weights, which is Canvas's default) counts each item by its share of all the points, the way Canvas totals it,
+    // so its grades still reach the Grade Tracker instead of arriving without a weight.
+    const wOf = a => Number(a.points_possible) > 0 && !a.omit_from_final_grade ? (weighted ? (gw[a.assignment_group_id] && gpts[a.assignment_group_id] ? Math.round(gw[a.assignment_group_id] * Number(a.points_possible) / gpts[a.assignment_group_id] * 100) / 100 : null)
+      : tpts > 0 ? Math.round(Number(a.points_possible) / tpts * 10000) / 100 : null) : null;
     c.items = []; c.grades = [];
     live.slice(0, 250).forEach(a => {
       const s = a.submission || null;
-      const kind = a.is_quiz_assignment || a.quiz_id || (a.submission_types || []).includes("online_quiz") ? "quiz" : (a.submission_types || []).includes("discussion_topic") ? "discussion" : "assignment";
+      const kind = a.is_quiz_assignment || a.is_quiz_lti_assignment || a.quiz_id || (a.submission_types || []).includes("online_quiz") ? "quiz" : (a.submission_types || []).includes("discussion_topic") ? "discussion" : "assignment";
       const done = s ? (!!s.submitted_at || ["submitted", "pending_review"].includes(s.workflow_state) || (s.workflow_state === "graded" && s.score != null) || !!s.excused) && !s.missing : null;
       const due = dt(a.due_at);
       if (due || s && s.score != null) c.items.push({ kind, id: String(a.id), name: String(a.name || ""), due, start: dt(a.unlock_at), end: dt(a.lock_at), text: txt(a.description), url: String(a.html_url || ""), gid: String(a.id),
@@ -372,7 +375,8 @@ async function cvHarvest(o) {
     const t = p.plannable_type; if (!["assignment", "quiz", "discussion_topic", "wiki_page"].includes(t)) return;
     const name = String(p.plannable.title || p.plannable.name || ""); const due = dt(p.plannable.due_at) || dt(p.plannable.todo_date) || dt(p.plannable_date);
     const doneP = !!((p.submissions && (p.submissions.submitted || p.submissions.excused)) || (p.planner_override && p.planner_override.marked_complete));
-    const have = c.items.find(x => key(x.name) === key(name));
+    const named = c.items.filter(x => key(x.name) === key(name));    // the same item, by id; or by name (and its date, when two share the name)
+    const have = c.items.find(x => x.id === String(p.plannable_id || (p.plannable && p.plannable.assignment_id) || "")) || (named.length > 1 ? named.find(x => x.due && due && x.due.slice(0, 10) === due.slice(0, 10)) : named[0]);
     if (have) { if (doneP) have.done = true; return; }
     if (!due) return;
     c.items.push({ kind: t === "quiz" ? "quiz" : t === "discussion_topic" ? "discussion" : "other", id: String(p.plannable_id), name, due, start: null, end: null, text: "", url: String(p.html_url || ""), gid: "", outOf: null, done: doneP, files: [], rx: t === "quiz" ? { k: "quiz", st: ["online_quiz"] } : undefined });
@@ -436,6 +440,10 @@ async function bbHarvest(o) {
       q.news === false ? [] : pages([`/learn/api/public/v1/courses/${id}/announcements?limit=50`, `/learn/api/v1/courses/${id}/announcements?limit=50`], true, 2)
     ]);
     const g = {}; mine.forEach(x => { g[String(x.columnId)] = x; });
+    // Blackboard's REST data has no category weights for students, so each counted column is worth its share of all the points (Blackboard's default total).
+    const counts = col => !col.externalGrade && !(col.grading && col.grading.type === "Calculated") && col.includeInCalculations !== false && col.score && Number(col.score.possible) > 0;
+    const tpts = cols.reduce((s, col) => s + (counts(col) ? Number(col.score.possible) : 0), 0);
+    const wOf = col => counts(col) && tpts > 0 ? Math.round(Number(col.score.possible) / tpts * 10000) / 100 : null;
     const courseUrl = `${location.origin}/ultra/courses/${id}/outline`;
     c.items = []; c.grades = []; c.final = null;
     cols.forEach(col => {
@@ -446,7 +454,7 @@ async function bbHarvest(o) {
       if (col.grading && col.grading.type === "Calculated") return;
       const done = my ? (["NeedsGrading", "Graded", "Completed"].includes(String(my.status)) || score != null) : null;
       if (due) c.items.push({ kind: /\b(test|quiz|exam|midterm)\b/i.test(col.name || "") ? "quiz" : "assignment", id: String(col.id), name: String(col.name || ""), due, start: null, end: null, text: txt(col.description), url: courseUrl, gid: String(col.id), outOf: possible, done, files: [], rx: col.grading && col.grading.type ? { gt: String(col.grading.type).slice(0, 16) } : undefined });   // Attempts = marked from an online attempt, Manual = entered by the instructor
-      if (possible && score != null) c.grades.push({ gid: String(col.id), name: String(col.name || ""), num: score, den: possible, weight: null, shown, at: dt(my.modified || my.lastModified) });
+      if (possible && (score != null || wOf(col) != null)) c.grades.push({ gid: String(col.id), name: String(col.name || ""), num: score, den: possible, weight: wOf(col), shown, at: dt(my && (my.modified || my.lastModified)) });
     });
     c.news = news.slice(0, 25).map(n => ({ id: String(n.id), title: String(n.title || ""), text: txt(n.body, 3000), date: dt(n.created) || dt(n.availability && n.availability.duration && n.availability.duration.start), url: `${location.origin}/ultra/courses/${id}/announcements` }));
     c.events = [];
