@@ -50383,7 +50383,19 @@ window.SBEST = SBEST;
 
   function fromFeed(text, src){
     const raw = icsParse(text), out = {src: src || "feed", origin: "", courses: [], recs: [], evs: [], grades: [], finals: {}, news: [], synced: []};
-    const groups = {}, courses = {};
+    const groups = {}, courses = {}, alias = {};
+    // Some events carry the platform's course number and some only a course code or name. Both must land on one course,
+    // so remember the number for each code and name and use it for the events that lack one.
+    const infoOf = it => {
+      const g = k => (it.props[k] || [])[0], txt = k => icsTxt(g(k) && g(k).v), desc0 = txt("DESCRIPTION");
+      return P.feedInfo({sum: txt("SUMMARY"), desc: desc0, loc: txt("LOCATION"), cat: txt("CATEGORIES"), uid: txt("UID"), url: txt("URL") || ((desc0.match(/https?:\/\/\S+/) || [])[0] || "").replace(/[)>.,]+$/, "")}, {codeOf, fnv});
+    };
+    const aliasKeys = i => [i.code && "c:" + codeKey(i.code), i.cname && "n:" + i.cname.toLowerCase().replace(/\s+/g, " ").trim()].filter(Boolean);
+    raw.forEach(it => {
+      if (it.type !== "VEVENT" || !icsTxt(((it.props.SUMMARY || [])[0] || {}).v)) return;
+      const i = infoOf(it); if (!/^\d+$/.test(i.ou)) return;
+      aliasKeys(i).forEach(k => { if (!alias[k]) alias[k] = i.ou; });
+    });
     raw.forEach(it => {
       if (it.type !== "VEVENT") return;
       const g = k => (it.props[k] || [])[0], txt = k => icsTxt(g(k) && g(k).v);
@@ -50393,6 +50405,7 @@ window.SBEST = SBEST;
       const e = icsWhen(g("DTEND"));
       const desc0 = txt("DESCRIPTION");
       const info = P.feedInfo({sum: sum0, desc: desc0, loc: txt("LOCATION"), cat: txt("CATEGORIES"), uid: txt("UID"), url: txt("URL") || ((desc0.match(/https?:\/\/\S+/) || [])[0] || "").replace(/[)>.,]+$/, "")}, {codeOf, fnv});
+      if (!/^\d+$/.test(info.ou)) { const a = aliasKeys(info).map(k => alias[k]).find(Boolean); if (a) info.ou = a; }
       const {ou, cname, code, sum, notes, link} = info;
       if (!out.origin && link) { try { out.origin = new URL(link).origin; } catch(err) {} }
       if (!courses[ou]) courses[ou] = {ou, code, name: cname || code || ""};
