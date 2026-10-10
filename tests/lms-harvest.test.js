@@ -136,6 +136,41 @@ const BB = [
     assert.strictEqual(c.grades[0].num, 40);
   });
 
+  await t("Canvas points-based course: grades get their share of all the points; New Quizzes count as quizzes; same-named items stay apart", async () => {
+    const routes = CV.map(r => r.slice());
+    routes[1] = [/^\/api\/v1\/courses\?enrollment_state=active/, [{ id: 201, name: "History 200", course_code: "HIS200", start_at: iso(-30), end_at: iso(60), apply_assignment_group_weights: false, enrollments: [] }]];
+    routes[2] = [/^\/api\/v1\/courses\/201\/assignments\?/, [
+      { id: 1, name: "Reflection", due_at: iso(4), published: true, points_possible: 10, assignment_group_id: 3, submission_types: ["online_text_entry"], submission: { workflow_state: "graded", score: 8, submitted_at: iso(-1) } },
+      { id: 2, name: "Reflection", due_at: iso(11), published: true, points_possible: 10, assignment_group_id: 3, submission_types: ["online_text_entry"], submission: { workflow_state: "unsubmitted" } },
+      { id: 3, name: "Unit test", due_at: iso(20), published: true, points_possible: 30, assignment_group_id: 3, is_quiz_lti_assignment: true, submission_types: ["external_tool"], submission: null },
+      { id: 4, name: "Bonus", due_at: iso(20), published: true, points_possible: 50, omit_from_final_grade: true, assignment_group_id: 3, submission_types: ["online_upload"], submission: null }]];
+    routes[7] = [/^\/api\/v1\/planner\/items\?/, [{ course_id: 201, plannable_type: "assignment", plannable_id: 2, plannable: { title: "Reflection", due_at: iso(11) }, submissions: { submitted: true } }]];
+    const { out } = await runInjected("canvas", "https://x.instructure.com", routes);
+    const c = out.courses[0], w = id => c.grades.find(g => g.gid === id).weight;
+    assert.strictEqual(w("1"), 20); assert.strictEqual(w("2"), 20); assert.strictEqual(w("3"), 60);
+    assert(!c.grades.some(g => g.gid === "4"), "omitted from the final grade: no weight");
+    assert.strictEqual(c.grades.find(g => g.gid === "1").num, 8);
+    assert.strictEqual(c.items.find(x => x.id === "3").kind, "quiz");
+    assert.strictEqual(c.items.filter(x => x.name === "Reflection").length, 2);
+    assert.strictEqual(c.items.find(x => x.id === "2").done, true, "the planner's 'submitted' lands on the item with its id");
+  });
+
+  await t("Blackboard: counted columns get their share of all the points, so grades count in the Grade Tracker", async () => {
+    const routes = BB.map(r => r.slice());
+    routes[3] = [/^\/learn\/api\/public\/v2\/courses\/_301_1\/gradebook\/columns\?/, { results: [
+      { id: "_8_1", name: "Midterm exam", grading: { due: iso(10), type: "Attempts" }, score: { possible: 50 } },
+      { id: "_8_2", name: "Final exam", grading: { due: iso(40), type: "Attempts" }, score: { possible: 150 } },
+      { id: "_8_3", name: "Practice", grading: { type: "Attempts" }, score: { possible: 10 }, includeInCalculations: false },
+      { id: "_8_4", name: "Total", grading: { type: "Calculated" }, score: { possible: 200 } }] }];
+    const { out } = await runInjected("blackboard", "https://bb.example.edu", routes);
+    const g = out.courses[0].grades;
+    assert.strictEqual(g.find(x => x.gid === "_8_1").weight, 25);
+    assert.strictEqual(g.find(x => x.gid === "_8_1").num, 40);
+    assert.strictEqual(g.find(x => x.gid === "_8_2").weight, 75);
+    assert.strictEqual(g.find(x => x.gid === "_8_2").num, null, "not graded yet: weight only");
+    assert(!g.some(x => x.gid === "_8_3" || x.gid === "_8_4"));
+  });
+
   await t("cleanHarvest keeps only plain, capped data and https links", async () => {
     const evil = { ok: true, origin: "https://evil.example", me: { name: "x".repeat(999), id: 5 }, lp: "1.40; alert(1)", all: [], errors: [],
       courses: [{ ou: "1", name: "y".repeat(20000), url: "javascript:alert(1)", home: "http://plain.example/", items: new Array(2000).fill({ name: "i", url: "https://ok.example/a", fn: "s", "bad key!": 1, n: Infinity }), deep: { a: { b: { c: { d: { e: { f: { g: 1 } } } } } } } }] };

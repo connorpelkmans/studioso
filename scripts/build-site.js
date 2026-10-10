@@ -17,7 +17,7 @@ const OUT = check ? fs.mkdtempSync(path.join(os.tmpdir(), "sbsite-")) : path.joi
 const ICONS = ["icon-192.png", "icon-512.png", "maskable-192.png", "maskable-512.png", "apple-touch-icon.png",
   "shortcut-add.png", "shortcut-today.png", "shortcut-focus.png", "shortcut-search.png"];
 const WIDGETS = ["today-data.json", "today-template.json", "today-screenshot.png"];
-const TOP = ["index.html", "sw.js", "manifest.webmanifest", "today.webmanifest"];
+const TOP = ["index.html", "sw.js", "manifest.webmanifest", "today.webmanifest", "lms-grab.js"];
 
 function copy(rel, to){
   const src = path.join(ROOT, rel), dst = path.join(OUT, to || rel);
