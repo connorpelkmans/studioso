@@ -29,8 +29,10 @@
             <path d="M30 88H90L84 112H36Z" fill="url(#greenhouse-prickles-greenhouse-prickles-p)" ${O}/>
             <rect x="26" y="81" width="68" height="12" rx="5" fill="#F6B892" ${O}/>
             <path d="M38 101H82" fill="none" stroke="#FFD2B8" stroke-width="2.2" stroke-linecap="round" opacity=".6"/>`,
-          armL: {svg: `<path d="M38 70H30Q24 70 24 64V52Q24 46 29.5 46Q35 46 35 52V61H38Z" fill="#7CC872" ${O}/><path d="M27 52l-2.6-1.2M27 60l-2.6-1.2" stroke="#FFF6D6" stroke-width="1.5" stroke-linecap="round"/>`, pivot: [37, 66]},
-          armR: {svg: `<path d="M82 64H90Q96 64 96 58V48Q96 42 90.5 42Q85 42 85 48V55H82Z" fill="#62B464" ${O}/><path d="M93 48l2.6-1.2M93 56l2.6-1.2" stroke="#FFF6D6" stroke-width="1.5" stroke-linecap="round"/>`, pivot: [83, 60]},
+          // the cactus's arms already point up, so they are side lobes tucked behind the body (wings in the rig), not arms the
+          // app's wave and stretch would swing across its face
+          wingL: {svg: `<path d="M40 70H30Q24 70 24 64V52Q24 46 29.5 46Q35 46 35 52V61H40Z" fill="#7CC872" ${O}/><path d="M27 52l-2.6-1.2M27 60l-2.6-1.2" stroke="#FFF6D6" stroke-width="1.5" stroke-linecap="round"/>`, pivot: [37, 66]},
+          wingR: {svg: `<path d="M80 64H90Q96 64 96 58V48Q96 42 90.5 42Q85 42 85 48V55H80Z" fill="#62B464" ${O}/><path d="M93 48l2.6-1.2M93 56l2.6-1.2" stroke="#FFF6D6" stroke-width="1.5" stroke-linecap="round"/>`, pivot: [83, 60]},
           top: {svg: `<path d="${petals(60, 27, 6, 11, 4.8, -90)}" fill="#FF8FB0" ${OW(1.8)}/><circle cx="60" cy="27" r="3.6" fill="#FFE27A" ${OW(1.6)}/>`, pivot: [60, 31]}
         },
         eyes: {lx: 50, rx: 70, y: 58, r: 4.8, style: "dot", color: "#1E3A22"},
@@ -61,8 +63,9 @@
             <path d="M38 90H82L77 108H43Z" fill="url(#greenhouse-monty-greenhouse-monty-p)" ${O}/>
             <rect x="34" y="84" width="52" height="10" rx="4.5" fill="#F6B892" ${O}/>
             <ellipse cx="60" cy="85.5" rx="20" ry="2.4" fill="#6E5442"/>`,
-          armL: {svg: `<path d="M56 82C50 74 40 72 34 76C38 84 48 86 56 82Z" fill="#7CC872" ${O}/><path d="M54 81Q46 77 38 77" fill="none" stroke="#3E8A4A" stroke-width="1.4" stroke-linecap="round" opacity=".5"/>`, pivot: [56, 82]},
-          armR: {svg: `<path d="M64 82C70 74 80 72 86 76C82 84 72 86 64 82Z" fill="#62B464" ${O}/><path d="M66 81Q74 77 82 77" fill="none" stroke="#3E8A4A" stroke-width="1.4" stroke-linecap="round" opacity=".5"/>`, pivot: [64, 82]},
+          // little leaf hands on short stems from the pot rim's corners: they hang beside the pot and wave up beside the leaf
+          armL: {svg: `${LINE("M37 89Q31 93 29 99", "#4E9A58", 3)}<path d="M29 98C23 99 21 105 24 109C29 108 32 103 29 98Z" fill="#7CC872" ${O2}/>`, pivot: [37, 89]},
+          armR: {svg: `${LINE("M83 89Q89 93 91 99", "#4E9A58", 3)}<path d="M91 98C97 99 99 105 96 109C91 108 88 103 91 98Z" fill="#62B464" ${O2}/>`, pivot: [83, 89]},
           head: `${LG("greenhouse-monty-greenhouse-monty-h", [[0, "#A6E894"], [0.5, "#52B262"], [1, "#2E8A52"]], 0.2, 0, 0.8, 1)}
             <path d="${monstera(60, 76, 66, -90, 2)}" fill="url(#greenhouse-monty-greenhouse-monty-h)" ${O}/>
             <path d="M60 68V16M60 30L50 22M60 30L70 22" fill="none" stroke="#D6F5C8" stroke-width="2.2" stroke-linecap="round" opacity=".55"/>
@@ -129,18 +132,18 @@
       {
         id: "pottery-lumpy", name: "Lumpy", kind: "Clay Lump", pose: "sit", sleepy: true,
         bio: "Could become anything. Currently a lump. Happy about it.",
-        idle: ["bounce", "topBob", "headTilt"], cheer: "bounce",
+        idle: ["bounce", "topBob", "sway"], cheer: "bounce",
         neck: [60, 100],
         parts: {
           body: `${LG("pottery-lumpy-pottery-lumpy-w", [[0, "#DCE4EA"], [1, "#98A2B0"]])}
-            <ellipse cx="60" cy="104" rx="42" ry="9.5" fill="url(#pottery-lumpy-pottery-lumpy-w)" ${O}/><ellipse cx="60" cy="102.5" rx="30" ry="5" fill="#C2CAD4" opacity=".8"/>`,
-          armL: {svg: `<ellipse cx="25" cy="84" rx="6" ry="8.5" transform="rotate(28 25 84)" fill="#E2BCA8" ${O}/>`, pivot: [32, 82]},
-          armR: {svg: `<ellipse cx="95" cy="84" rx="6" ry="8.5" transform="rotate(-28 95 84)" fill="#D6AE98" ${O}/>`, pivot: [88, 82]},
-          head: `${RG("pottery-lumpy-pottery-lumpy-g", [[0, "#F8E2D4"], [0.55, "#DDB29C"], [1, "#B8866E"]], 0.4, 0.32, 0.75)}
+            <ellipse cx="60" cy="104" rx="42" ry="9.5" fill="url(#pottery-lumpy-pottery-lumpy-w)" ${O}/><ellipse cx="60" cy="102.5" rx="30" ry="5" fill="#C2CAD4" opacity=".8"/>
+            ${RG("pottery-lumpy-pottery-lumpy-g", [[0, "#F8E2D4"], [0.55, "#DDB29C"], [1, "#B8866E"]], 0.4, 0.32, 0.75)}
             <path d="M24 99Q19 66 40 52Q60 40 80 52Q101 66 96 99Q60 107 24 99Z" fill="url(#pottery-lumpy-pottery-lumpy-g)" ${O}/>
             <path d="M28 90Q60 98 92 90M31 79Q60 86 89 79M37 66Q60 72 83 66" fill="none" stroke="#A47662" stroke-width="1.8" stroke-linecap="round" opacity=".42"/>
             <ellipse cx="38" cy="66" rx="4" ry="8" transform="rotate(25 38 66)" fill="#fff" opacity=".45"/>
             <circle cx="84" cy="88" r="1.4" fill="#A47662" opacity=".5"/><circle cx="34" cy="92" r="1.2" fill="#A47662" opacity=".5"/>`,
+          armL: {svg: `<ellipse cx="19" cy="93" rx="5.6" ry="8" transform="rotate(22 19 93)" fill="#E2BCA8" ${O}/>`, pivot: [24, 87]},
+          armR: {svg: `<ellipse cx="101" cy="93" rx="5.6" ry="8" transform="rotate(-22 101 93)" fill="#D6AE98" ${O}/>`, pivot: [96, 87]},
           top: {svg: `${LINE("M60 50Q55 41 61 37Q68 35 67 42Q66 46 62 45", "#DDB29C", 4)}`, pivot: [60, 50]}
         },
         eyes: {lx: 49, rx: 71, y: 73, r: 5, style: "dot", color: "#3A2418"},
@@ -195,7 +198,7 @@
       {
         id: "pottery-steepy", name: "Steepy", kind: "Little Teapot", pose: "stand",
         bio: "Short, stout and always brewing.",
-        idle: ["waddle", "topBob", "wave"], cheer: "hop",
+        idle: ["waddle", "topBob", "sparkle"], cheer: "hop",
         parts: {
           feet: `<ellipse cx="47" cy="108.5" rx="7.5" ry="4.2" fill="#2F8C80" ${O}/><ellipse cx="73" cy="108.5" rx="7.5" ry="4.2" fill="#2F8C80" ${O}/>`,
           body: `${RG("pottery-steepy-pottery-steepy-g", [[0, "#C2F4EA"], [0.55, "#5CC4B4"], [1, "#2F8C80"]], 0.38, 0.32, 0.75)}
@@ -203,8 +206,8 @@
             <path d="M31 88Q60 103 89 88" fill="none" stroke="#FFF6E6" stroke-width="5" stroke-linecap="round"/>
             <path d="M33 80Q60 93 87 80" fill="none" stroke="#FFF6E6" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="2 4" opacity=".7"/>
             <ellipse cx="42" cy="68" rx="6" ry="3.4" transform="rotate(-30 42 68)" fill="#fff" opacity=".6"/>`,
-          armL: {svg: `${LINE("M33 80Q20 76 17 62", "#4CB8A8", 6)}<ellipse cx="17" cy="60" rx="5" ry="3" transform="rotate(-20 17 60)" fill="#6ACCBC" ${O2}/>`, pivot: [33, 80]},
-          armR: {svg: `${LINE("M88 66Q103 63 103 77Q103 92 88 94", "#4CB8A8", 5)}`, pivot: [88, 80]},
+          // the spout and handle are part of the pot (tucked behind it), not arms that wave and stretch
+          back: `${LINE("M36 82Q20 76 17 62", "#4CB8A8", 6)}<ellipse cx="17" cy="60" rx="5" ry="3" transform="rotate(-20 17 60)" fill="#6ACCBC" ${O2}/>${LINE("M86 66Q103 63 103 77Q103 92 86 94", "#4CB8A8", 5)}`,
           top: {svg: `<path d="M38 58Q60 40 82 58Z" fill="#7AD2C4" ${O}/><circle cx="60" cy="45" r="4.6" fill="#F2C84A" ${O2}/>${LINE("M70 38Q66 32 70 27", "#E8F2F0", 2)}${LINE("M78 40Q74 34 78 29", "#E8F2F0", 2)}`, pivot: [60, 56]}
         },
         eyes: {lx: 49, rx: 71, y: 76, r: 5, style: "dot", color: "#123A34"},
@@ -384,8 +387,9 @@
             <path d="M33 78Q58 96 83 78Q80 96 58 98Q36 96 33 78Z" fill="#FFF8DC" opacity=".9"/>
             <g fill="#C88A2A" opacity=".5"><circle cx="46" cy="52" r="1.8"/><circle cx="58" cy="47" r="1.8"/><circle cx="70" cy="52" r="1.8"/><circle cx="52" cy="58" r="1.4"/><circle cx="64" cy="58" r="1.4"/></g>
             <ellipse cx="44" cy="56" rx="5" ry="3" transform="rotate(-35 44 56)" fill="#fff" opacity=".65"/>`,
-          armL: {svg: `<ellipse cx="32" cy="80" rx="7" ry="4.2" transform="rotate(30 32 80)" fill="#F7C04A" ${O}/>`, pivot: [36, 78]},
-          armR: {svg: `<ellipse cx="80" cy="84" rx="7" ry="4.2" transform="rotate(-25 80 84)" fill="#F7C04A" ${O}/>`, pivot: [76, 82]},
+          // pectoral fins tucked behind the round body (wings in the rig), so a wiggle never lays them over the face
+          wingL: {svg: `<ellipse cx="26" cy="83" rx="8.5" ry="4.6" transform="rotate(30 26 83)" fill="#F7C04A" ${O}/>`, pivot: [32, 80]},
+          wingR: {svg: `<ellipse cx="86" cy="93" rx="8.5" ry="4.6" transform="rotate(-32 86 93)" fill="#F7C04A" ${O}/>`, pivot: [80, 89]},
           top: {svg: `<path d="M48 44L52 33L57 41L61 30L65 42L69 36L70 46Z" fill="#F2A23A" ${O2}/>`, pivot: [58, 44]}
         },
         eyes: {lx: 47, rx: 67, y: 66, r: 6, style: "round", color: "#2B2233"},
@@ -415,7 +419,8 @@
           body: `${RG("aquarium-curly-aquarium-curly-b", [[0, "#FFE6A8"], [0.6, "#FFB04A"], [1, "#F2873A"]], 0.4, 0.35, 0.75)}
             <path d="M48 60Q38 75 47 89Q56 97 65 90Q73 79 66 63Z" fill="url(#aquarium-curly-aquarium-curly-b)" ${O}/>
             <path d="M46 70Q52 72 58 70M45 78Q52 80 59 78M48 86Q53 88 58 86" fill="none" stroke="#FFE6B8" stroke-width="2" stroke-linecap="round" opacity=".85"/>`,
-          armR: {svg: `<path d="M66 68Q82 62 83 76Q77 82 66 80Z" fill="#FFD27A" ${O2}/><path d="M69 70L79 68M69 74L80 74M69 78L78 79" stroke="#F2A23A" stroke-width="1.2" stroke-linecap="round"/>`, pivot: [67, 74]},
+          // the dorsal fin is tucked behind the body (it stays put; the tail does the fin wiggle)
+          back: `<path d="M64 68Q82 62 83 76Q77 82 64 80Z" fill="#FFD27A" ${O2}/><path d="M69 70L79 68M70 74L80 74M69 78L78 79" stroke="#F2A23A" stroke-width="1.2" stroke-linecap="round"/>`,
           head: `${RG("aquarium-curly-aquarium-curly-h", [[0, "#FFE6A8"], [0.6, "#FFB04A"], [1, "#F2873A"]], 0.4, 0.35, 0.75)}
             <path d="M68 42Q84 40 89 44Q90 51 85 52Q76 53 68 53Z" fill="url(#aquarium-curly-aquarium-curly-h)" ${O}/>
             <ellipse cx="56" cy="47" rx="16" ry="15" fill="url(#aquarium-curly-aquarium-curly-h)" ${O}/>
@@ -524,10 +529,10 @@
           feet: `${LINE("M55 96L44 110M65 96L76 110M57 92L36 104M63 92L84 104", "#8A9A44", 2.6)}`,
           body: `${LG("treehouse-twig-treehouse-twig-b", [[0, "#C2D278"], [1, "#7A8A3A"]], 0, 0, 1, 0)}
             <rect x="51" y="54" width="18" height="46" rx="9" fill="url(#treehouse-twig-treehouse-twig-b)" ${O}/>
-            <path d="M51 68H69M51 82H69" stroke="#5A6A2A" stroke-width="1.6" opacity=".5"/>
-            <path d="M69 74C76 70 82 72 84 76C80 80 74 80 69 78Z" fill="#7CC266" ${O2}/><path d="M51 88C44 84 38 86 36 90C40 94 46 94 51 92Z" fill="#8ACB6A" ${O2}/>`,
-          armL: {svg: `${LINE("M53 64L38 56L30 42", "#8A9A44", 3)}<path d="M30 42C26 36 28 30 32 28C36 32 34 38 30 42Z" fill="#8ACB6A" ${O2}/>`, pivot: [53, 64]},
-          armR: {svg: `${LINE("M67 64L82 56L90 42", "#8A9A44", 3)}<path d="M90 42C94 36 92 30 88 28C84 32 86 38 90 42Z" fill="#7CC266" ${O2}/>`, pivot: [67, 64]},
+            <path d="M51 68H69M51 82H69" stroke="#5A6A2A" stroke-width="1.6" opacity=".5"/>`,
+          // the arms hang down by its sides with leaf hands, so the wave and the stretch lift them out past (and behind) its head
+          armL: {svg: `${LINE("M53 62L44 74L40 87", "#8A9A44", 3)}<path d="M40 86C35 91 36 98 40 101C44 98 45 91 40 86Z" fill="#8ACB6A" ${O2}/>`, pivot: [53, 62]},
+          armR: {svg: `${LINE("M67 62L76 74L80 87", "#8A9A44", 3)}<path d="M80 86C85 91 84 98 80 101C76 98 75 91 80 86Z" fill="#7CC266" ${O2}/>`, pivot: [67, 62]},
           head: `${LG("treehouse-twig-treehouse-twig-h", [[0, "#CEDC86"], [1, "#8A9A44"]])}
             ${LINE("M54 32Q46 20 38 18", "#8A9A44", 2.2)}${LINE("M66 32Q74 20 82 18", "#8A9A44", 2.2)}<circle cx="38" cy="18" r="2.6" fill="#B8C870" ${O2}/><circle cx="82" cy="18" r="2.6" fill="#B8C870" ${O2}/>
             <ellipse cx="60" cy="43" rx="15" ry="13.5" fill="url(#treehouse-twig-treehouse-twig-h)" ${O}/>
