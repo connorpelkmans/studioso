@@ -50605,7 +50605,10 @@ window.SBEST = SBEST;
     if (/rate-limited/.test(s)) return `${P.name} was checked a lot in the last hour. Studyboard will try again later.`;
     if (/bad-url/.test(s)) return `That isn't a ${P.name} calendar link. In ${P.name}, open ${P.feedWhere}, and copy the link it shows.`;
     if (/not-calendar/.test(s)) return `${P.name} sent back something that isn't a calendar. Copy the calendar link again.`;
-    if (/HTTP 40[134]|"status":40[134]|status 40[134]/.test(s)) return `${P.name} refused the calendar link. It may have been reset. Copy a fresh one from ${P.name}, ${P.feedWhere}.`;
+    if (/^Error: auth$|^auth$/.test(s)) return "Your Studyboard sign-in expired. Sign in again, then reconnect.";
+    if (/too-large/.test(s)) return `That ${P.name} calendar is too big to read. Try importing a downloaded calendar file instead.`;
+    if (/Error: http$|^http$|HTTP 5\d\d/.test(s)) return `${P.name} had a problem sending the calendar. Try again in a few minutes.`;
+    if (/HTTP 40[134]|"status":40[134]|status 40[134]|refused/.test(s)) return `${P.name} refused the calendar link. It may have been reset. Copy a fresh one from ${P.name}, ${P.feedWhere}.`;
     if (/nofn|FunctionsHttpError|404|not found/i.test(s)) return srvSetup("Calendar link syncing on the website", "the lms-feed function") + " You can also sync from the desktop app.";
     if (/timeout|fetch|network|Load failed|Failed to fetch/i.test(s)) return `Couldn't reach ${P.name}. Check your internet connection and try again.`;
     return `Something went wrong reading ${P.name}. Try again in a minute.`;
@@ -50618,7 +50621,12 @@ window.SBEST = SBEST;
     if (!feedCache.url) { const saved = await SBC.get("rows", "feed:" + P.id); if (saved && saved.url) Object.assign(feedCache, saved); }
     const memo = local().feedMemo || {}, same = memo.url === url && memo.hash && feedCache.url === url && feedCache.text;
     const {data, error} = await sb.functions.invoke("lms-feed", {body: Object.assign({url, lms: P.id}, same ? {hash: memo.hash, etag: memo.etag || ""} : {})});
-    if (error) { const st = error.context && error.context.status; throw new Error(st === 429 ? "rate-limited" : st === 404 ? "nofn" : String(error.message || error) + (st ? " status " + st : "")); }
+    if (error) {
+      const st = error.context && error.context.status;
+      // The function answers 400/401/429 with a short code in the body (bad-url, auth, ...); read it so the message can be specific.
+      let code = ""; try { const b = error.context && typeof error.context.json === "function" ? await error.context.json() : null; code = b && typeof b.error === "string" ? b.error : ""; } catch (_e) { /* no body */ }
+      throw new Error(st === 429 ? "rate-limited" : code === "bad-url" ? "bad-url" : code === "auth" || st === 401 ? "auth" : st === 404 ? "nofn" : String(error.message || error) + (st ? " status " + st : ""));
+    }
     if (!data || !data.ok) throw new Error((data && data.error) + (data && data.status ? " status " + data.status : ""));
     if (data.unchanged && same) return feedCache.text;
     if (data.hash) { setLocal({feedMemo: {url, hash: data.hash, etag: data.etag || ""}}); feedCache.url = url; feedCache.text = data.ics; SBC.put("rows", "feed:" + P.id, {url, text: data.ics}); }
