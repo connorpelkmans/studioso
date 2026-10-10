@@ -66,6 +66,7 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
     ok(await app.evaluate(() => { const d = [...document.querySelectorAll("#dlg details")].find(x => /exact code/.test(x.querySelector("summary").textContent)); return !!d && decodeURIComponent(document.querySelector("#grabLink").getAttribute("href").slice(11)) === d.querySelector("pre").textContent; }),
       "the sheet shows the exact code the bookmark runs, character for character");
     ok(/^javascript:/.test(js) && js.length < 60000, "the bookmark is a javascript: address of " + js.length + " characters");
+    ok(/^\u{1F393} Studyboard: Canvas$/u.test(await app.textContent("#grabLink")), "the bookmark is named with a 🎓, since browsers show a plain icon for every bookmark like it");
     await app.click("#grabLink");
     ok(await app.evaluate(() => !!document.querySelector("#grabLink")), "clicking the bookmark button in Studyboard runs nothing (it's for dragging)");
     // Run the bookmark on the school's page
@@ -75,6 +76,8 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
     await school.getByText("Open in Studyboard").waitFor({timeout: 30000});
     ok(asked.every(([m]) => m === "GET"), "the bookmark only read (GET) from the school site");
     ok(/Read 1 course and 1 grade/.test(await school.locator("div >> nth=0").evaluate(() => document.body.lastElementChild.shadowRoot.textContent)), "it says what it read");
+    ok(await school.evaluate(() => { const r = document.body.lastElementChild.shadowRoot, im = r.querySelector("img"); return !!im && im.complete && im.naturalWidth === 64 && /Studyboard/.test(r.textContent); }), "the panel on the school's page shows the Studyboard logo");
+    if (process.env.SHOT) await school.screenshot({path: process.env.SHOT});
     const href = await school.getByText("Open in Studyboard").getAttribute("href");
     ok(href.startsWith(base + "#sbgrab=SBG1"), "it links back to this Studyboard with the code in the address");
     // Open it: the code leaves the address, the review sheet shows, Import brings in tasks, grades and the announcement
