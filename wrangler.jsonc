@@ -1,6 +1,8 @@
 {
   "name": "studioso",
   "compatibility_date": "2026-10-06",
+  // Builds for branches and pull requests run `npx wrangler preview`, which needs this block (it can stay empty).
+  "previews": {},
   "assets": {
     "directory": ".",
     "not_found_handling": "single-page-application"

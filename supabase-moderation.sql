@@ -132,3 +132,27 @@ begin
     using (public.sbg_is_member(group_id)
            and not exists (select 1 from public.group_blocks b where b.blocker_id = auth.uid() and b.blocked_id = group_tasks.created_by))$p$;
 end $$;
+
+-- ---------- Retention: group reports don't stay forever ----------
+-- A report keeps a short copy of what was reported (excerpt) so you can judge it even after the message is gone. Once a report is handled
+-- (actioned or dismissed) that copy and the reporter's details are cleared after 90 days, and every report is deleted after a year
+-- (the Privacy Policy says so). Runs daily with pg_cron when it is available.
+create or replace function public.group_reports_purge() returns void
+language sql security definer set search_path = public as $$
+  update public.group_reports set excerpt = null, details = null
+    where status in ('actioned', 'dismissed') and created_at < now() - interval '90 days' and (excerpt is not null or details is not null);
+  delete from public.group_reports where created_at < now() - interval '365 days';
+$$;
+revoke all on function public.group_reports_purge() from public, anon, authenticated;
+
+do $$
+begin
+  begin
+    create extension if not exists pg_cron;
+  exception when others then
+    raise notice 'pg_cron is not available, so old group reports are not removed on their own. Turn it on in Database > Extensions and run this file again, or run: select public.group_reports_purge();';
+    return;
+  end;
+  perform cron.unschedule(jobid) from cron.job where jobname = 'studyboard-group-reports-purge';
+  perform cron.schedule('studyboard-group-reports-purge', '41 3 * * *', 'select public.group_reports_purge();');
+end $$;

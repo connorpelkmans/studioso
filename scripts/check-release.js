@@ -3,7 +3,8 @@
 // The store-readiness test checks the wording is right; this checks the blanks have been filled in. Run it before every store or web release.
 //
 //   node scripts/check-release.js              every target
-//   node scripts/check-release.js web desktop  only these (web, desktop, ios, android)
+//   node scripts/check-release.js web desktop  only these (web, desktop, msstore, ios, android)
+//   node scripts/check-release.js msstore      the Microsoft Store (MSIX) build: index.html, package.json build.appx and the tile images
 //
 // Exit code 0 = nothing left to fill in for the chosen targets; 1 = placeholders listed with file:line.
 "use strict";
@@ -22,6 +23,10 @@ const TARGETS = {
   desktop: {files: ["index.html", "package.json", "build-resources/entitlements.mas.plist", "build-resources/entitlements.mas-dev.plist",
     "build-resources/entitlements.mas.inherit.plist"], extra: [[/\bTEAM_ID\b/, "Apple Team ID"]],
     need: ["build-resources/Studyboard_MAS.provisionprofile"]},
+  // Microsoft Store: only package.json's "appx" section (the rest of package.json holds the Apple placeholders, which this build doesn't need).
+  msstore: {files: ["index.html", "build-resources/appx-extensions.xml", {file: "package.json", label: "package.json build.appx", pick: s => JSON.stringify(JSON.parse(s).build.appx, null, 2)}],
+    need: ["build-resources/appx/StoreLogo.scale-100.png", "build-resources/appx/Square44x44Logo.scale-100.png", "build-resources/appx/Square150x150Logo.scale-100.png",
+      "build-resources/appx/Wide310x150Logo.scale-100.png"]},
   ios: {files: ["index.html", "ios-wrapper/native-bridge.js", "ios-wrapper/App.entitlements.template.plist", "ios-wrapper/apple-app-site-association.template.json",
     "ios-wrapper/capacitor.config.json"], extra: [[/\bTEAMID\b/, "Apple Team ID"], [/appl_REPLACE/, "RevenueCat Apple key"]]},
   android: {files: ["index.html", "ios-wrapper/native-bridge.js", "android-wrapper/app/src/main/AndroidManifest.additions.xml", "android-wrapper/build.gradle.additions.txt",
@@ -37,10 +42,11 @@ const seen = new Set(), problems = [];
 for (const t of chosen) {
   const T = TARGETS[t];
   for (const rel of T.need || []) if (!fs.existsSync(path.join(ROOT, rel))) problems.push(`[${t}] ${rel}: missing (needed to build this target)`);
-  for (const rel of T.files) {
-    const file = path.join(ROOT, rel);
+  for (const entry of T.files) {
+    const rel = typeof entry === "string" ? entry : entry.label, file = path.join(ROOT, typeof entry === "string" ? entry : entry.file);
     if (!fs.existsSync(file)) continue;
-    const lines = fs.readFileSync(file, "utf8").split("\n");
+    const text = fs.readFileSync(file, "utf8");
+    const lines = (typeof entry === "string" ? text : entry.pick(text)).split("\n");
     const pats = COMMON.map(re => [re, null]).concat(T.extra || []);
     lines.forEach((line, i) => {
       for (const [re, why] of pats) {

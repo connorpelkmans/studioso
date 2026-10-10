@@ -1,0 +1,7 @@
+{
+ "mushrooms": "stream .6, birds .8 | crickets 1, stream .5",
+ "sunflowers": "birds 1, wind .6 | crickets 1, wind .4",
+ "cloudkingdom": "wind 1, birds .4 | wind .8, pad .6",
+ "nighttrain": "brown 1, window .3 | brown 1, rain .4",
+ "ramen": "cafe 1, rain .6 | rain 1, cafe .5, city .3"
+}

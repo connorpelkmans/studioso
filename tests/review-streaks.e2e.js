@@ -154,6 +154,9 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(await page.evaluate(() => SBSTREAK.on()) === false && await page.locator(".fgs-chip").count() === 0, "off by default: no chip");
       ok(await page.locator("#todayLabel .streak-chip").count() === 1 && /🔥/.test(await page.textContent("#todayLabel .streak-chip")), "the original fire chip is still there");
       ok(await page.locator("#view .fgs-intro").count() === 1, "a one time, clear first mention");
+      // other Board notices come first; the streak offer waits behind "N More Notices"
+      if (!(await page.locator("#view .fgs-intro").isVisible())) { await page.click("#view .bn-more"); await page.waitForTimeout(200); }
+      ok(await page.locator("#view .fgs-intro").isVisible(), "the intro shows once the notices are opened");
       ok(/A streak that forgives/.test(await page.textContent("#view .fgs-intro")) && /Optional/.test(await page.textContent("#view .fgs-intro")), "says what it is and that it is optional");
       await noOverflow(page, "with the intro @" + W); await bigEnough(page, ".fgs-intro .btn", "on the intro @" + W);
       await page.click('[data-act="menu"]:visible'); await page.waitForSelector("#dlg .us");

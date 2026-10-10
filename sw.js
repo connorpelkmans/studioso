@@ -15,8 +15,8 @@ const OPTIONAL = ["./manifest.webmanifest", "./today.webmanifest", "./icons/icon
 // PDF.js (same-origin, ES modules) is saved too so a PDF can be imported offline; if it isn't there the fetch handler saves it on first use.
 OPTIONAL.push("./vendor/pdfjs/pdf.min.mjs", "./vendor/pdfjs/pdf.worker.min.mjs", "./locales/es.json");
 // Same-origin vendored libraries and fonts are precached (OPTIONAL, so a missing one never blocks install). The CDN copy is only the
-// fallback the page uses if the vendored file can't load; it is cached opportunistically and never required.
-const LIBS = ["https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"];
+// fallback the page uses if the vendored file can't load: it is never fetched in advance (that would contact the CDN on every install),
+// only cached by the fetch handler below on the rare visit that actually needs it.
 const LIB_HOSTS = ["cdn.jsdelivr.net"];
 
 self.addEventListener("install", e => {
@@ -24,7 +24,6 @@ self.addEventListener("install", e => {
     const c = await caches.open(CACHE);
     await c.addAll(CORE);
     await Promise.all(OPTIONAL.map(u => c.add(u).catch(() => {})));
-    await Promise.all(LIBS.map(u => fetch(u, {mode: "cors"}).then(r => r.ok && c.put(u, r)).catch(() => {})));
     await self.skipWaiting();
   })());
 });

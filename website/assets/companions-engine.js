@@ -70,9 +70,11 @@ window.SBCOMPW = (function () {
     return c;
   }
   const REG = {}, BYID = {};
+  // How many companions a theme offers: the plain set (used by Classic and every plain colour theme, all free) has 6, every artwork theme has 3.
+  const SET_SIZE = th => th === "plain" ? 6 : 3;
   DATA.forEach(t => {
     if (!t || !t.theme || REG[t.theme]) return;
-    const list = (Array.isArray(t.companions) ? t.companions : []).slice(0, 3).map((c, i) => norm(c, t.theme, i)).filter(Boolean);
+    const list = (Array.isArray(t.companions) ? t.companions : []).slice(0, SET_SIZE(t.theme)).map((c, i) => norm(c, t.theme, i)).filter(Boolean);
     if (!list.length) return;
     REG[t.theme] = {theme: t.theme, spot: t.spot, list};
     list.forEach(c => { if (!BYID[c.id]) BYID[c.id] = c; });

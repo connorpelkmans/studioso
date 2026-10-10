@@ -29,7 +29,7 @@ create table if not exists public.bug_reports (
 -- Limits (written so they can be re-run when you change them)
 alter table public.bug_reports drop constraint if exists bug_reports_limits;
 alter table public.bug_reports add constraint bug_reports_limits check (
-  category in ('bug', 'idea', 'confusing', 'other')
+  category in ('bug', 'ai', 'idea', 'confusing', 'other')       -- 'ai': a reported AI response (Microsoft Store policy 11.16)
   and char_length(message) between 5 and 4000
   and (steps is null or char_length(steps) <= 3000)
   and (contact_email is null or (char_length(contact_email) <= 254 and contact_email ~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$'))
