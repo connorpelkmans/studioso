@@ -34,7 +34,7 @@ How Studyboard brings in courses, due dates, grades and announcements, where it 
 **Workaround built: the Studyboard bookmark.** Your own browser is already signed in to the school site, so it can do the reading.
 
 1. On the website, in **Connect Canvas** (or Brightspace / Blackboard) or in that platform's sheet, choose **Read in This Browser**. Studyboard shows a button to drag to the bookmarks bar.
-2. On the school site, while signed in, click the bookmark. It runs **the same harvest script the desktop app runs** (generated from `lms.js` into `lms-grab.js`). It reads with GET requests only and shows a small panel on the page.
+2. On the school site, while signed in, click the bookmark. It runs **the same harvest script the desktop app runs** (generated from `lms.js` and built into `index.html`, so there is no extra file to deploy). It reads with GET requests only and shows a small panel on the page.
 3. Click **Open in Studyboard**. The data travels after the `#` in the address, which browsers never send to a server, and Studyboard removes it from the address at once. Or click **Copy** and paste into the sheet.
 4. The first time, Studyboard shows the normal "Ready to Import" review. After that, it applies like a desktop sync, with an Undo.
 
@@ -46,7 +46,7 @@ Safety:
 - It asks before using data from a school address other than the connected one.
 - Nothing passes through Studyboard's servers.
 
-`tests/lms-grab.e2e.js` runs the real bookmark on a stand-in https Canvas, end to end (21 checks).
+`tests/lms-grab.e2e.js` runs the real bookmark on a stand-in https Canvas, end to end (23 checks).
 
 Limits, honestly:
 
@@ -143,6 +143,6 @@ With the bookmark, the website now has a structured path for grades. Paste is be
   - Past-days window.
   - The bookmark: `grabRunner`, `grabSheet`, `grabReceive`, `importGrab`, and `SB_GRAB` address capture.
   - Fresh CSP hashes.
-- `scripts/build-lms-mobile.js`: `buildGrab` (`--grab`). `scripts/build-site.js` ships `lms-grab.js`.
-- `lms-grab.js`: generated. Rebuild with `node scripts/build-lms-mobile.js --grab` after editing `lms.js`. `tests/lms-grab.e2e.js` fails while it is stale.
-- Tests: `tests/lms-harvest.test.js` (+2), new `tests/lms-accuracy.e2e.js` (8 checks) and `tests/lms-grab.e2e.js` (21 checks).
+- `scripts/build-lms-mobile.js`: `buildGrab` (`--grab`) writes the bookmark's code into `index.html` between the `LMS-GRAB` markers. Rerun it after editing `lms.js`; `tests/lms-grab.e2e.js` fails while the block is stale. (It was a separate `lms-grab.js` at first; a deploy without that file left **Set It Up** doing nothing.)
+- `index.html` toast: while a sheet is open the message is shown inside it, so it's visible and its Undo works (before, every message shown over an open sheet was hidden behind it).
+- Tests: `tests/lms-harvest.test.js` (+2), new `tests/lms-accuracy.e2e.js` (17 checks) and `tests/lms-grab.e2e.js` (23 checks).
