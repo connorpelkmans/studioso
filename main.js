@@ -832,6 +832,73 @@ ipcMain.handle("secret:available", e => fromMain(e) && secretsOn());
 // (the page needs the key to call the AI provider). Only the top frame of Studyboard's own window can ask (fromMain), and the page's CSP limits scripts.
 // AI Features > Paste My Key: the page gets only a Gemini key or a code from another device (XXXX-XXXX-XXXX, or a link carrying one)
 // found on the clipboard, never anything else that was copied. The page has no clipboard-read permission of its own (ALLOWED_PERMISSIONS).
+// ---------- Distraction blocking (Studyboard Pro, the direct-download desktop app only) ----------
+// During a focus session the sites the person chose point nowhere, in the system hosts file, so every browser on this computer skips them.
+// Changing that file needs the computer's administrator password, asked once per session by the operating system's own prompt. The same
+// elevated step also schedules the block's removal at the session's planned end, so there is no second prompt. The block is marked with
+// its end time; a block left behind (the computer was restarted mid-session) is found at start and the page offers to remove it.
+// Not offered in the Mac App Store or Microsoft Store builds (sandboxed: they can't and mustn't change system files).
+const BLOCK_OK = STORE === "direct" && ["darwin", "win32", "linux"].includes(process.platform);
+const HOSTS = process.platform === "win32" ? path.join(process.env.SystemRoot || "C:\\Windows", "System32", "drivers", "etc", "hosts") : "/etc/hosts";
+const BLK_A = "# >>> Studyboard focus block until ", BLK_B = "# <<< Studyboard focus block";
+const DOMAIN_RE = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/;
+function blockDomains(list) {
+  const out = new Set();
+  (Array.isArray(list) ? list : []).slice(0, 40).forEach(x => {
+    const d = String(x || "").trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "").replace(/^www\./, "");
+    if (DOMAIN_RE.test(d) && d !== "localhost" && !/(^|\.)(studyboardapp\.com|supabase\.co|apple\.com|microsoft\.com|windowsupdate\.com)$/.test(d)) { out.add(d); out.add("www." + d); }
+  });
+  return [...out].slice(0, 60);
+}
+const stripBlock = text => String(text || "").replace(/\r?\n?# >>> Studyboard focus block until \d+[\s\S]*?# <<< Studyboard focus block[^\n]*\r?\n?/g, "\n").replace(/\n{3,}/g, "\n\n");
+function readBlock() {
+  try { const t = fs.readFileSync(HOSTS, "utf8"), m = /# >>> Studyboard focus block until (\d+)/.exec(t); return m ? { until: Number(m[1]) } : null; } catch (e) { return null; }
+}
+function runElevated(prepared, seconds) {
+  const { execFile } = require("child_process");
+  const secs = Math.max(60, Math.min(6 * 3600, Math.round(Number(seconds) || 0)));
+  return new Promise(resolve => {
+    const done = err => resolve(err ? (/cancel|denied|dismissed|-128|126|127/i.test(String(err.message || err)) ? "cancelled" : "failed") : "ok");
+    if (process.platform === "darwin") {
+      // The paths go in as arguments (quoted form of), never pasted into the script text.
+      const sh = 'cp "$1" /etc/hosts; dscacheutil -flushcache; killall -HUP mDNSResponder; ( sleep "$2"; /usr/bin/sed -i "" "/# >>> Studyboard focus block until/,/# <<< Studyboard focus block/d" /etc/hosts; dscacheutil -flushcache; killall -HUP mDNSResponder ) >/dev/null 2>&1 &';
+      execFile("/usr/bin/osascript", ["-e", "on run argv", "-e", `do shell script "/bin/sh -c " & quoted form of (item 1 of argv) & " sh " & quoted form of (item 2 of argv) & " " & (item 3 of argv) with administrator privileges with prompt "Studyboard needs your password to block distracting sites during this focus session."`, "-e", "end run", sh, prepared, String(secs)], { timeout: 120000 }, done);
+    } else if (process.platform === "linux") {
+      const sh = 'cp "$1" /etc/hosts; ( sleep "$2"; sed -i "/# >>> Studyboard focus block until/,/# <<< Studyboard focus block/d" /etc/hosts ) >/dev/null 2>&1 &';
+      execFile("pkexec", ["/bin/sh", "-c", sh, "sh", prepared, String(secs)], { timeout: 120000 }, done);
+    } else {
+      // An encoded command, so nothing in it is ever parsed as part of a command line.
+      const q = v => "'" + String(v).replace(/'/g, "''") + "'";
+      const inner = `Copy-Item -LiteralPath ${q(prepared)} -Destination ${q(HOSTS)} -Force; ipconfig /flushdns | Out-Null; Start-Sleep -Seconds ${secs}; $t = Get-Content -LiteralPath ${q(HOSTS)} -Raw; $t = [regex]::Replace($t, '(?s)\\r?\\n?# >>> Studyboard focus block until \\d+.*?# <<< Studyboard focus block[^\\n]*\\r?\\n?', [Environment]::NewLine); Set-Content -LiteralPath ${q(HOSTS)} -Value $t -NoNewline; ipconfig /flushdns | Out-Null`;
+      const enc = Buffer.from(inner, "utf16le").toString("base64");
+      execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", `try { Start-Process -FilePath powershell.exe -Verb RunAs -WindowStyle Hidden -ArgumentList '-NoProfile','-NonInteractive','-EncodedCommand','${enc}' -ErrorAction Stop } catch { exit 5 }`], { timeout: 120000 }, err => resolve(err ? "cancelled" : "ok"));
+    }
+  });
+}
+async function startBlock(list, minutes) {
+  if (!BLOCK_OK) return { status: "unavailable" };
+  const domains = blockDomains(list); if (!domains.length) return { status: "empty" };
+  const secs = Math.max(60, Math.min(6 * 3600, Math.round(Number(minutes) * 60) || 0)), until = Math.floor(Date.now() / 1000) + secs;
+  let cur = ""; try { cur = fs.readFileSync(HOSTS, "utf8"); } catch (e) { return { status: "failed" }; }
+  const lines = domains.flatMap(d => [`0.0.0.0 ${d}`, `:: ${d}`]);
+  const next = stripBlock(cur).replace(/\s*$/, "\n") + [BLK_A + until, ...lines, BLK_B].join(process.platform === "win32" ? "\r\n" : "\n") + (process.platform === "win32" ? "\r\n" : "\n");
+  const dir = path.join(app.getPath("userData"), "focus-block"); await fsp.mkdir(dir, { recursive: true });
+  const prepared = path.join(dir, "hosts.next"); await fsp.writeFile(prepared, next, { mode: 0o644 });
+  const status = await runElevated(prepared, secs);
+  return { status, until: until * 1000, count: domains.length / 2 };
+}
+ipcMain.handle("block:status", e => fromMain(e) ? { available: BLOCK_OK, block: BLOCK_OK ? readBlock() : null } : null);
+ipcMain.handle("block:start", (e, list, minutes) => fromMain(e) ? startBlock(list, minutes) : { status: "denied" });
+// Removing a block early (or one left behind): the same prompt, with a one-second timer.
+ipcMain.handle("block:clear", async e => {
+  if (!fromMain(e) || !BLOCK_OK) return { status: "unavailable" };
+  let cur = ""; try { cur = fs.readFileSync(HOSTS, "utf8"); } catch (err) { return { status: "failed" }; }
+  if (!/# >>> Studyboard focus block until/.test(cur)) return { status: "ok" };
+  const dir = path.join(app.getPath("userData"), "focus-block"); await fsp.mkdir(dir, { recursive: true });
+  const prepared = path.join(dir, "hosts.next"); await fsp.writeFile(prepared, stripBlock(cur), { mode: 0o644 });
+  return { status: await runElevated(prepared, 60) };
+});
+
 ipcMain.handle("clip:aikey", e => {
   if (!fromMain(e)) return "";
   try {

@@ -676,6 +676,97 @@ begin
     perform set_config('request.jwt.claims', '', true);
   end;
 
+  -- ===== 11. Pro groups (plans.sql 1.16): only Pro can unlock a group, at most 5, nobody writes the table directly, badges need Pro =====
+  if to_regclass('public.group_pro') is null then
+    raise notice 'Pro groups not found (run supabase-plans.sql again): section 11 skipped.';
+  else
+  declare
+    gp uuid := gen_random_uuid(); gq uuid := gen_random_uuid(); gx uuid; i int; ue uuid := gen_random_uuid(); uf uuid := gen_random_uuid(); ug uuid := gen_random_uuid(); uh uuid := gen_random_uuid();
+  begin
+    update public.studyboard_config set value = 'true' where key = 'paywall';
+    perform set_config('request.jwt.claims', '', true);
+    insert into auth.users (id, instance_id, aud, role, email, created_at, updated_at)
+      values (ue, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'selftest-e-' || ue || '@example.invalid', now(), now()),
+             (uf, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'selftest-f-' || uf || '@example.invalid', now(), now()),
+             (ug, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'selftest-g-' || ug || '@example.invalid', now(), now()),
+             (uh, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'selftest-h-' || uh || '@example.invalid', now(), now());
+    -- gp: owned by free A, members A and B (B has Pro). gq: owned by free A, B is not in it.
+    insert into public.study_groups (id, owner_id, name, invite_code) values (gp, ua, 'pro-1', 'PG1-' || substr(gp::text, 1, 3)), (gq, ua, 'pro-2', 'PG2-' || substr(gq::text, 1, 3));
+    insert into public.group_members (group_id, user_id, role) values (gp, ua, 'owner'), (gp, ub, 'member'), (gq, ua, 'owner');
+    perform public.sbt_ok(not public.plans_group_is_pro(gp), 'a group of a free owner starts as a free group');
+
+    -- A (free) can't unlock, can't write group_pro, can't read the function list
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', ua, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.group_pro_set(%L, true)', gp));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a free account made a Pro group'); execute 'set local role authenticated';
+    r := public.sbt_try(format('insert into public.group_pro (group_id, user_id) values (%L, %L)', gp, ua));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user wrote group_pro directly'); execute 'set local role authenticated';
+    r := public.sbt_try(format('insert into public.group_pro (group_id, user_id) values (%L, %L)', gq, ub));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user made someone else unlock a group'); execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.plans_group_is_pro(%L)', gp));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user ran plans_group_is_pro'); execute 'set local role authenticated';
+    r := public.sbt_try('select public.plans_badge_tidy()');
+    execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user ran plans_badge_tidy'); execute 'set local role authenticated';
+    perform public.set_supporter_badge(true);
+    execute 'reset role';
+    perform public.sbt_ok(not exists (select 1 from public.group_members where user_id = ua and badge), 'a free account turned on the supporter badge');
+    execute 'set local role authenticated';
+    r := public.sbt_try(format('update public.group_members set badge = true where user_id = %L', ua));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user wrote their badge directly');
+    perform public.sbt_ok(not exists (select 1 from public.group_members where user_id = ua and badge), 'the badge is still off');
+
+    -- B (Pro) unlocks gp: everyone in it gets Pro limits; B can't unlock gq (not a member); A still can't take it over
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', ub, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    perform public.group_pro_set(gp, true);
+    r := public.sbt_try(format('select public.group_pro_set(%L, true)', gq));
+    execute 'reset role'; perform public.sbt_blocked(r, 'unlocked a group they are not in');
+    perform public.sbt_ok(public.plans_group_is_pro(gp), 'a Pro member made the group a Pro group');
+    perform public.sbt_ok(public.set_supporter_badge(true) is not null, 'set_supporter_badge runs');
+    execute 'set local role authenticated';
+    n := public.sbt_count(format('select 1 from public.group_pro_status(array[%L, %L]::uuid[]) where active', gp, gq));
+    execute 'reset role'; perform public.sbt_ok(n = 1, 'group_pro_status shows only your groups (saw ' || n || ')');
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', ue, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    n := public.sbt_count('select 1 from public.group_pro where group_id = ' || quote_literal(gp));
+    execute 'reset role'; perform public.sbt_ok(n = 0, 'someone outside the group can read who unlocked it (saw ' || n || ')');
+    -- the member limit follows the Pro group: a 4th member gets in
+    perform set_config('request.jwt.claims', '', true);
+    insert into public.group_members (group_id, user_id, role) values (gp, ug, 'member'), (gp, uh, 'member');
+    perform public.sbt_ok((select count(*) from public.group_members where group_id = gp) = 4, 'a Pro group holds more than 3 members');
+    r := 'ok'; begin insert into public.group_members (group_id, user_id, role) values (gq, ug, 'member'), (gq, uh, 'member'), (gq, ue, 'member'); exception when others then r := sqlerrm; end;
+    perform public.sbt_ok(r like 'This group is full%', 'a free group still stops at 3 members (got ' || r || ')');
+    -- 5 groups at most per Pro account
+    for i in 1..5 loop
+      gx := gen_random_uuid();
+      insert into public.study_groups (id, owner_id, name, invite_code) values (gx, uf, 'cap-' || i, 'CP' || i || '-' || substr(gx::text, 1, 3));
+      insert into public.group_members (group_id, user_id, role) values (gx, uf, 'owner'), (gx, ub, 'member');
+      perform set_config('request.jwt.claims', jsonb_build_object('sub', ub, 'role', 'authenticated')::text, true);
+      r := 'ok'; begin perform public.group_pro_set(gx, true); exception when others then r := sqlerrm; end;
+      perform set_config('request.jwt.claims', '', true);
+    end loop;
+    perform public.sbt_ok(r like 'SB_PRO_GROUPS_FULL%', 'a 6th Pro group was allowed (got ' || r || ')');
+    perform public.sbt_ok((select count(*) from public.group_pro where user_id = ub) = 5, 'one account holds at most 5 Pro groups');
+    -- when B's Pro ends, the group goes back to free limits and B's badge goes
+    update public.studyboard_entitlements set plan = 'free', pro_until = null, trial_until = null, grant_lifetime = false, grant_until = null where user_id = ub;
+    perform public.sbt_ok(not public.plans_group_is_pro(gp), 'the group stops being Pro when the member who unlocked it loses Pro');
+    perform public.plans_badge_tidy();
+    perform public.sbt_ok(not exists (select 1 from public.group_members where user_id = ub and badge), 'a badge outlived Pro');
+    -- privileges
+    perform public.sbt_ok(not has_table_privilege('authenticated', 'public.group_pro', 'insert,update,delete,truncate') and not has_table_privilege('anon', 'public.group_pro', 'select'), 'group_pro is writable by signed-in users or readable by anon');
+    perform public.sbt_ok(not has_function_privilege('anon', 'public.group_pro_set(uuid, boolean)', 'execute') and not has_function_privilege('anon', 'public.set_supporter_badge(boolean)', 'execute'), 'anon can run a Pro group function');
+    if to_regclass('storage.objects') is not null and exists (select 1 from pg_trigger where tgname = 'plans_group_upload') then
+      perform set_config('request.jwt.claims', jsonb_build_object('sub', ua, 'role', 'authenticated')::text, true);
+      r := 'ok'; begin insert into storage.objects (bucket_id, name, owner, metadata) values ('studioso-files', ua || '/g/' || gq || '/x.pdf', ua, '{"size": 10}'); exception when others then r := sqlerrm; end;
+      perform public.sbt_ok(r like 'SB_GROUP_PRO%', 'a file was uploaded to a free group (got ' || r || ')');
+      r := 'ok'; begin insert into storage.objects (bucket_id, name, owner, metadata) values ('studioso-files', ub || '/g/' || gp || '/x.pdf', ua, '{"size": 10}'); exception when others then r := sqlerrm; end;
+      perform public.sbt_ok(r like 'SB_STORAGE_PATH%', 'a file was put in someone else''s folder (got ' || r || ')');
+      perform set_config('request.jwt.claims', '', true);
+    end if;
+  end;
+  end if;
+
   -- ===== Done =====
   select count(*) into n from public.sbt_log;
   raise notice 'ALL % SECURITY CHECKS PASSED. Nothing was changed for real (the test ends with a rollback).', n;

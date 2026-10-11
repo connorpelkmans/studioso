@@ -58,6 +58,13 @@ contextBridge.exposeInMainWorld("studiosoDesktop", {
   captureScreen: () => ipcRenderer.invoke("shot:now"),
   onAction: fn => { ipcRenderer.on("desk:action", (e, action, arg) => fn(String(action), String(arg || ""))); ipcRenderer.send("desk:listen", "desk:action"); },
   // {onBattery, thermal: "unknown"|"nominal"|"fair"|"serious"|"critical", locked}: read-only power state for the animation governor.
+  // Studyboard Pro, direct-download app only: block distracting sites in every browser during a focus session (the system asks for the
+  // administrator password). status() -> {available, block: {until (unix seconds)} | null}; start(sites, minutes) and clear() -> {status, until?}.
+  focusBlock: {
+    status: () => ipcRenderer.invoke("block:status"),
+    start: (sites, minutes) => ipcRenderer.invoke("block:start", (Array.isArray(sites) ? sites : []).slice(0, 40).map(x => String(x || "").slice(0, 120)), Math.max(1, Math.min(360, Number(minutes) || 0))),
+    clear: () => ipcRenderer.invoke("block:clear")
+  },
   getPower: () => ipcRenderer.invoke("power:get"),
   onPower: fn => { ipcRenderer.on("desk:power", (e, o) => { if (o && typeof o === "object") fn({ onBattery: o.onBattery === true, thermal: String(o.thermal || "unknown"), locked: o.locked === true }); }); ipcRenderer.send("desk:listen", "desk:power"); },
   // What the Today widget shows (built by the widgets module).
