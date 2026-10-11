@@ -15,7 +15,7 @@ You can do the setup below any time before launch (in any order). While the payw
 - AI with your own Gemini key.
 - The 14 plain color themes, and the free card styles, note shapes, pins and sticker packs.
 - **Collection previews:** a free account can try **3 different** Pro Theme Collections for **5 minutes each** (a **Preview 5 Min** button on each collection in the Style Shop). The collection's theme, stickers, pins and flashcard style work during the preview, then the earlier theme comes back by itself; after 3 previews there are no more, and a collection can't be previewed twice. The count lives in the account's settings (`settings.collPreview`) so it follows the person to other devices. It is cosmetic only, like the rest of the shop.
-- **100 MB** of cloud file storage (plus unlimited files kept on the device, or links to Google Drive or OneDrive), and **25 MB** of synced data.
+- **25 MB** of cloud file storage (plus unlimited files kept on the device, or links to Google Drive or OneDrive), and **25 MB** of synced data.
 - Backups on the device: the desktop folder, plus the last 14 days in the browser.
 
 **Pro** ($2.99 a month or $24.99 a year, with a 7-day free trial):
