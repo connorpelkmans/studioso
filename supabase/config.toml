@@ -48,6 +48,10 @@ entrypoint = "../supabase-functions/send-reminders/index.ts"
 verify_jwt = false
 entrypoint = "../supabase-functions/capture-task/index.ts"
 
+[functions.capture-email]        # Email to Studyboard: the email-capture Worker's shared secret
+verify_jwt = false
+entrypoint = "../supabase-functions/capture-email/index.ts"
+
 [functions.error-ingest]         # anonymous crash reports, rate limited
 verify_jwt = false
 entrypoint = "../supabase-functions/error-ingest/index.ts"

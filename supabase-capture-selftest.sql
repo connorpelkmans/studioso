@@ -2,7 +2,8 @@
 -- Run this in Supabase: SQL Editor > New query > paste everything > Run. Run it AFTER supabase-capture.sql.
 --
 -- It plays an attacker with two throw-away accounts: read someone else's capture tokens or inbox, write into the inbox directly,
--- call the service-only capture_add(), make a 6th token, get a token hash back, use a revoked token, ignore the rate limits.
+-- call the service-only capture_add(), make a 6th token, get a token hash back, use a revoked token, ignore the rate limits, and the same
+-- for Email to Studyboard: read or choose an address, send to a replaced or turned-off one, call capture_add_email() directly.
 -- Every attempt must FAIL. If one works the test stops with  ERROR: EXPLOIT SUCCEEDED: <what worked>.
 -- When all holds you see "ALL n CAPTURE CHECKS PASSED". Everything runs in one transaction that ends with ROLLBACK
 -- (accounts and data disappear), so it is safe on your live project and safe to run again. If you stop it half way, run: rollback;
@@ -234,7 +235,73 @@ begin
   perform public.sbc_ok(j->>'error' = 'inbox_full', 'a full inbox (200 waiting) refuses more');
   perform public.sbc_ok((select count(*) from public.capture_inbox where user_id = ub) = 1, 'B''s inbox was never touched by A''s token');
 
-  -- ===== 7. Clean-up and account deletion =====
+  -- ===== 7. Email to Studyboard =====
+  perform set_config('request.jwt.claims', '', true); perform set_config('request.jwt.claim.sub', '', true);
+  execute 'set local role anon';
+  r := public.sbc_try('select public.capture_email_new()');
+  execute 'reset role'; perform public.sbc_blocked(r, 'the public (anon) made an email address');
+  execute 'set local role anon';
+  r := public.sbc_try('select public.capture_add_email(''abcdefghjkmn'', ''x@y.z'', ''hi'', ''body'')');
+  execute 'reset role'; perform public.sbc_blocked(r, 'the public (anon) called capture_add_email');
+  perform set_config('request.jwt.claims', jsonb_build_object('sub', ub, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  perform public.sbc_ok(public.capture_email_get() is null, 'nobody has an address until they make one');
+  j := public.capture_email_new(); hx := j->>'key';
+  perform public.sbc_ok(hx ~ '^[a-hj-km-np-z2-9]{12}$', 'an address key is 12 random letters and digits, no look-alikes');
+  perform public.sbc_ok(public.capture_email_get()->>'key' = hx, 'the owner sees their address');
+  n := public.sbc_count('select 1 from public.capture_email');
+  execute 'reset role'; perform public.sbc_ok(n = -1, 'a signed-in user can read the capture_email table directly'); execute 'set local role authenticated';
+  r := public.sbc_try(format('update public.capture_email set addr_key = %L', 'aaaaaaaaaaaa'));
+  execute 'reset role'; perform public.sbc_blocked(r, 'a signed-in user chose their own address key'); execute 'set local role authenticated';
+  r := public.sbc_try(format('select public.capture_add_email(%L, ''a@b.c'', ''spam'', ''spam'')', hx));
+  execute 'reset role'; perform public.sbc_blocked(r, 'a signed-in user called capture_add_email (service role only)');
+  perform set_config('request.jwt.claims', jsonb_build_object('sub', ua, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  perform public.sbc_ok(public.capture_email_get() is null, 'A doesn''t see B''s address');
+  perform public.sbc_ok(not public.capture_email_off(), 'A can''t turn off B''s address');
+  execute 'reset role';
+  -- mail arrives
+  delete from public.capture_inbox where user_id = ub;
+  j := public.capture_add_email(hx, 'Prof.Smith@School.EDU', 'Fwd: Lab 4 moved' || chr(7), E'Lab 4 is now due Friday Oct 16 at 5pm.\r\n\n\n\n\nBring your goggles.' || chr(8238), '<abc123@mail.school.edu>');
+  perform public.sbc_ok((j->>'ok')::boolean and not (j->>'dup')::boolean, 'a forwarded email lands in the owner''s inbox');
+  perform public.sbc_ok((select text = 'Fwd: Lab 4 moved' and body = E'Lab 4 is now due Friday Oct 16 at 5pm.\n\nBring your goggles.' and sender = 'prof.smith@school.edu' and source = 'email' and token_id is null from public.capture_inbox where id = (j->>'id')::uuid), 'subject, body and sender are cleaned (control and direction characters gone, blank lines squeezed)');
+  perform public.sbc_ok((public.capture_add_email(hx, 'x@y.z', 'Fwd: Lab 4 moved', 'again', '<abc123@mail.school.edu>')->>'dup')::boolean, 'the same Message-ID twice is added once');
+  perform public.sbc_ok((public.capture_add_email('zzzzzzzzzzzz', 'x@y.z', 'hi', 'there'))->>'error' = 'unknown' and (public.capture_add_email('not a key', 'x@y.z', 'hi', 'there'))->>'error' = 'unknown', 'an unknown address is refused');
+  perform public.sbc_ok((public.capture_add_email(hx, 'x@y.z', '', ''))->>'error' = 'bad_input', 'an empty email is refused');
+  j := public.capture_add_email(hx, 'x@y.z', repeat('s', 900), repeat('b', 9000));
+  perform public.sbc_ok((select length(body) = 6000 and length(text) = 300 from public.capture_inbox where id = (j->>'id')::uuid), 'long subjects and bodies are cut');
+  perform set_config('request.jwt.claims', jsonb_build_object('sub', ub, 'role', 'authenticated')::text, true);
+  execute 'set local role authenticated';
+  perform public.sbc_ok(exists (select 1 from public.capture_pull_inbox(50) p where p.source = 'email' and p.body like 'Lab 4 is now due%' and p.sender = 'prof.smith@school.edu'), 'the owner pulls the email with its body and sender');
+  execute 'reset role';
+  -- rate limit: 15 an hour per account
+  delete from public.capture_inbox where user_id = ub;
+  for i in 1..15 loop j := public.capture_add_email(hx, 'x@y.z', 'mail ' || i, 'body'); perform public.sbc_ok((j->>'ok')::boolean, 'mail fill ' || i); end loop;
+  delete from public.sbc_log where name like 'mail fill %';
+  perform public.sbc_ok((public.capture_add_email(hx, 'x@y.z', 'mail 16', 'body'))->>'error' = 'rate_limited', 'the 16th email in an hour is refused');
+  delete from public.capture_inbox where user_id = ub;
+  -- a new address replaces the old one; off turns it off
+  execute 'set local role authenticated';
+  j := public.capture_email_new();
+  execute 'reset role';
+  perform public.sbc_ok(j->>'key' <> hx and (public.capture_add_email(hx, 'x@y.z', 'old', 'old'))->>'error' = 'unknown' and (public.capture_add_email(j->>'key', 'x@y.z', 'new', 'new')->>'ok')::boolean, 'a new address stops the old one at once');
+  execute 'set local role authenticated';
+  perform public.sbc_ok(public.capture_email_off(), 'the owner can turn the address off');
+  execute 'reset role';
+  perform public.sbc_ok((public.capture_add_email(j->>'key', 'x@y.z', 'gone', 'gone'))->>'error' = 'unknown', 'a turned-off address is refused like an unknown one');
+  -- Pro only once the paywall is on (when supabase-plans.sql is installed)
+  if to_regclass('public.studyboard_config') is not null then
+    insert into public.studyboard_config (key, value) values ('paywall', 'true'::jsonb) on conflict (key) do update set value = 'true'::jsonb;
+    execute 'set local role authenticated';
+    r := public.sbc_try('select public.capture_email_new()');
+    execute 'reset role'; perform public.sbc_blocked(r, 'a free account made an email address with the paywall on');
+    insert into public.capture_email (user_id, addr_key) values (ub, 'pppppppppppp') on conflict (user_id) do update set addr_key = excluded.addr_key;
+    perform public.sbc_ok((public.capture_add_email('pppppppppppp', 'x@y.z', 'hi', 'there'))->>'error' = 'pro_required', 'with the paywall on, a free account''s address stops taking mail');
+    update public.studyboard_config set value = 'false'::jsonb where key = 'paywall';
+  end if;
+  insert into public.capture_email (user_id, addr_key) values (ub, 'qqqqqqqqqqqq') on conflict (user_id) do update set addr_key = excluded.addr_key;
+
+  -- ===== 8. Clean-up and account deletion =====
   update public.capture_inbox set created_at = now() - interval '31 days' where user_id = ua;
   insert into public.capture_inbox (user_id, text, created_at, processed_at) values (ua, 'done long ago', now() - interval '8 days', now() - interval '8 days'), (ua, 'done recently', now(), now() - interval '1 day');
   perform public.capture_purge();
@@ -242,7 +309,7 @@ begin
   perform set_config('request.jwt.claims', jsonb_build_object('sub', ub, 'role', 'authenticated')::text, true);
   update auth.users set last_sign_in_at = now() where id = ub;   -- the in-app delete needs a sign-in in the last 10 minutes
   perform public.studyboard_delete_my_account();
-  perform public.sbc_ok(not exists (select 1 from public.capture_tokens where user_id = ub) and not exists (select 1 from public.capture_inbox where user_id = ub), 'deleting an account removes its capture tokens and inbox');
+  perform public.sbc_ok(not exists (select 1 from public.capture_tokens where user_id = ub) and not exists (select 1 from public.capture_inbox where user_id = ub) and not exists (select 1 from public.capture_email where user_id = ub), 'deleting an account removes its capture tokens, inbox and email address');
 
   select count(*) into n from public.sbc_log;
   raise notice 'ALL % CAPTURE CHECKS PASSED. Nothing was changed for real (the test ends with a rollback).', n;

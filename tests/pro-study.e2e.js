@@ -12,7 +12,7 @@ const server = http.createServer((req, res) => {
   const f = path.join(root, p); if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end("no"); return; }
   const ext = path.extname(f), mime = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".css": "text/css", ".webmanifest": "application/manifest+json"};
   res.writeHead(200, {"content-type": mime[ext] || "application/octet-stream"});
-  if (p === "/index.html") { res.end(csp.apply(fs.readFileSync(f, "utf8").replace("const PRO_ENFORCED = true;", "const PRO_ENFORCED = false;"))); return; }
+  if (p === "/index.html") { res.end(csp.apply(fs.readFileSync(f, "utf8").replace("const PRO_ENFORCED = true;", "const PRO_ENFORCED = false;").replace('const CAPTURE_EMAIL_DOMAIN = "";', 'const CAPTURE_EMAIL_DOMAIN = "in.studyboard.test";'))); return; }
   fs.createReadStream(f).pipe(res);
 });
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
@@ -56,7 +56,9 @@ function SEED(){
     ctx.aiBodies = [];
     await ctx.route(/generativelanguage\.googleapis\.com/, async route => {
       const body = route.request().postData() || ""; ctx.aiBodies.push(body);
-      const reply = /inline_data/.test(body) ? {text: "Today we talk about osmosis. Water moves across a membrane toward the side with more solute."}
+      const em = /forwarded to their planner/.test(body) && /Subject: Fwd: Lab 4 moved/.test(body);
+      const reply = em ? {items: [{title: "Lab 4", dueDate: ctx.emailDue, dueTime: "17:00", course: "BIO101", type: "Lab", notes: "Bring goggles", confidence: 0.92}], rawText: ""}
+        : /inline_data/.test(body) ? {text: "Today we talk about osmosis. Water moves across a membrane toward the side with more solute."}
         : /study notes/.test(body) ? {title: "Osmosis and Diffusion", summary: "How water and solutes cross membranes.", sections: [{heading: "Osmosis", points: ["Water moves toward more solute", "Needs a membrane"]}],
             terms: [{term: "Osmosis", definition: "Water moving across a membrane"}], questions: ["Which way does water move in osmosis?"]}
         : {front: "Q", back: "A"};
@@ -252,6 +254,26 @@ function SEED(){
     const lecErrs = page.errs.filter(e => !/only on the computer/.test(e));
     ok(lecErrs.length === 0, "no console errors (recorder): " + lecErrs.join(" | "));
 
+    /* ---------- Email to Studyboard ---------- */
+    const due5 = day(5), mon = new Date(due5 + "T12:00:00").toLocaleDateString("en-US", {month: "short"}), dd5 = Number(due5.slice(8));
+    page.context().emailDue = due5;
+    const mailRow = (id, extra) => Object.assign({id, text: "Fwd: Lab 4 moved", body: `Hi all,\nLab 4 is now due ${mon} ${dd5} at 5pm.\nBring your goggles.\n\nProf. Smith`, sender: "prof@school.edu", source: "email"}, extra || {});
+    let handled = await page.evaluate(row => window.SBPRO.emailIngest([row]), mailRow("e1"));
+    await page.waitForTimeout(400);
+    ok(handled.join() === "e1", "an email is taken care of");
+    const asked = page.context().aiBodies.find(b => /forwarded to their planner/.test(b));
+    ok(!!asked && /prof@school\.edu/.test(asked) && /Lab 4 is now due/.test(asked), "with AI set up, the email is read by the AI");
+    const cap = await page.evaluate(() => { const c = document.getElementById("capDlg"); return {open: !!c && c.open, text: c ? c.textContent : ""}; });
+    ok(cap.open && /From an email: “Fwd: Lab 4 moved”/.test(cap.text) && /Lab 4/.test(cap.text), "what it found opens in the capture check sheet, not added straight away");
+    ok(await page.evaluate(() => !Object.values(state.tasks).some(t => t.title === "Lab 4")), "nothing is added before the check");
+    await page.evaluate(() => document.getElementById("capDlg").close()); await page.waitForTimeout(200);
+    handled = await page.evaluate(() => window.SBPRO.emailIngest([{id: "g1", text: "Gmail Forwarding Confirmation", body: "Confirmation code: 834729163\nTo allow, click https://mail-settings.google.com/mail/vf-%5BABC%5D-123 now", sender: "forwarding-noreply@google.com", source: "email"}]));
+    await page.waitForTimeout(300);
+    ok(handled.join() === "g1" && /834729163/.test(await page.locator(".em-code").textContent()), "Gmail's forwarding code is shown, not turned into a task");
+    await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
+    ok(/Sign in to your Studyboard account/.test(await page.evaluate(() => window.__sbProStudy.email.box())), "signed out, the address waits for a sign-in");
+    ok(page.errs.length === 0, "no console errors (email): " + page.errs.join(" | "));
+
     /* ---------- Free plan ---------- */
     const free = await open(await mkCtx(SEED(), true));
     await tab(free, "notes");
@@ -268,6 +290,14 @@ function SEED(){
     await act(free, "lec-open"); await free.waitForTimeout(300);
     ok(await free.evaluate(() => !!dlg.querySelector(".plan-sheet")), "free: the recorder opens the Pro sheet");
     await free.evaluate(() => dlg.close());
+    ok(/See Studyboard Pro/.test(await free.evaluate(() => window.__sbProStudy.email.box())), "free: Email to Studyboard points to Pro");
+    // Without AI, the app's own reader finds the date
+    await free.evaluate(() => dlg.close());
+    const got = await free.evaluate(row => window.SBPRO.emailIngest([row]), mailRow("e2"));
+    await free.waitForTimeout(400);
+    const drafts = await free.evaluate(() => { const c = document.getElementById("capDlg"); return c && c.open ? c.textContent : ""; });
+    ok(got.join() === "e2" && /Lab 4/.test(drafts) && free.context().aiBodies.length === 0, "without AI the app reads the email itself and asks first");
+    await free.evaluate(() => document.getElementById("capDlg").close());
     ok(free.errs.length === 0, "no console errors (free): " + free.errs.join(" | "));
   } finally { await browser.close(); server.close(); }
   console.log(`\npro-study.e2e: ${n} checks passed`);

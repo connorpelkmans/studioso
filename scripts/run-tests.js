@@ -31,7 +31,7 @@ const ls = (dir, re) => { const d = path.join(root, dir); return fs.existsSync(d
 const plan = [];
 if (UNIT) {
   for (const f of ls("tests", /\.test\.js$/)) plan.push({file: f, kind: "unit", timeout: 2 * MIN});
-  for (const f of ["supabase-functions/tools/test-functions.mjs", "supabase-functions/tools/test-capture.mjs"])
+  for (const f of ["supabase-functions/tools/test-functions.mjs", "supabase-functions/tools/test-capture.mjs", "supabase-functions/tools/test-capture-email.mjs"])
     if (fs.existsSync(path.join(root, f))) plan.push({file: f, kind: "unit", timeout: 2 * MIN, node: ["--experimental-strip-types", "--no-warnings"]});
 }
 if (E2E) {
