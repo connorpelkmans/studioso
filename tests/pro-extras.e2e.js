@@ -195,7 +195,8 @@ function SEED(){
     const pd = p3.locator("#pomoDlg"); if (await pd.evaluate(d => d.open)) await pd.evaluate(d => d.close());
     await p3.click('nav.tabs [data-tab="flashcards"]').catch(() => {}); await p3.waitForTimeout(300);
     await act(p3, "fc-open", "d1"); await p3.waitForTimeout(300);
-    ok(await p3.locator('[data-act="pro-dk-stats"] .pro-badge').count() === 1 && await p3.locator('[data-act="pro-cf-open"] .pro-badge').count() === 1, "free: Stats and Image Cards are marked PRO");
+    ok(await p3.locator('[data-act="pro-dk-stats"]').count() === 0 && await p3.locator('[data-act="pro-cf-open"]').count() === 0, "free: the deck page shows no Stats or Image Cards buttons (Pro only)");
+    for (const t of ["courses", "timeline", "schedule"]) { await p3.evaluate(t => { const b = document.querySelector(`nav.tabs [data-tab="${t}"]`); if (b) b.click(); }, t); await p3.waitForTimeout(300); ok(await p3.locator(".pro-tab-btn").count() === 0, `free: no Pro buttons on ${t}`); }
     await act(p3, "pro-cf-open", "d1"); await p3.waitForTimeout(400);
     ok(await p3.locator("#dlg .plan-sheet").count() === 1, "free: Image Cards opens the Pro sheet");
     ok(p3.errs.length === 0, "no console errors on the free plan: " + p3.errs.join(" | "));
