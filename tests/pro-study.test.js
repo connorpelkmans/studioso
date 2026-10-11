@@ -83,5 +83,34 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
   await I.capProcess([row("e9", "email", "Subject only")], plain.d);
   ok(plain.log.ingest.join() === "e9", "without the email reader (an older setup), an email is an ordinary capture");
 
+  /* ---------- Two-way calendar sync ---------- */
+  const Y = block("/*CALSYNC-START*/", "/*CALSYNC-END*/", "wantList, busyEvent, keyPart");
+  const SRCS = ["gcal", "mscal"], SRC = {google: "gcal", microsoft: "mscal"};
+  const Yw = new Function("SRCS", "SRC", src.slice(src.indexOf("/*CALSYNC-START*/") + 17, src.indexOf("/*CALSYNC-END*/")) + "; return {wantList, busyEvent};")(SRCS, SRC);
+  const course = id => id === "c1" ? {id: "c1", code: "BIO101", name: "Biology"} : null, isExam = t => t === "Exam" || t === "Quiz";
+  const tasks = [{id: "a", title: "Lab 3", type: "Lab", courseId: "c1", due: "2026-10-16", time: "23:45", status: "todo"}, {id: "b", title: "Midterm", type: "Exam", courseId: "c1", due: "2026-10-20", time: "09:00"},
+    {id: "c", title: "Review ch 4", type: "Study", due: "2026-10-14", time: "18:00", hours: 1.5}, {id: "d", title: "Done", type: "Lab", due: "2026-10-15", status: "done"}, {id: "e", title: "Old", type: "Lab", due: "2026-09-01"},
+    {id: "f", title: "BIO101 essay", type: "Essay", courseId: "c1", due: "2026-10-18"}, {id: "g", title: "Archived", type: "Lab", due: "2026-10-18", archivedTerm: "x"}];
+  const occ = [{type: "meet", id: "c1", key: "2026-10-13|10:00|Lecture", title: "BIO101", label: "Lecture", date: "2026-10-13", start: "10:00", end: "11:20", where: "Hall B"},
+    {type: "meet", id: "c1", key: "2026-10-13|14:00|Office Hours", title: "BIO101", label: "Office Hours", date: "2026-10-13", start: "14:00", end: "15:00"},
+    {type: "event", id: "ev1", key: "2026-10-15", title: "Career fair", date: "2026-10-15", allDay: true, ev: {src: ""}}, {type: "event", id: "csg1", key: "2026-10-15", title: "From Google", date: "2026-10-15", start: "13:00", end: "14:00", ev: {src: "gcal"}},
+    {type: "meet", id: "c1", key: "2026-10-20|10:00|Lecture", title: "BIO101", label: "Lecture", date: "2026-10-20", skipped: true}, {type: "avail", id: "w", key: "x", title: "Work", date: "2026-10-14", start: "09:00", end: "17:00"}];
+  const W = Yw.wantList({tasks, occurrences: occ, course, isExam}, {deadlines: true, classes: true, study: true}, "2026-10-04", "2026-12-10");
+  const by = k => W.events.find(e => e.k === k);
+  ok(W.events.map(e => e.k).join() === "m:c1:2026-10-13|10:00|Lecture,t:c,e:ev1:2026-10-15,t:a,t:f,t:b", "what goes in, in date order (no done, old, archived, office hours, skipped, availability or calendar events): " + W.events.map(e => e.k).join());
+  ok(by("t:a").title === "Due: Lab 3 · BIO101" && by("t:a").start === "23:45" && by("t:a").end === "23:59" && !by("t:a").busy, "a timed deadline: 30 minutes, not past midnight, not busy");
+  ok(by("t:b").title === "Midterm · BIO101" && by("t:b").end === "10:00" && by("t:b").busy, "an exam: an hour, busy");
+  ok(by("t:c").title === "Study: Review ch 4" && by("t:c").end === "19:30" && by("t:c").busy, "a study session: its hours, busy");
+  ok(by("t:f").title === "Due: BIO101 essay" && by("t:f").allDay, "the course code isn't repeated; no time means all day");
+  ok(by("m:c1:2026-10-13|10:00|Lecture").title === "BIO101 Lecture" && by("m:c1:2026-10-13|10:00|Lecture").where === "Hall B", "a class");
+  ok(W.refs.get("m:c1:2026-10-13|10:00|Lecture").key === "2026-10-13|10:00|Lecture" && W.refs.get("t:a").kind === "task", "each key leads back to what it is");
+  const W2 = Yw.wantList({tasks, occurrences: occ, course, isExam}, {deadlines: false, classes: false, study: true}, "2026-10-04", "2026-12-10");
+  ok(W2.events.map(e => e.k).join() === "t:c", "each kind can be left out");
+  ok(Y.keyPart("2026-10-13|10:00|Office Hours") === "2026-10-13|10:00|Office_Hours" && Y.keyPart("a/b<c>") === "abc", "keys stay safe");
+  const be = Yw.busyEvent({id: "abc123def4567890abcd", title: "Shift", date: "2026-10-12", start: "13:00", end: "17:00", allDay: false, where: "Café"}, "google");
+  ok(be.id === "csgabc123def4567890abcd" && be.src === "gcal" && be.start === "13:00" && be.where === "Café" && be.icsUid === "abc123def4567890abcd", "busy time becomes a Schedule event with a stable id");
+  ok(/^csm[0-9a-f]*$/.test(Yw.busyEvent({id: "zz<script>", title: "", date: "2026-10-12", allDay: true}, "microsoft").id) && Yw.busyEvent({id: "1", date: "2026-10-12", allDay: true, endDate: "2026-10-14"}, "microsoft").title === "Busy", "ids keep hex only; no title is Busy");
+  ok(/\/\^\[0-9a-f\]\{12,40\}\$\/\.test/.test(src.slice(src.indexOf("function applyBusy("), src.indexOf("function applyBusy(") + 400)), "busy events without the server's hex id are left out");
+
   console.log(`pro-study: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

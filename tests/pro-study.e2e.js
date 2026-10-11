@@ -46,7 +46,8 @@ function SEED(){
   const files = [{id: "f2", name: "BIO101 Lecture, Oct 2.webm", courseId: "c1", folderId: "notes", kind: "file", taskIds: [], desc: "", url: "", dur: 3000, tr: {text: "Cells are the unit of life.", by: "ai", at: 1},
       revs: [{assetId: "local:a-lec", name: "BIO101 Lecture, Oct 2.webm", size: 900000, type: "audio/webm", at: 1}]},
     {id: "f1", name: "Reading 4.pdf", courseId: "c1", folderId: "other", kind: "file", taskIds: [], desc: "", url: "", revs: [{assetId: "a-read4", name: "Reading 4.pdf", size: 1200, type: "application/pdf", at: 1}]}];
-  return {v: 2, updated: 1, decks, notes, tasks, files, settings: {}, courses: [{id: "c1", name: "Biology", code: "BIO101", color: "#3B6FE0"}]};
+  tasks.push({id: "t2", title: "Canvas Quiz 2", courseId: "c1", type: "Quiz", due: day(6), start: day(3), status: "todo", priority: "med", created: 6, synced: true});
+  return {v: 2, updated: 1, decks, notes, tasks, files, settings: {}, courses: [{id: "c1", name: "Biology", code: "BIO101", color: "#3B6FE0", meetings: [{days: [1, 2, 3, 4, 5], start: "10:00", end: "11:20", kind: "Lecture", where: "Hall B"}]}]};
 }
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
@@ -274,6 +275,70 @@ function SEED(){
     ok(/Sign in to your Studyboard account/.test(await page.evaluate(() => window.__sbProStudy.email.box())), "signed out, the address waits for a sign-in");
     ok(page.errs.length === 0, "no console errors (email): " + page.errs.join(" | "));
 
+    /* ---------- Two-way calendar sync ---------- */
+    await page.evaluate(() => {
+      const C = window.__sbProStudy.calsync, srv = window.__srv = {connected: false, syncs: [], reply: {}};
+      C.T.transport = async body => {
+        if (body.action === "status") return {ok: true, status: 200, data: {accounts: srv.connected ? [{provider: "google", account: "student@gmail.com", status: "ok", last_sync: null, sent: 0}] : [], providers: {google: true, microsoft: false}}};
+        if (body.action === "start") return {ok: true, status: 200, data: {url: "https://accounts.google.com/o/oauth2/v2/auth?state=test"}};
+        if (body.action === "sync") { srv.syncs.push(body); const r = srv.reply; srv.reply = {}; return {ok: true, status: 200, data: Object.assign({ok: true, changes: [], busy: null, more: false, stats: {created: body.events.length, updated: 0, removed: 0}}, r)}; }
+        if (body.action === "disconnect") { srv.connected = false; return {ok: true, status: 200, data: {ok: true}}; }
+        return {ok: false, status: 400, data: {}};
+      };
+    });
+    await act(page, "cal-sync"); await page.waitForTimeout(300);
+    ok(await page.locator('[data-cs-tab="two"]').count() === 1, "Calendar Sync has a Two-Way tab");
+    await page.click('[data-cs-tab="two"]'); await page.waitForTimeout(600);
+    ok(await page.locator('a[data-csy-go="google"][href^="https://accounts.google.com/"]').count() === 1, "Connect Google Calendar is a link to Google's page, ready to click");
+    ok(await page.locator('[data-csy-go="microsoft"]').count() === 0, "a provider the server doesn't offer isn't shown");
+    // Google sends the person back; the app notices and syncs
+    await page.evaluate(() => { window.__srv.connected = true; });
+    await page.evaluate(() => window.__sbProStudy.calsync.loadStatus());
+    await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google", quiet: true}));
+    await page.waitForTimeout(200);
+    const first = await page.evaluate(() => window.__srv.syncs[0]);
+    ok(first && first.provider === "google" && /^[A-Za-z_]+\/[A-Za-z_]+|UTC/.test(first.tz) && first.bring === "titles", "a sync names the provider, the time zone and what to bring in");
+    const lab = first.events.find(e => e.k === "t:t1"), quiz = first.events.find(e => e.k === "t:t2"), lecs = first.events.filter(e => e.k.startsWith("m:c1:"));
+    ok(lab && lab.title === "Due: Lab report three · BIO101" && lab.allDay && !lab.busy, "a deadline: all day, not busy: " + JSON.stringify(lab));
+    ok(quiz && quiz.title === "Canvas Quiz 2 · BIO101" && quiz.busy, "an exam or quiz marks you busy");
+    ok(lecs.length >= 30 && lecs[0].title === "BIO101 Lecture" && lecs[0].start === "10:00" && lecs[0].end === "11:20" && lecs[0].where === "Hall B", "classes go week by week, with their room");
+    ok(first.events.every(e => /^[tme]:[A-Za-z0-9_.:|-]+$/.test(e.k)), "every key is safe");
+    // The calendar answers with a move, a school deadline move, a deletion and busy time
+    await page.evaluate(([d5, d1]) => { const srv = window.__srv; srv.reply = {changes: [{k: "t:t1", allDay: false, date: d5, start: "14:00", end: "14:30"}, {k: "t:t2", allDay: true, date: d5}, {k: srv.syncs[0].events.find(e => e.k.startsWith("m:")).k, deleted: true}],
+      busy: [{id: "aaaaaaaaaaaaaaaaaaaa", title: "Shift at café", where: "Main St", allDay: false, date: d1, start: "13:00", end: "17:00"}, {id: "bbbbbbbbbbbbbbbbbbbb", title: "Trip", allDay: true, date: d5, endDate: d5}], busyWindow: {from: d1, to: d5}}; }, [day(5), day(1)]);
+    await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google", quiet: true}));
+    await page.waitForTimeout(300);
+    const after = await page.evaluate(() => ({t1: state.tasks.t1, t2: state.tasks.t2, evs: Object.values(state.events).filter(e => e.src === "gcal"), toast: document.getElementById("toastMsg").textContent}));
+    ok(after.t1.due === day(5) && after.t1.time === "14:00", "a deadline moved in Google moves here");
+    ok(after.t2.due === day(6), "a school deadline keeps its date");
+    ok(/Moved in Google Calendar: Lab report three/.test(after.toast), "with a message (and Undo): " + after.toast);
+    ok(after.evs.length === 2 && after.evs.some(e => e.title === "Shift at café" && e.start === "13:00" && e.where === "Main St") && after.evs.some(e => e.allDay && e.title === "Trip"), "the person's own events come in as Schedule events");
+    // A pulled event opens read-only
+    const shift = after.evs.find(e => e.title === "Shift at café");
+    await act(page, "sch-occ", shift.id, {type: "event", key: shift.date}); await page.waitForTimeout(250);
+    ok(/From your Google Calendar/.test(await page.evaluate(() => dlg.textContent)) && await page.locator('dlg form input[name="title"], dialog input[name="title"]').count() === 0, "an event from Google opens read-only");
+    await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
+    // Next sync: the moved deadline is sent at its new time; the school one at its own
+    await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google", quiet: true}));
+    await page.waitForTimeout(200);
+    const third = await page.evaluate(() => window.__srv.syncs[2]);
+    ok(third.events.find(e => e.k === "t:t1").start === "14:00" && third.events.find(e => e.k === "t:t2").date === day(6), "the next sync sends what Studyboard now has");
+    ok(!third.events.some(e => /Shift at café/.test(e.title)), "events from a calendar are never sent back to one");
+    // Settings: what to send, what to bring in
+    await act(page, "cal-sync"); await page.waitForTimeout(250); await page.click('[data-cs-tab="two"]'); await page.waitForTimeout(400);
+    ok(/student@gmail\.com/.test(await page.locator("#csPane").textContent()), "the pane shows the connected account");
+    await page.uncheck('[data-csy-send="classes"]'); await page.waitForTimeout(100);
+    await page.check('input[name="csyBring"][value="off"]'); await page.waitForTimeout(200);
+    ok(await page.evaluate(() => Object.values(state.events).filter(e => e.src === "gcal").length === 0), "Don't bring them in removes the events that came in");
+    await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google", quiet: true})); await page.waitForTimeout(200);
+    const fourth = await page.evaluate(() => window.__srv.syncs[3]);
+    ok(fourth.bring === "off" && !fourth.events.some(e => e.k.startsWith("m:")), "unticked classes aren't sent");
+    await page.click('[data-act="csy-ask-off"][data-id="google"]'); await page.waitForTimeout(100);
+    await page.click('[data-act="csy-off"][data-id="google"][data-remove="1"]'); await page.waitForTimeout(300);
+    ok(/Connect Google Calendar/.test(await page.locator("#csPane").textContent()), "disconnect");
+    await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
+    ok(page.errs.length === 0, "no console errors (calendar sync): " + page.errs.join(" | "));
+
     /* ---------- Free plan ---------- */
     const free = await open(await mkCtx(SEED(), true));
     await tab(free, "notes");
@@ -291,6 +356,9 @@ function SEED(){
     ok(await free.evaluate(() => !!dlg.querySelector(".plan-sheet")), "free: the recorder opens the Pro sheet");
     await free.evaluate(() => dlg.close());
     ok(/See Studyboard Pro/.test(await free.evaluate(() => window.__sbProStudy.email.box())), "free: Email to Studyboard points to Pro");
+    await act(free, "cal-sync"); await free.waitForTimeout(250);
+    ok(await free.locator('[data-cs-tab="two"]').count() === 0 && await free.locator('[data-cs-tab="live"]').count() === 1, "free: Calendar Sync has no Two-Way tab");
+    await free.evaluate(() => dlg.close()); await free.waitForTimeout(100);
     // Without AI, the app's own reader finds the date
     await free.evaluate(() => dlg.close());
     const got = await free.evaluate(row => window.SBPRO.emailIngest([row]), mailRow("e2"));

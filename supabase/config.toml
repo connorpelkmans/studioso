@@ -48,6 +48,10 @@ entrypoint = "../supabase-functions/send-reminders/index.ts"
 verify_jwt = false
 entrypoint = "../supabase-functions/capture-task/index.ts"
 
+[functions.calendar-sync]        # Google and Microsoft send people back without a sign-in; every POST checks the sign-in itself
+verify_jwt = false
+entrypoint = "../supabase-functions/calendar-sync/index.ts"
+
 [functions.capture-email]        # Email to Studyboard: the email-capture Worker's shared secret
 verify_jwt = false
 entrypoint = "../supabase-functions/capture-email/index.ts"
