@@ -21,6 +21,19 @@ const day = off => { const d = new Date(); d.setDate(d.getDate() + off); return 
 const at = off => { const d = new Date(); d.setDate(d.getDate() + off); d.setHours(12, 0, 0, 0); return d.getTime(); };
 const T = (id, title, course, due, extra) => Object.assign({id, title, courseId: course, type: "Assignment", due, start: due, status: "todo", priority: "med", created: 1000 + Number(id.replace(/\D/g, ""))}, extra || {});
 const done = (id, title, course, due, doneOff, mark, w) => T(id, title, course, due, {status: "done", doneAt: at(doneOff), weight: w || null, mark: mark == null ? undefined : {got: mark, outOf: 100}});
+// A one-page PDF with a drawing (12 separate strokes) and four short labels spread around it, like a labelled diagram on a slide
+function diagramPdf(){
+  const lines = []; for (let i = 0; i < 12; i++) lines.push(`${200 + i * 10} 300 m ${260 + i * 10} 480 l S`);
+  const label = (x, y, t) => `BT /F1 14 Tf ${x} ${y} Td (${t}) Tj ET`;
+  const content = ["1 w", ...lines, label(60, 520, "Nucleus"), label(420, 520, "Ribosome"), label(60, 260, "Cell membrane"), label(420, 260, "Mitochondria"), label(250, 700, "An animal cell")].join("\n");
+  const objs = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>", `<< /Length ${content.length} >>\nstream\n${content}\nendstream`];
+  let out = "%PDF-1.4\n"; const offs = [];
+  objs.forEach((o, i) => { offs.push(out.length); out += `${i + 1} 0 obj\n${o}\nendobj\n`; });
+  const x = out.length; out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n` + offs.map(o => String(o).padStart(10, "0") + " 00000 n \n").join("") + `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${x}\n%%EOF`;
+  return [...Buffer.from(out, "latin1")];
+}
 function SEED(){
   const tasks = [
     done("1", "Quiz 1", "c1", day(-60), -61, 70, 10), done("2", "Lab 1", "c1", day(-40), -42, 78, 10), done("3", "Quiz 2", "c1", day(-20), -21, 85, 10), done("4", "Lab 2", "c1", day(-4), -6, 92, 10),
@@ -29,7 +42,9 @@ function SEED(){
   ];
   const focusLog = [];
   [[-1, 15, 50, "c1"], [-2, 14, 60, "c1"], [-3, 16, 45, "c1"], [-4, 9, 15, "c2"], [-5, 10, 20, "c2"], [-2, 20, 30, "c1"], [-6, 13, 55, "c1"]].forEach(([o, h, m, c]) => focusLog.push({d: day(o), h, m, c, t: ""}));
-  return {v: 2, updated: 1, settings: {focusLog, fcDays: {[day(-2)]: 30, [day(-30)]: 40}}, courses: [
+  const card = (id, f, bk, box, due) => ({id, front: f, back: bk, box, due, seen: box ? 3 : 0, right: box ? 2 : 0, wrong: box ? 1 : 0, last: box ? day(-2) : ""});
+  const decks = [{id: "d1", name: "Cell Biology", courseId: "c1", created: 1, cards: [card("k1", "ATP", "Energy currency", 2, day(0)), card("k2", "Osmosis", "Water moves", 3, day(2)), card("k3", "Lipid", "Fat", 0, "")], quizzes: []}];
+  return {v: 2, updated: 1, decks, settings: {focusLog, fcDays: {[day(-2)]: 30, [day(-30)]: 40}}, courses: [
     {id: "c1", name: "Calculus II", code: "CALC2", color: "#3B6FE0"}, {id: "c2", name: "Psychology", code: "PSYC110", color: "#B86A00"}], tasks};
 }
 (async () => {
@@ -93,6 +108,44 @@ function SEED(){
     await noOverflow(page, "in Focus History");
     await page.keyboard.press("Escape"); await page.waitForTimeout(200);
 
+    // ---------- Flashcards: deck stats, Smart scheduling, image cards ----------
+    await page.click('nav.tabs [data-tab="flashcards"]').catch(() => {}); await page.waitForTimeout(300);
+    await act(page, "fc-open", "d1"); await page.waitForTimeout(300);
+    ok(await page.locator('[data-act="pro-dk-stats"]').count() === 1 && await page.locator('[data-act="pro-cf-open"]').count() === 1, "the deck page has Stats and Image Cards");
+    await act(page, "pro-dk-stats", "d1"); await page.waitForTimeout(400);
+    ok(/remembered/.test(await page.locator(".pro-dk-body").textContent()) && await page.locator(".pro-dk-body .dk-heat span").count() === 84, "deck stats show what you remember and 12 weeks of reviews");
+    await page.click('[data-act="pro-dk-sched"][data-id="smart"]'); await page.waitForTimeout(300);
+    ok(await page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")).decks.find ? true : true) && await page.locator('.pro-dk-body [data-dk-ret]').count() === 1, "Smart scheduling can be turned on, with a target to remember");
+    await page.keyboard.press("Escape"); await page.waitForTimeout(200);
+    await act(page, "fc-study", "d1"); await page.waitForTimeout(300);
+    await page.click('[data-act="fc-flip"]'); await page.waitForTimeout(200);
+    const goodLbl = (await page.locator('.rate-btn.good span').textContent()).trim();
+    await page.click('.rate-btn.good'); await page.waitForTimeout(300);
+    const rated = await page.evaluate(() => { const st = JSON.parse(localStorage.getItem("coursework:v2")); const d = (Array.isArray(st.decks) ? st.decks : Object.values(st.decks)).find(x => x.id === "d1"); return d.cards.find(c => c.fs); });
+    ok(rated && rated.fs.s > 0 && rated.fs.d >= 1 && rated.due > day(0), "a Smart rating gives the card its own stability and a later due date (" + (rated && rated.due) + ", button said " + goodLbl + ")");
+    await page.click('[data-act="fc-exit"]').catch(() => {}); await page.waitForTimeout(200);
+    // a PDF with a labelled diagram: its labels are found and become boxes
+    const found = await page.evaluate(async bytes => { const items = await window.SBPRO.scanPdf(new Uint8Array(bytes), "Lecture 7"); return items.map(x => ({n: x.boxes.length, t: x.boxes.map(b => b.t), w: x.w, h: x.h, ok: x.boxes.every(b => b.x >= 0 && b.y >= 0 && b.x + b.w <= 1.02 && b.y + b.h <= 1.02)})); }, diagramPdf());
+    ok(found.length === 1 && found[0].n === 4 && !found[0].t.includes("An animal cell") && found[0].t.includes("Mitochondria") && found[0].t.includes("Cell membrane") && found[0].ok, "the diagram page and its labels are found: " + JSON.stringify(found));
+    await page.evaluate(async bytes => { const items = await window.SBPRO.scanPdf(new Uint8Array(bytes), "Lecture 7"); items.forEach(x => { x.found = true; }); window.SBPRO.openImageEditor("d1", items); }, diagramPdf());
+    await page.waitForTimeout(500);
+    ok(await page.locator(".oc-stage .oc-box").count() >= 4 && await page.locator(".oc-list input").count() >= 4, "the editor shows a box and an answer for each label");
+    await page.locator('.oc-list [data-act="pro-oc-del"]').first().click(); await page.waitForTimeout(200);
+    const left = await page.locator(".oc-list input").count();
+    await page.click("#ocKeep"); await page.waitForTimeout(800);
+    const ic = await page.evaluate(() => { const st = JSON.parse(localStorage.getItem("coursework:v2")); const d = (Array.isArray(st.decks) ? st.decks : Object.values(st.decks)).find(x => x.id === "d1"); return d.cards.filter(c => c.img); });
+    ok(ic.length === left && ic.every(c => c.img.k && c.img.m.length === left && c.back), "keeping makes one image card per box (" + ic.length + ")");
+    await page.evaluate(ids => window.__sbAvail && true, []);
+    await act(page, "fc-open", "d1"); await page.waitForTimeout(300);
+    await page.evaluate(id => { const b = document.createElement("button"); b.dataset.act = "fc-study"; b.dataset.id = "d1"; document.body.appendChild(b); b.click(); b.remove(); }, "");
+    await page.waitForTimeout(300);
+    // step to an image card in the session (new cards come after due ones)
+    for (let i = 0; i < 8 && !(await page.locator(".flip .ci-face").count()); i++) { await page.click('[data-act="fc-flip"]').catch(() => {}); await page.waitForTimeout(100); await page.click(".rate-btn.easy").catch(() => {}); await page.waitForTimeout(150); }
+    ok(await page.locator(".flip .face.front .ci-box.me").count() === 1, "studying an image card covers its own label on the front");
+    await page.waitForTimeout(400);
+    ok(await page.locator(".flip .face.front .ci-wrap img").count() === 1, "the picture loads from this device's copy");
+    await page.click('[data-act="fc-exit"]').catch(() => {}); await page.waitForTimeout(200);
+
     // A focus session ends: it is logged with its start hour and course
     await page.evaluate(() => { localStorage.setItem("pro-e2e", "1"); });
     ok(page.errs.length === 0, "no console errors so far: " + page.errs.join(" | "));
@@ -125,6 +178,13 @@ function SEED(){
     ok(await p3.locator('#pomoDlg .pr-chip[data-id="deep"] .pro-badge').count() === 1 && await p3.locator('#pomoDlg .pr-chip[data-id="classic"] .pro-badge').count() === 0, "free: Classic is free, Deep Work is marked PRO");
     await p3.click('#pomoDlg .pr-chip[data-id="deep"]'); await p3.waitForTimeout(400);
     ok(await p3.locator("#dlg .plan-sheet").count() === 1, "free: a Pro routine opens the Pro sheet");
+    await p3.keyboard.press("Escape"); await p3.waitForTimeout(200);
+    const pd = p3.locator("#pomoDlg"); if (await pd.evaluate(d => d.open)) await pd.evaluate(d => d.close());
+    await p3.click('nav.tabs [data-tab="flashcards"]').catch(() => {}); await p3.waitForTimeout(300);
+    await act(p3, "fc-open", "d1"); await p3.waitForTimeout(300);
+    ok(await p3.locator('[data-act="pro-dk-stats"] .pro-badge').count() === 1 && await p3.locator('[data-act="pro-cf-open"] .pro-badge').count() === 1, "free: Stats and Image Cards are marked PRO");
+    await act(p3, "pro-cf-open", "d1"); await p3.waitForTimeout(400);
+    ok(await p3.locator("#dlg .plan-sheet").count() === 1, "free: Image Cards opens the Pro sheet");
     ok(p3.errs.length === 0, "no console errors on the free plan: " + p3.errs.join(" | "));
     if (process.env.SHOTS) { /* screenshots for a manual look */ }
     console.log("\npro-extras.e2e: " + n + " checks passed");
