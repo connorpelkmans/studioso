@@ -79,10 +79,12 @@ const PRIMARY = () => {
   return {area: off ? 0 : Math.round(worst), who};
 };
 
+// A returning, local-only student (like the other browser tests): without "studioso:sb" the first-run Sign In sheet opens over every page,
+// so the checks below would measure the companion against that modal's buttons (which sit above it) instead of the page's own controls.
 async function open(b, w, h, dsf, touch, opts) {
   opts = opts || {};
   const ctx = await b.newContext({viewport: {width: w, height: h}, deviceScaleFactor: dsf, hasTouch: !!touch, isMobile: !!touch, reducedMotion: opts.rm ? "reduce" : "no-preference"});
-  await ctx.addInitScript(([s, init]) => { try { localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1"); if (!localStorage.getItem("coursework:v2")) localStorage.setItem("coursework:v2", JSON.stringify(s)); if (init) eval(init); } catch (e) {} }, [seed(opts.tasks || 10, opts.settings), opts.init || ""]);
+  await ctx.addInitScript(([s, init]) => { try { localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); if (!localStorage.getItem("coursework:v2")) localStorage.setItem("coursework:v2", JSON.stringify(s)); if (init) eval(init); } catch (e) {} }, [seed(opts.tasks || 10, opts.settings), opts.init || ""]);
   const p = await ctx.newPage(); p.errs = []; p.on("pageerror", e => p.errs.push(e.message));
   await p.goto(F); await p.waitForTimeout(opts.wait || 2300);
   return {ctx, p};

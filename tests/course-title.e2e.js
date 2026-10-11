@@ -31,14 +31,17 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); if (!/^theme /.test(m)) con
         return {ctx, page};
       };
       const first = await open("classic"); await first.ctx.close();
-      for (const skin of themes) {
+      // every theme still gets its own fresh load; a few run side by side (each load parses the whole app, which is most of the time)
+      const check = async skin => {
         const {ctx, page} = await open(skin);
         const r = await page.$eval(".detail-head", hd => { const h = hd.querySelector("h2"), s = getComputedStyle(hd), t = getComputedStyle(h), c = hd.querySelector(".code"); return {bg: s.backgroundColor, ink: t.color, code: c ? getComputedStyle(c).color : "", shadow: t.textShadow}; });
         const bg = rgba(r.bg), ink = rgba(r.ink), code = rgba(r.code);
         const opaque = bg.length < 4 || bg[3] === 1, cr = ratio(ink.slice(0, 3), bg.slice(0, 3)), cc = code.length ? ratio(code.slice(0, 3), bg.slice(0, 3)) : 21;
         if (!opaque || cr < 7 || cc < 4.5 || page.errs.length) bad.push(`${mode}/${skin}: bg ${r.bg} name ${cr.toFixed(1)}:1 code ${cc.toFixed(1)}:1 ${page.errs.join(";")}`);
         await ctx.close();
-      }
+      };
+      const queue = [...themes], worker = async () => { for (let skin; (skin = queue.shift());) await check(skin); };
+      await Promise.all(Array.from({length: 3}, worker));
       ok(bad.length === 0, `${mode}: the course name has solid, high-contrast backing on all ${themes.length} themes` + (bad.length ? "\n  " + bad.join("\n  ") : ""));
     }
     // a long name wraps instead of running off, at phone width, and the page does not scroll sideways
