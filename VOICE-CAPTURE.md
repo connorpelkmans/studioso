@@ -2,6 +2,8 @@
 
 Add a task to Studyboard by asking your phone: "Hey Siri, Add to Studyboard", Gemini on a Pixel or Galaxy, Bixby, or the iOS share sheet. Free for everyone (not a Pro feature). It needs a Studyboard account, because tasks travel through your account's inbox.
 
+**Email to Studyboard** (Pro) uses the same inbox: an email forwarded to the student's private address arrives as a row with `source = 'email'` (subject, sender and text), through Cloudflare Email Routing, the `email-capture` Worker and the `capture-email` function, and always opens in the Check and Add sheet. Setup and its security model: `cloudflare/email-capture/README.md` and the "Email to Studyboard" section of `supabase-capture.sql`.
+
 ## Why an inbox
 
 A voice assistant cannot reach into a web app, and the app may be closed. So the assistant (or a Shortcut) sends the text to a small server function with a **capture token**. The function drops it in your **inbox** on the server. The next time Studyboard is open (on start, on focus, when back online, and every few minutes while visible) it pulls the inbox, makes the tasks on that device (so sync, trash and plan limits work as always) and then tells the server it is done. The server never writes into your `items` table.

@@ -30,6 +30,9 @@
   <!-- The microphone, for Record a Lecture (Pro). The web view asks only when the person presses Start Recording, and only for audio. -->
   <key>NSMicrophoneUsageDescription</key>
   <string>Studyboard uses the microphone only while you record a lecture, so you can turn the class into notes.</string>
+  <!-- Live captions while recording (the web view's speech recognition uses Apple's recognizer). -->
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>Studyboard writes live captions while you record a lecture.</string>
 
   <!-- Deliberately NOT present (the app does not use them): NSLocationWhenInUseUsageDescription,
        NSContactsUsageDescription, NSCalendarsUsageDescription, NSUserTrackingUsageDescription (no tracking, so no ATT prompt),
