@@ -15,7 +15,9 @@
 //   POST /v1/verify/start                                      {url}: the check page for this student (link valid 15 minutes)
 //   POST /v1/verify/finish  {nonce, token}                     from the check page: Turnstile's token, checked with siteverify
 //   GET  /verify#<nonce>                                       the check page
-//   DELETE /v1/trial                                           {ok}: forget this student's count and check (sent by Delete My Account)
+//   DELETE /v1/trial                                           {ok}: forget this student's count and check (sent by Delete My Account).
+//                                                              The id is then closed for good (only a "gone" flag stays), so it can't be
+//                                                              used to reset the count and take another round of free tries.
 //   POST /v1/ai      {task, system, text, schema?, maxTokens?, temperature?}
 //                    200 {data, model, left, todayLeft, total}
 //                    401 auth   403 unconfirmed | verify   413 too_long   429 used_up | today | busy   502 ai_failed
@@ -51,17 +53,20 @@ export const neurons = (rates, inTok, outTok) => Math.ceil((inTok * rates.in + o
 export class Student {
   constructor(storage, now = () => Date.now()) { this.s = storage; this.now = now; }
   async read() {
-    const [used, day, dayUsed] = [await this.s.get("used"), await this.s.get("day"), await this.s.get("dayUsed")];
+    const [used, day, dayUsed, gone] = [await this.s.get("used"), await this.s.get("day"), await this.s.get("dayUsed"), await this.s.get("gone")];
     const today = dayOf(this.now());
+    if (gone) return { used: Infinity, dayUsed: Infinity, today, gone: true };   // forgotten (Delete My Account): no tries ever again on this id
     return { used: used || 0, dayUsed: day === today ? dayUsed || 0 : 0, today };
   }
   async status(cfg) {
     const r = await this.read(), left = Math.max(0, cfg.trialUses - r.used);
-    return { left, total: cfg.trialUses, todayLeft: Math.min(left, Math.max(0, cfg.dailyUses - r.dayUsed)), daily: cfg.dailyUses, verify: !!cfg.turnstile && !(await this.s.get("human")) };
+    return { left, total: cfg.trialUses, todayLeft: Math.min(left, Math.max(0, cfg.dailyUses - r.dayUsed)), daily: cfg.dailyUses, verify: !!cfg.turnstile && !r.gone && !(await this.s.get("human")) };
   }
   async setHuman() { await this.s.put("human", true); }
-  // Delete My Account: the count and the check flag go too (nothing about the student is left here).
-  async forget() { await this.s.deleteAll(); }
+  // Delete My Account: the count and the check flag go (nothing about the student is left here except a "gone" flag on the account id).
+  // The flag closes the id for good: account ids are never reused, so a real deletion loses nothing, and someone who sends DELETE
+  // while keeping the account can't use it to reset the count and drain the shared pool (they just lose their own trial).
+  async forget() { await this.s.deleteAll(); await this.s.put("gone", true); }
   // Counts the try before the model runs; refund() gives it back if the model then fails.
   async take(cfg) {
     const r = await this.read();
@@ -72,6 +77,7 @@ export class Student {
   }
   async refund(day) {
     const r = await this.read();
+    if (r.gone) return;
     await this.s.put({ used: Math.max(0, r.used - 1), day: r.today, dayUsed: day === r.today ? Math.max(0, r.dayUsed - 1) : r.dayUsed });
   }
 }
@@ -170,7 +176,8 @@ export async function handle(request, env, deps) {
     return json({ ok: true });
   }
   if (!["/v1/trial", "/v1/ai", "/v1/verify/start"].includes(url.pathname)) return json({ error: "not_found" }, 404);
-  // Forgetting works for every signed-in student (even unconfirmed, even with the trial switched off): it only ever deletes their own record.
+  // Forgetting works for every signed-in student (even unconfirmed, even with the trial switched off): it only ever deletes their own record,
+  // and it never gives tries back (the id is closed afterwards; see Student.forget).
   if (url.pathname === "/v1/trial" && request.method === "DELETE") {
     const who = await deps.user((request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, ""));
     if (!who) return json({ error: "auth" }, 401);

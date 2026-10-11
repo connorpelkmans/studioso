@@ -244,6 +244,7 @@ function coDeps(extra = {}) {
     url = String(url);
     if (url.endsWith("/auth/v1/user")) return new Response(JSON.stringify({ id: UID, email: "a@b.co", email_confirmed_at: extra.unconfirmed ? null : "2026-01-01" }));
     if (url.includes("rpc/studyboard_plan_rate_hit")) return new Response(JSON.stringify(extra.limited ? false : true));
+    if (url.includes("rpc/studyboard_trial_used")) { rest.push(["TRIAL", url, init.body]); return extra.trialFn === "missing" ? new Response("{}", { status: 404 }) : extra.trialFn === "down" ? new Response("{}", { status: 503 }) : new Response(JSON.stringify(!!extra.trialUsed)); }
     if (url.includes("studyboard_config")) return new Response(JSON.stringify([{ key: "site_url", value: extra.siteUrl ?? "" }, { key: "prices", value: { trialDays: 7 } }]));
     if (url.includes("studyboard_entitlements")) return new Response(JSON.stringify(extra.ent ? [extra.ent] : []));
     if (url.includes("studyboard_billing_customers")) { rest.push([init.method || "GET", url]); return new Response(JSON.stringify(init.method === "POST" ? [] : extra.customer ? [{ stripe_customer_id: extra.customer }] : (rest.filter(r => r[0] === "POST").length ? [{ stripe_customer_id: "cus_new" }] : []))); }
@@ -291,6 +292,21 @@ await test("checkout: yearly price, no second trial, reuses the stored customer"
   assert.ok(!stripeBodies.some(b => b[0] === "customers"));
   const s = parse(stripeBodies.find(b => b[0] === "session")[1]);
   assert.equal(s["line_items[0][price]"], "price_YEAR1"); assert.equal(s.customer, "cus_have"); assert.ok(!("subscription_data[trial_period_days]" in s));
+});
+await test("checkout: no second trial for an email whose deleted account already had one (studyboard_trial_uses)", async () => {
+  const used = coDeps({ trialUsed: true });
+  assert.equal((await co.handle(coReq({ plan: "monthly" }), used.deps)).status, 200);
+  assert.ok(!("subscription_data[trial_period_days]" in parse(used.stripeBodies.find(b => b[0] === "session")[1])), "a used email gets no trial");
+  assert.deepEqual(JSON.parse(used.rest.find(r => r[0] === "TRIAL")[2]), { p_email: "a@b.co" }, "asked with the account's email, hashed by the database");
+  const fresh = coDeps();
+  await co.handle(coReq({ plan: "monthly" }), fresh.deps);
+  assert.equal(parse(fresh.stripeBodies.find(b => b[0] === "session")[1])["subscription_data[trial_period_days]"], "7", "a new email still gets the trial");
+  const old = coDeps({ trialFn: "missing" });
+  await co.handle(coReq({ plan: "monthly" }), old.deps);
+  assert.equal(parse(old.stripeBodies.find(b => b[0] === "session")[1])["subscription_data[trial_period_days]"], "7", "an older plans.sql (no function) works as before");
+  const down = coDeps({ trialFn: "down" });
+  assert.equal((await co.handle(coReq({ plan: "monthly" }), down.deps)).status, 500, "a failed lookup never hands out a trial");
+  assert.ok(!down.stripeBodies.some(b => b[0] === "session"));
 });
 await test("checkout: refuses bad plans, no sign-in, unconfirmed email, rate limit, double subscription, other origins' CORS", async () => {
   assert.equal((await co.handle(coReq({ plan: "lifetime" }), coDeps().deps)).status, 400);
@@ -611,6 +627,37 @@ await test("send-reminders: pushes only go to the real push services", async () 
   const db = { from: () => ({ select: () => ({ in: async () => ({ data: remStore().store && [
     { id: "a", user_id: UID, endpoint: "https://fcm.googleapis.com/fcm/send/1" }, { id: "b", user_id: UID, endpoint: "https://10.0.0.1/x" }], error: null }) }) }) };
   assert.deepEqual((await sr.supabaseStore(db).subsFor([UID])).map(x => x.id), ["a"]);
+});
+
+await test("send-reminders: due reminders are claimed in bounded batches, oldest first, never all at once", async () => {
+  // 450 due rows: claimed 200, 200, 50 (each batch sent before the next is claimed); a failed one is released after the batches
+  const due = Array.from({ length: 450 }, (_, i) => ({ user_id: i % 2 ? UID : OTHER, id: "r:" + i, title: "T", body: "B", url: "", task_id: "", tok: "t" + i, tries: 0 }));
+  const claims = [], released = [];
+  const store = { ...remStore().store, claimDue: async (now, limit) => { claims.push(limit); return due.splice(0, limit); },
+    subsFor: async (users) => users.map((u) => ({ id: "s-" + u, user_id: u, endpoint: "https://fcm.googleapis.com/fcm/send/" + u, p256dh: "k", auth: "a" })),
+    release: async (r) => released.push(r.id) };
+  let n = 0;
+  const p = { setVapidDetails() {}, sendNotification: async () => { if (++n === 3) throw Object.assign(new Error("boom"), { statusCode: 500 }); return {}; } };
+  const out = await sr.sendDue(store, p, NOW, "https://x/api", "anon");
+  assert.deepEqual(claims, [200, 200, 200]);
+  assert.equal(out.due, 450); assert.equal(out.sent, 449); assert.equal(out.failed, 1); assert.equal(released.length, 1);
+  // a huge backlog stops after a few batches (the rest stays unsent for the next run)
+  const big = Array.from({ length: 5000 }, (_, i) => ({ user_id: UID, id: "r:" + i, title: "T", body: "B", url: "", task_id: "", tok: "t", tries: 0 }));
+  const out2 = await sr.sendDue({ ...store, claimDue: async (now, limit) => big.splice(0, limit) }, fakePush(), NOW, "https://x/api", "anon");
+  assert.ok(out2.due <= 1000 && big.length >= 4000, "one run claims at most 5 batches");
+  // the real store claims through studyboard_reminders_claim with a limit, and falls back to a bounded pick on an older reminders.sql
+  const calls = [];
+  const db1 = { rpc: async (fn, args) => { calls.push([fn, args]); return { data: [due[0] || { id: "x" }], error: null }; } };
+  await sr.supabaseStore(db1).claimDue(NOW, 200);
+  assert.equal(calls[0][0], "studyboard_reminders_claim"); assert.equal(calls[0][1].p_limit, 200); assert.equal(calls[0][1].p_late_ms, 6 * 3600_000);
+  const q = { limit: null, updates: 0 };
+  const chain = (res) => { const c = { select: () => c, is: () => c, lte: () => c, gt: () => c, eq: () => c, order: () => c,
+    limit: (n) => { q.limit = n; return Promise.resolve(res); }, update: () => { q.updates++; return c; }, then: (f) => Promise.resolve({ data: [{ user_id: UID, id: "r:1" }], error: null }).then(f) }; return c; };
+  const db2 = { rpc: async () => ({ data: null, error: { code: "PGRST202", message: "Could not find the function public.studyboard_reminders_claim" } }),
+    from: () => chain({ data: [{ user_id: UID, id: "r:1" }, { user_id: UID, id: "r:2" }], error: null }) };
+  const got = await sr.supabaseStore(db2).claimDue(NOW, 50);
+  assert.equal(q.limit, 50); assert.equal(q.updates, 2); assert.equal(got.length, 2);
+  await assert.rejects(sr.supabaseStore({ rpc: async () => ({ data: null, error: { code: "57014", message: "timeout" } }) }).claimDue(NOW, 50));
 });
 
 // ---- send-reminders: phone apps (FCM HTTP v1 for Android, APNs for iPhone)

@@ -19,6 +19,9 @@
 const LATE_OK_MS = 6 * 3600_000;         // reminders more than 6 hours late (for example, a paused project) are skipped
 const KEEP_MS = 14 * 86400_000;          // old rows are cleaned up after two weeks
 const MAX_TRIES = 3;
+const BATCH = 200;                       // reminders claimed (marked as sent) at a time, oldest first
+const MAX_BATCHES = 5;                   // per run (every 5 minutes); anything left stays unsent for the next run
+const HORIZON_MS = 400 * 86400_000;      // rows further ahead than this are dropped (reminders.sql refuses them too)
 
 type Row = { user_id: string; id: string; title: string; body: string; url: string; task_id: string; tok: string; tries: number };
 type Sub = { id: string; user_id: string; endpoint: string; p256dh: string; auth: string; kind?: string; apns_env?: string | null };
@@ -68,12 +71,24 @@ function same(a: string, b: string): boolean {
 // ---------- The database parts (kept small so they can be swapped for a fake in tests) ----------
 export function supabaseStore(db: any) {
   return {
-    async claimDue(now: number): Promise<Row[]> {
-      const { data, error } = await db.from("reminder_queue").update({ sent_at: new Date(now).toISOString() })
-        .is("sent_at", null).lte("fire_at", new Date(now).toISOString()).gt("fire_at", new Date(now - LATE_OK_MS).toISOString())
-        .select("user_id,id,title,body,url,task_id,tok,tries");
-      if (error) throw error;
-      return data || [];
+    // One bounded batch, oldest first, claimed in one step by studyboard_reminders_claim (FOR UPDATE SKIP LOCKED), so a run can't
+    // mark everyone's reminders as sent and then time out before sending them. A project on an older reminders.sql (no such function)
+    // falls back to picking a batch and claiming each row only if it is still unsent.
+    async claimDue(now: number, limit = BATCH): Promise<Row[]> {
+      const at = new Date(now).toISOString();
+      const { data, error } = await db.rpc("studyboard_reminders_claim", { p_now: at, p_late_ms: LATE_OK_MS, p_limit: limit });
+      if (!error) return data || [];
+      if (!/studyboard_reminders_claim|PGRST202|42883/.test(String(error.message || "") + " " + String(error.code || ""))) throw error;
+      const pick = await db.from("reminder_queue").select("user_id,id").is("sent_at", null).lte("fire_at", at)
+        .gt("fire_at", new Date(now - LATE_OK_MS).toISOString()).order("fire_at", { ascending: true }).limit(limit);
+      if (pick.error) throw pick.error;
+      const out: Row[] = [];
+      for (const p of pick.data || []) {
+        const r = await db.from("reminder_queue").update({ sent_at: at }).eq("user_id", p.user_id).eq("id", p.id).is("sent_at", null)
+          .select("user_id,id,title,body,url,task_id,tok,tries");
+        if (!r.error && r.data && r.data[0]) out.push(r.data[0]);
+      }
+      return out;
     },
     async release(r: Row) {
       await db.from("reminder_queue").update({ sent_at: null, tries: (r.tries || 0) + 1 }).eq("user_id", r.user_id).eq("id", r.id);
@@ -88,7 +103,10 @@ export function supabaseStore(db: any) {
       return (data || []).filter((s: Sub) => subOk(s));
     },
     async dropSub(id: string) { await db.from("push_subscriptions").delete().eq("id", id); },
-    async cleanup(now: number) { await db.from("reminder_queue").delete().lt("fire_at", new Date(now - KEEP_MS).toISOString()); },
+    async cleanup(now: number) {
+      await db.from("reminder_queue").delete().lt("fire_at", new Date(now - KEEP_MS).toISOString());
+      await db.from("reminder_queue").delete().gt("fire_at", new Date(now + HORIZON_MS).toISOString());   // far-off rows nobody will ever reach
+    },
     async byToken(id: string, tok: string): Promise<Row | null> {
       const { data } = await db.from("reminder_queue").select("user_id,id,title,body,url,task_id,tok,tries").eq("id", id).eq("tok", tok).maybeSingle();
       return data || null;
@@ -252,23 +270,29 @@ async function sendOne(push: Push | null, s: Sub, m: Msg, native?: Native): Prom
   }
 }
 export async function sendDue(store: Store, push: Push | null, now: number, api: string, k: string, native?: Native) {
-  const rows = await store.claimDue(now);
-  const subs = await store.subsFor([...new Set(rows.map((r) => r.user_id))]);
-  const byUser = new Map<string, Sub[]>();
-  subs.forEach((s) => byUser.set(s.user_id, (byUser.get(s.user_id) || []).concat(s)));
-  const gone = new Set<string>();
-  let sent = 0, failed = 0;
-  await pool(rows, 8, async (r) => {
-    const mine = (byUser.get(r.user_id) || []).filter((s) => !gone.has(s.id));
-    if (!mine.length) return;                                  // no devices: nothing to send, the row stays marked
-    const m = msgFor(r, api, k);
-    const res = await Promise.all(mine.map(async (s) => { const x = await sendOne(push, s, m, native); if (x === "gone") gone.add(s.id); return x; }));
-    if (res.includes("ok")) sent++;
-    else if (res.includes("fail")) { failed++; if ((r.tries || 0) + 1 < MAX_TRIES) await store.release(r); }
-  });
+  const gone = new Set<string>(), retry: Row[] = [];
+  let due = 0, sent = 0, failed = 0;
+  // A batch at a time: each batch is claimed, then sent, before the next is claimed. A run that stops early only leaves the rest unsent.
+  for (let b = 0; b < MAX_BATCHES; b++) {
+    const rows = await store.claimDue(now, BATCH);
+    due += rows.length;
+    const subs = await store.subsFor([...new Set(rows.map((r) => r.user_id))]);
+    const byUser = new Map<string, Sub[]>();
+    subs.forEach((s) => byUser.set(s.user_id, (byUser.get(s.user_id) || []).concat(s)));
+    await pool(rows, 8, async (r) => {
+      const mine = (byUser.get(r.user_id) || []).filter((s) => !gone.has(s.id));
+      if (!mine.length) return;                                  // no devices: nothing to send, the row stays marked
+      const m = msgFor(r, api, k);
+      const res = await Promise.all(mine.map(async (s) => { const x = await sendOne(push, s, m, native); if (x === "gone") gone.add(s.id); return x; }));
+      if (res.includes("ok")) sent++;
+      else if (res.includes("fail")) { failed++; if ((r.tries || 0) + 1 < MAX_TRIES) retry.push(r); }
+    });
+    if (rows.length < BATCH) break;
+  }
+  for (const r of retry) await store.release(r);              // after the batches, so a failed one is retried by the next run, not this one
   for (const id of gone) await store.dropSub(id);
   await store.cleanup(now);
-  return { due: rows.length, sent, failed, removed: gone.size };
+  return { due, sent, failed, removed: gone.size };
 }
 
 export async function handle(req: Request, store: Store, push: Push, opts: { now?: number; api: string; k: string; vapidOk: boolean; cronSecret?: string; native?: Native }) {

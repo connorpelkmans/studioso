@@ -142,7 +142,15 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq((await call("DELETE", "/v1/trial", null, "nobody")).status, 401, "forgetting needs a sign-in");
   r = await call("DELETE", "/v1/trial", null, "good", Object.assign({}, env, {TRIAL_OFF: "1"}));
   eq([r.status, (await r.json()).ok], [200, true], "forgetting works even with the trial off");
-  eq(students.get("u1").s.m.size, 0, "nothing about the student is left");
+  eq([...students.get("u1").s.m.keys()], ["gone"], "nothing about the student is left but the closed-id flag");
+  // ...and DELETE can't be used as a reset: the id stays closed, so looping DELETE + tries can't drain the shared pool
+  eq((await (await call("GET", "/v1/trial", null, "good")).json()).left, 0, "after forgetting, no tries are left on that id");
+  const runsBefore = runs.length;
+  r = await ask("hi", null, "good"); j = await r.json();
+  eq([r.status, j.error], [429, "used_up"], "a try after DELETE is refused");
+  eq(runs.length, runsBefore, "and the model didn't run");
+  await call("DELETE", "/v1/trial", null, "good");
+  eq((await (await call("GET", "/v1/trial", null, "good")).json()).left, 0, "a second DELETE gives nothing back either");
   ok(/DELETE/.test((await call("OPTIONS", "/v1/trial")).headers.get("Access-Control-Allow-Methods")), "CORS allows DELETE");
   // ---- Turnstile: one check per student before the first try
   T._forgetUsers(); students.clear(); pools.clear();
