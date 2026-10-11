@@ -74,6 +74,25 @@ function SEED(){
     ok(await page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")).settings.early === true), "early access is saved in settings");
     await page.keyboard.press("Escape"); await page.waitForTimeout(200);
 
+    // ---------- Focus timer: routines and Focus History ----------
+    await act(page, "pomo-open"); await page.waitForTimeout(400);
+    ok(await page.locator('#pomoDlg .pr-chip[data-act="pro-rt"]').count() === 3, "the Focus timer offers three routines");
+    await page.click('#pomoDlg .pr-chip[data-id="deep"]'); await page.waitForTimeout(300);
+    ok(await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("coursework:v2")).settings; return s.pomo.focus === 50 && s.pomo.every === 3 && s.routine === "deep"; }), "Deep Work sets 50 minute sessions, a long break after 3");
+    ok(await page.locator('#pomoDlg .pr-chip.on[data-id="deep"]').count() === 1 && /50:00/.test(await page.locator("#pomoDlg .pomo-time").textContent()), "the dial shows 50:00 and Deep Work is marked");
+    await page.click('#pomoDlg [data-act="pro-rt-new"]'); await page.waitForTimeout(300);
+    await page.fill('#dlg input[name="name"]', "Reading"); await page.fill('#dlg input[name="focus"]', "35");
+    await page.click('#dlg [data-submit]'); await page.waitForTimeout(300);
+    ok(await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("coursework:v2")).settings; return s.routines.length === 1 && s.routines[0].name === "Reading" && s.pomo.focus === 35; }), "a routine of your own is saved and chosen");
+    ok(await page.locator('#pomoDlg .pomo-today [data-act="pro-fh-open"]').count() === 1, "the Focus timer links to Focus History");
+    await act(page, "pro-fh-open"); await page.waitForTimeout(400);
+    ok(await page.locator("#dlg .fh-chart .fh-col").count() === 7, "Focus History shows the week day by day");
+    ok(/CALC2/.test(await page.locator("#dlg .fh-legend").textContent()), "the legend names the courses");
+    await page.click('#dlg [data-act="pro-fh-kind"][data-id="month"]'); await page.waitForTimeout(250);
+    ok(await page.locator("#dlg .fh-chart .fh-col").count() === 30, "Month shows 30 days");
+    await noOverflow(page, "in Focus History");
+    await page.keyboard.press("Escape"); await page.waitForTimeout(200);
+
     // A focus session ends: it is logged with its start hour and course
     await page.evaluate(() => { localStorage.setItem("pro-e2e", "1"); });
     ok(page.errs.length === 0, "no console errors so far: " + page.errs.join(" | "));
@@ -101,6 +120,11 @@ function SEED(){
     ok(await p3.locator(".wkr-sheet .pro-ins-card").count() === 0 && await p3.locator('.wkr-sheet .pro-linkrow .pro-badge').count() === 1, "free: Weekly Review has one quiet Insights · PRO row");
     await p3.click('.wkr-sheet [data-act="pro-ins-open"]'); await p3.waitForTimeout(400);
     ok(await p3.locator(".plan-sheet").count() === 1 && await p3.locator(".pro-ins-body").count() === 0, "free: tapping it opens the Pro sheet, not Insights");
+    await p3.keyboard.press("Escape"); await p3.waitForTimeout(200);
+    await act(p3, "pomo-open"); await p3.waitForTimeout(400);
+    ok(await p3.locator('#pomoDlg .pr-chip[data-id="deep"] .pro-badge').count() === 1 && await p3.locator('#pomoDlg .pr-chip[data-id="classic"] .pro-badge').count() === 0, "free: Classic is free, Deep Work is marked PRO");
+    await p3.click('#pomoDlg .pr-chip[data-id="deep"]'); await p3.waitForTimeout(400);
+    ok(await p3.locator("#dlg .plan-sheet").count() === 1, "free: a Pro routine opens the Pro sheet");
     ok(p3.errs.length === 0, "no console errors on the free plan: " + p3.errs.join(" | "));
     if (process.env.SHOTS) { /* screenshots for a manual look */ }
     console.log("\npro-extras.e2e: " + n + " checks passed");
