@@ -9,7 +9,9 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 
 (async () => {
   /* ---------- Linked Notes ---------- */
-  const L = block("/*NOTELINK-START*/", "/*NOTELINK-END*/", "parseLinks, splitTarget, noteTitle, buildIndex, resolve, renameIn, typing, keyOf");
+  const L = block("/*NOTELINK-START*/", "/*NOTELINK-END*/", "parseLinks, splitTarget, noteTitle, buildIndex, resolve, renameIn, typing, keyOf, linkName");
+  ok(L.linkName("Notes [draft] v2.pdf") === "Notes draft v2.pdf" && L.resolve(L.buildIndex({file: [{id: "f", name: "Notes [draft] v2.pdf"}]}), L.linkName("Notes [draft] v2.pdf")).id === "f", "a name with brackets is linked without them, and still found");
+  ok(L.parseLinks("[[" + "x".repeat(180) + "]]").length === 1, "long names make working links");
   const ls = L.parseLinks("See [[Calvin cycle]] and [[Lecture 4 slides#p12]], not [[ ]] or [[a\nb]] or [single].");
   ok(ls.length === 2 && ls[0].name === "Calvin cycle" && ls[1].name === "Lecture 4 slides" && ls[1].page === 12, "links and a page: " + JSON.stringify(ls));
   ok(ls[0].at === 4 && ls[0].len === "[[Calvin cycle]]".length, "where each link is");

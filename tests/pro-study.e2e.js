@@ -46,7 +46,7 @@ function SEED(){
   const files = [{id: "f2", name: "BIO101 Lecture, Oct 2.webm", courseId: "c1", folderId: "notes", kind: "file", taskIds: [], desc: "", url: "", dur: 3000, tr: {text: "Cells are the unit of life.", by: "ai", at: 1},
       revs: [{assetId: "local:a-lec", name: "BIO101 Lecture, Oct 2.webm", size: 900000, type: "audio/webm", at: 1}]},
     {id: "f1", name: "Reading 4.pdf", courseId: "c1", folderId: "other", kind: "file", taskIds: [], desc: "", url: "", revs: [{assetId: "a-read4", name: "Reading 4.pdf", size: 1200, type: "application/pdf", at: 1}]}];
-  tasks.push({id: "t2", title: "Canvas Quiz 2", courseId: "c1", type: "Quiz", due: day(6), start: day(3), status: "todo", priority: "med", created: 6, synced: true});
+  tasks.push({id: "t2", title: "Canvas Quiz 2", courseId: "c1", type: "Quiz", due: day(6), start: day(3), status: "todo", priority: "med", created: 6, cv: {id: "1234", url: "https://canvas.example/courses/1/quizzes/2"}});
   return {v: 2, updated: 1, decks, notes, tasks, files, settings: {}, courses: [{id: "c1", name: "Biology", code: "BIO101", color: "#3B6FE0", meetings: [{days: [1, 2, 3, 4, 5], start: "10:00", end: "11:20", kind: "Lecture", where: "Hall B"}]}]};
 }
 (async () => {
@@ -129,6 +129,9 @@ function SEED(){
     await page.evaluate(() => { const t = state.tasks.t1; applyChanges([{kind: "task", id: "t1", after: Object.assign(clone(t), {title: "Lab report three"})}], ""); });
     await page.waitForTimeout(200);
     ok(await page.evaluate(() => /\[\[Lab report three\]\]/.test(state.notes.n1.text) && /\[\[Lab report three\]\]/.test(state.notes.n2.text)), "renaming a task updates the links to it");
+    await page.evaluate(() => { const n = state.notes.n2; applyChanges([{kind: "note", id: "n2", after: Object.assign(clone(n), {text: "TODO\n" + n.text})}], ""); });
+    await page.waitForTimeout(200);
+    ok(await page.evaluate(() => /\[\[The Calvin Cycle\]\]/.test(state.notes.n1.text) && !/\[\[TODO\]\]/.test(state.notes.n1.text)), "typing a new first line above a note's name is not a rename");
 
     /* ---------- Listen ---------- */
     await page.evaluate(() => { ui.tab = "flashcards"; ui.deckId = "d1"; ui.fc = null; render(); }); await page.waitForTimeout(300);
@@ -268,6 +271,11 @@ function SEED(){
     ok(cap.open && /From an email: “Fwd: Lab 4 moved”/.test(cap.text) && /Lab 4/.test(cap.text), "what it found opens in the capture check sheet, not added straight away");
     ok(await page.evaluate(() => !Object.values(state.tasks).some(t => t.title === "Lab 4")), "nothing is added before the check");
     await page.evaluate(() => document.getElementById("capDlg").close()); await page.waitForTimeout(200);
+    ok(await page.evaluate(() => window.__sbProStudy.email.pending().length === 1), "closing the sheet keeps the email on the device, to check later");
+    await page.evaluate(() => window.SBPRO.emailIngest([{id: "e1b", text: "Fwd: Lab 4 moved", body: "", sender: "prof@school.edu", source: "email"}]));
+    await page.waitForTimeout(400);
+    await page.click("#capAddAll"); await page.waitForTimeout(400);
+    ok(await page.evaluate(() => Object.values(state.tasks).some(t => /Lab 4/.test(t.title)) && window.__sbProStudy.email.pending().length === 0), "adding what it found clears it");
     handled = await page.evaluate(() => window.SBPRO.emailIngest([{id: "g1", text: "Gmail Forwarding Confirmation", body: "Confirmation code: 834729163\nTo allow, click https://mail-settings.google.com/mail/vf-%5BABC%5D-123 now", sender: "forwarding-noreply@google.com", source: "email"}]));
     await page.waitForTimeout(300);
     ok(handled.join() === "g1" && /834729163/.test(await page.locator(".em-code").textContent()), "Gmail's forwarding code is shown, not turned into a task");
