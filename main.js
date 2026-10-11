@@ -23,7 +23,9 @@ const IS_MSSTORE = !!process.windowsStore;
 const STORE = IS_MAS ? "mas" : IS_MSSTORE ? "msstore" : "direct";
 const IS_DEV = !app.isPackaged;
 const MAIN_ORIGIN = "app://studioso", WIDGET_ORIGIN = "app://widget";
-const ALLOWED_PERMISSIONS = new Set(["notifications", "clipboard-sanitized-write", "fullscreen"]);   // only what Studyboard uses
+const ALLOWED_PERMISSIONS = new Set(["notifications", "clipboard-sanitized-write", "fullscreen", "media"]);   // only what Studyboard uses
+// "media" is the microphone for Record a Lecture (Pro), and only the microphone: a request that includes the camera or the screen is refused.
+const audioOnly = (permission, details) => permission !== "media" || (details && ((Array.isArray(details.mediaTypes) && details.mediaTypes.length && details.mediaTypes.every(t => t === "audio")) || details.mediaType === "audio"));
 if (!process.argv.includes("--no-sandbox")) app.enableSandbox();   // sandbox every renderer, even ones created without webPreferences.sandbox (the flag exists only so tests can run as root in a container)
 // A link is only ever handed to the operating system when it is a plain https page or a mailto address.
 function safeExternal(raw) {
@@ -948,8 +950,8 @@ function appCsp() {
 const WIDGET_CSP = "default-src 'none'; script-src 'self'; style-src 'self' app://studioso; font-src app://studioso; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; frame-ancestors 'none'";
 function lockSession(ses) {
   // Nothing is allowed unless it is on the list, and only for our own pages.
-  ses.setPermissionRequestHandler((wc, permission, cb, details) => cb(ALLOWED_PERMISSIONS.has(permission) && isAppUrl((details && details.requestingUrl) || (wc && wc.getURL()))));
-  ses.setPermissionCheckHandler((wc, permission, origin, details) => ALLOWED_PERMISSIONS.has(permission) && isAppUrl((details && (details.requestingUrl || details.embeddingOrigin)) || origin));
+  ses.setPermissionRequestHandler((wc, permission, cb, details) => cb(ALLOWED_PERMISSIONS.has(permission) && audioOnly(permission, details) && isAppUrl((details && details.requestingUrl) || (wc && wc.getURL()))));
+  ses.setPermissionCheckHandler((wc, permission, origin, details) => ALLOWED_PERMISSIONS.has(permission) && audioOnly(permission, details) && isAppUrl((details && (details.requestingUrl || details.embeddingOrigin)) || origin));
   ses.setDevicePermissionHandler(() => false);
   try { ses.setDisplayMediaRequestHandler((req, cb) => cb({})); } catch (e) {}
   // No plain-text network traffic at all (the same promise as Apple's App Transport Security).

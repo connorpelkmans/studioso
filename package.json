@@ -131,6 +131,7 @@
       "extendInfo": {
         "NSDocumentsFolderUsageDescription": "Studyboard keeps your data, daily backups and files in a Studyboard folder in Documents.",
         "NSDownloadsFolderUsageDescription": "Studyboard saves files you export to Downloads.",
+        "NSMicrophoneUsageDescription": "Studyboard uses the microphone only while you record a lecture, so you can turn the class into notes.",
         "ITSAppUsesNonExemptEncryption": false,
         "LSApplicationCategoryType": "public.app-category.education",
         "ElectronTeamID": "REPLACE_WITH_APPLE_TEAM_ID"
@@ -156,6 +157,7 @@
       "provisioningProfile": "build-resources/Studyboard_MAS.provisionprofile",
       "artifactName": "Studyboard-${version}-mas.${ext}",
       "extendInfo": {
+        "NSMicrophoneUsageDescription": "Studyboard uses the microphone only while you record a lecture, so you can turn the class into notes.",
         "ITSAppUsesNonExemptEncryption": false,
         "LSApplicationCategoryType": "public.app-category.education",
         "ElectronTeamID": "REPLACE_WITH_APPLE_TEAM_ID"
@@ -170,6 +172,7 @@
       "provisioningProfile": "build-resources/Studyboard_MASDev.provisionprofile",
       "artifactName": "Studyboard-${version}-mas-dev.${ext}",
       "extendInfo": {
+        "NSMicrophoneUsageDescription": "Studyboard uses the microphone only while you record a lecture, so you can turn the class into notes.",
         "ITSAppUsesNonExemptEncryption": false,
         "LSApplicationCategoryType": "public.app-category.education",
         "ElectronTeamID": "REPLACE_WITH_APPLE_TEAM_ID"
