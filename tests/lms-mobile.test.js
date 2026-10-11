@@ -2,18 +2,20 @@
 // same harvest scripts, and clean what comes back exactly as lms.js does. The native plugin is replaced by a stub that records what it was asked.
 // Run: node tests/lms-mobile.test.js   (no Electron, no device)
 const path = require("path"), assert = require("assert"), vm = require("vm"), Module = require("module");
-const { build } = require("../scripts/build-lms-mobile.js");
+const fs = require("fs");
+const { build, nativeFiles, nativeScripts, nativeCheck } = require("../scripts/build-lms-mobile.js");
 
 const realLoad = Module._load;
 Module._load = function (req, ...rest) { if (req === "electron") return { app: { isPackaged: true, userAgentFallback: "" }, BrowserWindow: function () {}, ipcMain: { handle() {} }, net: {}, session: {} }; return realLoad.call(this, req, ...rest); };
 const L = require(path.join(__dirname, "..", "lms.js"));
 Module._load = realLoad;
 const SRC = build();
+const seen = [];   // every connect/run the page asked the native side for, checked against the native allowlist at the end
 
 function load(opts) {
   const o = opts || {}, calls = [], store = {};
-  const stub = o.plugin === null ? null : { async connect(a) { calls.push(["connect", a]); return o.connect ? o.connect(a) : { ok: true, name: "Sam" }; },
-    async run(a) { calls.push(["run", a]); return o.run ? o.run(a) : { ok: true, json: "{}" }; },
+  const stub = o.plugin === null ? null : { async connect(a) { calls.push(["connect", a]); seen.push(["who", a]); return o.connect ? o.connect(a) : { ok: true, name: "Sam" }; },
+    async run(a) { calls.push(["run", a]); seen.push(["run", a]); return o.run ? o.run(a) : { ok: true, json: "{}" }; },
     async signOut(a) { calls.push(["signOut", a]); return o.signOut ? o.signOut(a) : {}; } };
   const win = { Capacitor: stub ? { Plugins: { StudyboardLms: stub } } : {} };
   if (o.desktop) win.studiosoDesktop = { lms: {} };
@@ -111,6 +113,30 @@ const SAFE = { pastDays: 60, aheadDays: 240, grades: true, news: true, only: nul
     assert.strictEqual(await m.win.studiosoLms.signOut("canvas"), true);
     eq(m.calls.find(c => c[0] === "signOut")[1], { id: "canvas", origin: "https://learn.example.edu" });
     assert.strictEqual(await m.win.studiosoLms.signOut("nope"), false);
+  });
+  await t("the native plugins only run scripts built from lms.js, and their allowlist is current", async () => {
+    for (const [f, text] of Object.entries(nativeFiles()))
+      assert.strictEqual(fs.existsSync(f) && fs.readFileSync(f, "utf8"), text, path.basename(f) + " is stale: run node scripts/build-lms-mobile.js --native");
+    const list = nativeScripts();
+    // everything the page sent in the checks above passes, and the native side's refilled copy is the same script
+    assert(seen.length > 10 && seen.some(s => s[0] === "who"), "seen " + seen.length);
+    for (const [use, a] of seen) { const sc = use === "who" ? a.who : a.script; assert.strictEqual(nativeCheck(a.id, use, sc, a.origin, list), sc, use + " " + a.id + ": " + String(sc).slice(0, 80)); }
+    // a body with quotes and a closing paren is still just data
+    const m = load(); await m.win.studiosoLms.mail("canvas", "learn.example.edu", { op: "send", id: "5", body: "\"})(alert(1))//\u2028</script>" });
+    const sc = m.calls[0][1].script; assert.strictEqual(nativeCheck("canvas", "run", sc, "https://learn.example.edu", list), sc);
+    // anything else is refused
+    const h = L.harvestScript(L.P.canvas, SAFE), o = "https://learn.example.edu";
+    for (const bad of ["alert(1)", h + ";alert(1)", h.replace("credentials", "credentialz"), h.replace(JSON.stringify(SAFE), JSON.stringify(SAFE) + ",alert(1)"), h.replace(JSON.stringify(SAFE), "alert(1)"),
+      L.CV_FILE("1);alert(1"), L.CV_FILE(""), L.BS_FILE("1", "2", "3x")])
+      assert.strictEqual(nativeCheck("canvas", "run", bad, o, list), null, bad.slice(0, 60)), assert.strictEqual(nativeCheck("brightspace", "run", bad, o, list), null);
+    assert.strictEqual(nativeCheck("brightspace", "run", h, o, list), null, "a script is tied to its platform");
+    assert.strictEqual(nativeCheck("canvas", "who", h, o, list), null, "and to its use");
+    assert.strictEqual(nativeCheck("brightspace", "run", L.BS_FILE("1", "2", "3"), o, list), L.BS_FILE("1", "2", "3"));
+    let step = 0; const f = load({ run: () => (++step === 1 ? { ok: true, json: JSON.stringify({ url: "https://learn.example.edu/files/9/download", name: "n" }) } : { ok: true, json: "{}" }) });
+    await f.win.studiosoLms.file("canvas", "learn.example.edu", { id: "9" });
+    const dl = f.calls[1][1].script;
+    assert.strictEqual(nativeCheck("canvas", "run", dl, o, list), dl);
+    assert.strictEqual(nativeCheck("canvas", "run", dl, "https://other.example.edu", list), null, "a download must stay on the school's site");
   });
   console.log(`\n${n} checks ${process.exitCode ? "FAILED" : "passed"}`);
 })();
