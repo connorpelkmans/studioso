@@ -351,7 +351,8 @@ grant execute on function public.sbg_is_member(uuid), public.sbg_is_owner(uuid),
 -- ---------- 1.12: quizzes, study sessions, weekly challenge, check-ins, reactions and pins ----------
 -- Quizzes ('quiz') and proposed study sessions ('event') are shared in a group just like decks and deadlines.
 alter table public.group_items drop constraint if exists group_items_kind_check;
-alter table public.group_items add constraint group_items_kind_check check (kind in ('deck', 'task', 'quiz', 'event'));
+-- (not valid: when this file runs again, rows of kinds added in later sections are kept; the last section's list is the one checked in full)
+alter table public.group_items add constraint group_items_kind_check check (kind in ('deck', 'task', 'quiz', 'event')) not valid;
 
 -- The owner can set a weekly focus goal (minutes per member). 0 means no goal.
 alter table public.study_groups add column if not exists weekly_goal int not null default 0;
@@ -821,7 +822,7 @@ delete from public.group_items where kind = 'weak';
 drop index if exists public.group_items_one_weak;
 alter table public.group_items drop constraint if exists group_items_kind_check;
 alter table public.group_items add constraint group_items_kind_check
-  check (kind in ('deck', 'task', 'quiz', 'event', 'qa', 'answer', 'link', 'minutes', 'role'));
+  check (kind in ('deck', 'task', 'quiz', 'event', 'qa', 'answer', 'link', 'minutes', 'role')) not valid;
 -- One role per person in a group (choosing again updates it).
 create unique index if not exists group_items_one_role on public.group_items (group_id, user_id) where kind = 'role';
 
@@ -925,3 +926,96 @@ begin
 end $$;
 revoke all on function public.report_misses(uuid, jsonb), public.forget_misses(uuid), public.top_misses(uuid, int) from public, anon;
 grant execute on function public.report_misses(uuid, jsonb), public.forget_misses(uuid), public.top_misses(uuid, int) to authenticated;
+
+-- ---------- 1.16: Pro groups ----------
+-- A group is a Pro group when its owner has Pro, or a Pro member unlocks it (supabase-plans.sql: group_pro_set). The extras below are
+-- small: they reuse shared items and task lists, and Studyboard shows them in Pro groups only.
+--  * New shared item kinds: 'avail' (Find a Time: one per member, only which half-hours are busy, never what's in their plan),
+--    'topics' (an exam's topics split among members), 'topic' (a member marking their topic as shared) and 'gfile' (a file uploaded to the group).
+--  * Team deadline: an earlier date the group works toward (study_groups.team_due, set by the owner).
+--  * Review before done: a task can wait In Review for its reviewer (group_tasks.reviewer_id); only the reviewer or the owner approves it.
+--  * Live quiz: a private Realtime channel per group, "sbquiz:<group id>", that only members can listen or send on.
+alter table public.group_items drop constraint if exists group_items_kind_check;
+alter table public.group_items add constraint group_items_kind_check
+  check (kind in ('deck', 'task', 'quiz', 'event', 'qa', 'answer', 'link', 'minutes', 'role', 'avail', 'topics', 'topic', 'gfile'));
+create unique index if not exists group_items_one_avail on public.group_items (group_id, user_id) where kind = 'avail';
+create unique index if not exists group_items_one_topic on public.group_items (group_id, user_id, ref_id, title) where kind = 'topic';
+
+alter table public.study_groups add column if not exists team_due date;
+grant update (name, course, weekly_goal, project_due, team_due) on public.study_groups to authenticated;
+
+alter table public.group_tasks add column if not exists reviewer_id uuid references auth.users(id) on delete set null;
+alter table public.group_tasks drop constraint if exists group_tasks_status_check;
+alter table public.group_tasks add constraint group_tasks_status_check check (status in ('todo', 'doing', 'review', 'done'));
+
+-- Someone who leaves a group stops being assigned to, or reviewing, its tasks.
+create or replace function public.sbg_task_member_left() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  update public.group_tasks set assignee_id = null where group_id = old.group_id and assignee_id = old.user_id;
+  update public.group_tasks set reviewer_id = null where group_id = old.group_id and reviewer_id = old.user_id;
+  return old;
+end $$;
+
+-- Change a task (p_patch keys: title, notes, status, assignee_id, due_at, priority, reviewer_id). Any member can edit and mark done.
+-- Changing who a task is assigned to: anyone can assign an unassigned task; once it has an owner, only that person or the group owner can reassign it.
+-- A task with a reviewer: marking it done (from any state) is for the reviewer or the group owner; anyone else sends it to In Review.
+create or replace function public.update_group_task(p_task uuid, p_patch jsonb) returns public.group_tasks
+language plpgsql security definer set search_path = public as $$
+declare r public.group_tasks; t public.group_tasks; me uuid := auth.uid(); st text; rev uuid;
+begin
+  if me is null then raise exception 'Sign in first'; end if;
+  select * into t from public.group_tasks where id = p_task and not deleted;
+  if t.id is null or not public.sbg_is_member(t.group_id) then raise exception 'That task isn''t in one of your groups'; end if;
+  p_patch := coalesce(p_patch, '{}'::jsonb);
+  if p_patch ? 'assignee_id' and (p_patch ->> 'assignee_id') is distinct from t.assignee_id::text then
+    if t.assignee_id is not null and not (t.assignee_id = me or public.sbg_is_owner(t.group_id)) then
+      raise exception 'Only the person it''s assigned to, or the group owner, can reassign this task';
+    end if;
+  end if;
+  rev := case when p_patch ? 'reviewer_id' then nullif(p_patch ->> 'reviewer_id', '')::uuid else t.reviewer_id end;
+  if rev is not null and rev is distinct from t.reviewer_id and not exists (select 1 from public.group_members where group_id = t.group_id and user_id = rev) then
+    raise exception 'The reviewer has to be in the group';
+  end if;
+  st := case when p_patch ? 'status' then coalesce(p_patch ->> 'status', t.status) else t.status end;
+  if st = 'done' and t.status <> 'done' and rev is not null and rev <> me and not public.sbg_is_owner(t.group_id) then
+    st := 'review';   -- it waits for its reviewer
+  end if;
+  update public.group_tasks set
+    title = case when p_patch ? 'title' then btrim(coalesce(p_patch ->> 'title', '')) else title end,
+    notes = case when p_patch ? 'notes' then left(btrim(coalesce(p_patch ->> 'notes', '')), 1000) else notes end,
+    status = st,
+    assignee_id = case when p_patch ? 'assignee_id' then (p_patch ->> 'assignee_id')::uuid else assignee_id end,
+    due_at = case when p_patch ? 'due_at' then (p_patch ->> 'due_at')::date else due_at end,
+    priority = case when p_patch ? 'priority' then nullif(p_patch ->> 'priority', '') else priority end,
+    reviewer_id = rev
+  where id = p_task returning * into r;
+  return r;
+end $$;
+revoke all on function public.update_group_task(uuid, jsonb), public.sbg_task_member_left() from public, anon, authenticated;
+grant execute on function public.update_group_task(uuid, jsonb) to authenticated;
+
+-- Live quiz channel rules (the same way as Study Together rooms in rooms.sql)
+create or replace function public.sbg_quiz_topic_ok(p_topic text) returns boolean
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if p_topic is null or p_topic !~ '^sbquiz:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then return false; end if;
+  return public.sbg_is_member(substr(p_topic, 8)::uuid);
+end $$;
+revoke all on function public.sbg_quiz_topic_ok(text) from public, anon;
+grant execute on function public.sbg_quiz_topic_ok(text) to authenticated;
+do $$
+begin
+  if to_regclass('realtime.messages') is null then
+    raise notice 'realtime.messages not found, so the live quiz channel rules were skipped. Live quizzes stay off until they are installed.';
+    return;
+  end if;
+  begin
+    execute 'drop policy if exists "studyboard quiz listen" on realtime.messages';
+    execute 'create policy "studyboard quiz listen" on realtime.messages for select to authenticated using (realtime.messages.extension in (''broadcast'', ''presence'') and public.sbg_quiz_topic_ok((select realtime.topic())))';
+    execute 'drop policy if exists "studyboard quiz send" on realtime.messages';
+    execute 'create policy "studyboard quiz send" on realtime.messages for insert to authenticated with check (realtime.messages.extension in (''broadcast'', ''presence'') and public.sbg_quiz_topic_ok((select realtime.topic())))';
+  exception when insufficient_privilege then
+    raise notice 'Skipped the live quiz channel rules (no permission on realtime.messages). Live quizzes stay off until they are installed.';
+  end;
+end $$;

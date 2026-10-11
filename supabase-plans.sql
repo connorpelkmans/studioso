@@ -774,6 +774,195 @@ begin
     from moved m;
 end $$;
 
+-- ---------- Pro groups (1.16) ----------
+-- A Pro group gets the group extras for every member, and Pro-size limits (100 members, full message history, group uploads).
+-- A group is Pro while the paywall is off, while its owner has Pro, or while a member who unlocked it (group_pro) is still in it and has Pro.
+-- Each Pro account can unlock up to 5 groups it doesn't own. Unlocking changes nothing anyone can't see; ending it takes nothing away
+-- (the data stays, the extras and limits just go back to the owner's plan).
+create table if not exists public.group_pro (
+  group_id uuid primary key references public.study_groups(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+create index if not exists group_pro_user_idx on public.group_pro (user_id);
+alter table public.group_pro enable row level security;
+drop policy if exists "group pro member read" on public.group_pro;
+create policy "group pro member read" on public.group_pro for select to authenticated using (public.sbg_is_member(group_id));
+revoke all on public.group_pro from anon, authenticated;
+grant select on public.group_pro to authenticated;
+
+create or replace function public.plans_group_is_pro(gid uuid) returns boolean
+language sql stable security definer set search_path = public, pg_temp as $$
+  select not public.studyboard_paywall()
+      or exists (select 1 from public.study_groups g where g.id = gid and public.studyboard_is_pro(g.owner_id))
+      or exists (select 1 from public.group_pro p join public.group_members m on m.group_id = p.group_id and m.user_id = p.user_id
+                 where p.group_id = gid and public.studyboard_is_pro(p.user_id))
+$$;
+-- The app asks which of your groups are Pro, and who unlocked them: [{group_id, active, by_user, by_owner}]
+create or replace function public.group_pro_status(p_groups uuid[]) returns table (group_id uuid, active boolean, by_user uuid, by_owner boolean)
+language plpgsql stable security definer set search_path = public, pg_temp as $$
+begin
+  if auth.uid() is null then raise exception 'Sign in first'; end if;
+  return query
+    select g.id, public.plans_group_is_pro(g.id),
+           (select p.user_id from public.group_pro p where p.group_id = g.id),
+           public.studyboard_is_pro(g.owner_id)
+    from public.study_groups g
+    where g.id = any (coalesce(p_groups, '{}')) and public.sbg_is_member(g.id)
+    limit 200;
+end $$;
+-- Unlock (p_on true) or stop unlocking (false) a group you're in. Needs Pro while the paywall is on.
+create or replace function public.group_pro_set(p_group uuid, p_on boolean) returns text
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare me uuid := auth.uid(); cur uuid;
+begin
+  if me is null then raise exception 'Sign in first'; end if;
+  if not public.sbg_is_member(p_group) then raise exception 'You''re not in that group'; end if;
+  perform pg_advisory_xact_lock(hashtextextended('sb-grppro:' || me::text, 0));
+  if not coalesce(p_on, false) then
+    delete from public.group_pro where group_id = p_group and user_id = me;
+    return 'off';
+  end if;
+  if public.studyboard_paywall() and not public.studyboard_is_pro(me) then
+    raise exception 'SB_PRO_NEEDED: Making a Pro group is part of Studyboard Pro.' using errcode = 'P0001';
+  end if;
+  select user_id into cur from public.group_pro where group_id = p_group;
+  if cur = me then return 'on'; end if;
+  if cur is not null and exists (select 1 from public.group_members m where m.group_id = p_group and m.user_id = cur) and public.studyboard_is_pro(cur) then
+    raise exception 'SB_ALREADY_PRO: Someone else already made this a Pro group.' using errcode = 'P0001';
+  end if;
+  if (select count(*) from public.group_pro where user_id = me) >= 5 then
+    raise exception 'SB_PRO_GROUPS_FULL: You''ve made 5 Pro groups. Stop one first, in its Members tab.' using errcode = 'P0001';
+  end if;
+  insert into public.group_pro (group_id, user_id) values (p_group, me)
+    on conflict (group_id) do update set user_id = excluded.user_id, created_at = now();
+  return 'on';
+end $$;
+revoke all on function public.plans_group_is_pro(uuid), public.group_pro_status(uuid[]), public.group_pro_set(uuid, boolean) from public, anon, authenticated;
+grant execute on function public.group_pro_status(uuid[]), public.group_pro_set(uuid, boolean) to authenticated;
+
+-- Group size and message history follow the group (Pro group or not), not just its owner.
+create or replace function public.plans_group_member_limit() returns trigger
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare lim bigint; tier text;
+begin
+  if not public.studyboard_paywall() then return new; end if;
+  perform pg_advisory_xact_lock(hashtextextended('sb-group:' || new.group_id::text, 0));   -- two people joining at once can't both take the last seat
+  if not exists (select 1 from public.study_groups g where g.id = new.group_id) then return new; end if;
+  tier := case when public.plans_group_is_pro(new.group_id) then 'pro' else 'free' end;
+  select (coalesce(value, '{}'::jsonb) -> tier ->> 'groupMembers')::bigint into lim from public.studyboard_config where key = 'limits';
+  if lim is null then lim := case when tier = 'pro' then 100 else 3 end; end if;
+  if (select count(*) from public.group_members where group_id = new.group_id) >= lim then
+    raise exception 'This group is full (% members).%', lim,
+      case when tier = 'pro' then '' else ' A member with Pro can make it a Pro group for up to 100 members.' end
+      using errcode = 'P0001';
+  end if;
+  return new;
+end $$;
+
+create or replace function public.studyboard_prune_group_messages() returns integer
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare n integer := 0; days int;
+begin
+  if not public.studyboard_paywall() or to_regclass('public.group_messages') is null then return 0; end if;
+  select (value -> 'free' ->> 'groupMsgDays')::int into days from public.studyboard_config where key = 'limits';
+  days := coalesce(days, 60);
+  with gone as (
+    delete from public.group_messages m
+    where not public.plans_group_is_pro(m.group_id)
+      and not coalesce(m.pinned, false)   -- pinned messages stay
+      and m.created_at < now() - make_interval(days => days + 30)   -- plus a grace period
+    returning 1)
+  select count(*) into n from gone;
+  return n;
+end $$;
+
+-- Supporter badge: a star beside your name in your groups, if you choose to show it (Settings > Studyboard Pro). Only while you have Pro.
+do $$
+begin
+  if to_regclass('public.group_members') is not null then
+    execute 'alter table public.group_members add column if not exists badge boolean not null default false';
+  end if;
+end $$;
+create or replace function public.set_supporter_badge(p_on boolean) returns boolean
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare me uuid := auth.uid(); v boolean;
+begin
+  if me is null then raise exception 'Sign in first'; end if;
+  v := coalesce(p_on, false) and (not public.studyboard_paywall() or public.studyboard_is_pro(me));
+  update public.group_members set badge = v where user_id = me and badge is distinct from v;
+  return v;
+end $$;
+-- A badge stays only while its owner has Pro (run nightly, below)
+create or replace function public.plans_badge_tidy() returns integer
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare n integer;
+begin
+  if not public.studyboard_paywall() then return 0; end if;
+  update public.group_members set badge = false where badge and not public.studyboard_is_pro(user_id);
+  get diagnostics n = row_count; return n;
+end $$;
+revoke all on function public.set_supporter_badge(boolean), public.plans_badge_tidy() from public, anon, authenticated;
+grant execute on function public.set_supporter_badge(boolean) to authenticated;
+-- The badge column is written only through set_supporter_badge
+revoke update (badge) on public.group_members from authenticated;
+
+-- Group uploads: files a member puts in a Pro group live in their own folder, "<their id>/g/<group id>/...", count toward their own
+-- storage, and every member of the group can open them. A group holds up to 2 GB of uploads.
+create or replace function public.plans_group_of_object(p_name text) returns uuid
+language sql immutable set search_path = public as $$
+  select case when split_part(p_name, '/', 2) = 'g' and split_part(p_name, '/', 3) ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+              then split_part(p_name, '/', 3)::uuid end
+$$;
+create or replace function public.sbg_group_file_ok(p_name text) returns boolean
+language sql stable security definer set search_path = public, pg_temp as $$
+  select public.plans_group_of_object(p_name) is not null and public.sbg_is_member(public.plans_group_of_object(p_name))
+$$;
+create or replace function public.plans_group_upload() returns trigger
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare gid uuid; used bigint; delta bigint;
+begin
+  if new.bucket_id <> 'studioso-files' then return new; end if;
+  gid := public.plans_group_of_object(new.name);
+  if gid is null then return new; end if;
+  if public.plans_object_owner(new.name) is distinct from auth.uid() and auth.uid() is not null then
+    raise exception 'SB_STORAGE_PATH: Files are stored in your own folder.' using errcode = 'P0001';
+  end if;
+  if auth.uid() is not null and not public.sbg_is_member(gid) then raise exception 'You''re not in that group' using errcode = 'P0001'; end if;
+  if not public.plans_group_is_pro(gid) then
+    raise exception 'SB_GROUP_PRO: Uploading files to a group is part of Pro groups.' using errcode = 'P0001';
+  end if;
+  delta := coalesce((new.metadata ->> 'size')::bigint, 0) - case when tg_op = 'UPDATE' then coalesce((old.metadata ->> 'size')::bigint, 0) else 0 end;
+  if delta <= 0 then return new; end if;
+  select coalesce(sum((o.metadata ->> 'size')::bigint), 0) into used from storage.objects o
+    where o.bucket_id = 'studioso-files' and split_part(o.name, '/', 2) = 'g' and split_part(o.name, '/', 3) = gid::text and o.id is distinct from new.id;
+  if used + delta > 2048::bigint * 1048576 then
+    raise exception 'SB_GROUP_STORAGE: This group''s uploads are full (2 GB). Remove some files first.' using errcode = 'P0001';
+  end if;
+  return new;
+end $$;
+revoke all on function public.plans_group_of_object(text), public.sbg_group_file_ok(text), public.plans_group_upload() from public, anon, authenticated;
+do $$
+begin
+  begin
+    execute 'drop trigger if exists plans_group_upload on storage.objects';
+    execute 'create trigger plans_group_upload before insert or update on storage.objects for each row execute function public.plans_group_upload()';
+    execute 'drop policy if exists "group files member read" on storage.objects';
+    execute 'create policy "group files member read" on storage.objects for select to authenticated using (bucket_id = ''studioso-files'' and public.sbg_group_file_ok(name))';
+  exception when insufficient_privilege then
+    raise notice 'Skipped the group upload rules (no permission on storage.objects). Group uploads stay off; everything else works.';
+  end;
+end $$;
+grant execute on function public.sbg_group_file_ok(text) to authenticated;
+
+do $$
+begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    perform cron.unschedule(jobid) from cron.job where jobname = 'studyboard-badge-tidy';
+    perform cron.schedule('studyboard-badge-tidy', '41 4 * * *', 'select public.plans_badge_tidy()');
+  end if;
+end $$;
+
 -- ---------- Lock down: who may run what, and what is visible live ----------
 -- Every function in this file except the two the app calls is closed to PUBLIC, anon and signed-in people. Doing it by name over
 -- pg_proc covers every overload, and brand new functions Supabase gives default privileges to can't slip through.
