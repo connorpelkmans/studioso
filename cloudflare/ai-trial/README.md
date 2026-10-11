@@ -23,7 +23,7 @@ The Worker adds its own limits on top. None of them is needed on the Free plan; 
 | Reserve first | Before the model runs, each request reserves its worst-case cost: input counted at 2 characters per token, a deliberate overestimate, plus the full output cap. Afterwards the reservation is replaced with what the model reports it used. If the model doesn't report usage, or fails, the full reservation stays counted. |
 | Free-plan models only | Only models that run on the Free plan, with their rates written into the code. A model that needs paid billing (Kimi K2.6/K2.7, GLM 5.x, DeepSeek V4) is never used, even if `MODEL` names one. |
 | Size caps | Input up to 16,000 characters and output up to 1,500 tokens by default. The settings can't go past 40,000 characters and 4,000 tokens. |
-| Per-student caps | Tries in total and per day, counted in a Durable Object for each student. |
+| Per-student caps | Tries in total and per day, counted in a Durable Object for each student. Forgetting a student (`DELETE /v1/trial`) closes that id instead of resetting it. |
 | Off switch | Set `TRIAL_OFF` to `"1"` and deploy. Every try then answers "busy" and the app points students to their own Gemini key. |
 
 Nothing else in Studyboard can bill you for AI. Students' Gemini, Claude and ChatGPT keys are their own, and AI requests go from their device straight to that company. No Supabase function and no other part of this repository holds an AI key or calls an AI service.
@@ -41,7 +41,7 @@ Turnstile is free. Setup steps are in `cloudflare/PROTECTION.md`, section 6. Whi
 
 ## What it stores
 
-- **Per student:** a count of tries (total, and today), and whether they passed the check, under their Supabase user id. Deleted when the student uses Delete My Account (the app sends `DELETE /v1/trial` with their sign-in first).
+- **Per student:** a count of tries (total, and today), and whether they passed the check, under their Supabase user id. Deleted when the student uses Delete My Account (the app sends `DELETE /v1/trial` with their sign-in first). Only a "gone" flag stays under the deleted account's id, so `DELETE` can't be used to reset the count: the id gets no more tries, ever. Account ids are never reused, so a real deletion loses nothing, and someone who sends `DELETE` but keeps their account only loses their own trial.
 - **Per day:** the neurons used. Old days are deleted after 3 days.
 
 What students send isn't stored. Logs are off (`observability.enabled: false`).

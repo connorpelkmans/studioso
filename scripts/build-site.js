@@ -6,8 +6,10 @@
 //   node scripts/build-site.js            -> site/  (gitignored; delete and rebuild any time)
 //   node scripts/build-site.js --check    -> builds into a temporary folder and exits non-zero if anything the manifests or sw.js name is missing
 //
-// What goes in: index.html, sw.js, both manifests, vendor/ (supabase-js, fonts, PDF.js), the icons, the widget files and the security headers
+// What goes in: index.html, sw.js, both manifests, vendor/ (supabase-js, fonts, PDF.js), locales/, the website (website/, without its notes
+// and its own _headers), .well-known/ when it exists (iOS and Android app links), the icons, the widget files and the security headers
 // (_headers with the page's inline scripts allowed by hash). Email templates, tools and desktop files stay out.
+// wrangler.jsonc runs this before every deploy and serves site/, so production always gets this layout.
 "use strict";
 const fs = require("fs"), path = require("path"), os = require("os");
 const ROOT = path.join(__dirname, "..");
@@ -31,6 +33,11 @@ if (!check && fs.existsSync(OUT)) fs.rmSync(OUT, {recursive: true, force: true})
 fs.mkdirSync(OUT, {recursive: true});
 TOP.forEach(f => copy(f));
 copy("vendor");
+copy("locales");
+// The website, minus its notes and the copy of the headers kept for other hosts (the root _headers is the one in use).
+fs.cpSync(path.join(ROOT, "website"), path.join(OUT, "website"), {recursive: true,
+  filter: src => !/\.md$/i.test(src) && path.relative(path.join(ROOT, "website"), src) !== "_headers"});
+if (fs.existsSync(path.join(ROOT, ".well-known"))) copy(".well-known");
 // Icons go in icons/ and also stay next to index.html (the manifests list both, and old installs may still ask for the root copies).
 ICONS.forEach(f => { copy(f, "icons/" + f); copy(f); });
 WIDGETS.forEach(f => copy(f, "widgets/" + f));

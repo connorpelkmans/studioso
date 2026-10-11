@@ -316,6 +316,14 @@ begin
     raise exception 'EXPLOIT SUCCEEDED: a free account went over the file storage limit' using errcode = 'XX999';
   exception when sqlstate 'P0001' then insert into public.sbt_log (name) values ('a free account went over the file storage limit (refused)');
   end;
+  -- The file limit holds with the paywall switched off too (files cost real storage); switched back on straight after.
+  update public.studyboard_config set value = 'false' where key = 'paywall';
+  begin
+    insert into storage.objects (bucket_id, name, metadata) values ('studioso-files', ua || '/three.bin', '{"size": 600000}');
+    raise exception 'EXPLOIT SUCCEEDED: a free account went over the file storage limit with the paywall off' using errcode = 'XX999';
+  exception when sqlstate 'P0001' then insert into public.sbt_log (name) values ('the file storage limit holds with the paywall off (refused)');
+  end;
+  update public.studyboard_config set value = 'true' where key = 'paywall';
   begin
     insert into storage.objects (bucket_id, name, metadata) values ('studioso-files', 'no-owner-folder/x.bin', '{"size": 10}');
     raise exception 'EXPLOIT SUCCEEDED: a file outside any account folder was accepted' using errcode = 'XX999';

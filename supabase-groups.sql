@@ -1019,3 +1019,68 @@ begin
     raise notice 'Skipped the live quiz channel rules (no permission on realtime.messages). Live quizzes stay off until they are installed.';
   end;
 end $$;
+
+-- ---------- Storage caps: shared decks and shared group items ----------
+-- Each row was already capped (3 MB of JSON) and counted (200 shared decks, 500 items per person per group), but nothing capped the
+-- total, so one account could still fill the database with many groups. Per person: shared decks up to 50 MB in all, and shared group
+-- items up to 50 MB in all (across every group). Measured as the space the rows take on disk (pg_column_size, after compression),
+-- which is what counts toward the database size and is cheap to add up. Shrinking or deleting always works, whatever the totals.
+create index if not exists group_items_user_idx on public.group_items (user_id);
+create or replace function public.sbg_size_cap() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare who uuid; total bigint; cap constant bigint := 52428800;   -- 50 MB
+begin
+  if tg_op = 'UPDATE' and pg_column_size(new.data) <= pg_column_size(old.data) then return new; end if;
+  if tg_table_name = 'shared_decks' then
+    who := new.owner_id;
+    perform pg_advisory_xact_lock(hashtextextended('sbg-size:d:' || who::text, 0));   -- two shares at once can't both slip under the cap
+    select coalesce(sum(pg_column_size(d.data)), 0) into total from public.shared_decks d where d.owner_id = who and d.code is distinct from new.code;
+    if total + pg_column_size(new.data) > cap then
+      raise exception 'Your shared decks are over the 50 MB storage limit. Stop sharing some decks first.' using errcode = 'P0001';
+    end if;
+  else
+    who := new.user_id;
+    perform pg_advisory_xact_lock(hashtextextended('sbg-size:i:' || who::text, 0));
+    select coalesce(sum(pg_column_size(i.data)), 0) into total from public.group_items i where i.user_id = who and i.id is distinct from new.id;
+    if total + pg_column_size(new.data) > cap then
+      raise exception 'Your shared group items are over the 50 MB storage limit. Remove some you shared first.' using errcode = 'P0001';
+    end if;
+  end if;
+  return new;
+end $$;
+revoke all on function public.sbg_size_cap() from public, anon, authenticated;
+-- Named so it runs after sbg_items_stamp (triggers run in name order), which fills in user_id.
+drop trigger if exists sbg_size_cap on public.shared_decks;
+create trigger sbg_size_cap before insert or update of data on public.shared_decks for each row execute function public.sbg_size_cap();
+drop trigger if exists sbg_size_cap on public.group_items;
+create trigger sbg_size_cap before insert or update of data, user_id on public.group_items for each row execute function public.sbg_size_cap();
+
+-- ---------- Blocking (supabase-moderation.sql) survives running this file again ----------
+-- This file (re)creates the members-only read rules above. Once supabase-moderation.sql has added group_blocks, the same rules must
+-- also hide what blocked people post, so they are rebuilt here with that filter (and moderation.sql calls this too). Without
+-- group_blocks it does nothing, and the plain members-only rules above stay.
+create or replace function public.sbg_block_policies() returns void
+language plpgsql set search_path = public as $$
+begin
+  if to_regclass('public.group_blocks') is null then return; end if;
+  execute 'drop policy if exists "message member read" on public.group_messages';
+  execute $p$create policy "message member read" on public.group_messages for select to authenticated
+    using (public.sbg_is_member(group_id)
+           and not exists (select 1 from public.group_blocks b where b.blocker_id = auth.uid() and b.blocked_id = group_messages.user_id))$p$;
+  execute 'drop policy if exists "item member read" on public.group_items';
+  execute $p$create policy "item member read" on public.group_items for select to authenticated
+    using (public.sbg_is_member(group_id)
+           and not exists (select 1 from public.group_blocks b where b.blocker_id = auth.uid() and b.blocked_id = group_items.user_id))$p$;
+  -- Project Tasks: lists and tasks added by someone you blocked are hidden too (the tasks still on a hidden list go with it in the app).
+  if to_regclass('public.group_tasks') is null or to_regclass('public.group_task_lists') is null then return; end if;
+  execute 'drop policy if exists "tasklist member read" on public.group_task_lists';
+  execute $p$create policy "tasklist member read" on public.group_task_lists for select to authenticated
+    using (public.sbg_is_member(group_id)
+           and not exists (select 1 from public.group_blocks b where b.blocker_id = auth.uid() and b.blocked_id = group_task_lists.created_by))$p$;
+  execute 'drop policy if exists "gtask member read" on public.group_tasks';
+  execute $p$create policy "gtask member read" on public.group_tasks for select to authenticated
+    using (public.sbg_is_member(group_id)
+           and not exists (select 1 from public.group_blocks b where b.blocker_id = auth.uid() and b.blocked_id = group_tasks.created_by))$p$;
+end $$;
+revoke all on function public.sbg_block_policies() from public, anon, authenticated;
+select public.sbg_block_policies();

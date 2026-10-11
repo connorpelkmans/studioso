@@ -2,8 +2,10 @@
 name: Build Studyboard desktop app
 
 # Releases: pushing a v* tag builds the signed + notarized Mac DMG and (when its secrets exist) the signed Windows installer, and only those are
-# attached to the GitHub Release. Unsigned builds (the "build" job) are never published there: they are workflow artifacts for testing only
-# (Actions > the run > Artifacts). Ad-hoc Mac builds open only on the Mac that trusts them; other Macs and SmartScreen warn or refuse.
+# attached to the tag's Release. Unsigned builds (the "build" job) are workflow artifacts (Actions > the run > Artifacts); they are published
+# only when you run the workflow by hand with kind "unsigned", which puts them in the public installers repo (publish-unsigned, below) for the
+# website's download buttons. Ad-hoc Mac builds open only on the Mac that trusts them; other Macs and SmartScreen warn or refuse.
+# Every build first passes lint and the unit tests (the "checks" job), so a tag or a hand run can't ship a tree whose tests fail.
 #
 # Hardening: the default token is read-only and only the release job can write (to create the Release); every action is pinned to a commit
 # (the comment shows its version); checkout does not leave the token in .git; npm audit fails the build on a high or critical advisory in any
@@ -24,8 +26,25 @@ permissions:
   contents: read
 
 jobs:
+  # Lint and unit tests (the same as the Tests workflow's first job). Every build below waits for it.
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run lint
+      - run: npm test
+
   build:
     if: github.event_name != 'workflow_dispatch' || inputs.kind == 'unsigned'
+    needs: [checks]
     strategy:
       fail-fast: false
       matrix:
@@ -107,6 +126,7 @@ jobs:
   # ---------------------------------------------------------------------------------------------------------------
   mac-signed:
     if: (github.event_name == 'workflow_dispatch' && inputs.kind == 'signed') || startsWith(github.ref, 'refs/tags/v')
+    needs: [checks]
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -145,6 +165,7 @@ jobs:
 
   win-signed:
     if: (github.event_name == 'workflow_dispatch' && inputs.kind == 'signed') || startsWith(github.ref, 'refs/tags/v')
+    needs: [checks]
     runs-on: windows-latest
     outputs:
       signed: ${{ steps.creds.outputs.signed }}
@@ -246,6 +267,7 @@ jobs:
 
   mac-store:
     if: github.event_name == 'workflow_dispatch' && inputs.kind == 'mas'
+    needs: [checks]
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -278,6 +300,7 @@ jobs:
   # still holds the Partner Center placeholders (identityName, publisher), because a package with the wrong identity is refused at upload.
   ms-store:
     if: github.event_name == 'workflow_dispatch' && inputs.kind == 'msstore'
+    needs: [checks]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1

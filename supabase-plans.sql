@@ -3,7 +3,9 @@
 -- It is safe to run again: it only adds what is missing, refreshes the rules, and never changes values you edited.
 --
 -- Nothing here blocks anyone until you turn the paywall on (the "paywall" row in studyboard_config).
--- While it is false, every check below lets everything through, exactly like before.
+-- While it is false, every plan check below lets everything through, exactly like before. The exceptions, which apply whether the paywall
+-- is on or not: a set of generous safety caps on synced data (see "Synced data limit"), so a single account can't fill the database, and
+-- the plan's cloud file storage ("fileMB": 25 MB on Free), because uploaded files cost real storage.
 --
 -- What it adds:
 --  * studyboard_config        prices, limits and switches. Everyone can read it; only you (the SQL Editor or the service role) can change it.
@@ -38,7 +40,7 @@ alter table public.studyboard_config add constraint studyboard_config_no_secrets
 insert into public.studyboard_config (key, value) values
   ('paywall', 'false'),
   ('prices', '{"monthly": "$2.99", "yearly": "$24.99", "trialDays": 7, "currency": "USD"}'),
-  ('limits', '{"free": {"devices": 2, "fileMB": 100, "dataMB": 25, "groupMembers": 3, "groupMsgDays": 60, "cloudBackupDays": 0},
+  ('limits', '{"free": {"devices": 2, "fileMB": 25, "dataMB": 25, "groupMembers": 3, "groupMsgDays": 60, "cloudBackupDays": 0},
                "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}'),
   ('checkout_url_monthly', '""'),
   ('checkout_url_yearly', '""'),
@@ -48,6 +50,10 @@ insert into public.studyboard_config (key, value) values
   ('item_purchases', 'false'),
   ('features', '{"insights": false, "ai_credits": false}')
 on conflict (key) do nothing;
+-- Free cloud file storage went from 100 MB to 25 MB (photos are shrunk before upload, so it holds far more than it did). Projects
+-- still on the old starting value get the new one; a value you set yourself is left alone.
+update public.studyboard_config set value = jsonb_set(value, '{free,fileMB}', '25')
+  where key = 'limits' and value #> '{free,fileMB}' = '100'::jsonb;
 
 -- The free limits were lowered (devices 3 -> 2, group members 30 -> 3, group messages 120 -> 60 days).
 -- "on conflict do nothing" above would keep the old row, so move it over only if you never edited those values.
@@ -108,7 +114,7 @@ create or replace function public.studyboard_limit(uid uuid, name text) returns 
 language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare
   tier text := case when public.studyboard_is_pro(uid) then 'pro' else 'free' end;
-  defaults constant jsonb := '{"free": {"devices": 2, "fileMB": 100, "dataMB": 25, "groupMembers": 3, "groupMsgDays": 60, "cloudBackupDays": 0},
+  defaults constant jsonb := '{"free": {"devices": 2, "fileMB": 25, "dataMB": 25, "groupMembers": 3, "groupMsgDays": 60, "cloudBackupDays": 0},
                                "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}';
   lim jsonb := coalesce((select value from public.studyboard_config where key = 'limits'), defaults);
   v jsonb;
@@ -198,39 +204,65 @@ create table if not exists public.studyboard_usage (
   updated_at timestamptz not null default now()
 );
 alter table public.studyboard_usage add column if not exists backup_bytes bigint not null default 0;
+alter table public.studyboard_usage add column if not exists item_rows bigint not null default 0;   -- synced items (not backups), for the row cap
 alter table public.studyboard_usage enable row level security;
 drop policy if exists "usage own read" on public.studyboard_usage;
 create policy "usage own read" on public.studyboard_usage for select to authenticated using (user_id = (select auth.uid()));
 revoke all on public.studyboard_usage from public, anon, authenticated;
 grant select on public.studyboard_usage to authenticated;
 
--- (The old 3-argument version is replaced by one that also counts online backups.)
+-- (The old 3- and 4-argument versions are replaced by one that also counts online backups and synced rows.)
 drop function if exists public.plans_add_usage(uuid, bigint, bigint);
-create or replace function public.plans_add_usage(uid uuid, d_data bigint, d_file bigint, d_backup bigint default 0) returns void
+drop function if exists public.plans_add_usage(uuid, bigint, bigint, bigint);
+create or replace function public.plans_add_usage(uid uuid, d_data bigint, d_file bigint, d_backup bigint default 0, d_rows bigint default 0) returns void
 language sql security definer set search_path = public, pg_temp as $$
-  insert into public.studyboard_usage as u (user_id, data_bytes, file_bytes, backup_bytes, updated_at)
-  values (uid, greatest(d_data, 0), greatest(d_file, 0), greatest(d_backup, 0), now())
+  insert into public.studyboard_usage as u (user_id, data_bytes, file_bytes, backup_bytes, item_rows, updated_at)
+  values (uid, greatest(d_data, 0), greatest(d_file, 0), greatest(d_backup, 0), greatest(d_rows, 0), now())
   on conflict (user_id) do update
     set data_bytes = greatest(u.data_bytes + d_data, 0), file_bytes = greatest(u.file_bytes + d_file, 0),
-        backup_bytes = greatest(u.backup_bytes + d_backup, 0), updated_at = now()
+        backup_bytes = greatest(u.backup_bytes + d_backup, 0), item_rows = greatest(u.item_rows + d_rows, 0), updated_at = now()
 $$;
-revoke all on function public.plans_add_usage(uuid, bigint, bigint, bigint) from public, anon, authenticated;
+revoke all on function public.plans_add_usage(uuid, bigint, bigint, bigint, bigint) from public, anon, authenticated;
 
 -- ---------- Synced data limit (public.items) ----------
 -- Everything is measured as the size of the JSON text, so a tiny compressed size can't hide a big item.
 -- Online backups (kind 'backup') are Pro only (refused for Free while the paywall is on), have their own total (4 times the data limit,
 -- or the "backupMB" row of limits if you add one) and are cleaned up after "cloudBackupDays" days (30 on Pro) by studyboard_prune_backups. Changing an item's kind is checked too (it can't be used to move data out of the count).
+--
+-- Safety caps that apply even while the paywall is OFF (so one account can't fill the database; Supabase's free plan has 500 MB):
+--  * one item (not a backup) can be at most 10 MB of JSON;
+--  * at most 50,000 synced items per account (backups not counted);
+--  * synced data up to twice the plan's "dataMB" (50 MB on Free, 500 MB on Pro), and online backups up to the same again.
+-- With the paywall on, the plan's own limits above apply instead. Only growth is refused: shrinking or deleting always works, data
+-- already stored stays, and restoring an archived account (studyboard.restoring) is never limited. The error says "storage limit",
+-- which the app shows as "Online storage is full" (the item stays saved on the device).
+-- The data and backup limits (MB) for one account, as used by both checks below. Null means no limit.
+create or replace function public.plans_item_limits(uid uuid, out data_mb bigint, out backup_mb bigint)
+language plpgsql stable security definer set search_path = public, pg_temp as $$
+begin
+  if public.studyboard_paywall() then
+    data_mb := public.studyboard_limit(uid, 'dataMB');
+    backup_mb := coalesce(public.studyboard_limit(uid, 'backupMB'), data_mb * 4);
+  else   -- paywall off: the safety cap, twice the plan's data limit, for synced data and for backups
+    data_mb := coalesce(public.studyboard_limit(uid, 'dataMB'), 250) * 2;
+    backup_mb := data_mb;
+  end if;
+end $$;
+revoke all on function public.plans_item_limits(uuid) from public, anon, authenticated;
+
 create or replace function public.plans_items_quota() returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare
-  lim bigint; blim bigint; used bigint; bused bigint; d_data bigint; d_bk bigint;
-  n_data bigint := 0; n_bk bigint := 0; o_data bigint := 0; o_bk bigint := 0; sz bigint;
+  lim bigint; blim bigint; used bigint; bused bigint; nrows bigint; d_data bigint; d_bk bigint;
+  n_data bigint := 0; n_bk bigint := 0; o_data bigint := 0; o_bk bigint := 0; sz bigint; new_row boolean := false;
+  pw boolean := public.studyboard_paywall();
+  item_max constant bigint := 10485760;   -- 10 MB per item
+  rows_max constant bigint := 50000;      -- synced items per account
 begin
-  if not public.studyboard_paywall() then return new; end if;
   -- Restoring an archived account puts back what the person already had; the limits apply to new writes, not to a restore.
   if current_setting('studyboard.restoring', true) = '1' then return new; end if;
   -- Online backups are a Pro extra: a free account can't write them at all (the "cloudBackupDays" limit is 0 on Free).
-  if new.kind = 'backup' and coalesce(public.studyboard_limit(new.user_id, 'cloudBackupDays'), 0) <= 0 then
+  if pw and new.kind = 'backup' and coalesce(public.studyboard_limit(new.user_id, 'cloudBackupDays'), 0) <= 0 then
     raise exception 'SB_BACKUP_PRO: Online backups are a Pro feature. Your backups on this device are not affected.' using errcode = 'P0001';
   end if;
   sz := octet_length(new.data::text);
@@ -238,23 +270,39 @@ begin
   if tg_op = 'INSERT' then
     -- An upsert of an item that's already there becomes an update, which is checked on its own.
     if exists (select 1 from public.items where user_id = new.user_id and kind = new.kind and id = new.id) then return new; end if;
+    new_row := new.kind <> 'backup';
   elsif old.user_id = new.user_id then
     sz := octet_length(old.data::text);
     if old.kind = 'backup' then o_bk := sz; else o_data := sz; end if;
+    new_row := new.kind <> 'backup' and old.kind = 'backup';
+  else
+    new_row := new.kind <> 'backup';
   end if;
   d_data := n_data - o_data; d_bk := n_bk - o_bk;   -- shrinking or deleting is always fine
-  select coalesce(u.data_bytes, 0), coalesce(u.backup_bytes, 0) into used, bused from (select 1) x left join public.studyboard_usage u on u.user_id = new.user_id;
+  if n_data > item_max and d_data > 0 then
+    raise exception 'SB_DATA_LIMIT: This item is over the 10 MB storage limit for one item. Make it smaller (for example, move pictures into Files).'
+      using errcode = 'P0001';
+  end if;
+  select coalesce(u.data_bytes, 0), coalesce(u.backup_bytes, 0), coalesce(u.item_rows, 0) into used, bused, nrows
+    from (select 1) x left join public.studyboard_usage u on u.user_id = new.user_id;
+  if new_row and nrows >= rows_max then
+    raise exception 'SB_DATA_LIMIT: Your account has reached the storage limit of % synced items. Delete some old items.', rows_max
+      using errcode = 'P0001';
+  end if;
+  select l.data_mb, l.backup_mb into lim, blim from public.plans_item_limits(new.user_id) l;
   if d_data > 0 then
-    lim := public.studyboard_limit(new.user_id, 'dataMB');
     if lim is not null and used + d_data > lim * 1048576 then
-      raise exception 'SB_DATA_LIMIT: Your synced data is over the % MB storage limit of the free plan. Delete some old items, or go Pro for more room.', lim
+      if pw then
+        raise exception 'SB_DATA_LIMIT: Your synced data is over the % MB storage limit of the free plan. Delete some old items, or go Pro for more room.', lim
+          using errcode = 'P0001';
+      end if;
+      raise exception 'SB_DATA_LIMIT: Your synced data is over the % MB storage limit. Delete some old items or export a backup.', lim
         using errcode = 'P0001';
     end if;
   end if;
   if d_bk > 0 then
-    blim := coalesce(public.studyboard_limit(new.user_id, 'backupMB'), public.studyboard_limit(new.user_id, 'dataMB') * 4);
     if blim is not null and bused + d_bk > blim * 1048576 then
-      raise exception 'SB_DATA_LIMIT: Your online backups are over the % MB limit of the free plan. Go Pro for more room.', blim
+      raise exception 'SB_DATA_LIMIT: Your online backups are over the % MB storage limit. Your backups on this device are not affected.', blim
         using errcode = 'P0001';
     end if;
   end if;
@@ -268,12 +316,43 @@ begin
   if tg_op = 'DELETE' and not exists (select 1 from auth.users u where u.id = old.user_id) then return null; end if;   -- the account itself is being deleted
   if tg_op in ('UPDATE', 'DELETE') then
     sz := octet_length(old.data::text);
-    perform public.plans_add_usage(old.user_id, case when old.kind = 'backup' then 0 else -sz end, 0, case when old.kind = 'backup' then -sz else 0 end);
+    perform public.plans_add_usage(old.user_id, case when old.kind = 'backup' then 0 else -sz end, 0, case when old.kind = 'backup' then -sz else 0 end,
+      case when old.kind = 'backup' then 0 else -1 end);
   end if;
   if tg_op in ('INSERT', 'UPDATE') then
     sz := octet_length(new.data::text);
-    perform public.plans_add_usage(new.user_id, case when new.kind = 'backup' then 0 else sz end, 0, case when new.kind = 'backup' then sz else 0 end);
+    perform public.plans_add_usage(new.user_id, case when new.kind = 'backup' then 0 else sz end, 0, case when new.kind = 'backup' then sz else 0 end,
+      case when new.kind = 'backup' then 0 else 1 end);
   end if;
+  return null;
+end $$;
+
+-- The check above runs before each row, but the running totals are only updated after each row, at the end of the statement. So one
+-- statement writing many rows at once (a bulk upsert) is checked again here, once it is done, against the updated totals: if it made an
+-- account's synced data, backups or item count grow past the limit, the whole statement is undone. Restores are not limited.
+create or replace function public.plans_items_quota_stmt() returns trigger
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare g record; lim bigint; blim bigint; u public.studyboard_usage;
+begin
+  if current_setting('studyboard.restoring', true) = '1' then return null; end if;
+  -- What each account gained in this statement (new rows minus, for an update, the old ones). Run as text because old_rows only exists for updates.
+  for g in execute
+    'select user_id, sum(s * sz) filter (where kind <> ''backup'') d, sum(s * sz) filter (where kind = ''backup'') b,
+            sum(s) filter (where kind <> ''backup'') r
+     from (select user_id, kind, octet_length(data::text) sz, 1 s from new_rows'
+    || case when tg_op = 'UPDATE' then ' union all select user_id, kind, octet_length(data::text), -1 from old_rows' else '' end
+    || ') a group by user_id'
+  loop
+    if coalesce(g.d, 0) <= 0 and coalesce(g.b, 0) <= 0 and coalesce(g.r, 0) <= 0 then continue; end if;   -- nothing grew
+    select * into u from public.studyboard_usage where user_id = g.user_id;
+    if not found then continue; end if;
+    select l.data_mb, l.backup_mb into lim, blim from public.plans_item_limits(g.user_id) l;
+    if (coalesce(g.r, 0) > 0 and u.item_rows > 50000)
+       or (coalesce(g.d, 0) > 0 and lim is not null and u.data_bytes > lim * 1048576)
+       or (coalesce(g.b, 0) > 0 and blim is not null and u.backup_bytes > blim * 1048576) then
+      raise exception 'SB_DATA_LIMIT: Your synced data is over the storage limit. Delete some old items or export a backup.' using errcode = 'P0001';
+    end if;
+  end loop;
   return null;
 end $$;
 
@@ -287,13 +366,17 @@ begin
   execute 'create trigger plans_items_quota before insert or update of data, kind, user_id on public.items for each row execute function public.plans_items_quota()';
   execute 'drop trigger if exists plans_items_usage on public.items';
   execute 'create trigger plans_items_usage after insert or update of data, kind, user_id or delete on public.items for each row execute function public.plans_items_usage()';
+  execute 'drop trigger if exists plans_items_quota_ins on public.items';
+  execute 'create trigger plans_items_quota_ins after insert on public.items referencing new table as new_rows for each statement execute function public.plans_items_quota_stmt()';
+  execute 'drop trigger if exists plans_items_quota_upd on public.items';
+  execute 'create trigger plans_items_quota_upd after update on public.items referencing old table as old_rows new table as new_rows for each statement execute function public.plans_items_quota_stmt()';
   -- Count what is already there (recounted each time this file runs).
-  insert into public.studyboard_usage (user_id, data_bytes, backup_bytes, updated_at)
+  insert into public.studyboard_usage (user_id, data_bytes, backup_bytes, item_rows, updated_at)
     select i.user_id, coalesce(sum(octet_length(i.data::text)) filter (where i.kind <> 'backup'), 0),
-           coalesce(sum(octet_length(i.data::text)) filter (where i.kind = 'backup'), 0), now()
+           coalesce(sum(octet_length(i.data::text)) filter (where i.kind = 'backup'), 0), count(*) filter (where i.kind <> 'backup'), now()
     from public.items i
     where exists (select 1 from auth.users u where u.id = i.user_id) group by i.user_id
-  on conflict (user_id) do update set data_bytes = excluded.data_bytes, backup_bytes = excluded.backup_bytes, updated_at = now();
+  on conflict (user_id) do update set data_bytes = excluded.data_bytes, backup_bytes = excluded.backup_bytes, item_rows = excluded.item_rows, updated_at = now();
 end $$;
 
 -- ---------- File storage limit (the studioso-files bucket) ----------
@@ -308,7 +391,9 @@ create or replace function public.plans_storage_quota() returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare uid uuid; lim bigint; used bigint; delta bigint;
 begin
-  if new.bucket_id <> 'studioso-files' or not public.studyboard_paywall() then return new; end if;
+  -- Unlike the other plan limits this one applies whether or not the paywall is on: uploaded files cost real storage, so a free account gets
+  -- the free plan's "fileMB" either way. Restoring an archived account is never limited.
+  if new.bucket_id <> 'studioso-files' or current_setting('studyboard.restoring', true) = '1' then return new; end if;
   uid := public.plans_object_owner(new.name);
   -- Files must live under "<user id>/...". A path without one would not be counted for anybody, so it is refused.
   if uid is null then
@@ -449,6 +534,19 @@ language sql immutable set search_path = '' as $$
          else split_part(split_part(x, '@', 1), '+', 1) || '@' || split_part(x, '@', 2) end, 'UTF8')), 'hex') end
   from (select nullif(lower(btrim(p_email)), '') as x) q
 $$;
+
+-- The create-checkout function asks this (service role only) before it offers a Stripe trial, so deleting the account and signing up
+-- again with the same email doesn't give a second trial. Same hashing as above; only true or false comes back.
+create or replace function public.studyboard_trial_used(p_email text) returns boolean
+language sql stable security definer set search_path = public, pg_temp as $$
+  select coalesce((select exists (select 1 from public.studyboard_trial_uses t where t.email_hash = public.plans_email_hash(p_email))), false)
+$$;
+revoke all on function public.studyboard_trial_used(text) from public, anon, authenticated;
+do $$ begin
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    grant execute on function public.studyboard_trial_used(text) to service_role;
+  end if;
+end $$;
 
 -- Trials already used (by an app or store trial) count too.
 insert into public.studyboard_trial_uses (email_hash)

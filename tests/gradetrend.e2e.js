@@ -1,7 +1,7 @@
 // node tests/gradetrend.e2e.js [screenshot-dir]   (Playwright + Chromium; see tests/pw.js)
 // Grade trend: chart in a course's Grades tab (weighted marks, goal line, summary, hidden data table, LMS-synced mark), empty states, sparkline on course cards, dark theme, XL text.
 // Study Groups on phones: the Groups tab in the bottom bar (Board to Groups, no More button), aria-current on Groups, the "Study with a friend" Board card
-// (signed out, signed in with and without groups, Not now, Don't show again), desktop unchanged, no horizontal scroll, 44px targets.
+// (queued behind a backup reminder, signed out, signed in with and without groups, Not now, Don't show again), desktop unchanged, no horizontal scroll, 44px targets.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, ".."), SHOTS = process.argv[2] || process.env.SHOTS || path.join(require("os").tmpdir(), "gt-shots");
@@ -28,16 +28,16 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
   const browser = await chromium.launch({executablePath});
   const mkCtx = async (o = {}) => {
     const ctx = await browser.newContext({viewport: {width: o.w || 390, height: o.h || 844}});
-    await ctx.addInitScript(([seed, stubGroups]) => {
+    await ctx.addInitScript(([seed, stubGroups, backedUp]) => {
       try {
-        if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); }
+        if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); if (backedUp) localStorage.setItem("studioso:lastExport", String(Date.now())); }
       } catch (e) {}
       if (stubGroups != null) {
         const rows = stubGroups;
         const chain = () => new Proxy({}, {get: (t, k) => k === "then" ? (res => res({data: rows, error: null})) : () => chain()});
         window.__sbGroupsStub = {user: {id: "u1", email: "u1@x.com"}, client: {from: () => chain(), rpc: () => chain(), channel: () => ({on() { return this; }, subscribe() { return this; }}), removeChannel() {}}};
       }
-    }, [o.seed ? o.seed(SEED()) : SEED(), o.groups == null ? null : o.groups]);
+    }, [o.seed ? o.seed(SEED()) : SEED(), o.groups == null ? null : o.groups, !!o.backedUp]);
     return ctx;
   };
   const open = async ctx => { const page = await ctx.newPage(); page.errs = []; page.on("pageerror", e => page.errs.push(e.message)); page.on("console", m => { if (m.type() === "error") page.errs.push(m.text()); }); await page.goto(base); await page.waitForSelector("#view", {state: "attached"}); await page.waitForTimeout(900); return page; };
@@ -150,7 +150,17 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
     }
     // Board card, signed out
     {
-      const ctx = await mkCtx(); let page = await open(ctx);
+      // The Board shows one notice at a time: a pending backup reminder comes first and the card waits behind "More Notices".
+      const c0 = await mkCtx(); let page = await open(c0);
+      const order = await page.evaluate(() => [...document.querySelectorAll("#view > *")].map(e => e.classList[0]));
+      ok(order.indexOf("nudge") === 0 && order.indexOf("gn-card") > 0 && order.indexOf("gn-card") < order.indexOf("qa-wrap"), "with a backup reminder pending, it leads and the card is queued above quick add: " + order.join(","));
+      ok(!(await page.locator(".gn-card").isVisible()) && await page.locator(".bn-more").isVisible(), "the queued card waits behind More Notices");
+      await page.click(".bn-more"); await page.waitForTimeout(200);
+      const r0 = await page.locator(".gn-card").boundingBox(), q0 = await page.locator(".qa-wrap").boundingBox();
+      ok(r0 && q0 && r0.y + r0.height <= q0.y + 1, "More Notices shows the card, still above quick add");
+      await c0.close();
+      // backed up recently: the card is the notice that shows
+      const ctx = await mkCtx({backedUp: true}); page = await open(ctx);
       const card = page.locator(".gn-card");
       ok(await card.count() === 1 && /Study with a friend/.test(await card.textContent()), "signed out: the Study with a friend card shows");
       ok(/sign in/i.test(await card.textContent()), "signed out: the card says an account comes first");
@@ -165,7 +175,7 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
       await page.click('nav.tabs [data-tab="board"]'); await page.waitForTimeout(200);
       ok(await page.locator(".gn-card").count() === 0, "after opening Groups the card rests for a while");
       await ctx.close();
-      const c2 = await mkCtx(); page = await open(c2);
+      const c2 = await mkCtx({backedUp: true}); page = await open(c2);
       await page.click('.gn-card [data-act="gn-later"]'); await page.waitForTimeout(200);
       ok(await page.locator(".gn-card").count() === 0, "Not now hides the card");
       await page.reload(); await page.waitForTimeout(800);
@@ -175,11 +185,11 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
       await page.evaluate(() => localStorage.setItem("studyboard:grpNudge", JSON.stringify({snooze: Date.now() - 1, count: 1}))); await page.reload(); await page.waitForTimeout(800);
       ok(await page.locator(".gn-card").count() === 1, "it comes back after the snooze");
       await c2.close();
-      const c3 = await mkCtx(); page = await open(c3);
+      const c3 = await mkCtx({backedUp: true}); page = await open(c3);
       await page.click('.gn-card [data-act="gn-never"]'); await page.reload(); await page.waitForTimeout(800);
       ok(await page.locator(".gn-card").count() === 0 && (await page.evaluate(() => JSON.parse(localStorage.getItem("studyboard:grpNudge")))).never === true, "Don't show again is permanent");
       await c3.close();
-      const c4 = await mkCtx({seed: s => { s.tasks = s.tasks.slice(0, 2); return s; }}); page = await open(c4);
+      const c4 = await mkCtx({backedUp: true, seed: s => { s.tasks = s.tasks.slice(0, 2); return s; }}); page = await open(c4);
       ok(await page.locator(".gn-card").count() === 0, "no card until there are a few tasks");
       await c4.close();
     }

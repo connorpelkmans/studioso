@@ -9,7 +9,8 @@
 --
 -- What this sets up:
 --  * push_subscriptions: the phones and browsers you turned notifications on for (Web Push, and the Android and iPhone apps' own push).
---  * reminder_queue: your reminders for the next 14 days. Studyboard keeps it up to date whenever you use it.
+--  * reminder_queue: your reminders for the next 14 days. Studyboard keeps it up to date whenever you use it. At most 2000 per account,
+--    none more than 400 days ahead.
 --  * A schedule that runs every 5 minutes and asks the send-reminders Edge Function to send what's due. It sends a random
 --    schedule secret (made here, kept in Vault as studyboard_cron_secret) that the function checks, so nobody else can
 --    make it send. Nothing to copy: the function asks the database (studyboard_reminders_cron_ok) whether the secret is right.
@@ -164,6 +165,8 @@ create trigger reminder_queue_sent_guard before update on public.reminder_queue
 
 -- Studyboard sends its whole list for the next 14 days. Future reminders it no longer lists are removed,
 -- new ones are added and changed ones are updated. Ones already sent, and snoozed ones, are left alone.
+-- Reminders more than 400 days ahead are ignored (and any already stored are removed), so the list can't be padded with far-off rows
+-- that no clean-up would ever reach. The total per account is capped too (studyboard_reminders_cap below).
 -- (security definer because the app has no write access to reminder_queue itself; every row it touches is the caller's own.)
 create or replace function public.studyboard_reminders_replace(items jsonb) returns integer
 language plpgsql security definer set search_path = public as $$
@@ -177,12 +180,14 @@ begin
   delete from reminder_queue q
    where q.user_id = me and q.sent_at is null and q.id like 'r:%' and q.fire_at > now()
      and not exists (select 1 from jsonb_array_elements(items) e where e->>'id' = q.id);
+  delete from reminder_queue q where q.user_id = me and q.fire_at > now() + interval '400 days';
   insert into reminder_queue as q (user_id, id, fire_at, title, body, url, task_id)
   select distinct on (e->>'id') me, e->>'id', (e->>'fire_at')::timestamptz,
          left(coalesce(e->>'title', ''), 200), left(coalesce(e->>'body', ''), 1000),
          left(coalesce(e->>'url', ''), 500), left(coalesce(e->>'task_id', ''), 200)
     from jsonb_array_elements(items) e
    where (e->>'id' like 'r:%' or e->>'id' like 's:%') and char_length(e->>'id') <= 200 and e->>'fire_at' is not null
+     and (e->>'fire_at')::timestamptz <= now() + interval '400 days'
   on conflict (user_id, id) do update
     set fire_at = excluded.fire_at, title = excluded.title, body = excluded.body, url = excluded.url, task_id = excluded.task_id
     where q.sent_at is null;
@@ -191,6 +196,51 @@ begin
 end $$;
 revoke all on function public.studyboard_reminders_replace(jsonb) from public, anon;
 grant execute on function public.studyboard_reminders_replace(jsonb) to authenticated;
+
+-- At most 2000 reminders per account in all (sent ones included; a phone needs a few hundred at most). It runs after every insert,
+-- whoever makes it (studyboard_reminders_replace, or a Snooze tapped on a notification). When an insert goes over, the account's
+-- oldest already-sent reminders make room first; if it is still over, the insert is refused.
+create or replace function public.studyboard_reminders_cap() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare u uuid; total int;
+begin
+  for u in select distinct a.user_id from added a loop
+    select count(*) into total from public.reminder_queue where user_id = u;
+    if total > 2000 then
+      delete from public.reminder_queue where (user_id, id) in (
+        select q.user_id, q.id from public.reminder_queue q where q.user_id = u and q.sent_at is not null order by q.fire_at limit total - 2000);
+      if (select count(*) from public.reminder_queue where user_id = u) > 2000 then
+        raise exception 'Too many reminders (at most 2000 per account)' using errcode = 'P0001';
+      end if;
+    end if;
+  end loop;
+  return null;
+end $$;
+revoke all on function public.studyboard_reminders_cap() from public, anon, authenticated;
+drop trigger if exists reminder_queue_cap on public.reminder_queue;
+create trigger reminder_queue_cap after insert on public.reminder_queue
+  referencing new table as added for each statement execute function public.studyboard_reminders_cap();
+
+-- send-reminders claims what's due with this (service role only), a batch at a time, oldest first. Each batch is marked as sent in
+-- the same step, so two runs can't send the same reminder (SKIP LOCKED: a run never waits for, or takes, rows another run holds),
+-- and whatever doesn't fit in this run's batches stays unsent for the next run instead of being marked sent and dropped.
+create or replace function public.studyboard_reminders_claim(p_now timestamptz, p_late_ms bigint, p_limit int)
+returns table (user_id uuid, id text, title text, body text, url text, task_id text, tok text, tries int)
+language sql security definer set search_path = public as $$
+  update public.reminder_queue q set sent_at = p_now
+    from (select r.user_id, r.id from public.reminder_queue r
+           where r.sent_at is null and r.fire_at <= p_now and r.fire_at > p_now - make_interval(secs => greatest(p_late_ms, 0) / 1000.0)
+           order by r.fire_at limit least(greatest(coalesce(p_limit, 0), 0), 1000)
+           for update skip locked) c
+   where q.user_id = c.user_id and q.id = c.id
+  returning q.user_id, q.id, q.title, q.body, q.url, q.task_id, q.tok, q.tries
+$$;
+revoke all on function public.studyboard_reminders_claim(timestamptz, bigint, int) from public, anon, authenticated;
+do $$ begin
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    grant execute on function public.studyboard_reminders_claim(timestamptz, bigint, int) to service_role;
+  end if;
+end $$;
 
 -- Marks the caller's own reminders as shown (the app calls this after showing them itself, so they aren't pushed again).
 create or replace function public.studyboard_reminders_mark_sent(ids text[]) returns integer

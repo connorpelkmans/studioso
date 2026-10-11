@@ -14,12 +14,13 @@ There is no Android project in the repo. This folder is a **merge set** for the 
 | `.../StudyboardNative.kt` | same | Capacitor plugins `StudyboardCaptureToken` and `StudyboardSharedQueue`. |
 | `.../ShareReceiverActivity.kt` | same | Share target, with a confirmation dialog. |
 | `.../QuickCaptureTileService.kt` | same | Quick Settings tile "Quick capture". |
+| `.../StudyboardLms.kt`, `.../StudyboardLmsScripts.kt` | same | School site plugin `StudyboardLms` and its generated script allowlist ("School sites on Android" below). |
 | `app/src/main/res/xml/{shortcuts,network_security_config,backup_rules,data_extraction_rules}.xml`, `res/values/strings.xml`, `res/drawable/ic_quick_capture.xml` | `res/` | Resources. |
 | `build.gradle.additions.txt`, `proguard-rules.additions.pro` | Gradle files | SDK levels, Kotlin, coroutines, exifinterface, keep rules. |
 | `assetlinks.template.json` | your website | Digital Asset Links file for App Links (section 6). |
 | `SAMSUNG-BIXBY.md` | (doc) | Samsung routes and a support matrix. |
 
-**Not for v1:** `StudyboardAppFunctions.kt` and `StudyboardApplication.kt` (the experimental Gemini AppFunctions code) are no longer referenced by the manifest, Gradle or ProGuard additions. **Do not copy them into the project** (they need the unreleased-for-us `androidx.appfunctions` dependency and will not compile without it); delete them from this folder when convenient. See "Optional later" at the end.
+**Not for v1:** the experimental Gemini AppFunctions code was removed (it needed the unverified `androidx.appfunctions` dependency). See "Optional later" at the end.
 
 ## 2. Build steps
 
@@ -100,7 +101,7 @@ The web layer calls the same functions as on iOS (cap-server's Settings UI): `wi
 
 * **Network:** `network_security_config.xml` forbids cleartext everywhere, trusts only system CAs, no pinning. `usesCleartextTraffic="false"` too.
 * **App Links:** use the **same domain** as the iOS `applinks:` entry (`YOUR-DOMAIN.example` in both places until you fill it in). Replace it in the manifest's `android:host`, fill in `assetlinks.template.json` (package `com.studioso.app`; the SHA-256 fingerprint of the **Play App Signing** key from Play Console > Test and release > App integrity, plus your upload/debug key if you test sideloaded builds) and host it at `https://YOUR-DOMAIN.example/.well-known/assetlinks.json` (exact path, HTTPS, `Content-Type: application/json`, no redirect). Check with `adb shell pm get-app-links com.studioso.app` (state `verified`).
-* **Backup:** the capture token's Keystore key does not move between devices, so the prefs file and queues are excluded from backup/transfer. `allowBackup` is false (Capacitor's web data is re-synced from the account).
+* **Backup:** nothing is backed up or moved to a new phone. `allowBackup` is false, and because Android 12+ ignores that flag once `dataExtractionRules` is set, `data_extraction_rules.xml` (and `backup_rules.xml` for older versions) excludes every domain too: the WebView data (Supabase session, Canvas token, school sign-in cookies), the capture token (its Keystore key cannot move anyway) and the queues. Everything is re-synced from the account after sign-in.
 * **Play 'Data safety':** capture sends the user's task text to the app's own Supabase project ("App activity / user content, collected, linked, for app functionality"). Push adds Device or other IDs (section 4); purchases add Purchase history (RevenueCat/Google Play). Keep the form consistent.
 * **ProGuard:** `proguard-rules.additions.pro` keeps plugin and entry-point classes. Test a **release** (minified) build: Capacitor plugins found by reflection are the usual failure.
 * **Permissions:** `INTERNET` and `POST_NOTIFICATIONS` (push). No microphone, storage or overlay permission.
@@ -133,13 +134,14 @@ Manual: long-press the icon (shortcuts), add the tile (swipe down twice > pencil
 
 ## Optional later: Gemini AppFunctions
 
-Android 16 introduced `AppFunctions` (an app exposes functions an agent such as Gemini can call, similar to App Intents on iOS). An experimental `StudyboardAppFunctions.addTask` + `StudyboardApplication` (`AppFunctionConfiguration.Provider`) draft exists in this folder but is **not part of v1**: the `androidx.appfunctions` artifact names, KSP arguments, manifest requirements and Gemini/device/region availability were never verified. To try it later: check the current `androidx.appfunctions` docs, add its dependencies + KSP plugin, set `android:name=".capture.StudyboardApplication"` on `<application>`, add keep rules for both classes, call `CaptureClient.send(..., source = "gemini")` (note the `CaptureResult` shape changed: `NotConfigured(queued)` and `Rejected`), and test on a supported device before saying it works.
+Android 16 introduced `AppFunctions` (an app exposes functions an agent such as Gemini can call, similar to App Intents on iOS). An experimental `StudyboardAppFunctions.addTask` + `StudyboardApplication` (`AppFunctionConfiguration.Provider`) draft was written and then deleted before v1 (it is in git history): the `androidx.appfunctions` artifact names, KSP arguments, manifest requirements and Gemini/device/region availability were never verified. To try it later: restore it from git history, check the current `androidx.appfunctions` docs, add its dependencies + KSP plugin, set `android:name=".capture.StudyboardApplication"` on `<application>`, add keep rules for both classes, call `CaptureClient.send(..., source = "gemini")` (note the `CaptureResult` shape changed: `NotConfigured(queued)` and `Rejected`), and test on a supported device before saying it works.
 
 ## School sites on Android (full sync: grades, announcements, due dates)
 
 The Android app can sign in to Brightspace, Canvas and Blackboard itself, like the desktop app, and read the same information. **UNTESTED on a device.**
 
 * `app/src/main/java/com/studioso/app/capture/StudyboardLms.kt` is the Capacitor plugin `StudyboardLms` (`connect`, `run`, `signOut`). Register it in `MainActivity` (section 2 above shows the line).
+* `StudyboardLmsScripts.kt` (same folder, copy it too) is the plugin's allowlist: it only runs the scripts built from `lms.js` (checked by SHA-256; only digits or plain JSON data may vary), so a script injected into the app's page cannot run its own code in the student's school site. It is generated: after changing `lms.js` or `lms-mobile.src.js`, run `node scripts/build-lms-mobile.js --native` (`tests/lms-mobile.test.js` fails until you do).
 * The web side is `lms-mobile.js`, built from `lms-mobile.src.js` and `lms.js` by `scripts/build-lms-mobile.js`. `node prepare.js` with `STUDYBOARD_OUT=android-www` builds it into the staged folder and adds the script tag by itself. It runs the desktop app's exact harvest scripts and cleans results with lms.js's own code, and switches on only when the plugin exists.
 * No new permissions are needed (the app already has `INTERNET`). The web views get no camera, microphone or location.
 * Android keeps one cookie jar for the app, so platforms are separated by site and sign-out removes the cookies of that school's site and its parent domains.
