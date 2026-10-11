@@ -146,6 +146,19 @@ function SEED(){
     ok(await page.locator(".flip .face.front .ci-wrap img").count() === 1, "the picture loads from this device's copy");
     await page.click('[data-act="fc-exit"]').catch(() => {}); await page.waitForTimeout(200);
 
+    // ---------- Print and PDF ----------
+    await act(page, "pro-pr-open"); await page.waitForTimeout(400);
+    ok(await page.locator("#dlg .pr-kind").count() === 4 && await page.locator("#dlg .pr-prev .pp-day").count() === 8, "Print offers four layouts; the week agenda preview has 7 days and a notes box");
+    await page.click('#dlg [data-act="pro-pr-kind"][data-id="grades"]'); await page.waitForTimeout(250);
+    ok(await page.locator("#dlg .pr-prev .pp-gc").count() === 2 && /CALC2|Calculus/.test(await page.locator("#dlg .pr-prev").textContent()), "the grade report has a section per graded course");
+    await page.click('#dlg [data-act="pro-pr-kind"][data-id="term"]'); await page.waitForTimeout(250);
+    ok(await page.locator("#dlg .pr-prev .pp-cal").count() >= 1, "the term calendar draws month grids");
+    await page.click('#dlg [data-act="pro-pr-kind"][data-id="week"]'); await page.waitForTimeout(250);
+    await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });
+    await page.click('#dlg [data-act="pro-pr-go"]'); await page.waitForTimeout(400);
+    ok(await page.evaluate(() => window.__printed) === 1 && await page.locator("#sbPrint .pp-day").count() === 8, "Print fills the print area and opens the print dialog");
+    await noOverflow(page, "after printing");
+
     // A focus session ends: it is logged with its start hour and course
     await page.evaluate(() => { localStorage.setItem("pro-e2e", "1"); });
     ok(page.errs.length === 0, "no console errors so far: " + page.errs.join(" | "));
