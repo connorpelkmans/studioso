@@ -24,10 +24,26 @@ You can do the setup below any time before launch (in any order). While the payw
 - Every premium theme, including the 4 seasons (Winter, Spring, Summer and Autumn Leaves), plus every premium card style, note shape, pin and sticker pack, and all 46 Theme Collections.
 - 30 days of online backup history.
 - Study groups of up to **100 members** with unlimited message history.
-- Later: grade and study insights, and built-in AI credits (both are switches that stay off for now).
+- **Insights** (in the Weekly Review) and a **Term Recap** you can save as an image. Free accounts get neither.
+- **Smart flashcards:** FSRS scheduling, deck stats, image cards, and cards made automatically from the diagrams and labelled pictures in uploaded PDFs (photos too, on browsers that can read text, behind Early Access). New cards arrive as drafts to check first.
+- **Focus routines** (Deep Work, Exam Cram, up to 6 custom; Classic stays free) and Focus History. On the desktop app downloaded from the website, **Block Distracting Sites** edits the system hosts file for the length of the session; it asks for the computer's admin password and removes the block on its own afterwards, even if the app is closed. It is hidden in the store builds (Mac App Store and Microsoft Store), whose sandboxes don't allow it.
+- **Print and PDF:** week agenda, term calendar, grade report and exam prep plan.
+- An optional **supporter badge** next to the person's name in groups, and Early Access to new features.
+- **Pro groups:** one Pro member can turn Pro on for up to **5 groups**, and every member of those groups gets the extras below while that person stays on Pro.
+- Later: built-in AI credits (a switch that stays off for now).
 
 In the app, **Settings > Studyboard Pro** shows the plan, what Pro adds, how much storage you use, and **Your Devices**.
 
+
+### Pro Groups
+
+A Pro member opens a group and taps **Make It a Pro Group** (up to 5 groups per Pro account). When that person's Pro ends, the group goes back to free on its own; nothing is deleted, the extras just hide again.
+
+- **Group projects:** Team Deadline (a private date ahead of the real one that everyone's planner aims for), Review Before Done (a task can name a reviewer, and when someone else marks it done it waits in **In Review** until the reviewer approves it), Rubric Checklist, Split the Work, Contribution Report (prints or saves as PDF), and Group Uploads (2 GB shared per group, counted separately from each person's own storage).
+- **Study groups:** Find a Time (members share their free hours, and it suggests the best times), Split Exam Topics, Live Quiz, and weekly repeating sessions with an end date.
+- **Everyone:** Save as Template and start a new group from a template, 100 members and unlimited message history.
+
+These all run on the existing group tables, so they add almost no server cost. Group Uploads are the one exception and are capped at 2 GB per group. After updating, run `supabase-groups.sql`, then `supabase-plans.sql`, then `supabase-lean.sql` if you use it, then `supabase-plans-selftest.sql` (section 11 covers Pro groups).
 
 ### How It Fits Together
 

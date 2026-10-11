@@ -833,6 +833,8 @@ The first time you share or join, Studyboard asks what classmates should call yo
 ### Project Tasks (new in 1.13)
 Each group page has a **Project Tasks** section: shared task lists (for example "BIOL 201 Poster") with assignees, due dates, a progress bar, filters (All, Mine, Unassigned, Overdue, Done) and a per-person workload line that shows an uneven split. Anyone can add and edit tasks and mark them done, anyone can claim an unassigned task, and only the person a task is assigned to (or the group owner) can reassign it. Tasks assigned to you also appear under Today's Plan on your Board. A group keeps up to 20 active lists with up to 200 tasks each. To turn it on, run `supabase-groups.sql` again (it is safe to repeat), then `supabase-moderation.sql` again. Until then, the group owner sees a note saying to run it and other members see nothing. Run `supabase-plans-selftest.sql` afterwards to confirm the new tables and functions are locked down (section 9 covers them).
 
+**Pro groups (1.16):** Team Deadline, Review Before Done, Rubric Checklist, templates, weekly sessions, Find a Time, Split Exam Topics, Live Quiz and Group Uploads need the newest `supabase-groups.sql` **and** `supabase-plans.sql`. Run them again in that order, then `supabase-lean.sql` and `supabase-moderation.sql`, then `supabase-plans-selftest.sql`. See **Pro Groups** in `PRO-PLANS-GUIDE.md`.
+
 ### Study groups
 - Open **Groups** (in the sidebar on a computer, or from the Flashcards page or **Settings** on a phone) and tap **New Group**. Add a name and, if you like, a course.
 - Tap **Invite Classmates** to send the invite link or code. They tap **Enter a Code** on the Groups page (or just open the link) and then **Join Group**.
