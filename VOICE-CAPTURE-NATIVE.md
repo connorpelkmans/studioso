@@ -83,7 +83,7 @@ Give the reviewer a demo account that already has a token, or say where to creat
 
 **P1: the assistant claims (each separately, record versions)**
 5. **iOS 26 / iOS 27 beta:** Siri with Apple Intelligence: does "add a task to Studyboard" still trigger the intent? Does speaking the task in the same sentence work? Check Siri's behaviour with the phone locked. Re-read Apple's current App Intents / App Shortcuts docs for changes (phrase rules, assistant schemas, `authenticationPolicy`).
-6. **Pixel (later, AppFunctions is removed for v1):** if the experiment is brought back: Gemini app: does it list or offer Studyboard (AppFunctions)? "Hey Google, add a task to Studyboard." Verify `androidx.appfunctions` artifact names, versions, annotations, manifest/permission needs against current docs; fix `StudyboardAppFunctions.kt` and `build.gradle.additions.txt` (VERIFY markers). If unsupported, remove the experiment (README-ANDROID.md section 4).
+6. **Pixel (later, AppFunctions is removed for v1):** if the experiment is brought back: Gemini app: does it list or offer Studyboard (AppFunctions)? "Hey Google, add a task to Studyboard." Verify `androidx.appfunctions` artifact names, versions, annotations, manifest/permission needs against current docs; restore `StudyboardAppFunctions.kt` and `StudyboardApplication.kt` from git history (deleted for v1) and fix them and `build.gradle.additions.txt`. If unsupported, remove the experiment (README-ANDROID.md section 4).
 7. **Samsung Galaxy:** same Gemini test on the Galaxy's One UI/Android version; Bixby Quick Command "Add task" opening the quick-add link; test the HTTP Request Shortcuts / Tasker configs. Update `SAMSUNG-BIXBY.md` with what the menus really say.
 
 **P2: polish and compliance**

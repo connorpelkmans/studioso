@@ -8,8 +8,9 @@ on:
     - cron: "17 14 */3 * *"   # 14:17 UTC every third day
   workflow_dispatch:          # lets you run it by hand from the Actions tab
 
+# Read-only: it only pings Supabase. (The repository is private, where GitHub doesn't switch off idle schedules, so no keep-alive commit is needed.)
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   ping:
@@ -28,23 +29,3 @@ jobs:
           echo "Supabase answered with HTTP $code"
           if [ "$code" = "000" ] || [ "$code" -ge 500 ]; then exit 1; fi
 
-      - name: Check out the repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
-
-      # GitHub switches off scheduled jobs in public repositories after 60 days without any commits.
-      # This makes a tiny commit every 45 days so the ping never stops.
-      - name: Keep this schedule switched on
-        run: |
-          last=$(git log -1 --format=%ct)
-          now=$(date +%s)
-          if [ $(( (now - last) / 86400 )) -ge 45 ]; then
-            mkdir -p .github
-            date -u +"%Y-%m-%dT%H:%M:%SZ" > .github/last-keepalive.txt
-            git config user.name "studioso-keepalive"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add .github/last-keepalive.txt
-            git commit -m "Keep the Supabase ping schedule active"
-            git push
-          else
-            echo "Recent commit found, nothing to do."
-          fi

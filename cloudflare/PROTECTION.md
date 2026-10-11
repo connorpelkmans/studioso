@@ -1,6 +1,6 @@
 # Protecting studyboardapp.com with Cloudflare (all free)
 
-studyboardapp.com is already served through Cloudflare: the root `wrangler.jsonc` publishes the site, and `.assetsignore` limits it to what the app and website load. Everything below is free on the **Free plan** and needs no payment method, so none of it can bill you.
+studyboardapp.com is already served through Cloudflare: the root `wrangler.jsonc` builds the site with `scripts/build-site.js` and publishes only the `site/` folder it writes (what the app and website load). Everything below is free on the **Free plan** and needs no payment method, so none of it can bill you.
 
 These are settings in the Cloudflare dashboard, not code. Open **dash.cloudflare.com**, pick the **studyboardapp.com** domain, and go through the list once, in order. Each step takes a minute or two.
 
@@ -86,4 +86,4 @@ Why it isn't on the sign-in form: Turnstile only runs on real web addresses (run
 | Password guessing on the account page | One rate-limiting rule (step 4), plus Supabase's own limits |
 | Bots using up the free AI trial | Turnstile check (step 6), confirmed email, per-student and daily caps |
 | Bots using up the key relay | 10-minute, single-use boxes, and the free plan's hard limits |
-| Repo internals readable on the site | `.assetsignore` allow-list (already done) |
+| Repo internals readable on the site | only `site/` is published (`wrangler.jsonc`, `scripts/build-site.js`; already done) |

@@ -3,8 +3,11 @@
   "compatibility_date": "2026-10-06",
   // Builds for branches and pull requests run `npx wrangler preview`, which needs this block (it can stay empty).
   "previews": {},
+  // Deploys run scripts/build-site.js first and serve only what it writes to site/: icons in icons/, widget files in widgets/, the
+  // website, and the strict hash-based script policy in _headers. Serving the repository root instead left those paths answering with the app page.
+  "build": { "command": "node scripts/build-site.js" },
   "assets": {
-    "directory": ".",
+    "directory": "./site",
     "not_found_handling": "single-page-application"
   }
 }

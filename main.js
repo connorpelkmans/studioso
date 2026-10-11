@@ -743,6 +743,30 @@ function dupInstallNote() {
     if (win && !win.isDestroyed() && win.isVisible()) setTimeout(say, 3000); else if (win) win.once("show", () => setTimeout(say, 3000));
   } catch (e) {}
 }
+// Website downloads don't update themselves, so once a day this asks GitHub for the newest published installer and, when it is newer than this
+// copy, shows one notification per version that opens the download page. Not in the store builds (the stores update them) or from source.
+const UPDATE_API = "https://api.github.com/repos/connorpelkmans/installers/releases/latest";
+const DOWNLOAD_PAGE = "https://studyboardapp.com/website/#download";
+const verParts = v => String(v || "").replace(/^v/i, "").split(/[.+-]/).slice(0, 3).map(n => parseInt(n, 10) || 0);
+const verNewer = (a, b) => { const x = verParts(a), y = verParts(b); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i]; return false; };
+async function updateCheck() {
+  if (IS_DEV || IS_MAS || IS_MSSTORE) return;
+  if (Date.now() - (cfg.updateCheckedAt || 0) < 20 * 3600e3) return;
+  try {
+    const r = await net.fetch(UPDATE_API, { headers: { Accept: "application/vnd.github+json", "User-Agent": "Studyboard/" + app.getVersion() } });
+    if (!r.ok) return;
+    const j = await r.json(), latest = j && !j.draft && !j.prerelease && /^v?\d+\.\d+\.\d+$/.test(String(j.tag_name || "")) ? String(j.tag_name).replace(/^v/i, "") : "";
+    cfg.updateCheckedAt = Date.now(); writeCfg(cfg);
+    if (!latest || !verNewer(latest, app.getVersion()) || cfg.updateNotedFor === latest) return;
+    cfg.updateNotedFor = latest; writeCfg(cfg);
+    if (!Notification.isSupported()) return;
+    const n = new Notification({ title: "A New Studyboard Is Ready", body: `Version ${latest} is out (you have ${app.getVersion()}). Click to download it; your things stay where they are.`, icon: process.platform === "darwin" ? undefined : ICON });
+    const drop = () => { const i = liveNotes.indexOf(n); if (i >= 0) liveNotes.splice(i, 1); };
+    n.on("click", () => { drop(); openExternalSafe(DOWNLOAD_PAGE); });
+    n.on("close", drop); n.on("failed", drop);
+    liveNotes.push(n); n.show();
+  } catch (e) {}
+}
 // One file per call. The largest things the page writes are the full backup (studyboard-latest.json and the daily copies; synced data is
 // capped at 250 MB even on Pro) and single files (50 MB each on desktop), so 512 MiB leaves room while stopping a runaway page from filling the disk
 // (and the main process's memory: the whole buffer crosses IPC at once).
@@ -941,6 +965,7 @@ if (GOT_LOCK) app.whenReady().then(async () => {
   if (dataDirLost && !IS_MAS) win.once("show", () => showNote({ title: "Studyboard Folder Not Found", body: `${cfg.dataDir} couldn't be opened, so Studyboard is saving to ${dataRoot()} for now. Reconnect the drive and restart, or choose a folder in Settings.` }));
   masFolderPrompt();
   dupInstallNote();
+  setTimeout(updateCheck, 15000); setInterval(updateCheck, 6 * 3600e3);
   if (widgetState().show) createWidget();
   checkReminders();
   const startLink = pendingDeepLink || process.argv.find(a => typeof a === "string" && a.startsWith(DEEP_SCHEME + "://"));
