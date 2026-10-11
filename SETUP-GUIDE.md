@@ -50,7 +50,7 @@ Throughout, replace `USERNAME` with your GitHub username.
 ### Updating to 1.11 (one time)
 
 1. **Website:** upload everything from `studyboard-github-files-1.13.0.zip` to your GitHub repository, replacing what's there: `index.html`, `sw.js`, `manifest.webmanifest`, `today.webmanifest`, the `icons` and `widgets` folders, and the `desktop` and `.github` folders. If you had filled in `SB_DEFAULT` in the old `index.html`, fill it in again first.
-2. **Database:** in Supabase open **SQL Editor**, then **New query**, and run each of these once: `supabase-groups.sql`, `supabase-calendar-feed.sql`, `supabase-reminders.sql` (paste your Project URL and publishable key into the two lines marked PASTE in the reminders file first) `supabase-rooms.sql` (for Study Together) and, last, `supabase-lean.sql`. `supabase-plans.sql` can wait until you want to sell Pro. The sections below explain what each one is for.
+2. **Database:** in Supabase open **SQL Editor**, then **New query**, and run each of these once: `supabase-groups.sql`, `supabase-moderation.sql`, `supabase-calendar-feed.sql`, `supabase-reminders.sql` (paste your Project URL and publishable key into the two lines marked PASTE in the reminders file first) `supabase-rooms.sql` (for Study Together) and, last, `supabase-lean.sql`. Run `supabase-plans.sql` too (before `supabase-lean.sql`), even if you don't sell Pro yet: it holds the storage safety caps that keep one account from filling the database. The sections below explain what each one is for.
 3. **Small Supabase functions** (for Calendar Sync, phone notifications, and optionally school-platform calendar links on your phone): the steps are in the Calendar Sync, Reminders and Brightspace, Canvas and Blackboard sections below. All are pasted into the Supabase dashboard, with no command line.
 4. **Desktop:** run the new installer for your computer. Your data stays as it is.
 
@@ -88,17 +88,18 @@ Open **SQL Editor > New query** in Supabase, paste a whole file and click **Run*
 | Step | File | What it is for | Needed? |
 |---|---|---|---|
 | 1 | `supabase-setup.sql` | Your synced data table (`items`) and the private file storage | Required |
-| 2 | `supabase-groups.sql` | Share decks and study groups | Recommended |
-| 3 | `supabase-calendar-feed.sql` | The live calendar link | Optional |
-| 4 | `supabase-rooms.sql` | Study Together rooms (needs step 2) | Optional |
-| 5 | `supabase-reminders.sql` | Phone and desktop reminders (paste your Project URL and key into the two lines marked PASTE first) | Optional |
-| 6 | `supabase-bug-reports.sql` | Report a Bug or Send Feedback | Recommended |
-| 7 | `supabase-plans.sql` | Free and Pro plans, limits, devices (run after step 2 so group limits are added) | Before you sell Pro, and for notification keys |
-| 8 | `supabase-lean.sql` | Lean Sync and **Delete My Account and Data** (run it last) | Required for a public launch |
-| 9 | `supabase-capture.sql` | Voice and shortcut capture (Siri, Gemini, Bixby, share sheet). Run it after step 8 so account deletion also clears it, then deploy the `capture-task` function with Verify JWT **off**. Optional check: `supabase-capture-selftest.sql`. See `VOICE-CAPTURE.md` | Optional |
-| 10 | `supabase-sync-conflicts.sql` | Sync conflicts: two devices editing the same thing never overwrite each other (run it after `supabase-lean.sql`; see "Two devices, one note" below) | Strongly recommended |
+| 2 | `supabase-groups.sql` | Share decks and study groups (each person's shared decks and shared group items are capped at 50 MB each) | Recommended |
+| 3 | `supabase-moderation.sql` | Report and block in study groups (needs step 2). Required before you publish to the App Store if groups are on (guideline 1.2) | Required with step 2 |
+| 4 | `supabase-calendar-feed.sql` | The live calendar link | Optional |
+| 5 | `supabase-rooms.sql` | Study Together rooms (needs step 2) | Optional |
+| 6 | `supabase-reminders.sql` | Phone and desktop reminders (paste your Project URL and key into the two lines marked PASTE first). At most 2000 queued reminders per account, none more than 400 days ahead | Optional |
+| 7 | `supabase-bug-reports.sql` | Report a Bug or Send Feedback | Recommended |
+| 8 | `supabase-plans.sql` | Free and Pro plans, limits, devices (run after step 2 so group limits are added). It also holds the storage safety caps that apply even with the paywall off (10 MB per item, 50,000 items per account, synced data and online backups each up to twice the plan's data limit: 50 MB on Free), so one account can't fill the database | Required for a public launch |
+| 9 | `supabase-lean.sql` | Lean Sync and **Delete My Account and Data** (run it last) | Required for a public launch |
+| 10 | `supabase-capture.sql` | Voice and shortcut capture (Siri, Gemini, Bixby, share sheet). Run it after step 9 so account deletion also clears it, then deploy the `capture-task` function with Verify JWT **off**. Optional check: `supabase-capture-selftest.sql`. See `VOICE-CAPTURE.md` | Optional |
+| 11 | `supabase-sync-conflicts.sql` | Sync conflicts: two devices editing the same thing never overwrite each other (run it after `supabase-lean.sql`; see "Two devices, one note" below) | Strongly recommended |
 
-If you run `supabase-groups.sql` or `supabase-calendar-feed.sql` later, run `supabase-plans.sql` and `supabase-lean.sql` again afterwards. Running `supabase-groups.sql` again also resets who can see blocked people's tasks, so run `supabase-moderation.sql` again after it.
+If you run `supabase-groups.sql` or `supabase-calendar-feed.sql` later, run `supabase-plans.sql` and `supabase-lean.sql` again afterwards. Running `supabase-groups.sql` again keeps blocking in place (it rebuilds the group read rules with the block filter once `supabase-moderation.sql` has been run), so there's no need to run moderation again after it.
 
 **Edge Functions.** Each one lives in its own folder, `supabase-functions/<name>/index.ts`. Deploy it either by pasting the file into Supabase (Edge Functions > Deploy a new function > Via Editor, named exactly as below, then set the Verify JWT switch in its Details), or with the Supabase CLI from the repository root. `supabase/config.toml` records the same names, entrypoints and Verify JWT settings, but the commands below set the switch themselves, so they are right with any CLI version:
 

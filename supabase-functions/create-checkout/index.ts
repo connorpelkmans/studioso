@@ -17,7 +17,8 @@
 //
 // What it does: checks the sign-in with Supabase Auth, limits each person to a few checkouts an hour, refuses people who already
 // have a live subscription, finds or makes the person's Stripe customer (kept in a server-only table), then creates a subscription
-// Checkout with client_reference_id and metadata.uid = the signed-in person, and a 7-day trial only for people who never had one.
+// Checkout with client_reference_id and metadata.uid = the signed-in person, and a 7-day trial only for people who never had one
+// (also checked against the email hashes of deleted accounts, studyboard_trial_uses).
 // The billing-webhook function is what actually turns Pro on, once Stripe says the payment happened.
 
 type Env = (k: string) => string;
@@ -90,6 +91,16 @@ async function stripe(d: Deps, path: string, body: Record<string, unknown>, idem
   return await r.json();
 }
 
+// Has this email address had a free trial before, on an account that was deleted since? Asked with the service role through
+// studyboard_trial_used (the same email hash studyboard_start_trial and account deletion use). A project that hasn't run the newer
+// supabase-plans.sql yet (no such function) is let through as before; any other failure stops the checkout rather than give a trial.
+export async function trialUsed(d: Deps, h: Record<string, string>, email: string): Promise<boolean> {
+  const r = await d.fetch(`${base(d)}/rest/v1/rpc/studyboard_trial_used`, { method: "POST", headers: h, body: JSON.stringify({ p_email: email }) });
+  if (r.status === 404) { d.log("create-checkout: studyboard_trial_used is missing; run supabase-plans.sql again"); return false; }
+  if (!r.ok) throw new Error(`db rpc/studyboard_trial_used ${r.status}`);
+  return (await r.json()) === true;
+}
+
 export async function handle(req: Request, d: Deps): Promise<Response> {
   const local = d.env("ALLOW_LOCALHOST") === "1";
   const envOrigins = allowedOrigins(d.env, "");
@@ -156,8 +167,10 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
       customer = ((await (await rest(`studyboard_billing_customers?user_id=eq.${uid}&select=stripe_customer_id`)).json()) as any[])[0]?.stripe_customer_id || customer;
     }
 
-    // A free trial only for accounts that never had one (an app trial, a store trial or a Stripe trial) and never subscribed
-    const hadTrial = !!(ent && (ent.trial_until || ent.external_id || ent.source === "stripe"));
+    // A free trial only for accounts that never had one (an app trial, a store trial or a Stripe trial) and never subscribed,
+    // and only for an email address that hasn't had one on a deleted account (studyboard_trial_uses keeps a hash of it; supabase-plans.sql).
+    let hadTrial = !!(ent && (ent.trial_until || ent.external_id || ent.source === "stripe"));
+    if (!hadTrial && trialDays > 0) hadTrial = await trialUsed(d, h, user.email);
     const src = body.src === "app" ? "&src=app" : "";
     const managed = d.env("STRIPE_MANAGED_PAYMENTS") === "1";
     const session = await stripe(d, "checkout/sessions", {
