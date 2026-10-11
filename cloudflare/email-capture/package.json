@@ -1,0 +1,9 @@
+{
+  "name": "studyboard-email-capture",
+  "private": true,
+  "type": "module",
+  "description": "Email to Studyboard (Pro): reads mail forwarded to a student's private address and drops it in their Studyboard capture inbox",
+  "scripts": {
+    "deploy": "wrangler deploy"
+  }
+}

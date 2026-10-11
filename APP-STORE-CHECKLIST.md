@@ -96,6 +96,10 @@ Follow `ios-wrapper/README-IOS.md` (stage web files, `npx cap add ios`, merge `I
 
 Implemented as described in the table row above. Data rules (also in `supabase-lean.sql` and the privacy policy): everything the person owns is deleted (synced items, deletion log, archive, devices and device-removal log, plan, usage, billing link, reminders, push devices, calendar tokens, profile, shared decks, bug reports and any bug report that left their email as the contact address, rate counters, uploaded files). **Owned study groups** go to the longest-standing other member (they become owner), or are deleted when nobody else is in them. **Authored group content** (messages, items, quiz scores, RSVPs, reactions, check-ins, stats) is deleted with the account. **Reports** made by or about the person stay for safety with no link to the account. **Payment bookkeeping we must keep** (`studyboard_billing_events`, `studyboard_pro_grants`) is anonymized (user id, email and free-text reason removed). The crash-report table `client_errors` is anonymous by design (random install id, no user id; the store-readiness test asserts this); if a table with a user id is ever added a table with a user id, add it to the list in `studyboard_delete_user_data` (the guard `tests/store-readiness.test.js` fails until it is handled). Apple subscriptions cannot be cancelled by us: the dialog says so and links to the Apple page.
 
+## Connecting Google Calendar or Outlook is not a login
+
+Two-way calendar sync (Pro) sends the person to Google or Microsoft to allow calendar access, but it never signs anyone in to Studyboard: the Studyboard account stays email and password, so guideline 4.8 (Sign in with Apple) does not apply. Say so in the review notes, with the scopes (Google `calendar.app.created` and `calendar.events.readonly`, Microsoft `Calendars.ReadWrite`) and that Studyboard only writes to the calendar it made. Give review a test Google account, or note that the feature is in Calendar Sync > Two-Way and optional.
+
 ## If you add Google sign-in later you must also add Sign in with Apple
 
 Guideline 4.8: an app that offers a third-party or social login must also offer an equivalent login that limits data to name and email, lets people hide their email, and does not track. Today Studyboard has none, so it needs nothing. If you ever add Google, Facebook, Microsoft or similar:
@@ -142,7 +146,7 @@ Also provide: screenshots for each device size you claim (6.9" and 6.5" iPhone, 
 Sources are UNTESTED (written without Xcode): do the device tests in `ios-wrapper/native/capture.md` section 5 first. Then:
 
 - [ ] Capabilities on **both** the App and the Share Extension targets: **App Groups** (`group.com.studioso.app`) and **Keychain Sharing** (`com.studioso.app.shared`); both registered in the Developer portal (Identifiers) and in the provisioning profiles (regenerate them after adding).
-- [ ] No `NSSiriUsageDescription` (App Intents need none; the key is for the old SiriKit extensions). No microphone or speech-recognition string: Siri does the listening.
+- [ ] No `NSSiriUsageDescription` (App Intents need none; the key is for the old SiriKit extensions). Voice capture needs no microphone string (Siri does the listening); `NSMicrophoneUsageDescription` and `NSSpeechRecognitionUsageDescription` are there for **Record a Lecture** (Pro) only, and the app asks only when the person presses Start Recording.
 - [ ] Share Extension `NSExtensionActivationRule` is the **dictionary** form (text, 1 web URL, 1 image), not `TRUEPREDICATE`; the extension has its own `PrivacyInfo.xcprivacy`.
 - [ ] Privacy manifest: no new required-reason API from the native code (Keychain, URLSession, App Group files). If you add App Group `UserDefaults`, add reason `1C8F.1` (verify on Apple's current list). Run Generate Privacy Report on the archive.
 - [ ] App Privacy answers unchanged (task text goes to the person's own account; same "Other User Content" row).
@@ -162,6 +166,8 @@ App Store Connect > App Privacy. Match these answers to `build-resources/ios/Pri
 | Contact Info > **Name** | Yes (optional display name) | Yes | App Functionality (shown to group members) | Study groups |
 | User Content > **Other User Content** | Yes | Yes | App Functionality (tasks, courses, notes, flashcards, file records, group messages, shared decks, bug-report text) | Synced to Supabase when signed in |
 | User Content > **Photos or Videos** | Yes (only what the person attaches) | Yes | App Functionality (stored files, bug-report screenshot) | Attachments |
+| User Content > **Audio Data** | Yes (only lecture recordings the person chooses to keep, Pro) | Yes | App Functionality (stored with their files) | Record a Lecture |
+| User Content > **Emails or Text Messages** | Yes (only emails the person forwards to their Studyboard address, Pro; subject, sender, up to 6,000 characters, deleted within 7 days of being read) | Yes | App Functionality | Email to Studyboard |
 | Identifiers > **User ID** | Yes | Yes | App Functionality (Supabase user id; RevenueCat app user id) | Account |
 | Identifiers > **Device ID** | Yes (random per-install id for the device limit and push) | Yes | App Functionality | Device registration, reminders |
 | Purchases > **Purchase History** | Yes (when Pro is on) | Yes | App Functionality (entitlement) | RevenueCat / Apple |
@@ -170,7 +176,7 @@ App Store Connect > App Privacy. Match these answers to `build-resources/ios/Pri
 | Diagnostics > **Crash Data** | Yes (anonymous error reports, on by default, switch in Settings: Send Anonymous Crash Reports; off by default with Do Not Track / Global Privacy Control) | **No** (random per-install id, never the account id; no email, tasks, notes, file names or IP stored by the app; set Sentry's "Prevent Storing of IP Addresses") | App Functionality | Sentry project you create, or your own Supabase (ERROR-REPORTING.md) |
 | Diagnostics > **Performance Data** | Yes (the same reports: app version, platform, plan tier, theme id, last few app actions such as which tab was open) | **No** | App Functionality | Same as Crash Data |
 
-Not collected: location, contacts, health and fitness, financial info, sensitive info, browsing or search history, audio, advertising data. (Crash Data and Performance Data are collected as in the table, but only if you paste a Sentry DSN or turn on the Supabase fallback; with neither, answer "not collected" for those two rows and remove the two entries from both `PrivacyInfo.xcprivacy` files. Sentry is a third-party partner: say so in App Review notes. Native iOS crash logs come from Apple (App Store Connect), not from the app.) (Search runs on the device; the optional "search by meaning" sends text to Google's embedding API with the person's own key, covered by the AI consent.)
+Not collected: location, contacts, health and fitness, financial info, sensitive info, browsing or search history, advertising data. (Audio Data is only a recording the person keeps; the live captions use the system or browser speech service and are not sent to us. Events read from a connected Google or Outlook calendar for busy times are Other User Content.) (Crash Data and Performance Data are collected as in the table, but only if you paste a Sentry DSN or turn on the Supabase fallback; with neither, answer "not collected" for those two rows and remove the two entries from both `PrivacyInfo.xcprivacy` files. Sentry is a third-party partner: say so in App Review notes. Native iOS crash logs come from Apple (App Store Connect), not from the app.) (Search runs on the device; the optional "search by meaning" sends text to Google's embedding API with the person's own key, covered by the AI consent.)
 
 **AI providers.** Studyboard does not receive what is sent to Google, Anthropic or OpenAI: it goes straight from the device to the company the person picked, with the person's own key, after consent. Say exactly that in the privacy policy ("third parties" section) and in the notes. If App Review asks, the conservative label answer is: User Content > Other User Content, shared with a third party **at the person's direction**.
 
@@ -186,6 +192,8 @@ Not collected: location, contacts, health and fitness, financial info, sensitive
 | Contact Info: **Name** (optional group display name) | Yes | No | App Functionality |
 | User Content: **Other User Content** (study data, notes, flashcards, files, group messages, bug report text) | Yes | No | App Functionality |
 | User Content: **Photos or Videos** (only files the person attaches) | Yes | No | App Functionality |
+| User Content: **Audio Data** (lecture recordings the person keeps) | Yes | No | App Functionality |
+| User Content: **Emails or Text Messages** (emails the person forwards to Email to Studyboard) | Yes | No | App Functionality |
 | Identifiers: **User ID** | Yes | No | App Functionality |
 | Identifiers: **Device ID** (random per-install id) | Yes | No | App Functionality |
 | Purchases: **Purchase History** (plan status only; we never receive card data) | Yes | No | App Functionality |
@@ -207,6 +215,9 @@ Not collected: location, contacts, health and fitness, financial info, sensitive
 | Personal info: User IDs | Collected, not shared; App functionality, Account management |
 | Messages: Other in-app messages | Collected (group chat), not shared outside the group; App functionality |
 | Photos and videos / Files and docs | Collected (only what the person uploads); not shared; App functionality |
+| Audio: Voice or sound recordings | Collected (only lecture recordings the person keeps, Pro); optional; not shared, except Transcribe with AI sends it to Google with the person's own key, at their direction; App functionality |
+| Messages: Emails | Collected (only emails the person forwards to their Studyboard address, Pro); optional; not shared; App functionality |
+| Personal info: Other info (calendar events) | Collected (only when the person connects Google Calendar or Outlook and chooses to bring in their events); optional; not shared; App functionality |
 | App activity: Other user-generated content | Collected (study data); not shared; App functionality |
 | Financial info: Purchase history | Collected (plan status from Google Play Billing/RevenueCat); not shared; App functionality |
 | App info and performance: Crash logs | Collected (anonymous reports; only if you set a Sentry DSN or the Supabase fallback); not shared; Analytics (diagnostics) or App functionality; the data is anonymous |

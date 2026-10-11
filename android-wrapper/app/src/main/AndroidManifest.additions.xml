@@ -8,6 +8,10 @@
          StudyboardNative.enablePush(). firebase-messaging also declares it; listing it here makes the requirement explicit.
          Capture (share sheet, tile, shortcuts) needs no extra permission. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Record a Lecture (Pro): the web view's getUserMedia({audio}) needs these. Capacitor's BridgeWebChromeClient asks for RECORD_AUDIO at runtime
+         when the page asks for the microphone (only when the person presses Start Recording). No camera permission. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
     <!-- (1) On the existing <application ...> element add these attributes (and keep the others Capacitor generated):
            android:networkSecurityConfig="@xml/network_security_config"
