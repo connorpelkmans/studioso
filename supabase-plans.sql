@@ -3,8 +3,9 @@
 -- It is safe to run again: it only adds what is missing, refreshes the rules, and never changes values you edited.
 --
 -- Nothing here blocks anyone until you turn the paywall on (the "paywall" row in studyboard_config).
--- While it is false, every plan check below lets everything through, exactly like before. The one exception is a set of generous
--- safety caps on synced data (see "Synced data limit"), so a single account can't fill the database whether the paywall is on or not.
+-- While it is false, every plan check below lets everything through, exactly like before. The exceptions, which apply whether the paywall
+-- is on or not: a set of generous safety caps on synced data (see "Synced data limit"), so a single account can't fill the database, and
+-- the plan's cloud file storage ("fileMB": 25 MB on Free), because uploaded files cost real storage.
 --
 -- What it adds:
 --  * studyboard_config        prices, limits and switches. Everyone can read it; only you (the SQL Editor or the service role) can change it.
@@ -39,7 +40,7 @@ alter table public.studyboard_config add constraint studyboard_config_no_secrets
 insert into public.studyboard_config (key, value) values
   ('paywall', 'false'),
   ('prices', '{"monthly": "$2.99", "yearly": "$24.99", "trialDays": 7, "currency": "USD"}'),
-  ('limits', '{"free": {"devices": 2, "fileMB": 100, "dataMB": 25, "groupMembers": 3, "groupMsgDays": 60, "cloudBackupDays": 0},
+  ('limits', '{"free": {"devices": 2, "fileMB": 25, "dataMB": 25, "groupMembers": 3, "groupMsgDays": 60, "cloudBackupDays": 0},
                "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}'),
   ('checkout_url_monthly', '""'),
   ('checkout_url_yearly', '""'),
@@ -49,6 +50,10 @@ insert into public.studyboard_config (key, value) values
   ('item_purchases', 'false'),
   ('features', '{"insights": false, "ai_credits": false}')
 on conflict (key) do nothing;
+-- Free cloud file storage went from 100 MB to 25 MB (photos are shrunk before upload, so it holds far more than it did). Projects
+-- still on the old starting value get the new one; a value you set yourself is left alone.
+update public.studyboard_config set value = jsonb_set(value, '{free,fileMB}', '25')
+  where key = 'limits' and value #> '{free,fileMB}' = '100'::jsonb;
 
 -- The free limits were lowered (devices 3 -> 2, group members 30 -> 3, group messages 120 -> 60 days).
 -- "on conflict do nothing" above would keep the old row, so move it over only if you never edited those values.
@@ -109,7 +114,7 @@ create or replace function public.studyboard_limit(uid uuid, name text) returns 
 language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare
   tier text := case when public.studyboard_is_pro(uid) then 'pro' else 'free' end;
-  defaults constant jsonb := '{"free": {"devices": 2, "fileMB": 100, "dataMB": 25, "groupMembers": 3, "groupMsgDays": 60, "cloudBackupDays": 0},
+  defaults constant jsonb := '{"free": {"devices": 2, "fileMB": 25, "dataMB": 25, "groupMembers": 3, "groupMsgDays": 60, "cloudBackupDays": 0},
                                "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}';
   lim jsonb := coalesce((select value from public.studyboard_config where key = 'limits'), defaults);
   v jsonb;
@@ -386,7 +391,9 @@ create or replace function public.plans_storage_quota() returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare uid uuid; lim bigint; used bigint; delta bigint;
 begin
-  if new.bucket_id <> 'studioso-files' or not public.studyboard_paywall() then return new; end if;
+  -- Unlike the other plan limits this one applies whether or not the paywall is on: uploaded files cost real storage, so a free account gets
+  -- the free plan's "fileMB" either way. Restoring an archived account is never limited.
+  if new.bucket_id <> 'studioso-files' or current_setting('studyboard.restoring', true) = '1' then return new; end if;
   uid := public.plans_object_owner(new.name);
   -- Files must live under "<user id>/...". A path without one would not be counted for anybody, so it is refused.
   if uid is null then
