@@ -7,8 +7,8 @@
 - Finish moment: A surge of bright water races down the falls tier by tier, the foam swells at each ledge, and where it lands the pool blooms with rings and a burst of sparkling droplets while a double rainbow (a silver moonbow at night) arches across the whole gorge. At night the glow-worm lights brighten in a wave up the walls.
 - Companions:
   1. Plip, Water Droplet — "A drop that took the long way down the falls and loved every tier of it." idle: topBob, sway, sparkle; cheer: bounce
-  2. Mossby, Mossy Pebble — "A smooth river stone with a soft moss cap. Has been sitting by the falls for a thousand years and is in no hurry." idle: topBob, bounce, sparkle; cheer: hop
-  3. Nebbia, Spray Cloud — "A puff of waterfall spray that keeps a tiny rainbow on its head. It comes out whenever the sun does." idle: sway, topBob, sparkle; cheer: spin
+  2. Dipper, American Dipper Chick — "A slate-grey chick that bobs on wet rocks and dives right in. Fearless." idle: bounce, wingFlutter, tailSwish; cheer: hop
+  3. Ottie, River Otter Pup — "Slides down the mossy rocks all day. Takes study breaks very seriously." idle: earTwitch, tailSwish, wave; cheer: hop
 
 ### Redwood Grove (id: redwoods) — Nature and Places
 - Scene: Towering red-brown redwood trunks with deep furrowed bark rise out of frame, row behind row fading into fog. Sword ferns and redwood sorrel (with little pink-white flowers) carpet the floor, a fallen mossy log with a ringed cut end lies across the middle, and flat redwood sprays hang in from the canopy.
@@ -17,5 +17,5 @@
 - Finish moment: The fog parts and a broad golden sunbeam (a silver moonbeam at night) sweeps across the grove from left to right, warming each trunk as it passes; behind it the redwood sorrel opens its little pink-white flowers one after another along the forest floor.
 - Companions:
   1. Cono, Redwood Cone — "Small enough to fit in your palm, holding the seeds of a tree taller than a skyscraper. Thinks big." idle: topBob, sway, bounce; cheer: hop
-  2. Hartley, Sorrel Sprout — "A sprig of redwood sorrel with three heart-shaped leaves and a soft pink flower. Folds up for a nap when the sun gets too bright." idle: sway, wave, topBob; cheer: spin
-  3. Burl, Sprouting Stump — "An old redwood stump with a brand-new shoot on top. Knows a lot about starting again." idle: topBob, bounce, sparkle; cheer: bounce
+  2. Nana, Banana Slug — "Bright as a banana, slow as a Sunday. Leaves a shiny trail of good vibes." idle: earTwitch, sway, tailSwish; cheer: bounce
+  3. Nutmeg, Baby Chipmunk — "Stuffs its cheeks with seeds and its head with facts. Never runs out." idle: tailSwish, earTwitch, wave; cheer: hop
