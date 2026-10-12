@@ -8,7 +8,7 @@
 - Companions:
   1. Selma, Harbor Seal Pup — "A round little seal pup who sunbathes on the fjord rocks between dips." idle: headTilt, wave, tailSwish; cheer: bounce
   2. Tova, Norway Lemming — "A round little lemming in a black cap and golden coat, bold as a mountain." idle: earTwitch, headTilt, tailSwish; cheer: hop
-  3. Bluebell, Harebell — "A nodding harebell from the cliff ledges who chimes softly when you do well." idle: headTilt, sway, wave; cheer: spin
+  3. Harriet, Harebell — "A nodding harebell from the cliff ledges who chimes softly when you do well." idle: headTilt, sway, wave; cheer: spin
 
 ### Storm Prairie (id: storm) — Nature and Places
 - Scene: A vast golden wheat prairie under a towering supercell: a billowing tower lit warm on its sunward side, a wide anvil spreading overhead with mammatus underneath, a striated rotating base with a dark lowering wall cloud, and grey rain curtains slanting down to the horizon on the right. A lone windbreak of cottonwoods and poplars stands on the horizon, a two-track road with fence posts runs off toward it, the storm's shadow lies over the far fields, and tall wheat, chicory and coneflowers line the bottom edge. The low sun glows on the left, so the light is dramatic but warm.

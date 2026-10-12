@@ -88,7 +88,7 @@
         }
       },
       {
-        id: "fjord-bluebell", name: "Bluebell", kind: "Harebell", pose: "stand", wearColor: "#E0603A",
+        id: "fjord-bluebell", name: "Harriet", kind: "Harebell", pose: "stand", wearColor: "#E0603A",
         bio: "A nodding harebell from the cliff ledges who chimes softly when you do well.",
         idle: ["headTilt", "sway", "wave"], cheer: "spin",
         neck: [60, 27],
