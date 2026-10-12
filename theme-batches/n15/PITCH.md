@@ -1,0 +1,21 @@
+## Batch n15
+
+### Fjord (id: fjord) — Nature and Places
+- Scene: A deep Norwegian fjord between sheer green-and-granite walls that plunge into still, dark water. Ribbon waterfalls pour down the walls (a cluster like the Seven Sisters on the left), a tiny red cabin with a turf roof stands on a grassy ledge high on the right wall, and layered snow-touched peaks fade into the distance. Everything is mirrored in the water. A grassy knoll with a weeping birch, a spruce, granite boulders and harebells frames the bottom left.
+- Palette hint: day sky #6E9FC8 → #C6DBE6 → #EEF1E8, water #C4D7DE → #5C88AA, granite #6A7884 / #909EA8, greens #2C5638 / #6A9A4C, cabin #B8392C; night (pale summer twilight) sky #25305E → #6E73A6 → #B49CB8 → #F0C8A8, water #AE98B2 → #1C2448
+- Loop: The waterfalls pour (bright streaks run down each ribbon and up its reflection) and mist breathes at their feet, low cloud drifts along the walls, glints twinkle and rings spread on the still water, smoke curls from the cabin chimney, and now and then a birch leaf flutters down and lands on the water with a ring. At night it is a pale summer twilight: the moon and its twin glow, stars twinkle, the moon's path glitters faintly, the cabin windows are lit and a shooting star passes.
+- Finish moment: The clouds part: sunbeams fan down the fjord, a warm light sweeps along the walls, the waterfalls flash and swell with spray, small rainbows stand in the spray of the big falls and a glitter path runs across the water. At night a pale moonbow arcs over the fjord, the moon brightens, its glitter path widens and two shooting stars cross the sky.
+- Companions:
+  1. Selma, Harbor Seal Pup — "A round little seal pup who sunbathes on the fjord rocks between dips." idle: headTilt, wave, tailSwish; cheer: bounce
+  2. Tova, Norway Lemming — "A round little lemming in a black cap and golden coat, bold as a mountain." idle: earTwitch, headTilt, tailSwish; cheer: hop
+  3. Bluebell, Harebell — "A nodding harebell from the cliff ledges who chimes softly when you do well." idle: headTilt, sway, wave; cheer: spin
+
+### Storm Prairie (id: storm) — Nature and Places
+- Scene: A vast golden wheat prairie under a towering supercell: a billowing tower lit warm on its sunward side, a wide anvil spreading overhead with mammatus underneath, a striated rotating base with a dark lowering wall cloud, and grey rain curtains slanting down to the horizon on the right. A lone windbreak of cottonwoods and poplars stands on the horizon, a two-track road with fence posts runs off toward it, the storm's shadow lies over the far fields, and tall wheat, chicory and coneflowers line the bottom edge. The low sun glows on the left, so the light is dramatic but warm.
+- Palette hint: day sky #46607E → #A8B6BE → #EAD2A2 with a warm sun glow, cloud #56647C / #8E9CB0 lit #EEDCC0, wheat #D8A646 / #F0C866; night sky #050A1C → #18264A → #2A3C64, cloud #1C2746 / #25335A, prairie #25304A
+- Loop: Gusts roll golden swells of light through the wheat and the tall ears along the bottom sway with them, chaff drifts on the breeze, rain streams from the curtains, scud drifts under the base, cloud shadows slide over the fields and lightning glows deep inside the core now and then. At night silent lightning flickers inside the clouds and lights up the land, a distant bolt sometimes flashes under the rain, and stars twinkle in the clear sky to the west.
+- Finish moment: The sun breaks under the cloud's edge: a wave of golden light and a great gust sweep across the wheat (every ear bows as it passes), chaff swirls up and a double rainbow stands against the dark rain. At night a burst of silent lightning crawls across the underside of the whole storm in three great flashes, lighting the prairie, and then the stars come out brighter.
+- Companions:
+  1. Sprig, Pronghorn Fawn — "A speedy pronghorn fawn with big ears who races the wind across the wheat." idle: earTwitch, tailSwish, headTilt; cheer: hop
+  2. Ollie, Burrowing Owlet — "A long-legged owlet who peeks out of his burrow to watch the storms roll by." idle: wingFlutter, headTilt, bounce; cheer: hop
+  3. Rumble, Little Thundercloud — "A small storm cloud with a golden lining and a very gentle rumble." idle: sway, sparkle, topBob; cheer: spin
