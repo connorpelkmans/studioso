@@ -1,4 +1,4 @@
-// ---- batch n16 engines: saguaro, baobab
+// ---- batch n16 engines: saguaro
 function n16_ease(u) { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); }
 function n16_env(T, a, b, c, d) { if (T < a || T > d) return 0; if (T < b) return n16_ease((T - a) / (b - a)); if (T <= c) return 1; return 1 - n16_ease((T - c) / (d - c)); }
 var n16_gc = null;
@@ -92,81 +92,3 @@ ENGINES.saguaro = function (A, v, dk) {
 };
 
 UIC.saguaro = {L: ['#6A3A6E', '#3E2448', 'rgba(255,255,255,0.84)', '#3A1E28', '#7A5A62', '#C8463A', '#C8463A', '#E0683E', '#FFFFFF'], D: ['#1E1E4A', '#0A0A22', 'rgba(20,20,48,0.78)', '#F2EEF8', '#B4AECA', '#F4A07A', '#F4A07A', '#F7BC96', '#1A0E18']};
-
-// ---------- Baobab Dusk: the puddles shimmer as the evening breeze ruffles them (their mirrored sky and trees waver), the grass
-// along the verges ripples, the afterglow at the end of the avenue breathes and warm dust motes drift. Night: the Milky Way
-// stands over the avenue, stars twinkle in the sky and in the puddles, and shooting stars cross both.
-// Moment: a last beam of sunset light runs down the avenue from the vanishing point: each pair of baobabs flashes gold along its
-// trunk as it passes, each puddle turns to a golden mirror with a spray of sparkles, and the sky blushes. At night the light is
-// silver, the Milky Way brightens and a meteor shower falls, mirrored in the puddles.
-ENGINES.baobab = function (A, v, dk) {
-  var W = v.bw, H = v.bh, ph = !v.desk, S = A.S, i, hz = A.hz, F = A.F, VX = A.VX;
-  var pds = A.pds.map(function (p) { return {path: new Path2D(p.d), cx: p.cx, cy: p.cy, rx: p.rx, ry: p.ry, z: F / Math.max(1, p.cy - hz)}; }), allP = new Path2D(); pds.forEach(function (p) { allP.addPath(p.path); });
-  var reflP = new Path2D(A.refl), trees = A.trees.map(function (t) { return {rim: new Path2D(t.rim), x: t.x, y: t.y, h: t.h, z: t.z}; });
-  var glowG = n16_rg(dk ? 'rgba(170,150,230,0.35)' : 'rgba(255,214,160,0.5)', [0.4, 0.3]), goldG = n16_rg(dk ? 'rgba(220,230,255,0.9)' : 'rgba(255,220,150,0.9)', [0.3, 0.35]), twG = n16_rg('rgba(255,250,240,0.95)', [0.25, 0.3]), moteG = n16_rg('rgba(255,224,170,0.9)', [0.3, 0.35]);
-  var pc = null, pcK = 0, stars = [], nextStar = 4, fin = null, spk = [];
-  var motes = []; for (i = 0; i < (ph ? 16 : 30); i++) motes.push({x: Math.random() * W, y: hz - H * 0.15 + Math.random() * (H - hz) * 0.9, ph: Math.random() * 6.28, sp: 3 + Math.random() * 7, r: (0.8 + Math.random() * 1.2) * S + 0.5});
-  // the puddles' contents (mirrored sky gradient and trees) painted once at device resolution
-  function paintPC(ca) { var tf = ca.getTransform(), k = tf.a; pc = document.createElement('canvas'); pc.width = ca.canvas.width; pc.height = ca.canvas.height; pcK = k; var g = pc.getContext('2d'); g.setTransform(tf);
-    g.save(); g.clip(allP); var gr = g.createLinearGradient(0, hz, 0, 2 * hz); A.SK.slice().reverse().forEach(function (q) { gr.addColorStop(1 - q[0], q[1]); }); g.fillStyle = gr; g.fillRect(0, hz, W, H - hz + 10);
-    if (dk) { g.fillStyle = 'rgba(240,244,255,0.85)'; for (var j = 0; j < 400; j++) { var px = Math.random() * W, py = hz + Math.random() * (H - hz); g.beginPath(); g.arc(px, py, 0.4 + Math.random() * 0.7, 0, 7); g.fill(); } }
-    else { g.fillStyle = 'rgba(255,236,200,0.25)'; pds.forEach(function (p) { n16_ell(g, p.cx, p.cy - p.ry * 0.5, p.rx * 0.8, p.ry * 0.25); g.fill(); }); }
-    g.fillStyle = dk ? 'rgba(4,4,14,0.8)' : 'rgba(90,50,74,0.62)'; g.fill(reflP); g.restore(); }
-  function inPuddles(c, fn) { c.save(); c.clip(allP); fn(c); c.restore(); }
-  return {
-    step: function (dt, t, f) {
-      motes.forEach(function (m) { m.x += m.sp * S * dt; m.y += Math.sin(t * 0.6 + m.ph) * 3 * S * dt; if (m.x > W + 10) m.x = -10; });
-      if (dk) { nextStar -= dt * f.s; if (nextStar <= 0) { nextStar = 6 + Math.random() * 8; stars.push({t0: t, x: W * (0.15 + Math.random() * 0.8), y: hz * (0.05 + Math.random() * 0.4), d: 1.1}); } }
-      stars = stars.filter(function (s) { return t - s.t0 < s.d + 0.2; });
-      spk.forEach(function (s) { s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 40 * S * dt; }); spk = spk.filter(function (s) { return t - s.t0 < 1.6; });
-      if (fin) { var T = t - fin.t0, zf = 60 * Math.pow(1 / 60, Math.min(1, T / 2.8));
-        pds.forEach(function (p) { if (!p.hit && zf < p.z) { p.hit = t; for (var k = 0; k < (ph ? 14 : 24); k++) { var a = Math.random() * 6.28, rr = Math.random(); spk.push({x: p.cx + Math.cos(a) * p.rx * rr, y: p.cy + Math.sin(a) * p.ry * rr, vx: (Math.random() - 0.5) * 40 * S, vy: -(30 + Math.random() * 60) * S, t0: t, r: (1 + Math.random() * 1.6) * S + 0.6}); } } });
-        trees.forEach(function (tr) { if (!tr.hit && zf < tr.z) tr.hit = t; });
-        if (T > 12) { fin = null; pds.forEach(function (p) { p.hit = 0; }); trees.forEach(function (tr) { tr.hit = 0; }); } }
-    },
-    draw: function (ca, cb, t, f) { var tt = t * f.s, T = fin ? t - fin.t0 : -1, bk = fin ? n16_env(T, 0, 1, 6, 10) : 0;
-      if (!pc || pc.width !== ca.canvas.width || pcK !== ca.getTransform().a) paintPC(ca);
-      // the afterglow at the end of the avenue (behind the trees), twinkling stars, shooting stars
-      ca.save(); ca.globalCompositeOperation = 'lighter';
-      n16_glow(ca, glowG, VX, hz, W * 0.4 * (1 + 0.04 * Math.sin(tt * 0.5) + bk * 0.4), 0.7 + bk * 0.3, 0.35);
-      if (bk > 0 && !dk) n16_glow(ca, n16_rg('rgba(255,160,150,0.4)', [0.5, 0.3]), VX, hz * 0.6, W * 0.8, bk * 0.6, 0.6);
-      // the sun peeks out once more at the end of the avenue, its rays fanning up between the trunks
-      var pk = fin && !dk ? n16_env(T, 0, 0.6, 3, 6) : 0;
-      if (pk > 0) { n16_glow(ca, goldG, VX, hz, 26 * S + 10, pk, 0.8); n16_glow(ca, glowG, VX, hz, W * 0.25, pk * 0.8, 0.5);
-        for (i = 0; i < 13; i++) { var ra = -Math.PI + 0.08 + i * (Math.PI - 0.16) / 12 + Math.sin(tt * 0.5 + i) * 0.015, Lr = W, wr = 0.016 + (i % 3) * 0.008; ca.fillStyle = dk ? 'rgba(200,210,255,' + (0.07 * pk) + ')' : 'rgba(255,226,180,' + (0.13 * pk) + ')'; ca.beginPath(); ca.moveTo(VX, hz); ca.lineTo(VX + Math.cos(ra - wr) * Lr, hz + Math.sin(ra - wr) * Lr); ca.lineTo(VX + Math.cos(ra + wr) * Lr, hz + Math.sin(ra + wr) * Lr); ca.closePath(); ca.fill(); } }
-      if (dk) { A.tw.forEach(function (s, j) { var a = Math.pow(Math.max(0, Math.sin(tt * 1.2 + s[2] * 6.28 + j)), 4); n16_glow(ca, twG, s[0], s[1], 3 + a * 3.5, a * 0.9); });
-        if (bk > 0) { var ang = (ph ? -82 : -73) * Math.PI / 180, LEN = Math.hypot(W, hz) * 1.1; for (i = 1; i < 8; i++) n16_glow(ca, glowG, VX - W * 0.05 + Math.cos(ang) * LEN * i / 10, hz + Math.sin(ang) * LEN * i / 10, W * 0.12 * (ph ? 1.5 : 1), bk * 0.5); } }
-      ca.restore();
-      // the puddles, wavering in the breeze: their contents laid down in thin rows, each nudged sideways
-      ca.save(); ca.setTransform(1, 0, 0, 1, 0, 0); var k = pcK;
-      pds.forEach(function (p, j) { var y0 = Math.floor((p.cy - p.ry * 1.2) * k), y1 = Math.ceil((p.cy + p.ry * 1.2) * k), x0 = Math.max(0, Math.floor((p.cx - p.rx * 1.2) * k)), x1 = Math.min(pc.width, Math.ceil((p.cx + p.rx * 1.2) * k)), st = Math.max(2, Math.round(k * 1.5)), gust = 0.5 + 0.5 * Math.sin(tt * 0.5 + j * 1.3);
-        for (var yy = Math.max(0, y0); yy < Math.min(pc.height, y1); yy += st) { var dx = Math.sin(yy / k * 0.45 + tt * 2.2 + j) * (0.4 + gust * 1.1) * k * S * (p.rx / 100 + 0.5) * 0.6; ca.drawImage(pc, x0, yy, x1 - x0, st, x0 + dx, yy, x1 - x0, st); } });
-      ca.restore();
-      // breeze streaks sliding over the water, and shooting stars mirrored in it
-      inPuddles(ca, function (c) { pds.forEach(function (p, j) { var u = ((tt * 0.07 + j * 0.37) % 1.4) - 0.2, a = Math.sin(Math.PI * Math.max(0, Math.min(1, u))); if (a <= 0.02) return; c.fillStyle = dk ? 'rgba(180,190,255,' + (0.12 * a) + ')' : 'rgba(255,240,220,' + (0.28 * a) + ')'; for (var m = 0; m < 3; m++) { n16_ell(c, p.cx - p.rx + u * p.rx * 2 + m * p.rx * 0.12, p.cy - p.ry * 0.4 + m * p.ry * 0.35, p.rx * 0.35, Math.max(0.6, p.ry * 0.05), 0); c.fill(); } });
-        stars.forEach(function (s) { n16_shoot(c, {t0: s.t0, x: s.x, y: 2 * hz - s.y}, t, s.d, W * 0.15, -H * 0.06 * -1, 'rgba(230,236,255,A)'); });
-        if (fin && dk) fin.ms.forEach(function (s) { n16_shoot(c, {t0: s.t0, x: s.x, y: 2 * hz - s.y}, t, 0.9, -W * 0.18, -H * 0.1, 'rgba(240,244,255,A)'); });
-        // the moment: each puddle turns to a golden (silver) mirror as the light passes
-        if (fin) { c.globalCompositeOperation = 'lighter'; pds.forEach(function (p) { if (!p.hit) return; var a = n16_env(t - p.hit, 0, 0.3, 1.6, 3.6); if (a > 0) n16_glow(c, goldG, p.cx, p.cy, p.rx * 1.3, a * 0.75, p.ry / p.rx * 1.6); }); } });
-      // the beam of light running down the road
-      if (fin && T < 3.6) { var zf = 60 * Math.pow(1 / 60, Math.min(1, T / 2.8)), yf = hz + F / zf, rw = A.RW * F / zf, al = n16_env(T, 0, 0.3, 2.6, 3.6);
-        ca.save(); ca.globalCompositeOperation = 'lighter';
-        var rg = ca.createLinearGradient(0, hz, 0, yf + 4); rg.addColorStop(0, dk ? 'rgba(200,210,255,0)' : 'rgba(255,210,150,0)'); rg.addColorStop(1, dk ? 'rgba(200,210,255,' + (0.3 * al) + ')' : 'rgba(255,210,150,' + (0.45 * al) + ')'); ca.fillStyle = rg;
-        ca.beginPath(); ca.moveTo(VX - A.RW * F / 60, hz + F / 60); ca.lineTo(VX + A.RW * F / 60, hz + F / 60); ca.lineTo(VX + rw, yf); ca.lineTo(VX - rw, yf); ca.closePath(); ca.fill();
-        n16_glow(ca, goldG, VX, yf, rw * 1.6 + 8, al * 0.7, 0.25); n16_glow(ca, glowG, VX, (yf + hz) / 2, rw + 20, al * 0.6, Math.max(0.3, (yf - hz) / (rw + 20) * 0.6)); ca.restore(); }
-      // drifting dust motes in the warm light (day)
-      if (!dk) { ca.save(); ca.globalCompositeOperation = 'lighter'; motes.forEach(function (m) { var a = 0.3 + 0.7 * Math.pow(Math.max(0, Math.sin(tt * 1.5 + m.ph)), 2); n16_glow(ca, moteG, m.x, m.y, m.r * 2.6, a * 0.5); }); ca.restore(); }
-      else stars.forEach(function (s) { n16_shoot(ca, s, t, s.d, W * 0.15, H * 0.06, 'rgba(255,248,236,A)'); });
-      // the moment on the trees: each trunk's lit edge flashes as the light reaches it
-      if (fin) { cb.save(); cb.globalCompositeOperation = 'lighter'; trees.forEach(function (tr) { if (!tr.hit) return; var a = n16_env(t - tr.hit, 0, 0.25, 1.4, 3.4); if (a <= 0) return; cb.fillStyle = dk ? 'rgba(200,210,255,' + (0.7 * a) + ')' : 'rgba(255,214,150,' + (0.8 * a) + ')'; cb.fill(tr.rim); n16_glow(cb, glowG, tr.x, tr.y - tr.h * 0.45, tr.h * 0.35, a * 0.5, 1.4); });
-        spk.forEach(function (s) { var a = Math.min(1, (t - s.t0) * 4) * (1 - (t - s.t0) / 1.6); cb.fillStyle = dk ? 'rgba(235,240,255,' + a + ')' : 'rgba(255,236,180,' + a + ')'; n16_spark(cb, s.x, s.y, s.r * 2); });
-        if (dk) fin.ms.forEach(function (s) { n16_shoot(cb, s, t, 0.9, -W * 0.18, H * 0.1, 'rgba(255,250,240,A)'); }); cb.restore(); }
-      // tall grass along the bottom edge rippling in the breeze
-      cb.lineCap = 'round'; A.gr.forEach(function (b) { var g = 0.5 + 0.5 * Math.sin(b.x * 0.005 - tt * 1.1), bend = (g * g * 0.55 + b.lean + Math.sin(tt * 2.1 + b.ph) * 0.05) * b.h * 0.5; cb.strokeStyle = dk ? (b.c ? '#2E3A48' : '#243040') : (b.c ? '#B8A262' : '#8E8446'); cb.lineWidth = ph ? 1.6 : 2; cb.beginPath(); cb.moveTo(b.x, H + 4); cb.quadraticCurveTo(b.x + bend * 0.3, H + 4 - b.h * 0.6, b.x + bend, H + 4 - b.h + Math.abs(bend) * 0.15); cb.stroke(); });
-    },
-    finish: function (t) { fin = {t0: t, ms: []}; pds.forEach(function (p) { p.hit = 0; }); trees.forEach(function (tr) { tr.hit = 0; });
-      if (dk) for (i = 0; i < (ph ? 7 : 12); i++) fin.ms.push({t0: t + 0.4 + i * 0.32 + Math.random() * 0.3, x: W * (0.25 + Math.random() * 0.75), y: hz * (0.05 + Math.random() * 0.45)}); }
-  };
-};
-
-UIC.baobab = {L: ['#7A4A48', '#4A2A2C', 'rgba(255,255,255,0.84)', '#3A2420', '#7A6058', '#B8503A', '#B8503A', '#D0704E', '#FFFFFF'], D: ['#1A1E44', '#080A1E', 'rgba(16,20,46,0.78)', '#EEF0FA', '#AAB0CC', '#F2A58A', '#F2A58A', '#F6C0A6', '#180E12']};

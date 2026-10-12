@@ -1,4 +1,4 @@
-// ---- batch n11 engines: meadow, glowbay
+// ---- batch n11 engines: glowbay
 function n11_ease(u) { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); }
 function n11_env(T, a, b, c, d) { if (T < a || T > d) return 0; if (T < b) return n11_ease((T - a) / (b - a)); if (T <= c) return 1; return 1 - n11_ease((T - c) / (d - c)); }
 var n11_gc = null;
@@ -6,7 +6,6 @@ function n11_ctx() { return n11_gc || (n11_gc = document.createElement('canvas')
 // a unit radial glow (radius 1) centred on 0,0 that fades to transparent; draw it with n11_glow
 function n11_rg(col, mid) { var g = n11_ctx().createRadialGradient(0, 0, 0, 0, 0, 1); g.addColorStop(0, col); if (mid) g.addColorStop(mid[0], col.replace(/[\d.]+\)$/, mid[1] + ')')); g.addColorStop(1, col.replace(/[\d.]+\)$/, '0)')); return g; }
 function n11_glow(c, g, x, y, r, a, sy) { if (a <= 0.003 || r <= 0) return; c.save(); c.globalAlpha = Math.min(1, a); c.translate(x, y); c.scale(r, r * (sy || 1)); c.fillStyle = g; c.beginPath(); c.arc(0, 0, 1, 0, 7); c.fill(); c.restore(); }
-function n11_ell(c, x, y, rx, ry, rot) { c.beginPath(); c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), rot || 0, 0, 7); }
 function n11_line(c, pts) { c.beginPath(); pts.forEach(function (p, j) { if (j) c.lineTo(p[0], p[1]); else c.moveTo(p[0], p[1]); }); }
 function n11_spark(c, x, y, r) { c.beginPath(); c.moveTo(x, y - r); c.lineTo(x + r * 0.25, y - r * 0.25); c.lineTo(x + r, y); c.lineTo(x + r * 0.25, y + r * 0.25); c.lineTo(x, y + r); c.lineTo(x - r * 0.25, y + r * 0.25); c.lineTo(x - r, y); c.lineTo(x - r * 0.25, y - r * 0.25); c.closePath(); c.fill(); }
 // draw fn(ctx) on a scratch canvas, erase what the mask (a Path2D of shapes nearer than the drawing) covers, then lay it on c:
@@ -16,102 +15,6 @@ function n11_occl(c, mask, fn) { var cv = c.canvas, W = cv.width, H = cv.height;
   var g = n11_scr.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H); g.setTransform(c.getTransform()); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
   fn(g); g.globalAlpha = 1; g.globalCompositeOperation = 'destination-out'; g.fillStyle = '#000'; g.fill(mask); g.globalCompositeOperation = 'source-over';
   c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'source-over'; c.drawImage(n11_scr, 0, 0); c.restore(); }
-
-// ---------- Poppy Meadow: wind gusts roll through the tall grass and flowers, cloud shadows slide over the meadow, glints run
-// down the stream and a poppy petal drifts off now and then. Night: moonlit, silvered grass, closed flowers, drifting mist, stars.
-// Moment: a warm gust sweeps across: every flower nods (and opens under the moon), a ribbon of petals spirals up into the sky,
-// new poppies pop up across the meadow behind it, and sunbeams fan out from behind the clouds (the moon's halo brightens at night).
-// one meadow flower on a canvas: k 0 poppy, 1 cornflower, 2 daisy; o: 0 closed bud .. 1 open (cornflowers are always open)
-function n11_fdraw(c, x, y, r, k, o, dk, tilt) { c.save(); c.translate(x, y); c.rotate(tilt || 0); var i;
-  if (k === 1) { c.fillStyle = dk ? '#3E52A0' : '#4C78DA'; c.beginPath(); for (i = 0; i < 18; i++) { var a = i * Math.PI / 9 - Math.PI / 2, q = i % 2 ? r * 0.55 : r; c.lineTo(Math.cos(a) * q, Math.sin(a) * q * 0.82); } c.closePath(); c.fill();
-    c.fillStyle = dk ? '#2C3A7C' : '#2E58B8'; c.beginPath(); for (i = 0; i < 18; i++) { var a2 = i * Math.PI / 9 - Math.PI / 2 + 0.17, q2 = i % 2 ? r * 0.3 : r * 0.58; c.lineTo(Math.cos(a2) * q2, Math.sin(a2) * q2 * 0.82); } c.closePath(); c.fill();
-    c.fillStyle = dk ? '#1A2050' : '#1E2A6A'; n11_ell(c, 0, 0, r * 0.2, r * 0.16); c.fill(); c.restore(); return; }
-  var b = 1 - n11_ease(o * 2), f = n11_ease(o * 2 - 1);
-  if (b > 0.01) { c.save(); c.scale(b, b); if (k === 0) c.rotate(0.55);
-    c.fillStyle = k === 0 ? (dk ? '#7A3044' : '#B8322A') : (dk ? '#B8C0DA' : '#F6F4EA'); n11_ell(c, 0, -r * 0.1, r * 0.34, r * 0.58); c.fill();
-    c.fillStyle = dk ? '#2E4C50' : '#4E8A36'; n11_ell(c, -r * 0.14, r * 0.34, r * 0.16, r * 0.3, 0.4); c.fill(); n11_ell(c, r * 0.14, r * 0.34, r * 0.16, r * 0.3, -0.4); c.fill(); c.restore(); }
-  if (f > 0.01) { c.save(); c.scale(f, f);
-    if (k === 0) { c.fillStyle = dk ? '#A8364E' : '#C82A22'; n11_ell(c, -r * 0.5, -r * 0.22, r * 0.6, r * 0.56); c.fill(); n11_ell(c, r * 0.5, -r * 0.22, r * 0.6, r * 0.56); c.fill(); n11_ell(c, 0, -r * 0.42, r * 0.62, r * 0.48); c.fill();
-      c.fillStyle = dk ? '#D44C64' : '#F04A34'; n11_ell(c, -r * 0.36, r * 0.1, r * 0.58, r * 0.62, -0.3); c.fill(); n11_ell(c, r * 0.36, r * 0.1, r * 0.58, r * 0.62, 0.3); c.fill();
-      c.fillStyle = dk ? 'rgba(255,190,210,0.28)' : 'rgba(255,196,170,0.45)'; n11_ell(c, -r * 0.46, -r * 0.02, r * 0.16, r * 0.32, -0.4); c.fill();
-      c.fillStyle = '#24161A'; n11_ell(c, 0, -r * 0.36, r * 0.36, r * 0.15); c.fill(); c.fillStyle = dk ? '#6A7A50' : '#7A9A3A'; n11_ell(c, 0, -r * 0.38, r * 0.13, r * 0.06); c.fill(); }
-    else { c.save(); c.scale(1, 0.78); c.fillStyle = dk ? '#C8D0EA' : '#FFFFFF'; for (i = 0; i < 12; i++) { var a3 = i / 12 * Math.PI * 2; n11_ell(c, Math.cos(a3) * r * 0.56, Math.sin(a3) * r * 0.56, r * 0.46, r * 0.14, a3); c.fill(); }
-      c.fillStyle = dk ? '#A8A070' : '#F6C83A'; n11_ell(c, 0, 0, r * 0.3, r * 0.3); c.fill(); c.fillStyle = dk ? '#8A8458' : '#E2A420'; n11_ell(c, r * 0.08, r * 0.08, r * 0.16, r * 0.16); c.fill(); c.restore(); }
-    c.restore(); }
-  c.restore(); }
-ENGINES.meadow = function (A, v, dk) {
-  var W = v.bw, H = v.bh, ph = !v.desk, S = A.S, Sn = A.sun, i, tnow = 0;
-  var sunG = n11_rg(dk ? 'rgba(210,222,255,0.3)' : 'rgba(255,250,215,0.5)', [0.4, 0.3]), shG = n11_rg('rgba(24,70,40,0.17)', [0.55, 0.65]), mistG = n11_rg('rgba(170,190,240,0.12)', [0.5, 0.55]), gustG = n11_rg('rgba(240,255,190,0.3)', [0.5, 0.4]), glowG = n11_rg('rgba(220,230,255,0.55)', [0.3, 0.3]), twG = n11_rg('rgba(255,250,235,0.9)', [0.25, 0.3]);
-  var fl = A.fl.map(function (f) { return {x: f.x, y: f.y, h: f.h, k: f.k, r: f.r, ph: f.ph, o: dk && f.k !== 1 ? 0 : 1, tOpen: 0}; });
-  var gr = A.gr, ss = A.st, n = ss.length, spots = A.spots.slice().sort(function (a, b) { return a[0] - b[0]; });
-  var glints = []; for (i = 0; i < (ph ? 16 : 28); i++) glints.push({u: Math.random(), sp: 0.025 + Math.random() * 0.025, off: (Math.random() - 0.5) * 1.3, ph: Math.random() * 6.28});
-  var tws = []; for (i = 0; i < 300 && tws.length < (ph ? 10 : 22); i++) { var tx = Math.random() * W, ty = Math.random() * A.peak, ok = Math.hypot(tx - Sn[0], ty - Sn[1]) > Sn[2] * 3; A.boxes.forEach(function (b) { if (tx > b[0] - 6 && tx < b[2] + 6 && ty > b[1] - 6 && ty < b[3] + 6) ok = false; }); if (ok) tws.push([tx, ty, Math.random() * 6.28]); }
-  var petals = [], pops = [], swirl = [], fin = null, stars = [], nextStar = 5;
-  function finW(x) { if (!fin) return 0; var T = tnow - fin.t0; if (T > 3.4) return 0; var xf = -150 + (W + 300) * (T / 2.8), d = (x - xf) / (W * 0.1 + 60); return 1.15 * Math.exp(-d * d); }
-  function wind(x, t) { var g = 0.5 + 0.5 * Math.sin(x * 0.005 - t * 1.4); return 0.2 + g * g * 0.65 + Math.sin(t * 2.1 + x * 0.03) * 0.07 + finW(x); }
-  return {
-    step: function (dt, t, f) { tnow = t;
-      if (!dk && Math.random() < dt * 0.45 && petals.length < 8) { var src = fl[Math.floor(Math.random() * fl.length)]; if (src.k !== 1) petals.push({x: src.x + 8, y: src.y - src.h, vx: (24 + Math.random() * 30) * S, vy: -(8 + Math.random() * 16) * S, t0: t, ph: Math.random() * 6.28, c: src.k ? '#FFFFFF' : '#EA4630'}); }
-      petals.forEach(function (p) { p.x += p.vx * dt * (0.6 + wind(p.x, t)); p.y += (p.vy + Math.sin((t - p.t0) * 2.2 + p.ph) * 16 * S) * dt; }); petals = petals.filter(function (p) { return t - p.t0 < 8 && p.x < W + 30; });
-      if (dk) { nextStar -= dt * f.s; if (nextStar <= 0) { nextStar = 9 + Math.random() * 10; stars.push({t0: t, x: W * (0.25 + Math.random() * 0.7), y: H * (0.03 + Math.random() * 0.1)}); } }
-      stars = stars.filter(function (s) { return t - s.t0 < 1.2; });
-      if (fin) { var T = t - fin.t0, xf = -150 + (W + 300) * (T / 2.8);
-        fl.forEach(function (fo) { if (!fo.hit && xf > fo.x) { fo.hit = 1; fo.tOpen = t; } });
-        if (T < 3.1) { var em = dt * (ph ? 34 : 60); while (em > 0) { if (Math.random() < em) { var kk = Math.random(); swirl.push({x: xf - Math.random() * 80, y: H * (0.72 + Math.random() * 0.26), vx: (90 + Math.random() * 110) * S * (ph ? 0.9 : 1.3), vy: -(40 + Math.random() * 90) * S, t0: t, ph: Math.random() * 6.28, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 8, c: kk < 0.6 ? 0 : kk < 0.85 ? 1 : 2}); } em -= 1; } }
-        while (fin.si < spots.length && spots[fin.si][0] < xf) { var sp = spots[fin.si]; if (Math.random() < (ph ? 0.6 : 0.85)) pops.push({x: sp[0], y: sp[1], r: (1.6 + sp[2] * sp[2] * 7) * S * (ph ? 1.5 : 1.1) + 1.5, t0: t + Math.random() * 0.3, k: Math.random() < 0.75 ? 0 : 2}); fin.si++; }
-        if (T > 16) { fin = null; fl.forEach(function (fo) { fo.hit = 0; }); } }
-      swirl.forEach(function (s) { var age = t - s.t0; s.vy -= 26 * S * dt; s.x += (s.vx + Math.cos(age * 3 + s.ph) * 60 * S) * dt; s.y += (s.vy + Math.sin(age * 3 + s.ph) * 40 * S) * dt; s.rot += s.vr * dt; }); swirl = swirl.filter(function (s) { return t - s.t0 < 5.5 && s.y > -30; });
-      pops = pops.filter(function (p) { return t - p.t0 < 34; });
-      fl.forEach(function (fo) { var want = !dk || fo.k === 1 ? 1 : (fo.tOpen && t - fo.tOpen < 10 ? 1 : 0); fo.o += (want - fo.o) * Math.min(1, dt * (want > fo.o ? 3.5 : 0.7)); });
-    },
-    draw: function (ca, cb, t, f) { tnow = t; var tt = t * f.s, T = fin ? t - fin.t0 : -1, rk = fin ? n11_env(T, 0.4, 1.4, 5, 8) : 0;
-      // the sun's soft glow (the moon's at night), stronger in the moment
-      ca.save(); ca.globalCompositeOperation = 'lighter'; n11_glow(ca, sunG, Sn[0], Sn[1], Sn[2] * (dk ? 4.2 : 3.6) * (1 + 0.03 * Math.sin(tt * 0.7) + rk * 0.5), 0.75 + rk * 0.25);
-      if (rk > 0 && !dk) { for (i = 0; i < 8; i++) { var a = 0.08 + i * 0.16 + Math.sin(tt * 0.3 + i) * 0.02, L = W * 1.1, w = (30 + i % 3 * 20) * S; ca.fillStyle = 'rgba(255,248,215,' + (0.1 * rk * (0.6 + 0.4 * Math.sin(tt * 1.3 + i * 2))) + ')'; ca.beginPath(); ca.moveTo(Sn[0], Sn[1]); ca.lineTo(Sn[0] + Math.cos(a - 0.03) * L - w, Sn[1] + Math.sin(a - 0.03) * L); ca.lineTo(Sn[0] + Math.cos(a + 0.03) * L + w, Sn[1] + Math.sin(a + 0.03) * L); ca.closePath(); ca.fill(); } }
-      if (dk) tws.forEach(function (s, j) { var a2 = Math.pow(Math.max(0, Math.sin(tt * 1.3 + s[2] + j)), 4); n11_glow(ca, twG, s[0], s[1], 4 + a2 * 3, a2 * 0.9); });
-      ca.restore();
-      // cloud shadows sliding over the meadow by day; by night, mist drifting low over the hills
-      if (!dk) { for (i = 0; i < 3; i++) { var cx = ((tt * 10 + i * 560) % (W + 1000)) - 500, cy = A.gy + (H - A.gy) * (0.12 + i * 0.3); n11_glow(ca, shG, cx, cy, (320 + i * 80) * S * (ph ? 1.4 : 1), 1, 0.16 + i * 0.05); }
-        var gx = ((tt * 70) % (W + 700)) - 350; n11_glow(ca, gustG, gx, A.gy + (H - A.gy) * 0.55, 300 * S, 0.8, 0.3); }
-      else { for (i = 0; i < 4; i++) { var mx = ((tt * (5 + i) + i * 420) % (W + 900)) - 450, my = A.hz + H * (0.025 + i * 0.035); n11_glow(ca, mistG, mx, my, (300 + i * 50) * S * (ph ? 1.4 : 1), 0.9, 0.11); } }
-      // glints running down the stream
-      ca.fillStyle = dk ? '#CCD8FF' : '#FFFFFF';
-      glints.forEach(function (g) { var u = (g.u + tt * g.sp) % 1, j = Math.min(n - 1, Math.floor(u * (n - 1))), s = ss[j]; if (s.hw < 2.5) return; var off = g.off * s.hw * 0.6, x = s.x - Math.sin(s.a) * off, y = s.y + Math.cos(s.a) * off * 0.45, a3 = Math.sin(Math.PI * u) * (0.45 + 0.55 * Math.max(0, Math.sin(tt * 2.6 + g.ph)));
-        ca.globalAlpha = a3 * (dk ? 0.6 : 0.9); n11_ell(ca, x, y, s.hw * 0.32, Math.max(0.6, s.hw * 0.055), s.a); ca.fill(); }); ca.globalAlpha = 1;
-      // two tiny birds far off, now and then (day)
-      var bu = (tt / 60) % 1; if (!dk && bu < 0.5) { var bx = -40 + (W + 80) * bu / 0.5, by = H * (ph ? 0.2 : 0.16) + Math.sin(bu * 9) * 8; ca.strokeStyle = 'rgba(60,72,96,0.6)'; ca.lineWidth = 1.2; ca.lineCap = 'round'; ca.beginPath();
-        [[0, 0], [11 * S + 4, 5 * S + 2]].forEach(function (q, j) { var s2 = 3 * S + 1.6, fp = Math.sin(tt * 6 + j * 2) * 0.6, x2 = bx - q[0], y2 = by + q[1]; ca.moveTo(x2 - s2, y2 - s2 * (0.3 + fp * 0.5)); ca.quadraticCurveTo(x2 - s2 * 0.4, y2 - s2 * 0.4, x2, y2); ca.quadraticCurveTo(x2 + s2 * 0.4, y2 - s2 * 0.4, x2 + s2, y2 - s2 * (0.3 + fp * 0.5)); }); ca.stroke(); }
-      // new poppies that sprang up behind the gust
-      pops.forEach(function (p) { var age = t - p.t0; if (age < 0) return; var k = age / 0.5, sc = (k >= 1 ? 1 : n11_ease(k) * (1 + 0.3 * Math.sin(Math.PI * k))) * (1 - n11_ease((age - 30) / 4)); if (sc <= 0.01) return;
-        ca.strokeStyle = dk ? '#2C484C' : '#4B8A34'; ca.lineWidth = Math.max(1, p.r * 0.18); ca.beginPath(); ca.moveTo(p.x, p.y + p.r * 2.2); ca.quadraticCurveTo(p.x - p.r * 0.2, p.y + p.r * 1.2, p.x, p.y + p.r * (2.2 - 1.8 * sc)); ca.stroke();
-        if (dk) { ca.save(); ca.globalCompositeOperation = 'lighter'; n11_glow(ca, glowG, p.x, p.y + p.r * (0.4 - 0.4 * sc), p.r * 2.2, 0.35 * sc); ca.restore(); }
-        n11_fdraw(ca, p.x, p.y + p.r * 0.4 * (1 - sc), p.r * sc, p.k, 1, dk, 0); });
-      // petals drifting on the breeze
-      petals.forEach(function (p) { var age = t - p.t0; cb.save(); cb.globalAlpha = Math.min(1, age * 2) * Math.min(1, (8 - age) / 1.5); cb.translate(p.x, p.y); cb.rotate(age * 3 + p.ph); cb.fillStyle = p.c; n11_ell(cb, 0, 0, 4 * S + 1.4, 2.2 * S + 0.8); cb.fill(); cb.restore(); });
-      // the tall grass and flowers along the bottom edge, swaying as gusts pass (half the grass behind the flowers, half in front)
-      cb.lineCap = 'round';
-      var blade = function (b) { var bend = (wind(b.x, tt) * 0.55 + b.lean) * b.h * 0.6, x = b.x, y = H + 4;
-        cb.strokeStyle = dk ? (b.c ? '#26424A' : '#33525A') : (b.c ? '#4E9A38' : '#78BC4C'); cb.lineWidth = (ph ? 2.2 : 2.8) * S + 0.6; cb.beginPath(); cb.moveTo(x, y); cb.quadraticCurveTo(x + bend * 0.25, y - b.h * 0.6, x + bend, y - b.h + Math.abs(bend) * 0.15); cb.stroke();
-        if (dk) { cb.strokeStyle = 'rgba(190,206,236,' + (0.3 + wind(b.x, tt) * 0.25) + ')'; cb.lineWidth = 1.1; cb.beginPath(); cb.moveTo(x + bend * 0.7, y - b.h * 0.82); cb.lineTo(x + bend, y - b.h + Math.abs(bend) * 0.15); cb.stroke(); } };
-      gr.forEach(function (b, j) { if (j % 2) blade(b); });
-      fl.forEach(function (fo) { var w = wind(fo.x, tt), bend = w * fo.h * 0.3 + Math.sin(tt * 1.6 + fo.ph) * 2 * S, hx = fo.x + bend + fo.h * 0.04, hy = fo.y - fo.h + Math.abs(bend) * 0.14, pk = fo.tOpen ? (t - fo.tOpen) / 0.6 : 2, pop = pk < 1 ? 1 + 0.22 * Math.sin(Math.PI * pk) : 1;
-        cb.strokeStyle = dk ? '#2C484C' : '#4B8A34'; cb.lineWidth = 2 * S + 0.6; cb.beginPath(); cb.moveTo(fo.x, fo.y); cb.quadraticCurveTo(fo.x + bend * 0.2, fo.y - fo.h * 0.55, hx, hy + fo.r * 0.45); cb.stroke();
-        cb.fillStyle = dk ? '#2C484C' : '#5A9A3E'; [0.32, 0.5].forEach(function (u, j) { var lx = fo.x + bend * 0.2 * u * 2, ly = fo.y - fo.h * u, sd = j ? 1 : -1; n11_ell(cb, lx + sd * fo.r * 0.45, ly, fo.r * 0.5, fo.r * 0.14, sd * 0.5 - 0.2); cb.fill(); });
-        if (dk && fo.k !== 1 && fo.o > 0.05) { cb.save(); cb.globalCompositeOperation = 'lighter'; n11_glow(cb, glowG, hx, hy, fo.r * 2.4, fo.o * 0.4); cb.restore(); }
-        n11_fdraw(cb, hx, hy, fo.r * pop, fo.k, fo.o, dk, bend * 0.012); });
-      gr.forEach(function (b, j) { if (!(j % 2)) blade(b); });
-      // the ribbon of petals spiralling up on the gust
-      swirl.forEach(function (s) { var age = t - s.t0, al = Math.min(1, age * 3) * Math.min(1, (5.5 - age) / 1.5); cb.save(); cb.globalAlpha = al; cb.translate(s.x, s.y); cb.rotate(s.rot);
-        if (dk) { cb.globalCompositeOperation = 'lighter'; n11_glow(cb, glowG, 0, 0, 9 * S + 3, 0.35); cb.globalCompositeOperation = 'source-over'; }
-        cb.fillStyle = s.c === 0 ? (dk ? '#E06A7E' : '#EA4630') : s.c === 1 ? (dk ? '#E4E8FA' : '#FFFFFF') : (dk ? '#8EA2F0' : '#5A84E2'); n11_ell(cb, 0, 0, 5 * S + 1.6, 2.6 * S + 0.9); cb.fill(); cb.restore(); });
-      // shooting stars
-      stars.forEach(function (s) { var k = (t - s.t0) / 1.2; cb.strokeStyle = 'rgba(255,248,230,' + Math.sin(Math.PI * k) * 0.9 + ')'; cb.lineWidth = 1.6; cb.beginPath(); cb.moveTo(s.x - k * 170, s.y + k * 60); cb.lineTo(s.x - k * 170 + 46, s.y + k * 60 - 16); cb.stroke(); });
-    },
-    finish: function (t) { fin = {t0: t, si: 0}; fl.forEach(function (fo) { fo.hit = 0; }); if (dk) { stars.push({t0: t + 0.6, x: W * 0.8, y: H * 0.06}); stars.push({t0: t + 2.2, x: W * 0.5, y: H * 0.1}); } }
-  };
-};
-
-UIC.meadow = {L: ['#3E7A44', '#2A5530', 'rgba(255,255,255,0.84)', '#1E3020', '#55675A', '#C2362A', '#C2362A', '#D4502E', '#FFFFFF'], D: ['#1E2A50', '#101A34', 'rgba(20,28,54,0.78)', '#EEF1FA', '#AEB6CE', '#F0786A', '#F0786A', '#F59A7A', '#1A1220']};
 
 // ---------- Glowing Bay: swells roll into the cove and lap up the crescent of sand, palm fronds sway, the sun's glitter path
 // twinkles, waves splash against the headland rocks, a tiny sailboat crosses the horizon. Night: the waves and the shoreline

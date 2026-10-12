@@ -9,15 +9,3 @@
   1. Momiji, Momiji Leaf (object) — "A bright red maple leaf who rides the autumn breeze wherever you go." idle: sway, sparkle, wave; cheer: spin
   2. Pon, Tanuki Pup — "A round little tanuki pup who keeps a lucky maple leaf on his head." idle: earTwitch, tailSwish, topBob; cheer: bounce
   3. Kon, Red Fox Kit — "A curious red fox kit who loves hopping up the old stone steps." idle: earTwitch, tailSwish, headTilt; cheer: hop
-
-### Aspen Gold (id: aspens) — Nature and Places
-- Scene: A Rocky Mountain hillside grove of slender white aspens with black eye marks and rough dark bases under narrow crowns of round golden leaves. Dark blue spruces stand among them, with long trunk shadows across the golden grass. Beyond the open side of the grove are spruce-dark foothills with drifts of gold where other aspen stands grow, and two blue ridges dusted with early snow. Big foreground trunks frame the view, red-leaved shrubs sit along a grassy bank and golden leaves lie in the grass.
-- Palette hint: day sky #2C74C4 → #A4CAEA → #E2ECEC, leaves #B87C14 / #E8B020 / #FAD85A, bark #EDEDDE, grass #C2A44A; night sky #050920 → #1C2856 → #2C3866, moonlit bark #BCC4DA, leaves #4A3E22 / #8A7A3E / #C4B272
-- Loop: The leaves quake. Every crown shimmers as pale leaf undersides flip in gusts that roll through the grove. Golden leaves flutter down and the tall grass sways along the bottom edge. At night the white trunks glow under the moon, the shimmer turns silver-gold, stars twinkle over the open valley and a shooting star crosses now and then.
-- Finish moment: A gust quakes the whole grove from left to right. Each crown flashes bright as the gust passes, a whirl of golden leaves streams off the trees and spirals up across the sky, sunbeams fan out from the sun (the moon brightens at night, with a shooting star) and a golden leaf rain follows.
-- Companions:
-  1. Quinn, Aspen Leaf (object) — "A golden aspen leaf who quakes with joy at the faintest breeze." idle: sway, sparkle, wave; cheer: spin
-  2. Peeka, Pika — "A round mountain pika who gathers flowers to keep her burrow cozy." idle: earTwitch, headTilt, wave; cheer: hop
-  3. Wapi, Elk Calf — "A spotted elk calf who wobbles through the aspens on brand-new legs." idle: earTwitch, tailSwish, headTilt; cheer: hop
-
-Animals appear only as companions; the scenes and finish moments have none.

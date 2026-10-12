@@ -1,4 +1,4 @@
-/* Theme Collections, new theme ideas batch n16: saguaro, baobab */
+/* Theme Collections, new theme ideas batch n16: saguaro */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2), S15 = SOw(1.6);
@@ -15,8 +15,6 @@
   const daisy = (x, y, r, c = "#F6C83A") => `${ring(x, y, 8, r * .6, (px, py) => `<circle cx="${px}" cy="${py}" r="${f1(r * .4)}" fill="${c}" ${SOw(1)}/>`)}<circle cx="${x}" cy="${y}" r="${f1(r * .36)}" fill="#C8783A" ${SOw(1)}/>`;
   // a saguaro silhouette with two arms, centred at x, standing on y
   const cactus = (x, y, h, fill, sw) => { const w = h * .13, a = h * .55; return `<path d="M${f1(x - w)} ${y}V${f1(y - h + w)}A${f1(w)} ${f1(w)} 0 0 1 ${f1(x + w)} ${f1(y - h + w)}V${y}Z M${f1(x - w)} ${f1(y - a + w * 1.5)}H${f1(x - w * 2.6)}A${f1(w * .9)} ${f1(w * .9)} 0 0 1 ${f1(x - w * 3.5)} ${f1(y - a + w * .6)}V${f1(y - a - w * 1.4)}A${f1(w * .75)} ${f1(w * .75)} 0 0 1 ${f1(x - w * 2)} ${f1(y - a - w * 1.4)}V${f1(y - a)}H${f1(x - w)}Z M${f1(x + w)} ${f1(y - a * .8 + w * 1.5)}H${f1(x + w * 2.4)}A${f1(w * .9)} ${f1(w * .9)} 0 0 0 ${f1(x + w * 3.3)} ${f1(y - a * .8 + w * .6)}V${f1(y - a * .8 - w * 1.8)}A${f1(w * .75)} ${f1(w * .75)} 0 0 0 ${f1(x + w * 1.8)} ${f1(y - a * .8 - w * 1.8)}V${f1(y - a * .8)}H${f1(x + w)}Z" fill="${fill}" ${sw || ""}/>`; };
-  // a baobab silhouette: a fat column with a flat crown of stubby branches
-  const baobab = (x, y, h, fill, sw) => { const w = h * .13, t = y - h * .74; return `<path d="M${f1(x - w * 1.15)} ${y}C${f1(x - w * 1.05)} ${f1(y - h * .3)} ${f1(x - w * .95)} ${f1(t + h * .1)} ${f1(x - w * .8)} ${f1(t)}L${f1(x - w * 2.6)} ${f1(t - h * .16)}L${f1(x - w * 2.1)} ${f1(t - h * .2)}L${f1(x - w * .7)} ${f1(t - h * .06)}L${f1(x - w * .9)} ${f1(t - h * .24)}L${f1(x - w * .3)} ${f1(t - h * .25)}L${f1(x)} ${f1(t - h * .08)}L${f1(x + w * .3)} ${f1(t - h * .25)}L${f1(x + w * .9)} ${f1(t - h * .24)}L${f1(x + w * .7)} ${f1(t - h * .06)}L${f1(x + w * 2.1)} ${f1(t - h * .2)}L${f1(x + w * 2.6)} ${f1(t - h * .16)}L${f1(x + w * .8)} ${f1(t)}C${f1(x + w * .95)} ${f1(t + h * .1)} ${f1(x + w * 1.05)} ${f1(y - h * .3)} ${f1(x + w * 1.15)} ${y}Z" fill="${fill}" ${sw || ""}/>`; };
 
   /* ================= SAGUARO SUNSET ================= */
   TP_DATA.push({
@@ -59,52 +57,5 @@
           ${cactus(14, 23, 13, "#2E3E2C")}${cactus(36, 23, 10, "#2E3E2C")}${cactus(72, 23, 12, "#2E3E2C")}<path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".3"/></svg>`}
     ],
     card: {id: "tp-saguaro", name: "Desert Bloom", desc: "Warm sunset-peach paper with a blooming saguaro in the corner and brittlebush along the bottom. Starry indigo with a moonrise in dark mode."}
-  });
-
-  /* ================= BAOBAB DUSK ================= */
-  TP_DATA.push({
-    theme: "baobab",
-    pack: {name: "Avenue of Giants", items: {
-      baobab_hery: `${lg("n16-bh-m", "#D87A56", "#B0563C")}<path d="M10 60C13 52 22 50 32 50C42 50 51 52 54 60Z" fill="url(#n16-bh-m)" ${S2}/>
-        ${lg("n16-bh-b", "#9A6A60", "#C29484", 1, 0)}<path d="M21 54C19 46 18 36 21 30C23 25 26 22 28 20H36C38 22 41 25 43 30C46 36 45 46 43 54Z" fill="url(#n16-bh-b)" ${SO}/>
-        <g fill="#9A6A60" ${SOw(1.4)}><path d="M28 21L22 12L24.6 11L30 20Z"/><path d="M36 21L42 12L39.4 11L34 20Z"/><path d="M31 20L30 9H34L33 20Z"/></g>
-        ${[[22, 10, 4.6], [32, 7, 5], [42, 10, 4.6]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#7A9A48" ${S15}/><circle cx="${x - 1}" cy="${y - 1.4}" r="${r * .45}" fill="#A8C46A"/>`).join("")}
-        ${EYES(28, 36, 36, 1.6)}${blush(25.4, 38.6, 40, 1.6, 1)}${smile(32, 40.6, 1.7, 1.5)}`,
-      baobab_lemur: `<path d="M44 56C58 56 62 44 60 32C59 24 55 18 50 15" fill="none" stroke="${O}" stroke-width="9" stroke-linecap="round"/><path d="M44 56C58 56 62 44 60 32C59 24 55 18 50 15" fill="none" stroke="#FAF6F0" stroke-width="5.6" stroke-linecap="round"/><path d="M44 56C58 56 62 44 60 32C59 24 55 18 50 15" fill="none" stroke="#3A3438" stroke-width="5.6" stroke-dasharray="4 4"/>
-        ${rg("n16-bl-b", "#C8C2C4", "#8A8488", .45, .35)}<ellipse cx="30" cy="48" rx="13" ry="11" fill="url(#n16-bl-b)" ${SO}/>
-        <path d="M17 22L11 12C16 12 20 14 22 18Z M43 22L49 12C44 12 40 14 38 18Z" fill="#9A9498" ${S15}/>
-        <path d="M14 30C14 21 21 16 30 16C39 16 46 21 46 30C46 38 39 43 30 43C21 43 14 38 14 30Z" fill="url(#n16-bl-b)" ${SO}/>
-        <path d="M19 31C19 25 24 22 30 22C36 22 41 25 41 31C41 36 36 41 30 41C24 41 19 36 19 31Z" fill="#F4F0EA"/><ellipse cx="24.4" cy="30" rx="4.2" ry="3.6" fill="#3A3438"/><ellipse cx="35.6" cy="30" rx="4.2" ry="3.6" fill="#3A3438"/>
-        <circle cx="24.4" cy="30" r="2.4" fill="#E8902A"/><circle cx="35.6" cy="30" r="2.4" fill="#E8902A"/><circle cx="25" cy="29.4" r=".8" fill="#fff"/><circle cx="36.2" cy="29.4" r=".8" fill="#fff"/><ellipse cx="30" cy="36" rx="2.4" ry="1.6" fill="${O}"/>`,
-      baobab_chameleon: `<path d="M44 46C54 48 58 40 56 35C54 30 48 31 48 35C48 38 51 38 52 36" fill="none" stroke="${O}" stroke-width="7" stroke-linecap="round"/><path d="M44 46C54 48 58 40 56 35C54 30 48 31 48 35C48 38 51 38 52 36" fill="none" stroke="#3EAA8A" stroke-width="4" stroke-linecap="round"/>
-        ${lg("n16-bc-b", "#6AD2AE", "#2A8670")}<path d="M16 46C16 38 24 34 32 34C40 34 46 38 46 46C46 51 40 53 31 53C22 53 16 51 16 46Z" fill="url(#n16-bc-b)" ${SO}/>
-        <path d="M26 36C27 40 27 44 26 48M34 35C35 40 35 44 34 49" fill="none" stroke="#F28A6A" stroke-width="2.4" stroke-linecap="round"/><path d="M16 52L14 58M44 51L46 58M24 53V58M37 53V58" stroke="${O}" stroke-width="3.2" stroke-linecap="round"/>
-        <path d="M8 34C6 26 12 20 22 19C31 18 38 22 38 30C38 37 32 41 22 41C14 41 9 38 8 34Z" fill="url(#n16-bc-b)" ${SO}/><path d="M24 19C27 13 34 13 37 18" fill="#3EAA8A" ${S15}/>
-        <circle cx="17" cy="28" r="5.4" fill="#48B898" ${S15}/><circle cx="29" cy="28" r="5.4" fill="#48B898" ${S15}/><circle cx="17" cy="28" r="2.4" fill="${O}"/><circle cx="29" cy="28" r="2.4" fill="${O}"/><circle cx="17.8" cy="27.2" r=".8" fill="#fff"/><circle cx="29.8" cy="27.2" r=".8" fill="#fff"/>
-        ${smile(23, 35, 2.4, 1.6)}<path d="M9 36C15 38 25 38 34 35" fill="none" stroke="#F6E6A0" stroke-width="1.6" stroke-linecap="round"/>`,
-      baobab_tree: `${lg("n16-bt-s", "#A87AAE", "#FFC896")}<rect x="4" y="4" width="56" height="56" rx="16" fill="url(#n16-bt-s)" ${SO}/>
-        <path d="M5.4 46H58.6V48Q58.6 58.6 48 58.6H16Q5.4 58.6 5.4 48Z" fill="#8E7A5A"/>${baobab(32, 50, 40, "#6E4450", S15)}<path d="M37 26C38 34 38 42 38 50" stroke="#F2A884" stroke-width="2.2" stroke-linecap="round"/>${spark(51, 14, 2.6, "#fff")}`,
-      baobab_avenue: `${lg("n16-ba-s", "#EE94A2", "#FFD8A2")}<rect x="4" y="6" width="56" height="52" rx="14" fill="url(#n16-ba-s)" ${SO}/>
-        <path d="M5.4 40H58.6V46Q58.6 56.6 48 56.6H16Q5.4 56.6 5.4 46Z" fill="#8E7A5A"/><path d="M30 40H34L44 56.6H20Z" fill="#B2604A"/><ellipse cx="32" cy="51" rx="5" ry="1.6" fill="#EE94A2"/>
-        ${baobab(14, 46, 34, "#6E4450")}${baobab(50, 46, 34, "#6E4450")}${baobab(24, 41, 18, "#7A4A5A")}${baobab(40, 41, 18, "#7A4A5A")}${baobab(29, 40, 9, "#8A5A6A")}${baobab(35, 40, 9, "#8A5A6A")}<rect x="4" y="6" width="56" height="52" rx="14" fill="none" ${SO}/>`,
-      baobab_milkyway: `${lg("n16-bm-s", "#02041A", "#2A2458")}<rect x="4" y="4" width="56" height="56" rx="16" fill="url(#n16-bm-s)" ${SO}/>
-        <path d="M24 58C30 40 38 22 44 6L52 6C44 24 36 42 34 58Z" fill="#C8C8FF" opacity=".22"/><path d="M28 58C33 42 39 26 46 8" stroke="#FFE6DC" stroke-width="2" opacity=".5" stroke-linecap="round"/>
-        ${[[14, 14], [20, 26], [12, 36], [50, 30], [54, 44], [40, 16], [30, 30], [36, 40]].map(([x, y], i) => i % 3 ? `<circle cx="${x}" cy="${y}" r=".9" fill="#fff"/>` : spark(x, y, 2.2, "#fff")).join("")}
-        ${baobab(16, 58, 28, "#0E0C1C")}${baobab(48, 58, 24, "#0E0C1C")}`,
-      baobab_seedpod: `<path d="M32 4V14" stroke="#7A5A3A" stroke-width="3" stroke-linecap="round"/>${rg("n16-bs-p", "#C8C49A", "#8A8058", .4, .3)}<path d="M32 12C42 12 48 22 48 34C48 48 41 58 32 58C23 58 16 48 16 34C16 22 22 12 32 12Z" fill="url(#n16-bs-p)" ${SO}/>
-        <g fill="#F2EEDC" opacity=".55">${[[24, 24], [28, 32], [24, 42], [36, 22], [40, 30], [38, 44], [32, 50]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.2"/>`).join("")}</g>
-        ${EYES(27, 37, 36, 1.8)}${blush(23.6, 40.4, 40, 1.8, 1.1)}${smile(32, 41, 1.8, 1.5)}${spark(54, 16, 3.2, "#FFD06A")}`,
-      baobab_label: `${lg("n16-bx-b", "#6E4450", "#B2604A")}<rect x="4" y="17" width="56" height="30" rx="12" fill="url(#n16-bx-b)" ${SO}/>
-        ${T("ROOTED", 32, 36.6, 10.5, "#FFD8A2", 40)}<path d="M12 41.5h40" stroke="#F2A884" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="1 3.4"/>
-        ${baobab(9, 26, 15, "#4A2A2C", SOw(1.2))}${spark(55, 17, 4, "#FFD8A2")}`
-    }},
-    pins: [
-      {id: "tp-baobab-tree", name: "Baobab Pin", kind: "badge", desc: "A little enamel baobab against a pink dusk sky, crown and all.",
-        svg: `<svg viewBox="0 0 30 30"><defs><linearGradient id="n16-pb-s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A87AAE"/><stop offset="1" stop-color="#FFC896"/></linearGradient></defs><circle cx="15" cy="15" r="13" fill="url(#n16-pb-s)" stroke="#4A2A2C" stroke-width="1.3"/><path d="M3 20H27A13 13 0 0 1 3 20Z" fill="#8E7A5A"/>${baobab(15, 25, 20, "#6E4450")}<ellipse cx="9" cy="8" rx="2.4" ry="1.1" fill="#fff" opacity=".5" transform="rotate(-40 9 8)"/></svg>`},
-      {id: "tp-baobab-washi", name: "Dusk Avenue Washi", kind: "tape", desc: "Pink-and-apricot washi tape lined with baobab silhouettes.",
-        svg: `<svg viewBox="0 0 86 26"><defs><linearGradient id="n16-pt-s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A87AAE"/><stop offset=".6" stop-color="#EE94A2"/><stop offset="1" stop-color="#FFD0A0"/></linearGradient></defs><path d="${tapeEdge}" fill="url(#n16-pt-s)" opacity=".95"/>
-          ${[12, 28, 44, 60, 76].map((x, i) => baobab(x, 24.5, i % 2 ? 15 : 19, "#5A3440")).join("")}<path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".3"/></svg>`}
-    ],
-    card: {id: "tp-baobab", name: "Baobab Avenue", desc: "Soft apricot paper with a baobab pair at dusk in the corner and red earth along the bottom. Deep night blue with the Milky Way in dark mode."}
   });
 })();

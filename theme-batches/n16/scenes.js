@@ -1,4 +1,4 @@
-// ---- batch n16: saguaro (Saguaro Sunset), baobab (Baobab Dusk)
+// ---- batch n16: saguaro (Saguaro Sunset)
 // Every shape helper here winds clockwise, so overlapping shapes in one layer slot always union (never punch holes).
 function n16_cw(pts) { var a = 0, n = pts.length; for (var i = 0; i < n; i++) { var p = pts[i], q = pts[(i + 1) % n]; a += p[0] * q[1] - q[0] * p[1]; } return a < 0 ? pts.slice().reverse() : pts; }
 function n16_P(pts) { return pts.length > 2 ? poly(n16_cw(pts)) : ''; }
@@ -16,18 +16,6 @@ function n16_leaf(x, y, len, w, ang, bend) { return n16_P(n16_leafPts(x, y, len,
 // a tapered band from (x0,y0) to (x1,y1), bowed sideways by bend
 function n16_limb(x0, y0, x1, y1, w0, w1, bend) { var L = [], R = [], n = 8; for (var i = 0; i <= n; i++) { var u = i / n, x = x0 + (x1 - x0) * u + Math.sin(Math.PI * u) * bend, y = y0 + (y1 - y0) * u, dx = x1 - x0, dy = y1 - y0, dl = Math.hypot(dx, dy) || 1, w = w0 + (w1 - w0) * u; L.push([x - dy / dl * w, y + dx / dl * w]); R.push([x + dy / dl * w, y - dx / dl * w]); } return n16_P(L.concat(R.reverse())); }
 function n16_starPts(x, y, R, r, n, rot) { var p = []; for (var i = 0; i < n * 2; i++) { var a = rot + i * Math.PI / n - Math.PI / 2, q = i % 2 ? r : R; p.push([x + Math.cos(a) * q, y + Math.sin(a) * q]); } return p; }
-// convex hull (monotone chain) and Sutherland-Hodgman clipping of any polygon by a convex one
-function n16_hull(P) { var p = P.slice().sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; }), cr = function (o, a, b) { return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]); }, lo = [], up = [], i;
-  for (i = 0; i < p.length; i++) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], p[i]) <= 0) lo.pop(); lo.push(p[i]); }
-  for (i = p.length - 1; i >= 0; i--) { while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], p[i]) <= 0) up.pop(); up.push(p[i]); }
-  up.pop(); lo.pop(); return lo.concat(up); }
-function n16_clip(subj, clipP) { var cp = n16_cw(clipP), out = subj, i, j; var inside = function (p, a, b) { return (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]) >= 0; };
-  var X = function (p, q, a, b) { var x1 = p[0], y1 = p[1], x2 = q[0], y2 = q[1], x3 = a[0], y3 = a[1], x4 = b[0], y4 = b[1], d = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4); if (Math.abs(d) < 1e-9) return q; var t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / d; return [x1 + t * (x2 - x1), y1 + t * (y2 - y1)]; };
-  // n16_cw makes the polygon clockwise in screen space (y down), so "inside" is to the right of each edge
-  var sgn = 0; for (i = 0; i < cp.length; i++) { var p = cp[i], q = cp[(i + 1) % cp.length]; sgn += p[0] * q[1] - q[0] * p[1]; } if (sgn < 0) cp = cp.slice().reverse();
-  for (i = 0; i < cp.length && out.length; i++) { var a = cp[i], b = cp[(i + 1) % cp.length], inp = out; out = [];
-    for (j = 0; j < inp.length; j++) { var P = inp[j], Q = inp[(j + 1) % inp.length], pin = inside(P, a, b), qin = inside(Q, a, b); if (pin) { out.push(P); if (!qin) out.push(X(P, Q, a, b)); } else if (qin) out.push(X(P, Q, a, b)); } }
-  return out; }
 // a jagged mountain ridge: random peaks, then midpoint displacement for rugged desert ranges
 function n16_jag(W, y0, dy, np, rnd, rough) { var p = [], i, k; for (i = 0; i <= np; i++) p.push([-80 + (W + 160) * (i / np) + (rnd() - 0.5) * W / np * 0.4, y0 + rnd() * dy]);
   for (k = 0; k < 5; k++) { var q = [p[0]]; for (i = 1; i < p.length; i++) { var a = p[i - 1], b = p[i], d = Math.hypot(b[0] - a[0], b[1] - a[1]); q.push([(a[0] + b[0]) / 2 + (rnd() - 0.5) * d * 0.12, (a[1] + b[1]) / 2 + (rnd() - 0.5) * d * rough]); q.push(b); } p = q; rough *= 0.62; }
@@ -194,102 +182,5 @@ SCENES.saguaro = function (W, H, dk, rnd) {
   if (ANIM) { ANIM.hz = hz; ANIM.S = S * (ph ? 0.9 : 1); ANIM.sun = [sx, sy, sr]; ANIM.moon = [mx, my, mr]; ANIM.tips = tips; ANIM.ocos = ocos; ANIM.bbf = bbf; ANIM.gr = gr; ANIM.gy = gy;
     ANIM.mask = n16_P(r1.concat([[W + 80, H + 80], [-80, H + 80]])); ANIM.peak = Math.min.apply(null, r1.map(function (p) { return p[1]; }));
     var tw = []; for (i = 0; i < 300 && tw.length < (ph ? 18 : 40); i++) { var tx = rnd() * W, ty = rnd() * hz * 0.75; if (Math.hypot(tx - mx, ty - my) > mr * 3) tw.push([tx, ty, rnd()]); } ANIM.tw = tw; }
-  return {sky: sky, far: far, refl: refl, mid: mid, near: near};
-};
-
-// =============== 2. Baobab Dusk: a red dirt avenue lined with giant Madagascar baobabs at dusk, puddles mirroring the sky
-function n16_limbPts(x0, y0, x1, y1, w0, w1, bend) { var L = [], R = [], n = 6; for (var i = 0; i <= n; i++) { var u = i / n, x = x0 + (x1 - x0) * u + Math.sin(Math.PI * u) * bend, y = y0 + (y1 - y0) * u, dx = x1 - x0, dy = y1 - y0, dl = Math.hypot(dx, dy) || 1, w = w0 + (w1 - w0) * u; L.push([x - dy / dl * w, y + dx / dl * w]); R.push([x + dy / dl * w, y - dx / dl * w]); } return L.concat(R.reverse()); }
-// one baobab (Grandidier's): a tall smooth column, slightly flared and bulging, topped with a flat crown of stubby branches and
-// small leaf tufts. o.t trunk and branches, o.r the rim of light on the side facing the glow, o.l / o.m leaf tufts, o.k bark lines.
-// Returns its polygons (to mirror into puddles) and the rim (for the moment's glow).
-function n16_baobab(x, y, h, rnd, side, o) { var w = h * (0.09 + rnd() * 0.025), polys = [], i, k, top = y - h * 0.8, sd = side > 0 ? -1 : 1;
-  var L = [], R = []; for (i = 0; i <= 16; i++) { var u = i / 16, ww = w * (1.12 - 0.22 * u + 0.08 * Math.sin(Math.PI * u * 1.2) + (u < 0.08 ? (0.08 - u) * 2.2 : 0) + (u > 0.9 ? (u - 0.9) * 1.6 : 0)), yy = y + 3 - (h * 0.8 + 3) * u, cx = x + Math.sin(u * 2.4 + x) * w * 0.06; L.push([cx - ww, yy]); R.push([cx + ww, yy]); }
-  var trunk = L.concat(R.slice().reverse()); polys.push(trunk); o.t += n16_P(trunk);
-  // the rim faces the avenue (towards the glow at the vanishing point)
-  var E = sd < 0 ? L : R, rim = E.slice(1, 16), rimIn = rim.map(function (p, j) { return [p[0] - sd * w * (0.16 + 0.1 * Math.sin(j * 0.4)), p[1]]; }), rimP = rim.concat(rimIn.reverse()); o.r += n16_P(rimP);
-  for (k = 0; k < 4; k++) { var bxk = x + (k / 3 - 0.5) * w * 1.3, pts = []; for (i = 0; i <= 8; i++) { var u2 = i / 8; pts.push([bxk + Math.sin(u2 * 4 + k) * w * 0.05, y - h * (0.04 + u2 * 0.7)]); } o.k += pline(pts); }
-  // the crown: stubby limbs fanning up from the flat top, each forking once, with leaf tufts at the tips
-  var nb = 6 + Math.floor(rnd() * 3), tipsL = [];
-  for (k = 0; k < nb; k++) { var a = -Math.PI / 2 + ((k + 0.5) / nb - 0.5) * 2.5 + (rnd() - 0.5) * 0.2, ln = h * (0.11 + rnd() * 0.08) * (1 - Math.abs(Math.cos(a)) * 0.15), bx0 = x + Math.cos(a) * w * 0.6, by0 = top + w * 0.2, ex = bx0 + Math.cos(a) * ln, ey = by0 + Math.sin(a) * ln * 0.85, bw0 = w * (0.28 + rnd() * 0.08);
-    var poly1 = n16_limbPts(bx0, by0 + bw0 * 0.6, ex, ey, bw0, bw0 * 0.35, (rnd() - 0.5) * ln * 0.15); polys.push(poly1); o.t += n16_P(poly1);
-    for (i = 0; i < 2; i++) { var a2 = a + (i ? 0.45 : -0.45) + (rnd() - 0.5) * 0.2, l2 = ln * (0.45 + rnd() * 0.25), fx = ex + Math.cos(a2) * l2, fy = ey + Math.sin(a2) * l2 * 0.9, poly2 = n16_limbPts(ex, ey, fx, fy, bw0 * 0.35, bw0 * 0.14, 0); polys.push(poly2); o.t += n16_P(poly2); tipsL.push([fx, fy]); } }
-  var cap = n16_REp(x, top + w * 0.1, w * 0.98, w * 0.35, 0, 16); polys.push(cap); o.t += n16_P(cap);
-  tipsL.forEach(function (p) { var r = h * 0.03 * (0.7 + rnd() * 0.6); for (var m = 0; m < 5; m++) { var aa = m / 5 * Math.PI * 2 + rnd(), cx = p[0] + Math.cos(aa) * r * 0.9, cy = p[1] + Math.sin(aa) * r * 0.55 - r * 0.2, lp = n16_REp(cx, cy, r * 0.75, r * 0.5, 0, 10); o.l += n16_P(lp); if (m < 2) o.m += n16_E(cx - sd * r * 0.25, cy - r * 0.2, r * 0.4, r * 0.25); polys.push(lp); } });
-  return {polys: polys, rim: rimP, x: x, y: y, h: h, w: w, top: top - h * 0.25}; }
-
-SCENES.baobab = function (W, H, dk, rnd) {
-  var ph = H > W, far = Lay(1.2), refl = Lay(0.5), mid = Lay(0), near = Lay(0), S = ph ? 0.62 : Math.min(1.15, H / 800), i, k, x, y;
-  var hz = H * (ph ? 0.56 : 0.6), p1 = Math.round(hz / H * 100), F = H - hz, VX = W * (ph ? 0.5 : 0.56);
-  var SK = dk ? [[0, '#02041A'], [0.35, '#0A1238'], [0.7, '#1E2456'], [0.9, '#3A2E62'], [1, '#4E3A66']] : [[0, '#6E66A8'], [0.3, '#A87AAE'], [0.58, '#EE94A2'], [0.8, '#FFB890'], [1, '#FFD8A2']];
-  var sky = 'linear-gradient(180deg,' + SK.map(function (q) { return q[1] + ' ' + Math.round(q[0] * p1) + '%'; }).join(',') + ',' + (dk ? '#1A1626' : '#A85A44') + ' 100%)';
-  // the sky colour at height yy (for the puddles' mirrored sky)
-  var skyAt = function (yy) { var u = Math.max(0, Math.min(1, yy / hz)); for (var j = 1; j < SK.length; j++) if (u <= SK[j][0]) return mix(SK[j - 1][1], SK[j][1], (u - SK[j - 1][0]) / (SK[j][0] - SK[j - 1][0])); return SK[SK.length - 1][1]; };
-  if (!dk) { add(far, 'a', n16_E(VX, hz, W * 0.6, H * 0.2), 'rgba(255,214,160,0.3)'); add(far, 'b', n16_E(VX, hz, W * 0.28, H * 0.07), 'rgba(255,240,200,0.45)');
-    // long pink cloud streaks, lit apricot from below by the set sun
-    var cb = '', ce = ''; (ph ? [[0.25, 0.12, 0.6], [0.7, 0.2, 0.7], [0.3, 0.3, 0.5], [0.8, 0.38, 0.4]] : [[0.18, 0.1, 0.36], [0.62, 0.07, 0.42], [0.4, 0.2, 0.4], [0.86, 0.22, 0.3], [0.12, 0.3, 0.28], [0.6, 0.34, 0.3], [0.95, 0.4, 0.18]]).forEach(function (q, j) {
-      var cx = W * q[0], cy = H * q[1], len = W * q[2], th = (ph ? 8 : 12) * (0.7 + rnd() * 0.6), top = [], bot = [], n = 24;
-      for (k = 0; k <= n; k++) { var u = k / n, e = Math.sin(Math.PI * u), xx = cx - len / 2 + len * u; top.push([xx, cy - th * e * (0.5 + 0.6 * Math.abs(Math.sin(u * 8 + j * 3)))]); bot.push([xx, cy + th * 0.3 * e]); }
-      cb += n16_P(top.concat(bot.slice().reverse())); ce += n16_P(bot.map(function (p, m) { return [p[0], p[1] - th * 0.3 * Math.sin(Math.PI * m / n)]; }).concat(bot.slice().reverse().map(function (p) { return [p[0], p[1] + 0.6]; }))); });
-    add(far, 'c', cb, 'rgba(214,120,160,0.75)'); add(far, 'd', ce, 'rgba(255,200,160,0.85)'); }
-  else { // the Milky Way: a broad soft band rising from the end of the avenue, with a bright core, a dark dust lane and crowds of stars
-    var ang = ph ? -82 : -73, ca2 = Math.cos(ang * Math.PI / 180), sa2 = Math.sin(ang * Math.PI / 180), mw = '', mwh = '', mwc = '', dust = '', st = '', LEN = Math.hypot(W, hz) * 1.1;
-    var mwAt = function (u) { return [VX - W * 0.05 + ca2 * LEN * u, hz + sa2 * LEN * u]; };
-    for (i = 0; i <= 50; i++) { var u = i / 50, p = mwAt(u), wv = Math.sin(u * 7) * 12 * S; mw += n16_RE(p[0] + wv, p[1], W * 0.14 * (0.8 + rnd() * 0.4) * (1 - u * 0.3) * (ph ? 1.6 : 1), H * (ph ? 0.07 : 0.12) * (0.8 + rnd() * 0.4), ang + (rnd() - 0.5) * 10); mwh += n16_RE(p[0] + wv, p[1], W * 0.12, H * (ph ? 0.14 : 0.24), ang); if (u < 0.75) mwc += n16_RE(p[0] + wv + (rnd() - 0.5) * 12, p[1], W * 0.06 * (1 - u * 0.5) * (ph ? 1.5 : 1), H * (ph ? 0.03 : 0.05), ang); if (u > 0.04 && u < 0.6) dust += n16_RE(p[0] + wv + Math.sin(u * 9) * 6, p[1], LEN * 0.03, H * (ph ? 0.008 : 0.013) * (0.6 + 0.5 * Math.sin(u * 17)), ang + Math.sin(u * 11) * 4); }
-    add(far, 'a', n16_E(VX, hz, W * 0.62, H * 0.15) + n16_E(VX, hz, W * 0.45, H * 0.1) + n16_E(VX, hz, W * 0.28, H * 0.06), 'rgba(110,70,130,0.12)'); add(far, 'b', mw, 'rgba(150,150,255,0.1)'); add(far, 'c', mwc, 'rgba(255,220,214,0.15)'); add(far, 'd', dust, 'rgba(6,8,26,0.4)'); add(far, 'h', mwh, 'rgba(200,150,220,0.035)');
-    spread(0, 0, W, hz, 20, 20, rnd, 1).forEach(function (c) { if (c.q < 0.5) st += n16_dot(c.x, c.y); });
-    for (i = 0; i < (ph ? 380 : 900); i++) { var u3 = Math.pow(rnd(), 0.8) * 0.85, pp = mwAt(u3), dd = (rnd() + rnd() + rnd() - 1.5) * W * (ph ? 0.1 : 0.12) * (1 - u3 * 0.3); x = pp[0] - sa2 * dd; y = pp[1] + ca2 * dd; if (y < hz - 4 && y > 0) st += n16_dot(x, y); }
-    stk(far, 't', st, 'rgba(255,248,240,0.92)', ph ? 1.5 : 1.8); }
-  // the far horizon: a low line of bush, and a few distant baobabs out in the fields
-  var hl = ridge(W, hz + 1, [[H * 0.004, 30, 0.3], [H * 0.003, 11, 1.4]], 6);
-  add(far, 'e', n16_P(hl.map(function (p) { return [p[0], p[1] - H * 0.006 - Math.abs(Math.sin(p[0] / 23)) * H * 0.004]; }).concat(hl.slice().reverse().map(function (p) { return [p[0], p[1] + 6]; }))), dk ? '#1A1630' : '#8A5A70');
-  var fb = {t: '', r: '', l: '', m: '', k: ''}; for (i = 0; i < (ph ? 6 : 12); i++) { var fx = rnd() * W; if (Math.abs(fx - VX) < W * 0.08) continue; n16_baobab(fx, hz + 2 + rnd() * H * 0.01, H * (0.025 + rnd() * 0.03), rnd, fx < VX ? -1 : 1, fb); }
-  // the grassland, with flooded paddies catching the sky
-  add(refl, 'a', below(n16_fn(-60, W + 60, 10, function (xx) { return hz + Math.sin(xx / 90) * 0.8; }), H + 40), dk ? '#1A2030' : '#8E7A5A');
-  var gb = ''; for (i = 0; i < 6; i++) { var yb = hz + F * (0.02 + i * i * 0.012 + i * 0.01); gb += n16_P(n16_fn(-60, W + 60, 14, function (xx) { return yb + Math.sin(xx / (60 + i * 30) + i) * (1 + i) * S; }).concat(n16_fn(-60, W + 60, 14, function (xx) { return yb + (2 + i * 1.6) * S + Math.sin(xx / (60 + i * 30) + i) * (1 + i) * S; }).reverse())); }
-  add(refl, 'b', gb, dk ? 'rgba(50,60,90,0.35)' : 'rgba(190,150,100,0.45)');
-  add(refl, 'c', fb.t + fb.l, dk ? '#141228' : '#7A4A62');
-  var pad = ''; [[0.08, 0.035, 0.12], [0.88, 0.05, 0.14], [0.25, 0.09, 0.1], [0.97, 0.12, 0.12]].forEach(function (q) { if (ph && q[0] === 0.25) return; var cx = W * q[0], cy = hz + F * q[1], rw = W * q[2] * (ph ? 1.6 : 1), rh = rw * (cy - hz) / F * 0.7 + 1.5; pad += n16_P(n16_blob(cx, cy, rw, rh, rnd, 18, 0.12)); });
-  add(refl, 'e', pad, dk ? '#2E2E5A' : skyAt(hz * 0.55));
-  // the avenue in perspective from the vanishing point; the road widens towards us
-  var Z = function (z) { return hz + F / z; }, RW = ph ? 1.05 : 1.45, roadL = [], roadR = [];
-  for (i = 0; i <= 30; i++) { var z = 0.85 * Math.pow(60 / 0.85, 1 - i / 30), yz = Z(z), jw = Math.sin(z * 1.7) * 0.05; roadL.push([VX - (RW + jw) * F / z, yz]); roadR.push([VX + (RW - jw * 0.6) * F / z, yz]); }
-  var road = roadL.concat(roadR.slice().reverse());
-  // grass verges along the road edges
-  var verge = ''; [roadL, roadR].forEach(function (Ed, sdx) { for (i = 0; i < Ed.length - 1; i++) { var a = Ed[i], b = Ed[i + 1], d = (sdx ? 1 : -1) * Math.max(2, (b[1] - hz) * 0.12); verge += n16_P([a, b, [b[0] + d, b[1]], [a[0] + d * 1.3, a[1]]]); } });
-  add(mid, 'a', verge, dk ? '#1E2232' : '#7A7048');
-  add(mid, 'b', n16_P(road), dk ? '#2E2234' : '#B2604A');
-  var rut = ''; [-0.55, -0.35, 0.35, 0.55].forEach(function (f) { var pts = []; for (i = 0; i <= 24; i++) { var z = 0.9 * Math.pow(50 / 0.9, 1 - i / 24); pts.push([VX + (f * RW + Math.sin(z) * 0.03) * F / z, Z(z), F / z]); } var Lp = pts.map(function (p) { return [p[0] - p[2] * 0.06, p[1]]; }), Rp = pts.map(function (p) { return [p[0] + p[2] * 0.06, p[1]]; }); rut += n16_P(Lp.concat(Rp.reverse())); });
-  // stones in the road
-  for (i = 0; i < (ph ? 40 : 80); i++) { var z2 = 0.9 + Math.pow(rnd(), 2) * 12, lx = (rnd() * 2 - 1) * RW * 0.9, sx2 = VX + lx * F / z2, sy2 = Z(z2), rr = F / z2 * 0.012 + 0.4; rut += n16_E(sx2, sy2, rr * 1.4, rr * 0.7); }
-  add(mid, 'c', rut, dk ? 'rgba(10,6,20,0.35)' : 'rgba(110,40,30,0.3)');
-  // the baobabs, in pairs down both sides of the road (far ones first)
-  var trees = [], tr = {t: '', r: '', l: '', m: '', k: ''}, HT = ph ? 5.6 : 7.6;
-  for (k = 9; k >= 0; k--) { [-1, 1].forEach(function (sd) { if (k > 1 && rnd() < 0.12) return; var z = 5.6 * Math.pow(1.42, k) * (1 + (rnd() - 0.5) * 0.12) * (sd > 0 ? 1.1 : 1), X = sd * (RW + 0.9 + rnd() * 0.6), hh = HT * (0.85 + rnd() * 0.25) * F / z, t = n16_baobab(VX + X * F / z, Z(z) + 2, hh, rnd, sd, tr); t.z = z; trees.push(t); }); }
-  // two great trees out in the grass near the edges of the picture
-  (ph ? [] : [[-1, 3.9, 6.6], [1, 4.3, 7.4]]).forEach(function (q) { var z = q[1], t = n16_baobab(VX + q[0] * 6.1 * F / z * (W > 1100 ? 1 : 0.9), Z(z) + 2, q[2] * F / z * 0.82, rnd, q[0], tr); t.z = z; trees.push(t); });
-  // puddles on the road: flat and convex, mirroring the sky and the trees
-  var pds = [], PQ = ph ? [[0.05, 1.35, 0.46], [-0.45, 2.3, 0.35], [0.5, 3.4, 0.3], [-0.2, 5.2, 0.32]] : [[0.08, 1.32, 0.44], [0.62, 1.95, 0.28], [-0.55, 2.6, 0.36], [0.3, 3.8, 0.32], [-0.25, 5.6, 0.3]];
-  PQ.forEach(function (q) { var z = q[1], cx = VX + q[0] * RW * F / z, cy = Z(z), rx = q[2] * RW * F / z, ry = rx * 0.42 / z, ph1 = rnd() * 6.28, ph2 = rnd() * 6.28, pts = []; for (k = 0; k < 44; k++) { var tt = k / 44 * Math.PI * 2, rr = 1 + 0.07 * Math.sin(2 * tt + ph1) + 0.035 * Math.sin(3 * tt + ph2); pts.push([cx + Math.cos(tt) * rx * rr, cy + Math.sin(tt) * ry * rr]); } pts = n16_hull(pts); pds.push({pts: pts, cx: cx, cy: cy, rx: rx, ry: ry}); });
-  var bandY = [[0, hz * 0.62], [hz * 0.62, hz * 0.32], [hz * 0.32, -H]], bands = ['', '', ''], refls = '', shine = '';
-  pds.forEach(function (pd) { bands[0] += n16_P(pd.pts);
-    [1, 2].forEach(function (j) { var y0 = 2 * hz - bandY[j][0], y1 = 2 * hz - bandY[j][1], cl = n16_clip([[-100, y0], [W + 100, y0], [W + 100, y1], [-100, y1]], pd.pts); if (cl.length > 2) bands[j] += n16_P(cl); });
-    trees.forEach(function (t) { if (t.y > pd.cy) return; t.polys.forEach(function (pp) { var m = pp.map(function (p) { return [p[0], 2 * t.y - p[1]]; }), cl = n16_clip(m, pd.pts); if (cl.length > 2) refls += n16_P(cl); }); });
-    var top = pd.pts.filter(function (p) { return p[1] < pd.cy; }).sort(function (a, b) { return a[0] - b[0]; }); if (top.length > 2) shine += n16_P(top.map(function (p) { return [p[0], p[1] + 0.4]; }).concat(top.slice().reverse().map(function (p) { return [p[0], p[1] + Math.min(2.4, Math.max(0.9, pd.ry * 0.05))]; }))); });
-  if (dk) { var rs = ''; pds.forEach(function (pd) { for (k = 0; k < Math.round(pd.rx * pd.ry / 60) + 3; k++) { var qx = pd.cx + (rnd() * 2 - 1) * pd.rx * 0.85, qy = pd.cy + (rnd() * 2 - 1) * pd.ry * 0.7; if (n16_clip([[qx - 0.5, qy - 0.5], [qx + 0.5, qy - 0.5], [qx + 0.5, qy + 0.5], [qx - 0.5, qy + 0.5]], pd.pts).length > 2) rs += n16_C(qx, qy, 0.5 + rnd() * 0.7); } }); add(near, 'g', rs, 'rgba(230,236,255,0.7)'); }
-  add(mid, 'd', bands[0], skyAt(hz * 0.76)); add(mid, 'e', bands[1], skyAt(hz * 0.52)); add(mid, 'f', bands[2], skyAt(hz * 0.34));
-  add(mid, 'g', refls, dk ? 'rgba(4,4,14,0.8)' : 'rgba(90,50,74,0.62)'); add(mid, 'h', shine, dk ? 'rgba(120,120,200,0.45)' : 'rgba(255,236,210,0.7)');
-  // grass clumps along the near verges and in the corners (the engine sways the tall blades)
-  var gc = {d: '', l: ''}; (ph ? [[0.0, 1.0, 1.1], [1.0, 1.0, 1.1], [0.12, 0.9, 0.6], [0.9, 0.86, 0.6]] : [[0.0, 1.0, 1.3], [0.12, 0.93, 0.7], [0.97, 1.0, 1.3], [0.86, 0.92, 0.7], [0.3, 0.82, 0.4], [0.76, 0.8, 0.4]]).forEach(function (q) { var cx = W * q[0], cy = H * q[1], s2 = q[2] * S * (ph ? 1.4 : 1);
-    for (k = 0; k < 18; k++) { var a = Math.PI * (1.05 + rnd() * 0.9), rr = (20 + rnd() * 40) * s2; gc.d += n16_leaf(cx + Math.cos(a) * rr, cy + 6, (26 + rnd() * 30) * s2, 2.6 * s2 + 0.6, -90 + (rnd() - 0.5) * 50, (rnd() - 0.5) * 0.4); if (rnd() < 0.5) gc.l += n16_leaf(cx + Math.cos(a) * rr * 0.8, cy + 6, (18 + rnd() * 22) * s2, 2 * s2 + 0.5, -90 + (rnd() - 0.5) * 40, 0.2); } });
-  var gt = ''; spread(0, hz + F * 0.08, W, F * 0.9, ph ? 34 : 50, ph ? 28 : 36, rnd, 1).forEach(function (c) { var hw = RW * (c.y - hz) * 1.2; if ((c.x > VX - hw && c.x < VX + hw) || c.q > 0.55) return; var v2 = (c.y - hz) / F, gh = (3 + v2 * 16) * S * (ph ? 1.3 : 1); for (k = -2; k <= 2; k++) gt += 'M' + PT(c.x + k * gh * 0.12, c.y) + ' q' + n1(k * gh * 0.1) + ' ' + n1(-gh * 0.6) + ' ' + n1(k * gh * 0.3) + ' ' + n1(-gh * (1 - Math.abs(k) * 0.15)) + ' '; });
-  var gr = []; for (x = -10; x < W + 10; x += (ph ? 6 : 9)) { var rx2 = Math.abs(x - VX) / (W * 0.5); if (rx2 < (ph ? 0.75 : 0.62) && rnd() < 0.75) continue; gr.push({x: x + rnd() * 4, h: (ph ? 34 : 50) * S * (0.4 + rnd() * 0.8) * (ph ? 1.3 : 1) * Math.min(1, rx2 * 1.3 + 0.2), ph: rnd() * 6.28, lean: (rnd() - 0.5) * 0.5, c: rnd() < 0.5}); }
-  var grs = ''; if (!ANIM) gr.forEach(function (g) { var b = g.lean * g.h; grs += 'M' + PT(g.x, H + 4) + ' q' + n1(b * 0.3) + ' ' + n1(-g.h * 0.6) + ' ' + n1(b) + ' ' + n1(-g.h) + ' '; });
-  add(near, 'a', tr.t, dk ? '#0E0C1C' : '#6E4450'); add(near, 'b', tr.r, dk ? '#3A3A6A' : '#F2A884'); add(near, 'c', tr.l, dk ? '#0C1418' : '#55583A'); add(near, 'd', tr.m, dk ? '#1A2830' : '#8A8448');
-  add(near, 'e', gc.d, dk ? '#141C24' : '#6E6A3A'); add(near, 'f', gc.l, dk ? '#22303A' : '#A89A5A');
-  stk(near, 's', tr.k, dk ? 'rgba(0,0,0,0.3)' : 'rgba(80,40,50,0.28)', ph ? 1 : 1.4); stk(mid, 't', gt, dk ? 'rgba(80,90,120,0.55)' : 'rgba(110,90,50,0.5)', 1.1); stk(near, 't', grs, dk ? '#2E3A48' : '#B8A262', ph ? 1.6 : 2);
-  if (ANIM) { ANIM.hz = hz; ANIM.S = S * (ph ? 0.9 : 1); ANIM.VX = VX; ANIM.F = F; ANIM.RW = RW; ANIM.gr = gr; ANIM.SK = SK;
-    ANIM.pds = pds.map(function (pd) { return {d: n16_P(pd.pts), cx: pd.cx, cy: pd.cy, rx: pd.rx, ry: pd.ry}; }); ANIM.refl = refls;
-    ANIM.trees = trees.map(function (t) { return {rim: n16_P(t.rim), x: t.x, y: t.y, h: t.h, z: t.z, top: t.top}; });
-    var tw = []; for (i = 0; i < 300 && tw.length < (ph ? 22 : 46); i++) { var tx = rnd() * W, ty = rnd() * hz * 0.85, ok = true; trees.forEach(function (t) { if (tx > t.x - t.h * 0.3 && tx < t.x + t.h * 0.3 && ty > t.top) ok = false; }); if (ok) tw.push([tx, ty, rnd()]); } ANIM.tw = tw; }
   return {sky: sky, far: far, refl: refl, mid: mid, near: near};
 };

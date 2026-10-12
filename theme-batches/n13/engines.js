@@ -1,4 +1,4 @@
-// ---- batch n13 engines: maples, aspens
+// ---- batch n13 engines: maples
 function n13_ease(u) { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); }
 function n13_env(T, a, b, c, d) { if (T < a || T > d) return 0; if (T < b) return n13_ease((T - a) / (b - a)); if (T <= c) return 1; return 1 - n13_ease((T - c) / (d - c)); }
 var n13_gc = null;
@@ -106,64 +106,3 @@ ENGINES.maples = function (A, v, dk) {
 };
 
 UIC.maples = {L: ['#8A3424', '#5A2018', 'rgba(255,252,247,0.86)', '#2E1E18', '#6E5A50', '#B8382A', '#B8382A', '#D2602E', '#FFFFFF'], D: ['#2A1A2E', '#140E20', 'rgba(24,18,36,0.8)', '#F4ECF0', '#BCAEB8', '#F08A6A', '#F08A6A', '#F6B07A', '#1C1018']};
-
-// ---------- Aspen Gold: the leaves quake, so every crown shimmers as gusts roll through the grove; golden leaves flutter down,
-// and the tall grass sways along the bottom edge. Night: moonlit trunks, silver-gold
-// shimmer, twinkling stars and the odd shooting star.
-// Moment: a gust quakes the whole grove from left to right: every crown flashes as it passes, a whirl of golden leaves streams
-// off the trees and spirals up into the sky, sunbeams fan out (the moon brightens at night) and a golden leaf rain follows.
-ENGINES.aspens = function (A, v, dk) {
-  var W = v.bw, H = v.bh, ph = !v.desk, S = A.S, Sn = A.sun, i, tnow = 0, ls = A.ls;
-  var pick = function (arr, n) { var out = [], step = Math.max(1, arr.length / n); for (var k = 0; k < arr.length && out.length < n; k += step) { var q = arr[Math.floor(k)]; out.push({x: q[0], y: q[1], s: q[2], ph: Math.random() * 6.28, rate: 5 + Math.random() * 6}); } return out; };
-  var GL = pick(A.GL, ph ? 220 : 420), NG = pick(A.NG, ph ? 110 : 200), gr = A.gr, crowns = A.crowns;
-  var sunG = n13_rg(dk ? 'rgba(210,222,255,0.3)' : 'rgba(255,248,210,0.5)', [0.4, 0.3]), shG = n13_rg('rgba(30,50,60,0.08)', [0.55, 0.6]), flashG = n13_rg(dk ? 'rgba(240,230,190,0.12)' : 'rgba(255,236,150,0.12)', [0.5, 0.4]), twG = n13_rg('rgba(255,250,235,0.9)', [0.25, 0.3]);
-  var colsL = dk ? ['#C4B272', '#8A7A3E', '#E2DCC0'] : ['#F2B81E', '#FAD85A', '#E89A10'], shim = dk ? '#F0ECD8' : '#FFF6C8', stC = dk ? ['#E2D290', '#C4B272', '#F4EED4', '#D8B860'] : ['#F2B81E', '#FAD85A', '#E8901A', '#D86A1E'];
-  var falls = [], storm = [], stars = [], fin = null, nextLeaf = 0.4, nextStar = 6;
-  var inCrown = function (x, y) { for (var k = 0; k < crowns.length; k++) { var c = crowns[k], u = (x - c.x) / (c.w * 1.25), w = (y - c.y) / (c.h * 0.65); if (u * u + w * w < 1) return true; } return false; };
-  var tws = []; for (i = 0; i < 400 && tws.length < (ph ? 8 : 18); i++) { var tx = Math.random() * W, ty = Math.random() * A.peak; if (!inCrown(tx, ty) && Math.hypot(tx - Sn[0], ty - Sn[1]) > Sn[2] * 3 && tx > W * 0.2 && tx < W * 0.85) tws.push([tx, ty, Math.random() * 6.28]); }
-  function front(t) { if (!fin) return -1e9; return -150 + (W + 300) * ((t - fin.t0) / 2.4); }
-  function wind(x, t) { var g = 0.5 + 0.5 * Math.sin(x * 0.0045 - t * 1.3); var w = 0.3 + g * g * 0.7; if (fin) { var d = (x - front(t)) / (W * 0.12 + 60); w += 1.6 * Math.exp(-d * d); } return w; }
-  function addFall(fromNear) { var src = fromNear ? NG[Math.floor(Math.random() * NG.length)] : GL[Math.floor(Math.random() * GL.length)]; if (!src) return;
-    falls.push({x: src.x, y: src.y, vx: (8 + Math.random() * 14) * S, vy: (22 + Math.random() * 16) * S, r: ls * (fromNear ? 1.9 : 1.2) * (0.8 + Math.random() * 0.4), sp: 3 + Math.random() * 4, ph: Math.random() * 6.28, c: Math.floor(Math.random() * 3), t0: tnow, near: fromNear, end: fromNear ? H + 20 : A.gy + (H - A.gy) * (0.1 + Math.random() * 0.7)}); }
-  function leaf(c, x, y, r, flip, rot, col, a) { if (a <= 0.01) return; c.globalAlpha = Math.min(1, a); c.fillStyle = col; n13_ell(c, x, y, r * (0.2 + 0.8 * Math.abs(flip)), r * 0.82, rot); c.fill(); }
-  return {
-    step: function (dt, t, f) { tnow = t; var T = fin ? t - fin.t0 : -1, rain = fin ? n13_env(T, 2, 3, 6, 9) : 0;
-      nextLeaf -= dt * f.s * (1 + rain * 5); if (nextLeaf <= 0) { nextLeaf = (ph ? 1.1 : 0.6) * (0.5 + Math.random()); if (falls.length < (ph ? 16 : 28) + rain * 30) addFall(Math.random() < 0.25); }
-      falls.forEach(function (l) { var age = t - l.t0; l.x += (l.vx * (0.4 + wind(l.x, t)) + Math.sin(age * 1.7 + l.ph) * 20 * S) * dt; l.y += l.vy * dt * (0.7 + 0.3 * Math.cos(age * 2.6 + l.ph)); if (l.y > l.end) l.land = (l.land || 0) + dt; });
-      falls = falls.filter(function (l) { return (l.land || 0) < 1.5 && l.x < W + 40; });
-      if (dk) { nextStar -= dt * f.s; if (nextStar <= 0) { nextStar = 9 + Math.random() * 10; stars.push({t0: t, x: W * (0.55 + Math.random() * 0.35), y: H * (0.03 + Math.random() * 0.07)}); } }
-      stars = stars.filter(function (s) { return t - s.t0 < 1.2; });
-      if (fin) { var xf = front(t);
-        if (T < 2.8) [GL, NG].forEach(function (L, j) { L.forEach(function (g) { if (!g.hit && g.x < xf) { g.hit = 1; if (Math.random() < (j ? 0.45 : 0.32) * (ph ? 0.7 : 1)) storm.push({x0: g.x, y0: g.y, t0: t, th: Math.random() * 6.28, R: (60 + Math.random() * 200) * S * (ph ? 0.7 : 1), cy: H * (0.2 + Math.random() * 0.14), r: ls * (j ? 2 : 1.6) * (0.8 + Math.random() * 0.5), c: Math.floor(Math.random() * 4), sp: 4 + Math.random() * 4, w: 1.6 + Math.random() * 1.2}); } }); });
-        if (T > 14) { fin = null; GL.concat(NG).forEach(function (g) { g.hit = 0; }); } }
-      storm = storm.filter(function (s) { return t - s.t0 < 6; });
-    },
-    draw: function (ca, cb, t, f) { tnow = t; var tt = t * f.s, T = fin ? t - fin.t0 : -1, rk = fin ? n13_env(T, 0.6, 1.8, 5, 8) : 0, xf = front(t);
-      // sun or moon glow (it backlights the crowns near it), with beams fanning out in the moment
-      ca.save(); ca.globalCompositeOperation = 'lighter'; n13_glow(ca, sunG, Sn[0], Sn[1], Sn[2] * (dk ? 4.5 : 4) * (1 + 0.03 * Math.sin(tt * 0.7) + rk * 0.35), 0.75 + rk * 0.15);
-      if (rk > 0) for (i = 0; i < 8; i++) { var a = Math.PI * (0.52 + i * 0.06) + Math.sin(tt * 0.3 + i) * 0.02, L = W * 1.2, w = (24 + (i % 3) * 18) * S; ca.fillStyle = dk ? 'rgba(210,220,255,' + (0.05 * rk) + ')' : 'rgba(255,244,200,' + (0.07 * rk * (0.6 + 0.4 * Math.sin(tt * 1.2 + i * 2))) + ')'; ca.beginPath(); ca.moveTo(Sn[0], Sn[1]); ca.lineTo(Sn[0] + Math.cos(a - 0.025) * L - w, Sn[1] + Math.sin(a - 0.025) * L); ca.lineTo(Sn[0] + Math.cos(a + 0.025) * L + w, Sn[1] + Math.sin(a + 0.025) * L); ca.closePath(); ca.fill(); }
-      if (dk) tws.forEach(function (s, j) { var a2 = Math.pow(Math.max(0, Math.sin(tt * 1.3 + s[2] + j)), 4); n13_glow(ca, twG, s[0], s[1], 4 + a2 * 3, a2 * 0.9); });
-      if (fin && T < 3) n13_glow(ca, flashG, xf, H * 0.2, W * 0.1 + 60, 1, 1.8);
-      ca.restore();
-      // the grove's shimmer: leaves flipping their pale undersides as the wind passes
-      var sh = function (c, L, k) { c.fillStyle = shim; L.forEach(function (g) { var w = wind(g.x, tt), fl = Math.sin(tt * g.rate + g.ph), a = Math.pow(Math.max(0, fl), 3) * Math.min(1, w) * (dk ? 0.75 : 0.9); if (a < 0.04) return; c.globalAlpha = a; n13_ell(c, g.x, g.y, g.s * k * (0.3 + 0.7 * Math.abs(Math.cos(tt * g.rate * 0.5 + g.ph))), g.s * k * 0.8, g.ph); c.fill(); }); c.globalAlpha = 1; };
-      sh(ca, GL, 0.95);
-      falls.forEach(function (l) { if (l.near) return; var age = t - l.t0, a = Math.min(1, age * 2) * (l.land ? 1 - l.land / 1.5 : 1); leaf(ca, l.x, l.y, l.r, l.land ? 0.5 : Math.cos(age * l.sp + l.ph), l.ph, colsL[l.c], a); }); ca.globalAlpha = 1;
-      sh(cb, NG, 1);
-      falls.forEach(function (l) { if (!l.near) return; var age = t - l.t0; leaf(cb, l.x, l.y, l.r, Math.cos(age * l.sp + l.ph), l.ph, colsL[l.c], Math.min(1, age * 2)); }); cb.globalAlpha = 1;
-      // tall grass along the bottom edge, swaying
-      cb.lineCap = 'round';
-      gr.forEach(function (b) { var bend = (wind(b.x, tt) * 0.5 + b.lean) * b.h * 0.6 + Math.sin(tt * 1.7 + b.ph) * 2 * S, x = b.x, y = H + 4;
-        cb.strokeStyle = dk ? (b.c ? '#3E4258' : '#4E5268') : (b.c ? '#C8A440' : '#E2C462'); cb.lineWidth = (ph ? 2 : 2.6) * S + 0.6; cb.beginPath(); cb.moveTo(x, y); cb.quadraticCurveTo(x + bend * 0.25, y - b.h * 0.6, x + bend, y - b.h + Math.abs(bend) * 0.15); cb.stroke();
-        if (!b.c) { cb.strokeStyle = dk ? 'rgba(220,214,180,0.45)' : 'rgba(255,240,190,0.9)'; cb.lineWidth = 1.2; cb.beginPath(); cb.moveTo(x + bend * 0.75, y - b.h * 0.8); cb.lineTo(x + bend, y - b.h + Math.abs(bend) * 0.15); cb.stroke(); } });
-      // the whirl of golden leaves in the moment: blown off the crowns, then caught up into a spiral rising across the sky
-      storm.forEach(function (s) { var age = t - s.t0, e = n13_ease(age / 1.4), ccx = W * (v.desk ? 0.5 : 0.45) + W * 0.25 * Math.min(1, age / 5), ccy = s.cy - age * 10 * S, th = s.th + age * s.w, R = s.R * (1 - 0.25 * Math.min(1, age / 5)),
-        vx2 = ccx + Math.cos(th) * R, vy2 = ccy + Math.sin(th) * R * 0.45, x = s.x0 + (vx2 - s.x0) * e, y = s.y0 - 40 * S * Math.sin(Math.min(1, age / 1.4) * Math.PI) * (1 - e) + (vy2 - s.y0) * e, a = Math.min(1, age * 3) * Math.min(1, (6 - age) / 1.5);
-        leaf(cb, x, y, s.r, Math.cos(age * s.sp + s.th), th, stC[s.c], a); }); cb.globalAlpha = 1;
-      stars.forEach(function (s) { var k = (t - s.t0) / 1.2; cb.strokeStyle = 'rgba(255,248,230,' + Math.sin(Math.PI * k) * 0.9 + ')'; cb.lineWidth = 1.5; cb.beginPath(); cb.moveTo(s.x - k * 160, s.y + k * 55); cb.lineTo(s.x - k * 160 + 44, s.y + k * 55 - 15); cb.stroke(); });
-    },
-    finish: function (t) { fin = {t0: t}; GL.concat(NG).forEach(function (g) { g.hit = 0; }); if (dk) stars.push({t0: t + 1.2, x: W * 0.78, y: H * 0.05}); }
-  };
-};
-
-UIC.aspens = {L: ['#3A5E86', '#24405E', 'rgba(255,253,246,0.86)', '#26261A', '#62604C', '#A8740E', '#A8740E', '#D2A02A', '#FFFFFF'], D: ['#1A2244', '#0C1226', 'rgba(16,22,44,0.8)', '#F2F0E6', '#B4B4C2', '#F2C25A', '#F2C25A', '#F8DC8A', '#16140E']};

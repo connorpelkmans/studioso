@@ -1,4 +1,4 @@
-/* Study Companions, new theme ideas batch n16: saguaro, baobab. Each theme has one nature-object character and two young animals. */
+/* Study Companions, new theme ideas batch n16: saguaro. The theme has one nature-object character and two young animals. */
 (() => {
   const {INK, O, OW, LG, RG, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -8,7 +8,6 @@
   const ring = (cx, cy, n, R, fn, rot = 0) => Array.from({length: n}, (_, i) => { const a = -Math.PI / 2 + rot + i * 2 * Math.PI / n; return fn(f1(cx + R * Math.cos(a)), f1(cy + R * Math.sin(a)), a, i); }).join("");
   // a white saguaro blossom with a golden heart
   const sagFlower = (x, y, r) => `${ring(x, y, 6, r * 0.62, (px, py) => `<circle cx="${px}" cy="${py}" r="${f1(r * 0.5)}" fill="#FFFBF2" ${OW(1.3)}/>`)}<circle cx="${x}" cy="${y}" r="${f1(r * 0.42)}" fill="#F6C83A" ${OW(1.3)}/>`;
-  const tuft = (x, y, r, c1, c2) => `<g>${[[-0.7, 0.1], [0.7, 0.1], [0, -0.45], [-0.35, 0.5], [0.4, 0.5]].map(([dx, dy]) => `<ellipse cx="${f1(x + dx * r)}" cy="${f1(y + dy * r)}" rx="${f1(r * 0.62)}" ry="${f1(r * 0.48)}" fill="${c1}" ${OW(1.6)}/>`).join("")}<ellipse cx="${f1(x - r * 0.2)}" cy="${f1(y - r * 0.3)}" rx="${f1(r * 0.34)}" ry="${f1(r * 0.22)}" fill="${c2}"/></g>`;
 
   /* ================= Saguaro Sunset ================= */
   COMP_DATA.push({
@@ -123,124 +122,6 @@
           done: ["What a session! Even I'm impressed!", "Done! Slow and steady won the race."],
           task: ["Plod! Another one done!", "Checked off! Steady wins!", "Yes! One step closer!", "Done! Shell yeah!"],
           break: ["Break time! Find a sunny spot and stretch."]
-        }
-      }
-    ]
-  });
-
-  /* ================= Baobab Dusk ================= */
-  COMP_DATA.push({
-    theme: "baobab",
-    companions: [
-      {
-        id: "baobab-hery", name: "Hery", kind: "Baobab Sapling", pose: "stand", wearColor: "#C8603A",
-        bio: "A baby baobab with a big round trunk. Will be giant in about 800 years.",
-        idle: ["wave", "topBob", "sway"], cheer: "hop",
-        parts: {
-          feet: `${LG("baobab-hery-m", [[0, "#D87A56"], [1, "#B0563C"]])}<path d="M28 112C32 103 45 100 60 100C75 100 88 103 92 112Z" fill="url(#baobab-hery-m)" ${O}/>
-            <path d="M36 107q3-2 6 0M78 106q3-2 6 0" fill="none" stroke="#8E4230" stroke-width="1.6" stroke-linecap="round"/><path d="M80 103q1-5 3-7M84 104q0-4 2-6" fill="none" stroke="#7A8A44" stroke-width="1.6" stroke-linecap="round"/>`,
-          body: `${LG("baobab-hery-b", [[0, "#9A6A60"], [0.5, "#C29484"], [1, "#8A5A52"]], 0, 0, 1, 0)}
-            <path d="M42 104C38 92 37 76 41 64C44 55 49 49 53 45H67C71 49 76 55 79 64C83 76 82 92 78 104Z" fill="url(#baobab-hery-b)" ${O}/>
-            <path d="M47 96C45 86 45 74 48 64M73 96C75 86 75 74 72 64M56 98V88M64 98V88" fill="none" stroke="#7A4A44" stroke-width="1.4" stroke-linecap="round" opacity=".55"/>
-            ${shine(47, 62, 2.4, 7, 14)}`,
-          armL: {svg: `<path d="M45.6 68L34 80.6C32.4 82.6 34.4 85.4 36.8 84L48.4 74Z" fill="#9A6A60" ${O2}/>${tuft(33, 85, 5, "#7A9A48", "#A8C46A")}`, pivot: [47, 70]},
-          armR: {svg: `<path d="M74.4 68L86 80.6C87.6 82.6 85.6 85.4 83.2 84L71.6 74Z" fill="#9A6A60" ${O2}/>${tuft(87, 85, 5, "#7A9A48", "#A8C46A")}`, pivot: [73, 70]},
-          top: {svg: `<g fill="#9A6A60" ${O2}><path d="M53 47L44 33L48 31L56 45Z"/><path d="M57 46L54 28L58 27.6L60 45Z"/><path d="M63 46L66 28L70 28.6L64.6 46Z"/><path d="M67 47L76 33L79.6 35L69 48Z"/></g>
-            ${tuft(45, 30, 6.4, "#6E8E40", "#9CBC5E")}${tuft(56, 25, 6.4, "#7A9A48", "#A8C46A")}${tuft(68, 25, 6.4, "#6E8E40", "#9CBC5E")}${tuft(78, 31, 6.2, "#7A9A48", "#A8C46A")}`, pivot: [60, 47]}
-        },
-        eyes: {lx: 53, rx: 67, y: 74, r: 3.6, style: "sparkle", color: "#2E1A16"},
-        mouth: {x: 60, y: 82, w: 2.4, color: "#2E1A16"},
-        cheeks: {lx: 48.5, rx: 71.5, y: 79, w: 3, h: 1.9, color: "#FF9A8A"},
-        anchors: {top: [60, 22, 0.8], neck: [60, 88, 0.75], chest: [68, 92, 0.5], back: [76, 76, 0.66], hands: [60, 94, 0.8]},
-        lines: {
-          tap: ["Salama! Hello from the avenue!", "Big trunk, big plans, tiny leaves.", "I store water in my trunk. You store facts!", "Roots down, branches up. Let's study.", "Even giants start as little sprouts.", "Dusk is my favorite time to grow.", "You're doing great. I'm rooting for you!"],
-          pet: ["Hehe, my bark is smooth, right?", "Aww, my leaves just rustled happily."],
-          hello: ["You're here! The whole avenue says hi.", "Hello! Come sit in my tiny shade."],
-          morning: ["Good morning! Time to soak up the sun."],
-          night: ["The stars are out. Rest your roots soon."],
-          focus: ["Standing tall beside you.", "Deep roots, steady mind. Keep going."],
-          done: ["What a session! I grew a whole leaf!", "Done! That's giant progress."],
-          task: ["Rustle! Another one done!", "Checked off! Branches up!", "Yes! Rooted in success!", "Done! Growing strong!"],
-          break: ["Break time! Drink some water. Trees insist."]
-        }
-      },
-      {
-        id: "baobab-zaza", name: "Zaza", kind: "Baby Ring-tailed Lemur", pose: "sit", wearColor: "#C8603A",
-        bio: "A baby lemur with a stripy tail held high. Loves sunbathing at dusk.",
-        idle: ["tailSwish", "earTwitch", "wave"], cheer: "hop",
-        neck: [60, 70],
-        parts: {
-          tail: {svg: `<path d="M76 102C94 102 104 88 101 70C99 58 93 50 86 45" fill="none" stroke="${INK}" stroke-width="13" stroke-linecap="round"/><path d="M76 102C94 102 104 88 101 70C99 58 93 50 86 45" fill="none" stroke="#FAF6F0" stroke-width="8.4" stroke-linecap="round"/><path d="M76 102C94 102 104 88 101 70C99 58 93 50 86 45" fill="none" stroke="#3A3438" stroke-width="8.4" stroke-dasharray="5.6 5.6" stroke-dashoffset="2"/>`, pivot: [78, 100]},
-          feet: `<g fill="#3A3438" ${OW(1.8)}><ellipse cx="50" cy="108" rx="7" ry="3.6"/><ellipse cx="70" cy="108" rx="7" ry="3.6"/></g><path d="M45 109v1.6M48.6 110v1.6M52.2 110v1.6M67.8 110v1.6M71.4 110v1.6M75 109v1.6" stroke="#6A6268" stroke-width="1.1" stroke-linecap="round"/>`,
-          body: `${RG("baobab-zaza-b", [[0, "#C8C2C4"], [0.6, "#A8A2A6"], [1, "#8A8488"]], 0.45, 0.35, 0.75)}
-            <path d="M40 90C40 77 48 68 60 68C72 68 80 77 80 90C80 102 72 108 60 108C48 108 40 102 40 90Z" fill="url(#baobab-zaza-b)" ${O}/>
-            <path d="M50 88C50 80 54 75 60 75C66 75 70 80 70 88C70 98 66 104 60 104C54 104 50 98 50 88Z" fill="#F4F0EA"/>`,
-          armL: {svg: `<path d="M48 78C42 82 40 92 43 100C45 102 49 102 50 100C50 92 51 86 53 81Z" fill="#A8A2A6" ${O2}/><ellipse cx="46.6" cy="100" rx="4" ry="3" fill="#3A3438" ${OW(1.6)}/>`, pivot: [50, 79]},
-          armR: {svg: `<path d="M72 78C78 82 80 92 77 100C75 102 71 102 70 100C70 92 69 86 67 81Z" fill="#A8A2A6" ${O2}/><ellipse cx="73.4" cy="100" rx="4" ry="3" fill="#3A3438" ${OW(1.6)}/>`, pivot: [70, 79]},
-          earL: {svg: `<path d="M43 42L33 27C40 26 47 30 50 36Z" fill="#9A9498" ${O2}/><path d="M42 38L37 30.6C40.6 31 43.4 33 45 36Z" fill="#F4F0EA"/>`, pivot: [45, 39]},
-          earR: {svg: `<path d="M77 42L87 27C80 26 73 30 70 36Z" fill="#9A9498" ${O2}/><path d="M78 38L83 30.6C79.4 31 76.6 33 75 36Z" fill="#F4F0EA"/>`, pivot: [75, 39]},
-          head: `${RG("baobab-zaza-h", [[0, "#C8C2C4"], [0.6, "#A8A2A6"], [1, "#848086"]], 0.45, 0.3, 0.8)}
-            <path d="M37 52C37 39 47 32 60 32C73 32 83 39 83 52C83 64 73 72 60 72C47 72 37 64 37 52Z" fill="url(#baobab-zaza-h)" ${O}/>
-            <path d="M60 32.4C56 36 55 40 56 44H64C65 40 64 36 60 32.4Z" fill="#6A6468"/>
-            ${shine(45, 42, 4, 2, -30)}`,
-          face: `<path d="M44 54C44 45 51 41 60 41C69 41 76 45 76 54C76 62 69 70 60 71C51 70 44 62 44 54Z" fill="#F4F0EA" ${OW(1.6)}/>
-            <path d="M44.6 49C47 45 53 45 56 49C57 54 55 58 51 58.6C47 58.6 44 55 44.6 49Z" fill="#3A3438"/><path d="M75.4 49C73 45 67 45 64 49C63 54 65 58 69 58.6C73 58.6 76 55 75.4 49Z" fill="#3A3438"/>
-            <path d="M56.6 61.6C56.6 59.6 63.4 59.6 63.4 61.6C63.4 63.6 61.4 64.6 60 64.6C58.6 64.6 56.6 63.6 56.6 61.6Z" fill="#2B2233"/>`
-        },
-        eyes: {lx: 51, rx: 69, y: 52, r: 4.6, style: "round", color: "#E8902A"},
-        mouth: {x: 60, y: 67, w: 2, color: "#2B2233"},
-        cheeks: {lx: 47, rx: 73, y: 63, w: 2.6, h: 1.6, color: "#FF9AAA"},
-        anchors: {top: [60, 32, 0.85], neck: [60, 72, 0.8], chest: [68, 88, 0.55], back: [80, 80, 0.7], hands: [60, 98, 0.8]},
-        lines: {
-          tap: ["Hi hi! Want to see my tail? It's very stripy.", "Tail up means I'm happy. It's always up!", "Lemur tip: face the sun and stretch your arms.", "You're doing amazing, friend!", "I count my tail rings when I'm thinking. Thirteen!", "Leap from task to task, like branch to branch!", "Sunset sunbathing and studying. Best combo."],
-          pet: ["Eee! That tickles! Hehe.", "Ooh, so soft. Like a warm baobab branch."],
-          hello: ["You're back! I leaped all the way here!", "Hello! The whole troop says hi!"],
-          morning: ["Good morning! Sun salute time! Arms up!"],
-          night: ["The Milky Way is out. Curl up soon, okay?"],
-          focus: ["Sitting very still. Lemur focus mode.", "Tail up, eyes on the work. Go!"],
-          done: ["What a session! Tail held extra high!", "Done! Let's do a happy leap!"],
-          task: ["Boing! Another one done!", "Checked off! Tail up!", "Yes! Leap complete!", "Done! Stripy hooray!"],
-          break: ["Break time! Stretch out in the warm light."]
-        }
-      },
-      {
-        id: "baobab-loko", name: "Loko", kind: "Panther Chameleon", pose: "stand", wearColor: "#E0703A",
-        bio: "A baby panther chameleon. Changes color with every mood, mostly happy ones.",
-        idle: ["headTilt", "tailSwish", "sparkle"], cheer: "bounce",
-        neck: [58, 78],
-        parts: {
-          tail: {svg: `<path d="M82 90C96 92 102 82 99 74C96 67 87 68 87 75C87 79 91 80 92 77" fill="none" stroke="${INK}" stroke-width="10" stroke-linecap="round"/><path d="M82 90C96 92 102 82 99 74C96 67 87 68 87 75C87 79 91 80 92 77" fill="none" stroke="#3EAA8A" stroke-width="6" stroke-linecap="round"/><path d="M90 90.4l1.6-3.4M96.6 86l-2.4-2.4M99.6 78.6l-3.2.4" stroke="#F28A6A" stroke-width="1.8" stroke-linecap="round"/>`, pivot: [82, 90]},
-          feet: `${["M42 98L38 109", "M54 101L54 110", "M68 101L68 110", "M80 96L84 108"].map(d => `<path d="${d}" stroke="${INK}" stroke-width="8.4" stroke-linecap="round"/><path d="${d}" stroke="#3EAA8A" stroke-width="4.8" stroke-linecap="round"/>`).join("")}
-            <g fill="#F2A07A" ${OW(1.6)}><ellipse cx="38" cy="110" rx="4.2" ry="2.4"/><ellipse cx="54" cy="110.6" rx="4.2" ry="2.4"/><ellipse cx="68" cy="110.6" rx="4.2" ry="2.4"/><ellipse cx="84.6" cy="109.4" rx="4.2" ry="2.4"/></g>`,
-          body: `${LG("baobab-loko-b", [[0, "#6AD2AE"], [0.6, "#3EAA8A"], [1, "#2A8670"]])}
-            <path d="M34 90C34 77 46 70 62 70C78 70 88 78 88 90C88 100 78 104 61 104C44 104 34 100 34 90Z" fill="url(#baobab-loko-b)" ${O}/>
-            <path d="M38 92C48 96 74 96 85 91" fill="none" stroke="#F6E6A0" stroke-width="3" stroke-linecap="round"/>
-            <path d="M50 74C52 80 52 86 50 92M62 72C64 79 64 86 62 94M74 74C76 80 76 86 74 92" fill="none" stroke="#F28A6A" stroke-width="3.6" stroke-linecap="round" opacity=".85"/>
-            <path d="M44 72l2-3 2 3 2-3.4 2 3.4 2-3.6 2 3.6 2-3.6 2 3.6 2-3.6 2 3.6 2-3.4 2 3.4 2-3 2 3" fill="#2A8670" stroke="${INK}" stroke-width="1.4" stroke-linejoin="round"/>
-            ${shine(70, 78, 5, 2, -10)}`,
-          head: `${LG("baobab-loko-h", [[0, "#7ADCB8"], [0.6, "#48B898"], [1, "#2E9278"]])}
-            <path d="M44 46C50 34 64 32 72 40C74 44 74 48 72 52L56 50Z" fill="#3EAA8A" ${O}/>
-            <path d="M30 68C27 56 36 46 50 44C64 42 76 48 77 60C78 72 68 80 52 80C40 80 32 76 30 68Z" fill="url(#baobab-loko-h)" ${O}/>
-            <path d="M33 70C42 74 58 74 72 68" fill="none" stroke="#F6E6A0" stroke-width="2.6" stroke-linecap="round"/>
-            <g fill="#F28A6A"><circle cx="58" cy="41" r="1.6"/><circle cx="63.4" cy="39.4" r="1.6"/><circle cx="68" cy="41.4" r="1.4"/></g>
-            ${shine(38, 54, 3.4, 1.8, -30)}`,
-          face: `<circle cx="44" cy="58" r="8.6" fill="#48B898" ${O2}/><circle cx="64" cy="58" r="8.6" fill="#48B898" ${O2}/>
-            <circle cx="44" cy="58" r="6.2" fill="none" stroke="#7ADCB8" stroke-width="1.6"/><circle cx="64" cy="58" r="6.2" fill="none" stroke="#7ADCB8" stroke-width="1.6"/>`
-        },
-        eyes: {lx: 44, rx: 64, y: 58, r: 3.8, style: "sparkle", color: "#1E2A24"},
-        mouth: {x: 54, y: 70.4, w: 3, color: "#1E2A24"},
-        cheeks: {lx: 37, rx: 71, y: 67, w: 2.8, h: 1.8, color: "#FF9A8A"},
-        anchors: {top: [58, 38, 0.8], neck: [56, 80, 0.75], chest: [70, 90, 0.55], back: [78, 74, 0.7], hands: [60, 96, 0.8]},
-        lines: {
-          tap: ["Hi! I can look at you and your notes at once.", "Today I'm turquoise. That means happy!", "Slow steps, sure grip. That's the trick.", "I blushed orange. You're doing so well!", "One eye on the goal, one eye on the snacks.", "Curl your tail, uncurl your worries.", "Watch me change color when you finish!"],
-          pet: ["Hehe, I just turned a little pink!", "Ooh, warm hands. I'm going sunset orange."],
-          hello: ["You're here! I turned my brightest blue!", "Hello! I spotted you with both eyes."],
-          morning: ["Good morning! Let's warm up on a sunny branch."],
-          night: ["I'm turning sleepy green. Rest soon, okay?"],
-          focus: ["Holding very still. Super focus colors on.", "Steady grip. Keep going, you've got it."],
-          done: ["What a session! I'm every color at once!", "Done! That made me glow orange."],
-          task: ["Zip! Another one done!", "Checked off! New color unlocked!", "Yes! Nailed it, both eyes saw!", "Done! Bright work!"],
-          break: ["Break time! Look far away, then near. Eye stretch!"]
         }
       }
     ]

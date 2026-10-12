@@ -1,10 +1,9 @@
-// ---- batch n13: maples (Maple Ravine), aspens (Aspen Gold)
+// ---- batch n13: maples (Maple Ravine)
 // Every shape helper here winds clockwise, so overlapping shapes in one layer slot always union (never punch holes).
 function n13_cw(pts) { var a = 0, n = pts.length; for (var i = 0; i < n; i++) { var p = pts[i], q = pts[(i + 1) % n]; a += p[0] * q[1] - q[0] * p[1]; } return a < 0 ? pts.slice().reverse() : pts; }
 function n13_P(pts) { return pts.length > 2 ? poly(n13_cw(pts)) : ''; }
 function n13_C(x, y, r) { return 'M' + PT(x - r, y) + ' a' + n1(r) + ' ' + n1(r) + ' 0 1 1 ' + n1(2 * r) + ' 0 a' + n1(r) + ' ' + n1(r) + ' 0 1 1 ' + n1(-2 * r) + ' 0 Z '; }
 function n13_E(x, y, rx, ry) { return 'M' + PT(x - rx, y) + ' a' + n1(rx) + ' ' + n1(ry) + ' 0 1 1 ' + n1(2 * rx) + ' 0 a' + n1(rx) + ' ' + n1(ry) + ' 0 1 1 ' + n1(-2 * rx) + ' 0 Z '; }
-function n13_RE(x, y, rx, ry, ang) { var p = []; for (var i = 0; i < 18; i++) { var t = i / 18 * Math.PI * 2; p.push([rx * Math.cos(t), ry * Math.sin(t)]); } return n13_P(rotp(p, x, y, ang)); }
 function n13_yOn(pts, x) { var x0 = pts[0][0], st = pts[1][0] - x0, i = (x - x0) / st, i0 = Math.max(0, Math.min(pts.length - 2, Math.floor(i))), f = Math.max(0, Math.min(1, i - i0)); return pts[i0][1] * (1 - f) + pts[i0 + 1][1] * f; }
 function n13_fn(x0, x1, step, fn) { var p = []; for (var x = x0; x <= x1 + 0.01; x += step) p.push([x, fn(x)]); return p; }
 function n13_dot(x, y) { return 'M' + PT(x, y) + ' h0.01 '; }
@@ -213,123 +212,5 @@ SCENES.maples = function (W, H, dk, rnd) {
   add(near, 'g', fgd, dk ? '#1A1E2C' : '#3A3C2A'); add(near, 'h', fgm + fernD, dk ? '#1C3034' : '#5E7E30');
   if (ANIM) { ANIM.pools = pools.map(function (p) { return {cx: p.cx, cy: p.cy, hw: p.hw, hd: p.hd, yb: p.yb, yf: p.yf, d: n13_P(p.pts)}; }); ANIM.cur = CUR; ANIM.sprays = sprays; ANIM.moon = [mx, my, mr]; ANIM.lan = LW; ANIM.vy = vy; ANIM.vx = vx; ANIM.S = S * (ph ? 0.9 : 1); ANIM.ls = ls;
     ANIM.cl = CL.filter(function (c) { return c[1] < H * 0.45; }).map(function (c) { return [c[0], c[1], c[2]]; }); ANIM.gTop = H * (ph ? 0.46 : 0.47); }
-  return {sky: sky, far: far, refl: refl, mid: mid, near: near};
-};
-
-// =============== 2. Aspen Gold: a Rocky Mountain hillside grove of white aspens, golden leaves, dark spruces and a blue ridge beyond
-// an aspen: slim white trunk, a narrow crown of round golden leaves. o.t trunk, o.sh shade, o.mk dark marks (a STROKE path: eye
-// marks, chevrons, lenticels and the rough dark base), o.cd crown dark, o.cg gold, o.cl light. glints collects leaf spots.
-function n13_aspen(o, x, by, h, rnd, ls, glints, lean) { var tw = h * 0.021 + 1, pts = [], i;
-  for (i = 0; i <= 8; i++) { var u = i / 8; pts.push([x + lean * h * u * u + Math.sin(u * 5 + x) * tw * 0.25, by - h * u]); }
-  o.t += n13_band(pts, tw, tw * 0.45);
-  o.sh += n13_band(pts.map(function (p, j) { return [p[0] + tw * (1 - j / 8 * 0.55) * 0.3, p[1]]; }), tw * 0.55, tw * 0.22);
-  var at = function (u) { var j = Math.min(7, Math.floor(u * 8)), f = u * 8 - j; return [pts[j][0] + (pts[j + 1][0] - pts[j][0]) * f, pts[j][1] + (pts[j + 1][1] - pts[j][1]) * f]; };
-  for (i = 0; i < 3; i++) { var cxb = x + (i - 1) * tw * 0.55 + (rnd() - 0.5) * tw * 0.2, lb = h * (0.03 + rnd() * 0.05); o.mk += 'M' + PT(cxb, by) + ' L' + PT(cxb + (rnd() - 0.5) * tw * 0.3, by - lb * 0.5) + ' L' + PT(cxb + (rnd() - 0.5) * tw * 0.2, by - lb) + ' '; }
-  var ne = Math.max(1, Math.round(h / 140 + rnd())); for (i = 0; i < ne; i++) { var p = at(0.16 + rnd() * 0.4), wl = tw * (0.45 + rnd() * 0.35), hh = Math.max(1.2, tw * 0.4), cx = p[0] + (rnd() - 0.5) * tw * 0.4;
-    o.mk += 'M' + PT(cx - wl, p[1]) + ' Q' + PT(cx, p[1] - hh) + ' ' + PT(cx + wl, p[1]) + ' ';
-    if (rnd() < 0.06) o.mk += 'M' + PT(cx - wl * 0.9, p[1] - hh * 2.2) + ' Q' + PT(cx, p[1] - hh * 3.6) + ' ' + PT(cx + wl * 0.9, p[1] - hh * 2.2) + ' '; }
-  // the narrow crown: upswept branches under a tall cloud of round leaves, lit from the upper right (where the sun is)
-  var c = at(0.84), ch = h * 0.44, cw = h * 0.13 + 6, cy = c[1] + ch * 0.04;
-  for (i = 0; i < 4; i++) { var bp = at(0.56 + i * 0.07), sd = i % 2 ? 1 : -1; o.t += n13_limb(bp[0], bp[1], bp[0] + sd * cw * (0.5 + rnd() * 0.3), bp[1] - ch * 0.25, tw * 0.3, 0.6, sd * 3).d; }
-  for (i = 0; i < 9; i++) { var a = i / 9 * Math.PI * 2, rr = 0.5 + rnd() * 0.2; o.cd += n13_C(c[0] + Math.cos(a) * cw * 0.55 * rr, cy + Math.sin(a) * ch * 0.4 * rr, cw * (0.36 + rnd() * 0.12)); }
-  var N = Math.min(280, Math.round(cw * ch / (ls * ls) * 1.0));
-  for (i = 0; i < N; i++) { var a2 = rnd() * Math.PI * 2, r2 = Math.pow(rnd(), 0.45), lx2 = c[0] + Math.cos(a2) * cw * r2, ly2 = cy + Math.sin(a2) * ch * 0.52 * r2, lit = ((lx2 - c[0]) / cw * 0.5 + (cy - ly2) / ch) + (rnd() - 0.5) * 0.9, s = ls * (0.75 + rnd() * 0.5), d = n13_RE(lx2, ly2, s, s * 0.82, rnd() * 180);
-    if (lit < -0.3) o.cd += d; else if (lit < 0.35) o.cg += d; else o.cl += d;
-    if (glints && rnd() < 0.2) glints.push([lx2, ly2, s]); }
-  return {x: c[0], y: cy, w: cw, h: ch}; }
-// a blue spruce: a narrow spire of drooping tiers
-function n13_spruce(x, by, h) { var d = '', n = Math.max(6, Math.round(h / 16)), i; for (i = 0; i < n; i++) { var u0 = i / n, u1 = Math.min(1, (i + 1.6) / n), y0 = by - h + h * u0, y1 = by - h + h * u1 - h * 0.02, w = h * 0.2 * Math.pow(u1, 0.9) + 2;
-    d += n13_P([[x, y0], [x + w * 0.35, y0 + (y1 - y0) * 0.4], [x + w, y1], [x + w * 0.6, y1 - (y1 - y0) * 0.1], [x + w * 0.3, y1 + 1], [x, y1 - (y1 - y0) * 0.08], [x - w * 0.3, y1 + 1], [x - w * 0.6, y1 - (y1 - y0) * 0.1], [x - w, y1], [x - w * 0.35, y0 + (y1 - y0) * 0.4]]); }
-  return d + n13_P([[x - h * 0.012 - 1, by + 2], [x + h * 0.012 + 1, by + 2], [x + h * 0.01, by - h * 0.1], [x - h * 0.01, by - h * 0.1]]); }
-// a snowy blue mountain range: body, snow caps with streaks down each peak's gullies, shaded right faces
-function n13_range(W, base, y0, dy, np, rnd) { var pk = [], m, i, k; for (i = 0; i <= np; i++) pk.push([W * (i / np) + (rnd() - 0.5) * W / np * 0.5, y0 + rnd() * dy]);
-  m = [[-120, base - (base - pk[0][1]) * 0.4]];
-  for (i = 0; i < pk.length; i++) { m.push(pk[i]); var nx = i < pk.length - 1 ? pk[i + 1] : [W + 140, base - (base - pk[i][1]) * 0.3], lo = Math.max(pk[i][1], nx[1]); m.push([(pk[i][0] + nx[0]) / 2 + (rnd() - 0.5) * 24, lo + (base - lo) * (0.25 + rnd() * 0.25)]); }
-  var sn = '', sh = '';
-  for (i = 1; i < m.length - 1; i += 2) { var p = m[i], sl = m[i - 1], sr = m[i + 1];
-    sh += n13_P([p, sr, [sr[0] - (sr[0] - p[0]) * 0.3, sr[1] + (base - sr[1]) * 0.55], [p[0] + (sr[0] - p[0]) * 0.35, base + 60], [p[0] + (sr[0] - p[0]) * 0.1, base + 60]]);
-    var fr = 0.2 + rnd() * 0.1, A1 = [p[0] + (sr[0] - p[0]) * fr, p[1] + (sr[1] - p[1]) * fr], B1 = [p[0] + (sl[0] - p[0]) * fr, p[1] + (sl[1] - p[1]) * fr], pts = [p, A1];
-    for (k = 1; k < 7; k++) { var u = k / 7; pts.push([A1[0] + (B1[0] - A1[0]) * u, A1[1] + (B1[1] - A1[1]) * u + (k % 2 ? -0.3 : 0.9) * (A1[1] - p[1]) * 0.6]); } pts.push(B1); sn += n13_P(pts);
-  }
-  return {body: n13_P(m.concat([[W + 140, base + 60], [-120, base + 60]])), snow: sn, shade: sh, pts: m}; }
-
-SCENES.aspens = function (W, H, dk, rnd) {
-  var ph = H > W, far = Lay(1.2), refl = Lay(0.2), mid = Lay(0), near = Lay(0), S = ph ? 0.62 : Math.min(1.15, H / 800), i, k, x;
-  var LS = ph ? 1.35 : 1;
-  var sky = dk ? 'linear-gradient(180deg,#050920 0%,#0E163A 32%,#1C2856 62%,#2C3866 100%)' : 'linear-gradient(180deg,#2C74C4 0%,#5A9ADA 30%,#A4CAEA 58%,#E2ECEC 80%,#E2ECEC 100%)';
-  var hz = H * (ph ? 0.4 : 0.42);
-  // sun or moon over the open side of the valley; stars and a faint Milky Way at night, small fair-weather clouds by day
-  var sx = W * (ph ? 0.7 : 0.74), sy = H * (ph ? 0.15 : 0.13), sr = dk ? (ph ? 18 : 26) : (ph ? 22 : 32);
-  if (dk) { var mw = '', st = ''; for (i = 0; i <= 30; i++) { var u = i / 30; mw += n13_RE(W * (0.05 + u * 0.95), hz * (0.9 - u * 0.75) + Math.sin(u * 7) * 10, W * 0.08, H * 0.04, -28); }
-    add(far, 'a', mw, 'rgba(150,160,255,0.06)');
-    spread(0, 0, W, hz, 20, 20, rnd, 1).forEach(function (c) { if (c.q < 0.45 && Math.hypot(c.x - sx, c.y - sy) > sr * 2.5) st += n13_C(c.x, c.y, 0.35 + c.r * 1.05); });
-    add(far, 'b', st, 'rgba(255,250,240,0.88)'); add(far, 'c', n13_C(sx, sy, sr * 3), 'rgba(210,220,255,0.1)'); add(far, 'd', 'M' + PT(sx, sy - sr) + ' A' + n1(sr) + ' ' + n1(sr) + ' 0 1 1 ' + PT(sx, sy + sr) + ' A' + n1(sr * 0.6) + ' ' + n1(sr) + ' 0 1 0 ' + PT(sx, sy - sr) + ' Z ', '#FBF4DC'); }
-  else { add(far, 'a', n13_C(sx, sy, sr * 3.2), 'rgba(255,250,230,0.25)'); add(far, 'b', n13_C(sx, sy, sr * 1.7), 'rgba(255,252,236,0.5)'); add(far, 'd', n13_C(sx, sy, sr), '#FFFDF2');
-    var cb = '', cs = ''; (ph ? [[0.22, 0.12, 0.9], [0.45, 0.27, 0.6]] : [[0.18, 0.12, 1], [0.45, 0.22, 0.8], [0.58, 0.08, 0.6], [0.92, 0.28, 0.7]]).forEach(function (q) { var x0 = W * q[0], y0 = H * q[1], s = q[2] * S * (ph ? 1.3 : 1);
-      [[0, 0, 34], [-30, 6, 24], [30, 5, 26], [-56, 12, 15], [58, 12, 16], [12, -14, 22]].forEach(function (b) { cb += n13_C(x0 + b[0] * s, y0 + b[1] * s, b[2] * s); }); cs += n13_E(x0, y0 + 20 * s, 74 * s, 9 * s); });
-    add(far, 'c', cb, 'rgba(255,255,255,0.94)'); add(far, 'e', cs, 'rgba(196,214,236,0.9)'); }
-  // the blue ridge beyond: a pale far range and a nearer, bluer one, both dusted with early snow
-  var m1 = n13_range(W, hz + 20, H * (ph ? 0.21 : 0.17), H * 0.08, ph ? 3 : 6, rnd), m2 = n13_range(W, hz + 30, H * (ph ? 0.28 : 0.27), H * 0.06, ph ? 4 : 8, rnd);
-  add(far, 'f', m1.body, dk ? '#2E3A68' : '#9CB4DA'); add(far, 'g', m1.snow, dk ? '#9AA6D0' : '#F4F8FC'); add(far, 'h', m1.shade + m2.shade, dk ? 'rgba(8,12,40,0.3)' : 'rgba(60,90,150,0.2)');
-  add(refl, 'a', m2.body, dk ? '#25305A' : '#7090C2'); add(refl, 'b', m2.snow, dk ? '#7E8ABA' : '#E6EEF8');
-  // forested foothills: dark spruce with drifts of gold where the aspen stands are
-  var h1 = n13_fn(-60, W + 60, 8, function (x) { return hz + H * 0.06 + Math.sin(x / (ph ? 70 : 140) + 0.4) * H * 0.02 + Math.sin(x / 47) * H * 0.006; });
-  add(refl, 'c', below(h1, H + 40), dk ? '#16243A' : '#3A5C56');
-  var spk = ''; for (x = -20; x < W + 20; x += (ph ? 4 : 6) * (0.6 + rnd() * 0.8)) { var yy = n13_yOn(h1, x) + 3, sh2 = (ph ? 9 : 14) * S * LS * (0.5 + rnd() * 0.8); spk += n13_P([[x, yy - sh2], [x + sh2 * 0.22, yy - sh2 * 0.3], [x + sh2 * 0.3, yy + 2], [x - sh2 * 0.3, yy + 2], [x - sh2 * 0.22, yy - sh2 * 0.3]]); }
-  add(refl, 'd', spk, dk ? '#122030' : '#2C4A44');
-  var gd = '', gl = '', patches = []; for (i = 0; i < (ph ? 4 : 7); i++) patches.push([W * (i + 0.2 + rnd() * 0.6) / (ph ? 4 : 7), 0.6 + rnd() * 0.8]);
-  patches.forEach(function (p) { var pw = (ph ? 50 : 90) * p[1] * S * LS, n = Math.round(pw * 0.7); for (var j = 0; j < n; j++) { var a = rnd() * Math.PI * 2, rr = Math.sqrt(rnd()), xx = p[0] + Math.cos(a) * pw * rr, yb = n13_yOn(h1, xx), yy2 = yb + 4 + rnd() * H * 0.05, r = (ph ? 3 : 4.2) * S * LS * (0.7 + rnd() * 0.6);
-      gd += n13_C(xx, yy2, r) + n13_C(xx + r * 0.8, yy2 + r * 0.3, r * 0.8); if (rnd() < 0.4) gl += n13_C(xx + r * 0.3, yy2 - r * 0.4, r * 0.55); } });
-  add(refl, 'e', gd, dk ? '#4A4430' : '#D49E28'); add(refl, 'f', gl, dk ? '#5E5636' : '#F2CA4A');
-  // a far row of small aspens along the hillside's crest, behind the grove
-  var gTop = function (x) { return H * (ph ? 0.53 : 0.535) + (x / W) * H * (ph ? 0.06 : 0.1) + Math.sin(x / (ph ? 60 : 110) + 1) * H * 0.012; };
-  var fa = {t: '', sh: '', mk: '', cd: '', cg: '', cl: ''};
-  for (i = 0; i < (ph ? 7 : 13); i++) { var fx = W * (ph ? 0.02 + i * 0.14 : 0.01 + i * 0.048) + (rnd() - 0.5) * 16; n13_aspen(fa, fx, gTop(fx) + 3, H * (0.15 + rnd() * 0.06), rnd, (ph ? 2.2 : 2.6) * S * LS, null, (rnd() - 0.5) * 0.04); }
-  add(refl, 'g', fa.t, dk ? '#8A92AE' : '#E4E0D4'); add(refl, 'h', fa.cd + fa.cg + fa.cl, dk ? '#5A5034' : '#DCA42C');
-  // the hillside meadow the grove stands on
-  var ground = n13_fn(-60, W + 60, 8, gTop);
-  add(mid, 'a', below(ground, H + 40), dk ? '#2C3048' : '#C2A44A');
-  var bands = ''; [0.1, 0.28, 0.52, 0.78].forEach(function (fr, j) { var th = (6 + j * 7) * S, top = n13_fn(-60, W + 60, 10, function (x) { var g = gTop(x); return g + (H - g) * fr + Math.sin(x / (80 + j * 50) + j * 2) * (4 + j * 3) * S; }); bands += n13_P(top.concat(top.slice().reverse().map(function (p) { return [p[0], p[1] + th * (0.55 + 0.45 * Math.sin(p[0] / 70 + j))]; }))); });
-  add(mid, 'b', bands, dk ? 'rgba(160,170,220,0.1)' : 'rgba(250,224,130,0.5)');
-  // the grove: aspens at several depths across the hillside, a few dark spruces among them
-  var o = {t: '', sh: '', mk: '', cd: '', cg: '', cl: ''}, GL = [], crowns = [], spr = '', ls = (ph ? 3.6 : 4.4) * S * LS;
-  var tlist = [], nT = ph ? 11 : 19; for (i = 0; i < nT; i++) tlist.push({x: ph ? W * (-0.04 + (i + rnd() * 0.8) / nT * 1.08) : W * (Math.pow((i + rnd()) / nT, 1.2) * 0.66 - 0.02), d: rnd()});
-  tlist.sort(function (a, b) { return a.d - b.d; });
-  (ph ? [0.32, 0.66] : [0.17, 0.42, 0.6, 0.86]).forEach(function (f) { var xx = W * f, by = gTop(xx) + H * 0.035, hh = H * (ph ? 0.26 : 0.32) * (0.8 + rnd() * 0.4); spr += n13_spruce(xx, by, hh); });
-  tlist.forEach(function (T) { var by = gTop(T.x) + H * (0.01 + T.d * T.d * 0.2), hh = H * (0.38 + T.d * 0.36) * (0.9 + rnd() * 0.2), tw2 = hh * 0.021 + 1; o.sh += n13_P([[T.x - tw2, by + 1], [T.x + tw2, by + 1], [T.x - hh * 0.2 + tw2 * 2, by + hh * 0.07], [T.x - hh * 0.2 - tw2 * 0.5, by + hh * 0.07]]); crowns.push(n13_aspen(o, T.x, by, hh, rnd, ls * (0.85 + T.d * 0.3), GL, (rnd() - 0.5) * 0.05)); });
-  add(mid, 'c', spr, dk ? '#101C26' : '#26443A'); add(mid, 'd', o.t, dk ? '#BCC4DA' : '#EDEDDE'); add(mid, 'e', o.sh, dk ? 'rgba(20,26,60,0.42)' : 'rgba(120,112,96,0.28)');
-  add(mid, 'f', o.cd, dk ? '#4A3E22' : '#B87C14'); add(mid, 'g', o.cg, dk ? '#8A7A3E' : '#E8B020'); add(mid, 'h', o.cl, dk ? '#C4B272' : '#FAD85A');
-  stk(mid, 's', o.mk, dk ? '#22242F' : '#2E2A28', 1.9 * S + 0.6);
-  var bl = ''; spread(0, H * 0.5, W, H * 0.5, 10, 9, rnd, 1).forEach(function (c) { var g = gTop(c.x); if (c.y > g + 6 && c.q < 0.35) { var hh = (4 + (c.y - g) / H * 30) * S * LS, b = (c.r - 0.5) * hh * 0.6; bl += 'M' + PT(c.x, c.y) + ' q' + n1(b * 0.3) + ' ' + n1(-hh * 0.6) + ' ' + n1(b) + ' ' + n1(-hh) + ' '; } });
-  stk(mid, 't', bl, dk ? 'rgba(170,170,200,0.3)' : 'rgba(236,206,110,0.9)', 1.2 * S + 0.5);
-  // foreground: big trunks framing the view, their crowns along the top edge, red-leaved shrubs and a golden grass bank
-  var nr = {t: '', sh: '', mk: '', ln: '', cd: '', cg: '', cl: ''}, NG = [], fgT = ph ? [[0.05, 0.06], [0.96, 0.05]] : [[0.035, 0.034], [0.15, 0.022], [0.93, 0.03]];
-  var fgTop = function (x) { return H * (ph ? 0.92 : 0.9) + Math.sin(x / (ph ? 50 : 90) + 0.5) * H * 0.015 + Math.sin(x / 23) * 2; };
-  fgT.forEach(function (q, j) { var xx = W * q[0], tw = W * q[1], pts = [], by = fgTop(xx) + 6;
-    for (i = 0; i <= 8; i++) { var u = i / 8; pts.push([xx + Math.sin(u * 2.2 + j) * tw * 0.4, by - (by + 40) * u]); }
-    nr.t += n13_band(pts, tw, tw * 0.75); nr.sh += n13_band(pts.map(function (p) { return [p[0] + tw * 0.45, p[1]]; }), tw * 0.5, tw * 0.38);
-    var bse = [[xx + tw * 1.05, by + 4], [xx - tw * 1.05, by + 4]]; for (k = 0; k <= 8; k++) { var uu = k / 8; bse.push([xx - tw * 1.02 + tw * 2.04 * uu, by - H * (0.05 + 0.025 * Math.sin(uu * 7 + j) + 0.015 * Math.sin(uu * 17)) - (k % 2) * tw * 0.25]); } nr.mk += n13_P(bse);
-    for (k = 0; k < 3; k++) { var p = pts[Math.min(8, Math.round((0.25 + k * 0.2 + rnd() * 0.08) * 8))], cx = p[0] + (rnd() - 0.5) * tw * 0.5, wl = tw * (0.4 + rnd() * 0.35), hh2 = tw * 0.22 + 1;
-      var eye = []; for (var e2 = 0; e2 <= 10; e2++) { var ue = e2 / 10 * 2 - 1; eye.push([cx + ue * wl, p[1] - hh2 * 0.9 * (1 - ue * ue) + hh2 * 0.25 * ue * ue]); } for (e2 = 9; e2 >= 1; e2--) { var ue2 = e2 / 10 * 2 - 1; eye.push([cx + ue2 * wl * 0.8, p[1] + hh2 * 0.5 * (1 - ue2 * ue2)]); } nr.mk += n13_P(eye);
-    }
-  });
-  // the near crowns: golden leaf masses hanging into the top corners
-  var corners = ph ? [[0.0, 0.02, 0.34], [1.0, 0.03, 0.32]] : [[0.0, 0.02, 0.24], [0.17, -0.02, 0.17], [0.95, 0.02, 0.2]], nls = ls * 1.7;
-  corners.forEach(function (q) { var cx = W * q[0], cy = H * q[1], R = W * q[2], sd = cx < W / 2 ? 1 : -1;
-    for (k = 0; k < 7; k++) { var a = Math.PI * (0.1 + k / 6 * 0.8), bx = cx + Math.cos(a) * R * 0.6 * sd * (0.5 + rnd() * 0.5) + sd * R * 0.15, byy = cy + Math.sin(a) * R * 0.45 * (0.6 + rnd() * 0.5), br = R * (0.22 + rnd() * 0.1);
-      nr.cd += n13_C(bx, byy, br * 0.72); var N = Math.round(br * br / (nls * nls) * 1.5);
-      for (var j = 0; j < N; j++) { var a2 = rnd() * Math.PI * 2, rr = Math.pow(rnd(), 0.45), lx = bx + Math.cos(a2) * br * rr, ly = byy + Math.sin(a2) * br * 0.85 * rr, lit = (byy - ly) / br + (rnd() - 0.5) * 0.9, s = nls * (0.75 + rnd() * 0.5), d = n13_RE(lx, ly, s, s * 0.82, rnd() * 180);
-        if (lit < -0.3) nr.cd += d; else if (lit < 0.35) nr.cg += d; else nr.cl += d; if (rnd() < 0.16) NG.push([lx, ly, s]); } } });
-  var shrub = '', shrubL = ''; (ph ? [[0.3, 0.95], [0.72, 0.94]] : [[0.24, 0.92], [0.45, 0.95], [0.68, 0.92], [0.82, 0.95]]).forEach(function (q) { var x0 = W * q[0], y0 = fgTop(W * q[0]) + 6, s = (ph ? 26 : 40) * S * LS;
-    for (k = 0; k < 12; k++) { var a = Math.PI * (1.05 + rnd() * 0.9), rr = s * (0.3 + rnd() * 0.7), r = s * (0.22 + rnd() * 0.14), lx = x0 + Math.cos(a) * rr * 1.4, ly = y0 + Math.sin(a) * rr * 0.7; shrub += n13_C(lx, ly, r); if (rnd() < 0.5) shrubL += n13_C(lx + r * 0.25, ly - r * 0.3, r * 0.55); } });
-  var fg = n13_fn(-60, W + 60, 8, fgTop), gr = [], grs = '';
-  for (x = -10; x < W + 10; x += (ph ? 5 : 7)) gr.push({x: x + rnd() * 4, h: (ph ? 44 : 66) * S * LS * (0.5 + rnd() * 0.8), c: rnd() < 0.5, ph: rnd() * 6.28, lean: (rnd() - 0.5) * 0.6});
-  if (!ANIM) gr.forEach(function (g) { var b = g.lean * g.h; grs += 'M' + PT(g.x, H + 4) + ' q' + n1(b * 0.3) + ' ' + n1(-g.h * 0.6) + ' ' + n1(b) + ' ' + n1(-g.h) + ' '; });
-  var fl = ''; spread(0, H * 0.88, W, H * 0.12, 12, 8, rnd, 1).forEach(function (c) { if (c.y > fgTop(c.x) + 4 && c.q < 0.22) fl += n13_dot(c.x, c.y); });
-  add(near, 'a', nr.t, dk ? '#C8D0E6' : '#EFEFE2'); add(near, 'b', nr.sh, dk ? 'rgba(20,26,60,0.45)' : 'rgba(120,112,96,0.3)'); add(near, 'c', nr.mk, dk ? '#1A1C28' : '#2E2A26');
-  add(near, 'd', nr.cd, dk ? '#4A3E22' : '#B87C14'); add(near, 'e', nr.cg, dk ? '#8A7A3E' : '#E8B020'); add(near, 'f', nr.cl, dk ? '#C4B272' : '#FAD85A');
-  add(near, 'g', shrub, dk ? '#4A2030' : '#C4442C'); add(near, 'h', below(fg, H + 40) , dk ? '#242838' : '#B0923C');
-  stk(near, 's', fl, dk ? '#8A7A3E' : '#F0BC2A', nls * 1.1); stk(near, 't', grs, dk ? '#4A4E66' : '#D8B856', 2.4 * S + 0.6);
-  if (ANIM) { ANIM.hz = hz; ANIM.S = S * (ph ? 0.9 : 1); ANIM.GL = GL; ANIM.NG = NG; ANIM.gr = gr; ANIM.sun = [sx, sy, sr]; ANIM.crowns = crowns; ANIM.ls = ls; ANIM.gy = gTop(W * 0.5); ANIM.h1 = hz + H * 0.06; ANIM.peak = H * (ph ? 0.2 : 0.16); ANIM.fl = fl; ANIM.shrubL = shrubL; }
   return {sky: sky, far: far, refl: refl, mid: mid, near: near};
 };

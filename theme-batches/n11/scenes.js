@@ -1,4 +1,4 @@
-// ---- batch n11: meadow (Poppy Meadow), glowbay (Glowing Bay)
+// ---- batch n11: glowbay (Glowing Bay)
 // Every shape helper here winds clockwise, so overlapping shapes in one layer slot always union (never punch holes).
 function n11_cw(pts) { var a = 0, n = pts.length; for (var i = 0; i < n; i++) { var p = pts[i], q = pts[(i + 1) % n]; a += p[0] * q[1] - q[0] * p[1]; } return a < 0 ? pts.slice().reverse() : pts; }
 function n11_P(pts) { return pts.length > 2 ? poly(n11_cw(pts)) : ''; }
@@ -7,7 +7,6 @@ function n11_E(x, y, rx, ry) { return 'M' + PT(x - rx, y) + ' a' + n1(rx) + ' ' 
 function n11_RE(x, y, rx, ry, ang) { var p = []; for (var i = 0; i < 20; i++) { var t = i / 20 * Math.PI * 2; p.push([rx * Math.cos(t), ry * Math.sin(t)]); } return n11_P(rotp(p, x, y, ang)); }
 function n11_yOn(pts, x) { var x0 = pts[0][0], st = pts[1][0] - x0, i = (x - x0) / st, i0 = Math.max(0, Math.min(pts.length - 2, Math.floor(i))), f = Math.max(0, Math.min(1, i - i0)); return pts[i0][1] * (1 - f) + pts[i0 + 1][1] * f; }
 function n11_fn(x0, x1, step, fn) { var p = []; for (var x = x0; x <= x1 + 0.01; x += step) p.push([x, fn(x)]); return p; }
-function n11_dot(x, y) { return 'M' + PT(x, y) + ' h0.01 '; }
 // a leaf outline: base at (x,y), pointing along ang (degrees)
 function n11_leafPts(x, y, len, w, ang, bend) { var up = [], lo = [], b = bend || 0; for (var i = 0; i <= 12; i++) { var t = i / 12, ww = w * Math.sin(Math.PI * Math.pow(t, 0.8)) * (1 - 0.25 * t), c = b * len * t * t; up.push([t * len, c - ww]); lo.unshift([t * len, c + ww]); } return rotp(up.concat(lo.slice(1, -1)), x, y, ang); }
 function n11_leaf(x, y, len, w, ang, bend) { return n11_P(n11_leafPts(x, y, len, w, ang, bend)); }
@@ -18,141 +17,8 @@ function n11_curve(p, n) { var q = [p[0]].concat(p, [p[p.length - 1]]), o = []; 
 function n11_inPoly(P, x, y) { var c = false; for (var i = 0, j = P.length - 1; i < P.length; j = i++) { var a = P[i], b = P[j]; if ((a[1] > y) !== (b[1] > y) && x < (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; }
 // a tapered band from (x0,y0) to (x1,y1), bowed sideways by bend
 function n11_limb(x0, y0, x1, y1, w0, w1, bend) { var L = [], R = [], n = 8; for (var i = 0; i <= n; i++) { var u = i / n, x = x0 + (x1 - x0) * u + Math.sin(Math.PI * u) * bend, y = y0 + (y1 - y0) * u, dx = x1 - x0, dy = y1 - y0, dl = Math.hypot(dx, dy) || 1, w = w0 + (w1 - w0) * u; L.push([x - dy / dl * w, y + dx / dl * w]); R.push([x + dy / dl * w, y - dx / dl * w]); } return n11_P(L.concat(R.reverse())); }
-function n11_starPts(x, y, R, r, n, rot) { var p = []; for (var i = 0; i < n * 2; i++) { var a = rot + i * Math.PI / n - Math.PI / 2, q = i % 2 ? r : R; p.push([x + Math.cos(a) * q, y + Math.sin(a) * q]); } return p; }
-// a flat-bottomed summer cumulus: towers of round bumps over a level base; base = the shadowed underside, lit = the sunny top
-function n11_cumulus(x, base, w, h, rnd) { var B = [], n = 6, i;
-  for (i = 0; i < n; i++) { var u = (i + 0.5) / n - 0.5, c = Math.cos(u * Math.PI); B.push([x + u * w * 0.8, base - h * (0.04 + 0.36 * c), h * (0.12 + 0.32 * c) * (0.85 + rnd() * 0.3)]); }
-  B.push([x - w * 0.1 + (rnd() - 0.5) * w * 0.1, base - h * 0.62, h * 0.3]); B.push([x + w * 0.12, base - h * 0.7, h * 0.26]); B.push([x + w * 0.02 + (rnd() - 0.5) * w * 0.08, base - h * 0.84, h * 0.2]);
-  function out(sh, dx, dy, by) { var top = []; for (var xx = x - w * 0.64; xx <= x + w * 0.64; xx += w / 80) { var yy = by; B.forEach(function (b) { var r = b[2] * sh, d = xx - b[0] - dx; if (Math.abs(d) < r) yy = Math.min(yy, b[1] + dy - Math.sqrt(r * r - d * d)); }); if (yy < by - 0.5) top.push([xx, yy]); } return top.length > 2 ? n11_P(top.concat([[top[top.length - 1][0], by], [top[0][0], by]])) : ''; }
-  return {base: out(1, 0, 0, base), lit: out(0.93, -w * 0.025, -h * 0.04, base - h * 0.12), box: [x - w * 0.64, base - h * 1.1, x + w * 0.64, base]}; }
-// a mountain range: body, snow caps over the peaks above the snow line, and the shaded right faces (drawn after the snow, so it shades it too)
-function n11_range(W, base, y0, dy, np, rnd, snowLine) { var pk = [], m, i, k; for (i = 0; i <= np; i++) pk.push([W * (i / np) + (rnd() - 0.5) * W / np * 0.5, y0 + rnd() * dy]);
-  m = [[-120, base - (base - pk[0][1]) * 0.4]];
-  for (i = 0; i < pk.length; i++) { m.push(pk[i]); var nx = i < pk.length - 1 ? pk[i + 1] : [W + 140, base - (base - pk[i][1]) * 0.3], lo = Math.max(pk[i][1], nx[1]); m.push([(pk[i][0] + nx[0]) / 2 + (rnd() - 0.5) * 24, lo + (base - lo) * (0.25 + rnd() * 0.25)]); }
-  var snow = '', shade = '';
-  for (i = 1; i < m.length - 1; i += 2) { var p = m[i], sl = m[i - 1], sr = m[i + 1];
-    shade += n11_P([p, sr, [sr[0] - (sr[0] - p[0]) * 0.3, sr[1] + (base - sr[1]) * 0.55], [p[0] + (sr[0] - p[0]) * 0.38, base + 80], [p[0] + (sr[0] - p[0]) * 0.12, base + 80]]);
-    if (p[1] < snowLine) { var fr = Math.min(0.62, (snowLine - p[1]) / (base - p[1]) + 0.18 + rnd() * 0.12), A1 = [p[0] + (sr[0] - p[0]) * fr, p[1] + (sr[1] - p[1]) * fr], B1 = [p[0] + (sl[0] - p[0]) * fr, p[1] + (sl[1] - p[1]) * fr], pts = [p, A1];
-      for (k = 1; k < 7; k++) { var u = k / 7; pts.push([A1[0] + (B1[0] - A1[0]) * u, A1[1] + (B1[1] - A1[1]) * u + (k % 2 ? -1 : 1) * (A1[1] - p[1]) * 0.18]); } pts.push(B1); snow += n11_P(pts); } }
-  return {body: n11_P(m.concat([[W + 140, base + 80], [-120, base + 80]])), snow: snow, shade: shade, pts: m}; }
 
-// =============== 1. Poppy Meadow: a rolling alpine meadow of poppies, cornflowers and daisies, a stream, a lone oak and blue mountains
-// a lone oak: flared trunk forking into limbs under a broad dome of leafy clusters (o.t trunk, o.d dark leaves, o.l lit leaves)
-function n11_oak(x, y, h, rnd, o) { var tw = h * 0.07, fy = y - h * 0.27;
-  o.t += n11_P([[x - tw * 2.1, y + 4], [x - tw * 1.4, y - h * 0.015], [x - tw * 1.0, y - h * 0.08], [x - tw * 0.85, fy], [x + tw * 0.9, fy], [x + tw * 1.05, y - h * 0.08], [x + tw * 1.5, y - h * 0.02], [x + tw * 2.3, y + 4]]);
-  [[-0.46, -0.5, 0.6], [-0.24, -0.66, 0.66], [0.02, -0.74, 0.7], [0.24, -0.62, 0.62], [0.46, -0.46, 0.55]].forEach(function (q) { o.t += n11_limb(x + q[0] * tw * 0.6, fy + tw * 0.5, x + q[0] * h, y + q[1] * h, tw * q[2] * 1.25, tw * 0.22, -q[0] * h * 0.07); });
-  [[-0.95, -0.47], [0.98, -0.44]].forEach(function (q) { o.t += n11_limb(x + q[0] * h * 0.4, y + q[1] * h, x + q[0] * h * 0.55, y + q[1] * h - h * 0.08, tw * 0.25, tw * 0.1, 0); });
-  var cy = y - h * 0.66, cw = h * 0.58, ch = h * 0.27, B = [], i;
-  for (i = 0; i < 15; i++) { var a = i / 15 * Math.PI * 2 + 0.2, bx = x + Math.cos(a) * cw * (0.82 + rnd() * 0.12), by = cy + Math.sin(a) * ch * (0.86 + rnd() * 0.1); if (by > cy + ch * 0.5) by = cy + ch * 0.5 + (by - cy - ch * 0.5) * 0.4; B.push([bx, by, h * (0.12 + rnd() * 0.05)]); }
-  for (i = 0; i < 6; i++) B.push([x + (rnd() - 0.5) * cw * 1.1, cy + (rnd() - 0.6) * ch * 0.9, h * (0.15 + rnd() * 0.05)]);
-  B.push([x - cw * 0.15, cy - ch * 0.95, h * 0.14]); B.push([x + cw * 0.22, cy - ch * 0.9, h * 0.13]);
-  var clu = function (cx, cy2, r) { var d = n11_C(cx, cy2, r * 0.8), m = 8, a0 = rnd() * 6.28; for (var j = 0; j < m; j++) { var a = a0 + j / m * Math.PI * 2; d += n11_C(cx + Math.cos(a) * r * 0.66, cy2 + Math.sin(a) * r * 0.6, r * (0.34 + rnd() * 0.08)); } return d; };
-  o.d += n11_E(x, cy + ch * 0.05, cw * 0.86, ch * 0.92);
-  B.forEach(function (b) { o.d += clu(b[0], b[1], b[2]); });
-  B.forEach(function (b, j) { var ux = (b[0] - x) / cw, uy = (b[1] - cy) / ch; if ((j < 15 || j >= 21) && ux * 0.7 + uy < -0.1) o.l += clu(b[0] - b[2] * 0.22, b[1] - b[2] * 0.26, b[2] * 0.6); else if (j >= 15 && j < 21 && ux + uy < -0.3) o.l += clu(b[0] - b[2] * 0.2, b[1] - b[2] * 0.3, b[2] * 0.45); });
-  return {cx: x, cy: cy, cw: cw + h * 0.17, ch: ch + h * 0.17}; }
-// one meadow flower for the still layers: k 0 poppy, 1 cornflower, 2 daisy. Night: poppies and daisies are closed buds.
-function n11_bloom(o, k, x, y, r, dk, rnd) {
-  if (k === 0) { if (dk) { o.st += 'M' + PT(x, y + r * 2.2) + ' q' + n1(r * 0.1) + ' ' + n1(-r * 1.4) + ' ' + n1(r * 0.6) + ' ' + n1(-r * 1.8) + ' '; o.r += n11_RE(x + r * 0.75, y + r * 0.7, r * 0.34, r * 0.6, 28); return; }
-    o.st += 'M' + PT(x, y + r * 0.6) + ' q' + n1(-r * 0.2) + ' ' + n1(r * 0.9) + ' 0 ' + n1(r * 1.9) + ' ';
-    o.r += n11_E(x, y + r * 0.05, r * 0.82, r * 0.72) + n11_C(x - r * 0.5, y - r * 0.12, r * 0.58) + n11_C(x + r * 0.5, y - r * 0.12, r * 0.58); o.c += n11_E(x, y - r * 0.32, r * 0.36, r * 0.18); return; }
-  if (k === 1) { o.st += 'M' + PT(x, y + r * 0.5) + ' q' + n1(r * 0.2) + ' ' + n1(r) + ' 0 ' + n1(r * 2) + ' '; o.b += n11_P(n11_starPts(x, y, r * (dk ? 0.8 : 1), r * (dk ? 0.5 : 0.6), 9, rnd() * 0.6)); o.c += n11_C(x, y, r * 0.22); return; }
-  if (dk) { o.st += 'M' + PT(x, y + r * 0.4) + ' l0 ' + n1(r * 1.9) + ' '; o.w += n11_RE(x, y, r * 0.28, r * 0.5, 0); return; }
-  o.st += 'M' + PT(x, y + r * 0.4) + ' q' + n1(-r * 0.2) + ' ' + n1(r) + ' 0 ' + n1(r * 2) + ' ';
-  for (var i = 0; i < 9; i++) { var a = i / 9 * Math.PI * 2; o.w += n11_RE(x + Math.cos(a) * r * 0.56, y + Math.sin(a) * r * 0.42, r * 0.46, r * 0.17, a * 180 / Math.PI * 0.84); }
-  o.y += n11_E(x, y, r * 0.3, r * 0.24); }
-
-SCENES.meadow = function (W, H, dk, rnd) {
-  var ph = H > W, far = Lay(2.2), refl = Lay(0.7), mid = Lay(0), near = Lay(0), S = ph ? 0.62 : Math.min(1.15, H / 800), i, x, y;
-  var hz = H * (ph ? 0.47 : 0.5);
-  var sky = dk ? 'linear-gradient(180deg,#0A1330 0%,#152149 30%,#26356A 62%,#3C4A7A 100%)' : 'linear-gradient(180deg,#6FB0E6 0%,#98CBF0 30%,#C8E4F6 56%,#EEF3E2 100%)';
-  // sun or moon, stars and big summer cumulus
-  var bx = dk ? W * (ph ? 0.32 : 0.56) : W * (ph ? 0.2 : 0.14), by = H * (ph ? 0.155 : 0.12), br = dk ? (ph ? 17 : 25) : (ph ? 22 : 34);
-  if (dk) { add(far, 'a', n11_C(bx, by, br * 2.6), 'rgba(200,210,255,0.11)'); add(far, 'c', n11_C(bx, by, br), '#F6F1DC'); }
-  else { add(far, 'a', n11_C(bx, by, br * 2.3), 'rgba(255,252,232,0.34)'); add(far, 'c', n11_C(bx, by, br), '#FFFDF0'); }
-  var CL = ph ? [[0.3, 0.27, 210, 90], [0.82, 0.33, 240, 104], [0.62, 0.13, 110, 40]] : [[0.36, 0.26, 290, 116], [0.66, 0.35, 430, 176], [0.93, 0.17, 190, 74], [0.09, 0.36, 200, 70], [0.52, 0.11, 140, 46]], cbase = '', clit = '', boxes = [];
-  CL.forEach(function (q) { var cx = W * q[0], cb = H * q[1]; if (Math.hypot(cx - bx, cb - q[3] * 0.5 - by) < q[2] * 0.6 + br * 2) return; if (dk && q[2] > 400) q[3] *= 0.7; var c = n11_cumulus(cx, cb, q[2] * (ph ? 1 : S), q[3] * (ph ? 1 : S), rnd); cbase += c.base; clit += c.lit; boxes.push(c.box); });
-  add(far, 'd', cbase, dk ? 'rgba(42,54,98,0.92)' : '#C6D7EA'); add(far, 'e', clit, dk ? 'rgba(86,102,152,0.9)' : '#FFFFFF');
-  if (dk) { var st = ''; spread(0, 0, W, hz * 0.95, 30, 30, rnd, 1).forEach(function (c) { if (c.q > 0.55 || Math.hypot(c.x - bx, c.y - by) < br * 2.4) return; for (var j = 0; j < boxes.length; j++) { var b = boxes[j]; if (c.x > b[0] && c.x < b[2] && c.y > b[1] && c.y < b[3]) return; } st += n11_C(c.x, c.y, 0.5 + c.r * 1.1); }); add(far, 'b', st, 'rgba(255,248,236,0.85)'); }
-  else { var wisp = ''; spread(0, H * 0.04, W, H * 0.16, ph ? 200 : 330, 90, rnd, 0.8).forEach(function (c) { if (c.q < 0.5 && Math.hypot(c.x - bx, c.y - by) > 110) { var s = 0.6 + c.r * 0.6; wisp += n11_E(c.x, c.y, 70 * s, 5 * s) + n11_E(c.x + 30 * s, c.y - 4 * s, 40 * s, 4 * s); } }); add(far, 'b', wisp, 'rgba(255,255,255,0.55)'); }
-  // blue mountains beyond: a pale far range (far layer) and a nearer, bluer one (refl)
-  var m1 = n11_range(W, hz + 30, H * (ph ? 0.23 : 0.19), H * 0.09, ph ? 3 : 5, rnd, H * (ph ? 0.31 : 0.28));
-  add(far, 'f', m1.body, dk ? '#36426F' : '#A6BFE0'); add(far, 'g', m1.snow, dk ? '#A4AED6' : '#F7FAFD'); add(far, 'h', m1.shade, dk ? 'rgba(10,14,42,0.32)' : 'rgba(76,106,160,0.24)');
-  var m2 = n11_range(W, hz + 30, H * (ph ? 0.31 : 0.29), H * 0.07, ph ? 3 : 7, rnd, H * (ph ? 0.335 : 0.315));
-  add(refl, 'a', m2.body, dk ? '#2A3660' : '#83A2CE'); add(refl, 'b', m2.snow, dk ? '#8894C2' : '#EEF4FB'); add(refl, 'c', m2.shade, dk ? 'rgba(8,10,34,0.3)' : 'rgba(46,76,136,0.26)');
-  // far rolling hills with tree clumps, and a nearer hill with hedgerows and specks of flowers
-  var h1 = ridge(W, hz + H * 0.005, [[H * 0.016, ph ? 60 : 130, 0.4], [H * 0.007, 40, 2.1]], 8);
-  add(refl, 'd', below(h1, H + 40), dk ? '#273C52' : '#A2C98C');
-  var tc = ''; spread(-20, hz - H * 0.02, W + 40, H * 0.02, ph ? 24 : 34, H * 0.02, rnd, 1).forEach(function (c) { if (c.q < 0.42) { var yy = n11_yOn(h1, c.x) + 3, s = (ph ? 3 : 4.5) * S * (0.8 + c.r * 0.6) * (ph ? 1.4 : 1); tc += n11_C(c.x, yy - s * 0.6, s) + n11_C(c.x + s * 1.1, yy - s * 0.3, s * 0.8) + n11_C(c.x - s, yy - s * 0.2, s * 0.7); } });
-  add(refl, 'e', tc, dk ? '#1E3146' : '#82AE78');
-  var h2 = ridge(W, hz + H * 0.042, [[H * 0.018, ph ? 80 : 190, 1.3], [H * 0.008, 55, 0.2]], 8);
-  add(refl, 'f', below(h2, H + 40), dk ? '#2A4552' : '#90C470');
-  var hd = ''; for (x = -20; x < W + 20; x += (ph ? 6 : 8) * S + 2) { var hy = n11_yOn(h2, x) + H * 0.014; if (Math.sin(x / (ph ? 50 : 90) + 1.2) > 0.35) { var hr = (ph ? 3.6 : 5.5) * S * (0.6 + rnd() * 0.8) * (ph ? 1.3 : 1); hd += n11_C(x, hy - hr * 0.3, hr) + rect(x - 5, hy - hr * 0.3, 10 * S + 4, hr * 1.1); } }
-  [0.12, 0.31, 0.58, 0.88].forEach(function (f) { var tx = W * f, ty = n11_yOn(h2, tx) + 2, s = (ph ? 6 : 9) * S * (ph ? 1.3 : 1); hd += n11_C(tx, ty - s * 1.1, s) + n11_C(tx + s * 0.8, ty - s * 0.6, s * 0.8) + n11_C(tx - s * 0.7, ty - s * 0.5, s * 0.75); });
-  add(refl, 'g', hd, dk ? '#1F3540' : '#6F9F5A');
-  var spR = '', spW = '', spB = ''; spread(0, hz, W, H * 0.12, ph ? 7 : 9, 5, rnd, 1).forEach(function (c) { if (c.y < n11_yOn(h2, c.x) + 3) return; if (c.q < 0.32) spR += n11_E(c.x, c.y, 1.2 * S + 0.5, 0.8 * S + 0.3); else if (c.q < 0.44) spW += n11_dot(c.x, c.y); else if (c.q < 0.5) spB += n11_dot(c.x, c.y); });
-  add(refl, 'h', spR, dk ? 'rgba(140,64,90,0.55)' : 'rgba(228,72,52,0.85)'); stk(refl, 's', spW, dk ? 'rgba(200,210,240,0.4)' : 'rgba(255,255,255,0.9)', 1.5); stk(refl, 't', spB, dk ? 'rgba(110,130,210,0.45)' : 'rgba(80,110,220,0.8)', 1.5);
-  // the main meadow, with a gentle rise on the right where the oak stands
-  var ox = W * (ph ? 0.72 : 0.76), gy = hz + H * (ph ? 0.1 : 0.09);
-  var gtop = function (x) { var d = (x - ox) / (W * (ph ? 0.32 : 0.17)); return gy + Math.sin(x / 170 + 0.6) * 5 * S + Math.sin(x / 61) * 2 - H * (ph ? 0.035 : 0.05) * Math.exp(-d * d); };
-  var ground = n11_fn(-60, W + 60, 6, gtop);
-  add(mid, 'a', below(ground, H + 40), dk ? '#213E3E' : '#7BBD54');
-  var bands = ''; [0.1, 0.27, 0.5, 0.76].forEach(function (fr, j) { var th = (5 + j * 7) * S, top = n11_fn(-60, W + 60, 10, function (x) { var g = gtop(x); return g + (H - g) * fr + Math.sin(x / (90 + j * 40) + j * 2) * (4 + j * 3) * S; }); bands += n11_P(top.concat(top.slice().reverse().map(function (p) { return [p[0], p[1] + th * (0.55 + 0.45 * Math.sin(p[0] / 70 + j))]; }))); });
-  add(mid, 'b', bands, dk ? 'rgba(130,160,210,0.09)' : 'rgba(214,242,140,0.42)');
-  // the stream: it comes out from behind the crest of the meadow and winds down to the bottom left, widening as it nears
-  var sc = ph ? [[0.45, 0], [0.5, 0.06], [0.39, 0.16], [0.3, 0.3], [0.42, 0.47], [0.3, 0.7], [0.12, 1.06]] : [[0.47, 0], [0.53, 0.07], [0.43, 0.17], [0.34, 0.32], [0.42, 0.5], [0.3, 0.74], [0.16, 1.08]];
-  var y0s = gtop(W * sc[0][0]) + 2, cp = sc.map(function (q) { return [W * q[0], y0s + (H - y0s) * q[1]]; }), cl = n11_curve(cp, 10);
-  var sHalf = function (y) { var u = Math.max(0, (y - y0s) / (H - y0s)); return 1.4 + Math.pow(u, 1.45) * W * (ph ? 0.09 : 0.052); };
-  var SL = [], SR = [], BL = [], BR = [], ss = [];
-  cl.forEach(function (p, j) { var q = cl[Math.min(cl.length - 1, j + 1)], o = cl[Math.max(0, j - 1)], dx = q[0] - o[0], dy = q[1] - o[1], dl = Math.hypot(dx, dy) || 1, nx = -dy / dl, ny = dx / dl, hw = sHalf(p[1]), hb = hw * 1.22 + 2.5 * S;
-    SL.push([p[0] + nx * hw, p[1] + ny * hw * 0.45]); SR.push([p[0] - nx * hw, p[1] - ny * hw * 0.45]); BL.push([p[0] + nx * hb, p[1] + ny * hb * 0.45 + 1]); BR.push([p[0] - nx * hb, p[1] - ny * hb * 0.45 + 1]);
-    ss.push({x: p[0], y: p[1], hw: hw, a: Math.atan2(dy, dx)}); });
-  var nearStream = function (x, y, pad) { for (var j = 0; j < ss.length; j++) { var s = ss[j], rx = s.hw + pad, ry = s.hw * 0.5 + pad; if (Math.abs(y - s.y) < ry + 8) { var u = (x - s.x) / rx, v = (y - s.y) / ry; if (u * u + v * v < 1) return true; } } return false; };
-  add(mid, 'c', n11_P(BL.concat(BR.slice().reverse())), dk ? '#183236' : '#5C9C42');
-  add(mid, 'd', n11_P(SL.concat(SR.slice().reverse())), dk ? '#2C5284' : '#6CC1E8');
-  var shl = ''; ss.forEach(function (s, j) { if (j % 3 || s.hw < 3) return; var off = (j % 6 ? 0.3 : -0.35) * s.hw; shl += n11_RE(s.x - Math.sin(s.a) * off, s.y + Math.cos(s.a) * off * 0.45, s.hw * 0.42, Math.max(0.6, s.hw * 0.07), s.a * 180 / Math.PI); });
-  add(mid, 'e', shl, dk ? 'rgba(190,206,255,0.42)' : 'rgba(228,248,255,0.85)');
-  // pebbles along the banks and three stepping stones
-  var peb = ''; ss.forEach(function (s, j) { if (j % 4 || s.hw < 5) return; var sd = j % 8 ? 1 : -1, px = s.x - Math.sin(s.a) * s.hw * 1.12 * sd, py = s.y + Math.cos(s.a) * s.hw * 0.5 * sd, pr = s.hw * 0.11 + 1.4; peb += n11_P(n11_blob(px, py, pr, pr * 0.62, rnd, 9, 0.2)) + n11_P(n11_blob(px + pr * 1.6, py + pr * 0.4, pr * 0.7, pr * 0.45, rnd, 8, 0.2)); });
-  var stp = ss[Math.round(ss.length * 0.62)]; for (i = -1; i <= 1; i++) { var qx = stp.x + i * stp.hw * 0.62, qy = stp.y - i * stp.hw * 0.08 + 1, qr = stp.hw * 0.2; peb += n11_P(n11_blob(qx, qy, qr, qr * 0.55, rnd, 10, 0.12)); }
-  add(mid, 'f', peb, dk ? '#3E4A62' : '#B5B2A6');
-  // flower specks over the far part of the meadow (round dots, so they stay crisp)
-  var dR = '', dW = ''; spread(-10, gy - H * 0.06, W + 20, H * 0.15, ph ? 7 : 10, 6, rnd, 1).forEach(function (c) { var g = gtop(c.x); if (c.y < g + 3 || c.y > g + H * 0.1 || nearStream(c.x, c.y, 3)) return; if (c.q < 0.36) dR += n11_dot(c.x, c.y); else if (c.q < 0.56) dW += n11_dot(c.x, c.y); });
-  stk(mid, 's', dR, dk ? 'rgba(150,70,96,0.7)' : '#E6452F', (ph ? 2.2 : 2.8) * S + 0.6); stk(mid, 't', dW, dk ? 'rgba(206,214,240,0.55)' : '#FFFFFF', (ph ? 2 : 2.5) * S + 0.5);
-  // the foreground bank the tall flowers grow from (it hides the end of the stream)
-  var bank = n11_fn(-60, W + 60, 8, function (x) { return H - H * (ph ? 0.05 : 0.065) + Math.sin(x / 90 + 1) * 6 * S + Math.sin(x / 31) * 2.5; });
-  add(mid, 'g', below(bank, H + 40), dk ? '#1B3136' : '#5EA444');
-  var tuf = ''; for (x = -20; x < W + 20; x += (ph ? 9 : 13)) { var by2 = n11_yOn(bank, x) + 4; for (var k2 = 0; k2 < 3; k2++) tuf += n11_leaf(x + k2 * 3, by2, (ph ? 9 : 14) * S * (0.7 + rnd() * 0.6) + 4, 1.6 * S + 0.6, -90 + (k2 - 1) * 18 + (rnd() - 0.5) * 10); }
-  add(mid, 'h', tuf, dk ? '#2A464A' : '#7CBB50');
-  // the lone oak on its rise (near layer: drawn over the meadow, under the drifting mist and cloud shadows' canvas? no: the canvas sits under it)
-  var oy = gtop(ox) + (ph ? 4 : 6), oh = H * (ph ? 0.27 : 0.42), oak = {t: '', d: '', l: ''}, ob = n11_oak(ox, oy, oh, rnd, oak);
-  add(mid, 'c', n11_E(ox + oh * 0.16, oy + 3, oh * 0.5, oh * 0.045));
-  add(near, 'a', oak.t, dk ? '#1C2026' : '#5A4232'); add(near, 'b', oak.d, dk ? '#152A2E' : '#3E7E3A'); add(near, 'c', oak.l, dk ? '#1E3A3C' : '#5FA046');
-  // the middle meadow: rows of flowers, small and dense far away, bigger and sparser near
-  var fo = {r: '', c: '', b: '', w: '', y: '', st: '', gt: ''}, yA = gy + H * 0.03, rows = ph ? 16 : 22;
-  for (var rr = 0; rr < rows; rr++) { var v = (rr + 0.3 + rnd() * 0.4) / rows, ry = yA + (H * 0.92 - yA) * Math.pow(v, 1.45), fr = (1.5 + v * v * 7) * S * (ph ? 1.35 : 1), step = fr * 5 + 6;
-    for (x = -10 + rnd() * step; x < W + 10; x += step * (0.55 + rnd() * 0.9)) { y = ry + (rnd() - 0.5) * step * 0.3; var r0 = fr * (0.8 + rnd() * 0.4); if (y < gtop(x) + r0 * 1.5 + 2 || nearStream(x, y, r0 + 3) || Math.abs(x - ox) < oh * 0.18 && y < oy + 4) continue;
-      var q = rnd(); n11_bloom(fo, q < 0.5 ? 0 : q < 0.76 ? 2 : 1, x, y, r0, dk, rnd);
-      if (rnd() < (dk ? 0.25 : 0.45)) { var tx = x + (rnd() - 0.5) * step * 0.6, tl = r0 * 2.2 + 2; fo.gt += 'M' + PT(tx, y + r0 * 2) + ' q0 ' + n1(-tl * 0.6) + ' ' + n1(-tl * 0.3) + ' ' + n1(-tl) + ' M' + PT(tx + 1.5, y + r0 * 2) + ' q0 ' + n1(-tl * 0.6) + ' ' + n1(tl * 0.35) + ' ' + n1(-tl * 0.9) + ' '; } } }
-  // the tall swaying flowers and grass along the bottom edge (the engine draws them when animated)
-  var fl = [], gr = [], fstep = ph ? 20 : 30;
-  for (x = -10; x < W + 20; x += fstep * (0.55 + rnd() * 0.9)) { var q2 = rnd(); fl.push({x: x, y: H + 8, h: (ph ? 74 : 112) * S * (0.55 + rnd() * 0.6) * (ph ? 1.15 : 1), k: q2 < 0.52 ? 0 : q2 < 0.78 ? 2 : 1, r: (ph ? 12 : 15) * S * (0.8 + rnd() * 0.45) * (ph ? 1.2 : 1), ph: rnd() * 6.28}); }
-  for (x = -10; x < W + 10; x += (ph ? 5 : 7)) gr.push({x: x + rnd() * 4, h: (ph ? 40 : 62) * S * (0.5 + rnd() * 0.8) * (ph ? 1.25 : 1), c: rnd() < 0.5, ph: rnd() * 6.28, lean: (rnd() - 0.5) * 0.5});
-  // pop-up spots for the finish moment's new poppies
-  var spots = []; for (i = 0; i < 160 && spots.length < 50; i++) { var sx2 = rnd() * W, sv = 0.15 + rnd() * 0.7, sy2 = yA + (H * 0.88 - yA) * Math.pow(sv, 1.3); if (sy2 > gtop(sx2) + 10 && !nearStream(sx2, sy2, 12) && !(Math.abs(sx2 - ox) < oh * 0.2 && sy2 < oy + 6)) spots.push([sx2, sy2, sv]); }
-  if (ANIM) {
-    ANIM.hz = hz; ANIM.S = S * (ph ? 0.9 : 1); ANIM.gy = gy; ANIM.ground = ground; ANIM.st = ss; ANIM.fl = fl; ANIM.gr = gr; ANIM.spots = spots; ANIM.sun = [bx, by, br]; ANIM.ys = yA;
-    ANIM.oak = {x: ox, y: oy, h: oh, b: ob}; ANIM.boxes = boxes; ANIM.peak = H * (ph ? 0.22 : 0.18);
-  } else {
-    fl.forEach(function (f) { var hx = f.x + f.h * 0.08, hy = f.y - f.h; fo.st += 'M' + PT(f.x, f.y) + ' Q' + PT(f.x + f.h * 0.02, f.y - f.h * 0.6) + ' ' + PT(hx, hy + f.r * 0.5) + ' '; n11_bloom(fo, f.k, hx, hy, f.r, dk, rnd); });
-    gr.forEach(function (g) { var b = g.lean * g.h; fo.gt += 'M' + PT(g.x, H + 4) + ' q' + n1(b * 0.3) + ' ' + n1(-g.h * 0.6) + ' ' + n1(b) + ' ' + n1(-g.h) + ' '; });
-  }
-  add(near, 'd', fo.r, dk ? '#6E2A3C' : '#E8402C'); add(near, 'e', fo.c, dk ? '#1A1620' : '#2A1A1E'); add(near, 'f', fo.b, dk ? '#3A4C96' : '#4C78DA'); add(near, 'g', fo.w, dk ? '#B4BCD6' : '#FFFFFF'); add(near, 'h', fo.y, dk ? '#8A8458' : '#F6C83A');
-  stk(near, 's', fo.st, dk ? '#2C484C' : '#4B8A34', 1.3 * S + 0.5); stk(near, 't', fo.gt, dk ? '#3A546A' : '#86C454', 1.7 * S + 0.6);
-  return {sky: sky, far: far, refl: refl, mid: mid, near: near};
-};
-
-// =============== 2. Glowing Bay: a sheltered tropical cove between dark rock headlands, a crescent of beach and leaning palms
+// =============== 1. Glowing Bay: a sheltered tropical cove between dark rock headlands, a crescent of beach and leaning palms
 // a curved palm trunk from (x0,y0) to (x1,y1), as a tapered band, plus its ring marks
 function n11_trunk(x0, y0, x1, y1, bend, w0, w1) { var L = [], R = [], rings = '', n = 18; for (var i = 0; i <= n; i++) { var u = i / n, x = x0 + (x1 - x0) * u + Math.sin(Math.PI * u) * bend, y = y0 + (y1 - y0) * u, dx = (x1 - x0) + Math.cos(Math.PI * u) * Math.PI * bend, dy = y1 - y0, dl = Math.hypot(dx, dy), w = w0 + (w1 - w0) * u; L.push([x - dy / dl * w, y + dx / dl * w]); R.push([x + dy / dl * w, y - dx / dl * w]); if (i > 0 && i < n) rings += 'M' + PT(x - dy / dl * w * 0.92, y + dx / dl * w * 0.92 + 2) + ' Q' + PT(x, y + 4) + ' ' + PT(x + dy / dl * w * 0.92, y - dx / dl * w * 0.92 + 2) + ' '; } return {d: n11_P(L.concat(R.reverse())), rings: rings}; }
 // a palm frond: a curved rib with leaflets, from (x,y) at angle a (radians), length L, droop d
