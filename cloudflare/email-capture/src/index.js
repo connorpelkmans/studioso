@@ -33,7 +33,7 @@ export async function deliver(message, env, fetchFn){
     res = await fetchFn(url + "/functions/v1/capture-email", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Studyboard-Email-Secret": secret },
-      body: JSON.stringify({ to: message.to, from: mail.from || message.from, subject: mail.subject, text: mail.text, id: mail.messageId })
+      body: JSON.stringify({ to: message.to, from: mail.from || message.from, subject: mail.subject.slice(0, 900), text: mail.text.slice(0, 8000), id: mail.messageId })   // the database keeps 6,000 characters
     });
   } catch (e) { return { action: "retry", reason: "Studyboard couldn't be reached. Your mail server will try again." }; }
   if (res.ok) return { action: "ok", reason: "" };

@@ -39,6 +39,7 @@ function world(opts = {}) {
     const u = new URL(String(url)), m = (init.method || "GET").toUpperCase(), body = init.body && typeof init.body === "string" && init.body[0] === "{" ? JSON.parse(init.body) : init.body;
     if (u.host === "x.supabase.co") {
       if (u.pathname === "/auth/v1/user") return (init.headers.Authorization === "Bearer user-jwt") ? json({ id: UID }) : json({}, 401);
+      if (u.pathname === "/auth/v1/admin/users/" + UID) { assert.equal(init.headers.Authorization, "Bearer svc"); return json({ id: UID, email: "hannah@school.edu" }); }
       const name = u.pathname.replace("/rest/v1/rpc/", "");
       assert.equal(init.headers.Authorization, "Bearer svc", "the database is only asked with the service key");
       if (!RPC[name]) throw new Error("unknown rpc " + name);
@@ -66,6 +67,7 @@ function world(opts = {}) {
         return json({ items: [...cal.values()].filter(e => at(e.start) >= lo && at(e.start) < hi) });
       }
       const ev = cal.get(parts[3]);
+      if (m === "GET") return ev ? json(ev) : json({}, 404);
       if (m === "PUT") { if (!ev) return json({}, 404); cal.set(parts[3], gEvent(parts[1], body, parts[3])); return json({ id: parts[3] }); }
       if (m === "DELETE") { if (!ev) return json({}, 410); cal.delete(parts[3]); return new Response(null, { status: 204 }); }
     }
@@ -82,6 +84,7 @@ function world(opts = {}) {
       if (mm && mm[2] === "/events") { const id = "me" + (++ms.n); ms.cals.get(decodeURIComponent(mm[1])).set(id, { id, ...body }); return json({ id }); }
       if ((mm && mm[2] === "/calendarView") || p === "calendar/calendarView") { const c = ms.cals.get(mm ? decodeURIComponent(mm[1]) : "msprimary"); return json({ value: [...c.values()] }); }
       const em = /^events\/(.+)$/.exec(p);
+      if (em && m === "GET") { for (const c of ms.cals.values()) if (c.has(em[1])) return json(c.get(em[1])); return json({}, 404); }
       if (em) { for (const c of ms.cals.values()) if (c.has(em[1])) { if (m === "DELETE") c.delete(em[1]); else c.set(em[1], { id: em[1], ...body }); return m === "DELETE" ? new Response(null, { status: 204 }) : json({ id: em[1] }); } return json({}, 404); }
     }
     throw new Error("unexpected " + m + " " + url);
@@ -90,9 +93,19 @@ function world(opts = {}) {
     GOOGLE_CLIENT_ID: "g-id", GOOGLE_CLIENT_SECRET: "g-secret", MS_CLIENT_ID: opts.noMs ? "" : "m-id", MS_CLIENT_SECRET: opts.noMs ? "" : "m-secret" }[k] ?? "");
   const deps = { env, fetch, now: () => NOW, log: (...a) => logs.push(a.join(" ")) };
   const call = async (body, jwt = "user-jwt") => { const r = await F.handle(new Request("https://x.supabase.co/functions/v1/calendar-sync", { method: "POST", headers: { authorization: "Bearer " + jwt, "content-type": "application/json" }, body: JSON.stringify(body) }), deps); return { status: r.status, body: await r.json() }; };
-  const get = async qs => { const r = await F.handle(new Request("https://x.supabase.co/functions/v1/calendar-sync?" + qs), deps); return { status: r.status, text: await r.text(), csp: r.headers.get("content-security-policy") }; };
-  const connect = async (provider = "google") => { const s = await call({ action: "start", provider, tz: TZ }); const st = new URL(s.body.url).searchParams.get("state"); return get(new URLSearchParams({ code: "good-code", state: st }).toString()); };
-  return { db, g, ms, logs, call, get, connect, deps };
+  const get = async (qs, cookie) => { const r = await F.handle(new Request("https://x.supabase.co/functions/v1/calendar-sync?" + qs, { headers: cookie ? { cookie } : {} }), deps); return { status: r.status, text: await r.text(), csp: r.headers.get("content-security-policy"), location: r.headers.get("location"), cookie: (r.headers.get("set-cookie") || "").split(";")[0] }; };
+  const post = async (form, cookie) => { const r = await F.handle(new Request("https://x.supabase.co/functions/v1/calendar-sync", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", ...(cookie ? { cookie } : {}) }, body: new URLSearchParams(form).toString() }), deps); return { status: r.status, text: await r.text(), cookie: r.headers.get("set-cookie") || "" }; };
+  // The whole connect flow: start (app) -> begin (sets the cookie, on to Google) -> back with a code -> the confirm page -> Connect
+  const connect = async (provider = "google") => {
+    const s = await call({ action: "start", provider, tz: TZ });
+    const b = await get(new URL(s.body.url).search.slice(1));
+    const st = new URL(b.location).searchParams.get("state");
+    const c = await get(new URLSearchParams({ code: "good-code", state: st }).toString(), b.cookie);
+    const box = (/name="confirm" value="([^"]+)"/.exec(c.text) || [])[1];
+    const done = box ? await post({ confirm: box.replace(/&amp;/g, "&") }, b.cookie) : c;
+    return Object.assign(done, { begin: b, confirmPage: c, state: st, box });
+  };
+  return { db, g, ms, logs, call, get, post, connect, deps };
 }
 const EV = (extra = []) => [
   { k: "t:lab3", title: "Due: Lab report 3 · BIO101", date: "2026-10-16", start: "17:00", end: "17:30", allDay: false, note: "BIO101 · Lab" },
@@ -133,12 +146,15 @@ await test("not signed in, not Pro, not set up", async () => {
 await test("connecting: Google's page, the callback, an encrypted token and the Studyboard calendar", async () => {
   const w = world();
   const s = await w.call({ action: "start", provider: "google", tz: TZ });
-  const u = new URL(s.body.url);
+  assert.ok(s.body.url.startsWith("https://x.supabase.co/functions/v1/calendar-sync?begin="), "Connect goes through the function first");
+  const page = await w.connect();
+  const u = new URL(page.begin.location);
+  assert.equal(page.begin.status, 302); assert.ok(/^sbcs=[A-Za-z0-9_-]+$/.test(page.begin.cookie), "begin sets this browser's cookie");
   assert.equal(u.host, "accounts.google.com"); assert.equal(u.searchParams.get("access_type"), "offline");
   assert.ok(/calendar\.app\.created/.test(u.searchParams.get("scope")) && !/auth\/calendar(\s|$)/.test(u.searchParams.get("scope")), "only the narrow scopes");
-  const page = await w.get(new URLSearchParams({ code: "good-code", state: u.searchParams.get("state") }).toString());
+  assert.ok(/Connect <b>student@gmail\.com<\/b> to the Studyboard account <b>ha•••@school\.edu<\/b>/.test(page.confirmPage.text), "the person is asked, and sees which Studyboard account");
+  assert.ok(/form-action 'self'/.test(page.confirmPage.csp) && !/<script/.test(page.confirmPage.text), "the confirm page runs nothing");
   assert.equal(page.status, 200); assert.ok(/Connected to Google Calendar/.test(page.text) && /student@gmail\.com/.test(page.text));
-  assert.ok(/default-src 'none'/.test(page.csp), "the page allows nothing to run");
   const a = w.db.accounts.get(UID + "|google");
   assert.ok(a && a.cal_id === "sbcal1" && a.account === "student@gmail.com" && w.g.tz === TZ, "the calendar is made in the person's time zone");
   assert.ok(!a.refresh_enc.includes("g-refresh-1") && /^v1\./.test(a.refresh_enc), "the token is stored encrypted");
@@ -147,15 +163,31 @@ await test("connecting: Google's page, the callback, an encrypted token and the 
   const st = await w.call({ action: "status" });
   assert.equal(st.body.accounts[0].account, "student@gmail.com"); assert.ok(!JSON.stringify(st.body).includes("refresh"), "status never shows a token");
 });
-await test("a forged, expired or other person's state is refused", async () => {
+await test("someone else's link does nothing: no cookie, a forged or expired state, a replayed confirm", async () => {
   const w = world();
+  // The attacker starts a connection for THEIR account and sends the victim Google's link (or the begin link's target)
+  const s = await w.call({ action: "start", provider: "google", tz: TZ });
+  const b = await w.get(new URL(s.body.url).search.slice(1));
+  const st = new URL(b.location).searchParams.get("state");
+  const victim = await w.get(new URLSearchParams({ code: "good-code", state: st }).toString());
+  assert.equal(victim.status, 400); assert.ok(/wasn't started in this browser/.test(victim.text));
+  assert.equal((await w.get(new URLSearchParams({ code: "good-code", state: st }).toString(), "sbcs=wrongnonce12")).status, 400);
+  assert.equal(w.db.accounts.size, 0, "nothing was stored");
+  // Before Connect is pressed, nothing is stored either
+  const c = await w.get(new URLSearchParams({ code: "good-code", state: st }).toString(), b.cookie);
+  assert.equal(w.db.accounts.size, 0, "the confirm page alone stores nothing");
+  const box = /name="confirm" value="([^"]+)"/.exec(c.text)[1].replace(/&amp;/g, "&");
+  assert.equal((await w.post({ confirm: box }, "sbcs=other0000")).status, 400, "the confirm needs the same browser");
+  assert.equal((await w.post({ confirm: box.slice(0, -4) + "AAAA" }, b.cookie)).status, 400, "a changed confirm is refused");
+  assert.equal(w.db.accounts.size, 0);
   assert.equal((await w.get("code=good-code&state=abc.def")).status, 400);
   const old = await F.signState(SECRET, { u: UID, p: "google", e: Math.floor(NOW / 1000) - 5 });
-  assert.equal((await w.get(new URLSearchParams({ code: "good-code", state: old }).toString())).status, 400);
+  assert.equal((await w.get(new URLSearchParams({ code: "good-code", state: old }).toString(), b.cookie)).status, 400);
+  assert.equal((await w.get("begin=" + encodeURIComponent(old))).status, 400, "an old begin link is refused");
   const other = await F.signState("z".repeat(48), { u: UID, p: "google", e: Math.floor(NOW / 1000) + 600 });
   assert.equal((await w.get(new URLSearchParams({ code: "good-code", state: other }).toString())).status, 400);
   assert.equal(w.db.accounts.size, 0);
-  const denied = await w.get("error=access_denied&state=" + encodeURIComponent(await F.signState(SECRET, { u: UID, p: "google", e: Math.floor(NOW / 1000) + 600 })));
+  const denied = await w.get("error=access_denied&state=" + encodeURIComponent(st), b.cookie);
   assert.ok(/Not connected/.test(denied.text));
 });
 await test("the first sync writes everything; the next one writes nothing", async () => {
@@ -207,6 +239,18 @@ await test("moved in the calendar: Studyboard hears about it; deleted there: it 
   const r4 = await w.call(SYNC(ev));
   assert.equal(r4.body.stats.updated, 1);
   assert.equal([...cal.values()].find(e => /Lab report/.test(e.summary)).start.dateTime, "2026-10-17T18:00:00.000Z");
+});
+await test("an event moved far ahead in the calendar is found, not taken as deleted; old rows are forgotten", async () => {
+  const w = world(); await w.connect(); await w.call(SYNC(EV()));
+  const cal = studyCal(w), lab = [...cal.values()].find(e => /Lab report/.test(e.summary));
+  lab.start = { dateTime: "2027-03-01T10:00:00-05:00" }; lab.end = { dateTime: "2027-03-01T10:30:00-05:00" };
+  const r = await w.call(SYNC(EV()));
+  assert.deepEqual(r.body.changes, [{ k: "t:lab3", allDay: false, date: "2027-03-01", start: "10:00", end: "10:30" }]);
+  w.db.map.set(UID + "|google|t:ancient", { user_id: UID, provider: "google", sb_key: "t:ancient", ext_id: "gone-long-ago", hash: "x", ext_start: "D2026-07-01", ext_end: "D2026-07-02", gone: false });
+  const before = studyCal(w).size;
+  await w.call(SYNC(EV()));
+  assert.ok(!w.db.map.has(UID + "|google|t:ancient"), "a row long past is dropped");
+  assert.equal(studyCal(w).size, before, "and nothing in the calendar is touched for it");
 });
 await test("at most 60 writes per call, soonest first; the app calls again for the rest", async () => {
   const w = world(); await w.connect();

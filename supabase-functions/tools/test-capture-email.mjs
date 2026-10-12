@@ -68,7 +68,7 @@ await test("long fields are cut before they are sent; bad bodies and big request
   assert.equal(calls[0].p_subject.length, 1000); assert.equal(calls[0].p_body.length, 20000); assert.equal(calls[0].p_from.length, 200);
   assert.equal((await fn.handle(post("not json"), setup().deps)).status, 404, "nothing usable means no address");
   assert.equal((await fn.handle(post("[1,2]"), setup().deps)).status, 400);
-  assert.equal((await fn.handle(post({ ...MAIL, text: "x".repeat(70000) }), setup().deps)).status, 413);
+  assert.equal((await fn.handle(post({ ...MAIL, text: "x".repeat(200000) }), setup().deps)).status, 413);
   assert.equal((await fn.handle(new Request("https://x/", { method: "GET" }), setup().deps)).status, 405);
 });
 await test("secrets compare in constant time and only when equal", async () => {

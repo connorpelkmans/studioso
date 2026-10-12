@@ -19,7 +19,7 @@
 type Env = (k: string) => string;
 type Deps = { env: Env; fetch: typeof fetch; now: () => number; log: (...a: unknown[]) => void };
 
-export const MAX_BODY = 64 * 1024;
+export const MAX_BODY = 192 * 1024;   // 20,000 characters of non-Latin text, escaped as JSON, fit
 export const KEY_RE = /^[a-hj-km-np-z2-9]{12}$/;
 const reply = (o: unknown, status: number, extra: Record<string, string> = {}) =>
   new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", ...extra } });

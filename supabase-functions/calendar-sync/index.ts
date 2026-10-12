@@ -151,13 +151,14 @@ export async function signState(secret: string, o: { u: string; p: string; e: nu
   const body = b64u(enc.encode(JSON.stringify({ ...o, n: b64u(crypto.getRandomValues(new Uint8Array(9))) })));
   return body + "." + b64u(await crypto.subtle.sign("HMAC", (await keys(secret)).mac, enc.encode(body)));
 }
-export async function readState(secret: string, s: string, nowMs: number): Promise<{ u: string; p: Provider; z: string } | null> {
+export async function readState(secret: string, s: string, nowMs: number): Promise<{ u: string; p: Provider; z: string; n: string } | null> {
   const [body, sig] = String(s || "").split("."); if (!body || !sig || body.length > 600) return null;
   try {
     if (!(await crypto.subtle.verify("HMAC", (await keys(secret)).mac, unb64u(sig), enc.encode(body)))) return null;
     const o = JSON.parse(dec.decode(unb64u(body)));
     if (!o || typeof o.u !== "string" || !/^[0-9a-f-]{36}$/.test(o.u) || !PROVIDERS.includes(o.p) || !(o.e > nowMs / 1000)) return null;
-    return { u: o.u, p: o.p, z: validTz(o.z) ? o.z : "UTC" };
+    if (typeof o.n !== "string" || !/^[A-Za-z0-9_-]{8,20}$/.test(o.n)) return null;
+    return { u: o.u, p: o.p, z: validTz(o.z) ? o.z : "UTC", n: o.n };
   } catch (_e) { return null; }
 }
 
@@ -172,6 +173,7 @@ type Adapter = {
   create(at: string, cal: string, w: Want, tz: string): Promise<string>;
   patch(at: string, cal: string, id: string, w: Want, tz: string): Promise<boolean>;   // false: it isn't there any more
   remove(at: string, cal: string, id: string): Promise<void>;
+  getOne(at: string, cal: string, id: string): Promise<Ext | null>;   // null: deleted
   removeCalendar(at: string, cal: string): Promise<void>;
   revoke(rt: string): Promise<void>;
 };
@@ -230,6 +232,7 @@ export function google(d: Deps): Adapter {
     async create(at, cal, w, tz) { return String((await api(d, `${G}/calendars/${encodeURIComponent(cal)}/events`, at, { method: "POST", body: JSON.stringify(body(w, tz)) })).id); },
     async patch(at, cal, eid, w, tz) { return !!(await api(d, `${G}/calendars/${encodeURIComponent(cal)}/events/${encodeURIComponent(eid)}`, at, { method: "PUT", body: JSON.stringify(body(w, tz)) }, true)); },
     async remove(at, cal, eid) { await api(d, `${G}/calendars/${encodeURIComponent(cal)}/events/${encodeURIComponent(eid)}`, at, { method: "DELETE" }, true); },
+    async getOne(at, cal, eid) { const it = await api(d, `${G}/calendars/${encodeURIComponent(cal)}/events/${encodeURIComponent(eid)}`, at, {}, true); return it && it.status !== "cancelled" ? norm(it) : null; },
     async removeCalendar(at, cal) { await api(d, `${G}/calendars/${encodeURIComponent(cal)}`, at, { method: "DELETE" }, true); },
     async revoke(rt) { try { await d.fetch("https://oauth2.googleapis.com/revoke?token=" + encodeURIComponent(rt), { method: "POST" }); } catch (_e) { /* best effort */ } },
   };
@@ -260,10 +263,14 @@ export function microsoft(d: Deps): Adapter {
     async refresh(rt) { const j = await tokenCall(d, `${T}/token`, { client_id: id, client_secret: secret, refresh_token: rt, grant_type: "refresh_token", scope: SCOPE }); return { access: j.access_token, refresh: j.refresh_token }; },
     async ensureCalendar(at, cal) {
       if (cal && await api(d, `${M}/me/calendars/${encodeURIComponent(cal)}?$select=id`, at, {}, true)) return { id: cal, made: false };
-      const found = await api(d, `${M}/me/calendars?$select=id,name&$top=100`, at);
-      const mine = (found.value || []).find((c: any) => c.name === "Studyboard");
-      if (mine) return { id: mine.id, made: false };
-      return { id: (await api(d, `${M}/me/calendars`, at, { method: "POST", body: JSON.stringify({ name: "Studyboard" }) })).id, made: true };
+      // Only ever a calendar it made itself (one called Studyboard may be someone's own, or a subscription to the live link): if the
+      // name is taken, the new one gets another
+      for (const name of ["Studyboard", "Studyboard Sync", "Studyboard (two-way)"]) {
+        const r = await d.fetch(`${M}/me/calendars`, { method: "POST", headers: { Authorization: `Bearer ${at}`, "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+        if (r.ok) return { id: String((await r.json() as any).id), made: true };
+        if (r.status !== 409) throw new ProviderError(r.status, r.status === 401);
+      }
+      throw new ProviderError(409);
     },
     async list(at, cal, fromMs, toMs, busyOnly) {
       const out: any[] = [];
@@ -283,6 +290,7 @@ export function microsoft(d: Deps): Adapter {
     async create(at, cal, w, tz) { return String((await api(d, `${M}/me/calendars/${encodeURIComponent(cal)}/events`, at, { method: "POST", body: JSON.stringify(body(w, tz)) })).id); },
     async patch(at, _cal, eid, w, tz) { return !!(await api(d, `${M}/me/events/${encodeURIComponent(eid)}`, at, { method: "PATCH", body: JSON.stringify(body(w, tz)) }, true)); },
     async remove(at, _cal, eid) { await api(d, `${M}/me/events/${encodeURIComponent(eid)}`, at, { method: "DELETE" }, true); },
+    async getOne(at, _cal, eid) { const it = await api(d, `${M}/me/events/${encodeURIComponent(eid)}?$select=id,start,end,isAllDay,isCancelled`, at, { headers: { Prefer: 'outlook.timezone="UTC"' } }, true); return it && !it.isCancelled ? norm(it) : null; },
     async removeCalendar(at, cal) { await api(d, `${M}/me/calendars/${encodeURIComponent(cal)}`, at, { method: "DELETE" }, true); },
     async revoke() { /* Microsoft has no token revocation for this kind of app: deleting the stored token is what disconnects */ },
   };
@@ -321,23 +329,65 @@ const page = (title: string, text: string, ok: boolean) => new Response(`<!docty
 <body><main><i>${ok ? "✓" : "!"}</i><b>${title}</b><p>${text}</p></main></body></html>`, { status: ok ? 200 : 400, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'", "Referrer-Policy": "no-referrer" } });
 const NAME: Record<Provider, string> = { google: "Google Calendar", microsoft: "Outlook" };
 
-async function callback(url: URL, d: Deps, A: Record<Provider, Adapter>, log: (o: string, x?: any) => void): Promise<Response> {
+/* Connecting is bound to the browser that started it, and confirmed by the person:
+   1. The app opens ?begin=<state> (made by "start" for the signed-in person). It sets a short cookie holding the state's nonce in this
+      browser and sends it on to Google or Microsoft.
+   2. They send the browser back with ?code&state. Without the matching cookie (a link that someone sent you) nothing happens.
+   3. A page asks: connect <calendar account> to the Studyboard account <h•••@school.edu>? Only that button stores anything. */
+const COOKIE = "sbcs";
+const cookieOf = (req: Request) => ((req.headers.get("cookie") || "").split(/;\s*/).find(c => c.startsWith(COOKIE + "=")) || "").slice(COOKIE.length + 1);
+const setCookie = (v: string, age: number) => `${COOKIE}=${v}; Max-Age=${age}; Path=/functions/v1/calendar-sync; HttpOnly; Secure; SameSite=Lax`;
+const htmlEsc = (s: string) => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" } as any)[c]);
+const mask = (e: string) => { const m = /^([^@]{1,2})[^@]*(@.+)$/.exec(e || ""); return m ? m[1] + "•••" + m[2] : "your account"; };
+async function studyboardEmail(d: Deps, uid: string): Promise<string> {
+  try { const k = serviceKey(d); const r = await d.fetch(`${base(d)}/auth/v1/admin/users/${uid}`, { headers: { apikey: k, Authorization: `Bearer ${k}` } }); const u = await r.json() as any; return String(u && u.email || ""); } catch (_e) { return ""; }
+}
+async function begin(url: URL, d: Deps, A: Record<Provider, Adapter>, log: (o: string, x?: any) => void): Promise<Response> {
+  const secret = d.env("CALSYNC_KEY"), raw = url.searchParams.get("begin") || "";
+  const st = secret.length >= 32 ? await readState(secret, raw, d.now()) : null;
+  if (!st || !A[st.p].configured()) { log("begin_bad"); return page("That link has expired", "Go back to Studyboard and choose Connect again.", false); }
+  return new Response(null, { status: 302, headers: { Location: A[st.p].authUrl(raw, redirectOf(d)), "Set-Cookie": setCookie(st.n, 900), "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
+}
+async function callback(req: Request, url: URL, d: Deps, A: Record<Provider, Adapter>, log: (o: string, x?: any) => void): Promise<Response> {
   const secret = d.env("CALSYNC_KEY");
   const st = secret.length >= 32 ? await readState(secret, url.searchParams.get("state") || "", d.now()) : null;
   if (!st) { log("cb_bad_state"); return page("That link has expired", "Go back to Studyboard and choose Connect again.", false); }
+  if (cookieOf(req) !== st.n) { log("cb_other_browser"); return page("Start again in Studyboard", "This connection wasn't started in this browser, so nothing was connected. Choose Connect in your own Studyboard.", false); }
   if (url.searchParams.get("error")) { log("cb_denied"); return page("Not connected", `Access wasn't allowed, so nothing changed. You can try again from Studyboard.`, false); }
   const code = url.searchParams.get("code") || ""; if (!code || code.length > 2000) return page("Not connected", "Something was missing. Try again from Studyboard.", false);
   const P = A[st.p];
   try {
     const t = await P.exchange(code, redirectOf(d));
-    const cur = (await rpc(d, "calsync_account", { p_uid: st.u, p_provider: st.p }) || [])[0];
-    const cal = await P.ensureCalendar(t.access, cur && cur.cal_id || null, st.z);
-    await rpc(d, "calsync_connect", { p_uid: st.u, p_provider: st.p, p_account: t.account.slice(0, 200), p_refresh_enc: await seal(secret, t.refresh, st.u, st.p), p_cal_id: cal.id });
-    log("cb_connected", { provider: st.p, made: cal.made });
-    return page(`Connected to ${NAME[st.p]}`, `Studyboard made a calendar called “Studyboard” in ${t.account ? t.account.replace(/[<>&"]/g, "") : "your account"}. You can close this tab and go back to Studyboard.`, true);
+    const box = await seal(secret, JSON.stringify({ u: st.u, p: st.p, z: st.z, n: st.n, rt: t.refresh, a: t.account.slice(0, 200), e: Math.floor(d.now() / 1000) + 600 }), "confirm", "calsync");
+    const sb = mask(await studyboardEmail(d, st.u));
+    log("cb_confirm", { provider: st.p });
+    return confirmPage(`Connect ${NAME[st.p]}?`, `Connect <b>${htmlEsc(t.account || NAME[st.p])}</b> to the Studyboard account <b>${htmlEsc(sb)}</b>? Studyboard will keep a calendar called “Studyboard” there. If that isn't your Studyboard account, close this tab.`, box);
   } catch (e) {
     log("cb_error", { provider: st.p, status: e instanceof ProviderError ? e.status : 0 });
     return page("Not connected", `${NAME[st.p]} didn't finish connecting. Try again from Studyboard.`, false);
+  }
+}
+const confirmPage = (title: string, html: string, box: string) => new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0E2A56;font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:#0E2A56}main{background:#fff;border-radius:18px;padding:28px 26px;max-width:440px;margin:16px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)}h1{font-size:1.25rem;margin:0 0 8px}p{margin:0 0 18px;color:#40506B}button{font:inherit;font-weight:700;border:0;border-radius:12px;padding:12px 22px;background:#2563EB;color:#fff;cursor:pointer}</style></head>
+<body><main><h1>${title}</h1><p>${html}</p><form method="post"><input type="hidden" name="confirm" value="${htmlEsc(box)}"><button type="submit">Connect</button></form></main></body></html>`, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY" } });
+async function confirm(req: Request, d: Deps, A: Record<Provider, Adapter>, log: (o: string, x?: any) => void): Promise<Response> {
+  const secret = d.env("CALSYNC_KEY"), text = await req.text();
+  if (secret.length < 32 || text.length > 9000) return page("Not connected", "Try again from Studyboard.", false);
+  let o: any = null;
+  try { o = JSON.parse(await unseal(secret, new URLSearchParams(text).get("confirm") || "", "confirm", "calsync")); } catch (_e) { o = null; }
+  if (!o || !PROVIDERS.includes(o.p) || !(o.e > d.now() / 1000) || cookieOf(req) !== o.n) { log("confirm_bad"); return page("That page has expired", "Go back to Studyboard and choose Connect again.", false); }
+  const prov: Provider = o.p, P = A[prov];
+  try {
+    const tok = await P.refresh(o.rt), cur = (await rpc(d, "calsync_account", { p_uid: o.u, p_provider: prov }) || [])[0];
+    const cal = await P.ensureCalendar(tok.access, cur && cur.cal_id || null, validTz(o.z) ? o.z : "UTC");
+    await rpc(d, "calsync_connect", { p_uid: o.u, p_provider: prov, p_account: String(o.a || ""), p_refresh_enc: await seal(secret, tok.refresh || o.rt, o.u, prov), p_cal_id: cal.id });
+    log("cb_connected", { provider: prov, made: cal.made });
+    const r = page(`Connected to ${NAME[prov]}`, `Studyboard made a calendar called “Studyboard” in ${htmlEsc(o.a || "your account")}. You can close this tab and go back to Studyboard.`, true);
+    r.headers.set("Set-Cookie", setCookie("", 0));
+    return r;
+  } catch (e) {
+    log("confirm_error", { provider: prov, status: e instanceof ProviderError ? e.status : 0 });
+    return page("Not connected", `${NAME[prov]} didn't finish connecting. Try again from Studyboard.`, false);
   }
 }
 
@@ -369,8 +419,16 @@ async function sync(uid: string, b: any, d: Deps, A: Record<Provider, Adapter>, 
     const map: Row[] = cal.made ? [] : (await rpc(d, "calsync_map_get", { p_uid: uid, p_provider: prov }) || []);
     const fromMs = zonedMs(tz, addDays(from, -1), "00:00"), toMs = zonedMs(tz, addDays(to, 2), "00:00");
     const ext = new Map<string, Ext>((await P.list(at, cal.id, fromMs, toMs, false)).map(x => [x.id, x.x]));
-    const pl = await plan(want, map, ext, tz, from, to);
-    const rows = pl.rows.slice(), drop: string[] = [], stats = { created: 0, updated: 0, removed: 0, moved: pl.changes.filter(c => !c.deleted).length, deleted: pl.changes.filter(c => c.deleted).length, failed: 0 };
+    // An event the person moved far outside the window isn't in the list: look it up before calling it deleted (a few per sync)
+    const inWin = (r: Row) => { const dd = spanDate(r.ext_start, tz); return !!dd && dd >= from && dd <= to; };
+    const missing = map.filter(r => !r.gone && inWin(r) && !ext.has(r.ext_id)).slice(0, 40);
+    await pool(missing, POOL, async r => { try { const x = await P.getOne(at, cal.id, r.ext_id); if (x) ext.set(r.ext_id, x); } catch (_e) { ext.set(r.ext_id, { s: r.ext_start, e: r.ext_end }); } });
+    // Rows for things long past are forgotten (the events stay in the calendar), so the map doesn't grow term after term
+    const wantedKeys = new Set(want.map(w => w.k));
+    const old = map.filter(r => { const dd = spanDate(r.ext_start, tz); return !wantedKeys.has(r.sb_key) && !!dd && dd < addDays(from, -30); }).map(r => r.sb_key);
+    const live = map.filter(r => !old.includes(r.sb_key));
+    const pl = await plan(want, live, ext, tz, from, to, Math.max(0, Math.min(MAX_WRITES, 5500 - live.length)));
+    const rows = pl.rows.slice(), drop: string[] = old.slice(), stats = { created: 0, updated: 0, removed: 0, moved: pl.changes.filter(c => !c.deleted).length, deleted: pl.changes.filter(c => c.deleted).length, failed: 0 };
     const fail = (e: unknown) => { stats.failed++; if (e instanceof ProviderError && (e.status === 429 || e.status === 403)) pl.more = true; };
     await pool(pl.deletes, POOL, async r => { try { await P.remove(at, cal.id, r.ext_id); drop.push(r.sb_key); stats.removed++; } catch (e) { fail(e); } });
     await pool(pl.patches, POOL, async p => {
@@ -409,8 +467,10 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
   const log = (outcome: string, extra: Record<string, unknown> = {}) => d.log(JSON.stringify({ fn: "calendar-sync", outcome, ms: d.now() - t0, ...extra }));
   const A = adapters(d);
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
-  if (req.method === "GET" && (url.searchParams.has("state") || url.searchParams.has("code") || url.searchParams.has("error"))) return callback(url, d, A, log);
+  if (req.method === "GET" && url.searchParams.has("begin")) return begin(url, d, A, log);
+  if (req.method === "GET" && (url.searchParams.has("state") || url.searchParams.has("code") || url.searchParams.has("error"))) return callback(req, url, d, A, log);
   if (req.method !== "POST") return reply({ error: "method not allowed" }, 405);
+  if ((req.headers.get("content-type") || "").includes("application/x-www-form-urlencoded") && !req.headers.get("authorization")) return confirm(req, d, A, log);
   const secret = d.env("CALSYNC_KEY");
   if (secret.length < 32) { log("not_configured"); return reply({ error: "not_configured" }, 501); }
   try {
@@ -442,7 +502,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     if (b.action === "start") {
       const state = await signState(secret, { u: uid, p: prov, e: Math.floor(d.now() / 1000) + 900, z: validTz(b.tz) ? b.tz : "UTC" });
       log("start", { provider: prov });
-      return reply({ url: A[prov].authUrl(state, redirectOf(d)) }, 200);
+      return reply({ url: `${redirectOf(d)}?begin=${encodeURIComponent(state)}` }, 200);   // through this function first, to tie it to the browser
     }
     if (b.action === "sync") return await sync(uid, b, d, A, log);
     return reply({ error: "bad request" }, 400);

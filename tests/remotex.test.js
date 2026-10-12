@@ -133,7 +133,7 @@ const mkNext = eff => {
     nufbLoad: () => ({}), nufbWeights: () => ({}), nufbMult: () => 1, diffOf: () => "med", deadlineGuard: () => {}, autoPlanOn: () => false, AUTO: {}, fmtTime: x => x,
     canDoNow: t => R.canDoNow(t, {v: eff[t.id] || ""}), accOf: () => null, Date, Number, Math
   };
-  vm.createContext(ctx); vm.runInContext(fnText("nextUp"), ctx); return F => ctx.nextUp(F);
+  vm.createContext(ctx); vm.runInContext(fnText("nextUp") + "\n" + fnText("nextUpStudy"), ctx); return F => ctx.nextUp(F);
 };
 const X = (id, type, score, o) => Object.assign({t: {id, type, title: id, checklist: [], history: []}, score, alloc: 1, R: 1, dl: 1, reasons: [`Due tomorrow`], behind: 0, rho: 0.3, own: 0.2}, o || {});
 t("nextUp: an in-person midterm with the top score is never Do This Next", () => {
@@ -153,6 +153,24 @@ t("nextUp: a Study prep task for the exam is still suggested", () => {
   const nu = mkNext({m: "no"}), F = {ranked: [X("m", "Exam", 99), X("prep", "Study", 60, {t: {id: "prep", type: "Study", prepFor: "m", title: "Study", checklist: [], history: []}})]};
   const r = nu(F); assert.strictEqual(r.x.t.id, "prep"); assert(r.why.some(w => /exam study plan/.test(w)));
 });
+// Studying for an in-person exam (never the exam itself) when nothing is due before it
+const mkStudy = () => {
+  const ctx = {todayISO: () => "2026-10-05", ui: {}, inFilter: () => true, pad: x => String(x).padStart(2, "0"), pomoCfg: () => ({focus: 25}), schOccurrences: () => [], tasksArr: () => [], nufbLoad: () => ({}), nufbWeights: () => ({}), nufbMult: () => 1, diffOf: () => "med", deadlineGuard: () => {},
+    autoPlanOn: () => false, AUTO: {}, fmtTime: x => x, canDoNow: t => R.canDoNow(t, {v: ""}), accOf: () => null, planSessions: () => [], dueDate: t => t.due, Date, Number, Math};
+  vm.createContext(ctx); vm.runInContext(fnText("nextUp") + "\n" + fnText("nextUpStudy"), ctx); return F => ctx.nextUp(F);
+};
+const EX = (id, dl) => ({t: {id, type: "Exam", title: "Midterm", due: "2026-10-0" + (5 + dl), history: []}, fixed: true, dl});
+t("nextUp: an in-person exam in 2 days, with only later work, suggests studying for it", () => {
+  const r = mkStudy()({ranked: [X("hw", "Assignment", 40, {dl: 6})], info: {m: EX("m", 2)}});
+  assert(r.study && r.x.t.id === "m" && /^Study for/.test(r.label), JSON.stringify(r && r.label));
+});
+t("nextUp: work due before the exam comes first", () => {
+  const r = mkStudy()({ranked: [X("hw", "Assignment", 40, {dl: 1})], info: {m: EX("m", 2)}});
+  assert(!r.study && r.x.t.id === "hw");
+});
+t("nextUp: with nothing else to do, studying for a close exam is suggested", () => {
+  const r = mkStudy()({ranked: [], info: {m: EX("m", 3)}}); assert(r && r.study && r.x.t.id === "m");
+});
 t("nextUp: the alternatives (left) never count an ineligible exam", () => {
   const nu = mkNext({q: "yes"}), F = {ranked: [X("q", "Quiz", 90), X("m", "Exam", 80), X("hw", "Assignment", 40)]};
   assert.strictEqual(nu(F).left, 1);
@@ -160,7 +178,7 @@ t("nextUp: the alternatives (left) never count an ineligible exam", () => {
 t("nextUp: the AI's stored pick can't bring back an exam that has become ineligible", () => {
   const ctx = {todayISO: () => "2026-10-05", ui: {}, inFilter: () => true, pad: x => String(x).padStart(2, "0"), pomoCfg: () => ({focus: 25}), schOccurrences: () => [], tasksArr: () => [], nufbLoad: () => ({}), nufbWeights: () => ({}), nufbMult: () => 1, diffOf: () => "med", deadlineGuard: () => {},
     autoPlanOn: () => true, AUTO: {next: {day: "2026-10-05", at: Date.now(), list: [{id: "m", why: "x"}]}}, fmtTime: x => x, canDoNow: t => R.canDoNow(t, {v: ""}), accOf: () => null, Date, Number, Math};
-  vm.createContext(ctx); vm.runInContext(fnText("nextUp"), ctx);
+  vm.createContext(ctx); vm.runInContext(fnText("nextUp") + "\n" + fnText("nextUpStudy"), ctx);
   const r = ctx.nextUp({ranked: [X("m", "Exam", 99), X("hw", "Assignment", 40)]}); assert.strictEqual(r.x.t.id, "hw"); assert.strictEqual(r.ai, false);
 });
 
@@ -173,7 +191,7 @@ has(/const R = fx \? 0 : remainingOf\(t\)/, "computeFocus gives ineligible exams
 has(/showScore \|\| !canDoNow\(t\) \? "" : `<button class="focus-go"/, "Today's Plan rows hide the focus button for ineligible exams");
 has(/const workable = ranked\.filter\(x => !x\.fixed\)/, "Today's Plan lists only workable items");
 has(/\(canDoNow\(t\) \|\| t\.id === pomo\.taskId\)/, "focus timer picker hides ineligible exams");
-has(/case "pomo-task": \{ const tk = state\.tasks\[el\.dataset\.id\]; if \(tk && !canDoNow\(tk\)\)/, "starting a focus on an ineligible exam is refused everywhere");
+has(/case "pomo-task": \{ const tk = state\.tasks\[el\.dataset\.id\]; if \(tk && !canDoNow\(tk\) && !el\.dataset\.study\)/, "starting a focus on an ineligible exam is refused everywhere (except Study for it from Do This Next)");
 has(/const canStart = dl >= 0 && canDoNow\(t\);/, "Crunch 'Start now' uses canDoNow");
 has(/x\.alloc > 0 && x\.t\.status !== "done" && canDoNow\(x\.t\)/, "companion's top-of-plan idea uses canDoNow");
 has(/state\.tasks\[i\.taskId\]\.status !== "done" && canDoNow\(state\.tasks\[i\.taskId\]\)/, "companion's focus ideas are checked with canDoNow");

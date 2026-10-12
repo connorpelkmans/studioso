@@ -675,7 +675,7 @@ Studyboard only ever writes to the calendar it made. On Google it asks for `cale
 4. **Google** (skip if you only want Outlook): in Google Cloud Console make a project, turn on the **Google Calendar API**, set up the **OAuth consent screen** (External; app name Studyboard, your support email, the privacy policy address, and the two scopes `.../auth/calendar.app.created` and `.../auth/calendar.events.readonly`), then **Credentials > Create credentials > OAuth client ID**, type **Web application**, with the redirect address above as an **Authorized redirect URI**. Save the client ID and secret as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. While the app is in Testing, add your testers under **Test users**. Before a public launch, submit the consent screen for **verification** (both scopes are "sensitive"; Google checks the privacy policy and asks for a short video of the connect flow).
 5. **Microsoft** (skip if you only want Google): in the Microsoft Entra admin center, **App registrations > New registration**, "Accounts in any organizational directory and personal Microsoft accounts", a **Web** redirect URI (the address above). Under **API permissions** add Microsoft Graph delegated `Calendars.ReadWrite`, `User.Read` and `offline_access`. Under **Certificates & secrets** make a client secret. Save the Application (client) ID and the secret's value as `MS_CLIENT_ID` and `MS_CLIENT_SECRET`. (Client secrets expire: put a reminder in your calendar to make a new one.)
 6. **Secrets** (Edge Functions > Secrets): `CALSYNC_KEY`, and `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` and/or `MS_CLIENT_ID` / `MS_CLIENT_SECRET`. The app only offers the providers whose secrets are set.
-7. **Try it:** with a Pro account open **Calendar Sync > Two-Way**, choose **Connect Google Calendar**, allow access in the page that opens, then come back to Studyboard. It notices the connection and fills the Studyboard calendar.
+7. **Try it:** with a Pro account open **Calendar Sync > Two-Way**, choose **Connect Google Calendar**, allow access in the page that opens, check that the last page names your Studyboard account and press **Connect**, then come back to Studyboard. It notices the connection and fills the Studyboard calendar.
 
 Checks without any network: `node --experimental-strip-types supabase-functions/tools/test-calendar-sync.mjs`.
 
@@ -686,6 +686,7 @@ Checks without any network: `node --experimental-strip-types supabase-functions/
 | Google says the app is blocked or unverified | Add the person as a test user (step 4), or finish verification. |
 | "stopped accepting Studyboard's access" | The person revoked access, changed their password, or (Google, Testing mode) 7 days passed. **Connect Again**. |
 | Google: `redirect_uri_mismatch` | The redirect URI in step 4 must be exactly the function's address. |
+| "This connection wasn't started in this browser" | Connect has to be finished in the browser it opened in (a cookie ties them together, so a link someone sends you can't connect your calendar to their account). Choose Connect again in Studyboard. |
 
 ---
 

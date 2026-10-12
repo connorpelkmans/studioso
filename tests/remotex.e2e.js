@@ -172,11 +172,13 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       const {ctx, p} = await open(browser, W, "unknown");
       await showToday(p); await p.waitForTimeout(700);
       let pl = await plan(p);
-      ok(pl.next && pl.next.id === "a1", tag + " an unsure exam due tomorrow is not suggested; the assignment is (" + (pl.next && pl.next.id) + ")");
+      // The exam itself is never offered; with nothing due before it, Do This Next suggests studying for it instead
+      ok(pl.next && (pl.next.id === "a1" || (pl.next.id === "m2" && pl.next.study)), tag + " an unsure exam due tomorrow is not suggested as itself (" + (pl.next && pl.next.id) + ")");
+      if (pl.next.study) ok(/Study for Final Exam/.test(await p.textContent(".next-up")) && await p.locator('.next-up .check').count() === 0, tag + " it says Study for Final Exam, with no check box to tick the exam off");
       await p.evaluate(() => { const t = document.querySelector('.pt-tab[data-k="sugg"]'); if (t) t.click(); });
       await p.click('[data-act="rmt-set"][data-v="no"]'); await p.waitForTimeout(400);
       ok((await eff(p, "m2")).v === "no", tag + " In person answer");
-      pl = await plan(p); ok(pl.next.id === "a1", tag + " still not suggested after saying In person");
+      pl = await plan(p); ok(pl.next.id === "a1" || (pl.next.id === "m2" && pl.next.study), tag + " still not suggested as itself after saying In person");
       await ctx.close();
     }
     // ---------- 4. With AI: accepted, rejected, low confidence, no text ----------

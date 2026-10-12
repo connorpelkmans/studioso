@@ -192,7 +192,7 @@ ENGINES.thailand = function (A, v, dk) {
         if (ring > 1.3) { var nu = ((tt * 1.3 + m * 0.37) % 1); cb.fillStyle = 'rgba(255,236,160,' + ((ring - 1) / 3 * Math.sin(nu * Math.PI)) + ')'; thailand_spark(cb, b[0] + Math.sin(m * 2.1 + nu * 3) * 10 * s, b[1] + 6 * s - nu * 28 * s, 3.4 * s); } });
       // palm crowns swaying over everything
       crowns.forEach(function (c, m) { var sw = Math.sin(tt * 0.8 + c.ph) * 0.06 * f.a + Math.sin(tt * 1.9 + c.ph * 2) * 0.018 * f.a;
-        [-2.95, -2.55, -2.1, -1.65, -1.2, -0.75, -0.3, 0.2, 0.65, 2.7].forEach(function (a, q) { var aa = a + sw * (1 + q * 0.12), L = c.L * (0.82 + (q % 3) * 0.1), left = Math.cos(aa) < 0; cb.save(); cb.translate(c.x, c.y); if (left) { cb.scale(-1, 1); aa = Math.PI - aa; } cb.rotate(aa); cb.fillStyle = q % 2 ? (dk ? '#1A3A30' : '#3A8A3E') : (dk ? '#24483A' : '#5AAA4A'); cb.fill(frondP(L)); cb.restore(); });
+        [-2.95, -2.55, -2.1, -1.65, -1.2, -0.75, -0.3, 0.2, 0.65, 2.7].forEach(function (a, q) { var aa = a + sw * (1 + q * 0.12), L = c.L * (0.82 + (q % 3) * 0.1), left = Math.cos(a) < 0; cb.save(); cb.translate(c.x, c.y); if (left) { cb.scale(-1, 1); aa = Math.PI - aa; } cb.rotate(aa); cb.fillStyle = q % 2 ? (dk ? '#1A3A30' : '#3A8A3E') : (dk ? '#24483A' : '#5AAA4A'); cb.fill(frondP(L)); cb.restore(); });
         cb.fillStyle = dk ? '#3A3024' : '#6E5A2A'; [[-5, 5], [5, 6], [0, 10], [-9, 9]].forEach(function (q) { cb.beginPath(); cb.arc(c.x + q[0] * S, c.y + q[1] * S, 5 * S + 1, 0, 7); cb.fill(); });
         cb.fillStyle = dk ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,220,0.35)'; cb.beginPath(); cb.arc(c.x - 6 * S, c.y + 3 * S, 1.8 * S + 0.5, 0, 7); cb.fill(); });
     },
