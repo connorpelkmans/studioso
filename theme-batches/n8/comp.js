@@ -44,7 +44,7 @@
       },
       {
         id: "waterfall-mossby", name: "Mossby", kind: "Mossy Pebble", pose: "sit", wearColor: "#5E9A48",
-        bio: "A smooth river stone with a soft moss cap. Has been sitting by the falls for a thousand years and is in no hurry.",
+        bio: "A mossy river stone that has sat by the falls for ages, in no hurry at all.",
         idle: ["topBob", "bounce", "sparkle"], cheer: "hop",
         parts: {
           body: `${RG("waterfall-mossby-b", [[0, "#E2EAE6"], [0.6, "#A8B6B0"], [1, "#77867F"]], 0.4, 0.35, 0.8)}${RG("waterfall-mossby-m", [[0, "#B4E27A"], [1, "#5E9A40"]], 0.4, 0.3, 0.8)}
@@ -74,14 +74,14 @@
         }
       },
       {
-        id: "waterfall-misty", name: "Misty", kind: "Spray Cloud", pose: "float", wearColor: "#5AB8F2",
-        bio: "A puff of waterfall spray that keeps a tiny rainbow on its head. It comes out whenever the sun does.",
+        id: "waterfall-misty", name: "Nebbia", kind: "Spray Cloud", pose: "float", wearColor: "#5AB8F2",
+        bio: "A puff of waterfall spray with a tiny rainbow that shows whenever the sun does.",
         idle: ["sway", "topBob", "sparkle"], cheer: "spin",
         parts: {
           body: `${RG("waterfall-misty-b", [[0, "#FFFFFF"], [0.7, "#EEF8FC"], [1, "#BFE0F0"]], 0.42, 0.35, 0.8)}
             <path d="${puff(60, 78, 26, 9)}" fill="url(#waterfall-misty-b)" ${O}/>
             <path d="M40 92Q60 100 80 92" fill="none" stroke="#BFE0F0" stroke-width="2.4" stroke-linecap="round"/>
-            <g fill="#8ED0F0" ${OW(1.4)}><path d="M44 110c-2 3 -2 5 0 5s2 -2 0 -5z"/><path d="M60 114c-2 3 -2 5 0 5s2 -2 0 -5z"/><path d="M76 110c-2 3 -2 5 0 5s2 -2 0 -5z"/></g>
+            <g fill="#8ED0F0" ${OW(1.4)}><path d="M44 103c-2 3 -2 5 0 5s2 -2 0 -5z"/><path d="M60 106c-2 3 -2 5 0 5s2 -2 0 -5z"/><path d="M76 103c-2 3 -2 5 0 5s2 -2 0 -5z"/></g>
             ${shine(46, 64, 6, 3, -30)}`,
           armL: {svg: `<circle cx="31" cy="86" r="6.4" fill="#F4FBFE" ${O}/>`, pivot: [36, 84]},
           armR: {svg: `<circle cx="89" cy="86" r="6.4" fill="#F4FBFE" ${O}/>`, pivot: [84, 84]},
@@ -112,7 +112,7 @@
     companions: [
       {
         id: "redwoods-cono", name: "Cono", kind: "Redwood Cone", pose: "stand", wearColor: "#A2452A",
-        bio: "Small enough to fit in your palm, holding the seeds of a tree taller than a skyscraper. Thinks big.",
+        bio: "Fits in your palm, holds the seeds of a tree taller than a skyscraper.",
         idle: ["topBob", "sway", "bounce"], cheer: "hop",
         parts: {
           feet: `<ellipse cx="49" cy="108" rx="7" ry="4" fill="#7A4428" ${O}/><ellipse cx="71" cy="108" rx="7" ry="4" fill="#7A4428" ${O}/>`,
@@ -143,7 +143,7 @@
       },
       {
         id: "redwoods-hartley", name: "Hartley", kind: "Sorrel Sprout", pose: "stand", wearColor: "#5AA048",
-        bio: "A sprig of redwood sorrel with three heart-shaped leaves and a soft pink flower. Folds up for a nap when the sun gets too bright.",
+        bio: "Redwood sorrel with three heart leaves. Naps whenever the sun gets too bright.",
         idle: ["sway", "wave", "topBob"], cheer: "spin",
         neck: [60, 84],
         parts: {
@@ -162,7 +162,7 @@
         cheeks: {lx: 43, rx: 77, y: 65, w: 4.2, h: 2.5, color: "#FF9AB0"},
         anchors: {top: [60, 40, 0.85], neck: [60, 86, 0.8], chest: [66, 98, 0.5], back: [84, 70, 0.7], hands: [60, 98, 0.8]},
         lines: {
-          tap: ["Hello! I've got three hearts and they're all cheering for you!", "You're doing lovely work today!", "Tiny but mighty, that's us!", "A little green goes a long way!", "You make the forest floor feel sunny!", "Leaf it to me, I'll cheer you on!", "Heart, heart, heart! That's how much I believe in you!", "Soft steps, steady progress!"],
+          tap: ["Hi! I've got three hearts and they're all cheering for you!", "You're doing lovely work today!", "Tiny but mighty, that's us!", "A little green goes a long way!", "You make the forest floor feel sunny!", "Leaf it to me, I'll cheer you on!", "Heart, heart, heart! That's how much I believe in you!", "Soft steps, steady progress!"],
           pet: ["Hehe, my leaves are folding up from joy!", "Ooh, that made my flower blush!"],
           hello: ["You're back! All three leaves are waving!", "Hello! I saved you a sunny spot!"],
           morning: ["Good morning! Leaves open, ready to go!", "Morning! There's dew on my hearts!"],
@@ -175,7 +175,7 @@
       },
       {
         id: "redwoods-burl", name: "Burl", kind: "Sprouting Stump", pose: "sit", wearColor: "#C0663A",
-        bio: "An old redwood stump with a brand-new shoot on top. Knows a lot about starting again.",
+        bio: "An old redwood stump with a new shoot on top. Knows all about starting again.",
         idle: ["topBob", "bounce", "sparkle"], cheer: "bounce",
         parts: {
           body: `${LG("redwoods-burl-b", [[0, "#B86A44"], [1, "#7A3E26"]], 0, 0, 1, 0)}${RG("redwoods-burl-t", [[0, "#F6D6A8"], [1, "#D49A64"]], 0.5, 0.5, 0.6)}

@@ -8,7 +8,7 @@
 - Companions:
   1. Plip, Water Droplet — "A drop that took the long way down the falls and loved every tier of it." idle: topBob, sway, sparkle; cheer: bounce
   2. Mossby, Mossy Pebble — "A smooth river stone with a soft moss cap. Has been sitting by the falls for a thousand years and is in no hurry." idle: topBob, bounce, sparkle; cheer: hop
-  3. Misty, Spray Cloud — "A puff of waterfall spray that keeps a tiny rainbow on its head. It comes out whenever the sun does." idle: sway, topBob, sparkle; cheer: spin
+  3. Nebbia, Spray Cloud — "A puff of waterfall spray that keeps a tiny rainbow on its head. It comes out whenever the sun does." idle: sway, topBob, sparkle; cheer: spin
 
 ### Redwood Grove (id: redwoods) — Nature and Places
 - Scene: Towering red-brown redwood trunks with deep furrowed bark rise out of frame, row behind row fading into fog. Sword ferns and redwood sorrel (with little pink-white flowers) carpet the floor, a fallen mossy log with a ringed cut end lies across the middle, and flat redwood sprays hang in from the canopy.
