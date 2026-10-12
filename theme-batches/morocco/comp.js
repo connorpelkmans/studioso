@@ -52,7 +52,7 @@
         }
       },
       {
-        id: "morocco-fenn", name: "Fenn", kind: "Fennec Fox Kit", pose: "sit", sleepy: true, wearColor: "#C8642E",
+        id: "morocco-fenn", name: "Zaki", kind: "Riad Fennec Kit", pose: "sit", sleepy: true, wearColor: "#C8642E",
         bio: "Giant ears for hearing every deadline coming.",
         idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
         neck: [60, 76],

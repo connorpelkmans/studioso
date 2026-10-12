@@ -11,7 +11,7 @@
     theme: "thailand",
     companions: [
       {
-        id: "thailand-chang", name: "Chang", kind: "Baby Elephant", pose: "stand", wearColor: "#D8463A",
+        id: "thailand-chang", name: "Chang", kind: "Thai Elephant Calf", pose: "stand", wearColor: "#D8463A",
         bio: "Carries your hardest task with a trunk-curling smile.",
         idle: ["earTwitch", "tailSwish", "topBob"], cheer: "bounce",
         parts: {

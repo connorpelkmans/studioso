@@ -10,7 +10,7 @@
     theme: "japan",
     companions: [
       {
-        id: "japan-kuri", name: "Kuri", kind: "Shiba Pup", pose: "sit", wearColor: "#D8402E",
+        id: "japan-kuri", name: "Kuri", kind: "Shiba Inu Pup", pose: "sit", wearColor: "#D8402E",
         bio: "Curly tail, big smile, keeps watch on your deadlines.",
         idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "hop",
         neck: [60, 76],
