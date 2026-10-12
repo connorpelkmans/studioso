@@ -136,7 +136,7 @@ function SEED(){
     /* ---------- Listen ---------- */
     await page.evaluate(() => { ui.tab = "flashcards"; ui.deckId = "d1"; ui.fc = null; render(); }); await page.waitForTimeout(300);
     ok(await page.locator('[data-act="ls-open"][data-id="d1"]').count() === 1, "the deck page has Listen");
-    await page.click('[data-act="ls-open"][data-id="d1"]'); await page.waitForTimeout(300);
+    await page.click(".deck-head .ra-more-btn"); await page.click('[data-act="ls-open"][data-id="d1"]'); await page.waitForTimeout(300);   // Listen sits behind the deck's More
     ok(/Card 1 of 3/.test(await page.locator(".ls-deck").textContent()), "due and new cards: 3 (not due later, an image card is skipped)");
     await page.click('[data-act="ls-play"]'); await page.waitForTimeout(400);
     let said = await page.evaluate(() => window.__said.slice());
