@@ -13257,7 +13257,7 @@ function styleShop(tab){
   let body = "";
   if (ui.shopTab === "themes") {
     body = `<div class="shop-mode"><span class="mini">Preview in</span>${themeRow().replace(/^[\s\S]*?(<div class="segb)/, "$1").replace(/<\/div>\s*$/, "")}<label class="motion-tog"><input type="checkbox" id="motionTog" data-act="motion-toggle" ${cfg.motion !== false ? "checked" : ""}> Background Animations</label></div>
-      ${[["plain", "Free · Plain Colors"], ["ideas", `${PRO_BADGE} Pro · New Theme Ideas`], ["season", `${PRO_BADGE} Pro · Seasons`], ["pro", `${PRO_BADGE} Pro · Scenes`], ["majors", `${PRO_BADGE} Pro · Fields`], ["hobby", `${PRO_BADGE} Pro · Hobbies`], ["holiday", `${PRO_BADGE} Pro · Holidays`]].map(([g, t]) => section(t, SKINS.filter(s => (s.group || "plain") === g || (g === "pro" && s.group === "newscenes")), s => `<div class="shop-tile ${cfg.skin === s.id ? "on" : ""}"><div class="skin-pair">${skinPreview(s, false)}${skinPreview(s, true)}</div>${nameRow(s)}${btnFor("skin", s, cfg.skin === s.id)}</div>`)).join("")}`;
+      ${[["plain", "Free · Plain Colors"], ["world", `${PRO_BADGE} Pro · Around the World`], ["ideas", `${PRO_BADGE} Pro · New Theme Ideas`], ["season", `${PRO_BADGE} Pro · Seasons`], ["pro", `${PRO_BADGE} Pro · Scenes`], ["majors", `${PRO_BADGE} Pro · Fields`], ["hobby", `${PRO_BADGE} Pro · Hobbies`], ["holiday", `${PRO_BADGE} Pro · Holidays`]].map(([g, t]) => section(t, SKINS.filter(s => (s.group || "plain") === g || (g === "pro" && s.group === "newscenes")), s => `<div class="shop-tile ${cfg.skin === s.id ? "on" : ""}"><div class="skin-pair">${skinPreview(s, false)}${skinPreview(s, true)}</div>${nameRow(s)}${btnFor("skin", s, cfg.skin === s.id)}</div>`)).join("")}`;
   } else if (ui.shopTab === "cards") {
     body = `<p class="mini" style="margin:0">How flashcards look while you study. You can also give one deck its own style under Edit Deck.</p>
       ${split(CARD_STYLES.filter(c => c.id !== "theme" || themeKit()), c => `<div class="shop-tile ${cardStyleOf(null) === c.id ? "on" : ""}"><div class="cs-demo cs-${c.id}"><span class="face"><span class="face-label">Front</span><span class="face-text">Mitochondria</span></span></div>${nameRow(c)}${btnFor("card", c, cardStyleOf(null) === c.id, "Use for All Decks")}</div>`)}`;
@@ -59988,7 +59988,7 @@ var TP_DATA = [];
   if (!ui.shopTab && S.tab) ui.shopTab = S.tab;
 
   const CHEV = `<svg class="ui-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`;
-  const GROUPS = [["ideas", "New Ideas"], ["seasons", "Seasons"], ["scenes", "Scenes"], ["majors", "Fields"], ["hobby", "Hobbies"], ["holidays", "Holidays"]];
+  const GROUPS = [["world", "World"], ["ideas", "New Ideas"], ["seasons", "Seasons"], ["scenes", "Scenes"], ["majors", "Fields"], ["hobby", "Hobbies"], ["holidays", "Holidays"]];
   const CHIPS = {
     themes: [["all", "All"], ["free", "Free"]].concat(GROUPS),
     collections: [["all", "All"]].concat(GROUPS),
@@ -59997,11 +59997,11 @@ var TP_DATA = [];
     pins: [["all", "All"], ["free", "Free"], ["pro", "Pro"], ["collections", "Theme Collections"]],
     stickers: [["all", "All"], ["free", "Free"], ["pro", "Pro"], ["collections", "Theme Collections"]]
   };
-  const skinGroup = s => ({plain: "free", ideas: "ideas", season: "seasons", pro: "scenes", newscenes: "scenes", majors: "majors", hobby: "hobby", holiday: "holidays"})[(s && s.group) || "plain"] || "scenes";
+  const skinGroup = s => ({plain: "free", world: "world", ideas: "ideas", season: "seasons", pro: "scenes", newscenes: "scenes", majors: "majors", hobby: "hobby", holiday: "holidays"})[(s && s.group) || "plain"] || "scenes";
   const secKind = (tab, title, tp) => {
     if (tp) return "collections";
     const t = title.toLowerCase();
-    if (tab === "themes") return /plain/.test(t) ? "free" : /idea/.test(t) ? "ideas" : /season/.test(t) ? "seasons" : /field/.test(t) ? "majors" : /hobb|cozy/.test(t) ? "hobby" : /holiday/.test(t) ? "holidays" : "scenes";
+    if (tab === "themes") return /plain/.test(t) ? "free" : /around the world/.test(t) ? "world" : /idea/.test(t) ? "ideas" : /season/.test(t) ? "seasons" : /field/.test(t) ? "majors" : /hobb|cozy/.test(t) ? "hobby" : /holiday/.test(t) ? "holidays" : "scenes";
     return /^\s*free/.test(t) ? "free" : /^\s*all pins/.test(t) ? "mixed" : "pro";
   };
   const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -60168,7 +60168,7 @@ var TP_DATA = [];
   artThumb = function(id, dark){
     const h = origThumb.apply(this, arguments);
     const sk = SKINS.find(x => x.id === id);
-    if (!sk || sk.photo || !/^(ideas|season|pro|newscenes|majors|hobby|holiday)$/.test(sk.group || "")) return h;   // only the built-in scene art
+    if (!sk || sk.photo || !/^(world|ideas|season|pro|newscenes|majors|hobby|holiday)$/.test(sk.group || "")) return h;   // only the built-in scene art
     const m = h && h.match(/<img[^>]*\ssrc="([^"]+)"/); if (!m || !/^(blob:|data:image\/svg)/.test(m[1])) return h;
     const key = id + (dark ? ":d" : ":l");
     if (!thSrc.has(key) || thSrc.get(key).url !== m[1]) { thSrc.set(key, {url: m[1]}); TH.delete(key); }
