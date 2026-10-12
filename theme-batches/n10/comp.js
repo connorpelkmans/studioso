@@ -1,6 +1,6 @@
-/* Study Companions, new theme ideas batch n10: icecave, geysers. Nature-object characters (no animals). */
+/* Study Companions, new theme ideas batch n10: icecave, geysers. Each theme has one nature-object companion and two young animals. */
 (() => {
-  const {O, OW, LG, RG, puff, LINE} = COMP_KIT;
+  const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
   const shine = (x, y, rx, ry, a) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" transform="rotate(${a} ${x} ${y})" fill="#fff" opacity=".75"/>`;
 
@@ -42,62 +42,81 @@
         }
       },
       {
-        id: "icecave-drip", name: "Drip", kind: "Meltwater Drop", pose: "float", wearColor: "#2FA8D0",
-        bio: "Fell off an icicle and decided to stay. Never misses a deadline, only a puddle.",
-        idle: ["bounce", "wave", "sway"], cheer: "hop",
+        id: "icecave-frost", name: "Frost", kind: "Arctic Fox Kit", pose: "sit", wearColor: "#2A9CC4",
+        bio: "Curls up in its own tail when it's cold. Perks right up for you.",
+        idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
+        neck: [60, 74],
         parts: {
-          back: `<ellipse cx="60" cy="103" rx="34" ry="6" fill="#BFEFF8" ${O}/><path d="M32 103q5 2.4 10 0M78 104q5 2.4 10 0" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>`,
-          body: `${RG("icecave-drip-b", [[0, "#EEFDFF"], [0.5, "#8EDEF0"], [1, "#2FA8D0"]], 0.4, 0.36, 0.8)}
-            <path d="M60 26C66 40 88 58 88 78C88 95 76 104 60 104C44 104 32 95 32 78C32 58 54 40 60 26Z" fill="url(#icecave-drip-b)" ${O}/>
-            <path d="M80 80C80 91 72 98 62 99C72 95 77 88 78 79Z" fill="#fff" opacity=".55"/>
-            ${shine(45, 64, 6, 3.4, -50)}<circle cx="50" cy="55" r="2" fill="#fff"/>`,
-          armL: {svg: `<ellipse cx="31" cy="82" rx="5" ry="7" transform="rotate(25 31 82)" fill="#7FD6EC" ${O}/>`, pivot: [35, 79]},
-          armR: {svg: `<ellipse cx="89" cy="82" rx="5" ry="7" transform="rotate(-25 89 82)" fill="#6CCCE6" ${O}/>`, pivot: [85, 79]},
-          top: {svg: `<path d="M60 8C62 12 64.4 14 64.4 16.6A4.4 4.4 0 0 1 55.6 16.6C55.6 14 58 12 60 8Z" fill="#A6E8F5" ${OW(2)}/><circle cx="69" cy="14" r="2.2" fill="#A6E8F5" ${OW(1.6)}/><circle cx="58.4" cy="15.6" r="1" fill="#fff"/>`, pivot: [60, 25]}
+          tail: {svg: `${RG("icecave-frost-t", [[0, "#FFFFFF"], [0.6, "#EEF3FA"], [1, "#C4D2E6"]], 0.4, 0.4, 0.8)}
+            <path d="M74 106C88 108 101 99 103 84C104 73 99 65 92 64C87 70 90 79 86 87C83 93 78 95 72 95Z" fill="url(#icecave-frost-t)" ${O}/>
+            <path d="M94 74q-2 4 0 8M98 86q-3 3 -2 7" fill="none" stroke="#B4C6DE" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [76, 101]},
+          feet: `<ellipse cx="46" cy="108" rx="8.6" ry="4.6" fill="#F4F7FC" ${O}/><ellipse cx="74" cy="108" rx="8.6" ry="4.6" fill="#F4F7FC" ${O}/>
+            <path d="M43 109.6v-2.4M47 110.2v-2.4M73 110.2v-2.4M77 109.6v-2.4" stroke="#B4C6DE" stroke-width="1.4" stroke-linecap="round"/>`,
+          body: `${RG("icecave-frost-b", [[0, "#FFFFFF"], [0.6, "#EEF3FA"], [1, "#C4D2E6"]], 0.42, 0.3, 0.8)}
+            <path d="M40 101C36 90 40 78 50 74H70C80 78 84 90 80 101C78 106 70 107 60 107C50 107 42 106 40 101Z" fill="url(#icecave-frost-b)" ${O}/>
+            <path d="M50 78L54 87L57 81L60 90L63 81L66 87L70 78Z" fill="#FFFFFF"/>`,
+          armL: {svg: `<ellipse cx="42.6" cy="92" rx="5.6" ry="9" transform="rotate(18 42.6 92)" fill="#EEF3FA" ${O}/><path d="M38.4 98.4l-.6 1.8M41.4 99.4l-.4 1.8" stroke="#A8BCD8" stroke-width="1.3" stroke-linecap="round"/>`, pivot: [46, 83]},
+          armR: {svg: `<ellipse cx="77.4" cy="92" rx="5.6" ry="9" transform="rotate(-18 77.4 92)" fill="#EEF3FA" ${O}/><path d="M81.6 98.4l.6 1.8M78.6 99.4l.4 1.8" stroke="#A8BCD8" stroke-width="1.3" stroke-linecap="round"/>`, pivot: [74, 83]},
+          earL: {svg: `<path d="M38 46C33 36 33 27 36 22C43 23 50 29 54 37Z" fill="#F4F7FC" ${O}/><path d="M39.6 40C37.4 34 37.4 29.4 38.6 26.4C42 27.6 46 31 48.4 35Z" fill="#F7B8C4"/>`, pivot: [45, 40]},
+          earR: {svg: `<path d="M82 46C87 36 87 27 84 22C77 23 70 29 66 37Z" fill="#F4F7FC" ${O}/><path d="M80.4 40C82.6 34 82.6 29.4 81.4 26.4C78 27.6 74 31 71.6 35Z" fill="#F7B8C4"/>`, pivot: [75, 40]},
+          head: `${RG("icecave-frost-h", [[0, "#FFFFFF"], [0.6, "#F0F4FA"], [1, "#C8D4E8"]], 0.42, 0.3, 0.8)}
+            <path d="M60 32C75 32 86 41 86 53L92 58L85 62L89 68L79 69C74 74 67 76 60 76C53 76 46 74 41 69L31 68L35 62L28 58L34 53C34 41 45 32 60 32Z" fill="url(#icecave-frost-h)" ${O}/>
+            <ellipse cx="60" cy="63.4" rx="9.6" ry="6.8" fill="#FFFFFF" ${OW(1.8)}/>
+            <path d="M56.6 58.8Q60 57.6 63.4 58.8Q62.6 62 60 62.4Q57.4 62 56.6 58.8Z" fill="${INK}"/><circle cx="58.8" cy="59" r=".8" fill="#fff"/>
+            <path d="M44 40q4-3 8-2" fill="none" stroke="#C8D4E8" stroke-width="1.6" stroke-linecap="round"/>${shine(45, 43, 4, 2, -35)}`
         },
-        eyes: {lx: 50, rx: 70, y: 76, r: 4.6, style: "sparkle", color: "#123048"},
-        mouth: {x: 60, y: 87, w: 3.1, color: "#123048"},
-        cheeks: {lx: 43, rx: 77, y: 85, w: 4.4, h: 2.6, color: "#FF9AB8"},
-        anchors: {top: [60, 28, 0.8], neck: [60, 96, 1], chest: [72, 92, 0.6], back: [86, 70, 0.8], hands: [60, 94, 0.85]},
+        eyes: {lx: 49, rx: 71, y: 51.4, r: 4.4, style: "sparkle", color: "#22304A"},
+        mouth: {x: 60, y: 65.6, w: 2.2, style: "cat", color: "#22304A"},
+        cheeks: {lx: 42, rx: 78, y: 60, w: 4, h: 2.4, color: "#FF9AB4"},
+        anchors: {top: [60, 33, 0.85], neck: [60, 76, 1], chest: [68, 90, 0.6], back: [80, 84, 0.8], hands: [60, 98, 0.85]},
         lines: {
-          tap: ["Plip! Hi there!", "Drop by drop, that's how caves are made. And grades!", "You're making a real splash today.", "Go with the flow. You know the way.", "Tiny drops wear down big rocks. Keep at it!", "Hello from the bottom of my little heart!", "One drip at a time. You've got this!"],
-          pet: ["Hehe! You made me ripple!", "Plop! That tickles!"],
-          hello: ["You're here! I dripped right over!", "Hiii! Splash in, let's study!"],
-          morning: ["Good morning! The ice is melting into a bright day!", "Morning! Fresh and sparkly, like spring water!"],
-          night: ["Freezing up for the night. You too?", "Quiet drips, sleepy thoughts. Rest well."],
-          focus: ["Plip. Plip. Focusing with you.", "Steady drips, steady progress."],
-          done: ["What a session! I'm overflowing!", "Done! That was a whole waterfall of work!"],
-          task: ["Plip! Done!", "Checked off! Splish splash!", "Another one! You're on a roll!", "Yes! Making waves!"],
-          break: ["Break! Have a glass of water. My cousins!", "Rest a bit. Let your thoughts settle."]
+          tap: ["Hi! My ears heard you coming a mile away.", "Cold outside, cozy in here. Let's study!", "You're doing great. My tail is all fluffed up!", "Pounce on that next task!", "Quick paws, sharp mind. That's us!", "Even in a blizzard, you keep going. Wow.", "I'll keep your toes warm while you work."],
+          pet: ["Hehe! So fluffy, right?", "Mmm, right behind the ears!"],
+          hello: ["You're back! I trotted all the way here!", "Hi! I kept a warm spot by the ice for you."],
+          morning: ["Good morning! Fresh snow, fresh paw prints!"],
+          night: ["The aurora's out. Curl up and rest soon."],
+          focus: ["Curled up quietly right beside you.", "Ears up, eyes on the goal. Go!"],
+          done: ["What a session! Happy fox hop!", "All done! You were so quick!"],
+          task: ["Pounce! Another one done!", "Got it! Checked off!", "Swish! Nicely done!"],
+          break: ["Break time! Stretch like a fox in the sun."]
         }
       },
       {
-        id: "icecave-puff", name: "Snowby", kind: "Little Snowball", pose: "sit", sleepy: true, wearColor: "#5A8AD0",
-        bio: "Rolled in from the snowfield outside. Gets a little bigger with every good day.",
-        idle: ["topBob", "wave", "bounce"], cheer: "hop",
+        id: "icecave-hopper", name: "Hopper", kind: "Snowshoe Hare Leveret", pose: "sit", wearColor: "#5A8AD0",
+        bio: "Its big white feet work like snowshoes. Never sinks, never quits.",
+        idle: ["earTwitch", "wave", "headTilt"], cheer: "hop",
+        neck: [60, 74],
         parts: {
-          body: `${RG("icecave-puff-b", [[0, "#FFFFFF"], [0.6, "#EEF5FC"], [1, "#BCD2EA"]], 0.4, 0.34, 0.8)}
-            <path d="${puff(60, 78, 30, 12, 1.14)}" fill="url(#icecave-puff-b)" ${O}/>
-            <g fill="#A8C2E0" opacity=".7"><circle cx="40" cy="92" r="1.6"/><circle cx="80" cy="96" r="1.4"/><circle cx="84" cy="66" r="1.3"/><circle cx="74" cy="103" r="1.2"/><circle cx="46" cy="101" r="1.2"/></g>
-            ${shine(45, 61, 7, 3.6, -36)}<circle cx="54" cy="55" r="1.8" fill="#fff"/>`,
-          armL: {svg: `${LINE("M34 82L18 92", "#8A5A36", 3)}${LINE("M23.4 88.6L19 84", "#8A5A36", 2.2)}`, pivot: [35, 82]},
-          armR: {svg: `${LINE("M86 82L102 92", "#8A5A36", 3)}${LINE("M96.6 88.6L101 84", "#8A5A36", 2.2)}`, pivot: [85, 82]},
-          top: {svg: `${LINE("M60 50V42", "#6A4A2A", 2.2)}<path d="M60 43L51 36L54 41L47 40L55 45Z" fill="#4E8A5A" ${OW(1.8)}/><path d="M60 43L69 36L66 41L73 40L65 45Z" fill="#5A9A62" ${OW(1.8)}/><circle cx="51" cy="36" r="1.6" fill="#fff"/><circle cx="69" cy="36" r="1.6" fill="#fff"/><circle cx="60" cy="41" r="1.4" fill="#fff"/>`, pivot: [60, 50]}
+          tail: {svg: `<circle cx="85" cy="99" r="6.6" fill="#FFFFFF" ${O}/>`, pivot: [80, 100]},
+          body: `${RG("icecave-hopper-b", [[0, "#ECCEA6"], [0.6, "#CDA072"], [1, "#A47C52"]], 0.42, 0.3, 0.8)}
+            <path d="M40 102C37 88 42 72 60 72C78 72 83 88 80 102C78 108 70 109.4 60 109.4C50 109.4 42 108 40 102Z" fill="url(#icecave-hopper-b)" ${O}/>
+            <ellipse cx="60" cy="93" rx="12" ry="12.6" fill="#FFF8EE"/>
+            <ellipse cx="44" cy="107.6" rx="13" ry="5.4" fill="#FAFBFD" ${O}/><ellipse cx="76" cy="107.6" rx="13" ry="5.4" fill="#FAFBFD" ${O}/>
+            <path d="M36 109.6v-2.4M40 110.6v-2.4M44 110.8v-2.4M76 110.8v-2.4M80 110.6v-2.4M84 109.6v-2.4" stroke="#B8C4D6" stroke-width="1.4" stroke-linecap="round"/>`,
+          armL: {svg: `<ellipse cx="43.4" cy="89" rx="5" ry="8.6" transform="rotate(16 43.4 89)" fill="#CDA072" ${O}/><ellipse cx="41.4" cy="95.4" rx="3.8" ry="3" transform="rotate(16 41.4 95.4)" fill="#FAFBFD" ${OW(1.8)}/>`, pivot: [46, 80]},
+          armR: {svg: `<ellipse cx="76.6" cy="89" rx="5" ry="8.6" transform="rotate(-16 76.6 89)" fill="#CDA072" ${O}/><ellipse cx="78.6" cy="95.4" rx="3.8" ry="3" transform="rotate(-16 78.6 95.4)" fill="#FAFBFD" ${OW(1.8)}/>`, pivot: [74, 80]},
+          earL: {svg: `<path d="M51 38C44 30 40 18 42 10C44 4 51 5 53 13C55 21 56 30 55 38Z" fill="#D4AA7A" ${O}/><path d="M52.4 32C48.6 26 46.6 19 47.4 14.4C49 12 51.2 13 52 16.4C53.2 22 53.8 27 53.2 32Z" fill="#F7C0C4"/><path d="M42.4 11.4C43.6 5.6 50.4 4.6 52.6 11.6C49.2 10.4 45.6 10.4 42.4 11.4Z" fill="#5A4234"/>`, pivot: [53, 37]},
+          earR: {svg: `<path d="M69 38C76 30 80 18 78 10C76 4 69 5 67 13C65 21 64 30 65 38Z" fill="#D4AA7A" ${O}/><path d="M67.6 32C71.4 26 73.4 19 72.6 14.4C71 12 68.8 13 68 16.4C66.8 22 66.2 27 66.8 32Z" fill="#F7C0C4"/><path d="M77.6 11.4C76.4 5.6 69.6 4.6 67.4 11.6C70.8 10.4 74.4 10.4 77.6 11.4Z" fill="#5A4234"/>`, pivot: [67, 37]},
+          head: `${RG("icecave-hopper-h", [[0, "#F2D6B0"], [0.6, "#D4AA7A"], [1, "#AC8458"]], 0.42, 0.3, 0.8)}
+            <ellipse cx="60" cy="53" rx="22" ry="19" fill="url(#icecave-hopper-h)" ${O}/>
+            <path d="M48 61C48 55 54 53 60 55C66 53 72 55 72 61C72 67 66 70.6 60 70.6C54 70.6 48 67 48 61Z" fill="#FFF8EE"/>
+            <path d="M57.6 58.4Q60 57.4 62.4 58.4Q61.6 60.6 60 61Q58.4 60.6 57.6 58.4Z" fill="#E87A8A" ${OW(1.2)}/>
+            <path d="M47 62.6l-6 -1M47 65l-5.6 1.4M73 62.6l6 -1M73 65l5.6 1.4" stroke="#8A6A4A" stroke-width="1.2" stroke-linecap="round"/>${shine(46, 42, 4.4, 2.2, -35)}`
         },
-        eyes: {lx: 49, rx: 71, y: 77, r: 4, style: "dot", color: "#2A2F48"},
-        mouth: {x: 60, y: 87, w: 3, color: "#2A2F48"},
-        cheeks: {lx: 42, rx: 78, y: 85, w: 4.4, h: 2.6, color: "#FFA8C0"},
-        anchors: {top: [60, 47, 0.85], neck: [60, 98, 1], chest: [72, 94, 0.62], back: [88, 74, 0.8], hands: [60, 96, 0.85]},
+        eyes: {lx: 50, rx: 70, y: 50, r: 4.4, style: "sparkle", color: "#2B1A10"},
+        mouth: {x: 60, y: 63.6, w: 2, style: "cat", color: "#5A3A2A"},
+        cheeks: {lx: 43, rx: 77, y: 58, w: 3.8, h: 2.3, color: "#FF9AA6"},
+        anchors: {top: [60, 35, 0.85], neck: [60, 74, 0.95], chest: [68, 90, 0.6], back: [80, 84, 0.8], hands: [60, 96, 0.85]},
         lines: {
-          tap: ["Hi! I'm Snowby. I roll with it.", "Look at you, snowballing through your list!", "Every little task makes me a bit rounder!", "You're cooler than the inside of a glacier.", "Brr! Studying keeps me warm!", "Little by little, we get bigger!", "Snow worries. You've got this."],
-          pet: ["Hehe! Don't melt me with kindness!", "Ooh, a pat! I'm all fluffy now!"],
-          hello: ["You're back! I rolled over to say hi!", "Hello! Fresh snow, fresh focus!"],
-          morning: ["Good morning! Crisp and bright out there!", "Morning! I'm extra fluffy today!"],
-          night: ["Yawn. Snowballs need sleep too.", "The stars are out. Time to rest soon?"],
-          focus: ["Shh. Snow falls quietly. So do I.", "Rolling along right beside you."],
-          done: ["You did it! I'm doing a happy roll!", "Session done! Snowball high five!"],
-          task: ["Pomf! One more done!", "Checked off! Rolling on!", "Yes! That's the snowball effect!", "Woohoo! Look at that!"],
-          break: ["Break time! Shake out your arms like twigs!", "Rest a bit. Maybe a warm drink?"]
+          tap: ["Hi! Did you see my feet? They're snowshoes!", "Hop, hop, hop. One task at a time.", "You never sink in deep snow. Or deep work!", "My ears are up. I'm all yours!", "You're doing great. I'm doing a happy thump.", "Quick hop to the next one? Let's go!", "Soft paws, big leaps. You've got this!"],
+          pet: ["Hehe! Mind the ears!", "Ooh, my nose is twitching with joy!"],
+          hello: ["You're back! I hopped right over!", "Hi! Fresh snow and fresh notes today."],
+          morning: ["Good morning! I'm up and hopping!"],
+          night: ["The aurora is glowing. Burrow in soon, okay?"],
+          focus: ["Sitting very still right beside you.", "Ears up, focus on. You've got this."],
+          done: ["What a session! Binky time!", "All done! You leapt right through it!"],
+          task: ["Hop! Another one done!", "Thump thump! Checked off!", "Boing! Well done!"],
+          break: ["Break time! Have a little hop and stretch."]
         }
       }
     ]
@@ -108,33 +127,41 @@
     theme: "geysers",
     companions: [
       {
-        id: "geysers-wisp", name: "Fumi", kind: "Steam Puff", pose: "float", wearColor: "#6FB0D8",
-        bio: "Rises to every occasion, then politely drifts off.",
-        idle: ["sway", "topBob", "wave"], cheer: "spin",
+        id: "geysers-bisby", name: "Bisby", kind: "Bison Calf", pose: "stand", wearColor: "#4E9A5A",
+        bio: "A little red calf with a curly forelock. Stands firm through any storm.",
+        idle: ["headTilt", "tailSwish", "earTwitch"], cheer: "hop",
+        neck: [60, 74],
         parts: {
-          back: `${LINE("M48 98q-5 5 0 9", "#FFFFFF", 2.6)}${LINE("M72 98q5 5 0 9", "#FFFFFF", 2.6)}`,
-          body: `${RG("geysers-wisp-b", [[0, "#FFFFFF"], [0.6, "#F2F4FA"], [1, "#C6CCE2"]], 0.42, 0.34, 0.8)}
-            <path d="${puff(60, 70, 28, 9, 1.26)}" fill="url(#geysers-wisp-b)" ${O}/>
-            <path d="M44 90Q60 97 76 90" fill="none" stroke="#C6CCE2" stroke-width="2.4" stroke-linecap="round" opacity=".8"/>
-            ${shine(46, 54, 7, 3.6, -34)}<circle cx="55" cy="49" r="1.8" fill="#fff"/>`,
-          armL: {svg: `<circle cx="29" cy="76" r="7" fill="#F2F4FA" ${O}/>`, pivot: [35, 74]},
-          armR: {svg: `<circle cx="91" cy="76" r="7" fill="#E8EBF4" ${O}/>`, pivot: [85, 74]},
-          top: {svg: LINE("M60 43q-6-5 0-11t0-11", "#FFFFFF", 2.8), pivot: [60, 44]}
+          tail: {svg: `${LINE("M80 89Q90 87.4 93 97.6", "#C46A32", 2.4)}<path d="M90.6 96.4C88.8 100 90.2 105 93.8 105.4C97.2 104.8 97.6 100 95.6 96.6Z" fill="#6A3A22" ${OW(1.8)}/>`, pivot: [80, 89]},
+          feet: `<g fill="#A85A2A" ${O}><rect x="35" y="90" width="11" height="18" rx="5"/><rect x="74" y="90" width="11" height="18" rx="5"/></g>
+            <g fill="#C8763C" ${O}><rect x="45" y="93" width="12" height="18" rx="5.5"/><rect x="63" y="93" width="12" height="18" rx="5.5"/></g>
+            <path d="M47.6 107.4h6.8M65.6 107.4h6.8M37.6 104.6h5.8M76.6 104.6h5.8" stroke="#4A2A1A" stroke-width="3" stroke-linecap="round"/>`,
+          body: `${RG("geysers-bisby-b", [[0, "#F4B67C"], [0.6, "#DA8A4C"], [1, "#B86A34"]], 0.42, 0.3, 0.8)}
+            <ellipse cx="60" cy="87" rx="26" ry="16" fill="url(#geysers-bisby-b)" ${O}/>
+            <path d="${puff(60, 79, 10.4, 8, 1.2)}" fill="#C46E34" ${O2}/>`,
+          earL: {svg: `<ellipse cx="32.6" cy="49" rx="7.6" ry="4.4" transform="rotate(-18 32.6 49)" fill="#C8763C" ${O}/><ellipse cx="33.4" cy="49.2" rx="4" ry="2" transform="rotate(-18 33.4 49.2)" fill="#F2A8A0"/>`, pivot: [39, 49]},
+          earR: {svg: `<ellipse cx="87.4" cy="49" rx="7.6" ry="4.4" transform="rotate(18 87.4 49)" fill="#C8763C" ${O}/><ellipse cx="86.6" cy="49.2" rx="4" ry="2" transform="rotate(18 86.6 49.2)" fill="#F2A8A0"/>`, pivot: [81, 49]},
+          head: `${RG("geysers-bisby-h", [[0, "#F8C690"], [0.6, "#E09656"], [1, "#BE6E36"]], 0.42, 0.3, 0.8)}
+            <path d="M37 52C36 39 46 30 60 30C74 30 84 39 83 52C82 64 74 72 60 72C46 72 38 64 37 52Z" fill="url(#geysers-bisby-h)" ${O}/>
+            <path d="M44.6 37Q40.6 31 43.6 28.4Q48.6 30 49 35.4Z" fill="#4A2E22" ${O2}/><path d="M75.4 37Q79.4 31 76.4 28.4Q71.4 30 71 35.4Z" fill="#4A2E22" ${O2}/>
+            <path d="M47.6 62C47.6 56 53 54 60 54C67 54 72.4 56 72.4 62C72.4 68 67 71.6 60 71.6C53 71.6 47.6 68 47.6 62Z" fill="#B88062" ${O2}/>
+            <ellipse cx="55.4" cy="59.6" rx="1.8" ry="1.3" fill="#3A1E14"/><ellipse cx="64.6" cy="59.6" rx="1.8" ry="1.3" fill="#3A1E14"/>`,
+          top: {svg: `<path d="${puff(60, 32, 8.4, 7, 1.25)}" fill="#A85A2A" ${O2}/><path d="M56.6 31q1.6-2.6 3.6-.6M61 33.6q1.6-2.4 3.4-.4" fill="none" stroke="#D88A4C" stroke-width="1.4" stroke-linecap="round"/>`, pivot: [60, 37]}
         },
-        eyes: {lx: 50, rx: 70, y: 70, r: 4.2, style: "dot", color: "#3A3450"},
-        mouth: {x: 60, y: 80, w: 3, color: "#3A3450"},
-        cheeks: {lx: 43, rx: 77, y: 78, w: 4.4, h: 2.6, color: "#FFB0C8"},
-        anchors: {top: [60, 44, 0.8], neck: [60, 94, 1], chest: [72, 88, 0.6], back: [86, 66, 0.8], hands: [60, 92, 0.85]},
+        eyes: {lx: 49, rx: 71, y: 47, r: 4.2, style: "sparkle", color: "#2B1A10"},
+        mouth: {x: 60, y: 66, w: 2.6, color: "#3A1E14"},
+        cheeks: {lx: 41, rx: 79, y: 55, w: 4, h: 2.4, color: "#FF8A8A"},
+        anchors: {top: [60, 26, 0.85], neck: [60, 74, 1], chest: [68, 88, 0.6], back: [78, 80, 0.8], hands: [60, 92, 0.85]},
         lines: {
-          tap: ["Fwoosh! Hi there!", "I'm just here to let off a little steam.", "You're really heating up today!", "Light and airy, that's the mood!", "Rising up, one task at a time!", "Hot springs, cool student!", "Keep that pressure building. Then whoosh!", "Floating along, cheering you on!"],
-          pet: ["Hehe! You'll blow me away!", "Ooh, I'm all puffed up now!"],
-          hello: ["You're here! I floated right over!", "Hiii! The basin's steaming for you!"],
-          morning: ["Good morning! Misty and magical out there!", "Morning! Rising with the sun!"],
-          night: ["Drifting off under the moon. You too?", "Soft steam, sweet dreams."],
-          focus: ["Drifting quietly beside you.", "Steady steam, steady focus."],
-          done: ["What a session! I'm on cloud nine!", "Done! That was a full eruption of work!"],
-          task: ["Fwoosh! Done!", "Checked off! Steamy hooray!", "Another one! Full steam ahead!", "Yes! Up and away!"],
-          break: ["Break! Breathe out slowly, like steam.", "Float for a minute. Then back to it!"]
+          tap: ["Hi! Did you see my forelock? It's extra curly.", "Head down, hooves steady. That's the way.", "You're tougher than a prairie winter!", "Little calf, big heart. Just like you.", "Steam's up, spirits up! Let's go!", "One step, then another. We'll get there.", "I believe in you, all the way down to my hooves!"],
+          pet: ["Hehe! You found my fluffy spot!", "Mmm, scratch the curly bit!"],
+          hello: ["You're back! I trotted over the boardwalk!", "Hi! The geysers are puffing hello too."],
+          morning: ["Good morning! Frosty grass and warm steam!"],
+          night: ["The stars are out over the basin. Rest soon."],
+          focus: ["Standing steady right beside you.", "Head down, full focus. You've got this."],
+          done: ["What a session! Happy calf kick!", "All done! You stood firm the whole way!"],
+          task: ["Stomp! Another one done!", "Yes! Checked off!", "Hooves up! Well done!"],
+          break: ["Break time! Have a good roll in the grass."]
         }
       },
       {
@@ -169,38 +196,42 @@
         }
       },
       {
-        id: "geysers-cody", name: "Cody", kind: "Lodgepole Pine Cone", pose: "stand", wearColor: "#4E9A5A",
-        bio: "Only opens up when things get warm. Like your study streak.",
-        idle: ["topBob", "wave", "bounce"], cheer: "hop",
+        id: "geysers-marley", name: "Marley", kind: "Yellow-bellied Marmot", pose: "stand", wearColor: "#3E8AC4",
+        bio: "A marmot pup who loves a warm rock and a long sunny study session.",
+        idle: ["wave", "earTwitch", "tailSwish"], cheer: "hop",
+        neck: [60, 68],
         parts: {
-          feet: `<ellipse cx="50" cy="107" rx="7.4" ry="4.6" fill="#7A4E2A" ${O}/><ellipse cx="70" cy="107" rx="7.4" ry="4.6" fill="#7A4E2A" ${O}/>`,
-          body: `${LG("geysers-cody-b", [[0, "#D4A06A"], [1, "#8A5A30"]])}
-            <path d="M60 30C76 30 86 48 86 68C86 90 74 104 60 104C46 104 34 90 34 68C34 48 44 30 60 30Z" fill="url(#geysers-cody-b)" ${O}/>
-            <g fill="#E8BE88" stroke="#6A4220" stroke-width="1.6" stroke-linejoin="round">
-              <path d="M48 42q4 6 8 0q-4 -5 -8 0Z"/><path d="M56 38q4 6 8 0q-4 -5 -8 0Z"/><path d="M64 42q4 6 8 0q-4 -5 -8 0Z"/>
-              <path d="M40 52q4 6 8 0q-4 -5 -8 0Z"/><path d="M52 50q4 6 8 0q-4 -5 -8 0Z"/><path d="M60 50q4 6 8 0q-4 -5 -8 0Z"/><path d="M72 52q4 6 8 0q-4 -5 -8 0Z"/>
-              <path d="M36 66q3.6 6 7.4 0q-3.8 -5 -7.4 0Z"/><path d="M76.6 66q3.6 6 7.4 0q-3.8 -5 -7.4 0Z"/>
-              <path d="M38 80q4 6 8 0q-4 -5 -8 0Z"/><path d="M74 80q4 6 8 0q-4 -5 -8 0Z"/>
-              <path d="M44 92q4 6 8 0q-4 -5 -8 0Z"/><path d="M56 95q4 6 8 0q-4 -5 -8 0Z"/><path d="M68 92q4 6 8 0q-4 -5 -8 0Z"/></g>
-            ${shine(44, 46, 4.4, 2.4, -40)}`,
-          armL: {svg: `<ellipse cx="30" cy="74" rx="5" ry="7.4" transform="rotate(28 30 74)" fill="#B07A44" ${O}/>`, pivot: [35, 72]},
-          armR: {svg: `<ellipse cx="90" cy="74" rx="5" ry="7.4" transform="rotate(-28 90 74)" fill="#9A6A3A" ${O}/>`, pivot: [85, 72]},
-          top: {svg: `${LINE("M59 31L49 10", "#4E9A5A", 2.6)}${LINE("M61 31L71 10", "#5AAA62", 2.6)}<rect x="56.6" y="28" width="6.8" height="5" rx="2" fill="#7A4E2A" ${OW(1.8)}/>`, pivot: [60, 32]}
+          tail: {svg: `<path d="M74 103C85 108 95 103 97 93C97.6 89 93.4 87.4 91.4 91C89 97 84 99 76 97Z" fill="#6E4A32" ${O}/><path d="M85 101q5-1 8-6" fill="none" stroke="#9A7050" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [76, 100]},
+          feet: `<ellipse cx="48" cy="108.6" rx="8" ry="4" fill="#4E3424" ${O}/><ellipse cx="72" cy="108.6" rx="8" ry="4" fill="#4E3424" ${O}/>`,
+          body: `${RG("geysers-marley-b", [[0, "#B8946C"], [0.6, "#8E6A48"], [1, "#6A4A32"]], 0.42, 0.3, 0.8)}
+            <path d="M36 99C32 83 40 65 60 65C80 65 88 83 84 99C82 107 72 110.6 60 110.6C48 110.6 38 107 36 99Z" fill="url(#geysers-marley-b)" ${O}/>
+            <path d="M46 103.6C42 92 48 78 60 78C72 78 78 92 74 103.6C70 108.6 50 108.6 46 103.6Z" fill="#F4C25E"/>
+            <g fill="#C8A47E" opacity=".8"><circle cx="40.6" cy="84" r="1.2"/><circle cx="43" cy="92" r="1"/><circle cx="79.4" cy="84" r="1.2"/><circle cx="77" cy="92" r="1"/></g>`,
+          armL: {svg: `<path d="M45 79Q42 86 48 91.4" fill="none" stroke="${INK}" stroke-width="10.4" stroke-linecap="round"/><path d="M45 79Q42 86 48 91.4" fill="none" stroke="#8E6A48" stroke-width="5.8" stroke-linecap="round"/><ellipse cx="49.6" cy="92" rx="4.4" ry="3.4" fill="#5E3E2A" ${OW(2.2)}/>`, pivot: [45, 78]},
+          armR: {svg: `<path d="M75 79Q78 86 72 91.4" fill="none" stroke="${INK}" stroke-width="10.4" stroke-linecap="round"/><path d="M75 79Q78 86 72 91.4" fill="none" stroke="#8E6A48" stroke-width="5.8" stroke-linecap="round"/><ellipse cx="70.4" cy="92" rx="4.4" ry="3.4" fill="#5E3E2A" ${OW(2.2)}/>`, pivot: [75, 78]},
+          earL: {svg: `<circle cx="41.6" cy="37" r="4.6" fill="#6E4A32" ${O}/><circle cx="42" cy="37.4" r="2" fill="#D8A080"/>`, pivot: [44, 39]},
+          earR: {svg: `<circle cx="78.4" cy="37" r="4.6" fill="#6E4A32" ${O}/><circle cx="78" cy="37.4" r="2" fill="#D8A080"/>`, pivot: [76, 39]},
+          head: `${RG("geysers-marley-h", [[0, "#C8A47C"], [0.6, "#A07A56"], [1, "#7A563A"]], 0.42, 0.3, 0.8)}
+            <path d="M37 50C37 38 47 31 60 31C73 31 83 38 83 50C83 62 74 69 60 69C46 69 37 62 37 50Z" fill="url(#geysers-marley-h)" ${O}/>
+            <path d="M41.4 43.6C42.6 36.4 50 32.6 60 32.6C70 32.6 77.4 36.4 78.6 43.6C71 40 49 40 41.4 43.6Z" fill="#5E3E2A"/>
+            <path d="M56.4 44.6Q60 42.8 63.6 44.6L62.4 52.6H57.6Z" fill="#F6F0E4"/>
+            <ellipse cx="60" cy="59" rx="9.4" ry="6.6" fill="#F6F0E4" ${OW(1.8)}/>
+            <ellipse cx="60" cy="55.8" rx="2.6" ry="1.8" fill="${INK}"/><path d="M57.8 62.2h4.4v2.6q0 .9 -.9 .9h-2.6q-.9 0 -.9 -.9Z" fill="#fff" ${OW(1.1)}/><path d="M60 62.4v3.2" stroke="#C8C0B4" stroke-width=".8"/>${shine(45, 40, 3.6, 1.8, -35)}`
         },
-        eyes: {lx: 51, rx: 69, y: 72, r: 4.2, style: "sparkle", color: "#2E1A0E"},
-        mouth: {x: 60, y: 82, w: 3, color: "#2E1A0E"},
-        cheeks: {lx: 44, rx: 76, y: 80, w: 4.2, h: 2.5, color: "#FF9A8A"},
-        anchors: {top: [60, 30, 0.85], neck: [60, 98, 1], chest: [72, 94, 0.6], back: [86, 70, 0.8], hands: [60, 96, 0.85]},
+        eyes: {lx: 49, rx: 71, y: 48.4, r: 4.2, style: "sparkle", color: "#2B1A10"},
+        mouth: {x: 60, y: 60.6, w: 2.2, style: "cat", color: "#3A2418"},
+        cheeks: {lx: 42, rx: 78, y: 57, w: 4, h: 2.4, color: "#FF9A8A"},
+        anchors: {top: [60, 32, 0.85], neck: [60, 69, 0.95], chest: [68, 88, 0.6], back: [80, 82, 0.8], hands: [60, 94, 0.85]},
         lines: {
-          tap: ["Hi! I'm Cody. Proud member of the pine family!", "Warm days open me right up!", "You're growing like a whole forest!", "Tall goals start as tiny seeds.", "Stand tall, like a lodgepole!", "I'm rooting for you. Literally!", "Every task is a new ring on your tree!"],
-          pet: ["Hehe! Mind the scales!", "Ooh, that's a sappy moment!"],
-          hello: ["You're back! The whole forest says hi!", "Hello, friend! Let's grow some knowledge!"],
-          morning: ["Good morning! Pine fresh and ready!", "Morning! The sun's warming my scales!"],
-          night: ["Closing my scales for the night. Rest well!", "The pines are whispering goodnight."],
-          focus: ["Standing tall and quiet beside you.", "Rooted and ready. Let's focus."],
-          done: ["What a session! I'm opening up with joy!", "Done! You're a pine-nacle of focus!"],
-          task: ["Pop! Another one done!", "Checked off! Pine-tastic!", "Yes! Growing strong!", "Done! Tree-mendous!"],
-          break: ["Break time! Stretch tall like a pine!", "Rest a bit in the shade."]
+          tap: ["Hi! This rock is warm. Want to share?", "Sun's out, books out! Let's go!", "You're doing great! Happy whistle!", "Little paws, big progress.", "I stand up tall when I'm proud of you.", "Chubby cheeks, sharp mind. That's me!", "One more task, then we bask!"],
+          pet: ["Hehe! My fur's all warm from the sun!", "Ooh, right on my fuzzy belly!"],
+          hello: ["You're back! I popped out of my burrow!", "Hi! I kept a sunny rock warm for you."],
+          morning: ["Good morning! Waiting for the sun to hit my rock."],
+          night: ["Burrow time soon. The stars are out."],
+          focus: ["Sitting up quietly right beside you.", "Lookout on duty. You focus!"],
+          done: ["What a session! Big happy whistle!", "All done! Time for a sunbath!"],
+          task: ["Wheet! Another one done!", "Yes! Checked off!", "Pop! Nicely done!"],
+          break: ["Break time! Find a sunny spot and stretch."]
         }
       }
     ]

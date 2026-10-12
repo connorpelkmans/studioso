@@ -7,8 +7,8 @@
 - Finish moment: The light floods in: a wave of glow runs out through every band of ice, the icicles chime with light one after another, and diamond dust spirals in through the mouth. By day a prism of colour lands on the floor; at night the aurora flares and the wave washes the walls in green and pink.
 - Companions:
   1. Shard, Ice Crystal — "A little crystal of glacier ice. Catches the light and throws it back as a grin." idle: sparkle, topBob, sway; cheer: spin
-  2. Drip, Meltwater Drop — "Fell off an icicle and decided to stay. Never misses a deadline, only a puddle." idle: bounce, wave, sway; cheer: hop
-  3. Snowby, Little Snowball — "Rolled in from the snowfield outside. Gets a little bigger with every good day." idle: topBob, wave, bounce; cheer: hop
+  2. Frost, Arctic Fox Kit — "Curls up in its own tail when it's cold. Perks right up for you." idle: earTwitch, tailSwish, headTilt; cheer: hop
+  3. Hopper, Snowshoe Hare Leveret — "Its big white feet work like snowshoes. Never sinks, never quits." idle: earTwitch, wave, headTilt; cheer: hop
 
 ### Geyser Basin (id: geysers) — Nature and Places
 - Scene: A Yellowstone-style hot-spring basin: a great prismatic pool (deep blue centre, teal, green and yellow rings, orange microbial mats with runoff channels), mineral terraces holding turquoise pools, a beaded geyser cone, silver dead snags, a wooden boardwalk, steaming vents, and hills of lodgepole pine behind.
@@ -16,6 +16,6 @@
 - Loop: Steam rises off every pool, terrace and vent and leans on a slow breeze, light plays across the big pool and bubbles ring out at its heart, and the cone gurgles and throws a little splash every few seconds. At night the steam is moonlit, the pools glow softly from below and stars twinkle.
 - Finish moment: The geyser erupts: a tall white column with spray falling all around and great billows of steam drifting off on the breeze, a rainbow in the mist by day (a pale moonbow at night), then it settles back to a gentle steam.
 - Companions:
-  1. Fumi, Steam Puff — "Rises to every occasion, then politely drifts off." idle: sway, topBob, wave; cheer: spin
+  1. Bisby, Bison Calf — "A little red calf with a curly forelock. Stands firm through any storm." idle: headTilt, tailSwish, earTwitch; cheer: hop
   2. Sinter, Prismatic Pebble — "A warm sinter pebble with a tiny rainbow pool on top. Very proud of its colors." idle: sparkle, topBob, sway; cheer: bounce
-  3. Cody, Lodgepole Pine Cone — "Only opens up when things get warm. Like your study streak." idle: topBob, wave, bounce; cheer: hop
+  3. Marley, Yellow-bellied Marmot (pup) — "A marmot pup who loves a warm rock and a long sunny study session." idle: wave, earTwitch, tailSwish; cheer: hop

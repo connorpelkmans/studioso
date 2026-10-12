@@ -7,8 +7,8 @@
 - Finish moment: The fireflies flash together in waves that roll across the water, the closed lily buds open one after another with a glow, and a ribbon of light spirals up from the water to ring the moon (by day, the low sun), then drifts apart.
 - Companions:
   1. Lily, Water Lily — "Opens a petal for every task you finish. Closes them all at bedtime." idle: topBob, sway, sparkle; cheer: spin
-  2. Knobby, Cypress Knee — "Pokes up out of the water to see how your studying is going." idle: wave, topBob, sway; cheer: hop
-  3. Fringe, Spanish Moss Tuft — "A soft gray tuft of moss that loves a long, slow sway." idle: sway, finWiggle, topBob; cheer: bounce
+  2. Gumbo, Baby Alligator — "A little gator with a big grin. Snaps up tasks like tasty bugs." idle: tailSwish, headTilt, wave; cheer: hop
+  3. Flick, Bayou Firefly — "Blinks its little lantern once for every good idea you have." idle: wingFlutter, earTwitch, tailSwish; cheer: spin
 
 ### Karst River (id: karst) — Nature and Places
 - Scene: A calm river winding between tall limestone karst towers (Guilin style) that fade in layers into the haze, with mist pooled at their feet, bamboo along the banks and a small bamboo raft with a red lantern. Day is soft jade and pearl mist; at night a moon sits among the peaks.
@@ -17,5 +17,5 @@
 - Finish moment: The raft's lantern flares, the mist parts, river lanterns shaped like lotus flowers light one by one and float downstream toward you, and sky lanterns rise between the peaks.
 - Companions:
   1. Peaky, Karst Peak — "A little limestone tower with a mist scarf and big views." idle: topBob, sway, wave; cheer: hop
-  2. Shoot, Bamboo Shoot — "Grows a little taller every time you finish something." idle: topBob, wave, sway; cheer: bounce
-  3. Yun, River Mist — "A soft curl of morning mist that drifts wherever you go." idle: sway, sparkle, topBob; cheer: spin
+  2. Dumpling, Water Buffalo Calf — "Wades the rice paddies with a lotus leaf hat. Never in a hurry." idle: earTwitch, tailSwish, topBob; cheer: bounce
+  3. Kormi, Cormorant Chick — "A fluffy river chick. Dives into hard topics headfirst." idle: wingFlutter, headTilt, topBob; cheer: wingFlutter
