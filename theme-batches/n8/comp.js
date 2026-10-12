@@ -1,133 +1,16 @@
-/* Study Companions, new theme ideas batch n8: waterfall, redwoods (one nature-object character and two young animals each) */
+/* Study Companions, new theme ideas batch n8: redwoods (one nature-object character and two young animals each) */
 (() => {
-  const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
+  const {INK, O, OW, LG, RG, LINE} = COMP_KIT;
   const O2 = OW(2.2);
   // Animal rig helpers: M mirrors a left-side part to the right (around x = 60); limb is an outlined stubby limb
   const M = s => `<g transform="matrix(-1 0 0 1 120 0)">${s}</g>`;
   const limb = (d, c, w = 5.4) => `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${w + 4}" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round"/>`;
-  const dipWing = `<path d="M41 77C31 81 29 93 34 101C42 99 46 89 44 77Z" fill="#6E7A8E" ${O}/><path d="M35.4 89Q34.4 94 36 98" fill="none" stroke="#8C98AA" stroke-width="1.6" stroke-linecap="round"/>`;
-  // a dipper chick's small dark beak with yellow gape corners
-  const dbeak = (dy, open) => `<path d="M55 ${54 + dy}Q60 ${51.6 + dy} 65 ${54 + dy}L60.8 ${60.6 + dy}Q60 ${61.6 + dy} 59.2 ${60.6 + dy}Z" fill="#3E4250" ${OW(2)}/><ellipse cx="54.8" cy="${54.6 + dy}" rx="2" ry="1.4" fill="#FFD84A"/><ellipse cx="65.2" cy="${54.6 + dy}" rx="2" ry="1.4" fill="#FFD84A"/>${open ? `<path d="M56.6 ${55.4 + dy}Q60 ${59.4 + dy} 63.4 ${55.4 + dy}Z" fill="#FF8FA8"/>` : ""}`;
-  const ottEar = `<circle cx="38" cy="36" r="5.4" fill="#8A5A3A" ${O2}/><circle cx="38.6" cy="36.6" r="2.4" fill="#D8A890"/>`;
-  const ottArm = `${limb("M46 80Q41 87 44 93", "#8A5A3A")}<ellipse cx="45" cy="95" rx="4.4" ry="3.4" fill="#7A4E30" ${OW(2)}/>`;
   const slugStalk = `${LINE("M52 55Q46.6 43 43.4 31.6", "#F2C83A", 3.6)}<circle cx="42.8" cy="29.6" r="4" fill="#FFE070" ${OW(2.2)}/>`;
   const chipEar = `<ellipse cx="42" cy="32" rx="5.6" ry="7" transform="rotate(-20 42 32)" fill="#C8834A" ${O2}/><ellipse cx="42.4" cy="32.8" rx="2.6" ry="3.8" transform="rotate(-20 42.4 32.8)" fill="#F6B8A8"/>`;
   const chipArm = `${limb("M47 79Q41 86 43 93", "#C8834A")}<ellipse cx="43.6" cy="95" rx="4.4" ry="3.4" fill="#E8B88A" ${OW(2)}/>`;
   const shine = (x, y, rx, ry, a) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" transform="rotate(${a} ${x} ${y})" fill="#fff" opacity=".75"/>`;
   const leaf = (x, y, L, w, a, c) => `<path d="M0 0Q${L * 0.45} ${-w} ${L} 0Q${L * 0.45} ${w} 0 0Z" transform="translate(${x} ${y}) rotate(${a})" fill="${c}" ${OW(1.8)}/>`;
-  // a small fern sprig: a curved stem with paired leaflets
-  const sprig = (x, y, c) => `${LINE(`M${x} ${y}Q${x + 1} ${y - 10} ${x + 6} ${y - 21}`, "#4E8A3A", 2.2)}${[0, 1, 2, 3, 4].map(i => { const t = i / 5, px = x + 0.6 + t * t * 5.5, py = y - 4 - t * 16, L = 11 - i * 1.7; return leaf(px, py, L, 3.4 - i * 0.3, -158 + i * 6, c) + leaf(px, py, L, 3.4 - i * 0.3, -22 - i * 8, c); }).join("")}${leaf(x + 6, y - 21, 5, 2.4, -70, c)}`;
   const heart = (cx, cy, s, rot, id, extra) => `<path d="M0 12C-6 8 -13 3.5 -13 -3C-13 -8 -9.4 -11 -5.6 -11C-3 -11 -1 -9.4 0 -7.2C1 -9.4 3 -11 5.6 -11C9.4 -11 13 -8 13 -3C13 3.5 6 8 0 12Z" transform="translate(${cx} ${cy}) rotate(${rot}) scale(${s})" fill="url(#${id})" ${OW(3 / s)}${extra || ""}/>`;
-
-  /* ================= Fern Falls ================= */
-  COMP_DATA.push({
-    theme: "waterfall",
-    companions: [
-      {
-        id: "waterfall-plip", name: "Plip", kind: "Water Droplet", pose: "float", wearColor: "#2E908A",
-        bio: "A drop that took the long way down the falls and loved every tier of it.",
-        idle: ["topBob", "sway", "sparkle"], cheer: "bounce",
-        parts: {
-          back: `<ellipse cx="60" cy="104" rx="36" ry="7.5" fill="#A6E4EE" ${O}/><path d="M30 104q5 2.4 10 0M80 105q5 2.4 10 0" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>`,
-          body: `${RG("waterfall-plip-b", [[0, "#F2FCFF"], [0.45, "#8ED8F4"], [1, "#2E86C8"]], 0.4, 0.45, 0.75)}
-            <path d="M60 34C66 46 90 60 90 80C90 97 77 106 60 106C43 106 30 97 30 80C30 60 54 46 60 34Z" fill="url(#waterfall-plip-b)" ${O}/>
-            <path d="M42 70C42 60 48 53 54 49" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" opacity=".9"/><circle cx="41.6" cy="76.6" r="2" fill="#fff" opacity=".9"/>
-            <path d="M44 99Q60 104 76 99" fill="none" stroke="#5AB4E0" stroke-width="2" stroke-linecap="round" opacity=".6"/>`,
-          armL: {svg: `<path d="M31 84C26 86 25 92 29 93C33 94 35 89 35 85Z" fill="#6CC4EC" ${O}/>`, pivot: [35, 84]},
-          armR: {svg: `<path d="M89 84C94 86 95 92 91 93C87 94 85 89 85 85Z" fill="#6CC4EC" ${O}/>`, pivot: [85, 84]},
-          top: {svg: sprig(59, 40, "#7CC860"), pivot: [60, 40]}
-        },
-        eyes: {lx: 51, rx: 69, y: 77, r: 4.6, style: "sparkle", color: "#163A5A"},
-        mouth: {x: 60, y: 87, w: 3.1, color: "#163A5A"},
-        cheeks: {lx: 43, rx: 77, y: 85, w: 4.4, h: 2.7, color: "#FF8FA8"},
-        anchors: {top: [60, 37, 0.85], neck: [60, 98, 1], chest: [72, 94, 0.62], back: [86, 76, 0.8], hands: [60, 98, 0.85]},
-        lines: {
-          tap: ["Plip! Hi there!", "I came down three waterfalls to say you're doing great!", "Go with the flow, you've totally got this!", "Little drops make big rivers. Little steps too!", "You're making a splash today!", "Fresh and clear, that's your focus right now!", "Drip, drip, done! One thing at a time.", "Stay cool, stay curious!"],
-          pet: ["Hehe, that tickles like a ripple!", "Plip plop! Again!"],
-          hello: ["You're back! I've been sparkling for you!", "Hiii! The water's lovely today!"],
-          morning: ["Good morning! Fresh as dew!", "Morning! The falls are bright and so are you!"],
-          night: ["The moon's on the water. Rest soon, okay?", "Time to settle like a calm pool."],
-          focus: ["Trickling quietly beside you.", "Steady drip, steady focus."],
-          done: ["What a session! I'm all a-shimmer!", "Done! That deserves a rainbow!"],
-          task: ["Plip! Another one done!", "Splash! Checked off!", "Yes! That flowed beautifully!", "Done! Drop by drop, you did it!"],
-          break: ["Break time! Sip some water, like me!", "Float for a minute, then back to it!"]
-        }
-      },
-      {
-        id: "waterfall-dipper", name: "Dipper", kind: "American Dipper Chick", pose: "stand", wearColor: "#E07A3A",
-        bio: "A slate-grey chick that bobs on wet rocks and dives right in. Fearless.",
-        idle: ["bounce", "wingFlutter", "tailSwish"], cheer: "hop",
-        neck: [60, 68],
-        parts: {
-          tail: {svg: `<path d="M77 93L94 79.6Q98.6 78 99 82.6L85 100Z" fill="#6A7688" ${O}/><path d="M86 90L94.6 83" stroke="#8C98AA" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [80, 97]},
-          feet: `${LINE("M53 100V108", "#E8A8A8", 3)}${LINE("M67 100V108", "#E8A8A8", 3)}${LINE("M48 110.6L53 107.6L58 110.6", "#E8A8A8", 2)}${LINE("M62 110.6L67 107.6L72 110.6", "#E8A8A8", 2)}`,
-          wingL: {svg: dipWing, pivot: [43, 79]},
-          wingR: {svg: M(dipWing), pivot: [77, 79]},
-          body: `${RG("waterfall-dipper-b", [[0, "#AEBACA"], [0.6, "#7E8A9E"], [1, "#5C667A"]], 0.42, 0.3, 0.8)}
-            <ellipse cx="60" cy="86" rx="21" ry="18.5" fill="url(#waterfall-dipper-b)" ${O}/>
-            <path d="${puff(60, 90, 10.5, 9, 1.2)}" fill="#C8D0DC"/>
-            <path d="M54 86q2 1.4 4 0M62 90q2 1.4 4 0M56 95q2 1.4 4 0" fill="none" stroke="#A8B2C2" stroke-width="1.4" stroke-linecap="round"/>`,
-          head: `${RG("waterfall-dipper-h", [[0, "#B8C4D2"], [0.6, "#8C98AA"], [1, "#68748A"]], 0.42, 0.3, 0.8)}
-            <path d="${puff(60, 47, 21, 14, 1.15)}" fill="url(#waterfall-dipper-h)" ${O}/>${shine(47, 35, 5, 2.6, -32)}`,
-          top: {svg: `${LINE("M57 26C55.6 20.6 58.4 17 62 18.4", "#A8B4C4", 2.2)}${LINE("M62 26C63 21.4 66.6 20 69 22", "#A8B4C4", 2)}`, pivot: [60, 26]}
-        },
-        eyes: {lx: 50, rx: 70, y: 45, r: 4.4, style: "sparkle", color: "#1A1E28"},
-        mouth: {x: 60, y: 56, w: 3},
-        mouths: {neutral: dbeak(0, false), smile: dbeak(-0.5, false) + `<path d="M49 54q2 2.2 4.2 1.2M71 54q-2 2.2 -4.2 1.2" fill="none" stroke="#FF8FA8" stroke-width="1.6" stroke-linecap="round"/>`, open: dbeak(0, true), sleepy: dbeak(0.8, false)},
-        cheeks: {lx: 43, rx: 77, y: 53, w: 4, h: 2.4, color: "#FF9AB0"},
-        anchors: {top: [60, 26, 0.85], neck: [60, 69, 0.95], chest: [70, 90, 0.6], back: [80, 84, 0.78], hands: [60, 94, 0.8]},
-        lines: {
-          tap: ["Hi! Bob bob! That's how dippers say hello!", "Dive right in, you're doing great!", "Splashy work today!", "Little bird, big cheers for you!", "Brave as a dip under the falls!", "Bob, blink, study, repeat!", "You make it look easy!", "One rock at a time across the river!"],
-          pet: ["Hehe! My feathers are all fluffed up!", "Ooh, warm hands! Bob bob!"],
-          hello: ["You're back! I bobbed the whole time!", "Hi hi! The falls are sparkly today!"],
-          morning: ["Good morning! Fresh spray, fresh start!", "Morning! First dip of the day!"],
-          night: ["Tucking in by the falls. You rest too.", "The water's singing goodnight. Sleep soon!"],
-          focus: ["Perched quietly right beside you.", "Holding still on my rock. Focus time!"],
-          done: ["What a session! Big splashy bob!", "Done! That deserves a dive!"],
-          task: ["Splash! Another one done!", "Checked off! Bob bob hooray!", "Done! Into the river it goes!", "Yes! Happy little dip!"],
-          break: ["Break! Bob up and down and stretch!", "Rest a bit. Sip some water, like me!"]
-        }
-      },
-      {
-        id: "waterfall-ottie", name: "Ottie", kind: "River Otter Pup", pose: "sit", wearColor: "#2E908A",
-        bio: "Slides down the mossy rocks all day. Takes study breaks very seriously.",
-        idle: ["earTwitch", "tailSwish", "wave"], cheer: "hop",
-        neck: [60, 70],
-        parts: {
-          tail: {svg: `${LG("waterfall-ottie-t", [[0, "#A8754C"], [1, "#7A4E30"]])}<path d="M76 98C88 98 99 99 106.6 93C107.6 103 96 111 76 109Z" fill="url(#waterfall-ottie-t)" ${O}/>`, pivot: [78, 104]},
-          earL: {svg: ottEar, pivot: [41, 39]},
-          earR: {svg: M(ottEar), pivot: [79, 39]},
-          body: `${RG("waterfall-ottie-b", [[0, "#BC8A5E"], [0.6, "#94643E"], [1, "#74482C"]], 0.42, 0.3, 0.8)}
-            <path d="M39 104C37 86 45 70 60 70C75 70 83 86 81 104C81 109 75 111 60 111C45 111 39 109 39 104Z" fill="url(#waterfall-ottie-b)" ${O}/>
-            <path d="M48 80C52 75 68 75 72 80C76 92 72 106 60 106C48 106 44 92 48 80Z" fill="#EBD6B8"/>
-            <ellipse cx="47" cy="108" rx="7.6" ry="4.6" fill="#7A4E30" ${O}/><ellipse cx="73" cy="108" rx="7.6" ry="4.6" fill="#7A4E30" ${O}/><path d="M44.4 110.6v-2.2M48.4 111v-2.2M71.6 111v-2.2M75.6 110.6v-2.2" stroke="#B88A62" stroke-width="1.4" stroke-linecap="round"/>`,
-          armL: {svg: ottArm, pivot: [46, 80]},
-          armR: {svg: M(ottArm), pivot: [74, 80]},
-          head: `${RG("waterfall-ottie-h", [[0, "#C49266"], [0.6, "#9A6A44"], [1, "#7A4E30"]], 0.42, 0.3, 0.8)}
-            <path d="M35 50C35 36 46 29 60 29C74 29 85 36 85 50C85 63 74 71 60 71C46 71 35 63 35 50Z" fill="url(#waterfall-ottie-h)" ${O}/>${shine(46, 37, 5, 2.6, -30)}`,
-          face: `<path d="M44 59C44 52 52 50.6 60 52.6C68 50.6 76 52 76 59C76 66 69 70.4 60 70.4C51 70.4 44 66 44 59Z" fill="#F2E2CA"/>
-            <path d="M56 54.4Q60 52.4 64 54.4Q63.4 58 60 58.6Q56.6 58 56 54.4Z" fill="${INK}"/><ellipse cx="58.6" cy="54.6" rx="1.2" ry=".6" fill="#fff" opacity=".7"/>
-            <g fill="#A87A56"><circle cx="51" cy="60" r=".9"/><circle cx="53.4" cy="62.6" r=".9"/><circle cx="69" cy="60" r=".9"/><circle cx="66.6" cy="62.6" r=".9"/></g>
-            <path d="M44 60.6l-7-1.6M44 63.4l-6.6 1.2M76 60.6l7-1.6M76 63.4l6.6 1.2" stroke="#5A3A24" stroke-width="1.2" stroke-linecap="round"/>`
-        },
-        eyes: {lx: 49, rx: 71, y: 46, r: 4.2, style: "sparkle", color: "#1E1410"},
-        mouth: {x: 60, y: 62.4, w: 2.4, color: "#2B1A10", style: "cat"},
-        cheeks: {lx: 47, rx: 73, y: 57, w: 3.4, h: 2.1, color: "#FF8A8A"},
-        anchors: {top: [60, 30, 0.9], neck: [60, 72, 1], chest: [72, 96, 0.62], back: [84, 86, 0.8], hands: [60, 98, 0.85]},
-        lines: {
-          tap: ["Hi! Wanna see me slide? Wheee!", "Paws together for you! You're doing great!", "Go with the flow, you'll get there!", "Float on your back and think it through!", "Little splashes make big ripples!", "You otter be proud of yourself!", "Let's swim through this list!", "I found a shiny pebble. It's for you!"],
-          pet: ["Hehe! My whiskers are wiggling!", "Ooh, so fluffy and warm now!"],
-          hello: ["You're back! I saved you a sunny rock!", "Hi hi! Want to hold paws and study?"],
-          morning: ["Good morning! The pool's all sparkly!", "Morning! Rise and splash!"],
-          night: ["Floating off to sleep soon. You too?", "The falls are hushing. Time to rest."],
-          focus: ["Floating quietly right beside you.", "Paws still, eyes on the goal!"],
-          done: ["What a session! Big belly flop of joy!", "Done! That calls for a slide!"],
-          task: ["Splash! Another one done!", "Checked off! Paw high five!", "Done! Otterly amazing!", "Yes! Happy little roll!"],
-          break: ["Break! Have a stretch and a snack!", "Float for a minute. Then back to it!"]
-        }
-      }
-    ]
-  });
 
   /* ================= Redwood Grove ================= */
   COMP_DATA.push({

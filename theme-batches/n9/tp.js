@@ -1,4 +1,4 @@
-/* Theme Collections, new theme ideas batch n9: bayou, karst */
+/* Theme Collections, new theme ideas batch n9: bayou */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2), S15 = SOw(1.6);
@@ -17,8 +17,6 @@
   const cypress = (x, y, h, trunk, leaf, moss) => { const w = h * .09; return `<path d="M${f1(x - w * 1.8)} ${y}Q${f1(x - w * .6)} ${f1(y - h * .15)} ${f1(x - w * .45)} ${f1(y - h * .5)}L${f1(x - w * .3)} ${f1(y - h * .85)}H${f1(x + w * .3)}L${f1(x + w * .45)} ${f1(y - h * .5)}Q${f1(x + w * .6)} ${f1(y - h * .15)} ${f1(x + w * 1.8)} ${y}Z" fill="${trunk}"/>
     ${[[0, .88, .3], [-.22, .66, .24], [.24, .6, .26], [-.12, .44, .2]].map(([dx, dy, r]) => `<ellipse cx="${f1(x + dx * h)}" cy="${f1(y - dy * h)}" rx="${f1(r * h)}" ry="${f1(r * h * .32)}" fill="${leaf}"/>`).join("")}
     ${[[-.28, .62, .18], [.12, .56, .22], [.34, .55, .14], [-.18, .4, .14]].map(([dx, dy, l]) => `<path d="M${f1(x + dx * h - 2)} ${f1(y - dy * h)}q1 ${f1(l * h * .5)} 0 ${f1(l * h)}M${f1(x + dx * h)} ${f1(y - dy * h)}q-1 ${f1(l * h * .6)} 1 ${f1(l * h * 1.2)}M${f1(x + dx * h + 2)} ${f1(y - dy * h)}q1 ${f1(l * h * .4)} 0 ${f1(l * h * .8)}" fill="none" stroke="${moss}" stroke-width="1.4" stroke-linecap="round"/>`).join("")}`; };
-  // a karst tower: steep sides and a rounded top
-  const tower = (x, y, w, h, c) => `<path d="M${f1(x - w / 2)} ${y}C${f1(x - w / 2)} ${f1(y - h * .5)} ${f1(x - w * .48)} ${f1(y - h * .8)} ${f1(x - w * .2)} ${f1(y - h * .97)}Q${x} ${f1(y - h * 1.04)} ${f1(x + w * .2)} ${f1(y - h * .97)}C${f1(x + w * .48)} ${f1(y - h * .8)} ${f1(x + w / 2)} ${f1(y - h * .5)} ${f1(x + w / 2)} ${y}Z" fill="${c}"/>`;
 
   /* ================= FIREFLY BAYOU ================= */
   TP_DATA.push({
@@ -87,75 +85,5 @@
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".25"/></svg>`}
     ],
     card: {id: "tp-bayou", name: "Lily Pad Glow", desc: "Soft swamp-green paper with a water lily on its pad in the corner and a mossy cypress below. Firefly-dotted midnight green in dark mode."}
-  });
-
-  /* ================= KARST RIVER ================= */
-  TP_DATA.push({
-    theme: "karst",
-    pack: {name: "River Mist", items: {
-      karst_peaks: `${lg("n9-kp-s", "#DCEAE4", "#F4F0E4")}${lg("n9-kp-w", "#BCD8CC", "#7EAE9C")}
-        <rect x="4" y="6" width="56" height="52" rx="12" fill="url(#n9-kp-s)" ${SO}/>
-        <circle cx="20" cy="18" r="5" fill="#FFFDF2"/>
-        ${tower(42, 40, 12, 24, "#B4CEC4")}${tower(24, 40, 12, 20, "#A2C2B6")}${tower(33, 42, 14, 30, "#76A08E")}${tower(50, 42, 12, 20, "#86AE9C")}${tower(14, 42, 10, 16, "#8CB4A2")}
-        <path d="M5 40H59V46Q59 57 48 57H16Q5 57 5 46Z" fill="url(#n9-kp-w)"/>
-        <path d="M8 36Q20 33 30 36T56 35" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".85"/>
-        <path d="M14 47h10M34 50h12" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>
-        <rect x="4" y="6" width="56" height="52" rx="12" fill="none" ${SO}/>`,
-      karst_raft: `${lg("n9-kr-w", "#C8E0D6", "#7EAE9C")}
-        <ellipse cx="32" cy="50" rx="28" ry="7" fill="url(#n9-kr-w)" ${S2}/>
-        ${[0, 1, 2, 3].map(i => `<rect x="${9 + i}" y="${40 + i * 3.4}" width="${42 - i * 2}" height="3.6" rx="1.8" fill="${i % 2 ? "#C8A464" : "#E2C688"}" ${S15}/>`).join("")}
-        <path d="M44 41V12Q44 9 40 9H34" fill="none" stroke="${O}" stroke-width="4" stroke-linecap="round"/><path d="M44 41V12Q44 9 40 9H34" fill="none" stroke="#9A7440" stroke-width="2" stroke-linecap="round"/>
-        ${glow(33, 22, 9, "#FFC27A", .4)}<path d="M33 10V14" stroke="${O}" stroke-width="1.4"/>
-        <ellipse cx="33" cy="21" rx="5.6" ry="7" fill="#E8584A" ${S15}/><rect x="30" y="13.2" width="6" height="2" fill="${O}"/><rect x="30" y="27" width="6" height="2" fill="${O}"/>
-        <path d="M14 41Q20 31 26 41Z" fill="#E8CF8A" ${S15}/>`,
-      karst_lantern: `${rg("n9-kl-l", "#FFB89A", "#D8443A", .4, .35)}
-        ${glow(32, 34, 24, "#FFC27A", .3)}
-        <path d="M32 4V10" stroke="${O}" stroke-width="2" stroke-linecap="round"/>
-        <rect x="23" y="9" width="18" height="5" rx="2" fill="#3A2A2A" ${S15}/><rect x="23" y="52" width="18" height="5" rx="2" fill="#3A2A2A" ${S15}/>
-        <ellipse cx="32" cy="33" rx="18" ry="20" fill="url(#n9-kl-l)" ${SO}/>
-        <path d="M16 26H48M15 40H49" stroke="#A8302A" stroke-width="1.2" opacity=".55"/>
-        ${EYES(26.5, 37.5, 31, 2.4)}${blush(22, 42, 36, 2.4, 1.5)}${smile(32, 36, 2.2, 1.8)}
-        <path d="M30 57v4M34 57v4" stroke="#E8A030" stroke-width="1.6" stroke-linecap="round"/>`,
-      karst_lotus: `<ellipse cx="32" cy="48" rx="26" ry="6" fill="#9CCAB8" opacity=".7"/>
-        ${glow(32, 34, 18, "#FFD27A", .35)}
-        ${[-90, -55, -125, -22, -158].map(a => `<path d="${petal(32, 44, a, 20, 7)}" fill="#F49AB4" ${S15}/>`).join("")}
-        <path d="M32 22C35 26 35 30 32 32C29 30 29 26 32 22Z" fill="#FFD86B" ${S15}/>
-        ${[-70, -110, -40, -140].map(a => `<path d="${petal(32, 45, a, 15, 5.5)}" fill="#FFD2DE" ${S15}/>`).join("")}
-        <ellipse cx="32" cy="46" rx="18" ry="4" fill="#5EA86A" ${S2}/>
-        ${spark(52, 16, 3.4, "#FFE07A")}`,
-      karst_shoot: `${lg("n9-ks-b", "#E8D49A", "#B8925A", 1, 1)}
-        <ellipse cx="32" cy="56" rx="18" ry="4" fill="#8A6A44" ${S2}/>
-        <path d="M17 56C17 42 22 28 28 18L32 10L36 18C42 28 47 42 47 56Z" fill="url(#n9-ks-b)" ${SO}/>
-        <path d="M17 56C19 48 24 44 30 43C27 48 26 52 26 56ZM47 56C45 48 40 44 34 43C37 48 38 52 38 56Z" fill="#A27E48" ${S15}/>
-        <path d="${petal(32, 11, -120, 11, 3)}" fill="#8CC864" ${S15}/><path d="${petal(32, 11, -60, 12, 3.2)}" fill="#7EB85A" ${S15}/>
-        ${EYES(28, 36, 31, 2.1)}${blush(25, 39, 35, 2, 1.3)}${smile(32, 35, 1.8, 1.6)}`,
-      karst_bamboo: `<path d="M22 60L26 4M38 60L35 8" fill="none" stroke="${O}" stroke-width="8" stroke-linecap="round"/><path d="M22 60L26 4M38 60L35 8" fill="none" stroke="#8CB85A" stroke-width="5" stroke-linecap="round"/>
-        <path d="M21.5 18.5h6M22.6 34h6M23.6 49h6M33.5 22h5M34 38h5M34.6 52h5" stroke="${O}" stroke-width="1.6" stroke-linecap="round"/>
-        ${[[26, 14, -150], [26, 14, -170], [26, 14, 160], [35.5, 26, -20], [35.5, 26, 10], [35.5, 26, 35], [24, 40, 170], [24, 40, 150]].map(([x, y, a]) => `<path d="${petal(x, y, a, 16, 3.4)}" fill="#6EA846" ${S15}/>`).join("")}`,
-      karst_cloud: `${rg("n9-kc-c", "#FFFFFF", "#C6E0DA", .4, .3)}
-        <path d="M14 46C6 46 6 34 14 34C14 24 26 20 32 26C36 18 50 20 50 30C58 30 60 44 52 46Z" fill="url(#n9-kc-c)" ${SO}/>
-        <path d="${petal(26, 24, -20, 14, 3)}" fill="#7EB85A" ${S15}/>
-        ${EYES(27, 39, 37, 2.3)}${blush(23, 43, 41, 2.2, 1.4)}${smile(33, 41, 2, 1.7)}
-        <path d="M6 52q8-4 16 0M40 54q8-4 16 0" fill="none" stroke="#A8D2C8" stroke-width="2.4" stroke-linecap="round"/>`,
-      karst_flow: `${lg("n9-kf-b", "#3E7E70", "#2E6A5E")}
-        <rect x="3" y="18" width="58" height="28" rx="14" fill="url(#n9-kf-b)" ${SO}/>
-        <path d="M8 40Q16 37 24 40T40 40T56 40" fill="none" stroke="#9CD2C4" stroke-width="1.6" stroke-linecap="round"/>
-        ${T("GO WITH THE FLOW", 32, 34, 8.5, "#FFFFFF", 48)}
-        ${tower(12, 18, 7, 10, "#5E9A86")}${tower(52, 18, 8, 13, "#5E9A86")}
-        ${spark(32, 10, 3.2, "#FFD09A")}`
-    }},
-    pins: [
-      {id: "tp-karst-lantern", name: "Red Lantern Pin", kind: "badge", desc: "A little red paper lantern, glowing softly.",
-        svg: `<svg viewBox="0 0 30 30"><defs><radialGradient id="n9-pp-kl" cx=".4" cy=".35" r=".8"><stop offset="0" stop-color="#FFB89A"/><stop offset="1" stop-color="#D8443A"/></radialGradient></defs>
-          <circle cx="15" cy="16" r="13" fill="#FFC27A" opacity=".3"/><rect x="10" y="4" width="10" height="3" rx="1" fill="#3A2A2A"/><rect x="10" y="24" width="10" height="3" rx="1" fill="#3A2A2A"/>
-          <ellipse cx="15" cy="15.5" rx="9" ry="9.5" fill="url(#n9-pp-kl)" stroke="#7A2018" stroke-width="1.1"/><path d="M6.5 12H23.5M6.5 19H23.5" stroke="#A8302A" stroke-width=".8" opacity=".6"/></svg>`},
-      {id: "tp-karst-peaks", name: "Misty Peaks Washi", kind: "tape", desc: "Jade washi tape with a row of misty karst peaks and a drifting raft.",
-        svg: `<svg viewBox="0 0 86 26"><path d="${tapeEdge}" fill="#BCD8CC" opacity=".95"/>
-          ${tower(12, 22, 8, 14, "#7EAE9C")}${tower(24, 22, 9, 18, "#5E9A86")}${tower(38, 22, 8, 12, "#8CB8A6")}${tower(54, 22, 10, 17, "#5E9A86")}${tower(70, 22, 8, 14, "#7EAE9C")}
-          <path d="M5 14Q20 11 34 14T80 13" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".85"/>
-          <rect x="40" y="20" width="10" height="2" rx="1" fill="#C8A464"/><path d="M48 20V15" stroke="#7A5A30" stroke-width=".8"/><ellipse cx="47" cy="16.5" rx="1.3" ry="1.7" fill="#E8584A"/>
-          <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".35"/></svg>`}
-    ],
-    card: {id: "tp-karst", name: "River Mist", desc: "Pearl-jade paper with misty karst peaks in the corner and a lantern raft below. Moonlit deep teal with a glowing lantern in dark mode."}
   });
 })();

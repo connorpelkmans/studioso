@@ -1,15 +1,5 @@
 ## Batch n8
 
-### Fern Falls (id: waterfall) — Nature and Places
-- Scene: A tall, lacy waterfall drops in three tiers down a mossy basalt gorge into a clear green plunge pool. Columnar basalt walls with mossy ledges, hanging moss and small ferns frame it, tree ferns with fiddlehead coils stand in front, and wet glinting boulders and ground ferns line the bottom.
-- Palette hint: day sky #A3D3E2 → #DDF1EA → #EEF6E4; night sky #0B1828 → #1A3A44 → #1E4440
-- Loop: Water pours down each tier in moving streaks, foam churns where every tier lands, spray mist rises off the pool and drifts, rings spread across the water, a small rainbow hangs in the spray by day, moss drips, wet rocks glint, and now and then a leaf spins down and floats away. At night moonlight silvers the falling water and glow-worm-like speckles of light twinkle on the gorge walls (drawn as tiny lights, no creatures).
-- Finish moment: A surge of bright water races down the falls tier by tier, the foam swells at each ledge, and where it lands the pool blooms with rings and a burst of sparkling droplets while a double rainbow (a silver moonbow at night) arches across the whole gorge. At night the glow-worm lights brighten in a wave up the walls.
-- Companions:
-  1. Plip, Water Droplet — "A drop that took the long way down the falls and loved every tier of it." idle: topBob, sway, sparkle; cheer: bounce
-  2. Dipper, American Dipper Chick — "A slate-grey chick that bobs on wet rocks and dives right in. Fearless." idle: bounce, wingFlutter, tailSwish; cheer: hop
-  3. Ottie, River Otter Pup — "Slides down the mossy rocks all day. Takes study breaks very seriously." idle: earTwitch, tailSwish, wave; cheer: hop
-
 ### Redwood Grove (id: redwoods) — Nature and Places
 - Scene: Towering red-brown redwood trunks with deep furrowed bark rise out of frame, row behind row fading into fog. Sword ferns and redwood sorrel (with little pink-white flowers) carpet the floor, a fallen mossy log with a ringed cut end lies across the middle, and flat redwood sprays hang in from the canopy.
 - Palette hint: day sky #C6DCD6 → #ECEFE2 → #F2EAD8; night sky #0A1424 → #1A3046 → #203848

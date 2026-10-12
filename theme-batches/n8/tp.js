@@ -1,4 +1,4 @@
-/* Theme Collections, new theme ideas batch n8: waterfall, redwoods */
+/* Theme Collections, new theme ideas batch n8: redwoods */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2), S15 = SOw(1.6);
@@ -16,77 +16,6 @@
   const frond = (x, y, L, a, c, n = 6, sw = 1.4) => { const r = a * Math.PI / 180; let s = `<path d="M${x} ${y}l${(Math.cos(r) * L).toFixed(1)} ${(Math.sin(r) * L).toFixed(1)}" stroke="${O}" stroke-width="${sw}" stroke-linecap="round"/>`;
     for (let i = 1; i <= n; i++) { const t = i / (n + 1), px = x + Math.cos(r) * L * t, py = y + Math.sin(r) * L * t, l = L * 0.32 * (1 - t * 0.6); s += `${leafP(px.toFixed(1), py.toFixed(1), l.toFixed(1), (l * 0.32).toFixed(1), a - 60)} fill="${c}" ${SOw(1)}/>${leafP(px.toFixed(1), py.toFixed(1), l.toFixed(1), (l * 0.32).toFixed(1), a + 60)} fill="${c}" ${SOw(1)}/>`; } return s; };
   const heart = (x, y, s, rot, fill) => `<path d="M0 12C-6 8 -13 3.5 -13 -3C-13 -8 -9.4 -11 -5.6 -11C-3 -11 -1 -9.4 0 -7.2C1 -9.4 3 -11 5.6 -11C9.4 -11 13 -8 13 -3C13 3.5 6 8 0 12Z" transform="translate(${x} ${y}) rotate(${rot}) scale(${s})" fill="${fill}" stroke="${O}" stroke-width="${(2 / s).toFixed(2)}" stroke-linejoin="round"/>`;
-  const rainbowArc = (cx, cy, R, w) => ["#FF7A7A", "#FFC85A", "#7EDB6A", "#5AB8F2", "#A68AF0"].map((c, i) => `<path d="M${cx - R + i * w} ${cy}A${R - i * w} ${R - i * w} 0 0 1 ${cx + R - i * w} ${cy}" fill="none" stroke="${c}" stroke-width="${w}"/>`).join("");
-
-  /* ================= FERN FALLS ================= */
-  TP_DATA.push({
-    theme: "waterfall",
-    pack: {name: "Fern Falls Friends", items: {
-      waterfall_falls: `${lg("n8-wf-r", "#8A9A94", "#55635F")}${lg("n8-wf-p", "#8ED8C4", "#3A9884")}
-        <path d="M6 54V14Q6 8 12 8H52Q58 8 58 14V54Z" fill="url(#n8-wf-r)" ${SO}/>
-        <path d="M10 14V50M18 12V50M46 12V50M54 14V50" stroke="#45524E" stroke-width="1.2" opacity=".6"/>
-        <path d="M26 8H38V24H26Z" fill="#F6FDFD" ${S15}/><path d="M22 24H42L40 27H24Z" fill="#B8C6BE" ${S15}/>
-        <path d="M23 27H41L44 44H20Z" fill="#F6FDFD" ${S15}/><path d="M26 30V42M32 30V43M38 30V42" stroke="#9AD0DC" stroke-width="1.4" stroke-linecap="round"/>
-        <ellipse cx="32" cy="54" rx="26" ry="7" fill="url(#n8-wf-p)" ${SO}/><ellipse cx="32" cy="50" rx="12" ry="2.6" fill="#fff"/>
-        <path d="M8 22q5-2 8 1M48 20q5-2 9 1" fill="none" stroke="#7CBE5A" stroke-width="3" stroke-linecap="round"/>
-        ${frond(10, 58, 20, -70, "#5AAE52")}${frond(56, 58, 18, -110, "#5AAE52")}${spark(54, 6, 3.6, "#FFE68A")}`,
-      waterfall_plip: `${rg("n8-wp-b", "#F2FCFF", "#2E86C8", .4, .45)}
-        <ellipse cx="32" cy="56" rx="22" ry="5" fill="#A6E4EE" ${S2}/>
-        <path d="M32 8C36 17 52 26 52 40C52 51 43 57 32 57C21 57 12 51 12 40C12 26 28 17 32 8Z" fill="url(#n8-wp-b)" ${SO}/>
-        <path d="M20 36C20 29 24 24 28 21" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
-        <circle cx="25" cy="40" r="2.6" fill="${O}"/><circle cx="39" cy="40" r="2.6" fill="${O}"/><circle cx="25.9" cy="39" r=".9" fill="#fff"/><circle cx="39.9" cy="39" r=".9" fill="#fff"/>
-        ${blush(20, 44, 45)}${smile(32, 45.5, 2.4, 1.8)}${frond(32, 10, 12, -72, "#7CC860", 4, 1.2)}${spark(54, 14, 3.6, "#9FE0FF")}`,
-      waterfall_mossby: `${rg("n8-wm-b", "#E2EAE6", "#77867F", .4, .35)}${rg("n8-wm-m", "#B4E27A", "#5E9A40", .4, .3)}
-        <path d="M8 46C7 32 18 24 32 24C47 24 57 32 56 46C55 55 46 58 32 58C18 58 9 55 8 46Z" fill="url(#n8-wm-b)" ${SO}/>
-        <path d="M9 40C10 30 20 22 32 22C45 22 54 30 55 40C51 37 47 40 43 37C39 41 34 36 30 40C26 36 21 40 17 37C14 39 11 39 9 40Z" fill="url(#n8-wm-m)" ${S2}/>
-        ${tube("M32 22C32 17 33 13 36 11", "#5E9A40", 2)}<path d="M36 11C36 6 42 6 42 9.5C42 11.6 39 12.2 38.4 10.8" fill="none" stroke="#9AD66A" stroke-width="2.2" stroke-linecap="round"/>
-        ${EYES(25, 39, 46, 2.3)}${blush(20, 44, 50, 2.4, 1.5)}${smile(32, 50, 2.2, 1.7)}${spark(10, 14, 3.4, "#C8F0A0")}`,
-      waterfall_misty: `${rg("n8-wy-b", "#FFFFFF", "#BFE0F0", .42, .35)}
-        ${rainbowArc(32, 30, 22, 2.8)}
-        <path d="M16 46C10 46 8 40 12 37C10 31 16 27 21 29C23 23 31 22 34 26C38 22 46 24 46 30C52 30 56 36 52 40C55 45 50 50 45 48C42 52 36 52 33 49C29 52 22 51 20 47C18 48 17 47 16 46Z" fill="url(#n8-wy-b)" ${SO}/>
-        ${EYES(26, 38, 39, 2.3)}${blush(21.5, 42.5, 43, 2.4, 1.5)}${smile(32, 43, 2.2, 1.7)}
-        <path d="M24 55c-1.4 2-1.4 3.4 0 3.4s1.4-1.4 0-3.4zM32 57c-1.4 2-1.4 3.4 0 3.4s1.4-1.4 0-3.4zM40 55c-1.4 2-1.4 3.4 0 3.4s1.4-1.4 0-3.4z" fill="#8ED0F0" ${SOw(1)}/>`,
-      waterfall_fiddle: `${lg("n8-wd-s", "#B8E88A", "#4E9A3E")}
-        ${tube("M30 60C30 48 28 40 32 32", "#6AAE4A", 4)}
-        <path d="M32 32C32 18 48 16 48 28C48 36 38 38 36 31C35 27 40 26 41 29" fill="none" stroke="${O}" stroke-width="9" stroke-linecap="round"/>
-        <path d="M32 32C32 18 48 16 48 28C48 36 38 38 36 31C35 27 40 26 41 29" fill="none" stroke="url(#n8-wd-s)" stroke-width="5.4" stroke-linecap="round"/>
-        ${leafP(29, 50, 12, 4, -150)} fill="#7CC860" ${S15}/>${leafP(31, 44, 11, 4, -30)} fill="#7CC860" ${S15}/>
-        <circle cx="39" cy="24" r="1.4" fill="${O}"/><circle cx="45" cy="25" r="1.4" fill="${O}"/><path d="M40.5 28.4q1.6 1.2 3.2 0" fill="none" stroke="${O}" stroke-width="1.3" stroke-linecap="round"/>
-        ${spark(12, 18, 3.6, "#FFE68A")}${spark(54, 48, 3, "#9FE0FF")}`,
-      waterfall_rainbow: `${rg("n8-wr-c", "#FFFFFF", "#D8EEF6", .4, .35)}
-        ${rainbowArc(32, 44, 26, 3.6)}
-        <path d="M4 48C4 42 10 40 14 42C16 37 24 37 26 42C30 40 34 44 32 48Z" fill="url(#n8-wr-c)" ${S2}/><path d="M32 48C32 42 38 40 42 42C44 37 52 37 54 42C58 40 62 44 60 48Z" fill="url(#n8-wr-c)" ${S2}/>
-        <path d="M16 54c-1.4 2-1.4 3.4 0 3.4s1.4-1.4 0-3.4zM28 56c-1.4 2-1.4 3.4 0 3.4s1.4-1.4 0-3.4zM40 54c-1.4 2-1.4 3.4 0 3.4s1.4-1.4 0-3.4zM50 56c-1.4 2-1.4 3.4 0 3.4s1.4-1.4 0-3.4z" fill="#8ED0F0" ${SOw(1)}/>
-        ${spark(32, 10, 4, "#FFE68A")}${spark(52, 16, 2.6, "#FFFFFF")}`,
-      waterfall_glow: `${lg("n8-wg-b", "#1E3A4A", "#0E1C28")}
-        <rect x="6" y="6" width="52" height="52" rx="14" fill="url(#n8-wg-b)" ${SO}/>
-        <circle cx="44" cy="18" r="6" fill="#F2F2E2"/>
-        <path d="M8 40Q20 34 32 38T56 36V52Q56 56 52 56H12Q8 56 8 52Z" fill="#183040"/>
-        <path d="M30 12H36V42H30Z" fill="#BFD6EC" opacity=".9"/><path d="M28 42H38L40 48H26Z" fill="#E2EEF8" opacity=".9"/>
-        ${[[14, 24], [18, 30], [12, 34], [22, 22], [48, 30], [52, 26], [46, 38], [16, 44], [50, 46], [24, 48]].map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 3 ? 1.2 : 1.8}" fill="#9FFFEA"/><circle cx="${x}" cy="${y}" r="${i % 3 ? 3 : 4}" fill="#6FFFE0" opacity=".25"/>`).join("")}`,
-      waterfall_flow: `${lg("n8-wt-b", "#3EA89A", "#1E7466")}
-        ${frond(8, 30, 14, -150, "#86CC62", 4, 1.2)}${frond(56, 30, 14, -30, "#86CC62", 4, 1.2)}
-        <rect x="4" y="18" width="56" height="28" rx="14" fill="url(#n8-wt-b)" ${SO}/>
-        <path d="M10 41q4-2 8 0t8 0t8 0t8 0t8 0t6 0" fill="none" stroke="#A6EAE0" stroke-width="1.4" stroke-linecap="round"/>
-        ${T("GO WITH", 32, 30.5, 8, "#FFFFFF", 34)}${T("THE FLOW", 32, 39, 8, "#E8FFF8", 38)}
-        ${spark(54, 10, 3.6, "#FFE68A")}<path d="M10 9c-1.6 2.4-1.6 4 0 4s1.6-1.6 0-4z" fill="#8ED0F0" ${SOw(1)}/>`
-    }},
-    pins: [
-      {id: "tp-waterfall-fiddle", name: "Fiddlehead Pin", kind: "badge", desc: "A curled green fiddlehead fern, just about to unroll.",
-        svg: `<svg viewBox="0 0 30 30"><defs><linearGradient id="n8-pp-wf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#B8E88A"/><stop offset="1" stop-color="#4E9A3E"/></linearGradient></defs>
-          <circle cx="15" cy="15" r="13" fill="#E6F6EE" stroke="#1E4A44" stroke-width="1.3"/>
-          <path d="M13 26C13 20 12 16 14 12C15 6 23 6 23 12C23 16 18 17 17 13.6C16.6 11.6 19 11 19.6 12.6" fill="none" stroke="#1E4A2E" stroke-width="4.4" stroke-linecap="round"/>
-          <path d="M13 26C13 20 12 16 14 12C15 6 23 6 23 12C23 16 18 17 17 13.6C16.6 11.6 19 11 19.6 12.6" fill="none" stroke="url(#n8-pp-wf)" stroke-width="2.4" stroke-linecap="round"/>
-          <path d="M7 9q1.6-2.4 0-4q-1.6 1.6 0 4z" fill="#8ED0F0" stroke="#2E6A9A" stroke-width=".6"/></svg>`},
-      {id: "tp-waterfall-falls", name: "Falls Washi", kind: "tape", desc: "Teal washi tape with tumbling white water, ferns and tiny drops.",
-        svg: `<svg viewBox="0 0 86 26"><path d="${tapeEdge}" fill="#2E908A" opacity=".92"/>
-          ${[12, 34, 56, 76].map(x => `<path d="M${x} 3v20M${x + 3} 4v18M${x + 6} 3v20" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".8"/>`).join("")}
-          ${[23, 45, 66].map((x, i) => `<path d="M${x} 22l0 -14" stroke="#1E5A44" stroke-width=".8"/>${[0, 1, 2, 3].map(k => `<path d="M${x} ${20 - k * 3.2}l-3 -1.4M${x} ${20 - k * 3.2}l3 -1.4" stroke="#A6E07A" stroke-width="1.6" stroke-linecap="round"/>`).join("")}`).join("")}
-          ${[[8, 8], [30, 18], [52, 9], [72, 18]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1" fill="#CFF4FF"/>`).join("")}
-          <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".3"/></svg>`}
-    ],
-    card: {id: "tp-waterfall", name: "Fern Spray", desc: "Misty teal-white paper with a little tiered waterfall in the corner and a curling fern below. Moonlit with glow-worm speckles in dark mode."}
-  });
 
   /* ================= REDWOOD GROVE ================= */
   TP_DATA.push({
