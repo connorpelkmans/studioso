@@ -4,6 +4,6 @@
 - Loop: Blossom petals drift on the breeze and land on the river, cherry branches sway, clouds slide across Fuji's shoulder, a heron wades by the bridge, koinobori carp streamers ripple on a pole in town. At night paper lanterns along the stair path glow, town windows light up, the moon rises beside Fuji and the river reflects it.
 - Finish moment: Fuji's snowcap blushes pink in alpenglow, a gust lifts a huge swirl of blossoms off the trees, and a pair of red-crowned cranes flies across the mountain.
 - Companions:
-  1. Kuri, Shiba Pup — "Curly tail, big smile, keeps watch on your deadlines." idle: tailSwish, earTwitch, headTilt; cheer: hop
+  1. Kuri, Shiba Inu Pup — "Curly tail, big smile, keeps watch on your deadlines." idle: tailSwish, earTwitch, headTilt; cheer: hop
   2. Daru, Daruma Doll — "Falls down seven times, gets up eight." idle: sway, topBob, sparkle; cheer: bounce
   3. Musu, Onigiri — "A rice ball with a nori sash and a can-do attitude." idle: topBob, wave, headTilt; cheer: hop

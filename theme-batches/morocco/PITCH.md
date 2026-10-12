@@ -5,5 +5,5 @@
 - Finish moment: Every lantern lights up one after another around the courtyard, the fountain sends up a sparkling spray, and a shower of rose petals and orange blossoms falls through the light.
 - Companions:
   1. Nana, Mint Teapot — "Pours from a great height and never spills a drop." idle: topBob, sway, sparkle; cheer: bounce
-  2. Fenn, Fennec Fox Kit — "Giant ears for hearing every deadline coming." idle: earTwitch, tailSwish, headTilt; cheer: hop
+  2. Zaki, Riad Fennec Kit — "Giant ears for hearing every deadline coming." idle: earTwitch, tailSwish, headTilt; cheer: hop
   3. Limoun, Little Orange — "Grown in the courtyard and full of sunshine." idle: topBob, sway, wave; cheer: spin
