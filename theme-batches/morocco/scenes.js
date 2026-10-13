@@ -136,11 +136,11 @@ SCENES.morocco = function (W, H, dk, rnd) {
   add(mid, 'a', wall, C.wall); add(mid, 'b', cream + floor, C.cream); add(mid, 'c', cob, C.cob); add(mid, 'd', grn, C.grn); add(mid, 'e', white, C.white); add(mid, 'f', cedar, C.cedar); add(mid, 'g', shade, C.shade); add(mid, 'h', open, C.open);
   stk(mid, 's', fl, C.wgrout, 1); stk(mid, 't', wl + wc, C.wcarve, ph ? 0.8 : 1.1);
   // ---------------------------------------------------------------- the near things: fountain, pots, rug, tea, candles, the arch
-  var rug = '', water = '', ncob = '', ncream = '', ngrn = '', nor = '', gold = '', nsh = '', ng = '', nc = '';
+  var rug = '', water = '', ncob = '', ncream = '', ngrn = '', nor = '', gold = '', nsh = '', gsh = '', ng = '', nc = '';
   // the fountain: a twelve-lobed basin faced with zellige, a fluted pedestal and a small upper bowl
   var fx = W * (ph ? 0.5 : 0.56), fyy = H * (ph ? 0.875 : 0.89), frx = (ph ? 118 : 160) * S * (ph ? 1.25 : 1), fry = frx * 0.17, fh = (ph ? 26 : 36) * S, rim = (ph ? 6 : 9) * S;
   var lob = function (rx, ry, yy) { var p = []; for (var q = 0; q < 96; q++) { var t = q / 96 * Math.PI * 2, f = 1 + 0.035 * Math.abs(Math.cos(t * 6)); p.push([fx + Math.cos(t) * rx * f, yy + Math.sin(t) * ry * f]); } return p; };
-  nsh += morocco_e(fx, fyy + fh + 4, frx * 1.08, fry * 1.25);
+  gsh += morocco_e(fx, fyy + fh + 4, frx * 1.08, fry * 1.25);
   var face = []; lob(frx, fry, fyy).forEach(function (p) { if (p[1] >= fyy - 0.5) face.push(p); }); face.sort(function (a, b) { return a[0] - b[0]; });
   var facePts = face.concat(face.slice().reverse().map(function (p) { return [p[0], p[1] + fh]; }));
   ncob += morocco_pg(facePts);
@@ -154,8 +154,10 @@ SCENES.morocco = function (W, H, dk, rnd) {
   ncream += fzs; ngrn += fzd; ng += fzl;
   // the pedestal and the upper bowl
   var pedH = (ph ? 62 : 92) * S, bowlY = fyy - pedH, brx = (ph ? 30 : 46) * S, bry = brx * 0.22;
-  ncream += morocco_pg([[fx - 9 * S, fyy], [fx - 6 * S, bowlY + 10 * S], [fx - 12 * S, bowlY + 4 * S], [fx + 12 * S, bowlY + 4 * S], [fx + 6 * S, bowlY + 10 * S], [fx + 9 * S, fyy]]) + morocco_e(fx, fyy, 16 * S, 4 * S);
-  nc += seg(fx - 3 * S, fyy - 2, fx - 2 * S, bowlY + 10 * S) + seg(fx + 3 * S, fyy - 2, fx + 2 * S, bowlY + 10 * S);
+  // (the column stops under the bowl, which shares no slot with it and would otherwise sit behind it)
+  var pedT = bowlY + bry * 2.6 - 1;
+  ncream += morocco_pg([[fx - 9 * S, fyy], [fx - 6 * S, pedT], [fx + 6 * S, pedT], [fx + 9 * S, fyy]]) + morocco_e(fx, fyy, 16 * S, 4 * S);
+  nc += seg(fx - 3 * S, fyy - 2, fx - 2 * S, pedT) + seg(fx + 3 * S, fyy - 2, fx + 2 * S, pedT);
   ncob += morocco_pg([[fx - brx, bowlY], [fx + brx, bowlY], [fx + brx * 0.55, bowlY + bry * 2.6], [fx - brx * 0.55, bowlY + bry * 2.6]]);
   ncream += morocco_pg(morocco_ep(fx, bowlY, brx + 2, bry + 1.4, 40)) + morocco_hole(morocco_ep(fx, bowlY, brx - 3, bry - 1.4, 40));
   water += morocco_e(fx, bowlY, brx - 3, bry - 1.4);
@@ -166,21 +168,35 @@ SCENES.morocco = function (W, H, dk, rnd) {
   var rX = W * 0.29, rY = H * 0.935, rw = 250 * S, rh2 = 54 * S;
   if (!ph) {
     var rugP = [[rX - rw / 2 + 18 * S, rY - rh2 / 2], [rX + rw / 2 - 18 * S, rY - rh2 / 2], [rX + rw / 2 + 8 * S, rY + rh2 / 2], [rX - rw / 2 - 8 * S, rY + rh2 / 2]];
-    nsh += morocco_pg([[rugP[0][0], rugP[0][1] + 4], [rugP[1][0] + 4, rugP[1][1] + 4], [rugP[2][0] + 4, rugP[2][1] + 4], [rugP[3][0], rugP[3][1] + 4]]);
+    gsh += morocco_pg([[rugP[0][0], rugP[0][1] + 4], [rugP[1][0] + 4, rugP[1][1] + 4], [rugP[2][0] + 4, rugP[2][1] + 4], [rugP[3][0], rugP[3][1] + 4]]);
     rug += morocco_pg(rugP);
     var inset = function (d) { var kx = 1 - d / (rw / 2), ky = 1 - d / (rh2 / 2); return rugP.map(function (p) { return [rX + (p[0] - rX) * kx, rY + (p[1] - rY) * ky]; }); };
-    nor += morocco_pg(inset(6 * S)) + morocco_hole(inset(10 * S));
-    ncream += morocco_pg(inset(13 * S)) + morocco_hole(inset(15 * S));
+    // the border bands, left open where the cushions and the table stand on the rug's back edge (so they stay in front)
+    var tX = rX + rw * 0.12, tY = rY - rh2 * 0.1, tS = S * (ph ? 1.1 : 1), cush = [[-0.42, 'a', 30, 20], [-0.18, 'c', 24, 18], [0.36, 'g', 26, 19]];
+    var gapAt = function (y) { var g = cush.map(function (q) { var cx = rX + q[0] * rw, cy = rY - rh2 * 0.45, cw2 = q[2] * S, chh = q[3] * S, u = (y - cy) / chh; return u * u < 1 ? [cx - cw2 * Math.sqrt(1 - u * u), cx + cw2 * Math.sqrt(1 - u * u)] : null; }).filter(Boolean);
+      if (y > tY - 16 * tS && y < tY) g.push([tX - 34 * tS, tX + 34 * tS]); return g.sort(function (a, b) { return a[0] - b[0]; }); };
+    var inCush = function (x, y) { return cush.some(function (q) { var u = (x - rX - q[0] * rw) / (q[2] * S), w = (y - rY + rh2 * 0.45) / (q[3] * S); return u * u + w * w < 1; }); };
+    // a side band starts below any cushion sitting on its top end
+    var side = function (a0, a1, b1, b0) { var v = 0, L = function (p, q, t) { return [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]; };
+      while (v < 0.6 && (inCush.apply(null, L(a0, a1, v)) || inCush.apply(null, L(b0, b1, v)))) v += 0.02;
+      return morocco_pg([L(a0, a1, v), a1, b1, L(b0, b1, v)]); };
+    var band = function (d0, d1) { var o = inset(d0), n = inset(d1), out = side(o[1], o[2], n[2], n[1]) + morocco_pg([o[2], o[3], n[3], n[2]]) + side(o[0], o[3], n[3], n[0]);
+      var yo = o[0][1], yi = n[0][1], lx = function (y) { return o[0][0] + (n[0][0] - o[0][0]) * (y - yo) / (yi - yo); }, rx2 = function (y) { return o[1][0] + (n[1][0] - o[1][0]) * (y - yo) / (yi - yo); };
+      var ga = gapAt(yo), gb = gapAt(yi), xa = lx(yo), xb = lx(yi);
+      for (var q = 0; q <= ga.length; q++) { var ea = q < ga.length ? ga[q][0] : rx2(yo), eb = q < ga.length ? (gb[q] ? gb[q][0] : ga[q][0]) : rx2(yi);
+        if (ea > xa + 0.5) out += morocco_pg([[xa, yo], [ea, yo], [eb, yi], [xb, yi]]);
+        if (q < ga.length) { xa = ga[q][1]; xb = gb[q] ? gb[q][1] : ga[q][1]; } }
+      return out; };
+    nor += band(6 * S, 10 * S);
+    ncream += band(13 * S, 15 * S);
     for (j = -2; j <= 2; j++) { var mxr = rX + j * rw * 0.17, myr = rY + 2 * S; if (j % 2) ncob += morocco_dia(mxr, myr, 11 * S, 7 * S); else nor += morocco_dia(mxr, myr, 11 * S, 7 * S); ncream += morocco_dia(mxr, myr, 4 * S, 2.5 * S); }
     for (j = 0; j <= 20; j++) { var fxr = rugP[3][0] + j * (rugP[2][0] - rugP[3][0]) / 20; nc += seg(fxr, rY + rh2 / 2, fxr - 0.6, rY + rh2 / 2 + 5 * S); }
     // cushions (round poufs and flat cushions) behind the rug
-    var cush = [[-0.42, 'a', 30, 20], [-0.18, 'c', 24, 18], [0.36, 'g', 26, 19]];
     cush.forEach(function (q) { var cx = rX + q[0] * rw, cy = rY - rh2 * 0.45, cw2 = q[2] * S, chh = q[3] * S, s = morocco_pg(morocco_ep(cx, cy, cw2, chh, 30));
       nsh += morocco_e(cx + 3, cy + chh * 0.8, cw2, chh * 0.3);
       if (q[1] === 'a') rug += s; else if (q[1] === 'c') ncob += s; else gold += s;
       ng += 'M' + PT(cx - cw2 * 0.85, cy) + ' Q' + PT(cx, cy + chh * 0.35) + ' ' + PT(cx + cw2 * 0.85, cy) + ' ' + morocco_c(cx, cy - chh * 0.2, 1.6 * S); nor += morocco_star(cx, cy - chh * 0.2, chh * 0.38, 0.55, 8, 0, 0.8); });
     // the painted table, a brass tray, the teapot and three glasses of tea
-    var tX = rX + rw * 0.12, tY = rY - rh2 * 0.1, tS = S * (ph ? 1.1 : 1);
     ncob += morocco_pg([[tX - 34 * tS, tY - 16 * tS], [tX + 34 * tS, tY - 16 * tS], [tX + 30 * tS, tY], [tX + 22 * tS, tY], [tX + 22 * tS, tY - 8 * tS], [tX - 22 * tS, tY - 8 * tS], [tX - 22 * tS, tY], [tX - 30 * tS, tY]]);
     nor += rect(tX - 30 * tS, tY - 14 * tS, 60 * tS, 2.4 * tS); ngrn += morocco_dia(tX, tY - 8 * tS, 5 * tS, 3 * tS);
     gold += morocco_pg(morocco_ep(tX, tY - 18 * tS, 40 * tS, 7 * tS, 36));
@@ -194,11 +210,11 @@ SCENES.morocco = function (W, H, dk, rnd) {
   // candles: three on brass dishes beside the fountain, one pair by the rug
   var candles = [[fx + frx + 26 * S, fyy + fh * 0.9, 1], [fx + frx + 42 * S, fyy + fh * 1.05, 0.75], [rX - rw * 0.58, rY - rh2 * 0.1, 0.7], [rX - rw * 0.52, rY + rh2 * 0.15, 0.95]];
   if (ph) candles = [[fx - frx - 18 * S, fyy + fh * 0.9, 1], [fx + frx + 16 * S, fyy + fh * 0.95, 0.85]];
-  candles.forEach(function (c) { var cs = c[2] * S * (ph ? 1.2 : 1), ch = 22 * cs; gold += morocco_pg(morocco_ep(c[0], c[1], 9 * cs, 2.6 * cs, 20)); ncream += rect(c[0] - 4 * cs, c[1] - ch, 8 * cs, ch) + morocco_e(c[0], c[1] - ch, 4 * cs, 1.4 * cs); nc += seg(c[0], c[1] - ch - 1, c[0], c[1] - ch - 4 * cs); nsh += morocco_e(c[0] + 4, c[1] + 2, 10 * cs, 2.4 * cs); c.push(c[1] - ch - 4 * cs, cs); });
+  candles.forEach(function (c) { var cs = c[2] * S * (ph ? 1.2 : 1), ch = 22 * cs; gold += morocco_pg(morocco_ep(c[0], c[1], 9 * cs, 2.6 * cs, 20)); ncream += rect(c[0] - 4 * cs, c[1] - ch, 8 * cs, ch) + morocco_e(c[0], c[1] - ch, 4 * cs, 1.4 * cs); nc += seg(c[0], c[1] - ch - 1, c[0], c[1] - ch - 4 * cs); gsh += morocco_e(c[0] + 4, c[1] + 2, 10 * cs, 2.4 * cs); c.push(c[1] - ch - 4 * cs, cs); });
   // glazed pots for two orange trees (the trees are the engine's while it runs)
   var trees = [[W - pw - (ph ? 50 : 96) * S, H * (ph ? 0.965 : 0.975), ph ? 0.85 : 1.05], [pw + (ph ? 46 : 64) * S, H * (ph ? 0.97 : 0.985), ph ? 0.8 : 0.95]], tdat = [];
   trees.forEach(function (q, n) { var px = q[0], py = q[1], s = q[2] * S * (ph ? 1.2 : 1), pot = morocco_pg([[px - 30 * s, py - 62 * s], [px + 30 * s, py - 62 * s], [px + 34 * s, py - 46 * s], [px + 24 * s, py], [px - 24 * s, py], [px - 34 * s, py - 46 * s]]);
-    nsh += morocco_e(px + 6, py + 2, 40 * s, 6 * s);
+    gsh += morocco_e(px + 6, py + 2, 40 * s, 6 * s);
     if (n) ngrn += pot; else ncob += pot;
     ncream += rect(px - 34 * s, py - 68 * s, 68 * s, 7 * s) + morocco_hole([[px - 30 * s, py - 66 * s], [px + 30 * s, py - 66 * s], [px + 30 * s, py - 64 * s], [px - 30 * s, py - 64 * s]]);
     nor += morocco_pg([[px - 33 * s, py - 44 * s], [px + 33 * s, py - 44 * s], [px + 32 * s, py - 40 * s], [px - 32 * s, py - 40 * s]]);
@@ -233,7 +249,7 @@ SCENES.morocco = function (W, H, dk, rnd) {
     nor += rect(jx0 + (sd < 0 ? 20 : 0), zt - 5, pw, 4);
     if (!ph) { var cx = sd < 0 ? pw - 9 : W - pw + 9; ncream += rect(cx - 5, ARC.cy + 40 * S, 10, zt - ARC.cy - 46 * S); nc += seg(cx - 2, ARC.cy + 48 * S, cx - 2, zt - 10) + seg(cx + 2, ARC.cy + 48 * S, cx + 2, zt - 10); gold += rect(cx - 8, ARC.cy + 34 * S, 16, 7) + rect(cx - 7, zt - 12, 14, 5); }
     nsh += rect(sd < 0 ? pw - 3 : W - pw, -20, 3, H + 40); });
-  add(near, 'a', rug, C.rug); add(near, 'b', water, C.water); add(near, 'c', ncob, C.cob); add(near, 'd', ncream, C.ncream); add(near, 'e', ngrn, C.grn); add(near, 'f', nor, C.norange); add(near, 'g', gold, C.gold); add(near, 'h', nsh, C.nshade);
+  add(mid, 'g', gsh, C.shade); add(near, 'a', rug, C.rug); add(near, 'b', water, C.water); add(near, 'c', ncob, C.cob); add(near, 'd', ncream, C.ncream); add(near, 'e', ngrn, C.grn); add(near, 'f', nor, C.norange); add(near, 'g', gold, C.gold); add(near, 'h', nsh, C.nshade);
   stk(near, 's', ng, C.grout, ph ? 0.7 : 1); stk(near, 't', nc, C.carve, ph ? 0.8 : 1.2);
   if (ANIM) { ANIM.C = C; ANIM.stars = stars; ANIM.lan = lan; ANIM.trees = tdat; ANIM.arches = arches; ANIM.candles = candles; ANIM.yw = yw; ANIM.yf = yf; ANIM.ARC = ARC; ANIM.pw = pw;
     ANIM.fount = {x: fx, y: fyy, rx: frx - rim * 0.55, ry: fry - rim * 0.28, rimRx: frx + rim, rimRy: fry + rim * 0.45, bowlY: bowlY, brx: brx, bry: bry, spout: bowlY - 12 * S, s: S, fh: fh}; }

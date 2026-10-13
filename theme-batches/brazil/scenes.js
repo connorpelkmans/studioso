@@ -207,7 +207,7 @@ SCENES.brazil = function (W, H, dk, rnd) {
   stk(mid, 's', shine, C.shine, ph ? 1 : 1.4); stk(mid, 't', wire, C.wire, Math.max(0.8, 1.1 * S));
 
   // ---- near: the beach (sand, wet sand at the water's edge, ripples and shells), towels, the kiosk, the flag, palms, the rainforest corner
-  var sand = '', wet = '', wood = '', dleaf = '', leaf = '', warm = '', nk = '', lite = '', vein = '', line = '';
+  var sand = '', wet = '', wood = '', dleaf = '', leaf = '', warm = '', nk = '', lite = '', vein = '', line = '', occ = [];
   var sandW = H * (ph ? 0.075 : 0.085), beach = function (xx, f) { var y0 = brazil_yAt(SH, xx); return y0 + (H - y0) * f; }, PA = brazil_off(SH, sandW * 0.8);
   sand += brazil_pg(SH.concat([[W + 60, H + 40], [-60, H + 40]]));
   wet += brazil_pg(SH.concat(brazil_off(SH, 7 * S).reverse()));
@@ -238,7 +238,7 @@ SCENES.brazil = function (W, H, dk, rnd) {
   for (k = 0; k < 4; k++) lite += brazil_e(kx + 26 * ks + (k % 2) * 2 * ks, ky - 44 * ks + k * 3 * ks, 1.6 * ks, 3.6 * ks);
   // the flagpole planted in the sand (the flag itself waves in the engine)
   var fs = (ph ? 0.85 : 1) * S, fx = W * (ph ? 0.75 : 0.795), fy = beach(fx, ph ? 0.36 : 0.5), fpole = ph ? 150 * fs : Math.max(150 * fs, fy - H * 0.6), flag = {x: fx + 1.6 * fs, y: fy - fpole + 3 * fs, w: (ph ? 62 : 74) * fs, h: (ph ? 43 : 52) * fs, s: fs};
-  nk += rect(fx - 1.6 * fs, fy - fpole, 3.2 * fs, fpole) + rect(fx - 4 * fs, fy - 2 * fs, 8 * fs, 3 * fs);
+  nk += rect(fx - 1.6 * fs, fy - fpole, 3.2 * fs, fpole) + rect(fx - 4 * fs, fy - 2 * fs, 8 * fs, 3 * fs); occ.push({d: rect(fx - 1.6 * fs, fy - fpole, 3.2 * fs, fpole), y: fy});
   lite += brazil_c(fx, fy - fpole - 2.4 * fs, 3 * fs);
   wet += brazil_e(fx + 10 * fs, fy + 1 * fs, 16 * fs, 3 * fs);
   // umbrellas stand in the sand (the engine's), their shadows lie on it
@@ -250,8 +250,8 @@ SCENES.brazil = function (W, H, dk, rnd) {
   (ph ? [[0.62, 0.62, 1, 'c', 0.04, 0.4], [0.93, 0.5, -1, 'r', 0, 0.3]] : [[0.24, 0.6, -1, 'c', -0.05, 0.45], [0.335, 0.665, 1, 'c', 0.035, 0.6], [0.89, 0.42, 1, 'r', 0, 0.3], [0.975, 0.36, -1, 'r', 0, 0.45]]).forEach(function (q, n) {
     var px = W * q[0], py = beach(px, q[5]), cy = H * q[1], royal = q[3] === 'r', cx = px + (royal ? 0 : (py - cy) * q[4] * 2.6), pc = {x: cx, y: cy, royal: royal, fr: [], n: n};
     wet += brazil_e(px + 4 * S, py + 1 * S, 14 * S, 3 * S);
-    if (royal) { wood += brazil_limb(px, py, cx, cy + 34 * S, 15 * S, 10 * S, 3 * S * q[2]); leaf += brazil_limb(cx, cy + 36 * S, cx, cy + 2 * S, 10 * S, 8.4 * S, 0); line += seg(cx - 5 * S, cy + 34 * S, cx + 5 * S, cy + 34 * S); }
-    else { var bnd = -q[2] * 26 * S, dx0 = cx - px, dy0 = cy + 4 * S - py, L1 = Math.hypot(dx0, dy0), nx0 = -dy0 / L1, ny0 = dx0 / L1; wood += brazil_limb(px, py, cx, cy + 4 * S, 13 * S, 8 * S, bnd);
+    if (royal) { wood += brazil_limb(px, py, cx, cy + 34 * S, 15 * S, 10 * S, 3 * S * q[2]); occ.push({d: brazil_limb(px, py, cx, cy + 34 * S, 15 * S, 10 * S, 3 * S * q[2]), y: py}); leaf += brazil_limb(cx, cy + 36 * S, cx, cy + 2 * S, 10 * S, 8.4 * S, 0); line += seg(cx - 5 * S, cy + 34 * S, cx + 5 * S, cy + 34 * S); }
+    else { var bnd = -q[2] * 26 * S, dx0 = cx - px, dy0 = cy + 4 * S - py, L1 = Math.hypot(dx0, dy0), nx0 = -dy0 / L1, ny0 = dx0 / L1; wood += brazil_limb(px, py, cx, cy + 4 * S, 13 * S, 8 * S, bnd); occ.push({d: brazil_limb(px, py, cx, cy + 4 * S, 13 * S, 8 * S, bnd), y: py});
       for (k = 1; k < 14; k++) { var tt2 = k / 14, b2 = Math.sin(Math.PI * tt2) * bnd, rx2 = px + dx0 * tt2 + nx0 * b2, ry2 = py + dy0 * tt2 + ny0 * b2, ww = (13 - 5 * tt2) * S / 2; line += seg(rx2 - ww * 0.9, ry2, rx2 + ww * 0.9, ry2 + 1.2 * S); } }
     var L0 = (royal ? 74 : 62) * S * (ph ? 0.85 : 1), A0 = royal ? [-2.75, -2.25, -1.85, -1.45, -1.05, -0.62, -0.25, 0.4, 2.7] : [-3.0, -2.5, -2.0, -1.5, -1.05, -0.55, -0.1, 0.5, 2.6];
     A0.forEach(function (a, j) { var back = j % 2 === 1, Lf = L0 * (0.8 + hash(n * 9 + j) * 0.35) * (Math.abs(a + 1.57) > 1.3 ? 0.9 : 1); pc.fr.push({d: brazil_frond(cx, cy, a, Lf, (royal ? 15 : 13) * S, royal ? 0.34 : 0.55), back: back, ph: hash(n * 7 + j) * 6.28}); });
@@ -266,7 +266,8 @@ SCENES.brazil = function (W, H, dk, rnd) {
   var hx = W * (ph ? 0.29 : 0.185), hy = jy + 4, hel = {stem: brazil_limb(hx, hy, hx - 4 * js, hy - (ph ? 110 : 150) * js, 3 * js, 2 * js, 4 * js), red: '', yel: '', pv: [hx, hy], ph: 1.3};
   for (k = 0; k < 5; k++) { var by = hy - (ph ? 40 : 55) * js - k * (ph ? 15 : 20) * js, bxx = hx - k * 0.8 * js, sd = k % 2 ? 1 : -1, bl = (20 - k * 2) * js;
     hel.red += brazil_pg([[bxx, by], [bxx + sd * bl, by - bl * 0.42], [bxx + sd * bl * 0.9, by - bl * 0.18], [bxx + sd * bl * 0.3, by + 2 * js]]); hel.yel += brazil_pg([[bxx + sd * bl, by - bl * 0.42], [bxx + sd * bl * 0.78, by - bl * 0.31], [bxx + sd * bl * 0.9, by - bl * 0.18]]); }
-  var brA = [-30, H * (ph ? 0.69 : 0.8)], brB = [W * (ph ? 0.4 : 0.25), H * (ph ? 0.71 : 0.835)], branch = brazil_limb(brA[0], brA[1], brB[0], brB[1], 15 * js, 5 * js, -10 * js) + brazil_limb(brA[0] + (brB[0] - brA[0]) * 0.72, brA[1] + (brB[1] - brA[1]) * 0.72 - 3 * js, brB[0] - 6 * js, brB[1] - 34 * js, 5 * js, 2 * js, 4 * js);
+  var brA = [-30, H * (ph ? 0.69 : 0.8)], brB = [W * (ph ? 0.4 : 0.25), H * (ph ? 0.71 : 0.835)], branch0 = brazil_limb(brA[0], brA[1], brB[0], brB[1], 15 * js, 5 * js, -10 * js), branch = branch0 + brazil_limb(brA[0] + (brB[0] - brA[0]) * 0.72, brA[1] + (brB[1] - brA[1]) * 0.72 - 3 * js, brB[0] - 6 * js, brB[1] - 34 * js, 5 * js, 2 * js, 4 * js);
+  occ.push({d: branch0, y: H});
   var brY = function (xx) { var t = (xx - brA[0]) / (brB[0] - brA[0]); return brA[1] + (brB[1] - brA[1]) * t - Math.sin(Math.PI * t) * 10 * js; };
   var tk2 = [W * (ph ? 0.2 : 0.13), 0, (ph ? 0.78 : 1.1) * S]; tk2[1] = brY(tk2[0]) - 5 * js;
   // a few leaves hanging into the top-right corner
@@ -283,7 +284,7 @@ SCENES.brazil = function (W, H, dk, rnd) {
   add(near, 'a', sand, C.sand); add(near, 'b', wet, C.wet); add(near, 'c', wood, C.wood); add(near, 'd', dleaf, C.dleaf); add(near, 'e', leaf, C.leaf); add(near, 'f', warm, C.warm); add(near, 'g', nk, C.nk); add(near, 'h', lite, C.lite);
   stk(near, 's', vein, C.vein, ANIM ? 1.1 : 1.6); stk(near, 't', line, C.line, 1.2);
   if (ANIM) { ANIM.C = C; ANIM.S = S; ANIM.moon = moon; ANIM.horizon = horizon; ANIM.hz = hz; ANIM.water = waterPts; ANIM.SH = SH; ANIM.PA = PA; ANIM.sandW = sandW;
-    ANIM.loaf = {x: sx, top: stop, wl: wl, wr: wr, lean: lean, body: LF}; ANIM.cab = cab; ANIM.cabS = bs; ANIM.wins = wins; ANIM.umb = umb; ANIM.palms = palms;
+    ANIM.loaf = {x: sx, top: stop, wl: wl, wr: wr, lean: lean, body: LF}; ANIM.cab = cab; ANIM.cabS = bs; ANIM.wins = wins; ANIM.umb = umb; ANIM.palms = palms; ANIM.occ = occ;
     ANIM.jungle = J; ANIM.hel = hel; ANIM.branch = branch; ANIM.toucan = tk2; ANIM.brX = [W * (ph ? 0.08 : 0.06), W * (ph ? 0.3 : 0.2)]; ANIM.brY = [brA, brB, 10 * js];
     ANIM.forest = [W * (ph ? 0.02 : 0.04), W * (ph ? 0.4 : 0.42), H * (ph ? 0.3 : 0.3), H * (ph ? 0.4 : 0.4)]; ANIM.city = favEnd; ANIM.st = {a: [s1x, s1y], b: [s2x, s2y], bs: bs};
     var fx0 = -16, fx1 = favEnd + W * 0.01, ftop = Infinity; for (x = fx0; x <= fx1; x += 4) ftop = Math.min(ftop, brazil_yAt(FH, x));
