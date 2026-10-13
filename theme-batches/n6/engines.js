@@ -202,7 +202,7 @@ ENGINES.culinary = function (A, v, dk) {
     o.fillStyle = 'rgba(0,0,0,' + (dk ? 0.22 : 0.08) + ')'; o.fillRect(0, ctop + H * (ph ? 0.05 : 0.066), W, 2); o.fillStyle = 'rgba(255,255,255,' + (dk ? 0.06 : 0.4) + ')'; o.fillRect(0, ctop + H * (ph ? 0.05 : 0.066) + 2, W, 1.5);
     A.ovens.forEach(function (r) { o.strokeStyle = 'rgba(255,255,255,' + (dk ? 0.14 : 0.6) + ')'; o.lineWidth = 3; o.beginPath(); o.roundRect ? o.roundRect(r[0] - 5, r[1] - 5, r[2] + 10, r[3] + 10, 11) : o.rect(r[0] - 5, r[1] - 5, r[2] + 10, r[3] + 10); o.stroke();
       o.strokeStyle = 'rgba(0,0,0,' + (dk ? 0.3 : 0.12) + ')'; o.lineWidth = 1.5; o.beginPath(); o.roundRect ? o.roundRect(r[0] - 1, r[1] - 1, r[2] + 2, r[3] + 2, 9) : o.rect(r[0] - 1, r[1] - 1, r[2] + 2, r[3] + 2); o.stroke(); });
-    var pmx = ph ? W * 0.5 : (A.burners[1][0] + A.burners[2][0]) / 2, pmy = ky; o.fillStyle = dk ? '#8A7448' : '#C8A45A'; o.beginPath(); o.roundRect ? o.roundRect(pmx - 26, pmy - 6, 52, 12, 4) : o.rect(pmx - 26, pmy - 6, 52, 12); o.fill(); n6_text(o, 'TEST KITCHEN', pmx, pmy + 0.5, 6.5, dk ? '#2A2418' : '#5A4420', '800 ');
+    var pmx = ph ? (A.burners[0][0] + A.burners[1][0]) / 2 : (A.burners[1][0] + A.burners[2][0]) / 2, pmy = ky; o.fillStyle = dk ? '#8A7448' : '#C8A45A'; o.beginPath(); o.roundRect ? o.roundRect(pmx - 26, pmy - 6, 52, 12, 4) : o.rect(pmx - 26, pmy - 6, 52, 12); o.fill(); n6_text(o, 'TEST KITCHEN', pmx, pmy + 0.5, 6.5, dk ? '#2A2418' : '#5A4420', '800 ');
     o.fillStyle = 'rgba(0,0,0,' + (dk ? 0.3 : 0.14) + ')'; o.fillRect(0, H - H * 0.03, W, H * 0.03); o.fillStyle = 'rgba(255,255,255,' + (dk ? 0.05 : 0.3) + ')'; o.fillRect(0, H - H * 0.03, W, 1.5);
     if (!ph) { for (k = 0; k < 6; k++) { o.fillStyle = 'rgba(0,0,0,' + (dk ? 0.3 : 0.15) + ')'; o.beginPath(); o.roundRect ? o.roundRect(W * 0.835 + k * W * 0.022, ctop + H * 0.115, W * 0.012, H * 0.035, 3) : o.rect(W * 0.835 + k * W * 0.022, ctop + H * 0.115, W * 0.012, H * 0.035); o.fill(); } }
     // a striped dish towel over the left oven handle (after the oven's details: it hangs in front of the door)
@@ -294,7 +294,9 @@ ENGINES.culinary = function (A, v, dk) {
       cb.restore();
       A.pots.forEach(function (p, k) { var g = Math.pow(Math.max(0, Math.sin(t * 0.5 + k * 1.9)), 30); if (g > 0.02) n6_dot(cb, sparkG, p.x - p.w * 0.2, p.y + p.h * 0.3, 10 + g * 8, g); });
       tk.forEach(function (q) { ticket(cb, q, t); });
-      A.burners.forEach(function (b, k) { cb.save(); if (dk) cb.globalCompositeOperation = 'lighter'; flames(cb, b, t * f.s, k); n6_dot(cb, flameG, b[0], b[1], b[2] * 0.4, dk ? 0.35 : 0.15); cb.restore(); });
+      A.burners.forEach(function (b, k) { cb.save(); if (dk) cb.globalCompositeOperation = 'lighter';
+        var pot = k === 0 ? A.stock : k === 1 ? A.sauce : null; if (pot) { cb.beginPath(); cb.rect(0, 0, W, H); cb.rect(pot[0] - pot[2] / 2, pot[1], pot[2], A.ctop - 9 - pot[1]); cb.clip('evenodd'); }   // the flames stay under the pots, not on their sides
+        flames(cb, b, t * f.s, k); n6_dot(cb, flameG, b[0], b[1], b[2] * 0.4, dk ? 0.35 : 0.15); cb.restore(); });
       // stockpot lid
       var rt = rattle > 0 ? Math.sin(t * 38) * 0.05 * Math.min(1, rattle * 2) : 0, lf = rattle > 0 ? Math.abs(Math.sin(t * 19)) * 3 * Math.min(1, rattle * 2) : 0;
       lid(cb, S[0], S[1] - 2, S[2], rt, lf);
