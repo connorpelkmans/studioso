@@ -17,7 +17,7 @@
   });
 
   MAJ_THEMES.push({
-    skin: {id: "greece", name: "Santorini", group: "world", desc: "White houses and blue domes above the Aegean.",
+    skin: {id: "greece", name: "Santorini", group: "world", desc: "White cave houses and blue domes on the caldera cliff above the Aegean.",
       light: ["#F1F6FB", "rgba(31,92,170,.10)", "#FFFFFF", "#13253D", "#4C5F77", "#D5E1EE", "#E5EEF7", "#F8FBFE", "#1F5CAA", "#3D7CC6", "#FFFFFF", "#163F7A", "#1B4E92", "#D0E0F4", "#FFE3A0"],
       dark: ["#0C1430", "rgba(242,184,102,.08)", "#141E42", "#EEF2FC", "#AEB8D6", "#2B3868", "#1F2A56", "#111A3A", "#F2B866", "#F6D08E", "#141C3A", "#7A5A34", "#121A3C", "#D4DAF0", "#6A5428"],
       glow: ["linear-gradient(180deg,#8EC9F0,#D8EEFA 45%,#FFF2DC)", "linear-gradient(180deg,#0E1838,#1D2A5A 45%,#6A3E62)"],
@@ -27,6 +27,6 @@
       .concat(fxFall(W, H, n(56), "greecebloom", d ? ["#E0559E", "#C84A8E", "#F08CC0"] : ["#DA338A", "#E85AA6", "#F49AC8"], {sway: 1.8, flip: true, smin: 6, smax: 10, vmin: 1, vmax: 2}),
         fxBurst(W, H, n(10), "greecedome", d ? ["#5A7AD0", "#3E5CB0"] : ["#2D6AC0", "#3B7CC9"], [[0.2, 1.02], [0.8, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.05, 0.05)})),
         fxTw(W, H, n(24), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
-    tag: "A cliff-top village of white houses and blue domes above the deep blue Aegean, with bougainvillea, a windmill and the famous sunset"
+    tag: "Oia's white cave houses and blue domes stacked along the caldera cliff, a windmill on the rim, a mule path zig-zagging down to the harbour, bougainvillea and the famous sunset over the deep blue Aegean"
   });
 })();

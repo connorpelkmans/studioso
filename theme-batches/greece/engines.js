@@ -47,7 +47,7 @@ ENGINES.greece = function (A, v, dk) {
   var seaClip = new Path2D(); seaClip.rect(-40, hz + 1, W + 80, H - hz + 40); seaClip.moveTo(A.cliff[0][0], A.cliff[0][1]); for (i = 1; i < A.cliff.length; i++) seaClip.lineTo(A.cliff[i][0], A.cliff[i][1]); seaClip.closePath(); seaClip.rect(A.kam[0], A.kam[1], A.kam[2], A.kam[3]);
   var sunG = greece_rg('rgba(255,244,214,0.75)', [0.3, 0.3]), warmG = greece_rg('rgba(255,150,70,0.6)', [0.35, 0.3]), moonG = greece_rg('rgba(210,220,255,0.4)', [0.3, 0.3]);
   var winG = greece_rg('rgba(255,190,100,0.55)', [0.3, 0.25]), bulbG = greece_rg('rgba(255,206,120,0.85)', [0.25, 0.3]);
-  var Sx = A.sun[0], Sy = A.sun[1], SR = A.sun[2], setX = W * (ph ? 0.4 : 0.44), Mx = A.moon[0], My = A.moon[1], MR = A.moon[2];
+  var Sx = A.sun[0], Sy = A.sun[1], SR = A.sun[2], setX = A.setX, Mx = A.moon[0], My = A.moon[1], MR = A.moon[2];
   var moonSpr = greece_sprite(MR * 2.4, MR * 2.4, 2, function (o) { var g = o.createRadialGradient(-MR * 0.3, -MR * 0.3, MR * 0.1, 0, 0, MR); g.addColorStop(0, '#FFFFF6'); g.addColorStop(0.8, '#FFF2D2'); g.addColorStop(1, '#F2DCB0'); o.fillStyle = g; o.beginPath(); o.arc(0, 0, MR, 0, 7); o.fill();
     o.fillStyle = 'rgba(214,190,150,0.3)'; [[-0.3, -0.2, 0.22], [0.32, 0.22, 0.17], [0.05, 0.45, 0.13]].forEach(function (q) { o.beginPath(); o.arc(q[0] * MR, q[1] * MR, q[2] * MR, 0, 7); o.fill(); }); });
   var CLD = greece_sprite(220, 50, 1.5, function (o) { o.fillStyle = 'rgba(255,255,255,0.9)'; [[-70, 6, 40, 10], [-20, -2, 50, 15], [40, 4, 46, 12], [84, 9, 24, 7], [0, 10, 92, 8]].forEach(function (q) { o.beginPath(); o.ellipse(q[0], q[1], q[2], q[3], 0, 0, 7); o.fill(); }); o.fillStyle = 'rgba(255,238,214,0.6)'; o.beginPath(); o.ellipse(-10, 13, 80, 4, 0, 0, 7); o.fill(); });
@@ -60,6 +60,7 @@ ENGINES.greece = function (A, v, dk) {
   var sprays = A.sprays.map(function (q, j) { return {x: q.x, y: q.y, len: q.len, s: q.s, ph: hash(j + 31) * 6.28}; }), petals = [], flock = [];
   var TW = A.tower, doves = [0, 1, 2].map(function (q) { return {a: q * 2.1, v: 0.5 + q * 0.08, ry: (14 + q * 5) * s, rx: (60 + q * 16) * s, fl: 7 + q}; });
   var dvCol = dk ? '#E4E2F6' : '#FFFFFF', catCol = dk ? '#8A6458' : '#E8A160', catDk = dk ? '#5E4038' : '#C2763A';
+  var towerOut = new Path2D(); towerOut.rect(-40, -40, W + 80, H + 80); towerOut.rect(TW[0] - TW[2] * 0.5, TW[1] - 2 * s, TW[2], H);
   function sky(c) { c.save(); c.clip(skyClip); }
   return {
     step: function (dt, t, f) {
@@ -118,9 +119,12 @@ ENGINES.greece = function (A, v, dk) {
       // ----- window glows on the cliff (A: the foreground covers them where it stands in front)
       if (dk && WG) { ca.save(); ca.globalCompositeOperation = 'lighter'; ca.globalAlpha = 0.75 + 0.1 * Math.sin(tt * 0.7) + glow * 0.25; ca.drawImage(WG, 0, 0, W, H); ca.restore();
         if (glow > 0) { ca.save(); ca.globalCompositeOperation = 'lighter'; A.wins.forEach(function (w) { var on = greece_ease((T - 1 - (w[0] / W) * 3) * 2) * (1 - greece_ease((T - 9) / 3)); if (on > 0) greece_dot(ca, winG, w[0], w[1], w[2] * 3.4, on * 0.6); }); ca.restore(); } }
-      // ----- doves: behind the tower on A, in front on B
+      // ----- moonlight on the blue domes
+      if (dk) { cb.save(); cb.globalCompositeOperation = 'lighter'; A.domeR.forEach(function (d) { greece_dot(cb, moonG, d[0] - d[2] * 0.35, d[1] - d[2] * 0.55, d[2] * 0.75, 0.55); }); cb.restore(); }
+      // ----- doves circling the bell tower: all on B (they are nearer than the village), but on the far side of their circle
+      // the tower hides them (B is clipped to everything but the tower there)
       doves.forEach(function (d) { var x = TW[0] + Math.cos(d.a) * d.rx, y = TW[1] - 14 * s + Math.sin(d.a) * d.ry + Math.sin(d.a * 3) * 4 * s, dir = -Math.sin(d.a) < 0 ? -1 : 1, fl = Math.sin(tt * d.fl);
-        greece_dove(Math.sin(d.a) < 0 ? ca : cb, x, y, s * 1.45, dir, fl, dvCol, 1 - greece_env(T, 6.4, 7, 14, 15)); });
+        cb.save(); if (Math.sin(d.a) < 0) cb.clip(towerOut, 'evenodd'); greece_dove(cb, x, y, s * 1.45, dir, fl, dvCol, 1 - greece_env(T, 6.4, 7, 14, 15)); cb.restore(); });
       // ----- bells (B, inside the tower's arches); they ring in the moment
       var ring = greece_env(T, 6, 6.4, 9, 11);
       A.bells.forEach(function (b, j) { var sw = Math.sin(tt * 0.8 + j * 2) * 0.04 + ring * Math.sin((t - T0) * (j === 2 ? 11 : 8) + j) * 0.55, bw = 24 * s * b.s;
