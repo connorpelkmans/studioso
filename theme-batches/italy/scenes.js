@@ -173,6 +173,10 @@ SCENES.italy = function (W, H, dk, rnd) {
   var O = italy_occ(W, H + 60, 2), gap = (ph ? 26 : 30) * S, wins = [], shutA = [], lemons = [], ldry = [], cols = ['a', 'a', 'a', 'b', 'b', 'b', 'c', 'c', 'c', 'd', 'd', 'e', 'e'];
   function band(x0, x1, t0, t1, b0, b1) { var d = x1 - x0 || 1; return O.band(x0, x1, function (X) { return t0 + (t1 - t0) * (X - x0) / d; }, function (X) { return b0 + (b1 - b0) * (X - x0) / d; }); }
   function vis(x0, x1, yb) { return O.vis(x0, x1, yb); }
+  // a line (a stroke, painted over every fill of its layer) only where nothing already in front covers it
+  function oLine(pts) { var d = '', run = []; for (var i = 0; i < pts.length; i++) { var a = pts[i], b = pts[i + 1] || a, n = i < pts.length - 1 ? Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 1.5)) : 1;
+      for (var k = 0; k < n; k++) { var u = i < pts.length - 1 ? k / n : 0, x = a[0] + (b[0] - a[0]) * u, y = a[1] + (b[1] - a[1]) * u; if (y <= O.at(x) + 0.3) run.push([x, y]); else { if (run.length > 1) d += pline(run); run = []; } } }
+    if (run.length > 1) d += pline(run); return d; }
   function windowAt(wx, wy, ww, wh, arch, dark) { var sh = arch ? italy_arch(wx, wy, ww, wh) : rect(wx, wy, ww, wh); var lit = dk && !dark && rnd() < 0.62; if (lit) { N.g += sh; wins.push([wx + ww / 2, wy + wh / 2, ww]); } else N.a += sh; }
   function bougainDrape(x, y, len) { for (var q = 0; q < len; q += 4 * S) { var bx = x + Math.sin(q * 0.4) * 2 * S, by = y + q, r = (4.6 - q / len * 2.2) * S; if (vis(bx - r, bx + r, by + r)) { N.f += italy_bougain(bx, by, r, rnd); if (q < 6 * S) N.d += italy_e(bx + 2 * S, by + 1.5 * S, r * 0.8, r * 0.5); } } }
   // a house: front face, a shaded side face and the roof (a flat terrace or a hipped terracotta roof); windows, shutters,
@@ -182,7 +186,8 @@ SCENES.italy = function (W, H, dk, rnd) {
     if (O.min(x, x1 + sx) < top - sy * 2 - 10 * S) return;   // hidden behind what is in front
     if (o.perch) { var sub = gap * (o.row < 0 ? 0.25 : 0.6) * kk, sb0 = base, sb1 = base + sub;   // perched on the rock: a stone footing with a vaulted cellar, and its shadow on the cliff
       M.a += band(x + 1.5 * S, x1 - 1 * S, sb0, sb0, sb1 - 3 * S, sb1); M.g += band(x1 - 4 * S, x1 - 1 * S, sb0, sb0, sb1, sb1) + band(x + 1.5 * S, x1 - 1 * S, sb0, sb0, sb0 + 1.8 * S, sb0 + 1.8 * S);
-      if (vis(x + w * 0.3, x + w * 0.3 + 6 * S, sb0 + 11 * S)) N.a += italy_arch(x + w * 0.3, sb0 + 3 * S, 6 * S, 8 * S);
+      // the cellar's arch fits inside the footing (a short footing gets a smaller arch, or none), so it never hangs below into the sea
+      var cat = sub < 12 * S ? 2 * S : 3 * S, cah = Math.min(8 * S, sub - cat - 2.6 * S), caw = Math.min(6 * S, cah * 1.1); if (cah >= 3.5 * S && vis(x + w * 0.3, x + w * 0.3 + caw, sb0 + cat + cah)) N.a += italy_arch(x + w * 0.3, sb0 + cat, caw, cah);
       M.g += O.band(x1 - 1 * S, x1 + 7 * S, function (X) { return sb0 + (X - x1) * 0.5; }, function () { return sb1 + 4 * S; });
       O.put(x + 1.5 * S, x1 - 1 * S, function () { return sb0; }); }
     var fr = band(x, x1, top, top, base, base), sd = band(x1, x1 + sx, top, top - sy, base, base - sy);
@@ -260,14 +265,18 @@ SCENES.italy = function (W, H, dk, rnd) {
     M.c += band(x0, x1, top, top, cyB, cyB) + band(x1, x1 + sx, top, top - sy, cyB, cyB - sy); M.g += band(x1, x1 + sx, top, top - sy, cyB, cyB - sy);
     M.f += italy_pg([[x0, top], [x1, top], [x1 + sx, top - sy], [x0 + sx, top - sy]]);
     var pd = italy_pg([[x0 - 2 * S, top + 0.5], [cX, top - 15 * S], [x1 + 2 * S, top + 0.5]]); M.c += pd; M.g += italy_pg([[cX, top - 15 * S], [x1 + 2 * S, top + 0.5], [cX, top + 0.5]]);
-    mLine += 'M' + PT(x0 - 2 * S, top + 0.5) + ' L' + PT(cX, top - 15 * S) + ' L' + PT(x1 + 2 * S, top + 0.5) + ' ' + seg(x0, top + 2 * S, x1, top + 2 * S) + seg(x0 + 2 * S, top, x0 + 2 * S, cyB) + seg(x1 - 2 * S, top, x1 - 2 * S, cyB) + seg(x0, cyB - ch * 0.48, x1, cyB - ch * 0.48);
+    // the facade's outlines stop where the houses in front cover it
+    mLine += oLine([[x0 - 2 * S, top + 0.5], [cX, top - 15 * S], [x1 + 2 * S, top + 0.5]]) + oLine([[x0, top + 2 * S], [x1, top + 2 * S]]) + oLine([[x0 + 2 * S, top], [x0 + 2 * S, cyB]]) + oLine([[x1 - 2 * S, top], [x1 - 2 * S, cyB]]) + oLine([[x0, cyB - ch * 0.48], [x1, cyB - ch * 0.48]]);
     windowAt(cX - 5.5 * S, top - 6 * S, 11 * S, 11 * S, true, true); N.b += italy_c(cX, top - 0.5 * S, 1.6 * S);
     if (vis(cX - 8 * S, cX + 8 * S, cyB)) { N.h += italy_arch(cX - 6.5 * S, cyB - 18 * S, 13 * S, 18 * S); mLine += 'M' + PT(cX - 8 * S, cyB) + ' L' + PT(cX - 8 * S, cyB - 13 * S) + ' A' + n1(8 * S) + ' ' + n1(8 * S) + ' 0 0 1 ' + PT(cX + 8 * S, cyB - 13 * S) + ' L' + PT(cX + 8 * S, cyB) + ' '; }
     [-0.33, 0.33].forEach(function (f) { var wx = cX + cw * f - 3 * S; if (vis(wx, wx + 6 * S, top + ch * 0.4)) windowAt(wx, top + ch * 0.12 + 3 * S, 6 * S, 12 * S, true); });
     for (i = 0; i < 3; i++) M.a += band(cX - 10 * S - i * 3 * S, cX + 10 * S + i * 3 * S, cyB - 1 + i * 2 * S, cyB - 1 + i * 2 * S, cyB + 1 + i * 2 * S, cyB + 1 + i * 2 * S);
     // the dome: drum, tiles in a lattice of yellow diamonds, a white lantern
     var dR = cw * 0.4, dX = cX + sx * 0.5, dY = top - sy * 0.5 - 8 * S;
-    M.a += rect(dX - dR * 0.82, dY, dR * 1.64, 9 * S); M.g += rect(dX + dR * 0.38, dY, dR * 0.44, 9 * S); for (i = -2; i <= 2; i++) windowAt(dX + i * dR * 0.3 - 1.8 * S, dY + 2 * S, 3.6 * S, 6 * S, true, true);
+    M.a += rect(dX - dR * 0.82, dY, dR * 1.64, 9 * S); M.g += rect(dX + dR * 0.38, dY, dR * 0.44, 9 * S);
+    // the drum's windows stop at the pediment, which stands in front of the drum
+    var pedY = function (X) { return top + 0.5 - (15 * S + 0.5) * Math.max(0, 1 - Math.abs(X - cX) / (cw / 2 + 2 * S)); };
+    for (i = -2; i <= 2; i++) { var dwx = dX + i * dR * 0.3 - 1.8 * S, dwb = Math.min(dY + 8 * S, pedY(dwx) - 0.6 * S, pedY(dwx + 3.6 * S) - 0.6 * S); if (dwb - dY - 2 * S >= 3 * S) windowAt(dwx, dY + 2 * S, 3.6 * S, dwb - dY - 2 * S, true, true); }
     var dh = dR * 1.08; N.c += italy_dome(dX, dY, dR, dh);
     var dia = ''; for (j = 0; j < 5; j++) for (i = -6; i <= 6; i++) { var qx = dX + (i + (j % 2) * 0.5) * dR * 0.27, qy = dY - dR * 0.16 - j * dR * 0.2, qr = dR * 0.085, ex = (qx - dX) / dR, ey = (dY - qy) / dh; if (ex * ex + ey * ey < 0.76) dia += italy_pg([[qx, qy - qr * 1.3], [qx + qr, qy], [qx, qy + qr * 1.3], [qx - qr, qy]]); }
     N.g += dia + rect(dX - dR, dY - 1.6 * S, dR * 2, 2 * S);
@@ -278,7 +287,7 @@ SCENES.italy = function (W, H, dk, rnd) {
     // the bell tower, with two arched openings for the bells (the engine's) and a little tiled cupola
     var tH = gap * 3.4, tt = cyB - tH, td = 10 * S, tsx = td * 0.8, tsy = td * 0.55;
     M.a += band(tX, tX + tW, tt, tt, cyB, cyB) + band(tX + tW, tX + tW + tsx, tt, tt - tsy, cyB, cyB - tsy); M.g += band(tX + tW, tX + tW + tsx, tt, tt - tsy, cyB, cyB - tsy);
-    for (i = 1; i < 4; i++) mLine += seg(tX, tt + tH * i / 4, tX + tW, tt + tH * i / 4);
+    for (i = 1; i < 4; i++) mLine += oLine([[tX, tt + tH * i / 4], [tX + tW, tt + tH * i / 4]]);
     windowAt(tX + tW * 0.1, tt + 5 * S, tW * 0.36, 13 * S, true, true); windowAt(tX + tW * 0.54, tt + 5 * S, tW * 0.36, 13 * S, true, true);
     windowAt(tX + tW / 2 - 2.5 * S, tt + tH * 0.42, 5 * S, 9 * S, true);
     if (vis(tX, tX + tW, cyB - tH * 0.3)) { N.b += italy_c(tX + tW / 2, tt + tH * 0.27, 4.4 * S); nWood += seg(tX + tW / 2, tt + tH * 0.27, tX + tW / 2, tt + tH * 0.27 - 3 * S) + seg(tX + tW / 2, tt + tH * 0.27, tX + tW / 2 + 2.4 * S, tt + tH * 0.27); }

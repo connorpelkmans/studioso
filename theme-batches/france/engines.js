@@ -64,13 +64,16 @@ ENGINES.france = function (A, v, dk) {
     o.strokeStyle = '#6A5040'; o.lineWidth = 0.8; o.beginPath(); o.moveTo(-8, 26); o.lineTo(-5, 34); o.moveTo(8, 26); o.lineTo(5, 34); o.stroke();
     o.fillStyle = '#9A6A40'; o.fillRect(-5.4, 34, 10.8, 7); o.fillStyle = '#7A5030'; o.fillRect(-5.4, 34, 10.8, 1.6); });
   // pigeons on the cobbles
-  var px0 = W * (ph ? 0.6 : 0.31), px1 = W * (ph ? 0.86 : 0.55), py0 = pbot + H * 0.025, py1 = H - H * 0.02, pigs = [];
+  // the pigeons keep to open paving (in front of nothing that stands nearer: the flower cart, the bicycle)
+  var px0 = W * (ph ? 0.72 : 0.31), px1 = W * (ph ? 0.86 : 0.53), py0 = pbot + H * 0.025, py1 = H - H * 0.02, pigs = [];
   for (i = 0; i < (ph ? 3 : 5); i++) pigs.push({x: px0 + hash(i + 31) * (px1 - px0), y: py0 + hash(i + 32) * (py1 - py0), dir: hash(i + 33) < 0.5 ? -1 : 1, st: 'idle', tt: hash(i + 34) * 2, dur: 1, z: 0, peck: 0, vx: 0, vy: 0, fx: 0, fy: 0, x0: 0, y0: 0});
   function pigNext(p) { var r = Math.random(); p.st = r < 0.42 ? 'peck' : r < 0.82 ? 'hop' : r < 0.96 ? 'idle' : 'fly'; p.dur = p.st === 'peck' ? 0.7 : p.st === 'hop' ? 0.32 : p.st === 'fly' ? 2.6 : 0.8 + Math.random() * 1.4; p.tt = 0; p.x0 = p.x; p.y0 = p.y;
     if (p.st === 'hop') { if (Math.random() < 0.25) p.dir *= -1; p.fx = Math.max(px0, Math.min(px1, p.x + p.dir * (6 + Math.random() * 8) * (ph ? 0.8 : S))); p.fy = Math.max(py0, Math.min(py1, p.y + (Math.random() - 0.5) * 6)); }
     if (p.st === 'fly') { p.fx = px0 + Math.random() * (px1 - px0); p.fy = py0 + Math.random() * (py1 - py0); p.dir = p.fx > p.x ? 1 : -1; } }
   // chestnut leaves that sway at the edge of each canopy (sprites in the two greens), and a few falling leaves
   var LEAF = [C.lfD, C.lfL].map(function (col) { return france_sprite(30, 30, 3, function (o) { o.fillStyle = col; for (var k = 0; k < 5; k++) { var a = -Math.PI / 2 + (k - 2) * 0.5, L = 13 * (1 - Math.abs(k - 2) * 0.16); o.save(); o.rotate(a); o.beginPath(); o.ellipse(L * 0.55, 0, L * 0.5, L * 0.18, 0, 0, 7); o.fill(); o.restore(); } o.strokeStyle = col; o.lineWidth = 1; o.beginPath(); o.moveTo(0, 0); o.lineTo(0, 5); o.stroke(); }); });
+  // a lamp whose glass is hidden behind the chestnut's crown gets no glow (the glow is painted on the front canvas)
+  var lampHid = A.lamps.map(function (l) { return A.trees.some(function (tr) { return tr.blobs.some(function (b) { return Math.hypot(l[0] - b[0], l[1] - b[1]) < b[2] * 0.92 + 6 * tr.s; }); }); });
   var sway = []; A.trees.forEach(function (tr, n) { tr.blobs.forEach(function (b, m) { for (var k = 0; k < 5; k++) { var a = (k / 5 + hash(m * 5 + k + n * 50) * 0.15) * Math.PI * 2; if (Math.sin(a) < -0.6 && hash(k + m) < 0.6) continue; sway.push({x: b[0] + Math.cos(a) * b[2] * 0.98, y: b[1] + Math.sin(a) * b[2] * 0.98, a: a + Math.PI / 2, s: tr.s * (0.8 + hash(k * 7 + m) * 0.4), c: k % 3 === 0 ? 1 : 0, ph: hash(k + m * 3 + n) * 6.28, gx: tr.x}); } }); });
   var fall = []; for (i = 0; i < (ph ? 2 : 4); i++) fall.push({x: -99, y: 0, vx: 0, vy: 0, r: 0, t: i * 3.4});
   var FALLL = france_sprite(30, 30, 3, function (o) { o.fillStyle = dk ? '#7A8A4A' : '#C8A84A'; for (var k = 0; k < 5; k++) { var a = -Math.PI / 2 + (k - 2) * 0.5, L = 13 * (1 - Math.abs(k - 2) * 0.16); o.save(); o.rotate(a); o.beginPath(); o.ellipse(L * 0.55, 0, L * 0.5, L * 0.18, 0, 0, 7); o.fill(); o.restore(); } });
@@ -170,7 +173,7 @@ ENGINES.france = function (A, v, dk) {
       pigs.slice().sort(function (a, b) { return a.y - b.y; }).forEach(function (p) { var ps = (ph ? 1.05 : 1.45 * S) * (0.85 + (p.y - py0) / (py1 - py0 + 1) * 0.3);
         cb.fillStyle = dk ? 'rgba(0,0,10,0.25)' : 'rgba(60,40,20,0.16)'; cb.beginPath(); cb.ellipse(p.x, p.y, 7 * ps * Math.max(0.4, 1 - p.z / 60), 1.6 * ps, 0, 0, 7); cb.fill();
         france_pigeon(cb, p.x, p.y - p.z, ps, p.dir, t, p.peck, p.st === 'fly' || p.z > 3 && p.st !== 'hop', dk); });
-      if (dk) { cb.save(); cb.globalCompositeOperation = 'lighter'; A.lamps.forEach(function (l, k) { france_dot(cb, lampG, l[0], l[1], 30 * l[2], 0.75 + 0.08 * Math.sin(tt * 2 + k)); }); A.cafe.forEach(function (g) { france_dot(cb, winG, g[0] + g[2] / 2, g[1] + g[3] / 2, g[3] * 0.9, 0.5); }); cb.restore();
+      if (dk) { cb.save(); cb.globalCompositeOperation = 'lighter'; A.lamps.forEach(function (l, k) { if (!lampHid[k]) france_dot(cb, lampG, l[0], l[1], 30 * l[2], 0.75 + 0.08 * Math.sin(tt * 2 + k)); }); A.cafe.forEach(function (g) { france_dot(cb, winG, g[0] + g[2] / 2, g[1] + g[3] / 2, g[3] * 0.9, 0.5); }); cb.restore();
         cb.save(); cb.globalAlpha = 0.5; cb.fillStyle = '#F6C070'; A.cafe.forEach(function (g) { cb.fillRect(g[0], g[1], g[2], g[3]); }); cb.restore(); }
     },
     finish: function (t) { T0 = t; pigs.forEach(function (p, k) { p.st = 'fly'; p.dur = 2.4 + k * 0.2; p.tt = -k * 0.15; p.x0 = p.x; p.y0 = p.y; p.fx = px0 + Math.random() * (px1 - px0); p.fy = py0 + Math.random() * (py1 - py0); p.dir = p.fx > p.x ? 1 : -1; }); }
