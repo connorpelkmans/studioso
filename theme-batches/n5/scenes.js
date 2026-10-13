@@ -100,80 +100,155 @@ SCENES.pride = function (W, H, dk, rnd) {
   return {sky: sky, far: far, refl: refl, mid: mid, near: near};
 };
 
-// 2. Graduation Day: a campus lawn before an old hall with a clock tower, a stage, banners and rows of chairs.
-// chair rows in perspective (back view): returns [{y, s, xs: [...]}], front row last
-function n5_rows(W, H, ph, y0, y1, aisle) {
-  var rows = [], n = 3;
-  for (var r = 0; r < n; r++) { var u = r / (n - 1), y = y0 + (y1 - y0) * Math.pow(u, 1.1), s = (ph ? 0.9 : 1.05) + u * (ph ? 0.4 : 0.55), sp = 46 * s, xs = [];
-    for (var x = aisle - 26 * s - sp * 0.5; x > -sp; x -= sp) xs.push(x); for (x = aisle + 26 * s + sp * 0.5; x < W + sp; x += sp) xs.push(x);
-    rows.push({y: y, s: s, xs: xs.sort(function (a, b) { return a - b; })}); }
+// 2. Graduation Day: a grand campus quad. A wide main hall with a portico, grand steps and a clock tower at the back, brick colleges receding down both sides behind avenues of trees,
+// spires beyond, a gate at the front, banners and bunting along the walk, and the graduating class standing on the lawn.
+// a point on a facade that recedes in perspective: w = 0..1 along it in the world (near to far), f = fraction of its height
+function n5_pp(B, w, f) { var u = w / (B.r * (1 - w) + w); return [B.x0 + (B.x1 - B.x0) * u, B.y0 + (B.y1 - B.y0) * u - f * (B.h0 + (B.h1 - B.h0) * u)]; }
+function n5_pq(B, wa, wb, fa, fb) { return [n5_pp(B, wa, fa), n5_pp(B, wb, fa), n5_pp(B, wb, fb), n5_pp(B, wa, fb)]; }
+// an arched window on a receding facade (path) and its outline points (for the night glow)
+function n5_parch(B, wa, wb, fa, fb, ah) { var a = n5_pp(B, wa, fa), b = n5_pp(B, wb, fa), c = n5_pp(B, wb, fb), d = n5_pp(B, wa, fb), m = n5_pp(B, (wa + wb) / 2, fb + ah * 2); return 'M' + PT(a[0], a[1]) + ' L' + PT(d[0], d[1]) + ' Q' + PT(m[0], m[1]) + ' ' + PT(c[0], c[1]) + ' L' + PT(b[0], b[1]) + ' Z '; }
+// a brick college building down the side of the quad: its long inner face, slate roof, dormers, chimneys, a white entrance
+function n5_college(B, o) {
+  var n = B.n, fl = B.fl, i, j;
+  o.wall += poly(n5_pq(B, 0, 1, 0, 1));
+  o.roof += poly(n5_pq(B, -0.02, 1.02, 1, 1.24));
+  o.trim += poly(n5_pq(B, -0.02, 1.02, 0.965, 1.03)) + poly(n5_pq(B, 0, 1, 0, 0.05));
+  for (j = 1; j < fl; j++) { var fbnd = 0.07 + j * 0.86 / fl; o.trim += poly(n5_pq(B, 0, 1, fbnd - 0.012, fbnd + 0.004)); }
+  for (i = 0; i <= n; i++) o.shade += poly(n5_pq(B, i / n - 0.014, i / n + 0.014, 0.05, 0.965));
+  var door = Math.floor(n / 2);
+  for (i = 0; i < n; i++) {
+    for (j = 0; j < fl; j++) {
+      var wa = (i + 0.26) / n, wb = (i + 0.74) / n, fa = 0.1 + j * 0.86 / fl, fb = fa + 0.86 / fl * 0.6;
+      if (i === door && j === 0) continue;
+      o.glass += n5_parch(B, wa, wb, fa, fb, 0.03); o.trim += poly(n5_pq(B, wa - 0.03 / n, wb + 0.03 / n, fa - 0.014, fa));
+      o.wins.push([n5_pp(B, wa, fa), n5_pp(B, wa, fb), n5_pp(B, (wa + wb) / 2, fb + 0.06), n5_pp(B, wb, fb), n5_pp(B, wb, fa)]);
+    }
+    // a dormer on every other bay
+    if (i % 2 === 1) { var dm = (i + 0.5) / n; o.trim += poly([n5_pp(B, dm - 0.3 / n, 1.03), n5_pp(B, dm + 0.3 / n, 1.03), n5_pp(B, dm + 0.3 / n, 1.13), n5_pp(B, dm, 1.2), n5_pp(B, dm - 0.3 / n, 1.13)]); o.glass += poly(n5_pq(B, dm - 0.15 / n, dm + 0.15 / n, 1.05, 1.12)); }
+  }
+  [0.1, 0.9].forEach(function (cw) { o.wall += poly(n5_pq(B, cw - 0.022, cw + 0.022, 1.15, 1.36)); o.trim += poly(n5_pq(B, cw - 0.03, cw + 0.03, 1.34, 1.38)); });
+  // the white entrance with a little pediment
+  var da = (door + 0.18) / n, db = (door + 0.82) / n, fd = 0.86 / fl * 0.78 + 0.05;
+  o.trim += poly(n5_pq(B, da - 0.04 / n, db + 0.04 / n, 0.05, fd + 0.02)) + poly([n5_pp(B, da - 0.1 / n, fd + 0.02), n5_pp(B, db + 0.1 / n, fd + 0.02), n5_pp(B, (da + db) / 2, fd + 0.11)]);
+  o.door += n5_parch(B, da + 0.1 / n, db - 0.1 / n, 0.05, fd - 0.06, 0.025);
+}
+// the graduating class: rows standing on the lawn in perspective, kept off the walk and the gate. [{y, s, xs}], back row first
+function n5_class(W, H, ph, y0, y1, half, gate) {
+  var rows = [], n = 4, r, x;
+  for (r = 0; r < n; r++) { var u = r / (n - 1), y = y0 + (y1 - y0) * Math.pow(u, 1.05), s = (ph ? 0.92 : 1.05) + u * (ph ? 0.32 : 0.55), sp = (ph ? 30 : 36) * s, xs = [], hw = half(y) + 13 * s;
+    for (x = -sp * 0.3 + (r % 2) * sp * 0.5; x < W + sp; x += sp) { var xx = x + (hash(r * 17.3 + x * 0.13) - 0.5) * sp * 0.35;
+      if (Math.abs(xx - gate.c) < hw) continue; if (gate.d && Math.abs(xx - gate.c) < gate.d + 17 * s) continue; if (hash(r * 5.1 + xx * 0.37) < 0.08) continue; xs.push(xx); }
+    rows.push({y: y, s: s, xs: xs}); }
   return rows;
 }
-function n5_chair(x, y, s) { return rrect(x - 11 * s, y - 25 * s, 22 * s, 11 * s, 3 * s) + rect(x - 11 * s, y - 15 * s, 22 * s, 4 * s) + rect(x - 10 * s, y - 13 * s, 2.4 * s, 13 * s) + rect(x + 7.6 * s, y - 13 * s, 2.4 * s, 13 * s); }
 SCENES.graduation = function (W, H, dk, rnd) {
   var ph = H > W, far = Lay(3), refl = Lay(0), mid = Lay(0), near = Lay(0);
-  var sky = dk ? 'linear-gradient(180deg,#141E3A 0%,#22305A 50%,#4A4A6E 100%)' : 'linear-gradient(180deg,#B9DAF3 0%,#EAF3FA 56%,#D9E8C2 100%)';
-  var cx = W * (ph ? 0.5 : 0.7), hw = ph ? W * 0.96 : Math.min(620, W * 0.52), yl = H * (ph ? 0.66 : 0.67), bh = H * (ph ? 0.11 : 0.16), cw = hw * 0.38, wh = bh * 0.8;
-  // far: tree line, clouds, the sun or the moon glow
-  var tl = '', tl2 = '';
-  for (var x = -40; x < W + 60; x += 38 + rnd() * 30) { var r = 26 + rnd() * 26; tl += m5_circW(x, yl - r * 0.6 - rnd() * 14, r); }
-  for (x = -20; x < W + 60; x += 50 + rnd() * 30) { r = 22 + rnd() * 18; tl2 += m5_circW(x, yl - r * 0.3, r); }
-  add(far, 'a', tl + rect(-40, yl - 30, W + 80, 40), dk ? '#26335E' : '#B7D3B4'); add(far, 'b', tl2, dk ? '#2C3A64' : '#A3C7A0');
-  if (dk) add(far, 'c', circ(W * (ph ? 0.15 : 0.16), H * 0.14, 80), 'rgba(220,230,255,0.10)');
-  else { var cl = ''; (ph ? [[0.15, 0.1, 0.6], [0.7, 0.2, 0.5]] : [[0.1, 0.16, 0.9], [0.38, 0.07, 0.7], [0.58, 0.2, 0.8], [0.9, 0.08, 0.7]]).forEach(function (q) { cl += n5_cloud(W * q[0], H * q[1], q[2]); }); add(far, 'c', cl, 'rgba(255,255,255,0.9)'); add(far, 'd', circ(W * (ph ? 0.82 : 0.16), H * (ph ? 0.16 : 0.1), 80), 'rgba(255,248,210,0.5)'); add(far, 'e', circ(W * (ph ? 0.82 : 0.16), H * (ph ? 0.16 : 0.1), 30), '#FFF6CC'); }
-  // trees beside the hall (the refl layer sits under the hall)
-  var trees = '', hi = '', trunks = '', TX = ph ? [[0.04, 1], [0.97, 0.9]] : [[0.03, 1.2], [0.13, 0.9], [0.42, 1.0], [0.985, 1.1]];
-  TX.forEach(function (q) { var tx = W * q[0], s = q[1] * (ph ? 1.1 : 1.6); trunks += poly([[tx - 5 * s, yl + 4], [tx - 3 * s, yl - 34 * s], [tx + 3 * s, yl - 34 * s], [tx + 5 * s, yl + 4]]); trees += n5_tree(tx, yl - 16 * s, s * 1.15); hi += m5_circW(tx - 8 * s, yl - 74 * s, 10 * s) + m5_circW(tx + 12 * s, yl - 64 * s, 8 * s); });
-  add(refl, 'a', trunks, dk ? '#3A2E4A' : '#8A6A50'); add(refl, 'b', trees, dk ? '#1F3A4A' : '#5FA866'); add(refl, 'c', hi, dk ? '#2A4A58' : '#8CCB7E');
-  // the hall
-  var L0 = cx - hw / 2, L1 = cx - cw / 2, R0 = cx + cw / 2, R1 = cx + hw / 2, top = yl - bh, wt = yl - wh;
-  var stone = rect(L0, wt, L1 - L0 + 2, wh + 4) + rect(R0 - 2, wt, R1 - R0 + 2, wh + 4) + rect(L1, top, cw, bh + 4);
-  var shade = rect(L0, wt, 6, wh) + rect(R1 - 10, wt, 10, wh) + rect(L1 - 4, top, 8, bh) + rect(R0 - 4, top, 8, bh) + rect(L0, yl - 8, hw, 8);
-  var roof = poly([[L0 - 6, wt], [L0 + 14, wt - wh * 0.32], [L1, wt - wh * 0.32], [L1, wt]]) + poly([[R0, wt], [R0, wt - wh * 0.32], [R1 - 14, wt - wh * 0.32], [R1 + 6, wt]]);
-  var white = rect(L0 - 6, wt - 4, L1 - L0 + 6, 6) + rect(R0, wt - 4, R1 - R0 + 6, 6) + rect(L1 - 4, top - 6, cw + 8, 8) + rect(L0 - 4, yl - 12, hw + 8, 5);
-  var glass = '', door = '', ivy = '', wins = [];
-  // wing windows: two rows of arched windows
-  [[L0, L1], [R0, R1]].forEach(function (w) { var n = Math.max(2, Math.floor((w[1] - w[0]) / (ph ? 26 : 34))), sp = (w[1] - w[0]) / n, ww = sp * 0.48;
-    for (var i = 0; i < n; i++) for (var j = 0; j < 2; j++) { var wx = w[0] + sp * (i + 0.5) - ww / 2, wy = wt + wh * (0.14 + j * 0.44), whh = wh * 0.3; glass += n5_win(wx, wy, ww, whh, true); white += rect(wx - 2, wy + whh, ww + 4, 2.5); wins.push({x: wx, y: wy, w: ww, h: whh, k: rnd()}); } });
-  // portico: columns, pediment, steps
-  var pw = cw * 0.92, nc = ph ? 4 : 6, colH = bh * 0.7, cTop = yl - 12 - colH;
-  for (var i = 0; i < nc; i++) { var px = cx - pw / 2 + (i + 0.5) * pw / nc, cwd = pw / nc * 0.36; white += rect(px - cwd / 2, cTop, cwd, colH) + rect(px - cwd * 0.75, cTop - 3, cwd * 1.5, 4) + rect(px - cwd * 0.75, yl - 15, cwd * 1.5, 4); }
-  white += rect(cx - pw / 2 - 6, cTop - 12, pw + 12, 10) + poly([[cx - pw / 2 - 10, cTop - 12], [cx, cTop - 12 - pw * 0.2], [cx + pw / 2 + 10, cTop - 12]]);
-  var tymp = poly([[cx - pw / 2 + 6, cTop - 15], [cx, cTop - 12 - pw * 0.2 + 7], [cx + pw / 2 - 6, cTop - 15]]);
-  door += n5_win(cx - pw * 0.09, yl - 12 - colH * 0.62, pw * 0.18, colH * 0.62, true);
-  glass += n5_win(cx - pw * 0.34, yl - 12 - colH * 0.5, pw * 0.1, colH * 0.36, true) + n5_win(cx + pw * 0.24, yl - 12 - colH * 0.5, pw * 0.1, colH * 0.36, true);
-  for (var s = 0; s < 3; s++) white += rect(cx - pw / 2 - 8 - s * 7, yl - 8 + s * 5, pw + 16 + s * 14, 5);
-  // clock tower with a belfry and a copper cupola
-  var tw = cw * (ph ? 0.3 : 0.32), tb = cTop - 12 - pw * 0.2 + 10, th = H * (ph ? 0.12 : 0.25), tt = tb - th, ck = tw * 0.36, cky = tt + th * (ph ? 0.25 : 0.2);
-  stone += rect(cx - tw / 2, tt, tw, th + 2); shade += rect(cx + tw / 2 - 5, tt, 5, th);
-  white += rect(cx - tw / 2 - 4, tt - 4, tw + 8, 6) + rect(cx - tw / 2 - 3, cky + ck + 8, tw + 6, 4);
-  if (!ph) { glass += n5_win(cx - tw * 0.12, cky + ck + th * 0.18, tw * 0.24, th * 0.2, true) + n5_win(cx - tw * 0.12, cky + ck + th * 0.48, tw * 0.24, th * 0.14, true); white += rect(cx - tw * 0.18, cky + ck + th * 0.38, tw * 0.36, 2.5); }
-  var bel = tt - tw * 0.8; stone += rect(cx - tw * 0.38, bel, tw * 0.76, tw * 0.8); glass += n5_win(cx - tw * 0.22, bel + tw * 0.14, tw * 0.18, tw * 0.5, true) + n5_win(cx + tw * 0.04, bel + tw * 0.14, tw * 0.18, tw * 0.5, true); white += rect(cx - tw * 0.44, bel - 3, tw * 0.88, 5);
-  var cup = 'M' + PT(cx - tw * 0.42, bel - 2) + ' Q' + PT(cx - tw * 0.42, bel - tw * 0.75) + ' ' + PT(cx, bel - tw * 0.9) + ' Q' + PT(cx + tw * 0.42, bel - tw * 0.75) + ' ' + PT(cx + tw * 0.42, bel - 2) + ' Z ';
+  var yl = H * 0.6, cx = W * (ph ? 0.5 : 0.565), hw = ph ? W * 0.98 : W * 0.6, yp = (yl / H * 100).toFixed(1);
+  var sky = dk ? 'linear-gradient(180deg,#121A36 0%,#1E2A52 ' + (yp * 0.55).toFixed(1) + '%,#3E4470 ' + yp + '%,#1E3A3A ' + yp + '%,#1A3434 100%)'
+    : 'linear-gradient(180deg,#A9D2F2 0%,#D4E8F7 ' + (yp * 0.6).toFixed(1) + '%,#F1F6EC ' + yp + '%,#94CF80 ' + yp + '%,#80C26E 100%)';
+  // far: distant spires and a dome beyond the quad, the tree line, clouds, the sun, the lawn's mown stripes
+  var dist = '', ddet = '', tl = '', tl2 = '', x, r;
+  function spire(x, b, w, h) { dist += rect(x - w / 2, b - h, w, h + 10) + poly([[x - w / 2 - 3, b - h], [x, b - h - w * 2.2], [x + w / 2 + 3, b - h]]); ddet += n5_win(x - w * 0.15, b - h + w * 0.5, w * 0.3, w * 0.9, true); }
+  function dome(x, b, w, h) { dist += rect(x - w / 2, b - h, w, h + 10) + rect(x - w * 0.4, b - h - w * 0.22, w * 0.8, w * 0.22) + 'M' + PT(x - w * 0.42, b - h - w * 0.2) + ' Q' + PT(x - w * 0.42, b - h - w * 0.85) + ' ' + PT(x, b - h - w * 0.9) + ' Q' + PT(x + w * 0.42, b - h - w * 0.85) + ' ' + PT(x + w * 0.42, b - h - w * 0.2) + ' Z ' + rect(x - 2, b - h - w * 1.1, 4, w * 0.25);
+    for (var q = 0; q < 4; q++) ddet += n5_win(x - w * 0.4 + q * w * 0.22, b - h + w * 0.18, w * 0.1, w * 0.3, true); }
+  if (ph) { spire(W * 0.2, yl - H * 0.1, 18, H * 0.12); dome(W * 0.8, yl - H * 0.1, 56, H * 0.06); }
+  else { spire(W * 0.11, yl - H * 0.12, 26, H * 0.26); spire(W * 0.165, yl - H * 0.1, 18, H * 0.2); spire(W * 0.36, yl - H * 0.12, 22, H * 0.22); dome(W * 0.83, yl - H * 0.1, 92, H * 0.12); spire(W * 0.96, yl - H * 0.1, 22, H * 0.26); }
+  add(far, 'a', dist, dk ? '#2E3C6E' : '#B9C6E2'); add(far, 'b', ddet, dk ? 'rgba(255,214,150,0.45)' : '#9EADD0');
+  for (x = -40; x < W + 60; x += 34 + rnd() * 28) { r = 22 + rnd() * 24; tl += m5_circW(x, yl - r * 0.5 - rnd() * 16, r); }
+  for (x = -20; x < W + 60; x += 46 + rnd() * 26) { r = 18 + rnd() * 16; tl2 += m5_circW(x, yl - r * 0.25, r); }
+  add(far, 'c', tl + rect(-40, yl - 26, W + 80, 34), dk ? '#22305A' : '#B4D2B0'); add(far, 'd', tl2, dk ? '#283A60' : '#9CC598');
+  if (!dk) { var cl = ''; (ph ? [[0.16, 0.08, 0.55], [0.74, 0.16, 0.5]] : [[0.08, 0.12, 0.85], [0.33, 0.05, 0.65], [0.7, 0.14, 0.7], [0.92, 0.05, 0.6]]).forEach(function (q) { cl += n5_cloud(W * q[0], H * q[1], q[2]); }); add(far, 'e', cl, 'rgba(255,255,255,0.92)');
+    var SN = ph ? [W * 0.84, H * 0.07] : [W * 0.2, H * 0.09]; add(far, 'f', circ(SN[0], SN[1], 76), 'rgba(255,248,210,0.5)'); add(far, 'g', circ(SN[0], SN[1], 28), '#FFF6CC'); }
+  var stripes = ''; for (x = -W; x < W * 2; x += 110) stripes += poly([[x, yl], [x + 55, yl], [x + 55 + (x + 27 - cx) * 1.1, H + 10], [x + (x + 27 - cx) * 1.1, H + 10]]);
+  add(far, 'h', stripes, dk ? 'rgba(255,255,255,0.025)' : 'rgba(255,255,255,0.13)');
+  // refl: the main hall
+  var cw = hw * 0.36, wh = H * (ph ? 0.12 : 0.17), bh = H * (ph ? 0.175 : 0.25), pv = hw * (ph ? 0.1 : 0.085);
+  var L0 = cx - hw / 2, L1 = cx - cw / 2, R0 = cx + cw / 2, R1 = cx + hw / 2, top = yl - bh, wt = yl - wh, pvt = yl - wh * 1.22;
+  var stone = rect(L0, wt, hw, wh + 2) + rect(L1, top, cw, bh + 2) + rect(L0, pvt, pv, wh * 1.22 + 2) + rect(R1 - pv, pvt, pv, wh * 1.22 + 2);
+  var shade = rect(L1 - 5, top, 5, bh) + rect(R0, top, 6, bh) + rect(L0 + pv, wt, 4, wh) + rect(R1 - pv - 4, wt, 4, wh) + rect(L0, yl - 7, hw, 7);
+  var roof = poly([[L0 + pv, wt], [L0 + pv + 10, wt - wh * 0.26], [L1, wt - wh * 0.26], [L1, wt]]) + poly([[R0, wt], [R0, wt - wh * 0.26], [R1 - pv - 10, wt - wh * 0.26], [R1 - pv, wt]]);
+  var white = rect(L0 - 3, wt - 4, hw + 6, 6) + rect(L0 - 4, pvt - 5, pv + 8, 7) + rect(R1 - pv - 4, pvt - 5, pv + 8, 7) + rect(L1 - 5, top - 7, cw + 10, 9) + rect(L0 - 3, yl - 10, hw + 6, 5);
+  var copper = poly([[L0 - 2, pvt - 5], [L0 + pv * 0.22, pvt - 5 - pv * 0.5], [L0 + pv * 0.78, pvt - 5 - pv * 0.5], [L0 + pv + 2, pvt - 5]]) + poly([[R1 - pv - 2, pvt - 5], [R1 - pv * 0.78, pvt - 5 - pv * 0.5], [R1 - pv * 0.22, pvt - 5 - pv * 0.5], [R1 + 2, pvt - 5]]);
+  var glass = '', door = '', ivy = '', wins = [], bal = '';
+  // balustrades along the wing roofs
+  [[L0 + pv + 4, L1 - 4], [R0 + 4, R1 - pv - 4]].forEach(function (s) { white += rect(s[0], wt - 4 - wh * 0.1, s[1] - s[0], 3); for (var q = s[0] + 3; q < s[1] - 2; q += 7) bal += seg(q, wt - 4, q, wt - 3 - wh * 0.1); });
+  // wing windows: two rows of tall arched windows, pilasters between them
+  [[L0 + pv, L1], [R0, R1 - pv]].forEach(function (w) { var n = Math.max(2, Math.floor((w[1] - w[0]) / (ph ? 24 : 34))), sp = (w[1] - w[0]) / n, ww = sp * 0.46;
+    for (var i = 0; i < n; i++) { if (i) shade += rect(w[0] + sp * i - 2, wt + 2, 4, wh - 9);
+      for (var j = 0; j < 2; j++) { var wx = w[0] + sp * (i + 0.5) - ww / 2, wy = wt + wh * (0.12 + j * 0.45), whh = wh * 0.32; glass += n5_win(wx, wy, ww, whh, true); white += rect(wx - 2, wy + whh, ww + 4, 2.5); wins.push({x: wx, y: wy, w: ww, h: whh, k: rnd()}); } } });
+  // the end pavilions: one tall window and a round one
+  [L0 + pv / 2, R1 - pv / 2].forEach(function (px) { var ww = pv * 0.36, wy = pvt + wh * 0.42, whh = wh * 0.62; glass += n5_win(px - ww / 2, wy, ww, whh, true) + circ(px, pvt + wh * 0.22, pv * 0.13); white += rect(px - ww / 2 - 3, wy + whh, ww + 6, 3); wins.push({x: px - ww / 2, y: wy, w: ww, h: whh, k: rnd()}); });
+  // portico: columns, entablature, pediment with a gold crest
+  var pw = cw * 0.9, nc = ph ? 4 : 6, colH = bh * 0.66, cTop = yl - 10 - colH, pedH = pw * 0.17, cols = [];
+  for (var i = 0; i < nc; i++) { var px = cx - pw / 2 + (i + 0.5) * pw / nc, cwd = pw / nc * 0.34; cols.push(px); white += rect(px - cwd / 2, cTop, cwd, colH) + rect(px - cwd * 0.8, cTop - 4, cwd * 1.6, 5) + rect(px - cwd * 0.75, yl - 14, cwd * 1.5, 5); shade += rect(px + cwd * 0.18, cTop + 1, cwd * 0.32, colH - 2); }
+  white += rect(cx - pw / 2 - 8, cTop - 14, pw + 16, 11) + poly([[cx - pw / 2 - 12, cTop - 14], [cx, cTop - 14 - pedH], [cx + pw / 2 + 12, cTop - 14]]);
+  var tymp = poly([[cx - pw / 2 + 4, cTop - 17], [cx, cTop - 14 - pedH + 6], [cx + pw / 2 - 4, cTop - 17]]);
+  var gold = circ(cx, cTop - 14 - pedH * 0.38, pedH * 0.22);
+  door += n5_win(cx - pw * 0.08, yl - 10 - colH * 0.64, pw * 0.16, colH * 0.64, true);
+  glass += n5_win(cx - pw * 0.31, yl - 10 - colH * 0.52, pw * 0.09, colH * 0.4, true) + n5_win(cx + pw * 0.22, yl - 10 - colH * 0.52, pw * 0.09, colH * 0.4, true);
+  wins.push({x: cx - pw * 0.31, y: yl - 10 - colH * 0.52, w: pw * 0.09, h: colH * 0.4, k: 0.1}, {x: cx + pw * 0.22, y: yl - 10 - colH * 0.52, w: pw * 0.09, h: colH * 0.4, k: 0.2});
+  // attic and the clock tower with a belfry and a copper dome
+  var at = top - 7 - bh * 0.08; stone += rect(cx - cw * 0.3, at, cw * 0.6, bh * 0.08 + 2); white += rect(cx - cw * 0.32, at - 4, cw * 0.64, 5);
+  var tw = cw * (ph ? 0.34 : 0.3), th = H * (ph ? 0.1 : 0.11), tt = at - 4 - th, ck = tw * 0.34, cky = tt + th * 0.42;
+  stone += rect(cx - tw / 2, tt, tw, th + 4); shade += rect(cx + tw / 2 - 5, tt, 5, th + 4);
+  white += rect(cx - tw / 2 - 5, tt - 5, tw + 10, 7) + rect(cx - tw / 2 - 3, tt + th * 0.08, tw + 6, 3);
+  var bel = tt - tw * 0.72; stone += rect(cx - tw * 0.4, bel, tw * 0.8, tw * 0.72); glass += n5_win(cx - tw * 0.26, bel + tw * 0.12, tw * 0.2, tw * 0.48, true) + n5_win(cx + tw * 0.06, bel + tw * 0.12, tw * 0.2, tw * 0.48, true);
+  white += rect(cx - tw * 0.46, bel - 4, tw * 0.92, 6) + rect(cx - tw * 0.44, bel + tw * 0.62, tw * 0.88, 3);
+  var dtop = bel - 4 - tw * 0.62, cup = 'M' + PT(cx - tw * 0.42, bel - 3) + ' Q' + PT(cx - tw * 0.44, dtop + tw * 0.06) + ' ' + PT(cx, dtop) + ' Q' + PT(cx + tw * 0.44, dtop + tw * 0.06) + ' ' + PT(cx + tw * 0.42, bel - 3) + ' Z ';
+  white += rect(cx - tw * 0.1, dtop - tw * 0.2, tw * 0.2, tw * 0.22); var lant = 'M' + PT(cx - tw * 0.13, dtop - tw * 0.19) + ' Q' + PT(cx, dtop - tw * 0.36) + ' ' + PT(cx + tw * 0.13, dtop - tw * 0.19) + ' Z ';
   var face = circ(cx, cky, ck + 3);
-  ivy += m5_circW(L0 + 10, yl - 20, 16) + m5_circW(L0 + 6, yl - 44, 12) + m5_circW(L0 + 18, yl - 36, 10) + m5_circW(R1 - 12, yl - 24, 15) + m5_circW(R1 - 6, yl - 46, 11) + m5_circW(R1 - 22, yl - 34, 9);
-  add(mid, 'a', stone, dk ? '#4C4A78' : '#E9D3B2'); add(mid, 'b', shade, dk ? 'rgba(20,20,50,0.35)' : 'rgba(150,100,60,0.18)'); add(mid, 'c', roof, dk ? '#2C3358' : '#6F7FA6');
-  add(mid, 'd', white + face, dk ? '#C9C8E6' : '#FFFDF6'); add(mid, 'e', glass, dk ? '#262C52' : '#8FB4D6'); add(mid, 'f', ivy, dk ? '#2E5A4E' : '#6CB070');
-  add(mid, 'g', cup + tymp, dk ? '#4E8A7E' : '#7CC0A8'); add(mid, 'h', door, dk ? '#3A2A40' : '#9A5A3E');
-  stk(mid, 's', seg(cx, bel - tw * 0.9, cx, bel - tw * 1.35), dk ? '#C9B26A' : '#C9962A', 2.4);
-  // the lawn, mown stripes, the aisle path, the stage
-  var lawn = rect(-40, yl, W + 80, H - yl + 40), stripes = '';
-  for (x = -W; x < W * 2; x += 120) stripes += poly([[x, yl], [x + 60, yl], [x + 60 + (x - cx) * 0.9, H + 10], [x + (x - cx) * 0.9, H + 10]]);
-  var aisle = cx, path = poly([[aisle - 14, yl + 26], [aisle + 14, yl + 26], [aisle + (ph ? 46 : 60), H + 10], [aisle - (ph ? 46 : 60), H + 10]]);
-  var sw = pw * 1.25, sy = yl + 4, sh = ph ? 16 : 22, stage = rect(cx - sw / 2, sy, sw, 5), skirt = rect(cx - sw / 2 + 2, sy + 5, sw - 4, sh);
-  var pod = poly([[cx - 12, sy], [cx - 9, sy - 30], [cx + 9, sy - 30], [cx + 12, sy]]) + rect(cx - 14, sy - 34, 28, 5);
-  add(near, 'a', lawn, dk ? '#1E3A3A' : '#8CCB7A'); add(near, 'b', stripes, dk ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.14)'); add(near, 'c', path, dk ? '#3A4462' : '#EFE3C8');
-  add(near, 'd', stage, dk ? '#C9C8E6' : '#FFFFFF'); add(near, 'e', skirt + pod, dk ? '#22306A' : '#2E4A8A');
-  var swag = ''; for (x = cx - sw / 2 + 4; x < cx + sw / 2 - 10; x += 22) swag += 'M' + PT(x, sy + 6) + ' Q' + PT(x + 11, sy + 14) + ' ' + PT(x + 22, sy + 6) + ' ';
-  stk(near, 's', swag, dk ? '#E8C25A' : '#F2B83A', 2.4); add(near, 'f', circ(cx, sy - 20, 4.5), dk ? '#E8C25A' : '#F2B83A');
-  // chairs (drawn by the engine when it runs, so seated graduates and their caps layer correctly)
-  var rows = n5_rows(W, H, ph, yl + (ph ? 74 : 104), H - (ph ? 24 : 30), aisle);
-  if (!ANIM) { var ch = ''; rows.forEach(function (R) { R.xs.forEach(function (x) { ch += n5_chair(x, R.y, R.s); }); }); add(near, 'g', ch, dk ? '#9A98C4' : '#FFFFFF'); }
-  // banner poles beside the stage and on the lawn
+  // the grand steps, wide at the bottom
+  var stp = '', stS = ''; for (var s = 0; s < 5; s++) { var sw2 = pw + 26 + s * (ph ? 12 : 20), sy2 = yl - 5 + s * 5; stp += rect(cx - sw2 / 2, sy2, sw2, 5); stS += rect(cx - sw2 / 2, sy2 + 3.6, sw2, 1.4); }
+  var ysb = yl + 20;
+  ivy += m5_circW(L0 + pv + 10, yl - 18, 14) + m5_circW(L0 + pv + 6, yl - 38, 11) + m5_circW(L0 + pv + 20, yl - 30, 9) + m5_circW(R1 - pv - 12, yl - 22, 14) + m5_circW(R1 - pv - 6, yl - 42, 10) + m5_circW(R1 - pv - 22, yl - 32, 9);
+  ivy += m5_circW(L1 - 14, yl - 6, 13) + m5_circW(L1 - 28, yl - 4, 10) + m5_circW(R0 + 14, yl - 6, 13) + m5_circW(R0 + 28, yl - 4, 10);
+  add(refl, 'a', stone, dk ? '#4E4C7C' : '#EED9B8'); add(refl, 'b', shade + stS, dk ? 'rgba(14,14,44,0.32)' : 'rgba(150,100,60,0.16)'); add(refl, 'c', roof, dk ? '#2C3358' : '#7384AE');
+  add(refl, 'd', white + face + stp, dk ? '#CBC9E8' : '#FFFDF6'); add(refl, 'e', glass, dk ? '#262C52' : '#93B8DA'); add(refl, 'f', copper + cup + lant + tymp, dk ? '#4E8A7E' : '#7CC4AC');
+  add(refl, 'g', door, dk ? '#3A2A40' : '#9A5A3E'); add(refl, 'h', ivy + gold, dk ? '#2E5A4E' : '#6CB070');
+  stk(refl, 's', seg(cx, dtop - tw * 0.34, cx, dtop - tw * 0.34 - (ph ? 22 : 30)), dk ? '#C9B26A' : '#C9962A', 2.2); stk(refl, 't', bal, dk ? '#CBC9E8' : '#FFFDF6', 2.2);
+  // mid: the brick colleges down both sides of the quad, and the hedges at their feet
+  var co = {wall: '', roof: '', trim: '', shade: '', glass: '', door: '', wins: []}, yb0 = H * (ph ? 0.715 : 0.745), hedge = '';
+  var CB = ph ? [{x0: -16, x1: W * 0.14, y0: yb0, y1: yl + 14, h0: H * 0.3, h1: wh * 1.15, n: 3, fl: 3}, {x0: W + 16, x1: W * 0.86, y0: yb0, y1: yl + 14, h0: H * 0.3, h1: wh * 1.15, n: 3, fl: 3}]
+    : [{x0: -24, x1: W * 0.255, y0: yb0, y1: yl + 16, h0: H * 0.42, h1: wh * 1.1, n: 6, fl: 3}, {x0: W + 24, x1: W * 0.885, y0: yb0, y1: yl + 16, h0: H * 0.42, h1: wh * 1.1, n: 4, fl: 3}];
+  CB.forEach(function (B) { B.r = B.h1 / B.h0; n5_college(B, co); for (var q = 0; q <= 14; q++) { var p = n5_pp(B, q / 14, 0), hs = (B.h0 + (B.h1 - B.h0) * (p[0] - B.x0) / (B.x1 - B.x0)) / B.h0; hedge += m5_circW(p[0], p[1] - 2 * hs, 13 * hs * (ph ? 0.7 : 1)); } hedge += poly([n5_pp(B, 0, 0), n5_pp(B, 1, 0), [n5_pp(B, 1, 0)[0], n5_pp(B, 1, 0)[1] + 6], [n5_pp(B, 0, 0)[0], n5_pp(B, 0, 0)[1] + 14]]); });
+  add(mid, 'a', co.wall, dk ? '#6A4468' : '#E8A98F'); add(mid, 'b', co.shade, dk ? 'rgba(20,10,40,0.28)' : 'rgba(150,60,40,0.16)'); add(mid, 'c', co.roof, dk ? '#2A2F54' : '#6E7EA8');
+  add(mid, 'd', co.trim, dk ? '#C9C4E2' : '#FFF8EE'); add(mid, 'e', co.glass, dk ? '#262C52' : '#93B8DA'); add(mid, 'f', co.door, dk ? '#3A2A40' : '#2E4A8A'); add(mid, 'g', hedge, dk ? '#22463E' : '#5FA866');
+  // near: the walk, a cross path, avenues of trees, banner poles, lamps and the gate
+  var half0 = pw * 0.3, half1 = W * (ph ? 0.15 : 0.085); function half(y) { return half0 + (half1 - half0) * Math.max(0, (y - ysb) / (H - ysb)); }
+  var walk = poly([[cx - half0, ysb], [cx + half0, ysb], [cx + half1 + 10, H + 12], [cx - half1 - 10, H + 12]]), edge = '';
+  var yc = yl + (H - yl) * (ph ? 0.2 : 0.22), ch2 = ph ? 9 : 13;
+  function baseX(B, y) { var u = (y - B.y0) / (B.y1 - B.y0); return B.x0 + (B.x1 - B.x0) * u; }
+  var xl0 = baseX(CB[0], yc - ch2), xl1 = baseX(CB[0], yc + ch2), xr0 = baseX(CB[1], yc - ch2), xr1 = baseX(CB[1], yc + ch2);
+  walk += poly([[xl0 + 8, yc - ch2], [xr0 - 8, yc - ch2], [xr1 - 8, yc + ch2], [xl1 + 8, yc + ch2]]);
+  edge += poly([[xl1 + 8, yc + ch2], [xr1 - 8, yc + ch2], [xr1 - 8, yc + ch2 + 3], [xl1 + 8, yc + ch2 + 3]]) + poly([[cx - half0, ysb], [cx - half0 + 3, ysb], [cx - half1 - 7, H + 12], [cx - half1 - 10, H + 12]]) + poly([[cx + half0 - 3, ysb], [cx + half0, ysb], [cx + half1 + 10, H + 12], [cx + half1 + 7, H + 12]]);
+  // trees and lamps along both colleges
+  var trunks = '', crowns = '', hi = '', iron = '', globes = '', lamps = [], brick = '', goldN = '';
+  CB.forEach(function (B, bi) { var dir = bi ? -1 : 1, TW = ph ? [0.18, 0.62] : [0.1, 0.4, 0.7];
+    TW.forEach(function (w, q) { var p = n5_pp(B, w, 0), sc = (B.h0 + (B.h1 - B.h0) * (p[0] - B.x0) / (B.x1 - B.x0)) / B.h0 * (ph ? 1.05 : 1.55), tx = p[0] + dir * 22 * sc, ty = p[1] + 12 * sc;
+      trunks += poly([[tx - 4 * sc, ty], [tx - 2.6 * sc, ty - 34 * sc], [tx + 2.6 * sc, ty - 34 * sc], [tx + 4 * sc, ty]]); crowns += n5_tree(tx, ty - 18 * sc, sc * 1.05); hi += m5_circW(tx - 8 * sc, ty - 76 * sc, 9 * sc) + m5_circW(tx + 11 * sc, ty - 66 * sc, 7 * sc);
+      if (q < TW.length - 1 || ph) { var w2 = w + (ph ? 0.22 : 0.15), p2 = n5_pp(B, w2, 0), s2 = (B.h0 + (B.h1 - B.h0) * (p2[0] - B.x0) / (B.x1 - B.x0)) / B.h0 * (ph ? 1.05 : 1.5), lx = p2[0] + dir * 26 * s2, ly = p2[1] + 12 * s2;
+        iron += rect(lx - 1.4 * s2, ly - 40 * s2, 2.8 * s2, 40 * s2) + rect(lx - 4 * s2, ly - 3 * s2, 8 * s2, 3 * s2) + rect(lx - 4.5 * s2, ly - 41 * s2, 9 * s2, 2 * s2) + poly([[lx - 3 * s2, ly - 51 * s2], [lx + 3 * s2, ly - 51 * s2], [lx, ly - 55 * s2]]);
+        globes += rrect(lx - 3.4 * s2, ly - 50 * s2, 6.8 * s2, 9 * s2, 2 * s2); lamps.push([lx, ly - 45.5 * s2, s2]); } }); });
+  // banner poles along the walk
   var poles = '', bans = [];
-  (ph ? [cx - sw / 2 - 16, cx + sw / 2 + 16] : [cx - sw / 2 - 20, cx + sw / 2 + 20, W * 0.06, W * 0.3]).forEach(function (bx, j) { var by = j < 2 ? sy + sh : yl + 30, bhh = (j < 2 ? 1 : 0.9) * H * (ph ? 0.13 : 0.16); poles += rect(bx - 2, by - bhh, 4, bhh) + circ(bx, by - bhh - 3, 4); bans.push({x: bx, y: by - bhh + 4, h: bhh * 0.55, w: (ph ? 18 : 24) * (j < 2 ? 1 : 0.9), k: j}); });
-  add(near, 'h', poles, dk ? '#8E8AB0' : '#5A5A78');
-  if (ANIM) { ANIM.rows = rows; ANIM.bans = bans; ANIM.clock = [cx, cky, ck]; ANIM.wins = wins; ANIM.yl = yl; ANIM.stage = [cx, sy, sw]; ANIM.aisle = aisle; ANIM.flag = [cx, bel - tw * 1.35]; }
+  (ph ? [0.05, 0.17] : [0.08, 0.3]).forEach(function (d, j) { var by = ysb + (H - ysb) * d, sc = 0.75 + d * 1.1; [-1, 1].forEach(function (sd) { var bx = cx + sd * (half(by) + 16 * sc), bhh = H * (ph ? 0.1 : 0.15) * sc;
+    iron += rect(bx - 1.6 * sc, by - bhh, 3.2 * sc, bhh) + rect(bx - 3.2 * sc, by - 3, 6.4 * sc, 3); goldN += circ(bx, by - bhh - 3 * sc, 3.4 * sc); bans.push({x: bx, y: by - bhh + 5 * sc, h: bhh * 0.55, w: (ph ? 17 : 22) * sc, k: j * 2 + (sd + 1) / 2, s: sc}); }); });
+  // the gate: brick pillars with lamps and an iron arch over the walk
+  var gc = cx, gy = H * (ph ? 0.965 : 0.995), gd = half1 + (ph ? 26 : 34), gph = H * (ph ? 0.15 : 0.2), gpw = ph ? 22 : 30, arch = '';
+  if (!ph) [-1, 1].forEach(function (sd) { var px = gc + sd * gd; brick += rect(px - gpw / 2, gy - gph, gpw, gph + 20); edge += rect(px - gpw / 2 - 4, gy - gph - 7, gpw + 8, 8) + rect(px - gpw / 2 - 2, gy - gph * 0.42, gpw + 4, 4) + rect(px - gpw / 2 - 3, gy - 6, gpw + 6, 8);
+    goldN += circ(px, gy - gph * 0.7, gpw * 0.2); iron += rect(px - 2, gy - gph - 19, 4, 12); globes += circ(px, gy - gph - 24, gpw * 0.26); lamps.push([px, gy - gph - 24, gpw / 16]); });
+  var ay = gy - gph - 4, aTop = ay - (ph ? 26 : 38); arch = 'M' + PT(gc - gd, ay) + ' Q' + PT(gc, aTop - (ph ? 26 : 36)) + ' ' + PT(gc + gd, ay) + ' M' + PT(gc - gd, ay + 10) + ' Q' + PT(gc, aTop - (ph ? 14 : 20)) + ' ' + PT(gc + gd, ay + 10) + ' ';
+  for (var q = 1; q < 8; q++) { var u = q / 8, ax = gc - gd + 2 * gd * u, a1 = ay + (aTop - (ph ? 26 : 36) - ay) * 2 * u * (1 - u) * 1, a2 = ay + 10 + (aTop - (ph ? 14 : 20) - ay - 10) * 2 * u * (1 - u); arch += seg(ax, a1, ax, a2); }
+  goldN += ph ? '' : circ(gc, aTop - 8, 11);
+  add(near, 'a', walk, dk ? '#3A4462' : '#F1E6CC'); add(near, 'b', edge + globes, dk ? '#C9C4E2' : '#FFF8EA'); add(near, 'c', trunks, dk ? '#3A2E4A' : '#8A6A50');
+  add(near, 'd', crowns, dk ? '#1F3A4A' : '#5FA866'); add(near, 'e', hi, dk ? '#2A4A58' : '#8CCB7E'); add(near, 'f', iron, dk ? '#8E8AB0' : '#3E4868');
+  add(near, 'g', brick, dk ? '#6A4468' : '#D98C74'); add(near, 'h', goldN, dk ? '#E8C25A' : '#F2B83A');
+  if (!ph) stk(near, 's', arch, dk ? '#8E8AB0' : '#3E4868', 3);
+  var rows = n5_class(W, H, ph, H * (ph ? 0.72 : 0.755), H * (ph ? 0.915 : 0.985), half, {c: gc, d: ph ? 0 : gd + gpw / 2, y: gy});
+  if (!ANIM) { var gw = '', hd = ''; rows.forEach(function (R) { R.xs.forEach(function (x) { var s = R.s; gw += poly([[x - 6 * s, R.y - 27 * s], [x + 6 * s, R.y - 27 * s], [x + 11 * s, R.y], [x - 11 * s, R.y]]) + poly([[x - 11 * s, R.y - 44 * s], [x, R.y - 47 * s], [x + 11 * s, R.y - 44 * s], [x, R.y - 41 * s]]); hd += circ(x, R.y - 35 * s, 8 * s); }); });
+    add(near, 'f', gw); add(near, 'b', hd); }
+  if (ANIM) { ANIM.rows = rows; ANIM.bans = bans; ANIM.clock = [cx, cky, ck]; ANIM.wins = wins; ANIM.swins = co.wins; ANIM.lamps = lamps; ANIM.yl = yl; ANIM.cx = cx; ANIM.ysb = ysb;
+    ANIM.steps = [cx - (pw + 26 + 4 * (ph ? 12 : 20)) / 2, cx + (pw + 26 + 4 * (ph ? 12 : 20)) / 2, yl + 20]; ANIM.flag = [cx, dtop - tw * 0.34 - (ph ? 22 : 30)]; ANIM.hb = [[cols[0], cols[1]], [cols[nc - 2], cols[nc - 1]]].map(function (p) { return {x: (p[0] + p[1]) / 2, y: cTop + 2, w: (p[1] - p[0]) * 0.5, h: colH * 0.56}; }); }
   return {sky: sky, far: far, refl: refl, mid: mid, near: near};
 };
 

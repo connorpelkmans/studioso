@@ -20,7 +20,7 @@
   });
 
   MAJ_THEMES.push({
-    skin: {id: "brazil", name: "Rio de Janeiro", group: "world", desc: "Sugarloaf Mountain over a curving golden beach.",
+    skin: {id: "brazil", name: "Rio de Janeiro", group: "world", desc: "Christ the Redeemer, a colourful favela and Sugarloaf over a golden beach.",
       light: ["#F5FAF5", "rgba(19,128,78,.10)", "#FFFFFF", "#163026", "#4C6A5C", "#D2E6D8", "#E4F2E8", "#FAFDFA", "#13804E", "#2FA06A", "#FFFFFF", "#0C5A36", "#11603E", "#CDEBD8", "#FFE3A0"],
       dark: ["#0E1534", "rgba(255,210,74,.08)", "#17204A", "#F2F2FA", "#B4B8D6", "#2C3870", "#222C5E", "#121A3E", "#FFD24A", "#FFE08A", "#0C1838", "#7A6232", "#0C1838", "#D6D4EE", "#6A5428"],
       glow: ["linear-gradient(180deg,#7CC6F0,#D4EEF8 45%,#FCE8C4)", "linear-gradient(180deg,#0C1838,#1E2C5E 45%,#6A3A5E)"],
@@ -31,6 +31,6 @@
         fxRise(W, H, n(4), "braziltoucan", d ? ["#FFA24A", "#FFC86A"] : ["#F28A1E", "#E8702A"], {cx: [0.15, 0.85], smin: 18, smax: 24, vmin: 1, vmax: 1.5, sway: 0.8, life: 300, glow: d ? 10 : 0}).map(p => Object.assign(p, {vr: 0})),
         fxRise(W, H, n(2), "brazilloaf", d ? ["#8A90C0"] : ["#6A7488"], {cx: [0.3, 0.7], smin: 20, smax: 24, vmin: 0.9, vmax: 1.2, sway: 0.3, life: 320, glow: d ? 12 : 0}).map(p => Object.assign(p, {vr: 0, rot: 0})),
         fxTw(W, H, n(24), "sparkle", d ? ["#FFE6A6", "#FFFFFF", "#7FE0A0"] : ["#FFC81E", "#FFD86B", "#1FA34A"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
-    tag: "Sugarloaf's granite dome and its cable car over Guanabara Bay, a curving golden beach with the black-and-white wave promenade, palms, umbrellas and a toucan in the rainforest"
+    tag: "Christ the Redeemer on Corcovado above a dense hillside favela of bright little houses and the towers of downtown, Sugarloaf and its glass bondinho cable cars over the bay, and a golden beach with umbrellas, towels, a coconut kiosk, palms, the waving Brazilian flag and a toucan in the rainforest"
   });
 })();

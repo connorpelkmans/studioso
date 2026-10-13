@@ -19,7 +19,7 @@
   });
 
   MAJ_THEMES.push({
-    skin: {id: "italy", name: "Amalfi Coast", group: "world", desc: "Pastel cliff villages above a turquoise cove.",
+    skin: {id: "italy", name: "Amalfi Coast", group: "world", desc: "A pastel cliff town tumbling down to a turquoise cove.",
       light: ["#F3F8FA", "rgba(38,138,176,.10)", "#FFFFFF", "#1E2C38", "#56656F", "#D6E6EC", "#E6F0F3", "#FAFCFD", "#C4522F", "#D7744F", "#FFFFFF", "#7A2E18", "#1E5778", "#D2EAF2", "#FFE6A0"],
       dark: ["#0F1630", "rgba(246,200,74,.08)", "#18203E", "#F2F2FA", "#B6B8D2", "#2C3460", "#232A52", "#141A36", "#F6C84A", "#FADB86", "#1A2040", "#7A6A32", "#101C3A", "#D4D6EE", "#6A5A2A"],
       glow: ["linear-gradient(180deg,#9FD3F0,#DDF0F7 45%,#FCEBD0)", "linear-gradient(180deg,#101C3A,#22305A 45%,#5A3C5E)"],
@@ -29,6 +29,6 @@
       .concat(fxFall(W, H, n(40), "italyblossom", d ? ["#FFFFFF", "#F6E8F0"] : ["#FFFFFF", "#FFF6E0", "#FDE4EC"], {sway: 1.6, smin: 6, smax: 9, vmin: 0.8, vmax: 1.6, glow: d ? 6 : 0}),
         fxRise(W, H, n(3), "italysail", d ? ["#F2F2FA", "#FFE08A"] : ["#FFFFFF", "#F6F0E0"], {cx: [0.25, 0.75], smin: 18, smax: 24, vmin: 0.8, vmax: 1.2, sway: 0.5, life: 320, glow: d ? 10 : 0}).map(p => Object.assign(p, {vr: 0, rot: 0})),
         fxTw(W, H, n(26), "sparkle", d ? ["#FFE3A8", "#FFFFFF"] : ["#F2B53A", "#7FD4E0", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
-    tag: "A Positano-style village of pastel houses stacked above a turquoise cove, with a majolica dome, lemon terraces and striped umbrellas"
+    tag: "A Positano-style town of pastel houses stacked down limestone cliffs to a turquoise cove, with a majolica dome, lemon terraces, striped umbrellas and the Italian flag waving on the terrace"
   });
 })();

@@ -45,7 +45,7 @@
     tag: "Sunflowers that follow the sun across the sky toward a red barn, with bees, hay bales and a dirt road"
   });
   MAJ_THEMES.push({
-    skin: {id: "nighttrain", name: "Night Train", group: "ideas", desc: "A cozy sleeper compartment with hills and towns sliding past the window.",
+    skin: {id: "nighttrain", name: "Night Train", group: "ideas", desc: "A cozy train compartment with velvet seats facing each other, hills and towns sliding past the window.",
       light: ["#F8F2E8", "rgba(184,72,76,.10)", "#FFFFFF", "#2E2018", "#6E5E50", "#E8DCCB", "#F1E8DA", "#FCF9F4", "#B8484C", "#D06A4A", "#FFFFFF", "#5A3A2A", "#55331F", "#EAD8C4", "#FFE2A8"],
       dark: ["#1C1628", "rgba(255,194,122,.08)", "#261E34", "#F4EEF8", "#BDB0CC", "#3A2E48", "#30263E", "#211A2E", "#FFC27A", "#FFD9A0", "#2A1A0A", "#6A4A3A", "#140F1C", "#E6DCEC", "#5A3E22"],
       glow: ["linear-gradient(180deg,#B9D7EA,#EAF2EE 60%,#E7D2B8)", "linear-gradient(180deg,#141C33,#25304E 60%,#5B4A6A)"],
@@ -55,7 +55,7 @@
       .concat(fxBurst(W, H, n(16), "n2ticket", d ? ["#FFC27A", "#FFD9A0", "#E8B0C8"] : ["#E8706A", "#F2B84A", "#7FB8D8"], [[0.15, 1.02], [0.85, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.1, 0.1)})),
         fxFall(W, H, n(20), "star", d ? ["#FFE7B0", "#FFFFFF", "#FFC27A"] : ["#F2B84A", "#E8706A", "#7FB8D8"], {sway: 1.2, smin: 5, smax: 9, vmin: 1, vmax: 2, glow: d ? 10 : 0}),
         fxTw(W, H, n(26), "sparkle", d ? ["#FFE7B0", "#FFFFFF", "#FFC27A"] : ["#F2B53A", "#FFD86B", "#E8706A"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
-    tag: "A sleeper compartment with tea on the table, a swaying lamp and the countryside rushing past the window"
+    tag: "A train compartment with velvet seats, luggage on the brass rack, a swaying table lamp and the countryside rushing past the window"
   });
   MAJ_THEMES.push({
     skin: {id: "ramen", name: "Ramen Shop", group: "ideas", desc: "A late-night ramen counter with noren curtains and rain on the window.",

@@ -16,12 +16,14 @@
       detail: "M-4.6 -5L-0.6 -1.6M-2.6 -7L0.6 -2.2", dstroke: true},
     // a feather drifting down
     venicefeather: {d: "M0 -10Q5 -6 4.4 1Q3.6 6 0.6 9.4L-0.6 9.4Q-3.6 6 -4.4 1Q-5 -6 0 -10Z", detail: "M0 -8.6V11M0 -4L3 -6M0 0L3.4 -2M0 4L2.8 2.2M0 -2L-3 -4M0 2L-3.2 0", dstroke: true},
+    // a little pennant
+    veniceflag: {d: "M-6 -4H6Q7 0 6 4H-6Q-5 0 -6 -4Z"},
     // a stone Gothic window, its ogee point on top
     venicearch: {d: "M-5 10V-1Q-5 -5 -2.6 -7.4Q-0.8 -9 0 -11Q0.8 -9 2.6 -7.4Q5 -5 5 -1V10Z", detail: "M-3 9V-0.6Q-3 -3.8 -1.2 -5.8Q-0.4 -6.8 0 -8Q0.4 -6.8 1.2 -5.8Q3 -3.8 3 -0.6V9Z", dfill: true}
   });
 
   MAJ_THEMES.push({
-    skin: {id: "venice", name: "Venice", group: "world", desc: "Gondolas glide along a canal of old palazzos.",
+    skin: {id: "venice", name: "Venice", group: "world", desc: "Gondolas glide past old palazzos under an Italian flag.",
       light: ["#F6F0E6", "rgba(46,110,104,.10)", "#FFFFFF", "#22302F", "#5C6866", "#E6DCCD", "#F0E8DC", "#FCF9F4", "#A84A32", "#C26A4C", "#FFFFFF", "#6A2A1C", "#2C5E5A", "#D2E8E4", "#FFE2A6"],
       dark: ["#0E1432", "rgba(242,200,120,.08)", "#181E42", "#F4F0FA", "#B8B4D6", "#2E3464", "#242A58", "#151A3A", "#F2C878", "#F6DA9E", "#161A3A", "#7A6232", "#121834", "#D6D4EE", "#6A5428"],
       glow: ["linear-gradient(180deg,#A8D2EE,#F2ECDD 50%,#F6D3B0)", "linear-gradient(180deg,#0E1636,#22285A 50%,#5A3A62)"],
@@ -31,7 +33,8 @@
       .concat(fxRise(W, H, n(12), "venicepigeon", d ? ["#B8BCD0", "#9EA4BE"] : ["#8E95A6", "#A4AAB8", "#7C8496"], {smin: 12, smax: 17, vmin: 1.4, vmax: 2.4, sway: 1.1, life: 280}).map(p => Object.assign(p, {flap: fxR(0.25, 0.38), vx: fxR(-1.4, 1.4)})),
         fxFall(W, H, n(14), "venicefeather", d ? ["#D6D8E8", "#B8BCD0"] : ["#FFFFFF", "#D8DCE4", "#BFC4D0"], {sway: 1.6, smin: 8, smax: 12, vmin: 0.7, vmax: 1.3}).map(p => Object.assign(p, {vr: fxR(-0.04, 0.04)})),
         fxBurst(W, H, n(10), "venicemask", d ? ["#F2C878", "#E890B0", "#9AD0E0"] : ["#C8463E", "#E2B048", "#2E7A86", "#B85A9A"], [[0.2, 1.02], [0.8, 1.02]], {smin: 12, smax: 16}).map(p => Object.assign(p, {vr: fxR(-0.06, 0.06)})),
-        fxRise(W, H, n(3), "venicegondola", d ? ["#F6DA9E"] : ["#22202A"], {cx: [0.25, 0.75], smin: 22, smax: 26, vmin: 0.9, vmax: 1.2, sway: 0.3, life: 320, glow: d ? 14 : 0}).map(p => Object.assign(p, {vr: 0})))},
-    tag: "A Venetian canal of faded palazzos with Gothic windows, a humpbacked bridge, gondolas and St. Mark's at the lagoon's edge"
+        fxRise(W, H, n(3), "venicegondola", d ? ["#F6DA9E"] : ["#22202A"], {smin: 22, smax: 26, life: 320, glow: d ? 14 : 0}).map((p, i) => Object.assign(p, {x: fxR(-60, W * 0.25), y: H * fxR(0.72, 0.94), vx: fxR(1.6, 2.2), vy: 0, sway: 0, vr: 0, rot: 0})),
+        fxFall(W, H, n(18), "veniceflag", d ? ["#2E8A5E", "#E8E4F4", "#C84452"] : ["#159A4E", "#FFFFFF", "#D8323C"], {sway: 1.4, smin: 7, smax: 10, vmin: 0.8, vmax: 1.4}).map(p => Object.assign(p, {vr: fxR(-0.05, 0.05)})))},
+    tag: "Straight across a Venetian canal: faded palazzos with Gothic windows, a bridge over a side canal, gondolas gliding by, the campanile and an Italian flag"
   });
 })();

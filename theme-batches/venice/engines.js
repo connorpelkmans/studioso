@@ -1,18 +1,15 @@
 // ---- world theme engine: venice (Venice)
-// Loop: a gondolier rows away from us down the canal, under the bridge and out towards the lagoon; the water ripples and
-// breaks up the reflections, the moored gondolas bob, flowers in the window boxes and the washing on the line sway,
-// shutters swing in the breeze and pigeons peck, hop and flutter off the bridge. Night: windows and the bridge's lanterns
-// glow and their light shimmers on the water.
-// Moment: the campanile's bells ring out, pigeons burst up over the domes, a fleet of gondolas glides out across the
-// lagoon and a sweep of golden light runs down the water towards us.
+// Loop: seen straight across the canal, gondolas glide sideways past the palazzos, the gondolier working his oar, their
+// reflections and wakes trailing; the water ripples, the Italian flag on the roof waves, the washing over the side canal
+// sways, pigeons peck and hop along the eaves and the fondamenta, and now and then a gull glides across. Night: windows
+// and the bridge's lanterns glow and their light shimmers on the water.
+// Moment: the campanile's bells ring out, the pigeons flutter up and a flock sweeps across the sky, a little regatta of
+// gondolas with flags crosses the canal and a band of golden light runs across the water.
 function venice_ease(u) { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); }
 function venice_env(T, a, b, c, d) { if (T < a || T > d) return 0; if (T < b) return venice_ease((T - a) / (b - a)); if (T <= c) return 1; return 1 - venice_ease((T - c) / (d - c)); }
 var venice_gc = null;
 function venice_rg(col, mid) { var g = (venice_gc || (venice_gc = document.createElement('canvas').getContext('2d'))).createRadialGradient(0, 0, 0, 0, 0, 1); g.addColorStop(0, col); if (mid) g.addColorStop(mid[0], col.replace(/[\d.]+\)$/, mid[1] + ')')); g.addColorStop(1, col.replace(/[\d.]+\)$/, '0)')); return g; }
 function venice_dot(c, g, x, y, r, a) { if (a <= 0.003 || r <= 0) return; c.save(); c.globalAlpha = Math.min(1, a); c.translate(x, y); c.scale(r, r); c.fillStyle = g; c.beginPath(); c.arc(0, 0, 1, 0, 7); c.fill(); c.restore(); }
-// small offscreen canvas, drawn at k times the size, centred on (w/2, h/2)
-function venice_sprite(w, h, k, fn) { var cv = document.createElement('canvas'); cv.width = Math.ceil(w * k); cv.height = Math.ceil(h * k); var o = cv.getContext('2d'); o.scale(k, k); o.translate(w / 2, h / 2); o.lineJoin = o.lineCap = 'round'; fn(o); cv.w = w; cv.h = h; return cv; }
-function venice_blit(c, sp, x, y, s, rot, a) { c.save(); c.translate(x, y); if (rot) c.rotate(rot); if (a != null) c.globalAlpha = a; c.drawImage(sp, -sp.w * s / 2, -sp.h * s / 2, sp.w * s, sp.h * s); c.restore(); }
 function venice_path(c, pts) { c.beginPath(); c.moveTo(pts[0][0], pts[0][1]); for (var i = 1; i < pts.length; i++) c.lineTo(pts[i][0], pts[i][1]); c.closePath(); }
 // a pigeon standing at (x, y) (its feet), facing dir; peck 0..1 lowers the head, flap > 0 spreads the wings
 function venice_pigeon(c, x, y, s, dir, t, peck, flap, dk) {
@@ -30,55 +27,108 @@ function venice_pigeon(c, x, y, s, dir, t, peck, flap, dk) {
   c.fillStyle = '#3A3430'; c.beginPath(); c.moveTo(hx + 2.4, hy - 0.4); c.lineTo(hx + 5, hy + 0.6); c.lineTo(hx + 2.4, hy + 1); c.fill();
   c.fillStyle = '#E86A3A'; c.beginPath(); c.arc(hx + 0.6, hy - 0.8, 0.9, 0, 7); c.fill(); c.fillStyle = '#1A1418'; c.beginPath(); c.arc(hx + 0.7, hy - 0.8, 0.45, 0, 7); c.fill();
   c.restore(); }
-// the gondolier seen from behind, feet at (x, y), k pixels per metre; st -1..1 is where the oar is in its stroke
-function venice_gondolier(c, x, y, k, st, dk) {
-  var nv = dk ? '#1C1E36' : '#1E2440', wt = dk ? '#C8C4DA' : '#FFFFFF', sk = dk ? '#A07868' : '#D89A74', hr = dk ? '#2A1E1E' : '#3A2A22', hat = dk ? '#B8A070' : '#EAD08A', rb = dk ? '#8A2E3A' : '#C8302E';
-  c.save(); c.translate(x, y); c.scale(k, -k); c.lineCap = c.lineJoin = 'round';
-  var lean = st * 0.05;
-  c.fillStyle = nv; c.beginPath(); c.moveTo(-0.17, 0); c.lineTo(-0.03, 0); c.lineTo(-0.01 + lean, 0.86); c.lineTo(-0.19 + lean, 0.86); c.fill(); c.beginPath(); c.moveTo(0.04, 0); c.lineTo(0.18, 0); c.lineTo(0.2 + lean, 0.86); c.lineTo(0.02 + lean, 0.86); c.fill();
-  c.fillStyle = '#2A2228'; c.fillRect(-0.2, 0, 0.18, 0.05); c.fillRect(0.03, 0, 0.18, 0.05);
-  c.save(); c.translate(lean, 0); c.fillStyle = wt; c.beginPath(); c.moveTo(-0.21, 0.84); c.lineTo(0.22, 0.84); c.lineTo(0.24, 1.42); c.quadraticCurveTo(0, 1.5, -0.23, 1.42); c.fill();
-  c.fillStyle = nv; for (var i = 0; i < 5; i++) c.fillRect(-0.22, 0.9 + i * 0.11, 0.45, 0.05);
-  // arms reaching to the oar on the right
-  c.strokeStyle = wt; c.lineWidth = 0.1; c.beginPath(); c.moveTo(-0.19, 1.36); c.lineTo(0.08 + st * 0.08, 1.12); c.lineTo(0.34 + st * 0.06, 1.18); c.moveTo(0.2, 1.38); c.lineTo(0.4 + st * 0.06, 1.24); c.stroke();
-  c.fillStyle = sk; c.beginPath(); c.arc(0.36 + st * 0.06, 1.2, 0.05, 0, 7); c.fill(); c.fillRect(-0.05, 1.42, 0.1, 0.08);
-  c.fillStyle = hr; c.beginPath(); c.arc(0, 1.6, 0.12, 0, 7); c.fill();
-  c.fillStyle = hat; c.beginPath(); c.ellipse(0, 1.69, 0.26, 0.05, 0, 0, 7); c.fill(); c.fillRect(-0.15, 1.69, 0.3, 0.12); c.fillStyle = rb; c.fillRect(-0.15, 1.7, 0.3, 0.04);
-  c.restore(); c.restore(); }
-// a little gondola in profile, far out on the lagoon: waterline centre (x, y), k pixels per metre, heading dir
-function venice_gondolaP(c, x, y, k, dir, t, dk) {
-  c.save(); c.translate(x, y); c.scale(k * dir, k);
-  c.fillStyle = dk ? '#0E0E1A' : '#16161E'; c.beginPath(); c.moveTo(-5.6, -1.6); c.quadraticCurveTo(-5.4, -0.2, -3.6, 0.15); c.quadraticCurveTo(0, 0.4, 3.8, 0.1); c.quadraticCurveTo(5, -0.3, 5.3, -1.4); c.lineTo(5.7, -1.9); c.lineTo(5.1, -2); c.lineTo(4.6, -0.8); c.quadraticCurveTo(0, -0.3, -4.6, -0.7); c.lineTo(-5.1, -1.5); c.closePath(); c.fill();
-  c.fillStyle = dk ? '#C8C8D8' : '#D8DCE4'; c.fillRect(5.0, -2.1, 0.5, 0.3);
-  var st = Math.sin(t * 2.2);
-  c.fillStyle = dk ? '#1C1E36' : '#1E2440'; c.fillRect(-4.2, -2.1, 0.32, 1.5); c.fillStyle = dk ? '#C8C4DA' : '#FFFFFF'; c.fillRect(-4.25, -2.6, 0.42, 0.6);
-  c.fillStyle = dk ? '#B8A070' : '#EAD08A'; c.fillRect(-4.35, -2.95, 0.62, 0.12); c.fillRect(-4.2, -3.05, 0.32, 0.12);
-  c.strokeStyle = dk ? '#8A7A60' : '#6A5240'; c.lineWidth = 0.12; c.beginPath(); c.moveTo(-3.9, -2.3); c.lineTo(-2.6 + st * 0.6, 0.1); c.stroke();
+// the Italian tricolour waving: hoist at (x, y) on its pole, w by h, flying to the right; t time, amp how hard the wind
+// blows. One smooth cloth shape (the bands are clipped inside it, overlapping, so no seams), a travelling wave that grows
+// towards the fly end, a little sag, soft fold shading that follows the wave, and a faint shadow. Drawn as vectors on
+// the device-resolution canvas, so it stays crisp at any size.
+function venice_flag(c, x, y, w, h, t, amp, dk) {
+  var cols = dk ? ['#2A6650', '#C9C5DC', '#97384A'] : ['#2E9A5C', '#FBF8F2', '#D6403F'], N = 28, i, top = [], bot = [], sl = [];
+  function off(u) { return Math.sin(t * 3.2 - u * 6.5) * h * 0.075 * amp * Math.pow(u, 0.9) + Math.sin(t * 1.7 - u * 3.1) * h * 0.035 * amp * u; }
+  function X(u) { return x + u * w * (1 - 0.05 * amp * u) + Math.sin(t * 3.2 - u * 6.5 - 1.2) * w * 0.012 * amp * u; }
+  for (i = 0; i <= N; i++) { var u = i / N, o = off(u); top.push([X(u), y + o]); bot.push([X(u), y + o + h * (1 - 0.05 * u) + h * 0.06 * u * u]); sl.push((off(Math.min(1, u + 0.02)) - off(Math.max(0, u - 0.02))) / (0.04 * w)); }
+  function outline(dx, dy) { c.beginPath(); c.moveTo(top[0][0] + dx, top[0][1] + dy); for (i = 1; i <= N; i++) c.lineTo(top[i][0] + dx, top[i][1] + dy); for (i = N; i >= 0; i--) c.lineTo(bot[i][0] + dx, bot[i][1] + dy); c.closePath(); }
+  c.save(); c.lineJoin = 'round';
+  outline(1.2, 1.8); c.fillStyle = dk ? 'rgba(0,0,20,0.22)' : 'rgba(60,40,30,0.13)'; c.fill();
+  outline(0, 0); c.clip();
+  // the three bands, each a strip of the same cloth, overlapping a little
+  [0, 1, 2].forEach(function (k) { var u0 = k / 3, u1 = Math.min(1, (k + 1) / 3 + 0.008), M = 10, j, u, o, p = [], q = [];
+    for (j = 0; j <= M; j++) { u = u0 + (u1 - u0) * j / M; o = off(u); p.push([X(u) - (j === 0 && k === 0 ? 2 : 0), y + o - 2]); q.push([X(u) - (j === 0 && k === 0 ? 2 : 0), y + o + h * (1 - 0.05 * u) + h * 0.06 * u * u + 2]); }
+    if (k === 2) { p[M][0] += 2; q[M][0] += 2; }
+    c.beginPath(); c.moveTo(p[0][0], p[0][1]); for (j = 1; j <= M; j++) c.lineTo(p[j][0], p[j][1]); for (j = M; j >= 0; j--) c.lineTo(q[j][0], q[j][1]); c.closePath(); c.fillStyle = cols[k]; c.fill(); });
+  // fold shading along the wave: darker where the cloth turns away, lighter where it faces the light
+  var g = c.createLinearGradient(x, 0, x + w, 0);
+  for (i = 0; i <= N; i += 2) { var v = sl[i] * 2.2; g.addColorStop(i / N, v > 0 ? 'rgba(20,10,40,' + Math.min(0.17, v * 0.45).toFixed(3) + ')' : 'rgba(255,255,255,' + Math.min(0.2, -v * 0.5).toFixed(3) + ')'); }
+  c.fillStyle = g; c.fillRect(x - 2, y - h, w + 6, h * 3);
+  c.restore();
+  // the hoist edge, tied to the pole
+  c.save(); c.strokeStyle = dk ? 'rgba(10,8,30,0.35)' : 'rgba(60,40,30,0.25)'; c.lineWidth = Math.max(0.8, h * 0.035); c.lineCap = 'round'; c.beginPath(); c.moveTo(top[0][0] + 0.3, top[0][1] + 0.5); c.lineTo(bot[0][0] + 0.3, bot[0][1] - 0.5); c.stroke(); c.restore(); }
+// a gondola in profile at waterline centre (x, y), k pixels per metre, heading dir; st -1..1 is the oar's stroke
+function venice_gondola(c, x, y, k, dir, t, st, dk, man) {
+  var hullC = dk ? '#0C0C18' : '#1A1A24', gold = dk ? '#B89A5A' : '#D8AE4A', red = dk ? '#6E2434' : '#B8323A';
+  c.save(); c.translate(x, y); c.scale(k * dir, k); c.lineJoin = c.lineCap = 'round';
+  // the oar: from his hands, over the forcola, down into the water
+  var hx = -3.95 + st * 0.32, hy = -2.05 - Math.abs(st) * 0.05, fx = -3.3, fy = -1.32, dx = fx - hx, dy = fy - hy, L = Math.hypot(dx, dy), ex = hx + dx / L * 4.4, ey = hy + dy / L * 4.4, wt = -hy / (ey - hy), wx = hx + (ex - hx) * wt;
+  if (man) { c.strokeStyle = dk ? '#5E5068' : '#9A7450'; c.lineWidth = 0.11; c.beginPath(); c.moveTo(hx, hy); c.lineTo(wx, 0); c.stroke(); c.globalAlpha = 0.35; c.lineWidth = 0.22; c.beginPath(); c.moveTo(wx, 0); c.lineTo(ex, ey); c.stroke(); c.globalAlpha = 1; }
+  // the hull, a gold line under the gunwale, a highlight along it
+  c.fillStyle = hullC; venice_path(c, venice_HULL); c.fill();
+  c.strokeStyle = gold; c.lineWidth = 0.07; c.beginPath(); venice_GUN.forEach(function (p, i) { if (p[0] > 4.6 || p[0] < -4.8) return; if (i && venice_GUN[i - 1][0] <= 4.6) c.lineTo(p[0], p[1] + 0.14); else c.moveTo(p[0], p[1] + 0.14); }); c.stroke();
+  c.strokeStyle = dk ? 'rgba(160,160,220,0.25)' : 'rgba(255,255,255,0.28)'; c.lineWidth = 0.06; c.beginPath(); venice_GUN.forEach(function (p, i) { if (i) c.lineTo(p[0], p[1] + 0.03); else c.moveTo(p[0], p[1] + 0.03); }); c.stroke();
+  c.fillStyle = gold; c.beginPath(); c.arc(-0.2, -0.36, 0.13, 0, 7); c.arc(-2.6, -0.4, 0.1, 0, 7); c.arc(2.2, -0.36, 0.1, 0, 7); c.fill();
+  // the seat: red cushions with a gold trim, and a little rug
+  c.fillStyle = red; c.beginPath(); c.moveTo(-1.45, -0.62); c.lineTo(0.75, -0.62); c.quadraticCurveTo(0.8, -1.02, 0.5, -1.02); c.lineTo(-1.1, -1.02); c.lineTo(-1.1, -1.36); c.quadraticCurveTo(-1.3, -1.48, -1.45, -1.36); c.closePath(); c.fill();
+  c.fillStyle = gold; c.fillRect(-1.1, -1.04, 1.6, 0.07); c.fillRect(-1.45, -1.4, 0.35, 0.07);
+  c.fillStyle = dk ? '#2E3A6A' : '#2E5AA0'; c.fillRect(1.0, -0.72, 1.4, 0.1);
+  // the bow's ferro and the stern's curl
+  c.fillStyle = dk ? '#B8B8CC' : '#E4E8F0'; venice_path(c, venice_FERRO); c.fill();
+  c.fillStyle = gold; c.beginPath(); c.arc(-5.62, -1.56, 0.14, 0, 7); c.fill();
+  // the forcola
+  c.fillStyle = dk ? '#3A2A22' : '#6A4430'; c.beginPath(); c.moveTo(-3.42, -0.74); c.lineTo(-3.2, -0.74); c.lineTo(-3.18, -1.22); c.lineTo(-3.08, -1.36); c.lineTo(-3.3, -1.3); c.lineTo(-3.44, -1.4); c.closePath(); c.fill();
+  if (man) {
+    // the gondolier on the stern, leaning into his stroke: straw hat, striped shirt, red sash and neckerchief
+    var nv = dk ? '#1C1E36' : '#1E2440', wt2 = dk ? '#C8C4DA' : '#FFFFFF', sk = dk ? '#A07868' : '#E3A47C', hat = dk ? '#B8A070' : '#F0D488', rb = dk ? '#8A2E3A' : '#D0303A';
+    c.save(); c.translate(-4.45, -0.88); c.rotate(st * 0.07); c.scale(1.3, 1.3);
+    c.fillStyle = nv; c.beginPath(); c.moveTo(-0.2, 0); c.lineTo(-0.06, 0); c.lineTo(0.02, -0.86); c.lineTo(-0.2, -0.86); c.closePath(); c.fill(); c.beginPath(); c.moveTo(0.06, 0); c.lineTo(0.22, 0); c.lineTo(0.18, -0.86); c.lineTo(-0.02, -0.86); c.closePath(); c.fill();
+    c.fillStyle = '#2A2228'; c.fillRect(-0.24, -0.06, 0.22, 0.07); c.fillRect(0.04, -0.06, 0.24, 0.07);
+    c.save(); c.beginPath(); c.moveTo(-0.24, -0.82); c.lineTo(0.22, -0.82); c.lineTo(0.24, -1.4); c.quadraticCurveTo(0, -1.5, -0.24, -1.4); c.closePath(); c.fillStyle = wt2; c.fill(); c.clip();
+    c.fillStyle = nv; for (var i = 0; i < 5; i++) c.fillRect(-0.3, -0.92 - i * 0.11, 0.6, 0.05); c.restore();
+    c.fillStyle = rb; c.fillRect(-0.25, -0.88, 0.5, 0.08); c.beginPath(); c.moveTo(-0.08, -1.42); c.lineTo(0.14, -1.42); c.lineTo(0.06, -1.28); c.closePath(); c.fill();
+    c.restore();
+    // arms to the oar (in the gondola's frame)
+    c.strokeStyle = wt2; c.lineWidth = 0.13; var sx = -4.45 + 0.05 + st * 0.08, sy = -0.88 - 1.72;
+    c.beginPath(); c.moveTo(sx, sy); c.quadraticCurveTo((sx + hx) / 2 - 0.05, (sy + hy) / 2 + 0.12, hx, hy); c.stroke();
+    c.beginPath(); c.moveTo(sx + 0.06, sy + 0.04); c.quadraticCurveTo((sx + hx) / 2 + 0.1, (sy + hy) / 2 + 0.2, hx + 0.18, hy + 0.1); c.stroke();
+    c.fillStyle = sk; c.beginPath(); c.arc(hx, hy, 0.07, 0, 7); c.arc(hx + 0.18, hy + 0.1, 0.07, 0, 7); c.fill();
+    // head: hair, face, eye, cheek, boater with a red ribbon
+    var px = -4.45 + st * 0.13, py = -0.88 - 2.13;
+    c.fillStyle = sk; c.beginPath(); c.arc(px + 0.04, py, 0.25, 0, 7); c.fill();
+    c.fillStyle = dk ? '#2A1E1E' : '#4A3226'; c.beginPath(); c.arc(px - 0.06, py - 0.02, 0.22, Math.PI * 0.55, Math.PI * 1.45); c.fill();
+    c.fillStyle = '#231A1C'; c.beginPath(); c.arc(px + 0.16, py, 0.035, 0, 7); c.fill();
+    c.fillStyle = 'rgba(240,120,120,0.55)'; c.beginPath(); c.arc(px + 0.12, py + 0.1, 0.05, 0, 7); c.fill();
+    c.fillStyle = hat; c.beginPath(); c.ellipse(px + 0.03, py - 0.17, 0.4, 0.06, 0, 0, 7); c.fill(); c.fillRect(px - 0.19, py - 0.36, 0.44, 0.19);
+    c.fillStyle = rb; c.fillRect(px - 0.19, py - 0.25, 0.44, 0.07);
+  }
+  c.restore();
+  if (man) { c.save(); c.strokeStyle = dk ? 'rgba(180,190,255,0.3)' : 'rgba(255,255,255,0.75)'; c.lineWidth = Math.max(0.8, 0.05 * k); var ox = x + dir * wx * k; c.beginPath(); c.ellipse(ox, y + 0.05 * k, (0.35 + 0.1 * Math.abs(st)) * k, 0.07 * k, 0, 0, 7); c.stroke(); c.restore(); } }
+// a gull gliding, centre (x, y), size s, wings at phase w
+function venice_gull(c, x, y, s, dir, w, dk) {
+  c.save(); c.translate(x, y); c.scale(s * dir, s); c.lineCap = c.lineJoin = 'round';
+  var up = Math.sin(w) * 4;
+  c.fillStyle = dk ? '#B8BCD6' : '#FFFFFF'; c.strokeStyle = dk ? '#6A6E8E' : '#8A93A4'; c.lineWidth = 0.9;
+  c.beginPath(); c.moveTo(-1, 0); c.quadraticCurveTo(-7, -4 - up, -14, -1 - up * 1.4); c.quadraticCurveTo(-7, -1 - up * 0.4, -1, 2); c.closePath(); c.fill(); c.stroke();
+  c.beginPath(); c.moveTo(1, 0); c.quadraticCurveTo(7, -4 - up, 14, -1 - up * 1.4); c.quadraticCurveTo(7, -1 - up * 0.4, 1, 2); c.closePath(); c.fill(); c.stroke();
+  c.beginPath(); c.ellipse(0, 1, 5, 2.2, 0, 0, 7); c.fill(); c.stroke();
+  c.fillStyle = '#F2B84A'; c.beginPath(); c.moveTo(4.6, 0.4); c.lineTo(7, 1); c.lineTo(4.6, 1.6); c.fill();
   c.restore(); }
 ENGINES.venice = function (A, v, dk) {
-  var W = v.bw, H = v.bh, ph = !v.desk, T0 = -99, C = A.C, J = A.J, S = A.S, hz = J.hz, i, j;
-  var P = function (x, h, z) { return venice_P(J, x, h, z); }, BR = A.br, zB = A.zB;
-  function deck(m) { var u = Math.min(1, Math.abs(m) / (J.xs + 1.6)); return 1.2 + BR.deckK * Math.pow(Math.cos(u * Math.PI / 2), 1.25); }
-  var BY = function (h) { return hz + (J.e - h) * BR.s; }, BX = function (m) { return J.vx + m * BR.s; };
-  var XL = J.vx - J.xs * J.f / A.zEndL, XR = J.vx + J.xs * J.f / A.zEndR;
-  // the water seen from the eye: between the two banks' waterlines, and out on the lagoon between the last palazzos
-  var WC = new Path2D(), zz; WC.moveTo(XL, hz + 0.5); for (zz = A.zEndL; zz > 5; zz *= 0.9) { var wp = P(-J.xs, 0, zz); WC.lineTo(wp[0], wp[1]); } WC.lineTo(-60, H + 60); WC.lineTo(W + 60, H + 60);
-  for (zz = 5; zz < A.zEndR; zz /= 0.9) { var wq = P(J.xs, 0, zz); WC.lineTo(wq[0], wq[1]); } WC.lineTo(XR, hz + 0.5); WC.closePath();
-  var lampG = venice_rg(dk ? 'rgba(255,200,120,0.8)' : 'rgba(255,226,170,0.3)', [0.25, 0.35]), winG = venice_rg('rgba(255,196,110,0.45)', [0.3, 0.3]), goldG = venice_rg('rgba(255,210,120,0.7)', [0.3, 0.3]);
-  // ripples on the water, in the canal and out on the lagoon: light ones and darker ones that break up the reflections
-  var rip = []; for (i = 0; i < (ph ? 60 : 110); i++) { var z = 12 * Math.pow(30, hash(i + 3)), lim = z < A.zEndL ? J.xs * 0.95 : J.xs * z / A.zEndL * 0.98; rip.push({x: (hash(i + 7) * 2 - 1) * lim, z: z, l: 0.6 + hash(i + 9) * 1.8, ph: hash(i + 11) * 6.28, d: hash(i + 13) < 0.35, v: 0.15 + hash(i + 15) * 0.25, lim: lim}); }
+  var W = v.bw, H = v.bh, ph = !v.desk, s = A.s, yB = A.yB, T0 = -99, i;
+  var lampG = venice_rg(dk ? 'rgba(255,200,120,0.8)' : 'rgba(255,226,170,0.3)', [0.25, 0.35]), goldG = venice_rg('rgba(255,210,120,0.7)', [0.3, 0.3]);
+  // ripples drifting slowly along the canal: light ones and darker ones that break up the reflections
+  var rip = []; for (i = 0; i < (ph ? 50 : 90); i++) { var u = hash(i + 3); rip.push({x: hash(i + 7) * W, y: yB + 5 * s + Math.pow(u, 1.15) * (H - yB), l: (6 + hash(i + 9) * 18) * s * (0.5 + u), ph: hash(i + 11) * 6.28, d: hash(i + 13) < 0.4, v: (3 + hash(i + 15) * 5) * s * (hash(i + 17) < 0.5 ? 1 : -1), f: u}); }
   // windows that light up at night: about four in ten, a few switch on and off now and then
-  var wins = A.wins.map(function (w) { return {p: new Path2D(w.p), on: w.k < 0.42, k: w.k, r: w.r, s: w.s}; }), nwins = A.nwins.map(function (w) { return {p: new Path2D(w.p), on: w.k < 0.45, k: w.k, r: w.r, s: w.s}; }), nextFlip = 2;
-  // the rowing gondola: its stern at rz, moving away down the canal at a pace that looks even on screen
-  var lane = J.xs * (ph ? 0.3 : 0.36), rz = 16, wait = 0, rows = 0;
-  // the lagoon fleet for the finish
-  var fleet = [];
-  // flowers in the window boxes: geranium clusters in red, pink and white
-  var FL = (dk ? ['#9A3448', '#9A4A78', '#B8B0C8'] : ['#D8403A', '#E8689A', '#FAF2EE']).map(function (fc) { return venice_sprite(30, 30, 3, function (o) {
-    o.fillStyle = dk ? '#24403E' : '#4E7E50'; [[-7, 6, 6], [0, 8, 6.4], [7, 6, 6], [-3, 3, 5], [4, 3, 5]].forEach(function (q) { o.beginPath(); o.arc(q[0], q[1], q[2], 0, 7); o.fill(); });
-    o.fillStyle = dk ? '#2E5248' : '#6E9E5A'; [[-5, 4, 2.6], [5, 5, 2.4]].forEach(function (q) { o.beginPath(); o.arc(q[0], q[1], q[2], 0, 7); o.fill(); });
-    o.fillStyle = fc; [[-6, -3, 4.4], [2, -6, 5], [8, -1, 4]].forEach(function (q) { for (var k = 0; k < 6; k++) { var a = k / 6 * 6.28; o.beginPath(); o.arc(q[0] + Math.cos(a) * q[2] * 0.55, q[1] + Math.sin(a) * q[2] * 0.55, q[2] * 0.5, 0, 7); o.fill(); } });
-    o.fillStyle = 'rgba(255,255,255,0.35)'; o.beginPath(); o.arc(1, -8, 1.6, 0, 7); o.arc(-7, -5, 1.3, 0, 7); o.fill(); }); });
+  var wins = A.wins.map(function (w) { return {p: new Path2D(w.p), on: w.k < 0.42, k: w.k, x: w.x, y: w.y, w: w.w, h: w.h}; }), nextFlip = 2;
+  // the gondolas on the canal: one far, one near, crossing in opposite directions; each turns round after it leaves
+  var L = A.lanes, gs = [{L: L[0], x: W * 0.72, dir: -1, wait: 0, ph: 1.3}, {L: L[1], x: W * (ph ? 0.4 : 0.3), dir: 1, wait: 0, ph: 0.2}], regatta = [];
+  function len(g) { return g.L.k * 6.5; }
+  // pigeons on the eaves and the fondamenta
+  var perches = A.perch.filter(function (p) { return p[1] - p[0] > 30 * s; }), pigs = [], pS = 0.8 * s;
+  for (i = 0; i < (ph ? 4 : 7) && perches.length; i++) { var pr = perches[Math.floor(hash(i * 3.1 + 2) * perches.length)], px = pr[0] + (pr[1] - pr[0]) * (0.15 + hash(i + 41) * 0.7);
+    pigs.push({pr: pr, x: px, dir: hash(i + 43) < 0.5 ? -1 : 1, st: 'idle', tt: hash(i + 44) * 2, dur: 1, z: 0, peck: 0, x0: px, fx: px}); }
+  function pigNext(p) { var r = Math.random(), pr = p.pr; p.st = r < 0.4 ? 'peck' : r < 0.78 ? 'hop' : r < 0.94 ? 'idle' : 'fly'; p.dur = p.st === 'peck' ? 0.7 : p.st === 'hop' ? 0.32 : p.st === 'fly' ? 2.6 : 0.8 + Math.random() * 1.4; p.tt = 0; p.x0 = p.x;
+    if (p.st === 'hop') { if (Math.random() < 0.3) p.dir *= -1; p.fx = Math.max(pr[0] + 4 * s, Math.min(pr[1] - 4 * s, p.x + p.dir * (6 + Math.random() * 10) * s)); }
+    if (p.st === 'fly') { p.fx = pr[0] + (pr[1] - pr[0]) * (0.1 + Math.random() * 0.8); p.dir = p.fx > p.x ? 1 : -1; } }
+  // gulls gliding across the sky now and then
+  var gulls = [0, 1].map(function (n) { return {x: n ? W * 0.3 : -999, y: H * (0.1 + n * 0.08), dir: n ? 1 : -1, v: (24 + n * 8) * s, wait: n ? 0 : 6}; });
+  var flock = [];
   // the washing: a sheet, striped shirts, a skirt and a towel, each swinging from its pegs
   var CLC = dk ? [['#B8B4CC', '#9894B0'], ['#9A4A5A', '#C8C4DA'], ['#B8A070', '#9A8458'], ['#5A78A8', '#8AA4C8'], ['#3E6A5E', '#5A8A7A']] : [['#FFFFFF', '#E6E8EE'], ['#D8443C', '#FFFFFF'], ['#F2CC5A', '#E4B440'], ['#6AA4D8', '#B8D8F2'], ['#3E9A84', '#7AC4AE']];
   function cloth(c, o, t, f) { var a = Math.sin(t * 1.4 + o.x * 0.05) * 0.07 * f.a + Math.sin(t * 3.1 + o.x) * 0.02 * f.a, w = o.w, h = o.h, col = CLC[o.t];
@@ -91,131 +141,101 @@ ENGINES.venice = function (A, v, dk) {
       c.save(); c.clip(); c.fillStyle = col[1]; for (var y2 = h * 0.08; y2 < h; y2 += h * 0.16) c.fillRect(-w, y2, w * 2, h * 0.07); c.restore(); }
     c.fillStyle = dk ? '#7A6A5A' : '#B88A5A'; c.fillRect(-w * 0.3 - 1, -2, 2, 4); c.fillRect(w * 0.3 - 1, -2, 2, 4);
     c.restore(); }
-  // pigeons on the bridge's parapet, and one on a pole by the near water door
-  var pigs = [], pS = BR.s * 0.024;
-  for (i = 0; i < (ph ? 3 : 5); i++) { var pm = (hash(i + 41) * 2 - 1) * BR.xe * 0.82; pigs.push({m: pm, hm: pm, x: 0, y: 0, dir: hash(i + 43) < 0.5 ? -1 : 1, st: 'idle', tt: hash(i + 44) * 2, dur: 1, z: 0, peck: 0, x0: 0, fx: 0, s: pS}); }
-  function pigNext(p) { var r = Math.random(); p.st = r < 0.4 ? 'peck' : r < 0.78 ? 'hop' : r < 0.94 ? 'idle' : 'fly'; p.dur = p.st === 'peck' ? 0.7 : p.st === 'hop' ? 0.32 : p.st === 'fly' ? 3.2 : 0.8 + Math.random() * 1.4; p.tt = 0; p.x0 = p.m;
-    if (p.st === 'hop') { if (Math.random() < 0.3) p.dir *= -1; p.fx = Math.max(-BR.xe * 0.85, Math.min(BR.xe * 0.85, p.m + p.dir * (0.3 + Math.random() * 0.5))); }
-    if (p.st === 'fly') { p.fx = (Math.random() * 2 - 1) * BR.xe * 0.82; p.dir = p.fx > p.m ? 1 : -1; } }
-  // birds of the finish: a flock rising off the domes
-  var flock = [];
-  var lastT = 0;
-  function drawG3(c, G, kind, a) {
+  // a gondola with its reflection, wake and (if pen) a little flag on a staff
+  function boat(c, x, y, k, dir, t, man, pen, flagT, a) {
+    var st = Math.sin(t * 2.1);
     c.save(); if (a != null) c.globalAlpha = a;
-    var gr = c.createLinearGradient(0, Math.min(G.stern[1], G.bow[1]) - 20, 0, Math.max(G.stern[1], G.bow[1]) + 10); gr.addColorStop(0, dk ? '#22223A' : '#2A2A36'); gr.addColorStop(1, dk ? '#0A0A16' : '#121218');
-    c.fillStyle = gr; venice_path(c, G.hull); c.fill();
-    if (G.inner.length > 4) { c.fillStyle = dk ? '#2E2230' : '#4A3226'; venice_path(c, G.inner); c.fill(); c.strokeStyle = dk ? 'rgba(200,170,110,0.4)' : 'rgba(214,170,80,0.7)'; c.lineWidth = 0.8; c.beginPath(); for (var q = 2; q < G.inner.length / 2 - 1; q += 2) { var a1 = G.inner[q], a2 = G.inner[G.inner.length - 1 - q]; c.moveTo(a1[0], a1[1]); c.lineTo(a2[0], a2[1]); } c.stroke(); }
-    c.fillStyle = dk ? '#C8C8D8' : '#E0E4EC'; venice_path(c, G.fer); c.fill();
-    c.fillStyle = kind ? (dk ? '#5A2838' : '#9A2A30') : (dk ? '#24345E' : '#2E4E8E'); venice_path(c, G.cov); c.fill();
-    if (!kind) { c.strokeStyle = dk ? 'rgba(160,170,220,0.35)' : 'rgba(255,255,255,0.35)'; c.lineWidth = 1; c.beginPath(); c.moveTo(G.cov[0][0], G.cov[0][1]); for (var k = 1; k < 9; k++) c.lineTo(G.cov[k][0], G.cov[k][1]); c.stroke(); }
-    c.strokeStyle = dk ? 'rgba(220,190,120,0.5)' : 'rgba(214,170,80,0.85)'; c.lineWidth = 1; c.beginPath(); for (k = 2; k < 16; k++) { var p = G.hull[k]; if (k === 2) c.moveTo(p[0], p[1]); else c.lineTo(p[0], p[1]); } c.stroke();
+    // reflection: the gondola mirrored in the water, faint
+    c.save(); c.globalAlpha *= dk ? 0.3 : 0.22; c.translate(0, 1.85 * y); c.scale(1, -0.85); venice_gondola(c, x, y, k, dir, t, st, dk, man); c.restore();
+    // the wake trailing behind
+    c.strokeStyle = dk ? 'rgba(180,190,255,0.3)' : 'rgba(255,255,255,0.7)'; c.lineCap = 'round'; c.lineWidth = Math.max(0.8, 0.07 * k);
+    for (var q = 0; q < 3; q++) { var wx0 = x - dir * (5.6 + q * 1.6) * k, wl = (1.2 - q * 0.25) * k, wy = y + (0.25 + q * 0.12) * k; c.globalAlpha = (a == null ? 1 : a) * (0.8 - q * 0.22); c.beginPath(); c.moveTo(wx0, wy); c.lineTo(wx0 - dir * wl, wy); c.moveTo(wx0 + dir * 0.6 * k, wy - 0.2 * k); c.lineTo(wx0 - dir * wl * 0.5, wy - 0.2 * k); c.stroke(); }
+    c.globalAlpha = a == null ? 1 : a;
+    var bob = Math.sin(t * 1.6) * 0.04 * k;
+    venice_gondola(c, x, y + bob, k, dir, t, st, dk, man);
+    if (pen) { var sx = x + dir * 2.9 * k, sy = y + bob - 0.6 * k, top = sy - 1.7 * k; c.strokeStyle = dk ? '#8A7A60' : '#6A5240'; c.lineWidth = Math.max(0.8, 0.07 * k); c.beginPath(); c.moveTo(sx, sy); c.lineTo(sx, top); c.stroke();
+      venice_flag(c, sx + 0.04 * k, top + 0.05 * k, 0.95 * k, 0.6 * k, flagT, 1.3, dk); }
     c.restore(); }
-  function rowing(c, part, t) {
-    if (wait > 0) return;
-    var st = Math.sin(t * 2.1), lift = Math.sin(t * 1.7) * 0.04, G = venice_gondola3(J, lane, rz, lift, Math.sin(t * 1.3) * 0.02, 1), fade = rz > 180 ? Math.max(0, 1 - (rz - 180) / 80) : 1, zg = rz + 0.9;
-    if (part === 'hull') {
-      // wake, reflection, hull
-      c.save(); c.globalAlpha = fade; c.strokeStyle = dk ? 'rgba(180,190,255,0.25)' : 'rgba(255,255,255,0.6)'; c.lineWidth = Math.max(0.6, J.f / rz * 0.05);
-      c.beginPath(); [-1, 1].forEach(function (sd) { for (var q = 0; q < 3; q++) { var za = rz - 0.6 - q * 1.6, zb = za - 1.2, a1 = P(lane + sd * (0.8 + (rz - za) * 0.3), 0, za), a2 = P(lane + sd * (0.8 + (rz - zb) * 0.3), 0, zb); if (zb > 4) { c.moveTo(a1[0], a1[1]); c.lineTo(a2[0], a2[1]); } } }); c.stroke(); c.restore();
-      var Rf = venice_gondola3(J, lane, rz, lift, 0, 1, -1); c.save(); c.globalAlpha = (dk ? 0.3 : 0.22) * fade; c.fillStyle = '#10141C'; venice_path(c, Rf.hull); c.fill(); c.restore();
-      drawG3(c, G, 1, fade);
-    } else {
-      // the gondolier on the stern deck and his oar, worked against the forcola on the right
-      var ft = P(lane, 0.55, zg), k = J.f / zg, hand = P(lane + 0.38 + st * 0.06, 1.2, zg), blade = P(lane + 1.05, -0.1, zg + 2.6 + st * 0.9), fork = P(lane + 0.62, 0.95, zg + 0.9);
-      c.save(); c.globalAlpha = fade;
-      c.fillStyle = dk ? '#3A2A22' : '#6A4430'; c.fillRect(fork[0] - 0.05 * k, fork[1], 0.1 * k, 0.4 * k);
-      c.strokeStyle = dk ? '#7A6A58' : '#A8865A'; c.lineCap = 'round'; c.lineWidth = Math.max(0.8, 0.07 * k); c.beginPath(); c.moveTo(hand[0], hand[1]); c.lineTo(blade[0], blade[1]); c.stroke();
-      c.strokeStyle = dk ? 'rgba(180,190,255,0.3)' : 'rgba(255,255,255,0.7)'; c.lineWidth = Math.max(0.6, 0.04 * k); c.beginPath(); c.ellipse(blade[0], blade[1], 0.4 * k, 0.08 * k, 0, 0, 7); c.stroke();
-      venice_gondolier(c, ft[0], ft[1], k, st, dk); c.restore();
-    } }
+  var lastT = 0;
   return {
     step: function (dt, t, f) {
-      lastT = t;
-      if (wait > 0) { wait -= dt * f.s; if (wait <= 0) { rz = 16; rows++; } } else { rz += rz * 0.075 * dt * f.s; if (rz > 260) { wait = 6; } }
-      rip.forEach(function (r) { r.x += r.v * dt * f.s; if (r.x > r.lim) r.x = -r.lim; });
+      lastT = t; var d = dt * f.s;
+      gs.forEach(function (g) { if (g.wait > 0) { g.wait -= d; if (g.wait <= 0) { g.dir = Math.random() < 0.5 ? 1 : -1; g.x = g.dir > 0 ? -len(g) : W + len(g); } }
+        else { g.x += g.dir * g.L.v * d; if (g.x < -len(g) - 4 || g.x > W + len(g) + 4) g.wait = 3 + Math.random() * 5; } });
+      regatta.forEach(function (g) { g.t += d; if (g.t > 0) g.x += g.v * d; });
+      rip.forEach(function (r) { r.x += r.v * d; if (r.x > W + 30) r.x = -30; if (r.x < -30) r.x = W + 30; });
       if (dk && t > nextFlip) { var w = wins[Math.floor(Math.random() * wins.length)]; if (w) w.on = !w.on; nextFlip = t + 1.5 + Math.random() * 3; }
-      pigs.forEach(function (p) { p.tt += dt * f.s; var u = Math.max(0, Math.min(1, p.tt / p.dur));
+      pigs.forEach(function (p) { p.tt += d; var u = Math.max(0, Math.min(1, p.tt / p.dur));
         p.peck = p.st === 'peck' && Math.sin(u * Math.PI * 2) > 0 ? Math.sin(u * Math.PI * 2) : 0;
-        if (p.st === 'hop') { p.m = p.x0 + (p.fx - p.x0) * u; p.z = Math.sin(u * Math.PI) * 0.25; }
-        else if (p.st === 'fly' || p.st === 'burst') { p.m = p.x0 + (p.fx - p.x0) * venice_ease(u); p.z = Math.sin(u * Math.PI) * (p.st === 'burst' ? 9 : 2.6); }
+        if (p.st === 'hop') { p.x = p.x0 + (p.fx - p.x0) * u; p.z = Math.sin(u * Math.PI) * 4 * s; }
+        else if (p.st === 'fly' || p.st === 'burst') { p.x = p.x0 + (p.fx - p.x0) * venice_ease(u); p.z = Math.sin(u * Math.PI) * (p.st === 'burst' ? 70 : 26) * s; }
         else p.z = 0;
         if (u >= 1) { p.z = 0; pigNext(p); } });
-      fleet.forEach(function (g) { g.t += dt * f.s; });
-      flock.forEach(function (b) { b.t += dt * f.s; if (b.t > 0) { b.x += b.vx * dt * f.s; b.y += b.vy * dt * f.s; b.vy += 4 * dt * f.s; b.vx += Math.sin(b.t * 2 + b.ph) * 6 * dt; } });
+      gulls.forEach(function (g) { if (g.wait > 0) { g.wait -= d; if (g.wait <= 0) { g.dir = Math.random() < 0.5 ? 1 : -1; g.x = g.dir > 0 ? -40 : W + 40; g.y = H * (0.07 + Math.random() * 0.16); g.v = (22 + Math.random() * 14) * s; } return; }
+        g.x += g.dir * g.v * d; if (g.x < -60 || g.x > W + 60) g.wait = 6 + Math.random() * 10; });
+      flock.forEach(function (b) { b.t += d; if (b.t > 0) b.x += b.vx * d; });
     },
     draw: function (ca, cb, t, f) {
-      var tt = t * f.s, Tm = t - T0, bells = venice_env(Tm, 0, 0.3, 5.5, 7), gold = venice_env(Tm, 0.8, 2, 6.5, 9), i2;
-      // ---- back canvas (over the far banks, under the bridge and the near palazzos)
-      // the finish: a warm glow over the lagoon, the bells ringing out from the campanile
-      if (gold > 0) { ca.save(); ca.globalCompositeOperation = dk ? 'lighter' : 'source-over'; venice_dot(ca, goldG, A.SM.domes[0], hz, W * 0.35, gold * (dk ? 0.5 : 0.45)); ca.restore(); }
-      if (bells > 0) { var B = A.SM.bell, ring = (Tm % 0.9) / 0.9, sw = Math.sin(Tm * 7);
-        ca.save(); ca.globalCompositeOperation = dk ? 'lighter' : 'source-over'; venice_dot(ca, goldG, B[0], B[1], A.sk * 9 * (1 + 0.3 * (1 - ring)), bells * (0.5 + 0.4 * (1 - ring)));
+      var tt = t * f.s, Tm = t - T0, bells = venice_env(Tm, 0, 0.3, 5.5, 7), gold = venice_env(Tm, 0.6, 1.6, 6.5, 8.5), fin = venice_env(Tm, 0, 0.6, 7, 9);
+      // ---- back canvas (over the palazzos, under the bank's stone, shutters and poles)
+      if (bells > 0) { var B = A.bell, ring = (Tm % 0.9) / 0.9, sw = Math.sin(Tm * 7), sk = A.tk;
+        ca.save(); ca.globalCompositeOperation = dk ? 'lighter' : 'source-over'; venice_dot(ca, goldG, B[0], B[1], sk * 9 * (1 + 0.3 * (1 - ring)), bells * (0.5 + 0.4 * (1 - ring)));
         ca.strokeStyle = dk ? 'rgba(255,226,160,1)' : 'rgba(255,250,235,1)'; ca.lineCap = 'round';
-        for (i = 0; i < 3; i++) { var rr = ((Tm + i * 0.3) % 0.9) / 0.9, R = A.sk * (8 + rr * 26); ca.globalAlpha = bells * (1 - rr) * 0.9; ca.lineWidth = Math.max(1, A.sk * 0.6);
+        for (i = 0; i < 3; i++) { var rr = ((Tm + i * 0.3) % 0.9) / 0.9, R = sk * (8 + rr * 26); ca.globalAlpha = bells * (1 - rr) * 0.9; ca.lineWidth = Math.max(1, sk * 0.6);
           [-1, 1].forEach(function (sd) { ca.beginPath(); ca.arc(B[0], B[1], R, sd < 0 ? Math.PI * 0.75 : -Math.PI * 0.25, sd < 0 ? Math.PI * 1.25 : Math.PI * 0.25); ca.stroke(); }); }
-        ca.globalAlpha = bells; ca.fillStyle = '#E8B84A'; ca.save(); ca.translate(B[0], B[1] - A.sk * 2.4); ca.rotate(sw * 0.5); ca.beginPath(); ca.moveTo(-A.sk * 1.1, A.sk * 2.6); ca.quadraticCurveTo(-A.sk * 0.8, 0, 0, 0); ca.quadraticCurveTo(A.sk * 0.8, 0, A.sk * 1.1, A.sk * 2.6); ca.closePath(); ca.fill(); ca.restore();
+        ca.globalAlpha = bells; ca.fillStyle = '#E8B84A'; ca.save(); ca.translate(B[0], B[1] - sk * 2.4); ca.rotate(sw * 0.5); ca.beginPath(); ca.moveTo(-sk * 1.1, sk * 2.6); ca.quadraticCurveTo(-sk * 0.8, 0, 0, 0); ca.quadraticCurveTo(sk * 0.8, 0, sk * 1.1, sk * 2.6); ca.closePath(); ca.fill(); ca.restore();
         ca.restore(); }
-      // lit windows on the far banks, and the light they throw on the water
+      // lit windows at night
       if (dk) { ca.save(); wins.forEach(function (w) { if (!w.on) return; ca.fillStyle = w.k < 0.15 ? '#FFE2A8' : '#F6C070'; ca.globalAlpha = 0.95; ca.fill(w.p); }); ca.restore(); }
-      // the water: ripples and, at night, lights shimmering
-      ca.save(); ca.clip(WC); ca.lineCap = 'round';
-      rip.forEach(function (r) { var p = P(r.x, 0, r.z), k = J.f / r.z, a = 0.5 + 0.5 * Math.sin(tt * 1.3 + r.ph); if (r.z > A.zEndL && (p[0] < XL || p[0] > XR)) return;
-        ca.strokeStyle = r.d ? (dk ? 'rgba(10,16,40,' + (0.45 * a) + ')' : 'rgba(40,110,104,' + (0.55 * a) + ')') : (dk ? 'rgba(170,190,255,' + (0.3 * a) + ')' : 'rgba(255,255,255,' + (0.7 * a) + ')');
-        ca.lineWidth = Math.max(0.7, k * 0.05); var L = r.l * k * (0.8 + 0.2 * Math.sin(tt + r.ph)); ca.beginPath(); ca.moveTo(p[0] - L / 2, p[1]); ca.lineTo(p[0] + L / 2, p[1]); ca.stroke(); });
+      // the water: ripples drifting along the canal, and at night the lights shimmering under the windows and lanterns
+      ca.save(); ca.beginPath(); ca.rect(-10, yB + 2 * s, W + 20, H - yB + 10); ca.clip(); ca.lineCap = 'round';
+      rip.forEach(function (r) { var a = 0.5 + 0.5 * Math.sin(tt * 1.3 + r.ph);
+        ca.strokeStyle = r.d ? (dk ? 'rgba(10,16,40,' + (0.45 * a) + ')' : 'rgba(30,100,96,' + (0.4 * a) + ')') : (dk ? 'rgba(170,190,255,' + (0.3 * a) + ')' : 'rgba(255,255,255,' + (0.7 * a) + ')');
+        ca.lineWidth = Math.max(0.8, (1 + r.f * 1.4) * s); var Lr = r.l * (0.8 + 0.2 * Math.sin(tt + r.ph)); ca.beginPath(); ca.moveTo(r.x - Lr / 2, r.y); ca.lineTo(r.x + Lr / 2, r.y); ca.stroke(); });
       if (dk) { ca.globalCompositeOperation = 'lighter';
-        wins.concat(nwins).forEach(function (w, n) { if (!w.on || w.r[1] < hz + 2) return; for (var q = 0; q < 3; q++) { var yy = w.r[1] + (q - 1) * w.s * 0.35, ww = w.s * (0.5 + 0.3 * Math.sin(tt * 2.2 + n + q)); ca.fillStyle = 'rgba(255,196,110,' + (0.22 + 0.1 * Math.sin(tt * 3 + n * 1.7 + q)) + ')'; ca.fillRect(w.r[0] - ww / 2 + Math.sin(tt * 1.7 + n + q) * w.s * 0.15, yy, ww, Math.max(1, w.s * 0.08)); } });
-        A.lamps.forEach(function (l, n) { for (var q = 0; q < 12; q++) { var yy = l[3] - q * l[2] * 6, ww = l[2] * (10 - q * 0.5) * (0.6 + 0.4 * Math.sin(tt * 2.6 + q * 1.3 + n)); if (yy < hz) break; ca.fillStyle = 'rgba(255,206,120,' + (0.5 - q * 0.035) + ')'; ca.fillRect(l[0] - ww / 2 + Math.sin(tt * 1.9 + q) * l[2] * 2, yy, ww, Math.max(1, l[2] * 1.4)); } });
+        wins.forEach(function (w, n) { if (!w.on) return; var ry = 2 * yB - w.y; if (ry > H) return; for (var q = 0; q < 3; q++) { var yy = ry + q * w.h * 0.3, ww = w.w * (0.6 + 0.3 * Math.sin(tt * 2.2 + n + q)); ca.fillStyle = 'rgba(255,196,110,' + (0.2 + 0.08 * Math.sin(tt * 3 + n * 1.7 + q)) + ')'; ca.fillRect(w.x - ww / 2 + Math.sin(tt * 1.7 + n + q) * w.w * 0.2, yy, ww, Math.max(1, 1.6 * s)); } });
+        A.lamps.forEach(function (l, n) { for (var q = 0; q < 16; q++) { var yy = yB + 4 * s + q * 7 * s, ww = s * (16 - q * 0.6) * (0.6 + 0.4 * Math.sin(tt * 2.6 + q * 1.3 + n)); if (yy > H) break; ca.fillStyle = 'rgba(255,206,120,' + (0.45 - q * 0.025) + ')'; ca.fillRect(l[0] - ww / 2 + Math.sin(tt * 1.9 + q) * 2 * s, yy, ww, Math.max(1, 1.8 * s)); } });
+        if (A.moon) for (var q2 = 0; q2 < 10; q2++) { var my = yB + 6 * s + q2 * 9 * s, mw = (30 - q2 * 2) * s * (0.6 + 0.4 * Math.sin(tt * 2 + q2)); ca.fillStyle = 'rgba(220,220,255,' + (0.16 - q2 * 0.012) + ')'; ca.fillRect(A.moon[0] - mw / 2 + Math.sin(tt * 1.3 + q2) * 3 * s, my, mw, 1.6 * s); }
         ca.globalCompositeOperation = 'source-over'; }
-      // the finish's sweep of golden light, running down the water from the lagoon towards us, glittering
-      if (gold > 0) { var u = venice_ease((Tm - 0.8) / 3.4), yc = hz + (H - hz) * u, bh = (H - hz) * (0.12 + 0.3 * u);
+      else { ca.globalCompositeOperation = 'source-over';
+        for (i = 0; i < (ph ? 12 : 24); i++) { var gx = W * hash(i * 2.7 + 5), gy = yB + (H - yB) * (0.08 + 0.9 * hash(i * 1.9 + 3)), sh = Math.max(0, Math.sin(tt * 2.4 + i * 2.1)); if (sh < 0.6) continue; ca.fillStyle = 'rgba(255,255,255,' + ((sh - 0.6) * 2) + ')'; ca.fillRect(gx - 3 * s, gy, 6 * s, 1.4 * s); ca.fillRect(gx - 0.7 * s, gy - 2 * s, 1.4 * s, 5.4 * s); } }
+      // the finish's band of golden light running across the water, glittering
+      if (gold > 0) { var xc = -W * 0.3 + W * 1.6 * venice_ease((Tm - 0.6) / 5.4), bw = W * 0.35;
         ca.globalCompositeOperation = dk ? 'lighter' : 'source-over';
-        var g = ca.createLinearGradient(0, yc - bh, 0, yc + bh); g.addColorStop(0, 'rgba(255,214,120,0)'); g.addColorStop(0.5, 'rgba(255,214,120,' + (gold * (dk ? 0.38 : 0.6)) + ')'); g.addColorStop(1, 'rgba(255,214,120,0)'); ca.fillStyle = g; ca.fillRect(-10, yc - bh, W + 20, bh * 2);
-        var g2 = ca.createLinearGradient(0, hz, 0, H); g2.addColorStop(0, 'rgba(255,214,120,' + (gold * (dk ? 0.3 : 0.4)) + ')'); g2.addColorStop(1, 'rgba(255,220,140,0)'); ca.fillStyle = g2; ca.fillRect(-10, hz, W + 20, (yc - hz));
-        for (i = 0; i < (ph ? 50 : 110); i++) { var gx = W * hash(i * 1.7 + 4), gy = hz + (H - hz) * Math.pow(hash(i * 2.3 + 1), 1.6); if (gy > yc + bh) continue; var sh = 0.5 + 0.5 * Math.sin(t * 7 + i * 1.3); ca.fillStyle = 'rgba(255,240,190,' + (gold * sh * 0.9) + ')'; var gl = 3 + (gy - hz) / (H - hz) * 16; ca.fillRect(gx - gl / 2, gy, gl, 1 + (gy - hz) / (H - hz) * 1.6); }
+        var g = ca.createLinearGradient(xc - bw, 0, xc + bw, 0); g.addColorStop(0, 'rgba(255,214,120,0)'); g.addColorStop(0.5, 'rgba(255,214,120,' + (gold * (dk ? 0.32 : 0.42)) + ')'); g.addColorStop(1, 'rgba(255,214,120,0)'); ca.fillStyle = g; ca.fillRect(xc - bw, yB, bw * 2, H - yB);
+        for (i = 0; i < (ph ? 50 : 110); i++) { var gx2 = W * hash(i * 1.7 + 4), gy2 = yB + (H - yB) * hash(i * 2.3 + 1); if (Math.abs(gx2 - xc) > bw) continue; var sh2 = 0.5 + 0.5 * Math.sin(t * 7 + i * 1.3), gl = (4 + (gy2 - yB) / (H - yB) * 14) * s; ca.fillStyle = 'rgba(255,240,190,' + (gold * sh2 * 0.9 * (1 - Math.abs(gx2 - xc) / bw)) + ')'; ca.fillRect(gx2 - gl / 2, gy2, gl, Math.max(1, 1.6 * s)); }
         ca.globalCompositeOperation = 'source-over'; }
       ca.restore();
-      // the lagoon fleet: little gondolas gliding across the basin in the finish
-      if (fleet.length) { ca.save(); ca.beginPath(); ca.rect(XL, hz - H * 0.1, XR - XL, H * 0.3); ca.clip();
-        fleet.forEach(function (g) { if (g.t < 0) return; var k = J.f / g.z, x = XL - 60 + g.t * g.v * k, y = hz + J.e * k + Math.sin(t * 1.6 + g.z) * 0.3, al = Math.min(1, g.t * 0.8) * Math.min(1, Math.max(0, 14 - g.t) / 2);
-          ca.globalAlpha = al * 0.35; ca.save(); ca.translate(0, 2 * y); ca.scale(1, -1); venice_gondolaP(ca, x, y, k, 1, t + g.z, dk); ca.restore(); ca.globalAlpha = al; venice_gondolaP(ca, x, y, k, 1, t + g.z, dk);
-          ca.strokeStyle = dk ? 'rgba(255,220,150,0.5)' : 'rgba(255,255,255,0.8)'; ca.lineWidth = 0.8; ca.beginPath(); ca.moveTo(x - 6 * k, y + 0.5); ca.lineTo(x - 12 * k, y + 1.2); ca.stroke(); });
-        ca.restore(); }
-      // the rowing gondola: behind the bridge once past it
-      var hullFar = rz + 10.8 > zB, manFar = rz + 0.9 > zB;
-      if (hullFar) rowing(ca, 'hull', tt); if (manFar) rowing(ca, 'man', tt);
-      // the flock off the domes
-      if (flock.length) { ca.save(); ca.strokeStyle = dk ? 'rgba(220,220,240,0.9)' : 'rgba(70,70,90,0.85)'; ca.lineCap = 'round';
-        flock.forEach(function (b) { if (b.t < 0 || b.t > 7) return; var wv = Math.sin(t * 16 + b.ph) * b.s * 0.6; ca.globalAlpha = Math.min(1, (7 - b.t) / 1.5); ca.lineWidth = Math.max(0.8, b.s * 0.3); ca.beginPath(); ca.moveTo(b.x - b.s, b.y - wv); ca.quadraticCurveTo(b.x - b.s * 0.4, b.y - b.s * 0.3, b.x, b.y); ca.quadraticCurveTo(b.x + b.s * 0.4, b.y - b.s * 0.3, b.x + b.s, b.y - wv); ca.stroke(); });
-        ca.restore(); }
-      // ---- front canvas (over the bridge and the near palazzos)
-      // moored gondolas bob at the near steps, tied to the poles
-      A.moor.forEach(function (m, n) { var lift = Math.sin(tt * 1.1 + n * 1.7) * 0.05 * f.a, roll = Math.sin(tt * 0.8 + n) * 0.03 * f.a, G = venice_gondola3(J, m.x, m.z, lift, roll, m.dir), Rf = venice_gondola3(J, m.x, m.z, lift, 0, m.dir, -1);
-        cb.save(); cb.globalAlpha = dk ? 0.3 : 0.22; cb.fillStyle = '#10141C'; venice_path(cb, Rf.hull); cb.fill(); cb.restore(); drawG3(cb, G, 0); });
-      if (!hullFar) rowing(cb, 'hull', tt); if (!manFar) rowing(cb, 'man', tt);
-      // shutters swinging in the breeze
-      A.shut.forEach(function (s, n) { var th = 0.35 + 0.9 * Math.pow(0.5 + 0.5 * Math.sin(tt * 0.5 + n * 2.1), 3) * f.a + Math.sin(tt * 3 + n) * 0.04;
-        [-1, 1].forEach(function (sd) { var hg = s.u + sd * s.w / 2, oz = hg + sd * 0.42 * Math.cos(th), ox = s.xs - s.sg * 0.42 * Math.sin(th), pts = [P(s.xs, s.v, hg), P(ox, s.v, oz), P(ox, s.v + s.h, oz), P(s.xs, s.v + s.h, hg)];
-          cb.fillStyle = dk ? '#24403E' : '#4E7E58'; venice_path(cb, pts); cb.fill();
-          cb.strokeStyle = dk ? 'rgba(0,0,20,0.35)' : 'rgba(20,40,20,0.3)'; cb.lineWidth = 0.8; cb.beginPath(); for (var q = 1; q < 8; q++) { var a1 = P(s.xs, s.v + s.h * q / 8, hg), a2 = P(ox, s.v + s.h * q / 8, oz); cb.moveTo(a1[0], a1[1]); cb.lineTo(a2[0], a2[1]); } cb.stroke(); }); });
-      // lit windows of the near palazzos at night
-      if (dk) { cb.save(); nwins.forEach(function (w) { if (!w.on) return; cb.fillStyle = w.k < 0.15 ? '#FFE2A8' : '#F6C070'; cb.globalAlpha = 0.95; cb.fill(w.p); }); cb.restore(); }
-      // flowers swaying in the window boxes
-      A.flw.forEach(function (fl, n) { venice_blit(cb, FL[fl[3]], fl[0], fl[1] - fl[2] * 0.12, fl[2] * 0.02, Math.sin(tt * 1.5 + n * 0.7) * 0.08 * f.a); });
+      // ---- front canvas
+      // pigeons on the eaves and the fondamenta
+      pigs.forEach(function (p) { var yb = p.pr[2], flying = p.st === 'fly' || p.st === 'burst';
+        if (!flying || p.z < 2) { cb.fillStyle = dk ? 'rgba(0,0,10,0.25)' : 'rgba(60,40,20,0.16)'; cb.beginPath(); cb.ellipse(p.x, yb, 6 * pS, 1.2 * pS, 0, 0, 7); cb.fill(); }
+        venice_pigeon(cb, p.x, yb - p.z, pS, p.dir, t, p.peck, flying && p.z > 1, dk); });
+      // the flag on the roof
+      var F = A.flag; venice_flag(cb, F.x, F.y, F.w, F.h, tt, (1 + fin * 0.8) * f.a, dk);
       // the washing on the line
       A.cloth.forEach(function (o) { cloth(cb, o, tt, f); });
-      // pigeons on the parapet
-      pigs.forEach(function (p) { var yb = BY(deck(p.m) + 1.22), x = BX(p.m), ps = p.s, flying = p.st === 'fly' || p.st === 'burst';
-        if (!flying) { cb.fillStyle = dk ? 'rgba(0,0,10,0.25)' : 'rgba(60,40,20,0.16)'; cb.beginPath(); cb.ellipse(x, yb, 6 * ps, 1.2 * ps, 0, 0, 7); cb.fill(); }
-        venice_pigeon(cb, x, yb - p.z * BR.s, ps, p.dir, t, p.peck, flying && p.z > 0.05, dk); });
-      // the bridge's lanterns and the wall lantern: glass and glow
-      A.lamps.forEach(function (l, n) { cb.save(); cb.fillStyle = dk ? '#FFD890' : 'rgba(255,248,230,0.85)'; cb.fillRect(l[0] - 4 * l[2], l[1] - 9 * l[2], 8 * l[2], 18 * l[2] * 0.95); cb.restore();
-        if (dk) { cb.save(); cb.globalCompositeOperation = 'lighter'; venice_dot(cb, lampG, l[0], l[1], 34 * l[2] * (ph ? 1.2 : 1), 0.8 + 0.08 * Math.sin(tt * 2 + n)); cb.restore(); } });
+      // gulls
+      gulls.forEach(function (g) { if (g.wait > 0) return; venice_gull(cb, g.x, g.y + Math.sin(tt * 0.9 + g.v) * 6 * s, 0.9 * s, g.dir, tt * 2.2 + g.v, dk); });
+      // the moored gondola bobbing by its water door, the far gondola, then the near one (they make way for the finish's regatta)
+      A.moor.forEach(function (m, n) { boat(cb, m.x, m.y + Math.sin(tt * 1.1 + n * 1.7) * 0.6 * s * f.a, m.k, m.dir, 0, false, false, tt); });
+      var ga = regatta.length ? 1 - fin : 1; if (ga > 0.01) gs.forEach(function (g, n) { if (g.wait > 0) return; boat(cb, g.x, g.L.y, g.L.k, g.dir, tt + g.ph, true, n === 1, tt + n, ga); });
+      // the finish's regatta: gondolas with flags crossing the canal
+      regatta.forEach(function (g) { if (g.t < 0) return; boat(cb, g.x, g.y, g.k, 1, tt + g.ph, true, true, tt + g.ph, Math.min(1, g.t * 1.5)); });
+      // the flock sweeping across the sky
+      if (flock.length) { cb.save(); cb.strokeStyle = dk ? 'rgba(220,220,240,0.9)' : 'rgba(70,70,90,0.85)'; cb.lineCap = 'round';
+        flock.forEach(function (b) { if (b.t < 0) return; var y = b.y + Math.sin(b.t * 1.5 + b.ph) * 8 * s, wv = Math.sin(t * 14 + b.ph) * b.s * 0.6; cb.globalAlpha = Math.min(1, b.t * 2); cb.lineWidth = Math.max(0.9, b.s * 0.3); cb.beginPath(); cb.moveTo(b.x - b.s, y - wv); cb.quadraticCurveTo(b.x - b.s * 0.4, y - b.s * 0.3, b.x, y); cb.quadraticCurveTo(b.x + b.s * 0.4, y - b.s * 0.3, b.x + b.s, y - wv); cb.stroke(); });
+        cb.restore(); }
+      // the lanterns' glow
+      if (dk) A.lamps.forEach(function (l, n) { cb.save(); cb.globalCompositeOperation = 'lighter'; cb.fillStyle = '#FFD890'; cb.fillRect(l[0] - 4 * l[2], l[1] - 6 * l[2], 8 * l[2], 11 * l[2]); venice_dot(cb, lampG, l[0], l[1], 40 * l[2], 0.8 + 0.08 * Math.sin(tt * 2 + n)); cb.restore(); });
     },
     finish: function (t) { T0 = t;
-      pigs.forEach(function (p, k) { p.st = 'burst'; p.dur = 3.6 + k * 0.3; p.tt = -k * 0.12; p.x0 = p.m; p.fx = (Math.random() * 2 - 1) * BR.xe * 0.8; p.dir = p.fx > p.m ? 1 : -1; });
-      fleet = []; for (var k = 0; k < (ph ? 4 : 6); k++) fleet.push({z: 150 + k * 22 + Math.random() * 10, t: -0.6 - k * 0.7, v: 2.2 + Math.random() * 0.6});
-      var D = A.SM.domes; flock = []; for (k = 0; k < (ph ? 22 : 36); k++) flock.push({x: D[0] + (Math.random() - 0.5) * A.sk * 40, y: D[1] + Math.random() * A.sk * 8, vx: (Math.random() - 0.5) * 60 * A.sk / 2.4, vy: -(30 + Math.random() * 40) * A.sk / 2.4, s: (2 + Math.random() * 2) * A.sk / 2.4, t: -Math.random() * 0.8 - 0.3, ph: Math.random() * 6});
-      if (wait > 0 || rz > 120) { wait = 0; rz = 16; } }
+      pigs.forEach(function (p, k) { var pr = p.pr; p.st = 'burst'; p.dur = 3.2 + k * 0.25; p.tt = -k * 0.12; p.x0 = p.x; p.fx = pr[0] + (pr[1] - pr[0]) * (0.1 + Math.random() * 0.8); p.dir = p.fx > p.x ? 1 : -1; });
+      var fr = ph ? [0.42, 0.7, 0.92] : [0.5, 0.74, 0.97], kk = [0.66, 0.82, 1]; regatta = [];
+      for (var k = 0; k < 3; k++) regatta.push({x: -L[1].k * 7 - [2, 0, 1][k] * 170 * s, y: yB + (H - yB) * fr[k], k: L[1].k * kk[k], v: (W + L[1].k * 14 + 340 * s) / 8, t: -0.2 - k * 0.3, ph: k * 1.7});
+      regatta.sort(function (a, b) { return a.y - b.y; });
+      flock = []; for (k = 0; k < (ph ? 16 : 28); k++) flock.push({x: -20 - Math.random() * W * 0.5, y: H * (0.06 + Math.random() * 0.22), vx: (90 + Math.random() * 70) * s, s: (3 + Math.random() * 2.4) * s, t: -Math.random() * 0.8, ph: Math.random() * 6});
+    }
   };
 };
 UIC.venice = {L: ['#357A74', '#22504C', 'rgba(255,253,250,0.86)', '#1F2E2C', '#5C6866', '#A84A32', '#A84A32', '#C9784C', '#FFFFFF'], D: ['#262C60', '#121834', 'rgba(22,26,58,0.8)', '#F4F0FA', '#B8B4D6', '#F2C878', '#F2C878', '#F6DA9E', '#161A3A']};

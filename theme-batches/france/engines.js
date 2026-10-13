@@ -64,7 +64,7 @@ ENGINES.france = function (A, v, dk) {
     o.strokeStyle = '#6A5040'; o.lineWidth = 0.8; o.beginPath(); o.moveTo(-8, 26); o.lineTo(-5, 34); o.moveTo(8, 26); o.lineTo(5, 34); o.stroke();
     o.fillStyle = '#9A6A40'; o.fillRect(-5.4, 34, 10.8, 7); o.fillStyle = '#7A5030'; o.fillRect(-5.4, 34, 10.8, 1.6); });
   // pigeons on the cobbles
-  var px0 = W * (ph ? 0.4 : 0.31), px1 = W * (ph ? 0.84 : 0.6), py0 = pbot + H * 0.025, py1 = H - H * 0.02, pigs = [];
+  var px0 = W * (ph ? 0.6 : 0.31), px1 = W * (ph ? 0.86 : 0.55), py0 = pbot + H * 0.025, py1 = H - H * 0.02, pigs = [];
   for (i = 0; i < (ph ? 3 : 5); i++) pigs.push({x: px0 + hash(i + 31) * (px1 - px0), y: py0 + hash(i + 32) * (py1 - py0), dir: hash(i + 33) < 0.5 ? -1 : 1, st: 'idle', tt: hash(i + 34) * 2, dur: 1, z: 0, peck: 0, vx: 0, vy: 0, fx: 0, fy: 0, x0: 0, y0: 0});
   function pigNext(p) { var r = Math.random(); p.st = r < 0.42 ? 'peck' : r < 0.82 ? 'hop' : r < 0.96 ? 'idle' : 'fly'; p.dur = p.st === 'peck' ? 0.7 : p.st === 'hop' ? 0.32 : p.st === 'fly' ? 2.6 : 0.8 + Math.random() * 1.4; p.tt = 0; p.x0 = p.x; p.y0 = p.y;
     if (p.st === 'hop') { if (Math.random() < 0.25) p.dir *= -1; p.fx = Math.max(px0, Math.min(px1, p.x + p.dir * (6 + Math.random() * 8) * (ph ? 0.8 : S))); p.fy = Math.max(py0, Math.min(py1, p.y + (Math.random() - 0.5) * 6)); }
@@ -74,14 +74,33 @@ ENGINES.france = function (A, v, dk) {
   var sway = []; A.trees.forEach(function (tr, n) { tr.blobs.forEach(function (b, m) { for (var k = 0; k < 5; k++) { var a = (k / 5 + hash(m * 5 + k + n * 50) * 0.15) * Math.PI * 2; if (Math.sin(a) < -0.6 && hash(k + m) < 0.6) continue; sway.push({x: b[0] + Math.cos(a) * b[2] * 0.98, y: b[1] + Math.sin(a) * b[2] * 0.98, a: a + Math.PI / 2, s: tr.s * (0.8 + hash(k * 7 + m) * 0.4), c: k % 3 === 0 ? 1 : 0, ph: hash(k + m * 3 + n) * 6.28, gx: tr.x}); } }); });
   var fall = []; for (i = 0; i < (ph ? 2 : 4); i++) fall.push({x: -99, y: 0, vx: 0, vy: 0, r: 0, t: i * 3.4});
   var FALLL = france_sprite(30, 30, 3, function (o) { o.fillStyle = dk ? '#7A8A4A' : '#C8A84A'; for (var k = 0; k < 5; k++) { var a = -Math.PI / 2 + (k - 2) * 0.5, L = 13 * (1 - Math.abs(k - 2) * 0.16); o.save(); o.rotate(a); o.beginPath(); o.ellipse(L * 0.55, 0, L * 0.5, L * 0.18, 0, 0, 7); o.fill(); o.restore(); } });
-  // the cafe awning: red and cream stripes with a scalloped valance that lifts in the breeze
-  var AW = A.awn;
-  function awning(c, t, f) { var sw = (AW.x1 - AW.x0) / AW.n, dep = AW.y1 - AW.y0;
-    for (var k = 0; k < AW.n; k++) { var x0 = AW.x0 + k * sw, wv = Math.sin(t * 2.3 - k * 0.55) * 1.6 * f.a + Math.sin(t * 5.1 + k) * 0.5 * f.a, lift = (1.2 + Math.sin(t * 1.3) * 0.8) * f.a;
-      c.fillStyle = k % 2 ? C.cream : C.red; c.beginPath(); c.moveTo(x0, AW.y0); c.lineTo(x0 + sw, AW.y0); c.lineTo(x0 + sw + 3, AW.y1 - lift + wv * 0.4); c.lineTo(x0 + 3, AW.y1 - lift + wv * 0.4); c.fill();
-      c.beginPath(); c.ellipse(x0 + 3 + sw / 2, AW.y1 - lift + wv, sw / 2, 4 * S + wv * 0.3, 0, 0, Math.PI); c.lineTo(x0 + 3, AW.y1 - lift + wv * 0.4 - 2); c.lineTo(x0 + 3 + sw, AW.y1 - lift + wv * 0.4 - 2); c.fill(); }
-    c.fillStyle = dk ? 'rgba(10,8,30,0.25)' : 'rgba(80,30,20,0.12)'; c.fillRect(AW.x0, AW.y0, AW.x1 - AW.x0 + 3, dep * 0.25);
-    c.fillStyle = C.dark; c.fillRect(AW.x0, AW.y0 - 2, AW.x1 - AW.x0 + 2, 2.4); }
+  // the awnings (the cafe's red and cream, the flower cart's blue and cream): stripes with a scalloped valance that
+  // lifts in the breeze
+  function awning(c, t, f, AW, ph2) { var sw = (AW.x1 - AW.x0) / AW.n, dep = AW.y1 - AW.y0, sl = AW.sl, sc = AW.s / S, k2 = dep / 30;
+    for (var k = 0; k < AW.n; k++) { var x0 = AW.x0 + k * sw, wv = (Math.sin(t * 2.3 - k * 0.55 + ph2) * 1.6 * f.a + Math.sin(t * 5.1 + k) * 0.5 * f.a) * Math.min(1, k2 + 0.3), lift = (1.2 + Math.sin(t * 1.3 + ph2) * 0.8) * f.a * Math.min(1, k2 + 0.3);
+      c.fillStyle = AW.c[k % 2]; c.beginPath(); c.moveTo(x0, AW.y0); c.lineTo(x0 + sw, AW.y0); c.lineTo(x0 + sw + sl, AW.y1 - lift + wv * 0.4); c.lineTo(x0 + sl, AW.y1 - lift + wv * 0.4); c.fill();
+      c.beginPath(); c.ellipse(x0 + sl + sw / 2, AW.y1 - lift + wv, sw / 2, Math.max(0.5, 4 * S * sc + wv * 0.3), 0, 0, Math.PI); c.lineTo(x0 + sl, AW.y1 - lift + wv * 0.4 - 2); c.lineTo(x0 + sl + sw, AW.y1 - lift + wv * 0.4 - 2); c.fill(); }
+    c.fillStyle = dk ? 'rgba(10,8,30,0.25)' : 'rgba(80,30,20,0.12)'; c.fillRect(AW.x0, AW.y0, AW.x1 - AW.x0 + sl, dep * 0.25);
+    c.fillStyle = C.dark; c.fillRect(AW.x0, AW.y0 - 2 * sc, AW.x1 - AW.x0 + 2, 2.4 * sc); }
+  // the tricolours: the cloth ripples along the fly (france_flagP). Each band is one smooth region of the same cloth,
+  // painted over the one before (blue the whole cloth, then cream from a third, red from two thirds) so there are no seams,
+  // and the folds are shaded by a soft gradient that follows the wave. Softened colours; dimmer at night.
+  var FC = dk ? ['#3E4E9E', '#BDB6CE', '#9A3C4C'] : ['#3A5CAA', '#FCF7EE', '#CF4840'], NV = 18;
+  function region(c, G, t, va) { var q, p, k0 = Math.round(va * NV); c.beginPath();
+    for (q = k0; q <= NV; q++) { p = france_flagP(G, 0, q / NV, t); if (q === k0) c.moveTo(p[0], p[1]); else c.lineTo(p[0], p[1]); }
+    for (q = 1; q <= 4; q++) { p = france_flagP(G, q / 4, 1, t); c.lineTo(p[0], p[1]); }
+    for (q = NV; q >= k0; q--) { p = france_flagP(G, 1, q / NV, t); c.lineTo(p[0], p[1]); }
+    for (q = 3; q >= 1; q--) { p = france_flagP(G, q / 4, va, t); c.lineTo(p[0], p[1]); }
+    c.closePath(); }
+  function flag(c, F, t, amp) { var G = {x0: F.x0, y0: F.y0, x1: F.x1, y1: F.y1, fx: F.fx, fy: F.fy, L: F.L, a: F.a * amp}, k;
+    c.save(); c.lineJoin = 'round';
+    for (k = 0; k < 3; k++) { region(c, G, t, k / 3); c.fillStyle = FC[k]; c.fill(); }
+    region(c, G, t, 0); var A = france_flagP(G, 0.5, 0, t), B = france_flagP(G, 0.5, 1, t), gr = c.createLinearGradient(A[0], A[1], B[0], B[1]);
+    for (k = 0; k <= 16; k++) { var v = k / 16, sh = Math.cos(t * 3.1 - v * 5.2 + 0.35) * Math.min(1, v * 2.5) * Math.min(1, amp);
+      gr.addColorStop(v, sh > 0 ? 'rgba(34,20,56,' + (sh * (dk ? 0.24 : 0.17)).toFixed(3) + ')' : 'rgba(255,250,240,' + (-sh * (dk ? 0.05 : 0.18)).toFixed(3) + ')'); }
+    c.fillStyle = gr; c.fill();
+    if (dk) { c.fillStyle = 'rgba(255,190,110,0.07)'; c.fill(); }
+    c.strokeStyle = dk ? 'rgba(10,8,30,0.35)' : 'rgba(60,40,50,0.18)'; c.lineWidth = 0.6; c.stroke(); c.restore(); }
   var lastT = 0;
   return {
     step: function (dt, t, f) {
@@ -144,7 +163,8 @@ ENGINES.france = function (A, v, dk) {
       ca.strokeStyle = dk ? 'rgba(200,210,255,0.3)' : 'rgba(255,255,255,0.8)'; ca.lineWidth = 1.2; ca.beginPath(); for (i = 0; i < 3; i++) { var wx = boatX + (66 + i * 16) * bs; ca.moveTo(wx, boatY + 1 + i * 1.6); ca.lineTo(wx + 14 * bs, boatY + 2 + i * 2.2); } ca.stroke();
       if (dk) france_dot(ca, winG, boatX, boatY - 10 * bs, 60 * bs, 0.5);
       // ---- front canvas: the awning, the chestnut leaves, pigeons, lamps
-      awning(cb, tt, f);
+      A.awns.forEach(function (aw, k) { awning(cb, tt, f, aw, k * 1.7); });
+      var wind = 1 + spk * 0.5; A.flags.forEach(function (F, k) { flag(cb, F, tt * (1 + spk * 0.35) + k * 1.3, (0.75 + 0.25 * Math.sin(tt * 0.4 + k)) * wind * Math.max(0.35, f.a)); });
       sway.forEach(function (l) { var a = l.a + (Math.sin(tt * 1.3 + l.ph) * 0.14 + Math.sin(tt * 0.5 + l.gx * 0.01) * 0.08) * f.a; france_blit(cb, LEAF[l.c], l.x, l.y, l.s * 0.95, a); });
       fall.forEach(function (l) { if (l.x > -50) france_blit(cb, FALLL, l.x, l.y, 0.7 * S, l.r); });
       pigs.slice().sort(function (a, b) { return a.y - b.y; }).forEach(function (p) { var ps = (ph ? 1.05 : 1.45 * S) * (0.85 + (p.y - py0) / (py1 - py0 + 1) * 0.3);
