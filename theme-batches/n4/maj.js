@@ -1,4 +1,4 @@
-/* New theme ideas, batch n4: nightmarket, diadelosmuertos, holi, ramadan, midautumn */
+/* New theme ideas, batch n4: diadelosmuertos, holi, ramadan, midautumn */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const r1 = n => Math.round(n * 100) / 100;
@@ -9,7 +9,6 @@
   const NOTES = ["#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"];
   Object.assign(FX_SHAPES, {
     n4chochin: {d: "M-3.6 -11H3.6V-8.6H-3.6Z M-3.6 8.6H3.6V11H-3.6Z" + ell(0, 0, 7.4, 9), detail: "M-6.6 -4.4Q0 -3 6.6 -4.4M-7.3 0Q0 1.4 7.3 0M-6.6 4.4Q0 5.8 6.6 4.4", dstroke: true},
-    n4fish: {d: "M-3 0C-3 -5 3 -7 8 -3C10 -1.5 10 1.5 8 3C3 7 -3 5 -3 0Z M-3 0L-11 -6L-8.5 0L-11 6Z", detail: circ(5.2, -1, 1.1), dfill: true},
     n4mari: {d: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => { const a = i / 10 * Math.PI * 2; return circ(Math.cos(a) * 7.2, Math.sin(a) * 7.2, 3.8); }).join("") + circ(0, 0, 8), detail: circ(0, 0, 4.2) + [0, 1, 2, 3, 4, 5].map(i => { const a = i / 6 * Math.PI * 2 + 0.3; return `M0 0L${r1(Math.cos(a) * 7)} ${r1(Math.sin(a) * 7)}`; }).join(""), dstroke: true},
     n4picado: {d: "M-9 -11H9V8L7.5 10.5L6 8L4.5 10.5L3 8L1.5 10.5L0 8L-1.5 10.5L-3 8L-4.5 10.5L-6 8L-7.5 10.5L-9 8Z", detail: circ(0, -1.5, 3) + "M-5.5 -7.5l1.5 1.5l-1.5 1.5l-1.5 -1.5z M5.5 -7.5l1.5 1.5l-1.5 1.5l-1.5 -1.5z M-5.5 3l1.5 1.5l-1.5 1.5l-1.5 -1.5z M5.5 3l1.5 1.5l-1.5 1.5l-1.5 -1.5z", dfill: true},
     n4splash: {d: circ(0, 0, 6.4) + [0, 1, 2, 3, 4, 5, 6].map(i => { const a = i / 7 * Math.PI * 2 + 0.3, d = 8.4 + (i % 2) * 1.6; return circ(Math.cos(a) * d, Math.sin(a) * d, 1.6 + (i % 3) * 0.5) + circ(Math.cos(a) * 4.6, Math.sin(a) * 4.6, 3.4); }).join("")},
@@ -19,22 +18,8 @@
     n4mooncake: {d: circ(0, 0, 10.4), detail: circ(0, 0, 7) + [0, 1, 2, 3, 4, 5, 6, 7].map(i => { const a = i / 8 * Math.PI * 2; return `M${r1(Math.cos(a) * 3)} ${r1(Math.sin(a) * 3)}L${r1(Math.cos(a) * 5.6)} ${r1(Math.sin(a) * 5.6)}`; }).join(""), dstroke: true},
     n4osma: {d: [0, 1, 2, 3].map(i => { const a = i / 4 * Math.PI * 2 + 0.4; return circ(Math.cos(a) * 5, Math.sin(a) * 5, 5); }).join(""), detail: circ(0, 0, 2.2), dfill: true},
     n4rabbit: {d: ell(-1, 4, 7.6, 6.4) + ell(1.6, -3, 4.6, 4) + ell(-0.4, -10, 1.6, 5) + ell(2.8, -10, 1.5, 4.6) + circ(-8.6, 6, 2.2)},
-    n4skylan: {d: "M-8 -10Q0 -14 8 -10L6 10Q0 12 -6 10Z", detail: "M-2.4 -12V11M2.4 -12V11M-7.4 -1Q0 1 7.4 -1", dstroke: true}
   });
 
-  MAJ_THEMES.push({
-    skin: {id: "nightmarket", name: "Night Market", group: "ideas", desc: "Food stalls under strings of paper lanterns.",
-      light: ["#FBF1EC", "rgba(194,58,52,.10)", "#FFFFFF", "#3A1E22", "#7A5258", "#EED8D2", "#F5E6E1", "#FDF8F6", "#C23A34", "#D5635A", "#FFFFFF", "#7E2420", "#7E2A30", "#F4D6CE", "#FFE3A0"],
-      dark: ["#1A0F22", "rgba(255,182,94,.08)", "#251530", "#FBEFF2", "#C8AFBF", "#3E2648", "#311D3C", "#1F1228", "#FFB65E", "#FFD28A", "#2A1420", "#8A5A30", "#24102A", "#E6CCDA", "#6A4424"],
-      glow: ["linear-gradient(180deg,#F6D1B5,#FBE7D6 45%,#F0C9C0)", "linear-gradient(180deg,#1D1430,#3A1E45 45%,#7A2E4A)"],
-      spine: [lg("#B2453E", "#7E2A30"), lg("#4A2140", "#24102A")], btn: [lg2("#C23A34", "#E07A3A"), lg2("#FFB65E", "#FFD28A")]},
-    kit: {motif: "n4chochin", card: ["#FFF8F4", "#F8E4DC"], ink: "#3A1E22", bd: "#EBC6BC", mc: "#D9473F", r: 14, notes: ["#FBD9CF"].concat(NOTES), shape: "rounded", pin: "washi2", fab: "999px", btn: "12px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(10), "n4skylan", d ? ["#FFC870", "#FFB060", "#FFDD9A"] : ["#F4A040", "#F08A3A", "#E8B050"], {smin: 14, smax: 20, vmin: 1, vmax: 1.8, sway: 0.7, life: 320, glow: d ? 16 : 6})
-      .concat(fxBurst(W, H, n(16), "n4fish", ["#FF7A3A", "#F0442E", "#FF9A5A"], [[0.15, 1.02], [0.85, 1.02]], {smin: 10, smax: 14}),
-        fxFall(W, H, n(12), "n4chochin", d ? ["#FF7A5A", "#FFE0A0", "#FFB060"] : ["#E04C42", "#F2A040", "#FFFFFF"], {sway: 1.2, smin: 12, smax: 16, vmin: 1, vmax: 1.8, glow: d ? 12 : 0}).map(p => Object.assign(p, {vr: fxR(-0.02, 0.02), rot: fxR(-0.2, 0.2)})),
-        fxTw(W, H, n(30), "sparkle", d ? ["#FFE3A8", "#FFFFFF", "#FFB65E"] : ["#F2B53A", "#FFD86B", "#E04C42"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
-    tag: "A street of food stalls under swaying paper lanterns, with a goldfish pool and a balloon seller"
-  });
   MAJ_THEMES.push({
     skin: {id: "diadelosmuertos", name: "Día de los Muertos", group: "ideas", desc: "Papel picado, marigolds and a candlelit ofrenda.",
       light: ["#FDF3EC", "rgba(194,54,122,.10)", "#FFFFFF", "#3A1A2E", "#7A5068", "#F0D8DE", "#F7E7EA", "#FEF9F7", "#C2367A", "#D2609A", "#FFFFFF", "#7A1E4E", "#8A2058", "#F6D2E2", "#FFD98A"],

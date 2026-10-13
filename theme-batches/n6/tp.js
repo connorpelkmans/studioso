@@ -1,4 +1,4 @@
-/* Theme Collections, Study Fields batch n6: film, culinary, marinebio, vet, aerospace */
+/* Theme Collections, Study Fields batch n6: film, culinary, marinebio */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2), S15 = SOw(1.6);
@@ -11,9 +11,7 @@
   const blush = (a, b, y, rx = 2.6, ry = 1.7) => `<ellipse cx="${a}" cy="${y}" rx="${rx}" ry="${ry}" fill="#FF8FA8" opacity=".8"/><ellipse cx="${b}" cy="${y}" rx="${rx}" ry="${ry}" fill="#FF8FA8" opacity=".8"/>`;
   const smile = (x, y, w = 2.4, sw = 1.9) => `<path d="M${x - w} ${y}q${w} ${w * .8} ${w * 2} 0" fill="none" stroke="${O}" stroke-width="${sw}" stroke-linecap="round"/>`;
   const happy = (x, y, w = 2.4) => `<path d="M${x - w} ${y + 1}q${w} ${-w * 1.3} ${w * 2} 0" fill="none" stroke="${O}" stroke-width="2" stroke-linecap="round"/>`;
-  const tube = (d, c, w, ow = w + 3.6, cap = "round") => `<path d="${d}" fill="none" stroke="${O}" stroke-width="${ow}" stroke-linecap="${cap}" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="${cap}" stroke-linejoin="round"/>`;
   const tapeEdge = "M3 1.5H83L80 5.5L83 9.5L80 13.5L83 17.5L80 21.5L82 24.5H3L6 20.5L3 16.5L6 12.5L3 8.5L6 4.5z";
-  const bone = (cx, cy, L, r, rot, fill) => `<g transform="translate(${cx} ${cy}) rotate(${rot})"><path d="M${-L / 2} ${-r * .55}H${L / 2}A${r} ${r} 0 1 1 ${L / 2 + r * .7} ${-r * .05}A${r} ${r} 0 1 1 ${L / 2} ${r * .55}H${-L / 2}A${r} ${r} 0 1 1 ${-L / 2 - r * .7} ${r * .05}A${r} ${r} 0 1 1 ${-L / 2} ${-r * .55}z" fill="${fill}" ${S2}/></g>`;
 
   /* ================= MOVIE PALACE (Film and Media Studies) ================= */
   TP_DATA.push({
@@ -194,114 +192,4 @@
     card: {id: "tp-marinebio", name: "Field Notebook", desc: "Waterproof field-notebook paper with kelp in the corner and waves along the bottom. Deep ocean teal in dark mode."}
   });
 
-  /* ================= VET CLINIC (Veterinary and Animal Science) ================= */
-  TP_DATA.push({
-    theme: "vet",
-    pack: {name: "Good Pet Club", items: {
-      vet_puppy: `${rg("n6-vt-pp", "#FFE6B8", "#E8A866", .42, .32)}${lg("n6-vt-cn", "#E8F8FC", "#9EDCE8")}
-        <path d="M4 22H60L48 52H16Z" fill="url(#n6-vt-cn)" ${SO} opacity=".95"/>
-        <path d="M18 24C10 24 8 36 12 44C18 46 22 38 22 30Z" fill="#B8783A" ${S2}/><path d="M46 24C54 24 56 36 52 44C46 46 42 38 42 30Z" fill="#B8783A" ${S2}/>
-        <ellipse cx="32" cy="34" rx="15" ry="14" fill="url(#n6-vt-pp)" ${SO}/>
-        <ellipse cx="32" cy="41" rx="7" ry="5" fill="#FFF6E6"/><ellipse cx="32" cy="38.4" rx="2.6" ry="1.9" fill="${O}"/>
-        ${EYES(26, 38, 32, 2.3)}${blush(22, 42, 38, 2.2, 1.5)}<path d="M30 43q2 1.6 4 0" fill="none" stroke="${O}" stroke-width="1.5" stroke-linecap="round"/>
-        <ellipse cx="32" cy="50" rx="11" ry="2.8" fill="#E25A5A" ${S2}/><circle cx="32" cy="54" r="2.4" fill="#F6CE4A" ${S15}/>`,
-      vet_kitten: `${lg("n6-vt-kt", "#C8C8D8", "#8A8A9C")}
-        <path d="M14 22L16 6L26 16Z" fill="#A8A8B8" ${SO}/><path d="M50 22L48 6L38 16Z" fill="#A8A8B8" ${SO}/><path d="M17 18L18 10L23 15Z" fill="#FFB3C6"/><path d="M47 18L46 10L41 15Z" fill="#FFB3C6"/>
-        <ellipse cx="32" cy="32" rx="22" ry="19" fill="url(#n6-vt-kt)" ${SO}/>
-        <path d="M28 14L32 22L36 14" fill="#707084"/><path d="M12 30H20M12 34H19M44 30H52M45 34H52" stroke="#707084" stroke-width="1.6" stroke-linecap="round"/>
-        ${EYES(24, 40, 31, 2.6)}<path d="M30.6 37H33.4L32 38.8Z" fill="#F28A9A"/><path d="M28 40q2 2 4 0q2 2 4 0" fill="none" stroke="${O}" stroke-width="1.5" stroke-linecap="round"/>${blush(19, 45, 37, 2.4, 1.5)}
-        <circle cx="52" cy="54" r="5" fill="#F28AB0" ${S2}/><path d="M52 49Q54 44 58 44" fill="none" stroke="${O}" stroke-width="1.2"/>`,
-      vet_bone: `${bone(32, 32, 30, 8, -20, "#F2C48A")}<path d="M22 31Q30 28 40 26" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".55" fill="none"/>
-        ${EYES(27, 37, 33, 2.1)}${smile(32, 37, 1.8, 1.6)}${spark(54, 12, 4.4, "#FFD86B")}${spark(10, 52, 3.4, "#FF8FA8")}`,
-      vet_paw: `${rg("n6-vt-pw", "#FFB0C4", "#F06A8A", .4, .35)}
-        <path d="M32 58C20 58 14 50 16 42C18 34 26 32 32 32C38 32 46 34 48 42C50 50 44 58 32 58Z" fill="url(#n6-vt-pw)" ${SO}/>
-        <ellipse cx="13" cy="26" rx="6" ry="7.6" fill="url(#n6-vt-pw)" ${S2}/><ellipse cx="25" cy="15" rx="6" ry="7.6" fill="url(#n6-vt-pw)" ${S2}/><ellipse cx="39" cy="15" rx="6" ry="7.6" fill="url(#n6-vt-pw)" ${S2}/><ellipse cx="51" cy="26" rx="6" ry="7.6" fill="url(#n6-vt-pw)" ${S2}/>
-        <path d="M32 52C26 47 24 43 27 40.6C29 39 31 40 32 41.4C33 40 35 39 37 40.6C40 43 38 47 32 52Z" fill="#fff" opacity=".9"/>`,
-      vet_steth: `${tube("M18 8C12 22 16 34 26 38M46 8C52 22 48 34 38 38M32 38V46", "#4A8AE0", 3.6)}
-        <circle cx="18" cy="7" r="3.4" fill="#C9D2DC" ${S15}/><circle cx="46" cy="7" r="3.4" fill="#C9D2DC" ${S15}/>
-        ${rg("n6-vt-st", "#FFFFFF", "#9AA8BA", .4, .34)}<circle cx="32" cy="50" r="11" fill="url(#n6-vt-st)" ${SO}/><circle cx="32" cy="50" r="7" fill="#DCEBFA" ${S15}/>
-        <path d="M54 30C50 26 44 28 45 33C46 37 54 42 54 42C54 42 62 37 63 33C64 28 58 26 54 30Z" fill="#FF6F91" ${S15} transform="translate(-6 -2) scale(.95)"/>`,
-      vet_bandage: `<g transform="rotate(-35 32 32)"><rect x="4" y="22" width="56" height="20" rx="10" fill="#F6CBA6" ${SO}/><rect x="22" y="22" width="20" height="20" fill="#FFF0E2" ${S2}/>
-        ${[[26, 27], [32, 27], [38, 27], [29, 32], [35, 32], [26, 37], [32, 37], [38, 37]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r=".9" fill="#E0A888"/>`).join("")}</g>
-        ${spark(52, 12, 4.4, "#FF8FA8")}${spark(12, 52, 3.4, "#7CCDC0")}`,
-      vet_jar: `${lg("n6-vt-jr", "#F4FBFF", "#C8E4F2")}${lg("n6-vt-jl", "#FF9A9A", "#E25A5A")}
-        <rect x="12" y="18" width="40" height="40" rx="8" fill="url(#n6-vt-jr)" ${SO}/>
-        ${bone(24, 50, 9, 3.4, -15, "#E8B07A")}${bone(40, 49, 9, 3.4, 12, "#F2C48A")}${bone(32, 43, 9, 3.4, 5, "#D89A5A")}
-        <rect x="10" y="11" width="44" height="9" rx="4" fill="url(#n6-vt-jl)" ${SO}/><rect x="26" y="6" width="12" height="7" rx="3" fill="#F07A7A" ${S2}/>
-        ${EYES(26, 38, 30, 2.2)}${blush(22, 42, 35, 2.2, 1.4)}${smile(32, 34, 2)}<path d="M16 25V36" stroke="#fff" stroke-width="2.2" stroke-linecap="round" opacity=".8"/>`,
-      vet_goodpet: `${lg("n6-vt-gp", "#4AB8A8", "#2E8A7E")}
-        <path d="M32 6L37 12L45 10L46 18L54 21L50 28L54 35L46 38L45 46L37 44L32 50L27 44L19 46L18 38L10 35L14 28L10 21L18 18L19 10L27 12Z" fill="url(#n6-vt-gp)" ${SO}/>
-        <path d="M24 44L18 60L26 56L30 62L32 48M40 44L46 60L38 56L34 62L32 48" fill="#E25A5A" ${S2}/>
-        ${T("GOOD", 32, 26.6, 8.6, "#FFFFFF", 24)}${T("PET!", 32, 36.6, 9.4, "#FFE08A", 22)}`
-    }},
-    pins: [
-      {id: "tp-vet-paw", name: "Paw Print Pin", kind: "badge", desc: "A round mint badge with a little pink paw print.",
-        svg: `<svg viewBox="0 0 30 30"><defs><radialGradient id="n6-pp-pw" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#C8F2E6"/><stop offset="1" stop-color="#4AB8A8"/></radialGradient></defs>
-          <circle cx="15" cy="15" r="12.6" fill="url(#n6-pp-pw)" stroke="#1E6A5E" stroke-width="1.2"/>
-          <g fill="#FF7A9A"><ellipse cx="15" cy="18.4" rx="4.6" ry="3.8"/><ellipse cx="9.6" cy="13" rx="1.8" ry="2.3"/><ellipse cx="12.8" cy="9.6" rx="1.8" ry="2.3"/><ellipse cx="17.2" cy="9.6" rx="1.8" ry="2.3"/><ellipse cx="20.4" cy="13" rx="1.8" ry="2.3"/></g>
-          <ellipse cx="9" cy="7.6" rx="2.4" ry="1.3" fill="#fff" opacity=".7" transform="rotate(-40 9 7.6)"/></svg>`},
-      {id: "tp-vet-bandage", name: "Bandage Clip", kind: "clip", desc: "A little bandage folded over the edge of the note.",
-        svg: `<svg viewBox="0 0 22 50"><rect x="4" y="2" width="14" height="46" rx="7" fill="#F6CBA6" stroke="#9A5A3A" stroke-width="1.1"/><rect x="4" y="17" width="14" height="16" fill="#FFF0E2" stroke="#9A5A3A" stroke-width=".9"/>
-          <g fill="#E0A888"><circle cx="8" cy="21" r=".8"/><circle cx="14" cy="21" r=".8"/><circle cx="11" cy="25" r=".8"/><circle cx="8" cy="29" r=".8"/><circle cx="14" cy="29" r=".8"/></g><path d="M7 6V14" stroke="#fff" stroke-width="1.2" stroke-linecap="round" opacity=".6"/></svg>`}
-    ],
-    card: {id: "tp-vet", name: "Patient Chart", desc: "A clipboard chart with paw prints, a little bone in the corner and a heartbeat line. Night-shift blue in dark mode."}
-  });
-
-  /* ================= LAUNCH PAD (Aerospace and Aviation) ================= */
-  TP_DATA.push({
-    theme: "aerospace",
-    pack: {name: "Mission Patch", items: {
-      aerospace_rocket: `${lg("n6-as-rk", "#FFFFFF", "#C8D0DE", 1, 0)}
-        <path d="M24 46L14 56L16 42Z" fill="#E8453E" ${S2}/><path d="M40 46L50 56L48 42Z" fill="#E8453E" ${S2}/>
-        <path d="M32 4C42 12 44 28 42 48H22C20 28 22 12 32 4Z" fill="url(#n6-as-rk)" ${SO}/>
-        <path d="M26 10Q32 2 38 10Q32 14 26 10Z" fill="#E8453E"/><circle cx="32" cy="26" r="6" fill="#7AC0E8" ${S2}/><circle cx="30" cy="24.4" r="1.8" fill="#fff"/>
-        <path d="M27 50Q32 64 37 50Z" fill="#FFB648" ${S15}/><path d="M29.4 50Q32 58 34.6 50Z" fill="#FFF2C0"/>
-        <path d="M24 40H40" stroke="#2E2E3E" stroke-width="2.4"/>${happy(29, 33.6, 1.6)}${happy(35, 33.6, 1.6)}${spark(52, 14, 4, "#FFD86B")}${spark(10, 22, 3, "#8FD8F2")}`,
-      aerospace_astro: `${rg("n6-as-as", "#FFE2B8", "#E8A866", .42, .32)}${rg("n6-as-gl", "#FFFFFF", "#9ED8F8", .35, .3)}
-        <circle cx="32" cy="32" r="26" fill="url(#n6-as-gl)" opacity=".35" ${SO}/>
-        <path d="M18 24C12 24 10 34 13 40C18 42 22 36 22 30Z" fill="#B8783A" ${S2}/><path d="M46 24C52 24 54 34 51 40C46 42 42 36 42 30Z" fill="#B8783A" ${S2}/>
-        <ellipse cx="32" cy="33" rx="15" ry="14" fill="url(#n6-as-as)" ${SO}/><ellipse cx="32" cy="40" rx="7" ry="5" fill="#FFF4E4"/><ellipse cx="32" cy="37.4" rx="2.6" ry="1.9" fill="${O}"/>
-        ${EYES(26, 38, 31, 2.3)}${blush(22, 42, 37, 2.2, 1.5)}<path d="M30 42q2 1.6 4 0" fill="none" stroke="${O}" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M14 22Q18 12 28 9" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/><rect x="28" y="3.6" width="8" height="4.6" rx="2" fill="#E8453E" ${S15}/>`,
-      aerospace_sat: `${lg("n6-as-sp", "#5A8AE8", "#2E5EB8", 1, 1)}${lg("n6-as-sb", "#FFE27A", "#E8A82A")}
-        <rect x="2" y="24" width="18" height="16" rx="2" fill="url(#n6-as-sp)" ${S2}/><rect x="44" y="24" width="18" height="16" rx="2" fill="url(#n6-as-sp)" ${S2}/><path d="M11 24V40M2 32H20M53 24V40M44 32H62" stroke="#BFD6FF" stroke-width="1"/>
-        <rect x="20" y="30" width="4" height="4" fill="#8A8EA0"/><rect x="40" y="30" width="4" height="4" fill="#8A8EA0"/>
-        <rect x="22" y="20" width="20" height="24" rx="6" fill="url(#n6-as-sb)" ${SO}/>
-        <path d="M32 20V12" stroke="${O}" stroke-width="3.4"/><path d="M32 20V12" stroke="#9AA0B4" stroke-width="1.6"/><path d="M24 12Q32 4 40 12Q32 15 24 12Z" fill="#EEF2F8" ${S15}/>
-        ${EYES(28, 36, 31, 1.9)}${smile(32, 35, 1.6, 1.5)}<path d="M46 12Q50 9 50 5M50 15Q56 10 55 4" fill="none" stroke="#7CDCC8" stroke-width="1.8" stroke-linecap="round"/>`,
-      aerospace_plane: `${rg("n6-as-pl", "#FFFFFF", "#B8C2D4", .4, .34)}
-        <path d="M4 58Q22 48 34 48" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".9"/><path d="M4 58Q22 48 34 48" fill="none" stroke="#9ED8F8" stroke-width="1.4" stroke-linecap="round" stroke-dasharray="3 3"/>
-        <g transform="rotate(-25 36 30)"><path d="M28 30L6 38Q4 40 7 41L30 36Z" fill="#DCE2EE" ${S2}/><path d="M44 30L64 38Q66 40 63 41L42 36Z" fill="#DCE2EE" ${S2}/>
-        <path d="M33 16L35 6Q36 4 38 6L40 16Z" fill="#E8453E" ${S2}/>
-        <ellipse cx="36" cy="30" rx="12" ry="14" fill="url(#n6-as-pl)" ${SO}/><path d="M26 24Q36 20 46 24" fill="none" stroke="#7AC0E8" stroke-width="3.4" stroke-linecap="round"/>
-        ${EYES(31.5, 40.5, 30, 2)}${smile(36, 34.4, 1.8, 1.6)}</g>`,
-      aerospace_moon: `${rg("n6-as-mn", "#FFFBE0", "#F2CE5A", .35, .3)}
-        <path d="M40 8A24 24 0 1 0 56 44A19 19 0 1 1 40 8Z" fill="url(#n6-as-mn)" ${SO}/>
-        <circle cx="22" cy="40" r="3" fill="#E6B83A" opacity=".5"/><circle cx="28" cy="50" r="2" fill="#E6B83A" opacity=".5"/>
-        ${happy(20, 28, 2)}${happy(30, 31, 2)}<path d="M22 36q3 2.4 6 1" fill="none" stroke="${O}" stroke-width="1.7" stroke-linecap="round"/><ellipse cx="17" cy="33" rx="2.4" ry="1.5" fill="#FF8FA8" opacity=".8"/>
-        <path d="M48 52l-2 6M50 60l6-2" stroke="${O}" stroke-width="1.4"/><path d="${star(52, 18, 6, 2.6, 5)}" fill="#FFE27A" ${S15}/>${spark(56, 34, 3, "#fff")}`,
-      aerospace_windsock: `<path d="M12 60V10" stroke="${O}" stroke-width="5.4" stroke-linecap="round"/><path d="M12 60V10" stroke="#C9CED8" stroke-width="2.6" stroke-linecap="round"/>
-        <g ${S2}><path d="M14 12L28 14V30L14 32Z" fill="#F26A3A"/><path d="M28 14L40 16V28L28 30Z" fill="#FFFFFF"/><path d="M40 16L50 18Q54 22 50 26L40 28Z" fill="#F26A3A"/></g>
-        <path d="M54 20Q58 18 60 20M54 26Q58 24 61 26" fill="none" stroke="#8FD8F2" stroke-width="1.8" stroke-linecap="round"/>
-        ${EYES(19, 25, 21, 1.6)}${smile(22, 24.6, 1.5, 1.4)}<circle cx="12" cy="9" r="2.6" fill="#E8453E" ${S15}/>`,
-      aerospace_tower: `${lg("n6-as-tw", "#FFFFFF", "#D6DCE6")}
-        <rect x="22" y="22" width="20" height="38" fill="url(#n6-as-tw)" ${SO}/><path d="M14 22H50L46 10H18Z" fill="#7AC0E8" ${SO}/><rect x="12" y="20" width="40" height="5" rx="2" fill="#C8CCD6" ${S2}/>
-        <path d="M32 10V3" stroke="${O}" stroke-width="2.4"/><circle cx="32" cy="3" r="2.2" fill="#E8453E"/>
-        ${EYES(27, 37, 36, 2.2)}${blush(24, 40, 41, 2, 1.4)}${smile(32, 40, 2)}<path d="M24 14H30" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".7"/>${spark(56, 40, 4, "#FFD86B")}`,
-      aerospace_liftoff: `${lg("n6-as-lo", "#2F5E9E", "#1E3E6E")}
-        <rect x="4" y="18" width="56" height="30" rx="8" fill="url(#n6-as-lo)" ${SO}/>
-        ${T("LIFT OFF!", 32, 37.4, 11, "#FFFFFF", 44)}<path d="M8 44H56" stroke="#FFB648" stroke-width="1.4" stroke-dasharray="2 3" stroke-linecap="round"/>
-        <path d="M52 10L56 4L58 12Z" fill="#E8453E"/>${spark(10, 10, 4, "#FFD86B")}${spark(56, 56, 3.4, "#8FD8F2")}`
-    }},
-    pins: [
-      {id: "tp-aerospace-patch", name: "Mission Patch Pin", kind: "badge", desc: "An embroidered round mission patch with a little rocket.",
-        svg: `<svg viewBox="0 0 30 30"><circle cx="15" cy="15" r="13" fill="#1E3E6E" stroke="#F2B624" stroke-width="2"/><circle cx="15" cy="15" r="10.4" fill="none" stroke="#fff" stroke-width=".7" stroke-dasharray="1.4 1.4"/>
-          <path d="M15 6C18 9 18.6 14 18 19H12C11.4 14 12 9 15 6Z" fill="#FFFFFF" stroke="#2B2233" stroke-width=".8"/><path d="M12 17L9.6 21H12.6ZM18 17L20.4 21H17.4Z" fill="#E8453E"/><circle cx="15" cy="12" r="1.6" fill="#7AC0E8"/>
-          <path d="M13.6 19.6Q15 24 16.4 19.6Z" fill="#FFB648"/><circle cx="7.6" cy="10" r=".9" fill="#fff"/><circle cx="22.4" cy="9" r=".7" fill="#fff"/><circle cx="21.6" cy="20" r=".8" fill="#FFD86B"/></svg>`},
-      {id: "tp-aerospace-runway", name: "Runway Washi", kind: "tape", desc: "Midnight runway tape with yellow lights and a dashed center line.",
-        svg: `<svg viewBox="0 0 86 26"><path d="${tapeEdge}" fill="#2E3448" opacity=".9"/><path d="M7 13H80" stroke="#fff" stroke-width="1.6" stroke-dasharray="6 4"/>
-          ${Array.from({length: 9}, (_, i) => `<circle cx="${9 + i * 8.6}" cy="5" r="1.2" fill="#FFD86B"/><circle cx="${9 + i * 8.6}" cy="21" r="1.2" fill="#FFD86B"/>`).join("")}</svg>`}
-    ],
-    card: {id: "tp-aerospace", name: "Flight Plan", desc: "Sky-blue flight-plan paper with a rocket in the corner and a dashed flight path. Midnight blue with stars in dark mode."}
-  });
 })();

@@ -1,4 +1,4 @@
-/* Study Companions, new theme ideas batch n2: mushrooms, sunflowers, cloudkingdom, nighttrain, ramen */
+/* Study Companions, new theme ideas batch n2: mushrooms, sunflowers, nighttrain, ramen */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -229,106 +229,6 @@
           done: ["Harvest is in! What a session!", "Done! You plowed right through that!"],
           task: ["Yee-haw! Another one done!", "Stacked and done! Nice work!", "Checked off! Bounce bounce!", "That's one more bale in the barn!"],
           break: ["Break time! Go stretch your legs in the sun!", "Lean back and rest a spell, partner!"]
-        }
-      }
-    ]
-  });
-
-  /* ================= Cloud Kingdom ================= */
-  COMP_DATA.push({
-    theme: "cloudkingdom",
-    companions: [
-      {
-        id: "cloudkingdom-nimbus", name: "Nimbus", kind: "Cloud Puppy", pose: "sit", wearColor: "#8A6AE0",
-        bio: "Fluffy, slightly damp, always happy to see you.",
-        idle: ["tailSwish", "earTwitch", "topBob"], cheer: "hop",
-        parts: {
-          tail: {svg: `<path d="${puff(92, 86, 9, 6, 1.2)}" fill="#F4F6FF" ${O}/>`, pivot: [84, 92]},
-          feet: `<ellipse cx="44" cy="108" rx="9" ry="5.6" fill="#EAEEFF" ${O}/><ellipse cx="76" cy="108" rx="9" ry="5.6" fill="#EAEEFF" ${O}/>`,
-          body: `${RG("cloudkingdom-nimbus-cloudkingdom-nimbus-b", [[0, "#FFFFFF"], [0.6, "#F2F4FF"], [1, "#D6DCF6"]], 0.42, 0.35, 0.75)}
-            <path d="${puff(60, 72, 34, 11, 1.18)}" fill="url(#cloudkingdom-nimbus-cloudkingdom-nimbus-b)" ${O}/>
-            <path d="M42 98Q60 104 78 98" fill="none" stroke="#C8D0F0" stroke-width="2.4" stroke-linecap="round"/>
-            ${shine(42, 52, 6, 3, -35)}`,
-          earL: {svg: `<path d="M32 50C20 50 16 64 22 74C30 72 36 62 36 54Z" fill="#E2E8FF" ${O}/>`, pivot: [34, 52]},
-          earR: {svg: `<path d="M88 50C100 50 104 64 98 74C90 72 84 62 84 54Z" fill="#E2E8FF" ${O}/>`, pivot: [86, 52]},
-          face: `<ellipse cx="60" cy="78" rx="9" ry="6.4" fill="#FFFFFF" opacity=".9"/><ellipse cx="60" cy="75" rx="3.4" ry="2.4" fill="${INK}"/>`,
-          top: {svg: `<path d="M56 38C54 30 60 26 64 30C66 24 74 26 72 34C76 36 74 40 70 40H58C54 40 54 38 56 38Z" fill="#B8C8F8" ${O2}/><path d="M60 44l-1 4M66 44l-1 4" stroke="#7FC4F0" stroke-width="2.2" stroke-linecap="round"/>`, pivot: [64, 40]}
-        },
-        eyes: {lx: 48, rx: 72, y: 66, r: 5, style: "sparkle", color: "#2A2A4A"},
-        mouth: {x: 60, y: 81, w: 2.6, style: "cat", color: "#2A2A4A"},
-        cheeks: {lx: 40, rx: 80, y: 76, w: 4.4, h: 2.8, color: "#FF9AC0"},
-        anchors: {top: [62, 40, 0.95], neck: [60, 92, 1], chest: [70, 96, 0.6], back: [88, 76, 0.8], hands: [60, 98, 0.8]},
-        lines: {
-          tap: ["Arf! Fluffy hello from the sky!", "You're doing great! I'm wagging so much it's drizzling!", "Every task floats you a little higher!", "Woof! I believe in you a cloud-ton!", "Stay cozy, stay curious!", "Drink some water! I'm made of it, so I'd know!", "You make every day a little sunnier!"],
-          pet: ["Hehe! Pats make me extra fluffy!", "Woof woof! Don't stop, don't stop!"],
-          hello: ["You're back! Happy drizzle!", "ARF! I missed you this much!"],
-          morning: ["Good morning! Clear skies ahead!", "Morning! Let's chase the sunrise!"],
-          night: ["Floating down to my cloud bed. You too?", "Sleepy puppy, sleepy sky. Good night!"],
-          focus: ["Sitting like a good pup. Focus time!", "Quiet as a summer cloud. Let's go!"],
-          done: ["What a session! Rainbow wags!", "Done! You flew so high today!"],
-          task: ["ARF ARF! Another one done!", "Yay! Fluffy happy spin!", "Checked off! Good human!", "Woohoo! Sky-high work!"],
-          break: ["Walkies! Stretch those legs!", "Break time! Go look at the sky!"]
-        }
-      },
-      {
-        id: "cloudkingdom-zephyr", name: "Zephyr", kind: "Wind Sprite", pose: "float", wearColor: "#5AB8F0",
-        bio: "A little swirl of breeze that turns your pages for you.",
-        idle: ["spin", "sway", "sparkle"], cheer: "spin",
-        parts: {
-          tail: {svg: `${LINE("M44 92Q32 104 18 98Q10 94 16 88", "#BFE8FF", 3.4)}${LINE("M76 94Q86 106 100 102", "#D8D0FF", 3)}${LINE("M60 100Q60 108 53 111", "#BFF0E8", 2.6)}`, pivot: [60, 90]},
-          body: `${RG("cloudkingdom-zephyr-cloudkingdom-zephyr-b", [[0, "#FFFFFF"], [0.5, "#D4F0FF"], [1, "#94CCF2"]], 0.4, 0.32, 0.75)}
-            <path d="M60 28C82 28 94 44 94 62C94 82 80 96 60 96C40 96 26 82 26 62C26 50 32 40 42 34C40 42 44 48 52 46C46 38 50 28 60 28Z" fill="url(#cloudkingdom-zephyr-cloudkingdom-zephyr-b)" ${O}/>
-            <path d="M74 84C84 78 86 66 80 58" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".9"/>
-            <path d="M40 70Q46 84 62 86" fill="none" stroke="#9AD0F0" stroke-width="2.4" stroke-linecap="round" opacity=".7"/>
-            ${twinkle(84, 40, 3.4, "#FFE38A")}${twinkle(32, 46, 2.4, "#fff")}`,
-          armL: {svg: `<g transform="rotate(-42 29 70)"><path d="M28 68C18 66 12 72 14 78C20 78 26 74 30 72Z" fill="#C8E8FF" ${O}/></g>`, pivot: [29, 70]},
-          armR: {svg: `<g transform="rotate(42 91 70)"><path d="M92 68C102 66 108 72 106 78C100 78 94 74 90 72Z" fill="#C8E8FF" ${O}/></g>`, pivot: [91, 70]}
-        },
-        eyes: {lx: 51, rx: 71, y: 62, r: 4.6, style: "sparkle", color: "#1E2A48"},
-        mouth: {x: 61, y: 71, w: 2.8, color: "#1E2A48"},
-        cheeks: {lx: 44, rx: 78, y: 69, w: 4, h: 2.4, color: "#FF9AC0"},
-        anchors: {top: [62, 30, 0.85], neck: [60, 88, 0.85], chest: [66, 82, 0.55], back: [88, 60, 0.75], hands: [60, 88, 0.75]},
-        lines: {
-          tap: ["Whoosh! Hello there!", "I'll turn the page, you do the thinking!", "You're breezing through today!", "Fresh air, fresh ideas! Let's go!", "Swirl swirl! You're doing amazing!", "Take a big breath, nice and slow. Ahh!", "Light as a breeze, steady as the wind!"],
-          pet: ["Hehe! You made me spin!", "Ooh, that tickles my swirl!"],
-          hello: ["Whoosh! You blew in! Hello!", "Hi hi! I've been twirling around waiting!"],
-          morning: ["Good morning! A fresh breeze for a fresh start!", "Morning! Open a window, I'll come say hi!"],
-          night: ["The wind is settling down. Rest soon?", "Soft breeze, sweet dreams. Good night!"],
-          focus: ["Calm winds only. Let's focus!", "Gently turning pages beside you."],
-          done: ["What a gust of good work!", "Session done! You swept right through it!"],
-          task: ["WHOOSH! Done!", "Blown away! Another one finished!", "Checked off! Twirl of joy!", "Yay! That one flew by!"],
-          break: ["Break time! Go feel some fresh air!", "Stretch and sway like a tree in the wind!"]
-        }
-      },
-      {
-        id: "cloudkingdom-kitey", name: "Kitey", kind: "Paper Kite", pose: "float", wearColor: "#FF8FA8",
-        bio: "Rises higher the longer you stay focused.",
-        idle: ["sway", "topBob", "wave"], cheer: "spin",
-        parts: {
-          back: `<g transform="translate(0 -6)">${LINE("M60 104Q52 108 58 112Q64 116 56 118", "#8A80B8", 1.6)}
-            <path d="M52 108L44 104L44 112Z M64 114L72 110L72 118Z" fill="#B9A0F0" ${OW(1.8)}/></g>`,
-          body: `<g transform="translate(0 -6)"><path d="M60 18L96 58L60 104L24 58Z" fill="#FF8FA8" ${O}/>
-            <path d="M60 18L96 58H60Z" fill="#FFD86B"/><path d="M24 58L60 104V58Z" fill="#8FD8FF"/><path d="M60 58L96 58L60 104Z" fill="#B9F0A8"/>
-            <path d="M60 18L96 58L60 104L24 58Z" fill="none" ${O}/><path d="M60 18V104M24 58H96" stroke="${INK}" stroke-width="2"/>
-            ${shine(46, 44, 5, 2.4, -50)}</g>`,
-          armL: {svg: `<g transform="translate(0 -6)"><ellipse cx="22" cy="66" rx="5" ry="7" transform="rotate(30 22 66)" fill="#FFB8C8" ${O}/></g>`, pivot: [27, 56]},
-          armR: {svg: `<g transform="translate(0 -6)"><ellipse cx="98" cy="66" rx="5" ry="7" transform="rotate(-30 98 66)" fill="#FFE08A" ${O}/></g>`, pivot: [93, 56]},
-          top: {svg: `<g transform="translate(0 -6)"><path d="M60 18L50 10L50 22Z M60 18L70 10L70 22Z" fill="#E8504A" ${O2}/><circle cx="60" cy="17" r="3" fill="#E8504A" ${O2}/></g>`, pivot: [60, 14]}
-        },
-        eyes: {lx: 51, rx: 69, y: 52, r: 4.6, style: "round", color: "#2A1A2A"},
-        mouth: {x: 60, y: 61, w: 2.8, color: "#2A1A2A"},
-        cheeks: {lx: 44, rx: 76, y: 59, w: 3.8, h: 2.4, color: "#FF7A9A"},
-        anchors: {top: [60, 10, 0.85], neck: [60, 78, 0.8], chest: [60, 74, 0.55], back: [60, 34, 0.7], hands: [60, 80, 0.75]},
-        lines: {
-          tap: ["Hi! The wind's just right for studying!", "The longer you focus, the higher I fly!", "Up, up, up! You're doing so well!", "Hold the string steady, I'll do the soaring!", "You've got a tailwind today!", "Water break? Kites like light snacks!", "Look how high we've climbed!"],
-          pet: ["Wheee! You made me do a loop!", "Hehe! My tail bows are dancing!"],
-          hello: ["You're here! Let's catch a breeze!", "Hello! I've been fluttering for you!"],
-          morning: ["Good morning! Perfect flying weather!", "Morning! Let's rise with the sun!"],
-          night: ["Coming down to rest. You should too!", "Folding my tail for the night. Sleep well!"],
-          focus: ["Climbing higher with every minute!", "Steady wind, steady mind. Let's go!"],
-          done: ["We touched the clouds! Amazing session!", "Done! Highest flight yet!"],
-          task: ["Wheee! Another one done!", "Up we go! Checked off!", "YAY! Loop-de-loop of joy!", "Soaring! That one's finished!"],
-          break: ["Break time! Go look up at the sky!", "Stretch your arms wide like kite wings!"]
         }
       }
     ]

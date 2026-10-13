@@ -1,4 +1,4 @@
-/* New theme ideas, batch n2: mushrooms (Mushroom Hollow), sunflowers (Sunflower Field), cloudkingdom (Cloud Kingdom), nighttrain (Night Train), ramen (Ramen Shop) */
+/* New theme ideas, batch n2: mushrooms (Mushroom Hollow), sunflowers (Sunflower Field), nighttrain (Night Train), ramen (Ramen Shop) */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const r1 = n => Math.round(n * 100) / 100;
@@ -10,8 +10,6 @@
     n2spore: {d: circ(0, 0, 4.5) + circ(-6, 5, 2.2) + circ(6.5, -4, 2) + circ(4, 7, 1.4)},
     n2sunfl: {d: petals(12, 10.5, 2.4, 3) + circ(0, 0, 4.6), detail: circ(0, 0, 4.4), dfill: true},
     n2petal: {d: "M0 -10C3.6 -6 3.6 4 0 10C-3.6 4 -3.6 -6 0 -10Z", detail: "M0 -7V7", dstroke: true},
-    n2cloud: {d: "M-10.5 5C-13 5 -13 0 -9.5 -0.5C-10 -5 -4.5 -7.5 -1.5 -4.5C0 -9 7.5 -8.5 7.5 -3C11.5 -3.5 12.5 3.5 9 5Z"},
-    n2kite: {d: "M0 -11L7.5 -1L0 6L-7.5 -1Z M-0.5 6L0.5 6L1.5 11L-1.5 11Z", detail: "M0 -11V6M-7.5 -1H7.5", dstroke: true},
     n2ticket: {d: "M-11 -6H11V-2.2A2.2 2.2 0 0 0 11 2.2V6H-11V2.2A2.2 2.2 0 0 0 -11 -2.2Z", detail: circ(-5.5, 0, 1.4) + circ(0, 0, 1.4) + circ(5.5, 0, 1.4), dfill: true},
     n2steam: {d: "M-3 10C-8 4 2 0 -2 -4C-5 -7 -1 -10 1 -11C0 -8 4 -6 3 -2C1.5 3 -5 5 0.5 10Z"},
     n2naruto: {d: "M-10 0C-10 -6.5 -5 -10 0 -10C5 -10 10 -6.5 10 0C10 6.5 5 10 0 10C-5 10 -10 6.5 -10 0Z", detail: "M0 0C1 -1.5 3 -0.5 2.6 1.2C2 3.6 -1.6 3.8 -3 1.6C-4.8 -1.2 -2.4 -5 1.2 -4.8C5 -4.6 6.6 -0.6 5.6 2.6", dstroke: true},
@@ -45,19 +43,6 @@
         fxFlutter(W, H, n(6), d ? ["#FFE38A", "#B8F0FF"] : ["#FF9F43", "#FFD45A", "#8FD8FF"]),
         fxTw(W, H, n(30), "sparkle", d ? ["#FFF4C2", "#FFFFFF", "#F6C84A"] : ["#F2B53A", "#FFD86B", "#FF9F43"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
     tag: "Sunflowers that follow the sun across the sky toward a red barn, with bees, hay bales and a dirt road"
-  });
-  MAJ_THEMES.push({
-    skin: {id: "cloudkingdom", name: "Cloud Kingdom", group: "ideas", desc: "Floating grassy islands above a sea of clouds.",
-      light: ["#F2F6FD", "rgba(74,98,208,.10)", "#FFFFFF", "#1E2A48", "#5A6888", "#DCE4F4", "#E8EEFA", "#FAFCFF", "#4A62D0", "#8A6AE0", "#FFFFFF", "#2E4290", "#3E58A0", "#D8E2FA", "#FFE7B8"],
-      dark: ["#1A1C46", "rgba(255,184,216,.08)", "#24265A", "#F2EEFA", "#B8B0D8", "#363A74", "#2C2E66", "#1E2050", "#FFB8D8", "#C8B0FF", "#2A1A3A", "#6A4A8A", "#141638", "#E2DCF6", "#5A3A6A"],
-      glow: ["linear-gradient(180deg,#A9CDF5,#DCEBFB 60%,#FFF4F0)", "linear-gradient(180deg,#1C1F4A,#3A3474 60%,#7E5C9E)"],
-      spine: [lg("#5B78C8", "#3E58A0"), lg("#3A3474", "#141638")], btn: [lg2("#4A62D0", "#8A6AE0"), lg2("#FFB8D8", "#C8B0FF")]},
-    kit: {motif: "n2cloud", card: ["#F8FBFF", "#E6EEFC"], ink: "#1E2A48", bd: "#C8D6F4", mc: "#6A82E0", r: 22, notes: ["#E2ECFF", "#FFF3B8", "#D9F0D8", "#FFE0EC", "#FFE6CC", "#EBD9FF"], shape: "cloud", pin: "pin", fab: "999px", btn: "999px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(14), "n2cloud", d ? ["#B8B0E8", "#E2DCF6", "#9A8CD0"] : ["#FFFFFF", "#EAF2FF", "#F6EEFF"], {smin: 16, smax: 26, vmin: 0.8, vmax: 1.5, sway: 0.6, life: 320, glow: d ? 6 : 8}).map(p => Object.assign(p, {rot: 0, vr: 0}))
-      .concat(fxRise(W, H, n(6), "n2kite", d ? ["#FFB8D8", "#FFE38A", "#9AD8FF"] : ["#FF8FA8", "#FFD86B", "#5AB8F0", "#9BE07A"], {smin: 14, smax: 19, vmin: 1.6, vmax: 2.6, sway: 1.4, life: 260, glow: d ? 10 : 0}).map(p => Object.assign(p, {rot: fxR(-0.3, 0.3), vr: fxR(-0.01, 0.01)})),
-        fxBurst(W, H, n(30), "star", d ? ["#FF9AB0", "#FFE69A", "#A8F0A0", "#9AD8FF", "#D8B0FF"] : ["#FF6F7F", "#FFD84A", "#6FCF6A", "#5AB8F0", "#B07AE8"], [[0.15, 1.02], [0.85, 1.02]], {smin: 6, smax: 10, glow: d ? 10 : 0}),
-        fxTw(W, H, n(30), "sparkle", d ? ["#FFFFFF", "#FFE7B0", "#C9D4FF"] : ["#8AB4F8", "#FFD86B", "#FFB3D9"], {smin: 3, smax: 7, glow: d ? 10 : 4}))},
-    tag: "Floating islands with waterfalls over a rolling sea of clouds, kites on the wind and a rainbow bridge"
   });
   MAJ_THEMES.push({
     skin: {id: "nighttrain", name: "Night Train", group: "ideas", desc: "A cozy sleeper compartment with hills and towns sliding past the window.",

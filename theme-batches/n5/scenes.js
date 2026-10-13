@@ -1,4 +1,4 @@
-// Batch n5 scenes: pride (Pride Parade), graduation (Graduation Day), birthday (Birthday Bash), geology (Crystal Cave), languages (Postcard Plaza)
+// Batch n5 scenes: pride (Pride Parade), graduation (Graduation Day), birthday (Birthday Bash), geology (Crystal Cave)
 // Shared helpers for the n5 scenes. The engines (engines_n5.js) use them too.
 var n5_RAINBOW = ['#E8505B', '#F59E42', '#F7D046', '#5DBB63', '#4A90D9', '#8E5CC7'];
 var n5_RAINBOW_D = ['#FF6B76', '#FFAE5A', '#FFE066', '#72D67A', '#62A8F2', '#B07CF0'];
@@ -330,83 +330,5 @@ SCENES.geology = function (W, H, dk, rnd) {
   return {sky: sky, far: far, refl: refl, mid: mid, near: near};
 };
 
-// 5. Postcard Plaza: a European town square with a cafe, a fountain and a tram stop.
-SCENES.languages = function (W, H, dk, rnd) {
-  var ph = H > W, far = Lay(2), refl = Lay(0), mid = Lay(0), near = Lay(0);
-  var sky = dk ? 'linear-gradient(180deg,#18223E 0%,#2E2F58 55%,#6A4A5A 100%)' : 'linear-gradient(180deg,#BDDDF2 0%,#F4EEE2 60%,#F2D3B3 100%)';
-  var yb = H * (ph ? 0.7 : 0.71);
-  // far: rooftops, a dome and a bell tower, clouds
-  var sil = '', x = -30; while (x < W + 30) { var w = 40 + rnd() * 50, h = H * (0.1 + rnd() * 0.1); sil += rect(x, yb - H * 0.2 - h, w, h + 40) + poly([[x - 4, yb - H * 0.2 - h], [x + w / 2, yb - H * 0.2 - h - w * 0.35], [x + w + 4, yb - H * 0.2 - h]]); x += w + rnd() * 16; }
-  var dmx = W * (ph ? 0.2 : 0.3), dmy = yb - H * (ph ? 0.36 : 0.42), dr = ph ? 30 : 46, cmx = W * (ph ? 0.85 : 0.6);
-  sil += rect(dmx - dr * 0.9, dmy, dr * 1.8, H * 0.3) + 'M' + PT(dmx - dr, dmy + 2) + ' Q' + PT(dmx - dr, dmy - dr * 1.1) + ' ' + PT(dmx, dmy - dr * 1.2) + ' Q' + PT(dmx + dr, dmy - dr * 1.1) + ' ' + PT(dmx + dr, dmy + 2) + ' Z ' + rect(dmx - 4, dmy - dr * 1.6, 8, dr * 0.5) + rect(dmx - 1, dmy - dr * 1.9, 2, dr * 0.4);
-  sil += rect(cmx - 16, yb - H * (ph ? 0.4 : 0.5), 32, H * 0.5) + poly([[cmx - 20, yb - H * (ph ? 0.4 : 0.5)], [cmx, yb - H * (ph ? 0.47 : 0.58)], [cmx + 20, yb - H * (ph ? 0.4 : 0.5)]]);
-  add(far, 'a', sil, dk ? '#3A3A66' : '#D8C8D8');
-  add(far, 'b', rect(cmx - 9, yb - H * (ph ? 0.37 : 0.46), 7, 14) + rect(cmx + 2, yb - H * (ph ? 0.37 : 0.46), 7, 14) + circ(dmx, dmy + 16, 6), dk ? '#FFD98A' : '#B9A8C0');
-  if (!dk) { var cl = ''; (ph ? [[0.2, 0.08, 0.6], [0.72, 0.16, 0.5]] : [[0.12, 0.12, 0.8], [0.45, 0.06, 0.6], [0.78, 0.14, 0.9]]).forEach(function (q) { cl += n5_cloud(W * q[0], H * q[1], q[2]); }); add(far, 'c', cl, 'rgba(255,255,255,0.88)'); }
-  else add(far, 'c', circ(W * (ph ? 0.75 : 0.88), H * (ph ? 0.16 : 0.1), 70), 'rgba(255,230,210,0.10)');
-  // the houses around the square
-  var FAC = dk ? ['#4A3E6A', '#5A4058', '#3E4A6A', '#5A4A50'] : ['#F2C9A0', '#F6E2B8', '#E8A898', '#CFE0D8'], fac = ['', '', '', ''], roof = '', trim = '', glass = '', shut = '', door = '', wins = [], rails = '', boxes = '', blooms = '';
-  x = -20; var k = 0, tops = [];
-  while (x < W + 10) {
-    var bw = (ph ? 70 : 84) + rnd() * 30, fl = 4 + Math.floor(rnd() * 2), fh = ph ? 40 : 46, bh = fl * fh + 20, top = yb - bh, ci = k % 4;
-    fac[ci] += rect(x, top, bw, bh + 2);
-    roof += poly([[x - 4, top], [x + 6, top - 18], [x + bw - 6, top - 18], [x + bw + 4, top]]); if (k % 2) roof += rect(x + bw * 0.6, top - 30, 9, 14);
-    if (k % 3 === 1) roof += poly([[x + bw * 0.3, top - 18], [x + bw * 0.5, top - 32], [x + bw * 0.7, top - 18]]);
-    trim += rect(x - 2, top - 2, bw + 4, 4);
-    var nc = 2, ww = bw * 0.2, gap = (bw - nc * ww) / 3;
-    for (var r = 0; r < fl; r++) { var wy = top + 14 + r * fh, ground = r === fl - 1;
-      for (var c = 0; c < nc; c++) { var wx = x + gap + c * (ww + gap);
-        if (ground) { if (c === k % 2) door += n5_win(wx - 2, wy + 4, ww + 4, fh - 4, true); else { glass += n5_win(wx, wy + 8, ww, fh * 0.5, true); wins.push({x: wx, y: wy + 8, w: ww, h: fh * 0.5, k: rnd()}); } continue; }
-        glass += rect(wx, wy + 4, ww, fh * 0.58); wins.push({x: wx, y: wy + 4, w: ww, h: fh * 0.58, k: rnd()});
-        if ((k + r) % 2 === 0) shut += rect(wx - ww * 0.5 - 1, wy + 4, ww * 0.48, fh * 0.58) + rect(wx + ww + 1, wy + 4, ww * 0.48, fh * 0.58);
-        trim += rect(wx - 3, wy + 4 + fh * 0.58, ww + 6, 3);
-        if (r === 1 && k % 2 === 0) { var b0 = wx - 6, b1 = wx + ww + 6, by = wy + 4 + fh * 0.58; trim += rect(b0, by, b1 - b0, 3); for (var bq = b0; bq <= b1; bq += 4) rails += seg(bq, by, bq, by - 9); rails += seg(b0, by - 9, b1, by - 9); }
-        else if ((r + c + k) % 3 === 0) { boxes += rrect(wx - 2, wy + 6 + fh * 0.58, ww + 4, 5, 2); for (var fq = 0; fq < 3; fq++) blooms += seg(wx + ww * (0.15 + fq * 0.35), wy + 3 + fh * 0.58, wx + ww * (0.15 + fq * 0.35) + 0.1, wy + 3 + fh * 0.58); } } }
-    tops.push([x, top - 18, bw]); x += bw; k++;
-  }
-  for (var i = 0; i < 4; i++) add(mid, 'abcd'[i], fac[i], FAC[i]);
-  add(mid, 'e', roof, dk ? '#6A3A44' : '#D2704E'); add(mid, 'f', trim, dk ? '#2A2448' : '#FFF8EE');
-  add(mid, 'g', glass, dk ? '#262A50' : '#8FB8D8'); add(mid, 'h', shut + door, dk ? '#2E5050' : '#4E8A7A');
-  stk(mid, 's', rails, dk ? '#1E1A36' : '#4A3A3A', 1.2); stk(mid, 't', blooms, dk ? '#E06A8A' : '#E8505B', 4.5); add(mid, 'f', boxes);
-  // the plaza: cobbles and tram tracks
-  add(refl, 'a', rect(-40, yb, W + 80, H - yb + 40), dk ? '#3A3450' : '#E6D6C0');
-  var cob = ''; for (var yy = yb + 8, j = 0; yy < H + 10; yy += 7 + j * 1.6, j++) { var cw = 12 + j * 3; for (x = (j % 2) * cw * 0.5 - cw; x < W + cw; x += cw) cob += 'M' + PT(x + 1.5, yy) + ' q' + n1(cw / 2 - 1.5) + ' ' + n1(-3 - j * 0.3) + ' ' + n1(cw - 3) + ' 0 '; }
-  stk(refl, 's', cob, dk ? 'rgba(20,16,40,0.35)' : 'rgba(150,120,90,0.32)', 1.2);
-  var ty = yb + H * (ph ? 0.05 : 0.055); add(refl, 'b', rect(-40, ty - 2, W + 80, 5) + rect(-40, ty + 13, W + 80, 5), dk ? '#4A4462' : '#CDBBA4');
-  stk(refl, 't', seg(-40, ty, W + 40, ty) + seg(-40, ty + 15, W + 40, ty + 15), dk ? '#8A86A8' : '#8A7A70', 2);
-  // the cafe: awning over the left houses' ground floor, tables with parasols
-  var cx0 = W * (ph ? -0.02 : 0.0), cx1 = W * (ph ? 0.42 : 0.3), aw = '', awS = '';
-  aw += poly([[cx0, yb - (ph ? 52 : 60)], [cx1, yb - (ph ? 52 : 60)], [cx1 + 8, yb - (ph ? 36 : 40)], [cx0 - 8, yb - (ph ? 36 : 40)]]);
-  for (x = cx0 + 8; x < cx1; x += 24) awS += poly([[x, yb - (ph ? 52 : 60)], [x + 12, yb - (ph ? 52 : 60)], [x + 12 + (x - cx0) * 0.02, yb - (ph ? 36 : 40)], [x + (x - cx0) * 0.02, yb - (ph ? 36 : 40)]]);
-  for (x = cx0; x < cx1; x += 16) aw += 'M' + PT(x, yb - (ph ? 36 : 40)) + ' a8 8 0 0 0 16 0 Z ';
-  var tables = [], tops2 = '', legs = '', para = '', paraS = '';
-  (ph ? [[0.1, 0.92], [0.33, 0.86]] : [[0.06, 0.93], [0.2, 0.86], [0.31, 0.97]]).forEach(function (q, j) { var tx = W * q[0], tyy = H * q[1], s = ph ? 0.9 : 1.25 + (q[1] - 0.86) * 3;
-    tops2 += ell(tx, tyy - 26 * s, 20 * s, 5 * s); legs += rect(tx - 1.5 * s, tyy - 26 * s, 3 * s, 26 * s) + ell(tx, tyy, 10 * s, 2.5 * s) + rrect(tx - 30 * s, tyy - 30 * s, 9 * s, 30 * s, 3 * s) + rrect(tx + 21 * s, tyy - 30 * s, 9 * s, 30 * s, 3 * s);
-    para += rect(tx - 1.2 * s, tyy - 80 * s, 2.4 * s, 54 * s); var pt = tyy - 84 * s; paraS += 'M' + PT(tx - 42 * s, pt + 14 * s) + ' Q' + PT(tx, pt - 16 * s) + ' ' + PT(tx + 42 * s, pt + 14 * s) + ' Z ';
-    tables.push({x: tx, y: tyy - 34 * s, s: s}); });
-  // the awning hangs on the facades, behind the tram: with the engine on it is drawn on the back canvas before the tram
-  if (ANIM) ANIM.awnArt = [aw, awS, dk ? '#A8405A' : '#E8505B', dk ? '#E8D6E0' : '#FFFFFF'];
-  else { add(near, 'a', aw, dk ? '#A8405A' : '#E8505B'); add(near, 'b', awS, dk ? '#E8D6E0' : '#FFFFFF'); }
-  add(near, 'c', paraS, dk ? '#2E7A72' : '#4EB0A0'); add(near, 'd', tops2 + legs + para, dk ? '#E8DDF0' : '#FFFFFF');
-  // the fountain in the middle of the square
-  var fx = W * 0.5, fy = H * (ph ? 0.93 : 0.93), fr2 = ph ? 74 : 124;
-  add(near, 'e', ell(fx, fy, fr2, fr2 * 0.2) + rect(fx - fr2, fy - fr2 * 0.24, fr2 * 2, fr2 * 0.24) + rect(fx - 8, fy - fr2 * 0.75, 16, fr2 * 0.55) + ell(fx, fy - fr2 * 0.75, fr2 * 0.42, fr2 * 0.09) + 'M' + PT(fx - fr2 * 0.42, fy - fr2 * 0.75) + ' Q' + PT(fx, fy - fr2 * 0.5) + ' ' + PT(fx + fr2 * 0.42, fy - fr2 * 0.75) + ' Z ' + rect(fx - 4, fy - fr2 * 0.98, 8, fr2 * 0.25) + circ(fx, fy - fr2 * 1.0, 7), dk ? '#8A86A8' : '#E8E2D8');
-  add(near, 'f', ell(fx, fy - fr2 * 0.24, fr2, fr2 * 0.2), dk ? '#2E4A7A' : '#7FC4E0');
-  add(near, 'g', ell(fx, fy - fr2 * 0.24, fr2 * 0.86, fr2 * 0.14) + ell(fx, fy - fr2 * 0.78, fr2 * 0.34, fr2 * 0.05), dk ? '#3E6AA0' : '#A8DCF0');
-  // lamp posts and the tram stop
-  var lamps = [], posts = '', LX = ph ? [0.3, 0.72] : [0.36, 0.64, 0.8];
-  LX.forEach(function (f) { var lx = W * f, ly = H * (ph ? 0.86 : 0.85), lh = H * 0.2; posts += rect(lx - 2.5, ly - lh, 5, lh) + rrect(lx - 8, ly - 7, 16, 9, 2) + rect(lx - 12, ly - lh + 8, 24, 3) + poly([[lx - 11, ly - lh - 16], [lx, ly - lh - 27], [lx + 11, ly - lh - 16]]) + rect(lx - 10, ly - lh - 17, 20, 3) + rect(lx - 9, ly - lh + 1, 18, 3) + circ(lx, ly - lh - 28, 2.5); lamps.push({x: lx, y: ly - lh - 7}); });
-  var sx = W * (ph ? 0.9 : 0.92), sy = H * (ph ? 0.86 : 0.85);
-  // the tram shelter: a sign post, two legs, a curved canopy, a back rail and a timetable
-  posts += rect(sx - 2, sy - 90, 4, 90) + rect(sx + 24, sy - 60, 3, 60) + rect(sx + 70, sy - 60, 3, 60) + 'M' + PT(sx + 16, sy - 62) + ' Q' + PT(sx + 48, sy - 74) + ' ' + PT(sx + 82, sy - 62) + ' L' + PT(sx + 82, sy - 58) + ' Q' + PT(sx + 48, sy - 69) + ' ' + PT(sx + 16, sy - 58) + ' Z ' + rect(sx + 26, sy - 34, 44, 2.5) + rect(sx + 28, sy - 22, 2, 22) + rect(sx + 66, sy - 22, 2, 22);
-  add(near, 'h', posts, dk ? '#1E1A36' : '#3E4A5A');
-  var lampsG = ''; lamps.forEach(function (l) { lampsG += rect(l.x - 6, l.y - 2, 12, 9); }); lampsG += circ(sx, sy - 98, 12);
-  add(near, 'b', rrect(sx + 30, sy - 22, 36, 6, 2) + rrect(sx + 6, sy - 52, 14, 20, 2), dk ? '#E8D6E0' : '#FFFFFF');
-  add(near, 'c', rect(sx + 8.5, sy - 48, 9, 2) + rect(sx + 8.5, sy - 44, 9, 2) + rect(sx + 8.5, sy - 40, 6, 2));
-  var sign = circ(sx, sy - 98, 12);
-  if (ANIM) { ANIM.tables = tables; ANIM.fountain = [fx, fy, fr2]; ANIM.lamps = lamps; ANIM.wins = wins; ANIM.track = ty; ANIM.yb = yb; ANIM.stop = [sx, sy]; ANIM.awn = [cx0, cx1, yb - (ph ? 60 : 68)]; ANIM.lampHeads = lampsG; }
-  add(near, 'f', sign); add(near, 'g', rect(sx - 7, sy - 102, 14, 8));
-  return {sky: sky, far: far, refl: refl, mid: mid, near: near};
-};
 
 

@@ -1,4 +1,4 @@
-/* New Theme Ideas, batch n3 (Cozy Spots): greenhouse, pottery, campfire, aquarium, treehouse */
+/* New Theme Ideas, batch n3 (Cozy Spots): greenhouse, pottery, campfire, aquarium */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const r1 = n => Math.round(n * 100) / 100;
@@ -19,12 +19,9 @@
     n3flame: {d: "M0 -11.5C3 -7 8.2 -4 8.2 2.6C8.2 7.6 4.6 11 0 11C-4.6 11 -8.2 7.6 -8.2 2.6C-8.2 -1.6 -5.6 -3.6 -4.6 -7.2C-3 -4.6 -2.6 -2.4 -1 -1.2C-1.6 -5 -1 -8.6 0 -11.5Z", detail: "M0 0.5C2 2.5 3.8 4 3.8 6.6C3.8 9 2 10.4 0 10.4C-2 10.4 -3.8 9 -3.8 6.6C-3.8 4.6 -1.6 3 0 0.5Z", dfill: true},
     n3mallow: {d: "M-8 -6C-8 -9.6 8 -9.6 8 -6V6C8 9.6 -8 9.6 -8 6Z", detail: "M-8 -6C-8 -2.6 8 -2.6 8 -6", dstroke: true},
     n3fish: {d: "M-6 0C-3 -6.4 6 -7.4 11.4 0C6 7.4 -3 6.4 -6 0Z M-5 0L-11.5 -6V6Z", detail: circ(5.6, -1.2, 1.5), dfill: true},
-    n3acorn: {d: "M-7.4 -3C-7.4 -8.6 7.4 -8.6 7.4 -3Z M-6 -3H6C6 4 3 9 0 11.2C-3 9 -6 4 -6 -3Z M-0.9 -11H0.9V-7.6H-0.9Z", detail: "M-6.6 -4.4H6.6", dstroke: true}
   });
   const swim = (W, H, n, shape, cols, d) => Array.from({length: n}, (_, i) => { const left = i % 2 === 0, sp = fxR(2.2, 3.8), vx = (left ? 1 : -1) * sp, vy = -fxR(0.1, 0.7);
     return {shape, c: fxPick(cols), x: left ? fxR(-70, -20) : W + fxR(20, 70), y: fxR(H * 0.25, H * 0.95), vx, vy, g: 0, size: fxR(12, 20), rot: Math.atan2(vy, vx), vr: 0, sway: 0, life: 280, delay: Math.floor(fxR(0, 60)), glow: d ? 8 : 0}; });
-  const planes = (W, H, n, cols) => Array.from({length: n}, (_, i) => { const lr = i % 2 === 0, sp = fxR(3.2, 4.6), a = -fxR(0.15, 0.45);
-    return {shape: "plane", c: fxPick(cols), x: lr ? fxR(-60, -10) : W + fxR(10, 60), y: fxR(H * 0.5, H * 0.95), vx: (lr ? 1 : -1) * Math.cos(a) * sp, vy: Math.sin(a) * sp, g: 0, size: fxR(13, 18), rot: lr ? a : Math.PI - a, vr: 0, sway: 0, life: 260, delay: Math.floor(fxR(0, 80))}; });
 
   MAJ_THEMES.push({
     skin: {id: "greenhouse", name: "Greenhouse", group: "ideas", desc: "A Victorian glass greenhouse packed with tropical plants.",
@@ -75,18 +72,5 @@
       .concat(fxRise(W, H, n(46), "bubble", d ? ["#9FF7FF", "#E8F7FC"] : ["#FFFFFF", "#7CC9D6"], {smin: 3, smax: 8, sway: 1, vmin: 1.6, vmax: 3}),
         d ? fxRise(W, H, n(8), "jelly", ["#FF9CD8", "#6FF3FF", "#B89CFF"], {smin: 12, smax: 18, vmin: 0.9, vmax: 1.6, sway: 1.2, glow: 16, life: 320}) : fxTw(W, H, n(20), "sparkle", ["#FFFFFF", "#9FE0F0"], {smin: 3, smax: 6, glow: 4}))},
     tag: "A glass tunnel through a giant tank, with schools of fish, a gliding manta, glowing jellies and a passing whale shark"
-  });
-  MAJ_THEMES.push({
-    skin: {id: "treehouse", name: "Treehouse", group: "ideas", desc: "A wooden treehouse high in an old oak, with a rope ladder and fairy lights.",
-      light: ["#F2F6EC", "rgba(63,122,46,.10)", "#FFFFFF", "#1E2A16", "#58664C", "#D8E4CC", "#E7EFDC", "#FAFCF6", "#3F7A2E", "#5A9A3A", "#FFFFFF", "#2A5420", "#3C5626", "#D8E8C8", "#FFE7A0"],
-      dark: ["#0E1424", "rgba(244,196,106,.07)", "#161E32", "#EEF2E8", "#AEB8A8", "#283248", "#1E2740", "#111828", "#F4C46A", "#F8D898", "#141E10", "#7A6438", "#0E1628", "#D8E0D0", "#6A5428"],
-      glow: ["linear-gradient(180deg,#B7DCEF,#E3F1E2 55%,#CFE2B4)", "linear-gradient(180deg,#16203A,#253456 55%,#3B4A3C)"],
-      spine: [lg("#5A7A3C", "#3C5626"), lg("#1E2C44", "#0E1628")], btn: [lg2("#3F7A2E", "#5A9A3A"), lg2("#F4C46A", "#F8D898")]},
-    kit: {motif: "n3acorn", card: ["#FAFCF5", "#E8F0DC"], ink: "#1E2A16", bd: "#C6DAB0", mc: "#5A9A3A", r: 10, notes: ["#E2EDCF"].concat(NOTES), shape: "lined", pin: "washi2", fab: "16px", btn: "10px"},
-    fx: {spawn: (W, H, d, n) => planes(W, H, n(8), d ? ["#FFFFFF", "#FFE3A8", "#D8E0D0"] : ["#FFFFFF", "#F2F6FA", "#FFE9B8"])
-      .concat(fxFall(W, H, n(40), "leaf", d ? ["#5A8A50", "#8A7A3A", "#3E6A48"] : ["#6CB85E", "#F2B33A", "#E8743A", "#8ACB6A"], {sway: 2, flip: true, smin: 8, smax: 12}),
-        fxBurst(W, H, n(12), "n3acorn", d ? ["#B8885A", "#9A6A40"] : ["#C08A50", "#A8703A"], [[0.2, 1.02], [0.8, 1.02]], {smin: 9, smax: 13}),
-        fxTw(W, H, n(34), "circle", d ? ["#FF7A8A", "#FFD25A", "#7AD8FF", "#9AE07A"] : ["#FF7A8A", "#FFD25A", "#7AD8FF", "#C9A0FF"], {smin: 2, smax: 4, glow: d ? 10 : 4, top: 0.5}))},
-    tag: "A wooden treehouse in an old oak, with a rope ladder, a tire swing, fairy lights and a tin-can telephone"
   });
 })();

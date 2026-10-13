@@ -6348,7 +6348,7 @@ var COMP_KIT = (() => {
 })();
 
 /* ===== module: 98-comp-m3.js ===== */
-/* Study Companions, Study Fields batch m3: civics, justice, writing, gallery */
+/* Study Companions, Study Fields batch m3: civics, justice, writing */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -6715,133 +6715,6 @@ var COMP_KIT = (() => {
           done: ["Signed, sealed, AMAZING session!", "Session done! Written beautifully!"],
           task: ["DONE! With a big swirly flourish!", "Yes! Signed off and finished!", "Checked off! Bravo, writer!", "Another one done! Swish swish!"],
           break: ["Stretch those fingers! Wiggle!", "Break time! Let the ink dry a bit!"]
-        }
-      }
-    ]
-  });
-
-  /* ---------- Gallery Night ---------- */
-  COMP_DATA.push({
-    theme: "gallery",
-    companions: [
-      {
-        id: "gallery-bust", name: "Marbles", kind: "Marble Bust", pose: "sit", sleepy: true, wearColor: "#D06A7E",
-        bio: "A classic marble bust with curly hair and a heart of pure sunshine.",
-        idle: ["headTilt", "sparkle", "sway"], cheer: "hop",
-        neck: [60, 72],
-        parts: {
-          feet: `<path d="M46 97H74L78.5 104H41.5Z" fill="#F6E3E8" ${O}/>
-            <rect x="32" y="102.5" width="56" height="9" rx="3.2" fill="#EBC9D2" ${O}/>
-            <path d="M37 105.5H60" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".9"/>`,
-          body: `${LG("gallery-bust-g", [[0, "#FFFFFF"], [0.55, "#F1EDF5"], [1, "#D7D0E1"]])}
-            <path d="M52 62V74Q60 79 68 74V62Z" fill="#ECE7F2" ${O}/>
-            <path d="M60 71C76 71 88 78 90 91C91 98 85.5 100 82 100H38C34.5 100 29 98 30 91C32 78 44 71 60 71Z" fill="url(#gallery-bust-g)" ${O}/>
-            <path d="M45 76Q51 89 63 97M71 75Q75 86 73 97M41 83Q39.5 90 41 97" fill="none" stroke="#CFC6DD" stroke-width="2" stroke-linecap="round"/>
-            <path d="M78 82Q82 86 81 92M84 85Q86 88 85.5 91" fill="none" stroke="#BDB3D0" stroke-width="1.3" stroke-linecap="round" opacity=".8"/>
-            <path d="M35 90Q37 82 44 78" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/>`,
-          head: `${RG("gallery-bust-h", [[0, "#FFFFFF"], [0.6, "#F3EFF7"], [1, "#D9D2E3"]], 0.42, 0.42, 0.7)}
-            <ellipse cx="60" cy="49" rx="23.5" ry="22.5" fill="url(#gallery-bust-h)" ${O}/>
-            <g fill="#F4F0F8" ${OW(2.6)}><circle cx="37.5" cy="45" r="6.2"/><circle cx="82.5" cy="45" r="6.2"/><circle cx="40.5" cy="35" r="6.4"/><circle cx="79.5" cy="35" r="6.4"/>
-              <circle cx="48" cy="27.8" r="6.6"/><circle cx="72" cy="27.8" r="6.6"/><circle cx="60" cy="25.4" r="7"/></g>
-            <g fill="none" stroke="#CCC3DA" stroke-width="1.6" stroke-linecap="round"><path d="M57 25.5a3 3 0 1 1 4 2.6M45.8 28.4a2.6 2.6 0 1 1 3.6 2.2M68.6 28.4a2.6 2.6 0 1 1 3.6 2.2M38 35a2.4 2.4 0 1 1 3.4 2M77 35a2.4 2.4 0 1 1 3.4 2"/></g>
-            <path d="M55 22.5Q58 20.5 62 21" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>`,
-          face: `<path d="M60.5 51.5Q63.4 56.4 59.6 57.8" fill="none" stroke="#B3A9C6" stroke-width="1.8" stroke-linecap="round"/>`
-        },
-        eyes: {lx: 50.5, rx: 69.5, y: 50, r: 4.4, style: "dot", color: "#4A4062"},
-        mouth: {x: 60, y: 61.5, w: 2.8, color: "#4A4062"},
-        cheeks: {lx: 45, rx: 75, y: 58, w: 4.2, h: 2.6, color: "#FFB0C2"},
-        anchors: {top: [60, 25, 0.95], neck: [60, 73, 1], chest: [77, 88, 0.7], back: [86, 84, 0.9], hands: [60, 93, 0.9]},
-        lines: {
-          tap: ["Bravissimo! Hello, my dear artist!", "You're a true masterpiece in progress!", "My curls are bouncing with joy!", "Carved in marble: you are AMAZING!", "Every sketch you make is a treasure!", "Classic brilliance, that's you!", "Chip by chip, you're making art!", "You've got this! I'm your biggest fan!"],
-          pet: ["Hehe! My curls are all a-twirl!", "Oh my! Polished and so happy!"],
-          hello: ["You're back! The gallery is brighter!", "Ciao! I've been on my plinth, waiting!"],
-          morning: ["Good morning! Let's make art today!", "Rise and shine! Fresh canvas, new day!"],
-          night: ["Gallery lights low. Time to rest!", "Sweet dreams, my dear artist!"],
-          focus: ["Still as a statue. You've got this!", "Quietly admiring your focus!"],
-          done: ["Bravissimo! A masterful session!", "Session done! Museum worthy work!"],
-          task: ["DONE! Standing ovation! WOO!", "Yes! A finished masterpiece!", "Checked off! Bravo, bravo!", "Another one done! Encore!"],
-          break: ["Strike a pose and stretch! Ahh!", "Snack break in the gallery cafe!"]
-        }
-      },
-      {
-        id: "gallery-frame", name: "Goldie", kind: "Golden Frame", pose: "stand", wearColor: "#5E8FD6",
-        bio: "A fancy golden frame who thinks every page you make belongs on a wall.",
-        idle: ["topBob", "wave", "sway"], cheer: "hop",
-        parts: {
-          feet: `${LINE("M60 96V108", "#9C6A35", 3.4)}${LINE("M42 95L35 111", "#B07A3E", 3.6)}${LINE("M78 95L85 111", "#B07A3E", 3.6)}`,
-          body: `${LG("gallery-frame-r", [[0, "#FFE59A"], [0.5, "#F2C14E"], [1, "#C98A2E"]], 0, 0, 1, 1)}${LG("gallery-frame-s", [[0, "#C9E6FF"], [0.6, "#FFE4D6"], [1, "#FFD2BF"]])}
-            <rect x="23" y="29" width="74" height="70" rx="11" fill="url(#gallery-frame-r)" ${O}/>
-            <rect x="33" y="39" width="54" height="50" rx="4" fill="url(#gallery-frame-s)" ${OW(2.4)}/>
-            <circle cx="77" cy="48.5" r="4.2" fill="#FFD46A"/>
-            <path d="M34.2 80C43 72 52 73 60 78C68 73 78 71 85.8 77V86Q85.8 87.8 84 87.8H36Q34.2 87.8 34.2 86Z" fill="#9FD39A"/>
-            <path d="M34.2 84C45 79 56 82 63 84.5C72 81 80 81 85.8 83V86Q85.8 87.8 84 87.8H36Q34.2 87.8 34.2 86Z" fill="#7CC07E"/>
-            <rect x="33" y="39" width="54" height="50" rx="4" fill="none" ${OW(2.4)}/>
-            <g fill="#F8D371" ${OW(2)}><circle cx="27.5" cy="33.5" r="4.6"/><circle cx="92.5" cy="33.5" r="4.6"/><circle cx="27.5" cy="94.5" r="4.6"/><circle cx="92.5" cy="94.5" r="4.6"/></g>
-            <path d="M29 72V48Q29 38 37 35" fill="none" stroke="#FFF4CF" stroke-width="2.6" stroke-linecap="round" opacity=".95"/>
-            <path d="M38 85Q36 66 39 51" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".55"/>`,
-          armL: {svg: `<ellipse cx="18.5" cy="70" rx="4.8" ry="6.6" transform="rotate(26 18.5 70)" fill="#E8B445" ${O}/>`, pivot: [24.5, 66]},
-          armR: {svg: `<ellipse cx="101.5" cy="70" rx="4.8" ry="6.6" transform="rotate(-26 101.5 70)" fill="#E8B445" ${O}/>`, pivot: [95.5, 66]},
-          top: {svg: `<path d="M47 30.5C48 21 54 16 60 16C66 16 72 21 73 30.5Z" fill="#F4C556" ${O}/>
-            <path d="M60 29V20M54 29.5L55.5 22M66 29.5L64.5 22" stroke="#C98A2E" stroke-width="1.6" stroke-linecap="round"/><circle cx="60" cy="14" r="2.8" fill="#FF8FA8" ${OW(2)}/>`, pivot: [60, 30]}
-        },
-        eyes: {lx: 50, rx: 70, y: 61, r: 5, style: "dot", color: "#3A2A3E"},
-        mouth: {x: 60, y: 70, w: 3.2, color: "#3A2A3E"},
-        cheeks: {lx: 41.5, rx: 78.5, y: 69, w: 4.4, h: 2.7, color: "#FF9FB0"},
-        anchors: {top: [60, 30, 0.95], neck: [60, 96, 1.1], chest: [82, 88, 0.66], back: [92, 64, 0.9], hands: [60, 96, 0.9]},
-        lines: {
-          tap: ["Hi hi! You belong in a gold frame!", "Picture perfect progress, look!", "Every page you make is gallery worthy!", "I'm framing this moment. You rock!", "Shine on! You make me sparkle!", "Ooh, that idea needs a spotlight!", "A masterpiece, one stroke at a time!", "You've got this, superstar artist!"],
-          pet: ["Hehe! My corners are all shiny!", "Ooh! I'm glowing pure gold now!"],
-          hello: ["You're back! Hang the banners!", "Hi! My gallery missed its star!"],
-          morning: ["Good morning! A fresh canvas awaits!", "Rise and shine! Golden day ahead!"],
-          night: ["Spotlights dimming. Time to rest!", "Framed in moonlight. Sweet dreams!"],
-          focus: ["Holding perfectly still. You've got this!", "Quietly framing your focus!"],
-          done: ["WOW! Frame that session!", "Session done! A golden masterpiece!"],
-          task: ["DONE! Hang it on the wall! WOO!", "Yes! Another gallery piece!", "Checked off! Picture perfect!", "Another one done! Golden cheers!"],
-          break: ["Gallery stroll! Stretch those legs!", "Snack break! Art needs fuel!"]
-        }
-      },
-      {
-        id: "gallery-mouse", name: "Pirouette", kind: "Ballet Mouse", pose: "stand",
-        bio: "A tiny ballet mouse who twirls on her toes whenever you shine.",
-        idle: ["earTwitch", "tailSwish", "spin"], cheer: "spin",
-        neck: [60, 70],
-        parts: {
-          tail: {svg: `${LINE("M70 92C84 96 95 91 94 81C93 73 84 74 85.5 80.5", "#F0B3C4", 2.2)}`, pivot: [70, 92]},
-          feet: `${LINE("M55 95L53.5 106M65 95L66.5 106", "#C9C0D8", 3.6)}
-            <path d="M49 108.5Q49 104 53.6 103.6Q57.6 104 57 108.5Q56.4 111.6 53 111.6Q49 111.4 49 108.5Z" fill="#FF9FBF" ${OW(2.4)}/>
-            <path d="M71 108.5Q71 104 66.4 103.6Q62.4 104 63 108.5Q63.6 111.6 67 111.6Q71 111.4 71 108.5Z" fill="#FF9FBF" ${OW(2.4)}/>
-            <path d="M51 102L56 99M52 99.5L56.5 97M69 102L64 99M68 99.5L63.5 97" stroke="#FF7FA8" stroke-width="1.6" stroke-linecap="round"/>`,
-          body: `${LG("gallery-mouse-g", [[0, "#FFD0E0"], [1, "#FF9FC0"]])}${RG("gallery-mouse-t", [[0, "#FFFFFF"], [0.6, "#FFE1EC"], [1, "#FFB8D0"]], 0.5, 0.3, 0.7)}
-            <path d="M60 66C70 66 75 74 75 84C75 92 68 96 60 96C52 96 45 92 45 84C45 74 50 66 60 66Z" fill="url(#gallery-mouse-g)" ${O}/>
-            <path d="${puffE(60, 88.5, 27, 8.6, 16, 1.25)}" fill="url(#gallery-mouse-t)" ${O}/>
-            <ellipse cx="60" cy="86" rx="16" ry="3.6" fill="#FF9FC0" ${OW(2)}/>
-            <path d="M40 88.5Q44 91.5 48 92M72 92Q76 91.5 80 88.5" fill="none" stroke="#FFB8D0" stroke-width="1.8" stroke-linecap="round"/>
-            <path d="M49 79Q50 72 55 69.5" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".85"/>`,
-          armL: {svg: `${LINE("M49 73C43 74 38.5 78.5 37.5 84", "#CFC6DD", 3.2)}<circle cx="37.2" cy="85" r="3" fill="#D9D3E4" ${OW(2)}/>`, pivot: [49, 73]},
-          armR: {svg: `${LINE("M71 73C77 74 81.5 78.5 82.5 84", "#CFC6DD", 3.2)}<circle cx="82.8" cy="85" r="3" fill="#D9D3E4" ${OW(2)}/>`, pivot: [71, 73]},
-          earL: {svg: `<circle cx="37" cy="33" r="13.5" fill="#CFC6DD" ${O}/><circle cx="37.5" cy="34" r="8.6" fill="#FFC1D0"/><path d="M29 28Q31 23.5 36 22.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".8"/>`, pivot: [45, 42]},
-          earR: {svg: `<circle cx="83" cy="33" r="13.5" fill="#CFC6DD" ${O}/><circle cx="82.5" cy="34" r="8.6" fill="#FFC1D0"/>`, pivot: [75, 42]},
-          head: `${RG("gallery-mouse-h", [[0, "#FAF7FD"], [0.6, "#E2DCEC"], [1, "#C4BAD6"]], 0.42, 0.38, 0.7)}
-            <ellipse cx="60" cy="50" rx="23" ry="20.5" fill="url(#gallery-mouse-h)" ${O}/>
-            <path d="M43 44Q45 37 51 34" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
-            <path d="M68.5 31.5L63 27.4Q62 33 68.5 31.5ZM68.5 31.5L74.5 27Q75.5 33 68.5 31.5Z" fill="#FF8FB4" ${OW(2)}/><circle cx="68.6" cy="31.2" r="2.2" fill="#FF6F9F" ${OW(1.6)}/>`,
-          face: `<ellipse cx="60" cy="56" rx="2.8" ry="2.1" fill="#FF7FA8" ${OW(1.4)}/>
-            <path d="M48 57.5L39 55.5M48 60L39.5 61.5M72 57.5L81 55.5M72 60L80.5 61.5" stroke="#A89DBE" stroke-width="1.2" stroke-linecap="round"/>`
-        },
-        eyes: {lx: 50.5, rx: 69.5, y: 49, r: 4.6, style: "sparkle", color: "#2E2440"},
-        mouth: {x: 60, y: 59.5, w: 2.4, color: "#2E2440", style: "cat"},
-        cheeks: {lx: 44, rx: 76, y: 56, w: 4, h: 2.5, color: "#FF9FC0"},
-        anchors: {top: [60, 31, 0.9], neck: [60, 69, 0.85], chest: [68, 78, 0.55], back: [76, 80, 0.8], hands: [60, 88, 0.8]},
-        lines: {
-          tap: ["Twirl! Hello, my brilliant friend!", "You're dancing through your work!", "Plie, releve, you're AMAZING!", "On my tippy toes cheering for you!", "Every step is a graceful step!", "Squeak! Encore, encore!", "You make my tutu twirl with joy!", "You've got this! Spin spin spin!"],
-          pet: ["Squeak! My ears are fluttering!", "Hehe! A happy little pirouette!"],
-          hello: ["You're back! Curtain up, yay!", "Hi hi! Let's dance through today!"],
-          morning: ["Good morning! Warm up and shine!", "Rise and shine! On your toes today!"],
-          night: ["Curtain falls softly. Rest well!", "Slippers off, sweet dreams. Night!"],
-          focus: ["Graceful and steady. You've got this!", "Tiptoeing quietly beside you!"],
-          done: ["Bravo! What a dazzling session!", "Session done! A standing ovation!"],
-          task: ["DONE! Twirl twirl WOOHOO!", "Yes! A perfect grand jete!", "Checked off! Take a bow!", "Another one done! Encore!"],
-          break: ["Stretch at the barre! Ahh, nice!", "Twirl break! Then a cozy snack!"]
         }
       }
     ]

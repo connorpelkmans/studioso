@@ -1,6 +1,6 @@
-# New theme ideas (30)
+# New theme ideas (24)
 
-The pitch for each theme. Batches: n1 = onsen, rainforest, tidepool, volcano, savanna; n2 = mushrooms, sunflowers, cloudkingdom, nighttrain, ramen; n3 = greenhouse, pottery, campfire, aquarium, treehouse; n4 = nightmarket, diadelosmuertos, holi, ramadan, midautumn; n5 = pride, graduation, birthday, geology, languages; n6 = film, culinary, marinebio, vet, aerospace.
+The pitch for each theme. Batches: n1 = onsen, rainforest, tidepool, volcano, savanna; n2 = mushrooms, sunflowers, nighttrain, ramen; n3 = greenhouse, pottery, campfire, aquarium; n4 = diadelosmuertos, holi, ramadan, midautumn; n5 = pride, graduation, birthday, geology; n6 = film, culinary, marinebio.
 
 ## Batch n1
 
@@ -76,16 +76,6 @@ The pitch for each theme. Batches: n1 = onsen, rainforest, tidepool, volcano, sa
   2. Chirpy, Goldfinch — "Sings one note per finished task. Composes slowly." idle: wingFlutter, headTilt, topBob; cheer: wingFlutter
   3. Bale, Hay Bale Pal — "Soft, square and dependable." idle: topBob, bounce, waddle; cheer: bounce
 
-### Cloud Kingdom (id: cloudkingdom) — Nature and Places
-- Scene: Floating grassy islands above a sea of clouds, with waterfalls spilling off their edges.
-- Palette hint: day sky #A9CDF5 → #DCEBFB → #FFF4F0; night sky #1C1F4A → #3A3474 → #7E5C9E
-- Loop: The cloud sea rolls slowly, the islands bob, waterfalls mist into the clouds below, paper kites drift on the wind. At night the clouds catch moonlight and the islands' little windows glow.
-- Finish moment: A rainbow bridge builds itself plank by plank between two islands, and a kite flies across it.
-- Companions:
-  1. Nimbus, Cloud Puppy — "Fluffy, slightly damp, always happy to see you." idle: tailSwish, earTwitch, topBob; cheer: hop
-  2. Zephyr, Wind Sprite — "A little swirl of breeze that turns your pages for you." idle: spin, sway, sparkle; cheer: spin
-  3. Kitey, Paper Kite — "Rises higher the longer you stay focused." idle: sway, topBob, wave; cheer: spin
-
 ### Night Train (id: nighttrain) — Cozy Spots
 - Scene: Inside a sleeper train compartment: a wide window, a reading lamp, tea on the fold-down table.
 - Palette hint: day sky #B9D7EA → #EAF2EE → #E7D2B8; night sky #141C33 → #25304E → #5B4A6A
@@ -148,27 +138,7 @@ The pitch for each theme. Batches: n1 = onsen, rainforest, tidepool, volcano, sa
   2. Puff, Pufferfish — "Puffs up when surprised, which is every time you finish a task." idle: finWiggle, topBob, bounce; cheer: bounce
   3. Curly, Seahorse — "Holds on to your to-do list with its tail." idle: topBob, finWiggle, headTilt; cheer: hop
 
-### Treehouse (id: treehouse) — Cozy Spots
-- Scene: A wooden treehouse high in an old oak, with a rope ladder, a tire swing and fairy lights.
-- Palette hint: day sky #B7DCEF → #E3F1E2 → #CFE2B4; night sky #16203A → #253456 → #3B4A3C
-- Loop: Leaves rustle, the rope ladder and tire swing sway, a tin-can telephone string wobbles, birds land on the railing. At night the fairy lights twinkle and the window glows.
-- Finish moment: A paper airplane launches from the window, loops all the way around the tree, and glides back in.
-- Companions:
-  1. Nutters, Chipmunk — "Keeps snacks in its cheeks for long study sessions." idle: earTwitch, tailSwish, headTilt; cheer: hop
-  2. Zip, Paper Airplane — "Folded from an old homework page, and it flies really well." idle: sway, topBob, spin; cheer: spin
-  3. Twig, Stick Bug — "Blends in so well you forget it is cheering for you." idle: sway, wave, headTilt; cheer: wave
-
 ## Batch n4
-
-### Night Market (id: nightmarket) — Cozy Spots
-- Scene: A street of food stalls under strings of paper lanterns, with a goldfish scooping game.
-- Palette hint: day sky #F6D1B5 → #FBE7D6 → #F0C9C0; night sky #1D1430 → #3A1E45 → #7A2E4A
-- Loop: Lanterns sway on their strings, steam rises from the stalls, the goldfish pool ripples, a balloon vendor's bunch bobs. At night everything glows warm red and gold.
-- Finish moment: The lantern strings light up stall by stall down the street, and a big sky lantern floats up over the rooftops.
-- Companions:
-  1. Tai, Taiyaki Fish — "Filled with red bean and good intentions." idle: finWiggle, topBob, bounce; cheer: hop
-  2. Finny, Goldfish in a Bag — "Has a great view of the whole market." idle: finWiggle, sway, sparkle; cheer: spin
-  3. Shiny, Candy Apple — "Glossy, crunchy and a little bit sticky." idle: topBob, sparkle, sway; cheer: bounce
 
 ### Día de los Muertos (id: diadelosmuertos) — Holidays and Celebrations
 - Scene: A street decorated for the Day of the Dead: marigold arches, papel picado and an ofrenda with candles.
@@ -252,16 +222,6 @@ The pitch for each theme. Batches: n1 = onsen, rainforest, tidepool, volcano, sa
   2. Trilo, Trilobite — "Has been studying for 500 million years." idle: waddle, headTilt, topBob; cheer: hop
   3. Glint, Crystal Sprite — "A purple point of light that hums when you focus." idle: sparkle, spin, topBob; cheer: spin
 
-### Postcard Plaza (id: languages) — Study Fields
-- Scene: A European-style town square with a café, a fountain and a tram stop. For Languages and Linguistics.
-- Palette hint: day sky #BDDDF2 → #F4EEE2 → #F2D3B3; night sky #18223E → #2E2F58 → #6A4A5A
-- Loop: Speech bubbles float up from café tables with greetings in different scripts and pop, the fountain splashes, a tram glides past, pigeons hop around.
-- Finish moment: A postcard flips over, gets a stamp, and flies across a world map to land on another city.
-- Companions:
-  1. Polly, Polyglot Parrot — "Says hello in twelve languages and goodbye in none." idle: headTilt, wingFlutter, topBob; cheer: wingFlutter
-  2. Stampy, Postage Stamp — "Collects one city for every unit you finish." idle: topBob, sway, wave; cheer: bounce
-  3. Atlas, Folded Map — "Always knows the way, never folds back right." idle: sway, wave, headTilt; cheer: spin
-
 ## Batch n6
 
 ### Movie Palace (id: film) — Study Fields
@@ -293,23 +253,3 @@ The pitch for each theme. Batches: n1 = onsen, rainforest, tidepool, volcano, sa
   1. Kelpie, Kelp Sprite — "Tall, wavy and anchored to its goals." idle: sway, wave, finWiggle; cheer: spin
   2. Subby, Little Submarine — "Dives deep into any subject." idle: topBob, sparkle, bounce; cheer: bounce
   3. Dolly, Dolphin Calf — "Clicks happily when you finish a chapter." idle: finWiggle, tailSwish, topBob; cheer: spin
-
-### Vet Clinic (id: vet) — Study Fields
-- Scene: A friendly animal clinic with an exam table, kennels and a jar of treats. For Veterinary and Animal Science.
-- Palette hint: day sky #CFE6F0 → #F2F7F6 → #E2EED8; night sky #16223A → #243250 → #3E4A5E
-- Loop: Puppies wag in their kennels, a kitten bats a toy, the clock ticks, the treat jar lid jiggles, the lights in the X-ray viewer flicker softly.
-- Finish moment: A stethoscope checks a puppy's heartbeat, the puppy gets a bandage and a sticker, and does a big happy wag.
-- Companions:
-  1. Biscuit, Puppy Patient — "Wears a cone and makes it look good." idle: tailSwish, earTwitch, headTilt; cheer: hop
-  2. Stethy, Stethoscope — "Listens closely to everything you say." idle: sway, topBob, wave; cheer: bounce
-  3. Treaty, Treat Jar — "Gives out one treat per finished task." idle: topBob, bounce, sparkle; cheer: hop
-
-### Launch Pad (id: aerospace) — Study Fields
-- Scene: A rocket on its pad by the coast, with a gantry, a control tower and a windsock. For Aerospace and Aviation.
-- Palette hint: day sky #9CC9EE → #D7EAF8 → #F2E1C8; night sky #0B1230 → #18204A → #3A3A6A
-- Loop: Vapor curls off the rocket, the windsock flaps, searchlights sweep slowly, planes cross the sky leaving contrails.
-- Finish moment: A countdown runs, the rocket lifts off on a column of smoke, arcs up and drops its first stage high above.
-- Companions:
-  1. Cosmo, Astronaut Pup — "Wears its helmet even indoors." idle: tailSwish, earTwitch, headTilt; cheer: hop
-  2. Ping, Little Satellite — "Sends you a signal every time you finish something." idle: spin, sparkle, topBob; cheer: spin
-  3. Jett, Jet Plane — "Leaves a contrail smile across the sky." idle: sway, wingFlutter, topBob; cheer: wingFlutter

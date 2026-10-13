@@ -1,4 +1,4 @@
-// ---- batch n2: mushrooms (Mushroom Hollow), sunflowers (Sunflower Field), cloudkingdom (Cloud Kingdom), nighttrain (Night Train), ramen (Ramen Shop)
+// ---- batch n2: mushrooms (Mushroom Hollow), sunflowers (Sunflower Field), nighttrain (Night Train), ramen (Ramen Shop)
 // Shared helpers, all prefixed n2_ because every batch shares this closure.
 // Winding fix: fills use the nonzero rule, so plain polygons and arc-only ellipses are made clockwise; overlapping shapes
 // in one slot then merge instead of punching holes. A path with h/v/a segments (rect, rrect, n2_hole) is left as drawn.
@@ -22,12 +22,6 @@ function n2_q(p0, p1, p2, n) { var o = []; for (var i = 0; i <= n; i++) { var t 
 function n2_tube(pts, w0, w1) { var L = [], R = [], n = pts.length; for (var i = 0; i < n; i++) { var a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], d = Math.sqrt(dx * dx + dy * dy) || 1, w = lerp(w0, w1, i / Math.max(1, n - 1)) / 2; L.push([pts[i][0] - dy / d * w, pts[i][1] + dx / d * w]); R.unshift([pts[i][0] + dy / d * w, pts[i][1] - dx / d * w]); } return poly(L.concat(R)); }
 // a puffy cloud: circles along a base, with a flat-ish bottom
 function n2_puff(x, y, w, h, rnd) { var d = '', n = Math.max(3, Math.round(w / (h * 0.9))); for (var i = 0; i < n; i++) { var u = (i + 0.5) / n, r = h * (0.45 + 0.4 * Math.sin(Math.PI * u)) * (0.85 + rnd() * 0.3); d += circ(x - w / 2 + u * w, y - r * 0.55, r); } return d + rrect(x - w / 2, y - h * 0.35, w, h * 0.35, h * 0.17); }
-// the same puff as a lit body over a shade copy shifted down by part of each circle's radius, so the shade only shows along the
-// bottom of each bump (two separately random puffs left thin crescents peeking out above); hi: a soft highlight on each bump
-function n2_puff2(x, y, w, h, rnd) { var n = Math.max(3, Math.round(w / (h * 0.9))), m = '', sh = '', hi = '', cs = [];
-  for (var i = 0; i < n; i++) { var u = (i + 0.5) / n, r = h * (0.45 + 0.4 * Math.sin(Math.PI * u)) * (0.85 + rnd() * 0.3), cx = x - w / 2 + u * w, cy = y - r * 0.55; cs.push([cx, cy, r]); m += circ(cx, cy, r); sh += circ(cx + r * 0.06, cy + r * 0.2, r); hi += ell(cx - r * 0.3, cy - r * 0.42, r * 0.36, r * 0.16); }
-  var base = rrect(x - w / 2, y - h * 0.35, w, h * 0.35, h * 0.17);
-  return {main: m + base, shade: sh + rrect(x - w / 2 + 2, y - h * 0.35 + h * 0.12, w, h * 0.35, h * 0.17), hi: hi, cs: cs}; }
 function n2_spark(x, y, r) { return poly([[x, y - r], [x + r * 0.22, y - r * 0.22], [x + r, y], [x + r * 0.22, y + r * 0.22], [x, y + r], [x - r * 0.22, y + r * 0.22], [x - r, y], [x - r * 0.22, y - r * 0.22]]); }
 // a fern frond: spine from (x,y) heading a0 (radians, -PI/2 = up), bending by `bend` and curling tight at the tip by `curl` (0..1)
 function n2_frondPts(x, y, len, a0, bend, curl) { var pts = [[x, y]], a = a0, n = 30, st = len / n; for (var i = 1; i <= n; i++) { var s = i / n; a += bend / n + curl * Math.pow(s, 4) * 0.9; x += Math.cos(a) * st * (1 - curl * 0.55 * s * s); y += Math.sin(a) * st * (1 - curl * 0.55 * s * s); pts.push([x, y]); } return pts; }
@@ -210,95 +204,6 @@ SCENES.sunflowers = function (W, H, dk, rnd) {
     if (!dk) { add(mid, 'a', circ(W * 0.22, H * 0.17, 34 * S), '#FFD44A'); add(far, 'c', n2_puff(W * 0.42, H * 0.14, 150 * S, 40 * S, rnd) + n2_puff(W * 0.7, H * 0.08, 120 * S, 32 * S, rnd), '#FFFFFF'); }
     else add(far, 'c', circ(W * 0.66, H * 0.15, 26 * S), '#FFF4D2'); }
   return n2_out({sky: sky, far: far, mid: mid, near: near});
-};
-
-// ================= 3. Cloud Kingdom: floating grassy islands above a sea of clouds, waterfalls spilling off their edges =================
-// One floating island, top surface centred at (cx, ty), width w. o: {trees: [[u, s], ...], house: u or null, wf: -1 | 1 | 0, seed}
-// Returns path strings by part plus the waterfall start and the bounding box.
-function n2_island(cx, ty, w, o) {
-  var D = w * 0.62, sd = o.seed || 1, rock = [[cx - w / 2, ty + 2]], dark = [], i, u;
-  function depth(u) { return D * Math.pow(Math.sin(Math.PI * u), 1.15) * (1 + 0.16 * Math.sin(u * 19 + sd) + 0.08 * Math.sin(u * 41 + sd * 2)) * (1 + 0.5 * Math.exp(-Math.pow((u - 0.5 - 0.06 * Math.sin(sd)) / 0.08, 2))); }
-  for (i = 1; i < 40; i++) { u = i / 40; rock.push([cx - w / 2 + w * u, ty + depth(u)]); }
-  rock.push([cx + w / 2, ty + 2]);
-  for (i = 20; i < 40; i++) { u = i / 40; dark.push([cx - w / 2 + w * u, ty + depth(u)]); } dark.push([cx + w / 2, ty + 2]); dark.push([cx + w * 0.2, ty + D * 0.2]); dark.push([cx + w * 0.02, ty + D * 0.55]);
-  var strata = ''; for (var k = 1; k <= 3; k++) { var dy = D * k * 0.22; for (i = 0; i < 4; i++) { u = 0.2 + (i + (k % 2) * 0.5) * 0.17; if (u > 0.85) continue; if (depth(u) > dy + 8) strata += ell(cx - w / 2 + w * u, ty + dy, w * 0.06, 2.2); } }
-  var grass = ell(cx, ty, w / 2 + 5, w * 0.075), drips = '';
-  for (i = 0; i <= 14; i++) { u = i / 14; var gx = cx - w / 2 - 2 + (w + 4) * u, gy = ty + Math.sqrt(Math.max(0, 1 - Math.pow((gx - cx) / (w / 2 + 5), 2))) * w * 0.07; drips += circ(gx, gy, (i % 2 ? 4 : 6) * w / 260 + 2); }
-  var tree = '', treeD = '', trunk = '', tops = [];
-  (o.trees || []).forEach(function (q) { var x = cx + q[0] * w / 2, s = q[1] * w / 260, y = ty - w * 0.02, r = 20 * s; trunk += rect(x - 3 * s, y - r * 1.4, 6 * s, r * 1.4 + 2); tree += circ(x, y - r * 1.9, r) + circ(x - r * 0.7, y - r * 1.4, r * 0.72) + circ(x + r * 0.72, y - r * 1.45, r * 0.78); treeD += circ(x + r * 0.45, y - r * 1.3, r * 0.55); tops.push(y - r * 2.9); });
-  var wall = '', roof = '', win = '', door = '', chim = '', wins = [];
-  if (o.house != null) { var hx = cx + o.house * w / 2, s2 = w / 260, hw = 46 * s2, hh = 34 * s2, hy = ty - w * 0.015;
-    wall = rect(hx - hw / 2, hy - hh, hw, hh + 2); roof = poly([[hx - hw / 2 - 7 * s2, hy - hh + 2], [hx, hy - hh - 30 * s2], [hx + hw / 2 + 7 * s2, hy - hh + 2]]); chim = rect(hx + hw * 0.18, hy - hh - 26 * s2, 8 * s2, 16 * s2);
-    door = rrect(hx - 6 * s2, hy - 18 * s2, 12 * s2, 18 * s2, 5 * s2); win = circ(hx, hy - hh - 10 * s2, 4.5 * s2) + rrect(hx - hw * 0.4, hy - hh * 0.72, 9 * s2, 9 * s2, 2) + rrect(hx + hw * 0.4 - 9 * s2, hy - hh * 0.72, 9 * s2, 9 * s2, 2);
-    wins = [[hx, hy - hh - 10 * s2, 5 * s2], [hx - hw * 0.4 + 4.5 * s2, hy - hh * 0.72 + 4.5 * s2, 6 * s2], [hx + hw * 0.4 - 4.5 * s2, hy - hh * 0.72 + 4.5 * s2, 6 * s2]]; tops.push(hy - hh - 32 * s2); }
-  var flag = '';
-  if (o.castle) { var c = w / 110, by = ty - w * 0.012, tw2 = 11 * c, k2;
-    // the keep, two side towers and a tall middle tower, each with a cone roof and a pennant
-    wall += rect(cx - 20 * c, by - 26 * c, 40 * c, 26 * c + 2) + rect(cx - 30 * c, by - 38 * c, tw2, 38 * c + 2) + rect(cx + 30 * c - tw2, by - 38 * c, tw2, 38 * c + 2) + rect(cx - 7 * c, by - 46 * c, 14 * c, 46 * c);
-    for (k2 = 0; k2 < 4; k2++) wall += rect(cx - 20 * c + k2 * 11 * c, by - 30 * c, 6 * c, 5 * c);
-    [[cx - 30 * c + tw2 / 2, by - 38 * c, tw2 * 0.75, 15 * c], [cx + 30 * c - tw2 / 2, by - 38 * c, tw2 * 0.75, 15 * c], [cx, by - 46 * c, 9.5 * c, 20 * c]].forEach(function (q) {
-      roof += poly([[q[0] - q[2], q[1] + 1], [q[0], q[1] - q[3]], [q[0] + q[2], q[1] + 1]]); flag += poly([[q[0], q[1] - q[3] - 7 * c], [q[0] + 7 * c, q[1] - q[3] - 5 * c], [q[0], q[1] - q[3] - 3 * c]]) + rect(q[0] - 0.5 * c, q[1] - q[3] - 7 * c, 1 * c, 7 * c); });
-    door += rrect(cx - 5 * c, by - 13 * c, 10 * c, 13 * c, 5 * c);
-    win += rrect(cx - 2.5 * c, by - 40 * c, 5 * c, 7 * c, 2.5 * c) + rrect(cx - 30 * c + tw2 / 2 - 2 * c, by - 30 * c, 4 * c, 6 * c, 2 * c) + rrect(cx + 30 * c - tw2 / 2 - 2 * c, by - 30 * c, 4 * c, 6 * c, 2 * c);
-    wins.push([cx, by - 36.5 * c, 4 * c], [cx - 30 * c + tw2 / 2, by - 27 * c, 3.5 * c], [cx + 30 * c - tw2 / 2, by - 27 * c, 3.5 * c]); tops.push(by - 76 * c); }
-  var fls = ''; for (i = 0; i < 7; i++) { var fx = cx + (hash(sd + i * 3.3) - 0.5) * w * 0.8, fy = ty + (hash(sd * 2 + i) - 0.5) * w * 0.05; fls += circ(fx, fy, 1.6 * w / 260 + 0.6); }
-  var top = Math.min.apply(null, tops.concat([ty - w * 0.1]));
-  return {rock: poly(rock), dark: poly(dark), strata: strata, grass: grass + drips, grassL: ell(cx - w * 0.06, ty - w * 0.018, w * 0.36, w * 0.038), tree: tree, treeD: treeD, trunk: trunk, wall: wall, roof: roof, chim: chim, door: door, win: win, wins: wins, fls: fls, flag: flag,
-    wf: o.wf ? [cx + o.wf * w * 0.44, ty + w * 0.03] : null, box: [cx - w / 2 - 12, top - 4, w + 24, ty + D * 1.6 - top + 8]};
-}
-function n2_islandCols(dk) { return dk ? {flag: '#FFC8E0', rock: '#5A4E86', dark: '#463C70', strata: 'rgba(30,24,60,0.35)', grass: '#3E7A78', grassL: '#4E9088', tree: '#2E5E62', treeD: 'rgba(10,20,40,0.3)', trunk: '#4A3A50', wall: '#E8DCF0', roof: '#B85A7A', chim: '#8A6A88', door: '#6A4A6A', win: '#FFD58A', fls: '#FFE6A8'} :
-  {flag: '#FF8FA8', rock: '#C9A58A', dark: '#A88470', strata: 'rgba(120,80,60,0.28)', grass: '#7FD06E', grassL: '#A8E68A', tree: '#5AB860', treeD: 'rgba(30,90,40,0.25)', trunk: '#8A6040', wall: '#FFF6EA', roof: '#F07A6A', chim: '#C9A08A', door: '#8A5A44', win: '#8AD0F0', fls: '#FFFFFF'}; }
-SCENES.cloudkingdom = function (W, H, dk, rnd) {
-  var ph = H > W, far = Lay(ph ? 8 : 11), refl = Lay(0), mid = Lay(0), near = Lay(0), i;
-  var sky = dk ? 'linear-gradient(180deg,#1C1F4A 0%,#2A2960 36%,#3A3474 64%,#7E5C9E 100%)' : 'linear-gradient(180deg,#A9CDF5 0%,#C3DCF8 34%,#DCEBFB 62%,#FFEDE6 100%)';
-  var sea = H * (ph ? 0.78 : 0.75);
-  var C = dk ? {bank: '#5A4E92', bank2: '#6E5CA0', glow: 'rgba(255,220,250,0.08)', dist: '#4E4A86', star: 'rgba(255,248,230,0.85)'} :
-    {bank: '#F6F2FC', bank2: '#FFFFFF', glow: 'rgba(255,250,235,0.22)', dist: '#C2D2EE', star: 'rgba(255,255,255,0)'};
-  // far: soft cloud banks on the horizon and the light of the sun (moon), in three soft steps instead of one hard-edged oval
-  var bank = '', bank2 = '';
-  spread(-60, sea - H * 0.1, W + 120, H * 0.08, ph ? 90 : 150, 40, rnd, 0.6).forEach(function (c) { bank += n2_puff(c.x, c.y + 20, (ph ? 120 : 220) + c.r * 80, (ph ? 40 : 60) + c.k * 30, rnd); });
-  spread(-60, H * 0.36, W + 120, H * 0.14, ph ? 140 : 260, 80, rnd, 0.8).forEach(function (c) { if (c.q < 0.6) bank2 += n2_puff(c.x, c.y, (ph ? 90 : 160) + c.r * 60, (ph ? 22 : 30) + c.k * 12, rnd); });
-  add(far, 'a', bank2, C.bank2); add(far, 'b', bank, C.bank);
-  var gx = dk ? W * 0.5 : W * (ph ? 0.3 : 0.32), gy2 = dk ? sea : H * (ph ? 0.17 : 0.17), grx = dk ? W * 0.7 : W * 0.32, gry = dk ? H * 0.12 : H * 0.22;
-  add(far, 'f', ell(gx, gy2, grx, gry), C.glow); add(far, 'g', ell(gx, gy2, grx * 0.66, gry * 0.66), C.glow); add(far, 'h', ell(gx, gy2, grx * 0.36, gry * 0.36), C.glow);
-  // refl (crisp, behind the islands): stars, tiny distant islands
-  var st = ''; if (dk) spread(0, 0, W, sea - H * 0.1, 30, 30, rnd, 1).forEach(function (c) { if (c.q < 0.5) st += circ(c.x, c.y, 0.5 + c.r * 1.1); });
-  add(refl, 'a', st, C.star);
-  var dist = ''; (ph ? [[0.4, 0.5, 34], [0.92, 0.66, 26]] : [[0.3, 0.55, 44], [0.62, 0.48, 34], [0.94, 0.62, 30], [0.4, 0.66, 26]]).forEach(function (q, k) { var P = n2_island(W * q[0], H * q[1], q[2], {trees: [[-0.3, 1.6], [0.25, 1.3]], seed: k + 4}); dist += P.rock + P.grass + P.tree + P.trunk; });
-  add(refl, 'b', dist, C.dist);
-  // near: the front of the cloud sea, rows of puffs stepping down toward us, each lit from above with its shade along the bottom
-  var ROWS = dk ? [['#4A4282', '#665AA4'], ['#544A8E', '#7468B2'], ['#5E5498', '#8476C0']] : [['#C9CFEE', '#EAEDFB'], ['#D2D2F0', '#F3F2FD'], ['#DCD6F2', '#FFFFFF']], hl = '', dim = '', spk = '', y2 = 0;
-  ROWS.forEach(function (rc, j) { var y0 = sea + H * (0.03 + j * (ph ? 0.06 : 0.075)), sh2 = '', mn = '', cw = (ph ? 120 : 210) * (1 + j * 0.25), hh = (ph ? 46 : 70) * (1 + j * 0.3);
-    for (var x = -100 + (j % 2) * cw * 0.5; x < W + 100; x += cw * (0.7 + rnd() * 0.25)) { var w = cw * (0.9 + rnd() * 0.4), h = hh * (0.8 + rnd() * 0.4), P = n2_puff2(x, y0 + h * 0.5, w, h, rnd); sh2 += P.shade; mn += P.main;
-      if (j === 2) { hl += P.hi; P.cs.forEach(function (c, n) { if (n % 2 === 0) spk += seg(c[0] + c[2] * 0.25, c[1] - c[2] * 0.62 - 3.5, c[0] + c[2] * 0.25, c[1] - c[2] * 0.62 + 3.5) + seg(c[0] + c[2] * 0.25 - 3.5, c[1] - c[2] * 0.62, c[0] + c[2] * 0.25 + 3.5, c[1] - c[2] * 0.62); }); } }
-    sh2 += rect(-60, y0 + hh * 0.5, W + 120, H); if (j === 2) y2 = y0 + hh * 0.55;
-    add(near, 'abcdef'[j * 2], sh2, rc[0]); add(near, 'abcdef'[j * 2 + 1], mn, rc[1]); });
-  // the deep cloud at the very bottom: a soft shadowed layer of big bellies rising from below, so the front is not one flat sheet
-  var bw2 = ph ? 70 : 120; for (var xx = -bw2 * 0.6; xx < W + bw2; xx += bw2 * (0.75 + rnd() * 0.3)) { var r2 = bw2 * (0.6 + rnd() * 0.3); dim += circ(xx, H + r2 * (0.15 + rnd() * 0.25) - (ph ? 18 : 28), r2); }
-  add(near, 'h', dim, dk ? 'rgba(52,40,110,0.28)' : 'rgba(176,166,232,0.2)');
-  if (!dk) add(near, 'g', hl, 'rgba(255,255,255,0.9)'); stk(near, 's', spk, dk ? 'rgba(255,240,255,0.6)' : 'rgba(214,206,246,0.9)', 1.4);
-  // the islands (moving parts); the small top one carries the kingdom's castle
-  var IS = ph ? [{cx: 0.72, ty: 0.5, w: 190, o: {trees: [[0.45, 1.1], [0.62, 0.8], [-0.55, 0.9]], house: -0.08, wf: -1, seed: 1}}, {cx: 0.2, ty: 0.32, w: 132, o: {trees: [[-0.3, 1.2], [0.3, 0.9]], wf: 1, seed: 2}}, {cx: 0.74, ty: 0.2, w: 96, o: {trees: [[-0.7, 0.8], [0.72, 0.7]], castle: 1, wf: 0, seed: 3}}] :
-    [{cx: 0.8, ty: 0.44, w: 300, o: {trees: [[0.5, 1.15], [0.68, 0.85], [-0.6, 0.95], [-0.42, 0.7]], house: 0.05, wf: -1, seed: 1}}, {cx: 0.11, ty: 0.34, w: 200, o: {trees: [[-0.35, 1.2], [0.05, 0.9], [0.4, 1]], wf: 1, seed: 2}}, {cx: 0.5, ty: 0.21, w: 130, o: {trees: [[-0.72, 0.9], [0.74, 0.75]], castle: 1, wf: 0, seed: 3}}];
-  var isl = IS.map(function (q) { var P = n2_island(W * q.cx, H * q.ty, q.w, q.o); P.cx = W * q.cx; P.ty = H * q.ty; P.w = q.w; return P; });
-  if (ANIM) { ANIM.isl = isl; ANIM.sea = sea; }
-  else {
-    // the still scene: the islands with their trees, houses and castle, waterfalls into the cloud sea, a kite on its string
-    var K = n2_islandCols(dk), r = '', dkk = '', g = '', tr = '', t = '', wl = '', rf = '', wn = '', strata = '', wf = '', wfl = '', ks = '';
-    isl.forEach(function (P) { r += P.rock + P.chim; dkk += P.dark; g += P.grass; tr += P.trunk + P.door; t += P.tree; wl += P.wall; rf += P.roof + P.flag; wn += P.win;
-      P.strata.replace(/M([-\d.]+) ([-\d.]+) a([-\d.]+)/g, function (m0, x0, y0, rx0) { strata += seg(+x0 + 2, +y0, +x0 + 2 * rx0 - 2, +y0); return m0; });
-      if (P.wf) { var x0 = P.wf[0], ww = (ph ? 7 : 11) * P.w / 240 + 3, dir = x0 > P.cx ? 1 : -1, xb = x0 + dir * ww * 1.3;
-        wf += poly(n2_q([x0 - ww / 2, P.wf[1]], [x0 + dir * ww * 1.4, P.wf[1] - 2], [xb + ww / 2, P.wf[1] + ww * 1.5], 6).concat([[xb + ww * 0.7, sea + 30], [xb - ww * 0.7, sea + 30], [xb - ww / 2, P.wf[1] + ww * 1.5]]));
-        for (var k = 0; k < 3; k++) wfl += seg(xb + (k - 1) * ww * 0.3, P.wf[1] + ww * 2 + k * 30, xb + (k - 1) * ww * 0.3, P.wf[1] + ww * 2 + k * 30 + (sea - P.wf[1]) * 0.35); } });
-    var A0 = isl[0], ka = A0.wins.length ? [A0.wins[0][0], A0.wins[0][1] - 14] : [A0.cx, A0.ty - 40], kx = ka[0] + 110 * (ph ? 0.65 : 1), ky = ka[1] - 150 * (ph ? 0.65 : 1), ksz = ph ? 0.62 : 0.95;
-    var kite = poly([[kx, ky - 24 * ksz], [kx + 17 * ksz, ky - 2 * ksz], [kx, ky + 22 * ksz], [kx - 17 * ksz, ky - 2 * ksz]]);
-    for (k = 1; k <= 3; k++) { var bx = kx + Math.sin(k * 2.3) * 6, by = ky + 22 * ksz + k * 20 * ksz; kite += poly([[bx - 5, by - 3], [bx, by], [bx - 5, by + 3]]) + poly([[bx + 5, by - 3], [bx + 5, by + 3], [bx, by]]); }
-    ks = pline(n2_q(ka, [(ka[0] + kx) / 2 + 10, (ka[1] + ky) / 2 + 30], [kx, ky + 20 * ksz], 12)) + pline(n2_fn(0, 9, 1, function (k) { return k; }).map(function (q) { return [kx + Math.sin(q[0] * 0.7) * 5, ky + 22 * ksz + q[0] * 7 * ksz]; })) + seg(kx, ky - 24 * ksz, kx, ky + 22 * ksz) + seg(kx - 17 * ksz, ky - 2 * ksz, kx + 17 * ksz, ky - 2 * ksz);
-    add(refl, 'c', wf, dk ? '#8EA8E8' : '#9AD6F6'); stk(refl, 's', wfl, 'rgba(255,255,255,0.8)', 1.4);
-    add(mid, 'a', r, K.rock); add(mid, 'b', dkk, K.dark); add(mid, 'c', g, K.grass); add(mid, 'd', tr, K.trunk); add(mid, 'e', t, K.tree); add(mid, 'f', wl, K.wall); add(mid, 'g', rf + kite, K.roof); add(mid, 'h', wn, K.win);
-    stk(mid, 's', strata, K.strata, 2.4); stk(mid, 't', ks, dk ? 'rgba(220,220,255,0.6)' : 'rgba(90,80,120,0.55)', 1);
-    if (!dk) add(refl, 'd', circ(gx, gy2, 32 * (ph ? 0.65 : 1)), '#FFEFB8'); else add(refl, 'd', circ(W * (ph ? 0.32 : 0.34), H * (ph ? 0.17 : 0.16), 30 * (ph ? 0.65 : 1)), '#FFF6E0'); }
-  return n2_out({sky: sky, far: far, refl: refl, mid: mid, near: near});
 };
 
 // ================= 4. Night Train: inside a sleeper compartment, a wide window, a reading lamp, tea on the fold-down table =================

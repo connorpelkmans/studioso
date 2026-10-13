@@ -1,4 +1,4 @@
-/* Theme Collections, batch n4: nightmarket, diadelosmuertos, holi, ramadan, midautumn */
+/* Theme Collections, batch n4: diadelosmuertos, holi, ramadan, midautumn */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2), S15 = SOw(1.6);
@@ -20,87 +20,6 @@
       <ellipse cx="0" cy="0" rx="10" ry="10.5" fill="${id ? `url(#${id})` : body}" ${SOw(1.8)}/>
       <path d="M-9.4 -4Q0 -2 9.4 -4M-10 1Q0 3 10 1M-8.4 5.6Q0 7.4 8.4 5.6" fill="none" stroke="rgba(90,20,20,.4)" stroke-width="1"/>
       <rect x="-6" y="9" width="12" height="4" rx="1.5" fill="#3A2228" ${SOw(1.4)}/><path d="M-2 13V18M0 13V19M2 13V18" stroke="#E8B04A" stroke-width="1.2" stroke-linecap="round"/></g>`;
-
-  /* ================= NIGHT MARKET ================= */
-  TP_DATA.push({
-    theme: "nightmarket",
-    pack: {name: "Night Market Treats", items: {
-      nightmarket_lantern: `${rg("n4-nm-lan", "#FFE3A0", "#E0402E", .4, .35)}
-        <path d="M32 3V10" stroke="${O}" stroke-width="2.4" stroke-linecap="round"/>
-        <rect x="21" y="8" width="22" height="7" rx="2.5" fill="#3A2228" ${S2}/>
-        <ellipse cx="32" cy="34" rx="20" ry="20" fill="url(#n4-nm-lan)" ${SO}/>
-        <path d="M13.4 25Q32 29 50.6 25M12 34Q32 38.4 52 34M13.6 43Q32 47 50.4 43" fill="none" stroke="#A82A22" stroke-width="1.3" opacity=".55"/>
-        <rect x="21" y="52" width="22" height="7" rx="2.5" fill="#3A2228" ${S2}/>
-        <path d="M28 59V63M32 59V64M36 59V63" stroke="#E8B04A" stroke-width="2" stroke-linecap="round"/>
-        ${SHINE(21, 24, 3.6, 6, 20)}
-        ${EYES(25, 39, 34, 2.4)}${blush(20.5, 43.5, 39)}${smile(32, 38.4, 2.4)}
-        ${spark(54, 10, 4, "#FFD86B")}${spark(9, 52, 3, "#FFB3C6")}`,
-      nightmarket_goldfish: `${lg("n4-nm-bag", "#E8F8FF", "#9FD8F2")}${rg("n4-nm-fish", "#FFD08A", "#F2602E", .4, .35)}
-        <path d="M24 13Q32 17 40 13L38 9Q32 11 26 9z" fill="#FF8FB3" ${S2}/><path d="M29 9Q32 3 35 9" fill="none" stroke="#FF8FB3" stroke-width="2.6" stroke-linecap="round"/>
-        <path d="M25 14Q10 26 11 42Q12 60 32 60Q52 60 53 42Q54 26 39 14z" fill="url(#n4-nm-bag)" opacity=".92" ${SO}/>
-        <path d="M13 36Q32 31 51 36V44Q50 58 32 58Q14 58 13 44z" fill="#6EC3EA" opacity=".55"/>
-        <path d="M26 42C26 35 34 32 40 37C43 39.5 43 43.5 40 46C34 51 26 48 26 42Z" fill="url(#n4-nm-fish)" ${S2}/>
-        <path d="M27 42L18 35L20 42L18 49Z" fill="#FF9A5A" ${SOw(1.8)}/>
-        <circle cx="37" cy="40" r="1.8" fill="${O}"/><circle cx="37.6" cy="39.4" r=".6" fill="#fff"/><ellipse cx="38" cy="44" rx="1.6" ry="1" fill="#FF8FA8"/>
-        <circle cx="46" cy="30" r="2" fill="#fff" opacity=".9"/><circle cx="43" cy="24" r="1.2" fill="#fff" opacity=".9"/>
-        <path d="M18 24Q16 30 17 36" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".8"/>`,
-      nightmarket_taiyaki: `${lg("n4-nm-tai", "#FFD38A", "#D9822E")}
-        <path d="M7 34Q10 18 30 17L45 14L50 7L55 18Q61 26 55 34Q61 42 55 50L50 61L45 54L30 51Q10 50 7 34Z" fill="url(#n4-nm-tai)" ${SO}/>
-        <path d="M44 22Q38 34 44 46" fill="none" stroke="#B8682A" stroke-width="2" stroke-linecap="round"/>
-        <path d="M30 24Q34 27 31 31M36 28Q40 31 37 35M30 38Q34 41 31 45" fill="none" stroke="#C47A30" stroke-width="1.6" stroke-linecap="round"/>
-        <path d="M12 30Q14 26 18 26" fill="none" stroke="#FFF0C8" stroke-width="2.2" stroke-linecap="round"/>
-        ${EYES(16, 26, 33, 2.2)}${blush(12, 30, 38, 2.2, 1.4)}${smile(21, 37.4, 2.2, 1.8)}
-        ${spark(56, 6, 3.4, "#FFD86B")}`,
-      nightmarket_apple: `${rg("n4-nm-ap", "#FF9A8A", "#C8202A", .35, .3)}
-        ${tube("M32 34V61", "#F2DFB8", 3.2)}
-        <path d="M32 14C25 9 10 12 10 30C10 44 20 52 28 50Q32 49 36 50C44 52 54 44 54 30C54 12 39 9 32 14Z" fill="url(#n4-nm-ap)" ${SO}/>
-        <path d="M32 14Q31 8 34 4" fill="none" stroke="${O}" stroke-width="4.6" stroke-linecap="round"/><path d="M32 14Q31 8 34 4" fill="none" stroke="#8A5A2A" stroke-width="2" stroke-linecap="round"/>
-        <path d="M34 8C37 2 44 2 46 5C43 10 38 11 34 8Z" fill="#7AC86A" ${S2}/>
-        <path d="M16 22Q18 17 23 16" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".85"/><circle cx="15" cy="28" r="1.6" fill="#fff" opacity=".85"/>
-        ${EYES(25, 39, 32, 2.4)}${blush(20, 44, 37)}${smile(32, 36.4, 2.4)}`,
-      nightmarket_takoyaki: `${rg("n4-nm-tk", "#F8C27A", "#B8642A", .4, .3)}
-        <path d="M4 44H60L54 56Q32 60 10 56Z" fill="#E8C496" ${SO}/><path d="M8 47H56" stroke="#C99A62" stroke-width="1.6"/>
-        <circle cx="20" cy="38" r="10" fill="url(#n4-nm-tk)" ${S2}/><circle cx="44" cy="38" r="10" fill="url(#n4-nm-tk)" ${S2}/><circle cx="32" cy="30" r="11" fill="url(#n4-nm-tk)" ${S2}/>
-        <path d="M13 34Q20 30 27 34M37 34Q44 30 51 34M24 25Q32 20 40 25" fill="none" stroke="#5A2A16" stroke-width="3.4" stroke-linecap="round"/>
-        <path d="M14 33L17 30L20 33L23 30M38 33L41 30L44 33L47 30M26 24L29 21L32 24L35 21L38 24" fill="none" stroke="#FFF4DE" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
-        ${tube("M47 8L38 28", "#F2DFB8", 2)}
-        ${EYES(28, 36, 31, 1.8)}${smile(32, 34.4, 1.6, 1.5)}<circle cx="24" cy="18" r="1.2" fill="#5AA84A"/><circle cx="40" cy="16" r="1.2" fill="#5AA84A"/>`,
-      nightmarket_cotton: `${rg("n4-nm-cc", "#FFFFFF", "#FFA6CC", .4, .35)}
-        ${tube("M32 40V62", "#F2DFB8", 3.2)}
-        <path d="M17 36C8 36 6 24 13 20C11 10 22 5 28 10C32 3 44 4 46 12C55 11 59 22 53 28C58 36 49 44 42 40C38 46 26 46 22 40C20 40 18.5 38 17 36Z" fill="url(#n4-nm-cc)" ${SO}/>
-        <path d="M18 18Q22 13 28 14M42 13Q47 13 49 17" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
-        <circle cx="48" cy="30" r="2.4" fill="#C8E8FF"/><circle cx="16" cy="28" r="2" fill="#FFF0A0"/>
-        ${EYES(26, 38, 27, 2.3)}${blush(21, 43, 32, 2.4, 1.6)}${smile(32, 31.4, 2.2)}`,
-      nightmarket_balloon: `${rg("n4-nm-b1", "#FFE0EC", "#F2709E")}${rg("n4-nm-b2", "#D8F8EA", "#3EB896")}${rg("n4-nm-b3", "#DCEBFF", "#5A92E8")}
-        <path d="M18 34Q24 48 30 61M44 30Q38 46 31 61M33 22Q32 42 30.5 61" fill="none" stroke="${O}" stroke-width="1.4"/>
-        <ellipse cx="17" cy="24" rx="11" ry="13" fill="url(#n4-nm-b1)" ${S2}/><path d="M15 37L19 37L17 34z" fill="#F2709E" ${SOw(1.2)}/>
-        <ellipse cx="46" cy="21" rx="11" ry="13" fill="url(#n4-nm-b3)" ${S2}/><path d="M44 34L48 34L46 31z" fill="#5A92E8" ${SOw(1.2)}/>
-        <ellipse cx="32" cy="16" rx="12" ry="13.5" fill="url(#n4-nm-b2)" ${S2}/><path d="M30 29.5L34 29.5L32 26.5z" fill="#3EB896" ${SOw(1.2)}/>
-        <path d="M26 9Q28 6 31 6M11 18Q12 15 15 14M40 14Q41 11 44 10" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
-        ${EYES(28, 36, 17, 1.8)}${blush(25, 39, 20.5, 1.8, 1.2)}${smile(32, 20, 1.6, 1.5)}`,
-      nightmarket_yum: `${lg("n4-nm-yum", "#E8483A", "#A82A2A")}
-        <path d="M32 6V10" stroke="${O}" stroke-width="2.4"/><rect x="20" y="9" width="24" height="6" rx="2" fill="#3A2228" ${S2}/>
-        <rect x="4" y="15" width="56" height="34" rx="16" fill="url(#n4-nm-yum)" ${SO}/>
-        <path d="M8 24Q32 20 56 24M8 40Q32 44 56 40" fill="none" stroke="#FFB0A0" stroke-width="1.2" opacity=".6"/>
-        ${T("YUM!", 32, 38.6, 15, "#FFF2D0", 36)}
-        <rect x="20" y="49" width="24" height="6" rx="2" fill="#3A2228" ${S2}/><path d="M28 55V60M32 55V61M36 55V60" stroke="#E8B04A" stroke-width="2" stroke-linecap="round"/>
-        ${spark(56, 8, 4, "#FFD86B")}${spark(7, 56, 3.4, "#FFD86B")}`
-    }},
-    pins: [
-      {id: "tp-nightmarket-lantern", name: "Paper Lantern Pin", kind: "badge", desc: "A glossy red paper lantern with gold tassels.",
-        svg: `<svg viewBox="0 0 30 30"><defs><radialGradient id="n4-nmp-l" cx=".4" cy=".35" r=".8"><stop offset="0" stop-color="#FFE3A0"/><stop offset="1" stop-color="#D8382A"/></radialGradient></defs>
-          <rect x="9.5" y="3" width="11" height="3.4" rx="1.2" fill="#3A2228"/><ellipse cx="15" cy="15" rx="9.6" ry="9.4" fill="url(#n4-nmp-l)" stroke="#6A1E1A" stroke-width="1.1"/>
-          <path d="M6 11Q15 13 24 11M5.4 15.5Q15 17.5 24.6 15.5M6.4 20Q15 22 23.6 20" fill="none" stroke="#9A2A22" stroke-width=".7" opacity=".6"/>
-          <rect x="9.5" y="23.4" width="11" height="3.2" rx="1.2" fill="#3A2228"/><path d="M13.6 26.6V29M15 26.6V29.4M16.4 26.6V29" stroke="#E8B04A" stroke-width="1"/>
-          <ellipse cx="10.6" cy="10.6" rx="1.6" ry="2.8" fill="#fff" opacity=".6" transform="rotate(20 10.6 10.6)"/></svg>`},
-      {id: "tp-nightmarket-string", name: "Lantern String Washi", kind: "tape", desc: "Warm red washi tape with a little string of paper lanterns.",
-        svg: `<svg viewBox="0 0 86 26"><path d="${tapeEdge}" fill="#D8463E" opacity=".9"/>
-          <path d="M6 6Q24 12 43 6Q62 12 80 6" fill="none" stroke="#3A2228" stroke-width=".8"/>
-          ${[[14, 8.4, "#FFE9C8"], [28, 9.6, "#FFB04A"], [43, 7.2, "#FFE9C8"], [58, 9.6, "#FFB04A"], [72, 8.4, "#FFE9C8"]].map(([x, y, c]) => `<rect x="${x - 2.4}" y="${y}" width="4.8" height="1.6" fill="#3A2228"/><ellipse cx="${x}" cy="${y + 6}" rx="4" ry="4.6" fill="${c}"/><rect x="${x - 2.4}" y="${y + 10.2}" width="4.8" height="1.6" fill="#3A2228"/>`).join("")}
-          <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".3"/></svg>`}
-    ],
-    card: {id: "tp-nightmarket", name: "Lantern Stall", desc: "Warm cream paper with a string of red paper lanterns along the top and a goldfish in the corner. Deep plum at night."}
-  });
 
   /* ================= DIA DE LOS MUERTOS ================= */
   const skull = (cx, cy, r, c1, c2, c3) => `<path d="M${cx - r} ${cy}A${r} ${r} 0 1 1 ${cx + r} ${cy}Q${cx + r} ${cy + r * .7} ${cx + r * .5} ${cy + r * .82}V${cy + r * 1.05}Q${cx} ${cy + r * 1.2} ${cx - r * .5} ${cy + r * 1.05}V${cy + r * .82}Q${cx - r} ${cy + r * .7} ${cx - r} ${cy}Z" fill="url(#n4-dm-sk)" ${SO}/>
