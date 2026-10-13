@@ -159,7 +159,7 @@ SCENES.film = function (W, H, dk, rnd) {
   P.f(C.panel, panel);
   P.f(C.cart, n6_poly([[pc.x - pc.w * 0.04, pc.y + pc.h * 0.17], [pc.x + pc.w * 0.12, pc.y], [pc.x + pc.w * 0.88, pc.y], [pc.x + pc.w * 1.04, pc.y + pc.h * 0.17]]) + rect(pc.x, gy1, pc.w, pc.h * 0.3));
   P.f(C.glass, rect(gx0, gy0, gx1 - gx0, gy1 - gy0));
-  var heap = '', hy = gy1 - (gy1 - gy0) * 0.32; for (x = gx0 + 4; x < gx1 - 2; x += pc.w * 0.07) heap += n6_circ(x, hy + Math.sin(x * 0.7) * 3, pc.w * 0.065); heap += rect(gx0, hy, gx1 - gx0, gy1 - hy);
+  var heap = '', hy = gy1 - (gy1 - gy0) * 0.32, hr = pc.w * 0.065; for (x = gx0 + hr; x < gx1 - hr + 0.5; x += (gx1 - gx0 - 2 * hr) / Math.max(1, Math.round((gx1 - gx0 - 2 * hr) / (pc.w * 0.07)))) heap += n6_circ(x, hy + Math.sin(x * 0.7) * 3, pc.w * 0.065); heap += rect(gx0, hy, gx1 - gx0, gy1 - hy);   // the heap's bumps stay inside the glass
   P.f(C.corn, heap);
   var kx = (gx0 + gx1) / 2, ky = gy0 + (gy1 - gy0) * 0.28, kr = pc.w * 0.16, metal = n6_arc(kx, ky - kr * 0.2, 0, kr, 0, Math.PI, 12) + rect(kx - kr * 1.05, ky - kr * 0.3, kr * 2.1, kr * 0.2) + rect(kx - 1.5, gy0, 3, ky - gy0) + rect(kx + kr * 0.9, ky - kr * 0.1, kr * 0.5, 3);
   var proj = null;
@@ -374,7 +374,9 @@ SCENES.marinebio = function (W, H, dk, rnd) {
   var rk = ph ? [[0.08, 1.2], [0.32, 0.7], [0.92, 1.3], [0.7, 0.8]] : [[0.035, 1.6], [0.13, 1.0], [0.4, 0.8], [0.68, 0.9], [0.83, 1.4], [0.95, 1.1]];
   rk.forEach(function (q, i) { var x0 = W * q[0], r0 = (ph ? 34 : 48) * q[1], y0 = floorY + 22 + (i % 2) * 10; rocks += n6_ell(x0, y0, r0 * 1.3, r0 * 0.8) + n6_ell(x0 + r0 * 0.9, y0 + r0 * 0.15, r0 * 0.8, r0 * 0.55); rockL += n6_ell(x0 - r0 * 0.4, y0 - r0 * 0.42, r0 * 0.6, r0 * 0.22); rockD += n6_ell(x0 + r0 * 0.5, y0 + r0 * 0.5, r0 * 1.1, r0 * 0.3);
     if (i % 2 === 0) urch += n6_urchin(x0 + r0 * 0.4, y0 - r0 * 0.66, r0 * 0.16); if (i % 3 === 1) star += n6_starfish(x0 - r0 * 0.5, y0 - r0 * 0.1, r0 * 0.28, 0.3 * i); if (i % 2 === 1 || i === 0) anem.push([x0 - r0 * 0.1 + r0 * 0.4 * (i % 2), y0 - r0 * 0.7, r0 * 0.34]); });
-  for (k = 0; k < (ph ? 4 : 8); k++) { x = W * (k + 0.5) / (ph ? 4 : 8) + (rnd() - 0.5) * 60; y = floorY + 30 + rnd() * (H - floorY - 50); shells += n6_arc(x, y, 0, 7, Math.PI, Math.PI * 2, 8) + rect(x - 2, y, 4, 2); }
+  var onRock = function (x, y) { return rk.some(function (q, i) { var x0 = W * q[0], r0 = (ph ? 34 : 48) * q[1], y0 = floorY + 22 + (i % 2) * 10; return Math.pow((x - x0) / (r0 * 1.3 + 8), 2) + Math.pow((y - y0) / (r0 * 0.8 + 6), 2) < 1 || Math.pow((x - x0 - r0 * 0.9) / (r0 * 0.8 + 8), 2) + Math.pow((y - y0 - r0 * 0.15) / (r0 * 0.55 + 6), 2) < 1; }); };
+  for (k = 0; k < (ph ? 4 : 8); k++) { x = W * (k + 0.5) / (ph ? 4 : 8) + (rnd() - 0.5) * 60; y = floorY + 30 + rnd() * (H - floorY - 50); if (onRock(x, y)) continue;   // shells lie on the sand, not stuck to the rocks' faces
+    shells += n6_arc(x, y, 0, 7, Math.PI, Math.PI * 2, 8) + rect(x - 2, y, 4, 2); }
   // the little research sub, drawn still (the engine flies it when animating)
   if (!ANIM) { var sb = ph ? [W * 0.62, H * 0.24, W * 0.3] : [W * 0.6, H * 0.18, W * 0.15], L = sb[2]; P.f(dk ? '#C89A22' : '#F2C230', n6_ell(sb[0], sb[1], L * 0.5, L * 0.22) + rrect(sb[0] - L * 0.12, sb[1] - L * 0.36, L * 0.26, L * 0.18, L * 0.05) + n6_poly([[sb[0] - L * 0.48, sb[1]], [sb[0] - L * 0.6, sb[1] - L * 0.12], [sb[0] - L * 0.6, sb[1] + L * 0.12]])).f(dk ? '#FFD88A' : '#BFE8F2', n6_circ(sb[0] + L * 0.24, sb[1] - L * 0.01, L * 0.11) + n6_circ(sb[0] - L * 0.12, sb[1], L * 0.05) + n6_circ(sb[0] - L * 0.27, sb[1], L * 0.05)); }
   P.f(C.rockD, rockD);
