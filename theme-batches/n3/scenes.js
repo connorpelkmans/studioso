@@ -443,7 +443,7 @@ SCENES.campfire = function (W, H, dk, rnd) {
 
 // ======================================================================
 // 4. Aquarium Tunnel: inside an acrylic tunnel through a giant tank. The seams arch overhead and run to the lit far end, sand and
-//    coral gardens rise on both sides of the walkway, light rays fall from the surface, and two visitors look up at the fish.
+//    coral gardens rise on both sides of the walkway, light rays fall from the surface, and two benches wait along the path.
 // ======================================================================
 // branching coral: a few forking tubes from (x,y), scale s
 function n3_branch(x, y, s, rnd, depth, ang, len) { if (depth === undefined) { depth = 3; ang = -90; len = 26; } var a = ang * Math.PI / 180, x2 = x + Math.cos(a) * len * s, y2 = y + Math.sin(a) * len * s, d = n3_tube([[x, y], [(x + x2) / 2 + Math.sin(a) * 2 * s, (y + y2) / 2], [x2, y2]], (2.2 + depth * 1.4) * s, (1.6 + depth) * s) + n3_C(x2, y2, (1 + depth * 0.7) * s);
@@ -514,12 +514,16 @@ SCENES.aquarium = function (W, H, dk, rnd) {
   add(near, 'c', leds, dk ? '#5FE0FF' : '#9FEFFF');
   var stripes = ''; for (k = 0; k < 14; k++) { var m1 = Math.pow(1.22, k), m2 = m1 * 1.06; stripes += n3_P([P(m1, -af * 0.85, fB), P(m1, af * 0.85, fB), P(m2, af * 0.85, fB), P(m2, -af * 0.85, fB)]); }
   add(near, 'd', stripes, dk ? 'rgba(120,190,255,0.1)' : 'rgba(255,255,255,0.1)');
-  // two visitors looking up (silhouettes): a parent and a pointing kid
-  var pm = ph ? 2.1 : 2.4, pp = P(pm, -af * 0.5, fB), ps = pm * (ph ? 0.5 : 0.62), kp = P(pm, -af * 0.1, fB);
-  var ppl = rrect(pp[0] - 9 * ps, pp[1] - 66 * ps, 18 * ps, 40 * ps, 7 * ps) + n3_C(pp[0], pp[1] - 74 * ps, 8 * ps) + rect(pp[0] - 7 * ps, pp[1] - 30 * ps, 5.5 * ps, 30 * ps) + rect(pp[0] + 1.5 * ps, pp[1] - 30 * ps, 5.5 * ps, 30 * ps);
-  ppl += rrect(kp[0] - 6 * ps, kp[1] - 38 * ps, 12 * ps, 22 * ps, 5 * ps) + n3_C(kp[0], kp[1] - 44 * ps, 6.5 * ps) + rect(kp[0] - 5 * ps, kp[1] - 18 * ps, 4 * ps, 18 * ps) + rect(kp[0] + 1 * ps, kp[1] - 18 * ps, 4 * ps, 18 * ps) + n3_tube([[kp[0] + 4 * ps, kp[1] - 34 * ps], [kp[0] + 12 * ps, kp[1] - 46 * ps], [kp[0] + 16 * ps, kp[1] - 58 * ps]], 3.6 * ps, 3 * ps) + n3_C(kp[0] + 2 * ps, kp[1] - 50 * ps, 3.4 * ps);
-  ppl += n3_tube([[pp[0] + 7 * ps, pp[1] - 60 * ps], [pp[0] + 14 * ps, pp[1] - 46 * ps], [kp[0] - 4 * ps, kp[1] - 36 * ps]], 4 * ps, 3.5 * ps);
-  add(near, 'h', ppl, dk ? '#06101E' : '#1E3448');
+  // two backless benches along the walkway, staggered (a near one on the left, a far one on the right), each a slatted seat on two slim legs
+  var bTop = '', bSide = '', sh = fB * 0.2, st = fB * 0.028;
+  [[-1, ph ? 1.7 : 1.9, ph ? 2.5 : 2.8], [1, 1.25, 1.6]].forEach(function (b) { var sd = b[0], m1 = b[1], m2 = b[2], xi = sd * af * 0.6, xo = sd * af * 0.86, y = fB - sh;
+    bTop += n3_P([P(m1, xo, y), P(m1, xi, y), P(m2, xi, y), P(m2, xo, y)]);
+    bSide += n3_P([P(m1, xi, y), P(m2, xi, y), P(m2, xi, y + st), P(m1, xi, y + st)]) + n3_P([P(m2, xo, y), P(m2, xi, y), P(m2, xi, y + st), P(m2, xo, y + st)]);
+    [0.36, 0.64].forEach(function (u) { var xs = xi + (xo - xi) * u; bSide += n3_P([P(m1, xs - sd * af * 0.008, y), P(m1, xs + sd * af * 0.008, y), P(m2, xs + sd * af * 0.008, y), P(m2, xs - sd * af * 0.008, y)]); });   // gaps between the seat slats
+    [0.12, 0.84].forEach(function (u) { var ma = m1 + (m2 - m1) * u, mb = ma + (m2 - m1) * 0.04, xl = sd * af * 0.67, xr = sd * af * 0.79;
+      bSide += n3_P([P(ma, xl, y + st), P(mb, xl, y + st), P(mb, xl, fB), P(ma, xl, fB)]) + n3_P([P(mb, xl, y + st), P(mb, xr, y + st), P(mb, xr, fB), P(mb, xl, fB)]); }); });
+  add(near, 'e', bTop, dk ? '#2C5478' : '#8FB4CC');
+  add(near, 'h', bSide, dk ? '#0E1E34' : '#2A4660');
   if (ANIM) {
     ANIM.vp = [vx, vy]; ANIM.tun = {a0: a0, af: af, fB: fB, R0: R0}; ANIM.floor = wl; ANIM.ph = ph;
     ANIM.bubbles = [P(1.6, -a0 * 1.6, fB), P(2.6, a0 * 1.9, fB), P(1.25, a0 * 1.4, fB)].map(function (p, i) { return {x: p[0], y: p[1] - 6, s: [1.6, 2.6, 1.25][i] * (ph ? 0.5 : 0.7)}; });

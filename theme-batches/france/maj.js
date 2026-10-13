@@ -19,7 +19,7 @@
   });
 
   MAJ_THEMES.push({
-    skin: {id: "france", name: "Paris", group: "world", desc: "The Eiffel Tower over the Seine and the rooftops.",
+    skin: {id: "france", name: "Paris", group: "world", desc: "The Eiffel Tower, the Seine and flower-boxed Haussmann rooftops.",
       light: ["#F5F1EA", "rgba(46,62,102,.10)", "#FFFFFF", "#1F2A3C", "#5E6676", "#E4DDD2", "#EFE9E0", "#FCFAF6", "#B8403A", "#CC6A5A", "#FFFFFF", "#7A2420", "#2E3E66", "#D6DFEE", "#FFE3A0"],
       dark: ["#10142E", "rgba(242,196,106,.08)", "#191E40", "#F4F0FA", "#B8B4D4", "#2E3462", "#242A56", "#151A38", "#F2C46A", "#F6D892", "#161A3A", "#7A6232", "#141834", "#D6D4EE", "#6A5428"],
       glow: ["linear-gradient(180deg,#B9D6EE,#E9F1F6 45%,#F6E4D6)", "linear-gradient(180deg,#121A36,#263258 45%,#5A4468)"],
@@ -30,6 +30,6 @@
         fxFall(W, H, n(16), "francechestnut", d ? ["#4E8A5A", "#6A9A4E"] : ["#5E9A4E", "#7AAA5C", "#D9A040"], {sway: 1.5, smin: 8, smax: 12, vmin: 0.9, vmax: 1.7}),
         fxBurst(W, H, n(10), "francecroissant", ["#E8A84A", "#D8923A", "#F0BC5E"], [[0.2, 1.02], [0.8, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.06, 0.06)})),
         fxRise(W, H, n(2), "franceeiffel", d ? ["#F6D892"] : ["#86705E"], {cx: [0.35, 0.65], smin: 20, smax: 24, vmin: 0.9, vmax: 1.2, sway: 0.3, life: 320, glow: d ? 16 : 0}).map(p => Object.assign(p, {vr: 0})))},
-    tag: "The Eiffel Tower over the Seine and the rooftops, with a stone bridge, booksellers' stalls and a cafe on the quay"
+    tag: "The Eiffel Tower over the Seine and flower-boxed Haussmann rooftops, with tricolour flags, a stone bridge, booksellers' stalls, a cafe and a flower cart on the quay"
   });
 })();

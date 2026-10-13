@@ -1,6 +1,6 @@
 // ---- world theme engines: italy (Amalfi Coast)
-// Loop: small waves wash up the pebble beach, the boats in the cove bob at anchor, laundry flutters on a line across a
-// house front, lemons sway on the terraces, gulls glide and flap, green shutters swing open and shut. Night: the windows
+// Loop: small waves wash up the pebble beach, the boats in the cove bob at anchor, the Italian flag waves on the terrace,
+// laundry flutters on a line across a house front, lemons sway on the terraces, gulls glide and flap, shutters swing. Night: the windows
 // glow warm all the way up the slope, the dome is lit, and the lights shimmer on the water under a crescent moon.
 // Moment: the church bells swing and ring, a little red scooter zips along the coast road, a sailboat glides into the
 // cove and a burst of lemon blossoms drifts out over the water.
@@ -30,7 +30,8 @@ function italy_sailboat(o, dk) {
   o.beginPath(); o.moveTo(-2, -60); o.quadraticCurveTo(-14, -34, -22, -10); o.lineTo(-2, -10); o.closePath(); o.fill();
   o.beginPath(); o.moveTo(2, -56); o.quadraticCurveTo(14, -32, 24, -10); o.lineTo(2, -10); o.closePath(); o.fill();
   o.fillStyle = dk ? '#D8B040' : '#F7CB34'; o.beginPath(); o.moveTo(-6.4, -50); o.quadraticCurveTo(-12, -38, -15.6, -28); o.lineTo(-13, -26); o.quadraticCurveTo(-8, -38, -4.6, -46); o.closePath(); o.fill();
-  o.fillStyle = '#E8644A'; o.beginPath(); o.moveTo(0, -62); o.lineTo(9, -59); o.lineTo(0, -56); o.closePath(); o.fill(); }
+  o.save(); o.beginPath(); o.moveTo(0.8, -63); o.quadraticCurveTo(6, -61.5, 11, -60.4); o.quadraticCurveTo(6, -59.2, 0.8, -57.6); o.closePath(); o.fillStyle = dk ? '#A6AAC4' : '#FBF8F0'; o.fill(); o.clip();
+  o.fillStyle = dk ? '#245E4C' : '#2E9A5E'; o.fillRect(0, -64, 4.2, 8); o.fillStyle = dk ? '#8C3C48' : '#D8443F'; o.fillRect(7.4, -64, 5, 8); o.restore(); }
 // the little red scooter (facing right), wheels on y = 0
 function italy_scooter(o, dk) {
   o.fillStyle = '#2A2228'; [[-9, -3.4], [9, -3.4]].forEach(function (w) { o.beginPath(); o.arc(w[0], w[1], 3.4, 0, 7); o.fill(); });
@@ -52,14 +53,18 @@ ENGINES.italy = function (A, v, dk) {
   // boats at anchor in the cove: left of the cliff and out from the beach
   var boats = [], BS = [];
   for (i = 0; i < 4; i++) BS.push(italy_sprite(60, 34, 2.5, function (o) { o.translate(0, 8); italy_gozzo(o, stripes[i], dk); }));
-  var bspots = ph ? [[0.08, 0.66], [0.16, 0.76], [0.04, 0.6]] : [[0.12, 0.74], [0.24, 0.82], [0.05, 0.66], [0.21, 0.67]];
-  bspots.forEach(function (q, k) { var y = H * q[1], x = Math.min(W * q[0], A.edgeFn(Math.min(y, yV)) - 50 * S, A.shoreX(y) - 50 * S); boats.push({x: x, y: y, s: (ph ? 0.7 : 1) * S * (0.75 + (y - hz) / (H - hz) * 0.5), ph: hash(k + 3) * 6.28, spr: BS[k % 4], flip: k % 2}); });
-  var SB = italy_sprite(60, 80, 2.5, function (o) { o.translate(0, 26); italy_sailboat(o, dk); }), SC = italy_sprite(34, 28, 3, function (o) { o.translate(0, 10); italy_scooter(o, dk); });
+  A.boats.forEach(function (q, k) { boats.push({x: q[0], y: q[1], s: q[2], ph: hash(k + 3) * 6.28, spr: BS[k % 4], flip: k % 2}); });
+  var SB = italy_sprite(60, 80, 5, function (o) { o.translate(0, 26); italy_sailboat(o, dk); }), SC = italy_sprite(34, 28, 3, function (o) { o.translate(0, 10); italy_scooter(o, dk); });
   // gulls
   var gulls = []; for (i = 0; i < (dk ? 1 : (ph ? 3 : 5)); i++) gulls.push({x: hash(i + 11) * W, y: H * (0.08 + hash(i + 12) * 0.3), v: (14 + hash(i + 13) * 12) * (hash(i + 14) < 0.5 ? 1 : -1), s: (ph ? 0.8 : 1) * (0.8 + hash(i + 15) * 0.5) * S, ph: hash(i + 16) * 6.28});
   // sparkles on the water (day) and shimmering lights (night)
-  var glints = []; for (i = 0; i < (ph ? 26 : 50); i++) { var gy = hz + 6 + hash(i + 70) * (H - hz - 10), gx = hash(i + 71) * W; if (gx < Math.min(A.edgeFn(Math.min(gy, yV)), A.shoreX(gy)) - 10) glints.push({x: gx, y: gy, ph: hash(i + 72) * 6.28, s: 0.6 + (gy - hz) / (H - hz)}); }
-  var lights = []; if (dk) for (i = 0; i < (ph ? 16 : 28); i++) { var ly = hz + (yV - hz) * (0.35 + hash(i + 90) * 0.7), ex = Math.min(A.edgeFn(Math.min(ly, yV)), A.shoreX(ly)); lights.push({x: ex - (6 + hash(i + 91) * 60) * S, y: ly, w: (8 + hash(i + 92) * 20) * S, ph: hash(i + 93) * 6.28}); }
+  var glints = []; for (i = 0; i < (ph ? 40 : 70); i++) { var gy = hz + 6 + hash(i + 70) * (H - hz - 10), gx = hash(i + 71) * W; if (A.isSea(gx - 8, gy) && A.isSea(gx + 8, gy)) glints.push({x: gx, y: gy, ph: hash(i + 72) * 6.28, s: 0.6 + (gy - hz) / (H - hz)}); }
+  // night: the town's lights shimmer in the cove below the beach
+  var lights = [], sh0 = A.shore; if (dk) for (i = 0; i < (ph ? 18 : 32); i++) { var lp = sh0[Math.floor(hash(i + 90) * sh0.length)], ly = lp[1] + (6 + hash(i + 91) * (H - lp[1])) ; if (A.isSea(lp[0], ly)) lights.push({x: lp[0], y: ly, w: (8 + hash(i + 92) * 18) * S, ph: hash(i + 93) * 6.28}); }
+  // the sailboat's course: in from the left, stopping short of the cliffs
+  var sbY = hz + (yV - hz) * (ph ? 0.22 : 0.2), sbX = -60; for (var q2 = 0; q2 < W; q2 += 6) { if (!A.isSea(q2 + 45 * S, sbY) || !A.isSea(q2 + 45 * S, sbY + 4)) break; sbX = q2; } sbX = Math.min(sbX, W * (ph ? 0.3 : 0.32));
+  // the flag
+  var FL = A.flag, flagCols = dk ? ['#245E4C', '#A6AAC4', '#8C3C48'] : ['#2E9A5E', '#FBF8F0', '#D8443F'], gustS = 1;
   // the shutters that swing, the laundry, the lemons
   var shut = A.shut.map(function (s, k) { return {s: s, o: hash(k + 50) < 0.5 ? 1 : 0, to: 1, t: 2 + hash(k + 51) * 8}; });
   var LD = A.ldry, clothes = []; for (i = 0; i < 5; i++) clothes.push({u: 0.12 + i * 0.19, kind: i % 4, col: ['#FFFFFF', '#E8644A', '#7FC8E8', '#F7CB34', '#FFFFFF'][i], ph: i * 1.3});
@@ -72,7 +77,7 @@ ENGINES.italy = function (A, v, dk) {
       gulls.forEach(function (g) { g.x += g.v * dt * f.s; g.y += Math.sin(t * 0.4 + g.ph) * 3 * dt; if (g.x > W + 40) g.x = -40; if (g.x < -40) g.x = W + 40; });
       shut.forEach(function (s) { s.t -= dt * f.s; if (s.t < 0) { s.to = 1 - s.to; s.t = 5 + Math.random() * 9; } s.o += (s.to - s.o) * Math.min(1, dt * 1.4); });
       blossoms = blossoms.filter(function (b) { return t - b.t0 < b.life; });
-      blossoms.forEach(function (b) { if (t < b.t0) return; b.vx += (-14 - b.vx) * dt * 0.6; b.vy += (8 - b.vy) * dt * 0.8; b.x += (b.vx + Math.sin(t * 1.4 + b.ph) * 10) * dt; b.y += b.vy * dt; b.rot += b.vr * dt; });
+      blossoms.forEach(function (b) { if (t < b.t0) return; b.vx += (-26 - b.vx) * dt * 0.4; b.vy += (3 - b.vy) * dt * 0.8; b.x += (b.vx + Math.sin(t * 1.4 + b.ph) * 10) * dt; b.y += b.vy * dt; b.rot += b.vr * dt; });
       rings = rings.filter(function (r) { return t - r.t0 < 1.8; });
       if (t - T0 > 0.3 && t - T0 < 6 && t - lastRing > 0.55) { lastRing = t; A.bells.forEach(function (b) { rings.push({x: b[0], y: b[1], t0: t}); }); }
     },
@@ -81,16 +86,18 @@ ENGINES.italy = function (A, v, dk) {
       // water: glints by day; by night the moon's path and the village lights shimmering
       ca.save(); ca.globalCompositeOperation = dk ? 'lighter' : 'source-over';
       if (!dk) glints.forEach(function (g) { var a = Math.max(0, Math.sin(tt * 1.6 + g.ph)); if (a < 0.05) return; ca.fillStyle = 'rgba(255,255,255,' + (a * 0.85) + ')'; var L = 6 * g.s * a; ca.fillRect(g.x - L, g.y - 0.6, L * 2, 1.2); ca.fillRect(g.x - 0.6, g.y - L * 0.5, 1.2, L); });
-      else { var M = A.sun; for (i = 0; i < (ph ? 12 : 16); i++) { var yy = hz + 6 + i * (H * 0.92 - hz) / (ph ? 12 : 16), w = M[2] * (0.5 + i * 0.06) * (0.7 + 0.3 * Math.sin(tt * 1.3 + i * 1.7)), xx = M[0] + Math.sin(tt * 0.8 + i) * 5; if (xx + w / 2 > Math.min(A.edgeFn(Math.min(yy, yV)), A.shoreX(yy))) continue; ca.fillStyle = 'rgba(220,226,255,' + (0.2 - i * 0.008) + ')'; ca.fillRect(xx - w / 2, yy, w, 2); }
+      else { var M = A.sun; for (i = 0; i < (ph ? 12 : 16); i++) { var yy = hz + 6 + i * (H * 0.92 - hz) / (ph ? 12 : 16), w = M[2] * (0.5 + i * 0.06) * (0.7 + 0.3 * Math.sin(tt * 1.3 + i * 1.7)), xx = M[0] + Math.sin(tt * 0.8 + i) * 5; if (!A.isSea(xx + w / 2, yy) || !A.isSea(xx - w / 2, yy)) continue; ca.fillStyle = 'rgba(220,226,255,' + (0.2 - i * 0.008) + ')'; ca.fillRect(xx - w / 2, yy, w, 2); }
         lights.forEach(function (l) { var a = 0.35 + 0.35 * Math.sin(tt * 2 + l.ph); ca.fillStyle = 'rgba(255,200,110,' + a + ')'; var dx = Math.sin(tt * 1.1 + l.ph) * 3; ca.fillRect(l.x - l.w / 2 + dx, l.y, l.w, 1.6); ca.fillRect(l.x - l.w * 0.3 - dx, l.y + 4, l.w * 0.6, 1.2); }); }
       ca.restore();
+      // foam breathing round the rocks at the foot of the cliff
+      (A.rocks || []).forEach(function (r, k) { var u = (tt * 0.45 + hash(k + 300)) % 1; ca.strokeStyle = dk ? 'rgba(210,225,255,' + (1 - u) * 0.4 + ')' : 'rgba(255,255,255,' + (1 - u) * 0.9 + ')'; ca.lineWidth = 1.2 * S; ca.beginPath(); ca.ellipse(r[0], r[1], r[2] * (1.05 + u * 0.7), r[2] * (0.3 + u * 0.25), 0, 0.15, Math.PI - 0.15); ca.stroke(); });
       // boats at anchor, with their reflections
       boats.forEach(function (b) { var bob = Math.sin(tt * 1.3 + b.ph) * 1.4 * b.s, rot = Math.sin(tt * 1.1 + b.ph + 1) * 0.04 * f.a, w = 60 * b.s, h = 34 * b.s;
         ca.save(); ca.translate(b.x, b.y + bob); if (b.flip) ca.scale(-1, 1); ca.save(); ca.globalAlpha = dk ? 0.18 : 0.22; ca.scale(1, -0.55); ca.drawImage(b.spr, -w / 2, -h / 2 - 8 * b.s, w, h); ca.restore();
         ca.rotate(rot); ca.drawImage(b.spr, -w / 2, -h / 2 - 8 * b.s, w, h); ca.restore();
         ca.strokeStyle = dk ? 'rgba(200,220,255,0.25)' : 'rgba(255,255,255,0.7)'; ca.lineWidth = 1; ca.beginPath(); ca.ellipse(b.x, b.y + 1.5 * b.s, (20 + Math.sin(tt * 1.3 + b.ph) * 2) * b.s, 1.6 * b.s, 0, 0, 7); ca.stroke(); });
       // the sailboat gliding into the cove
-      if (T > 0 && T < 26) { var u = italy_ease((T - 0.3) / 8), sx = -70 + (W * (ph ? 0.2 : 0.3) + 70) * u + Math.max(0, T - 14) * 10, sy = hz + (yV - hz) * (ph ? 0.26 : 0.24), ss = (ph ? 0.75 : 1) * S, al = Math.min(1, (26 - T) / 4);
+      if (T > 0 && T < 26) { var u = italy_ease((T - 0.3) / 8), sx = -70 + (sbX + 70) * u - Math.max(0, T - 14) * 6, sy = sbY, ss = (ph ? 0.75 : 1) * S, al = Math.min(1, (26 - T) / 4);
         ca.save(); ca.globalAlpha = al; ca.translate(sx, sy + Math.sin(tt * 1.2) * 1.2); ca.save(); ca.globalAlpha = al * 0.2; ca.scale(1, -0.5); ca.drawImage(SB, -30 * ss, -66 * ss, 60 * ss, 80 * ss); ca.restore(); ca.rotate(Math.sin(tt) * 0.02); ca.drawImage(SB, -30 * ss, -66 * ss, 60 * ss, 80 * ss); ca.restore();
         ca.strokeStyle = dk ? 'rgba(200,220,255,0.3)' : 'rgba(255,255,255,0.8)'; ca.lineWidth = 1.2; ca.beginPath(); ca.moveTo(sx - 24 * ss, sy + 2); ca.lineTo(sx - 24 * ss - 40 * ss * (1 - u + 0.2), sy + 3); ca.stroke(); }
       // night: warm windows all up the slope and the lit dome
@@ -102,7 +109,7 @@ ENGINES.italy = function (A, v, dk) {
         ca.beginPath(); ca.moveTo(-1.8 * s, 0); ca.quadraticCurveTo(-2.6 * s, 4.6 * s, -4.4 * s, 6.6 * s); ca.lineTo(4.4 * s, 6.6 * s); ca.quadraticCurveTo(2.6 * s, 4.6 * s, 1.8 * s, 0); ca.closePath(); ca.fill();
         ca.fillStyle = '#6A4A1A'; ca.beginPath(); ca.arc(Math.sin(a * 2) * 1.6 * s, 7.4 * s, 1.1 * s, 0, 7); ca.fill(); ca.restore(); });
       // laundry on a line across a house front
-      var lx = LD[0], ly = LD[1], L = LD[2], sag = 5 * S;
+      if (LD) { var lx = LD[0], ly = LD[1], L = LD[2], sag = 4 * S;
       ca.strokeStyle = dk ? 'rgba(220,220,240,0.6)' : 'rgba(70,60,60,0.75)'; ca.lineWidth = 0.8; ca.beginPath(); ca.moveTo(lx, ly); ca.quadraticCurveTo(lx + L / 2, ly + sag * 2, lx + L, ly + 1); ca.stroke();
       ca.fillStyle = dk ? '#3A3040' : '#6A5A50'; ca.fillRect(lx - 1.5 * S, ly - 1.5 * S, 3 * S, 3 * S); ca.fillRect(lx + L - 1.5 * S, ly - 0.5 * S, 3 * S, 3 * S);
       clothes.forEach(function (c) { var u = c.u, px = lx + L * u, py = ly + sag * 4 * u * (1 - u) + 1 * u, fl = Math.sin(tt * 2.6 + c.ph) * 0.18 * f.a + Math.sin(tt * 5.1 + c.ph) * 0.06 * f.a, s = S;
@@ -111,10 +118,10 @@ ENGINES.italy = function (A, v, dk) {
         else if (c.kind === 1) { ca.fillRect(-4.5 * s, 0, 9 * s, 11 * s); ca.fillStyle = 'rgba(255,255,255,0.75)'; ca.fillRect(-4.5 * s, 3 * s, 9 * s, 1.4 * s); ca.fillRect(-4.5 * s, 6.4 * s, 9 * s, 1.4 * s); }
         else if (c.kind === 2) { ca.beginPath(); ca.moveTo(-4 * s, 0); ca.lineTo(4 * s, 0); ca.lineTo(4 * s, 7 * s); ca.lineTo(1 * s, 7 * s); ca.lineTo(0, 3 * s); ca.lineTo(-1 * s, 7 * s); ca.lineTo(-4 * s, 7 * s); ca.closePath(); ca.fill(); }
         else { ca.fillRect(-1.6 * s, 0, 3 * s, 6 * s); ca.fillRect(-1.6 * s, 4.4 * s, 4.4 * s, 2 * s); }
-        ca.fillStyle = '#C8A070'; ca.fillRect(-0.6 * s, -1 * s, 1.2 * s, 2 * s); ca.restore(); });
+        ca.fillStyle = '#C8A070'; ca.fillRect(-0.6 * s, -1 * s, 1.2 * s, 2 * s); ca.restore(); }); }
       // shutters swinging on their hinges
       shut.forEach(function (o) { var s = o.s, wx = s[0], wy = s[1], ww = s[2], wh = s[3], th = Math.PI * italy_ease(o.o), cw = Math.cos(th) * ww * 0.55;
-        [[wx - ww * 0.02, 1], [wx + ww * 1.02, -1]].forEach(function (hg) { var x0 = hg[0], x1 = hg[0] + hg[1] * cw; ca.fillStyle = Math.abs(Math.cos(th)) > 0.3 ? C.maj : (dk ? '#164A3E' : '#1E7A58'); ca.fillRect(Math.min(x0, x1), wy - 0.3, Math.max(0.6, Math.abs(x1 - x0)), wh + 0.6);
+        [[wx - ww * 0.02, 1], [wx + ww * 1.02, -1]].forEach(function (hg) { var x0 = hg[0], x1 = hg[0] + hg[1] * cw; ca.fillStyle = Math.abs(Math.cos(th)) > 0.3 ? C.green : (dk ? '#164A3E' : '#1E7A58'); ca.fillRect(Math.min(x0, x1), wy - 0.3, Math.max(0.6, Math.abs(x1 - x0)), wh + 0.6);
           ca.fillStyle = 'rgba(0,0,0,0.18)'; for (var q = 1; q < 4; q++) ca.fillRect(Math.min(x0, x1), wy + wh * q / 4, Math.abs(x1 - x0), 0.6); }); });
       // the scooter zipping along the coast road (behind the road's stone wall, which is drawn over this canvas)
       if (T > 0.5 && T < 8.5) { var su = italy_ease((T - 0.5) / 7.8) * 0.4 + (T - 0.5) / 7.8 * 0.6, x0 = road[0][0] + 6 * S, x1 = W + 40, scx = x0 + (x1 - x0) * su, scy = roadY(scx) + 3.5 * S, ang = Math.atan2(roadY(scx + 6) - roadY(scx - 6), 12), ks = 1.6 * S * (ph ? 0.85 : 1);
@@ -122,12 +129,24 @@ ENGINES.italy = function (A, v, dk) {
         for (i = 1; i < 5; i++) { var px3 = scx - i * 9 * ks - 8 * ks, ag = 1 - i / 5; ca.fillStyle = dk ? 'rgba(200,200,220,' + ag * 0.25 + ')' : 'rgba(255,255,255,' + ag * 0.7 + ')'; ca.beginPath(); ca.arc(px3, roadY(px3) + (1 - i * 0.6) * S, (1.5 + i * 0.9) * ks, 0, 7); ca.fill(); }
         ca.save(); ca.globalAlpha = Math.min(1, (T - 0.5) * 3); ca.translate(scx, scy); ca.rotate(ang); ca.translate(0, Math.abs(Math.sin(T * 30)) * -0.5); ca.drawImage(SC, -17 * ks, -18 * ks, 34 * ks, 28 * ks); ca.restore(); }
       // ---- canvas B: waves washing the beach, lemons, gulls, the bells' ringing and the blossoms
-      var sh = A.shore, wash = (0.5 + 0.5 * Math.sin(tt * 0.9)) * 9 * S * f.a, wash2 = (0.5 + 0.5 * Math.sin(tt * 0.9 - 1.6));
-      cb.save(); cb.beginPath(); sh.forEach(function (p, k) { var off = wash * (0.7 + 0.3 * Math.sin(k * 1.3 + tt)); if (k) cb.lineTo(p[0] + off, p[1] - off * 0.2); else cb.moveTo(p[0] + off, p[1] - off * 0.2); }); for (i = sh.length - 1; i >= 0; i--) cb.lineTo(sh[i][0] - 2, sh[i][1]); cb.closePath();
+      var sh = A.shore, wash = (0.5 + 0.5 * Math.sin(tt * 0.9)) * 4.5 * S * f.a, wash2 = (0.5 + 0.5 * Math.sin(tt * 0.9 - 1.6));
+      cb.save(); cb.beginPath(); sh.forEach(function (p, k) { var off = wash * (0.7 + 0.3 * Math.sin(k * 1.3 + tt)); if (k) cb.lineTo(p[0], p[1] - off); else cb.moveTo(p[0], p[1] - off); }); for (i = sh.length - 1; i >= 0; i--) cb.lineTo(sh[i][0], sh[i][1] + 2); cb.closePath();
       cb.fillStyle = dk ? 'rgba(160,190,230,0.22)' : 'rgba(210,245,245,0.6)'; cb.fill();
-      cb.strokeStyle = dk ? 'rgba(220,235,255,0.5)' : 'rgba(255,255,255,0.95)'; cb.lineWidth = 1.8 * S; cb.beginPath(); sh.forEach(function (p, k) { var off = wash * (0.7 + 0.3 * Math.sin(k * 1.3 + tt)); if (k) cb.lineTo(p[0] + off, p[1] - off * 0.2); else cb.moveTo(p[0] + off, p[1] - off * 0.2); }); cb.stroke();
+      cb.strokeStyle = dk ? 'rgba(220,235,255,0.5)' : 'rgba(255,255,255,0.95)'; cb.lineWidth = 1.6 * S; cb.beginPath(); sh.forEach(function (p, k) { var off = wash * (0.7 + 0.3 * Math.sin(k * 1.3 + tt)); if (k) cb.lineTo(p[0], p[1] - off); else cb.moveTo(p[0], p[1] - off); }); cb.stroke();
       // the next little wave coming in, out on the water
-      cb.globalAlpha = Math.sin(wash2 * Math.PI) * 0.9; cb.lineWidth = 1.4 * S; cb.beginPath(); sh.forEach(function (p, k) { var off = -22 * S * (1 - wash2) - 4 * S; if (k) cb.lineTo(p[0] + off, p[1] + Math.sin(k * 2 + tt * 2) * 1); else cb.moveTo(p[0] + off, p[1]); }); cb.stroke(); cb.restore();
+      cb.globalAlpha = Math.sin(wash2 * Math.PI) * 0.85; cb.lineWidth = 1.2 * S; cb.beginPath(); sh.forEach(function (p, k) { var off = 14 * S * (1 - wash2) + 3 * S; if (k) cb.lineTo(p[0], p[1] + off + Math.sin(k * 2 + tt * 2) * 0.8); else cb.moveTo(p[0], p[1] + off); }); cb.stroke(); cb.restore();
+      // the flag waving on its pole: one cloth outline (hoist fixed to the pole, a travelling wave that grows towards the fly
+      // end, a little sag), a white base with the green and red bands clipped into it, folds shaded by a gradient that follows
+      // the wave, and a soft shadow
+      var fx0 = FL[0], fy0 = FL[1], fw = FL[2], fh = FL[3], gT = 1 + 0.18 * Math.sin(tt * 0.31) + 0.35 * (T > 0 ? italy_env(T, 0, 1.5, 6, 9) : 0); gustS += (gT - gustS) * 0.05; var gs = gustS, NP = 28, ph0 = tt * 3.2;
+      var wy = function (u) { return Math.sin(u * 5.6 - ph0) * fh * 0.075 * Math.pow(u, 1.1) * gs + u * u * fh * 0.07 / gs; }, wx = function (u) { return fx0 + u * fw * (1 - 0.035 * gs * (0.5 + 0.5 * Math.sin(ph0 * 0.5))) ; };
+      var cloth = function (c, dx, dy, u0, u1) { c.beginPath(); var q, u; for (q = 0; q <= NP; q++) { u = u0 + (u1 - u0) * q / NP; c[q ? 'lineTo' : 'moveTo'](wx(u) + dx, fy0 + wy(u) + dy); } for (q = NP; q >= 0; q--) { u = u0 + (u1 - u0) * q / NP; c.lineTo(wx(u) + dx + Math.sin(u * 5.6 - ph0 + 0.6) * u * 0.6 * S, fy0 + fh + wy(u) + dy - u * fh * 0.02); } c.closePath(); };
+      cb.save(); cloth(cb, 2.5 * S, 3.5 * S, 0, 1); cb.fillStyle = dk ? 'rgba(0,0,20,0.18)' : 'rgba(20,50,80,0.12)'; cb.fill();
+      cloth(cb, 0, 0, 0, 1); cb.fillStyle = flagCols[1]; cb.fill(); cb.save(); cb.clip();
+      cloth(cb, 0, 0, 0, 1 / 3 + 0.004); cb.fillStyle = flagCols[0]; cb.fill(); cloth(cb, 0, 0, 2 / 3 - 0.004, 1); cb.fillStyle = flagCols[2]; cb.fill();
+      var fg = cb.createLinearGradient(fx0, 0, fx0 + fw, 0); for (i = 0; i <= 16; i++) { var uu = i / 16, sl = Math.cos(uu * 5.6 - ph0) * Math.pow(uu, 0.9) * gs; fg.addColorStop(uu, sl > 0 ? 'rgba(30,20,40,' + Math.min(0.2, sl * 0.2) + ')' : 'rgba(255,255,255,' + Math.min(0.2, -sl * 0.2) + ')'); }
+      cb.fillStyle = fg; cb.fillRect(fx0 - 2, fy0 - fh * 0.3, fw + 4, fh * 1.6); cb.restore();
+      cb.strokeStyle = dk ? 'rgba(0,0,20,0.25)' : 'rgba(60,50,60,0.18)'; cb.lineWidth = 0.6 * S; cloth(cb, 0, 0, 0, 1); cb.stroke(); cb.restore();
       // lemons swaying on their trees
       lemons.forEach(function (l) { var sx2 = Math.sin(tt * 1.3 + l.ph) * 0.9 * S * f.a + Math.sin(tt * 2.7 + l.ph) * 0.3 * S * f.a; italy_lemonAt(cb, l.x + sx2, l.y + Math.abs(sx2) * 0.2, l.r, sx2 * 0.15 + 0.2, dk); });
       // gulls: a slow glide with a few wing beats now and then
@@ -140,7 +159,7 @@ ENGINES.italy = function (A, v, dk) {
       blossoms.forEach(function (b) { if (t < b.t0) return; var u = (t - b.t0) / b.life; italy_blossom(cb, b.x, b.y, b.s, b.rot, Math.min(1, u * 8, (1 - u) * 4) * (dk ? 0.9 : 1)); });
     },
     finish: function (t) { T0 = t; rings = [];
-      for (var k = 0; k < (ph ? 26 : 44); k++) { var l = lemons[Math.floor(Math.random() * lemons.length)] || {x: W * 0.4, y: H * 0.4}; blossoms.push({x: l.x, y: l.y, vx: -20 - Math.random() * 50, vy: -24 - Math.random() * 30, ph: Math.random() * 6.28, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 3, s: (2.6 + Math.random() * 1.8) * S * (ph ? 0.85 : 1), t0: t + 1.2 + Math.random() * 1.6, life: 7 + Math.random() * 4}); } }
+      for (var k = 0; k < (ph ? 26 : 44); k++) { var l = lemons[Math.floor(Math.random() * lemons.length)] || {x: W * 0.4, y: H * 0.4}; blossoms.push({x: l.x, y: l.y, vx: -30 - Math.random() * 50, vy: -6 - Math.random() * 8, ph: Math.random() * 6.28, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 3, s: (2.6 + Math.random() * 1.8) * S * (ph ? 0.85 : 1), t0: t + 1.2 + Math.random() * 1.6, life: 7 + Math.random() * 4}); } }
   };
 };
 UIC.italy = {L: ['#2C7FA8', '#1E5778', 'rgba(255,255,255,0.86)', '#1E2C38', '#56656F', '#C4522F', '#C4522F', '#E39A2E', '#FFFFFF'], D: ['#22305A', '#101C3A', 'rgba(20,26,56,0.8)', '#F2F2FA', '#B6B8D2', '#F6C84A', '#F6C84A', '#FFE08A', '#1A2040']};

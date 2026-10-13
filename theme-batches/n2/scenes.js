@@ -206,13 +206,71 @@ SCENES.sunflowers = function (W, H, dk, rnd) {
   return n2_out({sky: sky, far: far, mid: mid, near: near});
 };
 
-// ================= 4. Night Train: inside a sleeper compartment, a wide window, a reading lamp, tea on the fold-down table =================
-// the window and the room around it, shared by the scene and its engine
+// ================= 4. Night Train: inside a train compartment, two high-backed seats facing each other across a wide window =================
+// the window and the compartment around it, shared by the scene and its engine
 function n2_trainGeo(W, H) {
-  var ph = H > W;
-  return ph ? {ph: ph, x0: W * 0.07, x1: W * 0.93, y0: H * 0.12, y1: H * 0.5, r: 22, fr: 12, ty: H * 0.5 + 16, bench: H * 0.83, lamp: [W * 0.2, H * 0.5 + 6], cup: [W * 0.72, H * 0.5 + 16], tbl: [W * 0.5, W * 0.96]} :
-    {ph: ph, x0: W * 0.05, x1: W * 0.72, y0: H * 0.1, y1: H * 0.64, r: 30, fr: 16, ty: H * 0.64 + 22, bench: H * 0.86, lamp: [W * 0.865, H * 0.2], cup: [W * 0.6, H * 0.64 + 22], tbl: [W * 0.4, W * 0.76]};
+  var ph = H > W, g = ph ? {ph: ph, S: 0.65, x0: W * 0.09, x1: W * 0.91, y0: H * 0.195, y1: H * 0.46, r: 24, fr: 17, ceil: H * 0.07, rack: H * 0.142, tbl: [W * 0.3, W * 0.7], fl: H * 0.885,
+      seat: {m: W * 0.015}, lampX: W * 0.62, lights: [W * 0.25, W * 0.75],
+      cases: [[W * 0.03, 78, 40, 0], [W * 0.27, 52, 30, 1], [W * 0.66, 96, 46, 2]]} :
+    {ph: ph, S: 1, x0: W * 0.17, x1: W * 0.81, y0: H * 0.235, y1: H * 0.6, r: 38, fr: 26, ceil: H * 0.062, rack: H * 0.13, tbl: [W * 0.25, W * 0.74], fl: H * 0.93,
+      seat: {m: W * 0.012}, lampX: W * 0.68, lights: [W * 0.2, W * 0.5, W * 0.8],
+      cases: [[W * 0.015, 118, 54, 0], [W * 0.13, 74, 38, 1], [W * 0.21, 50, 50, 3], [W * 0.7, 92, 44, 2], [W * 0.8, 128, 60, 0]]};
+  var st = g.seat; st.by = g.fl - 8 * g.S; st.reach = st.m + 202 * g.S; st.bf = st.m + 16 * g.S; st.top = st.by - 420 * g.S;
+  g.ty = g.y1 + g.fr + 14 * g.S; g.wain = g.y1 + g.fr + 6 * g.S; g.lamp = [g.lampX, g.ty];
+  return g;
 }
+// a polygon with rounded corners (r: one radius or one per corner), always wound clockwise so shapes in one slot merge
+function n2_rpoly(pts, r) {
+  var n = pts.length, a = 0, i, d = '';
+  for (i = 0; i < n; i++) { var j = (i + 1) % n; a += pts[i][0] * pts[j][1] - pts[j][0] * pts[i][1]; }
+  if (a < 0) { pts = pts.slice().reverse(); if (r instanceof Array) r = r.slice().reverse(); }
+  for (i = 0; i < n; i++) { var p = pts[i], pv = pts[(i + n - 1) % n], nx = pts[(i + 1) % n], l1 = Math.hypot(pv[0] - p[0], pv[1] - p[1]) || 1, l2 = Math.hypot(nx[0] - p[0], nx[1] - p[1]) || 1, rr = Math.min(r instanceof Array ? r[i] : r, l1 * 0.48, l2 * 0.48);
+    d += (i ? ' L' : 'M') + PT(p[0] + (pv[0] - p[0]) * rr / l1, p[1] + (pv[1] - p[1]) * rr / l1) + ' Q' + PT(p[0], p[1]) + ' ' + PT(p[0] + (nx[0] - p[0]) * rr / l2, p[1] + (nx[1] - p[1]) * rr / l2); }
+  return d + ' Z ';
+}
+// one compartment armchair in a three-quarter view: sd 1 is the left seat, -1 the right one, both turned toward the middle of the compartment.
+// Built as a little box model (w across its width from the outer side, f from the back to the front, h up from the floor) drawn in an
+// oblique projection, so we see its front, its tops and its outer side. faces: painted back to front, t = tone (L light, M mid, D dark, W wood)
+function n2_trainSeat(G, W, sd) {
+  var s = G.seat, S = G.S, ex = sd > 0 ? s.m : W - s.m, by = s.by, k;
+  var Wd = 150, P = 120, Bt = 30, A = 20, hs = 98, ha = 172, hb = 392, hp = 40, f0 = 14;
+  function Q(w, f, h) { return [ex + sd * (w + f * 0.42) * S, by + (f * 0.28 - h) * S]; }
+  function F(q, r, t) { return {d: n2_rpoly(q.map(function (p) { return Q(p[0], p[1], p[2]); }), (r instanceof Array ? r : [r, r, r, r]).map(function (v) { return v * S; })), t: t}; }
+  function roll(a, b, w, t) { a = Q(a[0], a[1], a[2]); b = Q(b[0], b[1], b[2]); return {d: n2_tube([a, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], b], w * S, w * S) + circ(b[0], b[1], w * S / 2) + circ(a[0], a[1], w * S / 2), t: t}; }
+  function cap(p, w, t) { var c = Q(p[0], p[1], p[2]); return {d: ell(c[0], c[1], w * S * 0.46, w * S / 2), t: t}; }
+  var o = {faces: []}, fc = o.faces;
+  o.shadow = n2_rpoly([Q(-12, -6, 0), Q(Wd + 12, -6, 0), Q(Wd + 12, P + 16, 0), Q(-12, P + 16, 0)], 24 * S);
+  // the high back: its outer side, its tufted front and the headroll along the top
+  fc.push(F([[0, 0, f0], [0, Bt, f0], [0, Bt, hb], [0, 0, hb]], [4, 4, 8, 8], 'D'));
+  fc.push(F([[0, Bt, hs - 10], [Wd, Bt, hs - 10], [Wd, Bt, hb], [0, Bt, hb]], [4, 4, 14, 14], 'L'));
+  fc.push(roll([2, Bt * 0.5, hb], [Wd - 2, Bt * 0.5, hb], 50, 'L'), cap([2, Bt * 0.5, hb], 50, 'M'));
+  // the inner arm, mostly behind the cushion
+  fc.push(F([[Wd - A, Bt, f0], [Wd - A, P, f0], [Wd - A, P, ha], [Wd - A, Bt, ha]], 4, 'M'), F([[Wd - A, P, f0], [Wd, P, f0], [Wd, P, ha], [Wd - A, P, ha]], [3, 3, 8, 8], 'M'), roll([Wd - A / 2, Bt, ha], [Wd - A / 2, P, ha], 24, 'L'), cap([Wd - A / 2, P, ha], 24, 'M'));
+  // the deep seat cushion on its wooden plinth
+  fc.push(F([[A, P - 3, f0], [Wd - A, P - 3, f0], [Wd - A, P - 3, hp], [A, P - 3, hp]], 3, 'W'));
+  fc.push(F([[A, Bt, hs], [Wd - A, Bt, hs], [Wd - A, P, hs], [A, P, hs]], [4, 4, 12, 12], 'L'), F([[A, P, hp], [Wd - A, P, hp], [Wd - A, P, hs], [A, P, hs]], [6, 6, 12, 12], 'M'));
+  // the outer arm: its padded side, its front and a rolled top
+  fc.push(F([[0, Bt - 4, f0], [0, P, f0], [0, P, ha], [0, Bt - 4, ha]], [3, 3, 8, 6], 'D'), F([[0, P, f0], [A, P, f0], [A, P, ha], [0, P, ha]], [3, 3, 8, 8], 'M'), roll([A / 2, Bt - 4, ha], [A / 2, P + 1, ha], 26, 'L'), cap([A / 2, P + 1, ha], 26, 'M'));
+  // little wooden feet
+  fc.push(F([[1, P - 4, 0], [A - 1, P - 4, 0], [A - 1, P - 4, f0 + 2], [1, P - 4, f0 + 2]], 2, 'W'), F([[Wd - A + 1, P - 4, 0], [Wd - 1, P - 4, 0], [Wd - 1, P - 4, f0 + 2], [Wd - A + 1, P - 4, f0 + 2]], 2, 'W'));
+  // button tufting on the back: buttons in a diamond grid, joined by pulled stitches
+  var rows = [], btn = '', st = '';
+  [168, 232, 296, 352].forEach(function (h, r) { rows.push((r % 2 ? [0.32, 0.5, 0.68] : [0.23, 0.41, 0.59, 0.77]).map(function (u) { return Q(Wd * u, Bt + 0.5, h); })); });
+  rows.forEach(function (row, r) { row.forEach(function (p) { btn += circ(p[0], p[1], 3.2 * S); if (r < rows.length - 1) rows[r + 1].forEach(function (q) { if (Math.abs(q[0] - p[0]) < Wd * 0.12 * S) st += seg(p[0], p[1], q[0], q[1]); }); }); });
+  o.btn = btn; o.stitch = st;
+  // piping along the edges: the back's front, the cushion's front edge, the outer arm
+  o.pipe = pline([Q(0, Bt, hs), Q(0, Bt, hb - 20)]) + pline([Q(A + 6, P, hs - 1), Q(Wd - A - 6, P, hs - 1)]) + pline([Q(0, Bt, ha - 14), Q(0, P - 4, ha - 14)]);
+  // the lace antimacassar, draped over the headroll and hanging down the front of the back, with a scalloped edge
+  var w0 = Wd * 0.3, w1 = Wd * 0.7, lace = '', t0 = Q(w0, Bt * 0.3, hb + 23), t1 = Q(w1, Bt * 0.3, hb + 23), b0 = Q(w0, Bt + 1, hb - 52), b1 = Q(w1, Bt + 1, hb - 52);
+  o.cloth = n2_rpoly([t0, t1, b1, b0], [10 * S, 10 * S, 3 * S, 3 * S]);
+  for (k = 0; k <= 7; k++) { var z = k / 7; lace += circ(lerp(b0[0], b1[0], z), lerp(b0[1], b1[1], z), 4.4 * S); }
+  o.lace = lace;
+  return o;
+}
+// the fold-down table: its top, a single leg and foot
+function n2_trainTable(G) { var S = G.S, T0 = G.tbl[0], T1 = G.tbl[1], tc = (T0 + T1) / 2; return rrect(T0, G.ty - 2 * S, T1 - T0, 13 * S, 5 * S) + poly([[tc - 6 * S, G.ty + 10 * S], [tc + 6 * S, G.ty + 10 * S], [tc + 4 * S, G.ty + 80 * S], [tc - 4 * S, G.ty + 80 * S]]) + rrect(tc - 18 * S, G.ty + 76 * S, 36 * S, 8 * S, 4 * S); }
+// the luggage on the rack: [x, width, height, style]
+function n2_trainCase(G, q) { var S = G.S, w = q[1] * S, h = q[2] * S, y = G.rack - 4 * S - h; return {x: q[0], y: y, w: w, h: h, k: q[3], d: q[3] === 3 ? rrect(q[0], y, w, h, w * 0.5) : rrect(q[0], y, w, h, 8 * S) + rrect(q[0] + w / 2 - 12 * S, y - 8 * S, 24 * S, 10 * S, 4 * S)}; }
 // where the layers of land sit in the window: raised so the mountains and hills show above the board on desktop
 function n2_trainLand(G) { var wh = G.y1 - G.y0; return {m: G.y0 + wh * 0.37, ma: wh * 0.19, h0: G.y0 + wh * 0.47, h1: G.y0 + wh * 0.61, h2: G.y0 + wh * 0.76}; }
 // rolling land outside the window, as a function of world x (the train moves through it)
@@ -220,63 +278,71 @@ function n2_mount(x) { return 0.66 * Math.pow(1 - Math.abs(Math.sin(x / 170 + 0.
 // the snow on the mountain tops: from the ridge down by a depth that grows with the height of the peak
 function n2_snow(x0, x1, m, ma, ox) { var top = [], bot = []; for (var x = x0; x <= x1; x += 6) { var n = n2_mount(x + ox), y = m - ma * n, d = Math.max(0, n - 0.6) * ma * 0.95 * (1 + 0.3 * Math.sin(x * 0.31)); top.push([x, y]); bot.unshift([x, y + d]); } return top.concat(bot); }
 function n2_land(k, x) { return k === 0 ? Math.sin(x / 260 + 1) * 0.5 + Math.sin(x / 97) * 0.22 + Math.sin(x / 41 + 2) * 0.08 : k === 1 ? Math.sin(x / 180) * 0.5 + Math.sin(x / 67 + 1) * 0.25 : Math.sin(x / 120 + 3) * 0.4 + Math.sin(x / 43) * 0.18; }
+function n2_trainCol(dk) {
+  return dk ? {wall: '#3E2E4A', wain: '#4A2C3A', ceil: '#2E2440', frame: '#2C1C28', brass: '#C8A050', cases: '#7A5A48', floor: '#261B28', pan: 'rgba(0,0,0,0.26)', net: 'rgba(200,160,80,0.55)',
+      blind: '#8E7484', seat: '#2C5A5C', seatDk: '#1C3C40', cover: '#D6CADF', wood: '#3E2830', cur: '#7E2E4A', curD: '#5A1E36', stitch: 'rgba(0,0,0,0.3)', star: 'rgba(255,248,226,0.85)'} :
+    {wall: '#F4E8D2', wain: '#A86E48', ceil: '#FBF3E4', frame: '#7A4A30', brass: '#D9A848', cases: '#C68A52', floor: '#8A4A50', pan: 'rgba(90,50,20,0.22)', net: 'rgba(160,120,50,0.6)',
+      blind: '#FBEFD6', seat: '#3E7C6C', seatDk: '#2C5E52', cover: '#FFF8EC', wood: '#8A5434', cur: '#C8545A', curD: '#9A383E', stitch: 'rgba(20,50,40,0.35)', star: 'rgba(255,255,255,0)'};
+}
 SCENES.nighttrain = function (W, H, dk, rnd) {
-  var G = n2_trainGeo(W, H), ph = G.ph, far = Lay(0), mid = Lay(0), near = Lay(0), S = ph ? 0.65 : 1, i;
+  var G = n2_trainGeo(W, H), ph = G.ph, far = Lay(0), refl = Lay(0), mid = Lay(0), near = Lay(0), S = G.S, x, k;
   var sky = dk ? 'linear-gradient(180deg,#141C33 0%,#1C2542 40%,#25304E 70%,#5B4A6A 100%)' : 'linear-gradient(180deg,#B9D7EA 0%,#CFE3EC 38%,#EAF2EE 70%,#E7D2B8 100%)';
-  var C = dk ? {wall: '#3A2C46', wain: '#45293A', frame: '#2A1C2C', sill: '#6A4252', cur: '#7A2C48', curD: '#561E36', seat: '#2A4E52', brass: '#C8A050', pan: 'rgba(0,0,0,0.25)', star: 'rgba(255,248,226,0.85)', btn: '#1E3A3E'} :
-    {wall: '#F2E6D0', wain: '#A2704A', frame: '#7A4C30', sill: '#C48C5C', cur: '#B8484C', curD: '#8E3238', seat: '#3E7C6C', brass: '#D9A848', pan: 'rgba(90,50,20,0.22)', star: 'rgba(255,255,255,0)', btn: '#2A5A4E'};
-  var ww = G.x1 - G.x0, wh = G.y1 - G.y0;
-  // the wall with the window cut out, and wood panelling below
-  add(near, 'a', rect(-40, -40, W + 80, H + 80) + n2_hole(G.x0, G.y0, ww, wh, G.r), C.wall);
-  add(near, 'b', rect(-40, G.ty + 10, W + 80, H) + (ph ? '' : rect(G.x1 + G.fr + 26, -40, 12, H + 80)), C.wain);
-  var pan = '', px = ph ? 70 : 120; for (var x = 16; x < W; x += px) pan += rrect(x, G.ty + 34 * S, px - 26, G.bench - G.ty - 50 * S, 6);
-  if (!ph) { pan += rrect(G.x1 + G.fr + 52, G.y0 + 150, W - G.x1 - G.fr - 70, G.y1 - G.y0 - 150, 8); }
-  stk(near, 's', pan, C.pan, 2);
-  add(near, 'c', rrect(G.x0 - G.fr, G.y0 - G.fr, ww + 2 * G.fr, wh + 2 * G.fr, G.r + G.fr) + n2_hole(G.x0, G.y0, ww, wh, G.r), C.frame);
-  // the fold-down table and the sill
-  add(near, 'd', rrect(G.x0 - G.fr - 8, G.y1 + G.fr - 6, ww + 2 * G.fr + 16, 12 * S + 6, 4) + rrect(G.tbl[0], G.ty - 4, G.tbl[1] - G.tbl[0], 16 * S, 5) + poly([[G.tbl[0] + 30 * S, G.ty + 12 * S], [G.tbl[0] + 50 * S, G.ty + 12 * S], [G.tbl[0] + 90 * S, G.ty + 70 * S], [G.tbl[0] + 80 * S, G.ty + 74 * S]]), C.sill);
-  // curtains gathered at both sides, with tie-backs
+  var C = n2_trainCol(dk), ww = G.x1 - G.x0, wh = G.y1 - G.y0;
+  // mid: the carriage wall with the window cut out, the curved ceiling, panelling, the window frame, the luggage rack and the floor
+  add(mid, 'a', rect(-40, -40, W + 80, H + 80) + n2_hole(G.x0, G.y0, ww, wh, G.r), C.wall);
+  add(mid, 'b', rect(-40, G.wain, W + 80, H), C.wain);
+  add(mid, 'c', rect(-40, -40, W + 80, G.ceil + 40), C.ceil);
+  var pan = '', px = ph ? 76 : 118; for (x = 14; x < W; x += px) pan += rrect(x, G.wain + 26 * S, px - 24, G.fl - G.wain - 44 * S, 8 * S);
+  var rib = ''; for (x = -W * 0.1; x < W * 1.1; x += ph ? 90 : 150) rib += seg(W / 2 + (x - W / 2) * 0.8, -10, x, G.ceil - 2);
+  stk(mid, 's', pan + rib, C.pan, 2);
+  add(mid, 'd', rrect(G.x0 - G.fr, G.y0 - G.fr, ww + 2 * G.fr, wh + 2 * G.fr, G.r + G.fr) + n2_hole(G.x0, G.y0, ww, wh, G.r) + rrect(G.x0 - G.fr - 12 * S, G.y1 + G.fr - 6 * S, ww + 2 * G.fr + 24 * S, 12 * S, 5 * S), C.frame);
+  var br = rect(-40, G.ceil - 3 * S, W + 80, 6 * S) + rect(-40, G.wain - 2 * S, W + 80, 5 * S);
+  br += rrect(-40, G.rack - 4 * S, W + 80, 7 * S, 3 * S) + rrect(-40, G.rack + 20 * S, W + 80, 5 * S, 2.5 * S);
+  for (x = W * 0.04; x < W; x += W / (ph ? 3 : 6)) br += rrect(x - 2.5 * S, G.rack - 4 * S, 5 * S, 44 * S, 2.5 * S) + circ(x, G.rack + 42 * S, 5 * S);
+  G.lights.forEach(function (lx) { br += ell(lx, G.ceil * 0.55, 30 * S, 12 * S) + rect(lx - 3 * S, -10, 6 * S, G.ceil * 0.55 + 10); });
+  add(mid, 'e', br, C.brass);
+  var net = ''; for (x = -40; x < W + 40; x += 12 * S) net += seg(x, G.rack + 3 * S, x + 6 * S, G.rack + 20 * S) + seg(x + 6 * S, G.rack + 20 * S, x + 12 * S, G.rack + 3 * S);
+  stk(mid, 't', net, C.net, 1.2);
+  var cs = ''; G.cases.forEach(function (q) { cs += n2_trainCase(G, q).d; }); add(mid, 'g', cs, C.cases);
+  add(mid, 'h', rect(-40, G.fl, W + 80, H), C.floor);
+  // near: the blind, the two seats, the fold-down table, curtains
+  var nb = Math.floor((ww - 30 * S) / (16 * S)), sc = ''; for (k = 0; k < nb; k++) sc += circ(G.x0 + 15 * S + k * 16 * S + 8 * S, G.y0 + wh * 0.1, 8 * S);
+  add(near, 'a', rrect(G.x0 + 2, G.y0 - 6, ww - 4, wh * 0.1 + 6, 6 * S) + sc, C.blind);
+  var sv = {L: '', M: '', D: '', W: ''}, cov = '', st = '', bu = '';
+  [1, -1].forEach(function (sd) { var o = n2_trainSeat(G, W, sd); o.faces.forEach(function (f) { sv[f.t] += f.d; }); cov += o.cloth + o.lace; st += o.stitch; bu += o.btn; });
+  add(near, 'b', sv.L + sv.M + sv.D, C.seat); add(near, 'c', bu, C.seatDk); add(near, 'd', cov, C.cover);
+  add(near, 'e', n2_trainTable(G) + sv.W, C.wood);
+  add(near, 'f', rrect(G.x0 + ww / 2 - 4 * S, G.y0 + wh * 0.1 + 6 * S, 8 * S, 14 * S, 4 * S) + rrect(G.x0 - G.fr - 30 * S, G.y0 - G.fr - 16 * S, ww + 2 * G.fr + 60 * S, 7 * S, 3.5 * S), C.brass);
+  // short curtains gathered at both sides of the window, with tie-backs
   var cur = '', curD = '';
-  [-1, 1].forEach(function (sd) { var ex = sd < 0 ? G.x0 - G.fr - 10 : G.x1 + G.fr + 10, cw = (ph ? 34 : 64), inn = ex - sd * cw, tieY = G.y0 + wh * 0.62, top = G.y0 - G.fr - 18 * S, bot = G.y1 + G.fr + 4;
-    var pts = [[ex + sd * 6, top], [inn - sd * 4, top], [inn + sd * cw * 0.1, tieY - wh * 0.25], [ex - sd * cw * 0.25, tieY], [inn + sd * cw * 0.05, tieY + wh * 0.18], [inn - sd * cw * 0.2, bot], [ex + sd * 6, bot]];
+  [-1, 1].forEach(function (sd) { var ex = sd < 0 ? G.x0 - G.fr - 18 * S : G.x1 + G.fr + 18 * S, cw = (ph ? 30 : 42), inn = ex - sd * cw, tieY = G.y0 + wh * 0.6, top = G.y0 - G.fr - 14 * S, bot = G.y1 + G.fr;
+    var pts = [[ex + sd * 4, top], [inn - sd * 4, top], [inn + sd * cw * 0.1, tieY - wh * 0.25], [ex - sd * cw * 0.25, tieY], [inn + sd * cw * 0.05, tieY + wh * 0.18], [inn - sd * cw * 0.2, bot], [ex + sd * 4, bot]];
     cur += poly(n2_q(pts[0], pts[0], pts[1], 2).concat(n2_q(pts[1], pts[2], pts[3], 10), n2_q(pts[3], pts[4], pts[5], 10), [pts[6]]));
-    for (var k = 1; k < 4; k++) { var fx = ex - sd * cw * k * 0.22; curD += n2_tube(n2_q([fx, top + 4], [fx - sd * cw * 0.08 * k, tieY - wh * 0.2], [ex - sd * cw * 0.18, tieY], 10), 4 * S, 1.5) + n2_tube(n2_q([ex - sd * cw * 0.18, tieY], [fx - sd * cw * 0.12 * k, tieY + wh * 0.16], [fx - sd * cw * 0.1, bot - 2], 10), 1.5, 4 * S); }
-    curD += rrect(ex - sd * cw * 0.32 - 9 * S, tieY - 5 * S, 18 * S, 10 * S, 4 * S); });
-  add(near, 'e', cur + rrect(G.x0 - G.fr - 40, G.y0 - G.fr - 24 * S, ww + 2 * G.fr + 80, 10 * S, 5 * S), C.cur); add(near, 'f', curD, C.curD);
-  // the bench at the bottom: a tufted back cushion
-  var bt = '', btn2 = ''; add(near, 'g', rrect(-40, G.bench, W + 80, H, 26 * S), C.seat);
-  for (x = 30; x < W; x += ph ? 56 : 90) { btn2 += circ(x, G.bench + 30 * S, 3.5 * S) + circ(x + (ph ? 28 : 45), G.bench + 62 * S, 3.5 * S); }
-  var tuft = ''; for (x = -20; x < W + 40; x += ph ? 56 : 90) { var h2 = ph ? 28 : 45; tuft += seg(x, G.bench + 30 * S, x + h2, G.bench + 62 * S) + seg(x + h2, G.bench + 62 * S, x + 2 * h2, G.bench + 30 * S) + seg(x, G.bench + 30 * S, x - h2, G.bench + 62 * S); }
-  stk(near, 't', tuft + seg(-40, G.bench + 14 * S, W + 40, G.bench + 14 * S), dk ? '#1E3A3E' : '#2E6052', 2 * S);
-  // luggage rack and wall details in brass
-  var brass = '';
-  if (!ph) { var rx0 = G.x1 + G.fr + 40, rx1 = W + 10; brass += rrect(rx0, H * 0.085, rx1 - rx0, 7, 3) + rrect(rx0, H * 0.085 + 22, rx1 - rx0, 5, 2.5); for (x = rx0 + 10; x < rx1; x += 34) brass += rect(x, H * 0.085, 3, 26);
-    brass += rrect(G.x1 + G.fr + 70, G.y0 + 190, 9, 9, 3) + rrect(W - 40, G.y0 + 190, 9, 9, 3); }
-  brass += rrect(G.x0 + ww * 0.5 - 30 * S, G.y0 - G.fr - 8 * S, 60 * S, 6 * S, 3 * S);
-  add(near, 'h', brass + btn2, C.brass);
+    for (k = 1; k < 4; k++) { var fx = ex - sd * cw * k * 0.22; curD += n2_tube(n2_q([fx, top + 4], [fx - sd * cw * 0.08 * k, tieY - wh * 0.2], [ex - sd * cw * 0.18, tieY], 10), 3.5 * S, 1.5) + n2_tube(n2_q([ex - sd * cw * 0.18, tieY], [fx - sd * cw * 0.12 * k, tieY + wh * 0.16], [fx - sd * cw * 0.1, bot - 2], 10), 1.5, 3.5 * S); }
+    curD += rrect(ex - sd * cw * 0.32 - 8 * S, tieY - 4.5 * S, 16 * S, 9 * S, 4 * S); });
+  add(near, 'g', cur, C.cur); add(near, 'h', curD, C.curD);
+  stk(near, 's', st, C.stitch, 1.6 * S);
   // stars outside (night) are fixed; the land and the moon move in the engine
-  var st = ''; if (dk) spread(G.x0, G.y0, ww, wh * 0.55, 26, 26, rnd, 1).forEach(function (c) { if (c.q < 0.45) st += circ(c.x, c.y, 0.5 + c.r); });
-  add(mid, 'a', st, C.star);
+  var sta = ''; if (dk) spread(G.x0, G.y0, ww, wh * 0.55, 26, 26, rnd, 1).forEach(function (c) { if (c.q < 0.45) sta += circ(c.x, c.y, 0.5 + c.r); });
+  add(far, 'a', sta, C.star);
   if (ANIM) { ANIM.G = G; }
   else {
-    // the still scene: the same view the engine paints, without motion
+    // the still scene: the same view the engine paints, without motion (behind the wall, in far and refl)
     var LC = dk ? ['#26305A', '#2C3762', '#1E2848', '#16203A', '#101830'] : ['#BCCFE6', '#A9C3DC', '#94C08A', '#72A866', '#4E8A4E'], lv = n2_trainLand(G);
-    var hl = function (base, amp, k) { return below(n2_fn(G.x0 - 10, G.x1 + 12, 8, function (x) { return base + amp * n2_land(k, x); }), G.y1 + 20); };
-    add(mid, 'b', below(n2_fn(G.x0 - 10, G.x1 + 12, 6, function (x) { return lv.m - lv.ma * n2_mount(x); }), G.y1 + 20), LC[0]);
-    add(mid, 'c', hl(lv.h0, wh * 0.1, 0), LC[1]); add(mid, 'd', hl(lv.h1, wh * 0.08, 1), LC[2]);
+    var hl = function (base, amp, kk) { return below(n2_fn(G.x0 - 10, G.x1 + 12, 8, function (x) { return base + amp * n2_land(kk, x); }), G.y1 + 20); };
+    add(far, 'b', below(n2_fn(G.x0 - 10, G.x1 + 12, 6, function (x) { return lv.m - lv.ma * n2_mount(x); }), G.y1 + 20), LC[0]);
+    add(far, 'c', hl(lv.h0, wh * 0.1, 0), LC[1]); add(far, 'd', hl(lv.h1, wh * 0.08, 1), LC[2]);
     var tr = '', hs = '', rf = ''; for (x = G.x0 + 10; x < G.x1; x += 46) { var hv = hash(x * 0.37), ty = lv.h2 + wh * 0.06 * n2_land(2, x) + 3, ts = (0.7 + hv * 0.6) * S; if (hv < 0.55) tr += poly([[x - 9 * ts, ty], [x, ty - 30 * ts], [x + 9 * ts, ty]]); }
     for (x = G.x0 + 60; x < G.x1; x += 170) { var hy2 = lv.h1 + wh * 0.08 * n2_land(1, x) + 2, s2 = S * 0.9; hs += rect(x - 10 * s2, hy2 - 12 * s2, 20 * s2, 12 * s2); rf += poly([[x - 13 * s2, hy2 - 11 * s2], [x, hy2 - 21 * s2], [x + 13 * s2, hy2 - 11 * s2]]); }
-    add(mid, 'e', hs + poly(n2_snow(G.x0 - 10, G.x1 + 12, lv.m, lv.ma, 0)), dk ? '#3E4470' : '#F6F0E6'); add(mid, 'f', hl(lv.h2, wh * 0.06, 2) + tr, LC[3]);
+    add(far, 'e', hs + poly(n2_snow(G.x0 - 10, G.x1 + 12, lv.m, lv.ma, 0)), dk ? '#3E4470' : '#F6F0E6'); add(refl, 'a', hl(lv.h2, wh * 0.06, 2) + tr, LC[3]); add(refl, 'b', rf, dk ? '#5A3048' : '#D86A5A');
     var bush = below(n2_fn(G.x0 - 10, G.x1 + 12, 10, function (x) { return G.y1 - wh * 0.05 - Math.abs(Math.sin(x / 37)) * wh * 0.05; }), G.y1 + 20), poles = '', wires = '', gap = 300 * S;
     for (x = G.x0 + gap * 0.4; x < G.x1 + gap; x += gap) { var top = G.y0 + wh * 0.18; poles += seg(x, top, x, G.y1 + 20) + seg(x - 16 * S, top + 8 * S, x + 16 * S, top + 8 * S); [-12, 12].forEach(function (o) { wires += pline(n2_q([x - gap + o * S, top + 6 * S], [x - gap / 2, top + 6 * S + wh * 0.12], [x + o * S, top + 6 * S], 10)); }); }
-    add(mid, 'g', bush, dk ? '#0C1222' : '#3E7A44'); stk(mid, 's', wires, dk ? '#0A0E1A' : '#5A4A40', 1.2); stk(mid, 't', poles, dk ? '#0A0E1A' : '#5A4A40', 4 * S);
-    add(mid, 'h', rf + (dk ? circ(G.x0 + ww * 0.72, G.y0 + wh * 0.2, 20 * S) : n2_puff(G.x0 + ww * 0.3, G.y0 + wh * 0.08, 70 * S, 26 * S, rnd) + n2_puff(G.x0 + ww * 0.62, G.y0 + wh * 0.05, 56 * S, 20 * S, rnd)), dk ? '#FFF6DA' : '#FFFFFF');
-    // the lamp: a wall lamp right of the window (desktop), a table lamp on the sill (phone)
-    var L = G.lamp, sh = '', lb = '';
-    if (ph) { sh = poly([[L[0] - 9 * S, L[1] - 62 * S], [L[0] + 9 * S, L[1] - 62 * S], [L[0] + 20 * S, L[1] - 40 * S], [L[0] - 20 * S, L[1] - 40 * S]]); lb = rect(L[0] - 2 * S, L[1] - 44 * S, 4 * S, 42 * S) + ell(L[0], L[1] - 2 * S, 13 * S, 4 * S); }
-    else { sh = poly([[L[0] - 10, L[1] - 4], [L[0] + 10, L[1] - 4], [L[0] + 26, L[1] + 22], [L[0] - 26, L[1] + 22]]); lb = rrect(L[0] + 28, L[1] - 18, 10, 36, 4) + n2_tube(n2_q([L[0] + 33, L[1]], [L[0] + 10, L[1] - 6], [L[0], L[1] - 20], 8), 4, 4) + rect(L[0] - 1, L[1] - 20, 2, 16); }
-    add(near, 'e', sh); add(near, 'h', lb); }
-  return n2_out({sky: sky, far: far, mid: mid, near: near});
+    add(refl, 'c', bush, dk ? '#0C1222' : '#3E7A44'); stk(refl, 's', wires, dk ? '#0A0E1A' : '#5A4A40', 1.2); stk(refl, 't', poles, dk ? '#0A0E1A' : '#5A4A40', 4 * S);
+    add(far, 'h', dk ? circ(G.x0 + ww * 0.72, G.y0 + wh * 0.2, 20 * S) : n2_puff(G.x0 + ww * 0.3, G.y0 + wh * 0.16, 70 * S, 26 * S, rnd) + n2_puff(G.x0 + ww * 0.62, G.y0 + wh * 0.13, 56 * S, 20 * S, rnd), dk ? '#FFF6DA' : '#FFFFFF');
+    // the table lamp: a shade on a brass stem
+    var L = G.lamp; add(near, 'g', poly([[L[0] - 10 * S, L[1] - 64 * S], [L[0] + 10 * S, L[1] - 64 * S], [L[0] + 22 * S, L[1] - 40 * S], [L[0] - 22 * S, L[1] - 40 * S]]));
+    add(near, 'f', rect(L[0] - 2 * S, L[1] - 44 * S, 4 * S, 42 * S) + ell(L[0], L[1] - 2 * S, 13 * S, 4 * S)); }
+  return n2_out({sky: sky, far: far, refl: refl, mid: mid, near: near});
 };
 
 // ================= 5. Ramen Shop: a late-night ramen counter with noren curtains, a steaming pot and rain on the window =================

@@ -36,7 +36,7 @@
     n5star: {d: "M0 -10.6L3 -3.4L10.6 -3L4.8 2L6.6 9.8L0 5.6L-6.6 9.8L-4.8 2L-10.6 -3L-3 -3.4Z"}
   });
   MAJ_THEMES.push({
-    skin: {id: "graduation", name: "Graduation Day", group: "ideas", desc: "A campus lawn before an old hall, with rows of chairs, banners and a stage.",
+    skin: {id: "graduation", name: "Graduation Day", group: "ideas", desc: "A grand campus quad with a clock-tower hall, brick colleges and the whole class out on the lawn.",
       light: ["#F1F6FA", "rgba(46,74,138,.10)", "#FFFFFF", "#16213A", "#566078", "#D8E2EE", "#E6EDF5", "#F9FBFD", "#2E4A8A", "#C9962A", "#FFFFFF", "#1E3366", "#1E3366", "#D6E2F4", "#FFE3A0"],
       dark: ["#101830", "rgba(242,200,90,.08)", "#18223E", "#EEF2FC", "#A8B4D4", "#2C3A62", "#222E52", "#141C36", "#F2C85A", "#F6DA8A", "#141E3A", "#7A6430", "#0C1428", "#D6DEF2", "#6A5420"],
       glow: ["linear-gradient(180deg,#B9DAF3,#EAF3FA 56%,#D9E8C2)", "linear-gradient(180deg,#141E3A,#22305A 50%,#4A4A6E)"],
@@ -46,7 +46,7 @@
       .concat(cannon(W, H, n(60), d ? ["#F2C85A", "#FFFFFF", "#7FB8F0"] : ["#F2B83A", "#FFFFFF", "#2E4A8A", "#7FB8F0"]),
         fxRise(W, H, n(4), "n5scroll", d ? ["#F6E6C0"] : ["#E8D2A0"], {cx: [0.2, 0.8], smin: 15, smax: 19, vmin: 1, vmax: 1.6, sway: 0.6, life: 300, glow: d ? 8 : 0}),
         fxTw(W, H, n(30), "n5star", d ? ["#F2C85A", "#FFFFFF"] : ["#F2B83A", "#2E4A8A"], {smin: 3, smax: 7, glow: d ? 10 : 3}))},
-    tag: "A campus lawn before an old clock-tower hall, with graduates in their seats, banners, balloons and a stage"
+    tag: "A grand campus quad: a columned clock-tower hall with grand steps, brick colleges down both sides, spires beyond, a gate, banners and bunting, and a class of graduates who fling their caps into the sky"
   });
 
   Object.assign(FX_SHAPES, {

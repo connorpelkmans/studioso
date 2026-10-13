@@ -9,6 +9,7 @@
   const NOTES = ["#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"];
   Object.assign(FX_SHAPES, {
     n1yuzu: {d: circ(0, 1.6, 9) + "M0.6 -7.2C2.4 -11.8 7.6 -12.6 10.2 -10.2C8.2 -6.8 3.8 -6.2 0.6 -7.2Z", detail: "M-4.6 -1.6A5.4 5.4 0 0 1 -0.6 -5.2", dstroke: true},
+    n1maple: {d: "M0.0 4.4L-1.8 5.4L-2.8 6.0L-4.1 6.3L-4.6 6.1L-6.2 6.6L-5.0 5.4L-4.9 4.9L-4.0 3.9L-4.8 3.1L-5.9 1.9L-7.2 0.5L-7.4 -0.3L-9.1 -1.9L-6.8 -1.3L-6.1 -1.6L-4.2 -1.2L-2.5 -1.1L-2.0 -3.4L-1.3 -5.4L-0.6 -5.9L-0.0 -8.5L0.6 -5.9L1.3 -5.4L2.0 -3.4L2.5 -1.1L4.2 -1.2L6.1 -1.6L6.8 -1.3L9.1 -1.9L7.4 -0.3L7.2 0.5L5.9 1.9L4.8 3.1L4.0 3.9L4.9 4.9L5.0 5.4L6.2 6.6L4.6 6.1L4.1 6.3L2.8 6.0L1.7 5.4Z", detail: "M0 9V-6M0 1L-5 -1.6M0 1L5 -1.6", dstroke: true},
     n1monstera: {d: "M0 11C-1.2 6.4 -10.6 4.4 -10.6 -3C-10.6 -9.2 -4.4 -11.4 0 -8.2C4.4 -11.4 10.6 -9.2 10.6 -3C10.6 4.4 1.2 6.4 0 11Z", detail: "M0 9.4V-6.4M0 3.2L-7.4 -0.6M0 -1.4L-6.6 -5.6M0 3.2L7.4 -0.6M0 -1.4L6.6 -5.6", dstroke: true},
     n1feather: {d: "M-10.5 10.5C-7 3 -1 -5 10.5 -11C8.6 -3.2 2.4 5 -10.5 10.5Z", detail: "M-10 10L7 -8", dstroke: true},
     n1anem: {d: scallop(6.6, 12, 2.6), detail: circ(0, 0, 2.4), dfill: true},
@@ -21,7 +22,7 @@
     g.save(); g.globalAlpha = a * (d ? 0.35 : 0.5); g.lineWidth = Math.max(6, R * 0.05); ["#FF6A6A", "#FFA94A", "#FFE05A", "#7EDB6A", "#5AB8F2", "#9A7BF0"].forEach((c, i) => { g.strokeStyle = c; g.beginPath(); g.arc(cx * W, cy * H, R - i * g.lineWidth, Math.PI, Math.PI + Math.PI * grow); g.stroke(); }); g.restore(); };
 
   MAJ_THEMES.push({
-    skin: {id: "onsen", name: "Hot Spring", group: "ideas", desc: "A steaming outdoor bath in the snowy mountains.",
+    skin: {id: "onsen", name: "Hot Spring", group: "ideas", desc: "A steaming rock pool under autumn maples, with lanterns and a little ryokan.",
       light: ["#EEF3F8", "rgba(78,110,142,.10)", "#FFFFFF", "#1C2A38", "#566676", "#D6E0EA", "#E4ECF3", "#F8FAFC", "#B8523A", "#CB7458", "#FFFFFF", "#7A2E1E", "#33506E", "#D2E2F0", "#FFE3B0"],
       dark: ["#14172E", "rgba(242,168,106,.08)", "#1C2040", "#F1EFFA", "#B4B2CE", "#2E3258", "#242849", "#171A34", "#F2A86A", "#F7C48E", "#1C1830", "#8A5A38", "#161A36", "#D4D4F0", "#6A4A2A"],
       glow: ["linear-gradient(180deg,#BFD8EE,#E8F1F8 55%,#F6EEE6)", "linear-gradient(180deg,#1C2340,#3A3F6B 60%,#6B5A7A)"],
@@ -29,9 +30,9 @@
     kit: {motif: "n1yuzu", card: ["#F8FAFD", "#E4ECF4"], ink: "#1C2A38", bd: "#C6D6E6", mc: "#E0A02A", r: 16, notes: ["#E2ECF6"].concat(NOTES), shape: "cloud", pin: "magnet", fab: "999px", btn: "14px"},
     fx: {spawn: (W, H, d, n) => fxRise(W, H, n(16), "puff", d ? ["rgba(220,222,255,.45)", "rgba(255,210,160,.4)"] : ["rgba(255,255,255,.85)", "rgba(230,238,248,.9)"], {smin: 9, smax: 18, vmin: 0.8, vmax: 1.6, sway: 1.4, life: 260, grow: 0.12, alpha: 0.55})
       .concat(fxBurst(W, H, n(10), "n1yuzu", d ? ["#F2C24A", "#FFD45A"] : ["#FFC93A", "#F2B02A"], [[0.2, 1.02], [0.8, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.08, 0.08)})),
-        fxFall(W, H, n(46), "snow", d ? ["#FFFFFF", "#DCE2FF"] : ["#A9C2E0", "#C6D8EE", "#FFFFFF"], {vmin: 0.8, vmax: 1.6, sway: 1.2, smin: 5, smax: 9, glow: d ? 6 : 0}),
+        fxFall(W, H, n(40), "n1maple", d ? ["#E0545E", "#E8844A", "#E8B84A"] : ["#E8483A", "#F5873A", "#F7C445"], {vmin: 0.9, vmax: 1.7, sway: 1.8, flip: true, smin: 10, smax: 15}),
         fxTw(W, H, n(20), "sparkle", d ? ["#FFE3B0", "#FFFFFF"] : ["#F2B53A", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 10 : 4}))},
-    tag: "A steaming outdoor bath ringed by snowy stones, pines and a little bathhouse, with a dozing snow monkey and a deer scarer that tips and clacks"
+    tag: "A steaming rock pool under red and gold maples, with a bamboo spout that tips and clacks, floating yuzu, stone lanterns, a vermilion torii, a little ryokan and a snow-capped peak"
   });
   MAJ_THEMES.push({
     skin: {id: "rainforest", name: "Rainforest Canopy", group: "ideas", desc: "Giant leaves, hanging vines and a distant waterfall, high in the treetops.",
@@ -48,7 +49,7 @@
     tag: "Giant leaves, swaying vines and a distant waterfall seen from the treetops, with a hopping toucan, tree frogs and glowing mushrooms at night"
   });
   MAJ_THEMES.push({
-    skin: {id: "tidepool", name: "Tide Pools", group: "ideas", desc: "A rocky shore at low tide, with clear little pools full of life.",
+    skin: {id: "tidepool", name: "Tide Pools", group: "ideas", desc: "Colourful tide pools full of life below a lighthouse and sea stacks.",
       light: ["#EEF6F7", "rgba(47,122,142,.10)", "#FFFFFF", "#132B33", "#4E6870", "#D0E3E6", "#E1EFF1", "#F7FBFB", "#C2486E", "#D06A8A", "#FFFFFF", "#7A2244", "#1D5466", "#CDE6EC", "#FFE3B0"],
       dark: ["#0E1828", "rgba(127,224,240,.07)", "#152338", "#EAF2FA", "#A6B6CC", "#24364E", "#1C2C44", "#111D30", "#7FE0F0", "#A8EAF6", "#0E1A2E", "#3A8A9A", "#121F36", "#C6DAEC", "#2A5A6A"],
       glow: ["linear-gradient(180deg,#A8D8E8,#E6F3F2 55%,#E9DCC6)", "linear-gradient(180deg,#1A2B44,#2C4462 55%,#4A5A6E)"],
@@ -59,7 +60,7 @@
         fxBurst(W, H, n(10), "starfish", ["#F2884A", "#9E62CC", "#F2B53A"], [[0.3, 1.02], [0.7, 1.02]], {smin: 11, smax: 15}).map(p => Object.assign(p, {vr: fxR(-0.06, 0.06)})),
         fxBurst(W, H, n(8), "shell", ["#F6E0D0", "#F7C6C6", "#FFF2E0"], [[0.15, 1.02], [0.85, 1.02]], {smin: 10, smax: 13}),
         fxTw(W, H, n(26), "sparkle", d ? ["#7FE0F0", "#FFFFFF"] : ["#4FB8D8", "#FFD86B"], {smin: 3, smax: 6, glow: d ? 12 : 3}))},
-    tag: "Clear pools on a rocky shore at low tide, with waving anemones, kelp, a darting sculpin, a little crab and glowing splashes at night"
+    tag: "Tide pools of every shape and colour, with anemones, sea stars, urchins, snails, little fish and a crab, below a lighthouse, sea stacks and a passing sailboat"
   });
   MAJ_THEMES.push({
     skin: {id: "volcano", name: "Volcano Island", group: "ideas", desc: "A friendly little volcano on a tropical island with palms and black sand.",
