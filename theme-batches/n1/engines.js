@@ -316,6 +316,7 @@ ENGINES.tidepool = function (A, v, dk) {
   var boat = {x: W * 0.4, dir: 1};
   var wash = null, nextWash = 2, big = null, sparks = [], masks = [new Path2D(A.rmask)], fgMask = [new Path2D(A.fg)];
   function poolClip(c, k) { c.clip(poolP[k]); }
+  var anClip = Pl.map(function (p, k) { var c = new Path2D(); c.addPath(poolP[k]); c.rect(p.cx - p.rx * 1.4, p.cy, p.rx * 2.8, p.ry * 3); return c; });
   return {
     step: function (dt, t, f) {
       nextWash -= dt * f.s; if (nextWash <= 0 && !big) { nextWash = 6 + Math.random() * 4; wash = {t0: t, d: H * (ph ? 0.05 : 0.07) * (0.7 + Math.random() * 0.6), dir: Math.random() < 0.5 ? 1 : -1}; }
@@ -368,7 +369,8 @@ ENGINES.tidepool = function (A, v, dk) {
         minnows.forEach(function (mn) { if (mn.p !== p) return; var u = tt * mn.sp + mn.ph, mx = p.cx + Math.sin(u) * p.rx * 0.6, my = p.cy + mn.dy * p.ry + Math.sin(u * 2.3) * 1.5; n1_minnow(ca, mx, my, (ph ? 0.6 : 0.85) * S, Math.cos(u) > 0 ? 1 : -1, tt + mn.ph, mn.col); });
         if (k === 0) { ca.fillStyle = 'rgba(20,40,50,0.18)'; n1_ell(ca, fish.x + 3, fish.y + 5, 14 * S, 4 * S); ca.fill(); n1_sculpin(ca, fish.x, fish.y + Math.sin(tt * 0.7) * 1.5, (ph ? 0.8 : 1.15) * S, fish.dir, tt, fish.mv); }
         ca.restore(); });
-      an.forEach(function (q) { if (dk) { ca.save(); ca.globalCompositeOperation = 'lighter'; n1_dot(ca, glowG, q.x, q.y, q.r * 1.4, 0.12 * q.o); ca.restore(); } n1_anemone(ca, q.x, q.y, q.r, q.c, Math.max(0, q.o) * (0.92 + 0.08 * Math.sin(tt * 0.9 + q.ph)), tt, q.ph, dk); });
+      // each anemone stays inside its pool's far edge (the near lip is drawn over it by the near layer)
+      an.forEach(function (q) { ca.save(); ca.clip(anClip[q.pool]); if (dk) { ca.save(); ca.globalCompositeOperation = 'lighter'; n1_dot(ca, glowG, q.x, q.y, q.r * 1.4, 0.12 * q.o); ca.restore(); } n1_anemone(ca, q.x, q.y, q.r, q.c, Math.max(0, q.o) * (0.92 + 0.08 * Math.sin(tt * 0.9 + q.ph)), tt, q.ph, dk); ca.restore(); });
       // the lighthouse: a soft lamp by day; at night its beam sweeps from side to side
       var L = A.lh, ph2 = tt * 0.7;
       cb.save(); cb.globalCompositeOperation = 'lighter';

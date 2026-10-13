@@ -25,7 +25,7 @@ SCENES.pride = function (W, H, dk, rnd) {
   if (!dk) { var cl = ''; (ph ? [[0.2, 0.12, 0.7], [0.75, 0.22, 0.55]] : [[0.12, 0.14, 1], [0.42, 0.08, 0.7], [0.7, 0.18, 0.9], [0.92, 0.1, 0.6]]).forEach(function (q) { cl += n5_cloud(W * q[0], H * q[1], q[2]); }); add(far, 'c', cl, 'rgba(255,255,255,0.85)'); }
   // the townhouses
   var FAC = dk ? ['#4D3B78', '#5A3A6E', '#3E4677', '#4E4470'] : ['#F7C6CF', '#FBE3A6', '#BFE3D0', '#C9C2EE'], ACC = dk ? '#2A2050' : '#FFFFFF';
-  var sil = '', fac = ['', '', '', ''], awS = '', shut = '', boxes = '', blooms = '', rails = '', trim = '', glass = '', doors = '', roofs = '', aw = '', wins = [], flags = [], tops = [];
+  var sil = '', fac = ['', '', '', ''], awS = [], shut = '', boxes = '', blooms = '', rails = '', trim = '', glass = '', doors = '', roofs = '', aw = '', wins = [], flags = [], tops = [];
   x = ph ? -30 : -24; var k = 0;
   while (x < W + 10) {
     var bw = (ph ? 96 : 108) + rnd() * (ph ? 30 : 46), fl = 4 + Math.floor(rnd() * 3) + (ph ? 1 : 0), fh = (ph ? 46 : 52), bh = fl * fh + 26, top = yb - bh, ci = k % 4;
@@ -55,21 +55,23 @@ SCENES.pride = function (W, H, dk, rnd) {
     }
     // a shop front with an awning on some ground floors
     if (rk === 1) { var gy = top + 20 + (fl - 1) * fh; glass += rect(x + 10, gy + 10, bw - 20, fh - 14); wins.push({x: x + 10, y: gy + 10, w: bw - 20, h: fh - 14, k: rnd(), shop: 1});
-      aw += poly([[x + 4, gy + 2], [x + bw - 4, gy + 2], [x + bw + 2, gy + 16], [x - 2, gy + 16]]); for (var sq = x + 12; sq < x + bw - 6; sq += 16) awS += seg(sq, gy + 4, sq + (sq - x - bw / 2) * 0.05, gy + 14); }
+      aw += poly([[x + 4, gy + 2], [x + bw - 4, gy + 2], [x + bw + 2, gy + 16], [x - 2, gy + 16]]); for (var sq = x + 12; sq < x + bw - 6; sq += 16) awS.push([sq, gy + 4, sq + (sq - x - bw / 2) * 0.05, gy + 14]); }
     x += bw; k++;
   }
   for (var i = 0; i < 4; i++) add(mid, 'abcd'[i], fac[i], FAC[i]);
   stk(mid, 's', rails, ACC, 1.4);
   add(mid, 'e', trim, ACC); add(mid, 'f', glass, dk ? '#2A2350' : '#A9CDEB'); add(mid, 'g', doors + shut, dk ? '#2A1E46' : '#9A6AA0'); add(mid, 'h', roofs, dk ? '#2E2452' : '#9C7FB8');
-  // awning stripes in rainbow order (one stripe colour per pass would need many layers: two tones instead)
-  stk(near, 's', awS, dk ? 'rgba(255,230,245,0.75)' : '#FFFFFF', ph ? 4 : 5);
-  add(near, 'h', aw, dk ? '#C24F8A' : '#F07FA8');
+  // awning stripes in rainbow order (one stripe colour per pass would need many layers: two tones instead). The awnings
+  // go in a fill slot before the lamp posts', and their stripes (a stroke) leave a gap where a post stands in front
+  var LX = ph ? [0.12, 0.58, 0.94] : [0.05, 0.24, 0.45, 0.66, 0.86, 0.995];
+  stk(near, 's', awS.filter(function (q) { return !LX.some(function (f) { return Math.abs(q[0] - W * f) < (ph ? 7 : 8); }); }).map(function (q) { return seg(q[0], q[1], q[2], q[3]); }).join(''), dk ? 'rgba(255,230,245,0.75)' : '#FFFFFF', ph ? 4 : 5);
+  add(near, 'c', aw, dk ? '#C24F8A' : '#F07FA8');
   // window boxes sit on the facade (mid), so the flags hung out in front of the facade cover them
   add(mid, 'h', boxes); stk(mid, 't', blooms, dk ? '#FF8FC8' : '#F2557E', 4.6);
   // the street: sidewalk, curb, road and a rainbow crosswalk
   add(refl, 'a', rect(-40, yc, W + 80, H - yc + 40), dk ? '#2C2648' : '#A49CB8');
-  var lane = ''; for (x = 20; x < W; x += 90) lane += rect(x, yr + (H - 22 - yr) * 0.55, 44, 4);
   var cwx = W * (ph ? 0.08 : 0.56), cww = ph ? W * 0.84 : W * 0.34, n = 12, bwd = cww / n;
+  var lane = ''; for (x = 20; x < W; x += 90) if (x + 44 < cwx - 6 || x > cwx + cww + 6) lane += rect(x, yr + (H - 22 - yr) * 0.55, 44, 4);
   for (i = 0; i < n; i++) { var xx = cwx + i * bwd; add(refl, 'cdefgh'[i % 6], poly([[xx + 4, yr + 6], [xx + bwd - 4, yr + 6], [xx + bwd - 12, H + 10], [xx - 4, H + 10]]), R[i % 6]); }
   add(refl, 'b', lane, dk ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.7)');
   var yf = H - (ph ? 18 : 22);
@@ -78,7 +80,7 @@ SCENES.pride = function (W, H, dk, rnd) {
   stk(refl, 's', grit, dk ? 'rgba(10,6,24,0.35)' : 'rgba(90,80,120,0.22)', 1.6);
   var mh = '', mx0 = W * (ph ? 0.5 : 0.3), my0 = yr + (yf - yr) * 0.78; if (!ph) mh += ell(mx0, my0, 22, 5.5);
   (ph ? [0.3, 0.86] : [0.2, 0.5, 0.95]).forEach(function (f) { mh += rrect(W * f - 12, yc + 4, 24, 4, 1.5); });
-  add(near, 'g', mh, dk ? '#211B3A' : '#8E86A6');
+  add(near, 'h', mh, dk ? '#211B3A' : '#8E86A6');
   var mhl = ''; if (!ph) for (var q = -2; q <= 2; q++) mhl += seg(mx0 + q * (ph ? 5 : 7) - 2, my0 - 1.6, mx0 + q * (ph ? 5 : 7) + 2, my0 + 1.6);
   (ph ? [0.3, 0.86] : [0.2, 0.5, 0.95]).forEach(function (f) { for (var q2 = -8; q2 <= 8; q2 += 4) mhl += seg(W * f + q2, yc + 5, W * f + q2, yc + 7); });
   stk(near, 't', mhl, dk ? 'rgba(120,110,170,0.6)' : 'rgba(255,255,255,0.55)', 1.2);
@@ -87,11 +89,10 @@ SCENES.pride = function (W, H, dk, rnd) {
   add(near, 'b', rect(-40, yc - 3, W + 80, 7) + rect(-40, yf - 2, W + 80, 5) + cracks, dk ? '#5C507F' : '#CBBFB6');
   // lamp posts and planters
   var lamps = [], posts = '', heads = '', pots = '', green = '';
-  var LX = ph ? [0.12, 0.58, 0.94] : [0.05, 0.24, 0.45, 0.66, 0.86, 0.995];
   LX.forEach(function (f) { var lx = W * f, ly = yb + (yc - yb) * 0.6, lh = H * (ph ? 0.2 : 0.22); posts += rect(lx - 2.5, ly - lh, 5, lh) + rrect(lx - 6, ly - 8, 12, 8, 2) + rect(lx - 12, ly - lh + 2, 24, 3); heads += rrect(lx - 9, ly - lh - 17, 18, 19, 5) + rrect(lx - 11, ly - lh - 21, 22, 5, 2.5); lamps.push({x: lx, y: ly - lh - 6, top: ly - lh + 2}); });
   (ph ? [0.32, 0.78] : [0.15, 0.35, 0.56, 0.77]).forEach(function (f) { var px = W * f, py = yb + (yc - yb) * 0.55; pots += rrect(px - 14, py - 14, 28, 16, 3); green += m5_circW(px - 7, py - 18, 8) + m5_circW(px + 6, py - 19, 9) + m5_circW(px, py - 25, 8); });
-  add(near, 'c', posts, dk ? '#1E1838' : '#4A4466'); add(near, 'd', heads, dk ? '#FFE3A8' : '#FFF6DA');
-  add(near, 'e', pots, dk ? '#7A4A6A' : '#D98A6A'); add(near, 'f', green, dk ? '#3E7A5E' : '#6BBF7A');
+  add(near, 'd', posts, dk ? '#1E1838' : '#4A4466'); add(near, 'e', heads, dk ? '#FFE3A8' : '#FFF6DA');
+  add(near, 'f', pots, dk ? '#7A4A6A' : '#D98A6A'); add(near, 'g', green, dk ? '#3E7A5E' : '#6BBF7A');
   if (ANIM) {
     ANIM.sil = sil; ANIM.flags = flags; ANIM.lamps = lamps; ANIM.wins = wins; ANIM.yb = yb; ANIM.yc = yc; ANIM.yr = yr; ANIM.tops = tops;
     ANIM.roofFlags = tops.filter(function (q, j) { return j % 3 === 1; }).map(function (q) { return {x: q[0] + q[2] * 0.5, y: q[1], s: ph ? 0.75 : 0.9}; });
@@ -200,8 +201,8 @@ SCENES.graduation = function (W, H, dk, rnd) {
   // the grand steps, wide at the bottom
   var stp = '', stS = ''; for (var s = 0; s < 5; s++) { var sw2 = pw + 26 + s * (ph ? 12 : 20), sy2 = yl - 5 + s * 5; stp += rect(cx - sw2 / 2, sy2, sw2, 5); stS += rect(cx - sw2 / 2, sy2 + 3.6, sw2, 1.4); }
   var ysb = yl + 20;
-  ivy += m5_circW(L0 + pv + 10, yl - 18, 14) + m5_circW(L0 + pv + 6, yl - 38, 11) + m5_circW(L0 + pv + 20, yl - 30, 9) + m5_circW(R1 - pv - 12, yl - 22, 14) + m5_circW(R1 - pv - 6, yl - 42, 10) + m5_circW(R1 - pv - 22, yl - 32, 9);
-  ivy += m5_circW(L1 - 14, yl - 6, 13) + m5_circW(L1 - 28, yl - 4, 10) + m5_circW(R0 + 14, yl - 6, 13) + m5_circW(R0 + 28, yl - 4, 10);
+  var ivyC = [[L0 + pv + 10, yl - 18, 14], [L0 + pv + 6, yl - 38, 11], [L0 + pv + 20, yl - 30, 9], [R1 - pv - 12, yl - 22, 14], [R1 - pv - 6, yl - 42, 10], [R1 - pv - 22, yl - 32, 9], [L1 - 14, yl - 6, 13], [L1 - 28, yl - 4, 10], [R0 + 14, yl - 6, 13], [R0 + 28, yl - 4, 10]];
+  ivyC.forEach(function (c) { ivy += m5_circW(c[0], c[1], c[2]); });
   add(refl, 'a', stone, dk ? '#4E4C7C' : '#EED9B8'); add(refl, 'b', shade + stS, dk ? 'rgba(14,14,44,0.32)' : 'rgba(150,100,60,0.16)'); add(refl, 'c', roof, dk ? '#2C3358' : '#7384AE');
   add(refl, 'd', white + face + stp, dk ? '#CBC9E8' : '#FFFDF6'); add(refl, 'e', glass, dk ? '#262C52' : '#93B8DA'); add(refl, 'f', copper + cup + lant + tymp, dk ? '#4E8A7E' : '#7CC4AC');
   add(refl, 'g', door, dk ? '#3A2A40' : '#9A5A3E'); add(refl, 'h', ivy + gold, dk ? '#2E5A4E' : '#6CB070');
@@ -234,8 +235,10 @@ SCENES.graduation = function (W, H, dk, rnd) {
   (ph ? [0.05, 0.17] : [0.08, 0.3]).forEach(function (d, j) { var by = ysb + (H - ysb) * d, sc = 0.75 + d * 1.1; [-1, 1].forEach(function (sd) { var bx = cx + sd * (half(by) + 16 * sc), bhh = H * (ph ? 0.1 : 0.15) * sc;
     iron += rect(bx - 1.6 * sc, by - bhh, 3.2 * sc, bhh) + rect(bx - 3.2 * sc, by - 3, 6.4 * sc, 3); goldN += circ(bx, by - bhh - 3 * sc, 3.4 * sc); bans.push({x: bx, y: by - bhh + 5 * sc, h: bhh * 0.55, w: (ph ? 17 : 22) * sc, k: j * 2 + (sd + 1) / 2, s: sc}); }); });
   // the gate: brick pillars with lamps and an iron arch over the walk
-  var gc = cx, gy = H * (ph ? 0.965 : 0.995), gd = half1 + (ph ? 26 : 34), gph = H * (ph ? 0.15 : 0.2), gpw = ph ? 22 : 30, arch = '';
-  if (!ph) [-1, 1].forEach(function (sd) { var px = gc + sd * gd; brick += rect(px - gpw / 2, gy - gph, gpw, gph + 20); edge += rect(px - gpw / 2 - 4, gy - gph - 7, gpw + 8, 8) + rect(px - gpw / 2 - 2, gy - gph * 0.42, gpw + 4, 4) + rect(px - gpw / 2 - 3, gy - 6, gpw + 6, 8);
+  var gc = cx, gy = H * (ph ? 0.965 : 0.995), gd = half1 + (ph ? 26 : 34), gph = H * (ph ? 0.15 : 0.2), gpw = ph ? 22 : 30, arch = '', bands = '';
+  if (!ph) [-1, 1].forEach(function (sd) { var px = gc + sd * gd; brick += rect(px - gpw / 2, gy - gph, gpw, gph + 20);
+    // the pillar's cap, band and plinth go over the brick (as strokes, the only slot after it), not behind it
+    bands += seg(px - gpw / 2 - 4, gy - gph - 5, px + gpw / 2 + 4, gy - gph - 5) + seg(px - gpw / 2 - 4, gy - gph - 1, px + gpw / 2 + 4, gy - gph - 1) + seg(px - gpw / 2 - 2, gy - gph * 0.42 + 2, px + gpw / 2 + 2, gy - gph * 0.42 + 2) + seg(px - gpw / 2 - 3, gy - 4, px + gpw / 2 + 3, gy - 4) + seg(px - gpw / 2 - 3, gy, px + gpw / 2 + 3, gy);
     goldN += circ(px, gy - gph * 0.7, gpw * 0.2); iron += rect(px - 2, gy - gph - 19, 4, 12); globes += circ(px, gy - gph - 24, gpw * 0.26); lamps.push([px, gy - gph - 24, gpw / 16]); });
   var ay = gy - gph - 4, aTop = ay - (ph ? 26 : 38); arch = 'M' + PT(gc - gd, ay) + ' Q' + PT(gc, aTop - (ph ? 26 : 36)) + ' ' + PT(gc + gd, ay) + ' M' + PT(gc - gd, ay + 10) + ' Q' + PT(gc, aTop - (ph ? 14 : 20)) + ' ' + PT(gc + gd, ay + 10) + ' ';
   for (var q = 1; q < 8; q++) { var u = q / 8, ax = gc - gd + 2 * gd * u, a1 = ay + (aTop - (ph ? 26 : 36) - ay) * 2 * u * (1 - u) * 1, a2 = ay + 10 + (aTop - (ph ? 14 : 20) - ay - 10) * 2 * u * (1 - u); arch += seg(ax, a1, ax, a2); }
@@ -243,11 +246,11 @@ SCENES.graduation = function (W, H, dk, rnd) {
   add(near, 'a', walk, dk ? '#3A4462' : '#F1E6CC'); add(near, 'b', edge + globes, dk ? '#C9C4E2' : '#FFF8EA'); add(near, 'c', trunks, dk ? '#3A2E4A' : '#8A6A50');
   add(near, 'd', crowns, dk ? '#1F3A4A' : '#5FA866'); add(near, 'e', hi, dk ? '#2A4A58' : '#8CCB7E'); add(near, 'f', iron, dk ? '#8E8AB0' : '#3E4868');
   add(near, 'g', brick, dk ? '#6A4468' : '#D98C74'); add(near, 'h', goldN, dk ? '#E8C25A' : '#F2B83A');
-  if (!ph) stk(near, 's', arch, dk ? '#8E8AB0' : '#3E4868', 3);
+  if (!ph) { stk(near, 's', arch, dk ? '#8E8AB0' : '#3E4868', 3); stk(near, 't', bands, dk ? '#C9C4E2' : '#FFF8EA', 4); }
   var rows = n5_class(W, H, ph, H * (ph ? 0.72 : 0.755), H * (ph ? 0.915 : 0.985), half, {c: gc, d: ph ? 0 : gd + gpw / 2, y: gy});
   if (!ANIM) { var gw = '', hd = ''; rows.forEach(function (R) { R.xs.forEach(function (x) { var s = R.s; gw += poly([[x - 6 * s, R.y - 27 * s], [x + 6 * s, R.y - 27 * s], [x + 11 * s, R.y], [x - 11 * s, R.y]]) + poly([[x - 11 * s, R.y - 44 * s], [x, R.y - 47 * s], [x + 11 * s, R.y - 44 * s], [x, R.y - 41 * s]]); hd += circ(x, R.y - 35 * s, 8 * s); }); });
     add(near, 'f', gw); add(near, 'b', hd); }
-  if (ANIM) { ANIM.rows = rows; ANIM.bans = bans; ANIM.clock = [cx, cky, ck]; ANIM.wins = wins; ANIM.swins = co.wins; ANIM.lamps = lamps; ANIM.yl = yl; ANIM.cx = cx; ANIM.ysb = ysb;
+  if (ANIM) { ANIM.rows = rows; ANIM.bans = bans; ANIM.ivy = {c: ivyC, col: dk ? '#2E5A4E' : '#6CB070'}; ANIM.clock = [cx, cky, ck]; ANIM.wins = wins; ANIM.swins = co.wins; ANIM.lamps = lamps; ANIM.yl = yl; ANIM.cx = cx; ANIM.ysb = ysb;
     ANIM.steps = [cx - (pw + 26 + 4 * (ph ? 12 : 20)) / 2, cx + (pw + 26 + 4 * (ph ? 12 : 20)) / 2, yl + 20]; ANIM.flag = [cx, dtop - tw * 0.34 - (ph ? 22 : 30)]; ANIM.hb = [[cols[0], cols[1]], [cols[nc - 2], cols[nc - 1]]].map(function (p) { return {x: (p[0] + p[1]) / 2, y: cTop + 2, w: (p[1] - p[0]) * 0.5, h: colH * 0.56}; }); }
   return {sky: sky, far: far, refl: refl, mid: mid, near: near};
 };
