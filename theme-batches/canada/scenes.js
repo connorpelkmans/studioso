@@ -142,12 +142,17 @@ SCENES.canada = function (W, H, dk, rnd) {
   var chX = cl0 - 4 * cs, chW = 20 * cs, chTop = cb - wh - rh - 10 * cs;
   stone += canada_pg([[chX - chW / 2 - 3 * cs, cb], [chX - chW / 2, cb - wh * 0.5], [chX - chW * 0.38, chTop], [chX + chW * 0.38, chTop], [chX + chW / 2, cb - wh * 0.5], [chX + chW / 2 + 3 * cs, cb]]);
   stone += rect(chX - chW * 0.46, chTop - 4 * cs, chW * 0.92, 5 * cs) + rect(cl0 - 2 * cs, cb - 6 * cs, cw + 4 * cs, 8 * cs);
-  for (k = 0; k < 9; k++) { var sy2 = cb - 6 * cs - k * (wh + rh) / 9.5, sx3 = chX - chW * 0.4 + ((k * 7) % 4) * chW * 0.2; lines += seg(chX - chW * 0.42, sy2, chX + chW * 0.42, sy2) + seg(sx3, sy2, sx3, sy2 - (wh + rh) / 9.5); }
+  // (its stone courses stop where the log wall, its corner ends and the roof cover the chimney, or they'd be drawn over them)
+  var chR = function (y) { if (y > cb - wh + 6 * cs) return cl0 - 5 * cs; if (y >= cb - wh - rh) return cl0 - 14 * cs + 22 * cs * (cb - wh + 2 * cs - y) / (rh + 2 * cs); return 1e9; };
+  for (k = 0; k < 9; k++) { var sy2 = cb - 6 * cs - k * (wh + rh) / 9.5, sx3 = chX - chW * 0.4 + ((k * 7) % 4) * chW * 0.2, sy3 = sy2 - (wh + rh) / 9.5, xr = Math.min(chX + chW * 0.42, chR(sy2));
+    if (xr > chX - chW * 0.42 + 1) lines += seg(chX - chW * 0.42, sy2, xr, sy2); if (sx3 < Math.min(chR(sy2), chR(sy3)) - 1) lines += seg(sx3, sy2, sx3, sy3); }
   wood += rect(cl0, cb - wh, cw, wh - 4 * cs);
-  for (y = cb - wh + 7 * cs; y < cb - 4 * cs; y += 7 * cs) { lines += seg(cl0 + 2, y, cl1 - 2, y); wood += canada_c(cl0 - 1 * cs, y - 3.5 * cs, 3.8 * cs) + canada_c(cl1 + 1 * cs, y - 3.5 * cs, 3.8 * cs); }
+  var wins = [[cx - cw * 0.3, cb - wh * 0.72, 24 * cs, 20 * cs], [cx + cw * 0.08, cb - wh * 0.72, 24 * cs, 20 * cs]], door = [cx + cw * 0.3, cb - wh * 0.86, 18 * cs, wh * 0.86 - 4 * cs];
+  // the log seams run between the windows and the door, not across them
+  var holes = wins.map(function (w) { return [w[0] - 3 * cs, w[1] - 3 * cs, w[0] + w[2] + 3 * cs, w[1] + w[3] + 3 * cs]; }).concat([[door[0] - 2.5 * cs, door[1] - 2.5 * cs, door[0] + door[2] + 2.5 * cs, door[1] + door[3]]]);
+  for (y = cb - wh + 7 * cs; y < cb - 4 * cs; y += 7 * cs) { var lx0 = cl0 + 2; holes.filter(function (o) { return y > o[1] && y < o[3]; }).sort(function (a, b) { return a[0] - b[0]; }).forEach(function (o) { if (o[0] > lx0) lines += seg(lx0, y, o[0], y); lx0 = Math.max(lx0, o[2]); }); if (cl1 - 2 > lx0) lines += seg(lx0, y, cl1 - 2, y); wood += canada_c(cl0 - 1 * cs, y - 3.5 * cs, 3.8 * cs) + canada_c(cl1 + 1 * cs, y - 3.5 * cs, 3.8 * cs); }
   var roof = canada_pg([[cl0 - 14 * cs, cb - wh + 2 * cs], [cl0 + 8 * cs, cb - wh - rh], [cl1 - 8 * cs, cb - wh - rh], [cl1 + 14 * cs, cb - wh + 2 * cs], [cl1 + 12 * cs, cb - wh + 6 * cs], [cl0 - 12 * cs, cb - wh + 6 * cs]]);
   woodD += roof; for (k = 1; k < 5; k++) { var ry2 = cb - wh - rh + rh * k / 5 + 2 * cs; lines += seg(cl0 + 8 * cs - 22 * cs * k / 5, ry2, cl1 - 8 * cs + 22 * cs * k / 5, ry2); }
-  var wins = [[cx - cw * 0.3, cb - wh * 0.72, 24 * cs, 20 * cs], [cx + cw * 0.08, cb - wh * 0.72, 24 * cs, 20 * cs]], door = [cx + cw * 0.3, cb - wh * 0.86, 18 * cs, wh * 0.86 - 4 * cs];
   wins.forEach(function (w) { woodD += rect(w[0] - 3 * cs, w[1] - 3 * cs, w[2] + 6 * cs, w[3] + 6 * cs); nsh += rect(w[0], w[1], w[2], w[3]); lines += seg(w[0] + w[2] / 2, w[1], w[0] + w[2] / 2, w[1] + w[3]) + seg(w[0], w[1] + w[3] / 2, w[0] + w[2], w[1] + w[3] / 2); });
   woodD += rect(door[0] - 2.5 * cs, door[1] - 2.5 * cs, door[2] + 5 * cs, door[3] + 2.5 * cs); nsh += rect(door[0], door[1], door[2], door[3]) + rect(cl0, cb - wh, cw, 6 * cs);
   wood += rect(door[0] - 6 * cs, cb - 4 * cs, door[2] + 12 * cs, 4 * cs);
@@ -167,7 +172,11 @@ SCENES.canada = function (W, H, dk, rnd) {
     return q([[-11, -12], [7, -10], [7, -7.6], [-11, -9.6]]) + q([[5, -10], [10, -31], [15.6, -29], [9.6, -8]]) + q([[-13, -17.6], [9, -18.6], [9, -16.4], [-13, -15.4]])
       + q([[-11, -16], [-8.6, -16], [-8.6, 0], [-11, 0]]) + q([[7, -10], [9.4, -10], [11.6, 0], [9.2, 0]]) + q([[-1.4, -16], [1, -16], [1, -10], [-1.4, -10]]); }
   red += chair(dx0 + (dx1 - dx0) * 0.24, dy, 1.05 * S * (ph ? 1.2 : 1));
-  var c2x = W * (ph ? 0.47 : 0.505); red += chair(c2x, gnd(c2x) + 16 * S, 1.15 * S * (ph ? 1.2 : 1)); nsh += canada_e(c2x + 2 * S, gnd(c2x) + 16 * S, 16 * S, 2.6 * S);
+  var c2x = W * (ph ? 0.47 : 0.517), c2s = 1.15 * S * (ph ? 1.2 : 1); red += chair(c2x, gnd(c2x) + 16 * S, c2s);
+  // grass tufts, ferns and fallen leaves stay off the chair and the gravel path (they'd be drawn over them)
+  var chairBox = [c2x - 15 * c2s, gnd(c2x) + 16 * S - 33 * c2s, c2x + 18 * c2s, gnd(c2x) + 16 * S + 2];
+  var clearAt = function (x, y, r) { if (x + r > chairBox[0] && x - r < chairBox[2] && y + r > chairBox[1] && y - r < chairBox[3]) return false;
+    for (var q = 0; q <= 8; q++) { var u = q / 8, px = pa0[0] + (pa1[0] - pa0[0]) * u, py = pa0[1] + (pa1[1] - pa0[1]) * u + Math.sin(u * Math.PI) * 14 * S, pw = (5 + u * 7) * S; if (Math.abs(x - px) < pw * 0.6 + r && y > py - pw * 0.7 - 2 && y - 12 < py + pw * 0.7) return false; } return true; }; nsh += canada_e(c2x + 2 * S, gnd(c2x) + 16 * S, 16 * S, 2.6 * S);
   // spruces behind the cabin and the rockpile (the engine draws these swaying; the still scene paints them here)
   (ph ? [[0.0, 150], [0.12, 120], [0.66, 120], [0.95, 165]] : [[0.0, 190], [0.05, 150], [0.135, 120], [0.8, 150], [0.835, 120], [0.955, 175], [1.0, 210]]).forEach(function (q, j) { var xx = W * q[0], hh = q[1] * S * (ph ? 1.4 : 1); nSpr.push([xx, gnd(xx) - (j % 2 ? 8 : 14) * S, hh, hh * 0.2, 9]); });
   // two sugar maples in autumn colour: one by the rockpile, one in front of the cabin, and a branch over the top right corner
@@ -184,8 +193,9 @@ SCENES.canada = function (W, H, dk, rnd) {
   (ph ? [[0.4, 1], [0.6, 0.8]] : [[0.31, 1], [0.37, 0.7], [0.49, 0.6]]).forEach(function (q, j) { var bx = W * q[0], by = gnd(bx) + 8 * S, bs = q[1] * S * (ph ? 1.3 : 1);
     nsh += canada_e(bx, by + 1, 30 * bs, 4 * bs);
     for (k = 0; k < 18; k++) { var ba = hash(k + j * 30) * Math.PI, bd = Math.sqrt(hash(k + j * 30 + 1)), ax = bx - Math.cos(ba) * bd * 24 * bs, ay = by - 3 * bs - Math.sin(ba) * bd * 13 * bs, ar = (3.4 + hash(k + j * 30 + 2) * 2.6) * bs;
+      if (ax + ar > chairBox[0] && ax - ar < chairBox[2] && ay + ar > chairBox[1] && ay - ar < chairBox[3]) continue;   // the chair stands in front of the bush
       if (ay < by - 9 * bs && hash(k + j * 30 + 3) < 0.6) orange += canada_c(ax, ay, ar); else red += canada_c(ax, ay, ar); }
-    for (k = 0; k < 2; k++) { var fx = bx + (k ? 30 : -32) * bs, fy = by + 2; for (i = -2; i <= 2; i++) { var fa = i * 0.42 - Math.PI / 2, fl = (16 - Math.abs(i) * 3) * bs, ex = fx + Math.cos(fa) * fl, ey = fy + Math.sin(fa) * fl;
+    for (k = 0; k < 2; k++) { var fx = bx + (k ? 30 : -32) * bs, fy = by + 2; if (!clearAt(fx, fy - 8 * bs, 14 * bs)) continue; for (i = -2; i <= 2; i++) { var fa = i * 0.42 - Math.PI / 2, fl = (16 - Math.abs(i) * 3) * bs, ex = fx + Math.cos(fa) * fl, ey = fy + Math.sin(fa) * fl;
       grass += 'M' + PT(fx, fy) + ' Q' + PT(fx + Math.cos(fa) * fl * 0.6 - i * 2, fy + Math.sin(fa) * fl * 0.7) + ' ' + PT(ex + i * 2, ey + 3 * bs) + ' '; } } });
   var brP = [[W + 20, H * (ph ? 0.12 : 0.02)], [W * 0.93, H * (ph ? 0.13 : 0.06)], [W * (ph ? 0.78 : 0.85), H * (ph ? 0.155 : 0.1)], [W * (ph ? 0.66 : 0.77), H * (ph ? 0.15 : 0.11)]];
   mTr += canada_pg(brP.concat([[brP[3][0] + 2, brP[3][1] + 4], [brP[2][0], brP[2][1] + 7], [brP[1][0], brP[1][1] + 8], [W + 20, brP[0][1] + 11]]));
@@ -196,9 +206,9 @@ SCENES.canada = function (W, H, dk, rnd) {
   (ph ? [[0.08, 34], [0.94, 28]] : [[0.035, 46], [0.07, 30], [0.62, 26], [0.97, 40]]).forEach(function (q) { var sx = W * q[0], sh2 = q[1] * S * (ph ? 1.3 : 1); bank += canada_spruce(sx, canada_yAt(fb.slice(1, -1), sx) + 4, sh2, sh2 * 0.24, 6); });
   (ph ? [[0.3, 1]] : [[0.18, 1.2], [0.42, 0.9], [0.8, 1]]).forEach(function (q) { var jx = W * q[0], jy = canada_yAt(fb.slice(1, -1), jx) + 4, js = q[1] * S; for (k = 0; k < 6; k++) bank += canada_e(jx + (k - 2.5) * 9 * js, jy - (4 + Math.sin(k / 5 * Math.PI) * 6) * js, 9 * js, 6 * js); });
   // fallen leaves in the grass and grass tufts along the shore
-  spread(0, H * 0.82, W, H * 0.2, ph ? 34 : 46, 22, rnd, 1).forEach(function (c) { if (c.y < gnd(c.x) + 10) return; if (c.q < 0.25) { var lf3 = canada_leaf(c.x, c.y, 4 + c.r * 3, c.k * 360); if (c.r < 0.5) red += lf3; else orange += lf3; }
+  spread(0, H * 0.82, W, H * 0.2, ph ? 34 : 46, 22, rnd, 1).forEach(function (c) { if (c.y < gnd(c.x) + 10 || !clearAt(c.x, c.y, 8)) return; if (c.q < 0.25) { var lf3 = canada_leaf(c.x, c.y, 4 + c.r * 3, c.k * 360); if (c.r < 0.5) red += lf3; else orange += lf3; }
     else if (c.q < 0.75) grass += 'M' + PT(c.x - 3, c.y) + ' Q' + PT(c.x - 2, c.y - 6) + ' ' + PT(c.x - 5, c.y - 10) + ' M' + PT(c.x + 1, c.y) + ' Q' + PT(c.x + 2, c.y - 7) + ' ' + PT(c.x + 5, c.y - 11) + ' M' + PT(c.x + 3, c.y) + ' L' + PT(c.x + 1, c.y - 8) + ' '; });
-  for (x = W * 0.25; x < W * 0.56; x += 14 + rnd() * 40) { y = gnd(x) + 2; for (k = 0; k < 3; k++) grass += 'M' + PT(x + k * 3, y) + ' Q' + PT(x + k * 3 + 1, y - 5) + ' ' + PT(x + k * 4 - 3 + rnd() * 2, y - 8 - rnd() * 6) + ' '; }
+  for (x = W * 0.25; x < W * 0.56; x += 14 + rnd() * 40) { y = gnd(x) + 2; if (!clearAt(x + 4, y, 6)) continue; for (k = 0; k < 3; k++) grass += 'M' + PT(x + k * 3, y) + ' Q' + PT(x + k * 3 + 1, y - 5) + ' ' + PT(x + k * 4 - 3 + rnd() * 2, y - 8 - rnd() * 6) + ' '; }
   var canoes = [{x: W * (ph ? 0.56 : 0.6), y: dy + (ph ? 22 : 30) * S, L: (ph ? 70 : 84) * S, c: 0}, {x: W * (ph ? 0.66 : 0.68), y: dy - 5 * S, L: (ph ? 62 : 74) * S, c: 1}];
   if (!ANIM) { nSpr.forEach(function (t) { sprN += canada_spruce(t[0], t[1], t[2], t[3], t[4]); });
     canoes.forEach(function (c) { var L = c.L, h = L * 0.13; red += canada_pg([[c.x - L / 2, c.y - h], [c.x - L * 0.36, c.y - h * 0.3], [c.x + L * 0.36, c.y - h * 0.3], [c.x + L / 2, c.y - h], [c.x + L * 0.32, c.y + h * 0.5], [c.x - L * 0.32, c.y + h * 0.5]]); lines += seg(c.x - L * 0.38, c.y - h * 0.3, c.x + L * 0.38, c.y - h * 0.3); }); }

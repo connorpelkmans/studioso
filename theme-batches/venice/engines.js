@@ -58,7 +58,10 @@ function venice_gondola(c, x, y, k, dir, t, st, dk, man) {
   c.save(); c.translate(x, y); c.scale(k * dir, k); c.lineJoin = c.lineCap = 'round';
   // the oar: from his hands, over the forcola, down into the water
   var hx = -3.95 + st * 0.32, hy = -2.05 - Math.abs(st) * 0.05, fx = -3.3, fy = -1.32, dx = fx - hx, dy = fy - hy, L = Math.hypot(dx, dy), ex = hx + dx / L * 4.4, ey = hy + dy / L * 4.4, wt = -hy / (ey - hy), wx = hx + (ex - hx) * wt;
-  if (man) { c.strokeStyle = dk ? '#5E5068' : '#9A7450'; c.lineWidth = 0.11; c.beginPath(); c.moveTo(hx, hy); c.lineTo(wx, 0); c.stroke(); c.globalAlpha = 0.35; c.lineWidth = 0.22; c.beginPath(); c.moveTo(wx, 0); c.lineTo(ex, ey); c.stroke(); c.globalAlpha = 1; }
+  var ga0 = c.globalAlpha;
+  if (man) { c.strokeStyle = dk ? '#5E5068' : '#9A7450'; c.lineWidth = 0.11; c.beginPath(); c.moveTo(hx, hy); c.lineTo(wx, 0); c.stroke(); c.globalAlpha = ga0 * 0.35; c.lineWidth = 0.22; c.beginPath(); c.moveTo(wx, 0); c.lineTo(ex, ey); c.stroke(); c.globalAlpha = ga0;
+    // the ring where the oar meets the water, drawn before the hull so the boat stays in front of it
+    c.save(); c.scale(1 / k, 1 / k); c.scale(dir, 1); c.strokeStyle = dk ? 'rgba(180,190,255,0.3)' : 'rgba(255,255,255,0.75)'; c.lineWidth = Math.max(0.8, 0.05 * k); c.beginPath(); c.ellipse(dir * wx * k, 0.05 * k, (0.35 + 0.1 * Math.abs(st)) * k, 0.07 * k, 0, 0, 7); c.stroke(); c.restore(); }
   // the hull, a gold line under the gunwale, a highlight along it
   c.fillStyle = hullC; venice_path(c, venice_HULL); c.fill();
   c.strokeStyle = gold; c.lineWidth = 0.07; c.beginPath(); venice_GUN.forEach(function (p, i) { if (p[0] > 4.6 || p[0] < -4.8) return; if (i && venice_GUN[i - 1][0] <= 4.6) c.lineTo(p[0], p[1] + 0.14); else c.moveTo(p[0], p[1] + 0.14); }); c.stroke();
@@ -97,8 +100,7 @@ function venice_gondola(c, x, y, k, dir, t, st, dk, man) {
     c.fillStyle = hat; c.beginPath(); c.ellipse(px + 0.03, py - 0.17, 0.4, 0.06, 0, 0, 7); c.fill(); c.fillRect(px - 0.19, py - 0.36, 0.44, 0.19);
     c.fillStyle = rb; c.fillRect(px - 0.19, py - 0.25, 0.44, 0.07);
   }
-  c.restore();
-  if (man) { c.save(); c.strokeStyle = dk ? 'rgba(180,190,255,0.3)' : 'rgba(255,255,255,0.75)'; c.lineWidth = Math.max(0.8, 0.05 * k); var ox = x + dir * wx * k; c.beginPath(); c.ellipse(ox, y + 0.05 * k, (0.35 + 0.1 * Math.abs(st)) * k, 0.07 * k, 0, 0, 7); c.stroke(); c.restore(); } }
+  c.restore(); }
 // a gull gliding, centre (x, y), size s, wings at phase w
 function venice_gull(c, x, y, s, dir, w, dk) {
   c.save(); c.translate(x, y); c.scale(s * dir, s); c.lineCap = c.lineJoin = 'round';
@@ -142,11 +144,18 @@ ENGINES.venice = function (A, v, dk) {
     c.fillStyle = dk ? '#7A6A5A' : '#B88A5A'; c.fillRect(-w * 0.3 - 1, -2, 2, 4); c.fillRect(w * 0.3 - 1, -2, 2, 4);
     c.restore(); }
   // a gondola with its reflection, wake and (if pen) a little flag on a staff
+  var rC = document.createElement('canvas'), rX = rC.getContext('2d');
+  function reflect(c, x, y, k, dir, t, st, man) {
+    var tr = c.getTransform(), sc = Math.max(1, Math.hypot(tr.a, tr.b)), x0 = x - 6.8 * k, y0 = y - 0.6 * k, bw = 13.6 * k, bh = 4.4 * k, pw = Math.ceil(bw * sc), phh = Math.ceil(bh * sc);
+    if (rC.width < pw || rC.height < phh) { rC.width = Math.max(rC.width, pw); rC.height = Math.max(rC.height, phh); }
+    rX.setTransform(1, 0, 0, 1, 0, 0); rX.clearRect(0, 0, pw + 2, phh + 2); rX.setTransform(sc, 0, 0, sc, -x0 * sc, -y0 * sc);
+    rX.translate(0, 1.85 * y); rX.scale(1, -0.85); venice_gondola(rX, x, y, k, dir, t, st, dk, man);
+    c.save(); c.globalAlpha *= dk ? 0.3 : 0.22; c.drawImage(rC, 0, 0, pw, phh, x0, y0, bw, bh); c.restore(); }
   function boat(c, x, y, k, dir, t, man, pen, flagT, a) {
     var st = Math.sin(t * 2.1);
     c.save(); if (a != null) c.globalAlpha = a;
     // reflection: the gondola mirrored in the water, faint
-    c.save(); c.globalAlpha *= dk ? 0.3 : 0.22; c.translate(0, 1.85 * y); c.scale(1, -0.85); venice_gondola(c, x, y, k, dir, t, st, dk, man); c.restore();
+    reflect(c, x, y, k, dir, t, st, man);
     // the wake trailing behind
     c.strokeStyle = dk ? 'rgba(180,190,255,0.3)' : 'rgba(255,255,255,0.7)'; c.lineCap = 'round'; c.lineWidth = Math.max(0.8, 0.07 * k);
     for (var q = 0; q < 3; q++) { var wx0 = x - dir * (5.6 + q * 1.6) * k, wl = (1.2 - q * 0.25) * k, wy = y + (0.25 + q * 0.12) * k; c.globalAlpha = (a == null ? 1 : a) * (0.8 - q * 0.22); c.beginPath(); c.moveTo(wx0, wy); c.lineTo(wx0 - dir * wl, wy); c.moveTo(wx0 + dir * 0.6 * k, wy - 0.2 * k); c.lineTo(wx0 - dir * wl * 0.5, wy - 0.2 * k); c.stroke(); }

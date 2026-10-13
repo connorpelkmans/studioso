@@ -285,6 +285,8 @@ SCENES.mexico = function (W, H, dk, rnd) {
   // potted agave and cacti in talavera pots
   var pots = ph ? [[0.06, 0.985, 0.8, 'agave'], [0.95, 0.985, 0.8, 'cactus']] : [[0.035, 0.995, 1, 'agave'], [0.33, 0.985, 0.85, 'cactus'], [0.875, 0.99, 0.8, 'nopal'], [0.985, 0.99, 1.05, 'agave']];
   pots.forEach(function (q, n) { var px = W * q[0], py = H * q[1], s = q[2] * S, top = py - 40 * s, kind = q[3];
+    // the cactus beside the fountain stands clear of its rim (the rim's white slot would otherwise cover its arm)
+    if (kind === 'cactus' && px < fx && py > fy) px = Math.min(px, fx - (frx + rim) * 1.03 - 28 * s);
     N.sh += mexico_e(px + 6 * s, py + 2, 34 * s, 6 * s);
     if (kind === 'agave') { for (k = -4; k <= 4; k++) { var ang = -90 + k * 19, L = (70 - Math.abs(k) * 7) * s; N.green += mexico_leaf(px + k * 2 * s, top + 4 * s, L, 7 * s, ang); nl += seg(px + k * 2 * s, top + 4 * s, px + k * 2 * s + Math.cos(ang / 57.3) * L * 0.8, top + 4 * s + Math.sin(ang / 57.3) * L * 0.8); } }
     else if (kind === 'cactus') { N.green += mexico_pg([[px - 9 * s, top + 4], [px - 10 * s, top - 74 * s], [px - 6 * s, top - 82 * s], [px + 6 * s, top - 82 * s], [px + 10 * s, top - 74 * s], [px + 9 * s, top + 4]]);

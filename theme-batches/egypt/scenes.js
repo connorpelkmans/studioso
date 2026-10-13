@@ -12,8 +12,8 @@ function egypt_yOn(pts, x) { var x0 = pts[0][0], st = pts[1][0] - x0, i = (x - x
 function egypt_in(p, x, y) { for (var i = 0, j = p.length - 1, o = false; i < p.length; j = i++) if ((p[i][1] > y) !== (p[j][1] > y) && x < (p[j][0] - p[i][0]) * (y - p[i][1]) / (p[j][1] - p[i][1]) + p[i][0]) o = !o; return o; }
 function egypt_at(P, Q, u) { return [P[0] + (Q[0] - P[0]) * u, P[1] + (Q[1] - P[1]) * u]; }
 // a tapering, gently curved band from (x0, y0) to (x1, y1), w0 to w1 wide, bowed sideways by 'bend' (trunks, necks, stems)
-function egypt_limb(x0, y0, x1, y1, w0, w1, bend) { var dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L, mx = (x0 + x1) / 2 + nx * bend, my = (y0 + y1) / 2 + ny * bend, A = [], B = [];
-  for (var i = 0; i <= 8; i++) { var u = i / 8, x = (1 - u) * (1 - u) * x0 + 2 * (1 - u) * u * mx + u * u * x1, y = (1 - u) * (1 - u) * y0 + 2 * (1 - u) * u * my + u * u * y1, w = (w0 + (w1 - w0) * u) / 2; A.push([x + nx * w, y + ny * w]); B.unshift([x - nx * w, y - ny * w]); }
+function egypt_limb(x0, y0, x1, y1, w0, w1, bend, u0) { var dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L, mx = (x0 + x1) / 2 + nx * bend, my = (y0 + y1) / 2 + ny * bend, A = [], B = [];
+  for (var i = 0; i <= 8; i++) { var u = (u0 || 0) + (1 - (u0 || 0)) * i / 8, x = (1 - u) * (1 - u) * x0 + 2 * (1 - u) * u * mx + u * u * x1, y = (1 - u) * (1 - u) * y0 + 2 * (1 - u) * u * my + u * u * y1, w = (w0 + (w1 - w0) * u) / 2; A.push([x + nx * w, y + ny * w]); B.unshift([x - nx * w, y - ny * w]); }
   return egypt_pg(A.concat(B)); }
 
 // A pyramid seen corner-on: apex (x, y), height h, half width hw. The front corner F sits between the left and right base
@@ -200,10 +200,10 @@ SCENES.egypt = function (W, H, dk, rnd) {
   // ---- the near bank: a mud-brick village with a dovecote on the left, papyrus along the water, palms on the right
   var bk = []; for (x = -20; x <= W + 20; x += 10) bk.push([x, by + Math.sin(x / 70 + 0.4) * H * 0.006 + Math.sin(x / 23) * 1.6 - Math.exp(-Math.pow(x / (W * (ph ? 0.3 : 0.2)), 2)) * H * 0.03 - Math.exp(-Math.pow((x - W) / (W * (ph ? 0.18 : 0.1)), 2)) * H * 0.02]);
   var ground = below(bk, H + 10), wallL = '', wallS = '', door = '', win = '', white = '', trunk = '', leaf = '', blade = '', stick = '', crowns = '', datesD = '', umb = '';
-  var vs = ph ? 0.78 * U : U, vx = 0, houses = ph ? [[-0.03, 0.17, 0.065], [0.3, 0.14, 0.05]] : [[-0.01, 0.07, 0.085], [0.165, 0.075, 0.06], [0.262, 0.05, 0.045]], wins = [];
+  var vs = ph ? 0.78 * U : U, vx = 0, houses = ph ? [[-0.03, 0.17, 0.065], [0.3, 0.14, 0.05]] : [[-0.01, 0.07, 0.085], [0.165, 0.075, 0.06], [0.262, 0.05, 0.045]], wins = [], hBox = [];
   // houses: [x, width, height] as fractions of W and H. A front wall, a lit side wall, a parapet, a door, windows and a whitewash band.
   houses.forEach(function (hs, k) {
-    var hx = W * hs[0], hw3 = Math.min(W * hs[1], H * 0.11), hh = H * hs[2] * (ph ? 0.8 : 1), gy = Math.max(egypt_yOn(bk, hx), egypt_yOn(bk, hx + hw3)) + 4, top = gy - hh, dep = hw3 * 0.22;
+    var hx = W * hs[0], hw3 = Math.min(W * hs[1], H * 0.11), hh = H * hs[2] * (ph ? 0.8 : 1), gy = Math.max(egypt_yOn(bk, hx), egypt_yOn(bk, hx + hw3)) + 4, top = gy - hh, dep = hw3 * 0.22; hBox.push([hx, hx + hw3, top]);
     wallS += rect(hx, top, hw3, hh); wallL += egypt_pg([[hx + hw3, top], [hx + hw3 + dep, top - dep * 0.35], [hx + hw3 + dep, gy - dep * 0.35], [hx + hw3, gy]]);
     for (var c2 = 0; c2 < 6; c2++) { var cx3 = hx + c2 / 6 * hw3; wallS += rect(cx3, top - hh * 0.06, hw3 / 12, hh * 0.06 + 1); }
     white += rect(hx, top + hh * 0.02, hw3, hh * 0.05);
@@ -226,8 +226,11 @@ SCENES.egypt = function (W, H, dk, rnd) {
   // palms: one by the village, two framing the right edge. Trunks with leaf scars; the crowns sway (engine)
   var palms = (ph ? [[0.36, 0.2, -8], [0.89, 0.3, -7]] : [[0.21, 0.27, -10], [0.915, 0.33, 6], [0.975, 0.42, -6]]).map(function (q, k) {
     var bx = W * q[0], b0 = egypt_yOn(bk, bx) + 6, hh = H * q[1], tx = bx + q[2] * U * 3, ty = b0 - hh, s = H * (ph ? 0.085 : 0.1) * (0.85 + q[1]);
-    trunk += egypt_limb(bx, b0, tx, ty, 12 * U, 7.5 * U, q[2] * U * 1.2);
-    for (var r = 0; r < 14; r++) { var u = 0.05 + r / 14 * 0.9, xx = bx + (tx - bx) * u + q[2] * U * 1.2 * Math.sin(Math.PI * u) * 0.5, yy = b0 + (ty - b0) * u, ww = (12 - 4.5 * u) * U * 0.5; stick += 'M' + PT(xx - ww, yy) + ' Q' + PT(xx, yy + 3 * U) + ' ' + PT(xx + ww, yy) + ' '; }
+    // a palm standing behind a house: its trunk starts just under the roof line, so the house's band, door and roof
+    // sticks stay in front of it instead of the trunk being drawn through them
+    var u0 = 0; hBox.forEach(function (hb) { if (bx > hb[0] && bx < hb[1]) u0 = Math.max(u0, (b0 - hb[2]) / (b0 - ty)); });
+    trunk += egypt_limb(bx, b0, tx, ty, 12 * U, 7.5 * U, q[2] * U * 1.2, u0);
+    for (var r = 0; r < 14; r++) { var u = 0.05 + r / 14 * 0.9; if (u < u0 + 0.03) continue; var xx = bx + (tx - bx) * u + q[2] * U * 1.2 * Math.sin(Math.PI * u) * 0.5, yy = b0 + (ty - b0) * u, ww = (12 - 4.5 * u) * U * 0.5; stick += 'M' + PT(xx - ww, yy) + ' Q' + PT(xx, yy + 3 * U) + ' ' + PT(xx + ww, yy) + ' '; }
     if (!ANIM) { var cr = egypt_crown(tx, ty, s, 0, k * 11 + 3); crowns += cr.back + cr.front + cr.boots; datesD += cr.dates; }
     return {x: tx, y: ty, s: s, seed: k * 11 + 3};
   });

@@ -312,6 +312,8 @@ ENGINES.brazil = function (A, v, dk) {
     else { c.fillStyle = '#100E16'; c.beginPath(); c.arc(4.9, -39, 1.6, 0, 7); c.fill(); c.fillStyle = '#fff'; c.beginPath(); c.arc(5.4, -39.6, 0.55, 0, 7); c.fill(); }
     c.restore(); }
   // palm crowns, jungle leaves and heliconia as paths; each frond and leaf swings about its own root
+  // the near things the surf must not wash over: each as the whole frame with that shape cut out (clipped one at a time)
+  var occP = (A.occ || []).map(function (q) { var o = new Path2D(); o.rect(-100, -100, v.bw + 200, v.bh + 200); o.addPath(new Path2D(q.d)); o.y = q.y; return o; });
   var palms = A.palms.map(function (p) { return {x: p.x, y: p.y, royal: p.royal, nuts: p.nuts ? new Path2D(p.nuts) : null, fr: p.fr.map(function (f) { return {p: new Path2D(f.d), back: f.back, ph: f.ph}; }).sort(function (a, b) { return (b.back ? 1 : 0) - (a.back ? 1 : 0); })}; });
   var jungle = A.jungle.map(function (j) { return {p: new Path2D(j.d), v: new Path2D(j.v), dark: j.dark, pv: j.pv, ph: j.ph, amp: j.amp, top: j.top}; });
   var hel = {stem: new Path2D(A.hel.stem), red: new Path2D(A.hel.red), yel: new Path2D(A.hel.yel), pv: A.hel.pv}, branch = new Path2D(A.branch);
@@ -393,7 +395,8 @@ ENGINES.brazil = function (A, v, dk) {
       flock.forEach(function (b) { if (t < b.t0) return; var fl = Math.sin((t - b.t0) * b.fs + b.ph); brazil_macaw(ca, b.x, b.y, b.s, fl, b.kind, dk); });
       // ---- canvas B: the lamps, the palm crowns, the rainforest corner with the toucan, the confetti
       // the surf: a crest runs in, breaks, and its foam slides up the sand and back
-      cb.save(); cb.clip(below);
+      // (clipped to outside the palm trunks, the flagpole and the toucan's branch, which stand in front of it)
+      cb.save(); cb.clip(below); occP.forEach(function (o) { cb.clip(o, 'evenodd'); });
       for (k = 0; k < 3; k++) { var pp = ((tt / 6.5) + k / 3) % 1, SHp = A.SH, cr, run, j2;
         if (pp < 0.42) { cr = -38 * S * (1 - brazil_ease(pp / 0.42)) - 3 * S; cb.strokeStyle = dk ? 'rgba(200,210,255,' + (0.35 * Math.sin(Math.PI * pp / 0.42)) + ')' : 'rgba(255,255,255,' + (0.85 * Math.sin(Math.PI * pp / 0.42)) + ')'; cb.lineWidth = (1.6 + pp * 4) * S; cb.beginPath();
           for (j2 = 0; j2 < SHp.length; j2++) { var py = SHp[j2][1] + cr * (0.8 + 0.2 * Math.sin(SHp[j2][0] * 0.013 + k * 2)); if (j2) cb.lineTo(SHp[j2][0], py); else cb.moveTo(SHp[j2][0], py); } cb.stroke(); }
@@ -406,7 +409,8 @@ ENGINES.brazil = function (A, v, dk) {
           for (j2 = 0; j2 < SHp.length; j2++) { var ly = SHp[j2][1] + run * (0.7 + 0.3 * Math.sin(SHp[j2][0] * 0.021 + k * 1.7)) + Math.sin(SHp[j2][0] * 0.3 + tt) * 0.8; if (j2) cb.lineTo(SHp[j2][0], ly); else cb.moveTo(SHp[j2][0], ly); } cb.stroke(); } }
       cb.restore();
       // the umbrellas on the sand, the flag waving on its pole
-      A.umb.forEach(function (u) { umbrella(cb, u, tt); });
+      // (an umbrella further up the beach than a palm or the flagpole goes behind its trunk)
+      A.umb.forEach(function (u) { cb.save(); occP.forEach(function (o) { if (o.y > u[1]) cb.clip(o, 'evenodd'); }); umbrella(cb, u, tt); cb.restore(); });
       flagDraw(cb, tt, wind);
       // night: the kiosk's string of bulbs and its warm glow
       if (dk) { var K = A.kiosk, ks = K[2]; cb.save(); cb.globalCompositeOperation = 'lighter'; brazil_dot(cb, lampG, K[0], K[1] - 30 * ks, 70 * ks, 0.35 + 0.05 * flick(tt, 2));
