@@ -1,6 +1,24 @@
 // ---- world theme: france (Paris)
 // Shared helpers. Every shape here is drawn clockwise (like rect() and rrect()), so shapes that share a layer slot always
 // merge instead of punching holes in each other; france_hole() winds the other way on purpose, to cut an opening.
+// draw order: the near layer's texture lines (paving, quay joints) are a stroke slot, painted over every fill of the
+// layer, so they are cut where something standing on the quay covers them. An occluder set: rects [x0, y0, x1, y1],
+// capsules [ax, ay, bx, by, r], rings [cx, cy, rOut, rIn] and polygons; hit(x, y) says whether a point is covered.
+function france_occ() { var O = {r: [], c: [], g: [], p: []};
+  O.hit = function (x, y) { var i, q;
+    for (i = 0; i < O.r.length; i++) { q = O.r[i]; if (x >= q[0] && x <= q[2] && y >= q[1] && y <= q[3]) return true; }
+    for (i = 0; i < O.c.length; i++) { q = O.c[i]; var dx = q[2] - q[0], dy = q[3] - q[1], L = dx * dx + dy * dy, u = L ? Math.max(0, Math.min(1, ((x - q[0]) * dx + (y - q[1]) * dy) / L)) : 0; if (Math.hypot(x - q[0] - dx * u, y - q[1] - dy * u) <= q[4]) return true; }
+    for (i = 0; i < O.g.length; i++) { q = O.g[i]; var d = Math.hypot(x - q[0], y - q[1]); if (d <= q[2] && d >= q[3]) return true; }
+    for (i = 0; i < O.p.length; i++) { var P = O.p[i], ins = false; for (var a = 0, b = P.length - 1; a < P.length; b = a++) if ((P[a][1] > y) !== (P[b][1] > y) && x < (P[b][0] - P[a][0]) * (y - P[a][1]) / (P[b][1] - P[a][1]) + P[a][0]) ins = !ins; if (ins) return true; }
+    return false; };
+  // a polygon with a margin along its edges (half a texture line's width)
+  O.poly = function (P, m) { O.p.push(P); for (var i = 0; i < P.length; i++) { var a = P[i], b = P[(i + 1) % P.length]; O.c.push([a[0], a[1], b[0], b[1], m || 0.8]); } };
+  // a polyline [[x, y], ...] drawn only where it is not covered (returns path data)
+  O.line = function (pts) { var d = '', run = null, prev = null; for (var i = 0; i < pts.length; i++) { var h = O.hit(pts[i][0], pts[i][1]);
+      if (!h) { if (!run) run = [pts[i]]; else run.push(pts[i]); } if ((h || i === pts.length - 1) && run) { if (run.length > 1) d += pline(run); run = null; } prev = pts[i]; } return d; };
+  // a straight segment, sampled every 1.5px
+  O.seg = function (x0, y0, x1, y1) { var n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 1.5)), pts = []; for (var i = 0; i <= n; i++) pts.push([x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n]); return O.line(pts); };
+  return O; }
 function france_area(p) { var s = 0; for (var i = 0; i < p.length; i++) { var a = p[i], b = p[(i + 1) % p.length]; s += a[0] * b[1] - b[0] * a[1]; } return s; }
 function france_pg(p) { return poly(france_area(p) < 0 ? p.slice().reverse() : p); }
 function france_hole(p) { return poly(france_area(p) > 0 ? p.slice().reverse() : p); }
@@ -294,32 +312,34 @@ SCENES.france = function (W, H, dk, rnd) {
   add(refl, 'd', rbl, C.rbld); add(refl, 'f', rtw, C.rtow); stk(refl, 't', ANIM ? '' : rs, C.shine, 1.2);
   // the near quay
   stone += rect(-10, ptop, W + 20, pbot - ptop);
-  stone += rect(-10, ptop - 3, W + 20, 4); joint += seg(-10, ptop + 1, W + 10, ptop + 1);
-  for (x = -10, j = 0; x < W + 10; x += 34 * S, j++) joint += seg(x, ptop + 1, x, pbot - 1);
-  joint += seg(-10, ptop + (pbot - ptop) * 0.5, W + 10, ptop + (pbot - ptop) * 0.5);
-  var cob = ''; for (y = pbot + 6, j = 0; y < H + 8; y += 6 + j * 1.2, j++) { var cw = 10 + j * 2.6; for (x = (j % 2) * cw * 0.5 - cw; x < W + cw; x += cw) cob += 'M' + PT(x + 1.4, y) + ' q' + n1(cw / 2 - 1.4) + ' ' + n1(-2.2 - j * 0.25) + ' ' + n1(cw - 2.8) + ' 0 '; }
-  joint += cob;
+  stone += rect(-10, ptop - 3, W + 20, 4);
+  // (the quay's joints and the paving are drawn at the end, around everything that stands on them)
+  var occ = france_occ();
   // the booksellers' green boxes on the parapet: lids propped open with prints pinned inside, books along the edge
   var bxs = ph ? [0.42, 0.62] : [0.3, 0.385, 0.47, 0.555], boxW = (ph ? 46 : 62) * S, boxH = (ph ? 13 : 17) * S, lidH = (ph ? 26 : 34) * S, stalls = [];
+  // the boxes' prints, books and outlines and the lamps' glass use slots painted after the chestnut's leaves: they are kept
+  // here and added once the tree is known, leaving out what its crown covers
+  var late = [], lateF = function (k, x, y, w, h) { late.push([k, x, y, w, h]); }, lateS = function (pts) { late.push(['j', pts]); }, lateR = function (x, y, w, h) { lateS([[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]]); };
   bxs.forEach(function (f, n) { var x0 = W * f, y0 = ptop - 3, ly0 = y0 - boxH - 1, ly1 = ly0 - lidH;
     green += rect(x0, y0 - boxH, boxW, boxH) + rect(x0 - 2, y0 - boxH - 2, boxW + 4, 3) + france_pg([[x0 + 1, ly0], [x0 + boxW - 1, ly0], [x0 + boxW - 4, ly1], [x0 + 4, ly1]]);
     for (var r6 = 0; r6 < 2; r6++) for (var c6 = 0; c6 < 3; c6++) { var pw6 = (boxW - 18) / 3, ph6 = (lidH - 10) / 2 - 2, px6 = x0 + 7 + c6 * (pw6 + 2) + (1 - r6) * 1, py6 = ly1 + 5 + r6 * (ph6 + 2);
-      if ((r6 + c6 + n) % 3 === 0) red += rect(px6, py6, pw6, ph6); else if ((r6 + c6 + n) % 3 === 1) blue += rect(px6, py6, pw6, ph6); else { joint += rect(px6 + 1, py6 + 1, pw6 - 2, ph6 - 2) + seg(px6 + 2, py6 + ph6 - 2, px6 + pw6 * 0.5, py6 + ph6 * 0.4) + seg(px6 + pw6 * 0.5, py6 + ph6 * 0.4, px6 + pw6 - 2, py6 + ph6 - 2); continue; }
-      cream += rect(px6 + pw6 * 0.2, py6 + ph6 * 0.2, pw6 * 0.6, ph6 * 0.5); joint += seg(px6 + pw6 * 0.25, py6 + ph6 * 0.6, px6 + pw6 * 0.75, py6 + ph6 * 0.4); }
-    for (k = 0; k < 8; k++) { var bk = x0 + 3 + k * (boxW - 6) / 8, bkh = boxH * (0.3 + (k * 37 % 5) * 0.07), bkw = (boxW - 6) / 8 - 1; if (k % 3 === 0) red += rect(bk, ly0 - bkh, bkw, bkh); else if (k % 3 === 1) cream += rect(bk, ly0 - bkh, bkw, bkh); else lfL += rect(bk, ly0 - bkh, bkw, bkh); }
-    joint += rect(x0 + boxW / 2 - 2, y0 - boxH * 0.66, 4, 4) + seg(x0 + 2, y0 - boxH * 0.3, x0 + boxW - 2, y0 - boxH * 0.3) + seg(x0 + boxW * 0.25, y0 - boxH, x0 + boxW * 0.25, y0) + seg(x0 + boxW * 0.75, y0 - boxH, x0 + boxW * 0.75, y0);
+      if ((r6 + c6 + n) % 3 === 0) red += rect(px6, py6, pw6, ph6); else if ((r6 + c6 + n) % 3 === 1) blue += rect(px6, py6, pw6, ph6); else { lateR(px6 + 1, py6 + 1, pw6 - 2, ph6 - 2); lateS([[px6 + 2, py6 + ph6 - 2], [px6 + pw6 * 0.5, py6 + ph6 * 0.4], [px6 + pw6 - 2, py6 + ph6 - 2]]); continue; }
+      lateF('c', px6 + pw6 * 0.2, py6 + ph6 * 0.2, pw6 * 0.6, ph6 * 0.5); lateS([[px6 + pw6 * 0.25, py6 + ph6 * 0.6], [px6 + pw6 * 0.75, py6 + ph6 * 0.4]]); }
+    for (k = 0; k < 8; k++) { var bk = x0 + 3 + k * (boxW - 6) / 8, bkh = boxH * (0.3 + (k * 37 % 5) * 0.07), bkw = (boxW - 6) / 8 - 1; if (k % 3 === 0) red += rect(bk, ly0 - bkh, bkw, bkh); else if (k % 3 === 1) lateF('c', bk, ly0 - bkh, bkw, bkh); else lateF('l', bk, ly0 - bkh, bkw, bkh); }
+    lateR(x0 + boxW / 2 - 2, y0 - boxH * 0.66, 4, 4); lateS([[x0 + 2, y0 - boxH * 0.3], [x0 + boxW - 2, y0 - boxH * 0.3]]); lateS([[x0 + boxW * 0.25, y0 - boxH], [x0 + boxW * 0.25, y0]]); lateS([[x0 + boxW * 0.75, y0 - boxH], [x0 + boxW * 0.75, y0]]);
     stalls.push([x0, y0 - boxH, boxW]); });
   // quay lamp posts
   var qlx = ph ? [0.88] : [0.255, 0.64], qlamps = [];
   qlx.forEach(function (f) { var lx = W * f, lb = pbot + H * 0.01, lh2 = H * (ph ? 0.16 : 0.2), s2 = ph ? 0.8 : S;
+    occ.r.push([lx - 2.4 * s2 - 0.6, lb - lh2, lx + 2.4 * s2 + 0.6, lb], [lx - 6 * s2 - 0.6, lb - 12 * s2 - 0.6, lx + 6 * s2 + 0.6, lb + 0.6], [lx - 4 * s2 - 0.6, lb - lh2 * 0.45 - 0.6, lx + 4 * s2 + 0.6, lb - lh2 * 0.45 + 4 * s2 + 0.6]);
     dark += rect(lx - 2.4 * s2, lb - lh2, 4.8 * s2, lh2) + rect(lx - 6 * s2, lb - 12 * s2, 12 * s2, 12 * s2) + rect(lx - 4 * s2, lb - lh2 * 0.45, 8 * s2, 4 * s2) + rect(lx - 14 * s2, lb - lh2 + 4 * s2, 28 * s2, 2.4 * s2);
-    [-1, 1].forEach(function (sg) { var hx = lx + sg * 12 * s2, hy = lb - lh2 - 6 * s2; dark += france_pg([[hx - 5 * s2, hy + 10 * s2], [hx + 5 * s2, hy + 10 * s2], [hx + 6 * s2, hy - 4 * s2], [hx - 6 * s2, hy - 4 * s2]]) + france_pg([[hx - 6.5 * s2, hy - 4 * s2], [hx + 6.5 * s2, hy - 4 * s2], [hx, hy - 11 * s2]]); cream += rect(hx - 4 * s2, hy - 3 * s2, 8 * s2, 12 * s2); qlamps.push([hx, hy + 3 * s2, s2]); });
+    [-1, 1].forEach(function (sg) { var hx = lx + sg * 12 * s2, hy = lb - lh2 - 6 * s2; dark += france_pg([[hx - 5 * s2, hy + 10 * s2], [hx + 5 * s2, hy + 10 * s2], [hx + 6 * s2, hy - 4 * s2], [hx - 6 * s2, hy - 4 * s2]]) + france_pg([[hx - 6.5 * s2, hy - 4 * s2], [hx + 6.5 * s2, hy - 4 * s2], [hx, hy - 11 * s2]]); lateF('g', hx - 4 * s2, hy - 3 * s2, 8 * s2, 12 * s2); qlamps.push([hx, hy + 3 * s2, s2]); });
     dark += france_c(lx, lb - lh2 - 4 * s2, 3 * s2); });
   // the cafe on the left: the ground floor of a stone corner building with French windows, window boxes and an iron
   // balcony above, the tricolour on a bracket at the corner, a green shopfront with its sign, tall glazed windows and a
   // door, planters, and the striped awning
   var cG = H * (ph ? 0.89 : 0.885), cS = H * (ph ? 0.75 : 0.72), cfw = [], fl1 = cS - H * (ph ? 0.035 : 0.045);
-  stone += rect(-10, cTop, cw2, H - cTop + 10) + rect(-10, cTop - 8 * S, cw2 + 6, 8 * S);
+  stone += rect(-10, cTop, cw2, H - cTop + 10) + rect(-10, cTop - 8 * S, cw2 + 6, 8 * S); occ.r.push([-20, cTop - 8 * S, cw2 - 10 + 0.5, H * (ph ? 0.89 : 0.885) + 1]);
   cream += rect(-10, cTop - 10 * S, cw2 + 8, 3 * S) + rect(-10, fl1, cw2 + 4, 4 * S) + rect(cX - 8 * S, cTop, 8 * S, fl1 - cTop);
   for (x = -8; x < cX - 2; x += 5 * S) cream += rect(x, cTop - 4.6 * S, 2.6 * S, 2.6 * S);
   joint += seg(-10, cTop, cX, cTop) + seg(-10, cTop + 1.6 * S, cX - 8 * S, cTop + 1.6 * S);
@@ -360,7 +380,11 @@ SCENES.france = function (W, H, dk, rnd) {
   if (!ANIM) { var ca = france_awn(awn.x0, awn.x1, awY0, awY1, awn.n, 3, 4 * S / 3); red += ca[0]; cream += ca[1]; }
   // cafe tables: marble tops on iron feet, with woven red bistro chairs
   var TB2 = ph ? [[0.08, 0.955, 0.8], [0.28, 0.935, 0.75]] : [[0.05, 0.955, 1.05], [0.15, 0.925, 0.92], [0.255, 0.965, 1.05]], tables = [];
-  TB2.forEach(function (q, n) { var tx = W * q[0], ty = H * q[1], s3 = q[2] * (ph ? 1 : S);
+  TB2.forEach(function (q, n) { var tx = W * q[0], ty = H * q[1], s3 = q[2] * (ph ? 1 : S), lw = (ph ? 1.1 : 1.4 * S) / 2 + 0.7;
+    [-1, 1].forEach(function (sg) { var chx = tx + sg * 24 * s3; occ.r.push([chx - 8 * s3 - 0.6, ty - 19 * s3 - 0.6, chx + 8 * s3 + 0.6, ty - 15 * s3 + 0.6]);
+      occ.poly([[chx - 7 * s3 - lw, ty - 18 * s3], [chx - 7 * s3 + sg * 3 * s3 - lw, ty - 36 * s3], [chx, ty - 39 * s3 - lw], [chx + 7 * s3 + sg * 3 * s3 + lw, ty - 36 * s3], [chx + 7 * s3 + lw, ty - 18 * s3]]);
+      occ.c.push([chx - 7 * s3, ty - 15 * s3, chx - 8 * s3, ty, lw], [chx + 7 * s3, ty - 15 * s3, chx + 8 * s3, ty, lw]); });
+    occ.r.push([tx - 1.6 * s3 - 0.6, ty - 26 * s3, tx + 1.6 * s3 + 0.6, ty], [tx - 10 * s3 - 0.6, ty - 5 * s3, tx + 10 * s3 + 0.6, ty + 0.6], [tx - 15 * s3 - 0.6, ty - 31 * s3, tx + 15 * s3 + 0.6, ty - 23 * s3]);
     [-1, 1].forEach(function (sg) { var chx = tx + sg * 24 * s3; red += rect(chx - 8 * s3, ty - 19 * s3, 16 * s3, 4 * s3); iron += 'M' + PT(chx - 7 * s3, ty - 18 * s3) + ' L' + PT(chx - 7 * s3 + sg * 3 * s3, ty - 36 * s3) + ' Q' + PT(chx, ty - 42 * s3) + ' ' + PT(chx + 7 * s3 + sg * 3 * s3, ty - 36 * s3) + ' L' + PT(chx + 7 * s3, ty - 18 * s3) + ' ' + seg(chx - 7 * s3, ty - 15 * s3, chx - 8 * s3, ty) + seg(chx + 7 * s3, ty - 15 * s3, chx + 8 * s3, ty); red += france_pg([[chx - 6 * s3 + sg * 3 * s3, ty - 34 * s3], [chx + 6 * s3 + sg * 3 * s3, ty - 34 * s3], [chx + 6 * s3 + sg * 1.5 * s3, ty - 22 * s3], [chx - 6 * s3 + sg * 1.5 * s3, ty - 22 * s3]]); });
     dark += rect(tx - 1.6 * s3, ty - 26 * s3, 3.2 * s3, 24 * s3) + france_pg([[tx - 10 * s3, ty], [tx + 10 * s3, ty], [tx + 2 * s3, ty - 5 * s3], [tx - 2 * s3, ty - 5 * s3]]);
     cream += france_e(tx, ty - 27 * s3, 15 * s3, 3.6 * s3); dark += france_e(tx, ty - 25.5 * s3, 14 * s3, 1.6 * s3);
@@ -370,15 +394,30 @@ SCENES.france = function (W, H, dk, rnd) {
   // a chestnut tree: dark trunk, palmate leaves in two greens
   var trees = [], TR = ph ? [[0.94, 0.985, 0.62]] : [[0.655, 0.99, 0.95]];
   TR.forEach(function (q) { var tx = W * q[0], ty = H * q[1], s4 = q[2] * (ph ? 1 : S), tc = [tx - 6 * s4, ty - 176 * s4], R = 96 * s4;
-    dark += france_pg([[tx - 9 * s4, ty], [tx - 6 * s4, ty - 70 * s4], [tx - 26 * s4, ty - 140 * s4], [tx - 20 * s4, ty - 142 * s4], [tx - 1 * s4, ty - 96 * s4], [tx + 16 * s4, ty - 150 * s4], [tx + 23 * s4, ty - 147 * s4], [tx + 7 * s4, ty - 76 * s4], [tx + 10 * s4, ty]]);
+    var trk = [[tx - 9 * s4, ty], [tx - 6 * s4, ty - 70 * s4], [tx - 26 * s4, ty - 140 * s4], [tx - 20 * s4, ty - 142 * s4], [tx - 1 * s4, ty - 96 * s4], [tx + 16 * s4, ty - 150 * s4], [tx + 23 * s4, ty - 147 * s4], [tx + 7 * s4, ty - 76 * s4], [tx + 10 * s4, ty]]; dark += france_pg(trk);
+    occ.poly(trk);
     var blobs = []; for (k = 0; k < 13; k++) { var a4 = hash(k * 3 + tx) * Math.PI * 2, d4 = Math.sqrt(hash(k * 5 + 1 + tx)), bx2 = tc[0] + Math.cos(a4) * d4 * R * 0.75, by2 = tc[1] + Math.sin(a4) * d4 * R * 0.58, br = R * (0.34 + hash(k + 7 + tx) * 0.16); blobs.push([bx2, by2, br]); lfD += france_c(bx2, by2, br); }
     // leaves: dark leaves all round the edge of each clump, lighter ones on the sunny upper left
     blobs.forEach(function (b, n) { for (k = 0; k < 9; k++) { var a5 = k / 9 * Math.PI * 2 + n, lx2 = b[0] + Math.cos(a5) * b[2] * 0.92, ly2 = b[1] + Math.sin(a5) * b[2] * 0.92; lfD += france_palm(lx2, ly2, 12 * s4, a5, 5); if (Math.cos(a5) < 0.3 && Math.sin(a5) < 0.4) lfL += france_palm(b[0] + Math.cos(a5) * b[2] * 0.55 - 4 * s4, b[1] + Math.sin(a5) * b[2] * 0.55 - 4 * s4, 11 * s4, a5 - 0.4, 5); } lfL += france_c(b[0] - b[2] * 0.25, b[1] - b[2] * 0.25, b[2] * 0.42); });
     trees.push({x: tc[0], y: tc[1], R: R, s: s4, blobs: blobs}); });
+  // what was kept for after the tree: anything under its crown is left out (fills whole, lines cut at the leaves)
+  var occT = france_occ(); trees.forEach(function (tr) { tr.blobs.forEach(function (b) { occT.g.push([b[0], b[1], b[2] * 0.92 + 6 * tr.s, 0]); }); });
+  late.forEach(function (q) { if (q[0] === 'j') { for (var i = 1; i < q[1].length; i++) joint += occT.seg(q[1][i - 1][0], q[1][i - 1][1], q[1][i][0], q[1][i][1]); return; }
+    var x = q[1], y = q[2], w = q[3], h = q[4]; if ((q[0] === 'g' ? [[x + w / 2, y + h / 2]] : [[x, y], [x + w, y], [x, y + h], [x + w, y + h], [x + w / 2, y + h / 2]]).some(function (p) { return occT.hit(p[0], p[1]); })) return;
+    if (q[0] === 'c') cream += rect(x, y, w, h); else lfL += rect(x, y, w, h); });
   // ---- the bottom right: a flower seller's cart under a striped canopy with a little flag, a bicycle with a basket of
   // flowers and baguettes leaning by it, and a green Morris column of posters at the edge
   function cart(x0, by, s) { var sw = 150 * s, T0 = by - 40 * s, yc0 = by - 120 * s, yc1 = yc0 + 15 * s, cols = ['red', 'cream', 'blue', 'red', 'lav', 'cream', 'tulip'], n = 0;
     green += rect(x0, T0, sw, 26 * s); cream += rect(x0 - 2 * s, T0 - 2.4 * s, sw + 4 * s, 2.6 * s);
+    // what of the cart covers the quay and the paving: body, handle, wheels, centre stand, shelves of flowers, canopy and
+    // its posts, flag pole, chalkboard and lantern
+    var m = 0.7; occ.r.push([x0 - 2 * s - m, T0 - 2.4 * s - m, x0 + sw + 2 * s + m, T0 + 26 * s + m], [x0 + sw * 0.5 - 1.5 * s - m, T0 + 26 * s, x0 + sw * 0.5 + 1.5 * s + m, by + m],
+      [x0 - 6 * s - m, yc0 - 14 * s - m, x0 + sw + 6 * s + m, yc1 + m], [x0 + 2 * s - m, yc1, x0 + 5 * s + m, T0], [x0 + sw - 5 * s - m, yc1, x0 + sw - 2 * s + m, T0],
+      [x0 + sw * 0.5 - 3.4 * s - m, yc1, x0 + sw * 0.5 + 3.4 * s + m, yc1 + 15 * s + m], [x0 + sw - 6.9 * s - m, yc0 - 50 * s, x0 + sw - 5.1 * s + m, yc0 - 14 * s]);
+    occ.c.push([x0 + sw - 2 * s, T0 + 9 * s, x0 + sw + 20 * s, T0 + 14 * s, 1.3 * s + m], [x0 + sw + 20 * s, T0 + 14 * s, x0 + sw + 24 * s, T0 + 13 * s, 1.3 * s + m]);
+    [x0 + 24 * s, x0 + sw - 30 * s].forEach(function (wx) { occ.g.push([wx, by - 14 * s, 14 * s + m, 11.4 * s - m], [wx, by - 14 * s, 2.6 * s + m, 0]); });
+    for (var t2 = 0; t2 < 3; t2++) { var Ty2 = T0 - t2 * 19 * s, tx2 = x0 + (5 + t2 * 11) * s, tw2 = sw - (10 + t2 * 22) * s; occ.r.push([tx2 - 3 * s, Ty2 - 26 * s, tx2 + tw2 + 3 * s, Ty2 + (t2 ? 9 * s : 0)]); }
+    var kx0 = x0 - 14 * s; occ.poly([[kx0 - 9 * s, by], [kx0 - 6 * s, by - 32 * s], [kx0 + 6 * s, by - 32 * s], [kx0 + 9 * s, by]]);
     joint += rect(x0 + 6 * s, T0 + 5 * s, sw / 2 - 9 * s, 15 * s) + rect(x0 + sw / 2 + 3 * s, T0 + 5 * s, sw / 2 - 9 * s, 15 * s);
     dark += france_band([[x0 + sw - 2 * s, T0 + 9 * s], [x0 + sw + 20 * s, T0 + 14 * s], [x0 + sw + 24 * s, T0 + 13 * s]], 2.6 * s) + rect(x0 + sw * 0.5 - 1.5 * s, T0 + 26 * s, 3 * s, by - T0 - 26 * s);
     [x0 + 24 * s, x0 + sw - 30 * s].forEach(function (wx) { var wy = by - 14 * s; dark += france_ring(wx, wy, 14 * s, 11.4 * s) + france_c(wx, wy, 2.6 * s); for (var q = 0; q < 6; q++) { var a = q / 6 * Math.PI + 0.3; iron += seg(wx - Math.cos(a) * 11 * s, wy - Math.sin(a) * 11 * s, wx + Math.cos(a) * 11 * s, wy + Math.sin(a) * 11 * s); } });
@@ -407,7 +446,13 @@ SCENES.france = function (W, H, dk, rnd) {
     var awS = {x0: x0 - 6 * s, x1: x0 + sw + 6 * s, y0: yc0, y1: yc1, n: 11, sl: 0, s: s * 0.8, c: [C.blue, C.cream]};
     if (!ANIM) { var r = france_awn(awS.x0, awS.x1, yc0, yc1, awS.n, 0, s * 0.8); blue += r[0]; cream += r[1]; }
     return awS; }
-  function bike(x, by, s) { var r = 11 * s, w1 = [x - 16 * s, by - r], w2 = [x + 17 * s, by - r], bb = [x - 1 * s, by - r - 1 * s], st = [x - 7 * s, by - r - 19 * s], hd = [x + 10 * s, by - r - 20 * s];
+  function bike(x, by, s) { var r = 11 * s, w1 = [x - 16 * s, by - r], w2 = [x + 17 * s, by - r], bb = [x - 1 * s, by - r - 1 * s], st = [x - 7 * s, by - r - 19 * s], hd = [x + 10 * s, by - r - 20 * s], m = 0.7;
+    // the bike covers the paving with its frame, tyres, saddle, bars and basket (the wheels are open between the spokes)
+    [[w1, bb, 2.2], [bb, st, 2.4], [w1, [st[0] + 0.6 * s, st[1] + 3 * s], 1.8], [bb, [x + 4 * s, by - r - 9 * s], 2.6], [[x + 4 * s, by - r - 9 * s], [hd[0] - 1 * s, hd[1] + 5 * s], 2.6], [hd, w2, 2.2],
+      [[w1[0] - r * 0.9, w1[1] - r * 0.15], [w1[0] - r * 0.5, w1[1] - r * 0.95], 2], [[w1[0] - r * 0.5, w1[1] - r * 0.95], [w1[0] + r * 0.3, w1[1] - r * 1.15], 2],
+      [hd, [hd[0] - 1.5 * s, hd[1] - 6 * s], 1.8], [[hd[0] - 1.5 * s, hd[1] - 6 * s], [hd[0] - 7 * s, hd[1] - 7.5 * s], 1.8], [bb, [bb[0] - 5 * s, by + 0.5 * s], 1.4]].forEach(function (b) { occ.c.push([b[0][0], b[0][1], b[1][0], b[1][1], b[2] * s / 2 + m]); });
+    [w1, w2].forEach(function (c) { occ.g.push([c[0], c[1], r + m, r - 2.2 * s - m], [c[0], c[1], 1.5 * s + m, 0]); });
+    occ.g.push([bb[0], bb[1], 3.2 * s + m, 0]); occ.r.push([st[0] - 6.4 * s - m, st[1] - 4 * s - m, st[0] + 4.4 * s + m, st[1] + m], [hd[0] + 1.5 * s - m, hd[1] - 15 * s, hd[0] + 20 * s + m, hd[1] + 9 * s + m]);
     blue += france_band([w1, bb], 2.2 * s) + france_band([bb, st], 2.4 * s) + france_band([w1, [st[0] + 0.6 * s, st[1] + 3 * s]], 1.8 * s) + france_band([bb, [x + 4 * s, by - r - 9 * s], [hd[0] - 1 * s, hd[1] + 5 * s]], 2.6 * s) + france_band([hd, w2], 2.2 * s);
     blue += france_band([[w1[0] - r * 0.9, w1[1] - r * 0.15], [w1[0] - r * 0.5, w1[1] - r * 0.95], [w1[0] + r * 0.3, w1[1] - r * 1.15]], 2 * s);
     [w1, w2].forEach(function (c) { dark += france_ring(c[0], c[1], r, r - 2.2 * s) + france_c(c[0], c[1], 1.5 * s); for (var q = 0; q < 8; q++) { var a = q / 8 * Math.PI; joint += seg(c[0] - Math.cos(a) * (r - 2) , c[1] - Math.sin(a) * (r - 2), c[0] + Math.cos(a) * (r - 2), c[1] + Math.sin(a) * (r - 2)); } });
@@ -421,6 +466,7 @@ SCENES.france = function (W, H, dk, rnd) {
     cream += france_pg([[kx, ky], [kx + 17 * s, ky], [kx + 15 * s, ky + 10 * s], [kx + 2 * s, ky + 10 * s]]);
     for (var q = 1; q < 4; q++) joint += seg(kx + q * 0.5 * s, ky + q * 2.5 * s, kx + 17 * s - q * 0.5 * s, ky + q * 2.5 * s); for (q = 1; q < 6; q++) joint += seg(kx + q * 2.9 * s, ky, kx + 1.6 * s + q * 2.5 * s, ky + 10 * s); }
   function morris(cx, by, r, h, s) { var bt = by - h, pT = bt + 8 * s, pM = bt + 8 * s + (h - 24 * s) / 2, pB = by - 14 * s;
+    occ.r.push([cx - r - 4 * s - 0.7, bt - 14.4 * s - 0.7, cx + r + 4 * s + 0.7, by + 0.7], [cx - r - 1.7 * s, bt - 14 * s - r * 0.95 - 0.7, cx + r + 1.7 * s, bt - 14 * s]);
     dark += rect(cx - r - 4 * s, by - 8 * s, 2 * r + 8 * s, 8 * s) + rect(cx - r - 2 * s, by - 12 * s, 2 * r + 4 * s, 4 * s);
     green += rect(cx - r, bt, 2 * r, h - 10 * s);
     // posters wrapped round the column: narrower towards the sides
@@ -439,6 +485,15 @@ SCENES.france = function (W, H, dk, rnd) {
   var awS;
   if (ph) awS = cart(W * 0.41, H * 0.958, 0.62);
   else { awS = cart(W * 0.745, H * 0.972, S); bike(W * 0.585, H * 0.978, S * 1.3); morris(W * 0.948, H * 0.988, 17 * S, H * 0.22, S); }
+  // the quay's joints and the paving, cut around everything that stands on them (the cafe, its tables and chairs, the
+  // lamp posts, the chestnut's trunk, the flower cart, the bicycle and the Morris column)
+  joint += occ.seg(-10, ptop + 1, W + 10, ptop + 1) + occ.seg(-10, ptop + (pbot - ptop) * 0.5, W + 10, ptop + (pbot - ptop) * 0.5);
+  for (x = -10; x < W + 10; x += 34 * S) joint += occ.seg(x, ptop + 1, x, pbot - 1);
+  for (y = pbot + 6, j = 0; y < H + 8; y += 6 + j * 1.2, j++) { var cw = 10 + j * 2.6, ch = -2.2 - j * 0.25;
+    for (x = (j % 2) * cw * 0.5 - cw; x < W + cw; x += cw) { var ax = x + 1.4, bx = x + cw - 1.4, mx = x + cw / 2, qp = [], hit = false;
+      for (k = 0; k <= 10; k++) { var u = k / 10, qx = (1 - u) * (1 - u) * ax + 2 * (1 - u) * u * mx + u * u * bx, qy = y + 2 * (1 - u) * u * ch; qp.push([qx, qy]); if (occ.hit(qx, qy)) hit = true; }
+      if (!hit) joint += 'M' + PT(ax, y) + ' q' + n1(cw / 2 - 1.4) + ' ' + n1(ch) + ' ' + n1(cw - 2.8) + ' 0 ';
+      else { var fine = []; for (k = 0; k <= 24; k++) { u = k / 24; fine.push([(1 - u) * (1 - u) * ax + 2 * (1 - u) * u * mx + u * u * bx, y + 2 * (1 - u) * u * ch]); } joint += occ.line(fine); } } }
   // the flags in the still scene (the engine waves them)
   if (!ANIM) flags.forEach(function (F) { var d = france_flagD(F, 0.9); blue += d[0]; cream += d[1]; red += d[2]; });
   // the tour boat (the engine moves it, and passes it under the bridge)

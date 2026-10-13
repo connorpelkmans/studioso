@@ -1,6 +1,14 @@
 // ---- batch n4: diadelosmuertos (Dia de los Muertos), holi (Holi), ramadan (Ramadan Nights), midautumn (Mid-Autumn Festival)
 // Shared helpers. Every shape here is drawn clockwise (like rect() and rrect()), so shapes that share a layer slot always
 // merge instead of punching holes in each other.
+// draw-order helpers: a texture line (a stroke slot, painted over every fill of its layer) only where nothing that should stand
+// in front of it covers it. segs: [[x0, y0, x1, y1], ...]; hit(x, y) says whether a point is covered.
+function n4_inPoly(P, x, y) { var ins = false; for (var i = 0, j = P.length - 1; i < P.length; j = i++) if ((P[i][1] > y) !== (P[j][1] > y) && x < (P[j][0] - P[i][0]) * (y - P[i][1]) / (P[j][1] - P[i][1]) + P[i][0]) ins = !ins; return ins; }
+function n4_clipSegs(segs, hit) { var d = ''; segs.forEach(function (L) { var n = Math.max(1, Math.ceil(Math.hypot(L[2] - L[0], L[3] - L[1]) / 1.5)), run = -1, pu = 0;
+  for (var q = 0; q <= n; q++) { var u = q / n, h = hit(L[0] + (L[2] - L[0]) * u, L[1] + (L[3] - L[1]) * u);
+    if (!h && run < 0) run = u; if ((h || q === n) && run >= 0) { var e = h ? pu : u; if (e > run) d += seg(L[0] + (L[2] - L[0]) * run, L[1] + (L[3] - L[1]) * run, L[0] + (L[2] - L[0]) * e, L[1] + (L[3] - L[1]) * e); run = -1; } pu = u; } }); return d; }
+// the point at u (0..1) along the centre line of a limb drawn by n4_limb(x0, y0, x1, y1, .., .., bend), so a branch can start on it
+function n4_limbAt(x0, y0, x1, y1, bend, u) { var dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy) || 1, mx = (x0 + x1) / 2 - dy / L * bend, my = (y0 + y1) / 2 + dx / L * bend; return [(1 - u) * (1 - u) * x0 + 2 * (1 - u) * u * mx + u * u * x1, (1 - u) * (1 - u) * y0 + 2 * (1 - u) * u * my + u * u * y1]; }
 function n4_area(p) { var s = 0; for (var i = 0; i < p.length; i++) { var a = p[i], b = p[(i + 1) % p.length]; s += a[0] * b[1] - b[0] * a[1]; } return s; }
 function n4_pg(p) { return poly(n4_area(p) < 0 ? p.slice().reverse() : p); }
 // the same outline wound the other way: inside a clockwise shape of the same slot it cuts a hole
@@ -76,7 +84,7 @@ SCENES.diadelosmuertos = function (W, H, dk, rnd) {
     var nd = Math.max(1, Math.round(w / (ph ? 70 : 90))), sp = w / nd;
     for (j = 0; j < nd; j++) { var dx = x + sp * (j + 0.5), dw = sp * 0.38, dh = h * 0.36, bb;
       if ((j + k) % 2 === 0) { door += rect(dx - dw / 2, gy - dh, dw, dh + 2) + n4_e(dx, gy - dh, dw / 2, dw / 2.2); trim += rect(dx - dw / 2 - 3, gy - dh, 3, dh) + rect(dx + dw / 2, gy - dh, 3, dh); }
-      else { glass += rect(dx - dw * 0.4, gy - dh * 0.85, dw * 0.8, dh * 0.5) + n4_e(dx, gy - dh * 0.85, dw * 0.4, dw * 0.36); for (bb = dx - dw * 0.3; bb <= dx + dw * 0.31; bb += dw * 0.2) bars += seg(bb, gy - dh * 1.1, bb, gy - dh * 0.35); trim += rect(dx - dw * 0.55, gy - dh * 0.37, dw * 1.1, 4); wins.push([dx, gy - dh * 0.65, dw]); }
+      else { glass += rect(dx - dw * 0.4, gy - dh * 0.85, dw * 0.8, dh * 0.5) + n4_e(dx, gy - dh * 0.85, dw * 0.4, dw * 0.36); for (bb = dx - dw * 0.3; bb <= dx + dw * 0.31; bb += dw * 0.2) bars += seg(bb, gy - dh * 0.85 - dw * 0.36 * Math.sqrt(Math.max(0, 1 - Math.pow((bb - dx) / (dw * 0.4), 2))) + 1, bb, gy - dh * 0.35); trim += rect(dx - dw * 0.55, gy - dh * 0.37, dw * 1.1, 4); wins.push([dx, gy - dh * 0.65, dw]); }
       // upper window with a little balcony
       var uy = top + h * 0.12, uw = dw * 0.8, uh = h * 0.26; glass += rect(dx - uw / 2, uy + uw * 0.3, uw, uh) + n4_e(dx, uy + uw * 0.3, uw / 2, uw * 0.3); wins.push([dx, uy + uh * 0.6, uw]);
       trim += rect(dx - uw * 0.75, uy + uh + uw * 0.3, uw * 1.5, 4); for (bb = dx - uw * 0.7; bb <= dx + uw * 0.71; bb += uw * 0.2) bars += seg(bb, uy + uh + uw * 0.3, bb, uy + uh + uw * 0.3 - 9); bars += seg(dx - uw * 0.72, uy + uh + uw * 0.3 - 9, dx + uw * 0.72, uy + uh + uw * 0.3 - 9); }
@@ -168,7 +176,7 @@ SCENES.holi = function (W, H, dk, rnd) {
   var city = '', city2 = ''; x = -20; while (x < W + 20) { var w = (ph ? 30 : 46) + rnd() * 50, h = H * (0.03 + rnd() * 0.07); city += rect(x, ft + H * 0.04 - h, w, h + H * 0.2); if (rnd() < 0.4) city2 += n4_chhatri(x + w / 2, ft + H * 0.04 - h, (ph ? 0.4 : 0.55)); x += w + rnd() * 10; }
   add(bg, 'a', city, C.city); add(bg, 'b', city2, C.city2);
   // the haveli
-  var wall = rect(-10, ft, W + 20, gy - ft + 4), trim = '', arch = '', acc = '', shade = '', lat = '', wins = [], arches = [];
+  var wall = rect(-10, ft, W + 20, gy - ft + 4), trim = '', arch = '', acc = '', shade = '', lat = [], wins = [], arches = [];
   var n = ph ? 3 : 7, bay = (W + 20) / n;
   trim += rect(-10, ft - 8, W + 20, 9) + rect(-10, ft + gf - 6, W + 20, 8);
   for (x = 4; x < W + 10; x += ph ? 18 : 24) acc += n4_pg([[x, ft + gf - 5], [x + 3.2, ft + gf - 2], [x, ft + gf + 1], [x - 3.2, ft + gf - 2]]) + n4_pg([[x + (ph ? 9 : 12) - 2.4, ft + 1], [x + (ph ? 9 : 12) + 2.4, ft + 1], [x + (ph ? 9 : 12), ft + 6]]);
@@ -183,7 +191,7 @@ SCENES.holi = function (W, H, dk, rnd) {
     var uy = ft + 10, uh = gf - 22;
     if (i % 2 === 0) { var jw = bay * 0.42; acc += rect(cx - jw / 2 - 4, uy + uh * 0.9, jw + 8, 6) + n4_pg([[cx - jw / 2 - 2, uy + uh * 0.9 + 6], [cx + jw / 2 + 2, uy + uh * 0.9 + 6], [cx + jw * 0.3, uy + uh * 0.9 + 16], [cx - jw * 0.3, uy + uh * 0.9 + 16]]);
       trim += rect(cx - jw / 2, uy + uh * 0.32, jw, uh * 0.58); arch += rect(cx - jw / 2 + 5, uy + uh * 0.38, jw - 10, uh * 0.48);
-      for (j = 1; j < 4; j++) lat += seg(cx - jw / 2 + 5 + j * (jw - 10) / 4, uy + uh * 0.38, cx - jw / 2 + 5 + j * (jw - 10) / 4, uy + uh * 0.86); lat += seg(cx - jw / 2 + 5, uy + uh * 0.62, cx + jw / 2 - 5, uy + uh * 0.62);
+      for (j = 1; j < 4; j++) lat.push([cx - jw / 2 + 5 + j * (jw - 10) / 4, uy + uh * 0.38, cx - jw / 2 + 5 + j * (jw - 10) / 4, uy + uh * 0.86]); lat.push([cx - jw / 2 + 5, uy + uh * 0.62, cx + jw / 2 - 5, uy + uh * 0.62]);
       var dp = []; for (j = 0; j <= 16; j++) { var a = Math.PI * j / 16; dp.push([cx - Math.cos(a) * (jw / 2 + 4), uy + uh * 0.32 - Math.sin(a) * uh * 0.3 - Math.pow(Math.sin(a), 8) * 6]); } acc += n4_pg(dp) + rect(cx - jw / 2 - 6, uy + uh * 0.3, jw + 12, 4);
       wins.push([cx, uy + uh * 0.62, jw]); }
     else { var ww = bay * 0.2; arch += n4_mfArch(cx, uy + uh * 0.86, ww, uh * 0.55); wins.push([cx, uy + uh * 0.66, ww]); } }
@@ -192,21 +200,29 @@ SCENES.holi = function (W, H, dk, rnd) {
   // flame-of-the-forest trees at the sides: a flared trunk that forks into curving limbs, a darker back canopy for depth,
   // the front leaf clusters and big claw-shaped orange blooms
   var leaf = '', bloom = '', trunk = '', canB = '', bark = '', trunks = [];
+  // the trees stand in front of the haveli: keep what they cover (trunk, limbs, back canopy) so the window lattice, a stroke
+  // drawn over the mid layer's fills, can leave those parts out
+  var tOcc = {polys: [], circ: [], limb: function (l) { var x0 = l[0], y0 = l[1], x1 = l[2], y1 = l[3], L = Math.hypot(x1 - x0, y1 - y0) || 1, nx = -(y1 - y0) / L, ny = (x1 - x0) / L, mx = (x0 + x1) / 2 + nx * l[6], my = (y0 + y1) / 2 + ny * l[6];
+    // its outline (as n4_limb draws it) for the engine, and a dense row of circles a little wider for the lattice lines
+    var PA = [], PB = []; for (var i = 0; i <= 8; i++) { var u = i / 8, px = (1 - u) * (1 - u) * x0 + 2 * (1 - u) * u * mx + u * u * x1, py = (1 - u) * (1 - u) * y0 + 2 * (1 - u) * u * my + u * u * y1, hw = (l[4] + (l[5] - l[4]) * u) / 2; PA.push([px + nx * hw, py + ny * hw]); PB.unshift([px - nx * hw, py - ny * hw]); }
+    tOcc.polys.push(PA.concat(PB)); tOcc.circ.push([x1, y1, l[5] / 2, 0]);
+    for (i = 0; i <= 80; i++) { u = i / 80; tOcc.circ.push([(1 - u) * (1 - u) * x0 + 2 * (1 - u) * u * mx + u * u * x1, (1 - u) * (1 - u) * y0 + 2 * (1 - u) * u * my + u * u * y1, (l[4] + (l[5] - l[4]) * u) / 2 + 1.5, -1]); } },
+    hit: function (x, y) { return tOcc.circ.some(function (c) { return Math.hypot(x - c[0], y - c[1]) < c[2] + 1; }) || tOcc.polys.some(function (P) { return n4_inPoly(P, x, y); }); } };
   (ph ? [[-W * 0.02, 1.0, 1], [W * 1.02, 0.95, -1]] : [[W * 0.02, 1.25, 1], [W * 0.985, 1.2, -1]]).forEach(function (T) { var tx = T[0], s = T[1] * (ph ? 0.8 : 1), d = T[2], base = gy + 6, top = H * (ph ? 0.08 : 0.06);
     var sp2 = base - top, fk = [tx + d * 4 * s, base - sp2 * 0.2];
-    trunk += n4_pg([[tx - 22 * s, base + 2], [tx - 14 * s, base - 8 * s], [tx - 11 * s, base - sp2 * 0.1], [fk[0] - 10 * s, fk[1]], [fk[0] + 10 * s, fk[1]], [tx + 12 * s, base - sp2 * 0.1], [tx + 15 * s, base - 8 * s], [tx + 24 * s, base + 2]]);
-    var L1 = [tx + d * 84 * s, base - sp2 * 0.7], L2 = [tx - d * 26 * s, base - sp2 * 0.8], mid1 = [fk[0] + (L1[0] - fk[0]) * 0.4, fk[1] + (L1[1] - fk[1]) * 0.4 - 4 * s], L3 = [tx + d * 150 * s, base - sp2 * 0.5];
-    trunk += n4_limb(fk[0], fk[1] + 4 * s, L1[0], L1[1], 17 * s, 6 * s, -d * 22 * s) + n4_limb(fk[0], fk[1] + 4 * s, L2[0], L2[1], 15 * s, 5 * s, d * 12 * s) + n4_limb(mid1[0], mid1[1], L3[0], L3[1], 8 * s, 3 * s, -d * 12 * s) + n4_limb(fk[0] - d * 2 * s, base - sp2 * 0.48, tx - d * 50 * s, base - sp2 * 0.66, 6 * s, 2.4 * s, d * 8 * s);
-    [[L3[0], L3[1] - 6 * s, 30], [tx - d * 50 * s, base - sp2 * 0.68, 24]].forEach(function (c) { leaf += n4_c(c[0], c[1], c[2] * s); canB += n4_c(c[0] + d * 6 * s, c[1] + 8 * s, c[2] * s * 1.05); for (var b2 = 0; b2 < 4; b2++) bloom += n4_leaf(c[0] + (b2 - 1.5) * 7 * s, c[1] - c[2] * s * 0.4 + (b2 % 2) * 6 * s, 11 * s, 3.2 * s, -95 + (b2 - 1.5) * 24); });
+    var tpoly = [[tx - 22 * s, base + 2], [tx - 14 * s, base - 8 * s], [tx - 11 * s, base - sp2 * 0.1], [fk[0] - 10 * s, fk[1]], [fk[0] + 10 * s, fk[1]], [tx + 12 * s, base - sp2 * 0.1], [tx + 15 * s, base - 8 * s], [tx + 24 * s, base + 2]]; trunk += n4_pg(tpoly); tOcc.polys.push(tpoly);
+    var L1 = [tx + d * 84 * s, base - sp2 * 0.7], L2 = [tx - d * 26 * s, base - sp2 * 0.8], mid1 = n4_limbAt(fk[0], fk[1] + 4 * s, L1[0], L1[1], -d * 22 * s, 0.4), L3 = [tx + d * 150 * s, base - sp2 * 0.5];
+    [[fk[0], fk[1] + 4 * s, L1[0], L1[1], 17 * s, 6 * s, -d * 22 * s], [fk[0], fk[1] + 4 * s, L2[0], L2[1], 15 * s, 5 * s, d * 12 * s], [mid1[0], mid1[1], L3[0], L3[1], 8 * s, 3 * s, -d * 12 * s], [fk[0] - d * 2 * s, base - sp2 * 0.48, tx - d * 50 * s, base - sp2 * 0.66, 6 * s, 2.4 * s, d * 8 * s]].forEach(function (l) { trunk += n4_limb.apply(null, l); tOcc.limb(l); });
+    [[L3[0], L3[1] - 6 * s, 30], [tx - d * 50 * s, base - sp2 * 0.68, 24]].forEach(function (c) { leaf += n4_c(c[0], c[1], c[2] * s); canB += n4_c(c[0] + d * 6 * s, c[1] + 8 * s, c[2] * s * 1.05); tOcc.circ.push([c[0] + d * 6 * s, c[1] + 8 * s, c[2] * s * 1.05]); for (var b2 = 0; b2 < 4; b2++) bloom += n4_leaf(c[0] + (b2 - 1.5) * 7 * s, c[1] - c[2] * s * 0.4 + (b2 % 2) * 6 * s, 11 * s, 3.2 * s, -95 + (b2 - 1.5) * 24); });
     trunks.push([tx, 26 * s]);
     bark += 'M' + PT(tx - 6 * s, base - 4 * s) + ' Q' + PT(tx - 9 * s, base - sp2 * 0.18) + ' ' + PT(tx - 3 * s, base - sp2 * 0.36) + ' M' + PT(tx + 5 * s, base - 10 * s) + ' Q' + PT(tx + 2 * s, base - sp2 * 0.15) + ' ' + PT(tx + 6 * s, base - sp2 * 0.3) + ' M' + PT(tx - 1 * s, base - sp2 * 0.08) + ' Q' + PT(tx + 1 * s, base - sp2 * 0.2) + ' ' + PT(tx - 1 * s, base - sp2 * 0.28) + ' ';
-    for (var q = 0; q < 26; q++) { var u = hash(q + tx), vv = hash(q * 3 + tx), bx = tx + d * (u * 150 - 40) * s, by = top + 30 * s + vv * (base - top) * 0.44, r = (24 + hash(q + 9) * 20) * s; leaf += n4_c(bx, by, r); canB += n4_c(bx + d * 7 * s, by + 9 * s, r * 1.06);
+    for (var q = 0; q < 26; q++) { var u = hash(q + tx), vv = hash(q * 3 + tx), bx = tx + d * (u * 150 - 40) * s, by = top + 30 * s + vv * (base - top) * 0.44, r = (24 + hash(q + 9) * 20) * s; leaf += n4_c(bx, by, r); canB += n4_c(bx + d * 7 * s, by + 9 * s, r * 1.06); tOcc.circ.push([bx + d * 7 * s, by + 9 * s, r * 1.06]);
       for (var b = 0; b < 2; b++) { var a2 = hash(q * 7 + b) * 6.28, rr = r * (0.45 + hash(q + b * 5) * 0.45), fx = bx + Math.cos(a2) * rr, fy = by + Math.sin(a2) * rr * 0.7 - r * 0.3, ang = -70 - hash(q + b) * 40;
         for (var c2 = 0; c2 < 4; c2++) bloom += n4_leaf(fx, fy, (10 + c2 % 2 * 3) * s, 3.2 * s, ang + (c2 - 1.5) * 26); } } });
   // the stone floor with splashes of colour
   var floor = rect(-10, gy, W + 20, H - gy + 10), joint = '';
   for (var ry = gy + 8, rr = 0; ry < H + 10; rr++) { joint += seg(-10, ry, W + 10, ry); var stp = 40 + (ry - gy) * 0.7; for (var jx = (rr % 2) * stp * 0.5 - W * 0.2; jx < W * 1.2; jx += stp) joint += seg(jx, ry, jx + (jx - W / 2) * 0.05, ry + 10 + (ry - gy) * 0.16); ry += 10 + (ry - gy) * 0.16; }
-  add(mid, 'a', wall, C.wall); add(mid, 'b', trim, C.trim); add(mid, 'c', arch, C.arch); add(mid, 'd', acc, C.accent); add(mid, 'e', floor, C.floor); add(mid, 'f', shade, C.shade); stk(mid, 's', joint, C.joint, 1); stk(mid, 't', lat, C.lat, 1.4);
+  add(mid, 'a', wall, C.wall); add(mid, 'b', trim, C.trim); add(mid, 'c', arch, C.arch); add(mid, 'd', acc, C.accent); add(mid, 'e', floor, C.floor); add(mid, 'f', shade, C.shade); stk(mid, 's', joint, C.joint, 1); stk(mid, 't', n4_clipSegs(lat, tOcc.hit), C.lat, 1.4);
   add(mid, 'g', trunk, dk ? '#3A1E2E' : '#8A5A40'); add(mid, 'h', canB, dk ? '#1F4034' : '#3E8A4C'); stk(mid, 't', bark, C.lat, 1.4);
   add(near, 'g', leaf, C.leaf); add(near, 'h', bloom, C.bloom);
   var COLS = ['c', 'd', 'e', 'f'], pals = [C.pink, C.yel, C.grn, C.blu], spl = ['', '', '', ''];
@@ -235,7 +251,7 @@ SCENES.holi = function (W, H, dk, rnd) {
   var hi = ''; plates.forEach(function (q) { var px = W * q[0], py = H * q[1], s = q[2] * (ph ? 0.85 : 1); hi += 'M' + PT(px - 40 * s, py + 2 * s) + ' Q' + PT(px, py + 12 * s) + ' ' + PT(px + 40 * s, py + 2 * s) + ' '; }); hi += 'M' + PT(ux - 16 * us, uy2 - 34 * us) + ' Q' + PT(ux - 20 * us, uy2 - 22 * us) + ' ' + PT(ux - 14 * us, uy2 - 10 * us) + ' ';
   stk(near, 't', hi, dk ? 'rgba(255,230,170,0.5)' : 'rgba(255,248,220,0.85)', ph ? 1.6 : 2.2);
   var gar = ph ? {y: H * 0.095, step: W / 3, sag: H * 0.05} : {y: -6, step: W / 6, sag: H * 0.07};
-  if (ANIM) { ANIM.gar = gar; ANIM.arches = arches; ANIM.wins = wins; ANIM.ft = ft; ANIM.gy = gy; ANIM.C = C; ANIM.trunks = trunks; ANIM.roofs = [[W * 0.5, ft - 16, cs]].concat(ph ? [] : [[W * 0.2, ft - 16, 0.9], [W * 0.8, ft - 16, 0.9]]); }
+  if (ANIM) { ANIM.gar = gar; ANIM.arches = arches; ANIM.wins = wins; ANIM.ft = ft; ANIM.gy = gy; ANIM.C = C; ANIM.trunks = trunks; ANIM.treeOcc = {polys: tOcc.polys, circ: tOcc.circ}; ANIM.roofs = [[W * 0.5, ft - 16, cs]].concat(ph ? [] : [[W * 0.2, ft - 16, 0.9], [W * 0.8, ft - 16, 0.9]]); }
   else { var gm = ''; for (x = -gar.step * 0.5; x < W + gar.step; x += gar.step) n4_cat(x, gar.y, x + gar.step, gar.y, gar.sag, 22).forEach(function (p) { gm += n4_c(p[0], p[1], ph ? 5 : 7); }); add(mid, 'd', gm); }
   return {sky: sky, far: far, refl: bg, mid: mid, near: near};
 };
@@ -266,13 +282,13 @@ SCENES.ramadan = function (W, H, dk, rnd) {
   x = -20; while (x < W + 20) { var w = (ph ? 30 : 50) + rnd() * (ph ? 30 : 60), h = H * (0.03 + rnd() * 0.06); farD += rect(x, fb - h, w, h + H * 0.3); if (rnd() < 0.28) farD2 += n4_dome(x + w / 2, fb - h, w * 0.32, w * 0.4); else if (rnd() < 0.15) farD2 += n4_tower(x + w / 2, fb - h, ph ? 5 : 7, H * (0.06 + rnd() * 0.05)); x += w; }
   add(bg, 'a', farD, C.far); add(bg, 'b', farD2, C.far2);
   // the near city: houses with arched windows, a great dome and two towers
-  var cb2 = pt + 4, bA = '', bB = '', dome = '', win = '', tower = '', shade = '', door = '', gold = '', wins = [], roofs = [];
+  var hwin = [], cb2 = pt + 4, bA = '', bB = '', dome = '', win = '', tower = '', shade = '', door = '', gold = '', wins = [], roofs = [];
   x = -30 + rnd() * 20; var bi = 0;
   while (x < W + 30) { w = (ph ? 60 : 90) + rnd() * (ph ? 50 : 80); h = H * ((ph ? 0.06 : 0.07) + rnd() * (ph ? 0.08 : 0.1)); var top = cb2 - h, body = rect(x, top, w, h + 6) + rect(x - 3, top - 4, w + 6, 5);
     for (var cr = x; cr < x + w - 4; cr += 9) body += rect(cr, top - 9, 5, 6);
     if (bi % 2) bB += body; else bA += body;
     shade += rect(x + w - 7, top, 7, h) + rect(x, top, w, 4);
-    var nw = Math.max(1, Math.floor(w / (ph ? 24 : 30))); for (var r = 0; r < 2; r++) for (j = 0; j < nw; j++) { var wx = x + (j + 0.5) * w / nw, wy = top + 12 + r * (ph ? 20 : 26); if (wy > cb2 - 10) continue; win += rect(wx - 3.5, wy, 7, 9) + n4_e(wx, wy, 3.5, 3.5); wins.push({x: wx, y: wy + 3, b: bi}); }
+    var nw = Math.max(1, Math.floor(w / (ph ? 24 : 30))); for (var r = 0; r < 2; r++) for (j = 0; j < nw; j++) { var wx = x + (j + 0.5) * w / nw, wy = top + 12 + r * (ph ? 20 : 26); if (wy > cb2 - 10) continue; hwin.push([wx, wy, bi]); }
     roofs.push({x: x + w * (0.2 + rnd() * 0.6), y: top - 9, b: bi});
     bi++; x += w + (rnd() < 0.3 ? 8 + rnd() * 10 : 0); }
   var gdx = W * (ph ? 0.36 : 0.46), gdy = cb2 - H * (ph ? 0.15 : 0.19), gdr = ph ? 40 : 66;
@@ -281,14 +297,22 @@ SCENES.ramadan = function (W, H, dk, rnd) {
   bB += rect(gdx - gdr * 2.05, gdy + gdr * 0.5, gdr * 0.9, cb2 - gdy) + rect(gdx + gdr * 1.15, gdy + gdr * 0.5, gdr * 0.9, cb2 - gdy);
   for (j = -2; j <= 2; j++) { door += rect(gdx + j * gdr * 0.38 - gdr * 0.09, gdy + gdr * 0.25, gdr * 0.18, gdr * 0.35) + n4_e(gdx + j * gdr * 0.38, gdy + gdr * 0.25, gdr * 0.09, gdr * 0.09); wins.push({x: gdx + j * gdr * 0.38, y: gdy + gdr * 0.4, b: 99}); }
   gold += rect(gdx - 1.5, gdy - gdr * 1.32, 3, gdr * 0.2) + n4_c(gdx, gdy - gdr * 1.36, 3.5) + rect(gdx - gdr * 1.15, gdy - 2, gdr * 2.3, 3);
-  [[gdx - gdr * 2.6, 1], [gdx + gdr * 2.6, 0.9], [W * (ph ? 0.9 : 0.15), 0.8]].forEach(function (q) { var th = H * (ph ? 0.22 : 0.27) * q[1], tw = ph ? 9 : 13; tower += n4_tower(q[0], cb2, tw, th); gold += rect(q[0] - 1, cb2 - th - tw * 2.6 - 8, 2, 8) + n4_c(q[0], cb2 - th - tw * 2.6 - 9, 2.4); shade += rect(q[0] + tw * 0.15, cb2 - th, tw * 0.35, th); for (var k = 0; k < 3; k++) wins.push({x: q[0], y: cb2 - th * (0.25 + k * 0.22), b: 98}); win += rect(q[0] - 2, cb2 - th * 0.3, 4, 7) + rect(q[0] - 2, cb2 - th * 0.52, 4, 7); });
+  [[gdx - gdr * 2.6, 1], [gdx + gdr * 2.6, 0.9], [W * (ph ? 0.9 : 0.15), 0.8]].forEach(function (q) { var th = H * (ph ? 0.22 : 0.27) * q[1], tw = ph ? 9 : 13; tower += n4_tower(q[0], cb2, tw, th); gold += rect(q[0] - 1, cb2 - th - tw * 2.6 - 8, 2, 8) + n4_c(q[0], cb2 - th - tw * 2.6 - 9, 2.4); shade += rect(q[0] + tw * 0.15, cb2 - th, tw * 0.35, th); for (var k = 0; k < 3; k++) wins.push({x: q[0], y: cb2 - th * (0.25 + k * 0.22), b: 98}); door += rect(q[0] - 2, cb2 - th * 0.3, 4, 7) + rect(q[0] - 2, cb2 - th * 0.52, 4, 7); });
+  // the houses' windows go on after the mosque and the towers that stand in front of them: none half-way across the mosque's
+  // outline or on a tower
+  var blk = [[gdx - gdr * 1.15, gdy, gdx + gdr * 1.15], [gdx - gdr * 2.05, gdy + gdr * 0.5, gdx - gdr * 1.15], [gdx + gdr * 1.15, gdy + gdr * 0.5, gdx + gdr * 2.05]], twr = [[gdx - gdr * 2.6, 1], [gdx + gdr * 2.6, 0.9], [W * (ph ? 0.9 : 0.15), 0.8]];
+  var inBlk = function (x, y) { return blk.some(function (b) { return x >= b[0] && x <= b[2] && y >= b[1]; }); };
+  hwin.forEach(function (h) { var wx = h[0], wy = h[1], cs = [[wx - 3.5, wy - 3.5], [wx + 3.5, wy - 3.5], [wx - 3.5, wy + 9], [wx + 3.5, wy + 9]], n = cs.filter(function (c) { return inBlk(c[0], c[1]); }).length, tw = ph ? 9 : 13;
+    if (n > 0 && n < 4) return; if (twr.some(function (q) { return Math.abs(wx - q[0]) < 3.5 + tw * 0.85 && wy + 9 > cb2 - H * (ph ? 0.22 : 0.27) * q[1] - tw * 2.6; })) return;
+    win += rect(wx - 3.5, wy, 7, 9) + n4_e(wx, wy, 3.5, 3.5); wins.push({x: wx, y: wy + 3, b: h[2]}); });
+  roofs = roofs.filter(function (r) { return !inBlk(r.x, r.y - 6) && !inBlk(r.x, r.y - 14) && !twr.some(function (q) { return Math.abs(r.x - q[0]) < 20 * (ph ? 0.7 : 1); }) && !(Math.abs(r.x - gdx) < gdr * 1.1 && r.y - 14 > gdy - gdr * 1.3); });
   add(mid, 'a', bA, C.bA); add(mid, 'b', bB, C.bB); add(mid, 'c', dome, C.dome); add(mid, 'd', win, C.win); add(mid, 'e', tower, C.tower); add(mid, 'f', shade, C.shade); add(mid, 'g', door, C.door); add(mid, 'h', gold, C.gold);
   // the terrace: patterned parapet, tiled floor, a rug with cushions and a brass tray
   var par = rect(-10, pt, W + 20, fl - pt + 2), parIn = '', floor = rect(-10, fl, W + 20, H - fl + 10), nsh = '', joint = '', line = '';
   par += rect(-10, pt - 6, W + 20, 7);
   var ps = ph ? 26 : 34; for (x = ps / 2 - 10; x < W + 10; x += ps) { parIn += n4_star8(x, (pt + fl) / 2 + 2, (fl - pt) * 0.3); line += seg(x + ps / 2, pt + 4, x + ps / 2, fl - 2); }
   nsh += rect(-10, fl, W + 20, 8) + rect(-10, pt + 1, W + 20, 3);
-  for (var ry = fl + 10, rr = 0; ry < H + 10; rr++) { joint += seg(-10, ry, W + 10, ry); var stp = 50 + (ry - fl) * 0.8; for (var jx = (rr % 2) * stp * 0.5 - W * 0.2; jx < W * 1.2; jx += stp) joint += seg(jx, ry, jx + (jx - W / 2) * 0.06, ry + 12 + (ry - fl) * 0.2); ry += 12 + (ry - fl) * 0.2; }
+  var jS = []; for (var ry = fl + 10, rr = 0; ry < H + 10; rr++) { jS.push([-10, ry, W + 10, ry]); var stp = 50 + (ry - fl) * 0.8; for (var jx = (rr % 2) * stp * 0.5 - W * 0.2; jx < W * 1.2; jx += stp) jS.push([jx, ry, jx + (jx - W / 2) * 0.06, ry + 12 + (ry - fl) * 0.2]); ry += 12 + (ry - fl) * 0.2; }
   var S = ph ? 1 : Math.max(0.55, Math.min(1.1, H / 820)), rx = W * (ph ? 0.32 : 0.24), ry2 = H * (ph ? 0.945 : 0.935), rw = (ph ? 150 : 240) * S, rh = (ph ? 32 : 44) * S, rug = n4_pg([[rx - rw / 2 + 14, ry2 - rh / 2], [rx + rw / 2 - 14, ry2 - rh / 2], [rx + rw / 2 + 10, ry2 + rh / 2], [rx - rw / 2 - 10, ry2 + rh / 2]]), rugG = '';
   rugG += n4_pg([[rx - rw / 2 + 22, ry2 - rh / 2 + 5], [rx + rw / 2 - 22, ry2 - rh / 2 + 5], [rx + rw / 2 - 2, ry2 + rh / 2 - 5], [rx - rw / 2 + 2, ry2 + rh / 2 - 5]]);
   var rugIn = n4_pg([[rx - rw / 2 + 28, ry2 - rh / 2 + 9], [rx + rw / 2 - 28, ry2 - rh / 2 + 9], [rx + rw / 2 - 10, ry2 + rh / 2 - 9], [rx - rw / 2 + 10, ry2 + rh / 2 - 9]]);
@@ -305,6 +329,12 @@ SCENES.ramadan = function (W, H, dk, rnd) {
   var glasses = rect(tx + 6 * ts, ty - 26 * ts, 6 * ts, 10 * ts) + rect(tx + 15 * ts, ty - 25 * ts, 6 * ts, 10 * ts);
   var pot = n4_e(tx + 28 * ts, ty - 24 * ts, 8 * ts, 9 * ts) + n4_pg([[tx + 23 * ts, ty - 31 * ts], [tx + 33 * ts, ty - 31 * ts], [tx + 31 * ts, ty - 40 * ts], [tx + 25 * ts, ty - 40 * ts]]) + n4_pg([[tx + 35 * ts, ty - 28 * ts], [tx + 44 * ts, ty - 38 * ts], [tx + 45 * ts, ty - 36 * ts], [tx + 36 * ts, ty - 25 * ts]]) + n4_e(tx + 28 * ts, ty - 42 * ts, 4 * ts, 2.4 * ts);
   add(near, 'a', par, C.par); add(near, 'b', parIn, C.parIn); add(near, 'c', floor, C.floor); add(near, 'd', rug, C.rug); add(near, 'e', rugG + tray + pot, C.rugG); add(near, 'f', cushA + rugIn + bowl, C.cushA); add(near, 'g', cushB + dates + glasses + medal, C.cushB); add(near, 'h', nsh, C.nsh);
+  // the floor's tile joints stop at the rug, cushions, tray and pot, the palm's pot and the floor lantern (drawn over the floor)
+  var rugP = [[rx - rw / 2 + 14, ry2 - rh / 2], [rx + rw / 2 - 14, ry2 - rh / 2], [rx + rw / 2 + 10, ry2 + rh / 2 + 5 * S], [rx - rw / 2 - 10, ry2 + rh / 2 + 5 * S]], jOcc = [];
+  [-0.42, 0.44].forEach(function (q) { var cx = rx + q * rw, cy = ry2 - rh * 0.55; jOcc.push([cx - 28 * ccs, cy - 20 * ccs, cx + 28 * ccs, cy + 12 * ccs]); });
+  jOcc.push([tx - 45 * ts, ty - 45 * ts, tx + 46 * ts, ty + 4 * ts], [W * (ph ? 0.88 : 0.925) - 22, fl + H * 0.04 - 36, W * (ph ? 0.88 : 0.925) + 22, fl + H * 0.04 + 5]);
+  var fls = ph ? 0.85 : 1.15, flx = rx + rw * (ph ? 0.62 : 0.66), fly = ry2 + 4; jOcc.push([flx - 13 * fls, fly - 66 * fls, flx + 13 * fls, fly + 2]);
+  joint = n4_clipSegs(jS, function (x, y) { return n4_inPoly(rugP, x, y) || jOcc.some(function (b) { return x > b[0] - 1 && x < b[2] + 1 && y > b[1] - 1 && y < b[3] + 1; }); });
   stk(near, 's', joint, C.joint, 1); stk(near, 't', line + n4_e(tx, ty - 15 * ts, 38 * ts, 7.5 * ts) + rugDeco, C.parIn, 1.2);
   // a potted date palm on the right of the terrace
   var pX = W * (ph ? 0.88 : 0.925), pY = fl + H * 0.04, palm = '', pot2 = n4_pg([[pX - 18, pY - 30], [pX + 18, pY - 30], [pX + 13, pY + 4], [pX - 13, pY + 4]]) + rect(pX - 21, pY - 34, 42, 6);
@@ -392,8 +422,10 @@ SCENES.midautumn = function (W, H, dk, rnd) {
   // the near bank: grass, rocks, an osmanthus tree and a stone table with mooncakes and tea
   var bk = []; for (x = -20; x <= W + 20; x += 10) bk.push([x, by + Math.sin(x / 90 + 0.7) * H * 0.012 + Math.sin(x / 31) * 3 - Math.exp(-Math.pow((x - W * 0.9) / (W * 0.12), 2)) * H * 0.04 + Math.exp(-Math.pow((x - px) / (pw * 0.95), 4)) * H * (ph ? 0.1 : 0.13)]);
   var grass = below(bk, H + 10), rock = '', blade = '';
-  [[0.42, 1.2], [0.48, 0.8], [ph ? 0.5 : 0.29, 1], [0.66, 0.9]].forEach(function (q) { var rx = W * q[0], ryy = n4_yOn(bk, rx) + 6, s = (ph ? 10 : 16) * q[1]; rock += n4_pg([[rx - s * 1.4, ryy + s * 0.4], [rx - s * 1.1, ryy - s * 0.4], [rx - s * 0.2, ryy - s * 0.8], [rx + s * 0.9, ryy - s * 0.5], [rx + s * 1.5, ryy + s * 0.4]]); });
-  spread(0, by, W, H - by, ph ? 30 : 40, 20, rnd, 1).forEach(function (c) { if (c.q < 0.4 && c.y > n4_yOn(bk, c.x) + 6) blade += 'M' + PT(c.x - 3, c.y) + ' Q' + PT(c.x - 1, c.y - 6) + ' ' + PT(c.x - 4, c.y - 11) + ' M' + PT(c.x + 1, c.y) + ' Q' + PT(c.x + 2, c.y - 7) + ' ' + PT(c.x + 5, c.y - 10) + ' '; });
+  var bOcc = [];   // what stands on the grass: blades of grass (a stroke over every near fill) keep clear of it
+  [[0.42, 1.2], [0.48, 0.8], [ph ? 0.5 : 0.29, 1], [0.66, 0.9]].forEach(function (q) { var rx = W * q[0], ryy = n4_yOn(bk, rx) + 6, s = (ph ? 10 : 16) * q[1]; bOcc.push([rx - s * 1.4, ryy - s * 0.8, rx + s * 1.5, ryy + s * 0.4]); rock += n4_pg([[rx - s * 1.4, ryy + s * 0.4], [rx - s * 1.1, ryy - s * 0.4], [rx - s * 0.2, ryy - s * 0.8], [rx + s * 0.9, ryy - s * 0.5], [rx + s * 1.5, ryy + s * 0.4]]); });
+  var bl = []; spread(0, by, W, H - by, ph ? 30 : 40, 20, rnd, 1).forEach(function (c) { if (c.q < 0.4 && c.y > n4_yOn(bk, c.x) + 6) bl.push(c); });
+  var bladeAt = function (c) { blade += 'M' + PT(c.x - 3, c.y) + ' Q' + PT(c.x - 1, c.y - 6) + ' ' + PT(c.x - 4, c.y - 11) + ' M' + PT(c.x + 1, c.y) + ' Q' + PT(c.x + 2, c.y - 7) + ' ' + PT(c.x + 5, c.y - 10) + ' '; };
   var tX = W * (ph ? 0.92 : 0.9), tY = n4_yOn(bk, tX) + 10, ts = ph ? 0.7 : S, trunk = n4_pg([[tX - 14 * ts, tY], [tX - 10 * ts, tY - 70 * ts], [tX - 40 * ts, tY - 130 * ts], [tX - 34 * ts, tY - 134 * ts], [tX - 2 * ts, tY - 90 * ts], [tX + 20 * ts, tY - 150 * ts], [tX + 27 * ts, tY - 146 * ts], [tX + 10 * ts, tY - 70 * ts], [tX + 16 * ts, tY]]);
   var leaf = '', bloom = '', treeC = [];
   for (i = 0; i < 30; i++) { var a = hash(i + 5) * Math.PI * 2, d = hash(i + 9), cx = tX + Math.cos(a) * d * 90 * ts, cy = tY - 170 * ts + Math.sin(a) * d * 60 * ts, r = (22 + hash(i + 3) * 16) * ts; leaf += n4_c(cx, cy, r); treeC.push([cx, cy, r]); }
@@ -409,6 +441,8 @@ SCENES.midautumn = function (W, H, dk, rnd) {
   var pot = n4_e(sx + 24 * ss, sy - 46 * ss, 12 * ss, 10 * ss) + rect(sx + 20 * ss, sy - 59 * ss, 8 * ss, 4 * ss) + n4_c(sx + 24 * ss, sy - 60 * ss, 2.4 * ss) + n4_pg([[sx + 34 * ss, sy - 48 * ss], [sx + 46 * ss, sy - 56 * ss], [sx + 47 * ss, sy - 53 * ss], [sx + 35 * ss, sy - 43 * ss]]) + rect(sx + 39 * ss, sy - 44 * ss, 7 * ss, 6 * ss) + rect(sx + 6 * ss, sy - 43 * ss, 6 * ss, 5 * ss);
   stamp += 'M' + PT(sx + 13 * ss, sy - 50 * ss) + ' Q' + PT(sx + 8 * ss, sy - 46 * ss) + ' ' + PT(sx + 14 * ss, sy - 42 * ss) + ' ';
   add(near, 'a', grass, C.grass); add(near, 'b', rock + table, C.rock); add(near, 'c', trunk + brD, C.trunk); add(near, 'd', leaf, C.leaf); add(near, 'e', bloom, C.bloom); add(near, 'f', pot, dk ? '#5E8E80' : '#8CC4AC'); add(near, 'g', cake, C.cake); add(near, 'h', nsh, C.nsh);
+  bOcc.push([sx - 52 * ss, sy - 62 * ss, sx + 48 * ss, sy + 6 * ss], [tX - 40 * ts, tY - 150 * ts, tX + 27 * ts, tY]);
+  bl.forEach(function (c) { if (!bOcc.some(function (b) { return c.x + 6 > b[0] && c.x - 5 < b[2] && c.y > b[1] && c.y < b[3] + 2; })) bladeAt(c); });
   stk(near, 's', blade, C.blade, 1.2); stk(near, 't', stamp, dk ? '#8A5420' : '#A8641E', 1.1);
   if (ANIM) { ANIM.moon = moon; ANIM.ry0 = ry0; ANIM.by = by; ANIM.bells = bells; ANIM.plan = plan; ANIM.rs = rs; ANIM.trees = treeC; ANIM.C = C; ANIM.cakes = {x: sx, y: sy - 46 * ss, s: ss}; ANIM.pav = [px - pw * 0.75, rb - 130 * rs, px + pw * 0.75, pb + H * 0.06]; }
   else { var mr2 = moon[2], crat = ''; [[-0.35, -0.2, 0.22], [0.3, 0.25, 0.18], [0.1, -0.45, 0.12], [-0.2, 0.45, 0.14], [0.5, -0.15, 0.09]].forEach(function (q) { crat += n4_c(moon[0] + q[0] * mr2, moon[1] + q[1] * mr2, q[2] * mr2); });

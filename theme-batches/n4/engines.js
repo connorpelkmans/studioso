@@ -131,6 +131,10 @@ ENGINES.holi = function (A, v, dk) {
   var skyY = A.ft - 16, skyClip = new Path2D(); skyClip.rect(-20, -20, W + 40, skyY + 20);
   A.roofs.forEach(function (r) { var x = r[0], y = r[1], q = r[2], p = [[x - 18.5 * q, y], [x - 18.5 * q, y - 24.5 * q]]; for (var k = 0; k <= 20; k++) { var u = k / 20, a = Math.PI * u; p.push([x - Math.cos(a) * 14.6 * q * (1 - 0.15 * Math.pow(u * 2 - 1, 2)), y - 24 * q - Math.sin(a) * 15.6 * q - Math.pow(Math.sin(a), 6) * 6.4 * q]); } p.push([x + 18.5 * q, y - 24.5 * q], [x + 18.5 * q, y]);
     skyClip.moveTo(p[0][0], p[0][1]); p.forEach(function (pt) { skyClip.lineTo(pt[0], pt[1]); }); skyClip.closePath(); skyClip.rect(x - 1.6 * q, y - 52 * q, 3.2 * q, 6 * q); });
+  // the trees' trunks, limbs and back canopy (mid layer): the window glows (the first thing on canvas A) are wiped off them
+  // (one path per polygon, and all the circles in one path drawn the same way round, so overlaps never cancel out)
+  var treeOut = A.treeOcc.polys.map(function (P) { var q = new Path2D(); P.forEach(function (p, k) { if (k) q.lineTo(p[0], p[1]); else q.moveTo(p[0], p[1]); }); q.closePath(); return q; }), treeC = new Path2D();
+  A.treeOcc.circ.forEach(function (c) { if (c[3] < 0) return; treeC.moveTo(c[0] + c[2], c[1]); treeC.arc(c[0], c[1], c[2], 0, Math.PI * 2); }); treeOut.push(treeC);
   function throwAt(x, y, big, t0) { var c = Math.floor(Math.random() * 6); puffs.push({sky: big && y < A.ft, x: x, y: y, t0: t0, c: c, s: (ph ? 0.7 : 1) * (big ? (y < A.ft ? 1 : 0.55) * (2.2 + Math.random() * 1.4) : 0.9 + Math.random() * 0.5), life: big ? 5.5 : 4, vy: big ? 6 : 26, big: big});
     for (var k = 0; k < (big ? (y < A.ft ? 0 : 6) : 18); k++) { var a = -Math.PI / 2 + (Math.random() - 0.5) * 1.6; dots.push({x: x, y: y, vx: Math.cos(a) * (40 + Math.random() * 80), vy: Math.sin(a) * (80 + Math.random() * 90), t0: t0, c: c}); } }
   return {
@@ -143,7 +147,9 @@ ENGINES.holi = function (A, v, dk) {
     },
     draw: function (ca, cb, t, f) {
       var tt = t * f.s, T = t - T0;
-      if (dk) { ca.save(); ca.globalCompositeOperation = 'lighter'; A.wins.forEach(function (w, j) { n4_dot(ca, winG, w[0], w[1], w[2] * 1.3, 0.75 + 0.15 * flick(tt * 0.3, j)); }); ca.restore(); }
+      // window glows (kept off the tree trunks, which stand in front of the haveli)
+      if (dk) { ca.save(); ca.globalCompositeOperation = 'lighter'; A.wins.forEach(function (w, j) { n4_dot(ca, winG, w[0], w[1], w[2] * 1.3, 0.75 + 0.15 * flick(tt * 0.3, j)); });
+        ca.globalCompositeOperation = 'destination-out'; treeOut.forEach(function (q) { ca.fill(q); }); ca.restore(); }
       // drifting colour clouds (behind the trees and the haveli's front)
       ca.save(); ca.clip(skyClip, 'evenodd'); clouds.forEach(function (c) { if (c.low) return; var S = CL[c.c], s = c.s * (1 + 0.06 * Math.sin(tt * 0.4 + c.ph)); ca.globalAlpha = c.a; ca.drawImage(S, c.x - 80 * s, c.y + Math.sin(tt * 0.3 + c.ph) * 8 - 60 * s, 160 * s, 120 * s); }); ca.globalAlpha = 1;
       // the rainbow the wave settles into: an arc over the roof, behind the haveli
