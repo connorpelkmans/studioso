@@ -441,7 +441,7 @@ ENGINES.volcano = function (A, v, dk) {
       cb.restore();
       // palm crowns swaying over everything
       A.crowns.forEach(function (c, k) { var sw = Math.sin(tt * 0.8 + c.ph) * 0.05 + Math.sin(tt * 1.9 + c.ph * 2) * 0.015; cb.fillStyle = dk ? '#1E3A2A' : '#3E8A44';
-        [-2.9, -2.5, -2.05, -1.6, -1.15, -0.7, -0.25, 0.25, 2.85].forEach(function (a, m) { var aa = a + sw * (1 + m * 0.1), L = c.L * (0.85 + (m % 3) * 0.1), left = Math.cos(a) < 0; cb.save(); cb.translate(c.x, c.y); if (left) { cb.scale(-1, 1); aa = Math.PI - aa; } cb.rotate(aa); cb.fillStyle = m % 2 ? (dk ? '#1E3A2A' : '#3E8A44') : (dk ? '#284A34' : '#56A64E'); cb.fill(frondPath(L)); cb.restore(); });
+        [-2.9, -2.5, -2.05, -1.6, -1.15, -0.7, -0.25, 0.25, 2.85].forEach(function (a, m) { var aa = a + sw * (1 + m * 0.1), L = c.L * (0.85 + (m % 3) * 0.1), left = Math.cos(a) < 0;   /* which way a frond curls comes from where it grows, not its sway, so the top frond never flips side to side */ cb.save(); cb.translate(c.x, c.y); if (left) { cb.scale(-1, 1); aa = Math.PI - aa; } cb.rotate(aa); cb.fillStyle = m % 2 ? (dk ? '#1E3A2A' : '#3E8A44') : (dk ? '#284A34' : '#56A64E'); cb.fill(frondPath(L)); cb.restore(); });
         cb.fillStyle = dk ? '#3A2A22' : '#7A5432'; [[-5, 6], [4, 7], [0, 11]].forEach(function (q) { cb.beginPath(); cb.arc(c.x + q[0] * S, c.y + q[1] * S, 5 * S + 1, 0, 7); cb.fill(); }); });
       // at night the clouds near the summit glow orange from below
       if (dk) { cb.save(); cb.globalCompositeOperation = 'lighter'; n1_dot(cb, hotG, Cr[0] + 20 * S, Cr[1] - 70 * S, 140 * S, 0.22 + 0.06 * Math.sin(tt * 0.7), 0.5); cb.restore(); }
