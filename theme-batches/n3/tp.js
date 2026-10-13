@@ -1,4 +1,4 @@
-/* Theme Collections, New Theme Ideas batch n3 (Cozy Spots): greenhouse, pottery, campfire, aquarium, treehouse */
+/* Theme Collections, New Theme Ideas batch n3 (Cozy Spots): greenhouse, pottery, campfire, aquarium */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2), S15 = SOw(1.6);
@@ -349,85 +349,4 @@
     card: {id: "tp-aquarium", name: "Tank Window", desc: "Sunlit aqua water with rising bubbles, a clownfish in the corner and a reef along the bottom. Glowing deep blue at night."}
   });
 
-  /* ================= TREEHOUSE ================= */
-  TP_DATA.push({
-    theme: "treehouse",
-    pack: {name: "Treehouse Club", items: {
-      treehouse_house: `${rg("n3-th-cn", "#9AE07A", "#3E9A4A", .4, .3)}${lg("n3-th-wd", "#F2C08A", "#C8844E")}
-        <rect x="28" y="40" width="8" height="22" rx="2" fill="#8A5A3A" ${SO}/>
-        <circle cx="16" cy="24" r="13" fill="url(#n3-th-cn)" ${SO}/><circle cx="48" cy="22" r="13" fill="url(#n3-th-cn)" ${SO}/><circle cx="32" cy="15" r="13" fill="url(#n3-th-cn)" ${SO}/>
-        <rect x="18" y="38" width="30" height="4" rx="1.5" fill="#A8703E" ${S2}/>
-        <rect x="21" y="25" width="22" height="14" rx="1.5" fill="url(#n3-th-wd)" ${SO}/>
-        <path d="M17 26L32 15L47 26z" fill="#E0584A" ${SO}/>
-        <rect x="25" y="28" width="7" height="6" rx="1" fill="#FFE29A" ${SOw(1.4)}/><rect x="35" y="29" width="5" height="10" rx="2.5" fill="#8A5A3A" ${SOw(1.4)}/>
-        ${tube("M23 42V58M28 42V58", "#C8A070", 1.4, 3.4)}<path d="M23 46H28M23 50H28M23 54H28" stroke="#C8A070" stroke-width="1.6"/>
-        ${spark(57, 46, 3.6, "#F2C84A")}<circle cx="7" cy="44" r="1.6" fill="#7AC4E8"/>`,
-      treehouse_acorn: `${lg("n3-th-ac", "#F2C48A", "#C88A4E")}${lg("n3-th-cp", "#A8784A", "#6E4628")}
-        <path d="M14 30H50Q50 48 32 59Q14 48 14 30z" fill="url(#n3-th-ac)" ${SO}/>
-        <path d="M9 30Q9 14 32 14Q55 14 55 30Q55 34 50 34H14Q9 34 9 30z" fill="url(#n3-th-cp)" ${SO}/>
-        <path d="M14 24L20 18M20 28L28 18M28 28L36 18M36 28L44 18M44 28L50 22" stroke="#8A5A34" stroke-width="1.4" stroke-linecap="round" opacity=".6"/>
-        ${tube("M32 14Q32 7 37 5", "#8A5A3A", 2.6)}
-        <path d="M38 8C42 2 50 2 53 6C49 11 43 11 38 8z" fill="#8ACB6A" ${S2}/>
-        ${SHINE(20, 40, 2.4, 4, 15)}
-        ${EYES(26, 38, 42, 2.4)}${blush(21.5, 42.5, 46.6, 2.3, 1.5)}${smile(32, 45.6, 2.1, 1.8)}`,
-      treehouse_plane: `${lg("n3-th-pl", "#FFFFFF", "#DCE6F2")}
-        <path d="M6 54Q2 40 14 40Q24 40 20 50Q16 58 8 50" fill="none" stroke="#8AA6D8" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="2.4 3.2"/>
-        <path d="M59 10L8 30L28 34z" fill="url(#n3-th-pl)" ${SO}/><path d="M59 10L28 34L32 52z" fill="#E6EEF8" ${SO}/><path d="M28 34L32 52L24 38z" fill="#C8D4E6" ${SO}/>
-        <path d="M14 30L50 15" stroke="#B8C8E0" stroke-width="1.2" stroke-dasharray="2 2"/>
-        ${EYES(28, 35, 26, 1.9)}${blush(25.5, 37.5, 29.6, 1.8, 1.2)}<path d="M30 29q1.6 1.4 3.2 0" fill="none" stroke="${O}" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M44 48a2.6 2.6 0 0 1 4.4-2.8a2.6 2.6 0 0 1 4.4 2.8q-.8 2.8-4.4 5q-3.6-2.2-4.4-5z" fill="#FF8FA8" ${SOw(1.3)}/>`,
-      treehouse_cans: `${lg("n3-th-cn1", "#E8EEF4", "#9AA6B4", 1, 0)}
-        <path d="M18 30Q22 6 32 16Q42 6 46 30" fill="none" stroke="#C8A070" stroke-width="1.8" stroke-linecap="round"/>
-        <rect x="6" y="30" width="20" height="26" rx="3" fill="url(#n3-th-cn1)" ${SO}/><rect x="6" y="37" width="20" height="10" fill="#4FA0E8" ${S2}/>
-        <rect x="38" y="30" width="20" height="26" rx="3" fill="url(#n3-th-cn1)" ${SO}/><rect x="38" y="37" width="20" height="10" fill="#E8504A" ${S2}/>
-        ${EYES(12.5, 19.5, 41, 1.8)}<path d="M14.4 44q1.6 1.4 3.2 0" fill="none" stroke="${O}" stroke-width="1.5" stroke-linecap="round"/>
-        ${EYES(44.5, 51.5, 41, 1.8)}<ellipse cx="48" cy="44.6" rx="1.6" ry="1.8" fill="${O}"/>
-        <path d="M27 16a2.4 2.4 0 0 1 5-1a2.4 2.4 0 0 1 5 1q-1 3-5 5.4q-4-2.4-5-5.4z" fill="#FF8FA8" ${SOw(1.3)}/>
-        <path d="M30 26q2-2 4 0M28 30q4-3 8 0" fill="none" stroke="#8AA6D8" stroke-width="1.4" stroke-linecap="round"/>`,
-      treehouse_tire: `${lg("n3-th-br", "#A8784A", "#7A4E2C")}
-        <rect x="2" y="4" width="60" height="9" rx="4.5" fill="url(#n3-th-br)" ${SO}/>
-        <path d="M24 12L22 32M40 12L42 32" stroke="${O}" stroke-width="4" stroke-linecap="round"/><path d="M24 12L22 32M40 12L42 32" stroke="#D8B884" stroke-width="2" stroke-linecap="round"/>
-        <path d="M32 26A17 15 0 1 1 31.9 26z M32 35A8 7 0 1 0 32.1 35z" fill="#3A3A46" ${SO} fill-rule="evenodd"/>
-        <path d="M19 37Q20 31 26 29" fill="none" stroke="#7A7A8A" stroke-width="2.4" stroke-linecap="round"/>
-        ${EYES(26, 38, 50, 2)}<path d="M30 53q2 1.8 4 0" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>${blush(22, 42, 53, 1.8, 1.2)}
-        <path d="M54 22C56 17 61 17 62 19C61 23 57 24 54 22z" fill="#8ACB6A" ${S2}/>`,
-      treehouse_leaf: `${lg("n3-th-lf", "#B8E07A", "#4E9A3A", .2, 1)}
-        ${tube("M32 62V50", "#7A5A2E", 2.6)}
-        <path d="M32 52C24 52 20 46 22 42C14 44 10 38 14 34C8 32 8 24 14 22C10 16 16 10 22 14C22 6 30 4 32 8C34 4 42 6 42 14C48 10 54 16 50 22C56 24 56 32 50 34C54 38 50 44 42 42C44 46 40 52 32 52z" fill="url(#n3-th-lf)" ${SO}/>
-        <path d="M32 50V12M32 40L22 32M32 40L42 32M32 28L24 20M32 28L40 20" fill="none" stroke="#E2F6C0" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>
-        ${EYES(26.5, 37.5, 33, 2.3)}${blush(22.5, 41.5, 37.5, 2.2, 1.4)}${smile(32, 36.6, 2, 1.8)}
-        ${spark(56, 8, 3.4, "#F2C84A")}`,
-      treehouse_bird: `${rg("n3-th-bd", "#9ACCF8", "#3E7ACC", .38, .3)}
-        <path d="M12 32L3 26L5 36z" fill="#3E7ACC" ${S2}/>
-        <ellipse cx="30" cy="36" rx="20" ry="17" fill="url(#n3-th-bd)" ${SO}/>
-        <path d="M34 40Q34 52 30 52Q46 52 48 40z" fill="#FFE2CC"/>
-        <circle cx="40" cy="24" r="12" fill="url(#n3-th-bd)" ${SO}/>
-        <path d="M51 23L59 26L51 29z" fill="#F2A23A" ${S2}/>
-        <path d="M18 36Q24 26 32 36Q26 44 18 36z" fill="#2E64B0" ${S2}/>
-        <path d="M36 13Q38 7 42 10" fill="none" stroke="${O}" stroke-width="3.6" stroke-linecap="round"/><path d="M36 13Q38 7 42 10" fill="none" stroke="#3E7ACC" stroke-width="1.6" stroke-linecap="round"/>
-        ${EYES(38, 46, 23, 2.1)}${blush(35, 49.5, 28, 1.9, 1.2)}
-        <path d="M26 53V58M34 53V58" stroke="#E8A040" stroke-width="2.4" stroke-linecap="round"/>`,
-      treehouse_sign: `${lg("n3-th-sg", "#E8B67A", "#B8804A")}
-        <rect x="29" y="40" width="6" height="22" rx="2" fill="#8A5A3A" ${SO}/>
-        <path d="M6 12H54L60 25L54 38H6z" fill="url(#n3-th-sg)" ${SO}/>
-        <path d="M8 20H54M8 30H56" stroke="#9A6A3A" stroke-width="1" opacity=".5"/><circle cx="11" cy="16" r="1.3" fill="#6A4428"/><circle cx="11" cy="34" r="1.3" fill="#6A4428"/>
-        ${T("STUDY", 32, 23.6, 8.6, "#3E2A1A", 30)}${T("CLUB", 32, 33.8, 8.6, "#3E2A1A", 24)}
-        <path d="M52 8C54 3 60 2 62 5C60 9 55 10 52 8z" fill="#8ACB6A" ${S2}/>${spark(8, 50, 3.4, "#F2C84A")}<circle cx="52" cy="50" r="1.6" fill="#FF8FA8"/>`
-    }},
-    pins: [
-      {id: "tp-treehouse-acorn", name: "Acorn Pin", kind: "badge", desc: "A polished little acorn with a crosshatched cap.",
-        svg: `<svg viewBox="0 0 30 30"><defs><linearGradient id="n3-thp-a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F6CC92"/><stop offset="1" stop-color="#C08448"/></linearGradient></defs>
-          <path d="M7.5 14H22.5Q22.5 23 15 28Q7.5 23 7.5 14z" fill="url(#n3-thp-a)" stroke="#2B2233" stroke-width="1.3" stroke-linejoin="round"/>
-          <path d="M5 14Q5 6 15 6Q25 6 25 14Q25 16 22.6 16H7.4Q5 16 5 14z" fill="#8A5A34" stroke="#2B2233" stroke-width="1.3" stroke-linejoin="round"/>
-          <path d="M8 12L11 9M11 14L15 9M15 14L19 9M19 14L22 11" stroke="#6A4022" stroke-width=".8" stroke-linecap="round"/>
-          <path d="M15 6Q15 3 17.6 2" fill="none" stroke="#2B2233" stroke-width="1.6" stroke-linecap="round"/><ellipse cx="11" cy="19" rx="1.2" ry="2.4" fill="#fff" opacity=".55"/></svg>`},
-      {id: "tp-treehouse-lights", name: "Fairy Light Washi", kind: "tape", desc: "Leafy green washi strung with tiny colored fairy lights.",
-        svg: `<svg viewBox="0 0 86 26"><path d="${tapeEdge}" fill="#9CCB74" opacity=".92"/>
-          <path d="M4 6Q24 16 43 6Q62 16 82 6" fill="none" stroke="#4A6A34" stroke-width=".9"/>
-          ${[[10, 9.6, "#FF7A8A"], [18, 12.2, "#FFD25A"], [26, 12.6, "#7AD8FF"], [34, 10.2, "#C9A0FF"], [52, 10.2, "#FF7A8A"], [60, 12.6, "#FFD25A"], [68, 12.2, "#7AD8FF"], [76, 9.6, "#9AE07A"]].map(([x, y, c]) => `<circle cx="${x}" cy="${y + 3}" r="3.6" fill="${c}" opacity=".35"/><ellipse cx="${x}" cy="${y + 3}" rx="1.7" ry="2.3" fill="${c}"/><rect x="${x - 1}" y="${y}" width="2" height="1.6" fill="#4A6A34"/>`).join("")}
-          <path d="M14 20C16 17 20 17 21 19C19 21 16 22 14 20zM44 21C46 18 50 18 51 20C49 22 46 23 44 21zM72 20C74 17 78 17 79 19C77 21 74 22 72 20z" fill="#5A9A3A"/>
-          <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".4"/></svg>`}
-    ],
-    card: {id: "tp-treehouse", name: "Clubhouse Plank", desc: "Honey wood planks with fairy lights strung along the top and an oak leaf and acorn in the corner. Starlit at night."}
-  });
 })();

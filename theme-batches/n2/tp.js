@@ -1,4 +1,4 @@
-/* Theme Collections, new theme ideas batch n2: mushrooms, sunflowers, cloudkingdom, nighttrain, ramen */
+/* Theme Collections, new theme ideas batch n2: mushrooms, sunflowers, nighttrain, ramen */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2), S15 = SOw(1.6);
@@ -142,58 +142,6 @@
           <path d="M5 3H81" stroke="#fff" stroke-width="1" opacity=".35"/></svg>`}
     ],
     card: {id: "tp-sunflowers", name: "Field Notes", desc: "Sunny cream paper with a sunflower peeking in and a row of blooms along the bottom. Twilight blue in dark mode."}
-  });
-
-  /* ================= CLOUD KINGDOM ================= */
-  TP_DATA.push({
-    theme: "cloudkingdom",
-    pack: {name: "Sky Isles", items: {
-      cloudkingdom_island: `${lg("n2-ck-r", "#D8B496", "#A8826A")}${lg("n2-ck-w", "#BFE6FF", "#7FC4F0")}
-        <path d="M10 28Q20 62 32 58Q46 56 54 28z" fill="url(#n2-ck-r)" ${SO}/><path d="M20 38H30M28 46H40M34 36H44" stroke="#8A6A54" stroke-width="1.8" stroke-linecap="round"/>
-        <path d="M50 29V58" stroke="${O}" stroke-width="6.4" stroke-linecap="round"/><path d="M50 29V58" stroke="url(#n2-ck-w)" stroke-width="3.6" stroke-linecap="round"/>
-        <ellipse cx="32" cy="28" rx="25" ry="6" fill="#7FD06E" ${SO}/>
-        <path d="M22 26V16" stroke="${O}" stroke-width="5" stroke-linecap="round"/><path d="M22 26V16" stroke="#8A6040" stroke-width="2.4" stroke-linecap="round"/><circle cx="22" cy="12" r="8" fill="#5AB860" ${SO}/>
-        <path d="M34 26V18h10V26z" fill="#FFF6EA" ${S15}/><path d="M32 19L39 12L46 19z" fill="#F07A6A" ${S15}/><rect x="37.4" y="21" width="3.2" height="5" rx="1" fill="#8A5A44"/>
-        ${spark(54, 8, 4, "#FFD86B")}<circle cx="8" cy="12" r="1.6" fill="#B9A0F0"/>`,
-      cloudkingdom_cloud: `${lg("n2-ck-c", "#FFFFFF", "#DCE4FA")}
-        <path d="M14 48C6 48 4 38 11 35C9 25 20 20 26 25C29 15 45 14 47 25C56 23 61 33 55 39C61 44 56 50 50 48z" fill="url(#n2-ck-c)" ${SO}/>
-        ${EYES(26, 40, 36, 2.4)}${blush(22, 44, 41, 2.6, 1.6)}${smile(33, 40.6, 2.2, 1.8)}
-        <path d="M22 54l-2 5M32 54l-2 5M42 54l-2 5" stroke="#7FC4F0" stroke-width="2.4" stroke-linecap="round"/>${spark(54, 12, 3.6, "#FFD86B")}`,
-      cloudkingdom_kite: `<path d="M32 4L54 26L32 50L10 26z" fill="#FF8FA8" ${SO}/><path d="M32 4L32 50M10 26H54" stroke="${O}" stroke-width="1.6"/>
-        <path d="M32 4L54 26H32z" fill="#FFD86B"/><path d="M10 26L32 50V26z" fill="#8FD8FF"/><path d="M32 4L54 26L32 50L10 26z" fill="none" ${SO}/>
-        <path d="M32 50Q28 56 34 58Q40 60 36 63" fill="none" stroke="${O}" stroke-width="1.4"/><path d="M28 55l-4-2v5zM40 60l4-2v5z" fill="#B9A0F0" ${SOw(1.2)}/>
-        <circle cx="29" cy="24" r="2" fill="${O}"/><circle cx="35" cy="24" r="2" fill="${O}"/>${blush(26.5, 37.5, 29, 1.8, 1.2)}${smile(32, 28.6, 1.6, 1.5)}`,
-      cloudkingdom_rainbow: `${["#FF6F7F", "#FFA552", "#FFD84A", "#6FCF6A", "#5AB8F0", "#B07AE8"].map((c, i) => `<path d="M${8 + i * 3.4} 46A${24 - i * 3.4} ${24 - i * 3.4} 0 0 1 ${56 - i * 3.4} 46" fill="none" stroke="${c}" stroke-width="3.6"/>`).join("")}
-        <path d="M8 46A24 24 0 0 1 56 46M28.4 46A3.6 3.6 0 0 1 35.6 46" fill="none" stroke="${O}" stroke-width="1.5"/>
-        <path d="M4 52C0 52 0 45 5 44C5 38 13 37 15 41C19 38 25 42 23 47C26 49 24 53 20 53z" fill="#fff" ${SO}/><path d="M60 52C64 52 64 45 59 44C59 38 51 37 49 41C45 38 39 42 41 47C38 49 40 53 44 53z" fill="#fff" ${SO}/>
-        ${shut(10, 47, 1.5)}${shut(17, 47, 1.5)}${shut(47, 47, 1.5)}${shut(54, 47, 1.5)}${spark(32, 12, 3.6, "#FFD86B")}`,
-      cloudkingdom_castle: `${lg("n2-ck-ca", "#F6F0FF", "#D6CCF0")}
-        <path d="M6 54C2 54 2 47 8 46C8 40 16 40 18 44C22 40 30 44 28 49C32 50 30 55 26 55z" fill="#fff" ${SO}/>
-        <rect x="18" y="24" width="28" height="28" fill="url(#n2-ck-ca)" ${SO}/><rect x="12" y="18" width="10" height="34" fill="url(#n2-ck-ca)" ${SO}/><rect x="42" y="18" width="10" height="34" fill="url(#n2-ck-ca)" ${SO}/>
-        <path d="M10 19L17 6L24 19z" fill="#FF8FB8" ${S2}/><path d="M40 19L47 6L54 19z" fill="#FF8FB8" ${S2}/><path d="M24 25L32 12L40 25z" fill="#B9A0F0" ${S2}/>
-        <path d="M28 52V44a4 4 0 0 1 8 0V52z" fill="#8A6AC8" ${SOw(1.5)}/><circle cx="17" cy="30" r="2" fill="#FFD86B"/><circle cx="47" cy="30" r="2" fill="#FFD86B"/>
-        ${shut(29, 33, 1.6)}${shut(35, 33, 1.6)}${blush(27, 37.6, 37, 1.6, 1.1)}
-        <path d="M58 56C62 56 62 50 57 49C57 44 50 44 49 48C45 46 41 50 43 53z" fill="#fff" ${SO}/>${spark(30, 4, 3, "#FFD86B")}`,
-      cloudkingdom_drop: `${lg("n2-ck-d", "#CFEFFF", "#5AB8F0")}
-        <path d="M32 6C40 20 50 30 50 42C50 52 42 58 32 58C22 58 14 52 14 42C14 30 24 20 32 6z" fill="url(#n2-ck-d)" ${SO}/>
-        ${EYES(26, 38, 41, 2.4)}${blush(22.5, 41.5, 46, 2.4, 1.5)}${smile(32, 45.6, 2, 1.7)}<path d="M21 34Q21 24 28 17" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".85"/>${spark(54, 12, 3.6, "#FFD86B")}`,
-      cloudkingdom_plane: `<path d="M4 34L58 10L40 54L30 40z" fill="#FFFFFF" ${SO}/><path d="M30 40L58 10L24 44z" fill="#DCE4FA" ${SO}/><path d="M24 44L30 40L28 52z" fill="#C8D2F0" ${S2}/>
-        <path d="M6 50Q12 46 16 50M2 58Q10 54 16 58" fill="none" stroke="#8FB0F0" stroke-width="2" stroke-linecap="round" stroke-dasharray="3 3"/>
-        ${spark(52, 44, 4, "#FFD86B")}<circle cx="16" cy="16" r="1.8" fill="#FF8FB8"/>`,
-      cloudkingdom_badge: `${lg("n2-ck-bd", "#7A90F0", "#5A62D0")}
-        <path d="M10 48C2 48 2 36 10 34C8 24 20 18 26 24C30 14 46 14 48 24C56 22 62 32 56 38C62 42 58 48 52 48z" fill="url(#n2-ck-bd)" ${SO}/>
-        ${T("DREAM BIG", 32, 40, 10, "#FFFFFF", 38)}${spark(12, 12, 4, "#FFD86B")}${spark(54, 54, 3.4, "#FF8FB8")}<circle cx="50" cy="12" r="1.6" fill="#B9A0F0"/>`
-    }},
-    pins: [
-      {id: "tp-cloudkingdom-cloud", name: "Cloud Pin", kind: "badge", desc: "A fluffy little cloud with a sleepy smile.",
-        svg: `<svg viewBox="0 0 30 30"><path d="M7 22C3 22 2.4 17 6 16C5.4 11 11 9 13.4 12C15 7 22.6 7.4 23 12.6C27 12.4 28.6 17.6 25.4 19.6C27 21.6 25.4 22.6 23.4 22z" fill="#FFFFFF" stroke="#5A62A0" stroke-width="1.2" stroke-linejoin="round"/>
-          <path d="M11.4 17q1.2 1 2.4 0M17.4 17q1.2 1 2.4 0" fill="none" stroke="#2B2233" stroke-width="1" stroke-linecap="round"/><ellipse cx="10" cy="19" rx="1.3" ry=".8" fill="#FF8FA8"/><ellipse cx="21.2" cy="19" rx="1.3" ry=".8" fill="#FF8FA8"/></svg>`},
-      {id: "tp-cloudkingdom-rainbow", name: "Rainbow Washi", kind: "tape", desc: "Pastel rainbow stripes with little white clouds.",
-        svg: `<svg viewBox="0 0 86 26"><path d="${tapeEdge}" fill="#FFFFFF" opacity=".5"/>
-          ${["#FF9AA8", "#FFC08A", "#FFE69A", "#A8E6A0", "#9AD0FF", "#C8B0F8"].map((c, i) => `<rect x="4" y="${2 + i * 3.7}" width="79" height="3.8" fill="${c}" opacity=".85"/>`).join("")}
-          ${[16, 46, 72].map(x => `<path d="M${x - 7} 16C${x - 9} 16 ${x - 9} 12 ${x - 6} 12C${x - 6} 9 ${x - 1} 8 ${x} 10C${x + 2} 7 ${x + 7} 8 ${x + 7} 12C${x + 10} 12 ${x + 10} 16 ${x + 7} 16z" fill="#fff"/>`).join("")}</svg>`}
-    ],
-    card: {id: "tp-cloudkingdom", name: "Cloud Paper", desc: "Soft sky paper with a floating island in the corner and puffy clouds drifting below. Lavender night in dark mode."}
   });
 
   /* ================= NIGHT TRAIN ================= */

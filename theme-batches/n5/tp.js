@@ -1,4 +1,4 @@
-/* Theme Collections, batch n5: pride, graduation, birthday, geology, languages */
+/* Theme Collections, batch n5: pride, graduation, birthday, geology */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2), S15 = SOw(1.6);
@@ -217,42 +217,4 @@
     card: {id: "tp-geology", name: "Rock Strata", desc: "Pale lavender stone with layered strata along the bottom and a crystal cluster in the corner. Glowing cave purple in dark mode."}
   });
 
-  /* ================= POSTCARD PLAZA ================= */
-  const bub = (txt, c, w = 40) => `<path d="M8 10H56Q60 10 60 14V38Q60 42 56 42H26L14 54L17 42H8Q4 42 4 38V14Q4 10 8 10z" fill="${c}" ${SO}/>${T(txt, 32, 31, 13, "#2B2233", w)}`;
-  TP_DATA.push({
-    theme: "languages",
-    pack: {name: "Hello World", items: {
-      languages_hello: `${bub("Hello!", "#FFFFFF")}<path d="M50 50C50 47 53 46 54 48C55 46 58 47 58 50C58 53 54 55 54 56C54 55 50 53 50 50z" fill="#E8505B" ${SOw(1.3)}/>${spark(58, 6, 3.6, "#F2B83A")}`,
-      languages_hola: `${bub("Hola!", "#FFE08A", 34)}${spark(8, 56, 3.6, "#E8505B")}<circle cx="58" cy="52" r="2" fill="#3E7A70"/>`,
-      languages_ciao: `${bub("Ciao!", "#C8EEDD", 34)}${spark(56, 54, 3.6, "#F2B83A")}<circle cx="6" cy="6" r="2" fill="#E8505B"/>`,
-      languages_stamp: `${lg("n5-ls-i", "#9FD4EC", "#5AA8CC")}
-        <path d="${(() => { let d = ""; const pts = []; for (let i = 0; i <= 8; i++) pts.push([10 + i * 5.5, 6]); for (let i = 1; i <= 9; i++) pts.push([54, 6 + i * 5.8]); for (let i = 1; i <= 8; i++) pts.push([54 - i * 5.5, 58]); for (let i = 1; i < 9; i++) pts.push([10, 58 - i * 5.8]); pts.forEach((p, i) => { d += (i ? "L" : "M") + f1(p[0]) + " " + f1(p[1]); if (i < pts.length - 1) { const q = pts[i + 1], mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2, nx = q[1] - p[1], ny = p[0] - q[0], l = Math.hypot(nx, ny) || 1; d += `Q${f1(mx - nx / l * 2.2)} ${f1(my - ny / l * 2.2)} ${f1(q[0])} ${f1(q[1])}`; } }); return d + "z"; })()}" fill="#FFFFFF" ${SO}/>
-        <rect x="16" y="12" width="32" height="40" rx="2" fill="url(#n5-ls-i)" ${S2}/><path d="M16 40Q24 32 32 38T48 34V52H16z" fill="#7FC07A"/><circle cx="40" cy="20" r="4" fill="#FFE08A"/>
-        ${face(32, 26, 5.4, 2)}${T("50", 22, 49, 7, "#FFFFFF")}`,
-      languages_postcard: `<g transform="rotate(-8 32 32)"><rect x="4" y="14" width="56" height="36" rx="3" fill="#FFFBF2" ${SO}/><path d="M32 18V46" stroke="#C8B8A8" stroke-width="1.4"/>
-        <path d="M36 30H54M36 36H54M36 42H50" stroke="#C8B8A8" stroke-width="1.6" stroke-linecap="round"/><rect x="45" y="17" width="10" height="11" rx="1" fill="#E8505B" ${SOw(1.3)}/><path d="M50 25C47.6 23 47.6 20.4 49.2 20.4C49.8 20.4 50 20.8 50 21.2C50 20.8 50.2 20.4 50.8 20.4C52.4 20.4 52.4 23 50 25z" fill="#fff"/>
-        <path d="M8 40C12 36 14 44 18 40S24 36 28 40" fill="none" stroke="#3E7A70" stroke-width="1.8" stroke-linecap="round"/>${EYES(14, 24, 28, 2)}${smile(19, 31, 1.8, 1.6)}</g>${spark(58, 56, 3.4, "#F2B83A")}`,
-      languages_globe: `${rg("n5-lg-o", "#A8DCF8", "#3A8AC8")}
-        <circle cx="32" cy="30" r="22" fill="url(#n5-lg-o)" ${SO}/><path d="M16 18C22 16 24 22 22 26C20 30 24 34 22 40C16 36 12 26 16 18zM34 10C40 12 46 16 44 22C40 22 38 26 40 30C44 32 48 30 52 34C50 42 44 48 38 50C38 44 34 40 36 34C32 30 28 28 30 22C32 18 30 12 34 10z" fill="#7CC07A" ${SOw(1.6)}/>
-        ${face(30, 31, 6.4, 2.2)}<path d="M18 54H46" stroke="${O}" stroke-width="4.4" stroke-linecap="round"/><path d="M18 54H46" stroke="#D2704E" stroke-width="2" stroke-linecap="round"/><path d="M32 52V56" stroke="${O}" stroke-width="2"/><ellipse cx="22" cy="18" rx="4" ry="2.4" fill="#fff" opacity=".5" transform="rotate(-35 22 18)"/>`,
-      languages_parrot: `${lg("n5-lp-b", "#7CE09A", "#2EA05A")}
-        <path d="M18 60C14 48 16 34 24 26C30 20 42 20 46 28C50 36 46 44 40 48C36 52 32 58 32 62z" fill="url(#n5-lp-b)" ${SO}/><path d="M24 26C26 14 36 8 44 12C48 16 46 24 46 28C42 22 32 20 24 26z" fill="#E8505B" ${S2}/>
-        <path d="M44 30C52 30 56 36 54 42C52 40 48 38 46 40z" fill="#FFD45A" ${S2}/><path d="M46 40Q50 40 50 44" fill="none" stroke="${O}" stroke-width="1.6"/>
-        <circle cx="38" cy="30" r="5" fill="#fff" ${SOw(1.6)}/><circle cx="39" cy="30" r="2.6" fill="${O}"/><circle cx="40" cy="29" r=".9" fill="#fff"/><ellipse cx="33" cy="37" rx="2.6" ry="1.6" fill="#FF8FA8" opacity=".8"/>
-        <path d="M22 44Q16 50 20 56" fill="none" stroke="#3E7AE0" stroke-width="3" stroke-linecap="round"/><path d="M6 14H18Q20 14 20 16V22Q20 24 18 24H11L8 27L9 24H6Q4 24 4 22V16Q4 14 6 14z" fill="#fff" ${SOw(1.5)}/>${T("hi", 12, 21.6, 7, "#2B2233")}`,
-      languages_tram: `${lg("n5-lt-b", "#FF6A5E", "#C83A3A")}
-        <path d="M32 10V4M24 4H40" stroke="${O}" stroke-width="2" stroke-linecap="round"/><rect x="8" y="10" width="48" height="40" rx="8" fill="url(#n5-lt-b)" ${SO}/><rect x="8" y="34" width="48" height="16" rx="0" fill="#FFF6E0" ${S2}/><rect x="8" y="10" width="48" height="40" rx="8" fill="none" ${SO}/>
-        <rect x="14" y="16" width="36" height="14" rx="3" fill="#BFE6FA" ${S2}/>${EYES(25, 39, 23, 2.2)}${blush(20, 44, 27, 2, 1.3)}${smile(32, 26.6, 1.8, 1.6)}
-        <circle cx="16" cy="42" r="3" fill="#FFE08A" ${SOw(1.4)}/><circle cx="48" cy="42" r="3" fill="#FFE08A" ${SOw(1.4)}/><circle cx="20" cy="54" r="4" fill="#3A3450" ${S2}/><circle cx="44" cy="54" r="4" fill="#3A3450" ${S2}/>${T("5", 32, 46, 9, "#C83A3A")}`
-    }},
-    pins: [
-      {id: "tp-languages-stamp", name: "Postage Stamp Pin", kind: "badge", desc: "A tiny perforated stamp with a red heart.",
-        svg: `<svg viewBox="0 0 30 30"><path d="M5 3H25V27H5z" fill="#fff" stroke="#8A5A4A" stroke-width="1" stroke-dasharray="1.6 1.2"/><rect x="7.5" y="5.5" width="15" height="19" fill="#7FC4E0"/><path d="M15 21C9 17 9 11 12.4 11C13.8 11 14.6 12 15 13C15.4 12 16.2 11 17.6 11C21 11 21 17 15 21z" fill="#E8505B" stroke="#9A2A2A" stroke-width=".7"/>
-          <circle cx="22" cy="8" r="5" fill="none" stroke="#3A4A8A" stroke-width=".8" opacity=".7"/></svg>`},
-      {id: "tp-languages-airmail", name: "Airmail Washi", kind: "tape", desc: "Classic airmail stripes in red, white and blue.",
-        svg: `<svg viewBox="0 0 86 26"><defs><clipPath id="n5-lpa-c"><path d="${tapeEdge}"/></clipPath></defs><path d="${tapeEdge}" fill="#FFFFFF" opacity=".95"/><g clip-path="url(#n5-lpa-c)">${[...Array(14)].map((_, i) => `<path d="M${-6 + i * 7} 26L${2 + i * 7} 0H${6 + i * 7}L${-2 + i * 7} 26z" fill="${i % 2 ? "#3E6AC0" : "#E8505B"}" opacity=".9"/>`).join("")}<rect x="0" y="7" width="86" height="12" fill="#FFFFFF"/></g>
-          <text x="43" y="16.4" text-anchor="middle" font-family="Lexend,Arial,sans-serif" font-weight="800" font-size="7" fill="#3E6AC0">PAR AVION</text></svg>`}
-    ],
-    card: {id: "tp-languages", name: "Airmail Letter", desc: "Cream letter paper edged with red and blue airmail stripes, with a stamp and a postmark in the corner. Night-blue envelope in dark mode."}
-  });
 })();

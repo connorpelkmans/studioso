@@ -1,4 +1,4 @@
-/* Study Companions, batch n4: nightmarket, diadelosmuertos, holi, ramadan, midautumn */
+/* Study Companions, batch n4: diadelosmuertos, holi, ramadan, midautumn */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -6,113 +6,6 @@
   const f1 = v => Math.round(v * 10) / 10;
   const ring = (cx, cy, n, r, fn) => Array.from({length: n}, (_, i) => { const a = i / n * Math.PI * 2; return fn(f1(cx + Math.cos(a) * r), f1(cy + Math.sin(a) * r), a * 180 / Math.PI, i); }).join("");
   const star = (cx, cy, R, r, n) => { let d = ""; for (let i = 0; i < n * 2; i++) { const a = -Math.PI / 2 + i * Math.PI / n, q = i % 2 ? r : R; d += (i ? "L" : "M") + f1(cx + q * Math.cos(a)) + " " + f1(cy + q * Math.sin(a)); } return d + "Z"; };
-
-  /* ================= Night Market ================= */
-  COMP_DATA.push({
-    theme: "nightmarket",
-    companions: [
-      {
-        id: "nightmarket-tai", name: "Tai", kind: "Taiyaki Fish", pose: "float", wearColor: "#E8483A",
-        bio: "Filled with red bean and good intentions.",
-        idle: ["finWiggle", "topBob", "bounce"], cheer: "hop",
-        parts: {
-          tail: {svg: `${LG("nightmarket-tai-t", [[0, "#F6C470"], [1, "#C8782E"]])}
-            <path d="M88 70L106 50Q111 48 110 54L104 72L110 90Q111 96 106 94L88 76Z" fill="url(#nightmarket-tai-t)" ${O}/>
-            <path d="M95 64L104 56M95 80L104 88" stroke="#B0602A" stroke-width="1.8" stroke-linecap="round"/>`, pivot: [90, 73]},
-          armL: {svg: `<path d="M46 98Q39 110 49 111Q56 107 55 98Z" fill="#E8A44A" ${O}/><path d="M49 101L48 107" stroke="#B8682A" stroke-width="1.3" stroke-linecap="round"/>`, pivot: [50, 99]},
-          armR: {svg: `<path d="M69 98Q70 110 79 108Q83 102 78 96Z" fill="#E8A44A" ${O}/><path d="M74 100L76 105" stroke="#B8682A" stroke-width="1.3" stroke-linecap="round"/>`, pivot: [73, 98]},
-          body: `${LG("nightmarket-tai-g", [[0, "#FFE0A0"], [0.55, "#F2B45E"], [1, "#D2822E"]], 0, 0, 0.3, 1)}
-            <path d="M14 72C14 50 34 38 56 40L80 44Q92 50 92 73Q92 96 80 102L56 106C34 108 14 94 14 72Z" fill="url(#nightmarket-tai-g)" ${O}/>
-            <path d="M60 46Q50 54 52 64M68 50Q60 58 62 68M60 100Q50 92 52 82M70 96Q62 90 64 80" fill="none" stroke="#C47A30" stroke-width="2" stroke-linecap="round" opacity=".7"/>
-            <path d="M76 56Q84 64 82 74Q80 86 72 92" fill="none" stroke="#B8682A" stroke-width="2.4" stroke-linecap="round"/>
-            <path d="M22 60Q26 50 36 47" fill="none" stroke="#FFF4D2" stroke-width="3.4" stroke-linecap="round"/><circle cx="20" cy="68" r="2" fill="#FFF4D2"/>
-            <path d="M84 60Q88 66 87 72" fill="none" stroke="#FFF0C8" stroke-width="2" stroke-linecap="round" opacity=".8"/>`,
-          top: {svg: `${LINE("M36 38Q30 30 36 24Q42 18 36 10", "#FFFFFF", 3)}${LINE("M48 36Q44 30 48 25", "#FFFFFF", 2.6)}`, pivot: [40, 40]}
-        },
-        eyes: {lx: 30, rx: 48, y: 70, r: 5, style: "sparkle", color: "#3A2014"},
-        mouth: {x: 39, y: 81, w: 3, color: "#3A2014"},
-        cheeks: {lx: 23, rx: 55, y: 79, w: 4.2, h: 2.6, color: "#FF8A7A"},
-        anchors: {top: [40, 42, 0.85], neck: [52, 98, 0.95], chest: [62, 90, 0.66], back: [80, 52, 0.8], hands: [60, 100, 0.85]},
-        lines: {
-          tap: ["Fresh off the griddle and ready to help!", "Warm, crispy and cheering you on!", "Red bean power, activate!", "You're doing great, one bite at a time!", "Every page is a little treat!", "Swim through it! You've got this!", "Golden on the outside, proud on the inside!", "Another stall, another win for you!"],
-          pet: ["Hehe! I'm all toasty now!", "Careful, I might crumble with joy!"],
-          hello: ["You're here! The market just lit up!", "Hi hi! Saved you the warmest taiyaki!"],
-          morning: ["Good morning! The griddle's already warm!", "Rise and shine! Breakfast treats await!"],
-          night: ["The lanterns are glowing. Rest soon?", "The stalls are closing up. Sleep sweet!"],
-          focus: ["Sizzling quietly beside you. Go go!", "Heads down, tails up! We've got this!"],
-          done: ["What a session! Perfectly golden!", "All done! Crispy, warm and wonderful!"],
-          task: ["DONE! Fresh off the griddle!", "Yum! That one was delicious!", "Checked off! Red bean high five!", "Woohoo! Another tasty win!"],
-          break: ["Snack break! You earned a treat!", "Stretch time! Wiggle those fins!"]
-        }
-      },
-      {
-        id: "nightmarket-finny", name: "Finny", kind: "Goldfish in a Bag", pose: "float", wearColor: "#5AB8E8",
-        bio: "Has a great view of the whole market.",
-        idle: ["finWiggle", "sway", "sparkle"], cheer: "spin",
-        parts: {
-          back: `${LG("nightmarket-finny-bag", [[0, "#F2FBFF", 0.95], [1, "#A8DCF2", 0.9]])}${LG("nightmarket-finny-w", [[0, "#9EDCF6"], [1, "#5AB4E2"]])}
-            <path d="M48 20Q60 26 72 20L70 14Q60 17 50 14Z" fill="#FF8FB3" ${O2}/><path d="M55 14Q60 4 65 14" fill="none" stroke="${INK}" stroke-width="5.6" stroke-linecap="round"/><path d="M55 14Q60 4 65 14" fill="none" stroke="#FF8FB3" stroke-width="3" stroke-linecap="round"/>
-            <path d="M49 21Q24 38 24 70Q24 108 60 108Q96 108 96 70Q96 38 71 21Z" fill="url(#nightmarket-finny-bag)" ${O}/>
-            <path d="M25.4 62Q60 54 94.6 62Q96 70 95 78Q92 106 60 106Q28 106 25 78Q24 70 25.4 62Z" fill="url(#nightmarket-finny-w)" opacity=".75"/>
-            <path d="M28 63Q60 56 92 63" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" opacity=".8"/>`,
-          tail: {svg: `<path d="M74 80L92 66Q96 72 90 80Q96 88 92 94Z" fill="#FFB07A" ${O}/><path d="M80 78L90 72M80 82L90 88" stroke="#F2602E" stroke-width="1.4" stroke-linecap="round" opacity=".6"/>`, pivot: [76, 80]},
-          body: `${RG("nightmarket-finny-g", [[0, "#FFE0B0"], [0.5, "#FF9A50"], [1, "#E8502A"]], 0.4, 0.35, 0.75)}
-            <path d="M34 80C34 66 50 60 64 64C76 68 80 74 78 80C80 86 76 92 64 96C50 100 34 94 34 80Z" fill="url(#nightmarket-finny-g)" ${O}/>
-            <path d="M52 64Q58 56 66 60Q62 64 60 66Z" fill="#FFB07A" ${OW(2)}/>
-            <path d="M54 94Q58 102 66 98Q62 94 60 93Z" fill="#FFB07A" ${OW(2)}/>
-            <path d="M40 74Q44 68 50 67" fill="none" stroke="#FFF2DA" stroke-width="2.6" stroke-linecap="round"/>`,
-          face: `<circle cx="84" cy="50" r="3" fill="#fff" opacity=".9"/><circle cx="80" cy="42" r="2" fill="#fff" opacity=".9"/><circle cx="86" cy="36" r="1.4" fill="#fff" opacity=".8"/>
-            <path d="M32 44Q28 54 29 62" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" opacity=".85"/>`
-        },
-        eyes: {lx: 46, rx: 60, y: 78, r: 4.4, style: "sparkle", color: "#3A1A14"},
-        mouth: {x: 53, y: 86.5, w: 2.6, color: "#3A1A14"},
-        cheeks: {lx: 40, rx: 66, y: 85, w: 3.6, h: 2.2, color: "#FF6A6A"},
-        anchors: {top: [60, 14, 0.8], neck: [60, 104, 0.9], chest: [72, 98, 0.6], back: [90, 50, 0.8], hands: [56, 100, 0.8]},
-        lines: {
-          tap: ["Blub! Hi there, superstar!", "I can see the whole market from here!", "Just keep swimming through those notes!", "You're making waves today!", "Bubble of encouragement for you! Blub!", "Round and round, and you're still shining!", "Best seat in the market, right next to you!", "Fin-tastic work so far!"],
-          pet: ["Blub blub! That tickles the bag!", "Hehe, careful, don't spill me!"],
-          hello: ["Blub! You're back! I waved my fins!", "Hi! I've been watching for you!"],
-          morning: ["Good morning! Fresh water, fresh start!", "Blub! The market's waking up with you!"],
-          night: ["The lanterns look so pretty. Sleep soon?", "Bubbles are getting slow. Bedtime?"],
-          focus: ["Floating quietly beside you. Blub.", "Calm water, calm mind. You've got this."],
-          done: ["Blub blub! What a splash of a session!", "Done! I did a happy loop for you!"],
-          task: ["BLUB! Done and done!", "Splash! That one's finished!", "Checked off! Happy fin flaps!", "Yes! You caught that one!"],
-          break: ["Bubble break! Sip some water!", "Swim around a little! Stretch time!"]
-        }
-      },
-      {
-        id: "nightmarket-shiny", name: "Shiny", kind: "Candy Apple", pose: "stand", wearColor: "#7AC86A",
-        bio: "Glossy, crunchy and a little bit sticky.",
-        idle: ["topBob", "sparkle", "sway"], cheer: "bounce",
-        parts: {
-          feet: `${LINE("M60 92V106", "#F2DFB8", 4)}<path d="M44 106H76Q78 112 72 112H48Q42 112 44 106Z" fill="#C98A56" ${O2}/>`,
-          armL: {svg: `<ellipse cx="30" cy="70" rx="5" ry="6.6" transform="rotate(30 30 70)" fill="#E8483A" ${O}/>`, pivot: [36, 66]},
-          armR: {svg: `<ellipse cx="90" cy="70" rx="5" ry="6.6" transform="rotate(-30 90 70)" fill="#E8483A" ${O}/>`, pivot: [84, 66]},
-          body: `${RG("nightmarket-shiny-g", [[0, "#FFB0A0"], [0.45, "#F2443A"], [1, "#B0182A"]], 0.36, 0.3, 0.75)}
-            <path d="M60 38C52 32 32 33 30 54C28 74 40 92 52 94Q60 92 68 94C80 92 92 74 90 54C88 33 68 32 60 38Z" fill="url(#nightmarket-shiny-g)" ${O}/>
-            <path d="M40 50Q42 42 50 40" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".9"/><circle cx="38" cy="58" r="2.2" fill="#fff" opacity=".9"/>
-            <path d="M36 82Q48 92 60 90Q72 92 84 82" fill="none" stroke="#FFC8C0" stroke-width="2" stroke-linecap="round" opacity=".6"/>
-            <path d="M82 46Q86 50 85 56" fill="none" stroke="#FFD0C8" stroke-width="2" stroke-linecap="round" opacity=".7"/>`,
-          top: {svg: `${LINE("M60 38Q59 30 62 25", "#8A5A2A", 2.6)}<path d="M62 28C66 20 76 19 80 23C76 30 68 32 62 28Z" fill="#7AC86A" ${O2}/><path d="M64 27Q71 24 77 23" fill="none" stroke="#4E9A44" stroke-width="1.4" stroke-linecap="round"/>`, pivot: [60, 38]}
-        },
-        eyes: {lx: 50, rx: 70, y: 62, r: 5, style: "sparkle", color: "#3A1418"},
-        mouth: {x: 60, y: 72, w: 3.2, color: "#3A1418"},
-        cheeks: {lx: 42, rx: 78, y: 70, w: 4.4, h: 2.8, color: "#FF8FA8"},
-        anchors: {top: [60, 38, 0.95], neck: [60, 88, 1], chest: [72, 82, 0.66], back: [86, 50, 0.8], hands: [60, 84, 0.86]},
-        lines: {
-          tap: ["Hi! I'm extra shiny today, just like you!", "Sweet work! Keep it crunchy!", "Glossy notes, happy brain!", "You make studying look delicious!", "A little sticky, a lot proud of you!", "Crunch through that chapter!", "Shine on, superstar!", "Sugar-coated cheers coming your way!"],
-          pet: ["Hehe! Now your hands are sticky!", "Aww, I'm blushing extra red!"],
-          hello: ["You're back! Shiny and ready!", "Hi hi! I polished myself just for you!"],
-          morning: ["Good morning! Fresh and crunchy!", "Rise and shine! Let's make today sweet!"],
-          night: ["Even candy apples need sleep. Rest soon?", "The market's glowing. Cozy dreams!"],
-          focus: ["Standing tall right beside you!", "Quiet, glossy support. You've got this!"],
-          done: ["What a sweet session! So proud!", "All done! That was candy-coated awesome!"],
-          task: ["CRUNCH! Done!", "Sweet! Checked off!", "That one's finished! Shine on!", "Yes! A glossy little victory!"],
-          break: ["Snack break! Something sweet?", "Stretch time! Wiggle that stick!"]
-        }
-      }
-    ]
-  });
 
   /* ================= Dia de los Muertos ================= */
   COMP_DATA.push({

@@ -1,4 +1,4 @@
-// ---- batch n2 engines: mushrooms, sunflowers, cloudkingdom, nighttrain, ramen
+// ---- batch n2 engines: mushrooms, sunflowers, nighttrain, ramen
 function n2_ease(u) { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); }
 function n2_env(T, a, b, c, d) { if (T < a || T > d) return 0; if (T < b) return n2_ease((T - a) / (b - a)); if (T <= c) return 1; return 1 - n2_ease((T - c) / (d - c)); }
 var n2_gc = null;
@@ -197,88 +197,6 @@ ENGINES.sunflowers = function (A, v, dk) {
 };
 UIC.sunflowers = {L: ['#4E7A2E', '#33531C', 'rgba(255,253,244,0.86)', '#2A2410', '#6A6248', '#C2561A', '#C2561A', '#E08A1A', '#FFFFFF'], D: ['#2F2F5E', '#1B1E40', 'rgba(24,26,56,0.80)', '#F6F2E4', '#BAB4CC', '#F6C84A', '#F6C84A', '#FFE08A', '#1E1A0A']};
 UIC.mushrooms ={L: ['#6E5A3E', '#4A3C28', 'rgba(255,253,246,0.86)', '#2A2418', '#6E6450', '#B8432F', '#B8432F', '#D2643C', '#FFFFFF'], D: ['#22304A', '#121A2E', 'rgba(18,24,44,0.80)', '#ECF4FA', '#A6B6CC', '#6FE0EC', '#6FE0EC', '#9CC4FF', '#0E1A2A']};
-
-// ---------- Cloud Kingdom: the cloud sea rolls, the islands bob, waterfalls mist into the clouds, paper kites drift on the wind.
-// Night: moonlight on the clouds and the little windows glow. Moment: a rainbow bridge builds itself plank by plank between two islands, and a kite flies across it.
-ENGINES.cloudkingdom = function (A, v, dk) {
-  var W = v.bw, H = v.bh, ph = !v.desk, S = ph ? 0.65 : 1, K = n2_islandCols(dk), sea = A.sea, i;
-  var ORDER = ['rock', 'dark', 'strata', 'grass', 'grassL', 'trunk', 'tree', 'treeD', 'chim', 'wall', 'roof', 'flag', 'door', 'win', 'fls'];
-  var isl = A.isl.map(function (P, i) { var b = P.box; return {P: P, ph: i * 2.1 + 0.5, amp: (ph ? 3 : 5) + i * 1.2, bob: 0, img: n2_sprite(b[2], b[3], 2, function (o) { o.translate(-b[0], -b[1]); ORDER.forEach(function (k) { if (P[k]) { o.fillStyle = K[k]; o.fill(new Path2D(P[k])); } });
-    var hl = o.createLinearGradient(b[0], 0, b[0] + b[2], 0); hl.addColorStop(0, 'rgba(255,255,255,0.18)'); hl.addColorStop(0.5, 'rgba(255,255,255,0)'); o.fillStyle = hl; o.fill(new Path2D(P.rock)); })}; });
-  var band = [], x; for (x = -240; x < W + 240; x += ph ? 60 : 90) band.push({x: x, y: sea + (Math.random() - 0.3) * 18, r: (ph ? 30 : 46) + Math.random() * (ph ? 18 : 26)});
-  var BW = Math.ceil((W + 480) / (ph ? 60 : 90)) * (ph ? 60 : 90);
-  var sunG = n2_rg(dk ? 'rgba(255,240,210,0.45)' : 'rgba(255,248,220,0.85)', [0.3, dk ? 0.18 : 0.4]), mistG = n2_rg(dk ? 'rgba(200,200,255,0.5)' : 'rgba(255,255,255,0.85)', [0.4, 0.5]), winG = n2_rg('rgba(255,210,130,0.7)', [0.3, 0.3]), sparkG = n2_rg('rgba(255,255,255,0.9)', [0.2, 0.4]);
-  var RB = dk ? ['#FF9AB0', '#FFC08A', '#FFE69A', '#A8F0A0', '#9AD8FF', '#A8B0FF', '#D8B0FF'] : ['#FF6F7F', '#FFA552', '#FFD84A', '#6FCF6A', '#5AB8F0', '#6F82E8', '#B07AE8'];
-  var kites = [{i: 0, dx: -130, dy: -190, cols: ['#FF8FA8', '#FFD86B', '#8FD8FF', '#FFB36B'], ph: 0}, {i: 1, dx: 110, dy: -150, cols: ['#9BE07A', '#FFFFFF', '#B9A0F0', '#FFE07A'], ph: 2}];
-  var birds = dk ? [] : [{x: -60, y: H * 0.22, sp: 22}], mom = null, trail = [], bal = {x: W * 0.62, y: H * (ph ? 0.86 : 0.85)};
-  var twk = []; for (i = 0; i < (ph ? 7 : 14); i++) twk.push({x: Math.random() * W, y: sea + H * (0.06 + Math.random() * 0.18), ph: Math.random() * 6.28, s: 0.6 + Math.random() * 0.5});
-  var balImg = n2_sprite(60, 92, 3, function (o) { o.translate(30, 34);
-    var cols = dk ? ['#FF9AB8', '#FFE9A8', '#9AD8FF', '#C8B0FF'] : ['#FF7F96', '#FFE07A', '#7FC8F8', '#B49AF0'];
-    for (var k = 0; k < 6; k++) { o.fillStyle = cols[k % 4]; o.beginPath(); var a0 = -1 + k / 6 * 2, a1 = -1 + (k + 1) / 6 * 2; o.moveTo(0, 30); o.bezierCurveTo(a0 * 30, 16, a0 * 34, -34, 0, -32); o.bezierCurveTo(a1 * 34, -34, a1 * 30, 16, 0, 30); o.fill(); }
-    o.save(); o.beginPath(); o.ellipse(0, -2, 28, 31, 0, 0, 7); o.clip(); o.fillStyle = 'rgba(255,255,255,0.28)'; o.beginPath(); o.ellipse(-10, -14, 8, 14, -0.3, 0, 7); o.fill(); o.restore();
-    o.strokeStyle = dk ? '#C8B8E8' : '#8A6A5A'; o.lineWidth = 1; o.beginPath(); o.moveTo(-9, 26); o.lineTo(-6, 42); o.moveTo(9, 26); o.lineTo(6, 42); o.moveTo(-3, 29); o.lineTo(-2, 42); o.moveTo(3, 29); o.lineTo(2, 42); o.stroke();
-    o.fillStyle = dk ? '#B8885A' : '#C8884A'; o.fill(new Path2D(rrect(-8, 41, 16, 11, 2.5))); o.fillStyle = dk ? '#8A5A3A' : '#A0663A'; o.fillRect(-8, 41, 16, 3);
-    n2_face(o, 0, 0, 16, 2, 0, 0, dk ? '#4A3A5A' : '#5A3A3A'); });
-  function anchor(k) { var I = isl[k.i], P = I.P; return P.wins.length ? [P.wins[0][0], P.wins[0][1] - 14 * S + I.bob] : [P.cx + P.w * 0.05, P.ty - P.w * 0.2 + I.bob]; }
-  function kite(c, x, y, s, t, cols, ph2, happy, tail) {
-    var rot = Math.sin(t * 0.9 + ph2) * 0.18; c.save(); c.translate(x, y); c.rotate(rot); c.scale(s, s);
-    if (tail) { c.strokeStyle = 'rgba(80,70,110,0.6)'; c.lineWidth = 1; c.beginPath(); c.moveTo(0, 22); for (var k = 1; k <= 10; k++) c.lineTo(Math.sin(t * 3 + k * 0.7 + ph2) * 6, 22 + k * 7); c.stroke(); for (k = 1; k <= 3; k++) { var bx = Math.sin(t * 3 + k * 2.3 + ph2) * 6, by = 22 + k * 20; c.fillStyle = cols[k % 4]; c.beginPath(); c.moveTo(bx, by); c.lineTo(bx - 5, by - 3); c.lineTo(bx - 5, by + 3); c.lineTo(bx + 5, by - 3); c.lineTo(bx + 5, by + 3); c.closePath(); c.fill(); } }
-    var q = [[0, -24], [17, -2], [0, 22], [-17, -2]];
-    for (var j = 0; j < 4; j++) { c.fillStyle = cols[j]; c.beginPath(); c.moveTo(0, -2); c.lineTo(q[j][0], q[j][1]); c.lineTo(q[(j + 1) % 4][0], q[(j + 1) % 4][1]); c.closePath(); c.fill(); }
-    c.strokeStyle = 'rgba(60,50,90,0.55)'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(0, -24); c.lineTo(0, 22); c.moveTo(-17, -2); c.lineTo(17, -2); c.stroke();
-    n2_face(c, 0, 0, 13, happy ? 2 : 0, t, ph2 + 3); c.restore(); }
-  function arc(u) { var L = isl[1], R = isl[0], p0 = [L.P.cx + L.P.w * 0.44, L.P.ty + L.bob - 3], p1 = [R.P.cx - R.P.w * 0.44, R.P.ty + R.bob - 3], cx = (p0[0] + p1[0]) / 2, cy = Math.min(p0[1], p1[1]) - Math.abs(p1[0] - p0[0]) * 0.26, a = 1 - u;
-    return [a * a * p0[0] + 2 * a * u * cx + u * u * p1[0], a * a * p0[1] + 2 * a * u * cy + u * u * p1[1], 2 * a * (cx - p0[0]) + 2 * u * (p1[0] - cx), 2 * a * (cy - p0[1]) + 2 * u * (p1[1] - cy)]; }
-  return {
-    step: function (dt, t, f) {
-      isl.forEach(function (I) { I.bob = Math.sin(t * f.s * 0.45 + I.ph) * I.amp; });
-      bal.x += dt * f.s * 7 * S; if (bal.x > W + 50) bal.x = -50;
-      birds.forEach(function (b) { b.x += b.sp * dt * f.s; if (b.x > W + 80) { b.x = -80; b.y = H * (0.12 + Math.random() * 0.2); } });
-      trail.forEach(function (p) { p.life -= dt; p.y += 10 * dt; }); trail = trail.filter(function (p) { return p.life > 0; });
-      if (mom && t - mom.t0 > 10) mom = null;
-    },
-    draw: function (ca, cb, t, f) {
-      var tt = t * f.s, T = mom ? t - mom.t0 : -1;
-      // sun or moon, twinkling stars
-      if (!dk) { var sx = W * (ph ? 0.3 : 0.32), sy = H * 0.17; n2_dot(ca, sunG, sx, sy, 150 * S, 1); var g = ca.createRadialGradient(sx - 8, sy - 8, 3, sx, sy, 34 * S); g.addColorStop(0, '#FFFDF0'); g.addColorStop(1, '#FFE6A8'); ca.fillStyle = g; ca.beginPath(); ca.arc(sx, sy, 32 * S, 0, 7); ca.fill(); n2_face(ca, sx, sy + 2, 28 * S, 2, tt, 1, '#8A6A3A'); }
-      else { var mx = W * (ph ? 0.32 : 0.34), my = H * (ph ? 0.17 : 0.16), mr = 30 * S; n2_dot(ca, sunG, mx, my, mr * 4, 1); var mg = ca.createRadialGradient(mx - 8, my - 8, 3, mx, my, mr); mg.addColorStop(0, '#FFFBEA'); mg.addColorStop(1, '#F2E2C2'); ca.fillStyle = mg; ca.beginPath(); ca.arc(mx, my, mr, 0, 7); ca.fill(); ca.fillStyle = 'rgba(200,180,200,0.4)'; ca.beginPath(); ca.arc(mx + mr * 0.4, my - mr * 0.35, mr * 0.14, 0, 7); ca.arc(mx - mr * 0.5, my + mr * 0.45, mr * 0.1, 0, 7); ca.fill(); n2_face(ca, mx, my + 3, mr * 0.9, 1, tt, 2, '#6A5A7A');
-        ca.fillStyle = '#FFF4DA'; for (i = 0; i < (ph ? 10 : 20); i++) { var a = 0.5 + 0.5 * Math.sin(tt * (0.7 + hash(i) * 1.4) + i * 2); ca.globalAlpha = 0.2 + 0.8 * a; n2_star(ca, hash(i * 5.3) * W, hash(i * 9.1) * (sea - H * 0.15), 1.5 + a * 3); } ca.globalAlpha = 1; }
-      birds.forEach(function (b) { ca.strokeStyle = 'rgba(70,80,120,0.6)'; ca.lineWidth = 1.6; ca.lineCap = 'round'; ca.beginPath(); for (var k = 0; k < 3; k++) { var x = b.x - k * 22 * S, y = b.y + k * 8 * S + Math.sin(tt * 0.8 + k) * 3, fl = Math.sin(tt * 7 + k) * 4 * S; ca.moveTo(x - 7 * S, y - fl); ca.quadraticCurveTo(x - 3 * S, y - 3 * S, x, y); ca.quadraticCurveTo(x + 3 * S, y - 3 * S, x + 7 * S, y - fl); } ca.stroke(); });
-      // the rolling cloud sea behind the front clouds
-      var off = (tt * 7) % BW;
-      ca.fillStyle = dk ? '#4E4688' : '#CDD2F0'; ca.beginPath(); band.forEach(function (p) { var x = ((p.x + off + 240) % BW) - 240; ca.moveTo(x + p.r * 0.9 + p.r * 0.05, p.y + p.r * 0.22); ca.arc(x + p.r * 0.05, p.y + p.r * 0.22, p.r * 0.9, 0, 7); }); ca.fill();
-      ca.fillStyle = dk ? '#6A5EA8' : '#F2F1FC'; ca.beginPath(); band.forEach(function (p) { var x = ((p.x + off + 240) % BW) - 240; ca.moveTo(x + p.r * 0.9, p.y); ca.arc(x, p.y, p.r * 0.9, 0, 7); }); ca.fill();
-      // waterfalls, then the islands
-      isl.forEach(function (I, k) { var P = I.P; if (!P.wf) return; var x0 = P.wf[0], y0 = P.wf[1] + I.bob, ww = (ph ? 7 : 11) * P.w / 240 + 3, dir = P.wf[0] > P.cx ? 1 : -1, y1 = sea + 30;
-        var g = ca.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, dk ? 'rgba(170,200,255,0.85)' : 'rgba(150,215,255,0.95)'); g.addColorStop(0.7, dk ? 'rgba(170,200,255,0.5)' : 'rgba(190,230,255,0.7)'); g.addColorStop(1, 'rgba(255,255,255,0)');
-        ca.fillStyle = g; ca.beginPath(); ca.moveTo(x0 - ww / 2, y0); ca.quadraticCurveTo(x0 + dir * ww * 1.4, y0 - 2, x0 + dir * ww * 1.3 + ww / 2, y0 + ww * 1.5); ca.lineTo(x0 + dir * ww * 1.3 + ww * 0.7, y1); ca.lineTo(x0 + dir * ww * 1.3 - ww * 0.7, y1); ca.lineTo(x0 + dir * ww * 1.3 - ww / 2, y0 + ww * 1.5); ca.closePath(); ca.fill();
-        ca.strokeStyle = 'rgba(255,255,255,0.85)'; ca.lineWidth = 1.4; ca.beginPath(); var L = y1 - y0 - ww * 1.5, xb = x0 + dir * ww * 1.3; for (var j = 0; j < 4; j++) { var lx = xb + (j - 1.5) * ww * 0.28; for (var m = 0; m < 3; m++) { var yy = y0 + ww * 1.5 + ((tt * 90 + j * 23 + m * L / 3) % L); ca.moveTo(lx, yy); ca.lineTo(lx, Math.min(y1, yy + 14)); } } ca.stroke();
-        for (j = 0; j < 4; j++) { var mph = tt * 1.3 + j * 1.7; n2_dot(ca, mistG, xb + Math.sin(mph) * ww * 2, sea + 4 - j * 3, (ph ? 16 : 26) * (0.8 + 0.3 * Math.sin(mph * 1.3)), 0.9); } });
-      isl.forEach(function (I) { var b = I.P.box; ca.drawImage(I.img, b[0], b[1] + I.bob, b[2], b[3]); });
-      // the balloon (in front of the cloud sea) and twinkles on the cloud tops
-      cb.fillStyle = dk ? 'rgba(255,240,255,0.9)' : 'rgba(226,220,250,0.95)'; twk.forEach(function (p) { var a = Math.max(0, Math.sin(tt * 1.4 * p.s + p.ph)); if (a > 0.05) { cb.globalAlpha = a; n2_star(cb, p.x, p.y, (2 + a * 3) * S * p.s * 1.6); } }); cb.globalAlpha = 1;
-      cb.save(); var bs = ph ? 0.75 : 1, bxp = bal.x, byp = bal.y + Math.sin(tt * 0.6) * 5 * S; cb.translate(bxp, byp); cb.rotate(Math.sin(tt * 0.5) * 0.04); cb.drawImage(balImg, -30 * bs, -34 * bs, 60 * bs, 92 * bs); cb.restore();
-      // windows glow at night
-      if (dk) { cb.save(); cb.globalCompositeOperation = 'lighter'; isl.forEach(function (I, k) { I.P.wins.forEach(function (w, n) { n2_dot(cb, winG, w[0], w[1] + I.bob, w[2] * 4, 0.75 + 0.25 * flick(tt * 0.4, n + k * 3)); }); }); cb.restore(); }
-      // kites on their strings
-      kites.forEach(function (k) { var a = anchor(k), kx = a[0] + k.dx * S + Math.sin(tt * 0.5 + k.ph) * 22 * S, ky = a[1] + k.dy * S + Math.sin(tt * 0.8 + k.ph) * 12 * S;
-        cb.strokeStyle = dk ? 'rgba(220,220,255,0.5)' : 'rgba(90,80,120,0.5)'; cb.lineWidth = 1; cb.beginPath(); cb.moveTo(a[0], a[1]); cb.quadraticCurveTo((a[0] + kx) / 2 + 10, (a[1] + ky) / 2 + 30 * S, kx, ky + 20 * S); cb.stroke();
-        kite(cb, kx, ky, S * 0.95, tt, k.cols, k.ph, !!mom, true); });
-      // the rainbow bridge, built plank by plank, and the kite that flies over it
-      if (mom) { var N = 28, al = n2_env(T, 0, 0.01, 8, 9.5), bw = (ph ? 2.8 : 4.2);
-        cb.save(); cb.globalAlpha = al; if (dk) cb.globalCompositeOperation = 'lighter';
-        for (var j = 0; j < N; j++) { var tj = T - (0.15 + j * 0.085); if (tj < 0) break; var pop = Math.min(1, tj / 0.25), u0 = j / N, u1 = (j + 1) / N - 0.004, A0 = arc(u0), A1 = arc(u1);
-          [A0, A1].forEach(function (q) { var l = Math.hypot(q[2], q[3]) || 1; q.nx = -q[3] / l; q.ny = q[2] / l; });
-          for (var bnd = 0; bnd < 7; bnd++) { var o0 = (bnd - 3.5) * bw * pop, o1 = o0 + bw * pop; cb.fillStyle = RB[bnd]; cb.beginPath(); cb.moveTo(A0[0] + A0.nx * o0, A0[1] + A0.ny * o0); cb.lineTo(A1[0] + A1.nx * o0, A1[1] + A1.ny * o0); cb.lineTo(A1[0] + A1.nx * o1, A1[1] + A1.ny * o1); cb.lineTo(A0[0] + A0.nx * o1, A0[1] + A0.ny * o1); cb.closePath(); cb.fill(); }
-          if (tj < 0.5) n2_dot(cb, sparkG, A1[0], A1[1], 18 * S * (1 - tj), 1 - tj * 2); }
-        cb.restore();
-        if (T > 2.7 && T < 6.6) { var u = n2_ease((T - 2.7) / 3.6), p = arc(u); trail.push({x: p[0], y: p[1] - 34 * S, life: 1.2}); kite(cb, p[0], p[1] - 34 * S, S * 1.15, tt * 2, ['#FF8FA8', '#FFD86B', '#8FD8FF', '#B9A0F0'], 1, true, false); }
-        cb.fillStyle = dk ? '#FFF4C2' : '#FFFFFF'; trail.forEach(function (q, n) { if (n % 2) return; cb.globalAlpha = q.life * 0.8; n2_star(cb, q.x + Math.sin(n) * 6, q.y + 10, 3 + q.life * 2); }); cb.globalAlpha = 1; }
-    },
-    finish: function (t) { if (!mom) { mom = {t0: t}; trail = []; } }
-  };
-};
-UIC.cloudkingdom = {L: ['#5B78C8', '#3E58A0', 'rgba(255,255,255,0.86)', '#1E2A48', '#5A6888', '#4A62D0', '#4A62D0', '#8A6AE0', '#FFFFFF'], D: ['#3A3474', '#1C1F4A', 'rgba(28,28,70,0.80)', '#F2EEFA', '#B8B0D8', '#FFB8D8', '#FFB8D8', '#C8B0FF', '#2A1A3A']};
 
 // ---------- Night Train: hills, trees, poles and towns slide past the window in layers, the carriage rocks, the lamp sways and the tea ripples.
 // Night: town lights stream by and the moon keeps pace. Moment: a tunnel dims everything, then the train runs out onto a long bridge over the sea at sunrise (moonrise).

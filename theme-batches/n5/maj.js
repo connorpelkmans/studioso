@@ -1,4 +1,4 @@
-/* New Theme Ideas, batch n5: pride, graduation, birthday, geology, languages */
+/* New Theme Ideas, batch n5: pride, graduation, birthday, geology */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const r1 = n => Math.round(n * 100) / 100;
@@ -86,24 +86,5 @@
         fxFall(W, H, n(14), "n5rock", d ? ["#5A4A6E", "#6A5A80"] : ["#9584AA", "#7E6C94"], {smin: 6, smax: 10, vmin: 1.6, vmax: 2.6}),
         fxTw(W, H, n(40), "sparkle", d ? ["#FFFFFF", "#E2C8FF", "#C8FAFF"] : ["#B58CF2", "#5CCFD8", "#F2B53A"], {smin: 3, smax: 7, glow: d ? 12 : 4}))},
     tag: "A crystal cave with layered rock walls, still pools, dripping stalactites, a sleepy bat and a geode waiting to crack open"
-  });
-
-  Object.assign(FX_SHAPES, {
-    n5bubble: {d: "M-10 -8.4H10Q12 -8.4 12 -6.4V2.6Q12 4.6 10 4.6H-1L-6.6 9.6L-5.4 4.6H-10Q-12 4.6 -12 2.6V-6.4Q-12 -8.4 -10 -8.4Z", detail: "M-6.4 -2H-3.4M-1.4 -2H1.6M3.6 -2H6.6", dstroke: true},
-    n5card: {d: "M-11 -7.4H11V7.4H-11Z", detail: "M1 -5.4V5.4M3.4 -2.4H8.6M3.4 0.6H8.6M3.4 3.6H7M-9 -5.4H-1.4V-0.6H-9Z", dstroke: true},
-    n5stamp: {d: "M-8.6 -10.4L-6.6 -9.4L-4.6 -10.4L-2.6 -9.4L-0.6 -10.4L1.4 -9.4L3.4 -10.4L5.4 -9.4L7.4 -10.4L8.6 -9.4V10.4L6.6 9.4L4.6 10.4L2.6 9.4L0.6 10.4L-1.4 9.4L-3.4 10.4L-5.4 9.4L-7.4 10.4L-8.6 9.4Z", detail: "M0 4.6C-4.6 1.4 -4.6 -3.6 -1.6 -3.6C-0.6 -3.6 0 -2.8 0 -2.2C0 -2.8 0.6 -3.6 1.6 -3.6C4.6 -3.6 4.6 1.4 0 4.6Z", dstroke: true}
-  });
-  MAJ_THEMES.push({
-    skin: {id: "languages", name: "Postcard Plaza", group: "ideas", desc: "A European town square with a cafe, a fountain and a tram stop.",
-      light: ["#FAF5EE", "rgba(194,68,62,.10)", "#FFFFFF", "#1E2A30", "#5A6870", "#ECE0D2", "#F4EBE0", "#FDFAF6", "#C2443E", "#3E7A70", "#FFFFFF", "#7A2A26", "#26524A", "#F4DCCC", "#FFE3A0"],
-      dark: ["#121A30", "rgba(255,178,122,.08)", "#1C2440", "#F4F0FA", "#B8B4D0", "#2E3458", "#242A4A", "#161E36", "#FFB27A", "#FFD98A", "#18223E", "#8A5A3A", "#0E1428", "#E2DAF0", "#6A4A2A"],
-      glow: ["linear-gradient(180deg,#BDDDF2,#F4EEE2 60%,#F2D3B3)", "linear-gradient(180deg,#18223E,#2E2F58 55%,#6A4A5A)"],
-      spine: [lg("#3E7A70", "#26524A"), lg("#2E2F58", "#18223E")], btn: [lg2("#C2443E", "#D2704E"), lg2("#FFB27A", "#FFD98A")]},
-    kit: {motif: "n5stamp", card: ["#FFFCF7", "#F4EADC"], ink: "#1E2A30", bd: "#E6D2BC", mc: "#C2443E", r: 8, notes: ["#F4DCCC"].concat(NOTES), shape: "folded", pin: "corners", fab: "12px", btn: "8px"},
-    fx: {spawn: (W, H, d, n) => fxRise(W, H, n(14), "n5bubble", d ? ["#FFE3A8", "#C9F0E4", "#FFD0DC", "#D8D0FF"] : ["#FFFFFF", "#FFE8B0", "#C8EEDD", "#FFD0DA"], {smin: 14, smax: 20, vmin: 1, vmax: 1.9, sway: 1, life: 300, glow: d ? 6 : 0})
-      .concat(Array.from({length: n(8)}, (_, i) => { const lr = i % 2 === 0, sp = fxR(3, 4.4), a = -fxR(0.2, 0.5); return {shape: "n5card", c: fxPick(d ? ["#FFF4E0", "#FFE3A8"] : ["#FFFFFF", "#FFF4D6", "#F2C49A"]), x: lr ? fxR(-60, -10) : W + fxR(10, 60), y: fxR(H * 0.5, H * 0.95), vx: (lr ? 1 : -1) * Math.cos(a) * sp, vy: Math.sin(a) * sp, g: 0, size: fxR(14, 19), rot: lr ? a * 0.5 : -a * 0.5, vr: fxR(-0.01, 0.01), sway: 0.4, life: 260, delay: Math.floor(fxR(0, 80))}; }),
-        fxFall(W, H, n(12), "n5stamp", d ? ["#FFB27A", "#7FC4E0", "#FF8FA8"] : ["#C2443E", "#3E7A70", "#4A90D9"], {smin: 10, smax: 14, sway: 1.4, vmin: 1, vmax: 1.8}),
-        fxTw(W, H, n(26), "sparkle", d ? ["#FFFFFF", "#FFD98A"] : ["#F2B53A", "#E8505B"], {smin: 3, smax: 6, glow: d ? 10 : 3}))},
-    tag: "A European town square with a cafe where greetings in many languages float up, a splashing fountain, a passing tram and pigeons"
   });
 })();
