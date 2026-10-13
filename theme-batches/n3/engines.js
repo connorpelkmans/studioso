@@ -385,7 +385,7 @@ var n3_FISH = [['#3E7FE0', '#F2D24A', 10, 5.5], ['#FF8A3A', '#FF8A3A', 9, 5], ['
 ENGINES.aquarium = function (A, v, dk) {
   var W = v.bw, H = v.bh, ph = !v.desk, T0 = -99, i, j, vx = A.vp[0], vy = A.vp[1], Tn = A.tun;
   var bubG = n3_rg(dk ? 'rgba(160,220,255,0.5)' : 'rgba(255,255,255,0.8)', [0.6, dk ? 0.15 : 0.3]), jellyG = [n3_rg('rgba(255,120,220,0.7)', [0.35, 0.3]), n3_rg('rgba(110,240,255,0.7)', [0.35, 0.3]), n3_rg('rgba(180,140,255,0.7)', [0.35, 0.3])], shadeG = n3_rg('rgba(0,20,40,0.5)', [0.5, 0.35]);
-  var fs = ph ? 1.05 : 1.6;
+  var fs = ph ? 1.05 : 1.6, benchP = new Path2D(A.benches || '');
   // schools: each follows its own sweeping path overhead; members trail the leader along the same path
   var schools = [], kinds = dk ? [2, 0, 3] : [0, 2, 1, 3, 4];
   kinds.forEach(function (kd, k) { var n = kd === 2 ? (ph ? 12 : 22) : (ph ? 5 : 9), sc = {kind: kd, sp: 0.06 + hash(k + 3) * 0.05, p1: hash(k) * 6.28, p2: hash(k + 7) * 6.28, yc: H * (0.14 + 0.08 * (k % 3)), yA: H * (0.06 + 0.05 * hash(k + 11)), m: []};
@@ -446,6 +446,8 @@ ENGINES.aquarium = function (A, v, dk) {
       cb.globalCompositeOperation = 'lighter'; cb.strokeStyle = dk ? 'rgba(90,190,255,0.13)' : 'rgba(200,250,255,0.17)';
       for (var cl = 0; cl < 22; cl++) { var vv0 = ((cl / 22) + tt * 0.006) % 1; cb.lineWidth = 0.5 + vv0 * 2.2; cb.beginPath(); for (var cu = 0; cu <= 16; cu++) { var p = floorPt(cu / 16, Math.min(1, vv0 + Math.sin(cu * 1.3 + tt * 0.9 + cl * 2.1) * 0.012)); if (cu) cb.lineTo(p[0], p[1]); else cb.moveTo(p[0], p[1]); } cb.stroke(); }
       for (cl = 0; cl < 9; cl++) { var u0 = (cl + 0.5) / 9; cb.lineWidth = 1; cb.beginPath(); for (var cv = 0; cv <= 20; cv++) { var vv2 = cv / 20, p2 = floorPt(u0 + Math.sin(vv2 * 9 + tt * 0.8 + cl * 1.7) * 0.03, vv2); cb.lineWidth = 0.5 + vv2 * 2.2; if (cv) cb.lineTo(p2[0], p2[1]); else cb.moveTo(p2[0], p2[1]); } cb.stroke(); }
+      // the benches stand on the walkway: wipe the caustic lines (all this canvas holds so far) back off them
+      cb.globalCompositeOperation = 'destination-out'; cb.fillStyle = '#000'; cb.fill(benchP);
       cb.globalCompositeOperation = 'source-over';
       if (Sk >= 0) { var shx = sx, shy = vy + Tn.fB * 3.2; cb.save(); cb.translate(shx, shy); cb.scale(1, 0.2); n3_dot(cb, shadeG, 0, 0, Lsh * 0.55, 0.9 * n3_env(T, 0, 1.5, 9, 11.5)); cb.restore(); }
       cb.restore();

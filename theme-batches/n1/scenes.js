@@ -66,9 +66,14 @@ SCENES.onsen = function (W, H, dk, rnd) {
   var hill = n1_fn(-60, W + 60, 8, function (x) { return H * (ph ? 0.51 : 0.47) + Math.sin(x / 90 + 1) * H * 0.012 + Math.sin(x / 210) * H * 0.02; });
   add(refl, 'a', below(hill, H + 40), dk ? '#2C4252' : '#7FB46A');
   var gy0 = H * (ph ? 0.645 : 0.63), ground = n1_fn(-60, W + 60, 8, function (x) { return gy0 + Math.sin(x / 120 + 1) * 5 + Math.sin(x / 47) * 2; });
-  var cr = {b: '', c: '', d: '', e: '', f: '', s: ''};
+  var cr = {b: '', c: '', d: '', e: '', f: '', s: '', o: [], t: []};
   for (j = 0; j < 3; j++) spread(-30, 0, W + 60, 1, (ph ? 30 : 44) - j * 4, 1, rnd, 1).forEach(function (c) { var x = c.x, y = n1_yOn(hill, x) + H * 0.02 + j * (gy0 - n1_yOn(hill, x)) * 0.33, r = (ph ? 14 : 22) * (0.8 + c.r * 0.5) * (1 + j * 0.12), sl = 'bcdeb'[Math.floor(c.q * 5)];
-    cr[sl] += n1_C(x, y, r) + n1_C(x - r * 0.6, y + r * 0.3, r * 0.7) + n1_C(x + r * 0.6, y + r * 0.25, r * 0.72); cr.f += n1_E(x - r * 0.3, y - r * 0.4, r * 0.38, r * 0.22); cr.s += seg(x, y + r * 0.6, x, y + r * 1.2); });
+    cr[sl] += n1_C(x, y, r) + n1_C(x - r * 0.6, y + r * 0.3, r * 0.7) + n1_C(x + r * 0.6, y + r * 0.25, r * 0.72); cr.f += n1_E(x - r * 0.3, y - r * 0.4, r * 0.38, r * 0.22);
+    cr.o.push([x, y, r, j]); cr.o.push([x - r * 0.6, y + r * 0.3, r * 0.7, j]); cr.o.push([x + r * 0.6, y + r * 0.25, r * 0.72, j]); cr.t.push([x, y + r * 0.6, y + r * 1.2, j]); });
+  // trunks show only below their own crown and stop where a nearer row's crowns cover them, since strokes draw over every fill
+  cr.t.forEach(function (q) { var x = q[0], y0 = q[1], y1 = q[2]; cr.o.forEach(function (c) { if (Math.abs(x - c[0]) >= c[2]) return; var hh = Math.sqrt(c[2] * c[2] - (x - c[0]) * (x - c[0])); if (c[3] === q[3]) y0 = Math.max(y0, Math.min(c[1] + hh, q[2])); });
+    cr.o.forEach(function (c) { if (c[3] <= q[3] || Math.abs(x - c[0]) >= c[2]) return; var hh = Math.sqrt(c[2] * c[2] - (x - c[0]) * (x - c[0])); if (c[1] - hh < y1 && c[1] + hh > y0) y1 = Math.min(y1, c[1] - hh); });
+    if (y1 - y0 > 2) cr.s += seg(x, y0, x, y1); });
   stk(refl, 's', cr.s, dk ? '#2A1E26' : '#7A5038', ph ? 2 : 3);
   add(refl, 'b', cr.b, dk ? '#A23E4E' : '#E4523E'); add(refl, 'c', cr.c, dk ? '#B4603E' : '#F5973E'); add(refl, 'd', cr.d, dk ? '#B48E42' : '#F5C24C'); add(refl, 'e', cr.e, dk ? '#1F3E44' : '#3E8A60');
   add(refl, 'f', cr.f, dk ? 'rgba(255,220,200,0.12)' : 'rgba(255,255,255,0.28)');
@@ -394,6 +399,8 @@ SCENES.tidepool = function (W, H, dk, rnd) {
     put(under, FLOOR[ty], n1_P(out));
     var s = (ph ? 0.75 : 1.1) * S, m, a, rr, x, y;
     function inP(f) { a = rnd() * 6.283; rr = Math.sqrt(rnd()) * f; x = cx + Math.cos(a) * rx * rr; y = cy + Math.sin(a) * ry * rr; }
+    // keep a creature of radius R wholly inside the water, so nothing pokes out over the far rim
+    function fit(R) { var ey = ry * 0.88, ex = rx * 0.9; R = Math.min(R, ey * 0.8); y = Math.max(cy - ey + R * 1.05, Math.min(cy + ey - R, y)); var hw = ex * Math.sqrt(Math.max(0, 1 - Math.pow((y - cy) / ey, 2))) - R * 1.05; x = Math.max(cx - Math.max(0, hw), Math.min(cx + Math.max(0, hw), x)); }
     var PEB = dk ? ['#5A5878', '#4A5A70', '#6A5E74'] : ['#D8C8B4', '#A9C0CC', '#E8D6C0', '#C4AEC4'];
     for (m = 0; m < Math.round(rx / (ty === 'sand' ? 6 : 10)); m++) { inP(0.86); put(under, PEB[m % PEB.length], n1_E(x, y, (2 + rnd() * 4) * s, (1.2 + rnd() * 2) * s)); }
     if (ty === 'pink') for (m = 0; m < 6; m++) { inP(0.75); put(under, dk ? '#9A5E92' : '#FF86A8', n1_P(n1_blob(x, y, (8 + rnd() * 8) * s, (3 + rnd() * 3) * s, rnd, 8, 0.35))); }
@@ -402,10 +409,10 @@ SCENES.tidepool = function (W, H, dk, rnd) {
     // creatures on the floor, seen through clear water
     var STAR = dk ? ['#E07848', '#9A6AD0', '#E05A84', '#4A8AD8', '#E0A040'] : ['#FF7A3A', '#B565E0', '#FF5E8A', '#3E90EA', '#FFB43A'];
     var ns = ty === 'deep' ? (ph ? 3 : 4) : 2;
-    for (m = 0; m < ns && rx > 30; m++) { inP(0.7); var R = (ph ? 8 : 12) * S * (0.6 + rnd() * 0.7); put(over, STAR[Math.floor(rnd() * STAR.length)], n1_star5(x, y, R, R * 0.42, rnd())); }
-    if (ty === 'pink' || ty === 'deep') for (m = 0; m < (ty === 'pink' ? 2 : 1); m++) { inP(0.6); put(over, dk ? '#6A44A8' : '#7A4AC8', n1_urchin(x, y, (ph ? 5 : 8) * S * (0.8 + rnd() * 0.5))); put(over, dk ? '#8A6AC8' : '#A47AE8', n1_E(x - 1.5 * S, y - 2 * S, (ph ? 2 : 3) * S, (ph ? 1.4 : 2) * S)); }
-    if (ty === 'sand') for (m = 0; m < 3; m++) { inP(0.7); var fan = n1_fan(x, y, (ph ? 5 : 8) * S * (0.8 + rnd() * 0.4), (rnd() - 0.5) * 60); put(over, ['#FFC6C0', '#FFE2B8', '#F7B0D0'][m], fan); }
-    if (ty !== 'deep' || k === 0) { inP(0.6); var sn = n1_snail(x, y, (ph ? 5 : 7) * S, rnd() < 0.5 ? 1 : -1); put(over, dk ? '#8A6450' : '#C8804E', sn.b); put(over, dk ? '#B48E78' : '#F2C49A', sn.w); }
+    for (m = 0; m < ns && rx > 30; m++) { inP(0.7); var R = Math.min((ph ? 8 : 12) * S * (0.6 + rnd() * 0.7), ry * 0.55); fit(R); put(over, STAR[Math.floor(rnd() * STAR.length)], n1_star5(x, y, R, R * 0.42, rnd())); }
+    if (ty === 'pink' || ty === 'deep') for (m = 0; m < (ty === 'pink' ? 2 : 1); m++) { inP(0.6); var ur = Math.min((ph ? 5 : 8) * S * (0.8 + rnd() * 0.5), ry * 0.4); fit(ur * 1.35); put(over, dk ? '#6A44A8' : '#7A4AC8', n1_urchin(x, y, ur)); put(over, dk ? '#8A6AC8' : '#A47AE8', n1_E(x - 1.5 * S, y - 2 * S, (ph ? 2 : 3) * S, (ph ? 1.4 : 2) * S)); }
+    if (ty === 'sand') for (m = 0; m < 3; m++) { inP(0.7); var fr0 = (ph ? 5 : 8) * S * (0.8 + rnd() * 0.4); fit(fr0); var fan = n1_fan(x, y, fr0, (rnd() - 0.5) * 60); put(over, ['#FFC6C0', '#FFE2B8', '#F7B0D0'][m], fan); }
+    if (ty !== 'deep' || k === 0) { inP(0.6); fit((ph ? 5 : 7) * S * 1.15); var sn = n1_snail(x, y, (ph ? 5 : 7) * S, rnd() < 0.5 ? 1 : -1); put(over, dk ? '#8A6450' : '#C8804E', sn.b); put(over, dk ? '#B48E78' : '#F2C49A', sn.w); }
     // the near lip of the pool, in front of the water
     var inner = [], outer = []; for (j = 0; j <= 16; j++) { var t = j / 16 * Math.PI; inner.push([cx + Math.cos(t) * rx * 1.0, cy + Math.sin(t) * ry * 0.92]); outer.unshift([cx + Math.cos(t) * rx * 1.08, cy + Math.sin(t) * ry * 1.25 + 4 + Math.sin(j * 1.7) * 2]); }
     rimF += n1_P(inner.concat(outer)); rimHi += n1_P(inner.slice(2, 15).map(function (p) { return [p[0], p[1] + 1]; }).concat(inner.slice(2, 15).reverse().map(function (p, m2) { return [p[0], p[1] + 3.5 + Math.sin(m2) * 1]; }))); });
@@ -439,7 +446,9 @@ SCENES.tidepool = function (W, H, dk, rnd) {
     // the still picture has few slots: floors as the water colour, the stars orange and purple
     var orange = '', purple = ''; toList(over).concat(toList(onRock)).forEach(function (q, m) { if (/^#(FF7A|E078|FFB4|E0A0|FF5E|E05A)/.test(q[1])) orange += q[0]; else purple += q[0]; });
     add(near, 'g', orange, dk ? '#E07848' : '#FF7A3A'); add(near, 'h', purple, dk ? '#9A6AD0' : '#9E62CC');
-    var ad = '', at = ''; anem.forEach(function (q) { ad += n1_E(q.x, q.y, q.r * 0.3, q.r * 0.2); for (var m = 0; m < 12; m++) { var b = m / 12 * 6.283; at += seg(q.x, q.y, q.x + Math.cos(b) * q.r, q.y + Math.sin(b) * q.r * 0.6); } }); stk(near, 't', at, dk ? '#E07AB0' : '#FF8AB8', 3 * S); add(near, 'h', ad); }
+    // (the anemones' tentacles stop at the water's edge: the pools' lips are drawn below them here)
+    var ad = '', at = ''; anem.forEach(function (q) { var p = P[q.pool], inW = function (x, y) { return Math.pow((x - p.cx) / (p.rx * 0.97), 2) + Math.pow((y - p.cy) / (p.ry * 0.9), 2) < 1; }; ad += n1_E(q.x, q.y, q.r * 0.3, q.r * 0.2);
+      for (var m = 0; m < 12; m++) { var b = m / 12 * 6.283, L = q.r; while (L > 2 && !inW(q.x + Math.cos(b) * L, q.y + Math.sin(b) * L * 0.6)) L -= 1.5; if (L > 2) at += seg(q.x, q.y, q.x + Math.cos(b) * L, q.y + Math.sin(b) * L * 0.6); } }); stk(near, 't', at, dk ? '#E07AB0' : '#FF8AB8', 3 * S); add(near, 'h', ad); }
   return {sky: sky, far: far, refl: refl, mid: mid, near: near, band: {top: hz, bg: sea}};
 };
 
@@ -489,7 +498,7 @@ SCENES.volcano = function (W, H, dk, rnd) {
   var crater = n1_E(vx, top + 3, rimW * 0.92, 5 * S + 2), vents = [], ventD = '';
   [[-0.42, 0.42], [0.36, 0.38], [0.22, 0.62]].forEach(function (q) { var x = vx + q[0] * hw, y = coneY(x) + (base - coneY(x)) * q[1]; vents.push([x, y]); ventD += n1_E(x, y, 7 * S + 2, 2.6 * S + 1); });
   add(refl, 'e', crater + ventD, dk ? '#2A1220' : '#6E4A42');
-  var lava = [], lavaD = ''; [[-0.5, -0.16, 0.42], [0.4, 0.14, 0.4], [0.0, 0.03, 0.3]].forEach(function (q) { var pts = [], n = 18; for (var k = 0; k <= n; k++) { var u = k / n, x = vx + q[0] * rimW + (q[1] * hw) * u + Math.sin(u * 7 + q[0] * 5) * 8 * S, y = coneY(vx + q[0] * rimW) + 2 + (base - top) * q[2] * u; y = Math.max(y, coneY(x) + 3); if (y < treeY(x) + 4) pts.push([x, y]); } lava.push(pts); lavaD += pline(pts); });
+  var lava = [], lavaD = ''; [[-0.5, -0.16, 0.42], [0.4, 0.14, 0.4], [0.0, 0.03, 0.3]].forEach(function (q) { var pts = [], n = 18; for (var k = 0; k <= n; k++) { var u = k / n, x = vx + q[0] * rimW + (q[1] * hw) * u + Math.sin(u * 7 + q[0] * 5) * 8 * S, y = coneY(vx + q[0] * rimW) + 2 + (base - top) * q[2] * u; y = Math.max(y, coneY(x) + 3); if (y < treeY(x) - (ph ? 1.2 : 2) * S - 7) pts.push([x, y]); } lava.push(pts); lavaD += pline(pts); });
   stk(refl, 't', lavaD, dk ? '#7A2A26' : 'rgba(80,50,50,0.35)', (ph ? 2.4 : 4) * S + 1);
   // clouds hugging the volcano
   var vc = ''; if (!dk) [[vx - hw * 0.62, top + (base - top) * 0.3, 1], [vx + hw * 0.7, top + (base - top) * 0.2, 0.8]].forEach(function (q) { var s = q[2] * (ph ? 0.7 : 1.1); vc += n1_E(q[0], q[1], 54 * s, 10 * s) + n1_C(q[0] - 14 * s, q[1] - 6 * s, 14 * s) + n1_C(q[0] + 12 * s, q[1] - 9 * s, 18 * s); });

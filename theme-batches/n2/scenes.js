@@ -70,13 +70,19 @@ SCENES.mushrooms = function (W, H, dk, rnd) {
     if (k % 2 === 0) { var vx = x + w * 0.6, vl = H * (0.18 + rnd() * 0.2); vines += n2_tube(n2_q([vx, -20], [vx + 30, vl * 0.5], [vx + 6, vl], 12), 3, 1.5); for (var j = 2; j < 10; j++) { var u = j / 10, p = n2_q([vx, -20], [vx + 30, vl * 0.5], [vx + 6, vl], 10)[j]; vines += leaf(p[0], p[1], 9, 3.5, j % 2 ? 40 : 140); } } });
   add(refl, 'a', t2, dk ? '#1C2540' : '#ABBB92'); add(refl, 'b', vines, dk ? '#1E3A40' : '#8DBA70');
   // mid: tree trunks with root flare, hanging canopy leaves, the mound, bushes, the fallen log
-  var trunks = '', bark = '', tx = ph ? [[0.04, 50], [0.96, 44]] : [[0.025, 74], [0.27, 46], [0.7, 56], [0.985, 80]];
+  var trunks = '', bark = '', barkL = [], lvs = [], tx = ph ? [[0.04, 50], [0.96, 44]] : [[0.025, 74], [0.27, 46], [0.7, 56], [0.985, 80]];
   tx.forEach(function (q) { var x = W * q[0], w = q[1], b = gY(x) - 8, pts = [[x - w * 1.25, b], [x - w * 0.62, b - w * 0.5], [x - w * 0.5, b - w * 1.4], [x - w * 0.44, -40], [x + w * 0.44, -40], [x + w * 0.5, b - w * 1.4], [x + w * 0.62, b - w * 0.5], [x + w * 1.25, b]]; trunks += poly(pts);
-    for (var k = 0; k < 5; k++) { var bx = x - w * 0.3 + k * w * 0.15; bark += pline([[bx, -30], [bx + Math.sin(k) * 4, b * 0.4], [bx - 3, b - w]]); } });
-  add(mid, 'a', trunks, C.mt); stk(mid, 's', bark, C.bark, ph ? 1.5 : 2.2);
+    for (var k = 0; k < 5; k++) { var bx = x - w * 0.3 + k * w * 0.15; barkL.push([[bx, -30], [bx + Math.sin(k) * 4, b * 0.4], [bx - 3, b - w]]); } });
+  add(mid, 'a', trunks, C.mt);
   var lv1 = '', lv2 = '';
-  for (x = -40; x < W + 40; x += ph ? 22 : 30) { var hang = (Math.sin(x / 90) * 0.5 + 0.5) * (ph ? 50 : 80) + rnd() * 30; for (var k = 0; k < 3; k++) { var yy = -10 + rnd() * hang, ang = 70 + rnd() * 40, len = (ph ? 26 : 38) + rnd() * 20; if (k % 2) lv2 += leaf(x + rnd() * 20, yy, len, len * 0.38, ang); else lv1 += leaf(x + rnd() * 20, yy, len, len * 0.38, ang); } }
+  for (x = -40; x < W + 40; x += ph ? 22 : 30) { var hang = (Math.sin(x / 90) * 0.5 + 0.5) * (ph ? 50 : 80) + rnd() * 30; for (var k = 0; k < 3; k++) { var yy = -10 + rnd() * hang, ang = 70 + rnd() * 40, len = (ph ? 26 : 38) + rnd() * 20; var lx = x + rnd() * 20; lvs.push([lx, yy, len, len * 0.38, ang]); if (k % 2) lv2 += leaf(lx, yy, len, len * 0.38, ang); else lv1 += leaf(lx, yy, len, len * 0.38, ang); } }
   add(mid, 'd', lv1, C.leaf1); add(mid, 'e', lv2, C.leaf2);
+  // the bark lines are strokes (drawn over every fill in this layer), so they are cut wherever a hanging leaf covers the trunk
+  function underLeaf(px, py) { for (var q = 0; q < lvs.length; q++) { var L = lvs[q], a = L[4] * Math.PI / 180, dx = px - L[0], dy = py - L[1], u = dx * Math.cos(a) + dy * Math.sin(a), v = -dx * Math.sin(a) + dy * Math.cos(a), t = u / L[2];
+      if (t > 0 && t < 1) { var sw = Math.sin(Math.PI * t) * (1 - 0.35 * t) * L[3]; if (v < sw + 1.5 && v > -0.7 * sw - 1.5) return true; } } return false; }
+  barkL.forEach(function (pl) { var run = []; for (var s2 = 1; s2 < pl.length; s2++) { var a = pl[s2 - 1], b = pl[s2], n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 3)); for (var q = s2 === 1 ? 0 : 1; q <= n; q++) { var px = a[0] + (b[0] - a[0]) * q / n, py = a[1] + (b[1] - a[1]) * q / n;
+    if (underLeaf(px, py)) { if (run.length > 1) bark += pline(run); run = []; } else run.push([px, py]); } } if (run.length > 1) bark += pline(run); });
+  stk(mid, 's', bark, C.bark, ph ? 1.5 : 2.2);
   var mound = ridge(W, gy - 6, [[7, 120, 0.4], [3, 37, 1.6]], 8);
   add(mid, 'b', below(mound, H + 40), C.mound);
   var bush = ''; spread(-20, gy - 14, W + 40, 10, ph ? 70 : 110, 10, rnd, 0.6).forEach(function (c) { if (c.q < 0.55) { var r = (ph ? 10 : 16) + c.r * 12; bush += circ(c.x, n2_yOn(mound, c.x) + 2, r) + circ(c.x + r * 0.8, n2_yOn(mound, c.x) + 4, r * 0.7) + circ(c.x - r * 0.8, n2_yOn(mound, c.x) + 4, r * 0.65); } });
@@ -293,7 +299,10 @@ SCENES.nighttrain = function (W, H, dk, rnd) {
   add(mid, 'b', rect(-40, G.wain, W + 80, H), C.wain);
   add(mid, 'c', rect(-40, -40, W + 80, G.ceil + 40), C.ceil);
   var pan = '', px = ph ? 76 : 118; for (x = 14; x < W; x += px) pan += rrect(x, G.wain + 26 * S, px - 24, G.fl - G.wain - 44 * S, 8 * S);
-  var rib = ''; for (x = -W * 0.1; x < W * 1.1; x += ph ? 90 : 150) rib += seg(W / 2 + (x - W / 2) * 0.8, -10, x, G.ceil - 2);
+  // the ceiling ribs are strokes (drawn over the brass lamps), so each is cut where it passes behind a lamp and its stem
+  var rib = '', ribHid = function (px, py) { return G.lights.some(function (lx) { return Math.pow((px - lx) / (30 * S + 3), 2) + Math.pow((py - G.ceil * 0.55) / (12 * S + 3), 2) < 1 || (Math.abs(px - lx) < 3 * S + 2 && py < G.ceil * 0.55); }); };
+  for (x = -W * 0.1; x < W * 1.1; x += ph ? 90 : 150) { var rx0 = W / 2 + (x - W / 2) * 0.8, ry0 = -10, ry1 = G.ceil - 2, run = [], n = Math.ceil((ry1 - ry0) / 2);
+    for (k = 0; k <= n; k++) { var px = rx0 + (x - rx0) * k / n, py = ry0 + (ry1 - ry0) * k / n; if (ribHid(px, py)) { if (run.length > 1) rib += pline(run); run = []; } else run.push([px, py]); } if (run.length > 1) rib += pline(run); }
   stk(mid, 's', pan + rib, C.pan, 2);
   add(mid, 'd', rrect(G.x0 - G.fr, G.y0 - G.fr, ww + 2 * G.fr, wh + 2 * G.fr, G.r + G.fr) + n2_hole(G.x0, G.y0, ww, wh, G.r) + rrect(G.x0 - G.fr - 12 * S, G.y1 + G.fr - 6 * S, ww + 2 * G.fr + 24 * S, 12 * S, 5 * S), C.frame);
   var br = rect(-40, G.ceil - 3 * S, W + 80, 6 * S) + rect(-40, G.wain - 2 * S, W + 80, 5 * S);
@@ -376,24 +385,31 @@ SCENES.ramen = function (W, H, dk, rnd) {
   var fr = rect(wx0 - 12 * S, wy0 - 12 * S, ww + 24 * S, wh + 24 * S) + n2_hole(wx0, wy0, ww, wh, 6), lat = '';
   for (i = 1; i < 3; i++) lat += rect(wx0 + ww * i / 3 - 2.5 * S, wy0, 5 * S, wh); for (i = 1; i < 2; i++) lat += rect(wx0, wy0 + wh * i / 2 - 2.5 * S, ww, 5 * S);
   add(mid, 'c', fr + lat + rect(wx0 - 18 * S, wy1 + 8 * S, ww + 36 * S, 10 * S), C.frame);
-  var tl = ''; for (var ty = G.noren[3]; ty < G.ct; ty += 26 * S) tl += seg(G.pass + 6, ty, W + 40, ty); for (x = G.pass + 6; x < W + 40; x += 26 * S) tl += seg(x, G.noren[3], x, G.ct - 12 * S);
-  stk(mid, 's', tl, C.tile, 1.2);
+  var tl = '', tsegs = [], occ = []; for (var ty = G.noren[3]; ty < G.ct; ty += 26 * S) tsegs.push([G.pass + 6, ty, W + 40, ty]); for (x = G.pass + 6; x < W + 40; x += 26 * S) tsegs.push([x, G.noren[3], x, G.ct - 12 * S]);
   // menu tags hanging on the kitchen wall, with brush marks
   var tags = '', ink = '', T = G.tags, tw = 20 * S, n = Math.floor((T[1] - T[0]) / (tw * 1.25));
-  for (i = 0; i < n; i++) { var tx = T[0] + i * (T[1] - T[0]) / n + 2, th = (58 + (i % 3) * 6) * S; tags += rrect(tx, T[2], tw, th, 2); for (var k = 0; k < 3; k++) ink += rrect(tx + tw * 0.32, T[2] + 8 * S + k * th * 0.26, tw * 0.36, th * 0.16, 2) ; }
+  for (i = 0; i < n; i++) { var tx = T[0] + i * (T[1] - T[0]) / n + 2, th = (58 + (i % 3) * 6) * S; tags += rrect(tx, T[2], tw, th, 2); occ.push([tx, T[2], tx + tw, T[2] + th]); for (var k = 0; k < 3; k++) ink += rrect(tx + tw * 0.32, T[2] + 8 * S + k * th * 0.26, tw * 0.36, th * 0.16, 2) ; }
   add(mid, 'd', tags, C.tag); add(mid, 'e', ink, C.ink);
   // stacked bowls on the shelf
   var bw3 = (ph ? 20 : 30), bowls = '', bands = '';
-  for (x = sh[0] + 24 * S; x < sh[1] - bw3; x += bw3 * 1.5) for (k = 0; k < 3; k++) { var by = sh[2] - k * bw3 * 0.32; bowls += poly([[x - bw3 * 0.55, by - bw3 * 0.32], [x + bw3 * 0.55, by - bw3 * 0.32], [x + bw3 * 0.35, by], [x - bw3 * 0.35, by]]); bands += rect(x - bw3 * 0.5, by - bw3 * 0.24, bw3, bw3 * 0.07); }
+  for (x = sh[0] + 24 * S; x < sh[1] - bw3; x += bw3 * 1.5) for (k = 0; k < 3; k++) { var by = sh[2] - k * bw3 * 0.32; bowls += poly([[x - bw3 * 0.55, by - bw3 * 0.32], [x + bw3 * 0.55, by - bw3 * 0.32], [x + bw3 * 0.35, by], [x - bw3 * 0.35, by]]); occ.push([x - bw3 * 0.55, by - bw3 * 0.32, x + bw3 * 0.55, by]); bands += rect(x - bw3 * 0.5, by - bw3 * 0.24, bw3, bw3 * 0.07); }
   add(mid, 'f', bowls, C.bowl); add(mid, 'g', bands, C.band);
+  // the tile joints are strokes (drawn over everything in this layer), so they are cut around the tags, the bowls and the shelf
+  occ.push([sh[0], sh[2], sh[1], sh[2] + 8 * S], [sh[0] + 10, sh[2], sh[0] + 10 + 6 * S, sh[2] + 22 * S], [sh[1] - 16, sh[2], sh[1] - 16 + 6 * S, sh[2] + 22 * S]);
+  tsegs.forEach(function (g) { var hz2 = g[1] === g[3], a = hz2 ? g[0] : g[1], b = hz2 ? g[2] : g[3], cuts = [];
+    occ.forEach(function (o) { if (hz2 ? (g[1] > o[1] - 1 && g[1] < o[3] + 1) : (g[0] > o[0] - 1 && g[0] < o[2] + 1)) cuts.push(hz2 ? [o[0] - 1, o[2] + 1] : [o[1] - 1, o[3] + 1]); });
+    cuts.sort(function (p, q) { return p[0] - q[0]; }); var cur = a; cuts.forEach(function (c) { if (c[0] > cur) tl += hz2 ? seg(cur, g[1], Math.min(c[0], b), g[1]) : seg(g[0], cur, g[0], Math.min(c[0], b)); cur = Math.max(cur, c[1]); }); if (b > cur) tl += hz2 ? seg(cur, g[1], b, g[1]) : seg(g[0], cur, g[0], b); });
+  stk(mid, 's', tl, C.tile, 1.2);
   // near: the counter top, its edge, the front, slats and stools
   add(near, 'a', rect(-40, G.ct, W + 80, G.cf - G.ct), C.ctop);
   add(near, 'b', rect(-40, G.cf - 5 * S, W + 80, 6 * S), C.cedge);
   add(near, 'c', rect(-40, G.cf + 1, W + 80, H), C.cfront);
-  var sl = '', pl = ''; for (x = 20; x < W; x += ph ? 34 : 48) { sl += seg(x, G.cf + 10, x, H + 10); if (Math.round(x / (ph ? 34 : 48)) % 2) pl += rect(x, G.cf + 10, ph ? 34 : 48, H); }
+  // the stools stand in front of the counter, so its slats stop at their seats (strokes draw over every fill)
+  var stF = (ph ? [0.2, 0.8] : [0.12, 0.38, 0.62, 0.88]), stR = (ph ? 46 : 74), stTop = function (x) { var y = H + 10; stF.forEach(function (f) { var u = (x - W * f) / stR; if (Math.abs(u) < 1.02) y = Math.min(y, H * 0.975 - stR * 0.26 * Math.sqrt(Math.max(0, 1 - u * u)) - 1.5); }); return y; };
+  var sl = '', pl = ''; for (x = 20; x < W; x += ph ? 34 : 48) { var sb = stTop(x); if (sb > G.cf + 12) sl += seg(x, G.cf + 10, x, sb); if (Math.round(x / (ph ? 34 : 48)) % 2) pl += rect(x, G.cf + 10, ph ? 34 : 48, H); }
   add(near, 'd', pl + rect(-40, G.cf + 1, W + 80, 9 * S), dk ? '#432A26' : '#86543A'); var grain = ''; for (i = 0; i < 4; i++) grain += pline(n2_fn(-40, W + 40, 40, function (x) { return G.ct + (G.cf - G.ct) * (0.2 + i * 0.2) + Math.sin(x / 90 + i * 2) * 2; }));
   stk(near, 's', sl, C.slat, 2); stk(near, 't', grain, dk ? 'rgba(0,0,0,0.18)' : 'rgba(150,90,40,0.25)', 1.2);
-  var st = ''; (ph ? [0.2, 0.8] : [0.12, 0.38, 0.62, 0.88]).forEach(function (f) { var cx = W * f, cy = H * 0.975, rx2 = (ph ? 46 : 74); st += ell(cx, cy, rx2, rx2 * 0.26) + rect(cx - rx2, cy, rx2 * 2, 40); });
+  var st = ''; stF.forEach(function (f) { var cx = W * f, cy = H * 0.975, rx2 = stR; st += ell(cx, cy, rx2, rx2 * 0.26) + rect(cx - rx2, cy, rx2 * 2, 40); });
   if (ANIM) add(near, 'e', st, C.stool);
   if (ANIM) { ANIM.G = G; ANIM.sign = [sx, sy, sw]; ANIM.gy = gy; }
   else { var N = G.noren, np = (N[1] - N[0]) / (ph ? 3 : 5), nd = ''; for (i = 0; i < (ph ? 3 : 5); i++) nd += rect(N[0] + i * np + 2, N[2], np - 4, N[3] - N[2]); add(near, 'f', nd, dk ? '#26315E' : '#2B4078'); add(near, 'g', circ((N[0] + N[1]) / 2, (N[2] + N[3]) / 2, ph ? 18 : 28), '#FFFFFF');
