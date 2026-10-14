@@ -76,7 +76,7 @@ ENGINES.morocco = function (A, v, dk) {
   // the orange trees: three leafy clusters each, which sway on their own
   var leafC = dk ? ['#2E6A4E', '#1A3E34', '#3E7E5A'] : ['#4E9A52', '#2E6E3E', '#7CBE5E'];
   var trees = A.trees.map(function (t) { var s = t.s, cl = [[-26, -112, 40], [26, -122, 42], [0, -152, 38], [-6, -120, 30]];
-    return {x: t.x, y: t.y, s: s, ph: hash(t.k + 9) * 6.28, cl: cl.map(function (q, n) { var r = q[2] * s;
+    return {x: t.x, y: t.y, s: s, fq: t.fq || 0.3, ph: hash(t.k + 9) * 6.28, cl: cl.map(function (q, n) { var r = q[2] * s;
       return {dx: q[0] * s, dy: q[1] * s, r: r, ph: hash(n + t.k * 7) * 6.28, spr: morocco_sprite(r * 2.6, r * 2.6, 2, function (o) {
         for (var m = 0; m < 46; m++) { var a = hash(m + n * 60 + t.k * 300) * 6.28, dd = Math.sqrt(hash(m + 7 + n * 60 + t.k * 300)) * r * 0.92, lx = Math.cos(a) * dd, ly = Math.sin(a) * dd * 0.9, ang = hash(m + 13 + n * 60) * 6.28, len = r * (0.26 + hash(m + 17) * 0.1);
           o.fillStyle = leafC[ly < -r * 0.2 && m % 3 ? 2 : m % 2]; o.save(); o.translate(lx, ly); o.rotate(ang); o.beginPath(); o.ellipse(len * 0.5, 0, len * 0.5, len * 0.2, 0, 0, 7); o.fill(); o.restore(); }
@@ -176,6 +176,25 @@ ENGINES.morocco = function (A, v, dk) {
       cb.lineWidth = 1.1 * S; [-1, -0.4, 0.4, 1].forEach(function (d) { cb.beginPath(); cb.moveTo(F.x, F.spout - jh); cb.quadraticCurveTo(F.x + d * F.brx * 0.3, F.spout - jh - 4 * S, F.x + d * F.brx * 0.55, F.bowlY - 1); cb.stroke(); });
       cb.save(); cb.clip(bowlClip); cb.strokeStyle = dk ? 'rgba(170,220,255,0.5)' : 'rgba(255,255,255,0.7)'; cb.lineWidth = 1; for (i = 0; i < 2; i++) { var kk = ((tt * 0.8 + i * 0.5) % 1); cb.globalAlpha = 1 - kk; cb.beginPath(); cb.ellipse(F.x, F.bowlY, F.brx * kk, F.bry * kk, 0, 0, 7); cb.stroke(); } cb.restore(); cb.globalAlpha = 1;
       // water spilling from the upper bowl in thin glassy streams
+      // the big arch's soffit (the underside of its thickness), drawn as a curved surface: each slice lit by the way it faces
+      // (light from the upper left: the left side bright, the crown's underside and the right side in shade), darker toward its
+      // far edge, with carved ribs across it and arrises along both edges
+      if (A.soffit) { var SO = A.soffit[0], SI = A.soffit[1], sC = A.C.ncream, carveC = A.C.carve;
+        for (var si = 0; si < SO.length - 1; si++) { var o0 = SO[si], o1 = SO[si + 1], i0 = SI[si], i1 = SI[si + 1], nx = 0, ny = 0; for (var sj = Math.max(0, si - 3); sj <= Math.min(SO.length - 1, si + 4); sj++) { nx += SI[sj][0] - SO[sj][0]; ny += SI[sj][1] - SO[sj][1]; } var nl = Math.hypot(nx, ny) || 1; // (facing averaged over the neighbouring slices, so the light runs smoothly over the lobes)
+          var sLit = Math.max(0, (nx / nl) * 0.86 - (ny / nl) * 0.5), dark = 0.42 - 0.34 * sLit, m0 = [o0[0] + (i0[0] - o0[0]) * 0.55, o0[1] + (i0[1] - o0[1]) * 0.55], m1 = [o1[0] + (i1[0] - o1[0]) * 0.55, o1[1] + (i1[1] - o1[1]) * 0.55];
+          cb.beginPath(); cb.moveTo(o0[0], o0[1]); cb.lineTo(o1[0], o1[1]); cb.lineTo(i1[0], i1[1]); cb.lineTo(i0[0], i0[1]); cb.closePath(); cb.fillStyle = sC; cb.fill(); cb.lineWidth = 0.8; cb.strokeStyle = sC; cb.stroke();
+          cb.fillStyle = (dk ? 'rgba(6,2,20,' : 'rgba(90,45,20,') + dark.toFixed(3) + ')'; cb.fill();
+          cb.beginPath(); cb.moveTo(m0[0], m0[1]); cb.lineTo(m1[0], m1[1]); cb.lineTo(i1[0], i1[1]); cb.lineTo(i0[0], i0[1]); cb.closePath(); cb.fillStyle = dk ? 'rgba(6,2,20,0.16)' : 'rgba(90,45,20,0.1)'; cb.fill(); }
+        cb.strokeStyle = carveC; cb.lineWidth = 1.2; cb.beginPath(); SI.forEach(function (p, q) { if (q) cb.lineTo(p[0], p[1]); else cb.moveTo(p[0], p[1]); }); SO.forEach(function (p, q) { if (q) cb.lineTo(p[0], p[1]); else cb.moveTo(p[0], p[1]); });
+        for (si = 2; si < SO.length - 2; si += 4) { cb.moveTo(SO[si][0], SO[si][1]); cb.lineTo(SI[si][0], SI[si][1]); } cb.stroke(); }
+      // the trees grow out of their pots: the soil in each pot's mouth and the foot of the trunk are drawn over the pot (the rest of
+      // the tree is on the canvas behind it)
+      trees.forEach(function (tr) { var s = tr.s, sw = Math.sin(tt * 0.6 + tr.ph) * 0.025 * f.a, ry = 29 * s * tr.fq;
+        cb.fillStyle = dk ? '#1C1218' : '#5E3E28'; cb.beginPath(); cb.ellipse(tr.x, tr.y, 29 * s, ry, 0, 0, 7); cb.fill();
+        cb.fillStyle = dk ? 'rgba(255,255,255,0.05)' : 'rgba(255,230,200,0.14)'; cb.beginPath(); cb.ellipse(tr.x - 6 * s, tr.y + ry * 0.2, 16 * s, ry * 0.45, 0, 0, 7); cb.fill();
+        cb.save(); cb.translate(tr.x, tr.y); cb.rotate(sw); cb.fillStyle = dk ? '#2A1E24' : '#6A4A30';
+        cb.beginPath(); cb.moveTo(-6.5 * s, 1.5 * s); cb.quadraticCurveTo(-3.5 * s, 0, -3.5 * s, -3 * s); cb.lineTo(-3.5 * s, -ry - 6 * s); cb.lineTo(3.5 * s, -ry - 6 * s); cb.lineTo(3.5 * s, -3 * s); cb.quadraticCurveTo(3.5 * s, 0, 6.5 * s, 1.5 * s); cb.closePath(); cb.fill();
+        cb.fillStyle = 'rgba(0,0,0,0.18)'; cb.fillRect(1.2 * s, -ry - 6 * s, 2.3 * s, ry + 4 * s); cb.restore(); });
       cb.lineCap = 'round'; streams.forEach(function (sm, j) { cb.strokeStyle = dk ? 'rgba(170,215,250,0.5)' : 'rgba(255,255,255,0.65)'; cb.lineWidth = 1.6 * S; cb.setLineDash([6 * S, 4 * S]); cb.lineDashOffset = -tt * 30 - j * 3; cb.beginPath(); cb.moveTo(sm.x0, sm.y0); cb.quadraticCurveTo(sm.cx, sm.cy, sm.x1, sm.y1); cb.stroke(); cb.setLineDash([]); cb.strokeStyle = dk ? 'rgba(130,190,240,0.25)' : 'rgba(220,250,255,0.4)'; cb.lineWidth = 3 * S; cb.beginPath(); cb.moveTo(sm.x0, sm.y0); cb.quadraticCurveTo(sm.cx, sm.cy, sm.x1, sm.y1); cb.stroke(); });
       // the finish spray
       if (drops.length) { cb.save(); cb.globalCompositeOperation = dk ? 'lighter' : 'source-over'; drops.forEach(function (d, j) { if (d.sp) { cb.save(); cb.translate(d.x, d.y); var s2 = 3.4 * S * (0.6 + 0.4 * Math.sin(tt * 12 + j)); cb.scale(s2 * 1.4, s2 * 1.4); cb.fillStyle = d.g ? (dk ? '#FFE08A' : '#F2B030') : (dk ? '#FFFFFF' : '#5AB8E0'); cb.fill(spark); cb.restore(); } else { var vl = Math.hypot(d.vx, d.vy) || 1, ll = 5 * S; cb.strokeStyle = dk ? 'rgba(190,230,255,0.8)' : 'rgba(70,170,215,0.85)'; cb.lineWidth = 2.2 * S; cb.beginPath(); cb.moveTo(d.x, d.y); cb.lineTo(d.x - d.vx / vl * ll, d.y - d.vy / vl * ll); cb.stroke(); cb.fillStyle = '#FFFFFF'; cb.beginPath(); cb.arc(d.x, d.y, 1.1 * S, 0, 7); cb.fill(); } }); cb.restore(); }
