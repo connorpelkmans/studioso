@@ -379,7 +379,12 @@ SCENES.italy = function (W, H, dk, rnd) {
   var ptX = bx1T - 22 * S, ptY = byT;
   N.e += italy_pg([[ptX - 12 * S, ptY - 18 * S], [ptX + 12 * S, ptY - 18 * S], [ptX + 9 * S, ptY], [ptX - 9 * S, ptY]]) + rect(ptX - 13.5 * S, ptY - 21 * S, 27 * S, 4 * S); nWood += seg(ptX, ptY - 21 * S, ptX, ptY - 34 * S);
   N.d += italy_e(ptX, ptY - 44 * S, 20 * S, 15 * S) + italy_e(ptX - 14 * S, ptY - 38 * S, 11 * S, 9 * S) + italy_e(ptX + 14 * S, ptY - 39 * S, 12 * S, 9 * S) + italy_e(ptX + 2 * S, ptY - 56 * S, 12 * S, 8 * S);
-  for (i = 0; i < 9; i++) { var a3 = hash(i + 31) * 6.28, d3 = 0.4 + hash(i + 37) * 0.55; lemons.push([ptX + Math.cos(a3) * d3 * 20 * S, ptY - 44 * S + Math.sin(a3) * d3 * 14 * S, 3.2 * S]); }
+  // lemons scattered over the whole crown (its side and top clumps too), each kept a little apart from the others
+  var crown = [[0, -44, 20, 15], [-14, -38, 11, 9], [14, -39, 12, 9], [2, -56, 12, 8]], lem0 = lemons.length;
+  for (i = 0; i < 400 && lemons.length - lem0 < 9; i++) { var lx3 = ptX + (hash(i * 3.7 + 31) * 2 - 1) * 30 * S, ly3 = ptY + (-66 + hash(i * 5.3 + 37) * 36) * S;
+    if (!crown.some(function (c) { var u = (lx3 - ptX - c[0] * S) / ((c[2] - 4) * S), v = (ly3 - ptY - c[1] * S) / ((c[3] - 3.5) * S); return u * u + v * v < 1; })) continue;
+    if (lemons.slice(lem0).some(function (l) { return Math.hypot(l[0] - lx3, l[1] - ly3) < 8.5 * S; })) continue;
+    lemons.push([lx3, ly3, 3.2 * S]); }
   N.f += italy_bougain(bx1T * 0.62, byT - 2 * S, 10 * S, rnd) + italy_bougain(bx1T * 0.08, byT + 2 * S, 8 * S, rnd);
   // the flag: a white pole with a gold ball; the engine waves the tricolour, the still scene draws it hanging in a gentle curve
   var fpX = bx1T * (ph ? 0.32 : 0.3), fpB = byT, fpT = byT - (ph ? 86 : 100) * S, fW = (ph ? 32 : 40) * S, fH = fW * 0.66;
