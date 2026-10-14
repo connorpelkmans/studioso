@@ -21,7 +21,7 @@
       dark: ["#100F2A", "rgba(232,184,96,.08)", "#1A1838", "#F4F0FA", "#BCB2D2", "#302A5A", "#24204A", "#151330", "#E8B860", "#F2CC84", "#16142E", "#7A6230", "#141232", "#D8D2F0", "#6A5420"],
       glow: ["linear-gradient(180deg,#A9D3F0,#F3E6CF 45%,#F2C79A)", "linear-gradient(180deg,#121434,#2A2156 45%,#6A3A4E)"],
       spine: [lg("#2C5FA8", "#1E3A6E"), lg("#2A2156", "#121434")], btn: [lg2("#2C5FA8", "#C8642E"), lg2("#E8B860", "#F2CC84")]},
-    kit: {motif: "moroccostar", card: ["#FFFBF4", "#F4E8D8"], ink: "#2A2230", bd: "#E2CFAE", mc: "#2C5FA8", r: 14, notes: ["#F6E2C4", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "scallop", pin: "gold", fab: "999px 999px 12px 12px", btn: "12px"},
+    kit: {motif: "moroccostar", card: ["#FFFBF4", "#F4E8D8"], ink: "#2A2230", bd: "#E2CFAE", mc: "#2C5FA8", r: 14, notes: ["#F6E2C4", "#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"], shape: "scallop", pin: "gold", fab: "999px", btn: "12px"},
     fx: {spawn: (W, H, d, n) => fxRise(W, H, n(9), "moroccolantern", d ? ["#F2C45A", "#FFD27A", "#E8A84A"] : ["#D9A43A", "#C8902E", "#E2B04A"], {smin: 14, smax: 20, vmin: 0.9, vmax: 1.6, sway: 0.6, life: 320, glow: d ? 16 : 4})
       .concat(fxFall(W, H, n(36), "moroccopetal", d ? ["#F27A96", "#FF9AB2", "#E8607E"] : ["#E8506E", "#F27A96", "#D93A5E"], {sway: 1.7, flip: true, smin: 6, smax: 9}),
         fxFall(W, H, n(22), "moroccoblossom", d ? ["#FFF6E8", "#FFFFFF"] : ["#FFFFFF", "#FFF4E0"], {sway: 1.4, smin: 6, smax: 9, vmin: 0.9, vmax: 1.8, glow: d ? 6 : 0}),
