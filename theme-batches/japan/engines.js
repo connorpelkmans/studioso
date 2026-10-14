@@ -475,6 +475,15 @@ ENGINES.japan = function (A, v, dk) {
   function lamps(c, t, list) { c.save(); c.globalCompositeOperation = 'lighter'; list.forEach(function (l, k) { japan_dot(c, lanG, l[0], l[1], l[2] * 6, 0.5 + 0.2 * flick(t, k * 1.3)); c.fillStyle = 'rgba(255,170,90,0.6)'; c.beginPath(); c.ellipse(l[0], l[1], l[2] * 0.7, l[2] * 0.9, 0, 0, 7); c.fill(); }); c.restore(); }
   // the paper lanterns on the stair path, and the stone lanterns' windows
   var PL = A.paper, SL = A.stone;
+  // the lanterns further up the path than the torii stand behind it: they are drawn clipped to everywhere outside the gate
+  var toriiMask = (A.toriiPolys || []).map(function (p) { var m = new Path2D(); m.rect(-500, -500, W + 1000, H + 1000); m.addPath(new Path2D(japan_pg(p))); return m; });
+  function behindTorii(c) { toriiMask.forEach(function (m) { c.clip(m, 'evenodd'); }); }
+  // the Hinomaru: a white cloth with the red sun, rippling gently from its pole
+  function flag(c, t) { var F2 = A.flag, top = [], bot = [], k, u, wv = function (u2) { return Math.sin(u2 * Math.PI * 1.6 - t * 2.2) * 2.4 * S * u2; };
+    for (k = 0; k <= 16; k++) { u = k / 16; top.push([F2[0] + F2[2] * u, F2[1] + wv(u)]); bot.unshift([F2[0] + F2[2] * u * (1 - 0.02 * Math.sin(t * 2.2)), F2[1] + F2[3] + wv(u)]); }
+    var cl = new Path2D(japan_pg(top.concat(bot)));
+    c.fillStyle = dk ? '#F4F2F8' : '#FFFFFF'; c.fill(cl); c.strokeStyle = dk ? 'rgba(20,16,40,0.35)' : 'rgba(80,70,70,0.22)'; c.lineWidth = 0.8; c.stroke(cl);
+    c.fillStyle = dk ? '#D23A3A' : '#D8402E'; c.beginPath(); c.arc(F2[0] + F2[2] * 0.5, F2[1] + F2[3] * 0.5 + wv(0.5), F2[3] * 0.3, 0, 7); c.fill(); }
   function paperLantern(c, x, y, s, t, k) { var sw = Math.sin(t * 1.3 + k * 1.7) * 0.07 + Math.sin(t * 0.5 + k) * 0.04, L = 6 * s;
     c.save(); c.translate(x, y); c.rotate(sw); c.strokeStyle = '#2A2228'; c.lineWidth = 1 * s; c.beginPath(); c.moveTo(0, 0); c.lineTo(0, L); c.stroke(); c.translate(0, L + 7 * s);
     var lit = dk ? 0.85 + 0.15 * flick(t, k * 1.9) : 0;
@@ -540,8 +549,9 @@ ENGINES.japan = function (A, v, dk) {
       deco(ca, brSpr);
       heron(ca, tt);
       // ---- canvas B: lanterns, branches and falling petals over everything
-      SL.forEach(function (l, k2) { if (!dk) return; cb.save(); cb.globalCompositeOperation = 'lighter'; japan_dot(cb, lanG, l[0], l[1], 14 * l[2], 0.7 + 0.2 * flick(tt, k2 + 5)); cb.fillStyle = 'rgba(255,200,120,0.8)'; cb.fillRect(l[0] - 3 * l[2], l[1] - 3 * l[2], 6 * l[2], 6 * l[2]); cb.restore(); });
-      PL.forEach(function (p) { var lit = paperLantern(cb, p[0], p[1], p[2], tt, p[3]); if (lit > 0) { cb.save(); cb.globalCompositeOperation = 'lighter'; japan_dot(cb, lanG, p[0], p[1] + 13 * p[2], 24 * p[2], lit * 0.8); cb.restore(); } });
+      if (A.flag) flag(cb, tt);
+      SL.forEach(function (l, k2) { if (!dk) return; if (l[3]) { cb.save(); behindTorii(cb); } cb.save(); cb.globalCompositeOperation = 'lighter'; japan_dot(cb, lanG, l[0], l[1], 14 * l[2], 0.7 + 0.2 * flick(tt, k2 + 5)); cb.fillStyle = 'rgba(255,200,120,0.8)'; cb.fillRect(l[0] - 3 * l[2], l[1] - 3 * l[2], 6 * l[2], 6 * l[2]); cb.restore(); if (l[3]) cb.restore(); });
+      PL.forEach(function (p) { if (p[4]) { cb.save(); behindTorii(cb); } var lit = paperLantern(cb, p[0], p[1], p[2], tt, p[3]); if (lit > 0) { cb.save(); cb.globalCompositeOperation = 'lighter'; japan_dot(cb, lanG, p[0], p[1] + 13 * p[2], 24 * p[2], lit * 0.8); cb.restore(); } if (p[4]) cb.restore(); });
       branches.forEach(function (b) { var sw = (Math.sin(tt * 0.9 + b.ph) * 0.025 + Math.sin(tt * 2.1 + b.ph * 2) * 0.008) * f.a + gust * 0.05 * Math.sin(tt * 5 + b.ph); cb.save(); cb.translate(b.x, b.y); if (b.flip) { cb.scale(-1, 1); } cb.rotate((b.flip ? 0.42 : 0) + sw); cb.drawImage(b.spr, -b.spr.w / 2 + b.len * 1.15, -b.spr.h / 2 + b.len * 0.3, b.spr.w, b.spr.h); cb.restore(); });
       fall.forEach(function (p) { if (p.gust && t < p.t0) return; cb.save(); cb.translate(p.x, p.y); cb.rotate(p.ph * 0.7); cb.scale(Math.cos(p.ph * 2.2), 1); cb.fillStyle = p.c; japan_petal(cb, p.s); cb.restore(); });
     },
