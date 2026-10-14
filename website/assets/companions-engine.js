@@ -85,7 +85,9 @@ window.SBCOMPW = (function () {
   function eyeOpen(e, x){
     const r = e.r, c = e.color || INK;
     if (e.style === "round") {
-      return `<circle cx="${x}" cy="${e.y}" r="${r}" fill="#fff" ${OUT(2)}/><g class="cp-look"><g class="cp-pupil"><circle cx="${x}" cy="${e.y}" r="${f1(r * 0.6)}" fill="${c}"/><circle cx="${f1(x + r * 0.22)}" cy="${f1(e.y - r * 0.24)}" r="${f1(r * 0.22)}" fill="#fff"/></g></g>`;
+      // the same big glossy dark eye as the others, with a thin light rim so it still reads on a dark face (a white eyeball
+      // round a small pupil looked like a stare)
+      return `<g class="cp-look"><g class="cp-pupil"><ellipse cx="${x}" cy="${e.y}" rx="${f1(r * 0.88)}" ry="${r}" fill="${c}" stroke="#fff" stroke-opacity=".75" stroke-width="${f1(Math.max(0.8, r * 0.14))}"/><circle cx="${f1(x + r * 0.3)}" cy="${f1(e.y - r * 0.38)}" r="${f1(r * 0.38)}" fill="#fff"/><circle cx="${f1(x - r * 0.32)}" cy="${f1(e.y + r * 0.4)}" r="${f1(r * 0.18)}" fill="#fff"/><circle cx="${f1(x + r * 0.42)}" cy="${f1(e.y + r * 0.3)}" r="${f1(r * 0.09)}" fill="#fff"/></g></g>`;
     }
     const hl = e.style === "sparkle" ? `<circle cx="${f1(x + r * 0.3)}" cy="${f1(e.y - r * 0.38)}" r="${f1(r * 0.4)}" fill="#fff"/><circle cx="${f1(x - r * 0.32)}" cy="${f1(e.y + r * 0.4)}" r="${f1(r * 0.2)}" fill="#fff"/><circle cx="${f1(x + r * 0.42)}" cy="${f1(e.y + r * 0.3)}" r="${f1(r * 0.1)}" fill="#fff"/>`
       : `<circle cx="${f1(x + r * 0.3)}" cy="${f1(e.y - r * 0.36)}" r="${f1(r * 0.34)}" fill="#fff"/><circle cx="${f1(x - r * 0.3)}" cy="${f1(e.y + r * 0.38)}" r="${f1(r * 0.15)}" fill="#fff"/>`;
@@ -192,7 +194,7 @@ window.SBCOMPW = (function () {
         </g>
       </g></svg>`;
     if (!o.look) return uniqIds(svg);
-    const e = c.eyes, rr = (e.style === "round" ? 0.34 : 0.42) * e.r;
+    const e = c.eyes, rr = 0.42 * e.r;
     return uniqIds(svg).replace(/class="cp-look"/g, `class="cp-look" style="transform:translate(${f1(o.look[0] * rr)}px,${f1(o.look[1] * rr)}px)"`);
   }
 
@@ -220,7 +222,7 @@ window.SBCOMPW = (function () {
       mouth(s){ svg.dataset.m = s || "neutral"; },
       prop(p){ svg.dataset.prop = p || ""; },
       look(dx, dy){
-        const e = c.eyes, rr = (e.style === "round" ? 0.34 : 0.42) * e.r;
+        const e = c.eyes, rr = 0.42 * e.r;
         svg.querySelectorAll(".cp-look").forEach(l => { l.style.transform = `translate(${f1(dx * rr)}px,${f1(dy * rr)}px)`; });
       },
       blink(){ if (svg.dataset.e !== "open") return; svg.querySelectorAll(".cp-eye").forEach(e => e.animate && e.animate([{transform: "scaleY(1)"}, {transform: "scaleY(.08)"}, {transform: "scaleY(1)"}], {duration: 150, easing: "ease-in-out"})); },
