@@ -25,6 +25,13 @@ function morocco_archPts(x, yb, w, h, horse, lobes, ld, ry) {
     if (lobes) { var uu = Math.max(0, Math.min(1, (u - 0.04) / 0.92)); f = 1 - (ld || 0.06) * (1 - Math.pow(Math.abs(Math.sin(Math.PI * lobes * uu)), 0.7)); }
     p.push([x + Math.cos(ph) * rx * f, cy - Math.sin(ph) * RY * f]); }
   p.push([x + r, yb]); return p; }
+// a shape (finely sampled points) with every point that lies above an object's foot pushed down onto it, i.e. the shape minus the
+// object in front of it; foot(x) gives the object's lowest edge at x, or null where the object is not
+function morocco_under(p, foot) { return morocco_pg(p.map(function (q) { var f = foot(q[0]); return f !== null && q[1] < f ? [q[0], f] : q; })); }
+// is (x, y) inside the polygon p (even-odd)
+function morocco_inside(p, x, y) { var c = false; for (var i = 0, j = p.length - 1; i < p.length; j = i++) { var a = p[i], b = p[j]; if ((a[1] > y) !== (b[1] > y) && x < (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; }
+// the highest point where a vertical line at x crosses the (open-bottomed) outline p, or null
+function morocco_topAt(p, x) { var best = null; for (var i = 0; i < p.length - 1; i++) { var a = p[i], b = p[i + 1]; if ((a[0] - x) * (b[0] - x) <= 0 && a[0] !== b[0]) { var y = a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]); if (best === null || y < best) best = y; } } return best; }
 // zellige: a band of eight-point stars (star) with small diamonds where four cells meet (dia) and outlines (line).
 // cell: the wanted cell size; sq squashes it vertically (for the floor and the fountain face)
 function morocco_zel(x0, y0, w, h, cell, sq) {
@@ -116,12 +123,12 @@ SCENES.morocco = function (W, H, dk, rnd) {
     cream += rect(afz[0], afz[1], (ax - afz[0]) * 2, yf - afz[1]);
     white += morocco_pg(outer);
     open += morocco_pg(ap);
-    for (k = 0; k < 2; k++) { var sx = k ? ax + aw * 0.38 : ax - aw * 0.38, syy = afz[1] + bd * 2.6; wl += morocco_c(sx, syy, bd * 1.2) + morocco_star(sx, syy, bd * 0.9, 0.6, 8, 0) + seg(sx - bd * 1.2, syy, k ? afz[0] + (ax - afz[0]) * 2 : afz[0], syy); }
-    wl += poly(morocco_archPts(ax, yf, aw + bd * 1.1, ah + bd * 0.55, 1.135).slice(1, -1));
+    for (k = 0; k < 2; k++) { var sx = ax + (k ? 1 : -1) * (aw / 2 + bd * 0.9), syy = yf - ah + bd * 0.9; wl += morocco_c(sx, syy, bd) + morocco_star(sx, syy, bd * 0.74, 0.6, 8, 0); }
+    wl += pline(morocco_archPts(ax, yf, aw + bd * 1.1, ah + bd * 0.55, 1.135));
     // the bottom of each pier: a zellige dado
     arches.push({x: ax, w: aw, top: yf - ah, yb: yf, pts: ap}); }
   for (i = 0; i <= na; i++) { var x0 = i === 0 ? -10 : pw + i * sp - (sp - aw) / 2 + 2, x1 = i === na ? W + 10 : pw + i * sp + (sp - aw) / 2 - 2;
-    if (i > 0) x0 = pw + (i - 1) * sp + sp / 2 + aw / 2 + 2; if (i < na) x1 = pw + i * sp + sp / 2 - aw / 2 - 2; if (i === 0) x0 = -10; if (i === na) x1 = W + 10;
+    if (i > 0) x0 = pw + (i - 1) * sp + sp / 2 + aw / 2 + (ph ? 5 : 9) * (ph ? 1 : S) + 1; if (i < na) x1 = pw + i * sp + sp / 2 - aw / 2 - (ph ? 5 : 9) * (ph ? 1 : S) - 1; if (i === 0) x0 = -10; if (i === na) x1 = W + 10;
     if (x1 - x0 < 8) continue;
     var z = morocco_zel(x0, yd, x1 - x0, yf - yd, ph ? 16 : 26 * S); cob += rect(x0, yd, x1 - x0, yf - yd); white += z.star; grn += z.dia; wl += z.line;
     cedar += rect(x0, yd - 4, x1 - x0, 4); shade += rect(x0, yd, x1 - x0, 3); }
@@ -131,7 +138,10 @@ SCENES.morocco = function (W, H, dk, rnd) {
   var rows = []; for (y = yf + 6, k = 0; y < H + 30; k++) { rows.push(y); y += (ph ? 9 : 10) + (y - yf) * 0.24; }
   rows.forEach(function (ry, r) { var sc = (ry - vy) / (H - vy), cw = (ph ? 34 : 64) * sc, rh = (rows[r + 1] || ry + 30) - ry; fl += seg(-10, ry, W + 10, ry);
     for (var cx = W / 2 - Math.ceil(W / cw) * cw; cx < W + cw; cx += cw) { var star = (Math.round((cx - W / 2) / cw) + r) % 2 === 0, sxx = cx + cw / 2;
-      if (star) { var sr = Math.min(cw * 0.2, rh * 0.75); (r % 2 ? grn += morocco_star(sxx, ry, sr, 0.62, 8, Math.PI / 8, rh / cw * 1.4) : cob += morocco_star(sxx, ry, sr, 0.62, 8, Math.PI / 8, rh / cw * 1.4)); white += morocco_star(sxx, ry, sr * 0.36, 0.6, 8, Math.PI / 8, rh / cw * 1.4); }
+      // each star is laid flat on the floor: drawn in the floor's own plane, then put into its perspective (depth squashed by the
+      // row's height to width, and every point pulled toward the vanishing point by its own depth, so it slants with the tile lines)
+      if (star) { var sr = cw * 0.2, kq = rh / cw, onFloor = function (pts) { return morocco_pg(pts.map(function (p) { var yy = ry + p[1] * kq; return [W / 2 + (sxx + p[0] - W / 2) * (yy - vy) / (ry - vy), yy]; })); };
+        var big = onFloor(morocco_starPts(0, 0, sr, 0.62, 8, Math.PI / 8, 1)); if (r % 2) grn += big; else cob += big; white += onFloor(morocco_starPts(0, 0, sr * 0.36, 0.6, 8, Math.PI / 8, 1)); }
       fl += seg(cx, ry, cx + (cx - W / 2) * rh / (ry - vy), ry + rh); } });
   add(mid, 'a', wall, C.wall); add(mid, 'b', cream + floor, C.cream); add(mid, 'c', cob, C.cob); add(mid, 'd', grn, C.grn); add(mid, 'e', white, C.white); add(mid, 'f', cedar, C.cedar); add(mid, 'g', shade, C.shade); add(mid, 'h', open, C.open);
   stk(mid, 's', fl, C.wgrout, 1); stk(mid, 't', wl + wc, C.wcarve, ph ? 0.8 : 1.1);
@@ -158,7 +168,9 @@ SCENES.morocco = function (W, H, dk, rnd) {
   var pedT = bowlY + bry * 2.6 - 1;
   ncream += morocco_pg([[fx - 9 * S, fyy], [fx - 6 * S, pedT], [fx + 6 * S, pedT], [fx + 9 * S, fyy]]) + morocco_e(fx, fyy, 16 * S, 4 * S);
   nc += seg(fx - 3 * S, fyy - 2, fx - 2 * S, pedT) + seg(fx + 3 * S, fyy - 2, fx + 2 * S, pedT);
-  ncob += morocco_pg([[fx - brx, bowlY], [fx + brx, bowlY], [fx + brx * 0.55, bowlY + bry * 2.6], [fx - brx * 0.55, bowlY + bry * 2.6]]);
+  // the bowl's outside hangs from the front of its rim (not from its middle, which would cover the front half of the water)
+  var bowlFront = morocco_ep(fx, bowlY, brx + 2, bry + 1.4, 60).filter(function (p) { return p[1] >= bowlY; }).sort(function (a, b) { return b[0] - a[0]; });
+  ncob += morocco_pg(bowlFront.concat([[fx - brx * 0.55, bowlY + bry * 2.6], [fx + brx * 0.55, bowlY + bry * 2.6]]));
   ncream += morocco_pg(morocco_ep(fx, bowlY, brx + 2, bry + 1.4, 40)) + morocco_hole(morocco_ep(fx, bowlY, brx - 3, bry - 1.4, 40));
   water += morocco_e(fx, bowlY, brx - 3, bry - 1.4);
   ngrn += morocco_dia(fx - brx * 0.4, bowlY + bry * 1.4, 3 * S, 3 * S) + morocco_dia(fx, bowlY + bry * 1.6, 3 * S, 3 * S) + morocco_dia(fx + brx * 0.4, bowlY + bry * 1.4, 3 * S, 3 * S);
@@ -168,7 +180,7 @@ SCENES.morocco = function (W, H, dk, rnd) {
   var rX = W * 0.29, rY = H * 0.935, rw = 250 * S, rh2 = 54 * S;
   if (!ph) {
     var rugP = [[rX - rw / 2 + 18 * S, rY - rh2 / 2], [rX + rw / 2 - 18 * S, rY - rh2 / 2], [rX + rw / 2 + 8 * S, rY + rh2 / 2], [rX - rw / 2 - 8 * S, rY + rh2 / 2]];
-    gsh += morocco_pg([[rugP[0][0], rugP[0][1] + 4], [rugP[1][0] + 4, rugP[1][1] + 4], [rugP[2][0] + 4, rugP[2][1] + 4], [rugP[3][0], rugP[3][1] + 4]]);
+    gsh += morocco_pg([[rugP[0][0] - 1, rugP[0][1] + 1], [rugP[1][0] + 2, rugP[1][1] + 1], [rugP[2][0] + 2.5, rugP[2][1] + 1.5], [rugP[3][0] - 1, rugP[3][1] + 1.5]]);
     rug += morocco_pg(rugP);
     var inset = function (d) { var kx = 1 - d / (rw / 2), ky = 1 - d / (rh2 / 2); return rugP.map(function (p) { return [rX + (p[0] - rX) * kx, rY + (p[1] - rY) * ky]; }); };
     // the border bands, left open where the cushions and the table stand on the rug's back edge (so they stay in front)
@@ -190,14 +202,16 @@ SCENES.morocco = function (W, H, dk, rnd) {
     nor += band(6 * S, 10 * S);
     ncream += band(13 * S, 15 * S);
     for (j = -2; j <= 2; j++) { var mxr = rX + j * rw * 0.17, myr = rY + 2 * S; if (j % 2) ncob += morocco_dia(mxr, myr, 11 * S, 7 * S); else nor += morocco_dia(mxr, myr, 11 * S, 7 * S); ncream += morocco_dia(mxr, myr, 4 * S, 2.5 * S); }
-    for (j = 0; j <= 20; j++) { var fxr = rugP[3][0] + j * (rugP[2][0] - rugP[3][0]) / 20; nc += seg(fxr, rY + rh2 / 2, fxr - 0.6, rY + rh2 / 2 + 5 * S); }
+    // the fringe lies flat on the floor along the front edge, each tassel pointing straight out toward us in the floor's perspective
+    for (j = 0; j <= 20; j++) { var fxr = rugP[3][0] + j * (rugP[2][0] - rugP[3][0]) / 20, fyr = rY + rh2 / 2, fdx = fxr - W / 2, fdy = fyr - vy, fdl = Math.hypot(fdx, fdy); nc += seg(fxr, fyr, fxr + fdx / fdl * 4 * S, fyr + fdy / fdl * 4 * S); }
     // cushions (round poufs and flat cushions) behind the rug
     cush.forEach(function (q) { var cx = rX + q[0] * rw, cy = rY - rh2 * 0.45, cw2 = q[2] * S, chh = q[3] * S, s = morocco_pg(morocco_ep(cx, cy, cw2, chh, 30));
-      nsh += morocco_e(cx + 3, cy + chh * 0.8, cw2, chh * 0.3);
+      nsh += morocco_under(morocco_ep(cx + 4 * S, cy + chh * 0.78, cw2 * 1.05, chh * 0.32, 90), function (x) { var u = (x - cx) / cw2; return u * u < 1 ? cy + chh * Math.sqrt(1 - u * u) : null; }); // (only where the cushion is not)
       if (q[1] === 'a') rug += s; else if (q[1] === 'c') ncob += s; else gold += s;
       ng += 'M' + PT(cx - cw2 * 0.85, cy) + ' Q' + PT(cx, cy + chh * 0.35) + ' ' + PT(cx + cw2 * 0.85, cy) + ' ' + morocco_c(cx, cy - chh * 0.2, 1.6 * S); nor += morocco_star(cx, cy - chh * 0.2, chh * 0.38, 0.55, 8, 0, 0.8); });
     // the painted table, a brass tray, the teapot and three glasses of tea
     ncob += morocco_pg([[tX - 34 * tS, tY - 16 * tS], [tX + 34 * tS, tY - 16 * tS], [tX + 30 * tS, tY], [tX + 22 * tS, tY], [tX + 22 * tS, tY - 8 * tS], [tX - 22 * tS, tY - 8 * tS], [tX - 22 * tS, tY], [tX - 30 * tS, tY]]);
+    nsh += morocco_under(morocco_ep(tX + 5 * tS, tY - 1 * tS, 36 * tS, 4 * tS, 90), function (x) { var dx = Math.abs(x - tX); return dx < 22 * tS ? tY - 8 * tS : dx < 30 * tS ? tY : null; }); // (the legs and apron in front of it)
     nor += rect(tX - 30 * tS, tY - 14 * tS, 60 * tS, 2.4 * tS); ngrn += morocco_dia(tX, tY - 8 * tS, 5 * tS, 3 * tS);
     gold += morocco_pg(morocco_ep(tX, tY - 18 * tS, 40 * tS, 7 * tS, 36));
     var tp = [tX - 8 * tS, tY - 22 * tS];
@@ -210,7 +224,9 @@ SCENES.morocco = function (W, H, dk, rnd) {
   // candles: three on brass dishes beside the fountain, one pair by the rug
   var candles = [[fx + frx + 26 * S, fyy + fh * 0.9, 1], [fx + frx + 42 * S, fyy + fh * 1.05, 0.75], [rX - rw * 0.58, rY - rh2 * 0.1, 0.7], [rX - rw * 0.52, rY + rh2 * 0.15, 0.95]];
   if (ph) candles = [[fx - frx - 18 * S, fyy + fh * 0.9, 1], [fx + frx + 16 * S, fyy + fh * 0.95, 0.85]];
-  candles.forEach(function (c) { var cs = c[2] * S * (ph ? 1.2 : 1), ch = 22 * cs; gold += morocco_pg(morocco_ep(c[0], c[1], 9 * cs, 2.6 * cs, 20)); ncream += rect(c[0] - 4 * cs, c[1] - ch, 8 * cs, ch) + morocco_e(c[0], c[1] - ch, 4 * cs, 1.4 * cs); nc += seg(c[0], c[1] - ch - 1, c[0], c[1] - ch - 4 * cs); gsh += morocco_e(c[0] + 4, c[1] + 2, 10 * cs, 2.4 * cs); c.push(c[1] - ch - 4 * cs, cs); });
+  // (each candle stands on its dish: the dish is drawn only round and in front of the candle's rounded foot, never over it)
+  candles.forEach(function (c) { var cs = c[2] * S * (ph ? 1.2 : 1), ch = 22 * cs, fy2 = c[1] - 0.6 * cs, body = [[c[0] - 4 * cs, c[1] - ch]].concat(morocco_ep(c[0], fy2, 4 * cs, 1.4 * cs, 16).filter(function (p) { return p[1] >= fy2; }).sort(function (a, b) { return a[0] - b[0]; }), [[c[0] + 4 * cs, c[1] - ch]]);
+    gold += morocco_under(morocco_ep(c[0], c[1], 9 * cs, 2.6 * cs, 72), function (x) { var u = (x - c[0]) / (4 * cs); return u * u < 1 ? fy2 + 1.4 * cs * Math.sqrt(1 - u * u) : null; }); ncream += morocco_pg(body) + morocco_e(c[0], c[1] - ch, 4 * cs, 1.4 * cs); nc += seg(c[0], c[1] - ch - 1, c[0], c[1] - ch - 4 * cs); gsh += morocco_e(c[0] + 4, c[1] + 2, 10 * cs, 2.4 * cs); c.push(c[1] - ch - 4 * cs, cs); });
   // glazed pots for two orange trees (the trees are the engine's while it runs)
   var trees = [[W - pw - (ph ? 50 : 96) * S, H * (ph ? 0.965 : 0.975), ph ? 0.85 : 1.05], [pw + (ph ? 46 : 64) * S, H * (ph ? 0.97 : 0.985), ph ? 0.8 : 0.95]], tdat = [];
   trees.forEach(function (q, n) { var px = q[0], py = q[1], s = q[2] * S * (ph ? 1.2 : 1), pot = morocco_pg([[px - 30 * s, py - 62 * s], [px + 30 * s, py - 62 * s], [px + 34 * s, py - 46 * s], [px + 24 * s, py], [px - 24 * s, py], [px - 34 * s, py - 46 * s]]);
@@ -223,7 +239,6 @@ SCENES.morocco = function (W, H, dk, rnd) {
     tdat.push({x: px, y: py - 66 * s, s: s, k: n}); });
   // the brass lanterns: hanging under the arch, on the back wall between the arches, and standing on the floor
   var lan = [], hangs = ph ? [[0.2, 0.17, 0.95], [0.5, 0.075, 0.8], [0.82, 0.19, 1]] : [[0.16, 0.2, 1.05], [0.36, 0.11, 0.85], [0.6, 0.085, 0.8], [0.88, 0.24, 1.1]];
-  hangs.forEach(function (q, n) { var hx = W * q[0], ay = archY(hx) + 4; lan.push({x: hx, y: ay, len: Math.max(14, H * q[1] - ay), R: (ph ? 9 : 14) * q[2] * (ph ? 1 : S), kind: 'hang', k: n}); });
   for (i = 1; i < na; i++) lan.push({x: pw + i * sp, y: yd - (yd - fy1) * 0.42, len: 0, R: (ph ? 6 : 10) * (ph ? 1 : S), kind: 'wall', k: i});
   lan.push({x: fx + frx + (ph ? 46 : 70) * S, y: fyy + fh * 0.7, len: 0, R: (ph ? 10 : 15) * S * (ph ? 1.2 : 1), kind: 'floor', k: 7});
   if (!ph) lan.push({x: (rX + rw / 2 + fx - frx) / 2 - 4 * S, y: rY + rh2 * 0.1, len: 0, R: 13 * S, kind: 'floor', k: 8});
@@ -232,23 +247,26 @@ SCENES.morocco = function (W, H, dk, rnd) {
   var aOpen = morocco_archPts(W / 2, H + 20, W - 2 * pw, H + 20 - (ARC.cy - ARC.ry), (W / 2 - pw + (ph ? 6 : 14)) / (W / 2 - pw), ph ? 9 : 13, ph ? 0.035 : 0.025, ARC.ry);
   var bandW = (ph ? 9 : 18) * (ph ? 1 : S), aBand = morocco_archPts(W / 2, H + 20, W - 2 * pw + bandW * 2, H + 20 - (ARC.cy - ARC.ry) + bandW, (W / 2 - pw + (ph ? 6 : 14) + bandW) / (W / 2 - pw + bandW), 0, 0, ARC.ry + bandW);
   var frame = rect(-20, -20, W + 40, H + 40) + morocco_hole(aBand), band = morocco_pg(aBand) + morocco_hole(aOpen);
+  // the hanging lanterns (first in the list): each rope starts just inside the arch's band, so it is fixed to it
+  hangs.forEach(function (q, n) { var hx = W * q[0], ay = (morocco_topAt(aOpen, hx) || archY(hx)) - 2; lan.splice(n, 0, {x: hx, y: ay, len: Math.max(14, H * q[1] - ay), R: (ph ? 9 : 14) * q[2] * (ph ? 1 : S), kind: 'hang', k: n}); });
   ncream += frame; ncob += band;
   // stars along the band, small cream diamonds between them
   var bandMid = aOpen.map(function (p, q) { var o = aBand[q]; return [(p[0] + o[0]) / 2, (p[1] + o[1]) / 2]; }), acc = 0, step = bandW * 1.25;
   for (i = 1; i < bandMid.length; i++) { var d = Math.hypot(bandMid[i][0] - bandMid[i - 1][0], bandMid[i][1] - bandMid[i - 1][1]); acc += d;
-    if (acc >= step) { acc = 0; var bp = bandMid[i]; if (bp[1] > H + 4 || bp[1] < -bandW) continue; ngrn += morocco_star(bp[0], bp[1], bandW * 0.36, 0.66, 8, Math.PI / 8); nor += morocco_star(bp[0], bp[1], bandW * 0.14, 0.6, 8, 0); } }
+    if (acc >= step) { acc = 0; var bp = bandMid[i]; if (bp[1] > H + 4 || bp[1] < -bandW) continue; if (!ph && bp[1] > ARC.cy + 24 * S && (Math.abs(bp[0] - (pw - 9)) < bandW * 0.5 + 9 || Math.abs(bp[0] - (W - pw + 9)) < bandW * 0.5 + 9)) continue; /* none on the columns */ ngrn += morocco_star(bp[0], bp[1], bandW * 0.36, 0.66, 8, Math.PI / 8); nor += morocco_star(bp[0], bp[1], bandW * 0.14, 0.6, 8, 0); } }
   // carved lines that follow the arch, and a lobed rosette in each top corner
-  [1.6, 2.3].forEach(function (m) { var pts = morocco_archPts(W / 2, H + 20, W - 2 * pw + bandW * 2 * m, H + 20 - (ARC.cy - ARC.ry) + bandW * m, (W / 2 - pw + (ph ? 6 : 14) + bandW * m) / (W / 2 - pw + bandW * m), 0, 0, ARC.ry + bandW * m); nc += pline(pts.slice(1, -1)); });
+  [1.6, 2.3].forEach(function (m) { var pts = morocco_archPts(W / 2, H + 20, W - 2 * pw + bandW * 2 * m, H + 20 - (ARC.cy - ARC.ry) + bandW * m, (W / 2 - pw + (ph ? 6 : 14) + bandW * m) / (W / 2 - pw + bandW * m), 0, 0, ARC.ry + bandW * m); var zt0 = H * (ph ? 0.8 : 0.66) - 6; pts = pts.slice(); pts[0] = [pts[0][0], Math.max(zt0, pts[1][1])]; pts[pts.length - 1] = [pts[pts.length - 1][0], Math.max(zt0, pts[pts.length - 2][1])]; nc += pline(pts); }); // (down the jambs to the tile panels, not through them)
   var ro = ph ? [[0.06, 0.035], [0.94, 0.035]] : [[0.06, 0.07], [0.94, 0.07]];
   ro.forEach(function (q) { var rx = W * q[0], ry = H * q[1], rr = ph ? 12 : 30 * S; if (ry > archY(rx) - rr * 0.6) return; ngrn += morocco_star(rx, ry, rr, 0.74, 8, Math.PI / 8); ncream += morocco_star(rx, ry, rr * 0.56, 0.7, 8, 0); nor += morocco_star(rx, ry, rr * 0.26, 0.6, 8, Math.PI / 8); nc += morocco_c(rx, ry, rr * 1.18); for (k = 0; k < 8; k++) { var a = k / 8 * Math.PI * 2; nc += morocco_leaf(rx + Math.cos(a) * rr * 1.5, ry + Math.sin(a) * rr * 1.5, rr * 0.5, rr * 0.16, a * 57.3); } });
-  // sebka lattice carved into the spandrels
-  if (!ph) for (y = 6; y < ARC.cy; y += 22 * S) for (x = 6; x < W; x += 22 * S) { if (y > archY(x) - 30 * S || Math.hypot(x - W * 0.06, y - H * 0.07) < 50 * S || Math.hypot(x - W * 0.94, y - H * 0.07) < 50 * S) continue; nc += morocco_dia(x, y, 7 * S, 7 * S); }
+  // sebka lattice carved into the spandrels, kept clear of the carved arch lines (the outer one at 2.3 band widths) and the rosettes
+  var lm = 2.3 + 7 * S / bandW + 0.6, latClear = morocco_archPts(W / 2, H + 20, W - 2 * pw + bandW * 2 * lm, H + 20 - (ARC.cy - ARC.ry) + bandW * lm, (W / 2 - pw + (ph ? 6 : 14) + bandW * lm) / (W / 2 - pw + bandW * lm), 0, 0, ARC.ry + bandW * lm);
+  if (!ph) for (y = 6; y < ARC.cy; y += 22 * S) for (x = 6; x < W; x += 22 * S) { if (morocco_inside(latClear, x, y) || Math.hypot(x - W * 0.06, y - H * 0.07) < 76 * S || Math.hypot(x - W * 0.94, y - H * 0.07) < 76 * S) continue; nc += morocco_dia(x, y, 7 * S, 7 * S); }
   // the jambs: a zellige panel at the foot, a carved column with a capital, and a cedar strip
   [-1, 1].forEach(function (sd) { var jx0 = sd < 0 ? -20 : W - pw, jx1 = sd < 0 ? pw : W + 20, zt = H * (ph ? 0.8 : 0.66), zz = morocco_zel(jx0 + (sd < 0 ? 20 : 0) + 3, zt, pw - 6, H - zt, ph ? 9 : pw - 8);
     ncob += rect(jx0 + (sd < 0 ? 20 : 0) + 2, zt, pw - 4, H - zt + 10); ngrn += zz.star; nor += zz.dia; ng += zz.line;
     nor += rect(jx0 + (sd < 0 ? 20 : 0), zt - 5, pw, 4);
     if (!ph) { var cx = sd < 0 ? pw - 9 : W - pw + 9; ncream += rect(cx - 5, ARC.cy + 40 * S, 10, zt - ARC.cy - 46 * S); nc += seg(cx - 2, ARC.cy + 48 * S, cx - 2, zt - 10) + seg(cx + 2, ARC.cy + 48 * S, cx + 2, zt - 10); gold += rect(cx - 8, ARC.cy + 34 * S, 16, 7) + rect(cx - 7, zt - 12, 14, 5); }
-    nsh += rect(sd < 0 ? pw - 3 : W - pw, -20, 3, H + 40); });
+    nsh += rect(sd < 0 ? pw - 3 : W - pw, aOpen[1][1], 3, H + 20 - aOpen[1][1]); });
   add(mid, 'g', gsh, C.shade); add(near, 'a', rug, C.rug); add(near, 'b', water, C.water); add(near, 'c', ncob, C.cob); add(near, 'd', ncream, C.ncream); add(near, 'e', ngrn, C.grn); add(near, 'f', nor, C.norange); add(near, 'g', gold, C.gold); add(near, 'h', nsh, C.nshade);
   stk(near, 's', ng, C.grout, ph ? 0.7 : 1); stk(near, 't', nc, C.carve, ph ? 0.8 : 1.2);
   if (ANIM) { ANIM.C = C; ANIM.stars = stars; ANIM.lan = lan; ANIM.trees = tdat; ANIM.arches = arches; ANIM.candles = candles; ANIM.yw = yw; ANIM.yf = yf; ANIM.ARC = ARC; ANIM.pw = pw;

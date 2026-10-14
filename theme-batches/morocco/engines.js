@@ -130,11 +130,15 @@ ENGINES.morocco = function (A, v, dk) {
       // the sheer curtains billowing in the arcade
       arches.forEach(function (a, j) { ca.save(); ca.clip(a.clip); var hgt = a.yb - a.top;
         if (dk) { ca.save(); ca.globalCompositeOperation = 'lighter'; morocco_dot(ca, warmG, a.x, a.yb - hgt * 0.25, a.w * 0.9, 0.45 + 0.08 * flick(tt * 0.4, j), 1.3); ca.restore(); }
-        [-1, 1].forEach(function (sd) { var b = Math.sin(tt * 0.7 + a.ph + sd) * 0.5 + Math.sin(tt * 1.7 + a.ph * 2) * 0.2, edge = a.x + sd * a.w * 0.5, tie = a.top + hgt * 0.62, inner = a.x + sd * a.w * (0.16 - 0.06 * b * f.a);
-          ca.fillStyle = curtainC; ca.beginPath(); ca.moveTo(edge + sd * 4, a.top - 4); ca.lineTo(a.x - sd * 2, a.top - 4); ca.bezierCurveTo(a.x - sd * 2, a.top + hgt * 0.25, inner, tie - hgt * 0.15, edge - sd * a.w * 0.18, tie);
-          ca.bezierCurveTo(edge - sd * a.w * (0.26 + 0.08 * b * f.a), tie + hgt * 0.2, edge - sd * a.w * (0.3 + 0.06 * b * f.a), a.yb - hgt * 0.06, edge - sd * a.w * (0.24 + 0.08 * b * f.a), a.yb + 2); ca.lineTo(edge + sd * 4, a.yb + 2); ca.closePath(); ca.fill();
+        // each half hangs from the top of the opening right out to its widest (the horseshoe swells past the jambs), is gathered by a
+        // gold tie-back at the waist, and its folds stay inside it
+        [-1, 1].forEach(function (sd) { var b = Math.sin(tt * 0.7 + a.ph + sd) * 0.5 + Math.sin(tt * 1.7 + a.ph * 2) * 0.2, edge = a.x + sd * a.w * 0.5, out = a.x + sd * (a.w * 0.6 + 4), tie = a.top + hgt * 0.62, inner = a.x + sd * a.w * (0.16 - 0.06 * b * f.a), waist = edge - sd * a.w * 0.18;
+          var cu = new Path2D(); cu.moveTo(out, a.top - 4); cu.lineTo(a.x - sd * 2, a.top - 4); cu.bezierCurveTo(a.x - sd * 2, a.top + hgt * 0.25, inner, tie - hgt * 0.15, waist, tie);
+          cu.bezierCurveTo(edge - sd * a.w * (0.26 + 0.08 * b * f.a), tie + hgt * 0.2, edge - sd * a.w * (0.3 + 0.06 * b * f.a), a.yb - hgt * 0.06, edge - sd * a.w * (0.24 + 0.08 * b * f.a), a.yb + 2); cu.lineTo(out, a.yb + 2); cu.closePath();
+          ca.fillStyle = curtainC; ca.fill(cu); ca.save(); ca.clip(cu);
           ca.strokeStyle = foldC; ca.lineWidth = 1; for (var q = 1; q < 4; q++) { var fx = edge - sd * a.w * 0.05 * q; ca.beginPath(); ca.moveTo(fx, a.top); ca.quadraticCurveTo(fx - sd * a.w * 0.03 * q, tie, fx - sd * a.w * (0.05 + 0.02 * b) * q, a.yb); ca.stroke(); }
-          ca.fillStyle = dk ? '#C8A04A' : '#D9A43A'; ca.beginPath(); ca.ellipse(edge - sd * a.w * 0.17, tie, 3, 4, 0, 0, 7); ca.fill(); });
+          ca.fillStyle = dk ? '#C8A04A' : '#D9A43A'; ca.fillRect(Math.min(waist, out) - 1, tie - 1.6, Math.abs(out - waist) + 2, 3.2); ca.restore();
+          ca.beginPath(); ca.arc(waist + sd * 1.5, tie + 3, 2.2, 0, 7); ca.fill(); ca.fillRect(waist + sd * 1.5 - 0.6, tie + 4, 1.2, 4); });
         ca.restore(); });
       // the orange trees: trunk, then three clusters swaying on their own
       trees.forEach(function (tr) { var s = tr.s, sw = Math.sin(tt * 0.6 + tr.ph) * 0.025 * f.a;
@@ -190,7 +194,9 @@ ENGINES.morocco = function (A, v, dk) {
         var sw = (Math.sin(tt * 0.8 + l.ph) * 0.06 + Math.sin(tt * 0.31 + l.ph * 2) * 0.03) * f.a, cyy = l.len + l.R * 2.1, x = l.x + Math.sin(sw) * cyy, y = l.y + Math.cos(sw) * cyy;
         if (L > 0.01) { cb.save(); cb.globalCompositeOperation = dk ? 'lighter' : 'source-over'; morocco_dot(cb, lanG, x, y, l.R * 4.2, L * (dk ? 0.8 : 0.8)); morocco_dot(cb, hotG, x, y - l.R * 0.2, l.R * 1.3, L * (dk ? 0.35 : 0.7));
           for (var q = 0; q < 8; q++) { var a = q / 8 * Math.PI * 2 + tt * 0.05; cb.globalAlpha = L * (dk ? 0.4 : 0.6); cb.fillStyle = dk ? '#FFD890' : '#F0A030'; cb.save(); cb.translate(x + Math.cos(a) * l.R * 2.6, y + Math.sin(a) * l.R * 2.4); cb.scale(l.R * 0.22, l.R * 0.22); cb.fill(star8); cb.restore(); } cb.restore(); cb.globalAlpha = 1; }
-        cb.strokeStyle = dk ? 'rgba(220,190,130,0.6)' : 'rgba(110,70,30,0.65)'; cb.lineWidth = 1.2; cb.setLineDash([2.4, 1.6]); cb.beginPath(); cb.moveTo(l.x, l.y); cb.lineTo(l.x + Math.sin(sw) * (l.len + l.R * 0.1), l.y + Math.cos(sw) * (l.len + l.R * 0.1)); cb.stroke(); cb.setLineDash([]);
+        // the chain: a steady line from a little brass mount on the arch (no dash pattern, which crawls as it swings)
+        cb.strokeStyle = dk ? 'rgba(220,190,130,0.75)' : 'rgba(110,70,30,0.75)'; cb.lineWidth = 1.2; cb.beginPath(); cb.moveTo(l.x, l.y); cb.lineTo(l.x + Math.sin(sw) * (l.len + l.R * 0.1), l.y + Math.cos(sw) * (l.len + l.R * 0.1)); cb.stroke();
+        cb.fillStyle = dk ? '#C8A04A' : '#B8862E'; cb.beginPath(); cb.ellipse(l.x, l.y - 1, 3.4, 2, 0, 0, 7); cb.fill();
         drawLan(cb, l, L, x, y, -sw);
         if (L > 0.5 && T - l.d < 0.6 && T - l.d > 0) { cb.save(); cb.translate(x, y); cb.scale(l.R * 2.2, l.R * 2.2); cb.fillStyle = 'rgba(255,255,255,' + (1 - (T - l.d) / 0.6) + ')'; cb.fill(spark); cb.restore(); } });
       // the shower of rose petals and orange blossoms
