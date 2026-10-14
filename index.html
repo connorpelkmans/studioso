@@ -719,7 +719,7 @@ nav.tabs .in button[aria-current="page"] svg{color:var(--accent-2)}
 h2.sec,.col-head,.tl-controls h2,.view-head h2,.cal-head h2,.fcrumb,.sheet-head h2,.detail-head h2,.course-card h3,.deck-name,.focus-head h2,.empty strong,.lane-head{font-family:var(--display);letter-spacing:-.01em}
 .view-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}
 .view-head h2{flex:1;margin:0;font:700 1.45rem/1.2 var(--display)}
-.tl-controls h2{font-size:1.45rem}
+.tl-controls h2{font-size:1.45rem;line-height:1.2}   /* same line height as .view-head h2, so the scene themes' plate behind every page title is the same height */
 /* Controls */
 .btn{border-radius:11px;border-color:var(--line);font-weight:700;box-shadow:0 1px 0 rgba(14,42,86,.05)}
 .btn:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
@@ -2854,6 +2854,9 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:au
 .view-head,.tl-controls{margin-bottom:12px}
 /* Courses, Grades, Emails and Files: the same 16px from the page title to the first card under it */
 .pview-tabs + .view-head,.pview-tabs + .tl-controls:has(+ .fwrap){margin-bottom:16px}
+/* Buttons beside the title (Insights, Recently Deleted) are taller than it: they centre on the title without making its row taller,
+   so the title sits the same 12px under the tab selector whether a page has them (Courses, Grades) or not (Emails, Files) */
+.pview-tabs + .view-head > .btn,.pview-tabs + .gp > .view-head > .btn{margin-block:-20px}
 .pview-tabs + .view-head + :is(.course-list,.empty){margin-top:16px}
 .pview-tabs + .gp > .view-head + *{margin-top:4px}
 /* Timeline, Schedule and Crunch too: 16px from the title to the row or card under it */
@@ -6321,6 +6324,8 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 @media (max-width:600px){
   /* Scene themes: the readability plate behind page titles and notes hugs the text instead of running the full width */
   html.sc-on :is(.view-head > h2,.tl-controls > h2,.board-sec-head > h2,.hint-line,.fcrumb){width:fit-content!important;max-width:100%;flex:0 1 auto!important;margin-right:auto}
+  /* that title can share its row with a taller control: it stays at the top of the row, 12px under the tab selector */
+  html.sc-on .pview-tabs + :is(.view-head,.tl-controls){align-items:flex-start}
   html.sc-on :is(.sch-sum){background:color-mix(in srgb,var(--surface) 94%,transparent)!important}
   /* Groups: the "share without an account" text sat straight on the artwork */
   html.sc-on .grp-file{padding:14px;border:1px solid var(--line);border-radius:16px;background:color-mix(in srgb,var(--surface) 94%,transparent)}
