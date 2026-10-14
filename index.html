@@ -2849,8 +2849,8 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:au
 .pview-tabs + .view-head,.pview-tabs + .tl-controls,.pview-tabs + .cr > .cr-head,.pview-tabs + .gp > .view-head,.pview-tabs + .view-head{margin-top:0}
 .pview-tabs + .view-head,.pview-tabs + .tl-controls{row-gap:12px}
 .pview-tabs + .view-head > h2,.pview-tabs + .tl-controls > h2{flex:1 0 100%}
-/* a head with just the title and the Recently Deleted button keeps the button on the title's line */
-.view-head:has(> h2:first-child + .trash-btn:last-child) > h2{flex:1 1 auto!important}
+/* a head with just the title and buttons (Insights, Recently Deleted) keeps the buttons on the title's line, at the right */
+.view-head:has(> h2:first-child):not(:has(> :not(h2,.btn))) > h2{flex:1 1 auto!important}
 .view-head,.tl-controls{margin-bottom:12px}
 .pview-tabs + .cr,.cr{gap:12px}
 .cr-head{margin:0}
