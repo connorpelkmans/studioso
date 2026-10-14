@@ -367,7 +367,14 @@ SCENES.italy = function (W, H, dk, rnd) {
   fb.slice(1).forEach(function (p) { for (i = 0; i < 8; i++) { var lx = p[0] - 30 * S + i * 8 * S, ly = p[1] + ((i * 7) % 5 - 1) * 3 * S; N.d += italy_e(lx, ly, 8 * S, 4.6 * S) + italy_e(lx + 3 * S, ly + 5 * S, 6 * S, 3.6 * S); if (i % 2 === 0) N.f += italy_bougain(lx + 3 * S, ly + 4 * S, 10 * S, rnd); }
     for (i = 0; i < 2; i++) { var vx2 = p[0] - 12 * S + i * 20 * S, vl = (26 + rnd() * 26) * S; nWood += 'M' + PT(vx2, p[1]) + ' Q' + PT(vx2 + 6 * S, p[1] + vl * 0.5) + ' ' + PT(vx2 + 2 * S, p[1] + vl) + ' '; N.f += italy_bougain(vx2 + 2 * S, p[1] + vl, 7 * S, rnd) + italy_bougain(vx2 + 4 * S, p[1] + vl * 0.5, 5 * S, rnd); N.d += italy_e(vx2 + 4 * S, p[1] + vl * 0.3, 4.4 * S, 2.6 * S); } });
   var bx1T = W * (ph ? 0.3 : 0.17), byT = H * (ph ? 0.885 : 0.885), bal = rect(-20, byT, bx1T + 20, 6 * S) + rect(-20, H - 9 * S, bx1T + 20, 12 * S);
-  for (x = 2 * S; x < bx1T - 6 * S; x += 14 * S) { var bh = H - 9 * S - byT - 6 * S, b0 = byT + 6 * S; bal += italy_pg([[x + 3 * S, b0], [x + 9 * S, b0], [x + 8 * S, b0 + bh * 0.12], [x + 11.4 * S, b0 + bh * 0.55], [x + 9 * S, b0 + bh * 0.88], [x + 10 * S, b0 + bh], [x + 2 * S, b0 + bh], [x + 3 * S, b0 + bh * 0.88], [x + 0.6 * S, b0 + bh * 0.55], [x + 4 * S, b0 + bh * 0.12]]); }
+  // vase-shaped balusters: a cap under the rail, a slim neck, a round belly low down, a ring and a plinth on the bottom rail,
+  // narrow enough for clean gaps between them (the profile is half-widths in S down the height, smoothed)
+  var balProf = [[0, 3.4], [0.05, 3.4], [0.06, 2.2], [0.14, 1.5], [0.3, 1.9], [0.5, 3.1], [0.66, 3.7], [0.8, 3.0], [0.88, 1.7], [0.91, 2.6], [0.94, 2.6], [0.95, 3.5], [1, 3.5]], balPts = [];
+  for (i = 0; i < balProf.length - 1; i++) { var q0 = balProf[Math.max(0, i - 1)], q1 = balProf[i], q2 = balProf[i + 1], q3 = balProf[Math.min(balProf.length - 1, i + 2)], sharp = q2[0] - q1[0] < 0.03;
+    for (k = 0; k < (sharp ? 1 : 6); k++) { var tq = k / 6, t2 = tq * tq, t3 = t2 * tq, wq = sharp ? q1[1] : 0.5 * (2 * q1[1] + (-q0[1] + q2[1]) * tq + (2 * q0[1] - 5 * q1[1] + 4 * q2[1] - q3[1]) * t2 + (-q0[1] + 3 * q1[1] - 3 * q2[1] + q3[1]) * t3); balPts.push([q1[0] + (q2[0] - q1[0]) * tq, wq]); } }
+  balPts.push(balProf[balProf.length - 1]);
+  for (x = 2 * S; x < bx1T - 6 * S; x += 14 * S) { var bh = H - 9 * S - byT - 6 * S, b0 = byT + 6 * S, bcx = x + 6 * S;
+    bal += italy_pg(balPts.map(function (q) { return [bcx + q[1] * S, b0 + q[0] * bh]; }).concat(balPts.slice().reverse().map(function (q) { return [bcx - q[1] * S, b0 + q[0] * bh]; }))); }
   N.b += bal; G.f += rect(-20, byT + 6 * S, bx1T + 20, 2.2 * S);
   var ptX = bx1T - 22 * S, ptY = byT;
   N.e += italy_pg([[ptX - 12 * S, ptY - 18 * S], [ptX + 12 * S, ptY - 18 * S], [ptX + 9 * S, ptY], [ptX - 9 * S, ptY]]) + rect(ptX - 13.5 * S, ptY - 21 * S, 27 * S, 4 * S); nWood += seg(ptX, ptY - 21 * S, ptX, ptY - 34 * S);

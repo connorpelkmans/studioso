@@ -1,6 +1,6 @@
 // ---- world theme engines: italy (Amalfi Coast)
 // Loop: small waves wash up the pebble beach, the boats in the cove bob at anchor, the Italian flag waves on the terrace,
-// laundry flutters on a line across a house front, lemons sway on the terraces, gulls glide and flap, shutters swing. Night: the windows
+// laundry flutters on a line across a house front, gulls glide and flap, shutters swing. Night: the windows
 // glow warm all the way up the slope, the dome is lit, and the lights shimmer on the water under a crescent moon.
 // Moment: the church bells swing and ring, a little red scooter zips along the coast road, a sailboat glides into the
 // cove and a burst of lemon blossoms drifts out over the water.
@@ -147,8 +147,8 @@ ENGINES.italy = function (A, v, dk) {
       var fg = cb.createLinearGradient(fx0, 0, fx0 + fw, 0); for (i = 0; i <= 16; i++) { var uu = i / 16, sl = Math.cos(uu * 5.6 - ph0) * Math.pow(uu, 0.9) * gs; fg.addColorStop(uu, sl > 0 ? 'rgba(30,20,40,' + Math.min(0.2, sl * 0.2) + ')' : 'rgba(255,255,255,' + Math.min(0.2, -sl * 0.2) + ')'); }
       cb.fillStyle = fg; cb.fillRect(fx0 - 2, fy0 - fh * 0.3, fw + 4, fh * 1.6); cb.restore();
       cb.strokeStyle = dk ? 'rgba(0,0,20,0.25)' : 'rgba(60,50,60,0.18)'; cb.lineWidth = 0.6 * S; cloth(cb, 0, 0, 0, 1); cb.stroke(); cb.restore();
-      // lemons swaying on their trees
-      lemons.forEach(function (l) { var sx2 = Math.sin(tt * 1.3 + l.ph) * 0.9 * S * f.a + Math.sin(tt * 2.7 + l.ph) * 0.3 * S * f.a; italy_lemonAt(cb, l.x + sx2, l.y + Math.abs(sx2) * 0.2, l.r, sx2 * 0.15 + 0.2, dk); });
+      // the lemons hang still on their trees (the trees don't move, so lemons swaying on their own looked like they drifted about)
+      lemons.forEach(function (l) { italy_lemonAt(cb, l.x, l.y, l.r, 0.2, dk); });
       // gulls: a slow glide with a few wing beats now and then
       gulls.forEach(function (g) { var fl = Math.sin(tt * 7 + g.ph) * (Math.sin(tt * 0.5 + g.ph) > 0.4 ? 1 : 0.15), s = g.s, d = g.v > 0 ? 1 : -1;
         cb.save(); cb.translate(g.x, g.y); cb.scale(d, 1); cb.strokeStyle = dk ? '#C9CDDE' : '#FFFFFF'; cb.lineWidth = 2.4 * s; cb.beginPath(); cb.moveTo(-9 * s, -2 * s - fl * 4 * s); cb.quadraticCurveTo(-4 * s, -5 * s - fl * 2 * s, 0, 0); cb.quadraticCurveTo(4 * s, -5 * s - fl * 2 * s, 9 * s, -2 * s - fl * 4 * s); cb.stroke();
