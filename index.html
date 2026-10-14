@@ -6390,10 +6390,14 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
    button gradient (that made Study on a deck's page unreadable: dark gold text on a pink and purple gradient) */
 html #view :is(.g2-head,.c2-head) .g2-band .btn.primary::before,html dialog :is(.g2-head,.c2-head) .g2-band .btn.primary::before{background:#fff}
 .dk2 > .g2-band:has(> .row-actions){padding-bottom:36px}
+/* On a wide screen the deck's buttons sit to the right of the ring, so the band only needs as much space under them as above them */
+@media (min-width:720px){.dk2 > .g2-band:has(> .row-actions){padding-bottom:10px}}
 /* Course, Files and deck headers: a shorter band, the ring's top third over it, and the title centred beside the ring */
 .g2-head .g2-band,.c2-head .g2-band{min-height:58px;padding:10px 18px}
 .g2-head .g2-low,.c2-head .g2-low{margin-top:-32px}
 .g2-head .g2-txt,.c2-head .g2-txt{padding-top:42px}
+/* The ring sits a little lower than the low row so it has room under the course code at the top of the band */
+.g2-head .g2-low > .g2-ring,.c2-head .g2-low > .g2-ring{margin-top:10px}
 .fhead .fcrumb{font-size:1.75rem;line-height:1.15}
 @media (max-width:719px){
   .g2-head .g2-band,.c2-head .g2-band{min-height:0;padding:10px 14px 30px}
