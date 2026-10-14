@@ -221,6 +221,10 @@ function japan_house(o, K, sh, H, wins, lamps, dk) {
   var side = function (xe, xr, t, z1) { return Q(xe + (xr - xe) * t, he + 1.2 * sc + (hr - he - 1.2 * sc) * Math.pow(t, 1.35), -o2 + (z1 + o2) * t); };
   for (i = 0; i <= 8; i++) { rt.push(side(w + ov, rx1, i / 8, rz)); lf.unshift(side(-ov, rx0, i / 8, rz)); }
   ridge = [Q(rx1, hr, rz), Q(rx0, hr, rz)];
+  // the eave's underside along the side wall, and on a gable the end of the roof from the ridge to the back eave, so no
+  // background shows between the roof's edge (which overhangs) and the wall under it
+  japan_poly(o, [Q(w, hgt - 0.3 * sc, 0), Q(w + ov, he + 1.2 * sc, -o2), Q(w + ov, he + 1.2 * sc, d + o2), Q(w, hgt - 0.3 * sc, d)], K(ROOF, 0.55));
+  if (!hip) japan_poly(o, [Q(w + ov, hr, rz), Q(w + ov, he + 1.2 * sc, d + o2), Q(w, hgt - 0.3 * sc, d), Q(w, hr - 0.6 * sc, rz)], RS);
   if (hip) { var bk = []; for (i = 0; i <= 8; i++) bk.push(Q(w + ov + (rx1 - w - ov) * (1 - i / 8), he + 1.2 * sc + (hr - he - 1.2 * sc) * Math.pow(1 - i / 8, 1.35), d + o2 - (d + o2 - rz) * (1 - i / 8)));
     japan_poly(o, [Q(w + ov, he + 1.2 * sc, -o2)].concat(bk.reverse(), rt.slice().reverse()), RS); }
   else japan_poly(o, [Q(w + ov, hr, rz), Q(w + ov, he + 1.2 * sc, d + o2), Q(w + ov - 1.6 * sc, he + 1.2 * sc, d + o2)], RS);
@@ -393,7 +397,7 @@ ENGINES.japan = function (A, v, dk) {
   for (i = 0; i < (ph ? 5 : 9); i++) floatP.push({x: A.U[Math.floor(hash(i + 2) * A.U.length)][0] + 30, y: A.U[Math.floor(hash(i + 2) * A.U.length)][1] + 14 + hash(i) * 30, age: hash(i + 5) * 10, s: (ph ? 3 : 4) * S, c: flowerCols[i % 3], rot: hash(i) * 6});
   // the heron
   var her = {x: A.heron[0], y: A.heron[1], dir: -1, step: 0, peck: 0, next: 4};
-  function heron(c, t) { var s = (ph ? 0.9 : 1.25) * S, x = her.x, y = her.y, ph2 = Math.sin(her.step * 3.2), pk = japan_ease(Math.min(1, her.peck * 2)) * japan_ease(Math.min(1, (1 - her.peck) * 3)), d = her.dir;
+  function heron(c, t) { var s = (ph ? 0.4 : 0.5) * S, x = her.x, y = her.y, ph2 = Math.sin(her.step * 3.2), pk = japan_ease(Math.min(1, her.peck * 2)) * japan_ease(Math.min(1, (1 - her.peck) * 3)), d = her.dir;
     c.save(); c.translate(x, y); c.scale(d, 1); c.lineCap = 'round'; c.lineJoin = 'round';
     var grey = dk ? '#7A7C9A' : '#9AA2B4', dgrey = dk ? '#4E5070' : '#6A7084', wht = dk ? '#C8C8DC' : '#F4F4F8', leg = dk ? '#8A8460' : '#C8B070';
     c.strokeStyle = leg; c.lineWidth = 1.6 * s; c.beginPath(); c.moveTo(-2 * s, -22 * s); c.lineTo(-3 * s + ph2 * 3 * s, 0); c.moveTo(1 * s, -22 * s); c.lineTo(2 * s - ph2 * 3 * s, -Math.max(0, ph2) * 3 * s); c.stroke();
