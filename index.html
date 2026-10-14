@@ -2852,6 +2852,13 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:au
 /* a head with just the title and buttons (Insights, Recently Deleted) keeps the buttons on the title's line, at the right */
 .view-head:has(> h2:first-child):not(:has(> :not(h2,.btn))) > h2{flex:1 1 auto!important}
 .view-head,.tl-controls{margin-bottom:12px}
+/* Courses, Grades, Emails and Files: the same 16px from the page title to the first card under it */
+.pview-tabs + .view-head,.pview-tabs + .tl-controls:has(+ .fwrap){margin-bottom:16px}
+.pview-tabs + .view-head + :is(.course-list,.empty){margin-top:16px}
+.pview-tabs + .gp > .view-head + *{margin-top:4px}
+/* Timeline, Schedule and Crunch too: 16px from the title to the row or card under it */
+.pview-tabs + .view-head,.pview-tabs + .tl-controls{row-gap:16px}
+.pview-tabs + .cr > .cr-head + *{margin-top:-2px}
 .pview-tabs + .cr,.cr{gap:12px}
 .cr-head{margin:0}
 .gp-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
