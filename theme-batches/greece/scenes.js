@@ -199,7 +199,7 @@ SCENES.greece = function (W, H, dk, rnd) {
   // ---- a house of the village: front face, shaded side face, roof (a flat terrace or a cave house's vault), then windows,
   // shutters, doors, flowers, pools, pergolas, domes and bell towers where they are in view, and the shadow it casts on
   // whatever stands behind it. Houses are drawn front to back, so everything nearer has already claimed its place in O.
-  var domes = [], domeR = [], belfries = 0, lastDome = -1e9;
+  var domes = [], domeR = [], belfries = 0, lastDome = -1e9, footings = [];
   function windowAt(wx, wy, ww, wh, arch) { var sh = arch ? greece_arch(wx, wy, ww, wh) : rect(wx, wy, ww, wh); if (!dk) { N.h += sh; return; } if (rnd() < 0.6) { N.h += sh; wins.push([wx + ww / 2, wy + wh / 2, ww]); } else N.g += sh; }
   function drape(bx, by, len) { for (var q = 0; q < len; q += 3.5 * S) { var px = bx + Math.sin(q * 0.4) * 1.6 * S, py = by + q, rr = (3.6 - q / len * 1.8) * S; if (!vis(px - rr * 1.2, px + rr * 1.2, py + rr)) return;
     N.d += greece_c(px - rr * 0.4, py, rr * 0.9); N.e += greece_c(px + rr * 0.3, py - rr * 0.2, rr * 0.55) + greece_c(px - rr * 0.5, py + rr * 0.35, rr * 0.5); } }
@@ -210,7 +210,9 @@ SCENES.greece = function (W, H, dk, rnd) {
       M.a += band(x + 1.5 * S, x1 - 1 * S, base, base, sb1 - 3 * S, sb1); M.d += band(x1 - 3.5 * S, x1 - 1 * S, base, base, sb1, sb1) + band(x + 1.5 * S, x1 - 1 * S, base, base, base + 1.6 * S, base + 1.6 * S);
       if (det && w > 16 * S && vis(x + w * 0.3, x + w * 0.3 + 6 * S * kk, sb1 - 2 * S)) N.g += greece_arch(x + w * 0.3, base + 3 * S * kk, 6 * S * kk, sb1 - base - 5 * S * kk);
       G.g += O.band(x1 - 1 * S, x1 + 8 * S, function (X) { return base + (X - x1) * 0.5; }, function () { return sb1 + 5 * S; });
-      O.put(x + 1.5 * S, x1 - 1 * S, function () { return base; }); }
+      // (where its footing meets the rock it throws a shadow, so it sits in the cliff instead of resting on it)
+      G.g += greece_pg([[x + 0.5 * S, sb1 - 1], [x1 + 3 * S, sb1 - 1], [x1 + 3 * S, sb1 + 3 * S * kk], [x + 0.5 * S, sb1 + 3.6 * S * kk]]);
+      O.put(x + 1.5 * S, x1 - 1 * S, function () { return base; }); if (o.row === 0) footings.push([x, x1, sb1, kk]); }
     var vault = o.roof === 1 && w > 9 * S, cx = x + w / 2, vh = Math.min(w * 0.3, 8 * S * kk);
     var archF = function (X) { var q2 = (X - cx) / (w / 2); return Math.abs(q2) > 1.02 ? 1e9 : top - vh * Math.sqrt(Math.max(0, 1 - q2 * q2)); };
     var sideT = function (X) { return top - sy * Math.max(0, Math.min(1, (X - x1) / sx)); };
@@ -312,6 +314,8 @@ SCENES.greece = function (W, H, dk, rnd) {
       if (gk < 0.08 + 0.14 * th / thMax) { var gw = (5 + rnd() * 12) * S * cs; if (th < 1.1 && rnd() < 0.5 && vis(xx - gw * 0.8, xx - gw * 0.2, cY(v, xx) - 1 * S)) N.d += greece_tuft(xx - gw / 2, cY(v, xx - gw / 2) - 2.5 * S, 2.6 * S * kk); xx -= gw; continue; }
       var w = (ph ? 17 + rnd() * 20 : 22 + rnd() * 30) * S, fw = Math.max(3 * S, w * kk * cs), x0 = xx - fw, bse = cY(v, xx - fw * 0.5) - (r > 0 && rnd() < 0.3 ? rnd() * gap * 0.25 * kk : 0);
       var hh = gap * (1.0 + rnd() * 0.6) * kk; if (rnd() < 0.1) hh = gap * (1.6 + rnd() * 0.4) * kk;
+      // (no house whose footing would stand out past the cliff's edge: there is nothing under it there)
+      if (x0 < silX(bse + (r === 0 ? gap * 0.6 * kk : 2 * S)) + 2 * S) { xx = x0 - 2 * S; continue; }
       var top = bse - hh; if (r >= nR - 3 && Math.abs(xx - fw / 2 - mxX) < millL + fw / 2 + 2 * S) top = Math.max(top, mb - 8 * S);
       if (bse - top > gap * 0.4 * kk) { var col = rnd() < 0.1 ? 'b' : rnd() < 0.1 ? 'c' : 'a'; if (col !== 'a' && col === lastCol) col = 'a'; lastCol = col;
         var flatRoof = rnd() > 0.28 || th > 0.9, pool = flatRoof && rnd() < 0.3 && th < 0.7, dd = (pool ? 11 + rnd() * 5 : 6 + rnd() * 4) * S * kk, cxH = xx - fw / 2;
@@ -322,6 +326,15 @@ SCENES.greece = function (W, H, dk, rnd) {
       xx = x0 - (rnd() < 0.2 ? (1 + rnd() * 4) * S * cs : 0);
     }
   }
+  // the front row stands on a ragged outcrop of darker rock that follows the bottoms of its footings, so the houses are set
+  // into the cliff (without it a light stripe of rock ran right under them and they looked balanced on its edge)
+  if (footings.length) { var fx0 = Math.min.apply(null, footings.map(function (f) { return f[0]; })), fx1 = Math.max.apply(null, footings.map(function (f) { return f[1]; }));
+    var footAt = function (X) { var yb = -1; footings.forEach(function (f) { if (X >= f[0] - 3 * S && X <= f[1] + 3 * S) yb = Math.max(yb, f[2]); }); return yb; };
+    var crag = function (X) { return (5 + 4 * Math.abs(Math.sin(X / (9 * S))) + 3 * Math.abs(Math.sin(X / (23 * S) + 1.3))) * S; };
+    // (it is on the layer behind the village, so the houses cover its top; it is not clipped by the occlusion line, which
+    // already counts everything under the houses as hidden)
+    var ocT = [], ocB = []; for (x = fx0 - 6 * S; x <= fx1 + 6 * S; x += 2 * S) { var fa = footAt(x); if (fa < 0) { if (ocT.length > 1) G.f += greece_pg(ocT.concat(ocB.reverse())); ocT = []; ocB = []; continue; } ocT.push([x, fa - 4 * S]); ocB.push([x, fa + crag(x)]); }
+    if (ocT.length > 1) G.f += greece_pg(ocT.concat(ocB.reverse())); }
   // the rock of the rim and of the shoulder belongs to the skyline too
   O.put(silP[silP.length - 1][0], W + 30, topAt);
   // lamps on the mule path at night
