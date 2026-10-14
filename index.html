@@ -6154,7 +6154,8 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 /* Sheets without a task name: the title sits in the colour band, larger and centred in it */
 .g2-sheet-head:not(.sh-big) .sh-t h2{position:absolute;left:116px;right:64px;top:0;height:62px;display:flex;align-items:center;color:#fff;font:800 1.5rem/1.1 var(--display);text-shadow:0 1px 2px rgba(0,0,0,.25);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .g2-sheet-head:not(.sh-big):not(:has(.sh-t .mini)){min-height:104px;padding-top:62px!important}
-/* A sheet whose title sits in the band: the ring rides higher, about half over the band */
+/* A sheet whose title sits in the band: the ring rides higher, about half over the band, and the title sits a little below the band's middle, nearer the ring's */
+.g2-sheet-head:not(.sh-big) .sh-t h2{top:6px!important}
 .g2-sheet-head:not(.sh-big) .sh-ring{top:12px}
 @media (max-width:600px){.g2-sheet-head:not(.sh-big) .sh-ring{top:14px}}
 @media (max-width:600px){.g2-sheet-head:not(.sh-big) .sh-t h2{left:96px;font-size:1.3rem}}
