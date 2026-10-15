@@ -155,7 +155,7 @@ SCENES.brazil = function (W, H, dk, rnd) {
   [-0.82, -0.66, -0.5, -0.36, -0.22, -0.1, 0.04, 0.16, 0.28, 0.4, 0.52, 0.64, 0.76, 0.86].forEach(function (u, n) { var pts = [], y0 = stop + sh * (0.06 + Math.abs(u) * 0.22 + hash(n) * 0.06), y1 = stop + sh * (0.5 + hash(n + 3) * 0.28);
     for (y = y0; y < y1; y += 6) { var xx = midX(y) + u * half(y, u < 0 ? -1 : 1) * (0.94 - 0.05 * Math.abs(u)) + Math.sin(y * 0.05 + n) * 1.5; pts.push([xx, y]); }
     if (pts.length > 2) streak += pline(pts); });
-  stk(bg, 's', streak, C.streak, ph ? 1.4 : 2.2);
+
   var vegY = function (xx) { var u = (xx - sx) / (xx < sx ? wl : wr); return hz - sh * (0.17 + 0.05 * Math.sin(xx * 0.06) + 0.03 * Math.sin(xx * 0.17) + (u > 0.35 ? 0.14 * Math.min(1, (u - 0.35) * 1.4) : 0)); }, vt = [], veg = '';
   for (x = LF[0][0]; x <= LF[LF.length - 1][0]; x += 4) { var oy = brazil_yAt(LF, x); vt.push([x, Math.max(oy, vegY(x)) + (oy < vegY(x) ? Math.abs(Math.sin(x * 0.33)) * 3 * S : 0)]); }
   veg += brazil_pg(vt.concat([[LF[LF.length - 1][0], hz + 3], [LF[0][0], hz + 3]]));
@@ -183,7 +183,14 @@ SCENES.brazil = function (W, H, dk, rnd) {
   add(bg, 'b', crowns);
   spread(-20, H * 0.15, W * (ph ? 0.5 : 0.68), hz - H * 0.15, (ph ? 14 : 18), (ph ? 12 : 14), rnd, 1).forEach(function (c) { var r = (3 + c.r * 5) * S, ry = brazil_yIn(RG, c.x), fy = brazil_yIn(FH, c.x);
     if (c.q < 0.45 && c.y > ry + r * 1.6 && c.y < Math.min(fy, hz) - r * 0.5 && !onRock(c.x, c.y) && Math.hypot(c.x - sum[0], c.y - sum[1]) > 50 * S) clump += brazil_c(c.x, c.y, r) + brazil_c(c.x + r * 0.8, c.y + r * 0.3, r * 0.7) + brazil_c(c.x - r * 0.75, c.y + r * 0.35, r * 0.6); });
+  // gullies running down Corcovado's forested slopes, and cracks in its bare granite faces
+  for (k = 0; k < (ph ? 7 : 12); k++) { var gx = W * (ph ? 0.03 + k * 0.07 : 0.02 + k * 0.055) + hash(k * 2.7) * 12 * S, gy0 = brazil_yAt(RG, gx) + 6 * S, glen = H * (0.05 + hash(k * 4.1) * 0.06), gp = [];
+    if (gx > W * (ph ? 0.5 : 0.68) || Math.abs(gx - sum[0]) < 40 * S) continue;
+    for (var gu = 0; gu <= 1.001; gu += 0.125) { var gxx = gx + Math.sin(gu * 4 + k) * 3 * S + gu * (gx < sum[0] ? -8 : 8) * S, gyy = gy0 + glen * gu; if (gyy > hz - 4) break; gp.push([gxx, gyy]); }
+    if (gp.length > 2 && !onRock(gp[0][0], gp[0][1])) streak += pline(gp); }
+  bare.forEach(function (q, n) { for (k = 0; k < 4; k++) { var cxr = q[0] + (q[1] - q[0]) * (0.2 + k * 0.2), cy0 = brazil_yAt(RG, cxr) + 3 * S, cl = H * q[2] * (0.35 + hash(k + n * 7) * 0.4); streak += pline([[cxr, cy0], [cxr + 2 * S, cy0 + cl * 0.5], [cxr + 0.5 * S, cy0 + cl]]); } });
   add(bg, 'h', clump, C.clump);
+  stk(bg, 's', streak, C.streak, ph ? 1.4 : 2.2);
   if (dk) { var stars = ''; spread(0, 0, W, hz * 0.85, 40, 36, rnd, 1).forEach(function (c) { var hy = Math.min(brazil_yIn(RG, c.x), brazil_yIn(LF, c.x), brazil_yIn(NIT, c.x));
     if (c.q < 0.5 && Math.hypot(c.x - moon[0], c.y - moon[1]) > moon[2] * 2.4 && c.y < hy - 8 && Math.hypot(c.x - sum[0], c.y - sum[1]) > 50 * S) stars += seg(c.x, c.y, c.x + 0.1, c.y); }); stk(bg, 't', stars, C.star, 1.5 + rnd()); }
   var horizon = [];
