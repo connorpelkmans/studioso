@@ -336,6 +336,13 @@ function japan_paintTown(o, T, dk, W, H, S, ph, which, out) {
     for (var sx = sx0; sx < W + 40; sx += 6) { var bk = japan_yAt(T.Urev, sx) - 3 * sc; if (yb + 1 > bk || (sx < T.hx1 && yb < japan_yAt(T.HL, sx) + 8) || T.hillT.some(function (c) { return Math.abs(sx - c[0]) < c[2] * 1.1 && yb < c[1] + c[2] * 0.6; })) { if (top.length > 1) japan_poly(o, top.concat(bot), K('#D8CCB2')); top = []; bot = []; continue; }
       top.push([sx, yb - 4 * sc]) /* (up under the houses, which sit as much as 3sc above the row line) */; bot.unshift([sx, Math.min(yb + stH, bk)]); }
     if (top.length > 1) japan_poly(o, top.concat(bot), K('#D8CCB2'));
+    // alleys up through some of the gaps between this row's houses to the street behind
+    var stOK = function (x2, y2) { return y2 + 1 < japan_yAt(T.Urev, x2) - 3 * sc && !(x2 < T.hx1 && y2 < japan_yAt(T.HL, x2) + 8) && !T.hillT.some(function (c) { return Math.abs(x2 - c[0]) < c[2] * 1.1 && y2 < c[1] + c[2] * 0.6; }); };
+    if (r > 0) { var yP = H * rows[r - 1], stP = (yb - yP) * 0.42, scP = S * (0.5 + (r - 1) * (ph ? 0.15 : 0.13));
+      for (var ax = xx, an = 0; ax < W + 40; an++) { var ahw = (34 + hash(r * 40 + an) * 26) * sc, agap = (6 + hash(r * 9 + an) * 16) * sc, gx = ax + ahw + agap / 2, aw = Math.min(agap * 0.8, 9 * sc);
+        if (aw > 4 * sc && hash(r * 7 + an * 1.3) < 0.45 && gx > sx0 && stOK(gx - aw, yb) && stOK(gx + aw, yb) && stOK(gx - aw, yP + stP) && stOK(gx + aw, yP + stP))
+          japan_poly(o, [[gx - aw / 2, yb + 1 * sc], [gx + aw / 2, yb + 1 * sc], [gx + aw * 0.4, yP + stP - 1 * scP], [gx - aw * 0.4, yP + stP - 1 * scP]], K('#D8CCB2'));
+        ax += ahw + agap; } }
     if (which === 'front' && r === rows.length - 1) {
       // the lane from the front street down to the bridge's foot
       var bxF = T.bridgeX + 4 * S, byF = T.bridgeY, lx0 = bxF - (ph ? 40 : 70) * S, lyT = yb + stH * 0.5, wl = function (u) { return (9 + 9 * u) * S; }, L1 = [], L2 = [];
