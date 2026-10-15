@@ -181,9 +181,9 @@ SCENES.canada = function (W, H, dk, rnd) {
   // three wooden steps up from the path's end to the dock's deck, each a tread with its riser below
   // (centred between the last two posts, in front of the deck, so they never cross a post)
   var lastPost = dx0 + 6 * S; while (lastPost + 34 * S < dx1) lastPost += 34 * S; var stx = lastPost - 17 * S;
-  for (k = 0; k < 3; k++) { var sy5 = dy + dt + 1 * S + k * 4.6 * S, sw5 = (20 + k * 2) * S; wood += rect(stx - sw5 / 2, sy5, sw5, 2.4 * S); woodD += rect(stx - sw5 / 2, sy5 + 2.4 * S, sw5, 2.2 * S); }
+  for (k = 0; k < 4; k++) { var sy5 = dy + dt + 1 * S + k * 4.5 * S, sw5 = (20 + k * 2) * S; /* (four steps, the last reaching the foot of the posts) */ wood += rect(stx - sw5 / 2, sy5, sw5, 2.4 * S); woodD += rect(stx - sw5 / 2, sy5 + 2.4 * S, sw5, 2.2 * S); }
   // a gravel path from the cabin door down to the dock
-  var pa0 = [door[0] + door[2] / 2, cb], pa1 = [stx, dy + dt + 15 * S], pl = [], pr = [];
+  var pa0 = [door[0] + door[2] / 2, cb], pa1 = [stx, dy + dt + 20 * S], pl = [], pr = [];
   for (k = 0; k <= 8; k++) { var u = k / 8, px = pa0[0] + (pa1[0] - pa0[0]) * u, py = pa0[1] + (pa1[1] - pa0[1]) * u + Math.sin(u * Math.PI) * 14 * S, pw = (5 + u * 7) * S; pl.push([px - pw * 0.4, py - pw * 0.5]); pr.unshift([px + pw * 0.4, py + pw * 0.5]); }
   stone += canada_pg(pl.concat(pr));
   // a woodpile beside the chimney: rows of split log ends under a little lean-to roof
@@ -259,7 +259,7 @@ SCENES.canada = function (W, H, dk, rnd) {
   stk(near, 's', lines, C.line, 1.1); stk(near, 't', grass, C.grass, 1.3);
   if (ANIM) {
     var env = [], sk = []; for (x = -20; x <= W + 20; x += 10) env.push([x, Math.min(canada_yAt(back.pts, x), canada_yAt(FP, x)) + 3]);
-    ANIM.caflag = caFlag; ANIM.C = C; ANIM.hz = hz; ANIM.gp = gp; ANIM.S = S; ANIM.sky = env; ANIM.spr = nSpr; ANIM.canoes = canoes; ANIM.maples = maples; ANIM.wins = wins; ANIM.door = door; ANIM.chim = [chX, chTop - 4 * cs, cs];
+    ANIM.rockP = rocks.map(function (r) { return {p: r.p, bot: r.y + r.ry * 0.55}; }); ANIM.caflag = caFlag; ANIM.C = C; ANIM.hz = hz; ANIM.gp = gp; ANIM.S = S; ANIM.sky = env; ANIM.spr = nSpr; ANIM.canoes = canoes; ANIM.maples = maples; ANIM.wins = wins; ANIM.door = door; ANIM.chim = [chX, chTop - 4 * cs, cs];
     ANIM.peakY = hz - H * 0.3 * mh; ANIM.bay = [W * (ph ? 0.27 : 0.25), W * (ph ? 0.42 : 0.43), gnd(W * 0.42)]; ANIM.dock = [dx0, dx1, dy];
   }
   return {sky: sky, far: far, refl: bg, mid: mid, near: near, band: {top: hz, bg: lake}};

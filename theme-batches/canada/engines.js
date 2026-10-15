@@ -94,6 +94,13 @@ ENGINES.canada = function (A, v, dk) {
   for (i = 0; i < (ph ? 4 : 8); i++) { var fx = W * (0.05 + Math.random() * 0.9), fy = hz + 20 + Math.random() * (gnd(fx) - hz - 30); if (lakeAt(fx, fy)) floating.push({x: fx, y: fy, r: Math.random() * 6.28, k: i % 3, s: (ph ? 7 : 10) * S, age: Math.random() * 10, life: 26}); }
   // loon: glides back and forth across the lower lake and dives now and then
   var loon = {x: W * 0.3, dir: 1, y: hz + (A.bay[2] - hz) * 0.55, s: (ph ? 1 : 1.45) * S, next: 6, dive: -1, under: 0};
+  // the loon is drawn in front of the near layer (so it passes in front of the boulders further out in the water), clipped
+  // out wherever something nearer stands: the boulders that sit lower than its waterline, the maples and the moose
+  var loonMin = W * 0.06, nearRocks = (A.rockP || []).filter(function (r) { return r.bot > loon.y + 2; });
+  function loonClip(c) { var cut = function (add) { var m = new Path2D(); m.rect(-50, -50, W + 100, H + 100); add(m); c.clip(m, 'evenodd'); };
+    nearRocks.forEach(function (r) { cut(function (m) { m.moveTo(r.p[0][0], r.p[0][1]); for (var q = 1; q < r.p.length; q++) m.lineTo(r.p[q][0], r.p[q][1]); m.closePath(); }); });
+    A.maples.forEach(function (mp) { if (mp[2] < 20) return; cut(function (m) { m.moveTo(mp[0] + mp[2] * 1.2, mp[1]); m.ellipse(mp[0], mp[1], mp[2] * 1.2, mp[2] * 0.95, 0, 0, Math.PI * 2); }); cut(function (m) { m.rect(mp[0] - mp[2] * 0.2, mp[1], mp[2] * 0.4, mp[2] * 2.2); }); });
+    if (mo.vis && mo.x != null) cut(function (m) { m.rect(mo.x - 70 * mo.s, mo.y - 110 * mo.s, 140 * mo.s, 112 * mo.s); }); }
   var mo = {x0: A.bay[0], x1: A.bay[1], y0: gnd(A.bay[0]) - 14 * S, y1: A.bay[2] - 22 * S, s: (ph ? 0.8 : 1.05) * S};
   var paddle = {x0: A.canoes[0].x, y0: A.canoes[0].y, x1: W * (ph ? 0.3 : 0.44), y1: hz + (A.bay[2] - hz) * 0.28};
   function ring(x, y, r0) { rings.push({x: x, y: y, r: r0 || 3, age: 0}); }
@@ -109,8 +116,8 @@ ENGINES.canada = function (A, v, dk) {
       smoke = smoke.filter(function (p) { return t - p.t0 < 7; });
       rings.forEach(function (r) { r.age += dt; }); rings = rings.filter(function (r) { return r.age < 2.4; });
       // the loon
-      if (loon.dive < 0) { loon.x += loon.dir * 8 * S * dt * f.s; if (loon.x > W * (ph ? 0.75 : 0.62) && loon.dir > 0) loon.dir = -1; if (loon.x < W * 0.06 && loon.dir < 0) loon.dir = 1; loon.next -= dt; if (loon.next < 0) { loon.dive = 0; ring(loon.x, loon.y, 4); } }
-      else { loon.dive += dt; if (loon.dive > 0.7 && !loon.under) { loon.under = 1; } if (loon.dive > 3.6 && loon.under === 1) { loon.under = 2; loon.x += loon.dir * 60 * S; ring(loon.x, loon.y, 4); } if (loon.dive > 4.2) { loon.dive = -1; loon.under = 0; loon.next = 12 + Math.random() * 8; } }
+      if (loon.dive < 0) { loon.x += loon.dir * 8 * S * dt * f.s; if (loon.x > W * (ph ? 0.75 : 0.62) && loon.dir > 0) loon.dir = -1; if (loon.x < loonMin && loon.dir < 0) loon.dir = 1; loon.next -= dt; if (loon.next < 0) { loon.dive = 0; ring(loon.x, loon.y, 4); } }
+      else { loon.dive += dt; if (loon.dive > 0.7 && !loon.under) { loon.under = 1; } if (loon.dive > 3.6 && loon.under === 1) { loon.under = 2; loon.x = Math.max(loonMin, loon.x + loon.dir * 60 * S); ring(loon.x, loon.y, 4); } if (loon.dive > 4.2) { loon.dive = -1; loon.under = 0; loon.next = 12 + Math.random() * 8; } }
       // the gust of red leaves in the moment
       if (gustAt && t > gustAt) for (i = 0; i < (ph ? 20 : 36); i++) gust.push({x: -40 - Math.random() * W * 0.4, y: hz + 10 + Math.random() * (H - hz) * 0.75, vx: (ph ? 120 : 200) + Math.random() * 140, ph: Math.random() * 6.28, k: i % 3, s: (ph ? 8 : 11) * S * (0.7 + Math.random() * 0.6), w: 1.5 + Math.random() * 2});
       if (gustAt && t > gustAt) gustAt = 0;
@@ -140,12 +147,6 @@ ENGINES.canada = function (A, v, dk) {
       var sprDraw = function (c2, s, k) { var lean = (Math.sin(tt * 0.9 + k * 1.3) * 0.6 + Math.sin(tt * 2.1 + k) * 0.25) * s[2] * 0.025 * f.a + gu * s[2] * 0.05 * (0.7 + 0.3 * Math.sin(tt * 4 + k)); c2.beginPath(); canada_sprucePts(s[0], s[1] - s[2] * 0.06, s[2], s[3], s[4], lean).forEach(function (p, q) { if (q) c2.lineTo(p[0], p[1]); else c2.moveTo(p[0], p[1]); }); c2.closePath(); c2.fill(); };
       ca.fillStyle = C.woodD; A.spr.forEach(function (s) { if (s[5]) return; var tw2 = s[3] * 0.11; ca.beginPath(); ca.moveTo(s[0] - tw2 * 1.6, s[1] + 2); ca.lineTo(s[0] - tw2 * 0.8, s[1] - s[2] * 0.14); ca.lineTo(s[0] + tw2 * 0.8, s[1] - s[2] * 0.14); ca.lineTo(s[0] + tw2 * 1.6, s[1] + 2); ca.closePath(); ca.fill(); }); ca.fillStyle = C.near;
       A.spr.forEach(function (s, k) { if (!s[5]) sprDraw(ca, s, k); });
-      // the loon (it tips forward and slips under, then pops up further along)
-      if (loon.under !== 1) { var dv = loon.dive < 0 ? 0 : loon.dive < 0.7 ? loon.dive / 0.7 : loon.dive > 3.6 ? 1 - (loon.dive - 3.6) / 0.6 : 0, sink = loon.dive >= 0 && loon.dive < 0.7 ? dv : loon.under === 2 ? dv : 0;
-        var ly = loon.y + Math.sin(tt * 1.2) * 0.6;
-        ca.save(); ca.beginPath(); ca.rect(-20, -20, W + 40, ly - (-20)); ca.clip(); ca.translate(loon.x, ly + sink * 14 * loon.s); ca.scale(loon.dir, 1); ca.rotate(sink * 0.5); canada_loon(ca, loon.s, dk); ca.restore();
-        ca.save(); ca.globalAlpha = 0.25 * (1 - sink); ca.translate(loon.x, ly + 1); ca.scale(loon.dir, -0.7); canada_loon(ca, loon.s, dk); ca.restore();
-        if (loon.dive < 0) { ca.strokeStyle = ringC + '0.5)'; ca.lineWidth = 1; ca.beginPath(); ca.moveTo(loon.x - loon.dir * 18 * loon.s, ly + 1); ca.lineTo(loon.x - loon.dir * 40 * loon.s, ly + 2.5); ca.moveTo(loon.x - loon.dir * 16 * loon.s, ly + 2); ca.lineTo(loon.x - loon.dir * 30 * loon.s, ly + 5); ca.stroke(); } }
       // the canoes bobbing at the dock; in the moment the front one paddles out across the reflection with a beaver aboard
       A.canoes.forEach(function (cn, k) { var x = cn.x, y = cn.y, sc = 1, al = 1, bv = 0, row = 0;
         if (k === 0 && T > 0 && T < 19) { var u = canada_ease((T - 1.6) / 13.4); x = paddle.x0 + (paddle.x1 - paddle.x0) * u; y = paddle.y0 + (paddle.y1 - paddle.y0) * u; sc = 1 - u * 0.45; bv = canada_env(T, 0.6, 1.4, 15, 16.2); row = T > 1.6 && T < 15 ? 1 : 0; al = T < 15.2 ? 1 : T < 16.4 ? 1 - (T - 15.2) / 1.2 : T < 17.4 ? 0 : (T - 17.4) / 1.4; if (T > 16.4) { x = cn.x; y = cn.y; sc = 1; } }
@@ -158,6 +159,7 @@ ENGINES.canada = function (A, v, dk) {
           if (row && Math.sin(tt * 3.2) > 0.95 && Math.random() < 0.3) ring(x + 6 * u2, y + 3, 2); }
         ca.restore(); });
       // the moose wades into the shallows from behind the rockpile, drinks, lifts its head, and later wades back out
+      mo.vis = T > 0 && T < 19;
       if (T > 0 && T < 19) { var walkIn = canada_ease((T - 0.4) / 3.8), walkOut = canada_ease((T - 13) / 4.5), pos = walkIn - walkOut, mx = mo.x0 + (mo.x1 - mo.x0) * pos, my = mo.y0 + (mo.y1 - mo.y0) * pos, lift = T < 4.4 ? 0.55 - walkIn * 0.55 : T < 5.6 ? 0 : canada_ease((T - 5.6) / 1.1), walking = T > 0.4 && T < 4.2 || T > 13 && T < 17.5, ma = Math.min(1, T * 2, (19 - T) / 1.5);
         if (T > 12.6) lift = 1 - canada_ease((T - 12.6) / 1) * 0.45; var face = T > 12.8 ? -1 : 1; mo.x = mx; mo.y = my;
         ca.save(); ca.globalAlpha = ma; ca.beginPath(); ca.rect(-20, -20, W + 40, my + 21); ca.clip(); ca.translate(mx, my); ca.scale(face, 1); canada_moose(ca, mo.s, lift, walking ? tt * 4 : 0, dk); ca.restore();
@@ -170,6 +172,12 @@ ENGINES.canada = function (A, v, dk) {
       if (dk) { A.wins.forEach(function (w, k) { var fl = 0.85 + 0.15 * flick(tt * 0.6, k); cb.save(); cb.globalCompositeOperation = 'lighter'; canada_dot(cb, glowW, w[0] + w[2] / 2, w[1] + w[3] / 2, w[2] * 1.8, fl); cb.restore(); cb.fillStyle = 'rgba(255,196,110,' + (0.85 * fl) + ')'; cb.fillRect(w[0], w[1], w[2], w[3]); cb.fillStyle = 'rgba(80,40,20,0.6)'; cb.fillRect(w[0] + w[2] / 2 - 0.8, w[1], 1.6, w[3]); cb.fillRect(w[0], w[1] + w[3] / 2 - 0.8, w[2], 1.6); }); }
       cb.fillStyle = C.woodD; A.spr.forEach(function (s) { if (!s[5]) return; var tw2 = s[3] * 0.11; cb.beginPath(); cb.moveTo(s[0] - tw2 * 1.6, s[1] + 2); cb.lineTo(s[0] - tw2 * 0.8, s[1] - s[2] * 0.14); cb.lineTo(s[0] + tw2 * 0.8, s[1] - s[2] * 0.14); cb.lineTo(s[0] + tw2 * 1.6, s[1] + 2); cb.closePath(); cb.fill(); });
       cb.fillStyle = C.near; A.spr.forEach(function (s, k) { if (s[5]) sprDraw(cb, s, k); }); // (the spruces by the rockpile stand in front of it)
+      // the loon (it tips forward and slips under, then pops up further along)
+      if (loon.under !== 1) { cb.save(); loonClip(cb); var dv = loon.dive < 0 ? 0 : loon.dive < 0.7 ? loon.dive / 0.7 : loon.dive > 3.6 ? 1 - (loon.dive - 3.6) / 0.6 : 0, sink = loon.dive >= 0 && loon.dive < 0.7 ? dv : loon.under === 2 ? dv : 0;
+        var ly = loon.y + Math.sin(tt * 1.2) * 0.6;
+        cb.save(); cb.beginPath(); cb.rect(-20, -20, W + 40, ly - (-20)); cb.clip(); cb.translate(loon.x, ly + sink * 14 * loon.s); cb.scale(loon.dir, 1); cb.rotate(sink * 0.5); canada_loon(cb, loon.s, dk); cb.restore();
+        cb.save(); cb.globalAlpha = 0.25 * (1 - sink); cb.translate(loon.x, ly + 1); cb.scale(loon.dir, -0.7); canada_loon(cb, loon.s, dk); cb.restore();
+        if (loon.dive < 0) { cb.strokeStyle = ringC + '0.5)'; cb.lineWidth = 1; cb.beginPath(); cb.moveTo(loon.x - loon.dir * 18 * loon.s, ly + 1); cb.lineTo(loon.x - loon.dir * 40 * loon.s, ly + 2.5); cb.moveTo(loon.x - loon.dir * 16 * loon.s, ly + 2); cb.lineTo(loon.x - loon.dir * 30 * loon.s, ly + 5); cb.stroke(); }  cb.restore(); }
       if (A.caflag) canada_flag(cb, A.caflag, tt, true, ['#D52B1E', '#FFFFFF', '#FFFFFF', '#D52B1E'], function (c, x, y, h) { c.save(); c.translate(x, y + h * 0.04); c.fillStyle = dk ? 'rgb(170,34,24)' : '#D52B1E'; canada_leafPath(c, h * 0.3); c.fill(); c.restore(); }, dk);
       falling.forEach(function (l) { var s = l.s, flip = Math.cos(tt * 2 + l.ph); cb.save(); cb.globalAlpha = l.a; cb.translate(l.x, l.y); cb.rotate(Math.sin(tt * 1.3 + l.ph) * 0.9 + l.ph); cb.scale(0.35 + 0.65 * Math.abs(flip), 1); cb.drawImage(LS[l.k], -s, -s, s * 2, s * 2); cb.restore(); });
       gust.forEach(function (g) { cb.save(); cb.translate(g.x, g.y); cb.rotate(tt * g.w * 2 + g.ph); cb.scale(0.4 + 0.6 * Math.abs(Math.cos(tt * 3 + g.ph)), 1); cb.drawImage(LS[g.k === 2 ? 0 : g.k], -g.s, -g.s, g.s * 2, g.s * 2); cb.restore(); });
