@@ -197,6 +197,12 @@ SCENES.canada = function (W, H, dk, rnd) {
   var c2x = W * (ph ? 0.47 : 0.517), c2s = 1.15 * S * (ph ? 1.2 : 1); red += chair(c2x, gnd(c2x) + 16 * S, c2s);
   // grass tufts, ferns and fallen leaves stay off the chair and the gravel path (they'd be drawn over them)
   var chairBox = [c2x - 15 * c2s, gnd(c2x) + 16 * S - 33 * c2s, c2x + 18 * c2s, gnd(c2x) + 16 * S + 2];
+  // grass and fallen leaves are strokes drawn over every fill of this layer, so none goes where a bush, a rock or a trunk
+  // stands (they'd show in front of it instead of behind)
+  var bushBox = [], behindSomething = function (x, y) { return bushBox.some(function (b) { return x > b[0] && x < b[2] && y > b[1] && y < b[3]; })
+      || rocks.some(function (r) { return Math.abs(x - r.x) < r.rx * 1.1 && inPoly(r.p, x, y - 4); })
+      || maples.some(function (m) { return m[2] > 20 && Math.abs(x - m[0]) < m[2] * 0.25 && y < m[1] + m[2] * 2.3 && y > m[1]; })
+      || nSpr.some(function (t) { return Math.abs(x - t[0]) < t[3] * 0.45 && y < t[1] + 4 && y > t[1] - t[2] * 0.3; }); };
   var clearAt = function (x, y, r) { if (x + r > chairBox[0] && x - r < chairBox[2] && y + r > chairBox[1] && y - r < chairBox[3]) return false;
     for (var q = 0; q <= 8; q++) { var u = q / 8, px = pa0[0] + (pa1[0] - pa0[0]) * u, py = pa0[1] + (pa1[1] - pa0[1]) * u + Math.sin(u * Math.PI) * 14 * S, pw = (5 + u * 7) * S; if (Math.abs(x - px) < pw * 0.6 + r && y > py - pw * 0.7 - 2 && y - 12 < py + pw * 0.7) return false; } return true; }; nsh += canada_e(c2x + 2 * S, gnd(c2x) + 16 * S, 16 * S, 2.6 * S);
   // spruces behind the cabin and the rockpile (the engine draws these swaying; the still scene paints them here)
@@ -213,11 +219,11 @@ SCENES.canada = function (W, H, dk, rnd) {
     nsh += canada_e(mx + R * 0.15, my + 2, R * 0.8, 5 * ms); maples.push([mx, cyy, R]); });
   // low blueberry bushes in autumn red along the shore, and ferns
   (ph ? [[0.4, 1], [0.6, 0.8]] : [[0.31, 1], [0.37, 0.7], [0.49, 0.6]]).forEach(function (q, j) { var bx = W * q[0], by = gnd(bx) + 8 * S, bs = q[1] * S * (ph ? 1.3 : 1);
-    nsh += canada_e(bx, by + 1, 30 * bs, 4 * bs);
+    nsh += canada_e(bx, by + 1, 30 * bs, 4 * bs); bushBox.push([bx - 28 * bs, by - 19 * bs, bx + 28 * bs, by + 3 * bs]);
     for (k = 0; k < 18; k++) { var ba = hash(k + j * 30) * Math.PI, bd = Math.sqrt(hash(k + j * 30 + 1)), ax = bx - Math.cos(ba) * bd * 24 * bs, ay = by - 3 * bs - Math.sin(ba) * bd * 13 * bs, ar = (3.4 + hash(k + j * 30 + 2) * 2.6) * bs;
       if (ax + ar > chairBox[0] && ax - ar < chairBox[2] && ay + ar > chairBox[1] && ay - ar < chairBox[3]) continue;   // the chair stands in front of the bush
       if (ay < by - 9 * bs && hash(k + j * 30 + 3) < 0.6) orange += canada_c(ax, ay, ar); else red += canada_c(ax, ay, ar); }
-    for (k = 0; k < 2; k++) { var fx = bx + (k ? 30 : -32) * bs, fy = by + 2; if (!clearAt(fx, fy - 8 * bs, 14 * bs)) continue; for (i = -2; i <= 2; i++) { var fa = i * 0.42 - Math.PI / 2, fl = (16 - Math.abs(i) * 3) * bs, ex = fx + Math.cos(fa) * fl, ey = fy + Math.sin(fa) * fl;
+    for (k = 0; k < 2; k++) { var fx = bx + (k ? 42 : -44) * bs, fy = by + 4 * bs; /* (clear of the bush, so its fronds aren't drawn over it) */ if (!clearAt(fx, fy - 8 * bs, 14 * bs)) continue; for (i = -2; i <= 2; i++) { var fa = i * 0.42 - Math.PI / 2, fl = (16 - Math.abs(i) * 3) * bs, ex = fx + Math.cos(fa) * fl, ey = fy + Math.sin(fa) * fl;
       grass += 'M' + PT(fx, fy) + ' Q' + PT(fx + Math.cos(fa) * fl * 0.6 - i * 2, fy + Math.sin(fa) * fl * 0.7) + ' ' + PT(ex + i * 2, ey + 3 * bs) + ' '; } } });
   var brP = [[W + 20, H * (ph ? 0.12 : 0.02)], [W * 0.93, H * (ph ? 0.13 : 0.06)], [W * (ph ? 0.78 : 0.85), H * (ph ? 0.155 : 0.1)], [W * (ph ? 0.66 : 0.77), H * (ph ? 0.15 : 0.11)]];
   // the overhanging maple branch: a smoothly tapering limb from the corner, with little twigs off it, each ending in a
@@ -240,9 +246,9 @@ SCENES.canada = function (W, H, dk, rnd) {
   (function () { var x0 = kL + 40 * cs, by5 = kT + 2 * cs, k6 = 0; bank += canada_pg([[x0, by5 + 8 * cs], [x0, by5], [W + 20, by5], [W + 20, by5 + 8 * cs]]);
     for (x = x0 + 6 * cs; x < W + 20; x += 13 * cs, k6++) { var hq = (34 + hash(k6 * 3.1) * 26) * cs; bank += canada_spruce(x, by5 + 2 * cs, hq, hq * 0.22, 6); } })();
   // fallen leaves in the grass and grass tufts along the shore
-  spread(0, H * 0.82, W, H * 0.2, ph ? 34 : 46, 22, rnd, 1).forEach(function (c) { if (c.y < gnd(c.x) + 10 || !clearAt(c.x, c.y, 8)) return; if (c.q < 0.25) { var lf3 = canada_leaf(c.x, c.y, 4 + c.r * 3, c.k * 360); if (c.r < 0.5) red += lf3; else orange += lf3; }
+  spread(0, H * 0.82, W, H * 0.2, ph ? 34 : 46, 22, rnd, 1).forEach(function (c) { if (c.y < gnd(c.x) + 10 || !clearAt(c.x, c.y, 8) || behindSomething(c.x, c.y)) return; if (c.q < 0.25) { var lf3 = canada_leaf(c.x, c.y, 4 + c.r * 3, c.k * 360); if (c.r < 0.5) red += lf3; else orange += lf3; }
     else if (c.q < 0.75) grass += 'M' + PT(c.x - 3, c.y) + ' Q' + PT(c.x - 2, c.y - 6) + ' ' + PT(c.x - 5, c.y - 10) + ' M' + PT(c.x + 1, c.y) + ' Q' + PT(c.x + 2, c.y - 7) + ' ' + PT(c.x + 5, c.y - 11) + ' M' + PT(c.x + 3, c.y) + ' L' + PT(c.x + 1, c.y - 8) + ' '; });
-  for (x = W * 0.25; x < W * 0.56; x += 14 + rnd() * 40) { y = gnd(x) + 2; if (!clearAt(x + 4, y, 6)) continue; for (k = 0; k < 3; k++) grass += 'M' + PT(x + k * 3, y) + ' Q' + PT(x + k * 3 + 1, y - 5) + ' ' + PT(x + k * 4 - 3 + rnd() * 2, y - 8 - rnd() * 6) + ' '; }
+  for (x = W * 0.25; x < W * 0.56; x += 14 + rnd() * 40) { y = gnd(x) + 2; if (!clearAt(x + 4, y, 6) || behindSomething(x + 4, y)) continue; for (k = 0; k < 3; k++) grass += 'M' + PT(x + k * 3, y) + ' Q' + PT(x + k * 3 + 1, y - 5) + ' ' + PT(x + k * 4 - 3 + rnd() * 2, y - 8 - rnd() * 6) + ' '; }
   var canoes = [{x: W * (ph ? 0.56 : 0.6), y: dy + (ph ? 22 : 30) * S, L: (ph ? 70 : 84) * S, c: 0}, {x: W * (ph ? 0.66 : 0.68), y: dy - 5 * S, L: (ph ? 62 : 74) * S, c: 1}];
   // every spruce stands on a short brown trunk with a flared foot and a little shadow on the ground
   var sprT = ''; nSpr.forEach(function (t) { var tw2 = t[3] * 0.11; sprT += canada_pg([[t[0] - tw2 * 1.6, t[1] + 2], [t[0] - tw2, t[1] - 2], [t[0] - tw2 * 0.8, t[1] - t[2] * 0.14], [t[0] + tw2 * 0.8, t[1] - t[2] * 0.14], [t[0] + tw2, t[1] - 2], [t[0] + tw2 * 1.6, t[1] + 2]]); nsh += canada_e(t[0] + t[3] * 0.25, t[1] + 2, t[3] * 0.7, 3 * S); });
