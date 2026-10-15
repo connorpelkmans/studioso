@@ -61,9 +61,9 @@ function brazil_toucanParts(x, y, s) { var P = function (u, v) { return [x + u *
 // Christ the Redeemer on his pedestal, feet at (x, y), s about a fortieth of his height: robe, outstretched arms with hanging sleeves, head
 function brazil_christ(x, y, s) { var P = function (u, v) { return [x + u * s, y + v * s]; };
   return rect(x - 4.6 * s, y - 8 * s, 9.2 * s, 8.4 * s) + rect(x - 5.6 * s, y - 9.4 * s, 11.2 * s, 1.8 * s)
-    + brazil_pg([P(-3.7, -9.2), P(3.7, -9.2), P(3.1, -20), P(2.9, -28.6), P(-2.9, -28.6), P(-3.1, -20)])
-    + brazil_pg([P(-17.6, -30.4), P(17.6, -30.4), P(18.2, -28.2), P(11.5, -27.6), P(3.4, -22.6), P(-3.4, -22.6), P(-11.5, -27.6), P(-18.2, -28.2)])
-    + rect(x - 1.1 * s, y - 31.6 * s, 2.2 * s, 2 * s) + brazil_c(x, y - 33.4 * s, 2.5 * s); }
+    + brazil_pg([P(-3.1, -9.2), P(3.1, -9.2), P(2.45, -20), P(2.9, -33.2), P(-2.9, -33.2), P(-2.45, -20)])
+    + brazil_pg([P(-14, -34.2), P(14, -34.2), P(14, -32.8), P(10.4, -32.6), P(4.2, -27.6), P(-4.2, -27.6), P(-10.4, -32.6), P(-14, -32.8)])
+    + rect(x - 0.7 * s, y - 35.2 * s, 1.4 * s, 1.4 * s) + brazil_c(x, y - 36.8 * s, 1.8 * s); }
 // a Brazilian flag w by h with its top-left corner at (x, y), for the still scene: the green field, the yellow rhombus with a hole
 // for the blue globe (drawn counter-clockwise so it cuts the rhombus), and the globe; the white band is a stroke (b)
 function brazil_flagParts(x, y, w, h) { var cx = x + w / 2, cy = y + h / 2, mx = w * 0.085, my = h * 0.12, r = h * 0.25, band = [];
