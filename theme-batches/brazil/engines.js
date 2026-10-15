@@ -153,7 +153,7 @@ function brazil_paintChrist(o, s, dk) { var L = dk ? '#E4E6FA' : '#F7F2E8', D = 
   o.save(); o.scale(s, s); o.lineJoin = 'round'; o.lineCap = 'round';
   var P = function (pts) { o.beginPath(); o.moveTo(pts[0][0], pts[0][1]); for (var i = 1; i < pts.length; i++) o.lineTo(pts[i][0], pts[i][1]); o.closePath(); o.fill(); };
   // the stepped platform on the summit, then the pedestal with its cornice
-  o.fillStyle = dk ? '#8E92B8' : '#D9D2C4'; P([[-12, 1.5], [12, 1.5], [11, -0.8], [-11, -0.8]]); P([[-9, -0.8], [9, -0.8], [8.4, -2.8], [-8.4, -2.8]]);
+  o.fillStyle = dk ? '#8E92B8' : '#D9D2C4'; P([[-12.4, 3], [12.4, 3], [11, -0.8], [-11, -0.8]]); /* the footing runs down into the rock so neither shoulder of the peak leaves it hanging */ P([[-9, -0.8], [9, -0.8], [8.4, -2.8], [-8.4, -2.8]]);
   o.fillStyle = L; P([[-6.4, -2.8], [6.4, -2.8], [6, -4.4], [-6, -4.4]]);
   P([[-4.2, -4.4], [4.2, -4.4], [3.9, -10.4], [-3.9, -10.4]]); P([[-5, -10.4], [5, -10.4], [5, -11.6], [-5, -11.6]]);
   // the robe, flaring a little at the hem
