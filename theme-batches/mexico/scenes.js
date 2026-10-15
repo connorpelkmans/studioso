@@ -337,7 +337,8 @@ SCENES.mexico = function (W, H, dk, rnd) {
   var jtl = {x: -20, y: (ph ? 190 : 40) * S, s: S * (ph ? 0.75 : 1)};
   var pj = ph ? [] : [[cx - 205 * S, yb + 14 * S, 0.95], [cx + 232 * S, yb + 16 * S, 1]];
   // papel picado strings: [x0, y0, x1, y1, sag]
-  var strings = ph ? [[-10, H * 0.14, W + 10, H * 0.12, H * 0.06]] : [[-10, H * 0.05, W * 0.46, H * 0.03, H * 0.08], [W * 0.66, H * 0.02, W + 10, H * 0.06, H * 0.07], [-10, H * 0.2, W * 0.38, H * 0.25, H * 0.05], [W * 0.78, H * 0.26, W + 10, H * 0.2, H * 0.05]];
+  var strings = ph ? [[-10, H * 0.14, W + 10, H * 0.12, H * 0.06]] : [[-10, H * 0.05, cx - tw0 * 0.34, y3 - 4 * S, H * 0.08], [cx + tw0 * 0.34, y3 - 4 * S, W + 10, H * 0.06, H * 0.07], [-10, H * 0.2, cx - 170 * S, yb - 258 * S, H * 0.05], [cx + 170 * S, yb - 258 * S, W + 10, H * 0.2, H * 0.05]];
+  // (each string is tied to the cathedral: the upper ones to the central tower's top tier, the lower ones to the side towers' cornices)
   if (!ANIM) {
     // the still scene: everything the engine would draw, laid flat
     pj.forEach(function (q) { var s = q[2] * S, tx = q[0], ty = q[1]; N.iron += mexico_pg([[tx - 5 * s, ty], [tx - 3 * s, ty - 100 * s], [tx + 3 * s, ty - 100 * s], [tx + 5 * s, ty]]); for (k = 0; k < 18; k++) { var a = hash(k + tx) * Math.PI * 2, dd = Math.sqrt(hash(k + 3 + tx)); N.jac += mexico_c(tx + Math.cos(a) * dd * 70 * s, ty - 130 * s + Math.sin(a) * dd * 40 * s, (16 + hash(k) * 10) * s); } });
