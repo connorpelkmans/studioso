@@ -341,8 +341,12 @@ SCENES.greece = function (W, H, dk, rnd) {
     for (x = fx0 - 4 * S; x <= fx1 + 4 * S; x += stp2) { xs2.push(x); raw.push(footAt(x)); }
     // bridge short gaps between houses, then take the lowest footing nearby and smooth it, so the path runs in an easy curve
     for (k = 0; k < raw.length; k++) if (raw[k] < 0) { var a2 = k - 1, b2 = k + 1; while (a2 >= 0 && raw[a2] < 0) a2--; while (b2 < raw.length && raw[b2] < 0) b2++; if (a2 >= 0 && b2 < raw.length && (b2 - a2) * stp2 < 24 * S) raw[k] = raw[a2] + (raw[b2] - raw[a2]) * (k - a2) / (b2 - a2); }
-    var wn = Math.round(8 * S / stp2), mx2 = raw.map(function (v2, q) { if (v2 < 0) return -1; var m = v2; for (var d = -wn; d <= wn; d++) if (raw[q + d] > m) m = raw[q + d]; return m; });
-    var wa = Math.round(20 * S / stp2), ptY = mx2.map(function (v2, q) { if (v2 < 0) return -1; var sum = 0, n = 0; for (var d = -wa; d <= wa; d++) if (mx2[q + d] > 0) { sum += mx2[q + d]; n++; } return Math.max(v2, sum / n) + 1 * S; }); // (never above a footing nearby: the lower-storey doors, on the near layer, would show over it)
+    // the lowest footing over a wide stretch, then averaged twice over narrower ones: because the averaging is narrower than
+    // the stretch, the path never rises above a footing near it, and every step between house levels becomes a long, easy slope
+    var win2 = function (arr, n, fn) { return arr.map(function (v2, q) { if (v2 < 0) return -1; var acc = [], d; for (d = -n; d <= n; d++) if (arr[q + d] > 0) acc.push(arr[q + d]); return fn(acc); }); };
+    var mx2 = win2(raw, Math.round(30 * S / stp2), function (a) { return Math.max.apply(null, a); });
+    var av1 = win2(mx2, Math.round(18 * S / stp2), function (a) { return a.reduce(function (p, c) { return p + c; }, 0) / a.length; });
+    var ptY = win2(av1, Math.round(10 * S / stp2), function (a) { return a.reduce(function (p, c) { return p + c; }, 0) / a.length; }).map(function (v2, q) { return v2 < 0 ? v2 : Math.max(v2, raw[q]) + 1 * S; });
     var pathW = 5.5 * S, parH = 2.8 * S, runs2 = [], cur2 = [];
     ptY.forEach(function (v2, q) { if (v2 < 0) { if (cur2.length > 1) runs2.push(cur2); cur2 = []; } else cur2.push([xs2[q], v2]); }); if (cur2.length > 1) runs2.push(cur2);
     var off = function (pts, dy) { return pts.map(function (p) { return [p[0], p[1] + dy]; }); };
