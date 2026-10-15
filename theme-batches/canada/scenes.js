@@ -44,7 +44,7 @@ SCENES.canada = function (W, H, dk, rnd) {
   var ph = H > W, far = Lay(14), bg = Lay(0.7), mid = Lay(0), near = Lay(0), C = canada_C[dk ? 'D' : 'L'], i, k, x, y;
   var S = ph ? 0.62 : Math.max(0.6, Math.min(1.1, H / 820)), hz = H * (ph ? 0.6 : 0.58);
   var sky = dk ? 'linear-gradient(180deg,#0A1430 0%,#172A50 46%,#2C4A5E 100%)' : 'linear-gradient(180deg,#9CCDF0 0%,#DCEEF8 50%,#EFF3E6 100%)';
-  var lake = dk ? 'linear-gradient(180deg,#1C4459 0%,#123247 35%,#0D2638 100%)' : 'linear-gradient(180deg,#5ED2D0 0%,#2CB7C4 30%,#1FA0B4 72%,#3EBDBE 100%)';
+  var lake = dk ? 'linear-gradient(180deg,#1C4A52 0%,#123840 35%,#0D2B33 100%)' : 'linear-gradient(180deg,#62D8C6 0%,#2EBFB6 30%,#1FA6A6 72%,#40C4B4 100%)';
   // the near shore: a rise for the rockpile on the left, a knoll for the cabin on the right and a shallow bay between
   var gnd = function (xx) { return H * (ph ? 0.885 : 0.875) - Math.exp(-Math.pow((xx - W * 0.07) / (W * 0.17), 2)) * H * (ph ? 0.05 : 0.07) - Math.exp(-Math.pow((xx - W * 0.9) / (W * 0.15), 2)) * H * (ph ? 0.045 : 0.06)
     + Math.exp(-Math.pow((xx - W * 0.42) / (W * 0.13), 2)) * H * 0.04 + Math.sin(xx / 47) * 2 + Math.sin(xx / 13) * 0.8; };
