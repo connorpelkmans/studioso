@@ -63,6 +63,12 @@ function canada_moose(c, s, lift, walk, dk) {
   // palmate antlers
   c.fillStyle = ant; c.beginPath(); c.moveTo(27, -8); c.lineTo(18, -16); c.lineTo(10, -20); c.lineTo(13, -23); c.lineTo(8, -29); c.lineTo(15, -27); c.lineTo(15, -35); c.lineTo(20, -29); c.lineTo(24, -36); c.lineTo(26, -28); c.lineTo(33, -33); c.lineTo(32, -24); c.lineTo(38, -24); c.quadraticCurveTo(34, -14, 30, -8); c.closePath(); c.fill();
   c.restore(); c.restore(); }
+// a national flag waving from its pole at (F.x, F.y): bands (vertical when vert) in cols, an optional emblem drawn by em
+function canada_flag(c, F, t, vert, cols, em, dk) { var top = [], bot = [], k, u, wv = function (u2) { return Math.sin(u2 * Math.PI * 1.6 - t * 2.2) * F.h * 0.08 * u2; };
+  var pt = function (u2, v2) { return [F.x + F.w * u2, F.y + F.h * v2 + wv(u2)]; }, piece = function (u0, u1, v0, v1) { var p = [], q; for (q = 0; q <= 8; q++) p.push(pt(u0 + (u1 - u0) * q / 8, v0)); for (q = 8; q >= 0; q--) p.push(pt(u0 + (u1 - u0) * q / 8, v1)); c.beginPath(); p.forEach(function (pp, i) { if (i) c.lineTo(pp[0], pp[1]); else c.moveTo(pp[0], pp[1]); }); c.closePath(); c.fill(); };
+  var dim = function (h) { if (!dk) return h; var n = parseInt(h.slice(1), 16); return 'rgb(' + Math.round((n >> 16) * 0.8) + ',' + Math.round(((n >> 8) & 255) * 0.8) + ',' + Math.round((n & 255) * 0.8) + ')'; }; // (solid at night too, just a little dimmer)
+  c.save(); cols.forEach(function (col, i) { c.fillStyle = dim(col); var a0 = i / cols.length, a1 = (i + 1) / cols.length + 0.004; if (vert) piece(a0, a1, 0, 1); else piece(0, 1, a0, a1); });
+  if (em) { var m = pt(0.5, 0.5); em(c, m[0], m[1], F.h); } c.restore(); }
 ENGINES.canada = function (A, v, dk) {
   var W = v.bw, H = v.bh, ph = !v.desk, C = A.C, S = A.S, hz = A.hz, gp = A.gp, T0 = -99, i;
   var gnd = function (x) { return canada_yAt(gp, x); };
@@ -160,6 +166,7 @@ ENGINES.canada = function (A, v, dk) {
       // ---- front canvas: chimney smoke, window light, falling and gusting leaves
       smoke.forEach(function (p) { var u = (t - p.t0) / 7, cs = A.chim[2]; canada_dot(cb, smokeG, p.x + u * 46 * cs + Math.sin(u * 5 + p.ph) * 6 * cs, p.y - u * 90 * cs * (ph ? 0.8 : 1), (4 + u * 16) * cs, (1 - u) * Math.min(1, u * 8) * (dk ? 0.6 : 0.8)); });
       if (dk) { A.wins.forEach(function (w, k) { var fl = 0.85 + 0.15 * flick(tt * 0.6, k); cb.save(); cb.globalCompositeOperation = 'lighter'; canada_dot(cb, glowW, w[0] + w[2] / 2, w[1] + w[3] / 2, w[2] * 1.8, fl); cb.restore(); cb.fillStyle = 'rgba(255,196,110,' + (0.85 * fl) + ')'; cb.fillRect(w[0], w[1], w[2], w[3]); cb.fillStyle = 'rgba(80,40,20,0.6)'; cb.fillRect(w[0] + w[2] / 2 - 0.8, w[1], 1.6, w[3]); cb.fillRect(w[0], w[1] + w[3] / 2 - 0.8, w[2], 1.6); }); }
+      if (A.caflag) canada_flag(cb, A.caflag, tt, true, ['#D52B1E', '#FFFFFF', '#FFFFFF', '#D52B1E'], function (c, x, y, h) { c.save(); c.translate(x, y + h * 0.04); c.fillStyle = dk ? 'rgb(170,34,24)' : '#D52B1E'; canada_leafPath(c, h * 0.3); c.fill(); c.restore(); }, dk);
       falling.forEach(function (l) { var s = l.s, flip = Math.cos(tt * 2 + l.ph); cb.save(); cb.globalAlpha = l.a; cb.translate(l.x, l.y); cb.rotate(Math.sin(tt * 1.3 + l.ph) * 0.9 + l.ph); cb.scale(0.35 + 0.65 * Math.abs(flip), 1); cb.drawImage(LS[l.k], -s, -s, s * 2, s * 2); cb.restore(); });
       gust.forEach(function (g) { cb.save(); cb.translate(g.x, g.y); cb.rotate(tt * g.w * 2 + g.ph); cb.scale(0.4 + 0.6 * Math.abs(Math.cos(tt * 3 + g.ph)), 1); cb.drawImage(LS[g.k === 2 ? 0 : g.k], -g.s, -g.s, g.s * 2, g.s * 2); cb.restore(); });
     },

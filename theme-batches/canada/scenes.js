@@ -137,8 +137,15 @@ SCENES.canada = function (W, H, dk, rnd) {
   for (x = dx0 + 6 * S; x < dx1; x += 34 * S) { woodD += rect(x - 2.4 * S, dy + dt, 4.8 * S, 18 * S); sh += canada_e(x, dy + dt + 18 * S, 7 * S, 1.6 * S); }
   for (x = dx0 + 9 * S; x < dx1; x += 9 * S) lines += seg(x, dy + 0.5, x - 1, dy + dt - 0.5);
   woodD += rect(dx0 + 2 * S, dy - 10 * S, 3.4 * S, 10 * S) + canada_c(dx0 + 3.7 * S, dy - 10 * S, 2.4 * S);   // a mooring post
+  // a white flagpole at the dock's end flying the Canadian flag (the engine draws and waves the cloth)
+  var cfx = dx0 + 16 * S, cfH = (ph ? 64 : 88) * S; stone += rect(cfx - 1.3 * S, dy - cfH, 2.6 * S, cfH) + canada_c(cfx, dy - cfH - 1.5 * S, 2.4 * S); var caFlag = {x: cfx + 1.3 * S, y: dy - cfH + 1.5 * S, w: (ph ? 30 : 42) * S, h: (ph ? 15 : 21) * S};
   // the log cabin on the knoll: log walls with crossed corners, a shingled roof, two windows, a door and a stone chimney
   var cx = W * (ph ? 0.82 : 0.875), cs = S * (ph ? 1.1 : 1), cb = gnd(cx) + 2 * cs, cw = 150 * cs, wh = 52 * cs, rh = 40 * cs, cl0 = cx - cw / 2, cl1 = cx + cw / 2;
+  // the knoll it stands on runs back behind it (a grassy rise with a pebbly edge to the water), so it stands on land, not at
+  // the water's edge
+  var kn = [], kL = cl0 - 70 * cs, kR = W + 20, kT = cb - 16 * cs; for (x = kL; x <= kR; x += 6) { var ku = Math.min(1, (x - kL) / (60 * cs)); kn.push([x, Math.min(gnd(x), kT + (1 - Math.sin(ku * Math.PI / 2)) * (gnd(x) - kT) + Math.sin(x / 17) * 1.2 * cs)]); }
+  add(near, 'a', canada_pg(kn.concat([[kR, gnd(kR) + 4], [kL, gnd(kL) + 4]])), C.ground);
+  stone += canada_pg(kn.slice(0, Math.ceil(64 * cs / 6)).map(function (p) { return [p[0], p[1] - 1.5]; }).concat(kn.slice(0, Math.ceil(64 * cs / 6)).map(function (p) { return [p[0] + 1, p[1] + 3 * cs]; }).reverse()));
   var chX = cl0 - 4 * cs, chW = 20 * cs, chTop = cb - wh - rh - 10 * cs;
   stone += canada_pg([[chX - chW / 2 - 3 * cs, cb], [chX - chW / 2, cb - wh * 0.5], [chX - chW * 0.38, chTop], [chX + chW * 0.38, chTop], [chX + chW / 2, cb - wh * 0.5], [chX + chW / 2 + 3 * cs, cb]]);
   stone += rect(chX - chW * 0.46, chTop - 4 * cs, chW * 0.92, 5 * cs) + rect(cl0 - 2 * cs, cb - 6 * cs, cw + 4 * cs, 8 * cs);
@@ -150,13 +157,13 @@ SCENES.canada = function (W, H, dk, rnd) {
   var wins = [[cx - cw * 0.3, cb - wh * 0.72, 24 * cs, 20 * cs], [cx + cw * 0.08, cb - wh * 0.72, 24 * cs, 20 * cs]], door = [cx + cw * 0.3, cb - wh * 0.86, 18 * cs, wh * 0.86 - 4 * cs];
   // the log seams run between the windows and the door, not across them
   var holes = wins.map(function (w) { return [w[0] - 3 * cs, w[1] - 3 * cs, w[0] + w[2] + 3 * cs, w[1] + w[3] + 3 * cs]; }).concat([[door[0] - 2.5 * cs, door[1] - 2.5 * cs, door[0] + door[2] + 2.5 * cs, door[1] + door[3]]]);
-  for (y = cb - wh + 7 * cs; y < cb - 4 * cs; y += 7 * cs) { var lx0 = cl0 + 2; holes.filter(function (o) { return y > o[1] && y < o[3]; }).sort(function (a, b) { return a[0] - b[0]; }).forEach(function (o) { if (o[0] > lx0) lines += seg(lx0, y, o[0], y); lx0 = Math.max(lx0, o[2]); }); if (cl1 - 2 > lx0) lines += seg(lx0, y, cl1 - 2, y); wood += canada_c(cl0 - 1 * cs, y - 3.5 * cs, 3.8 * cs) + canada_c(cl1 + 1 * cs, y - 3.5 * cs, 3.8 * cs); }
+  for (y = cb - wh + 7 * cs; y < cb - 4 * cs; y += 7 * cs) { var lx0 = cl0 - 4.6 * cs; holes.filter(function (o) { return y > o[1] && y < o[3]; }).sort(function (a, b) { return a[0] - b[0]; }).forEach(function (o) { if (o[0] > lx0) lines += seg(lx0, y, o[0], y); lx0 = Math.max(lx0, o[2]); }); if (cl1 + 4.6 * cs > lx0) lines += seg(lx0, y, cl1 + 4.6 * cs, y); /* (the seams run out through the crossed log ends at both corners) */ wood += canada_c(cl0 - 1 * cs, y - 3.5 * cs, 3.8 * cs) + canada_c(cl1 + 1 * cs, y - 3.5 * cs, 3.8 * cs); }
   var roof = canada_pg([[cl0 - 14 * cs, cb - wh + 2 * cs], [cl0 + 8 * cs, cb - wh - rh], [cl1 - 8 * cs, cb - wh - rh], [cl1 + 14 * cs, cb - wh + 2 * cs], [cl1 + 12 * cs, cb - wh + 6 * cs], [cl0 - 12 * cs, cb - wh + 6 * cs]]);
   woodD += roof; for (k = 1; k < 5; k++) { var ry2 = cb - wh - rh + rh * k / 5 + 2 * cs; lines += seg(cl0 + 8 * cs - 22 * cs * k / 5, ry2, cl1 - 8 * cs + 22 * cs * k / 5, ry2); }
   wins.forEach(function (w) { woodD += rect(w[0] - 3 * cs, w[1] - 3 * cs, w[2] + 6 * cs, w[3] + 6 * cs); nsh += rect(w[0], w[1], w[2], w[3]); lines += seg(w[0] + w[2] / 2, w[1], w[0] + w[2] / 2, w[1] + w[3]) + seg(w[0], w[1] + w[3] / 2, w[0] + w[2], w[1] + w[3] / 2); });
   woodD += rect(door[0] - 2.5 * cs, door[1] - 2.5 * cs, door[2] + 5 * cs, door[3] + 2.5 * cs); nsh += rect(door[0], door[1], door[2], door[3]) + rect(cl0, cb - wh, cw, 6 * cs);
   wood += rect(door[0] - 6 * cs, cb - 4 * cs, door[2] + 12 * cs, 4 * cs);
-  nsh += canada_e(cx, cb + 3 * cs, cw * 0.62, 6 * cs);
+  nsh += canada_pg([[cl0 - 4 * cs, cb - 1 * cs], [cl1 + 2 * cs, cb - 1 * cs], [cl1 + 20 * cs, cb + 3.5 * cs], [cl0 + 10 * cs, cb + 3.5 * cs]]); // (a contact shadow cast back-right onto the ground, not a big blot)
   // a gravel path from the cabin door down to the dock
   var pa0 = [door[0] + door[2] / 2, cb], pa1 = [dx1 - 6 * S, dy + dt + 3 * S], pl = [], pr = [];
   for (k = 0; k <= 8; k++) { var u = k / 8, px = pa0[0] + (pa1[0] - pa0[0]) * u, py = pa0[1] + (pa1[1] - pa0[1]) * u + Math.sin(u * Math.PI) * 14 * S, pw = (5 + u * 7) * S; pl.push([px - pw * 0.4, py - pw * 0.5]); pr.unshift([px + pw * 0.4, py + pw * 0.5]); }
@@ -216,7 +223,7 @@ SCENES.canada = function (W, H, dk, rnd) {
   stk(near, 's', lines, C.line, 1.1); stk(near, 't', grass, C.grass, 1.3);
   if (ANIM) {
     var env = [], sk = []; for (x = -20; x <= W + 20; x += 10) env.push([x, Math.min(canada_yAt(back.pts, x), canada_yAt(FP, x)) + 3]);
-    ANIM.C = C; ANIM.hz = hz; ANIM.gp = gp; ANIM.S = S; ANIM.sky = env; ANIM.spr = nSpr; ANIM.canoes = canoes; ANIM.maples = maples; ANIM.wins = wins; ANIM.door = door; ANIM.chim = [chX, chTop - 4 * cs, cs];
+    ANIM.caflag = caFlag; ANIM.C = C; ANIM.hz = hz; ANIM.gp = gp; ANIM.S = S; ANIM.sky = env; ANIM.spr = nSpr; ANIM.canoes = canoes; ANIM.maples = maples; ANIM.wins = wins; ANIM.door = door; ANIM.chim = [chX, chTop - 4 * cs, cs];
     ANIM.peakY = hz - H * 0.3 * mh; ANIM.bay = [W * (ph ? 0.27 : 0.25), W * (ph ? 0.42 : 0.43), gnd(W * 0.42)]; ANIM.dock = [dx0, dx1, dy];
   }
   return {sky: sky, far: far, refl: bg, mid: mid, near: near, band: {top: hz, bg: lake}};
