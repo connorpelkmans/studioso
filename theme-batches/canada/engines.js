@@ -97,6 +97,9 @@ ENGINES.canada = function (A, v, dk) {
   // the loon is drawn in front of the near layer (so it passes in front of the boulders further out in the water), clipped
   // out wherever something nearer stands: the boulders that sit lower than its waterline, the maples and the moose
   var loonMin = W * 0.06, nearRocks = (A.rockP || []).filter(function (r) { return r.bot > loon.y + 2; });
+  // is the loon (at x, waterline y) hidden behind one of the nearer boulders? then its reflection and wake are too
+  function loonHidden(x, y) { var pts = [[x, y - 3 * loon.s], [x - 10 * loon.s * loon.dir, y - 3 * loon.s], [x + 10 * loon.s * loon.dir, y - 8 * loon.s]];
+    return nearRocks.some(function (r) { return pts.some(function (pt) { var c2 = false; for (var i = 0, j = r.p.length - 1; i < r.p.length; j = i++) { var a = r.p[i], b = r.p[j]; if ((a[1] > pt[1]) !== (b[1] > pt[1]) && pt[0] < (b[0] - a[0]) * (pt[1] - a[1]) / (b[1] - a[1]) + a[0]) c2 = !c2; } return c2; }); }); }
   function loonClip(c) { var cut = function (add) { var m = new Path2D(); m.rect(-50, -50, W + 100, H + 100); add(m); c.clip(m, 'evenodd'); };
     nearRocks.forEach(function (r) { cut(function (m) { m.moveTo(r.p[0][0], r.p[0][1]); for (var q = 1; q < r.p.length; q++) m.lineTo(r.p[q][0], r.p[q][1]); m.closePath(); }); });
     A.maples.forEach(function (mp) { if (mp[2] < 20) return; cut(function (m) { m.moveTo(mp[0] + mp[2] * 1.2, mp[1]); m.ellipse(mp[0], mp[1], mp[2] * 1.2, mp[2] * 0.95, 0, 0, Math.PI * 2); }); cut(function (m) { m.rect(mp[0] - mp[2] * 0.2, mp[1], mp[2] * 0.4, mp[2] * 2.2); }); });
@@ -176,8 +179,8 @@ ENGINES.canada = function (A, v, dk) {
       if (loon.under !== 1) { cb.save(); loonClip(cb); var dv = loon.dive < 0 ? 0 : loon.dive < 0.7 ? loon.dive / 0.7 : loon.dive > 3.6 ? 1 - (loon.dive - 3.6) / 0.6 : 0, sink = loon.dive >= 0 && loon.dive < 0.7 ? dv : loon.under === 2 ? dv : 0;
         var ly = loon.y + Math.sin(tt * 1.2) * 0.6;
         cb.save(); cb.beginPath(); cb.rect(-20, -20, W + 40, ly - (-20)); cb.clip(); cb.translate(loon.x, ly + sink * 14 * loon.s); cb.scale(loon.dir, 1); cb.rotate(sink * 0.5); canada_loon(cb, loon.s, dk); cb.restore();
-        cb.save(); cb.globalAlpha = 0.25 * (1 - sink); cb.translate(loon.x, ly + 1); cb.scale(loon.dir, -0.7); canada_loon(cb, loon.s, dk); cb.restore();
-        if (loon.dive < 0) { cb.strokeStyle = ringC + '0.5)'; cb.lineWidth = 1; cb.beginPath(); cb.moveTo(loon.x - loon.dir * 18 * loon.s, ly + 1); cb.lineTo(loon.x - loon.dir * 40 * loon.s, ly + 2.5); cb.moveTo(loon.x - loon.dir * 16 * loon.s, ly + 2); cb.lineTo(loon.x - loon.dir * 30 * loon.s, ly + 5); cb.stroke(); }  cb.restore(); }
+        var hid = loonHidden(loon.x, ly); if (!hid) { cb.save(); cb.globalAlpha = 0.25 * (1 - sink); cb.translate(loon.x, ly + 1); cb.scale(loon.dir, -0.7); canada_loon(cb, loon.s, dk); cb.restore(); }
+        if (loon.dive < 0 && !hid) { cb.strokeStyle = ringC + '0.5)'; cb.lineWidth = 1; cb.beginPath(); cb.moveTo(loon.x - loon.dir * 18 * loon.s, ly + 1); cb.lineTo(loon.x - loon.dir * 40 * loon.s, ly + 2.5); cb.moveTo(loon.x - loon.dir * 16 * loon.s, ly + 2); cb.lineTo(loon.x - loon.dir * 30 * loon.s, ly + 5); cb.stroke(); }  cb.restore(); }
       if (A.caflag) canada_flag(cb, A.caflag, tt, true, ['#D52B1E', '#FFFFFF', '#FFFFFF', '#D52B1E'], function (c, x, y, h) { c.save(); c.translate(x, y + h * 0.04); c.fillStyle = dk ? 'rgb(170,34,24)' : '#D52B1E'; canada_leafPath(c, h * 0.3); c.fill(); c.restore(); }, dk);
       falling.forEach(function (l) { var s = l.s, flip = Math.cos(tt * 2 + l.ph); cb.save(); cb.globalAlpha = l.a; cb.translate(l.x, l.y); cb.rotate(Math.sin(tt * 1.3 + l.ph) * 0.9 + l.ph); cb.scale(0.35 + 0.65 * Math.abs(flip), 1); cb.drawImage(LS[l.k], -s, -s, s * 2, s * 2); cb.restore(); });
       gust.forEach(function (g) { cb.save(); cb.translate(g.x, g.y); cb.rotate(tt * g.w * 2 + g.ph); cb.scale(0.4 + 0.6 * Math.abs(Math.cos(tt * 3 + g.ph)), 1); cb.drawImage(LS[g.k === 2 ? 0 : g.k], -g.s, -g.s, g.s * 2, g.s * 2); cb.restore(); });
