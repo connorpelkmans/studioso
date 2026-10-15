@@ -101,9 +101,9 @@ SCENES.canada = function (W, H, dk, rnd) {
   add(bg, 'h', canada_pg(FP.map(function (p) { return [p[0], hz + (hz - p[1]) * 0.9 + 6]; }).concat([[FP[FP.length - 1][0], hz], [FP[0][0], hz]])), C.mrefl);
 
   // ---- the far shore: two tones of spruce standing on a pale stony beach, with their reflections
-  var s1 = '', s2 = '', sr = '', beach = '', fs = [];
+  var s1 = '', s2 = '', sr = '', beach = '', fs = [], farO = '', farR = '';
   for (x = -14; x < W + 14; x += (ph ? 5 : 7) + rnd() * (ph ? 6 : 9)) { var h = (ph ? 13 : 20) * (0.55 + rnd() * 0.9) * (1 + 0.25 * Math.sin(x / 120)), yb = hz + 2 + rnd() * 2, tr = canada_spruce(x, yb, h, h * 0.2, 5);
-    if (rnd() < 0.55) s1 += tr; else { var hq2 = h * 0.85; s2 += canada_e(x, yb - hq2 * 0.55, hq2 * 0.24, hq2 * 0.45) + canada_c(x - hq2 * 0.12, yb - hq2 * 0.7, hq2 * 0.16) + canada_c(x + hq2 * 0.13, yb - hq2 * 0.42, hq2 * 0.17); } /* aspens in autumn gold among the spruces */ sr += canada_pg([[x - h * 0.16, hz + 5], [x + h * 0.16, hz + 5], [x, hz + 5 + h * 0.85]]); fs.push(x); }
+    if (rnd() < 0.55) s1 += tr; else { var hq2 = h * 0.85, crn = canada_e(x, yb - hq2 * 0.55, hq2 * 0.24, hq2 * 0.45) + canada_c(x - hq2 * 0.12, yb - hq2 * 0.7, hq2 * 0.16) + canada_c(x + hq2 * 0.13, yb - hq2 * 0.42, hq2 * 0.17), pk = rnd(); if (pk < 0.4) s2 += crn; else if (pk < 0.7) farO += crn; else farR += crn; } /* aspens in gold, and maples in orange and red, among the spruces */ sr += canada_pg([[x - h * 0.16, hz + 5], [x + h * 0.16, hz + 5], [x, hz + 5 + h * 0.85]]); fs.push(x); }
   sr += canada_pg(foot.map(function (p) { return [p[0], hz + 5 + (hz - p[1]) * 0.6]; }));
   beach = canada_pg([[-20, hz + 1], [W + 20, hz + 1], [W + 20, hz + 5], [-20, hz + 5]]);
   add(mid, 'c', sr, C.sprRefl); add(mid, 'a', s1, C.spr1); add(mid, 'b', s2, C.spr2); add(mid, 'e', beach, C.beach);
@@ -122,12 +122,12 @@ SCENES.canada = function (W, H, dk, rnd) {
 
   // ---- the near shore
   add(near, 'a', canada_pg(gp.concat([[W + 20, H + 20], [-20, H + 20]])), C.ground);
-  var stone = '', nsh = '', lines = '', grass = '', wood = '', woodD = '', red = '', orange = '', sprN = '', nSpr = [];
+  var stone = '', nsh = '', lines = '', grass = '', wood = '', woodD = '', red = farR, orange = farO, sprN = '', nSpr = []; // (the far shore's orange and red trees share the maples' colours)
   // a pebbly beach along the water's edge
   var bt = gp.map(function (p) { return [p[0], p[1] - 1.5]; }), bb = gp.map(function (p) { return [p[0], p[1] + (ph ? 4 : 6) + Math.sin(p[0] / 19) * 1.5]; });
   stone += canada_pg(bt.concat(bb.reverse()));
   // the rockpile on the left: big boulders at the bottom, smaller ones stacked up toward the top
-  var RP = [[0.0, 2, 50], [0.08, 6, 56], [0.165, 4, 42], [0.235, 8, 30], [0.04, -34, 42], [0.125, -30, 40], [0.2, -18, 28], [0.085, -62, 32], [0.16, -50, 24], [0.12, -82, 20], [0.05, -72, 22], [0.29, 10, 18]];
+  var RP = [[0.0, 2, 50], [0.08, 6, 56], [0.165, 4, 42], [0.04, -34, 42], [0.125, -30, 40], [0.2, -18, 28], [0.085, -62, 32], [0.16, -50, 24], [0.12, -82, 20], [0.05, -72, 22], [0.29, 10, 18]];
   // (layered by depth: a boulder lower down the pile is nearer, so the shading, cracks and outline of the ones behind stop
   // at its edge, and its own outline shows where it overlaps them)
   var rocks = RP.map(function (q) { var rx = q[2] * S * (ph ? 1.2 : 1), xx = W * q[0], yy = gnd(xx) + q[1] * S * (ph ? 1.1 : 1), ry = rx * 0.68; return {x: xx, y: yy, rx: rx, ry: ry, p: canada_rockPts(xx, yy, rx, ry, rnd)}; });
@@ -203,7 +203,7 @@ SCENES.canada = function (W, H, dk, rnd) {
   (ph ? [[0.0, 150], [0.12, 120], [0.66, 120], [0.95, 165]] : [[0.0, 190], [0.05, 150], [0.135, 120], [0.8, 150], [0.835, 120], [0.955, 175], [1.0, 210]]).forEach(function (q, j) { var xx = W * q[0], hh = q[1] * S * (ph ? 1.4 : 1); var fr = xx < W * 0.3; nSpr.push([xx, fr ? gnd(xx) + (ph ? 62 : 48) * S : gnd(xx) - (j % 2 ? 8 : 14) * S, hh, hh * 0.2, 9, fr]); /* (those by the rockpile stand on the grass in front of it) */ });
   // two sugar maples in autumn colour: one by the rockpile, one in front of the cabin, and a branch over the top right corner
   var maples = [], mTr = '';
-  (ph ? [[0.3, 0.9], [1.02, 1.1]] : [[0.245, 0.95], [0.995, 1.25]]).forEach(function (q, j) { var mx = W * q[0], my = gnd(mx) + 4, ms = S * q[1] * (ph ? 1.3 : 1), cyy = my - 120 * ms, R = 62 * ms;
+  (ph ? [[0.3, 0.9], [1.02, 1.1]] : [[0.245, 0.95], [0.995, 1.25]]).forEach(function (q, j) { var mx = W * q[0], my = gnd(mx) + (j ? 4 : 16 * S), ms = S * q[1] * (ph ? 1.3 : 1), cyy = my - 120 * ms, R = 62 * ms;
     mTr += canada_pg([[mx - 7 * ms, my], [mx - 5 * ms, my - 60 * ms], [mx - 30 * ms, my - 100 * ms], [mx - 26 * ms, my - 104 * ms], [mx - 2 * ms, my - 76 * ms], [mx + 4 * ms, my - 112 * ms], [mx + 9 * ms, my - 110 * ms], [mx + 5 * ms, my - 64 * ms], [mx + 28 * ms, my - 92 * ms], [mx + 31 * ms, my - 88 * ms], [mx + 7 * ms, my - 50 * ms], [mx + 8 * ms, my]]);
     // a red core, then mottled clusters of red and orange (orange catching the light at the top left), leaves at the edge
     for (k = 0; k < 7; k++) { var a0 = k / 7 * Math.PI * 2; red += canada_c(mx + Math.cos(a0) * R * 0.45, cyy + Math.sin(a0) * R * 0.3, R * 0.5); }
