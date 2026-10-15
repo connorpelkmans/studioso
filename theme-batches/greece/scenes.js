@@ -326,15 +326,34 @@ SCENES.greece = function (W, H, dk, rnd) {
       xx = x0 - (rnd() < 0.2 ? (1 + rnd() * 4) * S * cs : 0);
     }
   }
-  // the front row stands on a ragged outcrop of darker rock that follows the bottoms of its footings, so the houses are set
-  // into the cliff (without it a light stripe of rock ran right under them and they looked balanced on its edge)
-  if (footings.length) { var fx0 = Math.min.apply(null, footings.map(function (f) { return f[0]; })), fx1 = Math.max.apply(null, footings.map(function (f) { return f[1]; }));
-    var footAt = function (X) { var yb = -1; footings.forEach(function (f) { if (X >= f[0] - 3 * S && X <= f[1] + 3 * S) yb = Math.max(yb, f[2]); }); return yb; };
+  // a whitewashed walkway runs along the foot of the front row, round the edge of the cliff: paving in front of the houses
+  // (shaded under them), a low white parapet on the cliff side with its shadow, white steps down from any house that stands
+  // higher than the path, and under it all a ragged outcrop of darker rock, so the village is set into the cliff
+  if (footings.length) {
+    var fx0 = Math.min.apply(null, footings.map(function (f) { return f[0]; })), fx1 = Math.max.apply(null, footings.map(function (f) { return f[1]; }));
+    var footAt = function (X) { var yb = -1; footings.forEach(function (f) { if (X >= f[0] - 2 * S && X <= f[1] + 2 * S) yb = Math.max(yb, f[2]); }); return yb; };
     var crag = function (X) { return (5 + 4 * Math.abs(Math.sin(X / (9 * S))) + 3 * Math.abs(Math.sin(X / (23 * S) + 1.3))) * S; };
-    // (it is on the layer behind the village, so the houses cover its top; it is not clipped by the occlusion line, which
-    // already counts everything under the houses as hidden)
-    var ocT = [], ocB = []; for (x = fx0 - 6 * S; x <= fx1 + 6 * S; x += 2 * S) { var fa = footAt(x); if (fa < 0) { if (ocT.length > 1) G.f += greece_pg(ocT.concat(ocB.reverse())); ocT = []; ocB = []; continue; } ocT.push([x, fa - 4 * S]); ocB.push([x, fa + crag(x)]); }
-    if (ocT.length > 1) G.f += greece_pg(ocT.concat(ocB.reverse())); }
+    var stp2 = 2 * S, raw = [], xs2 = [];
+    for (x = fx0 - 4 * S; x <= fx1 + 4 * S; x += stp2) { xs2.push(x); raw.push(footAt(x)); }
+    // bridge short gaps between houses, then take the lowest footing nearby and smooth it, so the path runs in an easy curve
+    for (k = 0; k < raw.length; k++) if (raw[k] < 0) { var a2 = k - 1, b2 = k + 1; while (a2 >= 0 && raw[a2] < 0) a2--; while (b2 < raw.length && raw[b2] < 0) b2++; if (a2 >= 0 && b2 < raw.length && (b2 - a2) * stp2 < 24 * S) raw[k] = raw[a2] + (raw[b2] - raw[a2]) * (k - a2) / (b2 - a2); }
+    var wn = Math.round(8 * S / stp2), mx2 = raw.map(function (v2, q) { if (v2 < 0) return -1; var m = v2; for (var d = -wn; d <= wn; d++) if (raw[q + d] > m) m = raw[q + d]; return m; });
+    var wa = Math.round(20 * S / stp2), ptY = mx2.map(function (v2, q) { if (v2 < 0) return -1; var sum = 0, n = 0; for (var d = -wa; d <= wa; d++) if (mx2[q + d] > 0) { sum += mx2[q + d]; n++; } return Math.max(v2 - 3 * S, sum / n) + 1 * S; });
+    var pathW = 5.5 * S, parH = 2.8 * S, runs2 = [], cur2 = [];
+    ptY.forEach(function (v2, q) { if (v2 < 0) { if (cur2.length > 1) runs2.push(cur2); cur2 = []; } else cur2.push([xs2[q], v2]); }); if (cur2.length > 1) runs2.push(cur2);
+    var off = function (pts, dy) { return pts.map(function (p) { return [p[0], p[1] + dy]; }); };
+    runs2.forEach(function (rp2) {
+      var rb = rp2.map(function (p) { return [p[0], p[1] + pathW + parH + crag(p[0])]; });
+      G.f += greece_pg(off(rp2, -3 * S).concat(rb.reverse()));
+      M.g += greece_pg(off(rp2, -1).concat(off(rp2, pathW).reverse()));
+      M.d += greece_pg(off(rp2, -1).concat(off(rp2, 1.3 * S).reverse()));
+      M.a += greece_pg(off(rp2, pathW).concat(off(rp2, pathW + parH).reverse()));
+      M.d += greece_pg(off(rp2, pathW + parH - 0.6 * S).concat(off(rp2, pathW + parH + 1.2 * S).reverse()));
+      for (var q2 = 0; q2 < rp2.length; q2 += Math.round(9 * S / stp2)) mRail += seg(rp2[q2][0], rp2[q2][1] + pathW + 0.3 * S, rp2[q2][0], rp2[q2][1] + pathW + parH - 0.3 * S); });
+    var pathTop = function (X) { var q = Math.round((X - xs2[0]) / stp2); return q >= 0 && q < ptY.length ? ptY[q] : -1; };
+    footings.forEach(function (f) { var tp = [], bt = []; for (x = f[0] + 1.5 * S; x <= f[1] - 1 * S; x += 1.5 * S) { var py2 = pathTop(x); if (py2 < 0) continue; tp.push([x, f[2] - 1]); bt.push([x, Math.max(f[2] - 1, py2)]); }
+      if (tp.length > 1 && bt.some(function (b, q) { return b[1] - tp[q][1] > 1.2 * S; })) { M.a += greece_pg(tp.concat(bt.reverse())); var bx3 = f[0] + (f[1] - f[0]) * 0.5; for (var sy3 = f[2] + 1.6 * S; sy3 < pathTop(bx3) - 0.5 * S; sy3 += 1.8 * S) mRail += seg(bx3 - 3 * S, sy3, bx3 + 3 * S, sy3); } });
+  }
   // the rock of the rim and of the shoulder belongs to the skyline too
   O.put(silP[silP.length - 1][0], W + 30, topAt);
   // lamps on the mule path at night
