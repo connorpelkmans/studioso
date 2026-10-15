@@ -208,7 +208,7 @@ SCENES.greece = function (W, H, dk, rnd) {
   // ---- a house of the village: front face, shaded side face, roof (a flat terrace or a cave house's vault), then windows,
   // shutters, doors, flowers, pools, pergolas, domes and bell towers where they are in view, and the shadow it casts on
   // whatever stands behind it. Houses are drawn front to back, so everything nearer has already claimed its place in O.
-  var domes = [], domeR = [], belfries = 0, lastDome = -1e9, footings = [];
+  var domes = [], domeR = [], belfries = 0, lastDome = -1e9, footings = [], hBox = [];
   function windowAt(wx, wy, ww, wh, arch) { var sh = arch ? greece_arch(wx, wy, ww, wh) : rect(wx, wy, ww, wh); if (!dk) { N.h += sh; return; } if (rnd() < 0.6) { N.h += sh; wins.push([wx + ww / 2, wy + wh / 2, ww]); } else N.g += sh; }
   function drape(bx, by, len) { for (var q = 0; q < len; q += 3.5 * S) { var px = bx + Math.sin(q * 0.4) * 1.6 * S, py = by + q, rr = (3.6 - q / len * 1.8) * S; if (!vis(px - rr * 1.2, px + rr * 1.2, py + rr)) return;
     N.d += greece_c(px - rr * 0.4, py, rr * 0.9); N.e += greece_c(px + rr * 0.3, py - rr * 0.2, rr * 0.55) + greece_c(px - rr * 0.5, py + rr * 0.35, rr * 0.5); } }
@@ -221,6 +221,7 @@ SCENES.greece = function (W, H, dk, rnd) {
   function baseY(X) { return cY(vBot, X) + gap * 0.55 * kkAt(X); }
   function house(o) {
     var x = o.x, w = o.w, top = o.top, base = o.base, x1 = x + w, sx = o.sx, sy = o.sy, col = o.col, hgt = base - top, kk = o.k, th = o.th, det = th < 1.12, xr = x1 + sx, q;
+    if (o.row >= 0) hBox.push([x, x1, top, o.perch ? base + gap * 0.55 * kk : base]);
     if (O.max(x, xr) < top - sy - 2 * S) return;
     if (o.perch) { var sb1 = base + gap * 0.55 * kk;
       var fi0 = x - 0.6 * S, fi1 = x1 + 0.6 * S; M.a += o.row === 0 ? O.band(fi0, fi1, function () { return base; }, function (X) { return Math.max(sb1, baseY(X) + 1.5 * S); }) : band(fi0, fi1, base, base, sb1 - 3 * S, sb1); /* the front row's footings meet each other and run down to the walkway at every point, so no rock shows */ M.d += band(x1 - 3.5 * S, x1 - 1 * S, base, base, sb1, sb1) + band(x + 1.5 * S, x1 - 1 * S, base, base, base + 1.6 * S, base + 1.6 * S);
@@ -345,7 +346,7 @@ SCENES.greece = function (W, H, dk, rnd) {
           M.a += band(stL - 1.2 * S, stL + 0.6 * S, sTop - 1.5 * S, sTop - 1.5 * S, sYb, sYb); O.put(stL - 1.2 * S, xx, function () { return sTop; }); stDone[r] = 1; xx = stL; continue; } } // (a short flight in the walkway's paving, with a white parapet)
       var xEdge = silX(bse + (r === 0 ? gap * 0.6 * kk : 2 * S)) + 0.5 * S, capped = false;
       if (x0 < xEdge) { if (xx - xEdge < 2.5 * S) break; x0 = xEdge; fw = xx - x0; capped = true; }
-      var top = bse - hh; if ((capped || th > 1.0) && r < nR - 1) top = Math.min(top, bse - gap * 1.12); // (round the edge each row reaches the one above, so no rock shows between them)
+      var top = bse - hh; if ((capped || th > 1.0) && r < nR - 1) top = Math.min(top, bse - gap * 1.12); if (capped && r === nR - 1) top = Math.min(top, topAt(x0) - 1 * S); /* the top row's edge house reaches the rim */ // (round the edge each row reaches the one above, so no rock shows between them)
       if (r >= nR - 3 && Math.abs(xx - fw / 2 - mxX) < millL + fw / 2 + 2 * S) top = Math.max(top, mb - 8 * S);
       if (bse - top > gap * 0.4 * kk) { var col = rnd() < 0.1 ? 'b' : rnd() < 0.1 ? 'c' : 'a'; if (col !== 'a' && col === lastCol) col = 'a'; lastCol = col;
         var flatRoof = rnd() > 0.28 || th > 0.9, pool = flatRoof && rnd() < 0.3 && th < 0.7, dd = (pool ? 11 + rnd() * 5 : 6 + rnd() * 4) * S * kk, cxH = xx - fw / 2;
@@ -353,10 +354,21 @@ SCENES.greece = function (W, H, dk, rnd) {
         var wantBell = !capped && !wantDome && flatRoof && fw > 20 * S && th < 0.6 && belfries < (ph ? 3 : 6) && Math.abs(cxH - mxX) > millL + 20 * S && rnd() < 0.12;
         if (wantDome) { lastDome = cxH; top = Math.min(top, bse - gap * 1.3 * kk); }
         house({x: x0, w: fw, top: top, base: bse, col: col, sx: dd * 0.8 + w * kk * sn * 0.42, sy: dd * 0.55, roof: flatRoof ? 0 : 1, row: r, k: kk, sq: cs, th: th, haze: th > 0.82, perch: r === 0 || (th > 0.6 && rnd() < 0.25), dome: wantDome, bell: wantBell}); }
-      if (capped) break;
+      if (capped) { xx = x0; break; }
       rnd(); xx = x0; // (the houses stand side by side: gaps between them showed the rock as brown lines)
     }
+    // where a row stopped short of the cliff's edge, one more plain house fills it out to the edge, so no rock shows past
+    // the village; on the top row it reaches up to the rim
+    var bE = cY(v, xx), thE = thetaAt(v, xx), kE = 1 - 0.36 * (1 - Math.cos(thE)), xe = silX(bE + (r === 0 ? gap * 0.6 * kE : 2 * S)) + 0.3 * S;
+    if (xx - xe > 0.8 * S && xx > -10) { var tE = bE - gap * 1.12; if (r === nR - 1) tE = Math.min(tE, topAt(xe) - 1 * S);
+      house({x: xe, w: xx - xe, top: tE, base: bE, col: 'a', sx: 2 * S * kE, sy: 1.5 * S, roof: 0, row: r, k: kE, sq: Math.max(0.16, Math.cos(thE)), th: thE, haze: thE > 0.82, perch: r === 0}); }
   }
+  // a whitewash backing under the village, column by column from just below the highest house top down to the lowest
+  // house bottom: it sits beneath every house, so the hairline crevices between them show white wall, never the rock
+  (function () { if (!hBox.length) return; var bx0 = Math.min.apply(null, hBox.map(function (b) { return b[0]; })), T = [], B = [];
+    for (x = bx0; x <= W + 20; x += 2 * S) { var tq = 1e9, bq = -1e9; hBox.forEach(function (b) { if (x >= b[0] - 0.5 && x <= b[1] + 0.5) { tq = Math.min(tq, b[2]); bq = Math.max(bq, b[3]); } });
+      if (tq > bq) { if (T.length > 1) M.a += greece_pg(T.concat(B.reverse())); T = []; B = []; continue; } T.push([x, tq + 1.5 * S]); B.push([x, bq]); }
+    if (T.length > 1) M.a += greece_pg(T.concat(B.reverse())); })();
   // a whitewashed walkway runs along the foot of the front row, round the edge of the cliff: paving in front of the houses
   // (shaded under them), a low white parapet on the cliff side with its shadow, white steps down from any house that stands
   // higher than the path, and under it all a ragged outcrop of darker rock, so the village is set into the cliff
