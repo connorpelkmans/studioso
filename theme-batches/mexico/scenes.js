@@ -107,6 +107,8 @@ SCENES.mexico = function (W, H, dk, rnd) {
     var lw = xL1 + 10, f1 = -10 + lw * 0.36, f2 = f1 + lw * 0.34;
     facade(-10, f1, yb - 150 * S, 'cob', false); facade(f1, f2, yb - 132 * S, 'oxb', true); facade(f2, xL1, yb - 160 * S, 'saf', false);
     var rw = W + 10 - xR0, g1 = xR0 + rw * 0.55; facade(xR0, g1, yb - 140 * S, 'saf', true); facade(g1, W + 10, yb - 156 * S, 'oxb', false); }
+  // a flagpole on the roof of the house left of the cathedral, flying the Mexican flag (the engine draws and waves the cloth)
+  var mxFlag = (function () { var top = yb - (ph ? 118 : 160) * S - 10 * S, px = xL1 - (ph ? 40 : 66) * S, ph2 = (ph ? 56 : 78) * S; mg.dark += rect(px - 1.3 * S, top - ph2, 2.6 * S, ph2) + rect(px - 3.5 * S, top - 2 * S, 7 * S, 2.5 * S); mg.saf += mexico_c(px, top - ph2 - 1.5 * S, 2.4 * S); return {x: px + 1.3 * S, y: top - ph2 + 1.5 * S, w: (ph ? 30 : 42) * S, h: (ph ? 30 : 42) * S * 4 / 7}; })();
   // ---- the cathedral: a Gothic pink sandstone front with a tiered central tower, two side towers and many pinnacles
   var cath = '', cs2 = '', tw0 = 120 * S, y1 = yb - 150 * S, y2 = y1 - 92 * S, y3 = y2 - 72 * S, y4 = y3 - 56 * S, spH = 112 * S, bells = [];
   // the body of the front, with a row of small pinnacles along its top
@@ -337,8 +339,9 @@ SCENES.mexico = function (W, H, dk, rnd) {
   var jtl = {x: -20, y: (ph ? 190 : 40) * S, s: S * (ph ? 0.75 : 1)};
   var pj = ph ? [] : [[cx - 205 * S, yb + 14 * S, 0.95], [cx + 232 * S, yb + 16 * S, 1]];
   // papel picado strings: [x0, y0, x1, y1, sag]
-  var strings = ph ? [[-10, H * 0.14, W + 10, H * 0.12, H * 0.06]] : [[-10, H * 0.05, cx - tw0 * 0.34, y3 - 4 * S, H * 0.08], [cx + tw0 * 0.34, y3 - 4 * S, W + 10, H * 0.06, H * 0.07], [-10, H * 0.2, cx - 170 * S, yb - 258 * S, H * 0.05], [cx + 170 * S, yb - 258 * S, W + 10, H * 0.2, H * 0.05]];
-  // (each string is tied to the cathedral: the upper ones to the central tower's top tier, the lower ones to the side towers' cornices)
+  var strings = ph ? [[-10, H * 0.14, W + 10, H * 0.12, H * 0.06]] : [[-10, H * 0.04, W + 10, H * 0.2, H * 0.09], [-10, H * 0.21, W + 10, H * 0.05, H * 0.09]];
+  // (two strings run right across the plaza from edge to edge, crossing each other in the middle, as they're strung between
+  // the buildings either side)
   if (!ANIM) {
     // the still scene: everything the engine would draw, laid flat
     pj.forEach(function (q) { var s = q[2] * S, tx = q[0], ty = q[1]; N.iron += mexico_pg([[tx - 5 * s, ty], [tx - 3 * s, ty - 100 * s], [tx + 3 * s, ty - 100 * s], [tx + 5 * s, ty]]); for (k = 0; k < 18; k++) { var a = hash(k + tx) * Math.PI * 2, dd = Math.sqrt(hash(k + 3 + tx)); N.jac += mexico_c(tx + Math.cos(a) * dd * 70 * s, ty - 130 * s + Math.sin(a) * dd * 40 * s, (16 + hash(k) * 10) * s); } });
@@ -359,6 +362,6 @@ SCENES.mexico = function (W, H, dk, rnd) {
   if (ANIM) { ANIM.C = C; ANIM.S = S; ANIM.stars = stars.filter(function (s) { return s.y < hillY(s.x) - 8 && s.y < midTop(s.x) - 6; }); ANIM.mtop = mA; ANIM.wins = wins; ANIM.cath = cath; ANIM.cx = cx; ANIM.yb = yb; ANIM.spireTop = y4 - spH - 26 * S;
     ANIM.bells = bells; ANIM.bal = bal; ANIM.kiosk = {x: kb.x, top: kRoof, y: kb.y, r: kr, bulbs: bulbs}; ANIM.lamps = lamps; ANIM.cart = {x: cart.x, y: cart.y, s: cs3, tie: tie};
     ANIM.fount = {x: fx, y: fy, rx: frx - rim * 0.5, ry: fry - rim * 0.26, bowlY: bowlY, brx: brx, bry: bry, spout: bowlY - 12 * S, fh: fh};
-    ANIM.boug = boug; ANIM.pg = pg; ANIM.jtl = jtl; ANIM.pj = pj; ANIM.strings = strings; ANIM.dome = dm; }
+    ANIM.mxflag = mxFlag; ANIM.boug = boug; ANIM.pg = pg; ANIM.jtl = jtl; ANIM.pj = pj; ANIM.strings = strings; ANIM.dome = dm; }
   return {sky: sky, far: far, refl: bg, mid: mid, near: near};
 };

@@ -225,6 +225,8 @@ SCENES.egypt = function (W, H, dk, rnd) {
   if (vgy.length) { var vx1 = vgy[vgy.length - 1][1] + 26 * U, vt = Math.min.apply(null, vgy.map(function (q) { return q[2]; })), vp = [[-20, egypt_yOn(bk, -20) + 2]];
     for (x = -20; x <= vx1; x += 6) { var vv = vt + Math.sin(x / 37) * 2 * U; vp.push([x, Math.min(vv + Math.max(0, x - vx1 + 40 * U) * 0.55, egypt_yOn(bk, x) + 2)]); }
     vp.push([vx1, egypt_yOn(bk, vx1) + 2]); grd += egypt_pg(vp); }
+  // a flagpole on the roof of the first house, flying the Egyptian flag (the engine draws and waves the cloth)
+  var egFlag = (function () { var hb = hBox[0]; if (!hb) return null; var px = hb[0] + (hb[1] - hb[0]) * 0.3, base = hb[2] + 3 * U, ph2 = (ph ? 48 : 64) * U; door += rect(px - 1.2 * U, base - ph2, 2.4 * U, ph2); return {x: px + 1.2 * U, y: base - ph2 + 1.5 * U, w: (ph ? 28 : 38) * U, h: (ph ? 28 : 38) * U * 2 / 3}; })();
   // the dovecote: a tall tapering mud tower, whitewashed bands, rows of pigeon pots and perch sticks, a domed top
   var dvx = W * (ph ? 0.2 : 0.12), dvy = egypt_yOn(bk, dvx) + 5, dvh = H * (ph ? 0.17 : 0.21) * (ph ? 1 : 1), dvw = H * (ph ? 0.05 : 0.058), dvt = dvy - dvh;
   wallS += egypt_pg([[dvx - dvw / 2, dvy], [dvx - dvw * 0.36, dvt + dvh * 0.1], [dvx + dvw * 0.36, dvt + dvh * 0.1], [dvx + dvw / 2, dvy]]);
@@ -300,6 +302,6 @@ SCENES.egypt = function (W, H, dk, rnd) {
   add(near, 'a', ground + grd, C.bank); add(near, 'b', wallL, C.wall); add(near, 'c', wallS, C.wallS); add(near, 'd', trunk, C.trunk); add(near, 'e', leaf + crowns, C.leaf); add(near, 'f', door + datesD, C.door); add(near, 'g', win, C.win); add(near, 'h', white, C.white);
   stk(near, 's', blade + umb, C.blade, 1.1); stk(near, 't', stick, C.stick, 1.3);
   if (ANIM) { ANIM.C = C; ANIM.hz = hz; ANIM.ry = ry; ANIM.by = by; ANIM.U = U; ANIM.sun = sun; ANIM.sunR = sunR; ANIM.ku = ku; ANIM.fa = fa; ANIM.me = me; ANIM.kh = kh;
-    ANIM.sil = [ku, fa, me].concat(queens).map(function (p) { return p.sil; }).concat([sph]); ANIM.ridge = r2; ANIM.palms = palms; ANIM.papy = papy; ANIM.boats = boats; ANIM.ibis = ibis; ANIM.wins = wins; ANIM.dove = [dvx, dvt, dvh, dvw]; ANIM.bank = bk; }
+    ANIM.egflag = egFlag; ANIM.sil = [ku, fa, me].concat(queens).map(function (p) { return p.sil; }).concat([sph]); ANIM.ridge = r2; ANIM.palms = palms; ANIM.papy = papy; ANIM.boats = boats; ANIM.ibis = ibis; ANIM.wins = wins; ANIM.dove = [dvx, dvt, dvh, dvw]; ANIM.bank = bk; }
   return {sky: sky, far: far, refl: bg, mid: mid, near: near};
 };

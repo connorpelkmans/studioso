@@ -25,6 +25,12 @@ function mexico_balloon(c, x, y, r, col, dk, a) {
   c.fillStyle = mexico_mix(col, 0.82); c.beginPath(); c.moveTo(0, r * 1.1); c.lineTo(-r * 0.16, r * 1.32); c.lineTo(r * 0.16, r * 1.32); c.closePath(); c.fill();
   c.fillStyle = dk ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.5)'; c.beginPath(); c.ellipse(-r * 0.42, -r * 0.48, r * 0.14, r * 0.26, 0.5, 0, 7); c.fill();
   c.restore(); }
+// a national flag waving from its pole at (F.x, F.y): bands (vertical when vert) in cols, an optional emblem drawn by em
+function mexico_flag(c, F, t, vert, cols, em, dk) { var top = [], bot = [], k, u, wv = function (u2) { return Math.sin(u2 * Math.PI * 1.6 - t * 2.2) * F.h * 0.08 * u2; };
+  var pt = function (u2, v2) { return [F.x + F.w * u2, F.y + F.h * v2 + wv(u2)]; }, piece = function (u0, u1, v0, v1) { var p = [], q; for (q = 0; q <= 8; q++) p.push(pt(u0 + (u1 - u0) * q / 8, v0)); for (q = 8; q >= 0; q--) p.push(pt(u0 + (u1 - u0) * q / 8, v1)); c.beginPath(); p.forEach(function (pp, i) { if (i) c.lineTo(pp[0], pp[1]); else c.moveTo(pp[0], pp[1]); }); c.closePath(); c.fill(); };
+  var dim = function (h) { if (!dk) return h; var n = parseInt(h.slice(1), 16); return 'rgb(' + Math.round((n >> 16) * 0.8) + ',' + Math.round(((n >> 8) & 255) * 0.8) + ',' + Math.round((n & 255) * 0.8) + ')'; }; // (solid at night too, just a little dimmer)
+  c.save(); cols.forEach(function (col, i) { c.fillStyle = dim(col); var a0 = i / cols.length, a1 = (i + 1) / cols.length + 0.004; if (vert) piece(a0, a1, 0, 1); else piece(0, 1, a0, a1); });
+  if (em) { var m = pt(0.5, 0.5); em(c, m[0], m[1], F.h); } c.restore(); }
 // a hummingbird about 24 units long, facing right when dir is 1; w is the wing beat (0..1)
 function mexico_hummer(c, x, y, s, dir, w, tilt, dk) {
   c.save(); c.translate(x, y); c.scale(dir * s / 24, s / 24); c.rotate(tilt || 0);
@@ -83,7 +89,10 @@ ENGINES.mexico = function (A, v, dk) {
     for (m = 0; m < 6; m++) hole('M' + (-0.38 + m * 0.15) + ' 0.08h0.06v0.06h-0.06Z');
     return p; });
   var strings = A.strings.map(function (st, sn) { var L = Math.hypot(st[2] - st[0], st[3] - st[1]), nf = Math.floor(L / ((ph ? 28 : 40) * S)), fl = [];
-    for (var q = 0; q < nf; q++) fl.push({u: (q + 0.5) / nf, c: PP[(q * 3 + sn * 2) % PP.length], p: (q + sn) % 3, ph: hash(q + sn * 40) * 6.28});
+    // (where a later string crosses an earlier one, its flags near the crossing are left off so they don't pile up)
+    var at0 = function (s2, u) { return [s2[0] + (s2[2] - s2[0]) * u, s2[1] + (s2[3] - s2[1]) * u + s2[4] * 4 * u * (1 - u)]; }, fwq = (ph ? 18 : 26) * S;
+    for (var q = 0; q < nf; q++) { var u = (q + 0.5) / nf, pq = at0(st, u), near = A.strings.slice(0, sn).some(function (o) { for (var m = 0; m <= 60; m++) { var po = at0(o, m / 60); if (Math.abs(po[0] - pq[0]) < fwq * 1.1 && Math.abs(po[1] - pq[1]) < fwq * 1.6) return true; } return false; });
+      if (!near) fl.push({u: u, c: PP[(q * 3 + sn * 2) % PP.length], p: (q + sn) % 3, ph: hash(q + sn * 40) * 6.28}); }
     return {x0: st[0], y0: st[1], x1: st[2], y1: st[3], sag: st[4], fl: fl, ph: sn * 1.3}; });
   var fw = (ph ? 18 : 26) * S;
   function strAt(st, u, tt, a) { var sg = st.sag * (1 + 0.06 * Math.sin(tt * 0.7 + st.ph) * a); return [st.x0 + (st.x1 - st.x0) * u, st.y0 + (st.y1 - st.y0) * u + sg * 4 * u * (1 - u)]; }
@@ -195,6 +204,7 @@ ENGINES.mexico = function (A, v, dk) {
         if (h.from) { var e = mexico_ease(h.t); h.x = h.from[0] + (hx - h.from[0]) * e; h.y = h.from[1] + (hy - h.from[1]) * e - Math.sin(e * Math.PI) * 20 * S; h.dir = hx > h.from[0] ? 1 : -1; h.tilt = 0.25; }
         else { h.x = hx; h.y = hy; h.dir = tp[0] > hx ? 1 : -1; h.tilt = -0.15; }
         mexico_hummer(cb, h.x, h.y, (ph ? 16 : 22) * S, h.dir, 0.5 + 0.5 * Math.sin(tt * 60 + q), h.tilt, dk); });
+      if (A.mxflag) mexico_flag(cb, A.mxflag, tt, true, ['#006847', '#FFFFFF', '#CE1126'], function (c, x, y, h) { c.fillStyle = '#8A5A2B'; c.beginPath(); c.ellipse(x, y, h * 0.13, h * 0.15, 0, 0, 7); c.fill(); c.fillStyle = '#3E8A3A'; c.beginPath(); c.ellipse(x, y + h * 0.13, h * 0.16, h * 0.05, 0, 0, 7); c.fill(); }, dk);
       // papel picado: flags swing and turn on the strings
       strings.forEach(function (st) { cb.strokeStyle = dk ? 'rgba(220,210,240,0.5)' : 'rgba(60,50,60,0.55)'; cb.lineWidth = 1; cb.beginPath(); for (var m = 0; m <= 24; m++) { var p = strAt(st, m / 24, tt, f.a); if (m) cb.lineTo(p[0], p[1]); else cb.moveTo(p[0], p[1]); } cb.stroke();
         st.fl.forEach(function (fl) { var p = strAt(st, fl.u, tt, f.a), w = Math.sin(tt * 1.6 + fl.ph + p[0] * 0.01), turn = 0.78 + 0.22 * Math.cos(tt * 1.1 + fl.ph * 1.7), gust = ring * Math.sin(tt * 5 + fl.ph) * 0.4;
