@@ -201,10 +201,12 @@ SCENES.egypt = function (W, H, dk, rnd) {
   // ---- the near bank: a mud-brick village with a dovecote on the left, papyrus along the water, palms on the right
   var bk = []; for (x = -20; x <= W + 20; x += 10) bk.push([x, by + Math.sin(x / 70 + 0.4) * H * 0.006 + Math.sin(x / 23) * 1.6 - Math.exp(-Math.pow(x / (W * (ph ? 0.3 : 0.2)), 2)) * H * 0.03 - Math.exp(-Math.pow((x - W) / (W * (ph ? 0.18 : 0.1)), 2)) * H * 0.02]);
   var ground = below(bk, H + 10), wallL = '', wallS = '', door = '', win = '', white = '', trunk = '', leaf = '', blade = '', stick = '', crowns = '', datesD = '', umb = '';
-  var vs = ph ? 0.78 * U : U, vx = 0, houses = ph ? [[-0.03, 0.17, 0.065], [0.3, 0.14, 0.05]] : [[-0.01, 0.07, 0.085], [0.165, 0.075, 0.06], [0.262, 0.05, 0.045]], wins = [], hBox = [];
+  var grd = '', vgy = [], vs = ph ? 0.78 * U : U, vx = 0, houses = ph ? [[-0.03, 0.17, 0.065], [0.3, 0.14, 0.05]] : [[-0.01, 0.07, 0.085], [0.165, 0.075, 0.06], [0.262, 0.05, 0.045]], wins = [], hBox = [];
   // houses: [x, width, height] as fractions of W and H. A front wall, a lit side wall, a parapet, a door, windows and a whitewash band.
   houses.forEach(function (hs, k) {
-    var hx = W * hs[0], hw3 = Math.min(W * hs[1], H * 0.11), hh = H * hs[2] * (ph ? 0.8 : 1), gy = Math.max(egypt_yOn(bk, hx), egypt_yOn(bk, hx + hw3)) + 4, top = gy - hh, dep = hw3 * 0.22; hBox.push([hx, hx + hw3, top]);
+    var hx = W * hs[0], hw3 = Math.min(W * hs[1], H * 0.11), hh = H * hs[2] * (ph ? 0.8 : 1), gy = Math.max(egypt_yOn(bk, hx), egypt_yOn(bk, hx + hw3)) + 4, top = gy - hh, dep = hw3 * 0.22; hBox.push([hx, hx + hw3 + dep, top - dep * 0.35 - hh * 0.06]); // (its full outline, roof included, so a palm behind starts above it)
+    // the ground it stands on runs back under its side and behind it, so it stands on the bank, not out over the water
+    vgy.push([hx, hx + hw3 + dep, gy - dep * 0.35 - hh * 0.7]);
     wallS += rect(hx, top, hw3, hh); wallL += egypt_pg([[hx + hw3, top], [hx + hw3 + dep, top - dep * 0.35], [hx + hw3 + dep, gy - dep * 0.35], [hx + hw3, gy]]);
     // the flat roof seen from a little above: its top face runs back from the front wall to the side wall's top, with a low
     // parapet round it (crenellations along the front, a lip along the side)
@@ -219,6 +221,10 @@ SCENES.egypt = function (W, H, dk, rnd) {
     [k % 2 ? 0.18 : 0.6, k % 2 ? 0.36 : 0.78].forEach(function (wx) { var ww = hw3 * 0.1, wh = hh * 0.16, x4 = hx + hw3 * wx, y4 = top + hh * 0.26; win += rect(x4, y4, ww, wh); wins.push([x4 + ww / 2, y4 + wh / 2, ww]); });
     for (var s2 = 0; s2 < 4; s2++) stick += seg(hx + hw3 * (0.15 + s2 * 0.08), top - hh * 0.06, hx + hw3 * (0.3 + s2 * 0.09), top - hh * 0.2);
   });
+  // the village stands on a strip of bank that runs back behind the houses (and the dovecote), so water shows only beyond it
+  if (vgy.length) { var vx1 = vgy[vgy.length - 1][1] + 26 * U, vt = Math.min.apply(null, vgy.map(function (q) { return q[2]; })), vp = [[-20, egypt_yOn(bk, -20) + 2]];
+    for (x = -20; x <= vx1; x += 6) { var vv = vt + Math.sin(x / 37) * 2 * U; vp.push([x, Math.min(vv + Math.max(0, x - vx1 + 40 * U) * 0.55, egypt_yOn(bk, x) + 2)]); }
+    vp.push([vx1, egypt_yOn(bk, vx1) + 2]); grd += egypt_pg(vp); }
   // the dovecote: a tall tapering mud tower, whitewashed bands, rows of pigeon pots and perch sticks, a domed top
   var dvx = W * (ph ? 0.2 : 0.12), dvy = egypt_yOn(bk, dvx) + 5, dvh = H * (ph ? 0.17 : 0.21) * (ph ? 1 : 1), dvw = H * (ph ? 0.05 : 0.058), dvt = dvy - dvh;
   wallS += egypt_pg([[dvx - dvw / 2, dvy], [dvx - dvw * 0.36, dvt + dvh * 0.1], [dvx + dvw * 0.36, dvt + dvh * 0.1], [dvx + dvw / 2, dvy]]);
@@ -226,12 +232,17 @@ SCENES.egypt = function (W, H, dk, rnd) {
   var dvd = dvw * 0.32, dvSide = function (y0, y1, wf0, wf1) { return egypt_pg([[dvx + dvw * wf0, y0], [dvx + dvw * wf0 + dvd, y0 - dvd * 0.35], [dvx + dvw * wf1 + dvd, y1 - dvd * 0.35], [dvx + dvw * wf1, y1]]); };
   var wfAt = function (y) { return 0.36 + 0.14 * (y - (dvt + dvh * 0.1)) / (dvy - dvt - dvh * 0.1); };
   wallL += dvSide(dvt + dvh * 0.1, dvy, 0.36, 0.5);
-  white += egypt_pg([[dvx - dvw * 0.38, dvt + dvh * 0.1], [dvx - dvw * 0.3, dvt + dvh * 0.04], [dvx - dvw * 0.14, dvt + dvh * 0.005], [dvx, dvt - dvh * 0.005], [dvx + dvw * 0.14, dvt + dvh * 0.005], [dvx + dvw * 0.3, dvt + dvh * 0.04], [dvx + dvw * 0.38, dvt + dvh * 0.1]]) + rect(dvx - dvw * 0.38, dvt + dvh * 0.1, dvw * 0.76, dvh * 0.035);
+  // the top: a whitewashed cornice wrapping round the corner, and a dome centred on the square top, lit on the left and in
+  // shade on the right (its right part shows the tan of the lit wall's tone through, so it reads as rounded)
+  var dmx = dvx + dvd * 0.5, dmy = dvt + dvh * 0.1 - dvd * 0.175, dmr = dvw * 0.38 + dvd * 0.35, dmh = dvh * 0.105;
+  var dome = function (a0, a1) { var p = [], k; for (k = 0; k <= 16; k++) { var a = a0 + (a1 - a0) * k / 16; p.push([dmx + Math.cos(a) * dmr, dmy - Math.sin(a) * dmh]); } p.push([dmx + Math.cos(a1) * dmr * 0, dmy]); return egypt_pg(p); };
+  wallL += dome(0, Math.PI); white += dome(Math.PI * 0.42, Math.PI);
+  white += rect(dvx - dvw * 0.38, dvt + dvh * 0.1, dvw * 0.76, dvh * 0.035) + dvSide(dvt + dvh * 0.1, dvt + dvh * 0.135, 0.38, 0.385);
   for (i = 0; i < 3; i++) { var wy = dvt + dvh * (0.32 + i * 0.2), ww3 = dvw * (0.37 + i * 0.045); white += egypt_pg([[dvx - ww3, wy], [dvx + ww3, wy], [dvx + ww3 + dvw * 0.01, wy + dvh * 0.022], [dvx - ww3 - dvw * 0.01, wy + dvh * 0.022]]) + dvSide(wy, wy + dvh * 0.022, wfAt(wy), wfAt(wy + dvh * 0.022)); }
   for (i = 0; i < 6; i++) { var ry2 = dvt + dvh * (0.17 + i * 0.065), rw = dvw * (0.32 + i * 0.022), np = 5 - (i % 2); for (j = 0; j < np; j++) door += egypt_e(dvx - rw + (j + 0.5 + (i % 2) * 0.5) / (np + (i % 2) * 0.5) * rw * 2 * 0.95, ry2, dvw * 0.035, dvw * 0.028);
     if (i % 2 === 0) stick += seg(dvx - rw - dvw * 0.14, ry2 + dvh * 0.025, dvx + rw + dvw * 0.14, ry2 + dvh * 0.025); }
-  door += egypt_c(dvx, dvt + dvh * 0.06, dvw * 0.06) + egypt_pg([[dvx - dvw * 0.07, dvy], [dvx - dvw * 0.07, dvy - dvh * 0.08], [dvx + dvw * 0.07, dvy - dvh * 0.08], [dvx + dvw * 0.07, dvy]]);
-  stick += seg(dvx, dvt + dvh * 0.005, dvx, dvt - dvh * 0.06);
+  door += egypt_c(dmx - dmr * 0.15, dmy - dmh * 0.45, dvw * 0.06) + egypt_pg([[dvx - dvw * 0.07, dvy], [dvx - dvw * 0.07, dvy - dvh * 0.08], [dvx + dvw * 0.07, dvy - dvh * 0.08], [dvx + dvw * 0.07, dvy]]);
+  stick += seg(dmx, dmy - dmh + 1, dmx, dmy - dmh - dvh * 0.06);
   // palms: one by the village, two framing the right edge. Trunks with leaf scars; the crowns sway (engine)
   var palms = (ph ? [[0.36, 0.2, -8], [0.89, 0.3, -7]] : [[0.21, 0.27, -10], [0.915, 0.33, 6], [0.975, 0.42, -6]]).map(function (q, k) {
     var bx = W * q[0], b0 = egypt_yOn(bk, bx) + 6, hh = H * q[1], tx = bx + q[2] * U * 3, ty = b0 - hh, s = H * (ph ? 0.085 : 0.1) * (0.85 + q[1]);
@@ -283,7 +294,7 @@ SCENES.egypt = function (W, H, dk, rnd) {
     boats.forEach(function (b) { var bt = egypt_boat(b.x, b.y, b.L, 0.7, b.dir); white += bt.sail; door += bt.hull; stick += bt.spars; });
     ibis.forEach(function (b, k) { var ib = egypt_ibis(b.x, b.y, b.s, b.dir, k % 2 ? 0.8 : 0.1, 0); white += ib.body; door += ib.dark; stick += ib.legs; });
   }
-  add(near, 'a', ground, C.bank); add(near, 'b', wallL, C.wall); add(near, 'c', wallS, C.wallS); add(near, 'd', trunk, C.trunk); add(near, 'e', leaf + crowns, C.leaf); add(near, 'f', door + datesD, C.door); add(near, 'g', win, C.win); add(near, 'h', white, C.white);
+  add(near, 'a', ground + grd, C.bank); add(near, 'b', wallL, C.wall); add(near, 'c', wallS, C.wallS); add(near, 'd', trunk, C.trunk); add(near, 'e', leaf + crowns, C.leaf); add(near, 'f', door + datesD, C.door); add(near, 'g', win, C.win); add(near, 'h', white, C.white);
   stk(near, 's', blade + umb, C.blade, 1.1); stk(near, 't', stick, C.stick, 1.3);
   if (ANIM) { ANIM.C = C; ANIM.hz = hz; ANIM.ry = ry; ANIM.by = by; ANIM.U = U; ANIM.sun = sun; ANIM.sunR = sunR; ANIM.ku = ku; ANIM.fa = fa; ANIM.me = me; ANIM.kh = kh;
     ANIM.sil = [ku, fa, me].concat(queens).map(function (p) { return p.sil; }).concat([sph]); ANIM.ridge = r2; ANIM.palms = palms; ANIM.papy = papy; ANIM.boats = boats; ANIM.ibis = ibis; ANIM.wins = wins; ANIM.dove = [dvx, dvt, dvh, dvw]; ANIM.bank = bk; }
