@@ -28,7 +28,7 @@ function canada_rockPts(x, y, rx, ry, rnd) { var p = []; for (var i = 0; i < 11;
 function canada_rockShade(p, x, y, rx, ry) { var o = [], i; for (i = 0; i < 7; i++) o.push(p[(i + 10) % 11]); o.push([x - rx * 0.1, y + ry * 0.1], [x + rx * 0.35, y - ry * 0.2]); return canada_pg(o); }
 
 // ---------------------------------------------------------------- Canada
-// A glacier lake in the Rockies: a jagged wall of snow-streaked grey peaks with a glacier in the middle, dense spruce on the
+// A glacier lake in the Rockies: a jagged wall of snow-streaked grey peaks, dense spruce on the
 // far shore and in the turquoise water's reflection, a rockpile on the near left shore, a wooden dock and a log cabin with a
 // stone chimney on the right, and sugar maples in red and orange. The near spruces (they sway), the canoes, the loon, the
 // leaves, the chimney smoke, the clouds and the aurora are the engine's.
@@ -56,7 +56,7 @@ SCENES.canada = function (W, H, dk, rnd) {
   if (dk) { add(far, 'c', canada_e(W * 0.45, H * 0.22, W * 0.5, H * 0.07) + canada_e(W * 0.8, H * 0.16, W * 0.3, H * 0.05), 'rgba(70,230,150,0.2)'); add(far, 'd', canada_e(W * 0.35, H * 0.1, W * 0.4, H * 0.05), 'rgba(170,110,240,0.16)'); }
   else { var cl = ''; [[0.12, 0.08, 1], [0.5, 0.05, 0.8], [0.86, 0.12, 0.9]].forEach(function (c) { var cx = W * c[0], cy = H * c[1], s = c[2] * (ph ? 0.6 : 1); cl += canada_e(cx, cy, 90 * s, 16 * s) + canada_c(cx - 30 * s, cy - 10 * s, 26 * s) + canada_c(cx + 20 * s, cy - 14 * s, 30 * s); }); add(far, 'c', cl, 'rgba(255,255,255,0.8)'); }
 
-  // ---- the mountains: a pale back range, then the jagged front wall with snow, couloirs and a glacier
+  // ---- the mountains: a pale back range, then the jagged front wall with snow and couloirs
   var mh = ph ? 0.62 : 1;
   var BACK = ph ? [[-0.1, 0.24], [0.2, 0.3], [0.55, 0.33], [0.85, 0.29], [1.15, 0.26]] : [[-0.06, 0.25], [0.12, 0.3], [0.3, 0.27], [0.5, 0.34], [0.68, 0.29], [0.86, 0.32], [1.06, 0.27]];
   var FRONT = ph ? [[-0.08, 0.19], [0.1, 0.26], [0.28, 0.22], [0.46, 0.3], [0.64, 0.24], [0.82, 0.28], [1.02, 0.23], [1.14, 0.2]]
@@ -67,7 +67,14 @@ SCENES.canada = function (W, H, dk, rnd) {
     return {pts: pts, peaks: peaks}; }
   var back = range(BACK, 0.62, 14), front = range(FRONT, 0.55, 16);
   add(bg, 'a', canada_pg(back.pts.concat([[back.pts[back.pts.length - 1][0], hz + 4], [back.pts[0][0], hz + 4]])), C.back);
-  var bsnow = ''; back.peaks.forEach(function (pk) { var p = pk.p, d = (hz - p[1]) * 0.2; bsnow += canada_pg([p, [p[0] + d * 1.3, p[1] + d], [p[0] + d * 0.4, p[1] + d * 0.8], [p[0], p[1] + d * 1.2], [p[0] - d * 0.5, p[1] + d * 0.8], [p[0] - d * 1.2, p[1] + d]]); });
+  // each snowcap follows the range's own outline down from the peak on both sides (so it sits on the mountain), with a
+  // ragged lower edge between where it leaves the outline
+  var bsnow = ''; back.peaks.forEach(function (pk) { var P = back.pts, p = pk.p, d = (hz - p[1]) * 0.24, yl = p[1] + d, L = [], R = [], q;
+    for (q = pk.i; q >= 0 && P[q][1] <= yl; q--) L.unshift(P[q]); if (q >= 0) { var a = P[q], b = P[q + 1], t = (yl - b[1]) / (a[1] - b[1] || 1); L.unshift([b[0] + (a[0] - b[0]) * t, yl]); }
+    for (q = pk.i + 1; q < P.length && P[q][1] <= yl; q++) R.push(P[q]); if (q < P.length) { var a2 = P[q - 1], b2 = P[q], t2 = (yl - a2[1]) / (b2[1] - a2[1] || 1); R.push([a2[0] + (b2[0] - a2[0]) * t2, yl]); }
+    if (L.length < 1 || R.length < 1) return; var x0 = L[0][0], x1 = R[R.length - 1][0], bot = [];
+    for (q = 5; q >= 1; q--) { var u = q / 6, xb = x0 + (x1 - x0) * u; bot.push([xb, yl - (q % 2 ? d * 0.35 : -d * 0.05) - Math.sin(u * Math.PI) * d * 0.1]); }
+    bsnow += canada_pg(L.concat(R, bot)); });
   add(bg, 'b', bsnow, C.backSnow);
   add(bg, 'c', canada_pg(front.pts.concat([[front.pts[front.pts.length - 1][0], hz + 4], [front.pts[0][0], hz + 4]])), C.rock);
   var shade = '', snow = '', ice = '', strata = '', streak = '', FP = front.pts, snowP = [];
@@ -89,9 +96,7 @@ SCENES.canada = function (W, H, dk, rnd) {
   var gi = ph ? 3 : 5, g0 = front.peaks[gi].p, g1 = front.peaks[gi + 1].p, gc = [(g0[0] + g1[0]) / 2, canada_yAt(FP, (g0[0] + g1[0]) / 2)], gw = (g1[0] - g0[0]) * 0.42, gd = (hz - gc[1]) * 0.72;
   var gl = [[gc[0] - gw, canada_yAt(FP, gc[0] - gw) + 2], [gc[0] - gw * 0.5, canada_yAt(FP, gc[0] - gw * 0.5) + 1], gc, [gc[0] + gw * 0.5, canada_yAt(FP, gc[0] + gw * 0.5) + 1], [gc[0] + gw, canada_yAt(FP, gc[0] + gw) + 2],
     [gc[0] + gw * 0.7, gc[1] + gd * 0.45], [gc[0] + gw * 0.42, gc[1] + gd * 0.8], [gc[0] + gw * 0.12, gc[1] + gd], [gc[0] - gw * 0.2, gc[1] + gd * 0.94], [gc[0] - gw * 0.55, gc[1] + gd * 0.6], [gc[0] - gw * 0.85, gc[1] + gd * 0.3]];
-  snowP.push(gl); snowP.forEach(function (q) { snow += canada_pg(q); });
-  for (k = 0; k < 4; k++) { var cy2 = gc[1] + gd * (0.3 + k * 0.16), cw2 = gw * (0.75 - k * 0.12); ice += canada_pg([[gc[0] - cw2, cy2], [gc[0], cy2 + 4 * S], [gc[0] + cw2, cy2 - 1], [gc[0], cy2 + 1.6 * S]]); }
-  ice += canada_pg([[gc[0] + gw * 0.25, gc[1] + gd * 0.15], [gc[0] + gw * 0.7, gc[1] + gd * 0.45], [gc[0] + gw * 0.42, gc[1] + gd * 0.8], [gc[0] + gw * 0.12, gc[1] + gd], [gc[0] + gw * 0.2, gc[1] + gd * 0.55]]);
+  snowP.forEach(function (q) { snow += canada_pg(q); }); // (no glacier in the col any more: it read as a stray white patch)
   add(bg, 'd', shade, C.shade); add(bg, 'e', snow, C.snow); add(bg, 'f', ice, C.ice);
   stk(bg, 's', strata, C.strata, 1); stk(bg, 't', streak, C.streak, ph ? 1 : 1.3);
   // forest climbing the foot of the mountains: a dense band of little spruce tops
