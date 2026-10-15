@@ -35,7 +35,8 @@ ENGINES.egypt = function (A, v, dk) {
   var skyClip = function (c) { outs.forEach(function (q) { c.clip(q, 'evenodd'); }); };
   var kuFaces = new Path2D(ku.left + ku.right), faFaces = new Path2D(A.fa.left + A.fa.right), meFaces = new Path2D(A.me.left + A.me.right);
   var capL = new Path2D(poly([ku.at(ku.L, 0.9), ku.at(ku.F, 0.9), ku.A])), capR = new Path2D(poly([ku.at(ku.F, 0.9), ku.at(ku.R, 0.9), ku.A]));
-  var boats = A.boats.map(function (b, k) { return {x: b.x, y: b.y, L: b.L, dir: b.dir, v: b.v * U, ph: k * 2.3}; });
+  var boats = A.boats.map(function (b, k) { return {x: b.x, y: b.y, L: b.L, dir: b.dir, v: b.v * U, ph: k * 2.3}; })
+    .sort(function (p, q) { return p.y - q.y; }); // (drawn far to near, so the far one passes behind the near one)
   var waders = A.ibis.map(function (b, k) { return {x0: b.x, x: b.x, y: b.y, s: b.s, dir: b.dir, ph: k * 1.9 + 0.5, a: 1}; });
   var camels = []; for (i = 0; i < 4; i++) camels.push({off: i * 27 * U, s: 20 * U * (1 - i * 0.04) * (ph ? 0.8 : 1)});
   var cx = W * 0.1, twk = [], flock = [], shoot = null, nextShoot = 6;
