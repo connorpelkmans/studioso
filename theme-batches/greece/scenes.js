@@ -120,7 +120,7 @@ SCENES.greece = function (W, H, dk, rnd) {
   for (k = 0; k < thP.length - 2; k += 2) { var ta = thP[k], tb = thP[k + 1]; if (rnd() < 0.22) G.g += greece_pg([[ta[0], ta[1] + 2], [tb[0] - 2, tb[1] + 2], [tb[0] + 2 * u, hz + 1], [ta[0] + 1.5 * u, hz + 1]]); if (ta[0] > W * 0.02 && ta[0] < tx1 - W * 0.04 && rnd() < 0.5) G.a += rect(ta[0], ta[1] - 1.2 * u, 2.4 * u, 1.8 * u); }
   var fr0 = W * (ph ? 0.34 : 0.33), fr1 = silX(hz) + 30, frH = H * 0.017, frP = [];
   if (fr1 - fr0 > 30) { for (x = fr0; x <= fr1; x += 5) frP.push([x, hz - frH * Math.min(1, (x - fr0) / (W * 0.04)) * (1 + 0.1 * Math.sin(x / 17))]);
-    G.b += greece_pg(frP.concat([[fr1, hz + 1], [fr0, hz + 1]])); frP.forEach(function (p, q) { if (q % 2 && p[0] > fr0 + W * 0.03 && rnd() < 0.6) G.a += rect(p[0], p[1] - 1, 1.8 * u, 1.3 * u); }); M.f += greece_pg(frP.concat([[fr1, hz + 1], [fr0, hz + 1]])); }
+    G.b += greece_pg(frP.concat([[fr1, hz + 1], [fr0, hz + 1]])); frP.forEach(function (p, q) { if (q % 2 && p[0] > fr0 + W * 0.03 && rnd() < 0.6) G.a += rect(p[0], p[1] - 1, 1.8 * u, 1.3 * u); }); M.f += greece_pg(frP.concat([[fr1, hz + 1], [fr0, hz + 1]]).map(function (p) { return [Math.min(p[0], silX(p[1]) - 0.5), p[1]]; })); } // (its haze stops at the near cliff's edge, which stands in front of it)
   function islTop(x) { var t = hz; if (x < tx1) t = Math.min(t, greece_lin(thP, x, 0)); if (frP.length && x > fr0 && x < fr1) t = Math.min(t, greece_lin(frP, x, 0)); return t; }
   var kx0 = W * (ph ? 0.03 : 0.05), kx1 = W * (ph ? 0.3 : 0.22), ky = hz + H * (ph ? 0.04 : 0.05), kh = H * (ph ? 0.02 : 0.024), kp = [];
   for (i = 0; i <= 30; i++) { var ku = i / 30; kp.push([kx0 + (kx1 - kx0) * ku, ky - kh * Math.pow(Math.sin(Math.PI * ku), 0.6) * (1 + 0.22 * Math.sin(ku * 17) + 0.12 * Math.sin(ku * 41))]); }
@@ -137,8 +137,9 @@ SCENES.greece = function (W, H, dk, rnd) {
   var fv = function (f) { return vBot + f * (vFoot - vBot); };
   function strat(f0, f1, ph0, pinch) { var v0 = fv(f0), v1 = fv(f1), A = [], B = [], th0 = v1 - v0, x0 = Math.min(Sx(v0), Sx(v1));
     for (x = x0; x <= W + 30; x += 5) { var c = Math.sin(x / 61 + ph0) * 4 * S + Math.sin(x / 19 + ph0 * 2) * 1.5 * S, k2 = pinch ? Math.max(0, 0.55 + 0.6 * Math.sin(x / 83 + ph0 * 3) + 0.25 * Math.sin(x / 29 + ph0)) : 1,
-      ya = Math.min(shoreY(x) - 1, cY(v0, x) + c), yb = Math.min(shoreY(x) - 1, Math.max(ya, cY(v0 + th0 * Math.min(1.3, k2), x) + c + Math.sin(x / 11 + ph0) * 0.8 * S)); A.push([x, ya]); B.unshift([x, yb]); }
-    return greece_pg(A.concat(B)); }
+      ya = Math.min(shoreY(x) - 1, cY(v0, x) + c), yb = Math.min(shoreY(x) - 1, Math.max(ya, cY(v0 + th0 * Math.min(1.3, k2), x) + c + Math.sin(x / 11 + ph0) * 0.8 * S)); if (x < silX(ya) - 0.5) continue; // (round the shoulder a band would curve up past the cliff's edge into the sky)
+      A.push([x, ya]); B.unshift([x, yb]); }
+    return A.length > 1 ? greece_pg(A.concat(B)) : ''; }
   G.e += strat(0.1, 0.22, 0, true) + strat(0.36, 0.4, 2, true) + strat(0.62, 0.66, 4, true) + strat(0.71, 0.73, 7, true);
   G.f += strat(0.27, 0.3, 1, true) + strat(0.47, 0.55, 3, true) + strat(0.79, 0.87, 5, true) + strat(0.97, 1.02, 8);
   // the village throws a soft shadow down the rock right under it
@@ -323,11 +324,16 @@ SCENES.greece = function (W, H, dk, rnd) {
       var hh = gap * (1.0 + rnd() * 0.6) * kk; if (rnd() < 0.1) hh = gap * (1.6 + rnd() * 0.4) * kk;
       // (no house whose footing would stand out past the cliff's edge: there is nothing under it there)
       if (x0 < silX(bse + (r === 0 ? gap * 0.6 * kk : 2 * S)) + 2 * S) { xx = x0 - 2 * S; continue; }
-      var top = bse - hh; if (r >= nR - 3 && Math.abs(xx - fw / 2 - mxX) < millL + fw / 2 + 2 * S) top = Math.max(top, mb - 8 * S);
+      var top = bse - hh;
+      // near the edge of the cliff a house is kept lower, so its top stays inside the cliff's outline (which leans in going up)
+      // and the village steps down to the edge in terraces instead of a column of boxes poking out into the sky
+      for (var yEdge = bse; yEdge > top && silX(yEdge - 2 * S) < x0 - 1 * S; yEdge -= 1 * S); var capped = yEdge > top; if (capped) top = yEdge;
+      if (bse - top < gap * 0.4 * kk) { xx = x0 - 2 * S; continue; }
+      if (r >= nR - 3 && Math.abs(xx - fw / 2 - mxX) < millL + fw / 2 + 2 * S) top = Math.max(top, mb - 8 * S);
       if (bse - top > gap * 0.4 * kk) { var col = rnd() < 0.1 ? 'b' : rnd() < 0.1 ? 'c' : 'a'; if (col !== 'a' && col === lastCol) col = 'a'; lastCol = col;
         var flatRoof = rnd() > 0.28 || th > 0.9, pool = flatRoof && rnd() < 0.3 && th < 0.7, dd = (pool ? 11 + rnd() * 5 : 6 + rnd() * 4) * S * kk, cxH = xx - fw / 2;
-        var wantDome = flatRoof && r >= 1 && fw > (ph ? 20 : 24) * S && th < 0.75 && Math.abs(cxH - lastDome) > 70 * S && Math.abs(cxH - mxX) > millL + 20 * S && rnd() < (r >= nR - 4 ? 0.4 : 0.2) * (ph ? 1.6 : 1);
-        var wantBell = !wantDome && flatRoof && fw > 20 * S && th < 0.6 && belfries < (ph ? 3 : 6) && Math.abs(cxH - mxX) > millL + 20 * S && rnd() < 0.12;
+        var wantDome = !capped && flatRoof && r >= 1 && fw > (ph ? 20 : 24) * S && th < 0.75 && Math.abs(cxH - lastDome) > 70 * S && Math.abs(cxH - mxX) > millL + 20 * S && rnd() < (r >= nR - 4 ? 0.4 : 0.2) * (ph ? 1.6 : 1);
+        var wantBell = !capped && !wantDome && flatRoof && fw > 20 * S && th < 0.6 && belfries < (ph ? 3 : 6) && Math.abs(cxH - mxX) > millL + 20 * S && rnd() < 0.12;
         if (wantDome) { lastDome = cxH; top = Math.min(top, bse - gap * 1.3 * kk); }
         house({x: x0, w: fw, top: top, base: bse, col: col, sx: dd * 0.8 + w * kk * sn * 0.42, sy: dd * 0.55, roof: flatRoof ? 0 : 1, row: r, k: kk, sq: cs, th: th, haze: th > 0.82, perch: r === 0 || (th > 0.6 && rnd() < 0.25), dome: wantDome, bell: wantBell}); }
       xx = x0 - (rnd() < 0.2 ? (1 + rnd() * 4) * S * cs : 0);
@@ -353,7 +359,7 @@ SCENES.greece = function (W, H, dk, rnd) {
     var dd = raw.map(function (v2, q) { return v2 < 0 ? 0 : Math.max(0, v2 - baseY(xs2[q])); });
     var lift = win2(win2(win2(dd, Math.round(46 * S / stp2), function (a) { return Math.max.apply(null, a); }), Math.round(26 * S / stp2), mean), Math.round(16 * S / stp2), mean);
     var ptY = xs2.map(function (X, q) { return baseY(X) + lift[q] + 1 * S; }), kks = xs2.map(kkAt);
-    var pathW = 5.5 * S, parH = 2.8 * S, rp2 = xs2.map(function (X, q) { return [X, ptY[q], kks[q]]; });
+    var pathW = 5.5 * S, parH = 2.8 * S, rp2 = xs2.map(function (X, q) { return [X, ptY[q], kks[q]]; }).filter(function (p) { return p[0] > silX(p[1]) + 1 * S; }); // (never out past the cliff's edge)
     var off = function (pts, dy) { return pts.map(function (p) { return [p[0], p[1] + dy * p[2]]; }); };
     var rb = rp2.map(function (p) { return [p[0], p[1] + (pathW + parH) * p[2] + crag(p[0]) * p[2]]; });
     G.f += greece_pg(off(rp2, -3 * S).concat(rb.reverse()));
