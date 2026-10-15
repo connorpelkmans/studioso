@@ -340,38 +340,28 @@ SCENES.greece = function (W, H, dk, rnd) {
     var fx0 = Math.min.apply(null, footings.map(function (f) { return f[0]; })), fx1 = Math.max.apply(null, footings.map(function (f) { return f[1]; }));
     var footAt = function (X) { var yb = -1; footings.forEach(function (f) { if (X >= f[0] - 2 * S && X <= f[1] + 2 * S) yb = Math.max(yb, f[2]); }); return yb; };
     var crag = function (X) { return (5 + 4 * Math.abs(Math.sin(X / (9 * S))) + 3 * Math.abs(Math.sin(X / (23 * S) + 1.3))) * S; };
-    var stp2 = 2 * S, raw = [], xs2 = [];
-    for (x = fx0 - 4 * S; x <= fx1 + 4 * S; x += stp2) { xs2.push(x); raw.push(footAt(x)); }
-    // bridge short gaps between houses, then take the lowest footing nearby and smooth it, so the path runs in an easy curve
-    for (k = 0; k < raw.length; k++) if (raw[k] < 0) { var a2 = k - 1, b2 = k + 1; while (a2 >= 0 && raw[a2] < 0) a2--; while (b2 < raw.length && raw[b2] < 0) b2++; if (a2 >= 0 && b2 < raw.length) raw[k] = raw[a2] + (raw[b2] - raw[a2]) * (k - a2) / (b2 - a2); }
-    // the path's line: a gentle cubic fitted through the footings, then lifted only where a footing would stand below it, by
-    // a lift that is the deepest such footing over a wide stretch averaged twice over narrower ones (narrower in total than the
-    // stretch, so the path never rises above a footing near it), so it bends in long, easy curves
-    var win2 = function (arr, n, fn) { return arr.map(function (v2, q) { if (v2 < 0) return -1; var acc = [], d; for (d = -n; d <= n; d++) if (arr[q + d] > 0 || arr[q + d] === 0) acc.push(arr[q + d]); return fn(acc); }); };
-    var mean = function (a) { return a.reduce(function (p, c) { return p + c; }, 0) / a.length; }, idx = [], q3;
-    for (q3 = 0; q3 < raw.length; q3++) if (raw[q3] > 0) idx.push(q3);
-    var fit = raw.map(function () { return -1; });
-    if (idx.length > 4) { var xm = (xs2[idx[0]] + xs2[idx[idx.length - 1]]) / 2, xr = Math.max(1, (xs2[idx[idx.length - 1]] - xs2[idx[0]]) / 2), M4 = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]], V4 = [0, 0, 0, 0];
-      idx.forEach(function (q) { var t = (xs2[q] - xm) / xr, b = [1, t, t * t, t * t * t]; for (var r2 = 0; r2 < 4; r2++) { V4[r2] += b[r2] * raw[q]; for (var c2 = 0; c2 < 4; c2++) M4[r2][c2] += b[r2] * b[c2]; } });
-      for (var c3 = 0; c3 < 4; c3++) { var pv = c3; for (var r3 = c3 + 1; r3 < 4; r3++) if (Math.abs(M4[r3][c3]) > Math.abs(M4[pv][c3])) pv = r3; var tm = M4[c3]; M4[c3] = M4[pv]; M4[pv] = tm; var tv = V4[c3]; V4[c3] = V4[pv]; V4[pv] = tv;
-        for (r3 = 0; r3 < 4; r3++) if (r3 !== c3) { var fct = M4[r3][c3] / (M4[c3][c3] || 1e-9); for (var c4 = c3; c4 < 4; c4++) M4[r3][c4] -= fct * M4[c3][c4]; V4[r3] -= fct * V4[c3]; } }
-      var cf = V4.map(function (v2, q) { return v2 / (M4[q][q] || 1e-9); });
-      fit = raw.map(function (v2, q) { if (v2 < 0) return -1; var t = (xs2[q] - xm) / xr; return cf[0] + cf[1] * t + cf[2] * t * t + cf[3] * t * t * t; }); }
-    else fit = raw.map(function (v2, q) { return v2 < 0 ? -1 : mean(idx.map(function (k4) { return raw[k4]; })); });
-    var dd = raw.map(function (v2, q) { return v2 < 0 ? -1 : Math.max(0, v2 - fit[q]); });
+    // the path follows the front row's own contour, so like the houses it wraps round the shoulder of the cliff, turning away
+    // (and narrowing) until it passes out of sight at the edge; it is lifted only where a footing stands below the contour, by
+    // the deepest such footing over a wide stretch averaged twice over narrower ones (narrower in total than the stretch, so
+    // it never rises above a footing near it), so it bends in long, easy curves
+    var kkAt = function (X) { return 1 - 0.36 * (1 - Math.cos(thetaAt(vBot, X))); };
+    var baseY = function (X) { return cY(vBot, X) + gap * 0.55 * kkAt(X); };
+    var xL = xcOf(vBot) - Rr * Math.sin(1.53), stp2 = 2 * S, raw = [], xs2 = [];
+    for (x = Math.min(xL, fx0 - 4 * S); x <= fx1 + 4 * S; x += stp2) { xs2.push(x); raw.push(footAt(x)); }
+    var win2 = function (arr, n, fn) { return arr.map(function (v2, q) { var acc = [], d; for (d = -n; d <= n; d++) if (q + d >= 0 && q + d < arr.length) acc.push(arr[q + d]); return fn(acc); }); };
+    var mean = function (a) { return a.reduce(function (p, c) { return p + c; }, 0) / a.length; };
+    var dd = raw.map(function (v2, q) { return v2 < 0 ? 0 : Math.max(0, v2 - baseY(xs2[q])); });
     var lift = win2(win2(win2(dd, Math.round(46 * S / stp2), function (a) { return Math.max.apply(null, a); }), Math.round(26 * S / stp2), mean), Math.round(16 * S / stp2), mean);
-    var ptY = raw.map(function (v2, q) { return v2 < 0 ? -1 : fit[q] + lift[q] + 1 * S; }); // (no clamp to each footing: that is what made it step)
-    var pathW = 5.5 * S, parH = 2.8 * S, runs2 = [], cur2 = [];
-    ptY.forEach(function (v2, q) { if (v2 < 0) { if (cur2.length > 1) runs2.push(cur2); cur2 = []; } else cur2.push([xs2[q], v2]); }); if (cur2.length > 1) runs2.push(cur2);
-    var off = function (pts, dy) { return pts.map(function (p) { return [p[0], p[1] + dy]; }); };
-    runs2.forEach(function (rp2) {
-      var rb = rp2.map(function (p) { return [p[0], p[1] + pathW + parH + crag(p[0])]; });
-      G.f += greece_pg(off(rp2, -3 * S).concat(rb.reverse()));
-      M.g += greece_pg(off(rp2, -1).concat(off(rp2, pathW).reverse()));
-      M.d += greece_pg(off(rp2, -1).concat(off(rp2, 1.3 * S).reverse()));
-      M.a += greece_pg(off(rp2, pathW).concat(off(rp2, pathW + parH).reverse()));
-      M.d += greece_pg(off(rp2, pathW + parH - 0.6 * S).concat(off(rp2, pathW + parH + 1.2 * S).reverse()));
-      for (var q2 = 0; q2 < rp2.length; q2 += Math.round(9 * S / stp2)) mRail += seg(rp2[q2][0], rp2[q2][1] + pathW + 0.3 * S, rp2[q2][0], rp2[q2][1] + pathW + parH - 0.3 * S); });
+    var ptY = xs2.map(function (X, q) { return baseY(X) + lift[q] + 1 * S; }), kks = xs2.map(kkAt);
+    var pathW = 5.5 * S, parH = 2.8 * S, rp2 = xs2.map(function (X, q) { return [X, ptY[q], kks[q]]; });
+    var off = function (pts, dy) { return pts.map(function (p) { return [p[0], p[1] + dy * p[2]]; }); };
+    var rb = rp2.map(function (p) { return [p[0], p[1] + (pathW + parH) * p[2] + crag(p[0]) * p[2]]; });
+    G.f += greece_pg(off(rp2, -3 * S).concat(rb.reverse()));
+    M.g += greece_pg(off(rp2, -1 / 1).concat(off(rp2, pathW).reverse()));
+    M.d += greece_pg(off(rp2, -1).concat(off(rp2, 1.3 * S).reverse()));
+    M.a += greece_pg(off(rp2, pathW).concat(off(rp2, pathW + parH).reverse()));
+    M.d += greece_pg(off(rp2, pathW + parH - 0.6 * S).concat(off(rp2, pathW + parH + 1.2 * S).reverse()));
+    for (var q2 = 0, pst = 0; q2 < rp2.length; q2++) { pst += stp2 * Math.max(0.3, Math.cos(thetaAt(vBot, rp2[q2][0]))) ; if (pst >= 9 * S) { pst = 0; var pk = rp2[q2][2]; mRail += seg(rp2[q2][0], rp2[q2][1] + (pathW + 0.3 * S) * pk, rp2[q2][0], rp2[q2][1] + (pathW + parH - 0.3 * S) * pk); } }
     var pathTop = function (X) { var q = Math.round((X - xs2[0]) / stp2); return q >= 0 && q < ptY.length ? ptY[q] : -1; };
     // the mule path's top run starts from the walkway: from the walkway's outer edge at the path's top end, through an
     // opening in its parapet, down to the first turn
