@@ -360,7 +360,7 @@ SCENES.greece = function (W, H, dk, rnd) {
     else fit = raw.map(function (v2, q) { return v2 < 0 ? -1 : mean(idx.map(function (k4) { return raw[k4]; })); });
     var dd = raw.map(function (v2, q) { return v2 < 0 ? -1 : Math.max(0, v2 - fit[q]); });
     var lift = win2(win2(win2(dd, Math.round(46 * S / stp2), function (a) { return Math.max.apply(null, a); }), Math.round(26 * S / stp2), mean), Math.round(16 * S / stp2), mean);
-    var ptY = raw.map(function (v2, q) { return v2 < 0 ? -1 : Math.max(v2, fit[q] + lift[q]) + 1 * S; });
+    var ptY = raw.map(function (v2, q) { return v2 < 0 ? -1 : fit[q] + lift[q] + 1 * S; }); // (no clamp to each footing: that is what made it step)
     var pathW = 5.5 * S, parH = 2.8 * S, runs2 = [], cur2 = [];
     ptY.forEach(function (v2, q) { if (v2 < 0) { if (cur2.length > 1) runs2.push(cur2); cur2 = []; } else cur2.push([xs2[q], v2]); }); if (cur2.length > 1) runs2.push(cur2);
     var off = function (pts, dy) { return pts.map(function (p) { return [p[0], p[1] + dy]; }); };
