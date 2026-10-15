@@ -221,6 +221,10 @@ function japan_house(o, K, sh, H, wins, lamps, dk) {
   var side = function (xe, xr, t, z1) { return Q(xe + (xr - xe) * t, he + 1.2 * sc + (hr - he - 1.2 * sc) * Math.pow(t, 1.35), -o2 + (z1 + o2) * t); };
   for (i = 0; i <= 8; i++) { rt.push(side(w + ov, rx1, i / 8, rz)); lf.unshift(side(-ov, rx0, i / 8, rz)); }
   ridge = [Q(rx1, hr, rz), Q(rx0, hr, rz)];
+  // the eave's underside along the side wall, and on a gable the end of the roof from the ridge to the back eave, so no
+  // background shows between the roof's edge (which overhangs) and the wall under it
+  japan_poly(o, [Q(w, hgt - 0.3 * sc, 0), Q(w + ov, he + 1.2 * sc, -o2), Q(w + ov, he + 1.2 * sc, d + o2), Q(w, hgt - 0.3 * sc, d)], K(ROOF, 0.55));
+  if (!hip) japan_poly(o, [Q(w + ov, hr, rz), Q(w + ov, he + 1.2 * sc, d + o2), Q(w, hgt - 0.3 * sc, d), Q(w, hr - 0.6 * sc, rz)], RS);
   if (hip) { var bk = []; for (i = 0; i <= 8; i++) bk.push(Q(w + ov + (rx1 - w - ov) * (1 - i / 8), he + 1.2 * sc + (hr - he - 1.2 * sc) * Math.pow(1 - i / 8, 1.35), d + o2 - (d + o2 - rz) * (1 - i / 8)));
     japan_poly(o, [Q(w + ov, he + 1.2 * sc, -o2)].concat(bk.reverse(), rt.slice().reverse()), RS); }
   else japan_poly(o, [Q(w + ov, hr, rz), Q(w + ov, he + 1.2 * sc, d + o2), Q(w + ov - 1.6 * sc, he + 1.2 * sc, d + o2)], RS);
@@ -393,7 +397,7 @@ ENGINES.japan = function (A, v, dk) {
   for (i = 0; i < (ph ? 5 : 9); i++) floatP.push({x: A.U[Math.floor(hash(i + 2) * A.U.length)][0] + 30, y: A.U[Math.floor(hash(i + 2) * A.U.length)][1] + 14 + hash(i) * 30, age: hash(i + 5) * 10, s: (ph ? 3 : 4) * S, c: flowerCols[i % 3], rot: hash(i) * 6});
   // the heron
   var her = {x: A.heron[0], y: A.heron[1], dir: -1, step: 0, peck: 0, next: 4};
-  function heron(c, t) { var s = (ph ? 0.9 : 1.25) * S, x = her.x, y = her.y, ph2 = Math.sin(her.step * 3.2), pk = japan_ease(Math.min(1, her.peck * 2)) * japan_ease(Math.min(1, (1 - her.peck) * 3)), d = her.dir;
+  function heron(c, t) { var s = (ph ? 0.4 : 0.5) * S, x = her.x, y = her.y, ph2 = Math.sin(her.step * 3.2), pk = japan_ease(Math.min(1, her.peck * 2)) * japan_ease(Math.min(1, (1 - her.peck) * 3)), d = her.dir;
     c.save(); c.translate(x, y); c.scale(d, 1); c.lineCap = 'round'; c.lineJoin = 'round';
     var grey = dk ? '#7A7C9A' : '#9AA2B4', dgrey = dk ? '#4E5070' : '#6A7084', wht = dk ? '#C8C8DC' : '#F4F4F8', leg = dk ? '#8A8460' : '#C8B070';
     c.strokeStyle = leg; c.lineWidth = 1.6 * s; c.beginPath(); c.moveTo(-2 * s, -22 * s); c.lineTo(-3 * s + ph2 * 3 * s, 0); c.moveTo(1 * s, -22 * s); c.lineTo(2 * s - ph2 * 3 * s, -Math.max(0, ph2) * 3 * s); c.stroke();
@@ -475,6 +479,15 @@ ENGINES.japan = function (A, v, dk) {
   function lamps(c, t, list) { c.save(); c.globalCompositeOperation = 'lighter'; list.forEach(function (l, k) { japan_dot(c, lanG, l[0], l[1], l[2] * 6, 0.5 + 0.2 * flick(t, k * 1.3)); c.fillStyle = 'rgba(255,170,90,0.6)'; c.beginPath(); c.ellipse(l[0], l[1], l[2] * 0.7, l[2] * 0.9, 0, 0, 7); c.fill(); }); c.restore(); }
   // the paper lanterns on the stair path, and the stone lanterns' windows
   var PL = A.paper, SL = A.stone;
+  // the lanterns further up the path than the torii stand behind it: they are drawn clipped to everywhere outside the gate
+  var toriiMask = (A.toriiPolys || []).map(function (p) { var m = new Path2D(); m.rect(-500, -500, W + 1000, H + 1000); m.addPath(new Path2D(japan_pg(p))); return m; });
+  function behindTorii(c) { toriiMask.forEach(function (m) { c.clip(m, 'evenodd'); }); }
+  // the Hinomaru: a white cloth with the red sun, rippling gently from its pole
+  function flag(c, t) { var F2 = A.flag, top = [], bot = [], k, u, wv = function (u2) { return Math.sin(u2 * Math.PI * 1.6 - t * 2.2) * 2.4 * S * u2; };
+    for (k = 0; k <= 16; k++) { u = k / 16; top.push([F2[0] + F2[2] * u, F2[1] + wv(u)]); bot.unshift([F2[0] + F2[2] * u * (1 - 0.02 * Math.sin(t * 2.2)), F2[1] + F2[3] + wv(u)]); }
+    var cl = new Path2D(japan_pg(top.concat(bot)));
+    c.fillStyle = dk ? '#F4F2F8' : '#FFFFFF'; c.fill(cl); c.strokeStyle = dk ? 'rgba(20,16,40,0.35)' : 'rgba(80,70,70,0.22)'; c.lineWidth = 0.8; c.stroke(cl);
+    c.fillStyle = dk ? '#D23A3A' : '#D8402E'; c.beginPath(); c.arc(F2[0] + F2[2] * 0.5, F2[1] + F2[3] * 0.5 + wv(0.5), F2[3] * 0.3, 0, 7); c.fill(); }
   function paperLantern(c, x, y, s, t, k) { var sw = Math.sin(t * 1.3 + k * 1.7) * 0.07 + Math.sin(t * 0.5 + k) * 0.04, L = 6 * s;
     c.save(); c.translate(x, y); c.rotate(sw); c.strokeStyle = '#2A2228'; c.lineWidth = 1 * s; c.beginPath(); c.moveTo(0, 0); c.lineTo(0, L); c.stroke(); c.translate(0, L + 7 * s);
     var lit = dk ? 0.85 + 0.15 * flick(t, k * 1.9) : 0;
@@ -540,8 +553,9 @@ ENGINES.japan = function (A, v, dk) {
       deco(ca, brSpr);
       heron(ca, tt);
       // ---- canvas B: lanterns, branches and falling petals over everything
-      SL.forEach(function (l, k2) { if (!dk) return; cb.save(); cb.globalCompositeOperation = 'lighter'; japan_dot(cb, lanG, l[0], l[1], 14 * l[2], 0.7 + 0.2 * flick(tt, k2 + 5)); cb.fillStyle = 'rgba(255,200,120,0.8)'; cb.fillRect(l[0] - 3 * l[2], l[1] - 3 * l[2], 6 * l[2], 6 * l[2]); cb.restore(); });
-      PL.forEach(function (p) { var lit = paperLantern(cb, p[0], p[1], p[2], tt, p[3]); if (lit > 0) { cb.save(); cb.globalCompositeOperation = 'lighter'; japan_dot(cb, lanG, p[0], p[1] + 13 * p[2], 24 * p[2], lit * 0.8); cb.restore(); } });
+      if (A.flag) flag(cb, tt);
+      SL.forEach(function (l, k2) { if (!dk) return; if (l[3]) { cb.save(); behindTorii(cb); } cb.save(); cb.globalCompositeOperation = 'lighter'; japan_dot(cb, lanG, l[0], l[1], 14 * l[2], 0.7 + 0.2 * flick(tt, k2 + 5)); cb.fillStyle = 'rgba(255,200,120,0.8)'; cb.fillRect(l[0] - 3 * l[2], l[1] - 3 * l[2], 6 * l[2], 6 * l[2]); cb.restore(); if (l[3]) cb.restore(); });
+      PL.forEach(function (p) { if (p[4]) { cb.save(); behindTorii(cb); } var lit = paperLantern(cb, p[0], p[1], p[2], tt, p[3]); if (lit > 0) { cb.save(); cb.globalCompositeOperation = 'lighter'; japan_dot(cb, lanG, p[0], p[1] + 13 * p[2], 24 * p[2], lit * 0.8); cb.restore(); } if (p[4]) cb.restore(); });
       branches.forEach(function (b) { var sw = (Math.sin(tt * 0.9 + b.ph) * 0.025 + Math.sin(tt * 2.1 + b.ph * 2) * 0.008) * f.a + gust * 0.05 * Math.sin(tt * 5 + b.ph); cb.save(); cb.translate(b.x, b.y); if (b.flip) { cb.scale(-1, 1); } cb.rotate((b.flip ? 0.42 : 0) + sw); cb.drawImage(b.spr, -b.spr.w / 2 + b.len * 1.15, -b.spr.h / 2 + b.len * 0.3, b.spr.w, b.spr.h); cb.restore(); });
       fall.forEach(function (p) { if (p.gust && t < p.t0) return; cb.save(); cb.translate(p.x, p.y); cb.rotate(p.ph * 0.7); cb.scale(Math.cos(p.ph * 2.2), 1); cb.fillStyle = p.c; japan_petal(cb, p.s); cb.restore(); });
     },

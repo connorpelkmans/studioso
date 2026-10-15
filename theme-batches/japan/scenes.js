@@ -24,6 +24,10 @@ function japan_bloom(x, y, rx, ry, n, seed, S) { var d = japan_e(x, y + ry * 0.0
     d += japan_c(cx, cy, r); pts.push([cx, cy, r]); if (cy < y + ry * 0.2 && hash(seed + i * 2.9) < 0.75) hi += japan_c(cx - r * 0.3, cy - r * 0.32, r * 0.5);
     for (var k = 0; k < 3; k++) { var b = hash(seed + i * 11 + k) * 6.28, rr = r * (0.5 + hash(seed + i + k * 13) * 0.45); dots.push([cx + Math.cos(b) * rr, cy + Math.sin(b) * rr]); } }
   return {d: d, hi: hi, dots: dots, pts: pts}; }
+// fills a convex shape with close vertical strokes, so a translucent stroke tone lays a flat shade over what is beneath
+function japan_hatch(p) { var x0 = Infinity, x1 = -Infinity, out = '', i, x; p.forEach(function (q) { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); });
+  for (x = Math.ceil(x0 * 2) / 2 + 0.25; x < x1; x += 0.8) { var lo = Infinity, hi = -Infinity; for (i = 0; i < p.length; i++) { var a = p[i], b = p[(i + 1) % p.length]; if ((a[0] - x) * (b[0] - x) <= 0 && a[0] !== b[0]) { var yy = a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]); lo = Math.min(lo, yy); hi = Math.max(hi, yy); } }
+    if (hi > lo + 0.3) out += seg(x, lo, x, hi); } return out; }
 // a sloped Japanese roof seen side-on: eaves at y, w wide at the eaves (a little overhang), ridge h higher, tips curled up
 function japan_roof(x, y, w, h, curl) { var p = [], k, c = curl == null ? 0.2 : curl;
   for (k = 0; k <= 8; k++) { var u = k / 8; p.push([x - w / 2 + u * w * 0.22, y - h * (Math.pow(u, 0.65)) * 0.92 - (1 - u) * h * c]); }
@@ -82,10 +86,13 @@ SCENES.japan = function (W, H, dk, rnd) {
   add(bg, 'c', snow, C.snow);
   // blue shadow streaks on the snow (the sun is to the west), the far side in shade
   var ssh = '', snowBot = function (xx) { return japan_yAt(bot.slice().reverse(), xx); };
+  // keeps a shade shape on the snow: its outline, sampled finely, is held between the mountain's outline and the snow's lower
+  // edge (and squeezed to nothing past the snow's ends), so no streak pokes out into the sky or down onto the bare flank
+  var onSnow = function (pts) { var out = []; for (var q = 0; q < pts.length; q++) { var a = pts[q], b = pts[(q + 1) % pts.length]; for (var m = 0; m < 12; m++) { var xx = a[0] + (b[0] - a[0]) * m / 12, yy = a[1] + (b[1] - a[1]) * m / 12, lo = japan_yAt(FU, xx) + 1.5, hi = xx > xa && xx < xb ? snowBot(xx) - 1.5 : lo; out.push([xx, Math.max(lo, Math.min(Math.max(lo, hi), yy))]); } } return japan_pg(out); };
   [[0.03, 0.1, 0.022], [0.06, 0.22, 0.03], [0.1, 0.34, 0.03], [0.13, 0.44, 0.024], [-0.05, -0.16, 0.014], [-0.1, -0.3, 0.016]].forEach(function (q) {
-    var x0 = fx + q[0] * bw, x1 = fx + q[1] * bw, y0 = japan_yAt(FU, x0) + 3, y1 = snowBot(x1) - 4; if (y1 > y0 + 8) ssh += japan_pg([[x0 - q[2] * bw * 0.3, y0], [x0 + q[2] * bw * 0.3, y0], [x1 + q[2] * bw, y1], [x1 - q[2] * bw * 0.4, y1 - hf * 0.03]]); });
+    var x0 = fx + q[0] * bw, x1 = fx + q[1] * bw, y0 = japan_yAt(FU, x0) + 3, y1 = snowBot(x1) - 4; if (y1 > y0 + 8) ssh += onSnow([[x0 - q[2] * bw * 0.3, y0], [x0 + q[2] * bw * 0.3, y0], [x1 + q[2] * bw, y1], [x1 - q[2] * bw * 0.4, y1 - hf * 0.03]]); });
   var rsx = []; top.forEach(function (p) { if (p[0] > fx + bw * 0.03) rsx.push(p); });
-  if (rsx.length > 2) { var rpo = rsx.concat([[rsx[rsx.length - 1][0] - 2, snowBot(rsx[rsx.length - 1][0] - 2) - 2]]); for (i = 10; i >= 0; i--) { x = fx + bw * 0.03 + (rsx[rsx.length - 1][0] - fx - bw * 0.03) * i / 10; rpo.push([x + bw * 0.03 * Math.sin(i), Math.min(snowBot(x) - 2, japan_yAt(FU, x) + (snowBot(x) - japan_yAt(FU, x)) * 0.55)]); } ssh += japan_pg(rpo); }
+  if (rsx.length > 2) { var rpo = rsx.concat([[rsx[rsx.length - 1][0] - 2, snowBot(rsx[rsx.length - 1][0] - 2) - 2]]); for (i = 10; i >= 0; i--) { x = fx + bw * 0.03 + (rsx[rsx.length - 1][0] - fx - bw * 0.03) * i / 10; rpo.push([x + bw * 0.03 * Math.sin(i), Math.min(snowBot(x) - 2, japan_yAt(FU, x) + (snowBot(x) - japan_yAt(FU, x)) * 0.55)]); } ssh += onSnow(rpo); }
   add(bg, 'd', ssh, C.sshade);
   // gullies running down the flanks below the snow
   var gul = ''; [-0.32, -0.22, -0.14, -0.06, 0.04, 0.12, 0.2, 0.28, 0.36].forEach(function (q, n) { var x0 = fx + q * bw * 0.55, y0 = snowBot(x0) - 2, x1 = x0 + q * bw * 0.45, y1 = y0 + hf * (0.2 + 0.08 * hash(n + 3)); if (x0 > xa && x0 < xb && y0 > japan_yAt(FU, x0) + 4 && y1 > japan_yAt(FU, x1) + hf * 0.04) gul += 'M' + PT(x0, y0) + ' Q' + PT((x0 + x1) / 2 + q * 14, (y0 + y1) / 2) + ' ' + PT(x1, y1) + ' '; });
@@ -115,8 +122,13 @@ SCENES.japan = function (W, H, dk, rnd) {
   [0.03, 0.09, 0.29, 0.36].forEach(function (q, n) { var cx = W * q * (ph ? 1.3 : 1), cy = japan_yAt(HL, cx) + 6, ch = (ph ? 34 : 54) * (0.8 + hash(n + 4) * 0.4); forest += japan_pg([[cx - ch * 0.22, cy], [cx - ch * 0.12, cy - ch * 0.55], [cx, cy - ch], [cx + ch * 0.12, cy - ch * 0.55], [cx + ch * 0.22, cy]]); });
   horizon = horizon.map(function (p) { var hy = p[0] <= hx1 ? japan_yAt(HL, p[0]) - (ph ? 36 : 56) * 0.2 : p[1]; return [p[0], Math.min(p[1], hy)]; });
   var hillT = [];
-  // cherry trees in bloom dotted over the hill (behind the pagoda)
-  [[-0.02, 0.47, 0.06], [0.07, 0.5, 0.05], [0.3, 0.56, 0.05], [0.4, 0.6, 0.045], [0.24, 0.52, 0.035]].forEach(function (q, n) { var b = japan_bloom(W * q[0] * (ph ? 1.4 : 1), H * q[1] + (ph ? H * 0.03 : 0), W * q[2] * (ph ? 1.5 : 1), H * q[2] * 0.7, 20, n * 17 + 3, S); pink += b.d; hillT.push([W * q[0] * (ph ? 1.4 : 1), H * q[1] + (ph ? H * 0.03 : 0), W * q[2] * (ph ? 1.5 : 1) * 1.1]); });
+  // cherry trees in bloom dotted over the hill (behind the pagoda): each on a trunk with a patch of shade at its foot, and its
+  // upper-left puffs lit (a pale wash laid with the shine strokes)
+  var japan_tree3d = function (b, cx, cy, rx, ry) { var gy = cy + ry * 1.25;
+    dark += japan_limb(cx - rx * 0.06, gy, cx + rx * 0.02, cy + ry * 0.62, 5 * S, 3.4 * S, 1.5 * S); // (this slot paints over the crown, so the trunk stops at its underside)
+    forest += japan_e(cx, gy, rx * 0.55, 2.6 * S);
+    b.pts.forEach(function (q, n) { if (q[1] < cy + ry * 0.15 && q[0] < cx + rx * 0.5 && hash(q[0] * 0.37 + n) < 0.8) { var hc = []; for (var m = 0; m < 14; m++) { var an = m / 14 * Math.PI * 2; hc.push([q[0] - q[2] * 0.28 + Math.cos(an) * q[2] * 0.55, q[1] - q[2] * 0.3 + Math.sin(an) * q[2] * 0.55]); } shine += japan_hatch(hc); } }); };
+  [[-0.02, 0.47, 0.06], [0.07, 0.5, 0.05], [0.3, 0.56, 0.05], [0.4, 0.6, 0.045], [0.24, 0.52, 0.035]].forEach(function (q, n) { var b = japan_bloom(W * q[0] * (ph ? 1.4 : 1), H * q[1] + (ph ? H * 0.03 : 0), W * q[2] * (ph ? 1.5 : 1), H * q[2] * 0.7, 20, n * 17 + 3, S); pink += b.d; japan_tree3d(b, W * q[0] * (ph ? 1.4 : 1), H * q[1] + (ph ? H * 0.03 : 0), W * q[2] * (ph ? 1.5 : 1), H * q[2] * 0.7); hillT.push([W * q[0] * (ph ? 1.4 : 1), H * q[1] + (ph ? H * 0.03 : 0), W * q[2] * (ph ? 1.5 : 1) * 1.1]); });
   var midOcc = forest + pink;
   // the five-storey pagoda: red posts and walls with white panels, deep dark eaves, and the bronze spire on top
   var y0 = pyb, pagoda = {x: px, s: ps, roofs: []};
@@ -172,7 +184,9 @@ SCENES.japan = function (W, H, dk, rnd) {
   var bankY = function (xx) { return japan_yAt(Urev, xx); };
   if (!ANIM) for (x = W * (ph ? 0.3 : 0.34); x < W * (ph ? 0.5 : 0.56); x += (ph ? 20 : 30) * S) { var by2 = bankY(x) - 4 * S, tr = (9 + hash(x) * 7) * S; if (by2 < H * 0.95) { forest += japan_c(x, by2 - tr * 0.9, tr) + japan_c(x - tr * 0.7, by2 - tr * 0.5, tr * 0.7) + japan_c(x + tr * 0.7, by2 - tr * 0.5, tr * 0.7); if (hash(x + 1) < 0.35) { var bl2 = japan_bloom(x + tr * 0.4, by2 - tr * 1.3, tr * 0.9, tr * 0.7, 6, x, S * 0.6); pink += bl2.d; } } }
   var Dr = D.slice(), Ds = D.slice().sort(function (a, b) { return a[0] - b[0]; });
-  for (y = H * 0.8; y < H * 0.98; y += H * 0.022) { var dx3 = japan_xAt(Dr, y) + 14 * S; if (dx3 < W - 10) shine += seg(dx3 + (y * 7 % 30), y, W + 10, y); }
+  // the bank across the river, right of the bridge: round shrubs along the water (its cherry tree, azaleas and flag are near)
+  var rbank = function (y2, dx) { return japan_xAt(Dr, y2) + dx * S; };
+  [[0.8, 26, 11], [0.845, 34, 13], [0.9, 30, 10]].forEach(function (q, n) { var sx = rbank(H * q[0], q[1]), sy = H * q[0], r = q[2] * S; if (sx < W + 20) { forest += japan_c(sx, sy - r * 0.7, r) + japan_c(sx - r * 0.85, sy - r * 0.35, r * 0.72) + japan_c(sx + r * 0.9, sy - r * 0.4, r * 0.78); tcirc.push([sx, sy, r * 2]); } });
   var thx = W * (ph ? 0.43 : ANIM ? 0.425 : 0.47), thy = bankY(thx) - 14 * S;
   if (thy > H * 0.7 && !ANIM) { wall += rect(thx - 22 * S, thy - 16 * S, 44 * S, 16 * S); roofs += japan_roof(thx, thy - 16 * S, 58 * S, 14 * S, 0.3); dark += rect(thx - 16 * S, thy - 12 * S, 8 * S, 8 * S) + rect(thx + 6 * S, thy - 12 * S, 10 * S, 12 * S); wins.push([thx - 16 * S, thy - 12 * S, 8 * S, 8 * S, 0.1]); }
   // the koinobori pole stands in the town near the foot of the hill
@@ -197,7 +211,12 @@ SCENES.japan = function (W, H, dk, rnd) {
 
   // ---- near: the slope in front with its cherry trees, the stair path, torii and lanterns, and the far bank on the right
   var NH = japan_spline(ph ? [[-40, H * 0.63], [W * 0.14, H * 0.655], [W * 0.27, H * 0.73], [W * 0.36, H * 0.83], [W * 0.42, H * 0.93], [W * 0.44, H + 40]] : [[-40, H * 0.61], [W * 0.08, H * 0.625], [W * 0.17, H * 0.665], [W * 0.25, H * 0.74], [W * 0.31, H * 0.83], [W * 0.355, H * 0.92], [W * 0.37, H + 40]], 8);
-  var grass = japan_pg(NH.concat([[-40, H + 40]])), shrub = '', trunk = '', bloom = '', bhi = '', stone = '', torii = '', ink = '', step = '', blade = '', trees = [], petalsOn = [];
+  // the slope's outer edge is a run of little grassy hummocks (not one clean curve), fading in below the cherry trees
+  var NHe = [], al = 0; for (i = 0; i < NH.length - 1; i++) { var na = NH[i], nb = NH[i + 1], nl = Math.hypot(nb[0] - na[0], nb[1] - na[1]) || 1, nm = Math.max(1, Math.ceil(nl / (3 * S)));
+    for (k = 0; k < nm; k++) { var ex = na[0] + (nb[0] - na[0]) * k / nm, ey = na[1] + (nb[1] - na[1]) * k / nm, fade = Math.max(0, Math.min(1, (ey - H * 0.64) / (H * 0.04))), bmp = fade * (3 + 6 * Math.abs(Math.sin(al / (9 * S) + hash(Math.floor(al / (28 * S))) * 3))) * S;
+      NHe.push([ex + (nb[1] - na[1]) / nl * bmp, ey - (nb[0] - na[0]) / nl * bmp]); al += nl / nm; } }
+  NHe.push(NH[NH.length - 1]);
+  var grass = japan_pg(NHe.concat([[-40, H + 40]])), shrub = '', trunk = '', bloom = '', bhi = '', stone = '', torii = '', ink = '', step = '', blade = '', trees = [], petalsOn = [];
   // the far bank of the river, bottom right, where the companion sits
   var RB = japan_spline(ph ? [[W * 0.7, H + 40], [W * 0.74, H * 0.95], [W * 0.86, H * 0.925], [W + 40, H * 0.91]] : [[W * 0.66, H + 40], [W * 0.69, H * 0.955], [W * 0.79, H * 0.93], [W * 0.92, H * 0.925], [W + 40, H * 0.915]], 6);
   grass += japan_pg(RB.concat([[W + 40, H + 40]]));
@@ -218,17 +237,40 @@ SCENES.japan = function (W, H, dk, rnd) {
   var sAt = function (su) { var scx = st0[0] + (st1[0] - st0[0]) * su + Math.sin(su * Math.PI) * W * 0.02; return [scx, st0[1] + (st1[1] - st0[1]) * su, sw0 + (sw1 - sw0) * su]; };
   // the torii across the stairs
   var tp = sAt(0.55), tw = tp[2] * 1.9, th = tw * 1.05, tgx = tp[0], tgy = tp[1];
-  torii += rect(tgx - tw * 0.5 - 3 * S, tgy - th, 6 * S, th) + rect(tgx + tw * 0.5 - 3 * S, tgy - th, 6 * S, th) + rect(tgx - tw * 0.68, tgy - th * 0.78, tw * 1.36, 5 * S) + rect(tgx - tw * 0.6, tgy - th * 0.97, tw * 1.2, 5 * S) + rect(tgx - 2 * S, tgy - th * 0.97, 4 * S, th * 0.2);
+  // it has depth: round posts that taper and lean in a little, their shaded (east) sides and the undersides of the beams in shadow,
+  // the black kasagi, black footings, and a contact shadow where each post meets the steps
+  var tshade = '', rp = function (x, y, w, h) { return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]]; }, tPolys = [];
+  [-1, 1].forEach(function (sd) { var bx = tgx + sd * tw * 0.5, tx = bx - sd * tw * 0.035, b2 = 3.6 * S, t2 = 2.6 * S;
+    tPolys.push([[bx - b2 - 1.2 * S, tgy], [tx - t2, tgy - th], [tx + t2, tgy - th], [bx + b2 + 1.2 * S, tgy]]);
+    torii += japan_pg([[bx - b2, tgy], [tx - t2, tgy - th], [tx + t2, tgy - th], [bx + b2, tgy]]);
+    tshade += japan_hatch([[bx + b2 * 0.15, tgy], [tx + t2 * 0.15, tgy - th], [tx + t2, tgy - th], [bx + b2, tgy]]);
+    tshade += japan_hatch([[bx + b2 * 0.2, tgy + 0.5 * S], [bx + b2 + tw * 0.28, tgy - 1.5 * S], [bx + b2 + tw * 0.3, tgy + 1.2 * S], [bx + b2 * 0.6, tgy + 2.6 * S]]);
+    ink += japan_pg([[bx - b2 - 1.2 * S, tgy], [bx - b2 - 0.6 * S, tgy - 7 * S], [bx + b2 + 0.6 * S, tgy - 7 * S], [bx + b2 + 1.2 * S, tgy]]); });
+  torii += rect(tgx - tw * 0.68, tgy - th * 0.78, tw * 1.36, 5 * S) + rect(tgx - tw * 0.6, tgy - th * 0.97, tw * 1.2, 5 * S) + rect(tgx - 2 * S, tgy - th * 0.97, 4 * S, th * 0.2);
+  tshade += japan_hatch([[tgx - tw * 0.68, tgy - th * 0.78 + 3 * S], [tgx + tw * 0.68, tgy - th * 0.78 + 3 * S], [tgx + tw * 0.68, tgy - th * 0.78 + 5 * S], [tgx - tw * 0.68, tgy - th * 0.78 + 5 * S]]);
+  tshade += japan_hatch([[tgx + tw * 0.66, tgy - th * 0.78], [tgx + tw * 0.68, tgy - th * 0.78], [tgx + tw * 0.68, tgy - th * 0.78 + 3 * S], [tgx + tw * 0.66, tgy - th * 0.78 + 3 * S]]);
+  tshade += japan_hatch([[tgx - tw * 0.6, tgy - th * 0.97 + 2.6 * S], [tgx + tw * 0.6, tgy - th * 0.97 + 2.6 * S], [tgx + tw * 0.6, tgy - th * 0.97 + 5 * S], [tgx - tw * 0.6, tgy - th * 0.97 + 5 * S]]);
+  tshade += japan_hatch([[tgx + 0.4 * S, tgy - th * 0.97 + 5 * S], [tgx + 2 * S, tgy - th * 0.97 + 5 * S], [tgx + 2 * S, tgy - th * 0.78], [tgx + 0.4 * S, tgy - th * 0.78]]);
   ink += japan_pg([[tgx - tw * 0.86, tgy - th * 1.12], [tgx, tgy - th * 1.03], [tgx + tw * 0.86, tgy - th * 1.12], [tgx + tw * 0.74, tgy - th * 0.99], [tgx - tw * 0.74, tgy - th * 0.99]]);
-  ink += rect(tgx - tw * 0.5 - 4 * S, tgy - 6 * S, 8 * S, 6 * S) + rect(tgx + tw * 0.5 - 4 * S, tgy - 6 * S, 8 * S, 6 * S);
+  tPolys.push(rp(tgx - tw * 0.68, tgy - th * 0.78, tw * 1.36, 5 * S), rp(tgx - tw * 0.6, tgy - th * 0.97, tw * 1.2, 5 * S), rp(tgx - 2 * S, tgy - th * 0.97, 4 * S, th * 0.2),
+    [[tgx - tw * 0.86, tgy - th * 1.12], [tgx, tgy - th * 1.03], [tgx + tw * 0.86, tgy - th * 1.12], [tgx + tw * 0.74, tgy - th * 0.99], [tgx - tw * 0.74, tgy - th * 0.99]]);
+  // the stretches of a vertical line at x, between y0 and y1, that the torii does not cover
+  var toriiGaps = function (x, y0, y1) { var cov = [];
+    tPolys.forEach(function (pp) { var lo = Infinity, hi = -Infinity; for (var m = 0; m < pp.length; m++) { var a = pp[m], b = pp[(m + 1) % pp.length]; if ((a[0] - x) * (b[0] - x) <= 0 && a[0] !== b[0]) { var yy = a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]); lo = Math.min(lo, yy); hi = Math.max(hi, yy); } } if (hi > lo) cov.push([lo, hi]); });
+    cov.sort(function (a, b) { return a[0] - b[0]; }); var out = [], cur = y0; cov.forEach(function (c) { if (c[0] > cur) out.push([cur, Math.min(c[0], y1)]); cur = Math.max(cur, c[1]); }); if (cur < y1) out.push([cur, y1]); return out.filter(function (g) { return g[1] > g[0] + 0.3; }); };
   // stone lanterns at the foot of the stairs and halfway up
   var lanterns = [];
   [[0.88, -1, 1], [0.88, 1, 1], [0.3, -1, 0.7], [0.3, 1, 0.7]].forEach(function (q) { var p = sAt(q[0]), lx = p[0] + q[1] * (p[2] + 16 * S * q[2]), ly = p[1] + 4 * S, s2 = S * q[2] * (ph ? 0.8 : 1);
     stone += rect(lx - 9 * s2, ly - 5 * s2, 18 * s2, 5 * s2) + rect(lx - 3 * s2, ly - 24 * s2, 6 * s2, 19 * s2) + rect(lx - 8 * s2, ly - 28 * s2, 16 * s2, 4 * s2) + rect(lx - 6 * s2, ly - 40 * s2, 12 * s2, 12 * s2) + japan_pg([[lx - 13 * s2, ly - 40 * s2], [lx - 3 * s2, ly - 47 * s2], [lx + 3 * s2, ly - 47 * s2], [lx + 13 * s2, ly - 40 * s2]]) + japan_c(lx, ly - 49 * s2, 2.6 * s2);
-    ink += rect(lx - 3 * s2, ly - 37 * s2, 6 * s2, 6 * s2); lanterns.push([lx, ly - 34 * s2, s2]); });
+    ink += rect(lx - 3 * s2, ly - 37 * s2, 6 * s2, 6 * s2); lanterns.push([lx, ly - 34 * s2, s2, q[0] < 0.55]); });
   // posts for paper lanterns along the path (the lanterns hang from their arms)
   var paper = [];
-  [0.14, 0.42, 0.72].forEach(function (q, n) { [-1, 1].forEach(function (sd) { var p = sAt(q), lx = p[0] + sd * (p[2] + 6 * S), ly = p[1] + 2 * S, hgt = (ph ? 34 : 46) * S * (0.7 + q * 0.5); ink += rect(lx - 1.2 * S, ly - hgt, 2.4 * S, hgt) + rect(sd < 0 ? lx - 1 * S : lx - 9 * S, ly - hgt, 10 * S, 2 * S); paper.push([lx - sd * 7 * S + (sd < 0 ? 0 : 0), ly - hgt + 2 * S, S * (0.7 + q * 0.5), n * 2 + (sd > 0 ? 1 : 0)]); }); });
+  // (the posts further up the path than the torii stand behind it, so the gate hides the parts of them it covers)
+  [0.14, 0.42, 0.72].forEach(function (q, n) { [-1, 1].forEach(function (sd) { var p = sAt(q), lx = p[0] + sd * (p[2] + 6 * S), ly = p[1] + 2 * S, hgt = (ph ? 34 : 46) * S * (0.7 + q * 0.5), back = q < 0.55, ax = sd < 0 ? lx - 1 * S : lx - 9 * S;
+    if (!back) ink += rect(lx - 1.2 * S, ly - hgt, 2.4 * S, hgt) + rect(ax, ly - hgt, 10 * S, 2 * S);
+    else { for (k = 0; k < 6; k++) { var px0 = lx - 1.2 * S + k * 0.4 * S; toriiGaps(px0 + 0.2 * S, ly - hgt, ly).forEach(function (g) { ink += rect(px0, g[0], 0.4 * S + 0.3, g[1] - g[0]); }); }
+      for (k = 0; k < 20; k++) { var ax0 = ax + k * 0.5 * S; toriiGaps(ax0 + 0.25 * S, ly - hgt, ly - hgt + 2 * S).forEach(function (g) { ink += rect(ax0, g[0], 0.5 * S + 0.3, g[1] - g[0]); }); } }
+    paper.push([lx - sd * 7 * S, ly - hgt + 2 * S, S * (0.7 + q * 0.5), n * 2 + (sd > 0 ? 1 : 0), back]); }); });
   // the steps' edges and the path's sides (strokes, drawn over every fill of this layer): kept off the torii, the lantern posts and
   // the cherry crowns that stand in front of the path
   var hides = function (x, y) { if (trees.some(function (t) { var dx = (x - t[0]) / (t[2] * 1.15), dy = (y - t[1]) / (t[3] * 1.3); return dx * dx + dy * dy < 1; })) return true;
@@ -244,15 +286,39 @@ SCENES.japan = function (W, H, dk, rnd) {
   var onPath = function (x, y) { var u = (y - st0[1]) / (st1[1] - st0[1]); if (u < -0.05) return false; var q = sAt(Math.max(0, Math.min(1, u))); return Math.abs(x - q[0]) < q[2] + 6 * S; };
   var nearThing = function (x, y) { return lanterns.some(function (l) { return Math.abs(x - l[0]) < 16 * l[2] && y > l[1] - 20 * l[2] && y < l[1] + 40 * l[2]; }) || paper.some(function (q) { return Math.abs(x - q[0]) < 12 * S && y > q[1] - 4 && y < q[1] + 70 * S; }) || hides(x, y - 5); };
   spread(0, H * 0.7, W * 0.42, H * 0.3, 20, 18, rnd, 1).forEach(function (c) { if (c.q < 0.35 && c.y > japan_yAt(NH, c.x) + 10 && !onPath(c.x, c.y) && !nearThing(c.x, c.y)) blade += 'M' + PT(c.x - 2, c.y) + ' Q' + PT(c.x - 1, c.y - 5) + ' ' + PT(c.x - 3, c.y - 9) + ' M' + PT(c.x + 1, c.y) + ' Q' + PT(c.x + 2, c.y - 6) + ' ' + PT(c.x + 4, c.y - 8) + ' '; });
+  // the slope's edge is planted so it melts into the ground beyond: low shrub clumps (some flowering) sitting on the line,
+  // tufts of grass across it, and fallen petals thinning out onto the flat ground
+  for (y = H * 0.665, j = 0; y < H * 0.99; y += (26 + hash(j * 1.7) * 24) * S, j++) { var ex2 = japan_xAt(NH, y) + 3 * S, er = (7 + hash(j * 2.3) * 7) * S;
+    if (hash(j * 3.1 + 0.5) < 0.85 && !nearThing(ex2, y)) { shrub += japan_c(ex2, y - er * 0.5, er) + japan_c(ex2 - er * 0.9, y - er * 0.1, er * 0.72) + japan_c(ex2 + er * 0.95, y - er * 0.05, er * 0.68) + rect(ex2 - er * 1.6, y - er * 0.1, er * 3.2, er * 0.4);
+      if (hash(j * 5.9) < 0.45) for (k = 0; k < 6; k++) bhi += japan_c(ex2 + (hash(j * 7 + k) - 0.5) * er * 2.4, y - er * 0.2 - hash(j * 9 + k) * er * 1.1, 1.5 * S); } }
+  for (y = H * 0.66; y < H; y += 9 * S) { var ex3 = japan_xAt(NH, y) + (hash(y) - 0.3) * 8 * S; if (hash(y * 1.3) < 0.55 && !nearThing(ex3, y)) { var bl2 = (6 + hash(y * 2.1) * 6) * S; blade += 'M' + PT(ex3 - 2 * S, y) + ' Q' + PT(ex3 - 2 * S, y - bl2 * 0.6) + ' ' + PT(ex3 - 4 * S, y - bl2) + ' M' + PT(ex3, y) + ' Q' + PT(ex3 + 1 * S, y - bl2 * 0.7) + ' ' + PT(ex3 + 3 * S, y - bl2 * 1.1) + ' '; } }
+  spread(W * 0.15, H * 0.64, W * 0.35, H * 0.36, 11, 10, rnd, 1).forEach(function (c) { var dd = c.x - japan_xAt(NH, c.y); if (dd > 0 && c.q < 0.5 * Math.exp(-dd / (30 * S)) && c.y < japan_yAt(Urev, c.x) - 4) bhi += japan_e(c.x, c.y, 1.8 * S, 1.1 * S); });
+  // the far bank, right of the river: a cherry tree in bloom, azalea mounds, the Hinomaru on a pole by the bridge foot, and
+  // tufts of grass and fallen petals (kept off the tree and the flag)
+  var rbT = [W * (ph ? 0.95 : 0.968), H * (ph ? 0.785 : 0.79), W * (ph ? 0.09 : 0.052), H * 0.055], rgy = H * 0.885;
+  trunk += japan_limb(rbT[0] - rbT[2] * 0.15, rgy, rbT[0] + rbT[2] * 0.05, rbT[1] + rbT[3] * 0.3, 9 * S, 5 * S, 5 * S) + japan_limb(rbT[0], rbT[1] + rbT[3] * 0.7, rbT[0] - rbT[2] * 0.55, rbT[1] + rbT[3] * 0.1, 4 * S, 2 * S, 4 * S) + japan_limb(rbT[0] + rbT[2] * 0.03, rbT[1] + rbT[3] * 0.55, rbT[0] + rbT[2] * 0.5, rbT[1] + rbT[3] * 0.05, 4 * S, 2 * S, -3 * S);
+  shrub += japan_e(rbT[0] - rbT[2] * 0.1, rgy + 1 * S, rbT[2] * 0.7, 3 * S);
+  var rbB = japan_bloom(rbT[0], rbT[1], rbT[2], rbT[3], ph ? 22 : 30, 913, S); bloom += rbB.d; bhi += rbB.hi; rbB.dots.forEach(function (d) { if (hash(d[0] + d[1]) < 0.25) bhi += japan_c(d[0], d[1], 1.6 * S); }); trees.push(rbT);
+  [[ph ? 0.8 : 0.83, 0.885, 9], [ph ? 0.99 : 0.995, 0.9, 12]].forEach(function (q, n) { var sx = W * q[0], sy = H * q[1], r = q[2] * S; if (sx > japan_xAt(D, sy) + 16 * S) { shrub += japan_c(sx, sy - r * 0.6, r) + japan_c(sx - r * 0.85, sy - r * 0.2, r * 0.72) + japan_c(sx + r * 0.9, sy - r * 0.25, r * 0.74);
+    bloom += japan_c(sx - r * 0.2, sy - r * 0.85, r * 0.6) + japan_c(sx + r * 0.5, sy - r * 0.5, r * 0.5) + japan_c(sx - r * 0.85, sy - r * 0.35, r * 0.45); for (k = 0; k < 5; k++) bhi += japan_c(sx + (hash(n * 7 + k) - 0.5) * r * 2, sy - r * 0.3 - hash(n * 9 + k) * r * 0.9, 1.4 * S); } });
+  var fpx = Math.max(W * (ph ? 0.8 : 0.868), japan_xAt(D, H * 0.83) + 44 * S), fpy = H * 0.84, fph = (ph ? 64 : 88) * S, fw = (ph ? 30 : 42) * S, fhh = fw * 0.66, flag = [], flagBox = null;
+  if (fpx < W - fw - 4 * S && fpx + fw < rbT[0] - rbT[2] * 0.9) { ink += rect(fpx - 1.3 * S, fpy - fph, 2.6 * S, fph) + rect(fpx - 4 * S, fpy - 2 * S, 8 * S, 3 * S) + japan_c(fpx, fpy - fph - 1.5 * S, 2.4 * S);
+    for (k = 0; k <= 12; k++) flag.push([fpx + 1.3 * S + fw * k / 12, fpy - fph + 2 * S + Math.sin(k / 12 * Math.PI * 1.6) * 2.4 * S * k / 12]);
+    var fbot = flag.map(function (q) { return [q[0], q[1] + fhh]; }).reverse(), cloth = japan_pg(flag.concat(fbot));
+    if (ANIM) ANIM.flag = [fpx + 1.3 * S, fpy - fph + 2 * S, fw, fhh]; // the engine draws the cloth (waving, and white at night too)
+    else { if (dk) stone += cloth; else bhi += cloth; torii += japan_c(fpx + 1.3 * S + fw * 0.5, fpy - fph + 2 * S + fhh / 2 + Math.sin(0.8 * Math.PI) * 2.4 * S * 0.5, fhh * 0.3); } flagBox = [fpx - 6 * S, fpy - fph - 6 * S, fpx + fw + 4 * S, fpy + 4 * S]; }
+  spread(W * 0.6, H * 0.79, W * 0.4, H * 0.21, 26, 16, rnd, 1).forEach(function (c) { if (c.x < japan_xAt(D, c.y) + 10 * S || hides(c.x, c.y - 6) || (flagBox && c.x > flagBox[0] && c.x < flagBox[2] && c.y > flagBox[1] && c.y < flagBox[3])) return;
+    if (c.q < 0.32) blade += 'M' + PT(c.x - 2, c.y) + ' Q' + PT(c.x - 1, c.y - 5) + ' ' + PT(c.x - 3, c.y - 9) + ' M' + PT(c.x + 1, c.y) + ' Q' + PT(c.x + 2, c.y - 6) + ' ' + PT(c.x + 4, c.y - 8) + ' ';
+    else if (c.q < 0.6) bhi += japan_e(c.x, c.y, 1.8 * S, 1.1 * S); });
   // the swaying foreground branch (the engine's), drawn still when there is no engine
   var BR = {x: -14, y: H * (ph ? 0.115 : 0.02), len: W * (ph ? 0.42 : 0.24), s: S};
   if (!ANIM) { trunk += japan_limb(BR.x, BR.y, BR.x + BR.len, BR.y + BR.len * 0.18, 16 * S, 3 * S, -BR.len * 0.06) + japan_limb(BR.x + BR.len * 0.4, BR.y + BR.len * 0.1, BR.x + BR.len * 0.62, BR.y + BR.len * 0.3, 6 * S, 2 * S, 6 * S);
     var bb2 = japan_bloom(BR.x + BR.len * 0.55, BR.y + BR.len * 0.16, BR.len * 0.3, BR.len * 0.1, 22, 777, S); bloom += bb2.d; bhi += bb2.hi;
     paper.forEach(function (p) { bhi += japan_e(p[0], p[1] + 9 * p[2], 5 * p[2], 7 * p[2]); }); }
   add(near, 'a', grass, C.grass); add(near, 'b', shrub, C.shrub); add(near, 'c', trunk, C.trunk); add(near, 'd', bloom, C.bloom); add(near, 'e', bhi, C.bhi); add(near, 'f', stone, C.stone); add(near, 'g', torii, C.torii); add(near, 'h', ink, C.ink);
-  stk(near, 's', step, C.step, 1.2); stk(near, 't', blade, C.blade, 1.2);
+  stk(near, 's', step + tshade, C.step, 1.2); stk(near, 't', blade, C.blade, 1.2);
   if (ANIM) { ANIM.moon = moon; ANIM.C = C; ANIM.S = S; ANIM.horizon = horizon; ANIM.ptop = [px - 82 * ps, ptop, px + 96 * ps, pyb]; ANIM.fuji = {x: fx, top: ftop, bw: bw, hf: hf, snow: snowPts, body: FU, base: fbase, ys: ys}; ANIM.hills = {occ: midOcc, rg: rg, fh1: fh1, fh2: fh2, HL: HL, hx1: hx1, gy: H * (ph ? 0.58 : 0.575)};
     ANIM.pagoda = {x: px, y: pyb, s: ps}; ANIM.town = {hillT: hillT, rows: rows, tx0: tx0, Urev: Urev, HL: HL, hx1: hx1, bank: [W * (ph ? 0.3 : 0.34), W * (ph ? 0.5 : 0.56)], tea: [thx, thy], kp: [kpx, kpy], castle: [W * (ph ? 0.8 : 0.85), H * rows[0] + 2 * S]};
-    ANIM.wins = wins; ANIM.koi = [kpx, kpy, kph]; ANIM.river = riverPts; ANIM.U = U; ANIM.D = D; ANIM.bridge = [bx0, bx1, bdy, ah, bth]; ANIM.trees = trees; ANIM.paper = paper; ANIM.stone = lanterns; ANIM.branch = BR; ANIM.heron = [W * (ph ? 0.52 : 0.47), H * (ph ? 0.875 : 0.885)]; ANIM.NH = NH; }
+    ANIM.wins = wins; ANIM.koi = [kpx, kpy, kph]; ANIM.river = riverPts; ANIM.U = U; ANIM.D = D; ANIM.bridge = [bx0, bx1, bdy, ah, bth]; ANIM.trees = trees; ANIM.paper = paper; ANIM.toriiPolys = tPolys; ANIM.stone = lanterns; ANIM.branch = BR; ANIM.heron = [W * (ph ? 0.52 : 0.47), H * (ph ? 0.875 : 0.885)]; ANIM.NH = NH; }
   return {sky: sky, far: far, refl: bg, mid: mid, near: near};
 };

@@ -44,7 +44,7 @@ var mexico_PAL = {
     green: '#24443E', nshade: 'rgba(5,0,20,0.35)', njac: '#5E4EA2', white: '#9088B2', ncob: '#2A3E88', iron: '#151B28', nmag: '#9C306C', nsaf: '#C89440', nlight: 'rgba(220,210,255,0.3)', ink: 'rgba(5,0,20,0.55)'}
 };
 SCENES.mexico = function (W, H, dk, rnd) {
-  var ph = H > W, far = Lay(2.5), bg = Lay(0.6), mid = Lay(0), near = Lay(0), C = mexico_PAL[dk ? 'D' : 'L'], i, j, k, x, y;
+  var ph = H > W, far = Lay(2.5), bg = Lay(1.5), mid = Lay(0), near = Lay(0), C = mexico_PAL[dk ? 'D' : 'L'], i, j, k, x, y;
   var S = ph ? W / 390 * 0.64 : Math.max(0.75, Math.min(1.15, H / 800));
   var sky = dk ? 'linear-gradient(180deg,#0F1636 0%,#2A2458 42%,#6A3458 72%,#3E2A56 100%)' : 'linear-gradient(180deg,#8CCBF0 0%,#E4F2F6 44%,#FCE2C6 70%,#F2D2B2 100%)';
   var cx = W * (ph ? 0.5 : 0.585), yb = H * (ph ? 0.6 : 0.665);
@@ -101,16 +101,18 @@ SCENES.mexico = function (W, H, dk, rnd) {
       else if (n % 2 === 0 || nw === 1) { var dw = Math.min(14 * S, sp * 0.4), dh = hh * 0.36; mg.cream += rect(wx - dw / 2 - 3 * S, yb - dh - 3 * S, dw + 6 * S, dh + 3 * S); mg.dark += rect(wx - dw / 2, yb - dh, dw, dh); carve += seg(wx, yb - dh, wx, yb); }
       else { mg.cream += rect(wx - ww / 2 - 2 * S, fl + hh * 0.12, ww + 4 * S, hh * 0.22); mg.dark += rect(wx - ww / 2, fl + hh * 0.14, ww, hh * 0.18); for (r = 1; r < 4; r++) carve += seg(wx - ww / 2 + r * ww / 4, fl + hh * 0.14, wx - ww / 2 + r * ww / 4, fl + hh * 0.32); } }
     occ(x0 - 2, x1 + 2, top - cs - 3 * S); };
-  var xL1 = cx - 182 * S, xR0 = cx + 182 * S;
+  var xL1 = cx - 169 * S, xR0 = cx + 169 * S; // (the houses either side run right up to the cathedral's side towers, no gaps)
   if (ph) { facade(-10, xL1, yb - 118 * S, 'saf', false); facade(xR0, W + 10, yb - 128 * S, 'cob', false); }
   else {
     var lw = xL1 + 10, f1 = -10 + lw * 0.36, f2 = f1 + lw * 0.34;
     facade(-10, f1, yb - 150 * S, 'cob', false); facade(f1, f2, yb - 132 * S, 'oxb', true); facade(f2, xL1, yb - 160 * S, 'saf', false);
     var rw = W + 10 - xR0, g1 = xR0 + rw * 0.55; facade(xR0, g1, yb - 140 * S, 'saf', true); facade(g1, W + 10, yb - 156 * S, 'oxb', false); }
+  // a flagpole on the roof of the house left of the cathedral, flying the Mexican flag (the engine draws and waves the cloth)
+  var mxFlag = (function () { var top = yb - (ph ? 118 : 160) * S - 10 * S, px = xL1 - (ph ? 40 : 66) * S, ph2 = (ph ? 56 : 78) * S; mg.dark += rect(px - 1.3 * S, top - ph2, 2.6 * S, ph2) + rect(px - 3.5 * S, top - 2 * S, 7 * S, 2.5 * S); mg.saf += mexico_c(px, top - ph2 - 1.5 * S, 2.4 * S); return {x: px + 1.3 * S, y: top - ph2 + 1.5 * S, w: (ph ? 30 : 42) * S, h: (ph ? 30 : 42) * S * 4 / 7}; })();
   // ---- the cathedral: a Gothic pink sandstone front with a tiered central tower, two side towers and many pinnacles
   var cath = '', cs2 = '', tw0 = 120 * S, y1 = yb - 150 * S, y2 = y1 - 92 * S, y3 = y2 - 72 * S, y4 = y3 - 56 * S, spH = 112 * S, bells = [];
   // the body of the front, with a row of small pinnacles along its top
-  cath += rect(cx - 116 * S, y1, 232 * S, yb - y1 + 2);
+  cath += rect(cx - 124 * S, y1, 248 * S, yb - y1 + 2); // (its front runs into the side towers)
   for (k = -4; k <= 4; k++) if (k) cath += mexico_pinn(cx + k * 25 * S, y1 + 1, 7 * S, 24 * S);
   // the side towers with their crocketed spires and corner pinnacles
   [-1, 1].forEach(function (sd) { var tx = cx + sd * 146 * S, tt = yb - 252 * S; cath += rect(tx - 24 * S, tt, 48 * S, yb - tt + 2) + rect(tx - 27 * S, tt - 8 * S, 54 * S, 8 * S);
@@ -161,6 +163,8 @@ SCENES.mexico = function (W, H, dk, rnd) {
   var ground = rect(-10, yb, W + 20, H - yb + 10), vy = yb - H * 0.95, pave = '';
   pave += mexico_e(fx, fy + 6 * S, frx * 1.5, fry * 1.9) + mexico_hole(mexico_ep(fx, fy + 6 * S, frx * 1.32, fry * 1.62, 60));
   pave += mexico_pg([[cx - 30 * S, yb + 8 * S], [cx + 30 * S, yb + 8 * S], [fx + frx * 0.5, fy - fry * 1.9], [fx - frx * 0.5, fy - fry * 1.9]]);
+  // (the fountain stands back so its foot, not its rim, sits on the middle of the paving ring)
+  fy -= (ph ? 22 : 32) * S * 0.82 - 6 * S;
   var rows = []; for (y = yb + 4, k = 0; y < H + 30; k++) { rows.push(y); y += (ph ? 5 : 6) + (y - yb) * 0.17; }
   rows.forEach(function (ry, r) { var sc = (ry - vy) / (H - vy), cw = (ph ? 13 : 20) * sc, rh = (rows[r + 1] || ry + 30) - ry, pl = [];
     for (x = -10; x <= W + 10; x += 14) pl.push([x, ry + Math.sin(x / 9 + r) * rh * 0.06]); grout += pline(pl);
@@ -223,11 +227,16 @@ SCENES.mexico = function (W, H, dk, rnd) {
     N.sh += mexico_e(lx + 6 * s, ly + 2, 30 * s, 5 * s);
     N.iron += mexico_pg([[lx - 4 * s, ly], [lx - 3 * s, ct + ch], [lx + 3 * s, ct + ch], [lx + 4 * s, ly]]);
     N.white += rect(lx - 4.2 * s, ly - 18 * s, 8.4 * s, 18 * s);
-    var crown = mexico_pg([[lx - cw, ct + 14 * s], [lx - cw + 6 * s, ct + 3 * s], [lx - cw + 18 * s, ct], [lx + cw - 18 * s, ct], [lx + cw - 6 * s, ct + 3 * s], [lx + cw, ct + 14 * s], [lx + cw, ct + ch - 12 * s], [lx + cw - 8 * s, ct + ch], [lx - cw + 8 * s, ct + ch], [lx - cw, ct + ch - 12 * s]]);
-    N.green += crown;
-    for (k = 0; k < 22; k++) { var a = hash(k + lx) * Math.PI * 2, dd = 0.3 + hash(k + 9 + lx) * 0.6; N.sh += mexico_e(lx + Math.cos(a) * cw * dd * 0.9 + cw * 0.18, ct + ch * 0.55 + Math.sin(a) * ch * dd * 0.4, (5 + hash(k + 3) * 5) * s, (3 + hash(k + 5) * 3) * s); }
-    N.sh += rect(lx - cw, ct + ch - 14 * s, cw * 2, 14 * s);
-    for (k = 0; k < 16; k++) nl += seg(lx - cw + 8 * s + hash(k + lx * 2) * (cw * 2 - 16 * s), ct + 4 * s + hash(k + lx * 3) * ch * 0.4, lx - cw + 12 * s + hash(k + lx * 2) * (cw * 2 - 16 * s), ct + 2 * s + hash(k + lx * 3) * ch * 0.4);
+    // it grows from a round bed of earth inside a low whitewashed stone curb, not straight out of the cobbles
+    N.white += mexico_e(lx, ly, 19 * s, 5.4 * s) + rect(lx - 19 * s, ly, 38 * s, 3 * s) + mexico_e(lx, ly + 3 * s, 19 * s, 5.4 * s); N.iron += mexico_e(lx, ly - 0.3 * s, 15.5 * s, 3.8 * s); N.sh += mexico_e(lx + 3 * s, ly + 3.5 * s, 19 * s, 3 * s);
+    // a clipped round crown made of leafy puffs round its edge, the lower right in shade (one crescent of puffs), and a few
+    // light leaf strokes on the lit upper left
+    var ccx = lx, ccy = ct + ch * 0.52, crx = cw * 0.92, cry = ch * 0.55, crown = mexico_e(ccx, ccy, crx * 0.86, cry * 0.84), shd = '';
+    for (k = 0; k < 16; k++) { var a = k / 16 * Math.PI * 2, pr = (9.5 + 3 * hash(k + lx)) * s, px2 = ccx + Math.cos(a) * crx * 0.84, py2 = ccy + Math.sin(a) * cry * 0.8;
+      crown += mexico_c(px2, py2, pr); var lit = Math.cos(a - 2.4); if (lit < -0.2) shd += mexico_c(px2 + 1.5 * s, py2 + 1.5 * s, pr * 0.92); }
+    shd += mexico_e(ccx + crx * 0.22, ccy + cry * 0.3, crx * 0.62, cry * 0.5);
+    N.green += crown; N.sh += shd;
+    for (k = 0; k < 9; k++) { var a2 = Math.PI * (0.95 + k * 0.07), rr2 = 0.45 + hash(k + lx) * 0.35, hx3 = ccx + Math.cos(a2) * crx * rr2, hy3 = ccy + Math.sin(a2) * cry * rr2 * 1.1; nl += 'M' + PT(hx3 - 3 * s, hy3 + 1.5 * s) + ' Q' + PT(hx3, hy3 - 1 * s) + ' ' + PT(hx3 + 3 * s, hy3 + 0.5 * s) + ' '; }
   });
   // the wrought-iron bandstand: a stone platform with a railing, slim columns, a scalloped iron canopy and a finial
   var kb = {x: W * (ph ? 0.2 : 0.17), y: H * (ph ? 0.78 : 0.94), r: (ph ? 70 : 128) * S}, kr = kb.r, ph0 = 34 * S, cH = 112 * S;
@@ -288,11 +297,11 @@ SCENES.mexico = function (W, H, dk, rnd) {
     // the cactus beside the fountain stands clear of its rim (the rim's white slot would otherwise cover its arm)
     if (kind === 'cactus' && px < fx && py > fy) px = Math.min(px, fx - (frx + rim) * 1.03 - 28 * s);
     N.sh += mexico_e(px + 6 * s, py + 2, 34 * s, 6 * s);
-    if (kind === 'agave') { for (k = -4; k <= 4; k++) { var ang = -90 + k * 19, L = (70 - Math.abs(k) * 7) * s; N.green += mexico_leaf(px + k * 2 * s, top + 4 * s, L, 7 * s, ang); nl += seg(px + k * 2 * s, top + 4 * s, px + k * 2 * s + Math.cos(ang / 57.3) * L * 0.8, top + 4 * s + Math.sin(ang / 57.3) * L * 0.8); } }
+    if (kind === 'agave') { for (k = -4; k <= 4; k++) { var ang = -90 + k * 19, L = (70 - Math.abs(k) * 7) * s; N.green += mexico_leaf(px + k * 2 * s, top + 4 * s, L, 7 * s, ang); nl += seg(px + k * 2 * s + Math.cos(ang / 57.3) * 10 * s, top + 4 * s + Math.sin(ang / 57.3) * 10 * s, px + k * 2 * s + Math.cos(ang / 57.3) * L * 0.8, top + 4 * s + Math.sin(ang / 57.3) * L * 0.8); /* (the vein starts above the pot's rim, never across the pot) */ } }
     else if (kind === 'cactus') { N.green += mexico_pg([[px - 9 * s, top + 4], [px - 10 * s, top - 74 * s], [px - 6 * s, top - 82 * s], [px + 6 * s, top - 82 * s], [px + 10 * s, top - 74 * s], [px + 9 * s, top + 4]]);
       N.green += mexico_pg([[px + 9 * s, top - 30 * s], [px + 22 * s, top - 30 * s], [px + 24 * s, top - 58 * s], [px + 30 * s, top - 62 * s], [px + 34 * s, top - 58 * s], [px + 32 * s, top - 22 * s], [px + 9 * s, top - 18 * s]]);
       N.green += mexico_pg([[px - 9 * s, top - 40 * s], [px - 20 * s, top - 40 * s], [px - 22 * s, top - 56 * s], [px - 27 * s, top - 59 * s], [px - 31 * s, top - 55 * s], [px - 29 * s, top - 30 * s], [px - 9 * s, top - 28 * s]]);
-      nl += seg(px - 3 * s, top - 76 * s, px - 3 * s, top) + seg(px + 3 * s, top - 76 * s, px + 3 * s, top) + seg(px + 28 * s, top - 56 * s, px + 27 * s, top - 26 * s) + seg(px - 25 * s, top - 53 * s, px - 24 * s, top - 32 * s);
+      nl += seg(px - 3 * s, top - 76 * s, px - 3 * s, top - 6 * s) + seg(px + 3 * s, top - 76 * s, px + 3 * s, top - 6 * s) + seg(px + 28 * s, top - 56 * s, px + 27 * s, top - 26 * s) + seg(px - 25 * s, top - 53 * s, px - 24 * s, top - 32 * s);
       N.mag += mexico_c(px, top - 86 * s, 5 * s) + mexico_c(px + 30 * s, top - 65 * s, 4 * s); N.saf += mexico_c(px, top - 86 * s, 1.8 * s); }
     else { [[0, -30, 16, 22, 0], [-16, -58, 13, 18, -24], [14, -62, 12, 17, 22], [-2, -86, 11, 15, 6]].forEach(function (pd) { N.green += mexico_pg(rotp(mexico_ep(0, 0, pd[2] * s, pd[3] * s, 24), px + pd[0] * s, top + pd[1] * s, pd[4])); for (var m = 0; m < 5; m++) nl += mexico_c(px + pd[0] * s + (hash(m + pd[1]) - 0.5) * pd[2] * s, top + pd[1] * s + (hash(m + pd[0] + 7) - 0.5) * pd[3] * s * 1.2, 0.8 * s); });
       N.mag += mexico_e(px - 2 * s, top - 102 * s, 4 * s, 5 * s) + mexico_e(px + 10 * s, top - 78 * s, 3.4 * s, 4.4 * s); }
@@ -330,7 +339,9 @@ SCENES.mexico = function (W, H, dk, rnd) {
   var jtl = {x: -20, y: (ph ? 190 : 40) * S, s: S * (ph ? 0.75 : 1)};
   var pj = ph ? [] : [[cx - 205 * S, yb + 14 * S, 0.95], [cx + 232 * S, yb + 16 * S, 1]];
   // papel picado strings: [x0, y0, x1, y1, sag]
-  var strings = ph ? [[-10, H * 0.14, W + 10, H * 0.12, H * 0.06]] : [[-10, H * 0.05, W * 0.46, H * 0.03, H * 0.08], [W * 0.66, H * 0.02, W + 10, H * 0.06, H * 0.07], [-10, H * 0.2, W * 0.38, H * 0.25, H * 0.05], [W * 0.78, H * 0.26, W + 10, H * 0.2, H * 0.05]];
+  var strings = ph ? [[-10, H * 0.14, W + 10, H * 0.12, H * 0.06]] : [[-10, H * 0.04, W + 10, H * 0.2, H * 0.09], [-10, H * 0.21, W + 10, H * 0.05, H * 0.09]];
+  // (two strings run right across the plaza from edge to edge, crossing each other in the middle, as they're strung between
+  // the buildings either side)
   if (!ANIM) {
     // the still scene: everything the engine would draw, laid flat
     pj.forEach(function (q) { var s = q[2] * S, tx = q[0], ty = q[1]; N.iron += mexico_pg([[tx - 5 * s, ty], [tx - 3 * s, ty - 100 * s], [tx + 3 * s, ty - 100 * s], [tx + 5 * s, ty]]); for (k = 0; k < 18; k++) { var a = hash(k + tx) * Math.PI * 2, dd = Math.sqrt(hash(k + 3 + tx)); N.jac += mexico_c(tx + Math.cos(a) * dd * 70 * s, ty - 130 * s + Math.sin(a) * dd * 40 * s, (16 + hash(k) * 10) * s); } });
@@ -351,6 +362,6 @@ SCENES.mexico = function (W, H, dk, rnd) {
   if (ANIM) { ANIM.C = C; ANIM.S = S; ANIM.stars = stars.filter(function (s) { return s.y < hillY(s.x) - 8 && s.y < midTop(s.x) - 6; }); ANIM.mtop = mA; ANIM.wins = wins; ANIM.cath = cath; ANIM.cx = cx; ANIM.yb = yb; ANIM.spireTop = y4 - spH - 26 * S;
     ANIM.bells = bells; ANIM.bal = bal; ANIM.kiosk = {x: kb.x, top: kRoof, y: kb.y, r: kr, bulbs: bulbs}; ANIM.lamps = lamps; ANIM.cart = {x: cart.x, y: cart.y, s: cs3, tie: tie};
     ANIM.fount = {x: fx, y: fy, rx: frx - rim * 0.5, ry: fry - rim * 0.26, bowlY: bowlY, brx: brx, bry: bry, spout: bowlY - 12 * S, fh: fh};
-    ANIM.boug = boug; ANIM.pg = pg; ANIM.jtl = jtl; ANIM.pj = pj; ANIM.strings = strings; ANIM.dome = dm; }
+    ANIM.mxflag = mxFlag; ANIM.boug = boug; ANIM.pg = pg; ANIM.jtl = jtl; ANIM.pj = pj; ANIM.strings = strings; ANIM.dome = dm; }
   return {sky: sky, far: far, refl: bg, mid: mid, near: near};
 };

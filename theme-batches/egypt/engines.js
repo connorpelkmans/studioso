@@ -24,6 +24,12 @@ function egypt_flyIbis(c, x, y, s, fl, K) {
   wing(-0.02, fl, K.ibis, K.ibisDark);
 }
 
+// a national flag waving from its pole at (F.x, F.y): bands (vertical when vert) in cols, an optional emblem drawn by em
+function egypt_flag(c, F, t, vert, cols, em, dk) { var top = [], bot = [], k, u, wv = function (u2) { return Math.sin(u2 * Math.PI * 1.6 - t * 2.2) * F.h * 0.08 * u2; };
+  var pt = function (u2, v2) { return [F.x + F.w * u2, F.y + F.h * v2 + wv(u2)]; }, piece = function (u0, u1, v0, v1) { var p = [], q; for (q = 0; q <= 8; q++) p.push(pt(u0 + (u1 - u0) * q / 8, v0)); for (q = 8; q >= 0; q--) p.push(pt(u0 + (u1 - u0) * q / 8, v1)); c.beginPath(); p.forEach(function (pp, i) { if (i) c.lineTo(pp[0], pp[1]); else c.moveTo(pp[0], pp[1]); }); c.closePath(); c.fill(); };
+  var dim = function (h) { if (!dk) return h; var n = parseInt(h.slice(1), 16); return 'rgb(' + Math.round((n >> 16) * 0.8) + ',' + Math.round(((n >> 8) & 255) * 0.8) + ',' + Math.round((n & 255) * 0.8) + ')'; }; // (solid at night too, just a little dimmer)
+  c.save(); cols.forEach(function (col, i) { c.fillStyle = dim(col); var a0 = i / cols.length, a1 = (i + 1) / cols.length + 0.004; if (vert) piece(a0, a1, 0, 1); else piece(0, 1, a0, a1); });
+  if (em) { var m = pt(0.5, 0.5); em(c, m[0], m[1], F.h); } c.restore(); }
 ENGINES.egypt = function (A, v, dk) {
   var W = v.bw, H = v.bh, ph = !v.desk, U = A.U, ku = A.ku, kh = A.kh, T0 = -99, i;
   var K = dk ? {palmB: '#183225', palmF: '#22432E', dates: '#5A2E28', boots: '#2A1E26', stem: '#264630', umb: '#3A6440', bract: '#2E5236', hull: '#1E151C', stripe: '#2A4A7A', sail: '#CFC8E0', seam: 'rgba(80,70,120,0.45)', spar: '#140E16',
@@ -35,7 +41,8 @@ ENGINES.egypt = function (A, v, dk) {
   var skyClip = function (c) { outs.forEach(function (q) { c.clip(q, 'evenodd'); }); };
   var kuFaces = new Path2D(ku.left + ku.right), faFaces = new Path2D(A.fa.left + A.fa.right), meFaces = new Path2D(A.me.left + A.me.right);
   var capL = new Path2D(poly([ku.at(ku.L, 0.9), ku.at(ku.F, 0.9), ku.A])), capR = new Path2D(poly([ku.at(ku.F, 0.9), ku.at(ku.R, 0.9), ku.A]));
-  var boats = A.boats.map(function (b, k) { return {x: b.x, y: b.y, L: b.L, dir: b.dir, v: b.v * U, ph: k * 2.3}; });
+  var boats = A.boats.map(function (b, k) { return {x: b.x, y: b.y, L: b.L, dir: b.dir, v: b.v * U, ph: k * 2.3}; })
+    .sort(function (p, q) { return p.y - q.y; }); // (drawn far to near, so the far one passes behind the near one)
   var waders = A.ibis.map(function (b, k) { return {x0: b.x, x: b.x, y: b.y, s: b.s, dir: b.dir, ph: k * 1.9 + 0.5, a: 1}; });
   var camels = []; for (i = 0; i < 4; i++) camels.push({off: i * 27 * U, s: 20 * U * (1 - i * 0.04) * (ph ? 0.8 : 1)});
   var cx = W * 0.1, twk = [], flock = [], shoot = null, nextShoot = 6;
@@ -93,6 +100,7 @@ ENGINES.egypt = function (A, v, dk) {
       boats.forEach(function (b) { ca.save(); ca.beginPath(); ca.rect(-20, b.y, W + 40, H); ca.clip(); ca.translate(0, b.y); ca.scale(1, -0.6); ca.translate(0, -b.y); ca.globalAlpha = dk ? 0.28 : 0.2; drawBoat(ca, b, tt, f, true); ca.restore(); drawBoat(ca, b, tt, f, false); });
       waders.forEach(function (w) { if (w.a <= 0) return; ca.save(); ca.globalAlpha = w.a * 0.22; ca.translate(0, w.y); ca.scale(1, -0.55); ca.translate(0, -w.y); drawWader(ca, w, tt, f); ca.restore(); ca.save(); ca.globalAlpha = w.a; drawWader(ca, w, tt, f); ca.restore(); });
       // ---- in front of everything: papyrus, palms, pigeons, the night windows, the rising ibises
+      if (A.egflag) egypt_flag(cb, A.egflag, tt, false, ['#CE1126', '#FFFFFF', '#000000'], function (c, x, y, h) { c.fillStyle = '#C09300'; c.beginPath(); c.moveTo(x, y - h * 0.13); c.lineTo(x + h * 0.1, y + h * 0.1); c.lineTo(x - h * 0.1, y + h * 0.1); c.closePath(); c.fill(); }, dk);
       A.papy.forEach(function (p) { var sw = (Math.sin(tt * 1.1 + p.ph) * 2.6 + Math.sin(tt * 0.43 + p.ph * 2) * 1.8) * U * f.a, tx = p.x + p.lean + sw, ty = p.y - p.h + Math.abs(sw) * 0.1;
         cb.fillStyle = K.stem; cb.fill(new Path2D(egypt_limb(p.x, p.y, tx, ty, 2.4 * U, 1.3 * U, p.lean * 0.2 + sw * 0.3)));
         cb.strokeStyle = K.umb; cb.lineWidth = 1.1; cb.lineCap = 'round'; cb.stroke(new Path2D(egypt_umbel(tx, ty, p.s, (p.lean + sw) * 1.5)));
