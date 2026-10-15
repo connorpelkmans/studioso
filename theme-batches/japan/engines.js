@@ -329,7 +329,11 @@ function japan_paintTown(o, T, dk, W, H, S, ph, which, out) {
     // the street this row of houses fronts onto: laid before the row (and so under it and under every nearer row), running
     // from the hill's foot to the river bank
     var gapY = H * ((rows[r + 1] || ry + 0.034) - ry), stH = gapY * 0.42, top = [], bot = [];
-    for (var sx = T.tx0 - r * W * 0.02 - 30 * sc; sx < W + 40; sx += 6) { var bk = japan_yAt(T.Urev, sx) - 3 * sc; if (yb + 1 > bk || (sx < T.hx1 && yb < japan_yAt(T.HL, sx) + 8) || T.hillT.some(function (c) { return Math.abs(sx - c[0]) < c[2] * 1.1 && yb < c[1] + c[2] * 0.6; })) { if (top.length > 1) japan_poly(o, top.concat(bot), K('#D8CCB2')); top = []; bot = []; continue; }
+    /* it starts at the row's first house (so it never stops short out on the hillside) */
+    var sx0 = W + 40; for (var px0 = xx, pn = 0; px0 < W + 40 && sx0 > W; pn++) { var phw = (34 + hash(r * 40 + pn) * 26) * sc;
+      if (!(r === 0 && px0 + phw > cast[0] - 34 * S && px0 < cast[0] + 44 * S) && yb < japan_yAt(T.Urev, px0 + phw / 2) - 4 && yb < japan_yAt(T.Urev, px0 - 4) - 2 && !(px0 < T.hx1 && yb < japan_yAt(T.HL, px0 + phw / 2) + 8) && !T.hillT.some(function (c) { return Math.abs(px0 + phw / 2 - c[0]) < c[2] * 1.05 + phw * 0.4 && yb < c[1] + c[2] * 0.35; }) && hash(r * 40 + pn + 0.3) >= 0.18 && hash(r * 40 + pn + 0.4) >= 0.14) sx0 = px0 + 2 * sc; /* (a house, not one of the trees) */
+      px0 += phw + (6 + hash(r * 9 + pn) * 16) * sc; }
+    for (var sx = sx0; sx < W + 40; sx += 6) { var bk = japan_yAt(T.Urev, sx) - 3 * sc; if (yb + 1 > bk || (sx < T.hx1 && yb < japan_yAt(T.HL, sx) + 8) || T.hillT.some(function (c) { return Math.abs(sx - c[0]) < c[2] * 1.1 && yb < c[1] + c[2] * 0.6; })) { if (top.length > 1) japan_poly(o, top.concat(bot), K('#D8CCB2')); top = []; bot = []; continue; }
       top.push([sx, yb - 1 * sc]); bot.unshift([sx, Math.min(yb + stH, bk)]); }
     if (top.length > 1) japan_poly(o, top.concat(bot), K('#D8CCB2'));
     if (which === 'front' && r === rows.length - 1) {
@@ -352,11 +356,11 @@ function japan_paintTown(o, T, dk, W, H, S, ph, which, out) {
   });
   if (which === 'front') { var K0 = japan_tone(dk, 0), bx = T.bank, tea = T.tea;
     // the lane of trees along the river bank, and the teahouse among them with a red bench and a parasol
-    for (var x = bx[0]; x < Math.min(bx[1], T.bridgeX - ((ph ? 40 : 70) + 22) * S); /* (clear of the lane to the bridge) */ x += (ph ? 20 : 30) * S) { if (Math.abs(x - tea[0]) < 36 * S) continue; var by = japan_yAt(T.Urev, x) - 4 * S, tr = (9 + hash(x) * 7) * S;
+    for (var x = bx[0]; x < Math.min(bx[1], T.bridgeX - ((ph ? 40 : 70) + 22) * S); /* (clear of the lane to the bridge) */ x += (ph ? 20 : 30) * S) { if (Math.abs(x - tea[0]) < 52 * S) continue; var by = japan_yAt(T.Urev, x) - 4 * S, tr = (9 + hash(x) * 7) * S;
       if (by < H * 0.95) { japan_tree(o, K0, x, by + tr * 0.1, tr, hash(x + 1) < 0.35, sh(0)); items.push({box: [x - tr * 1.3, by - tr * 2, x + tr * 1.3, by]}); } }
-    if (tea[1] > H * 0.7) { var wb3 = [], lb3 = [], tb = japan_house(o, K0, sh(0), {x: tea[0] - 26 * S, yb: tea[1] + 8 * S, w: 52 * S, hh: 18 * S, sc: S, hip: true, tea: true, seed: 5, roof: '#56607A'}, wb3, lb3, dk);
+    if (tea[1] > H * 0.7) { var wb3 = [], lb3 = [], tb = japan_house(o, K0, sh(0), {x: tea[0] - 38 * S, yb: tea[1] + 10 * S, w: 76 * S, hh: 26 * S, sc: S * 1.45, hip: true, tea: true, seed: 5, roof: '#56607A'}, wb3, lb3, dk);
       items.push({box: tb}); take(wb3, lb3);
-      var px = tea[0] - 40 * S, py = tea[1] + 10 * S; o.fillStyle = sh(0); o.beginPath(); o.ellipse(px + 6 * S, py, 14 * S, 2.6 * S, 0, 0, 7); o.fill();
+      var px = tea[0] - 54 * S, py = tea[1] + 12 * S; o.fillStyle = sh(0); o.beginPath(); o.ellipse(px + 6 * S, py, 14 * S, 2.6 * S, 0, 0, 7); o.fill();
       japan_poly(o, [[px - 8 * S, py - 4 * S], [px + 8 * S, py - 4 * S], [px + 10 * S, py - 6 * S], [px - 6 * S, py - 6 * S]], K0('#E04A34')); japan_poly(o, [[px - 8 * S, py - 4 * S], [px + 8 * S, py - 4 * S], [px + 8 * S, py - 2.6 * S], [px - 8 * S, py - 2.6 * S]], K0('#A8301E'));
       o.fillStyle = K0('#3A2A24'); o.fillRect(px - 7 * S, py - 2.6 * S, 1 * S, 2.6 * S); o.fillRect(px + 6 * S, py - 2.6 * S, 1 * S, 2.6 * S);
       japan_path(o, [[px + 2 * S, py - 3 * S], [px + 3 * S, py - 26 * S]], K0('#4A3A30'), 0.8 * S);
