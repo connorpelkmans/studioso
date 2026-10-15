@@ -66,11 +66,11 @@ function greece_tuft(x, y, r) { return greece_e(x, y, r * 1.3, r * 0.8) + greece
 var greece_C = {
   L: {haze: 'rgba(255,240,222,0.9)', cloud: 'rgba(255,255,255,0.82)', glare: 'rgba(255,250,236,0.5)', sun: '#FFF8E2',
     spk: 'rgba(255,255,255,0.92)', thera: '#9AB3CD', kam: '#6E6676', rock: '#7A4636', band1: '#B8987A', band2: '#4A302C', rshade: 'rgba(40,14,20,0.34)', strata: 'rgba(72,34,30,0.34)', foam: 'rgba(255,255,255,0.8)',
-    mwall: '#FCFBF8', past1: '#F4CF92', past2: '#F3B6A6', mshade: 'rgba(58,82,156,0.24)', pool: '#55CFE0', haze2: 'rgba(214,232,248,0.55)', stone: '#D9C3A2', bronze: '#B88A3E', rail: 'rgba(40,52,86,0.55)', wood: '#8A6648',
+    mwall: '#FCFBF8', past1: '#F4CF92', past2: '#F3B6A6', mshade: 'rgba(58,82,156,0.24)', pool: '#55CFE0', haze2: 'rgba(214,232,248,0.55)', stone: '#B9B1A4', bronze: '#B88A3E', rail: 'rgba(40,52,86,0.55)', wood: '#8A6648',
     wall: '#FCFBF8', nShade: '#C3D0E2', blue: '#2F6DB8', leaf: '#3F8A4C', fl: '#DA338A', terra: '#C6764A', navy: '#1E4C90', win: '#2E4468', line: 'rgba(80,104,140,0.38)', wire: 'rgba(70,60,60,0.5)'},
   D: {haze: 'rgba(196,104,148,0.42)', cloud: 'rgba(150,140,200,0.35)', glare: 'rgba(200,210,255,0.2)', sun: '#FFF4D8',
     spk: 'rgba(255,196,110,0.92)', thera: '#2C2E5A', kam: '#1C1E3E', rock: '#2E2440', band1: '#4A3E5E', band2: '#1A1428', rshade: 'rgba(6,4,22,0.36)', strata: 'rgba(4,2,16,0.4)', foam: 'rgba(210,220,255,0.4)',
-    mwall: '#5A6192', past1: '#6E5F7C', past2: '#6A5276', mshade: 'rgba(8,8,36,0.4)', pool: '#2F8CB4', haze2: 'rgba(30,34,80,0.45)', stone: '#4A4262', bronze: '#A07A3A', rail: 'rgba(10,10,30,0.6)', wood: '#3A2A2A',
+    mwall: '#5A6192', past1: '#6E5F7C', past2: '#6A5276', mshade: 'rgba(8,8,36,0.4)', pool: '#2F8CB4', haze2: 'rgba(30,34,80,0.45)', stone: '#47425C', bronze: '#A07A3A', rail: 'rgba(10,10,30,0.6)', wood: '#3A2A2A',
     wall: '#565D8E', nShade: '#40467A', blue: '#3450A0', leaf: '#2A5440', fl: '#A23578', terra: '#7C4C3E', navy: '#202F66', win: '#FFC870', line: 'rgba(20,20,50,0.4)', wire: 'rgba(20,16,30,0.6)'}
 };
 SCENES.greece = function (W, H, dk, rnd) {
@@ -223,7 +223,7 @@ SCENES.greece = function (W, H, dk, rnd) {
     var x = o.x, w = o.w, top = o.top, base = o.base, x1 = x + w, sx = o.sx, sy = o.sy, col = o.col, hgt = base - top, kk = o.k, th = o.th, det = th < 1.12, xr = x1 + sx, q;
     if (O.max(x, xr) < top - sy - 2 * S) return;
     if (o.perch) { var sb1 = base + gap * 0.55 * kk;
-      var fi0 = o.row === 0 ? x - 0.6 * S : x + 1.5 * S, fi1 = o.row === 0 ? x1 + 0.6 * S : x1 - 1 * S; M.a += band(fi0, fi1, base, base, sb1 - 3 * S, sb1); // (the front row's footings meet, so no rock shows between them) M.d += band(x1 - 3.5 * S, x1 - 1 * S, base, base, sb1, sb1) + band(x + 1.5 * S, x1 - 1 * S, base, base, base + 1.6 * S, base + 1.6 * S);
+      var fi0 = x - 0.6 * S, fi1 = x1 + 0.6 * S; M.a += o.row === 0 ? O.band(fi0, fi1, function () { return base; }, function (X) { return Math.max(sb1, baseY(X) + 1.5 * S); }) : band(fi0, fi1, base, base, sb1 - 3 * S, sb1); /* the front row's footings meet each other and run down to the walkway at every point, so no rock shows */ M.d += band(x1 - 3.5 * S, x1 - 1 * S, base, base, sb1, sb1) + band(x + 1.5 * S, x1 - 1 * S, base, base, base + 1.6 * S, base + 1.6 * S);
       if (det && w > 16 * S && vis(x + w * 0.3, x + w * 0.3 + 6 * S * kk, sb1 - 2 * S) && !onMule(x + w * 0.3 - 1 * S, x + w * 0.3 + 7 * S * kk, base + 3 * S * kk, sb1) && !(o.row === 0 && sb1 - 2 * S * kk > Math.min(baseY(x + w * 0.3), baseY(x + w * 0.3 + 6 * S * kk)))) N.g += greece_arch(x + w * 0.3, base + 3 * S * kk, 6 * S * kk, sb1 - base - 5 * S * kk);
       G.g += O.band(x1 - 1 * S, x1 + 8 * S, function (X) { return base + (X - x1) * 0.5; }, function () { return sb1 + 5 * S; });
       // (where its footing meets the rock it throws a shadow, so it sits in the cliff instead of resting on it)
@@ -330,17 +330,19 @@ SCENES.greece = function (W, H, dk, rnd) {
         O.put(mxX - mw - 1.5 * S, mxX + mw + 1.5 * S, function (X) { return mTop - 14 * S + Math.abs(X - mxX) * 1.2; });
         mill = {x: mxX, y: mTop - 4 * S, L: millL}; xx = mxX - mw - 3 * S; continue; }
       var gk = rnd();
-      if (r > 0 && gk < 0.05 && th < 0.5) { var swd = (7 + rnd() * 4) * S; stairs(xx - swd, xx, cY(v, xx - swd / 2)); xx -= swd; continue; }
-      if (r > 0 && gk < 0.08 + 0.14 * th / thMax) { var gw = (5 + rnd() * 12) * S * cs; if (th < 1.1 && rnd() < 0.5 && vis(xx - gw * 0.8, xx - gw * 0.2, cY(v, xx) - 1 * S)) N.d += greece_tuft(xx - gw / 2, cY(v, xx - gw / 2) - 2.5 * S, 2.6 * S * kk); xx -= gw; continue; }
-      var w = (ph ? 17 + rnd() * 20 : 22 + rnd() * 30) * S, fw = Math.max(3 * S, w * kk * cs), x0 = xx - fw, bse = cY(v, xx - fw * 0.5) - (r > 0 && rnd() < 0.3 ? rnd() * gap * 0.25 * kk : 0);
+      if (r > 0 && gk < 0.05 && th < 0.5) rnd(); // (no stairways between the houses: only the one up from the walkway)
+      if (false && gk < 0.08 + 0.14 * th / thMax) { var gw = (5 + rnd() * 12) * S * cs; if (th < 1.1 && rnd() < 0.5 && vis(xx - gw * 0.8, xx - gw * 0.2, cY(v, xx) - 1 * S)) N.d += greece_tuft(xx - gw / 2, cY(v, xx - gw / 2) - 2.5 * S, 2.6 * S * kk); xx -= gw; continue; }
+      var w = (ph ? 17 + rnd() * 20 : 22 + rnd() * 30) * S, fw = Math.max(3 * S, w * kk * cs), x0 = xx - fw, bse = cY(v, xx - fw * 0.5) - (r > 0 && rnd() < 0.3 ? (rnd(), 0) : 0); // (every house stands on its row's line: raised ones left rock showing under them)
       var hh = gap * (1.0 + rnd() * 0.6) * kk; if (rnd() < 0.1) hh = gap * (1.6 + rnd() * 0.4) * kk;
       // each row runs right out to the edge of the cliff, so the village (not bare rock) forms the outline as it wraps round;
       // the last house stops where its footing meets the edge, never out past it
       // a whitewashed stairway climbs from the walkway, where the mule path leaves it, up between the houses of the first two rows
       var stW = 9 * S, stL = pxa - stW / 2, stR = pxa + stW / 2;
-      if (r <= 1 && !stDone[r] && x0 < stR && xx > stL) {
+      if (r === 0 && !stDone[r] && x0 < stR && xx > stL) {
         if (xx > stR + 3 * S) { x0 = stR; fw = xx - x0; }
-        else { stairs(stL, xx, r === 0 ? baseY(pxa) : cY(v, pxa), r === 0 ? gap * 0.55 * kk : 0); stDone[r] = 1; xx = stL; continue; } }
+        else { var sYb = baseY(pxa) + 1 * S, sTop = cY(v, pxa) - gap * 0.75; M.g += band(stL, xx, sTop, sTop, sYb, sYb); M.d += band(xx - 1.6 * S, xx, sTop, sTop, sYb, sYb);
+          for (var sy4 = sYb - 2.2 * S; sy4 > sTop + 1; sy4 -= 2.4 * S) mRail += seg(stL + 0.3 * S, sy4, xx - 1.8 * S, sy4);
+          M.a += band(stL - 1.2 * S, stL + 0.6 * S, sTop - 1.5 * S, sTop - 1.5 * S, sYb, sYb); O.put(stL - 1.2 * S, xx, function () { return sTop; }); stDone[r] = 1; xx = stL; continue; } } // (a short flight in the walkway's paving, with a white parapet)
       var xEdge = silX(bse + (r === 0 ? gap * 0.6 * kk : 2 * S)) + 0.5 * S, capped = false;
       if (x0 < xEdge) { if (xx - xEdge < 2.5 * S) break; x0 = xEdge; fw = xx - x0; capped = true; }
       var top = bse - hh; if ((capped || th > 1.0) && r < nR - 1) top = Math.min(top, bse - gap * 1.12); // (round the edge each row reaches the one above, so no rock shows between them)
@@ -352,7 +354,7 @@ SCENES.greece = function (W, H, dk, rnd) {
         if (wantDome) { lastDome = cxH; top = Math.min(top, bse - gap * 1.3 * kk); }
         house({x: x0, w: fw, top: top, base: bse, col: col, sx: dd * 0.8 + w * kk * sn * 0.42, sy: dd * 0.55, roof: flatRoof ? 0 : 1, row: r, k: kk, sq: cs, th: th, haze: th > 0.82, perch: r === 0 || (th > 0.6 && rnd() < 0.25), dome: wantDome, bell: wantBell}); }
       if (capped) break;
-      xx = x0 - (rnd() < 0.2 && r > 0 ? (1 + rnd() * 4) * S * cs : 0); // (the front row has no gaps: rock showed between its footings)
+      rnd(); xx = x0; // (the houses stand side by side: gaps between them showed the rock as brown lines)
     }
   }
   // a whitewashed walkway runs along the foot of the front row, round the edge of the cliff: paving in front of the houses
@@ -378,6 +380,9 @@ SCENES.greece = function (W, H, dk, rnd) {
     M.g += greece_pg(inner.concat(edge.slice().reverse()));
     M.d += greece_pg(inner.concat(out(rp2, 1.3 * S).reverse()));
     M.a += greece_pg(edge.concat(wallB.slice().reverse()));
+    // cobbles: rows of small rounded stones set in the paving, their joints showing
+    for (var cr = 0; cr < 4; cr++) for (var cq = cr % 2; cq < rp2.length; cq += 2) { var hq = hash(cq * 1.7 + cr * 9.1), cd = pathW * (0.14 + cr * 0.24) + (hq - 0.5) * 0.5 * S, cp = out([rp2[cq]], cd)[0], fk = Math.max(0.4, Math.cos(rp2[cq][2]));
+      if (hq < 0.12) continue; mRail += greece_e(cp[0] + (hq - 0.5) * 0.8 * S, cp[1], (0.75 + hq * 0.45) * S * fk, (0.38 + hq * 0.18) * S); }
     M.d += greece_pg(dn(wallB, -0.6 * S).concat(dn(wallB, 1.2 * S).reverse()));
     for (var q2 = 0, pst = 0; q2 < edge.length - 1; q2++) { pst += Math.hypot(edge[q2 + 1][0] - edge[q2][0], edge[q2 + 1][1] - edge[q2][1]); if (pst >= 9 * S) { pst = 0; mRail += seg(edge[q2][0], edge[q2][1] + 0.3 * S, edge[q2][0], edge[q2][1] + parH - 0.3 * S); } }
     var pathTop = function (X) { var q = Math.round((X - xs2[0]) / stp2); return q >= 0 && q < ptY.length ? ptY[q] : -1; };
@@ -460,6 +465,16 @@ SCENES.greece = function (W, H, dk, rnd) {
   var bellAt = bells.map(function (b) { return {x: b[0] + b[2] / 2, y: b[1] + b[2] * 0.42, s: b[2] / (24 * s)}; });
   // a house corner beyond the tower (phone), with a blue window
   if (ph && ex0 < W) { N.a += rect(ex0 - 1, eT, W - ex0 + 20, H - eT + 10); N.b += rect(ex0 - 1, eT + 3 * s, W - ex0 + 20, 2 * s); var ewx = ex0 + (W - ex0) * 0.3; if (W - ex0 > 40 * s) { N.h += rect(ewx, eT + 22 * s, 14 * s, 18 * s); N.c += rect(ewx - 7 * s, eT + 21 * s, 6.5 * s, 20 * s) + rect(ewx + 14.5 * s, eT + 21 * s, 6.5 * s, 20 * s); nearWin.push([ewx + 7 * s, eT + 31 * s, 16 * s]); } }
+  // the Greek flag on a white pole on the upper roof of the house on the left: nine blue and white stripes, a blue canton
+  // with a white cross, rippling a little
+  (function () { var gx = hx1 - W * 0.07 + 10 * s, gb = hT - 18 * s, gH = (ph ? 46 : 58) * s, gw = (ph ? 30 : 38) * s, gh = gw * 2 / 3, g0 = gb - gH + 2 * s;
+    if (gx < 8 * s) return;
+    var wv = function (u) { return Math.sin(u * 4.2) * 1.4 * s * u; }, pt = function (u, v) { return [gx + 1.2 * s + u * gw, g0 + v * gh + wv(u)]; };
+    var piece = function (u0, u1, v0, v1) { var a = [], b = [], k; for (k = 0; k <= 8; k++) { var uu = u0 + (u1 - u0) * k / 8; a.push(pt(uu, v0)); b.unshift(pt(uu, v1)); } return greece_pg(a.concat(b)); };
+    N.a += rect(gx - 1.1 * s, gb - gH, 2.2 * s, gH) + piece(0, 1, 0, 1); N.g += greece_c(gx, gb - gH - 1.2 * s, 2 * s);
+    // (blue is drawn over the white cloth, so the canton is four blue squares round the white cross)
+    for (var st = 0; st < 9; st += 2) N.c += piece(st < 5 ? 0.37 : 0, 1, st / 9, (st + 1) / 9);
+    var c1 = 0.37 * 2 / 5, c2 = 0.37 * 3 / 5; N.c += piece(0, c1, 0, 2 / 9) + piece(c2, 0.37, 0, 2 / 9) + piece(0, c1, 3 / 9, 5 / 9) + piece(c2, 0.37, 3 / 9, 5 / 9); })();
   // bougainvillea: over the left house's roof and down its corner, and spilling over the terrace wall by the church
   var B = {leaf: '', fl: ''}, sprays = [];
   var bl0 = []; for (x = -10; x < hx1 + 8 * s; x += 9 * s) bl0.push([x, hT - 4 * s + Math.sin(x / 17) * 3 * s]);

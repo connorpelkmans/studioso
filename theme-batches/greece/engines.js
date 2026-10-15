@@ -26,14 +26,20 @@ function greece_kitty(c, x, y, sz, dir, p, sit, sw, col, dark) {
   var onBody = function (lx, ly) { return [bx + lx * ca - ly * sa, by + lx * sa + ly * ca]; };
   // legs: each runs from a point on the body's underside to a paw on the ground, so it can never come loose; walking they
   // swing, sitting the front ones stand straight and the back ones fold under the haunch
-  c.lineWidth = 2.2; [[-6, 0, 0], [-3.6, Math.PI, 0], [4.6, Math.PI * 0.5, 1], [7, Math.PI * 1.5, 1]].forEach(function (q) {
-    var a = onBody(q[0], ry * 0.55), swing = Math.sin(p + q[1]) * 2.6 * (1 - sit), fx = q[2] ? a[0] + 0.4 * sit : a[0] + 2.5 * sit;
-    c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(fx + swing, -0.4); c.stroke(); c.beginPath(); c.ellipse(fx + swing + 0.5, -0.6, 1.4, 0.8, 0, 0, 7); c.fill(); });
-  if (sit > 0.01) { c.beginPath(); c.ellipse(-4.6, -4.2 + (1 - sit) * 2, 5.4 * sit + 0.01, 4.2 * sit + 0.01, -0.2, 0, 7); c.fill(); }
+  // (sitting, the front legs stand apart and straight under the chest, the back legs fold away under the haunch with just
+  // a paw showing in front of it)
+  [[-6, 0, 0], [-3.6, Math.PI, 0], [4.6 - 1.6 * sit, Math.PI * 0.5, 1], [7 - 3.2 * sit, Math.PI * 1.5, 1]].forEach(function (q) {
+    var a = onBody(q[0], ry * 0.55), swing = Math.sin(p + q[1]) * 2.6 * (1 - sit), fx = a[0] + swing;
+    c.lineWidth = 2.2 - 0.4 * sit * q[2]; if (!q[2]) fx = fx + (-3.2 - fx) * sit * 0.9;
+    c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(fx, -0.4); c.stroke(); if (q[2] || sit < 0.5) { c.beginPath(); c.ellipse(fx + 0.4, -0.6, 1.3, 0.7, 0, 0, 7); c.fill(); } });
+  if (sit > 0.01) { c.beginPath(); c.ellipse(-4.4, -4.4 + (1 - sit) * 2, 5.2 * sit + 0.01, 4.4 * sit + 0.01, -0.25, 0, 7); c.fill(); c.globalAlpha = Math.min(1, sit * 2); c.beginPath(); c.ellipse(-1.2, -0.8, 2, 0.9, 0, 0, 7); c.fill(); c.globalAlpha = 1; }
+  // tail: from the back of the body up and curling at the tip; sitting, it wraps round the haunch along the ground
+  var t0 = onBody(-rx + 1, -1 + sit * 2), tc = [t0[0] - 5.5 - sw * 2 + sit * (-3.5 + sw * 2), t0[1] - 5 + sit * 9], te = [t0[0] - 3.5 + sw * 3 + sit * (6 - sw * 1.5 - (t0[0] - 3.5) + t0[0] - 3.5), t0[1] - 13 + sit * (13 - 0.9 - t0[1] + t0[1])];
+  te = [(t0[0] - 3.5 + sw * 3) * (1 - sit) + (-1 + sw * 1.2) * sit, (t0[1] - 13) * (1 - sit) + (-1) * sit];
+  c.lineWidth = 2.4; c.beginPath(); c.moveTo(t0[0], t0[1]); c.quadraticCurveTo(tc[0], tc[1], te[0], te[1]); c.stroke();
   c.save(); c.translate(bx, by); c.rotate(ang);
   var body = new Path2D(); body.ellipse(0, 0, rx, ry, 0, 0, 7); c.fill(body);
   // tail from the back of the body, up and curling (lying round the haunch when it sits)
-  c.lineWidth = 2.4; c.beginPath(); c.moveTo(-rx + 1, -1); c.quadraticCurveTo(-rx - 4.5 - sw * 2, -6 + sit * 8, -rx - 2.5 + sw * 3 - sit * 2, -14 + sit * 18); c.stroke();
   // stripes painted inside the body (clipped to it), so they move with it
   c.save(); c.clip(body); c.fillStyle = dark; [-4.4, -0.9, 2.6].forEach(function (sx2) { c.beginPath(); c.ellipse(sx2, -ry * 0.55, 1.2, ry * 0.75, 0.2, 0, 7); c.fill(); }); c.restore();
   // head and ears on the front of the body, kept upright
