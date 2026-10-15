@@ -307,7 +307,7 @@ SCENES.greece = function (W, H, dk, rnd) {
   for (r = 0; r < nR; r++) {
     v = vBot - r * gap; var xx = W + 20 - rnd() * 10 * S, topRow = r === nR - 1;
     for (var guard = 0; guard < 400; guard++) {
-      var th = thetaAt(v, xx); if (th > thMax || xx < -20) break;
+      var th = thetaAt(v, xx); if (xx < silX(cY(v, xx)) + 1 * S || xx < -20) break; // (on round the shoulder right out to the cliff's outline)
       var kk = 1 - 0.36 * (1 - Math.cos(th)), cs = Math.max(0.16, Math.cos(th)), sn = Math.sin(th);
       if (topRow && !mill && xx <= mxX + mw + 2 * S) {
         // the windmill on the rim: a white tower, a thatched cap, a blue door; the sails are the engine's
@@ -322,13 +322,11 @@ SCENES.greece = function (W, H, dk, rnd) {
       if (gk < 0.08 + 0.14 * th / thMax) { var gw = (5 + rnd() * 12) * S * cs; if (th < 1.1 && rnd() < 0.5 && vis(xx - gw * 0.8, xx - gw * 0.2, cY(v, xx) - 1 * S)) N.d += greece_tuft(xx - gw / 2, cY(v, xx - gw / 2) - 2.5 * S, 2.6 * S * kk); xx -= gw; continue; }
       var w = (ph ? 17 + rnd() * 20 : 22 + rnd() * 30) * S, fw = Math.max(3 * S, w * kk * cs), x0 = xx - fw, bse = cY(v, xx - fw * 0.5) - (r > 0 && rnd() < 0.3 ? rnd() * gap * 0.25 * kk : 0);
       var hh = gap * (1.0 + rnd() * 0.6) * kk; if (rnd() < 0.1) hh = gap * (1.6 + rnd() * 0.4) * kk;
-      // (no house whose footing would stand out past the cliff's edge: there is nothing under it there)
-      if (x0 < silX(bse + (r === 0 ? gap * 0.6 * kk : 2 * S)) + 2 * S) { xx = x0 - 2 * S; continue; }
-      var top = bse - hh;
-      // near the edge of the cliff a house is kept lower, so its top stays inside the cliff's outline (which leans in going up)
-      // and the village steps down to the edge in terraces instead of a column of boxes poking out into the sky
-      for (var yEdge = bse; yEdge > top && silX(yEdge - 2 * S) < x0 - 1 * S; yEdge -= 1 * S); var capped = yEdge > top; if (capped) top = yEdge;
-      if (bse - top < gap * 0.4 * kk) { xx = x0 - 2 * S; continue; }
+      // each row runs right out to the edge of the cliff, so the village (not bare rock) forms the outline as it wraps round;
+      // the last house stops where its footing meets the edge, never out past it
+      var xEdge = silX(bse + (r === 0 ? gap * 0.6 * kk : 2 * S)) + 0.5 * S, capped = false;
+      if (x0 < xEdge) { if (xx - xEdge < 2.5 * S) break; x0 = xEdge; fw = xx - x0; capped = true; }
+      var top = bse - hh; if ((capped || th > 1.0) && r < nR - 1) top = Math.min(top, bse - gap * 1.12); // (round the edge each row reaches the one above, so no rock shows between them)
       if (r >= nR - 3 && Math.abs(xx - fw / 2 - mxX) < millL + fw / 2 + 2 * S) top = Math.max(top, mb - 8 * S);
       if (bse - top > gap * 0.4 * kk) { var col = rnd() < 0.1 ? 'b' : rnd() < 0.1 ? 'c' : 'a'; if (col !== 'a' && col === lastCol) col = 'a'; lastCol = col;
         var flatRoof = rnd() > 0.28 || th > 0.9, pool = flatRoof && rnd() < 0.3 && th < 0.7, dd = (pool ? 11 + rnd() * 5 : 6 + rnd() * 4) * S * kk, cxH = xx - fw / 2;
@@ -336,6 +334,7 @@ SCENES.greece = function (W, H, dk, rnd) {
         var wantBell = !capped && !wantDome && flatRoof && fw > 20 * S && th < 0.6 && belfries < (ph ? 3 : 6) && Math.abs(cxH - mxX) > millL + 20 * S && rnd() < 0.12;
         if (wantDome) { lastDome = cxH; top = Math.min(top, bse - gap * 1.3 * kk); }
         house({x: x0, w: fw, top: top, base: bse, col: col, sx: dd * 0.8 + w * kk * sn * 0.42, sy: dd * 0.55, roof: flatRoof ? 0 : 1, row: r, k: kk, sq: cs, th: th, haze: th > 0.82, perch: r === 0 || (th > 0.6 && rnd() < 0.25), dome: wantDome, bell: wantBell}); }
+      if (capped) break;
       xx = x0 - (rnd() < 0.2 ? (1 + rnd() * 4) * S * cs : 0);
     }
   }
@@ -358,16 +357,20 @@ SCENES.greece = function (W, H, dk, rnd) {
     var mean = function (a) { return a.reduce(function (p, c) { return p + c; }, 0) / a.length; };
     var dd = raw.map(function (v2, q) { return v2 < 0 ? 0 : Math.max(0, v2 - baseY(xs2[q])); });
     var lift = win2(win2(win2(dd, Math.round(46 * S / stp2), function (a) { return Math.max.apply(null, a); }), Math.round(26 * S / stp2), mean), Math.round(16 * S / stp2), mean);
-    var ptY = xs2.map(function (X, q) { return baseY(X) + lift[q] + 1 * S; }), kks = xs2.map(kkAt);
-    var pathW = 5.5 * S, parH = 2.8 * S, rp2 = xs2.map(function (X, q) { return [X, ptY[q], kks[q]]; }).filter(function (p) { return p[0] > silX(p[1]) + 1 * S; }); // (never out past the cliff's edge)
-    var off = function (pts, dy) { return pts.map(function (p) { return [p[0], p[1] + dy * p[2]]; }); };
-    var rb = rp2.map(function (p) { return [p[0], p[1] + (pathW + parH) * p[2] + crag(p[0]) * p[2]]; });
-    G.f += greece_pg(off(rp2, -3 * S).concat(rb.reverse()));
-    M.g += greece_pg(off(rp2, -1 / 1).concat(off(rp2, pathW).reverse()));
-    M.d += greece_pg(off(rp2, -1).concat(off(rp2, 1.3 * S).reverse()));
-    M.a += greece_pg(off(rp2, pathW).concat(off(rp2, pathW + parH).reverse()));
-    M.d += greece_pg(off(rp2, pathW + parH - 0.6 * S).concat(off(rp2, pathW + parH + 1.2 * S).reverse()));
-    for (var q2 = 0, pst = 0; q2 < rp2.length; q2++) { pst += stp2 * Math.max(0.3, Math.cos(thetaAt(vBot, rp2[q2][0]))) ; if (pst >= 9 * S) { pst = 0; var pk = rp2[q2][2]; mRail += seg(rp2[q2][0], rp2[q2][1] + (pathW + 0.3 * S) * pk, rp2[q2][0], rp2[q2][1] + (pathW + parH - 0.3 * S) * pk); } }
+    var ptY = xs2.map(function (X, q) { return baseY(X) + lift[q] + 1 * S; });
+    // the walkway is a ledge on the round face: its width points out from the face, so it shows as depth (downward) where the
+    // face looks at us and turns outward (sideways, past the edge) as the face turns away, then passes out of sight behind it;
+    // the parapet and the rock under it hang straight down
+    var pathW = 5.5 * S, parH = 2.8 * S, rp2 = xs2.map(function (X, q) { return [X, ptY[q], thetaAt(vBot, X)]; }).filter(function (p) { return p[0] > silX(p[1]) - 0.5 * S; });
+    var out = function (pts, d) { return pts.map(function (p) { return [p[0] - Math.sin(p[2]) * d * 1.9, p[1] + Math.cos(p[2]) * d]; }); };
+    var dn = function (pts, d) { return pts.map(function (p) { return [p[0], p[1] + d]; }); };
+    var inner = dn(rp2, -1), edge = out(rp2, pathW), wallB = dn(edge, parH);
+    G.f += greece_pg(dn(rp2, -3 * S).concat(dn(edge, parH).map(function (p) { return [p[0], p[1] + crag(p[0])]; }).reverse()));
+    M.g += greece_pg(inner.concat(edge.slice().reverse()));
+    M.d += greece_pg(inner.concat(out(rp2, 1.3 * S).reverse()));
+    M.a += greece_pg(edge.concat(wallB.slice().reverse()));
+    M.d += greece_pg(dn(wallB, -0.6 * S).concat(dn(wallB, 1.2 * S).reverse()));
+    for (var q2 = 0, pst = 0; q2 < edge.length - 1; q2++) { pst += Math.hypot(edge[q2 + 1][0] - edge[q2][0], edge[q2 + 1][1] - edge[q2][1]); if (pst >= 9 * S) { pst = 0; mRail += seg(edge[q2][0], edge[q2][1] + 0.3 * S, edge[q2][0], edge[q2][1] + parH - 0.3 * S); } }
     var pathTop = function (X) { var q = Math.round((X - xs2[0]) / stp2); return q >= 0 && q < ptY.length ? ptY[q] : -1; };
     // the mule path's top run starts from the walkway: from the walkway's outer edge at the path's top end, through an
     // opening in its parapet, down to the first turn
