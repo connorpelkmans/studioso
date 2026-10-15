@@ -401,7 +401,7 @@ ENGINES.brazil = function (A, v, dk) {
       for (k = 0; k < 3; k++) { var pp = ((tt / 6.5) + k / 3) % 1, SHp = A.SH, cr, run, j2;
         if (pp < 0.42) { cr = -38 * S * (1 - brazil_ease(pp / 0.42)) - 3 * S; cb.strokeStyle = dk ? 'rgba(200,210,255,' + (0.35 * Math.sin(Math.PI * pp / 0.42)) + ')' : 'rgba(255,255,255,' + (0.85 * Math.sin(Math.PI * pp / 0.42)) + ')'; cb.lineWidth = (1.6 + pp * 4) * S; cb.beginPath();
           for (j2 = 0; j2 < SHp.length; j2++) { var py = SHp[j2][1] + cr * (0.8 + 0.2 * Math.sin(SHp[j2][0] * 0.013 + k * 2)); if (j2) cb.lineTo(SHp[j2][0], py); else cb.moveTo(SHp[j2][0], py); } cb.stroke(); }
-        if (pp > 0.36) { var q = (pp - 0.36) / 0.64; run = A.sandW * 0.42 * Math.pow(Math.sin(Math.PI * Math.min(1, q * 1.15)), 0.7); var fa = (1 - q) * 0.9;
+        if (pp > 0.36) { var q = (pp - 0.36) / 0.64; run = A.sandW * 0.42 * Math.pow(Math.sin(Math.PI * Math.min(1, q * 1.15)), 0.7); var fa = (1 - q) * 0.9 * brazil_ease(Math.min(1, q * 5)); // (fades in as the wave breaks, so the foam line never pops on)
           cb.fillStyle = dk ? 'rgba(170,180,230,' + fa * 0.35 + ')' : 'rgba(255,255,255,' + fa * 0.6 + ')'; cb.beginPath();
           for (j2 = 0; j2 < SHp.length; j2++) cb.lineTo(SHp[j2][0], SHp[j2][1] - 4 * S);
           for (j2 = SHp.length - 1; j2 >= 0; j2--) cb.lineTo(SHp[j2][0], SHp[j2][1] + run * (0.7 + 0.3 * Math.sin(SHp[j2][0] * 0.021 + k * 1.7)));
