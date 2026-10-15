@@ -343,13 +343,24 @@ SCENES.greece = function (W, H, dk, rnd) {
     var stp2 = 2 * S, raw = [], xs2 = [];
     for (x = fx0 - 4 * S; x <= fx1 + 4 * S; x += stp2) { xs2.push(x); raw.push(footAt(x)); }
     // bridge short gaps between houses, then take the lowest footing nearby and smooth it, so the path runs in an easy curve
-    for (k = 0; k < raw.length; k++) if (raw[k] < 0) { var a2 = k - 1, b2 = k + 1; while (a2 >= 0 && raw[a2] < 0) a2--; while (b2 < raw.length && raw[b2] < 0) b2++; if (a2 >= 0 && b2 < raw.length && (b2 - a2) * stp2 < 24 * S) raw[k] = raw[a2] + (raw[b2] - raw[a2]) * (k - a2) / (b2 - a2); }
-    // the lowest footing over a wide stretch, then averaged twice over narrower ones: because the averaging is narrower than
-    // the stretch, the path never rises above a footing near it, and every step between house levels becomes a long, easy slope
-    var win2 = function (arr, n, fn) { return arr.map(function (v2, q) { if (v2 < 0) return -1; var acc = [], d; for (d = -n; d <= n; d++) if (arr[q + d] > 0) acc.push(arr[q + d]); return fn(acc); }); };
-    var mx2 = win2(raw, Math.round(30 * S / stp2), function (a) { return Math.max.apply(null, a); });
-    var av1 = win2(mx2, Math.round(18 * S / stp2), function (a) { return a.reduce(function (p, c) { return p + c; }, 0) / a.length; });
-    var ptY = win2(av1, Math.round(10 * S / stp2), function (a) { return a.reduce(function (p, c) { return p + c; }, 0) / a.length; }).map(function (v2, q) { return v2 < 0 ? v2 : Math.max(v2, raw[q]) + 1 * S; });
+    for (k = 0; k < raw.length; k++) if (raw[k] < 0) { var a2 = k - 1, b2 = k + 1; while (a2 >= 0 && raw[a2] < 0) a2--; while (b2 < raw.length && raw[b2] < 0) b2++; if (a2 >= 0 && b2 < raw.length) raw[k] = raw[a2] + (raw[b2] - raw[a2]) * (k - a2) / (b2 - a2); }
+    // the path's line: a gentle cubic fitted through the footings, then lifted only where a footing would stand below it, by
+    // a lift that is the deepest such footing over a wide stretch averaged twice over narrower ones (narrower in total than the
+    // stretch, so the path never rises above a footing near it), so it bends in long, easy curves
+    var win2 = function (arr, n, fn) { return arr.map(function (v2, q) { if (v2 < 0) return -1; var acc = [], d; for (d = -n; d <= n; d++) if (arr[q + d] > 0 || arr[q + d] === 0) acc.push(arr[q + d]); return fn(acc); }); };
+    var mean = function (a) { return a.reduce(function (p, c) { return p + c; }, 0) / a.length; }, idx = [], q3;
+    for (q3 = 0; q3 < raw.length; q3++) if (raw[q3] > 0) idx.push(q3);
+    var fit = raw.map(function () { return -1; });
+    if (idx.length > 4) { var xm = (xs2[idx[0]] + xs2[idx[idx.length - 1]]) / 2, xr = Math.max(1, (xs2[idx[idx.length - 1]] - xs2[idx[0]]) / 2), M4 = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]], V4 = [0, 0, 0, 0];
+      idx.forEach(function (q) { var t = (xs2[q] - xm) / xr, b = [1, t, t * t, t * t * t]; for (var r2 = 0; r2 < 4; r2++) { V4[r2] += b[r2] * raw[q]; for (var c2 = 0; c2 < 4; c2++) M4[r2][c2] += b[r2] * b[c2]; } });
+      for (var c3 = 0; c3 < 4; c3++) { var pv = c3; for (var r3 = c3 + 1; r3 < 4; r3++) if (Math.abs(M4[r3][c3]) > Math.abs(M4[pv][c3])) pv = r3; var tm = M4[c3]; M4[c3] = M4[pv]; M4[pv] = tm; var tv = V4[c3]; V4[c3] = V4[pv]; V4[pv] = tv;
+        for (r3 = 0; r3 < 4; r3++) if (r3 !== c3) { var fct = M4[r3][c3] / (M4[c3][c3] || 1e-9); for (var c4 = c3; c4 < 4; c4++) M4[r3][c4] -= fct * M4[c3][c4]; V4[r3] -= fct * V4[c3]; } }
+      var cf = V4.map(function (v2, q) { return v2 / (M4[q][q] || 1e-9); });
+      fit = raw.map(function (v2, q) { if (v2 < 0) return -1; var t = (xs2[q] - xm) / xr; return cf[0] + cf[1] * t + cf[2] * t * t + cf[3] * t * t * t; }); }
+    else fit = raw.map(function (v2, q) { return v2 < 0 ? -1 : mean(idx.map(function (k4) { return raw[k4]; })); });
+    var dd = raw.map(function (v2, q) { return v2 < 0 ? -1 : Math.max(0, v2 - fit[q]); });
+    var lift = win2(win2(win2(dd, Math.round(46 * S / stp2), function (a) { return Math.max.apply(null, a); }), Math.round(26 * S / stp2), mean), Math.round(16 * S / stp2), mean);
+    var ptY = raw.map(function (v2, q) { return v2 < 0 ? -1 : Math.max(v2, fit[q] + lift[q]) + 1 * S; });
     var pathW = 5.5 * S, parH = 2.8 * S, runs2 = [], cur2 = [];
     ptY.forEach(function (v2, q) { if (v2 < 0) { if (cur2.length > 1) runs2.push(cur2); cur2 = []; } else cur2.push([xs2[q], v2]); }); if (cur2.length > 1) runs2.push(cur2);
     var off = function (pts, dy) { return pts.map(function (p) { return [p[0], p[1] + dy]; }); };
