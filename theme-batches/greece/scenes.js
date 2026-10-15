@@ -203,12 +203,16 @@ SCENES.greece = function (W, H, dk, rnd) {
   function windowAt(wx, wy, ww, wh, arch) { var sh = arch ? greece_arch(wx, wy, ww, wh) : rect(wx, wy, ww, wh); if (!dk) { N.h += sh; return; } if (rnd() < 0.6) { N.h += sh; wins.push([wx + ww / 2, wy + wh / 2, ww]); } else N.g += sh; }
   function drape(bx, by, len) { for (var q = 0; q < len; q += 3.5 * S) { var px = bx + Math.sin(q * 0.4) * 1.6 * S, py = by + q, rr = (3.6 - q / len * 1.8) * S; if (!vis(px - rr * 1.2, px + rr * 1.2, py + rr)) return;
     N.d += greece_c(px - rr * 0.4, py, rr * 0.9); N.e += greece_c(px + rr * 0.3, py - rr * 0.2, rr * 0.55) + greece_c(px - rr * 0.5, py + rr * 0.35, rr * 0.5); } }
+  // does the mule path (in front of the houses it passes) cross the box x0..x1, y0..y1? (a door drawn on the near layer
+  // there would show on top of the path)
+  function onMule(x0, x1, y0, y1) { for (var q = 0; q < legs.length - 1; q++) { var A1 = legs[q], B1 = legs[q + 1], L1 = A1[0] < B1[0] ? A1 : B1, R1 = A1[0] < B1[0] ? B1 : A1;
+      for (var xq = Math.max(x0, L1[0]); xq <= Math.min(x1, R1[0]); xq += 1) { var yq = L1[1] + (R1[1] - L1[1]) * (xq - L1[0]) / (R1[0] - L1[0] || 1); if (yq > y0 && yq - 4.6 * S < y1) return true; } } return false; }
   function house(o) {
     var x = o.x, w = o.w, top = o.top, base = o.base, x1 = x + w, sx = o.sx, sy = o.sy, col = o.col, hgt = base - top, kk = o.k, th = o.th, det = th < 1.12, xr = x1 + sx, q;
     if (O.max(x, xr) < top - sy - 2 * S) return;
     if (o.perch) { var sb1 = base + gap * 0.55 * kk;
       M.a += band(x + 1.5 * S, x1 - 1 * S, base, base, sb1 - 3 * S, sb1); M.d += band(x1 - 3.5 * S, x1 - 1 * S, base, base, sb1, sb1) + band(x + 1.5 * S, x1 - 1 * S, base, base, base + 1.6 * S, base + 1.6 * S);
-      if (det && w > 16 * S && vis(x + w * 0.3, x + w * 0.3 + 6 * S * kk, sb1 - 2 * S)) N.g += greece_arch(x + w * 0.3, base + 3 * S * kk, 6 * S * kk, sb1 - base - 5 * S * kk);
+      if (det && w > 16 * S && vis(x + w * 0.3, x + w * 0.3 + 6 * S * kk, sb1 - 2 * S) && !onMule(x + w * 0.3 - 1 * S, x + w * 0.3 + 7 * S * kk, base + 3 * S * kk, sb1)) N.g += greece_arch(x + w * 0.3, base + 3 * S * kk, 6 * S * kk, sb1 - base - 5 * S * kk);
       G.g += O.band(x1 - 1 * S, x1 + 8 * S, function (X) { return base + (X - x1) * 0.5; }, function () { return sb1 + 5 * S; });
       // (where its footing meets the rock it throws a shadow, so it sits in the cliff instead of resting on it)
       G.g += greece_pg([[x + 0.5 * S, sb1 - 1], [x1 + 3 * S, sb1 - 1], [x1 + 3 * S, sb1 + 3 * S * kk], [x + 0.5 * S, sb1 + 3.6 * S * kk]]);
@@ -338,7 +342,7 @@ SCENES.greece = function (W, H, dk, rnd) {
     // bridge short gaps between houses, then take the lowest footing nearby and smooth it, so the path runs in an easy curve
     for (k = 0; k < raw.length; k++) if (raw[k] < 0) { var a2 = k - 1, b2 = k + 1; while (a2 >= 0 && raw[a2] < 0) a2--; while (b2 < raw.length && raw[b2] < 0) b2++; if (a2 >= 0 && b2 < raw.length && (b2 - a2) * stp2 < 24 * S) raw[k] = raw[a2] + (raw[b2] - raw[a2]) * (k - a2) / (b2 - a2); }
     var wn = Math.round(8 * S / stp2), mx2 = raw.map(function (v2, q) { if (v2 < 0) return -1; var m = v2; for (var d = -wn; d <= wn; d++) if (raw[q + d] > m) m = raw[q + d]; return m; });
-    var wa = Math.round(20 * S / stp2), ptY = mx2.map(function (v2, q) { if (v2 < 0) return -1; var sum = 0, n = 0; for (var d = -wa; d <= wa; d++) if (mx2[q + d] > 0) { sum += mx2[q + d]; n++; } return Math.max(v2 - 3 * S, sum / n) + 1 * S; });
+    var wa = Math.round(20 * S / stp2), ptY = mx2.map(function (v2, q) { if (v2 < 0) return -1; var sum = 0, n = 0; for (var d = -wa; d <= wa; d++) if (mx2[q + d] > 0) { sum += mx2[q + d]; n++; } return Math.max(v2, sum / n) + 1 * S; }); // (never above a footing nearby: the lower-storey doors, on the near layer, would show over it)
     var pathW = 5.5 * S, parH = 2.8 * S, runs2 = [], cur2 = [];
     ptY.forEach(function (v2, q) { if (v2 < 0) { if (cur2.length > 1) runs2.push(cur2); cur2 = []; } else cur2.push([xs2[q], v2]); }); if (cur2.length > 1) runs2.push(cur2);
     var off = function (pts, dy) { return pts.map(function (p) { return [p[0], p[1] + dy]; }); };
