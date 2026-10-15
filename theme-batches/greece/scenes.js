@@ -65,11 +65,11 @@ function greece_tuft(x, y, r) { return greece_e(x, y, r * 1.3, r * 0.8) + greece
 // are the engine's.
 var greece_C = {
   L: {haze: 'rgba(255,240,222,0.9)', cloud: 'rgba(255,255,255,0.82)', glare: 'rgba(255,250,236,0.5)', sun: '#FFF8E2',
-    spk: 'rgba(255,255,255,0.92)', thera: '#9AB3CD', kam: '#6E6676', rock: '#A9654A', band1: '#E2C49E', band2: '#73504B', rshade: 'rgba(64,26,34,0.3)', strata: 'rgba(72,34,30,0.34)', foam: 'rgba(255,255,255,0.8)',
+    spk: 'rgba(255,255,255,0.92)', thera: '#9AB3CD', kam: '#6E6676', rock: '#7A4636', band1: '#B8987A', band2: '#4A302C', rshade: 'rgba(40,14,20,0.34)', strata: 'rgba(72,34,30,0.34)', foam: 'rgba(255,255,255,0.8)',
     mwall: '#FCFBF8', past1: '#F4CF92', past2: '#F3B6A6', mshade: 'rgba(58,82,156,0.24)', pool: '#55CFE0', haze2: 'rgba(214,232,248,0.55)', stone: '#D9C3A2', bronze: '#B88A3E', rail: 'rgba(40,52,86,0.55)', wood: '#8A6648',
     wall: '#FCFBF8', nShade: '#C3D0E2', blue: '#2F6DB8', leaf: '#3F8A4C', fl: '#DA338A', terra: '#C6764A', navy: '#1E4C90', win: '#2E4468', line: 'rgba(80,104,140,0.38)', wire: 'rgba(70,60,60,0.5)'},
   D: {haze: 'rgba(196,104,148,0.42)', cloud: 'rgba(150,140,200,0.35)', glare: 'rgba(200,210,255,0.2)', sun: '#FFF4D8',
-    spk: 'rgba(255,196,110,0.92)', thera: '#2C2E5A', kam: '#1C1E3E', rock: '#3E3152', band1: '#5A4C6E', band2: '#231B35', rshade: 'rgba(6,4,22,0.36)', strata: 'rgba(4,2,16,0.4)', foam: 'rgba(210,220,255,0.4)',
+    spk: 'rgba(255,196,110,0.92)', thera: '#2C2E5A', kam: '#1C1E3E', rock: '#2E2440', band1: '#4A3E5E', band2: '#1A1428', rshade: 'rgba(6,4,22,0.36)', strata: 'rgba(4,2,16,0.4)', foam: 'rgba(210,220,255,0.4)',
     mwall: '#5A6192', past1: '#6E5F7C', past2: '#6A5276', mshade: 'rgba(8,8,36,0.4)', pool: '#2F8CB4', haze2: 'rgba(30,34,80,0.45)', stone: '#4A4262', bronze: '#A07A3A', rail: 'rgba(10,10,30,0.6)', wood: '#3A2A2A',
     wall: '#565D8E', nShade: '#40467A', blue: '#3450A0', leaf: '#2A5440', fl: '#A23578', terra: '#7C4C3E', navy: '#202F66', win: '#FFC870', line: 'rgba(20,20,50,0.4)', wire: 'rgba(20,16,30,0.6)'}
 };
@@ -361,8 +361,8 @@ SCENES.greece = function (W, H, dk, rnd) {
     // the walkway is a ledge on the round face: its width points out from the face, so it shows as depth (downward) where the
     // face looks at us and turns outward (sideways, past the edge) as the face turns away, then passes out of sight behind it;
     // the parapet and the rock under it hang straight down
-    var pathW = 5.5 * S, parH = 2.8 * S, rp2 = xs2.map(function (X, q) { return [X, ptY[q], thetaAt(vBot, X)]; }).filter(function (p) { return p[0] > silX(p[1]) - 0.5 * S; });
-    var out = function (pts, d) { return pts.map(function (p) { return [p[0] - Math.sin(p[2]) * d * 1.9, p[1] + Math.cos(p[2]) * d]; }); };
+    var pathW = 5.5 * S, parH = 2.8 * S, rp2 = xs2.map(function (X, q) { return [X, ptY[q], thetaAt(vBot, X)]; }).filter(function (p) { return p[0] > Math.max(silX(p[1]) - 0.5 * S, fx0 - 1 * S); }); // (it ends with the front row: further out it stood clear of the houses with rock between)
+    var out = function (pts, d) { return pts.map(function (p) { return [Math.max(fx0 - 1 * S, p[0] - Math.sin(p[2]) * d * 1.9), p[1] + Math.cos(p[2]) * d]; }); }; // (no further out than the front row, so its end tucks under the last house)
     var dn = function (pts, d) { return pts.map(function (p) { return [p[0], p[1] + d]; }); };
     var inner = dn(rp2, -1), edge = out(rp2, pathW), wallB = dn(edge, parH);
     G.f += greece_pg(dn(rp2, -3 * S).concat(dn(edge, parH).map(function (p) { return [p[0], p[1] + crag(p[0])]; }).reverse()));
