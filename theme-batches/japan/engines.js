@@ -326,21 +326,23 @@ function japan_paintTown(o, T, dk, W, H, S, ph, which, out) {
   rows.forEach(function (ry, r) { var sc = S * (0.5 + r * (ph ? 0.15 : 0.13)), yb = H * ry, xx = T.tx0 + (r % 2) * 18 * sc - r * W * 0.02, n = 0, hz = Math.max(0, 0.42 - r * 0.11);
     if ((which === 'back') !== (yb <= T.kp[1] + 2)) return;
     var K = japan_tone(dk, hz);
+    /* the gap after the n-th house: some are opened up wide enough for an alley (r > 0, as row 0 has no street behind it) */
+    var alleyAt = function (n2) { return r > 0 && hash(r * 7 + n2 * 1.3) < 0.4; }, gapAt = function (n2) { return (6 + hash(r * 9 + n2) * 16) * sc + (alleyAt(n2) ? 22 * sc : 0); };
     // the street this row of houses fronts onto: laid before the row (and so under it and under every nearer row), running
     // from the hill's foot to the river bank
     var gapY = H * ((rows[r + 1] || ry + 0.034) - ry), stH = gapY * 0.42, top = [], bot = [];
     /* it starts at the row's first house (so it never stops short out on the hillside) */
     var sx0 = W + 40; for (var px0 = xx, pn = 0; px0 < W + 40 && sx0 > W; pn++) { var phw = (34 + hash(r * 40 + pn) * 26) * sc;
       if (!(r === 0 && px0 + phw > cast[0] - 34 * S && px0 < cast[0] + 44 * S) && yb < japan_yAt(T.Urev, px0 + phw / 2) - 4 && yb < japan_yAt(T.Urev, px0 - 4) - 2 && !(px0 < T.hx1 && yb < japan_yAt(T.HL, px0 + phw / 2) + 8) && !T.hillT.some(function (c) { return Math.abs(px0 + phw / 2 - c[0]) < c[2] * 1.05 + phw * 0.4 && yb < c[1] + c[2] * 0.35; }) && hash(r * 40 + pn + 0.3) >= 0.18 && hash(r * 40 + pn + 0.4) >= 0.14) sx0 = px0 + 2 * sc; /* (a house, not one of the trees) */
-      px0 += phw + (6 + hash(r * 9 + pn) * 16) * sc; }
+      px0 += phw + gapAt(pn); }
     for (var sx = sx0; sx < W + 40; sx += 6) { var bk = japan_yAt(T.Urev, sx) - 3 * sc; if (yb + 1 > bk || (sx < T.hx1 && yb < japan_yAt(T.HL, sx) + 8) || T.hillT.some(function (c) { return Math.abs(sx - c[0]) < c[2] * 1.1 && yb < c[1] + c[2] * 0.6; })) { if (top.length > 1) japan_poly(o, top.concat(bot), K('#D8CCB2')); top = []; bot = []; continue; }
       top.push([sx, yb - 4 * sc]) /* (up under the houses, which sit as much as 3sc above the row line) */; bot.unshift([sx, Math.min(yb + stH, bk)]); }
     if (top.length > 1) japan_poly(o, top.concat(bot), K('#D8CCB2'));
     // alleys up through some of the gaps between this row's houses to the street behind
     var stOK = function (x2, y2) { return y2 + 1 < japan_yAt(T.Urev, x2) - 3 * sc && !(x2 < T.hx1 && y2 < japan_yAt(T.HL, x2) + 8) && !T.hillT.some(function (c) { return Math.abs(x2 - c[0]) < c[2] * 1.1 && y2 < c[1] + c[2] * 0.6; }); };
     if (r > 0) { var yP = H * rows[r - 1], stP = (yb - yP) * 0.42, scP = S * (0.5 + (r - 1) * (ph ? 0.15 : 0.13));
-      for (var ax = xx, an = 0; ax < W + 40; an++) { var ahw = (34 + hash(r * 40 + an) * 26) * sc, agap = (6 + hash(r * 9 + an) * 16) * sc, gx = ax + ahw + agap / 2, aw = Math.min(agap * 0.8, 9 * sc);
-        if (aw > 4 * sc && hash(r * 7 + an * 1.3) < 0.45 && gx > sx0 && stOK(gx - aw, yb) && stOK(gx + aw, yb) && stOK(gx - aw, yP + stP) && stOK(gx + aw, yP + stP))
+      for (var ax = xx, an = 0; ax < W + 40; an++) { var ahw = (34 + hash(r * 40 + an) * 26) * sc, agap = gapAt(an), gx = ax + ahw + agap * 0.58, aw = Math.min(agap * 0.5, 13 * sc); /* (a little right of centre, clear of the house's side face and eaves) */
+        if (alleyAt(an) && gx > sx0 && stOK(gx - aw, yb) && stOK(gx + aw, yb) && stOK(gx - aw, yP + stP) && stOK(gx + aw, yP + stP))
           japan_poly(o, [[gx - aw / 2, yb + 1 * sc], [gx + aw / 2, yb + 1 * sc], [gx + aw * 0.4, yP + stP - 1 * scP], [gx - aw * 0.4, yP + stP - 1 * scP]], K('#D8CCB2'));
         ax += ahw + agap; } }
     if (which === 'front' && r === rows.length - 1) {
@@ -349,7 +351,7 @@ function japan_paintTown(o, T, dk, W, H, S, ph, which, out) {
       for (var u = 0; u <= 1.001; u += 0.1) { var lx = lx0 + (bxF - lx0) * (u * u * (3 - 2 * u)), ly = lyT + (byF - lyT) * u; L1.push([lx - wl(u) / 2, ly]); L2.unshift([lx + wl(u) / 2, ly]); }
       japan_poly(o, L1.concat(L2), K('#D8CCB2')); }
     if (r === 0) { var cs = S * (ph ? 0.55 : 0.78), wb = []; japan_castle(o, japan_tone(dk, hz + 0.06), sh(hz), cast[0], cast[1], cs, wb); items.push({box: [cast[0] - 32 * cs, cast[1] - 58 * cs, cast[0] + 44 * cs, cast[1]]}); take(wb); }
-    while (xx < W + 40) { var hw = (34 + hash(r * 40 + n) * 26) * sc, hh = (18 + hash(r * 40 + n + 0.5) * 8) * sc, two = hash(r * 40 + n + 0.7) < 0.32, kura = hash(r * 40 + n + 0.9) < 0.12, gap = (6 + hash(r * 9 + n) * 16) * sc;
+    while (xx < W + 40) { var hw = (34 + hash(r * 40 + n) * 26) * sc, hh = (18 + hash(r * 40 + n + 0.5) * 8) * sc, two = hash(r * 40 + n + 0.7) < 0.32, kura = hash(r * 40 + n + 0.9) < 0.12, gap = gapAt(n);
       var nearCastle = r === 0 && xx + hw > cast[0] - 34 * S && xx < cast[0] + 44 * S;
       if (!nearCastle && yb < japan_yAt(T.Urev, xx + hw / 2) - 4 && yb < japan_yAt(T.Urev, xx - 4) - 2 && !(xx < T.hx1 && yb < japan_yAt(T.HL, xx + hw / 2) + 8)) {
         var cx = xx + hw / 2, yb2 = yb - hash(r * 40 + n + 0.8) * 3 * sc;
