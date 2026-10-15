@@ -101,7 +101,7 @@ SCENES.mexico = function (W, H, dk, rnd) {
       else if (n % 2 === 0 || nw === 1) { var dw = Math.min(14 * S, sp * 0.4), dh = hh * 0.36; mg.cream += rect(wx - dw / 2 - 3 * S, yb - dh - 3 * S, dw + 6 * S, dh + 3 * S); mg.dark += rect(wx - dw / 2, yb - dh, dw, dh); carve += seg(wx, yb - dh, wx, yb); }
       else { mg.cream += rect(wx - ww / 2 - 2 * S, fl + hh * 0.12, ww + 4 * S, hh * 0.22); mg.dark += rect(wx - ww / 2, fl + hh * 0.14, ww, hh * 0.18); for (r = 1; r < 4; r++) carve += seg(wx - ww / 2 + r * ww / 4, fl + hh * 0.14, wx - ww / 2 + r * ww / 4, fl + hh * 0.32); } }
     occ(x0 - 2, x1 + 2, top - cs - 3 * S); };
-  var xL1 = cx - 182 * S, xR0 = cx + 182 * S;
+  var xL1 = cx - 169 * S, xR0 = cx + 169 * S; // (the houses either side run right up to the cathedral's side towers, no gaps)
   if (ph) { facade(-10, xL1, yb - 118 * S, 'saf', false); facade(xR0, W + 10, yb - 128 * S, 'cob', false); }
   else {
     var lw = xL1 + 10, f1 = -10 + lw * 0.36, f2 = f1 + lw * 0.34;
@@ -110,7 +110,7 @@ SCENES.mexico = function (W, H, dk, rnd) {
   // ---- the cathedral: a Gothic pink sandstone front with a tiered central tower, two side towers and many pinnacles
   var cath = '', cs2 = '', tw0 = 120 * S, y1 = yb - 150 * S, y2 = y1 - 92 * S, y3 = y2 - 72 * S, y4 = y3 - 56 * S, spH = 112 * S, bells = [];
   // the body of the front, with a row of small pinnacles along its top
-  cath += rect(cx - 116 * S, y1, 232 * S, yb - y1 + 2);
+  cath += rect(cx - 124 * S, y1, 248 * S, yb - y1 + 2); // (its front runs into the side towers)
   for (k = -4; k <= 4; k++) if (k) cath += mexico_pinn(cx + k * 25 * S, y1 + 1, 7 * S, 24 * S);
   // the side towers with their crocketed spires and corner pinnacles
   [-1, 1].forEach(function (sd) { var tx = cx + sd * 146 * S, tt = yb - 252 * S; cath += rect(tx - 24 * S, tt, 48 * S, yb - tt + 2) + rect(tx - 27 * S, tt - 8 * S, 54 * S, 8 * S);
@@ -225,11 +225,16 @@ SCENES.mexico = function (W, H, dk, rnd) {
     N.sh += mexico_e(lx + 6 * s, ly + 2, 30 * s, 5 * s);
     N.iron += mexico_pg([[lx - 4 * s, ly], [lx - 3 * s, ct + ch], [lx + 3 * s, ct + ch], [lx + 4 * s, ly]]);
     N.white += rect(lx - 4.2 * s, ly - 18 * s, 8.4 * s, 18 * s);
-    var crown = mexico_pg([[lx - cw, ct + 14 * s], [lx - cw + 6 * s, ct + 3 * s], [lx - cw + 18 * s, ct], [lx + cw - 18 * s, ct], [lx + cw - 6 * s, ct + 3 * s], [lx + cw, ct + 14 * s], [lx + cw, ct + ch - 12 * s], [lx + cw - 8 * s, ct + ch], [lx - cw + 8 * s, ct + ch], [lx - cw, ct + ch - 12 * s]]);
-    N.green += crown;
-    for (k = 0; k < 22; k++) { var a = hash(k + lx) * Math.PI * 2, dd = 0.3 + hash(k + 9 + lx) * 0.6; N.sh += mexico_e(lx + Math.cos(a) * cw * dd * 0.9 + cw * 0.18, ct + ch * 0.55 + Math.sin(a) * ch * dd * 0.4, (5 + hash(k + 3) * 5) * s, (3 + hash(k + 5) * 3) * s); }
-    N.sh += rect(lx - cw, ct + ch - 14 * s, cw * 2, 14 * s);
-    for (k = 0; k < 16; k++) nl += seg(lx - cw + 8 * s + hash(k + lx * 2) * (cw * 2 - 16 * s), ct + 4 * s + hash(k + lx * 3) * ch * 0.4, lx - cw + 12 * s + hash(k + lx * 2) * (cw * 2 - 16 * s), ct + 2 * s + hash(k + lx * 3) * ch * 0.4);
+    // it grows from a round bed of earth inside a low whitewashed stone curb, not straight out of the cobbles
+    N.white += mexico_e(lx, ly, 19 * s, 5.4 * s) + rect(lx - 19 * s, ly, 38 * s, 3 * s) + mexico_e(lx, ly + 3 * s, 19 * s, 5.4 * s); N.iron += mexico_e(lx, ly - 0.3 * s, 15.5 * s, 3.8 * s); N.sh += mexico_e(lx + 3 * s, ly + 3.5 * s, 19 * s, 3 * s);
+    // a clipped round crown made of leafy puffs round its edge, the lower right in shade (one crescent of puffs), and a few
+    // light leaf strokes on the lit upper left
+    var ccx = lx, ccy = ct + ch * 0.52, crx = cw * 0.92, cry = ch * 0.55, crown = mexico_e(ccx, ccy, crx * 0.86, cry * 0.84), shd = '';
+    for (k = 0; k < 16; k++) { var a = k / 16 * Math.PI * 2, pr = (9.5 + 3 * hash(k + lx)) * s, px2 = ccx + Math.cos(a) * crx * 0.84, py2 = ccy + Math.sin(a) * cry * 0.8;
+      crown += mexico_c(px2, py2, pr); var lit = Math.cos(a - 2.4); if (lit < -0.2) shd += mexico_c(px2 + 1.5 * s, py2 + 1.5 * s, pr * 0.92); }
+    shd += mexico_e(ccx + crx * 0.22, ccy + cry * 0.3, crx * 0.62, cry * 0.5);
+    N.green += crown; N.sh += shd;
+    for (k = 0; k < 9; k++) { var a2 = Math.PI * (0.95 + k * 0.07), rr2 = 0.45 + hash(k + lx) * 0.35, hx3 = ccx + Math.cos(a2) * crx * rr2, hy3 = ccy + Math.sin(a2) * cry * rr2 * 1.1; nl += 'M' + PT(hx3 - 3 * s, hy3 + 1.5 * s) + ' Q' + PT(hx3, hy3 - 1 * s) + ' ' + PT(hx3 + 3 * s, hy3 + 0.5 * s) + ' '; }
   });
   // the wrought-iron bandstand: a stone platform with a railing, slim columns, a scalloped iron canopy and a finial
   var kb = {x: W * (ph ? 0.2 : 0.17), y: H * (ph ? 0.78 : 0.94), r: (ph ? 70 : 128) * S}, kr = kb.r, ph0 = 34 * S, cH = 112 * S;
@@ -290,11 +295,11 @@ SCENES.mexico = function (W, H, dk, rnd) {
     // the cactus beside the fountain stands clear of its rim (the rim's white slot would otherwise cover its arm)
     if (kind === 'cactus' && px < fx && py > fy) px = Math.min(px, fx - (frx + rim) * 1.03 - 28 * s);
     N.sh += mexico_e(px + 6 * s, py + 2, 34 * s, 6 * s);
-    if (kind === 'agave') { for (k = -4; k <= 4; k++) { var ang = -90 + k * 19, L = (70 - Math.abs(k) * 7) * s; N.green += mexico_leaf(px + k * 2 * s, top + 4 * s, L, 7 * s, ang); nl += seg(px + k * 2 * s, top + 4 * s, px + k * 2 * s + Math.cos(ang / 57.3) * L * 0.8, top + 4 * s + Math.sin(ang / 57.3) * L * 0.8); } }
+    if (kind === 'agave') { for (k = -4; k <= 4; k++) { var ang = -90 + k * 19, L = (70 - Math.abs(k) * 7) * s; N.green += mexico_leaf(px + k * 2 * s, top + 4 * s, L, 7 * s, ang); nl += seg(px + k * 2 * s + Math.cos(ang / 57.3) * 10 * s, top + 4 * s + Math.sin(ang / 57.3) * 10 * s, px + k * 2 * s + Math.cos(ang / 57.3) * L * 0.8, top + 4 * s + Math.sin(ang / 57.3) * L * 0.8); /* (the vein starts above the pot's rim, never across the pot) */ } }
     else if (kind === 'cactus') { N.green += mexico_pg([[px - 9 * s, top + 4], [px - 10 * s, top - 74 * s], [px - 6 * s, top - 82 * s], [px + 6 * s, top - 82 * s], [px + 10 * s, top - 74 * s], [px + 9 * s, top + 4]]);
       N.green += mexico_pg([[px + 9 * s, top - 30 * s], [px + 22 * s, top - 30 * s], [px + 24 * s, top - 58 * s], [px + 30 * s, top - 62 * s], [px + 34 * s, top - 58 * s], [px + 32 * s, top - 22 * s], [px + 9 * s, top - 18 * s]]);
       N.green += mexico_pg([[px - 9 * s, top - 40 * s], [px - 20 * s, top - 40 * s], [px - 22 * s, top - 56 * s], [px - 27 * s, top - 59 * s], [px - 31 * s, top - 55 * s], [px - 29 * s, top - 30 * s], [px - 9 * s, top - 28 * s]]);
-      nl += seg(px - 3 * s, top - 76 * s, px - 3 * s, top) + seg(px + 3 * s, top - 76 * s, px + 3 * s, top) + seg(px + 28 * s, top - 56 * s, px + 27 * s, top - 26 * s) + seg(px - 25 * s, top - 53 * s, px - 24 * s, top - 32 * s);
+      nl += seg(px - 3 * s, top - 76 * s, px - 3 * s, top - 6 * s) + seg(px + 3 * s, top - 76 * s, px + 3 * s, top - 6 * s) + seg(px + 28 * s, top - 56 * s, px + 27 * s, top - 26 * s) + seg(px - 25 * s, top - 53 * s, px - 24 * s, top - 32 * s);
       N.mag += mexico_c(px, top - 86 * s, 5 * s) + mexico_c(px + 30 * s, top - 65 * s, 4 * s); N.saf += mexico_c(px, top - 86 * s, 1.8 * s); }
     else { [[0, -30, 16, 22, 0], [-16, -58, 13, 18, -24], [14, -62, 12, 17, 22], [-2, -86, 11, 15, 6]].forEach(function (pd) { N.green += mexico_pg(rotp(mexico_ep(0, 0, pd[2] * s, pd[3] * s, 24), px + pd[0] * s, top + pd[1] * s, pd[4])); for (var m = 0; m < 5; m++) nl += mexico_c(px + pd[0] * s + (hash(m + pd[1]) - 0.5) * pd[2] * s, top + pd[1] * s + (hash(m + pd[0] + 7) - 0.5) * pd[3] * s * 1.2, 0.8 * s); });
       N.mag += mexico_e(px - 2 * s, top - 102 * s, 4 * s, 5 * s) + mexico_e(px + 10 * s, top - 78 * s, 3.4 * s, 4.4 * s); }

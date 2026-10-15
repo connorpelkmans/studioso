@@ -106,7 +106,11 @@ ENGINES.mexico = function (A, v, dk) {
   return {
     step: function (dt, t, f) {
       var T = t - T0, tt = t * f.s;
-      nextRing -= dt * f.s; if (nextRing <= 0) { nextRing = 0.22 + Math.random() * 0.3; var sm = streams[Math.floor(Math.random() * streams.length)]; rings.push({x: sm.x1 + (Math.random() - 0.5) * 8, y: sm.y1 + (Math.random() - 0.5) * 3, t0: t, L: 1.5 + Math.random()}); if (Math.random() < 0.5) splash.push({x: sm.x1, y: sm.y1, vx: (Math.random() - 0.5) * 30 * S, vy: -(20 + Math.random() * 30) * S, t0: t}); }
+      // every stream splashes where it lands, steadily (each on its own beat, so they don't all pulse together): a ring
+      // spreading from that point and a couple of drops thrown up
+      streams.forEach(function (sm, j) { if (sm.nx == null) sm.nx = j * 0.13; sm.nx -= dt * f.s; if (sm.nx > 0) return; sm.nx += 0.5;
+        rings.push({x: sm.x1, y: sm.y1, t0: t, L: 1.6});
+        for (var q = 0; q < 2; q++) splash.push({x: sm.x1, y: sm.y1, vx: (q ? 1 : -1) * (8 + Math.random() * 10) * S, vy: -(22 + Math.random() * 14) * S, t0: t}); });
       rings = rings.filter(function (r) { return t - r.t0 < r.L; });
       splash.forEach(function (d) { d.vy += 160 * S * dt; d.x += d.vx * dt; d.y += d.vy * dt; }); splash = splash.filter(function (d) { return t - d.t0 < 0.7; });
       petals.forEach(function (p) { p.y += p.v * dt * f.s; p.x += (Math.sin(tt * 0.8 + p.ph) * 16 + 10) * dt * f.s; p.rot += dt * 1.2; if (p.y > H + 10 || p.x > W + 10) { p.y = -10; p.x = Math.random() * W * 0.9; } });
