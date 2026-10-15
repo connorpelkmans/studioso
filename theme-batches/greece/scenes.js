@@ -286,15 +286,18 @@ SCENES.greece = function (W, H, dk, rnd) {
   // ---- the mule path, drawn after the tavernas so they hide its foot. It is a ledge cut into the cliff: the cut rock face
   // above the paving in shade, the paved way with its steps, the white parapet on the downhill side and the shadow that
   // throws on the rock; at each turn a paved landing ringed by the parapet
-  for (k = 0; k < nLeg; k++) { var A0 = legs[k], B0 = legs[k + 1], th2 = 4.6 * S;
+  // (the top run is drawn later, from the walkway along the village front, once that exists; clip: false draws it whole)
+  function muleLeg(k, clip) { var A0 = legs[k], B0 = legs[k + 1], th2 = 4.6 * S;
     var Lp = A0[0] < B0[0] ? A0 : B0, Rp = A0[0] < B0[0] ? B0 : A0, lpY = function (X) { return Lp[1] + (Rp[1] - Lp[1]) * Math.min(1, Math.max(0, (X - Lp[0]) / (Rp[0] - Lp[0]))); };
-    G.g += O.band(Lp[0], Rp[0], function (X) { return lpY(X) - th2 - 4.2 * S; }, function (X) { return lpY(X) - th2 + 0.5; });
-    M.g += band(Lp[0], Rp[0], Lp[1] - th2, Rp[1] - th2, Lp[1] - 1.6 * S, Rp[1] - 1.6 * S);
-    M.a += band(Lp[0], Rp[0], Lp[1] - 1.8 * S, Rp[1] - 1.8 * S, Lp[1], Rp[1]);
-    for (var stx = Lp[0] + 3 * S; stx < Rp[0] - 2 * S; stx += 3.2 * S) { var sty = lpY(stx); if (O.at(stx) > sty) mRail += seg(stx, sty - th2 + 0.6, stx - 0.8 * S, sty - 1.9 * S); }
-    G.g += O.band(Lp[0], Rp[0] + 2 * S, lpY, function (X) { return lpY(X) + 3.4 * S; });
-    if (vis(B0[0] - th2 * 1.3, B0[0] + th2 * 1.3, B0[1] + th2 * 0.3)) { M.a += greece_e(B0[0], B0[1] - th2 * 0.5, th2 * 1.3, th2 * 0.8); M.g += greece_e(B0[0] + (k % 2 ? -0.5 : 0.5) * S, B0[1] - th2 * 0.62, th2 * 1.0, th2 * 0.55); }
+    var bd = function (x0, x1, tf, bf) { if (clip) return O.band(x0, x1, tf, bf); var T = [], B2 = []; for (var xq = x0; xq <= x1 + 0.01; xq += Math.max(1, (x1 - x0) / 24)) { T.push([xq, tf(xq)]); B2.unshift([xq, bf(xq)]); } return greece_pg(T.concat(B2)); };
+    G.g += bd(Lp[0], Rp[0], function (X) { return lpY(X) - th2 - 4.2 * S; }, function (X) { return lpY(X) - th2 + 0.5; });
+    M.g += bd(Lp[0], Rp[0], function (X) { return lpY(X) - th2; }, function (X) { return lpY(X) - 1.6 * S; });
+    M.a += bd(Lp[0], Rp[0], function (X) { return lpY(X) - 1.8 * S; }, lpY);
+    for (var stx = Lp[0] + 3 * S; stx < Rp[0] - 2 * S; stx += 3.2 * S) { var sty = lpY(stx); if (!clip || O.at(stx) > sty) mRail += seg(stx, sty - th2 + 0.6, stx - 0.8 * S, sty - 1.9 * S); }
+    G.g += bd(Lp[0], Rp[0] + 2 * S, lpY, function (X) { return lpY(X) + 3.4 * S; });
+    if (!clip || vis(B0[0] - th2 * 1.3, B0[0] + th2 * 1.3, B0[1] + th2 * 0.3)) { M.a += greece_e(B0[0], B0[1] - th2 * 0.5, th2 * 1.3, th2 * 0.8); M.g += greece_e(B0[0] + (k % 2 ? -0.5 : 0.5) * S, B0[1] - th2 * 0.62, th2 * 1.0, th2 * 0.55); }
     if (k < nLeg - 1) pathLamps.push([B0[0], B0[1] - th2 - 2.5 * S, 4.5 * S]); }
+  for (k = 2; k < nLeg; k++) muleLeg(k, true);
 
   // ---- the village, row by row from the front (bottom) up to the rim. Each row runs right to left along its contour; round
   // the shoulder the houses turn (fronts narrowing, sides showing), shrink, fade into the haze and pass out of sight.
@@ -359,9 +362,19 @@ SCENES.greece = function (W, H, dk, rnd) {
       M.d += greece_pg(off(rp2, pathW + parH - 0.6 * S).concat(off(rp2, pathW + parH + 1.2 * S).reverse()));
       for (var q2 = 0; q2 < rp2.length; q2 += Math.round(9 * S / stp2)) mRail += seg(rp2[q2][0], rp2[q2][1] + pathW + 0.3 * S, rp2[q2][0], rp2[q2][1] + pathW + parH - 0.3 * S); });
     var pathTop = function (X) { var q = Math.round((X - xs2[0]) / stp2); return q >= 0 && q < ptY.length ? ptY[q] : -1; };
+    // the mule path's top run starts from the walkway: from the walkway's outer edge at the path's top end, through an
+    // opening in its parapet, down to the first turn
+    // (it joins where the path's top end always was; the first turn is lowered if need be, to halfway between there and the
+    // second turn, so both runs fall at an even slope; the first two runs are drawn here, after the walkway, and the rest earlier)
+    var L1x = legs[1][0], want = legs[2] ? Math.abs((legs[2][1] - legs[1][1]) / (legs[2][0] - L1x)) : 0.18, jx = legs[0][0], jy = pathTop(jx);
+    if (jy < 0) xs2.forEach(function (xq, q) { if (ptY[q] > 0 && (jy < 0 || Math.abs(xq - legs[0][0]) < Math.abs(jx - legs[0][0]))) { jx = xq; jy = ptY[q]; } });
+    if (jy > 0) { legs[0] = [jx, jy + pathW + parH]; legs[1] = [L1x, legs[2] ? Math.max(legs[1][1], (legs[0][1] + legs[2][1]) / 2) : Math.max(legs[1][1], legs[0][1] + want * Math.abs(L1x - jx))]; // (halfway down to the second turn, if it was higher)
+      muleLeg(0, false); muleLeg(1, false); M.g += greece_pg([[jx - 5 * S, jy + pathW - 1], [jx + 6 * S, jy + pathW - 1], [jx + 6 * S, jy + pathW + parH + 0.5], [jx - 5 * S, jy + pathW + parH + 0.5]]); }
+    else { muleLeg(0, false); muleLeg(1, false); }
     footings.forEach(function (f) { var tp = [], bt = []; for (x = f[0] + 1.5 * S; x <= f[1] - 1 * S; x += 1.5 * S) { var py2 = pathTop(x); if (py2 < 0) continue; tp.push([x, f[2] - 1]); bt.push([x, Math.max(f[2] - 1, py2)]); }
       if (tp.length > 1 && bt.some(function (b, q) { return b[1] - tp[q][1] > 1.2 * S; })) { M.a += greece_pg(tp.concat(bt.reverse())); var bx3 = f[0] + (f[1] - f[0]) * 0.5; for (var sy3 = f[2] + 1.6 * S; sy3 < pathTop(bx3) - 0.5 * S; sy3 += 1.8 * S) mRail += seg(bx3 - 3 * S, sy3, bx3 + 3 * S, sy3); } });
   }
+  if (!footings.length) { muleLeg(0, false); muleLeg(1, false); } // (no front row, so no walkway: the top run starts where it always did)
   // the rock of the rim and of the shoulder belongs to the skyline too
   O.put(silP[silP.length - 1][0], W + 30, topAt);
   // lamps on the mule path at night
