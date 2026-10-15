@@ -179,10 +179,11 @@ SCENES.canada = function (W, H, dk, rnd) {
   woodD += rect(door[0] - 2.5 * cs, door[1] - 2.5 * cs, door[2] + 5 * cs, door[3] + 2.5 * cs); nsh += rect(door[0], door[1], door[2], door[3]) + rect(cl0, cb - wh, cw, 6 * cs);
   wood += rect(door[0] - 6 * cs, cb - 4 * cs, door[2] + 12 * cs, 4 * cs);
   // three wooden steps up from the path's end to the dock's deck, each a tread with its riser below
-  for (k = 0; k < 3; k++) { var sy5 = dy + dt + 4 * S + k * 4.5 * S, sw5 = (13 + k * 2) * S, sx5 = dx1 - 12 * S; wood += rect(sx5 - sw5 / 2, sy5, sw5, 2.2 * S); woodD += rect(sx5 - sw5 / 2, sy5 + 2.2 * S, sw5, 2.3 * S); }
-  woodD += rect(dx1 - 12 * S - 9 * S, dy + dt, 2 * S, 15 * S) + rect(dx1 - 12 * S + 7 * S, dy + dt, 2 * S, 15 * S);
+  // (centred between the last two posts, in front of the deck, so they never cross a post)
+  var lastPost = dx0 + 6 * S; while (lastPost + 34 * S < dx1) lastPost += 34 * S; var stx = lastPost - 17 * S;
+  for (k = 0; k < 3; k++) { var sy5 = dy + dt + 1 * S + k * 4.6 * S, sw5 = (20 + k * 2) * S; wood += rect(stx - sw5 / 2, sy5, sw5, 2.4 * S); woodD += rect(stx - sw5 / 2, sy5 + 2.4 * S, sw5, 2.2 * S); }
   // a gravel path from the cabin door down to the dock
-  var pa0 = [door[0] + door[2] / 2, cb], pa1 = [dx1 - 12 * S, dy + dt + 17 * S], pl = [], pr = [];
+  var pa0 = [door[0] + door[2] / 2, cb], pa1 = [stx, dy + dt + 15 * S], pl = [], pr = [];
   for (k = 0; k <= 8; k++) { var u = k / 8, px = pa0[0] + (pa1[0] - pa0[0]) * u, py = pa0[1] + (pa1[1] - pa0[1]) * u + Math.sin(u * Math.PI) * 14 * S, pw = (5 + u * 7) * S; pl.push([px - pw * 0.4, py - pw * 0.5]); pr.unshift([px + pw * 0.4, py + pw * 0.5]); }
   stone += canada_pg(pl.concat(pr));
   // a woodpile beside the chimney: rows of split log ends under a little lean-to roof
