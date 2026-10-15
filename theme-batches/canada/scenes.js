@@ -34,10 +34,10 @@ function canada_rockShade(p, x, y, rx, ry) { var o = [], i; for (i = 0; i < 7; i
 // leaves, the chimney smoke, the clouds and the aurora are the engine's.
 var canada_C = {
   L: {back: '#B5CADF', backSnow: '#EAF3FB', rock: '#8B98A8', shade: '#6A788A', snow: '#FBFDFF', ice: '#A6D9EC', foot: '#3D6352', mrefl: 'rgba(30,96,116,0.3)', strata: 'rgba(70,80,96,0.22)', streak: 'rgba(255,255,255,0.55)',
-    spr1: '#2B5345', spr2: '#3A6656', sprRefl: 'rgba(14,74,78,0.4)', shallow: 'rgba(196,252,238,0.42)', beach: '#CFC7B5', snowRefl: 'rgba(255,255,255,0.22)', glint: 'rgba(255,255,255,0.9)', shine: 'rgba(255,255,255,0.55)', ripple: 'rgba(255,255,255,0.5)', star: 'rgba(255,255,255,0)',
+    spr1: '#2B5345', spr2: '#D8A33E', sprRefl: 'rgba(14,74,78,0.4)', shallow: 'rgba(196,252,238,0.42)', beach: '#CFC7B5', snowRefl: 'rgba(255,255,255,0.22)', glint: 'rgba(255,255,255,0.9)', shine: 'rgba(255,255,255,0.55)', ripple: 'rgba(255,255,255,0.5)', star: 'rgba(255,255,255,0)',
     ground: '#93A55C', stone: '#ABB1B7', near: '#24493C', wood: '#C88B52', woodD: '#6A4430', nShade: 'rgba(36,36,52,0.3)', red: '#D6382A', orange: '#EE8C2A', line: 'rgba(72,46,30,0.5)', grass: '#6E8A42', glow: 'rgba(255,255,250,0.85)', mist: 'rgba(255,255,255,0.55)'},
   D: {back: '#22345A', backSnow: '#4E6690', rock: '#2D3E5C', shade: '#202E48', snow: '#9FB4D2', ice: '#6890BA', foot: '#11282B', mrefl: 'rgba(110,160,220,0.1)', strata: 'rgba(8,12,28,0.4)', streak: 'rgba(200,220,245,0.55)',
-    spr1: '#0D2123', spr2: '#122A2B', sprRefl: 'rgba(0,10,18,0.5)', shallow: 'rgba(80,170,170,0.12)', beach: '#38404A', snowRefl: 'rgba(170,195,230,0.16)', glint: 'rgba(230,245,255,0.8)', shine: 'rgba(160,210,240,0.22)', ripple: 'rgba(160,210,240,0.22)', star: 'rgba(255,250,235,0.85)',
+    spr1: '#0D2123', spr2: '#5E4A2C', sprRefl: 'rgba(0,10,18,0.5)', shallow: 'rgba(80,170,170,0.12)', beach: '#38404A', snowRefl: 'rgba(170,195,230,0.16)', glint: 'rgba(230,245,255,0.8)', shine: 'rgba(160,210,240,0.22)', ripple: 'rgba(160,210,240,0.22)', star: 'rgba(255,250,235,0.85)',
     ground: '#1D2F2A', stone: '#4A5462', near: '#0D1E1C', wood: '#6E4C36', woodD: '#3A2820', nShade: 'rgba(4,6,18,0.42)', red: '#A8342C', orange: '#B8622A', line: 'rgba(8,6,12,0.5)', grass: '#2D4332', glow: 'rgba(90,220,170,0.16)', mist: 'rgba(120,150,200,0.12)'}
 };
 SCENES.canada = function (W, H, dk, rnd) {
@@ -103,7 +103,7 @@ SCENES.canada = function (W, H, dk, rnd) {
   // ---- the far shore: two tones of spruce standing on a pale stony beach, with their reflections
   var s1 = '', s2 = '', sr = '', beach = '', fs = [];
   for (x = -14; x < W + 14; x += (ph ? 5 : 7) + rnd() * (ph ? 6 : 9)) { var h = (ph ? 13 : 20) * (0.55 + rnd() * 0.9) * (1 + 0.25 * Math.sin(x / 120)), yb = hz + 2 + rnd() * 2, tr = canada_spruce(x, yb, h, h * 0.2, 5);
-    if (rnd() < 0.55) s1 += tr; else s2 += tr; sr += canada_pg([[x - h * 0.16, hz + 5], [x + h * 0.16, hz + 5], [x, hz + 5 + h * 0.85]]); fs.push(x); }
+    if (rnd() < 0.55) s1 += tr; else { var hq2 = h * 0.85; s2 += canada_e(x, yb - hq2 * 0.55, hq2 * 0.24, hq2 * 0.45) + canada_c(x - hq2 * 0.12, yb - hq2 * 0.7, hq2 * 0.16) + canada_c(x + hq2 * 0.13, yb - hq2 * 0.42, hq2 * 0.17); } /* aspens in autumn gold among the spruces */ sr += canada_pg([[x - h * 0.16, hz + 5], [x + h * 0.16, hz + 5], [x, hz + 5 + h * 0.85]]); fs.push(x); }
   sr += canada_pg(foot.map(function (p) { return [p[0], hz + 5 + (hz - p[1]) * 0.6]; }));
   beach = canada_pg([[-20, hz + 1], [W + 20, hz + 1], [W + 20, hz + 5], [-20, hz + 5]]);
   add(mid, 'c', sr, C.sprRefl); add(mid, 'a', s1, C.spr1); add(mid, 'b', s2, C.spr2); add(mid, 'e', beach, C.beach);
@@ -128,9 +128,22 @@ SCENES.canada = function (W, H, dk, rnd) {
   stone += canada_pg(bt.concat(bb.reverse()));
   // the rockpile on the left: big boulders at the bottom, smaller ones stacked up toward the top
   var RP = [[0.0, 2, 50], [0.08, 6, 56], [0.165, 4, 42], [0.235, 8, 30], [0.04, -34, 42], [0.125, -30, 40], [0.2, -18, 28], [0.085, -62, 32], [0.16, -50, 24], [0.12, -82, 20], [0.05, -72, 22], [0.29, 10, 18]];
-  RP.forEach(function (q, j) { var rx = q[2] * S * (ph ? 1.2 : 1), xx = W * q[0], yy = gnd(xx) + q[1] * S * (ph ? 1.1 : 1), ry = rx * 0.68, p = canada_rockPts(xx, yy, rx, ry, rnd);
-    stone += canada_pg(p); nsh += canada_rockShade(p, xx, yy, rx, ry);
-    lines += 'M' + PT(xx - rx * 0.3, yy - ry * 0.5) + ' l' + n1(rx * 0.12) + ' ' + n1(ry * 0.35) + ' l' + n1(-rx * 0.05) + ' ' + n1(ry * 0.3) + ' '; });
+  // (layered by depth: a boulder lower down the pile is nearer, so the shading, cracks and outline of the ones behind stop
+  // at its edge, and its own outline shows where it overlaps them)
+  var rocks = RP.map(function (q) { var rx = q[2] * S * (ph ? 1.2 : 1), xx = W * q[0], yy = gnd(xx) + q[1] * S * (ph ? 1.1 : 1), ry = rx * 0.68; return {x: xx, y: yy, rx: rx, ry: ry, p: canada_rockPts(xx, yy, rx, ry, rnd)}; });
+  rocks.sort(function (a, b) { return (a.y + a.ry * 0.55) - (b.y + b.ry * 0.55); });
+  var inPoly = function (P, x, y) { var c = false; for (var i = 0, j = P.length - 1; i < P.length; j = i++) { if ((P[i][1] > y) !== (P[j][1] > y) && x < (P[j][0] - P[i][0]) * (y - P[i][1]) / (P[j][1] - P[i][1]) + P[i][0]) c = !c; } return c; };
+  var dens = function (P, closed) { var o = [], n = closed ? P.length : P.length - 1; for (var i = 0; i < n; i++) { var A2 = P[i], B2 = P[(i + 1) % P.length]; for (var m = 0; m < 8; m++) o.push([A2[0] + (B2[0] - A2[0]) * m / 8, A2[1] + (B2[1] - A2[1]) * m / 8]); } if (!closed) o.push(P[P.length - 1]); return o; };
+  var nearest = function (P, x, y) { var best = null, bd = 1e18; for (var i = 0; i < P.length; i++) { var A2 = P[i], B2 = P[(i + 1) % P.length], dx = B2[0] - A2[0], dy = B2[1] - A2[1], t = Math.max(0, Math.min(1, ((x - A2[0]) * dx + (y - A2[1]) * dy) / (dx * dx + dy * dy || 1))), qx = A2[0] + dx * t, qy = A2[1] + dy * t, d = (qx - x) * (qx - x) + (qy - y) * (qy - y); if (d < bd) { bd = d; best = [qx, qy]; } } return best; };
+  rocks.forEach(function (r, j) { var front = rocks.slice(j + 1).filter(function (o) { return Math.abs(o.x - r.x) < o.rx + r.rx && Math.abs(o.y - r.y) < o.ry + r.ry; });
+    var cover = function (x, y) { for (var i = 0; i < front.length; i++) if (inPoly(front[i].p, x, y)) return front[i]; return null; };
+    stone += canada_pg(r.p);
+    var shd = canada_rockShade(r.p, r.x, r.y, r.rx, r.ry), so = []; for (var i = 0; i < 7; i++) so.push(r.p[(i + 10) % 11]); so.push([r.x - r.rx * 0.1, r.y + r.ry * 0.1], [r.x + r.rx * 0.35, r.y - r.ry * 0.2]);
+    nsh += canada_pg(dens(so, true).map(function (pt) { var c = cover(pt[0], pt[1]); return c ? nearest(c.p, pt[0], pt[1]) : pt; }));
+    var runs = function (pts) { var out = '', cur = []; pts.forEach(function (pt) { if (cover(pt[0], pt[1])) { if (cur.length > 1) out += pline(cur); cur = []; } else cur.push(pt); }); if (cur.length > 1) out += pline(cur); return out; };
+    lines += runs(dens([[r.x - r.rx * 0.3, r.y - r.ry * 0.5], [r.x - r.rx * 0.18, r.y - r.ry * 0.15], [r.x - r.rx * 0.23, r.y + r.ry * 0.15]], false));
+    // its outline where it stands in front of another boulder
+    if (j > 0) { var behind = rocks.slice(0, j), ol = dens(r.p, true).concat([r.p[0]]), cur3 = []; ol.forEach(function (pt) { var on = behind.some(function (o) { return inPoly(o.p, pt[0], pt[1]); }) && !cover(pt[0], pt[1]); if (on) cur3.push(pt); else { if (cur3.length > 1) lines += pline(cur3); cur3 = []; } }); if (cur3.length > 1) lines += pline(cur3); } });
   // the dock: a plank deck reaching left from the knoll, on posts standing in the water
   var dy = H * (ph ? 0.842 : 0.835), dx0 = W * (ph ? 0.5 : 0.555), dx1 = W * (ph ? 0.76 : 0.775), dt = 6 * S;
   wood += rect(dx0, dy, dx1 - dx0, dt); woodD += rect(dx0, dy + dt, dx1 - dx0, 4 * S);
@@ -194,7 +207,7 @@ SCENES.canada = function (W, H, dk, rnd) {
     mTr += canada_pg([[mx - 7 * ms, my], [mx - 5 * ms, my - 60 * ms], [mx - 30 * ms, my - 100 * ms], [mx - 26 * ms, my - 104 * ms], [mx - 2 * ms, my - 76 * ms], [mx + 4 * ms, my - 112 * ms], [mx + 9 * ms, my - 110 * ms], [mx + 5 * ms, my - 64 * ms], [mx + 28 * ms, my - 92 * ms], [mx + 31 * ms, my - 88 * ms], [mx + 7 * ms, my - 50 * ms], [mx + 8 * ms, my]]);
     // a red core, then mottled clusters of red and orange (orange catching the light at the top left), leaves at the edge
     for (k = 0; k < 7; k++) { var a0 = k / 7 * Math.PI * 2; red += canada_c(mx + Math.cos(a0) * R * 0.45, cyy + Math.sin(a0) * R * 0.3, R * 0.5); }
-    for (k = 0; k < 150; k++) { var a = hash(k + j * 90 + 1) * Math.PI * 2, d = Math.sqrt(hash(k + j * 90 + 2)), bx = mx + Math.cos(a) * d * R * 1.12, by = cyy + Math.sin(a) * d * R * 0.78, br = (5 + hash(k + j * 90 + 3) * 5.5) * ms, lit = (mx - bx) / R * 0.3 + (cyy - by) / R * 0.5;
+    for (k = 0; k < 150; k++) { var a = hash(k + j * 90 + 1) * Math.PI * 2, d = Math.sqrt(hash(k + j * 90 + 2)) * 0.92, bx = mx + Math.cos(a) * d * R * 1.0, by = cyy + Math.sin(a) * d * R * 0.72, /* (kept within the crown so no blob sits apart from it) */ br = (5 + hash(k + j * 90 + 3) * 5.5) * ms, lit = (mx - bx) / R * 0.3 + (cyy - by) / R * 0.5;
       if (hash(k + j * 90 + 4) < 0.42 + lit) orange += canada_c(bx, by, br); else red += canada_c(bx, by, br);
       if (d > 0.8 && k % 2 && by < my - 30 * ms) { var lf = canada_leaf(bx + Math.cos(a) * br, by + Math.sin(a) * br * 0.8, (6 + (k % 3) * 1.6) * ms, a * 57.3 + 90); if (k % 2) red += lf; else orange += lf; } }
     nsh += canada_e(mx + R * 0.15, my + 2, R * 0.8, 5 * ms); maples.push([mx, cyy, R]); });
@@ -207,17 +220,25 @@ SCENES.canada = function (W, H, dk, rnd) {
     for (k = 0; k < 2; k++) { var fx = bx + (k ? 30 : -32) * bs, fy = by + 2; if (!clearAt(fx, fy - 8 * bs, 14 * bs)) continue; for (i = -2; i <= 2; i++) { var fa = i * 0.42 - Math.PI / 2, fl = (16 - Math.abs(i) * 3) * bs, ex = fx + Math.cos(fa) * fl, ey = fy + Math.sin(fa) * fl;
       grass += 'M' + PT(fx, fy) + ' Q' + PT(fx + Math.cos(fa) * fl * 0.6 - i * 2, fy + Math.sin(fa) * fl * 0.7) + ' ' + PT(ex + i * 2, ey + 3 * bs) + ' '; } } });
   var brP = [[W + 20, H * (ph ? 0.12 : 0.02)], [W * 0.93, H * (ph ? 0.13 : 0.06)], [W * (ph ? 0.78 : 0.85), H * (ph ? 0.155 : 0.1)], [W * (ph ? 0.66 : 0.77), H * (ph ? 0.15 : 0.11)]];
-  mTr += canada_pg(brP.concat([[brP[3][0] + 2, brP[3][1] + 4], [brP[2][0], brP[2][1] + 7], [brP[1][0], brP[1][1] + 8], [W + 20, brP[0][1] + 11]]));
-  brP.slice(1).forEach(function (p, j) { for (k = 0; k < 6; k++) { var lx2 = p[0] - 18 + k * 9, ly2 = p[1] + 8 + (k % 2) * 7, lf2 = canada_leaf(lx2, ly2, (ph ? 7 : 10) - (k % 2) * 2, (k - 2.5) * 22); if ((k + j) % 3) red += lf2; else orange += lf2; maples.push([lx2, ly2, 8]); } });
-  // a darker grassy bank across the very front, with a few spruce saplings and junipers on it
+  // the overhanging maple branch: a smoothly tapering limb from the corner, with little twigs off it, each ending in a
+  // cluster of leaves turned every way (red, a few orange catching the light), and single leaves along the limb
+  var bsc = ph ? 0.75 : 1, limbAt = function (u) { var n = brP.length - 1, f = Math.min(n - 1e-6, u * n), i2 = Math.floor(f), t2 = f - i2, a2 = brP[i2], b2 = brP[i2 + 1], p0 = brP[Math.max(0, i2 - 1)], p3 = brP[Math.min(n, i2 + 2)];
+    var cr = function (q) { return 0.5 * (2 * a2[q] + (-p0[q] + b2[q]) * t2 + (2 * p0[q] - 5 * a2[q] + 4 * b2[q] - p3[q]) * t2 * t2 + (-p0[q] + 3 * a2[q] - 3 * b2[q] + p3[q]) * t2 * t2 * t2); }; return [cr(0), cr(1)]; };
+  var LT = [], LB = []; for (k = 0; k <= 40; k++) { var u3 = k / 40, c3 = limbAt(u3), c4 = limbAt(Math.min(1, u3 + 0.01)), dx3 = c4[0] - c3[0] || -1, dy3 = c4[1] - c3[1], dl = Math.hypot(dx3, dy3) || 1, wd = (12 - 9.5 * u3) * S * bsc; LT.push([c3[0] - dy3 / dl * wd / 2, c3[1] + dx3 / dl * wd / 2]); LB.unshift([c3[0] + dy3 / dl * wd / 2, c3[1] - dx3 / dl * wd / 2]); }
+  mTr += canada_pg(LT.concat(LB));
+  var cluster = function (cx2, cy2, n2, sz, seed) { for (var q = 0; q < n2; q++) { var a3 = hash(seed + q * 1.7) * Math.PI * 2, d3 = sz * (0.4 + hash(seed + q * 2.3) * 0.9), lx3 = cx2 + Math.cos(a3) * d3, ly3 = cy2 + Math.sin(a3) * d3 * 0.8, lf3 = canada_leaf(lx3, ly3, sz * (0.75 + hash(seed + q * 3.1) * 0.45), a3 * 57.3 + 90);
+      if (hash(seed + q * 4.9) < 0.3 + (cy2 - ly3) / sz * 0.15) orange += lf3; else red += lf3; } maples.push([cx2, cy2, sz * 1.5]); };
+  for (k = 0; k < 7; k++) { var u4 = 0.12 + k * 0.13, b4 = limbAt(u4), dn = k % 2 ? 1 : -0.6, tl = (16 + hash(k * 5.3) * 12) * S * bsc, tx4 = b4[0] - tl * 0.45, ty4 = b4[1] + dn * tl;
+    mTr += canada_pg([[b4[0] - 1.6 * S, b4[1]], [b4[0] + 1.6 * S, b4[1]], [tx4 + 0.6 * S, ty4], [tx4 - 0.6 * S, ty4]]);
+    cluster(tx4, ty4, 7, 8 * S * bsc, k * 13 + 3); }
+  var tip = limbAt(1); cluster(tip[0] - 4 * S, tip[1] + 2 * S, 8, 8.5 * S * bsc, 71);
+  for (k = 0; k < 9; k++) { var u5 = 0.08 + k * 0.1, b5 = limbAt(u5), lf5 = canada_leaf(b5[0] + (hash(k + 9) - 0.5) * 6 * S, b5[1] + (k % 2 ? 7 : -6) * S * bsc, 7.5 * S * bsc, (k % 2 ? 180 : 0) + (hash(k + 4) - 0.5) * 60); if (k % 3) red += lf5; else orange += lf5; }
   var fb = [[-20, H + 20]]; for (x = -20; x <= W + 20; x += 12) fb.push([x, H * (ph ? 0.965 : 0.955) - Math.sin(x / 140 + 1) * H * 0.012 - Math.sin(x / 41) * 2.5]); fb.push([W + 20, H + 20]);
-  var bank = canada_pg(fb);
+  var bank = ''; // (no dark grassy strip across the very front any more)
   // behind the cabin the knoll carries on up into a stand of young spruces, so the tall ones there stand in woods on land
   // rather than rising out of the water
   (function () { var x0 = kL + 40 * cs, by5 = kT + 2 * cs, k6 = 0; bank += canada_pg([[x0, by5 + 8 * cs], [x0, by5], [W + 20, by5], [W + 20, by5 + 8 * cs]]);
     for (x = x0 + 6 * cs; x < W + 20; x += 13 * cs, k6++) { var hq = (34 + hash(k6 * 3.1) * 26) * cs; bank += canada_spruce(x, by5 + 2 * cs, hq, hq * 0.22, 6); } })();
-  (ph ? [[0.08, 34], [0.94, 28]] : [[0.035, 46], [0.07, 30], [0.62, 26], [0.97, 40]]).forEach(function (q) { var sx = W * q[0], sh2 = q[1] * S * (ph ? 1.3 : 1); bank += canada_spruce(sx, canada_yAt(fb.slice(1, -1), sx) + 4, sh2, sh2 * 0.24, 6); });
-  (ph ? [[0.3, 1]] : [[0.18, 1.2], [0.42, 0.9], [0.8, 1]]).forEach(function (q) { var jx = W * q[0], jy = canada_yAt(fb.slice(1, -1), jx) + 4, js = q[1] * S; for (k = 0; k < 6; k++) bank += canada_e(jx + (k - 2.5) * 9 * js, jy - (4 + Math.sin(k / 5 * Math.PI) * 6) * js, 9 * js, 6 * js); });
   // fallen leaves in the grass and grass tufts along the shore
   spread(0, H * 0.82, W, H * 0.2, ph ? 34 : 46, 22, rnd, 1).forEach(function (c) { if (c.y < gnd(c.x) + 10 || !clearAt(c.x, c.y, 8)) return; if (c.q < 0.25) { var lf3 = canada_leaf(c.x, c.y, 4 + c.r * 3, c.k * 360); if (c.r < 0.5) red += lf3; else orange += lf3; }
     else if (c.q < 0.75) grass += 'M' + PT(c.x - 3, c.y) + ' Q' + PT(c.x - 2, c.y - 6) + ' ' + PT(c.x - 5, c.y - 10) + ' M' + PT(c.x + 1, c.y) + ' Q' + PT(c.x + 2, c.y - 7) + ' ' + PT(c.x + 5, c.y - 11) + ' M' + PT(c.x + 3, c.y) + ' L' + PT(c.x + 1, c.y - 8) + ' '; });
