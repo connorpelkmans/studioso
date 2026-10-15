@@ -326,6 +326,17 @@ function japan_paintTown(o, T, dk, W, H, S, ph, which, out) {
   rows.forEach(function (ry, r) { var sc = S * (0.5 + r * (ph ? 0.15 : 0.13)), yb = H * ry, xx = T.tx0 + (r % 2) * 18 * sc - r * W * 0.02, n = 0, hz = Math.max(0, 0.42 - r * 0.11);
     if ((which === 'back') !== (yb <= T.kp[1] + 2)) return;
     var K = japan_tone(dk, hz);
+    // the street this row of houses fronts onto: laid before the row (and so under it and under every nearer row), running
+    // from the hill's foot to the river bank
+    var gapY = H * ((rows[r + 1] || ry + 0.034) - ry), stH = gapY * 0.42, top = [], bot = [];
+    for (var sx = T.tx0 - r * W * 0.02 - 30 * sc; sx < W + 40; sx += 6) { var bk = japan_yAt(T.Urev, sx) - 3 * sc; if (yb + 1 > bk || (sx < T.hx1 && yb < japan_yAt(T.HL, sx) + 8) || T.hillT.some(function (c) { return Math.abs(sx - c[0]) < c[2] * 1.1 && yb < c[1] + c[2] * 0.6; })) { if (top.length > 1) japan_poly(o, top.concat(bot), K('#D8CCB2')); top = []; bot = []; continue; }
+      top.push([sx, yb - 1 * sc]); bot.unshift([sx, Math.min(yb + stH, bk)]); }
+    if (top.length > 1) japan_poly(o, top.concat(bot), K('#D8CCB2'));
+    if (which === 'front' && r === rows.length - 1) {
+      // the lane from the front street down to the bridge's foot
+      var bxF = T.bridgeX + 4 * S, byF = T.bridgeY, lx0 = bxF - (ph ? 40 : 70) * S, lyT = yb + stH * 0.5, wl = function (u) { return (9 + 9 * u) * S; }, L1 = [], L2 = [];
+      for (var u = 0; u <= 1.001; u += 0.1) { var lx = lx0 + (bxF - lx0) * (u * u * (3 - 2 * u)), ly = lyT + (byF - lyT) * u; L1.push([lx - wl(u) / 2, ly]); L2.unshift([lx + wl(u) / 2, ly]); }
+      japan_poly(o, L1.concat(L2), K('#D8CCB2')); }
     if (r === 0) { var cs = S * (ph ? 0.55 : 0.78), wb = []; japan_castle(o, japan_tone(dk, hz + 0.06), sh(hz), cast[0], cast[1], cs, wb); items.push({box: [cast[0] - 32 * cs, cast[1] - 58 * cs, cast[0] + 44 * cs, cast[1]]}); take(wb); }
     while (xx < W + 40) { var hw = (34 + hash(r * 40 + n) * 26) * sc, hh = (18 + hash(r * 40 + n + 0.5) * 8) * sc, two = hash(r * 40 + n + 0.7) < 0.32, kura = hash(r * 40 + n + 0.9) < 0.12, gap = (6 + hash(r * 9 + n) * 16) * sc;
       var nearCastle = r === 0 && xx + hw > cast[0] - 34 * S && xx < cast[0] + 44 * S;
@@ -341,7 +352,7 @@ function japan_paintTown(o, T, dk, W, H, S, ph, which, out) {
   });
   if (which === 'front') { var K0 = japan_tone(dk, 0), bx = T.bank, tea = T.tea;
     // the lane of trees along the river bank, and the teahouse among them with a red bench and a parasol
-    for (var x = bx[0]; x < Math.min(bx[1], T.bridgeX - 24 * S); x += (ph ? 20 : 30) * S) { if (Math.abs(x - tea[0]) < 36 * S) continue; var by = japan_yAt(T.Urev, x) - 4 * S, tr = (9 + hash(x) * 7) * S;
+    for (var x = bx[0]; x < Math.min(bx[1], T.bridgeX - ((ph ? 40 : 70) + 22) * S); /* (clear of the lane to the bridge) */ x += (ph ? 20 : 30) * S) { if (Math.abs(x - tea[0]) < 36 * S) continue; var by = japan_yAt(T.Urev, x) - 4 * S, tr = (9 + hash(x) * 7) * S;
       if (by < H * 0.95) { japan_tree(o, K0, x, by + tr * 0.1, tr, hash(x + 1) < 0.35, sh(0)); items.push({box: [x - tr * 1.3, by - tr * 2, x + tr * 1.3, by]}); } }
     if (tea[1] > H * 0.7) { var wb3 = [], lb3 = [], tb = japan_house(o, K0, sh(0), {x: tea[0] - 26 * S, yb: tea[1] + 8 * S, w: 52 * S, hh: 18 * S, sc: S, hip: true, tea: true, seed: 5, roof: '#56607A'}, wb3, lb3, dk);
       items.push({box: tb}); take(wb3, lb3);
@@ -380,7 +391,8 @@ ENGINES.japan = function (A, v, dk) {
     return japan_sprite(len * 2.3, len * 1.0, sc, function (o) { o.translate(-len * 1.15, -len * 0.3);
       o.fillStyle = C.trunk; o.strokeStyle = C.trunk; o.lineCap = 'round';
       var limb = function (x0, y0, x1, y1, w0, w1, b) { var n = 12; for (var k = 0; k < n; k++) { var u = k / n, u2 = (k + 1) / n, bx = Math.sin(Math.PI * u) * b, bx2 = Math.sin(Math.PI * u2) * b; o.lineWidth = w0 + (w1 - w0) * u; o.beginPath(); o.moveTo(x0 + (x1 - x0) * u, y0 + (y1 - y0) * u + bx); o.lineTo(x0 + (x1 - x0) * u2, y0 + (y1 - y0) * u2 + bx2); o.stroke(); } };
-      limb(0, 0, len, len * 0.2, 16 * S, 3 * S, -len * 0.06); limb(len * 0.35, len * 0.08, len * 0.6, len * 0.32, 7 * S, 2 * S, len * 0.03); limb(len * 0.6, len * 0.14, len * 0.85, len * 0.05, 5 * S, 1.6 * S, -len * 0.02); limb(len * 0.2, len * 0.05, len * 0.32, len * 0.24, 5 * S, 1.6 * S, 4 * S);
+      limb(0, 0, len, len * 0.2, 16 * S, 3 * S, -len * 0.06); /* the twigs start on the main limb's (bowed) centreline */ var on = function (u) { return len * (0.2 * u - 0.06 * Math.sin(Math.PI * u)); };
+      limb(len * 0.35, on(0.35), len * 0.6, len * 0.32, 7 * S, 2 * S, len * 0.03); limb(len * 0.6, on(0.6), len * 0.85, len * 0.05, 5 * S, 1.6 * S, -len * 0.02); limb(len * 0.2, on(0.2), len * 0.32, len * 0.24, 5 * S, 1.6 * S, 4 * S);
       var spots = [[0.5, 0.17], [0.62, 0.3], [0.75, 0.2], [0.9, 0.2], [0.82, 0.07], [0.38, 0.12], [0.28, 0.2], [0.55, 0.08], [0.98, 0.21], [0.68, 0.12]];
       spots.forEach(function (q, n) { var cx = len * q[0], cy = len * q[1]; for (var k = 0; k < 9; k++) { var a = hash(seed + n * 9 + k) * 6.28, d = hash(seed + n * 5 + k * 3) * 16 * S; japan_flower(o, cx + Math.cos(a) * d, cy + Math.sin(a) * d * 0.7, (6 + hash(seed + k + n) * 4) * S, a, flowerCols[k % 3], dk ? '#8A3A60' : '#D0507A'); } });
       for (var k = 0; k < 14; k++) { o.fillStyle = dk ? '#5A6A40' : '#8AB860'; o.save(); o.translate(len * (0.3 + hash(seed + k * 7) * 0.65), len * (0.1 + hash(seed + k * 3) * 0.2)); o.rotate(hash(k) * 6); o.beginPath(); o.ellipse(4 * S, 0, 4 * S, 1.8 * S, 0, 0, 7); o.fill(); o.restore(); }
@@ -458,7 +470,7 @@ ENGINES.japan = function (A, v, dk) {
     // nothing of this over the wooded hill, its cedars and its cherry trees (they stand in front)
     o.globalCompositeOperation = 'destination-out'; o.fillStyle = '#000'; o.fill(new Path2D(HS.occ)); o.globalCompositeOperation = 'source-over'; });
   var PG = A.pagoda, ps = PG.s, pagSpr = japan_deco(PG.x - 92 * ps, A.ptop[1] - 8 * ps, 260 * ps, PG.y - A.ptop[1] + 26 * ps, DK, function (o) { japan_paintPagoda(o, PG, dk, hillP, pagLights); });
-  var BRG = A.bridge; TN.bridgeX = BRG[0];
+  var BRG = A.bridge; TN.bridgeX = BRG[0]; TN.bridgeY = BRG[2];
   var tx0 = Math.min(TN.tx0 - W * 0.12, TN.bank[0]) - 60 * S, ty0 = H * TN.rows[0] - 120 * S;
   var townB = japan_deco(tx0, ty0, W + 60 - tx0, TN.kp[1] + 14 - ty0, DK, function (o) { japan_paintTown(o, TN, dk, W, H, S, ph, 'back', lit); });
   litB = lit.wins.length; var litL = lit.lamps.length;
