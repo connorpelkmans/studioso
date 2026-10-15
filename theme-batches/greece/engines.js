@@ -21,18 +21,27 @@ function greece_dove(c, x, y, sz, dir, fl, col, a) {
 // the island cat walking along the wall: phase p moves the legs, sit (0..1) folds it down, tail swishes with sw
 function greece_kitty(c, x, y, sz, dir, p, sit, sw, col, dark) {
   c.save(); c.translate(x, y); c.scale(dir * sz, sz); c.fillStyle = col; c.strokeStyle = col; c.lineCap = 'round';
-  var by = -9 + sit * 2, lg = 7 * (1 - sit * 0.75);
-  c.lineWidth = 2.2; [[-6, 0], [-3.6, Math.PI], [4.6, Math.PI * 0.5], [7, Math.PI * 1.5]].forEach(function (q) { var a = Math.sin(p + q[1]) * 0.45 * (1 - sit); c.beginPath(); c.moveTo(q[0], by + 1); c.lineTo(q[0] + Math.sin(a) * lg, by + 1 + Math.cos(a) * lg); c.stroke(); });
-  c.beginPath(); c.ellipse(sit * -1.5, by - sit * 1.5, 9.5 - sit * 2, 4.4 + sit * 1.6, -sit * 0.35, 0, 7); c.fill();
-  // tail: up and curling at the tip, swishing
-  c.lineWidth = 2.4; c.beginPath(); c.moveTo(-8.5, by - 1); c.quadraticCurveTo(-14 - sw * 2, by - 6, -12 + sw * 3, by - 14 + sit * 6); c.stroke();
-  // head and ears
-  var hx = 9.5 - sit * 2.5, hy = by - 5 - sit * 2;
-  c.beginPath(); c.arc(hx, hy, 4.2, 0, 7); c.fill();
-  c.beginPath(); c.moveTo(hx - 3.6, hy - 1.6); c.lineTo(hx - 2.6, hy - 7); c.lineTo(hx - 0.4, hy - 3.6); c.closePath(); c.moveTo(hx + 0.6, hy - 3.8); c.lineTo(hx + 2.8, hy - 7.2); c.lineTo(hx + 3.8, hy - 1.8); c.closePath(); c.fill();
-  c.fillStyle = dark; c.beginPath(); c.ellipse(-1, by - 3.4, 1.2, 3, 0.2, 0, 7); c.ellipse(2.6, by - 3.8, 1.2, 2.8, 0.2, 0, 7); c.ellipse(-4.4, by - 3, 1.1, 2.6, 0.2, 0, 7); c.fill();
-  c.beginPath(); c.arc(hx + 2, hy - 0.6, 0.75, 0, 7); c.fill();
-  c.restore(); }
+  // the body: level when walking; sitting, it tips up at the front over a haunch resting on the ground
+  var bx = -1.5 * sit, by = -9 - 0.8 * sit, ang = -0.5 * sit, rx = 9.5 - 1.6 * sit, ry = 4.4 + 0.8 * sit, ca = Math.cos(ang), sa = Math.sin(ang);
+  var onBody = function (lx, ly) { return [bx + lx * ca - ly * sa, by + lx * sa + ly * ca]; };
+  // legs: each runs from a point on the body's underside to a paw on the ground, so it can never come loose; walking they
+  // swing, sitting the front ones stand straight and the back ones fold under the haunch
+  c.lineWidth = 2.2; [[-6, 0, 0], [-3.6, Math.PI, 0], [4.6, Math.PI * 0.5, 1], [7, Math.PI * 1.5, 1]].forEach(function (q) {
+    var a = onBody(q[0], ry * 0.55), swing = Math.sin(p + q[1]) * 2.6 * (1 - sit), fx = q[2] ? a[0] + 0.4 * sit : a[0] + 2.5 * sit;
+    c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(fx + swing, -0.4); c.stroke(); c.beginPath(); c.ellipse(fx + swing + 0.5, -0.6, 1.4, 0.8, 0, 0, 7); c.fill(); });
+  if (sit > 0.01) { c.beginPath(); c.ellipse(-4.6, -4.2 + (1 - sit) * 2, 5.4 * sit + 0.01, 4.2 * sit + 0.01, -0.2, 0, 7); c.fill(); }
+  c.save(); c.translate(bx, by); c.rotate(ang);
+  var body = new Path2D(); body.ellipse(0, 0, rx, ry, 0, 0, 7); c.fill(body);
+  // tail from the back of the body, up and curling (lying round the haunch when it sits)
+  c.lineWidth = 2.4; c.beginPath(); c.moveTo(-rx + 1, -1); c.quadraticCurveTo(-rx - 4.5 - sw * 2, -6 + sit * 8, -rx - 2.5 + sw * 3 - sit * 2, -14 + sit * 18); c.stroke();
+  // stripes painted inside the body (clipped to it), so they move with it
+  c.save(); c.clip(body); c.fillStyle = dark; [-4.4, -0.9, 2.6].forEach(function (sx2) { c.beginPath(); c.ellipse(sx2, -ry * 0.55, 1.2, ry * 0.75, 0.2, 0, 7); c.fill(); }); c.restore();
+  // head and ears on the front of the body, kept upright
+  c.translate(rx - 0.5, -3.6); c.rotate(-ang); c.fillStyle = col;
+  c.beginPath(); c.arc(0, -1.5, 4.2, 0, 7); c.fill();
+  c.beginPath(); c.moveTo(-3.6, -3.1); c.lineTo(-2.6, -8.5); c.lineTo(-0.4, -5.1); c.closePath(); c.moveTo(0.6, -5.3); c.lineTo(2.8, -8.7); c.lineTo(3.8, -3.3); c.closePath(); c.fill();
+  c.fillStyle = dark; c.beginPath(); c.arc(2, -2.1, 0.75, 0, 7); c.fill();
+  c.restore(); c.restore(); }
 
 // ---------- Santorini
 // Loop: the sun (or moon) glows over the bay, clouds drift, sunlight glints on the water (a shimmering moon path at
