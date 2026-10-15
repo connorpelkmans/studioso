@@ -198,7 +198,7 @@ SCENES.brazil = function (W, H, dk, rnd) {
 
   // ---- mid: Christ the Redeemer, the favela, the cable car stations and wires, the glints on the bay
   var ink = '', shine = '', wire = '';
-  var cs = (ph ? 1.35 : 1.8) * S, christ = [sum[0], sum[1] + 2.2 * cs, cs], fav = C.fav.map(function () { return ''; });
+  var cs = (ph ? 1.35 : 1.8) * S, christ = [sum[0], sum[1] + 0.4 * cs, cs], fav = C.fav.map(function () { return ''; });
   if (!ANIM) fav[0] += brazil_christ(christ[0], christ[1], cs) + brazil_pg([[sum[0] - 8 * cs, sum[1] + 4 * cs], [sum[0] + 8 * cs, sum[1] + 4 * cs], [sum[0] + 6 * cs, sum[1] + 0.5 * cs], [sum[0] - 6 * cs, sum[1] + 0.5 * cs]]);
   var favEnd = ph ? W * 0.5 : W * 0.545, FV = brazil_favela(FH, -14, favEnd, hz - 1.5 * S, (ph ? 1.3 : 1.65) * S, ph), wins = FV.wins;
   if (!ANIM) { FV.col.forEach(function (d, n) { fav[n] += d; }); ink += FV.ink; wire += FV.line; }
