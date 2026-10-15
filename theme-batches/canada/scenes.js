@@ -178,12 +178,15 @@ SCENES.canada = function (W, H, dk, rnd) {
   wins.forEach(function (w) { woodD += rect(w[0] - 3 * cs, w[1] - 3 * cs, w[2] + 6 * cs, w[3] + 6 * cs); nsh += rect(w[0], w[1], w[2], w[3]); lines += seg(w[0] + w[2] / 2, w[1], w[0] + w[2] / 2, w[1] + w[3]) + seg(w[0], w[1] + w[3] / 2, w[0] + w[2], w[1] + w[3] / 2); });
   woodD += rect(door[0] - 2.5 * cs, door[1] - 2.5 * cs, door[2] + 5 * cs, door[3] + 2.5 * cs); nsh += rect(door[0], door[1], door[2], door[3]) + rect(cl0, cb - wh, cw, 6 * cs);
   wood += rect(door[0] - 6 * cs, cb - 4 * cs, door[2] + 12 * cs, 4 * cs);
+  // three wooden steps up from the path's end to the dock's deck, each a tread with its riser below
+  for (k = 0; k < 3; k++) { var sy5 = dy + dt + 4 * S + k * 4.5 * S, sw5 = (13 + k * 2) * S, sx5 = dx1 - 12 * S; wood += rect(sx5 - sw5 / 2, sy5, sw5, 2.2 * S); woodD += rect(sx5 - sw5 / 2, sy5 + 2.2 * S, sw5, 2.3 * S); }
+  woodD += rect(dx1 - 12 * S - 9 * S, dy + dt, 2 * S, 15 * S) + rect(dx1 - 12 * S + 7 * S, dy + dt, 2 * S, 15 * S);
   // a gravel path from the cabin door down to the dock
-  var pa0 = [door[0] + door[2] / 2, cb], pa1 = [dx1 - 6 * S, dy + dt + 3 * S], pl = [], pr = [];
+  var pa0 = [door[0] + door[2] / 2, cb], pa1 = [dx1 - 12 * S, dy + dt + 17 * S], pl = [], pr = [];
   for (k = 0; k <= 8; k++) { var u = k / 8, px = pa0[0] + (pa1[0] - pa0[0]) * u, py = pa0[1] + (pa1[1] - pa0[1]) * u + Math.sin(u * Math.PI) * 14 * S, pw = (5 + u * 7) * S; pl.push([px - pw * 0.4, py - pw * 0.5]); pr.unshift([px + pw * 0.4, py + pw * 0.5]); }
   stone += canada_pg(pl.concat(pr));
   // a woodpile beside the chimney: rows of split log ends under a little lean-to roof
-  if (!ph) { var wpx = cl1 + 4 * cs, wpy = cb, lr = 3.6 * cs; // (against the cabin's right end, out of the dock's way)
+  if (!ph) { var wpx = cl1 + 10 * cs, wpy = cb, lr = 3.6 * cs; // (against the cabin's right end, out of the dock's way)
   woodD += rect(wpx - 2 * cs, wpy - 26 * cs, 4 * cs, 26 * cs) + rect(wpx + 36 * cs, wpy - 26 * cs, 4 * cs, 26 * cs) + canada_pg([[wpx - 6 * cs, wpy - 25 * cs], [wpx + 18 * cs, wpy - 31 * cs], [wpx + 44 * cs, wpy - 25 * cs], [wpx + 44 * cs, wpy - 22 * cs], [wpx - 6 * cs, wpy - 22 * cs]]);
   for (k = 0; k < 3; k++) for (i = 0; i < 5 - (k === 1 ? 1 : 0); i++) { var lx = wpx + 4 * cs + i * 7.1 * cs + (k % 2) * 3.55 * cs, /* (the staggered middle row has four, so none sits in the post) */ ly2 = wpy - lr - k * 6.6 * cs; wood += canada_c(lx, ly2, lr); lines += 'M' + PT(lx - lr * 0.45, ly2) + ' a' + n1(lr * 0.45) + ' ' + n1(lr * 0.45) + ' 0 1 1 ' + n1(lr * 0.9) + ' 0 '; }
   nsh += canada_e(wpx + 19 * cs, wpy + 1, 24 * cs, 3 * cs); }
