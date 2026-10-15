@@ -161,6 +161,8 @@ SCENES.mexico = function (W, H, dk, rnd) {
   var ground = rect(-10, yb, W + 20, H - yb + 10), vy = yb - H * 0.95, pave = '';
   pave += mexico_e(fx, fy + 6 * S, frx * 1.5, fry * 1.9) + mexico_hole(mexico_ep(fx, fy + 6 * S, frx * 1.32, fry * 1.62, 60));
   pave += mexico_pg([[cx - 30 * S, yb + 8 * S], [cx + 30 * S, yb + 8 * S], [fx + frx * 0.5, fy - fry * 1.9], [fx - frx * 0.5, fy - fry * 1.9]]);
+  // (the fountain stands back so its foot, not its rim, sits on the middle of the paving ring)
+  fy -= (ph ? 22 : 32) * S * 0.82 - 6 * S;
   var rows = []; for (y = yb + 4, k = 0; y < H + 30; k++) { rows.push(y); y += (ph ? 5 : 6) + (y - yb) * 0.17; }
   rows.forEach(function (ry, r) { var sc = (ry - vy) / (H - vy), cw = (ph ? 13 : 20) * sc, rh = (rows[r + 1] || ry + 30) - ry, pl = [];
     for (x = -10; x <= W + 10; x += 14) pl.push([x, ry + Math.sin(x / 9 + r) * rh * 0.06]); grout += pline(pl);

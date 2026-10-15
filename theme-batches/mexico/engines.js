@@ -14,13 +14,16 @@ function mexico_rg(col, mid) { var g = mexico_ctx().createRadialGradient(0, 0, 0
 function mexico_dot(c, g, x, y, r, a, sy) { if (a <= 0.003 || r <= 0) return; c.save(); c.globalAlpha = Math.min(1, a); c.translate(x, y); c.scale(r, r * (sy || 1)); c.fillStyle = g; c.beginPath(); c.arc(0, 0, 1, 0, 7); c.fill(); c.restore(); }
 // a small offscreen canvas, drawn at k times the size, centred on (w/2, h/2)
 function mexico_sprite(w, h, k, fn) { var cv = document.createElement('canvas'); cv.width = Math.ceil(w * k); cv.height = Math.ceil(h * k); var o = cv.getContext('2d'); o.scale(k, k); o.translate(w / 2, h / 2); o.lineJoin = o.lineCap = 'round'; fn(o); cv.w = w; cv.h = h; return cv; }
-// a party balloon of radius r: body with a soft shine, a little knot
+// a party balloon of radius r, flat-shaded like the rest of the scene: a solid body, its lower right in a slightly deeper
+// shade of the same colour, one soft highlight and a little knot (no glossy gradient)
+function mexico_mix(h, k) { var n = parseInt(h.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255; return 'rgb(' + Math.round(r * k) + ',' + Math.round(g * k) + ',' + Math.round(b * k) + ')'; }
 function mexico_balloon(c, x, y, r, col, dk, a) {
   c.save(); c.globalAlpha = a == null ? 1 : a; c.translate(x, y);
-  var g = c.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.1, 0, 0, r * 1.15); g.addColorStop(0, '#FFFFFF'); g.addColorStop(0.22, col); g.addColorStop(1, dk ? 'rgba(20,10,40,0.9)' : col); c.fillStyle = g;
-  c.beginPath(); c.moveTo(0, r * 1.15); c.bezierCurveTo(-r * 1.25, r * 0.55, -r * 1.05, -r * 1.1, 0, -r * 1.1); c.bezierCurveTo(r * 1.05, -r * 1.1, r * 1.25, r * 0.55, 0, r * 1.15); c.fill();
-  c.fillStyle = col; c.beginPath(); c.moveTo(0, r * 1.1); c.lineTo(-r * 0.16, r * 1.32); c.lineTo(r * 0.16, r * 1.32); c.closePath(); c.fill();
-  c.fillStyle = 'rgba(255,255,255,0.55)'; c.beginPath(); c.ellipse(-r * 0.4, -r * 0.45, r * 0.16, r * 0.3, 0.5, 0, 7); c.fill();
+  var body = new Path2D(); body.moveTo(0, r * 1.15); body.bezierCurveTo(-r * 1.25, r * 0.55, -r * 1.05, -r * 1.1, 0, -r * 1.1); body.bezierCurveTo(r * 1.05, -r * 1.1, r * 1.25, r * 0.55, 0, r * 1.15);
+  c.fillStyle = col; c.fill(body);
+  c.save(); c.clip(body); c.fillStyle = mexico_mix(col, 0.82); c.beginPath(); c.ellipse(-r * 0.45, -r * 0.5, r * 1.35, r * 1.6, 0, 0, 7); c.rect(-r * 3, -r * 3, r * 6, r * 6); c.fill('evenodd'); c.restore();
+  c.fillStyle = mexico_mix(col, 0.82); c.beginPath(); c.moveTo(0, r * 1.1); c.lineTo(-r * 0.16, r * 1.32); c.lineTo(r * 0.16, r * 1.32); c.closePath(); c.fill();
+  c.fillStyle = dk ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.5)'; c.beginPath(); c.ellipse(-r * 0.42, -r * 0.48, r * 0.14, r * 0.26, 0.5, 0, 7); c.fill();
   c.restore(); }
 // a hummingbird about 24 units long, facing right when dir is 1; w is the wing beat (0..1)
 function mexico_hummer(c, x, y, s, dir, w, tilt, dk) {
@@ -92,9 +95,9 @@ ENGINES.mexico = function (A, v, dk) {
   var streams = (ph ? [0, 0.33, 0.67, 1] : [0, 0.2, 0.4, 0.6, 0.8, 1]).map(function (u) { var a = u * Math.PI, x0 = F.x + Math.cos(a) * F.brx * 0.98, y0 = F.bowlY + Math.sin(a) * F.bry, x1 = F.x + Math.cos(a) * F.rx * 0.5, y1 = F.y + Math.sin(a) * F.ry * 0.5; return {x0: x0, y0: y0, x1: x1, y1: y1, cx: x0 + (x1 - x0) * 0.3, cy: y0 - 6 * S}; });
   var rings = [], nextRing = 0, splash = [];
   // balloons on the cart
-  var BC = dk ? ['#C8407A', '#E8A040', '#3A6AC8', '#7AB04A', '#E86A50', '#9A6AD0', '#E8E0F0'] : ['#E2468C', '#F4B23A', '#3462B6', '#8CC24E', '#F27A5A', '#9A6AE0', '#FFFFFF'];
+  var BC = dk ? ['#B0487A', '#C89448', '#4A6AB0', '#6E9A50', '#C06A58', '#8A6AB8', '#B8B0CC'] : ['#E2468C', '#F4B23A', '#3462B6', '#8CC24E', '#F27A5A', '#9A6AE0', '#FBF3E4'];
   var cart = A.cart, bR = (ph ? 10 : 14) * cart.s / 0.95;
-  var balloons = []; for (i = 0; i < 9; i++) balloons.push({dx: (hash(i + 80) - 0.5) * 70 * cart.s, dy: -(46 + hash(i + 81) * 60) * cart.s, c: BC[i % BC.length], ph: hash(i + 82) * 6.28, r: bR * (0.85 + hash(i + 83) * 0.3), fly: null});
+  var balloons = []; for (i = 0; i < 9; i++) balloons.push({dx: (((i * 0.618) % 1) - 0.5) * 84 * cart.s, dy: -(50 + ((i * 0.382 + hash(i + 81) * 0.3) % 1) * 64) * cart.s, c: BC[i % BC.length], ph: hash(i + 82) * 6.28, r: bR * (0.85 + hash(i + 83) * 0.3), fly: null});
   balloons.sort(function (p, q) { return p.dy - q.dy; });
   var petals = []; for (i = 0; i < (ph ? 14 : 26); i++) petals.push({x: hash(i + 120) * W, y: hash(i + 121) * H, v: 14 + hash(i + 122) * 18, ph: hash(i + 123) * 6.28, s: (ph ? 3 : 4) * (0.7 + hash(i + 124) * 0.6), rot: hash(i + 125) * 6.28, c: JC[i % 4]});
   var conf = [], ribbons = [], waves = [], lastW = -1;
