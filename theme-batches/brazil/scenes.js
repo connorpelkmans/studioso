@@ -217,7 +217,8 @@ SCENES.brazil = function (W, H, dk, rnd) {
   (ph ? [[0.3, 0.5], [0.66, 0.78]] : [[0.43, 0.62], [0.74, 0.86], [0.18, 0.86]]).forEach(function (q, n) { var cx = W * q[0], cy = beach(cx, q[1]), r = 5 * S, pts = [];
     for (k = 0; k < 10; k++) { var a = -Math.PI / 2 + k * Math.PI / 5 + n, rr = k % 2 ? r * 0.42 : r; pts.push([cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.7]); } warm += brazil_pg(pts); });
   // beach towels lying on the sand, striped
-  (ph ? [[0.18, 0.42, 0, -1], [0.56, 0.62, 1, 1]] : [[0.33, 0.55, 0, -1], [0.5, 0.74, 1, 1], [0.69, 0.6, 2, 1], [0.93, 0.52, 0, -1]]).forEach(function (q) { var tx = W * q[0], ty = beach(tx, q[1]), ts = S * (ph ? 0.8 : 1) * (0.85 + q[1] * 0.3), tw = 52 * ts, th = 17 * ts, sk = q[3] * 9 * ts;
+  // (each lies in the shade beside an umbrella: [the umbrella's x and depth, then a nudge right and back from it])
+  (ph ? [[0.2, 0.2, 0, -1], [0.56, 0.18, 1, 1]] : [[0.27, 0.2, 0, -1], [0.4, 0.38, 1, 1], [0.69, 0.26, 2, 1], [0.96, 0.32, 0, -1]]).map(function (q) { return [q[0] - 0.012 + (q[3] < 0 ? -0.035 : 0.004), q[1] + 0.07, q[2], q[3]]; }).forEach(function (q) { var tx = W * q[0], ty = beach(tx, q[1]), ts = S * (ph ? 0.8 : 1) * (0.85 + q[1] * 0.3), tw = 52 * ts, th = 17 * ts, sk = q[3] * 9 * ts;
     var P = function (u, v) { return [tx + u * tw + v * sk, ty + v * th]; }, base = brazil_pg([P(0, 0), P(1, 0), P(1, 1), P(0, 1)]), str = '';
     for (k = 1; k < 7; k += 2) str += brazil_pg([P(k / 8, 0), P((k + 0.7) / 8, 0), P((k + 0.7) / 8, 1), P(k / 8, 1)]);
     wet += brazil_pg([P(0.02, 0.15), P(1.04, 0.15), P(1.04, 1.18), P(0.02, 1.18)]);
