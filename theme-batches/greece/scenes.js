@@ -117,15 +117,16 @@ SCENES.greece = function (W, H, dk, rnd) {
   var tx1 = W * (ph ? 0.2 : 0.21), tH = H * (ph ? 0.032 : 0.036), thP = [];
   for (x = -30; x <= tx1; x += 5) thP.push([x, hz - tH * Math.pow(Math.min(1, (tx1 - x) / (W * 0.08)), 0.7) * (1 + 0.08 * Math.sin(x / 23) + 0.05 * Math.sin(x / 7))]);
   G.b += greece_pg(thP.concat([[tx1 + 4, hz + 1], [-30, hz + 1]]));
-  for (k = 0; k < thP.length - 2; k += 2) { var ta = thP[k], tb = thP[k + 1]; if (rnd() < 0.22) G.g += greece_pg([[ta[0], ta[1] + 2], [tb[0] - 2, tb[1] + 2], [tb[0] + 2 * u, hz + 1], [ta[0] + 1.5 * u, hz + 1]]); if (ta[0] > W * 0.02 && ta[0] < tx1 - W * 0.04 && rnd() < 0.5) G.a += rect(ta[0], ta[1] - 1.2 * u, 2.4 * u, 1.8 * u); }
+  for (k = 0; k < thP.length - 2; k += 2) { var ta = thP[k], tb = thP[k + 1]; rnd(); /* no shadow strips down Therasia's face (they read as dark streaks); the draw keeps the scene's other random picks as they were */ if (ta[0] > W * 0.02 && ta[0] < tx1 - W * 0.04 && rnd() < 0.5) G.a += rect(ta[0], ta[1] - 1.2 * u, 2.4 * u, 1.8 * u); }
   var fr0 = W * (ph ? 0.34 : 0.33), fr1 = silX(hz) + 30, frH = H * 0.017, frP = [];
   if (fr1 - fr0 > 30) { for (x = fr0; x <= fr1; x += 5) frP.push([x, hz - frH * Math.min(1, (x - fr0) / (W * 0.04)) * (1 + 0.1 * Math.sin(x / 17))]);
     G.b += greece_pg(frP.concat([[fr1, hz + 1], [fr0, hz + 1]])); frP.forEach(function (p, q) { if (q % 2 && p[0] > fr0 + W * 0.03 && rnd() < 0.6) G.a += rect(p[0], p[1] - 1, 1.8 * u, 1.3 * u); }); M.f += greece_pg(frP.concat([[fr1, hz + 1], [fr0, hz + 1]]).map(function (p) { return [Math.min(p[0], silX(p[1]) - 0.5), p[1]]; })); } // (its haze stops at the near cliff's edge, which stands in front of it)
   function islTop(x) { var t = hz; if (x < tx1) t = Math.min(t, greece_lin(thP, x, 0)); if (frP.length && x > fr0 && x < fr1) t = Math.min(t, greece_lin(frP, x, 0)); return t; }
-  var kx0 = W * (ph ? 0.03 : 0.05), kx1 = W * (ph ? 0.3 : 0.22), ky = hz + H * (ph ? 0.04 : 0.05), kh = H * (ph ? 0.02 : 0.024), kp = [];
-  for (i = 0; i <= 30; i++) { var ku = i / 30; kp.push([kx0 + (kx1 - kx0) * ku, ky - kh * Math.pow(Math.sin(Math.PI * ku), 0.6) * (1 + 0.22 * Math.sin(ku * 17) + 0.12 * Math.sin(ku * 41))]); }
+  // Nea Kameni, the volcano in the middle of the caldera: a broad, low, lumpy lava island with two summits
+  var kx0 = W * (ph ? 0.02 : 0.03), kx1 = W * (ph ? 0.42 : 0.33), ky = hz + H * (ph ? 0.05 : 0.06), kh = H * (ph ? 0.04 : 0.05), kp = [];
+  for (i = 0; i <= 40; i++) { var ku = i / 40; kp.push([kx0 + (kx1 - kx0) * ku, ky - kh * Math.pow(Math.sin(Math.PI * ku), 0.55) * (0.78 + 0.3 * Math.exp(-Math.pow((ku - 0.42) / 0.12, 2)) + 0.18 * Math.exp(-Math.pow((ku - 0.68) / 0.1, 2)) + 0.07 * Math.sin(ku * 23) + 0.04 * Math.sin(ku * 57))]); }
   G.c += greece_pg(kp.concat([[kx1, ky + 1], [kx0, ky + 1]]));
-  G.g += greece_pg(kp.slice(14).concat([[kx1, ky + 1], [kx0 + (kx1 - kx0) * 0.55, ky + 1]]));
+  G.g += greece_pg(kp.slice(17).concat([[kx1, ky + 1], [kx0 + (kx1 - kx0) * 0.55, ky + 1]]));
   gS += seg(kx0 + 4, ky + 2, kx1 - 4, ky + 2);
 
   // ---- the caldera cliff: rust rock banded with cream pumice and dark lava along the contours, so the strata wrap round
@@ -361,10 +362,16 @@ SCENES.greece = function (W, H, dk, rnd) {
     // the walkway is a ledge on the round face: its width points out from the face, so it shows as depth (downward) where the
     // face looks at us and turns outward (sideways, past the edge) as the face turns away, then passes out of sight behind it;
     // the parapet and the rock under it hang straight down
-    var pathW = 5.5 * S, parH = 2.8 * S, rp2 = xs2.map(function (X, q) { return [X, ptY[q], thetaAt(vBot, X)]; }).filter(function (p) { return p[0] > Math.max(silX(p[1]) - 0.5 * S, fx0 - 1 * S); }); // (it ends with the front row: further out it stood clear of the houses with rock between)
-    var out = function (pts, d) { return pts.map(function (p) { return [Math.max(fx0 - 1 * S, p[0] - Math.sin(p[2]) * d * 1.9), p[1] + Math.cos(p[2]) * d]; }); }; // (no further out than the front row, so its end tucks under the last house)
+    var pathW = 5.5 * S, parH = 2.8 * S, rp2 = xs2.map(function (X, q) { return [X, ptY[q], thetaAt(vBot, X)]; }).filter(function (p) { return p[0] > silX(p[1]) + 0.5 * S; });
+    var out = function (pts, d) { return pts.map(function (p) { var yq = p[1] + Math.cos(p[2]) * d; return [Math.max(silX(yq) + 0.3 * S, p[0] - Math.sin(p[2]) * d * 1.9), yq]; }); }; // (never out past the cliff's outline: it turns round it)
     var dn = function (pts, d) { return pts.map(function (p) { return [p[0], p[1] + d]; }); };
     var inner = dn(rp2, -1), edge = out(rp2, pathW), wallB = dn(edge, parH);
+    // past the last house of the front row the village carries on down to the walkway as whitewashed terrace walls, right
+    // out to the cliff's edge, so no bare rock shows between the houses and the walkway where it turns round the cliff
+    var f0 = footings.filter(function (f) { return f[0] <= fx0 + 0.5; })[0], tq0 = [], tq1 = [];
+    if (f0 && rp2.length) for (y = f0[2] - gap * 0.9 * f0[3]; y <= rp2[0][1] + 1; y += 1.5 * S) { var xa3 = silX(y) + 0.2 * S; if (xa3 < f0[0] + 1 * S) { tq0.push([xa3, y]); tq1.unshift([f0[0] + 1.5 * S, y]); } }
+    if (tq0.length > 1) { var twP = tq0.concat(tq1); M.a += greece_pg(twP); M.d += greece_pg(twP.map(function (p) { return [Math.max(p[0], f0[0] - 1.5 * S), p[1]]; }));
+      for (y = tq0[0][1] + 5 * S; y < rp2[0][1] - 2 * S; y += 6 * S) mRail += seg(silX(y) + 0.6 * S, y, f0[0] - 1.5 * S, y); }
     G.f += greece_pg(dn(rp2, -3 * S).concat(dn(edge, parH).map(function (p) { return [p[0], p[1] + crag(p[0])]; }).reverse()));
     M.g += greece_pg(inner.concat(edge.slice().reverse()));
     M.d += greece_pg(inner.concat(out(rp2, 1.3 * S).reverse()));
