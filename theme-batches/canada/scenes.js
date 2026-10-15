@@ -183,7 +183,7 @@ SCENES.canada = function (W, H, dk, rnd) {
   for (k = 0; k <= 8; k++) { var u = k / 8, px = pa0[0] + (pa1[0] - pa0[0]) * u, py = pa0[1] + (pa1[1] - pa0[1]) * u + Math.sin(u * Math.PI) * 14 * S, pw = (5 + u * 7) * S; pl.push([px - pw * 0.4, py - pw * 0.5]); pr.unshift([px + pw * 0.4, py + pw * 0.5]); }
   stone += canada_pg(pl.concat(pr));
   // a woodpile beside the chimney: rows of split log ends under a little lean-to roof
-  if (!ph) { var wpx = chX - chW / 2 - 46 * cs, wpy = gnd(wpx + 18 * cs) + 2 * cs, lr = 3.6 * cs;
+  if (!ph) { var wpx = cl1 + 4 * cs, wpy = cb, lr = 3.6 * cs; // (against the cabin's right end, out of the dock's way)
   woodD += rect(wpx - 2 * cs, wpy - 26 * cs, 4 * cs, 26 * cs) + rect(wpx + 36 * cs, wpy - 26 * cs, 4 * cs, 26 * cs) + canada_pg([[wpx - 6 * cs, wpy - 25 * cs], [wpx + 18 * cs, wpy - 31 * cs], [wpx + 44 * cs, wpy - 25 * cs], [wpx + 44 * cs, wpy - 22 * cs], [wpx - 6 * cs, wpy - 22 * cs]]);
   for (k = 0; k < 3; k++) for (i = 0; i < 5 - (k === 2 ? 1 : 0); i++) { var lx = wpx + 4 * cs + i * 7.4 * cs + (k % 2) * 3.7 * cs, ly2 = wpy - lr - k * 6.6 * cs; wood += canada_c(lx, ly2, lr); lines += 'M' + PT(lx - lr * 0.45, ly2) + ' a' + n1(lr * 0.45) + ' ' + n1(lr * 0.45) + ' 0 1 1 ' + n1(lr * 0.9) + ' 0 '; }
   nsh += canada_e(wpx + 19 * cs, wpy + 1, 24 * cs, 3 * cs); }
@@ -205,7 +205,7 @@ SCENES.canada = function (W, H, dk, rnd) {
   var clearAt = function (x, y, r) { if (x + r > chairBox[0] && x - r < chairBox[2] && y + r > chairBox[1] && y - r < chairBox[3]) return false;
     for (var q = 0; q <= 8; q++) { var u = q / 8, px = pa0[0] + (pa1[0] - pa0[0]) * u, py = pa0[1] + (pa1[1] - pa0[1]) * u + Math.sin(u * Math.PI) * 14 * S, pw = (5 + u * 7) * S; if (Math.abs(x - px) < pw * 0.6 + r && y > py - pw * 0.7 - 2 && y - 12 < py + pw * 0.7) return false; } return true; }; nsh += canada_e(c2x + 2 * S, gnd(c2x) + 16 * S, 16 * S, 2.6 * S);
   // spruces behind the cabin and the rockpile (the engine draws these swaying; the still scene paints them here)
-  (ph ? [[0.0, 150], [0.12, 120], [0.66, 120], [0.95, 165]] : [[0.0, 190], [0.05, 150], [0.135, 120], [0.8, 150], [0.835, 120], [0.955, 175], [1.0, 210]]).forEach(function (q, j) { var xx = W * q[0], hh = q[1] * S * (ph ? 1.4 : 1); var fr = xx < W * 0.3; if (xx > W * 0.5) { var nb = nSpr.filter(function (t) { return t[6]; }).length; if (nb >= 2) return; xx = nb ? cl1 + 50 * cs : cl0 - 50 * cs; hh = (nb ? 190 : 160) * S * (ph ? 1.2 : 1); nSpr.push([xx, cb + 3 * cs, hh, hh * 0.2, 9, true, true]); return; } /* the two big spruces by the cabin stand beside it on its ground, in front */
+  (ph ? [[0.0, 150], [0.12, 120], [0.66, 120], [0.95, 165]] : [[0.0, 190], [0.05, 150], [0.135, 120], [0.8, 150], [0.835, 120], [0.955, 175], [1.0, 210]]).forEach(function (q, j) { var xx = W * q[0], hh = q[1] * S * (ph ? 1.4 : 1); var fr = xx < W * 0.3; if (xx > W * 0.5) { var nb = nSpr.filter(function (t) { return t[6]; }).length; if (nb >= 2) return; xx = nb ? cl1 + 54 * cs : cl0 - 34 * cs; hh = (nb ? 190 : 160) * S * (ph ? 1.2 : 1); nSpr.push([xx, cb - 13 * cs, hh, hh * 0.2, 9, false, true]); return; } /* the two big spruces by the cabin stand on the knoll just behind it, beside it, so the cabin and the woodpile are in front */
     nSpr.push([xx, fr ? gnd(xx) + (ph ? 62 : 48) * S : gnd(xx) - (j % 2 ? 8 : 14) * S, hh, hh * 0.2, 9, fr]); /* (those by the rockpile stand on the grass in front of it) */ });
   // two sugar maples in autumn colour: one by the rockpile, one in front of the cabin, and a branch over the top right corner
   var maples = [], mTr = '';
