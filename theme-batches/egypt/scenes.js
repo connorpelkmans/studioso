@@ -186,8 +186,9 @@ SCENES.egypt = function (W, H, dk, rnd) {
     if (inS && rnd() < 0.6) continue;
     gTr += egypt_limb(px, py, px + (rnd() - 0.5) * 4, py - phh, 2.4 * U, 1.4 * U, (rnd() - 0.5) * 3);
     for (j = 0; j < 7; j++) { var la = -Math.PI * (j / 6) + (rnd() - 0.5) * 0.3; green += egypt_re(px + Math.cos(la) * pr * 0.55, py - phh + Math.sin(la) * pr * 0.35 + pr * 0.2, pr * 0.62, pr * 0.16, la * 57.3 + (Math.cos(la) > 0 ? 18 : -18)); } }
-  for (i = 0; i < 6; i++) { var hx = W * (0.08 + i * 0.17 + rnd() * 0.05), hy = egypt_yOn(fb, hx) + H * 0.012, hw2 = H * (0.016 + rnd() * 0.012), hh2 = H * (0.011 + rnd() * 0.008);
+  for (i = 0; i < 6; i++) { var hx = W * (0.08 + i * 0.17 + rnd() * 0.05), hy = 0,  hw2 = H * (0.016 + rnd() * 0.012), hh2 = H * (0.011 + rnd() * 0.008);
     if (hx > sx0 - 20 * su && hx < sx0 + 104 * su) continue;
+    hy = Math.min(egypt_yOn(fb, hx), egypt_yOn(fb, hx + hw2 * 1.3)) + 0.5; // (standing on the bank's top edge: lower, the green field was drawn over them)
     fWall += rect(hx, hy - hh2, hw2, hh2); fSide += egypt_pg([[hx + hw2, hy - hh2], [hx + hw2 * 1.3, hy - hh2 - hh2 * 0.15], [hx + hw2 * 1.3, hy - hh2 * 0.15], [hx + hw2, hy]]); fWin += rect(hx + hw2 * 0.25, hy - hh2 * 0.6, hw2 * 0.12, hh2 * 0.22) + rect(hx + hw2 * 0.6, hy - hh2 * 0.6, hw2 * 0.12, hh2 * 0.22); }
   lit += fSide; shade += fWall; dark += fWin + gTr;
   // ---- the Nile, with glints and ripples
@@ -205,6 +206,11 @@ SCENES.egypt = function (W, H, dk, rnd) {
   houses.forEach(function (hs, k) {
     var hx = W * hs[0], hw3 = Math.min(W * hs[1], H * 0.11), hh = H * hs[2] * (ph ? 0.8 : 1), gy = Math.max(egypt_yOn(bk, hx), egypt_yOn(bk, hx + hw3)) + 4, top = gy - hh, dep = hw3 * 0.22; hBox.push([hx, hx + hw3, top]);
     wallS += rect(hx, top, hw3, hh); wallL += egypt_pg([[hx + hw3, top], [hx + hw3 + dep, top - dep * 0.35], [hx + hw3 + dep, gy - dep * 0.35], [hx + hw3, gy]]);
+    // the flat roof seen from a little above: its top face runs back from the front wall to the side wall's top, with a low
+    // parapet round it (crenellations along the front, a lip along the side)
+    wallL += egypt_pg([[hx, top], [hx + hw3, top], [hx + hw3 + dep, top - dep * 0.35], [hx + dep, top - dep * 0.35]]);
+    wallS += egypt_pg([[hx + dep * 0.9, top - dep * 0.35], [hx + hw3 + dep, top - dep * 0.35], [hx + hw3 + dep, top - dep * 0.35 - hh * 0.05], [hx + dep * 0.9, top - dep * 0.35 - hh * 0.05]]);
+    wallS += egypt_pg([[hx + hw3, top], [hx + hw3 + dep, top - dep * 0.35], [hx + hw3 + dep, top - dep * 0.35 - hh * 0.05], [hx + hw3, top - hh * 0.05]]);
     for (var c2 = 0; c2 < 6; c2++) { var cx3 = hx + c2 / 6 * hw3; wallS += rect(cx3, top - hh * 0.06, hw3 / 12, hh * 0.06 + 1); }
     white += rect(hx, top + hh * 0.02, hw3, hh * 0.05);
     var dw = hw3 * 0.2, dh = hh * 0.5, dx2 = hx + hw3 * (k % 2 ? 0.62 : 0.2);
@@ -216,9 +222,12 @@ SCENES.egypt = function (W, H, dk, rnd) {
   // the dovecote: a tall tapering mud tower, whitewashed bands, rows of pigeon pots and perch sticks, a domed top
   var dvx = W * (ph ? 0.2 : 0.12), dvy = egypt_yOn(bk, dvx) + 5, dvh = H * (ph ? 0.17 : 0.21) * (ph ? 1 : 1), dvw = H * (ph ? 0.05 : 0.058), dvt = dvy - dvh;
   wallS += egypt_pg([[dvx - dvw / 2, dvy], [dvx - dvw * 0.36, dvt + dvh * 0.1], [dvx + dvw * 0.36, dvt + dvh * 0.1], [dvx + dvw / 2, dvy]]);
-  wallL += egypt_pg([[dvx + dvw * 0.08, dvy], [dvx + dvw * 0.07, dvt + dvh * 0.1], [dvx + dvw * 0.36, dvt + dvh * 0.1], [dvx + dvw / 2, dvy]]);
+  // (square in plan like the houses: its lit right-hand side recedes, and the whitewash bands wrap round onto it)
+  var dvd = dvw * 0.32, dvSide = function (y0, y1, wf0, wf1) { return egypt_pg([[dvx + dvw * wf0, y0], [dvx + dvw * wf0 + dvd, y0 - dvd * 0.35], [dvx + dvw * wf1 + dvd, y1 - dvd * 0.35], [dvx + dvw * wf1, y1]]); };
+  var wfAt = function (y) { return 0.36 + 0.14 * (y - (dvt + dvh * 0.1)) / (dvy - dvt - dvh * 0.1); };
+  wallL += dvSide(dvt + dvh * 0.1, dvy, 0.36, 0.5);
   white += egypt_pg([[dvx - dvw * 0.38, dvt + dvh * 0.1], [dvx - dvw * 0.3, dvt + dvh * 0.04], [dvx - dvw * 0.14, dvt + dvh * 0.005], [dvx, dvt - dvh * 0.005], [dvx + dvw * 0.14, dvt + dvh * 0.005], [dvx + dvw * 0.3, dvt + dvh * 0.04], [dvx + dvw * 0.38, dvt + dvh * 0.1]]) + rect(dvx - dvw * 0.38, dvt + dvh * 0.1, dvw * 0.76, dvh * 0.035);
-  for (i = 0; i < 3; i++) { var wy = dvt + dvh * (0.32 + i * 0.2), ww3 = dvw * (0.37 + i * 0.045); white += egypt_pg([[dvx - ww3, wy], [dvx + ww3, wy], [dvx + ww3 + dvw * 0.01, wy + dvh * 0.022], [dvx - ww3 - dvw * 0.01, wy + dvh * 0.022]]); }
+  for (i = 0; i < 3; i++) { var wy = dvt + dvh * (0.32 + i * 0.2), ww3 = dvw * (0.37 + i * 0.045); white += egypt_pg([[dvx - ww3, wy], [dvx + ww3, wy], [dvx + ww3 + dvw * 0.01, wy + dvh * 0.022], [dvx - ww3 - dvw * 0.01, wy + dvh * 0.022]]) + dvSide(wy, wy + dvh * 0.022, wfAt(wy), wfAt(wy + dvh * 0.022)); }
   for (i = 0; i < 6; i++) { var ry2 = dvt + dvh * (0.17 + i * 0.065), rw = dvw * (0.32 + i * 0.022), np = 5 - (i % 2); for (j = 0; j < np; j++) door += egypt_e(dvx - rw + (j + 0.5 + (i % 2) * 0.5) / (np + (i % 2) * 0.5) * rw * 2 * 0.95, ry2, dvw * 0.035, dvw * 0.028);
     if (i % 2 === 0) stick += seg(dvx - rw - dvw * 0.14, ry2 + dvh * 0.025, dvx + rw + dvw * 0.14, ry2 + dvh * 0.025); }
   door += egypt_c(dvx, dvt + dvh * 0.06, dvw * 0.06) + egypt_pg([[dvx - dvw * 0.07, dvy], [dvx - dvw * 0.07, dvy - dvh * 0.08], [dvx + dvw * 0.07, dvy - dvh * 0.08], [dvx + dvw * 0.07, dvy]]);
@@ -246,11 +255,19 @@ SCENES.egypt = function (W, H, dk, rnd) {
   // a strip of sandy mud along the water's edge
   var shore = [], shore2 = []; for (x = -20; x <= W + 20; x += 10) { shore.push([x, egypt_yOn(bk, Math.max(-20, Math.min(W + 20, x))) - 1]); shore2.unshift([x, egypt_yOn(bk, Math.max(-20, Math.min(W + 20, x))) + (5 + 3 * Math.sin(x / 37) + 2 * Math.sin(x / 13)) * U]); }
   wallL += egypt_pg(shore.concat(shore2));
-  // grass on the bank
-  spread(0, by, W, H - by, ph ? 34 : 48, 18, rnd, 1).forEach(function (c) { if (c.q < 0.45 && c.y > egypt_yOn(bk, c.x) + 6) blade += 'M' + PT(c.x - 3, c.y) + ' Q' + PT(c.x - 1, c.y - 6) + ' ' + PT(c.x - 4, c.y - 11) + ' M' + PT(c.x + 1, c.y) + ' Q' + PT(c.x + 2, c.y - 7) + ' ' + PT(c.x + 5, c.y - 10) + ' '; });
   // a sandy path down to a little landing, water jars by the houses, stones at the water's edge, a rowboat drawn up on the bank
-  var pa = W * (ph ? 0.28 : 0.27), pathP = [[pa - 10 * U, egypt_yOn(bk, pa) + 3]]; for (j = 1; j <= 8; j++) { var pu = j / 8; pathP.push([pa - 10 * U - pu * W * 0.06 + Math.sin(pu * 3) * 12 * U - pu * pu * 30 * U, egypt_yOn(bk, pa) + 3 + pu * (H - by + 10)]); }
+  // (the path comes up past the right side of the last house to a little jetty on the water behind it)
+  var hbL = hBox[hBox.length - 1], pa = hbL ? hbL[1] + (hbL[1] - hbL[0]) * 0.22 + 16 * U : W * (ph ? 0.28 : 0.27), pathP = [[pa - 10 * U, egypt_yOn(bk, pa) + 3]]; for (j = 1; j <= 8; j++) { var pu = j / 8; pathP.push([pa - 10 * U - pu * W * 0.06 + Math.sin(pu * 3) * 12 * U - pu * pu * 30 * U, egypt_yOn(bk, pa) + 3 + pu * (H - by + 10)]); }
   var pathQ = pathP.map(function (q, k) { return [q[0] + (14 + k * 7) * U, q[1]]; }).reverse(); wallL += egypt_pg(pathP.concat(pathQ));
+  var pathPoly = pathP.concat(pathQ);
+  // the jetty: a plank deck on posts running out from the bank behind the house, short enough that the felucca's hull
+  // passes clear in front of its far end
+  var dy0 = egypt_yOn(bk, pa) + 2, dyT = Math.max(dy0 - 26 * U, ry + (by - ry) * 0.66 + 9 * U), dkx = pa - 3 * U, dockP = [[dkx - 11 * U, dy0], [dkx - 8 * U, dyT], [dkx + 8 * U, dyT], [dkx + 11 * U, dy0]];
+  if (dy0 - dyT > 6 * U) { wallS += egypt_pg(dockP); for (j = 1; j < 6; j++) { var dq = j / 6, dly = dy0 + (dyT - dy0) * dq, dlw = 11 * U - 3 * U * dq; stick += seg(dkx - dlw, dly, dkx + dlw, dly); }
+    [[0.05, 1], [0.95, 1], [0.95, -1], [0.5, -1], [0.5, 1]].forEach(function (q) { var dly2 = dy0 + (dyT - dy0) * q[0], dlw2 = (11 * U - 3 * U * q[0]) * q[1]; door += rect(dkx + dlw2 - 1.2 * U, dly2, 2.4 * U, 5 * U); }); }
+  else dockP = [];
+  // grass on the bank (none on the path)
+  spread(0, by, W, H - by, ph ? 34 : 48, 18, rnd, 1).forEach(function (c) { if (c.q < 0.45 && c.y > egypt_yOn(bk, c.x) + 6 && ![[0, 0], [-5 * U, 0], [5 * U, 0], [0, -5 * U], [0, 5 * U]].some(function (d) { return egypt_in(pathPoly, c.x + d[0], c.y + d[1]); }) && !egypt_in(dockP, c.x, c.y)) blade += 'M' + PT(c.x - 3, c.y) + ' Q' + PT(c.x - 1, c.y - 6) + ' ' + PT(c.x - 4, c.y - 11) + ' M' + PT(c.x + 1, c.y) + ' Q' + PT(c.x + 2, c.y - 7) + ' ' + PT(c.x + 5, c.y - 10) + ' '; });
   var jars = '', jm = ''; (ph ? [[0.03, 1], [0.08, 0.8]] : [[0.068, 1], [0.088, 0.85], [0.155, 0.9]]).forEach(function (q) { var jx = W * q[0], jy = egypt_yOn(bk, jx) + 12 * U, js = 9 * U * q[1]; jars += egypt_e(jx, jy - js, js * 0.8, js) + rect(jx - js * 0.32, jy - js * 2.05, js * 0.64, js * 0.3) + egypt_e(jx, jy, js * 0.5, js * 0.18); jm += egypt_e(jx, jy - js * 2.05, js * 0.32, js * 0.1); });
   wallS += jars; door += jm;
   for (i = 0; i < (ph ? 8 : 16); i++) { var stx2 = rnd() * W, sty = egypt_yOn(bk, stx2) + 3, sts = (3 + rnd() * 5) * U; if (Math.abs(stx2 - pa) < 30 * U) continue; wallS += egypt_pg([[stx2 - sts * 1.4, sty + sts * 0.4], [stx2 - sts, sty - sts * 0.4], [stx2 + sts * 0.2, sty - sts * 0.6], [stx2 + sts * 1.3, sty + sts * 0.4]]); }
