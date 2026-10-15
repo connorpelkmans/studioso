@@ -209,12 +209,15 @@ SCENES.greece = function (W, H, dk, rnd) {
   // there would show on top of the path)
   function onMule(x0, x1, y0, y1) { for (var q = 0; q < legs.length - 1; q++) { var A1 = legs[q], B1 = legs[q + 1], L1 = A1[0] < B1[0] ? A1 : B1, R1 = A1[0] < B1[0] ? B1 : A1;
       for (var xq = Math.max(x0, L1[0]); xq <= Math.min(x1, R1[0]); xq += 1) { var yq = L1[1] + (R1[1] - L1[1]) * (xq - L1[0]) / (R1[0] - L1[0] || 1); if (yq > y0 && yq - 4.6 * S < y1) return true; } } return false; }
+  // the front row's footing line: the contour it stands on, dropped by the depth of its footings (the walkway runs along it)
+  function kkAt(X) { return 1 - 0.36 * (1 - Math.cos(thetaAt(vBot, X))); }
+  function baseY(X) { return cY(vBot, X) + gap * 0.55 * kkAt(X); }
   function house(o) {
     var x = o.x, w = o.w, top = o.top, base = o.base, x1 = x + w, sx = o.sx, sy = o.sy, col = o.col, hgt = base - top, kk = o.k, th = o.th, det = th < 1.12, xr = x1 + sx, q;
     if (O.max(x, xr) < top - sy - 2 * S) return;
     if (o.perch) { var sb1 = base + gap * 0.55 * kk;
       M.a += band(x + 1.5 * S, x1 - 1 * S, base, base, sb1 - 3 * S, sb1); M.d += band(x1 - 3.5 * S, x1 - 1 * S, base, base, sb1, sb1) + band(x + 1.5 * S, x1 - 1 * S, base, base, base + 1.6 * S, base + 1.6 * S);
-      if (det && w > 16 * S && vis(x + w * 0.3, x + w * 0.3 + 6 * S * kk, sb1 - 2 * S) && !onMule(x + w * 0.3 - 1 * S, x + w * 0.3 + 7 * S * kk, base + 3 * S * kk, sb1)) N.g += greece_arch(x + w * 0.3, base + 3 * S * kk, 6 * S * kk, sb1 - base - 5 * S * kk);
+      if (det && w > 16 * S && vis(x + w * 0.3, x + w * 0.3 + 6 * S * kk, sb1 - 2 * S) && !onMule(x + w * 0.3 - 1 * S, x + w * 0.3 + 7 * S * kk, base + 3 * S * kk, sb1) && !(o.row === 0 && sb1 - 2 * S * kk > Math.min(baseY(x + w * 0.3), baseY(x + w * 0.3 + 6 * S * kk)))) N.g += greece_arch(x + w * 0.3, base + 3 * S * kk, 6 * S * kk, sb1 - base - 5 * S * kk);
       G.g += O.band(x1 - 1 * S, x1 + 8 * S, function (X) { return base + (X - x1) * 0.5; }, function () { return sb1 + 5 * S; });
       // (where its footing meets the rock it throws a shadow, so it sits in the cliff instead of resting on it)
       G.g += greece_pg([[x + 0.5 * S, sb1 - 1], [x1 + 3 * S, sb1 - 1], [x1 + 3 * S, sb1 + 3 * S * kk], [x + 0.5 * S, sb1 + 3.6 * S * kk]]);
@@ -346,19 +349,11 @@ SCENES.greece = function (W, H, dk, rnd) {
     var fx0 = Math.min.apply(null, footings.map(function (f) { return f[0]; })), fx1 = Math.max.apply(null, footings.map(function (f) { return f[1]; }));
     var footAt = function (X) { var yb = -1; footings.forEach(function (f) { if (X >= f[0] - 2 * S && X <= f[1] + 2 * S) yb = Math.max(yb, f[2]); }); return yb; };
     var crag = function (X) { return (5 + 4 * Math.abs(Math.sin(X / (9 * S))) + 3 * Math.abs(Math.sin(X / (23 * S) + 1.3))) * S; };
-    // the path follows the front row's own contour, so like the houses it wraps round the shoulder of the cliff, turning away
-    // (and narrowing) until it passes out of sight at the edge; it is lifted only where a footing stands below the contour, by
-    // the deepest such footing over a wide stretch averaged twice over narrower ones (narrower in total than the stretch, so
-    // it never rises above a footing near it), so it bends in long, easy curves
-    var kkAt = function (X) { return 1 - 0.36 * (1 - Math.cos(thetaAt(vBot, X))); };
-    var baseY = function (X) { return cY(vBot, X) + gap * 0.55 * kkAt(X); };
-    var xL = xcOf(vBot) - Rr * Math.sin(1.53), stp2 = 2 * S, raw = [], xs2 = [];
-    for (x = Math.min(xL, fx0 - 4 * S); x <= fx1 + 4 * S; x += stp2) { xs2.push(x); raw.push(footAt(x)); }
-    var win2 = function (arr, n, fn) { return arr.map(function (v2, q) { var acc = [], d; for (d = -n; d <= n; d++) if (q + d >= 0 && q + d < arr.length) acc.push(arr[q + d]); return fn(acc); }); };
-    var mean = function (a) { return a.reduce(function (p, c) { return p + c; }, 0) / a.length; };
-    var dd = raw.map(function (v2, q) { return v2 < 0 ? 0 : Math.max(0, v2 - baseY(xs2[q])); });
-    var lift = win2(win2(win2(dd, Math.round(46 * S / stp2), function (a) { return Math.max.apply(null, a); }), Math.round(26 * S / stp2), mean), Math.round(16 * S / stp2), mean);
-    var ptY = xs2.map(function (X, q) { return baseY(X) + lift[q] + 1 * S; });
+    // the walkway runs along the front row's own footing line (the contour it stands on), so like the houses it wraps round
+    // the shoulder of the cliff and meets the cliff's edge exactly where they do
+    var xL = xcOf(vBot) - Rr * Math.sin(1.53), stp2 = 2 * S, xs2 = [];
+    for (x = Math.min(xL, fx0 - 4 * S); x <= fx1 + 4 * S; x += stp2) xs2.push(x);
+    var ptY = xs2.map(function (X) { return baseY(X) + 0.5 * S; });
     // the walkway is a ledge on the round face: its width points out from the face, so it shows as depth (downward) where the
     // face looks at us and turns outward (sideways, past the edge) as the face turns away, then passes out of sight behind it;
     // the parapet and the rock under it hang straight down
@@ -366,12 +361,6 @@ SCENES.greece = function (W, H, dk, rnd) {
     var out = function (pts, d) { return pts.map(function (p) { var yq = p[1] + Math.cos(p[2]) * d; return [Math.max(silX(yq) + 0.3 * S, p[0] - Math.sin(p[2]) * d * 1.9), yq]; }); }; // (never out past the cliff's outline: it turns round it)
     var dn = function (pts, d) { return pts.map(function (p) { return [p[0], p[1] + d]; }); };
     var inner = dn(rp2, -1), edge = out(rp2, pathW), wallB = dn(edge, parH);
-    // past the last house of the front row the village carries on down to the walkway as whitewashed terrace walls, right
-    // out to the cliff's edge, so no bare rock shows between the houses and the walkway where it turns round the cliff
-    var f0 = footings.filter(function (f) { return f[0] <= fx0 + 0.5; })[0], tq0 = [], tq1 = [];
-    if (f0 && rp2.length) for (y = f0[2] - gap * 0.9 * f0[3]; y <= rp2[0][1] + 1; y += 1.5 * S) { var xa3 = silX(y) + 0.2 * S; if (xa3 < f0[0] + 1 * S) { tq0.push([xa3, y]); tq1.unshift([f0[0] + 1.5 * S, y]); } }
-    if (tq0.length > 1) { var twP = tq0.concat(tq1); M.a += greece_pg(twP); M.d += greece_pg(twP.map(function (p) { return [Math.max(p[0], f0[0] - 1.5 * S), p[1]]; }));
-      for (y = tq0[0][1] + 5 * S; y < rp2[0][1] - 2 * S; y += 6 * S) mRail += seg(silX(y) + 0.6 * S, y, f0[0] - 1.5 * S, y); }
     G.f += greece_pg(dn(rp2, -3 * S).concat(dn(edge, parH).map(function (p) { return [p[0], p[1] + crag(p[0])]; }).reverse()));
     M.g += greece_pg(inner.concat(edge.slice().reverse()));
     M.d += greece_pg(inner.concat(out(rp2, 1.3 * S).reverse()));
