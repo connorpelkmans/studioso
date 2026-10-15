@@ -44,7 +44,7 @@ var mexico_PAL = {
     green: '#24443E', nshade: 'rgba(5,0,20,0.35)', njac: '#5E4EA2', white: '#9088B2', ncob: '#2A3E88', iron: '#151B28', nmag: '#9C306C', nsaf: '#C89440', nlight: 'rgba(220,210,255,0.3)', ink: 'rgba(5,0,20,0.55)'}
 };
 SCENES.mexico = function (W, H, dk, rnd) {
-  var ph = H > W, far = Lay(2.5), bg = Lay(0.6), mid = Lay(0), near = Lay(0), C = mexico_PAL[dk ? 'D' : 'L'], i, j, k, x, y;
+  var ph = H > W, far = Lay(2.5), bg = Lay(1.5), mid = Lay(0), near = Lay(0), C = mexico_PAL[dk ? 'D' : 'L'], i, j, k, x, y;
   var S = ph ? W / 390 * 0.64 : Math.max(0.75, Math.min(1.15, H / 800));
   var sky = dk ? 'linear-gradient(180deg,#0F1636 0%,#2A2458 42%,#6A3458 72%,#3E2A56 100%)' : 'linear-gradient(180deg,#8CCBF0 0%,#E4F2F6 44%,#FCE2C6 70%,#F2D2B2 100%)';
   var cx = W * (ph ? 0.5 : 0.585), yb = H * (ph ? 0.6 : 0.665);
