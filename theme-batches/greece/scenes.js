@@ -380,7 +380,9 @@ SCENES.greece = function (W, H, dk, rnd) {
     var L1x = legs[1][0], want = legs[2] ? Math.abs((legs[2][1] - legs[1][1]) / (legs[2][0] - L1x)) : 0.18, jx = legs[0][0], jy = pathTop(jx);
     if (jy < 0) xs2.forEach(function (xq, q) { if (ptY[q] > 0 && (jy < 0 || Math.abs(xq - legs[0][0]) < Math.abs(jx - legs[0][0]))) { jx = xq; jy = ptY[q]; } });
     if (jy > 0) { legs[0] = [jx, jy + pathW + parH]; legs[1] = [L1x, legs[2] ? Math.max(legs[1][1], (legs[0][1] + legs[2][1]) / 2) : Math.max(legs[1][1], legs[0][1] + want * Math.abs(L1x - jx))]; // (halfway down to the second turn, if it was higher)
-      muleLeg(0, false); muleLeg(1, false); M.g += greece_pg([[jx - 5 * S, jy + pathW - 1], [jx + 6 * S, jy + pathW - 1], [jx + 6 * S, jy + pathW + parH + 0.5], [jx - 5 * S, jy + pathW + parH + 0.5]]); }
+      muleLeg(0, false); muleLeg(1, false);
+      // a paved landing at the junction, ringed by the parapet like the turns below, opening onto the walkway
+      var lw = 4.6 * S; M.a += greece_e(jx, jy + pathW + parH * 0.4, lw * 1.9, lw * 1.05); M.g += greece_e(jx, jy + pathW + parH * 0.1, lw * 1.55, lw * 0.75) + greece_pg([[jx - lw * 1.4, jy + pathW - 1], [jx + lw * 1.4, jy + pathW - 1], [jx + lw * 1.4, jy + pathW + parH * 0.4], [jx - lw * 1.4, jy + pathW + parH * 0.4]]); M.g += greece_pg([[jx - 5 * S, jy + pathW - 1], [jx + 6 * S, jy + pathW - 1], [jx + 6 * S, jy + pathW + parH + 0.5], [jx - 5 * S, jy + pathW + parH + 0.5]]); }
     else { muleLeg(0, false); muleLeg(1, false); }
     footings.forEach(function (f) { var tp = [], bt = []; for (x = f[0] + 1.5 * S; x <= f[1] - 1 * S; x += 1.5 * S) { var py2 = pathTop(x); if (py2 < 0) continue; tp.push([x, f[2] - 1]); bt.push([x, Math.max(f[2] - 1, py2)]); }
       if (tp.length > 1 && bt.some(function (b, q) { return b[1] - tp[q][1] > 1.2 * S; })) { M.a += greece_pg(tp.concat(bt.reverse())); var bx3 = f[0] + (f[1] - f[0]) * 0.5; for (var sy3 = f[2] + 1.6 * S; sy3 < pathTop(bx3) - 0.5 * S; sy3 += 1.8 * S) mRail += seg(bx3 - 3 * S, sy3, bx3 + 3 * S, sy3); } });
