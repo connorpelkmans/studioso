@@ -153,28 +153,29 @@ function brazil_paintChrist(o, s, dk) { var L = dk ? '#E4E6FA' : '#F7F2E8', D = 
   o.save(); o.scale(s, s); o.lineJoin = 'round'; o.lineCap = 'round';
   var P = function (pts) { o.beginPath(); o.moveTo(pts[0][0], pts[0][1]); for (var i = 1; i < pts.length; i++) o.lineTo(pts[i][0], pts[i][1]); o.closePath(); o.fill(); };
   // the stepped platform on the summit, then the pedestal with its cornice
-  o.fillStyle = dk ? '#8E92B8' : '#D9D2C4'; P([[-12, 1.5], [12, 1.5], [11, -0.8], [-11, -0.8]]); P([[-9, -0.8], [9, -0.8], [8.4, -2.8], [-8.4, -2.8]]);
+  o.fillStyle = dk ? '#8E92B8' : '#D9D2C4'; P([[-12.4, 3], [12.4, 3], [11, -0.8], [-11, -0.8]]); /* the footing runs down into the rock so neither shoulder of the peak leaves it hanging */ P([[-9, -0.8], [9, -0.8], [8.4, -2.8], [-8.4, -2.8]]);
   o.fillStyle = L; P([[-6.4, -2.8], [6.4, -2.8], [6, -4.4], [-6, -4.4]]);
   P([[-4.2, -4.4], [4.2, -4.4], [3.9, -10.4], [-3.9, -10.4]]); P([[-5, -10.4], [5, -10.4], [5, -11.6], [-5, -11.6]]);
   // the robe, flaring a little at the hem
-  o.beginPath(); o.moveTo(-3.9, -11.6); o.lineTo(3.9, -11.6); o.quadraticCurveTo(3.3, -18, 2.9, -23); o.lineTo(3.3, -31.8); o.quadraticCurveTo(0, -32.6, -3.3, -31.8); o.lineTo(-2.9, -23); o.quadraticCurveTo(-3.3, -18, -3.9, -11.6); o.closePath(); o.fill();
-  // the arms and hands, held straight out
-  [-1, 1].forEach(function (sd) { o.beginPath(); o.moveTo(sd * 3.2, -33); o.lineTo(sd * 15.8, -32.7); o.quadraticCurveTo(sd * 17.2, -32.1, sd * 16, -31.2); o.lineTo(sd * 3.2, -30.8); o.closePath(); o.fill();
-    // the sleeve hanging from the forearm in a long angular drape
-    P([[sd * 3, -31.2], [sd * 11.8, -31.2], [sd * 11, -30], [sd * 4.8, -24], [sd * 2.9, -24.4]]); });
+  // (the real proportions: a 30 m figure with a 28 m span on an 8 m pedestal) a slim column of a robe, feet showing at the hem
+  o.beginPath(); o.moveTo(-3.1, -11.6); o.lineTo(3.1, -11.6); o.quadraticCurveTo(2.6, -18, 2.45, -24); o.lineTo(2.9, -35.2); o.quadraticCurveTo(0, -36, -2.9, -35.2); o.lineTo(-2.45, -24); o.quadraticCurveTo(-2.6, -18, -3.1, -11.6); o.closePath(); o.fill();
+  // the arms held straight out at the shoulders, slender, with open hands
+  [-1, 1].forEach(function (sd) { o.beginPath(); o.moveTo(sd * 2.6, -36.2); o.lineTo(sd * 12.6, -35.9); o.quadraticCurveTo(sd * 14.1, -35.7, sd * 14, -35.1); o.quadraticCurveTo(sd * 13.9, -34.5, sd * 12.6, -34.6); o.lineTo(sd * 2.6, -34.2); o.closePath(); o.fill();
+    // the wide sleeve hanging from the upper arm and forearm, deepest by the body
+    P([[sd * 2.6, -34.6], [sd * 10.4, -34.8], [sd * 9.6, -33.6], [sd * 4.2, -29.6], [sd * 2.5, -29.8]]); });
   // neck, head (bowed a little), hair to the shoulders
-  o.fillRect(-0.85, -34.2, 1.7, 1.6); o.beginPath(); o.ellipse(0, -35.8, 1.75, 2.15, 0, 0, 7); o.fill();
-  o.fillStyle = D; o.beginPath(); o.moveTo(-1.75, -36); o.quadraticCurveTo(-1.9, -38.1, 0, -38.1); o.quadraticCurveTo(1.9, -38.1, 1.75, -36); o.lineTo(1.9, -33.9); o.lineTo(1.15, -34.1); o.lineTo(1.05, -36.3); o.quadraticCurveTo(0, -36.9, -1.05, -36.3); o.lineTo(-1.15, -34.1); o.lineTo(-1.9, -33.9); o.closePath(); o.fill();
+  o.fillRect(-0.7, -37.2, 1.4, 1.4); o.beginPath(); o.ellipse(0, -38.6, 1.35, 1.75, 0, 0, 7); o.fill();
+  o.fillStyle = D; o.beginPath(); o.moveTo(-1.35, -38.8); o.quadraticCurveTo(-1.45, -40.5, 0, -40.5); o.quadraticCurveTo(1.45, -40.5, 1.35, -38.8); o.lineTo(1.45, -36.8); o.lineTo(0.85, -37); o.lineTo(0.8, -39); o.quadraticCurveTo(0, -39.5, -0.8, -39); o.lineTo(-0.85, -37); o.lineTo(-1.45, -36.8); o.closePath(); o.fill();
   // shade the right side of everything painted so far, and the undersides of the arms
   o.save(); o.globalCompositeOperation = 'source-atop'; var g = o.createLinearGradient(-20, 0, 20, 0); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, 'rgba(255,255,255,0)'); g.addColorStop(0.53, dk ? 'rgba(60,64,120,0.4)' : 'rgba(150,130,110,0.4)'); g.addColorStop(1, dk ? 'rgba(60,64,120,0.5)' : 'rgba(150,130,110,0.5)');
-  o.fillStyle = g; o.fillRect(-22, -42, 44, 46); o.fillStyle = dk ? 'rgba(60,64,120,0.25)' : 'rgba(150,130,110,0.28)'; o.fillRect(-22, -31.4, 44, 0.6); o.restore();
+  o.fillStyle = g; o.fillRect(-22, -42, 44, 46); o.fillStyle = dk ? 'rgba(60,64,120,0.25)' : 'rgba(150,130,110,0.28)'; o.fillRect(-22, -34.6, 44, 0.5); o.restore();
   // the folds of the robe and sleeves, the cord at the waist, the pedestal's joints, a face hint
   o.strokeStyle = LN; o.lineWidth = 0.3;
-  o.beginPath(); [-2.4, -1.2, 0, 1.2, 2.4].forEach(function (fx, i) { o.moveTo(fx * 0.85, -30.8); o.quadraticCurveTo(fx * 1.02 + (i % 2 ? 0.15 : -0.15), -21, fx * 1.25, -11.8); });
-  o.moveTo(-2.9, -23.4); o.quadraticCurveTo(0, -22.8, 2.9, -23.4);
-  [-1, 1].forEach(function (sd) { o.moveTo(sd * 10.2, -30.8); o.lineTo(sd * 5.4, -25.4); o.moveTo(sd * 8.2, -30.8); o.lineTo(sd * 4.4, -26.6); o.moveTo(sd * 6.2, -30.8); o.lineTo(sd * 3.6, -27.8); });
+  o.beginPath(); [-1.8, -0.9, 0, 0.9, 1.8].forEach(function (fx, i) { o.moveTo(fx, -29.6); o.quadraticCurveTo(fx * 0.95 + (i % 2 ? 0.12 : -0.12), -20, fx * 1.35, -11.8); });
+  o.moveTo(-2.45, -25); o.quadraticCurveTo(0, -24.5, 2.45, -25);
+  [-1, 1].forEach(function (sd) { o.moveTo(sd * 8.8, -34.4); o.lineTo(sd * 5.2, -31); o.moveTo(sd * 6.8, -34.4); o.lineTo(sd * 4, -31.2); });
   o.moveTo(-4, -8.4); o.lineTo(4, -8.4); o.moveTo(-4.1, -6.4); o.lineTo(4.1, -6.4); o.stroke();
-  o.fillStyle = dk ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.7)'; o.beginPath(); o.ellipse(-0.45, -35.5, 0.55, 0.95, 0, 0, 7); o.fill();
+  o.fillStyle = dk ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.7)'; o.beginPath(); o.ellipse(-0.35, -38.4, 0.42, 0.75, 0, 0, 7); o.fill();
   o.restore(); }
 // a cable car station: a concrete base, a glass hall with a slab roof and yellow trim, and the dark housing of the bull wheel on
 // the side the cables leave from (dir +1 right, -1 left)
@@ -272,7 +273,7 @@ ENGINES.brazil = function (A, v, dk) {
   var DK = Math.min(3, Math.max(1, (typeof window !== 'undefined' && window.devicePixelRatio) || 1)), tw = [], FV = A.fav, TN = A.town;
   var dTop = Math.min(FV.top, Math.min.apply(null, TN.map(function (q) { return A.hz - q.tall; }))) - 30 * S, dX1 = Math.max(FV.x1, Math.max.apply(null, TN.map(function (q) { return q.x1; }))) + 40 * S;
   var decor = brazil_deco(-40, dTop, dX1 + 40, A.hz + 6 - dTop, DK, function (o) { brazil_paintFavela(o, FV, dk, tw); TN.forEach(function (q) { brazil_paintTown(o, q, dk, tw); }); });
-  var CH = A.christ, chS = CH[2], christSpr = brazil_deco(CH[0] - 20 * chS, CH[1] - 40 * chS, 40 * chS, 43 * chS, DK, function (o) { o.translate(CH[0], CH[1]); brazil_paintChrist(o, chS, dk); });
+  var CH = A.christ, chS = CH[2], christSpr = brazil_deco(CH[0] - 20 * chS, CH[1] - 44 * chS, 40 * chS, 47 * chS, DK, function (o) { o.translate(CH[0], CH[1]); brazil_paintChrist(o, chS, dk); });
   // the cable car: two smooth cables between the stations on Urca and Sugarloaf, a bondinho on each, gliding in counter-motion
   // (one up while the other comes down), easing out of and into the stations and swinging gently on its hanger
   var CB = A.cab, ST = A.st, bs = ST.bs, CBO = [0, 3.6 * bs], TRIP = ph ? 18 : 22, DWELL = 4, cabT = 6;
@@ -356,7 +357,7 @@ ENGINES.brazil = function (A, v, dk) {
       ca.restore();
       // the favela and downtown; Christ the Redeemer, lit up at night (and touched with gold in the sunset)
       ca.drawImage(decor, decor.x0, decor.y0, decor.w, decor.h);
-      if (dk || blaze > 0) { ca.save(); ca.globalCompositeOperation = 'lighter'; brazil_dot(ca, christG, CH[0], CH[1] - 22 * chS, 42 * chS, dk ? 0.75 + 0.05 * Math.sin(tt * 0.7) : blaze * 0.6); ca.restore(); }
+      if (dk || blaze > 0) { ca.save(); ca.globalCompositeOperation = 'lighter'; brazil_dot(ca, christG, CH[0], CH[1] - 26 * chS, 42 * chS, dk ? 0.75 + 0.05 * Math.sin(tt * 0.7) : blaze * 0.6); ca.restore(); }
       ca.drawImage(christSpr, christSpr.x0, christSpr.y0, christSpr.w, christSpr.h);
       // Sugarloaf's west face catches the sunset
       if (blaze > 0) { ca.save(); ca.globalAlpha = blaze * 0.7; ca.strokeStyle = '#FFB070'; ca.lineWidth = 3 * S; ca.lineJoin = 'round'; ca.stroke(loafEdge); ca.restore(); }
@@ -400,7 +401,7 @@ ENGINES.brazil = function (A, v, dk) {
       for (k = 0; k < 3; k++) { var pp = ((tt / 6.5) + k / 3) % 1, SHp = A.SH, cr, run, j2;
         if (pp < 0.42) { cr = -38 * S * (1 - brazil_ease(pp / 0.42)) - 3 * S; cb.strokeStyle = dk ? 'rgba(200,210,255,' + (0.35 * Math.sin(Math.PI * pp / 0.42)) + ')' : 'rgba(255,255,255,' + (0.85 * Math.sin(Math.PI * pp / 0.42)) + ')'; cb.lineWidth = (1.6 + pp * 4) * S; cb.beginPath();
           for (j2 = 0; j2 < SHp.length; j2++) { var py = SHp[j2][1] + cr * (0.8 + 0.2 * Math.sin(SHp[j2][0] * 0.013 + k * 2)); if (j2) cb.lineTo(SHp[j2][0], py); else cb.moveTo(SHp[j2][0], py); } cb.stroke(); }
-        if (pp > 0.36) { var q = (pp - 0.36) / 0.64; run = A.sandW * 0.42 * Math.pow(Math.sin(Math.PI * Math.min(1, q * 1.15)), 0.7); var fa = (1 - q) * 0.9;
+        if (pp > 0.36) { var q = (pp - 0.36) / 0.64; run = A.sandW * 0.42 * Math.pow(Math.sin(Math.PI * Math.min(1, q * 1.15)), 0.7); var fa = (1 - q) * 0.9 * brazil_ease(Math.min(1, q * 5)); // (fades in as the wave breaks, so the foam line never pops on)
           cb.fillStyle = dk ? 'rgba(170,180,230,' + fa * 0.35 + ')' : 'rgba(255,255,255,' + fa * 0.6 + ')'; cb.beginPath();
           for (j2 = 0; j2 < SHp.length; j2++) cb.lineTo(SHp[j2][0], SHp[j2][1] - 4 * S);
           for (j2 = SHp.length - 1; j2 >= 0; j2--) cb.lineTo(SHp[j2][0], SHp[j2][1] + run * (0.7 + 0.3 * Math.sin(SHp[j2][0] * 0.021 + k * 1.7)));

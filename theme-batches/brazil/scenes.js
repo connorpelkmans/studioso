@@ -61,9 +61,9 @@ function brazil_toucanParts(x, y, s) { var P = function (u, v) { return [x + u *
 // Christ the Redeemer on his pedestal, feet at (x, y), s about a fortieth of his height: robe, outstretched arms with hanging sleeves, head
 function brazil_christ(x, y, s) { var P = function (u, v) { return [x + u * s, y + v * s]; };
   return rect(x - 4.6 * s, y - 8 * s, 9.2 * s, 8.4 * s) + rect(x - 5.6 * s, y - 9.4 * s, 11.2 * s, 1.8 * s)
-    + brazil_pg([P(-3.7, -9.2), P(3.7, -9.2), P(3.1, -20), P(2.9, -28.6), P(-2.9, -28.6), P(-3.1, -20)])
-    + brazil_pg([P(-17.6, -30.4), P(17.6, -30.4), P(18.2, -28.2), P(11.5, -27.6), P(3.4, -22.6), P(-3.4, -22.6), P(-11.5, -27.6), P(-18.2, -28.2)])
-    + rect(x - 1.1 * s, y - 31.6 * s, 2.2 * s, 2 * s) + brazil_c(x, y - 33.4 * s, 2.5 * s); }
+    + brazil_pg([P(-3.1, -9.2), P(3.1, -9.2), P(2.45, -20), P(2.9, -33.2), P(-2.9, -33.2), P(-2.45, -20)])
+    + brazil_pg([P(-14, -34.2), P(14, -34.2), P(14, -32.8), P(10.4, -32.6), P(4.2, -27.6), P(-4.2, -27.6), P(-10.4, -32.6), P(-14, -32.8)])
+    + rect(x - 0.7 * s, y - 35.2 * s, 1.4 * s, 1.4 * s) + brazil_c(x, y - 36.8 * s, 1.8 * s); }
 // a Brazilian flag w by h with its top-left corner at (x, y), for the still scene: the green field, the yellow rhombus with a hole
 // for the blue globe (drawn counter-clockwise so it cuts the rhombus), and the globe; the white band is a stroke (b)
 function brazil_flagParts(x, y, w, h) { var cx = x + w / 2, cy = y + h / 2, mx = w * 0.085, my = h * 0.12, r = h * 0.25, band = [];
@@ -155,7 +155,7 @@ SCENES.brazil = function (W, H, dk, rnd) {
   [-0.82, -0.66, -0.5, -0.36, -0.22, -0.1, 0.04, 0.16, 0.28, 0.4, 0.52, 0.64, 0.76, 0.86].forEach(function (u, n) { var pts = [], y0 = stop + sh * (0.06 + Math.abs(u) * 0.22 + hash(n) * 0.06), y1 = stop + sh * (0.5 + hash(n + 3) * 0.28);
     for (y = y0; y < y1; y += 6) { var xx = midX(y) + u * half(y, u < 0 ? -1 : 1) * (0.94 - 0.05 * Math.abs(u)) + Math.sin(y * 0.05 + n) * 1.5; pts.push([xx, y]); }
     if (pts.length > 2) streak += pline(pts); });
-  stk(bg, 's', streak, C.streak, ph ? 1.4 : 2.2);
+
   var vegY = function (xx) { var u = (xx - sx) / (xx < sx ? wl : wr); return hz - sh * (0.17 + 0.05 * Math.sin(xx * 0.06) + 0.03 * Math.sin(xx * 0.17) + (u > 0.35 ? 0.14 * Math.min(1, (u - 0.35) * 1.4) : 0)); }, vt = [], veg = '';
   for (x = LF[0][0]; x <= LF[LF.length - 1][0]; x += 4) { var oy = brazil_yAt(LF, x); vt.push([x, Math.max(oy, vegY(x)) + (oy < vegY(x) ? Math.abs(Math.sin(x * 0.33)) * 3 * S : 0)]); }
   veg += brazil_pg(vt.concat([[LF[LF.length - 1][0], hz + 3], [LF[0][0], hz + 3]]));
@@ -176,7 +176,21 @@ SCENES.brazil = function (W, H, dk, rnd) {
     if (c.q < 0.5 && c.y > fy + r * 1.4 && c.y < hz - r) clump += brazil_c(c.x, c.y, r) + brazil_c(c.x + r * 0.9, c.y + r * 0.35, r * 0.75) + brazil_c(c.x - r * 0.8, c.y + r * 0.4, r * 0.65);
     else if (c.q < 0.14 && c.y > ry + r * 2 && c.y < fy - r && c.y > ry + H * 0.1) clump += brazil_c(c.x, c.y, r * 0.8); });
   spread(UR[0][0], utop, UR[UR.length - 1][0] - UR[0][0], hz - utop, 14 * S + 6, 12 * S + 4, rnd, 1).forEach(function (c) { var r = (3 + c.r * 5) * S; if (c.q < 0.55 && c.y > brazil_yAt(UR, c.x) + r * 1.6 && c.y < hz - r * 0.5) clump += brazil_c(c.x, c.y, r) + brazil_c(c.x + r * 0.85, c.y + r * 0.3, r * 0.7) + brazil_c(c.x - r * 0.8, c.y + r * 0.35, r * 0.6); });
+  // the forest on Corcovado's ridge: tree crowns along its outline and clumps of canopy down its slopes (not on the bare
+  // granite faces, nor near the summit's statue)
+  var bare = (ph ? [[W * 0.24, W * 0.47, 0.11]] : [[W * 0.5, W * 0.665, 0.14], [W * 0.42, W * 0.48, 0.04]]), onRock = function (x2, y2) { return bare.some(function (q) { return x2 > q[0] - 4 * S && x2 < q[1] + 4 * S && y2 < brazil_yAt(RG, x2) + H * q[2] + 8 * S; }); };
+  var crowns = ''; RG.forEach(function (p, n) { if (n % 2 || p[0] > W * (ph ? 0.5 : 0.68) || Math.abs(p[0] - sum[0]) < 40 * S || onRock(p[0], p[1] + 2) || p[1] > hz - 10 * S) return; crowns += brazil_c(p[0], p[1] + 3 * S, (4 + hash(n + 0.7) * 5) * S); });
+  add(bg, 'b', crowns);
+  spread(-20, H * 0.15, W * (ph ? 0.5 : 0.68), hz - H * 0.15, (ph ? 14 : 18), (ph ? 12 : 14), rnd, 1).forEach(function (c) { var r = (3 + c.r * 5) * S, ry = brazil_yIn(RG, c.x), fy = brazil_yIn(FH, c.x);
+    if (c.q < 0.45 && c.y > ry + r * 1.6 && c.y < Math.min(fy, hz) - r * 0.5 && !onRock(c.x, c.y) && Math.hypot(c.x - sum[0], c.y - sum[1]) > 50 * S) clump += brazil_c(c.x, c.y, r) + brazil_c(c.x + r * 0.8, c.y + r * 0.3, r * 0.7) + brazil_c(c.x - r * 0.75, c.y + r * 0.35, r * 0.6); });
+  // gullies running down Corcovado's forested slopes, and cracks in its bare granite faces
+  for (k = 0; k < (ph ? 7 : 12); k++) { var gx = W * (ph ? 0.03 + k * 0.07 : 0.02 + k * 0.055) + hash(k * 2.7) * 12 * S, gy0 = brazil_yAt(RG, gx) + 6 * S, glen = H * (0.05 + hash(k * 4.1) * 0.06), gp = [];
+    if (gx > W * (ph ? 0.5 : 0.68) || Math.abs(gx - sum[0]) < 40 * S) continue;
+    for (var gu = 0; gu <= 1.001; gu += 0.125) { var gxx = gx + Math.sin(gu * 4 + k) * 3 * S + gu * (gx < sum[0] ? -8 : 8) * S, gyy = gy0 + glen * gu; if (gyy > hz - 4) break; gp.push([gxx, gyy]); }
+    if (gp.length > 2 && !onRock(gp[0][0], gp[0][1])) streak += pline(gp); }
+  bare.forEach(function (q, n) { for (k = 0; k < 4; k++) { var cxr = q[0] + (q[1] - q[0]) * (0.2 + k * 0.2), cy0 = brazil_yAt(RG, cxr) + 3 * S, cl = H * q[2] * (0.35 + hash(k + n * 7) * 0.4); streak += pline([[cxr, cy0], [cxr + 2 * S, cy0 + cl * 0.5], [cxr + 0.5 * S, cy0 + cl]]); } });
   add(bg, 'h', clump, C.clump);
+  stk(bg, 's', streak, C.streak, ph ? 1.4 : 2.2);
   if (dk) { var stars = ''; spread(0, 0, W, hz * 0.85, 40, 36, rnd, 1).forEach(function (c) { var hy = Math.min(brazil_yIn(RG, c.x), brazil_yIn(LF, c.x), brazil_yIn(NIT, c.x));
     if (c.q < 0.5 && Math.hypot(c.x - moon[0], c.y - moon[1]) > moon[2] * 2.4 && c.y < hy - 8 && Math.hypot(c.x - sum[0], c.y - sum[1]) > 50 * S) stars += seg(c.x, c.y, c.x + 0.1, c.y); }); stk(bg, 't', stars, C.star, 1.5 + rnd()); }
   var horizon = [];
@@ -184,7 +198,7 @@ SCENES.brazil = function (W, H, dk, rnd) {
 
   // ---- mid: Christ the Redeemer, the favela, the cable car stations and wires, the glints on the bay
   var ink = '', shine = '', wire = '';
-  var cs = (ph ? 1.35 : 1.8) * S, christ = [sum[0], sum[1] + 2.2 * cs, cs], fav = C.fav.map(function () { return ''; });
+  var cs = (ph ? 1.35 : 1.8) * S, christ = [sum[0], sum[1] + 0.4 * cs, cs], fav = C.fav.map(function () { return ''; });
   if (!ANIM) fav[0] += brazil_christ(christ[0], christ[1], cs) + brazil_pg([[sum[0] - 8 * cs, sum[1] + 4 * cs], [sum[0] + 8 * cs, sum[1] + 4 * cs], [sum[0] + 6 * cs, sum[1] + 0.5 * cs], [sum[0] - 6 * cs, sum[1] + 0.5 * cs]]);
   var favEnd = ph ? W * 0.5 : W * 0.545, FV = brazil_favela(FH, -14, favEnd, hz - 1.5 * S, (ph ? 1.3 : 1.65) * S, ph), wins = FV.wins;
   if (!ANIM) { FV.col.forEach(function (d, n) { fav[n] += d; }); ink += FV.ink; wire += FV.line; }
@@ -211,13 +225,15 @@ SCENES.brazil = function (W, H, dk, rnd) {
   var sandW = H * (ph ? 0.075 : 0.085), beach = function (xx, f) { var y0 = brazil_yAt(SH, xx); return y0 + (H - y0) * f; }, PA = brazil_off(SH, sandW * 0.8);
   sand += brazil_pg(SH.concat([[W + 60, H + 40], [-60, H + 40]]));
   wet += brazil_pg(SH.concat(brazil_off(SH, 7 * S).reverse()));
-  // soft ripples and little pits in the sand, a few shells and starfish
+  // soft ripples and little pits in the sand, a few shells and starfish (the light pits are placed once the palms are, so none sits on a trunk)
+  var sandDots = [];
   spread(0, brazil_yAt(SH, W / 2) + 14 * S, W, H - brazil_yAt(SH, W / 2), ph ? 26 : 38, ph ? 18 : 22, rnd, 1).forEach(function (c) { if (c.y < brazil_yAt(SH, c.x) + 12 * S) return; var r = (2 + c.r * 3) * S * (0.7 + (c.y - hz) / H);
-    if (c.q < 0.32) wet += brazil_e(c.x, c.y, r * 1.6, r * 0.35); else if (c.q < 0.36) lite += brazil_e(c.x, c.y, r * 0.8, r * 0.55); });
+    if (c.q < 0.32) wet += brazil_e(c.x, c.y, r * 1.6, r * 0.35); else if (c.q < 0.36) sandDots.push([c.x, c.y, r]); });
   (ph ? [[0.3, 0.5], [0.66, 0.78]] : [[0.43, 0.62], [0.74, 0.86], [0.18, 0.86]]).forEach(function (q, n) { var cx = W * q[0], cy = beach(cx, q[1]), r = 5 * S, pts = [];
     for (k = 0; k < 10; k++) { var a = -Math.PI / 2 + k * Math.PI / 5 + n, rr = k % 2 ? r * 0.42 : r; pts.push([cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.7]); } warm += brazil_pg(pts); });
   // beach towels lying on the sand, striped
-  (ph ? [[0.18, 0.42, 0, -1], [0.56, 0.62, 1, 1]] : [[0.33, 0.55, 0, -1], [0.5, 0.74, 1, 1], [0.69, 0.6, 2, 1], [0.93, 0.52, 0, -1]]).forEach(function (q) { var tx = W * q[0], ty = beach(tx, q[1]), ts = S * (ph ? 0.8 : 1) * (0.85 + q[1] * 0.3), tw = 52 * ts, th = 17 * ts, sk = q[3] * 9 * ts;
+  // (each lies in the shade beside an umbrella: [the umbrella's x and depth, then a nudge right and back from it])
+  (ph ? [[0.2, 0.2, 0, -1], [0.56, 0.18, 1, 1]] : [[0.27, 0.2, 0, 1], [0.4, 0.38, 1, 1], [0.69, 0.26, 2, 1], [0.96, 0.32, 0, -1]]).map(function (q) { return [q[0] - 0.012 + (q[3] < 0 ? -0.035 : 0.004), q[1] + 0.07, q[2], q[3]]; }).forEach(function (q) { var tx = W * q[0], ty = beach(tx, q[1]), ts = S * (ph ? 0.8 : 1) * (0.85 + q[1] * 0.3), tw = 52 * ts, th = 17 * ts, sk = q[3] * 9 * ts;
     var P = function (u, v) { return [tx + u * tw + v * sk, ty + v * th]; }, base = brazil_pg([P(0, 0), P(1, 0), P(1, 1), P(0, 1)]), str = '';
     for (k = 1; k < 7; k += 2) str += brazil_pg([P(k / 8, 0), P((k + 0.7) / 8, 0), P((k + 0.7) / 8, 1), P(k / 8, 1)]);
     wet += brazil_pg([P(0.02, 0.15), P(1.04, 0.15), P(1.04, 1.18), P(0.02, 1.18)]);
@@ -246,17 +262,19 @@ SCENES.brazil = function (W, H, dk, rnd) {
   (ph ? [[0.56, 0.18], [0.9, 0.12], [0.2, 0.2]] : [[0.27, 0.2], [0.4, 0.38], [0.5, 0.16], [0.69, 0.26], [0.86, 0.14], [0.96, 0.32]]).forEach(function (q, n) { var ux2 = W * q[0], uy = beach(ux2, q[1]), us = S * (ph ? 0.85 : 1) * (0.95 + q[1] * 0.6);
     wet += brazil_e(ux2 + 8 * us, uy + 2 * us, 22 * us, 5 * us); umb.push([ux2, uy, us, n]); });
   // palms on the beach: tall royal palms on the right, two leaning coconut palms on the left (their crowns are the engine's)
-  var palms = [];
+  var palms = [], trunks = [];
   (ph ? [[0.62, 0.62, 1, 'c', 0.04, 0.4], [0.93, 0.5, -1, 'r', 0, 0.3]] : [[0.24, 0.6, -1, 'c', -0.05, 0.45], [0.335, 0.665, 1, 'c', 0.035, 0.6], [0.89, 0.42, 1, 'r', 0, 0.3], [0.975, 0.36, -1, 'r', 0, 0.45]]).forEach(function (q, n) {
     var px = W * q[0], py = beach(px, q[5]), cy = H * q[1], royal = q[3] === 'r', cx = px + (royal ? 0 : (py - cy) * q[4] * 2.6), pc = {x: cx, y: cy, royal: royal, fr: [], n: n};
     wet += brazil_e(px + 4 * S, py + 1 * S, 14 * S, 3 * S);
-    if (royal) { wood += brazil_limb(px, py, cx, cy + 34 * S, 15 * S, 10 * S, 3 * S * q[2]); occ.push({d: brazil_limb(px, py, cx, cy + 34 * S, 15 * S, 10 * S, 3 * S * q[2]), y: py}); leaf += brazil_limb(cx, cy + 36 * S, cx, cy + 2 * S, 10 * S, 8.4 * S, 0); line += seg(cx - 5 * S, cy + 34 * S, cx + 5 * S, cy + 34 * S); }
+    if (royal) { var rb = 3 * S * q[2], dxr = cx - px, dyr = cy + 4 * S - py; wood += brazil_limb(px, py, cx, cy + 4 * S, 15 * S, 9 * S, rb); occ.push({d: brazil_limb(px, py, cx, cy + 4 * S, 15 * S, 9 * S, rb), y: py});
+      for (k = 1; k < 18; k++) { var tr = k / 18, ry3 = py + dyr * tr, rx3 = px + dxr * tr + Math.sin(Math.PI * tr) * rb, wr = (15 - 6 * tr) * S / 2; line += seg(rx3 - wr * 0.9, ry3, rx3 + wr * 0.9, ry3 + 1.2 * S); } }
     else { var bnd = -q[2] * 26 * S, dx0 = cx - px, dy0 = cy + 4 * S - py, L1 = Math.hypot(dx0, dy0), nx0 = -dy0 / L1, ny0 = dx0 / L1; wood += brazil_limb(px, py, cx, cy + 4 * S, 13 * S, 8 * S, bnd); occ.push({d: brazil_limb(px, py, cx, cy + 4 * S, 13 * S, 8 * S, bnd), y: py});
       for (k = 1; k < 14; k++) { var tt2 = k / 14, b2 = Math.sin(Math.PI * tt2) * bnd, rx2 = px + dx0 * tt2 + nx0 * b2, ry2 = py + dy0 * tt2 + ny0 * b2, ww = (13 - 5 * tt2) * S / 2; line += seg(rx2 - ww * 0.9, ry2, rx2 + ww * 0.9, ry2 + 1.2 * S); } }
     var L0 = (royal ? 74 : 62) * S * (ph ? 0.85 : 1), A0 = royal ? [-2.75, -2.25, -1.85, -1.45, -1.05, -0.62, -0.25, 0.4, 2.7] : [-3.0, -2.5, -2.0, -1.5, -1.05, -0.55, -0.1, 0.5, 2.6];
     A0.forEach(function (a, j) { var back = j % 2 === 1, Lf = L0 * (0.8 + hash(n * 9 + j) * 0.35) * (Math.abs(a + 1.57) > 1.3 ? 0.9 : 1); pc.fr.push({d: brazil_frond(cx, cy, a, Lf, (royal ? 15 : 13) * S, royal ? 0.34 : 0.55), back: back, ph: hash(n * 7 + j) * 6.28}); });
     pc.nuts = royal ? '' : brazil_c(cx - 4 * S, cy + 6 * S, 4.2 * S) + brazil_c(cx + 4 * S, cy + 6.6 * S, 4.2 * S) + brazil_c(cx, cy + 10 * S, 4 * S);
-    palms.push(pc); });
+    trunks.push([px, py, cx, cy, royal ? 0 : -q[2] * 26 * S]); palms.push(pc); });
+  sandDots.forEach(function (d) { if (trunks.some(function (t) { if (d[1] > t[1] + 4 * S || d[1] < t[3]) return false; var u = (t[1] - d[1]) / (t[1] - t[3] || 1), tx = t[0] + (t[2] - t[0]) * u + Math.sin(Math.PI * u) * t[4] * 0.5; return Math.abs(d[0] - tx) < 11 * S; })) return; lite += brazil_e(d[0], d[1], d[2] * 0.8, d[2] * 0.55); });
   // the rainforest in the near corner: banana and monstera leaves, philodendron hearts, a fern, heliconia, and the toucan's branch
   var J = [], jy = H, js = S * (ph ? 1.2 : 1);
   var JL = ph ? [[-20, jy - 6, -1.05, 170, 34, 0.1, 'b', 0], [-26, jy - 64, -0.48, 140, 28, 0.12, 'b', 1], [W * 0.1, jy + 8, -1.4, 110, 52, -0.1, 'm', 0], [W * 0.24, jy + 12, -0.86, 96, 46, 0.12, 'm', 1], [-10, H * 0.715, -0.15, 110, 15, 0.15, 'f', 1], [-24, H * 0.665, -0.3, 120, 24, 0.14, 'b', 0], [-16, H * 0.75, 0.25, 90, 30, 0.1, 'h', 1], [W * 0.33, jy + 6, -0.55, 64, 30, 0.1, 'h', 0], [W * 0.02, jy + 4, -0.75, 78, 36, -0.08, 'h', 1]]
