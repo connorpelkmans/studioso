@@ -120,6 +120,25 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
       return [d.recs[0].due, d.recs[0].time, (() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0") + "-" + String(n.getDate()).padStart(2, "0"); })()];
     });
     ok(q[0] === q[2] && q[1] === "09:50", "a quiz due before it opens is due when it's open (today 9:50): " + JSON.stringify(q));
+    // The same exam from Brightspace (the quiz) and a calendar entry with a room: Studyboard asks, and Merge keeps one with the link and the room
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    await app.evaluate(() => {
+      const td = (() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0") + "-" + String(n.getDate()).padStart(2, "0"); })();
+      SBLMS.applyChanges([
+        {kind: "task", id: "mq", after: {id: "mq", created: 1, title: "BSNC 1000 Midterm Exam- Requires Respondus LockDown Browser", courseId: "c1", type: "Exam", due: td, time: "10:10", status: "todo", order: 1, bs: {key: "7|bsncmidtermexamrequiresrespondus", ou: "7", last: {}, seen: {api: 1}}}},
+        {kind: "task", id: "mc", after: {id: "mc", created: 1, title: "NK1 Midterm Exam", courseId: "c1", type: "Exam", due: td, time: "09:30", location: "SW1 Room 2015", status: "todo", order: 1, notes: "Bring student ID"}},
+        {kind: "task", id: "mo", after: {id: "mo", created: 1, title: "Chemistry Quiz 3", courseId: "c1", type: "Quiz", due: td, time: "13:00", status: "todo", order: 1}}], "");
+      SBLMS_DUPES(false);
+    });
+    await app.waitForSelector("dialog[open] .mg-row", {timeout: 5000});
+    const pairs = await app.evaluate(() => [...document.querySelectorAll("dialog[open] .mg-row")].map(r => r.innerText.replace(/\s+/g, " ")));
+    ok(pairs.length === 1 && /BSNC 1000 Midterm/.test(pairs[0]) && /NK1 Midterm Exam/.test(pairs[0]) && /Same Exam\?/.test(await app.textContent("dialog[open]")), "the same exam listed twice is put to the student (only that pair): " + JSON.stringify(pairs));
+    await app.click("dialog[open] [data-submit]");
+    await app.waitForFunction(() => !SBLMS.st().tasks.mc, null, {timeout: 5000});
+    const kept = await app.evaluate(() => { const t = SBLMS.st().tasks.mq; return {loc: t.location, notes: t.notes, key: t.bs && t.bs.key}; });
+    ok(kept.loc === "SW1 Room 2015" && /student ID/.test(kept.notes) && kept.key, "Merge keeps the Brightspace one with the room and notes: " + JSON.stringify(kept));
+    await app.evaluate(() => SBLMS_DUPES(false)); await app.waitForTimeout(300);
+    ok(!(await app.locator("dialog[open] .mg-row").count()), "and it isn't asked again");
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await browser.close(); server.close(); }
   console.log(`\nlms-phase.e2e: ${n} checks passed`);

@@ -32,9 +32,10 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { const v = await fn(); if (v) return v; if (Date.now() > end) throw new Error("timed out: " + what); await new Promise(r => setTimeout(r, 250)); } };
 
 (async () => {
-  build();
+  // SB_EXT_BUILD: an extension build made elsewhere (for example the version in store review), tested against today's website
+  if (!process.env.SB_EXT_BUILD) build();
   const ext = fs.mkdtempSync(path.join(os.tmpdir(), "sb-ext-")), prof = fs.mkdtempSync(path.join(os.tmpdir(), "sb-prof-"));
-  fs.cpSync(path.join(root, "extension", "build", "chrome"), ext, {recursive: true});
+  fs.cpSync(process.env.SB_EXT_BUILD || path.join(root, "extension", "build", "chrome"), ext, {recursive: true});
   const man = JSON.parse(fs.readFileSync(path.join(ext, "manifest.json"), "utf8"));
   ok(man.manifest_version === 3 && !man.host_permissions && JSON.stringify(man.optional_host_permissions) === '["https://*/*"]' && man.permissions.join() === "storage,alarms,scripting,activeTab",
     "the store build asks for no site at install: school sites are optional permissions, granted one at a time");
@@ -91,6 +92,12 @@ const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { 
     ok(e2 && e2.status === "todo", "Essay 2 is in, still to do");
     const course = await app.evaluate(() => Object.values(SBLMS.st().courses).find(c => c.cv));
     ok(course && course.instructor === "Prof. Ruiz" && (course.meetings || []).length === 1, "the course has its instructor and class times from the syllabus");
+    // Sync Now on the website asks the extension (through relay.js) to read the school site again
+    const before = await pop.evaluate(() => chrome.runtime.sendMessage({op: "status"}).then(x => x.status.canvas.lastOk));
+    await new Promise(r => setTimeout(r, 1100));
+    await app.evaluate(() => window.postMessage({source: "studyboard-app", type: "sync"}, location.origin));
+    const after = await until(() => pop.evaluate(b => chrome.runtime.sendMessage({op: "status"}).then(x => x.status.canvas.state === "ok" && x.status.canvas.lastOk > b ? x.status.canvas.lastOk : null), before), 60000, "a sync asked for by the website");
+    ok(after > before, "the website's Sync Now makes the extension read the school site again");
     // The feedback, where the student looks for it (a picture for the store listing: scripts/extension-store-assets.js)
     await app.evaluate(cid => SBLMS.go("courses", cid), course.id); await app.waitForTimeout(300);
     await app.waitForTimeout(1500); await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });   // the app's own "Sign In to Studyboard" prompt
