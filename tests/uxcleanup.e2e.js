@@ -51,14 +51,14 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const pre = Number((await page.getAttribute(".deck .mastery", "aria-label")).match(/\d+/)[0]);
       ok(pre > 0 && pre < 60, "a deck with cards you keep missing is not ready: " + pre + "%");
       const ab = await page.locator(".deck .deck-actions button").evaluateAll(b => b.map(x => x.innerText.trim() || x.getAttribute("aria-label") || ""));
-      ok(ab.join("|") === "Study|Quiz|Flashcard style for Cells|Archive Cells", "Study, Quiz, the deck's style button and Archive sit together at the bottom: " + ab.join("|"));
-      const r1 = await page.locator(".deck .deck-arch").boundingBox(), r0 = await page.locator(".deck .deck-actions [data-act=fc-quiz]").boundingBox();
+      ok(ab.join("|") === "Study|Flashcard style for Cells|Archive Cells", "Study, the deck's style button and Archive sit together at the bottom (quizzes have their own tab): " + ab.join("|"));
+      const r1 = await page.locator(".deck .deck-arch").boundingBox(), r0 = await page.locator(".deck .deck-actions [data-act=fc-study]").boundingBox();
       ok(r1.x > r0.x && Math.abs(r1.y - r0.y) < 8, "Archive is at the right end of that row");
       await page.screenshot({path: "/tmp/ux-decks-" + W + ".png"});
       await page.click(".deck .deck-arch"); await page.waitForTimeout(250);
       ok(await page.locator(".deck").count() === 0 && await page.locator('.view-head [data-act="fc-arch-open"]').count() === 1, "Archive moves the deck to Archived Decks (button at the top)");
       await page.click('.view-head [data-act="fc-arch-open"]'); await page.click('#dlg [data-act="fc-unarchive"]'); await page.waitForTimeout(250);
-      ok(await page.locator(".deck").count() === 1 && await page.locator('.fc-arch-btn span').count() === 0, "Restore brings it back");
+      ok(await page.locator(".deck").count() === 1 && await page.locator('.fc-arch-btn span:not([aria-hidden])').count() === 0, "Restore brings it back");
       await page.click('[data-act="fc-review-menu"]'); await page.waitForSelector('#dlg[open] [data-act="fc-weak"]');
       ok(await page.locator('#dlg [data-act="fc-review-all"]:not([disabled])').count() === 1 && await page.locator('#dlg [data-act="fc-weak"]:not([disabled])').count() === 1, "Review offers flashcards due and weak spots");
       await page.click('#dlg [data-act="fc-weak"]'); await page.waitForSelector("#dlg .sheet-head");
@@ -81,12 +81,25 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await page.waitForFunction(() => state.decks.d1.cards.length === 4);
       ok(true, "Ctrl + Enter adds another card");
       await page.click('#dlg [data-act="close"]');
+      // Make a Quiz on a deck: its quiz goes to Review, Quizzes (with no AI set up, the questions come from the cards)
+      ok(await page.locator('.deck-head [data-act="fc-quiz"]').count() === 1 && await page.locator('.aiq-sec [data-act="ai-quiz-start"], .aiq-sec [data-act="fc-case"]').count() === 0, "a deck keeps Make a Quiz, and lists no quizzes of its own");
+      await page.evaluate(() => document.querySelector('.deck-head [data-act="fc-quiz"]').click()); await page.waitForSelector('#dlg[open] input[name="qname"]');   // (on a phone it sits in the band's More menu)
+      await page.fill('#dlg input[name="qname"]', "Cell Quiz"); await page.click("#dlg [data-submit]");
+      await page.waitForSelector(".qz-card", {timeout: 5000});
+      ok(/Cell Quiz/.test(await page.textContent(".qz-card")) && await page.locator('.rv-tabs [data-id="quizzes"][aria-selected="true"]').count() === 1 && await page.evaluate(() => (state.decks.d1.aiQuizzes || []).length === 1), "the quiz is kept on the deck and shown under Quizzes");
+      ok(/Add Quiz/.test(await page.textContent("#fab")), "Quizzes has + Add Quiz at the bottom right");
+      await page.click('.qz-card [data-act="ai-quiz-start"]'); await page.waitForTimeout(250);
+      ok(await page.evaluate(() => ui.fc && ui.fc.mode === "aiquiz"), "Start takes the quiz");
+      await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "fc-exit"; document.body.appendChild(b); b.click(); b.remove(); }); await page.waitForTimeout(250);
+      ok(await page.locator(".qz-card").count() === 1, "leaving the quiz goes back to Quizzes");
+      ok(/Review/.test(await page.textContent('nav [data-tab="flashcards"]')), "the tab is called Review");
+      await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "rv-view"; b.dataset.id = "cards"; document.body.appendChild(b); b.click(); b.remove(); }); await page.waitForTimeout(200);
       // 3. course page
       await page.evaluate(() => { ui.tab = "courses"; ui.courseId = "c1"; render(); });
       await page.waitForSelector(".detail-head");
-      // a short row: Import Syllabus and Edit Course, plus Ask AI and the school-site link when there is one (Add Task is the page's bottom-right button)
+      // a short row: Import Syllabus and Edit Course, plus Ask AI, Record Lecture and the school-site link when there is one (Add Task is the page's bottom-right button)
       const row = await page.evaluate(() => [...(document.querySelector(".detail-head .row-actions, .row-actions") || {querySelectorAll: () => []}).querySelectorAll("button")].map(b => b.dataset.act));
-      ok(row.length <= 4 && row.includes("import-syllabus") && row.includes("edit-course"), "course page shows " + row.length + " buttons, not 7: " + row.join(","));
+      ok(row.length <= 5 && row.includes("import-syllabus") && row.includes("edit-course"), "course page shows " + row.length + " buttons, not 7: " + row.join(","));
       ok(await page.locator('[data-act="course-more"]').count() === 0, "no More menu on the course page");
       await page.click('.row-actions [data-act="edit-course"]'); await page.waitForSelector("#dlg .sheet-head");
       ok(/Edit Course/.test(await page.textContent("#dlg .sheet-head")), "Edit Course opens from the row");
