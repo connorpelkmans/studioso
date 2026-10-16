@@ -66,6 +66,21 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
       items: [{ou: "7", id: "1", act: 3, type: 1, name: "Capacity Building Assignment", due: ago, url: "/d2l/lms/dropbox/user/folder_submit_files.d2l?db=1&ou=7", done: null, exempt: false}], completions: []}).recs
       .map(r => [r.title, r.done, r.sub]), new Date(Date.now() - 4 * DAY).toISOString());
     ok(JSON.stringify(r4) === JSON.stringify([["Capacity Building Assignment", true, "yes"]]), "an assignment dated only by your own dates still ticks off when it's submitted: " + JSON.stringify(r4));
+    // A calendar entry named a little differently from the assignment ("Capacity Building Assignment" for the folder
+    // "Group Care Plan – Individual"): it joins the assignment, so a task made from it ticks off when the assignment is submitted
+    const r5 = await app.evaluate(due => {
+      const L = SBLMS.brightspace, ts = due.slice(0, 10);
+      SBLMS.applyChanges([{kind: "task", id: "cb", after: {id: "cb", created: 1, title: "Group Care Plan Assignment", courseId: "c1", type: "Assignment", due: ts, time: "23:30", status: "todo", order: 1,
+        bs: {key: "7|groupcareplanassignment", ou: "7", last: {title: "Group Care Plan Assignment", due: ts, courseId: "c1"}, seen: {api: 1}}}}], "");
+      const h = {ok: true, origin: "https://learn.example.edu", me: {name: "Ana"}, all: [], errors: [], items: [], completions: [],
+        courses: [{ou: "7", code: "HSIP0100", name: "Health Sciences", quizzes: [], grades: [], news: [],
+          folders: [{id: "9", name: "Group Care Plan – Individual", due, end: null, sub: true, files: []}, {id: "10", name: "Week 3 Reflection", due, end: null, sub: false, files: []}],
+          events: [{id: "e1", title: "Group Care Plan Assignment Due", start: due, end: due, allDay: false, assoc: false, url: ""}, {id: "e2", title: "Week 3 Journal Due", start: due, end: due, allDay: false, assoc: false, url: ""}]}]};
+      const d = L.fromApi(h), p = L.plan(d); L.applyPlan(d, p, "grab", true);
+      return {recs: d.recs.map(r => r.title), cb: SBLMS.st().tasks.cb.status, line: SBLMS_TASK(SBLMS.st().tasks.cb).replace(/<[^>]+>/g, "")};
+    }, new Date(Date.now() - 4 * DAY).toISOString());
+    ok(r5.cb === "done", "a task made from the calendar entry ticks off when the assignment is submitted: " + JSON.stringify(r5));
+    ok(r5.recs.includes("Week 3 Journal") && r5.recs.includes("Week 3 Reflection"), "two different items that share a word on the same day stay apart: " + JSON.stringify(r5.recs));
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await browser.close(); server.close(); }
   console.log(`\nlms-phase.e2e: ${n} checks passed`);
