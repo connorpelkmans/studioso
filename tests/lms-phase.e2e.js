@@ -198,6 +198,20 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     await app.waitForFunction(() => !SBLMS.st().tasks.cpy, null, {timeout: 5000});
     const realLeft = await app.evaluate(() => Object.values(SBLMS.st().tasks).filter(t => t.title === "Upload Portal Week 6").map(t => t.status));
     ok(JSON.stringify(realLeft) === JSON.stringify(["done"]), "after Merge, only the real assignment is left, done because it's submitted: " + JSON.stringify(realLeft));
+    // The real case: the assignment folder has no date of its own ("Capacity Building with a Community Client"), and its date is only on a
+    // calendar entry ("Capacity Building Assignment Due"); the task made from the entry ticks off because the folder is submitted
+    const und = await app.evaluate(due => {
+      const L = SBLMS.brightspace, ts = due.slice(0, 10);
+      SBLMS.applyChanges([{kind: "task", id: "und", after: {id: "und", created: 1, title: "Outreach Planning Assignment", courseId: "c1", type: "Assignment", due: ts, time: "23:30", status: "todo", order: 1,
+        bs: {key: "7|outreachplanningassignment", ou: "7", last: {title: "Outreach Planning Assignment", due: ts, time: "23:30", courseId: "c1"}, seen: {api: 1}}}}], "");
+      const d = L.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [],
+        courses: [{ou: "7", code: "HSIP0100", name: "Health Sciences", quizzes: [], grades: [], news: [],
+          folders: [{id: "96", name: "Outreach Planning with a Partner Agency", due: null, end: null, sub: true, files: []}, {id: "97", name: "Unrelated Lab Report", due: null, end: null, sub: false, files: []}],
+          events: [{id: "e7", title: "Outreach Planning Assignment Due", start: due, end: due, allDay: false, assoc: false, url: ""}]}]});
+      L.applyPlan(d, L.plan(d), "grab", true);
+      const t = SBLMS.st().tasks.und; return {status: t.status, item: t.bs.item, url: t.link || ""};
+    }, new Date(Date.now() - 4 * 864e5).toISOString());
+    ok(und.status === "done" && und.item === true && /db=96/.test(und.url), "an undated assignment's submission reaches the calendar entry that carries its date: " + JSON.stringify(und));
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await browser.close(); server.close(); }
   console.log(`\nlms-phase.e2e: ${n} checks passed`);
