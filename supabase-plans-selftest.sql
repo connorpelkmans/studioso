@@ -748,6 +748,16 @@ begin
     end loop;
     perform public.sbt_ok(r like 'SB_PRO_GROUPS_FULL%', 'a 6th Pro group was allowed (got ' || r || ')');
     perform public.sbt_ok((select count(*) from public.group_pro where user_id = ub) = 5, 'one account holds at most 5 Pro groups');
+    -- leaving one of them frees its place; owning a group with Pro doesn't make it Pro by itself
+    delete from public.group_members where user_id = ub and group_id = (select p.group_id from public.group_pro p where p.user_id = ub and p.group_id <> gp limit 1);
+    gx := gen_random_uuid();
+    insert into public.study_groups (id, owner_id, name, invite_code) values (gx, ub, 'cap-own', 'CPO-' || substr(gx::text, 1, 3));
+    insert into public.group_members (group_id, user_id, role) values (gx, ub, 'owner');
+    perform public.sbt_ok(not public.plans_group_is_pro(gx), 'a Pro owner''s group was Pro without being assigned');
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', ub, 'role', 'authenticated')::text, true);
+    r := 'ok'; begin perform public.group_pro_set(gx, true); exception when others then r := sqlerrm; end;
+    perform set_config('request.jwt.claims', '', true);
+    perform public.sbt_ok(r = 'ok' and public.plans_group_is_pro(gx), 'a group left behind still held one of the 5 places (got ' || r || ')');
     -- when B's Pro ends, the group goes back to free limits and B's badge goes
     update public.studyboard_entitlements set plan = 'free', pro_until = null, trial_until = null, grant_lifetime = false, grant_until = null where user_id = ub;
     perform public.sbt_ok(not public.plans_group_is_pro(gp), 'the group stops being Pro when the member who unlocked it loses Pro');

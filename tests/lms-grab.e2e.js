@@ -12,6 +12,9 @@ const DAY = 864e5, at = d => new Date(Math.floor(Date.now() / DAY) * DAY + d * D
 const SCHOOL = "https://canvas.example.edu";
 const CV = [
   [/^\/api\/v1\/users\/self$/, {id: 9, name: "Ana Lee"}],
+  [/^\/api\/v1\/conversations\?scope=inbox/, [{id: 77, subject: "Essay 2 extension", context_name: "History 200", last_message_at: at(-1), workflow_state: "unread", participants: [{id: 5, name: "Prof. Ruiz"}, {id: 9, name: "Ana Lee"}]}]],
+  [/^\/api\/v1\/conversations\/77\?auto_mark_as_read=false$/, {id: 77, subject: "Essay 2 extension", context_name: "History 200", participants: [{id: 5, name: "Prof. Ruiz"}, {id: 9, name: "Ana Lee"}],
+    messages: [{id: 2, author_id: 5, created_at: at(-1), body: "Yes, Friday is fine.", attachments: []}, {id: 1, author_id: 9, created_at: at(-2), body: "Could I have until Friday?", attachments: []}]}],
   [/^\/api\/v1\/courses\?enrollment_state=active/, [{id: 201, name: "History 200", course_code: "HIS200", start_at: at(-30), end_at: at(60), apply_assignment_group_weights: false, enrollments: [{computed_current_score: 85, computed_current_grade: "B"}]}]],
   [/^\/api\/v1\/courses\/201\/assignments\?/, [
     {id: 1, name: "Essay 1", due_at: at(-3), published: true, points_possible: 20, assignment_group_id: 3, submission_types: ["online_upload"], submission: {workflow_state: "graded", score: 17, submitted_at: at(-4)}},
@@ -75,7 +78,7 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
     await school.evaluate(src => { (0, eval)(src); }, decodeURIComponent(js.slice("javascript:".length)));
     await school.getByText("Open in Studyboard").waitFor({timeout: 30000});
     ok(asked.every(([m]) => m === "GET"), "the bookmark only read (GET) from the school site");
-    ok(/Read 1 course and 1 grade/.test(await school.locator("div >> nth=0").evaluate(() => document.body.lastElementChild.shadowRoot.textContent)), "it says what it read");
+    ok(/Read 1 course, 1 grade and 1 message/.test(await school.locator("div >> nth=0").evaluate(() => document.body.lastElementChild.shadowRoot.textContent)), "it says what it read");
     ok(await school.evaluate(() => { const r = document.body.lastElementChild.shadowRoot, im = r.querySelector("img"); return !!im && im.complete && im.naturalWidth === 64 && /Studyboard/.test(r.textContent); }), "the panel on the school's page shows the Studyboard logo");
     if (process.env.SHOT) await school.screenshot({path: process.env.SHOT});
     const href = await school.getByText("Open in Studyboard").getAttribute("href");
@@ -93,6 +96,16 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
     ok(e1 && e1.mark && e1.mark.got === 17 && e1.mark.outOf === 20 && Number(e1.weight) === 50 && e1.status === "done", "the grade arrives with its weight, and the submitted essay is done");
     ok(e2 && e2.status !== "done" && Number(e2.weight) === 50, "upcoming work arrives with its weight");
     ok(st.cfg.newsItems.some(x => x.title === "Room change"), "announcements arrive");
+    // The Inbox came too: Emails shows it (read-only, kept on this device), and nothing was marked read in Canvas
+    ok(asked.some(([, p]) => /^\/api\/v1\/conversations\/77\?auto_mark_as_read=false$/.test(p)) && !asked.some(([, p]) => /auto_mark_as_read=true/.test(p)), "the bookmark reads the Canvas Inbox without marking anything read");
+    await tab.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); document.querySelector('[data-act="cf-view"][data-id="emails"]') || null; });
+    await tab.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "cf-view"; b.dataset.id = "emails"; document.body.appendChild(b); b.click(); b.remove(); });
+    await tab.waitForSelector(".em-item", {timeout: 5000});
+    ok(/Essay 2 extension/.test(await tab.locator(".em-item").first().innerText()) && await tab.locator(".em-item.unread").count() === 1, "Emails lists the message the bookmark brought in");
+    await tab.click(".em-item"); await tab.waitForSelector(".em-msg", {timeout: 5000});
+    const th = await tab.evaluate(() => ({msgs: [...document.querySelectorAll(".em-msg")].map(m => m.innerText), reply: !!document.querySelector("#emDraft"), link: (document.querySelector('.em-note a[href$="/conversations"]') || {}).href}));
+    ok(th.msgs.length === 2 && /Could I have until Friday/.test(th.msgs[0]) && /Prof\. Ruiz/.test(th.msgs[1]) && /You/.test(th.msgs[0]), "the conversation opens, oldest first, with who wrote what");
+    ok(!th.reply && th.link === SCHOOL + "/conversations", "it can't be answered from here: Reply in Canvas links to the school's inbox");
     ok(st.cfg.finals["201"] && st.cfg.finals["201"].pct === 85, "Canvas's own course grade arrives");
     ok(st.cfg.mode === "api" && st.cfg.host === "canvas.example.edu" && /in this browser/.test(st.line), "connected to that school site; settings say it was read in this browser: " + st.line);
     // A second read with the same data changes nothing

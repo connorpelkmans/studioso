@@ -928,7 +928,7 @@ revoke all on function public.report_misses(uuid, jsonb), public.forget_misses(u
 grant execute on function public.report_misses(uuid, jsonb), public.forget_misses(uuid), public.top_misses(uuid, int) to authenticated;
 
 -- ---------- 1.16: Pro groups ----------
--- A group is a Pro group when its owner has Pro, or a Pro member unlocks it (supabase-plans.sql: group_pro_set). The extras below are
+-- A group is a Pro group when a member with Pro assigns Pro to it, the owner included (supabase-plans.sql: group_pro_set; 5 per account). The extras below are
 -- small: they reuse shared items and task lists, and Studyboard shows them in Pro groups only.
 --  * New shared item kinds: 'avail' (Find a Time: one per member, only which half-hours are busy, never what's in their plan),
 --    'topics' (an exam's topics split among members), 'topic' (a member marking their topic as shared) and 'gfile' (a file uploaded to the group).

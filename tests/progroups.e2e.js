@@ -18,6 +18,9 @@ function stubInit(opts){
     group_task_lists: [], group_tasks: []
   };
   const nowIso = () => new Date().toISOString(); let n = 0; const id = p => p + (++n);
+  // more groups of mine (g2...), and the ones I've assigned Pro to
+  for (let i = 2; i <= (opts.groups || 1); i++) { DB.study_groups.push({id: "g" + i, name: "Group " + i, course: "", owner_id: "u1", invite_code: "G" + i, created_at: "2026-01-0" + Math.min(9, i), weekly_goal: 0, kind: "study", project_due: null, team_due: null}); DB.group_members.push({group_id: "g" + i, user_id: "u1", role: "owner", display_name: "Connor", joined_at: "2026-01-01"}); }
+  const ASSIGNED = new Set(opts.assigned || []);
   // lists can't be made any more: a study group shows the ones it already has (an empty one here, for the main scenario)
   if (opts.emptyList) DB.group_task_lists.push({id: "L1", group_id: "g1", title: "BIOL 201 Poster", course_code: "BIOL 201", created_by: "u1", created_at: "2026-02-01T00:00:00Z", archived: false});
   if (opts.seed) {
@@ -67,8 +70,8 @@ function stubInit(opts){
       const r = {id: id("T"), list_id: l.id, group_id: l.group_id, title: String(a.p_title).trim(), notes: a.p_notes || "", status: "todo", assignee_id: a.p_assignee || null, due_at: a.p_due || null, priority: a.p_priority || null,
         position: Math.max(0, ...DB.group_tasks.filter(x => x.list_id === l.id).map(x => x.position)) + 1, created_by: me.id, created_at: nowIso(), updated_by: me.id, updated_at: nowIso(), completed_at: null, completed_by: null, deleted: false};
       DB.group_tasks.push(r); return {data: r}; },
-    group_pro_status(a) { return {data: (a.p_groups || []).map(g => ({group_id: g, active: !!opts.pro, by_user: opts.pro ? "u2" : null, by_owner: false}))}; },
-    group_pro_set(a) { return {data: a.p_on ? "on" : "off"}; },
+    group_pro_status(a) { return {data: (a.p_groups || []).map(g => ASSIGNED.has(g) ? {group_id: g, active: true, by_user: me.id, by_owner: ownerOf(g)} : {group_id: g, active: !!opts.pro, by_user: opts.pro ? "u2" : null, by_owner: false})}; },
+    group_pro_set(a) { if (a.p_on && ASSIGNED.size >= 5) return E("SB_PRO_GROUPS_FULL: You've assigned Pro to 5 groups. Unassign one first."); if (a.p_on) ASSIGNED.add(a.p_group); else ASSIGNED.delete(a.p_group); return {data: a.p_on ? "on" : "off"}; },
     set_supporter_badge(a) { DB.group_members.filter(m => m.user_id === me.id).forEach(m => { m.badge = !!a.p_on; }); return {data: !!a.p_on}; },
     update_group_task(a) { const t = DB.group_tasks.find(x => x.id === a.p_task && !x.deleted); if (!t) return E("That task isn't in one of your groups"); const p = Object.assign({}, a.p_patch);
       const rev = "reviewer_id" in p ? p.reviewer_id : t.reviewer_id; if (p.status === "done" && t.status !== "done" && rev && rev !== me.id && !ownerOf(t.group_id)) p.status = "review";
@@ -226,6 +229,7 @@ const DB = (page, f) => page.evaluate(f);
     ok(await page.locator("#grpHead .gx-chip").count() === 0 && await page.locator("#gxOver").count() === 0 && await page.locator("#gxTasks").count() === 0, "a free group has no Pro extras");
     await tab(page, "members");
     ok(/A member with Studyboard Pro can make this a Pro group/.test(await txt(page, "#gxPro")), "Members explains Pro groups, once");
+    ok(await page.locator("#grpHead .gx-assign").count() === 0, "without Pro there's no Assign Pro button");
     ok(!errs.length, "no errors in the free group: " + errs.join(" | "));
     console.log(`\nprogroups.e2e: ${checks} checks passed`);
   } finally { await browser.close(); }

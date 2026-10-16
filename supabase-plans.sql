@@ -874,9 +874,9 @@ end $$;
 
 -- ---------- Pro groups (1.16) ----------
 -- A Pro group gets the group extras for every member, and Pro-size limits (100 members, full message history, group uploads).
--- A group is Pro while the paywall is off, while its owner has Pro, or while a member who unlocked it (group_pro) is still in it and has Pro.
--- Each Pro account can unlock up to 5 groups it doesn't own. Unlocking changes nothing anyone can't see; ending it takes nothing away
--- (the data stays, the extras and limits just go back to the owner's plan).
+-- A group is Pro while the paywall is off, or while the member who assigned Pro to it (group_pro) is still in it and has Pro.
+-- Each Pro account can assign Pro to at most 5 groups, its own included (owning a group no longer makes it Pro by itself). Assigning
+-- changes nothing anyone can't see; unassigning takes nothing away (the data stays, the extras and limits go back to the free ones).
 create table if not exists public.group_pro (
   group_id uuid primary key references public.study_groups(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -892,7 +892,6 @@ grant select on public.group_pro to authenticated;
 create or replace function public.plans_group_is_pro(gid uuid) returns boolean
 language sql stable security definer set search_path = public, pg_temp as $$
   select not public.studyboard_paywall()
-      or exists (select 1 from public.study_groups g where g.id = gid and public.studyboard_is_pro(g.owner_id))
       or exists (select 1 from public.group_pro p join public.group_members m on m.group_id = p.group_id and m.user_id = p.user_id
                  where p.group_id = gid and public.studyboard_is_pro(p.user_id))
 $$;
@@ -904,7 +903,7 @@ begin
   return query
     select g.id, public.plans_group_is_pro(g.id),
            (select p.user_id from public.group_pro p where p.group_id = g.id),
-           public.studyboard_is_pro(g.owner_id)
+           exists (select 1 from public.group_pro p where p.group_id = g.id and p.user_id = g.owner_id)   -- by_owner: the owner assigned it
     from public.study_groups g
     where g.id = any (coalesce(p_groups, '{}')) and public.sbg_is_member(g.id)
     limit 200;
@@ -929,12 +928,29 @@ begin
   if cur is not null and exists (select 1 from public.group_members m where m.group_id = p_group and m.user_id = cur) and public.studyboard_is_pro(cur) then
     raise exception 'SB_ALREADY_PRO: Someone else already made this a Pro group.' using errcode = 'P0001';
   end if;
-  if (select count(*) from public.group_pro where user_id = me) >= 5 then
-    raise exception 'SB_PRO_GROUPS_FULL: You''ve made 5 Pro groups. Stop one first, in its Members tab.' using errcode = 'P0001';
+  -- (a group you've left doesn't hold one of your 5)
+  if (select count(*) from public.group_pro p join public.group_members m on m.group_id = p.group_id and m.user_id = p.user_id where p.user_id = me) >= 5 then
+    raise exception 'SB_PRO_GROUPS_FULL: You''ve assigned Pro to 5 groups. Unassign one first.' using errcode = 'P0001';
   end if;
   insert into public.group_pro (group_id, user_id) values (p_group, me)
     on conflict (group_id) do update set user_id = excluded.user_id, created_at = now();
   return 'on';
+end $$;
+-- Once, when owning a group stopped making it Pro: each Pro owner keeps Pro on up to 5 of their groups (the oldest first, counting the
+-- groups they had already assigned), so nobody's groups change overnight. A marker row keeps it from running again and undoing an unassign.
+do $$
+begin
+  if not exists (select 1 from public.studyboard_config where key = 'group_pro_owner_assigned') then
+    insert into public.group_pro (group_id, user_id)
+    select x.id, x.owner_id from (
+      select g.id, g.owner_id, row_number() over (partition by g.owner_id order by g.created_at, g.id) as k,
+             (select count(*) from public.group_pro p where p.user_id = g.owner_id) as had
+      from public.study_groups g
+      where public.studyboard_is_pro(g.owner_id) and not exists (select 1 from public.group_pro p where p.group_id = g.id)
+    ) x where x.k + x.had <= 5
+    on conflict (group_id) do nothing;
+    insert into public.studyboard_config (key, value) values ('group_pro_owner_assigned', 'true'::jsonb) on conflict (key) do nothing;
+  end if;
 end $$;
 revoke all on function public.plans_group_is_pro(uuid), public.group_pro_status(uuid[]), public.group_pro_set(uuid, boolean) from public, anon, authenticated;
 grant execute on function public.group_pro_status(uuid[]), public.group_pro_set(uuid, boolean) to authenticated;

@@ -381,8 +381,20 @@ async function cvHarvest(o) {
     if (!due) return;
     c.items.push({ kind: t === "quiz" ? "quiz" : t === "discussion_topic" ? "discussion" : "other", id: String(p.plannable_id), name, due, start: null, end: null, text: "", url: String(p.html_url || ""), gid: "", outOf: null, done: doneP, files: [], rx: t === "quiz" ? { k: "quiz", st: ["online_quiz"] } : undefined });
   });
+  // The Inbox (only when asked, as the website's bookmark does): the latest conversations with their messages, read without marking any as read
+  const mail = [];
+  if (q.mail) {
+    const convs = await soft("/api/v1/conversations?scope=inbox&per_page=20", true);
+    for (const cv of (Array.isArray(convs) ? convs : []).slice(0, 15)) {
+      const full = await soft("/api/v1/conversations/" + enc(cv.id) + "?auto_mark_as_read=false", true); if (!full) continue;
+      const who = {}; (full.participants || cv.participants || []).forEach(x => { who[x.id] = x.name; });
+      mail.push({ id: String(cv.id), subject: String(full.subject || cv.subject || ""), course: String(full.context_name || cv.context_name || ""), at: String(cv.last_message_at || cv.last_authored_message_at || ""),
+        unread: cv.workflow_state === "unread", names: Object.keys(who).slice(0, 8).map(k => String(who[k] || "")),
+        msgs: (full.messages || []).slice(0, 20).reverse().map(m => ({ from: String(who[m.author_id] || ""), mine: String(m.author_id) === String(me.id), at: String(m.created_at || ""), body: String(m.body || "").slice(0, 6000), files: (m.attachments || []).length })) });
+    }
+  }
   return { ok: true, origin: location.origin, me: { name: String(me.name || ""), id: String(me.id || "") },
-    all: all.map(c => ({ ou: String(c.id), code: String(c.course_code || ""), name: String(c.name || "") })), courses, errors: errors.slice(0, 30), ms: Date.now() - T0 };
+    all: all.map(c => ({ ou: String(c.id), code: String(c.course_code || ""), name: String(c.name || "") })), courses, errors: errors.slice(0, 30), ms: Date.now() - T0, mail };
 }
 
 // ---------- Blackboard Learn: read everything (runs inside a hidden Blackboard page, so your sign-in applies). Self-contained. ----------
@@ -539,6 +551,7 @@ function cleanHarvest(r, origin) {
     all: listCap(r.all, 400, origin), courses: listCap(r.courses, 40, origin), errors: (Array.isArray(r.errors) ? r.errors : []).slice(0, 30).map(x => String(x).slice(0, 300)), ms: Number(r.ms) || 0 };
   if (r.items !== undefined) out.items = listCap(r.items, 800, origin);
   if (r.completions !== undefined) out.completions = listCap(r.completions, 800, origin);
+  if (r.mail !== undefined) out.mail = listCap(r.mail, 30, origin);
   for (const k of ["lp", "le"]) if (typeof r[k] === "string" && /^\d{1,3}\.\d{1,3}$/.test(r[k])) out[k] = r[k];
   return out;
 }
