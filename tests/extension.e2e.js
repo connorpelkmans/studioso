@@ -83,21 +83,28 @@ const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { 
     await app.goto(APP + "/"); await app.waitForFunction(() => window.SBLMS && window.SBEXT);
     await until(() => app.evaluate(() => SBEXT.on()), 15000, "the app sees the extension");
     ok(true, "the Studyboard website sees the extension through relay.js");
-    await app.waitForSelector("dialog[open] [data-submit]", {timeout: 15000});
-    ok(/Ready to Import/.test(await app.textContent("dialog[open]")), "the first read opens the usual review, so the student chooses where each course goes");
-    await app.click("dialog[open] [data-submit]");
+    // The extension's reads are applied by themselves: no "Ready to Import", just a notice of what changed
+    await app.waitForFunction(() => Object.values(SBLMS.st().tasks).some(t => t.cv), null, {timeout: 15000});
+    ok(!/Ready to Import/.test(await app.evaluate(() => { const d = document.querySelector("#dlg"); return d.open ? d.textContent : ""; })), "the extension's read is applied by itself, without asking to import");
     const got = await until(() => app.evaluate(() => { const ts = Object.values(SBLMS.st().tasks).filter(t => t.cv); return ts.length >= 2 ? ts.map(t => ({title: t.title, status: t.status, mark: t.mark, fb: !!t.cv.fb})) : null; }), 15000, "the import");
     const e1 = got.find(t => t.title === "Essay 1"), e2 = got.find(t => t.title === "Essay 2");
     ok(e1 && e1.status === "done" && e1.mark && e1.mark.got === 17 && e1.fb, "Essay 1 is in, marked done because it's submitted, with its grade and feedback");
     ok(e2 && e2.status === "todo", "Essay 2 is in, still to do");
     const course = await app.evaluate(() => Object.values(SBLMS.st().courses).find(c => c.cv));
     ok(course && course.instructor === "Prof. Ruiz" && (course.meetings || []).length === 1, "the course has its instructor and class times from the syllabus");
+    // Chrome and Edge builds that let studyboardapp.com talk to them directly: the page can ask for what was read
+    if (man.externally_connectable) {
+      const direct = await app.evaluate(id => new Promise(res => chrome.runtime.sendMessage(id, {type: "get"}, r => res(r || null))), id);
+      ok(direct && direct.list && direct.list[0] && direct.list[0].id === "canvas", "studyboardapp.com can also read it from the extension directly (externally_connectable)");
+    }
     // Sync Now on the website asks the extension (through relay.js) to read the school site again
     const before = await pop.evaluate(() => chrome.runtime.sendMessage({op: "status"}).then(x => x.status.canvas.lastOk));
-    await new Promise(r => setTimeout(r, 1100));
+    // (as if the last read were a while ago: the extension spaces out reads of the school site)
+    await pop.evaluate(() => chrome.storage.local.get("status").then(x => { const st = x.status; st.canvas.at = Date.now() - 6 * 60000; st.canvas.lastOk = Date.now() - 6 * 60000; return chrome.storage.local.set({status: st}); }));
+    const before2 = await pop.evaluate(() => chrome.runtime.sendMessage({op: "status"}).then(x => x.status.canvas.lastOk));
     await app.evaluate(() => window.postMessage({source: "studyboard-app", type: "sync"}, location.origin));
-    const after = await until(() => pop.evaluate(b => chrome.runtime.sendMessage({op: "status"}).then(x => x.status.canvas.state === "ok" && x.status.canvas.lastOk > b ? x.status.canvas.lastOk : null), before), 60000, "a sync asked for by the website");
-    ok(after > before, "the website's Sync Now makes the extension read the school site again");
+    const after = await until(() => pop.evaluate(b => chrome.runtime.sendMessage({op: "status"}).then(x => x.status.canvas.state === "ok" && x.status.canvas.lastOk > b ? x.status.canvas.lastOk : null), before2), 60000, "a sync asked for by the website");
+    ok(after > before2 && before === before, "the website's Sync Now makes the extension read the school site again");
     // The feedback, where the student looks for it (a picture for the store listing: scripts/extension-store-assets.js)
     await app.evaluate(cid => SBLMS.go("courses", cid), course.id); await app.waitForTimeout(300);
     await app.waitForTimeout(1500); await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });   // the app's own "Sign In to Studyboard" prompt

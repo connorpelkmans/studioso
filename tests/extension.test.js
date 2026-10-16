@@ -12,7 +12,7 @@ function browser(routes) {
   const store = {}, listeners = {}, asked = [], granted = new Set([ORIGIN + "/*"]), badge = {text: ""};
   const ev = name => ({addListener: f => { (listeners[name] = listeners[name] || []).push(f); }});
   const chrome = {
-    runtime: {id: "ext", getURL: p => "chrome-extension://ext/" + p, getManifest: () => ({version: "1.0.0"}), getPlatformInfo: async () => ({}), onMessage: ev("msg"), onInstalled: ev("installed"), onStartup: ev("startup")},
+    runtime: {id: "ext", getURL: p => "chrome-extension://ext/" + p, getManifest: () => ({version: "1.0.0"}), getPlatformInfo: async () => ({}), onMessage: ev("msg"), onMessageExternal: ev("ext"), onInstalled: ev("installed"), onStartup: ev("startup")},
     storage: {local: {
       get: async k => { const keys = k == null ? Object.keys(store) : [].concat(k); const o = {}; keys.forEach(x => { if (x in store) o[x] = JSON.parse(JSON.stringify(store[x])); }); return o; },
       set: async o => { Object.assign(store, JSON.parse(JSON.stringify(o))); },
@@ -34,7 +34,9 @@ function browser(routes) {
   const ctx = vm.createContext({chrome, fetch, URL, AbortController, setTimeout, clearTimeout, setInterval, clearInterval, encodeURIComponent, console});
   vm.runInContext(files("chrome")["background.js"], ctx, {filename: "background.js"});
   const send = (m, sender) => new Promise(res => listeners.msg[0](m, sender || {id: "ext", url: "chrome-extension://ext/popup.html"}, res));
-  return {send, store, asked, granted, badge};
+  const sendExt = (m, origin) => new Promise(res => { const kept = listeners.ext[0](m, {origin, url: origin + "/"}, res); if (!kept) res(undefined); });
+  const fire = (name, ...a) => (listeners[name] || []).forEach(f => f(...a));
+  return {send, sendExt, fire, store, asked, granted, badge};
 }
 const DAY = 864e5, iso = d => new Date(Date.now() + d * DAY).toISOString();
 const CANVAS = [
@@ -64,17 +66,48 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
   ok(!b.asked.some(([, o]) => /evil/.test(o)), "a next-page link to another site is not followed");
   ok(b.badge.text === "", "no badge when it's fine");
 
+  // The website talking to the extension directly (Chrome and Edge): what was read, and sync now; nothing for any other site
+  const got = await b.sendExt({type: "get"}, "https://studyboardapp.com");
+  ok(got && got.v === 1 && got.list.length === 1 && got.list[0].id === "canvas" && got.schools[0].id === "canvas", "studyboardapp.com can ask the extension directly for what it read");
+  ok((await b.sendExt({type: "get"}, "https://evil.example.com")) === undefined, "no other site can");
+  ok((await b.sendExt({type: "sync"}, "https://studyboardapp.com")).ok && (await b.sendExt({type: "remove", id: "canvas"}, "https://studyboardapp.com")) === undefined, "the website can ask for a sync now, and nothing else");
+  ok(m.chrome.externally_connectable.matches.every(x => /^https:\/\/(www\.)?studyboardapp\.com\/\*$/.test(x)) && !m.firefox.externally_connectable, "only studyboardapp.com may connect (Chrome and Edge; Firefox uses relay.js)");
   // A page (relay.js) may only ask for "sync now"
   const fromPage = {id: "ext", url: "https://studyboardapp.com/", tab: {id: 1}};
   ok((await b.send({op: "remove", id: "canvas"}, fromPage)).error === "not-allowed", "a web page can't remove a school");
   ok((await b.send({op: "add", origin: "https://other.edu"}, fromPage)).error === "not-allowed", "a web page can't connect a site");
   ok((await b.send({op: "sync"}, fromPage)).ok, "a web page can ask for a sync now");
 
+  // Kind to the school site: reads are spaced out; Sync Now in the popup always reads
+  ok((await b.send({op: "settings", every: 15})).settings.every === 15, "every 15 minutes can be chosen");
+  const n0 = b.asked.length;
+  await b.send({op: "sync", why: "open"}, fromPage); await new Promise(r => setTimeout(r, 50));
+  ok(b.asked.length === n0, "opening Studyboard right after a read doesn't read the school site again");
+  b.store.status.canvas.at = b.store.status.canvas.lastOk = Date.now() - 11 * 60000;
+  await b.send({op: "sync", why: "open"}, fromPage);
+  for (let i = 0; i < 100 && b.asked.length === n0; i++) await new Promise(r => setTimeout(r, 20));
+  for (let i = 0; i < 100 && b.store.status.canvas.state !== "ok"; i++) await new Promise(r => setTimeout(r, 20));
+  ok(b.asked.length > n0, "opening Studyboard 10+ minutes after the last read reads it");
+  const n1 = b.asked.length;
+  await b.send({op: "sync", id: "canvas"}); ok(b.asked.length > n1, "Sync Now in the popup always reads");
   // Signed out: the badge says so
   const s = browser([[/^\/api\/v1\/users\/self$/, {errors: [{message: "unauthorized"}]}, 401]]);
   await s.send({op: "add", origin: ORIGIN, platform: "canvas"});
   for (let i = 0; i < 100 && !(s.store.status && s.store.status.canvas && s.store.status.canvas.state === "login"); i++) await new Promise(res => setTimeout(res, 20));
   ok(s.store.status.canvas.state === "login" && s.badge.text === "!", "signed out: the status asks to sign in and the toolbar badge shows");
+  const sn = s.asked.length;
+  s.store.status.canvas.at = Date.now() - 6 * 60000; s.store.status.canvas.fails = 3;
+  await new Promise(res => s.send({op: "sync"}, {id: "ext", url: "chrome-extension://ext/popup.html"}).then(res));
+  ok(s.asked.length > sn, "Sync Now still reads while signed out");
+  // the timer, after three failed reads: it waits about an hour (15 min, then 30, then 60) before trying again
+  for (let i = 0; i < 100 && s.store.status.canvas.state === "syncing"; i++) await new Promise(r => setTimeout(r, 20));
+  const wait = async () => { for (let i = 0; i < 30; i++) await new Promise(r => setTimeout(r, 10)); };
+  s.store.status.canvas.at = Date.now() - 20 * 60000; s.store.status.canvas.fails = 3;
+  const sn2 = s.asked.length; s.fire("alarm", {name: "sync"}); await wait();
+  ok(s.asked.length === sn2, "after three failed reads, the timer doesn't try again 20 minutes later");
+  s.store.status.canvas.at = Date.now() - 61 * 60000; s.store.status.canvas.fails = 3;
+  s.fire("alarm", {name: "sync"}); for (let i = 0; i < 100 && s.asked.length === sn2; i++) await new Promise(r => setTimeout(r, 10));
+  ok(s.asked.length > sn2, "it tries again after about an hour");
 
   // Remove: its data and its permission go
   await b.send({op: "remove", id: "canvas"});

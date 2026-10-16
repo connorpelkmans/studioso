@@ -13,7 +13,20 @@
 const SBX = globalThis.__studyboardExt;
 const NAMES = { canvas: "Canvas", brightspace: "Brightspace", blackboard: "Blackboard" };
 const DEF = { every: 60, on: true };
-const EVERY = [30, 60, 180, 360, 720];
+const EVERY = [15, 30, 60, 180, 360, 720];
+// Kind to the school site: automatic reads of one site are at least 5 minutes apart; opening Studyboard reads only when the last read
+// is more than 10 minutes old; after a failed read (an error, or signed out) the automatic ones wait longer each time, up to 6 hours.
+// Sync Now in the popup, and connecting a site, always read.
+const GAP = 5 * 60000, OPEN_FRESH = 10 * 60000, APP_GAP = 2 * 60000, BACKOFF_MAX = 6 * 3600000;
+function mayRun(why, st) {
+  if (why === "button" || why === "added") return true;
+  const now = Date.now(), last = st.at || 0;
+  if (why === "app") return now - last >= APP_GAP;                       // Sync Now on the website
+  if (now - last < GAP) return false;
+  if (why === "open") return !(st.state === "ok" && now - (st.lastOk || 0) < OPEN_FRESH);
+  if (why === "timer" && st.fails > 0) return now - last >= Math.min(BACKOFF_MAX, 15 * 60000 * Math.pow(2, st.fails - 1));
+  return true;
+}
 const RUN_MS = 170000;
 const busy = {};
 
@@ -91,6 +104,7 @@ function syncOne(id, why) {
   busy[id] = (async () => {
     const { schools, status } = await load(), s = schools[id];
     if (!s) return { error: "not-connected" };
+    if (!mayRun(why, status[id] || {})) return { skipped: true };
     if (!(await granted(s.origin))) { await setStatus(id, { state: "permission", at: Date.now() }); return { error: "permission" }; }
     const prev = status[id] || {};
     await setStatus(id, { state: "syncing", since: Date.now() });
@@ -108,10 +122,10 @@ function syncOne(id, why) {
     if (c.ok) {
       const at = Date.now();
       await set({ ["result:" + id]: { v: 1, id, origin: s.origin, at, h: c } });
-      await setStatus(id, Object.assign({ state: "ok", at, lastOk: at, error: "", why: why || "", name: (c.me && c.me.name) || "" }, count(c)));
+      await setStatus(id, Object.assign({ state: "ok", at, lastOk: at, error: "", fails: 0, why: why || "", name: (c.me && c.me.name) || "" }, count(c)));
       return { ok: true };
     }
-    await setStatus(id, { state: c.needLogin ? "login" : "error", at: Date.now(), error: c.needLogin ? "" : String(c.error || err || "error").slice(0, 160), lastOk: prev.lastOk || 0 });
+    await setStatus(id, { state: c.needLogin ? "login" : "error", at: Date.now(), error: c.needLogin ? "" : String(c.error || err || "error").slice(0, 160), lastOk: prev.lastOk || 0, fails: Math.min(20, (prev.fails || 0) + 1) });
     return { error: c.needLogin ? "login" : c.error || "error" };
   })().catch(async e => { await setStatus(id, { state: "error", at: Date.now(), error: errText(e) }); return { error: errText(e) }; })
     .finally(() => { busy[id] = null; });
@@ -196,12 +210,30 @@ chrome.permissions.onRemoved.addListener(async p => {
   for (const id of Object.keys(schools)) if ((p.origins || []).includes(schools[id].origin + "/*")) await setStatus(id, { state: "permission", at: Date.now() });
 });
 
+// The Studyboard website talking to the extension directly (Chrome and Edge, "externally_connectable": no permission warning at install).
+// It may ask for what was read and for a sync now, nothing else. relay.js does the same for websites that don't use this yet, and Firefox.
+const APP_ORIGINS = ["https://studyboardapp.com", "https://www.studyboardapp.com"];
+async function results() {
+  const all = await chrome.storage.local.get(null), status = all.status || {}, schools = all.schools || {};
+  return { v: 1, version: chrome.runtime.getManifest().version,
+    list: Object.keys(all).filter(k => /^result:(canvas|brightspace|blackboard)$/.test(k)).map(k => all[k]).filter(Boolean),
+    schools: Object.keys(schools).map(id => ({ id, origin: schools[id].origin, state: (status[id] || {}).state || "", at: (status[id] || {}).lastOk || 0 })) };
+}
+if (chrome.runtime.onMessageExternal) chrome.runtime.onMessageExternal.addListener((m, sender, reply) => {
+  let origin = ""; try { origin = sender.origin || new URL(sender.url).origin; } catch (e) {}
+  if (!APP_ORIGINS.includes(origin) || !m || typeof m !== "object") return false;
+  if (m.type === "get" || m.type === "hello") { results().then(reply, () => reply({ error: "unavailable" })); return true; }
+  if (m.type === "sync") { syncAll(m.why === "open" ? "open" : "app"); reply({ ok: true }); return false; }
+  return false;
+});
+
 // Requests from the toolbar popup (everything) and from relay.js on the Studyboard website (only "sync now")
 chrome.runtime.onMessage.addListener((m, sender, reply) => {
   if (!m || typeof m !== "object" || sender.id !== chrome.runtime.id) return false;
   const fromPage = !String(sender.url || "").startsWith(chrome.runtime.getURL(""));   // relay.js on a web page, not one of the extension's own pages
   const go = async () => {
-    if (fromPage) return m.op === "sync" ? { ok: true, started: (syncAll("app"), true) } : { error: "not-allowed" };
+    // relay.js asks when Studyboard is opened ("open") and on the website's Sync Now; both wait their turn (mayRun)
+    if (fromPage) return m.op === "sync" ? { ok: true, started: (syncAll(m.why === "open" ? "open" : "app"), true) } : { error: "not-allowed" };
     switch (m.op) {
       case "status": { const st = await load(); return { schools: st.schools, settings: st.settings, status: st.status, version: chrome.runtime.getManifest().version }; }
       case "pending": await set({ pending: { origin: SBX.originOf(m.origin) || "", platform: NAMES[m.platform] ? m.platform : "", at: Date.now() } }); return { ok: true };

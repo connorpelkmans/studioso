@@ -41,6 +41,7 @@ function manifests() {
   const chrome = JSON.parse(JSON.stringify(base));
   const firefox = JSON.parse(JSON.stringify(base));
   delete firefox.minimum_chrome_version;
+  delete firefox.externally_connectable;               // Chrome and Edge only: Firefox talks to the website through relay.js
   firefox.background = { scripts: ["background.js"] };
   firefox.browser_specific_settings = { gecko: {
     id: GECKO_ID, strict_min_version: "140.0",          // 140: the first Firefox that reads data_collection_permissions (AMO requires it)

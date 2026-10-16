@@ -21,4 +21,6 @@
   });
   chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && Object.keys(ch).some(k => k.startsWith("result:") || k === "status")) send(); });
   post({ type: "ready", version });
+  // Opening Studyboard brings the school site up to date, unless it was read in the last 10 minutes (the background decides)
+  chrome.runtime.sendMessage({ op: "sync", why: "open" }).catch(() => {});
 })();
