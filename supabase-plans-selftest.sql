@@ -358,6 +358,9 @@ begin
     -- (lean.sql's trigger stamps updated_at with the server clock on every change, so it is paused to age the backup; the rollback undoes this)
     if exists (select 1 from pg_trigger where tgrelid = 'public.items'::regclass and tgname = 'lean_items_touch') then execute 'alter table public.items disable trigger lean_items_touch'; end if;
     update public.items set updated_at = now() - interval '70 days' where user_id = ua and kind = 'backup';
+    -- a plan that changed in the last 30 days keeps every backup (the grace runs from the change); then it has held for 40 days
+    perform public.sbt_ok(public.studyboard_prune_backups() = 0, 'backups are kept for 30 days after the plan last changed');
+    update public.studyboard_entitlements set updated_at = now() - interval '40 days' where user_id = ua;
     if exists (select 1 from pg_trigger where tgrelid = 'public.items'::regclass and tgname = 'lean_items_touch') then execute 'alter table public.items enable trigger lean_items_touch'; end if;
     perform public.sbt_ok(public.studyboard_prune_backups() = 1, 'backups past the Pro window (30 days plus 30 days of grace) are removed');
   end if;

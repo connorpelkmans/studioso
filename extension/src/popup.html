@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Studyboard School Sync</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+<header class="top">
+  <img src="icons/icon-48.png" alt="" width="32" height="32">
+  <div class="brand"><h1>Studyboard</h1><p>School Sync</p></div>
+  <button type="button" class="btn ghost small" id="openApp">Open Studyboard</button>
+</header>
+<main id="main" aria-live="polite"></main>
+<footer class="foot">
+  <p>Only reads from your school site, with the sign-in this browser already has. It never submits, posts or changes anything there, and it sends nothing to any server: Studyboard picks it up in this browser.</p>
+  <p><a href="https://studyboardapp.com/website/privacy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</a> · <span id="ver"></span></p>
+</footer>
+<script src="harvest.js"></script>
+<script src="popup.js"></script>
+</body>
+</html>

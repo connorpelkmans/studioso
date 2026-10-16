@@ -148,7 +148,7 @@ function nativeCheck(id, use, script, origin, list) {
   }
   return null;
 }
-module.exports = { build, buildGrab, grabIn, nativeScripts, nativeFiles, nativeCheck };
+module.exports = { build, buildGrab, grabIn, nativeScripts, nativeFiles, nativeCheck, loadLms, cleaning };   // loadLms and cleaning: also for scripts/build-extension.js
 if (require.main === module) {
   if (process.argv.includes("--grab")) {
     const f = path.join(root, "index.html"), html = fs.readFileSync(f, "utf8");

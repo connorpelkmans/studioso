@@ -78,7 +78,7 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
     await school.evaluate(src => { (0, eval)(src); }, decodeURIComponent(js.slice("javascript:".length)));
     await school.getByText("Open in Studyboard").waitFor({timeout: 30000});
     ok(asked.every(([m]) => m === "GET"), "the bookmark only read (GET) from the school site");
-    ok(/Read 1 course, 1 grade and 1 message/.test(await school.locator("div >> nth=0").evaluate(() => document.body.lastElementChild.shadowRoot.textContent)), "it says what it read");
+    ok(/Read 1 course, 1 grade, 1 submitted item and 1 message/.test(await school.locator("div >> nth=0").evaluate(() => document.body.lastElementChild.shadowRoot.textContent)), "it says what it read");
     ok(await school.evaluate(() => { const r = document.body.lastElementChild.shadowRoot, im = r.querySelector("img"); return !!im && im.complete && im.naturalWidth === 64 && /Studyboard/.test(r.textContent); }), "the panel on the school's page shows the Studyboard logo");
     if (process.env.SHOT) await school.screenshot({path: process.env.SHOT});
     const href = await school.getByText("Open in Studyboard").getAttribute("href");

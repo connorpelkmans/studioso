@@ -53,7 +53,7 @@ function testGlobals() {
 
 module.exports = [
   {ignores: ["node_modules/**", "dist/**", "app/**", "build/**", "widget/**", "site/**", "ios-www/**", "tests-out/**",
-    "vendor/**", "website/vendor/**", "**/*.min.js", "android-wrapper/**", "ios-wrapper/**", "supabase-functions/**", "index*.ts"]},
+    "vendor/**", "website/vendor/**", "extension/build/**", "extension/dist/**", "**/*.min.js", "android-wrapper/**", "ios-wrapper/**", "supabase-functions/**", "index*.ts"]},
   // Electron main process and Node build/tooling scripts
   {
     files: ["main.js", "prepare.js", "make-headers.js", "notarize.js", "build-id.js", "scripts/**/*.js", "eslint.config.js", "build-resources/**/*.js"],
@@ -77,6 +77,13 @@ module.exports = [
   {
     files: ["website/assets/scenes-lib.js", "website/assets/companions-engine.js", "website/assets/companions-data.js"],
     rules: {"no-redeclare": "off", "no-self-assign": "warn"},
+  },
+  // The browser extension (extension/src): its pages and background run with the extension APIs (chrome.*). __studyboardExt is made by
+  // harvest.js, which scripts/build-extension.js builds from lms.js and loads in front of them.
+  {
+    files: ["extension/src/**/*.js"],
+    languageOptions: {ecmaVersion: 2024, sourceType: "script", globals: {...globals.browser, ...globals.serviceworker, ...globals.webextensions}},
+    rules: bugRules,
   },
   // Service worker
   {

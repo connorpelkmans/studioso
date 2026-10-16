@@ -225,30 +225,109 @@ async function bsHarvest(o) {
   // Everything for one course
   const detail = async c => {
     const b = `/d2l/api/le/${le}/${c.ou}`;
-    const [folders, quizzes, grades, fin, news, events] = await Promise.all([
+    const [folders, quizzes, grades, fin, news, events, forums, roster, over, toc] = await Promise.all([
       soft(`${b}/dropbox/folders/`),
       pages(`${b}/quizzes/`, true),
       q.grades === false ? null : soft(`${b}/grades/values/myGradeValues/`),
       q.grades === false ? null : soft(`${b}/grades/final/values/myGradeValue`, true),
       q.news === false ? null : soft(`${b}/news/`, true),
-      pages(`${b}/calendar/events/myEvents/?startDateTime=${enc(fromISO)}&endDateTime=${enc(toISO)}`, true)
+      pages(`${b}/calendar/events/myEvents/?startDateTime=${enc(fromISO)}&endDateTime=${enc(toISO)}`, true),
+      soft(`${b}/discussions/forums/`, true),
+      soft(`${b}/classlist/`, true),                  // who teaches it (only the instructors and TAs are kept)
+      soft(`${b}/overview`, true),                    // the course overview, often the syllabus
+      soft(`${b}/content/toc`, true)                  // to find a "Syllabus" page in Content
     ]);
+    const inWin = d => { const x = Date.parse(d || ""); return !isNaN(x) && x > now - 60 * 864e5 && x < now + 240 * 864e5; };
     const fl = listOf(folders).filter(f => f && !f.IsHidden);
     const recent = fl.filter(f => { const d = Date.parse(f.DueDate || (f.Availability && f.Availability.EndDate) || ""); return !isNaN(d) && d > now - 60 * 864e5 && d < now + 240 * 864e5; }).slice(0, 40);
-    const subs = {};
+    const subs = {}, subAt = {}, fbk = {};
     await Promise.all(recent.map(async f => {
       const s = await soft(`${b}/dropbox/folders/${f.Id}/submissions/mysubmissions/`, true);
-      if (Array.isArray(s)) subs[f.Id] = s.some(x => x && ((Array.isArray(x.Submissions) && x.Submissions.length > 0) || x.Status === 1 || x.Status === 3));
+      if (!Array.isArray(s)) return;
+      subs[f.Id] = s.some(x => x && ((Array.isArray(x.Submissions) && x.Submissions.length > 0) || x.Status === 1 || x.Status === 3));
+      const when = []; s.forEach(x => (x && x.Submissions || []).forEach(y => { if (y && dt(y.SubmissionDate)) when.push(y.SubmissionDate); }));
+      if (when.length) subAt[f.Id] = when.sort().pop();
+      const fe = s.map(x => x && x.Feedback).find(Boolean);
+      if (fe) fbk[f.Id] = fe;
     }));
+    // Quizzes you've finished: a completed attempt (only your own attempts are listed), so they can be marked done too
+    const qrecent = quizzes.filter(x => { if (!x || x.IsActive === false) return false; const d = Date.parse(x.DueDate || x.EndDate || ""); return !isNaN(d) && d > now - 60 * 864e5 && d < now + 240 * 864e5; }).slice(0, 40);
+    const tried = {};
+    await Promise.all(qrecent.map(async x => {
+      const a = await soft(`${b}/quizzes/${x.QuizId}/attempts/`, true);
+      if (a) tried[x.QuizId] = listOf(a).some(t => t && (t.TimeCompleted || t.DateCompleted || t.SubmittedDate || t.IsGraded === true || (t.Score != null && t.Score !== "")));
+    }));
+    // A released grade means it was handed in (or is closed): either way there's nothing left to do
+    const graded = new Set(listOf(grades).filter(g => g && g.GradeObjectIdentifier != null && g.PointsNumerator != null).map(g => String(g.GradeObjectIdentifier)));
+    // A rubric (Brightspace's levels are shared by a group's criteria; each criterion has one cell per level)
+    const rubOf = r => {
+      if (!r || !Array.isArray(r.CriteriaGroups)) return null;
+      const cr = [];
+      r.CriteriaGroups.forEach(g => { const lv = g.Levels || []; (g.Criteria || []).forEach(x => { if (cr.length < 15) cr.push({ id: String(x.Id || ""), t: txt(x.Name, 200), d: "",
+        pts: Math.max(0, ...(x.Cells || []).map(y => Number(y && y.Points) || 0), ...lv.map(y => Number(y && y.Points) || 0)),
+        lv: (x.Cells || []).slice(0, 6).map((y, i) => ({ id: String(lv[i] && lv[i].Id || ""), t: txt(lv[i] && lv[i].Name, 80), d: txt(y && y.Description, 160), pts: Number(y && y.Points != null ? y.Points : lv[i] && lv[i].Points) || 0 })) }); }); });
+      return cr.length ? { name: txt(r.Name, 120) || "Rubric", pts: null, cr } : null;
+    };
+    const fbOf = (fe, rub, of) => {
+      if (!fe) return null;
+      const t = txt(fe.Feedback, 3000), ra = [];
+      (fe.RubricAssessments || []).forEach(a => (a && a.CriteriaOutcome || []).slice(0, 15).forEach(o => {
+        const cr = rub && rub.cr.find(x => x.id === String(o.CriterionId)), lv = cr && cr.lv.find(x => x.id === String(o.LevelId));
+        ra.push({ c: cr ? cr.t : "", pts: o.Score != null ? Number(o.Score) : null, of: cr ? cr.pts : null, lv: lv ? lv.t : "", t: txt(o.Feedback, 600) });
+      }));
+      const sc = fe.Score != null ? Number(fe.Score) : null;
+      if (!t && !ra.length && sc == null) return null;
+      return { c: t ? [{ by: "Instructor", mine: false, at: null, t }] : [], ra, sc, of, g: String(fe.GradedSymbol || "").slice(0, 20), at: null };
+    };
+    // Submitted when, and whether it was late or is missing (past due with nothing handed in)
+    const stOf = (due, end, sub, at) => sub == null && !at ? null : { subAt: at || null, late: !!(at && due && Date.parse(at) > Date.parse(due) + 60000), missing: sub === false && !!due && Date.parse(due) < now && !(end && Date.parse(end) > now), excused: false, ext: false };
     c.folders = fl.slice(0, 120).map(f => ({ id: String(f.Id), name: String(f.Name || ""), due: dt(f.DueDate), start: dt(f.Availability && f.Availability.StartDate), end: dt(f.Availability && f.Availability.EndDate),
       text: txt(f.CustomInstructions), files: (f.Attachments || []).slice(0, 12).map(a => ({ id: String(a.FileId), name: String(a.FileName || "file"), size: Number(a.Size) || 0 })),
-      gid: f.GradeItemId != null ? String(f.GradeItemId) : "", outOf: f.Assessment && f.Assessment.ScoreDenominator != null ? Number(f.Assessment.ScoreDenominator) : null, sub: subs[f.Id] === undefined ? null : subs[f.Id],
-      sbt: f.SubmissionType != null && Number(f.SubmissionType) >= 0 && Number(f.SubmissionType) <= 9 ? Number(f.SubmissionType) : null }));   // 0 file, 1 text, 2 on paper, 3 observed in person
+      gid: f.GradeItemId != null ? String(f.GradeItemId) : "", outOf: f.Assessment && f.Assessment.ScoreDenominator != null ? Number(f.Assessment.ScoreDenominator) : null, sub: subs[f.Id] === true || (f.GradeItemId != null && graded.has(String(f.GradeItemId))) ? true : subs[f.Id] === undefined ? null : subs[f.Id],
+      sbt: f.SubmissionType != null && Number(f.SubmissionType) >= 0 && Number(f.SubmissionType) <= 9 ? Number(f.SubmissionType) : null,   // 0 file, 1 text, 2 on paper, 3 observed in person
+      rub: rubOf(f.Assessment && Array.isArray(f.Assessment.Rubrics) ? f.Assessment.Rubrics[0] : null),
+      st: stOf(dt(f.DueDate), dt(f.Availability && f.Availability.EndDate), subs[f.Id] === true || (f.GradeItemId != null && graded.has(String(f.GradeItemId))) ? true : subs[f.Id] === undefined ? null : subs[f.Id], subAt[f.Id]) }));
+    c.folders.forEach(f => { const fe = fbk[f.id]; if (fe) f.fb = fbOf(fe, f.rub, f.outOf); });
     c.quizzes = quizzes.filter(x => x && x.IsActive !== false).slice(0, 120).map(x => ({ id: String(x.QuizId), name: String(x.Name || ""), due: dt(x.DueDate), start: dt(x.StartDate), end: dt(x.EndDate),
-      gid: x.GradeItemId != null ? String(x.GradeItemId) : "", text: txt(x.Description || x.Instructions, 1500), limit: x.TimeLimitValue || (x.TimeLimit && x.TimeLimit.TimeLimitValue) || null }));
+      gid: x.GradeItemId != null ? String(x.GradeItemId) : "", text: txt(x.Description || x.Instructions, 1500), limit: x.TimeLimitValue || (x.TimeLimit && x.TimeLimit.TimeLimitValue) || null,
+      done: tried[x.QuizId] === true || (x.GradeItemId != null && graded.has(String(x.GradeItemId))) ? true : tried[x.QuizId] === undefined ? null : false }));
+    c.quizzes.forEach(x => { x.st = stOf(x.due, x.end, x.done, null); });
     c.gradeN = listOf(grades).length;          // how many grade rows the school sent (shown in settings when something looks missing)
     c.grades = listOf(grades).slice(0, 200).map(g => ({ gid: String(g.GradeObjectIdentifier || ""), name: String(g.GradeObjectName || ""), type: Number(g.GradeObjectType) || 0,
-      num: g.PointsNumerator, den: g.PointsDenominator, wnum: g.WeightedNumerator, wden: g.WeightedDenominator, shown: String(g.DisplayedGrade || "").trim(), at: dt(g.ReleasedDate || g.LastModified) }));
+      num: g.PointsNumerator, den: g.PointsDenominator, wnum: g.WeightedNumerator, wden: g.WeightedDenominator, shown: String(g.DisplayedGrade || "").trim(), at: dt(g.ReleasedDate || g.LastModified),
+      fb: txt(g.Comments, 3000) ? { c: [{ by: "Instructor", mine: false, at: dt(g.ReleasedDate || g.LastModified), t: txt(g.Comments, 3000) }], ra: [], sc: g.PointsNumerator != null ? Number(g.PointsNumerator) : null, of: g.PointsDenominator != null ? Number(g.PointsDenominator) : null, g: String(g.DisplayedGrade || "").trim().slice(0, 20), at: null } : null }));
+    // Discussion topics with a due date, and whether you've posted in them (or have a grade for them)
+    const meId = String(me.Identifier || "");
+    const tops = [];
+    await Promise.all(listOf(forums).filter(f => f && !f.IsHidden).slice(0, 15).map(async f => {
+      const ts = await soft(`${b}/discussions/forums/${f.ForumId}/topics/`, true);
+      listOf(ts).forEach(t => { if (t && !t.IsHidden && inWin(t.DueDate || t.EndDate || t.UnlockEndDate)) tops.push({ f, t }); });
+    }));
+    c.discussions = [];
+    for (let i = 0; i < Math.min(tops.length, 20); i += 6) await Promise.all(tops.slice(i, Math.min(i + 6, 20)).map(async ({ f, t }) => {
+      const gid = t.GradeItemId != null ? String(t.GradeItemId) : "";
+      let posted = gid && graded.has(gid) ? true : null;
+      if (posted == null && meId) { const ps = await soft(`${b}/discussions/forums/${f.ForumId}/topics/${t.TopicId}/posts/`, true); if (ps) posted = listOf(ps).some(p => p && String(p.PostingUserId) === meId); }
+      const due = dt(t.DueDate) || dt(t.EndDate) || dt(t.UnlockEndDate);
+      c.discussions.push({ id: String(t.TopicId), name: String(t.Name || ""), due, start: dt(t.StartDate) || dt(t.UnlockStartDate), text: txt(t.Description, 1500), gid, outOf: t.ScoreOutOf != null ? Number(t.ScoreOutOf) : null, posted,
+        st: stOf(due, null, posted, null) });
+    }));
+    // Instructors and TAs from the class list
+    const STAFF = /instructor|teacher|professor|lecturer|faculty|\bta\b|teaching assistant|tutor|course leader/i;
+    c.staff = listOf(roster).filter(u => u && STAFF.test(String(u.ClasslistRoleDisplayName || u.RoleName || ""))).slice(0, 8)
+      .map(u => ({ name: String(u.DisplayName || [u.FirstName, u.LastName].filter(Boolean).join(" ")).slice(0, 120), email: String(u.Email || "").slice(0, 160), role: /\bta\b|assistant|tutor/i.test(String(u.ClasslistRoleDisplayName || "")) ? "TA" : "Instructor" }));
+    // The syllabus: the course overview, and a Content page called "Syllabus" when it's a web page (a PDF is linked instead)
+    let syl = over ? txt(over.Description, 24000) : "", sylUrl = "";
+    const topics = []; const walk = (ms, d) => (ms || []).forEach(m => { if (!m || d > 4) return; (m.Topics || []).forEach(t => topics.push(t)); walk(m.Modules, d + 1); });
+    walk(toc && toc.Modules, 0);
+    const sylTopic = topics.find(t => t && /syllabus|course outline|course information/i.test(String(t.Title || "")));
+    if (sylTopic) {
+      sylUrl = `${location.origin}/d2l/le/content/${c.ou}/viewContent/${sylTopic.TopicId}/View`;
+      const u = String(sylTopic.Url || "");
+      if (/\.html?($|\?)/i.test(u) && u.charAt(0) === "/") { try { const r = await fetch(u, { credentials: "include" }); if (r.ok) { const page = htmlText(await r.text(), { max: 24000 }); if (page.length > syl.length) syl = page; } } catch (e) {} }
+    }
+    c.syl = syl ? [syl.slice(0, 8000), syl.slice(8000, 16000), syl.slice(16000, 24000)].filter(Boolean) : [];
+    c.sylUrl = sylUrl;
     c.final = fin && typeof fin === "object" && !Array.isArray(fin) ? { num: fin.PointsNumerator, den: fin.PointsDenominator, wnum: fin.WeightedNumerator, wden: fin.WeightedDenominator, shown: String(fin.DisplayedGrade || "").trim() } : null;
     c.news = listOf(news).filter(n => n && n.IsPublished !== false && !n.IsHidden).slice(0, 25).map(n => ({ id: String(n.Id), title: String(n.Title || ""), text: txt(n.Body, 3000), date: dt(n.StartDate) || dt(n.CreatedDate) || dt(n.LastModifiedDate),
       files: (n.Attachments || []).length }));
@@ -317,13 +396,41 @@ async function cvHarvest(o) {
 
   const detail = async c => {
     const id = c.ou, raw = c.raw; delete c.raw;
-    const [asg, groups, events, qzs] = await Promise.all([
+    const [asg, groups, events, qzs, mySubs, info, staff] = await Promise.all([
       pages(`/api/v1/courses/${id}/assignments?include[]=submission&per_page=100&order_by=due_at`),
       soft(`/api/v1/courses/${id}/assignment_groups?per_page=100`, true),
       pages(`/api/v1/calendar_events?type=event&context_codes[]=course_${id}&start_date=${enc(fromISO)}&end_date=${enc(toISO)}&per_page=100`, true, 4),
-      pages(`/api/v1/courses/${id}/quizzes?per_page=100`, true, 3)          // time limit, quiz type, lockdown browser and open window: tells whether a quiz is taken from home
+      pages(`/api/v1/courses/${id}/quizzes?per_page=100`, true, 3),         // time limit, quiz type, lockdown browser and open window: tells whether a quiz is taken from home
+      pages(`/api/v1/courses/${id}/students/submissions?student_ids[]=self&include[]=submission_comments&include[]=rubric_assessment&per_page=100`, true, 4),   // your feedback: comments and rubric scores
+      soft(`/api/v1/courses/${id}?include[]=syllabus_body`, true),
+      pages(`/api/v1/courses/${id}/users?enrollment_type[]=teacher&enrollment_type[]=ta&include[]=email&include[]=enrollments&per_page=50`, true, 1)
     ]);
     const qz = {}; qzs.forEach(x => { if (x && x.id != null) qz[String(x.id)] = x; });
+    const subOf = {}; mySubs.forEach(x => { if (x && x.assignment_id != null) subOf[String(x.assignment_id)] = x; });
+    // Who teaches it, the syllabus as plain text, and (per item) its rubric and your feedback
+    c.staff = staff.filter(u => u && u.name).slice(0, 8).map(u => ({ name: String(u.name || "").slice(0, 120), email: String(u.email || u.login_id && /@/.test(u.login_id) && u.login_id || "").slice(0, 160),
+      role: (u.enrollments || []).some(e => e && e.type === "TeacherEnrollment") ? "Instructor" : "TA" }));
+    const syl = info && info.syllabus_body ? htmlText(info.syllabus_body, { max: 24000 }) : "";
+    c.syl = syl ? [syl.slice(0, 8000), syl.slice(8000, 16000), syl.slice(16000, 24000)].filter(Boolean) : [];
+    c.sylUrl = `${location.origin}/courses/${id}/assignments/syllabus`;
+    const rubOf = a => {
+      const r = Array.isArray(a.rubric) ? a.rubric : null; if (!r || !r.length) return null;
+      return { name: String((a.rubric_settings && a.rubric_settings.title) || "Rubric").slice(0, 120), pts: Number(a.rubric_settings && a.rubric_settings.points_possible) || null,
+        cr: r.slice(0, 15).map(x => ({ id: String(x.id || ""), t: txt(x.description, 200), d: txt(x.long_description, 300), pts: Number(x.points) || 0,
+          lv: (x.ratings || []).slice(0, 6).map(v => ({ id: String(v.id || ""), t: txt(v.description, 80), d: txt(v.long_description, 160), pts: Number(v.points) || 0 })) })) };
+    };
+    const fbOf = (a, s, rub) => {
+      if (!s) return null;
+      const cm = (s.submission_comments || []).slice(-12).map(m => ({ by: String(m.author_name || "").slice(0, 80), mine: String(m.author_id) === String(me.id), at: dt(m.created_at), t: txt(m.comment, 1500) })).filter(m => m.t);
+      const ra = s.rubric_assessment && typeof s.rubric_assessment === "object" ? Object.keys(s.rubric_assessment).slice(0, 15).map(k => {
+        const v = s.rubric_assessment[k] || {}, cr = rub && rub.cr.find(x => x.id === k), lv = cr && cr.lv.find(x => x.id === String(v.rating_id || ""));
+        return { c: cr ? cr.t : "", pts: v.points != null ? Number(v.points) : null, of: cr ? cr.pts : null, lv: lv ? lv.t : "", t: txt(v.comments, 600) };
+      }) : [];
+      if (!cm.length && !ra.length && s.score == null) return null;
+      return { c: cm, ra, sc: s.score != null && !s.excused ? Number(s.score) : null, of: Number(a.points_possible) > 0 ? Number(a.points_possible) : null, g: s.grade != null ? String(s.grade).slice(0, 20) : "", at: dt(s.graded_at) };
+    };
+    // Submitted when, late, missing, excused, or given an extension (Canvas marks those "extended")
+    const stOf = (a, s) => s ? { subAt: dt(s.submitted_at), late: !!s.late, missing: !!s.missing, excused: !!s.excused, ext: s.late_policy_status === "extended" } : null;
     // How an item is handed in, in a small plain form (nothing from the page is passed on untouched)
     const rxOf = a => {
       const qq = a.quiz_id != null ? qz[String(a.quiz_id)] || null : null, o = {};
@@ -346,14 +453,15 @@ async function cvHarvest(o) {
       : tpts > 0 ? Math.round(Number(a.points_possible) / tpts * 10000) / 100 : null) : null;
     c.items = []; c.grades = [];
     live.slice(0, 250).forEach(a => {
-      const s = a.submission || null;
+      const s = Object.assign({}, a.submission || {}, subOf[String(a.id)] || {}), hasS = !!(a.submission || subOf[String(a.id)]);
+      const rub = rubOf(a), fb = hasS ? fbOf(a, s, rub) : null, st = hasS ? stOf(a, s) : null;
       const kind = a.is_quiz_assignment || a.is_quiz_lti_assignment || a.quiz_id || (a.submission_types || []).includes("online_quiz") ? "quiz" : (a.submission_types || []).includes("discussion_topic") ? "discussion" : "assignment";
-      const done = s ? (!!s.submitted_at || ["submitted", "pending_review"].includes(s.workflow_state) || (s.workflow_state === "graded" && s.score != null) || !!s.excused) && !s.missing : null;
+      const done = hasS ? (!!s.submitted_at || ["submitted", "pending_review"].includes(s.workflow_state) || (s.workflow_state === "graded" && s.score != null) || !!s.excused) && !s.missing : null;
       const due = dt(a.due_at);
-      if (due || s && s.score != null) c.items.push({ kind, id: String(a.id), name: String(a.name || ""), due, start: dt(a.unlock_at), end: dt(a.lock_at), text: txt(a.description), url: String(a.html_url || ""), gid: String(a.id),
-        outOf: Number(a.points_possible) > 0 ? Number(a.points_possible) : null, done, files: filesIn(a.description), rx: rxOf(a) });
-      if (Number(a.points_possible) > 0 && (s && s.score != null || wOf(a) != null))
-        c.grades.push({ gid: String(a.id), name: String(a.name || ""), num: s && s.score != null && !s.excused ? Number(s.score) : null, den: Number(a.points_possible), weight: wOf(a), shown: s && s.grade != null ? String(s.grade) : "", at: dt(s && s.graded_at) });
+      if (due || hasS && s.score != null) c.items.push({ kind, id: String(a.id), name: String(a.name || ""), due, start: dt(a.unlock_at), end: dt(a.lock_at), text: txt(a.description), url: String(a.html_url || ""), gid: String(a.id),
+        outOf: Number(a.points_possible) > 0 ? Number(a.points_possible) : null, done, files: filesIn(a.description), rx: rxOf(a), st, fb, rub });
+      if (Number(a.points_possible) > 0 && (hasS && s.score != null || wOf(a) != null))
+        c.grades.push({ gid: String(a.id), name: String(a.name || ""), num: hasS && s.score != null && !s.excused ? Number(s.score) : null, den: Number(a.points_possible), weight: wOf(a), shown: hasS && s.grade != null ? String(s.grade) : "", at: dt(hasS && s.graded_at), fb });
     });
     const en = (raw.enrollments || []).find(e => e && (e.computed_current_score != null || e.computed_current_grade));
     c.final = en ? { shown: en.computed_current_grade ? String(en.computed_current_grade) + (en.computed_current_score != null ? ` (${en.computed_current_score}%)` : "") : en.computed_current_score + "%", pct: en.computed_current_score != null ? Number(en.computed_current_score) : null } : null;
@@ -430,7 +538,7 @@ async function bbHarvest(o) {
   const uid = me.id, name = me.name ? [me.name.given, me.name.family].filter(Boolean).join(" ") : [me.givenName, me.familyName].filter(Boolean).join(" ");
   const mem = await pages([`/learn/api/public/v1/users/${uid}/courses?expand=course&limit=100`, `/learn/api/v1/users/${uid}/memberships?expand=course&limit=100`], false, 5);
   const all = mem.filter(m => m && m.course && !m.course.organization && (!m.availability || m.availability.available !== "No") && (!m.course.availability || m.course.availability.available !== "No"))
-    .map(m => ({ ou: String(m.course.id), code: String(m.course.courseId || ""), name: String(m.course.name || m.course.displayName || ""), last: dt(m.lastAccessed), term: m.course.termId || "", url: String(m.course.externalAccessUrl || "") }));
+    .map(m => ({ ou: String(m.course.id), code: String(m.course.courseId || ""), name: String(m.course.name || m.course.displayName || ""), last: dt(m.lastAccessed), term: m.course.termId || "", url: String(m.course.externalAccessUrl || ""), desc: m.course.description || "" }));
   const only = Array.isArray(q.only) && q.only.length ? new Set(q.only.map(String)) : null;
   const skip = new Set((q.skip || []).map(String));
 
@@ -443,20 +551,72 @@ async function bbHarvest(o) {
   const busyIds = new Set(cal.map(x => String(x.calendarId || "")));
   const pick = all.filter(c => (only ? only.has(c.ou) : (busyIds.has(c.ou) || (c.last && Date.parse(c.last) > now - 120 * 864e5))) && !skip.has(c.ou))
     .sort((a, b) => (Date.parse(b.last || 0) || 0) - (Date.parse(a.last || 0) || 0)).slice(0, 20);
-  const courses = pick.map(c => ({ ou: c.ou, code: c.code, name: c.name, home: c.url }));
+  const courses = pick.map(c => ({ ou: c.ou, code: c.code, name: c.name, home: c.url, desc: c.desc }));
 
   const detail = async c => {
     const id = c.ou;
-    const [cols, mine, news] = await Promise.all([
+    const desc = c.desc; delete c.desc;
+    const [cols, mine, news, people, contents, rubrics, rubAssoc] = await Promise.all([
       pages([`/learn/api/public/v2/courses/${id}/gradebook/columns?limit=200`, `/learn/api/public/v1/courses/${id}/gradebook/columns?limit=200`, `/learn/api/v1/courses/${id}/gradebook/columns?limit=200`], true, 3),
       pages([`/learn/api/public/v2/courses/${id}/gradebook/users/${uid}`, `/learn/api/public/v1/courses/${id}/gradebook/users/${uid}`], true, 3),
-      q.news === false ? [] : pages([`/learn/api/public/v1/courses/${id}/announcements?limit=50`, `/learn/api/v1/courses/${id}/announcements?limit=50`], true, 2)
+      q.news === false ? [] : pages([`/learn/api/public/v1/courses/${id}/announcements?limit=50`, `/learn/api/v1/courses/${id}/announcements?limit=50`], true, 2),
+      pages([`/learn/api/public/v1/courses/${id}/users?expand=user&limit=200`, `/learn/api/v1/courses/${id}/users?expand=user&limit=200`], true, 2),   // who teaches it
+      pages([`/learn/api/public/v1/courses/${id}/contents?limit=200`], true, 2),                                                                   // to find the syllabus
+      // Rubrics: Blackboard has no public rubric route for students, so the routes its own pages use are tried; when they're refused, there's simply no rubric
+      pages([`/learn/api/v1/courses/${id}/rubrics?limit=100`], true, 2),
+      pages([`/learn/api/v1/courses/${id}/rubricAssociations?limit=200`, `/learn/api/v1/courses/${id}/rubrics/associations?limit=200`], true, 2)
     ]);
     const g = {}; mine.forEach(x => { g[String(x.columnId)] = x; });
     // Blackboard's REST data has no category weights for students, so each counted column is worth its share of all the points (Blackboard's default total).
     const counts = col => !col.externalGrade && !(col.grading && col.grading.type === "Calculated") && col.includeInCalculations !== false && col.score && Number(col.score.possible) > 0;
     const tpts = cols.reduce((s, col) => s + (counts(col) ? Number(col.score.possible) : 0), 0);
     const wOf = col => counts(col) && tpts > 0 ? Math.round(Number(col.score.possible) / tpts * 10000) / 100 : null;
+    // Columns you have no grade entry for yet: your own attempts say whether it's handed in (submitted, waiting to be graded)
+    // Your own attempts: whether it's handed in (submitted, waiting to be graded), when, and the feedback on it
+    const tried = {}, atWhen = {}, atFb = {};
+    // (work with no mark yet, and anything due in the last three weeks for when it was handed in; capped so a sync stays quick)
+    const open = cols.filter(col => { const d = Date.parse((col.grading && col.grading.due) || ""), my = g[String(col.id)]; return !col.externalGrade && !(col.grading && col.grading.type === "Calculated") && !isNaN(d) && d > now - (q.pastDays || 60) * 864e5 && d < now + (q.aheadDays || 240) * 864e5 && (!(my && my.score != null) || d > now - 21 * 864e5); }).slice(0, 30);
+    for (let i = 0; i < open.length; i += 6) await Promise.all(open.slice(i, i + 6).map(async col => {
+      const at = await first([`/learn/api/public/v2/courses/${id}/gradebook/columns/${col.id}/attempts?userId=${uid}&limit=20`, `/learn/api/public/v1/courses/${id}/gradebook/columns/${col.id}/attempts?userId=${uid}&limit=20`], true);
+      if (!at) return;
+      const ok = listOf(at).filter(a => a && (["NeedsGrading", "Completed", "NeedsMoreGrading"].includes(String(a.status)) || a.score != null));
+      tried[String(col.id)] = ok.length > 0;
+      const when = ok.map(a => dt(a.attemptDate) || dt(a.created)).filter(Boolean).sort();
+      if (when.length) atWhen[String(col.id)] = when[0];
+      const fbA = ok.map(a => txt(a.feedback, 3000)).filter(Boolean).pop();
+      if (fbA) atFb[String(col.id)] = fbA;
+    }));
+    // Rubrics (when Blackboard lets a student read them): rows are criteria, columns are levels
+    const rubById = {}; rubrics.forEach(r => { if (r && r.id) rubById[String(r.id)] = r; });
+    const rubCol = {}; rubAssoc.forEach(a => { const col = a && (a.gradebookColumnId || a.columnId || (a.associatedEntity && a.associatedEntity.id)); const r = a && (a.rubric || rubById[String(a.rubricId || "")]); if (col && r) rubCol[String(col)] = r; });
+    const rubOf = r => {
+      const rows = r && (r.rubricRows || r.rows), lcols = (r && (r.rubricColumns || r.columns)) || [];
+      if (!Array.isArray(rows) || !rows.length) return null;
+      return { name: txt(r.title || r.name, 120) || "Rubric", pts: null, cr: rows.slice(0, 15).map(x => {
+        const cells = x.rubricCells || x.cells || [];
+        const lv = cells.slice(0, 6).map((y, k) => { const lc = lcols.find(z => z && String(z.id) === String(y.rubricColumnId || y.columnId)) || lcols[k] || {}; return { id: String(y.id || lc.id || ""), t: txt(lc.header || lc.title, 80), d: txt(y.description, 160), pts: Number(y.points != null ? y.points : y.maxPoints) || 0 }; });
+        return { id: String(x.id || ""), t: txt(x.header || x.title, 200), d: "", pts: Math.max(0, ...lv.map(v => v.pts)), lv };
+      }) };
+    };
+    // Instructors and TAs, and the syllabus (the course description, then a content item called Syllabus)
+    c.staff = people.filter(m => m && /^(Instructor|TeachingAssistant)$/i.test(String(m.courseRoleId || "")) && m.user).slice(0, 8).map(m => ({
+      name: (m.user.name ? [m.user.name.given, m.user.name.family].filter(Boolean).join(" ") : String(m.user.userName || "")).slice(0, 120),
+      email: String((m.user.contact && m.user.contact.email) || "").slice(0, 160), role: /assistant/i.test(String(m.courseRoleId)) ? "TA" : "Instructor" })).filter(x => x.name);
+    let syl = txt(desc, 24000), sylUrl = "";
+    const SYL = /syllabus|course outline|course information|course overview/i;
+    let hit = contents.find(x => x && SYL.test(String(x.title || "")));
+    if (!hit) for (const f of contents.filter(x => x && x.hasChildren && /start here|getting started|information|overview|welcome/i.test(String(x.title || ""))).slice(0, 4)) {
+      const kids = await pages([`/learn/api/public/v1/courses/${id}/contents/${f.id}/children?limit=100`], true, 1);
+      hit = kids.find(x => x && SYL.test(String(x.title || ""))); if (hit) break;
+    }
+    if (hit) {
+      sylUrl = `${location.origin}/ultra/courses/${id}/outline`;
+      let body = txt(hit.body, 24000);
+      if (hit.hasChildren) { const kids = await pages([`/learn/api/public/v1/courses/${id}/contents/${hit.id}/children?limit=50`], true, 1); body = [body].concat(kids.map(k => [String(k.title || ""), txt(k.body, 8000)].filter(Boolean).join("\n"))).filter(Boolean).join("\n\n").slice(0, 24000); }
+      if (body.length > syl.length / 2) syl = [syl, body].filter(Boolean).join("\n\n").slice(0, 24000);
+    }
+    c.syl = syl ? [syl.slice(0, 8000), syl.slice(8000, 16000), syl.slice(16000, 24000)].filter(Boolean) : [];
+    c.sylUrl = sylUrl;
     const courseUrl = `${location.origin}/ultra/courses/${id}/outline`;
     c.items = []; c.grades = []; c.final = null;
     cols.forEach(col => {
@@ -465,9 +625,14 @@ async function bbHarvest(o) {
       const shown = my && my.displayGrade ? String(my.displayGrade.text || (my.displayGrade.score != null ? my.displayGrade.score : "")) : my && my.text ? String(my.text) : "";
       if (col.externalGrade) { if (my && (shown || score != null)) c.final = { shown: shown || (possible && score != null ? Math.round(score / possible * 1000) / 10 + "%" : String(score)), pct: possible && score != null ? Math.round(score / possible * 1000) / 10 : null }; return; }
       if (col.grading && col.grading.type === "Calculated") return;
-      const done = my ? (["NeedsGrading", "Graded", "Completed"].includes(String(my.status)) || score != null) : null;
-      if (due) c.items.push({ kind: /\b(test|quiz|exam|midterm)\b/i.test(col.name || "") ? "quiz" : "assignment", id: String(col.id), name: String(col.name || ""), due, start: null, end: null, text: txt(col.description), url: courseUrl, gid: String(col.id), outOf: possible, done, files: [], rx: col.grading && col.grading.type ? { gt: String(col.grading.type).slice(0, 16) } : undefined });   // Attempts = marked from an online attempt, Manual = entered by the instructor
-      if (possible && (score != null || wOf(col) != null)) c.grades.push({ gid: String(col.id), name: String(col.name || ""), num: score, den: possible, weight: wOf(col), shown, at: dt(my && (my.modified || my.lastModified)) });
+      const done = (my && (["NeedsGrading", "Graded", "Completed"].includes(String(my.status)) || score != null)) || tried[String(col.id)] === true ? true : my || tried[String(col.id)] === false ? false : null;
+      const k = String(col.id), when = atWhen[k] || null, exempt = !!(my && my.exempt);
+      const st = done == null && !when ? null : { subAt: when, late: !!(when && due && Date.parse(when) > Date.parse(due) + 60000), missing: done === false && !exempt && !!due && Date.parse(due) < now, excused: exempt, ext: false };
+      const fbT = txt(my && my.feedback, 3000) || atFb[k] || "";
+      const fb = fbT || score != null ? { c: fbT ? [{ by: "Instructor", mine: false, at: dt(my && (my.modified || my.lastModified)), t: fbT }] : [], ra: [], sc: score, of: possible, g: shown.slice(0, 20), at: null } : null;
+      const rub = rubOf(rubCol[k]);
+      if (due) c.items.push({ kind: /\b(test|quiz|exam|midterm)\b/i.test(col.name || "") ? "quiz" : "assignment", id: String(col.id), name: String(col.name || ""), due, start: null, end: null, text: txt(col.description), url: courseUrl, gid: String(col.id), outOf: possible, done, files: [], rx: col.grading && col.grading.type ? { gt: String(col.grading.type).slice(0, 16) } : undefined, st, fb, rub });   // Attempts = marked from an online attempt, Manual = entered by the instructor
+      if (possible && (score != null || wOf(col) != null)) c.grades.push({ gid: String(col.id), name: String(col.name || ""), num: score, den: possible, weight: wOf(col), shown, at: dt(my && (my.modified || my.lastModified)), fb });
     });
     c.news = news.slice(0, 25).map(n => ({ id: String(n.id), title: String(n.title || ""), text: txt(n.body, 3000), date: dt(n.created) || dt(n.availability && n.availability.duration && n.availability.duration.start), url: `${location.origin}/ultra/courses/${id}/announcements` }));
     c.events = [];
@@ -536,7 +701,7 @@ function plain(v, origin, depth, key) {
     if (URL_KEYS.has(key)) { if (!v) return ""; try { return httpsOnly(new URL(v, origin).href) ? v.slice(0, 2000) : ""; } catch (e) { return ""; } }
     return v.slice(0, 8000);
   }
-  if (depth > 6 || typeof v !== "object") return undefined;
+  if (depth > 9 || typeof v !== "object") return undefined;
   if (Array.isArray(v)) return v.slice(0, 1000).map(x => plain(x, origin, depth + 1, "")).filter(x => x !== undefined);
   const out = {};
   for (const k of Object.keys(v).slice(0, 60)) { if (!KEY_OK.test(k)) continue; const x = plain(v[k], origin, depth + 1, k); if (x !== undefined) out[k] = x; }
