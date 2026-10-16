@@ -14,7 +14,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 const VISIBLE = {
   world: ["japan", "italy", "greece", "egypt", "canada", "mexico", "brazil", "morocco"],
   majors: ["nursing", "biology", "compsci", "engineering", "education", "justice", "chem", "sketchcity"],
-  hobby: ["reading", "pottery", "film", "culinary", "music", "photography", "gaming", "baking"]
+  hobby: ["reading", "pottery", "film", "culinary", "music", "photography", "gaming", "baking"],
+  season: ["winter", "spring", "summer", "autumn"]
 };
 const SCENES_ADDED = ["volcano", "rainforest", "geology", "nighttrain", "campfire", "greenhouse", "marinebio", "aquarium"];
 const SCENES_HIDDEN = ["balloons", "rain", "alpine", "dunes", "rooftops"];
@@ -38,18 +39,18 @@ const sameSet = (a, b) => a.length === b.length && a.every(x => b.includes(x));
     const scenes = (g.pro || []).concat(g.newscenes || []);
     ok(SCENES_ADDED.every(id => scenes.includes(id)), "the chosen New Ideas themes are in Scenes");
     ok(SCENES_HIDDEN.every(id => !scenes.includes(id)), "Balloon Festival, Rainy Window, Alpine Lake, Desert Dunes and City Rooftops are hidden");
-    ok((g.pro || []).length === 14, "every original Scenes theme still shows");
-    ok(HOLIDAYS_ADDED.every(id => (g.holiday || []).includes(id)) && (g.holiday || []).length === 14, "all holidays show, plus the four new ones");
-    ok(!g.season && !g.ideas, "Seasons and New Theme Ideas have nothing left to show");
+    ok((g.pro || []).length === 13, "every original Scenes theme still shows (Christmas Lights is in Holidays)");
+    ok(HOLIDAYS_ADDED.every(id => (g.holiday || []).includes(id)) && (g.holiday || []).length === 15, "all holidays show, plus Christmas Lights and the four new ones");
+    ok(!g.ideas, "New Theme Ideas has nothing left to show");
     ok((g.plain || []).length === 14, "the free plain colors all show");
     const hidden = await page.evaluate(() => SBThemes.hidden());
     ok(hidden.every(id => !l.some(s => s.id === id)), "no hidden theme is in the theme list");
     ok((await page.evaluate(h => SBTP.themes().filter(id => h.includes(id)).length, hidden)) === 0, "no hidden theme has a Theme Collection showing");
     await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "shop"; b.id = "tvShop"; document.body.appendChild(b); b.click(); });
     await page.waitForSelector("#dlg .shop", {timeout: 10000}); await page.waitForTimeout(500);
-    const shop = await page.evaluate(() => { const d = document.querySelector("#dlg"); d.querySelectorAll(".ui-sec, details").forEach(x => { try { x.open = true; } catch (e) {} }); const h = d.innerHTML; return {venice: /Venice/.test(h), ideas: /New Theme Ideas|New Ideas/.test(h), seasons: /Seasons/.test(h), kelp: /Kelp Forest|marinebio/.test(h)}; });
+    const shop = await page.evaluate(() => { const d = document.querySelector("#dlg"); d.querySelectorAll(".ui-sec, details").forEach(x => { try { x.open = true; } catch (e) {} }); const h = d.innerHTML; return {venice: /Venice/.test(h), ideas: /New Theme Ideas|New Ideas/.test(h), seasons: /Seasons/.test(h) && /Autumn Leaves/.test(h), kelp: /Kelp Forest|marinebio/.test(h)}; });
     console.log("   shop:", JSON.stringify(shop));
-    ok(!shop.venice && !shop.ideas && !shop.seasons && shop.kelp, "the Style Shop has no hidden theme or empty section");
+    ok(!shop.venice && !shop.ideas && shop.seasons && shop.kelp, "the Style Shop shows Seasons and has no hidden theme or empty section");
 
     // someone already using a hidden theme sees Classic, and keeps the choice
     const r = await page.evaluate(() => { const st = __sbCollPreview.state; st.settings.style = Object.assign({}, st.settings.style, {skin: "venice"}); return {shown: __sbCollPreview.shown(), saved: st.settings.style.skin}; });
