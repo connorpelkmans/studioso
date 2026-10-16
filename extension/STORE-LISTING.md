@@ -63,7 +63,7 @@ After each listing goes live, put its address in `EXT_STORE` in `index.html` (se
    - **Single purpose:** "Keep the user's Studyboard planner up to date with the school learning platform (Canvas, Brightspace or Blackboard) they connect: read their courses, due dates, submissions, grades and feedback there and hand them to Studyboard in the same browser."
    - **Permission justifications:**
      - `storage`: "Keeps the connected school site, the sync settings and the last read (until Studyboard picks it up) in the browser."
-     - `alarms`: "Syncs on a schedule the user picks (every 30 minutes to 12 hours) without a page being open."
+     - `alarms`: "Syncs on a schedule the user picks (every 15 minutes to 12 hours) without a page being open."
      - `scripting`: "If a background read isn't signed in (some school single sign-on setups), runs the extension's own packaged read script in the user's open tab of the school site they connected, which has their sign-in. It never runs on any other site."
      - `activeTab`: "When the user opens the popup on their school site, its address is filled in for them."
      - **Host permissions** (`optional_host_permissions: https://*/*`): "Schools host Canvas, Brightspace and Blackboard on their own domains, so the extension can't list them in advance. Nothing is granted at install: when the user connects their school, the extension asks for that one site (for example https://school.instructure.com/*) with the browser's permission prompt. The user can remove it at any time."

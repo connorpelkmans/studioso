@@ -99,10 +99,12 @@ const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { 
     }
     // Sync Now on the website asks the extension (through relay.js) to read the school site again
     const before = await pop.evaluate(() => chrome.runtime.sendMessage({op: "status"}).then(x => x.status.canvas.lastOk));
-    await new Promise(r => setTimeout(r, 1100));
+    // (as if the last read were a while ago: the extension spaces out reads of the school site)
+    await pop.evaluate(() => chrome.storage.local.get("status").then(x => { const st = x.status; st.canvas.at = Date.now() - 6 * 60000; st.canvas.lastOk = Date.now() - 6 * 60000; return chrome.storage.local.set({status: st}); }));
+    const before2 = await pop.evaluate(() => chrome.runtime.sendMessage({op: "status"}).then(x => x.status.canvas.lastOk));
     await app.evaluate(() => window.postMessage({source: "studyboard-app", type: "sync"}, location.origin));
-    const after = await until(() => pop.evaluate(b => chrome.runtime.sendMessage({op: "status"}).then(x => x.status.canvas.state === "ok" && x.status.canvas.lastOk > b ? x.status.canvas.lastOk : null), before), 60000, "a sync asked for by the website");
-    ok(after > before, "the website's Sync Now makes the extension read the school site again");
+    const after = await until(() => pop.evaluate(b => chrome.runtime.sendMessage({op: "status"}).then(x => x.status.canvas.state === "ok" && x.status.canvas.lastOk > b ? x.status.canvas.lastOk : null), before2), 60000, "a sync asked for by the website");
+    ok(after > before2 && before === before, "the website's Sync Now makes the extension read the school site again");
     // The feedback, where the student looks for it (a picture for the store listing: scripts/extension-store-assets.js)
     await app.evaluate(cid => SBLMS.go("courses", cid), course.id); await app.waitForTimeout(300);
     await app.waitForTimeout(1500); await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });   // the app's own "Sign In to Studyboard" prompt

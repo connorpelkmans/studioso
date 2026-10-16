@@ -5,7 +5,7 @@
 const APP = "https://studyboardapp.com/";
 const NAMES = { canvas: "Canvas", brightspace: "Brightspace", blackboard: "Blackboard" };
 const TAGS = { canvas: "Canvas", brightspace: "D2L", blackboard: "Bb" };
-const EVERY = [[30, "Every 30 minutes"], [60, "Every hour"], [180, "Every 3 hours"], [360, "Every 6 hours"], [720, "Every 12 hours"]];
+const EVERY = [[15, "Every 15 minutes"], [30, "Every 30 minutes"], [60, "Every hour"], [180, "Every 3 hours"], [360, "Every 6 hours"], [720, "Every 12 hours"]];
 const originOf = s => globalThis.__studyboardExt.originOf(s);
 const $ = id => document.getElementById(id);
 const send = m => chrome.runtime.sendMessage(m);
@@ -120,7 +120,7 @@ async function render() {
     main.append(h("div", { class: "settings" },
       h("label", { class: "f inline" }, h("span", {}, "Check for Changes"),
         h("select", { onchange: e => send({ op: "settings", every: Number(e.target.value) }) }, EVERY.map(([v, l]) => h("option", { value: v, selected: Number(st.settings.every) === v }, l)))),
-      h("p", { class: "mini" }, "Also whenever you open your school site. Open Studyboard on studyboardapp.com in this browser to bring it in.")));
+      h("p", { class: "mini" }, "Also when you open your school site or Studyboard (if it's been 10 minutes). Studyboard on studyboardapp.com brings it in by itself.")));
   }
   if (ids.length < 3) {
     const more = ids.length ? h("details", { class: "more" }, h("summary", {}, "Connect another school site"), connectForm(ids)) : connectForm(ids);
