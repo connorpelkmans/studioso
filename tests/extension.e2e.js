@@ -1,3 +1,4 @@
+/* global chrome */
 // node tests/extension.e2e.js   (Playwright + Chromium; see tests/pw.js)
 // The Studyboard School Sync browser extension, end to end, as the stores will ship it (extension/build/chrome, built here first):
 // it loads in Chromium; its popup shows; connecting a stand-in Canvas (https://canvas.example.edu, answered by Playwright) reads it
@@ -41,7 +42,8 @@ const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { 
     "the store build asks for no site at install: school sites are optional permissions, granted one at a time");
   man.host_permissions = [SCHOOL + "/*"]; fs.writeFileSync(path.join(ext, "manifest.json"), JSON.stringify(man));
   await new Promise(r => server.listen(0, r)); const local = "http://127.0.0.1:" + server.address().port;
-  const ctx = await chromium.launchPersistentContext(prof, {executablePath, headless: true, viewport: {width: 1100, height: 900}, timezoneId: "UTC",
+  // Playwright's default headless browser (chromium-headless-shell, what CI installs) can't load extensions; its "chromium" channel can.
+  const ctx = await chromium.launchPersistentContext(prof, {executablePath, ...(executablePath ? {} : {channel: "chromium"}), headless: true, viewport: {width: 1100, height: 900}, timezoneId: "UTC",
     args: ["--disable-extensions-except=" + ext, "--load-extension=" + ext]});
   const asked = [];
   await ctx.route(SCHOOL + "/**", route => {
