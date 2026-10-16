@@ -4,7 +4,7 @@ package com.studioso.app.capture
 
 internal val LMS_SCRIPTS = arrayOf(
     LmsScript("brightspace", "who", intArrayOf(580), arrayOf("696d419a0c8ae94e9108c13e1c8dfd6ebf2a082f7081401b0ec1ff134e9b296b"), arrayOf<String>()),
-    LmsScript("brightspace", "run", intArrayOf(25826, 7), arrayOf("d04071383bd6cea3a72b1d18784132b3779932edc3249519cd33fadbdf5eeccb", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"), arrayOf<String>("json")),
+    LmsScript("brightspace", "run", intArrayOf(27013, 7), arrayOf("72b5a72aad9e8ee59bce9a7adb060108b0ad0f51b667701b98652a3b21b8956c", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"), arrayOf<String>("json")),
     LmsScript("canvas", "who", intArrayOf(285), arrayOf("dcceed04f724416604630fa0318da165c3aa00082d5e7470b10cda616b86d6f1"), arrayOf<String>()),
     LmsScript("canvas", "run", intArrayOf(19972, 7), arrayOf("59de927013486591d8b4607202b35e853c17a65e833a427f82022e14760dfccb", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"), arrayOf<String>("json")),
     LmsScript("blackboard", "who", intArrayOf(448), arrayOf("0ee7783018c9c6998698f83c32a0bab586f6c9c8012cbb6322356e73a6423a3c"), arrayOf<String>()),
