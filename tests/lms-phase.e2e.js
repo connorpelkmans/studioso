@@ -263,6 +263,22 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     await app.waitForFunction(() => !SBLMS.st().tasks.mc, null, {timeout: 5000});
     const mleft = await app.evaluate(() => Object.values(SBLMS.st().tasks).filter(t => /Midterm/.test(t.title) && t.bs && t.bs.ou === "9").map(t => [t.title, t.status, t.due]));
     ok(mleft.length === 1 && mleft[0][1] === "done" && mleft[0][2] === mday, "after Merge, one midterm is left, on today's date, done because it was submitted: " + JSON.stringify(mleft));
+    // The same, when the sitting is only in Studyboard from the calendar link (the read itself has no calendar entry for it)
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    const MQ2 = (opened, done) => ({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [],
+      courses: [{ou: "10", code: "BSNC1001", name: "Nursing Practice", folders: [], grades: [], news: [], events: [],
+        quizzes: [{id: "601", name: "BSNC 1001 Midterm Exam- Requires Respondus LockDown Browser", due: null, end: null, start: opened, done}]}]});
+    await app.evaluate(([h, day]) => { const L = SBLMS.brightspace, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true);
+      SBLMS.applyChanges([{kind: "task", id: "mc2", after: {id: "mc2", created: 1, title: "NK2 Midterm Exam", courseId: Object.values(SBLMS.st().tasks).find(t => t.bs && t.bs.ou === "10").courseId, type: "Exam", due: day, time: "09:30", location: "SW3 4676/95", status: "todo", order: 2,
+        bs: {key: "77|nk2midtermexam", ou: "77", last: {title: "NK2 Midterm Exam", due: day, time: "09:30"}, seen: {feed: 1}}}}], ""); }, [MQ2(opened, false), mday]);
+    const m2 = await app.evaluate(h => { const L = SBLMS.brightspace, d = L.fromApi(h), q = d.recs.find(r => r.pid === "q601");
+      L.applyPlan(d, L.plan(d), "grab", true, {askLoud: true}); return {due: q && q.due, loc: q && q.location, ask: d.ask.length}; }, MQ2(opened, true));
+    ok(m2.due === mday && m2.loc === "SW3 4676/95" && m2.ask === 1, "a calendar-link task in the same course gives the quiz its day and room, and the pair is asked about: " + JSON.stringify(m2));
+    await app.waitForSelector("dialog[open] .mg-row", {timeout: 6000});
+    await app.click("dialog[open] [data-submit]");
+    await app.waitForFunction(() => !SBLMS.st().tasks.mc2, null, {timeout: 5000});
+    const m2left = await app.evaluate(() => Object.values(SBLMS.st().tasks).filter(t => /Midterm/.test(t.title) && t.bs && (t.bs.ou === "10" || t.bs.ou === "77")).map(t => [t.title, t.status, t.due]));
+    ok(m2left.length === 1 && m2left[0][1] === "done" && m2left[0][2] === mday, "after Merge, one midterm, today, done: " + JSON.stringify(m2left));
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await browser.close(); server.close(); }
   console.log(`\nlms-phase.e2e: ${n} checks passed`);
