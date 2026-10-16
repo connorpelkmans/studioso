@@ -241,7 +241,8 @@ async function bsHarvest(o) {
     ]);
     const inWin = d => { const x = Date.parse(d || ""); return !isNaN(x) && x > now - 60 * 864e5 && x < now + 240 * 864e5; };
     const fl = listOf(folders).filter(f => f && !f.IsHidden);
-    const recent = fl.filter(f => { const d = Date.parse(f.DueDate || (f.Availability && f.Availability.EndDate) || ""); return !isNaN(d) && d > now - 60 * 864e5 && d < now + 240 * 864e5; }).slice(0, 40);
+    // Folders to check for your submissions: due in the window, or with no date of their own (your dates can come from special access instead)
+    const recent = fl.filter(f => { const d = Date.parse(f.DueDate || (f.Availability && f.Availability.EndDate) || ""); return isNaN(d) || (d > now - 60 * 864e5 && d < now + 240 * 864e5); }).slice(0, 60);
     const subs = {}, subAt = {}, fbk = {};
     const inBatches = async (list, fn) => { for (let i = 0; i < list.length; i += 6) await Promise.all(list.slice(i, i + 6).map(fn)); };   // a few at a time: Brightspace slows down bursts
     let subFail = 0, subWhy = "";
@@ -254,8 +255,25 @@ async function bsHarvest(o) {
       const fe = s.map(x => x && x.Feedback).find(Boolean);
       if (fe) fbk[f.Id] = fe;
     });
+    // When the API didn't answer for some folders, Brightspace's own Assignments page says it the way the student sees it
+    // ("1 Submission, 1 File" or "Not Submitted" on each assignment's row)
+    let fromPage = 0;
+    if (recent.some(f => subs[f.Id] === undefined)) {
+      try {
+        const r = await fetch(`/d2l/lms/dropbox/user/folders_list.d2l?ou=${c.ou}&isprv=0`, { credentials: "include" });
+        if (r.ok) {
+          const html = (await r.text()).slice(0, 3000000);
+          html.split(/(?=folder_submit_files\.d2l\?)/).slice(1).forEach(part => {
+            const m = part.match(/^folder_submit_files\.d2l\?[^"'<>]*?\bdb=(\d+)/); if (!m || subs[m[1]] !== undefined) return;
+            const row = htmlText(part.slice(0, 6000), { line: true });
+            if (/\b[1-9]\d*\s+submissions?\b/i.test(row)) { subs[m[1]] = true; fromPage++; }
+            else if (/\bnot\s+submitted\b/i.test(row)) { subs[m[1]] = false; fromPage++; }
+          });
+        }
+      } catch (e) {}
+    }
     // Said in the sync details when Brightspace wouldn't show submissions, so a task that won't tick off can be explained
-    if (subFail) errors.push(`${c.code || c.name}: ${subFail} of ${recent.length} assignment submissions not readable (${subWhy})`);
+    if (subFail) errors.push(`${c.code || c.name}: ${subFail} of ${recent.length} assignment submissions not readable by the API (${subWhy})${fromPage ? `, ${fromPage} read from the Assignments page instead` : ""}`);
     // Quizzes you've finished: a completed attempt (only your own attempts are listed), so they can be marked done too
     const qrecent = quizzes.filter(x => { if (!x || x.IsActive === false) return false; const d = Date.parse(x.DueDate || x.EndDate || ""); return !isNaN(d) && d > now - 60 * 864e5 && d < now + 240 * 864e5; }).slice(0, 40);
     const tried = {};

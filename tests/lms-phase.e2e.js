@@ -56,6 +56,13 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
       return {x1: st.x1.status, x2: st.x2.status, gone: L.cfg().gone};
     }, DATA);
     ok(r3.x1 === "done" && r3.x2 === "todo" && r3.gone.includes("x2") && !r3.gone.includes("x1"), "a leftover copy is ticked off when the item is done, or else offered for removal: " + JSON.stringify(r3));
+    // An assignment with no due date of its own (the student's dates come from special access, through Brightspace's "my items"):
+    // the item still gets the folder's answer about the submission
+    const r4 = await app.evaluate(ago => SBLMS.brightspace.fromApi({ok: true, origin: "https://learn.example.edu", me: {name: "Ana"}, all: [], errors: [],
+      courses: [{ou: "7", code: "HSIP0100", name: "Health Sciences", folders: [{id: "1", name: "Capacity Building Assignment", due: null, end: null, sub: true, files: []}], quizzes: [], grades: [], news: [], events: []}],
+      items: [{ou: "7", id: "1", act: 3, type: 1, name: "Capacity Building Assignment", due: ago, url: "/d2l/lms/dropbox/user/folder_submit_files.d2l?db=1&ou=7", done: null, exempt: false}], completions: []}).recs
+      .map(r => [r.title, r.done, r.sub]), new Date(Date.now() - 4 * DAY).toISOString());
+    ok(JSON.stringify(r4) === JSON.stringify([["Capacity Building Assignment", true, "yes"]]), "an assignment dated only by your own dates still ticks off when it's submitted: " + JSON.stringify(r4));
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await browser.close(); server.close(); }
   console.log(`\nlms-phase.e2e: ${n} checks passed`);
