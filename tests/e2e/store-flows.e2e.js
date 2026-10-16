@@ -108,7 +108,7 @@ const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries
     assert.match(await dlgText(page), /Privacy Policy/, "sign-up links to the privacy policy");
     await fillSubmit(page, {email: "new@example.com", password: "correct horse 7"});
     const t = await dlgText(page);
-    assert.match(t, /Check Your Email/); assert.match(t, /If\s+new@example\.com\s+can be used/i); assert.match(t, /need to confirm your email before you can use Studyboard/i);   // an account is required on the hosted app (no device-only fallback)
+    assert.match(t, /Check Your Email/); assert.match(t, /If\s+new@example\.com\s+can be used/i); assert.match(t, /need to confirm your email before your account can be used/i);   // the new account works once its email is confirmed
     assert.equal((await calls(page, "signUp")).length, 1);
     await page.click("#sbResend"); await page.waitForTimeout(200);
     assert.equal((await calls(page, "resend")).length, 1);
