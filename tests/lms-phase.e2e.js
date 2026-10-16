@@ -132,7 +132,7 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     });
     await app.waitForSelector("dialog[open] .mg-row", {timeout: 5000});
     const pairs = await app.evaluate(() => [...document.querySelectorAll("dialog[open] .mg-row")].map(r => r.innerText.replace(/\s+/g, " ")));
-    ok(pairs.length === 1 && /BSNC 1000 Midterm/.test(pairs[0]) && /NK1 Midterm Exam/.test(pairs[0]) && /Same Exam\?/.test(await app.textContent("dialog[open]")), "the same exam listed twice is put to the student (only that pair): " + JSON.stringify(pairs));
+    ok(pairs.some(p => /BSNC 1000 Midterm/.test(p) && /NK1 Midterm Exam/.test(p)) && !pairs.some(p => /Chemistry Quiz 3/.test(p)) && /Same (Exam|Item)\?/.test(await app.textContent("dialog[open]")), "the same exam listed twice is put to the student (and not an unrelated quiz): " + JSON.stringify(pairs));
     await app.click("dialog[open] [data-submit]");
     await app.waitForFunction(() => !SBLMS.st().tasks.mc, null, {timeout: 5000});
     const kept = await app.evaluate(() => { const t = SBLMS.st().tasks.mq; return {loc: t.location, notes: t.notes, key: t.bs && t.bs.key}; });
@@ -183,6 +183,35 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     ok(!viaFeed, "the calendar link doesn't bring it back");
     const back = await app.evaluate(h => { const L = SBLMS.brightspace, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true); return {dropped: (L.cfg().dropped || []).length, apiOnly: (L.cfg().apiOnly || []).length, back: !!Object.values(SBLMS.st().tasks).find(t => t.title === "Deleted Then Wanted")}; }, DROP);
     ok(back.dropped === 0 && back.back, "the signed-in read (extension, bookmark or app) brings it back: " + JSON.stringify(back));
+    // A calendar copy named nothing like the assignment ("Capacity Building Assignment" for "Upload Portal Week 6"), due the same day as the
+    // only assignment in that course: Studyboard asks Same Item? by itself after the read, and Merge leaves the real one, done
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    const cdue = new Date(Date.now() + 9 * 864e5).toISOString(), cday = cdue.slice(0, 10);
+    await app.evaluate(day => SBLMS.applyChanges([{kind: "task", id: "cpy", after: {id: "cpy", created: 1, title: "Totally Different Calendar Name", courseId: "c1", type: "Assignment", due: day, time: "", status: "todo", order: 1,
+      bs: {key: "7|totallydifferentcalendarname", ou: "7", last: {title: "Totally Different Calendar Name", due: day, time: "", courseId: "c1"}, seen: {feed: 1}}}}], ""), cday);
+    await app.evaluate(due => { const L = SBLMS.brightspace, d = L.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [],
+      courses: [{ou: "7", code: "HSIP0100", name: "Health Sciences", folders: [{id: "91", name: "Upload Portal Week 6", due, end: null, sub: true, files: []}], quizzes: [], grades: [], news: [], events: []}]}); L.applyPlan(d, L.plan(d), "grab", true, {askLoud: true}); }, cdue);
+    await app.waitForSelector("dialog[open] .mg-row", {timeout: 6000});
+    const cp = await app.evaluate(() => [...document.querySelectorAll("dialog[open] .mg-row")].map(r => r.innerText.replace(/\s+/g, " ")));
+    ok(cp.some(r => /Upload Portal Week 6/.test(r) && /Totally Different Calendar Name/.test(r) && /submitted/.test(r)), "Studyboard pairs the calendar copy with the only assignment due that day, and asks: " + JSON.stringify(cp));
+    await app.click("dialog[open] [data-submit]");
+    await app.waitForFunction(() => !SBLMS.st().tasks.cpy, null, {timeout: 5000});
+    const realLeft = await app.evaluate(() => Object.values(SBLMS.st().tasks).filter(t => t.title === "Upload Portal Week 6").map(t => t.status));
+    ok(JSON.stringify(realLeft) === JSON.stringify(["done"]), "after Merge, only the real assignment is left, done because it's submitted: " + JSON.stringify(realLeft));
+    // The real case: the assignment folder has no date of its own ("Capacity Building with a Community Client"), and its date is only on a
+    // calendar entry ("Capacity Building Assignment Due"); the task made from the entry ticks off because the folder is submitted
+    const und = await app.evaluate(due => {
+      const L = SBLMS.brightspace, ts = due.slice(0, 10);
+      SBLMS.applyChanges([{kind: "task", id: "und", after: {id: "und", created: 1, title: "Outreach Planning Assignment", courseId: "c1", type: "Assignment", due: ts, time: "23:30", status: "todo", order: 1,
+        bs: {key: "7|outreachplanningassignment", ou: "7", last: {title: "Outreach Planning Assignment", due: ts, time: "23:30", courseId: "c1"}, seen: {api: 1}}}}], "");
+      const d = L.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [],
+        courses: [{ou: "7", code: "HSIP0100", name: "Health Sciences", quizzes: [], grades: [], news: [],
+          folders: [{id: "96", name: "Outreach Planning with a Partner Agency", due: null, end: null, sub: true, files: []}, {id: "97", name: "Unrelated Lab Report", due: null, end: null, sub: false, files: []}],
+          events: [{id: "e7", title: "Outreach Planning Assignment Due", start: due, end: due, allDay: false, assoc: false, url: ""}]}]});
+      L.applyPlan(d, L.plan(d), "grab", true);
+      const t = SBLMS.st().tasks.und; return {status: t.status, item: t.bs.item, url: t.link || ""};
+    }, new Date(Date.now() - 4 * 864e5).toISOString());
+    ok(und.status === "done" && und.item === true && /db=96/.test(und.url), "an undated assignment's submission reaches the calendar entry that carries its date: " + JSON.stringify(und));
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await browser.close(); server.close(); }
   console.log(`\nlms-phase.e2e: ${n} checks passed`);
