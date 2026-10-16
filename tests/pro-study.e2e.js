@@ -60,6 +60,9 @@ function SEED(){
       const em = /forwarded to their planner/.test(body) && /Subject: Fwd: Lab 4 moved/.test(body);
       const reply = em ? {items: [{title: "Lab 4", dueDate: ctx.emailDue, dueTime: "17:00", course: "BIO101", type: "Lab", notes: "Bring goggles", confidence: 0.92}], rawText: ""}
         : /inline_data/.test(body) ? {text: "Today we talk about osmosis. Water moves across a membrane toward the side with more solute."}
+        : /tidy the raw transcript/.test(body) ? {text: "## Osmosis\n\nToday we talk about osmosis.\n\nWater moves toward more solute."}
+        : /detailed but compact summary/.test(body) ? {overview: "How water and solutes cross membranes.", sections: [{heading: "Osmosis", points: ["Water moves toward more solute", "Needs a membrane"]}],
+            terms: [{term: "Osmosis", definition: "Water moving across a membrane"}], takeaways: ["Water follows solute"]}
         : /study notes/.test(body) ? {title: "Osmosis and Diffusion", summary: "How water and solutes cross membranes.", sections: [{heading: "Osmosis", points: ["Water moves toward more solute", "Needs a membrane"]}],
             terms: [{term: "Osmosis", definition: "Water moving across a membrane"}], questions: ["Which way does water move in osmosis?"]}
         : {front: "Q", back: "A"};
@@ -206,11 +209,12 @@ function SEED(){
 
     /* ---------- Record a Lecture ---------- */
     await tab(page, "notes");
-    ok(await page.locator('.tl-controls [data-act="lec-open"]').count() === 1, "Notes has Record Lecture");
-    await page.click('.tl-controls [data-act="lec-open"]'); await page.waitForTimeout(250);
-    ok(await page.evaluate(() => document.getElementById("lecCourse").value === "" && /Lecture, /.test(document.getElementById("lecTitle").value)), "the recorder starts with a title");
-    await page.selectOption("#lecCourse", "c1");
-    ok(/^BIO101 Lecture, /.test(await page.inputValue("#lecTitle")), "choosing the course names the lecture");
+    ok(await page.locator('[data-act="lec-open"]').count() === 0, "Notes no longer has Record Lecture");
+    await tab(page, "courses"); await act(page, "open-course", "c1"); await page.waitForTimeout(250);
+    ok(await page.evaluate(() => { const b = document.querySelector('.c2-head [data-act="lec-open"]'); return !!b && b.previousElementSibling && b.previousElementSibling.dataset.act === "ask-course"; }), "a course has Record Lecture beside Ask");
+    ok(await page.locator('.cd-tabs [data-id="lectures"]').count() === 1, "a course has a Lectures tab");
+    await page.click('.c2-head [data-act="lec-open"]'); await page.waitForTimeout(250);
+    ok(await page.evaluate(() => /BIO101/.test(document.querySelector(".lec-for").textContent) && !document.getElementById("lecCourse") && !document.getElementById("lecTitle")), "from a course, the recorder is for that course and asks no name yet");
     await page.click('[data-act="lec-start"]');
     await page.waitForSelector(".lec-live", {timeout: 8000});
     ok(await page.evaluate(() => window.__sbProStudy.rec().view === "rec"), "recording");
@@ -239,16 +243,27 @@ function SEED(){
     const sent = page.context().aiBodies.find(b => /inline_data/.test(b));
     ok(!!sent && /"mime_type":"audio\/webm"/.test(sent), "Transcribe with AI sends the audio to Gemini");
     ok(/★ 0:0\d/.test(await page.inputValue("#lecText")), "the marks are kept");
-    ok(await page.isChecked('input[name="lecMake"][value="ai"]'), "with AI, study notes are the default");
+    ok(await page.locator('input[name="lecMake"]').count() === 0, "no note to make");
+    await page.fill("#lecName", "Osmosis Day");
     await page.click('[data-act="lec-save"]');
     await page.waitForSelector(".lec-done", {timeout: 15000});
-    const lec = await page.evaluate(() => Object.values(state.notes).find(n => /^Osmosis and Diffusion/.test(n.text)));
-    ok(lec && lec.courseId === "c1" && /Terms\n• Osmosis: Water moving across a membrane/.test(lec.text) && /Questions to Review/.test(lec.text), "Save makes study notes on the course's board");
-    ok(await page.locator('.lec-foot [data-act="notecards-open"]').count() === 1, "Make Flashcards is offered");
-    await page.click('.lec-foot [data-act="notecards-open"]'); await page.waitForTimeout(400);
-    ok(await page.evaluate(() => /Flashcards|Cards/i.test(dlg.querySelector("h2") ? dlg.querySelector("h2").textContent : "")), "it opens Notes to Flashcards on the new note");
+    const lf = await page.evaluate(() => Object.values(state.files).find(f => f.folderId === "lectures"));
+    ok(lf && lf.name === "Osmosis Day" && lf.courseId === "c1" && /Today we talk about osmosis/.test(lf.tr.text), "Save keeps the lecture under the name given");
+    ok(lf && /^## Osmosis/.test(lf.lec.org) && /How water and solutes[\s\S]*## Key Terms\n• Osmosis: Water moving across a membrane[\s\S]*## Takeaways/.test(lf.lec.sum), "with an organized transcript and a summary");
+    ok(await page.evaluate(() => !Object.values(state.notes).some(n => n.lec || /Osmosis/.test(n.text))), "and no note");
+    await page.click('.lec-foot [data-act="close"]'); await page.waitForTimeout(250);
+    ok(await page.locator('.cd-tabs [data-id="lectures"][aria-selected="true"]').count() === 1 && await page.locator(".lec-row").count() === 1, "the course shows its Lectures");
+    await page.click(".lec-row"); await page.waitForTimeout(300);
+    ok(await page.locator(".lec-fopt").count() === 2, "a lecture offers its two files");
+    await page.click('.lec-fopt[data-doc="sum"]'); await page.waitForTimeout(150);
+    ok(/Key Terms/.test(await page.locator(".lec-docv").textContent()) && await page.locator(".lec-docv li").count() >= 3, "the summary");
+    await page.click('.lec-doc-head [data-act="lec-doc"]'); await page.waitForTimeout(150);
+    await page.click('.lec-fopt[data-doc="org"]'); await page.waitForTimeout(150);
+    ok(/Today we talk about osmosis/.test(await page.locator(".lec-docv").textContent()) && await page.locator(".lec-docv h4").count() === 1, "the organized transcript");
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
     ok(await page.locator("#lecPill").count() === 0 && await page.evaluate(() => !window.__sbProStudy.rec()), "the recorder is finished");
+    await tab(page, "files");
+    ok(!/Osmosis Day/.test(await page.locator("#view").textContent()), "lectures stay out of Files");
     // A recording in Files: its transcript
     await act(page, "f-open", "f2"); await page.waitForTimeout(250);
     ok(await page.locator('.sheet-foot [data-act="lec-file"]').count() === 1, "a recording's file sheet has Transcript");
