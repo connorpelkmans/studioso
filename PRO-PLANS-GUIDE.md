@@ -18,7 +18,7 @@ You can do the setup below any time before launch (in any order). While the payw
 - **25 MB** of cloud file storage (plus unlimited files kept on the device, or links to Google Drive or OneDrive), and **25 MB** of synced data.
 - Backups on the device: the desktop folder, plus the last 14 days in the browser.
 
-**Pro** ($2.99 a month or $24.99 a year, with a 7-day free trial):
+**Pro** ($3.99 a month or $29.99 a year, with a 7-day free trial):
 - Unlimited devices.
 - **10 GB** of cloud file storage and **250 MB** of synced data.
 - Every premium theme, including the 4 seasons (Winter, Spring, Summer and Autumn Leaves), plus every premium card style, note shape, pin and sticker pack, and all 46 Theme Collections.
@@ -96,7 +96,8 @@ Do these in test mode first. Everything stays free for everyone until Launch Day
 **2. Make the signing key.** On your computer (Node 18+): `node supabase-functions/tools/gen-ent-key.mjs`. It prints a **PRIVATE** value (`ENT_SIGNING_KEY`, PKCS8 as base64url) and a **PUBLIC** value (`ENT_PUBKEY`, 43 characters). Put the private one in Supabase **Edge Functions > Secrets** as `ENT_SIGNING_KEY` (never in the app, the website or git). Paste the public one into `const ENT_PUBKEY = "..."` in `index.html` and ship the app. If the private key ever leaks, run the script again, replace both and ship the app again.
 
 **3. Stripe (test mode first).**
-- **Product catalog > Add product** "Studyboard Pro" with a **Recurring** price of $2.99 per month and another of $24.99 per year. Copy both price ids (`price_...`). No payment links are needed any more; the checkout is created by your server.
+- **Product catalog > Add product** "Studyboard Pro" with a **Recurring** price of $3.99 per month and another of $29.99 per year. Copy both price ids (`price_...`). No payment links are needed any more; the checkout is created by your server.
+- **Changing the price later:** Stripe prices can't be edited. Add a new price to the same product, save its id as `STRIPE_PRICE_MONTHLY` or `STRIPE_PRICE_YEARLY`, and archive the old price (existing subscribers keep the price they signed up at). Then update the price the app shows. `supabase-plans.sql` never overwrites values that are already set, so run this in **SQL Editor**: `update public.studyboard_config set value = jsonb_set(jsonb_set(value, '{monthly}', '"$3.99"'), '{yearly}', '"$29.99"') where key = 'prices';`
 - **Settings > Billing > Customer portal:** turn it on (allow cancel and card changes).
 - **Developers > API keys > Create restricted key** with **Write** on Customers, Checkout Sessions and Customer portal sessions, and **Read** on Subscriptions and Charges. This is `STRIPE_SECRET_KEY` (the webhook uses it to read renewal dates and to find the owner of a disputed charge).
 
