@@ -66,6 +66,31 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
       items: [{ou: "7", id: "1", act: 3, type: 1, name: "Capacity Building Assignment", due: ago, url: "/d2l/lms/dropbox/user/folder_submit_files.d2l?db=1&ou=7", done: null, exempt: false}], completions: []}).recs
       .map(r => [r.title, r.done, r.sub]), new Date(Date.now() - 4 * DAY).toISOString());
     ok(JSON.stringify(r4) === JSON.stringify([["Capacity Building Assignment", true, "yes"]]), "an assignment dated only by your own dates still ticks off when it's submitted: " + JSON.stringify(r4));
+    // A calendar entry named a little differently from the assignment ("Group Care Plan Assignment" for the folder
+    // "Group Care Plan – Individual"): Studyboard asks whether they're the same; once the student says Merge, the task made from the
+    // calendar entry follows the assignment and ticks off; the answer is remembered, so it isn't asked again
+    const H = due => ({ok: true, origin: "https://learn.example.edu", me: {name: "Ana"}, all: [], errors: [], items: [], completions: [],
+      courses: [{ou: "7", code: "HSIP0100", name: "Health Sciences", quizzes: [], grades: [], news: [],
+        folders: [{id: "9", name: "Group Care Plan – Individual", due, end: null, sub: true, files: []}, {id: "10", name: "Week 3 Reflection", due, end: null, sub: false, files: []}],
+        events: [{id: "e1", title: "Group Care Plan Assignment Due", start: due, end: due, allDay: false, assoc: false, url: ""}, {id: "e2", title: "Week 3 Journal Due", start: due, end: due, allDay: false, assoc: false, url: ""}]}]});
+    const due5 = new Date(Date.now() - 4 * DAY).toISOString();
+    const r5 = await app.evaluate(h => {
+      const L = SBLMS.brightspace, ts = h.courses[0].folders[0].due.slice(0, 10);
+      SBLMS.applyChanges([{kind: "task", id: "cb", after: {id: "cb", created: 1, title: "Group Care Plan Assignment", courseId: "c1", type: "Assignment", due: ts, time: "23:30", status: "todo", order: 1,
+        bs: {key: "7|groupcareplanassignment", ou: "7", last: {title: "Group Care Plan Assignment", due: ts, courseId: "c1"}, seen: {api: 1}}}}], "");
+      const d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", false);
+      return {ask: d.ask.map(a => [a.copy, a.real]), cb: SBLMS.st().tasks.cb.status, recs: d.recs.map(r => r.title)};
+    }, H(due5));
+    ok(r5.cb === "todo" && JSON.stringify(r5.ask) === JSON.stringify([["Group Care Plan Assignment", "Group Care Plan – Individual"]]), "nothing is merged without asking; Studyboard asks about the pair: " + JSON.stringify(r5));
+    ok(r5.recs.includes("Week 3 Journal") && r5.recs.includes("Week 3 Reflection") && r5.ask.length === 1, "two different items that only share a word aren't offered as a pair");
+    await app.waitForSelector("dialog[open] .mg-row", {timeout: 5000});
+    ok(/Same Item\?/.test(await app.textContent("dialog[open]")), "the student sees the pair and chooses");
+    await app.click('dialog[open] [data-submit]');
+    await app.waitForFunction(() => !SBLMS.st().tasks.cb, null, {timeout: 5000});
+    const left = await app.evaluate(() => Object.values(SBLMS.st().tasks).filter(t => /Group Care Plan/.test(t.title)).map(t => [t.title, t.status]));
+    ok(JSON.stringify(left) === JSON.stringify([["Group Care Plan – Individual", "done"]]), "after Merge there's one task for it, done because the assignment is submitted: " + JSON.stringify(left));
+    const again = await app.evaluate(h => SBLMS.brightspace.fromApi(h).ask.length, H(due5));
+    ok(again === 0, "the answer is remembered: the pair isn't asked about again");
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await browser.close(); server.close(); }
   console.log(`\nlms-phase.e2e: ${n} checks passed`);
