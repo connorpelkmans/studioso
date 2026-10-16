@@ -373,9 +373,11 @@ SCENES.italy = function (W, H, dk, rnd) {
   for (i = 0; i < balProf.length - 1; i++) { var q0 = balProf[Math.max(0, i - 1)], q1 = balProf[i], q2 = balProf[i + 1], q3 = balProf[Math.min(balProf.length - 1, i + 2)], sharp = q2[0] - q1[0] < 0.03;
     for (k = 0; k < (sharp ? 1 : 6); k++) { var tq = k / 6, t2 = tq * tq, t3 = t2 * tq, wq = sharp ? q1[1] : 0.5 * (2 * q1[1] + (-q0[1] + q2[1]) * tq + (2 * q0[1] - 5 * q1[1] + 4 * q2[1] - q3[1]) * t2 + (-q0[1] + 3 * q1[1] - 3 * q2[1] + q3[1]) * t3); balPts.push([q1[0] + (q2[0] - q1[0]) * tq, wq]); } }
   balPts.push(balProf[balProf.length - 1]);
-  for (x = 2 * S; x < bx1T - 6 * S; x += 14 * S) { var bh = H - 9 * S - byT - 6 * S, b0 = byT + 6 * S, bcx = x + 6 * S;
+  for (x = 2 * S; x < bx1T - 16 * S; x += 14 * S) { var bh = H - 9 * S - byT - 6 * S, b0 = byT + 6 * S, bcx = x + 6 * S;
     bal += italy_pg(balPts.map(function (q) { return [bcx + q[1] * S, b0 + q[0] * bh]; }).concat(balPts.slice().reverse().map(function (q) { return [bcx - q[1] * S, b0 + q[0] * bh]; }))); }
-  N.b += bal; G.f += rect(-20, byT + 6 * S, bx1T + 20, 2.2 * S);
+  // the rails end in a square pier with a cap, so nothing juts out past the last baluster
+  bal += rect(bx1T - 4 * S, byT - 3 * S, 10 * S, H - byT + 3 * S) + rect(bx1T - 5.5 * S, byT - 5 * S, 13 * S, 3 * S);
+  N.b += bal; G.f += rect(-20, byT + 6 * S, bx1T + 16, 2.2 * S) + rect(bx1T + 3.5 * S, byT - 2 * S, 2.5 * S, H - byT + 2 * S);
   var ptX = bx1T - 22 * S, ptY = byT;
   N.e += italy_pg([[ptX - 12 * S, ptY - 18 * S], [ptX + 12 * S, ptY - 18 * S], [ptX + 9 * S, ptY], [ptX - 9 * S, ptY]]) + rect(ptX - 13.5 * S, ptY - 21 * S, 27 * S, 4 * S); nWood += seg(ptX, ptY - 21 * S, ptX, ptY - 34 * S);
   N.d += italy_e(ptX, ptY - 44 * S, 20 * S, 15 * S) + italy_e(ptX - 14 * S, ptY - 38 * S, 11 * S, 9 * S) + italy_e(ptX + 14 * S, ptY - 39 * S, 12 * S, 9 * S) + italy_e(ptX + 2 * S, ptY - 56 * S, 12 * S, 8 * S);
