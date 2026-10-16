@@ -250,7 +250,7 @@ const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries
     const {ctx, page, errs} = await newPage(browser, {signedIn: true, bridge: true});
     await proSheet(page);
     const t = await dlgText(page);
-    assert.match(t, /auto-renewing subscription: \$2\.99 per month or \$24\.99 per year, after a 7-day free trial/);
+    assert.match(t, /auto-renewing subscription: \$3\.99 per month or \$29\.99 per year, after a 7-day free trial/);
     assert.match(t, /renews automatically unless it is cancelled at least 24 hours before/); assert.match(t, /Terms of Use/); assert.match(t, /Privacy Policy/);
     assert.ok(!(await page.evaluate(() => /stripe|checkout|studyboard\.example/i.test(document.querySelector("dialog[open]").innerHTML))), "no Stripe or website link in the store Pro sheet");
     assert.ok(await page.isVisible('dialog[open] [data-act="plan-restore"]'));

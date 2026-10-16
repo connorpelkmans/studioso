@@ -24,7 +24,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     // Spanish device: catalog loads from locales/es.json, the nav is translated, English fallbacks still work
     ctx = await browser.newContext({locale: "es-ES"}); page = await ctx.newPage(); page.on("pageerror", e => errs.push(e.message));
     await page.goto(base); await page.waitForFunction(() => /Tablero/.test(document.querySelector('nav.tabs [data-tab="board"]').textContent), null, {timeout: 8000});
-    ok(/Tarjetas/.test(await page.textContent('nav.tabs [data-tab="flashcards"]')), "Spanish nav label");
+    ok(/Repaso/.test(await page.textContent('nav.tabs [data-tab="flashcards"]')), "Spanish nav label");
     ok(await page.evaluate(() => document.documentElement.lang) === "es-es", "html lang follows the language");
     ok(await page.evaluate(() => document.querySelector('nav.tabs [data-tab="plan"]').getAttribute("aria-label")).then(t => /Calendario/.test(t)), "aria-label translated");
     ok(await page.evaluate(() => document.querySelector('nav.tabs [data-tab="board"] svg') !== null), "icons survive translation");
