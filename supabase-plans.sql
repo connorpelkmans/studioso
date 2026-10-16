@@ -195,6 +195,20 @@ end $$;
 drop trigger if exists plans_device_limit on public.studyboard_devices;
 create trigger plans_device_limit before insert on public.studyboard_devices for each row execute function public.plans_device_limit();
 
+-- A device row can't be turned into a different device (or moved to another account) by changing its keys: that would skip the
+-- limit and the removed-device log above. The app's upsert (on user_id, device_id) only refreshes the name, platform and last_seen.
+create or replace function public.plans_device_keys() returns trigger
+language plpgsql set search_path = public, pg_temp as $$
+begin
+  if new.user_id is distinct from old.user_id or new.device_id is distinct from old.device_id then
+    raise exception 'SB_DEVICE_ID: A device can''t be renamed to another device. Remove it and sign in on the new one.' using errcode = 'P0001';
+  end if;
+  return new;
+end $$;
+revoke all on function public.plans_device_keys() from public, anon, authenticated;
+drop trigger if exists plans_device_keys on public.studyboard_devices;
+create trigger plans_device_keys before update on public.studyboard_devices for each row execute function public.plans_device_keys();
+
 -- ---------- Usage totals (kept by triggers, so checks never have to add everything up) ----------
 create table if not exists public.studyboard_usage (
   user_id uuid primary key references auth.users(id) on delete cascade,

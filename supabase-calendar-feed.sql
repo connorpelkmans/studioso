@@ -58,8 +58,30 @@ drop policy if exists "calendar_feeds_delete_own" on public.calendar_feeds;
 create policy "calendar_feeds_delete_own" on public.calendar_feeds
   for delete to authenticated using ((select auth.uid()) = user_id);
 
+-- The app only ever writes the token, its own user_id and the options (it changes nothing else), so that is all a signed-in
+-- person may write. Every other column (token_hash, last_fetched_at and the cache_key/cache_text columns that supabase-lean.sql
+-- adds) is written only by this database and by the calendar-feed function with the service role, so nobody can plant their
+-- own calendar text for the function to serve. Columns added later get no client grant either (there is no table-wide one).
 revoke all on public.calendar_feeds from anon;
-grant select, insert, update, delete on public.calendar_feeds to authenticated;
+revoke insert, update, truncate, references, trigger on public.calendar_feeds from authenticated;
+grant select, delete on public.calendar_feeds to authenticated;
+grant insert (token, user_id, options) on public.calendar_feeds to authenticated;
+grant update (options) on public.calendar_feeds to authenticated;
+
+-- At most 5 links per account. The app keeps one: a new link is added, then the old one is removed.
+create or replace function public.calendar_feeds_cap() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  perform pg_advisory_xact_lock(hashtextextended('sb-calfeed:' || new.user_id::text, 0));   -- two at once can't both slip under the cap
+  if (select count(*) from public.calendar_feeds where user_id = new.user_id) >= 5 then
+    raise exception 'You already have 5 calendar links. Turn the live calendar off, then on again, to start fresh.' using errcode = 'P0001';
+  end if;
+  return new;
+end $$;
+revoke all on function public.calendar_feeds_cap() from public, anon, authenticated;
+drop trigger if exists calendar_feeds_cap on public.calendar_feeds;
+create trigger calendar_feeds_cap before insert on public.calendar_feeds
+  for each row execute function public.calendar_feeds_cap();
 
 -- LATER (only once your app no longer reads the token back, see SETUP-GUIDE "Calendar Sync"): to keep only the hash, run
 --   alter table public.calendar_feeds drop constraint calendar_feeds_pkey, alter column token drop not null;

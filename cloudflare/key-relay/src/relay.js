@@ -9,6 +9,8 @@
 //   GET    /v1/h/<id>/status  200 {"state": "waiting" | "taken" | "none"}   (the first device waits for "taken")
 //   DELETE /v1/h/<id>         204, the first device closed the window before the code was used
 //   GET    /k                 the page a scanned QR code opens (the code is in the #fragment, which browsers never send)
+// POST is the only route that stores anything (a new Durable Object), so it's limited per network address by the POST_LIMIT rate limiting
+// binding (wrangler.jsonc): 429 past it. Without the binding (older deploys, the tests) there's no such limit.
 
 export const TTL_MS = 10 * 60 * 1000;
 export const MAX_BOX = 4096;
@@ -56,6 +58,10 @@ export async function handle(request, env) {
   if (!m) return json({ error: "not_found" }, 404);
   const id = m[1];
   if (!ID_RE.test(id)) return json({ error: "bad_id" }, 400);
+  if (request.method === "POST" && !m[2] && env.POST_LIMIT) {
+    const { success } = await env.POST_LIMIT.limit({ key: request.headers.get("CF-Connecting-IP") || "unknown" });
+    if (!success) return new Response(JSON.stringify({ error: "rate_limited" }), { status: 429, headers: { ...CORS, "Content-Type": "application/json", "Cache-Control": "no-store", "Retry-After": "60" } });
+  }
   const slot = env.HANDOFF.getByName(id);
   if (m[2]) return request.method === "GET" ? json({ state: await slot.status() }) : json({ error: "method" }, 405);
   if (request.method === "POST") {

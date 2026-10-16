@@ -211,6 +211,36 @@ await test("stripe: errors are generic and keys never reach the log", async () =
   assert.equal(r.status, 500); assert.deepEqual(await r.json(), { error: "server error, please retry" });
   assert.ok(!logs.join("").includes("sk_live"));
 });
+await test("stripe: the body is capped while it arrives (chunked, no Content-Length), and the signed raw text is unchanged", async () => {
+  const { deps, applied } = whDeps();
+  const big = new ReadableStream({ start(c) { for (let i = 0; i < 1100; i++) c.enqueue(new TextEncoder().encode("x".repeat(1000))); c.close(); } });
+  const r = await wh.handle(new Request("https://x/functions/v1/billing-webhook/stripe", { method: "POST", headers: { "stripe-signature": "t=1,v1=a" }, body: big, duplex: "half" }), deps);
+  assert.equal(r.status, 413); assert.equal(applied.length, 0);
+  // non-ASCII text in the event still verifies (the raw text is decoded exactly like req.text())
+  const ev = { id: "evt_u", type: "customer.subscription.updated", created: S, data: { object: { customer: "cus_1", status: "active", current_period_end: S + 86400, metadata: { note: "café ✓" } } } };
+  assert.equal((await wh.handle(await stripeReq(ev), deps)).status, 200); assert.equal(applied.length, 1);
+});
+await test("stripe: STRIPE_PRICE_IDS (optional) limits which prices give Pro; unset, any price counts", async () => {
+  const subEv = (price, id = "evt_p") => ({ id, type: "customer.subscription.updated", created: S, data: { object: { customer: "cus_1", status: "active", current_period_end: S + 86400, items: { data: [{ price: { id: price } }] } } } });
+  const invEv = (line) => ({ id: "evt_ip", type: "invoice.paid", created: S, data: { object: { customer: "cus_1", subscription: "sub_1", lines: { data: [{ period: { end: S + 10 * 86400 }, ...line }] } } } });
+  let w = whDeps();
+  await wh.handle(await stripeReq(subEv("price_other")), w.deps); assert.equal(w.applied.length, 1, "no allowlist: unchanged");
+  const env = { STRIPE_PRICE_IDS: "price_legacy, price_extra", STRIPE_PRICE_MONTHLY: "price_month", STRIPE_PRICE_YEARLY: "price_year" };
+  for (const ok of ["price_legacy", "price_extra", "price_month", "price_year"]) { w = whDeps({ env }); await wh.handle(await stripeReq(subEv(ok)), w.deps); assert.equal(w.applied[0]?.state, "active", ok); }
+  w = whDeps({ env });
+  const r = await wh.handle(await stripeReq(subEv("price_cheap")), w.deps);
+  assert.equal(r.status, 200); assert.equal(w.applied.length, 0, "another price is ignored");
+  await wh.handle(await stripeReq({ ...subEv("price_cheap", "evt_del"), type: "customer.subscription.deleted" }), w.deps);
+  assert.deepEqual(w.applied.map(a => a.state), ["ended"], "ending a subscription still counts");
+  w = whDeps({ env });
+  await wh.handle(await stripeReq(invEv({ price: { id: "price_cheap" } })), w.deps);
+  await wh.handle(await stripeReq({ ...invEv({ pricing: { price_details: { price: "price_month" } } }), id: "evt_ip2" }), w.deps);
+  await wh.handle(await stripeReq({ ...invEv({ price: { id: "price_year" } }), id: "evt_ip3" }), w.deps);
+  assert.deepEqual(w.applied.map(a => a.event_id), ["evt_ip2", "evt_ip3"], "invoices: old and new line shapes");
+  w = whDeps({ env, stripe: () => ({ status: "active", customer: "cus_1", current_period_end: S + 86400, items: { data: [{ price: { id: "price_cheap" } }] } }) });
+  await wh.handle(await stripeReq({ id: "evt_cc", type: "checkout.session.completed", created: S, data: { object: { mode: "subscription", payment_status: "paid", customer: "cus_1", subscription: "sub_1", client_reference_id: UID, metadata: { uid: UID } } } }), w.deps);
+  assert.equal(w.applied.length, 0, "a checkout for another price gives nothing");
+});
 const rcReq = (event, auth = "Bearer rc-secret-rc-secret-rc") => new Request("https://x/functions/v1/billing-webhook/revenuecat", { method: "POST", headers: { authorization: auth }, body: JSON.stringify({ event }) });
 await test("revenuecat: authorization is checked (constant time), sandbox ignored, events mapped", async () => {
   const ev = { id: "rc1", type: "INITIAL_PURCHASE", app_user_id: UID, store: "APP_STORE", expiration_at_ms: NOW + 86400e3, event_timestamp_ms: NOW, environment: "PRODUCTION", period_type: "TRIAL" };
@@ -473,6 +503,36 @@ await test("calendar-feed: CR/LF in stored ids, titles, repeat rules and options
   assert.equal(cf.icsSafe("BEGIN:VCALENDAR\r\nUID:x\r\nnot a property\r\n"), false);
   assert.deepEqual(cf.cleanDeep({ id: "a\r\nB:1", notes: "x\r\ny\u0000", n: [1, "c\nd"] }), { id: "a B:1", notes: "x\ny", n: [1, "c d"] });
 });
+await test("calendar-feed: a cached calendar is checked like a fresh one, and the limiter fails closed (except before lean.sql)", async () => {
+  const sha = await sha256hex(CAL_TOKEN);
+  const run = async (o) => {
+    const calls = [];
+    globalThis.Deno = { env: { get: (k) => ({ SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "svc" })[k] } };
+    globalThis.fetch = async (url, init = {}) => {
+      const u = String(url); calls.push([init.method || "GET", u]);
+      if (u.includes("/rest/v1/calendar_feeds?select=")) return new Response(JSON.stringify(u.includes(sha) ? [{ user_id: UID, options: {}, last_fetched_at: new Date().toISOString(), cache_key: o.key || null, cache_text: o.cache || null }] : []));
+      if (u.includes("rpc/studyboard_rate_hit")) return o.rate ? o.rate() : new Response("true");
+      if (u.includes("items?select=updated_at") || u.includes("studyboard_deletions")) return new Response("[]");
+      if (u.includes("items?select=kind,id,data")) return new Response("[]");
+      if (init.method === "PATCH") return new Response(null, { status: 204 });
+      return new Response("{}", { status: 500 });
+    };
+    const res = await cf.handle(calReq());
+    return { res, text: await res.text(), calls };
+  };
+  // learn the current change key from a first build, then plant a poisoned cache under it
+  const first = await run({});
+  const key = (first.res.headers.get("ETag") || "").replace(/"/g, "");
+  assert.ok(key);
+  const good = await run({ key, cache: "BEGIN:VCALENDAR\r\nX-CACHED:1\r\nEND:VCALENDAR\r\n" });
+  assert.match(good.text, /X-CACHED/); assert.ok(!good.calls.some(([, u]) => u.includes("items?select=kind")), "a safe cache is reused");
+  const bad = await run({ key, cache: "BEGIN:VCALENDAR\r\nX-CACHED:1\r\nnot a line\r\nEND:VCALENDAR\r\n" });
+  assert.equal(bad.res.status, 200); assert.doesNotMatch(bad.text, /X-CACHED|not a line/); assert.ok(bad.calls.some(([, u]) => u.includes("items?select=kind")), "an unsafe cache is rebuilt");
+  assert.equal((await run({ rate: () => new Response("false") })).res.status, 429);
+  assert.equal((await run({ rate: () => new Response('{"message":"boom"}', { status: 500 }) })).res.status, 429, "a limiter error says no");
+  assert.equal((await run({ rate: () => { throw new Error("network"); } })).res.status, 429);
+  assert.equal((await run({ rate: () => new Response('{"code":"PGRST202","message":"Could not find the function"}', { status: 404 }) })).res.status, 200, "no limiter function yet: still served");
+});
 await test("calendar-feed: errors are generic (no setup details)", async () => {
   calEnv({ dbDown: true });
   let res = await cf.handle(calReq());
@@ -483,6 +543,24 @@ await test("calendar-feed: errors are generic (no setup details)", async () => {
   res = await cf.handle(calReq()); t = await res.text();
   assert.equal(res.status, 503); assert.doesNotMatch(t, /SUPABASE|SERVICE_ROLE|secret|missing/i);
   globalThis.fetch = realFetch; delete globalThis.Deno;
+});
+
+// ---- error-ingest: the address used for the per-address limit
+const ei = await load("supabase-functions/error-ingest/index.ts");
+await test("error-ingest: the limiter's address is cf-connecting-ip or the right-most X-Forwarded-For entry, never the client's own", async () => {
+  assert.equal(ei.clientIp(new Headers({ "x-forwarded-for": "1.1.1.1, 2.2.2.2, 203.0.113.9" })), "203.0.113.9");
+  assert.equal(ei.clientIp(new Headers({ "x-forwarded-for": "1.1.1.1", "cf-connecting-ip": "198.51.100.4" })), "198.51.100.4");
+  assert.equal(ei.clientIp(new Headers({ "x-forwarded-for": " 203.0.113.9 ," })), "203.0.113.9");
+  assert.equal(ei.clientIp(new Headers()), "unknown", "no address: one shared bucket, so there is still a per-address limit");
+  // a changing left-most entry gives the same address hash
+  const seen = [];
+  const d = { env: (k) => ({ SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "k" })[k] || "", now: () => NOW, log,
+    fetch: async (url, init) => { if (/client_errors_allow/.test(url)) { seen.push(JSON.parse(init.body)); return new Response("true"); } return new Response("", { status: 201 }); } };
+  const ev = { event_id: "0".repeat(32), exception: { values: [{ type: "Error", value: "x" }] }, fingerprint: ["0123abcd"] };
+  for (const fake of ["9.9.9.1", "9.9.9.2"]) await ei.handle(new Request("https://f/error-ingest", { method: "POST", headers: { "x-forwarded-for": fake + ", 203.0.113.9" }, body: JSON.stringify({ v: 1, event: ev }) }), d);
+  await ei.handle(new Request("https://f/error-ingest", { method: "POST", body: JSON.stringify({ v: 1, event: ev }) }), d);
+  assert.equal(seen[0].p_anon, null); assert.ok(seen[0].p_ip && seen[0].p_ip === seen[1].p_ip, "spoofed first entries don't change the bucket");
+  assert.ok(seen[2].p_ip, "no address header: still limited per address");
 });
 
 // ---- lms-feed (sign-in checked, public addresses only on every hop, size cap, generic errors, limiter fails closed)
@@ -553,6 +631,11 @@ await test("lms-feed: every redirect is checked again (DNS too), at most 3", asy
   l = lmsDeps({ respond: (u, n) => n === 1 ? to("https://cdn.example.net/x.ics") : new Response(ICS) });
   const ok = await (await lf.handle(lmsReq(), l.deps)).json();
   assert.equal(ok.ok, true); assert.equal(l.fetched[1][0], "https://cdn.example.net/x.ics");
+  for (const loc of ["https://cdn.example.net/admin", "https://cdn.example.net/x.ics.html", "/d2l/home", "https://cdn.example.net/feeds/calendars/a/b"]) {
+    l = lmsDeps({ respond: (u, n) => n === 1 ? to(loc) : new Response(ICS) });
+    assert.equal((await (await lf.handle(lmsReq(), l.deps)).json()).error, "bad-url", "a redirect must also be a calendar feed path: " + loc);
+    assert.equal(l.fetched.length, 1);
+  }
   l = lmsDeps({ respond: () => to("https://cdn.example.net/again.ics") });
   assert.equal((await (await lf.handle(lmsReq(), l.deps)).json()).error, "fetch");
   assert.equal(l.fetched.length, 4, "the link plus 3 redirects, then it stops");
@@ -601,6 +684,9 @@ await test("send-reminders: sending needs the schedule secret", async () => {
   assert.equal((await sr.handle(remReq({ action: "send" }, { "x-studyboard-cron": "c".repeat(64) }), remStore().store, p, remOpts())).status, 200);
   assert.equal((await sr.handle(remReq({ action: "send" }, { "x-studyboard-cron": "d".repeat(64) }), remStore().store, fakePush(), remOpts({ cronSecret: "d".repeat(64) }))).status, 200);
   assert.equal((await sr.handle(remReq({ action: "nope" }), remStore().store, p, remOpts())).status, 400);
+  // the body is read with a cap before anything else (a chunked body without Content-Length too)
+  const chunked = new ReadableStream({ start(c) { for (let i = 0; i < 40; i++) c.enqueue(new TextEncoder().encode("x".repeat(1000))); c.close(); } });
+  assert.equal((await sr.handle(new Request("https://x/functions/v1/send-reminders", { method: "POST", body: chunked, duplex: "half" }), remStore().store, p, remOpts())).status, 413);
   // Snooze from a notification still works with only the reminder's own code
   const s = remStore();
   assert.equal((await sr.handle(remReq({ action: "snooze", id: "r:1", tok: "tok1" }), s.store, p, remOpts())).status, 200);
