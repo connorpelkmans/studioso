@@ -53,12 +53,22 @@ function SEED(){
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath, args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--autoplay-policy=no-user-gesture-required"]});
   const mkCtx = async (seed, free, ai) => {
-    const ctx = await browser.newContext({viewport: {width: 1200, height: 900}, permissions: ["microphone"]});
+    const ctx = await browser.newContext({viewport: {width: 1200, height: 900}, permissions: ["microphone"], serviceWorkers: "block"});   // (so the test's stand-ins answer every request)
     ctx.aiBodies = [];
+    // The icon library (Lucide on jsDelivr), cut down to a few icons
+    ctx.luHits = 0;
+    await ctx.route(/cdn\.jsdelivr\.net\/npm\/lucide-static@[\d.]+\/(tags|icon-nodes)\.json/, route => { ctx.luHits++;
+      const tags = {"flask-conical": ["lab", "chemistry", "experiment"], "test-tube": ["lab", "science"], "beaker": ["lab", "chemistry"], "heart": ["love", "health"], "car": ["vehicle"]};
+      const nodes = {"flask-conical": [["path", {d: "M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2"}], ["path", {d: "M6.453 15h11.094"}], ["path", {d: "M8.5 2h7"}]],
+        "test-tube": [["path", {d: "M14.5 2v17.5c0 1.4-1.1 2.5-2.5 2.5c-1.4 0-2.5-1.1-2.5-2.5V2Z"}], ["path", {d: "M8.5 2h7"}], ["path", {d: "M14.5 16h-5"}]],
+        "beaker": [["path", {d: "M4.5 3h15"}], ["path", {d: "M6 3v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V3Z"}], ["path", {d: "M6 14h12"}]], "heart": [["path", {d: "M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5Z"}]], "car": [["circle", {cx: "7", cy: "17", r: "2"}]]};
+      route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify(/tags/.test(route.request().url()) ? tags : nodes)}); });
     await ctx.route(/generativelanguage\.googleapis\.com/, async route => {
       const body = route.request().postData() || ""; ctx.aiBodies.push(body);
       const em = /forwarded to their planner/.test(body) && /Subject: Fwd: Lab 4 moved/.test(body);
       const reply = em ? {items: [{title: "Lab 4", dueDate: ctx.emailDue, dueTime: "17:00", course: "BIO101", type: "Lab", notes: "Bring goggles", confidence: 0.92}], rawText: ""}
+        : /help find icons in an icon library/.test(body) ? {words: ["beaker", "lab"]}
+        : /You pick icons for a student/.test(body) ? {picks: [{icon: "flask-conical", name: "Lab Flask"}, {icon: "test-tube", badge: "heart", name: "Test Tube"}, {icon: "beaker", name: "Beaker"}]}
         : /professional icon designer/.test(body) ? {icons: [1, 2, 3].map(k => ({idea: "a flask", name: (/three drafts/.test(body) ? "Polished " : "Flask ") + k, svg: '<path class="b" d="M10 3v6l-5 9h14l-5-9V3z"/><circle class="a" cx="12" cy="16" r="' + (1 + k) + '"/>'}))}
         : /inline_data/.test(body) ? {text: "Today we talk about osmosis. Water moves across a membrane toward the side with more solute."}
         : /tidy the raw transcript/.test(body) ? {text: "## Osmosis\n\nToday we talk about osmosis.\n\nWater moves toward more solute."}
@@ -213,9 +223,11 @@ function SEED(){
     await page.click(".ci-ai-btn"); await page.fill("#ciAiQ", "a flask"); await page.click('[data-act="ci-ai-go"]');
     await page.waitForSelector("#ciAiPrev .ci-cand", {timeout: 15000});
     ok(await page.locator("#ciAiPrev .ci-cand").count() === 3, "AI icons: three drafts to choose from");
-    ok(page.context().aiBodies.some(b => /Here are your three drafts/.test(b) && /image\/png/.test(b)), "the drafts are rendered and sent back to be polished");
+    const ib = page.context().aiBodies;
+    ok(page.context().luHits >= 2 && ib.some(b => /You pick icons for a student/.test(b) && /flask-conical/.test(b)) && !ib.some(b => /professional icon designer/.test(b)), "icons come from the icon library: the AI only picks (nothing drawn from scratch)");
+    ok(await page.evaluate(() => /class="a"/.test(document.querySelector("#ciAiPrev .ci-cand svg").innerHTML) && /<g transform="translate\(13\.5 13\.5\) scale\(0\.42\)">/.test(document.querySelectorAll("#ciAiPrev .ci-cand svg")[1].innerHTML)), "the library icon takes the course colour, and a badge sits small in the corner");
     await page.click('#ciAiPrev .ci-cand[data-id="2"]'); await page.click('[data-act="ci-ai-use"]'); await page.waitForTimeout(200);
-    ok(await page.evaluate(() => { const c = state.settings.customIcons || []; return c.length > 0 && c[0].name === "Polished 3"; }), "the chosen one, polished, is kept");
+    ok(await page.evaluate(() => { const c = state.settings.customIcons || []; return c.length > 0 && c[0].name === "Beaker"; }), "the chosen one is kept");
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
 
     /* ---------- Turning a sticker on a note ---------- */

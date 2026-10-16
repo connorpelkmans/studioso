@@ -10,6 +10,7 @@ Studyboard itself is released under the MIT License (see `LICENSE`). It includes
 | pdfjs-dist (PDF.js) 6.4.299 | Reading PDFs you import (syllabi, study material); the unmodified legacy build is served from `vendor/pdfjs/` | Copyright 2012 Mozilla Foundation | Apache License 2.0 |
 | @supabase/supabase-js | Optional account sign-in and sync | Copyright (c) 2020 Supabase | MIT |
 | Electron | The desktop app (includes Chromium and Node.js, whose own notices ship inside the installer as `LICENSES.chromium.html`) | Copyright (c) Electron contributors; Copyright (c) 2013-2020 GitHub Inc. | MIT |
+| Lucide icons (lucide-static 1.49.0) | Course icons you make with Create: an icon's shapes are copied from Lucide and coloured; the library is loaded from the jsDelivr CDN only when you make one | Copyright (c) 2026 Lucide Icons and Contributors; icons derived from Feather Copyright (c) 2013-present Cole Bemis | ISC (Lucide); MIT (the Feather-derived icons) |
 | electron-builder | Building the desktop installers (build tool, not shipped) | electron-userland contributors | MIT |
 
 On the website the fonts (Latin subsets from `@fontsource`, SIL OFL 1.1, licenses in `vendor/fonts/`) and supabase-js (`vendor/`, MIT, license beside it) are served from the site itself; pdf.js (`vendor/pdfjs/`) is served from the site itself too. The desktop app ships local copies of all of them (`npm run prep` copies them from `node_modules` and `vendor/`).
@@ -21,6 +22,26 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+## ISC License (Lucide icons)
+
+ISC License
+
+Copyright (c) 2026 Lucide Icons and Contributors
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+The following Lucide icons are derived from the Feather project, Copyright (c) 2013-present Cole Bemis, and are also under the MIT License above: airplay, alert-circle, alert-octagon, alert-triangle, aperture, arrow-down-circle, arrow-down-left, arrow-down-right, arrow-down, arrow-left-circle, arrow-left, arrow-right-circle, arrow-right, arrow-up-circle, arrow-up-left, arrow-up-right, arrow-up, at-sign, calendar, cast, check, chevron-down, chevron-left, chevron-right, chevron-up, chevrons-down, chevrons-left, chevrons-right, chevrons-up, circle, clipboard, clock, code, columns, command, compass, corner-down-left, corner-down-right, corner-left-down, corner-left-up, corner-right-down, corner-right-up, corner-up-left, corner-up-right, crosshair, database, divide-circle, divide-square, dollar-sign, download, external-link, feather, frown, hash, headphones, help-circle, info, italic, key, layout, life-buoy, link-2, link, loader, lock, log-in, log-out, maximize, meh, minimize, minimize-2, minus-circle, minus-square, minus, monitor, moon, more-horizontal, more-vertical, move, music, navigation-2, navigation, octagon, pause-circle, percent, plus-circle, plus-square, plus, power, radio, rss, search, server, share, shopping-bag, sidebar, smartphone, smile, square, table-2, tablet, target, terminal, trash-2, trash, triangle, tv, type, upload, x-circle, x-octagon, x-square, x, zoom-in, zoom-out
 
 ## Apache License 2.0 (pdfjs-dist)
 
