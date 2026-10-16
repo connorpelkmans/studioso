@@ -163,6 +163,21 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     // Where this came from: tucked away at the bottom of the task's sheet
     const src = await app.evaluate(() => { const L = SBLMS.brightspace; const d = L.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [], courses: [{ou: "7", code: "HSIP0100", name: "Health Sciences", folders: [{id: "77", name: "Source Check Essay", due: new Date(Date.now() + 5 * 864e5).toISOString(), end: null, sub: null, files: []}], quizzes: [], grades: [], news: [], events: []}]}); d.via = "extension"; L.applyPlan(d, L.plan(d), "grab", true); const t = Object.values(SBLMS.st().tasks).find(x => x.title === "Source Check Essay"); return SBLMS_TASK(t).replace(/<[^>]+>/g, " ").replace(/\s+/g, " "); });
     ok(/Where this came from/.test(src) && /Added by the Studyboard School Sync extension/.test(src), "a task's sheet says, tucked away, what added it: " + src.slice(-160));
+    // Deleted by you: a sync keeps it off; Bring Them Back (in the platform's settings) lets the next read bring it back
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    const DROP = {ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [], courses: [{ou: "7", code: "HSIP0100", name: "Health Sciences", folders: [{id: "88", name: "Deleted Then Wanted", due: new Date(Date.now() + 6 * 864e5).toISOString(), end: null, sub: null, files: []}], quizzes: [], grades: [], news: [], events: []}]};
+    const dr = await app.evaluate(h => {
+      const L = SBLMS.brightspace, read = () => { const d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true); return Object.values(SBLMS.st().tasks).find(t => t.title === "Deleted Then Wanted"); };
+      const t = read(); SBLMS.applyChanges([{kind: "task", id: t.id, after: null}], "");
+      return {kept: !read(), dropped: (L.cfg().dropped || []).length};
+    }, DROP);
+    ok(dr.kept && dr.dropped > 0, "an assignment you delete stays deleted when syncing: " + JSON.stringify(dr));
+    await app.evaluate(() => SBLMS.brightspace.bsSheet());
+    await app.waitForSelector('dialog[open] [data-act="bs-undrop"]', {timeout: 5000});
+    ok(/kept off/.test(await app.textContent("dialog[open]")), "the platform's settings say deleted items are kept off");
+    await app.click('dialog[open] [data-act="bs-undrop"]');
+    const back = await app.evaluate(h => { const L = SBLMS.brightspace, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true); return {dropped: (L.cfg().dropped || []).length, back: !!Object.values(SBLMS.st().tasks).find(t => t.title === "Deleted Then Wanted")}; }, DROP);
+    ok(back.dropped === 0 && back.back, "after Bring Them Back, the next read brings it back: " + JSON.stringify(back));
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await browser.close(); server.close(); }
   console.log(`\nlms-phase.e2e: ${n} checks passed`);
