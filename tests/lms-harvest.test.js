@@ -90,6 +90,22 @@ const BB = [
     await assert.rejects(vm.runInContext(`(${L.bsHarvest.toString()})(${JSON.stringify(SAFE)})`, ctx), e => e && e.name === "ReferenceError" && /htmlText/.test(e.message));
   });
 
+  await t("Brightspace: a quiz you sat counts as done, from its attempts or the Quizzes page, even with only an opening date", async () => {
+    const page = `<table><tr><th>EXAMS</th><th>Evaluation Status</th><th>Attempts</th></tr>
+      <tr><td><a href="/d2l/lms/quizzing/user/quiz_summary.d2l?qi=8&amp;ou=101">BSNC 1000 Midterm Exam- Requires Respondus LockDown Browser</a><br>Available on 10/6/2026 5:00 AM</td><td></td><td>1 / 1</td></tr>
+      <tr><td><a href="/d2l/lms/quizzing/user/quiz_summary.d2l?qi=7&amp;ou=101">Quiz 1</a><br>Available on 10/6/2026 5:00 AM until 11/29/2026 8:00 AM</td><td></td><td>0 / 1</td></tr></table>`;
+    const routes = BS.filter(([re]) => !/quizzes\\\/\$/.test(re.source)).concat([
+      [/^\/d2l\/api\/le\/1\.70\/101\/quizzes\/$/, { Objects: [{ QuizId: 7, Name: "Quiz 1", DueDate: iso(9), IsActive: true }, { QuizId: 8, Name: "BSNC 1000 Midterm Exam- Requires Respondus LockDown Browser", StartDate: iso(-10), IsActive: true },
+        { QuizId: 9, Name: "Practice Quiz", StartDate: iso(-10), IsActive: true }], Next: null }],
+      [/\/quizzes\/9\/attempts\/$/, [{ AttemptId: 4, AttemptNumber: 1 }]],   // waiting to be marked: no score, no completion time
+      [/quizzes_list\.d2l\?ou=101/, page, { "content-type": "text/html" }]]);
+    const { out } = await runInjected("brightspace", "https://learn.example.edu", routes);
+    const q = id => out.courses[0].quizzes.find(x => x.id === id);
+    assert.strictEqual(q("8").done, true, "the Quizzes page's 1 / 1 (and not the date 10/6) says the midterm was sat");
+    assert.notStrictEqual(q("7").done, true, "0 / 1 is not done, though its row has dates like 10/6/2026");
+    assert.strictEqual(q("9").done, true, "an attempt pending evaluation counts");
+  });
+
   await t("Brightspace: injected script runs in an empty page context and reads HTML text", async () => {
     const { out, seen } = await runInjected("brightspace", "https://learn.example.edu", BS);
     assert.strictEqual(out.ok, true, JSON.stringify(out).slice(0, 300));

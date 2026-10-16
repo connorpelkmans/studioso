@@ -281,12 +281,29 @@ async function bsHarvest(o) {
       c.subNote = `${c.code || c.name}: ${yes} submitted, ${no} not, ${unk} unknown` + (subFail ? `; API refused ${subFail} (${subWhy})` : "") + (subOdd ? `; ${subOdd} unreadable answers` : "") + (fromPage ? `; ${fromPage} from the Assignments page` : "");
     }
     // Quizzes you've finished: a completed attempt (only your own attempts are listed), so they can be marked done too
-    const qrecent = quizzes.filter(x => { if (!x || x.IsActive === false) return false; const d = Date.parse(x.DueDate || x.EndDate || ""); return !isNaN(d) && d > now - 60 * 864e5 && d < now + 240 * 864e5; }).slice(0, 40);
+    // (and ones with only an opening date, or none: "Available on Oct 6" is all some exams say)
+    const qrecent = quizzes.filter(x => { if (!x || x.IsActive === false) return false; const d = Date.parse(x.DueDate || x.EndDate || x.StartDate || ""); return isNaN(d) || (d > now - 60 * 864e5 && d < now + 240 * 864e5); }).slice(0, 40);
     const tried = {};
     await inBatches(qrecent, async x => {
       const a = await soft(`${b}/quizzes/${x.QuizId}/attempts/`, true);
-      if (a) tried[x.QuizId] = listOf(a).some(t => t && (t.TimeCompleted || t.DateCompleted || t.SubmittedDate || t.IsGraded === true || (t.Score != null && t.Score !== "")));
+      // Any attempt listed counts: one waiting to be marked ("Pending Evaluation") has no score or completion time yet
+      if (a) tried[x.QuizId] = listOf(a).some(t => t && (t.AttemptId != null || t.AttemptNumber != null || t.TimeCompleted || t.DateCompleted || t.SubmittedDate || t.IsGraded === true || (t.Score != null && t.Score !== "")));
     });
+    // Students often may not list their own attempts through the API; the Quizzes page says it in its Attempts column ("1 / 1", "3 / Unlimited")
+    if (qrecent.some(x => tried[x.QuizId] !== true)) {
+      try {
+        const r = await fetch(`/d2l/lms/quizzing/user/quizzes_list.d2l?ou=${c.ou}`, { credentials: "include" });
+        if (r.ok) {
+          const html = (await r.text()).slice(0, 3000000);
+          html.split(/(?=quiz_summary\.d2l\?)/).slice(1).forEach(part => {
+            const m = part.match(/^quiz_summary\.d2l\?[^"'<>]*?\bqi=(\d+)/); if (!m || tried[m[1]] === true) return;
+            // the row's last "used / allowed", never a date like 10/6/2026
+            const all = [...htmlText(part.slice(0, 6000), { line: true }).matchAll(/(?<![\d/])(\d+)\s*\/\s*(?:\d+|unlimited)(?![\d/])/gi)], a = all[all.length - 1];
+            if (a && Number(a[1]) > 0) tried[m[1]] = true;
+          });
+        }
+      } catch (e) {}
+    }
     // A released grade means it was handed in (or is closed): either way there's nothing left to do
     const graded = new Set(listOf(grades).filter(g => g && g.GradeObjectIdentifier != null && g.PointsNumerator != null).map(g => String(g.GradeObjectIdentifier)));
     // A rubric (Brightspace's levels are shared by a group's criteria; each criterion has one cell per level)
