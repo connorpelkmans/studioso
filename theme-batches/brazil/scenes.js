@@ -151,15 +151,15 @@ SCENES.brazil = function (W, H, dk, rnd) {
   LF.forEach(function (p) { if (p[0] > midX(p[1]) + wr * 0.12) shade.push(p); });
   for (i = 20; i >= 0; i--) { var tt = i / 20, yy2 = stop + sh * 0.04 + (hz + 2 - stop - sh * 0.04) * tt; inner.push([midX(yy2) + wr * (0.14 + 0.3 * tt) + Math.sin(tt * 14) * wr * 0.025, yy2]); }
   add(bg, 'e', brazil_pg(shade.concat(inner)), C.lshade);
-  var streak = '';
+  var streak = '', raws = [], cc = [], cl = function (x2, y2, r2) { cc.push([x2, y2, r2]); return brazil_c(x2, y2, r2); };
   [-0.82, -0.66, -0.5, -0.36, -0.22, -0.1, 0.04, 0.16, 0.28, 0.4, 0.52, 0.64, 0.76, 0.86].forEach(function (u, n) { var pts = [], y0 = stop + sh * (0.06 + Math.abs(u) * 0.22 + hash(n) * 0.06), y1 = stop + sh * (0.5 + hash(n + 3) * 0.28);
     for (y = y0; y < y1; y += 6) { var xx = midX(y) + u * half(y, u < 0 ? -1 : 1) * (0.94 - 0.05 * Math.abs(u)) + Math.sin(y * 0.05 + n) * 1.5; pts.push([xx, y]); }
-    if (pts.length > 2) streak += pline(pts); });
+    if (pts.length > 2) raws.push(pts); });
 
   var vegY = function (xx) { var u = (xx - sx) / (xx < sx ? wl : wr); return hz - sh * (0.17 + 0.05 * Math.sin(xx * 0.06) + 0.03 * Math.sin(xx * 0.17) + (u > 0.35 ? 0.14 * Math.min(1, (u - 0.35) * 1.4) : 0)); }, vt = [], veg = '';
   for (x = LF[0][0]; x <= LF[LF.length - 1][0]; x += 4) { var oy = brazil_yAt(LF, x); vt.push([x, Math.max(oy, vegY(x)) + (oy < vegY(x) ? Math.abs(Math.sin(x * 0.33)) * 3 * S : 0)]); }
   veg += brazil_pg(vt.concat([[LF[LF.length - 1][0], hz + 3], [LF[0][0], hz + 3]]));
-  for (k = 0; k < (ph ? 16 : 26); k++) { var vx = sx + (hash(k * 3.7) * 2 - 1) * wr * 0.8, vy = stop + sh * (0.2 + hash(k * 5.1) * 0.5); if (vy > brazil_yAt(LF, vx) + 8 * S && vy < vegY(vx)) veg += brazil_e(vx, vy, (3 + hash(k) * 5) * S, (1.6 + hash(k + 1) * 2) * S); }
+  for (k = 0; k < (ph ? 16 : 26); k++) { var vx = sx + (hash(k * 3.7) * 2 - 1) * wr * 0.8, vy = stop + sh * (0.2 + hash(k * 5.1) * 0.5); if (vy > brazil_yAt(LF, vx) + 8 * S && vy < vegY(vx)) { var vr = (3 + hash(k) * 5) * S; veg += brazil_e(vx, vy, vr, (1.6 + hash(k + 1) * 2) * S); cc.push([vx, vy, vr]); } }
   // ---- Morro da Urca in front of Sugarloaf, forested (in the same green as Sugarloaf's foot)
   var ux = W * (ph ? 0.6 : 0.735), utop = H * (ph ? 0.46 : 0.44), UR = brazil_dome(ux, hz + 2, utop, W * (ph ? 0.16 : 0.075), W * (ph ? 0.12 : 0.06), -6 * S, 2.6, 0.85, 0.3, ph ? 60 : 90);
   veg += brazil_pg(UR);
@@ -173,23 +173,26 @@ SCENES.brazil = function (W, H, dk, rnd) {
   add(bg, 'g', hill, C.hill);
   var clump = '';
   spread(-20, H * 0.2, W * 0.75, hz - H * 0.2, (ph ? 16 : 22), (ph ? 14 : 18), rnd, 1).forEach(function (c) { var r = (4 + c.r * 7) * S, fy = brazil_yIn(FH, c.x), ry = brazil_yIn(RG, c.x);
-    if (c.q < 0.5 && c.y > fy + r * 1.4 && c.y < hz - r) clump += brazil_c(c.x, c.y, r) + brazil_c(c.x + r * 0.9, c.y + r * 0.35, r * 0.75) + brazil_c(c.x - r * 0.8, c.y + r * 0.4, r * 0.65);
-    else if (c.q < 0.14 && c.y > ry + r * 2 && c.y < fy - r && c.y > ry + H * 0.1) clump += brazil_c(c.x, c.y, r * 0.8); });
-  spread(UR[0][0], utop, UR[UR.length - 1][0] - UR[0][0], hz - utop, 14 * S + 6, 12 * S + 4, rnd, 1).forEach(function (c) { var r = (3 + c.r * 5) * S; if (c.q < 0.55 && c.y > brazil_yAt(UR, c.x) + r * 1.6 && c.y < hz - r * 0.5) clump += brazil_c(c.x, c.y, r) + brazil_c(c.x + r * 0.85, c.y + r * 0.3, r * 0.7) + brazil_c(c.x - r * 0.8, c.y + r * 0.35, r * 0.6); });
+    if (c.q < 0.5 && c.y > fy + r * 1.4 && c.y < hz - r) clump += cl(c.x, c.y, r) + cl(c.x + r * 0.9, c.y + r * 0.35, r * 0.75) + cl(c.x - r * 0.8, c.y + r * 0.4, r * 0.65);
+    else if (c.q < 0.14 && c.y > ry + r * 2 && c.y < fy - r && c.y > ry + H * 0.1) clump += cl(c.x, c.y, r * 0.8); });
+  spread(UR[0][0], utop, UR[UR.length - 1][0] - UR[0][0], hz - utop, 14 * S + 6, 12 * S + 4, rnd, 1).forEach(function (c) { var r = (3 + c.r * 5) * S; if (c.q < 0.55 && c.y > brazil_yAt(UR, c.x) + r * 1.6 && c.y < hz - r * 0.5) clump += cl(c.x, c.y, r) + cl(c.x + r * 0.85, c.y + r * 0.3, r * 0.7) + cl(c.x - r * 0.8, c.y + r * 0.35, r * 0.6); });
   // the forest on Corcovado's ridge: tree crowns along its outline and clumps of canopy down its slopes (not on the bare
   // granite faces, nor near the summit's statue)
   var bare = (ph ? [[W * 0.24, W * 0.47, 0.11]] : [[W * 0.5, W * 0.665, 0.14], [W * 0.42, W * 0.48, 0.04]]), onRock = function (x2, y2) { return bare.some(function (q) { return x2 > q[0] - 4 * S && x2 < q[1] + 4 * S && y2 < brazil_yAt(RG, x2) + H * q[2] + 8 * S; }); };
-  var crowns = ''; RG.forEach(function (p, n) { if (n % 2 || p[0] > W * (ph ? 0.5 : 0.68) || Math.abs(p[0] - sum[0]) < 40 * S || onRock(p[0], p[1] + 2) || p[1] > hz - 10 * S) return; crowns += brazil_c(p[0], p[1] + 3 * S, (4 + hash(n + 0.7) * 5) * S); });
+  var crowns = ''; RG.forEach(function (p, n) { if (n % 2 || p[0] > W * (ph ? 0.5 : 0.68) || Math.abs(p[0] - sum[0]) < 40 * S || onRock(p[0], p[1] + 2) || p[1] > hz - 10 * S) return; crowns += cl(p[0], p[1] + 3 * S, (4 + hash(n + 0.7) * 5) * S); });
   add(bg, 'b', crowns);
   spread(-20, H * 0.15, W * (ph ? 0.5 : 0.68), hz - H * 0.15, (ph ? 14 : 18), (ph ? 12 : 14), rnd, 1).forEach(function (c) { var r = (3 + c.r * 5) * S, ry = brazil_yIn(RG, c.x), fy = brazil_yIn(FH, c.x);
-    if (c.q < 0.45 && c.y > ry + r * 1.6 && c.y < Math.min(fy, hz) - r * 0.5 && !onRock(c.x, c.y) && Math.hypot(c.x - sum[0], c.y - sum[1]) > 50 * S) clump += brazil_c(c.x, c.y, r) + brazil_c(c.x + r * 0.8, c.y + r * 0.3, r * 0.7) + brazil_c(c.x - r * 0.75, c.y + r * 0.35, r * 0.6); });
+    if (c.q < 0.45 && c.y > ry + r * 1.6 && c.y < Math.min(fy, hz) - r * 0.5 && !onRock(c.x, c.y) && Math.hypot(c.x - sum[0], c.y - sum[1]) > 50 * S) clump += cl(c.x, c.y, r) + cl(c.x + r * 0.8, c.y + r * 0.3, r * 0.7) + cl(c.x - r * 0.75, c.y + r * 0.35, r * 0.6); });
   // gullies running down Corcovado's forested slopes, and cracks in its bare granite faces
   for (k = 0; k < (ph ? 7 : 12); k++) { var gx = W * (ph ? 0.03 + k * 0.07 : 0.02 + k * 0.055) + hash(k * 2.7) * 12 * S, gy0 = brazil_yAt(RG, gx) + 6 * S, glen = H * (0.05 + hash(k * 4.1) * 0.06), gp = [];
     if (gx > W * (ph ? 0.5 : 0.68) || Math.abs(gx - sum[0]) < 40 * S) continue;
     for (var gu = 0; gu <= 1.001; gu += 0.125) { var gxx = gx + Math.sin(gu * 4 + k) * 3 * S + gu * (gx < sum[0] ? -8 : 8) * S, gyy = gy0 + glen * gu; if (gyy > hz - 4) break; gp.push([gxx, gyy]); }
-    if (gp.length > 2 && !onRock(gp[0][0], gp[0][1])) streak += pline(gp); }
-  bare.forEach(function (q, n) { for (k = 0; k < 4; k++) { var cxr = q[0] + (q[1] - q[0]) * (0.2 + k * 0.2), cy0 = brazil_yAt(RG, cxr) + 3 * S, cl = H * q[2] * (0.35 + hash(k + n * 7) * 0.4); streak += pline([[cxr, cy0], [cxr + 2 * S, cy0 + cl * 0.5], [cxr + 0.5 * S, cy0 + cl]]); } });
+    if (gp.length > 2 && !onRock(gp[0][0], gp[0][1])) raws.push(gp); }
+  bare.forEach(function (q, n) { for (k = 0; k < 4; k++) { var cxr = q[0] + (q[1] - q[0]) * (0.2 + k * 0.2), cy0 = brazil_yAt(RG, cxr) + 3 * S, cl = H * q[2] * (0.35 + hash(k + n * 7) * 0.4); raws.push([[cxr, cy0], [cxr + 2 * S, cy0 + cl * 0.5], [cxr + 0.5 * S, cy0 + cl]]); } });
   add(bg, 'h', clump, C.clump);
+  // rain streaks and gullies stop where the forest, the favela's hill or a tree crown lies in front of them
+  var hid = function (x2, y2) { return y2 > brazil_yIn(FH, x2) - 2 * S || y2 > brazil_yIn(UR, x2) - 2 * S || (x2 > LF[0][0] && x2 < LF[LF.length - 1][0] && y2 > vegY(x2) - 3 * S) || cc.some(function (c) { return Math.hypot(x2 - c[0], y2 - c[1]) < c[2] + 2 * S; }); };
+  raws.forEach(function (pts) { var run = []; pts.concat([null]).forEach(function (q) { if (q && !hid(q[0], q[1])) { run.push(q); return; } if (run.length > 1) streak += pline(run); run = []; }); });
   stk(bg, 's', streak, C.streak, ph ? 1.4 : 2.2);
   if (dk) { var stars = ''; spread(0, 0, W, hz * 0.85, 40, 36, rnd, 1).forEach(function (c) { var hy = Math.min(brazil_yIn(RG, c.x), brazil_yIn(LF, c.x), brazil_yIn(NIT, c.x));
     if (c.q < 0.5 && Math.hypot(c.x - moon[0], c.y - moon[1]) > moon[2] * 2.4 && c.y < hy - 8 && Math.hypot(c.x - sum[0], c.y - sum[1]) > 50 * S) stars += seg(c.x, c.y, c.x + 0.1, c.y); }); stk(bg, 't', stars, C.star, 1.5 + rnd()); }

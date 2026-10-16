@@ -117,7 +117,7 @@ function brazil_paintTown(o, T, dk, tw) { var r = brazil_rs(T.seed), s = T.s, hz
   function wins(x, y0, w, h, fw, fh, ww, wh, glass) { for (var yy = y0 + fh * 0.5; yy < y0 + h - fh * 0.6; yy += fh) for (var xx = x + fw * 0.5; xx < x + w - fw * 0.5; xx += fw) { var lit = dk && r() < (glass ? 0.3 : 0.45);
     o.fillStyle = lit ? (r() < 0.6 ? '#FFD68E' : '#FFF0C4') : (glass ? 'rgba(20,40,80,0.28)' : col('#3A4260')); o.fillRect(xx - ww / 2, yy - wh / 2, ww, wh); if (lit && r() < 0.06 && tw.length < 200) tw.push([xx - ww / 2, yy - wh / 2, ww, wh, r()]); } }
   function bld(x, w, h, kind, back) { var y0 = hz - h, side = w * 0.16, wc = WALL[Math.floor(r() * WALL.length)], fh = 4.2 * s;
-    o.fillStyle = dk ? 'rgba(6,8,24,0.3)' : 'rgba(40,40,70,0.16)'; o.fillRect(x + w, y0 + 3 * s, side + 3 * s, h);
+    o.fillStyle = dk ? 'rgba(6,8,24,0.3)' : 'rgba(40,40,70,0.16)'; var shTop = kind === 'deco' ? hz - h * 0.72 : y0; o.fillRect(x + w, shTop + 3 * s, side + 3 * s, hz - shTop);
     if (kind === 'glass') { var g = o.createLinearGradient(x, y0, x + w, hz); g.addColorStop(0, col('#A6D8F0')); g.addColorStop(0.5, col('#5AA2D0')); g.addColorStop(1, col('#2E6A9E')); o.fillStyle = col('#2A5A86', 0.2); o.fillRect(x + w, y0 + 1 * s, side, h);
       o.fillStyle = g; o.fillRect(x, y0, w, h); o.strokeStyle = dk ? 'rgba(160,190,255,0.18)' : 'rgba(255,255,255,0.4)'; o.lineWidth = 0.4 * s; o.beginPath();
       for (var gx = x + 3 * s; gx < x + w; gx += 3 * s) { o.moveTo(gx, y0); o.lineTo(gx, hz); } for (var gy = y0 + 3 * s; gy < hz; gy += 3 * s) { o.moveTo(x, gy); o.lineTo(x + w, gy); } o.stroke();
@@ -125,8 +125,9 @@ function brazil_paintTown(o, T, dk, tw) { var r = brazil_rs(T.seed), s = T.s, hz
       if (dk) wins(x, y0, w, h, 3 * s, 3 * s, 2.2 * s, 2.2 * s, true);
       o.fillStyle = col('#3A4A64'); o.fillRect(x - 0.5 * s, y0 - 1.5 * s, w + side + 0.5 * s, 1.6 * s); if (r() < 0.5) { o.fillRect(x + w * 0.45, y0 - 8 * s, 0.7 * s, 7 * s); if (dk) { o.fillStyle = '#FF6A5A'; o.fillRect(x + w * 0.45 - 0.3 * s, y0 - 8.6 * s, 1.3 * s, 1.3 * s); } }
       return; }
-    o.fillStyle = col(wc, 0.3); o.beginPath(); o.moveTo(x + w, y0); o.lineTo(x + w + side, y0 - side * 0.35); o.lineTo(x + w + side, hz); o.lineTo(x + w, hz); o.closePath(); o.fill();
-    if (kind === 'deco') { var st1 = h * 0.72, st2 = h * 0.86; o.fillStyle = col(wc); o.fillRect(x, hz - st1, w, st1); o.fillRect(x + w * 0.14, hz - st2, w * 0.72, st2); o.fillRect(x + w * 0.3, y0, w * 0.4, h);
+    var face = function (fx, fy, fs) { o.fillStyle = col(wc, 0.3); o.beginPath(); o.moveTo(fx, fy); o.lineTo(fx + fs, fy - fs * 0.35); o.lineTo(fx + fs, hz); o.lineTo(fx, hz); o.closePath(); o.fill(); };
+    if (kind !== 'deco') face(x + w, y0, side);
+    if (kind === 'deco') { var st1 = h * 0.72, st2 = h * 0.86; /* each setback tier has its own side face, so none stands up past the tier it belongs to */ face(x + w * 0.7, y0, side * 0.6); face(x + w * 0.86, hz - st2, side * 0.8); face(x + w, hz - st1, side); o.fillStyle = col(wc); o.fillRect(x, hz - st1, w, st1); o.fillRect(x + w * 0.14, hz - st2, w * 0.72, st2); o.fillRect(x + w * 0.3, y0, w * 0.4, h);
       o.fillStyle = col(wc, 0.18); for (var px = x + w * 0.1; px < x + w; px += w * 0.2) o.fillRect(px, hz - st1 + 2 * s, 0.8 * s, st1 - 2 * s);
       wins(x + w * 0.05, hz - st1, w * 0.9, st1, w * 0.2, fh, w * 0.08, 2.6 * s); o.fillStyle = col(wc, 0.12); o.fillRect(x + w * 0.47, y0 - 6 * s, w * 0.06, 6 * s); return; }
     o.fillStyle = col(wc); o.fillRect(x, y0, w, h);
