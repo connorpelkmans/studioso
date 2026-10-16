@@ -74,7 +74,7 @@ function connectForm(have) {
   const input = h("input", { type: "text", id: "addr", inputmode: "url", autocomplete: "off", spellcheck: "false", placeholder: "school.instructure.com", value: tabOrigin ? host(tabOrigin) : "", "aria-describedby": "addrHelp" });
   const sel = h("select", { id: "plat" }, h("option", { value: "" }, "Find out automatically"), ...Object.keys(NAMES).filter(k => !have.includes(k) || k === guessed).map(k => h("option", { value: k, selected: k === guessed }, NAMES[k])));
   const msg = h("p", { class: "status", id: "formMsg", role: "status" });
-  const go = h("button", { type: "submit", class: "btn primary" }, "Allow and Connect");
+  const go = h("button", { type: "submit", class: "btn primary" }, "Agree, Allow and Connect");
   const form = h("form", { class: "connect", onsubmit: e => {
     e.preventDefault();
     const origin = originOf(input.value);
@@ -93,10 +93,19 @@ function connectForm(have) {
     }, () => { msg.className = "status warn"; msg.textContent = "Couldn't ask for permission here. Try again."; });
   } },
     h("h2", {}, have.length ? "Connect Another School Site" : "Connect Your School Site"),
-    h("p", { class: "mini", id: "addrHelp" }, "Studyboard reads your due dates, submissions, grades, feedback and announcements on it, the way it does in the Studyboard app. Your browser will ask you to let it read that one site."),
+    h("p", { class: "mini", id: "addrHelp" }, "Your browser will ask you to let Studyboard read this one site."),
     h("label", { class: "f" }, h("span", {}, "School Site Address"), input),
     h("label", { class: "f" }, h("span", {}, "Platform"), sel),
+    // What it collects and what happens to it, shown before anything is read (Chrome Web Store: prominent disclosure and consent)
+    h("div", { class: "disclose", id: "disclose" },
+      h("b", {}, "What Studyboard will read and do with it"),
+      h("ul", {},
+        h("li", {}, "From this site, about every hour and when you open it: your courses, due dates, submissions, grades, feedback and rubrics, announcements, the syllabus, your name, your instructors' names and school emails, and (Canvas) your Inbox messages."),
+        h("li", {}, "It's kept in this browser and brought into your Studyboard planner when you open studyboardapp.com. If you're signed in to Studyboard, it's saved to your account like the rest of your planner."),
+        h("li", {}, "It's only used to show your school work in Studyboard. Never sold, never used for ads. Remove the site here any time to stop.")),
+      h("a", { href: "https://studyboardapp.com/website/privacy.html#extension", target: "_blank", rel: "noopener noreferrer" }, "Privacy Policy")),
     go, msg);
+  go.setAttribute("aria-describedby", "disclose");
   return form;
 }
 
