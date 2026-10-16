@@ -101,7 +101,7 @@ function connectForm(have) {
       h("b", {}, "What Studyboard will read and do with it"),
       h("ul", {},
         h("li", {}, "From this site, about every hour and when you open it: your courses, due dates, submissions, grades, feedback and rubrics, announcements, the syllabus, your name, your instructors' names and school emails, and (Canvas) your Inbox messages."),
-        h("li", {}, "It's kept in this browser and brought into your Studyboard planner when you open studyboardapp.com. If you're signed in to Studyboard, it's saved to your account like the rest of your planner."),
+        h("li", {}, "It's kept in this browser and brought into your Studyboard planner when you open studyboardapp.com. If you have a Studyboard account, it's saved to it like the rest of your planner."),
         h("li", {}, "It's only used to show your school work in Studyboard. Never sold, never used for ads. Remove the site here any time to stop.")),
       h("a", { href: "https://studyboardapp.com/website/privacy.html#extension", target: "_blank", rel: "noopener noreferrer" }, "Privacy Policy")),
     go, msg);

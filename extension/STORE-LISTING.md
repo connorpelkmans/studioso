@@ -32,7 +32,7 @@ After each listing goes live, put its address in `EXT_STORE` in `index.html` (se
 > Private by design
 > • It reads only the one site you connect, and only after your browser asks you to allow it.
 > • It only reads. It never submits, posts or changes anything on your school site, and it never sees your password: it uses the sign-in your browser already has.
-> • The extension itself sends your data nowhere: it keeps it in your browser until Studyboard picks it up, and Studyboard keeps it like the rest of your planner (saved to your account only if you're signed in).
+> • The extension itself sends your data nowhere: it keeps it in your browser until Studyboard picks it up, and Studyboard keeps it like the rest of your planner (on your device, and in your Studyboard account if you have one).
 > • No ads, no analytics, no tracking.
 >
 > Works with Canvas, Brightspace (D2L) and Blackboard Learn (Ultra and Original). You need a Studyboard planner at studyboardapp.com (free).
@@ -71,11 +71,11 @@ After each listing goes live, put its address in `EXT_STORE` in `index.html` (se
    - **Remote code:** No. All code is in the package.
    - **Data usage:** tick **Personally identifiable information** (the student's name and the names and school emails of their instructors, as the school site shows them), **Personal communications** (Canvas Inbox messages) and **Website content** (courses, due dates, grades, feedback, announcements, syllabus). Don't tick authentication information: the extension never sees passwords or tokens. Tick all three certifications (not sold to third parties; not used for unrelated purposes; not used for creditworthiness or lending).
    - **Privacy policy URL:** as above. Its extension paragraph has the affirmative statement the Limited Use policy asks for ("…complies with the Chrome Web Store User Data Policy, including the Limited Use requirements"), and the popup shows what is read and where it goes, right above **Agree, Allow and Connect**, before anything is read (prominent disclosure and consent).
-5. **Test instructions:** reviewers need a learning-platform account. Enter a Canvas test student's username and password in the dashboard's test-account fields if you have one (a course set up in a Canvas test or sandbox site with a few assignments). Then paste:
+5. **Test instructions:** reviewers need a learning-platform account (Studyboard itself works without an account). Enter a Canvas test student's username and password in the dashboard's test-account fields if you have one (a course set up in a Canvas test or sandbox site with a few assignments). Then paste:
    > 1. Open https://<canvas test site>/ and sign in with the account provided.
    > 2. Click the Studyboard School Sync button in the toolbar. The address is filled in; click **Agree, Allow and Connect** and allow the permission.
    > 3. Within a minute the popup shows "Synced just now" with the number of courses and items.
-   > 4. Open https://studyboardapp.com/ in the same browser. A "Ready to Import" sheet lists what was read; click **Import**. The assignments appear as tasks.
+   > 4. Open https://studyboardapp.com/ in the same browser and choose **Use Without an Account**. The first time, Studyboard asks which of your Studyboard courses each school course goes to (or to add it as a new one); after that, what the extension read is brought in by itself. The assignments appear as tasks on the Board, ticked off where they were submitted.
    > The extension only makes GET requests to the connected site. The extension itself sends data nowhere: it hands it to the Studyboard web page in the same browser.
 6. **Distribution:** Free, all regions, Public. Use **Unlisted** if you'd rather test it with a few students first. Submit for review.
 
