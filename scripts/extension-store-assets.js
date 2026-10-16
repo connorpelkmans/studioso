@@ -20,10 +20,10 @@ const shot = (title, text, pic, w, pills) => `<style>${BASE}
   .pic{display:flex;justify-content:center}</style>
   <div class="wrap"><div><div class="brand" style="font-size:22px;margin-bottom:34px"><img src="${icon}" width="44" height="44" alt="">Studyboard School Sync</div>
   <h1>${title}</h1><p>${text}</p>${pills ? `<div class="pills">${pills.map(x => `<span>${x}</span>`).join("")}</div>` : ""}</div>
-  <div class="pic"><img class="shot" src="${pic}" style="width:${w}px"></div></div>`;
+  <div class="pic"><img class="shot" src="${pic}" style="max-width:${w}px;max-height:720px;width:auto;height:auto"></div></div>`;
 const PAGES = [
   ["screenshot-1.png", 1280, 800, shot("Connect your school site once.", "Type your school's address and allow Studyboard to read that one site. That's it: no passwords, nothing to copy.", img("extension-popup-empty.png"), 380, ["Canvas", "Brightspace", "Blackboard"])],
-  ["screenshot-2.png", 1280, 800, shot("Then it keeps up by itself.", "Every hour, and whenever you open your school site, it reads your due dates, submissions, grades and feedback with the sign-in your browser already has. It only reads.", img("extension-popup-synced.png"), 380, ["Read only", "Nothing sent to any server"])],
+  ["screenshot-2.png", 1280, 800, shot("Then it keeps up by itself.", "Every hour, and whenever you open your school site, it reads your due dates, submissions, grades and feedback with the sign-in your browser already has. It only reads.", img("extension-popup-synced.png"), 380, ["Read only", "No ads or tracking"])],
   ["screenshot-3.png", 1280, 800, shot("Everything lands in Studyboard.", "Submitted work is ticked off, grades reach your Grade Tracker, and your instructor's feedback and rubric scores are one click away.", img("extension-app-feedback.png"), 640)],
   ["promo-small.png", 440, 280, `<style>${BASE}.t{height:280px;display:flex;flex-direction:column;justify-content:center;padding:0 34px;gap:14px}</style>
     <div class="t"><div class="brand" style="font-size:27px"><img src="${icon}" width="58" height="58" alt="">Studyboard</div><div style="font-size:21px;font-weight:700">School Sync</div><div style="font-size:15px;color:#dbe6ff">Canvas · Brightspace · Blackboard, kept in step with your planner</div></div>`],

@@ -45,6 +45,10 @@ h2{font-size:14px;margin:0 0 4px}
 .f.inline{flex-direction:row;align-items:center;justify-content:space-between}
 input,select{font:inherit;font-weight:400;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 9px;min-height:36px;width:100%}
 .f.inline select{width:auto}
+.disclose{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px;color:var(--mute)}
+.disclose b{color:var(--ink);font-size:12.5px}
+.disclose ul{margin:4px 0 6px;padding-left:16px;display:flex;flex-direction:column;gap:3px}
+.disclose a{color:var(--accent)}
 .settings{display:flex;flex-direction:column;gap:4px}
 .more summary{cursor:pointer;font-weight:600;padding:4px 0}
 .more[open] summary{margin-bottom:8px}
