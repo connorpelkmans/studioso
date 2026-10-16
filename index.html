@@ -1028,7 +1028,7 @@ dialog.alarm{width:min(420px,calc(100% - 32px));margin:auto;border-radius:22px}
 canvas.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:200}
 
 /* ---- v9: notes ---- */
-.note-rot{position:absolute;right:-11px;top:-11px;width:26px;height:26px;border-radius:50%;background:#fff;color:#2A2418;box-shadow:0 2px 6px rgba(0,0,0,.3);display:grid;place-items:center;opacity:0;transition:opacity .15s;cursor:grab;touch-action:none;z-index:2}
+.note-rot{position:absolute;right:-11px;top:-11px;width:26px;height:26px;border-radius:50%;background:#fff;color:#2A2418;box-shadow:0 0 0 1px rgba(0,0,0,.14),0 1px 2px rgba(0,0,0,.2);display:grid;place-items:center;opacity:0;transition:opacity .15s;cursor:grab;touch-action:none;z-index:2}
 .note:hover .note-rot,.note:focus-visible .note-rot,.note.rotating .note-rot{opacity:1}
 @media (hover:none){.note-rot{opacity:.9}}
 .note.rotating{transition:none;box-shadow:0 14px 28px rgba(40,25,5,.35)}
@@ -1703,9 +1703,9 @@ body.desk::before{background:var(--spine-bg,var(--spine))}
 .note.ns-speech .pin.pk-corners::before{left:-12px;top:2px}.note.ns-speech .pin.pk-corners::after{right:-12px;top:2px}
 .pin svg{display:block;width:100%;height:100%}
 /* stickers on notes */
-.stk{position:absolute;width:48px;height:48px;transform:translate(-50%,-50%) rotate(var(--r,0deg)) scale(var(--s,1));z-index:3;filter:drop-shadow(1.6px 0 0 #fff) drop-shadow(-1.6px 0 0 #fff) drop-shadow(0 1.6px 0 #fff) drop-shadow(0 -1.6px 0 #fff) drop-shadow(0 2px 3px rgba(0,0,0,.28))}
-.stk > svg{width:100%;height:100%;display:block;overflow:visible}
-.stk-rot{position:absolute;right:-9px;top:-9px;width:20px;height:20px;border-radius:50%;background:#fff;color:#2A2418;box-shadow:0 2px 5px rgba(0,0,0,.3);display:grid;place-items:center;opacity:0;transition:opacity .15s;cursor:grab;touch-action:none;transform:scale(calc(1 / var(--s,1)))}
+.stk{position:absolute;width:48px;height:48px;transform:translate(-50%,-50%) rotate(var(--r,0deg)) scale(var(--s,1));z-index:3}
+.stk > svg{width:100%;height:100%;display:block;overflow:visible;filter:drop-shadow(1.6px 0 0 #fff) drop-shadow(-1.6px 0 0 #fff) drop-shadow(0 1.6px 0 #fff) drop-shadow(0 -1.6px 0 #fff) drop-shadow(0 2px 3px rgba(0,0,0,.28))}   /* the white outline is the sticker's own, not the rotate handle's */
+.stk-rot{position:absolute;right:-9px;top:-9px;width:20px;height:20px;border-radius:50%;background:#fff;color:#2A2418;box-shadow:0 0 0 1px rgba(0,0,0,.14),0 1px 2px rgba(0,0,0,.2);display:grid;place-items:center;opacity:0;transition:opacity .15s;cursor:grab;touch-action:none;transform:scale(calc(1 / var(--s,1)))}
 .stk-rot svg{width:12px;height:12px}
 .nb-board .note .stk:hover .stk-rot,.stk.rotating .stk-rot{opacity:1}
 .stk.rotating .stk-rot{cursor:grabbing}
