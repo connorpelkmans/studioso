@@ -50,7 +50,7 @@ After each listing goes live, put its address in `EXT_STORE` in `index.html` (se
 - Chrome small promo tile, 440×280 (required): `promo-small.png`
 - Chrome marquee, 1400×560 (optional): `promo-marquee.png`
 - Edge store logo, 300×300: `logo-300.png`
-- Store icon, 128×128: `src/icons/icon-128.png`
+- Store icon, 128×128 (96×96 artwork with 16 px transparent padding, as Chrome asks): `store-icon-128.png`
 
 ---
 
