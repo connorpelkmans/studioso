@@ -176,8 +176,13 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     await app.waitForSelector('dialog[open] [data-act="bs-undrop"]', {timeout: 5000});
     ok(/kept off/.test(await app.textContent("dialog[open]")), "the platform's settings say deleted items are kept off");
     await app.click('dialog[open] [data-act="bs-undrop"]');
-    const back = await app.evaluate(h => { const L = SBLMS.brightspace, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true); return {dropped: (L.cfg().dropped || []).length, back: !!Object.values(SBLMS.st().tasks).find(t => t.title === "Deleted Then Wanted")}; }, DROP);
-    ok(back.dropped === 0 && back.back, "after Bring Them Back, the next read brings it back: " + JSON.stringify(back));
+    await app.waitForSelector('dialog[open] input[name="ubWay"]', {timeout: 5000});
+    ok(/Studyboard bookmark/.test(await app.textContent("dialog[open]")) && await app.locator('dialog[open] input[name="ubWay"][value="any"]').count() === 0, "Bring Them Back offers a signed-in read (here the bookmark; no calendar link to offer)");
+    await app.click("dialog[open] [data-submit]");
+    const viaFeed = await app.evaluate(h => { const L = SBLMS.brightspace, d = L.fromApi(h); d.src = "feed"; L.applyPlan(d, L.plan(d), "feed", true); return !!Object.values(SBLMS.st().tasks).find(t => t.title === "Deleted Then Wanted"); }, DROP);
+    ok(!viaFeed, "the calendar link doesn't bring it back");
+    const back = await app.evaluate(h => { const L = SBLMS.brightspace, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true); return {dropped: (L.cfg().dropped || []).length, apiOnly: (L.cfg().apiOnly || []).length, back: !!Object.values(SBLMS.st().tasks).find(t => t.title === "Deleted Then Wanted")}; }, DROP);
+    ok(back.dropped === 0 && back.back, "the signed-in read (extension, bookmark or app) brings it back: " + JSON.stringify(back));
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await browser.close(); server.close(); }
   console.log(`\nlms-phase.e2e: ${n} checks passed`);
