@@ -653,6 +653,11 @@ begin
       and public.studyboard_limit(i.user_id, 'cloudBackupDays') is not null   -- no limit means keep them all
       -- 30 days of grace past the plan's window, so turning plans on or a lapsed plan never wipes a backup the same night
       and i.updated_at < now() - make_interval(days => greatest(public.studyboard_limit(i.user_id, 'cloudBackupDays'), 0)::int + 30)
+      -- and the grace runs from when the plan last changed or ended, not from the backup's age: without this, Pro ending (or a refund, or a
+      -- trial running out) deleted every backup between 30 and 60 days old that same night
+      and not exists (select 1 from public.studyboard_entitlements e where e.user_id = i.user_id
+        and greatest(e.updated_at, case when e.pro_until <= now() then e.pro_until end, case when e.grant_until <= now() then e.grant_until end,
+                     case when e.trial_until <= now() then e.trial_until end) > now() - interval '30 days')
     returning 1)
   select count(*) into n from gone;
   return n;

@@ -116,16 +116,23 @@ export function supabaseStore(db: any) {
       if (error) throw error;
     },
     // Marks the task complete in your Studyboard data. Your open apps pick up the change through live sync.
+    // Compare-and-set on updated_at (the server stamps it on every change): an edit a device saves between the read and the write is never
+    // overwritten with the older copy read here; the task is read again and the change made on top of the newer version.
     async markDone(userId: string, taskId: string, now: number): Promise<boolean> {
-      const { data, error } = await db.from("items").select("data").eq("user_id", userId).eq("kind", "task").eq("id", taskId).maybeSingle();
-      if (error || !data || !data.data) return false;
-      const t = data.data;
-      if (t.status !== "done") {
+      for (let attempt = 0; ; attempt++) {
+        const { data, error } = await db.from("items").select("data,updated_at").eq("user_id", userId).eq("kind", "task").eq("id", taskId).maybeSingle();
+        if (error || !data || !data.data) return false;
+        const t = data.data;
+        if (t.status === "done") break;
         t.status = "done"; t.doneAt = now;
         if (t.type !== "Exam" && t.type !== "Quiz") t.pct = 100;
         t.history = (Array.isArray(t.history) ? t.history : []).concat({ at: now, text: "Marked complete from a reminder" }).slice(-30);
-        const up = await db.from("items").update({ data: t, updated_at: new Date(now).toISOString() }).eq("user_id", userId).eq("kind", "task").eq("id", taskId);
+        let q = db.from("items").update({ data: t, updated_at: new Date(now).toISOString() }).eq("user_id", userId).eq("kind", "task").eq("id", taskId);
+        q = data.updated_at ? q.eq("updated_at", data.updated_at) : q;
+        const up = await q.select("id");
         if (up.error) return false;
+        if (up.data && up.data.length) break;
+        if (attempt >= 4) return false;   // changed again and again meanwhile: leave it to the person
       }
       await db.from("reminder_queue").delete().eq("user_id", userId).eq("task_id", taskId).is("sent_at", null);
       return true;

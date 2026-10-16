@@ -303,9 +303,12 @@ begin
 
   -- ===== 8. Clean-up and account deletion =====
   update public.capture_inbox set created_at = now() - interval '31 days' where user_id = ua;
+  perform public.capture_purge();
+  perform public.sbc_ok(exists (select 1 from public.capture_inbox where user_id = ua and processed_at is null), 'a capture the app hasn''t picked up yet is kept past 30 days');
+  update public.capture_inbox set created_at = now() - interval '366 days' where user_id = ua;
   insert into public.capture_inbox (user_id, text, created_at, processed_at) values (ua, 'done long ago', now() - interval '8 days', now() - interval '8 days'), (ua, 'done recently', now(), now() - interval '1 day');
   perform public.capture_purge();
-  perform public.sbc_ok((select count(*) from public.capture_inbox where user_id = ua) = 1 and exists (select 1 from public.capture_inbox where text = 'done recently'), 'purge removes processed > 7 days and unprocessed > 30 days only');
+  perform public.sbc_ok((select count(*) from public.capture_inbox where user_id = ua) = 1 and exists (select 1 from public.capture_inbox where text = 'done recently'), 'purge removes processed > 7 days and unprocessed > 365 days only');
   perform set_config('request.jwt.claims', jsonb_build_object('sub', ub, 'role', 'authenticated')::text, true);
   update auth.users set last_sign_in_at = now() where id = ub;   -- the in-app delete needs a sign-in in the last 10 minutes
   perform public.studyboard_delete_my_account();

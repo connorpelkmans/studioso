@@ -118,7 +118,8 @@ function readCfg() {
   for (const f of [cfgPath(), path.join(app.getPath("userData"), "studioso-desktop.json")]) { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch (e) {} }
   return {};
 }
-function writeCfg(c) { try { fs.mkdirSync(path.dirname(cfgPath()), { recursive: true }); fs.writeFileSync(cfgPath(), JSON.stringify(c, null, 2)); } catch (e) {} }
+// Written whole, then renamed into place: a crash mid-write must never leave a half file that forgets the chosen data folder.
+function writeCfg(c) { try { const p = cfgPath(), tmp = p + ".partial"; fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(tmp, JSON.stringify(c, null, 2)); fs.renameSync(tmp, p); } catch (e) {} }
 let cfgTimer = null;
 function writeCfgSoon() { clearTimeout(cfgTimer); cfgTimer = setTimeout(() => writeCfg(cfg), 400); }
 // Small JSON files next to the settings (reminders, the widget's last data). Written whole, then renamed into place.
@@ -794,7 +795,8 @@ ipcMain.handle("fs:write", async (e, rel, data) => {
   if (tst) { if (tst.isDirectory()) throw new Error("Not a plain file"); await fsp.unlink(tmp); }   // left over from an interrupted write, or a shortcut: removed, never followed
   const fh = await fsp.open(tmp, "wx");          // O_EXCL: fails instead of following anything that appears there in the meantime
   try {
-    try { await fh.writeFile(typeof data === "string" ? data : Buffer.from(data instanceof ArrayBuffer ? new Uint8Array(data) : data)); } finally { await fh.close(); }
+    // flushed to disk before the rename, so a power cut right after it can't leave an empty studyboard-latest.json in place of the old one
+    try { await fh.writeFile(typeof data === "string" ? data : Buffer.from(data instanceof ArrayBuffer ? new Uint8Array(data) : data)); await fh.sync(); } finally { await fh.close(); }
     await fsp.rename(tmp, target);               // never leaves a half-written file behind
   } catch (err) { await fsp.unlink(tmp).catch(() => {}); throw err; }
   return true;

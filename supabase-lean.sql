@@ -131,6 +131,9 @@ create table if not exists public.studyboard_archive (
   items jsonb not null,             -- every row, in one value that Postgres compresses
   archived_at timestamptz not null default now()
 );
+-- Set when an unpack found items a device had already saved again: the packed-away versions of just those are kept here (never unpacked
+-- again, so an item deleted later can't come back; recoverable from the SQL editor).
+alter table public.studyboard_archive add column if not exists kept_at timestamptz;
 alter table public.studyboard_archive enable row level security;   -- no policies: only the functions below touch it
 revoke all on public.studyboard_archive from anon, authenticated;
 
@@ -168,13 +171,20 @@ declare me uuid := auth.uid(); a public.studyboard_archive; n int := 0;
 begin
   if me is null then return 0; end if;
   select * into a from public.studyboard_archive where user_id = me;
-  if not found then return 0; end if;
+  if not found or a.kept_at is not null then return 0; end if;
   perform set_config('studyboard.restoring', '1', true);   -- this transaction only: the plan limits don't apply to putting your own data back
   insert into public.items (user_id, kind, id, data)
     select me, x.kind, x.id, x.data from jsonb_to_recordset(a.items) as x(kind text, id text, data jsonb, updated_at timestamptz)
     on conflict (user_id, kind, id) do nothing;
   get diagnostics n = row_count;
-  delete from public.studyboard_archive where user_id = me;
+  -- An item a device saved again before this ran keeps that newer save. The packed-away copy of such an item is not thrown away when it
+  -- differs: it stays in the archive row (only those), so nothing is lost; the archive row goes once nothing in it differs.
+  update public.studyboard_archive x set kept_at = now(),
+    items = coalesce((select jsonb_agg(e) from jsonb_array_elements(a.items) e
+                      where exists (select 1 from public.items i where i.user_id = me and i.kind = e ->> 'kind' and i.id = e ->> 'id' and i.data is distinct from e -> 'data')), '[]'::jsonb)
+    where x.user_id = me;
+  update public.studyboard_archive set rows = jsonb_array_length(items) where user_id = me;
+  delete from public.studyboard_archive where user_id = me and jsonb_array_length(items) = 0;
   return n;
 end $$;
 revoke all on function public.studyboard_archive_inactive(int, int) from public, anon, authenticated;
