@@ -33,6 +33,7 @@
     "lint": "eslint . && node scripts/lint-inline.js",
     "csp": "node scripts/csp.js",
     "build:site": "node scripts/build-site.js",
+    "build:extension": "node scripts/build-extension.js",
     "check:release": "node scripts/check-release.js"
   },
   "devDependencies": {
