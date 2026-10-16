@@ -292,6 +292,33 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     }, [opened, mt.toISOString()]);
     ok(m3.due === mday && m3.ask === 1, "a due date at the moment it opens is matched like an opening date: " + JSON.stringify({due: m3.due, ask: m3.ask}));
     ok(/As read/.test(m3.html) && /opens /.test(m3.html) && /\bsat\b/.test(m3.html) && /Quizzes page 200/.test(m3.html) && /Status here<\/dt><dd>done/.test(m3.html), "Where this came from shows the quiz as read, its status and the course's quiz check: " + (m3.html.match(/<dl[\s\S]*<\/dl>/) || [""])[0].slice(0, 600));
+    // Two calendar exams that fit the quiz's name equally: the one with a room (the sitting) gives it its date, and why is shown
+    const m4 = await app.evaluate(([opened, at, later]) => {
+      const L = SBLMS.brightspace, d = L.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [],
+        courses: [{ou: "13", code: "BSNC1003", name: "Nursing Science", folders: [], grades: [], news: [],
+          quizzes: [{id: "801", name: "BSNC 1003 Midterm Exam- Requires Respondus LockDown Browser", due: null, end: null, start: opened, done: null}],
+          events: [{id: "e81", title: "Midterm Exam Review Session", start: later, end: later, allDay: false, assoc: false, where: "", url: ""},
+                   {id: "e82", title: "NK4 Midterm Exam", start: at, end: at, allDay: false, assoc: false, where: "SW3 4676/95", url: ""}]}]});
+      const q = d.recs.find(r => r.pid === "q801"); return {due: q && q.due, loc: q && q.location, a: q && q.asRead};
+    }, [opened, mt.toISOString(), new Date(Date.now() + 3 * 864e5).toISOString()]);
+    ok(m4.due === mday && m4.loc === "SW3 4676/95" && /dated by NK4 Midterm Exam/.test(m4.a), "of two equally named calendar exams, the one with a room dates the quiz: " + JSON.stringify(m4));
+    // Two real items both handed in, due at the same moment, named alike ("PHC" and "PHSA Privacy and Confidentiality"): asked about;
+    // but never two weekly items that differ by number
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    await app.evaluate(() => {
+      const mk = (id, title, key) => ({kind: "task", id, after: {id, created: 1, title, courseId: "c1", type: "Assignment", due: "2026-10-02", time: "19:00", status: "done", order: 1,
+        bs: {key: "12|" + key, ou: "12", item: true, last: {}, seen: {api: 1}}}});
+      SBLMS.applyChanges([mk("pv1", "PHC Privacy and Confidentiality", "phc"), mk("pv2", "PHSA Privacy and Confidentiality", "phsa"),
+        mk("wk1", "Week 1 Reflection Journal", "wk1"), mk("wk2", "Week 2 Reflection Journal", "wk2")], "");
+      SBLMS_DUPES(false);
+    });
+    await app.waitForSelector("dialog[open] .mg-row", {timeout: 5000});
+    const pv = await app.evaluate(() => [...document.querySelectorAll("dialog[open] .mg-row")].map(r => r.innerText.replace(/\s+/g, " ")));
+    ok(pv.some(r => /PHC Privacy/.test(r) && /PHSA Privacy/.test(r)) && !pv.some(r => /Week 1/.test(r) && /Week 2/.test(r)), "two completed items listed twice are asked about, and Week 1 and Week 2 aren't: " + JSON.stringify(pv));
+    await app.click("dialog[open] [data-submit]");
+    await app.waitForFunction(() => !SBLMS.st().tasks.pv1 || !SBLMS.st().tasks.pv2, null, {timeout: 5000});
+    ok(true, "Merge leaves one Privacy and Confidentiality");
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await browser.close(); server.close(); }
   console.log(`\nlms-phase.e2e: ${n} checks passed`);

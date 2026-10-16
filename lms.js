@@ -284,7 +284,7 @@ async function bsHarvest(o) {
     // (and ones with only an opening date, or none: "Available on Oct 6" is all some exams say)
     const qrecent = quizzes.filter(x => { if (!x || x.IsActive === false) return false; const d = Date.parse(x.DueDate || x.EndDate || x.StartDate || ""); return isNaN(d) || (d > now - 60 * 864e5 && d < now + 240 * 864e5); }).slice(0, 40);
     const tried = {};
-    let qRefused = 0, qPage = 0, qPageStatus = "";
+    let qRefused = 0, qPage = 0, qPageStatus = "", qLinks = 0, qOwn = 0;
     await inBatches(qrecent, async x => {
       const a = await soft(`${b}/quizzes/${x.QuizId}/attempts/`, true);
       if (!a) qRefused++;
@@ -298,8 +298,9 @@ async function bsHarvest(o) {
         qPageStatus = String(r.status);
         if (r.ok) {
           const html = (await r.text()).slice(0, 3000000);
-          html.split(/(?=quiz_summary\.d2l\?)/).slice(1).forEach(part => {
-            const m = part.match(/^quiz_summary\.d2l\?[^"'<>]*?\bqi=(\d+)/); if (!m || tried[m[1]] === true) return;
+          // each part starts at a link with the quiz's id (quiz_summary.d2l?qi=…, or another quiz page's ?…&qi=…)
+          html.split(/(?=[?&;]qi=\d)/).slice(1).forEach(part => {
+            const m = part.match(/^[?&;]qi=(\d+)/); if (!m) return; qLinks++; if (tried[m[1]] === true) return;
             // the row's last "used / allowed", never a date like 10/6/2026
             const all = [...htmlText(part.slice(0, 6000), { line: true }).matchAll(/(?<![\d/])(\d+)\s*\/\s*(?:\d+|unlimited)(?![\d/])/gi)], a = all[all.length - 1];
             if (a && Number(a[1]) > 0) { tried[m[1]] = true; qPage++; }
@@ -307,10 +308,21 @@ async function bsHarvest(o) {
         }
       } catch (e) { qPageStatus = String(e && e.name || "error"); }
     }
+    // Still not known: each quiz's own pages, as the student sees them: the summary ("Attempts: Allowed - 1, Completed - 1") and
+    // Submissions ("Attempt 1 ... Pending Evaluation")
+    const qLeft = qrecent.filter(x => tried[x.QuizId] !== true).slice(0, 12);
+    await inBatches(qLeft, async x => {
+      const page = async u => { try { const r = await fetch(u, { credentials: "include" }); return r.ok ? htmlText((await r.text()).slice(0, 1500000), { line: true }) : ""; } catch (e) { return ""; } };
+      const sum = await page(`/d2l/lms/quizzing/user/quiz_summary.d2l?qi=${x.QuizId}&ou=${c.ou}`);
+      const done = sum.match(/\bcompleted\s*[-–:]\s*(\d+)(?![\d/:.,])/i);
+      if (done && Number(done[1]) > 0) { tried[x.QuizId] = true; qOwn++; return; }
+      const subm = await page(`/d2l/lms/quizzing/user/quiz_submissions.d2l?qi=${x.QuizId}&ou=${c.ou}`);
+      if (/\battempt\s+\d+\b/i.test(subm)) { tried[x.QuizId] = true; qOwn++; }
+    });
     // In the sync details, for a quiz that won't tick off
     if (qrecent.length) {
       const sat = qrecent.filter(x => tried[x.QuizId] === true).length, not = qrecent.filter(x => tried[x.QuizId] === false).length;
-      c.quizNote = `quizzes: ${sat} sat, ${not} not, ${qrecent.length - sat - not} unknown` + (qRefused ? `; attempts API refused ${qRefused}` : "") + (qPageStatus ? `; Quizzes page ${qPageStatus}, ${qPage} sat from it` : "");
+      c.quizNote = `quizzes: ${sat} sat, ${not} not, ${qrecent.length - sat - not} unknown` + (qRefused ? `; attempts API refused ${qRefused}` : "") + (qPageStatus ? `; Quizzes page ${qPageStatus}, ${qLinks} quiz links, ${qPage} sat from it` : "") + (qLeft.length ? `; ${qOwn} of ${qLeft.length} sat from their own pages` : "");
     }
     // A released grade means it was handed in (or is closed): either way there's nothing left to do
     const graded = new Set(listOf(grades).filter(g => g && g.GradeObjectIdentifier != null && g.PointsNumerator != null).map(g => String(g.GradeObjectIdentifier)));
