@@ -32,9 +32,10 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { const v = await fn(); if (v) return v; if (Date.now() > end) throw new Error("timed out: " + what); await new Promise(r => setTimeout(r, 250)); } };
 
 (async () => {
-  build();
+  // SB_EXT_BUILD: an extension build made elsewhere (for example the version in store review), tested against today's website
+  if (!process.env.SB_EXT_BUILD) build();
   const ext = fs.mkdtempSync(path.join(os.tmpdir(), "sb-ext-")), prof = fs.mkdtempSync(path.join(os.tmpdir(), "sb-prof-"));
-  fs.cpSync(path.join(root, "extension", "build", "chrome"), ext, {recursive: true});
+  fs.cpSync(process.env.SB_EXT_BUILD || path.join(root, "extension", "build", "chrome"), ext, {recursive: true});
   const man = JSON.parse(fs.readFileSync(path.join(ext, "manifest.json"), "utf8"));
   ok(man.manifest_version === 3 && !man.host_permissions && JSON.stringify(man.optional_host_permissions) === '["https://*/*"]' && man.permissions.join() === "storage,alarms,scripting,activeTab",
     "the store build asks for no site at install: school sites are optional permissions, granted one at a time");

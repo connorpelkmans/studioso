@@ -25,6 +25,7 @@ t("an exam with a multi-day window is take-home", () => is({type: "Exam", rx: {u
 // A lockdown browser alone doesn't say where: it's used in campus labs and classrooms as much as at home
 t("Respondus lockdown browser (school site flag) alone -> unknown", () => is({type: "Exam", rx: {ld: 1}}, "unknown"));
 t("lockdown browser in the title, open 9:50 to 11:30 one morning -> not take-home", () => { const r = V({type: "Exam", title: "BSNC 1000 Midterm Exam- Requires Respondus LockDown Browser", rx: {k: "quiz", tl: 90, ld: 1, ul: "2026-10-16T09:50:00", ll: "2026-10-16T11:30:00"}}); assert.notStrictEqual(r.verdict, "yes", JSON.stringify(r)); });
+t("an online quiz with a room on the calendar -> in person", () => is({type: "Exam", title: "Midterm Exam", location: "SW1 Room 2015", rx: {k: "quiz", tl: 90}}, "no"));
 t("webcam proctoring (Respondus Monitor) -> yes", () => is({type: "Exam", text: "This exam uses Respondus Monitor with your webcam."}, "yes", 0.8));
 t("Respondus in the text -> yes", () => is({text: "You must use Respondus LockDown Browser and a webcam."}, "yes", 0.8));
 t("Proctorio / ProctorU / Honorlock -> yes", () => ["Proctorio extension required", "Book a ProctorU session", "Honorlock will record you"].forEach(x => is({text: x}, "yes", 0.8)));
@@ -55,7 +56,9 @@ t("a different place -> no", () => is({location: "Science Building, Room 2"}, "n
 t("a Zoom link -> yes", () => is({location: "https://zoom.us/j/123"}, "yes", 0.7));
 t("'Online' location -> yes", () => is({location: "Online"}, "yes", 0.7));
 t("TBA location is no evidence", () => is({location: "TBA"}, "unknown"));
-t("location in person but school site says online quiz -> mixed", () => assert.strictEqual(V({location: "Rm 12", rx: {st: ["online_quiz"]}}).verdict, "unknown"));
+// A room on the calendar with an online quiz: the quiz is taken in that room (a lab, a lockdown browser), unless the words say online
+t("location in person but school site says online quiz -> in person", () => assert.strictEqual(V({location: "Rm 12", rx: {st: ["online_quiz"]}}).verdict, "no"));
+t("a room, but the words say take it from home -> not in person", () => assert.notStrictEqual(V({location: "Rm 12", text: "Take this quiz from home on Brightspace.", rx: {st: ["online_quiz"]}}).verdict, "no"));
 
 /* ---- Your schedule ---- */
 t("an event with a room at the exam time -> no", () => is({sched: {room: "Hall 3"}}, "no", 0.7));
