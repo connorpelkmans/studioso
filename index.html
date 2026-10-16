@@ -5925,7 +5925,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .cr2-meter i{display:block;height:100%;border-radius:99px;background:var(--c)}
 .cr2-over{margin:6px 16px 10px}.cr2-over b{color:var(--late)}
 /* one grid for every row (each row a subgrid), so the hours line up in one column and the bars all start and end together */
-.cr2-courses{list-style:none;margin:0 16px;padding:0;display:grid;grid-template-columns:minmax(0,90px) 1fr auto;gap:8px 10px}
+.cr2-courses{list-style:none;margin:0 16px;padding:0;display:grid;grid-template-columns:fit-content(140px) 1fr auto;gap:8px 10px}   /* (the name column is only as wide as the longest code, so the bars start right after it) */
 .cr2-courses li{grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:center;font:700 .82rem var(--display)}
 .cr2-courses li span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cr2-cb{height:8px;border-radius:99px;background:color-mix(in srgb,var(--c) 15%,var(--surface));overflow:hidden}
@@ -5955,8 +5955,10 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .cr2-legend i{width:12px;height:12px;border-radius:4px;display:inline-block}
 .cr2-legend i.cap{height:0;width:16px;border-top:2px dashed var(--muted);border-radius:0}
 .cr2-coming{margin-top:18px}
-.cr2-coming ul{list-style:none;margin:0;padding:0}
-.cr2-coming li{display:flex;align-items:center;gap:10px;border-top:1px solid var(--line);padding:8px 0}
+.cr2-coming ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px}
+/* every week keeps the same room for an Ease This Week button, so a week's bar is the same length whether or not it has one */
+.cr2-coming li{grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:center;border-top:1px solid var(--line);padding:8px 0}
+.cr2-coming li > .cr2-wk{grid-column:1}
 .cr2-wk{flex:1;min-width:0;display:grid;grid-template-columns:120px minmax(80px,1fr) minmax(0,1.3fr);align-items:center;gap:14px;border:0;background:none;padding:4px 0;text-align:left;color:inherit;font-size:.88rem}
 .cr2-mini{display:block;height:10px;border-radius:99px;background:color-mix(in srgb,var(--line) 60%,transparent);overflow:hidden}
 .cr2-mini > span{display:flex;height:100%}
@@ -6073,7 +6075,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .cr2-band{height:auto!important;padding:10px 16px!important}
 .cr2-big{display:grid;gap:2px}
 .cr2-big > span{font-size:.9rem}
-.cr2-courses{grid-template-columns:minmax(0,120px) 1fr auto!important}
+.cr2-courses{grid-template-columns:fit-content(160px) 1fr auto!important}
 /* Icons: crisp and centred (no filter, no tilt), filling more of the ring */
 .ci-svg{filter:none!important;transform:none!important;display:block;stroke-width:1.5}
 .g2-ring{display:grid!important;place-items:center!important}
