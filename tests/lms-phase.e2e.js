@@ -212,6 +212,27 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
       const t = SBLMS.st().tasks.und; return {status: t.status, item: t.bs.item, url: t.link || ""};
     }, new Date(Date.now() - 4 * 864e5).toISOString());
     ok(und.status === "done" && und.item === true && /db=96/.test(und.url), "an undated assignment's submission reaches the calendar entry that carries its date: " + JSON.stringify(und));
+    // The same with what Brightspace often sends: the folder has no due date but does close at the end of term, so it must not become a
+    // task of its own on that day; and a calendar entry Brightspace links to the folder gives the folder its date
+    const und2 = await app.evaluate(due => {
+      const L = SBLMS.brightspace, ts = due.slice(0, 10), end = new Date(Date.now() + 60 * 864e5).toISOString();
+      SBLMS.applyChanges([{kind: "task", id: "und2", after: {id: "und2", created: 1, title: "Capacity Building Assignment", courseId: "c1", type: "Assignment", due: ts, time: "23:30", status: "todo", order: 1,
+        bs: {key: "8|capacitybuildingassignment", ou: "8", last: {title: "Capacity Building Assignment", due: ts, time: "23:30", courseId: "c1"}, seen: {api: 1}}}}], "");
+      const d = L.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [],
+        courses: [{ou: "8", code: "NURS2000", name: "Community Health", quizzes: [], grades: [], news: [],
+          folders: [{id: "81", name: "Capacity Building with a Community Client", due: null, end: end, sub: true, files: []},
+                    {id: "82", name: "Reflective Journal Entry", due: null, end: end, sub: true, files: []},
+                    {id: "83", name: "Group Teaching Plan", due: null, end: end, sub: false, files: []}],
+          events: [{id: "e8", title: "Capacity Building Assignment Due", start: due, end: due, allDay: false, assoc: false, url: ""},
+                   {id: "e9", title: "Reflective Journal Entry - Due", start: due, end: due, allDay: false, assoc: true, kind: "Dropbox", url: ""}]}]});
+      L.applyPlan(d, L.plan(d), "grab", true);
+      const all = Object.values(SBLMS.st().tasks).filter(t => t.bs && t.bs.ou === "8");
+      const t = SBLMS.st().tasks.und2, j = all.find(x => /Reflective/.test(x.title)), g = all.find(x => /Teaching/.test(x.title));
+      return {status: t.status, url: t.link || "", n: all.filter(x => /Capacity/.test(x.title)).length, j: j && [j.status, j.due], g: g && [g.status, g.due], ts, endD: end.slice(0, 10)};
+    }, new Date(Date.now() - 4 * 864e5).toISOString());
+    ok(und2.status === "done" && /db=81/.test(und2.url) && und2.n === 1, "a folder with only an end date still lends its submission to its calendar entry, with no second task: " + JSON.stringify(und2));
+    ok(und2.j && und2.j[0] === "done" && und2.j[1] === und2.ts, "a calendar entry linked to an undated folder gives it its date: " + JSON.stringify(und2));
+    ok(und2.g && und2.g[0] !== "done" && und2.g[1] === und2.endD, "an unmatched undated folder is still a task on the day it closes: " + JSON.stringify(und2));
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await browser.close(); server.close(); }
   console.log(`\nlms-phase.e2e: ${n} checks passed`);
