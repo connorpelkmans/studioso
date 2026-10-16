@@ -20,7 +20,9 @@
 //                                                              used to reset the count and take another round of free tries.
 //   POST /v1/ai      {task, system, text, schema?, maxTokens?, temperature?}
 //                    200 {data, model, left, todayLeft, total}
-//                    401 auth   403 unconfirmed | verify   413 too_long   429 used_up | today | busy   502 ai_failed
+//                    401 auth   403 unconfirmed | verify   413 too_long   429 used_up | today | busy   502 ai_failed {refunded}
+//                    (schema: at most MAX_SCHEMA characters as JSON. An answer that isn't JSON gives the try back at most MAX_REFUNDS times a
+//                    day: the model still ran and the shared pool paid for it, so endless free retries would let one account drain the day.)
 
 // Free-plan models only (none of them needs the Workers Paid plan), with Cloudflare's neurons per million tokens (pricing page, Oct 2026).
 export const MODELS = {
@@ -31,6 +33,8 @@ export const MODELS = {
 };
 export const DEFAULT_MODEL = "@cf/google/gemma-4-26b-a4b-it";
 export const HARD_CEILING = 9000;       // neurons per UTC day, whatever DAILY_NEURONS says (Workers AI's free allocation is 10,000)
+export const MAX_SCHEMA = 8000;         // characters of JSON Schema (the app's largest is about 4,000)
+export const MAX_REFUNDS = 3;           // failed answers given back per student per UTC day, once the model has run
 
 const int = (v, d, lo, hi) => { const n = Math.floor(Number(v)); return Number.isFinite(n) && n > 0 ? Math.min(hi, Math.max(lo, n)) : d; };
 export function config(env) {
@@ -75,10 +79,18 @@ export class Student {
     await this.s.put({ used: r.used + 1, day: r.today, dayUsed: r.dayUsed + 1 });
     return { ok: true, day: r.today };
   }
-  async refund(day) {
+  // capped: the model ran (and the shared pool paid), so only MAX_REFUNDS of these a day are given back. Returns whether it was.
+  async refund(day, capped = false) {
     const r = await this.read();
-    if (r.gone) return;
-    await this.s.put({ used: Math.max(0, r.used - 1), day: r.today, dayUsed: day === r.today ? Math.max(0, r.dayUsed - 1) : r.dayUsed });
+    if (r.gone) return false;
+    const upd = { used: Math.max(0, r.used - 1), day: r.today, dayUsed: day === r.today ? Math.max(0, r.dayUsed - 1) : r.dayUsed };
+    if (capped) {
+      const n = (await this.s.get("refundDay")) === r.today ? (await this.s.get("refunds")) || 0 : 0;
+      if (n >= MAX_REFUNDS) return false;
+      Object.assign(upd, { refundDay: r.today, refunds: n + 1 });
+    }
+    await this.s.put(upd);
+    return true;
   }
 }
 
@@ -112,13 +124,14 @@ export async function readNonce(secret, nonce, now) {
   let diff = want.length ^ m[3].length; for (let i = 0; i < want.length; i++) diff |= want.charCodeAt(i) ^ (m[3].charCodeAt(i) || 0);
   return diff === 0 && Number(m[2]) * 1000 > now ? m[1] : null;
 }
-// Cloudflare's siteverify: the token must be fresh, unused, and from this widget's check with the "trial" action.
-export async function siteverify(env, token, ip, fetchFn = fetch) {
+// Cloudflare's siteverify: the token must be fresh, unused, from this widget's check with the "trial" action (the check page always
+// sets it), and, when host is given, solved on this Worker's own check page (a token solved on another site using the same key is refused).
+export async function siteverify(env, token, ip, fetchFn = fetch, host = "") {
   if (typeof token !== "string" || !token || token.length > 2048) return false;
   try {
     const res = await fetchFn("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ secret: env.TURNSTILE_SECRET, response: token, remoteip: ip || undefined }) });
     const j = await res.json();
-    return j && j.success === true && (!j.action || j.action === "trial");
+    return !!j && j.success === true && j.action === "trial" && (!host || j.hostname === host);
   } catch (e) { return false; }
 }
 
@@ -171,7 +184,7 @@ export async function handle(request, env, deps) {
     let b = null; try { b = JSON.parse((await request.text()).slice(0, 8000)); } catch (e) { return json({ error: "bad" }, 400); }
     const uid = await readNonce(env.TURNSTILE_SECRET, b && b.nonce, now);
     if (!uid) return json({ error: "expired" }, 400);
-    if (!(await (deps.siteverify || siteverify)(env, b.token, request.headers.get("CF-Connecting-IP")))) return json({ error: "failed" }, 403);
+    if (!(await (deps.siteverify || siteverify)(env, b.token, request.headers.get("CF-Connecting-IP"), undefined, url.hostname))) return json({ error: "failed" }, 403);
     await deps.student(uid).setHuman();
     return json({ ok: true });
   }
@@ -205,8 +218,10 @@ export async function handle(request, env, deps) {
   const system = typeof body.system === "string" ? body.system : "", text = typeof body.text === "string" ? body.text : "";
   if (!text.trim()) return json({ error: "bad" }, 400);
   const schema = body.schema && typeof body.schema === "object" ? body.schema : null;
+  const schemaLen = schema ? JSON.stringify(schema).length : 0;
+  if (schemaLen > MAX_SCHEMA) return json({ error: "too_long" }, 413);   // the schema is input too: capped here, and counted below
   const messages = messagesFor(system, text, schema), chars = messages.reduce((n, m) => n + m.content.length, 0);
-  if (chars > cfg.maxChars + (schema ? JSON.stringify(schema).length : 0) + 200) return json({ error: "too_long" }, 413);
+  if (chars > cfg.maxChars + schemaLen + 200) return json({ error: "too_long" }, 413);
   const maxOut = Math.min(cfg.maxOut, int(body.maxTokens, cfg.maxOut, 50, cfg.maxOut));
   const temperature = Number.isFinite(body.temperature) ? Math.min(1, Math.max(0, body.temperature)) : 0.4;
 
@@ -224,7 +239,12 @@ export async function handle(request, env, deps) {
   // What the model really used, if it said; otherwise the whole reservation stays counted (never under-count).
   await pool.settle(reserve, u ? Math.min(reserve * 4, neurons(rates, u.prompt_tokens, u.completion_tokens)) : reserve);
   const data = failed ? null : readAnswer(out);
-  if (!data || typeof data !== "object") { await student.refund(take.day); return json({ error: "ai_failed", ...(await student.status(cfg)) }, 502); }
+  if (!data || typeof data !== "object") {
+    // The call failing (Workers AI down or out of capacity: no answer was made) gives the try back. An answer that came back but isn't
+    // JSON means the model ran on the shared pool, so that refund is capped (MAX_REFUNDS a day): tiny maxTokens can't be retried forever.
+    const refunded = await student.refund(take.day, !failed);
+    return json({ error: "ai_failed", refunded, ...(await student.status(cfg)) }, 502);
+  }
   return json({ data, model: "Studyboard AI", truncated: !!(out && out.choices && out.choices[0] && out.choices[0].finish_reason === "length"), ...(await student.status(cfg)) });
 }
 

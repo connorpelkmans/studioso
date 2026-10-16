@@ -1,9 +1,10 @@
 // Studyboard desktop: your school's learning platforms (Brightspace/D2L, Canvas and Blackboard Learn).
 // You sign in yourself in a normal browser window (your school's own sign-in page, with MFA if it uses it).
 // Studyboard never sees your password. Each platform's sign-in is kept in its own private cookie store
-// ("persist:brightspace", "persist:canvas", "persist:blackboard"), separate from Studyboard's, and Studyboard only
-// ever reads (GET requests): your courses, due dates, submissions, grades, announcements and calendar.
-// It never submits, posts or changes anything there.
+// ("persist:brightspace", "persist:canvas", "persist:blackboard"), separate from Studyboard's, and Studyboard reads
+// (GET requests): your courses, due dates, submissions, grades, announcements, calendar and Canvas Inbox.
+// The one thing it ever sends is a reply to a Canvas Inbox conversation you wrote (mail, op "send"), and only after you confirm it in a
+// system dialog shown here in the main process (the page can't skip it). It never submits work or changes anything else there.
 /* Readable plain text from HTML (same helper as index.html: no DOM, so it works in the main process). */
 // Readable plain text from HTML-ish text (LMS text, entity-encoded markup). Pure string work: nothing is parsed into a live DOM, so nothing can run.
 // Handles tags (with line breaks for p/br/li/headings), named, numeric and double-encoded entities (&amp;amp;), and collapses whitespace.
@@ -62,7 +63,7 @@ const HARVEST_PRELUDE = [
   "const HT_HAS = " + HT_HAS.toString() + ";",
   htmlText.toString()
 ].join("\n");
-const { BrowserWindow, ipcMain, net, session, app } = require("electron");
+const { BrowserWindow, ipcMain, net, session, app, dialog } = require("electron");
 const path = require("path");
 const fsp = require("fs").promises;
 const dns = require("dns");
@@ -731,7 +732,19 @@ async function cvMail(s) {
   }
   return { error: "bad-request" };
 }
-async function mail(id, host, spec) {
+// Sending is the only write to a school site, so the person confirms it here, in a native dialog the page can't draw or click: it names the
+// conversation and its people (looked up on Canvas, not taken from the page) and shows the start of the message. Cancel is the default.
+async function confirmSend(parent, origin, convo, body) {
+  const c = convo && typeof convo === "object" ? convo : {};
+  const names = (Array.isArray(c.names) ? c.names : []).map(n => String(n || "").slice(0, 60)).filter(Boolean).slice(0, 8).join(", ");
+  const snippet = body.length > 400 ? body.slice(0, 400) + "\u2026" : body;
+  let host = origin; try { host = new URL(origin).host; } catch (e) {}
+  const opts = { type: "question", buttons: ["Send", "Cancel"], defaultId: 1, cancelId: 1, noLink: true, title: "Send Reply",
+    message: "Send this reply through Canvas?",
+    detail: `Conversation: ${String(c.subject || "(No subject)").slice(0, 160)}${c.course ? " (" + String(c.course).slice(0, 80) + ")" : ""}\nTo: ${names || "the people in this conversation"}\nSchool site: ${host}\n\n${snippet}` };
+  try { const r = parent && !parent.isDestroyed() ? await dialog.showMessageBox(parent, opts) : await dialog.showMessageBox(opts); return r.response === 0; } catch (e) { return false; }
+}
+async function mail(id, host, spec, parent) {
   const Pv = prov(id), origin = originOf(host), q = spec && typeof spec === "object" ? spec : {};
   if (!Pv || !origin) return { error: "bad-request" };
   if (id !== "canvas") return { error: "unsupported" };
@@ -740,7 +753,17 @@ async function mail(id, host, spec) {
   const safe = { op, scope: q.scope === "sent" ? "sent" : "inbox", id: String(q.id || ""), body: typeof q.body === "string" ? q.body.trim().slice(0, 10000) : "" };
   if (op !== "list" && !/^\d{1,14}$/.test(safe.id)) return { error: "bad-request" };
   if (op === "send" && !safe.body) return { error: "empty" };
-  try { const r = await withPage(Pv, origin, w => Promise.race([w.webContents.executeJavaScript(`(${cvMail.toString()})(${JSON.stringify(safe)})`, true), timeout(45000)])); return failOf(r) || plain(r, origin, 0, ""); }
+  const run = (w, o) => Promise.race([w.webContents.executeJavaScript(`(${cvMail.toString()})(${JSON.stringify(o)})`, true), timeout(45000)]);
+  try {
+    const r = await withPage(Pv, origin, async w => {
+      if (op !== "send") return run(w, safe);
+      const convo = await run(w, { op: "get", scope: "inbox", id: safe.id, body: "" });
+      const bad = failOf(convo); if (bad) return bad;
+      if (!(await confirmSend(parent, origin, plain(convo, origin, 0, ""), safe.body))) return { error: "cancelled" };
+      return run(w, safe);
+    });
+    return failOf(r) || plain(r, origin, 0, "");
+  }
   catch (e) { return { error: String(e && e.message || e).slice(0, 200) }; }
 }
 
@@ -817,7 +840,7 @@ function register(getMain, trusted) {
   ipcMain.handle("lms:connect", (e, id, host) => fromMain(e) ? connect(String(id), host, getMain()) : null);
   ipcMain.handle("lms:sync", (e, id, host, opts) => fromMain(e) ? sync(String(id), host, opts) : null);
   ipcMain.handle("lms:file", (e, id, host, spec) => fromMain(e) ? file(String(id), host, spec) : null);
-  ipcMain.handle("lms:mail", (e, id, host, spec) => fromMain(e) ? mail(String(id), host, spec) : null);
+  ipcMain.handle("lms:mail", (e, id, host, spec) => fromMain(e) ? mail(String(id), host, spec, getMain()) : null);
   ipcMain.handle("lms:feed", (e, id, url) => fromMain(e) ? feed(String(id), url) : null);
   ipcMain.handle("lms:signout", (e, id) => fromMain(e) ? signOut(String(id)) : null);
 }

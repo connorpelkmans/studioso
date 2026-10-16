@@ -54,6 +54,10 @@ node tests/key-handoff.e2e.js
 
 `key-handoff.e2e.js` runs two simulated devices in Chromium.
 
+## Abuse limit
+
+Anyone can post a box, and each one is a new Durable Object, so `wrangler.jsonc` adds a rate limiting binding (`POST_LIMIT`): at most 20 new boxes a minute from one network address (`CF-Connecting-IP`). Past it, `POST` answers 429. Reading, status checks and cancelling aren't limited (they store nothing). The binding's count is kept per Cloudflare location, so treat it as a brake, not an exact quota. If you remove the binding, the relay still works, without the limit; a Cloudflare WAF rate limiting rule on `POST /v1/h/*` does the same job.
+
 ## Free plan limits that apply
 
 | Limit | Per day |

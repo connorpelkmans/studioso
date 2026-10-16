@@ -3,7 +3,7 @@
 // encoded headers, UTF-8, Latin-1 and Windows-1252, HTML-only mail (turned into plain text), and a message forwarded as an attachment
 // (message/rfc822). Attachments are skipped; only text is kept. Pure functions: also run in Node by tests/email-capture.test.js.
 
-const MAX_TEXT = 20000, MAX_DEPTH = 6;
+const MAX_TEXT = 20000, MAX_DEPTH = 6, MAX_HTML = 200000;
 
 // Raw bytes <-> a "binary string" (one char per byte), which keeps the structure parsing simple and lossless
 const toBin = bytes => { let s = ""; for (let i = 0; i < bytes.length; i += 8192) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192)); return s; };
@@ -38,14 +38,16 @@ function qpBytes(s, header){
   }
   return new Uint8Array(out);
 }
-// =?utf-8?B?...?= and =?iso-8859-1?Q?...?= words in a header; the space between two encoded words is dropped
+// =?utf-8?B?...?= and =?iso-8859-1?Q?...?= words in a header; the space between two encoded words is dropped.
+// NUL marks the decoded words below, so a NUL in the header itself is removed first (it would split the header in the wrong places).
+const uriDecode = p => { try { return decodeURIComponent(p); } catch (e) { return p; } };
 export function decodeWords(v){
-  const s = String(v || "").replace(/(=\?[^?]+\?[bBqQ]\?[^?]*\?=)\s+(?==\?[^?]+\?[bBqQ]\?[^?]*\?=)/g, "$1");
+  const s = String(v || "").replace(/\u0000/g, "").replace(/(=\?[^?]+\?[bBqQ]\?[^?]*\?=)\s+(?==\?[^?]+\?[bBqQ]\?[^?]*\?=)/g, "$1");
   const bin = s.replace(/=\?([^?*]+)(?:\*[^?]*)?\?([bBqQ])\?([^?]*)\?=/g, (all, cs, enc, txt) => {
     try { return "\u0000" + encodeURIComponent(decodeCharset(enc.toUpperCase() === "B" ? b64Bytes(txt) : qpBytes(txt, true), cs)) + "\u0000"; } catch (e) { return all; }
   });
   // what was not encoded is raw bytes (often UTF-8 sent as-is); what was decoded is marked and passed through
-  return bin.split("\u0000").map((p, i) => i % 2 ? decodeURIComponent(p) : decodeCharset(fromBin(p), "utf-8")).join("");
+  return bin.split("\u0000").map((p, i) => i % 2 ? uriDecode(p) : decodeCharset(fromBin(p), "utf-8")).join("");
 }
 // Headers: unfolded, names in lower case, first value wins (all values kept in .all)
 export function parseHeaders(head){
@@ -71,12 +73,15 @@ export function parseType(v){
 const addrOf = v => { const s = decodeWords(v || ""), m = /<([^<>\s@]+@[^<>\s@]+)>/.exec(s) || /([^\s<>"',;:]+@[^\s<>"',;:]+)/.exec(s); return m ? m[1].toLowerCase() : ""; };
 
 const ENT = { nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", ndash: "–", mdash: "—", hellip: "…", rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“", bull: "•", middot: "·", copy: "©", reg: "®", trade: "™", eacute: "é", egrave: "è", agrave: "à", ccedil: "ç", uuml: "ü", ouml: "ö", auml: "ä", szlig: "ß", ntilde: "ñ" };
+// Every pattern here runs in linear time, whatever the mail holds: a tag stops at the next "<" ([^<>]), an unclosed comment, style or
+// script runs to the end (as in a browser; <head> itself is just a tag, its title and styles go here), and a link's words are looked
+// for in at most 2000 characters. Very long HTML is cut first.
 export function htmlToText(html){
-  let t = String(html || "");
-  t = t.replace(/<!--[\s\S]*?-->/g, " ").replace(/<(head|style|script|title|xml)\b[\s\S]*?<\/\1\s*>/gi, " ");
-  t = t.replace(/<br\s*\/?>/gi, "\n").replace(/<li\b[^>]*>/gi, "\n• ").replace(/<\/(p|div|tr|h[1-6]|table|blockquote|section|article|ul|ol)\s*>/gi, "\n").replace(/<(p|div|tr|h[1-6]|table|blockquote|ul|ol)\b[^>]*>/gi, "\n").replace(/<\/t[dh]\s*>/gi, "  ");
-  t = t.replace(/<a\b[^>]*href\s*=\s*["']?(https?:[^"'\s>]+)["']?[^>]*>([\s\S]*?)<\/a\s*>/gi, (all, href, label) => label.replace(/<[^>]*>/g, "").trim() || href);   // a link keeps its words (tracking addresses are long)
-  t = t.replace(/<[^>]*>/g, "");
+  let t = String(html || "").slice(0, MAX_HTML);
+  t = t.replace(/<!--[\s\S]*?(?:-->|$)/g, " ").replace(/<(style|script|title|xml)\b[\s\S]*?(?:<\/\1\s*>|$)/gi, " ");
+  t = t.replace(/<br\s*\/?>/gi, "\n").replace(/<li\b[^<>]*>/gi, "\n• ").replace(/<\/(p|div|tr|h[1-6]|table|blockquote|section|article|ul|ol)\s*>/gi, "\n").replace(/<(p|div|tr|h[1-6]|table|blockquote|ul|ol)\b[^<>]*>/gi, "\n").replace(/<\/t[dh]\s*>/gi, "  ");
+  t = t.replace(/<a\b[^<>]*href\s*=\s*["']?(https?:[^"'\s<>]+)["']?[^<>]*>([\s\S]{0,2000}?)<\/a\s*>/gi, (all, href, label) => label.replace(/<[^<>]*>/g, "").trim() || href);   // a link keeps its words (tracking addresses are long)
+  t = t.replace(/<[^<>]*>/g, "");
   t = t.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (all, e) => { if (e[0] === "#") { const n = e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10); return n > 0 && n < 0x110000 ? String.fromCodePoint(n) : ""; } return ENT[e.toLowerCase()] ?? all; });
   return tidy(t);
 }
