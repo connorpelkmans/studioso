@@ -92,6 +92,12 @@ const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { 
     ok(e2 && e2.status === "todo", "Essay 2 is in, still to do");
     const course = await app.evaluate(() => Object.values(SBLMS.st().courses).find(c => c.cv));
     ok(course && course.instructor === "Prof. Ruiz" && (course.meetings || []).length === 1, "the course has its instructor and class times from the syllabus");
+    // Sync Now on the website asks the extension (through relay.js) to read the school site again
+    const before = await pop.evaluate(() => chrome.runtime.sendMessage({op: "status"}).then(x => x.status.canvas.lastOk));
+    await new Promise(r => setTimeout(r, 1100));
+    await app.evaluate(() => window.postMessage({source: "studyboard-app", type: "sync"}, location.origin));
+    const after = await until(() => pop.evaluate(b => chrome.runtime.sendMessage({op: "status"}).then(x => x.status.canvas.state === "ok" && x.status.canvas.lastOk > b ? x.status.canvas.lastOk : null), before), 60000, "a sync asked for by the website");
+    ok(after > before, "the website's Sync Now makes the extension read the school site again");
     // The feedback, where the student looks for it (a picture for the store listing: scripts/extension-store-assets.js)
     await app.evaluate(cid => SBLMS.go("courses", cid), course.id); await app.waitForTimeout(300);
     await app.waitForTimeout(1500); await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });   // the app's own "Sign In to Studyboard" prompt
