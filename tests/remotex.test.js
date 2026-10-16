@@ -22,7 +22,10 @@ t("window of 2 hours is not evidence", () => is({type: "Quiz", title: "Quiz 4", 
 t("an exam with a multi-day window is take-home", () => is({type: "Exam", rx: {ul: "2026-12-01T08:00:00Z", ll: "2026-12-04T08:00:00Z"}}, "yes", 0.8));
 
 /* ---- Respondus and friends: taken on a computer, so from home, unless the text says otherwise ---- */
-t("Respondus lockdown browser (school site flag) -> yes", () => is({type: "Exam", rx: {ld: 1}}, "yes", 0.8));
+// A lockdown browser alone doesn't say where: it's used in campus labs and classrooms as much as at home
+t("Respondus lockdown browser (school site flag) alone -> unknown", () => is({type: "Exam", rx: {ld: 1}}, "unknown"));
+t("lockdown browser in the title, open 9:50 to 11:30 one morning -> not take-home", () => { const r = V({type: "Exam", title: "BSNC 1000 Midterm Exam- Requires Respondus LockDown Browser", rx: {k: "quiz", tl: 90, ld: 1, ul: "2026-10-16T09:50:00", ll: "2026-10-16T11:30:00"}}); assert.notStrictEqual(r.verdict, "yes", JSON.stringify(r)); });
+t("webcam proctoring (Respondus Monitor) -> yes", () => is({type: "Exam", text: "This exam uses Respondus Monitor with your webcam."}, "yes", 0.8));
 t("Respondus in the text -> yes", () => is({text: "You must use Respondus LockDown Browser and a webcam."}, "yes", 0.8));
 t("Proctorio / ProctorU / Honorlock -> yes", () => ["Proctorio extension required", "Book a ProctorU session", "Honorlock will record you"].forEach(x => is({text: x}, "yes", 0.8)));
 t("Respondus but 'in the testing center' -> no", () => is({text: "Respondus LockDown Browser is required. Take it in the testing center.", rx: {st: ["online_quiz"]}}, "no", 0.8));
