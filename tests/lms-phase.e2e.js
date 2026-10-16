@@ -139,6 +139,30 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     ok(kept.loc === "SW1 Room 2015" && /student ID/.test(kept.notes) && kept.key, "Merge keeps the Brightspace one with the room and notes: " + JSON.stringify(kept));
     await app.evaluate(() => SBLMS_DUPES(false)); await app.waitForTimeout(300);
     ok(!(await app.locator("dialog[open] .mg-row").count()), "and it isn't asked again");
+    // Start Fresh: removes what came from Brightspace that you haven't changed, keeps the rest, turns off the calendar link; Undo puts it back
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    await app.evaluate(() => {
+      const mk = (id, title, extra) => ({kind: "task", id, after: Object.assign({id, created: 1, title, courseId: "c1", type: "Assignment", due: "2026-12-01", time: "", status: "todo", order: 1}, extra)});
+      const bs = (title, more) => ({bs: Object.assign({key: "7|" + title.toLowerCase().replace(/[^a-z0-9]/g, ""), ou: "7", last: {title, due: "2026-12-01", time: "", courseId: "c1"}, seen: {feed: 1}}, more || {})});
+      SBLMS.applyChanges([mk("sf1", "Fresh Untouched", bs("Fresh Untouched")), mk("sf2", "Fresh Renamed By Me", bs("Fresh Original")), mk("sf3", "My Own Task", {}),
+        mk("sf4", "Fresh With Checklist", Object.assign({checklist: [{id: "a", text: "outline", done: false}]}, bs("Fresh With Checklist"))),
+        {kind: "event", id: "sfe", after: {id: "sfe", created: 1, title: "Fresh Lecture", courseId: "c1", date: "2026-12-02", start: "09:00", end: "10:00", allDay: false, bs: {key: "7|freshlecture|2026-12-02", ou: "7", last: {title: "Fresh Lecture", date: "2026-12-02", start: "09:00", end: "10:00"}}}}], "");
+      SBLMS.brightspace.startFresh();
+    });
+    await app.waitForSelector("dialog[open] [data-submit]", {timeout: 5000});
+    const freshText = await app.textContent("dialog[open]");
+    ok(/Start Fresh with Brightspace\?/.test(freshText) && /Fresh Renamed By Me/.test(freshText) && /you edited it/.test(freshText) && /Fresh With Checklist/.test(freshText), "Start Fresh says what it removes and lists what it keeps, and why");
+    await app.click("dialog[open] [data-submit]");
+    await app.waitForFunction(() => !SBLMS.st().tasks.sf1, null, {timeout: 5000});
+    const after = await app.evaluate(() => { const st = SBLMS.st(); return {sf1: !!st.tasks.sf1, sf2: !!st.tasks.sf2, sf3: !!st.tasks.sf3, sf4: !!st.tasks.sf4, ev: !!(st.events || {}).sfe, dropped: (SBLMS.brightspace.cfg().dropped || []).includes("7|freshuntouched")}; });
+    ok(!after.sf1 && !after.ev && after.sf2 && after.sf3 && after.sf4, "it removes only Brightspace items you haven't changed: " + JSON.stringify(after));
+    ok(!after.dropped, "and they aren't remembered as deleted by you, so the next read brings them back");
+    await app.click("#toastUndo");
+    await app.waitForFunction(() => !!SBLMS.st().tasks.sf1, null, {timeout: 5000});
+    ok(await app.evaluate(() => !!(SBLMS.st().events || {}).sfe), "Undo puts everything back");
+    // Where this came from: tucked away at the bottom of the task's sheet
+    const src = await app.evaluate(() => { const L = SBLMS.brightspace; const d = L.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [], courses: [{ou: "7", code: "HSIP0100", name: "Health Sciences", folders: [{id: "77", name: "Source Check Essay", due: new Date(Date.now() + 5 * 864e5).toISOString(), end: null, sub: null, files: []}], quizzes: [], grades: [], news: [], events: []}]}); d.via = "extension"; L.applyPlan(d, L.plan(d), "grab", true); const t = Object.values(SBLMS.st().tasks).find(x => x.title === "Source Check Essay"); return SBLMS_TASK(t).replace(/<[^>]+>/g, " ").replace(/\s+/g, " "); });
+    ok(/Where this came from/.test(src) && /Added by the Studyboard School Sync extension/.test(src), "a task's sheet says, tucked away, what added it: " + src.slice(-160));
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await browser.close(); server.close(); }
   console.log(`\nlms-phase.e2e: ${n} checks passed`);
