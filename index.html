@@ -6371,7 +6371,7 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 .qz-title{font:700 1.05rem/1.25 var(--display);overflow-wrap:anywhere}
 .qz-acts{display:flex;align-items:center;gap:8px;padding:8px 14px 12px}
 .qz-acts .spacer{flex:1}
-:has(> .fc-arch-btn) > .btn.small{align-self:stretch}   /* Review, Archived Decks and Recently Deleted: one height */
+:has(> .fc-arch-btn) > .btn.small{align-self:center;height:2.3rem;min-height:0;display:inline-flex;align-items:center}   /* Review, Archived Decks and Recently Deleted: one height (not stretched to the row) */
 /* Deck page, Direction 1: band with the actions, the course icon in its ring, stats as chips, and the cards as little flashcards */
 .dk2 .deck-stats{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .dk2 .deck-stats > span{display:inline-flex;align-items:baseline;gap:4px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:color-mix(in srgb,var(--soft) 70%,var(--surface));color:var(--muted);font-size:.8rem}
