@@ -119,6 +119,13 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
     ok(await again, "the same code can be used again");
     await tab.waitForTimeout(500);
     ok(JSON.stringify((await tab.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")).tasks)).map(t => [t.id, t.due, t.status]).sort()) === before, "and adds nothing twice");
+    ok(!/out of date/.test(await tab.evaluate(() => document.querySelector("#toastMsg").textContent)), "a bookmark made today isn't called out of date");
+    // A bookmark made before the reading code changed (no version, or another one): Studyboard offers the new one
+    const old = await tab.evaluate(async code => { const p = await SBLMS.grabDecode(code); delete p.hv; const raw = new TextEncoder().encode(JSON.stringify(p)); let x = ""; raw.forEach(c => { x += String.fromCharCode(c); }); return "SBG1j." + btoa(x).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }, href.split("#sbgrab=")[1]);
+    tab.evaluate(code => SBLMS.grabReceive(code), old);
+    await tab.waitForSelector("#dlg [data-submit]", {timeout: 5000}); await tab.click("#dlg [data-submit]");
+    await tab.waitForFunction(() => /out of date/.test(document.querySelector("#toastMsg").textContent), null, {timeout: 6000});
+    ok(/Update Bookmark/.test(await tab.evaluate(() => document.querySelector("#toast").innerText)), "an old bookmark still works, and Studyboard offers to update it");
     // Refused: junk, an unknown platform, a stale read, an address that isn't a public https site
     const forged = async obj => tab.evaluate(async o => { const b = btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); return SBLMS.grabReceive("SBG1j." + b); }, obj);
     ok(await tab.evaluate(() => SBLMS.grabReceive("hello")) === false, "junk is refused");
