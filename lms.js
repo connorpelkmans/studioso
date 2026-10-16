@@ -245,10 +245,13 @@ async function bsHarvest(o) {
     const recent = fl.filter(f => { const d = Date.parse(f.DueDate || (f.Availability && f.Availability.EndDate) || ""); return isNaN(d) || (d > now - 60 * 864e5 && d < now + 240 * 864e5); }).slice(0, 60);
     const subs = {}, subAt = {}, fbk = {};
     const inBatches = async (list, fn) => { for (let i = 0; i < list.length; i += 6) await Promise.all(list.slice(i, i + 6).map(fn)); };   // a few at a time: Brightspace slows down bursts
-    let subFail = 0, subWhy = "";
+    let subFail = 0, subWhy = "", subOdd = 0;
     await inBatches(recent, async f => {
-      const s = await get(`${b}/dropbox/folders/${f.Id}/submissions/mysubmissions/`).catch(e => { subFail++; subWhy = String(e.status || e.name || e.message); return null; });
-      if (!Array.isArray(s)) return;
+      const s0 = await get(`${b}/dropbox/folders/${f.Id}/submissions/mysubmissions/`).catch(e => { subFail++; subWhy = String(e.status || e.name || e.message); return null; });
+      if (s0 == null) return;
+      // Usually a list of entries; some Brightspace versions wrap it ({Objects: [...]}) or send the one entry on its own
+      const s = Array.isArray(s0) ? s0 : listOf(s0).length ? listOf(s0) : typeof s0 === "object" && (s0.Submissions || s0.Status != null) ? [s0] : null;
+      if (!s) { subOdd++; return; }
       subs[f.Id] = s.some(x => x && ((Array.isArray(x.Submissions) && x.Submissions.length > 0) || [1, 3, "1", "3", "Submitted", "Published"].includes(x.Status) || !!x.CompletionDate));
       const when = []; s.forEach(x => (x && x.Submissions || []).forEach(y => { if (y && dt(y.SubmissionDate)) when.push(y.SubmissionDate); }));
       if (when.length) subAt[f.Id] = when.sort().pop();
@@ -272,8 +275,11 @@ async function bsHarvest(o) {
         }
       } catch (e) {}
     }
-    // Said in the sync details when Brightspace wouldn't show submissions, so a task that won't tick off can be explained
-    if (subFail) errors.push(`${c.code || c.name}: ${subFail} of ${recent.length} assignment submissions not readable by the API (${subWhy})${fromPage ? `, ${fromPage} read from the Assignments page instead` : ""}`);
+    // In the sync details: what Brightspace said about handing in, per course, so a task that won't tick off can be explained
+    if (recent.length) {
+      const yes = recent.filter(f => subs[f.Id] === true).length, no = recent.filter(f => subs[f.Id] === false).length, unk = recent.length - yes - no;
+      c.subNote = `${c.code || c.name}: ${yes} submitted, ${no} not, ${unk} unknown` + (subFail ? `; API refused ${subFail} (${subWhy})` : "") + (subOdd ? `; ${subOdd} unreadable answers` : "") + (fromPage ? `; ${fromPage} from the Assignments page` : "");
+    }
     // Quizzes you've finished: a completed attempt (only your own attempts are listed), so they can be marked done too
     const qrecent = quizzes.filter(x => { if (!x || x.IsActive === false) return false; const d = Date.parse(x.DueDate || x.EndDate || ""); return !isNaN(d) && d > now - 60 * 864e5 && d < now + 240 * 864e5; }).slice(0, 40);
     const tried = {};

@@ -46,6 +46,9 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     ok(r1.n === 3, "no task is added twice: " + JSON.stringify(r1.t));
     ok(JSON.stringify(r1.t) === JSON.stringify([["t1", "Capacity Building Assignment", "done"], ["t2", "HSIP 0100 Quiz", "done"], ["t3", "Workshop Quiz", "todo"]]), "the copies take the real names, and the submitted ones are ticked off");
     ok(!r1.gone.length, "nothing is offered for removal when each copy is the real item");
+    // The task sheet says what the latest read said, even when the task itself didn't change
+    const line = await app.evaluate(d => { const L = SBLMS.brightspace; d.recs[2].sub = "no"; L.applyPlan(d, L.plan(d), "grab", true); return SBLMS_TASK(SBLMS.st().tasks.t3); }, DATA);
+    ok(/said nothing was handed in yet/.test(line), "the task sheet tells what the latest read said: " + line.replace(/<[^>]+>/g, "").slice(0, 120));
     const r2 = await app.evaluate(d => { const p = SBLMS.brightspace.plan(d); return {done: p.rep.done.length, added: p.rep.added.length, gone: p.rep.gone.length}; }, DATA);
     ok(r2.done === 0 && r2.added === 0 && r2.gone === 0, "a second read changes nothing more: " + JSON.stringify(r2));
     // When the real item already has its own task (an earlier read), the leftover copy is ticked off if it's done, or offered for removal
