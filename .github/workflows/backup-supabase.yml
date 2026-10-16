@@ -1,0 +1,67 @@
+# Daily backup of the Supabase database (the free plan has none), kept as encrypted files on GitHub, not in Supabase.
+# Save this in your GitHub repository as: .github/workflows/backup-supabase.yml
+# It needs two repository secrets (Settings > Secrets and variables > Actions):
+#   SUPABASE_DB_URL     the "Session pooler" connection string from Supabase (Connect button at the top of the dashboard), with your
+#                       database password filled in. (The direct connection doesn't work from GitHub: it is IPv6 only on the free plan.)
+#   BACKUP_PASSPHRASE   any long passphrase you keep somewhere safe. The backups are encrypted with it; without it they can't be opened.
+# Each run stores one artifact for 30 days (a file named supabase-backup-<date>.tar.gz.gpg): roles, schema and every row (accounts, synced data, groups, plans).
+# Uploaded files (Supabase Storage) are not in it: those stay in the bucket, and the app's own backups keep copies on people's devices.
+# It only reads the database, so it costs Supabase nothing but a few MB of transfer a day, and uses no Supabase storage.
+# To restore, see "Restoring the database from a backup" in SETUP-GUIDE.md.
+name: Back up Supabase
+
+on:
+  schedule:
+    - cron: "37 3 * * *"   # 03:37 UTC every day
+  workflow_dispatch:       # lets you run it by hand from the Actions tab
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check the secrets
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "Add the SUPABASE_DB_URL and BACKUP_PASSPHRASE secrets in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Dump the database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          mkdir backup
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/roles.sql --role-only
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/schema.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/data.sql --use-copy --data-only
+          # an empty data file means the dump failed quietly: fail the run so it shows red in the Actions tab
+          test -s backup/schema.sql && test -s backup/data.sql
+          ls -l backup
+
+      - name: Compress and encrypt
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          tar -czf backup.tar.gz backup
+          printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 --symmetric --cipher-algo AES256 -o "supabase-backup-$(date -u +%F).tar.gz.gpg" backup.tar.gz
+          rm -rf backup backup.tar.gz
+          ls -l supabase-backup-*.gpg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup-${{ github.run_id }}
+          path: supabase-backup-*.tar.gz.gpg
+          retention-days: 30
+          if-no-files-found: error
+          compression-level: 0   # already compressed and encrypted

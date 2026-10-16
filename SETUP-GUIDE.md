@@ -1157,6 +1157,28 @@ Students edit on a phone on the bus and a laptop at home, often offline. Without
 
 If you skip the file, sync keeps working as before, and devices coming back from offline still read before they write; but two devices saving at the same moment can still overwrite each other, because only the server can check that safely. Update the app and run the file together, in either order.
 
+## Database Backups (free plan)
+
+Supabase's free plan keeps no backups of your database. `backup-supabase.yml` makes one every night with GitHub Actions and keeps the last 30 days as encrypted files on GitHub. It only reads the database, so it uses none of your Supabase storage and only a few MB of transfer a day. It covers accidents such as a bad SQL paste or a bug that changes everyone's data. Uploaded files (Supabase Storage) are not included; they stay in the bucket.
+
+**Set it up (once)**
+1. In Supabase, click **Connect** at the top of the dashboard and copy the **Session pooler** connection string. Put your database password in place of `[YOUR-PASSWORD]`. (Forgot it? **Project Settings > Database > Reset database password**.)
+2. In your GitHub repository, open **Settings > Secrets and variables > Actions** and add two secrets:
+   - `SUPABASE_DB_URL`: the connection string from step 1
+   - `BACKUP_PASSPHRASE`: a long passphrase. Keep a copy in your password manager. Without it, the backups can't be opened.
+3. Click **Add file > Create new file**, name it `.github/workflows/backup-supabase.yml`, paste in everything from `backup-supabase.yml`, and click **Commit changes**.
+4. Open **Actions > Back up Supabase > Run workflow**. After a minute or two it shows a green check, and the run page lists a `supabase-backup-…` artifact. From now on it runs every night at 03:37 UTC.
+
+The backups count toward your GitHub storage for Actions (500 MB free on private repositories). A small Studyboard database is a few MB a night, compressed. If it grows large, lower `retention-days` in the file.
+
+**Restoring the database from a backup**
+Restore into a new, empty Supabase project, then point the app at it (or, after checking it, copy what you need back). You need `psql` 15 or newer and `gpg` on your computer.
+1. Download the artifact from the run you want (Actions > Back up Supabase > the run > Artifacts) and unzip it.
+2. Decrypt and unpack it:
+   `gpg -d supabase-backup-YYYY-MM-DD.tar.gz.gpg > backup.tar.gz && tar -xzf backup.tar.gz`
+3. Load it into the new project, using that project's Session pooler connection string:
+   `psql --single-transaction --variable ON_ERROR_STOP=1 --file backup/roles.sql --file backup/schema.sql --command 'SET session_replication_role = replica' --file backup/data.sql --dbname "CONNECTION_STRING"`
+
 ## Keeping Supabase Free (Lean Sync)
 
 Supabase's free plan counts how much data it sends out each month (5 GB), how much it stores, and how busy the database is. Lean Sync keeps all three low so one free project can carry a lot of students.

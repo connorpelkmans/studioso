@@ -501,6 +501,7 @@ begin
     using public.study_groups g
     where m.group_id = g.id
       and public.studyboard_limit(g.owner_id, 'groupMsgDays') is not null
+      and to_jsonb(g) ->> 'deleted_at' is null   -- a deleted group waiting out its 30 days comes back as it was
       and not coalesce(m.pinned, false)   -- pinned messages stay
       and m.created_at < now() - make_interval(days => public.studyboard_limit(g.owner_id, 'groupMsgDays')::int + 30)   -- plus a grace period
     returning 1)
@@ -1003,6 +1004,7 @@ begin
   with gone as (
     delete from public.group_messages m
     where not public.plans_group_is_pro(m.group_id)
+      and not exists (select 1 from public.study_groups g where g.id = m.group_id and to_jsonb(g) ->> 'deleted_at' is not null)   -- a deleted group waiting out its 30 days comes back as it was
       and not coalesce(m.pinned, false)   -- pinned messages stay
       and m.created_at < now() - make_interval(days => days + 30)   -- plus a grace period
     returning 1)

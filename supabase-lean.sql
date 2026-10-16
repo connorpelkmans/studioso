@@ -272,6 +272,12 @@ begin
   if p_uid is null then raise exception 'SB_NO_USER' using errcode = '22023'; end if;
   -- Groups they own: hand over to the longest-standing other member, or delete the group when nobody else is in it.
   if to_regclass('public.study_groups') is not null and to_regclass('public.group_members') is not null then
+    -- Deleting an account deletes for real (groups.sql otherwise only hides a deleted group for 30 days). A group they had already
+    -- deleted goes now with them, never handed over to a member.
+    perform set_config('studyboard.group_purge', 'on', true);
+    if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'study_groups' and column_name = 'deleted_at') then
+      execute 'delete from public.study_groups where owner_id = $1 and deleted_at is not null' using p_uid;
+    end if;
     n := 0;
     for g in select id from public.study_groups where owner_id = p_uid loop
       select m.user_id into heir from public.group_members m where m.group_id = g.id and m.user_id <> p_uid order by m.joined_at, m.user_id limit 1;
