@@ -218,6 +218,18 @@ function SEED(){
     ok(await page.evaluate(() => { const c = state.settings.customIcons || []; return c.length > 0 && c[0].name === "Polished 3"; }), "the chosen one, polished, is kept");
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
 
+    /* ---------- Turning a sticker on a note ---------- */
+    await tab(page, "notes");
+    const sk = await page.evaluate(() => { const n = Object.values(state.notes).find(x => !x.board) || Object.values(state.notes)[0]; n.stickers = [{k: "dot", r: 0, s: 1, x: 50, yp: 50}]; render(); return n.id; });
+    await page.waitForTimeout(300);
+    const stk = page.locator(`.note[data-note="${sk}"] .stk`).first();
+    await stk.hover(); const hb = await page.locator(`.note[data-note="${sk}"] .stk-rot`).first().boundingBox(), sb = await stk.boundingBox();
+    const cx = sb.x + sb.width / 2, cy = sb.y + sb.height / 2;
+    await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2); await page.mouse.down();
+    await page.mouse.move(cx + 40, cy + 20, {steps: 6}); await page.mouse.up(); await page.waitForTimeout(200);
+    const sr = await page.evaluate(id => state.notes[id].stickers[0], sk);
+    ok(sr && Math.abs(sr.r) > 20 && sr.x === 50, "a sticker turns with its handle and stays put (r " + (sr && sr.r) + ")");
+
     /* ---------- Record a Lecture ---------- */
     await tab(page, "notes");
     ok(await page.locator('[data-act="lec-open"]').count() === 0, "Notes no longer has Record Lecture");
