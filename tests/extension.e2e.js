@@ -83,9 +83,9 @@ const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { 
     await app.goto(APP + "/"); await app.waitForFunction(() => window.SBLMS && window.SBEXT);
     await until(() => app.evaluate(() => SBEXT.on()), 15000, "the app sees the extension");
     ok(true, "the Studyboard website sees the extension through relay.js");
-    await app.waitForSelector("dialog[open] [data-submit]", {timeout: 15000});
-    ok(/Ready to Import/.test(await app.textContent("dialog[open]")), "the first read opens the usual review, so the student chooses where each course goes");
-    await app.click("dialog[open] [data-submit]");
+    // The extension's reads are applied by themselves: no "Ready to Import", just a notice of what changed
+    await app.waitForFunction(() => Object.values(SBLMS.st().tasks).some(t => t.cv), null, {timeout: 15000});
+    ok(!/Ready to Import/.test(await app.evaluate(() => { const d = document.querySelector("#dlg"); return d.open ? d.textContent : ""; })), "the extension's read is applied by itself, without asking to import");
     const got = await until(() => app.evaluate(() => { const ts = Object.values(SBLMS.st().tasks).filter(t => t.cv); return ts.length >= 2 ? ts.map(t => ({title: t.title, status: t.status, mark: t.mark, fb: !!t.cv.fb})) : null; }), 15000, "the import");
     const e1 = got.find(t => t.title === "Essay 1"), e2 = got.find(t => t.title === "Essay 2");
     ok(e1 && e1.status === "done" && e1.mark && e1.mark.got === 17 && e1.fb, "Essay 1 is in, marked done because it's submitted, with its grade and feedback");
