@@ -59,6 +59,7 @@ function SEED(){
       const body = route.request().postData() || ""; ctx.aiBodies.push(body);
       const em = /forwarded to their planner/.test(body) && /Subject: Fwd: Lab 4 moved/.test(body);
       const reply = em ? {items: [{title: "Lab 4", dueDate: ctx.emailDue, dueTime: "17:00", course: "BIO101", type: "Lab", notes: "Bring goggles", confidence: 0.92}], rawText: ""}
+        : /professional icon designer/.test(body) ? {icons: [1, 2, 3].map(k => ({idea: "a flask", name: (/three drafts/.test(body) ? "Polished " : "Flask ") + k, svg: '<path class="b" d="M10 3v6l-5 9h14l-5-9V3z"/><circle class="a" cx="12" cy="16" r="' + (1 + k) + '"/>'}))}
         : /inline_data/.test(body) ? {text: "Today we talk about osmosis. Water moves across a membrane toward the side with more solute."}
         : /tidy the raw transcript/.test(body) ? {text: "## Osmosis\n\nToday we talk about osmosis.\n\nWater moves toward more solute."}
         : /detailed but compact summary/.test(body) ? {overview: "How water and solutes cross membranes.", sections: [{heading: "Osmosis", points: ["Water moves toward more solute", "Needs a membrane"]}],
@@ -207,6 +208,16 @@ function SEED(){
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
     ok(page.errs.length === 0, "no console errors (reader): " + page.errs.join(" | "));
 
+    /* ---------- Course icons made with AI ---------- */
+    await tab(page, "courses"); await act(page, "edit-course", "c1"); await page.waitForTimeout(300);
+    await page.click(".ci-ai-btn"); await page.fill("#ciAiQ", "a flask"); await page.click('[data-act="ci-ai-go"]');
+    await page.waitForSelector("#ciAiPrev .ci-cand", {timeout: 15000});
+    ok(await page.locator("#ciAiPrev .ci-cand").count() === 3, "AI icons: three drafts to choose from");
+    ok(page.context().aiBodies.some(b => /Here are your three drafts/.test(b) && /image\/png/.test(b)), "the drafts are rendered and sent back to be polished");
+    await page.click('#ciAiPrev .ci-cand[data-id="2"]'); await page.click('[data-act="ci-ai-use"]'); await page.waitForTimeout(200);
+    ok(await page.evaluate(() => { const c = state.settings.customIcons || []; return c.length > 0 && c[0].name === "Polished 3"; }), "the chosen one, polished, is kept");
+    await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
+
     /* ---------- Record a Lecture ---------- */
     await tab(page, "notes");
     ok(await page.locator('[data-act="lec-open"]').count() === 0, "Notes no longer has Record Lecture");
@@ -240,7 +251,7 @@ function SEED(){
     ok(await page.locator("#lecKeep").isDisabled(), "without file storage, keeping the recording isn't offered");
     await page.click('[data-act="lec-ai"]');
     await page.waitForFunction(() => { const t = document.getElementById("lecText"); return t && /Today we talk about osmosis/.test(t.value); }, null, {timeout: 15000});
-    const sent = page.context().aiBodies.find(b => /inline_data/.test(b));
+    const sent = page.context().aiBodies.find(b => /inline_data/.test(b) && /audio\//.test(b));
     ok(!!sent && /"mime_type":"audio\/webm"/.test(sent), "Transcribe with AI sends the audio to Gemini");
     ok(/★ 0:0\d/.test(await page.inputValue("#lecText")), "the marks are kept");
     ok(await page.locator('input[name="lecMake"]').count() === 0, "no note to make");
