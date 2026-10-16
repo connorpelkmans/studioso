@@ -12,7 +12,7 @@ function browser(routes) {
   const store = {}, listeners = {}, asked = [], granted = new Set([ORIGIN + "/*"]), badge = {text: ""};
   const ev = name => ({addListener: f => { (listeners[name] = listeners[name] || []).push(f); }});
   const chrome = {
-    runtime: {id: "ext", getURL: p => "chrome-extension://ext/" + p, getManifest: () => ({version: "1.0.0"}), getPlatformInfo: async () => ({}), onMessage: ev("msg"), onInstalled: ev("installed"), onStartup: ev("startup")},
+    runtime: {id: "ext", getURL: p => "chrome-extension://ext/" + p, getManifest: () => ({version: "1.0.0"}), getPlatformInfo: async () => ({}), onMessage: ev("msg"), onMessageExternal: ev("ext"), onInstalled: ev("installed"), onStartup: ev("startup")},
     storage: {local: {
       get: async k => { const keys = k == null ? Object.keys(store) : [].concat(k); const o = {}; keys.forEach(x => { if (x in store) o[x] = JSON.parse(JSON.stringify(store[x])); }); return o; },
       set: async o => { Object.assign(store, JSON.parse(JSON.stringify(o))); },
@@ -34,7 +34,8 @@ function browser(routes) {
   const ctx = vm.createContext({chrome, fetch, URL, AbortController, setTimeout, clearTimeout, setInterval, clearInterval, encodeURIComponent, console});
   vm.runInContext(files("chrome")["background.js"], ctx, {filename: "background.js"});
   const send = (m, sender) => new Promise(res => listeners.msg[0](m, sender || {id: "ext", url: "chrome-extension://ext/popup.html"}, res));
-  return {send, store, asked, granted, badge};
+  const sendExt = (m, origin) => new Promise(res => { const kept = listeners.ext[0](m, {origin, url: origin + "/"}, res); if (!kept) res(undefined); });
+  return {send, sendExt, store, asked, granted, badge};
 }
 const DAY = 864e5, iso = d => new Date(Date.now() + d * DAY).toISOString();
 const CANVAS = [
@@ -64,6 +65,12 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
   ok(!b.asked.some(([, o]) => /evil/.test(o)), "a next-page link to another site is not followed");
   ok(b.badge.text === "", "no badge when it's fine");
 
+  // The website talking to the extension directly (Chrome and Edge): what was read, and sync now; nothing for any other site
+  const got = await b.sendExt({type: "get"}, "https://studyboardapp.com");
+  ok(got && got.v === 1 && got.list.length === 1 && got.list[0].id === "canvas" && got.schools[0].id === "canvas", "studyboardapp.com can ask the extension directly for what it read");
+  ok((await b.sendExt({type: "get"}, "https://evil.example.com")) === undefined, "no other site can");
+  ok((await b.sendExt({type: "sync"}, "https://studyboardapp.com")).ok && (await b.sendExt({type: "remove", id: "canvas"}, "https://studyboardapp.com")) === undefined, "the website can ask for a sync now, and nothing else");
+  ok(m.chrome.externally_connectable.matches.every(x => /^https:\/\/(www\.)?studyboardapp\.com\/\*$/.test(x)) && !m.firefox.externally_connectable, "only studyboardapp.com may connect (Chrome and Edge; Firefox uses relay.js)");
   // A page (relay.js) may only ask for "sync now"
   const fromPage = {id: "ext", url: "https://studyboardapp.com/", tab: {id: 1}};
   ok((await b.send({op: "remove", id: "canvas"}, fromPage)).error === "not-allowed", "a web page can't remove a school");

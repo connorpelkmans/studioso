@@ -196,6 +196,23 @@ chrome.permissions.onRemoved.addListener(async p => {
   for (const id of Object.keys(schools)) if ((p.origins || []).includes(schools[id].origin + "/*")) await setStatus(id, { state: "permission", at: Date.now() });
 });
 
+// The Studyboard website talking to the extension directly (Chrome and Edge, "externally_connectable": no permission warning at install).
+// It may ask for what was read and for a sync now, nothing else. relay.js does the same for websites that don't use this yet, and Firefox.
+const APP_ORIGINS = ["https://studyboardapp.com", "https://www.studyboardapp.com"];
+async function results() {
+  const all = await chrome.storage.local.get(null), status = all.status || {}, schools = all.schools || {};
+  return { v: 1, version: chrome.runtime.getManifest().version,
+    list: Object.keys(all).filter(k => /^result:(canvas|brightspace|blackboard)$/.test(k)).map(k => all[k]).filter(Boolean),
+    schools: Object.keys(schools).map(id => ({ id, origin: schools[id].origin, state: (status[id] || {}).state || "", at: (status[id] || {}).lastOk || 0 })) };
+}
+if (chrome.runtime.onMessageExternal) chrome.runtime.onMessageExternal.addListener((m, sender, reply) => {
+  let origin = ""; try { origin = sender.origin || new URL(sender.url).origin; } catch (e) {}
+  if (!APP_ORIGINS.includes(origin) || !m || typeof m !== "object") return false;
+  if (m.type === "get" || m.type === "hello") { results().then(reply, () => reply({ error: "unavailable" })); return true; }
+  if (m.type === "sync") { syncAll("app"); reply({ ok: true }); return false; }
+  return false;
+});
+
 // Requests from the toolbar popup (everything) and from relay.js on the Studyboard website (only "sync now")
 chrome.runtime.onMessage.addListener((m, sender, reply) => {
   if (!m || typeof m !== "object" || sender.id !== chrome.runtime.id) return false;

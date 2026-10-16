@@ -92,6 +92,11 @@ const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { 
     ok(e2 && e2.status === "todo", "Essay 2 is in, still to do");
     const course = await app.evaluate(() => Object.values(SBLMS.st().courses).find(c => c.cv));
     ok(course && course.instructor === "Prof. Ruiz" && (course.meetings || []).length === 1, "the course has its instructor and class times from the syllabus");
+    // Chrome and Edge builds that let studyboardapp.com talk to them directly: the page can ask for what was read
+    if (man.externally_connectable) {
+      const direct = await app.evaluate(id => new Promise(res => chrome.runtime.sendMessage(id, {type: "get"}, r => res(r || null))), id);
+      ok(direct && direct.list && direct.list[0] && direct.list[0].id === "canvas", "studyboardapp.com can also read it from the extension directly (externally_connectable)");
+    }
     // Sync Now on the website asks the extension (through relay.js) to read the school site again
     const before = await pop.evaluate(() => chrome.runtime.sendMessage({op: "status"}).then(x => x.status.canvas.lastOk));
     await new Promise(r => setTimeout(r, 1100));
