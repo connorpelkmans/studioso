@@ -170,10 +170,12 @@ async function bsHarvest(o) {
   const fromISO = new Date(now - (q.pastDays || 60) * 864e5).toISOString();
   const toISO = new Date(now + (q.aheadDays || 240) * 864e5).toISOString();
   const enc = encodeURIComponent, errors = [];
-  const get = async p => {
+  const get = async (p, tries) => {
     const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 25000);
     try {
       const r = await fetch(p, { credentials: "include", headers: { Accept: "application/json" }, signal: ctl.signal });
+      // Too many requests at once: Brightspace asks to slow down, so wait and ask again (a few times)
+      if ((r.status === 429 || r.status === 503) && (tries || 0) < 3) { clearTimeout(tm); await new Promise(res => setTimeout(res, 1500 * ((tries || 0) + 1))); return get(p, (tries || 0) + 1); }
       if (r.status === 401 || r.status === 403) { const e = new Error("denied"); e.status = r.status; throw e; }
       if (!r.ok) { const e = new Error("HTTP " + r.status); e.status = r.status; throw e; }
       return await r.json();
@@ -241,22 +243,26 @@ async function bsHarvest(o) {
     const fl = listOf(folders).filter(f => f && !f.IsHidden);
     const recent = fl.filter(f => { const d = Date.parse(f.DueDate || (f.Availability && f.Availability.EndDate) || ""); return !isNaN(d) && d > now - 60 * 864e5 && d < now + 240 * 864e5; }).slice(0, 40);
     const subs = {}, subAt = {}, fbk = {};
-    await Promise.all(recent.map(async f => {
-      const s = await soft(`${b}/dropbox/folders/${f.Id}/submissions/mysubmissions/`, true);
+    const inBatches = async (list, fn) => { for (let i = 0; i < list.length; i += 6) await Promise.all(list.slice(i, i + 6).map(fn)); };   // a few at a time: Brightspace slows down bursts
+    let subFail = 0, subWhy = "";
+    await inBatches(recent, async f => {
+      const s = await get(`${b}/dropbox/folders/${f.Id}/submissions/mysubmissions/`).catch(e => { subFail++; subWhy = String(e.status || e.name || e.message); return null; });
       if (!Array.isArray(s)) return;
-      subs[f.Id] = s.some(x => x && ((Array.isArray(x.Submissions) && x.Submissions.length > 0) || x.Status === 1 || x.Status === 3));
+      subs[f.Id] = s.some(x => x && ((Array.isArray(x.Submissions) && x.Submissions.length > 0) || [1, 3, "1", "3", "Submitted", "Published"].includes(x.Status) || !!x.CompletionDate));
       const when = []; s.forEach(x => (x && x.Submissions || []).forEach(y => { if (y && dt(y.SubmissionDate)) when.push(y.SubmissionDate); }));
       if (when.length) subAt[f.Id] = when.sort().pop();
       const fe = s.map(x => x && x.Feedback).find(Boolean);
       if (fe) fbk[f.Id] = fe;
-    }));
+    });
+    // Said in the sync details when Brightspace wouldn't show submissions, so a task that won't tick off can be explained
+    if (subFail) errors.push(`${c.code || c.name}: ${subFail} of ${recent.length} assignment submissions not readable (${subWhy})`);
     // Quizzes you've finished: a completed attempt (only your own attempts are listed), so they can be marked done too
     const qrecent = quizzes.filter(x => { if (!x || x.IsActive === false) return false; const d = Date.parse(x.DueDate || x.EndDate || ""); return !isNaN(d) && d > now - 60 * 864e5 && d < now + 240 * 864e5; }).slice(0, 40);
     const tried = {};
-    await Promise.all(qrecent.map(async x => {
+    await inBatches(qrecent, async x => {
       const a = await soft(`${b}/quizzes/${x.QuizId}/attempts/`, true);
       if (a) tried[x.QuizId] = listOf(a).some(t => t && (t.TimeCompleted || t.DateCompleted || t.SubmittedDate || t.IsGraded === true || (t.Score != null && t.Score !== "")));
-    }));
+    });
     // A released grade means it was handed in (or is closed): either way there's nothing left to do
     const graded = new Set(listOf(grades).filter(g => g && g.GradeObjectIdentifier != null && g.PointsNumerator != null).map(g => String(g.GradeObjectIdentifier)));
     // A rubric (Brightspace's levels are shared by a group's criteria; each criterion has one cell per level)
