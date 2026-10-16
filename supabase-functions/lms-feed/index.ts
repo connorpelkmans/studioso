@@ -13,7 +13,8 @@
 // Lean: each account can ask at most 60 times an hour (needs lean.sql). If the limit can't be checked, the request is refused.
 //
 // Where it may go: every address (the link and each redirect, at most 3, followed by hand) must be an https host name on
-// port 443 whose DNS answers (A and AAAA) are all public. Private, loopback, link-local, CGNAT (100.64/10), multicast,
+// port 443 with a calendar feed path (the link: its platform's; a redirect: any supported platform's, so a feed may move to a
+// CDN's .ics, but a redirect can't turn this into a fetcher for any other page), whose DNS answers (A and AAAA) are all public. Private, loopback, link-local, CGNAT (100.64/10), multicast,
 // documentation, benchmark and reserved IPv4 ranges, and IPv6 loopback, ULA (fc00::/7), link-local, mapped, NAT64, 6to4,
 // Teredo and documentation ranges are refused. The body is read with an 8 MB cap while it arrives.
 
@@ -122,9 +123,9 @@ export async function dnsOk(host: string, resolve: Resolver): Promise<boolean> {
   return answered && got.length > 0 && got.every(ipPublic);
 }
 
-// Checks the address by text and by DNS. Returns the cleaned address, or null.
-async function hopOk(raw: string, d: Deps): Promise<string | null> {
-  const href = hostOk(raw);
+// Checks the address by text (host and the platform's feed path) and by DNS. Returns the cleaned address, or null.
+async function hopOk(raw: string, d: Deps, lms?: unknown): Promise<string | null> {
+  const href = feedOk(raw, lms);
   if (!href) return null;
   return (await dnsOk(new URL(href).hostname, d.resolve)) ? href : null;
 }
@@ -212,7 +213,7 @@ export async function handle(req: Request, deps: Partial<Deps> = {}): Promise<Re
     if (lastTag && lastHash) headers["If-None-Match"] = lastTag;
     // Every hop (the link itself and each redirect) is checked by text and by DNS before it is fetched, and redirects
     // are followed by hand, so neither the link nor a redirect can send this function to an internal address.
-    let cur = await hopOk(href, d);
+    let cur = await hopOk(href, d, body.lms);   // redirects below: any platform's feed path (no lms), see the top
     if (!cur) return json({ error: "bad-url" }, 400);
     let r: Response = await d.fetch(cur, { headers, redirect: "manual", signal: ctl.signal });
     for (let hop = 0; r.status >= 300 && r.status < 400 && r.status !== 304; hop++) {

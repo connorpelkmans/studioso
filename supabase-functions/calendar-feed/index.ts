@@ -450,9 +450,11 @@ async function changeKey(db, feed){
     return Array.from(h.slice(0, 12), b => b.toString(16).padStart(2, "0")).join("");
   } catch (e) { return ""; }
 }
+// Fails closed: a limiter that errors says no. The one exception is a project that never ran lean.sql (the function doesn't
+// exist: PostgREST answers 404 / PGRST202), which keeps working without a limit as before.
 async function rateOk(db, key, max, windowSec){
   try { const r = await db.rest("rpc/studyboard_rate_hit", {method: "POST", body: JSON.stringify({p_key: key, p_max: max, p_window: windowSec})}); return r !== false; }
-  catch (e) { return true; }
+  catch (e) { return e.status === 404 || /PGRST202|42883/.test(String(e.body || "")); }
 }
 
 async function loadItems(db, userId){
@@ -502,7 +504,8 @@ export async function handle(req){
   const etag = ckey ? '"' + ckey + '"' : "";
   if (etag && (req.headers.get("If-None-Match") || "") === etag) return new Response(null, {status: 304, headers: Object.assign({ETag: etag, "Cache-Control": "private, max-age=900"}, CORS)});
   let out;
-  if (ckey && feed.cache_key === ckey && feed.cache_text) out = {text: feed.cache_text};
+  // The cached copy is checked like a fresh build (the cache column is just text in the database); an unsafe one is rebuilt.
+  if (ckey && feed.cache_key === ckey && feed.cache_text && icsSafe(feed.cache_text)) out = {text: feed.cache_text};
   else {
     let data;
     try { data = await loadItems(db, feed.user_id); }

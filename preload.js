@@ -1,6 +1,6 @@
 // The only things the Studyboard page can do on your computer: read and write inside the Studyboard folder,
 // open files and the folder, pick a different folder, keep a few secrets in the system keychain, show reminders, feed the Today widget and its settings,
-// and read (never change) your Brightspace, Canvas or Blackboard.
+// read your Brightspace, Canvas or Blackboard, and reply to a Canvas Inbox message (only after you confirm it in a system dialog).
 const { contextBridge, ipcRenderer } = require("electron");
 // Nothing here hands the page ipcRenderer or any Node module: every function sends one fixed channel with plain, checked values.
 const version = (process.argv.find(a => a.startsWith("--studioso-version=")) || "").split("=")[1] || "";
@@ -24,7 +24,9 @@ contextBridge.exposeInMainWorld("studiosoDesktop", {
   openDir: rel => ipcRenderer.invoke("dir:open", relOk(rel)),
   mkdir: rel => ipcRenderer.invoke("fs:mkdir", relOk(rel)),
   exists: rel => ipcRenderer.invoke("fs:exists", relOk(rel)),
-  write: (rel, data) => ipcRenderer.invoke("fs:write", relOk(rel), data),
+  // opts (optional): {untrusted: true} or {origin: "https://school.example"} for bytes that came from the internet (a school site or the cloud);
+  // the file is then marked as downloaded (Windows Zone.Identifier, macOS quarantine), so Office opens it in Protected View.
+  write: (rel, data, opts) => ipcRenderer.invoke("fs:write", relOk(rel), data, opts && typeof opts === "object" ? { untrusted: opts.untrusted === true || opts.origin != null, origin: typeof opts.origin === "string" ? opts.origin.slice(0, 2048) : undefined } : undefined),
   read: rel => ipcRenderer.invoke("fs:read", relOk(rel)),
   list: rel => ipcRenderer.invoke("fs:list", relOk(rel)),
   remove: rel => ipcRenderer.invoke("fs:remove", relOk(rel)),
@@ -75,8 +77,9 @@ contextBridge.exposeInMainWorld("studiosoDesktop", {
   setDesktopSetting: (key, value) => ipcRenderer.invoke("desk:settings:set", String(key), value),
   // Microsoft Store build only: opens Windows Settings > Apps > Startup (where start-at-sign-in is switched on for a Store app).
   openStartupSettings: () => ipcRenderer.invoke("desk:startup-settings"),
-  // 1.11: Brightspace, Canvas and Blackboard (id = "brightspace" | "canvas" | "blackboard"). Read-only; you sign in on the
-  // platform's own page, in a separate private cookie store for each.
+  // 1.11: Brightspace, Canvas and Blackboard (id = "brightspace" | "canvas" | "blackboard"). Read-only, with one exception: mail({op: "send"})
+  // posts a reply to a Canvas Inbox conversation, and only after the person confirms it in a system dialog shown by the main process.
+  // You sign in on the platform's own page, in a separate private cookie store for each.
   lms: {
     connect: (id, host) => ipcRenderer.invoke("lms:connect", String(id), String(host || "")),
     sync: (id, host, opts) => ipcRenderer.invoke("lms:sync", String(id), String(host || ""), opts && typeof opts === "object" ? JSON.parse(JSON.stringify(opts)) : {}),

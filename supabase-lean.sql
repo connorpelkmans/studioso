@@ -99,11 +99,18 @@ begin
 end $$;
 
 -- The same, for the signed-in person (used by the lms-feed function with your sign-in).
+-- Only the limits listed here exist, each with its own fixed window and maximum (p_max and p_window are kept for the callers but
+-- ignored), so nobody can make up names or windows to fill studyboard_rate with rows. Anything else is refused.
 create or replace function public.studyboard_rate_me(p_what text, p_max int, p_window int) returns boolean
 language plpgsql volatile security definer set search_path = public as $$
+declare lim int; win int;
 begin
   if auth.uid() is null then return false; end if;
-  return public.studyboard_rate_hit(left(p_what, 40) || ':' || auth.uid()::text, least(p_max, 600), greatest(p_window, 60));
+  case p_what
+    when 'lms-feed' then lim := 60; win := 3600;
+    else return false;
+  end case;
+  return public.studyboard_rate_hit(p_what || ':' || auth.uid()::text, lim, win);
 end $$;
 
 revoke all on function public.studyboard_rate_hit(text, int, int) from public, anon, authenticated;
@@ -121,6 +128,20 @@ begin
   if to_regclass('public.calendar_feeds') is not null then
     alter table public.calendar_feeds add column if not exists cache_key text;
     alter table public.calendar_feeds add column if not exists cache_text text;
+    -- The cache is written only by the calendar-feed function (service role). Signed-in people write just token, user_id and
+    -- options (supabase-calendar-feed.sql); this repeats that here so an older copy of that file run later can't open it up again.
+    revoke insert, update on public.calendar_feeds from authenticated;
+    revoke insert (cache_key, cache_text), update (cache_key, cache_text) on public.calendar_feeds from authenticated;
+    grant insert (token, user_id, options) on public.calendar_feeds to authenticated;
+    grant update (options) on public.calendar_feeds to authenticated;
+    -- A cached calendar is at most 2 MB (a bigger one is just rebuilt each time: the function treats the cache as optional).
+    -- NOT VALID, and any bigger cache already stored is emptied first (it is rebuilt on the next fetch), so no existing link is
+    -- left with a row that a later change of its options would fail on.
+    update public.calendar_feeds set cache_key = null, cache_text = null
+      where octet_length(cache_text) > 2000000 or char_length(cache_key) > 64;
+    alter table public.calendar_feeds drop constraint if exists calendar_feeds_cache_limits;
+    alter table public.calendar_feeds add constraint calendar_feeds_cache_limits
+      check (octet_length(cache_text) <= 2000000 and char_length(cache_key) <= 64) not valid;
   end if;
 end $$;
 
@@ -206,6 +227,7 @@ end $$;
 --     member (the group carries on). If nobody else is in it, the group and its content are deleted.
 --   * What the person wrote in groups (messages, items, quiz scores, RSVPs, reactions, check-ins, stats) is deleted with the account.
 --   * Shared group tasks and lists stay for the group with their author, assignee and completer links removed.
+--   * Removals from groups by their owners (group_bans) are deleted.
 --   * Voice-capture tokens and inbox (capture_tokens, capture_inbox) and the Email to Studyboard address (capture_email) are deleted.
 --   * Two-way calendar sync connections (calsync_accounts, with their stored sign-in) and what they sent (calsync_map) are deleted.
 --   * Reports they made or that were made about them (group_reports) stay for safety but lose the link to the account
@@ -228,7 +250,7 @@ declare
   del text[][] := array[
     ['group_reactions','user_id'], ['group_checkins','user_id'], ['group_stats','user_id'], ['group_rsvps','user_id'],
     ['group_quiz_scores','user_id'], ['group_misses','user_id'], ['group_peer_ratings','from_user'], ['group_peer_ratings','to_user'], ['group_messages','user_id'], ['group_items','user_id'], ['group_blocks','blocker_id'],
-    ['group_blocks','blocked_id'], ['group_pro','user_id'], ['group_members','user_id'], ['shared_decks','owner_id'], ['study_profiles','user_id'],
+    ['group_blocks','blocked_id'], ['group_pro','user_id'], ['group_bans','user_id'], ['group_members','user_id'], ['shared_decks','owner_id'], ['study_profiles','user_id'],
     ['study_room_people','user_id'], ['study_rooms','started_by'],
     ['capture_idem','user_id'], ['capture_inbox','user_id'], ['capture_tokens','user_id'], ['capture_email','user_id'],
     ['calsync_map','user_id'], ['calsync_accounts','user_id'],

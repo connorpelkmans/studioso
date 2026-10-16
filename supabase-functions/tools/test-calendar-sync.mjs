@@ -152,7 +152,8 @@ await test("connecting: Google's page, the callback, an encrypted token and the 
   assert.equal(page.begin.status, 302); assert.ok(/^sbcs=[A-Za-z0-9_-]+$/.test(page.begin.cookie), "begin sets this browser's cookie");
   assert.equal(u.host, "accounts.google.com"); assert.equal(u.searchParams.get("access_type"), "offline");
   assert.ok(/calendar\.app\.created/.test(u.searchParams.get("scope")) && !/auth\/calendar(\s|$)/.test(u.searchParams.get("scope")), "only the narrow scopes");
-  assert.ok(/Connect <b>student@gmail\.com<\/b> to the Studyboard account <b>ha•••@school\.edu<\/b>/.test(page.confirmPage.text), "the person is asked, and sees which Studyboard account");
+  assert.ok(/Connect <b>student@gmail\.com<\/b> to the Studyboard account <b>hannah@school\.edu<\/b>/.test(page.confirmPage.text), "the person is asked, and sees the full Studyboard account");
+  assert.ok(/Only continue if this is your Studyboard account\.<\/b> If someone sent you this link, close this page\./.test(page.confirmPage.text), "and is warned about links from someone else");
   assert.ok(/form-action 'self'/.test(page.confirmPage.csp) && !/<script/.test(page.confirmPage.text), "the confirm page runs nothing");
   assert.equal(page.status, 200); assert.ok(/Connected to Google Calendar/.test(page.text) && /student@gmail\.com/.test(page.text));
   const a = w.db.accounts.get(UID + "|google");
@@ -189,6 +190,15 @@ await test("someone else's link does nothing: no cookie, a forged or expired sta
   assert.equal(w.db.accounts.size, 0);
   const denied = await w.get("error=access_denied&state=" + encodeURIComponent(st), b.cookie);
   assert.ok(/Not connected/.test(denied.text));
+});
+await test("bodies are capped while they arrive (a chunked body without Content-Length too)", async () => {
+  const w = world();
+  const big = (n) => new ReadableStream({ start(c) { for (let i = 0; i < n; i++) c.enqueue(new TextEncoder().encode("x".repeat(1000))); c.close(); } });
+  const form = await F.handle(new Request("https://x.supabase.co/functions/v1/calendar-sync", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: big(20), duplex: "half" }), w.deps);
+  assert.equal(form.status, 400, "the confirm form stops at 9000 bytes");
+  const api = await F.handle(new Request("https://x.supabase.co/functions/v1/calendar-sync", { method: "POST", headers: { authorization: "Bearer user-jwt", "content-type": "application/json" }, body: big(1300), duplex: "half" }), w.deps);
+  assert.equal(api.status, 400, "a signed-in call stops at 1.2 MB");
+  assert.equal(await F.readLimited(new Request("https://x/", { method: "POST", body: "héllo" }), 10), "héllo");
 });
 await test("the first sync writes everything; the next one writes nothing", async () => {
   const w = world(); await w.connect();

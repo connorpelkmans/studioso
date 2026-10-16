@@ -26,7 +26,9 @@ const MAIN_ORIGIN = "app://studioso", WIDGET_ORIGIN = "app://widget";
 const ALLOWED_PERMISSIONS = new Set(["notifications", "clipboard-sanitized-write", "fullscreen", "media"]);   // only what Studyboard uses
 // "media" is the microphone for Record a Lecture (Pro), and only the microphone: a request that includes the camera or the screen is refused.
 const audioOnly = (permission, details) => permission !== "media" || (details && ((Array.isArray(details.mediaTypes) && details.mediaTypes.length && details.mediaTypes.every(t => t === "audio")) || details.mediaType === "audio"));
-if (!process.argv.includes("--no-sandbox")) app.enableSandbox();   // sandbox every renderer, even ones created without webPreferences.sandbox (the flag exists only so tests can run as root in a container)
+// Sandbox every renderer, even ones created without webPreferences.sandbox. --no-sandbox is honoured only when running from source (so tests can
+// run as root in a container); an installed app always sandboxes.
+if (app.isPackaged || !process.argv.includes("--no-sandbox")) app.enableSandbox();
 // A link is only ever handed to the operating system when it is a plain https page or a mailto address.
 function safeExternal(raw) {
   try {
@@ -203,6 +205,8 @@ function resolveRel(rel) {
   if (typeof rel !== "string" && rel != null) throw new Error("Bad path");
   rel = String(rel || "");
   if (rel.length > 1024 || rel.includes("\0")) throw new Error("Bad path");
+  // On Windows a ":" names an alternate data stream (x.pdf:Zone.Identifier), which would let the page clear a file's downloaded-from-the-internet mark
+  if (process.platform === "win32" && rel.includes(":")) throw new Error("Bad path");
   const root = path.resolve(dataRoot());
   const p = path.resolve(root, rel.replace(/\\/g, "/"));
   if (p !== root && !p.startsWith(root + path.sep)) throw new Error("Path outside the Studyboard folder");
@@ -217,17 +221,22 @@ function resolveRel(rel) {
 }
 const insideRoot = async dir => { const r = await fsp.realpath(dataRoot()), d = await fsp.realpath(dir); return d === r || d.startsWith(r + path.sep); };
 // Files Studyboard will open with the computer's default app. Anything else (programs, scripts, shortcuts) is only shown in its folder,
-// so a page can never make the computer run something it wrote.
-const OPENABLE = new Set(["pdf", "txt", "md", "rtf", "csv", "tsv", "json", "ics", "png", "jpg", "jpeg", "gif", "webp", "heic", "heif", "bmp", "tif", "tiff",
-  "doc", "docx", "ppt", "pptx", "xls", "xlsx", "odt", "ods", "odp", "pages", "numbers", "key", "mp3", "m4a", "wav", "aac", "flac", "ogg", "mp4", "mov", "m4v", "webm", "mkv", "zip"]);
+// so a page can never make the computer run something it wrote. The old Office formats (doc, xls, ppt) and rtf are left out on purpose: they
+// can carry macros or embedded objects that the name doesn't reveal, so they are shown in their folder too (the macro formats are in RISKY_EXT).
+const OPENABLE = new Set(["pdf", "txt", "md", "csv", "tsv", "json", "ics", "png", "jpg", "jpeg", "gif", "webp", "heic", "heif", "bmp", "tif", "tiff",
+  "docx", "pptx", "xlsx", "odt", "ods", "odp", "pages", "numbers", "key", "mp3", "m4a", "wav", "aac", "flac", "ogg", "mp4", "mov", "m4v", "webm", "mkv", "zip"]);
 // The program check comes before the folder check: a Mac app, workflow or installer is a folder ("bundle") on disk, and opening it runs it.
+// The checks look at the real file, not the name asked for: a shortcut (symlink) to a file is never opened (only shown in its folder), and a path
+// through a linked folder is judged by where it really ends up, so "notes.pdf" can't stand in for a program.
 async function openSafely(p) {
-  let st; try { st = await fsp.stat(p); } catch (e) { return "Not found"; }
-  if (MAC_BUNDLE.test(p)) { shell.showItemInFolder(p); return "blocked: programs and scripts are not opened from here"; }   // shown in Finder, never opened
-  if (RISKY_EXT.test(p)) return "blocked: programs and scripts are not opened from here";      // never, not even shown
-  if (st.isDirectory()) return shell.openPath(p);
-  const ext = path.extname(p).slice(1).toLowerCase();
-  if (OPENABLE.has(ext)) return shell.openPath(p);
+  let lst, real, st;
+  try { lst = await fsp.lstat(p); real = await fsp.realpath(p); st = await fsp.stat(real); } catch (e) { return "Not found"; }
+  if (MAC_BUNDLE.test(p) || MAC_BUNDLE.test(real)) { shell.showItemInFolder(p); return "blocked: programs and scripts are not opened from here"; }   // shown in Finder, never opened
+  if (RISKY_EXT.test(p) || RISKY_EXT.test(real)) return "blocked: programs and scripts are not opened from here";      // never, not even shown
+  if (lst.isSymbolicLink() && !st.isDirectory()) { shell.showItemInFolder(p); return "blocked: shortcuts are not opened from here"; }   // a linked folder (the Studyboard folder itself may be one) is fine
+  if (st.isDirectory()) return shell.openPath(real);
+  const ext = path.extname(real).slice(1).toLowerCase();
+  if (OPENABLE.has(ext)) return shell.openPath(real);
   shell.showItemInFolder(p); return "";
 }
 async function ensureRoot() {
@@ -775,8 +784,29 @@ async function updateCheck() {
 const MAX_WRITE = 512 * 1024 * 1024;
 ipcMain.handle("fs:mkdir", async (e, rel) => { if (!fromMain(e)) return false; await fsp.mkdir(resolveRel(rel), { recursive: true }); return true; });
 ipcMain.handle("fs:exists", async (e, rel) => { if (!fromMain(e)) return false; try { await fsp.access(resolveRel(rel)); return true; } catch (err) { return false; } });
-ipcMain.handle("fs:write", async (e, rel, data) => {
+// Files that came from the internet (a school site, or the cloud copy of a file) are marked the way a browser marks a download, so Office opens
+// them in Protected View and the system warns before running anything in them: Windows gets a Zone.Identifier stream (Internet zone), a Mac the
+// com.apple.quarantine attribute. opts = {untrusted: true} or {origin: "https://school.example"}; only an https origin is ever written into the mark.
+const motwOrigin = opts => {
+  if (!opts || typeof opts !== "object") return null;
+  if (typeof opts.origin === "string" && opts.origin.length <= 2048) {
+    try { const u = new URL(opts.origin); if (u.protocol === "https:" && !u.username && !u.password && /^[a-z0-9.:[\]-]+$/i.test(u.host)) return u.origin; } catch (err) {}
+  }
+  return opts.untrusted === true || opts.origin !== undefined ? "about:internet" : null;
+};
+async function markDownloaded(target, origin) {
+  try {
+    if (process.platform === "win32") await fsp.writeFile(target + ":Zone.Identifier", `[ZoneTransfer]\r\nZoneId=3\r\nHostUrl=${origin}\r\n`);   // fails quietly on FAT/exFAT and network drives without streams
+    else if (process.platform === "darwin") {
+      const { execFile } = require("child_process");
+      // The path goes in as its own argument (no shell). Best effort: a sandboxed build that can't run xattr just skips it.
+      await new Promise(resolve => execFile("/usr/bin/xattr", ["-w", "com.apple.quarantine", `0081;${Math.floor(Date.now() / 1000).toString(16)};Studyboard;`, target], { timeout: 5000 }, () => resolve()));
+    }
+  } catch (err) {}
+}
+ipcMain.handle("fs:write", async (e, rel, data, opts) => {
   if (!fromMain(e)) return false;
+  const origin = motwOrigin(opts);
   const isBin = data instanceof Uint8Array || data instanceof ArrayBuffer;
   if (typeof data !== "string" && !isBin) throw new Error("Bad data");
   if ((typeof data === "string" ? Buffer.byteLength(data) : data.byteLength) > MAX_WRITE) throw new Error("File too large");
@@ -797,6 +827,7 @@ ipcMain.handle("fs:write", async (e, rel, data) => {
     try { await fh.writeFile(typeof data === "string" ? data : Buffer.from(data instanceof ArrayBuffer ? new Uint8Array(data) : data)); } finally { await fh.close(); }
     await fsp.rename(tmp, target);               // never leaves a half-written file behind
   } catch (err) { await fsp.unlink(tmp).catch(() => {}); throw err; }
+  if (origin) await markDownloaded(target, origin);   // before returning, so the page never opens it unmarked
   return true;
 });
 ipcMain.handle("fs:read", async (e, rel) => { if (!fromMain(e)) return null; try { return new Uint8Array(await fsp.readFile(resolveRel(rel))); } catch (err) { return null; } });
@@ -856,27 +887,39 @@ const stripBlock = text => String(text || "").replace(/\r?\n?# >>> Studyboard fo
 function readBlock() {
   try { const t = fs.readFileSync(HOSTS, "utf8"), m = /# >>> Studyboard focus block until (\d+)/.exec(t); return m ? { until: Number(m[1]) } : null; } catch (e) { return null; }
 }
-function runElevated(prepared, seconds) {
+// The prepared file sits in a folder the person (and so any program they run) can write to, and the password prompt can stay up for minutes.
+// So the elevated step never trusts it: it takes the SHA-256 of the content Studyboard wrote (worked out here, before the prompt), copies the file
+// somewhere only an administrator can write (or into memory on Windows), checks that copy against the hash, and only then writes it to the hosts file.
+function runElevated(prepared, seconds, sha256) {
   const { execFile } = require("child_process");
   const secs = Math.max(60, Math.min(6 * 3600, Math.round(Number(seconds) || 0)));
+  const hash = /^[0-9a-f]{64}$/.test(String(sha256)) ? String(sha256) : "";
   return new Promise(resolve => {
-    const done = err => resolve(err ? (/cancel|denied|dismissed|-128|126|127/i.test(String(err.message || err)) ? "cancelled" : "failed") : "ok");
+    if (!hash) { resolve("failed"); return; }
+    // Judged by the exit code and the error text, not the whole command line (the hash and paths in it could contain anything).
+    const done = (err, out, errText) => resolve(err ? (err.code === 126 || err.code === 127 || /cancel|denied|dismissed|-128/i.test(String(errText || "")) ? "cancelled" : "failed") : "ok");
+    // mktemp makes a file only root can write; it is checked, then copied over /etc/hosts with cat (keeps the hosts file's owner, mode and
+    // security label), and removed. $3 is the expected hash; a mismatch exits 3 without touching /etc/hosts.
+    const verify = sum => 't=$(mktemp /etc/.studyboard-hosts.XXXXXX) || exit 3; if ! cat -- "$1" > "$t"; then rm -f "$t"; exit 3; fi; ' +
+      'h=$(' + sum + ' "$t" | cut -d " " -f 1); if [ "$h" != "$3" ]; then rm -f "$t"; exit 3; fi; cat "$t" > /etc/hosts; rm -f "$t"; ';
     if (process.platform === "darwin") {
       // The paths go in as arguments (quoted form of), never pasted into the script text.
-      const sh = 'cp "$1" /etc/hosts; dscacheutil -flushcache; killall -HUP mDNSResponder; ( sleep "$2"; /usr/bin/sed -i "" "/# >>> Studyboard focus block until/,/# <<< Studyboard focus block/d" /etc/hosts; dscacheutil -flushcache; killall -HUP mDNSResponder ) >/dev/null 2>&1 &';
-      execFile("/usr/bin/osascript", ["-e", "on run argv", "-e", `do shell script "/bin/sh -c " & quoted form of (item 1 of argv) & " sh " & quoted form of (item 2 of argv) & " " & (item 3 of argv) with administrator privileges with prompt "Studyboard needs your password to block distracting sites during this focus session."`, "-e", "end run", sh, prepared, String(secs)], { timeout: 120000 }, done);
+      const sh = verify("/usr/bin/shasum -a 256") + 'dscacheutil -flushcache; killall -HUP mDNSResponder; ( sleep "$2"; /usr/bin/sed -i "" "/# >>> Studyboard focus block until/,/# <<< Studyboard focus block/d" /etc/hosts; dscacheutil -flushcache; killall -HUP mDNSResponder ) >/dev/null 2>&1 &';
+      execFile("/usr/bin/osascript", ["-e", "on run argv", "-e", `do shell script "/bin/sh -c " & quoted form of (item 1 of argv) & " sh " & quoted form of (item 2 of argv) & " " & (item 3 of argv) & " " & quoted form of (item 4 of argv) with administrator privileges with prompt "Studyboard needs your password to block distracting sites during this focus session."`, "-e", "end run", sh, prepared, String(secs), hash], { timeout: 120000 }, done);
     } else if (process.platform === "linux") {
-      const sh = 'cp "$1" /etc/hosts; ( sleep "$2"; sed -i "/# >>> Studyboard focus block until/,/# <<< Studyboard focus block/d" /etc/hosts ) >/dev/null 2>&1 &';
-      execFile("pkexec", ["/bin/sh", "-c", sh, "sh", prepared, String(secs)], { timeout: 120000 }, done);
+      const sh = verify("sha256sum") + '( sleep "$2"; sed -i "/# >>> Studyboard focus block until/,/# <<< Studyboard focus block/d" /etc/hosts ) >/dev/null 2>&1 &';
+      execFile("pkexec", ["/bin/sh", "-c", sh, "sh", prepared, String(secs), hash], { timeout: 120000 }, done);
     } else {
-      // An encoded command, so nothing in it is ever parsed as part of a command line.
+      // An encoded command, so nothing in it is ever parsed as part of a command line. The bytes are read once, into memory, and the very
+      // bytes that were checked are the ones written (WriteAllBytes keeps the hosts file's permissions).
       const q = v => "'" + String(v).replace(/'/g, "''") + "'";
-      const inner = `Copy-Item -LiteralPath ${q(prepared)} -Destination ${q(HOSTS)} -Force; ipconfig /flushdns | Out-Null; Start-Sleep -Seconds ${secs}; $t = Get-Content -LiteralPath ${q(HOSTS)} -Raw; $t = [regex]::Replace($t, '(?s)\\r?\\n?# >>> Studyboard focus block until \\d+.*?# <<< Studyboard focus block[^\\n]*\\r?\\n?', [Environment]::NewLine); Set-Content -LiteralPath ${q(HOSTS)} -Value $t -NoNewline; ipconfig /flushdns | Out-Null`;
+      const inner = `$b = [IO.File]::ReadAllBytes(${q(prepared)}); $h = -join ([Security.Cryptography.SHA256]::Create().ComputeHash($b) | ForEach-Object { $_.ToString('x2') }); if ($h -ne ${q(hash)}) { exit 3 }; [IO.File]::WriteAllBytes(${q(HOSTS)}, $b); ipconfig /flushdns | Out-Null; Start-Sleep -Seconds ${secs}; $t = Get-Content -LiteralPath ${q(HOSTS)} -Raw; $t = [regex]::Replace($t, '(?s)\\r?\\n?# >>> Studyboard focus block until \\d+.*?# <<< Studyboard focus block[^\\n]*\\r?\\n?', [Environment]::NewLine); Set-Content -LiteralPath ${q(HOSTS)} -Value $t -NoNewline; ipconfig /flushdns | Out-Null`;
       const enc = Buffer.from(inner, "utf16le").toString("base64");
       execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", `try { Start-Process -FilePath powershell.exe -Verb RunAs -WindowStyle Hidden -ArgumentList '-NoProfile','-NonInteractive','-EncodedCommand','${enc}' -ErrorAction Stop } catch { exit 5 }`], { timeout: 120000 }, err => resolve(err ? "cancelled" : "ok"));
     }
   });
 }
+const sha256Hex = text => require("crypto").createHash("sha256").update(text, "utf8").digest("hex");
 async function startBlock(list, minutes) {
   if (!BLOCK_OK) return { status: "unavailable" };
   const domains = blockDomains(list); if (!domains.length) return { status: "empty" };
@@ -886,7 +929,7 @@ async function startBlock(list, minutes) {
   const next = stripBlock(cur).replace(/\s*$/, "\n") + [BLK_A + until, ...lines, BLK_B].join(process.platform === "win32" ? "\r\n" : "\n") + (process.platform === "win32" ? "\r\n" : "\n");
   const dir = path.join(app.getPath("userData"), "focus-block"); await fsp.mkdir(dir, { recursive: true });
   const prepared = path.join(dir, "hosts.next"); await fsp.writeFile(prepared, next, { mode: 0o644 });
-  const status = await runElevated(prepared, secs);
+  const status = await runElevated(prepared, secs, sha256Hex(next));
   return { status, until: until * 1000, count: domains.length / 2 };
 }
 ipcMain.handle("block:status", e => fromMain(e) ? { available: BLOCK_OK, block: BLOCK_OK ? readBlock() : null } : null);
@@ -897,8 +940,8 @@ ipcMain.handle("block:clear", async e => {
   let cur = ""; try { cur = fs.readFileSync(HOSTS, "utf8"); } catch (err) { return { status: "failed" }; }
   if (!/# >>> Studyboard focus block until/.test(cur)) return { status: "ok" };
   const dir = path.join(app.getPath("userData"), "focus-block"); await fsp.mkdir(dir, { recursive: true });
-  const prepared = path.join(dir, "hosts.next"); await fsp.writeFile(prepared, stripBlock(cur), { mode: 0o644 });
-  return { status: await runElevated(prepared, 60) };
+  const cleared = stripBlock(cur), prepared = path.join(dir, "hosts.next"); await fsp.writeFile(prepared, cleared, { mode: 0o644 });
+  return { status: await runElevated(prepared, 60, sha256Hex(cleared)) };
 });
 
 ipcMain.handle("clip:aikey", e => {
@@ -937,13 +980,17 @@ function startBookmarkAccess() {
 
 // ---------- Locking down every window and session ----------
 // CSP for Studyboard's own pages. The page's inline scripts are allowed by hash (prepare.js writes the hashes); with no hashes file
-// (running from source) inline scripts are allowed so development still works. connect-src allows any https host because the person can
-// use their own Supabase server and their own AI provider; nothing else (no http, no frames, no plugins, no form posts) is allowed.
+// inline scripts are allowed only when running from source, so development still works. An installed app with a missing or broken hashes file
+// fails closed: no inline script runs (a broken build shows up at once instead of shipping without the CSP). connect-src allows any https host
+// because the person can use their own Supabase server and their own AI provider; nothing else (no http, no frames, no plugins, no form posts) is allowed.
 let scriptHashes = null;
-function loadScriptHashes() { try { const h = JSON.parse(fs.readFileSync(path.join(APP_DIR, "csp-hashes.json"), "utf8")); scriptHashes = Array.isArray(h) && h.every(x => /^sha256-[A-Za-z0-9+/=]+$/.test(x)) ? h : null; } catch (e) { scriptHashes = null; } }
+function loadScriptHashes() {
+  try { const h = JSON.parse(fs.readFileSync(path.join(APP_DIR, "csp-hashes.json"), "utf8")); scriptHashes = Array.isArray(h) && h.every(x => /^sha256-[A-Za-z0-9+/=]+$/.test(x)) ? h : null; } catch (e) { scriptHashes = null; }
+  if (!IS_DEV && !(scriptHashes && scriptHashes.length)) mainReport("csp-hashes", new Error("csp-hashes.json missing or invalid in a packaged build"), { type: "CspHashes" });
+}
 function appCsp() {
-  const scripts = scriptHashes && scriptHashes.length ? scriptHashes.map(h => `'${h}'`).join(" ") : "'unsafe-inline'";
-  return ["default-src 'self'", `script-src 'self' ${scripts}`, "worker-src 'self' blob:", "style-src 'self' 'unsafe-inline'", "font-src 'self' data: app://studioso",
+  const scripts = scriptHashes && scriptHashes.length ? scriptHashes.map(h => `'${h}'`).join(" ") : IS_DEV ? "'unsafe-inline'" : "";
+  return ["default-src 'self'", `script-src 'self'${scripts ? " " + scripts : ""}`, "worker-src 'self' blob:", "style-src 'self' 'unsafe-inline'", "font-src 'self' data: app://studioso",
     "img-src 'self' data: blob: https:", "media-src 'self' data: blob: https:", "connect-src 'self' https: wss: blob: data:", "object-src 'none'", "base-uri 'none'",
     "form-action 'none'", "frame-src 'none'", "frame-ancestors 'none'"].join("; ");
 }
@@ -1008,14 +1055,21 @@ if (GOT_LOCK) app.whenReady().then(async () => {
       const rel = decodeURIComponent(u.pathname).replace(/^\/+/, "") || (dir === WIDGET_DIR ? "widget.html" : "index.html");
       if (rel.includes("\0")) return new Response("Not found", { status: 404 });
       const p = path.resolve(dir, rel);
-      if (!p.startsWith(dir + path.sep) || (dir === WIDGET_DIR && /preload/i.test(rel)) || (dir === APP_DIR && /^(csp-hashes|error-config)\.json$|^errreport-core\.js$/.test(rel))) return new Response("Not found", { status: 404 });
+      if (!p.startsWith(dir + path.sep)) return new Response("Not found", { status: 404 });
+      // Every check below looks at the file that is actually served (the resolved path, relative to its folder), never the address as typed,
+      // so "error-config.json/", "./x/../error-config.json" or an encoded "x%2F..%2Ferror-config.json" can't slip past. A colon (Windows
+      // alternate data stream or drive) never appears in a real file name here, and Windows ignores trailing dots and spaces, so those are cut first.
+      const served = path.relative(dir, p).split(path.sep).join("/");
+      if (served.includes(":")) return new Response("Not found", { status: 404 });
+      const key = served.split("/").map(s => s.replace(/[. ]+$/, "")).join("/").toLowerCase();
+      if ((dir === WIDGET_DIR && /preload/.test(key)) || (dir === APP_DIR && /^(csp-hashes|error-config)\.json$|^errreport-core\.js$/.test(key))) return new Response("Not found", { status: 404 });
       const r = await net.fetch(pathToFileURL(p).toString());
       const h = new Headers(r.headers);
       h.set("X-Content-Type-Options", "nosniff");
       h.set("Referrer-Policy", "no-referrer");
-      if (/\.html?$/i.test(rel)) h.set("Content-Security-Policy", dir === WIDGET_DIR ? WIDGET_CSP : appCsp());
+      if (/\.html?$/.test(key)) h.set("Content-Security-Policy", dir === WIDGET_DIR ? WIDGET_CSP : appCsp());
       // The widget uses the app's own fonts, which need permission to be read from app://widget/.
-      if (dir === APP_DIR && /^vendor\/fonts\//.test(rel)) h.set("Access-Control-Allow-Origin", "app://widget");
+      if (dir === APP_DIR && /^vendor\/fonts\//.test(served)) h.set("Access-Control-Allow-Origin", "app://widget");
       return new Response(r.body, { status: r.status, headers: h });
     } catch (e) { return new Response("Not found", { status: 404 }); }
   });

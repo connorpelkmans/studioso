@@ -333,12 +333,12 @@ const NAME: Record<Provider, string> = { google: "Google Calendar", microsoft: "
    1. The app opens ?begin=<state> (made by "start" for the signed-in person). It sets a short cookie holding the state's nonce in this
       browser and sends it on to Google or Microsoft.
    2. They send the browser back with ?code&state. Without the matching cookie (a link that someone sent you) nothing happens.
-   3. A page asks: connect <calendar account> to the Studyboard account <h•••@school.edu>? Only that button stores anything. */
+   3. A page asks: connect <calendar account> to the Studyboard account <hana@school.edu>? Only that button stores anything. The full
+      address is shown (not a masked one): a ?begin link someone else made carries THEIR account, and the person has to be able to see that. */
 const COOKIE = "sbcs";
 const cookieOf = (req: Request) => ((req.headers.get("cookie") || "").split(/;\s*/).find(c => c.startsWith(COOKIE + "=")) || "").slice(COOKIE.length + 1);
 const setCookie = (v: string, age: number) => `${COOKIE}=${v}; Max-Age=${age}; Path=/functions/v1/calendar-sync; HttpOnly; Secure; SameSite=Lax`;
 const htmlEsc = (s: string) => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" } as any)[c]);
-const mask = (e: string) => { const m = /^([^@]{1,2})[^@]*(@.+)$/.exec(e || ""); return m ? m[1] + "•••" + m[2] : "your account"; };
 async function studyboardEmail(d: Deps, uid: string): Promise<string> {
   try { const k = serviceKey(d); const r = await d.fetch(`${base(d)}/auth/v1/admin/users/${uid}`, { headers: { apikey: k, Authorization: `Bearer ${k}` } }); const u = await r.json() as any; return String(u && u.email || ""); } catch (_e) { return ""; }
 }
@@ -359,9 +359,9 @@ async function callback(req: Request, url: URL, d: Deps, A: Record<Provider, Ada
   try {
     const t = await P.exchange(code, redirectOf(d));
     const box = await seal(secret, JSON.stringify({ u: st.u, p: st.p, z: st.z, n: st.n, rt: t.refresh, a: t.account.slice(0, 200), e: Math.floor(d.now() / 1000) + 600 }), "confirm", "calsync");
-    const sb = mask(await studyboardEmail(d, st.u));
+    const sb = await studyboardEmail(d, st.u);
     log("cb_confirm", { provider: st.p });
-    return confirmPage(`Connect ${NAME[st.p]}?`, `Connect <b>${htmlEsc(t.account || NAME[st.p])}</b> to the Studyboard account <b>${htmlEsc(sb)}</b>? Studyboard will keep a calendar called “Studyboard” there. If that isn't your Studyboard account, close this tab.`, box);
+    return confirmPage(`Connect ${NAME[st.p]}?`, `Connect <b>${htmlEsc(t.account || NAME[st.p])}</b> to the Studyboard account <b>${htmlEsc(sb || "(no email address)")}</b>? Studyboard will keep a calendar called “Studyboard” there.<br><br><b>Only continue if this is your Studyboard account.</b> If someone sent you this link, close this page.`, box);
   } catch (e) {
     log("cb_error", { provider: st.p, status: e instanceof ProviderError ? e.status : 0 });
     return page("Not connected", `${NAME[st.p]} didn't finish connecting. Try again from Studyboard.`, false);
@@ -371,8 +371,8 @@ const confirmPage = (title: string, html: string, box: string) => new Response(`
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0E2A56;font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:#0E2A56}main{background:#fff;border-radius:18px;padding:28px 26px;max-width:440px;margin:16px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)}h1{font-size:1.25rem;margin:0 0 8px}p{margin:0 0 18px;color:#40506B}button{font:inherit;font-weight:700;border:0;border-radius:12px;padding:12px 22px;background:#2563EB;color:#fff;cursor:pointer}</style></head>
 <body><main><h1>${title}</h1><p>${html}</p><form method="post"><input type="hidden" name="confirm" value="${htmlEsc(box)}"><button type="submit">Connect</button></form></main></body></html>`, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY" } });
 async function confirm(req: Request, d: Deps, A: Record<Provider, Adapter>, log: (o: string, x?: any) => void): Promise<Response> {
-  const secret = d.env("CALSYNC_KEY"), text = await req.text();
-  if (secret.length < 32 || text.length > 9000) return page("Not connected", "Try again from Studyboard.", false);
+  const secret = d.env("CALSYNC_KEY"), text = await readLimited(req, 9000);   // unsigned-in POST: read at most 9000 bytes
+  if (secret.length < 32 || text === null) return page("Not connected", "Try again from Studyboard.", false);
   let o: any = null;
   try { o = JSON.parse(await unseal(secret, new URLSearchParams(text).get("confirm") || "", "confirm", "calsync")); } catch (_e) { o = null; }
   if (!o || !PROVIDERS.includes(o.p) || !(o.e > d.now() / 1000) || cookieOf(req) !== o.n) { log("confirm_bad"); return page("That page has expired", "Go back to Studyboard and choose Connect again.", false); }
@@ -389,6 +389,25 @@ async function confirm(req: Request, d: Deps, A: Record<Provider, Adapter>, log:
     log("confirm_error", { provider: prov, status: e instanceof ProviderError ? e.status : 0 });
     return page("Not connected", `${NAME[prov]} didn't finish connecting. Try again from Studyboard.`, false);
   }
+}
+
+// Reads the body but stops as soon as it passes max bytes (null = too big). Content-Length alone can't be trusted (or may be missing).
+export async function readLimited(req: Request, max: number): Promise<string | null> {
+  const cl = Number(req.headers.get("content-length") || 0);
+  if (cl > max) return null;
+  if (!req.body) return "";
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = []; let n = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    n += value.byteLength;
+    if (n > max) { try { await reader.cancel(); } catch (_e) { /* ignore */ } return null; }
+    chunks.push(value);
+  }
+  const all = new Uint8Array(n); let o = 0;
+  for (const c of chunks) { all.set(c, o); o += c.byteLength; }
+  return dec.decode(all);
 }
 
 async function pool<T>(items: T[], n: number, fn: (x: T) => Promise<void>) { let i = 0; await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) { const x = items[i++]; await fn(x); } })); }
@@ -476,8 +495,8 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
   try {
     const uid = await whoIs(d, (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim());
     if (!uid) return reply({ error: "sign in first" }, 401);
-    const text = await req.text();
-    if (text.length > 400_000) return reply({ error: "bad request" }, 400);
+    const text = await readLimited(req, 1_200_000);   // bytes (400 000 characters of any script fit); the character cap stays
+    if (text === null || text.length > 400_000) return reply({ error: "bad request" }, 400);
     let b: any; try { b = JSON.parse(text || "{}"); } catch (_e) { b = null; }
     if (!b || typeof b !== "object") return reply({ error: "bad request" }, 400);
     const providers = { google: A.google.configured(), microsoft: A.microsoft.configured() };

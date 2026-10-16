@@ -295,11 +295,34 @@ export async function sendDue(store: Store, push: Push | null, now: number, api:
   return { due, sent, failed, removed: gone.size };
 }
 
+// Reads the body but stops as soon as it passes max bytes (null = too big). Content-Length alone can't be trusted (or may be missing).
+// Every request here is a few small fields, read before any sign-in or secret is checked, so the cap is small.
+const MAX_BODY = 16_000;
+export async function readLimited(req: Request, max: number): Promise<string | null> {
+  const cl = Number(req.headers.get("content-length") || 0);
+  if (cl > max) return null;
+  if (!req.body) return "";
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = []; let n = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    n += value.byteLength;
+    if (n > max) { try { await reader.cancel(); } catch (_e) { /* ignore */ } return null; }
+    chunks.push(value);
+  }
+  const all = new Uint8Array(n); let o = 0;
+  for (const c of chunks) { all.set(c, o); o += c.byteLength; }
+  return new TextDecoder().decode(all);
+}
+
 export async function handle(req: Request, store: Store, push: Push, opts: { now?: number; api: string; k: string; vapidOk: boolean; cronSecret?: string; native?: Native }) {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "Use POST." }, 405);
+  const raw = await readLimited(req, MAX_BODY);
+  if (raw === null) return json({ error: "Too large." }, 413);
   let b: any = {};
-  try { b = await req.json(); } catch (_e) { b = {}; }
+  try { b = JSON.parse(raw) || {}; } catch (_e) { b = {}; }
   const now = opts.now ?? Date.now();
   const action = String(b.action || "send");
   if (action === "snooze" || action === "done") {
