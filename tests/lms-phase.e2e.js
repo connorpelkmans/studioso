@@ -302,6 +302,53 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
       const q = d.recs.find(r => r.pid === "q801"); return {due: q && q.due, loc: q && q.location, a: q && q.asRead};
     }, [opened, mt.toISOString(), new Date(Date.now() + 3 * 864e5).toISOString()]);
     ok(m4.due === mday && m4.loc === "SW3 4676/95" && /dated by NK4 Midterm Exam/.test(m4.a), "of two equally named calendar exams, the one with a room dates the quiz: " + JSON.stringify(m4));
+    // HSIP 0100: one real quiz ("Workshop Quiz", open Sep 28 to Oct 16 9 PM, no due date) and the course schedule's "HSIP 0300 Quiz Completed",
+    // Oct 7 5:00 to 11:59 PM, "complete the post seminar quiz by midnight". The entry is due at 11:59 PM; with a second quiz open that day
+    // ("Practice Quiz") the description says which; Merge leaves one quiz, on the instructor's date, and a sync doesn't move it back.
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    const hs = await app.evaluate(() => {
+      const L = SBLMS.brightspace, loc = (dd, h, m) => { const n = new Date(); n.setDate(n.getDate() + dd); n.setHours(h, m, 0, 0); return n; }, ymd = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+      const H = {ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [],
+        courses: [{ou: "14", code: "HSIP0300", name: "HSIP 0300", folders: [], grades: [], news: [],
+          quizzes: [{id: "901", name: "Seminar Quiz", due: null, start: loc(-18, 10, 30).toISOString(), end: loc(0, 21, 0).toISOString(), done: false},
+                    {id: "902", name: "Practice Quiz", due: null, start: loc(-18, 10, 30).toISOString(), end: loc(14, 21, 0).toISOString(), done: false}],
+          events: [{id: "e91", title: "HSIP 0300 Quiz Completed", start: loc(-9, 17, 0).toISOString(), end: loc(-9, 23, 59).toISOString(), allDay: false, assoc: false, where: "",
+            text: "Please complete the post seminar quiz by midnight. Unlimited attempts to receive 80% or higher.", url: ""}]}]};
+      const d = L.fromApi(H); L.applyPlan(d, L.plan(d), "grab", true);
+      const ev = d.recs.find(r => /HSIP 0300 Quiz/.test(r.title));
+      return {evTime: ev && ev.time, evDue: ev && ev.due, want: ymd(loc(-9, 0, 0)), H};
+    });
+    ok(hs.evTime === "23:59", "a deadline entry from 5:00 to 11:59 PM is due at 11:59 PM: " + JSON.stringify({t: hs.evTime}));
+    await app.evaluate(() => SBLMS_DUPES(false));
+    await app.waitForSelector("dialog[open] .mg-row", {timeout: 5000});
+    const hrow = await app.evaluate(() => [...document.querySelectorAll("dialog[open] .mg-row")].map(r => r.innerText.replace(/\s+/g, " ")));
+    ok(hrow.some(r => /Seminar Quiz/.test(r) && /HSIP 0300 Quiz/.test(r)) && !hrow.some(r => /Practice Quiz/.test(r)), "the generic calendar entry is paired with the quiz its description names: " + JSON.stringify(hrow));
+    await app.click("dialog[open] [data-submit]");
+    await app.waitForFunction(() => !Object.values(SBLMS.st().tasks).some(t => t.title === "HSIP 0300 Quiz"), null, {timeout: 5000});
+    const hafter = await app.evaluate(H => { const L = SBLMS.brightspace, d = L.fromApi(H); L.applyPlan(d, L.plan(d), "grab", true);
+      return Object.values(SBLMS.st().tasks).filter(t => t.bs && t.bs.ou === "14" && /Quiz/.test(t.title) && !/Practice/.test(t.title)).map(t => [t.title, t.due, t.time]); }, hs.H);
+    ok(hafter.length === 1 && hafter[0][0] === "Seminar Quiz" && hafter[0][1] === hs.want && hafter[0][2] === "23:59", "after Merge, one Seminar Quiz on the instructor's date, and the next sync keeps it: " + JSON.stringify(hafter));
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    // Safeguards: never the same item when a qualifier or a number differs, or an assignment and an exam
+    const sg = await app.evaluate(() => {
+      const L = SBLMS.brightspace, at = new Date(Date.now() + 5 * 864e5).toISOString(), day = at.slice(0, 10);
+      SBLMS.applyChanges([
+        {kind: "task", id: "sg1", after: {id: "sg1", created: 1, title: "Practice Midterm Exam", courseId: "c1", type: "Exam", due: day, time: "", status: "todo", order: 1, bs: {key: "15|practicemidtermexam", ou: "15", item: false, last: {}, seen: {feed: 1}}}},
+        {kind: "task", id: "sg2", after: {id: "sg2", created: 1, title: "Quiz 2", courseId: "c1", type: "Quiz", due: day, time: "", status: "todo", order: 1, bs: {key: "15|quiz2", ou: "15", item: false, last: {}, seen: {feed: 1}}}}], "");
+      const d = L.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [],
+        courses: [{ou: "15", code: "BIO1000", name: "Biology", grades: [], news: [],
+          folders: [{id: "151", name: "Midterm Reflection Paper", due: null, end: null, sub: true, files: []}],
+          quizzes: [{id: "152", name: "Midterm Exam", due: at, start: null, end: null, done: false}, {id: "153", name: "Quiz 1", due: at, start: null, end: null, done: false}],
+          events: [{id: "e15", title: "Midterm Exam Due", start: at, end: at, allDay: false, assoc: false, where: "", url: ""}]}]});
+      L.applyPlan(d, L.plan(d), "grab", true);
+      const ev = d.recs.find(r => r.title === "Midterm Exam" && !r.pid) || d.recs.find(r => /Midterm Exam/.test(r.title) && !r.pid);
+      return {lent: !!(ev && ev.pid), asked: (d.ask || []).map(a => a.copy + " / " + a.real)};
+    });
+    await app.evaluate(() => SBLMS_DUPES(false)); await app.waitForTimeout(400);
+    const sgRows = await app.evaluate(() => [...document.querySelectorAll("dialog[open] .mg-row")].map(r => r.innerText.replace(/\s+/g, " ")));
+    ok(!sgRows.some(r => /Practice Midterm/.test(r) || /Quiz 2/.test(r)) && !sg.asked.some(x => /Practice|Quiz 2/.test(x)), "Practice Midterm Exam isn't paired with Midterm Exam, nor Quiz 2 with Quiz 1: " + JSON.stringify({sgRows, asked: sg.asked}));
+    ok(!sg.lent, "an undated assignment (Midterm Reflection Paper) never takes an exam entry's date and submission");
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
     // Two real items both handed in, due at the same moment, named alike ("PHC" and "PHSA Privacy and Confidentiality"): one form per
     // health authority, listed apart by the school, so never asked about; a calendar copy of a done item, done too, is
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
