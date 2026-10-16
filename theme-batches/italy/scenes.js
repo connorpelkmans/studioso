@@ -374,7 +374,7 @@ SCENES.italy = function (W, H, dk, rnd) {
     for (k = 0; k < (sharp ? 1 : 6); k++) { var tq = k / 6, t2 = tq * tq, t3 = t2 * tq, wq = sharp ? q1[1] : 0.5 * (2 * q1[1] + (-q0[1] + q2[1]) * tq + (2 * q0[1] - 5 * q1[1] + 4 * q2[1] - q3[1]) * t2 + (-q0[1] + 3 * q1[1] - 3 * q2[1] + q3[1]) * t3); balPts.push([q1[0] + (q2[0] - q1[0]) * tq, wq]); } }
   balPts.push(balProf[balProf.length - 1]);
   // laid out from the end pier back (the left end runs off screen), so the last gap is the same as the others
-  for (x = bx1T - 4 * S - 7 * S; x > -10 * S; x -= 14 * S) { var bh = H - 9 * S - byT - 6 * S, b0 = byT + 6 * S, bcx = x;
+  for (x = bx1T - 4 * S - 10.5 * S; x > -10 * S; x -= 14 * S) {   /* (its plinth is as far from the pier as from its neighbour's) */ var bh = H - 9 * S - byT - 6 * S, b0 = byT + 6 * S, bcx = x;
     bal += italy_pg(balPts.map(function (q) { return [bcx + q[1] * S, b0 + q[0] * bh]; }).concat(balPts.slice().reverse().map(function (q) { return [bcx - q[1] * S, b0 + q[0] * bh]; }))); }
   // the rails end in a square pier with a cap, so nothing juts out past the last baluster
   bal += rect(bx1T - 4 * S, byT - 3 * S, 10 * S, H - byT + 3 * S) + rect(bx1T - 5.5 * S, byT - 5 * S, 13 * S, 3 * S);
