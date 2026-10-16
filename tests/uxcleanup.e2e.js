@@ -51,7 +51,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const pre = Number((await page.getAttribute(".deck .mastery", "aria-label")).match(/\d+/)[0]);
       ok(pre > 0 && pre < 60, "a deck with cards you keep missing is not ready: " + pre + "%");
       const ab = await page.locator(".deck .deck-actions button").evaluateAll(b => b.map(x => x.innerText.trim() || x.getAttribute("aria-label") || ""));
-      ok(ab.join("|") === "Study|Flashcard style for Cells|Archive Cells", "Study, the deck's style button and Archive sit together at the bottom (quizzes have their own tab): " + ab.join("|"));
+      ok(ab.join("|") === "Study|Archive Cells", "Study and Archive sit together at the bottom (card style is in Edit Deck, quizzes have their own tab): " + ab.join("|"));
       const r1 = await page.locator(".deck .deck-arch").boundingBox(), r0 = await page.locator(".deck .deck-actions [data-act=fc-study]").boundingBox();
       ok(r1.x > r0.x && Math.abs(r1.y - r0.y) < 8, "Archive is at the right end of that row");
       await page.screenshot({path: "/tmp/ux-decks-" + W + ".png"});
