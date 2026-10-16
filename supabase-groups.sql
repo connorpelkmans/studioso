@@ -107,6 +107,7 @@ create table if not exists public.group_messages (
   created_at timestamptz not null default now()
 );
 create index if not exists group_messages_group_idx on public.group_messages (group_id, created_at desc);
+create index if not exists group_messages_user_idx on public.group_messages (user_id, created_at);   -- the posting limits below
 
 -- ---------- Helpers used by the rules (security definer so the rules don't loop) ----------
 create or replace function public.sbg_is_member(gid uuid) returns boolean
@@ -206,6 +207,10 @@ begin
       new.pinned := false;
       if (select count(*) from public.group_messages where user_id = new.user_id and created_at > now() - interval '1 minute') >= 20 then
         raise exception 'You are posting too fast. Try again in a minute.';
+      end if;
+      -- And at most 500 a day across all your groups, so one account can't fill the message tables.
+      if (select count(*) from public.group_messages where user_id = new.user_id and created_at > now() - interval '1 day') >= 500 then
+        raise exception 'You have posted 500 messages today. Try again tomorrow.';
       end if;
     end if;
   else
@@ -309,7 +314,38 @@ begin
   where g.invite_code = public.sbg_norm_code(p_code);
 end $$;
 
--- Join a group by its invite code.
+-- ---------- Removed by the owner: can't rejoin with the same invite code ----------
+-- When the owner removes someone, a row here stops join_group from letting them straight back in. Leaving on your own records
+-- nothing. Server only: no rules and no grants, so nobody can read or change it from the app. A removal stays until the group is
+-- deleted (or that person deletes their account); to let someone back in, delete their row here in the SQL Editor.
+create table if not exists public.group_bans (
+  group_id uuid not null references public.study_groups(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  banned_at timestamptz not null default now(),
+  primary key (group_id, user_id)
+);
+create index if not exists group_bans_user_idx on public.group_bans (user_id);
+alter table public.group_bans enable row level security;   -- no policies: only the functions below touch it
+revoke all on public.group_bans from public, anon, authenticated;
+
+create or replace function public.sbg_member_removed() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  -- Only a removal by someone else who is signed in (the owner, through the app). Not leaving on your own, not the server or
+  -- SQL Editor (no auth.uid()), and not when the group or the account itself is being deleted (its row is already gone).
+  if auth.uid() is not null and auth.uid() <> old.user_id
+     and exists (select 1 from public.study_groups g where g.id = old.group_id)
+     and exists (select 1 from auth.users u where u.id = old.user_id) then
+    insert into public.group_bans (group_id, user_id) values (old.group_id, old.user_id)
+      on conflict (group_id, user_id) do update set banned_at = now();
+  end if;
+  return old;
+end $$;
+revoke all on function public.sbg_member_removed() from public, anon, authenticated;
+drop trigger if exists sbg_member_removed on public.group_members;
+create trigger sbg_member_removed after delete on public.group_members for each row execute function public.sbg_member_removed();
+
+-- Join a group by its invite code. Someone the owner removed can't come back in with it.
 create or replace function public.join_group(p_code text) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare g uuid; me uuid := auth.uid();
@@ -320,6 +356,9 @@ begin
   select id into g from public.study_groups where invite_code = public.sbg_norm_code(p_code);
   -- Returning (not raising) keeps this failed guess counted against the hourly limit.
   if g is null then return null; end if;
+  if exists (select 1 from public.group_bans where group_id = g and user_id = me) then
+    raise exception 'The group owner removed you from this group, so you can''t rejoin it.';
+  end if;
   if not exists (select 1 from public.group_members where group_id = g and user_id = me) then
     if (select count(*) from public.group_members where group_id = g) >= 100 then raise exception 'This group is full (100 members)'; end if;
     insert into public.group_members (group_id, user_id, role, display_name) values (g, me, 'member', public.sbg_my_name());
@@ -347,6 +386,9 @@ revoke all on function public.sbg_new_code(), public.sbg_norm_code(text), public
 grant execute on function public.sbg_is_member(uuid), public.sbg_is_owner(uuid), public.sbg_my_name(),
   public.share_deck(text, text, jsonb, int), public.get_shared_deck(text), public.create_group(text, text),
   public.group_preview(text), public.join_group(text), public.new_group_code(uuid) to authenticated;
+-- Only used inside the functions above: making codes and counting lookups can't be called directly (a direct call would burn
+-- the hourly lookup budget or skip it).
+revoke all on function public.sbg_new_code(), public.sbg_lookup_ok() from authenticated;
 
 -- ---------- 1.12: quizzes, study sessions, weekly challenge, check-ins, reactions and pins ----------
 -- Quizzes ('quiz') and proposed study sessions ('event') are shared in a group just like decks and deadlines.
@@ -960,9 +1002,11 @@ end $$;
 -- Change a task (p_patch keys: title, notes, status, assignee_id, due_at, priority, reviewer_id). Any member can edit and mark done.
 -- Changing who a task is assigned to: anyone can assign an unassigned task; once it has an owner, only that person or the group owner can reassign it.
 -- A task with a reviewer: marking it done (from any state) is for the reviewer or the group owner; anyone else sends it to In Review.
+-- Anyone can give a task without a reviewer one; once it has one, only that reviewer or the group owner can change or clear it
+-- (so "Review before done" can't be skipped by clearing the reviewer and marking it done in the same change).
 create or replace function public.update_group_task(p_task uuid, p_patch jsonb) returns public.group_tasks
 language plpgsql security definer set search_path = public as $$
-declare r public.group_tasks; t public.group_tasks; me uuid := auth.uid(); st text; rev uuid;
+declare r public.group_tasks; t public.group_tasks; me uuid := auth.uid(); st text; rev uuid; gate uuid;
 begin
   if me is null then raise exception 'Sign in first'; end if;
   select * into t from public.group_tasks where id = p_task and not deleted;
@@ -974,11 +1018,15 @@ begin
     end if;
   end if;
   rev := case when p_patch ? 'reviewer_id' then nullif(p_patch ->> 'reviewer_id', '')::uuid else t.reviewer_id end;
+  if rev is distinct from t.reviewer_id and t.reviewer_id is not null and not (t.reviewer_id = me or public.sbg_is_owner(t.group_id)) then
+    raise exception 'Only the reviewer, or the group owner, can change who reviews this task';
+  end if;
   if rev is not null and rev is distinct from t.reviewer_id and not exists (select 1 from public.group_members where group_id = t.group_id and user_id = rev) then
     raise exception 'The reviewer has to be in the group';
   end if;
   st := case when p_patch ? 'status' then coalesce(p_patch ->> 'status', t.status) else t.status end;
-  if st = 'done' and t.status <> 'done' and rev is not null and rev <> me and not public.sbg_is_owner(t.group_id) then
+  gate := coalesce(t.reviewer_id, rev);   -- the reviewer the task had when this change was asked for decides
+  if st = 'done' and t.status <> 'done' and gate is not null and gate <> me and not public.sbg_is_owner(t.group_id) then
     st := 'review';   -- it waits for its reviewer
   end if;
   update public.group_tasks set

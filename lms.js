@@ -1,9 +1,10 @@
 // Studyboard desktop: your school's learning platforms (Brightspace/D2L, Canvas and Blackboard Learn).
 // You sign in yourself in a normal browser window (your school's own sign-in page, with MFA if it uses it).
 // Studyboard never sees your password. Each platform's sign-in is kept in its own private cookie store
-// ("persist:brightspace", "persist:canvas", "persist:blackboard"), separate from Studyboard's, and Studyboard only
-// ever reads (GET requests): your courses, due dates, submissions, grades, announcements and calendar.
-// It never submits, posts or changes anything there.
+// ("persist:brightspace", "persist:canvas", "persist:blackboard"), separate from Studyboard's, and Studyboard reads
+// (GET requests): your courses, due dates, submissions, grades, announcements, calendar and Canvas Inbox.
+// The one thing it ever sends is a reply to a Canvas Inbox conversation you wrote (mail, op "send"), and only after you confirm it in a
+// system dialog shown here in the main process (the page can't skip it). It never submits work or changes anything else there.
 /* Readable plain text from HTML (same helper as index.html: no DOM, so it works in the main process). */
 // Readable plain text from HTML-ish text (LMS text, entity-encoded markup). Pure string work: nothing is parsed into a live DOM, so nothing can run.
 // Handles tags (with line breaks for p/br/li/headings), named, numeric and double-encoded entities (&amp;amp;), and collapses whitespace.
@@ -62,7 +63,7 @@ const HARVEST_PRELUDE = [
   "const HT_HAS = " + HT_HAS.toString() + ";",
   htmlText.toString()
 ].join("\n");
-const { BrowserWindow, ipcMain, net, session, app } = require("electron");
+const { BrowserWindow, ipcMain, net, session, app, dialog } = require("electron");
 const path = require("path");
 const fsp = require("fs").promises;
 const dns = require("dns");
@@ -239,12 +240,22 @@ async function bsHarvest(o) {
       const s = await soft(`${b}/dropbox/folders/${f.Id}/submissions/mysubmissions/`, true);
       if (Array.isArray(s)) subs[f.Id] = s.some(x => x && ((Array.isArray(x.Submissions) && x.Submissions.length > 0) || x.Status === 1 || x.Status === 3));
     }));
+    // Quizzes you've finished: a completed attempt (only your own attempts are listed), so they can be marked done too
+    const qrecent = quizzes.filter(x => { if (!x || x.IsActive === false) return false; const d = Date.parse(x.DueDate || x.EndDate || ""); return !isNaN(d) && d > now - 60 * 864e5 && d < now + 240 * 864e5; }).slice(0, 40);
+    const tried = {};
+    await Promise.all(qrecent.map(async x => {
+      const a = await soft(`${b}/quizzes/${x.QuizId}/attempts/`, true);
+      if (a) tried[x.QuizId] = listOf(a).some(t => t && (t.TimeCompleted || t.DateCompleted || t.SubmittedDate || t.IsGraded === true || (t.Score != null && t.Score !== "")));
+    }));
+    // A released grade means it was handed in (or is closed): either way there's nothing left to do
+    const graded = new Set(listOf(grades).filter(g => g && g.GradeObjectIdentifier != null && g.PointsNumerator != null).map(g => String(g.GradeObjectIdentifier)));
     c.folders = fl.slice(0, 120).map(f => ({ id: String(f.Id), name: String(f.Name || ""), due: dt(f.DueDate), start: dt(f.Availability && f.Availability.StartDate), end: dt(f.Availability && f.Availability.EndDate),
       text: txt(f.CustomInstructions), files: (f.Attachments || []).slice(0, 12).map(a => ({ id: String(a.FileId), name: String(a.FileName || "file"), size: Number(a.Size) || 0 })),
-      gid: f.GradeItemId != null ? String(f.GradeItemId) : "", outOf: f.Assessment && f.Assessment.ScoreDenominator != null ? Number(f.Assessment.ScoreDenominator) : null, sub: subs[f.Id] === undefined ? null : subs[f.Id],
+      gid: f.GradeItemId != null ? String(f.GradeItemId) : "", outOf: f.Assessment && f.Assessment.ScoreDenominator != null ? Number(f.Assessment.ScoreDenominator) : null, sub: subs[f.Id] === true || (f.GradeItemId != null && graded.has(String(f.GradeItemId))) ? true : subs[f.Id] === undefined ? null : subs[f.Id],
       sbt: f.SubmissionType != null && Number(f.SubmissionType) >= 0 && Number(f.SubmissionType) <= 9 ? Number(f.SubmissionType) : null }));   // 0 file, 1 text, 2 on paper, 3 observed in person
     c.quizzes = quizzes.filter(x => x && x.IsActive !== false).slice(0, 120).map(x => ({ id: String(x.QuizId), name: String(x.Name || ""), due: dt(x.DueDate), start: dt(x.StartDate), end: dt(x.EndDate),
-      gid: x.GradeItemId != null ? String(x.GradeItemId) : "", text: txt(x.Description || x.Instructions, 1500), limit: x.TimeLimitValue || (x.TimeLimit && x.TimeLimit.TimeLimitValue) || null }));
+      gid: x.GradeItemId != null ? String(x.GradeItemId) : "", text: txt(x.Description || x.Instructions, 1500), limit: x.TimeLimitValue || (x.TimeLimit && x.TimeLimit.TimeLimitValue) || null,
+      done: tried[x.QuizId] === true || (x.GradeItemId != null && graded.has(String(x.GradeItemId))) ? true : tried[x.QuizId] === undefined ? null : false }));
     c.gradeN = listOf(grades).length;          // how many grade rows the school sent (shown in settings when something looks missing)
     c.grades = listOf(grades).slice(0, 200).map(g => ({ gid: String(g.GradeObjectIdentifier || ""), name: String(g.GradeObjectName || ""), type: Number(g.GradeObjectType) || 0,
       num: g.PointsNumerator, den: g.PointsDenominator, wnum: g.WeightedNumerator, wden: g.WeightedDenominator, shown: String(g.DisplayedGrade || "").trim(), at: dt(g.ReleasedDate || g.LastModified) }));
@@ -456,6 +467,13 @@ async function bbHarvest(o) {
     const counts = col => !col.externalGrade && !(col.grading && col.grading.type === "Calculated") && col.includeInCalculations !== false && col.score && Number(col.score.possible) > 0;
     const tpts = cols.reduce((s, col) => s + (counts(col) ? Number(col.score.possible) : 0), 0);
     const wOf = col => counts(col) && tpts > 0 ? Math.round(Number(col.score.possible) / tpts * 10000) / 100 : null;
+    // Columns you have no grade entry for yet: your own attempts say whether it's handed in (submitted, waiting to be graded)
+    const tried = {};
+    const open = cols.filter(col => { const d = Date.parse((col.grading && col.grading.due) || ""); const my = g[String(col.id)]; return !col.externalGrade && !isNaN(d) && d > now - (q.pastDays || 60) * 864e5 && d < now + (q.aheadDays || 240) * 864e5 && !(my && my.score != null); }).slice(0, 40);
+    for (let i = 0; i < open.length; i += 6) await Promise.all(open.slice(i, i + 6).map(async col => {
+      const at = await first([`/learn/api/public/v2/courses/${id}/gradebook/columns/${col.id}/attempts?userId=${uid}&limit=20`, `/learn/api/public/v1/courses/${id}/gradebook/columns/${col.id}/attempts?userId=${uid}&limit=20`], true);
+      if (at) tried[String(col.id)] = listOf(at).some(a => a && (["NeedsGrading", "Completed", "NeedsMoreGrading"].includes(String(a.status)) || a.score != null));
+    }));
     const courseUrl = `${location.origin}/ultra/courses/${id}/outline`;
     c.items = []; c.grades = []; c.final = null;
     cols.forEach(col => {
@@ -464,7 +482,7 @@ async function bbHarvest(o) {
       const shown = my && my.displayGrade ? String(my.displayGrade.text || (my.displayGrade.score != null ? my.displayGrade.score : "")) : my && my.text ? String(my.text) : "";
       if (col.externalGrade) { if (my && (shown || score != null)) c.final = { shown: shown || (possible && score != null ? Math.round(score / possible * 1000) / 10 + "%" : String(score)), pct: possible && score != null ? Math.round(score / possible * 1000) / 10 : null }; return; }
       if (col.grading && col.grading.type === "Calculated") return;
-      const done = my ? (["NeedsGrading", "Graded", "Completed"].includes(String(my.status)) || score != null) : null;
+      const done = (my && (["NeedsGrading", "Graded", "Completed"].includes(String(my.status)) || score != null)) || tried[String(col.id)] === true ? true : my || tried[String(col.id)] === false ? false : null;
       if (due) c.items.push({ kind: /\b(test|quiz|exam|midterm)\b/i.test(col.name || "") ? "quiz" : "assignment", id: String(col.id), name: String(col.name || ""), due, start: null, end: null, text: txt(col.description), url: courseUrl, gid: String(col.id), outOf: possible, done, files: [], rx: col.grading && col.grading.type ? { gt: String(col.grading.type).slice(0, 16) } : undefined });   // Attempts = marked from an online attempt, Manual = entered by the instructor
       if (possible && (score != null || wOf(col) != null)) c.grades.push({ gid: String(col.id), name: String(col.name || ""), num: score, den: possible, weight: wOf(col), shown, at: dt(my && (my.modified || my.lastModified)) });
     });
@@ -714,7 +732,19 @@ async function cvMail(s) {
   }
   return { error: "bad-request" };
 }
-async function mail(id, host, spec) {
+// Sending is the only write to a school site, so the person confirms it here, in a native dialog the page can't draw or click: it names the
+// conversation and its people (looked up on Canvas, not taken from the page) and shows the start of the message. Cancel is the default.
+async function confirmSend(parent, origin, convo, body) {
+  const c = convo && typeof convo === "object" ? convo : {};
+  const names = (Array.isArray(c.names) ? c.names : []).map(n => String(n || "").slice(0, 60)).filter(Boolean).slice(0, 8).join(", ");
+  const snippet = body.length > 400 ? body.slice(0, 400) + "\u2026" : body;
+  let host = origin; try { host = new URL(origin).host; } catch (e) {}
+  const opts = { type: "question", buttons: ["Send", "Cancel"], defaultId: 1, cancelId: 1, noLink: true, title: "Send Reply",
+    message: "Send this reply through Canvas?",
+    detail: `Conversation: ${String(c.subject || "(No subject)").slice(0, 160)}${c.course ? " (" + String(c.course).slice(0, 80) + ")" : ""}\nTo: ${names || "the people in this conversation"}\nSchool site: ${host}\n\n${snippet}` };
+  try { const r = parent && !parent.isDestroyed() ? await dialog.showMessageBox(parent, opts) : await dialog.showMessageBox(opts); return r.response === 0; } catch (e) { return false; }
+}
+async function mail(id, host, spec, parent) {
   const Pv = prov(id), origin = originOf(host), q = spec && typeof spec === "object" ? spec : {};
   if (!Pv || !origin) return { error: "bad-request" };
   if (id !== "canvas") return { error: "unsupported" };
@@ -723,7 +753,17 @@ async function mail(id, host, spec) {
   const safe = { op, scope: q.scope === "sent" ? "sent" : "inbox", id: String(q.id || ""), body: typeof q.body === "string" ? q.body.trim().slice(0, 10000) : "" };
   if (op !== "list" && !/^\d{1,14}$/.test(safe.id)) return { error: "bad-request" };
   if (op === "send" && !safe.body) return { error: "empty" };
-  try { const r = await withPage(Pv, origin, w => Promise.race([w.webContents.executeJavaScript(`(${cvMail.toString()})(${JSON.stringify(safe)})`, true), timeout(45000)])); return failOf(r) || plain(r, origin, 0, ""); }
+  const run = (w, o) => Promise.race([w.webContents.executeJavaScript(`(${cvMail.toString()})(${JSON.stringify(o)})`, true), timeout(45000)]);
+  try {
+    const r = await withPage(Pv, origin, async w => {
+      if (op !== "send") return run(w, safe);
+      const convo = await run(w, { op: "get", scope: "inbox", id: safe.id, body: "" });
+      const bad = failOf(convo); if (bad) return bad;
+      if (!(await confirmSend(parent, origin, plain(convo, origin, 0, ""), safe.body))) return { error: "cancelled" };
+      return run(w, safe);
+    });
+    return failOf(r) || plain(r, origin, 0, "");
+  }
   catch (e) { return { error: String(e && e.message || e).slice(0, 200) }; }
 }
 
@@ -800,7 +840,7 @@ function register(getMain, trusted) {
   ipcMain.handle("lms:connect", (e, id, host) => fromMain(e) ? connect(String(id), host, getMain()) : null);
   ipcMain.handle("lms:sync", (e, id, host, opts) => fromMain(e) ? sync(String(id), host, opts) : null);
   ipcMain.handle("lms:file", (e, id, host, spec) => fromMain(e) ? file(String(id), host, spec) : null);
-  ipcMain.handle("lms:mail", (e, id, host, spec) => fromMain(e) ? mail(String(id), host, spec) : null);
+  ipcMain.handle("lms:mail", (e, id, host, spec) => fromMain(e) ? mail(String(id), host, spec, getMain()) : null);
   ipcMain.handle("lms:feed", (e, id, url) => fromMain(e) ? feed(String(id), url) : null);
   ipcMain.handle("lms:signout", (e, id) => fromMain(e) ? signOut(String(id)) : null);
 }

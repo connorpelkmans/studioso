@@ -41,6 +41,15 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq((await st.take(cfg)).reason, "used_up", "then used up for good");
   await st.refund(t3.day);
   eq((await st.status(cfg)).left, 1, "a failed try is given back");
+  // capped refunds (the model ran): MAX_REFUNDS a day, then none until the next day; uncapped ones always
+  const st2 = new T.Student(mem(), () => now), big = T.config({TRIAL_USES: "50", DAILY_USES: "50"});
+  for (let i = 0; i < T.MAX_REFUNDS; i++) { const t = await st2.take(big); ok(await st2.refund(t.day, true), "capped refund " + (i + 1)); }
+  const tx = await st2.take(big);
+  eq(await st2.refund(tx.day, true), false, "past MAX_REFUNDS a day, a capped refund is refused");
+  eq((await st2.status(big)).left, 49, "and that try stays counted");
+  const ty = await st2.take(big); ok(await st2.refund(ty.day), "an uncapped refund (no answer was made) still works");
+  now += 86400000; const tz = await st2.take(big); ok(await st2.refund(tz.day, true), "the cap starts again the next day");
+  now -= 86400000;
 
   // ---- the day pool
   const pool = new T.Pool(mem());
@@ -123,6 +132,25 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq((await ask("x".repeat(20000), null, "good", fresh)).status, 413, "too long for the trial");
   eq((await call("POST", "/v1/ai", "not json")).status, 400, "not JSON");
   eq((await ask("   ")).status, 400, "nothing to answer");
+  // a schema is input too: over MAX_SCHEMA characters it's refused before the model runs
+  students.clear(); runs.length = 0;
+  const huge = {type: "object", description: "d".repeat(T.MAX_SCHEMA), properties: {}};
+  r = await ask("hi", {schema: huge}); j = await r.json();
+  eq([r.status, j.error, runs.length], [413, "too_long", 0], "an oversized schema is refused, and the model didn't run");
+  eq((await students.get("u1").status(T.config(env))).left, 4, "and no try was used");
+  r = await ask("hi", {schema: {type: "object", description: "d".repeat(3000), properties: {a: {type: "string"}}}});
+  eq(r.status, 200, "a normal-sized schema still works");
+  // a garbled answer (the model ran) gives the try back at most MAX_REFUNDS times a day
+  students.clear(); runs.length = 0;
+  const many = Object.assign({}, env, {TRIAL_USES: "50", DAILY_USES: "50"});
+  aiReply = {choices: [{message: {content: "not json at all"}}], usage: {prompt_tokens: 100, completion_tokens: 2}};
+  const got = [];
+  for (let i = 0; i < T.MAX_REFUNDS + 2; i++) { const x = await ask("hi", {maxTokens: 50}, "good", many); const y = await x.json(); got.push([x.status, y.refunded]); }
+  eq(got, [...Array(T.MAX_REFUNDS).fill([502, true]), [502, false], [502, false]], "refunded a few times, then counted");
+  eq((await students.get("u1").status(T.config(many))).left, 48, "only the tries past the cap were used");
+  aiReply = new Error("model down");
+  j = await (await ask("hi", null, "good", many)).json();
+  eq([j.error, j.refunded, j.left], ["ai_failed", true, 48], "a call that made no answer is still given back past the cap");
   // the pool running dry stops everyone, before the model runs
   students.clear(); pools.clear(); runs.length = 0;
   const tight = Object.assign({}, env, {DAILY_NEURONS: "100", TRIAL_USES: "50", DAILY_USES: "50"});
@@ -156,7 +184,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   T._forgetUsers(); students.clear(); pools.clear();
   const secret = "s3cret", tenv = Object.assign({}, env, {TURNSTILE_SITE_KEY: "0x4AAA", TURNSTILE_SECRET: secret});
   let sv = [];
-  deps.siteverify = async (e, token, ip) => { sv.push({token, ip}); return token === "pass"; };
+  deps.siteverify = async (e, token, ip, f, host) => { sv.push({token, ip}); sv.host = host; return token === "pass"; };
   aiReply = {choices: [{message: {content: '{"ok": true}'}}], usage: {prompt_tokens: 100, completion_tokens: 10}};
   eq((await (await call("GET", "/v1/trial", null, "good", tenv)).json()).verify, true, "a new student needs the check");
   r = await ask("hi", null, "good", tenv); j = await r.json();
@@ -172,6 +200,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   const fin = (body, e) => T.handle(new Request("https://trial.example/v1/verify/finish", {method: "POST", headers: {"Content-Type": "application/json", "CF-Connecting-IP": "203.0.113.9"}, body: JSON.stringify(body)}), e || tenv, deps);
   eq((await fin({nonce, token: "robot"})).status, 403, "a failed Turnstile token doesn't pass");
   eq(sv[0], {token: "robot", ip: "203.0.113.9"}, "siteverify gets the token and the visitor's IP");
+  eq(sv.host, "trial.example", "and this Worker's own host name, to match against the check page's");
   eq((await fin({nonce: nonce.slice(0, -2) + "xx", token: "pass"})).status, 400, "a forged code doesn't pass");
   eq((await fin({nonce, token: "pass"})).status, 200, "a passed check is recorded");
   eq((await (await call("GET", "/v1/trial", null, "good", tenv)).json()).verify, false, "the student no longer needs it");
@@ -187,5 +216,9 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq([req.u, req.b], ["https://challenges.cloudflare.com/turnstile/v0/siteverify", {secret: "k", response: "tok", remoteip: "1.2.3.4"}], "siteverify request");
   ok(!(await T.siteverify({TURNSTILE_SECRET: "k"}, "tok", "", async () => new Response(JSON.stringify({success: true, action: "login"})))), "a token from another action is refused");
   ok(!(await T.siteverify({TURNSTILE_SECRET: "k"}, "tok", "", async () => { throw new Error("down"); })), "siteverify down means no");
+  ok(!(await T.siteverify({TURNSTILE_SECRET: "k"}, "tok", "", async () => new Response(JSON.stringify({success: true})))), "a token without the trial action is refused");
+  const sv2 = hostname => async () => new Response(JSON.stringify({success: true, action: "trial", hostname}));
+  ok(await T.siteverify({TURNSTILE_SECRET: "k"}, "tok", "", sv2("trial.example"), "trial.example"), "solved on this Worker's page");
+  ok(!(await T.siteverify({TURNSTILE_SECRET: "k"}, "tok", "", sv2("evil.example"), "trial.example")), "a token solved on another site is refused");
   console.log(`ai-trial: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

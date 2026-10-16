@@ -102,6 +102,18 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq((await call("POST", "/v1/h/" + "e".repeat(64), {box: "a".repeat(5000)})).status, 413, "too big");
   eq((await call("PUT", "/v1/h/" + "e".repeat(64), {box})).status, 405, "other methods");
   eq((await call("OPTIONS", "/v1/h/" + "e".repeat(64))).headers.get("Access-Control-Allow-Methods"), "GET, POST, DELETE, OPTIONS", "CORS preflight");
+  // POST_LIMIT: new boxes are limited per network address, before any Durable Object is made
+  const seenKeys = []; let allow = false;
+  env.POST_LIMIT = {limit: async ({key}) => { seenKeys.push(key); return {success: allow}; }};
+  const before = objs.size;
+  const lim = await R.handle(new Request("https://relay.example/v1/h/" + "d".repeat(64), {method: "POST", body: JSON.stringify({box}), headers: {"Content-Type": "application/json", "CF-Connecting-IP": "203.0.113.7"}}), env);
+  eq([lim.status, lim.headers.get("Retry-After"), objs.size], [429, "60", before], "past the limit: 429, and nothing was made");
+  eq(seenKeys, ["203.0.113.7"], "counted by the caller's address");
+  eq((await call("GET", "/v1/h/" + "d".repeat(64) + "/status")).status, 200, "status checks aren't limited");
+  eq(seenKeys.length, 1);
+  allow = true;
+  eq((await call("POST", "/v1/h/" + "d".repeat(64), {box})).status, 201, "under the limit it stores as before");
+  delete env.POST_LIMIT;
   // the page a scanned code opens
   const page = await call("GET", "/k"), html = await page.text();
   ok(html.includes('data-app="https://app.example"') && /script-src 'self'/.test(page.headers.get("Content-Security-Policy")), "page names the app (trailing slash dropped) under a strict CSP");

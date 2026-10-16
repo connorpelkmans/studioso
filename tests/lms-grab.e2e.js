@@ -86,6 +86,10 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
     // Open it: the code leaves the address, the review sheet shows, Import brings in tasks, grades and the announcement
     const [tab] = await Promise.all([ctx.waitForEvent("page"), school.getByText("Open in Studyboard").click()]);
     tab.on("pageerror", e => errs.push("tab: " + e.message));
+    // Anyone can make such a link, so nothing is saved until the person says it is what they just read from their own school site
+    await tab.waitForSelector("#dlg [data-submit]", {timeout: 15000});
+    ok(/canvas\.example\.edu/.test(await tab.locator("#dlg").innerText()) && !(await tab.evaluate(() => SBLMS.canvas.cfg().host)), "it first asks, naming the school site, and has saved nothing yet");
+    await tab.click("#dlg [data-submit]");
     await tab.waitForSelector("dialog .bs-sheet [data-submit]", {timeout: 15000});
     ok(!/sbgrab/.test(tab.url()), "the code is taken off the address right away: " + tab.url());
     ok(/HIS/.test(await tab.locator("#dlg").innerText()), "the review sheet lists the course");
@@ -110,7 +114,9 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
     ok(st.cfg.mode === "api" && st.cfg.host === "canvas.example.edu" && /in this browser/.test(st.line), "connected to that school site; settings say it was read in this browser: " + st.line);
     // A second read with the same data changes nothing
     const before = JSON.stringify(st.tasks.map(t => [t.id, t.due, t.status]).sort());
-    ok(await tab.evaluate(code => SBLMS.grabReceive(code), href.split("#sbgrab=")[1]), "the same code can be used again");
+    const again = tab.evaluate(code => SBLMS.grabReceive(code), href.split("#sbgrab=")[1]);
+    await tab.waitForSelector("#dlg [data-submit]", {timeout: 5000}); await tab.click("#dlg [data-submit]");
+    ok(await again, "the same code can be used again");
     await tab.waitForTimeout(500);
     ok(JSON.stringify((await tab.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")).tasks)).map(t => [t.id, t.due, t.status]).sort()) === before, "and adds nothing twice");
     // Refused: junk, an unknown platform, a stale read, an address that isn't a public https site
@@ -119,6 +125,12 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
     ok(await forged({v: 1, id: "__proto__", origin: SCHOOL, at: Date.now(), h: {ok: true}}) === false, "an unknown platform is refused");
     ok(await forged({v: 1, id: "canvas", origin: SCHOOL, at: Date.now() - 5 * DAY, h: {ok: true, courses: []}}) === false, "a read more than 3 days old is refused");
     ok(await forged({v: 1, id: "canvas", origin: "http://192.168.1.5", at: Date.now(), h: {ok: true, courses: []}}) === false, "a non-public or non-https school address is refused");
+    // Cancelled: a link someone sent (with a made-up inbox) leaves the inbox and the school site address alone
+    const mailBefore = await tab.evaluate(() => localStorage.getItem("studyboard:grabmail"));
+    const sent = forged({v: 1, id: "canvas", origin: "https://evil.example.com", at: Date.now(), h: {ok: true, courses: [], all: [], mail: [{subject: "Sign in again", msgs: [{from: "Prof", body: "x"}]}]}});
+    await tab.waitForSelector("#dlg [data-act=close]", {timeout: 5000}); await tab.click("#dlg [data-act=close]");
+    await Promise.race([sent, tab.waitForTimeout(800)]);
+    ok(await tab.evaluate(() => localStorage.getItem("studyboard:grabmail")) === mailBefore && await tab.evaluate(() => SBLMS.canvas.cfg().host) === "canvas.example.edu", "a cancelled link saves no inbox and doesn't change the school site");
     ok(!errs.length, "no page errors: " + errs.join(" | "));
     console.log("\nlms-grab.e2e: " + n + " checks passed");
   } finally { await browser.close(); server.close(); }

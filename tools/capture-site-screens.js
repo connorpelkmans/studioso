@@ -12,6 +12,8 @@ const NOW = new Date(2026, 9, 8, 10, 0, 0);   // Thursday Oct 8 2026
 const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const plus = k => { const d = new Date(NOW); d.setDate(d.getDate() + k); return iso(d); };
 const card = (id, f, b, o) => Object.assign({id, front: f, back: b, box: 0, due: "", seen: 0, right: 0, wrong: 0}, o || {});
+let qn = 0; const mcq = (stem, options, k) => ({id: "qq" + (++qn), type: "single", stem, options, correct: [k]});
+const QUIZ = (id, title, qs, o) => Object.assign({id, title, created: 1, style: "", results: [], questions: qs}, o || {});
 const SEED = {v: 2,
   courses: [{id: "bio", name: "Biology", code: "BIO 201", color: "#1E9E74"}, {id: "nur", name: "Adult Health Nursing", code: "NURS 310", color: "#1F6FEB"}, {id: "eng", name: "Composition", code: "ENGL 102", color: "#7A4FD6"}, {id: "chem", name: "Organic Chemistry", code: "CHEM 221", color: "#E4513B"}, {id: "stat", name: "Statistics", code: "STAT 200", color: "#B86A00"}],
   tasks: [
@@ -28,8 +30,8 @@ const SEED = {v: 2,
     {id: "t11", title: "Lab 3 write-up", courseId: "chem", type: "Lab", due: plus(-4), weight: 6, status: "done", pct: 100},
     {id: "t12", title: "Midterm study guide", courseId: "stat", type: "Study", due: plus(10), hours: 3, status: "todo"}],
   decks: [
-    {id: "d1", name: "Cardiac Drugs", courseId: "nur", created: 1, cards: [card("k1", "Beta blocker example", "Metoprolol", {seen: 3, due: plus(0)}), card("k2", "ACE inhibitor example", "Lisinopril", {seen: 2, due: plus(0)}), card("k3", "Statin action", "Lowers LDL cholesterol", {seen: 1, due: plus(0)}), card("k4", "Digoxin toxicity signs", "Nausea, halos, bradycardia", {seen: 2, due: plus(1)}), card("k5", "Loop diuretic example", "Furosemide", {seen: 4, box: 2, due: plus(3)})]},
-    {id: "d2", name: "Enzyme Kinetics", courseId: "bio", created: 2, cards: [card("k6", "Km means", "Substrate level at half Vmax", {seen: 2, due: plus(0)}), card("k7", "Competitive inhibitor changes", "Raises Km, same Vmax", {seen: 1, due: plus(1)}), card("k8", "Michaelis-Menten plot shape", "Hyperbola", {seen: 3, box: 1, due: plus(2)})]}],
+    {id: "d1", name: "Cardiac Drugs", courseId: "nur", created: 1, cards: [card("k1", "Beta blocker example", "Metoprolol", {seen: 3, due: plus(0)}), card("k2", "ACE inhibitor example", "Lisinopril", {seen: 2, due: plus(0)}), card("k3", "Statin action", "Lowers LDL cholesterol", {seen: 1, due: plus(0)}), card("k4", "Digoxin toxicity signs", "Nausea, halos, bradycardia", {seen: 2, due: plus(1)}), card("k5", "Loop diuretic example", "Furosemide", {seen: 4, box: 2, due: plus(3)})], aiQuizzes: [QUIZ("q1", "Cardiac Drugs Practice Quiz", [mcq("Which drug is a beta blocker?", ["Metoprolol", "Lisinopril", "Furosemide", "Atorvastatin"], 0), mcq("Lisinopril belongs to which class?", ["ACE inhibitors", "Statins", "Loop diuretics", "Beta blockers"], 0), mcq("An early sign of digoxin toxicity is", ["Nausea", "Fever", "Rash", "Cough"], 0)], {results: [{score: 2, total: 3, at: 1}]}), QUIZ("q2", "Heart Failure Case Study", [mcq("What should the nurse check before giving digoxin?", ["Apical pulse", "Temperature", "Blood glucose", "Pupils"], 0)], {kind: "case"})]},
+    {id: "d2", name: "Enzyme Kinetics", courseId: "bio", created: 2, cards: [card("k6", "Km means", "Substrate level at half Vmax", {seen: 2, due: plus(0)}), card("k7", "Competitive inhibitor changes", "Raises Km, same Vmax", {seen: 1, due: plus(1)}), card("k8", "Michaelis-Menten plot shape", "Hyperbola", {seen: 3, box: 1, due: plus(2)})], aiQuizzes: [QUIZ("q3", "Enzyme Kinetics Quiz", [mcq("A competitive inhibitor", ["Raises Km, same Vmax", "Lowers Vmax", "Lowers Km", "Has no effect"], 0), mcq("Km is the substrate level at", ["Half Vmax", "Full Vmax", "Zero rate", "Equilibrium"], 0)])]}],
   notes: [
     {id: "n1", text: "Ask Dr. Patel about the Km graph in office hours", courseId: "bio", x: 40, y: 40, rot: -2, color: "yellow", z: 1},
     {id: "n2", text: "Cardiac drugs\n- beta blockers end in -olol\n- ACE inhibitors end in -pril", courseId: "nur", x: 300, y: 50, rot: 1.5, color: "blue", z: 2},
@@ -66,7 +68,8 @@ async function capture(browser, scheme) {
   await shot("plan");                                              // Board > Today's Plan
   await page.evaluate(() => { const b = [...document.querySelectorAll("button, [role=tab]")].find(e => /^Task Board$/i.test(e.textContent.trim())); b && b.click(); }); await shot("board");
   await tab("Calendar"); await shot("calendar");
-  await tab("Flashcards"); await shot("flashcards");
+  await tab("Review"); await page.evaluate(() => { const b = [...document.querySelectorAll("button")].find(e => /^Flashcards$/.test(e.textContent.trim())); b && b.click(); }); await shot("flashcards");
+  await page.evaluate(() => { const b = [...document.querySelectorAll("button")].find(e => /^Quizzes$/.test(e.textContent.trim())); b && b.click(); }); await shot("quizzes");
   await tab("Notes"); await shot("notes");
   await tab("Courses"); await shot("courses");
   await tab("Companion"); await shot("companion");
@@ -74,7 +77,7 @@ async function capture(browser, scheme) {
   await page.evaluate(() => { const t = document.querySelector('.sheet [data-act="shop-tab"][data-id="collections"]'); t && t.click(); }); await shot("style");
   await ctx.close();
 }
-var THEMES = ["winter", "autumn", "sakura", "forest", "galaxy", "sunset", "ocean", "nursing", "compsci"];
+var THEMES = ["japan", "italy", "sakura", "forest", "galaxy", "sunset", "ocean", "nursing", "compsci"];
 const WINDOW = {width: 1000, height: 625};   // a smaller window than the other shots, so the scenes and cards read larger on the website
 async function openSeeded(browser, scheme, seed, viewport) {
   const ctx = await browser.newContext({viewport, colorScheme: scheme, deviceScaleFactor: 1, serviceWorkers: "block"});

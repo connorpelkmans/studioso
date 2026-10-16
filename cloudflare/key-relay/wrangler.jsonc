@@ -10,6 +10,9 @@
   },
   // SQLite-backed Durable Objects are the kind the Workers Free plan allows.
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Handoff"] }],
+  // At most 20 new boxes a minute from one network address (a whole school behind one address still fits; one transfer is one box).
+  // namespace_id is any number of your choosing, unique among your account's rate limiters.
+  "ratelimits": [{ "name": "POST_LIMIT", "namespace_id": "4721", "simple": { "limit": 20, "period": 60 } }],
   "vars": {
     // Your Studyboard web app address (https, no trailing slash), for the "Open Studyboard" button on the page a scanned QR code opens.
     // Leave it empty and that page only shows the code to copy.
