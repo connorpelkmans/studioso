@@ -20,6 +20,10 @@ ok(r.keep.length === 400 && r.keep[0].id === "m0" && r.dropped.some(e => e.id ==
 const big = [mk("p", 1), mk("q", 2), mk("r", 3)].map(e => { e.items[0].data.blob = "x".repeat(5e6); return e; });
 r = TB.purge(big, NOW);
 ok(r.keep.map(e => e.id).join() === "p,q" && r.dropped.length === 1, "byte cap keeps newest that fit");
+// the newest entry is kept even when it alone is over the byte cap (it may be what was just deleted: Clear All on a big planner)
+const huge = [mk("h", 0), mk("o", 2)]; huge[0].items[0].data.blob = "x".repeat(13e6);
+r = TB.purge(huge, NOW);
+ok(r.keep.length === 1 && r.keep[0].id === "h" && r.dropped.map(e => e.id).join() === "o", "an oversized newest entry is kept, older ones make room");
 
 // ---- making entries: a course takes its tasks along; cards group per deck; bulk collapses
 const course = {kind: "course", id: "c1", data: {id: "c1", name: "Biology"}};
