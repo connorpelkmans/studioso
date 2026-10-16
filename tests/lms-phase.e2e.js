@@ -91,6 +91,35 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     ok(JSON.stringify(left) === JSON.stringify([["Group Care Plan – Individual", "done"]]), "after Merge there's one task for it, done because the assignment is submitted: " + JSON.stringify(left));
     const again = await app.evaluate(h => SBLMS.brightspace.fromApi(h).ask.length, H(due5));
     ok(again === 0, "the answer is remembered: the pair isn't asked about again");
+    // Link to an Item: a task tied to something that doesn't say whether it's submitted; the student picks the real item
+    const r6 = await app.evaluate(due => {
+      const L = SBLMS.brightspace, ts = due.slice(0, 10);
+      SBLMS.applyChanges([{kind: "task", id: "lk", after: {id: "lk", created: 1, title: "Capacity Building Assignment", courseId: "c1", type: "Assignment", due: ts, time: "23:30", status: "todo", order: 1,
+        bs: {key: "7|capacitybuildingassignment", ou: "7", last: {title: "Capacity Building Assignment", due: ts, courseId: "c1"}, seen: {api: 1}}}}], "");
+      const h = {ok: true, origin: "https://learn.example.edu", me: {name: "Ana"}, all: [], errors: [], items: [], completions: [],
+        courses: [{ou: "7", code: "HSIP0100", name: "Health Sciences", quizzes: [], grades: [], news: [], folders: [{id: "31", name: "CB Project Upload", due, end: null, sub: true, files: []}],
+          events: [{id: "e9", title: "Capacity Building Assignment Due", start: due, end: due, allDay: false, assoc: false, url: ""}]}]};
+      const d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true);
+      return SBLMS_TASK(SBLMS.st().tasks.lk);
+    }, new Date(Date.now() - 4 * DAY).toISOString());
+    ok(/Link to a Brightspace Item/.test(r6), "a task the read didn't say anything about offers Link to a Brightspace Item");
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    await app.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "lms-link"; b.dataset.id = "lk"; document.body.appendChild(b); b.click(); });
+    await app.waitForSelector('dialog[open] [data-act="lms-link-pick"]', {timeout: 5000});
+    const rows = await app.evaluate(() => [...document.querySelectorAll("dialog[open] .mg-row")].map(r => r.innerText.replace(/\s+/g, " ")));
+    ok(rows.some(r => /CB Project Upload/.test(r) && /Submitted/.test(r)), "it lists the course's items with what each said: " + JSON.stringify(rows));
+    await app.click('dialog[open] .mg-row:has-text("CB Project Upload") [data-act="lms-link-pick"]');
+    await app.waitForFunction(() => !SBLMS.st().tasks.lk || SBLMS.st().tasks.lk.status === "done", null, {timeout: 5000});
+    const linked = await app.evaluate(() => Object.values(SBLMS.st().tasks).filter(t => /CB Project Upload|Capacity Building Assignment/.test(t.title) && !["t1", "x1"].includes(t.id)).map(t => [t.title, t.status]));
+    ok(linked.length === 1 && linked[0][1] === "done", "after picking it, there's one task for it, done because the item is submitted: " + JSON.stringify(linked));
+    // A quiz whose due date is before it even opens (a midterm "due" 10 days ago that opens today): it's due when it's open
+    const q = await app.evaluate(() => {
+      const now = new Date(), at = (d, h, m) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + d, h, m).toISOString();
+      const d = SBLMS.brightspace.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [],
+        courses: [{ou: "7", code: "BSNC1000", name: "Nursing", folders: [], grades: [], news: [], events: [], quizzes: [{id: "5", name: "BSNC 1000 Midterm Exam", due: at(-10, 23, 59), start: at(0, 9, 50), end: at(0, 11, 30), gid: "", text: "", limit: 90}]}]});
+      return [d.recs[0].due, d.recs[0].time, (() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0") + "-" + String(n.getDate()).padStart(2, "0"); })()];
+    });
+    ok(q[0] === q[2] && q[1] === "09:50", "a quiz due before it opens is due when it's open (today 9:50): " + JSON.stringify(q));
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await browser.close(); server.close(); }
   console.log(`\nlms-phase.e2e: ${n} checks passed`);
