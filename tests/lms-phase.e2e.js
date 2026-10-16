@@ -279,6 +279,19 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     await app.waitForFunction(() => !SBLMS.st().tasks.mc2, null, {timeout: 5000});
     const m2left = await app.evaluate(() => Object.values(SBLMS.st().tasks).filter(t => /Midterm/.test(t.title) && t.bs && (t.bs.ou === "10" || t.bs.ou === "77")).map(t => [t.title, t.status, t.due]));
     ok(m2left.length === 1 && m2left[0][1] === "done" && m2left[0][2] === mday, "after Merge, one midterm, today, done: " + JSON.stringify(m2left));
+    // A "due date" at the very moment the quiz opens says no more than "Available on": it's matched the same way; and the sync details
+    // under Where this came from show the quiz as read and what the read said about the course's quizzes
+    const m3 = await app.evaluate(([opened, at]) => {
+      const L = SBLMS.brightspace, d = L.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [],
+        courses: [{ou: "11", code: "BSNC1002", name: "Nursing Ethics", folders: [], grades: [], news: [], quizNote: "quizzes: 1 sat, 0 not, 0 unknown; Quizzes page 200, 1 sat from it",
+          quizzes: [{id: "701", name: "BSNC 1002 Midterm Exam", due: opened, end: null, start: opened, done: true}],
+          events: [{id: "e70", title: "NK3 Midterm Exam", start: at, end: at, allDay: false, assoc: false, where: "SW1 101", url: ""}]}]});
+      L.applyPlan(d, L.plan(d), "grab", true);
+      const q = d.recs.find(r => r.pid === "q701"), t = Object.values(SBLMS.st().tasks).find(x => x.bs && x.bs.ou === "11" && x.bs.item);
+      return {due: q && q.due, ask: d.ask.length, html: t ? SBLMS_TASK(t) : ""};
+    }, [opened, mt.toISOString()]);
+    ok(m3.due === mday && m3.ask === 1, "a due date at the moment it opens is matched like an opening date: " + JSON.stringify({due: m3.due, ask: m3.ask}));
+    ok(/As read/.test(m3.html) && /opens /.test(m3.html) && /\bsat\b/.test(m3.html) && /Quizzes page 200/.test(m3.html) && /Status here<\/dt><dd>done/.test(m3.html), "Where this came from shows the quiz as read, its status and the course's quiz check: " + (m3.html.match(/<dl[\s\S]*<\/dl>/) || [""])[0].slice(0, 600));
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await browser.close(); server.close(); }
   console.log(`\nlms-phase.e2e: ${n} checks passed`);

@@ -284,8 +284,10 @@ async function bsHarvest(o) {
     // (and ones with only an opening date, or none: "Available on Oct 6" is all some exams say)
     const qrecent = quizzes.filter(x => { if (!x || x.IsActive === false) return false; const d = Date.parse(x.DueDate || x.EndDate || x.StartDate || ""); return isNaN(d) || (d > now - 60 * 864e5 && d < now + 240 * 864e5); }).slice(0, 40);
     const tried = {};
+    let qRefused = 0, qPage = 0, qPageStatus = "";
     await inBatches(qrecent, async x => {
       const a = await soft(`${b}/quizzes/${x.QuizId}/attempts/`, true);
+      if (!a) qRefused++;
       // Any attempt listed counts: one waiting to be marked ("Pending Evaluation") has no score or completion time yet
       if (a) tried[x.QuizId] = listOf(a).some(t => t && (t.AttemptId != null || t.AttemptNumber != null || t.TimeCompleted || t.DateCompleted || t.SubmittedDate || t.IsGraded === true || (t.Score != null && t.Score !== "")));
     });
@@ -293,16 +295,22 @@ async function bsHarvest(o) {
     if (qrecent.some(x => tried[x.QuizId] !== true)) {
       try {
         const r = await fetch(`/d2l/lms/quizzing/user/quizzes_list.d2l?ou=${c.ou}`, { credentials: "include" });
+        qPageStatus = String(r.status);
         if (r.ok) {
           const html = (await r.text()).slice(0, 3000000);
           html.split(/(?=quiz_summary\.d2l\?)/).slice(1).forEach(part => {
             const m = part.match(/^quiz_summary\.d2l\?[^"'<>]*?\bqi=(\d+)/); if (!m || tried[m[1]] === true) return;
             // the row's last "used / allowed", never a date like 10/6/2026
             const all = [...htmlText(part.slice(0, 6000), { line: true }).matchAll(/(?<![\d/])(\d+)\s*\/\s*(?:\d+|unlimited)(?![\d/])/gi)], a = all[all.length - 1];
-            if (a && Number(a[1]) > 0) tried[m[1]] = true;
+            if (a && Number(a[1]) > 0) { tried[m[1]] = true; qPage++; }
           });
         }
-      } catch (e) {}
+      } catch (e) { qPageStatus = String(e && e.name || "error"); }
+    }
+    // In the sync details, for a quiz that won't tick off
+    if (qrecent.length) {
+      const sat = qrecent.filter(x => tried[x.QuizId] === true).length, not = qrecent.filter(x => tried[x.QuizId] === false).length;
+      c.quizNote = `quizzes: ${sat} sat, ${not} not, ${qrecent.length - sat - not} unknown` + (qRefused ? `; attempts API refused ${qRefused}` : "") + (qPageStatus ? `; Quizzes page ${qPageStatus}, ${qPage} sat from it` : "");
     }
     // A released grade means it was handed in (or is closed): either way there's nothing left to do
     const graded = new Set(listOf(grades).filter(g => g && g.GradeObjectIdentifier != null && g.PointsNumerator != null).map(g => String(g.GradeObjectIdentifier)));
