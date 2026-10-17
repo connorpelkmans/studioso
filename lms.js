@@ -419,7 +419,9 @@ async function bsHarvest(o) {
     c.final = fin && typeof fin === "object" && !Array.isArray(fin) ? { num: fin.PointsNumerator, den: fin.PointsDenominator, wnum: fin.WeightedNumerator, wden: fin.WeightedDenominator, shown: String(fin.DisplayedGrade || "").trim() } : null;
     c.news = listOf(news).filter(n => n && n.IsPublished !== false && !n.IsHidden).slice(0, 25).map(n => ({ id: String(n.Id), title: String(n.Title || ""), text: txt(n.Body, 3000), date: dt(n.StartDate) || dt(n.CreatedDate) || dt(n.LastModifiedDate),
       files: (n.Attachments || []).length }));
-    c.events = events.slice(0, 200).map(e => ({ id: String(e.CalendarEventId), title: String(e.Title || ""), text: txt(e.Description, 1500), start: dt(e.StartDateTime), end: dt(e.EndDateTime), allDay: !!e.IsAllDayEvent,
+    // A course's calendar can list your other courses' events too (Brightspace's "all courses" calendar view): keep only this course's own
+    // (an event from another course comes in with that course; one with no org unit given is kept)
+    c.events = events.filter(e => e && (e.OrgUnitId == null || String(e.OrgUnitId) === String(c.ou))).slice(0, 200).map(e => ({ ou: e.OrgUnitId != null ? String(e.OrgUnitId) : "", id: String(e.CalendarEventId), title: String(e.Title || ""), text: txt(e.Description, 1500), start: dt(e.StartDateTime), end: dt(e.EndDateTime), allDay: !!e.IsAllDayEvent,
       where: String(e.LocationName || ""), assoc: !!(e.IsAssociatedWithEntity || (e.AssociatedEntity && e.AssociatedEntity.AssociatedEntityId)), kind: e.AssociatedEntity ? String(e.AssociatedEntity.AssociatedEntityType || "") : "", eid: e.AssociatedEntity && e.AssociatedEntity.AssociatedEntityId != null ? String(e.AssociatedEntity.AssociatedEntityId) : "", url: String(e.CalendarEventViewUrl || "") }));
   };
   for (let i = 0; i < pick.length; i += 4) await Promise.all(pick.slice(i, i + 4).map(detail));

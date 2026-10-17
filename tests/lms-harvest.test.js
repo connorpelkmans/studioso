@@ -57,7 +57,7 @@ const BS = [
   [/\/grades\/values\/myGradeValues\/$/, [{ GradeObjectIdentifier: "9", GradeObjectName: "Lab 0", GradeObjectType: 1, PointsNumerator: 8, PointsDenominator: 10, DisplayedGrade: " 80 % ", ReleasedDate: iso(-3) }]],
   [/\/grades\/final\/values\/myGradeValue$/, { PointsNumerator: 80, PointsDenominator: 100, DisplayedGrade: "B" }],
   [/^\/d2l\/api\/le\/1\.70\/101\/news\/$/, [{ Id: 3, Title: "Welcome", IsPublished: true, StartDate: iso(-2), Body: { Text: "", Html: "<div>Hello&nbsp;class &lt;3</div><script>alert(1)</script>" }, Attachments: [] }]],
-  [/\/calendar\/events\/myEvents\//, { Objects: [{ CalendarEventId: 11, Title: "Lecture", Description: "<p>Room&nbsp;5</p>", StartDateTime: iso(1), EndDateTime: iso(1.05), IsAllDayEvent: false, LocationName: "B-5", CalendarEventViewUrl: "/d2l/le/calendar/101/event/11/detailsview" }], Next: null }],
+  [/\/calendar\/events\/myEvents\//, { Objects: [{ CalendarEventId: 12, OrgUnitId: 999, Title: "CHEM 1020 Midterm Exam", StartDateTime: iso(4), EndDateTime: iso(4.05), IsAllDayEvent: true }, { CalendarEventId: 11, OrgUnitId: 101, Title: "Lecture", Description: "<p>Room&nbsp;5</p>", StartDateTime: iso(1), EndDateTime: iso(1.05), IsAllDayEvent: false, LocationName: "B-5", CalendarEventViewUrl: "/d2l/le/calendar/101/event/11/detailsview" }], Next: null }],
   [/\/content\/myItems\/completions\//, { Objects: [], Next: null }],
   [/\/content\/myItems\//, { Objects: [{ OrgUnitId: 101, ItemId: 1, ItemName: "Read chapter 1", ItemType: 3, ActivityType: 1, ItemUrl: "/d2l/le/content/101/viewContent/1/View", DueDate: iso(3) }], Next: null }]
 ];
@@ -126,6 +126,7 @@ const BB = [
     assert.strictEqual(c.quizzes[0].text, "Chapters 1–3 open book");
     assert.strictEqual(c.news[0].text, "Hello class <3", "script content dropped, entities decoded");
     assert.strictEqual(c.events[0].text, "Room 5");
+    assert.deepStrictEqual(Array.from(c.events, e => e.id), ["11"], "another course's event listed in this course's calendar is left out");
     assert.strictEqual(c.grades[0].shown, "80 %");
     assert.strictEqual(out.items[0].name, "Read chapter 1");
     assert(seen.some(p => /myGradeValues/.test(p)) && seen.some(p => /content\/myItems/.test(p)), "the grade and content routes were read");
