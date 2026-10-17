@@ -6764,7 +6764,8 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   #view > .view-head.ph-btns,#view > section > .view-head.ph-btns{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:4px 0 14px!important;padding:0!important;min-height:0;height:auto;position:static!important;transform:none!important}
   #view > .view-head.ph-btns + *,#view > section > .view-head.ph-btns + *{margin-top:0!important}
   /* breathing room between the header and the page's first row (the switcher or title pill) */
-  #view{padding-top:10px!important}
+  #view{padding-top:6px!important}   /* 10px below the header in all */
+  #view > .pview-tabs:first-child{margin-top:0!important}
   #view > .grp-grid{margin-top:16px}   /* same gap under the Groups pill as other pages */
   /* Companion chat: the page is fixed and only the conversation scrolls (#view's height is set by fitChat in 101-phone-v2.js) */
   html.ph-lock,html.ph-lock body{overflow:hidden!important;overscroll-behavior:none}
