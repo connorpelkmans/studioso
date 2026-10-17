@@ -466,6 +466,15 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     const tyOf = t => (ty.recs.find(r => r[0] === t) || [])[1];
     ok(!ty.recs.some(r => /Exam Review/.test(r[0])) && ty.evs.includes("NK1 Midterm Exam Review"), "an exam review session is a calendar event, not a task: " + JSON.stringify(ty));
     ok(tyOf("Midterm Clinical Evaluation") === "Exam" && tyOf("BSNC 1000 Midterm Exam- Requires Respondus LockDown Browser") === "Exam" && tyOf("Practice Midterm Exam Questions") === "Assignment", "real exams stay exams; practice questions are work: " + JSON.stringify(ty.recs));
+    // Settings shows one short line per school site; what the read found is in the site's window under Sync details, closed
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    const sh = await app.evaluate(() => SBLMS.brightspace.shortStatus());
+    ok(/^synced /.test(sh) && !/Grade rows|submitted/.test(sh), "Settings' line is short: " + sh);
+    await app.evaluate(() => SBLMS.brightspace.bsSheet()); await app.waitForSelector("dialog[open] .bs-status");
+    const dg = await app.evaluate(() => { const d = document.querySelector("dialog[open] details.bs-diag"); return d ? {open: d.open, text: d.textContent, status: document.querySelector("dialog[open] .bs-status").textContent} : null; });
+    ok(dg && !dg.open && /Sync details/.test(dg.text) && /Read \d+ of/.test(dg.text) && !/Grade rows/.test(dg.status.replace(dg.text, "")), "the read's details are in a closed Sync details: " + JSON.stringify(dg && {open: dg.open}));
+    await app.screenshot({path: require("path").join(require("os").tmpdir(), "bs-sheet.png")});
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
     // Two real items both handed in, due at the same moment, named alike ("PHC" and "PHSA Privacy and Confidentiality"): one form per
     // health authority, listed apart by the school, so never asked about; a calendar copy of a done item, done too, is
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
