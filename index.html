@@ -1845,6 +1845,8 @@ body.sch-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .sch-chip.sch-allday{background:color-mix(in srgb,var(--c) 26%,var(--surface))}
 .sch-legend .k-event::before{background:color-mix(in srgb,var(--accent) 22%,var(--surface));border-left:4px solid var(--accent)}
 .sch-nav{flex-wrap:wrap;justify-content:flex-end}
+/* wide screens: the week selector on the left, the rest of the Schedule's buttons at the right end of the row */
+@media (min-width:640px){.view-head > .sch-nav{flex:1 1 100%;justify-content:flex-start}.sch-nav > [data-act="sch-next"] + *{margin-left:auto}}
 /* Availability blocks: Schedule styling per type, Today's free-time strip, the add/edit sheet */
 .sch-b.k-av-class{background:var(--c);color:#fff}
 .sch-b.k-av-work{background:color-mix(in srgb,var(--c) 24%,var(--surface));color:var(--ink);border-left:5px solid var(--c);box-shadow:0 1px 4px rgba(8,20,50,.12)}
