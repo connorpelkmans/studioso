@@ -6605,9 +6605,13 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 .ph-title{display:none}
 @media (max-width:639px){
   /* Top bar */
-  header.top .brand,header.top .today{display:none}
+  /* the logo with the date under it (the bottom bar already says which page this is) */
   .top-row > div:first-child{justify-content:flex-end;min-width:0!important}
-  .ph-title{display:flex;flex-direction:column;min-width:0;max-width:100%;align-self:stretch;min-height:42px;justify-content:flex-end}
+  header.top .brand{margin:0;line-height:0;min-width:0}
+  header.top .brand img.logo{width:140px;height:auto;max-width:100%}
+  header.top .today{font-size:.78rem!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .ph-title{display:none!important}
+  .ph-title-unused{display:flex;flex-direction:column;min-width:0;max-width:100%;align-self:stretch;min-height:42px;justify-content:flex-end}
   .ph-k{font:700 .72rem/1.25 var(--display);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ph-title.ph-long .ph-t{font-size:1.42rem}
   .ph-t{font:800 1.7rem/1.1 var(--display);letter-spacing:-.015em;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -6759,6 +6763,7 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 }
 /* the narrowest phones: icons only (each tab keeps its name for screen readers) */
 @media (max-width:379px){.plan .pt-stat b{font-size:.8rem}.plan .pt-stat span{font-size:.6rem;white-space:normal;overflow:visible}}
+@media (max-width:359px){header.top .today{font-size:.68rem!important}}
 @media (max-width:359px){nav.tabs .in button,html[data-ts] nav.tabs .in button{font-size:0!important;line-height:0!important;gap:0;min-height:48px;justify-content:center}}
 </style>
 </head>
