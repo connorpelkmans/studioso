@@ -40,7 +40,10 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
     }, [o.seed ? o.seed(SEED()) : SEED(), o.groups == null ? null : o.groups, !!o.backedUp]);
     return ctx;
   };
-  const open = async ctx => { const page = await ctx.newPage(); page.errs = []; page.on("pageerror", e => page.errs.push(e.message)); page.on("console", m => { if (m.type() === "error") page.errs.push(m.text()); }); await page.goto(base); await page.waitForSelector("#view", {state: "attached"}); await page.waitForTimeout(900); return page; };
+  // Board notices wait behind the Notices button: opened here (they stay open while on the Board) unless keepFolded
+  const open = async (ctx, keepFolded) => { const page = await ctx.newPage(); page.errs = []; page.on("pageerror", e => page.errs.push(e.message)); page.on("console", m => { if (m.type() === "error") page.errs.push(m.text()); }); await page.goto(base); await page.waitForSelector("#view", {state: "attached"}); await page.waitForTimeout(900);
+    if (!keepFolded && await page.evaluate(() => { const b = document.querySelector('#view .bn-more[aria-expanded="false"]'); if (b) b.click(); return !!b; })) await page.waitForTimeout(200);
+    return page; };
   const noOverflow = async (page, what) => { const o = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth); ok(o <= 0, "no horizontal scroll " + what + " (" + o + ")"); };
   const noErr = (page, what) => ok(!page.errs.length, "no console errors " + what + (page.errs.length ? ": " + page.errs.join(" | ") : ""));
   const goCourse = async (page, id) => {
@@ -150,14 +153,14 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
     }
     // Board card, signed out
     {
-      // The Board shows one notice at a time: a pending backup reminder comes first and the card waits behind "More Notices".
-      const c0 = await mkCtx(); let page = await open(c0);
-      const order = await page.evaluate(() => [...document.querySelectorAll("#view > *")].map(e => e.classList[0]));
+      // Board notices wait behind one Notices button (with a red count); a pending backup reminder comes first, then the card
+      const c0 = await mkCtx(); let page = await open(c0, true);
+      const order = await page.evaluate(() => [...document.querySelectorAll("#view > *")].map(e => e.classList[0]).filter(c => c !== "bn-more"));
       ok(order.indexOf("nudge") === 0 && order.indexOf("gn-card") > 0 && order.indexOf("gn-card") < order.indexOf("qa-wrap"), "with a backup reminder pending, it leads and the card is queued above quick add: " + order.join(","));
-      ok(!(await page.locator(".gn-card").isVisible()) && await page.locator(".bn-more").isVisible(), "the queued card waits behind More Notices");
+      ok(!(await page.locator(".gn-card").isVisible()) && !(await page.locator("#view > .nudge").isVisible()) && await page.locator(".bn-more .bn-n").isVisible(), "the notices wait behind the Notices button, which shows how many");
       await page.click(".bn-more"); await page.waitForTimeout(200);
       const r0 = await page.locator(".gn-card").boundingBox(), q0 = await page.locator(".qa-wrap").boundingBox();
-      ok(r0 && q0 && r0.y + r0.height <= q0.y + 1, "More Notices shows the card, still above quick add");
+      ok(r0 && q0 && r0.y + r0.height <= q0.y + 1, "Notices shows the card, still above quick add");
       await c0.close();
       // backed up recently: the card is the notice that shows
       const ctx = await mkCtx({backedUp: true}); page = await open(ctx);
