@@ -6586,6 +6586,12 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   .sr-ic{width:26px;height:26px}
 }
 /* ===== module: 101-phone-v2.css ===== */
+/* Phones and tablets: the page itself never slides sideways or rubber-bands (iOS lets a touch drag the whole page around when anything
+   is a hair wider than the screen); it scrolls up and down, and the parts that scroll sideways (board columns, chips) still do, inside themselves. */
+@media (max-width:979px){
+  html{overflow-x:hidden;overscroll-behavior:none}
+  body{overflow-x:clip;overscroll-behavior:none;max-width:100vw}
+}
 /* Phones (under 640 px wide): laid out as a phone app, not the desktop rearranged. Tablets and computers are unchanged.
    - The top bar names the page you are on (with the date over Today) and keeps three round tools: Focus, Search and Settings.
    - Seven tabs at the bottom, the companion's round seat in the middle: Board, Calendar, Review | companion | Notes, Courses, Groups.
