@@ -6654,7 +6654,7 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   nav.tabs .in [data-tab="companion"][aria-current="page"]::after{box-shadow:0 0 0 4px color-mix(in srgb,var(--spine-bg,var(--spine)) 94%,transparent),0 0 0 6px var(--accent-2,var(--accent)),0 8px 18px rgba(8,20,50,.28)}
   body.cp-docked nav.tabs .in [data-tab="companion"] svg{visibility:hidden}
   /* The Add button: a round + above the bar */
-  .fab{width:56px;height:56px;padding:0!important;border-radius:50%;justify-content:center;right:16px;bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+  .fab{width:56px;height:56px;padding:0!important;border-radius:50%!important;justify-content:center;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px))}   /* round in every theme (some give it square-ish corners) */
   .fab span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .fab svg{width:26px;height:26px}
   /* Page switchers: full width, right under the title */
