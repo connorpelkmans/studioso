@@ -41,7 +41,7 @@
         anchors: {top: [60, 30, 0.9], neck: [60, 78, 1.05], chest: [76, 96, 0.68], back: [92, 74, 0.8], hands: [60, 88, 0.85]},
         lines: {
           tap: ["Ahh, hi! The water's just right today.", "You're doing great. Want to soak in that for a second?", "No rush. One task at a time, like one bath at a time.", "I'm so calm, and you're so capable!", "Steady and warm, that's how we study.", "Every little step counts. I believe in you.", "Relax your shoulders. There we go!", "You make studying look cozy."],
-          pet: ["Mmm, that's the good spot.", "Hehe, I might melt into the tub."],
+          pet: ["Mmm, that's so relaxing. Thank you.", "Hehe, I might melt into the tub."],
           hello: ["You're here! I kept the water warm.", "Hello, friend! Come sit, come study."],
           morning: ["Good morning! A warm start to a good day.", "Morning! The steam says today's going to be nice."],
           night: ["It's late. A warm bath and bed sound lovely.", "Time to unwind soon, okay?"],
@@ -191,7 +191,7 @@
           night: ["Tucking my beak in soon. You too?", "The frogs are singing goodnight."],
           focus: ["Quiet beak, busy brain. Let's go!", "Perched right here, cheering softly."],
           done: ["WOW! That session was huge, like my beak!", "Done! Flap flap hooray!"],
-          task: ["SQUAWK! Done!", "Checked off! Big beak energy!", "Another one! You're soaring!", "Yes! Hop hop hooray!"],
+          task: ["SQUAWK! Done!", "Checked off! Big brave beak!", "Another one! You're soaring!", "Yes! Hop hop hooray!"],
           break: ["Stretch your wings! I mean arms!", "Snack break! Fruit, maybe?"]
         }
       },
@@ -362,7 +362,7 @@
           night: ["Cooling down for the night. You too?", "Dimming my glow. Sweet dreams!"],
           focus: ["Simmering quietly beside you.", "Steady glow, steady focus."],
           done: ["WOW! That session was red hot!", "Done! Erupting with joy!"],
-          task: ["Bloop! Done!", "Checked off! Sparks everywhere!", "Another one! Hot stuff!", "YES! Lava-ly work!"],
+          task: ["Bloop! Done!", "Checked off! Sparks everywhere!", "Another one! Fired up!", "YES! Lava-ly work!"],
           break: ["Cool-down break! Sip some water!", "Stretch it out, stay toasty!"]
         }
       },

@@ -112,7 +112,7 @@
         anchors: {top: [62, 21, 0.85], neck: [60, 48, 0.95], chest: [73, 92, 0.6], back: [86, 72, 0.8], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Psst! A little spritz of encouragement!", "Hi! You're looking fresh today!", "Mist-ion accepted: cheer you on!", "Fine mist, finer focus! You've got this!", "A refreshing hello from me to you!", "Stay hydrated, stay amazing!", "Sprinkling good vibes everywhere!", "Ready to spritz some motivation?"],
-          pet: ["Hehe! That tickles my trigger!", "Ooh, sloshy happy feelings!"],
+          pet: ["Hehe! That tickles my spray nozzle!", "Ooh, sloshy happy feelings!"],
           hello: ["You're back! Spritz of joy!", "Hi hi! I'm full and ready to go!"],
           morning: ["Good morning! Dewy and bright!", "Rise and shine! Fresh start, fresh mist!"],
           night: ["Misting softly. Time to rest?", "Even the ferns are sleeping. Night night!"],
@@ -254,7 +254,7 @@
         cheeks: {lx: 41.5, rx: 78.5, y: 76.5, w: 4.2, h: 2.6, color: "#FF9F9F"},
         anchors: {top: [60, 37, 0.9], neck: [60, 58, 1.1], chest: [76, 98, 0.6], back: [92, 70, 0.8], hands: [60, 94, 0.85]},
         lines: {
-          tap: ["Hi! I'm sweet on you, you know!", "Some more? Some more cheering for you!", "Gooey hugs coming your way!", "Crunchy start, sweet finish, that's the plan!", "You're toasting through that list!", "Stay golden, my friend!", "Sandwiched between pride and joy!", "Warm by the fire, cheering for you!"],
+          tap: ["Hi! I'm so sweet to see you!", "Some more? Some more cheering for you!", "Gooey hugs coming your way!", "Crunchy start, sweet finish, that's the plan!", "You're toasting through that list!", "Stay golden, my friend!", "Sandwiched between pride and joy!", "Warm by the fire, cheering for you!"],
           pet: ["Hehe! Careful, I'm melty!", "Ooh, extra gooey happiness!"],
           hello: ["You're back! Grab a stick and sit down!", "Hi hi! The fire's warm and so am I!"],
           morning: ["Good morning! S'mores for breakfast? Kidding!", "Rise and shine, happy camper!"],

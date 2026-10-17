@@ -30,7 +30,7 @@
         cheeks: {lx: 44, rx: 76, y: 79, w: 4.2, h: 2.6, color: "#FF9FC0"},
         anchors: {top: [60, 28, 0.85], neck: [60, 94, 1], chest: [72, 92, 0.65], back: [30, 70, 0.85], hands: [60, 96, 0.9]},
         lines: {
-          tap: ["Hi! You make me shine in every color!", "Every bit of you is bright today!", "Bend the light, bend the rules, ace the quiz!", "You've got a whole rainbow of ideas!", "Proud of you, every single shade!", "Sparkle mode: on. Let's go!", "Light in, rainbow out. That's you studying!"],
+          tap: ["Hi! You make me shine in every color!", "Every bit of you is bright today!", "Bend the light, find the answer, ace the quiz!", "You've got a whole rainbow of ideas!", "Proud of you, every single shade!", "Sparkle mode: on. Let's go!", "Light in, rainbow out. That's you studying!"],
           pet: ["Hehe! You made me sparkle!", "Aww! Now I'm glowing all over!"],
           hello: ["You're back! The light just got brighter!", "Hi hi! Ready to make some rainbows?"],
           morning: ["Good morning! Fresh light, fresh colors!"], night: ["Dimming my sparkle now. Rest soon?"],
@@ -366,7 +366,7 @@
         lines: {
           tap: ["Hi! I've been studying since the Cambrian!", "Slow and steady, like sediment!", "Half a billion years of experience says: you've got this!", "Every layer you learn is a new rock record!", "You're making history. Literal history!", "Tiny legs, big dreams!", "Fossils are proof that showing up lasts!"],
           pet: ["Hehe! My segments are wiggling!", "Aww! A pat worth fossilizing!"],
-          hello: ["You're back! Only took you an epoch!", "Hello! Ready to dig into some learning?"],
+          hello: ["You're back! Hello from the Cambrian!", "Hello! Ready to dig into some learning?"],
           morning: ["Good morning! A fresh layer of today!"], night: ["Curling up like a fossil. Sleep well!"],
           focus: ["Scuttling quietly beside you. Focus!", "Patient as stone. You've got this."],
           done: ["WOW! That session will be in the rock record!", "Done! Prehistoric levels of focus!"],

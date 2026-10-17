@@ -47,7 +47,7 @@
           night: ["Lanterns are lit. Maybe one last cup, then rest?", "Goodnight! Sweet dreams and sweeter tea."],
           focus: ["Steeping quietly beside you.", "Calm and warm. Pour your focus in!"],
           done: ["What a session! Tea's on me!", "All done! Poured to perfection!"],
-          task: ["Done! Not a drop spilled!", "Checked off! Minty fresh!", "Another one! Pour me another!", "Yes! Perfectly steeped!"],
+          task: ["Done! Not a drop spilled!", "Checked off! Minty fresh!", "Another one! Pour another cup of cheer!", "Yes! Perfectly steeped!"],
           break: ["Tea break! Sip slowly and stretch.", "Rest a moment. Smell the fresh mint!"]
         }
       },

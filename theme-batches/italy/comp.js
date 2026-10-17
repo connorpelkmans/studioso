@@ -32,7 +32,7 @@
         cheeks: {lx: 40, rx: 80, y: 78, w: 4.4, h: 2.6, color: "#FF9A6A"},
         anchors: {top: [60, 38, 0.95], neck: [60, 96, 1.05], chest: [74, 90, 0.66], back: [90, 60, 0.8], hands: [60, 98, 0.86]},
         lines: {
-          tap: ["Ciao! Fresh from the terraces, just for you!", "When life gives you lemons, ace the quiz!", "Zesty brain, sunny heart. That's you!", "You're doing great. Squeeze in one more!", "A little bit extra never hurt anyone!", "Pucker up, we've got pages to cover!", "Bright, bold and on a roll today!", "Sun on the terraces, focus in your eyes!"],
+          tap: ["Ciao! Fresh from the terraces, just for you!", "When life gives you lemons, ace the quiz!", "Zesty brain, sunny heart. That's you!", "You're doing great. Squeeze in one more!", "A little bit extra never hurt anyone!", "Zest it up, we've got pages to cover!", "Bright, bold and on a roll today!", "Sun on the terraces, focus in your eyes!"],
           pet: ["Hehe! You smell like lemon now!", "Aww, that's the zest feeling ever!"],
           hello: ["Ciao, ciao! You're back! Sunshine time!", "Buongiorno, friend! Ready to shine?"],
           morning: ["Buongiorno! The sun's on the lemon trees!", "Good morning! Fresh squeezed and ready!"],
@@ -67,7 +67,7 @@
         anchors: {top: [60, 30, 0.9], neck: [60, 88, 1], chest: [72, 82, 0.62], back: [86, 62, 0.8], hands: [60, 86, 0.86]},
         lines: {
           tap: ["Beep beep! Hop on, let's zip through it!", "Hairpin bend ahead? We lean in and go!", "Vroom! That chapter didn't stand a chance!", "Full tank of focus, open coast road!", "Small engine, big dreams. Just like you!", "Wind in your hair, notes in your head!", "Smooth riding! You're cruising today!", "Next stop: the top of the class!"],
-          pet: ["Hehe! Polish my headlight again!", "Purr purr! That's my happy engine!"],
+          pet: ["Hehe! That made my headlight twinkle!", "Purr purr! That's my happy engine!"],
           hello: ["Beep beep! You're back! Let's ride!", "Ciao! Engine's warm and ready to go!"],
           morning: ["Buongiorno! Coast road's wide open!", "Good morning! First ride of the day!"],
           night: ["Headlight's on low. Time to park soon?", "Buonanotte! Parking by the harbour."],
@@ -105,7 +105,7 @@
         lines: {
           tap: ["Ciao! Three scoops of cheering, coming up!", "Pistachio for focus, fragola for fun!", "You're the cherry on top of today!", "Cool, calm and totally got this!", "No brain freeze, just brain power!", "One scoop at a time, you'll finish it!", "Sweet work! Keep it rolling!", "Gelato tastes better after a good chapter!"],
           pet: ["Hehe! Careful, I might melt!", "Aww, you make my scoops wobble!"],
-          hello: ["Ciao bella! You're back! Extra scoop!", "Hi! I saved you the best flavour!"],
+          hello: ["Ciao ciao! You're back! Extra scoop!", "Hi! I saved you the best flavour!"],
           morning: ["Buongiorno! Gelato for breakfast? Kidding!", "Good morning! Sweet day ahead!"],
           night: ["The piazza's quiet. Rest soon, dolce?", "Buonanotte! Sweet dreams, three scoops!"],
           focus: ["Staying cool right here with you.", "Scoop by scoop. You've got this!"],
