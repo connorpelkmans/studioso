@@ -55,9 +55,11 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     page.on("pageerror", e => page.errs.push(e.message)); page.on("console", m => { if (m.type() === "error" && !/favicon|Failed to load resource/.test(m.text())) page.errs.push(m.text()); });
     await page.goto(base); await page.waitForSelector("#view", {state: "attached"}); await page.waitForFunction(() => window.SBREVIEW && window.SBSTREAK);
     await page.evaluate(() => { const b = document.querySelector('[data-act="bview"][data-id="board"]'); if (b) b.click(); });
-    await page.waitForTimeout(250); return page;
+    await page.waitForTimeout(250); await expand(page); return page;
   };
-  const at = async (ctx, page, now) => { await page.evaluate(t => localStorage.setItem("__fakeNow", String(t)), +new Date(now)); await page.reload(); await page.waitForFunction(() => window.SBREVIEW && window.SBSTREAK); await page.waitForTimeout(300); };
+  // Board notices wait behind the Notices button: open them (they stay open while on the Board)
+  const expand = async page => { if (await page.evaluate(() => { const b = document.querySelector('#view .bn-more[aria-expanded="false"]'); if (b) b.click(); return !!b; })) await page.waitForTimeout(200); };
+  const at = async (ctx, page, now) => { await page.evaluate(t => localStorage.setItem("__fakeNow", String(t)), +new Date(now)); await page.reload(); await page.waitForFunction(() => window.SBREVIEW && window.SBSTREAK); await page.waitForTimeout(300); await expand(page); };
   const store = page => page.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")));
   const card = page => page.locator("#view .wkr-card:visible");
   const noOverflow = async (page, what) => { const o = await page.evaluate(() => ({page: document.documentElement.scrollWidth - document.documentElement.clientWidth, dlg: (d => d ? d.scrollWidth - d.clientWidth : 0)(document.querySelector("#dlg"))})); ok(o.page <= 1 && o.dlg <= 1, "no horizontal scroll " + what + " " + JSON.stringify(o)); };

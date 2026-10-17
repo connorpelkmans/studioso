@@ -8,6 +8,12 @@ const TAGS = { canvas: "Canvas", brightspace: "D2L", blackboard: "Bb" };
 const EVERY = [[15, "Every 15 minutes"], [30, "Every 30 minutes"], [60, "Every hour"], [180, "Every 3 hours"], [360, "Every 6 hours"], [720, "Every 12 hours"]];
 const originOf = s => globalThis.__studyboardExt.originOf(s);
 const $ = id => document.getElementById(id);
+// Safari (see popup.css): one fixed height that scrolls inside
+// Safari (see popup.css): the popup keeps the height it opens with, so it opens with the height its content needed last time
+const FIXED = /Safari\//.test(navigator.userAgent) && !/Chrom(e|ium)\/|Edg\/|Firefox\//.test(navigator.userAgent);
+const POP_H = "popupHeight", fitH = n => Math.max(300, Math.min(600, Math.round(n)));
+function setPopupH(n) { document.documentElement.style.height = document.body.style.height = fitH(n) + "px"; }
+if (FIXED) { document.documentElement.classList.add("fixed"); let last = 0; try { last = Number(localStorage.getItem(POP_H)) || 0; } catch (e) {} setPopupH(last || 600); }
 const send = m => chrome.runtime.sendMessage(m);
 
 // h("div", {class: "x"}, "text", child): a small element builder (text is always text)
@@ -51,6 +57,17 @@ function statusLine(id, s, st) {
   return { text: `Couldn't read it last time${st.error ? ` (${st.error})` : ""}. It tries again by itself.${st.lastOk ? ` Last synced ${ago(st.lastOk)}.` : ""}`, tone: "warn" };
 }
 
+// Asked in the popup itself: Safari's popups can't show confirm() dialogs
+function askRemove(btn, id) {
+  const box = h("div", { class: "confirm", role: "group", "aria-label": "Remove " + NAMES[id] },
+    h("p", { class: "mini" }, `Stop syncing ${NAMES[id]}? Studyboard keeps what it already brought in.`),
+    h("div", { class: "row" }, h("span", { class: "spacer" }),
+      h("button", { type: "button", class: "btn small", onclick: () => { box.replaceWith(btn); btn.focus(); } }, "Cancel"),
+      h("button", { type: "button", class: "btn small danger", onclick: async ev => { ev.currentTarget.disabled = true; await send({ op: "remove", id }).catch(() => {}); render(); } }, "Stop Syncing")));
+  btn.replaceWith(box);
+  box.querySelector(".danger").focus();
+}
+
 function schoolCard(id, s, st) {
   const line = statusLine(id, s, st);
   const busyNow = line.tone === "busy";
@@ -66,7 +83,7 @@ function schoolCard(id, s, st) {
         chrome.permissions.request({ origins: [s.origin + "/*"] }).then(ok => { if (ok) send({ op: "sync", id }).then(render); });
       } }, "Allow Again") : null,
       h("span", { class: "spacer" }),
-      h("button", { type: "button", class: "link", onclick: async () => { if (confirm(`Stop syncing ${NAMES[id]}? Studyboard keeps what it already brought in.`)) { await send({ op: "remove", id }); render(); } } }, "Remove")));
+      h("button", { type: "button", class: "link", onclick: e => askRemove(e.currentTarget, id) }, "Remove")));
 }
 
 function connectForm(have) {
@@ -74,6 +91,8 @@ function connectForm(have) {
   const input = h("input", { type: "text", id: "addr", inputmode: "url", autocomplete: "off", spellcheck: "false", placeholder: "school.instructure.com", value: tabOrigin ? host(tabOrigin) : "", "aria-describedby": "addrHelp" });
   const sel = h("select", { id: "plat" }, h("option", { value: "" }, "Find out automatically"), ...Object.keys(NAMES).filter(k => !have.includes(k) || k === guessed).map(k => h("option", { value: k, selected: k === guessed }, NAMES[k])));
   const msg = h("p", { class: "status", id: "formMsg", role: "status" });
+  // The platform is found out by itself; picking it is tucked away (opened when it couldn't be found out)
+  const more = h("details", { class: "more" }, h("summary", {}, "Choose the platform"), h("label", { class: "f" }, h("span", { class: "sr" }, "Platform"), sel));
   const go = h("button", { type: "submit", class: "btn primary" }, "Agree, Allow and Connect");
   const form = h("form", { class: "connect", onsubmit: e => {
     e.preventDefault();
@@ -89,21 +108,18 @@ function connectForm(have) {
       const r = await send({ op: "add", origin, platform });
       if (r && r.ok) { render(); return; }
       go.disabled = false; msg.className = "status warn";
+      if (r && r.error === "unknown-platform") more.open = true;
       msg.textContent = r && r.error === "unknown-platform" ? "That site doesn't look like Canvas, Brightspace or Blackboard. Check the address, or pick the platform above." : "Couldn't connect that site. Check the address and try again.";
     }, () => { msg.className = "status warn"; msg.textContent = "Couldn't ask for permission here. Try again."; });
   } },
     h("h2", {}, have.length ? "Connect Another School Site" : "Connect Your School Site"),
-    h("p", { class: "mini", id: "addrHelp" }, "Your browser will ask you to let Studyboard read this one site."),
     h("label", { class: "f" }, h("span", {}, "School Site Address"), input),
-    h("label", { class: "f" }, h("span", {}, "Platform"), sel),
+    h("p", { class: "mini", id: "addrHelp" }, "Your browser asks you to let Studyboard read this one site. ", more),
     // What it collects and what happens to it, shown before anything is read (Chrome Web Store: prominent disclosure and consent)
     h("div", { class: "disclose", id: "disclose" },
-      h("b", {}, "What Studyboard will read and do with it"),
-      h("ul", {},
-        h("li", {}, "From this site, about every hour and when you open it: your courses, due dates, submissions, grades, feedback and rubrics, announcements, the syllabus, your name, your instructors' names and school emails, and (Canvas) your Inbox messages."),
-        h("li", {}, "It's kept in this browser and brought into your Studyboard planner when you open studyboardapp.com. If you have a Studyboard account, it's saved to it like the rest of your planner."),
-        h("li", {}, "It's only used to show your school work in Studyboard. Never sold, never used for ads. Remove the site here any time to stop.")),
-      h("a", { href: "https://studyboardapp.com/website/privacy.html#extension", target: "_blank", rel: "noopener noreferrer" }, "Privacy Policy")),
+      h("p", {}, h("b", {}, "What it reads: "), "from this site, about every hour, your courses, due dates, submissions, grades, feedback, rubrics, announcements, syllabus, your name, your instructors' names and school emails, and (Canvas) Inbox messages."),
+      h("p", {}, h("b", {}, "Where it goes: "), "this browser and your Studyboard planner (and your Studyboard account, if you have one). Only used to show your school work. Never sold or used for ads. ",
+        h("a", { href: "https://studyboardapp.com/website/privacy.html#extension", target: "_blank", rel: "noopener noreferrer" }, "Privacy Policy"))),
     go, msg);
   go.setAttribute("aria-describedby", "disclose");
   return form;
@@ -115,12 +131,13 @@ async function render() {
   if (!st || st.error) { main.append(h("p", { class: "status warn" }, "Studyboard School Sync is starting. Close this and open it again in a moment.")); return; }
   $("ver").textContent = "Version " + st.version;
   const ids = Object.keys(st.schools);
+  document.body.classList.toggle("fresh", !ids.length);   // the connect form says it all: the footer's first line is left out
   if (ids.length) {
     main.append(h("ul", { class: "schools" }, ids.map(id => schoolCard(id, st.schools[id], st.status[id]))));
     main.append(h("div", { class: "settings" },
       h("label", { class: "f inline" }, h("span", {}, "Check for Changes"),
         h("select", { onchange: e => send({ op: "settings", every: Number(e.target.value) }) }, EVERY.map(([v, l]) => h("option", { value: v, selected: Number(st.settings.every) === v }, l)))),
-      h("p", { class: "mini" }, "Also when you open your school site or Studyboard (if it's been 10 minutes). Studyboard on studyboardapp.com brings it in by itself.")));
+      h("p", { class: "mini" }, "Also when you open your school site or Studyboard.")));
   }
   if (ids.length < 3) {
     const more = ids.length ? h("details", { class: "more" }, h("summary", {}, "Connect another school site"), connectForm(ids)) : connectForm(ids);
@@ -133,4 +150,11 @@ $("openApp").addEventListener("click", async () => {
   try { const [t] = await chrome.tabs.query({ url: APP + "*" }); if (t) { await chrome.tabs.update(t.id, { active: true }); if (chrome.windows) await chrome.windows.update(t.windowId, { focused: true }).catch(() => {}); /* (Safari on iPhone and iPad has no windows) */ window.close(); return; } } catch (e) {}
   chrome.tabs.create({ url: APP });
 });
-activeTab().then(u => { tabUrl = u; render(); });
+// Open at the top: Safari focuses the first control by itself and scrolls to it
+activeTab().then(u => { tabUrl = u; return render(); }).then(() => {
+  if (!FIXED) return;
+  const need = ["header", "main", "footer"].reduce((n, sel) => { const el = document.querySelector(sel); return n + (el ? el.offsetHeight : 0); }, 0) + 4;
+  try { localStorage.setItem(POP_H, String(fitH(need))); } catch (e) {}
+  const a = document.activeElement; if (a && a !== document.body && a.blur) a.blur();
+  document.body.scrollTop = 0; document.documentElement.scrollTop = 0;
+});

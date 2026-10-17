@@ -40,7 +40,10 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
     }, [o.seed ? o.seed(SEED()) : SEED(), o.groups == null ? null : o.groups, !!o.backedUp]);
     return ctx;
   };
-  const open = async ctx => { const page = await ctx.newPage(); page.errs = []; page.on("pageerror", e => page.errs.push(e.message)); page.on("console", m => { if (m.type() === "error") page.errs.push(m.text()); }); await page.goto(base); await page.waitForSelector("#view", {state: "attached"}); await page.waitForTimeout(900); return page; };
+  // Board notices wait behind the Notices button: opened here (they stay open while on the Board) unless keepFolded
+  const open = async (ctx, keepFolded) => { const page = await ctx.newPage(); page.errs = []; page.on("pageerror", e => page.errs.push(e.message)); page.on("console", m => { if (m.type() === "error") page.errs.push(m.text()); }); await page.goto(base); await page.waitForSelector("#view", {state: "attached"}); await page.waitForTimeout(900);
+    if (!keepFolded && await page.evaluate(() => { const b = document.querySelector('#view .bn-more[aria-expanded="false"]'); if (b) b.click(); return !!b; })) await page.waitForTimeout(200);
+    return page; };
   const noOverflow = async (page, what) => { const o = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth); ok(o <= 0, "no horizontal scroll " + what + " (" + o + ")"); };
   const noErr = (page, what) => ok(!page.errs.length, "no console errors " + what + (page.errs.length ? ": " + page.errs.join(" | ") : ""));
   const goCourse = async (page, id) => {
@@ -120,21 +123,21 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
       noErr(page, "with undated items"); await ctx.close();
     }
 
-    /* ---------- Phone bar: Board to Groups, no More button (the three dots hold settings) ---------- */
+    /* ---------- Phone bar: seven tabs with the companion's seat in the middle, no More button (the three dots hold settings) ---------- */
     for (const W of [390, 360, 320]) {
       const ctx = await mkCtx({w: W, h: 760}); const page = await open(ctx);
       ok(!(await page.locator("nav.tabs .nav-more").isVisible()), `no More button in the phone bar @${W}`);
-      const rects = await page.$$eval("nav.tabs .in > button", bs => bs.filter(b => b.offsetParent).map(b => { const r = b.getBoundingClientRect(); return {l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height, tx: b.textContent.trim(), tab: b.dataset.tab || ""}; }));
-      ok(rects.length === 7 && rects[0].tab === "board" && rects[6].tab === "groups", `7 tabs in the phone bar, Board to Groups @${W}: ${rects.map(r => r.tx).join(",")}`);
-      ok(rects.every((r, i) => !i || r.l >= rects[i - 1].r - 0.5) && rects[0].l >= 0 && rects[6].r <= W, `bar buttons don't overlap and stay on screen @${W}`);
+      const rects = await page.$$eval("nav.tabs .in > button", bs => bs.filter(b => b.offsetParent).map(b => { const r = b.getBoundingClientRect(); return {l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height, tx: b.textContent.trim(), tab: b.dataset.tab || ""}; }).sort((a, b) => a.l - b.l));   // (as shown: the phone bar sets the order)
+      ok(rects.map(r => r.tab).join() === "board,plan,flashcards,companion,notes,courses,groups", `7 tabs in the phone bar, the companion in the middle @${W}: ${rects.map(r => r.tab).join(",")}`);
+      ok(rects.every((r, i) => !i || r.l >= rects[i - 1].r - 0.5) && rects[0].l >= 0 && rects[rects.length - 1].r <= W, `bar buttons don't overlap and stay on screen @${W}`);
       ok(rects.every(r => r.h >= 44), `bar targets are at least 44px tall @${W}`);
-      const spans = await page.$$eval("nav.tabs .in > button", bs => bs.filter(b => b.offsetParent).map(b => { const s = [...b.childNodes].find(x => x.nodeType === 3 && x.nodeValue.trim()) || b.querySelector(".nm-l").firstChild; const r = document.createRange(); r.selectNodeContents(s); const q = r.getBoundingClientRect(); return [q.left, q.right]; }));
+      const spans = await page.$$eval("nav.tabs .in > button", bs => bs.filter(b => b.offsetParent).sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left).map(b => { const s = [...b.childNodes].find(x => x.nodeType === 3 && x.nodeValue.trim()) || b.querySelector(".nm-l").firstChild; const r = document.createRange(); r.selectNodeContents(s); const q = r.getBoundingClientRect(); return [q.left, q.right]; }));
       ok(spans.every((q, i) => !i || q[0] >= spans[i - 1][1] - 0.5), `bar labels never run into each other @${W}`);
       if (W === 390) await page.screenshot({path: path.join(SHOTS, "nav-390.png"), clip: {x: 0, y: 760 - 110, width: 390, height: 110}});
       await page.click('nav.tabs [data-tab="groups"]'); await page.waitForTimeout(300);
       ok(await page.evaluate(() => document.body.dataset.view) === "groups" && /Study Groups/.test(await page.locator("#view h2").first().textContent()), "the Groups tab opens the Study Groups page");
       ok(await page.locator('nav.tabs [data-tab="groups"]').getAttribute("aria-current") === "page", "Groups is highlighted while on Groups");
-      ok(await page.locator('nav.tabs [data-tab][aria-current="page"]:visible').count() === 1, "no other visible tab claims to be current");
+      ok(await page.locator(`nav.tabs [data-tab][aria-current="page"]:visible`).count() === 1, "no other visible tab claims to be current: " + (await page.locator(`nav.tabs [data-tab][aria-current="page"]:visible`).allTextContents()).join());
       ok(/Sign In|Set Up Sync/.test(await page.locator("#view .grp-offline").textContent()), "signed out, the Groups page offers Sign In");
       await page.click('nav.tabs [data-tab="board"]'); await page.waitForTimeout(200);
       ok(await page.locator('nav.tabs [data-tab="groups"]').getAttribute("aria-current") !== "page", "Groups no longer current after going to the Board");
@@ -144,20 +147,20 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
     // focus timer button and existing tabs still work
     {
       const ctx = await mkCtx(); const page = await open(ctx);
-      for (const t of ["plan", "flashcards", "notes", "courses", "companion", "board"]) { await page.click(`nav.tabs [data-tab="${t}"]`); await page.waitForTimeout(150); ok(await page.locator(`nav.tabs [data-tab="${t}"]`).getAttribute("aria-current") === "page", "tab still works: " + t); }
+      for (const t of ["plan", "flashcards", "notes", "courses", "companion", "board"]) { await page.evaluate(t => document.querySelector(`nav.tabs [data-tab="${t}"]`).click(), t); await page.waitForTimeout(150); /* (on a phone Notes has no tab in the bar, and the companion stands over its own tab) */ ok(await page.locator(`nav.tabs [data-tab="${t}"]`).getAttribute("aria-current") === "page", "tab still works: " + t); }
       ok(await page.evaluate(() => !!document.querySelector('#navPomo[data-act="pomo-open"]')), "focus timer button still exists");
       await ctx.close();
     }
     // Board card, signed out
     {
-      // The Board shows one notice at a time: a pending backup reminder comes first and the card waits behind "More Notices".
-      const c0 = await mkCtx(); let page = await open(c0);
-      const order = await page.evaluate(() => [...document.querySelectorAll("#view > *")].map(e => e.classList[0]));
+      // Board notices wait behind one Notices button (with a red count); a pending backup reminder comes first, then the card
+      const c0 = await mkCtx(); let page = await open(c0, true);
+      const order = await page.evaluate(() => [...document.querySelectorAll("#view > *")].map(e => e.classList[0]).filter(c => c !== "bn-more"));
       ok(order.indexOf("nudge") === 0 && order.indexOf("gn-card") > 0 && order.indexOf("gn-card") < order.indexOf("qa-wrap"), "with a backup reminder pending, it leads and the card is queued above quick add: " + order.join(","));
-      ok(!(await page.locator(".gn-card").isVisible()) && await page.locator(".bn-more").isVisible(), "the queued card waits behind More Notices");
+      ok(!(await page.locator(".gn-card").isVisible()) && !(await page.locator("#view > .nudge").isVisible()) && await page.locator(".bn-more .bn-n").isVisible(), "the notices wait behind the Notices button, which shows how many");
       await page.click(".bn-more"); await page.waitForTimeout(200);
       const r0 = await page.locator(".gn-card").boundingBox(), q0 = await page.locator(".qa-wrap").boundingBox();
-      ok(r0 && q0 && r0.y + r0.height <= q0.y + 1, "More Notices shows the card, still above quick add");
+      ok(r0 && q0 && r0.y + r0.height <= q0.y + 1, "Notices shows the card, still above quick add");
       await c0.close();
       // backed up recently: the card is the notice that shows
       const ctx = await mkCtx({backedUp: true}); page = await open(ctx);
@@ -227,9 +230,9 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
       await ctx.addInitScript(seed => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studyboard:textsize", "xl"); } } catch (e) {} }, SEED());
       const page = await open(ctx);
       await page.evaluate(() => { document.documentElement.dataset.ts = "xl"; }); await page.waitForTimeout(300);
-      const rects = await page.$$eval("nav.tabs .in > button", bs => bs.filter(b => b.offsetParent).map(b => { const r = b.getBoundingClientRect(); return [r.left, r.right, r.height]; }));
+      const rects = await page.$$eval("nav.tabs .in > button", bs => bs.filter(b => b.offsetParent).map(b => { const r = b.getBoundingClientRect(); return [r.left, r.right, r.height]; }).sort((a, b) => a[0] - b[0]));
       ok(rects.length === 7 && rects.every((r, i) => !i || r[0] >= rects[i - 1][1] - 0.5) && rects[6][1] <= 390, "XL text: bar still fits");
-      const sp = await page.$$eval("nav.tabs .in > button", bs => bs.filter(b => b.offsetParent).map(b => { const s = [...b.childNodes].find(x => x.nodeType === 3 && x.nodeValue.trim()) || b.querySelector(".nm-l").firstChild; const r = document.createRange(); r.selectNodeContents(s); const q = r.getBoundingClientRect(); return [q.left, q.right]; }));
+      const sp = await page.$$eval("nav.tabs .in > button", bs => bs.filter(b => b.offsetParent).map(b => { const s = [...b.childNodes].find(x => x.nodeType === 3 && x.nodeValue.trim()) || b.querySelector(".nm-l").firstChild; const r = document.createRange(); r.selectNodeContents(s); const q = r.getBoundingClientRect(); return [q.left, q.right]; }).sort((a, b) => a[0] - b[0]));
       ok(sp.every((q, i) => !i || q[0] >= sp[i - 1][1] - 0.5), "XL text: bar labels never run into each other");
       await page.screenshot({path: path.join(SHOTS, "nav-390-xl.png"), clip: {x: 0, y: 670, width: 390, height: 110}});
       await noOverflow(page, "XL text and reduced motion"); noErr(page, "XL text");

@@ -41,7 +41,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await page.keyboard.press("Escape");
       // 2. flashcards
       await page.evaluate(() => { ui.tab = "flashcards"; ui.deckId = null; render(); });
-      await page.waitForSelector(".view-head");
+      await page.waitForSelector(".view-head", {state: "attached"});   /* (on a phone its buttons move beside the course list and the empty header is hidden) */
       ok(await page.locator('[data-act="fc-review-menu"]').count() === 1, "one Review button");
       ok(await page.locator('.view-head [data-act="fc-review-all"], .view-head [data-act="fc-weak"]').count() === 0, "Review Due and Weak Spots are not separate buttons");
       const tile = await page.textContent(".deck");
@@ -60,8 +60,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(r1.x > r0.x && Math.abs(r1.y - r0.y) < 8, "Archive is at the right end of that row");
       await page.screenshot({path: "/tmp/ux-decks-" + W + ".png"});
       await page.click(".deck .deck-arch"); await page.waitForTimeout(250);
-      ok(await page.locator(".deck").count() === 0 && await page.locator('.view-head [data-act="fc-arch-open"]').count() === 1, "Archive moves the deck to Archived Decks (button at the top)");
-      await page.click('.view-head [data-act="fc-arch-open"]'); await page.click('#dlg [data-act="fc-unarchive"]'); await page.waitForTimeout(250);
+      ok(await page.locator(".deck").count() === 0 && await page.locator('.view-head [data-act="fc-arch-open"], .cf-acts [data-act="fc-arch-open"]').count() === 1, "Archive moves the deck to Archived Decks (button at the top)");
+      await page.click('.view-head [data-act="fc-arch-open"]:visible, .cf-acts [data-act="fc-arch-open"]:visible'); await page.click('#dlg [data-act="fc-unarchive"]'); await page.waitForTimeout(250);
       ok(await page.locator(".deck").count() === 1 && await page.locator('.fc-arch-btn span:not([aria-hidden])').count() === 0, "Restore brings it back");
       await page.click('[data-act="fc-review-menu"]'); await page.waitForSelector('#dlg[open] [data-act="fc-weak"]');
       ok(await page.locator('#dlg [data-act="fc-review-all"]:not([disabled])').count() === 1 && await page.locator('#dlg [data-act="fc-weak"]:not([disabled])').count() === 1, "Review offers flashcards due and weak spots");
@@ -92,7 +92,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await page.waitForSelector(".qz-card", {timeout: 5000});
       ok(/Cell Quiz/.test(await page.textContent(".qz-card")) && await page.locator('.rv-tabs [data-id="quizzes"][aria-selected="true"]').count() === 1 && await page.evaluate(() => (state.decks.d1.aiQuizzes || []).length === 1), "the quiz is kept on the deck and shown under Quizzes");
       ok(/Add Quiz/.test(await page.textContent("#fab")), "Quizzes has + Add Quiz at the bottom right");
-      ok(await page.locator('.view-head [data-act="qz-arch-open"]').count() === 1 && await page.locator('.view-head [data-act="trash-open"][data-kind="quiz"]').count() === 1, "Quizzes has Archived and Recently Deleted at the top, like Flashcards");
+      ok(await page.locator(':is(.view-head,.cf-acts) [data-act="qz-arch-open"]').count() === 1 && await page.locator(':is(.view-head,.cf-acts) [data-act="trash-open"][data-kind="quiz"]').count() === 1, "Quizzes has Archived and Recently Deleted at the top, like Flashcards");
       ok(await page.locator('.qz-card .x-btn').count() === 0 && await page.locator('.qz-card [data-act="qz-archive"]').count() === 1, "a quiz card has Archive, not an x");
       await page.click(".qz-card .qz-body"); await page.waitForSelector(".qzd-q");
       ok(await page.locator(".qzd-q").count() >= 2 && /Cell Quiz/.test(await page.textContent(".deck-head h2")), "tapping a quiz shows its questions: " + await page.locator(".qzd-q").count());

@@ -9,13 +9,19 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0}
+/* Safari doesn't resize its popup when the content's height changes (it keeps the old size and the content slides out of view), so there
+   the popup keeps one height and scrolls inside. */
+html.fixed,html.fixed body{height:600px}
+html.fixed{overflow:hidden}
+html.fixed body{overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column}
+html.fixed .foot{margin-top:auto}   /* shorter screens: the gap goes above the footer */
 body{width:360px;min-height:200px;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 .top{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--brand);color:#fff}
 .top img{border-radius:8px;flex:none}
 .brand{flex:1;min-width:0}
 .brand h1{margin:0;font-size:16px;line-height:1.1}
 .brand p{margin:0;font-size:12px;opacity:.8}
-main{padding:12px 14px;display:flex;flex-direction:column;gap:12px}
+main{padding:10px 14px;display:flex;flex-direction:column;gap:10px}
 h2{font-size:14px;margin:0 0 4px}
 .mini{font-size:12px;color:var(--mute);margin:0}
 .btn{font:inherit;font-weight:600;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:8px 14px;cursor:pointer;min-height:36px}
@@ -25,6 +31,8 @@ h2{font-size:14px;margin:0 0 4px}
 .btn.small{padding:5px 10px;min-height:30px;font-size:13px}
 .btn.ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.45)}
 .btn:disabled{opacity:.6;cursor:default}
+.confirm{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:8px}
+.btn.danger{background:#c0392b;border-color:#c0392b;color:#fff}
 .link{font:inherit;font-size:13px;background:none;border:0;color:var(--mute);text-decoration:underline;cursor:pointer;padding:4px}
 .schools{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
 .school{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
@@ -40,18 +48,22 @@ h2{font-size:14px;margin:0 0 4px}
 .status.warn{background:var(--warn-bg);color:var(--warn)}
 .status.busy{background:var(--busy-bg);color:var(--busy)}
 .actions:empty{display:none}
-.connect{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.connect{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
 .f{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600}
 .f.inline{flex-direction:row;align-items:center;justify-content:space-between}
 input,select{font:inherit;font-weight:400;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 9px;min-height:36px;width:100%}
 .f.inline select{width:auto}
 .disclose{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px;color:var(--mute)}
 .disclose b{color:var(--ink);font-size:12.5px}
-.disclose ul{margin:4px 0 6px;padding-left:16px;display:flex;flex-direction:column;gap:3px}
+.disclose p{margin:0}.disclose p+p{margin-top:4px}
+.more{display:inline}.more summary{display:inline;cursor:pointer;color:var(--accent);text-decoration:underline;list-style:none}.more summary::-webkit-details-marker{display:none}
+.more[open]{display:block;margin-top:6px}.more[open] summary{display:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .disclose a{color:var(--accent)}
 .settings{display:flex;flex-direction:column;gap:4px}
 .more summary{cursor:pointer;font-weight:600;padding:4px 0}
 .more[open] summary{margin-bottom:8px}
 .foot{padding:0 14px 12px;font-size:12px;color:var(--mute)}
 .foot p{margin:6px 0 0}
+body.fresh .foot p:first-child{display:none}
 .foot a{color:var(--accent)}

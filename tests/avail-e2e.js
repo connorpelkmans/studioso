@@ -1,6 +1,8 @@
 // Browser checks for availability blocks (Playwright + Chromium). Run: node tests/avail-e2e.js [outDir]
 // Fixed clock: Monday 2026-10-05 15:00 in New York. Checks run at 1280 and 390 wide and save screenshots to outDir.
 const {chromium, executablePath} = require("./pw");
+// On a phone the Schedule's Availability button sits in its Options menu: open that first
+const openAvail = async p => { await p.evaluate(() => { const d = document.querySelector("details.ph-more:not([open])"); if (d && d.querySelector('[data-act="avail-open"]')) d.open = true; }); await p.click('[data-act="avail-open"] >> visible=true >> nth=0'); };
 const path = require("path"), fs = require("fs"), assert = require("assert");
 const OUT = process.argv[2] || "/tmp/avail-shots", FILE = "file://" + path.join(__dirname, "..", "index.html");
 fs.mkdirSync(OUT, {recursive: true});
@@ -30,7 +32,7 @@ const txt = (p, sel) => p.evaluate(s => Array.from(document.querySelectorAll(s))
 const minTarget = (p, sel) => p.evaluate(s => Array.from(document.querySelectorAll(s)).filter(e => e.offsetParent).map(e => { const r = e.getBoundingClientRect(); return Math.min(r.width, r.height); }), sel);
 
 async function addBlock(p, o) {
-  if (!(await p.locator('[data-act="avail-add"]:visible').count())) { await p.click('[data-act="avail-open"] >> visible=true >> nth=0'); await p.waitForSelector('dialog[open] [data-act="avail-add"]'); }
+  if (!(await p.locator('[data-act="avail-add"]:visible').count())) { await openAvail(p); await p.waitForSelector('dialog[open] [data-act="avail-add"]'); }
   await p.click('[data-act="avail-add"] >> visible=true >> nth=0');
   await p.waitForSelector("dialog[open] .av-form");
   const f = p.locator("dialog[open] form");
@@ -85,7 +87,7 @@ const blocks = p => p.evaluate(() => window.__sbAvail.state().blocks);
     await p.evaluate(() => window.__sbAvail.view({tab: "schedule"}));
 
     // Roster mode: typed dates plus calendar taps, with an overnight shift
-    if (!(await p.locator('[data-act="avail-add"]:visible').count())) { await p.click('[data-act="avail-open"] >> visible=true >> nth=0'); await p.waitForSelector('dialog[open] [data-act="avail-add"]'); }
+    if (!(await p.locator('[data-act="avail-add"]:visible').count())) { await openAvail(p); await p.waitForSelector('dialog[open] [data-act="avail-add"]'); }
     await p.click('[data-act="avail-add"] >> visible=true >> nth=0');
     await p.waitForSelector("dialog[open] .av-form");
     let f = p.locator("dialog[open] form");
@@ -184,20 +186,20 @@ const blocks = p => p.evaluate(() => window.__sbAvail.state().blocks);
     cafe = (await blocks(p)).find(b => b.title === "Cafe shift");
     ok(cafe.skip["2026-10-05"] && cafe.skip["2026-10-05"].start === "17:00", tag + " change one day's time");
     // duplicate and delete from the manager, then undo the delete
-    await p.click('[data-act="avail-open"] >> visible=true >> nth=0'); await p.waitForSelector("dialog[open] .av-list");
+    await openAvail(p); await p.waitForSelector("dialog[open] .av-list");
     const rowsN = await p.locator("dialog[open] .av-row").count();
     ok(rowsN === before, tag + " manager lists every block (" + rowsN + ")");
     await p.locator('dialog[open] [data-act="avail-del"]').first().click(); await p.waitForTimeout(250);
     ok((await blocks(p)).length === before - 1, tag + " delete");
     await p.click("#toastUndo"); await p.waitForTimeout(250);
     ok((await blocks(p)).length === before, tag + " undo delete");
-    await p.click('[data-act="avail-open"] >> visible=true >> nth=0'); await p.waitForSelector("dialog[open] .av-list");
+    await openAvail(p); await p.waitForSelector("dialog[open] .av-list");
     await p.locator('dialog[open] [data-act="avail-dup"]').first().click(); await p.waitForSelector("dialog[open] .av-form");
     ok((await blocks(p)).length === before + 1, tag + " duplicate adds a copy and opens it");
     await p.click("dialog[open] [data-act=close]"); await p.waitForTimeout(150);
 
     // Manager settings: waking window and recovery rule
-    await p.click('[data-act="avail-open"] >> visible=true >> nth=0'); await p.waitForSelector("dialog[open] .av-set");
+    await openAvail(p); await p.waitForSelector("dialog[open] .av-set");
     ok((await dlgOverflow(p)) === 0, tag + " manager has no horizontal overflow");
     await p.screenshot({path: path.join(OUT, `08-manager-${tag}.png`)});
     await p.fill('dialog[open] [name=dayStart]', "08:00"); await p.fill('dialog[open] [name=dayEnd]', "22:00");
