@@ -35,7 +35,9 @@ const SEED = {v: 2,
     {id: "n2", text: "Cardiac drugs\n- beta blockers end in -olol\n- ACE inhibitors end in -pril", courseId: "nur", x: 300, y: 50, rot: 1.5, color: "blue", z: 2},
     {id: "n3", text: "Essay 2: argue one claim, three sources", courseId: "eng", x: 560, y: 40, rot: -1, color: "pink", z: 3},
     {id: "n4", text: "Study group Sunday 3pm, library room 204", x: 90, y: 250, rot: 2, color: "green", z: 4}],
-  files: [], events: [], settings: {capacity: 15, dailyHours: 3, style: {skin: "classic"}}, updated: 1};
+  files: [], events: [], settings: {capacity: 15, dailyHours: 3, style: {skin: "classic"},
+    // Packy is the companion the website shows: picked for the plain themes, with the 30 focus hours that unlock it (36 h over the past 12 days)
+    comp: {pick: {plain: 4}}, focusDays: Object.fromEntries(Array.from({length: 12}, (_, i) => [plus(-1 - i), 180]))}, updated: 1};
 
 const dismiss = async page => {
   for (let i = 0; i < 4; i++) {
