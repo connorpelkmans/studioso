@@ -17,6 +17,8 @@
 //   STRIPE_SECRET_KEY         a restricted key with Read on Subscriptions and Charges: the exact renewal date and the owner of a disputed charge are looked up with it
 //   REVENUECAT_WEBHOOK_AUTH   any long random text; type the same text in RevenueCat's "Authorization header value"
 //   RC_ALLOW_SANDBOX          optional: set to 1 only while testing, so RevenueCat sandbox purchases count (never in production)
+//   STRIPE_PRICE_IDS          optional: comma-separated price_ ids that give Pro (STRIPE_PRICE_MONTHLY / _YEARLY are added to it). When set, a
+//                             subscription or invoice for any other price is ignored. Unset: any subscription of a known customer counts.
 // Supabase adds SUPABASE_URL and the service key by itself.
 // Deploy with "Verify JWT" turned OFF: Stripe and RevenueCat don't sign in to Supabase. Each request is checked
 // with its own secret instead, and anything that doesn't pass is turned away.
@@ -93,10 +95,22 @@ async function stripeGet(d: Deps, path: string): Promise<any | null> {
   return r.ok ? await r.json() : null;
 }
 
-// What a subscription object means for Pro. Returns null when it says nothing (a half-finished sign-up).
+// The optional price allowlist (STRIPE_PRICE_IDS). Without it every price counts, as before.
+export function priceAllowed(d: Deps, ids: string[]): boolean {
+  const list = d.env("STRIPE_PRICE_IDS");
+  if (!list.trim()) return true;
+  const allow = new Set([...list.split(","), d.env("STRIPE_PRICE_MONTHLY"), d.env("STRIPE_PRICE_YEARLY")].map(s => s.trim()).filter(Boolean));
+  return ids.some(id => allow.has(id));
+}
+const subPrices = (sub: any): string[] => ((sub?.items?.data || []) as any[]).map(i => idOf(i?.price || i?.plan));
+// Invoice lines name the price as line.price (older API versions) or line.pricing.price_details.price (newer ones).
+const linePrices = (inv: any): string[] => ((inv?.lines?.data || []) as any[]).map(l => idOf(l?.pricing?.price_details?.price || l?.price || l?.plan));
+
+// What a subscription object means for Pro. Returns null when it says nothing (a half-finished sign-up, or a price that isn't allowed).
 function subscriptionState(sub: any, d: Deps): Pick<Apply, "state" | "pro_until" | "trial_until" | "will_renew"> | null {
   const status = String(sub?.status || "");
   if (status === "trialing" || status === "active" || status === "past_due") {
+    if (!priceAllowed(d, subPrices(sub))) return null;
     // past_due keeps Pro until the paid period (plus a few days) runs out, while Stripe retries the card
     const end = periodEnd(sub) * 1000;
     return {
@@ -155,6 +169,7 @@ async function handleStripe(req: Request, d: Deps, raw: string): Promise<Respons
       if (!customer || !subId) return json({ ignored: "not a subscription invoice" });
       const end = Math.max(0, ...((o.lines?.data || []) as any[]).map(l => Number(l?.period?.end || 0))) * 1000;
       if (!end) return json({ ignored: "no period on invoice" });
+      if (!priceAllowed(d, linePrices(o))) return json({ ignored: "price not allowed" });
       return done({ ...base, state: "extend", customer, external_id: customer, pro_until: iso(end + GRACE_MS) });
     }
     case "charge.refunded": {
@@ -239,14 +254,33 @@ async function handleRevenueCat(req: Request, d: Deps, raw: string): Promise<Res
   }
 }
 
+// Reads the body but stops as soon as it passes max bytes (null = too big). Content-Length alone can't be trusted (or may be missing,
+// as with a chunked body). The text is decoded exactly as req.text() would, so the Stripe signature still checks the raw body.
+export async function readLimited(req: Request, max: number): Promise<string | null> {
+  const cl = Number(req.headers.get("content-length") || 0);
+  if (cl > max) return null;
+  if (!req.body) return "";
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = []; let n = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    n += value.byteLength;
+    if (n > max) { try { await reader.cancel(); } catch (_e) { /* ignore */ } return null; }
+    chunks.push(value);
+  }
+  const all = new Uint8Array(n); let o = 0;
+  for (const c of chunks) { all.set(c, o); o += c.byteLength; }
+  return new TextDecoder().decode(all);
+}
+
 // ---------- Routing: /stripe, /revenuecat, or guessed from the headers ----------
 export async function handle(req: Request, d: Deps): Promise<Response> {
   if (req.method !== "POST") return json({ ok: true });
   const path = new URL(req.url).pathname;
   try {
-    if (Number(req.headers.get("content-length") || 0) > MAX_BODY) return json({ error: "bad request" }, 413);
-    const raw = await req.text();
-    if (raw.length > MAX_BODY) return json({ error: "bad request" }, 413);
+    const raw = await readLimited(req, MAX_BODY);
+    if (raw === null) return json({ error: "bad request" }, 413);
     if (/\/stripe\/?$/.test(path) || (!/\/revenuecat\/?$/.test(path) && req.headers.has("stripe-signature"))) return await handleStripe(req, d, raw);
     if (/\/revenuecat\/?$/.test(path) || req.headers.has("authorization")) return await handleRevenueCat(req, d, raw);
     return json({ error: "bad request" }, 400);

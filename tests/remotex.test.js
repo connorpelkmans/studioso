@@ -22,7 +22,11 @@ t("window of 2 hours is not evidence", () => is({type: "Quiz", title: "Quiz 4", 
 t("an exam with a multi-day window is take-home", () => is({type: "Exam", rx: {ul: "2026-12-01T08:00:00Z", ll: "2026-12-04T08:00:00Z"}}, "yes", 0.8));
 
 /* ---- Respondus and friends: taken on a computer, so from home, unless the text says otherwise ---- */
-t("Respondus lockdown browser (school site flag) -> yes", () => is({type: "Exam", rx: {ld: 1}}, "yes", 0.8));
+// A lockdown browser alone doesn't say where: it's used in campus labs and classrooms as much as at home
+t("Respondus lockdown browser (school site flag) alone -> unknown", () => is({type: "Exam", rx: {ld: 1}}, "unknown"));
+t("lockdown browser in the title, open 9:50 to 11:30 one morning -> not take-home", () => { const r = V({type: "Exam", title: "BSNC 1000 Midterm Exam- Requires Respondus LockDown Browser", rx: {k: "quiz", tl: 90, ld: 1, ul: "2026-10-16T09:50:00", ll: "2026-10-16T11:30:00"}}); assert.notStrictEqual(r.verdict, "yes", JSON.stringify(r)); });
+t("an online quiz with a room on the calendar -> in person", () => is({type: "Exam", title: "Midterm Exam", location: "SW1 Room 2015", rx: {k: "quiz", tl: 90}}, "no"));
+t("webcam proctoring (Respondus Monitor) -> yes", () => is({type: "Exam", text: "This exam uses Respondus Monitor with your webcam."}, "yes", 0.8));
 t("Respondus in the text -> yes", () => is({text: "You must use Respondus LockDown Browser and a webcam."}, "yes", 0.8));
 t("Proctorio / ProctorU / Honorlock -> yes", () => ["Proctorio extension required", "Book a ProctorU session", "Honorlock will record you"].forEach(x => is({text: x}, "yes", 0.8)));
 t("Respondus but 'in the testing center' -> no", () => is({text: "Respondus LockDown Browser is required. Take it in the testing center.", rx: {st: ["online_quiz"]}}, "no", 0.8));
@@ -52,7 +56,9 @@ t("a different place -> no", () => is({location: "Science Building, Room 2"}, "n
 t("a Zoom link -> yes", () => is({location: "https://zoom.us/j/123"}, "yes", 0.7));
 t("'Online' location -> yes", () => is({location: "Online"}, "yes", 0.7));
 t("TBA location is no evidence", () => is({location: "TBA"}, "unknown"));
-t("location in person but school site says online quiz -> mixed", () => assert.strictEqual(V({location: "Rm 12", rx: {st: ["online_quiz"]}}).verdict, "unknown"));
+// A room on the calendar with an online quiz: the quiz is taken in that room (a lab, a lockdown browser), unless the words say online
+t("location in person but school site says online quiz -> in person", () => assert.strictEqual(V({location: "Rm 12", rx: {st: ["online_quiz"]}}).verdict, "no"));
+t("a room, but the words say take it from home -> not in person", () => assert.notStrictEqual(V({location: "Rm 12", text: "Take this quiz from home on Brightspace.", rx: {st: ["online_quiz"]}}).verdict, "no"));
 
 /* ---- Your schedule ---- */
 t("an event with a room at the exam time -> no", () => is({sched: {room: "Hall 3"}}, "no", 0.7));
@@ -66,8 +72,8 @@ t("Brightspace dropbox: file / text -> yes, on paper / observed in person -> no"
 t("Blackboard: online attempt -> yes; instructor-entered exam -> no", () => { is({rx: {gt: "Attempts"}}, "yes", 0.7); is({title: "Midterm Exam", rx: {gt: "Manual"}}, "no", 0.7); });
 
 /* ---- Unknown is not eligible; user override wins ---- */
-t("nothing known -> unknown and not eligible", () => { const r = V({text: "Chapters 1 to 8"}); assert.strictEqual(r.verdict, "unknown"); const e = R.remoteEff({type: "Exam"}, r, "s"); assert.strictEqual(e.v, ""); assert.strictEqual(R.canDoNow({type: "Exam"}, e), false); });
-t("low-confidence rule is not applied", () => { const r = V({text: "Due by 11:59 pm"}); const e = R.remoteEff({type: "Exam"}, r, "s"); assert.strictEqual(e.v, ""); });
+t("nothing known -> assumed in person and not eligible", () => { const r = V({text: "Chapters 1 to 8"}); assert.strictEqual(r.verdict, "unknown"); const e = R.remoteEff({type: "Exam"}, r, "s"); assert.strictEqual(e.v, "no"); assert.strictEqual(e.assumed, true); assert.strictEqual(R.canDoNow({type: "Exam"}, e), false); });
+t("low-confidence rule is not applied", () => { const r = V({text: "Due by 11:59 pm"}); const e = R.remoteEff({type: "Exam"}, r, "s"); assert.strictEqual(e.v, "no"); assert.strictEqual(e.assumed, true); });
 t("non exam/quiz types are always eligible", () => ["Assignment", "Project", "Lab", "Reading", "Study", "Other"].forEach(ty => { assert.strictEqual(R.canDoNow({type: ty}, {v: ""}), true); assert.strictEqual(R.remoteEff({type: ty}, V({type: ty}), "").v, "yes"); }));
 t("only 'yes' lets an exam or quiz through", () => { ["Exam", "Quiz"].forEach(ty => { assert.strictEqual(R.canDoNow({type: ty}, {v: "yes"}), true); assert.strictEqual(R.canDoNow({type: ty}, {v: "no"}), false); assert.strictEqual(R.canDoNow({type: ty}, {v: ""}), false); assert.strictEqual(R.canDoNow({type: ty}, null), false); }); });
 t("user answer beats a confident rule", () => { const rule = V({text: "Held in class"}); assert.strictEqual(rule.verdict, "no"); const e = R.remoteEff({type: "Exam", remote: "yes", remoteSrc: "user"}, rule, "s"); assert.strictEqual(e.v, "yes"); assert.strictEqual(e.src, "user"); });
@@ -76,9 +82,10 @@ t("rules beat a stored AI answer; a stored AI answer for other text is ignored",
   const rule = V({text: "Take-home exam"}); assert.strictEqual(R.remoteEff({type: "Exam", remote: "no", remoteSrc: "ai", remoteSig: "a"}, rule, "a").v, "yes");
   const none = V({text: "Chapters 1 to 8"});
   assert.strictEqual(R.remoteEff({type: "Exam", remote: "yes", remoteSrc: "ai", remoteSig: "a"}, none, "a").v, "yes");
-  assert.strictEqual(R.remoteEff({type: "Exam", remote: "yes", remoteSrc: "ai", remoteSig: "a"}, none, "b").v, "", "the text changed since the AI read it");
+  assert.strictEqual(R.remoteEff({type: "Exam", remote: "yes", remoteSrc: "ai", remoteSig: "a"}, none, "b").v, "no", "the text changed since the AI read it");
 });
-t("a stored rule/lms answer is not trusted without the rules (they are recomputed live)", () => assert.strictEqual(R.remoteEff({type: "Exam", remote: "yes", remoteSrc: "rule"}, V({text: "Chapters"}), "s").v, ""));
+t("a stored rule/lms answer is not trusted without the rules (they are recomputed live)", () => assert.strictEqual(R.remoteEff({type: "Exam", remote: "yes", remoteSrc: "rule"}, V({text: "Chapters"}), "s").assumed, true));
+t("mixed signals stay unsure (not assumed in person)", () => { const e = R.remoteEff({type: "Exam"}, {verdict: "unknown", confidence: 0.4, why: "Mixed", conflict: true}, "s"); assert.strictEqual(e.v, ""); });
 
 /* ---- The AI answer is checked ---- */
 const TEXT = "Title: Practical\nType: Exam\nDescription: Students will sit the exam in a supervised session using the school's laptops. Bring your student ID.";

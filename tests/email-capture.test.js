@@ -108,6 +108,18 @@ Content-Type: text/plain; charset=us-ascii
   ok(M.decodeWords("=?utf-8?q?=F0=9F=93=9A_Reading?=") === "📚 Reading" && M.decodeWords("plain words") === "plain words", "header words");
   ok(M.parseType('multipart/mixed; boundary="a;b"; charset=UTF-8').params.boundary === "a;b", "a quoted boundary with a semicolon");
 
+  // Hostile input: a NUL in a header can't split the decoded words (it used to throw URIError and crash the Worker)
+  ok(M.decodeWords("Quiz\u0000%E0 =?utf-8?Q?caf=C3=A9?=\u0000%") === "Quiz%E0 café%", "a NUL in a header is dropped, a stray % stays text");
+  m = M.parseEmail(bytes(crlf("From: a\u0000@b.c\nSubject: Lab\u0000%E0\u0000x\nContent-Type: text/plain\n\nDue Friday.\n")));
+  ok(m.subject === "Lab%E0x" && m.text === "Due Friday.", "an email with NULs in its headers still reads: " + JSON.stringify(m.subject));
+  // HTML that would make a backtracking pattern take minutes is read in well under a second, and is cut at 200 KB
+  for (const [what, html] of [["unclosed links", '<a href="https://x.example/">'.repeat(20000)], ["unclosed tags", "<p ".repeat(200000)], ["unclosed comments", "<!--".repeat(200000)], ["unclosed styles", "<style>".repeat(100000)]]) {
+    const t0 = Date.now(); M.htmlToText(html); const ms = Date.now() - t0;
+    ok(ms < 1500, `${what}: ${ms} ms`);
+  }
+  ok(M.htmlToText("<p>Due <b>Friday</b></p><!-- x --><style>p{}</style><a href=\"https://t.example/r?id=1\">Open <i>quiz</i></a> and <a href='https://t.example/2'></a>") === "Due Friday\nOpen quiz and https://t.example/2", "ordinary HTML still reads the same");
+  ok(M.htmlToText("Read this <!-- unclosed") === "Read this" && M.htmlToText("x".repeat(250000) + "TAIL").length === 200000, "an unclosed comment runs to the end; long HTML is cut");
+
   // ---------- The Worker ----------
   const env = {SUPABASE_URL: "https://x.supabase.co", EMAIL_CAPTURE_SECRET: "s".repeat(40)};
   const msg = (raw, to) => ({to: to || "k7m2p9x4qrst@in.studyboard.example", from: "bounce@mailer.example", raw: new Response(raw).body, rejected: "", setReject(r){ this.rejected = r; }});

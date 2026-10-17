@@ -13,7 +13,7 @@
     companions: [
       {
         id: "diadelosmuertos-dulce", name: "Dulce", kind: "Sugar Skull Sprite", pose: "float", wearColor: "#2EC4D0",
-        bio: "Decorated with icing flowers and a big smile.",
+        bio: "A cheerful sugar skull sprite decorated with icing flowers and a big smile.",
         idle: ["topBob", "sparkle", "headTilt"], cheer: "spin",
         neck: [60, 84],
         parts: {
@@ -53,7 +53,7 @@
       },
       {
         id: "diadelosmuertos-xolo", name: "Xolo", kind: "Xolo Pup", pose: "sit", wearColor: "#F48A1C",
-        bio: "A hairless pup with a big heart and bigger ears.",
+        bio: "A gentle xolo pup with a big heart and even bigger ears.",
         idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
         neck: [60, 74],
         parts: {
@@ -93,7 +93,7 @@
       },
       {
         id: "diadelosmuertos-cempa", name: "Cempa", kind: "Marigold Sprite", pose: "stand", wearColor: "#3E8E52",
-        bio: "A bright orange bloom that lights the way.",
+        bio: "A bright marigold sprite whose orange petals light the way.",
         idle: ["sway", "sparkle", "topBob"], cheer: "spin",
         parts: {
           feet: `${LINE("M60 88V104", "#3E8E52", 4)}<path d="M60 102Q46 94 38 100Q46 110 60 104Z" fill="#5EA860" ${O2}/><path d="M60 102Q74 94 82 100Q74 110 60 104Z" fill="#5EA860" ${O2}/>`,
@@ -131,7 +131,7 @@
     companions: [
       {
         id: "holi-puffy", name: "Puffy", kind: "Color Powder Puff", pose: "float", wearColor: "#9A5AE0",
-        bio: "Leaves a little rainbow wherever it lands.",
+        bio: "A soft puff of color powder who leaves a little rainbow wherever it lands.",
         idle: ["bounce", "sparkle", "topBob"], cheer: "spin",
         parts: {
           armL: {svg: `<circle cx="28" cy="80" r="6.4" fill="#FFC62A" ${O}/>`, pivot: [34, 78]},
@@ -161,7 +161,7 @@
       },
       {
         id: "holi-rang", name: "Rang", kind: "Rainbow Elephant Calf", pose: "stand", wearColor: "#FF4A9A",
-        bio: "Painted in every color and very pleased about it.",
+        bio: "A rainbow elephant calf painted in every color and very proud of it.",
         idle: ["earTwitch", "tailSwish", "topBob"], cheer: "bounce",
         parts: {
           tail: {svg: `${LINE("M88 88Q100 86 102 96", "#9AA6C0", 2.6)}<path d="M100 94Q106 96 104 102Q98 100 100 94Z" fill="#FF4A9A" ${OW(1.6)}/>`, pivot: [88, 88]},
@@ -199,7 +199,7 @@
       },
       {
         id: "holi-spritz", name: "Spritz", kind: "Water Splasher", pose: "stand", wearColor: "#3A8AE8",
-        bio: "A little pump bottle that sprays colored water when you win.",
+        bio: "A little water splasher who sprays bright colors every time you win.",
         idle: ["topBob", "wave", "bounce"], cheer: "hop",
         parts: {
           feet: `<ellipse cx="50" cy="108.5" rx="7.4" ry="4.2" fill="#3A8AE8" ${O}/><ellipse cx="70" cy="108.5" rx="7.4" ry="4.2" fill="#3A8AE8" ${O}/>`,
@@ -221,7 +221,7 @@
         anchors: {top: [60, 22, 0.9], neck: [60, 80, 0.95], chest: [72, 88, 0.62], back: [86, 70, 0.8], hands: [60, 92, 0.86]},
         lines: {
           tap: ["Psssht! Hi! A tiny splash hello!", "Pump it up! You're doing great!", "Splish splash, look at you go!", "I'm full of colourful cheers!", "Keep going and I'll spray a rainbow!", "Fresh, bright and ready to help!", "One more page, one more splash!", "You're making a big splash today!"],
-          pet: ["Hehe! Careful, I might squirt!", "Psssht! Happy little bubbles!"],
+          pet: ["Hehe! Careful, I might spritz you!", "Psssht! Happy little bubbles!"],
           hello: ["Splash! You're back!", "Hi hi! Pumped and ready!"],
           morning: ["Good morning! Fresh water, fresh start!", "Psssht! Rise and splash!"],
           night: ["Running low on bubbles. Bedtime?", "Goodnight! I'll refill for tomorrow."],
@@ -240,7 +240,7 @@
     companions: [
       {
         id: "ramadan-nuri", name: "Nuri", kind: "Fanous Lantern", pose: "float", wearColor: "#2A7A78",
-        bio: "Its colored glass throws little stars on the walls.",
+        bio: "A glowing fanous lantern whose colored glass sprinkles stars on the walls.",
         idle: ["sway", "sparkle", "topBob"], cheer: "spin",
         parts: {
           armL: {svg: `${LINE("M40 67L33 76", "#E2B04A", 3.4)}<ellipse cx="31.6" cy="78.4" rx="4.6" ry="5.4" transform="rotate(30 31.6 78.4)" fill="#E2B04A" ${O}/>`, pivot: [39.6, 67]},
@@ -278,7 +278,7 @@
       },
       {
         id: "ramadan-hilal", name: "Hilal", kind: "Crescent Moon Sprite", pose: "float", wearColor: "#F2C45A",
-        bio: "Shows up right on time every evening.",
+        bio: "A soft crescent moon who rises right on time every evening.",
         idle: ["topBob", "sparkle", "headTilt"], cheer: "bounce",
         neck: [60, 92],
         parts: {
@@ -308,7 +308,7 @@
       },
       {
         id: "ramadan-kahki", name: "Kahki", kind: "Kahk Cookie", pose: "stand", wearColor: "#C99A2E",
-        bio: "Dusted in sugar and stamped with a pattern.",
+        bio: "A sweet kahk cookie dusted in sugar and stamped with a pretty pattern.",
         idle: ["topBob", "bounce", "wave"], cheer: "hop",
         parts: {
           feet: `<ellipse cx="47" cy="106" rx="7.6" ry="4.4" fill="#E2B47A" ${O}/><ellipse cx="73" cy="106" rx="7.6" ry="4.4" fill="#E2B47A" ${O}/>`,
@@ -347,7 +347,7 @@
     companions: [
       {
         id: "midautumn-tuzi", name: "Tuzi", kind: "Jade Rabbit", pose: "sit", sleepy: true, wearColor: "#7AC8A8",
-        bio: "Lives on the moon and visits once a year.",
+        bio: "A gentle jade rabbit who hops down from the moon to study with you.",
         idle: ["earTwitch", "headTilt", "topBob"], cheer: "hop",
         neck: [60, 76],
         parts: {
@@ -373,7 +373,7 @@
         cheeks: {lx: 42, rx: 78, y: 66, w: 4, h: 2.4, color: "#FFA6BE"},
         anchors: {top: [60, 34, 0.95], neck: [60, 80, 1], chest: [72, 96, 0.62], back: [86, 88, 0.8], hands: [60, 98, 0.86]},
         lines: {
-          tap: ["Hello from the moon! I hopped down to see you!", "Pound, pound! Grinding through the notes!", "The moon is full, and so is your brain!", "You're doing wonderfully, little star!", "One hop at a time, all the way to the moon!", "I brought osmanthus for good luck!", "Soft ears, big cheers for you!", "So happy to visit you this year!"],
+          tap: ["Hello from the moon! I hopped down to see you!", "Tap, tap! Working through the notes!", "The moon is full, and so is your brain!", "You're doing wonderfully, little star!", "One hop at a time, all the way to the moon!", "I brought osmanthus for good luck!", "Soft ears, big cheers for you!", "So happy to visit you this year!"],
           pet: ["Hehe! My ears are wiggling!", "Aww, softer than moonlight!"],
           hello: ["Hop hop! You're back!", "Hi! The moon said to say hello!"],
           morning: ["Good morning! Even moon bunnies wake up early!", "Rise and shine! Let's hop to it!"],
@@ -386,7 +386,7 @@
       },
       {
         id: "midautumn-bing", name: "Bing", kind: "Mooncake", pose: "stand", wearColor: "#B8402E",
-        bio: "Round, golden and stamped with a lucky pattern.",
+        bio: "A round, golden mooncake stamped with a lucky pattern.",
         idle: ["topBob", "bounce", "sparkle"], cheer: "spin",
         parts: {
           feet: `<ellipse cx="48" cy="105.6" rx="7.6" ry="4.4" fill="#C8822E" ${O}/><ellipse cx="72" cy="105.6" rx="7.6" ry="4.4" fill="#C8822E" ${O}/>`,
@@ -418,7 +418,7 @@
       },
       {
         id: "midautumn-osma", name: "Osma", kind: "Osmanthus Sprite", pose: "float", wearColor: "#5E9A62",
-        bio: "A tiny golden flower that smells like honey.",
+        bio: "A tiny golden osmanthus flower who smells like honey.",
         idle: ["sway", "sparkle", "topBob"], cheer: "spin",
         parts: {
           armL: {svg: `<path d="M36 89Q26 92 25 106Q36 103 39 93Z" fill="#6AAA6A" ${O}/><path d="M35 93Q30 98 27 103" fill="none" stroke="#4A8A4E" stroke-width="1.2" stroke-linecap="round"/>`, pivot: [36, 91]},

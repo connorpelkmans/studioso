@@ -85,7 +85,7 @@ var COMP_KIT = (() => {
         anchors: {top: [60, 47, 0.8], neck: [60, 99, 1.2], chest: [73, 100, 0.75], back: [86, 78, 0.85], hands: [60, 100, 0.9]},
         lines: {
           tap: ["Fresh page, fresh start! Let's go!", "We're going to write something great today!", "You're on a roll and I love it!", "Neat notes, happy brain, happy me!", "Every word you write counts!", "Doodle break? I won't tell a soul!", "Ink it in! You've totally got this!"],
-          pet: ["Careful, I might smudge with joy!", "Hehe, that tickles my drippy bits!"],
+          pet: ["Careful, I might smudge with joy!", "Hehe, that tickles my inky drips!"],
           hello: ["You're here! Let's fill a whole page!", "Hello! I'm all inked up and ready!"],
           morning: ["Good morning! A clean page is waiting for you!", "Morning, writer! I'm so excited for today!"],
           night: ["Late ink? Let's save some for tomorrow.", "It's getting late. Rest soon, friend?"],
@@ -1209,7 +1209,7 @@ var COMP_KIT = (() => {
         anchors: {top: [60, 53, 0.95], neck: [60, 97, 1.3], chest: [76, 100, 0.7], back: [92, 76, 0.9], hands: [60, 99, 0.9]},
         lines: {
           tap: ["Hi! You're doing so well today!", "Rock solid work! I love it!", "Steady as a stone, that's you!", "Look at that steady effort! Wow!", "Crystals grow slowly too, and they shine!", "Take your time! Rocks love a slow, steady win!", "You make my crystals glow so bright!"],
-          pet: ["Ooh, my crystals are twinkling!", "Mmm, warm moon rubs! Thank you!"],
+          pet: ["Ooh, my crystals are twinkling!", "Mmm, warm moonbeam pats! Thank you!"],
           hello: ["Welcome back! I'm so happy you're here!", "Hello! I kept the moon on just for you!"],
           morning: ["Morning! Still sleepy, but so happy to see you!", "Good morning, moonbeam! Let's shine!"],
           night: ["The moon is high. Bedtime soon?", "Sleepy crystals... rest up, friend."],
@@ -1353,7 +1353,7 @@ var COMP_KIT = (() => {
         anchors: {top: [60, 30, 0.9], neck: [60, 88, 1.2], chest: [73, 93, 0.72], back: [87, 66, 0.85], hands: [60, 93, 0.9]},
         lines: {
           tap: ["Hi! So zesty to see you!", "You're doing amazing today!", "Sour moment? We'll make it sweet!", "I'm so glad you're here!", "Keep it bright! You're glowing!", "Lemon water break? Refreshing!", "Stay fresh! You've totally got this!"],
-          pet: ["Hehe, that tickles! Zesty!", "Aww, thank you! I feel so juicy!"],
+          pet: ["Hehe, that tickles! Zesty!", "Aww, thank you! I feel so zesty!"],
           hello: ["Hi! The stand is open just for you!", "Hello, sunshine! You're back!"],
           morning: ["Good morning! Fresh start, fresh squeeze!", "Morning, sunny one! Let's shine!"],
           night: ["Sun's down. Rest soon, friend?", "It's late. Time to rest, sweet one."],
@@ -2245,7 +2245,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "cats-box", name: "Boxie", kind: "Cardboard Box", pose: "stand",
-        bio: "The comfiest cardboard box in the house, flaps up and ready.",
+        bio: "A comfy cardboard box with its flaps up, ready for a cozy study nap.",
         idle: ["earTwitch", "waddle", "bounce"], cheer: "hop",
         parts: {
           back: `<path d="M36.5 51.5H83.5L90 60H30Z" fill="#8E5E30" ${O}/>`,
@@ -2655,7 +2655,7 @@ var COMP_KIT = (() => {
         anchors: {top: [60, 18, 0.8], neck: [60, 44, 0.85], chest: [72, 89, 0.62], back: [80, 60, 0.85], hands: [60, 84, 0.9]},
         lines: {
           tap: ["Hi hi! Fresh out of the tube and so excited!", "Your work is coming along so beautifully!", "Let's add a splash of color to today!", "No rush! Every stroke is wonderful!", "Every stroke counts, and you're nailing it!", "Blend in a little rest too! You're amazing!", "You make it look so easy! Wow!"],
-          pet: ["Hehe! Gently, or I'll squirt rainbows!", "Hehe! That tickles! So happy!"],
+          pet: ["Hehe! Gently, or I'll splash rainbows!", "Hehe! That tickles! So happy!"],
           hello: ["Hi hi! Brushes ready? Let's create!", "Hello, artist! I'm bursting with color!"],
           morning: ["Good morning! A blank canvas just for you!", "Rise and shine, bright spark! Let's paint the day!"],
           night: ["Time to put my cap on. Rest well, artist.", "It's late now. Let the colors dry and rest."],
@@ -3154,7 +3154,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 40.5, rx: 79.5, y: 68, w: 4, h: 2.5, color: "#FF9FB7"},
         anchors: {top: [60, 38, 0.95], neck: [60, 78, 1.05], chest: [72, 93, 0.7], back: [87, 86, 0.9], hands: [60, 97, 0.9]},
         lines: {
-          tap: ["Psst! I saved a snapshot of you! So cute!", "The light in here is lovely today!", "Collecting happy moments with you!", "Tiny paws, big memories! Let's make more!", "This page is a keeper, just like you!", "Look at you, showing up again!", "One more treasure for the album! Yay!"],
+          tap: ["Psst! That's one for the album! So proud!", "The light in here is lovely today!", "Collecting happy moments with you!", "Tiny paws, big memories! Let's make more!", "This page is a keeper, just like you!", "Look at you, showing up again!", "One more treasure for the album! Yay!"],
           pet: ["Hehe! My tail is all fluffed up!", "Aww, that's a keeper!"],
           hello: ["Hi! I kept all your photos safe!", "Oh, hello! Smile! You made my day!"],
           morning: ["Good morning! Soft golden light for you!", "Morning, friend! Let's collect some wins!"],
@@ -4843,7 +4843,7 @@ var COMP_KIT = (() => {
         anchors: {top: [72, 23, 0.85], neck: [72, 68, 0.62], chest: [80, 92, 0.6], back: [26, 88, 0.8], hands: [73, 86, 0.8]},
         lines: {
           tap: ["Oh hi! You made this sleepy camel so happy!", "Long trek? No problem! We're doing it together!", "Look at you go, one step at a time! Wow!", "You're amazing, and I'm not just sleepy saying it!", "Every step across the dunes counts! Yay!", "Showing up again! You're my favorite traveler!", "I'm so proud to walk beside you!"],
-          pet: ["Ooh, so cozy! My hump is happy!", "Hehe! That's the best pat ever! Thank you!"],
+          pet: ["Ooh, so cozy! My whole heart is happy!", "Hehe! That's the best pat ever! Thank you!"],
           hello: ["You're back! I woke right up for you! Yay!", "Hi hi! Ready for another fun trek together?"],
           morning: ["Good morning! The sun is up and so are we!", "Morning, friend! A brand new trek awaits! Let's go!"],
           night: ["Big yawn... time to rest those feet?", "The dunes are sleepy. Rest well, traveler."],
@@ -5572,7 +5572,7 @@ var COMP_KIT = (() => {
         anchors: {top: [60, 21, 0.9], neck: [60, 91, 1.05], chest: [73, 98, 0.66], back: [84, 60, 0.85], hands: [60, 92, 0.9]},
         lines: {
           tap: ["Hi hi! I'm stuck on you, friend!", "I've always got your back!", "You make everyone feel better!", "Patch by patch, you're doing it!", "Sticking by your side all day!", "Kindness is your superpower!", "You're the best teammate ever!", "Stick with it! You're amazing!"],
-          pet: ["Hehe! My sticky bits tingle!", "Aww! That's the best little pat!"],
+          pet: ["Hehe! My sticky side is all giggly!", "Aww! That's the best little pat!"],
           hello: ["You're back! I stuck around for you!", "Hello! Ready to make today better?"],
           morning: ["Good morning! Fresh start, fresh pad!", "Rise and shine! Let's care big today!"],
           night: ["Time to unstick and rest, friend.", "Quiet night. You deserve sleep."],
@@ -6037,7 +6037,7 @@ var COMP_KIT = (() => {
           focus: ["Steady build! You've got this!", "Quietly hammering beside you!"],
           done: ["WOW! What a solid session!", "Session done! Built to last!"],
           task: ["Thump! Done! WOO!", "Yes! Another log on the dam!", "Checked off! Rock solid!", "Built it! Hooray for you!"],
-          break: ["Stretch break! Big beaver yawn!", "Snack break! Crunchy and tasty!"]
+          break: ["Stretch break! Big sleepy yawn!", "Snack break! Crunchy and tasty!"]
         }
       },
       {
@@ -6586,7 +6586,7 @@ var COMP_KIT = (() => {
         anchors: {top: [60, 33, 0.95], neck: [60, 91, 1], chest: [73, 84, 0.64], back: [86, 58, 0.85], hands: [60, 88, 0.85]},
         lines: {
           tap: ["Hi hi! There's only ONE you!", "Your study style is one of a kind!", "Swirly happy hello to you!", "You leave sparkles on everything!", "Proof you're amazing: right here!", "I'm swirling with pride for you!", "Unique, brilliant and doing great!", "You've got this, my one and only!"],
-          pet: ["Hehe! My swirls are all wiggly!", "Ooh! That's my favorite touch!"],
+          pet: ["Hehe! My swirls are all wiggly!", "Ooh! That made me swirl with joy!"],
           hello: ["You're back! I knew it was you!", "Hi! I'd know you anywhere!"],
           morning: ["Good morning! A brand new swirl of a day!", "Rise and shine! Leave your mark today!"],
           night: ["Swirling down slow. Time to rest!", "Soft swirls, sweet dreams. Night!"],
@@ -6996,7 +6996,7 @@ var COMP_KIT = (() => {
         anchors: {top: [61, 27, 0.98], neck: [60, 59, 0.95], chest: [43, 78, 0.55], back: [86, 68, 0.8], hands: [60, 82, 0.82]},
         lines: {
           tap: ["Hi hi! I'm irrationally happy to see you!", "You're doing infinitely well!", "3.14159 reasons to smile! Hehe!", "Your progress is off the charts!", "Every step adds up! I did the math!", "You're my favorite constant!", "That brain of yours is exponential!"],
-          pet: ["Hehe! That tickles my curly bits!", "Aww! My smile just went full circle!"],
+          pet: ["Hehe! That tickles my curly swirls!", "Aww! My smile just went full circle!"],
           hello: ["You're back! What a lovely surprise!", "Hi! Let's solve some fun stuff!"],
           morning: ["Good morning! Endless possibilities!", "Rise and shine! Today adds up to great!"],
           night: ["Rounding off the day now. Rest soon?", "I never end, but you should rest. Night!"],
@@ -7682,4 +7682,4214 @@ var COMP_KIT = (() => {
     ]
   });
 })();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ===== module: 98-comp-n1.js ===== */
+/* Study Companions, new theme ideas batch n1: onsen, rainforest, tidepool, volcano, savanna */
+(() => {
+  const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
+  const O2 = OW(2.2);
+  const twinkle = (x, y, s, c) => `<path d="M${x} ${y - s}Q${x} ${y} ${x + s} ${y}Q${x} ${y} ${x} ${y + s}Q${x} ${y} ${x - s} ${y}Q${x} ${y} ${x} ${y - s}Z" fill="${c || "#fff"}"/>`;
+  const f1 = v => Math.round(v * 10) / 10;
+  const shine = (x, y, rx, ry, a) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" transform="rotate(${a} ${x} ${y})" fill="#fff" opacity=".75"/>`;
+
+  /* ================= Hot Spring ================= */
+  COMP_DATA.push({
+    theme: "onsen",
+    companions: [
+      {
+        id: "onsen-kapi", name: "Kapi", kind: "Onsen Capybara", pose: "sit", sleepy: true, wearColor: "#5A8AD0",
+        bio: "A calm capybara who soaks in the warm spring for as long as you study.",
+        idle: ["topBob", "earTwitch", "headTilt"], cheer: "bounce",
+        neck: [60, 74],
+        parts: {
+          back: `${LINE("M24 70q-4-6 0-12t0-12", "#FFFFFF", 2.4)}${LINE("M98 66q-4-6 0-12t0-12", "#FFFFFF", 2.4)}`,
+          body: `${LG("onsen-kapi-b", [[0, "#D9A577"], [1, "#A8744A"]])}${LG("onsen-kapi-t", [[0, "#F2C892"], [1, "#C08A52"]])}
+            <path d="M30 86C30 72 42 66 60 66C78 66 90 72 90 86Z" fill="url(#onsen-kapi-b)" ${O}/>
+            <ellipse cx="60" cy="86" rx="37" ry="7" fill="#9FE0EA" ${O}/>
+            <path d="M22 86H98L93 108Q92 111 88 111H32Q28 111 27 108Z" fill="url(#onsen-kapi-t)" ${O}/>
+            <path d="M24.5 95H95.5M26.6 104H93.4" stroke="${INK}" stroke-width="4.4"/><path d="M24.5 95H95.5M26.6 104H93.4" stroke="#D2D8E0" stroke-width="2.2"/>
+            <path d="M40 87V110M60 87V111M80 87V110" stroke="#B07A46" stroke-width="1.4" opacity=".55"/>
+            <path d="M34 84.5q6 2 12 0M70 86q6 2 12 0" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>`,
+          armL: {svg: `<path d="M36 77.6Q30.5 80.5 28.6 85" fill="none" stroke="${INK}" stroke-width="9.4" stroke-linecap="round"/><path d="M36 77.6Q30.5 80.5 28.6 85" fill="none" stroke="#B8845A" stroke-width="5.4" stroke-linecap="round"/><ellipse cx="27.6" cy="86" rx="6.6" ry="4.8" fill="#B8845A" ${O}/><path d="M25 88.6v-1.8M28 89.2v-1.8" stroke="#8A5A36" stroke-width="1.1" stroke-linecap="round"/>`, pivot: [36, 78]},
+          armR: {svg: `<path d="M84 77.6Q89.5 80.5 91.4 85" fill="none" stroke="${INK}" stroke-width="9.4" stroke-linecap="round"/><path d="M84 77.6Q89.5 80.5 91.4 85" fill="none" stroke="#B8845A" stroke-width="5.4" stroke-linecap="round"/><ellipse cx="92.4" cy="86" rx="6.6" ry="4.8" fill="#B8845A" ${O}/><path d="M95 88.6v-1.8M92 89.2v-1.8" stroke="#8A5A36" stroke-width="1.1" stroke-linecap="round"/>`, pivot: [84, 78]},
+          earL: {svg: `<circle cx="40" cy="31" r="6" fill="#A8744A" ${O}/><circle cx="40.6" cy="31.6" r="2.6" fill="#E8A898"/>`, pivot: [42, 35]},
+          earR: {svg: `<circle cx="80" cy="31" r="6" fill="#A8744A" ${O}/><circle cx="79.4" cy="31.6" r="2.6" fill="#E8A898"/>`, pivot: [78, 35]},
+          head: `${RG("onsen-kapi-h", [[0, "#E8BC8C"], [0.6, "#CC9662"], [1, "#A8744A"]], 0.42, 0.3, 0.8)}
+            <path d="M35 48C35 36 45 29 60 29C75 29 85 36 85 48V60C85 70 76 77 60 77C44 77 35 70 35 60Z" fill="url(#onsen-kapi-h)" ${O}/>
+            ${shine(44, 38, 5, 2.6, -30)}`,
+          face: `<rect x="44" y="53" width="32" height="20" rx="10" fill="#EBC59C" ${O2}/>
+            <ellipse cx="54" cy="58.6" rx="2.6" ry="1.7" fill="${INK}"/><ellipse cx="66" cy="58.6" rx="2.6" ry="1.7" fill="${INK}"/>`,
+          top: {svg: `<path d="M42 33Q60 22 78 33L76 39Q60 29 44 39Z" fill="#FFFFFF" ${O2}/><path d="M50 29.4L51.4 34.6M60 27V32.6M70 29.4L68.6 34.6" stroke="#5A8AD0" stroke-width="2.2" stroke-linecap="round"/>`, pivot: [60, 34]}
+        },
+        eyes: {lx: 50, rx: 70, y: 46, r: 3.8, style: "dot", color: "#2B1A10"},
+        mouth: {x: 60, y: 67, w: 3, color: "#2B1A10"},
+        cheeks: {lx: 41.5, rx: 78.5, y: 55, w: 4.4, h: 2.6, color: "#FF9A9A"},
+        anchors: {top: [60, 30, 0.9], neck: [60, 78, 1.05], chest: [76, 96, 0.68], back: [92, 74, 0.8], hands: [60, 88, 0.85]},
+        lines: {
+          tap: ["Ahh, hi! The water's just right today.", "You're doing great. Want to soak in that for a second?", "No rush. One task at a time, like one bath at a time.", "I'm so calm, and you're so capable!", "Steady and warm, that's how we study.", "Every little step counts. I believe in you.", "Relax your shoulders. There we go!", "You make studying look cozy."],
+          pet: ["Mmm, that's so relaxing. Thank you.", "Hehe, I might melt into the tub."],
+          hello: ["You're here! I kept the water warm.", "Hello, friend! Come sit, come study."],
+          morning: ["Good morning! A warm start to a good day.", "Morning! The steam says today's going to be nice."],
+          night: ["It's late. A warm bath and bed sound lovely.", "Time to unwind soon, okay?"],
+          focus: ["Soaking quietly right beside you.", "Calm water, calm mind. You've got this."],
+          done: ["What a lovely session. Ahh!", "Done! You earned a long, warm soak."],
+          task: ["Ahh, checked off! So satisfying.", "One more done! Pure bliss!", "Yes! That's the warm fuzzy feeling!", "Look at you go! Splash!"],
+          break: ["Break time! Stretch and sip some water.", "Rest a bit. Warm drink, maybe?"]
+        }
+      },
+      {
+        id: "onsen-momo", name: "Momo", kind: "Snow Monkey Baby", pose: "sit", wearColor: "#E0533A",
+        bio: "A baby snow monkey who balances a snowball on its head while you work.",
+        idle: ["earTwitch", "wave", "tailSwish"], cheer: "hop",
+        parts: {
+          tail: {svg: `<ellipse cx="92" cy="100" rx="7.5" ry="5" transform="rotate(-30 92 100)" fill="#B8A898" ${O}/>`, pivot: [86, 103]},
+          earL: {svg: `<ellipse cx="30" cy="52" rx="7" ry="8.4" fill="#C8B6A6" ${O}/><ellipse cx="31" cy="52.6" rx="3.6" ry="4.6" fill="#F4A0A0"/>`, pivot: [36, 52]},
+          earR: {svg: `<ellipse cx="90" cy="52" rx="7" ry="8.4" fill="#C8B6A6" ${O}/><ellipse cx="89" cy="52.6" rx="3.6" ry="4.6" fill="#F4A0A0"/>`, pivot: [84, 52]},
+          feet: `<ellipse cx="46" cy="109" rx="8.4" ry="4.4" fill="#F2A0A0" ${O}/><ellipse cx="74" cy="109" rx="8.4" ry="4.4" fill="#F2A0A0" ${O}/>`,
+          body: `${RG("onsen-momo-f", [[0, "#F2EAE0"], [0.6, "#D8CABC"], [1, "#B4A496"]], 0.42, 0.3, 0.8)}
+            <path d="${puff(60, 92, 21, 11, 1.25)}" fill="url(#onsen-momo-f)" ${O}/>
+            <ellipse cx="60" cy="96" rx="12" ry="9" fill="#F2EBE2"/>
+            <path d="${puff(60, 54, 26, 13, 1.2)}" fill="url(#onsen-momo-f)" ${O}/>
+            <path d="M60 40C70 35.5 79 43 77 54C75.6 63 68.4 68.5 60 68.5C51.6 68.5 44.4 63 43 54C41 43 50 35.5 60 40Z" fill="#F7A6A6" ${O2}/>
+            <ellipse cx="57.6" cy="57.6" rx="1" ry="1.3" fill="#9A4A50"/><ellipse cx="62.4" cy="57.6" rx="1" ry="1.3" fill="#9A4A50"/>`,
+          armL: {svg: `<ellipse cx="37" cy="88" rx="7" ry="10.4" transform="rotate(22 37 88)" fill="#CDBEB0" ${O}/><ellipse cx="34" cy="97" rx="4.6" ry="3.6" fill="#F2A0A0" ${OW(2)}/>`, pivot: [41, 81]},
+          armR: {svg: `<ellipse cx="83" cy="88" rx="7" ry="10.4" transform="rotate(-22 83 88)" fill="#CDBEB0" ${O}/><ellipse cx="86" cy="97" rx="4.6" ry="3.6" fill="#F2A0A0" ${OW(2)}/>`, pivot: [79, 81]},
+          top: {svg: `${RG("onsen-momo-s", [[0, "#FFFFFF"], [1, "#C4D6F0"]], 0.38, 0.32, 0.75)}<circle cx="60" cy="24" r="10" fill="url(#onsen-momo-s)" ${O}/><path d="M54 21.5a6.4 6.4 0 0 1 5-4.6" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>`, pivot: [60, 32]}
+        },
+        eyes: {lx: 53, rx: 67, y: 50.5, r: 3.6, style: "dot", color: "#3A1A1E"},
+        mouth: {x: 60, y: 61.5, w: 2.6, color: "#3A1A1E"},
+        cheeks: {lx: 48.5, rx: 71.5, y: 57, w: 3.4, h: 2.2, color: "#FF6F8E"},
+        anchors: {top: [60, 27, 0.85], neck: [60, 76, 1], chest: [72, 98, 0.62], back: [86, 84, 0.8], hands: [60, 98, 0.8]},
+        lines: {
+          tap: ["Hi hi! Don't mind the snowball, it's for balance.", "You're so good at this! Wheee!", "Let's do the next one together!", "I believe in you more than snowballs!", "Brrr, studying warms me right up!", "Ooh, you're on a roll!", "Little steps, big monkey cheers!"],
+          pet: ["Hehe! Careful, the snowball!", "Eee! That tickles my ears!"],
+          hello: ["You're back! I saved you a warm rock!", "Hiii! Ready for some monkey business? The study kind!"],
+          morning: ["Good morning! Fresh snow and fresh ideas!", "Morning! I made a brand new snowball for today!"],
+          night: ["Yawn. Even monkeys need sleep.", "The stars are out. Bedtime soon?"],
+          focus: ["Shh, I'm balancing very quietly.", "Focus mode! Not even my snowball wobbles."],
+          done: ["You did it! Monkey flips!", "Session done! I'm so proud of you!"],
+          task: ["Yes! One more done! Ooh ooh!", "Checked off! Snowball high five!", "Woohoo! Look at that!", "Done and dusted! Hooray!"],
+          break: ["Break time! Let's stretch like monkeys!", "Shake out those paws! Then a sip of water!"]
+        }
+      },
+      {
+        id: "onsen-yuzu", name: "Yuzu", kind: "Floating Yuzu", pose: "float", wearColor: "#5AAA5A",
+        bio: "A sunny little yuzu who bobs along in the hot spring beside you.",
+        idle: ["topBob", "sway", "sparkle"], cheer: "spin",
+        parts: {
+          back: `<ellipse cx="60" cy="96" rx="38" ry="9" fill="#A6E4EE" ${O}/><path d="M30 96q5 2.4 10 0M80 97q5 2.4 10 0" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>`,
+          body: `${RG("onsen-yuzu-b", [[0, "#FFF6B8"], [0.5, "#FFD24A"], [1, "#F29A1E"]], 0.38, 0.3, 0.78)}
+            <circle cx="60" cy="68" r="29" fill="url(#onsen-yuzu-b)" ${O}/>
+            <g fill="#E89A2A" opacity=".5"><circle cx="44" cy="80" r="1.4"/><circle cx="78" cy="56" r="1.4"/><circle cx="74" cy="84" r="1.4"/><circle cx="46" cy="56" r="1.2"/><circle cx="82" cy="72" r="1.2"/></g>
+            ${shine(46, 52, 7, 4, -38)}<circle cx="54" cy="46" r="1.8" fill="#fff"/>`,
+          armL: {svg: `<ellipse cx="32.5" cy="76" rx="4.6" ry="5.8" transform="rotate(25 32.5 76)" fill="#FFC23A" ${O}/>`, pivot: [37, 74]},
+          armR: {svg: `<ellipse cx="87.5" cy="76" rx="4.6" ry="5.8" transform="rotate(-25 87.5 76)" fill="#FFC23A" ${O}/>`, pivot: [83, 74]},
+          top: {svg: `${LINE("M60 40V32", "#7A5A2A", 2.6)}<path d="M61 34C64 24 76 20 85 24C81 33 71 37 61 34Z" fill="#7CC860" ${O2}/><path d="M63 33Q72 28 81 25" fill="none" stroke="#4E9A3E" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [60, 40]}
+        },
+        eyes: {lx: 50, rx: 70, y: 67, r: 4.4, style: "sparkle", color: "#3A2414"},
+        mouth: {x: 60, y: 77, w: 3.1, color: "#3A2414"},
+        cheeks: {lx: 43, rx: 77, y: 75, w: 4.4, h: 2.7, color: "#FF8F7A"},
+        anchors: {top: [60, 38, 0.85], neck: [60, 92, 1], chest: [74, 86, 0.62], back: [86, 62, 0.8], hands: [60, 90, 0.85]},
+        lines: {
+          tap: ["Bob bob! Hi there!", "I never sink, and neither will your grades!", "Zesty work today!", "You're the sunniest student I know!", "Roll with it, you've got this!", "A little citrus cheer, just for you!", "Fresh start, fresh focus!", "You're doing a-peel-ing work!"],
+          pet: ["Hehe, I'm rolling with joy!", "Ooh, that smells nice and zesty!"],
+          hello: ["You're here! Let's float through this!", "Hello, sunshine! Well, hello from sunshine!"],
+          morning: ["Good morning! Bright and zesty!", "Morning! I bobbed up early for you!"],
+          night: ["Floating off to sleep soon. You too?", "Calm water, sweet dreams."],
+          focus: ["Bobbing quietly beside you.", "Steady float, steady focus."],
+          done: ["What a session! I'm glowing!", "Session done! Juicy work!"],
+          task: ["Pop! Another one done!", "Yay! That's citrus-tastic!", "Checked off! Bob bob hooray!", "Done! So fresh, so good!"],
+          break: ["Break! Roll your shoulders like a yuzu!", "Float for a minute. Then back to it!"]
+        }
+      }
+    ]
+  });
+
+  /* ================= Rainforest Canopy ================= */
+  const beak = (dy, open) => `<path d="M50 ${55 + dy}C56 51 66 51 71 ${55 + dy}C78 ${61 + dy} 81 ${72 + dy} 77 ${81 + dy}C73 ${74 + dy} 65 ${66 + dy} 51 ${62 + dy}Z" fill="#FF8A2A" ${OW(2.4)}/>
+    <path d="M52 ${56 + dy}C58 ${53 + dy} 66 ${53 + dy} 70 ${56.5 + dy}C75 ${60 + dy} 78 ${66 + dy} 78 ${71 + dy}C72 ${64 + dy} 63 ${59 + dy} 52 ${58.5 + dy}Z" fill="#FFD23F"/>
+    <path d="M77 ${80.5 + dy}C79 ${76 + dy} 79 ${73 + dy} 78.6 ${71 + dy}L74.6 ${75 + dy}C75.6 ${77 + dy} 76.6 ${79 + dy} 77 ${80.5 + dy}Z" fill="${INK}"/>${open ? `<path d="M54 ${63 + dy}Q64 ${70 + dy} 72 ${76 + dy}Q62 ${73 + dy} 54 ${66 + dy}Z" fill="#FF8FA8" ${OW(1.6)}/>` : ""}`;
+  COMP_DATA.push({
+    theme: "rainforest",
+    companions: [
+      {
+        id: "rainforest-mosey", name: "Mosey", kind: "Baby Sloth", pose: "sit", sleepy: true, wearColor: "#3E9A5A",
+        bio: "A sleepy baby sloth who takes every study session slow and steady.",
+        idle: ["headTilt", "sway", "wave"], cheer: "wave",
+        neck: [60, 72],
+        parts: {
+          feet: `<ellipse cx="44" cy="109" rx="9" ry="4.4" fill="#8A6A4E" ${O}/><ellipse cx="76" cy="109" rx="9" ry="4.4" fill="#8A6A4E" ${O}/><path d="M40 112v-3M44 112.5v-3M80 112v-3M76 112.5v-3" stroke="#F2E6D2" stroke-width="1.6" stroke-linecap="round"/>`,
+          body: `${RG("rainforest-mosey-b", [[0, "#E2CCAE"], [0.6, "#C4A47E"], [1, "#9A7A58"]], 0.45, 0.3, 0.8)}
+            <path d="M32 108C26 92 32 74 60 72C88 74 94 92 88 108Z" fill="url(#rainforest-mosey-b)" ${O}/>
+            <ellipse cx="60" cy="94" rx="15" ry="11" fill="#EADCC4"/><path d="M40 84l3 3M78 84l-3 3M36 96l3 2M84 96l-3 2" stroke="#8A6A4E" stroke-width="1.6" stroke-linecap="round"/>`,
+          armL: {svg: `<path d="M40 80C30 86 25 98 29 108C33 111 38 109 38 104C38 96 42 90 47 86Z" fill="#B8956E" ${O}/><path d="M29.6 105.6l-2.4 3.6M32.6 107l-1.2 4M36 107v4" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/>`, pivot: [44, 82]},
+          armR: {svg: `<path d="M80 80C90 86 95 98 91 108C87 111 82 109 82 104C82 96 78 90 73 86Z" fill="#B8956E" ${O}/><path d="M90.4 105.6l2.4 3.6M87.4 107l1.2 4M84 107v4" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/>`, pivot: [76, 82]},
+          head: `${RG("rainforest-mosey-h", [[0, "#DCC4A2"], [0.6, "#BC9C74"], [1, "#94744E"]], 0.45, 0.3, 0.8)}
+            <ellipse cx="60" cy="50" rx="27" ry="24" fill="url(#rainforest-mosey-h)" ${O}/>
+            <path d="M44 30Q50 24 56 28M60 26Q66 22 72 28" fill="none" stroke="#8A6A4E" stroke-width="2" stroke-linecap="round"/>`,
+          face: `<ellipse cx="60" cy="54" rx="20" ry="15.5" fill="#F4E8D2"/>
+            <path d="M37 50Q45 41 55 49Q49 58 37 50Z" fill="#7A5638"/><path d="M83 50Q75 41 65 49Q71 58 83 50Z" fill="#7A5638"/>
+            <ellipse cx="60" cy="58.5" rx="3.8" ry="2.6" fill="${INK}"/><ellipse cx="59" cy="57.6" rx="1.2" ry=".7" fill="#fff" opacity=".7"/>`
+        },
+        eyes: {lx: 47, rx: 73, y: 49.5, r: 3.6, style: "round", color: "#2B1A10"},
+        mouth: {x: 60, y: 64, w: 2.8, color: "#2B1A10"},
+        cheeks: {lx: 43, rx: 77, y: 60, w: 4, h: 2.4, color: "#FF9A9A"},
+        anchors: {top: [60, 27, 0.95], neck: [60, 74, 1.05], chest: [74, 94, 0.68], back: [88, 86, 0.8], hands: [60, 96, 0.85]},
+        lines: {
+          tap: ["Heyyy... friend... hi.", "Slow and steady... still gets there.", "You're doing great... no rush.", "One... thing... at a time. Perfect.", "I like your pace... it's lovely.", "Hang in there... like me!", "Big things... start small.", "Deep breath... you've got this."],
+          pet: ["Mmm... so cozy... thank you.", "Hehe... slow happy wiggle."],
+          hello: ["Oh... you're here... yay.", "Hiii... I was... waiting."],
+          morning: ["Good... morning... sunshine.", "Morning... let's take it easy... but steady."],
+          night: ["So sleepy... you too?", "Time to... hang up for the night."],
+          focus: ["Focusing... very... slowly.", "Quietly... right here... with you."],
+          done: ["You... did it! Wow!", "Session done... that was amazing."],
+          task: ["Done! ...Yay!", "Checked off... so proud.", "Another one... wonderful!", "Look at that... finished!"],
+          break: ["Break time... my favorite.", "Stretch... reeeal slow."]
+        }
+      },
+      {
+        id: "rainforest-tiko", name: "Tiko", kind: "Toucan Chick", pose: "stand", wearColor: "#FF8A2A",
+        bio: "A fluffy toucan chick with a big bright beak and even bigger plans.",
+        idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter",
+        neck: [60, 70],
+        parts: {
+          feet: `<path d="M48 104V110M44 111L48 108L52 111M72 104V110M68 111L72 108L76 111" fill="none" stroke="${INK}" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M48 104V110M44 111L48 108L52 111M72 104V110M68 111L72 108L76 111" fill="none" stroke="#7A8494" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`,
+          wingL: {svg: `<path d="M38 74C27 80 24 95 30 104C39 100 42 87 40 74Z" fill="#3A3644" ${O}/><path d="M33 86Q31 92 32 98" fill="none" stroke="#5A5666" stroke-width="1.8" stroke-linecap="round"/>`, pivot: [39, 76]},
+          wingR: {svg: `<path d="M82 74C93 80 96 95 90 104C81 100 78 87 80 74Z" fill="#3A3644" ${O}/><path d="M87 86Q89 92 88 98" fill="none" stroke="#5A5666" stroke-width="1.8" stroke-linecap="round"/>`, pivot: [81, 76]},
+          body: `${RG("rainforest-tiko-b", [[0, "#5A5666"], [0.6, "#34303E"], [1, "#22202A"]], 0.4, 0.3, 0.8)}
+            <ellipse cx="60" cy="88" rx="24" ry="21" fill="url(#rainforest-tiko-b)" ${O}/>
+            <ellipse cx="60" cy="86" rx="13.5" ry="13" fill="#FFF1C8"/><ellipse cx="60" cy="106.5" rx="8" ry="3" fill="#E8403A"/>`,
+          head: `${RG("rainforest-tiko-h", [[0, "#5A5666"], [0.6, "#34303E"], [1, "#22202A"]], 0.4, 0.28, 0.8)}
+            <circle cx="60" cy="49" r="24" fill="url(#rainforest-tiko-h)" ${O}/>${shine(46, 36, 5, 2.6, -35)}`,
+          face: `<circle cx="49" cy="46" r="8.4" fill="#6FD0F4" ${O2}/><circle cx="71" cy="46" r="8.4" fill="#6FD0F4" ${O2}/>`,
+          top: {svg: `<path d="M57 28C54 20 58 13 63 10C63 16 66 20 64 28Z" fill="#3A3644" ${O2}/><path d="M61 27C61 22 65 18 69 17C68 21 67 24 64 28Z" fill="#3A3644" ${O2}/>`, pivot: [60, 29]}
+        },
+        eyes: {lx: 49, rx: 71, y: 46, r: 5, style: "round", color: "#1A1820"},
+        mouth: {x: 63, y: 66, w: 3},
+        mouths: {neutral: beak(0, false), smile: beak(-0.6, false) + `<path d="M46 58q2 2.4 4.6 1.6M74 58q-2 2.4 -4.6 1.6" fill="none" stroke="#FF8FA8" stroke-width="1.6" stroke-linecap="round"/>`, open: beak(0, true), sleepy: beak(1, false)},
+        cheeks: {lx: 40, rx: 80, y: 57, w: 3.8, h: 2.3, color: "#FF8FA8"},
+        anchors: {top: [60, 26, 0.9], neck: [60, 72, 1], chest: [70, 92, 0.62], back: [84, 86, 0.8], hands: [60, 96, 0.85]},
+        lines: {
+          tap: ["Hi! Did you notice my beak? Everyone notices my beak.", "Big plans today! Huge plans!", "You're doing toucan-tastic!", "Two can do it better: you and me!", "Hop hop! Next task!", "Your notes look colorful today!", "I spy a superstar student!", "Let's fly through this list!"],
+          pet: ["Squawk! Hehe, that tickles!", "Careful, the beak is very important!"],
+          hello: ["You're back! Big beak hello!", "Hiii! I've been hopping around waiting!"],
+          morning: ["Good morning! The canopy is wide awake!", "Morning! The early bird gets the A!"],
+          night: ["Tucking my beak in soon. You too?", "The frogs are singing goodnight."],
+          focus: ["Quiet beak, busy brain. Let's go!", "Perched right here, cheering softly."],
+          done: ["WOW! That session was huge, like my beak!", "Done! Flap flap hooray!"],
+          task: ["SQUAWK! Done!", "Checked off! Big beak energy!", "Another one! You're soaring!", "Yes! Hop hop hooray!"],
+          break: ["Stretch your wings! I mean arms!", "Snack break! Fruit, maybe?"]
+        }
+      },
+      {
+        id: "rainforest-dart", name: "Dart", kind: "Blue Tree Frog", pose: "stand", wearColor: "#FF9A3A",
+        bio: "A bright blue tree frog who holds on to every task with its sticky toes.",
+        idle: ["bounce", "earTwitch", "sparkle"], cheer: "hop",
+        parts: {
+          earL: {svg: `<circle cx="29" cy="66" r="4.6" fill="#3A8AE0" ${OW(2.2)}/><circle cx="29" cy="66" r="2" fill="#7FC4FF"/>`, pivot: [32, 66]},
+          earR: {svg: `<circle cx="91" cy="66" r="4.6" fill="#3A8AE0" ${OW(2.2)}/><circle cx="91" cy="66" r="2" fill="#7FC4FF"/>`, pivot: [88, 66]},
+          feet: `<g fill="#FF9A3A" ${OW(2.2)}><circle cx="34" cy="108" r="4.4"/><circle cx="42" cy="110.5" r="4"/><circle cx="78" cy="110.5" r="4"/><circle cx="86" cy="108" r="4.4"/></g>`,
+          body: `${RG("rainforest-dart-b", [[0, "#A8E2FF"], [0.55, "#4FA8F0"], [1, "#2A6ED0"]], 0.4, 0.3, 0.8)}
+            <path d="M28 76C28 62 33 56 36 54A13 13 0 1 1 58 50.5Q60 50.4 62 50.5A13 13 0 1 1 84 54C87 56 92 62 92 76C92 96 78 106 60 106C42 106 28 96 28 76Z" fill="url(#rainforest-dart-b)" ${O}/>
+            <ellipse cx="60" cy="90" rx="19" ry="13" fill="#D6F2FF"/>
+            <g fill="#2A5AB8" opacity=".55"><circle cx="36" cy="72" r="2.4"/><circle cx="84" cy="74" r="2"/><circle cx="80" cy="86" r="1.6"/><circle cx="40" cy="88" r="1.8"/></g>
+            ${shine(40, 62, 5, 2.6, -35)}`,
+          armL: {svg: `<path d="M34 84C26 88 24 96 28 100" fill="none" stroke="${INK}" stroke-width="9" stroke-linecap="round"/><path d="M34 84C26 88 24 96 28 100" fill="none" stroke="#4FA8F0" stroke-width="5.4" stroke-linecap="round"/><circle cx="28" cy="101" r="4" fill="#FF9A3A" ${OW(2)}/>`, pivot: [36, 84]},
+          armR: {svg: `<path d="M86 84C94 88 96 96 92 100" fill="none" stroke="${INK}" stroke-width="9" stroke-linecap="round"/><path d="M86 84C94 88 96 96 92 100" fill="none" stroke="#4FA8F0" stroke-width="5.4" stroke-linecap="round"/><circle cx="92" cy="101" r="4" fill="#FF9A3A" ${OW(2)}/>`, pivot: [84, 84]}
+        },
+        eyes: {lx: 44, rx: 76, y: 44, r: 7, style: "round", color: "#1A1820"},
+        mouth: {x: 60, y: 69, w: 4.6, color: "#1A3A6A"},
+        cheeks: {lx: 38, rx: 82, y: 64, w: 4.6, h: 2.8, color: "#FF8FB8"},
+        anchors: {top: [60, 34, 0.9], neck: [60, 94, 1.1], chest: [74, 92, 0.65], back: [90, 72, 0.8], hands: [60, 98, 0.85]},
+        lines: {
+          tap: ["Ribbit! Hi! Look at my sticky toes!", "You're sticking with it! Nice!", "Hop to it, you're doing great!", "Small frog, big cheers!", "You're the brightest thing in this jungle!", "Leap to the next one!", "Every hop counts!"],
+          pet: ["Hehe, I'm a little bit sticky, sorry!", "Ribbit! Again again!"],
+          hello: ["You're back! Ribbit ribbit hooray!", "Hi hi! I hopped all the way over!"],
+          morning: ["Good morning! Fresh dew on every leaf!", "Morning! Toes ready, let's go!"],
+          night: ["Night time is frog time, but you should rest!", "I'll glow softly while you sleep."],
+          focus: ["Sticking right here with you.", "Quiet frog, focused friend."],
+          done: ["Ribbit! What a session!", "Done! That deserves a big leap!"],
+          task: ["Hop! Done!", "Ribbit! Checked off!", "Another one! Sticky success!", "Yes! Leaping with joy!"],
+          break: ["Break! Do a little frog stretch!", "Hop up, drink some water!"]
+        }
+      }
+    ]
+  });
+
+  /* ================= Tide Pools ================= */
+  const tentacles = (cx, cy, n, R, a0, a1, c, tip) => Array.from({length: n}, (_, i) => { const a = (a0 + (a1 - a0) * (i + 0.5) / n) * Math.PI / 180, x = cx + Math.cos(a) * R, y = cy + Math.sin(a) * R, mx = cx + Math.cos(a) * R * 0.5 + Math.sin(i * 1.7) * 3, my = cy + Math.sin(a) * R * 0.5; return LINE(`M${cx} ${cy}Q${f1(mx)} ${f1(my)} ${f1(x)} ${f1(y)}`, c, 4.2) + `<circle cx="${f1(x)}" cy="${f1(y)}" r="3.4" fill="${tip}" ${OW(2)}/>`; }).join("");
+  const pbeak = (dy, open) => `<path d="M53 ${56 + dy}Q60 ${50 + dy} 67 ${56 + dy}L64 ${67 + dy}Q60 ${70 + dy} 56 ${67 + dy}Z" fill="#FF7A3A" ${OW(2.2)}/><path d="M54.4 ${59 + dy}Q60 ${55.6 + dy} 65.6 ${59 + dy}" fill="none" stroke="#7A8494" stroke-width="2"/><path d="M55.8 ${63 + dy}Q60 ${60.6 + dy} 64.2 ${63 + dy}" fill="none" stroke="#FFD45A" stroke-width="1.6"/>${open ? `<path d="M56 ${66 + dy}Q60 ${73 + dy} 64 ${66 + dy}Z" fill="#FF8FA8" ${OW(1.6)}/>` : ""}`;
+  COMP_DATA.push({
+    theme: "tidepool",
+    companions: [
+      {
+        id: "tidepool-annie", name: "Annie", kind: "Sea Anemone", pose: "stand", wearColor: "#3E9EA8",
+        bio: "A wavy little sea anemone who waves hello with all forty arms.",
+        idle: ["sway", "finWiggle", "topBob"], cheer: "bounce",
+        parts: {
+          feet: `<path d="M30 110C30 102 42 100 60 100C78 100 90 102 90 110Z" fill="#9A8C82" ${O}/><circle cx="40" cy="105" r="1.8" fill="#E6E0D6"/><circle cx="78" cy="106" r="1.6" fill="#E6E0D6"/>`,
+          body: `${LG("tidepool-annie-b", [[0, "#FFB0CC"], [0.6, "#F27AA6"], [1, "#D8507E"]], 0, 0, 1, 1)}
+            <path d="M38 58C38 52 82 52 82 58V98Q82 106 72 106H48Q38 106 38 98Z" fill="url(#tidepool-annie-b)" ${O}/>
+            <path d="M46 62V100M74 62V100" stroke="#FFC8DA" stroke-width="2.4" stroke-linecap="round" opacity=".8"/>
+            <ellipse cx="60" cy="56" rx="23" ry="6.4" fill="#FFD6E4" ${O2}/>`,
+          armL: {svg: `${LINE("M41 69Q31 74 29.6 85", "#FF8FB8", 4.2)}<circle cx="29.4" cy="86" r="3.4" fill="#FFE0EC" ${OW(2)}/>`, pivot: [41, 69]},
+          armR: {svg: `${LINE("M79 69Q89 74 90.4 85", "#FF8FB8", 4.2)}<circle cx="90.6" cy="86" r="3.4" fill="#FFE0EC" ${OW(2)}/>`, pivot: [79, 69]},
+          top: {svg: tentacles(60, 55, 9, 24, -168, -12, "#FF8FB8", "#FFE0EC"), pivot: [60, 56]}
+        },
+        eyes: {lx: 51, rx: 69, y: 76, r: 4.6, style: "sparkle", color: "#4A1830"},
+        mouth: {x: 60, y: 86, w: 3, color: "#4A1830"},
+        cheeks: {lx: 44, rx: 76, y: 84, w: 4.2, h: 2.6, color: "#FF5E8E"},
+        anchors: {top: [60, 40, 0.85], neck: [60, 96, 1], chest: [72, 96, 0.6], back: [84, 72, 0.8], hands: [60, 100, 0.85]},
+        lines: {
+          tap: ["Hi! I'm waving with all my arms!", "You're doing wonderfully, swish swish!", "Forty arms, forty cheers for you!", "Every wave brings something new!", "You're the brightest thing in my pool!", "Let the tide carry you to the next one!", "Hugs from every tentacle!", "Swaying along with your progress!"],
+          pet: ["Ooh! That tickles all forty arms!", "Hehe! I'm closing up with joy!"],
+          hello: ["You're back! A big wave hello!", "Hi hi! The tide brought you here!"],
+          morning: ["Good morning! The tide is out and so is the sun!", "Morning! I opened up just for you!"],
+          night: ["Closing up for the night soon. Rest well!", "The moon's on the water. Sleepy time?"],
+          focus: ["Swaying quietly beside you.", "Calm pool, calm mind. You've got this."],
+          done: ["What a session! I'm blooming!", "Done! All my arms are cheering!"],
+          task: ["Swish! Done!", "Checked off! Forty high fives!", "Another one! I'm wiggling with pride!", "Yes! Big happy bloom!"],
+          break: ["Break! Wave your arms around like me!", "Rest a bit, let the tide come in."]
+        }
+      },
+      {
+        id: "tidepool-spike", name: "Spike", kind: "Purple Sea Urchin", pose: "stand", wearColor: "#2FA0B8",
+        bio: "A shy purple sea urchin who looks prickly but is soft at heart.",
+        idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
+        parts: {
+          back: Array.from({length: 18}, (_, i) => { const a = (i / 18) * Math.PI * 2 + 0.17, x0 = 60 + Math.cos(a) * 24, y0 = 74 + Math.sin(a) * 24, x1 = 60 + Math.cos(a) * 42, y1 = 74 + Math.sin(a) * 40; return y1 < 50 && Math.abs(x1 - 60) < 14 ? "" : LINE(`M${f1(x0)} ${f1(y0)}L${f1(x1)} ${f1(y1)}`, "#B888F0", 2.6); }).join(""),
+          feet: `<g fill="#F7A6C8" ${OW(2)}><circle cx="46" cy="104" r="3.4"/><circle cx="54" cy="106" r="3.4"/><circle cx="66" cy="106" r="3.4"/><circle cx="74" cy="104" r="3.4"/></g>`,
+          body: `${RG("tidepool-spike-b", [[0, "#E2C2FF"], [0.55, "#A06ADC"], [1, "#6A38B0"]], 0.4, 0.3, 0.8)}
+            <circle cx="60" cy="74" r="28" fill="url(#tidepool-spike-b)" ${O}/>
+            <g fill="#C8A0F4" opacity=".6"><circle cx="44" cy="66" r="1.6"/><circle cx="78" cy="64" r="1.6"/><circle cx="80" cy="84" r="1.6"/><circle cx="42" cy="86" r="1.6"/><circle cx="60" cy="96" r="1.6"/></g>
+            ${shine(47, 58, 6, 3, -35)}`,
+          top: {svg: `${LINE("M60 47L60 30", "#B888F0", 2.6)}${LINE("M52 49L46 34", "#B888F0", 2.6)}${LINE("M68 49L74 34", "#B888F0", 2.6)}`, pivot: [60, 48]}
+        },
+        eyes: {lx: 51, rx: 69, y: 72, r: 3.8, style: "dot", color: "#2A1240"},
+        mouth: {x: 60, y: 81.5, w: 2.3, color: "#2A1240"},
+        cheeks: {lx: 44, rx: 76, y: 79, w: 5.4, h: 3.2, color: "#FF7FAE"},
+        anchors: {top: [60, 44, 0.85], neck: [60, 98, 1], chest: [72, 92, 0.6], back: [86, 64, 0.8], hands: [60, 96, 0.85]},
+        lines: {
+          tap: ["Oh! Um, hi. I'm soft, I promise.", "You're doing really well... just saying.", "I'm quietly cheering for you.", "Don't mind the spikes, they're just for show.", "You make me feel brave!", "Little steps are still steps!", "I believe in you. Shyly. But a lot."],
+          pet: ["Eep! That was nice actually.", "Hehe... I'm blushing all over."],
+          hello: ["Oh! You're back... yay!", "Hi... I'm really glad you're here."],
+          morning: ["Good morning... the pool is nice and clear.", "Morning! I'll be brave today if you will."],
+          night: ["Tucking in between the rocks. Sleep well!", "Shh... the tide's coming in. Rest soon."],
+          focus: ["Very quietly being here for you.", "Shy cheers. Big focus."],
+          done: ["Wow... you did all of that!", "Session done! I'm so proud... out loud!"],
+          task: ["Yay! Done!", "Checked off! *happy wiggle*", "Another one... amazing!", "You did it! Spikes up!"],
+          break: ["Break time! Roll around a little!", "Rest for a bit. You earned it."]
+        }
+      },
+      {
+        id: "tidepool-pippin", name: "Pippin", kind: "Puffin Chick", pose: "stand", wearColor: "#FF7A3A",
+        bio: "A fluffy puffin chick in a tiny tuxedo who waddles over to check on you.",
+        idle: ["waddle", "headTilt", "wingFlutter"], cheer: "wingFlutter",
+        neck: [60, 72],
+        parts: {
+          feet: `<path d="M40 111L46 102L52 111Z" fill="#FF8A3A" ${OW(2.2)}/><path d="M68 111L74 102L80 111Z" fill="#FF8A3A" ${OW(2.2)}/>`,
+          wingL: {svg: `<path d="M38 76C27 82 24 96 30 104C38 98 41 88 40 76Z" fill="#3A3644" ${O}/>`, pivot: [39, 78]},
+          wingR: {svg: `<path d="M82 76C93 82 96 96 90 104C82 98 79 88 80 76Z" fill="#3A3644" ${O}/>`, pivot: [81, 78]},
+          body: `${RG("tidepool-pippin-b", [[0, "#6A6474"], [0.6, "#45404E"], [1, "#2A2632"]], 0.4, 0.3, 0.8)}
+            <path d="${puff(60, 89, 23, 12, 1.15)}" fill="url(#tidepool-pippin-b)" ${O}/>
+            <ellipse cx="60" cy="92" rx="15" ry="15" fill="#FFFFFF"/><path d="M50 84q2-2 4 0M58 82q2-2 4 0M66 84q2-2 4 0" fill="none" stroke="#E6E2EA" stroke-width="1.6" stroke-linecap="round"/>`,
+          head: `${RG("tidepool-pippin-h", [[0, "#6A6474"], [0.6, "#45404E"], [1, "#2A2632"]], 0.4, 0.28, 0.8)}
+            <path d="${puff(60, 50, 23, 13, 1.1)}" fill="url(#tidepool-pippin-h)" ${O}/>`,
+          face: `<ellipse cx="60" cy="54" rx="16.5" ry="13.5" fill="#F6F4F0"/>`
+        },
+        eyes: {lx: 51, rx: 69, y: 50, r: 3.6, style: "dot", color: "#1A1820"},
+        mouth: {x: 60, y: 62, w: 3},
+        mouths: {neutral: pbeak(0, false), smile: pbeak(-0.6, false) + `<path d="M50 59q1.6 1.8 3.4 1M70 59q-1.6 1.8 -3.4 1" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/>`, open: pbeak(-1, true), sleepy: pbeak(0.8, false)},
+        cheeks: {lx: 47, rx: 73, y: 59, w: 3.4, h: 2.2, color: "#FF8FA8"},
+        anchors: {top: [60, 28, 0.9], neck: [60, 74, 1], chest: [70, 94, 0.62], back: [84, 86, 0.8], hands: [60, 98, 0.85]},
+        lines: {
+          tap: ["Hello! Pool inspection complete, all is well!", "Waddle waddle, you're doing great!", "I checked every pool. You're the best one!", "Tuxedo on, ready to study!", "Fluffy but focused!", "Let's waddle to the next task!", "You're puff-ectly on track!", "Beak up, chest out, here we go!"],
+          pet: ["Hehe! My fluff is extra fluffy now!", "Peep peep! Again!"],
+          hello: ["You're back! I waddled right over!", "Hi hi! I saved you a rock by the pool!"],
+          morning: ["Good morning! Low tide, high spirits!", "Morning! I'm dressed and ready!"],
+          night: ["Burrow time soon. Tuck in, okay?", "The sea is sleepy. You should be too."],
+          focus: ["Standing guard by the pools for you.", "Quiet waddle, big focus."],
+          done: ["Flap flap! What a session!", "Done! Fluff-tastic work!"],
+          task: ["Peep! Done!", "Checked off! Happy waddle!", "Another one! Tuxedo-level fancy!", "Yes! Flippers up!"],
+          break: ["Break time! Waddle around a bit!", "Shake out your feathers! I mean shoulders!"]
+        }
+      }
+    ]
+  });
+
+  /* ================= Volcano Island ================= */
+  COMP_DATA.push({
+    theme: "volcano",
+    companions: [
+      {
+        id: "volcano-ember", name: "Ember", kind: "Lava Blob", pose: "stand", wearColor: "#2EA2A0",
+        bio: "A warm, glowing lava blob who keeps your study nights toasty.",
+        idle: ["bounce", "sparkle", "topBob"], cheer: "hop",
+        parts: {
+          back: `<circle cx="60" cy="74" r="42" fill="#FFB04A" opacity=".22"/>`,
+          feet: `<path d="M42 104Q44 112 48 108M72 106Q74 113 78 108" fill="none" stroke="${INK}" stroke-width="7" stroke-linecap="round"/><path d="M42 104Q44 112 48 108M72 106Q74 113 78 108" fill="none" stroke="#F2602A" stroke-width="3.6" stroke-linecap="round"/>`,
+          body: `${RG("volcano-ember-b", [[0, "#FFF2B0"], [0.45, "#FFB04A"], [1, "#E8402A"]], 0.42, 0.42, 0.8)}
+            <path d="M60 36C66 47 90 56 90 80C90 98 78 108 60 108C42 108 30 98 30 80C30 56 54 47 60 36Z" fill="url(#volcano-ember-b)" ${O}/>
+            <g fill="#B8302A" opacity=".45"><ellipse cx="42" cy="94" rx="4" ry="2.4"/><ellipse cx="80" cy="92" rx="3.4" ry="2"/><ellipse cx="74" cy="60" rx="2.6" ry="1.6"/></g>
+            <path d="M42 66C42 58 48 52 54 48" fill="none" stroke="#FFF8D8" stroke-width="3.4" stroke-linecap="round" opacity=".9"/>`,
+          armL: {svg: `<ellipse cx="29" cy="84" rx="5" ry="7" transform="rotate(32 29 84)" fill="#FF8A3A" ${O}/>`, pivot: [34, 82]},
+          armR: {svg: `<ellipse cx="91" cy="84" rx="5" ry="7" transform="rotate(-32 91 84)" fill="#FF8A3A" ${O}/>`, pivot: [86, 82]},
+          top: {svg: `<path d="M60 38C53 30 57 19 64 13C64 21 71 25 67 34Q64 39 60 38Z" fill="#FFE07A" ${OW(2.2)}/><path d="M61 35C59 30 61 26 63 23C64 27 66 30 64 34Z" fill="#FFF6D0"/>`, pivot: [60, 38]}
+        },
+        eyes: {lx: 51, rx: 69, y: 76, r: 4.6, style: "sparkle", color: "#4A1408"},
+        mouth: {x: 60, y: 86, w: 3.2, color: "#4A1408"},
+        cheeks: {lx: 43, rx: 77, y: 84, w: 4.4, h: 2.7, color: "#FF5A6A"},
+        anchors: {top: [60, 34, 0.85], neck: [60, 98, 1], chest: [72, 94, 0.62], back: [86, 74, 0.8], hands: [60, 98, 0.85]},
+        lines: {
+          tap: ["Hi! I'm warm, I'm glowy, I'm here for you!", "You're on fire today! The good kind!", "Hot tip: you're doing amazing!", "Bubbling with pride over here!", "Keep that glow going!", "Gooey hug from a safe distance!", "You're heating up! Love it!", "Molten-level motivation, activated!"],
+          pet: ["Ooh, careful, I'm toasty! Hehe!", "Bloop! That made me glow brighter!"],
+          hello: ["You're back! I've been glowing for you!", "Hiii! Warm welcome, literally!"],
+          morning: ["Good morning! Rise and shine, rise and glow!", "Morning! Fired up and ready!"],
+          night: ["Cooling down for the night. You too?", "Dimming my glow. Sweet dreams!"],
+          focus: ["Simmering quietly beside you.", "Steady glow, steady focus."],
+          done: ["WOW! That session was red hot!", "Done! Erupting with joy!"],
+          task: ["Bloop! Done!", "Checked off! Sparks everywhere!", "Another one! Hot stuff!", "YES! Lava-ly work!"],
+          break: ["Cool-down break! Sip some water!", "Stretch it out, stay toasty!"]
+        }
+      },
+      {
+        id: "volcano-pumi", name: "Pumi", kind: "Pumice Pebble", pose: "float", wearColor: "#E0533A",
+        bio: "A light little pumice pebble who floats along through every study session.",
+        idle: ["topBob", "sway", "headTilt"], cheer: "spin",
+        neck: [60, 92],
+        parts: {
+          back: `<ellipse cx="60" cy="96" rx="38" ry="9" fill="#8ED8D2" ${O}/>`,
+          body: `<path d="M26 96q6-3 12 0M82 97q6-3 12 0" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>`,
+          head: `${RG("volcano-pumi-b", [[0, "#FAF6F0"], [0.6, "#DCD2C8"], [1, "#B0A498"]], 0.38, 0.3, 0.8)}
+            <path d="M30 74C28 55 42 45 60 45C80 45 92 55 90 74C88 92 32 93 30 74Z" fill="url(#volcano-pumi-b)" ${O}/>
+            <g fill="#A89C92">${[[40, 60, 2.4], [80, 58, 2], [78, 78, 2.6], [42, 80, 1.8], [62, 52, 1.6], [86, 70, 1.4], [34, 70, 1.6], [52, 84, 1.4]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join("")}</g>
+            ${shine(44, 52, 6, 3, -25)}`,
+          top: {svg: `${LINE("M60 46V39", "#5DAA62", 2.4)}<path d="M60 41C56 33 47 33 44 37C48 43 56 44 60 41Z" fill="#8AD08A" ${O2}/><path d="M60 40C64 32 73 32 76 36C72 42 64 43 60 40Z" fill="#9BDA95" ${O2}/>`, pivot: [60, 47]}
+        },
+        eyes: {lx: 50, rx: 70, y: 66, r: 3.8, style: "dot", color: "#2B2233"},
+        mouth: {x: 60, y: 75, w: 2.7},
+        cheeks: {lx: 43, rx: 77, y: 73, w: 4.2, h: 2.6, color: "#FF9A9A"},
+        anchors: {top: [60, 40, 0.85], neck: [60, 90, 1], chest: [72, 84, 0.6], back: [86, 62, 0.8], hands: [60, 90, 0.85]},
+        lines: {
+          tap: ["Hi! Look, I'm floating! Is this swimming?", "Light as air, strong as rock. Like you!", "You're doing great, I can tell from here!", "Drifting along, cheering you on!", "Little pebble, big belief in you!", "Keep it light, keep it going!", "You make hard things look easy!"],
+          pet: ["Hehe! I'm bobbing with joy!", "Ooh, I almost floated away!"],
+          hello: ["You're back! I drifted right over!", "Hi! The tide brought me to you!"],
+          morning: ["Good morning! Bright sun, light heart!", "Morning! Ready to float through today!"],
+          night: ["Bobbing off to sleep soon. You too?", "The waves are gentle tonight. Rest well."],
+          focus: ["Floating quietly right here.", "Steady bob, steady focus."],
+          done: ["Wow! I'm so light with happiness!", "Session done! Floating on air!"],
+          task: ["Bloop! Done!", "Checked off! Floaty hooray!", "Another one! Light work!", "Yes! Bob bob bob!"],
+          break: ["Break! Lie back and float for a minute!", "Rest time. Let the waves rock you."]
+        }
+      },
+      {
+        id: "volcano-iggy", name: "Iggy", kind: "Marine Iguana", pose: "sit", wearColor: "#2EA2A0",
+        bio: "A sunny marine iguana who basks on the warm rocks between your tasks.",
+        idle: ["tailSwish", "headTilt", "earTwitch"], cheer: "bounce",
+        neck: [60, 74],
+        parts: {
+          tail: {svg: LINE("M82 102C98 106 108 96 106 84C105 77 98 78 100 85", "#6E7C84", 6.4), pivot: [82, 100]},
+          feet: `<path d="M38 104l-6 6M42 106l-3 6M46 106v6M82 104l6 6M78 106l3 6M74 106v6" stroke="${INK}" stroke-width="2.4" stroke-linecap="round"/><ellipse cx="42" cy="104" rx="8" ry="4" fill="#5E6C74" ${OW(2.2)}/><ellipse cx="78" cy="104" rx="8" ry="4" fill="#5E6C74" ${OW(2.2)}/>`,
+          body: `${RG("volcano-iggy-b", [[0, "#A8B8BC"], [0.6, "#6E7C84"], [1, "#46525A"]], 0.42, 0.3, 0.8)}
+            <path d="M34 106C30 90 38 76 60 74C82 76 90 90 86 106Z" fill="url(#volcano-iggy-b)" ${O}/>
+            <ellipse cx="60" cy="94" rx="13" ry="10" fill="#B8D0C8"/>
+            <g fill="#E07A5A" opacity=".75"><ellipse cx="40" cy="90" rx="3.6" ry="2.4"/><ellipse cx="80" cy="88" rx="3.2" ry="2.2"/></g>
+            <g fill="#4FB8A8" opacity=".6"><circle cx="46" cy="80" r="2"/><circle cx="74" cy="80" r="2"/></g>`,
+          armL: {svg: `<ellipse cx="40" cy="92" rx="5" ry="8" transform="rotate(18 40 92)" fill="#6E7C84" ${O}/>`, pivot: [43, 86]},
+          armR: {svg: `<ellipse cx="80" cy="92" rx="5" ry="8" transform="rotate(-18 80 92)" fill="#6E7C84" ${O}/>`, pivot: [77, 86]},
+          earL: {svg: `<path d="M42 36L38 22L49 31Z" fill="#E8A040" ${O2}/><path d="M50 32L50 18L57 29Z" fill="#E8A040" ${O2}/>`, pivot: [48, 34]},
+          earR: {svg: `<path d="M78 36L82 22L71 31Z" fill="#E8A040" ${O2}/><path d="M70 32L70 18L63 29Z" fill="#E8A040" ${O2}/>`, pivot: [72, 34]},
+          head: `${RG("volcano-iggy-h", [[0, "#B0C0C4"], [0.6, "#76848C"], [1, "#4A565E"]], 0.42, 0.3, 0.8)}
+            <path d="M34 54C34 38 46 30 60 30C74 30 86 38 86 54C86 68 76 76 60 76C44 76 34 68 34 54Z" fill="url(#volcano-iggy-h)" ${O}/>
+            <g fill="#F4FAFA"><circle cx="50" cy="36" r="2"/><circle cx="58" cy="33.4" r="1.6"/><circle cx="66" cy="34" r="2.2"/><circle cx="73" cy="38" r="1.4"/><circle cx="62" cy="38" r="1.2"/></g>
+            <g fill="#5A6870" opacity=".55"><circle cx="40" cy="60" r="1.6"/><circle cx="80" cy="60" r="1.6"/><circle cx="44" cy="67" r="1.3"/><circle cx="76" cy="67" r="1.3"/></g>`,
+          face: `<ellipse cx="55" cy="60" rx="1.4" ry="1" fill="${INK}"/><ellipse cx="65" cy="60" rx="1.4" ry="1" fill="${INK}"/>`
+        },
+        eyes: {lx: 48, rx: 72, y: 50, r: 5, style: "round", color: "#2B1A10"},
+        mouth: {x: 60, y: 66, w: 4.2},
+        cheeks: {lx: 41, rx: 79, y: 60, w: 4.2, h: 2.6, color: "#FF8F8F"},
+        anchors: {top: [60, 28, 0.95], neck: [60, 76, 1.05], chest: [72, 96, 0.68], back: [86, 88, 0.8], hands: [60, 98, 0.85]},
+        lines: {
+          tap: ["Hi! Just sunbathing between study sessions.", "Achoo! Sorry, that's a happy salt sneeze!", "You're doing great, mate!", "Slow blink of approval.", "Warm rocks, warm heart, warm wishes!", "Let's dive into the next one!", "You're tougher than lava rock!"],
+          pet: ["Achoo! Hehe, happy sneeze!", "Ooh, right on the spiky bits!"],
+          hello: ["You're back! Grab a warm rock!", "Hey hey! Sun's out, study's on!"],
+          morning: ["Good morning! Time to warm up in the sun!", "Morning! I sneezed three times, so it's a great day!"],
+          night: ["Rocks are cooling down. Bedtime soon?", "Sleeping in a cozy pile tonight. You rest too!"],
+          focus: ["Basking quietly beside you.", "Still as a rock. Focused as one too."],
+          done: ["Achoo! That was a great session!", "Done! Big happy sunbathe!"],
+          task: ["Achoo! Done!", "Checked off! Salty success!", "Another one! Iguana be proud!", "Yes! Tail wag!"],
+          break: ["Break! Go find some sunshine!", "Stretch out on a warm rock for a bit!"]
+        }
+      }
+    ]
+  });
+
+  /* ================= Savanna Sunset ================= */
+  COMP_DATA.push({
+    theme: "savanna",
+    companions: [
+      {
+        id: "savanna-peanut", name: "Peanut", kind: "Baby Elephant", pose: "stand", wearColor: "#D27A2A",
+        bio: "A gentle baby elephant who never forgets a due date.",
+        idle: ["earTwitch", "tailSwish", "topBob"], cheer: "bounce",
+        parts: {
+          earL: {svg: `${LG("savanna-peanut-e", [[0, "#C8C0CC"], [1, "#9A92A2"]])}<path d="M40 46C22 36 10 52 14 68C18 82 32 80 42 70Z" fill="url(#savanna-peanut-e)" ${O}/><path d="M38 52C26 46 19 56 22 66C25 74 32 72 38 66Z" fill="#F6B8C4"/>`, pivot: [40, 58]},
+          earR: {svg: `${LG("savanna-peanut-e2", [[0, "#C8C0CC"], [1, "#9A92A2"]])}<path d="M80 46C98 36 110 52 106 68C102 82 88 80 78 70Z" fill="url(#savanna-peanut-e2)" ${O}/><path d="M82 52C94 46 101 56 98 66C95 74 88 72 82 66Z" fill="#F6B8C4"/>`, pivot: [80, 58]},
+          tail: {svg: `${LINE("M84 92Q94 94 96 102", "#9A92A2", 2.6)}<path d="M94 100l3 6l2-5z" fill="${INK}"/>`, pivot: [84, 92]},
+          feet: `<rect x="40" y="94" width="15" height="16" rx="6" fill="#A8A0B0" ${O}/><rect x="65" y="94" width="15" height="16" rx="6" fill="#A8A0B0" ${O}/><path d="M43 108h3M49 108h3M68 108h3M74 108h3" stroke="#F2EEF4" stroke-width="2" stroke-linecap="round"/>`,
+          body: `${RG("savanna-peanut-b", [[0, "#E2DCE6"], [0.6, "#B8B0C0"], [1, "#948CA0"]], 0.42, 0.3, 0.8)}
+            <ellipse cx="60" cy="86" rx="27" ry="19" fill="url(#savanna-peanut-b)" ${O}/>
+            <circle cx="60" cy="54" r="25" fill="url(#savanna-peanut-b)" ${O}/>${shine(46, 40, 6, 3, -35)}`,
+          face: `${LINE("M60 62C58 74 56 84 62 88C68 90 72 86 69 81", "#B0A8B8", 7.4)}<path d="M57 68h6M56.5 74h6.4M57 80h6" stroke="#948CA0" stroke-width="1.4" stroke-linecap="round"/>`,
+          top: {svg: `<path d="M56 31Q54 24 58 22M60 30Q60 22 64 20M64 31Q67 25 70 25" fill="none" stroke="${INK}" stroke-width="2.4" stroke-linecap="round"/>`, pivot: [60, 31]}
+        },
+        eyes: {lx: 48, rx: 72, y: 52, r: 3.8, style: "dot", color: "#2B2233"},
+        mouth: {x: 48, y: 69, w: 2.4},
+        cheeks: {lx: 43, rx: 77, y: 61, w: 4.4, h: 2.7, color: "#FF9AB0"},
+        anchors: {top: [60, 30, 0.95], neck: [60, 80, 1.1], chest: [76, 90, 0.68], back: [86, 80, 0.8], hands: [60, 94, 0.85]},
+        lines: {
+          tap: ["Hi! I remembered you'd come. I always remember!", "You're doing great, and I'll never forget it!", "Big ears, big heart, big cheers!", "Trunk up for your hard work!", "Let's stomp through this list together!", "I never forget a due date. Or a friend!", "Splash of encouragement coming your way!", "Step by step, like a little elephant."],
+          pet: ["Hehe! My ears are flapping with joy!", "Ooh, trunk hug for you!"],
+          hello: ["You're back! I knew you would be!", "Hi hi! I saved you some shade!"],
+          morning: ["Good morning! Sun's up, ears up!", "Morning! I remembered everything for today!"],
+          night: ["The stars are out over the acacias. Rest soon?", "Sleepy ears. Goodnight soon, okay?"],
+          focus: ["Standing quietly right here with you.", "Big ears, listening, focusing."],
+          done: ["What a session! Trumpet toot!", "Done! I'll remember this one forever!"],
+          task: ["Toot toot! Done!", "Checked off! Big happy splash!", "Another one! Unforgettable!", "Yes! Ears flapping hooray!"],
+          break: ["Break! Have a big drink of water!", "Shake it out! Flap those ears!"]
+        }
+      },
+      {
+        id: "savanna-stretch", name: "Stretch", kind: "Giraffe Calf", pose: "stand", wearColor: "#4E9A4E",
+        bio: "A tall giraffe calf who spots your deadlines from miles away.",
+        idle: ["headTilt", "tailSwish", "earTwitch"], cheer: "hop",
+        neck: [60, 54],
+        parts: {
+          tail: {svg: `${LINE("M40 80Q30 84 30 96", "#C88A3A", 2.4)}<path d="M28 94l2 7l3-6z" fill="#6A4A2A" ${OW(1.6)}/>`, pivot: [41, 80]},
+          feet: `${["M46 88V108", "M54 88V109", "M66 88V109", "M74 88V108"].map(d => `<path d="${d}" stroke="${INK}" stroke-width="8.4" stroke-linecap="round"/><path d="${d}" stroke="#F2C46A" stroke-width="4.8" stroke-linecap="round"/>`).join("")}<g fill="#6A4A2A"><rect x="42.6" y="106" width="7" height="4.4" rx="1.6"/><rect x="50.6" y="107" width="7" height="4.4" rx="1.6"/><rect x="62.6" y="107" width="7" height="4.4" rx="1.6"/><rect x="70.6" y="106" width="7" height="4.4" rx="1.6"/></g>`,
+          body: `${LG("savanna-stretch-b", [[0, "#FFD88A"], [1, "#E8A84A"]])}
+            <ellipse cx="60" cy="82" rx="22" ry="12" fill="url(#savanna-stretch-b)" ${O}/>
+            <path d="M52 82C52 70 53 58 54 48H66C67 58 68 70 68 82Z" fill="url(#savanna-stretch-b)" ${O}/>
+            <path d="M66.6 50C67.4 60 68 70 68.4 78" fill="none" stroke="#B87A3A" stroke-width="3" stroke-linecap="round"/>
+            <g fill="#C8803A"><ellipse cx="57" cy="64" rx="3" ry="2.6"/><ellipse cx="62" cy="72" rx="2.6" ry="2.4"/><ellipse cx="58" cy="56" rx="2.2" ry="2"/><ellipse cx="48" cy="82" rx="3.2" ry="2.6"/><ellipse cx="70" cy="86" rx="3" ry="2.4"/><ellipse cx="60" cy="88" rx="2.4" ry="2"/></g>`,
+          earL: {svg: `<ellipse cx="38" cy="33" rx="8" ry="4" transform="rotate(-18 38 33)" fill="#F2C46A" ${O2}/><ellipse cx="38" cy="33" rx="4.4" ry="1.8" transform="rotate(-18 38 33)" fill="#F6B0B8"/>`, pivot: [44, 35]},
+          earR: {svg: `<ellipse cx="82" cy="33" rx="8" ry="4" transform="rotate(18 82 33)" fill="#F2C46A" ${O2}/><ellipse cx="82" cy="33" rx="4.4" ry="1.8" transform="rotate(18 82 33)" fill="#F6B0B8"/>`, pivot: [76, 35]},
+          head: `${RG("savanna-stretch-h", [[0, "#FFE6A8"], [0.6, "#F6C870"], [1, "#E0A04A"]], 0.42, 0.3, 0.8)}
+            ${LINE("M53 24V15", "#C88A3A", 2.6)}${LINE("M67 24V15", "#C88A3A", 2.6)}<circle cx="53" cy="14" r="3.4" fill="#8A5A30" ${O2}/><circle cx="67" cy="14" r="3.4" fill="#8A5A30" ${O2}/>
+            <path d="M42 36C42 26 50 21 60 21C70 21 78 26 78 36C78 46 72 54 60 54C48 54 42 46 42 36Z" fill="url(#savanna-stretch-h)" ${O}/>
+            <g fill="#C8803A" opacity=".8"><circle cx="50" cy="27" r="2"/><circle cx="71" cy="29" r="1.6"/></g>`,
+          face: `<ellipse cx="60" cy="46" rx="11" ry="7" fill="#F8DDA8" ${OW(1.8)}/><ellipse cx="56" cy="45" rx="1.2" ry="1.5" fill="${INK}"/><ellipse cx="64" cy="45" rx="1.2" ry="1.5" fill="${INK}"/>`
+        },
+        eyes: {lx: 52, rx: 68, y: 35, r: 3.4, style: "dot", color: "#2B1A10"},
+        mouth: {x: 60, y: 50, w: 2.4, color: "#2B1A10"},
+        cheeks: {lx: 46, rx: 74, y: 42, w: 3.4, h: 2.2, color: "#FF9A9A"},
+        anchors: {top: [60, 18, 0.8], neck: [60, 56, 0.8], chest: [66, 84, 0.58], back: [78, 78, 0.72], hands: [60, 88, 0.8]},
+        lines: {
+          tap: ["Hi from up here! I can see your progress!", "I spy a deadline... and you're way ahead of it!", "You're reaching new heights!", "Long neck, long list, no problem!", "Head held high, you're doing great!", "The view is lovely, and so is your work!", "Stretch for it! You've got this!"],
+          pet: ["Hehe! You reached all the way up!", "Ooh, right behind the ears!"],
+          hello: ["You're back! I saw you coming from miles away!", "Hi! The view's better with you here!"],
+          morning: ["Good morning! I can see the whole day from here!", "Morning! Tall plans, sunny skies!"],
+          night: ["Folding my legs for the night. You rest too!", "The moon's up over the acacias. Sleepy time."],
+          focus: ["Keeping a lookout while you focus.", "Quiet up here. You've got this."],
+          done: ["What a session! Sky-high work!", "Done! I'm standing extra tall!"],
+          task: ["Done! Way up high!", "Checked off! I saw it from here!", "Another one! Reaching new heights!", "Yes! Happy hoof dance!"],
+          break: ["Break! Stretch that neck!", "Look far away for a bit. Rest your eyes!"]
+        }
+      },
+      {
+        id: "savanna-sentry", name: "Sentry", kind: "Meerkat Pup", pose: "stand", wearColor: "#D27A2A",
+        bio: "A watchful meerkat pup who stands guard while you focus.",
+        idle: ["headTilt", "topBob", "bounce"], cheer: "hop",
+        neck: [60, 64],
+        parts: {
+          tail: {svg: `${LINE("M70 104Q88 108 90 92", "#C8A06E", 3.2)}<circle cx="90" cy="90" r="2.4" fill="#5A3A28"/>`, pivot: [70, 104]},
+          feet: `<ellipse cx="50" cy="109" rx="7.4" ry="3.6" fill="#B8905E" ${O}/><ellipse cx="70" cy="109" rx="7.4" ry="3.6" fill="#B8905E" ${O}/>`,
+          body: `${LG("savanna-sentry-b", [[0, "#ECD2A6"], [1, "#B88E5C"]])}
+            <path d="M42 108C38 94 40 72 48 64H72C80 72 82 94 78 108Z" fill="url(#savanna-sentry-b)" ${O}/>
+            <ellipse cx="60" cy="92" rx="10" ry="14" fill="#F6E6C8"/>`,
+          armL: {svg: `<path d="M49 72Q45.6 78.5 49 84" fill="none" stroke="${INK}" stroke-width="8" stroke-linecap="round"/><ellipse cx="50.6" cy="85.2" rx="3.6" ry="2.7" transform="rotate(20 50.6 85.2)" fill="#B8905E" ${OW(1.8)}/><path d="M49 72Q45.6 78.5 49 84" fill="none" stroke="#C8A06E" stroke-width="4.4" stroke-linecap="round"/><path d="M49.4 86.4l.6 1.4M51.8 86.2l.4 1.4" stroke="${INK}" stroke-width="1" stroke-linecap="round"/>`, pivot: [49, 71]},
+          armR: {svg: `<path d="M71 72Q74.4 78.5 71 84" fill="none" stroke="${INK}" stroke-width="8" stroke-linecap="round"/><ellipse cx="69.4" cy="85.2" rx="3.6" ry="2.7" transform="rotate(-20 69.4 85.2)" fill="#B8905E" ${OW(1.8)}/><path d="M71 72Q74.4 78.5 71 84" fill="none" stroke="#C8A06E" stroke-width="4.4" stroke-linecap="round"/><path d="M70.6 86.4l-.6 1.4M68.2 86.2l-.4 1.4" stroke="${INK}" stroke-width="1" stroke-linecap="round"/>`, pivot: [71, 71]},
+          earL: {svg: `<circle cx="39" cy="40" r="4.6" fill="#6A4A32" ${O2}/>`, pivot: [42, 42]},
+          earR: {svg: `<circle cx="81" cy="40" r="4.6" fill="#6A4A32" ${O2}/>`, pivot: [78, 42]},
+          head: `${LG("savanna-sentry-h", [[0, "#EED6AA"], [1, "#BE9460"]])}
+            <path d="M40 46C40 33 49 27 60 27C71 27 80 33 80 46C80 56 70 66 60 66C50 66 40 56 40 46Z" fill="url(#savanna-sentry-h)" ${O}/>
+            <path d="M52 30Q56 33 60 30Q64 33 68 30" fill="none" stroke="#9A7046" stroke-width="1.8" stroke-linecap="round"/>`,
+          face: `<ellipse cx="51" cy="45" rx="6.4" ry="5.4" fill="#5A3A28"/><ellipse cx="69" cy="45" rx="6.4" ry="5.4" fill="#5A3A28"/>
+            <ellipse cx="60" cy="56" rx="7" ry="5" fill="#F6E6C8"/><ellipse cx="60" cy="54.4" rx="2.4" ry="1.7" fill="${INK}"/>`,
+          top: {svg: `<path d="M56 29Q57 21 61 19Q60 24 63 28" fill="#BE9460" ${O2}/>`, pivot: [60, 29]}
+        },
+        eyes: {lx: 51, rx: 69, y: 45, r: 4, style: "round", color: "#1A1008"},
+        mouth: {x: 60, y: 59.5, w: 2.2, color: "#2B1A10"},
+        cheeks: {lx: 45, rx: 75, y: 54, w: 3.4, h: 2.2, color: "#FF9A9A"},
+        anchors: {top: [60, 27, 0.9], neck: [60, 66, 0.92], chest: [70, 88, 0.6], back: [80, 84, 0.75], hands: [60, 90, 0.8]},
+        lines: {
+          tap: ["Reporting for duty! All clear!", "Lookout says: you're doing great!", "Scanning the horizon... yep, you're amazing.", "I've got your back, you focus!", "No distractions in sight. Carry on!", "Standing tall for you!", "Perimeter secure, progress excellent!", "Sentry on watch, you on task!"],
+          pet: ["Hehe! Off duty for one second!", "Ooh, a pat! Still on watch though!"],
+          hello: ["You're back! Lookout post ready!", "Hi! I kept watch while you were away!"],
+          morning: ["Good morning! First watch of the day!", "Morning! Sun's up, eyes open!"],
+          night: ["Night shift is quiet. Time to rest soon.", "All clear for sleeping. Goodnight soon!"],
+          focus: ["On guard. You focus, I'll watch.", "Shh. Keeping lookout for you."],
+          done: ["Report: session complete! Excellent work!", "All clear! What a session!"],
+          task: ["Done! Reporting a win!", "Checked off! Lookout approves!", "Another one! Mission success!", "Yes! All clear and happy!"],
+          break: ["Break time! I'll stand watch!", "Stretch up tall like a meerkat!"]
+        }
+      }
+    ]
+  });
+})();
+/* end of module 98-comp-n1.js */
+
+
+
+
+
+
+/* ===== module: 98-comp-n5.js ===== */
+/* Study Companions, batch n5: pride, graduation, birthday, geology */
+(() => {
+  const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
+  const O2 = OW(2.2);
+  const twinkle = (x, y, s, c) => `<path d="M${x} ${y - s}Q${x} ${y} ${x + s} ${y}Q${x} ${y} ${x} ${y + s}Q${x} ${y} ${x - s} ${y}Q${x} ${y} ${x} ${y - s}Z" fill="${c || "#fff"}"/>`;
+  const RB = ["#F0606A", "#F7A04A", "#F8D54E", "#66C46C", "#5498E0", "#9466D0"];
+  const arms = (lx, rx, y, c, rot = 26, rx2 = 4.8, ry = 6.6) => ({armL: {svg: `<ellipse cx="${lx}" cy="${y}" rx="${rx2}" ry="${ry}" transform="rotate(${rot} ${lx} ${y})" fill="${c}" ${O}/>`, pivot: [lx + 6, y - 3]}, armR: {svg: `<ellipse cx="${rx}" cy="${y}" rx="${rx2}" ry="${ry}" transform="rotate(${-rot} ${rx} ${y})" fill="${c}" ${O}/>`, pivot: [rx - 6, y - 3]}});
+  const feet = (c, a = 48, b = 72, y = 109.5) => `<ellipse cx="${a}" cy="${y}" rx="7" ry="4" fill="${c}" ${O}/><ellipse cx="${b}" cy="${y}" rx="7" ry="4" fill="${c}" ${O}/>`;
+
+  /* Pride Parade */
+  COMP_DATA.push({
+    theme: "pride",
+    companions: [
+      {
+        id: "pride-prism", name: "Prism", kind: "Rainbow Prism", pose: "stand", wearColor: "#9466D0",
+        bio: "A bright little prism who turns plain light into a rainbow for you.",
+        idle: ["sparkle", "spin", "topBob"], cheer: "spin",
+        parts: {
+          back: `${RB.map((c, i) => `<path d="M76 70L114 ${50 + i * 7}V${57 + i * 7}Z" fill="${c}"/>`).join("")}<path d="M76 70L114 50V92Z" fill="none" ${O2}/>${LINE("M4 58L40 68", "#FFFFFF", 4)}`,
+          feet: feet("#B9D8F0", 46, 74),
+          body: `${LG("pride-prism-pride-prism-g", [[0, "#FFFFFF"], [0.5, "#E6F4FF"], [1, "#B8DDF4"]], 0.2, 0, 0.8, 1)}
+            <path d="M60 24C62 24 63.5 25 64.6 27L97 100C98.4 103.4 96.6 106.5 93 106.5H27C23.4 106.5 21.6 103.4 23 100L55.4 27C56.5 25 58 24 60 24Z" fill="url(#pride-prism-pride-prism-g)" ${O}/>
+            <path d="M56 36L34 92" stroke="#fff" stroke-width="4" stroke-linecap="round"/><path d="M64 34L82 76" stroke="#C8B4F0" stroke-width="2.4" stroke-linecap="round" opacity=".7"/>
+            <path d="M32 98H88" stroke="#A8CCE8" stroke-width="2.4" stroke-linecap="round" opacity=".7"/>${twinkle(70, 92, 3, "#F8D54E")}`,
+          ...arms(27, 93, 84, "#D6ECFA"),
+          top: {svg: `${LINE("M60 24V15", "#F8D54E", 2.4)}<path d="M60 4L62.6 11.4L70 12L64.2 16.6L66.2 24L60 19.8L53.8 24L55.8 16.6L50 12L57.4 11.4Z" fill="#F8D54E" ${O2}/>`, pivot: [60, 24]}
+        },
+        eyes: {lx: 51, rx: 69, y: 72, r: 5, style: "sparkle", color: "#2A2048"},
+        mouth: {x: 60, y: 81, w: 3.1, color: "#2A2048"},
+        cheeks: {lx: 44, rx: 76, y: 79, w: 4.2, h: 2.6, color: "#FF9FC0"},
+        anchors: {top: [60, 28, 0.85], neck: [60, 94, 1], chest: [72, 92, 0.65], back: [30, 70, 0.85], hands: [60, 96, 0.9]},
+        lines: {
+          tap: ["Hi! You make me shine in every color!", "Every bit of you is bright today!", "Bend the light, find the answer, ace the quiz!", "You've got a whole rainbow of ideas!", "Proud of you, every single shade!", "Sparkle mode: on. Let's go!", "Light in, rainbow out. That's you studying!"],
+          pet: ["Hehe! You made me sparkle!", "Aww! Now I'm glowing all over!"],
+          hello: ["You're back! The light just got brighter!", "Hi hi! Ready to make some rainbows?"],
+          morning: ["Good morning! Fresh light, fresh colors!"], night: ["Dimming my sparkle now. Rest soon?"],
+          focus: ["Focused like a beam of light. You've got this.", "Shining quietly right beside you."],
+          done: ["WOW! That session was full spectrum!", "Done! Every color of awesome!"],
+          task: ["DONE! Rainbow burst!", "Checked off! That sparkles!", "Yes! Another shade of amazing!"],
+          break: ["Break time! Go find some sunshine!"]
+        }
+      },
+      {
+        id: "pride-flamingo", name: "Fifi", kind: "Flamingo Chick", pose: "stand", wearColor: "#5498E0",
+        bio: "A fluffy pink flamingo chick who's still practicing its one-legged stand.",
+        idle: ["headTilt", "wingFlutter", "sway"], cheer: "wingFlutter",
+        parts: {
+          feet: `${LINE("M60 98V110", "#F28AA0", 3)}<path d="M53 111.5H67" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><path d="M53 111.5H67" stroke="#F28AA0" stroke-width="2.4" stroke-linecap="round"/>${LINE("M66 97L74 104L68 106", "#F28AA0", 2.6)}`,
+          body: `${RG("pride-flamingo-pride-fla-g", [[0, "#FFF0F4"], [0.6, "#FFC4D4"], [1, "#F59AB4"]], 0.42, 0.35, 0.75)}
+            <path d="M46 78C36 74 28 70 25 76C27 82 34 87 44 90Z" fill="#F59AB4" ${O}/><path d="M34 77L42 83" stroke="#FFD2DE" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="${puff(60, 84, 20, 11, 1.2)}" fill="url(#pride-flamingo-pride-fla-g)" ${O}/><path d="M48 92Q60 99 72 92" fill="none" stroke="#F59AB4" stroke-width="2.2" stroke-linecap="round" opacity=".7"/><ellipse cx="51" cy="73" rx="4.6" ry="2.6" transform="rotate(-30 51 73)" fill="#fff" opacity=".65"/>`,
+          wingL: {svg: `<path d="M41 76C30 78 26 90 32 96C38 94 44 86 43 78Z" fill="#FFB0C6" ${O}/>`, pivot: [42, 78]},
+          wingR: {svg: `<path d="M79 76C90 78 94 90 88 96C82 94 76 86 77 78Z" fill="#FFB0C6" ${O}/>`, pivot: [78, 78]},
+          head: `${RG("pride-flamingo-pride-flh-g", [[0, "#FFF4F7"], [0.7, "#FFCADA"], [1, "#F7A4BE"]], 0.4, 0.35, 0.8)}
+            ${LINE("M58 74C51 66 51 58 58 51", "#FFC4D4", 7)}<ellipse cx="58.5" cy="74.5" rx="6.5" ry="4.6" fill="#FFE6EC"/>
+            <circle cx="61" cy="37" r="15" fill="url(#pride-flamingo-pride-flh-g)" ${O}/><ellipse cx="54" cy="29.5" rx="4.4" ry="2.4" transform="rotate(-35 54 29.5)" fill="#fff" opacity=".7"/>
+            <path d="M73 38C85 34 93 40 92 50C90 57 86 59 85 54C85 49 81 46 75 47Z" fill="#FFF4E6" ${O2}/><path d="M86 44C90 45 92 48 91.6 52C90.6 56 87 58 86 54Z" fill="${INK}"/>
+            ${LINE("M59 22C57 17 61 14 63 17", "#F59AB4", 2.2)}`
+        },
+        eyes: {lx: 54, rx: 68, y: 37, r: 3.6, style: "sparkle", color: "#3A1E30"},
+        mouth: {x: 61, y: 45, w: 2, color: "#3A1E30"},
+        cheeks: {lx: 49, rx: 72.5, y: 43, w: 3.4, h: 2.2, color: "#FF7FA0"},
+        neck: [58, 73],
+        anchors: {top: [61, 22, 0.75], neck: [58, 64, 0.7], chest: [70, 88, 0.6], back: [82, 72, 0.75], hands: [60, 94, 0.8]},
+        lines: {
+          tap: ["Hi! Watch me stand on one leg! ...Almost!", "You're doing fab-ulous today!", "Pink, proud and cheering for you!", "Balance is tricky, but you've got it!", "Fluff up! We're on a roll!", "Strike a pose, then strike that task!", "Every wobble counts as practice!"],
+          pet: ["Eee! My fluff is all puffed up!", "Hehe! That tickles my feathers!"],
+          hello: ["You're here! I'm flapping with joy!", "Hello! Ready to strut through today?"],
+          morning: ["Good morning! Stretch those legs, both of them!"], night: ["Tucking my head in soon. You too?"],
+          focus: ["Standing very still for you. Focus mode!", "Quiet feathers, busy brain. Go go!"],
+          done: ["WOW! That session was flamazing!", "Session done! Big fluffy cheers!"],
+          task: ["Done! Flap flap flap!", "YES! Strut-worthy work!", "Checked off! I'm so proud!"],
+          break: ["Break time! Wiggle and stretch!"]
+        }
+      },
+      {
+        id: "pride-ribbon", name: "Swirl", kind: "Parade Ribbon", pose: "float", wearColor: "#F0606A",
+        bio: "A twirly parade ribbon who dances through the air in every color.",
+        idle: ["sway", "wave", "spin"], cheer: "spin",
+        parts: {
+          back: `${(() => { const A = i => `M${18 + i * 1.4} ${40 + i * 3.6}C${30 + i} ${20 + i * 2} ${50} ${26 + i * 3} ${60} ${50 + i * 2}`, B = i => `M${60} ${70 + i * 2}C${72} ${96 + i * 2} ${90 - i} ${106 - i} ${104 - i * 1.4} ${88 - i * 3.6}`;
+              return RB.map((c, i) => `<path d="${A(i)}${B(i)}" fill="none" stroke="${INK}" stroke-width="6.6" stroke-linecap="round"/>`).join("") + RB.map((c, i) => `<path d="${A(i)}${B(i)}" fill="none" stroke="${c}" stroke-width="4.3" stroke-linecap="round"/>`).join(""); })()}
+`,
+          body: `${RG("pride-ribbon-pride-rib-g", [[0, "#FFFFFF"], [0.5, "#FFE6F2"], [1, "#F4B0D2"]], 0.4, 0.35, 0.75)}
+            <defs><clipPath id="pride-ribbon-sash-c"><circle cx="60" cy="62" r="22"/></clipPath></defs>
+            <circle cx="60" cy="62" r="23" fill="url(#pride-ribbon-pride-rib-g)"/>
+            <g clip-path="url(#pride-ribbon-sash-c)">${RB.map((c, i) => `<path d="M34 ${72 + i * 2.2}Q60 ${80 + i * 2} 86 ${72 + i * 2.2}" fill="none" stroke="${c}" stroke-width="2.4"/>`).join("")}</g>
+            <circle cx="60" cy="62" r="23" fill="none" ${O}/>
+            <ellipse cx="47" cy="51" rx="5" ry="3" transform="rotate(-38 47 51)" fill="#fff"/>${twinkle(84, 40, 3, "#F8D54E")}${twinkle(34, 86, 2.6, "#5498E0")}`,
+          ...arms(34, 86, 70, "#F7C4DC", 25, 4.4, 5.8)
+        },
+        eyes: {lx: 51, rx: 69, y: 60, r: 4.8, style: "sparkle", color: "#3A1E40"},
+        mouth: {x: 60, y: 69, w: 3, color: "#3A1E40"},
+        cheeks: {lx: 44, rx: 76, y: 67, w: 4.2, h: 2.6, color: "#FF8FB8"},
+        anchors: {top: [60, 40, 0.85], neck: [60, 84, 0.95], chest: [72, 78, 0.6], back: [86, 54, 0.8], hands: [60, 84, 0.85]},
+        lines: {
+          tap: ["Wheee! Twirling just for you!", "Every color of you is welcome here!", "Loop de loop, you're doing great!", "Let's make today a parade!", "You bring the color to this whole board!", "Swish! Another idea caught!", "Proud of you, swirl to swirl!"],
+          pet: ["Hehe! I'm all tangled with happiness!", "Wheee! Spin me again!"],
+          hello: ["You're back! Cue the parade!", "Hi hi! I saved you a spot on the float!"],
+          morning: ["Good morning! Let's twirl into the day!"], night: ["Curling up in a soft loop. Rest soon?"],
+          focus: ["Floating quietly beside you. You've got this.", "Slow swirls, steady focus."],
+          done: ["WOW! That session deserves a parade!", "Done! Confetti and ribbons for you!"],
+          task: ["DONE! Big rainbow twirl!", "Yes! Swish, checked off!", "Woohoo! Another float in the parade!"],
+          break: ["Break time! Twirl around the room!"]
+        }
+      }
+    ]
+  });
+
+  /* Graduation Day */
+  COMP_DATA.push({
+    theme: "graduation",
+    companions: [
+      {
+        id: "graduation-cap", name: "Tassel", kind: "Grad Cap", pose: "stand", wearColor: "#F2B83A",
+        bio: "A proud little grad cap who's been waiting all year for your big day.",
+        idle: ["topBob", "sway", "headTilt"], cheer: "spin", hatTop: true,
+        parts: {
+          feet: feet("#1E3366", 48, 72),
+          body: `${LG("graduation-cap-grad-cap-b", [[0, "#4A6AB0"], [1, "#24386E"]])}
+            <path d="M38 80Q38 106 60 107Q82 106 82 80Z" fill="url(#graduation-cap-grad-cap-b)" ${O}/><path d="M52 82L60 94L68 82" fill="none" stroke="#F2B83A" stroke-width="3" stroke-linejoin="round"/>`,
+          ...arms(36, 84, 92, "#3A5AA0"),
+          head: `${LG("graduation-cap-grad-cap-h", [[0, "#5A7ACC"], [1, "#2E4A8A"]])}${RG("graduation-cap-grad-cap-f", [[0, "#FFF6EC"], [1, "#F6DCC4"]], 0.42, 0.35, 0.8)}
+            <path d="M33 58C33 42 45 36 60 36C75 36 87 42 87 58C87 74 75 84 60 84C45 84 33 74 33 58Z" fill="url(#graduation-cap-grad-cap-f)" ${O}/>
+            <path d="M36 44Q38 34 60 33Q82 34 84 44Q72 40 60 40Q48 40 36 44Z" fill="url(#graduation-cap-grad-cap-h)" ${O}/>
+            <path d="M60 14L104 30L60 46L16 30Z" fill="#2E4A8A" ${O}/><path d="M26 29L58 17.6" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".35"/><circle cx="60" cy="30" r="3.6" fill="#F2B83A" ${O2}/>`,
+          top: {svg: `${LINE("M60 30L92 38V58", "#F2B83A", 2.6)}<path d="M88 56H96L98 70H86Z" fill="#F2B83A" ${O2}/><path d="M89 60V68M92 60V68M95 60V68" stroke="#C88A1A" stroke-width="1.2"/>`, pivot: [60, 30]}
+        },
+        eyes: {lx: 51, rx: 69, y: 60, r: 4.8, style: "sparkle", color: "#1E2A4A"},
+        mouth: {x: 60, y: 69, w: 3, color: "#1E2A4A"},
+        cheeks: {lx: 43.5, rx: 76.5, y: 67, w: 4.2, h: 2.6, color: "#FF9FB0"},
+        neck: [60, 82],
+        anchors: {top: [60, 22, 0.9], neck: [60, 84, 0.85], chest: [70, 96, 0.6], back: [86, 74, 0.8], hands: [60, 98, 0.85]},
+        lines: {
+          tap: ["Hi! One step closer to the big day!", "Every task is a step across the stage!", "Tassel's on the right side of awesome!", "You're going to make it. I just know!", "Caps off to you today!", "Study now, celebrate later!", "Class of AMAZING, that's you!"],
+          pet: ["Hehe! My tassel is swinging!", "Aww! Careful, don't knock my cap off!"],
+          hello: ["You're back! Let's earn that diploma!", "Hi hi! Ready for another step?"],
+          morning: ["Good morning, future graduate!"], night: ["Even grads need sleep. Rest soon?"],
+          focus: ["Eyes on the stage. You've got this.", "Quiet cap, steady focus."],
+          done: ["WOW! Throw your cap! That was great!", "Session done! Top of the class!"],
+          task: ["DONE! Caps in the air!", "Checked off! Honor roll stuff!", "YES! One step closer!"],
+          break: ["Break time! Stretch like a victory pose!"]
+        }
+      },
+      {
+        id: "graduation-diploma", name: "Dippy", kind: "Rolled Diploma", pose: "stand", wearColor: "#9A2E4A",
+        bio: "A rolled-up diploma with a ribbon who unrolls when you finish big things.",
+        idle: ["topBob", "wave", "sparkle"], cheer: "bounce",
+        parts: {
+          feet: feet("#C9A866", 49, 71),
+          body: `${LG("graduation-diploma-grad-dip-g", [[0, "#FFFBEE"], [0.55, "#F6E6C0"], [1, "#E2C890"]], 0, 0, 1, 0)}
+            <rect x="38" y="26" width="44" height="80" rx="20" fill="url(#graduation-diploma-grad-dip-g)" ${O}/><ellipse cx="60" cy="31" rx="20" ry="6" fill="#FFF8E6" ${O2}/><ellipse cx="60" cy="31" rx="8" ry="2.6" fill="#E2C890"/>
+            <path d="M45 40V96" stroke="#fff" stroke-width="3.4" stroke-linecap="round" opacity=".8"/>
+            <rect x="38" y="84" width="44" height="8" fill="#9A2E4A" ${O2}/><circle cx="72" cy="88" r="6" fill="#F2B83A" ${O2}/><circle cx="72" cy="88" r="2.6" fill="#FFE7A0"/>`,
+          ...arms(33, 87, 72, "#F6E6C0"),
+          top: {svg: `<path d="M60 28C50 14 38 18 44 27Z M60 28C70 14 82 18 76 27Z" fill="#9A2E4A" ${O2}/><circle cx="60" cy="27" r="4" fill="#C84A6A" ${O2}/>`, pivot: [60, 28]}
+        },
+        eyes: {lx: 52, rx: 68, y: 56, r: 4.6, style: "dot", color: "#3A2A1A"},
+        mouth: {x: 60, y: 65, w: 3, color: "#3A2A1A"},
+        cheeks: {lx: 46, rx: 74, y: 63, w: 4, h: 2.5, color: "#FF9FB0"},
+        anchors: {top: [60, 22, 0.9], neck: [60, 78, 0.8], chest: [70, 98, 0.55], back: [86, 60, 0.8], hands: [60, 92, 0.85]},
+        lines: {
+          tap: ["Hi! I'm all rolled up and ready!", "Big things ahead, I can feel it!", "Your name looks great in fancy letters!", "Every page you study counts!", "You're writing your own success story!", "Ribbon-worthy work today!", "I'll unroll the moment you finish!"],
+          pet: ["Hehe! You'll crinkle my paper!", "Aww! My ribbon is blushing!"],
+          hello: ["You're back! Let's earn some ribbons!", "Hello! Fresh paper, fresh start!"],
+          morning: ["Good morning! Today's a ribbon kind of day!"], night: ["Rolling up for the night. Sleep soon?"],
+          focus: ["Rolled up and quiet. Focus time!", "Right here, cheering in cursive."],
+          done: ["WOW! I'm unrolling with pride!", "Session done! That's certificate level!"],
+          task: ["DONE! Signed, sealed, finished!", "Yes! Official awesome!", "Checked off with a gold seal!"],
+          break: ["Break time! Unroll those shoulders!"]
+        }
+      },
+      {
+        id: "graduation-laurel", name: "Laurel", kind: "Laurel Wreath Sprite", pose: "float", wearColor: "#F2B83A",
+        bio: "A little laurel wreath who adds a leaf for every win, big or small.",
+        idle: ["sparkle", "sway", "spin"], cheer: "spin",
+        parts: {
+          back: `${[...Array(9)].map((_, i) => { const a = (150 + i * 30) * Math.PI / 180, x = +(60 + Math.cos(a) * 36).toFixed(1), y = +(64 + Math.sin(a) * 36).toFixed(1); return `<ellipse cx="${x}" cy="${y}" rx="10" ry="5" transform="rotate(${+(a * 57.3 + 115).toFixed(1)} ${x} ${y})" fill="${i % 2 ? "#8CCB7E" : "#6CB070"}" ${O2}/>`; }).join("")}
+            ${[...Array(9)].map((_, i) => { const a = (30 - i * 30) * Math.PI / 180, x = +(60 + Math.cos(a) * 36).toFixed(1), y = +(64 + Math.sin(a) * 36).toFixed(1); return `<ellipse cx="${x}" cy="${y}" rx="10" ry="5" transform="rotate(${+(a * 57.3 + 65).toFixed(1)} ${x} ${y})" fill="${i % 2 ? "#8CCB7E" : "#6CB070"}" ${O2}/>`; }).join("")}
+            <path d="M52 100Q60 94 68 100L66 110L60 105L54 110Z" fill="#9A2E4A" ${O2}/>`,
+          body: `${RG("graduation-laurel-grad-lau-g", [[0, "#FFFCE8"], [0.55, "#FFE490"], [1, "#F2B83A"]], 0.42, 0.35, 0.75)}
+            <circle cx="60" cy="64" r="22" fill="url(#graduation-laurel-grad-lau-g)" ${O}/><ellipse cx="48" cy="54" rx="5" ry="3" transform="rotate(-38 48 54)" fill="#fff"/>
+            ${twinkle(60, 22, 5, "#F2B83A")}${twinkle(20, 40, 3, "#FFE490")}${twinkle(100, 44, 3, "#FFE490")}`,
+          ...arms(36, 84, 75, "#FFD86B", 25, 4.4, 5.8)
+        },
+        eyes: {lx: 52, rx: 68, y: 62, r: 4.6, style: "sparkle", color: "#3A2A10"},
+        mouth: {x: 60, y: 71, w: 2.9, color: "#3A2A10"},
+        cheeks: {lx: 45, rx: 75, y: 69, w: 4, h: 2.5, color: "#FF9F8F"},
+        anchors: {top: [60, 44, 0.85], neck: [60, 84, 0.9], chest: [72, 78, 0.6], back: [88, 54, 0.8], hands: [60, 84, 0.85]},
+        lines: {
+          tap: ["Hi! A leaf for you, and another!", "Every win counts, even the tiny ones!", "You're a champion of showing up!", "Victory is made of little steps!", "Crowning you with leaves today!", "Big win, small win, all wins!", "Glowing with pride for you!"],
+          pet: ["Hehe! My leaves are rustling!", "Aww! That's a golden pat!"],
+          hello: ["You're back! Ready to collect some wins?", "Hi hi! Your wreath is waiting!"],
+          morning: ["Good morning, champion!"], night: ["Leaves folding in. Rest well, winner."],
+          focus: ["Quietly growing a leaf for this session.", "Glowing softly beside you. Keep going."],
+          done: ["WOW! That earns the golden wreath!", "Session done! A whole new leaf!"],
+          task: ["DONE! Another leaf on the wreath!", "Yes! Victory lap!", "Checked off! Champion move!"],
+          break: ["Break time! Take a victory stretch!"]
+        }
+      }
+    ]
+  });
+
+  /* Birthday Bash */
+  COMP_DATA.push({
+    theme: "birthday",
+    companions: [
+      {
+        id: "birthday-popper", name: "Pop", kind: "Party Popper", pose: "stand", wearColor: "#FF7FA8",
+        bio: "A cheerful party popper who saves its confetti for your big moments.",
+        idle: ["topBob", "bounce", "sparkle"], cheer: "bounce",
+        parts: {
+          feet: feet("#E89A3A", 52, 68),
+          body: `${LG("birthday-popper-bday-pop-g", [[0, "#FFE890"], [1, "#F29A3A"]], 0, 0, 1, 1)}
+            <path d="M28 40H92L64 106Q60 110 56 106Z" fill="url(#birthday-popper-bday-pop-g)" ${O}/>
+            <path d="M31.5 48L88.5 48M45 80L75 80M51.4 94L68.6 94" stroke="#FF7FA8" stroke-width="5"/><path d="M28 40H92L64 106Q60 110 56 106Z" fill="none" ${O}/>
+            <ellipse cx="60" cy="40" rx="32" ry="7" fill="#FFF6E0" ${O}/><path d="M36 48L52 98" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".6"/>`,
+          ...arms(33, 87, 64, "#FFD86B"),
+          top: {svg: `${LINE("M50 38Q44 24 50 14", "#7FC8F0", 2.6)}${LINE("M70 38Q78 26 74 14", "#B58CF2", 2.6)}${LINE("M60 36V20", "#FF7FA8", 2.6)}
+            <rect x="40" y="22" width="7" height="4" rx="1" fill="#7FD8C0" ${OW(1.4)} transform="rotate(-25 43 24)"/><rect x="76" y="26" width="7" height="4" rx="1" fill="#FFD45A" ${OW(1.4)} transform="rotate(30 79 28)"/><circle cx="60" cy="14" r="3.6" fill="#FFD45A" ${OW(1.6)}/>${twinkle(36, 12, 3.4, "#FF7FA8")}${twinkle(86, 10, 3, "#7FC8F0")}`, pivot: [60, 38]}
+        },
+        eyes: {lx: 51, rx: 69, y: 60, r: 4.8, style: "sparkle", color: "#3A2010"},
+        mouth: {x: 60, y: 69, w: 3, color: "#3A2010"},
+        cheeks: {lx: 44, rx: 76, y: 67, w: 4.2, h: 2.6, color: "#FF8F9F"},
+        anchors: {top: [60, 34, 0.9], neck: [60, 78, 0.8], chest: [68, 88, 0.55], back: [86, 58, 0.8], hands: [60, 84, 0.85]},
+        lines: {
+          tap: ["Hi! I'm full of confetti for you!", "Saving my biggest pop for your big win!", "You're the life of this study party!", "Every finished task deserves a pop!", "Ready, set, celebrate soon!", "Party mode starts after this page!", "You make every day feel special!"],
+          pet: ["Eep! Careful, I might pop!", "Hehe! A little confetti slipped out!"],
+          hello: ["You're back! Party time can begin!", "Hi hi! Let's earn some confetti!"],
+          morning: ["Good morning! Today's worth celebrating!"], night: ["Saving my pop for tomorrow. Sleep well!"],
+          focus: ["Holding my confetti very still. Go go!", "Quiet popper, big cheers inside."],
+          done: ["POP! That session was a party!", "Done! Confetti everywhere!"],
+          task: ["POP! DONE!", "Yes! Confetti for that one!", "Checked off! Party time!"],
+          break: ["Break time! Do a little party dance!"]
+        }
+      },
+      {
+        id: "birthday-pinata", name: "Piña", kind: "Llama Piñata", pose: "stand", wearColor: "#B58CF2",
+        bio: "A colorful, fringed llama piñata who throws a little party for every win.",
+        idle: ["earTwitch", "sway", "headTilt"], cheer: "hop",
+        parts: {
+          feet: `${[44, 54, 66, 76].map((x, i) => `<rect x="${x - 4.5}" y="92" width="9" height="18" rx="3" fill="${["#5CCFC0", "#FF8FB8", "#B58CF2", "#FFD45A"][i]}" ${O}/>`).join("")}`,
+          body: `<rect x="34" y="70" width="52" height="28" rx="8" fill="#FF8FB8" ${O}/>
+            <path d="M35 78H85M35 85H85M35 92H85" stroke="${INK}" stroke-width="0"/><rect x="35.5" y="77" width="49" height="7" fill="#FFD45A"/><rect x="35.5" y="84" width="49" height="7" fill="#5CCFC0"/><rect x="36" y="91" width="48" height="5.5" rx="2" fill="#B58CF2"/>
+            <rect x="34" y="70" width="52" height="28" rx="8" fill="none" ${O}/><path d="M38 73Q44 71 50 73" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".6"/>
+            ${LINE("M34 76Q22 74 22 62", "#B58CF2", 4)}`,
+          head: `${RG("birthday-pinata-bday-pin-h", [[0, "#FFFFFF"], [1, "#FFEEDC"]], 0.4, 0.35, 0.8)}
+            <rect x="48" y="50" width="24" height="24" fill="#FFD45A" ${O}/><rect x="48.5" y="56" width="23" height="6" fill="#5CCFC0"/><rect x="48.5" y="62" width="23" height="6" fill="#FF8FB8"/><rect x="48" y="50" width="24" height="24" fill="none" ${O}/>
+            <path d="M60 22C76 22 82 32 82 40C82 50 74 56 60 56C46 56 38 50 38 40C38 32 44 22 60 22Z" fill="url(#birthday-pinata-bday-pin-h)" ${O}/>
+            <ellipse cx="60" cy="49" rx="10" ry="6" fill="#FFF8F0" ${O2}/><path d="M57 48q3 2.4 6 0" fill="none" stroke="${INK}" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M48 24Q60 18 72 24" fill="none" stroke="#FF8FB8" stroke-width="4" stroke-linecap="round"/>`,
+          earL: {svg: `<path d="M44 30L38 10L52 24Z" fill="#FFF4E6" ${O}/><path d="M44 26L41 15L48.5 23Z" fill="#FFB3C6"/>`, pivot: [46, 27]},
+          earR: {svg: `<path d="M76 30L82 10L68 24Z" fill="#FFF4E6" ${O}/><path d="M76 26L79 15L71.5 23Z" fill="#FFB3C6"/>`, pivot: [74, 27]}
+        },
+        eyes: {lx: 51, rx: 69, y: 38, r: 4.2, style: "sparkle", color: "#2E2033"},
+        mouth: {x: 60, y: 46, w: 0.1},
+        mouths: {
+          neutral: `<path d="M57 48q3 2.4 6 0" fill="none" stroke="${INK}" stroke-width="1.6" stroke-linecap="round"/>`,
+          smile: `<path d="M56 47.6q4 4 8 0" fill="none" stroke="${INK}" stroke-width="1.9" stroke-linecap="round"/>`,
+          open: `<path d="M56.6 47.4q3.4 5 6.8 0z" fill="${INK}" ${OW(1.4)}/><path d="M58 49.6q2 -1.2 4 0q-2 1.6 -4 0z" fill="#FF8FA8"/>`,
+          sleepy: `<ellipse cx="60" cy="49" rx="1.6" ry="1.9" fill="${INK}"/>`
+        },
+        cheeks: {lx: 44, rx: 76, y: 45, w: 3.8, h: 2.4, color: "#FF8FB8"},
+        neck: [60, 72],
+        anchors: {top: [60, 20, 0.85], neck: [60, 70, 0.8], chest: [74, 82, 0.55], back: [40, 64, 0.8], hands: [60, 90, 0.8]},
+        lines: {
+          tap: ["Hi! Admire my fringe, gently please!", "No bats, just high fives, okay?", "You make me feel extra colorful!", "Every stripe of me is cheering for you!", "Party look, study brain. Love it!", "Let's fill today with sweet wins!", "Looking good, studying better!"],
+          pet: ["Hehe! Gentle pats only, thank you!", "Aww! My fringe is fluttering!"],
+          hello: ["You're back! I fluffed my fringe for you!", "Hi hi! Ready to party study?"],
+          morning: ["Good morning! Fresh fringe, fresh day!"], night: ["Hanging up for the night. Sleep tight!"],
+          focus: ["Hanging very still for you. Focus!", "Quiet llama, busy brain. You've got this."],
+          done: ["WOW! That session was sweeter than candy!", "Done! I'm wiggling all my fringe!"],
+          task: ["DONE! Sweet success!", "Yes! Candy-level win!", "Checked off! Fringe shimmy!"],
+          break: ["Break time! Shake your fringe!"]
+        }
+      },
+      {
+        id: "birthday-cake", name: "Layla", kind: "Cake Slice", pose: "stand", wearColor: "#7FD8C0",
+        bio: "A tall slice of birthday cake with extra frosting and one bright candle.",
+        idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
+        parts: {
+          feet: feet("#E8A0B8", 48, 72),
+          body: `${LG("birthday-cake-bday-cak-g", [[0, "#FFF0D8"], [1, "#F2CC98"]])}
+            <path d="M24 50L96 50L92 104Q92 107 89 107H31Q28 107 28 104Z" fill="url(#birthday-cake-bday-cak-g)" ${O}/>
+            <path d="M26.5 68H94M27.4 86H93" stroke="#F49AB8" stroke-width="6"/><path d="M26.5 68H94M27.4 86H93" stroke="#FFD0E2" stroke-width="2.4"/>
+            <path d="M24 50L96 50L92 104Q92 107 89 107H31Q28 107 28 104Z" fill="none" ${O}/>
+            <path d="M22 50C22 42 30 38 60 38C90 38 98 42 98 50C98 56 92 54 90 60C88 56 84 55 82 60C80 55 74 55 72 59C70 55 64 55 62 60C60 55 54 55 52 59C50 55 44 55 42 60C40 55 34 55 32 60C30 55 22 56 22 50Z" fill="#FFF6FA" ${O}/>
+            <rect x="34" y="44" width="4" height="2" rx="1" fill="#FF5A7A" transform="rotate(30 36 45)"/><rect x="78" y="44" width="4" height="2" rx="1" fill="#5AB8F0" transform="rotate(-30 80 45)"/><rect x="48" y="42" width="4" height="2" rx="1" fill="#FFD45A"/><rect x="70" y="41" width="4" height="2" rx="1" fill="#B58CF2"/>
+            <path d="M34 72V98" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".5"/>`,
+          ...arms(23, 97, 78, "#FFE0C0"),
+          top: {svg: `<rect x="56" y="18" width="8" height="22" rx="3" fill="#7FD8C0" ${O2}/><path d="M56.5 24L63.5 21M56.5 31L63.5 28" stroke="#fff" stroke-width="2"/>${LINE("M60 18V15", "#5A4A40", 1.6)}<path d="M60 3C55 9 56 14 60 14C64 14 65 9 60 3Z" fill="#FFB53A" ${O2}/><path d="M60 8C58.6 10.4 58.8 12 60 12C61.2 12 61.4 10.4 60 8Z" fill="#FFF4C0"/>`, pivot: [60, 40]}
+        },
+        eyes: {lx: 50, rx: 70, y: 76, r: 4.8, style: "sparkle", color: "#3A2418"},
+        mouth: {x: 60, y: 83, w: 3, color: "#3A2418"},
+        cheeks: {lx: 42, rx: 78, y: 82, w: 4.2, h: 2.6, color: "#FF8FA8"},
+        anchors: {top: [60, 36, 0.9], neck: [60, 62, 1.05], chest: [74, 96, 0.6], back: [94, 66, 0.85], hands: [60, 98, 0.9]},
+        lines: {
+          tap: ["Hi! Extra frosting on your day today!", "You're the icing on this study cake!", "Make a wish, then make it happen!", "Layer by layer, you're getting there!", "Sweet work, keep it coming!", "One candle, one goal, all you!", "You deserve a celebration slice!"],
+          pet: ["Hehe! Careful, frosting smudge!", "Aww! My candle is flickering happily!"],
+          hello: ["You're back! Cake o'clock!", "Hi hi! I saved you the biggest slice!"],
+          morning: ["Good morning! Today's a sweet one!"], night: ["Blowing my candle out soon. Sleep well!"],
+          focus: ["Candle steady, focus steady. Go!", "Quiet as a cake cooling. You've got this."],
+          done: ["WOW! That session takes the cake!", "Done! Make a wish, you earned it!"],
+          task: ["DONE! Sweet!", "Yes! Extra sprinkles for that!", "Checked off! Piece of cake!"],
+          break: ["Break time! Grab a snack, cake friend's orders!"]
+        }
+      }
+    ]
+  });
+
+  /* Crystal Cave */
+  COMP_DATA.push({
+    theme: "geology",
+    companions: [
+      {
+        id: "geology-geode", name: "Geo", kind: "Geode", pose: "sit", wearColor: "#9A62D8",
+        bio: "A humble little geode who hides sparkly crystals inside, just like you.",
+        idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
+        parts: {
+          body: `${RG("geology-geode-geo-geo-r", [[0, "#D2C4B4"], [0.6, "#A8988A"], [1, "#7E6E62"]], 0.38, 0.3, 0.8)}${RG("geology-geode-geo-geo-i", [[0, "#FFF0FF"], [0.45, "#C890F4"], [1, "#7A3EC8"]], 0.5, 0.5, 0.6)}
+            <path d="M60 30C84 30 98 50 98 72C98 96 82 109 60 109C38 109 22 96 22 72C22 50 36 30 60 30Z" fill="url(#geology-geode-geo-geo-r)" ${O}/>
+            <circle cx="36" cy="54" r="3" fill="#8A7A6C"/><circle cx="86" cy="60" r="2.4" fill="#8A7A6C"/><circle cx="80" cy="44" r="1.8" fill="#8A7A6C"/>
+            <path d="M34 90L40 84L46 88L54 82L62 88L70 82L78 88L86 84L88 92Q78 104 60 104Q42 104 33 94Z" fill="#F4F0FA" ${O2}/>
+            <path d="M38 92L45 89L53 85L61 90L70 85L78 90L84 88Q76 100 60 100Q46 100 38 92Z" fill="url(#geology-geode-geo-geo-i)"/>
+            ${[[44, 94], [52, 92], [60, 95], [68, 92], [76, 94]].map(([x, y]) => `<path d="M${x - 3} ${y + 4}L${x} ${y - 5}L${x + 3} ${y + 4}Z" fill="#E8C8FF" opacity=".9"/>`).join("")}
+            <ellipse cx="44" cy="44" rx="6" ry="3.4" transform="rotate(-38 44 44)" fill="#fff" opacity=".6"/>`,
+          ...arms(23, 97, 76, "#B4A496"),
+          top: {svg: `<path d="M54 32L56 18L60 12L64 18L66 32Z" fill="#B58CF2" ${O2}/><path d="M60 12V32" stroke="${INK}" stroke-width="1" opacity=".4"/><path d="M57 20L59 15" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>${`<path d="M70 18Q70 22 74 22Q70 22 70 26Q70 22 66 22Q70 22 70 18Z" fill="#E8C8FF"/>`}`, pivot: [60, 32]}
+        },
+        eyes: {lx: 50, rx: 70, y: 64, r: 5, style: "sparkle", color: "#2E2024"},
+        mouth: {x: 60, y: 73, w: 3, color: "#2E2024"},
+        cheeks: {lx: 42.5, rx: 77.5, y: 71, w: 4.2, h: 2.6, color: "#FF9FB4"},
+        anchors: {top: [60, 32, 0.9], neck: [60, 84, 1], chest: [76, 80, 0.6], back: [92, 60, 0.85], hands: [60, 88, 0.9]},
+        lines: {
+          tap: ["Hi! Don't judge a rock by its crust!", "You've got sparkles inside too!", "Crack open that chapter! I believe in you!", "Rock solid work today!", "Every layer you learn makes you shine!", "You're a gem, truly!", "Pressure makes crystals. You're doing great!"],
+          pet: ["Hehe! My crystals are tingling!", "Aww! That's a rock-star pat!"],
+          hello: ["You're back! My inside sparkles just lit up!", "Hi hi! Ready to dig in?"],
+          morning: ["Good morning! Let's uncover something shiny!"], night: ["Going rock-still for the night. Rest soon?"],
+          focus: ["Steady as stone. You've got this.", "Quietly sparkling beside you."],
+          done: ["WOW! That session cracked me wide open!", "Done! Pure amethyst energy!"],
+          task: ["DONE! Sparkle crack!", "Yes! Gem of a job!", "Checked off! Rock on!"],
+          break: ["Break time! Stretch, then dig back in!"]
+        }
+      },
+      {
+        id: "geology-trilobite", name: "Trilo", kind: "Trilobite", pose: "stand", wearColor: "#3EB4C0",
+        bio: "An ancient little trilobite who has been studying for 500 million years.",
+        idle: ["waddle", "headTilt", "topBob"], cheer: "hop",
+        parts: {
+          feet: `${[36, 46, 56, 64, 74, 84].map((x, i) => `<path d="M${x} 98L${x + (i < 3 ? -4 : 4)} 110" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><path d="M${x} 98L${x + (i < 3 ? -4 : 4)} 110" stroke="#C8956A" stroke-width="2.4" stroke-linecap="round"/>`).join("")}`,
+          body: `${LG("geology-trilobite-geo-tri-b", [[0, "#F2D2AC"], [1, "#C08A5E"]])}
+            <path d="M39 61Q60 58 81 61L84 98Q72 108 60 108Q48 108 36 98Z" fill="url(#geology-trilobite-geo-tri-b)" ${O}/>
+            ${[70, 78, 86, 94].map(y => `<path d="M${39 - (y - 62) * 0.08} ${y}Q60 ${y + 4} ${81 + (y - 62) * 0.08} ${y}" fill="none" stroke="${INK}" stroke-width="1.8" opacity=".45"/>`).join("")}
+            <path d="M50 64V104M70 64V104" stroke="${INK}" stroke-width="1.8" opacity=".4"/><path d="M38 70Q38 88 44 98" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".5"/>`,
+          head: `${RG("geology-trilobite-geo-tri-h", [[0, "#FAE4C6"], [1, "#D2A070"]], 0.4, 0.35, 0.8)}
+            <path d="M22 66C22 44 38 32 60 32C82 32 98 44 98 66Q60 72 22 66Z" fill="url(#geology-trilobite-geo-tri-h)" ${O}/>
+            <path d="M22 66L14 82M98 66L106 82" stroke="${INK}" stroke-width="5.4" stroke-linecap="round"/><path d="M22 66L14 82M98 66L106 82" stroke="#D2A070" stroke-width="2.6" stroke-linecap="round"/>
+            <ellipse cx="44" cy="44" rx="6" ry="3.2" transform="rotate(-30 44 44)" fill="#fff" opacity=".6"/>`,
+          top: {svg: `${LINE("M52 34Q46 18 36 14", "#C08A5E", 2.4)}${LINE("M68 34Q74 18 84 14", "#C08A5E", 2.4)}<circle cx="36" cy="14" r="3" fill="#F2D2AC" ${OW(1.6)}/><circle cx="84" cy="14" r="3" fill="#F2D2AC" ${OW(1.6)}/>`, pivot: [60, 34]}
+        },
+        eyes: {lx: 48, rx: 72, y: 52, r: 5, style: "round", color: "#2A1E18"},
+        mouth: {x: 60, y: 61, w: 3, color: "#2A1E18"},
+        cheeks: {lx: 38, rx: 82, y: 58, w: 4.2, h: 2.6, color: "#FF9F9F"},
+        neck: [60, 66],
+        anchors: {top: [60, 32, 0.9], neck: [60, 66, 1.05], chest: [72, 86, 0.6], back: [88, 76, 0.85], hands: [60, 92, 0.9]},
+        lines: {
+          tap: ["Hi! I've been studying since the Cambrian!", "Slow and steady, like sediment!", "Half a billion years of experience says: you've got this!", "Every layer you learn is a new rock record!", "You're making history. Literal history!", "Tiny legs, big dreams!", "Fossils are proof that showing up lasts!"],
+          pet: ["Hehe! My segments are wiggling!", "Aww! A pat worth fossilizing!"],
+          hello: ["You're back! Hello from the Cambrian!", "Hello! Ready to dig into some learning?"],
+          morning: ["Good morning! A fresh layer of today!"], night: ["Curling up like a fossil. Sleep well!"],
+          focus: ["Scuttling quietly beside you. Focus!", "Patient as stone. You've got this."],
+          done: ["WOW! That session will be in the rock record!", "Done! Prehistoric levels of focus!"],
+          task: ["DONE! Scuttle of joy!", "Yes! That one's set in stone!", "Checked off! Ancient wisdom approves!"],
+          break: ["Break time! Stretch all those little legs!"]
+        }
+      },
+      {
+        id: "geology-sprite", name: "Glint", kind: "Crystal Sprite", pose: "float", wearColor: "#C29AFF",
+        bio: "A purple crystal sprite who hums softly while you focus.",
+        idle: ["sparkle", "spin", "topBob"], cheer: "spin",
+        parts: {
+          back: `<path d="M38 70C22 60 14 74 22 82C28 86 36 82 40 76Z" fill="#C8FAFF" fill-opacity=".85" ${O2}/><path d="M82 70C98 60 106 74 98 82C92 86 84 82 80 76Z" fill="#C8FAFF" fill-opacity=".85" ${O2}/>`,
+          body: `${LG("geology-sprite-geo-spr-a", [[0, "#F2E2FF"], [0.5, "#C29AFF"], [1, "#8A52E0"]], 0, 0, 1, 1)}
+            <path d="M60 22L84 52L78 100L60 110L42 100L36 52Z" fill="url(#geology-sprite-geo-spr-a)" ${O}/>
+            <path d="M60 22L60 110M36 52L60 60L84 52" fill="none" stroke="${INK}" stroke-width="1.6" opacity=".35"/><path d="M46 52L58 30" stroke="#fff" stroke-width="3.4" stroke-linecap="round" opacity=".8"/>
+            ${twinkle(30, 40, 3.4, "#FFD8EE")}${twinkle(92, 98, 3, "#C8FAFF")}`,
+          ...arms(34, 86, 80, "#D6BEFF", 25, 4.6, 5.8),
+          top: {svg: `${twinkle(60, 12, 8, "#FFF4B0")}<path d="M60 4Q60 12 68 12Q60 12 60 20Q60 12 52 12Q60 12 60 4Z" fill="none" ${OW(1.6)}/>`, pivot: [60, 22]}
+        },
+        eyes: {lx: 51, rx: 69, y: 68, r: 4.8, style: "sparkle", color: "#2A1648"},
+        mouth: {x: 60, y: 77, w: 3, color: "#2A1648"},
+        cheeks: {lx: 44, rx: 76, y: 75, w: 4.2, h: 2.6, color: "#FF9FD8"},
+        anchors: {top: [60, 26, 0.8], neck: [60, 88, 0.85], chest: [70, 92, 0.55], back: [86, 62, 0.8], hands: [60, 92, 0.85]},
+        lines: {
+          tap: ["Hmmmm! That's my happy hum!", "You make me glow brighter!", "Focus makes crystals grow. Let's grow!", "Bright mind, bright day!", "I'll light the way, you take the steps!", "Little light, big belief in you!", "Shine on, study star!"],
+          pet: ["Hehe! I'm humming all over!", "Aww! Now I'm extra sparkly!"],
+          hello: ["You're back! My glow just turned on!", "Hi hi! Let's light up some learning!"],
+          morning: ["Good morning! Catch the first light!"], night: ["Dimming to a soft glow. Rest soon?"],
+          focus: ["Hmmmm... humming along while you focus.", "Glowing steady. You've got this."],
+          done: ["WOW! I'm glowing at full brightness!", "Done! What a shimmering session!"],
+          task: ["DONE! Flash of light!", "Yes! Crystal clear win!", "Checked off! Sparkle sparkle!"],
+          break: ["Break time! Rest your eyes from the glow!"]
+        }
+      }
+    ]
+  });
+
+})();
+/* end of module 98-comp-n5.js */
+
+
+
+
+
+
+/* ===== module: 98-comp-n6.js ===== */
+/* Study Companions, batch n6: film, culinary, marinebio */
+(() => {
+  const {INK, O, OW, LG, RG, LINE} = COMP_KIT;
+  const O2 = OW(2.2);
+
+  /* ================= Movie Palace ================= */
+  COMP_DATA.push({
+    theme: "film",
+    companions: [
+      {
+        id: "film-clappy", name: "Clappy", kind: "Clapperboard", pose: "stand", wearColor: "#E8C25A",
+        bio: "A snappy little clapperboard who marks the start of every study take.",
+        idle: ["topBob", "wave", "headTilt"], cheer: "bounce",
+        neck: [60, 92],
+        parts: {
+          feet: `<rect x="44" y="100" width="9" height="9" rx="3" fill="#3A3444" ${O2}/><rect x="67" y="100" width="9" height="9" rx="3" fill="#3A3444" ${O2}/><ellipse cx="48.5" cy="109.5" rx="7.4" ry="3.6" fill="#E25A5A" ${O2}/><ellipse cx="71.5" cy="109.5" rx="7.4" ry="3.6" fill="#E25A5A" ${O2}/>`,
+          body: `<rect x="46" y="88" width="28" height="14" rx="6" fill="#4A4458" ${O}/>`,
+          armL: {svg: `<path d="M28 78L19.5 90.5" stroke="${INK}" stroke-width="7.6" stroke-linecap="round"/><path d="M28 78L19.5 90.5" stroke="#5A5468" stroke-width="4" stroke-linecap="round"/><circle cx="18.6" cy="92" r="4.6" fill="#5A5468" ${O2}/>`, pivot: [28, 78]},
+          armR: {svg: `<path d="M92 78L100.5 90.5" stroke="${INK}" stroke-width="7.6" stroke-linecap="round"/><path d="M92 78L100.5 90.5" stroke="#5A5468" stroke-width="4" stroke-linecap="round"/><circle cx="101.4" cy="92" r="4.6" fill="#5A5468" ${O2}/>`, pivot: [92, 78]},
+          head: `${LG("film-clappy-film-clap-g", [[0, "#5A5470"], [1, "#2E2A3A"]])}
+            <rect x="26" y="44" width="68" height="50" rx="8" fill="url(#film-clappy-film-clap-g)" ${O}/>
+            <path d="M31 80H89M60 80V90" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".45"/>
+            <rect x="33" y="83.5" width="20" height="4" rx="2" fill="#FFE08A" opacity=".85"/><rect x="66" y="83.5" width="16" height="4" rx="2" fill="#9ED8FF" opacity=".85"/>
+            <rect x="26" y="37" width="68" height="10" rx="3" fill="#F6F2EA" ${O}/>
+            <path d="M33 37L40 47M47 37L54 47M61 37L68 47M75 37L82 47" stroke="#2E2A3A" stroke-width="4.6"/>
+            <path d="M31 50Q34 47 39 47" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".55"/>`,
+          top: {svg: `<g transform="rotate(-14 28 36)"><rect x="26" y="25" width="68" height="10" rx="3" fill="#F6F2EA" ${O}/><path d="M35 25L42 35M49 25L56 35M63 25L70 35M77 25L84 35" stroke="#2E2A3A" stroke-width="4.6"/></g><circle cx="28.5" cy="36" r="3.4" fill="#C9CED8" ${O2}/>`, pivot: [28, 36]}
+        },
+        eyes: {lx: 49, rx: 71, y: 62, r: 5.4, style: "sparkle", color: "#1E1A28"},
+        mouth: {x: 60, y: 71.5, w: 3.2, color: "#1E1A28"},
+        cheeks: {lx: 40.5, rx: 79.5, y: 70, w: 4.6, h: 2.8, color: "#FF8FA8"},
+        anchors: {top: [60, 30, 0.9], neck: [60, 94, 1], chest: [72, 97, 0.6], back: [92, 70, 0.85], hands: [60, 92, 0.85]},
+        lines: {
+          tap: ["Scene one, take one: you, being awesome!", "Lights, camera, study!", "That was a great take!", "You're the star of this production!", "Quiet on set! Genius at work!", "Ready when you are, director!", "Every scene gets better with you in it!"],
+          pet: ["Snap snap! That tickles!", "Hehe! Cut! Print! That's a keeper!"],
+          hello: ["You're back on set! Places, everyone!", "Hi! Clapper's ready for the next scene!"],
+          morning: ["Good morning! Call time is now, superstar!", "Rise and shine! It's a brand new shoot!"],
+          night: ["That's a wrap for today? Rest well.", "The set's going dark. Sweet dreams!"],
+          focus: ["Rolling... and action! Quiet focus now.", "Silent take. I'll hold the board."],
+          done: ["CUT! That session was perfect!", "And that's a wrap! Bravo!"],
+          task: ["SNAP! Got it in one take!", "Cut and print! Done!", "That's a keeper! WOO!", "Another scene in the can!"],
+          break: ["Intermission! Grab some popcorn!", "Five minutes, everyone! Stretch it out!"]
+        }
+      },
+      {
+        id: "film-poppy", name: "Poppy", kind: "Popcorn Bucket", pose: "stand", wearColor: "#E25A5A",
+        bio: "A cozy popcorn bucket who pops a kernel every time something good happens.",
+        idle: ["bounce", "topBob", "sparkle"], cheer: "hop",
+        parts: {
+          feet: `<ellipse cx="48" cy="109.5" rx="7.6" ry="4" fill="#C8323F" ${O2}/><ellipse cx="72" cy="109.5" rx="7.6" ry="4" fill="#C8323F" ${O2}/>`,
+          top: {svg: `<g ${O2}><circle cx="38" cy="45" r="9" fill="#FFF6DC"/><circle cx="52" cy="38" r="10" fill="#FFFBEA"/><circle cx="68" cy="38" r="10" fill="#FFF6DC"/><circle cx="82" cy="45" r="9" fill="#FFFBEA"/><circle cx="60" cy="30" r="9" fill="#FFF8E0"/><circle cx="46" cy="27" r="6.6" fill="#FFF8E0"/><circle cx="75" cy="27" r="6.6" fill="#FFFBEA"/></g>
+            <circle cx="58" cy="27" r="2" fill="#F2C24A"/><circle cx="70" cy="40" r="2" fill="#F2C24A"/><circle cx="41" cy="44" r="1.8" fill="#F2C24A"/><circle cx="50" cy="33" r="1.6" fill="#fff"/>`, pivot: [60, 50]},
+          body: `${LG("film-poppy-film-pop-r", [[0, "#F2575E"], [1, "#C8323F"]])}
+            <path d="M28 46H92L85 104Q84.4 108 80 108H40Q35.6 108 35 104Z" fill="url(#film-poppy-film-pop-r)" ${O}/>
+            <path d="M45.5 46L48 108M60 46V108M74.5 46L72 108" stroke="#FFF4EE" stroke-width="7" opacity=".95"/>
+            <path d="M28 46H92L85 104Q84.4 108 80 108H40Q35.6 108 35 104Z" fill="none" ${O}/>
+            <rect x="25" y="43" width="70" height="9" rx="4.5" fill="#F2575E" ${O}/>
+            <rect x="40" y="88" width="40" height="12" rx="6" fill="#FFE08A" ${O2}/><path d="M47 94H73" stroke="#C8323F" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="3 3"/>`,
+          armL: {svg: `<ellipse cx="27" cy="76" rx="4.8" ry="6.6" transform="rotate(28 27 76)" fill="#F2575E" ${O}/>`, pivot: [33, 73]},
+          armR: {svg: `<ellipse cx="93" cy="76" rx="4.8" ry="6.6" transform="rotate(-28 93 76)" fill="#F2575E" ${O}/>`, pivot: [87, 73]}
+        },
+        eyes: {lx: 50, rx: 70, y: 67, r: 5.2, style: "sparkle", color: "#3A1418"},
+        mouth: {x: 60, y: 76, w: 3.2, color: "#3A1418"},
+        cheeks: {lx: 41.5, rx: 78.5, y: 75, w: 4.4, h: 2.8, color: "#FFB0C0"},
+        anchors: {top: [60, 26, 0.9], neck: [60, 52, 1.15], chest: [72, 86, 0.6], back: [86, 74, 0.85], hands: [60, 84, 0.85]},
+        lines: {
+          tap: ["Pop! Hi there, superstar!", "You're doing popping good today!", "Butter-smooth progress! Keep going!", "Every little kernel of effort counts!", "You make my whole bucket happy!", "Snack break later? I'm just saying!", "Pop pop pop! That's my happy sound!"],
+          pet: ["Hehe! You made a kernel pop!", "Crunchy cuddles! Yay!"],
+          hello: ["You're here! The show can start now!", "Hi hi! Fresh and ready to pop!"],
+          morning: ["Good morning! Popping with energy!", "Rise and shine, warm and toasty!"],
+          night: ["The last show's over. Bedtime soon?", "Getting sleepy. Pop by tomorrow!"],
+          focus: ["Quiet munching only. You've got this!", "Settling in for the feature. Focus time!"],
+          done: ["POP POP POP! What a session!", "That deserves a standing ovation!"],
+          task: ["POP! That one's done!", "Woohoo! Extra butter for that!", "Done and popped! YES!", "A kernel of greatness! Checked!"],
+          break: ["Snack time! Stretch those legs!", "Intermission! Take a happy break!"]
+        }
+      },
+      {
+        id: "film-spotty", name: "Spotty", kind: "Spotlight", pose: "stand", wearColor: "#7A6AD8",
+        bio: "A warm little spotlight who shines on all your hard work.",
+        idle: ["sway", "sparkle", "headTilt"], cheer: "spin",
+        neck: [60, 84],
+        parts: {
+          back: `${LG("film-spotty-film-spot-beam", [[0, "#FFF4C2", 0.9], [1, "#FFF4C2", 0]], 0, 0, 1, 0)}<path d="M84 46L118 26V86L84 70Z" fill="url(#film-spotty-film-spot-beam)"/>`,
+          feet: `${LINE("M60 92L44 109M60 92L76 109M60 92V110", "#8A8EA0", 3)}<circle cx="44" cy="109.5" r="3.2" fill="#5A5E70" ${O2}/><circle cx="76" cy="109.5" r="3.2" fill="#5A5E70" ${O2}/><circle cx="60" cy="110" r="3.2" fill="#5A5E70" ${O2}/>`,
+          body: `<rect x="53" y="80" width="14" height="14" rx="4" fill="#6A6E82" ${O}/><path d="M38 70Q38 84 60 84Q82 84 82 70" fill="none" stroke="${INK}" stroke-width="6.4" stroke-linecap="round"/><path d="M38 70Q38 84 60 84Q82 84 82 70" fill="none" stroke="#9A9EB2" stroke-width="3.2" stroke-linecap="round"/>`,
+          armL: {svg: `<path d="M33 74L29 86" stroke="${INK}" stroke-width="7.6" stroke-linecap="round"/><path d="M33 74L29 86" stroke="#7E6BE6" stroke-width="4" stroke-linecap="round"/><circle cx="28.6" cy="88" r="4.4" fill="#FFF3D6" ${O2}/>`, pivot: [33, 74]},
+          armR: {svg: `<path d="M87 74L91 86" stroke="${INK}" stroke-width="7.6" stroke-linecap="round"/><path d="M87 74L91 86" stroke="#7E6BE6" stroke-width="4" stroke-linecap="round"/><circle cx="91.4" cy="88" r="4.4" fill="#FFF3D6" ${O2}/>`, pivot: [87, 74]},
+          head: `${LG("film-spotty-film-spot-g", [[0, "#9A8AF0"], [1, "#5A48B8"]])}${RG("film-spotty-film-spot-l", [[0, "#FFFFFF"], [0.6, "#FFF6CC"], [1, "#FFD86B"]], 0.4, 0.38, 0.7)}
+            <path d="M28 44Q28 30 40 28H80Q92 30 92 44V70Q92 80 80 80H40Q28 80 28 70Z" fill="url(#film-spotty-film-spot-g)" ${O}/>
+            <rect x="84" y="40" width="10" height="28" rx="4" fill="#4A3A98" ${O2}/>
+            <circle cx="60" cy="56" r="20.5" fill="#FFE9A8" ${O}/><circle cx="60" cy="56" r="16.5" fill="url(#film-spotty-film-spot-l)"/>
+            <path d="M44 48Q47 41 54 39" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+            <path d="M33 36Q37 31 44 31" fill="none" stroke="#C8BEFF" stroke-width="2.6" stroke-linecap="round" opacity=".8"/>`
+        },
+        eyes: {lx: 52.5, rx: 67.5, y: 55, r: 4.4, style: "sparkle", color: "#3A2A1A"},
+        mouth: {x: 60, y: 63.5, w: 2.8, color: "#3A2A1A"},
+        cheeks: {lx: 46, rx: 74, y: 62, w: 3.6, h: 2.3, color: "#FF9A8A"},
+        anchors: {top: [60, 30, 0.95], neck: [60, 85, 0.95], chest: [70, 90, 0.55], back: [34, 60, 0.8], hands: [60, 88, 0.8]},
+        lines: {
+          tap: ["And the spotlight goes to... you!", "Shining my brightest beam on you!", "You're glowing today, I can tell!", "Center stage suits you!", "Hard work looks brilliant under the lights!", "I see a star in the making!", "Ready for your close-up?"],
+          pet: ["Ooh, I'm all warmed up now!", "Hehe! My lens is blushing!"],
+          hello: ["You're back! Lights up!", "Hi! I saved the brightest beam for you!"],
+          morning: ["Good morning! Warming up the lights!", "Rise and shine! Literally, that's my job!"],
+          night: ["Dimming the lights. Time to rest?", "Soft glow only now. Sleep well!"],
+          focus: ["Beam on you. Everything else fades out.", "Focused light, focused mind. Go!"],
+          done: ["Standing ovation! What a performance!", "Bravo! Encore! Amazing session!"],
+          task: ["SPOTLIGHT MOMENT! Done!", "That one shines! Woohoo!", "Applause! Checked off!", "Brilliant! Absolutely brilliant!"],
+          break: ["House lights up! Stretch time!", "Take a bow, then take a break!"]
+        }
+      }
+    ]
+  });
+
+  /* ================= Test Kitchen ================= */
+  COMP_DATA.push({
+    theme: "culinary",
+    companions: [
+      {
+        id: "culinary-twirly", name: "Twirly", kind: "Little Whisk", pose: "stand", wearColor: "#E07A4A",
+        bio: "A busy little whisk who whips up sweet ideas while you study.",
+        idle: ["spin", "sway", "topBob"], cheer: "spin",
+        parts: {
+          feet: `<ellipse cx="51" cy="109.5" rx="6.6" ry="3.8" fill="#A8693A" ${O2}/><ellipse cx="69" cy="109.5" rx="6.6" ry="3.8" fill="#A8693A" ${O2}/>`,
+          top: {svg: `<g fill="none" stroke-linecap="round"><path d="M50 52C34 30 40 10 60 8C80 10 86 30 70 52M54.5 52C46 30 50 12 60 8C70 12 74 30 65.5 52M60 52V8" stroke="${INK}" stroke-width="6"/>
+            <path d="M50 52C34 30 40 10 60 8C80 10 86 30 70 52M54.5 52C46 30 50 12 60 8C70 12 74 30 65.5 52M60 52V8" stroke="#DDE4EC" stroke-width="3"/></g>
+            <path d="M45 30Q44 22 50 16" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>
+            <g ${O2}><circle cx="78" cy="18" r="4.6" fill="#FFF8F0"/><circle cx="83" cy="13" r="3" fill="#FFF8F0"/></g>`, pivot: [60, 54]},
+          body: `${LG("culinary-twirly-cul-whisk-g", [[0, "#F2B47A"], [1, "#C8783E"]])}
+            <rect x="40" y="48" width="40" height="62" rx="20" fill="url(#culinary-twirly-cul-whisk-g)" ${O}/>
+            <rect x="38" y="46" width="44" height="9" rx="4.5" fill="#C9D2DC" ${O}/>
+            <path d="M46 62Q46 56 51 54" fill="none" stroke="#FFE2C2" stroke-width="2.8" stroke-linecap="round"/>
+            <path d="M45 98H75" stroke="#A8693A" stroke-width="2.2" stroke-linecap="round" opacity=".6"/>`,
+          armL: {svg: `<ellipse cx="35" cy="84" rx="4.8" ry="6.8" transform="rotate(20 35 84)" fill="#E59A5C" ${O}/>`, pivot: [40, 77]},
+          armR: {svg: `<ellipse cx="85" cy="84" rx="4.8" ry="6.8" transform="rotate(-20 85 84)" fill="#E59A5C" ${O}/>`, pivot: [80, 77]}
+        },
+        eyes: {lx: 52, rx: 68, y: 72, r: 4.8, style: "sparkle", color: "#3A2010"},
+        mouth: {x: 60, y: 81, w: 3, color: "#3A2010"},
+        cheeks: {lx: 45, rx: 75, y: 79.5, w: 4, h: 2.5, color: "#FF8F8F"},
+        anchors: {top: [60, 30, 0.85], neck: [60, 56, 1], chest: [70, 92, 0.6], back: [80, 80, 0.8], hands: [60, 90, 0.82]},
+        lines: {
+          tap: ["Whisk whisk! Hi there, chef!", "You're whipping through this!", "Light and fluffy, like your progress!", "A little spin makes everything better!", "Stiff peaks of brilliance! Look at you!", "Mixing up something wonderful today!", "Whirr! I'm so happy you're here!"],
+          pet: ["Wheee! You made me spin!", "Hehe! My wires are all tingly!"],
+          hello: ["You're back! Let's whip something up!", "Hi hi! Spinning with excitement!"],
+          morning: ["Good morning! Ready to whisk away the day!", "Rise and shine, fluffy and bright!"],
+          night: ["Slowing my spin. Time to rest?", "Settling into the drawer. Sweet dreams!"],
+          focus: ["Steady stirring. You've got this.", "Gentle folding mode. Focus time!"],
+          done: ["WHIRRR! That session was perfect!", "Fluffy as a meringue! Amazing work!"],
+          task: ["Whisked away! DONE!", "Perfect peaks! Checked off!", "Spin spin spin! YES!", "Beautifully blended! Done!"],
+          break: ["Rest the batter! Stretch break!", "Let it rise! Take a little break!"]
+        }
+      },
+      {
+        id: "culinary-toque", name: "Toque", kind: "Chef's Hat", pose: "stand", wearColor: "#E25A4A", hatTop: true,
+        bio: "A puffy chef's hat who grows a little taller with every finished recipe.",
+        idle: ["topBob", "sway", "headTilt"], cheer: "bounce",
+        neck: [60, 86],
+        parts: {
+          feet: `<ellipse cx="49" cy="109.5" rx="7" ry="3.8" fill="#3A3444" ${O2}/><ellipse cx="71" cy="109.5" rx="7" ry="3.8" fill="#3A3444" ${O2}/>`,
+          body: `<path d="M44 84H76L78 104Q78 108 74 108H46Q42 108 42 104Z" fill="#FFFFFF" ${O}/><path d="M60 86V106" stroke="#D8DEE6" stroke-width="2"/><circle cx="55" cy="93" r="1.6" fill="#C8D0DA"/><circle cx="55" cy="100" r="1.6" fill="#C8D0DA"/><path d="M50 84L60 92L70 84" fill="#E25A4A" ${O2}/>`,
+          wingL: {svg: `<ellipse cx="37" cy="92" rx="4.8" ry="6.6" transform="rotate(30 37 92)" fill="#FFFFFF" ${O}/>`, pivot: [43, 89]},
+          wingR: {svg: `<ellipse cx="83" cy="92" rx="4.8" ry="6.6" transform="rotate(-30 83 92)" fill="#FFFFFF" ${O}/>`, pivot: [77, 89]},
+          head: `${LG("culinary-toque-cul-toque-b", [[0, "#FFFFFF"], [1, "#E6EBF2"]])}
+            <path d="M32 52H88V80Q88 86 82 86H38Q32 86 32 80Z" fill="url(#culinary-toque-cul-toque-b)" ${O}/>
+            <path d="M42 54V84M52 54V84M68 54V84M78 54V84" stroke="#DCE2EA" stroke-width="2"/>
+            <path d="M36 58Q36 55 40 55" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>`,
+          top: {svg: `${RG("culinary-toque-cul-toque-p", [[0, "#FFFFFF"], [0.7, "#F4F6FA"], [1, "#DCE2EA"]], 0.4, 0.35, 0.8)}
+            <path d="M30 56C18 52 18 32 32 30C30 18 46 10 54 18C58 8 74 8 76 20C86 12 102 22 92 34C104 38 102 54 90 56Z" fill="url(#culinary-toque-cul-toque-p)" ${O}/>
+            <path d="M44 52Q44 40 48 34M60 52Q60 38 62 30M76 52Q76 40 72 34" fill="none" stroke="#DCE2EA" stroke-width="2.2" stroke-linecap="round"/>
+            <path d="M34 36Q36 28 44 26" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`, pivot: [60, 56]}
+        },
+        eyes: {lx: 50, rx: 70, y: 68, r: 4.8, style: "sparkle", color: "#2A2430"},
+        mouth: {x: 60, y: 77, w: 3, color: "#2A2430"},
+        cheeks: {lx: 41.5, rx: 78.5, y: 75.5, w: 4.2, h: 2.6, color: "#FF9AA8"},
+        anchors: {top: [60, 24, 0.95], neck: [60, 86, 0.95], chest: [70, 98, 0.55], back: [84, 92, 0.8], hands: [60, 100, 0.8]},
+        lines: {
+          tap: ["Bonjour, chef! Ready to cook up greatness?", "Your recipe for success is looking delicious!", "A pinch of patience, a dash of genius!", "Every great dish starts with one step!", "Yes, chef! You're doing wonderfully!", "I feel taller already, thanks to you!", "Mise en place! Everything in its place!"],
+          pet: ["Oh la la! My pleats are all fluffy!", "Hehe! Careful, I'm freshly starched!"],
+          hello: ["You're back in the kitchen! Yes, chef!", "Hello! The ovens are warm and ready!"],
+          morning: ["Good morning! Fresh ingredients, fresh start!", "Bonjour! Let's prep a lovely day!"],
+          night: ["Kitchen's closing. Rest up, chef!", "Hanging up my hat soon. Sleep well!"],
+          focus: ["Quiet in the kitchen. Chef is focusing!", "Simmer and stay steady. You've got this."],
+          done: ["Magnifique! What a session!", "Chef's kiss! That was perfect!"],
+          task: ["Order up! DONE!", "Yes, chef! Checked off!", "Plated perfectly! WOO!", "I just grew a little taller! YES!"],
+          break: ["Let it rest! Break time, chef!", "Stretch break! Even chefs need one!"]
+        }
+      },
+      {
+        id: "culinary-basil", name: "Basil", kind: "Basil Sprout", pose: "sit", wearColor: "#E08A4A",
+        bio: "A fresh little basil sprout who brings a bit of green to your desk.",
+        idle: ["sway", "wave", "sparkle"], cheer: "hop",
+        parts: {
+          feet: `${LG("culinary-basil-cul-basil-pot", [[0, "#F09A6A"], [1, "#C8603A"]])}<path d="M38 88H82L78 108Q77.4 111 74 111H46Q42.6 111 42 108Z" fill="url(#culinary-basil-cul-basil-pot)" ${O}/><rect x="35" y="84" width="50" height="9" rx="4" fill="#E08A5A" ${O}/>`,
+          top: {svg: `${LINE("M60 40V28", "#4E9A4A", 2.6)}<path d="M60 30C52 20 42 22 40 28C46 32 54 34 60 30Z" fill="#7CCB6A" ${O2}/><path d="M60 29C66 18 78 18 80 24C76 30 66 32 60 29Z" fill="#8FD878" ${O2}/><path d="M58 28Q50 25 44 27M62 27Q70 23 76 23.5" fill="none" stroke="#4E9A4A" stroke-width="1.4" stroke-linecap="round"/>`, pivot: [60, 40]},
+          body: `${RG("culinary-basil-cul-basil-g", [[0, "#B8F0A0"], [0.55, "#7CCB6A"], [1, "#4E9A4A"]], 0.42, 0.35, 0.75)}
+            <path d="M60 38C82 38 92 56 90 72C88 86 76 92 60 92C44 92 32 86 30 72C28 56 38 38 60 38Z" fill="url(#culinary-basil-cul-basil-g)" ${O}/>
+            <path d="M60 40Q60 56 60 66" fill="none" stroke="#4E9A4A" stroke-width="1.8" stroke-linecap="round" opacity=".45"/>
+            <path d="M40 54Q43 46 50 43" fill="none" stroke="#E2FFD2" stroke-width="3" stroke-linecap="round"/>`,
+          armL: {svg: `<path d="M34 70C24 66 18 72 20 78C26 80 32 76 34 70Z" transform="rotate(-30 34 70)" fill="#8FD878" ${O}/>`, pivot: [34, 70]},
+          armR: {svg: `<path d="M86 70C96 66 102 72 100 78C94 80 88 76 86 70Z" transform="rotate(30 86 70)" fill="#8FD878" ${O}/>`, pivot: [86, 70]}
+        },
+        eyes: {lx: 50, rx: 70, y: 64, r: 5, style: "sparkle", color: "#1E3A1A"},
+        mouth: {x: 60, y: 73.5, w: 3, color: "#1E3A1A"},
+        cheeks: {lx: 41.5, rx: 78.5, y: 72, w: 4.4, h: 2.7, color: "#FF9A9A"},
+        anchors: {top: [60, 38, 0.9], neck: [60, 86, 1.1], chest: [72, 80, 0.6], back: [88, 64, 0.8], hands: [60, 84, 0.85]},
+        lines: {
+          tap: ["Fresh hello from your favorite herb!", "You're growing so well today!", "A little sunshine, a little water, a lot of you!", "Smells like success in here!", "You add flavor to everything!", "Leafing through your notes? Love it!", "Sprouting with pride over here!"],
+          pet: ["Hehe! You made me extra fragrant!", "Aww, my leaves are all perky now!"],
+          hello: ["Fresh from the window box! Hi!", "Hello! I've been soaking up sun for you!"],
+          morning: ["Good morning! Leaves to the sunshine!", "Rise and shine! Fresh as can be!"],
+          night: ["Folding up my leaves. Rest soon?", "Moonlight snooze time. Sleep well!"],
+          focus: ["Growing quietly beside you. Focus!", "Rooted and ready. You've got this."],
+          done: ["What a session! I'm in full bloom!", "Garnished with greatness! Amazing!"],
+          task: ["Fresh and finished! DONE!", "A perfect garnish on your day! YES!", "Picked and checked! WOO!", "Sprouting with joy! Done!"],
+          break: ["Sunshine break! Stretch your stems!", "Water break! Hydrate like a happy plant!"]
+        }
+      }
+    ]
+  });
+
+  /* ================= Kelp Forest ================= */
+  COMP_DATA.push({
+    theme: "marinebio",
+    companions: [
+      {
+        id: "marinebio-kelpie", name: "Kelpie", kind: "Kelp Sprite", pose: "float", wearColor: "#3AA6A0",
+        bio: "A tall, wavy kelp sprite who sways gently while you study.",
+        idle: ["sway", "wave", "finWiggle"], cheer: "spin",
+        parts: {
+          tail: {svg: `<g transform="translate(0 -6)"><path d="M54 104C50 110 54 114 60 114C66 114 70 110 66 104" fill="#8A6A3A" ${O2}/><path d="M52 112L46 116M68 112L74 116M60 114V118" stroke="#8A6A3A" stroke-width="2.4" stroke-linecap="round"/></g>`, pivot: [60, 98]},
+          body: `<g transform="translate(0 -6)">${LG("marinebio-kelpie-mar-kelp-g", [[0, "#B8D86A"], [0.5, "#86B44A"], [1, "#5E8A34"]], 0.2, 0, 0.8, 1)}${RG("marinebio-kelpie-mar-kelp-f", [[0, "#FFF2B0"], [1, "#E0A830"]], 0.4, 0.35, 0.7)}
+            <path d="M60 28C70 30 76 38 78 46C82 50 77 54 80 60C84 66 78 70 81 76C84 84 78 88 79 94C76 104 66 106 60 106C54 106 44 104 41 94C42 88 36 84 39 76C42 70 36 66 40 60C43 54 38 50 42 46C44 38 50 30 60 28Z" fill="url(#marinebio-kelpie-mar-kelp-g)" ${O}/>
+            <path d="M60 32Q58 66 60 102" fill="none" stroke="#4E7A2A" stroke-width="1.8" stroke-linecap="round" opacity=".5"/>
+            <path d="M49 44Q46 52 49 58M71 44Q74 52 71 58M47 80Q44 88 48 96M73 80Q76 88 72 96" fill="none" stroke="#E2F6A8" stroke-width="2.2" stroke-linecap="round" opacity=".75"/>
+            ${LINE("M60 28V22", "#86B44A", 2.4)}<circle cx="60" cy="16" r="8" fill="url(#marinebio-kelpie-mar-kelp-f)" ${O}/><circle cx="57.4" cy="13.4" r="2.2" fill="#fff"/>
+            <circle cx="88" cy="40" r="2.4" fill="#fff" opacity=".85" ${OW(1.4)}/><circle cx="92" cy="31" r="1.6" fill="#fff" opacity=".85"/></g>`,
+          armL: {svg: `<g transform="translate(-5 -6)"><g transform="rotate(-60 45 64)"><path d="M43 68C36 62 30 66 24 60C20 58 22 54 18 52C26 48 34 52 40 56C44 59 46 62 46 64Z" fill="#9CC85A" ${O}/><path d="M42 63Q32 57 24 55" fill="none" stroke="#5E8A34" stroke-width="1.3" stroke-linecap="round"/></g></g>`, pivot: [40, 58]},
+          armR: {svg: `<g transform="translate(5 -6)"><g transform="rotate(60 75 64)"><path d="M77 68C84 62 90 66 96 60C100 58 98 54 102 52C94 48 86 52 80 56C76 59 74 62 74 64Z" fill="#9CC85A" ${O}/><path d="M78 63Q88 57 96 55" fill="none" stroke="#5E8A34" stroke-width="1.3" stroke-linecap="round"/></g></g>`, pivot: [80, 58]}
+        },
+        eyes: {lx: 51.5, rx: 68.5, y: 56, r: 4.8, style: "sparkle", color: "#1E2A10"},
+        mouth: {x: 60, y: 65, w: 3, color: "#1E2A10"},
+        cheeks: {lx: 45.5, rx: 74.5, y: 63.5, w: 4, h: 2.5, color: "#FF9A8A"},
+        anchors: {top: [60, 10, 0.75], neck: [60, 68, 0.95], chest: [69, 76, 0.55], back: [76, 54, 0.75], hands: [60, 74, 0.8]},
+        lines: {
+          tap: ["Hello from the kelp forest!", "Swaying with joy that you're here!", "Rooted deep, reaching high, just like you!", "Go with the flow, you're doing great!", "You're growing a little every day!", "Sunbeams look good on you!", "Kelp yeah! You've got this!"],
+          pet: ["Hehe! That makes my fronds wiggle!", "Ooh, bubbly and happy!"],
+          hello: ["You're back! The whole forest waved!", "Hi! I grew two inches waiting for you!"],
+          morning: ["Good morning! Sunbeams are coming down!", "Rise and shine! Reach for the light!"],
+          night: ["The water's dark and calm. Rest soon?", "Swaying slowly to sleep. Goodnight!"],
+          focus: ["Anchored and steady. Focus time.", "Calm currents. You've got this."],
+          done: ["What a session! I'm swaying with pride!", "Tall and proud! Amazing work!"],
+          task: ["Kelp yeah! DONE!", "Swish! Another one finished!", "Rooted in success! Checked!", "Growing strong! WOO!"],
+          break: ["Float break! Stretch like seaweed!", "Drift a little! Take a breather!"]
+        }
+      },
+      {
+        id: "marinebio-subby", name: "Subby", kind: "Little Submarine", pose: "float", wearColor: "#3AA6A0",
+        bio: "A brave little submarine who dives deep into any subject with you.",
+        idle: ["topBob", "sparkle", "bounce"], cheer: "bounce",
+        parts: {
+          back: `<g transform="translate(18 68)"><rect x="-4" y="-4" width="10" height="8" rx="2" fill="#B8A06A" ${O2}/><ellipse cx="-6" cy="0" rx="3" ry="11" fill="#E0C88A" ${O2}/></g>`,
+          top: {svg: `${LINE("M70 40V24H80", "#8A8EA0", 3)}<rect x="78" y="20" width="9" height="7" rx="2" fill="#6A6E82" ${O2}/><rect x="48" y="34" width="26" height="14" rx="5" fill="#F2B624" ${O}/>`, pivot: [62, 46]},
+          body: `${LG("marinebio-subby-mar-sub-g", [[0, "#FFE27A"], [0.55, "#F6BE2E"], [1, "#D8941A"]])}${RG("marinebio-subby-mar-sub-w", [[0, "#F0FDFF"], [0.6, "#BDEBF4"], [1, "#6EC4D8"]], 0.38, 0.32, 0.75)}
+            <path d="M22 72C22 52 40 44 62 44C86 44 100 56 100 72C100 88 86 98 62 98C40 98 22 90 22 72Z" fill="url(#marinebio-subby-mar-sub-g)" ${O}/>
+            <circle cx="64" cy="70" r="19" fill="#C8963A" ${O}/><circle cx="64" cy="70" r="15" fill="url(#marinebio-subby-mar-sub-w)"/>
+            <path d="M52 64Q54 57 60 55" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+            <circle cx="35" cy="66" r="4.6" fill="#BDEBF4" ${O2}/><circle cx="92" cy="74" r="3" fill="#FFF6D6" ${O2}/>
+            <path d="M30 56Q36 50 46 48" fill="none" stroke="#FFF3B8" stroke-width="3" stroke-linecap="round"/>
+            <path d="M28 86Q44 94 60 94" fill="none" stroke="#C88A1A" stroke-width="2" stroke-linecap="round" opacity=".6"/>`,
+          wingL: {svg: `<path d="M44 94L36 106L50 104L54 96Z" fill="#E8A82A" ${O}/>`, pivot: [48, 96]},
+          wingR: {svg: `<path d="M78 94L88 106L74 104L70 96Z" fill="#E8A82A" ${O}/>`, pivot: [74, 96]}
+        },
+        eyes: {lx: 57.5, rx: 70.5, y: 69, r: 3.8, style: "sparkle", color: "#1A3A4A"},
+        mouth: {x: 64, y: 76.5, w: 2.4, color: "#1A3A4A"},
+        cheeks: {lx: 53, rx: 75, y: 75, w: 3, h: 2, color: "#FF9AA8"},
+        anchors: {top: [62, 34, 0.85], neck: [62, 92, 0.95], chest: [80, 84, 0.55], back: [30, 60, 0.75], hands: [62, 92, 0.8]},
+        lines: {
+          tap: ["Ping! Submarine Subby reporting for duty!", "Diving deep into greatness with you!", "Depth gauge says: you're amazing!", "All systems go, captain!", "Periscope up! I see a superstar!", "Exploring new depths today!", "Full speed ahead, captain!"],
+          pet: ["Hehe! My hatch is all fluttery!", "Bubbles! That means I'm happy!"],
+          hello: ["Surfacing to say hi! Welcome back!", "Captain on deck! Hello hello!"],
+          morning: ["Good morning! Sunlight on the surface!", "Rise and shine! Ballast tanks full of joy!"],
+          night: ["Running quiet below the waves. Rest soon?", "Night dive mode. Sweet dreams, captain."],
+          focus: ["Silent running. Deep focus ahead.", "Diving deep together. You've got this."],
+          done: ["What a deep dive! Brilliant session!", "Mission complete, captain! Amazing!"],
+          task: ["Ping! Target reached! DONE!", "Dive complete! Checked off!", "Treasure found! WOO!", "Full steam ahead! YES!"],
+          break: ["Surface break! Take a deep breath!", "Come up for air! Stretch time!"]
+        }
+      },
+      {
+        id: "marinebio-dolly", name: "Dolly", kind: "Dolphin Calf", pose: "float", wearColor: "#F2A33A",
+        bio: "A playful dolphin calf who clicks happily when you finish a chapter.",
+        idle: ["finWiggle", "tailSwish", "topBob"], cheer: "spin",
+        parts: {
+          tail: {svg: `<g transform="translate(0 -3)"><path d="M84 90C92 94 100 92 106 86C104 96 98 102 90 102C96 106 98 112 94 114C88 108 80 104 76 98Z" fill="#6E9AC8" ${O}/></g>`, pivot: [80, 93]},
+          top: {svg: `<g transform="translate(0 -3)"><path d="M70 38C72 30 78 26 85 27C82 32 81 37 81 42Z" fill="#6E9AC8" ${O}/></g>`, pivot: [75, 39]},
+          body: `<g transform="translate(0 -3)">${LG("marinebio-dolly-mar-dol-g", [[0, "#9CC6EE"], [0.6, "#6E9AC8"], [1, "#5A84B4"]])}
+            <path d="M24 66C22 48 40 34 60 34C80 34 92 48 92 66C92 88 80 102 60 102C42 102 26 88 24 66Z" fill="url(#marinebio-dolly-mar-dol-g)" ${O}/>
+            <path d="M36 74C40 90 52 96 62 96C74 96 82 90 84 80C76 86 66 88 58 86C48 84 40 80 36 74Z" fill="#EEF7FC"/>
+            <path d="M27 62C16 60 6 64 6 69C8 75 18 76 28 73Z" fill="#8EB8E2" ${O}/><path d="M9 70Q16 72 26 70" fill="none" stroke="${INK}" stroke-width="1.6" stroke-linecap="round" opacity=".6"/>
+            <path d="M34 50Q38 42 48 39" fill="none" stroke="#D6ECFF" stroke-width="3" stroke-linecap="round"/>
+            <ellipse cx="54" cy="37" rx="3" ry="1.6" fill="#4A74A4"/></g>`,
+          wingL: {svg: `<g transform="translate(0 -3)"><path d="M34 82C26 84 22 92 24 98C30 96 36 90 38 86Z" fill="#6E9AC8" ${O}/></g>`, pivot: [36, 81]},
+          wingR: {svg: `<g transform="translate(0 -3)"><path d="M84 82C92 84 96 92 94 98C88 96 82 90 80 86Z" fill="#6E9AC8" ${O}/></g>`, pivot: [82, 81]}
+        },
+        eyes: {lx: 46, rx: 64, y: 57, r: 5, style: "sparkle", color: "#1A2A44"},
+        mouth: {x: 55, y: 68, w: 3.4, color: "#1A2A44"},
+        cheeks: {lx: 38, rx: 72, y: 66, w: 4.2, h: 2.6, color: "#FF9AB8"},
+        anchors: {top: [56, 31, 0.85], neck: [57, 81, 1], chest: [66, 83, 0.6], back: [84, 53, 0.8], hands: [57, 85, 0.82]},
+        lines: {
+          tap: ["Click click! Hi, friend!", "You make waves wherever you go!", "Splashing with joy that you're here!", "Smart and playful, just like dolphins!", "Leap into it! You've got this!", "Swimming happy circles around you!", "Eee-eee! That means you're awesome!"],
+          pet: ["Eee! Splashy happy!", "Hehe! That tickles my flippers!"],
+          hello: ["Click click! You're back!", "Hi! I did a flip when I saw you!"],
+          morning: ["Good morning! Sunshine on the waves!", "Rise and shine! Let's make a splash!"],
+          night: ["Floating sleepily. Rest soon?", "Half asleep, like real dolphins. Goodnight!"],
+          focus: ["Gliding quietly beside you. Focus!", "Smooth swimming. You've got this."],
+          done: ["What a session! Big splash for you!", "Eee-eee! You were amazing!"],
+          task: ["Click click! DONE!", "Big leap! Checked off!", "Splash! Another chapter done!", "Flip for joy! WOO!"],
+          break: ["Splash break! Wiggle those fins!", "Surface for air! Stretch time!"]
+        }
+      }
+    ]
+  });
+
+})();
+/* end of module 98-comp-n6.js */
+
+
+
+
+/* ===== module: 98-comp-n2.js ===== */
+/* Study Companions, new theme ideas batch n2: mushrooms, sunflowers, nighttrain, ramen */
+(() => {
+  const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
+  const O2 = OW(2.2);
+  const twinkle = (x, y, s, c) => `<path d="M${x} ${y - s}Q${x} ${y} ${x + s} ${y}Q${x} ${y} ${x} ${y + s}Q${x} ${y} ${x - s} ${y}Q${x} ${y} ${x} ${y - s}Z" fill="${c || "#fff"}"/>`;
+  const shine = (x, y, rx, ry, rot) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" transform="rotate(${rot} ${x} ${y})" fill="#fff" opacity=".85"/>`;
+
+  /* ================= Mushroom Hollow ================= */
+  COMP_DATA.push({
+    theme: "mushrooms",
+    companions: [
+      {
+        id: "mushrooms-toadie", name: "Toadie", kind: "Toadstool Pal", pose: "stand", wearColor: "#6DB35E",
+        bio: "A red-capped toadstool with white spots and a big, kind heart.",
+        idle: ["topBob", "sway", "sparkle"], cheer: "hop",
+        parts: {
+          feet: `<ellipse cx="47" cy="109.5" rx="9" ry="4.4" fill="#E6D2B8" ${O}/><ellipse cx="73" cy="109.5" rx="9" ry="4.4" fill="#E6D2B8" ${O}/>`,
+          body: `${LG("mushrooms-toadie-mushrooms-toadie-s", [[0, "#FFFBF2"], [0.6, "#F8EBD8"], [1, "#E6D0B4"]], 0, 0, 1, 0)}
+            <path d="M42 52C40 70 36 92 38 104Q60 112 82 104C84 92 80 70 78 52Z" fill="url(#mushrooms-toadie-mushrooms-toadie-s)" ${O}/>
+            <path d="M44 100Q60 106 76 100" fill="none" stroke="#E2C8A8" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M46 60Q45 72 46 84" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".9"/>`,
+          armL: {svg: `<ellipse cx="35" cy="82" rx="5" ry="8" transform="rotate(28 35 82)" fill="#F6E8D4" ${O}/>`, pivot: [41, 77]},
+          armR: {svg: `<ellipse cx="85" cy="82" rx="5" ry="8" transform="rotate(-28 85 82)" fill="#F6E8D4" ${O}/>`, pivot: [79, 77]},
+          top: {svg: `${RG("mushrooms-toadie-mushrooms-toadie-c", [[0, "#FFA890"], [0.5, "#EC5A48"], [1, "#C23A32"]], 0.38, 0.28, 0.75)}
+            <path d="M14 52C14 28 34 14 60 14C86 14 106 28 106 52C106 58 100 60 92 60H28C20 60 14 58 14 52Z" fill="url(#mushrooms-toadie-mushrooms-toadie-c)" ${O}/>
+            <path d="M24 56Q60 64 96 56" fill="none" stroke="#F4D8C0" stroke-width="3" stroke-linecap="round" opacity=".8"/>
+            <ellipse cx="34" cy="38" rx="7" ry="5.4" fill="#FFF8EE"/><ellipse cx="58" cy="26" rx="8" ry="6" fill="#FFF8EE"/><ellipse cx="84" cy="38" rx="6.4" ry="5" fill="#FFF8EE"/><ellipse cx="50" cy="46" rx="4.4" ry="3.4" fill="#FFF8EE"/><ellipse cx="74" cy="22" rx="3.4" ry="2.6" fill="#FFF8EE"/><ellipse cx="96" cy="48" rx="3" ry="2.4" fill="#FFF8EE"/>
+            ${shine(28, 28, 6, 3, -35)}`, pivot: [60, 58]}
+        },
+        eyes: {lx: 51, rx: 69, y: 76, r: 4.6, style: "round", color: "#3A1E1A"},
+        mouth: {x: 60, y: 85, w: 3, color: "#3A1E1A"},
+        cheeks: {lx: 44, rx: 76, y: 83, w: 4, h: 2.6, color: "#FF8F9A"},
+        anchors: {top: [60, 16, 0.95], neck: [60, 94, 0.9], chest: [70, 96, 0.6], back: [86, 74, 0.8], hands: [60, 98, 0.8]},
+        lines: {
+          tap: ["Hi hi! Want to share my umbrella? It's my cap!", "You're growing so well today!", "Slow and steady, like moss on a log. You've got this!", "My spots are all sparkly because you're here!", "Little by little, a whole forest grows!", "Rain or shine, I'm cheering for you!", "Deep breath of forest air. Ahh. Okay, onward!"],
+          pet: ["Hehe, careful, my cap is ticklish!", "Aww, that made my spots blush!"],
+          hello: ["You're back! The glade feels brighter already!", "Hello, friend! I kept your spot dry for you!"],
+          morning: ["Good morning! The dew is sparkling just for you!", "Rise and sprout! Today's a good growing day!"],
+          night: ["The glade is glowing softly. Rest soon?", "Even mushrooms need their sleep. Cozy dreams!"],
+          focus: ["Quiet as moss. I'm right here with you.", "Growing roots of focus together. Let's go!"],
+          done: ["What a session! You grew so much!", "Done! That's a whole ring of hard work!"],
+          task: ["Pop! Another one done!", "Yay! Checked off and spotless!", "WOO! That one's in the basket!", "You did it! My cap is doing a happy wiggle!"],
+          break: ["Stretch time! Reach up like a tall toadstool!", "Break time! Go find a sunbeam!"]
+        }
+      },
+      {
+        id: "mushrooms-fiddle", name: "Fiddle", kind: "Fern Fiddlehead", pose: "stand", wearColor: "#C98B5A",
+        bio: "A curly fern fiddlehead who unrolls a little more with every finished task.",
+        idle: ["sway", "topBob", "headTilt"], cheer: "spin",
+        neck: [60, 66],
+        parts: {
+          feet: `<path d="M38 110Q60 102 82 110Q60 114 38 110Z" fill="#8A6A48" ${O2}/><path d="M44 108Q50 104 54 108M64 108Q70 104 76 108" fill="none" stroke="#B88E62" stroke-width="2" stroke-linecap="round"/>`,
+          body: `${LG("mushrooms-fiddle-mushrooms-fiddle-b", [[0, "#9ED676"], [1, "#5E9E4E"]])}
+            <path d="M52 66C50 80 50 96 52 108H68C70 96 70 80 68 66Z" fill="url(#mushrooms-fiddle-mushrooms-fiddle-b)" ${O}/>
+            <path d="M56 72Q55 88 56 102" fill="none" stroke="#C8EEA8" stroke-width="2.4" stroke-linecap="round"/>`,
+          armL: {svg: `<g transform="rotate(-46 52 83)"><path d="M52 82C42 74 30 74 24 80C32 88 44 88 52 84Z" fill="#8CCB6A" ${O}/><path d="M50 83Q38 80 28 80" fill="none" stroke="#5E9E4E" stroke-width="1.8" stroke-linecap="round"/></g>`, pivot: [52, 83]},
+          armR: {svg: `<g transform="rotate(46 68 83)"><path d="M68 82C78 74 90 74 96 80C88 88 76 88 68 84Z" fill="#8CCB6A" ${O}/><path d="M70 83Q82 80 92 80" fill="none" stroke="#5E9E4E" stroke-width="1.8" stroke-linecap="round"/></g>`, pivot: [68, 83]},
+          head: `${RG("mushrooms-fiddle-mushrooms-fiddle-h", [[0, "#C8F0A0"], [0.6, "#8CCB6A"], [1, "#5E9E4E"]], 0.4, 0.35, 0.7)}
+            <circle cx="60" cy="44" r="27" fill="url(#mushrooms-fiddle-mushrooms-fiddle-h)" ${O}/>
+            <path d="M74 30a3 3 0 1 1 -5 3a8 8 0 1 1 8 -10a14 14 0 1 1 -24 -4" fill="none" stroke="#4E8E3E" stroke-width="2.6" stroke-linecap="round" opacity=".7"/>
+            ${shine(46, 30, 6, 3, -35)}`,
+          top: {svg: `${LINE("M66 18Q70 10 78 9", "#6DB35E", 2.4)}<path d="M78 9C84 4 92 6 92 12C86 14 80 13 78 9Z" fill="#A6DA7E" ${O2}/>`, pivot: [65, 19]}
+        },
+        eyes: {lx: 50, rx: 70, y: 46, r: 4.4, style: "dot", color: "#20301A"},
+        mouth: {x: 60, y: 55, w: 2.8, color: "#20301A"},
+        cheeks: {lx: 43, rx: 77, y: 53, w: 3.8, h: 2.4, color: "#FF8FA0"},
+        anchors: {top: [60, 18, 0.85], neck: [60, 70, 0.7], chest: [64, 90, 0.5], back: [76, 86, 0.6], hands: [60, 88, 0.7]},
+        lines: {
+          tap: ["Hi! I unrolled a tiny bit just seeing you!", "Every page you read, I uncurl a little more!", "Curious minds grow the tallest. That's you!", "One frond at a time, one task at a time!", "You're in such a good groove today!", "Shh, can you hear the forest cheering?", "Stretch your thinking, like me!"],
+          pet: ["Eep! That makes me curl up giggling!", "Hehe, soft pats make my leaves wiggle!"],
+          hello: ["You're back! I've been curling with excitement!", "Hiya! Ready to grow a little today?"],
+          morning: ["Good morning! Time to unfurl and shine!", "Morning! The forest floor is all sparkly!"],
+          night: ["Curling up for the night. You too, soon?", "Sleepy fronds, sleepy friend. Good night!"],
+          focus: ["Rooted and ready. Let's focus!", "Quietly uncurling beside you."],
+          done: ["Look! I unrolled a whole extra leaf!", "Session done! You helped me grow so much!"],
+          task: ["Done! Uncurl, uncurl, YAY!", "Another one finished! I'm so proud!", "Checked off! My leaves are dancing!", "Wheee! That one counts double!"],
+          break: ["Stretch it out, like a fern in the sun!", "Break time! Wiggle your fingers and toes!"]
+        }
+      },
+      {
+        id: "mushrooms-dormy", name: "Dormy", kind: "Hazel Dormouse", pose: "sit", sleepy: true, wearColor: "#7FA6FF",
+        bio: "A sleepy hazel dormouse who naps in a mushroom cup between study sessions.",
+        idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
+        neck: [60, 74],
+        parts: {
+          tail: {svg: `${LG("mushrooms-dormy-mushrooms-dormy-t", [[0, "#F2B878"], [1, "#C8803E"]])}<path d="M82 96C98 94 108 80 104 64C102 56 94 54 90 60C96 70 92 82 80 88Z" fill="url(#mushrooms-dormy-mushrooms-dormy-t)" ${O}/><path d="M96 66Q99 76 92 84" fill="none" stroke="#FFE2B8" stroke-width="2" stroke-linecap="round"/>`, pivot: [82, 92]},
+          feet: `${RG("mushrooms-dormy-mushrooms-dormy-cup", [[0, "#FF9E86"], [1, "#C23A32"]], 0.4, 0.3, 0.8)}
+            <path d="M26 92Q26 114 60 114Q94 114 94 92Z" fill="url(#mushrooms-dormy-mushrooms-dormy-cup)" ${O}/>
+            <ellipse cx="40" cy="102" rx="4" ry="3" fill="#FFF8EE"/><ellipse cx="58" cy="108" rx="4.6" ry="3" fill="#FFF8EE"/><ellipse cx="78" cy="101" rx="3.6" ry="2.8" fill="#FFF8EE"/>`,
+          body: `${LG("mushrooms-dormy-mushrooms-dormy-b", [[0, "#F6C690"], [1, "#D8904A"]])}
+            <path d="M34 94C34 76 44 68 60 68C76 68 86 76 86 94Z" fill="url(#mushrooms-dormy-mushrooms-dormy-b)" ${O}/>
+            <ellipse cx="60" cy="88" rx="13" ry="8" fill="#FFF2DE"/>`,
+          armL: {svg: `<ellipse cx="46" cy="90" rx="6" ry="4.6" fill="#F2B878" ${O}/>`, pivot: [48, 88]},
+          armR: {svg: `<ellipse cx="74" cy="90" rx="6" ry="4.6" fill="#F2B878" ${O}/>`, pivot: [72, 88]},
+          earL: {svg: `<circle cx="38" cy="36" r="11" fill="#E8A462" ${O}/><circle cx="38" cy="36" r="6" fill="#FFC8C0"/>`, pivot: [44, 44]},
+          earR: {svg: `<circle cx="82" cy="36" r="11" fill="#E8A462" ${O}/><circle cx="82" cy="36" r="6" fill="#FFC8C0"/>`, pivot: [76, 44]},
+          head: `${RG("mushrooms-dormy-mushrooms-dormy-h", [[0, "#FAD2A0"], [0.7, "#ECA864"], [1, "#D88E48"]], 0.42, 0.35, 0.75)}
+            <ellipse cx="60" cy="54" rx="26" ry="23" fill="url(#mushrooms-dormy-mushrooms-dormy-h)" ${O}/>
+            ${shine(46, 40, 5, 2.6, -35)}`,
+          face: `<ellipse cx="60" cy="64" rx="10" ry="7" fill="#FFF2DE"/><ellipse cx="60" cy="60.6" rx="2.6" ry="2" fill="#5A3A2A"/>
+            <path d="M48 62H38M48 65L39 68M72 62H82M72 65L81 68" stroke="#8A5A3A" stroke-width="1.2" stroke-linecap="round"/>`
+        },
+        eyes: {lx: 50, rx: 70, y: 53, r: 4.6, style: "round", color: "#2A1A12"},
+        mouth: {x: 60, y: 65, w: 2.2, style: "cat", color: "#2A1A12"},
+        cheeks: {lx: 42, rx: 78, y: 61, w: 4, h: 2.4, color: "#FF8F9A"},
+        anchors: {top: [60, 32, 0.85], neck: [60, 74, 0.85], chest: [60, 88, 0.55], back: [86, 82, 0.7], hands: [60, 90, 0.75]},
+        lines: {
+          tap: ["*yawn* Oh! Hi! I was just resting my eyes!", "You study, I'll keep this mushroom warm!", "Tiny steps, cozy pace, big results!", "You're doing wonderfully, sleepy-head approved!", "Snack, stretch, then back to it?", "My whiskers say today is a good day!", "Curl up with a good chapter? I'll join you!"],
+          pet: ["Mmm, that's the coziest pat ever!", "Hehe, now I'm extra snuggly!"],
+          hello: ["*blink blink* You're here! Best wake-up ever!", "Hello! I saved you the comfiest spot!"],
+          morning: ["Good morning! I'm awake! Mostly!", "Morning, friend! Hazelnut breakfast first?"],
+          night: ["Nap o'clock! Rest well, okay?", "So cozy. Let's both sleep soon."],
+          focus: ["Wide awake for you! Let's focus!", "Quiet as a dormouse. That's very quiet."],
+          done: ["Wow! You worked hard enough for both of us!", "Session done! Time for a celebratory nap!"],
+          task: ["Yay! Done! *happy squeak*", "Checked off! My tail is swishing!", "Another one! You're unstoppable!", "Woo! That deserves a hazelnut!"],
+          break: ["Break time! Have a little stretch and a snack!", "Rest your eyes for a minute. I'll keep watch!"]
+        }
+      }
+    ]
+  });
+
+  /* ================= Sunflower Field ================= */
+  const sunPetals = (cx, cy, n, R, w, r0, fill) => Array.from({length: n}, (_, i) => `<path d="M${cx + r0} ${cy}Q${(cx + (r0 + R) / 2).toFixed(1)} ${cy - w} ${cx + R} ${cy}Q${(cx + (r0 + R) / 2).toFixed(1)} ${cy + w} ${cx + r0} ${cy}Z" transform="rotate(${(i * 360 / n).toFixed(1)} ${cx} ${cy})" fill="${fill}" ${OW(2)}/>`).join("");
+  COMP_DATA.push({
+    theme: "sunflowers",
+    companions: [
+      {
+        id: "sunflowers-sole", name: "Solé", kind: "Sunflower Sprite", pose: "stand", wearColor: "#5E9A3E",
+        bio: "A bright sunflower sprite who turns toward whatever you're working on.",
+        idle: ["sway", "headTilt", "sparkle"], cheer: "spin",
+        neck: [60, 74],
+        parts: {
+          feet: `<ellipse cx="50" cy="109" rx="7.4" ry="4" fill="#4E8A34" ${O}/><ellipse cx="70" cy="109" rx="7.4" ry="4" fill="#4E8A34" ${O}/>`,
+          body: `${LG("sunflowers-sole-sunflowers-sole-b", [[0, "#9ED676"], [1, "#5E9A3E"]])}
+            <path d="M46 76C42 88 42 100 46 108H74C78 100 78 88 74 76Z" fill="url(#sunflowers-sole-sunflowers-sole-b)" ${O}/>
+            <path d="M50 84Q49 94 51 102" fill="none" stroke="#C8EEA8" stroke-width="2.4" stroke-linecap="round"/>`,
+          armL: {svg: `<g transform="rotate(-44 46 88)"><path d="M46 86C36 78 24 80 20 88C30 94 40 92 46 90Z" fill="#7ABF56" ${O}/><path d="M44 88Q34 86 25 88" fill="none" stroke="#4E8A34" stroke-width="1.6" stroke-linecap="round"/></g>`, pivot: [46, 88]},
+          armR: {svg: `<g transform="rotate(44 74 88)"><path d="M74 86C84 78 96 80 100 88C90 94 80 92 74 90Z" fill="#7ABF56" ${O}/><path d="M76 88Q86 86 95 88" fill="none" stroke="#4E8A34" stroke-width="1.6" stroke-linecap="round"/></g>`, pivot: [74, 88]},
+          head: `${LG("sunflowers-sole-sunflowers-sole-p", [[0, "#FFE680"], [1, "#F5A51A"]])}${RG("sunflowers-sole-sunflowers-sole-c", [[0, "#E0A060"], [0.6, "#C07A3A"], [1, "#9A5A28"]], 0.4, 0.35, 0.7)}
+            ${sunPetals(60, 44, 14, 38, 7, 18, "url(#sunflowers-sole-sunflowers-sole-p)")}
+            <circle cx="60" cy="44" r="22" fill="url(#sunflowers-sole-sunflowers-sole-c)" ${O}/>
+            <circle cx="50" cy="32" r="1.4" fill="#E8B070" opacity=".7"/><circle cx="70" cy="34" r="1.2" fill="#E8B070" opacity=".7"/><circle cx="74" cy="52" r="1.3" fill="#E8B070" opacity=".7"/><circle cx="46" cy="54" r="1.2" fill="#E8B070" opacity=".7"/>
+            ${shine(50, 34, 4, 2, -35)}`
+        },
+        eyes: {lx: 51, rx: 69, y: 43, r: 4.6, style: "sparkle", color: "#2A1406"},
+        mouth: {x: 60, y: 52, w: 3, color: "#2A1406"},
+        cheeks: {lx: 45, rx: 75, y: 50, w: 3.8, h: 2.4, color: "#FF9A8A"},
+        anchors: {top: [60, 8, 0.9], neck: [60, 76, 0.75], chest: [60, 94, 0.55], back: [76, 92, 0.6], hands: [60, 94, 0.75]},
+        lines: {
+          tap: ["Hi! I'm turning toward you, of course!", "You're my favorite kind of sunshine!", "Stand tall and keep reaching up!", "Every task is a little ray of light!", "Look at you blooming today!", "Sip some water! Flowers and students need it!", "Face the sun, then face that next page!"],
+          pet: ["Hehe! My petals went all fluttery!", "Aww, I'm glowing even brighter now!"],
+          hello: ["You're here! My petals just perked right up!", "Hello, sunshine! I've been facing the door!"],
+          morning: ["Good morning! Let's soak up some light!", "Rise and shine! I already did both!"],
+          night: ["My petals are folding for the night. Rest too?", "The sun's asleep. Time for you to sleep soon!"],
+          focus: ["Facing your work with you. Let's go!", "Bright and steady. You've got this!"],
+          done: ["What a sunny session! Amazing!", "Session done! You were absolutely radiant!"],
+          task: ["Done! I'm blooming with pride!", "Yay! Another petal for the crown!", "Checked off! Sunshine dance!", "WOO! Bright work, friend!"],
+          break: ["Break time! Find a sunny window!", "Stretch up tall, like a sunflower!"]
+        }
+      },
+      {
+        id: "sunflowers-chirpy", name: "Chirpy", kind: "Goldfinch", pose: "stand", wearColor: "#E8504A",
+        bio: "A cheerful goldfinch who sings a happy note for every finished task.",
+        idle: ["wingFlutter", "headTilt", "topBob"], cheer: "wingFlutter",
+        neck: [60, 66],
+        parts: {
+          tail: {svg: `<path d="M38 92L16 100L22 88L14 80L40 84Z" fill="#3A3440" ${O}/><path d="M22 92L34 90" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>`, pivot: [40, 88]},
+          feet: `<path d="M50 104V111M46 111H54M70 104V111M66 111H74" stroke="#E8A050" stroke-width="3.4" stroke-linecap="round"/>`,
+          body: `${RG("sunflowers-chirpy-sunflowers-chirpy-b", [[0, "#FFF2A0"], [0.6, "#FFD83A"], [1, "#F0B020"]], 0.4, 0.35, 0.75)}
+            <ellipse cx="60" cy="86" rx="24" ry="21" fill="url(#sunflowers-chirpy-sunflowers-chirpy-b)" ${O}/>
+            <ellipse cx="60" cy="92" rx="13" ry="10" fill="#FFF8D8"/>`,
+          wingL: {svg: `<path d="M38 76C26 80 24 96 34 104C40 98 44 88 42 78Z" fill="#3A3440" ${O}/><path d="M32 88L40 86M31 95L39 92" stroke="#fff" stroke-width="2" stroke-linecap="round"/>`, pivot: [40, 78]},
+          wingR: {svg: `<path d="M82 76C94 80 96 96 86 104C80 98 76 88 78 78Z" fill="#3A3440" ${O}/><path d="M88 88L80 86M89 95L81 92" stroke="#fff" stroke-width="2" stroke-linecap="round"/>`, pivot: [80, 78]},
+          head: `${RG("sunflowers-chirpy-sunflowers-chirpy-h", [[0, "#FFF2A0"], [0.6, "#FFD83A"], [1, "#F0B020"]], 0.4, 0.35, 0.75)}
+            <circle cx="60" cy="48" r="22" fill="url(#sunflowers-chirpy-sunflowers-chirpy-h)" ${O}/>
+            <path d="M44 34Q50 24 62 26Q72 26 76 34Q66 30 60 34Q52 30 44 34Z" fill="#3A3440"/>
+            ${shine(48, 40, 4.4, 2.4, -35)}`,
+          top: {svg: `<path d="M58 28C56 18 60 12 66 10C66 16 64 22 62 28Z" fill="#3A3440" ${O2}/><path d="M62 28C64 20 70 16 76 18C74 22 70 26 64 29Z" fill="#E8504A" ${O2}/>`, pivot: [61, 29]}
+        },
+        eyes: {lx: 51, rx: 69, y: 47, r: 4.2, style: "round", color: "#2A1A12"},
+        mouths: {
+          neutral: `<path d="M55 54L65 54L60 61Z" fill="#F2A040" ${OW(2)}/>`,
+          smile: `<path d="M55 54L65 54L60 60Z" fill="#F6B04A" ${OW(2)}/>`,
+          open: `<path d="M55 53L65 53L60 57Z" fill="#F2A040" ${OW(2)}/><path d="M56 57L64 57L60 63Z" fill="#F2A040" ${OW(2)}/>`,
+          sleepy: `<path d="M56 55L64 55L60 60Z" fill="#E09A3C" ${OW(2)}/>`
+        },
+        mouth: {x: 60, y: 57, w: 2.6},
+        cheeks: {lx: 44, rx: 76, y: 55, w: 3.8, h: 2.4, color: "#FF8F7A"},
+        anchors: {top: [60, 26, 0.85], neck: [60, 68, 0.85], chest: [60, 92, 0.55], back: [84, 84, 0.7], hands: [60, 96, 0.75]},
+        lines: {
+          tap: ["Tweet! That's my hello note!", "I'm composing a song about your hard work!", "La la la! You're doing great!", "One note at a time makes a whole song!", "You've got the rhythm today!", "Peep! Water break? Birds love water!", "Your focus is music to my ears!"],
+          pet: ["Chirp chirp! My feathers are fluffing!", "Eee! That's my favorite pat!"],
+          hello: ["Tweet tweet! You're back!", "Hello! I warmed up my singing voice!"],
+          morning: ["Good morning! Dawn chorus, just for you!", "Morning! The field is full of seeds today!"],
+          night: ["Tucking my head under my wing soon. You too?", "Hush now. Lullaby time. Sleep well!"],
+          focus: ["Humming softly while you work.", "Perched and focused. Let's go!"],
+          done: ["That session gets a whole chorus!", "Done! I just wrote a brand new verse!"],
+          task: ["TWEET! New note added!", "Done! Do-re-mi-YAY!", "Checked off! That's a high note!", "One more note! The song is growing!"],
+          break: ["Flap those arms! Wing stretch time!", "Break time! Go hear some real birds!"]
+        }
+      },
+      {
+        id: "sunflowers-bale", name: "Bale", kind: "Hay Bale Pal", pose: "stand", wearColor: "#C8423A",
+        bio: "A soft, sturdy hay bale who makes a comfy spot to rest between tasks.",
+        idle: ["topBob", "bounce", "waddle"], cheer: "bounce",
+        parts: {
+          feet: `<rect x="38" y="104" width="14" height="8" rx="4" fill="#B88A3E" ${O}/><rect x="68" y="104" width="14" height="8" rx="4" fill="#B88A3E" ${O}/>`,
+          body: `${LG("sunflowers-bale-sunflowers-bale-b", [[0, "#FFE29A"], [0.6, "#F2C66A"], [1, "#D9A040"]])}
+            <rect x="22" y="40" width="76" height="66" rx="14" fill="url(#sunflowers-bale-sunflowers-bale-b)" ${O}/>
+            <path d="M28 56H92M28 92H92M30 74H40M80 74H90" stroke="#C8902E" stroke-width="2" stroke-linecap="round" opacity=".8"/>
+            <path d="M38 40V106M82 40V106" stroke="#C8423A" stroke-width="4"/>
+            <path d="M24 44l-6-6M30 40l-2-8M90 40l4-7M96 46l7-4M22 100l-6 4M98 100l6 4" stroke="#E0B050" stroke-width="2.6" stroke-linecap="round"/>
+            ${shine(32, 50, 5, 2.4, -20)}`,
+          armL: {svg: `<path d="M24 78L12 84L14 76L8 72L22 70Z" fill="#F2C66A" ${O}/>`, pivot: [24, 74]},
+          armR: {svg: `<path d="M96 78L108 84L106 76L112 72L98 70Z" fill="#F2C66A" ${O}/>`, pivot: [96, 74]},
+          top: {svg: `${LINE("M66 42V30", "#5E9A3E", 2.4)}${sunPetals(66, 24, 10, 12, 3, 5, "#FFC21F")}<circle cx="66" cy="24" r="5.4" fill="#7A4A1E" ${O2}/>`, pivot: [66, 42]}
+        },
+        eyes: {lx: 50, rx: 70, y: 72, r: 4.8, style: "round", color: "#3A2410"},
+        mouth: {x: 60, y: 82, w: 3.2, color: "#3A2410"},
+        cheeks: {lx: 43, rx: 77, y: 80, w: 4.2, h: 2.6, color: "#FF8F7A"},
+        anchors: {top: [60, 40, 1], neck: [60, 96, 1], chest: [72, 92, 0.6], back: [96, 70, 0.8], hands: [60, 98, 0.85]},
+        lines: {
+          tap: ["Howdy! Lean on me anytime, I'm comfy!", "Steady wins the harvest, friend!", "You're working like a whole farm crew!", "Square, sturdy and proud of you!", "Hay there! Keep it up!", "Water and a snack, then back to the field?", "Little by little, the barn fills up!"],
+          pet: ["Hehe! That's a bit scratchy, but I like it!", "Aww shucks, thank you kindly!"],
+          hello: ["Hay hay! You're back!", "Howdy, partner! Ready to get to work?"],
+          morning: ["Mornin'! Roosters are up and so are we!", "Good morning! Fresh hay, fresh start!"],
+          night: ["Barn lights are on. Time to rest soon!", "Even the cows are asleep. Good night, partner!"],
+          focus: ["Steady as a fence post. Let's focus!", "Working right alongside you!"],
+          done: ["Harvest is in! What a session!", "Done! You plowed right through that!"],
+          task: ["Yee-haw! Another one done!", "Stacked and done! Nice work!", "Checked off! Bounce bounce!", "That's one more bale in the barn!"],
+          break: ["Break time! Go stretch your legs in the sun!", "Lean back and rest a spell, partner!"]
+        }
+      }
+    ]
+  });
+
+  /* ================= Night Train ================= */
+  COMP_DATA.push({
+    theme: "nighttrain",
+    companions: [
+      {
+        id: "nighttrain-choo", name: "Choo", kind: "Little Steam Engine", pose: "stand", wearColor: "#D9A848",
+        bio: "A little steam engine who puffs a happy whistle at every stop.",
+        idle: ["topBob", "bounce", "sparkle"], cheer: "bounce",
+        parts: {
+          feet: `<circle cx="40" cy="104" r="9" fill="#3A3448" ${O}/><circle cx="80" cy="104" r="9" fill="#3A3448" ${O}/><circle cx="40" cy="104" r="3" fill="#D9A848"/><circle cx="80" cy="104" r="3" fill="#D9A848"/><path d="M32 104H88" stroke="#D9A848" stroke-width="3" stroke-linecap="round"/>`,
+          body: `${LG("nighttrain-choo-nighttrain-choo-b", [[0, "#F27060"], [0.6, "#D8463E"], [1, "#B0302E"]])}
+            <path d="M24 60Q24 46 38 46H82Q96 46 96 60V96H24Z" fill="url(#nighttrain-choo-nighttrain-choo-b)" ${O}/>
+            <circle cx="60" cy="70" r="24" fill="#3A3448" ${O}/><circle cx="60" cy="70" r="19" fill="#FFF4DE"/>
+            <rect x="18" y="92" width="84" height="9" rx="4" fill="#3A3448" ${O}/>
+            <circle cx="30" cy="56" r="4.4" fill="#FFE08A" ${O2}/><circle cx="90" cy="56" r="4.4" fill="#FFE08A" ${O2}/>
+            ${shine(34, 52, 5, 2.2, -10)}`,
+          armL: {svg: `<ellipse cx="18" cy="76" rx="5" ry="7.4" transform="rotate(25 18 76)" fill="#E8584A" ${O}/>`, pivot: [24, 72]},
+          armR: {svg: `<ellipse cx="102" cy="76" rx="5" ry="7.4" transform="rotate(-25 102 76)" fill="#E8584A" ${O}/>`, pivot: [96, 72]},
+          top: {svg: `<path d="M40 46V30H54V46Z" fill="#3A3448" ${O}/><rect x="36" y="26" width="22" height="7" rx="2.5" fill="#4A4460" ${O}/>
+            <path d="M44 20C38 20 36 14 41 12C41 6 49 4 52 9C56 4 64 8 62 13C67 14 66 20 61 20Z" fill="#F2F0FA" ${O2}/>`, pivot: [47, 46]}
+        },
+        eyes: {lx: 52, rx: 68, y: 68, r: 4.2, style: "round", color: "#2A1A12"},
+        mouth: {x: 60, y: 77, w: 2.8, color: "#2A1A12"},
+        cheeks: {lx: 46, rx: 74, y: 75, w: 3.6, h: 2.2, color: "#FF8F9A"},
+        anchors: {top: [72, 46, 0.85], neck: [60, 92, 1], chest: [84, 84, 0.55], back: [96, 66, 0.8], hands: [60, 96, 0.8]},
+        lines: {
+          tap: ["Toot toot! All aboard the study express!", "Chugga chugga, you're doing great!", "Next stop: Finished Homework Station!", "Full steam ahead, friend!", "I think I can, and so can you!", "Coal break? I mean, snack break?", "We're right on schedule today!"],
+          pet: ["Toot! That made my whistle squeak!", "Hehe, my wheels are spinning with joy!"],
+          hello: ["Toot toot! You made it to the platform!", "Welcome aboard! I saved you a window seat!"],
+          morning: ["Good morning! The first train of the day!", "Morning! Steam's up, let's roll!"],
+          night: ["Pulling into the station for the night. Rest soon?", "Last stop: Dreamland. Sleep well!"],
+          focus: ["Steady on the tracks. Let's focus!", "Chugging quietly beside you."],
+          done: ["What a journey! Amazing session!", "Arrived! You powered the whole way!"],
+          task: ["TOOT TOOT! Station reached!", "Done! Puff puff hooray!", "Checked off! Right on time!", "Another stop on the line! Woo!"],
+          break: ["Station break! Stretch your legs!", "Platform stop! Grab some water!"]
+        }
+      },
+      {
+        id: "nighttrain-stub", name: "Stub", kind: "Ticket Stub", pose: "stand", wearColor: "#B8484C",
+        bio: "A little train ticket who gets a hole punched for every finished task.",
+        idle: ["sway", "wave", "headTilt"], cheer: "spin",
+        neck: [60, 76],
+        parts: {
+          feet: `<ellipse cx="50" cy="110" rx="7" ry="3.6" fill="#B8484C" ${O}/><ellipse cx="70" cy="110" rx="7" ry="3.6" fill="#B8484C" ${O}/>`,
+          body: `${LG("nighttrain-stub-nighttrain-stub-b", [[0, "#FFF4D8"], [1, "#F0D8A4"]])}
+            <path d="M38 68H82V108H38Z" fill="url(#nighttrain-stub-nighttrain-stub-b)" ${O}/>
+            <path d="M46 88H74M46 96H66" stroke="#C8A070" stroke-width="2.4" stroke-linecap="round"/>`,
+          armL: {svg: `<ellipse cx="36.4" cy="93" rx="4.6" ry="9.4" transform="rotate(10 36.4 93)" fill="#F6E2B8" ${O}/>`, pivot: [38, 84]},
+          armR: {svg: `<ellipse cx="83.6" cy="93" rx="4.6" ry="9.4" transform="rotate(-10 83.6 93)" fill="#F6E2B8" ${O}/>`, pivot: [82, 84]},
+          head: `${LG("nighttrain-stub-nighttrain-stub-h", [[0, "#FFF8E4"], [1, "#F4DEB0"]])}
+            <path d="M28 22H92V40A6 6 0 0 0 92 52V76H28V52A6 6 0 0 0 28 40Z" fill="url(#nighttrain-stub-nighttrain-stub-h)" ${O}/>
+            <path d="M30 76H90" stroke="#C8A070" stroke-width="2" stroke-dasharray="3 3"/>
+            <path d="M34 28H86" stroke="#B8484C" stroke-width="4"/><circle cx="80" cy="64" r="4.4" fill="#2E2440" ${OW(1.8)}/>
+            ${twinkle(38, 64, 3, "#D9A848")}`
+        },
+        eyes: {lx: 51, rx: 69, y: 47, r: 4.4, style: "dot", color: "#2E2018"},
+        mouth: {x: 60, y: 56, w: 2.8, color: "#2E2018"},
+        cheeks: {lx: 44, rx: 76, y: 54, w: 3.8, h: 2.4, color: "#FF8F9A"},
+        anchors: {top: [60, 22, 0.9], neck: [60, 78, 0.85], chest: [60, 92, 0.55], back: [80, 90, 0.6], hands: [60, 96, 0.75]},
+        lines: {
+          tap: ["Ticket, please! Oh wait, I'm the ticket!", "Every task gets a punch! Click!", "You've got a first class ticket to success!", "Valid for one amazing study session!", "Keep me safe, I'm your pass to greatness!", "Water break? It's included in the fare!", "Destination: You, but even smarter!"],
+          pet: ["Hehe! Careful, don't crease me!", "Aww! I feel like a golden ticket now!"],
+          hello: ["Welcome aboard! Ticket's ready!", "Hello! I've been waiting at the gate!"],
+          morning: ["Good morning! Today's ticket is fresh!", "Morning! First stop, a great day!"],
+          night: ["Ticket's stamped for today. Rest soon!", "Overnight route to dreams. Good night!"],
+          focus: ["Punched in and ready. Let's focus!", "Quiet carriage rules! Focusing with you."],
+          done: ["What a ride! Fully punched!", "Session complete! Ticket of honor!"],
+          task: ["CLICK! Another hole punched!", "Done! That's one more stamp!", "Checked off! Punch punch hooray!", "Woo! Ticket's looking great!"],
+          break: ["Rest stop! Stretch and wiggle!", "Break time! Back aboard in five!"]
+        }
+      },
+      {
+        id: "nighttrain-satchel", name: "Satchel", kind: "Travel Suitcase", pose: "stand", wearColor: "#7FB8D8",
+        bio: "A well-traveled suitcase with stickers from every place you've studied.",
+        idle: ["topBob", "waddle", "wave"], cheer: "hop",
+        parts: {
+          feet: `<circle cx="38" cy="108" r="5" fill="#3A3448" ${O}/><circle cx="82" cy="108" r="5" fill="#3A3448" ${O}/>`,
+          body: `${LG("nighttrain-satchel-nighttrain-satchel-b", [[0, "#D89A62"], [0.6, "#B87A44"], [1, "#94603A"]])}
+            <rect x="20" y="40" width="80" height="64" rx="12" fill="url(#nighttrain-satchel-nighttrain-satchel-b)" ${O}/>
+            <path d="M36 40V104M84 40V104" stroke="#6A4428" stroke-width="4"/>
+            <circle cx="48" cy="92" r="6" fill="#8FD8FF" ${OW(1.8)}/><path d="M45 92h6M48 89v6" stroke="#fff" stroke-width="1.6"/>
+            <rect x="62" y="86" width="14" height="10" rx="2" fill="#FFD86B" ${OW(1.8)} transform="rotate(12 69 91)"/>
+            <path d="M24 98l7-6l3 8z" fill="#FF8FA8" ${OW(1.6)}/>
+            ${twinkle(90, 94, 3.2, "#fff")}${shine(30, 50, 5, 2.4, -20)}`,
+          armL: {svg: `<ellipse cx="16" cy="74" rx="5" ry="7.4" transform="rotate(25 16 74)" fill="#C8884E" ${O}/>`, pivot: [22, 70]},
+          armR: {svg: `<ellipse cx="104" cy="74" rx="5" ry="7.4" transform="rotate(-25 104 74)" fill="#C8884E" ${O}/>`, pivot: [98, 70]},
+          top: {svg: `<path d="M46 42V32Q46 26 52 26H68Q74 26 74 32V42" fill="none" stroke="${INK}" stroke-width="8.4" stroke-linecap="round"/><path d="M46 42V32Q46 26 52 26H68Q74 26 74 32V42" fill="none" stroke="#6A4428" stroke-width="4" stroke-linecap="round"/>`, pivot: [60, 42]}
+        },
+        eyes: {lx: 50, rx: 70, y: 64, r: 4.8, style: "round", color: "#2A1A10"},
+        mouth: {x: 60, y: 74, w: 3, color: "#2A1A10"},
+        cheeks: {lx: 43, rx: 77, y: 72, w: 4, h: 2.6, color: "#FF8F9A"},
+        anchors: {top: [60, 40, 0.95], neck: [60, 98, 1], chest: [60, 84, 0.55], back: [96, 66, 0.8], hands: [60, 98, 0.85]},
+        lines: {
+          tap: ["Hi! I packed snacks AND study notes!", "Every place you study gets a sticker on me!", "Ready for the next adventure, friend?", "You're well-traveled in knowledge!", "Pack light, think big!", "Snack check! I've got crackers in here!", "Look at all my stickers! All from your hard work!"],
+          pet: ["Hehe! My latches are rattling!", "Aww, I'm all packed with happiness!"],
+          hello: ["You're back! Where are we studying today?", "Hello! I'm packed and ready!"],
+          morning: ["Good morning! New day, new destination!", "Morning! Let's pack the day full of wins!"],
+          night: ["Unpacking for the night. Rest soon?", "Zipped up and sleepy. Good night!"],
+          focus: ["All packed. Let's focus!", "Quietly guarding your notes."],
+          done: ["What a trip! Amazing session!", "Done! That one earns a new sticker!"],
+          task: ["New sticker unlocked! Done!", "Checked off! Into the case it goes!", "Yay! Another souvenir!", "WOO! Packed and done!"],
+          break: ["Break time! Stretch your travel legs!", "Rest stop! Have a little snack!"]
+        }
+      }
+    ]
+  });
+
+  /* ================= Ramen Shop ================= */
+  COMP_DATA.push({
+    theme: "ramen",
+    companions: [
+      {
+        id: "ramen-yolky", name: "Yolky", kind: "Soft-Boiled Egg", pose: "stand", wearColor: "#7ACB5A",
+        bio: "A soft-boiled egg with a sunny, jammy middle and a cozy spot in the bowl.",
+        idle: ["topBob", "bounce", "sparkle"], cheer: "hop",
+        parts: {
+          feet: `<ellipse cx="48" cy="110" rx="7.4" ry="3.8" fill="#F2E6D4" ${O}/><ellipse cx="72" cy="110" rx="7.4" ry="3.8" fill="#F2E6D4" ${O}/>`,
+          body: `${LG("ramen-yolky-ramen-yolky-w", [[0, "#FFFFFF"], [0.7, "#FBF4EA"], [1, "#EADCC8"]], 0, 0, 1, 1)}${RG("ramen-yolky-ramen-yolky-y", [[0, "#FFD27A"], [0.6, "#F8A02A"], [1, "#E07A10"]], 0.42, 0.38, 0.7)}
+            <path d="M60 26C82 26 96 50 96 74C96 96 80 108 60 108C40 108 24 96 24 74C24 50 38 26 60 26Z" fill="url(#ramen-yolky-ramen-yolky-w)" ${O}/>
+            <circle cx="60" cy="76" r="22" fill="url(#ramen-yolky-ramen-yolky-y)" ${OW(2.4)}/>
+            <path d="M44 68Q46 60 54 57" fill="none" stroke="#FFE8B0" stroke-width="2.6" stroke-linecap="round"/>
+            ${shine(38, 44, 6, 3, -40)}`,
+          armL: {svg: `<ellipse cx="22" cy="80" rx="5" ry="7.4" transform="rotate(25 22 80)" fill="#FBF4EA" ${O}/>`, pivot: [27, 76]},
+          armR: {svg: `<ellipse cx="98" cy="80" rx="5" ry="7.4" transform="rotate(-25 98 80)" fill="#FBF4EA" ${O}/>`, pivot: [93, 76]},
+          top: {svg: `<path d="M58 28C54 20 56 12 62 8C64 14 62 22 60 28Z" fill="#7ACB5A" ${O2}/><path d="M61 28C64 22 70 20 74 22C72 26 66 28 62 29Z" fill="#9ADB6A" ${O2}/>`, pivot: [60, 29]}
+        },
+        eyes: {lx: 51, rx: 69, y: 74, r: 4.4, style: "round", color: "#4A2406"},
+        mouth: {x: 60, y: 83, w: 2.8, color: "#4A2406"},
+        cheeks: {lx: 44, rx: 76, y: 81, w: 3.8, h: 2.4, color: "#FF7A6A"},
+        anchors: {top: [60, 28, 0.9], neck: [60, 98, 0.9], chest: [76, 96, 0.55], back: [92, 70, 0.75], hands: [60, 100, 0.8]},
+        lines: {
+          tap: ["Hi! Perfectly jammy and ready to help!", "Soft on the outside, strong in the middle. Like you!", "Six and a half minutes of focus? Perfect!", "You're cooking up something great today!", "Egg-cellent progress, friend!", "Sip some water! Even broth needs a break!", "Golden center, golden effort!"],
+          pet: ["Hehe! Careful, I'm a little wobbly!", "Aww, my yolk is all warm now!"],
+          hello: ["You're back! Freshly boiled for you!", "Hello! Ready to get cracking?"],
+          morning: ["Good morning! Breakfast egg reporting for duty!", "Morning! Sunny side up, like your day!"],
+          night: ["Simmering down for the night. Rest soon?", "Cozy shell, cozy dreams. Good night!"],
+          focus: ["Steady simmer. Let's focus!", "Sitting perfectly still, like a good egg."],
+          done: ["Egg-straordinary session!", "Done! Cooked to perfection!"],
+          task: ["Done! Egg-cellent!", "Checked off! Jammy joy!", "Woo! Another one, sunny side up!", "Cracked it! Great job!"],
+          break: ["Break time! Stretch and cool off!", "Rest for a bit. Good things take time!"]
+        }
+      },
+      {
+        id: "ramen-naru", name: "Naru", kind: "Fishcake Swirl", pose: "stand", wearColor: "#F27AA0",
+        bio: "A swirly little fishcake who spins around whenever it's happy.",
+        idle: ["spin", "topBob", "sway"], cheer: "spin",
+        parts: {
+          feet: `<ellipse cx="50" cy="110" rx="7" ry="3.6" fill="#F6E8EC" ${O}/><ellipse cx="70" cy="110" rx="7" ry="3.6" fill="#F6E8EC" ${O}/>`,
+          body: `${RG("ramen-naru-ramen-naru-b", [[0, "#FFFFFF"], [0.7, "#FBF4F6"], [1, "#EADCE2"]], 0.42, 0.35, 0.75)}
+            <path d="${Array.from({length: 24}, (_, i) => { const a = -Math.PI / 2 + i / 24 * Math.PI * 2, r = i % 2 ? 36 : 39.5; return (i ? "L" : "M") + (60 + Math.cos(a) * r).toFixed(1) + " " + (70 + Math.sin(a) * r).toFixed(1); }).join("")}Z" fill="url(#ramen-naru-ramen-naru-b)" ${O}/>
+            <path d="${Array.from({length: 31}, (_, k) => { const a = k / 30 * 10.5 + 2.4, r = 3 + k / 30 * 24; return (k ? "L" : "M") + (60 + Math.cos(a) * r).toFixed(1) + " " + (70 + Math.sin(a) * r * 0.95).toFixed(1); }).join("")}" fill="none" stroke="#F7A8C2" stroke-width="5" stroke-linecap="round" opacity=".75"/>
+            ${shine(40, 50, 6, 3, -40)}`,
+          armL: {svg: `<ellipse cx="20" cy="78" rx="5" ry="7.4" transform="rotate(25 20 78)" fill="#FBF0F4" ${O}/>`, pivot: [25, 74]},
+          armR: {svg: `<ellipse cx="100" cy="78" rx="5" ry="7.4" transform="rotate(-25 100 78)" fill="#FBF0F4" ${O}/>`, pivot: [95, 74]},
+          top: {svg: `${LINE("M60 32V24", "#5AA84A", 2.2)}<path d="M60 24C56 16 58 10 64 8C66 14 64 20 60 24Z" fill="#7ACB5A" ${O2}/>`, pivot: [60, 32]}
+        },
+        eyes: {lx: 50, rx: 70, y: 68, r: 4.6, style: "sparkle", color: "#3A1A2A"},
+        mouth: {x: 60, y: 77, w: 2.8, color: "#3A1A2A"},
+        cheeks: {lx: 43, rx: 77, y: 75, w: 4, h: 2.6, color: "#FF7AA0"},
+        anchors: {top: [60, 32, 0.9], neck: [60, 100, 0.85], chest: [74, 92, 0.55], back: [94, 66, 0.75], hands: [60, 100, 0.8]},
+        lines: {
+          tap: ["Hi hi! *happy spin* Wheee!", "You're on a roll! A swirly one!", "Round and round, task by task!", "I'm the cutest topping and you're the best student!", "Spin spin! You've got this!", "Snack break? I'm not a snack, just a friend!", "Your focus is making me dizzy with joy!"],
+          pet: ["Wheee! You made me spin again!", "Hehe! My swirl is blushing pink!"],
+          hello: ["You're back! Welcome spin!", "Hello! Fresh from the bowl and ready!"],
+          morning: ["Good morning! Let's swirl into the day!", "Morning! A fresh bowl, a fresh start!"],
+          night: ["Slowing my spin for the night. Rest soon?", "Swirly dreams! Good night!"],
+          focus: ["Holding perfectly still. Mostly. Let's focus!", "Quiet swirl mode on."],
+          done: ["What a session! Mega spin!", "Done! My swirl is spinning with pride!"],
+          task: ["SPIN! Another one done!", "Wheee! Checked off!", "Yay! Swirls of joy!", "Done and twirled!"],
+          break: ["Break time! Do a little spin yourself!", "Stretch, swirl, and sip some water!"]
+        }
+      },
+      {
+        id: "ramen-nori", name: "Nori", kind: "Seaweed Sheet", pose: "stand", wearColor: "#F2C870",
+        bio: "A crisp sheet of nori who stands up tall in the bowl like a little flag.",
+        idle: ["sway", "wave", "bounce"], cheer: "bounce",
+        neck: [60, 82],
+        parts: {
+          feet: `${LG("ramen-nori-ramen-nori-br", [[0, "#F6D888"], [1, "#E8B860"]])}<path d="M20 100Q60 92 100 100Q100 112 60 114Q20 112 20 100Z" fill="url(#ramen-nori-ramen-nori-br)" ${O}/>
+            <path d="M30 102Q40 98 48 103Q56 98 64 103Q72 98 82 102" fill="none" stroke="#FFEFB0" stroke-width="2.2" stroke-linecap="round"/>`,
+          body: `${LG("ramen-nori-ramen-nori-h", [[0, "#4E7E5A"], [0.6, "#3A6446"], [1, "#2A4A34"]], 0, 0, 1, 1)}
+            <path d="M34 20H86L83 104H37Z" fill="url(#ramen-nori-ramen-nori-h)" ${O}/>
+            <path d="M42 30L48 34M70 28L76 32M44 72L50 70M72 74L78 70M58 24L62 27" stroke="#6A9A72" stroke-width="2" stroke-linecap="round" opacity=".8"/>
+            <path d="M40 26V96" stroke="#7AAA82" stroke-width="2.6" stroke-linecap="round" opacity=".6"/>
+            ${twinkle(80, 30, 2.6, "#C8F0D0")}
+            <path d="M44 92L50 90M70 94L76 91" stroke="#6A9A72" stroke-width="1.8" stroke-linecap="round" opacity=".8"/>`,
+          armL: {svg: `<ellipse cx="33.6" cy="94" rx="4.4" ry="8.6" transform="rotate(25 33.6 94)" fill="#3A6446" ${O}/>`, pivot: [37, 87]},
+          armR: {svg: `<ellipse cx="86.4" cy="94" rx="4.4" ry="8.6" transform="rotate(-25 86.4 94)" fill="#3A6446" ${O}/>`, pivot: [83, 87]}
+        },
+        eyes: {lx: 51, rx: 69, y: 50, r: 4.6, style: "sparkle", color: "#0E1A12"},
+        mouth: {x: 60, y: 60, w: 2.8, color: "#0E1A12"},
+        cheeks: {lx: 44, rx: 76, y: 57, w: 3.8, h: 2.4, color: "#FF8FA8"},
+        anchors: {top: [60, 20, 0.9], neck: [60, 82, 0.8], chest: [60, 94, 0.55], back: [80, 60, 0.7], hands: [60, 96, 0.75]},
+        lines: {
+          tap: ["Hi! Standing tall in the bowl for you!", "Crisp, salty and cheering you on!", "Stand up straight, you're doing great!", "I'm your little flag of focus!", "Wave hello! You've got this!", "Water break! I'm already soaking, ha!", "Every bowl needs a nori. Every study day needs you!"],
+          pet: ["Hehe! Careful, I might get soggy!", "Aww! I feel extra crispy now!"],
+          hello: ["You're back! Flag up, hello!", "Hello! Standing tall and ready!"],
+          morning: ["Good morning! Fresh and crisp today!", "Morning! Let's raise the flag on a good day!"],
+          night: ["Leaning back for the night. Rest soon?", "Soft and sleepy. Good night, friend!"],
+          focus: ["Standing still and steady. Let's focus!", "Flag at full height! Focus time!"],
+          done: ["What a session! Flags waving everywhere!", "Done! You stood tall the whole time!"],
+          task: ["Done! Wave wave!", "Checked off! Flag up!", "Woo! Another one finished!", "YES! Crisp and complete!"],
+          break: ["Break time! Lean back and relax!", "Stretch tall, then flop like a noodle!"]
+        }
+      }
+    ]
+  });
+})();
+/* end of module 98-comp-n2.js */
+
+
+
+
+
+
+/* ===== module: 98-comp-n3.js ===== */
+/* Study Companions, New Theme Ideas batch n3 (Cozy Spots): greenhouse, pottery, campfire, aquarium */
+(() => {
+  const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
+  const O2 = OW(2.2);
+  const twinkle = (x, y, s, c) => `<path d="M${x} ${y - s}Q${x} ${y} ${x + s} ${y}Q${x} ${y} ${x} ${y + s}Q${x} ${y} ${x - s} ${y}Q${x} ${y} ${x} ${y - s}Z" fill="${c || "#fff"}"/>`;
+  const f1 = v => Math.round(v * 10) / 10;
+  // a monstera leaf, stem at (x,y), pointing ang degrees (-90 = up), len long
+  const monstera = (x, y, len, ang, slits = 2) => { const TH = [0, 0.06, 0.25, 0.5, 0.75, 0.9, 1], RR = [0.6, 0.52, 0.48, 0.44, 0.46, 0.4, 0.3], up = [];
+    const rad = t => { for (let k = 1; k < TH.length; k++) if (t <= TH[k]) return RR[k - 1] + (RR[k] - RR[k - 1]) * (t - TH[k - 1]) / (TH[k] - TH[k - 1]); return 0.3; };
+    for (let i = 0; i <= 44; i++) { const t = i / 44; let rr = rad(t); for (let s = 0; s < slits; s++) { const c = 0.22 + 0.56 * (s + 0.5) / slits, d = Math.abs(t - c); if (d < 0.026) rr = Math.min(rr, 0.15 + d * 6.5); } up.push([0.42 * len + rr * len * Math.cos(t * Math.PI), rr * len * Math.sin(t * Math.PI) * 1.05]); }
+    const all = up.concat(up.slice(1, -1).reverse().map(p => [p[0], -p[1]])), a = ang * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    return "M" + all.map(p => `${f1(x + p[0] * c - p[1] * s)} ${f1(y + p[0] * s + p[1] * c)}`).join("L") + "Z"; };
+  const petals = (cx, cy, n, len, w, rot = 0) => { let d = ""; for (let i = 0; i < n; i++) { const a = (rot + i * 360 / n) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a), P = (x, y) => `${f1(cx + x * c - y * s)} ${f1(cy + x * s + y * c)}`; d += `M${P(0, 0)}Q${P(len * 0.5, w)} ${P(len, 0)}Q${P(len * 0.5, -w)} ${P(0, 0)}Z`; } return d; };
+
+  /* Greenhouse */
+  COMP_DATA.push({
+    theme: "greenhouse",
+    companions: [
+      {
+        id: "greenhouse-prickles", name: "Prickles", kind: "Little Cactus", pose: "sit", hatTop: true,
+        bio: "A low-maintenance little cactus who stays loyal through every task.",
+        idle: ["topBob", "sway", "sparkle"], cheer: "hop",
+        parts: {
+          body: `${LG("greenhouse-prickles-greenhouse-prickles-g", [[0, "#B8E88E"], [0.55, "#6CC06A"], [1, "#3E9A52"]], 0, 0, 1, 0)}${LG("greenhouse-prickles-greenhouse-prickles-p", [[0, "#F6AE84"], [1, "#C8643E"]])}
+            <rect x="35" y="30" width="50" height="62" rx="25" fill="url(#greenhouse-prickles-greenhouse-prickles-g)" ${O}/>
+            <path d="M48 36V88M60 32V90M72 36V88" fill="none" stroke="#2F7A44" stroke-width="1.6" opacity=".3"/>
+            <path d="M39 48l-3.5-1.6M39 64l-3.5-1.6M81 48l3.5-1.6M81 64l3.5-1.6M53 36l-1.6-3.4M67 36l1.6-3.4M47 78l-3-2M73 78l3-2" fill="none" stroke="#FFF6D6" stroke-width="1.8" stroke-linecap="round"/>
+            <ellipse cx="45" cy="45" rx="3.6" ry="7.5" fill="#fff" opacity=".5"/>
+            <path d="M30 88H90L84 112H36Z" fill="url(#greenhouse-prickles-greenhouse-prickles-p)" ${O}/>
+            <rect x="26" y="81" width="68" height="12" rx="5" fill="#F6B892" ${O}/>
+            <path d="M38 101H82" fill="none" stroke="#FFD2B8" stroke-width="2.2" stroke-linecap="round" opacity=".6"/>`,
+          // the cactus's arms already point up, so they are side lobes tucked behind the body (wings in the rig), not arms the
+          // app's wave and stretch would swing across its face
+          wingL: {svg: `<path d="M40 70H30Q24 70 24 64V52Q24 46 29.5 46Q35 46 35 52V61H40Z" fill="#7CC872" ${O}/><path d="M27 52l-2.6-1.2M27 60l-2.6-1.2" stroke="#FFF6D6" stroke-width="1.5" stroke-linecap="round"/>`, pivot: [37, 66]},
+          wingR: {svg: `<path d="M80 64H90Q96 64 96 58V48Q96 42 90.5 42Q85 42 85 48V55H80Z" fill="#62B464" ${O}/><path d="M93 48l2.6-1.2M93 56l2.6-1.2" stroke="#FFF6D6" stroke-width="1.5" stroke-linecap="round"/>`, pivot: [83, 60]},
+          top: {svg: `<path d="${petals(60, 27, 6, 11, 4.8, -90)}" fill="#FF8FB0" ${OW(1.8)}/><circle cx="60" cy="27" r="3.6" fill="#FFE27A" ${OW(1.6)}/>`, pivot: [60, 31]}
+        },
+        eyes: {lx: 50, rx: 70, y: 58, r: 4.8, style: "dot", color: "#1E3A22"},
+        mouth: {x: 60, y: 66.5, w: 3, color: "#1E3A22"},
+        cheeks: {lx: 43.5, rx: 76.5, y: 65, w: 4.2, h: 2.6, color: "#FF9FB0"},
+        anchors: {top: [60, 31, 0.85], neck: [60, 84, 1.15], chest: [74, 74, 0.6], back: [84, 58, 0.8], hands: [60, 82, 0.9]},
+        lines: {
+          tap: ["Hi! No hugs, but lots of cheering!", "You're looking sharp today!", "Slow and steady grows the tallest cactus!", "A little sun, a little study, perfect day!", "I don't need much, just you doing great!", "Every task is a drop of water for me!", "You've got this, prickles and all!", "Standing tall right beside you!"],
+          pet: ["Careful, careful! Hehe, that was nice!", "Ooh, gentle pats! My flower is blushing!"],
+          hello: ["You're back! My flower just opened for you!", "Hi hi! I saved you a sunny spot!"],
+          morning: ["Good morning! Soaking up the sunshine!", "Rise and shine! Time to grow!"],
+          night: ["The greenhouse is sleepy. Rest soon?", "Cactus nap time. You too, okay?"],
+          focus: ["Quiet and steady, like a cactus. Go!", "I'm rooted right here with you!"],
+          done: ["WOW! That session made me bloom!", "Session done! Prickly proud of you!"],
+          task: ["Done! A new flower for that one!", "YES! Look at you grow!", "Checked off! Sharp work!", "Woohoo! Another one sprouted!"],
+          break: ["Stretch time! Reach for the sun!", "Break time! Sip some water, like me!"]
+        }
+      },
+      {
+        id: "greenhouse-monty", name: "Monty", kind: "Monstera Leaf", pose: "stand",
+        bio: "A leafy monstera who grows a new split in its leaf every time you level up.",
+        idle: ["sway", "wave", "headTilt"], cheer: "spin",
+        neck: [60, 74],
+        parts: {
+          feet: `<ellipse cx="47" cy="110" rx="7" ry="3.8" fill="#A8502E" ${O}/><ellipse cx="73" cy="110" rx="7" ry="3.8" fill="#A8502E" ${O}/>`,
+          body: `${LG("greenhouse-monty-greenhouse-monty-p", [[0, "#F6AE84"], [1, "#C8643E"]])}
+            ${LINE("M60 90V72", "#4E9A58", 4.5)}
+            <path d="M38 90H82L77 108H43Z" fill="url(#greenhouse-monty-greenhouse-monty-p)" ${O}/>
+            <rect x="34" y="84" width="52" height="10" rx="4.5" fill="#F6B892" ${O}/>
+            <ellipse cx="60" cy="85.5" rx="20" ry="2.4" fill="#6E5442"/>`,
+          // little leaf hands on short stems from the pot rim's corners: they hang beside the pot and wave up beside the leaf
+          armL: {svg: `${LINE("M37 89Q31 93 29 99", "#4E9A58", 3)}<path d="M29 98C23 99 21 105 24 109C29 108 32 103 29 98Z" fill="#7CC872" ${O2}/>`, pivot: [37, 89]},
+          armR: {svg: `${LINE("M83 89Q89 93 91 99", "#4E9A58", 3)}<path d="M91 98C97 99 99 105 96 109C91 108 88 103 91 98Z" fill="#62B464" ${O2}/>`, pivot: [83, 89]},
+          head: `${LG("greenhouse-monty-greenhouse-monty-h", [[0, "#A6E894"], [0.5, "#52B262"], [1, "#2E8A52"]], 0.2, 0, 0.8, 1)}
+            <path d="${monstera(60, 76, 66, -90, 2)}" fill="url(#greenhouse-monty-greenhouse-monty-h)" ${O}/>
+            <path d="M60 68V16M60 30L50 22M60 30L70 22" fill="none" stroke="#D6F5C8" stroke-width="2.2" stroke-linecap="round" opacity=".55"/>
+            <path d="M38 34Q40 26 47 22" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".55"/>`
+        },
+        eyes: {lx: 50, rx: 70, y: 45, r: 5, style: "sparkle", color: "#16301E"},
+        mouth: {x: 60, y: 54, w: 3.2, color: "#16301E"},
+        cheeks: {lx: 42, rx: 78, y: 52.5, w: 4.4, h: 2.7, color: "#FF9FB0"},
+        anchors: {top: [60, 14, 0.8], neck: [60, 80, 1.0], chest: [72, 98, 0.6], back: [88, 46, 0.8], hands: [60, 92, 0.85]},
+        lines: {
+          tap: ["Hi there! Want to see my newest split?", "You're growing so fast, I can tell!", "Leaf it to me to cheer you on!", "Big leaves, big ideas, big you!", "Unfurling something great today!", "Your focus is my favorite sunlight!", "One more split and I'll be fancy!", "Swaying happily beside you!"],
+          pet: ["Hehe, that rustles my leaf!", "Aww, my veins are all tingly!"],
+          hello: ["You're back! My leaf did a little wave!", "Hi hi! The greenhouse missed you!"],
+          morning: ["Good morning! Stretching toward the light!", "Rise and shine! Time to photosynthesize!"],
+          night: ["My leaf is folding up. Rest soon?", "Grow lights dimming. Sweet dreams!"],
+          focus: ["Rooting for you, very quietly.", "Leaf me here to keep you company!"],
+          done: ["WOW! That session grew me a new split!", "Session done! I'm unfurling with pride!"],
+          task: ["Done! That's a brand new split!", "YES! Leafing that one behind!", "Checked off! Monstera-ly good!", "Woohoo! Growing, growing, grown!"],
+          break: ["Stretch it out! Big leafy stretch!", "Break time! Find a sunny window!"]
+        }
+      },
+      {
+        id: "greenhouse-misty", name: "Misty", kind: "Spray Bottle", pose: "stand", wearColor: "#F2A0B8",
+        bio: "A friendly spray bottle who gives the greenhouse a cool, fresh spritz.",
+        idle: ["topBob", "bounce", "wave"], cheer: "bounce",
+        parts: {
+          feet: `<ellipse cx="48" cy="110" rx="7.5" ry="4" fill="#5AA8D8" ${O}/><ellipse cx="72" cy="110" rx="7.5" ry="4" fill="#5AA8D8" ${O}/>`,
+          body: `${LG("greenhouse-misty-greenhouse-misty-g", [[0, "#E8F8FE"], [0.5, "#AEDEF6"], [1, "#7CC6EA"]], 0, 0, 0.6, 1)}
+            <rect x="50" y="38" width="20" height="11" rx="3" fill="#F2F6FA" ${O}/>
+            <rect x="34" y="46" width="52" height="64" rx="16" fill="url(#greenhouse-misty-greenhouse-misty-g)" ${O}/>
+            <path d="M37 84Q48 79 60 84T83 84V96Q83 107 71 107H49Q37 107 37 96Z" fill="#4E9AD8" opacity=".5"/>
+            <circle cx="48" cy="96" r="2.2" fill="#fff" opacity=".8"/><circle cx="70" cy="100" r="1.6" fill="#fff" opacity=".8"/><circle cx="62" cy="92" r="1.2" fill="#fff" opacity=".8"/>
+            <path d="M41 60Q41 52 47 50" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" opacity=".85"/>`,
+          armL: {svg: `<ellipse cx="30" cy="80" rx="5" ry="7.5" transform="rotate(25 30 80)" fill="#9AD4F2" ${O}/>`, pivot: [36, 76]},
+          armR: {svg: `<ellipse cx="90" cy="80" rx="5" ry="7.5" transform="rotate(-25 90 80)" fill="#9AD4F2" ${O}/>`, pivot: [84, 76]},
+          top: {svg: `${LINE("M51 38Q47 46 51 52", "#F2A0B8", 3)}
+            <path d="M44 22H74Q80 22 80 28V39H44Z" fill="#FFFFFF" ${O}/><path d="M48 26H74" stroke="#DDE6F0" stroke-width="2" stroke-linecap="round"/>
+            <rect x="33" y="24" width="13" height="7.5" rx="2.4" fill="#E8EEF6" ${O2}/>
+            <circle cx="25" cy="22" r="4.2" fill="#fff" ${OW(1.6)}/><circle cx="20" cy="30" r="3" fill="#fff" ${OW(1.4)}/><circle cx="27" cy="14" r="2.4" fill="#fff" ${OW(1.4)}/>`, pivot: [60, 40]}
+        },
+        eyes: {lx: 50, rx: 70, y: 70, r: 5, style: "sparkle", color: "#14304A"},
+        mouth: {x: 60, y: 79, w: 3.1, color: "#14304A"},
+        cheeks: {lx: 43, rx: 77, y: 77.5, w: 4.3, h: 2.6, color: "#FF9FC0"},
+        anchors: {top: [62, 21, 0.85], neck: [60, 48, 0.95], chest: [73, 92, 0.6], back: [86, 72, 0.8], hands: [60, 96, 0.85]},
+        lines: {
+          tap: ["Psst! A little spritz of encouragement!", "Hi! You're looking fresh today!", "Mist-ion accepted: cheer you on!", "Fine mist, finer focus! You've got this!", "A refreshing hello from me to you!", "Stay hydrated, stay amazing!", "Sprinkling good vibes everywhere!", "Ready to spritz some motivation?"],
+          pet: ["Hehe! That tickles my spray nozzle!", "Ooh, sloshy happy feelings!"],
+          hello: ["You're back! Spritz of joy!", "Hi hi! I'm full and ready to go!"],
+          morning: ["Good morning! Dewy and bright!", "Rise and shine! Fresh start, fresh mist!"],
+          night: ["Misting softly. Time to rest?", "Even the ferns are sleeping. Night night!"],
+          focus: ["Quietly misting beside you.", "Fine and steady. You've got this!"],
+          done: ["Session done! Spritz, spritz, hooray!", "WOW! That was refreshingly good focus!"],
+          task: ["Done! Celebration spritz!", "YES! Fresh and finished!", "Checked off! Misty eyes of pride!", "Woohoo! That one's watered!"],
+          break: ["Break time! Drink some water!", "Stretch! Then a refreshing sip!"]
+        }
+      }
+    ]
+  });
+
+  /* Pottery Studio */
+  COMP_DATA.push({
+    theme: "pottery",
+    companions: [
+      {
+        id: "pottery-lumpy", name: "Lumpy", kind: "Clay Lump", pose: "sit", sleepy: true,
+        bio: "A happy lump of clay who could become anything, just like your ideas.",
+        idle: ["bounce", "topBob", "sway"], cheer: "bounce",
+        neck: [60, 100],
+        parts: {
+          body: `${LG("pottery-lumpy-pottery-lumpy-w", [[0, "#DCE4EA"], [1, "#98A2B0"]])}
+            <ellipse cx="60" cy="104" rx="42" ry="9.5" fill="url(#pottery-lumpy-pottery-lumpy-w)" ${O}/><ellipse cx="60" cy="102.5" rx="30" ry="5" fill="#C2CAD4" opacity=".8"/>
+            ${RG("pottery-lumpy-pottery-lumpy-g", [[0, "#F8E2D4"], [0.55, "#DDB29C"], [1, "#B8866E"]], 0.4, 0.32, 0.75)}
+            <path d="M24 99Q19 66 40 52Q60 40 80 52Q101 66 96 99Q60 107 24 99Z" fill="url(#pottery-lumpy-pottery-lumpy-g)" ${O}/>
+            <path d="M28 90Q60 98 92 90M31 79Q60 86 89 79M37 66Q60 72 83 66" fill="none" stroke="#A47662" stroke-width="1.8" stroke-linecap="round" opacity=".42"/>
+            <ellipse cx="38" cy="66" rx="4" ry="8" transform="rotate(25 38 66)" fill="#fff" opacity=".45"/>
+            <circle cx="84" cy="88" r="1.4" fill="#A47662" opacity=".5"/><circle cx="34" cy="92" r="1.2" fill="#A47662" opacity=".5"/>`,
+          armL: {svg: `<ellipse cx="19" cy="93" rx="5.6" ry="8" transform="rotate(22 19 93)" fill="#E2BCA8" ${O}/>`, pivot: [24, 87]},
+          armR: {svg: `<ellipse cx="101" cy="93" rx="5.6" ry="8" transform="rotate(-22 101 93)" fill="#D6AE98" ${O}/>`, pivot: [96, 87]},
+          top: {svg: `${LINE("M60 50Q55 41 61 37Q68 35 67 42Q66 46 62 45", "#DDB29C", 4)}`, pivot: [60, 50]}
+        },
+        eyes: {lx: 49, rx: 71, y: 73, r: 5, style: "dot", color: "#3A2418"},
+        mouth: {x: 60, y: 82, w: 3.2, color: "#3A2418"},
+        cheeks: {lx: 40, rx: 80, y: 80.5, w: 4.6, h: 2.8, color: "#FF9F9F"},
+        anchors: {top: [60, 46, 0.95], neck: [60, 98, 1.2], chest: [77, 90, 0.6], back: [92, 72, 0.8], hands: [60, 96, 0.9]},
+        lines: {
+          tap: ["Hi! Still a lump. Still happy!", "You could make anything of today!", "Squish! That's my hello!", "Every great vase started as a lump like me!", "Let's center ourselves and spin!", "You're shaping up beautifully!", "A little pressure makes something wonderful!", "Lumpy and proud, cheering for you!"],
+          pet: ["Ooh, careful, I'm squishable!", "Hehe! You left a happy thumbprint!"],
+          hello: ["You're back! I kept my shape for you!", "Hi hi! Ready to throw something great?"],
+          morning: ["Good morning! Fresh clay, fresh day!", "Rise and shine! The wheel is warming up!"],
+          night: ["Drying out for the night. You rest too?", "Covered in plastic and cozy. Sleep well!"],
+          focus: ["Centered and steady. You've got this.", "Spinning quietly beside you."],
+          done: ["WOW! That session had perfect form!", "Session done! I'm bone-dry with pride!"],
+          task: ["Done! Smooth as slip!", "YES! That one's fired and finished!", "Checked off! Wheel-y amazing!", "Woohoo! A masterpiece of a task!"],
+          break: ["Stretch time! Wiggle like wet clay!", "Break time! Wash your hands, grab a snack!"]
+        }
+      },
+      {
+        id: "pottery-glaze", name: "Glaze", kind: "Glaze Jar", pose: "stand",
+        bio: "A little jar of blue glaze who shifts shade when you finish something.",
+        idle: ["topBob", "sparkle", "sway"], cheer: "spin",
+        parts: {
+          feet: `<ellipse cx="48" cy="110" rx="7.5" ry="4" fill="#2E4EA8" ${O}/><ellipse cx="72" cy="110" rx="7.5" ry="4" fill="#2E4EA8" ${O}/>`,
+          body: `${LG("pottery-glaze-pottery-glaze-g", [[0, "#86ACF6"], [0.5, "#4E78DA"], [1, "#2E4EA8"]], 0, 0, 0.7, 1)}
+            <rect x="32" y="46" width="56" height="62" rx="16" fill="url(#pottery-glaze-pottery-glaze-g)" ${O}/>
+            <path d="M38 88Q50 74 62 86T84 82" fill="none" stroke="#B8DAFF" stroke-width="3.2" stroke-linecap="round" opacity=".85"/>
+            <path d="M40 100Q54 92 68 100T84 96" fill="none" stroke="#5FD0C6" stroke-width="2.6" stroke-linecap="round" opacity=".8"/>
+            <path d="M33.5 48V57Q33.5 61 37 61Q40.5 61 40.5 57V50Q43 50 43 53V54Q43 57 46 57Q49 57 49 54V48ZM66 48V60Q66 64 69.5 64Q73 64 73 60V52Q75 52 75 55Q75 58 78 58Q81 58 81 55V48Z" fill="#9CC0FA" opacity=".9"/>
+            <path d="M38 70Q38 60 44 58" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".6"/>`,
+          armL: {svg: `<ellipse cx="28" cy="82" rx="5" ry="7.5" transform="rotate(25 28 82)" fill="#5A84E0" ${O}/>`, pivot: [34, 78]},
+          armR: {svg: `<ellipse cx="92" cy="82" rx="5" ry="7.5" transform="rotate(-25 92 82)" fill="#5A84E0" ${O}/>`, pivot: [86, 78]},
+          top: {svg: `<rect x="28" y="34" width="64" height="14" rx="6" fill="#FFF6EA" ${O}/><path d="M33 40H87" stroke="#EAD8C2" stroke-width="2" stroke-linecap="round"/><circle cx="60" cy="29" r="5" fill="#F2C84A" ${O2}/>
+            ${twinkle(96, 26, 3.4, "#9B6AD6")}${twinkle(24, 24, 2.6, "#5FD0C6")}`, pivot: [60, 44]}
+        },
+        eyes: {lx: 50, rx: 70, y: 72, r: 5, style: "sparkle", color: "#14204A"},
+        mouth: {x: 60, y: 81, w: 3.1, color: "#14204A"},
+        cheeks: {lx: 42, rx: 78, y: 79.5, w: 4.4, h: 2.7, color: "#FF9FC8"},
+        anchors: {top: [60, 26, 0.9], neck: [60, 48, 1.0], chest: [74, 94, 0.6], back: [88, 70, 0.8], hands: [60, 98, 0.85]},
+        lines: {
+          tap: ["Hi! I'm feeling extra blue today, the good kind!", "Swirl, swirl! You're doing great!", "Every layer makes the finish shine!", "You bring out my best colors!", "Dip into the next task, you've got this!", "Glossy goals, here we come!", "One coat at a time, beautifully done!", "I shimmer when you focus!"],
+          pet: ["Hehe! My swirl just went teal!", "Ooh, careful, I might drip with joy!"],
+          hello: ["You're back! My lid popped with joy!", "Hi hi! Ready to add some color?"],
+          morning: ["Good morning! Fresh coat, fresh start!", "Rise and shine! Glossy day ahead!"],
+          night: ["Kiln's cooling down. Rest soon?", "Settling into a deep midnight blue. Sleep well!"],
+          focus: ["Smooth and steady, like a good glaze.", "Swirling quietly beside you."],
+          done: ["WOW! That session came out glossy!", "Session done! I changed three shades!"],
+          task: ["Done! I just turned violet!", "YES! Fired and fabulous!", "Checked off! Shimmering with pride!", "Woohoo! What a finish!"],
+          break: ["Break time! Let it set for a bit!", "Stretch! Then a fresh splash of water!"]
+        }
+      },
+      {
+        id: "pottery-steepy", name: "Steepy", kind: "Little Teapot", pose: "stand",
+        bio: "A short, round teapot who always has something warm brewing.",
+        idle: ["waddle", "topBob", "sparkle"], cheer: "hop",
+        parts: {
+          feet: `<ellipse cx="47" cy="108.5" rx="7.5" ry="4.2" fill="#2F8C80" ${O}/><ellipse cx="73" cy="108.5" rx="7.5" ry="4.2" fill="#2F8C80" ${O}/>`,
+          body: `${RG("pottery-steepy-pottery-steepy-g", [[0, "#C2F4EA"], [0.55, "#5CC4B4"], [1, "#2F8C80"]], 0.38, 0.32, 0.75)}
+            <ellipse cx="60" cy="80" rx="31" ry="26" fill="url(#pottery-steepy-pottery-steepy-g)" ${O}/>
+            <path d="M31 88Q60 103 89 88" fill="none" stroke="#FFF6E6" stroke-width="5" stroke-linecap="round"/>
+            <path d="M33 80Q60 93 87 80" fill="none" stroke="#FFF6E6" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="2 4" opacity=".7"/>
+            <ellipse cx="42" cy="68" rx="6" ry="3.4" transform="rotate(-30 42 68)" fill="#fff" opacity=".6"/>`,
+          // the spout and handle are part of the pot (tucked behind it), not arms that wave and stretch
+          back: `${LINE("M36 82Q20 76 17 62", "#4CB8A8", 6)}<ellipse cx="17" cy="60" rx="5" ry="3" transform="rotate(-20 17 60)" fill="#6ACCBC" ${O2}/>${LINE("M86 66Q103 63 103 77Q103 92 86 94", "#4CB8A8", 5)}`,
+          top: {svg: `<path d="M38 58Q60 40 82 58Z" fill="#7AD2C4" ${O}/><circle cx="60" cy="45" r="4.6" fill="#F2C84A" ${O2}/>${LINE("M70 38Q66 32 70 27", "#E8F2F0", 2)}${LINE("M78 40Q74 34 78 29", "#E8F2F0", 2)}`, pivot: [60, 56]}
+        },
+        eyes: {lx: 49, rx: 71, y: 76, r: 5, style: "dot", color: "#123A34"},
+        mouth: {x: 60, y: 85, w: 3.2, color: "#123A34"},
+        cheeks: {lx: 40.5, rx: 79.5, y: 83.5, w: 4.4, h: 2.7, color: "#FF9FB0"},
+        anchors: {top: [60, 41, 0.9], neck: [60, 57, 1.05], chest: [76, 94, 0.6], back: [90, 72, 0.8], hands: [60, 98, 0.85]},
+        lines: {
+          tap: ["Hi! I'm short, I'm stout, I'm here for you!", "Something good is brewing, and it's you!", "Tip me over, pour me out, I'm cheering!", "Steady heat makes the best tea and the best work!", "You're steeping in greatness today!", "Let's take it one cup at a time!", "Warm thoughts coming your way!", "Whistling a happy little tune for you!"],
+          pet: ["Hehe! My lid is rattling!", "Aww, toasty warm all over!"],
+          hello: ["You're back! Kettle's on!", "Hi hi! I've been brewing a welcome!"],
+          morning: ["Good morning! First pour of the day!", "Rise and shine! Brewing up something great!"],
+          night: ["A little chamomile, then bed?", "Cooling down for the night. Sleep tight!"],
+          focus: ["Steeping quietly. You've got this.", "Warm and steady right beside you."],
+          done: ["WOW! That session was perfectly brewed!", "Session done! Time for a celebration cup!"],
+          task: ["Done! Tea-riffic!", "YES! Poured out and finished!", "Checked off! I'm whistling!", "Woohoo! That one's steeped!"],
+          break: ["Break time! Brew yourself something warm!", "Stretch! Then a cozy sip!"]
+        }
+      }
+    ]
+  });
+
+  /* Campfire Night */
+  const graham = (x, y, w, h, id) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" fill="url(#${id})" ${O}/><g fill="#A8703A"><circle cx="${x + w * 0.2}" cy="${y + h * 0.5}" r="1.5"/><circle cx="${x + w * 0.38}" cy="${y + h * 0.5}" r="1.5"/><circle cx="${x + w * 0.62}" cy="${y + h * 0.5}" r="1.5"/><circle cx="${x + w * 0.8}" cy="${y + h * 0.5}" r="1.5"/></g><path d="M${x + w / 2} ${y + 3}V${y + h - 3}" stroke="#A8703A" stroke-width="1.4" opacity=".55"/>`;
+  COMP_DATA.push({
+    theme: "campfire",
+    companions: [
+      {
+        id: "campfire-smory", name: "S'mory", kind: "S'more", pose: "sit", hatTop: true,
+        bio: "A gooey little s'more who toasts by the campfire while you study.",
+        idle: ["topBob", "bounce", "sparkle"], cheer: "hop",
+        parts: {
+          feet: `<ellipse cx="44" cy="110.5" rx="7" ry="3.6" fill="#B07A40" ${O}/><ellipse cx="76" cy="110.5" rx="7" ry="3.6" fill="#B07A40" ${O}/>`,
+          body: `${LG("campfire-smory-campfire-smory-c", [[0, "#ECBE80"], [1, "#C4884A"]])}${RG("campfire-smory-campfire-smory-m", [[0, "#FFFFFF"], [0.6, "#FFF6EA"], [1, "#F2DCC0"]], 0.4, 0.3, 0.8)}
+            ${graham(24, 87, 72, 21, "campfire-smory-campfire-smory-c")}
+            <rect x="28" y="80" width="64" height="10" rx="3" fill="#6A3A22" ${O2}/><path d="M40 89Q41 96 44 89M72 89Q73 98 76 89" fill="#6A3A22" ${OW(1.6)}/>
+            <path d="M26 82Q21 62 40 57H80Q99 62 94 82Q89 88 80 84Q70 90 60 85Q50 90 40 84Q31 88 26 82Z" fill="url(#campfire-smory-campfire-smory-m)" ${O}/>
+            <ellipse cx="38" cy="65" rx="5" ry="2.6" transform="rotate(-20 38 65)" fill="#fff"/>`,
+          armL: {svg: `<ellipse cx="22" cy="74" rx="5.6" ry="7.5" transform="rotate(30 22 74)" fill="#FFF6EA" ${O}/>`, pivot: [29, 72]},
+          armR: {svg: `<ellipse cx="98" cy="74" rx="5.6" ry="7.5" transform="rotate(-30 98 74)" fill="#FFF6EA" ${O}/>`, pivot: [91, 72]},
+          top: {svg: `${LG("campfire-smory-campfire-smory-t", [[0, "#F2C488"], [1, "#C88C4C"]])}${graham(24, 38, 72, 20, "campfire-smory-campfire-smory-t")}${twinkle(100, 34, 3.6, "#FFD86A")}`, pivot: [60, 57]}
+        },
+        eyes: {lx: 50, rx: 70, y: 70, r: 4.8, style: "dot", color: "#3A2414"},
+        mouth: {x: 60, y: 77.5, w: 3, color: "#3A2414"},
+        cheeks: {lx: 41.5, rx: 78.5, y: 76.5, w: 4.2, h: 2.6, color: "#FF9F9F"},
+        anchors: {top: [60, 37, 0.9], neck: [60, 58, 1.1], chest: [76, 98, 0.6], back: [92, 70, 0.8], hands: [60, 94, 0.85]},
+        lines: {
+          tap: ["Hi! I'm sweet on you, you know!", "Some more? Some more cheering for you!", "Gooey hugs coming your way!", "Crunchy start, sweet finish, that's the plan!", "You're toasting through that list!", "Stay golden, my friend!", "Sandwiched between pride and joy!", "Warm by the fire, cheering for you!"],
+          pet: ["Hehe! Careful, I'm melty!", "Ooh, extra gooey happiness!"],
+          hello: ["You're back! Grab a stick and sit down!", "Hi hi! The fire's warm and so am I!"],
+          morning: ["Good morning! S'mores for breakfast? Kidding!", "Rise and shine, happy camper!"],
+          night: ["The embers are glowing. Bedtime soon?", "Cozy by the fire. Sleep sweet!"],
+          focus: ["Toasting slowly. You've got this.", "Warm and quiet beside you."],
+          done: ["WOW! That session was perfectly golden!", "Session done! Sweetest work ever!"],
+          task: ["Done! Toasted to perfection!", "YES! That one's in the bag!", "Checked off! Gooey with pride!", "Woohoo! S'more of that, please!"],
+          break: ["Stretch time! Wiggle by the fire!", "Break time! Grab a snack, maybe a sweet one!"]
+        }
+      },
+      {
+        id: "campfire-lumen", name: "Lumen", kind: "Camp Lantern", pose: "stand", wearColor: "#3E7A5C",
+        bio: "A cozy camp lantern who glows a little brighter as the night goes on.",
+        idle: ["sway", "sparkle", "topBob"], cheer: "bounce",
+        parts: {
+          back: `${RG("campfire-lumen-campfire-lumen-h", [[0, "#FFE08A", 0.55], [0.6, "#FFC24A", 0.18], [1, "#FFB040", 0]], 0.5, 0.5, 0.5)}<circle cx="60" cy="72" r="42" fill="url(#campfire-lumen-campfire-lumen-h)"/>`,
+          feet: `<ellipse cx="44" cy="111" rx="7" ry="3.4" fill="#24503E" ${O}/><ellipse cx="76" cy="111" rx="7" ry="3.4" fill="#24503E" ${O}/>`,
+          body: `${RG("campfire-lumen-campfire-lumen-g", [[0, "#FFFBE0"], [0.55, "#FFD86A"], [1, "#F2A23A"]], 0.5, 0.5, 0.6)}${LG("campfire-lumen-campfire-lumen-f", [[0, "#5A9A7A"], [1, "#2E6A50"]])}
+            <path d="M34 50H86L80 41H40Z" fill="url(#campfire-lumen-campfire-lumen-f)" ${O}/>
+            <rect x="37" y="49" width="46" height="50" rx="9" fill="url(#campfire-lumen-campfire-lumen-g)" ${O}/>
+            <path d="M45 50V98M75 50V98" stroke="#2E6A50" stroke-width="3.4"/>
+            <path d="M54 92Q52 84 57 80Q56 86 60 88Q61 82 64 80Q68 86 66 92Z" fill="#FF8A3A" opacity=".75"/>
+            <rect x="31" y="96" width="58" height="13" rx="4" fill="url(#campfire-lumen-campfire-lumen-f)" ${O}/>
+            <path d="M38 102H82" stroke="#8ACCAA" stroke-width="1.6" stroke-linecap="round" opacity=".6"/>`,
+          armL: {svg: `<ellipse cx="29" cy="78" rx="4.8" ry="7" transform="rotate(25 29 78)" fill="#4E8A6A" ${O}/>`, pivot: [35, 74]},
+          armR: {svg: `<ellipse cx="91" cy="78" rx="4.8" ry="7" transform="rotate(-25 91 78)" fill="#4E8A6A" ${O}/>`, pivot: [85, 74]},
+          top: {svg: `${LINE("M44 43Q44 22 60 22Q76 22 76 43", "#9AB0A6", 3)}<circle cx="60" cy="21" r="3.4" fill="#C8D6CE" ${O2}/>`, pivot: [60, 44]}
+        },
+        eyes: {lx: 53, rx: 67, y: 68, r: 4.3, style: "sparkle", color: "#3A2414"},
+        mouth: {x: 60, y: 76, w: 2.8, color: "#3A2414"},
+        cheeks: {lx: 49, rx: 71, y: 74.5, w: 3, h: 2, color: "#FF8F70"},
+        anchors: {top: [60, 19, 0.85], neck: [60, 46, 1.0], chest: [74, 104, 0.55], back: [88, 72, 0.8], hands: [60, 102, 0.85]},
+        lines: {
+          tap: ["Hi! I saved my brightest glow for you!", "Lighting the way, one task at a time!", "You're the spark, I'm just the lantern!", "Even little lights make a big difference!", "Glowing warmer the more you do!", "Follow my light, we're almost there!", "Bright idea alert! It's you!", "Shining right beside you!"],
+          pet: ["Hehe! My flame just did a little dance!", "Aww, toasty and glowy!"],
+          hello: ["You're back! The whole camp just lit up!", "Hi hi! Wick trimmed, ready to shine!"],
+          morning: ["Good morning! I'll dim down, the sun's got it!", "Rise and shine! Brightest camper here!"],
+          night: ["Glowing soft and low. Time to rest?", "I'll keep the night light on. Sleep well!"],
+          focus: ["Steady flame, steady mind.", "Keeping the light on for you."],
+          done: ["WOW! That session was brilliant!", "Session done! I'm glowing with pride!"],
+          task: ["Done! Light it up!", "YES! Burning bright!", "Checked off! Shine on!", "Woohoo! That one's illuminated!"],
+          break: ["Break time! Rest your eyes in the dark a bit!", "Stretch! Then come back to the light!"]
+        }
+      },
+      {
+        id: "campfire-moosey", name: "Moosey", kind: "Moose Calf", pose: "sit",
+        bio: "A gentle moose calf who is patiently waiting for its antlers to grow in.",
+        idle: ["earTwitch", "headTilt", "tailSwish"], cheer: "hop",
+        neck: [60, 74],
+        parts: {
+          tail: {svg: `<ellipse cx="88" cy="98" rx="4.5" ry="6.5" transform="rotate(40 88 98)" fill="#7A4E30" ${O}/>`, pivot: [84, 101]},
+          earL: {svg: `<path d="M44 42C36 38 26 38 20 42C24 48 34 50 44 49Z" fill="#A06E46" ${O}/><path d="M41 44C35 42 29 42 25 43.5C28 46 34 47 40 46.6Z" fill="#E8B898"/>`, pivot: [43, 45]},
+          earR: {svg: `<path d="M76 42C84 38 94 38 100 42C96 48 86 50 76 49Z" fill="#A06E46" ${O}/><path d="M79 44C85 42 91 42 95 43.5C92 46 86 47 80 46.6Z" fill="#E8B898"/>`, pivot: [77, 45]},
+          feet: `<ellipse cx="42" cy="109" rx="8.5" ry="4.2" fill="#3E2A20" ${O}/><ellipse cx="78" cy="109" rx="8.5" ry="4.2" fill="#3E2A20" ${O}/>`,
+          body: `${LG("campfire-moosey-campfire-moosey-b", [[0, "#B07A50"], [1, "#7A4E30"]])}
+            <path d="M60 72C80 72 88 86 88 98C88 107 80 111 60 111C40 111 32 107 32 98C32 86 40 72 60 72Z" fill="url(#campfire-moosey-campfire-moosey-b)" ${O}/>
+            <ellipse cx="60" cy="93" rx="12" ry="9.5" fill="#D8B48E"/>`,
+          armL: {svg: `<rect x="43" y="92" width="11" height="17" rx="5.5" fill="#9A6A44" ${O}/><path d="M43.9 104H53.1V105C53.1 107.6 51.1 108.4 48.5 108.4C45.9 108.4 43.9 107.6 43.9 105Z" fill="#3E2A20"/>`, pivot: [48.5, 92]},
+          armR: {svg: `<rect x="66" y="92" width="11" height="17" rx="5.5" fill="#9A6A44" ${O}/><path d="M66.9 104H76.1V105C76.1 107.6 74.1 108.4 71.5 108.4C68.9 108.4 66.9 107.6 66.9 105Z" fill="#3E2A20"/>`, pivot: [71.5, 92]},
+          head: `${LG("campfire-moosey-campfire-moosey-h", [[0, "#C8925E"], [1, "#94603A"]])}
+            <circle cx="52" cy="34" r="4" fill="#F0D6AE" ${O2}/><circle cx="68" cy="34" r="4" fill="#F0D6AE" ${O2}/>
+            <ellipse cx="60" cy="52" rx="21" ry="18" fill="url(#campfire-moosey-campfire-moosey-h)" ${O}/>
+            <path d="M54 35Q60 30 66 35Q62 38 60 41Q58 38 54 35Z" fill="#7A4E30"/>
+            <path d="M45 46Q47 40 52 38" fill="none" stroke="#F0C89A" stroke-width="2.6" stroke-linecap="round" opacity=".7"/>
+            <ellipse cx="60" cy="66" rx="15" ry="10.5" fill="#B88058" ${O}/><ellipse cx="54.5" cy="65" rx="2" ry="2.6" fill="${INK}"/><ellipse cx="65.5" cy="65" rx="2" ry="2.6" fill="${INK}"/>`
+        },
+        eyes: {lx: 50, rx: 70, y: 51, r: 4.6, style: "dot", color: "#2B1A10"},
+        mouth: {x: 60, y: 71, w: 2.4, style: "cat", color: "#2B1A10"},
+        cheeks: {lx: 42.5, rx: 77.5, y: 58.5, w: 4, h: 2.4, color: "#FF8F8F"},
+        anchors: {top: [60, 32, 0.95], neck: [60, 76, 1.05], chest: [70, 97, 0.7], back: [35, 90, 0.85], hands: [60, 96, 0.9]},
+        lines: {
+          tap: ["Hi! My antlers are coming any day now!", "You're moose-ively awesome!", "Big strides, little hooves, we've got this!", "Waiting patiently, cheering loudly!", "Every task is a step through the forest!", "You make this campsite cozy!", "Ears up! Ready to cheer!", "Growing a little every day, like you!"],
+          pet: ["Hehe! Right behind the ears, yes!", "Aww, that's the spot!"],
+          hello: ["You're back! I did a happy stomp!", "Hi hi! Pull up a log, friend!"],
+          morning: ["Good morning! The lake is all misty!", "Rise and shine! Breakfast by the water?"],
+          night: ["The stars are out. Time to bed down?", "Curling up by the fire. Night night!"],
+          focus: ["Quiet as the woods. You've got this.", "Standing guard while you work."],
+          done: ["WOW! That session was moose-sive!", "Session done! I think my antlers grew!"],
+          task: ["Done! Happy hoof stomps!", "YES! One more down!", "Checked off! Ears wiggling!", "Woohoo! Trail blazed!"],
+          break: ["Stretch those legs! Little trot around!", "Break time! Fresh air and water!"]
+        }
+      }
+    ]
+  });
+
+  /* Aquarium Tunnel */
+  COMP_DATA.push({
+    theme: "aquarium",
+    companions: [
+      {
+        id: "aquarium-glide", name: "Glide", kind: "Baby Manta Ray", pose: "float", wearColor: "#F2A33A",
+        bio: "A baby manta ray who swoops in happy loops through the blue.",
+        idle: ["finWiggle", "sway", "topBob"], cheer: "spin",
+        parts: {
+          tail: {svg: `${LINE("M60 90Q61 104 72 112", "#4A70B4", 2.4)}`, pivot: [60, 90]},
+          wingL: {svg: `${LG("aquarium-glide-aquarium-glide-w", [[0, "#8EB8F0"], [1, "#4068B0"]], 1, 0, 0, 1)}<path d="M46 56Q26 50 8 66Q22 70 30 81Q38 86 47 81Z" fill="url(#aquarium-glide-aquarium-glide-w)" ${O}/><path d="M42 62Q28 60 16 66" fill="none" stroke="#C8DCF8" stroke-width="2" stroke-linecap="round" opacity=".7"/>`, pivot: [46, 68]},
+          wingR: {svg: `${LG("aquarium-glide-aquarium-glide-v", [[0, "#8EB8F0"], [1, "#4068B0"]], 0, 0, 1, 1)}<path d="M74 56Q94 50 112 66Q98 70 90 81Q82 86 73 81Z" fill="url(#aquarium-glide-aquarium-glide-v)" ${O}/><path d="M78 62Q92 60 104 66" fill="none" stroke="#C8DCF8" stroke-width="2" stroke-linecap="round" opacity=".7"/>`, pivot: [74, 68]},
+          body: `${RG("aquarium-glide-aquarium-glide-g", [[0, "#B8D6FA"], [0.55, "#6E9CE6"], [1, "#3E64AC"]], 0.42, 0.3, 0.75)}
+            <ellipse cx="60" cy="70" rx="23" ry="24" fill="url(#aquarium-glide-aquarium-glide-g)" ${O}/>
+            <ellipse cx="60" cy="80" rx="15" ry="9" fill="#E6F0FC" opacity=".55"/>
+            <path d="M50 86l2 3M56 88l1 3M64 88l-1 3M70 86l-2 3" stroke="#3A5A96" stroke-width="1.4" stroke-linecap="round" opacity=".55"/>
+            <ellipse cx="49" cy="58" rx="5" ry="3" transform="rotate(-30 49 58)" fill="#fff" opacity=".65"/>`,
+          top: {svg: `<path d="M51 50Q44 40 47 33Q53 37 55 48Z" fill="#5A80C4" ${O2}/><path d="M69 50Q76 40 73 33Q67 37 65 48Z" fill="#5A80C4" ${O2}/>`, pivot: [60, 49]}
+        },
+        eyes: {lx: 51.5, rx: 68.5, y: 68, r: 4.6, style: "sparkle", color: "#10203E"},
+        mouth: {x: 60, y: 77, w: 3, color: "#10203E"},
+        cheeks: {lx: 44.5, rx: 75.5, y: 75.5, w: 3.8, h: 2.4, color: "#FF9FC0"},
+        anchors: {top: [60, 45, 0.85], neck: [60, 88, 0.9], chest: [70, 86, 0.55], back: [88, 62, 0.8], hands: [60, 86, 0.8]},
+        lines: {
+          tap: ["Wheee! Hi there, you!", "Gliding over to say you're great!", "Loop-de-loop! That's how happy I am!", "Smooth sailing through that list!", "Flap, flap, focus! You've got this!", "Riding the current right beside you!", "You make the whole tank sparkle!", "Swooping in with good vibes!"],
+          pet: ["Hehe! That tickles my wings!", "Ooh, soft and swirly!"],
+          hello: ["You're back! I did three loops!", "Hi hi! The water's lovely today!"],
+          morning: ["Good morning! Sunbeams in the tank!", "Rise and shine! Let's glide into the day!"],
+          night: ["Drifting slow in the deep blue. Rest soon?", "Settling on the sand. Sweet dreams!"],
+          focus: ["Gliding quietly beside you.", "Calm water, calm mind. You've got this."],
+          done: ["WOW! That session deserves a loop!", "Session done! Swooping with pride!"],
+          task: ["Done! Loop-de-loop!", "YES! Smooth as the current!", "Checked off! Wings up!", "Woohoo! Gliding through it!"],
+          break: ["Break time! Float for a bit!", "Stretch your fins, I mean arms!"]
+        }
+      },
+      {
+        id: "aquarium-puff", name: "Puff", kind: "Pufferfish", pose: "float",
+        bio: "A round little pufferfish who puffs up with joy whenever you finish a task.",
+        idle: ["finWiggle", "topBob", "bounce"], cheer: "bounce",
+        parts: {
+          tail: {svg: `<path d="M84 68L104 54Q108 70 104 86Z" fill="#F2A23A" ${O}/><path d="M90 68L102 62M90 72L102 78" stroke="#FFD27A" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [85, 70]},
+          back: `<g fill="#F7D46A" ${OW(2)}>${[150, 180, 210, 240, 270, 300, 330, 120, 90, 60, 30, 0].map(a => { const r = a * Math.PI / 180, c = Math.cos(r), s = Math.sin(r); return `<path d="M${f1(58 + c * 26 - s * 4)} ${f1(70 + s * 26 + c * 4)}L${f1(58 + c * 35)} ${f1(70 + s * 35)}L${f1(58 + c * 26 + s * 4)} ${f1(70 + s * 26 - c * 4)}Z"/>`; }).join("")}</g>`,
+          body: `${RG("aquarium-puff-aquarium-puff-g", [[0, "#FFF6C0"], [0.55, "#FFD24A"], [1, "#F2A23A"]], 0.38, 0.3, 0.75)}
+            <circle cx="58" cy="70" r="28" fill="url(#aquarium-puff-aquarium-puff-g)" ${O}/>
+            <path d="M33 78Q58 96 83 78Q80 96 58 98Q36 96 33 78Z" fill="#FFF8DC" opacity=".9"/>
+            <g fill="#C88A2A" opacity=".5"><circle cx="46" cy="52" r="1.8"/><circle cx="58" cy="47" r="1.8"/><circle cx="70" cy="52" r="1.8"/><circle cx="52" cy="58" r="1.4"/><circle cx="64" cy="58" r="1.4"/></g>
+            <ellipse cx="44" cy="56" rx="5" ry="3" transform="rotate(-35 44 56)" fill="#fff" opacity=".65"/>`,
+          // pectoral fins tucked behind the round body (wings in the rig), so a wiggle never lays them over the face
+          wingL: {svg: `<ellipse cx="26" cy="83" rx="8.5" ry="4.6" transform="rotate(30 26 83)" fill="#F7C04A" ${O}/>`, pivot: [32, 80]},
+          wingR: {svg: `<ellipse cx="86" cy="93" rx="8.5" ry="4.6" transform="rotate(-32 86 93)" fill="#F7C04A" ${O}/>`, pivot: [80, 89]},
+          top: {svg: `<path d="M48 44L52 33L57 41L61 30L65 42L69 36L70 46Z" fill="#F2A23A" ${O2}/>`, pivot: [58, 44]}
+        },
+        eyes: {lx: 47, rx: 67, y: 66, r: 6, style: "round", color: "#2B2233"},
+        mouth: {x: 57, y: 79, w: 2.6, color: "#2B2233"},
+        cheeks: {lx: 39.5, rx: 74.5, y: 76, w: 4.2, h: 2.6, color: "#FF8F8F"},
+        anchors: {top: [58, 38, 0.85], neck: [58, 94, 0.9], chest: [70, 90, 0.55], back: [86, 58, 0.8], hands: [58, 92, 0.85]},
+        lines: {
+          tap: ["Oh! Hi! You startled me in the best way!", "Puffing up with pride for you!", "I'm all spiky with excitement!", "Big breath in, big focus out!", "You're doing fin-tastic!", "Small fish, big cheers!", "Let's puff through this together!", "Bubbling over with good vibes!"],
+          pet: ["Eep! Hehe, careful with the spikes!", "Ooh, I'm deflating happily!"],
+          hello: ["You're back! *puff* So happy!", "Hi hi! Bubbles of joy for you!"],
+          morning: ["Good morning! Fresh water, fresh start!", "Rise and shine! Ready to puff into the day!"],
+          night: ["Deflating for the night. Rest soon?", "Tucked into the coral. Sleep tight!"],
+          focus: ["Calm and round. You've got this.", "Floating quietly beside you."],
+          done: ["*PUFF!* That session was amazing!", "Session done! I'm totally puffed up with pride!"],
+          task: ["*PUFF!* Done!", "YES! Surprised and so proud!", "Checked off! Spikes up!", "Woohoo! Big puff for that one!"],
+          break: ["Break time! Deep breaths, then deflate!", "Stretch! Swim a lap around the room!"]
+        }
+      },
+      {
+        id: "aquarium-curly", name: "Curly", kind: "Seahorse", pose: "float",
+        bio: "A little seahorse who holds on tight to your to-do list with its tail.",
+        idle: ["topBob", "finWiggle", "headTilt"], cheer: "hop",
+        neck: [58, 60],
+        parts: {
+          tail: {svg: `${LINE("M57 90Q49 102 56 109Q66 114 69 105Q71 97 63 97Q58 98 60 103", "#F7A24A", 5)}
+            <g transform="rotate(-12 74 100)"><rect x="66" y="92" width="16" height="18" rx="2" fill="#FFFFFF" ${O2}/><path d="M69 97H79M69 101H79M69 105H76" stroke="#8AA6D8" stroke-width="1.4" stroke-linecap="round"/><path d="M68 96l1 1 2-2" stroke="#4FB070" stroke-width="1.2" fill="none" stroke-linecap="round"/></g>`, pivot: [58, 90]},
+          body: `${RG("aquarium-curly-aquarium-curly-b", [[0, "#FFE6A8"], [0.6, "#FFB04A"], [1, "#F2873A"]], 0.4, 0.35, 0.75)}
+            <path d="M48 60Q38 75 47 89Q56 97 65 90Q73 79 66 63Z" fill="url(#aquarium-curly-aquarium-curly-b)" ${O}/>
+            <path d="M46 70Q52 72 58 70M45 78Q52 80 59 78M48 86Q53 88 58 86" fill="none" stroke="#FFE6B8" stroke-width="2" stroke-linecap="round" opacity=".85"/>`,
+          // the dorsal fin is tucked behind the body (it stays put; the tail does the fin wiggle)
+          back: `<path d="M64 68Q82 62 83 76Q77 82 64 80Z" fill="#FFD27A" ${O2}/><path d="M69 70L79 68M70 74L80 74M69 78L78 79" stroke="#F2A23A" stroke-width="1.2" stroke-linecap="round"/>`,
+          head: `${RG("aquarium-curly-aquarium-curly-h", [[0, "#FFE6A8"], [0.6, "#FFB04A"], [1, "#F2873A"]], 0.4, 0.35, 0.75)}
+            <path d="M68 42Q84 40 89 44Q90 51 85 52Q76 53 68 53Z" fill="url(#aquarium-curly-aquarium-curly-h)" ${O}/>
+            <ellipse cx="56" cy="47" rx="16" ry="15" fill="url(#aquarium-curly-aquarium-curly-h)" ${O}/>
+            <path d="M44 42Q46 36 52 34" fill="none" stroke="#FFF2CC" stroke-width="2.6" stroke-linecap="round" opacity=".8"/>`,
+          top: {svg: `<path d="M48 35L49 24L54 31L58 21L61 31L66 26L65 36Z" fill="#F2873A" ${O2}/>`, pivot: [56, 35]}
+        },
+        eyes: {lx: 50, rx: 62, y: 46, r: 4, style: "sparkle", color: "#3A1A10"},
+        mouth: {x: 56, y: 54, w: 2.4, color: "#3A1A10"},
+        cheeks: {lx: 45, rx: 67, y: 52.5, w: 3.2, h: 2, color: "#FF8FA8"},
+        anchors: {top: [56, 24, 0.8], neck: [58, 62, 0.8], chest: [62, 78, 0.5], back: [44, 72, 0.75], hands: [58, 86, 0.8]},
+        lines: {
+          tap: ["Hi! I've got your list, nice and tight!", "Holding on for you, always!", "Curl up and conquer, you've got this!", "Bobbing along beside you!", "One item at a time, I'll keep the list safe!", "You're doing fin-credibly well!", "Tiny but mighty, like your progress!", "Swaying with the current, cheering for you!"],
+          pet: ["Hehe! My tail just curled tighter!", "Aww, that makes my crown sparkle!"],
+          hello: ["You're back! I kept your list for you!", "Hi hi! Ready for a gentle swim?"],
+          morning: ["Good morning! Let's see today's list!", "Rise and shine! The reef is waking up!"],
+          night: ["Hooking my tail on the seagrass. Rest soon?", "Swaying to sleep. Sweet dreams!"],
+          focus: ["Holding steady. You've got this.", "Quietly guarding your list."],
+          done: ["WOW! That session was reef-markable!", "Session done! My tail is tingling with pride!"],
+          task: ["Done! Crossing it off with my tail!", "YES! One less on the list!", "Checked off! Curly-cue of joy!", "Woohoo! The list is shrinking!"],
+          break: ["Break time! Drift and breathe!", "Stretch it out, uncurl a little!"]
+        }
+      }
+    ]
+  });
+
+})();
+/* end of module 98-comp-n3.js */
+
+
+/* ===== module: 98-comp-n4.js ===== */
+/* Study Companions, batch n4: diadelosmuertos, holi, ramadan, midautumn */
+(() => {
+  const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
+  const O2 = OW(2.2);
+  const twinkle = (x, y, s, c) => `<path d="M${x} ${y - s}Q${x} ${y} ${x + s} ${y}Q${x} ${y} ${x} ${y + s}Q${x} ${y} ${x - s} ${y}Q${x} ${y} ${x} ${y - s}Z" fill="${c || "#fff"}"/>`;
+  const f1 = v => Math.round(v * 10) / 10;
+  const ring = (cx, cy, n, r, fn) => Array.from({length: n}, (_, i) => { const a = i / n * Math.PI * 2; return fn(f1(cx + Math.cos(a) * r), f1(cy + Math.sin(a) * r), a * 180 / Math.PI, i); }).join("");
+  const star = (cx, cy, R, r, n) => { let d = ""; for (let i = 0; i < n * 2; i++) { const a = -Math.PI / 2 + i * Math.PI / n, q = i % 2 ? r : R; d += (i ? "L" : "M") + f1(cx + q * Math.cos(a)) + " " + f1(cy + q * Math.sin(a)); } return d + "Z"; };
+
+  /* ================= Dia de los Muertos ================= */
+  COMP_DATA.push({
+    theme: "diadelosmuertos",
+    companions: [
+      {
+        id: "diadelosmuertos-dulce", name: "Dulce", kind: "Sugar Skull Sprite", pose: "float", wearColor: "#2EC4D0",
+        bio: "A cheerful sugar skull sprite decorated with icing flowers and a big smile.",
+        idle: ["topBob", "sparkle", "headTilt"], cheer: "spin",
+        neck: [60, 84],
+        parts: {
+          armL: {svg: `<path d="M46 87Q38 94 36 103L42 104Q43 96 49 91Z" fill="#E8508E" ${O}/><circle cx="38.6" cy="105.6" r="4.4" fill="#F7F0FA" ${O}/>`, pivot: [45, 89]},
+          armR: {svg: `<path d="M74 87Q82 94 84 103L78 104Q77 96 71 91Z" fill="#E8508E" ${O}/><circle cx="81.4" cy="105.6" r="4.4" fill="#F7F0FA" ${O}/>`, pivot: [75, 89]},
+          body: `${LG("diadelosmuertos-dulce-b", [[0, "#FF7AB4"], [1, "#C8367E"]])}
+            <path d="M44 84Q60 78 76 84L84 106Q60 114 36 106Z" fill="url(#diadelosmuertos-dulce-b)" ${O}/>
+            <path d="M38 102Q60 108 82 102" fill="none" stroke="#FFD23A" stroke-width="2.6"/>
+            <path d="M42 96Q60 100 78 96" fill="none" stroke="#2EC4D0" stroke-width="2.4"/>
+            <circle cx="50" cy="90" r="1.8" fill="#FFF4FA"/><circle cx="60" cy="88" r="1.8" fill="#FFF4FA"/><circle cx="70" cy="90" r="1.8" fill="#FFF4FA"/>`,
+          head: `${RG("diadelosmuertos-dulce-h", [[0, "#FFFFFF"], [0.7, "#F7F0FA"], [1, "#E2D2EA"]], 0.38, 0.3, 0.8)}
+            <path d="M28 52C28 30 42 20 60 20C78 20 92 30 92 52C92 66 86 74 78 77V84Q60 90 42 84V77C34 74 28 66 28 52Z" fill="url(#diadelosmuertos-dulce-h)" ${O}/>
+            <path d="M36 36Q40 28 50 25" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/>`,
+          face: `<circle cx="47" cy="55" r="10" fill="#2EC4D0" ${OW(2.2)}/><circle cx="73" cy="55" r="10" fill="#F27BA6" ${OW(2.2)}/>
+            ${ring(47, 55, 8, 12.6, (x, y) => `<circle cx="${x}" cy="${y}" r="1.3" fill="#FFB23A"/>`)}${ring(73, 55, 8, 12.6, (x, y) => `<circle cx="${x}" cy="${y}" r="1.3" fill="#9A5AE0"/>`)}
+            <path d="M60 70l-3 -3.6a1.8 1.8 0 0 1 3 -.6a1.8 1.8 0 0 1 3 .6z" fill="#F27BA6" ${OW(1.2)}/>
+            <path d="M50 79v4M55 80v4.4M60 80.4v4.4M65 80v4.4M70 79v4" stroke="#C8B8D0" stroke-width="1.6" stroke-linecap="round"/>
+            <circle cx="34" cy="44" r="1.6" fill="#3FC27A"/><circle cx="86" cy="44" r="1.6" fill="#3FC27A"/><circle cx="36" cy="66" r="1.4" fill="#FF9A2E"/><circle cx="84" cy="66" r="1.4" fill="#FF9A2E"/>`,
+          top: {svg: `${["#FF9A2E", "#FFD23A", "#FF5FA2", "#FFD23A", "#FF9A2E"].map((c, i) => { const x = 38 + i * 11, y = 26 - Math.sin(i / 4 * Math.PI) * 6; return `<g>${ring(x, y, 7, 4.2, (px, py) => `<circle cx="${px}" cy="${py}" r="2.8" fill="${c}" ${OW(1.2)}/>`)}<circle cx="${x}" cy="${f1(y)}" r="2.6" fill="#E06A10" ${OW(1)}/></g>`; }).join("")}
+            <path d="M33 30Q30 24 34 20M87 30Q90 24 86 20" fill="none" stroke="#3E8E52" stroke-width="2.6" stroke-linecap="round"/>`, pivot: [60, 30]}
+        },
+        eyes: {lx: 47, rx: 73, y: 56, r: 5, style: "sparkle", color: "#2B1A2E"},
+        mouth: {x: 60, y: 75, w: 3.6, color: "#2B1A2E"},
+        cheeks: {lx: 38, rx: 82, y: 70, w: 3.6, h: 2.2, color: "#FF8FB8"},
+        anchors: {top: [60, 22, 1], neck: [60, 86, 0.95], chest: [70, 96, 0.66], back: [86, 74, 0.8], hands: [60, 98, 0.85]},
+        lines: {
+          tap: ["¡Hola! I iced a flower just for you!", "Sweet as sugar, sharp as a pencil!", "Your memory is getting stronger!", "Every page you study is worth remembering!", "Look at you go! So colourful!", "A big sugary smile for your hard work!", "Remember: you're doing amazing!", "Marigolds, candles and you, all glowing!"],
+          pet: ["Hehe! Careful, my icing tickles!", "Aww, so sweet! Sweeter than me!"],
+          hello: ["¡Hola! You're back! My flowers bloomed!", "Hi friend! I saved you a marigold!"],
+          morning: ["¡Buenos días! Fresh flowers for a fresh day!", "Good morning! Let's make today bright!"],
+          night: ["The candles are glowing soft. Rest soon?", "¡Buenas noches! Sweet dreams, friend."],
+          focus: ["Quiet and sweet, right beside you.", "Smiling softly while you work!"],
+          done: ["¡Qué bien! What a lovely session!", "All done! That deserves a fiesta!"],
+          task: ["¡SÍ! Done!", "Checked off! Sugar-sweet work!", "Another one done! ¡Bravo!", "Woohoo! Iced and finished!"],
+          break: ["Break time! Have a little treat!", "Stretch and smile! You earned it!"]
+        }
+      },
+      {
+        id: "diadelosmuertos-xolo", name: "Xolo", kind: "Xolo Pup", pose: "sit", wearColor: "#F48A1C",
+        bio: "A gentle xolo pup with a big heart and even bigger ears.",
+        idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
+        neck: [60, 74],
+        parts: {
+          tail: {svg: `${LINE("M84 100Q100 98 104 84Q106 76 102 72", "#5A5468", 3.6)}`, pivot: [84, 100]},
+          feet: `<ellipse cx="38" cy="107.6" rx="8" ry="4.4" fill="#5A5468" ${O}/><ellipse cx="82" cy="107.6" rx="8" ry="4.4" fill="#5A5468" ${O}/>`,
+          body: `${LG("diadelosmuertos-xolo-b", [[0, "#7A7488"], [1, "#4A4458"]])}
+            <path d="M60 70C78 70 86 84 86 96C86 106 78 110 60 110C42 110 34 106 34 96C34 84 42 70 60 70Z" fill="url(#diadelosmuertos-xolo-b)" ${O}/>
+            <ellipse cx="60" cy="96" rx="12" ry="10" fill="#9A94A8" opacity=".6"/>
+            <path d="M45 93Q44 100 44.6 106Q45 110.6 49.4 110.6Q53.6 110.6 54 106Q54.4 100 53 95" fill="#77718A" ${OW(2.4)}/><path d="M75 93Q76 100 75.4 106Q75 110.6 70.6 110.6Q66.4 110.6 66 106Q65.6 100 67 95" fill="#77718A" ${OW(2.4)}/>
+            <path d="M48 110v-2.6M51 110v-2.6M69 110v-2.6M72 110v-2.6" stroke="#3A3646" stroke-width="1.1" stroke-linecap="round"/>
+            <path d="M44 74Q60 82 76 74L74 82Q60 88 46 82Z" fill="#F48A1C" ${OW(2)}/>
+            <circle cx="60" cy="86" r="5" fill="#FFC22A" ${OW(1.8)}/><circle cx="60" cy="86" r="2" fill="#E06A10"/>`,
+          earL: {svg: `<path d="M38 46L22 16Q20 8 28 10L50 34Z" fill="#5A5468" ${O}/><path d="M38 40L29 18L45 34Z" fill="#E2A0B0"/>`, pivot: [42, 40]},
+          earR: {svg: `<path d="M82 46L98 16Q100 8 92 10L70 34Z" fill="#5A5468" ${O}/><path d="M82 40L91 18L75 34Z" fill="#E2A0B0"/>`, pivot: [78, 40]},
+          head: `${LG("diadelosmuertos-xolo-h", [[0, "#857F94"], [1, "#55505F"]])}
+            <path d="M60 30C80 30 90 44 88 58C86 72 76 78 60 78C44 78 34 72 32 58C30 44 40 30 60 30Z" fill="url(#diadelosmuertos-xolo-h)" ${O}/>
+            <path d="M46 64Q46 56 60 56Q74 56 74 64Q74 76 60 76Q46 76 46 64Z" fill="#A8A2B8" ${OW(2)}/>
+            <path d="M54 30Q56 22 60 26Q62 20 66 28" fill="#3A3646" ${OW(2)}/>
+            <path d="M40 42Q44 36 50 35" fill="none" stroke="#A8A2B8" stroke-width="2.6" stroke-linecap="round"/>`,
+          face: `<path d="M57 70Q57 78 61 78Q65 78 64 70Z" fill="#FF8FA8" ${OW(1.6)}/><path d="M60.5 71V75" stroke="#E0607A" stroke-width="1" stroke-linecap="round"/><ellipse cx="60" cy="61" rx="4.6" ry="3.4" fill="#2B2233"/><circle cx="58.6" cy="60" r="1.1" fill="#fff" opacity=".7"/>`
+        },
+        eyes: {lx: 48, rx: 72, y: 52, r: 4.8, style: "round", color: "#1E1A28"},
+        mouth: {x: 60, y: 67.5, w: 3.4, color: "#1E1A28"},
+        cheeks: {lx: 40, rx: 80, y: 62, w: 4, h: 2.4, color: "#FF9AB8"},
+        anchors: {top: [60, 30, 0.95], neck: [60, 78, 1], chest: [72, 94, 0.66], back: [84, 86, 0.8], hands: [60, 98, 0.86]},
+        lines: {
+          tap: ["Woof! Hi hi hi! I'm so happy you're here!", "My ears are up! That means I'm listening!", "You're my favourite study buddy!", "Good human! Great studying!", "Tail wags for every page you read!", "I'll guard your focus. Nobody gets past!", "Sniff sniff. Smells like success!", "Big ears, big heart, big cheers for you!"],
+          pet: ["Hehe! Ear scratches are the best!", "Woof! More pats please!"],
+          hello: ["WOOF! You're back! Happy zoomies!", "Hi friend! I waited by the door!"],
+          morning: ["Good morning! Walkies and studying!", "Woof! The sun's up and so are we!"],
+          night: ["Yawn... curl-up time soon?", "Cozy blanket time. Goodnight!"],
+          focus: ["Lying quietly at your feet. Go!", "On guard! You keep working!"],
+          done: ["WOOF! What a good session!", "All done! Best human ever!"],
+          task: ["Woof! DONE!", "Fetch! Another one finished!", "Checked off! Tail wags!", "Yes! Good job, good job!"],
+          break: ["Walk break! Stretch those legs!", "Play time! Then back to it!"]
+        }
+      },
+      {
+        id: "diadelosmuertos-cempa", name: "Cempa", kind: "Marigold Sprite", pose: "stand", wearColor: "#3E8E52",
+        bio: "A bright marigold sprite whose orange petals light the way.",
+        idle: ["sway", "sparkle", "topBob"], cheer: "spin",
+        parts: {
+          feet: `${LINE("M60 88V104", "#3E8E52", 4)}<path d="M60 102Q46 94 38 100Q46 110 60 104Z" fill="#5EA860" ${O2}/><path d="M60 102Q74 94 82 100Q74 110 60 104Z" fill="#5EA860" ${O2}/>`,
+          armL: {svg: `<path d="M41 83Q28 86 27 102Q40 99 44 87Z" fill="#5EA860" ${O}/><path d="M41 86Q34 92 30 99" fill="none" stroke="#3E8E52" stroke-width="1.3" stroke-linecap="round"/>`, pivot: [42, 85]},
+          armR: {svg: `<path d="M79 83Q92 86 93 102Q80 99 76 87Z" fill="#5EA860" ${O}/><path d="M79 86Q86 92 90 99" fill="none" stroke="#3E8E52" stroke-width="1.3" stroke-linecap="round"/>`, pivot: [78, 85]},
+          body: `${RG("diadelosmuertos-cempa-o", [[0, "#FFC85A"], [1, "#F07A10"]], 0.5, 0.5, 0.6)}${RG("diadelosmuertos-cempa-y", [[0, "#FFF0A0"], [1, "#FFB81E"]], 0.45, 0.4, 0.6)}
+            ${ring(60, 58, 14, 25, (x, y, a) => `<ellipse cx="${x}" cy="${y}" rx="11" ry="8" transform="rotate(${f1(a)} ${x} ${y})" fill="url(#diadelosmuertos-cempa-o)" ${OW(2.2)}/>`)}
+            ${ring(60, 58, 11, 15, (x, y, a) => `<ellipse cx="${x}" cy="${y}" rx="10" ry="7.4" transform="rotate(${f1(a + 15)} ${x} ${y})" fill="url(#diadelosmuertos-cempa-y)" ${OW(1.8)}/>`)}
+            <circle cx="60" cy="58" r="20" fill="url(#diadelosmuertos-cempa-y)"/>
+            <path d="M46 46Q50 40 58 39" fill="none" stroke="#FFFBE0" stroke-width="3" stroke-linecap="round"/>`,
+          top: {svg: `${LINE("M60 30Q58 22 62 16", "#3E8E52", 2.4)}<path d="M62 19C66 12 74 12 77 15C73 21 67 22 62 19Z" fill="#5EA860" ${O2}/>`, pivot: [60, 32]}
+        },
+        eyes: {lx: 51, rx: 69, y: 57, r: 4.6, style: "sparkle", color: "#3A1A08"},
+        mouth: {x: 60, y: 66, w: 3, color: "#3A1A08"},
+        cheeks: {lx: 44, rx: 76, y: 64, w: 3.8, h: 2.4, color: "#FF7A6A"},
+        anchors: {top: [60, 30, 0.9], neck: [60, 84, 0.9], chest: [70, 76, 0.6], back: [86, 50, 0.8], hands: [60, 88, 0.8]},
+        lines: {
+          tap: ["Hi! I'm lighting up your way today!", "Bloom where you study!", "Your ideas are as bright as my petals!", "Follow the petals, you'll find the answer!", "Golden-orange cheers for you!", "Every page is a petal on your path!", "Shine on! Brighter every day!", "You make this whole street glow!"],
+          pet: ["Hehe! My petals are fluttering!", "Aww, I'm blooming with joy!"],
+          hello: ["You're here! I bloomed extra bright!", "Hi friend! Follow me, this way!"],
+          morning: ["Good morning! Petals open, let's go!", "Rise and bloom! It's a bright day!"],
+          night: ["My petals are closing. Rest soon?", "The candles will keep watch. Goodnight!"],
+          focus: ["Glowing softly beside you!", "Lighting your path quietly. Go go!"],
+          done: ["What a blooming great session!", "All done! You lit up the whole path!"],
+          task: ["DONE! A whole bouquet of wins!", "Bloom! Checked off!", "Another petal on your path!", "Yes! Bright and finished!"],
+          break: ["Sunshine break! Stretch up tall!", "Water break! Flowers need it too!"]
+        }
+      }
+    ]
+  });
+
+  /* ================= Holi ================= */
+  COMP_DATA.push({
+    theme: "holi",
+    companions: [
+      {
+        id: "holi-puffy", name: "Puffy", kind: "Color Powder Puff", pose: "float", wearColor: "#9A5AE0",
+        bio: "A soft puff of color powder who leaves a little rainbow wherever it lands.",
+        idle: ["bounce", "sparkle", "topBob"], cheer: "spin",
+        parts: {
+          armL: {svg: `<circle cx="28" cy="80" r="6.4" fill="#FFC62A" ${O}/>`, pivot: [34, 78]},
+          armR: {svg: `<circle cx="92" cy="80" r="6.4" fill="#4AC8F0" ${O}/>`, pivot: [86, 78]},
+          body: `${LG("holi-puffy-g", [[0, "#FF8AC8"], [0.35, "#FFB0D8"], [0.65, "#C8A6FF"], [1, "#7AC8F8"]], 0, 0, 1, 1)}
+            <path d="${puff(60, 72, 32, 11, 1.18)}" fill="url(#holi-puffy-g)" ${O}/>
+            <circle cx="44" cy="58" r="9" fill="#FFE07A" opacity=".55"/><circle cx="78" cy="88" r="10" fill="#6AE0A8" opacity=".5"/><circle cx="80" cy="56" r="7" fill="#FF7AB8" opacity=".45"/>
+            <path d="M38 56Q42 48 50 46" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/>
+            <circle cx="22" cy="104" r="3" fill="#FF4A9A"/><circle cx="96" cy="106" r="2.6" fill="#2EC07A"/><circle cx="104" cy="96" r="1.8" fill="#FFC62A"/>`,
+          top: {svg: `<path d="${puff(60, 34, 9, 7, 1.2)}" fill="#FFB0D8" ${O2}/><circle cx="57" cy="32" r="2" fill="#fff"/><circle cx="70" cy="24" r="3" fill="#FFE07A" ${OW(1.6)}/>`, pivot: [60, 42]}
+        },
+        eyes: {lx: 50, rx: 70, y: 72, r: 5, style: "sparkle", color: "#3A1A3A"},
+        mouth: {x: 60, y: 82, w: 3.2, color: "#3A1A3A"},
+        cheeks: {lx: 42, rx: 78, y: 80, w: 4.2, h: 2.6, color: "#FF6AA8"},
+        anchors: {top: [60, 42, 0.95], neck: [60, 98, 1], chest: [72, 92, 0.66], back: [88, 62, 0.8], hands: [60, 100, 0.86]},
+        lines: {
+          tap: ["Poof! Hi! A little rainbow for you!", "You're bringing so much colour to today!", "Bright mind, bright day!", "Every page adds a new colour!", "Puff puff! You're doing great!", "Let's paint this chapter every colour!", "Happy, fluffy cheers for you!", "Sprinkle, sprinkle, here comes success!"],
+          pet: ["Poof! Now your hands are rainbow!", "Hehe! I'm all fluffed up!"],
+          hello: ["Poof! You're back! Colour time!", "Hi hi! I saved you some pink!"],
+          morning: ["Good morning! Let's colour the day!", "Rise and shine! Rainbow mode on!"],
+          night: ["My colours are getting sleepy. Rest soon?", "Soft and cozy now. Goodnight!"],
+          focus: ["Floating quietly, cheering softly!", "Calm colours, calm mind. Go go!"],
+          done: ["POOF! What a colourful session!", "All done! Rainbows everywhere!"],
+          task: ["POOF! Done!", "Splash! Checked off!", "Another colour added! Yay!", "Yes! That one's painted bright!"],
+          break: ["Colour break! Stretch and smile!", "Fluff up! Time for some water!"]
+        }
+      },
+      {
+        id: "holi-rang", name: "Rang", kind: "Rainbow Elephant Calf", pose: "stand", wearColor: "#FF4A9A",
+        bio: "A rainbow elephant calf painted in every color and very proud of it.",
+        idle: ["earTwitch", "tailSwish", "topBob"], cheer: "bounce",
+        parts: {
+          tail: {svg: `${LINE("M88 88Q100 86 102 96", "#9AA6C0", 2.6)}<path d="M100 94Q106 96 104 102Q98 100 100 94Z" fill="#FF4A9A" ${OW(1.6)}/>`, pivot: [88, 88]},
+          feet: `<rect x="36" y="96" width="14" height="14" rx="5" fill="#A8B2CC" ${O}/><rect x="70" y="96" width="14" height="14" rx="5" fill="#A8B2CC" ${O}/>
+            <path d="M38 106h10M72 106h10" stroke="#FFF2DA" stroke-width="2" stroke-linecap="round"/>`,
+          earL: {svg: `${LG("holi-rang-e", [[0, "#C8D0E4"], [1, "#98A2BE"]])}<path d="M40 46C24 34 8 42 10 60C12 74 26 80 40 72Z" fill="url(#holi-rang-e)" ${O}/>
+            <circle cx="22" cy="54" r="5" fill="#FFC62A" opacity=".85"/><circle cx="26" cy="66" r="4" fill="#2EC07A" opacity=".85"/><circle cx="16" cy="64" r="3" fill="#FF4A9A" opacity=".85"/>`, pivot: [40, 56]},
+          earR: {svg: `<path d="M80 46C96 34 112 42 110 60C108 74 94 80 80 72Z" fill="url(#holi-rang-e)" ${O}/>
+            <circle cx="98" cy="54" r="5" fill="#3A8AE8" opacity=".85"/><circle cx="94" cy="66" r="4" fill="#FF4A9A" opacity=".85"/><circle cx="104" cy="64" r="3" fill="#9A5AE0" opacity=".85"/>`, pivot: [80, 56]},
+          body: `${LG("holi-rang-b", [[0, "#C8D0E4"], [1, "#9AA4C0"]])}
+            <path d="M34 98C30 80 42 70 60 70C78 70 90 80 86 98Z" fill="url(#holi-rang-b)" ${O}/>
+            <circle cx="46" cy="84" r="5" fill="#FF4A9A" opacity=".75"/><circle cx="74" cy="82" r="6" fill="#2EC07A" opacity=".7"/><circle cx="62" cy="92" r="4" fill="#FFC62A" opacity=".8"/>
+            <path d="M60 30C80 30 88 44 86 58C84 70 74 76 60 76C46 76 36 70 34 58C32 44 40 30 60 30Z" fill="url(#holi-rang-b)" ${O}/>
+            <path d="M60 62Q58 72 62 78Q67 82 71 77" fill="none" stroke="${INK}" stroke-width="11" stroke-linecap="round"/><path d="M60 62Q58 72 62 78Q67 82 71 77" fill="none" stroke="#AEB8D0" stroke-width="6.6" stroke-linecap="round"/>
+            <path d="M58.6 68h4M59.6 74h4" stroke="#8A94B0" stroke-width="1.4" stroke-linecap="round"/>
+            <circle cx="44" cy="44" r="4" fill="#FF7AB8" opacity=".7"/><circle cx="78" cy="42" r="3.4" fill="#5AA0F0" opacity=".7"/>
+            <path d="M42 40Q46 34 52 33" fill="none" stroke="#E4E8F2" stroke-width="2.6" stroke-linecap="round"/>`,
+          top: {svg: `<path d="M50 32Q60 22 70 32L66 36Q60 32 54 36Z" fill="#FFC62A" ${O2}/><circle cx="60" cy="27" r="3.4" fill="#FF4A9A" ${OW(1.6)}/>${LINE("M60 24V16", "#FF8A1E", 2)}<circle cx="60" cy="14" r="3" fill="#2EC07A" ${OW(1.6)}/>`, pivot: [60, 34]}
+        },
+        eyes: {lx: 48, rx: 72, y: 54, r: 4.6, style: "sparkle", color: "#2A2440"},
+        mouth: {x: 49, y: 68, w: 2.6, color: "#2A2440"},
+        cheeks: {lx: 40, rx: 80, y: 62, w: 4, h: 2.4, color: "#FF7AB8"},
+        anchors: {top: [60, 30, 0.95], neck: [60, 76, 1], chest: [72, 88, 0.62], back: [84, 80, 0.8], hands: [60, 94, 0.8]},
+        lines: {
+          tap: ["Toot! Hi! Look at all my colours!", "I'm painted for good luck, and so are you!", "Big ears, big ideas, big cheers!", "You're doing trunk-tastic!", "Every colour on me is a cheer for you!", "Stomp stomp! Look how far you've come!", "An elephant never forgets, and neither will you!", "You make my whole day colourful!"],
+          pet: ["Toot toot! That tickles my ears!", "Hehe! More pats, please!"],
+          hello: ["TOOT! You're back! Happy flaps!", "Hi friend! I painted a new spot today!"],
+          morning: ["Good morning! Splash of water, then study!", "Toot! The sun's up and so am I!"],
+          night: ["Big yawn... trunk's getting sleepy.", "Goodnight! I'll dream in colours."],
+          focus: ["Quiet as an elephant can be. Go!", "Ears open, trunk still. You've got this."],
+          done: ["TOOT TOOT! What a session!", "All done! Celebration splash!"],
+          task: ["TOOT! Done!", "Stomp! Checked off!", "Another one! My ears are flapping!", "Yes! Trunk-tastic!"],
+          break: ["Splash break! Water time!", "Stretch those legs! All four of them!"]
+        }
+      },
+      {
+        id: "holi-spritz", name: "Spritz", kind: "Water Splasher", pose: "stand", wearColor: "#3A8AE8",
+        bio: "A little water splasher who sprays bright colors every time you win.",
+        idle: ["topBob", "wave", "bounce"], cheer: "hop",
+        parts: {
+          feet: `<ellipse cx="50" cy="108.5" rx="7.4" ry="4.2" fill="#3A8AE8" ${O}/><ellipse cx="70" cy="108.5" rx="7.4" ry="4.2" fill="#3A8AE8" ${O}/>`,
+          armL: {svg: `<ellipse cx="32" cy="74" rx="5" ry="7" transform="rotate(30 32 74)" fill="#8ADCFF" ${O}/>`, pivot: [38, 70]},
+          armR: {svg: `<ellipse cx="88" cy="74" rx="5" ry="7" transform="rotate(-30 88 74)" fill="#8ADCFF" ${O}/>`, pivot: [82, 70]},
+          body: `${LG("holi-spritz-b", [[0, "#E8F8FF"], [1, "#B8E4F8"]])}${LG("holi-spritz-w", [[0, "#FF8AC8"], [0.5, "#B07AF0"], [1, "#5AA0F0"]], 0, 0, 1, 0)}
+            <path d="M48 44H72V50Q86 56 86 74V98Q86 108 76 108H44Q34 108 34 98V74Q34 56 48 50Z" fill="url(#holi-spritz-b)" ${O}/>
+            <path d="M35 80Q60 74 85 80V98Q85 106 76 106H44Q35 106 35 98Z" fill="url(#holi-spritz-w)" opacity=".85"/>
+            <path d="M36 80Q60 74 84 80" fill="none" stroke="#fff" stroke-width="2" opacity=".8"/>
+            <circle cx="48" cy="92" r="2.4" fill="#fff" opacity=".7"/><circle cx="70" cy="96" r="1.8" fill="#fff" opacity=".7"/><circle cx="62" cy="88" r="1.4" fill="#fff" opacity=".7"/>
+            <path d="M40 64Q42 56 48 54" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`,
+          top: {svg: `${LG("holi-spritz-t", [[0, "#FFE38A"], [1, "#E0A030"]])}<rect x="46" y="38" width="28" height="8" rx="3" fill="url(#holi-spritz-t)" ${O2}/>
+            <rect x="55" y="24" width="10" height="15" rx="3" fill="url(#holi-spritz-t)" ${O2}/><path d="M52 22H72Q78 22 80 26L84 28V32L78 32Q76 30 72 30H52Q48 30 48 26Q48 22 52 22Z" fill="url(#holi-spritz-t)" ${O2}/>
+            <circle cx="92" cy="26" r="2.4" fill="#FF4A9A"/><circle cx="98" cy="32" r="1.8" fill="#2EC07A"/><circle cx="96" cy="20" r="1.6" fill="#FFC62A"/>`, pivot: [60, 46]}
+        },
+        eyes: {lx: 50, rx: 70, y: 64, r: 4.6, style: "sparkle", color: "#1E2A48"},
+        mouth: {x: 60, y: 73, w: 3, color: "#1E2A48"},
+        cheeks: {lx: 43, rx: 77, y: 71, w: 3.8, h: 2.4, color: "#FF8AC8"},
+        anchors: {top: [60, 22, 0.9], neck: [60, 80, 0.95], chest: [72, 88, 0.62], back: [86, 70, 0.8], hands: [60, 92, 0.86]},
+        lines: {
+          tap: ["Psssht! Hi! A tiny splash hello!", "Pump it up! You're doing great!", "Splish splash, look at you go!", "I'm full of colourful cheers!", "Keep going and I'll spray a rainbow!", "Fresh, bright and ready to help!", "One more page, one more splash!", "You're making a big splash today!"],
+          pet: ["Hehe! Careful, I might spritz you!", "Psssht! Happy little bubbles!"],
+          hello: ["Splash! You're back!", "Hi hi! Pumped and ready!"],
+          morning: ["Good morning! Fresh water, fresh start!", "Psssht! Rise and splash!"],
+          night: ["Running low on bubbles. Bedtime?", "Goodnight! I'll refill for tomorrow."],
+          focus: ["Holding my splash for later. Go!", "Quietly pumping cheers your way!"],
+          done: ["SPLASH! What a session!", "All done! Rainbow spray for you!"],
+          task: ["PSSSHT! Done!", "Splash! Checked off!", "Another one! Colour spray!", "Yes! Big splash for that one!"],
+          break: ["Water break! Have a sip!", "Stretch time! Pump those arms!"]
+        }
+      }
+    ]
+  });
+
+  /* ================= Ramadan Nights ================= */
+  COMP_DATA.push({
+    theme: "ramadan",
+    companions: [
+      {
+        id: "ramadan-nuri", name: "Nuri", kind: "Fanous Lantern", pose: "float", wearColor: "#2A7A78",
+        bio: "A glowing fanous lantern whose colored glass sprinkles stars on the walls.",
+        idle: ["sway", "sparkle", "topBob"], cheer: "spin",
+        parts: {
+          armL: {svg: `${LINE("M40 67L33 76", "#E2B04A", 3.4)}<ellipse cx="31.6" cy="78.4" rx="4.6" ry="5.4" transform="rotate(30 31.6 78.4)" fill="#E2B04A" ${O}/>`, pivot: [39.6, 67]},
+          armR: {svg: `${LINE("M80 67L87 76", "#E2B04A", 3.4)}<ellipse cx="88.4" cy="78.4" rx="4.6" ry="5.4" transform="rotate(-30 88.4 78.4)" fill="#E2B04A" ${O}/>`, pivot: [80.4, 67]},
+          body: `${LG("ramadan-nuri-g", [[0, "#FFE9A0"], [1, "#D49A30"]])}${LG("ramadan-nuri-r", [[0, "#FFB080"], [1, "#E8463A"]])}${LG("ramadan-nuri-gr", [[0, "#A8F0C8"], [1, "#2EA86A"]])}${LG("ramadan-nuri-b", [[0, "#B8D0FF"], [1, "#3A6AD8"]])}
+            <path d="M36 44H84L80 92H40Z" fill="url(#ramadan-nuri-g)" ${O}/>
+            <path d="M39 48H46L47.6 88H43Z" fill="url(#ramadan-nuri-gr)" ${OW(2)}/><path d="M81 48H74L72.4 88H77Z" fill="url(#ramadan-nuri-b)" ${OW(2)}/>
+            <path d="M46 48H74L72.4 88H47.6Z" fill="url(#ramadan-nuri-r)" ${OW(2.2)}/>
+            <ellipse cx="60" cy="66" rx="16" ry="18" fill="#FFF6C0" opacity=".45"/>
+            <path d="M50 52H53L52.6 84H50.4Z" fill="#fff" opacity=".55"/>
+            <rect x="34" y="90" width="52" height="7" rx="2.4" fill="url(#ramadan-nuri-g)" ${O2}/>
+            <path d="M38 97H82L66 106H54Z" fill="url(#ramadan-nuri-g)" ${O}/><circle cx="60" cy="108" r="2.6" fill="#E2B04A" ${O2}/>
+            <path d="M44 100h32" stroke="#B8862E" stroke-width="1.6"/>`,
+          top: {svg: `${RG("ramadan-nuri-d", [[0, "#FFF0B0"], [1, "#D49A30"]], 0.4, 0.35, 0.8)}
+            <path d="M40 44Q40 26 60 24Q80 26 80 44Z" fill="url(#ramadan-nuri-d)" ${O}/><rect x="34" y="40" width="52" height="7" rx="2.4" fill="#E2B04A" ${O2}/>
+            ${[44, 52, 60, 68, 76].map(x => `<circle cx="${x}" cy="43.5" r="1.4" fill="#8A5A1E"/>`).join("")}
+            <circle cx="60" cy="16" r="5" fill="none" stroke="${INK}" stroke-width="5.6"/><circle cx="60" cy="16" r="5" fill="none" stroke="#E2B04A" stroke-width="2.6"/>
+            <path d="M48 34Q52 28 58 27" fill="none" stroke="#FFF6D0" stroke-width="2.6" stroke-linecap="round"/>`, pivot: [60, 46]}
+        },
+        eyes: {lx: 53, rx: 67, y: 64, r: 3.8, style: "sparkle", color: "#3A1A10"},
+        mouth: {x: 60, y: 73, w: 2.6, color: "#3A1A10"},
+        cheeks: {lx: 47, rx: 73, y: 71, w: 3, h: 2, color: "#FFB0A0"},
+        anchors: {top: [60, 22, 0.9], neck: [60, 94, 0.95], chest: [70, 84, 0.6], back: [84, 60, 0.8], hands: [60, 92, 0.86]},
+        lines: {
+          tap: ["Hello! I've got a little light for you!", "Every page you read makes me glow brighter!", "Look at the stars I'm throwing on the wall!", "Warm light, kind heart, clear mind!", "You're shining tonight!", "Little by little, the whole street lights up!", "Patience and light, that's the way!", "So glad to glow beside you!"],
+          pet: ["Hehe! My glass panes are blushing!", "Aww, that makes my flame dance!"],
+          hello: ["You're here! I just lit up!", "Welcome back! The lanterns missed you!"],
+          morning: ["Good morning! Saving my glow for tonight!", "A bright new day! Let's begin gently."],
+          night: ["The street is glowing. Rest well soon.", "Goodnight! I'll keep a little light on."],
+          focus: ["Glowing quietly beside you.", "Steady light, steady mind. You've got this."],
+          done: ["What a lovely session! I'm all aglow!", "All done! Stars on every wall for you!"],
+          task: ["Done! A new light switched on!", "Checked off! Glowing proud!", "Another one! Little stars everywhere!", "Yes! Bright work!"],
+          break: ["Rest your eyes a moment. Sip some water!", "Gentle stretch, then back to the light!"]
+        }
+      },
+      {
+        id: "ramadan-hilal", name: "Hilal", kind: "Crescent Moon Sprite", pose: "float", wearColor: "#F2C45A",
+        bio: "A soft crescent moon who rises right on time every evening.",
+        idle: ["topBob", "sparkle", "headTilt"], cheer: "bounce",
+        neck: [60, 92],
+        parts: {
+          body: `<path d="${puff(60, 97, 12, 8, 1.2)}" fill="#E6E8FA" ${O}/><circle cx="53" cy="95" r="2" fill="#fff"/>
+            ${twinkle(30, 98, 3.4, "#F2C45A")}${twinkle(92, 104, 2.6, "#F2C45A")}`,
+          head: `${RG("ramadan-hilal-g", [[0, "#FFFBE6"], [0.6, "#FFE48A"], [1, "#F0B830"]], 0.3, 0.4, 0.8)}
+            <path d="M74 20C52 14 28 30 28 56C28 80 50 96 74 92C62 86 56 72 56 56C56 40 62 26 74 20Z" fill="url(#ramadan-hilal-g)" ${O}/>
+            <path d="M40 40Q44 30 54 25" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".9"/>
+            <circle cx="40" cy="78" r="2" fill="#E8B030" opacity=".5"/><circle cx="34" cy="44" r="1.6" fill="#E8B030" opacity=".5"/>`,
+          top: {svg: `${LINE("M74 22Q84 26 86 36", "#C8C0E0", 1.6)}<path d="${star(86, 42, 7.6, 3.4, 5)}" fill="#FFE27A" ${O2}/>`, pivot: [74, 22]}
+        },
+        eyes: {lx: 37, rx: 48, y: 57, r: 3.8, style: "dot", color: "#3A2A10"},
+        mouth: {x: 42.5, y: 65.5, w: 2.6, color: "#3A2A10"},
+        cheeks: {lx: 33, rx: 52, y: 63.5, w: 3, h: 1.8, color: "#FF9AB0"},
+        anchors: {top: [52, 24, 0.8], neck: [56, 92, 0.85], chest: [62, 100, 0.55], back: [70, 70, 0.7], hands: [58, 100, 0.8]},
+        lines: {
+          tap: ["Good evening! Right on time, as always!", "I rise every night, and so do you!", "Small and bright, that's the way!", "Your effort shines like starlight!", "Patience grows into something full!", "A little glow, every single day!", "The stars are cheering with me!", "You're as steady as the moon!"],
+          pet: ["Hehe! My tips are curling up!", "Aww, that's a warm, glowy feeling!"],
+          hello: ["There you are! I was just rising!", "Welcome back! The sky is happy!"],
+          morning: ["Good morning! I'm off to nap, you go shine!", "The sun's turn now. Have a bright day!"],
+          night: ["My favourite time. But rest soon, okay?", "Goodnight! I'll watch over the sky."],
+          focus: ["Glowing softly, right above you.", "Calm and quiet, like the night sky."],
+          done: ["What a radiant session!", "All done! Full moon proud of you!"],
+          task: ["Done! A new star appeared!", "Checked off! Glowing!", "Another one! Right on time!", "Yes! Shining bright!"],
+          break: ["Look up for a moment. Rest your eyes!", "Gentle stretch, then back to it!"]
+        }
+      },
+      {
+        id: "ramadan-kahki", name: "Kahki", kind: "Kahk Cookie", pose: "stand", wearColor: "#C99A2E",
+        bio: "A sweet kahk cookie dusted in sugar and stamped with a pretty pattern.",
+        idle: ["topBob", "bounce", "wave"], cheer: "hop",
+        parts: {
+          feet: `<ellipse cx="47" cy="106" rx="7.6" ry="4.4" fill="#E2B47A" ${O}/><ellipse cx="73" cy="106" rx="7.6" ry="4.4" fill="#E2B47A" ${O}/>`,
+          armL: {svg: `<ellipse cx="28" cy="74" rx="5" ry="7" transform="rotate(30 28 74)" fill="#F2D2A0" ${O}/>`, pivot: [34, 70]},
+          armR: {svg: `<ellipse cx="92" cy="74" rx="5" ry="7" transform="rotate(-30 92 74)" fill="#F2D2A0" ${O}/>`, pivot: [86, 70]},
+          body: `${RG("ramadan-kahki-g", [[0, "#FFF6E4"], [0.6, "#F4D8A8"], [1, "#DCAE70"]], 0.4, 0.35, 0.75)}
+            <circle cx="60" cy="72" r="33" fill="url(#ramadan-kahki-g)" ${O}/>
+            ${ring(60, 72, 16, 25, (x, y, a) => `<path d="M${x} ${y}L${f1(60 + Math.cos(a * Math.PI / 180) * 30)} ${f1(72 + Math.sin(a * Math.PI / 180) * 30)}" stroke="#C8925A" stroke-width="2" stroke-linecap="round"/>`)}
+            <circle cx="60" cy="72" r="22" fill="none" stroke="#C8925A" stroke-width="1.6" opacity=".7"/>
+            ${Array.from({length: 26}, (_, i) => `<circle cx="${f1(36 + (i * 41 % 48))}" cy="${f1(48 + (i * 29 % 48))}" r="1.1" fill="#FFFFFF"/>`).join("")}
+            <path d="M38 56Q42 46 52 43" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/>`,
+          top: {svg: `<path d="M48 42Q60 30 72 42Z" fill="#FFFFFF" ${O2}/><circle cx="54" cy="38" r="1.2" fill="#E8DCC8"/><circle cx="64" cy="36" r="1.2" fill="#E8DCC8"/>${twinkle(76, 30, 4, "#FFE27A")}`, pivot: [60, 42]}
+        },
+        eyes: {lx: 50, rx: 70, y: 70, r: 4.8, style: "sparkle", color: "#3A2414"},
+        mouth: {x: 60, y: 80, w: 3, color: "#3A2414"},
+        cheeks: {lx: 42, rx: 78, y: 78, w: 4, h: 2.4, color: "#FF9AA8"},
+        anchors: {top: [60, 40, 0.95], neck: [60, 98, 1], chest: [72, 90, 0.62], back: [88, 62, 0.8], hands: [60, 98, 0.86]},
+        lines: {
+          tap: ["Hello! Freshly baked and ready to help!", "A sprinkle of sugar for your hard work!", "Sweet things take patience. Like you!", "Stamped with a pattern of good luck!", "You're doing wonderfully, crumb by crumb!", "Powdered sugar cheers for you!", "Every page, a little sweeter!", "Best shared with friends, like this study time!"],
+          pet: ["Hehe! Careful, sugar everywhere!", "Aww, warm hands, warm cookie!"],
+          hello: ["You're back! Fresh from the oven!", "Hi! I saved the sweetest spot for you!"],
+          morning: ["Good morning! A sweet start to the day!", "Rise and shine! Fresh cookies, fresh start!"],
+          night: ["The lanterns are lit. Rest soon?", "Goodnight! Sweet dreams, friend."],
+          focus: ["Quietly cheering, crumb by crumb.", "Sitting sweetly beside you!"],
+          done: ["What a sweet session! So proud!", "All done! Extra sugar for you!"],
+          task: ["Done! Sweet!", "Checked off! Sugar dust!", "Another one! Freshly finished!", "Yes! That's a treat!"],
+          break: ["Break time! A little snack and water!", "Stretch time! Shake off the crumbs!"]
+        }
+      }
+    ]
+  });
+
+  /* ================= Mid-Autumn Festival ================= */
+  COMP_DATA.push({
+    theme: "midautumn",
+    companions: [
+      {
+        id: "midautumn-tuzi", name: "Tuzi", kind: "Jade Rabbit", pose: "sit", sleepy: true, wearColor: "#7AC8A8",
+        bio: "A gentle jade rabbit who hops down from the moon to study with you.",
+        idle: ["earTwitch", "headTilt", "topBob"], cheer: "hop",
+        neck: [60, 76],
+        parts: {
+          tail: {svg: `<path d="${puff(90, 100, 6, 7, 1.2)}" fill="#FFFFFF" ${O}/>`, pivot: [86, 100]},
+          feet: `<ellipse cx="40" cy="108" rx="10" ry="4.8" fill="#FFFFFF" ${O}/><ellipse cx="80" cy="108" rx="10" ry="4.8" fill="#FFFFFF" ${O}/><ellipse cx="34" cy="108" rx="2" ry="1.4" fill="#FFC1D0"/><ellipse cx="86" cy="108" rx="2" ry="1.4" fill="#FFC1D0"/>`,
+          body: `${LG("midautumn-tuzi-b", [[0, "#FFFFFF"], [1, "#D8ECE4"]])}
+            <path d="M60 72C80 72 88 86 88 98C88 107 78 110.5 60 110.5C42 110.5 32 107 32 98C32 86 40 72 60 72Z" fill="url(#midautumn-tuzi-b)" ${O}/>
+            <path d="M46 80Q60 86 74 80" fill="none" stroke="#7AC8A8" stroke-width="3.4" stroke-linecap="round"/>
+            <circle cx="60" cy="86" r="3.4" fill="#F6B42A" ${OW(1.6)}/>`,
+          armL: {svg: `<path d="M44 87Q40 93 41.4 97.6Q44 100.6 47.6 99Q49.6 96 48.6 89Z" fill="#E4F2EC" ${O}/><path d="M43.4 97.4l.6 -1.8M46.2 98.2l.3 -1.9" stroke="#9EC4B6" stroke-width="1.2" stroke-linecap="round"/>`, pivot: [46.4, 87]},
+          armR: {svg: `<path d="M76 87Q80 93 78.6 97.6Q76 100.6 72.4 99Q70.4 96 71.4 89Z" fill="#E4F2EC" ${O}/><path d="M76.6 97.4l-.6 -1.8M73.8 98.2l-.3 -1.9" stroke="#9EC4B6" stroke-width="1.2" stroke-linecap="round"/>`, pivot: [73.6, 87]},
+          earL: {svg: `${LG("midautumn-tuzi-e", [[0, "#FFFFFF"], [1, "#E2F0EA"]])}<path d="M48 40C40 30 38 10 46 6C54 4 56 24 56 38Z" fill="url(#midautumn-tuzi-e)" ${O}/><path d="M49 34C45 26 44 14 47 11C51 11 52 24 52 33Z" fill="#FFC1D0"/>`, pivot: [52, 38]},
+          earR: {svg: `<path d="M72 40C80 30 82 10 74 6C66 4 64 24 64 38Z" fill="url(#midautumn-tuzi-e)" ${O}/><path d="M71 34C75 26 76 14 73 11C69 11 68 24 68 33Z" fill="#FFC1D0"/>`, pivot: [68, 38]},
+          head: `${RG("midautumn-tuzi-h", [[0, "#FFFFFF"], [0.7, "#F4FAF7"], [1, "#D8ECE4"]], 0.4, 0.3, 0.8)}
+            <path d="M60 34C80 34 88 46 88 58C88 72 76 80 60 80C44 80 32 72 32 58C32 46 40 34 60 34Z" fill="url(#midautumn-tuzi-h)" ${O}/>
+            <path d="M40 46Q44 40 52 38" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`,
+          face: `<path d="M57.6 63.4H62.4L60 66Z" fill="#FF9AB0" ${OW(1.2)}/>`,
+          top: {svg: `${["#F6B42A", "#FFC84A", "#F6B42A"].map((c, i) => { const x = 66 + i * 6, y = 36 - (i % 2) * 4; return `<g>${ring(x, y, 4, 2.4, (px, py) => `<circle cx="${px}" cy="${py}" r="2.2" fill="${c}" ${OW(1)}/>`)}<circle cx="${x}" cy="${y}" r="1" fill="#FFE9A0"/></g>`; }).join("")}
+            <path d="M64 40Q60 36 62 32" fill="none" stroke="#5E9A62" stroke-width="2" stroke-linecap="round"/>`, pivot: [68, 40]}
+        },
+        eyes: {lx: 49, rx: 71, y: 58, r: 4.6, style: "round", color: "#2A3A34"},
+        mouth: {x: 60, y: 69, w: 2.8, color: "#2A3A34"},
+        cheeks: {lx: 42, rx: 78, y: 66, w: 4, h: 2.4, color: "#FFA6BE"},
+        anchors: {top: [60, 34, 0.95], neck: [60, 80, 1], chest: [72, 96, 0.62], back: [86, 88, 0.8], hands: [60, 98, 0.86]},
+        lines: {
+          tap: ["Hello from the moon! I hopped down to see you!", "Tap, tap! Working through the notes!", "The moon is full, and so is your brain!", "You're doing wonderfully, little star!", "One hop at a time, all the way to the moon!", "I brought osmanthus for good luck!", "Soft ears, big cheers for you!", "So happy to visit you this year!"],
+          pet: ["Hehe! My ears are wiggling!", "Aww, softer than moonlight!"],
+          hello: ["Hop hop! You're back!", "Hi! The moon said to say hello!"],
+          morning: ["Good morning! Even moon bunnies wake up early!", "Rise and shine! Let's hop to it!"],
+          night: ["The moon is bright. Time to rest soon?", "Goodnight! I'll hop back to the moon for a nap."],
+          focus: ["Pounding quietly beside you.", "Ears down, focus up. You've got this!"],
+          done: ["What a moonlit session! So proud!", "All done! Happy bunny hops!"],
+          task: ["Hop! Done!", "Checked off! Moon-tastic!", "Another one! Thump thump!", "Yes! Full moon proud!"],
+          break: ["Hop break! Stretch your legs!", "Snack time! A mooncake, maybe?"]
+        }
+      },
+      {
+        id: "midautumn-bing", name: "Bing", kind: "Mooncake", pose: "stand", wearColor: "#B8402E",
+        bio: "A round, golden mooncake stamped with a lucky pattern.",
+        idle: ["topBob", "bounce", "sparkle"], cheer: "spin",
+        parts: {
+          feet: `<ellipse cx="48" cy="105.6" rx="7.6" ry="4.4" fill="#C8822E" ${O}/><ellipse cx="72" cy="105.6" rx="7.6" ry="4.4" fill="#C8822E" ${O}/>`,
+          armL: {svg: `<ellipse cx="27" cy="76" rx="5" ry="7" transform="rotate(30 27 76)" fill="#E8A44A" ${O}/>`, pivot: [33, 72]},
+          armR: {svg: `<ellipse cx="93" cy="76" rx="5" ry="7" transform="rotate(-30 93 76)" fill="#E8A44A" ${O}/>`, pivot: [87, 72]},
+          body: `${RG("midautumn-bing-g", [[0, "#FFE0A0"], [0.6, "#F0B058"], [1, "#C8822E"]], 0.4, 0.35, 0.75)}
+            <path d="M60 40C82 40 94 54 94 72C94 92 82 104 60 104C38 104 26 92 26 72C26 54 38 40 60 40Z" fill="url(#midautumn-bing-g)" ${O}/>
+            ${ring(60, 72, 18, 29, (x, y) => `<circle cx="${x}" cy="${y}" r="4" fill="#E0A04A" stroke="#A8641E" stroke-width="1.2"/>`)}
+            <circle cx="60" cy="72" r="20" fill="none" stroke="#A8641E" stroke-width="1.8"/>
+            <path d="M48 58Q46 54 50 52M72 58Q74 54 70 52M44 86Q42 90 46 92M76 86Q78 90 74 92" fill="none" stroke="#A8641E" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M34 60Q38 50 48 46" fill="none" stroke="#FFF0C8" stroke-width="3.4" stroke-linecap="round"/>`,
+          top: {svg: `${ring(60, 36, 4, 3.2, (x, y) => `<circle cx="${x}" cy="${y}" r="3" fill="#F6B42A" ${OW(1.2)}/>`)}<circle cx="60" cy="36" r="1.6" fill="#FFE9A0"/><path d="M56 40Q50 36 48 30" fill="none" stroke="#5E9A62" stroke-width="2" stroke-linecap="round"/><path d="M50 32C46 28 46 24 50 24C52 26 52 30 50 32Z" fill="#5E9A62" ${OW(1.2)}/>`, pivot: [60, 41]}
+        },
+        eyes: {lx: 50, rx: 70, y: 70, r: 4.8, style: "sparkle", color: "#3A2010"},
+        mouth: {x: 60, y: 80, w: 3, color: "#3A2010"},
+        cheeks: {lx: 43, rx: 77, y: 78, w: 4, h: 2.4, color: "#FF8A80"},
+        anchors: {top: [60, 40, 0.95], neck: [60, 98, 1], chest: [72, 92, 0.62], back: [88, 62, 0.8], hands: [60, 98, 0.86]},
+        lines: {
+          tap: ["Hi! I'm stamped with luck, just for you!", "Round and golden, like your bright ideas!", "Sweet filling, sweet effort!", "Share a slice of focus with me!", "You're on a roll! A round one!", "Every bite of study counts!", "Moonlight and mooncakes, perfect study night!", "Lucky pattern, lucky you!"],
+          pet: ["Hehe! My crust is all warm now!", "Aww, so sweet! Sweeter than my filling!"],
+          hello: ["You're back! Freshly baked and happy!", "Hi! Let's share this study time!"],
+          morning: ["Good morning! Golden and ready!", "Rise and shine! A round, happy day ahead!"],
+          night: ["The moon's so round tonight. Rest soon?", "Goodnight! Sweet, moonlit dreams!"],
+          focus: ["Sitting round and quiet beside you.", "Golden focus! You've got this!"],
+          done: ["What a golden session! So proud!", "All done! A whole mooncake of success!"],
+          task: ["Done! Golden!", "Checked off! Lucky stamp!", "Another one! Round of applause!", "Yes! Sweet success!"],
+          break: ["Tea break! Pair it with a mooncake!", "Stretch time! Roll your shoulders!"]
+        }
+      },
+      {
+        id: "midautumn-osma", name: "Osma", kind: "Osmanthus Sprite", pose: "float", wearColor: "#5E9A62",
+        bio: "A tiny golden osmanthus flower who smells like honey.",
+        idle: ["sway", "sparkle", "topBob"], cheer: "spin",
+        parts: {
+          armL: {svg: `<path d="M36 89Q26 92 25 106Q36 103 39 93Z" fill="#6AAA6A" ${O}/><path d="M35 93Q30 98 27 103" fill="none" stroke="#4A8A4E" stroke-width="1.2" stroke-linecap="round"/>`, pivot: [36, 91]},
+          armR: {svg: `<path d="M84 89Q94 92 95 106Q84 103 81 93Z" fill="#6AAA6A" ${O}/><path d="M85 93Q90 98 93 103" fill="none" stroke="#4A8A4E" stroke-width="1.2" stroke-linecap="round"/>`, pivot: [84, 91]},
+          body: `${LG("midautumn-osma-p", [[0, "#FFF4B8"], [0.55, "#FFCB45"], [1, "#F29A1C"]], 0, 0, 1, 0)}${RG("midautumn-osma-c", [[0, "#FFFBE2"], [0.75, "#FFE07A"], [1, "#FFC845"]], 0.45, 0.4, 0.6)}
+            ${[0, 90, 180, 270].map(a => { const r = a * Math.PI / 180, x = f1(60 + Math.cos(r) * 30), y = f1(68 + Math.sin(r) * 30); return a === 270 ? "" : `<g>${ring(x, y, 4, 3, (px, py) => `<circle cx="${px}" cy="${py}" r="3" fill="#F2901E" ${OW(1.3)}/>`)}<circle cx="${x}" cy="${y}" r="1.4" fill="#FFE9A0"/></g>`; }).join("")}
+            ${[45, 135, 225, 315].map(a => `<g transform="translate(60 68) rotate(${a})"><path d="M7 0C13 -15 33 -16 37 -6Q39.4 0 37 6C33 16 13 15 7 0Z" fill="url(#midautumn-osma-p)" ${O}/><path d="M14 0H30" stroke="#E8901A" stroke-width="1.4" stroke-linecap="round" opacity=".45"/><path d="M20 -8Q27 -10 32 -6" fill="none" stroke="#FFF8D8" stroke-width="2" stroke-linecap="round" opacity=".8"/></g>`).join("")}
+            <circle cx="60" cy="68" r="18.5" fill="url(#midautumn-osma-c)"/>
+            <circle cx="60" cy="68" r="18.5" fill="none" stroke="#F2A81E" stroke-width="1.4" opacity=".55"/>
+            <path d="M47 60Q50 53 57 51" fill="none" stroke="#FFFFFF" stroke-width="2.8" stroke-linecap="round" opacity=".9"/>
+            ${ring(18, 100, 4, 1.8, (px, py) => `<circle cx="${px}" cy="${py}" r="1.7" fill="#F6B42A"/>`)}${ring(102, 96, 4, 1.5, (px, py) => `<circle cx="${px}" cy="${py}" r="1.4" fill="#F6B42A"/>`)}`,
+          top: {svg: `${LINE("M60 48Q59 40 62 30", "#4A8A4E", 2.4)}<path d="M61 40C56 33 49 33 47 37C51 42 57 42 61 40Z" fill="#6AAA6A" ${O2}/><path d="M61 37C66 30 73 30 75 34C71 39 65 39 61 37Z" fill="#6AAA6A" ${O2}/>
+            ${ring(62, 27, 4, 2.6, (px, py) => `<circle cx="${px}" cy="${py}" r="2.5" fill="#FFC83A" ${OW(1.2)}/>`)}<circle cx="62" cy="27" r="1.3" fill="#FFF4C0"/>`, pivot: [60, 50]}
+        },
+        eyes: {lx: 52, rx: 68, y: 66, r: 4.4, style: "sparkle", color: "#3A2008"},
+        mouth: {x: 60, y: 75, w: 3, color: "#3A2008"},
+        cheeks: {lx: 46, rx: 74, y: 73, w: 3.6, h: 2.2, color: "#FF8A6A"},
+        anchors: {top: [60, 48, 0.85], neck: [60, 94, 0.9], chest: [70, 88, 0.6], back: [86, 56, 0.8], hands: [60, 94, 0.82]},
+        lines: {
+          tap: ["Hello! Mmm, smells like honey in here!", "Tiny flower, giant cheers for you!", "Your ideas are blooming!", "Sweet scents and sweet success!", "Little petals add up to a whole tree!", "Golden thoughts for a golden student!", "You make the whole garden smell sweeter!", "Bloom, bloom, keep going!"],
+          pet: ["Hehe! Now you smell like honey too!", "Aww, my petals are all fluttery!"],
+          hello: ["You're here! The air smells sweeter!", "Hi! I bloomed just for you!"],
+          morning: ["Good morning! Petals open, sun's up!", "Rise and bloom! It's a golden day!"],
+          night: ["The moon's out. My petals are sleepy.", "Goodnight! Dream of honey and moonlight."],
+          focus: ["Drifting quietly beside you.", "Soft and sweet, right here. Go!"],
+          done: ["What a golden session! So sweet!", "All done! A whole tree in bloom!"],
+          task: ["Done! Bloom!", "Checked off! Honey sweet!", "Another petal opened!", "Yes! Golden work!"],
+          break: ["Fresh air break! Breathe in the flowers!", "Stretch your petals! I mean arms!"]
+        }
+      }
+    ]
+  });
+})();
+/* end of module 98-comp-n4.js */
+
+
+
+
+
+
+
+
+/* ===== module: 98-comp-france.js ===== */
+/* Study Companions, around the world: france (Paris) */
+(() => {
+  const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
+  const O2 = OW(2.2);
+  const f1 = v => Math.round(v * 10) / 10;
+  const twinkle = (x, y, s, c) => `<path d="M${x} ${y - s}Q${x} ${y} ${x + s} ${y}Q${x} ${y} ${x} ${y + s}Q${x} ${y} ${x - s} ${y}Q${x} ${y} ${x} ${y - s}Z" fill="${c || "#fff"}"/>`;
+
+  /* ================= Paris ================= */
+  COMP_DATA.push({
+    theme: "france",
+    companions: [
+      {
+        id: "france-coco", name: "Coco", kind: "Croissant", pose: "stand", wearColor: "#C8463E",
+        bio: "A flaky golden croissant, folded with care just like your notes.",
+        idle: ["topBob", "sway", "headTilt"], cheer: "bounce",
+        neck: [60, 88],
+        parts: {
+          feet: `<ellipse cx="48" cy="102" rx="7.4" ry="4.2" fill="#B8702A" ${O}/><ellipse cx="72" cy="102" rx="7.4" ry="4.2" fill="#B8702A" ${O}/>`,
+          armL: {svg: `<ellipse cx="34" cy="96" rx="4.6" ry="6" transform="rotate(30 34 96)" fill="#E8A44A" ${O}/>`, pivot: [38, 92]},
+          armR: {svg: `<ellipse cx="86" cy="96" rx="4.6" ry="6" transform="rotate(-30 86 96)" fill="#E8A44A" ${O}/>`, pivot: [82, 92]},
+          body: `${LG("france-coco-t", [[0, "#F8D088"], [0.55, "#E8A44A"], [1, "#B8702A"]])}${LG("france-coco-s", [[0, "#FAD898"], [0.6, "#EDAE52"], [1, "#C07A30"]])}
+            <path d="M22 88Q12 92 10 102Q16 108 24 104Q30 100 30 92Z" fill="url(#france-coco-t)" ${O}/>
+            <path d="M98 88Q108 92 110 102Q104 108 96 104Q90 100 90 92Z" fill="url(#france-coco-t)" ${O}/>
+            <path d="M40 58Q24 60 18 74Q14 88 22 96Q32 100 42 92Z" fill="url(#france-coco-s)" ${O}/>
+            <path d="M80 58Q96 60 102 74Q106 88 98 96Q88 100 78 92Z" fill="url(#france-coco-s)" ${O}/>
+            <path d="M30 64Q26 78 34 94M90 64Q94 78 86 94M15 96Q20 98 25 95M105 96Q100 98 95 95" fill="none" stroke="#B0682A" stroke-width="1.8" stroke-linecap="round" opacity=".75"/>
+            <path d="M24 70Q27 64 33 62M13 98Q14 94 17 92" fill="none" stroke="#FFF0C8" stroke-width="2.4" stroke-linecap="round"/>`,
+          head: `${RG("france-coco-h", [[0, "#FCE2A4"], [0.6, "#F0B45A"], [1, "#C8822E"]], 0.42, 0.32, 0.75)}
+            <path d="M60 46C80 46 88 58 88 72C88 88 78 98 60 98C42 98 32 88 32 72C32 58 40 46 60 46Z" fill="url(#france-coco-h)" ${O}/>
+            <path d="M40 54Q35 62 37 70M80 54Q85 62 83 70M38 86Q48 93 60 93Q72 93 82 86" fill="none" stroke="#B0682A" stroke-width="2" stroke-linecap="round" opacity=".7"/>
+            <path d="M44 52Q50 48 58 48" fill="none" stroke="#FFF4D6" stroke-width="3" stroke-linecap="round"/><circle cx="40" cy="60" r="1.6" fill="#FFF4D6"/>
+            ${[[46, 95], [56, 96.6], [68, 96], [75, 92]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="1.4" ry=".8" fill="#A85E22" opacity=".55"/>`).join("")}`,
+          top: {svg: `${LG("france-coco-b", [[0, "#D85A54"], [1, "#A8343A"]])}
+            <path d="M42 45Q42 34 58 33Q76 32 80 41Q80 46 62 47Q46 48 42 45Z" fill="url(#france-coco-b)" ${O}/>
+            <path d="M59 33Q59 28 62 27" fill="none" stroke="${INK}" stroke-width="4.4" stroke-linecap="round"/><path d="M59 33Q59 28 62 27" fill="none" stroke="#A8343A" stroke-width="2" stroke-linecap="round"/>
+            <path d="M48 38Q54 35 62 35" fill="none" stroke="#F49A90" stroke-width="2" stroke-linecap="round"/>`, pivot: [60, 48]}
+        },
+        eyes: {lx: 51, rx: 69, y: 70, r: 4.2, style: "sparkle", color: "#3A2010"},
+        mouth: {x: 60, y: 79, w: 3, color: "#3A2010"},
+        cheeks: {lx: 48, rx: 72, y: 77, w: 3.4, h: 2.2, color: "#FF8A70"},
+        anchors: {top: [61, 40, 0.9], neck: [60, 98, 1], chest: [74, 92, 0.6], back: [88, 66, 0.8], hands: [60, 100, 0.84]},
+        lines: {
+          tap: ["Bonjour! Fresh from the oven, just for you!", "Flaky on the outside, focused on the inside!", "Fold by fold, your notes get better!", "You're rising beautifully, like good dough!", "A little butter, a lot of effort. Bravo!", "Ooh la la, look at you study!", "Golden ideas, warm and crisp!", "One more page, then a cafe au lait?"],
+          pet: ["Hehe! Careful, I leave crumbs!", "Aww, warm and toasty now!"],
+          hello: ["Bonjour! The bakery opened just for you!", "You're back! Still warm and ready!"],
+          morning: ["Bonjour! Breakfast and books, perfect!", "Good morning! I'm freshly baked!"],
+          night: ["Bonne nuit! Even croissants need rest.", "Late night? A short one, then sleep, okay?"],
+          focus: ["Sitting golden and quiet beside you.", "Layer by layer. You've got this!"],
+          done: ["Magnifique session! So proud of you!", "All done! Perfectly baked!"],
+          task: ["Done! Flaky and fabulous!", "Checked off! Bravo!", "Another one, golden brown!", "Yes! Fresh from your oven!"],
+          break: ["Pastry break! Stretch and sip something!", "Step away for a little stroll, then back!"]
+        }
+      },
+      {
+        id: "france-bijou", name: "Bijou", kind: "Poodle Pup", pose: "sit", wearColor: "#F2A8C0",
+        bio: "A fluffy poodle pup with pom-poms and very tidy study habits.",
+        idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "hop",
+        neck: [60, 78],
+        parts: {
+          tail: {svg: `${LINE("M84 100Q92 96 94 88", "#F4ECF2", 3)}<path d="${puff(96, 84, 6.4, 8, 1.25)}" fill="#FFFFFF" ${O}/><path d="M93 81Q95 79 98 80" fill="none" stroke="#F2A8C0" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [84, 100]},
+          feet: `<path d="${puff(46, 106, 6.4, 7, 1.2)}" fill="#FFFFFF" ${O}/><path d="${puff(74, 106, 6.4, 7, 1.2)}" fill="#FFFFFF" ${O}/>`,
+          body: `${LG("france-bijou-b", [[0, "#FFFFFF"], [1, "#EEE2EC"]])}
+            <path d="M60 74C78 74 86 86 86 97C86 106 78 110 60 110C42 110 34 106 34 97C34 86 42 74 60 74Z" fill="url(#france-bijou-b)" ${O}/>
+            <path d="M44 90Q47 86 51 89M68 92Q72 88 76 91M54 100Q58 97 62 100" fill="none" stroke="#DCCADA" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M44 80Q60 88 76 80" fill="none" stroke="${INK}" stroke-width="6.4" stroke-linecap="round"/><path d="M44 80Q60 88 76 80" fill="none" stroke="#F2A8C0" stroke-width="3.6" stroke-linecap="round"/>
+            <circle cx="60" cy="88" r="3.6" fill="#F6C85A" ${OW(1.6)}/><circle cx="59" cy="87" r="1" fill="#FFF4C8"/>`,
+          earL: {svg: `${LG("france-bijou-e", [[0, "#FFFFFF"], [1, "#EADCE8"]])}<path d="${puff(34, 66, 10, 9, 1.22)}" fill="url(#france-bijou-e)" ${O}/><path d="M30 62Q33 60 36 62M30 70Q33 68 37 70" fill="none" stroke="#DCCADA" stroke-width="1.5" stroke-linecap="round"/>`, pivot: [42, 52]},
+          earR: {svg: `<path d="${puff(86, 66, 10, 9, 1.22)}" fill="url(#france-bijou-e)" ${O}/><path d="M84 62Q87 60 90 62M83 70Q87 68 90 70" fill="none" stroke="#DCCADA" stroke-width="1.5" stroke-linecap="round"/>`, pivot: [78, 52]},
+          head: `${RG("france-bijou-h", [[0, "#FFFFFF"], [0.75, "#FBF5FA"], [1, "#E8DAE6"]], 0.42, 0.32, 0.8)}
+            <path d="M60 38C76 38 84 48 84 60C84 72 74 80 60 80C46 80 36 72 36 60C36 48 44 38 60 38Z" fill="url(#france-bijou-h)" ${O}/>
+            <ellipse cx="60" cy="70" rx="11" ry="7.6" fill="#FFFFFF" ${OW(1.8)}/>
+            <path d="M42 50Q46 44 52 42" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`,
+          face: `<ellipse cx="60" cy="66.6" rx="3.4" ry="2.4" fill="#3A2A34"/><ellipse cx="59" cy="65.8" rx="1.1" ry=".6" fill="#fff" opacity=".8"/>`,
+          top: {svg: `<path d="${puff(60, 34, 11, 10, 1.22)}" fill="#FFFFFF" ${O}/><path d="M55 31Q58 28 62 30" fill="none" stroke="#DCCADA" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M66 40L76 34L76 46Z" fill="#F2A8C0" ${O2}/><path d="M66 40L56 34L56 46Z" fill="#F2A8C0" ${O2}/><circle cx="66" cy="40" r="3" fill="#E87EA2" ${OW(1.8)}/>`, pivot: [60, 42]}
+        },
+        eyes: {lx: 50, rx: 70, y: 57, r: 4.4, style: "round", color: "#2E2230"},
+        mouth: {x: 60, y: 72, w: 2.6, color: "#2E2230", style: "cat"},
+        cheeks: {lx: 43, rx: 77, y: 65, w: 4, h: 2.4, color: "#FFA6BE"},
+        anchors: {top: [60, 38, 0.9], neck: [60, 80, 1], chest: [72, 96, 0.6], back: [84, 88, 0.8], hands: [60, 100, 0.84]},
+        lines: {
+          tap: ["Bonjour! I fluffed my pom-poms for you!", "Neat notes, tidy desk, happy pup!", "Woof! Study time is my favorite time!", "You're doing it with style, as always!", "Sit, stay, focus! Good human!", "A stroll by the Seine after this?", "My tail wags for every page you read!", "Impeccable work. I approve!"],
+          pet: ["Hehe! Mind the pom-poms!", "Aww! Wag wag wag!"],
+          hello: ["Woof! You're back! Bonjour!", "Hi hi! I saved you a spot!"],
+          morning: ["Bonjour! Let's trot into a good day!", "Good morning! Brushed, fluffed, ready!"],
+          night: ["Bonne nuit! Curl up and rest soon.", "The tower is sparkling. Bedtime soon?"],
+          focus: ["Sitting nicely right beside you.", "Ears up, nose down. You've got this!"],
+          done: ["Magnifique! Best in show!", "All done! A victory trot for you!"],
+          task: ["Done! Good job!", "Checked off! Woof!", "Another one! Tail wags!", "Yes! Very chic!"],
+          break: ["Walkies! A quick stretch outside!", "Water bowl break! Drink some too!"]
+        }
+      },
+      {
+        id: "france-mac", name: "Mac", kind: "Macaron", pose: "stand", wearColor: "#7AC8A8",
+        bio: "A little pink macaron who brings a sweet bite of joy to study time.",
+        idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
+        parts: {
+          feet: `<ellipse cx="48" cy="106.6" rx="7" ry="4" fill="#E88AA6" ${O}/><ellipse cx="72" cy="106.6" rx="7" ry="4" fill="#E88AA6" ${O}/>`,
+          armL: {svg: `<ellipse cx="24" cy="82" rx="5" ry="6.6" transform="rotate(28 24 82)" fill="#F7B8CA" ${O}/>`, pivot: [30, 80]},
+          armR: {svg: `<ellipse cx="96" cy="82" rx="5" ry="6.6" transform="rotate(-28 96 82)" fill="#F7B8CA" ${O}/>`, pivot: [90, 80]},
+          body: `${LG("france-mac-s", [[0, "#FFD8E4"], [0.6, "#F7AFC4"], [1, "#E88AA6"]])}${LG("france-mac-f", [[0, "#FFFDF6"], [1, "#F4E6D2"]])}
+            <path d="M28 88Q28 82 36 82H84Q92 82 92 88Q92 102 60 103Q28 102 28 88Z" fill="url(#france-mac-s)" ${O}/>
+            <path d="M31 86${Array.from({length: 13}, (_, i) => `Q${f1(33.5 + i * 4.6)} ${i % 2 ? 90 : 89} ${f1(35.8 + i * 4.6)} 87`).join("")}" fill="none" stroke="#D97898" stroke-width="1.4" stroke-linecap="round" opacity=".7"/>
+            <path d="M27 76Q27 72 32 72H88Q93 72 93 76V82Q93 86 88 86H32Q27 86 27 82Z" fill="url(#france-mac-f)" ${O}/>
+            ${Array.from({length: 9}, (_, i) => `<circle cx="${32 + i * 7}" cy="${i % 2 ? 84.6 : 73.6}" r="1.6" fill="#F0DCC2"/>`).join("")}
+            <path d="M60 30C84 30 94 44 94 60Q94 70 88 72H32Q26 70 26 60C26 44 36 30 60 30Z" fill="url(#france-mac-s)" ${O}/>
+            <path d="M30 70${Array.from({length: 13}, (_, i) => `Q${f1(32.5 + i * 4.6)} ${i % 2 ? 66 : 67} ${f1(34.8 + i * 4.6)} 69`).join("")}" fill="none" stroke="#D97898" stroke-width="1.4" stroke-linecap="round" opacity=".7"/>
+            <path d="M36 46Q42 37 54 35" fill="none" stroke="#FFF2F6" stroke-width="3.4" stroke-linecap="round"/><circle cx="34" cy="53" r="1.8" fill="#FFF2F6"/>
+            ${twinkle(100, 40, 3.4, "#FFE27A")}${twinkle(18, 60, 2.6, "#FFFFFF")}`,
+          top: {svg: `${RG("france-mac-r", [[0, "#FF8AA6"], [1, "#C8304E"]], 0.4, 0.35, 0.7)}
+            <path d="M54 22Q50 14 58 12Q62 18 58 24Z" fill="#7AC8A8" ${O2}/><path d="M64 22Q70 14 76 18Q72 24 64 24Z" fill="#7AC8A8" ${O2}/>
+            <path d="${puff(61, 26, 6.6, 7, 1.25)}" fill="url(#france-mac-r)" ${O2}/>
+            ${[[58, 24], [63, 23], [61, 28], [66, 27], [56, 28]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r=".9" fill="#FFD0DA"/>`).join("")}`, pivot: [60, 31]}
+        },
+        eyes: {lx: 50, rx: 70, y: 56, r: 4.6, style: "sparkle", color: "#4A2030"},
+        mouth: {x: 60, y: 64, w: 3, color: "#4A2030"},
+        cheeks: {lx: 42, rx: 78, y: 62, w: 4, h: 2.4, color: "#FF7A9A"},
+        anchors: {top: [60, 30, 0.9], neck: [60, 79, 1], chest: [72, 92, 0.6], back: [90, 56, 0.8], hands: [60, 98, 0.84]},
+        lines: {
+          tap: ["Bonjour! Sweet thoughts, crisp focus!", "Crunchy outside, soft heart, big cheers!", "You're the filling to my day!", "Pastel and proud of you!", "Tiny but mighty, just like your breaks!", "A raspberry on top of your hard work!", "Ooh la la, that's some sweet progress!", "Stack up the pages like a macaron tower!"],
+          pet: ["Hehe! Don't squish my filling!", "Aww, sweeter than sugar!"],
+          hello: ["You're back! Freshly piped and happy!", "Bonjour! I saved you the pink one!"],
+          morning: ["Bonjour! A sweet start to the day!", "Good morning! Crisp and ready!"],
+          night: ["Bonne nuit! Sweet dreams ahead.", "It's late! Let's wrap up soon, okay?"],
+          focus: ["Sitting sweet and quiet beside you.", "Little bites of focus. Go go go!"],
+          done: ["What a sweet session! Bravo!", "All done! A whole box of success!"],
+          task: ["Done! Sweet!", "Checked off! Crunch!", "Another one! Pastel power!", "Yes! Tres bien!"],
+          break: ["Treat break! You earned a little one!", "Stretch time! Wiggle your arms!"]
+        }
+      }
+    ]
+  });
+})();
+/* end of module 98-comp-france.js */
+
+
+/* ===== module: 98-comp-japan.js ===== */
+/* Study Companions, Around the World: japan */
+(() => {
+  const {O, OW, LG, RG} = COMP_KIT;
+  const f1 = v => Math.round(v * 10) / 10;
+  const ring = (cx, cy, n, r, fn) => Array.from({length: n}, (_, i) => { const a = i / n * Math.PI * 2; return fn(f1(cx + Math.cos(a) * r), f1(cy + Math.sin(a) * r), a * 180 / Math.PI, i); }).join("");
+  // a small five-petal cherry blossom
+  const blossom = (x, y, r, c = "#FFC2D4", mid = "#E8507A") => `<g>${ring(x, y, 5, r * 0.55, (px, py, a) => `<ellipse cx="${px}" cy="${py}" rx="${f1(r * 0.5)}" ry="${f1(r * 0.38)}" transform="rotate(${f1(a)} ${px} ${py})" fill="${c}" ${OW(1)}/>`)}<circle cx="${x}" cy="${y}" r="${f1(r * 0.24)}" fill="${mid}"/></g>`;
+
+  COMP_DATA.push({
+    theme: "japan",
+    companions: [
+      {
+        id: "japan-kuri", name: "Kuri", kind: "Shiba Inu Pup", pose: "sit", wearColor: "#D8402E",
+        bio: "A smiley shiba pup with a curly tail who keeps watch on your deadlines.",
+        idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "hop",
+        neck: [60, 76],
+        parts: {
+          tail: {svg: `<path d="M84 98C100 98 104 80 95 73C87 67 77 74 82 82C85 87 92 85 91 79" fill="none" stroke="#2B2233" stroke-width="13" stroke-linecap="round"/>
+            <path d="M84 98C100 98 104 80 95 73C87 67 77 74 82 82C85 87 92 85 91 79" fill="none" stroke="#E39A4C" stroke-width="7.6" stroke-linecap="round"/>
+            <path d="M86 95C96 94 99 82 94 77" fill="none" stroke="#FFF2DE" stroke-width="2.6" stroke-linecap="round"/>`, pivot: [82, 98]},
+          feet: `<ellipse cx="36" cy="105" rx="11" ry="6.4" fill="#E39A4C" ${O}/><ellipse cx="84" cy="105" rx="11" ry="6.4" fill="#E39A4C" ${O}/>`,
+          body: `${LG("japan-kuri-b", [[0, "#F2B060"], [1, "#D9853A"]])}
+            <path d="M60 70C80 70 90 86 90 98C90 107 80 110.5 60 110.5C40 110.5 30 107 30 98C30 86 40 70 60 70Z" fill="url(#japan-kuri-b)" ${O}/>
+            <path d="M60 76C70 76 74 88 72 100C70 108 50 108 48 100C46 88 50 76 60 76Z" fill="#FFF4E2"/>
+            <path d="M44 74L76 74L64 88Q60 91 56 88Z" fill="#D8402E" ${OW(2.4)}/><circle cx="51" cy="78" r="1.6" fill="#FFF4E2"/><circle cx="68" cy="79" r="1.6" fill="#FFF4E2"/><circle cx="60" cy="84" r="1.4" fill="#FFF4E2"/>`,
+          armL: {svg: `<path d="M44 84Q41 95 42 104Q46 109 52 105Q53 96 51 85Z" fill="#E8A052" ${O}/><path d="M42.6 101Q46 107 51.6 103.4L52 105Q46 109 42 104Z" fill="#FFF4E2"/><path d="M45.4 105.4v-2.2M48.6 105.6v-2.2" stroke="#B0723A" stroke-width="1.1" stroke-linecap="round"/>`, pivot: [47, 86]},
+          armR: {svg: `<path d="M76 84Q79 95 78 104Q74 109 68 105Q67 96 69 85Z" fill="#E8A052" ${O}/><path d="M77.4 101Q74 107 68.4 103.4L68 105Q74 109 78 104Z" fill="#FFF4E2"/><path d="M74.6 105.4v-2.2M71.4 105.6v-2.2" stroke="#B0723A" stroke-width="1.1" stroke-linecap="round"/>`, pivot: [73, 86]},
+          earL: {svg: `<path d="M35 48C32 38 33 26 38 20C45 24 53 32 56 38Z" fill="#E39A4C" ${O}/><path d="M38.6 42C37 35 38 29 40 26C44 29 48 33 50 37Z" fill="#FFD9C2"/>`, pivot: [44, 42]},
+          earR: {svg: `<path d="M85 48C88 38 87 26 82 20C75 24 67 32 64 38Z" fill="#E39A4C" ${O}/><path d="M81.4 42C83 35 82 29 80 26C76 29 72 33 70 37Z" fill="#FFD9C2"/>`, pivot: [76, 42]},
+          head: `${RG("japan-kuri-h", [[0, "#F8BE72"], [0.7, "#EBA052"], [1, "#D6853A"]], 0.42, 0.32, 0.8)}
+            <path d="M60 32C80 32 90 44 90 56C90 70 78 80 60 80C42 80 30 70 30 56C30 44 40 32 60 32Z" fill="url(#japan-kuri-h)" ${O}/>
+            <path d="M33 60C36 52 46 52 52 58C56 62 64 62 68 58C74 52 84 52 87 60C86 72 74 79 60 79C46 79 34 72 33 60Z" fill="#FFF4E2"/>
+            <ellipse cx="48" cy="46" rx="3.6" ry="2.4" fill="#FFF4E2"/><ellipse cx="72" cy="46" rx="3.6" ry="2.4" fill="#FFF4E2"/>
+            <path d="M40 40Q45 35 52 34" fill="none" stroke="#FFE0B0" stroke-width="2.6" stroke-linecap="round"/>`,
+          face: `<path d="M56.4 61.4Q60 59.6 63.6 61.4Q63 64.6 60 65.4Q57 64.6 56.4 61.4Z" fill="#2B2233"/><ellipse cx="59" cy="61.6" rx="1.2" ry=".7" fill="#fff" opacity=".7"/>`
+        },
+        eyes: {lx: 49, rx: 71, y: 54, r: 4.4, style: "dot", color: "#2B2233"},
+        mouth: {x: 60, y: 68, w: 3.2, color: "#2B2233", style: "cat"},
+        cheeks: {lx: 41, rx: 79, y: 63, w: 4.4, h: 2.6, color: "#FF9A9A"},
+        anchors: {top: [60, 32, 0.95], neck: [60, 78, 1], chest: [66, 94, 0.6], back: [84, 86, 0.8], hands: [60, 100, 0.86]},
+        lines: {
+          tap: ["Woof! Your deadlines are safe with me!", "Tail curled up tight, ready to help!", "I sniffed out your next task. Let's go!", "Shiba smile for you! You've got this!", "Big ears, big heart, big cheers!", "I'll keep watch while you study!", "One task at a time, like one treat at a time!", "You make my tail spin in circles!"],
+          pet: ["Hehe! Right behind the ears, please!", "Aww! My tail is wagging so fast!"],
+          hello: ["Woof woof! You're back!", "Hi! I waited by the door all day!"],
+          morning: ["Good morning! Walkies, then study?", "Rise and shine! Let's sniff out today!"],
+          night: ["Yawn... even guard dogs need sleep.", "Goodnight! I'll curl up by your desk."],
+          focus: ["Sitting very, very still. Good dog!", "Ears up, eyes on the goal. Go!"],
+          done: ["What a session! Treats all round!", "All done! Happy zoomies time!"],
+          task: ["Woof! Done!", "Fetched it! Checked off!", "Another one! Tail wag!", "Yes! Best human ever!"],
+          break: ["Stretch break! Play bow, then rest!", "Water break! I'll share my bowl."]
+        }
+      },
+      {
+        id: "japan-daru", name: "Daru", kind: "Daruma Doll", pose: "stand", wearColor: "#E6B23A",
+        bio: "A sturdy daruma doll who always gets back up, no matter how many falls.",
+        idle: ["sway", "topBob", "sparkle"], cheer: "bounce",
+        parts: {
+          feet: `<ellipse cx="60" cy="106.6" rx="30" ry="4.6" fill="#9A2420" ${O}/>`,
+          body: `${RG("japan-daru-b", [[0, "#F2604A"], [0.65, "#D8382E"], [1, "#A82620"]], 0.4, 0.3, 0.8)}
+            <path d="M60 24C86 24 98 46 98 70C98 94 84 108 60 108C36 108 22 94 22 70C22 46 34 24 60 24Z" fill="url(#japan-daru-b)" ${O}/>
+            <path d="M60 37C76 37 84 47 84 59C84 71 74 79 60 79C46 79 36 71 36 59C36 47 44 37 60 37Z" fill="#FFF6EC" ${OW(2.4)}/>
+            <path d="M42 50Q46 43 54 46M78 50Q74 43 66 46" fill="none" stroke="#2B2233" stroke-width="3.2" stroke-linecap="round"/>
+            <path d="M44 72Q48 76 52 73M76 72Q72 76 68 73" fill="none" stroke="#6A6070" stroke-width="2" stroke-linecap="round"/>
+            <path d="M34 88Q47 82 60 88Q73 82 86 88" fill="none" stroke="#F2C24A" stroke-width="2.6" stroke-linecap="round"/>
+            <path d="M38 96Q49 91 60 96Q71 91 82 96" fill="none" stroke="#F2C24A" stroke-width="2" stroke-linecap="round"/>
+            ${blossom(60, 92, 6.4, "#FFD86A", "#D8382E")}${blossom(36, 80, 4, "#FFD86A", "#D8382E")}${blossom(84, 80, 4, "#FFD86A", "#D8382E")}
+            <path d="M30 52Q34 36 48 30" fill="none" stroke="#FFB0A0" stroke-width="3.4" stroke-linecap="round" opacity=".8"/>`,
+          top: {svg: `<path d="M56 26Q52 18 57 15Q60 19 60 25ZM64 26Q68 18 63 15Q60 19 60 25Z" fill="#F2C24A" ${OW(1.8)}/><circle cx="60" cy="24.6" r="3" fill="#F2C24A" ${OW(1.8)}/>${blossom(60, 14, 5.4)}`, pivot: [60, 26]}
+        },
+        eyes: {lx: 50, rx: 70, y: 58, r: 5, style: "round", color: "#2B2233"},
+        mouth: {x: 60, y: 69, w: 3, color: "#2B2233"},
+        cheeks: {lx: 43, rx: 77, y: 66, w: 4, h: 2.4, color: "#FF8A80"},
+        anchors: {top: [60, 24, 0.9], neck: [60, 82, 1], chest: [72, 94, 0.6], back: [94, 66, 0.8], hands: [60, 98, 0.86]},
+        lines: {
+          tap: ["Wobble, wobble, back up again!", "Seven tumbles, eight comebacks!", "Make a wish and paint one eye!", "I'm round, red and never give up!", "A tough page? Roll with it!", "Steady base, steady progress!", "You can't knock us down today!", "Goals set! Let's get them done!"],
+          pet: ["Hehe! You made me wobble!", "Aww, I'm blushing redder than ever!"],
+          hello: ["Welcome back! Still standing tall!", "Hi! Ready to roll into work?"],
+          morning: ["Good morning! New day, new goal!", "Up again, just like always! Let's go!"],
+          night: ["Rest now. Tomorrow we bounce back.", "Goodnight! Even darumas sit still."],
+          focus: ["Steady and still. Focus mode on.", "No wobbles now. You've got this!"],
+          done: ["Session done! Paint in the other eye!", "What a comeback! So proud!"],
+          task: ["Done! Upright!", "Checked off! Steady!", "Another one! Wobble cheer!", "Yes! Goal reached!"],
+          break: ["Break time! Have a little wobble!", "Stretch, breathe, then back up!"]
+        }
+      },
+      {
+        id: "japan-musu", name: "Musu", kind: "Onigiri", pose: "stand", wearColor: "#3A8A5A",
+        bio: "A little rice ball in a nori sash with a big can-do attitude.",
+        idle: ["topBob", "wave", "headTilt"], cheer: "hop",
+        neck: [60, 104],
+        parts: {
+          feet: `<ellipse cx="48" cy="107" rx="7.4" ry="4.2" fill="#F4F2EC" ${O}/><ellipse cx="72" cy="107" rx="7.4" ry="4.2" fill="#F4F2EC" ${O}/>`,
+          body: `<ellipse cx="60" cy="98" rx="26" ry="8" fill="#2E3A30"/>`,
+          armL: {svg: `<path d="M38 82Q24 86 18 97Q17 104 24 103Q33 98 40 89Z" fill="#FBFAF6" ${O}/><ellipse cx="21" cy="99" rx="2.4" ry="1.5" fill="#FFD0D8" opacity=".7"/>`, pivot: [36, 85]},
+          armR: {svg: `<path d="M82 82Q96 86 102 97Q103 104 96 103Q87 98 80 89Z" fill="#FBFAF6" ${O}/><ellipse cx="99" cy="99" rx="2.4" ry="1.5" fill="#FFD0D8" opacity=".7"/>`, pivot: [84, 85]},
+          head: `${RG("japan-musu-r", [[0, "#FFFFFF"], [0.7, "#F8F6F0"], [1, "#E6E2D8"]], 0.42, 0.3, 0.8)}
+            <path d="M60 30C66 30 70 34 74 41L94 80C99 90 96 104 82 104L38 104C24 104 21 90 26 80L46 41C50 34 54 30 60 30Z" fill="url(#japan-musu-r)" ${O}/>
+            ${[[50, 46, 20], [66, 44, -30], [44, 60, 40], [74, 58, -10], [38, 74, 70], [82, 72, 15]].map(([x, y, r]) => `<ellipse cx="${x}" cy="${y}" rx="2.4" ry="1.3" transform="rotate(${r} ${x} ${y})" fill="#E2DED2"/>`).join("")}
+            ${LG("japan-musu-n", [[0, "#3A4A3C"], [1, "#1E2820"]])}
+            <path d="M31.2 82H88.8L94.6 92C97.4 99 94 104 82 104H38C26 104 22.6 99 25.4 92Z" fill="url(#japan-musu-n)" ${OW(2.4)}/>
+            <path d="M40 87H80M44 98H76" stroke="#5A7A5E" stroke-width="1.2" stroke-linecap="round" opacity=".7"/>
+            <path d="M38 64Q42 50 50 42" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`,
+          top: {svg: `${RG("japan-musu-u", [[0, "#FF8A9A"], [1, "#C8283E"]], 0.4, 0.35, 0.7)}<circle cx="60" cy="33" r="6.6" fill="url(#japan-musu-u)" ${OW(2.2)}/><path d="M60 27Q62 20 69 19Q68 26 60 27Z" fill="#6AB86A" ${OW(1.8)}/><circle cx="57.6" cy="31" r="1.4" fill="#fff" opacity=".8"/>`, pivot: [60, 38]}
+        },
+        eyes: {lx: 51, rx: 69, y: 68, r: 4.2, style: "sparkle", color: "#2B2233"},
+        mouth: {x: 60, y: 76, w: 3, color: "#2B2233"},
+        cheeks: {lx: 44, rx: 76, y: 75, w: 3.8, h: 2.2, color: "#FF9AA8"},
+        anchors: {top: [60, 30, 0.85], neck: [60, 84, 0.9], chest: [70, 94, 0.55], back: [90, 78, 0.8], hands: [60, 100, 0.86]},
+        lines: {
+          tap: ["Rice to meet you! Let's do this!", "Packed tight with good ideas!", "Nori sash on, ready for action!", "A snack-sized step is still a step!", "Fuel up, focus up, finish up!", "My plum center is pure courage!", "We're on a roll! Well, a ball!", "Every grain counts, like every page!"],
+          pet: ["Hehe! Careful, I'm a little sticky!", "Aww! Warm hands, happy rice!"],
+          hello: ["You're back! Lunch break over?", "Hi! Freshly made and ready to help!"],
+          morning: ["Good morning! Breakfast of champions!", "Rise and shine! Let's pack the day!"],
+          night: ["Late night? A snack, then sleep!", "Goodnight! Wrap up warm like nori!"],
+          focus: ["Quiet as a bento box. Go!", "Sticking with you till it's done!"],
+          done: ["Session done! A bento of wins!", "All done! Itadakimasu, success!"],
+          task: ["Done! Delicious!", "Checked off! Perfectly packed!", "Another one! Rice work!", "Yes! Nori-ce job!"],
+          break: ["Snack break! Have a little bite!", "Stretch time! Wiggle your toes!"]
+        }
+      }
+    ]
+  });
+})();
+/* end of module 98-comp-japan.js */
+
+
+/* ===== module: 98-comp-morocco.js ===== */
+/* Study Companions, world theme: morocco */
+(() => {
+  const {O, OW, LG, RG, LINE} = COMP_KIT;
+  const O2 = OW(2.2);
+  const twinkle = (x, y, s, c) => `<path d="M${x} ${y - s}Q${x} ${y} ${x + s} ${y}Q${x} ${y} ${x} ${y + s}Q${x} ${y} ${x - s} ${y}Q${x} ${y} ${x} ${y - s}Z" fill="${c || "#fff"}"/>`;
+  const f1 = v => Math.round(v * 10) / 10;
+  const ring = (cx, cy, n, r, fn) => Array.from({length: n}, (_, i) => { const a = i / n * Math.PI * 2; return fn(f1(cx + Math.cos(a) * r), f1(cy + Math.sin(a) * r), a * 180 / Math.PI, i); }).join("");
+  const star = (cx, cy, R, r, n, rot = 0) => { let d = ""; for (let i = 0; i < n * 2; i++) { const a = rot - Math.PI / 2 + i * Math.PI / n, q = i % 2 ? r : R; d += (i ? "L" : "M") + f1(cx + q * Math.cos(a)) + " " + f1(cy + q * Math.sin(a)); } return d + "Z"; };
+  const blossom = (x, y, r, c = "#FFFFFF") => `${ring(x, y, 5, r * 0.62, (px, py) => `<circle cx="${px}" cy="${py}" r="${f1(r * 0.55)}" fill="${c}" ${OW(1.1)}/>`)}<circle cx="${x}" cy="${y}" r="${f1(r * 0.36)}" fill="#F6D24A"/>`;
+
+  COMP_DATA.push({
+    theme: "morocco",
+    companions: [
+      {
+        id: "morocco-nana", name: "Nana", kind: "Mint Teapot", pose: "stand", wearColor: "#2E8E6E",
+        bio: "A shiny mint teapot who pours from up high and never spills a drop.",
+        idle: ["topBob", "sway", "sparkle"], cheer: "bounce",
+        parts: {
+          feet: `${LG("morocco-nana-f", [[0, "#E8ECF2"], [1, "#9AA4B4"]])}<path d="M42 100H78L83 108Q60 112 37 108Z" fill="url(#morocco-nana-f)" ${O}/>`,
+          body: `${RG("morocco-nana-g", [[0, "#FFFFFF"], [0.45, "#E4E8EF"], [1, "#A2ACBC"]], 0.38, 0.32, 0.75)}${LG("morocco-nana-s", [[0, "#F2F4F8"], [1, "#B2BAC8"]])}
+            <path d="M33 66Q14 62 15 80Q16 95 33 94" fill="none" stroke="#2B2233" stroke-width="8.6" stroke-linecap="round"/><path d="M33 66Q14 62 15 80Q16 95 33 94" fill="none" stroke="#C4CBD6" stroke-width="4" stroke-linecap="round"/>
+            <path d="M86 88Q99 86 103 64L108 50Q112 46 113 51L110 66Q106 92 88 98Z" fill="url(#morocco-nana-s)" ${O}/>
+            <path d="M60 46C84 46 92 64 92 80C92 98 80 104 60 104C40 104 28 98 28 80C28 64 36 46 60 46Z" fill="url(#morocco-nana-g)" ${O}/>
+            <rect x="45" y="41" width="30" height="8" rx="3" fill="#D8DEE8" ${O2}/>
+            <path d="M33 63Q60 70 87 63" fill="none" stroke="#C99A2E" stroke-width="2.6" stroke-linecap="round"/>
+            ${[38, 49, 60, 71, 82].map((x, i) => `<path d="${star(x, i === 2 ? 67.6 : i % 4 ? 67 : 65.4, 2.4, 1.2, 8)}" fill="#C99A2E"/>`).join("")}
+            <path d="M32 95Q60 103 88 95" fill="none" stroke="#9AA4B4" stroke-width="2" stroke-linecap="round" stroke-dasharray="1 4"/>
+            <path d="M38 76Q39 60 52 54" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" opacity=".9"/><circle cx="37" cy="84" r="1.8" fill="#fff" opacity=".9"/>
+            ${twinkle(106, 40, 3, "#C9F0E0")}`,
+          top: {svg: `${LG("morocco-nana-l", [[0, "#FFFFFF"], [1, "#B8C0CE"]])}
+            <path d="M44 43Q45 30 60 28Q75 30 76 43Z" fill="url(#morocco-nana-l)" ${O}/>
+            <path d="M48 38Q60 33 72 38" fill="none" stroke="#C99A2E" stroke-width="2" stroke-linecap="round"/>
+            <path d="M57.6 28L60 17L62.4 28Z" fill="#C99A2E" ${O2}/><circle cx="60" cy="22" r="3.4" fill="#E2B04A" ${O2}/><circle cx="60" cy="15.4" r="2.2" fill="#E2B04A" ${OW(1.6)}/>
+            ${LINE("M70 32Q74 24 78 20", "#3E8A4E", 2)}
+            <path d="M74 25C76 17 84 15 88 18C86 25 79 28 74 25Z" fill="#5EB86A" ${O2}/><path d="M76 24Q81 21 86 19" fill="none" stroke="#3E8A4E" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M77 21C74 13 78 7 82 7C84 13 81 19 77 21Z" fill="#7ACC7A" ${O2}/>`, pivot: [60, 44]}
+        },
+        eyes: {lx: 50, rx: 70, y: 77, r: 4.6, style: "sparkle", color: "#2A2230"},
+        mouth: {x: 60, y: 87, w: 3, color: "#2A2230"},
+        cheeks: {lx: 42, rx: 78, y: 85, w: 4, h: 2.4, color: "#FF9AA8"},
+        anchors: {top: [60, 30, 0.8], neck: [60, 49, 0.9], chest: [70, 94, 0.6], back: [30, 78, 0.7], hands: [60, 100, 0.84]},
+        lines: {
+          tap: ["Ahlan! Fresh mint tea, poured just for you!", "Three glasses: one for focus, one for joy, one for luck.", "Pour from up high, and do your best work!", "Steady hands, steady mind. You've got this!", "Sweet and minty, like a job well done!", "Steeping ideas takes patience. You're doing great!", "A little sip, a little step, every day.", "The best study chats happen over tea!"],
+          pet: ["Hehe! Careful, I'm still warm!", "Aww, that makes my lid jiggle!"],
+          hello: ["Marhaba! The kettle's on for you!", "You're back! Sit, sit, have some tea!"],
+          morning: ["Good morning! Fresh mint, fresh start!", "Rise and pour! It's a bright day ahead."],
+          night: ["Lanterns are lit. Maybe one last cup, then rest?", "Goodnight! Sweet dreams and sweeter tea."],
+          focus: ["Steeping quietly beside you.", "Calm and warm. Pour your focus in!"],
+          done: ["What a session! Tea's on me!", "All done! Poured to perfection!"],
+          task: ["Done! Not a drop spilled!", "Checked off! Minty fresh!", "Another one! Pour another cup of cheer!", "Yes! Perfectly steeped!"],
+          break: ["Tea break! Sip slowly and stretch.", "Rest a moment. Smell the fresh mint!"]
+        }
+      },
+      {
+        id: "morocco-fenn", name: "Zaki", kind: "Riad Fennec Kit", pose: "sit", sleepy: true, wearColor: "#C8642E",
+        bio: "A fennec fox kit from the riad whose giant ears hear every deadline coming.",
+        idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
+        neck: [60, 76],
+        parts: {
+          tail: {svg: `${LG("morocco-fenn-t", [[0, "#F4D6A8"], [1, "#D8A266"]], 0, 1, 1, 0)}
+            <path d="M76 104C100 108 116 90 112 66C110 55 95 52 92 63C90 78 86 86 72 88Z" fill="url(#morocco-fenn-t)" ${O}/>
+            <path d="M112 66C110 55 95 52 92 63C97 67 106 68 112 66Z" fill="#3A2A26"/><path d="M112 66C110 55 95 52 92 63" fill="none" ${O}/>
+            <path d="M86 98Q100 92 104 76" fill="none" stroke="#FFF2DC" stroke-width="2.4" stroke-linecap="round" opacity=".8"/>`, pivot: [80, 98]},
+          feet: `<ellipse cx="45" cy="108" rx="9.6" ry="4.8" fill="#F8E6C8" ${O}/><ellipse cx="75" cy="108" rx="9.6" ry="4.8" fill="#F8E6C8" ${O}/>
+            <path d="M41 106.6v2.6M45 106.4v2.8M71 106.4v2.8M75 106.6v2.6" stroke="#C8A27A" stroke-width="1.2" stroke-linecap="round"/>`,
+          body: `${LG("morocco-fenn-b", [[0, "#F6DCB0"], [1, "#E2B47A"]])}
+            <path d="M60 72C80 72 86 88 86 98C86 107 78 110.5 60 110.5C42 110.5 34 107 34 98C34 88 40 72 60 72Z" fill="url(#morocco-fenn-b)" ${O}/>
+            <path d="M60 78C70 78 74 88 72 98C70 104 50 104 48 98C46 88 50 78 60 78Z" fill="#FFF6E8"/>
+            <path d="M46 84Q60 90 74 84" fill="none" stroke="#C8642E" stroke-width="3.6" stroke-linecap="round"/><path d="${star(60, 90, 4.2, 2, 8)}" fill="#2C5FA8" ${OW(1.3)}/>`,
+          earL: {svg: `${LG("morocco-fenn-e", [[0, "#F2CE9C"], [1, "#E4B27A"]])}<path d="M44 44C32 32 20 10 25 3C34 2 52 22 55 39Z" fill="url(#morocco-fenn-e)" ${O}/><path d="M44 37C36 27 29 14 30.5 9.6C36 11 46 24 49 34Z" fill="#FFC6C2"/><path d="M38 25Q40 28 41 31M34 18Q36 21 37 24" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".8"/>`, pivot: [49, 41]},
+          earR: {svg: `<path d="M76 44C88 32 100 10 95 3C86 2 68 22 65 39Z" fill="url(#morocco-fenn-e)" ${O}/><path d="M76 37C84 27 91 14 89.5 9.6C84 11 74 24 71 34Z" fill="#FFC6C2"/><path d="M82 25Q80 28 79 31M86 18Q84 21 83 24" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".8"/>`, pivot: [71, 41]},
+          head: `${RG("morocco-fenn-h", [[0, "#FCE8C6"], [0.7, "#F2D2A2"], [1, "#E2B47A"]], 0.42, 0.32, 0.78)}
+            <path d="M60 36C80 36 87 49 87 60C87 72 75 81 60 81C45 81 33 72 33 60C33 49 40 36 60 36Z" fill="url(#morocco-fenn-h)" ${O}/>
+            <path d="M47 70C49 63 55 62 60 64C65 62 71 63 73 70C70 78 50 78 47 70Z" fill="#FFF8EC"/>
+            <path d="M40 48Q44 41 52 39" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+            <path d="M44 54Q48 52 52 54M68 54Q72 52 76 54" fill="none" stroke="#C8925A" stroke-width="1.4" stroke-linecap="round" opacity=".7"/>`,
+          face: `<ellipse cx="60" cy="67" rx="3.6" ry="2.6" fill="#3A2A26"/><circle cx="59" cy="66.2" r=".9" fill="#fff"/>`
+        },
+        eyes: {lx: 49, rx: 71, y: 60, r: 4.4, style: "round", color: "#2A2026"},
+        mouth: {x: 60, y: 72.5, w: 2.6, color: "#2A2026", style: "cat"},
+        cheeks: {lx: 42, rx: 78, y: 67, w: 3.6, h: 2.2, color: "#FFA2A2"},
+        anchors: {top: [60, 37, 0.9], neck: [60, 80, 1], chest: [60, 92, 0.6], back: [84, 90, 0.8], hands: [60, 100, 0.86]},
+        lines: {
+          tap: ["My ears heard you studying from the desert!", "Big ears, big plans, little paws. Let's go!", "I hear a deadline... and you're way ahead of it!", "Desert foxes keep cool. So can you!", "Every grain of sand adds up to a dune!", "Listen closely: you're doing great!", "I dug a cozy spot right next to your notes.", "Sharp ears, sharp mind. That's you!"],
+          pet: ["Hehe! Scratch behind the big ears!", "Aww, my tail is wagging all by itself!"],
+          hello: ["My ears perked up! You're back!", "Hi hi! I heard you coming!"],
+          morning: ["Good morning! The sand is still cool!", "Rise and shine! Ears up, let's go!"],
+          night: ["Fennecs love the night. You need sleep though!", "Goodnight! I'll listen for the stars."],
+          focus: ["Ears tuned in. Focus mode on.", "Quiet as the desert. You've got this."],
+          done: ["What a session! My ears are glowing!", "All done! Big happy fox hops!"],
+          task: ["Done! I heard that click!", "Checked off! Tail wag!", "Another one! Ears up!", "Yes! Swift as a fox!"],
+          break: ["Break time! Have a drink of water!", "Stretch those paws, then a little nap?"]
+        }
+      },
+      {
+        id: "morocco-limoun", name: "Limoun", kind: "Little Orange", pose: "stand", wearColor: "#3E8A4E",
+        bio: "A little orange from the courtyard tree who's full of sunshine.",
+        idle: ["topBob", "sway", "wave"], cheer: "spin",
+        parts: {
+          feet: `<ellipse cx="48" cy="106" rx="7.6" ry="4.4" fill="#E87A1E" ${O}/><ellipse cx="72" cy="106" rx="7.6" ry="4.4" fill="#E87A1E" ${O}/>`,
+          armL: {svg: `<ellipse cx="26" cy="78" rx="5" ry="7.4" transform="rotate(30 26 78)" fill="#F59A2A" ${O}/>`, pivot: [32, 74]},
+          armR: {svg: `<ellipse cx="94" cy="78" rx="5" ry="7.4" transform="rotate(-30 94 78)" fill="#F59A2A" ${O}/>`, pivot: [88, 74]},
+          body: `${RG("morocco-limoun-g", [[0, "#FFE0A0"], [0.5, "#FFB040"], [1, "#E8781A"]], 0.38, 0.32, 0.75)}
+            <circle cx="60" cy="72" r="33" fill="url(#morocco-limoun-g)" ${O}/>
+            ${Array.from({length: 24}, (_, i) => { const a = i * 2.4, d = 8 + (i * 7 % 22); return `<circle cx="${f1(60 + Math.cos(a) * d)}" cy="${f1(72 + Math.sin(a) * d)}" r=".9" fill="#E07014" opacity=".45"/>`; }).join("")}
+            <path d="M38 58Q42 46 54 42" fill="none" stroke="#FFF4D6" stroke-width="3.6" stroke-linecap="round"/><circle cx="36" cy="66" r="2" fill="#FFF4D6"/>
+            ${twinkle(98, 50, 3.4, "#FFE27A")}${twinkle(22, 104, 2.6, "#FFE27A")}`,
+          top: {svg: `${LINE("M60 41Q59 36 61 31", "#7A4A2A", 2.4)}
+            <path d="M61 34C67 23 81 22 86 27C81 36 69 38 61 34Z" fill="#4EA05A" ${O2}/><path d="M63 33Q73 28 83 27" fill="none" stroke="#2E7A3E" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M59 35C54 28 45 28 42 32C46 38 54 38 59 35Z" fill="#6ABE6A" ${O2}/>
+            ${blossom(50, 25, 6.4)}`, pivot: [60, 42]}
+        },
+        eyes: {lx: 50, rx: 70, y: 71, r: 4.8, style: "sparkle", color: "#3A1E10"},
+        mouth: {x: 60, y: 81, w: 3, color: "#3A1E10"},
+        cheeks: {lx: 42, rx: 78, y: 79, w: 4, h: 2.4, color: "#FF7A6A"},
+        anchors: {top: [60, 40, 0.95], neck: [60, 99, 1], chest: [72, 92, 0.62], back: [88, 64, 0.8], hands: [60, 99, 0.86]},
+        lines: {
+          tap: ["Hi! I'm a little ball of courtyard sunshine!", "Squeeze the day! Gently, please!", "You're growing so much, just like my tree!", "Bright ideas ripen with time. Keep going!", "Zesty work today! I'm so proud!", "The fountain sings, the sun shines, you study!", "A little sweet, a little tangy, all good!", "Orange you glad you showed up today? I am!"],
+          pet: ["Hehe! That tickles my peel!", "Aww, I smell like blossoms now!"],
+          hello: ["You're here! The courtyard feels sunnier!", "Hi! I've been ripening, waiting for you!"],
+          morning: ["Good morning! Sun's up, peel's shiny!", "Rise and shine, it's a juicy day!"],
+          night: ["The lanterns glow like oranges. Rest soon?", "Goodnight! I'll dream of orange blossoms."],
+          focus: ["Sunny and quiet, right beside you.", "Ripening patiently. You focus!"],
+          done: ["What a juicy session! So proud!", "All done! A whole tree full of wins!"],
+          task: ["Done! Fresh squeezed!", "Checked off! Zesty!", "Another one! Ripe and ready!", "Yes! Pure sunshine!"],
+          break: ["Snack break! Maybe something fruity?", "Stretch toward the sun, like my tree!"]
+        }
+      }
+    ]
+  });
+})();
+/* end of module 98-comp-morocco.js */
+
+
+/* ===== module: 98-comp-thailand.js ===== */
+/* Study Companions, Around the World: thailand */
+(() => {
+  const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
+  const O2 = OW(2.2);
+  const f1 = v => Math.round(v * 10) / 10;
+  const ring = (cx, cy, n, r, fn) => Array.from({length: n}, (_, i) => { const a = i / n * Math.PI * 2; return fn(f1(cx + Math.cos(a) * r), f1(cy + Math.sin(a) * r), a * 180 / Math.PI, i); }).join("");
+  // a five-petal frangipani at (x, y), petal length r
+  const frang = (x, y, r, rot, fill) => ring(x, y, 5, r * 0.5, (px, py, a) => `<ellipse cx="${px}" cy="${py}" rx="${f1(r * 0.55)}" ry="${f1(r * 0.32)}" transform="rotate(${f1(a + rot)} ${px} ${py})" fill="${fill}" ${OW(1.1)}/>`) + `<circle cx="${x}" cy="${y}" r="${f1(r * 0.24)}" fill="#FFC83A"/>`;
+
+  COMP_DATA.push({
+    theme: "thailand",
+    companions: [
+      {
+        id: "thailand-chang", name: "Chang", kind: "Thai Elephant Calf", pose: "stand", wearColor: "#D8463A",
+        bio: "A happy elephant calf who carries your hardest tasks with a big smile.",
+        idle: ["earTwitch", "tailSwish", "topBob"], cheer: "bounce",
+        parts: {
+          tail: {svg: `${LINE("M86 88Q98 86 100 96", "#A6A2BC", 2.6)}<path d="M98 94Q104 95 103 101Q97 101 98 94Z" fill="#5A5470" ${OW(1.6)}/>`, pivot: [86, 88]},
+          feet: `<rect x="37" y="95" width="14" height="15" rx="5" fill="#A8A4C0" ${O}/><rect x="69" y="95" width="14" height="15" rx="5" fill="#A8A4C0" ${O}/>
+            <path d="M39 106.5h3M44 107h3M71 106.5h3M76 107h3" stroke="#F4F0FA" stroke-width="2.2" stroke-linecap="round"/>`,
+          earL: {svg: `${LG("thailand-chang-e", [[0, "#C8C4DA"], [1, "#9C98B6"]])}<path d="M40 44C24 32 7 40 9 58C11 73 25 80 40 71Z" fill="url(#thailand-chang-e)" ${O}/>
+            <path d="M34 50C24 44 15 49 16 59C17 67 25 71 33 67Z" fill="#F4B4C6" opacity=".8"/>`, pivot: [40, 56]},
+          earR: {svg: `<path d="M80 44C96 32 113 40 111 58C109 73 95 80 80 71Z" fill="url(#thailand-chang-e)" ${O}/>
+            <path d="M86 50C96 44 105 49 104 59C103 67 95 71 87 67Z" fill="#F4B4C6" opacity=".8"/>`, pivot: [80, 56]},
+          body: `${LG("thailand-chang-b", [[0, "#CCC8DE"], [1, "#9E9AB8"]])}${LG("thailand-chang-c", [[0, "#E2483A"], [1, "#B02E2A"]])}
+            <path d="M34 97C30 80 42 69 60 69C78 69 90 80 86 97Z" fill="url(#thailand-chang-b)" ${O}/>
+            <path d="M40 80Q60 72 80 80L82 92Q60 86 38 92Z" fill="url(#thailand-chang-c)" ${O2}/>
+            <path d="M39 90Q60 84 81 90" fill="none" stroke="#F2C24A" stroke-width="2.2" stroke-linecap="round"/>
+            ${[44, 52, 60, 68, 76].map(x => `<path d="M${x} ${x === 60 ? 87 : 88}l-1.6 5h3.2z" fill="#F2C24A" ${OW(0.9)}/>`).join("")}
+            <circle cx="60" cy="79" r="3" fill="#F2C24A" ${OW(1.2)}/>
+            <path d="M60 28C80 28 88 42 86 57C84 69 74 76 60 76C46 76 36 69 34 57C32 42 40 28 60 28Z" fill="url(#thailand-chang-b)" ${O}/>
+            <path d="M56 62Q54 72 59 79Q65 84 71 79Q74 75 71 72" fill="none" stroke="${INK}" stroke-width="11" stroke-linecap="round"/><path d="M56 62Q54 72 59 79Q65 84 71 79Q74 75 71 72" fill="none" stroke="#B4B0CA" stroke-width="6.4" stroke-linecap="round"/>
+            <path d="M55 68h4.4M57 74.5h4M63 79.6l2.4-3" stroke="#8C88A8" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M44 66Q41 70 45 72M76 66Q79 70 75 72" fill="none" stroke="#FFFDF4" stroke-width="3" stroke-linecap="round"/>
+            <path d="M42 38Q46 32 52 31" fill="none" stroke="#E6E2F2" stroke-width="2.6" stroke-linecap="round"/>`,
+          top: {svg: `<path d="M48 31Q60 22 72 31L68 34Q60 29 52 34Z" fill="#E2483A" ${O2}/>
+            <path d="M54 26L60 15L66 26Z" fill="#F2C24A" ${O2}/><circle cx="60" cy="14" r="2.6" fill="#F2C24A" ${OW(1.4)}/>
+            ${frang(49, 27, 7, 10, "#FFFFFF")}${frang(71, 27, 7, -10, "#FFC6D8")}`, pivot: [60, 32]}
+        },
+        eyes: {lx: 48, rx: 72, y: 52, r: 4.6, style: "sparkle", color: "#2A2440"},
+        mouth: {x: 49, y: 66, w: 2.4, color: "#2A2440"},
+        cheeks: {lx: 40, rx: 80, y: 60, w: 4, h: 2.4, color: "#FF8FB0"},
+        anchors: {top: [60, 28, 0.95], neck: [60, 75, 1], chest: [72, 88, 0.6], back: [84, 80, 0.8], hands: [60, 94, 0.8]},
+        lines: {
+          tap: ["Paoo! Hi! Shall I carry that heavy task?", "My trunk is curled up in a big smile for you!", "Big ears, big heart, big cheers!", "Step by step, like an elephant. We'll get there!", "An elephant never forgets, and neither will you!", "You're stronger than you think, little one!", "One slow stomp at a time. Steady wins!", "I painted my ears pink just for today!"],
+          pet: ["Paoo! That tickles behind my ears!", "Hehe! More pats, please! I'm very soft."],
+          hello: ["Paoo! You're back! Happy ear flaps!", "Hi friend! I saved you a mango!"],
+          morning: ["Good morning! Splash of river water, then study!", "Rise and shine! The temple bells are ringing!"],
+          night: ["Big sleepy yawn... my trunk is drooping.", "Goodnight! I'll dream of warm beaches."],
+          focus: ["Quiet as a tiptoeing elephant. Go!", "Ears open, trunk still. You've got this."],
+          done: ["PAOO! What a mighty session!", "All done! Trunk-curling proud of you!"],
+          task: ["Paoo! Done!", "Stomp! Checked off!", "Another one! My ears are flapping!", "Yes! Carried all the way!"],
+          break: ["Splash break! Grab some water!", "Stretch those legs! All four of them!"]
+        }
+      },
+      {
+        id: "thailand-mamuang", name: "Mamuang", kind: "Mango Sticky Rice", pose: "stand", wearColor: "#F2A81E",
+        bio: "A sweet scoop of mango sticky rice who sticks with your goals.",
+        idle: ["topBob", "sway", "sparkle"], cheer: "hop",
+        parts: {
+          feet: `${LG("thailand-mamuang-l", [[0, "#6AB85A"], [1, "#3E8A3E"]])}
+            <path d="M18 100Q60 92 102 100Q100 110 60 111Q20 110 18 100Z" fill="url(#thailand-mamuang-l)" ${O}/>
+            <path d="M24 102Q60 97 96 102M36 101l-4 5M50 99l-2 6M70 99l2 6M84 101l4 5" fill="none" stroke="#2E6A30" stroke-width="1.3" stroke-linecap="round" opacity=".7"/>`,
+          body: `${RG("thailand-mamuang-r", [[0, "#FFFFFF"], [0.7, "#F6F2E6"], [1, "#E2D8C0"]], 0.4, 0.35, 0.7)}
+            <path d="M24 99C20 84 26 64 40 56C50 50 70 50 80 56C94 64 100 84 96 99Z" fill="url(#thailand-mamuang-r)" ${O}/>
+            ${[[34, 70, 20], [44, 62, -10], [80, 68, 30], [88, 82, -20], [30, 86, 40], [72, 92, 10], [48, 94, -30], [86, 94, 20], [58, 58, 80]].map(([x, y, r]) => `<ellipse cx="${x}" cy="${y}" rx="3.2" ry="1.4" transform="rotate(${r} ${x} ${y})" fill="#E8DEC6"/>`).join("")}
+            <path d="M28 82Q34 90 44 88Q52 96 62 92Q72 98 80 90Q88 92 93 84L95 96Q60 104 25 96Z" fill="#FFF8EA" opacity=".9"/>
+            <path d="M28 82Q34 90 44 88Q52 96 62 92Q72 98 80 90Q88 92 93 84" fill="none" stroke="#E8D8B0" stroke-width="1.6" stroke-linecap="round"/>
+            ${[[38, 92], [52, 96], [66, 95], [82, 92], [46, 90]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.6" fill="#E8B83A" ${OW(0.8)}/>`).join("")}
+            <path d="M32 70Q34 62 42 58" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round"/>`,
+          top: {svg: `${LG("thailand-mamuang-m", [[0, "#FFD84A"], [0.6, "#F6B21E"], [1, "#E8901A"]])}
+            <path d="M30 54Q36 30 64 28Q90 28 92 46Q84 52 60 54Q44 56 30 54Z" fill="url(#thailand-mamuang-m)" ${O}/>
+            <path d="M40 50Q44 38 56 34M52 52Q56 40 68 34M64 52Q68 42 80 36M76 50Q80 44 86 42" fill="none" stroke="#E08A16" stroke-width="1.5" stroke-linecap="round" opacity=".75"/>
+            <path d="M40 40Q48 32 60 31" fill="none" stroke="#FFF2B0" stroke-width="2.6" stroke-linecap="round"/>
+            <path d="M88 44Q98 36 104 26Q96 30 90 38Z" fill="#5EA84A" ${OW(1.6)}/><path d="M90 42Q96 36 101 29" fill="none" stroke="#3E7A30" stroke-width="1" stroke-linecap="round"/>`, pivot: [60, 54]}
+        },
+        eyes: {lx: 49, rx: 71, y: 72, r: 4.6, style: "sparkle", color: "#3A2A14"},
+        mouth: {x: 60, y: 81, w: 3, color: "#3A2A14"},
+        cheeks: {lx: 42, rx: 78, y: 79, w: 4.2, h: 2.4, color: "#FFB0A0"},
+        anchors: {top: [60, 30, 0.9], neck: [60, 96, 1], chest: [74, 88, 0.6], back: [92, 74, 0.8], hands: [60, 96, 0.86]},
+        lines: {
+          tap: ["Hi! I'm sweet, but I stick to my goals!", "Golden mango, golden effort!", "Coconut cream on top of a great study day!", "Stick with it! I know a thing or two about sticky!", "You're the ripest mind in the room!", "One spoonful at a time, it all adds up!", "Sweet and steady wins the dessert!", "Ripe and ready to cheer you on!"],
+          pet: ["Hehe! Careful, I'm a little sticky!", "Aww! Sweeter than coconut cream!"],
+          hello: ["You're back! Freshly steamed and happy!", "Hi! I saved you the ripest slice!"],
+          morning: ["Good morning! A golden day is ripening!", "Rise and shine! Mango season is study season!"],
+          night: ["Getting sleepy under my mango slice...", "Goodnight! Dream sweet, golden mango dreams!"],
+          focus: ["Sticking right beside you. Focus!", "Quiet and sweet. You've got this!"],
+          done: ["What a golden session! So sweet!", "All done! A whole plate of success!"],
+          task: ["Done! Sweet!", "Checked off! Golden!", "Another one! That one stuck!", "Yes! Ripe for the next one!"],
+          break: ["Snack break! Something sweet, maybe?", "Stretch time! Shake off the sticky!"]
+        }
+      },
+      {
+        id: "thailand-tukky", name: "Tukky", kind: "Little Tuk-Tuk", pose: "stand", wearColor: "#2E7FD0",
+        bio: "A little tuk-tuk who beeps happily and gets you everywhere on time.",
+        idle: ["topBob", "bounce", "sparkle"], cheer: "hop",
+        parts: {
+          feet: `<ellipse cx="60" cy="102" rx="10" ry="9" fill="#2E2838" ${O}/><circle cx="60" cy="102" r="4" fill="#C8C4D4" ${OW(1.6)}/>
+            <ellipse cx="25" cy="101" rx="7" ry="9" fill="#2E2838" ${O}/><ellipse cx="95" cy="101" rx="7" ry="9" fill="#2E2838" ${O}/>
+            <circle cx="25" cy="101" r="2.6" fill="#C8C4D4"/><circle cx="95" cy="101" r="2.6" fill="#C8C4D4"/>`,
+          body: `${LG("thailand-tukky-b", [[0, "#5AA8F0"], [1, "#1E66B8"]])}${LG("thailand-tukky-g", [[0, "#E8F6FF"], [1, "#A8D4F0"]])}
+            <path d="M22 98L24 60Q26 50 36 48H84Q94 50 96 60L98 98Q60 104 22 98Z" fill="url(#thailand-tukky-b)" ${O}/>
+            <path d="M33 54H87Q92 55 92 62V76Q60 80 28 76V62Q28 55 33 54Z" fill="url(#thailand-tukky-g)" ${O2}/>
+            <path d="M34 58L46 58L38 72Z" fill="#FFFFFF" opacity=".6"/>
+            <path d="M24 82Q60 88 96 82" fill="none" stroke="#F6C83A" stroke-width="3.6" stroke-linecap="round"/>
+            <path d="M48 90Q60 94 72 90L70 98H50Z" fill="#F6C83A" ${O2}/>
+            <circle cx="30" cy="90" r="4.6" fill="#FFF6C8" ${OW(1.8)}/><circle cx="90" cy="90" r="4.6" fill="#FFF6C8" ${OW(1.8)}/>
+            <circle cx="29" cy="89" r="1.6" fill="#FFFFFF"/><circle cx="89" cy="89" r="1.6" fill="#FFFFFF"/>`,
+          top: {svg: `${LG("thailand-tukky-t", [[0, "#3EB06A"], [1, "#22844A"]])}
+            <path d="M18 50Q20 36 34 34H86Q100 36 102 50Z" fill="url(#thailand-tukky-t)" ${O}/>
+            <path d="M18 50H102L98 56H22Z" fill="#F6C83A" ${O2}/>
+            ${[30, 42, 54, 66, 78, 90].map(x => `<path d="M${x} 56q3 4 6 0" fill="#F6C83A" ${OW(1.4)}/>`).join("")}
+            <rect x="48" y="26" width="24" height="9" rx="3" fill="#FFE070" ${O2}/><circle cx="54" cy="30.5" r="1.6" fill="#E8483A"/><circle cx="60" cy="30.5" r="1.6" fill="#2E7FD0"/><circle cx="66" cy="30.5" r="1.6" fill="#3EB06A"/>
+            <path d="M30 40Q40 36 50 37" fill="none" stroke="#9AE0B0" stroke-width="2.4" stroke-linecap="round"/>`, pivot: [60, 54]}
+        },
+        eyes: {lx: 49, rx: 71, y: 66, r: 4.6, style: "sparkle", color: "#1E2A48"},
+        mouth: {x: 60, y: 73, w: 2.8, color: "#1E2A48"},
+        cheeks: {lx: 40, rx: 80, y: 71, w: 3.8, h: 2.2, color: "#FF8FA8"},
+        anchors: {top: [60, 26, 0.9], neck: [60, 82, 1], chest: [74, 88, 0.6], back: [94, 70, 0.8], hands: [60, 92, 0.86]},
+        lines: {
+          tap: ["Beep beep! Hop in, where are we studying?", "Tuk-tuk-tuk! Full speed ahead!", "Three wheels, zero worries!", "I know all the shortcuts to a good grade!", "Next stop: that task you've been avoiding!", "Engine warm, lights on, ready to go!", "Hold on tight, we're making great time!", "Beep! You're right on schedule!"],
+          pet: ["Beep beep! That's my happy horn!", "Hehe! That made my headlights twinkle!"],
+          hello: ["Beep beep! You're back! Hop in!", "Hi! Engine's running, let's ride!"],
+          morning: ["Good morning! Fuelled up and ready to roll!", "Beep! The morning roads are wide open!"],
+          night: ["Headlights dimming... parking soon?", "Goodnight! I'll be outside at sunrise."],
+          focus: ["Engine off, quiet mode. Go go go!", "Idling right beside you. You've got this!"],
+          done: ["BEEP BEEP! We made it, and on time!", "All done! What a smooth ride!"],
+          task: ["Beep! Done!", "Checked off! Next stop!", "Another one! Zoom zoom!", "Yes! Right on time!"],
+          break: ["Pit stop! Grab a drink!", "Stretch break! Wheels need a rest too!"]
+        }
+      }
+    ]
+  });
+})();
+/* end of module 98-comp-thailand.js */
+
+
+/* ===== module: 98-comp-italy.js ===== */
+/* Study Companions, Around the World: italy (Amalfi Coast) */
+(() => {
+  const {O, OW, LG, RG, LINE} = COMP_KIT;
+  const O2 = OW(2.2);
+  const f1 = v => Math.round(v * 10) / 10;
+  const twinkle = (x, y, s, c) => `<path d="M${x} ${y - s}Q${x} ${y} ${x + s} ${y}Q${x} ${y} ${x} ${y + s}Q${x} ${y} ${x - s} ${y}Q${x} ${y} ${x} ${y - s}Z" fill="${c || "#fff"}"/>`;
+  const blossom = (x, y, r, c) => Array.from({length: 5}, (_, i) => { const a = -Math.PI / 2 + i / 5 * Math.PI * 2; return `<circle cx="${f1(x + Math.cos(a) * r)}" cy="${f1(y + Math.sin(a) * r)}" r="${f1(r * 0.85)}" fill="${c || "#FFFFFF"}" ${OW(1)}/>`; }).join("") + `<circle cx="${x}" cy="${y}" r="${f1(r * 0.6)}" fill="#F6C833"/>`;
+
+  COMP_DATA.push({
+    theme: "italy",
+    companions: [
+      {
+        id: "italy-limo", name: "Limo", kind: "Amalfi Lemon", pose: "stand", wearColor: "#2C9A70",
+        bio: "A sunny Amalfi lemon who brings a bright burst of zest to study time.",
+        idle: ["topBob", "sway", "sparkle"], cheer: "bounce",
+        parts: {
+          feet: `<ellipse cx="49" cy="106.5" rx="7.4" ry="4.2" fill="#E8A81E" ${O}/><ellipse cx="71" cy="106.5" rx="7.4" ry="4.2" fill="#E8A81E" ${O}/>`,
+          armL: {svg: `<ellipse cx="27" cy="91" rx="5" ry="7.4" transform="rotate(40 27 91)" fill="#F6CC3A" ${O}/>`, pivot: [32, 87]},
+          armR: {svg: `<ellipse cx="93" cy="91" rx="5" ry="7.4" transform="rotate(-40 93 91)" fill="#F6CC3A" ${O}/>`, pivot: [88, 87]},
+          body: `${RG("italy-limo-g", [[0, "#FFF7B8"], [0.55, "#FFDD4A"], [1, "#EDB018"]], 0.4, 0.33, 0.78)}
+            <path d="M60 38C79 38 91 50 95 63Q104 65 110 70Q104 75 95 77C91 91 79 102 60 102C41 102 29 91 25 77Q16 75 10 70Q16 65 25 63C29 50 41 38 60 38Z" fill="url(#italy-limo-g)" ${O}/>
+            ${[[40, 52], [76, 50], [86, 82], [34, 86], [62, 96], [50, 44], [82, 64]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.1" fill="#E0A818" opacity=".7"/>`).join("")}
+            <path d="M36 56Q40 46 52 42" fill="none" stroke="#FFFBE0" stroke-width="3.6" stroke-linecap="round"/><circle cx="33" cy="64" r="2" fill="#FFFBE0"/>
+            <path d="M44 99Q60 104 76 99" fill="none" stroke="#D89A14" stroke-width="2" stroke-linecap="round" opacity=".55"/>`,
+          top: {svg: `${LINE("M60 39Q60 33 62 29", "#7A5A34", 2.4)}
+            ${LG("italy-limo-l", [[0, "#7CCB72"], [1, "#3E8A4A"]], 0, 0, 1, 1)}<path d="M62 31C66 21 78 17 88 20C84 30 72 35 62 31Z" fill="url(#italy-limo-l)" ${O2}/><path d="M64.5 30Q74 25 84 21.4" fill="none" stroke="#2E6E3A" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M60 32C55 25 45 24 40 28C45 34 54 35 60 32Z" fill="url(#italy-limo-l)" ${O2}/>
+            ${blossom(50, 22, 3.2)}`, pivot: [60, 38]}
+        },
+        eyes: {lx: 49, rx: 71, y: 69, r: 5, style: "sparkle", color: "#3A2A08"},
+        mouth: {x: 60, y: 80, w: 3.2, color: "#3A2A08"},
+        cheeks: {lx: 40, rx: 80, y: 78, w: 4.4, h: 2.6, color: "#FF9A6A"},
+        anchors: {top: [60, 38, 0.95], neck: [60, 96, 1.05], chest: [74, 90, 0.66], back: [90, 60, 0.8], hands: [60, 98, 0.86]},
+        lines: {
+          tap: ["Ciao! Fresh from the terraces, just for you!", "When life gives you lemons, ace the quiz!", "Zesty brain, sunny heart. That's you!", "You're doing great. Squeeze in one more!", "A little bit extra never hurt anyone!", "Zest it up, we've got pages to cover!", "Bright, bold and on a roll today!", "Sun on the terraces, focus in your eyes!"],
+          pet: ["Hehe! You smell like lemon now!", "Aww, that's the zest feeling ever!"],
+          hello: ["Ciao, ciao! You're back! Sunshine time!", "Buongiorno, friend! Ready to shine?"],
+          morning: ["Buongiorno! The sun's on the lemon trees!", "Good morning! Fresh squeezed and ready!"],
+          night: ["The cove is all twinkly. Rest soon?", "Buonanotte! Dream of sunny terraces."],
+          focus: ["Shh, ripening quietly beside you.", "Zest mode on. You've totally got this!"],
+          done: ["What a session! Brilliantly zesty!", "All done! You're the cream of the crop!"],
+          task: ["Done! Zesty!", "Checked off! Pure sunshine!", "Another one! Lemon-tastic!", "Yes! Squeezed every drop!"],
+          break: ["Limonata break! Sip something cool!", "Stretch in the sun for a minute!"]
+        }
+      },
+      {
+        id: "italy-brio", name: "Brio", kind: "Little Scooter", pose: "stand", wearColor: "#F6C833",
+        bio: "A little scooter who zips through the coastal bends and hard chapters.",
+        idle: ["topBob", "bounce", "sparkle"], cheer: "hop",
+        parts: {
+          feet: `${LG("italy-brio-w", [[0, "#4A4048"], [1, "#221C22"]], 0, 0, 1, 0)}<rect x="52" y="90" width="16" height="22" rx="7" fill="url(#italy-brio-w)" ${O}/><rect x="57" y="96" width="6" height="10" rx="3" fill="#B8BCC8"/>`,
+          body: `${LG("italy-brio-g", [[0, "#FF7A6A"], [0.55, "#E8403A"], [1, "#B82228"]], 0, 0, 0, 1)}
+            <path d="M44 92Q44 86 60 85Q76 86 76 92L74 96H46Z" fill="#D8343A" ${O}/>
+            <path d="M60 44C76 44 86 50 88 62L90 86Q90 94 80 94H40Q30 94 30 86L32 62C34 50 44 44 60 44Z" fill="url(#italy-brio-g)" ${O}/>
+            <path d="M40 56Q44 49 54 47" fill="none" stroke="#FFD6CC" stroke-width="3.4" stroke-linecap="round"/><circle cx="37" cy="64" r="2" fill="#FFD6CC"/>
+            <path d="M36 86H84" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" opacity=".85"/>
+            <rect x="52" y="48" width="16" height="6" rx="3" fill="#C8C8D4" ${OW(1.6)}/>`,
+          top: {svg: `${LINE("M24 40Q40 46 60 44Q80 46 96 40", "#5A5462", 3)}
+            <rect x="15" y="35.5" width="11" height="8" rx="4" fill="#3A3238" ${O2} transform="rotate(-12 20.5 39.5)"/><rect x="94" y="35.5" width="11" height="8" rx="4" fill="#3A3238" ${O2} transform="rotate(12 99.5 39.5)"/>
+            ${LINE("M34 41L30 28", "#5A5462", 1.6)}${LINE("M86 41L90 28", "#5A5462", 1.6)}<ellipse cx="29" cy="25" rx="5" ry="4" fill="#CFE6F4" ${O2}/><ellipse cx="91" cy="25" rx="5" ry="4" fill="#CFE6F4" ${O2}/>
+            ${RG("italy-brio-h", [[0, "#FFFFFF"], [0.6, "#FFF2B0"], [1, "#F6C833"]], 0.4, 0.35, 0.7)}<circle cx="60" cy="34" r="9.4" fill="#E8403A" ${O}/><circle cx="60" cy="34" r="6.4" fill="url(#italy-brio-h)"/>
+            <circle cx="57.6" cy="31.6" r="1.6" fill="#fff"/>`, pivot: [60, 44]}
+        },
+        eyes: {lx: 50, rx: 70, y: 68, r: 4.8, style: "round", color: "#2A1A1E"},
+        mouth: {x: 60, y: 77.5, w: 3, color: "#2A1A1E"},
+        cheeks: {lx: 42, rx: 78, y: 76, w: 4, h: 2.4, color: "#FFB0A0"},
+        anchors: {top: [60, 30, 0.9], neck: [60, 88, 1], chest: [72, 82, 0.62], back: [86, 62, 0.8], hands: [60, 86, 0.86]},
+        lines: {
+          tap: ["Beep beep! Hop on, let's zip through it!", "Hairpin bend ahead? We lean in and go!", "Vroom! That chapter didn't stand a chance!", "Full tank of focus, open coast road!", "Small engine, big dreams. Just like you!", "Wind in your hair, notes in your head!", "Smooth riding! You're cruising today!", "Next stop: the top of the class!"],
+          pet: ["Hehe! That made my headlight twinkle!", "Purr purr! That's my happy engine!"],
+          hello: ["Beep beep! You're back! Let's ride!", "Ciao! Engine's warm and ready to go!"],
+          morning: ["Buongiorno! Coast road's wide open!", "Good morning! First ride of the day!"],
+          night: ["Headlight's on low. Time to park soon?", "Buonanotte! Parking by the harbour."],
+          focus: ["Cruising quietly right beside you.", "Steady speed, eyes on the road. Go!"],
+          done: ["What a ride! Every bend nailed!", "Session done! Victory lap time!"],
+          task: ["Zoom! Done!", "Checked off! Beep beep!", "Another bend taken in style!", "Yes! Full throttle!"],
+          break: ["Pit stop! Water and a stretch!", "Park it for a minute and breathe!"]
+        }
+      },
+      {
+        id: "italy-gela", name: "Gela", kind: "Gelato Cone", pose: "stand", wearColor: "#F48AA6",
+        bio: "A three-scoop gelato cone who serves up sweet encouragement.",
+        idle: ["sway", "headTilt", "wave"], cheer: "spin",
+        neck: [60, 82],
+        parts: {
+          armL: {svg: `<path d="M41 88Q31 88 28 80Q30 76 34 79Q37 84 43 84Z" fill="#E8B068" ${O}/>`, pivot: [42, 86]},
+          armR: {svg: `<path d="M79 88Q89 88 92 80Q90 76 86 79Q83 84 77 84Z" fill="#E8B068" ${O}/>`, pivot: [78, 86]},
+          body: `${LG("italy-gela-c", [[0, "#F6CC86"], [1, "#D8954A"]], 0, 0, 1, 0)}
+            <path d="M38 80H82L62.5 110Q60 113 57.5 110Z" fill="url(#italy-gela-c)" ${O}/>
+            <path d="M44 88L71 88M48 95L67 95M53 102L63 102M46 82L64 109M58 82L70 99M70 82L74 87M40 82L55 104M74 82L58 108M62 82L50 100M50 82L46 90" stroke="#B8763A" stroke-width="1.4" stroke-linecap="round" opacity=".75"/>
+            <path d="M42 81Q44 86 46 81" fill="none" stroke="#FFF0C8" stroke-width="2" stroke-linecap="round" opacity=".7"/>`,
+          head: `${RG("italy-gela-p", [[0, "#E8F4C0"], [1, "#9CC46A"]], 0.4, 0.35, 0.75)}${RG("italy-gela-s", [[0, "#FFE0EA"], [1, "#F48AA6"]], 0.4, 0.35, 0.75)}${RG("italy-gela-y", [[0, "#FFFBD8"], [1, "#F6D24A"]], 0.4, 0.35, 0.75)}
+            <path d="M60 4C70 4 76 11 76 19C76 26 70 30 60 30C50 30 44 26 44 19C44 11 50 4 60 4Z" fill="url(#italy-gela-y)" ${O}/>
+            <path d="M60 22C76 22 84 31 84 40C84 48 76 51 60 51C44 51 36 48 36 40C36 31 44 22 60 22Z" fill="url(#italy-gela-s)" ${O}/>
+            <path d="M60 42C78 42 88 52 88 64C88 74 84 78 82 81Q78 86 74 81Q70 86 66 81Q62 86 58 81Q54 86 50 81Q46 86 42 81Q38 86 36 80C33 76 32 72 32 64C32 52 42 42 60 42Z" fill="url(#italy-gela-p)" ${O}/>
+            <path d="M40 54Q44 47 52 45" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" opacity=".85"/><path d="M45 31Q49 26 55 25" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" opacity=".85"/><path d="M50 11Q53 8 57 7.6" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" opacity=".9"/>
+            ${[[46, 36, "#D8546E"], [72, 34, "#D8546E"], [64, 40, "#D8546E"], [52, 16, "#E8B020"], [68, 14, "#E8B020"]].map(([x, y, c]) => `<ellipse cx="${x}" cy="${y}" rx="1.4" ry="2" fill="${c}"/>`).join("")}
+            <path d="M70 6Q76 -2 82 2" fill="none" stroke="#2B2233" stroke-width="5" stroke-linecap="round"/><path d="M70 6Q76 -2 82 2" fill="none" stroke="#C8783A" stroke-width="2.4" stroke-linecap="round"/>
+            ${blossom(46, 6, 2.6)}`
+        },
+        eyes: {lx: 51, rx: 69, y: 63, r: 4.6, style: "sparkle", color: "#2E2A1A"},
+        mouth: {x: 60, y: 72, w: 3, color: "#2E2A1A"},
+        cheeks: {lx: 43, rx: 77, y: 70, w: 4, h: 2.4, color: "#FF8FA8"},
+        anchors: {top: [60, 6, 0.85], neck: [60, 82, 0.95], chest: [70, 90, 0.6], back: [84, 62, 0.8], hands: [60, 92, 0.8]},
+        lines: {
+          tap: ["Ciao! Three scoops of cheering, coming up!", "Pistachio for focus, fragola for fun!", "You're the cherry on top of today!", "Cool, calm and totally got this!", "No brain freeze, just brain power!", "One scoop at a time, you'll finish it!", "Sweet work! Keep it rolling!", "Gelato tastes better after a good chapter!"],
+          pet: ["Hehe! Careful, I might melt!", "Aww, you make my scoops wobble!"],
+          hello: ["Ciao bella! You're back! Extra scoop!", "Hi! I saved you the best flavour!"],
+          morning: ["Buongiorno! Gelato for breakfast? Kidding!", "Good morning! Sweet day ahead!"],
+          night: ["The piazza's quiet. Rest soon, dolce?", "Buonanotte! Sweet dreams, three scoops!"],
+          focus: ["Staying cool right here with you.", "Scoop by scoop. You've got this!"],
+          done: ["What a session! Molto bene!", "All done! A triple scoop of pride!"],
+          task: ["Done! Delizioso!", "Checked off! Sprinkles!", "Another scoop added!", "Yes! Sweet success!"],
+          break: ["Gelato break! Or water. Water's good!", "Stretch time! Wiggle like a wafer!"]
+        }
+      }
+    ]
+  });
+})();
+/* end of module 98-comp-italy.js */
+
+
+/* ===== module: 98-comp-greece.js ===== */
+/* Study Companions, Around the World: greece (Santorini) */
+(() => {
+  const {INK, O, OW, LG, RG, LINE} = COMP_KIT;
+  const O2 = OW(2.2);
+  const f1 = v => Math.round(v * 10) / 10;
+  const twinkle = (x, y, s, c) => `<path d="M${x} ${y - s}Q${x} ${y} ${x + s} ${y}Q${x} ${y} ${x} ${y + s}Q${x} ${y} ${x - s} ${y}Q${x} ${y} ${x} ${y - s}Z" fill="${c || "#fff"}"/>`;
+  // a pointed olive leaf from (x, y), len long, turned by ang degrees
+  const oleaf = (x, y, len, w, ang, fill, extra = "") => `<path d="M0 0Q${f1(len * 0.45)} ${f1(-w)} ${len} 0Q${f1(len * 0.45)} ${w} 0 0Z" transform="translate(${x} ${y}) rotate(${ang})" fill="${fill}" ${extra}/>`;
+
+  COMP_DATA.push({
+    theme: "greece",
+    companions: [
+      {
+        id: "greece-kiki", name: "Kiki", kind: "Island Cat", pose: "sit", sleepy: true, wearColor: "#2F6DB8",
+        bio: "A sun-loving island cat who naps on warm walls and wakes up for every win.",
+        idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "hop",
+        neck: [60, 78],
+        parts: {
+          tail: {svg: `${LG("greece-kiki-t", [[0, "#F2B06A"], [1, "#D9853E"]])}
+            <path d="M80 102C94 103 104 94 103 80C102 72 97 69 93.6 72.4C91.4 75 95.6 78 95.4 84C95 91 89 95 80 95Z" fill="url(#greece-kiki-t)" ${O}/>
+            <path d="M97 80.5l-5.2 1.2M99 88l-5.6 -0.6M93.6 95l-4 -3.4" fill="none" stroke="#C26E2C" stroke-width="2.2" stroke-linecap="round"/>
+            <path d="M95.2 73.6C97.4 72.2 100.4 73.6 101 77" fill="none" stroke="#FFF8EE" stroke-width="3" stroke-linecap="round"/>`, pivot: [82, 99]},
+          feet: `<ellipse cx="47" cy="107.6" rx="8.6" ry="4.6" fill="#FFFDF8" ${O}/><ellipse cx="73" cy="107.6" rx="8.6" ry="4.6" fill="#FFFDF8" ${O}/>
+            <path d="M44.6 109.4v-2.2M48.4 109.6v-2.2M70.6 109.6v-2.2M74.4 109.4v-2.2" stroke="#D8CFC6" stroke-width="1.2" stroke-linecap="round"/>`,
+          body: `${RG("greece-kiki-b", [[0, "#FFFFFF"], [0.7, "#FFF8EE"], [1, "#EEDFCF"]], 0.4, 0.35, 0.75)}
+            <path d="M60 68C76 68 84 81 84 94C84 106 76 110 60 110C44 110 36 106 36 94C36 81 44 68 60 68Z" fill="url(#greece-kiki-b)" ${O}/>
+            <path d="M73.6 75C81 80.6 84 91 82.8 101.4C78 98 73.8 89 72 79Z" fill="#EFA460"/>
+            <path d="M75.6 84l4.6 -1.2M76.6 91l4.8 -0.4" stroke="#D2823C" stroke-width="2" stroke-linecap="round"/>
+            <path d="M46 80Q60 86 74 80" fill="none" stroke="#2F6DB8" stroke-width="3.6" stroke-linecap="round"/>
+            <circle cx="60" cy="85.6" r="3.2" fill="#F2C24A" ${OW(1.5)}/><path d="M58.6 86.4h2.8" stroke="#A8761E" stroke-width="1" stroke-linecap="round"/>
+            <path d="M42 90Q42 80 48 75" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".9"/>`,
+          armL: {svg: `<ellipse cx="50.5" cy="100" rx="5.6" ry="7.4" fill="#FFFDF8" ${O}/><path d="M48.6 105.4v-2M52.4 105.4v-2" stroke="#D8CFC6" stroke-width="1.1" stroke-linecap="round"/>`, pivot: [50.5, 93]},
+          armR: {svg: `<ellipse cx="69.5" cy="100" rx="5.6" ry="7.4" fill="#FFFDF8" ${O}/><path d="M67.6 105.4v-2M71.4 105.4v-2" stroke="#D8CFC6" stroke-width="1.1" stroke-linecap="round"/>`, pivot: [69.5, 93]},
+          earL: {svg: `<path d="M37.6 46L39.4 23.6L55 37Z" fill="#FFFDF8" ${O}/><path d="M41.2 40.6L42 29.6L49.4 36.4Z" fill="#FFB6C6"/>`, pivot: [46, 40]},
+          earR: {svg: `<path d="M82.4 46L80.6 23.6L65 37Z" fill="#EFA460" ${O}/><path d="M78.8 40.6L78 29.6L70.6 36.4Z" fill="#FFB6C6"/>`, pivot: [74, 40]},
+          head: `${RG("greece-kiki-h", [[0, "#FFFFFF"], [0.72, "#FFF9F0"], [1, "#EEDFCF"]], 0.42, 0.34, 0.78)}
+            <path d="M60 33C78 33 87 44 87 57C87 71 76 79.5 60 79.5C44 79.5 33 71 33 57C33 44 42 33 60 33Z" fill="url(#greece-kiki-h)" ${O}/>
+            <path d="M64.4 34.4C76 35.6 84.6 44 85.8 55C79 52.4 71.4 46.6 67 40.6Z" fill="#EFA460"/>
+            <path d="M56 37.6l0.8 5.4M60 36.8v6M64 37.8l-0.4 4.6" stroke="#E29A55" stroke-width="2" stroke-linecap="round"/>
+            <path d="M39.4 51Q41.4 43 48 39.4" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`,
+          face: `<path d="M57.6 62.4H62.4L60 65Z" fill="#FF94AC" ${OW(1.2)}/>
+            <path d="M42 63.6l-9 -1.8M42 67.2l-9 1M78 63.6l9 -1.8M78 67.2l9 1" stroke="${INK}" stroke-width="1.2" stroke-linecap="round" opacity=".55"/>`
+        },
+        eyes: {lx: 49.5, rx: 70.5, y: 56.5, r: 5, style: "round", color: "#3C6A2C"},
+        mouth: {x: 60, y: 67.6, w: 2.8, color: "#3A2A2A", style: "cat"},
+        cheeks: {lx: 42.5, rx: 77.5, y: 64.6, w: 4.2, h: 2.4, color: "#FFA6BA"},
+        anchors: {top: [60, 34, 0.95], neck: [60, 80, 1], chest: [60, 94, 0.62], back: [84, 88, 0.8], hands: [60, 100, 0.86]},
+        lines: {
+          tap: ["Yawn... oh, hello! I was just sunbathing.", "Every warm wall in Oia knows my name!", "You're doing great. I'm doing a nap. Teamwork!", "Purr... one page at a time, friend.", "I saved you the sunniest spot on the steps!", "Sea breeze, warm stones and you studying. Perfect.", "Blue doors, white walls, big brains. That's you!", "Slow blink for you. That means I like you!"],
+          pet: ["Purrrr! Right behind the ears, yes!", "Mrrp! Warmer than a sunny wall!"],
+          hello: ["Meow! You're back! The wall got lonely.", "Hi! I stretched and everything for you!"],
+          morning: ["Kalimera! The sun is on my favorite step!", "Good morning! The sea is extra blue today."],
+          night: ["The lights are on in the village. Rest soon?", "Kalinychta! I'm curling up by the bell tower."],
+          focus: ["Shh. Tail tucked, eyes half shut, focusing.", "I'll guard your notes. Nobody sits on them."],
+          done: ["Session done! Time for a celebratory stretch!", "That was amazing! Purrs all round!"],
+          task: ["Done! I woke up just to cheer!", "Checked off! Meow meow!", "Another one! My tail is swishing!", "Yes! Worth getting off the wall for!"],
+          break: ["Break time! Find a sunny spot and stretch!", "Stretch like a cat! Long, long, longer!"]
+        }
+      },
+      {
+        id: "greece-elia", name: "Elia", kind: "Olive Sprite", pose: "float", wearColor: "#5E8A3A",
+        bio: "A small olive sprite who is quietly strong and keeps going year after year.",
+        idle: ["sway", "topBob", "sparkle"], cheer: "spin",
+        parts: {
+          armL: {svg: `${oleaf(37, 80, 23, 6.6, 158, "#9EB884", O2)}<path d="M36 80L22 84.6" stroke="#6E8A54" stroke-width="1.2" stroke-linecap="round" opacity=".7"/>`, pivot: [36, 80]},
+          armR: {svg: `${oleaf(83, 80, 23, 6.6, 22, "#9EB884", O2)}<path d="M84 80L98 84.6" stroke="#6E8A54" stroke-width="1.2" stroke-linecap="round" opacity=".7"/>`, pivot: [84, 80]},
+          body: `${RG("greece-elia-b", [[0, "#C6DE8A"], [0.55, "#93BA58"], [1, "#5E8A34"]], 0.4, 0.32, 0.78)}
+            <path d="M60 41C79 41 87.6 57 87.6 74C87.6 92 76.6 104.4 60 104.4C43.4 104.4 32.4 92 32.4 74C32.4 57 41 41 60 41Z" fill="url(#greece-elia-b)" ${O}/>
+            <path d="M41.6 66C42.6 56 48 48.6 55 45.4" fill="none" stroke="#F2FAD8" stroke-width="3.4" stroke-linecap="round" opacity=".9"/><circle cx="41.4" cy="73.4" r="1.8" fill="#F2FAD8" opacity=".85"/>
+            <path d="M48 98Q60 103 72 98" fill="none" stroke="#557E2E" stroke-width="2.2" stroke-linecap="round" opacity=".55"/>
+            <ellipse cx="60" cy="42.4" rx="4.2" ry="1.8" fill="#6E5A3A" ${OW(1.4)}/>
+            ${twinkle(98, 54, 3.6, "#E8F2B0")}${twinkle(22, 98, 2.8, "#E8F2B0")}`,
+          top: {svg: `${LINE("M60 42Q59 34 62 26", "#7A5A3A", 2.4)}
+            ${oleaf(61, 33, 22, 5.2, -152, "#A9C08E", O2)}<path d="M60 33.4L42 26" stroke="#7A9460" stroke-width="1.1" stroke-linecap="round"/>
+            ${oleaf(62, 29, 24, 5.4, -28, "#8FAE72", O2)}<path d="M62.6 28.6L82 18" stroke="#6E8A54" stroke-width="1.1" stroke-linecap="round"/>
+            <ellipse cx="66.4" cy="35.4" rx="4" ry="5" transform="rotate(-24 66.4 35.4)" fill="#3E3450" ${OW(1.6)}/><circle cx="65" cy="33.4" r="1.2" fill="#fff" opacity=".7"/>`, pivot: [60, 42]}
+        },
+        eyes: {lx: 50.5, rx: 69.5, y: 71, r: 4.6, style: "sparkle", color: "#22301A"},
+        mouth: {x: 60, y: 81, w: 3, color: "#22301A"},
+        cheeks: {lx: 44, rx: 76, y: 79, w: 3.8, h: 2.3, color: "#F29A88"},
+        anchors: {top: [60, 41, 0.9], neck: [60, 95, 0.95], chest: [69, 90, 0.6], back: [86, 66, 0.8], hands: [60, 97, 0.82]},
+        lines: {
+          tap: ["Hello! Olive trees grow slowly, and that's okay.", "Steady roots, steady study. You've got this.", "A little sunshine, a little water, a lot of focus.", "Some olive trees are a thousand years old! Patience!", "Small and green, but I don't give up. Neither do you!", "Every leaf counts. So does every flashcard.", "You're stronger than you think, like an olive branch.", "Peace and quiet, and one good idea at a time."],
+          pet: ["Hehe! My leaves are all fluttery now!", "Aww, that's as nice as a warm afternoon!"],
+          hello: ["You're here! My leaves turned to the sun!", "Hi! Ready to grow a little today?"],
+          morning: ["Good morning! Roots down, leaves up!", "Kalimera! The terraces are glowing gold."],
+          night: ["The olive groves are sleeping. Rest soon?", "Goodnight! Strong roots need good sleep."],
+          focus: ["Rooted right here beside you.", "Slow and steady. Leaves still, mind clear."],
+          done: ["What a session! You grew a whole ring!", "All done! That was centuries of patience!"],
+          task: ["Done! A new leaf unfurled!", "Checked off! Strong as an old olive!", "Another one! Steady and sure!", "Yes! Growing, growing, grown!"],
+          break: ["Break time! Drink some water, like a tree!", "Stretch your branches! Up to the sun!"]
+        }
+      },
+      {
+        id: "greece-glafka", name: "Glafka", kind: "Little Owl", pose: "stand", wearColor: "#2F6DB8",
+        bio: "A wise little owl who stays up late studying with you.",
+        idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter",
+        neck: [60, 74],
+        parts: {
+          feet: `<path d="M47 106.4l-3 4.6M50 107l0 4.6M53 106.4l3 4.6M67 106.4l-3 4.6M70 107l0 4.6M73 106.4l3 4.6" stroke="${INK}" stroke-width="5.4" stroke-linecap="round"/>
+            <path d="M47 106.4l-3 4.6M50 107l0 4.6M53 106.4l3 4.6M67 106.4l-3 4.6M70 107l0 4.6M73 106.4l3 4.6" stroke="#D8C49A" stroke-width="2.6" stroke-linecap="round"/>`,
+          body: `${RG("greece-glafka-b", [[0, "#C49A70"], [0.65, "#A47A52"], [1, "#7E5838"]], 0.42, 0.35, 0.78)}
+            <path d="M60 62C80 62 88.4 78 88.4 92C88.4 104 78 109.4 60 109.4C42 109.4 31.6 104 31.6 92C31.6 78 40 62 60 62Z" fill="url(#greece-glafka-b)" ${O}/>
+            <path d="M60 74C71 74 76.4 85 76.4 95C76.4 103.6 70 107.4 60 107.4C50 107.4 43.6 103.6 43.6 95C43.6 85 49 74 60 74Z" fill="#F4E6CC"/>
+            <path d="M52 82v4M60 80v5M68 82v4M48.6 91v4M55.6 90v5M64.4 90v5M71.4 91v4M52 99v4M60 98v5M68 99v4" stroke="#B08A60" stroke-width="2" stroke-linecap="round"/>`,
+          armL: {svg: `${LG("greece-glafka-w", [[0, "#B08660"], [1, "#7A5434"]])}<path d="M38.4 72C28.6 77 25 91 30 103.4C35.6 101.6 41 92 42.4 78Z" fill="url(#greece-glafka-w)" ${O}/>
+            <circle cx="34" cy="86" r="1.6" fill="#F4E6CC"/><circle cx="33" cy="94" r="1.5" fill="#F4E6CC"/><circle cx="37.6" cy="80" r="1.4" fill="#F4E6CC"/>`, pivot: [40, 74]},
+          armR: {svg: `<path d="M81.6 72C91.4 77 95 91 90 103.4C84.4 101.6 79 92 77.6 78Z" fill="url(#greece-glafka-w)" ${O}/>
+            <circle cx="86" cy="86" r="1.6" fill="#F4E6CC"/><circle cx="87" cy="94" r="1.5" fill="#F4E6CC"/><circle cx="82.4" cy="80" r="1.4" fill="#F4E6CC"/>`, pivot: [80, 74]},
+          head: `${RG("greece-glafka-h", [[0, "#C8A078"], [0.7, "#A47A52"], [1, "#82603E"]], 0.42, 0.32, 0.8)}
+            <path d="M60 25C82 25 92.4 37 92.4 51C92.4 67 78.6 75.6 60 75.6C41.4 75.6 27.6 67 27.6 51C27.6 37 38 25 60 25Z" fill="url(#greece-glafka-h)" ${O}/>
+            ${[[44, 31], [52, 28.6], [68, 28.6], [76, 31], [36, 37], [84, 37], [60, 30]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.5" fill="#F4E6CC"/>`).join("")}
+            <ellipse cx="47.6" cy="53" rx="12.4" ry="11.4" fill="#EEDCBC"/><ellipse cx="72.4" cy="53" rx="12.4" ry="11.4" fill="#EEDCBC"/>
+            <circle cx="48" cy="52.6" r="8.2" fill="#F6C93A" ${OW(1.6)}/><circle cx="72" cy="52.6" r="8.2" fill="#F6C93A" ${OW(1.6)}/>
+            <path d="M36.4 43.4Q45 36.4 56.4 37.6M83.6 43.4Q75 36.4 63.6 37.6" fill="none" stroke="#FFFBF2" stroke-width="3.2" stroke-linecap="round"/>`,
+          face: `<path d="M57 59.6Q60 58 63 59.6L60 65.4Z" fill="#D8C49A" ${OW(1.4)}/>`,
+          top: {svg: `${LINE("M60 27Q66 22 74 21", "#7A5A3A", 1.8)}
+            ${oleaf(66, 24, 14, 3.6, -150, "#9EB884", OW(1.6))}${oleaf(70, 22, 15, 3.8, -40, "#8FAE72", OW(1.6))}
+            <ellipse cx="74.6" cy="25.4" rx="2.8" ry="3.6" transform="rotate(-20 74.6 25.4)" fill="#3E3450" ${OW(1.3)}/>`, pivot: [62, 27]}
+        },
+        eyes: {lx: 48, rx: 72, y: 52.6, r: 5, style: "sparkle", color: "#24180E"},
+        mouth: {x: 60, y: 68.6, w: 2.4, color: "#3A2614"},
+        cheeks: {lx: 38, rx: 82, y: 63, w: 3.8, h: 2.2, color: "#F49A8A"},
+        anchors: {top: [60, 26, 0.95], neck: [60, 76, 1], chest: [60, 92, 0.66], back: [86, 86, 0.8], hands: [60, 100, 0.86]},
+        lines: {
+          tap: ["Hoo! A wise owl knows when to review.", "Questions are how wisdom starts. Ask away!", "I've read every scroll in the library twice!", "Night or day, I'm here to study with you.", "Big eyes, big ideas, small owl. Hello!", "Think it through slowly. The answer will come.", "Knowledge is the best treasure. You're rich!", "Hoo hoo! That's owl for you're doing great."],
+          pet: ["Hoo! My feathers are all fluffed up now!", "Aww, softer than a moonlit breeze!"],
+          hello: ["Hoo! You're back! I kept the lamp lit.", "Hello, scholar! Shall we begin?"],
+          morning: ["Morning already? I was up studying all night!", "Kalimera! Fresh minds learn the most."],
+          night: ["Ah, my favorite hour. But you need sleep!", "Kalinychta! Even wise owls rest their eyes."],
+          focus: ["Silent wings, sharp mind. Let's focus.", "I'm watching the page with you. Hoo."],
+          done: ["What a wise session! I'm very proud!", "All done! That deserves a happy hoot!"],
+          task: ["Done! Hoo hoo!", "Checked off! Very wise!", "Another one! My wings are flapping!", "Yes! Wise and wonderful!"],
+          break: ["Break time! Rest those clever eyes.", "Stretch your wings! Big, slow flaps!"]
+        }
+      }
+    ]
+  });
+})();
+/* end of module 98-comp-greece.js */
+
+
+/* ===== module: 98-comp-egypt.js ===== */
+/* Study Companions, Around the World: Egypt (Kheper the scarab, Jamal the camel calf, Miu the Mau kitten) */
+(() => {
+  const {O, OW, LG, RG, LINE} = COMP_KIT;
+  const O2 = OW(2.2);
+  const f1 = v => Math.round(v * 10) / 10;
+  const ring = (cx, cy, n, r, fn) => Array.from({length: n}, (_, i) => { const a = i / n * Math.PI * 2; return fn(f1(cx + Math.cos(a) * r), f1(cy + Math.sin(a) * r), a * 180 / Math.PI, i); }).join("");
+  // a broad bead collar along an arc under the chin: alternating gold and lapis beads
+  const collar = (cx, cy, rx, ry, n, r) => Array.from({length: n}, (_, i) => { const a = Math.PI * (0.15 + 0.7 * i / (n - 1)), x = f1(cx + Math.cos(a) * rx), y = f1(cy + Math.sin(a) * ry); return `<circle cx="${x}" cy="${y}" r="${r}" fill="${i % 2 ? "#2E5FA8" : "#F2C24A"}" ${OW(1.2)}/>`; }).join("");
+
+  COMP_DATA.push({
+    theme: "egypt",
+    companions: [
+      {
+        id: "egypt-kheper", name: "Kheper", kind: "Scarab Beetle", pose: "stand", wearColor: "#2A8A84",
+        bio: "A steady scarab beetle who rolls every big task forward, one push at a time.",
+        idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
+        parts: {
+          feet: `<path d="M44 100Q40 106 38 111H50Q49 106 50 101Z" fill="#1F5C6A" ${O}/><path d="M76 100Q80 106 82 111H70Q71 106 70 101Z" fill="#1F5C6A" ${O}/>`,
+          armL: {svg: `<path d="M34 64Q22 60 17 70Q16 76 21 77Q24 70 35 71Z" fill="#2A6F82" ${O}/><path d="M17 72L13 74M19 76L15 80" stroke="#1F5C6A" stroke-width="2.4" stroke-linecap="round"/>`, pivot: [35, 67]},
+          armR: {svg: `<path d="M86 64Q98 60 103 70Q104 76 99 77Q96 70 85 71Z" fill="#2A6F82" ${O}/><path d="M103 72L107 74M101 76L105 80" stroke="#1F5C6A" stroke-width="2.4" stroke-linecap="round"/>`, pivot: [85, 67]},
+          body: `${LG("egypt-kheper-s", [[0, "#7FE0D2"], [0.45, "#3AAFB2"], [1, "#2A5F9E"]])}${LG("egypt-kheper-w", [[0, "#3FB4B0"], [1, "#24508C"]])}
+            <path d="M30 84Q20 86 18 94M90 84Q100 86 102 94" fill="none" stroke="#1F5C6A" stroke-width="4" stroke-linecap="round"/>
+            ${LINE("M47 36Q42 26 36 22", "#2A6F82", 2)}${LINE("M73 36Q78 26 84 22", "#2A6F82", 2)}<circle cx="35" cy="21" r="3.6" fill="#2A6F82" ${OW(1.6)}/><circle cx="85" cy="21" r="3.6" fill="#2A6F82" ${OW(1.6)}/>
+            <path d="M60 34C81 34 92 48 92 68C92 94 79 108 60 108C41 108 28 94 28 68C28 48 39 34 60 34Z" fill="url(#egypt-kheper-s)" ${O}/>
+            <path d="M31 74Q60 84 89 74C90 92 79 106 60 106C41 106 30 92 31 74Z" fill="url(#egypt-kheper-w)"/>
+            <path d="M30 74Q60 84 90 74M60 79V106" fill="none" stroke="#F2C24A" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M40 88Q44 96 52 100M80 88Q76 96 68 100" fill="none" stroke="#9EF0E2" stroke-width="1.6" stroke-linecap="round" opacity=".55"/>
+            <path d="M43 40L46 32L50 38L55 30L60 36L65 30L70 38L74 32L77 40Q60 35 43 40Z" fill="#F2C24A" ${OW(1.8)}/>
+            <path d="M38 52Q40 44 48 41" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".8"/><circle cx="36" cy="58" r="1.6" fill="#fff" opacity=".8"/>`,
+          top: {svg: `${RG("egypt-kheper-sun", [[0, "#FFF6C8"], [0.6, "#FFD25A"], [1, "#F29A1C"]], 0.4, 0.35, 0.65)}
+            ${ring(60, 18, 10, 12.5, (x, y, a) => `<path d="M${x} ${y}l${f1(Math.cos(a * Math.PI / 180) * 3)} ${f1(Math.sin(a * Math.PI / 180) * 3)}" stroke="#F6B42A" stroke-width="2.2" stroke-linecap="round"/>`)}
+            <circle cx="60" cy="18" r="9.5" fill="url(#egypt-kheper-sun)" ${O2}/><path d="M55 14Q57 11 61 11" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>`, pivot: [60, 32]}
+        },
+        eyes: {lx: 48, rx: 72, y: 56, r: 5, style: "sparkle", color: "#10282C"},
+        mouth: {x: 60, y: 66, w: 3, color: "#10282C"},
+        cheeks: {lx: 40, rx: 80, y: 63, w: 4, h: 2.4, color: "#FF9AA8"},
+        anchors: {top: [60, 34, 0.9], neck: [60, 76, 1], chest: [72, 90, 0.6], back: [88, 60, 0.8], hands: [60, 94, 0.82]},
+        lines: {
+          tap: ["Push, push! Every big task rolls if you keep at it.", "Little legs, big progress! Let's roll on.", "I carry the sunrise on my head for luck!", "One small push now saves a big push later.", "Shiny shell, shiny ideas! You've got this.", "We roll forward together, one bit at a time.", "Even the pyramids were built one block at a time!", "That idea of yours? Pure gold!"],
+          pet: ["Hehe! My shell is all sparkly now!", "Aww, a gentle pat for a hard worker!"],
+          hello: ["You're back! Let's get rolling!", "Hello! The sun came up just for you!"],
+          morning: ["Good morning! Time to push the sun up!", "Rise and roll! A golden day awaits."],
+          night: ["The sun rolled away. Rest soon?", "Goodnight! I'll keep the sun warm for tomorrow."],
+          focus: ["Pushing quietly right beside you.", "Steady pushes, steady progress. Go!"],
+          done: ["Rolled all the way! What a session!", "Done! That's a whole pyramid of effort!"],
+          task: ["Rolled it! Next!", "Checked off! Shiny!", "One more block in place!", "Yes! Golden push!"],
+          break: ["Shell break! Stretch all six legs!", "Sunbathe for a minute. You earned it!"]
+        }
+      },
+      {
+        id: "egypt-jamal", name: "Jamal", kind: "Camel Calf", pose: "stand", wearColor: "#C8503A",
+        bio: "A long-lashed camel calf with stamina for the longest study sessions.",
+        idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
+        neck: [60, 74],
+        parts: {
+          tail: {svg: `${LINE("M90 82Q100 86 101 96", "#D8A46C", 2.6)}<path d="M101 94Q106 100 101 106Q96 101 101 94Z" fill="#8A5A36" ${OW(1.8)}/>`, pivot: [90, 82]},
+          feet: `<path d="M40 90V108M80 90V108" stroke="#C48C58" stroke-width="7" stroke-linecap="round"/>
+            <path d="M48 92Q47 102 48 107M72 92Q73 102 72 107" fill="none" stroke="#2B2233" stroke-width="11" stroke-linecap="round"/><path d="M48 92Q47 102 48 107M72 92Q73 102 72 107" fill="none" stroke="#E6BC86" stroke-width="7" stroke-linecap="round"/>
+            <ellipse cx="48" cy="109" rx="6.4" ry="3.6" fill="#7A5236" ${OW(2.2)}/><ellipse cx="72" cy="109" rx="6.4" ry="3.6" fill="#7A5236" ${OW(2.2)}/>
+            <ellipse cx="40" cy="108.6" rx="5" ry="3" fill="#6A4630" ${OW(2)}/><ellipse cx="80" cy="108.6" rx="5" ry="3" fill="#6A4630" ${OW(2)}/>`,
+          body: `${RG("egypt-jamal-b", [[0, "#F6D6A4"], [0.7, "#E6B57C"], [1, "#CC9460"]], 0.4, 0.3, 0.8)}
+            <path d="M66 70C68 52 88 50 92 70Z" fill="url(#egypt-jamal-b)" ${O}/>
+            <path d="M60 66C82 66 95 74 95 86C95 97 83 100 60 100C37 100 25 97 25 86C25 74 38 66 60 66Z" fill="url(#egypt-jamal-b)" ${O}/>
+            <path d="M64 64C72 60 86 60 92 68L94 82Q78 86 62 80Z" fill="#C8503A" ${OW(2.2)}/><path d="M64 70Q78 74 93 72M63 76Q78 80 94 77" fill="none" stroke="#F2C24A" stroke-width="2" stroke-linecap="round"/>
+            <path d="M66 81L65 87M72 82.6L71.4 88.6M78 83L78 89M84 82.6L84.6 88.6M90 81.4L91.4 87" stroke="#2E5FA8" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M34 78Q40 72 50 71" fill="none" stroke="#FFF2D8" stroke-width="2.6" stroke-linecap="round" opacity=".8"/>`,
+          earL: {svg: `<ellipse cx="35" cy="40" rx="5" ry="8" transform="rotate(-40 35 40)" fill="#E2AE76" ${O}/><ellipse cx="35.6" cy="40.6" rx="2.2" ry="4.6" transform="rotate(-40 35.6 40.6)" fill="#B87A52"/>`, pivot: [40, 44]},
+          earR: {svg: `<ellipse cx="85" cy="40" rx="5" ry="8" transform="rotate(40 85 40)" fill="#E2AE76" ${O}/><ellipse cx="84.4" cy="40.6" rx="2.2" ry="4.6" transform="rotate(40 84.4 40.6)" fill="#B87A52"/>`, pivot: [80, 44]},
+          head: `${RG("egypt-jamal-h", [[0, "#FBE2B8"], [0.7, "#EDC28C"], [1, "#D8A46C"]], 0.42, 0.3, 0.8)}
+            <path d="M60 28C76 28 84 38 84 50C84 58 81 64 78 68C76 74 70 78 60 78C50 78 44 74 42 68C39 64 36 58 36 50C36 38 44 28 60 28Z" fill="url(#egypt-jamal-h)" ${O}/>
+            <ellipse cx="60" cy="68" rx="15" ry="9.6" fill="#F8DDB4" ${OW(2.2)}/>
+            <path d="M48 31C49 22 56 24 58 28C60 21 68 22 68 29C73 27 76 32 72 35Q60 30 48 35C44 33 45 29 48 31Z" fill="#B8804E" ${OW(2)}/>
+            <path d="M41 42Q44 37 50 35" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".8"/>
+            <path d="M44.6 44.6L43 41.6M47.6 43.6L47 40.4M50.8 43.4L51.2 40.2M75.4 44.6L77 41.6M72.4 43.6L73 40.4M69.2 43.4L68.8 40.2" stroke="#2B2233" stroke-width="1.6" stroke-linecap="round"/>`,
+          face: `<path d="M54 66Q55 64 57 65M66 66Q65 64 63 65" fill="none" stroke="#7A5236" stroke-width="1.8" stroke-linecap="round"/>`
+        },
+        eyes: {lx: 49, rx: 71, y: 50, r: 4.8, style: "round", color: "#2A1C14"},
+        mouth: {x: 60, y: 71, w: 3, color: "#2A1C14"},
+        cheeks: {lx: 42, rx: 78, y: 58, w: 3.8, h: 2.2, color: "#FF9A8A"},
+        anchors: {top: [60, 30, 0.9], neck: [60, 77, 1], chest: [52, 88, 0.6], back: [80, 70, 0.8], hands: [60, 92, 0.8]},
+        lines: {
+          tap: ["Long legs, long lashes, long study sessions!", "Slow and steady crosses any desert.", "I store snacks in my hump. Kidding! Mostly.", "One step, then another. That's the caravan way.", "The oasis is just past this chapter!", "Hehe, you're doing so well! Keep plodding!", "I never get thirsty for knowledge. Never!", "Every dune looks smaller once you're on top."],
+          pet: ["Hehe! My lashes are fluttering!", "Aww, scratch right behind the ear, please!"],
+          hello: ["You're back! The caravan can start!", "Hello! I saved you a spot in the shade."],
+          morning: ["Good morning! Cool sand, fresh start!", "Rise and plod! Let's go before the heat."],
+          night: ["The stars are out. Time to rest soon?", "Goodnight! I'll dream of a big green oasis."],
+          focus: ["Plodding quietly beside you.", "Steady steps. We'll get there together."],
+          done: ["What a long walk! So proud of us!", "All done! Oasis time, you earned it!"],
+          task: ["Done! Plod plod!", "Checked off! One dune down!", "Another step forward!", "Yes! The caravan moves on!"],
+          break: ["Water break! Have a big sip!", "Rest in the shade for a minute!"]
+        }
+      },
+      {
+        id: "egypt-miu", name: "Miu", kind: "Mau Kitten", pose: "sit", wearColor: "#2E5FA8",
+        bio: "A spotted Mau kitten with ancient manners and a curious mind.",
+        idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "bounce",
+        neck: [60, 76],
+        parts: {
+          tail: {svg: `${LINE("M84 102Q100 100 102 86Q103 76 96 72", "#CFC4B2", 5)}<path d="M101 82l-4 -.4M100 77l-4 .6" stroke="#5E5248" stroke-width="2" stroke-linecap="round"/><circle cx="96" cy="72" r="3.2" fill="#3E342E" ${OW(1.6)}/>`, pivot: [84, 100]},
+          feet: `<ellipse cx="49" cy="108" rx="7.6" ry="4.6" fill="#F2ECE2" ${O}/><ellipse cx="71" cy="108" rx="7.6" ry="4.6" fill="#F2ECE2" ${O}/><path d="M47 106.6v2.4M51 106.6v2.4M69 106.6v2.4M73 106.6v2.4" stroke="#B8AC9C" stroke-width="1.2" stroke-linecap="round"/>`,
+          body: `${LG("egypt-miu-b", [[0, "#F0EBE2"], [1, "#CABFAE"]])}
+            <path d="M60 66C78 66 86 82 86 96C86 106 76 110.5 60 110.5C44 110.5 34 106 34 96C34 82 42 66 60 66Z" fill="url(#egypt-miu-b)" ${O}/>
+            <path d="M60 76C68 76 72 88 70 104H50C48 88 52 76 60 76Z" fill="#FAF7F2"/>
+            ${[[40, 84, 3, 2.2], [44, 94, 3.4, 2.4], [38, 100, 2.4, 1.8], [80, 84, 3, 2.2], [76, 94, 3.4, 2.4], [82, 100, 2.4, 1.8], [46, 76, 2.2, 1.6], [74, 76, 2.2, 1.6]].map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#6E6052"/>`).join("")}
+            <path d="M42 76Q60 90 78 76" fill="none" stroke="#2E5FA8" stroke-width="5" stroke-linecap="round"/>${collar(60, 72, 19, 13, 9, 2.3)}
+            <path d="M58 86L60 90L62 86Z" fill="#F2C24A" ${OW(1.2)}/>`,
+          earL: {svg: `<path d="M36 46L31 16L55 34Z" fill="#DCD3C4" ${O}/><path d="M38 40L35.4 22L49 33Z" fill="#F8C0C8"/>`, pivot: [44, 40]},
+          earR: {svg: `<path d="M84 46L89 16L65 34Z" fill="#DCD3C4" ${O}/><path d="M82 40L84.6 22L71 33Z" fill="#F8C0C8"/>`, pivot: [76, 40]},
+          head: `${RG("egypt-miu-h", [[0, "#FBF8F3"], [0.7, "#E8E1D5"], [1, "#CFC5B4"]], 0.42, 0.32, 0.8)}
+            <path d="M60 30C80 30 90 42 90 56C90 70 78 79 60 79C42 79 30 70 30 56C30 42 40 30 60 30Z" fill="url(#egypt-miu-h)" ${O}/>
+            <path d="M52 42L54 34L57 40L60 33L63 40L66 34L68 42" fill="none" stroke="#6E6052" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M31 54Q36 54 40 56M31 60Q36 59 40 60M89 54Q84 54 80 56M89 60Q84 59 80 60" fill="none" stroke="#7E7064" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M42 46Q46 44 49 45M78 46Q74 44 71 45" fill="none" stroke="#7E7064" stroke-width="1.6" stroke-linecap="round"/>
+            <ellipse cx="60" cy="66" rx="9" ry="6" fill="#FFFFFF" opacity=".75"/>
+            <path d="M37 44Q40 37 47 34" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".85"/>`,
+          face: `<path d="M57 61.6H63L60 64.6Z" fill="#F29AAA" ${OW(1.2)}/><path d="M48 66H38M48 68.6L39 71M72 66H82M72 68.6L81 71" stroke="#8A7E72" stroke-width="1" stroke-linecap="round" opacity=".8"/>`
+        },
+        eyes: {lx: 48.5, rx: 71.5, y: 54, r: 5.4, style: "round", color: "#2E6A2E"},
+        mouth: {x: 60, y: 67, w: 3, color: "#3A2E28", style: "cat"},
+        cheeks: {lx: 41, rx: 79, y: 62, w: 3.8, h: 2.2, color: "#FFA6B4"},
+        anchors: {top: [60, 30, 0.95], neck: [60, 76, 1], chest: [70, 92, 0.6], back: [84, 84, 0.8], hands: [60, 100, 0.84]},
+        lines: {
+          tap: ["Mrrp! Hello, honored student!", "My ancestors napped in palaces. I nap on notes.", "Curious about everything? Me too!", "Spots, whiskers and big ideas. That's us!", "A proper cat studies with great dignity.", "Purr... you're doing beautifully.", "Is that a new chapter? Let me sit on it.", "Golden collar, golden effort!"],
+          pet: ["Purrrr... how gentle. Thank you!", "Mrrp! A royal scratch, how kind!"],
+          hello: ["Mrrp! You're back! I kept your seat warm.", "Hello! I've been waiting very politely."],
+          morning: ["Good morning! The sunbeam is ready for us.", "Rise and shine! Breakfast, then books?"],
+          night: ["The moon is up. Curl up and rest soon?", "Goodnight! I'll guard your notes till morning."],
+          focus: ["Sitting very still, very regal, very close.", "Quiet paws. Let's focus together."],
+          done: ["Purrfect session! I'm so proud!", "All done! Time for a well-earned nap!"],
+          task: ["Pounced! Done!", "Checked off! Mrrp!", "Another one caught!", "Yes! Purrfect work!"],
+          break: ["Stretch like a cat! Long, then longer!", "Find a sunbeam and rest your eyes!"]
+        }
+      }
+    ]
+  });
+})();
+/* end of module 98-comp-egypt.js */
+
+
+/* ===== module: 98-comp-canada.js ===== */
+/* Study Companions, Around the World: Canada */
+(() => {
+  const {INK, O, OW, LG, RG} = COMP_KIT;
+  const O2 = OW(2.2);
+  const f1 = v => Math.round(v * 10) / 10;
+  // a sugar maple leaf pointing up, centred on (x, y), s its half-size
+  const LEAF = [[0, -1], [.14, -.6], [.4, -.76], [.32, -.36], [.82, -.5], [.64, -.16], [.94, .02], [.5, .2], [.56, .46], [.12, .3], [.05, .78], [-.05, .78], [-.12, .3], [-.56, .46], [-.5, .2], [-.94, .02], [-.64, -.16], [-.82, -.5], [-.32, -.36], [-.4, -.76], [-.14, -.6]];
+  const leafD = (x, y, s) => "M" + LEAF.map(([u, v]) => `${f1(x + u * s)} ${f1(y + v * s)}`).join("L") + "Z";
+  // the beaver's mouth: a little smile over two big front teeth
+  const teeth = (y, h) => `<path d="M56.4 ${y}H63.6V${f1(y + h - 1.4)}Q63.6 ${f1(y + h)} 62.2 ${f1(y + h)}H57.8Q56.4 ${f1(y + h)} 56.4 ${f1(y + h - 1.4)}Z" fill="#FFFDF4" ${OW(1.6)}/><path d="M60 ${y}V${f1(y + h)}" stroke="${INK}" stroke-width="1.1"/>`;
+
+  COMP_DATA.push({
+    theme: "canada",
+    companions: [
+      {
+        id: "canada-mapleton", name: "Mapleton", kind: "Sugar Maple Sprite", pose: "float", wearColor: "#F2B23E",
+        bio: "A sugar maple sprite who turns brighter red with every finished task.",
+        idle: ["sway", "sparkle", "topBob"], cheer: "spin",
+        neck: [60, 82],
+        parts: {
+          top: {svg: `${LG("canada-mapleton-k", [[0, "#F6D27A"], [1, "#D89A3A"]])}
+            <path d="M60 22C55 14 47 10 41 12C40 16 46 20 55 22Z" fill="url(#canada-mapleton-k)" ${O2}/><path d="M60 22C65 14 73 10 79 12C80 16 74 20 65 22Z" fill="url(#canada-mapleton-k)" ${O2}/>
+            <path d="M45 14Q50 15 54 19M75 14Q70 15 66 19" fill="none" stroke="#C07A2A" stroke-width="1.2" stroke-linecap="round" opacity=".8"/>
+            <circle cx="56.4" cy="22" r="3.4" fill="#C8842E" ${OW(1.8)}/><circle cx="63.6" cy="22" r="3.4" fill="#C8842E" ${OW(1.8)}/>`, pivot: [60, 24]},
+          body: `${RG("canada-mapleton-g", [[0, "#FF7A52"], [0.55, "#E23A2A"], [1, "#B0221A"]], 0.42, 0.32, 0.8)}
+            <path d="M60 92Q60 100 64 106" fill="none" stroke="${INK}" stroke-width="5.4" stroke-linecap="round"/><path d="M60 92Q60 100 64 106" fill="none" stroke="#8A3A22" stroke-width="2.6" stroke-linecap="round"/>
+            <path d="${leafD(60, 61, 40)}" fill="url(#canada-mapleton-g)" ${O}/>
+            <path d="M60 88V73M60 80L74 69M60 80L46 69M60 84L72 76M60 84L48 76M60 52V32M66 47L82 42M54 47L38 42" fill="none" stroke="#FF9E7A" stroke-width="1.8" stroke-linecap="round" opacity=".55"/>
+            <path d="M40 36Q44 32 50 33" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".7"/><path d="M28 59Q30 56 34 56" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".55"/>`
+        },
+        eyes: {lx: 50.5, rx: 69.5, y: 58, r: 4.6, style: "sparkle", color: "#3A1210"},
+        mouth: {x: 60, y: 68, w: 3, color: "#3A1210"},
+        cheeks: {lx: 44, rx: 76, y: 66, w: 3.8, h: 2.4, color: "#FFB0A0"},
+        anchors: {top: [60, 24, 0.8], neck: [60, 82, 0.9], chest: [70, 76, 0.6], back: [86, 56, 0.78], hands: [60, 80, 0.8]},
+        lines: {
+          tap: ["Hi! I twirled all the way down to cheer you on!", "Every task you finish makes me redder. Look!", "Crisp air, clear mind. You've got this!", "One leaf at a time, the whole tree turns!", "You're glowing like a maple in October!", "I spin when I'm happy. Whee!", "Keep going! The view from the top is worth it.", "Small steps, big colours!"],
+          pet: ["Hehe! That rustles in the best way!", "Ooh, I'm turning a little redder!"],
+          hello: ["You're back! I saved you a sunny branch!", "Hi! The lake is sparkling for you today!"],
+          morning: ["Good morning! Frost on the dock, sun on the peaks!", "Morning! Let's make today bright red!"],
+          night: ["The aurora's out. Time to drift off soon?", "Goodnight! Settle softly, like a leaf."],
+          focus: ["Floating quietly beside you. Focus on!", "Steady as a still lake. You've got this."],
+          done: ["What a session! I'm the reddest leaf around!", "All done! Twirl of triumph!"],
+          task: ["Done! A little redder!", "Checked off! Whee!", "Another one! Spin spin!", "Yes! Bright red work!"],
+          break: ["Break! Step outside and feel the breeze!", "Stretch tall like a maple in the sun!"]
+        }
+      },
+      {
+        id: "canada-bucky", name: "Bucky", kind: "Beaver Kit", pose: "sit", wearColor: "#C8302A",
+        bio: "A busy beaver kit who builds study habits one stick at a time.",
+        idle: ["tailSwish", "headTilt", "earTwitch"], cheer: "hop",
+        neck: [60, 74],
+        parts: {
+          tail: {svg: `${LG("canada-bucky-t", [[0, "#6E5444"], [1, "#3E2C22"]], 0, 0, 1, 1)}<path d="M76 100C82 106 96 108 104 100C110 94 110 84 104 80C98 76 90 80 86 86C82 92 78 96 76 100Z" fill="url(#canada-bucky-t)" ${O}/>
+            <path d="M88 86L100 96M94 82L106 92M84 92L96 102M92 84L84 98M100 82L90 102M106 88L98 104" fill="none" stroke="#8A6E5A" stroke-width="1.2" stroke-linecap="round" opacity=".75"/>`, pivot: [80, 100]},
+          feet: `<ellipse cx="47" cy="108" rx="9" ry="4.4" fill="#5A3A26" ${O}/><ellipse cx="73" cy="108" rx="9" ry="4.4" fill="#5A3A26" ${O}/><path d="M43 107v-2.2M47 107.4v-2.4M51 107v-2.2M69 107v-2.2M73 107.4v-2.4M77 107v-2.2" stroke="#8A6448" stroke-width="1.2" stroke-linecap="round"/>`,
+          body: `${RG("canada-bucky-b", [[0, "#B88456"], [0.65, "#96643E"], [1, "#74482A"]], 0.45, 0.35, 0.8)}
+            <path d="M60 70C77 70 85 84 85 96C85 106 77 110.5 60 110.5C43 110.5 35 106 35 96C35 84 43 70 60 70Z" fill="url(#canada-bucky-b)" ${O}/>
+            <path d="M60 80C69 80 73 88 73 96C73 104 67 108 60 108C53 108 47 104 47 96C47 88 51 80 60 80Z" fill="#D8B48C"/>
+            <path d="M52 90q2 -2 4 0M64 90q2 -2 4 0M57 98q2 -2 4 0" fill="none" stroke="#C49C72" stroke-width="1.4" stroke-linecap="round"/>`,
+          armL: {svg: `<path d="M49 84Q42 90 44 98Q48 101 52 98Q53 92 54 87Z" fill="#8A5A38" ${O}/><path d="M45.4 98l.6 -1.8M48.6 99.4l.2 -1.9" stroke="#C49C72" stroke-width="1.2" stroke-linecap="round"/>`, pivot: [51, 85]},
+          armR: {svg: `<path d="M71 84Q78 90 76 98Q72 101 68 98Q67 92 66 87Z" fill="#8A5A38" ${O}/><path d="M74.6 98l-.6 -1.8M71.4 99.4l-.2 -1.9" stroke="#C49C72" stroke-width="1.2" stroke-linecap="round"/>`, pivot: [69, 85]},
+          earL: {svg: `<circle cx="41" cy="38" r="6.6" fill="#8A5A38" ${O}/><circle cx="41.4" cy="38.6" r="3.2" fill="#5A3A26"/>`, pivot: [45, 41]},
+          earR: {svg: `<circle cx="79" cy="38" r="6.6" fill="#8A5A38" ${O}/><circle cx="78.6" cy="38.6" r="3.2" fill="#5A3A26"/>`, pivot: [75, 41]},
+          head: `${RG("canada-bucky-h", [[0, "#C08A5C"], [0.65, "#9C6A42"], [1, "#7A4C2E"]], 0.42, 0.3, 0.8)}
+            <path d="M60 32C75 32 84 42 84 55C84 68 74 77 60 77C46 77 36 68 36 55C36 42 45 32 60 32Z" fill="url(#canada-bucky-h)" ${O}/>
+            <path d="M44 42Q49 36 57 35" fill="none" stroke="#D8A878" stroke-width="2.6" stroke-linecap="round" opacity=".8"/>
+            <path d="M60 56C69 56 74 61 74 66C74 72 68 75 60 75C52 75 46 72 46 66C46 61 51 56 60 56Z" fill="#D8B48C" ${OW(2)}/>
+            <path d="M48 64H40M48 67.6L41 69.6M72 64H80M72 67.6L79 69.6" stroke="#5A3A26" stroke-width="1.1" stroke-linecap="round" opacity=".7"/>`,
+          face: `<path d="M55.4 59.4Q60 56.6 64.6 59.4Q63.6 63 60 63.4Q56.4 63 55.4 59.4Z" fill="#2E1E16" ${OW(1)}/><ellipse cx="58.4" cy="59.4" rx="1.2" ry=".6" fill="#fff" opacity=".6"/>`
+        },
+        eyes: {lx: 51, rx: 69, y: 50, r: 3.8, style: "dot", color: "#24140C"},
+        mouth: {x: 60, y: 66, w: 2.6, color: "#2E1E16"},
+        mouths: {
+          neutral: `<path d="M56 65.4Q58 67 60 65.6Q62 67 64 65.4" fill="none" stroke="#2E1E16" stroke-width="1.6" stroke-linecap="round"/>${teeth(66.2, 5.4)}`,
+          smile: `<path d="M54.6 64.8Q57.4 68 60 65.8Q62.6 68 65.4 64.8" fill="none" stroke="#2E1E16" stroke-width="1.8" stroke-linecap="round"/>${teeth(66.6, 5.6)}`,
+          open: `<path d="M55 65.6Q60 64.6 65 65.6Q64.4 73.6 60 74Q55.6 73.6 55 65.6Z" fill="#7A2A2A" ${OW(1.6)}/><path d="M57 72Q60 70 63 72Q60 74 57 72Z" fill="#E87A7A"/>${teeth(65.8, 4.2)}`,
+          sleepy: `<path d="M57.4 65.6Q60 66.6 62.6 65.6" fill="none" stroke="#2E1E16" stroke-width="1.5" stroke-linecap="round"/>${teeth(66.2, 4.6)}`
+        },
+        cheeks: {lx: 44.4, rx: 75.6, y: 58, w: 3.6, h: 2.3, color: "#FF9A88"},
+        anchors: {top: [60, 33, 0.9], neck: [60, 76, 1], chest: [70, 94, 0.6], back: [84, 86, 0.8], hands: [60, 96, 0.85]},
+        lines: {
+          tap: ["Hi! I've been building you a study dam!", "One stick at a time. That's how dams get built!", "Busy as a beaver, and so are you!", "Chomp chomp! That task didn't stand a chance.", "Slap slap! That's my tail cheering for you!", "Let's build something great today!", "Keep at it! Every twig counts.", "You've got real beaver energy today!"],
+          pet: ["Hehe! Right between the ears!", "Ooh, my fur's all fluffy now!"],
+          hello: ["You're back! I kept the lodge warm!", "Hi! Ready to build some progress?"],
+          morning: ["Good morning! Early beavers get the best sticks!", "Morning! The lake is calm. Let's get building!"],
+          night: ["Lodge time soon? Even beavers rest.", "Goodnight! Tomorrow we build again."],
+          focus: ["Heads down, teeth sharp. Let's work!", "Quiet building time. You've got this."],
+          done: ["Look at that! A whole dam of done!", "Session done! Tail slap of victory!"],
+          task: ["Done! Another stick on the dam!", "Checked off! Chomp!", "Yes! Built it!", "Another one! Tail slap!"],
+          break: ["Break! Even beavers float a while.", "Stretch out those paws! Snack time?"]
+        }
+      },
+      {
+        id: "canada-mooska", name: "Mooska", kind: "Moose Yearling", pose: "stand", sleepy: true, wearColor: "#2E9AA0",
+        bio: "A gangly moose yearling with a gentle heart and enormous patience.",
+        idle: ["earTwitch", "headTilt", "tailSwish"], cheer: "bounce",
+        neck: [60, 62],
+        parts: {
+          tail: {svg: `<path d="M78 70C84 68 88 72 87 78C86 82 82 82 80 79C79 76 78 73 78 70Z" fill="#6A4630" ${O2}/>`, pivot: [79, 72]},
+          feet: `${["M47 84V106", "M54 86V107", "M66 86V107", "M73 84V106"].map(d => `<path d="${d}" stroke="${INK}" stroke-width="8.4" stroke-linecap="round"/><path d="${d}" stroke="#7A5638" stroke-width="5" stroke-linecap="round"/>`).join("")}
+            <path d="M47 92V100M54 94V101M66 94V101M73 92V100" stroke="#A88064" stroke-width="2" stroke-linecap="round" opacity=".55"/>
+            <g fill="#3A2A22" ${OW(1.6)}><path d="M43.4 104H50.6L51 110.6H43Z"/><path d="M50.4 105H57.6L58 111H50Z"/><path d="M62.4 105H69.6L70 111H62Z"/><path d="M69.4 104H76.6L77 110.6H69Z"/></g>
+            <path d="M47 104.4V110.4M54 105.4V110.8M66 105.4V110.8M73 104.4V110.4" stroke="#6A5448" stroke-width=".9"/>`,
+          body: `${LG("canada-mooska-b", [[0, "#9A6A44"], [1, "#6E4628"]])}
+            <path d="M60 58C76 58 84 66 84 75C84 85 76 90 60 90C44 90 36 85 36 75C36 66 44 58 60 58Z" fill="url(#canada-mooska-b)" ${O}/>
+            <path d="M50 60Q60 56 70 60L68 64Q60 61 52 64Z" fill="#5A3A24"/>
+            <path d="M44 72Q47 66 54 64" fill="none" stroke="#B88A60" stroke-width="2.6" stroke-linecap="round"/>
+            <path d="M52 86Q60 82 68 86" fill="none" stroke="#5A3A24" stroke-width="1.8" stroke-linecap="round" opacity=".6"/>`,
+          earL: {svg: `<path d="M46 34C40 30 30 28 26 31C28 36 36 39 45 39Z" fill="#8A5E3E" ${O2}/><path d="M43 35.4C38 33 33 32 30.6 32.8C32 35 37 36.6 42.6 36.8Z" fill="#E6B8A0"/>`, pivot: [46, 36]},
+          earR: {svg: `<path d="M74 34C80 30 90 28 94 31C92 36 84 39 75 39Z" fill="#8A5E3E" ${O2}/><path d="M77 35.4C82 33 87 32 89.4 32.8C88 35 83 36.6 77.4 36.8Z" fill="#E6B8A0"/>`, pivot: [74, 36]},
+          head: `${RG("canada-mooska-h", [[0, "#B07C52"], [0.65, "#8E603E"], [1, "#6E4628"]], 0.42, 0.28, 0.85)}
+            <path d="M53 64Q55 74 60 76Q65 74 67 64Z" fill="#6A4630" ${O2}/>
+            <path d="M60 22C71 22 76 30 76 40C76 46 75 50 76 54C78 60 76 68 68 70C64 71 56 71 52 70C44 68 42 60 44 54C45 50 44 46 44 40C44 30 49 22 60 22Z" fill="url(#canada-mooska-h)" ${O}/>
+            <path d="M48 52C48 47 53 45 60 45C67 45 72 47 72 52C74 58 72 66 66 68C62 69 58 69 54 68C48 66 46 58 48 52Z" fill="#B88A66" ${OW(2)}/>
+            <ellipse cx="54.4" cy="58" rx="2.4" ry="3.2" fill="#3A2418" transform="rotate(-12 54.4 58)"/><ellipse cx="65.6" cy="58" rx="2.4" ry="3.2" fill="#3A2418" transform="rotate(12 65.6 58)"/>
+            <path d="M52 27Q55 23 60 23" fill="none" stroke="#C49468" stroke-width="2.4" stroke-linecap="round"/>
+            <ellipse cx="51" cy="25.6" rx="3" ry="2.2" fill="#C8A878" ${OW(1.6)}/><ellipse cx="69" cy="25.6" rx="3" ry="2.2" fill="#C8A878" ${OW(1.6)}/>`
+        },
+        eyes: {lx: 52, rx: 68, y: 37.6, r: 3.6, style: "sparkle", color: "#24140C"},
+        mouth: {x: 60, y: 64, w: 2.6, color: "#3A2418"},
+        cheeks: {lx: 47, rx: 73, y: 44.4, w: 3.2, h: 2, color: "#FF9A88"},
+        anchors: {top: [60, 23, 0.85], neck: [60, 72, 0.85], chest: [66, 80, 0.56], back: [76, 68, 0.72], hands: [60, 84, 0.8]},
+        lines: {
+          tap: ["Hi... I wandered over from the lake to see you.", "Long legs, slow steps, steady progress.", "No rush. We'll get there together.", "You're doing really well. Truly.", "I'm small now, but I'll grow. So will you!", "Deep breath. The lake is calm, and so are we.", "One careful hoof at a time.", "I believe in you, as big as a moose!"],
+          pet: ["Oh! My fuzzy ears are so happy.", "Mmm. That's nice. Thank you."],
+          hello: ["Oh, hello! I saved you a spot by the water.", "You're back! My ears perked right up!"],
+          morning: ["Good morning. Mist on the lake, sun on the peaks.", "Morning! Let's amble into the day."],
+          night: ["The loons are calling. Rest soon?", "Goodnight. Sleep deep, like a still lake."],
+          focus: ["Standing quietly beside you.", "Calm and patient. You've got this."],
+          done: ["You did it! I'm doing a wobbly happy dance!", "Session done! So, so proud of you."],
+          task: ["Done! Hoof bump!", "Checked off! Ears up!", "Another one, slow and sure!", "Yes! Big moose cheer!"],
+          break: ["Break time! Go have a big drink of water.", "Stretch those legs! Mine are very long."]
+        }
+      }
+    ]
+  });
+})();
+/* end of module 98-comp-canada.js */
+
+
+/* ===== module: 98-comp-venice.js ===== */
+/* Study Companions, around the world: venice (Venice) */
+(() => {
+  const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
+  const O2 = OW(2.2);
+  const f1 = v => Math.round(v * 10) / 10;
+  const twinkle = (x, y, s, c) => `<path d="M${x} ${y - s}Q${x} ${y} ${x + s} ${y}Q${x} ${y} ${x} ${y + s}Q${x} ${y} ${x - s} ${y}Q${x} ${y} ${x} ${y - s}Z" fill="${c || "#fff"}"/>`;
+  // a little lapping wave under a floating friend
+  const wave = (x0, x1, y) => { let d = `M${x0} ${y}`; for (let x = x0; x < x1; x += 8) d += `Q${x + 2} ${y - 4} ${x + 4} ${y}Q${x + 6} ${y + 3} ${x + 8} ${y}`; return d; };
+
+  /* ================= Venice ================= */
+  COMP_DATA.push({
+    theme: "venice",
+    companions: [
+      {
+        id: "venice-gondi", name: "Gondi", kind: "Little Gondola", pose: "stand", wearColor: "#C8302E",
+        bio: "A little gondola who glides you through the tricky canals of your schedule.",
+        idle: ["sway", "topBob", "sparkle"], cheer: "bounce",
+        neck: [60, 88],
+        parts: {
+          feet: `${LG("venice-gondi-w", [[0, "#7CCAC0"], [1, "#3E9A92"]])}
+            <path d="M14 106Q20 100 28 104Q36 108 44 103Q52 99 60 104Q68 108 76 103Q84 99 92 104Q100 108 106 103L106 111Q60 115 14 111Z" fill="url(#venice-gondi-w)" ${O}/>
+            <path d="${wave(22, 98, 108)}" fill="none" stroke="#D4F0EC" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>`,
+          body: `${LG("venice-gondi-h", [[0, "#3A3A52"], [0.6, "#24243A"], [1, "#16162A"]])}
+            <path d="M10 60Q6 70 12 80Q22 98 60 101Q94 100 104 84Q108 76 110 64Q104 66 100 74Q94 84 60 86Q30 86 20 76Q16 70 18 62Z" fill="url(#venice-gondi-h)" ${O}/>
+            <path d="M18 64Q8 58 12 50Q18 46 20 54" fill="none" stroke="${INK}" stroke-width="6" stroke-linecap="round"/><path d="M18 64Q8 58 12 50Q18 46 20 54" fill="none" stroke="#2E2E46" stroke-width="3.2" stroke-linecap="round"/>
+            <path d="M104 70L110 46L114 46L112 70Z" fill="#E4E8F0" ${O2}/>
+            <path d="M110.6 50H116M110.2 55H115.4M109.6 60H114.6" stroke="#E4E8F0" stroke-width="2.6" stroke-linecap="round"/><path d="M110.6 50H116M110.2 55H115.4M109.6 60H114.6" stroke="${INK}" stroke-width=".9" stroke-linecap="round" opacity=".5"/>
+            <path d="M22 80Q60 94 100 80" fill="none" stroke="#E2B048" stroke-width="2.2" stroke-linecap="round"/>
+            <path d="M28 86Q44 92 58 92" fill="none" stroke="#5A5A78" stroke-width="2.4" stroke-linecap="round" opacity=".7"/>
+            ${twinkle(96, 92, 2.6, "#FFE27A")}`,
+          head: `${LG("venice-gondi-c", [[0, "#FFF8EA"], [1, "#F0E2C6"]])}
+            <path d="M36 86V60Q36 44 60 44Q84 44 84 60V86Z" fill="url(#venice-gondi-c)" ${O}/>
+            <path d="M36 60Q36 48 46 46L46 86H36Z" fill="#C8302E" ${O2}/><path d="M84 60Q84 48 74 46L74 86H84Z" fill="#C8302E" ${O2}/>
+            <path d="M40 54V80M80 54V80" stroke="#E2605A" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M48 50Q54 47 60 47" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>`,
+          top: {svg: `${LG("venice-gondi-s", [[0, "#F6DE96"], [1, "#D8B460"]])}
+            <ellipse cx="60" cy="44" rx="23" ry="5" fill="url(#venice-gondi-s)" ${O}/>
+            <path d="M47 43V33Q47 30 50 30H70Q73 30 73 33V43Z" fill="url(#venice-gondi-s)" ${O}/>
+            <path d="M47 37H73V41.4H47Z" fill="#C8302E" ${OW(1.8)}/><path d="M73 39L80 35L79 42Z" fill="#C8302E" ${OW(1.6)}/>
+            <path d="M50 33H58" stroke="#FFF6D6" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [60, 46]}
+        },
+        eyes: {lx: 52, rx: 68, y: 64, r: 4, style: "sparkle", color: "#22203A"},
+        mouth: {x: 60, y: 73, w: 3, color: "#22203A"},
+        cheeks: {lx: 48.6, rx: 71.4, y: 71, w: 3, h: 2, color: "#FF8A90"},
+        anchors: {top: [60, 38, 0.9], neck: [60, 86, 1], chest: [60, 94, 0.6], back: [22, 76, 0.8], hands: [60, 96, 0.84]},
+        lines: {
+          tap: ["Ciao! All aboard for a calm study ride!", "One stroke at a time, we glide through it!", "Your schedule has canals? I know them all!", "Steady oar, steady mind. Bellissimo!", "We'll float past that deadline easily!", "No traffic on the water. Just focus!", "Lean in, little stroke, big progress!", "Under the bridge and on to the next page!"],
+          pet: ["Hehe! You're rocking the boat!", "Aww, smooth sailing now!"],
+          hello: ["Ciao! Your gondola is ready!", "You're back! Hop aboard, friend!"],
+          morning: ["Buongiorno! The canal is calm today.", "Good morning! Fresh tides, fresh start!"],
+          night: ["Buonanotte! Even gondolas need mooring.", "The lanterns are lit. Rest soon, okay?"],
+          focus: ["Gliding quietly right beside you.", "Smooth water ahead. Keep rowing!"],
+          done: ["What a voyage! Bravissimo!", "All done! Docked in style!"],
+          task: ["Done! Smooth sailing!", "Checked off! Bravo!", "Another canal crossed!", "Yes! Full speed ahead!"],
+          break: ["Mooring break! Stretch on the dock!", "Drift for a bit, then back to rowing!"]
+        }
+      },
+      {
+        id: "venice-pippo", name: "Pippo", kind: "Venetian Pigeon", pose: "stand", wearColor: "#5FA888",
+        bio: "A strutting Venetian pigeon who patrols the piazza and your to-do list.",
+        idle: ["headTilt", "wingFlutter", "waddle"], cheer: "wingFlutter",
+        neck: [60, 66],
+        parts: {
+          tail: {svg: `<path d="M42 92L27 96Q24 100 27 104L42 100Z" fill="#8A90A4" ${O}/><path d="M28 99L38 97.6M28.6 102L38 100" stroke="#5A5E72" stroke-width="1.4" stroke-linecap="round"/>`, pivot: [42, 96]},
+          feet: `<path d="M50 104V110M46 111L50 109L54 111M70 104V110M66 111L70 109L74 111" fill="none" stroke="${INK}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><path d="M50 104V110M46 111L50 109L54 111M70 104V110M66 111L70 109L74 111" fill="none" stroke="#E88A96" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>`,
+          wingL: {svg: `${LG("venice-pippo-w", [[0, "#C4CAD8"], [1, "#9AA0B4"]])}<path d="M42 72C30 76 26 90 30 100C38 98 46 90 46 78Z" fill="url(#venice-pippo-w)" ${O}/><path d="M32 88L42 84M33 94L42 90" stroke="#4A4E5C" stroke-width="2" stroke-linecap="round"/>`, pivot: [44, 74]},
+          wingR: {svg: `<path d="M78 72C90 76 94 90 90 100C82 98 74 90 74 78Z" fill="url(#venice-pippo-w)" ${O}/><path d="M88 88L78 84M87 94L78 90" stroke="#4A4E5C" stroke-width="2" stroke-linecap="round"/>`, pivot: [76, 74]},
+          body: `${RG("venice-pippo-b", [[0, "#C8CEDC"], [0.7, "#A8AEC2"], [1, "#8A90A6"]], 0.45, 0.35, 0.7)}${LG("venice-pippo-n", [[0, "#6CB89A"], [0.5, "#5FA888"], [1, "#9070B0"]])}
+            <ellipse cx="60" cy="86" rx="24" ry="20" fill="url(#venice-pippo-b)" ${O}/>
+            <path d="M44 72Q60 82 76 72Q76 64 60 62Q44 64 44 72Z" fill="url(#venice-pippo-n)" ${O2}/>
+            <path d="M48 72Q54 75 58 74" fill="none" stroke="#B8E0CC" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>
+            <ellipse cx="60" cy="92" rx="11" ry="8" fill="#D6DAE6" opacity=".7"/>`,
+          head: `${RG("venice-pippo-h", [[0, "#B8BED0"], [0.8, "#969CB2"], [1, "#868CA2"]], 0.42, 0.32, 0.75)}
+            <circle cx="60" cy="50" r="19" fill="url(#venice-pippo-h)" ${O}/>
+            <path d="M56 58L60 54L64 58L60 64Z" fill="#3A3430" ${O2}/><ellipse cx="60" cy="54.6" rx="3.6" ry="1.8" fill="#F2ECEA" ${OW(1.4)}/>
+            <path d="M48 38Q54 33 62 33" fill="none" stroke="#DCE0EC" stroke-width="2.6" stroke-linecap="round"/>
+            `
+        },
+        eyes: {lx: 50, rx: 70, y: 46, r: 3.8, style: "round", color: "#2A1E22"},
+        mouth: {x: 60, y: 66, w: 2, color: "#3A3430"},
+        cheeks: {lx: 45, rx: 75, y: 54, w: 3, h: 2, color: "#FF9EB0"},
+        anchors: {top: [60, 32, 0.85], neck: [60, 66, 0.95], chest: [60, 84, 0.6], back: [80, 82, 0.8], hands: [60, 96, 0.84]},
+        lines: {
+          tap: ["Coo! This whole piazza is my study hall!", "Strut, peck, study. That's the plan!", "I have walked every square. Now your list!", "Crumbs of progress everywhere. Love it!", "Head up, chest out, one task at a time!", "Coo coo! I'm proud of you, truly!", "I'll guard your notes from the seagulls!", "Peck, peck! That's how big tasks get done!"],
+          pet: ["Coo! My shiny neck feathers!", "Hehe! Ruffled, but happy!"],
+          hello: ["Coo! You came back to the piazza!", "Hi hi! I saved you the sunny spot!"],
+          morning: ["Buongiorno! Breakfast crumbs and books!", "Good morning! The bells woke me up!"],
+          night: ["Buonanotte! Time to roost, friend.", "It's late! Tuck in your feathers soon."],
+          focus: ["Perched quietly beside you.", "No fluttering now. Deep focus!"],
+          done: ["Coo coo! Champion of the piazza!", "All done! Victory strut!"],
+          task: ["Done! Coo!", "Checked off! Flap flap!", "Another one pecked away!", "Yes! Proud pigeon moment!"],
+          break: ["Break! Go stretch your wings!", "Take a stroll around the square!"]
+        }
+      },
+      {
+        id: "venice-masca", name: "Masca", kind: "Carnival Mask", pose: "stand", wearColor: "#E2B048",
+        bio: "A sparkly carnival mask who hides a big grin behind all that glitter.",
+        idle: ["sparkle", "headTilt", "topBob"], cheer: "spin",
+        neck: [60, 82],
+        parts: {
+          feet: `<ellipse cx="50" cy="106" rx="7" ry="4.2" fill="#2E6A7A" ${O}/><ellipse cx="70" cy="106" rx="7" ry="4.2" fill="#2E6A7A" ${O}/>`,
+          armL: {svg: `<ellipse cx="34" cy="92" rx="5" ry="6.6" transform="rotate(28 34 92)" fill="#F6EEE4" ${O}/>`, pivot: [40, 88]},
+          armR: {svg: `<ellipse cx="86" cy="92" rx="5" ry="6.6" transform="rotate(-28 86 92)" fill="#F6EEE4" ${O}/>`, pivot: [80, 88]},
+          body: `${LG("venice-masca-b", [[0, "#C8463E"], [1, "#9A2A30"]])}
+            <path d="M42 84Q60 80 78 84L84 104Q60 110 36 104Z" fill="url(#venice-masca-b)" ${O}/>
+            <path d="M48 84L52 94L48 104M60 82L64 94L60 108M72 84L68 94L72 104" fill="none" stroke="#E2B048" stroke-width="1.8" stroke-linejoin="round"/>
+            <path d="M52 94L56 88L60 94L56 100Z M64 94L68 88L72 94L68 100Z" fill="#2E7A86"/>
+            <path d="${puff(60, 84, 14, 10, 1.25)}" fill="#FFFFFF" ${O2}/>`,
+          head: `${RG("venice-masca-h", [[0, "#FFF8F0"], [1, "#F0E0D0"]], 0.42, 0.35, 0.75)}${LG("venice-masca-m", [[0, "#F6D06A"], [0.5, "#E2B048"], [1, "#C08A2E"]])}
+            <circle cx="60" cy="60" r="22" fill="url(#venice-masca-h)" ${O}/>
+            <path d="M34 54Q33 44 44 44Q54 44 60 50Q66 44 76 44Q87 44 86 54Q86 64 76 66Q66 68 60 60Q54 68 44 66Q34 64 34 54Z" fill="url(#venice-masca-m)" ${O}/>
+            <ellipse cx="49" cy="55" rx="7" ry="5" fill="#FFF8F0" ${OW(1.8)}/><ellipse cx="71" cy="55" rx="7" ry="5" fill="#FFF8F0" ${OW(1.8)}/>
+            <path d="M38 50Q40 46 44 46M82 50Q80 46 76 46" fill="none" stroke="#FFF2C8" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M58 49L60 46L62 49L60 52Z" fill="#2E7A86" ${OW(1)}/>
+            <path d="M34 54Q28 52 28 46Q28 42 32 42" fill="none" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><path d="M34 54Q28 52 28 46Q28 42 32 42" fill="none" stroke="#E2B048" stroke-width="2.6" stroke-linecap="round"/>
+            <path d="M86 54Q92 52 92 46Q92 42 88 42" fill="none" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><path d="M86 54Q92 52 92 46Q92 42 88 42" fill="none" stroke="#E2B048" stroke-width="2.6" stroke-linecap="round"/>
+            ${[[40, 62], [80, 62], [47, 47], [73, 47]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1" fill="#FFFFFF"/>`).join("")}`,
+          top: {svg: `<path d="M56 42Q46 24 52 10Q58 22 60 40Z" fill="#2E7A86" ${O2}/><path d="M60 40Q60 18 70 6Q72 24 64 42Z" fill="#C8463E" ${O2}/><path d="M64 42Q72 28 84 24Q78 36 68 44Z" fill="#E2B048" ${O2}/>
+            <path d="M53 14Q56 26 58 38M68 10Q64 24 62 38M80 27Q72 34 66 42" fill="none" stroke="#FFFFFF" stroke-width="1" stroke-linecap="round" opacity=".6"/>
+            <circle cx="61" cy="42" r="4" fill="#E2B048" ${OW(1.8)}/><circle cx="60" cy="41" r="1.2" fill="#FFF6D0"/>`, pivot: [61, 44]}
+        },
+        eyes: {lx: 49, rx: 71, y: 55, r: 3.6, style: "sparkle", color: "#2A1E30"},
+        mouth: {x: 60, y: 72, w: 4, color: "#2A1E30"},
+        cheeks: {lx: 45, rx: 75, y: 70, w: 3.4, h: 2.2, color: "#FF8AA0"},
+        anchors: {top: [60, 38, 0.9], neck: [60, 82, 1], chest: [60, 94, 0.6], back: [82, 90, 0.8], hands: [60, 100, 0.84]},
+        lines: {
+          tap: ["Ta-da! Behind this mask, a huge grin!", "Glitter on, focus on. Let's go!", "Every page is a little masquerade!", "Who's that genius? Oh, it's you!", "Carnival rule: twirl after every task!", "Sparkle mode activated. You've got this!", "I wear gold, but your work shines more!", "A dash of glitter, a lot of grit!"],
+          pet: ["Hehe! Careful, the glitter spreads!", "Aww! My feathers are blushing!"],
+          hello: ["Ciao! The carnival starts now!", "You're back! Masks off, smiles on!"],
+          morning: ["Buongiorno! Fresh glitter for today!", "Good morning! Let's sparkle!"],
+          night: ["Buonanotte! Even the carnival sleeps.", "Late again? Hang up the mask soon!"],
+          focus: ["Shimmering quietly beside you.", "Eyes on the work. Masterful!"],
+          done: ["What a grand finale! Bravissimo!", "All done! Take a bow, star!"],
+          task: ["Done! Twirl time!", "Checked off! Sparkle!", "Another one! Encore!", "Yes! Pure gold!"],
+          break: ["Intermission! Stretch and dance!", "Take a little twirl, then back!"]
+        }
+      }
+    ]
+  });
+})();
+/* end of module 98-comp-venice.js */
+
+
+/* ===== module: 98-comp-mexico.js ===== */
+/* Study Companions, world theme: mexico */
+(() => {
+  const {O, OW, LG, RG, LINE} = COMP_KIT;
+  const O2 = OW(2.2);
+  const twinkle = (x, y, s, c) => `<path d="M${x} ${y - s}Q${x} ${y} ${x + s} ${y}Q${x} ${y} ${x} ${y + s}Q${x} ${y} ${x - s} ${y}Q${x} ${y} ${x} ${y - s}Z" fill="${c || "#fff"}"/>`;
+  const f1 = v => Math.round(v * 10) / 10;
+  const ring = (cx, cy, n, r, fn) => Array.from({length: n}, (_, i) => { const a = i / n * Math.PI * 2 - Math.PI / 2; return fn(f1(cx + Math.cos(a) * r), f1(cy + Math.sin(a) * r), a * 180 / Math.PI, i); }).join("");
+  // a five-petal flower with a gold heart
+  const flower = (x, y, r, c) => `${ring(x, y, 5, r * 0.6, (px, py) => `<circle cx="${px}" cy="${py}" r="${f1(r * 0.52)}" fill="${c}" ${OW(1.2)}/>`)}<circle cx="${x}" cy="${y}" r="${f1(r * 0.34)}" fill="#FFD23F" ${OW(1)}/>`;
+  // a talavera petal flower painted on a pot
+  const tflower = (x, y, r) => `${ring(x, y, 4, r * 0.55, (px, py) => `<circle cx="${px}" cy="${py}" r="${f1(r * 0.42)}" fill="#2C58B2"/>`)}<circle cx="${x}" cy="${y}" r="${f1(r * 0.28)}" fill="#F2B43A"/>`;
+
+  COMP_DATA.push({
+    theme: "mexico",
+    companions: [
+      {
+        id: "mexico-pico", name: "Pico", kind: "Flower Crown Cactus", pose: "stand", wearColor: "#E2468C",
+        bio: "A tough little cactus with a flower crown and a soft heart.",
+        idle: ["sway", "topBob", "wave"], cheer: "hop",
+        parts: {
+          body: `${LG("mexico-pico-g", [[0, "#8ED06A"], [0.55, "#5EAE4E"], [1, "#3E8A3E"]], 0, 0, 1, 0)}${LG("mexico-pico-p", [[0, "#FFFFFF"], [1, "#E6E2DA"]])}
+            <path d="M43 92V56C43 36 77 36 77 56V92Z" fill="url(#mexico-pico-g)" ${O}/>
+            <path d="M52 44V90M60 41V90M68 44V90" fill="none" stroke="#3E8A3E" stroke-width="1.6" stroke-linecap="round" opacity=".55"/>
+            ${[[48, 52], [48, 66], [48, 80], [56, 47], [64, 47], [56, 84], [64, 84], [72, 52], [72, 66], [72, 80]].map(([x, y]) => `<path d="M${x - 2} ${y - 1.4}L${x} ${y}L${x + 2} ${y - 1.4}" fill="none" stroke="#FFF6D8" stroke-width="1.1" stroke-linecap="round"/>`).join("")}
+            <path d="M47 58Q47 46 54 42" fill="none" stroke="#C8F0A8" stroke-width="3" stroke-linecap="round" opacity=".85"/>
+            <path d="M33 86H87L82 98L78 111H42L38 98Z" fill="url(#mexico-pico-p)" ${O}/>
+            <rect x="31" y="83" width="58" height="8" rx="3" fill="#F2B43A" ${O2}/>
+            <path d="M37 97H83" stroke="#2C58B2" stroke-width="2.6"/>
+            ${tflower(48, 104, 7)}${tflower(60, 104, 7)}${tflower(72, 104, 7)}
+            ${twinkle(100, 46, 3, "#FFD23F")}${twinkle(18, 70, 2.6, "#F27AB0")}`,
+          armL: {svg: `<path d="M44 80H32C27 80 25 77 25 73V68C25 64 32 64 32 68V72H44Z" fill="#5EAE4E" ${O}/><path d="M28 69v4" stroke="#C8F0A8" stroke-width="1.8" stroke-linecap="round"/><path d="M24 70l-2.4-1M24 74l-2.4 .4" stroke="#FFF6D8" stroke-width="1" stroke-linecap="round"/>`, pivot: [44, 76]},
+          armR: {svg: `<path d="M76 76H88C93 76 95 73 95 69V62C95 58 88 58 88 62V68H76Z" fill="#5EAE4E" ${O}/><path d="M91 63v4" stroke="#C8F0A8" stroke-width="1.8" stroke-linecap="round" opacity=".7"/><path d="M96 64l2.4-1M96 68l2.4 .4" stroke="#FFF6D8" stroke-width="1" stroke-linecap="round"/>`, pivot: [76, 72]},
+          top: {svg: `<path d="M46 43Q48 37 54 40M74 43Q72 37 66 40" fill="none" stroke="#3E8A3E" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M51 41C47 35 49 30 53 31C55 35 54 39 51 41Z M69 41C73 35 71 30 67 31C65 35 66 39 69 41Z" fill="#7CC45E" ${OW(1.4)}/>
+            ${flower(47, 42, 7, "#F27AB0")}${flower(73, 42, 7, "#FFB04A")}${flower(60, 35, 8.4, "#E2468C")}`, pivot: [60, 44]}
+        },
+        eyes: {lx: 52, rx: 68, y: 63, r: 4.4, style: "sparkle", color: "#22301E"},
+        mouth: {x: 60, y: 72, w: 2.8, color: "#22301E"},
+        cheeks: {lx: 47, rx: 73, y: 70, w: 3.6, h: 2.2, color: "#FF8FA8"},
+        anchors: {top: [60, 38, 0.8], neck: [60, 80, 0.85], chest: [66, 78, 0.55], back: [46, 66, 0.7], hands: [60, 84, 0.8]},
+        lines: {
+          tap: ["Hola! Prickly outside, all heart inside!", "Stand tall in the sun, like me. You've got this!", "Little by little, a cactus grows. So do you!", "My flower crown says you're doing great today!", "A cactus never gives up on a dry day. Neither do you!", "Deep roots, steady growth. That's the plan!", "Need a hug? Careful... okay, a gentle one!", "Every page you read is a drop of rain for me!"],
+          pet: ["Hehe! Mind the spines... aww, okay!", "My flowers are blushing!"],
+          hello: ["Hola, amigo! I saved you a sunny spot!", "You're back! My flowers just opened up!"],
+          morning: ["Buenos días! The plaza's waking up!", "Good morning! Soak up some sunshine!"],
+          night: ["Buenas noches! Even cacti need rest.", "The bandstand lights are on. Rest soon?"],
+          focus: ["Rooted right here with you. Focus!", "Quiet as the desert. You've got this."],
+          done: ["What a session! My crown is blooming!", "All done! Fiesta time!"],
+          task: ["Done! Sharp work!", "Checked off! Olé!", "Another one! Growing strong!", "Yes! That's the spirit!"],
+          break: ["Break time! Drink some water. I won't!", "Stretch up tall, like a saguaro!"]
+        }
+      },
+      {
+        id: "mexico-tito", name: "Tito", kind: "Axolotl", pose: "sit", sleepy: true, wearColor: "#2AAEB0",
+        bio: "A smiley axolotl who regrows its motivation overnight.",
+        idle: ["finWiggle", "headTilt", "topBob"], cheer: "spin",
+        neck: [60, 76],
+        parts: {
+          tail: {svg: `${LG("mexico-tito-t", [[0, "#FFC2D4"], [1, "#F58AAE"]], 0, 0, 1, 0)}
+            <path d="M78 98C94 100 108 92 113 78C115 72 110 70 106 74C100 82 92 86 80 86Z" fill="url(#mexico-tito-t)" ${O}/>
+            <path d="M84 90Q98 88 108 77" fill="none" stroke="#FFE4EC" stroke-width="2" stroke-linecap="round" opacity=".85"/>`, pivot: [80, 92]},
+          feet: `<ellipse cx="44" cy="108" rx="9" ry="4.4" fill="#F7A6C0" ${O}/><ellipse cx="76" cy="108" rx="9" ry="4.4" fill="#F7A6C0" ${O}/>
+            <path d="M39 107v2.4M44 106.6v2.8M49 107v2.4M71 107v2.4M76 106.6v2.8M81 107v2.4" stroke="#D86A8E" stroke-width="1.1" stroke-linecap="round"/>`,
+          body: `${RG("mexico-tito-b", [[0, "#FFE2EA"], [0.6, "#FFC2D4"], [1, "#F59AB8"]], 0.45, 0.35, 0.8)}
+            <path d="M60 72C80 72 86 88 86 97C86 106 77 110.5 60 110.5C43 110.5 34 106 34 97C34 88 40 72 60 72Z" fill="url(#mexico-tito-b)" ${O}/>
+            <path d="M60 80C69 80 73 89 72 97C71 103 49 103 48 97C47 89 51 80 60 80Z" fill="#FFF0F4"/>
+            ${[[44, 86], [76, 86], [50, 104], [70, 104]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.8" fill="#E87AA0" opacity=".6"/>`).join("")}
+            <rect x="46" y="76" width="28" height="5" rx="2.5" fill="#2AAEB0" ${OW(1.6)}/>`,
+          armL: {svg: `<path d="M40 86C32 86 26 92 28 97C30 100 36 98 38 94" fill="#F7A6C0" ${O}/><path d="M27 97l-3 1M28 100l-2 2.6" stroke="#2B2233" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [41, 86]},
+          armR: {svg: `<path d="M80 86C88 86 94 92 92 97C90 100 84 98 82 94" fill="#F7A6C0" ${O}/><path d="M93 97l3 1M92 100l2 2.6" stroke="#2B2233" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [79, 86]},
+          head: `${RG("mexico-tito-h", [[0, "#FFE6EE"], [0.65, "#FFC6D6"], [1, "#F5A0BC"]], 0.45, 0.35, 0.78)}${LG("mexico-tito-gl", [[0, "#F0507E"], [1, "#C8306A"]], 0, 0, 1, 0)}${LG("mexico-tito-gr", [[0, "#C8306A"], [1, "#F0507E"]], 0, 0, 1, 0)}
+            ${[[38, 50, -150], [36, 60, -178], [38, 70, 152]].map(([x, y, a]) => `<g transform="rotate(${a} ${x} ${y})"><path d="M${x} ${y - 3}C${x + 10} ${y - 6} ${x + 20} ${y - 4} ${x + 24} ${y}C${x + 20} ${y + 4} ${x + 10} ${y + 6} ${x} ${y + 3}Z" fill="url(#mexico-tito-gl)" ${O2}/>${[6, 11, 16, 20].map(d => `<path d="M${x + d} ${y - 3.4}l1.6 -3.6M${x + d} ${y + 3.4}l1.6 3.6" stroke="#C8306A" stroke-width="2" stroke-linecap="round"/>`).join("")}</g>`).join("")}
+            ${[[82, 50, -30], [84, 60, -2], [82, 70, 28]].map(([x, y, a]) => `<g transform="rotate(${a} ${x} ${y})"><path d="M${x} ${y - 3}C${x + 10} ${y - 6} ${x + 20} ${y - 4} ${x + 24} ${y}C${x + 20} ${y + 4} ${x + 10} ${y + 6} ${x} ${y + 3}Z" fill="url(#mexico-tito-gr)" ${O2}/>${[6, 11, 16, 20].map(d => `<path d="M${x + d} ${y - 3.4}l1.6 -3.6M${x + d} ${y + 3.4}l1.6 3.6" stroke="#C8306A" stroke-width="2" stroke-linecap="round"/>`).join("")}</g>`).join("")}
+            <path d="M60 38C82 38 89 50 89 60C89 72 78 79 60 79C42 79 31 72 31 60C31 50 38 38 60 38Z" fill="url(#mexico-tito-h)" ${O}/>
+            <path d="M40 50Q44 43 52 41" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="70" cy="46" r="1.6" fill="#E87AA0" opacity=".7"/><circle cx="76" cy="50" r="1.2" fill="#E87AA0" opacity=".7"/>`,
+          top: {svg: `<path d="M56 40C52 30 54 24 57 23C60 27 60 34 59 40Z M64 40C68 30 66 24 63 23C60 27 60 34 61 40Z" fill="#F0507E" ${O2}/>
+            <path d="M55 31l-3-1M65 31l3-1M56 27l-2.4-2M64 27l2.4-2" stroke="#C8306A" stroke-width="1.8" stroke-linecap="round"/>
+            <circle cx="72" cy="22" r="3.4" fill="#BFF0F2" ${OW(1.4)}/><circle cx="71" cy="21" r="1" fill="#fff"/><circle cx="78" cy="15" r="2.2" fill="#BFF0F2" ${OW(1.2)}/>`, pivot: [60, 40]}
+        },
+        eyes: {lx: 47, rx: 73, y: 59, r: 3.8, style: "dot", color: "#2A2026"},
+        mouth: {x: 60, y: 67, w: 5.6, color: "#2A2026"},
+        cheeks: {lx: 40, rx: 80, y: 66, w: 4, h: 2.4, color: "#FF7A9C"},
+        anchors: {top: [60, 40, 0.85], neck: [60, 78, 1], chest: [60, 92, 0.6], back: [84, 90, 0.8], hands: [60, 100, 0.86]},
+        lines: {
+          tap: ["Hi! I'm smiling. I'm always smiling!", "Axolotls regrow anything. Even motivation!", "Mistakes? I'll just grow a new start!", "Swimming slowly, still getting there!", "My gills are wiggling with excitement!", "From the canals of Xochimilco, with love!", "You keep going, I'll keep cheering!", "Little paws, big dreams. Let's study!"],
+          pet: ["Hehe! My gills went all fluffy!", "Aww, that's a very happy wiggle!"],
+          hello: ["You're back! My smile got even bigger!", "Hola! Ready for a little swim through notes?"],
+          morning: ["Buenos días! Fresh water, fresh start!", "Good morning! I regrew my energy overnight!"],
+          night: ["Sleepy gills... time to rest, maybe?", "Buenas noches! I'll regrow us some energy."],
+          focus: ["Floating quietly beside you.", "Calm water, calm mind. Focus time!"],
+          done: ["What a session! Happy wiggles!", "All done! I'm doing a little spin!"],
+          task: ["Done! Smooth swimming!", "Checked off! Wiggle wiggle!", "Another one! Unstoppable!", "Yes! Big axolotl smile!"],
+          break: ["Break time! Float for a minute.", "Stretch your fins! I mean, arms!"]
+        }
+      },
+      {
+        id: "mexico-concha", name: "Concha", kind: "Sweet Bread", pose: "stand", wearColor: "#F27AB0",
+        bio: "A pan dulce with a sugar-shell top and a sunny mood.",
+        idle: ["topBob", "bounce", "sparkle"], cheer: "bounce",
+        parts: {
+          feet: `<ellipse cx="46" cy="108" rx="8" ry="4.2" fill="#D8903E" ${O}/><ellipse cx="74" cy="108" rx="8" ry="4.2" fill="#D8903E" ${O}/>`,
+          body: `${RG("mexico-concha-b", [[0, "#FFE0A0"], [0.6, "#F2B460"], [1, "#D88A36"]], 0.45, 0.3, 0.8)}
+            <path d="M22 80C22 66 38 60 60 60C82 60 98 66 98 80C98 98 84 108 60 108C36 108 22 98 22 80Z" fill="url(#mexico-concha-b)" ${O}/>
+            <path d="M30 96Q60 108 90 96" fill="none" stroke="#C8782A" stroke-width="2" stroke-linecap="round" opacity=".55"/>
+            <path d="M30 84Q32 76 38 72" fill="none" stroke="#FFF0C8" stroke-width="3" stroke-linecap="round" opacity=".8"/>
+            ${twinkle(104, 52, 3.4, "#FFD23F")}${twinkle(16, 92, 2.6, "#F27AB0")}`,
+          top: {svg: `${RG("mexico-concha-s", [[0, "#FFF0F4"], [0.6, "#FFC6D8"], [1, "#F29AB8"]], 0.45, 0.3, 0.8)}
+            <defs><clipPath id="mexico-concha-c"><path d="M22 75C20 51 39 38 60 38C81 38 100 51 98 75C90 80 30 80 22 75Z"/></clipPath></defs>
+            <path d="M20 76C18 50 38 36 60 36C82 36 102 50 100 76C92 82 28 82 20 76Z" fill="url(#mexico-concha-s)" ${O}/>
+            <g clip-path="url(#mexico-concha-c)" fill="none" stroke="#E07A9E" stroke-width="2" stroke-linecap="round" opacity=".7">${[-44, -28, -12, 4, 20, 36].map(d => `<path d="M${60 + d * 0.3} 82Q${60 + d * 0.7} 58 ${60 + d * 0.9} 34"/>`).join("")}${[[18, 40], [30, 36], [42, 28]].map(([r, w]) => `<path d="M${60 - w} ${80 - r}Q60 ${70 - r * 1.5} ${60 + w} ${80 - r}"/>`).join("")}</g>
+            ${[[40, 50], [52, 44], [68, 46], [80, 54], [46, 62], [74, 64], [60, 56]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.1" fill="#fff" opacity=".9"/>`).join("")}
+            <path d="M32 58Q38 46 50 42" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" opacity=".9"/>`, pivot: [60, 78]}
+        },
+        eyes: {lx: 48, rx: 72, y: 88, r: 4.4, style: "sparkle", color: "#3A1E10"},
+        mouth: {x: 60, y: 97, w: 3, color: "#3A1E10"},
+        cheeks: {lx: 40, rx: 80, y: 95, w: 4, h: 2.4, color: "#FF8F8A"},
+        anchors: {top: [60, 38, 0.95], neck: [60, 104, 1], chest: [72, 100, 0.6], back: [92, 80, 0.8], hands: [60, 104, 0.86]},
+        lines: {
+          tap: ["Fresh from the panadería, just for you!", "Sweet shell, soft heart, big plans!", "You rise to every challenge. Like dough!", "A little sugar makes studying sweeter!", "Pair me with hot chocolate and a good book!", "Every crumb of effort counts!", "Golden on the outside, proud on the inside!", "You're doing sweetly today. Keep it up!"],
+          pet: ["Hehe! Careful, my sugar crumbles!", "Aww, warm and toasty now!"],
+          hello: ["You're back! The bakery smells amazing!", "Hola! Fresh and ready to cheer you on!"],
+          morning: ["Buenos días! Breakfast and big goals!", "Good morning! Baked fresh at sunrise!"],
+          night: ["Cozy night! Time to cool off on the rack.", "Buenas noches! Sweet dreams, literally."],
+          focus: ["Rising quietly beside you.", "Warm and calm. Let's focus!"],
+          done: ["What a session! Perfectly baked!", "All done! A sweet victory!"],
+          task: ["Done! Sweet!", "Checked off! Golden brown!", "Another one! Rising high!", "Yes! Sugar on top!"],
+          break: ["Snack break! Something sweet, maybe?", "Stretch a little, then a sip of water!"]
+        }
+      }
+    ]
+  });
+})();
+/* end of module 98-comp-mexico.js */
+
+
+/* ===== module: 98-comp-brazil.js ===== */
+/* Study Companions, Around the World: brazil */
+(() => {
+  const {O, OW, LG, RG} = COMP_KIT;
+  const f1 = v => Math.round(v * 10) / 10;
+  const ring = (cx, cy, n, r, fn) => Array.from({length: n}, (_, i) => { const a = i / n * Math.PI * 2; return fn(f1(cx + Math.cos(a) * r), f1(cy + Math.sin(a) * r), a * 180 / Math.PI, i); }).join("");
+  // a little hibiscus: five round petals and a stamen
+  const hibiscus = (x, y, r, c = "#FF5A6A", mid = "#FFD23A") => `<g>${ring(x, y, 5, r * 0.52, (px, py, a) => `<ellipse cx="${px}" cy="${py}" rx="${f1(r * 0.55)}" ry="${f1(r * 0.42)}" transform="rotate(${f1(a)} ${px} ${py})" fill="${c}" ${OW(1)}/>`)}<circle cx="${x}" cy="${y}" r="${f1(r * 0.22)}" fill="${mid}"/></g>`;
+  // the shaggy edge of the tamarin's golden mane: n tufts round an ellipse
+  const mane = (cx, cy, rx, ry, n) => { let d = ""; for (let i = 0; i <= n; i++) { const a = i / n * Math.PI * 2, b = (i + 0.5) / n * Math.PI * 2, k = 1.16 + (i % 2) * 0.05;
+    d += `${i ? "Q" : "M"}${i ? `${f1(cx + Math.cos(b - Math.PI / n) * rx * k)} ${f1(cy + Math.sin(b - Math.PI / n) * ry * k)} ` : ""}${f1(cx + Math.cos(a) * rx)} ${f1(cy + Math.sin(a) * ry)}`; } return d + "Z"; };
+
+  COMP_DATA.push({
+    theme: "brazil",
+    companions: [
+      {
+        id: "brazil-tuca", name: "Tuca", kind: "Toco Toucan Chick", pose: "stand", wearColor: "#FF8A1E",
+        bio: "A toco toucan chick with a big beak and the loudest cheer on the beach.",
+        idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter",
+        neck: [60, 74],
+        parts: {
+          feet: `<path d="M44 104q-4 4 -1 5h10q2-2-1-5ZM68 104q-4 4 -1 5h10q2-2-1-5Z" fill="#6A8ACF" ${O}/>`,
+          wingL: {svg: `<path d="M38 76C27 79 22 92 26 104C31 106 38 101 41 94Z" fill="#26232E" ${O}/><path d="M30 92Q31 99 35 101" fill="none" stroke="#4A4656" stroke-width="2" stroke-linecap="round"/>`, pivot: [38, 78]},
+          wingR: {svg: `<path d="M82 76C93 79 98 92 94 104C89 106 82 101 79 94Z" fill="#26232E" ${O}/><path d="M90 92Q89 99 85 101" fill="none" stroke="#4A4656" stroke-width="2" stroke-linecap="round"/>`, pivot: [82, 78]},
+          body: `${RG("brazil-tuca-b", [[0, "#3E3A48"], [0.7, "#24212C"], [1, "#16141C"]], 0.4, 0.3, 0.8)}
+            <path d="M60 66C79 66 87 82 87 94C87 104 77 109 60 109C43 109 33 104 33 94C33 82 41 66 60 66Z" fill="url(#brazil-tuca-b)" ${O}/>
+            <path d="M60 72C70 72 75 81 74 91C73 99 67 103 60 103C53 103 47 99 46 91C45 81 50 72 60 72Z" fill="#FFF6D8"/>
+            <path d="M50 96Q60 101 70 96Q68 103 60 104Q52 103 50 96Z" fill="#FFD23A"/>
+            <ellipse cx="60" cy="108" rx="9" ry="2.6" fill="#E2302A"/>`,
+          head: `${RG("brazil-tuca-h", [[0, "#423E4E"], [0.7, "#26232E"], [1, "#18161E"]], 0.4, 0.3, 0.8)}
+            <path d="M60 24C80 24 88 38 88 50C88 64 76 72 60 72C44 72 32 64 32 50C32 38 40 24 60 24Z" fill="url(#brazil-tuca-h)" ${O}/>
+            <path d="M42 34Q48 28 56 27" fill="none" stroke="#5A5668" stroke-width="2.6" stroke-linecap="round"/>
+            <ellipse cx="49" cy="50" rx="7.4" ry="7" fill="#FF9A2A"/><ellipse cx="71" cy="50" rx="7.4" ry="7" fill="#FF9A2A"/>
+            <ellipse cx="49" cy="50" rx="5.6" ry="5.4" fill="#5AA8F0"/><ellipse cx="71" cy="50" rx="5.6" ry="5.4" fill="#5AA8F0"/>`,
+          face: `${LG("brazil-tuca-k", [[0, "#FFC23A"], [0.55, "#FF8A1E"], [1, "#F2601A"]])}
+            <path d="M47 58C50 54 70 54 73 58C76 62 74 70 68 76C64 80 61 82 60 82C59 82 56 80 52 76C46 70 44 62 47 58Z" fill="url(#brazil-tuca-k)" ${O}/>
+            <path d="M54 76.6C57 80 59 82 60 82C61 82 63 80 66 76.6C63 78.4 57 78.4 54 76.6Z" fill="#26232E"/>
+            <path d="M50 58.6Q60 55.6 70 58.6" fill="none" stroke="#E2302A" stroke-width="1.8" stroke-linecap="round"/>
+            <ellipse cx="55" cy="60.6" rx="3" ry="1.4" fill="#FFF2C0" opacity=".8"/>`,
+          top: {svg: `<path d="M56 26C54 18 57 13 61 12C60 16 61 20 62 25ZM62 26C64 19 68 16 72 17C69 20 67 23 65 27Z" fill="#26232E" ${OW(2)}/>${hibiscus(70, 28, 6.4)}`, pivot: [60, 27]}
+        },
+        eyes: {lx: 49, rx: 71, y: 50, r: 3.6, style: "dot", color: "#1A1820"},
+        mouth: {x: 60, y: 68, w: 3, color: "#7A2A10"},
+        cheeks: {lx: 40, rx: 80, y: 60, w: 3.6, h: 2.2, color: "#FF8A9A"},
+        anchors: {top: [60, 24, 0.95], neck: [60, 72, 1], chest: [68, 90, 0.6], back: [86, 84, 0.8], hands: [60, 98, 0.86]},
+        lines: {
+          tap: ["Bom dia! Ready to make some noise?", "My beak is big, but my cheers are bigger!", "Let's fly through this list together!", "Toco! That's toucan for 'you've got this'!", "One task at a time, like fruit for breakfast!", "I spy a finish line from my branch!", "You bring the focus, I'll bring the color!", "Every page gets you closer to the beach!"],
+          pet: ["Hehe! Mind the beak, it's ticklish!", "Aww! My feathers are all fluffed up!"],
+          hello: ["Olá! You're back! I saved you a branch!", "Hi hi! The whole beach missed you!"],
+          morning: ["Good morning! The sun's up over the bay!", "Rise and shine! Papaya, then study?"],
+          night: ["Boa noite! Even toucans tuck in their beaks.", "Night night! The bay lights are on for you."],
+          focus: ["Shhh... quiet as a toucan on a branch.", "Eyes on the goal! I'm right here!"],
+          done: ["Session done! Time for a beach parade!", "You did it! Loudest cheer on the beach!"],
+          task: ["Done! Toco toco!", "Checked off! Wings up!", "Another one! Beak-tastic!", "Yes! Fly high!"],
+          break: ["Break time! Shake out your feathers!", "Stretch your wings, sip some water!"]
+        }
+      },
+      {
+        id: "brazil-mico", name: "Mico", kind: "Golden Lion Tamarin", pose: "sit", wearColor: "#2E9A5A",
+        bio: "A golden lion tamarin with a tiny golden mane and a big love of learning.",
+        idle: ["tailSwish", "headTilt", "earTwitch"], cheer: "hop",
+        neck: [60, 76],
+        parts: {
+          tail: {svg: `<path d="M82 100C98 100 106 88 104 74C102 62 108 52 114 50" fill="none" stroke="#2B2233" stroke-width="11" stroke-linecap="round"/>
+            <path d="M82 100C98 100 106 88 104 74C102 62 108 52 114 50" fill="none" stroke="#F29A2A" stroke-width="6" stroke-linecap="round"/>
+            <path d="M108 56C110 52 112 51 114 50" fill="none" stroke="#C8701A" stroke-width="6" stroke-linecap="round"/>`, pivot: [82, 100]},
+          feet: `<ellipse cx="44" cy="106" rx="9" ry="5" fill="#E8902A" ${O}/><ellipse cx="76" cy="106" rx="9" ry="5" fill="#E8902A" ${O}/><path d="M40 108.6v-2.4M44 109v-2.6M48 108.6v-2.4M72 108.6v-2.4M76 109v-2.6M80 108.6v-2.4" stroke="#6A3A2A" stroke-width="1.1" stroke-linecap="round"/>`,
+          body: `${RG("brazil-mico-b", [[0, "#FFC25A"], [0.7, "#F29A2A"], [1, "#D87A1A"]], 0.4, 0.3, 0.8)}
+            <path d="M60 70C78 70 86 86 86 97C86 106 76 110 60 110C44 110 34 106 34 97C34 86 42 70 60 70Z" fill="url(#brazil-mico-b)" ${O}/>
+            <path d="M60 78C68 78 72 88 70 98C69 104 51 104 50 98C48 88 52 78 60 78Z" fill="#FFD88A"/>
+            <path d="M42 84Q46 80 50 82M70 82Q74 80 78 84" fill="none" stroke="#FFE2A8" stroke-width="2" stroke-linecap="round"/>`,
+          armL: {svg: `<path d="M44 82Q38 92 40 104Q45 108 50 104Q50 94 51 84Z" fill="#F2A23A" ${O}/><path d="M40 101Q45 107 50 103L50 104Q45 108 40 104Z" fill="#6A3A2A"/>`, pivot: [47, 84]},
+          armR: {svg: `<path d="M76 82Q82 92 80 104Q75 108 70 104Q70 94 69 84Z" fill="#F2A23A" ${O}/><path d="M80 101Q75 107 70 103L70 104Q75 108 80 104Z" fill="#6A3A2A"/>`, pivot: [73, 84]},
+          earL: {svg: `<ellipse cx="24" cy="48" rx="6.4" ry="7.6" fill="#8A5A42" ${O}/><ellipse cx="24.8" cy="48.6" rx="3.2" ry="4.4" fill="#C88A6A"/>`, pivot: [30, 52]},
+          earR: {svg: `<ellipse cx="96" cy="48" rx="6.4" ry="7.6" fill="#8A5A42" ${O}/><ellipse cx="95.2" cy="48.6" rx="3.2" ry="4.4" fill="#C88A6A"/>`, pivot: [90, 52]},
+          head: `${RG("brazil-mico-m", [[0, "#FFD27A"], [0.6, "#F7A53A"], [1, "#E0801E"]], 0.45, 0.35, 0.8)}
+            <path d="${mane(60, 50, 31, 29, 22)}" fill="url(#brazil-mico-m)" ${O}/>
+            <path d="M40 30Q48 22 58 22M66 22Q76 24 82 32" fill="none" stroke="#FFE2A0" stroke-width="2.4" stroke-linecap="round"/>
+            ${RG("brazil-mico-f", [[0, "#C8906E"], [1, "#9A6650"]], 0.45, 0.35, 0.8)}
+            <path d="M60 36C72 36 77 45 77 55C77 66 70 73 60 73C50 73 43 66 43 55C43 45 48 36 60 36Z" fill="url(#brazil-mico-f)" ${OW(2.4)}/>
+            <ellipse cx="51" cy="52" rx="6.4" ry="6" fill="#F2DCC8"/><ellipse cx="69" cy="52" rx="6.4" ry="6" fill="#F2DCC8"/>`,
+          face: `<path d="M57 61Q60 59.4 63 61Q62 63.4 60 63.6Q58 63.4 57 61Z" fill="#4A2A22"/>${hibiscus(80, 30, 6, "#FF5A8A")}`
+        },
+        eyes: {lx: 51, rx: 69, y: 52, r: 3.8, style: "sparkle", color: "#24161A"},
+        mouth: {x: 60, y: 67, w: 3, color: "#4A2A22", style: "cat"},
+        cheeks: {lx: 46, rx: 74, y: 62, w: 3.4, h: 2, color: "#FF8A8A"},
+        anchors: {top: [60, 20, 0.9], neck: [60, 78, 1], chest: [66, 92, 0.6], back: [84, 88, 0.8], hands: [60, 100, 0.86]},
+        lines: {
+          tap: ["Hi! I'm small, but I study big!", "My mane is golden, and so are your ideas!", "Swing from task to task with me!", "Let's go! The forest is cheering for you!", "I'm hungry for knowledge! And fruit!", "Tiny steps make a long, long trail!", "Curious minds climb the highest trees!", "You've got this, I've got snacks!"],
+          pet: ["Hehe! You fluffed up my mane!", "Aww! Golden-hug time!"],
+          hello: ["You're back! I swung right over!", "Oi! I kept your spot in the treetops!"],
+          morning: ["Good morning! Sun on my mane!", "Rise and shine! Let's climb today!"],
+          night: ["Curling up in the treetops. Night!", "Boa noite! Rest that clever head."],
+          focus: ["Tiny and quiet. Focus mode on!", "Holding on tight to this task!"],
+          done: ["Session done! Banana for everyone!", "We did it! Treetop high five!"],
+          task: ["Done! Swing!", "Checked off! Golden!", "Another one! Yum!", "Yes! Climbing higher!"],
+          break: ["Snack break! Fruit and water!", "Stretch break! Big tamarin stretch!"]
+        }
+      },
+      {
+        id: "brazil-cocada", name: "Cocada", kind: "Coconut with a Straw", pose: "stand", wearColor: "#FF5A8A",
+        bio: "A fresh coconut from the beach kiosk, straw in and ready to cheer you on.",
+        idle: ["topBob", "sway", "sparkle"], cheer: "bounce",
+        parts: {
+          feet: `<ellipse cx="47" cy="107" rx="8" ry="4.4" fill="#5A9A3A" ${O}/><ellipse cx="73" cy="107" rx="8" ry="4.4" fill="#5A9A3A" ${O}/>`,
+          body: `${RG("brazil-cocada-b", [[0, "#B8E070"], [0.6, "#7CC04A"], [1, "#4E9A34"]], 0.38, 0.3, 0.85)}
+            <path d="M60 30C84 30 96 50 96 70C96 92 82 106 60 106C38 106 24 92 24 70C24 50 36 30 60 30Z" fill="url(#brazil-cocada-b)" ${O}/>
+            <path d="M42 36C48 32 72 32 78 36C80 40 72 43 60 43C48 43 40 40 42 36Z" fill="#FFFBEA" ${OW(2.2)}/>
+            <ellipse cx="60" cy="37.6" rx="12" ry="3" fill="#E8F2D0"/>
+            <path d="M32 58Q34 44 46 38" fill="none" stroke="#E2F6B0" stroke-width="3.2" stroke-linecap="round" opacity=".85"/>
+            <path d="M36 92Q42 100 52 103M84 92Q78 100 68 103" fill="none" stroke="#3E8A2A" stroke-width="1.6" stroke-linecap="round" opacity=".6"/>
+            ${hibiscus(84, 48, 7.4)}`,
+          top: {svg: `<path d="M63 40L71 12L77 8" fill="none" stroke="#2B2233" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M63 40L71 12L77 8" fill="none" stroke="#FF5A8A" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M65.6 31L68 22.4" stroke="#FFFFFF" stroke-width="3.6" stroke-linecap="butt"/>
+            <path d="M48 18Q55 8 62 18Z" fill="#FFD23A" ${OW(1.8)}/><path d="M52 15.6Q55 10 58 15.6" fill="none" stroke="#2A9A5A" stroke-width="1.6"/><path d="M55 18L56 38" stroke="#2B2233" stroke-width="1.6"/>`, pivot: [62, 40]}
+        },
+        eyes: {lx: 50, rx: 70, y: 70, r: 4.4, style: "round", color: "#2B2233"},
+        mouth: {x: 60, y: 80, w: 3.2, color: "#2B2233"},
+        cheeks: {lx: 42, rx: 78, y: 78, w: 4, h: 2.4, color: "#FF8A9A"},
+        anchors: {top: [60, 30, 0.85], neck: [60, 92, 0.9], chest: [70, 90, 0.55], back: [92, 70, 0.8], hands: [60, 98, 0.86]},
+        lines: {
+          tap: ["Fresh coconut water for your brain!", "Stay hydrated, stay brilliant!", "Straw's in, focus is on!", "A sip of sunshine, then back to work!", "Tough on the outside, sweet inside!", "Chilled, calm and ready to help!", "Kiosk's open, let's serve some answers!", "You're doing coco-nuts good work!"],
+          pet: ["Hehe! That tickles my husk!", "Aww! You're making me blush green!"],
+          hello: ["Olá! Fresh from the beach for you!", "Hi! I kept myself nice and cold!"],
+          morning: ["Good morning! First sip of the day!", "Rise and shine! Beach-fresh start!"],
+          night: ["Boa noite! The kiosk is closing.", "Rest up! I'll chill till morning."],
+          focus: ["Shh... quiet as a coconut. Focus!", "Sipping slowly, thinking clearly."],
+          done: ["Session done! Cheers, coco style!", "All done! Time for a beach break!"],
+          task: ["Done! Refreshing!", "Checked off! Sip sip!", "Another one! So cool!", "Yes! Top of the palm!"],
+          break: ["Water break! Take a big sip!", "Stretch break! Toes in the sand!"]
+        }
+      }
+    ]
+  });
+})();
+/* end of module 98-comp-brazil.js */
+
 

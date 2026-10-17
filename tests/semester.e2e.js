@@ -216,7 +216,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await c2.addInitScript(() => { try { localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); } catch (e) {} });
       const p2 = await c2.newPage(); p2.errs = []; p2.on("pageerror", e => p2.errs.push(e.message)); await p2.goto(base);
       await p2.waitForSelector(".sheet.ob", {timeout: 8000});
-      for (let i = 0; i < 8; i++) { await p2.click('[data-ob="next"]'); await p2.waitForTimeout(150); }
+      for (let i = 0; i < 12 && !(await p2.locator('[data-ob="semester"]').count()); i++) { await p2.click('[data-ob="next"]'); await p2.waitForTimeout(150); }
       await p2.waitForSelector('[data-ob="semester"]');
       await p2.click('[data-ob="semester"]');
       await p2.waitForSelector(".sem-sheet .sem-h");

@@ -80,6 +80,16 @@ export async function readLimited(req: Request, max: number): Promise<string | n
   return new TextDecoder().decode(all);
 }
 
+// The caller's address for the per-address limit. cf-connecting-ip is set by the edge in front of Supabase; otherwise the RIGHT-most
+// X-Forwarded-For entry (the one the last proxy added). The left-most entries are whatever the client sent, so they can't be trusted.
+// No address at all shares one "unknown" bucket, so reports without an anonymous id still meet a per-address limit.
+export function clientIp(h: Headers): string {
+  const cf = (h.get("cf-connecting-ip") || "").trim();
+  if (cf) return cf.slice(0, 64);
+  const xff = (h.get("x-forwarded-for") || "").split(",").map(s => s.trim()).filter(Boolean);
+  return (xff[xff.length - 1] || "unknown").slice(0, 64);
+}
+
 // A network address is a small space (every IPv4 address can be tried in minutes), so a plain hash of it, even with the date mixed in,
 // could be reversed. It is keyed instead (HMAC-SHA-256) with a server-only secret and the day, so it can't be reversed or matched across days.
 async function ipMac(secret: string, s: string): Promise<string> {
@@ -103,11 +113,11 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     let body: unknown; try { body = JSON.parse(raw); } catch (_e) { return json({ error: "bad json" }, 400); }
     const v = validate(body, d.now());
     if (!v.ok) return json({ error: "invalid", why: v.why }, 400);
-    const ip = (req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "").split(",")[0].trim();
+    const ip = clientIp(req.headers);
     const day = new Date(d.now()).toISOString().slice(0, 10);
     const key = serviceKey(d), base = d.env("SUPABASE_URL").replace(/\/+$/, "");
     const secret = d.env("ERROR_INGEST_SALT") || key;
-    const ipHash = ip && secret ? await ipMac(secret, `${day}|${ip}`) : null;   // no secret at all: no address kept (the per-id and overall limits still apply)
+    const ipHash = secret ? await ipMac(secret, `${day}|${ip}`) : null;   // no secret at all: no address kept (the per-id and overall limits still apply)
     const h = { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
     const rl = await d.fetch(`${base}/rest/v1/rpc/client_errors_allow`, { method: "POST", headers: h, body: JSON.stringify({ p_anon: v.row.anon_id, p_ip: ipHash }) });
     if (!rl.ok) throw new Error("rate check " + rl.status);

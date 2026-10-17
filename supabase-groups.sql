@@ -73,6 +73,8 @@ create table if not exists public.study_groups (
   invite_code text not null unique,
   created_at timestamptz not null default now()
 );
+-- Deleting a group only hides it for 30 days (see "Deleted groups" at the end); this is when it was deleted.
+alter table public.study_groups add column if not exists deleted_at timestamptz;
 
 create table if not exists public.group_members (
   group_id uuid not null references public.study_groups(id) on delete cascade,
@@ -107,15 +109,18 @@ create table if not exists public.group_messages (
   created_at timestamptz not null default now()
 );
 create index if not exists group_messages_group_idx on public.group_messages (group_id, created_at desc);
+create index if not exists group_messages_user_idx on public.group_messages (user_id, created_at);   -- the posting limits below
 
 -- ---------- Helpers used by the rules (security definer so the rules don't loop) ----------
+-- A deleted group (waiting out its 30 days) has no members and no owner as far as every rule is concerned: hidden, and nothing changes.
 create or replace function public.sbg_is_member(gid uuid) returns boolean
 language sql stable security definer set search_path = public as $$
-  select exists (select 1 from public.group_members m where m.group_id = gid and m.user_id = auth.uid())
+  select exists (select 1 from public.group_members m join public.study_groups g on g.id = m.group_id
+                 where m.group_id = gid and m.user_id = auth.uid() and g.deleted_at is null)
 $$;
 create or replace function public.sbg_is_owner(gid uuid) returns boolean
 language sql stable security definer set search_path = public as $$
-  select exists (select 1 from public.study_groups g where g.id = gid and g.owner_id = auth.uid())
+  select exists (select 1 from public.study_groups g where g.id = gid and g.owner_id = auth.uid() and g.deleted_at is null)
 $$;
 create or replace function public.sbg_my_name() returns text
 language sql stable security definer set search_path = public as $$
@@ -150,7 +155,7 @@ create policy "group member read" on public.study_groups for select to authentic
 drop policy if exists "group owner update" on public.study_groups;
 create policy "group owner update" on public.study_groups for update to authenticated using (owner_id = auth.uid()) with check (owner_id = auth.uid());
 drop policy if exists "group owner delete" on public.study_groups;
-create policy "group owner delete" on public.study_groups for delete to authenticated using (owner_id = auth.uid());
+create policy "group owner delete" on public.study_groups for delete to authenticated using (owner_id = auth.uid() and deleted_at is null);
 revoke insert, update on public.study_groups from anon, authenticated;
 grant select, delete on public.study_groups to authenticated;
 grant update (name, course) on public.study_groups to authenticated;
@@ -206,6 +211,10 @@ begin
       new.pinned := false;
       if (select count(*) from public.group_messages where user_id = new.user_id and created_at > now() - interval '1 minute') >= 20 then
         raise exception 'You are posting too fast. Try again in a minute.';
+      end if;
+      -- And at most 500 a day across all your groups, so one account can't fill the message tables.
+      if (select count(*) from public.group_messages where user_id = new.user_id and created_at > now() - interval '1 day') >= 500 then
+        raise exception 'You have posted 500 messages today. Try again tomorrow.';
       end if;
     end if;
   else
@@ -283,7 +292,7 @@ language plpgsql security definer set search_path = public as $$
 declare g uuid; c text; me uuid := auth.uid();
 begin
   if me is null then raise exception 'Sign in first'; end if;
-  if (select count(*) from public.study_groups where owner_id = me) >= 50 then raise exception 'You can own up to 50 groups'; end if;
+  if (select count(*) from public.study_groups where owner_id = me and deleted_at is null) >= 50 then raise exception 'You can own up to 50 groups'; end if;
   loop
     c := public.sbg_new_code();
     exit when not exists (select 1 from public.study_groups where invite_code = c);
@@ -306,10 +315,41 @@ begin
     coalesce((select m.display_name from public.group_members m where m.group_id = g.id and m.role = 'owner' limit 1), ''),
     exists (select 1 from public.group_members m where m.group_id = g.id and m.user_id = auth.uid())
   from public.study_groups g
-  where g.invite_code = public.sbg_norm_code(p_code);
+  where g.invite_code = public.sbg_norm_code(p_code) and g.deleted_at is null;
 end $$;
 
--- Join a group by its invite code.
+-- ---------- Removed by the owner: can't rejoin with the same invite code ----------
+-- When the owner removes someone, a row here stops join_group from letting them straight back in. Leaving on your own records
+-- nothing. Server only: no rules and no grants, so nobody can read or change it from the app. A removal stays until the group is
+-- deleted (or that person deletes their account); to let someone back in, delete their row here in the SQL Editor.
+create table if not exists public.group_bans (
+  group_id uuid not null references public.study_groups(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  banned_at timestamptz not null default now(),
+  primary key (group_id, user_id)
+);
+create index if not exists group_bans_user_idx on public.group_bans (user_id);
+alter table public.group_bans enable row level security;   -- no policies: only the functions below touch it
+revoke all on public.group_bans from public, anon, authenticated;
+
+create or replace function public.sbg_member_removed() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  -- Only a removal by someone else who is signed in (the owner, through the app). Not leaving on your own, not the server or
+  -- SQL Editor (no auth.uid()), and not when the group or the account itself is being deleted (its row is already gone).
+  if auth.uid() is not null and auth.uid() <> old.user_id
+     and exists (select 1 from public.study_groups g where g.id = old.group_id)
+     and exists (select 1 from auth.users u where u.id = old.user_id) then
+    insert into public.group_bans (group_id, user_id) values (old.group_id, old.user_id)
+      on conflict (group_id, user_id) do update set banned_at = now();
+  end if;
+  return old;
+end $$;
+revoke all on function public.sbg_member_removed() from public, anon, authenticated;
+drop trigger if exists sbg_member_removed on public.group_members;
+create trigger sbg_member_removed after delete on public.group_members for each row execute function public.sbg_member_removed();
+
+-- Join a group by its invite code. Someone the owner removed can't come back in with it.
 create or replace function public.join_group(p_code text) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare g uuid; me uuid := auth.uid();
@@ -317,9 +357,12 @@ begin
   if me is null then raise exception 'Sign in first'; end if;
   -- Every call counts against the hourly code limit (shared with group_preview and get_shared_deck), before the code is looked at.
   if not public.sbg_lookup_ok() then raise exception 'Too many code lookups. Try again in an hour.'; end if;
-  select id into g from public.study_groups where invite_code = public.sbg_norm_code(p_code);
+  select id into g from public.study_groups where invite_code = public.sbg_norm_code(p_code) and deleted_at is null;
   -- Returning (not raising) keeps this failed guess counted against the hourly limit.
   if g is null then return null; end if;
+  if exists (select 1 from public.group_bans where group_id = g and user_id = me) then
+    raise exception 'The group owner removed you from this group, so you can''t rejoin it.';
+  end if;
   if not exists (select 1 from public.group_members where group_id = g and user_id = me) then
     if (select count(*) from public.group_members where group_id = g) >= 100 then raise exception 'This group is full (100 members)'; end if;
     insert into public.group_members (group_id, user_id, role, display_name) values (g, me, 'member', public.sbg_my_name());
@@ -347,6 +390,9 @@ revoke all on function public.sbg_new_code(), public.sbg_norm_code(text), public
 grant execute on function public.sbg_is_member(uuid), public.sbg_is_owner(uuid), public.sbg_my_name(),
   public.share_deck(text, text, jsonb, int), public.get_shared_deck(text), public.create_group(text, text),
   public.group_preview(text), public.join_group(text), public.new_group_code(uuid) to authenticated;
+-- Only used inside the functions above: making codes and counting lookups can't be called directly (a direct call would burn
+-- the hourly lookup budget or skip it).
+revoke all on function public.sbg_new_code(), public.sbg_lookup_ok() from authenticated;
 
 -- ---------- 1.12: quizzes, study sessions, weekly challenge, check-ins, reactions and pins ----------
 -- Quizzes ('quiz') and proposed study sessions ('event') are shared in a group just like decks and deadlines.
@@ -960,9 +1006,11 @@ end $$;
 -- Change a task (p_patch keys: title, notes, status, assignee_id, due_at, priority, reviewer_id). Any member can edit and mark done.
 -- Changing who a task is assigned to: anyone can assign an unassigned task; once it has an owner, only that person or the group owner can reassign it.
 -- A task with a reviewer: marking it done (from any state) is for the reviewer or the group owner; anyone else sends it to In Review.
+-- Anyone can give a task without a reviewer one; once it has one, only that reviewer or the group owner can change or clear it
+-- (so "Review before done" can't be skipped by clearing the reviewer and marking it done in the same change).
 create or replace function public.update_group_task(p_task uuid, p_patch jsonb) returns public.group_tasks
 language plpgsql security definer set search_path = public as $$
-declare r public.group_tasks; t public.group_tasks; me uuid := auth.uid(); st text; rev uuid;
+declare r public.group_tasks; t public.group_tasks; me uuid := auth.uid(); st text; rev uuid; gate uuid;
 begin
   if me is null then raise exception 'Sign in first'; end if;
   select * into t from public.group_tasks where id = p_task and not deleted;
@@ -974,11 +1022,15 @@ begin
     end if;
   end if;
   rev := case when p_patch ? 'reviewer_id' then nullif(p_patch ->> 'reviewer_id', '')::uuid else t.reviewer_id end;
+  if rev is distinct from t.reviewer_id and t.reviewer_id is not null and not (t.reviewer_id = me or public.sbg_is_owner(t.group_id)) then
+    raise exception 'Only the reviewer, or the group owner, can change who reviews this task';
+  end if;
   if rev is not null and rev is distinct from t.reviewer_id and not exists (select 1 from public.group_members where group_id = t.group_id and user_id = rev) then
     raise exception 'The reviewer has to be in the group';
   end if;
   st := case when p_patch ? 'status' then coalesce(p_patch ->> 'status', t.status) else t.status end;
-  if st = 'done' and t.status <> 'done' and rev is not null and rev <> me and not public.sbg_is_owner(t.group_id) then
+  gate := coalesce(t.reviewer_id, rev);   -- the reviewer the task had when this change was asked for decides
+  if st = 'done' and t.status <> 'done' and gate is not null and gate <> me and not public.sbg_is_owner(t.group_id) then
     st := 'review';   -- it waits for its reviewer
   end if;
   update public.group_tasks set
@@ -1084,3 +1136,70 @@ begin
 end $$;
 revoke all on function public.sbg_block_policies() from public, anon, authenticated;
 select public.sbg_block_policies();
+
+-- ---------- Deleted groups: 30 days to undo ----------
+-- Deleting a group (the app deletes the study_groups row) does not remove anything straight away: the row is kept with deleted_at set,
+-- every rule treats the group as gone for everyone (sbg_is_member / sbg_is_owner above, and invite codes stop working), and its owner can
+-- restore it with everything in it (members, messages, decks, tasks, quizzes, files) for 30 days. Then the nightly clean-up deletes it
+-- for good. It costs only the space of those rows for 30 more days.
+-- Real deletes still happen: the clean-up, deleting an account, the SQL Editor (none of them run as a signed-in user), and a group made in
+-- the last 10 minutes with nobody else in it (the app removes one that couldn't be set up).
+create or replace function public.sbg_soft_delete() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  -- (current_user is this function's owner here; the "role" setting is who is really asking: authenticated for the app)
+  if coalesce(current_setting('role', true), 'none') not in ('authenticated', 'anon')
+     or coalesce(current_setting('studyboard.group_purge', true), '') = 'on'   -- deleting an account
+     or old.deleted_at is not null then return old; end if;
+  if old.created_at > now() - interval '10 minutes'
+     and not exists (select 1 from public.group_members m where m.group_id = old.id and m.user_id <> old.owner_id) then return old; end if;
+  update public.study_groups set deleted_at = now() where id = old.id;
+  return null;   -- the row stays
+end $$;
+revoke all on function public.sbg_soft_delete() from public, anon, authenticated;
+drop trigger if exists sbg_soft_delete on public.study_groups;
+create trigger sbg_soft_delete before delete on public.study_groups for each row execute function public.sbg_soft_delete();
+
+-- The groups you deleted in the last 30 days (for Restore in the app).
+create or replace function public.my_deleted_groups() returns table (id uuid, name text, course text, deleted_at timestamptz, purge_at timestamptz)
+language sql stable security definer set search_path = public as $$
+  select g.id, g.name, g.course, g.deleted_at, g.deleted_at + interval '30 days'
+  from public.study_groups g
+  where g.owner_id = auth.uid() and g.deleted_at is not null and g.deleted_at > now() - interval '30 days'
+  order by g.deleted_at desc
+$$;
+-- Brings a deleted group back for everyone, as it was. Only its owner, within the 30 days.
+create or replace function public.restore_group(p_group uuid) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare me uuid := auth.uid();
+begin
+  if me is null then raise exception 'Sign in first'; end if;
+  if (select count(*) from public.study_groups where owner_id = me and deleted_at is null) >= 50 then raise exception 'You can own up to 50 groups'; end if;
+  update public.study_groups set deleted_at = null
+    where id = p_group and owner_id = me and deleted_at is not null and deleted_at > now() - interval '30 days';
+  return found;
+end $$;
+-- Nightly: groups deleted more than 30 days ago go for good (with everything in them).
+create or replace function public.sbg_purge_deleted_groups() returns integer
+language plpgsql security definer set search_path = public as $$
+declare n integer := 0;
+begin
+  with gone as (delete from public.study_groups where deleted_at is not null and deleted_at < now() - interval '30 days' returning 1)
+  select count(*) into n from gone;
+  return n;
+end $$;
+revoke all on function public.my_deleted_groups(), public.restore_group(uuid), public.sbg_purge_deleted_groups() from public, anon, authenticated;
+grant execute on function public.my_deleted_groups(), public.restore_group(uuid) to authenticated;
+
+do $$
+begin
+  begin
+    create extension if not exists pg_cron;
+  exception when others then
+    raise notice 'pg_cron is not available, so deleted groups are not removed after 30 days automatically. You can run: select public.sbg_purge_deleted_groups();';
+  end;
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    perform cron.unschedule(jobid) from cron.job where jobname = 'studyboard-purge-deleted-groups';
+    perform cron.schedule('studyboard-purge-deleted-groups', '41 4 * * *', 'select public.sbg_purge_deleted_groups()');
+  end if;
+end $$;

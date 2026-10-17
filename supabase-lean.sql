@@ -99,11 +99,18 @@ begin
 end $$;
 
 -- The same, for the signed-in person (used by the lms-feed function with your sign-in).
+-- Only the limits listed here exist, each with its own fixed window and maximum (p_max and p_window are kept for the callers but
+-- ignored), so nobody can make up names or windows to fill studyboard_rate with rows. Anything else is refused.
 create or replace function public.studyboard_rate_me(p_what text, p_max int, p_window int) returns boolean
 language plpgsql volatile security definer set search_path = public as $$
+declare lim int; win int;
 begin
   if auth.uid() is null then return false; end if;
-  return public.studyboard_rate_hit(left(p_what, 40) || ':' || auth.uid()::text, least(p_max, 600), greatest(p_window, 60));
+  case p_what
+    when 'lms-feed' then lim := 60; win := 3600;
+    else return false;
+  end case;
+  return public.studyboard_rate_hit(p_what || ':' || auth.uid()::text, lim, win);
 end $$;
 
 revoke all on function public.studyboard_rate_hit(text, int, int) from public, anon, authenticated;
@@ -121,6 +128,20 @@ begin
   if to_regclass('public.calendar_feeds') is not null then
     alter table public.calendar_feeds add column if not exists cache_key text;
     alter table public.calendar_feeds add column if not exists cache_text text;
+    -- The cache is written only by the calendar-feed function (service role). Signed-in people write just token, user_id and
+    -- options (supabase-calendar-feed.sql); this repeats that here so an older copy of that file run later can't open it up again.
+    revoke insert, update on public.calendar_feeds from authenticated;
+    revoke insert (cache_key, cache_text), update (cache_key, cache_text) on public.calendar_feeds from authenticated;
+    grant insert (token, user_id, options) on public.calendar_feeds to authenticated;
+    grant update (options) on public.calendar_feeds to authenticated;
+    -- A cached calendar is at most 2 MB (a bigger one is just rebuilt each time: the function treats the cache as optional).
+    -- NOT VALID, and any bigger cache already stored is emptied first (it is rebuilt on the next fetch), so no existing link is
+    -- left with a row that a later change of its options would fail on.
+    update public.calendar_feeds set cache_key = null, cache_text = null
+      where octet_length(cache_text) > 2000000 or char_length(cache_key) > 64;
+    alter table public.calendar_feeds drop constraint if exists calendar_feeds_cache_limits;
+    alter table public.calendar_feeds add constraint calendar_feeds_cache_limits
+      check (octet_length(cache_text) <= 2000000 and char_length(cache_key) <= 64) not valid;
   end if;
 end $$;
 
@@ -131,6 +152,9 @@ create table if not exists public.studyboard_archive (
   items jsonb not null,             -- every row, in one value that Postgres compresses
   archived_at timestamptz not null default now()
 );
+-- Set when an unpack found items a device had already saved again: the packed-away versions of just those are kept here (never unpacked
+-- again, so an item deleted later can't come back; recoverable from the SQL editor).
+alter table public.studyboard_archive add column if not exists kept_at timestamptz;
 alter table public.studyboard_archive enable row level security;   -- no policies: only the functions below touch it
 revoke all on public.studyboard_archive from anon, authenticated;
 
@@ -168,13 +192,20 @@ declare me uuid := auth.uid(); a public.studyboard_archive; n int := 0;
 begin
   if me is null then return 0; end if;
   select * into a from public.studyboard_archive where user_id = me;
-  if not found then return 0; end if;
+  if not found or a.kept_at is not null then return 0; end if;
   perform set_config('studyboard.restoring', '1', true);   -- this transaction only: the plan limits don't apply to putting your own data back
   insert into public.items (user_id, kind, id, data)
     select me, x.kind, x.id, x.data from jsonb_to_recordset(a.items) as x(kind text, id text, data jsonb, updated_at timestamptz)
     on conflict (user_id, kind, id) do nothing;
   get diagnostics n = row_count;
-  delete from public.studyboard_archive where user_id = me;
+  -- An item a device saved again before this ran keeps that newer save. The packed-away copy of such an item is not thrown away when it
+  -- differs: it stays in the archive row (only those), so nothing is lost; the archive row goes once nothing in it differs.
+  update public.studyboard_archive x set kept_at = now(),
+    items = coalesce((select jsonb_agg(e) from jsonb_array_elements(a.items) e
+                      where exists (select 1 from public.items i where i.user_id = me and i.kind = e ->> 'kind' and i.id = e ->> 'id' and i.data is distinct from e -> 'data')), '[]'::jsonb)
+    where x.user_id = me;
+  update public.studyboard_archive set rows = jsonb_array_length(items) where user_id = me;
+  delete from public.studyboard_archive where user_id = me and jsonb_array_length(items) = 0;
   return n;
 end $$;
 revoke all on function public.studyboard_archive_inactive(int, int) from public, anon, authenticated;
@@ -206,6 +237,7 @@ end $$;
 --     member (the group carries on). If nobody else is in it, the group and its content are deleted.
 --   * What the person wrote in groups (messages, items, quiz scores, RSVPs, reactions, check-ins, stats) is deleted with the account.
 --   * Shared group tasks and lists stay for the group with their author, assignee and completer links removed.
+--   * Removals from groups by their owners (group_bans) are deleted.
 --   * Voice-capture tokens and inbox (capture_tokens, capture_inbox) and the Email to Studyboard address (capture_email) are deleted.
 --   * Two-way calendar sync connections (calsync_accounts, with their stored sign-in) and what they sent (calsync_map) are deleted.
 --   * Reports they made or that were made about them (group_reports) stay for safety but lose the link to the account
@@ -228,7 +260,7 @@ declare
   del text[][] := array[
     ['group_reactions','user_id'], ['group_checkins','user_id'], ['group_stats','user_id'], ['group_rsvps','user_id'],
     ['group_quiz_scores','user_id'], ['group_misses','user_id'], ['group_peer_ratings','from_user'], ['group_peer_ratings','to_user'], ['group_messages','user_id'], ['group_items','user_id'], ['group_blocks','blocker_id'],
-    ['group_blocks','blocked_id'], ['group_pro','user_id'], ['group_members','user_id'], ['shared_decks','owner_id'], ['study_profiles','user_id'],
+    ['group_blocks','blocked_id'], ['group_pro','user_id'], ['group_bans','user_id'], ['group_members','user_id'], ['shared_decks','owner_id'], ['study_profiles','user_id'],
     ['study_room_people','user_id'], ['study_rooms','started_by'],
     ['capture_idem','user_id'], ['capture_inbox','user_id'], ['capture_tokens','user_id'], ['capture_email','user_id'],
     ['calsync_map','user_id'], ['calsync_accounts','user_id'],
@@ -240,6 +272,12 @@ begin
   if p_uid is null then raise exception 'SB_NO_USER' using errcode = '22023'; end if;
   -- Groups they own: hand over to the longest-standing other member, or delete the group when nobody else is in it.
   if to_regclass('public.study_groups') is not null and to_regclass('public.group_members') is not null then
+    -- Deleting an account deletes for real (groups.sql otherwise only hides a deleted group for 30 days). A group they had already
+    -- deleted goes now with them, never handed over to a member.
+    perform set_config('studyboard.group_purge', 'on', true);
+    if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'study_groups' and column_name = 'deleted_at') then
+      execute 'delete from public.study_groups where owner_id = $1 and deleted_at is not null' using p_uid;
+    end if;
     n := 0;
     for g in select id from public.study_groups where owner_id = p_uid loop
       select m.user_id into heir from public.group_members m where m.group_id = g.id and m.user_id <> p_uid order by m.joined_at, m.user_id limit 1;

@@ -12,7 +12,7 @@
     companions: [
       {
         id: "egypt-kheper", name: "Kheper", kind: "Scarab Beetle", pose: "stand", wearColor: "#2A8A84",
-        bio: "Rolls every big task forward, one little push at a time.",
+        bio: "A steady scarab beetle who rolls every big task forward, one push at a time.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
         parts: {
           feet: `<path d="M44 100Q40 106 38 111H50Q49 106 50 101Z" fill="#1F5C6A" ${O}/><path d="M76 100Q80 106 82 111H70Q71 106 70 101Z" fill="#1F5C6A" ${O}/>`,
@@ -49,7 +49,7 @@
       },
       {
         id: "egypt-jamal", name: "Jamal", kind: "Camel Calf", pose: "stand", wearColor: "#C8503A",
-        bio: "Long lashes, long legs, and stamina for long study sessions.",
+        bio: "A long-lashed camel calf with stamina for the longest study sessions.",
         idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
         neck: [60, 74],
         parts: {
@@ -92,7 +92,7 @@
       },
       {
         id: "egypt-miu", name: "Miu", kind: "Mau Kitten", pose: "sit", wearColor: "#2E5FA8",
-        bio: "A spotted cat with ancient manners and modern curiosity.",
+        bio: "A spotted Mau kitten with ancient manners and a curious mind.",
         idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "bounce",
         neck: [60, 76],
         parts: {
@@ -121,7 +121,7 @@
         anchors: {top: [60, 30, 0.95], neck: [60, 76, 1], chest: [70, 92, 0.6], back: [84, 84, 0.8], hands: [60, 100, 0.84]},
         lines: {
           tap: ["Mrrp! Hello, honored student!", "My ancestors napped in palaces. I nap on notes.", "Curious about everything? Me too!", "Spots, whiskers and big ideas. That's us!", "A proper cat studies with great dignity.", "Purr... you're doing beautifully.", "Is that a new chapter? Let me sit on it.", "Golden collar, golden effort!"],
-          pet: ["Purrrr... yes, just there. Thank you!", "Mrrp! A royal scratch, how kind!"],
+          pet: ["Purrrr... how gentle. Thank you!", "Mrrp! A royal scratch, how kind!"],
           hello: ["Mrrp! You're back! I kept your seat warm.", "Hello! I've been waiting very politely."],
           morning: ["Good morning! The sunbeam is ready for us.", "Rise and shine! Breakfast, then books?"],
           night: ["The moon is up. Curl up and rest soon?", "Goodnight! I'll guard your notes till morning."],

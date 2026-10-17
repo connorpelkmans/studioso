@@ -7,7 +7,7 @@ export class StudentMeter extends DurableObject {
   constructor(ctx, env) { super(ctx, env); this.m = new Student(ctx.storage); }
   status(cfg) { return this.m.status(cfg); }
   take(cfg) { return this.m.take(cfg); }
-  refund(day) { return this.m.refund(day); }
+  refund(day, capped) { return this.m.refund(day, capped); }
   setHuman() { return this.m.setHuman(); }
   forget() { return this.m.forget(); }
 }

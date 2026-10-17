@@ -18,7 +18,7 @@
     companions: [
       {
         id: "greenhouse-prickles", name: "Prickles", kind: "Little Cactus", pose: "sit", hatTop: true,
-        bio: "Low maintenance, high loyalty.",
+        bio: "A low-maintenance little cactus who stays loyal through every task.",
         idle: ["topBob", "sway", "sparkle"], cheer: "hop",
         parts: {
           body: `${LG("greenhouse-prickles-greenhouse-prickles-g", [[0, "#B8E88E"], [0.55, "#6CC06A"], [1, "#3E9A52"]], 0, 0, 1, 0)}${LG("greenhouse-prickles-greenhouse-prickles-p", [[0, "#F6AE84"], [1, "#C8643E"]])}
@@ -53,7 +53,7 @@
       },
       {
         id: "greenhouse-monty", name: "Monty", kind: "Monstera Leaf", pose: "stand",
-        bio: "Grows a new split in its leaf every time you level up.",
+        bio: "A leafy monstera who grows a new split in its leaf every time you level up.",
         idle: ["sway", "wave", "headTilt"], cheer: "spin",
         neck: [60, 74],
         parts: {
@@ -89,7 +89,7 @@
       },
       {
         id: "greenhouse-misty", name: "Misty", kind: "Spray Bottle", pose: "stand", wearColor: "#F2A0B8",
-        bio: "Gives everyone a refreshing little spritz.",
+        bio: "A friendly spray bottle who gives the greenhouse a cool, fresh spritz.",
         idle: ["topBob", "bounce", "wave"], cheer: "bounce",
         parts: {
           feet: `<ellipse cx="48" cy="110" rx="7.5" ry="4" fill="#5AA8D8" ${O}/><ellipse cx="72" cy="110" rx="7.5" ry="4" fill="#5AA8D8" ${O}/>`,
@@ -112,7 +112,7 @@
         anchors: {top: [62, 21, 0.85], neck: [60, 48, 0.95], chest: [73, 92, 0.6], back: [86, 72, 0.8], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Psst! A little spritz of encouragement!", "Hi! You're looking fresh today!", "Mist-ion accepted: cheer you on!", "Fine mist, finer focus! You've got this!", "A refreshing hello from me to you!", "Stay hydrated, stay amazing!", "Sprinkling good vibes everywhere!", "Ready to spritz some motivation?"],
-          pet: ["Hehe! That tickles my trigger!", "Ooh, sloshy happy feelings!"],
+          pet: ["Hehe! That tickles my spray nozzle!", "Ooh, sloshy happy feelings!"],
           hello: ["You're back! Spritz of joy!", "Hi hi! I'm full and ready to go!"],
           morning: ["Good morning! Dewy and bright!", "Rise and shine! Fresh start, fresh mist!"],
           night: ["Misting softly. Time to rest?", "Even the ferns are sleeping. Night night!"],
@@ -131,7 +131,7 @@
     companions: [
       {
         id: "pottery-lumpy", name: "Lumpy", kind: "Clay Lump", pose: "sit", sleepy: true,
-        bio: "Could become anything. Currently a lump. Happy about it.",
+        bio: "A happy lump of clay who could become anything, just like your ideas.",
         idle: ["bounce", "topBob", "sway"], cheer: "bounce",
         neck: [60, 100],
         parts: {
@@ -164,7 +164,7 @@
       },
       {
         id: "pottery-glaze", name: "Glaze", kind: "Glaze Jar", pose: "stand",
-        bio: "A swirl of blue that changes shade when you finish something.",
+        bio: "A little jar of blue glaze who shifts shade when you finish something.",
         idle: ["topBob", "sparkle", "sway"], cheer: "spin",
         parts: {
           feet: `<ellipse cx="48" cy="110" rx="7.5" ry="4" fill="#2E4EA8" ${O}/><ellipse cx="72" cy="110" rx="7.5" ry="4" fill="#2E4EA8" ${O}/>`,
@@ -197,7 +197,7 @@
       },
       {
         id: "pottery-steepy", name: "Steepy", kind: "Little Teapot", pose: "stand",
-        bio: "Short, stout and always brewing.",
+        bio: "A short, round teapot who always has something warm brewing.",
         idle: ["waddle", "topBob", "sparkle"], cheer: "hop",
         parts: {
           feet: `<ellipse cx="47" cy="108.5" rx="7.5" ry="4.2" fill="#2F8C80" ${O}/><ellipse cx="73" cy="108.5" rx="7.5" ry="4.2" fill="#2F8C80" ${O}/>`,
@@ -236,7 +236,7 @@
     companions: [
       {
         id: "campfire-smory", name: "S'mory", kind: "S'more", pose: "sit", hatTop: true,
-        bio: "Gooey in the middle, crunchy on the edges, sweet all over.",
+        bio: "A gooey little s'more who toasts by the campfire while you study.",
         idle: ["topBob", "bounce", "sparkle"], cheer: "hop",
         parts: {
           feet: `<ellipse cx="44" cy="110.5" rx="7" ry="3.6" fill="#B07A40" ${O}/><ellipse cx="76" cy="110.5" rx="7" ry="3.6" fill="#B07A40" ${O}/>`,
@@ -267,7 +267,7 @@
       },
       {
         id: "campfire-lumen", name: "Lumen", kind: "Camp Lantern", pose: "stand", wearColor: "#3E7A5C",
-        bio: "Glows a little brighter as the night goes on.",
+        bio: "A cozy camp lantern who glows a little brighter as the night goes on.",
         idle: ["sway", "sparkle", "topBob"], cheer: "bounce",
         parts: {
           back: `${RG("campfire-lumen-campfire-lumen-h", [[0, "#FFE08A", 0.55], [0.6, "#FFC24A", 0.18], [1, "#FFB040", 0]], 0.5, 0.5, 0.5)}<circle cx="60" cy="72" r="42" fill="url(#campfire-lumen-campfire-lumen-h)"/>`,
@@ -301,7 +301,7 @@
       },
       {
         id: "campfire-moosey", name: "Moosey", kind: "Moose Calf", pose: "sit",
-        bio: "Its antlers have not come in yet. It is waiting patiently.",
+        bio: "A gentle moose calf who is patiently waiting for its antlers to grow in.",
         idle: ["earTwitch", "headTilt", "tailSwish"], cheer: "hop",
         neck: [60, 74],
         parts: {
@@ -346,7 +346,7 @@
     companions: [
       {
         id: "aquarium-glide", name: "Glide", kind: "Baby Manta Ray", pose: "float", wearColor: "#F2A33A",
-        bio: "Swoops in loops when it is excited.",
+        bio: "A baby manta ray who swoops in happy loops through the blue.",
         idle: ["finWiggle", "sway", "topBob"], cheer: "spin",
         parts: {
           tail: {svg: `${LINE("M60 90Q61 104 72 112", "#4A70B4", 2.4)}`, pivot: [60, 90]},
@@ -377,7 +377,7 @@
       },
       {
         id: "aquarium-puff", name: "Puff", kind: "Pufferfish", pose: "float",
-        bio: "Puffs up when surprised, which is every time you finish a task.",
+        bio: "A round little pufferfish who puffs up with joy whenever you finish a task.",
         idle: ["finWiggle", "topBob", "bounce"], cheer: "bounce",
         parts: {
           tail: {svg: `<path d="M84 68L104 54Q108 70 104 86Z" fill="#F2A23A" ${O}/><path d="M90 68L102 62M90 72L102 78" stroke="#FFD27A" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [85, 70]},
@@ -410,7 +410,7 @@
       },
       {
         id: "aquarium-curly", name: "Curly", kind: "Seahorse", pose: "float",
-        bio: "Holds on to your to-do list with its tail.",
+        bio: "A little seahorse who holds on tight to your to-do list with its tail.",
         idle: ["topBob", "finWiggle", "headTilt"], cheer: "hop",
         neck: [58, 60],
         parts: {

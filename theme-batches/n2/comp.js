@@ -11,7 +11,7 @@
     companions: [
       {
         id: "mushrooms-toadie", name: "Toadie", kind: "Toadstool Pal", pose: "stand", wearColor: "#6DB35E",
-        bio: "Red cap, white spots, and a big umbrella-sized heart.",
+        bio: "A red-capped toadstool with white spots and a big, kind heart.",
         idle: ["topBob", "sway", "sparkle"], cheer: "hop",
         parts: {
           feet: `<ellipse cx="47" cy="109.5" rx="9" ry="4.4" fill="#E6D2B8" ${O}/><ellipse cx="73" cy="109.5" rx="9" ry="4.4" fill="#E6D2B8" ${O}/>`,
@@ -45,7 +45,7 @@
       },
       {
         id: "mushrooms-fiddle", name: "Fiddle", kind: "Fern Fiddlehead", pose: "stand", wearColor: "#C98B5A",
-        bio: "A curl that unrolls a little more every time you finish something.",
+        bio: "A curly fern fiddlehead who unrolls a little more with every finished task.",
         idle: ["sway", "topBob", "headTilt"], cheer: "spin",
         neck: [60, 66],
         parts: {
@@ -79,7 +79,7 @@
       },
       {
         id: "mushrooms-dormy", name: "Dormy", kind: "Hazel Dormouse", pose: "sit", sleepy: true, wearColor: "#7FA6FF",
-        bio: "Naps in a mushroom cup between study sessions.",
+        bio: "A sleepy hazel dormouse who naps in a mushroom cup between study sessions.",
         idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
         neck: [60, 74],
         parts: {
@@ -126,7 +126,7 @@
     companions: [
       {
         id: "sunflowers-sole", name: "Solé", kind: "Sunflower Sprite", pose: "stand", wearColor: "#5E9A3E",
-        bio: "Turns toward whatever you are working on.",
+        bio: "A bright sunflower sprite who turns toward whatever you're working on.",
         idle: ["sway", "headTilt", "sparkle"], cheer: "spin",
         neck: [60, 74],
         parts: {
@@ -160,7 +160,7 @@
       },
       {
         id: "sunflowers-chirpy", name: "Chirpy", kind: "Goldfinch", pose: "stand", wearColor: "#E8504A",
-        bio: "Sings one note per finished task. Composes slowly.",
+        bio: "A cheerful goldfinch who sings a happy note for every finished task.",
         idle: ["wingFlutter", "headTilt", "topBob"], cheer: "wingFlutter",
         neck: [60, 66],
         parts: {
@@ -201,7 +201,7 @@
       },
       {
         id: "sunflowers-bale", name: "Bale", kind: "Hay Bale Pal", pose: "stand", wearColor: "#C8423A",
-        bio: "Soft, square and dependable.",
+        bio: "A soft, sturdy hay bale who makes a comfy spot to rest between tasks.",
         idle: ["topBob", "bounce", "waddle"], cheer: "bounce",
         parts: {
           feet: `<rect x="38" y="104" width="14" height="8" rx="4" fill="#B88A3E" ${O}/><rect x="68" y="104" width="14" height="8" rx="4" fill="#B88A3E" ${O}/>`,
@@ -220,7 +220,7 @@
         cheeks: {lx: 43, rx: 77, y: 80, w: 4.2, h: 2.6, color: "#FF8F7A"},
         anchors: {top: [60, 40, 1], neck: [60, 96, 1], chest: [72, 92, 0.6], back: [96, 70, 0.8], hands: [60, 98, 0.85]},
         lines: {
-          tap: ["Howdy! Sit on me anytime, I'm comfy!", "Steady wins the harvest, friend!", "You're working like a whole farm crew!", "Square, sturdy and proud of you!", "Hay there! Keep it up!", "Water and a snack, then back to the field?", "Little by little, the barn fills up!"],
+          tap: ["Howdy! Lean on me anytime, I'm comfy!", "Steady wins the harvest, friend!", "You're working like a whole farm crew!", "Square, sturdy and proud of you!", "Hay there! Keep it up!", "Water and a snack, then back to the field?", "Little by little, the barn fills up!"],
           pet: ["Hehe! That's a bit scratchy, but I like it!", "Aww shucks, thank you kindly!"],
           hello: ["Hay hay! You're back!", "Howdy, partner! Ready to get to work?"],
           morning: ["Mornin'! Roosters are up and so are we!", "Good morning! Fresh hay, fresh start!"],
@@ -240,7 +240,7 @@
     companions: [
       {
         id: "nighttrain-choo", name: "Choo", kind: "Little Steam Engine", pose: "stand", wearColor: "#D9A848",
-        bio: "Puffs a happy whistle at every station.",
+        bio: "A little steam engine who puffs a happy whistle at every stop.",
         idle: ["topBob", "bounce", "sparkle"], cheer: "bounce",
         parts: {
           feet: `<circle cx="40" cy="104" r="9" fill="#3A3448" ${O}/><circle cx="80" cy="104" r="9" fill="#3A3448" ${O}/><circle cx="40" cy="104" r="3" fill="#D9A848"/><circle cx="80" cy="104" r="3" fill="#D9A848"/><path d="M32 104H88" stroke="#D9A848" stroke-width="3" stroke-linecap="round"/>`,
@@ -273,7 +273,7 @@
       },
       {
         id: "nighttrain-stub", name: "Stub", kind: "Ticket Stub", pose: "stand", wearColor: "#B8484C",
-        bio: "Gets one hole punched for each finished task.",
+        bio: "A little train ticket who gets a hole punched for every finished task.",
         idle: ["sway", "wave", "headTilt"], cheer: "spin",
         neck: [60, 76],
         parts: {
@@ -307,7 +307,7 @@
       },
       {
         id: "nighttrain-satchel", name: "Satchel", kind: "Travel Suitcase", pose: "stand", wearColor: "#7FB8D8",
-        bio: "Covered in stickers from everywhere you have studied.",
+        bio: "A well-traveled suitcase with stickers from every place you've studied.",
         idle: ["topBob", "waddle", "wave"], cheer: "hop",
         parts: {
           feet: `<circle cx="38" cy="108" r="5" fill="#3A3448" ${O}/><circle cx="82" cy="108" r="5" fill="#3A3448" ${O}/>`,
@@ -347,7 +347,7 @@
     companions: [
       {
         id: "ramen-yolky", name: "Yolky", kind: "Soft-Boiled Egg", pose: "stand", wearColor: "#7ACB5A",
-        bio: "Jammy in the middle and proud of it.",
+        bio: "A soft-boiled egg with a sunny, jammy middle and a cozy spot in the bowl.",
         idle: ["topBob", "bounce", "sparkle"], cheer: "hop",
         parts: {
           feet: `<ellipse cx="48" cy="110" rx="7.4" ry="3.8" fill="#F2E6D4" ${O}/><ellipse cx="72" cy="110" rx="7.4" ry="3.8" fill="#F2E6D4" ${O}/>`,
@@ -378,7 +378,7 @@
       },
       {
         id: "ramen-naru", name: "Naru", kind: "Fishcake Swirl", pose: "stand", wearColor: "#F27AA0",
-        bio: "Spins when it is happy, which is often.",
+        bio: "A swirly little fishcake who spins around whenever it's happy.",
         idle: ["spin", "topBob", "sway"], cheer: "spin",
         parts: {
           feet: `<ellipse cx="50" cy="110" rx="7" ry="3.6" fill="#F6E8EC" ${O}/><ellipse cx="70" cy="110" rx="7" ry="3.6" fill="#F6E8EC" ${O}/>`,
@@ -408,7 +408,7 @@
       },
       {
         id: "ramen-nori", name: "Nori", kind: "Seaweed Sheet", pose: "stand", wearColor: "#F2C870",
-        bio: "Stands up straight in the bowl like a little flag.",
+        bio: "A crisp sheet of nori who stands up tall in the bowl like a little flag.",
         idle: ["sway", "wave", "bounce"], cheer: "bounce",
         neck: [60, 82],
         parts: {

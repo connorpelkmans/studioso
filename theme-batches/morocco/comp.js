@@ -13,7 +13,7 @@
     companions: [
       {
         id: "morocco-nana", name: "Nana", kind: "Mint Teapot", pose: "stand", wearColor: "#2E8E6E",
-        bio: "Pours from a great height and never spills a drop.",
+        bio: "A shiny mint teapot who pours from up high and never spills a drop.",
         idle: ["topBob", "sway", "sparkle"], cheer: "bounce",
         parts: {
           feet: `${LG("morocco-nana-f", [[0, "#E8ECF2"], [1, "#9AA4B4"]])}<path d="M42 100H78L83 108Q60 112 37 108Z" fill="url(#morocco-nana-f)" ${O}/>`,
@@ -47,13 +47,13 @@
           night: ["Lanterns are lit. Maybe one last cup, then rest?", "Goodnight! Sweet dreams and sweeter tea."],
           focus: ["Steeping quietly beside you.", "Calm and warm. Pour your focus in!"],
           done: ["What a session! Tea's on me!", "All done! Poured to perfection!"],
-          task: ["Done! Not a drop spilled!", "Checked off! Minty fresh!", "Another one! Pour me another!", "Yes! Perfectly steeped!"],
+          task: ["Done! Not a drop spilled!", "Checked off! Minty fresh!", "Another one! Pour another cup of cheer!", "Yes! Perfectly steeped!"],
           break: ["Tea break! Sip slowly and stretch.", "Rest a moment. Smell the fresh mint!"]
         }
       },
       {
         id: "morocco-fenn", name: "Zaki", kind: "Riad Fennec Kit", pose: "sit", sleepy: true, wearColor: "#C8642E",
-        bio: "Giant ears for hearing every deadline coming.",
+        bio: "A fennec fox kit from the riad whose giant ears hear every deadline coming.",
         idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
         neck: [60, 76],
         parts: {
@@ -94,7 +94,7 @@
       },
       {
         id: "morocco-limoun", name: "Limoun", kind: "Little Orange", pose: "stand", wearColor: "#3E8A4E",
-        bio: "Grown in the courtyard and full of sunshine.",
+        bio: "A little orange from the courtyard tree who's full of sunshine.",
         idle: ["topBob", "sway", "wave"], cheer: "spin",
         parts: {
           feet: `<ellipse cx="48" cy="106" rx="7.6" ry="4.4" fill="#E87A1E" ${O}/><ellipse cx="72" cy="106" rx="7.6" ry="4.4" fill="#E87A1E" ${O}/>`,

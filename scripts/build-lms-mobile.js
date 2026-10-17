@@ -46,7 +46,7 @@ function buildGrab() {
   for (const id of Object.keys(L.P)) harvest[id] = L.harvestScript(L.P[id], GRAB_SAFE);
   const data = JSON.stringify(harvest).replace(/<\//g, "<\\/");
   const out = GRAB_START + "\nconst SBGRAB_BUILT = (function () {\n  \"use strict\";\n" + cleaning(lmsSrc) +
-    "\n  return { v: 1, harvest: " + data + ", originOf: originOf, clean: cleanHarvest };\n})();\n" + GRAB_END;
+    "\n  return { v: 1, harvest: " + data + ", hv: " + JSON.stringify(crypto.createHash("sha256").update(data).digest("hex").slice(0, 12)) + ", originOf: originOf, clean: cleanHarvest };\n})();\n" + GRAB_END;   // hv: which reading code a bookmark carries, so an old bookmark can be spotted
   if (/<\/script/i.test(out)) throw new Error("build-lms-mobile: the bookmark code contains </script");
   return out;
 }
@@ -148,7 +148,7 @@ function nativeCheck(id, use, script, origin, list) {
   }
   return null;
 }
-module.exports = { build, buildGrab, grabIn, nativeScripts, nativeFiles, nativeCheck };
+module.exports = { build, buildGrab, grabIn, nativeScripts, nativeFiles, nativeCheck, loadLms, cleaning };   // loadLms and cleaning: also for scripts/build-extension.js
 if (require.main === module) {
   if (process.argv.includes("--grab")) {
     const f = path.join(root, "index.html"), html = fs.readFileSync(f, "utf8");

@@ -11,7 +11,7 @@
     companions: [
       {
         id: "italy-limo", name: "Limo", kind: "Amalfi Lemon", pose: "stand", wearColor: "#2C9A70",
-        bio: "Sunny, zesty and always a little bit extra.",
+        bio: "A sunny Amalfi lemon who brings a bright burst of zest to study time.",
         idle: ["topBob", "sway", "sparkle"], cheer: "bounce",
         parts: {
           feet: `<ellipse cx="49" cy="106.5" rx="7.4" ry="4.2" fill="#E8A81E" ${O}/><ellipse cx="71" cy="106.5" rx="7.4" ry="4.2" fill="#E8A81E" ${O}/>`,
@@ -32,7 +32,7 @@
         cheeks: {lx: 40, rx: 80, y: 78, w: 4.4, h: 2.6, color: "#FF9A6A"},
         anchors: {top: [60, 38, 0.95], neck: [60, 96, 1.05], chest: [74, 90, 0.66], back: [90, 60, 0.8], hands: [60, 98, 0.86]},
         lines: {
-          tap: ["Ciao! Fresh from the terraces, just for you!", "When life gives you lemons, ace the quiz!", "Zesty brain, sunny heart. That's you!", "You're doing great. Squeeze in one more!", "A little bit extra never hurt anyone!", "Pucker up, we've got pages to cover!", "Bright, bold and on a roll today!", "Sun on the terraces, focus in your eyes!"],
+          tap: ["Ciao! Fresh from the terraces, just for you!", "When life gives you lemons, ace the quiz!", "Zesty brain, sunny heart. That's you!", "You're doing great. Squeeze in one more!", "A little bit extra never hurt anyone!", "Zest it up, we've got pages to cover!", "Bright, bold and on a roll today!", "Sun on the terraces, focus in your eyes!"],
           pet: ["Hehe! You smell like lemon now!", "Aww, that's the zest feeling ever!"],
           hello: ["Ciao, ciao! You're back! Sunshine time!", "Buongiorno, friend! Ready to shine?"],
           morning: ["Buongiorno! The sun's on the lemon trees!", "Good morning! Fresh squeezed and ready!"],
@@ -45,7 +45,7 @@
       },
       {
         id: "italy-brio", name: "Brio", kind: "Little Scooter", pose: "stand", wearColor: "#F6C833",
-        bio: "Takes the hairpin bends and the hard chapters with style.",
+        bio: "A little scooter who zips through the coastal bends and hard chapters.",
         idle: ["topBob", "bounce", "sparkle"], cheer: "hop",
         parts: {
           feet: `${LG("italy-brio-w", [[0, "#4A4048"], [1, "#221C22"]], 0, 0, 1, 0)}<rect x="52" y="90" width="16" height="22" rx="7" fill="url(#italy-brio-w)" ${O}/><rect x="57" y="96" width="6" height="10" rx="3" fill="#B8BCC8"/>`,
@@ -67,7 +67,7 @@
         anchors: {top: [60, 30, 0.9], neck: [60, 88, 1], chest: [72, 82, 0.62], back: [86, 62, 0.8], hands: [60, 86, 0.86]},
         lines: {
           tap: ["Beep beep! Hop on, let's zip through it!", "Hairpin bend ahead? We lean in and go!", "Vroom! That chapter didn't stand a chance!", "Full tank of focus, open coast road!", "Small engine, big dreams. Just like you!", "Wind in your hair, notes in your head!", "Smooth riding! You're cruising today!", "Next stop: the top of the class!"],
-          pet: ["Hehe! Polish my headlight again!", "Purr purr! That's my happy engine!"],
+          pet: ["Hehe! That made my headlight twinkle!", "Purr purr! That's my happy engine!"],
           hello: ["Beep beep! You're back! Let's ride!", "Ciao! Engine's warm and ready to go!"],
           morning: ["Buongiorno! Coast road's wide open!", "Good morning! First ride of the day!"],
           night: ["Headlight's on low. Time to park soon?", "Buonanotte! Parking by the harbour."],
@@ -79,7 +79,7 @@
       },
       {
         id: "italy-gela", name: "Gela", kind: "Gelato Cone", pose: "stand", wearColor: "#F48AA6",
-        bio: "Three scoops of encouragement, no brain freeze.",
+        bio: "A three-scoop gelato cone who serves up sweet encouragement.",
         idle: ["sway", "headTilt", "wave"], cheer: "spin",
         neck: [60, 82],
         parts: {

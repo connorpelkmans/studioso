@@ -12,7 +12,7 @@
     companions: [
       {
         id: "greece-kiki", name: "Kiki", kind: "Island Cat", pose: "sit", sleepy: true, wearColor: "#2F6DB8",
-        bio: "Naps on every sunny wall, wakes up for every finished task.",
+        bio: "A sun-loving island cat who naps on warm walls and wakes up for every win.",
         idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "hop",
         neck: [60, 78],
         parts: {
@@ -59,7 +59,7 @@
       },
       {
         id: "greece-elia", name: "Elia", kind: "Olive Sprite", pose: "float", wearColor: "#5E8A3A",
-        bio: "Small, green and quietly strong. Keeps going for centuries.",
+        bio: "A small olive sprite who is quietly strong and keeps going year after year.",
         idle: ["sway", "topBob", "sparkle"], cheer: "spin",
         parts: {
           armL: {svg: `${oleaf(37, 80, 23, 6.6, 158, "#9EB884", O2)}<path d="M36 80L22 84.6" stroke="#6E8A54" stroke-width="1.2" stroke-linecap="round" opacity=".7"/>`, pivot: [36, 80]},
@@ -93,7 +93,7 @@
       },
       {
         id: "greece-glafka", name: "Glafka", kind: "Little Owl", pose: "stand", wearColor: "#2F6DB8",
-        bio: "Wise beyond its age, and up late studying with you.",
+        bio: "A wise little owl who stays up late studying with you.",
         idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter",
         neck: [60, 74],
         parts: {

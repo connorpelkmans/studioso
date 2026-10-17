@@ -12,7 +12,7 @@
     companions: [
       {
         id: "thailand-chang", name: "Chang", kind: "Thai Elephant Calf", pose: "stand", wearColor: "#D8463A",
-        bio: "Carries your hardest task with a trunk-curling smile.",
+        bio: "A happy elephant calf who carries your hardest tasks with a big smile.",
         idle: ["earTwitch", "tailSwish", "topBob"], cheer: "bounce",
         parts: {
           tail: {svg: `${LINE("M86 88Q98 86 100 96", "#A6A2BC", 2.6)}<path d="M98 94Q104 95 103 101Q97 101 98 94Z" fill="#5A5470" ${OW(1.6)}/>`, pivot: [86, 88]},
@@ -55,7 +55,7 @@
       },
       {
         id: "thailand-mamuang", name: "Mamuang", kind: "Mango Sticky Rice", pose: "stand", wearColor: "#F2A81E",
-        bio: "Sweet, golden and secretly very sticky about goals.",
+        bio: "A sweet scoop of mango sticky rice who sticks with your goals.",
         idle: ["topBob", "sway", "sparkle"], cheer: "hop",
         parts: {
           feet: `${LG("thailand-mamuang-l", [[0, "#6AB85A"], [1, "#3E8A3E"]])}
@@ -83,7 +83,7 @@
           pet: ["Hehe! Careful, I'm a little sticky!", "Aww! Sweeter than coconut cream!"],
           hello: ["You're back! Freshly steamed and happy!", "Hi! I saved you the ripest slice!"],
           morning: ["Good morning! A golden day is ripening!", "Rise and shine! Mango season is study season!"],
-          night: ["Getting sleepy under my mango slice...", "Goodnight! Dream sweet, sticky dreams!"],
+          night: ["Getting sleepy under my mango slice...", "Goodnight! Dream sweet, golden mango dreams!"],
           focus: ["Sticking right beside you. Focus!", "Quiet and sweet. You've got this!"],
           done: ["What a golden session! So sweet!", "All done! A whole plate of success!"],
           task: ["Done! Sweet!", "Checked off! Golden!", "Another one! That one stuck!", "Yes! Ripe for the next one!"],
@@ -92,7 +92,7 @@
       },
       {
         id: "thailand-tukky", name: "Tukky", kind: "Little Tuk-Tuk", pose: "stand", wearColor: "#2E7FD0",
-        bio: "Beeps happily and gets you anywhere on time.",
+        bio: "A little tuk-tuk who beeps happily and gets you everywhere on time.",
         idle: ["topBob", "bounce", "sparkle"], cheer: "hop",
         parts: {
           feet: `<ellipse cx="60" cy="102" rx="10" ry="9" fill="#2E2838" ${O}/><circle cx="60" cy="102" r="4" fill="#C8C4D4" ${OW(1.6)}/>
@@ -119,7 +119,7 @@
         anchors: {top: [60, 26, 0.9], neck: [60, 82, 1], chest: [74, 88, 0.6], back: [94, 70, 0.8], hands: [60, 92, 0.86]},
         lines: {
           tap: ["Beep beep! Hop in, where are we studying?", "Tuk-tuk-tuk! Full speed ahead!", "Three wheels, zero worries!", "I know all the shortcuts to a good grade!", "Next stop: that task you've been avoiding!", "Engine warm, lights on, ready to go!", "Hold on tight, we're making great time!", "Beep! You're right on schedule!"],
-          pet: ["Beep beep! That's my happy horn!", "Hehe! Polish my headlights again!"],
+          pet: ["Beep beep! That's my happy horn!", "Hehe! That made my headlights twinkle!"],
           hello: ["Beep beep! You're back! Hop in!", "Hi! Engine's running, let's ride!"],
           morning: ["Good morning! Fuelled up and ready to roll!", "Beep! The morning roads are wide open!"],
           night: ["Headlights dimming... parking soon?", "Goodnight! I'll be outside at sunrise."],

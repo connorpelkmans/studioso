@@ -327,4 +327,10 @@ input.code{font:700 1.6rem ui-monospace,Menlo,Consolas,monospace;letter-spacing:
 /* In the companion section it stands in the corner of the screenshot */
 .shot{position:relative}
 .wcp-host.corner{--cps:clamp(84px,16%,120px);right:2.5%;bottom:2%}
+/* Meet Your Companion: a button steps through the six free companions (screenshot and live companion change together) */
+.meet-row{display:flex;align-items:flex-start;gap:14px}
+.meet-row .cap{flex:1}
+.meet-next{flex:none;margin-top:10px;white-space:nowrap}
+.meet-next svg{flex:none}
+@media (max-width:560px){.meet-row{flex-direction:column;align-items:stretch;gap:0}}
 .wcp-host.geo{--cps:auto}
