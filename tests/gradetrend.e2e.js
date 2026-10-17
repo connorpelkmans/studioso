@@ -120,23 +120,21 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
       noErr(page, "with undated items"); await ctx.close();
     }
 
-    /* ---------- Phone bar: five tabs with the companion in the middle, no More button; Notes and Groups open from the top of Settings ---------- */
+    /* ---------- Phone bar: seven tabs with the companion's seat in the middle, no More button (the three dots hold settings) ---------- */
     for (const W of [390, 360, 320]) {
       const ctx = await mkCtx({w: W, h: 760}); const page = await open(ctx);
       ok(!(await page.locator("nav.tabs .nav-more").isVisible()), `no More button in the phone bar @${W}`);
       const rects = await page.$$eval("nav.tabs .in > button", bs => bs.filter(b => b.offsetParent).map(b => { const r = b.getBoundingClientRect(); return {l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height, tx: b.textContent.trim(), tab: b.dataset.tab || ""}; }).sort((a, b) => a.l - b.l));   // (as shown: the phone bar sets the order)
-      ok(rects.map(r => r.tab).join() === "board,plan,companion,flashcards,courses", `5 tabs in the phone bar, the companion in the middle @${W}: ${rects.map(r => r.tx).join(",")}`);
+      ok(rects.map(r => r.tab).join() === "board,plan,flashcards,companion,notes,courses,groups", `7 tabs in the phone bar, the companion in the middle @${W}: ${rects.map(r => r.tab).join(",")}`);
       ok(rects.every((r, i) => !i || r.l >= rects[i - 1].r - 0.5) && rects[0].l >= 0 && rects[rects.length - 1].r <= W, `bar buttons don't overlap and stay on screen @${W}`);
       ok(rects.every(r => r.h >= 44), `bar targets are at least 44px tall @${W}`);
       const spans = await page.$$eval("nav.tabs .in > button", bs => bs.filter(b => b.offsetParent).sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left).map(b => { const s = [...b.childNodes].find(x => x.nodeType === 3 && x.nodeValue.trim()) || b.querySelector(".nm-l").firstChild; const r = document.createRange(); r.selectNodeContents(s); const q = r.getBoundingClientRect(); return [q.left, q.right]; }));
       ok(spans.every((q, i) => !i || q[0] >= spans[i - 1][1] - 0.5), `bar labels never run into each other @${W}`);
       if (W === 390) await page.screenshot({path: path.join(SHOTS, "nav-390.png"), clip: {x: 0, y: 760 - 110, width: 390, height: 110}});
-      await page.click('[data-act="menu"]'); await page.waitForSelector('dialog[open] [data-ph-go="groups"]', {timeout: 5000});
-      ok(await page.locator('dialog[open] [data-ph-go="notes"]').count() === 1, "Notes opens from the top of Settings");
-      await page.click('dialog[open] [data-ph-go="groups"]'); await page.waitForTimeout(300);
-      ok(await page.evaluate(() => document.body.dataset.view) === "groups" && /Study Groups/.test(await page.locator("#view h2").first().textContent()), "Groups (top of Settings) opens the Study Groups page");
-      ok(await page.locator('nav.tabs [data-tab="groups"]').getAttribute("aria-current") === "page", "Groups is the current page while on Groups");
-      ok(await page.locator(`nav.tabs [data-tab][aria-current="page"]:visible`).count() <= 1, "no other visible tab claims to be current: " + (await page.locator(`nav.tabs [data-tab][aria-current="page"]:visible`).allTextContents()).join());
+      await page.click('nav.tabs [data-tab="groups"]'); await page.waitForTimeout(300);
+      ok(await page.evaluate(() => document.body.dataset.view) === "groups" && /Study Groups/.test(await page.locator("#view h2").first().textContent()), "the Groups tab opens the Study Groups page");
+      ok(await page.locator('nav.tabs [data-tab="groups"]').getAttribute("aria-current") === "page", "Groups is highlighted while on Groups");
+      ok(await page.locator(`nav.tabs [data-tab][aria-current="page"]:visible`).count() === 1, "no other visible tab claims to be current: " + (await page.locator(`nav.tabs [data-tab][aria-current="page"]:visible`).allTextContents()).join());
       ok(/Sign In|Set Up Sync/.test(await page.locator("#view .grp-offline").textContent()), "signed out, the Groups page offers Sign In");
       await page.click('nav.tabs [data-tab="board"]'); await page.waitForTimeout(200);
       ok(await page.locator('nav.tabs [data-tab="groups"]').getAttribute("aria-current") !== "page", "Groups no longer current after going to the Board");
@@ -230,7 +228,7 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
       const page = await open(ctx);
       await page.evaluate(() => { document.documentElement.dataset.ts = "xl"; }); await page.waitForTimeout(300);
       const rects = await page.$$eval("nav.tabs .in > button", bs => bs.filter(b => b.offsetParent).map(b => { const r = b.getBoundingClientRect(); return [r.left, r.right, r.height]; }).sort((a, b) => a[0] - b[0]));
-      ok(rects.length === 5 && rects.every((r, i) => !i || r[0] >= rects[i - 1][1] - 0.5) && rects[4][1] <= 390, "XL text: bar still fits");
+      ok(rects.length === 7 && rects.every((r, i) => !i || r[0] >= rects[i - 1][1] - 0.5) && rects[6][1] <= 390, "XL text: bar still fits");
       const sp = await page.$$eval("nav.tabs .in > button", bs => bs.filter(b => b.offsetParent).map(b => { const s = [...b.childNodes].find(x => x.nodeType === 3 && x.nodeValue.trim()) || b.querySelector(".nm-l").firstChild; const r = document.createRange(); r.selectNodeContents(s); const q = r.getBoundingClientRect(); return [q.left, q.right]; }).sort((a, b) => a[0] - b[0]));
       ok(sp.every((q, i) => !i || q[0] >= sp[i - 1][1] - 0.5), "XL text: bar labels never run into each other");
       await page.screenshot({path: path.join(SHOTS, "nav-390-xl.png"), clip: {x: 0, y: 670, width: 390, height: 110}});
