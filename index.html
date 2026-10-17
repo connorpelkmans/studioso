@@ -6655,6 +6655,10 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   nav.tabs .in [data-tab="companion"]::after{content:"";position:absolute;left:50%;top:-16px;width:56px;height:56px;margin-left:-28px;border-radius:50%;background:color-mix(in srgb,var(--accent-band,var(--accent)) 14%,#fff);box-shadow:0 0 0 3px var(--accent-band,var(--accent)),0 0 0 6px color-mix(in srgb,var(--spine-bg,var(--spine)) 94%,transparent),0 8px 18px rgba(8,20,50,.28);z-index:-1;pointer-events:none}   /* the same ringed circle as on the Companion page */
   nav.tabs .in [data-tab="companion"] svg{position:absolute;left:50%;top:-3px;margin-left:-14px;width:28px;height:28px;color:var(--accent)}   /* the centre of the seat (top -16px, 56px across) */
   nav.tabs .in [data-tab="companion"][aria-current="page"]{background:transparent}
+  /* the tabs either side of the seat: their "selected" box curves around the seat instead of running over it
+     (seat centre: half a tab past the box's edge, 12px down; 34px across with its ring, plus a small gap) */
+  nav.tabs .in [data-tab="flashcards"][aria-current="page"]{background:radial-gradient(circle at 150% 12px,transparent 38px,var(--spine-hi) 38.5px)}
+  nav.tabs .in [data-tab="notes"][aria-current="page"]{background:radial-gradient(circle at -50% 12px,transparent 38px,var(--spine-hi) 38.5px)}
   nav.tabs .in [data-tab="companion"][aria-current="page"]::after{box-shadow:0 0 0 4px var(--accent-band,var(--accent)),0 0 0 7px color-mix(in srgb,var(--spine-bg,var(--spine)) 94%,transparent),0 8px 18px rgba(8,20,50,.28)}
   body.cp-docked nav.tabs .in [data-tab="companion"] svg{visibility:hidden}
   /* The Add button: a round + above the bar */
