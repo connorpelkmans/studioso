@@ -221,6 +221,36 @@ const BB = [
     assert(items[0].due && items[0].done === true, "dated by the calendar and submitted (an attempt waiting to be graded): " + JSON.stringify({due: items[0].due, done: items[0].done}));
   });
 
+  await t("Brightspace: the class's average, median, high and low on a graded item, when allowed; one refusal stops the rest", async () => {
+    const grades = { Objects: [], Next: null };
+    const vals = [{ GradeObjectIdentifier: "9", GradeObjectName: "Lab 0", GradeObjectType: 1, PointsNumerator: 8, PointsDenominator: 10, DisplayedGrade: "80 %" },
+                  { GradeObjectIdentifier: "12", GradeObjectName: "Quiz 1", GradeObjectType: 1, PointsNumerator: 7, PointsDenominator: 10, DisplayedGrade: "70 %" }];
+    const routes = BS.filter(([re]) => !/myGradeValues/.test(re.source)).concat([[/\/grades\/values\/myGradeValues\/$/, vals],
+      [/\/grades\/9\/statistics$/, { Minimum: 4, Maximum: 10, Average: 7.25, Median: 7.5 }], [/\/grades\/12\/statistics$/, { Minimum: 2, Maximum: 10, Average: 6.1, Median: 6 }]]);
+    const { out } = await runInjected("brightspace", "https://learn.example.edu", routes);
+    const g = id => out.courses[0].grades.find(x => x.gid === id);
+    assert.strictEqual(JSON.stringify(g("9").cls), JSON.stringify({ mean: 7.25, median: 7.5, lo: 4, hi: 10 }));
+    assert.strictEqual(g("12").cls.mean, 6.1);
+    const refused = BS.filter(([re]) => !/myGradeValues/.test(re.source)).concat([[/\/grades\/values\/myGradeValues\/$/, vals]]);
+    const r2 = await runInjected("brightspace", "https://learn.example.edu", refused);
+    assert.strictEqual(r2.seen.filter(p => /\/statistics$/.test(p)).length, 1, "asked once, then not again for the course");
+    assert(!r2.out.courses[0].grades.some(x => x.cls), "no class results when they aren't shown");
+  });
+
+  await t("the pass mark from the course's grade scheme: Brightspace's default scheme and Canvas's grading standard (65% in nursing)", async () => {
+    const bs = BS.concat([[/\/grades\/setup\/$/, { GradingSystem: "Points", DefaultGradeSchemeId: 44 }],
+      [/\/grades\/schemes\/44$/, { Id: 44, Name: "BSN Scheme", Ranges: [{ Symbol: "F", PercentStart: 0 }, { Symbol: "C", PercentStart: 65 }, { Symbol: "B", PercentStart: 73 }, { Symbol: "A", PercentStart: 86 }] }]]);
+    const a = await runInjected("brightspace", "https://learn.example.edu", bs);
+    assert.strictEqual(a.out.courses[0].passMark && a.out.courses[0].passMark.pct, 65);
+    const none = await runInjected("brightspace", "https://learn.example.edu", BS);
+    assert(!none.out.courses[0].passMark, "no scheme readable: nothing guessed");
+    const cv = CV.map(r => r.slice());
+    cv[1] = [/^\/api\/v1\/courses\?enrollment_state=active/, [{ id: 201, name: "Nursing 200", course_code: "NURS200", start_at: iso(-30), end_at: iso(60), grading_standard_id: 7, enrollments: [] }]];
+    cv.push([/\/api\/v1\/courses\/201\/grading_standards/, [{ id: 7, title: "BCIT Nursing", grading_scheme: [{ name: "A", value: 0.86 }, { name: "B", value: 0.73 }, { name: "C", value: 0.65 }, { name: "F", value: 0 }] }]]);
+    const c = await runInjected("canvas", "https://x.instructure.com", cv);
+    assert.strictEqual(c.out.courses[0].passMark && c.out.courses[0].passMark.pct, 65);
+  });
+
   await t("cleanHarvest keeps only plain, capped data and https links", async () => {
     const evil = { ok: true, origin: "https://evil.example", me: { name: "x".repeat(999), id: 5 }, lp: "1.40; alert(1)", all: [], errors: [],
       courses: [{ ou: "1", name: "y".repeat(20000), url: "javascript:alert(1)", home: "http://plain.example/", items: new Array(2000).fill({ name: "i", url: "https://ok.example/a", fn: "s", "bad key!": 1, n: Infinity }), deep: { a: { b: { c: { d: { e: { f: { g: 1 } } } } } } } }] };

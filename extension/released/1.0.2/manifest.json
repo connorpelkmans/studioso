@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Studyboard School Sync",
   "short_name": "Studyboard",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Keeps Studyboard up to date with your Canvas, Brightspace or Blackboard: due dates, submissions, grades and feedback.",
   "homepage_url": "https://studyboardapp.com/website/",
   "icons": {
@@ -32,6 +32,12 @@
   "optional_host_permissions": [
     "https://*/*"
   ],
+  "externally_connectable": {
+    "matches": [
+      "https://studyboardapp.com/*",
+      "https://www.studyboardapp.com/*"
+    ]
+  },
   "content_scripts": [
     {
       "matches": [

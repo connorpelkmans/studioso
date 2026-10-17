@@ -2,9 +2,9 @@
 // The only scripts the StudyboardLms plugin will run in a school site: fixed pieces (UTF-8 byte length + SHA-256) with holes between them.
 let sbLmsScripts: [SBLmsScript] = [
     SBLmsScript(id: "brightspace", use: "who", lens: [580], hashes: ["696d419a0c8ae94e9108c13e1c8dfd6ebf2a082f7081401b0ec1ff134e9b296b"], holes: []),
-    SBLmsScript(id: "brightspace", use: "run", lens: [27013, 7], hashes: ["72b5a72aad9e8ee59bce9a7adb060108b0ad0f51b667701b98652a3b21b8956c", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"], holes: ["json"]),
+    SBLmsScript(id: "brightspace", use: "run", lens: [29059, 7], hashes: ["dffd4f5bb5a0561d92ce25b720fdf2c8096349c04d49bc25c75f7b00f8c00fb3", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"], holes: ["json"]),
     SBLmsScript(id: "canvas", use: "who", lens: [285], hashes: ["dcceed04f724416604630fa0318da165c3aa00082d5e7470b10cda616b86d6f1"], holes: []),
-    SBLmsScript(id: "canvas", use: "run", lens: [20283, 7], hashes: ["3e823054661823d2fab49dabf434553578246bfab2a4f2e5bb46d3061ad94bb0", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"], holes: ["json"]),
+    SBLmsScript(id: "canvas", use: "run", lens: [21739, 7], hashes: ["64eb64ceb6874a513c78632ad30e8edfd14dada890a6a3609b59fac132d7527b", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"], holes: ["json"]),
     SBLmsScript(id: "blackboard", use: "who", lens: [448], hashes: ["0ee7783018c9c6998698f83c32a0bab586f6c9c8012cbb6322356e73a6423a3c"], holes: []),
     SBLmsScript(id: "blackboard", use: "run", lens: [19922, 7], hashes: ["a6743290bb585765ce377571cb8051aa6ef310a109e098589ff430cb9a064e29", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"], holes: ["json"]),
     SBLmsScript(id: "brightspace", use: "run", lens: [263, 17, 13, 818], hashes: ["b3d77bd943b2c40bab26ebfda3e9ecdbb70af6ae86b44e3f6fb01b9e799fa6b0", "98a77c2163e7ece5557ff1aa13d9885488539574d0cdd0f758274ddd4059e7ec", "7aec78918ff5ceed82c74c4c2087df50996c8eb8016b0a1d532ecd7ee23f33a7", "d0a6180283288de3087d03238f0864ca7dd43dc941640b0747ec70db2c6ee19a"], holes: ["digits", "digits", "digits"]),

@@ -386,6 +386,45 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     const lk = await app.evaluate(() => { const t = SBLMS.st().tasks.lq; return t && [t.status, t.time, t.location]; });
     ok(lk && lk[0] === "done" && lk[1] === "09:30" && lk[2] === "SW3 4676/95", "Merge keeps the done one, with the sitting's time and room: " + JSON.stringify(lk));
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    // Brightspace's class statistics on a graded quiz reach that quiz's task (by its grade item), so its Grades row can show them
+    const bst = await app.evaluate(() => {
+      const L = SBLMS.brightspace, d = L.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [],
+        courses: [{ou: "21", code: "STAT2000", name: "Statistics", folders: [], news: [], events: [],
+          quizzes: [{id: "211", name: "Quiz 4", due: new Date(Date.now() - 2 * 864e5).toISOString(), start: null, end: null, gid: "77", done: true}],
+          grades: [{gid: "77", name: "Quiz 4", type: 1, num: 8, den: 10, shown: "80 %", cls: {mean: 6.5, median: 7, lo: 2, hi: 10}}]}]});
+      const q = d.recs.find(r => r.pid === "q211"); return q && q.fb;
+    });
+    ok(bst && bst.cls && bst.cls.mean === 6.5 && bst.sc === 8 && bst.of === 10, "Brightspace's class results go with the quiz that has that grade: " + JSON.stringify(bst));
+    // The pass mark: from a course's syllabus (or its grade scheme); two courses agreeing make it the default; a pass mark the student sets
+    // is never changed by a sync; "Use this pass mark for all my courses" sets every course
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    const PM = (syl1, pass2) => ({ok: true, origin: "https://x.instructure.com", me: {}, all: [], errors: [], courses: [
+      {ou: "801", code: "NURS1010", name: "Nursing Foundations", items: [{kind: "assignment", id: "8011", name: "Care Plan 1", due: new Date(Date.now() + 5 * 864e5).toISOString(), done: false}], grades: [], news: [], events: [], syl: [syl1]},
+      {ou: "802", code: "NURS1020", name: "Health Assessment", items: [{kind: "assignment", id: "8021", name: "Assessment Report", due: new Date(Date.now() + 6 * 864e5).toISOString(), done: false}], grades: [], news: [], events: [], syl: ["Course outline."], passMark: pass2}]});
+    const pm1 = await app.evaluate(h => { const L = SBLMS.canvas, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true);
+      const cs = Object.values(SBLMS.st().courses).filter(c => /Nursing Foundations|Health Assessment/.test(c.name));
+      return {cs: cs.map(c => [c.name, c.grading && c.grading.pass, c.grading && c.grading.passSrc]), def: (SBLMS.st().settings.grades || {}).pass}; },
+      PM("Grading: a minimum grade of 65% is required to pass this course.", {pct: 65, name: "BSN"}));
+    ok(pm1.cs.length === 2 && pm1.cs.every(c => c[1] === 65 && c[2] === "school") && pm1.def === 65, "each course takes its pass mark from its syllabus or grade scheme, and two agreeing set the default: " + JSON.stringify(pm1));
+    // the student changes one course's pass mark in Grade Settings: a sync keeps it
+    const cid1 = await app.evaluate(() => Object.values(SBLMS.st().courses).find(c => c.name === "Nursing Foundations").id);
+    await app.evaluate(id => SBLMS.go("courses", id), cid1); await app.waitForTimeout(300);
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    await app.click('[data-act="course-tab"][data-id="grades"]'); await app.waitForTimeout(200);
+    await app.click('[data-act="g-course-set"]'); await app.waitForSelector('dialog[open] input[name="pass"]');
+    ok(/Filled in from the course syllabus/.test(await app.textContent("dialog[open]")), "Grade Settings says where the pass mark came from");
+    await app.fill('dialog[open] input[name="pass"]', "70"); await app.click("dialog[open] [data-submit]"); await app.waitForTimeout(300);
+    const pm2 = await app.evaluate(([h, id]) => { const L = SBLMS.canvas, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true); const g = SBLMS.st().courses[id].grading; return [g.pass, g.passSrc]; },
+      [PM("Grading: a minimum grade of 65% is required to pass this course.", {pct: 65, name: "BSN"}), cid1]);
+    ok(pm2[0] === 70 && pm2[1] === "user", "a pass mark the student set stays after a sync: " + JSON.stringify(pm2));
+    // and the checkbox: this pass mark for every course
+    await app.click('[data-act="g-course-set"]'); await app.waitForSelector('dialog[open] input[name="passAll"]');
+    await app.fill('dialog[open] input[name="pass"]', "60"); await app.check('dialog[open] input[name="passAll"]'); await app.click("dialog[open] [data-submit]"); await app.waitForTimeout(300);
+    const pm3 = await app.evaluate(h => { const L = SBLMS.canvas, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true);
+      return {def: SBLMS.st().settings.grades.pass, src: SBLMS.st().settings.grades.passSrc, cs: Object.values(SBLMS.st().courses).map(c => [c.name, (c.grading || {}).pass == null ? "default" : c.grading.pass])}; },
+      PM("Grading: a minimum grade of 65% is required to pass this course.", {pct: 65, name: "BSN"}));
+    ok(pm3.def === 60 && pm3.src === "user" && pm3.cs.every(c => c[1] === "default"), "Use this pass mark for all my courses: every course uses 60%, and a sync doesn't change it: " + JSON.stringify(pm3));
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
     // Two real items both handed in, due at the same moment, named alike ("PHC" and "PHSA Privacy and Confidentiality"): one form per
     // health authority, listed apart by the school, so never asked about; a calendar copy of a done item, done too, is
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });

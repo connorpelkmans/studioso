@@ -17,7 +17,7 @@ const CV = [
   [/^\/api\/v1\/courses\?enrollment_state=active/, [{id: 201, name: "History 200", course_code: "HIS200", start_at: at(-30), end_at: at(60), apply_assignment_group_weights: false, enrollments: [{computed_current_score: 85, computed_current_grade: "B"}]}]],
   [/^\/api\/v1\/courses\/201\/assignments\?/, [
     {id: 1, name: "Essay 1", due_at: at(-3), published: true, points_possible: 20, assignment_group_id: 3, submission_types: ["online_upload"], html_url: SCHOOL + "/courses/201/assignments/1",
-      submission: {workflow_state: "graded", score: 17, grade: "17", submitted_at: at(-4)}},
+      submission: {workflow_state: "graded", score: 17, grade: "17", submitted_at: at(-4)}, score_statistics: {min: 9, max: 20, mean: 15.2, median: 16, lower_q: 13, upper_q: 18}},
     {id: 2, name: "Essay 2", due_at: at(9), published: true, points_possible: 20, assignment_group_id: 3, submission_types: ["online_upload"], html_url: SCHOOL + "/courses/201/assignments/2", submission: {workflow_state: "unsubmitted"}}]],
   [/^\/api\/v1\/courses\/201\/students\/submissions\?/, [{assignment_id: 1, submitted_at: at(-4), score: 17, grade: "17", submission_comments: [{author_name: "Prof. Ruiz", author_id: 5, comment: "Strong thesis.", created_at: at(-2)}]}]],
   [/^\/api\/v1\/courses\/201\/users\?/, [{id: 5, name: "Prof. Ruiz", email: "ruiz@example.edu", enrollments: [{type: "TeacherEnrollment"}]}]],
@@ -111,10 +111,13 @@ const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { 
     await app.evaluate(cid => SBLMS.go("courses", cid), course.id); await app.waitForTimeout(300);
     await app.waitForTimeout(1500); await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });   // the app's own "Sign In to Studyboard" prompt
     await app.click('[data-act="course-tab"][data-id="grades"]'); await app.waitForTimeout(300);
-    await app.click('[data-act="lms-fb"]'); await app.waitForSelector("dialog[open] .lms-fb");
-    ok(/Strong thesis\./.test(await app.textContent("dialog[open]")), "the Grades tab opens Essay 1's feedback");
+    await app.click('[data-act="lms-fb"]'); await app.waitForSelector(".gr-drop:not([hidden]) .lms-fb");
+    const drop = await app.textContent(".gr-drop:not([hidden])");
+    ok(/Strong thesis\./.test(drop), "clicking Essay 1 in the Grades tab opens its feedback right there");
+    ok(/Average\s*15\.2 \/ 20/.test(drop) && /High\s*20 \/ 20/.test(drop) && /Low\s*9 \/ 20/.test(drop) && /9% above the class average \(you 85%, class 76%\)/.test(drop), "with the class's average, high and low from Canvas, and where the mark sits: " + drop.replace(/\s+/g, " ").slice(0, 300));
     await app.waitForTimeout(300); await app.screenshot({path: path.join(OUT, "extension-app-feedback.png")});
-    await app.keyboard.press("Escape");
+    await app.click('[data-act="lms-fb"]'); await app.waitForTimeout(200);
+    ok(await app.locator(".gr-drop:not([hidden])").count() === 0, "clicking it again closes it");
     // The same read is not imported twice
     await app.evaluate(async () => { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); });   // the app's own offline worker would answer instead of the test
     await app.reload(); await app.waitForFunction(() => window.SBEXT && SBEXT.on()); await app.waitForTimeout(1200);

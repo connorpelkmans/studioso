@@ -4,9 +4,9 @@ package com.studioso.app.capture
 
 internal val LMS_SCRIPTS = arrayOf(
     LmsScript("brightspace", "who", intArrayOf(580), arrayOf("696d419a0c8ae94e9108c13e1c8dfd6ebf2a082f7081401b0ec1ff134e9b296b"), arrayOf<String>()),
-    LmsScript("brightspace", "run", intArrayOf(27013, 7), arrayOf("72b5a72aad9e8ee59bce9a7adb060108b0ad0f51b667701b98652a3b21b8956c", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"), arrayOf<String>("json")),
+    LmsScript("brightspace", "run", intArrayOf(29059, 7), arrayOf("dffd4f5bb5a0561d92ce25b720fdf2c8096349c04d49bc25c75f7b00f8c00fb3", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"), arrayOf<String>("json")),
     LmsScript("canvas", "who", intArrayOf(285), arrayOf("dcceed04f724416604630fa0318da165c3aa00082d5e7470b10cda616b86d6f1"), arrayOf<String>()),
-    LmsScript("canvas", "run", intArrayOf(20283, 7), arrayOf("3e823054661823d2fab49dabf434553578246bfab2a4f2e5bb46d3061ad94bb0", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"), arrayOf<String>("json")),
+    LmsScript("canvas", "run", intArrayOf(21739, 7), arrayOf("64eb64ceb6874a513c78632ad30e8edfd14dada890a6a3609b59fac132d7527b", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"), arrayOf<String>("json")),
     LmsScript("blackboard", "who", intArrayOf(448), arrayOf("0ee7783018c9c6998698f83c32a0bab586f6c9c8012cbb6322356e73a6423a3c"), arrayOf<String>()),
     LmsScript("blackboard", "run", intArrayOf(19922, 7), arrayOf("a6743290bb585765ce377571cb8051aa6ef310a109e098589ff430cb9a064e29", "00290a0b85c405156c1ae6b61dbfa9b542f786118dc960549ed5d9203e18b272"), arrayOf<String>("json")),
     LmsScript("brightspace", "run", intArrayOf(263, 17, 13, 818), arrayOf("b3d77bd943b2c40bab26ebfda3e9ecdbb70af6ae86b44e3f6fb01b9e799fa6b0", "98a77c2163e7ece5557ff1aa13d9885488539574d0cdd0f758274ddd4059e7ec", "7aec78918ff5ceed82c74c4c2087df50996c8eb8016b0a1d532ecd7ee23f33a7", "d0a6180283288de3087d03238f0864ca7dd43dc941640b0747ec70db2c6ee19a"), arrayOf<String>("digits", "digits", "digits")),
