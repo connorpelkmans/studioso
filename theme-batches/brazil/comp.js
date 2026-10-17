@@ -14,7 +14,7 @@
     companions: [
       {
         id: "brazil-tuca", name: "Tuca", kind: "Toco Toucan Chick", pose: "stand", wearColor: "#FF8A1E",
-        bio: "Big beak, bigger smile, loudest cheer on the beach.",
+        bio: "A toco toucan chick with a big beak and the loudest cheer on the beach.",
         idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter",
         neck: [60, 74],
         parts: {
@@ -56,7 +56,7 @@
       },
       {
         id: "brazil-mico", name: "Mico", kind: "Golden Lion Tamarin", pose: "sit", wearColor: "#2E9A5A",
-        bio: "A tiny golden mane and a huge appetite for learning.",
+        bio: "A golden lion tamarin with a tiny golden mane and a big love of learning.",
         idle: ["tailSwish", "headTilt", "earTwitch"], cheer: "hop",
         neck: [60, 76],
         parts: {
@@ -98,7 +98,7 @@
       },
       {
         id: "brazil-cocada", name: "Cocada", kind: "Coconut with a Straw", pose: "stand", wearColor: "#FF5A8A",
-        bio: "Fresh from the beach kiosk, straw always ready.",
+        bio: "A fresh coconut from the beach kiosk, straw in and ready to cheer you on.",
         idle: ["topBob", "sway", "sparkle"], cheer: "bounce",
         parts: {
           feet: `<ellipse cx="47" cy="107" rx="8" ry="4.4" fill="#5A9A3A" ${O}/><ellipse cx="73" cy="107" rx="8" ry="4.4" fill="#5A9A3A" ${O}/>`,

@@ -12,7 +12,7 @@
     companions: [
       {
         id: "thailand-chang", name: "Chang", kind: "Thai Elephant Calf", pose: "stand", wearColor: "#D8463A",
-        bio: "Carries your hardest task with a trunk-curling smile.",
+        bio: "A happy elephant calf who carries your hardest tasks with a big smile.",
         idle: ["earTwitch", "tailSwish", "topBob"], cheer: "bounce",
         parts: {
           tail: {svg: `${LINE("M86 88Q98 86 100 96", "#A6A2BC", 2.6)}<path d="M98 94Q104 95 103 101Q97 101 98 94Z" fill="#5A5470" ${OW(1.6)}/>`, pivot: [86, 88]},
@@ -55,7 +55,7 @@
       },
       {
         id: "thailand-mamuang", name: "Mamuang", kind: "Mango Sticky Rice", pose: "stand", wearColor: "#F2A81E",
-        bio: "Sweet, golden and secretly very sticky about goals.",
+        bio: "A sweet scoop of mango sticky rice who sticks with your goals.",
         idle: ["topBob", "sway", "sparkle"], cheer: "hop",
         parts: {
           feet: `${LG("thailand-mamuang-l", [[0, "#6AB85A"], [1, "#3E8A3E"]])}
@@ -92,7 +92,7 @@
       },
       {
         id: "thailand-tukky", name: "Tukky", kind: "Little Tuk-Tuk", pose: "stand", wearColor: "#2E7FD0",
-        bio: "Beeps happily and gets you anywhere on time.",
+        bio: "A little tuk-tuk who beeps happily and gets you everywhere on time.",
         idle: ["topBob", "bounce", "sparkle"], cheer: "hop",
         parts: {
           feet: `<ellipse cx="60" cy="102" rx="10" ry="9" fill="#2E2838" ${O}/><circle cx="60" cy="102" r="4" fill="#C8C4D4" ${OW(1.6)}/>

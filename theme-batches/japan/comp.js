@@ -11,7 +11,7 @@
     companions: [
       {
         id: "japan-kuri", name: "Kuri", kind: "Shiba Inu Pup", pose: "sit", wearColor: "#D8402E",
-        bio: "Curly tail, big smile, keeps watch on your deadlines.",
+        bio: "A smiley shiba pup with a curly tail who keeps watch on your deadlines.",
         idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "hop",
         neck: [60, 76],
         parts: {
@@ -52,7 +52,7 @@
       },
       {
         id: "japan-daru", name: "Daru", kind: "Daruma Doll", pose: "stand", wearColor: "#E6B23A",
-        bio: "Falls down seven times, gets up eight.",
+        bio: "A sturdy daruma doll who always gets back up, no matter how many falls.",
         idle: ["sway", "topBob", "sparkle"], cheer: "bounce",
         parts: {
           feet: `<ellipse cx="60" cy="106.6" rx="30" ry="4.6" fill="#9A2420" ${O}/>`,
@@ -85,7 +85,7 @@
       },
       {
         id: "japan-musu", name: "Musu", kind: "Onigiri", pose: "stand", wearColor: "#3A8A5A",
-        bio: "A rice ball with a nori sash and a can-do attitude.",
+        bio: "A little rice ball in a nori sash with a big can-do attitude.",
         idle: ["topBob", "wave", "headTilt"], cheer: "hop",
         neck: [60, 104],
         parts: {
