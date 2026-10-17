@@ -79,7 +79,7 @@
         cheeks: {lx: 44.4, rx: 75.6, y: 58, w: 3.6, h: 2.3, color: "#FF9A88"},
         anchors: {top: [60, 33, 0.9], neck: [60, 76, 1], chest: [70, 94, 0.6], back: [84, 86, 0.8], hands: [60, 96, 0.85]},
         lines: {
-          tap: ["Hi! I've been building you a study dam!", "One stick at a time. That's how dams get built!", "Busy as a beaver, and so are you!", "Chomp chomp! That task didn't stand a chance.", "Slap slap! That's my tail cheering for you!", "Let's build something great today!", "Keep at it! Every twig counts.", "You've got real busy-builder energy today!"],
+          tap: ["Hi! I've been building you a study dam!", "One stick at a time. That's how dams get built!", "Busy as a beaver, and so are you!", "Chomp chomp! That task didn't stand a chance.", "Slap slap! That's my tail cheering for you!", "Let's build something great today!", "Keep at it! Every twig counts.", "You've got real beaver energy today!"],
           pet: ["Hehe! Right between the ears!", "Ooh, my fur's all fluffy now!"],
           hello: ["You're back! I kept the lodge warm!", "Hi! Ready to build some progress?"],
           morning: ["Good morning! Early beavers get the best sticks!", "Morning! The lake is calm. Let's get building!"],
