@@ -6748,8 +6748,9 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   .plan .fh-ctl .hours-ctl{min-height:0;padding:4px 10px}
   /* A page's own buttons whose heading was hidden (Review's Archive and Recently Deleted) sit beside its switcher */
   /* a header left with only its buttons (its heading repeats the page): the buttons on their own line under the switcher, at the right */
-  #view > .view-head.ph-btns{justify-content:flex-end;gap:6px;margin:0 0 12px;min-height:0}
-  #view > .view-head.ph-btns .btn.small{min-height:40px}
+  #view > .view-head.ph-btns{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:4px 0 14px!important;padding:0!important;min-height:0;height:auto;position:static!important;transform:none!important}
+  #view > .view-head.ph-btns + *{margin-top:0!important}
+  #view > .view-head.ph-btns .btn.small{min-height:40px;margin:0!important}   /* (an older rule pulls header buttons up with a negative margin) */
   /* Task Board: Group By as a small control */
   .bview-row .board-ctl .segb button{min-height:34px;padding-block:4px;font-size:.84rem}
   .bview-row .board-ctl .mini{font-size:.78rem}
