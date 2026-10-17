@@ -81,12 +81,13 @@ After each listing goes live, put its address in `EXT_STORE` in `index.html` (se
    > Steps
    > 1. Open https://<canvas test site>/ and sign in with the Canvas test student.
    > 2. Click the Studyboard School Sync button in the toolbar. The site's address is filled in. Read the disclosure, click **Agree, Allow and Connect**, and allow the permission Chrome asks for (that one site only).
-   > 3. Within a minute the popup shows "Synced just now" with the number of courses and items.
-   > 4. Open https://studyboardapp.com/ in the same browser. Choose **Use Without an Account** (or sign in with the Studyboard test account). Skip the welcome tour if it appears.
-   > 5. Studyboard asks which Studyboard course each Canvas course goes to: keep **New Course** and continue. The assignments then appear as tasks on the Board with their due dates, and the ones already submitted are ticked off. Click a task to see its grade, feedback and rubric.
+   > 3. Within a minute the popup shows "Synced" with the number of courses, items and grades.
+   > 4. Open https://studyboardapp.com/ in the same browser. Choose **Use Without an Account** (or sign in with the Studyboard test account). A welcome tour opens: click **Skip Tour**. (What the extension read is brought in once these windows are closed.)
+   > 5. Within a few seconds the Canvas courses are added and their assignments appear as tasks on the Board, with their due dates; the ones already submitted are ticked off. Nothing needs to be confirmed (Studyboard only asks if two entries look like the same item). Click a task to see its grade, feedback and rubric, when the course has them.
    >
    > Notes
-   > - Permissions: storage (the connected site, settings and the last read), alarms (a sync every hour by default; the student can choose 15 minutes to 12 hours), scripting (runs the extension's own packaged read script in the student's open tab of the connected site, only when a background read isn't signed in), activeTab (fills in the address when the popup is opened on the school site). Site access is optional and asked for one school site at a time.
+   > - Permissions: storage (the connected site, settings and the last read), alarms (a sync every hour by default; the student can choose 15 minutes to 12 hours), scripting (when the background read doesn't work, for example because the school's single sign-on doesn't sign it in, runs the extension's own packaged read script in a tab of the connected site the student already has open), activeTab (fills in the address when the popup is opened on the school site). Site access is optional and asked for one school site at a time.
+   > - studyboardapp.com: the content script relay.js runs only on studyboardapp.com, to hand what was read to the Studyboard page; externally_connectable lets that page ask the extension for what it read or for a sync now, and nothing else. No other site can talk to the extension.
    > - It only makes GET requests to the connected site. It never submits, posts or changes anything there, and never sees passwords.
    > - The extension sends nothing to any server: it keeps what it read in extension storage and passes it to the Studyboard page in the same browser.
    > - No remote code: harvest.js is generated at build time from the app's lms.js, unminified, and included in the package.
