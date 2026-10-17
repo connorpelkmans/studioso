@@ -90,6 +90,31 @@ const BB = [
     await assert.rejects(vm.runInContext(`(${L.bsHarvest.toString()})(${JSON.stringify(SAFE)})`, ctx), e => e && e.name === "ReferenceError" && /htmlText/.test(e.message));
   });
 
+  await t("Brightspace: a quiz you sat counts as done, from its attempts or the Quizzes page, even with only an opening date", async () => {
+    const page = `<table><tr><th>EXAMS</th><th>Evaluation Status</th><th>Attempts</th></tr>
+      <tr><td><a href="/d2l/lms/quizzing/user/quiz_summary.d2l?qi=8&amp;ou=101">BSNC 1000 Midterm Exam- Requires Respondus LockDown Browser</a><br>Available on 10/6/2026 5:00 AM</td><td></td><td>1 / 1</td></tr>
+      <tr><td><a href="/d2l/lms/quizzing/user/quiz_summary.d2l?qi=7&amp;ou=101">Quiz 1</a><br>Available on 10/6/2026 5:00 AM until 11/29/2026 8:00 AM</td><td></td><td>0 / 1</td></tr></table>`;
+    const routes = BS.filter(([re]) => !/quizzes\\\/\$/.test(re.source)).concat([
+      [/^\/d2l\/api\/le\/1\.70\/101\/quizzes\/$/, { Objects: [{ QuizId: 7, Name: "Quiz 1", DueDate: iso(9), IsActive: true }, { QuizId: 8, Name: "BSNC 1000 Midterm Exam- Requires Respondus LockDown Browser", StartDate: iso(-10), IsActive: true },
+        { QuizId: 9, Name: "Practice Quiz", StartDate: iso(-10), IsActive: true }, { QuizId: 10, Name: "Unit Test", StartDate: iso(-3), IsActive: true },
+        { QuizId: 11, Name: "Lab Quiz", StartDate: iso(-3), IsActive: true }], Next: null }],
+      [/quiz_summary\.d2l\?qi=10&/, "<h2>Attempts</h2><p>Allowed - 1, Completed - 1</p>", { "content-type": "text/html" }],
+      [/quiz_summary\.d2l\?qi=11&/, "<p>Allowed - 2, Completed - 0</p>", { "content-type": "text/html" }],
+      [/quiz_submissions\.d2l\?qi=11&/, "<table><tr><td>Attempt 1</td><td>Pending Evaluation</td></tr></table>", { "content-type": "text/html" }],
+      [/quiz_summary\.d2l\?qi=7&/, "<p>Completed: 10/6/2026 5:00 AM</p>", { "content-type": "text/html" }],
+      [/\/quizzes\/9\/attempts\/$/, [{ AttemptId: 4, AttemptNumber: 1 }]],   // waiting to be marked: no score, no completion time
+      [/quizzes_list\.d2l\?ou=101/, page, { "content-type": "text/html" }]]);
+    const { out } = await runInjected("brightspace", "https://learn.example.edu", routes);
+    const q = id => out.courses[0].quizzes.find(x => x.id === id);
+    assert.strictEqual(q("8").done, true, "the Quizzes page's 1 / 1 (and not the date 10/6) says the midterm was sat");
+    assert.notStrictEqual(q("7").done, true, "0 / 1 is not done, though its row has dates like 10/6/2026");
+    assert.strictEqual(q("9").done, true, "an attempt pending evaluation counts");
+    assert.strictEqual(q("10").done, true, "the quiz's own summary page: Completed - 1");
+    assert.strictEqual(q("11").done, true, "the quiz's Submissions page: Attempt 1, Pending Evaluation");
+    assert.notStrictEqual(q("7").done, true, "a date after Completed isn't a count");
+    assert(/2 of 3 sat from their own pages/.test(out.courses[0].quizNote), out.courses[0].quizNote);
+  });
+
   await t("Brightspace: injected script runs in an empty page context and reads HTML text", async () => {
     const { out, seen } = await runInjected("brightspace", "https://learn.example.edu", BS);
     assert.strictEqual(out.ok, true, JSON.stringify(out).slice(0, 300));
@@ -169,6 +194,61 @@ const BB = [
     assert.strictEqual(g.find(x => x.gid === "_8_2").weight, 75);
     assert.strictEqual(g.find(x => x.gid === "_8_2").num, null, "not graded yet: weight only");
     assert(!g.some(x => x.gid === "_8_3" || x.gid === "_8_4"));
+  });
+
+  await t("Canvas: an assignment with no due date is sent along (with whether it's handed in) and takes the planner's date", async () => {
+    const routes = CV.map(r => r.slice());
+    routes[2] = [/^\/api\/v1\/courses\/201\/assignments\?/, [
+      { id: 7, name: "Capacity Building with a Community Client", due_at: null, published: true, points_possible: 20, assignment_group_id: 3, submission_types: ["online_upload"], submission: { workflow_state: "submitted", submitted_at: iso(-2) } },
+      { id: 8, name: "Group Charter", due_at: null, published: true, points_possible: 5, assignment_group_id: 3, submission_types: ["online_upload"], submission: { workflow_state: "unsubmitted" } }]];
+    routes[7] = [/^\/api\/v1\/planner\/items\?/, [{ course_id: 201, plannable_type: "assignment", plannable_id: 8, plannable: { title: "Group Charter", todo_date: iso(6) } }]];
+    const { out } = await runInjected("canvas", "https://x.instructure.com", routes);
+    const c = out.courses[0], a = c.items.find(x => x.id === "7"), b = c.items.find(x => x.id === "8");
+    assert(a && a.due === null && a.done === true, "the undated, submitted one is there: " + JSON.stringify(a && {due: a.due, done: a.done}));
+    assert(b && b.due && b.done === false, "the planner's date lands on the undated one with its id");
+  });
+
+  await t("Blackboard: a column with no due date takes the calendar's, keeping whether it's handed in", async () => {
+    const routes = BB.map(r => r.slice());
+    routes[2] = [/^\/learn\/api\/public\/v1\/calendars\/items\?/, { results: [{ id: "c9", calendarId: "_301_1", type: "GradebookColumn", title: "Reflection Paper", end: iso(-3), itemSourceId: "_8_9" }] }];
+    routes[3] = [/^\/learn\/api\/public\/v2\/courses\/_301_1\/gradebook\/columns\?/, { results: [
+      { id: "_8_9", name: "Reflection Paper", grading: { type: "Attempts" }, score: { possible: 20 } }] }];
+    routes.push([/\/gradebook\/columns\/_8_9\/attempts/, { results: [{ id: "a1", status: "NeedsGrading", created: iso(-4) }] }]);
+    routes[4] = [/^\/learn\/api\/public\/v2\/courses\/_301_1\/gradebook\/users\/_5_1$/, { results: [] }];
+    const { out } = await runInjected("blackboard", "https://bb.example.edu", routes);
+    const items = out.courses[0].items.filter(x => x.name === "Reflection Paper");
+    assert.strictEqual(items.length, 1, "one item, not a calendar copy beside it: " + items.length);
+    assert(items[0].due && items[0].done === true, "dated by the calendar and submitted (an attempt waiting to be graded): " + JSON.stringify({due: items[0].due, done: items[0].done}));
+  });
+
+  await t("Brightspace: the class's average, median, high and low on a graded item, when allowed; one refusal stops the rest", async () => {
+    const grades = { Objects: [], Next: null };
+    const vals = [{ GradeObjectIdentifier: "9", GradeObjectName: "Lab 0", GradeObjectType: 1, PointsNumerator: 8, PointsDenominator: 10, DisplayedGrade: "80 %" },
+                  { GradeObjectIdentifier: "12", GradeObjectName: "Quiz 1", GradeObjectType: 1, PointsNumerator: 7, PointsDenominator: 10, DisplayedGrade: "70 %" }];
+    const routes = BS.filter(([re]) => !/myGradeValues/.test(re.source)).concat([[/\/grades\/values\/myGradeValues\/$/, vals],
+      [/\/grades\/9\/statistics$/, { Minimum: 4, Maximum: 10, Average: 7.25, Median: 7.5 }], [/\/grades\/12\/statistics$/, { Minimum: 2, Maximum: 10, Average: 6.1, Median: 6 }]]);
+    const { out } = await runInjected("brightspace", "https://learn.example.edu", routes);
+    const g = id => out.courses[0].grades.find(x => x.gid === id);
+    assert.strictEqual(JSON.stringify(g("9").cls), JSON.stringify({ mean: 7.25, median: 7.5, lo: 4, hi: 10 }));
+    assert.strictEqual(g("12").cls.mean, 6.1);
+    const refused = BS.filter(([re]) => !/myGradeValues/.test(re.source)).concat([[/\/grades\/values\/myGradeValues\/$/, vals]]);
+    const r2 = await runInjected("brightspace", "https://learn.example.edu", refused);
+    assert.strictEqual(r2.seen.filter(p => /\/statistics$/.test(p)).length, 1, "asked once, then not again for the course");
+    assert(!r2.out.courses[0].grades.some(x => x.cls), "no class results when they aren't shown");
+  });
+
+  await t("the pass mark from the course's grade scheme: Brightspace's default scheme and Canvas's grading standard (65% in nursing)", async () => {
+    const bs = BS.concat([[/\/grades\/setup\/$/, { GradingSystem: "Points", DefaultGradeSchemeId: 44 }],
+      [/\/grades\/schemes\/44$/, { Id: 44, Name: "BSN Scheme", Ranges: [{ Symbol: "F", PercentStart: 0 }, { Symbol: "C", PercentStart: 65 }, { Symbol: "B", PercentStart: 73 }, { Symbol: "A", PercentStart: 86 }] }]]);
+    const a = await runInjected("brightspace", "https://learn.example.edu", bs);
+    assert.strictEqual(a.out.courses[0].passMark && a.out.courses[0].passMark.pct, 65);
+    const none = await runInjected("brightspace", "https://learn.example.edu", BS);
+    assert(!none.out.courses[0].passMark, "no scheme readable: nothing guessed");
+    const cv = CV.map(r => r.slice());
+    cv[1] = [/^\/api\/v1\/courses\?enrollment_state=active/, [{ id: 201, name: "Nursing 200", course_code: "NURS200", start_at: iso(-30), end_at: iso(60), grading_standard_id: 7, enrollments: [] }]];
+    cv.push([/\/api\/v1\/courses\/201\/grading_standards/, [{ id: 7, title: "BCIT Nursing", grading_scheme: [{ name: "A", value: 0.86 }, { name: "B", value: 0.73 }, { name: "C", value: 0.65 }, { name: "F", value: 0 }] }]]);
+    const c = await runInjected("canvas", "https://x.instructure.com", cv);
+    assert.strictEqual(c.out.courses[0].passMark && c.out.courses[0].passMark.pct, 65);
   });
 
   await t("cleanHarvest keeps only plain, capped data and https links", async () => {

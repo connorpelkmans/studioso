@@ -27,3 +27,6 @@ ios-www/
 /tests-out/
 # Wrangler local dev state (cloudflare/key-relay)
 .wrangler/
+# The browser extension: built by scripts/build-extension.js (packages to upload to the stores)
+/extension/build/
+/extension/dist/

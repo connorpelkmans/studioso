@@ -78,7 +78,7 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
     await school.evaluate(src => { (0, eval)(src); }, decodeURIComponent(js.slice("javascript:".length)));
     await school.getByText("Open in Studyboard").waitFor({timeout: 30000});
     ok(asked.every(([m]) => m === "GET"), "the bookmark only read (GET) from the school site");
-    ok(/Read 1 course, 1 grade and 1 message/.test(await school.locator("div >> nth=0").evaluate(() => document.body.lastElementChild.shadowRoot.textContent)), "it says what it read");
+    ok(/Read 1 course, 1 grade, 1 submitted item and 1 message/.test(await school.locator("div >> nth=0").evaluate(() => document.body.lastElementChild.shadowRoot.textContent)), "it says what it read");
     ok(await school.evaluate(() => { const r = document.body.lastElementChild.shadowRoot, im = r.querySelector("img"); return !!im && im.complete && im.naturalWidth === 64 && /Studyboard/.test(r.textContent); }), "the panel on the school's page shows the Studyboard logo");
     if (process.env.SHOT) await school.screenshot({path: process.env.SHOT});
     const href = await school.getByText("Open in Studyboard").getAttribute("href");
@@ -86,6 +86,10 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
     // Open it: the code leaves the address, the review sheet shows, Import brings in tasks, grades and the announcement
     const [tab] = await Promise.all([ctx.waitForEvent("page"), school.getByText("Open in Studyboard").click()]);
     tab.on("pageerror", e => errs.push("tab: " + e.message));
+    // Anyone can make such a link, so nothing is saved until the person says it is what they just read from their own school site
+    await tab.waitForSelector("#dlg [data-submit]", {timeout: 15000});
+    ok(/canvas\.example\.edu/.test(await tab.locator("#dlg").innerText()) && !(await tab.evaluate(() => SBLMS.canvas.cfg().host)), "it first asks, naming the school site, and has saved nothing yet");
+    await tab.click("#dlg [data-submit]");
     await tab.waitForSelector("dialog .bs-sheet [data-submit]", {timeout: 15000});
     ok(!/sbgrab/.test(tab.url()), "the code is taken off the address right away: " + tab.url());
     ok(/HIS/.test(await tab.locator("#dlg").innerText()), "the review sheet lists the course");
@@ -110,15 +114,30 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
     ok(st.cfg.mode === "api" && st.cfg.host === "canvas.example.edu" && /in this browser/.test(st.line), "connected to that school site; settings say it was read in this browser: " + st.line);
     // A second read with the same data changes nothing
     const before = JSON.stringify(st.tasks.map(t => [t.id, t.due, t.status]).sort());
-    ok(await tab.evaluate(code => SBLMS.grabReceive(code), href.split("#sbgrab=")[1]), "the same code can be used again");
+    const again = tab.evaluate(code => SBLMS.grabReceive(code), href.split("#sbgrab=")[1]);
+    await tab.waitForSelector("#dlg [data-submit]", {timeout: 5000}); await tab.click("#dlg [data-submit]");
+    ok(await again, "the same code can be used again");
     await tab.waitForTimeout(500);
     ok(JSON.stringify((await tab.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")).tasks)).map(t => [t.id, t.due, t.status]).sort()) === before, "and adds nothing twice");
+    ok(!/out of date/.test(await tab.evaluate(() => document.querySelector("#toastMsg").textContent)), "a bookmark made today isn't called out of date");
+    // A bookmark made before the reading code changed (no version, or another one): Studyboard offers the new one
+    const old = await tab.evaluate(async code => { const p = await SBLMS.grabDecode(code); delete p.hv; const raw = new TextEncoder().encode(JSON.stringify(p)); let x = ""; raw.forEach(c => { x += String.fromCharCode(c); }); return "SBG1j." + btoa(x).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }, href.split("#sbgrab=")[1]);
+    tab.evaluate(code => SBLMS.grabReceive(code), old);
+    await tab.waitForSelector("#dlg [data-submit]", {timeout: 5000}); await tab.click("#dlg [data-submit]");
+    await tab.waitForFunction(() => /out of date/.test(document.querySelector("#toastMsg").textContent), null, {timeout: 6000});
+    ok(/Update Bookmark/.test(await tab.evaluate(() => document.querySelector("#toast").innerText)), "an old bookmark still works, and Studyboard offers to update it");
     // Refused: junk, an unknown platform, a stale read, an address that isn't a public https site
     const forged = async obj => tab.evaluate(async o => { const b = btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); return SBLMS.grabReceive("SBG1j." + b); }, obj);
     ok(await tab.evaluate(() => SBLMS.grabReceive("hello")) === false, "junk is refused");
     ok(await forged({v: 1, id: "__proto__", origin: SCHOOL, at: Date.now(), h: {ok: true}}) === false, "an unknown platform is refused");
     ok(await forged({v: 1, id: "canvas", origin: SCHOOL, at: Date.now() - 5 * DAY, h: {ok: true, courses: []}}) === false, "a read more than 3 days old is refused");
     ok(await forged({v: 1, id: "canvas", origin: "http://192.168.1.5", at: Date.now(), h: {ok: true, courses: []}}) === false, "a non-public or non-https school address is refused");
+    // Cancelled: a link someone sent (with a made-up inbox) leaves the inbox and the school site address alone
+    const mailBefore = await tab.evaluate(() => localStorage.getItem("studyboard:grabmail"));
+    const sent = forged({v: 1, id: "canvas", origin: "https://evil.example.com", at: Date.now(), h: {ok: true, courses: [], all: [], mail: [{subject: "Sign in again", msgs: [{from: "Prof", body: "x"}]}]}});
+    await tab.waitForSelector("#dlg [data-act=close]", {timeout: 5000}); await tab.click("#dlg [data-act=close]");
+    await Promise.race([sent, tab.waitForTimeout(800)]);
+    ok(await tab.evaluate(() => localStorage.getItem("studyboard:grabmail")) === mailBefore && await tab.evaluate(() => SBLMS.canvas.cfg().host) === "canvas.example.edu", "a cancelled link saves no inbox and doesn't change the school site");
     ok(!errs.length, "no page errors: " + errs.join(" | "));
     console.log("\nlms-grab.e2e: " + n + " checks passed");
   } finally { await browser.close(); server.close(); }

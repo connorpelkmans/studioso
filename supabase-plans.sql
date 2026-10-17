@@ -39,7 +39,7 @@ alter table public.studyboard_config add constraint studyboard_config_no_secrets
 -- A null limit means "no limit".
 insert into public.studyboard_config (key, value) values
   ('paywall', 'false'),
-  ('prices', '{"monthly": "$2.99", "yearly": "$24.99", "trialDays": 7, "currency": "USD"}'),
+  ('prices', '{"monthly": "$3.99", "yearly": "$29.99", "trialDays": 7, "currency": "USD"}'),
   ('limits', '{"free": {"devices": 2, "fileMB": 25, "dataMB": 25, "groupMembers": 3, "groupMsgDays": 60, "cloudBackupDays": 0},
                "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}'),
   ('checkout_url_monthly', '""'),
@@ -194,6 +194,20 @@ begin
 end $$;
 drop trigger if exists plans_device_limit on public.studyboard_devices;
 create trigger plans_device_limit before insert on public.studyboard_devices for each row execute function public.plans_device_limit();
+
+-- A device row can't be turned into a different device (or moved to another account) by changing its keys: that would skip the
+-- limit and the removed-device log above. The app's upsert (on user_id, device_id) only refreshes the name, platform and last_seen.
+create or replace function public.plans_device_keys() returns trigger
+language plpgsql set search_path = public, pg_temp as $$
+begin
+  if new.user_id is distinct from old.user_id or new.device_id is distinct from old.device_id then
+    raise exception 'SB_DEVICE_ID: A device can''t be renamed to another device. Remove it and sign in on the new one.' using errcode = 'P0001';
+  end if;
+  return new;
+end $$;
+revoke all on function public.plans_device_keys() from public, anon, authenticated;
+drop trigger if exists plans_device_keys on public.studyboard_devices;
+create trigger plans_device_keys before update on public.studyboard_devices for each row execute function public.plans_device_keys();
 
 -- ---------- Usage totals (kept by triggers, so checks never have to add everything up) ----------
 create table if not exists public.studyboard_usage (
@@ -487,6 +501,7 @@ begin
     using public.study_groups g
     where m.group_id = g.id
       and public.studyboard_limit(g.owner_id, 'groupMsgDays') is not null
+      and to_jsonb(g) ->> 'deleted_at' is null   -- a deleted group waiting out its 30 days comes back as it was
       and not coalesce(m.pinned, false)   -- pinned messages stay
       and m.created_at < now() - make_interval(days => public.studyboard_limit(g.owner_id, 'groupMsgDays')::int + 30)   -- plus a grace period
     returning 1)
@@ -653,6 +668,11 @@ begin
       and public.studyboard_limit(i.user_id, 'cloudBackupDays') is not null   -- no limit means keep them all
       -- 30 days of grace past the plan's window, so turning plans on or a lapsed plan never wipes a backup the same night
       and i.updated_at < now() - make_interval(days => greatest(public.studyboard_limit(i.user_id, 'cloudBackupDays'), 0)::int + 30)
+      -- and the grace runs from when the plan last changed or ended, not from the backup's age: without this, Pro ending (or a refund, or a
+      -- trial running out) deleted every backup between 30 and 60 days old that same night
+      and not exists (select 1 from public.studyboard_entitlements e where e.user_id = i.user_id
+        and greatest(e.updated_at, case when e.pro_until <= now() then e.pro_until end, case when e.grant_until <= now() then e.grant_until end,
+                     case when e.trial_until <= now() then e.trial_until end) > now() - interval '30 days')
     returning 1)
   select count(*) into n from gone;
   return n;
@@ -984,6 +1004,7 @@ begin
   with gone as (
     delete from public.group_messages m
     where not public.plans_group_is_pro(m.group_id)
+      and not exists (select 1 from public.study_groups g where g.id = m.group_id and to_jsonb(g) ->> 'deleted_at' is not null)   -- a deleted group waiting out its 30 days comes back as it was
       and not coalesce(m.pinned, false)   -- pinned messages stay
       and m.created_at < now() - make_interval(days => days + 30)   -- plus a grace period
     returning 1)

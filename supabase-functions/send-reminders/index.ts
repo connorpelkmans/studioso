@@ -116,16 +116,23 @@ export function supabaseStore(db: any) {
       if (error) throw error;
     },
     // Marks the task complete in your Studyboard data. Your open apps pick up the change through live sync.
+    // Compare-and-set on updated_at (the server stamps it on every change): an edit a device saves between the read and the write is never
+    // overwritten with the older copy read here; the task is read again and the change made on top of the newer version.
     async markDone(userId: string, taskId: string, now: number): Promise<boolean> {
-      const { data, error } = await db.from("items").select("data").eq("user_id", userId).eq("kind", "task").eq("id", taskId).maybeSingle();
-      if (error || !data || !data.data) return false;
-      const t = data.data;
-      if (t.status !== "done") {
+      for (let attempt = 0; ; attempt++) {
+        const { data, error } = await db.from("items").select("data,updated_at").eq("user_id", userId).eq("kind", "task").eq("id", taskId).maybeSingle();
+        if (error || !data || !data.data) return false;
+        const t = data.data;
+        if (t.status === "done") break;
         t.status = "done"; t.doneAt = now;
         if (t.type !== "Exam" && t.type !== "Quiz") t.pct = 100;
         t.history = (Array.isArray(t.history) ? t.history : []).concat({ at: now, text: "Marked complete from a reminder" }).slice(-30);
-        const up = await db.from("items").update({ data: t, updated_at: new Date(now).toISOString() }).eq("user_id", userId).eq("kind", "task").eq("id", taskId);
+        let q = db.from("items").update({ data: t, updated_at: new Date(now).toISOString() }).eq("user_id", userId).eq("kind", "task").eq("id", taskId);
+        q = data.updated_at ? q.eq("updated_at", data.updated_at) : q;
+        const up = await q.select("id");
         if (up.error) return false;
+        if (up.data && up.data.length) break;
+        if (attempt >= 4) return false;   // changed again and again meanwhile: leave it to the person
       }
       await db.from("reminder_queue").delete().eq("user_id", userId).eq("task_id", taskId).is("sent_at", null);
       return true;
@@ -295,11 +302,34 @@ export async function sendDue(store: Store, push: Push | null, now: number, api:
   return { due, sent, failed, removed: gone.size };
 }
 
+// Reads the body but stops as soon as it passes max bytes (null = too big). Content-Length alone can't be trusted (or may be missing).
+// Every request here is a few small fields, read before any sign-in or secret is checked, so the cap is small.
+const MAX_BODY = 16_000;
+export async function readLimited(req: Request, max: number): Promise<string | null> {
+  const cl = Number(req.headers.get("content-length") || 0);
+  if (cl > max) return null;
+  if (!req.body) return "";
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = []; let n = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    n += value.byteLength;
+    if (n > max) { try { await reader.cancel(); } catch (_e) { /* ignore */ } return null; }
+    chunks.push(value);
+  }
+  const all = new Uint8Array(n); let o = 0;
+  for (const c of chunks) { all.set(c, o); o += c.byteLength; }
+  return new TextDecoder().decode(all);
+}
+
 export async function handle(req: Request, store: Store, push: Push, opts: { now?: number; api: string; k: string; vapidOk: boolean; cronSecret?: string; native?: Native }) {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "Use POST." }, 405);
+  const raw = await readLimited(req, MAX_BODY);
+  if (raw === null) return json({ error: "Too large." }, 413);
   let b: any = {};
-  try { b = await req.json(); } catch (_e) { b = {}; }
+  try { b = JSON.parse(raw) || {}; } catch (_e) { b = {}; }
   const now = opts.now ?? Date.now();
   const action = String(b.action || "send");
   if (action === "snooze" || action === "done") {

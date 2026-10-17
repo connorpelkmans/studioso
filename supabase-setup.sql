@@ -35,6 +35,8 @@ create policy "items own delete" on public.items for delete to authenticated usi
 
 revoke all on public.items from anon;
 grant select, insert, update, delete on public.items to authenticated;
+-- TRUNCATE ignores row level security: nobody signed in may empty the table (Supabase grants it by default).
+revoke truncate, references, trigger on public.items from authenticated;
 
 -- ---------- Private file storage ----------
 insert into storage.buckets (id, name, public)

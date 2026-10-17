@@ -350,11 +350,11 @@ begin
 end $$;
 
 -- ---------- Clean-up ----------
--- Done captures are removed after 7 days, ones the app never picked up after 30 days, idempotency keys after 7 days,
--- old revoked tokens after 90 days.
+-- Done captures are removed after 7 days, ones the app never picked up after 365 days (they are things you asked to be added: a month
+-- away from the app, a summer break, must not lose them), idempotency keys after 7 days, old revoked tokens after 90 days.
 create or replace function public.capture_purge() returns void
 language sql volatile security definer set search_path = pg_catalog, public as $$
-  delete from public.capture_inbox where (processed_at is not null and processed_at < now() - interval '7 days') or created_at < now() - interval '30 days';
+  delete from public.capture_inbox where (processed_at is not null and processed_at < now() - interval '7 days') or created_at < now() - interval '365 days';
   delete from public.capture_idem where created_at < now() - interval '7 days';
   delete from public.capture_tokens where revoked_at is not null and revoked_at < now() - interval '90 days';
 $$;

@@ -69,6 +69,7 @@ alter table public.push_subscriptions enable row level security;
 drop policy if exists "Own push subscriptions" on public.push_subscriptions;
 create policy "Own push subscriptions" on public.push_subscriptions for all to authenticated
   using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+revoke all on public.push_subscriptions from anon;   -- signed-in people only (the rule above), never the public key
 
 -- Push services always use https. This stops a made-up address (for example one pointing inside a network) from being stored,
 -- so the send-reminders function only ever contacts real push services. (NOT VALID: old rows are left alone, new ones are checked.)
@@ -115,6 +116,27 @@ revoke all on function public.studyboard_push_cap() from public, anon, authentic
 drop trigger if exists push_subscriptions_cap on public.push_subscriptions;
 create trigger push_subscriptions_cap before insert on public.push_subscriptions
   for each row execute function public.studyboard_push_cap();
+
+-- One push address belongs to one account. When a device signs in to another account and registers the same address, the
+-- other account's row for it is removed (the newest owner wins), so one account's reminders never go to someone else's device.
+-- A trigger rather than a unique index, so a project that already holds such duplicates can run this file again.
+create index if not exists push_subscriptions_endpoint_idx on public.push_subscriptions using hash (endpoint);
+create or replace function public.studyboard_push_one_owner() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'INSERT' or new.endpoint is distinct from old.endpoint or new.user_id is distinct from old.user_id then
+    delete from public.push_subscriptions where endpoint = new.endpoint and user_id <> new.user_id;
+  end if;
+  return new;
+end $$;
+revoke all on function public.studyboard_push_one_owner() from public, anon, authenticated;
+drop trigger if exists push_subscriptions_one_owner on public.push_subscriptions;
+create trigger push_subscriptions_one_owner before insert or update on public.push_subscriptions
+  for each row execute function public.studyboard_push_one_owner();
+-- Addresses already shared by two accounts: the one registered most recently keeps it.
+delete from public.push_subscriptions p using public.push_subscriptions q
+  where q.endpoint = p.endpoint and q.user_id <> p.user_id
+    and (q.updated_at, q.created_at, q.id) > (p.updated_at, p.created_at, p.id);
 
 -- ---------- Your reminders ----------
 -- id: made by Studyboard. "r:..." are worked out from your tasks and settings, "s:..." are snoozed ones.

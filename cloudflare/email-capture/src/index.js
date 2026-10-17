@@ -25,7 +25,9 @@ export async function deliver(message, env, fetchFn){
   const url = String(env.SUPABASE_URL || "").replace(/\/+$/, ""), secret = String(env.EMAIL_CAPTURE_SECRET || "");
   if (!/^https:\/\//.test(url) || secret.length < 32) return { action: "retry", reason: "Email to Studyboard is not set up yet." };
   const { bytes } = await readRaw(message.raw, MAX_READ);
-  const mail = parseEmail(bytes);
+  let mail;
+  try { mail = parseEmail(bytes); }
+  catch (e) { return { action: "reject", reason: "Studyboard couldn't read this email." }; }   // malformed mail is bounced, never a crash
   if (mail.autoSubmitted === "auto-replied") return { action: "drop", reason: "an automatic reply" };   // "out of office" answers
   if (!mail.subject && !mail.text.trim()) return { action: "reject", reason: "This email is empty. Studyboard reads the subject and the text." };
   let res;
@@ -33,6 +35,8 @@ export async function deliver(message, env, fetchFn){
     res = await fetchFn(url + "/functions/v1/capture-email", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Studyboard-Email-Secret": secret },
+      // from: the header From (who wrote it; with forwarding, the envelope sender is the forwarder). It isn't verified, so the app only
+      // shows it as a hint, never trusts it. The Message-ID is deduplicated per inbox (not per sender), so a resent copy isn't added twice.
       body: JSON.stringify({ to: message.to, from: mail.from || message.from, subject: mail.subject.slice(0, 900), text: mail.text.slice(0, 8000), id: mail.messageId })   // the database keeps 6,000 characters
     });
   } catch (e) { return { action: "retry", reason: "Studyboard couldn't be reached. Your mail server will try again." }; }
