@@ -81,7 +81,7 @@ const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { 
     await pop.setViewportSize({width: 360, height: 200}); await pop.screenshot({path: path.join(OUT, "extension-popup-synced.png"), fullPage: true});
     // Studyboard on studyboardapp.com picks it up
     const app = await ctx.newPage(); app.on("pageerror", e => errs.push("app: " + e.message));
-    await app.addInitScript(() => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, courses: [], tasks: [], settings: {}})); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); } } catch (e) {} });
+    await app.addInitScript(() => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, courses: [], tasks: [], settings: {}})); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); } } catch (e) {} });   // a student using Studyboard without an account
     await app.goto(APP + "/"); await app.waitForFunction(() => window.SBLMS && window.SBEXT);
     await until(() => app.evaluate(() => SBEXT.on()), 15000, "the app sees the extension");
     ok(true, "the Studyboard website sees the extension through relay.js");

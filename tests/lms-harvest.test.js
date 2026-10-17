@@ -196,6 +196,31 @@ const BB = [
     assert(!g.some(x => x.gid === "_8_3" || x.gid === "_8_4"));
   });
 
+  await t("Canvas: an assignment with no due date is sent along (with whether it's handed in) and takes the planner's date", async () => {
+    const routes = CV.map(r => r.slice());
+    routes[2] = [/^\/api\/v1\/courses\/201\/assignments\?/, [
+      { id: 7, name: "Capacity Building with a Community Client", due_at: null, published: true, points_possible: 20, assignment_group_id: 3, submission_types: ["online_upload"], submission: { workflow_state: "submitted", submitted_at: iso(-2) } },
+      { id: 8, name: "Group Charter", due_at: null, published: true, points_possible: 5, assignment_group_id: 3, submission_types: ["online_upload"], submission: { workflow_state: "unsubmitted" } }]];
+    routes[7] = [/^\/api\/v1\/planner\/items\?/, [{ course_id: 201, plannable_type: "assignment", plannable_id: 8, plannable: { title: "Group Charter", todo_date: iso(6) } }]];
+    const { out } = await runInjected("canvas", "https://x.instructure.com", routes);
+    const c = out.courses[0], a = c.items.find(x => x.id === "7"), b = c.items.find(x => x.id === "8");
+    assert(a && a.due === null && a.done === true, "the undated, submitted one is there: " + JSON.stringify(a && {due: a.due, done: a.done}));
+    assert(b && b.due && b.done === false, "the planner's date lands on the undated one with its id");
+  });
+
+  await t("Blackboard: a column with no due date takes the calendar's, keeping whether it's handed in", async () => {
+    const routes = BB.map(r => r.slice());
+    routes[2] = [/^\/learn\/api\/public\/v1\/calendars\/items\?/, { results: [{ id: "c9", calendarId: "_301_1", type: "GradebookColumn", title: "Reflection Paper", end: iso(-3), itemSourceId: "_8_9" }] }];
+    routes[3] = [/^\/learn\/api\/public\/v2\/courses\/_301_1\/gradebook\/columns\?/, { results: [
+      { id: "_8_9", name: "Reflection Paper", grading: { type: "Attempts" }, score: { possible: 20 } }] }];
+    routes.push([/\/gradebook\/columns\/_8_9\/attempts/, { results: [{ id: "a1", status: "NeedsGrading", created: iso(-4) }] }]);
+    routes[4] = [/^\/learn\/api\/public\/v2\/courses\/_301_1\/gradebook\/users\/_5_1$/, { results: [] }];
+    const { out } = await runInjected("blackboard", "https://bb.example.edu", routes);
+    const items = out.courses[0].items.filter(x => x.name === "Reflection Paper");
+    assert.strictEqual(items.length, 1, "one item, not a calendar copy beside it: " + items.length);
+    assert(items[0].due && items[0].done === true, "dated by the calendar and submitted (an attempt waiting to be graded): " + JSON.stringify({due: items[0].due, done: items[0].done}));
+  });
+
   await t("cleanHarvest keeps only plain, capped data and https links", async () => {
     const evil = { ok: true, origin: "https://evil.example", me: { name: "x".repeat(999), id: 5 }, lp: "1.40; alert(1)", all: [], errors: [],
       courses: [{ ou: "1", name: "y".repeat(20000), url: "javascript:alert(1)", home: "http://plain.example/", items: new Array(2000).fill({ name: "i", url: "https://ok.example/a", fn: "s", "bad key!": 1, n: Infinity }), deep: { a: { b: { c: { d: { e: { f: { g: 1 } } } } } } } }] };
