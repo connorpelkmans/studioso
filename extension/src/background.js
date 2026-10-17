@@ -65,9 +65,13 @@ async function runBackground(id, origin) {
 // Reading inside an open tab of the school site (when the background read isn't signed in, which some sign-in setups cause):
 // the same harvest file runs in that page, exactly like the Studyboard bookmark does.
 async function runInTab(tabId, id) {
-  await chrome.scripting.executeScript({ target: { tabId }, world: "MAIN", files: ["harvest.js"] });
+  // The page's own world, like the bookmark; where a browser can't run scripts there (older Safari), the extension's isolated world on
+  // that page, whose requests go to the same site with the same sign-in.
+  let world = "MAIN";
+  try { await chrome.scripting.executeScript({ target: { tabId }, world, files: ["harvest.js"] }); }
+  catch (e) { world = "ISOLATED"; await chrome.scripting.executeScript({ target: { tabId }, world, files: ["harvest.js"] }); }
   const res = await within(chrome.scripting.executeScript({
-    target: { tabId }, world: "MAIN", args: [id, OPTS(id)],
+    target: { tabId }, world, args: [id, OPTS(id)],
     func: (p, o) => window.__studyboardExt.make(fetch, location)[p](o)
   }), RUN_MS);
   return res && res[0] ? res[0].result : null;

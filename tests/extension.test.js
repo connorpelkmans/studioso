@@ -53,6 +53,9 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
   ok(!/\beval\s*\(|new Function\s*\(/.test(h + files("chrome")["background.js"]), "nothing is evaluated from text");
   ok(m.firefox.background.scripts[0] === "background.js" && !m.firefox.background.service_worker && m.firefox.browser_specific_settings.gecko.id && m.firefox.browser_specific_settings.gecko.data_collection_permissions.required.length, "the Firefox manifest has a background script, an add-on id and its data collection declared");
   ok(m.chrome.background.service_worker === "background.js" && !m.chrome.host_permissions, "the Chrome manifest has a service worker and no install-time site access");
+  ok(m.safari.background.scripts[0] === "background.js" && m.safari.background.persistent === false && !m.safari.background.service_worker && !m.safari.externally_connectable && !m.safari.minimum_chrome_version && m.safari.browser_specific_settings.safari.strict_min_version, "the Safari manifest has a non-persistent background script (required on iPhone and iPad), no Chrome-only keys and a minimum Safari");
+  ok(m.safari.version === m.chrome.version && JSON.stringify(m.safari.permissions) === JSON.stringify(m.chrome.permissions) && JSON.stringify(m.safari.optional_host_permissions) === JSON.stringify(m.chrome.optional_host_permissions), "Safari asks for the same permissions as Chrome");
+  ok(files("safari")["background.js"] === files("firefox")["background.js"], "Safari runs the same background as Firefox");
   ok(m.chrome.description.length <= 132, "the description fits the Chrome Web Store's 132 characters");
 
   // Connect with the platform found out by itself, then the background read

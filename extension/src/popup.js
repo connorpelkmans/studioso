@@ -130,7 +130,7 @@ async function render() {
 }
 
 $("openApp").addEventListener("click", async () => {
-  try { const [t] = await chrome.tabs.query({ url: APP + "*" }); if (t) { await chrome.tabs.update(t.id, { active: true }); await chrome.windows.update(t.windowId, { focused: true }); window.close(); return; } } catch (e) {}
+  try { const [t] = await chrome.tabs.query({ url: APP + "*" }); if (t) { await chrome.tabs.update(t.id, { active: true }); if (chrome.windows) await chrome.windows.update(t.windowId, { focused: true }).catch(() => {}); /* (Safari on iPhone and iPad has no windows) */ window.close(); return; } } catch (e) {}
   chrome.tabs.create({ url: APP });
 });
 activeTab().then(u => { tabUrl = u; render(); });
