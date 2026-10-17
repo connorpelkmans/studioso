@@ -9,7 +9,7 @@
     companions: [
       {
         id: "film-clappy", name: "Clappy", kind: "Clapperboard", pose: "stand", wearColor: "#E8C25A",
-        bio: "Snaps at the start of every take.",
+        bio: "A snappy little clapperboard who marks the start of every study take.",
         idle: ["topBob", "wave", "headTilt"], cheer: "bounce",
         neck: [60, 92],
         parts: {
@@ -44,7 +44,7 @@
       },
       {
         id: "film-poppy", name: "Poppy", kind: "Popcorn Bucket", pose: "stand", wearColor: "#E25A5A",
-        bio: "Pops a kernel every time something good happens.",
+        bio: "A cozy popcorn bucket who pops a kernel every time something good happens.",
         idle: ["bounce", "topBob", "sparkle"], cheer: "hop",
         parts: {
           feet: `<ellipse cx="48" cy="109.5" rx="7.6" ry="4" fill="#C8323F" ${O2}/><ellipse cx="72" cy="109.5" rx="7.6" ry="4" fill="#C8323F" ${O2}/>`,
@@ -77,7 +77,7 @@
       },
       {
         id: "film-spotty", name: "Spotty", kind: "Spotlight", pose: "stand", wearColor: "#7A6AD8",
-        bio: "Points its beam at whoever is working hardest.",
+        bio: "A warm little spotlight who shines on all your hard work.",
         idle: ["sway", "sparkle", "headTilt"], cheer: "spin",
         neck: [60, 84],
         parts: {
@@ -118,7 +118,7 @@
     companions: [
       {
         id: "culinary-twirly", name: "Twirly", kind: "Little Whisk", pose: "stand", wearColor: "#E07A4A",
-        bio: "Spins up a storm and loves meringue.",
+        bio: "A busy little whisk who whips up sweet ideas while you study.",
         idle: ["spin", "sway", "topBob"], cheer: "spin",
         parts: {
           feet: `<ellipse cx="51" cy="109.5" rx="6.6" ry="3.8" fill="#A8693A" ${O2}/><ellipse cx="69" cy="109.5" rx="6.6" ry="3.8" fill="#A8693A" ${O2}/>`,
@@ -152,7 +152,7 @@
       },
       {
         id: "culinary-toque", name: "Toque", kind: "Chef's Hat", pose: "stand", wearColor: "#E25A4A", hatTop: true,
-        bio: "Grows a little taller with each finished recipe.",
+        bio: "A puffy chef's hat who grows a little taller with every finished recipe.",
         idle: ["topBob", "sway", "headTilt"], cheer: "bounce",
         neck: [60, 86],
         parts: {
@@ -187,7 +187,7 @@
       },
       {
         id: "culinary-basil", name: "Basil", kind: "Basil Sprout", pose: "sit", wearColor: "#E08A4A",
-        bio: "Fresh, fragrant and always ready to garnish.",
+        bio: "A fresh little basil sprout who brings a bit of green to your desk.",
         idle: ["sway", "wave", "sparkle"], cheer: "hop",
         parts: {
           feet: `${LG("culinary-basil-cul-basil-pot", [[0, "#F09A6A"], [1, "#C8603A"]])}<path d="M38 88H82L78 108Q77.4 111 74 111H46Q42.6 111 42 108Z" fill="url(#culinary-basil-cul-basil-pot)" ${O}/><rect x="35" y="84" width="50" height="9" rx="4" fill="#E08A5A" ${O}/>`,
@@ -224,7 +224,7 @@
     companions: [
       {
         id: "marinebio-kelpie", name: "Kelpie", kind: "Kelp Sprite", pose: "float", wearColor: "#3AA6A0",
-        bio: "Tall, wavy and anchored to its goals.",
+        bio: "A tall, wavy kelp sprite who sways gently while you study.",
         idle: ["sway", "wave", "finWiggle"], cheer: "spin",
         parts: {
           tail: {svg: `<g transform="translate(0 -6)"><path d="M54 104C50 110 54 114 60 114C66 114 70 110 66 104" fill="#8A6A3A" ${O2}/><path d="M52 112L46 116M68 112L74 116M60 114V118" stroke="#8A6A3A" stroke-width="2.4" stroke-linecap="round"/></g>`, pivot: [60, 98]},
@@ -255,7 +255,7 @@
       },
       {
         id: "marinebio-subby", name: "Subby", kind: "Little Submarine", pose: "float", wearColor: "#3AA6A0",
-        bio: "Dives deep into any subject.",
+        bio: "A brave little submarine who dives deep into any subject with you.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "bounce",
         parts: {
           back: `<g transform="translate(18 68)"><rect x="-4" y="-4" width="10" height="8" rx="2" fill="#B8A06A" ${O2}/><ellipse cx="-6" cy="0" rx="3" ry="11" fill="#E0C88A" ${O2}/></g>`,
@@ -288,7 +288,7 @@
       },
       {
         id: "marinebio-dolly", name: "Dolly", kind: "Dolphin Calf", pose: "float", wearColor: "#F2A33A",
-        bio: "Clicks happily when you finish a chapter.",
+        bio: "A playful dolphin calf who clicks happily when you finish a chapter.",
         idle: ["finWiggle", "tailSwish", "topBob"], cheer: "spin",
         parts: {
           tail: {svg: `<g transform="translate(0 -3)"><path d="M84 90C92 94 100 92 106 86C104 96 98 102 90 102C96 106 98 112 94 114C88 108 80 104 76 98Z" fill="#6E9AC8" ${O}/></g>`, pivot: [80, 93]},

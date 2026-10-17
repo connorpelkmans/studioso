@@ -14,7 +14,7 @@
     companions: [
       {
         id: "canada-mapleton", name: "Mapleton", kind: "Sugar Maple Sprite", pose: "float", wearColor: "#F2B23E",
-        bio: "Turns brighter red with every finished task.",
+        bio: "A sugar maple sprite who turns brighter red with every finished task.",
         idle: ["sway", "sparkle", "topBob"], cheer: "spin",
         neck: [60, 82],
         parts: {
@@ -46,7 +46,7 @@
       },
       {
         id: "canada-bucky", name: "Bucky", kind: "Beaver Kit", pose: "sit", wearColor: "#C8302A",
-        bio: "Builds study habits one stick at a time.",
+        bio: "A busy beaver kit who builds study habits one stick at a time.",
         idle: ["tailSwish", "headTilt", "earTwitch"], cheer: "hop",
         neck: [60, 74],
         parts: {
@@ -92,7 +92,7 @@
       },
       {
         id: "canada-mooska", name: "Mooska", kind: "Moose Yearling", pose: "stand", sleepy: true, wearColor: "#2E9AA0",
-        bio: "Gangly legs, gentle heart, enormous patience.",
+        bio: "A gangly moose yearling with a gentle heart and enormous patience.",
         idle: ["earTwitch", "headTilt", "tailSwish"], cheer: "bounce",
         neck: [60, 62],
         parts: {

@@ -11,7 +11,7 @@
     companions: [
       {
         id: "france-coco", name: "Coco", kind: "Croissant", pose: "stand", wearColor: "#C8463E",
-        bio: "Flaky, golden and folded with care, like your notes.",
+        bio: "A flaky golden croissant, folded with care just like your notes.",
         idle: ["topBob", "sway", "headTilt"], cheer: "bounce",
         neck: [60, 88],
         parts: {
@@ -53,7 +53,7 @@
       },
       {
         id: "france-bijou", name: "Bijou", kind: "Poodle Pup", pose: "sit", wearColor: "#F2A8C0",
-        bio: "Fluffy pom-poms and impeccable study habits.",
+        bio: "A fluffy poodle pup with pom-poms and very tidy study habits.",
         idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "hop",
         neck: [60, 78],
         parts: {
@@ -92,7 +92,7 @@
       },
       {
         id: "france-mac", name: "Mac", kind: "Macaron", pose: "stand", wearColor: "#7AC8A8",
-        bio: "A little sandwich of joy in pastel pink.",
+        bio: "A little pink macaron who brings a sweet bite of joy to study time.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
         parts: {
           feet: `<ellipse cx="48" cy="106.6" rx="7" ry="4" fill="#E88AA6" ${O}/><ellipse cx="72" cy="106.6" rx="7" ry="4" fill="#E88AA6" ${O}/>`,

@@ -85,7 +85,7 @@ var COMP_KIT = (() => {
         anchors: {top: [60, 47, 0.8], neck: [60, 99, 1.2], chest: [73, 100, 0.75], back: [86, 78, 0.85], hands: [60, 100, 0.9]},
         lines: {
           tap: ["Fresh page, fresh start! Let's go!", "We're going to write something great today!", "You're on a roll and I love it!", "Neat notes, happy brain, happy me!", "Every word you write counts!", "Doodle break? I won't tell a soul!", "Ink it in! You've totally got this!"],
-          pet: ["Careful, I might smudge with joy!", "Hehe, that tickles my drippy bits!"],
+          pet: ["Careful, I might smudge with joy!", "Hehe, that tickles my inky drips!"],
           hello: ["You're here! Let's fill a whole page!", "Hello! I'm all inked up and ready!"],
           morning: ["Good morning! A clean page is waiting for you!", "Morning, writer! I'm so excited for today!"],
           night: ["Late ink? Let's save some for tomorrow.", "It's getting late. Rest soon, friend?"],
@@ -1209,7 +1209,7 @@ var COMP_KIT = (() => {
         anchors: {top: [60, 53, 0.95], neck: [60, 97, 1.3], chest: [76, 100, 0.7], back: [92, 76, 0.9], hands: [60, 99, 0.9]},
         lines: {
           tap: ["Hi! You're doing so well today!", "Rock solid work! I love it!", "Steady as a stone, that's you!", "Look at that steady effort! Wow!", "Crystals grow slowly too, and they shine!", "Take your time! Rocks love a slow, steady win!", "You make my crystals glow so bright!"],
-          pet: ["Ooh, my crystals are twinkling!", "Mmm, warm moon rubs! Thank you!"],
+          pet: ["Ooh, my crystals are twinkling!", "Mmm, warm moonbeam pats! Thank you!"],
           hello: ["Welcome back! I'm so happy you're here!", "Hello! I kept the moon on just for you!"],
           morning: ["Morning! Still sleepy, but so happy to see you!", "Good morning, moonbeam! Let's shine!"],
           night: ["The moon is high. Bedtime soon?", "Sleepy crystals... rest up, friend."],
@@ -1353,7 +1353,7 @@ var COMP_KIT = (() => {
         anchors: {top: [60, 30, 0.9], neck: [60, 88, 1.2], chest: [73, 93, 0.72], back: [87, 66, 0.85], hands: [60, 93, 0.9]},
         lines: {
           tap: ["Hi! So zesty to see you!", "You're doing amazing today!", "Sour moment? We'll make it sweet!", "I'm so glad you're here!", "Keep it bright! You're glowing!", "Lemon water break? Refreshing!", "Stay fresh! You've totally got this!"],
-          pet: ["Hehe, that tickles! Zesty!", "Aww, thank you! I feel so juicy!"],
+          pet: ["Hehe, that tickles! Zesty!", "Aww, thank you! I feel so zesty!"],
           hello: ["Hi! The stand is open just for you!", "Hello, sunshine! You're back!"],
           morning: ["Good morning! Fresh start, fresh squeeze!", "Morning, sunny one! Let's shine!"],
           night: ["Sun's down. Rest soon, friend?", "It's late. Time to rest, sweet one."],
@@ -2245,7 +2245,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "cats-box", name: "Boxie", kind: "Cardboard Box", pose: "stand",
-        bio: "The comfiest cardboard box in the house, flaps up and ready.",
+        bio: "A comfy cardboard box with its flaps up, ready for a cozy study nap.",
         idle: ["earTwitch", "waddle", "bounce"], cheer: "hop",
         parts: {
           back: `<path d="M36.5 51.5H83.5L90 60H30Z" fill="#8E5E30" ${O}/>`,
@@ -2655,7 +2655,7 @@ var COMP_KIT = (() => {
         anchors: {top: [60, 18, 0.8], neck: [60, 44, 0.85], chest: [72, 89, 0.62], back: [80, 60, 0.85], hands: [60, 84, 0.9]},
         lines: {
           tap: ["Hi hi! Fresh out of the tube and so excited!", "Your work is coming along so beautifully!", "Let's add a splash of color to today!", "No rush! Every stroke is wonderful!", "Every stroke counts, and you're nailing it!", "Blend in a little rest too! You're amazing!", "You make it look so easy! Wow!"],
-          pet: ["Hehe! Gently, or I'll squirt rainbows!", "Hehe! That tickles! So happy!"],
+          pet: ["Hehe! Gently, or I'll splash rainbows!", "Hehe! That tickles! So happy!"],
           hello: ["Hi hi! Brushes ready? Let's create!", "Hello, artist! I'm bursting with color!"],
           morning: ["Good morning! A blank canvas just for you!", "Rise and shine, bright spark! Let's paint the day!"],
           night: ["Time to put my cap on. Rest well, artist.", "It's late now. Let the colors dry and rest."],
@@ -3154,7 +3154,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 40.5, rx: 79.5, y: 68, w: 4, h: 2.5, color: "#FF9FB7"},
         anchors: {top: [60, 38, 0.95], neck: [60, 78, 1.05], chest: [72, 93, 0.7], back: [87, 86, 0.9], hands: [60, 97, 0.9]},
         lines: {
-          tap: ["Psst! I saved a snapshot of you! So cute!", "The light in here is lovely today!", "Collecting happy moments with you!", "Tiny paws, big memories! Let's make more!", "This page is a keeper, just like you!", "Look at you, showing up again!", "One more treasure for the album! Yay!"],
+          tap: ["Psst! That's one for the album! So proud!", "The light in here is lovely today!", "Collecting happy moments with you!", "Tiny paws, big memories! Let's make more!", "This page is a keeper, just like you!", "Look at you, showing up again!", "One more treasure for the album! Yay!"],
           pet: ["Hehe! My tail is all fluffed up!", "Aww, that's a keeper!"],
           hello: ["Hi! I kept all your photos safe!", "Oh, hello! Smile! You made my day!"],
           morning: ["Good morning! Soft golden light for you!", "Morning, friend! Let's collect some wins!"],
@@ -4843,7 +4843,7 @@ var COMP_KIT = (() => {
         anchors: {top: [72, 23, 0.85], neck: [72, 68, 0.62], chest: [80, 92, 0.6], back: [26, 88, 0.8], hands: [73, 86, 0.8]},
         lines: {
           tap: ["Oh hi! You made this sleepy camel so happy!", "Long trek? No problem! We're doing it together!", "Look at you go, one step at a time! Wow!", "You're amazing, and I'm not just sleepy saying it!", "Every step across the dunes counts! Yay!", "Showing up again! You're my favorite traveler!", "I'm so proud to walk beside you!"],
-          pet: ["Ooh, so cozy! My hump is happy!", "Hehe! That's the best pat ever! Thank you!"],
+          pet: ["Ooh, so cozy! My whole heart is happy!", "Hehe! That's the best pat ever! Thank you!"],
           hello: ["You're back! I woke right up for you! Yay!", "Hi hi! Ready for another fun trek together?"],
           morning: ["Good morning! The sun is up and so are we!", "Morning, friend! A brand new trek awaits! Let's go!"],
           night: ["Big yawn... time to rest those feet?", "The dunes are sleepy. Rest well, traveler."],
@@ -5572,7 +5572,7 @@ var COMP_KIT = (() => {
         anchors: {top: [60, 21, 0.9], neck: [60, 91, 1.05], chest: [73, 98, 0.66], back: [84, 60, 0.85], hands: [60, 92, 0.9]},
         lines: {
           tap: ["Hi hi! I'm stuck on you, friend!", "I've always got your back!", "You make everyone feel better!", "Patch by patch, you're doing it!", "Sticking by your side all day!", "Kindness is your superpower!", "You're the best teammate ever!", "Stick with it! You're amazing!"],
-          pet: ["Hehe! My sticky bits tingle!", "Aww! That's the best little pat!"],
+          pet: ["Hehe! My sticky side is all giggly!", "Aww! That's the best little pat!"],
           hello: ["You're back! I stuck around for you!", "Hello! Ready to make today better?"],
           morning: ["Good morning! Fresh start, fresh pad!", "Rise and shine! Let's care big today!"],
           night: ["Time to unstick and rest, friend.", "Quiet night. You deserve sleep."],
@@ -6037,7 +6037,7 @@ var COMP_KIT = (() => {
           focus: ["Steady build! You've got this!", "Quietly hammering beside you!"],
           done: ["WOW! What a solid session!", "Session done! Built to last!"],
           task: ["Thump! Done! WOO!", "Yes! Another log on the dam!", "Checked off! Rock solid!", "Built it! Hooray for you!"],
-          break: ["Stretch break! Big beaver yawn!", "Snack break! Crunchy and tasty!"]
+          break: ["Stretch break! Big sleepy yawn!", "Snack break! Crunchy and tasty!"]
         }
       },
       {
@@ -6586,7 +6586,7 @@ var COMP_KIT = (() => {
         anchors: {top: [60, 33, 0.95], neck: [60, 91, 1], chest: [73, 84, 0.64], back: [86, 58, 0.85], hands: [60, 88, 0.85]},
         lines: {
           tap: ["Hi hi! There's only ONE you!", "Your study style is one of a kind!", "Swirly happy hello to you!", "You leave sparkles on everything!", "Proof you're amazing: right here!", "I'm swirling with pride for you!", "Unique, brilliant and doing great!", "You've got this, my one and only!"],
-          pet: ["Hehe! My swirls are all wiggly!", "Ooh! That's my favorite touch!"],
+          pet: ["Hehe! My swirls are all wiggly!", "Ooh! That made me swirl with joy!"],
           hello: ["You're back! I knew it was you!", "Hi! I'd know you anywhere!"],
           morning: ["Good morning! A brand new swirl of a day!", "Rise and shine! Leave your mark today!"],
           night: ["Swirling down slow. Time to rest!", "Soft swirls, sweet dreams. Night!"],
@@ -6996,7 +6996,7 @@ var COMP_KIT = (() => {
         anchors: {top: [61, 27, 0.98], neck: [60, 59, 0.95], chest: [43, 78, 0.55], back: [86, 68, 0.8], hands: [60, 82, 0.82]},
         lines: {
           tap: ["Hi hi! I'm irrationally happy to see you!", "You're doing infinitely well!", "3.14159 reasons to smile! Hehe!", "Your progress is off the charts!", "Every step adds up! I did the math!", "You're my favorite constant!", "That brain of yours is exponential!"],
-          pet: ["Hehe! That tickles my curly bits!", "Aww! My smile just went full circle!"],
+          pet: ["Hehe! That tickles my curly swirls!", "Aww! My smile just went full circle!"],
           hello: ["You're back! What a lovely surprise!", "Hi! Let's solve some fun stuff!"],
           morning: ["Good morning! Endless possibilities!", "Rise and shine! Today adds up to great!"],
           night: ["Rounding off the day now. Rest soon?", "I never end, but you should rest. Night!"],
@@ -7728,7 +7728,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "onsen-kapi", name: "Kapi", kind: "Onsen Capybara", pose: "sit", sleepy: true, wearColor: "#5A8AD0",
-        bio: "Will sit in warm water for as long as you study. Possibly longer.",
+        bio: "A calm capybara who soaks in the warm spring for as long as you study.",
         idle: ["topBob", "earTwitch", "headTilt"], cheer: "bounce",
         neck: [60, 74],
         parts: {
@@ -7757,7 +7757,7 @@ var COMP_KIT = (() => {
         anchors: {top: [60, 30, 0.9], neck: [60, 78, 1.05], chest: [76, 96, 0.68], back: [92, 74, 0.8], hands: [60, 88, 0.85]},
         lines: {
           tap: ["Ahh, hi! The water's just right today.", "You're doing great. Want to soak in that for a second?", "No rush. One task at a time, like one bath at a time.", "I'm so calm, and you're so capable!", "Steady and warm, that's how we study.", "Every little step counts. I believe in you.", "Relax your shoulders. There we go!", "You make studying look cozy."],
-          pet: ["Mmm, that's the good spot.", "Hehe, I might melt into the tub."],
+          pet: ["Mmm, that's so relaxing. Thank you.", "Hehe, I might melt into the tub."],
           hello: ["You're here! I kept the water warm.", "Hello, friend! Come sit, come study."],
           morning: ["Good morning! A warm start to a good day.", "Morning! The steam says today's going to be nice."],
           night: ["It's late. A warm bath and bed sound lovely.", "Time to unwind soon, okay?"],
@@ -7769,7 +7769,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "onsen-momo", name: "Momo", kind: "Snow Monkey Baby", pose: "sit", wearColor: "#E0533A",
-        bio: "Keeps a snowball on its head at all times, for balance.",
+        bio: "A baby snow monkey who balances a snowball on its head while you work.",
         idle: ["earTwitch", "wave", "tailSwish"], cheer: "hop",
         parts: {
           tail: {svg: `<ellipse cx="92" cy="100" rx="7.5" ry="5" transform="rotate(-30 92 100)" fill="#B8A898" ${O}/>`, pivot: [86, 103]},
@@ -7804,7 +7804,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "onsen-yuzu", name: "Yuzu", kind: "Floating Yuzu", pose: "float", wearColor: "#5AAA5A",
-        bio: "A sunny citrus that bobs, rolls and never quite sinks.",
+        bio: "A sunny little yuzu who bobs along in the hot spring beside you.",
         idle: ["topBob", "sway", "sparkle"], cheer: "spin",
         parts: {
           back: `<ellipse cx="60" cy="96" rx="38" ry="9" fill="#A6E4EE" ${O}/><path d="M30 96q5 2.4 10 0M80 97q5 2.4 10 0" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>`,
@@ -7844,7 +7844,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "rainforest-mosey", name: "Mosey", kind: "Baby Sloth", pose: "sit", sleepy: true, wearColor: "#3E9A5A",
-        bio: "Does everything slowly, including finishing your sentence.",
+        bio: "A sleepy baby sloth who takes every study session slow and steady.",
         idle: ["headTilt", "sway", "wave"], cheer: "wave",
         neck: [60, 72],
         parts: {
@@ -7879,7 +7879,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "rainforest-tiko", name: "Tiko", kind: "Toucan Chick", pose: "stand", wearColor: "#FF8A2A",
-        bio: "Its beak is bigger than its plans, and its plans are big.",
+        bio: "A fluffy toucan chick with a big bright beak and even bigger plans.",
         idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter",
         neck: [60, 70],
         parts: {
@@ -7913,7 +7913,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "rainforest-dart", name: "Dart", kind: "Blue Tree Frog", pose: "stand", wearColor: "#FF9A3A",
-        bio: "Small, bright and very proud of its sticky toes.",
+        bio: "A bright blue tree frog who holds on to every task with its sticky toes.",
         idle: ["bounce", "earTwitch", "sparkle"], cheer: "hop",
         parts: {
           earL: {svg: `<circle cx="29" cy="66" r="4.6" fill="#3A8AE0" ${OW(2.2)}/><circle cx="29" cy="66" r="2" fill="#7FC4FF"/>`, pivot: [32, 66]},
@@ -7954,7 +7954,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "tidepool-annie", name: "Annie", kind: "Sea Anemone", pose: "stand", wearColor: "#3E9EA8",
-        bio: "Waves at everyone with all forty arms.",
+        bio: "A wavy little sea anemone who waves hello with all forty arms.",
         idle: ["sway", "finWiggle", "topBob"], cheer: "bounce",
         parts: {
           feet: `<path d="M30 110C30 102 42 100 60 100C78 100 90 102 90 110Z" fill="#9A8C82" ${O}/><circle cx="40" cy="105" r="1.8" fill="#E6E0D6"/><circle cx="78" cy="106" r="1.6" fill="#E6E0D6"/>`,
@@ -7984,7 +7984,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "tidepool-spike", name: "Spike", kind: "Purple Sea Urchin", pose: "stand", wearColor: "#2FA0B8",
-        bio: "Looks prickly. Is actually soft and shy.",
+        bio: "A shy purple sea urchin who looks prickly but is soft at heart.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
         parts: {
           back: Array.from({length: 18}, (_, i) => { const a = (i / 18) * Math.PI * 2 + 0.17, x0 = 60 + Math.cos(a) * 24, y0 = 74 + Math.sin(a) * 24, x1 = 60 + Math.cos(a) * 42, y1 = 74 + Math.sin(a) * 40; return y1 < 50 && Math.abs(x1 - 60) < 14 ? "" : LINE(`M${f1(x0)} ${f1(y0)}L${f1(x1)} ${f1(y1)}`, "#B888F0", 2.6); }).join(""),
@@ -8013,7 +8013,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "tidepool-pippin", name: "Pippin", kind: "Puffin Chick", pose: "stand", wearColor: "#FF7A3A",
-        bio: "A fluffball in a tuxedo that waddles to every pool to check on it.",
+        bio: "A fluffy puffin chick in a tiny tuxedo who waddles over to check on you.",
         idle: ["waddle", "headTilt", "wingFlutter"], cheer: "wingFlutter",
         neck: [60, 72],
         parts: {
@@ -8053,7 +8053,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "volcano-ember", name: "Ember", kind: "Lava Blob", pose: "stand", wearColor: "#2EA2A0",
-        bio: "Warm, glowing and a little gooey. Gives the best hugs from a safe distance.",
+        bio: "A warm, glowing lava blob who keeps your study nights toasty.",
         idle: ["bounce", "sparkle", "topBob"], cheer: "hop",
         parts: {
           back: `<circle cx="60" cy="74" r="42" fill="#FFB04A" opacity=".22"/>`,
@@ -8084,7 +8084,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "volcano-pumi", name: "Pumi", kind: "Pumice Pebble", pose: "float", wearColor: "#E0533A",
-        bio: "So light it floats. Not sure if that counts as swimming.",
+        bio: "A light little pumice pebble who floats along through every study session.",
         idle: ["topBob", "sway", "headTilt"], cheer: "spin",
         neck: [60, 92],
         parts: {
@@ -8114,7 +8114,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "volcano-iggy", name: "Iggy", kind: "Marine Iguana", pose: "sit", wearColor: "#2EA2A0",
-        bio: "Sunbathes after every dip and sneezes out salt when happy.",
+        bio: "A sunny marine iguana who basks on the warm rocks between your tasks.",
         idle: ["tailSwish", "headTilt", "earTwitch"], cheer: "bounce",
         neck: [60, 74],
         parts: {
@@ -8160,7 +8160,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "savanna-peanut", name: "Peanut", kind: "Baby Elephant", pose: "stand", wearColor: "#D27A2A",
-        bio: "Never forgets a due date.",
+        bio: "A gentle baby elephant who never forgets a due date.",
         idle: ["earTwitch", "tailSwish", "topBob"], cheer: "bounce",
         parts: {
           earL: {svg: `${LG("savanna-peanut-e", [[0, "#C8C0CC"], [1, "#9A92A2"]])}<path d="M40 46C22 36 10 52 14 68C18 82 32 80 42 70Z" fill="url(#savanna-peanut-e)" ${O}/><path d="M38 52C26 46 19 56 22 66C25 74 32 72 38 66Z" fill="#F6B8C4"/>`, pivot: [40, 58]},
@@ -8191,7 +8191,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "savanna-stretch", name: "Stretch", kind: "Giraffe Calf", pose: "stand", wearColor: "#4E9A4E",
-        bio: "Can see your deadlines coming from miles away.",
+        bio: "A tall giraffe calf who spots your deadlines from miles away.",
         idle: ["headTilt", "tailSwish", "earTwitch"], cheer: "hop",
         neck: [60, 54],
         parts: {
@@ -8228,7 +8228,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "savanna-sentry", name: "Sentry", kind: "Meerkat Pup", pose: "stand", wearColor: "#D27A2A",
-        bio: "Stands guard while you focus, then reports all clear.",
+        bio: "A watchful meerkat pup who stands guard while you focus.",
         idle: ["headTilt", "topBob", "bounce"], cheer: "hop",
         neck: [60, 64],
         parts: {
@@ -8290,7 +8290,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "pride-prism", name: "Prism", kind: "Rainbow Prism", pose: "stand", wearColor: "#9466D0",
-        bio: "Turns plain light into every color.",
+        bio: "A bright little prism who turns plain light into a rainbow for you.",
         idle: ["sparkle", "spin", "topBob"], cheer: "spin",
         parts: {
           back: `${RB.map((c, i) => `<path d="M76 70L114 ${50 + i * 7}V${57 + i * 7}Z" fill="${c}"/>`).join("")}<path d="M76 70L114 50V92Z" fill="none" ${O2}/>${LINE("M4 58L40 68", "#FFFFFF", 4)}`,
@@ -8307,7 +8307,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 44, rx: 76, y: 79, w: 4.2, h: 2.6, color: "#FF9FC0"},
         anchors: {top: [60, 28, 0.85], neck: [60, 94, 1], chest: [72, 92, 0.65], back: [30, 70, 0.85], hands: [60, 96, 0.9]},
         lines: {
-          tap: ["Hi! You make me shine in every color!", "Every bit of you is bright today!", "Bend the light, bend the rules, ace the quiz!", "You've got a whole rainbow of ideas!", "Proud of you, every single shade!", "Sparkle mode: on. Let's go!", "Light in, rainbow out. That's you studying!"],
+          tap: ["Hi! You make me shine in every color!", "Every bit of you is bright today!", "Bend the light, find the answer, ace the quiz!", "You've got a whole rainbow of ideas!", "Proud of you, every single shade!", "Sparkle mode: on. Let's go!", "Light in, rainbow out. That's you studying!"],
           pet: ["Hehe! You made me sparkle!", "Aww! Now I'm glowing all over!"],
           hello: ["You're back! The light just got brighter!", "Hi hi! Ready to make some rainbows?"],
           morning: ["Good morning! Fresh light, fresh colors!"], night: ["Dimming my sparkle now. Rest soon?"],
@@ -8319,7 +8319,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "pride-flamingo", name: "Fifi", kind: "Flamingo Chick", pose: "stand", wearColor: "#5498E0",
-        bio: "Fluffy, pink and practicing its one-legged stand.",
+        bio: "A fluffy pink flamingo chick who's still practicing its one-legged stand.",
         idle: ["headTilt", "wingFlutter", "sway"], cheer: "wingFlutter",
         parts: {
           feet: `${LINE("M60 98V110", "#F28AA0", 3)}<path d="M53 111.5H67" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><path d="M53 111.5H67" stroke="#F28AA0" stroke-width="2.4" stroke-linecap="round"/>${LINE("M66 97L74 104L68 106", "#F28AA0", 2.6)}`,
@@ -8352,7 +8352,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "pride-ribbon", name: "Swirl", kind: "Parade Ribbon", pose: "float", wearColor: "#F0606A",
-        bio: "Twirls through the air in every color at once.",
+        bio: "A twirly parade ribbon who dances through the air in every color.",
         idle: ["sway", "wave", "spin"], cheer: "spin",
         parts: {
           back: `${(() => { const A = i => `M${18 + i * 1.4} ${40 + i * 3.6}C${30 + i} ${20 + i * 2} ${50} ${26 + i * 3} ${60} ${50 + i * 2}`, B = i => `M${60} ${70 + i * 2}C${72} ${96 + i * 2} ${90 - i} ${106 - i} ${104 - i * 1.4} ${88 - i * 3.6}`;
@@ -8390,7 +8390,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "graduation-cap", name: "Tassel", kind: "Grad Cap", pose: "stand", wearColor: "#F2B83A",
-        bio: "Has been waiting for this moment all year.",
+        bio: "A proud little grad cap who's been waiting all year for your big day.",
         idle: ["topBob", "sway", "headTilt"], cheer: "spin", hatTop: true,
         parts: {
           feet: feet("#1E3366", 48, 72),
@@ -8421,7 +8421,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "graduation-diploma", name: "Dippy", kind: "Rolled Diploma", pose: "stand", wearColor: "#9A2E4A",
-        bio: "Tied with a ribbon. Unrolls when you finish big things.",
+        bio: "A rolled-up diploma with a ribbon who unrolls when you finish big things.",
         idle: ["topBob", "wave", "sparkle"], cheer: "bounce",
         parts: {
           feet: feet("#C9A866", 49, 71),
@@ -8449,7 +8449,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "graduation-laurel", name: "Laurel", kind: "Laurel Wreath Sprite", pose: "float", wearColor: "#F2B83A",
-        bio: "A ring of leaves for every win, big or small.",
+        bio: "A little laurel wreath who adds a leaf for every win, big or small.",
         idle: ["sparkle", "sway", "spin"], cheer: "spin",
         parts: {
           back: `${[...Array(9)].map((_, i) => { const a = (150 + i * 30) * Math.PI / 180, x = +(60 + Math.cos(a) * 36).toFixed(1), y = +(64 + Math.sin(a) * 36).toFixed(1); return `<ellipse cx="${x}" cy="${y}" rx="10" ry="5" transform="rotate(${+(a * 57.3 + 115).toFixed(1)} ${x} ${y})" fill="${i % 2 ? "#8CCB7E" : "#6CB070"}" ${O2}/>`; }).join("")}
@@ -8484,7 +8484,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "birthday-popper", name: "Pop", kind: "Party Popper", pose: "stand", wearColor: "#FF7FA8",
-        bio: "Saves its confetti for the moments that count.",
+        bio: "A cheerful party popper who saves its confetti for your big moments.",
         idle: ["topBob", "bounce", "sparkle"], cheer: "bounce",
         parts: {
           feet: feet("#E89A3A", 52, 68),
@@ -8513,7 +8513,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "birthday-pinata", name: "Piña", kind: "Llama Piñata", pose: "stand", wearColor: "#B58CF2",
-        bio: "Colorful, fringed, and wants to be admired, not hit.",
+        bio: "A colorful, fringed llama piñata who throws a little party for every win.",
         idle: ["earTwitch", "sway", "headTilt"], cheer: "hop",
         parts: {
           feet: `${[44, 54, 66, 76].map((x, i) => `<rect x="${x - 4.5}" y="92" width="9" height="18" rx="3" fill="${["#5CCFC0", "#FF8FB8", "#B58CF2", "#FFD45A"][i]}" ${O}/>`).join("")}`,
@@ -8553,7 +8553,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "birthday-cake", name: "Layla", kind: "Cake Slice", pose: "stand", wearColor: "#7FD8C0",
-        bio: "Three layers, extra frosting, one candle.",
+        bio: "A tall slice of birthday cake with extra frosting and one bright candle.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
         parts: {
           feet: feet("#E8A0B8", 48, 72),
@@ -8591,7 +8591,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "geology-geode", name: "Geo", kind: "Geode", pose: "sit", wearColor: "#9A62D8",
-        bio: "Plain on the outside, sparkly on the inside.",
+        bio: "A humble little geode who hides sparkly crystals inside, just like you.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
         parts: {
           body: `${RG("geology-geode-geo-geo-r", [[0, "#D2C4B4"], [0.6, "#A8988A"], [1, "#7E6E62"]], 0.38, 0.3, 0.8)}${RG("geology-geode-geo-geo-i", [[0, "#FFF0FF"], [0.45, "#C890F4"], [1, "#7A3EC8"]], 0.5, 0.5, 0.6)}
@@ -8621,7 +8621,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "geology-trilobite", name: "Trilo", kind: "Trilobite", pose: "stand", wearColor: "#3EB4C0",
-        bio: "Has been studying for 500 million years.",
+        bio: "An ancient little trilobite who has been studying for 500 million years.",
         idle: ["waddle", "headTilt", "topBob"], cheer: "hop",
         parts: {
           feet: `${[36, 46, 56, 64, 74, 84].map((x, i) => `<path d="M${x} 98L${x + (i < 3 ? -4 : 4)} 110" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><path d="M${x} 98L${x + (i < 3 ? -4 : 4)} 110" stroke="#C8956A" stroke-width="2.4" stroke-linecap="round"/>`).join("")}`,
@@ -8643,7 +8643,7 @@ var COMP_KIT = (() => {
         lines: {
           tap: ["Hi! I've been studying since the Cambrian!", "Slow and steady, like sediment!", "Half a billion years of experience says: you've got this!", "Every layer you learn is a new rock record!", "You're making history. Literal history!", "Tiny legs, big dreams!", "Fossils are proof that showing up lasts!"],
           pet: ["Hehe! My segments are wiggling!", "Aww! A pat worth fossilizing!"],
-          hello: ["You're back! Only took you an epoch!", "Hello! Ready to dig into some learning?"],
+          hello: ["You're back! Hello from the Cambrian!", "Hello! Ready to dig into some learning?"],
           morning: ["Good morning! A fresh layer of today!"], night: ["Curling up like a fossil. Sleep well!"],
           focus: ["Scuttling quietly beside you. Focus!", "Patient as stone. You've got this."],
           done: ["WOW! That session will be in the rock record!", "Done! Prehistoric levels of focus!"],
@@ -8653,7 +8653,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "geology-sprite", name: "Glint", kind: "Crystal Sprite", pose: "float", wearColor: "#C29AFF",
-        bio: "A purple point of light that hums when you focus.",
+        bio: "A purple crystal sprite who hums softly while you focus.",
         idle: ["sparkle", "spin", "topBob"], cheer: "spin",
         parts: {
           back: `<path d="M38 70C22 60 14 74 22 82C28 86 36 82 40 76Z" fill="#C8FAFF" fill-opacity=".85" ${O2}/><path d="M82 70C98 60 106 74 98 82C92 86 84 82 80 76Z" fill="#C8FAFF" fill-opacity=".85" ${O2}/>`,
@@ -8702,7 +8702,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "film-clappy", name: "Clappy", kind: "Clapperboard", pose: "stand", wearColor: "#E8C25A",
-        bio: "Snaps at the start of every take.",
+        bio: "A snappy little clapperboard who marks the start of every study take.",
         idle: ["topBob", "wave", "headTilt"], cheer: "bounce",
         neck: [60, 92],
         parts: {
@@ -8737,7 +8737,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "film-poppy", name: "Poppy", kind: "Popcorn Bucket", pose: "stand", wearColor: "#E25A5A",
-        bio: "Pops a kernel every time something good happens.",
+        bio: "A cozy popcorn bucket who pops a kernel every time something good happens.",
         idle: ["bounce", "topBob", "sparkle"], cheer: "hop",
         parts: {
           feet: `<ellipse cx="48" cy="109.5" rx="7.6" ry="4" fill="#C8323F" ${O2}/><ellipse cx="72" cy="109.5" rx="7.6" ry="4" fill="#C8323F" ${O2}/>`,
@@ -8770,7 +8770,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "film-spotty", name: "Spotty", kind: "Spotlight", pose: "stand", wearColor: "#7A6AD8",
-        bio: "Points its beam at whoever is working hardest.",
+        bio: "A warm little spotlight who shines on all your hard work.",
         idle: ["sway", "sparkle", "headTilt"], cheer: "spin",
         neck: [60, 84],
         parts: {
@@ -8811,7 +8811,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "culinary-twirly", name: "Twirly", kind: "Little Whisk", pose: "stand", wearColor: "#E07A4A",
-        bio: "Spins up a storm and loves meringue.",
+        bio: "A busy little whisk who whips up sweet ideas while you study.",
         idle: ["spin", "sway", "topBob"], cheer: "spin",
         parts: {
           feet: `<ellipse cx="51" cy="109.5" rx="6.6" ry="3.8" fill="#A8693A" ${O2}/><ellipse cx="69" cy="109.5" rx="6.6" ry="3.8" fill="#A8693A" ${O2}/>`,
@@ -8845,7 +8845,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "culinary-toque", name: "Toque", kind: "Chef's Hat", pose: "stand", wearColor: "#E25A4A", hatTop: true,
-        bio: "Grows a little taller with each finished recipe.",
+        bio: "A puffy chef's hat who grows a little taller with every finished recipe.",
         idle: ["topBob", "sway", "headTilt"], cheer: "bounce",
         neck: [60, 86],
         parts: {
@@ -8880,7 +8880,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "culinary-basil", name: "Basil", kind: "Basil Sprout", pose: "sit", wearColor: "#E08A4A",
-        bio: "Fresh, fragrant and always ready to garnish.",
+        bio: "A fresh little basil sprout who brings a bit of green to your desk.",
         idle: ["sway", "wave", "sparkle"], cheer: "hop",
         parts: {
           feet: `${LG("culinary-basil-cul-basil-pot", [[0, "#F09A6A"], [1, "#C8603A"]])}<path d="M38 88H82L78 108Q77.4 111 74 111H46Q42.6 111 42 108Z" fill="url(#culinary-basil-cul-basil-pot)" ${O}/><rect x="35" y="84" width="50" height="9" rx="4" fill="#E08A5A" ${O}/>`,
@@ -8917,7 +8917,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "marinebio-kelpie", name: "Kelpie", kind: "Kelp Sprite", pose: "float", wearColor: "#3AA6A0",
-        bio: "Tall, wavy and anchored to its goals.",
+        bio: "A tall, wavy kelp sprite who sways gently while you study.",
         idle: ["sway", "wave", "finWiggle"], cheer: "spin",
         parts: {
           tail: {svg: `<g transform="translate(0 -6)"><path d="M54 104C50 110 54 114 60 114C66 114 70 110 66 104" fill="#8A6A3A" ${O2}/><path d="M52 112L46 116M68 112L74 116M60 114V118" stroke="#8A6A3A" stroke-width="2.4" stroke-linecap="round"/></g>`, pivot: [60, 98]},
@@ -8948,7 +8948,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "marinebio-subby", name: "Subby", kind: "Little Submarine", pose: "float", wearColor: "#3AA6A0",
-        bio: "Dives deep into any subject.",
+        bio: "A brave little submarine who dives deep into any subject with you.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "bounce",
         parts: {
           back: `<g transform="translate(18 68)"><rect x="-4" y="-4" width="10" height="8" rx="2" fill="#B8A06A" ${O2}/><ellipse cx="-6" cy="0" rx="3" ry="11" fill="#E0C88A" ${O2}/></g>`,
@@ -8981,7 +8981,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "marinebio-dolly", name: "Dolly", kind: "Dolphin Calf", pose: "float", wearColor: "#F2A33A",
-        bio: "Clicks happily when you finish a chapter.",
+        bio: "A playful dolphin calf who clicks happily when you finish a chapter.",
         idle: ["finWiggle", "tailSwish", "topBob"], cheer: "spin",
         parts: {
           tail: {svg: `<g transform="translate(0 -3)"><path d="M84 90C92 94 100 92 106 86C104 96 98 102 90 102C96 106 98 112 94 114C88 108 80 104 76 98Z" fill="#6E9AC8" ${O}/></g>`, pivot: [80, 93]},
@@ -9034,7 +9034,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "mushrooms-toadie", name: "Toadie", kind: "Toadstool Pal", pose: "stand", wearColor: "#6DB35E",
-        bio: "Red cap, white spots, and a big umbrella-sized heart.",
+        bio: "A red-capped toadstool with white spots and a big, kind heart.",
         idle: ["topBob", "sway", "sparkle"], cheer: "hop",
         parts: {
           feet: `<ellipse cx="47" cy="109.5" rx="9" ry="4.4" fill="#E6D2B8" ${O}/><ellipse cx="73" cy="109.5" rx="9" ry="4.4" fill="#E6D2B8" ${O}/>`,
@@ -9068,7 +9068,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "mushrooms-fiddle", name: "Fiddle", kind: "Fern Fiddlehead", pose: "stand", wearColor: "#C98B5A",
-        bio: "A curl that unrolls a little more every time you finish something.",
+        bio: "A curly fern fiddlehead who unrolls a little more with every finished task.",
         idle: ["sway", "topBob", "headTilt"], cheer: "spin",
         neck: [60, 66],
         parts: {
@@ -9102,7 +9102,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "mushrooms-dormy", name: "Dormy", kind: "Hazel Dormouse", pose: "sit", sleepy: true, wearColor: "#7FA6FF",
-        bio: "Naps in a mushroom cup between study sessions.",
+        bio: "A sleepy hazel dormouse who naps in a mushroom cup between study sessions.",
         idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
         neck: [60, 74],
         parts: {
@@ -9149,7 +9149,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "sunflowers-sole", name: "Solé", kind: "Sunflower Sprite", pose: "stand", wearColor: "#5E9A3E",
-        bio: "Turns toward whatever you are working on.",
+        bio: "A bright sunflower sprite who turns toward whatever you're working on.",
         idle: ["sway", "headTilt", "sparkle"], cheer: "spin",
         neck: [60, 74],
         parts: {
@@ -9183,7 +9183,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "sunflowers-chirpy", name: "Chirpy", kind: "Goldfinch", pose: "stand", wearColor: "#E8504A",
-        bio: "Sings one note per finished task. Composes slowly.",
+        bio: "A cheerful goldfinch who sings a happy note for every finished task.",
         idle: ["wingFlutter", "headTilt", "topBob"], cheer: "wingFlutter",
         neck: [60, 66],
         parts: {
@@ -9224,7 +9224,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "sunflowers-bale", name: "Bale", kind: "Hay Bale Pal", pose: "stand", wearColor: "#C8423A",
-        bio: "Soft, square and dependable.",
+        bio: "A soft, sturdy hay bale who makes a comfy spot to rest between tasks.",
         idle: ["topBob", "bounce", "waddle"], cheer: "bounce",
         parts: {
           feet: `<rect x="38" y="104" width="14" height="8" rx="4" fill="#B88A3E" ${O}/><rect x="68" y="104" width="14" height="8" rx="4" fill="#B88A3E" ${O}/>`,
@@ -9243,7 +9243,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 43, rx: 77, y: 80, w: 4.2, h: 2.6, color: "#FF8F7A"},
         anchors: {top: [60, 40, 1], neck: [60, 96, 1], chest: [72, 92, 0.6], back: [96, 70, 0.8], hands: [60, 98, 0.85]},
         lines: {
-          tap: ["Howdy! Sit on me anytime, I'm comfy!", "Steady wins the harvest, friend!", "You're working like a whole farm crew!", "Square, sturdy and proud of you!", "Hay there! Keep it up!", "Water and a snack, then back to the field?", "Little by little, the barn fills up!"],
+          tap: ["Howdy! Lean on me anytime, I'm comfy!", "Steady wins the harvest, friend!", "You're working like a whole farm crew!", "Square, sturdy and proud of you!", "Hay there! Keep it up!", "Water and a snack, then back to the field?", "Little by little, the barn fills up!"],
           pet: ["Hehe! That's a bit scratchy, but I like it!", "Aww shucks, thank you kindly!"],
           hello: ["Hay hay! You're back!", "Howdy, partner! Ready to get to work?"],
           morning: ["Mornin'! Roosters are up and so are we!", "Good morning! Fresh hay, fresh start!"],
@@ -9263,7 +9263,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "nighttrain-choo", name: "Choo", kind: "Little Steam Engine", pose: "stand", wearColor: "#D9A848",
-        bio: "Puffs a happy whistle at every station.",
+        bio: "A little steam engine who puffs a happy whistle at every stop.",
         idle: ["topBob", "bounce", "sparkle"], cheer: "bounce",
         parts: {
           feet: `<circle cx="40" cy="104" r="9" fill="#3A3448" ${O}/><circle cx="80" cy="104" r="9" fill="#3A3448" ${O}/><circle cx="40" cy="104" r="3" fill="#D9A848"/><circle cx="80" cy="104" r="3" fill="#D9A848"/><path d="M32 104H88" stroke="#D9A848" stroke-width="3" stroke-linecap="round"/>`,
@@ -9296,7 +9296,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "nighttrain-stub", name: "Stub", kind: "Ticket Stub", pose: "stand", wearColor: "#B8484C",
-        bio: "Gets one hole punched for each finished task.",
+        bio: "A little train ticket who gets a hole punched for every finished task.",
         idle: ["sway", "wave", "headTilt"], cheer: "spin",
         neck: [60, 76],
         parts: {
@@ -9330,7 +9330,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "nighttrain-satchel", name: "Satchel", kind: "Travel Suitcase", pose: "stand", wearColor: "#7FB8D8",
-        bio: "Covered in stickers from everywhere you have studied.",
+        bio: "A well-traveled suitcase with stickers from every place you've studied.",
         idle: ["topBob", "waddle", "wave"], cheer: "hop",
         parts: {
           feet: `<circle cx="38" cy="108" r="5" fill="#3A3448" ${O}/><circle cx="82" cy="108" r="5" fill="#3A3448" ${O}/>`,
@@ -9370,7 +9370,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "ramen-yolky", name: "Yolky", kind: "Soft-Boiled Egg", pose: "stand", wearColor: "#7ACB5A",
-        bio: "Jammy in the middle and proud of it.",
+        bio: "A soft-boiled egg with a sunny, jammy middle and a cozy spot in the bowl.",
         idle: ["topBob", "bounce", "sparkle"], cheer: "hop",
         parts: {
           feet: `<ellipse cx="48" cy="110" rx="7.4" ry="3.8" fill="#F2E6D4" ${O}/><ellipse cx="72" cy="110" rx="7.4" ry="3.8" fill="#F2E6D4" ${O}/>`,
@@ -9401,7 +9401,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "ramen-naru", name: "Naru", kind: "Fishcake Swirl", pose: "stand", wearColor: "#F27AA0",
-        bio: "Spins when it is happy, which is often.",
+        bio: "A swirly little fishcake who spins around whenever it's happy.",
         idle: ["spin", "topBob", "sway"], cheer: "spin",
         parts: {
           feet: `<ellipse cx="50" cy="110" rx="7" ry="3.6" fill="#F6E8EC" ${O}/><ellipse cx="70" cy="110" rx="7" ry="3.6" fill="#F6E8EC" ${O}/>`,
@@ -9431,7 +9431,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "ramen-nori", name: "Nori", kind: "Seaweed Sheet", pose: "stand", wearColor: "#F2C870",
-        bio: "Stands up straight in the bowl like a little flag.",
+        bio: "A crisp sheet of nori who stands up tall in the bowl like a little flag.",
         idle: ["sway", "wave", "bounce"], cheer: "bounce",
         neck: [60, 82],
         parts: {
@@ -9493,7 +9493,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "greenhouse-prickles", name: "Prickles", kind: "Little Cactus", pose: "sit", hatTop: true,
-        bio: "Low maintenance, high loyalty.",
+        bio: "A low-maintenance little cactus who stays loyal through every task.",
         idle: ["topBob", "sway", "sparkle"], cheer: "hop",
         parts: {
           body: `${LG("greenhouse-prickles-greenhouse-prickles-g", [[0, "#B8E88E"], [0.55, "#6CC06A"], [1, "#3E9A52"]], 0, 0, 1, 0)}${LG("greenhouse-prickles-greenhouse-prickles-p", [[0, "#F6AE84"], [1, "#C8643E"]])}
@@ -9528,7 +9528,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "greenhouse-monty", name: "Monty", kind: "Monstera Leaf", pose: "stand",
-        bio: "Grows a new split in its leaf every time you level up.",
+        bio: "A leafy monstera who grows a new split in its leaf every time you level up.",
         idle: ["sway", "wave", "headTilt"], cheer: "spin",
         neck: [60, 74],
         parts: {
@@ -9564,7 +9564,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "greenhouse-misty", name: "Misty", kind: "Spray Bottle", pose: "stand", wearColor: "#F2A0B8",
-        bio: "Gives everyone a refreshing little spritz.",
+        bio: "A friendly spray bottle who gives the greenhouse a cool, fresh spritz.",
         idle: ["topBob", "bounce", "wave"], cheer: "bounce",
         parts: {
           feet: `<ellipse cx="48" cy="110" rx="7.5" ry="4" fill="#5AA8D8" ${O}/><ellipse cx="72" cy="110" rx="7.5" ry="4" fill="#5AA8D8" ${O}/>`,
@@ -9587,7 +9587,7 @@ var COMP_KIT = (() => {
         anchors: {top: [62, 21, 0.85], neck: [60, 48, 0.95], chest: [73, 92, 0.6], back: [86, 72, 0.8], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Psst! A little spritz of encouragement!", "Hi! You're looking fresh today!", "Mist-ion accepted: cheer you on!", "Fine mist, finer focus! You've got this!", "A refreshing hello from me to you!", "Stay hydrated, stay amazing!", "Sprinkling good vibes everywhere!", "Ready to spritz some motivation?"],
-          pet: ["Hehe! That tickles my trigger!", "Ooh, sloshy happy feelings!"],
+          pet: ["Hehe! That tickles my spray nozzle!", "Ooh, sloshy happy feelings!"],
           hello: ["You're back! Spritz of joy!", "Hi hi! I'm full and ready to go!"],
           morning: ["Good morning! Dewy and bright!", "Rise and shine! Fresh start, fresh mist!"],
           night: ["Misting softly. Time to rest?", "Even the ferns are sleeping. Night night!"],
@@ -9606,7 +9606,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "pottery-lumpy", name: "Lumpy", kind: "Clay Lump", pose: "sit", sleepy: true,
-        bio: "Could become anything. Currently a lump. Happy about it.",
+        bio: "A happy lump of clay who could become anything, just like your ideas.",
         idle: ["bounce", "topBob", "sway"], cheer: "bounce",
         neck: [60, 100],
         parts: {
@@ -9639,7 +9639,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "pottery-glaze", name: "Glaze", kind: "Glaze Jar", pose: "stand",
-        bio: "A swirl of blue that changes shade when you finish something.",
+        bio: "A little jar of blue glaze who shifts shade when you finish something.",
         idle: ["topBob", "sparkle", "sway"], cheer: "spin",
         parts: {
           feet: `<ellipse cx="48" cy="110" rx="7.5" ry="4" fill="#2E4EA8" ${O}/><ellipse cx="72" cy="110" rx="7.5" ry="4" fill="#2E4EA8" ${O}/>`,
@@ -9672,7 +9672,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "pottery-steepy", name: "Steepy", kind: "Little Teapot", pose: "stand",
-        bio: "Short, stout and always brewing.",
+        bio: "A short, round teapot who always has something warm brewing.",
         idle: ["waddle", "topBob", "sparkle"], cheer: "hop",
         parts: {
           feet: `<ellipse cx="47" cy="108.5" rx="7.5" ry="4.2" fill="#2F8C80" ${O}/><ellipse cx="73" cy="108.5" rx="7.5" ry="4.2" fill="#2F8C80" ${O}/>`,
@@ -9711,7 +9711,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "campfire-smory", name: "S'mory", kind: "S'more", pose: "sit", hatTop: true,
-        bio: "Gooey in the middle, crunchy on the edges, sweet all over.",
+        bio: "A gooey little s'more who toasts by the campfire while you study.",
         idle: ["topBob", "bounce", "sparkle"], cheer: "hop",
         parts: {
           feet: `<ellipse cx="44" cy="110.5" rx="7" ry="3.6" fill="#B07A40" ${O}/><ellipse cx="76" cy="110.5" rx="7" ry="3.6" fill="#B07A40" ${O}/>`,
@@ -9742,7 +9742,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "campfire-lumen", name: "Lumen", kind: "Camp Lantern", pose: "stand", wearColor: "#3E7A5C",
-        bio: "Glows a little brighter as the night goes on.",
+        bio: "A cozy camp lantern who glows a little brighter as the night goes on.",
         idle: ["sway", "sparkle", "topBob"], cheer: "bounce",
         parts: {
           back: `${RG("campfire-lumen-campfire-lumen-h", [[0, "#FFE08A", 0.55], [0.6, "#FFC24A", 0.18], [1, "#FFB040", 0]], 0.5, 0.5, 0.5)}<circle cx="60" cy="72" r="42" fill="url(#campfire-lumen-campfire-lumen-h)"/>`,
@@ -9776,7 +9776,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "campfire-moosey", name: "Moosey", kind: "Moose Calf", pose: "sit",
-        bio: "Its antlers have not come in yet. It is waiting patiently.",
+        bio: "A gentle moose calf who is patiently waiting for its antlers to grow in.",
         idle: ["earTwitch", "headTilt", "tailSwish"], cheer: "hop",
         neck: [60, 74],
         parts: {
@@ -9821,7 +9821,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "aquarium-glide", name: "Glide", kind: "Baby Manta Ray", pose: "float", wearColor: "#F2A33A",
-        bio: "Swoops in loops when it is excited.",
+        bio: "A baby manta ray who swoops in happy loops through the blue.",
         idle: ["finWiggle", "sway", "topBob"], cheer: "spin",
         parts: {
           tail: {svg: `${LINE("M60 90Q61 104 72 112", "#4A70B4", 2.4)}`, pivot: [60, 90]},
@@ -9852,7 +9852,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "aquarium-puff", name: "Puff", kind: "Pufferfish", pose: "float",
-        bio: "Puffs up when surprised, which is every time you finish a task.",
+        bio: "A round little pufferfish who puffs up with joy whenever you finish a task.",
         idle: ["finWiggle", "topBob", "bounce"], cheer: "bounce",
         parts: {
           tail: {svg: `<path d="M84 68L104 54Q108 70 104 86Z" fill="#F2A23A" ${O}/><path d="M90 68L102 62M90 72L102 78" stroke="#FFD27A" stroke-width="1.6" stroke-linecap="round"/>`, pivot: [85, 70]},
@@ -9885,7 +9885,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "aquarium-curly", name: "Curly", kind: "Seahorse", pose: "float",
-        bio: "Holds on to your to-do list with its tail.",
+        bio: "A little seahorse who holds on tight to your to-do list with its tail.",
         idle: ["topBob", "finWiggle", "headTilt"], cheer: "hop",
         neck: [58, 60],
         parts: {
@@ -9941,7 +9941,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "diadelosmuertos-dulce", name: "Dulce", kind: "Sugar Skull Sprite", pose: "float", wearColor: "#2EC4D0",
-        bio: "Decorated with icing flowers and a big smile.",
+        bio: "A cheerful sugar skull sprite decorated with icing flowers and a big smile.",
         idle: ["topBob", "sparkle", "headTilt"], cheer: "spin",
         neck: [60, 84],
         parts: {
@@ -9981,7 +9981,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "diadelosmuertos-xolo", name: "Xolo", kind: "Xolo Pup", pose: "sit", wearColor: "#F48A1C",
-        bio: "A hairless pup with a big heart and bigger ears.",
+        bio: "A gentle xolo pup with a big heart and even bigger ears.",
         idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
         neck: [60, 74],
         parts: {
@@ -10021,7 +10021,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "diadelosmuertos-cempa", name: "Cempa", kind: "Marigold Sprite", pose: "stand", wearColor: "#3E8E52",
-        bio: "A bright orange bloom that lights the way.",
+        bio: "A bright marigold sprite whose orange petals light the way.",
         idle: ["sway", "sparkle", "topBob"], cheer: "spin",
         parts: {
           feet: `${LINE("M60 88V104", "#3E8E52", 4)}<path d="M60 102Q46 94 38 100Q46 110 60 104Z" fill="#5EA860" ${O2}/><path d="M60 102Q74 94 82 100Q74 110 60 104Z" fill="#5EA860" ${O2}/>`,
@@ -10059,7 +10059,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "holi-puffy", name: "Puffy", kind: "Color Powder Puff", pose: "float", wearColor: "#9A5AE0",
-        bio: "Leaves a little rainbow wherever it lands.",
+        bio: "A soft puff of color powder who leaves a little rainbow wherever it lands.",
         idle: ["bounce", "sparkle", "topBob"], cheer: "spin",
         parts: {
           armL: {svg: `<circle cx="28" cy="80" r="6.4" fill="#FFC62A" ${O}/>`, pivot: [34, 78]},
@@ -10089,7 +10089,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "holi-rang", name: "Rang", kind: "Rainbow Elephant Calf", pose: "stand", wearColor: "#FF4A9A",
-        bio: "Painted in every color and very pleased about it.",
+        bio: "A rainbow elephant calf painted in every color and very proud of it.",
         idle: ["earTwitch", "tailSwish", "topBob"], cheer: "bounce",
         parts: {
           tail: {svg: `${LINE("M88 88Q100 86 102 96", "#9AA6C0", 2.6)}<path d="M100 94Q106 96 104 102Q98 100 100 94Z" fill="#FF4A9A" ${OW(1.6)}/>`, pivot: [88, 88]},
@@ -10127,7 +10127,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "holi-spritz", name: "Spritz", kind: "Water Splasher", pose: "stand", wearColor: "#3A8AE8",
-        bio: "A little pump bottle that sprays colored water when you win.",
+        bio: "A little water splasher who sprays bright colors every time you win.",
         idle: ["topBob", "wave", "bounce"], cheer: "hop",
         parts: {
           feet: `<ellipse cx="50" cy="108.5" rx="7.4" ry="4.2" fill="#3A8AE8" ${O}/><ellipse cx="70" cy="108.5" rx="7.4" ry="4.2" fill="#3A8AE8" ${O}/>`,
@@ -10149,7 +10149,7 @@ var COMP_KIT = (() => {
         anchors: {top: [60, 22, 0.9], neck: [60, 80, 0.95], chest: [72, 88, 0.62], back: [86, 70, 0.8], hands: [60, 92, 0.86]},
         lines: {
           tap: ["Psssht! Hi! A tiny splash hello!", "Pump it up! You're doing great!", "Splish splash, look at you go!", "I'm full of colourful cheers!", "Keep going and I'll spray a rainbow!", "Fresh, bright and ready to help!", "One more page, one more splash!", "You're making a big splash today!"],
-          pet: ["Hehe! Careful, I might squirt!", "Psssht! Happy little bubbles!"],
+          pet: ["Hehe! Careful, I might spritz you!", "Psssht! Happy little bubbles!"],
           hello: ["Splash! You're back!", "Hi hi! Pumped and ready!"],
           morning: ["Good morning! Fresh water, fresh start!", "Psssht! Rise and splash!"],
           night: ["Running low on bubbles. Bedtime?", "Goodnight! I'll refill for tomorrow."],
@@ -10168,7 +10168,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "ramadan-nuri", name: "Nuri", kind: "Fanous Lantern", pose: "float", wearColor: "#2A7A78",
-        bio: "Its colored glass throws little stars on the walls.",
+        bio: "A glowing fanous lantern whose colored glass sprinkles stars on the walls.",
         idle: ["sway", "sparkle", "topBob"], cheer: "spin",
         parts: {
           armL: {svg: `${LINE("M40 67L33 76", "#E2B04A", 3.4)}<ellipse cx="31.6" cy="78.4" rx="4.6" ry="5.4" transform="rotate(30 31.6 78.4)" fill="#E2B04A" ${O}/>`, pivot: [39.6, 67]},
@@ -10206,7 +10206,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "ramadan-hilal", name: "Hilal", kind: "Crescent Moon Sprite", pose: "float", wearColor: "#F2C45A",
-        bio: "Shows up right on time every evening.",
+        bio: "A soft crescent moon who rises right on time every evening.",
         idle: ["topBob", "sparkle", "headTilt"], cheer: "bounce",
         neck: [60, 92],
         parts: {
@@ -10236,7 +10236,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "ramadan-kahki", name: "Kahki", kind: "Kahk Cookie", pose: "stand", wearColor: "#C99A2E",
-        bio: "Dusted in sugar and stamped with a pattern.",
+        bio: "A sweet kahk cookie dusted in sugar and stamped with a pretty pattern.",
         idle: ["topBob", "bounce", "wave"], cheer: "hop",
         parts: {
           feet: `<ellipse cx="47" cy="106" rx="7.6" ry="4.4" fill="#E2B47A" ${O}/><ellipse cx="73" cy="106" rx="7.6" ry="4.4" fill="#E2B47A" ${O}/>`,
@@ -10275,7 +10275,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "midautumn-tuzi", name: "Tuzi", kind: "Jade Rabbit", pose: "sit", sleepy: true, wearColor: "#7AC8A8",
-        bio: "Lives on the moon and visits once a year.",
+        bio: "A gentle jade rabbit who hops down from the moon to study with you.",
         idle: ["earTwitch", "headTilt", "topBob"], cheer: "hop",
         neck: [60, 76],
         parts: {
@@ -10301,7 +10301,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 42, rx: 78, y: 66, w: 4, h: 2.4, color: "#FFA6BE"},
         anchors: {top: [60, 34, 0.95], neck: [60, 80, 1], chest: [72, 96, 0.62], back: [86, 88, 0.8], hands: [60, 98, 0.86]},
         lines: {
-          tap: ["Hello from the moon! I hopped down to see you!", "Pound, pound! Grinding through the notes!", "The moon is full, and so is your brain!", "You're doing wonderfully, little star!", "One hop at a time, all the way to the moon!", "I brought osmanthus for good luck!", "Soft ears, big cheers for you!", "So happy to visit you this year!"],
+          tap: ["Hello from the moon! I hopped down to see you!", "Tap, tap! Working through the notes!", "The moon is full, and so is your brain!", "You're doing wonderfully, little star!", "One hop at a time, all the way to the moon!", "I brought osmanthus for good luck!", "Soft ears, big cheers for you!", "So happy to visit you this year!"],
           pet: ["Hehe! My ears are wiggling!", "Aww, softer than moonlight!"],
           hello: ["Hop hop! You're back!", "Hi! The moon said to say hello!"],
           morning: ["Good morning! Even moon bunnies wake up early!", "Rise and shine! Let's hop to it!"],
@@ -10314,7 +10314,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "midautumn-bing", name: "Bing", kind: "Mooncake", pose: "stand", wearColor: "#B8402E",
-        bio: "Round, golden and stamped with a lucky pattern.",
+        bio: "A round, golden mooncake stamped with a lucky pattern.",
         idle: ["topBob", "bounce", "sparkle"], cheer: "spin",
         parts: {
           feet: `<ellipse cx="48" cy="105.6" rx="7.6" ry="4.4" fill="#C8822E" ${O}/><ellipse cx="72" cy="105.6" rx="7.6" ry="4.4" fill="#C8822E" ${O}/>`,
@@ -10346,7 +10346,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "midautumn-osma", name: "Osma", kind: "Osmanthus Sprite", pose: "float", wearColor: "#5E9A62",
-        bio: "A tiny golden flower that smells like honey.",
+        bio: "A tiny golden osmanthus flower who smells like honey.",
         idle: ["sway", "sparkle", "topBob"], cheer: "spin",
         parts: {
           armL: {svg: `<path d="M36 89Q26 92 25 106Q36 103 39 93Z" fill="#6AAA6A" ${O}/><path d="M35 93Q30 98 27 103" fill="none" stroke="#4A8A4E" stroke-width="1.2" stroke-linecap="round"/>`, pivot: [36, 91]},
@@ -10403,7 +10403,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "france-coco", name: "Coco", kind: "Croissant", pose: "stand", wearColor: "#C8463E",
-        bio: "Flaky, golden and folded with care, like your notes.",
+        bio: "A flaky golden croissant, folded with care just like your notes.",
         idle: ["topBob", "sway", "headTilt"], cheer: "bounce",
         neck: [60, 88],
         parts: {
@@ -10445,7 +10445,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "france-bijou", name: "Bijou", kind: "Poodle Pup", pose: "sit", wearColor: "#F2A8C0",
-        bio: "Fluffy pom-poms and impeccable study habits.",
+        bio: "A fluffy poodle pup with pom-poms and very tidy study habits.",
         idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "hop",
         neck: [60, 78],
         parts: {
@@ -10484,7 +10484,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "france-mac", name: "Mac", kind: "Macaron", pose: "stand", wearColor: "#7AC8A8",
-        bio: "A little sandwich of joy in pastel pink.",
+        bio: "A little pink macaron who brings a sweet bite of joy to study time.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
         parts: {
           feet: `<ellipse cx="48" cy="106.6" rx="7" ry="4" fill="#E88AA6" ${O}/><ellipse cx="72" cy="106.6" rx="7" ry="4" fill="#E88AA6" ${O}/>`,
@@ -10540,7 +10540,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "japan-kuri", name: "Kuri", kind: "Shiba Inu Pup", pose: "sit", wearColor: "#D8402E",
-        bio: "Curly tail, big smile, keeps watch on your deadlines.",
+        bio: "A smiley shiba pup with a curly tail who keeps watch on your deadlines.",
         idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "hop",
         neck: [60, 76],
         parts: {
@@ -10581,7 +10581,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "japan-daru", name: "Daru", kind: "Daruma Doll", pose: "stand", wearColor: "#E6B23A",
-        bio: "Falls down seven times, gets up eight.",
+        bio: "A sturdy daruma doll who always gets back up, no matter how many falls.",
         idle: ["sway", "topBob", "sparkle"], cheer: "bounce",
         parts: {
           feet: `<ellipse cx="60" cy="106.6" rx="30" ry="4.6" fill="#9A2420" ${O}/>`,
@@ -10614,7 +10614,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "japan-musu", name: "Musu", kind: "Onigiri", pose: "stand", wearColor: "#3A8A5A",
-        bio: "A rice ball with a nori sash and a can-do attitude.",
+        bio: "A little rice ball in a nori sash with a big can-do attitude.",
         idle: ["topBob", "wave", "headTilt"], cheer: "hop",
         neck: [60, 104],
         parts: {
@@ -10669,7 +10669,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "morocco-nana", name: "Nana", kind: "Mint Teapot", pose: "stand", wearColor: "#2E8E6E",
-        bio: "Pours from a great height and never spills a drop.",
+        bio: "A shiny mint teapot who pours from up high and never spills a drop.",
         idle: ["topBob", "sway", "sparkle"], cheer: "bounce",
         parts: {
           feet: `${LG("morocco-nana-f", [[0, "#E8ECF2"], [1, "#9AA4B4"]])}<path d="M42 100H78L83 108Q60 112 37 108Z" fill="url(#morocco-nana-f)" ${O}/>`,
@@ -10703,13 +10703,13 @@ var COMP_KIT = (() => {
           night: ["Lanterns are lit. Maybe one last cup, then rest?", "Goodnight! Sweet dreams and sweeter tea."],
           focus: ["Steeping quietly beside you.", "Calm and warm. Pour your focus in!"],
           done: ["What a session! Tea's on me!", "All done! Poured to perfection!"],
-          task: ["Done! Not a drop spilled!", "Checked off! Minty fresh!", "Another one! Pour me another!", "Yes! Perfectly steeped!"],
+          task: ["Done! Not a drop spilled!", "Checked off! Minty fresh!", "Another one! Pour another cup of cheer!", "Yes! Perfectly steeped!"],
           break: ["Tea break! Sip slowly and stretch.", "Rest a moment. Smell the fresh mint!"]
         }
       },
       {
         id: "morocco-fenn", name: "Zaki", kind: "Riad Fennec Kit", pose: "sit", sleepy: true, wearColor: "#C8642E",
-        bio: "Giant ears for hearing every deadline coming.",
+        bio: "A fennec fox kit from the riad whose giant ears hear every deadline coming.",
         idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
         neck: [60, 76],
         parts: {
@@ -10750,7 +10750,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "morocco-limoun", name: "Limoun", kind: "Little Orange", pose: "stand", wearColor: "#3E8A4E",
-        bio: "Grown in the courtyard and full of sunshine.",
+        bio: "A little orange from the courtyard tree who's full of sunshine.",
         idle: ["topBob", "sway", "wave"], cheer: "spin",
         parts: {
           feet: `<ellipse cx="48" cy="106" rx="7.6" ry="4.4" fill="#E87A1E" ${O}/><ellipse cx="72" cy="106" rx="7.6" ry="4.4" fill="#E87A1E" ${O}/>`,
@@ -10803,7 +10803,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "thailand-chang", name: "Chang", kind: "Thai Elephant Calf", pose: "stand", wearColor: "#D8463A",
-        bio: "Carries your hardest task with a trunk-curling smile.",
+        bio: "A happy elephant calf who carries your hardest tasks with a big smile.",
         idle: ["earTwitch", "tailSwish", "topBob"], cheer: "bounce",
         parts: {
           tail: {svg: `${LINE("M86 88Q98 86 100 96", "#A6A2BC", 2.6)}<path d="M98 94Q104 95 103 101Q97 101 98 94Z" fill="#5A5470" ${OW(1.6)}/>`, pivot: [86, 88]},
@@ -10846,7 +10846,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "thailand-mamuang", name: "Mamuang", kind: "Mango Sticky Rice", pose: "stand", wearColor: "#F2A81E",
-        bio: "Sweet, golden and secretly very sticky about goals.",
+        bio: "A sweet scoop of mango sticky rice who sticks with your goals.",
         idle: ["topBob", "sway", "sparkle"], cheer: "hop",
         parts: {
           feet: `${LG("thailand-mamuang-l", [[0, "#6AB85A"], [1, "#3E8A3E"]])}
@@ -10874,7 +10874,7 @@ var COMP_KIT = (() => {
           pet: ["Hehe! Careful, I'm a little sticky!", "Aww! Sweeter than coconut cream!"],
           hello: ["You're back! Freshly steamed and happy!", "Hi! I saved you the ripest slice!"],
           morning: ["Good morning! A golden day is ripening!", "Rise and shine! Mango season is study season!"],
-          night: ["Getting sleepy under my mango slice...", "Goodnight! Dream sweet, sticky dreams!"],
+          night: ["Getting sleepy under my mango slice...", "Goodnight! Dream sweet, golden mango dreams!"],
           focus: ["Sticking right beside you. Focus!", "Quiet and sweet. You've got this!"],
           done: ["What a golden session! So sweet!", "All done! A whole plate of success!"],
           task: ["Done! Sweet!", "Checked off! Golden!", "Another one! That one stuck!", "Yes! Ripe for the next one!"],
@@ -10883,7 +10883,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "thailand-tukky", name: "Tukky", kind: "Little Tuk-Tuk", pose: "stand", wearColor: "#2E7FD0",
-        bio: "Beeps happily and gets you anywhere on time.",
+        bio: "A little tuk-tuk who beeps happily and gets you everywhere on time.",
         idle: ["topBob", "bounce", "sparkle"], cheer: "hop",
         parts: {
           feet: `<ellipse cx="60" cy="102" rx="10" ry="9" fill="#2E2838" ${O}/><circle cx="60" cy="102" r="4" fill="#C8C4D4" ${OW(1.6)}/>
@@ -10910,7 +10910,7 @@ var COMP_KIT = (() => {
         anchors: {top: [60, 26, 0.9], neck: [60, 82, 1], chest: [74, 88, 0.6], back: [94, 70, 0.8], hands: [60, 92, 0.86]},
         lines: {
           tap: ["Beep beep! Hop in, where are we studying?", "Tuk-tuk-tuk! Full speed ahead!", "Three wheels, zero worries!", "I know all the shortcuts to a good grade!", "Next stop: that task you've been avoiding!", "Engine warm, lights on, ready to go!", "Hold on tight, we're making great time!", "Beep! You're right on schedule!"],
-          pet: ["Beep beep! That's my happy horn!", "Hehe! Polish my headlights again!"],
+          pet: ["Beep beep! That's my happy horn!", "Hehe! That made my headlights twinkle!"],
           hello: ["Beep beep! You're back! Hop in!", "Hi! Engine's running, let's ride!"],
           morning: ["Good morning! Fuelled up and ready to roll!", "Beep! The morning roads are wide open!"],
           night: ["Headlights dimming... parking soon?", "Goodnight! I'll be outside at sunrise."],
@@ -10940,7 +10940,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "italy-limo", name: "Limo", kind: "Amalfi Lemon", pose: "stand", wearColor: "#2C9A70",
-        bio: "Sunny, zesty and always a little bit extra.",
+        bio: "A sunny Amalfi lemon who brings a bright burst of zest to study time.",
         idle: ["topBob", "sway", "sparkle"], cheer: "bounce",
         parts: {
           feet: `<ellipse cx="49" cy="106.5" rx="7.4" ry="4.2" fill="#E8A81E" ${O}/><ellipse cx="71" cy="106.5" rx="7.4" ry="4.2" fill="#E8A81E" ${O}/>`,
@@ -10961,7 +10961,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 40, rx: 80, y: 78, w: 4.4, h: 2.6, color: "#FF9A6A"},
         anchors: {top: [60, 38, 0.95], neck: [60, 96, 1.05], chest: [74, 90, 0.66], back: [90, 60, 0.8], hands: [60, 98, 0.86]},
         lines: {
-          tap: ["Ciao! Fresh from the terraces, just for you!", "When life gives you lemons, ace the quiz!", "Zesty brain, sunny heart. That's you!", "You're doing great. Squeeze in one more!", "A little bit extra never hurt anyone!", "Pucker up, we've got pages to cover!", "Bright, bold and on a roll today!", "Sun on the terraces, focus in your eyes!"],
+          tap: ["Ciao! Fresh from the terraces, just for you!", "When life gives you lemons, ace the quiz!", "Zesty brain, sunny heart. That's you!", "You're doing great. Squeeze in one more!", "A little bit extra never hurt anyone!", "Zest it up, we've got pages to cover!", "Bright, bold and on a roll today!", "Sun on the terraces, focus in your eyes!"],
           pet: ["Hehe! You smell like lemon now!", "Aww, that's the zest feeling ever!"],
           hello: ["Ciao, ciao! You're back! Sunshine time!", "Buongiorno, friend! Ready to shine?"],
           morning: ["Buongiorno! The sun's on the lemon trees!", "Good morning! Fresh squeezed and ready!"],
@@ -10974,7 +10974,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "italy-brio", name: "Brio", kind: "Little Scooter", pose: "stand", wearColor: "#F6C833",
-        bio: "Takes the hairpin bends and the hard chapters with style.",
+        bio: "A little scooter who zips through the coastal bends and hard chapters.",
         idle: ["topBob", "bounce", "sparkle"], cheer: "hop",
         parts: {
           feet: `${LG("italy-brio-w", [[0, "#4A4048"], [1, "#221C22"]], 0, 0, 1, 0)}<rect x="52" y="90" width="16" height="22" rx="7" fill="url(#italy-brio-w)" ${O}/><rect x="57" y="96" width="6" height="10" rx="3" fill="#B8BCC8"/>`,
@@ -10996,7 +10996,7 @@ var COMP_KIT = (() => {
         anchors: {top: [60, 30, 0.9], neck: [60, 88, 1], chest: [72, 82, 0.62], back: [86, 62, 0.8], hands: [60, 86, 0.86]},
         lines: {
           tap: ["Beep beep! Hop on, let's zip through it!", "Hairpin bend ahead? We lean in and go!", "Vroom! That chapter didn't stand a chance!", "Full tank of focus, open coast road!", "Small engine, big dreams. Just like you!", "Wind in your hair, notes in your head!", "Smooth riding! You're cruising today!", "Next stop: the top of the class!"],
-          pet: ["Hehe! Polish my headlight again!", "Purr purr! That's my happy engine!"],
+          pet: ["Hehe! That made my headlight twinkle!", "Purr purr! That's my happy engine!"],
           hello: ["Beep beep! You're back! Let's ride!", "Ciao! Engine's warm and ready to go!"],
           morning: ["Buongiorno! Coast road's wide open!", "Good morning! First ride of the day!"],
           night: ["Headlight's on low. Time to park soon?", "Buonanotte! Parking by the harbour."],
@@ -11008,7 +11008,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "italy-gela", name: "Gela", kind: "Gelato Cone", pose: "stand", wearColor: "#F48AA6",
-        bio: "Three scoops of encouragement, no brain freeze.",
+        bio: "A three-scoop gelato cone who serves up sweet encouragement.",
         idle: ["sway", "headTilt", "wave"], cheer: "spin",
         neck: [60, 82],
         parts: {
@@ -11064,7 +11064,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "greece-kiki", name: "Kiki", kind: "Island Cat", pose: "sit", sleepy: true, wearColor: "#2F6DB8",
-        bio: "Naps on every sunny wall, wakes up for every finished task.",
+        bio: "A sun-loving island cat who naps on warm walls and wakes up for every win.",
         idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "hop",
         neck: [60, 78],
         parts: {
@@ -11111,7 +11111,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "greece-elia", name: "Elia", kind: "Olive Sprite", pose: "float", wearColor: "#5E8A3A",
-        bio: "Small, green and quietly strong. Keeps going for centuries.",
+        bio: "A small olive sprite who is quietly strong and keeps going year after year.",
         idle: ["sway", "topBob", "sparkle"], cheer: "spin",
         parts: {
           armL: {svg: `${oleaf(37, 80, 23, 6.6, 158, "#9EB884", O2)}<path d="M36 80L22 84.6" stroke="#6E8A54" stroke-width="1.2" stroke-linecap="round" opacity=".7"/>`, pivot: [36, 80]},
@@ -11145,7 +11145,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "greece-glafka", name: "Glafka", kind: "Little Owl", pose: "stand", wearColor: "#2F6DB8",
-        bio: "Wise beyond its age, and up late studying with you.",
+        bio: "A wise little owl who stays up late studying with you.",
         idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter",
         neck: [60, 74],
         parts: {
@@ -11207,7 +11207,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "egypt-kheper", name: "Kheper", kind: "Scarab Beetle", pose: "stand", wearColor: "#2A8A84",
-        bio: "Rolls every big task forward, one little push at a time.",
+        bio: "A steady scarab beetle who rolls every big task forward, one push at a time.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
         parts: {
           feet: `<path d="M44 100Q40 106 38 111H50Q49 106 50 101Z" fill="#1F5C6A" ${O}/><path d="M76 100Q80 106 82 111H70Q71 106 70 101Z" fill="#1F5C6A" ${O}/>`,
@@ -11244,7 +11244,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "egypt-jamal", name: "Jamal", kind: "Camel Calf", pose: "stand", wearColor: "#C8503A",
-        bio: "Long lashes, long legs, and stamina for long study sessions.",
+        bio: "A long-lashed camel calf with stamina for the longest study sessions.",
         idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
         neck: [60, 74],
         parts: {
@@ -11287,7 +11287,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "egypt-miu", name: "Miu", kind: "Mau Kitten", pose: "sit", wearColor: "#2E5FA8",
-        bio: "A spotted cat with ancient manners and modern curiosity.",
+        bio: "A spotted Mau kitten with ancient manners and a curious mind.",
         idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "bounce",
         neck: [60, 76],
         parts: {
@@ -11316,7 +11316,7 @@ var COMP_KIT = (() => {
         anchors: {top: [60, 30, 0.95], neck: [60, 76, 1], chest: [70, 92, 0.6], back: [84, 84, 0.8], hands: [60, 100, 0.84]},
         lines: {
           tap: ["Mrrp! Hello, honored student!", "My ancestors napped in palaces. I nap on notes.", "Curious about everything? Me too!", "Spots, whiskers and big ideas. That's us!", "A proper cat studies with great dignity.", "Purr... you're doing beautifully.", "Is that a new chapter? Let me sit on it.", "Golden collar, golden effort!"],
-          pet: ["Purrrr... yes, just there. Thank you!", "Mrrp! A royal scratch, how kind!"],
+          pet: ["Purrrr... how gentle. Thank you!", "Mrrp! A royal scratch, how kind!"],
           hello: ["Mrrp! You're back! I kept your seat warm.", "Hello! I've been waiting very politely."],
           morning: ["Good morning! The sunbeam is ready for us.", "Rise and shine! Breakfast, then books?"],
           night: ["The moon is up. Curl up and rest soon?", "Goodnight! I'll guard your notes till morning."],
@@ -11349,7 +11349,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "canada-mapleton", name: "Mapleton", kind: "Sugar Maple Sprite", pose: "float", wearColor: "#F2B23E",
-        bio: "Turns brighter red with every finished task.",
+        bio: "A sugar maple sprite who turns brighter red with every finished task.",
         idle: ["sway", "sparkle", "topBob"], cheer: "spin",
         neck: [60, 82],
         parts: {
@@ -11381,7 +11381,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "canada-bucky", name: "Bucky", kind: "Beaver Kit", pose: "sit", wearColor: "#C8302A",
-        bio: "Builds study habits one stick at a time.",
+        bio: "A busy beaver kit who builds study habits one stick at a time.",
         idle: ["tailSwish", "headTilt", "earTwitch"], cheer: "hop",
         neck: [60, 74],
         parts: {
@@ -11427,7 +11427,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "canada-mooska", name: "Mooska", kind: "Moose Yearling", pose: "stand", sleepy: true, wearColor: "#2E9AA0",
-        bio: "Gangly legs, gentle heart, enormous patience.",
+        bio: "A gangly moose yearling with a gentle heart and enormous patience.",
         idle: ["earTwitch", "headTilt", "tailSwish"], cheer: "bounce",
         neck: [60, 62],
         parts: {
@@ -11489,7 +11489,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "venice-gondi", name: "Gondi", kind: "Little Gondola", pose: "stand", wearColor: "#C8302E",
-        bio: "Glides through the trickiest canals of your schedule.",
+        bio: "A little gondola who glides you through the tricky canals of your schedule.",
         idle: ["sway", "topBob", "sparkle"], cheer: "bounce",
         neck: [60, 88],
         parts: {
@@ -11533,7 +11533,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "venice-pippo", name: "Pippo", kind: "Venetian Pigeon", pose: "stand", wearColor: "#5FA888",
-        bio: "Struts around the piazza like it owns your to-do list.",
+        bio: "A strutting Venetian pigeon who patrols the piazza and your to-do list.",
         idle: ["headTilt", "wingFlutter", "waddle"], cheer: "wingFlutter",
         neck: [60, 66],
         parts: {
@@ -11570,7 +11570,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "venice-masca", name: "Masca", kind: "Carnival Mask", pose: "stand", wearColor: "#E2B048",
-        bio: "Hides a big grin behind all that glitter.",
+        bio: "A sparkly carnival mask who hides a big grin behind all that glitter.",
         idle: ["sparkle", "headTilt", "topBob"], cheer: "spin",
         neck: [60, 82],
         parts: {
@@ -11672,7 +11672,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "mexico-tito", name: "Tito", kind: "Axolotl", pose: "sit", sleepy: true, wearColor: "#2AAEB0",
-        bio: "Smiles forever and regrows its motivation overnight.",
+        bio: "A smiley axolotl who regrows its motivation overnight.",
         idle: ["finWiggle", "headTilt", "topBob"], cheer: "spin",
         neck: [60, 76],
         parts: {
@@ -11771,7 +11771,7 @@ var COMP_KIT = (() => {
     companions: [
       {
         id: "brazil-tuca", name: "Tuca", kind: "Toco Toucan Chick", pose: "stand", wearColor: "#FF8A1E",
-        bio: "Big beak, bigger smile, loudest cheer on the beach.",
+        bio: "A toco toucan chick with a big beak and the loudest cheer on the beach.",
         idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter",
         neck: [60, 74],
         parts: {
@@ -11813,7 +11813,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "brazil-mico", name: "Mico", kind: "Golden Lion Tamarin", pose: "sit", wearColor: "#2E9A5A",
-        bio: "A tiny golden mane and a huge appetite for learning.",
+        bio: "A golden lion tamarin with a tiny golden mane and a big love of learning.",
         idle: ["tailSwish", "headTilt", "earTwitch"], cheer: "hop",
         neck: [60, 76],
         parts: {
@@ -11855,7 +11855,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "brazil-cocada", name: "Cocada", kind: "Coconut with a Straw", pose: "stand", wearColor: "#FF5A8A",
-        bio: "Fresh from the beach kiosk, straw always ready.",
+        bio: "A fresh coconut from the beach kiosk, straw in and ready to cheer you on.",
         idle: ["topBob", "sway", "sparkle"], cheer: "bounce",
         parts: {
           feet: `<ellipse cx="47" cy="107" rx="8" ry="4.4" fill="#5A9A3A" ${O}/><ellipse cx="73" cy="107" rx="8" ry="4.4" fill="#5A9A3A" ${O}/>`,

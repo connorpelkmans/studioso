@@ -52,7 +52,7 @@
       },
       {
         id: "mexico-tito", name: "Tito", kind: "Axolotl", pose: "sit", sleepy: true, wearColor: "#2AAEB0",
-        bio: "Smiles forever and regrows its motivation overnight.",
+        bio: "A smiley axolotl who regrows its motivation overnight.",
         idle: ["finWiggle", "headTilt", "topBob"], cheer: "spin",
         neck: [60, 76],
         parts: {

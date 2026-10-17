@@ -13,7 +13,7 @@
     companions: [
       {
         id: "pride-prism", name: "Prism", kind: "Rainbow Prism", pose: "stand", wearColor: "#9466D0",
-        bio: "Turns plain light into every color.",
+        bio: "A bright little prism who turns plain light into a rainbow for you.",
         idle: ["sparkle", "spin", "topBob"], cheer: "spin",
         parts: {
           back: `${RB.map((c, i) => `<path d="M76 70L114 ${50 + i * 7}V${57 + i * 7}Z" fill="${c}"/>`).join("")}<path d="M76 70L114 50V92Z" fill="none" ${O2}/>${LINE("M4 58L40 68", "#FFFFFF", 4)}`,
@@ -42,7 +42,7 @@
       },
       {
         id: "pride-flamingo", name: "Fifi", kind: "Flamingo Chick", pose: "stand", wearColor: "#5498E0",
-        bio: "Fluffy, pink and practicing its one-legged stand.",
+        bio: "A fluffy pink flamingo chick who's still practicing its one-legged stand.",
         idle: ["headTilt", "wingFlutter", "sway"], cheer: "wingFlutter",
         parts: {
           feet: `${LINE("M60 98V110", "#F28AA0", 3)}<path d="M53 111.5H67" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><path d="M53 111.5H67" stroke="#F28AA0" stroke-width="2.4" stroke-linecap="round"/>${LINE("M66 97L74 104L68 106", "#F28AA0", 2.6)}`,
@@ -75,7 +75,7 @@
       },
       {
         id: "pride-ribbon", name: "Swirl", kind: "Parade Ribbon", pose: "float", wearColor: "#F0606A",
-        bio: "Twirls through the air in every color at once.",
+        bio: "A twirly parade ribbon who dances through the air in every color.",
         idle: ["sway", "wave", "spin"], cheer: "spin",
         parts: {
           back: `${(() => { const A = i => `M${18 + i * 1.4} ${40 + i * 3.6}C${30 + i} ${20 + i * 2} ${50} ${26 + i * 3} ${60} ${50 + i * 2}`, B = i => `M${60} ${70 + i * 2}C${72} ${96 + i * 2} ${90 - i} ${106 - i} ${104 - i * 1.4} ${88 - i * 3.6}`;
@@ -113,7 +113,7 @@
     companions: [
       {
         id: "graduation-cap", name: "Tassel", kind: "Grad Cap", pose: "stand", wearColor: "#F2B83A",
-        bio: "Has been waiting for this moment all year.",
+        bio: "A proud little grad cap who's been waiting all year for your big day.",
         idle: ["topBob", "sway", "headTilt"], cheer: "spin", hatTop: true,
         parts: {
           feet: feet("#1E3366", 48, 72),
@@ -144,7 +144,7 @@
       },
       {
         id: "graduation-diploma", name: "Dippy", kind: "Rolled Diploma", pose: "stand", wearColor: "#9A2E4A",
-        bio: "Tied with a ribbon. Unrolls when you finish big things.",
+        bio: "A rolled-up diploma with a ribbon who unrolls when you finish big things.",
         idle: ["topBob", "wave", "sparkle"], cheer: "bounce",
         parts: {
           feet: feet("#C9A866", 49, 71),
@@ -172,7 +172,7 @@
       },
       {
         id: "graduation-laurel", name: "Laurel", kind: "Laurel Wreath Sprite", pose: "float", wearColor: "#F2B83A",
-        bio: "A ring of leaves for every win, big or small.",
+        bio: "A little laurel wreath who adds a leaf for every win, big or small.",
         idle: ["sparkle", "sway", "spin"], cheer: "spin",
         parts: {
           back: `${[...Array(9)].map((_, i) => { const a = (150 + i * 30) * Math.PI / 180, x = +(60 + Math.cos(a) * 36).toFixed(1), y = +(64 + Math.sin(a) * 36).toFixed(1); return `<ellipse cx="${x}" cy="${y}" rx="10" ry="5" transform="rotate(${+(a * 57.3 + 115).toFixed(1)} ${x} ${y})" fill="${i % 2 ? "#8CCB7E" : "#6CB070"}" ${O2}/>`; }).join("")}
@@ -207,7 +207,7 @@
     companions: [
       {
         id: "birthday-popper", name: "Pop", kind: "Party Popper", pose: "stand", wearColor: "#FF7FA8",
-        bio: "Saves its confetti for the moments that count.",
+        bio: "A cheerful party popper who saves its confetti for your big moments.",
         idle: ["topBob", "bounce", "sparkle"], cheer: "bounce",
         parts: {
           feet: feet("#E89A3A", 52, 68),
@@ -236,7 +236,7 @@
       },
       {
         id: "birthday-pinata", name: "Piña", kind: "Llama Piñata", pose: "stand", wearColor: "#B58CF2",
-        bio: "Colorful, fringed, and wants to be admired, not hit.",
+        bio: "A colorful, fringed llama piñata who throws a little party for every win.",
         idle: ["earTwitch", "sway", "headTilt"], cheer: "hop",
         parts: {
           feet: `${[44, 54, 66, 76].map((x, i) => `<rect x="${x - 4.5}" y="92" width="9" height="18" rx="3" fill="${["#5CCFC0", "#FF8FB8", "#B58CF2", "#FFD45A"][i]}" ${O}/>`).join("")}`,
@@ -276,7 +276,7 @@
       },
       {
         id: "birthday-cake", name: "Layla", kind: "Cake Slice", pose: "stand", wearColor: "#7FD8C0",
-        bio: "Three layers, extra frosting, one candle.",
+        bio: "A tall slice of birthday cake with extra frosting and one bright candle.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
         parts: {
           feet: feet("#E8A0B8", 48, 72),
@@ -314,7 +314,7 @@
     companions: [
       {
         id: "geology-geode", name: "Geo", kind: "Geode", pose: "sit", wearColor: "#9A62D8",
-        bio: "Plain on the outside, sparkly on the inside.",
+        bio: "A humble little geode who hides sparkly crystals inside, just like you.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
         parts: {
           body: `${RG("geology-geode-geo-geo-r", [[0, "#D2C4B4"], [0.6, "#A8988A"], [1, "#7E6E62"]], 0.38, 0.3, 0.8)}${RG("geology-geode-geo-geo-i", [[0, "#FFF0FF"], [0.45, "#C890F4"], [1, "#7A3EC8"]], 0.5, 0.5, 0.6)}
@@ -344,7 +344,7 @@
       },
       {
         id: "geology-trilobite", name: "Trilo", kind: "Trilobite", pose: "stand", wearColor: "#3EB4C0",
-        bio: "Has been studying for 500 million years.",
+        bio: "An ancient little trilobite who has been studying for 500 million years.",
         idle: ["waddle", "headTilt", "topBob"], cheer: "hop",
         parts: {
           feet: `${[36, 46, 56, 64, 74, 84].map((x, i) => `<path d="M${x} 98L${x + (i < 3 ? -4 : 4)} 110" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><path d="M${x} 98L${x + (i < 3 ? -4 : 4)} 110" stroke="#C8956A" stroke-width="2.4" stroke-linecap="round"/>`).join("")}`,
@@ -376,7 +376,7 @@
       },
       {
         id: "geology-sprite", name: "Glint", kind: "Crystal Sprite", pose: "float", wearColor: "#C29AFF",
-        bio: "A purple point of light that hums when you focus.",
+        bio: "A purple crystal sprite who hums softly while you focus.",
         idle: ["sparkle", "spin", "topBob"], cheer: "spin",
         parts: {
           back: `<path d="M38 70C22 60 14 74 22 82C28 86 36 82 40 76Z" fill="#C8FAFF" fill-opacity=".85" ${O2}/><path d="M82 70C98 60 106 74 98 82C92 86 84 82 80 76Z" fill="#C8FAFF" fill-opacity=".85" ${O2}/>`,

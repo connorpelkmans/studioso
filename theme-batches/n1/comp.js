@@ -12,7 +12,7 @@
     companions: [
       {
         id: "onsen-kapi", name: "Kapi", kind: "Onsen Capybara", pose: "sit", sleepy: true, wearColor: "#5A8AD0",
-        bio: "Will sit in warm water for as long as you study. Possibly longer.",
+        bio: "A calm capybara who soaks in the warm spring for as long as you study.",
         idle: ["topBob", "earTwitch", "headTilt"], cheer: "bounce",
         neck: [60, 74],
         parts: {
@@ -53,7 +53,7 @@
       },
       {
         id: "onsen-momo", name: "Momo", kind: "Snow Monkey Baby", pose: "sit", wearColor: "#E0533A",
-        bio: "Keeps a snowball on its head at all times, for balance.",
+        bio: "A baby snow monkey who balances a snowball on its head while you work.",
         idle: ["earTwitch", "wave", "tailSwish"], cheer: "hop",
         parts: {
           tail: {svg: `<ellipse cx="92" cy="100" rx="7.5" ry="5" transform="rotate(-30 92 100)" fill="#B8A898" ${O}/>`, pivot: [86, 103]},
@@ -88,7 +88,7 @@
       },
       {
         id: "onsen-yuzu", name: "Yuzu", kind: "Floating Yuzu", pose: "float", wearColor: "#5AAA5A",
-        bio: "A sunny citrus that bobs, rolls and never quite sinks.",
+        bio: "A sunny little yuzu who bobs along in the hot spring beside you.",
         idle: ["topBob", "sway", "sparkle"], cheer: "spin",
         parts: {
           back: `<ellipse cx="60" cy="96" rx="38" ry="9" fill="#A6E4EE" ${O}/><path d="M30 96q5 2.4 10 0M80 97q5 2.4 10 0" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>`,
@@ -128,7 +128,7 @@
     companions: [
       {
         id: "rainforest-mosey", name: "Mosey", kind: "Baby Sloth", pose: "sit", sleepy: true, wearColor: "#3E9A5A",
-        bio: "Does everything slowly, including finishing your sentence.",
+        bio: "A sleepy baby sloth who takes every study session slow and steady.",
         idle: ["headTilt", "sway", "wave"], cheer: "wave",
         neck: [60, 72],
         parts: {
@@ -163,7 +163,7 @@
       },
       {
         id: "rainforest-tiko", name: "Tiko", kind: "Toucan Chick", pose: "stand", wearColor: "#FF8A2A",
-        bio: "Its beak is bigger than its plans, and its plans are big.",
+        bio: "A fluffy toucan chick with a big bright beak and even bigger plans.",
         idle: ["headTilt", "wingFlutter", "topBob"], cheer: "wingFlutter",
         neck: [60, 70],
         parts: {
@@ -197,7 +197,7 @@
       },
       {
         id: "rainforest-dart", name: "Dart", kind: "Blue Tree Frog", pose: "stand", wearColor: "#FF9A3A",
-        bio: "Small, bright and very proud of its sticky toes.",
+        bio: "A bright blue tree frog who holds on to every task with its sticky toes.",
         idle: ["bounce", "earTwitch", "sparkle"], cheer: "hop",
         parts: {
           earL: {svg: `<circle cx="29" cy="66" r="4.6" fill="#3A8AE0" ${OW(2.2)}/><circle cx="29" cy="66" r="2" fill="#7FC4FF"/>`, pivot: [32, 66]},
@@ -238,7 +238,7 @@
     companions: [
       {
         id: "tidepool-annie", name: "Annie", kind: "Sea Anemone", pose: "stand", wearColor: "#3E9EA8",
-        bio: "Waves at everyone with all forty arms.",
+        bio: "A wavy little sea anemone who waves hello with all forty arms.",
         idle: ["sway", "finWiggle", "topBob"], cheer: "bounce",
         parts: {
           feet: `<path d="M30 110C30 102 42 100 60 100C78 100 90 102 90 110Z" fill="#9A8C82" ${O}/><circle cx="40" cy="105" r="1.8" fill="#E6E0D6"/><circle cx="78" cy="106" r="1.6" fill="#E6E0D6"/>`,
@@ -268,7 +268,7 @@
       },
       {
         id: "tidepool-spike", name: "Spike", kind: "Purple Sea Urchin", pose: "stand", wearColor: "#2FA0B8",
-        bio: "Looks prickly. Is actually soft and shy.",
+        bio: "A shy purple sea urchin who looks prickly but is soft at heart.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
         parts: {
           back: Array.from({length: 18}, (_, i) => { const a = (i / 18) * Math.PI * 2 + 0.17, x0 = 60 + Math.cos(a) * 24, y0 = 74 + Math.sin(a) * 24, x1 = 60 + Math.cos(a) * 42, y1 = 74 + Math.sin(a) * 40; return y1 < 50 && Math.abs(x1 - 60) < 14 ? "" : LINE(`M${f1(x0)} ${f1(y0)}L${f1(x1)} ${f1(y1)}`, "#B888F0", 2.6); }).join(""),
@@ -297,7 +297,7 @@
       },
       {
         id: "tidepool-pippin", name: "Pippin", kind: "Puffin Chick", pose: "stand", wearColor: "#FF7A3A",
-        bio: "A fluffball in a tuxedo that waddles to every pool to check on it.",
+        bio: "A fluffy puffin chick in a tiny tuxedo who waddles over to check on you.",
         idle: ["waddle", "headTilt", "wingFlutter"], cheer: "wingFlutter",
         neck: [60, 72],
         parts: {
@@ -337,7 +337,7 @@
     companions: [
       {
         id: "volcano-ember", name: "Ember", kind: "Lava Blob", pose: "stand", wearColor: "#2EA2A0",
-        bio: "Warm, glowing and a little gooey. Gives the best hugs from a safe distance.",
+        bio: "A warm, glowing lava blob who keeps your study nights toasty.",
         idle: ["bounce", "sparkle", "topBob"], cheer: "hop",
         parts: {
           back: `<circle cx="60" cy="74" r="42" fill="#FFB04A" opacity=".22"/>`,
@@ -368,7 +368,7 @@
       },
       {
         id: "volcano-pumi", name: "Pumi", kind: "Pumice Pebble", pose: "float", wearColor: "#E0533A",
-        bio: "So light it floats. Not sure if that counts as swimming.",
+        bio: "A light little pumice pebble who floats along through every study session.",
         idle: ["topBob", "sway", "headTilt"], cheer: "spin",
         neck: [60, 92],
         parts: {
@@ -398,7 +398,7 @@
       },
       {
         id: "volcano-iggy", name: "Iggy", kind: "Marine Iguana", pose: "sit", wearColor: "#2EA2A0",
-        bio: "Sunbathes after every dip and sneezes out salt when happy.",
+        bio: "A sunny marine iguana who basks on the warm rocks between your tasks.",
         idle: ["tailSwish", "headTilt", "earTwitch"], cheer: "bounce",
         neck: [60, 74],
         parts: {
@@ -444,7 +444,7 @@
     companions: [
       {
         id: "savanna-peanut", name: "Peanut", kind: "Baby Elephant", pose: "stand", wearColor: "#D27A2A",
-        bio: "Never forgets a due date.",
+        bio: "A gentle baby elephant who never forgets a due date.",
         idle: ["earTwitch", "tailSwish", "topBob"], cheer: "bounce",
         parts: {
           earL: {svg: `${LG("savanna-peanut-e", [[0, "#C8C0CC"], [1, "#9A92A2"]])}<path d="M40 46C22 36 10 52 14 68C18 82 32 80 42 70Z" fill="url(#savanna-peanut-e)" ${O}/><path d="M38 52C26 46 19 56 22 66C25 74 32 72 38 66Z" fill="#F6B8C4"/>`, pivot: [40, 58]},
@@ -475,7 +475,7 @@
       },
       {
         id: "savanna-stretch", name: "Stretch", kind: "Giraffe Calf", pose: "stand", wearColor: "#4E9A4E",
-        bio: "Can see your deadlines coming from miles away.",
+        bio: "A tall giraffe calf who spots your deadlines from miles away.",
         idle: ["headTilt", "tailSwish", "earTwitch"], cheer: "hop",
         neck: [60, 54],
         parts: {
@@ -512,7 +512,7 @@
       },
       {
         id: "savanna-sentry", name: "Sentry", kind: "Meerkat Pup", pose: "stand", wearColor: "#D27A2A",
-        bio: "Stands guard while you focus, then reports all clear.",
+        bio: "A watchful meerkat pup who stands guard while you focus.",
         idle: ["headTilt", "topBob", "bounce"], cheer: "hop",
         neck: [60, 64],
         parts: {
