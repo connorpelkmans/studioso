@@ -72,8 +72,8 @@ t("Brightspace dropbox: file / text -> yes, on paper / observed in person -> no"
 t("Blackboard: online attempt -> yes; instructor-entered exam -> no", () => { is({rx: {gt: "Attempts"}}, "yes", 0.7); is({title: "Midterm Exam", rx: {gt: "Manual"}}, "no", 0.7); });
 
 /* ---- Unknown is not eligible; user override wins ---- */
-t("nothing known -> unknown and not eligible", () => { const r = V({text: "Chapters 1 to 8"}); assert.strictEqual(r.verdict, "unknown"); const e = R.remoteEff({type: "Exam"}, r, "s"); assert.strictEqual(e.v, ""); assert.strictEqual(R.canDoNow({type: "Exam"}, e), false); });
-t("low-confidence rule is not applied", () => { const r = V({text: "Due by 11:59 pm"}); const e = R.remoteEff({type: "Exam"}, r, "s"); assert.strictEqual(e.v, ""); });
+t("nothing known -> assumed in person and not eligible", () => { const r = V({text: "Chapters 1 to 8"}); assert.strictEqual(r.verdict, "unknown"); const e = R.remoteEff({type: "Exam"}, r, "s"); assert.strictEqual(e.v, "no"); assert.strictEqual(e.assumed, true); assert.strictEqual(R.canDoNow({type: "Exam"}, e), false); });
+t("low-confidence rule is not applied", () => { const r = V({text: "Due by 11:59 pm"}); const e = R.remoteEff({type: "Exam"}, r, "s"); assert.strictEqual(e.v, "no"); assert.strictEqual(e.assumed, true); });
 t("non exam/quiz types are always eligible", () => ["Assignment", "Project", "Lab", "Reading", "Study", "Other"].forEach(ty => { assert.strictEqual(R.canDoNow({type: ty}, {v: ""}), true); assert.strictEqual(R.remoteEff({type: ty}, V({type: ty}), "").v, "yes"); }));
 t("only 'yes' lets an exam or quiz through", () => { ["Exam", "Quiz"].forEach(ty => { assert.strictEqual(R.canDoNow({type: ty}, {v: "yes"}), true); assert.strictEqual(R.canDoNow({type: ty}, {v: "no"}), false); assert.strictEqual(R.canDoNow({type: ty}, {v: ""}), false); assert.strictEqual(R.canDoNow({type: ty}, null), false); }); });
 t("user answer beats a confident rule", () => { const rule = V({text: "Held in class"}); assert.strictEqual(rule.verdict, "no"); const e = R.remoteEff({type: "Exam", remote: "yes", remoteSrc: "user"}, rule, "s"); assert.strictEqual(e.v, "yes"); assert.strictEqual(e.src, "user"); });
@@ -82,9 +82,10 @@ t("rules beat a stored AI answer; a stored AI answer for other text is ignored",
   const rule = V({text: "Take-home exam"}); assert.strictEqual(R.remoteEff({type: "Exam", remote: "no", remoteSrc: "ai", remoteSig: "a"}, rule, "a").v, "yes");
   const none = V({text: "Chapters 1 to 8"});
   assert.strictEqual(R.remoteEff({type: "Exam", remote: "yes", remoteSrc: "ai", remoteSig: "a"}, none, "a").v, "yes");
-  assert.strictEqual(R.remoteEff({type: "Exam", remote: "yes", remoteSrc: "ai", remoteSig: "a"}, none, "b").v, "", "the text changed since the AI read it");
+  assert.strictEqual(R.remoteEff({type: "Exam", remote: "yes", remoteSrc: "ai", remoteSig: "a"}, none, "b").v, "no", "the text changed since the AI read it");
 });
-t("a stored rule/lms answer is not trusted without the rules (they are recomputed live)", () => assert.strictEqual(R.remoteEff({type: "Exam", remote: "yes", remoteSrc: "rule"}, V({text: "Chapters"}), "s").v, ""));
+t("a stored rule/lms answer is not trusted without the rules (they are recomputed live)", () => assert.strictEqual(R.remoteEff({type: "Exam", remote: "yes", remoteSrc: "rule"}, V({text: "Chapters"}), "s").assumed, true));
+t("mixed signals stay unsure (not assumed in person)", () => { const e = R.remoteEff({type: "Exam"}, {verdict: "unknown", confidence: 0.4, why: "Mixed", conflict: true}, "s"); assert.strictEqual(e.v, ""); });
 
 /* ---- The AI answer is checked ---- */
 const TEXT = "Title: Practical\nType: Exam\nDescription: Students will sit the exam in a supervised session using the school's laptops. Bring your student ID.";

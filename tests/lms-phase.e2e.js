@@ -141,6 +141,8 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     ok(!(await app.locator("dialog[open] .mg-row").count()), "and it isn't asked again");
     // Start Fresh: removes what came from Brightspace that you haven't changed, keeps the rest, turns off the calendar link; Undo puts it back
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    const mergedBefore = await app.evaluate(() => ({md: (SBLMS.brightspace.cfg().mergedDrops || []).slice(), si: Object.keys((SBLMS.st().settings || {}).sameItem || {}).length + Object.keys(SBLMS.brightspace.cfg().merges || {}).length}));
+    ok(mergedBefore.md.length > 0, "a merge remembers which copy it set aside: " + JSON.stringify(mergedBefore));
     await app.evaluate(() => {
       const mk = (id, title, extra) => ({kind: "task", id, after: Object.assign({id, created: 1, title, courseId: "c1", type: "Assignment", due: "2026-12-01", time: "", status: "todo", order: 1}, extra)});
       const bs = (title, more) => ({bs: Object.assign({key: "7|" + title.toLowerCase().replace(/[^a-z0-9]/g, ""), ou: "7", last: {title, due: "2026-12-01", time: "", courseId: "c1"}, seen: {feed: 1}}, more || {})});
@@ -157,9 +159,13 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     const after = await app.evaluate(() => { const st = SBLMS.st(); return {sf1: !!st.tasks.sf1, sf2: !!st.tasks.sf2, sf3: !!st.tasks.sf3, sf4: !!st.tasks.sf4, ev: !!(st.events || {}).sfe, dropped: (SBLMS.brightspace.cfg().dropped || []).includes("7|freshuntouched")}; });
     ok(!after.sf1 && !after.ev && after.sf2 && after.sf3 && after.sf4, "it removes only Brightspace items you haven't changed: " + JSON.stringify(after));
     ok(!after.dropped, "and they aren't remembered as deleted by you, so the next read brings them back");
+    const reask = await app.evaluate(md => { const c = SBLMS.brightspace.cfg(); return {dropped: md.filter(k => (c.dropped || []).includes(k)), back: md.every(k => (c.apiOnly || []).includes(k)), merges: Object.keys(c.merges || {}).length, md: (c.mergedDrops || []).length, si: Object.keys((SBLMS.st().settings || {}).sameItem || {}).length}; }, mergedBefore.md);
+    ok(!reask.dropped.length && reask.back && !reask.merges && !reask.md && !reask.si, "Start Fresh forgets earlier merges, so the read brings the copies back and Same Item? / Same Exam? asks again: " + JSON.stringify(reask));
     await app.click("#toastUndo");
     await app.waitForFunction(() => !!SBLMS.st().tasks.sf1, null, {timeout: 5000});
     ok(await app.evaluate(() => !!(SBLMS.st().events || {}).sfe), "Undo puts everything back");
+    const undone = await app.evaluate(md => { const c = SBLMS.brightspace.cfg(); return md.every(k => (c.dropped || []).includes(k)) && (c.mergedDrops || []).length === md.length; }, mergedBefore.md);
+    ok(undone, "and Undo remembers the merges again");
     // Where this came from: tucked away at the bottom of the task's sheet
     const src = await app.evaluate(() => { const L = SBLMS.brightspace; const d = L.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [], courses: [{ou: "7", code: "HSIP0100", name: "Health Sciences", folders: [{id: "77", name: "Source Check Essay", due: new Date(Date.now() + 5 * 864e5).toISOString(), end: null, sub: null, files: []}], quizzes: [], grades: [], news: [], events: []}]}); d.via = "extension"; L.applyPlan(d, L.plan(d), "grab", true); const t = Object.values(SBLMS.st().tasks).find(x => x.title === "Source Check Essay"); return SBLMS_TASK(t).replace(/<[^>]+>/g, " ").replace(/\s+/g, " "); });
     ok(/Where this came from/.test(src) && /Added by the Studyboard School Sync extension/.test(src), "a task's sheet says, tucked away, what added it: " + src.slice(-160));
@@ -466,6 +472,15 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     const tyOf = t => (ty.recs.find(r => r[0] === t) || [])[1];
     ok(!ty.recs.some(r => /Exam Review/.test(r[0])) && ty.evs.includes("NK1 Midterm Exam Review"), "an exam review session is a calendar event, not a task: " + JSON.stringify(ty));
     ok(tyOf("Midterm Clinical Evaluation") === "Exam" && tyOf("BSNC 1000 Midterm Exam- Requires Respondus LockDown Browser") === "Exam" && tyOf("Practice Midterm Exam Questions") === "Assignment", "real exams stay exams; practice questions are work: " + JSON.stringify(ty.recs));
+    // Settings shows one short line per school site; what the read found is in the site's window under Sync details, closed
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    const sh = await app.evaluate(() => SBLMS.brightspace.shortStatus());
+    ok(/^synced /.test(sh) && !/Grade rows|submitted/.test(sh), "Settings' line is short: " + sh);
+    await app.evaluate(() => SBLMS.brightspace.bsSheet()); await app.waitForSelector("dialog[open] .bs-status");
+    const dg = await app.evaluate(() => { const d = document.querySelector("dialog[open] details.bs-diag"); return d ? {open: d.open, text: d.textContent, status: document.querySelector("dialog[open] .bs-status").textContent} : null; });
+    ok(dg && !dg.open && /Sync details/.test(dg.text) && /Read \d+ of/.test(dg.text) && !/Grade rows/.test(dg.status.replace(dg.text, "")), "the read's details are in a closed Sync details: " + JSON.stringify(dg && {open: dg.open}));
+    await app.screenshot({path: require("path").join(require("os").tmpdir(), "bs-sheet.png")});
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
     // Two real items both handed in, due at the same moment, named alike ("PHC" and "PHSA Privacy and Confidentiality"): one form per
     // health authority, listed apart by the school, so never asked about; a calendar copy of a done item, done too, is
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });

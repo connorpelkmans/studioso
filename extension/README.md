@@ -2,7 +2,7 @@
 
 Keeps the Studyboard website (studyboardapp.com) up to date with a student's Canvas, Brightspace (D2L) or Blackboard Learn, automatically. It reads the same things as the desktop app, the phone apps and the website's Studyboard bookmark: courses, due dates, submissions (late, missing, extensions), grades, feedback and rubrics, announcements, the teaching team, the syllabus and, for Canvas, the Inbox.
 
-One source, three stores: Chrome Web Store, Microsoft Edge Add-ons (same package as Chrome) and Firefox Add-ons (AMO). Store steps and listing text are in [STORE-LISTING.md](STORE-LISTING.md).
+One source, four stores: Chrome Web Store, Microsoft Edge Add-ons (same package as Chrome), Firefox Add-ons (AMO) and, for Safari, Apple's App Store (see [Safari](#safari)). Store steps and listing text are in [STORE-LISTING.md](STORE-LISTING.md).
 
 ## Build
 
@@ -17,12 +17,38 @@ Node 18 or newer, nothing to install. It writes:
 | `extension/build/chrome/` | Unpacked, for Chrome and Edge (`chrome://extensions`, Developer mode, **Load unpacked**) |
 | `extension/build/firefox/` | Unpacked, for Firefox (`about:debugging`, This Firefox, **Load Temporary Add-on**, pick `manifest.json`) |
 | `extension/dist/studyboard-school-sync-<version>-chrome.zip` | Upload to the Chrome Web Store and to Edge Add-ons |
+| `extension/build/safari/` | Unpacked, for Safari: `scripts/make-safari-app.sh` makes the Xcode project from it (see [Safari](#safari)) |
 | `extension/dist/studyboard-school-sync-<version>-firefox.zip` | Upload to AMO |
+| `extension/dist/studyboard-school-sync-<version>-safari.zip` | The Safari folder, zipped, to copy to a Mac |
 | `extension/dist/studyboard-school-sync-<version>-source.zip` | AMO's "source code" upload (the build makes `harvest.js` from `lms.js`) |
 
 `build/` and `dist/` aren't committed. Rebuild after any change to `lms.js`, so the extension reads exactly what the apps read. Bump `version` in `extension/src/manifest.json` for every store upload, since each store refuses a version it already has.
 
 Store pictures (`extension/store/`): run `node tests/extension.e2e.js`, then `node scripts/extension-store-assets.js`.
+
+## Safari
+
+Safari runs the same extension, but only inside an app: a small Mac app (and iPhone/iPad app) that carries it. Apple's tools make that app, so this part needs a **Mac with Xcode** (free from the App Store).
+
+**Try it on your own Mac (free, no paid Apple account):**
+
+1. Get this repository on the Mac, then run `bash scripts/make-safari-app.sh`. It builds the extension and makes `extension/safari-app/`, an Xcode project for macOS, iPhone and iPad.
+2. Open `extension/safari-app/Studyboard School Sync/Studyboard School Sync.xcodeproj` in Xcode.
+3. For each target, under **Signing & Capabilities**, set **Team** to your Apple ID (Xcode, Settings, Accounts, add it there first). A free Apple ID is fine for this.
+4. Pick the **Studyboard School Sync (macOS)** scheme and press **Run**. A small app opens and points you to Safari.
+5. In Safari: **Settings, Advanced**, tick **Show features for web developers**. Then the **Develop** menu, **Allow Unsigned Extensions** (Safari turns this off when it quits, so do it again after a restart).
+6. **Safari, Settings, Extensions**: turn on **Studyboard School Sync**. Click its toolbar button to connect a school site. When Safari asks, choose **Always Allow on This Website** (the default, "for one day", stops the hourly sync the next day).
+7. Open studyboardapp.com in Safari: Studyboard picks up what was read, as in Chrome and Firefox.
+
+On an iPhone or iPad: plug it in, pick the **(iOS)** scheme and your device in Xcode, press Run, then **Settings, Apps, Safari, Extensions** on the device. With a free Apple ID the app stops opening after 7 days; press Run again to renew it.
+
+After a change to `lms.js` or `extension/src/`: run `node scripts/build-extension.js` and build again in Xcode. The project points at `extension/build/safari/` rather than copying it. Commit `extension/safari-app/` once it's made, so your signing settings are kept.
+
+**Publishing (needs the Apple Developer Program, $99 a year):** in Xcode, **Product, Archive**, then **Distribute App** to App Store Connect, once for macOS and once for iOS. In App Store Connect, fill in the listing (the text in [STORE-LISTING.md](STORE-LISTING.md) works), the privacy policy link (https://studyboardapp.com/website/privacy.html) and the privacy answers (the same data as Firefox's `data_collection_permissions`: website content, names and emails of teaching staff, Canvas messages; none of it is collected by you, it stays in the browser and the student's own Studyboard). The reviewer notes for Chrome apply here too. Then fill in `EXT_STORE.safari` in `index.html` with the App Store link.
+
+What's different in the Safari build (`manifests()` in `scripts/build-extension.js`): a non-persistent background script instead of a service worker (Safari on iPhone and iPad requires it), no `externally_connectable` (the website uses `relay.js`, as with Firefox), and Safari 17 or newer. Two small fallbacks in the shared code cover Safari: reading inside an open school tab uses the extension's own world on that page if the page's world isn't allowed, and the popup doesn't need the windows API, which Safari on iPhone lacks. Safari may close the popup while it asks for a site's permission; the background finishes connecting when the permission arrives, as for Firefox.
+
+To check on the Mac (not covered by the automated tests, which run in Chromium): connecting a site, a background read (Safari's tracking protection may keep the school's sign-in from the background; the read then runs in an open tab of the school site, which works), the hourly timer, and that studyboardapp.com shows the data.
 
 ## How it works
 
@@ -44,7 +70,7 @@ studyboardapp.com ◀──window.postMessage── relay.js ┘
 
 | File | |
 |---|---|
-| `src/manifest.json` | The Chrome manifest. The Firefox one is derived from it in `scripts/build-extension.js`: background script, add-on id, minimum version and declared data collection. |
+| `src/manifest.json` | The Chrome manifest. The Firefox and Safari ones are derived from it in `scripts/build-extension.js` (Firefox: background script, add-on id, minimum version and declared data collection; Safari: non-persistent background script and minimum version). |
 | `src/background.js` | Schedules, reads, stores, sets the toolbar badge, answers the popup and relay |
 | `src/popup.html/.css/.js` | The toolbar popup: connect a site, status, Sync Now, how often, remove |
 | `src/relay.js` | Content script on studyboardapp.com only |

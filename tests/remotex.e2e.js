@@ -21,13 +21,13 @@ const SC = {
   // an in-person midterm, an online quiz from the school site, a final nothing can settle, a normal assignment and a study session
   mixed: [T("m1", "Midterm 2", "Exam", "2026-10-06", {time: "09:00", weight: 30, notes: "Held in class on Tuesday. Bring a pencil. Covers chapters 1 to 5."}),
     T("q1", "Quiz 3", "Quiz", "2026-10-06", {time: "23:59", cv: {key: "1|quiz3", ou: "1", rx: {k: "quiz", st: ["online_quiz"], tl: 30}}}),
-    T("m2", "Final Exam", "Exam", "2026-10-09", {weight: 40, notes: "Chapters 1 to 8."}),
+    T("m2", "Final Exam", "Exam", "2026-10-09", {weight: 40, notes: "Chapters 1 to 8. Take-home or in person, details to come."}),
     T("a1", "Stats homework", "Assignment", "2026-10-08"),
     T("s1", "Study: Midterm 2 basics", "Study", "2026-10-05", {hours: 1, prepFor: "m1"})],
   online: [T("m1", "Midterm 2", "Exam", "2026-10-06", {time: "09:00", weight: 30, notes: "Held in class on Tuesday. Bring a pencil."}),
     T("q1", "Quiz 3", "Quiz", "2026-10-06", {time: "23:59", cv: {key: "1|quiz3", ou: "1", rx: {k: "quiz", st: ["online_quiz"]}}}),
     T("a1", "Stats homework", "Assignment", "2026-10-10")],
-  unknown: [T("m2", "Final Exam", "Exam", "2026-10-06", {weight: 40, notes: "Chapters 1 to 8."}), T("a1", "Stats homework", "Assignment", "2026-10-10")],
+  unknown: [T("m2", "Final Exam", "Exam", "2026-10-06", {weight: 40, notes: "Chapters 1 to 8. Take-home or in person, details to come."}), T("a1", "Stats homework", "Assignment", "2026-10-10")],
   ai: [T("e1", "Anatomy Exam 1", "Exam", "2026-10-12", {notes: "Students will sit the exam in a supervised session using the school's laptops."}),
     T("e2", "Quiz 5", "Quiz", "2026-10-13", {notes: "Questions may be posted in the discussion forum before it opens."}),
     T("e3", "Final Review Exam", "Exam", "2026-10-14", {notes: "Cumulative, covers the whole term. Expect 60 questions."}),
@@ -87,7 +87,7 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       const m1 = await eff(p, "m1"), q1 = await eff(p, "q1"), m2 = await eff(p, "m2");
       ok(m1.v === "no" && m1.src === "rule" && !m1.can, tag + " in-class midterm is in person (" + m1.why + ")");
       ok(q1.v === "yes" && q1.src === "lms" && q1.can, tag + " online quiz from the school site is take-home (" + q1.why + ")");
-      ok(m2.v === "" && !m2.can, tag + " final with nothing to go on is unknown, so not eligible");
+      ok(m2.v === "" && m2.conflict && !m2.can, tag + " final with mixed signals is unsure, so not eligible");
       const pl = await plan(p);
       ok(pl.next && !["m1", "m2"].includes(pl.next.id), tag + " Do This Next is never an unsure or in-person exam: " + (pl.next && pl.next.id));
       ok(!pl.ranked.some(x => x.id === "m1" && x.alloc > 0), tag + " the in-person midterm gets no study time slot");
@@ -189,14 +189,14 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
       await p.waitForTimeout(500);
       const e1 = await eff(p, "e1"), e2 = await eff(p, "e2"), e3 = await eff(p, "e3"), e4 = await eff(p, "e4"), why = await p.evaluate(() => window.__sbRemote.why());
       ok(e1.v === "no" && e1.src === "ai" && e1.can === false, tag + " AI answer with real evidence is applied (" + JSON.stringify(e1) + ")");
-      ok(e2.v === "" && why.e2 === "evidence-not-in-text", tag + " a quote that isn't in the text is rejected (" + why.e2 + ")");
-      ok(e3.v === "" && why.e3 === "low-confidence", tag + " low confidence is not applied (" + why.e3 + ")");
-      ok(e4.v === "" && !("e4" in (await p.evaluate(() => window.__sbRemote.auto()))), tag + " no description: never sent to the AI");
+      ok(e2.v === "no" && e2.assumed && why.e2 === "evidence-not-in-text", tag + " a quote that isn't in the text is rejected, so it stays assumed in person (" + why.e2 + ")");
+      ok(e3.v === "no" && e3.assumed && why.e3 === "low-confidence", tag + " low confidence is not applied (" + why.e3 + ")");
+      ok(e4.v === "no" && e4.assumed && !e4.can && !("e4" in (await p.evaluate(() => window.__sbRemote.auto()))), tag + " no description: never sent to the AI");
       ok(!ctx.aiCalls.some(b => b.includes("Title: Midterm 9")), tag + " the AI never saw the task without text");
       ok(ctx.aiCalls.filter(b => /everything the school site gave/.test(b)).every(b => !/https?:\/\//.test(b.split("everything the school site gave")[1] || "")), tag + " no links are sent");
       const st = await stored(p, "e1"); ok(st.remote === "no" && st.remoteSrc === "ai" && st.remoteWhy && st.remoteWhy.length <= 120, tag + " stored with source ai and a short reason");
       const qs = await p.evaluate(() => window.__sbRemote.questions());
-      ok(qs.length === 1 && ["e2", "e3", "e4"].includes(qs[0]), tag + " the tray asks about one unsettled exam: " + qs.join());
+      ok(qs.length === 0, tag + " exams assumed in person are not asked about: " + qs.join());
       // the same text is not sent twice
       const before = ctx.aiCalls.filter(b => /everything the school site gave/.test(b)).length;
       await p.evaluate(() => window.__sbRemote.cands()); await p.waitForTimeout(3500);
@@ -208,7 +208,7 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
   }
   // ---------- 6. School site data: how items are handed in reaches the task, sanitized, and drives the answer ----------
   {
-    const {ctx, p, errs} = await open(browser, 1280, "unknown");
+    const {ctx, p, errs} = await open(browser, 1280, [SC.unknown[1]]);
     const out = await p.evaluate(() => {
       const L = window.SBLMS.canvas, D = (iso, h) => new Date(Date.parse(iso) + h * 36e5).toISOString();
       const harvest = {ok: true, origin: "https://x.instructure.com", me: {name: "A", id: "1"}, all: [{ou: "101", code: "BIO101", name: "Biology 101"}], errors: [], ms: 1, courses: [{ou: "101", code: "BIO101", name: "Biology 101", grades: [], final: null, news: [], events: [],
@@ -229,7 +229,7 @@ const showToday = p => p.evaluate(() => window.__sbAvail.view({tab: "board", bvi
   {
     // put them on the board (seeded before the app starts, never written behind a running app's back, which its next save would undo)
     // and ask what Studyboard now believes
-    const {ctx, p, errs} = await open(browser, 1280, SC.unknown.concat(SC.lmsTasks));
+    const {ctx, p, errs} = await open(browser, 1280, [SC.unknown[1]].concat(SC.lmsTasks));
     const ids = SC.lmsTasks.map(t => t.id), e = [];
     await p.waitForFunction(is => is.every(i => window.__sbRemote.of(i)), ids, {timeout: 10000}).catch(() => {});
     for (const id of ids) e.push(await eff(p, id) || {});

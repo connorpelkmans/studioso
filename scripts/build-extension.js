@@ -1,8 +1,10 @@
 // Builds the Studyboard School Sync browser extension (extension/) for the stores:
 //   extension/build/chrome/    unpacked, for Chrome and Edge (Load unpacked to try it)
 //   extension/build/firefox/   unpacked, for Firefox (about:debugging, Load Temporary Add-on)
+//   extension/build/safari/    unpacked, for Safari: on a Mac, scripts/make-safari-app.sh turns it into the Xcode project (macOS, iPhone, iPad)
 //   extension/dist/studyboard-school-sync-<version>-chrome.zip    upload to the Chrome Web Store and to Microsoft Edge Add-ons
 //   extension/dist/studyboard-school-sync-<version>-firefox.zip   upload to addons.mozilla.org (AMO)
+//   extension/dist/studyboard-school-sync-<version>-safari.zip    the Safari folder, zipped (to copy to a Mac)
 //   extension/dist/studyboard-school-sync-<version>-source.zip    AMO asks for the source when a file is generated: this is it, with this script
 // Usage: node scripts/build-extension.js   (Node 18 or newer; nothing to install)
 // harvest.js is generated from lms.js: the same harvest scripts and result cleaning the desktop app, the phone apps and the website's bookmark use.
@@ -49,7 +51,14 @@ function manifests() {
     // student's own account). Course content, names and emails of teaching staff, and Canvas Inbox messages.
     data_collection_permissions: { required: ["websiteContent", "personallyIdentifyingInfo", "personalCommunications"] }
   }, gecko_android: { strict_min_version: "142.0" } };
-  return { chrome, firefox };
+  // Safari (macOS, iPhone, iPad): a non-persistent background script, which Safari on iPhone and iPad requires; it talks to the website
+  // through relay.js, like Firefox. 17: scripting in the page's world, and the MV3 APIs this uses.
+  const safari = JSON.parse(JSON.stringify(base));
+  delete safari.minimum_chrome_version;
+  delete safari.externally_connectable;
+  safari.background = { scripts: ["background.js"], persistent: false };
+  safari.browser_specific_settings = { safari: { strict_min_version: "17.0" } };
+  return { chrome, firefox, safari };
 }
 
 const FILES = ["popup.html", "popup.css", "popup.js", "relay.js", "icons/icon-16.png", "icons/icon-32.png", "icons/icon-48.png", "icons/icon-128.png"];
@@ -97,7 +106,7 @@ function build() {
   const version = manifests().chrome.version;
   fs.rmSync(OUT, { recursive: true, force: true }); fs.mkdirSync(DIST, { recursive: true });
   const made = {};
-  for (const target of ["chrome", "firefox"]) {
+  for (const target of ["chrome", "firefox", "safari"]) {
     const fl = files(target);
     for (const [name, data] of Object.entries(fl)) { const f = path.join(OUT, target, name); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, data); }
     const z = path.join(DIST, `studyboard-school-sync-${version}-${target}.zip`); fs.writeFileSync(z, zip(fl)); made[target] = z;
