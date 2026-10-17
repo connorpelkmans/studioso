@@ -76,11 +76,11 @@ const stored = p => p.evaluate(() => JSON.parse(localStorage.getItem("coursework
 
       // Note boards
       await tab(p, "notes");
-      await act(p, "note-new"); await p.fill("#noteText", "Main board note"); await p.click(".tl-controls h2"); await p.waitForTimeout(250);
+      await act(p, "note-new"); await p.fill("#noteText", "Main board note"); await p.locator("#view").click({position: {x: 2, y: 2}});   /* (somewhere outside the note: the Notes heading is hidden on phones) */ await p.waitForTimeout(250);
       await act(p, "nb-new"); await p.fill('input[name=name]', "Biology"); await p.selectOption('select[name=courseId]', "c1"); await p.click("[data-submit]"); await p.waitForTimeout(400);
       ok((await p.locator(".nb-tab[role=tab]").count()) === 3 || (await p.locator(".nb-tab").count()) >= 3, "a new board gets its own tab");
       ok((await p.locator(".note").count()) === 0, "the new board starts empty");
-      await act(p, "note-new"); await p.fill("#noteText", "Biology note"); await p.click(".tl-controls h2"); await p.waitForTimeout(250);
+      await act(p, "note-new"); await p.fill("#noteText", "Biology note"); await p.locator("#view").click({position: {x: 2, y: 2}});   /* (somewhere outside the note: the Notes heading is hidden on phones) */ await p.waitForTimeout(250);
       const ns = (await stored(p)).notes;
       ok(ns.length === 2 && ns.some(x => x.text === "Biology note" && x.board && x.courseId === "c1") && ns.some(x => x.text === "Main board note" && !x.board), "notes are kept per board and tagged with the board's class");
       await p.click('.nb-tab[data-id=""]'); await p.waitForTimeout(250);
