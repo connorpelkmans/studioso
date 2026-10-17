@@ -121,7 +121,7 @@
         anchors: {top: [60, 30, 0.95], neck: [60, 76, 1], chest: [70, 92, 0.6], back: [84, 84, 0.8], hands: [60, 100, 0.84]},
         lines: {
           tap: ["Mrrp! Hello, honored student!", "My ancestors napped in palaces. I nap on notes.", "Curious about everything? Me too!", "Spots, whiskers and big ideas. That's us!", "A proper cat studies with great dignity.", "Purr... you're doing beautifully.", "Is that a new chapter? Let me sit on it.", "Golden collar, golden effort!"],
-          pet: ["Purrrr... yes, just there. Thank you!", "Mrrp! A royal scratch, how kind!"],
+          pet: ["Purrrr... how gentle. Thank you!", "Mrrp! A royal scratch, how kind!"],
           hello: ["Mrrp! You're back! I kept your seat warm.", "Hello! I've been waiting very politely."],
           morning: ["Good morning! The sunbeam is ready for us.", "Rise and shine! Breakfast, then books?"],
           night: ["The moon is up. Curl up and rest soon?", "Goodnight! I'll guard your notes till morning."],

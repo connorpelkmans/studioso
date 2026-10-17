@@ -386,6 +386,71 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     const lk = await app.evaluate(() => { const t = SBLMS.st().tasks.lq; return t && [t.status, t.time, t.location]; });
     ok(lk && lk[0] === "done" && lk[1] === "09:30" && lk[2] === "SW3 4676/95", "Merge keeps the done one, with the sitting's time and room: " + JSON.stringify(lk));
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    // Brightspace's class statistics on a graded quiz reach that quiz's task (by its grade item), so its Grades row can show them
+    const bst = await app.evaluate(() => {
+      const L = SBLMS.brightspace, d = L.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [],
+        courses: [{ou: "21", code: "STAT2000", name: "Statistics", folders: [], news: [], events: [],
+          quizzes: [{id: "211", name: "Quiz 4", due: new Date(Date.now() - 2 * 864e5).toISOString(), start: null, end: null, gid: "77", done: true}],
+          grades: [{gid: "77", name: "Quiz 4", type: 1, num: 8, den: 10, shown: "80 %", cls: {mean: 6.5, median: 7, lo: 2, hi: 10}}]}]});
+      const q = d.recs.find(r => r.pid === "q211"); return q && q.fb;
+    });
+    ok(bst && bst.cls && bst.cls.mean === 6.5 && bst.sc === 8 && bst.of === 10, "Brightspace's class results go with the quiz that has that grade: " + JSON.stringify(bst));
+    // The pass mark: from a course's syllabus (or its grade scheme); two courses agreeing make it the default; a pass mark the student sets
+    // is never changed by a sync; "Use this pass mark for all my courses" sets every course
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    const PM = (syl1, pass2) => ({ok: true, origin: "https://x.instructure.com", me: {}, all: [], errors: [], courses: [
+      {ou: "801", code: "NURS1010", name: "Nursing Foundations", items: [{kind: "assignment", id: "8011", name: "Care Plan 1", due: new Date(Date.now() + 5 * 864e5).toISOString(), done: false}], grades: [], news: [], events: [], syl: [syl1]},
+      {ou: "802", code: "NURS1020", name: "Health Assessment", items: [{kind: "assignment", id: "8021", name: "Assessment Report", due: new Date(Date.now() + 6 * 864e5).toISOString(), done: false}], grades: [], news: [], events: [], syl: ["Course outline."], passMark: pass2}]});
+    const pm1 = await app.evaluate(h => { const L = SBLMS.canvas, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true);
+      const cs = Object.values(SBLMS.st().courses).filter(c => /Nursing Foundations|Health Assessment/.test(c.name));
+      return {cs: cs.map(c => [c.name, c.grading && c.grading.pass, c.grading && c.grading.passSrc]), def: (SBLMS.st().settings.grades || {}).pass}; },
+      PM("Grading: a minimum grade of 65% is required to pass this course.", {pct: 65, name: "BSN"}));
+    ok(pm1.cs.length === 2 && pm1.cs.every(c => c[1] === 65 && c[2] === "school") && pm1.def === 65, "each course takes its pass mark from its syllabus or grade scheme, and two agreeing set the default: " + JSON.stringify(pm1));
+    // the student changes one course's pass mark in Grade Settings: a sync keeps it
+    const cid1 = await app.evaluate(() => Object.values(SBLMS.st().courses).find(c => c.name === "Nursing Foundations").id);
+    await app.evaluate(id => SBLMS.go("courses", id), cid1); await app.waitForTimeout(300);
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    await app.click('[data-act="course-tab"][data-id="grades"]'); await app.waitForTimeout(200);
+    await app.click('[data-act="g-course-set"]'); await app.waitForSelector('dialog[open] input[name="pass"]');
+    ok(/Filled in from the course syllabus/.test(await app.textContent("dialog[open]")), "Grade Settings says where the pass mark came from");
+    await app.fill('dialog[open] input[name="pass"]', "70"); await app.click("dialog[open] [data-submit]"); await app.waitForTimeout(300);
+    const pm2 = await app.evaluate(([h, id]) => { const L = SBLMS.canvas, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true); const g = SBLMS.st().courses[id].grading; return [g.pass, g.passSrc]; },
+      [PM("Grading: a minimum grade of 65% is required to pass this course.", {pct: 65, name: "BSN"}), cid1]);
+    ok(pm2[0] === 70 && pm2[1] === "user", "a pass mark the student set stays after a sync: " + JSON.stringify(pm2));
+    // and the checkbox: this pass mark for every course
+    await app.click('[data-act="g-course-set"]'); await app.waitForSelector('dialog[open] input[name="passAll"]');
+    await app.fill('dialog[open] input[name="pass"]', "60"); await app.check('dialog[open] input[name="passAll"]'); await app.click("dialog[open] [data-submit]"); await app.waitForTimeout(300);
+    const pm3 = await app.evaluate(h => { const L = SBLMS.canvas, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true);
+      return {def: SBLMS.st().settings.grades.pass, src: SBLMS.st().settings.grades.passSrc, cs: Object.values(SBLMS.st().courses).map(c => [c.name, (c.grading || {}).pass == null ? "default" : c.grading.pass])}; },
+      PM("Grading: a minimum grade of 65% is required to pass this course.", {pct: 65, name: "BSN"}));
+    ok(pm3.def === 60 && pm3.src === "user" && pm3.cs.every(c => c[1] === "default"), "Use this pass mark for all my courses: every course uses 60%, and a sync doesn't change it: " + JSON.stringify(pm3));
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    // BSNC 1030: "Midterm Clinical Evaluation" (due Oct 23 8:30) has a calendar entry Brightspace links to it; "Final Clinical Evaluation"
+    // has no due date and its date is only on a calendar entry (Nov 19, 6 PM). The midterm's entry never dates the final (by the linked
+    // id, or without it); the final's own entry takes it; a copy left from the earlier mix-up is offered for removal
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    const ce = await app.evaluate(() => {
+      const L = SBLMS.brightspace, at = (dd, h, m) => { const n = new Date(); n.setDate(n.getDate() + dd); n.setHours(h, m, 0, 0); return n.toISOString(); }, ymd = iso => { const d = new Date(iso); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+      const mid = at(6, 8, 30), fin = at(33, 18, 0);
+      const H = withId => ({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [],
+        courses: [{ou: "1030", code: "BSNC1030", name: "Clinical Practice", quizzes: [], grades: [], news: [],
+          folders: [{id: "301", name: "Midterm Clinical Evaluation", due: mid, end: null, sub: false, files: []}, {id: "302", name: "Final Clinical Evaluation", due: null, end: null, sub: false, files: []}],
+          events: [{id: "e301", title: "Midterm Clinical Evaluation - Due", start: mid, end: mid, allDay: false, assoc: true, kind: "Dropbox", eid: withId ? "301" : "", url: ""},
+                   {id: "e302", title: "Final Clinical Evaluation", start: fin, end: fin, allDay: false, assoc: false, url: ""}]}]});
+      // a copy from the earlier mix-up: the final, dated like the midterm
+      SBLMS.applyChanges([{kind: "task", id: "fx", after: {id: "fx", created: 1, title: "Final Clinical Evaluation", courseId: "c1", type: "Exam", due: ymd(mid), time: "08:30", status: "todo", order: 1,
+        bs: {key: "1030|finalclinicalevaluation", ou: "1030", item: true, last: {title: "Final Clinical Evaluation", due: ymd(mid), time: "08:30"}, seen: {api: 1}}}},
+        {kind: "task", id: "fy", after: {id: "fy", created: 1, title: "Final Clinical Evaluation", courseId: "c1", type: "Exam", due: ymd(fin), time: "18:00", status: "todo", order: 2,
+        bs: {key: "1030|finalclinicalevaluation", ou: "1030", item: false, last: {title: "Final Clinical Evaluation", due: ymd(fin), time: "18:00"}, seen: {api: 1}}}}], "");
+      const out = [true, false].map(withId => { const d = L.fromApi(H(withId)); return d.recs.filter(r => /Clinical Evaluation/.test(r.title)).map(r => [r.title, r.due, r.time, r.pid || ""]); });
+      const d = L.fromApi(H(true)), p = L.plan(d);
+      return {out, gone: p.rep.gone.map(t => [t.title, t.due]), midD: ymd(mid), finD: ymd(fin), same: SB_SAMEOK("Midterm Clinical Evaluation", "Final Clinical Evaluation")};
+    });
+    const finRows = ce.out.map(rs => rs.filter(r => /^Final/.test(r[0])));
+    ok(finRows.every(rs => rs.length === 1 && rs[0][1] === ce.finD && rs[0][2] === "18:00" && rs[0][3] === "f302"), "the final takes its own calendar entry's date and its assignment, with or without the linked id: " + JSON.stringify(ce.out));
+    ok(ce.out.every(rs => rs.filter(r => /^Midterm/.test(r[0])).length === 1 && rs.find(r => /^Midterm/.test(r[0]))[1] === ce.midD), "the midterm keeps its own date: " + JSON.stringify(ce.out));
+    ok(ce.same === false, "Midterm and Final are never the same item");
+    ok(ce.gone.length === 1 && ce.gone[0][0] === "Final Clinical Evaluation", "of the two copies already here, the one the read didn't update is offered for removal: " + JSON.stringify(ce.gone));
     // Two real items both handed in, due at the same moment, named alike ("PHC" and "PHSA Privacy and Confidentiality"): one form per
     // health authority, listed apart by the school, so never asked about; a calendar copy of a done item, done too, is
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });

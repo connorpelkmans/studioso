@@ -363,6 +363,27 @@ async function bsHarvest(o) {
     c.grades = listOf(grades).slice(0, 200).map(g => ({ gid: String(g.GradeObjectIdentifier || ""), name: String(g.GradeObjectName || ""), type: Number(g.GradeObjectType) || 0,
       num: g.PointsNumerator, den: g.PointsDenominator, wnum: g.WeightedNumerator, wden: g.WeightedDenominator, shown: String(g.DisplayedGrade || "").trim(), at: dt(g.ReleasedDate || g.LastModified),
       fb: txt(g.Comments, 3000) ? { c: [{ by: "Instructor", mine: false, at: dt(g.ReleasedDate || g.LastModified), t: txt(g.Comments, 3000) }], ra: [], sc: g.PointsNumerator != null ? Number(g.PointsNumerator) : null, of: g.PointsDenominator != null ? Number(g.PointsDenominator) : null, g: String(g.DisplayedGrade || "").trim().slice(0, 20), at: null } : null }));
+    // The class's average, median, high and low for each graded item, when the instructor shows class statistics. Asked once first:
+    // if Brightspace refuses it there, it isn't asked for the rest of this course.
+    const marked = c.grades.filter(g => g.gid && g.num != null).slice(0, 25);
+    if (marked.length) {
+      const num = v => v != null && isFinite(Number(v)) ? Number(v) : null;
+      const statsOf = async g => { const r = await soft(`${b}/grades/${g.gid}/statistics`, true); if (r && num(r.Average) != null) g.cls = { mean: num(r.Average), median: num(r.Median), lo: num(r.Minimum), hi: num(r.Maximum) }; return !!r; };
+      if (await statsOf(marked[0])) await inBatches(marked.slice(1), statsOf);
+    }
+    // The pass mark, from the course's grade scheme when Brightspace lets a student read it: the start of the lowest band that isn't a fail
+    // (a nursing course whose scheme fails anything under 65% passes at 65). Not read, or no fail band: nothing is guessed.
+    try {
+      const FAIL = /^(f|fail|failed|failing|e|np|not\s*pass(ed)?|nc|no\s*credit|u|unsatisfactory|insufficient)$/i;
+      const setup = await soft(`${b}/grades/setup/`, true);
+      let sid = setup && (setup.DefaultGradeSchemeId != null ? setup.DefaultGradeSchemeId : null);
+      const finId = fin && fin.GradeObjectIdentifier;
+      if (sid == null && finId) { const fo = await soft(`${b}/grades/${finId}`, true); if (fo && fo.GradeSchemeId != null) sid = fo.GradeSchemeId; }
+      const sch = sid != null ? await soft(`${b}/grades/schemes/${sid}`, true) : null;
+      const rg = (sch && Array.isArray(sch.Ranges) ? sch.Ranges : []).map(r => ({ sym: String(r.Symbol || "").trim(), at: Number(r.PercentStart) })).filter(r => r.sym && isFinite(r.at)).sort((x, y) => x.at - y.at);
+      const pass = rg.find(r => !FAIL.test(r.sym));
+      if (rg.some(r => FAIL.test(r.sym)) && pass && pass.at >= 30 && pass.at <= 90) c.passMark = { pct: Math.round(pass.at * 10) / 10, from: "scheme", name: String(sch.Name || "").slice(0, 80) };
+    } catch (e) {}
     // Discussion topics with a due date, and whether you've posted in them (or have a grade for them)
     const meId = String(me.Identifier || "");
     const tops = [];
@@ -399,7 +420,7 @@ async function bsHarvest(o) {
     c.news = listOf(news).filter(n => n && n.IsPublished !== false && !n.IsHidden).slice(0, 25).map(n => ({ id: String(n.Id), title: String(n.Title || ""), text: txt(n.Body, 3000), date: dt(n.StartDate) || dt(n.CreatedDate) || dt(n.LastModifiedDate),
       files: (n.Attachments || []).length }));
     c.events = events.slice(0, 200).map(e => ({ id: String(e.CalendarEventId), title: String(e.Title || ""), text: txt(e.Description, 1500), start: dt(e.StartDateTime), end: dt(e.EndDateTime), allDay: !!e.IsAllDayEvent,
-      where: String(e.LocationName || ""), assoc: !!(e.IsAssociatedWithEntity || (e.AssociatedEntity && e.AssociatedEntity.AssociatedEntityId)), kind: e.AssociatedEntity ? String(e.AssociatedEntity.AssociatedEntityType || "") : "", url: String(e.CalendarEventViewUrl || "") }));
+      where: String(e.LocationName || ""), assoc: !!(e.IsAssociatedWithEntity || (e.AssociatedEntity && e.AssociatedEntity.AssociatedEntityId)), kind: e.AssociatedEntity ? String(e.AssociatedEntity.AssociatedEntityType || "") : "", eid: e.AssociatedEntity && e.AssociatedEntity.AssociatedEntityId != null ? String(e.AssociatedEntity.AssociatedEntityId) : "", url: String(e.CalendarEventViewUrl || "") }));
   };
   for (let i = 0; i < pick.length; i += 4) await Promise.all(pick.slice(i, i + 4).map(detail));
 
@@ -464,7 +485,7 @@ async function cvHarvest(o) {
   const detail = async c => {
     const id = c.ou, raw = c.raw; delete c.raw;
     const [asg, groups, events, qzs, mySubs, info, staff] = await Promise.all([
-      pages(`/api/v1/courses/${id}/assignments?include[]=submission&per_page=100&order_by=due_at`),
+      pages(`/api/v1/courses/${id}/assignments?include[]=submission&include[]=score_statistics&per_page=100&order_by=due_at`),   // the class's mean, high and low, when the instructor shows them
       soft(`/api/v1/courses/${id}/assignment_groups?per_page=100`, true),
       pages(`/api/v1/calendar_events?type=event&context_codes[]=course_${id}&start_date=${enc(fromISO)}&end_date=${enc(toISO)}&per_page=100`, true, 4),
       pages(`/api/v1/courses/${id}/quizzes?per_page=100`, true, 3),         // time limit, quiz type, lockdown browser and open window: tells whether a quiz is taken from home
@@ -472,6 +493,16 @@ async function cvHarvest(o) {
       soft(`/api/v1/courses/${id}?include[]=syllabus_body`, true),
       pages(`/api/v1/courses/${id}/users?enrollment_type[]=teacher&enrollment_type[]=ta&include[]=email&include[]=enrollments&per_page=50`, true, 1)
     ]);
+    // The pass mark, from the course's own grading scheme when it has one and Canvas lets a student read it: the start of the lowest
+    // band that isn't a fail (Canvas's built-in default scheme says nothing about the school, so it's not used)
+    if (raw.grading_standard_id != null) {
+      const FAIL = /^(f|fail|failed|failing|e|np|not\s*pass(ed)?|nc|no\s*credit|u|unsatisfactory|insufficient)$/i;
+      const gs = await pages(`/api/v1/courses/${id}/grading_standards?per_page=50`, true, 1);
+      const std = gs.find(x => x && String(x.id) === String(raw.grading_standard_id));
+      const rg = (std && Array.isArray(std.grading_scheme) ? std.grading_scheme : []).map(r => ({ sym: String(r.name || "").trim(), at: Number(r.value) * 100 })).filter(r => r.sym && isFinite(r.at)).sort((x, y) => x.at - y.at);
+      const pass = rg.find(r => !FAIL.test(r.sym));
+      if (rg.some(r => FAIL.test(r.sym)) && pass && pass.at >= 30 && pass.at <= 90) c.passMark = { pct: Math.round(pass.at * 10) / 10, from: "scheme", name: String(std.title || "").slice(0, 80) };
+    }
     const qz = {}; qzs.forEach(x => { if (x && x.id != null) qz[String(x.id)] = x; });
     const subOf = {}; mySubs.forEach(x => { if (x && x.assignment_id != null) subOf[String(x.assignment_id)] = x; });
     // Who teaches it, the syllabus as plain text, and (per item) its rubric and your feedback
@@ -493,8 +524,10 @@ async function cvHarvest(o) {
         const v = s.rubric_assessment[k] || {}, cr = rub && rub.cr.find(x => x.id === k), lv = cr && cr.lv.find(x => x.id === String(v.rating_id || ""));
         return { c: cr ? cr.t : "", pts: v.points != null ? Number(v.points) : null, of: cr ? cr.pts : null, lv: lv ? lv.t : "", t: txt(v.comments, 600) };
       }) : [];
-      if (!cm.length && !ra.length && s.score == null) return null;
-      return { c: cm, ra, sc: s.score != null && !s.excused ? Number(s.score) : null, of: Number(a.points_possible) > 0 ? Number(a.points_possible) : null, g: s.grade != null ? String(s.grade).slice(0, 20) : "", at: dt(s.graded_at) };
+      const ss = a.score_statistics, num = v => v != null && isFinite(Number(v)) ? Number(v) : null;
+      const cls = ss && num(ss.mean) != null ? { mean: num(ss.mean), median: num(ss.median), lo: num(ss.min), hi: num(ss.max), lq: num(ss.lower_q), uq: num(ss.upper_q) } : null;
+      if (!cm.length && !ra.length && s.score == null && !cls) return null;
+      return { c: cm, ra, sc: s.score != null && !s.excused ? Number(s.score) : null, of: Number(a.points_possible) > 0 ? Number(a.points_possible) : null, g: s.grade != null ? String(s.grade).slice(0, 20) : "", at: dt(s.graded_at), cls };
     };
     // Submitted when, late, missing, excused, or given an extension (Canvas marks those "extended")
     const stOf = (a, s) => s ? { subAt: dt(s.submitted_at), late: !!s.late, missing: !!s.missing, excused: !!s.excused, ext: s.late_policy_status === "extended" } : null;

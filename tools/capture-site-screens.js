@@ -1,4 +1,5 @@
-// node tools/capture-site-screens.js [outDir]    (Playwright + Chromium)
+// node tools/capture-site-screens.js [outDir] [--companions | --overlays]    (Playwright + Chromium)
+// --companions: only the Companion screen once for each default companion (companion-mochi-light.png, ...), for the Meet Your Companion section
 // Runs the real app with made-up student data on a fixed date and saves screenshots (PNG, light and dark) for the website home page.
 // Convert them to WebP for website/assets/screens/ (for example with Pillow: Image.open(p).save(p.replace(".png", ".webp"), quality=82)).
 const http = require("http"), fs = require("fs"), path = require("path"), os = require("os");
@@ -37,8 +38,15 @@ const SEED = {v: 2,
     {id: "n2", text: "Cardiac drugs\n- beta blockers end in -olol\n- ACE inhibitors end in -pril", courseId: "nur", x: 300, y: 50, rot: 1.5, color: "blue", z: 2},
     {id: "n3", text: "Essay 2: argue one claim, three sources", courseId: "eng", x: 560, y: 40, rot: -1, color: "pink", z: 3},
     {id: "n4", text: "Study group Sunday 3pm, library room 204", x: 90, y: 250, rot: 2, color: "green", z: 4}],
-  files: [], events: [], settings: {capacity: 15, dailyHours: 3, style: {skin: "classic"}}, updated: 1};
+  files: [], events: [], settings: {capacity: 15, dailyHours: 3, style: {skin: "classic"},
+    // Packy is the companion the website shows: picked for the plain themes, with the 30 focus hours that unlock it (36 h over the past 12 days)
+    comp: {pick: {plain: 4}}, focusDays: Object.fromEntries(Array.from({length: 12}, (_, i) => [plus(-1 - i), 180]))}, updated: 1};
 
+// The six default (plain theme) companions, in the order the app's companion picker lists them
+const PLAIN = ["plain-mochi", "plain-inky", "plain-owl", "plain-hilo", "plain-sum", "plain-packy"];
+// The seed with another of them picked (its place in the app's plain list, which follows companions-data order)
+const DATA_ORDER = ["plain-mochi", "plain-inky", "plain-owl", "plain-hilo", "plain-packy", "plain-sum"];
+const withComp = id => { const s = JSON.parse(JSON.stringify(SEED)); s.settings.comp = {pick: {plain: DATA_ORDER.indexOf(id)}}; return s; };
 const dismiss = async page => {
   for (let i = 0; i < 4; i++) {
     await page.evaluate(() => {
@@ -49,12 +57,12 @@ const dismiss = async page => {
     await page.waitForTimeout(250);
   }
 };
-async function capture(browser, scheme) {
+async function capture(browser, scheme, compId) {
   const ctx = await browser.newContext({viewport: {width: 1280, height: 800}, colorScheme: scheme, deviceScaleFactor: 1, serviceWorkers: "block"});
   await ctx.clock.setFixedTime(NOW);
   await ctx.addInitScript(([seed, scheme]) => { try { if (!localStorage.getItem("coursework:v2")) {
     localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("studioso:theme", scheme); localStorage.setItem("studyboard:tips", "off");
-    localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaSyDEMO-NOT-A-REAL-KEY-FOR-SCREENSHOTS"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } } catch (e) {} }, [SEED, scheme]);   // AI switched on (no request is made), so the screens show it as a person with a key sees it
+    localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaSyDEMO-NOT-A-REAL-KEY-FOR-SCREENSHOTS"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } } catch (e) {} }, [compId ? withComp(compId) : SEED, scheme]);   // AI switched on (no request is made), so the screens show it as a person with a key sees it
   const page = await ctx.newPage(); await page.goto("http://localhost:" + server.address().port + "/"); await page.waitForSelector("#view", {state: "attached"}); await page.waitForTimeout(2500);
   await page.addStyleTag({content: ".toast,#toast{display:none!important}"});
   // first-run banners and dialogs out of the way
@@ -65,6 +73,7 @@ async function capture(browser, scheme) {
   // the sidebar shows the signed-in state, as a person with an account sees it
   const shot = async name => { await page.waitForTimeout(700); await page.screenshot({path: path.join(OUT, `${name}-${scheme}.png`)}); console.log("saved", `${name}-${scheme}.png`); };
   const tab = async label => { await page.evaluate(l => { const b = [...document.querySelectorAll("button")].find(e => e.closest("nav,aside,#nav,.side") && e.textContent.trim().replace(/\d+$/, "") === l); b && b.click(); }, label); await page.waitForTimeout(1200); };
+  if (compId) { await tab("Companion"); await shot("companion-" + compId.replace("plain-", "")); await ctx.close(); return; }
   await shot("plan");                                              // Board > Today's Plan
   await page.evaluate(() => { const b = [...document.querySelectorAll("button, [role=tab]")].find(e => /^Task Board$/i.test(e.textContent.trim())); b && b.click(); }); await shot("board");
   await tab("Calendar"); await shot("calendar");
@@ -132,4 +141,4 @@ async function captureOverlays(browser, scheme) {
   await page.addStyleTag({content: ".cp-layer,.cp-front,.cp,.cp-bubble{visibility:hidden!important}"}); await page.waitForTimeout(300);
   await page.screenshot({path: path.join(OUT, `hero-${scheme}.png`)}); console.log("saved", `hero-${scheme}.png`, JSON.stringify(GEO.hero[scheme].comp)); await ctx.close();
 }
-(async () => { await new Promise(r => server.listen(0, r)); const browser = await chromium.launch({executablePath}); try { if (process.argv.includes("--overlays")) { for (const s of ["light", "dark"]) await captureOverlays(browser, s); fs.writeFileSync(path.join(OUT, "geometry.json"), JSON.stringify(GEO, null, 1)); return; } for (const s of ["light", "dark"]) { await captureHero(browser, s); await captureThemes(browser, s); } for (const s of ["light", "dark"]) await capture(browser, s); } finally { await browser.close(); server.close(); } console.log("done:", OUT); })().catch(e => { console.error(e); process.exit(1); });
+(async () => { await new Promise(r => server.listen(0, r)); const browser = await chromium.launch({executablePath}); try { if (process.argv.includes("--overlays")) { for (const s of ["light", "dark"]) await captureOverlays(browser, s); fs.writeFileSync(path.join(OUT, "geometry.json"), JSON.stringify(GEO, null, 1)); return; } const comps = async () => { for (const s of ["light", "dark"]) for (const id of PLAIN) await capture(browser, s, id); }; if (process.argv.includes("--companions")) { await comps(); return; } for (const s of ["light", "dark"]) { await captureHero(browser, s); await captureThemes(browser, s); } for (const s of ["light", "dark"]) await capture(browser, s); await comps(); } finally { await browser.close(); server.close(); } console.log("done:", OUT); })().catch(e => { console.error(e); process.exit(1); });

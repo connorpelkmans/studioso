@@ -112,7 +112,7 @@
         anchors: {top: [62, 21, 0.85], neck: [60, 48, 0.95], chest: [73, 92, 0.6], back: [86, 72, 0.8], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Psst! A little spritz of encouragement!", "Hi! You're looking fresh today!", "Mist-ion accepted: cheer you on!", "Fine mist, finer focus! You've got this!", "A refreshing hello from me to you!", "Stay hydrated, stay amazing!", "Sprinkling good vibes everywhere!", "Ready to spritz some motivation?"],
-          pet: ["Hehe! That tickles my trigger!", "Ooh, sloshy happy feelings!"],
+          pet: ["Hehe! That tickles my spray nozzle!", "Ooh, sloshy happy feelings!"],
           hello: ["You're back! Spritz of joy!", "Hi hi! I'm full and ready to go!"],
           morning: ["Good morning! Dewy and bright!", "Rise and shine! Fresh start, fresh mist!"],
           night: ["Misting softly. Time to rest?", "Even the ferns are sleeping. Night night!"],

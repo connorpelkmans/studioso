@@ -102,10 +102,12 @@ async function bsHarvest(o) {
   const fromISO = new Date(now - (q.pastDays || 60) * 864e5).toISOString();
   const toISO = new Date(now + (q.aheadDays || 240) * 864e5).toISOString();
   const enc = encodeURIComponent, errors = [];
-  const get = async p => {
+  const get = async (p, tries) => {
     const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 25000);
     try {
       const r = await fetch(p, { credentials: "include", headers: { Accept: "application/json" }, signal: ctl.signal });
+      // Too many requests at once: Brightspace asks to slow down, so wait and ask again (a few times)
+      if ((r.status === 429 || r.status === 503) && (tries || 0) < 3) { clearTimeout(tm); await new Promise(res => setTimeout(res, 1500 * ((tries || 0) + 1))); return get(p, (tries || 0) + 1); }
       if (r.status === 401 || r.status === 403) { const e = new Error("denied"); e.status = r.status; throw e; }
       if (!r.ok) { const e = new Error("HTTP " + r.status); e.status = r.status; throw e; }
       return await r.json();
@@ -171,24 +173,89 @@ async function bsHarvest(o) {
     ]);
     const inWin = d => { const x = Date.parse(d || ""); return !isNaN(x) && x > now - 60 * 864e5 && x < now + 240 * 864e5; };
     const fl = listOf(folders).filter(f => f && !f.IsHidden);
-    const recent = fl.filter(f => { const d = Date.parse(f.DueDate || (f.Availability && f.Availability.EndDate) || ""); return !isNaN(d) && d > now - 60 * 864e5 && d < now + 240 * 864e5; }).slice(0, 40);
+    // Folders to check for your submissions: due in the window, or with no date of their own (your dates can come from special access instead)
+    const recent = fl.filter(f => { const d = Date.parse(f.DueDate || (f.Availability && f.Availability.EndDate) || ""); return isNaN(d) || (d > now - 60 * 864e5 && d < now + 240 * 864e5); }).slice(0, 60);
     const subs = {}, subAt = {}, fbk = {};
-    await Promise.all(recent.map(async f => {
-      const s = await soft(`${b}/dropbox/folders/${f.Id}/submissions/mysubmissions/`, true);
-      if (!Array.isArray(s)) return;
-      subs[f.Id] = s.some(x => x && ((Array.isArray(x.Submissions) && x.Submissions.length > 0) || x.Status === 1 || x.Status === 3));
+    const inBatches = async (list, fn) => { for (let i = 0; i < list.length; i += 6) await Promise.all(list.slice(i, i + 6).map(fn)); };   // a few at a time: Brightspace slows down bursts
+    let subFail = 0, subWhy = "", subOdd = 0;
+    await inBatches(recent, async f => {
+      const s0 = await get(`${b}/dropbox/folders/${f.Id}/submissions/mysubmissions/`).catch(e => { subFail++; subWhy = String(e.status || e.name || e.message); return null; });
+      if (s0 == null) return;
+      // Usually a list of entries; some Brightspace versions wrap it ({Objects: [...]}) or send the one entry on its own
+      const s = Array.isArray(s0) ? s0 : listOf(s0).length ? listOf(s0) : typeof s0 === "object" && (s0.Submissions || s0.Status != null) ? [s0] : null;
+      if (!s) { subOdd++; return; }
+      subs[f.Id] = s.some(x => x && ((Array.isArray(x.Submissions) && x.Submissions.length > 0) || [1, 3, "1", "3", "Submitted", "Published"].includes(x.Status) || !!x.CompletionDate));
       const when = []; s.forEach(x => (x && x.Submissions || []).forEach(y => { if (y && dt(y.SubmissionDate)) when.push(y.SubmissionDate); }));
       if (when.length) subAt[f.Id] = when.sort().pop();
       const fe = s.map(x => x && x.Feedback).find(Boolean);
       if (fe) fbk[f.Id] = fe;
-    }));
+    });
+    // When the API didn't answer for some folders, Brightspace's own Assignments page says it the way the student sees it
+    // ("1 Submission, 1 File" or "Not Submitted" on each assignment's row)
+    let fromPage = 0;
+    if (recent.some(f => subs[f.Id] === undefined)) {
+      try {
+        const r = await fetch(`/d2l/lms/dropbox/user/folders_list.d2l?ou=${c.ou}&isprv=0`, { credentials: "include" });
+        if (r.ok) {
+          const html = (await r.text()).slice(0, 3000000);
+          html.split(/(?=folder_submit_files\.d2l\?)/).slice(1).forEach(part => {
+            const m = part.match(/^folder_submit_files\.d2l\?[^"'<>]*?\bdb=(\d+)/); if (!m || subs[m[1]] !== undefined) return;
+            const row = htmlText(part.slice(0, 6000), { line: true });
+            if (/\b[1-9]\d*\s+submissions?\b/i.test(row)) { subs[m[1]] = true; fromPage++; }
+            else if (/\bnot\s+submitted\b/i.test(row)) { subs[m[1]] = false; fromPage++; }
+          });
+        }
+      } catch (e) {}
+    }
+    // In the sync details: what Brightspace said about handing in, per course, so a task that won't tick off can be explained
+    if (recent.length) {
+      const yes = recent.filter(f => subs[f.Id] === true).length, no = recent.filter(f => subs[f.Id] === false).length, unk = recent.length - yes - no;
+      c.subNote = `${c.code || c.name}: ${yes} submitted, ${no} not, ${unk} unknown` + (subFail ? `; API refused ${subFail} (${subWhy})` : "") + (subOdd ? `; ${subOdd} unreadable answers` : "") + (fromPage ? `; ${fromPage} from the Assignments page` : "");
+    }
     // Quizzes you've finished: a completed attempt (only your own attempts are listed), so they can be marked done too
-    const qrecent = quizzes.filter(x => { if (!x || x.IsActive === false) return false; const d = Date.parse(x.DueDate || x.EndDate || ""); return !isNaN(d) && d > now - 60 * 864e5 && d < now + 240 * 864e5; }).slice(0, 40);
+    // (and ones with only an opening date, or none: "Available on Oct 6" is all some exams say)
+    const qrecent = quizzes.filter(x => { if (!x || x.IsActive === false) return false; const d = Date.parse(x.DueDate || x.EndDate || x.StartDate || ""); return isNaN(d) || (d > now - 60 * 864e5 && d < now + 240 * 864e5); }).slice(0, 40);
     const tried = {};
-    await Promise.all(qrecent.map(async x => {
+    let qRefused = 0, qPage = 0, qPageStatus = "", qLinks = 0, qOwn = 0;
+    await inBatches(qrecent, async x => {
       const a = await soft(`${b}/quizzes/${x.QuizId}/attempts/`, true);
-      if (a) tried[x.QuizId] = listOf(a).some(t => t && (t.TimeCompleted || t.DateCompleted || t.SubmittedDate || t.IsGraded === true || (t.Score != null && t.Score !== "")));
-    }));
+      if (!a) qRefused++;
+      // Any attempt listed counts: one waiting to be marked ("Pending Evaluation") has no score or completion time yet
+      if (a) tried[x.QuizId] = listOf(a).some(t => t && (t.AttemptId != null || t.AttemptNumber != null || t.TimeCompleted || t.DateCompleted || t.SubmittedDate || t.IsGraded === true || (t.Score != null && t.Score !== "")));
+    });
+    // Students often may not list their own attempts through the API; the Quizzes page says it in its Attempts column ("1 / 1", "3 / Unlimited")
+    if (qrecent.some(x => tried[x.QuizId] !== true)) {
+      try {
+        const r = await fetch(`/d2l/lms/quizzing/user/quizzes_list.d2l?ou=${c.ou}`, { credentials: "include" });
+        qPageStatus = String(r.status);
+        if (r.ok) {
+          const html = (await r.text()).slice(0, 3000000);
+          // each part starts at a link with the quiz's id (quiz_summary.d2l?qi=…, or another quiz page's ?…&qi=…)
+          html.split(/(?=[?&;]qi=\d)/).slice(1).forEach(part => {
+            const m = part.match(/^[?&;]qi=(\d+)/); if (!m) return; qLinks++; if (tried[m[1]] === true) return;
+            // the row's last "used / allowed", never a date like 10/6/2026
+            const all = [...htmlText(part.slice(0, 6000), { line: true }).matchAll(/(?<![\d/])(\d+)\s*\/\s*(?:\d+|unlimited)(?![\d/])/gi)], a = all[all.length - 1];
+            if (a && Number(a[1]) > 0) { tried[m[1]] = true; qPage++; }
+          });
+        }
+      } catch (e) { qPageStatus = String(e && e.name || "error"); }
+    }
+    // Still not known: each quiz's own pages, as the student sees them: the summary ("Attempts: Allowed - 1, Completed - 1") and
+    // Submissions ("Attempt 1 ... Pending Evaluation")
+    const qLeft = qrecent.filter(x => tried[x.QuizId] !== true).slice(0, 12);
+    await inBatches(qLeft, async x => {
+      const page = async u => { try { const r = await fetch(u, { credentials: "include" }); return r.ok ? htmlText((await r.text()).slice(0, 1500000), { line: true }) : ""; } catch (e) { return ""; } };
+      const sum = await page(`/d2l/lms/quizzing/user/quiz_summary.d2l?qi=${x.QuizId}&ou=${c.ou}`);
+      const done = sum.match(/\bcompleted\s*[-–:]\s*(\d+)(?![\d/:.,])/i);
+      if (done && Number(done[1]) > 0) { tried[x.QuizId] = true; qOwn++; return; }
+      const subm = await page(`/d2l/lms/quizzing/user/quiz_submissions.d2l?qi=${x.QuizId}&ou=${c.ou}`);
+      if (/\battempt\s+\d+\b/i.test(subm)) { tried[x.QuizId] = true; qOwn++; }
+    });
+    // In the sync details, for a quiz that won't tick off
+    if (qrecent.length) {
+      const sat = qrecent.filter(x => tried[x.QuizId] === true).length, not = qrecent.filter(x => tried[x.QuizId] === false).length;
+      c.quizNote = `quizzes: ${sat} sat, ${not} not, ${qrecent.length - sat - not} unknown` + (qRefused ? `; attempts API refused ${qRefused}` : "") + (qPageStatus ? `; Quizzes page ${qPageStatus}, ${qLinks} quiz links, ${qPage} sat from it` : "") + (qLeft.length ? `; ${qOwn} of ${qLeft.length} sat from their own pages` : "");
+    }
     // A released grade means it was handed in (or is closed): either way there's nothing left to do
     const graded = new Set(listOf(grades).filter(g => g && g.GradeObjectIdentifier != null && g.PointsNumerator != null).map(g => String(g.GradeObjectIdentifier)));
     // A rubric (Brightspace's levels are shared by a group's criteria; each criterion has one cell per level)
@@ -228,6 +295,27 @@ async function bsHarvest(o) {
     c.grades = listOf(grades).slice(0, 200).map(g => ({ gid: String(g.GradeObjectIdentifier || ""), name: String(g.GradeObjectName || ""), type: Number(g.GradeObjectType) || 0,
       num: g.PointsNumerator, den: g.PointsDenominator, wnum: g.WeightedNumerator, wden: g.WeightedDenominator, shown: String(g.DisplayedGrade || "").trim(), at: dt(g.ReleasedDate || g.LastModified),
       fb: txt(g.Comments, 3000) ? { c: [{ by: "Instructor", mine: false, at: dt(g.ReleasedDate || g.LastModified), t: txt(g.Comments, 3000) }], ra: [], sc: g.PointsNumerator != null ? Number(g.PointsNumerator) : null, of: g.PointsDenominator != null ? Number(g.PointsDenominator) : null, g: String(g.DisplayedGrade || "").trim().slice(0, 20), at: null } : null }));
+    // The class's average, median, high and low for each graded item, when the instructor shows class statistics. Asked once first:
+    // if Brightspace refuses it there, it isn't asked for the rest of this course.
+    const marked = c.grades.filter(g => g.gid && g.num != null).slice(0, 25);
+    if (marked.length) {
+      const num = v => v != null && isFinite(Number(v)) ? Number(v) : null;
+      const statsOf = async g => { const r = await soft(`${b}/grades/${g.gid}/statistics`, true); if (r && num(r.Average) != null) g.cls = { mean: num(r.Average), median: num(r.Median), lo: num(r.Minimum), hi: num(r.Maximum) }; return !!r; };
+      if (await statsOf(marked[0])) await inBatches(marked.slice(1), statsOf);
+    }
+    // The pass mark, from the course's grade scheme when Brightspace lets a student read it: the start of the lowest band that isn't a fail
+    // (a nursing course whose scheme fails anything under 65% passes at 65). Not read, or no fail band: nothing is guessed.
+    try {
+      const FAIL = /^(f|fail|failed|failing|e|np|not\s*pass(ed)?|nc|no\s*credit|u|unsatisfactory|insufficient)$/i;
+      const setup = await soft(`${b}/grades/setup/`, true);
+      let sid = setup && (setup.DefaultGradeSchemeId != null ? setup.DefaultGradeSchemeId : null);
+      const finId = fin && fin.GradeObjectIdentifier;
+      if (sid == null && finId) { const fo = await soft(`${b}/grades/${finId}`, true); if (fo && fo.GradeSchemeId != null) sid = fo.GradeSchemeId; }
+      const sch = sid != null ? await soft(`${b}/grades/schemes/${sid}`, true) : null;
+      const rg = (sch && Array.isArray(sch.Ranges) ? sch.Ranges : []).map(r => ({ sym: String(r.Symbol || "").trim(), at: Number(r.PercentStart) })).filter(r => r.sym && isFinite(r.at)).sort((x, y) => x.at - y.at);
+      const pass = rg.find(r => !FAIL.test(r.sym));
+      if (rg.some(r => FAIL.test(r.sym)) && pass && pass.at >= 30 && pass.at <= 90) c.passMark = { pct: Math.round(pass.at * 10) / 10, from: "scheme", name: String(sch.Name || "").slice(0, 80) };
+    } catch (e) {}
     // Discussion topics with a due date, and whether you've posted in them (or have a grade for them)
     const meId = String(me.Identifier || "");
     const tops = [];
@@ -264,7 +352,7 @@ async function bsHarvest(o) {
     c.news = listOf(news).filter(n => n && n.IsPublished !== false && !n.IsHidden).slice(0, 25).map(n => ({ id: String(n.Id), title: String(n.Title || ""), text: txt(n.Body, 3000), date: dt(n.StartDate) || dt(n.CreatedDate) || dt(n.LastModifiedDate),
       files: (n.Attachments || []).length }));
     c.events = events.slice(0, 200).map(e => ({ id: String(e.CalendarEventId), title: String(e.Title || ""), text: txt(e.Description, 1500), start: dt(e.StartDateTime), end: dt(e.EndDateTime), allDay: !!e.IsAllDayEvent,
-      where: String(e.LocationName || ""), assoc: !!(e.IsAssociatedWithEntity || (e.AssociatedEntity && e.AssociatedEntity.AssociatedEntityId)), kind: e.AssociatedEntity ? String(e.AssociatedEntity.AssociatedEntityType || "") : "", url: String(e.CalendarEventViewUrl || "") }));
+      where: String(e.LocationName || ""), assoc: !!(e.IsAssociatedWithEntity || (e.AssociatedEntity && e.AssociatedEntity.AssociatedEntityId)), kind: e.AssociatedEntity ? String(e.AssociatedEntity.AssociatedEntityType || "") : "", eid: e.AssociatedEntity && e.AssociatedEntity.AssociatedEntityId != null ? String(e.AssociatedEntity.AssociatedEntityId) : "", url: String(e.CalendarEventViewUrl || "") }));
   };
   for (let i = 0; i < pick.length; i += 4) await Promise.all(pick.slice(i, i + 4).map(detail));
 
@@ -327,7 +415,7 @@ async function cvHarvest(o) {
   const detail = async c => {
     const id = c.ou, raw = c.raw; delete c.raw;
     const [asg, groups, events, qzs, mySubs, info, staff] = await Promise.all([
-      pages(`/api/v1/courses/${id}/assignments?include[]=submission&per_page=100&order_by=due_at`),
+      pages(`/api/v1/courses/${id}/assignments?include[]=submission&include[]=score_statistics&per_page=100&order_by=due_at`),   // the class's mean, high and low, when the instructor shows them
       soft(`/api/v1/courses/${id}/assignment_groups?per_page=100`, true),
       pages(`/api/v1/calendar_events?type=event&context_codes[]=course_${id}&start_date=${enc(fromISO)}&end_date=${enc(toISO)}&per_page=100`, true, 4),
       pages(`/api/v1/courses/${id}/quizzes?per_page=100`, true, 3),         // time limit, quiz type, lockdown browser and open window: tells whether a quiz is taken from home
@@ -335,6 +423,16 @@ async function cvHarvest(o) {
       soft(`/api/v1/courses/${id}?include[]=syllabus_body`, true),
       pages(`/api/v1/courses/${id}/users?enrollment_type[]=teacher&enrollment_type[]=ta&include[]=email&include[]=enrollments&per_page=50`, true, 1)
     ]);
+    // The pass mark, from the course's own grading scheme when it has one and Canvas lets a student read it: the start of the lowest
+    // band that isn't a fail (Canvas's built-in default scheme says nothing about the school, so it's not used)
+    if (raw.grading_standard_id != null) {
+      const FAIL = /^(f|fail|failed|failing|e|np|not\s*pass(ed)?|nc|no\s*credit|u|unsatisfactory|insufficient)$/i;
+      const gs = await pages(`/api/v1/courses/${id}/grading_standards?per_page=50`, true, 1);
+      const std = gs.find(x => x && String(x.id) === String(raw.grading_standard_id));
+      const rg = (std && Array.isArray(std.grading_scheme) ? std.grading_scheme : []).map(r => ({ sym: String(r.name || "").trim(), at: Number(r.value) * 100 })).filter(r => r.sym && isFinite(r.at)).sort((x, y) => x.at - y.at);
+      const pass = rg.find(r => !FAIL.test(r.sym));
+      if (rg.some(r => FAIL.test(r.sym)) && pass && pass.at >= 30 && pass.at <= 90) c.passMark = { pct: Math.round(pass.at * 10) / 10, from: "scheme", name: String(std.title || "").slice(0, 80) };
+    }
     const qz = {}; qzs.forEach(x => { if (x && x.id != null) qz[String(x.id)] = x; });
     const subOf = {}; mySubs.forEach(x => { if (x && x.assignment_id != null) subOf[String(x.assignment_id)] = x; });
     // Who teaches it, the syllabus as plain text, and (per item) its rubric and your feedback
@@ -356,8 +454,10 @@ async function cvHarvest(o) {
         const v = s.rubric_assessment[k] || {}, cr = rub && rub.cr.find(x => x.id === k), lv = cr && cr.lv.find(x => x.id === String(v.rating_id || ""));
         return { c: cr ? cr.t : "", pts: v.points != null ? Number(v.points) : null, of: cr ? cr.pts : null, lv: lv ? lv.t : "", t: txt(v.comments, 600) };
       }) : [];
-      if (!cm.length && !ra.length && s.score == null) return null;
-      return { c: cm, ra, sc: s.score != null && !s.excused ? Number(s.score) : null, of: Number(a.points_possible) > 0 ? Number(a.points_possible) : null, g: s.grade != null ? String(s.grade).slice(0, 20) : "", at: dt(s.graded_at) };
+      const ss = a.score_statistics, num = v => v != null && isFinite(Number(v)) ? Number(v) : null;
+      const cls = ss && num(ss.mean) != null ? { mean: num(ss.mean), median: num(ss.median), lo: num(ss.min), hi: num(ss.max), lq: num(ss.lower_q), uq: num(ss.upper_q) } : null;
+      if (!cm.length && !ra.length && s.score == null && !cls) return null;
+      return { c: cm, ra, sc: s.score != null && !s.excused ? Number(s.score) : null, of: Number(a.points_possible) > 0 ? Number(a.points_possible) : null, g: s.grade != null ? String(s.grade).slice(0, 20) : "", at: dt(s.graded_at), cls };
     };
     // Submitted when, late, missing, excused, or given an extension (Canvas marks those "extended")
     const stOf = (a, s) => s ? { subAt: dt(s.submitted_at), late: !!s.late, missing: !!s.missing, excused: !!s.excused, ext: s.late_policy_status === "extended" } : null;
@@ -382,13 +482,15 @@ async function cvHarvest(o) {
     const wOf = a => Number(a.points_possible) > 0 && !a.omit_from_final_grade ? (weighted ? (gw[a.assignment_group_id] && gpts[a.assignment_group_id] ? Math.round(gw[a.assignment_group_id] * Number(a.points_possible) / gpts[a.assignment_group_id] * 100) / 100 : null)
       : tpts > 0 ? Math.round(Number(a.points_possible) / tpts * 10000) / 100 : null) : null;
     c.items = []; c.grades = [];
+    let undated = 0;
     live.slice(0, 250).forEach(a => {
       const s = Object.assign({}, a.submission || {}, subOf[String(a.id)] || {}), hasS = !!(a.submission || subOf[String(a.id)]);
       const rub = rubOf(a), fb = hasS ? fbOf(a, s, rub) : null, st = hasS ? stOf(a, s) : null;
       const kind = a.is_quiz_assignment || a.is_quiz_lti_assignment || a.quiz_id || (a.submission_types || []).includes("online_quiz") ? "quiz" : (a.submission_types || []).includes("discussion_topic") ? "discussion" : "assignment";
       const done = hasS ? (!!s.submitted_at || ["submitted", "pending_review"].includes(s.workflow_state) || (s.workflow_state === "graded" && s.score != null) || !!s.excused) && !s.missing : null;
       const due = dt(a.due_at);
-      if (due || hasS && s.score != null) c.items.push({ kind, id: String(a.id), name: String(a.name || ""), due, start: dt(a.unlock_at), end: dt(a.lock_at), text: txt(a.description), url: String(a.html_url || ""), gid: String(a.id),
+      // Also the ones with no due date (up to 60): a calendar entry may carry the date, and it should learn whether this one is handed in
+      if (due || dt(a.lock_at) || dt(a.unlock_at) || hasS && s.score != null || undated++ < 60) c.items.push({ kind, id: String(a.id), name: String(a.name || ""), due, start: dt(a.unlock_at), end: dt(a.lock_at), text: txt(a.description), url: String(a.html_url || ""), gid: String(a.id),
         outOf: Number(a.points_possible) > 0 ? Number(a.points_possible) : null, done, files: filesIn(a.description), rx: rxOf(a), st, fb, rub });
       if (Number(a.points_possible) > 0 && (hasS && s.score != null || wOf(a) != null))
         c.grades.push({ gid: String(a.id), name: String(a.name || ""), num: hasS && s.score != null && !s.excused ? Number(s.score) : null, den: Number(a.points_possible), weight: wOf(a), shown: hasS && s.grade != null ? String(s.grade) : "", at: dt(hasS && s.graded_at), fb });
@@ -416,7 +518,7 @@ async function cvHarvest(o) {
     const doneP = !!((p.submissions && (p.submissions.submitted || p.submissions.excused)) || (p.planner_override && p.planner_override.marked_complete));
     const named = c.items.filter(x => key(x.name) === key(name));    // the same item, by id; or by name (and its date, when two share the name)
     const have = c.items.find(x => x.id === String(p.plannable_id || (p.plannable && p.plannable.assignment_id) || "")) || (named.length > 1 ? named.find(x => x.due && due && x.due.slice(0, 10) === due.slice(0, 10)) : named[0]);
-    if (have) { if (doneP) have.done = true; return; }
+    if (have) { if (doneP) have.done = true; if (!have.due && due) have.due = due; return; }   // the planner may know the date of one with no due date
     if (!due) return;
     c.items.push({ kind: t === "quiz" ? "quiz" : t === "discussion_topic" ? "discussion" : "other", id: String(p.plannable_id), name, due, start: null, end: null, text: "", url: String(p.html_url || ""), gid: "", outOf: null, done: doneP, files: [], rx: t === "quiz" ? { k: "quiz", st: ["online_quiz"] } : undefined });
   });
@@ -502,7 +604,10 @@ async function bbHarvest(o) {
     // Your own attempts: whether it's handed in (submitted, waiting to be graded), when, and the feedback on it
     const tried = {}, atWhen = {}, atFb = {};
     // (work with no mark yet, and anything due in the last three weeks for when it was handed in; capped so a sync stays quick)
-    const open = cols.filter(col => { const d = Date.parse((col.grading && col.grading.due) || ""), my = g[String(col.id)]; return !col.externalGrade && !(col.grading && col.grading.type === "Calculated") && !isNaN(d) && d > now - (q.pastDays || 60) * 864e5 && d < now + (q.aheadDays || 240) * 864e5 && (!(my && my.score != null) || d > now - 21 * 864e5); }).slice(0, 30);
+    // (and work handed in online with no due date of its own, whose date may only be on the calendar)
+    const open = cols.filter(col => { const d = Date.parse((col.grading && col.grading.due) || ""), my = g[String(col.id)]; if (col.externalGrade || (col.grading && col.grading.type === "Calculated")) return false;
+      if (isNaN(d)) return !!(col.grading && col.grading.type === "Attempts") && !(my && my.score != null);
+      return d > now - (q.pastDays || 60) * 864e5 && d < now + (q.aheadDays || 240) * 864e5 && (!(my && my.score != null) || d > now - 21 * 864e5); }).slice(0, 40);
     for (let i = 0; i < open.length; i += 6) await Promise.all(open.slice(i, i + 6).map(async col => {
       const at = await first([`/learn/api/public/v2/courses/${id}/gradebook/columns/${col.id}/attempts?userId=${uid}&limit=20`, `/learn/api/public/v1/courses/${id}/gradebook/columns/${col.id}/attempts?userId=${uid}&limit=20`], true);
       if (!at) return;
@@ -546,6 +651,7 @@ async function bbHarvest(o) {
     c.sylUrl = sylUrl;
     const courseUrl = `${location.origin}/ultra/courses/${id}/outline`;
     c.items = []; c.grades = []; c.final = null;
+    let undatedN = 0;
     cols.forEach(col => {
       const my = g[String(col.id)] || null, due = dt(col.grading && col.grading.due), possible = col.score && Number(col.score.possible) > 0 ? Number(col.score.possible) : null;
       const score = my && (my.score != null ? Number(my.score) : my.displayGrade && my.displayGrade.score != null ? Number(my.displayGrade.score) : null);
@@ -558,7 +664,8 @@ async function bbHarvest(o) {
       const fbT = txt(my && my.feedback, 3000) || atFb[k] || "";
       const fb = fbT || score != null ? { c: fbT ? [{ by: "Instructor", mine: false, at: dt(my && (my.modified || my.lastModified)), t: fbT }] : [], ra: [], sc: score, of: possible, g: shown.slice(0, 20), at: null } : null;
       const rub = rubOf(rubCol[k]);
-      if (due) c.items.push({ kind: /\b(test|quiz|exam|midterm)\b/i.test(col.name || "") ? "quiz" : "assignment", id: String(col.id), name: String(col.name || ""), due, start: null, end: null, text: txt(col.description), url: courseUrl, gid: String(col.id), outOf: possible, done, files: [], rx: col.grading && col.grading.type ? { gt: String(col.grading.type).slice(0, 16) } : undefined, st, fb, rub });   // Attempts = marked from an online attempt, Manual = entered by the instructor
+      // with no due date too (up to 60): the calendar may carry its date, and its copy should know whether it's handed in
+      if (due || undatedN++ < 60) c.items.push({ kind: /\b(test|quiz|exam|midterm)\b/i.test(col.name || "") ? "quiz" : "assignment", id: String(col.id), name: String(col.name || ""), due, start: null, end: null, text: txt(col.description), url: courseUrl, gid: String(col.id), outOf: possible, done, files: [], rx: col.grading && col.grading.type ? { gt: String(col.grading.type).slice(0, 16) } : undefined, st, fb, rub });   // Attempts = marked from an online attempt, Manual = entered by the instructor
       if (possible && (score != null || wOf(col) != null)) c.grades.push({ gid: String(col.id), name: String(col.name || ""), num: score, den: possible, weight: wOf(col), shown, at: dt(my && (my.modified || my.lastModified)), fb });
     });
     c.news = news.slice(0, 25).map(n => ({ id: String(n.id), title: String(n.title || ""), text: txt(n.body, 3000), date: dt(n.created) || dt(n.availability && n.availability.duration && n.availability.duration.start), url: `${location.origin}/ultra/courses/${id}/announcements` }));
@@ -572,8 +679,9 @@ async function bbHarvest(o) {
     const type = String(x.type || "");
     if (type === "GradebookColumn") {
       const name = String(x.title || ""), due = dt(x.end) || dt(x.start);
-      const have = c.items.find(y => key(y.name) === key(name) || y.id === String(x.itemSourceId || ""));
-      if (have || !due) return;
+      const have = c.items.find(y => y.id === String(x.itemSourceId || "")) || c.items.find(y => key(y.name) === key(name));
+      if (have) { if (!have.due && due) have.due = due; return; }    // a column with no due date of its own takes the calendar's
+      if (!due) return;
       c.items.push({ kind: /\b(test|quiz|exam|midterm)\b/i.test(name) ? "quiz" : "assignment", id: String(x.itemSourceId || x.id), name, due, start: null, end: null, text: txt(x.description, 1500), url: `${location.origin}/ultra/courses/${c.ou}/outline`, gid: String(x.itemSourceId || ""), outOf: null, done: null, files: [] });
     } else if (type === "Course" || type === "OfficeHours") {
       c.events.push({ id: String(x.id), title: String(x.title || ""), text: txt(x.description, 1500), start: dt(x.start), end: dt(x.end), allDay: !!x.allDay, where: String(x.location || ""), assoc: false, url: `${location.origin}/ultra/calendar` });
@@ -601,7 +709,20 @@ async function bbHarvest(o) {
 const SBX = globalThis.__studyboardExt;
 const NAMES = { canvas: "Canvas", brightspace: "Brightspace", blackboard: "Blackboard" };
 const DEF = { every: 60, on: true };
-const EVERY = [30, 60, 180, 360, 720];
+const EVERY = [15, 30, 60, 180, 360, 720];
+// Kind to the school site: automatic reads of one site are at least 5 minutes apart; opening Studyboard reads only when the last read
+// is more than 10 minutes old; after a failed read (an error, or signed out) the automatic ones wait longer each time, up to 6 hours.
+// Sync Now in the popup, and connecting a site, always read.
+const GAP = 5 * 60000, OPEN_FRESH = 10 * 60000, APP_GAP = 2 * 60000, BACKOFF_MAX = 6 * 3600000;
+function mayRun(why, st) {
+  if (why === "button" || why === "added") return true;
+  const now = Date.now(), last = st.at || 0;
+  if (why === "app") return now - last >= APP_GAP;                       // Sync Now on the website
+  if (now - last < GAP) return false;
+  if (why === "open") return !(st.state === "ok" && now - (st.lastOk || 0) < OPEN_FRESH);
+  if (why === "timer" && st.fails > 0) return now - last >= Math.min(BACKOFF_MAX, 15 * 60000 * Math.pow(2, st.fails - 1));
+  return true;
+}
 const RUN_MS = 170000;
 const busy = {};
 
@@ -679,6 +800,7 @@ function syncOne(id, why) {
   busy[id] = (async () => {
     const { schools, status } = await load(), s = schools[id];
     if (!s) return { error: "not-connected" };
+    if (!mayRun(why, status[id] || {})) return { skipped: true };
     if (!(await granted(s.origin))) { await setStatus(id, { state: "permission", at: Date.now() }); return { error: "permission" }; }
     const prev = status[id] || {};
     await setStatus(id, { state: "syncing", since: Date.now() });
@@ -696,10 +818,10 @@ function syncOne(id, why) {
     if (c.ok) {
       const at = Date.now();
       await set({ ["result:" + id]: { v: 1, id, origin: s.origin, at, h: c } });
-      await setStatus(id, Object.assign({ state: "ok", at, lastOk: at, error: "", why: why || "", name: (c.me && c.me.name) || "" }, count(c)));
+      await setStatus(id, Object.assign({ state: "ok", at, lastOk: at, error: "", fails: 0, why: why || "", name: (c.me && c.me.name) || "" }, count(c)));
       return { ok: true };
     }
-    await setStatus(id, { state: c.needLogin ? "login" : "error", at: Date.now(), error: c.needLogin ? "" : String(c.error || err || "error").slice(0, 160), lastOk: prev.lastOk || 0 });
+    await setStatus(id, { state: c.needLogin ? "login" : "error", at: Date.now(), error: c.needLogin ? "" : String(c.error || err || "error").slice(0, 160), lastOk: prev.lastOk || 0, fails: Math.min(20, (prev.fails || 0) + 1) });
     return { error: c.needLogin ? "login" : c.error || "error" };
   })().catch(async e => { await setStatus(id, { state: "error", at: Date.now(), error: errText(e) }); return { error: errText(e) }; })
     .finally(() => { busy[id] = null; });
@@ -784,12 +906,30 @@ chrome.permissions.onRemoved.addListener(async p => {
   for (const id of Object.keys(schools)) if ((p.origins || []).includes(schools[id].origin + "/*")) await setStatus(id, { state: "permission", at: Date.now() });
 });
 
+// The Studyboard website talking to the extension directly (Chrome and Edge, "externally_connectable": no permission warning at install).
+// It may ask for what was read and for a sync now, nothing else. relay.js does the same for websites that don't use this yet, and Firefox.
+const APP_ORIGINS = ["https://studyboardapp.com", "https://www.studyboardapp.com"];
+async function results() {
+  const all = await chrome.storage.local.get(null), status = all.status || {}, schools = all.schools || {};
+  return { v: 1, version: chrome.runtime.getManifest().version,
+    list: Object.keys(all).filter(k => /^result:(canvas|brightspace|blackboard)$/.test(k)).map(k => all[k]).filter(Boolean),
+    schools: Object.keys(schools).map(id => ({ id, origin: schools[id].origin, state: (status[id] || {}).state || "", at: (status[id] || {}).lastOk || 0 })) };
+}
+if (chrome.runtime.onMessageExternal) chrome.runtime.onMessageExternal.addListener((m, sender, reply) => {
+  let origin = ""; try { origin = sender.origin || new URL(sender.url).origin; } catch (e) {}
+  if (!APP_ORIGINS.includes(origin) || !m || typeof m !== "object") return false;
+  if (m.type === "get" || m.type === "hello") { results().then(reply, () => reply({ error: "unavailable" })); return true; }
+  if (m.type === "sync") { syncAll(m.why === "open" ? "open" : "app"); reply({ ok: true }); return false; }
+  return false;
+});
+
 // Requests from the toolbar popup (everything) and from relay.js on the Studyboard website (only "sync now")
 chrome.runtime.onMessage.addListener((m, sender, reply) => {
   if (!m || typeof m !== "object" || sender.id !== chrome.runtime.id) return false;
   const fromPage = !String(sender.url || "").startsWith(chrome.runtime.getURL(""));   // relay.js on a web page, not one of the extension's own pages
   const go = async () => {
-    if (fromPage) return m.op === "sync" ? { ok: true, started: (syncAll("app"), true) } : { error: "not-allowed" };
+    // relay.js asks when Studyboard is opened ("open") and on the website's Sync Now; both wait their turn (mayRun)
+    if (fromPage) return m.op === "sync" ? { ok: true, started: (syncAll(m.why === "open" ? "open" : "app"), true) } : { error: "not-allowed" };
     switch (m.op) {
       case "status": { const st = await load(); return { schools: st.schools, settings: st.settings, status: st.status, version: chrome.runtime.getManifest().version }; }
       case "pending": await set({ pending: { origin: SBX.originOf(m.origin) || "", platform: NAMES[m.platform] ? m.platform : "", at: Date.now() } }); return { ok: true };

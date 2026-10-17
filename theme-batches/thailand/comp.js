@@ -83,7 +83,7 @@
           pet: ["Hehe! Careful, I'm a little sticky!", "Aww! Sweeter than coconut cream!"],
           hello: ["You're back! Freshly steamed and happy!", "Hi! I saved you the ripest slice!"],
           morning: ["Good morning! A golden day is ripening!", "Rise and shine! Mango season is study season!"],
-          night: ["Getting sleepy under my mango slice...", "Goodnight! Dream sweet, sticky dreams!"],
+          night: ["Getting sleepy under my mango slice...", "Goodnight! Dream sweet, golden mango dreams!"],
           focus: ["Sticking right beside you. Focus!", "Quiet and sweet. You've got this!"],
           done: ["What a golden session! So sweet!", "All done! A whole plate of success!"],
           task: ["Done! Sweet!", "Checked off! Golden!", "Another one! That one stuck!", "Yes! Ripe for the next one!"],
@@ -119,7 +119,7 @@
         anchors: {top: [60, 26, 0.9], neck: [60, 82, 1], chest: [74, 88, 0.6], back: [94, 70, 0.8], hands: [60, 92, 0.86]},
         lines: {
           tap: ["Beep beep! Hop in, where are we studying?", "Tuk-tuk-tuk! Full speed ahead!", "Three wheels, zero worries!", "I know all the shortcuts to a good grade!", "Next stop: that task you've been avoiding!", "Engine warm, lights on, ready to go!", "Hold on tight, we're making great time!", "Beep! You're right on schedule!"],
-          pet: ["Beep beep! That's my happy horn!", "Hehe! Polish my headlights again!"],
+          pet: ["Beep beep! That's my happy horn!", "Hehe! That made my headlights twinkle!"],
           hello: ["Beep beep! You're back! Hop in!", "Hi! Engine's running, let's ride!"],
           morning: ["Good morning! Fuelled up and ready to roll!", "Beep! The morning roads are wide open!"],
           night: ["Headlights dimming... parking soon?", "Goodnight! I'll be outside at sunrise."],
