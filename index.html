@@ -6589,6 +6589,7 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 /* Phones and tablets: the page itself never slides sideways or rubber-bands (iOS lets a touch drag the whole page around when anything
    is a hair wider than the screen); it scrolls up and down, and the parts that scroll sideways (board columns, chips) still do, inside themselves. */
 @media (max-width:979px){
+  header.top .today{font-size:.78rem!important;line-height:1.2}   /* the date under the logo (tablets; phones show it small over the page title) */
   html{overflow-x:hidden;overscroll-behavior:none}
   body{overflow-x:clip;overscroll-behavior:none;max-width:100vw}
 }
