@@ -135,4 +135,9 @@ $("openApp").addEventListener("click", async () => {
   try { const [t] = await chrome.tabs.query({ url: APP + "*" }); if (t) { await chrome.tabs.update(t.id, { active: true }); if (chrome.windows) await chrome.windows.update(t.windowId, { focused: true }).catch(() => {}); /* (Safari on iPhone and iPad has no windows) */ window.close(); return; } } catch (e) {}
   chrome.tabs.create({ url: APP });
 });
-activeTab().then(u => { tabUrl = u; render(); });
+// Open at the top: Safari focuses the first control by itself and scrolls to it
+activeTab().then(u => { tabUrl = u; return render(); }).then(() => {
+  if (!document.documentElement.classList.contains("fixed")) return;
+  const a = document.activeElement; if (a && a !== document.body && a.blur) a.blur();
+  document.body.scrollTop = 0; document.documentElement.scrollTop = 0;
+});
