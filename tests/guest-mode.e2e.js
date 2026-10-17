@@ -70,12 +70,13 @@ const DAY = 864e5;
     ok(!/still only on this device/.test(await page.textContent("#toastMsg")), "and not again the next time they open it that week");
     ok(!(await page.locator('dialog[open] #sbLater').count()), "no sign-in window is put up on opening");
     await page.screenshot({path: path.join(require("os").tmpdir(), "guest-desktop.png")});
-    // On a phone the button is in the header
+    // On a phone the header shows only a saved dot
     const ph = await browser.newPage({viewport: {width: 390, height: 844}});
     await ph.route(/supabase\.co/, r => r.abort());
     await ph.goto(base); await ph.evaluate(() => { localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("sb:onboarded", "1"); });
     await ph.reload(); await ph.waitForTimeout(1500);
-    ok(await ph.isVisible("#guestBadge") && /Save/.test(await ph.textContent("#guestBadge .sg-s")), "on a phone the header shows a short Save button");
+    ok(!(await ph.isVisible("#guestBadge")), "on a phone the header has no Save button");
+    ok(await ph.evaluate(() => { const s = document.getElementById("sync"); return s.dataset.state === "ok" && s.offsetWidth > 0; }), "...just the green saved dot");
     await ph.screenshot({path: path.join(require("os").tmpdir(), "guest-phone.png")});
     await ph.close();
     ok(await page.evaluate(() => !document.getElementById("guestBadgeSide").hidden), "the side-bar button is still there");

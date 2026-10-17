@@ -6608,8 +6608,12 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   /* the logo with the date under it (the bottom bar already says which page this is) */
   .top-row > div:first-child{justify-content:flex-end;min-width:0!important}
   header.top .brand{margin:0;line-height:0;min-width:0}
-  header.top .brand img.logo{width:140px;height:auto;max-width:100%}
-  header.top .today{font-size:.78rem!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  header.top .brand img.logo{width:min(172px,44vw);height:auto;max-width:100%}
+  /* no Save button in the phone header; a green dot says it's saved (amber when it isn't; tap Settings for details) */
+  header.top #guestBadge{display:none!important}
+  header.top .top-row .sync[data-state="ok"]{display:block!important;font-size:0;width:9px;height:9px;flex:none;border-radius:50%;background:#2FA36B;box-shadow:0 0 0 3px color-mix(in srgb,#2FA36B 22%,transparent);align-self:center;margin-right:4px}
+  header.top .top-row .sync:not([data-state="ok"]){margin-right:4px}
+  header.top .today{font-size:.68rem!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
   .ph-title{display:none!important}
   .ph-title-unused{display:flex;flex-direction:column;min-width:0;max-width:100%;align-self:stretch;min-height:42px;justify-content:flex-end}
   .ph-k{font:700 .72rem/1.25 var(--display);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
