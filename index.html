@@ -6677,6 +6677,28 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   .ph-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:8;display:grid;gap:4px;min-width:200px;padding:6px;border:1px solid var(--line);border-radius:14px;background:var(--ph-surf,var(--surface));box-shadow:0 12px 28px rgba(8,20,50,.22)}
   .ph-menu .btn{justify-content:flex-start;width:100%;min-height:44px;border:0;box-shadow:none;background:transparent;border-radius:10px;text-align:left}
   .ph-menu .btn:hover,.ph-menu .btn:focus-visible{background:var(--soft)}
+  /* Companion page: everything on one screen (a compact header, the AI notice on one line, three suggestions in a row) */
+  .cpt-head.cpt3{padding-bottom:10px}
+  .cpt3-band{height:58px!important;min-height:0!important}
+  .cpt3-band .cpt3-acts .btn{min-height:34px;padding:4px 14px;font-size:.86rem}
+  .cpt3-ring{width:96px!important;height:96px!important;margin-top:-50px!important}
+  .cpt3-ring .cpt-face{width:82px!important;height:82px!important}
+  .cpt-id{margin-top:4px!important}
+  .cpt-id h2{font-size:1.35rem!important;line-height:1.15!important;margin:0!important}
+  .cpt-id .cpt-bio{font-size:.82rem!important;line-height:1.3!important;margin:2px 12px 0!important;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+  .cpt3-tabs{margin-top:8px!important;gap:4px!important}
+  .cpt3-tabs button{min-height:34px!important;padding:4px 14px!important;font-size:.9rem!important}
+  .cpt-pane{gap:8px!important}
+  .cpt-gate{display:flex!important;flex-wrap:nowrap!important;align-items:center;gap:10px;padding:10px 12px!important}
+  .cpt-log{min-height:0!important}
+  .cpt-gate p{margin:0!important;flex:1;font-size:.84rem;line-height:1.35}
+  .cpt-gate .btn{flex:none;margin:0!important;min-height:38px}
+  .cpt-empty{padding:6px 4px!important;min-height:0!important;gap:8px!important}
+  .cpt-empty > p{font-size:.88rem;line-height:1.35;margin:0 0 8px!important}
+  .cpt-empty .cpt-chips{display:flex!important;flex-wrap:wrap;justify-content:center;gap:6px!important}
+  .cpt-empty .cpt-chips .chip{min-height:36px;padding:4px 12px;font-size:.82rem}
+  .cpt-empty .cpt-chips .chip:nth-child(n+4){display:none}
+  .cpt-priv{font-size:.7rem!important;line-height:1.3;margin-top:4px!important}
   .cf-acts{display:flex;gap:6px;flex:none}
   #view > .tl-controls + .cf-chips + .cf-row{margin-top:12px}
   .cf-acts .btn.small{min-height:40px;min-width:40px;border-radius:50%;padding:0;justify-content:center}
