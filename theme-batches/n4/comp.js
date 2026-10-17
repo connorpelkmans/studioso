@@ -221,7 +221,7 @@
         anchors: {top: [60, 22, 0.9], neck: [60, 80, 0.95], chest: [72, 88, 0.62], back: [86, 70, 0.8], hands: [60, 92, 0.86]},
         lines: {
           tap: ["Psssht! Hi! A tiny splash hello!", "Pump it up! You're doing great!", "Splish splash, look at you go!", "I'm full of colourful cheers!", "Keep going and I'll spray a rainbow!", "Fresh, bright and ready to help!", "One more page, one more splash!", "You're making a big splash today!"],
-          pet: ["Hehe! Careful, I might squirt!", "Psssht! Happy little bubbles!"],
+          pet: ["Hehe! Careful, I might spritz you!", "Psssht! Happy little bubbles!"],
           hello: ["Splash! You're back!", "Hi hi! Pumped and ready!"],
           morning: ["Good morning! Fresh water, fresh start!", "Psssht! Rise and splash!"],
           night: ["Running low on bubbles. Bedtime?", "Goodnight! I'll refill for tomorrow."],
@@ -373,7 +373,7 @@
         cheeks: {lx: 42, rx: 78, y: 66, w: 4, h: 2.4, color: "#FFA6BE"},
         anchors: {top: [60, 34, 0.95], neck: [60, 80, 1], chest: [72, 96, 0.62], back: [86, 88, 0.8], hands: [60, 98, 0.86]},
         lines: {
-          tap: ["Hello from the moon! I hopped down to see you!", "Pound, pound! Grinding through the notes!", "The moon is full, and so is your brain!", "You're doing wonderfully, little star!", "One hop at a time, all the way to the moon!", "I brought osmanthus for good luck!", "Soft ears, big cheers for you!", "So happy to visit you this year!"],
+          tap: ["Hello from the moon! I hopped down to see you!", "Tap, tap! Working through the notes!", "The moon is full, and so is your brain!", "You're doing wonderfully, little star!", "One hop at a time, all the way to the moon!", "I brought osmanthus for good luck!", "Soft ears, big cheers for you!", "So happy to visit you this year!"],
           pet: ["Hehe! My ears are wiggling!", "Aww, softer than moonlight!"],
           hello: ["Hop hop! You're back!", "Hi! The moon said to say hello!"],
           morning: ["Good morning! Even moon bunnies wake up early!", "Rise and shine! Let's hop to it!"],

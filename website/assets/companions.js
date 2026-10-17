@@ -64,7 +64,8 @@
     }
     act.eyes("open"); act.mouth("neutral");
     loop(); moves(); if (talks) chat(true);
-    host.addEventListener("click", function () { if (!inst.visible) return; clearTimeout(inst.hide); if (talks) talk(true); else act.motion(c.cheer, false); });
+    inst.act = act; inst.c = c;
+    host.addEventListener("click", function () { if (!inst.alive || !inst.visible) return; clearTimeout(inst.hide); if (talks) talk(true); else act.motion(c.cheer, false); });
     host.setAttribute("role", "img"); host.setAttribute("aria-label", c.name + ", a study companion");
   }
   function stop(inst) { inst.alive = false; inst.timers.forEach(clearTimeout); clearTimeout(inst.hide); inst.host.__cp = null; }
@@ -81,4 +82,31 @@
   function mount(host) { if (io && host && !host.__watched) { host.__watched = true; io.observe(host); } }
   window.SBWebComp = {mount: mount};
   document.querySelectorAll("[data-companion]").forEach(mount);
+
+  // Meet Your Companion: the button steps through the six free companions, in the order the app's companion picker lists them.
+  // The screenshot (its name and greeting) and the live companion in its corner change together.
+  var MEET = [["plain-mochi", "Mochi"], ["plain-inky", "Inky"], ["plain-owl", "Hoot"], ["plain-hilo", "Hilo"], ["plain-sum", "Sum"], ["plain-packy", "Packy"]];
+  var meet = document.querySelector("[data-meet]"), next = document.querySelector("[data-meet-next]");
+  if (meet && next) {
+    var host = meet.querySelector("[data-companion]"), at = 0;
+    var file = function (i, scheme) { return "assets/screens/companion-" + MEET[i][0].replace("plain-", "") + "-" + scheme + ".webp"; };
+    var preload = function (i) { ["light", "dark"].forEach(function (m) { var im = new Image(); im.src = file(i, m); }); };
+    next.addEventListener("click", function () {
+      at = (at + 1) % MEET.length;
+      var id = MEET[at][0], name = MEET[at][1], after = MEET[(at + 1) % MEET.length][1];
+      meet.querySelectorAll("[data-meet-img]").forEach(function (im) {
+        im.loading = "eager"; im.src = file(at, im.getAttribute("data-meet-img"));
+        if (im.alt) im.alt = "The Studyboard companion " + name + ", with suggested questions such as What should I work on next";
+      });
+      var nm = document.querySelector("[data-meet-name]"); if (nm) nm.textContent = name;
+      var nn = next.querySelector("[data-meet-next-name]"); if (nn) nn.textContent = after;
+      if (host) {
+        var was = host.__cp; if (was) stop(was);
+        host.innerHTML = ""; host.setAttribute("data-companion", id);
+        ready(function () { start(host); var cp = host.__cp; if (cp) { cp.visible = true; if (!(reduce && reduce.matches)) cp.act.motion(cp.c.cheer, false); } });
+      }
+    });
+    // the next pair loads when the button is about to be used, not with the page
+    ["pointerenter", "focus", "touchstart"].forEach(function (ev) { next.addEventListener(ev, function () { preload((at + 1) % MEET.length); }, {passive: true}); });
+  }
 })();

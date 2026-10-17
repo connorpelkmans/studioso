@@ -220,7 +220,7 @@
         cheeks: {lx: 43, rx: 77, y: 80, w: 4.2, h: 2.6, color: "#FF8F7A"},
         anchors: {top: [60, 40, 1], neck: [60, 96, 1], chest: [72, 92, 0.6], back: [96, 70, 0.8], hands: [60, 98, 0.85]},
         lines: {
-          tap: ["Howdy! Sit on me anytime, I'm comfy!", "Steady wins the harvest, friend!", "You're working like a whole farm crew!", "Square, sturdy and proud of you!", "Hay there! Keep it up!", "Water and a snack, then back to the field?", "Little by little, the barn fills up!"],
+          tap: ["Howdy! Lean on me anytime, I'm comfy!", "Steady wins the harvest, friend!", "You're working like a whole farm crew!", "Square, sturdy and proud of you!", "Hay there! Keep it up!", "Water and a snack, then back to the field?", "Little by little, the barn fills up!"],
           pet: ["Hehe! That's a bit scratchy, but I like it!", "Aww shucks, thank you kindly!"],
           hello: ["Hay hay! You're back!", "Howdy, partner! Ready to get to work?"],
           morning: ["Mornin'! Roosters are up and so are we!", "Good morning! Fresh hay, fresh start!"],
