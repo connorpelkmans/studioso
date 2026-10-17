@@ -105,7 +105,7 @@
         lines: {
           tap: ["Ciao! Three scoops of cheering, coming up!", "Pistachio for focus, fragola for fun!", "You're the cherry on top of today!", "Cool, calm and totally got this!", "No brain freeze, just brain power!", "One scoop at a time, you'll finish it!", "Sweet work! Keep it rolling!", "Gelato tastes better after a good chapter!"],
           pet: ["Hehe! Careful, I might melt!", "Aww, you make my scoops wobble!"],
-          hello: ["Ciao ciao! You're back! Extra scoop!", "Hi! I saved you the best flavour!"],
+          hello: ["Ciao bella! You're back! Extra scoop!", "Hi! I saved you the best flavour!"],
           morning: ["Buongiorno! Gelato for breakfast? Kidding!", "Good morning! Sweet day ahead!"],
           night: ["The piazza's quiet. Rest soon, dolce?", "Buonanotte! Sweet dreams, three scoops!"],
           focus: ["Staying cool right here with you.", "Scoop by scoop. You've got this!"],

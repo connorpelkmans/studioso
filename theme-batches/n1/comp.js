@@ -191,7 +191,7 @@
           night: ["Tucking my beak in soon. You too?", "The frogs are singing goodnight."],
           focus: ["Quiet beak, busy brain. Let's go!", "Perched right here, cheering softly."],
           done: ["WOW! That session was huge, like my beak!", "Done! Flap flap hooray!"],
-          task: ["SQUAWK! Done!", "Checked off! Big brave beak!", "Another one! You're soaring!", "Yes! Hop hop hooray!"],
+          task: ["SQUAWK! Done!", "Checked off! Big beak energy!", "Another one! You're soaring!", "Yes! Hop hop hooray!"],
           break: ["Stretch your wings! I mean arms!", "Snack break! Fruit, maybe?"]
         }
       },
@@ -362,7 +362,7 @@
           night: ["Cooling down for the night. You too?", "Dimming my glow. Sweet dreams!"],
           focus: ["Simmering quietly beside you.", "Steady glow, steady focus."],
           done: ["WOW! That session was red hot!", "Done! Erupting with joy!"],
-          task: ["Bloop! Done!", "Checked off! Sparks everywhere!", "Another one! Fired up!", "YES! Lava-ly work!"],
+          task: ["Bloop! Done!", "Checked off! Sparks everywhere!", "Another one! Hot stuff!", "YES! Lava-ly work!"],
           break: ["Cool-down break! Sip some water!", "Stretch it out, stay toasty!"]
         }
       },

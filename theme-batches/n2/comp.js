@@ -395,7 +395,7 @@
         cheeks: {lx: 43, rx: 77, y: 75, w: 4, h: 2.6, color: "#FF7AA0"},
         anchors: {top: [60, 32, 0.9], neck: [60, 100, 0.85], chest: [74, 92, 0.55], back: [94, 66, 0.75], hands: [60, 100, 0.8]},
         lines: {
-          tap: ["Hi hi! *happy spin* Wheee!", "You're on a roll! A swirly one!", "Round and round, task by task!", "I'm the cutest topping and you're the best student!", "Spin spin! You've got this!", "Snack break? Grab a treat, I'll keep spinning!", "Your focus is making me dizzy with joy!"],
+          tap: ["Hi hi! *happy spin* Wheee!", "You're on a roll! A swirly one!", "Round and round, task by task!", "I'm the cutest topping and you're the best student!", "Spin spin! You've got this!", "Snack break? I'm not a snack, just a friend!", "Your focus is making me dizzy with joy!"],
           pet: ["Wheee! You made me spin again!", "Hehe! My swirl is blushing pink!"],
           hello: ["You're back! Welcome spin!", "Hello! Fresh from the bowl and ready!"],
           morning: ["Good morning! Let's swirl into the day!", "Morning! A fresh bowl, a fresh start!"],
