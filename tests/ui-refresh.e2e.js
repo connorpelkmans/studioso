@@ -1,6 +1,8 @@
 // UI refresh: timeline icons, Board tabs on desktop, Crunch and Today's Plan decluttering, settings sub-tabs, area of study,
 // note boards, Grades tab in Courses, and the Companion tab (chat answered by a stubbed Gemini).  Run: node tests/ui-refresh.e2e.js
 const path = require("path"), assert = require("assert");
+// Note boards: their tabs, or on a phone the board dropdown
+const pickBoard = async (p, id) => { const t = p.locator(`.nb-tab[data-id="${id}"]`); if (await t.isVisible()) await t.click(); else await p.selectOption("select[data-nb-pick]", id); };
 const {chromium, executablePath} = require("./pw");
 const FILE = "file://" + path.join(__dirname, "..", "index.html");
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
@@ -83,7 +85,7 @@ const stored = p => p.evaluate(() => JSON.parse(localStorage.getItem("coursework
       await act(p, "note-new"); await p.fill("#noteText", "Biology note"); await p.locator("#view").click({position: {x: 2, y: 2}});   /* (somewhere outside the note: the Notes heading is hidden on phones) */ await p.waitForTimeout(250);
       const ns = (await stored(p)).notes;
       ok(ns.length === 2 && ns.some(x => x.text === "Biology note" && x.board && x.courseId === "c1") && ns.some(x => x.text === "Main board note" && !x.board), "notes are kept per board and tagged with the board's class");
-      await p.click('.nb-tab[data-id=""]'); await p.waitForTimeout(250);
+      await pickBoard(p, ''); await p.waitForTimeout(250);
       ok((await p.locator(".note").count()) === 1, "switching back shows only My Notes");
 
       // Grades tab in Courses
