@@ -71,12 +71,25 @@ After each listing goes live, put its address in `EXT_STORE` in `index.html` (se
    - **Remote code:** No. All code is in the package.
    - **Data usage:** tick **Personally identifiable information** (the student's name and the names and school emails of their instructors, as the school site shows them), **Personal communications** (Canvas Inbox messages) and **Website content** (courses, due dates, grades, feedback, announcements, syllabus). Don't tick authentication information: the extension never sees passwords or tokens. Tick all three certifications (not sold to third parties; not used for unrelated purposes; not used for creditworthiness or lending).
    - **Privacy policy URL:** as above. Its extension paragraph has the affirmative statement the Limited Use policy asks for ("…complies with the Chrome Web Store User Data Policy, including the Limited Use requirements"), and the popup shows what is read and where it goes, right above **Agree, Allow and Connect**, before anything is read (prominent disclosure and consent).
-5. **Test instructions:** reviewers need a learning-platform account (Studyboard itself works without an account). Enter a Canvas test student's username and password in the dashboard's test-account fields if you have one (a course set up in a Canvas test or sandbox site with a few assignments). Then paste:
-   > 1. Open https://<canvas test site>/ and sign in with the account provided.
-   > 2. Click the Studyboard School Sync button in the toolbar. The address is filled in; click **Agree, Allow and Connect** and allow the permission.
+5. **Test instructions** (Developer Dashboard, the item's **Test instructions** section): put the school site's test student in the username and password fields, and paste the text below in the instructions box, with the placeholders filled in. A Studyboard test account is optional (Studyboard works without one); if you give one, make it in Supabase with Auto Confirm and keep its password only in the dashboard.
+   > Studyboard School Sync reads the student's own Canvas, Brightspace (D2L) or Blackboard Learn site, with the sign-in the browser already has, and hands what it read to the Studyboard web app (https://studyboardapp.com) in the same browser.
+   >
+   > Test accounts
+   > - Canvas test student: the username and password above, at https://<canvas test site>/
+   > - Studyboard (optional, Studyboard also works without an account): <studyboard email> / <studyboard password>
+   >
+   > Steps
+   > 1. Open https://<canvas test site>/ and sign in with the Canvas test student.
+   > 2. Click the Studyboard School Sync button in the toolbar. The site's address is filled in. Read the disclosure, click **Agree, Allow and Connect**, and allow the permission Chrome asks for (that one site only).
    > 3. Within a minute the popup shows "Synced just now" with the number of courses and items.
-   > 4. Open https://studyboardapp.com/ in the same browser and choose **Use Without an Account**. The first time, Studyboard asks which of your Studyboard courses each school course goes to (or to add it as a new one); after that, what the extension read is brought in by itself. The assignments appear as tasks on the Board, ticked off where they were submitted.
-   > The extension only makes GET requests to the connected site. The extension itself sends data nowhere: it hands it to the Studyboard web page in the same browser.
+   > 4. Open https://studyboardapp.com/ in the same browser. Choose **Use Without an Account** (or sign in with the Studyboard test account). Skip the welcome tour if it appears.
+   > 5. Studyboard asks which Studyboard course each Canvas course goes to: keep **New Course** and continue. The assignments then appear as tasks on the Board with their due dates, and the ones already submitted are ticked off. Click a task to see its grade, feedback and rubric.
+   >
+   > Notes
+   > - Permissions: storage (the connected site, settings and the last read), alarms (a sync every hour by default; the student can choose 15 minutes to 12 hours), scripting (runs the extension's own packaged read script in the student's open tab of the connected site, only when a background read isn't signed in), activeTab (fills in the address when the popup is opened on the school site). Site access is optional and asked for one school site at a time.
+   > - It only makes GET requests to the connected site. It never submits, posts or changes anything there, and never sees passwords.
+   > - The extension sends nothing to any server: it keeps what it read in extension storage and passes it to the Studyboard page in the same browser.
+   > - No remote code: harvest.js is generated at build time from the app's lms.js, unminified, and included in the package.
 6. **Distribution:** Free, all regions, Public. Use **Unlisted** if you'd rather test it with a few students first. Submit for review.
 
 ## Microsoft Edge Add-ons

@@ -519,13 +519,15 @@ async function cvHarvest(o) {
     const wOf = a => Number(a.points_possible) > 0 && !a.omit_from_final_grade ? (weighted ? (gw[a.assignment_group_id] && gpts[a.assignment_group_id] ? Math.round(gw[a.assignment_group_id] * Number(a.points_possible) / gpts[a.assignment_group_id] * 100) / 100 : null)
       : tpts > 0 ? Math.round(Number(a.points_possible) / tpts * 10000) / 100 : null) : null;
     c.items = []; c.grades = [];
+    let undated = 0;
     live.slice(0, 250).forEach(a => {
       const s = Object.assign({}, a.submission || {}, subOf[String(a.id)] || {}), hasS = !!(a.submission || subOf[String(a.id)]);
       const rub = rubOf(a), fb = hasS ? fbOf(a, s, rub) : null, st = hasS ? stOf(a, s) : null;
       const kind = a.is_quiz_assignment || a.is_quiz_lti_assignment || a.quiz_id || (a.submission_types || []).includes("online_quiz") ? "quiz" : (a.submission_types || []).includes("discussion_topic") ? "discussion" : "assignment";
       const done = hasS ? (!!s.submitted_at || ["submitted", "pending_review"].includes(s.workflow_state) || (s.workflow_state === "graded" && s.score != null) || !!s.excused) && !s.missing : null;
       const due = dt(a.due_at);
-      if (due || hasS && s.score != null) c.items.push({ kind, id: String(a.id), name: String(a.name || ""), due, start: dt(a.unlock_at), end: dt(a.lock_at), text: txt(a.description), url: String(a.html_url || ""), gid: String(a.id),
+      // Also the ones with no due date (up to 60): a calendar entry may carry the date, and it should learn whether this one is handed in
+      if (due || dt(a.lock_at) || dt(a.unlock_at) || hasS && s.score != null || undated++ < 60) c.items.push({ kind, id: String(a.id), name: String(a.name || ""), due, start: dt(a.unlock_at), end: dt(a.lock_at), text: txt(a.description), url: String(a.html_url || ""), gid: String(a.id),
         outOf: Number(a.points_possible) > 0 ? Number(a.points_possible) : null, done, files: filesIn(a.description), rx: rxOf(a), st, fb, rub });
       if (Number(a.points_possible) > 0 && (hasS && s.score != null || wOf(a) != null))
         c.grades.push({ gid: String(a.id), name: String(a.name || ""), num: hasS && s.score != null && !s.excused ? Number(s.score) : null, den: Number(a.points_possible), weight: wOf(a), shown: hasS && s.grade != null ? String(s.grade) : "", at: dt(hasS && s.graded_at), fb });
@@ -553,7 +555,7 @@ async function cvHarvest(o) {
     const doneP = !!((p.submissions && (p.submissions.submitted || p.submissions.excused)) || (p.planner_override && p.planner_override.marked_complete));
     const named = c.items.filter(x => key(x.name) === key(name));    // the same item, by id; or by name (and its date, when two share the name)
     const have = c.items.find(x => x.id === String(p.plannable_id || (p.plannable && p.plannable.assignment_id) || "")) || (named.length > 1 ? named.find(x => x.due && due && x.due.slice(0, 10) === due.slice(0, 10)) : named[0]);
-    if (have) { if (doneP) have.done = true; return; }
+    if (have) { if (doneP) have.done = true; if (!have.due && due) have.due = due; return; }   // the planner may know the date of one with no due date
     if (!due) return;
     c.items.push({ kind: t === "quiz" ? "quiz" : t === "discussion_topic" ? "discussion" : "other", id: String(p.plannable_id), name, due, start: null, end: null, text: "", url: String(p.html_url || ""), gid: "", outOf: null, done: doneP, files: [], rx: t === "quiz" ? { k: "quiz", st: ["online_quiz"] } : undefined });
   });
@@ -642,7 +644,10 @@ async function bbHarvest(o) {
     // Your own attempts: whether it's handed in (submitted, waiting to be graded), when, and the feedback on it
     const tried = {}, atWhen = {}, atFb = {};
     // (work with no mark yet, and anything due in the last three weeks for when it was handed in; capped so a sync stays quick)
-    const open = cols.filter(col => { const d = Date.parse((col.grading && col.grading.due) || ""), my = g[String(col.id)]; return !col.externalGrade && !(col.grading && col.grading.type === "Calculated") && !isNaN(d) && d > now - (q.pastDays || 60) * 864e5 && d < now + (q.aheadDays || 240) * 864e5 && (!(my && my.score != null) || d > now - 21 * 864e5); }).slice(0, 30);
+    // (and work handed in online with no due date of its own, whose date may only be on the calendar)
+    const open = cols.filter(col => { const d = Date.parse((col.grading && col.grading.due) || ""), my = g[String(col.id)]; if (col.externalGrade || (col.grading && col.grading.type === "Calculated")) return false;
+      if (isNaN(d)) return !!(col.grading && col.grading.type === "Attempts") && !(my && my.score != null);
+      return d > now - (q.pastDays || 60) * 864e5 && d < now + (q.aheadDays || 240) * 864e5 && (!(my && my.score != null) || d > now - 21 * 864e5); }).slice(0, 40);
     for (let i = 0; i < open.length; i += 6) await Promise.all(open.slice(i, i + 6).map(async col => {
       const at = await first([`/learn/api/public/v2/courses/${id}/gradebook/columns/${col.id}/attempts?userId=${uid}&limit=20`, `/learn/api/public/v1/courses/${id}/gradebook/columns/${col.id}/attempts?userId=${uid}&limit=20`], true);
       if (!at) return;
@@ -686,6 +691,7 @@ async function bbHarvest(o) {
     c.sylUrl = sylUrl;
     const courseUrl = `${location.origin}/ultra/courses/${id}/outline`;
     c.items = []; c.grades = []; c.final = null;
+    let undatedN = 0;
     cols.forEach(col => {
       const my = g[String(col.id)] || null, due = dt(col.grading && col.grading.due), possible = col.score && Number(col.score.possible) > 0 ? Number(col.score.possible) : null;
       const score = my && (my.score != null ? Number(my.score) : my.displayGrade && my.displayGrade.score != null ? Number(my.displayGrade.score) : null);
@@ -698,7 +704,8 @@ async function bbHarvest(o) {
       const fbT = txt(my && my.feedback, 3000) || atFb[k] || "";
       const fb = fbT || score != null ? { c: fbT ? [{ by: "Instructor", mine: false, at: dt(my && (my.modified || my.lastModified)), t: fbT }] : [], ra: [], sc: score, of: possible, g: shown.slice(0, 20), at: null } : null;
       const rub = rubOf(rubCol[k]);
-      if (due) c.items.push({ kind: /\b(test|quiz|exam|midterm)\b/i.test(col.name || "") ? "quiz" : "assignment", id: String(col.id), name: String(col.name || ""), due, start: null, end: null, text: txt(col.description), url: courseUrl, gid: String(col.id), outOf: possible, done, files: [], rx: col.grading && col.grading.type ? { gt: String(col.grading.type).slice(0, 16) } : undefined, st, fb, rub });   // Attempts = marked from an online attempt, Manual = entered by the instructor
+      // with no due date too (up to 60): the calendar may carry its date, and its copy should know whether it's handed in
+      if (due || undatedN++ < 60) c.items.push({ kind: /\b(test|quiz|exam|midterm)\b/i.test(col.name || "") ? "quiz" : "assignment", id: String(col.id), name: String(col.name || ""), due, start: null, end: null, text: txt(col.description), url: courseUrl, gid: String(col.id), outOf: possible, done, files: [], rx: col.grading && col.grading.type ? { gt: String(col.grading.type).slice(0, 16) } : undefined, st, fb, rub });   // Attempts = marked from an online attempt, Manual = entered by the instructor
       if (possible && (score != null || wOf(col) != null)) c.grades.push({ gid: String(col.id), name: String(col.name || ""), num: score, den: possible, weight: wOf(col), shown, at: dt(my && (my.modified || my.lastModified)), fb });
     });
     c.news = news.slice(0, 25).map(n => ({ id: String(n.id), title: String(n.title || ""), text: txt(n.body, 3000), date: dt(n.created) || dt(n.availability && n.availability.duration && n.availability.duration.start), url: `${location.origin}/ultra/courses/${id}/announcements` }));
@@ -712,8 +719,9 @@ async function bbHarvest(o) {
     const type = String(x.type || "");
     if (type === "GradebookColumn") {
       const name = String(x.title || ""), due = dt(x.end) || dt(x.start);
-      const have = c.items.find(y => key(y.name) === key(name) || y.id === String(x.itemSourceId || ""));
-      if (have || !due) return;
+      const have = c.items.find(y => y.id === String(x.itemSourceId || "")) || c.items.find(y => key(y.name) === key(name));
+      if (have) { if (!have.due && due) have.due = due; return; }    // a column with no due date of its own takes the calendar's
+      if (!due) return;
       c.items.push({ kind: /\b(test|quiz|exam|midterm)\b/i.test(name) ? "quiz" : "assignment", id: String(x.itemSourceId || x.id), name, due, start: null, end: null, text: txt(x.description, 1500), url: `${location.origin}/ultra/courses/${c.ou}/outline`, gid: String(x.itemSourceId || ""), outOf: null, done: null, files: [] });
     } else if (type === "Course" || type === "OfficeHours") {
       c.events.push({ id: String(x.id), title: String(x.title || ""), text: txt(x.description, 1500), start: dt(x.start), end: dt(x.end), allDay: !!x.allDay, where: String(x.location || ""), assoc: false, url: `${location.origin}/ultra/calendar` });
