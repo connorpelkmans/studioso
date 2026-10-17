@@ -11,7 +11,7 @@
     companions: [
       {
         id: "italy-limo", name: "Limo", kind: "Amalfi Lemon", pose: "stand", wearColor: "#2C9A70",
-        bio: "Sunny, zesty and always a little bit extra.",
+        bio: "A sunny Amalfi lemon who brings a bright burst of zest to study time.",
         idle: ["topBob", "sway", "sparkle"], cheer: "bounce",
         parts: {
           feet: `<ellipse cx="49" cy="106.5" rx="7.4" ry="4.2" fill="#E8A81E" ${O}/><ellipse cx="71" cy="106.5" rx="7.4" ry="4.2" fill="#E8A81E" ${O}/>`,
@@ -45,7 +45,7 @@
       },
       {
         id: "italy-brio", name: "Brio", kind: "Little Scooter", pose: "stand", wearColor: "#F6C833",
-        bio: "Takes the hairpin bends and the hard chapters with style.",
+        bio: "A little scooter who zips through the coastal bends and hard chapters.",
         idle: ["topBob", "bounce", "sparkle"], cheer: "hop",
         parts: {
           feet: `${LG("italy-brio-w", [[0, "#4A4048"], [1, "#221C22"]], 0, 0, 1, 0)}<rect x="52" y="90" width="16" height="22" rx="7" fill="url(#italy-brio-w)" ${O}/><rect x="57" y="96" width="6" height="10" rx="3" fill="#B8BCC8"/>`,
@@ -79,7 +79,7 @@
       },
       {
         id: "italy-gela", name: "Gela", kind: "Gelato Cone", pose: "stand", wearColor: "#F48AA6",
-        bio: "Three scoops of encouragement, no brain freeze.",
+        bio: "A three-scoop gelato cone who serves up sweet encouragement.",
         idle: ["sway", "headTilt", "wave"], cheer: "spin",
         neck: [60, 82],
         parts: {

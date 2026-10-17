@@ -12,7 +12,7 @@
     companions: [
       {
         id: "egypt-kheper", name: "Kheper", kind: "Scarab Beetle", pose: "stand", wearColor: "#2A8A84",
-        bio: "Rolls every big task forward, one little push at a time.",
+        bio: "A steady scarab beetle who rolls every big task forward, one push at a time.",
         idle: ["topBob", "sparkle", "bounce"], cheer: "spin",
         parts: {
           feet: `<path d="M44 100Q40 106 38 111H50Q49 106 50 101Z" fill="#1F5C6A" ${O}/><path d="M76 100Q80 106 82 111H70Q71 106 70 101Z" fill="#1F5C6A" ${O}/>`,
@@ -49,7 +49,7 @@
       },
       {
         id: "egypt-jamal", name: "Jamal", kind: "Camel Calf", pose: "stand", wearColor: "#C8503A",
-        bio: "Long lashes, long legs, and stamina for long study sessions.",
+        bio: "A long-lashed camel calf with stamina for the longest study sessions.",
         idle: ["earTwitch", "tailSwish", "headTilt"], cheer: "hop",
         neck: [60, 74],
         parts: {
@@ -92,7 +92,7 @@
       },
       {
         id: "egypt-miu", name: "Miu", kind: "Mau Kitten", pose: "sit", wearColor: "#2E5FA8",
-        bio: "A spotted cat with ancient manners and modern curiosity.",
+        bio: "A spotted Mau kitten with ancient manners and a curious mind.",
         idle: ["tailSwish", "earTwitch", "headTilt"], cheer: "bounce",
         neck: [60, 76],
         parts: {

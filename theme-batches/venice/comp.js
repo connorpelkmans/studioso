@@ -13,7 +13,7 @@
     companions: [
       {
         id: "venice-gondi", name: "Gondi", kind: "Little Gondola", pose: "stand", wearColor: "#C8302E",
-        bio: "Glides through the trickiest canals of your schedule.",
+        bio: "A little gondola who glides you through the tricky canals of your schedule.",
         idle: ["sway", "topBob", "sparkle"], cheer: "bounce",
         neck: [60, 88],
         parts: {
@@ -57,7 +57,7 @@
       },
       {
         id: "venice-pippo", name: "Pippo", kind: "Venetian Pigeon", pose: "stand", wearColor: "#5FA888",
-        bio: "Struts around the piazza like it owns your to-do list.",
+        bio: "A strutting Venetian pigeon who patrols the piazza and your to-do list.",
         idle: ["headTilt", "wingFlutter", "waddle"], cheer: "wingFlutter",
         neck: [60, 66],
         parts: {
@@ -94,7 +94,7 @@
       },
       {
         id: "venice-masca", name: "Masca", kind: "Carnival Mask", pose: "stand", wearColor: "#E2B048",
-        bio: "Hides a big grin behind all that glitter.",
+        bio: "A sparkly carnival mask who hides a big grin behind all that glitter.",
         idle: ["sparkle", "headTilt", "topBob"], cheer: "spin",
         neck: [60, 82],
         parts: {
