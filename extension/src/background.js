@@ -174,7 +174,8 @@ async function removeSchool(id) {
   delete st.schools[id]; delete st.status[id];
   await set({ schools: st.schools, status: st.status });
   await chrome.storage.local.remove("result:" + id);
-  if (!Object.values(st.schools).some(x => x.origin === s.origin)) await chrome.permissions.remove({ origins: [s.origin + "/*"] }).catch(() => {});
+  // Give back the site access (best effort: Safari keeps that choice in its own settings, and may not answer)
+  if (!Object.values(st.schools).some(x => x.origin === s.origin)) { try { await within(chrome.permissions.remove({ origins: [s.origin + "/*"] }), 3000); } catch (e) {} }
   await badge();
   return { ok: true };
 }

@@ -53,6 +53,17 @@ function statusLine(id, s, st) {
   return { text: `Couldn't read it last time${st.error ? ` (${st.error})` : ""}. It tries again by itself.${st.lastOk ? ` Last synced ${ago(st.lastOk)}.` : ""}`, tone: "warn" };
 }
 
+// Asked in the popup itself: Safari's popups can't show confirm() dialogs
+function askRemove(btn, id) {
+  const box = h("div", { class: "confirm", role: "group", "aria-label": "Remove " + NAMES[id] },
+    h("p", { class: "mini" }, `Stop syncing ${NAMES[id]}? Studyboard keeps what it already brought in.`),
+    h("div", { class: "row" }, h("span", { class: "spacer" }),
+      h("button", { type: "button", class: "btn small", onclick: () => { box.replaceWith(btn); btn.focus(); } }, "Cancel"),
+      h("button", { type: "button", class: "btn small danger", onclick: async ev => { ev.currentTarget.disabled = true; await send({ op: "remove", id }).catch(() => {}); render(); } }, "Stop Syncing")));
+  btn.replaceWith(box);
+  box.querySelector(".danger").focus();
+}
+
 function schoolCard(id, s, st) {
   const line = statusLine(id, s, st);
   const busyNow = line.tone === "busy";
@@ -68,7 +79,7 @@ function schoolCard(id, s, st) {
         chrome.permissions.request({ origins: [s.origin + "/*"] }).then(ok => { if (ok) send({ op: "sync", id }).then(render); });
       } }, "Allow Again") : null,
       h("span", { class: "spacer" }),
-      h("button", { type: "button", class: "link", onclick: async () => { if (confirm(`Stop syncing ${NAMES[id]}? Studyboard keeps what it already brought in.`)) { await send({ op: "remove", id }); render(); } } }, "Remove")));
+      h("button", { type: "button", class: "link", onclick: e => askRemove(e.currentTarget, id) }, "Remove")));
 }
 
 function connectForm(have) {

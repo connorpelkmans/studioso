@@ -123,6 +123,15 @@ const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { 
     await app.reload(); await app.waitForFunction(() => window.SBEXT && SBEXT.on()); await app.waitForTimeout(1200);
     const dlgText = await app.locator("dialog[open]").count() ? await app.textContent("dialog[open]") : "";
     ok(!/Ready to Import/.test(dlgText), "a read already imported is not imported again" + (dlgText ? " (open: " + dlgText.slice(0, 80) + ")" : ""));
+    // Remove, asked inside the popup (Safari's popups can't show confirm() dialogs)
+    await pop.reload(); await pop.waitForSelector(".school");
+    await pop.click(".school .link"); await pop.waitForSelector(".school .confirm");
+    ok(/Stop syncing Canvas\?/.test(await pop.textContent(".school .confirm")), "Remove asks inside the popup");
+    await pop.click('.school .confirm button:has-text("Cancel")');
+    ok(await pop.locator(".school .confirm").count() === 0 && await pop.locator(".school").count() === 1, "Cancel keeps the school");
+    await pop.click(".school .link"); await pop.click('.school .confirm button:has-text("Stop Syncing")');
+    await pop.waitForSelector("form.connect", {timeout: 10000});
+    ok(await pop.evaluate(() => chrome.runtime.sendMessage({op: "status"}).then(x => !Object.keys(x.schools || {}).length)), "Stop Syncing removes it");
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await ctx.close(); server.close(); }
   console.log(`\nextension.e2e: ${n} checks passed`);
