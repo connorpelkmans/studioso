@@ -6261,6 +6261,12 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .sch-b.k-lab{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--c) 18%,var(--surface)) 0 8px,color-mix(in srgb,var(--c) 26%,var(--surface)) 8px 16px)!important}
 .sch-b.k-officehours{background:color-mix(in srgb,var(--c) 6%,var(--surface))!important;border:1.5px dashed color-mix(in srgb,var(--c) 70%,transparent)!important;border-left:4px solid var(--c)!important;box-shadow:none!important}
 .sch-b.k-discussion{background:color-mix(in srgb,var(--c) 10%,var(--surface))!important}
+/* class meetings: solid course colour with white text, like the course bands elsewhere (Timeline rows, course cards, task card headers) */
+.sch-b[data-type="meet"]:not(.k-officehours):not(.skipped){background:linear-gradient(180deg,color-mix(in srgb,#fff 10%,var(--c)),var(--c))!important;color:#fff!important;border-left:0!important;border-radius:12px!important;box-shadow:0 2px 8px color-mix(in srgb,var(--c) 30%,rgba(8,20,50,.18))!important}
+.sch-b[data-type="meet"]:not(.k-officehours):not(.skipped) b{color:#fff!important;text-shadow:0 1px 2px rgba(0,0,0,.18)}
+.sch-b[data-type="meet"]:not(.k-officehours):not(.skipped) span{color:rgba(255,255,255,.88)!important}
+.sch-b[data-type="meet"]:not(.k-officehours):not(.skipped):hover{filter:brightness(1.06)!important}
+.sch-b[data-type="meet"].k-lab:not(.skipped){background:repeating-linear-gradient(135deg,var(--c) 0 10px,color-mix(in srgb,var(--c) 92%,#000) 10px 20px)!important}
 .sch-b.k-other,.sch-b.k-event{background:color-mix(in srgb,var(--c) 12%,var(--surface))!important}
 .sch-b.sch-exam{background:color-mix(in srgb,var(--late) 10%,var(--surface))!important;border-left-color:var(--late)!important}
 .sch-b.sch-exam b{color:var(--late)}
