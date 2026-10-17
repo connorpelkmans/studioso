@@ -6627,7 +6627,8 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   header.top .top-row > .sync{margin-left:auto}
   header.top .top-row{align-items:center!important}
   header.top .top-row > .head-actions{align-self:center!important;margin-top:0!important;margin-bottom:0!important}
-  header.top .today{text-align:center}
+  header.top .today{text-align:center;margin-top:1px!important}   /* snug under the logo */
+  header.top .top-row > div:first-child{gap:0!important}
   /* a sync problem shows as a small amber dot (tap Settings for details) */
   header.top .top-row .sync:not([data-state="ok"]){margin-right:4px}
   header.top .today{font-size:.68rem!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
@@ -6783,7 +6784,7 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   /* frosted header: the theme shows through it, blurred (it was nearly solid) */
   /* its top edge is solid --paper, the same colour iOS paints behind the clock and battery (theme-color, set in 101-phone-v2.js),
      so the two read as one bar; it turns to frosted glass further down. Sits a little higher too. */
-  header.top,body.sb-scrolled header.top{padding-top:4px!important;background:linear-gradient(to bottom,var(--paper) 0,color-mix(in srgb,var(--paper) 50%,transparent) 70%)!important;-webkit-backdrop-filter:blur(16px) saturate(1.5)!important;backdrop-filter:blur(16px) saturate(1.5)!important}
+  header.top,body.sb-scrolled header.top{padding-top:4px!important;padding-bottom:6px!important;background:linear-gradient(to bottom,var(--paper) 0,color-mix(in srgb,var(--paper) 50%,transparent) 70%)!important;-webkit-backdrop-filter:blur(16px) saturate(1.5)!important;backdrop-filter:blur(16px) saturate(1.5)!important}
   #view{padding-top:6px!important}   /* 10px below the header in all */
   #view > .pview-tabs:first-child{margin-top:0!important}
   #view > .grp-grid{margin-top:16px}   /* same gap under the Groups pill as other pages */
