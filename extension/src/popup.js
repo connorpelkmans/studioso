@@ -9,7 +9,11 @@ const EVERY = [[15, "Every 15 minutes"], [30, "Every 30 minutes"], [60, "Every h
 const originOf = s => globalThis.__studyboardExt.originOf(s);
 const $ = id => document.getElementById(id);
 // Safari (see popup.css): one fixed height that scrolls inside
-if (/Safari\//.test(navigator.userAgent) && !/Chrom(e|ium)\/|Edg\/|Firefox\//.test(navigator.userAgent)) document.documentElement.classList.add("fixed");
+// Safari (see popup.css): the popup keeps the height it opens with, so it opens with the height its content needed last time
+const FIXED = /Safari\//.test(navigator.userAgent) && !/Chrom(e|ium)\/|Edg\/|Firefox\//.test(navigator.userAgent);
+const POP_H = "popupHeight", fitH = n => Math.max(300, Math.min(600, Math.round(n)));
+function setPopupH(n) { document.documentElement.style.height = document.body.style.height = fitH(n) + "px"; }
+if (FIXED) { document.documentElement.classList.add("fixed"); let last = 0; try { last = Number(localStorage.getItem(POP_H)) || 0; } catch (e) {} setPopupH(last || 600); }
 const send = m => chrome.runtime.sendMessage(m);
 
 // h("div", {class: "x"}, "text", child): a small element builder (text is always text)
@@ -127,12 +131,13 @@ async function render() {
   if (!st || st.error) { main.append(h("p", { class: "status warn" }, "Studyboard School Sync is starting. Close this and open it again in a moment.")); return; }
   $("ver").textContent = "Version " + st.version;
   const ids = Object.keys(st.schools);
+  document.body.classList.toggle("fresh", !ids.length);   // the connect form says it all: the footer's first line is left out
   if (ids.length) {
     main.append(h("ul", { class: "schools" }, ids.map(id => schoolCard(id, st.schools[id], st.status[id]))));
     main.append(h("div", { class: "settings" },
       h("label", { class: "f inline" }, h("span", {}, "Check for Changes"),
         h("select", { onchange: e => send({ op: "settings", every: Number(e.target.value) }) }, EVERY.map(([v, l]) => h("option", { value: v, selected: Number(st.settings.every) === v }, l)))),
-      h("p", { class: "mini" }, "Also when you open your school site or Studyboard (if it's been 10 minutes). Studyboard on studyboardapp.com brings it in by itself.")));
+      h("p", { class: "mini" }, "Also when you open your school site or Studyboard.")));
   }
   if (ids.length < 3) {
     const more = ids.length ? h("details", { class: "more" }, h("summary", {}, "Connect another school site"), connectForm(ids)) : connectForm(ids);
@@ -147,7 +152,9 @@ $("openApp").addEventListener("click", async () => {
 });
 // Open at the top: Safari focuses the first control by itself and scrolls to it
 activeTab().then(u => { tabUrl = u; return render(); }).then(() => {
-  if (!document.documentElement.classList.contains("fixed")) return;
+  if (!FIXED) return;
+  const need = ["header", "main", "footer"].reduce((n, sel) => { const el = document.querySelector(sel); return n + (el ? el.offsetHeight : 0); }, 0) + 4;
+  try { localStorage.setItem(POP_H, String(fitH(need))); } catch (e) {}
   const a = document.activeElement; if (a && a !== document.body && a.blur) a.blur();
   document.body.scrollTop = 0; document.documentElement.scrollTop = 0;
 });
