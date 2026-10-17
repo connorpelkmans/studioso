@@ -6609,6 +6609,10 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   .top-row > div:first-child{justify-content:flex-end;min-width:0!important}
   header.top .brand{margin:0;line-height:0;min-width:0}
   header.top .brand img.logo{width:min(172px,44vw);height:auto;max-width:100%}
+  /* the logo block hugs the logo so the date centres under it; the saved dot and buttons sit to the right */
+  header.top .top-row > div:first-child{flex:0 1 auto!important;align-items:center!important;padding-top:6px}
+  header.top .top-row > .sync{margin-left:auto}
+  header.top .today{text-align:center}
   /* no Save button in the phone header; a green dot says it's saved (amber when it isn't; tap Settings for details) */
   header.top #guestBadge{display:none!important}
   header.top .top-row .sync[data-state="ok"]{display:block!important;font-size:0;width:9px;height:9px;flex:none;border-radius:50%;background:#2FA36B;box-shadow:0 0 0 3px color-mix(in srgb,#2FA36B 22%,transparent);align-self:center;margin-right:4px}
