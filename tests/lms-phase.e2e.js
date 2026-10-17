@@ -319,6 +319,8 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
       return {evTime: ev && ev.time, evDue: ev && ev.due, want: ymd(loc(-9, 0, 0)), H};
     });
     ok(hs.evTime === "23:59", "a deadline entry from 5:00 to 11:59 PM is due at 11:59 PM: " + JSON.stringify({t: hs.evTime}));
+    // (the midterms left by the tests above would also be asked about; they're cleared so this one is seen on its own)
+    await app.evaluate(() => SBLMS.applyChanges(Object.values(SBLMS.st().tasks).filter(x => /Midterm/.test(x.title)).map(x => ({kind: "task", id: x.id, after: null})), ""));
     await app.evaluate(() => SBLMS_DUPES(false));
     await app.waitForSelector("dialog[open] .mg-row", {timeout: 5000});
     const hrow = await app.evaluate(() => [...document.querySelectorAll("dialog[open] .mg-row")].map(r => r.innerText.replace(/\s+/g, " ")));
@@ -366,6 +368,24 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     ok(cvr.cap.length === 1 && cvr.cap[0][1] === true && cvr.cap[0][2] === "assignment71" && cvr.cap[0][3] === "23:59", "Canvas: the undated assignment's submission reaches its calendar entry, due when the entry ends: " + JSON.stringify(cvr.cap));
     ok(cvr.mq && cvr.mq[0] === cvr.today && cvr.mq[1] === "09:30" && cvr.mq[2] === "Room 210" && cvr.ask.some(x => /Section 4 Midterm Exam/.test(x)), "Canvas: a quiz with only an opening date takes its calendar exam's day, time and room, and asks: " + JSON.stringify(cvr));
     ok(cvr.pq === cvr.opened && !cvr.ask.some(x => /Practice/.test(x)), "the Practice Midterm Exam keeps its own date and isn't paired: " + JSON.stringify({pq: cvr.pq, ask: cvr.ask}));
+    // An older copy of the midterm, already done (sat), from before Studyboard tracked real items, and the calendar entry for the sitting,
+    // still Late: Same Exam? pairs them; Merge keeps the done one, with the sitting's time and room
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    const lx = await app.evaluate(() => {
+      const td = (() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0") + "-" + String(n.getDate()).padStart(2, "0"); })();
+      SBLMS.applyChanges([
+        {kind: "task", id: "lq", after: {id: "lq", created: 1, title: "BSNC 1009 Midterm Exam", courseId: "c1", type: "Exam", due: td, time: "", status: "done", order: 1, bs: {key: "19|midtermexam", ou: "19", last: {}, seen: {api: 1}}}},
+        {kind: "task", id: "lc", after: {id: "lc", created: 1, title: "NK9 Midterm Exam", courseId: "c1", type: "Exam", due: td, time: "09:30", location: "SW3 4676/95", status: "todo", order: 2, bs: {key: "19|nk9midtermexam", ou: "19", item: false, last: {}, seen: {api: 1}}}}], "");
+      SBLMS_DUPES(false); return td;
+    });
+    await app.waitForSelector("dialog[open] .mg-row", {timeout: 5000});
+    const lrows = await app.evaluate(() => [...document.querySelectorAll("dialog[open] .mg-row")].map(r => r.innerText.replace(/\s+/g, " ")));
+    ok(lrows.some(r => /BSNC 1009 Midterm Exam/.test(r) && /NK9 Midterm Exam/.test(r)), "a done exam and its Late calendar copy are put to the student: " + JSON.stringify(lrows));
+    await app.click("dialog[open] [data-submit]");
+    await app.waitForFunction(() => !SBLMS.st().tasks.lc, null, {timeout: 5000});
+    const lk = await app.evaluate(() => { const t = SBLMS.st().tasks.lq; return t && [t.status, t.time, t.location]; });
+    ok(lk && lk[0] === "done" && lk[1] === "09:30" && lk[2] === "SW3 4676/95", "Merge keeps the done one, with the sitting's time and room: " + JSON.stringify(lk));
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
     // Two real items both handed in, due at the same moment, named alike ("PHC" and "PHSA Privacy and Confidentiality"): one form per
     // health authority, listed apart by the school, so never asked about; a calendar copy of a done item, done too, is
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
