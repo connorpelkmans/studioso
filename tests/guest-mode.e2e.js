@@ -82,7 +82,7 @@ const DAY = 864e5;
     ok(await ph.evaluate(() => { const s = document.getElementById("sync"); return s.dataset.state === "ok" && !s.offsetWidth; }), "...and no saved dot");
     await ph.screenshot({path: path.join(require("os").tmpdir(), "guest-phone.png")});
     await ph.close();
-    ok(!(await page.isVisible("#syncSide")), "the side bar doesn't say Saved either");
+    ok(await page.isVisible("#syncSide") && await page.getAttribute("#syncSide", "data-state") === "ok", "on a computer the side bar shows the green saved dot");
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await browser.close(); server.close(); }
   console.log(`\nguest-mode.e2e: ${n} checks passed`);
