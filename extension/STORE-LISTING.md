@@ -22,7 +22,7 @@ After each listing goes live, put its address in `EXT_STORE` in `index.html` (se
 **Description:**
 > Studyboard School Sync keeps your Studyboard planner in step with your school's learning platform, automatically.
 >
-> Connect your school site once. Every hour, and whenever you open the site, the extension reads your due dates, what you've submitted (and whether it was late, is missing or got an extension), your grades, your instructor's feedback and rubric scores, announcements, your teaching team and the course syllabus. Open Studyboard at studyboardapp.com in the same browser and it's all there:
+> Connect your school site once. Every hour (or as often as every 15 minutes), whenever you open the site and whenever you open Studyboard, the extension reads your due dates, what you've submitted (and whether it was late, is missing or got an extension), your grades, your instructor's feedback and rubric scores, announcements, your teaching team and the course syllabus. Open Studyboard at studyboardapp.com in the same browser and it's all there:
 > • New assignments, quizzes and discussions become tasks with their due dates
 > • Work you've handed in is ticked off for you
 > • Grades go to your Grade Tracker, and the feedback is one click away
