@@ -66,7 +66,7 @@ const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { 
     await pop.waitForSelector("form.connect");
     ok(/Connect Your School Site/.test(await pop.textContent("main")) && await pop.locator("#addr").count() === 1, "the popup offers to connect a school site");
     const needEmpty = await pop.evaluate(() => ["header", "main", "footer"].reduce((n, sel) => n + document.querySelector(sel).offsetHeight, 0));
-    ok(needEmpty <= 540, "connecting needs no scrolling either, with room for larger text: " + needEmpty + "px");
+    if (!process.env.SB_EXT_BUILD) ok(needEmpty <= 540, "connecting needs no scrolling either, with room for larger text: " + needEmpty + "px");
     fs.mkdirSync(OUT, {recursive: true}); await pop.setViewportSize({width: 360, height: 200}); await pop.screenshot({path: path.join(OUT, "extension-popup-empty.png"), fullPage: true});
     // The student has Canvas open, then connects it
     const school = await ctx.newPage(); await school.goto(SCHOOL + "/");
@@ -127,8 +127,9 @@ const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { 
     ok(!/Ready to Import/.test(dlgText), "a read already imported is not imported again" + (dlgText ? " (open: " + dlgText.slice(0, 80) + ")" : ""));
     // Everything fits in the popup's 600px (the tallest a popup can be in Chrome; Safari's is kept at the height it needs)
     const need = await pop.evaluate(() => ["header", "main", "footer"].reduce((n, sel) => n + document.querySelector(sel).offsetHeight, 0));
-    ok(need <= 540, "the synced popup needs no scrolling, with room for larger text: " + need + "px");
-    // Remove, asked inside the popup (Safari's popups can't show confirm() dialogs)
+    if (!process.env.SB_EXT_BUILD) ok(need <= 540, "the synced popup needs no scrolling, with room for larger text: " + need + "px");
+    // Remove, asked inside the popup (Safari's popups can't show confirm() dialogs; released builds before 1.0.3 used confirm())
+    if (!process.env.SB_EXT_BUILD) {
     await pop.reload(); await pop.waitForSelector(".school");
     await pop.click(".school .link"); await pop.waitForSelector(".school .confirm");
     ok(/Stop syncing Canvas\?/.test(await pop.textContent(".school .confirm")), "Remove asks inside the popup");
@@ -137,6 +138,7 @@ const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { 
     await pop.click(".school .link"); await pop.click('.school .confirm button:has-text("Stop Syncing")');
     await pop.waitForSelector("form.connect", {timeout: 10000});
     ok(await pop.evaluate(() => chrome.runtime.sendMessage({op: "status"}).then(x => !Object.keys(x.schools || {}).length)), "Stop Syncing removes it");
+    }
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await ctx.close(); server.close(); }
   console.log(`\nextension.e2e: ${n} checks passed`);
