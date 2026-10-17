@@ -8,6 +8,8 @@ const TAGS = { canvas: "Canvas", brightspace: "D2L", blackboard: "Bb" };
 const EVERY = [[15, "Every 15 minutes"], [30, "Every 30 minutes"], [60, "Every hour"], [180, "Every 3 hours"], [360, "Every 6 hours"], [720, "Every 12 hours"]];
 const originOf = s => globalThis.__studyboardExt.originOf(s);
 const $ = id => document.getElementById(id);
+// Safari (see popup.css): one fixed height that scrolls inside
+if (/Safari\//.test(navigator.userAgent) && !/Chrom(e|ium)\/|Edg\/|Firefox\//.test(navigator.userAgent)) document.documentElement.classList.add("fixed");
 const send = m => chrome.runtime.sendMessage(m);
 
 // h("div", {class: "x"}, "text", child): a small element builder (text is always text)
