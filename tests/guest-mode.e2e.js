@@ -28,8 +28,8 @@ const DAY = 864e5;
     ok(/Use Without an Account/.test(await page.textContent("#sbLater")), "the first screen offers Use Without an Account");
     ok(!(await page.locator("#sbGate").count()), "there's no sign-in wall");
     await page.click("#sbLater");
-    await page.waitForFunction(() => !document.getElementById("guestBadge").hidden && !document.getElementById("guestBadgeSide").hidden, null, {timeout: 5000});
-    ok(true, "after choosing it, the header says the planner is only on this device");
+    await page.waitForFunction(() => window.SBGUEST && SBGUEST.is(), null, {timeout: 5000});
+    ok(!(await page.isVisible("#guestBadge")) && !(await page.isVisible("#guestBadgeSide")), "after choosing it, no Save button is put in the header or side bar (saving is automatic)");
     ok(await page.evaluate(() => SBGUEST.is() && localStorage.getItem("studioso:sb") === '"local"'), "Studyboard is in guest mode");
     // 2. The welcome tour runs; its last page offers an account
     await page.waitForSelector(".sheet.ob", {timeout: 8000});
@@ -40,8 +40,11 @@ const DAY = 864e5;
     ok(/Keep Your Planner Safe/.test(await page.textContent(".sheet.ob")) && await page.locator('[data-ob="account"]').count() === 1, "the tour's last page offers a free account");
     await page.click('[data-ob="finish"]'); await page.waitForTimeout(400);
     ok(await page.evaluate(() => Object.keys(SBLMS.st().courses).length === 1), "the course added in the tour is there, on this device");
-    // 3. The header button opens Save Your Planner; Create a Free Account goes to the sign-up form
-    await page.click("#guestBadgeSide");   // the side bar on a computer (the header's on a phone)
+    // 3. Settings has Save Your Planner; Create a Free Account goes to the sign-up form
+    await page.click('nav.tabs .nav-tool[data-act="menu"]');
+    await page.waitForSelector('dialog[open] [data-act="guest-save"]', {timeout: 5000});
+    ok(/Save Your Planner/.test(await page.textContent('dialog[open] [data-act="guest-save"]')), "Settings offers Save Your Planner");
+    await page.click('dialog[open] [data-act="guest-save"]');
     await page.waitForSelector('dialog[open] [data-guest="signup"]', {timeout: 5000});
     ok(/only on this device/i.test(await page.textContent("dialog[open]")) && /comes with you/.test(await page.textContent("dialog[open]")), "Save Your Planner says it's only here and that it comes along into an account");
     await page.click('dialog[open] [data-guest="signup"]');
@@ -70,15 +73,16 @@ const DAY = 864e5;
     ok(!/still only on this device/.test(await page.textContent("#toastMsg")), "and not again the next time they open it that week");
     ok(!(await page.locator('dialog[open] #sbLater').count()), "no sign-in window is put up on opening");
     await page.screenshot({path: path.join(require("os").tmpdir(), "guest-desktop.png")});
-    // On a phone the button is in the header
+    // On a phone the header shows neither a Save button nor a saved indicator
     const ph = await browser.newPage({viewport: {width: 390, height: 844}});
     await ph.route(/supabase\.co/, r => r.abort());
     await ph.goto(base); await ph.evaluate(() => { localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("sb:onboarded", "1"); });
     await ph.reload(); await ph.waitForTimeout(1500);
-    ok(await ph.isVisible("#guestBadge") && /Save/.test(await ph.textContent("#guestBadge .sg-s")), "on a phone the header shows a short Save button");
+    ok(!(await ph.isVisible("#guestBadge")), "on a phone the header has no Save button");
+    ok(await ph.evaluate(() => { const s = document.getElementById("sync"); return s.dataset.state === "ok" && !s.offsetWidth; }), "...and no saved dot");
     await ph.screenshot({path: path.join(require("os").tmpdir(), "guest-phone.png")});
     await ph.close();
-    ok(await page.evaluate(() => !document.getElementById("guestBadgeSide").hidden), "the side-bar button is still there");
+    ok(!(await page.isVisible("#syncSide")), "the side bar doesn't say Saved either");
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await browser.close(); server.close(); }
   console.log(`\nguest-mode.e2e: ${n} checks passed`);
