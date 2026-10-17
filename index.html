@@ -6767,6 +6767,8 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   #view > .view-head.ph-btns,#view > section > .view-head.ph-btns{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:4px 0 14px!important;padding:0!important;min-height:0;height:auto;position:static!important;transform:none!important}
   #view > .view-head.ph-btns + *,#view > section > .view-head.ph-btns + *{margin-top:0!important}
   /* breathing room between the header and the page's first row (the switcher or title pill) */
+  /* frosted header: the theme shows through it, blurred (it was nearly solid) */
+  header.top,body.sb-scrolled header.top{background:color-mix(in srgb,var(--paper) 50%,transparent)!important;-webkit-backdrop-filter:blur(16px) saturate(1.5)!important;backdrop-filter:blur(16px) saturate(1.5)!important}
   #view{padding-top:6px!important}   /* 10px below the header in all */
   #view > .pview-tabs:first-child{margin-top:0!important}
   #view > .grp-grid{margin-top:16px}   /* same gap under the Groups pill as other pages */
