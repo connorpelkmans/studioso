@@ -6763,6 +6763,8 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   /* a header left with only its buttons (its heading repeats the page): the buttons on their own line under the switcher, at the right */
   #view > .view-head.ph-btns,#view > section > .view-head.ph-btns{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:4px 0 14px!important;padding:0!important;min-height:0;height:auto;position:static!important;transform:none!important}
   #view > .view-head.ph-btns + *,#view > section > .view-head.ph-btns + *{margin-top:0!important}
+  /* breathing room between the header and the page's first row (the switcher or title pill) */
+  #view{padding-top:10px!important}
   /* Companion chat: the page is fixed and only the conversation scrolls (#view's height is set by fitChat in 101-phone-v2.js) */
   html.ph-lock,html.ph-lock body{overflow:hidden!important;overscroll-behavior:none}
   html.ph-lock .wrap{padding-bottom:0!important;min-height:0!important}
