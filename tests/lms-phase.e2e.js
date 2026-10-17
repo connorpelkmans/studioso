@@ -425,6 +425,32 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
       PM("Grading: a minimum grade of 65% is required to pass this course.", {pct: 65, name: "BSN"}));
     ok(pm3.def === 60 && pm3.src === "user" && pm3.cs.every(c => c[1] === "default"), "Use this pass mark for all my courses: every course uses 60%, and a sync doesn't change it: " + JSON.stringify(pm3));
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    // BSNC 1030: "Midterm Clinical Evaluation" (due Oct 23 8:30) has a calendar entry Brightspace links to it; "Final Clinical Evaluation"
+    // has no due date and its date is only on a calendar entry (Nov 19, 6 PM). The midterm's entry never dates the final (by the linked
+    // id, or without it); the final's own entry takes it; a copy left from the earlier mix-up is offered for removal
+    await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    const ce = await app.evaluate(() => {
+      const L = SBLMS.brightspace, at = (dd, h, m) => { const n = new Date(); n.setDate(n.getDate() + dd); n.setHours(h, m, 0, 0); return n.toISOString(); }, ymd = iso => { const d = new Date(iso); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+      const mid = at(6, 8, 30), fin = at(33, 18, 0);
+      const H = withId => ({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [],
+        courses: [{ou: "1030", code: "BSNC1030", name: "Clinical Practice", quizzes: [], grades: [], news: [],
+          folders: [{id: "301", name: "Midterm Clinical Evaluation", due: mid, end: null, sub: false, files: []}, {id: "302", name: "Final Clinical Evaluation", due: null, end: null, sub: false, files: []}],
+          events: [{id: "e301", title: "Midterm Clinical Evaluation - Due", start: mid, end: mid, allDay: false, assoc: true, kind: "Dropbox", eid: withId ? "301" : "", url: ""},
+                   {id: "e302", title: "Final Clinical Evaluation", start: fin, end: fin, allDay: false, assoc: false, url: ""}]}]});
+      // a copy from the earlier mix-up: the final, dated like the midterm
+      SBLMS.applyChanges([{kind: "task", id: "fx", after: {id: "fx", created: 1, title: "Final Clinical Evaluation", courseId: "c1", type: "Exam", due: ymd(mid), time: "08:30", status: "todo", order: 1,
+        bs: {key: "1030|finalclinicalevaluation", ou: "1030", item: true, last: {title: "Final Clinical Evaluation", due: ymd(mid), time: "08:30"}, seen: {api: 1}}}},
+        {kind: "task", id: "fy", after: {id: "fy", created: 1, title: "Final Clinical Evaluation", courseId: "c1", type: "Exam", due: ymd(fin), time: "18:00", status: "todo", order: 2,
+        bs: {key: "1030|finalclinicalevaluation", ou: "1030", item: false, last: {title: "Final Clinical Evaluation", due: ymd(fin), time: "18:00"}, seen: {api: 1}}}}], "");
+      const out = [true, false].map(withId => { const d = L.fromApi(H(withId)); return d.recs.filter(r => /Clinical Evaluation/.test(r.title)).map(r => [r.title, r.due, r.time, r.pid || ""]); });
+      const d = L.fromApi(H(true)), p = L.plan(d);
+      return {out, gone: p.rep.gone.map(t => [t.title, t.due]), midD: ymd(mid), finD: ymd(fin), same: SB_SAMEOK("Midterm Clinical Evaluation", "Final Clinical Evaluation")};
+    });
+    const finRows = ce.out.map(rs => rs.filter(r => /^Final/.test(r[0])));
+    ok(finRows.every(rs => rs.length === 1 && rs[0][1] === ce.finD && rs[0][2] === "18:00" && rs[0][3] === "f302"), "the final takes its own calendar entry's date and its assignment, with or without the linked id: " + JSON.stringify(ce.out));
+    ok(ce.out.every(rs => rs.filter(r => /^Midterm/.test(r[0])).length === 1 && rs.find(r => /^Midterm/.test(r[0]))[1] === ce.midD), "the midterm keeps its own date: " + JSON.stringify(ce.out));
+    ok(ce.same === false, "Midterm and Final are never the same item");
+    ok(ce.gone.length === 1 && ce.gone[0][0] === "Final Clinical Evaluation", "of the two copies already here, the one the read didn't update is offered for removal: " + JSON.stringify(ce.gone));
     // Two real items both handed in, due at the same moment, named alike ("PHC" and "PHSA Privacy and Confidentiality"): one form per
     // health authority, listed apart by the school, so never asked about; a calendar copy of a done item, done too, is
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });

@@ -4,7 +4,7 @@ The exact files of each version of Studyboard School Sync sent to a store, unpac
 
 | Version | Sent to | Chrome zip SHA-256 |
 |---|---|---|
-| 1.0.2 | Chrome Web Store (to be submitted) | `161b76691d83a0a86d61dbb4303afe2a5ae483bfe9a66b9e427e8f0c5f96cc30` |
+| 1.0.2 | Chrome Web Store (to be submitted) | `e70d8a6f6e589360b60ab33cc95a18c9d4aeb146c8c61f6f89e76837f34eddae` |
 
 1.0.0 was withdrawn from review before it was published, so it isn't kept here. If 1.0.2's upload ever differs from this folder (a rebuild before submitting), replace the folder and the SHA-256 before it's sent, and never after.
 
