@@ -54,7 +54,10 @@ input,select{font:inherit;font-weight:400;color:var(--ink);background:var(--bg);
 .f.inline select{width:auto}
 .disclose{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px;color:var(--mute)}
 .disclose b{color:var(--ink);font-size:12.5px}
-.disclose ul{margin:4px 0 6px;padding-left:16px;display:flex;flex-direction:column;gap:3px}
+.disclose p{margin:0}.disclose p+p{margin-top:4px}
+.more{display:inline}.more summary{display:inline;cursor:pointer;color:var(--accent);text-decoration:underline;list-style:none}.more summary::-webkit-details-marker{display:none}
+.more[open]{display:block;margin-top:6px}.more[open] summary{display:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .disclose a{color:var(--accent)}
 .settings{display:flex;flex-direction:column;gap:4px}
 .more summary{cursor:pointer;font-weight:600;padding:4px 0}
