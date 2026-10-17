@@ -2924,7 +2924,8 @@ html :is(.tl-controls.f-title,.pview-tabs + .tl-controls:has(> .segb)) > h2{flex
 .pview-tabs + .view-head,.pview-tabs + .tl-controls{row-gap:16px}
 /* Crunch's title sits at the top of its row (the range toggle beside it is taller), so it is 12px under the tab selector like the other pages */
 /* the range switch sits centred on the title's plate, and doesn't make the row taller than other tabs' titles */
-@media (min-width:601px){.pview-tabs + .cr > .cr-head{align-items:center}.pview-tabs + .cr > .cr-head > .cr2-range{margin-block:-12px}.pview-tabs + .cr > .cr-head + *{margin-top:0}}
+@media (min-width:601px){.pview-tabs + .cr > .cr-head{align-items:center}.pview-tabs + .cr > .cr-head > .cr2-range{margin-block:-12px}/* 12px row gap + 4px = the same 16px Timeline has from its title to the course chips */
+.pview-tabs + .cr > .cr-head + *{margin-top:4px}}
 @media (max-width:600px){.pview-tabs + .cr > .cr-head + *{margin-top:4px}}
 .pview-tabs + .cr,.cr{gap:12px}
 .cr-head{margin:0}
