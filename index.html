@@ -6584,9 +6584,9 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
   .sr-ic{width:26px;height:26px}
 }
 /* ===== module: 101-phone-v2.css ===== */
-/* Saving is automatic, so nothing says "Saved" or "Saving"; only a problem shows. Guests save to an account from Settings. */
+/* Saving is automatic, so the header says nothing about it unless there's a problem. Guests save to an account from Settings. */
 #guestBadge,#guestBadgeSide{display:none!important}
-.sync:is([data-state="ok"],[data-state="busy"]),.nav-sync:is([data-state="ok"],[data-state="busy"]){display:none!important}
+.sync:is([data-state="ok"],[data-state="busy"]){display:none!important}   /* (the desktop side bar keeps its green Saved dot, .nav-sync) */
 /* The page area takes focus after a page change (so screen readers start there); it is not a control, so no outline around the whole page */
 #view:focus,#view:focus-visible,main[tabindex="-1"]:focus{outline:none!important;box-shadow:none!important}
 /* Phones and tablets: the page itself never slides sideways or rubber-bands (iOS lets a touch drag the whole page around when anything
