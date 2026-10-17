@@ -451,6 +451,21 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     ok(ce.out.every(rs => rs.filter(r => /^Midterm/.test(r[0])).length === 1 && rs.find(r => /^Midterm/.test(r[0]))[1] === ce.midD), "the midterm keeps its own date: " + JSON.stringify(ce.out));
     ok(ce.same === false, "Midterm and Final are never the same item");
     ok(ce.gone.length === 1 && ce.gone[0][0] === "Final Clinical Evaluation", "of the two copies already here, the one the read didn't update is offered for removal: " + JSON.stringify(ce.gone));
+    // Not every entry about an exam is one: "NK1 Midterm Exam Review" (a session in a room) is a calendar event; "Practice Midterm Exam
+    // Questions" is work, not a sitting; "Midterm Clinical Evaluation" and "BSNC 1000 Midterm Exam- Requires Respondus LockDown Browser" are exams
+    const ty = await app.evaluate(() => {
+      const L = SBLMS.brightspace, at = d => new Date(Date.now() + d * 864e5).toISOString();
+      const d = L.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [],
+        courses: [{ou: "1000", code: "BSNC1000", name: "Nursing Knowledge", grades: [], news: [],
+          folders: [{id: "51", name: "Midterm Clinical Evaluation", due: at(6), end: null, sub: false, files: []}],
+          quizzes: [{id: "52", name: "BSNC 1000 Midterm Exam- Requires Respondus LockDown Browser", due: at(4), start: null, end: null, done: false},
+                    {id: "53", name: "Practice Midterm Exam Questions", due: at(30), start: null, end: null, done: false}],
+          events: [{id: "e5", title: "NK1 Midterm Exam Review", start: at(4), end: at(4.06), allDay: false, assoc: false, where: "NW4 1072/76/78", url: ""}]}]});
+      return {recs: d.recs.map(r => [r.title, r.type]), evs: d.evs.map(e => e.title)};
+    });
+    const tyOf = t => (ty.recs.find(r => r[0] === t) || [])[1];
+    ok(!ty.recs.some(r => /Exam Review/.test(r[0])) && ty.evs.includes("NK1 Midterm Exam Review"), "an exam review session is a calendar event, not a task: " + JSON.stringify(ty));
+    ok(tyOf("Midterm Clinical Evaluation") === "Exam" && tyOf("BSNC 1000 Midterm Exam- Requires Respondus LockDown Browser") === "Exam" && tyOf("Practice Midterm Exam Questions") === "Assignment", "real exams stay exams; practice questions are work: " + JSON.stringify(ty.recs));
     // Two real items both handed in, due at the same moment, named alike ("PHC" and "PHSA Privacy and Confidentiality"): one form per
     // health authority, listed apart by the school, so never asked about; a calendar copy of a done item, done too, is
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
