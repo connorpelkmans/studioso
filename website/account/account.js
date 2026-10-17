@@ -261,8 +261,12 @@
         if (r.error) return msg($("auth-msg"), words(r.error), "error");
         f.reset();
         if (r.data && r.data.session) return;   // email confirmation is switched off: already signed in
-        // The message is the same whether or not the address was already registered (no account guessing).
-        toCode("signup", email, "If that address can be used, we sent a 6-digit code to " + email + ". Type it here, or tap the button in the email.");
+        // An address that already has an account: nothing is sent, and the answer has no sign-in methods. Say so and go to Sign In.
+        if (r.data && r.data.user && Array.isArray(r.data.user.identities) && !r.data.user.identities.length) {
+          showForm("form-signin"); var se = $("form-signin").querySelector("input[name=email]"); if (se) se.value = email;
+          return msg($("auth-msg"), "An account already uses this email. Sign in, or use Forgot Password if you don't remember the password.", "error");
+        }
+        toCode("signup", email, "We sent a 6-digit code to " + email + ". Type it here, or tap the button in the email.");
       }, function (e) { busy(f, false); msg($("auth-msg"), words(e), "error"); });
     });
 

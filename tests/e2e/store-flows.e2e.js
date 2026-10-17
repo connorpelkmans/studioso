@@ -124,11 +124,12 @@ const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries
     assert.deepEqual(errs, []); await ctx.close();
   });
 
-  await test("sign up with an address that already has an account looks identical (no enumeration)", async () => {
+  await test("sign up with an address that already has an account says so and goes to Sign In with the email filled in", async () => {
     const {ctx, page} = await newPage(browser, {cfg: {existing: true}});
     await page.waitForSelector("dialog[open] form.sb-acct"); await page.click('dialog[open] [data-sbm="signup"]');
     await fillSubmit(page, {email: "taken@example.com", password: "correct horse 7"});
-    const t = await dlgText(page); assert.match(t, /Check Your Email/); assert.ok(!/already/i.test(t.replace(/Already have an account\?/i, "")));
+    const t = await dlgText(page); assert.match(t, /already uses this email/); assert.ok(!/Check Your Email/.test(t), "no code step: nothing was sent");
+    assert.equal(await page.inputValue('dialog[open] input[name=email]'), "taken@example.com");
     await ctx.close();
   });
 
