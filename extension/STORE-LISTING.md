@@ -8,7 +8,7 @@ Everything to paste into the Chrome Web Store, Microsoft Edge Add-ons and Firefo
 | Microsoft Edge Add-ons | `dist/…-chrome.zip` (the same file) | [Partner Center](https://partner.microsoft.com/dashboard/microsoftedge/overview), free | Up to 7 business days |
 | Firefox Add-ons (AMO) | `dist/…-firefox.zip`, plus `dist/…-source.zip` when asked for source | [AMO Developer Hub](https://addons.mozilla.org/developers/), free | Automatic checks, then a human review because of the source upload |
 
-After each listing goes live, put its address in `EXT_STORE` in `index.html` (search for `const EXT_STORE`) and deploy the website. The Studyboard bookmark's sheet then offers "Get It for Chrome / Edge / Firefox". Before that, it only mentions the extension to people who already have it installed.
+The Chrome listing's address is `EXT_CHROME_URL` in `index.html`: the website offers the extension ("Add to Chrome") in desktop Google Chrome only. To offer another store's listing too, add its address to `EXT_STORE` and widen `chromeDesktop()` (or add a matching check) for that browser.
 
 ---
 
