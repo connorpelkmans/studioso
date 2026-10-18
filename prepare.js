@@ -88,7 +88,7 @@ fs.writeFileSync(path.join(out, "index.html"), html);
 // Content-Security-Policy support for the desktop app: main.js allows exactly these inline scripts (by SHA-256 hash) and no others.
 // The page must keep working without inline event handlers (on...="") and with no script from the network, so both are checked here.
 const crypto = require("crypto");
-const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => "sha256-" + crypto.createHash("sha256").update(m[1], "utf8").digest("base64"));
+const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => "sha256-" + crypto.createHash("sha256").update(m[1].replace(/\r\n?/g, "\n"), "utf8").digest("base64"));
 const markup = html.replace(/<script[\s\S]*?<\/script>/gi, "");          // the page's HTML without the code inside its scripts
 if (/<script\b[^>]*\ssrc=["']https?:/i.test(markup)) console.warn("prepare: a script is still loaded from the network; the app's CSP will block it");
 if (/<script\b(?![^>]*\ssrc=)[^>]+>/i.test(html.replace(/<script>[\s\S]*?<\/script>/gi, "<!--s-->"))) console.warn("prepare: a script tag with attributes is not covered by the CSP hashes");
