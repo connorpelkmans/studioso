@@ -2,7 +2,7 @@
 
 The Windows app goes to the Store as an **MSIX package** (electron-builder's `appx` target). The Store signs the package itself, so you don't need a code-signing certificate. Installs and uninstalls are clean, and the Store delivers updates. The website's `.exe` installer stays as it is for direct downloads.
 
-Publisher: **Connor Pelkmans (Studyboard)**, an **Individual** developer account.
+Publisher: **Studyboard** (the publisher display name), an **Individual** developer account.
 
 ## 1. Account
 
@@ -19,7 +19,7 @@ Publisher: **Connor Pelkmans (Studyboard)**, an **Individual** developer account
 |---|---|---|
 | Package/Identity/Name | `identityName` | `12345ConnorPelkmans.Studyboard` |
 | Package/Identity/Publisher | `publisher` | `CN=1A2B3C4D-…` |
-| Package/Properties/PublisherDisplayName | `publisherDisplayName` | `Connor Pelkmans (Studyboard)` (already set; it must match exactly) |
+| Package/Properties/PublisherDisplayName | `publisherDisplayName` | `Studyboard` (already set; it must match exactly) |
 
 3. `npm run check:msstore` must print *nothing left to fill in*. Until then the build stops on purpose, because the Store refuses a package with the wrong identity.
 
