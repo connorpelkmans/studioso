@@ -140,7 +140,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await page.locator('#dlg [data-act="sem-open"]:visible').first().click();
       await page.waitForSelector(".sem-sheet .sem-h");
       await page.click('[data-sem="goto"][data-id="review"]');
-      ok(/Nothing found yet/.test(await page.textContent(".sem-body")), "a rerun does not list or touch existing tasks (nothing found yet)");
+      ok(/Nothing Found Yet/.test(await page.textContent(".sem-body")), "a rerun does not list or touch existing tasks (nothing found yet)");
       await page.click('[data-sem="scope"][data-id="all"]');
       ok(await page.locator(".sem-r").count() === 1, "'Everything coming up' lists existing open tasks");
       await page.keyboard.press("Escape");
