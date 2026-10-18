@@ -183,7 +183,7 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     ok(/kept off/.test(await app.textContent("dialog[open]")), "the platform's settings say deleted items are kept off");
     await app.click('dialog[open] [data-act="bs-undrop"]');
     await app.waitForSelector('dialog[open] input[name="ubWay"]', {timeout: 5000});
-    ok(/Studyboard bookmark/.test(await app.textContent("dialog[open]")) && await app.locator('dialog[open] input[name="ubWay"][value="any"]').count() === 0, "Bring Them Back offers a signed-in read (here the bookmark; no calendar link to offer)");
+    { const t = await app.textContent("dialog[open]"); ok(/School Sync extension/.test(t) && !/bookmark/i.test(t) && await app.locator('dialog[open] input[name="ubWay"][value="any"]').count() === 0, "Bring Them Back offers a signed-in read (the extension, never the bookmark; no calendar link to offer)"); }
     await app.click("dialog[open] [data-submit]");
     const viaFeed = await app.evaluate(h => { const L = SBLMS.brightspace, d = L.fromApi(h); d.src = "feed"; L.applyPlan(d, L.plan(d), "feed", true); return !!Object.values(SBLMS.st().tasks).find(t => t.title === "Deleted Then Wanted"); }, DROP);
     ok(!viaFeed, "the calendar link doesn't bring it back");
