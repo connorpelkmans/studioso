@@ -53,6 +53,10 @@ What to try in the packaged app:
 * "Accesses, collects or transmits personal information": **Yes** (account email, synced data, files).
 * System requirements: Windows 10 version 1809 or later (the package's minimum), x64 or ARM64, internet for sync and AI.
 
+**Restricted capability `runFullTrust`.** The package upload warns that it needs approval. That is expected for every Electron/MSIX desktop app. Under Submission options > Restricted capabilities (or Notes for certification), paste:
+
+> Studyboard is a desktop app built with Electron and packaged as MSIX, so it requires runFullTrust to run as a standard Win32 desktop process. It uses this for normal desktop features: a window with system tray support so reminders keep working when the window is closed, Windows notifications, an optional global keyboard shortcut for screenshot capture (which can be turned off in Settings), the studyboard:// link handler, and a startup task that is off until the user turns it on in Windows Settings. It doesn't install drivers or services or change system settings.
+
 **Age ratings (IARC questionnaire).** Answer it honestly. The points specific to Studyboard:
 * **Users can interact or exchange content:** Yes. Study groups have chat, shared tasks and decks. Report and Block exist, and the Terms ban objectionable content.
 * **Shares the user's location:** No.
