@@ -165,7 +165,7 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
       // backed up recently: the card is the notice that shows
       const ctx = await mkCtx({backedUp: true}); page = await open(ctx);
       const card = page.locator(".gn-card");
-      ok(await card.count() === 1 && /Study with a friend/.test(await card.textContent()), "signed out: the Study with a friend card shows");
+      ok(await card.count() === 1 && /Study with a Friend/.test(await card.textContent()), "signed out: the Study with a friend card shows");
       ok(/sign in/i.test(await card.textContent()), "signed out: the card says an account comes first");
       const r = await card.boundingBox(), qa = await page.locator(".qa-wrap").boundingBox();
       ok(r.y + r.height <= qa.y + 1 && r.x >= 0 && r.x + r.width <= 390, "card sits above quick add and doesn't overlap it");

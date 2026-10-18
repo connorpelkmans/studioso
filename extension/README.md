@@ -1,6 +1,6 @@
 # Studyboard School Sync (browser extension)
 
-Keeps the Studyboard website (studyboardapp.com) up to date with a student's Canvas, Brightspace (D2L) or Blackboard Learn, automatically. It reads the same things as the desktop app, the phone apps and the website's Studyboard bookmark: courses, due dates, submissions (late, missing, extensions), grades, feedback and rubrics, announcements, the teaching team, the syllabus and, for Canvas, the Inbox.
+Keeps the Studyboard website (studyboardapp.com) up to date with a student's Canvas, Brightspace (D2L) or Blackboard Learn, automatically. It reads the same things as the desktop app and the phone apps: courses, due dates, submissions (late, missing, extensions), grades, feedback and rubrics, announcements, the teaching team, the syllabus and, for Canvas, the Inbox.
 
 One source, four stores: Chrome Web Store, Microsoft Edge Add-ons (same package as Chrome), Firefox Add-ons (AMO) and, for Safari, Apple's App Store (see [Safari](#safari)). Store steps and listing text are in [STORE-LISTING.md](STORE-LISTING.md).
 
@@ -56,13 +56,13 @@ To check on the Mac (not covered by the automated tests, which run in Chromium):
 school site ──GET, the browser's own sign-in──▶ background.js (harvest.js from lms.js, then cleanHarvest)
                                                    │ chrome.storage.local  "result:<platform>"
 studyboardapp.com ◀──window.postMessage── relay.js ┘
-   └─ index.html: extImport() → the same cleaning and import as the bookmark (importGrab)
+   └─ index.html: extImport() → the same cleaning (cleanHarvest) and import (importGrab) as the desktop app
 ```
 
 - **Permissions.** `storage`, `alarms`, `scripting` and `activeTab` are needed at install. School sites are `optional_host_permissions`: nothing is readable until the student connects a site in the popup and the browser asks them to allow that one site. `relay.js` runs only on studyboardapp.com.
 - **Reading.** On a timer (every hour by default, 15 minutes to 12 hours), when the student opens the connected site, and on Sync Now. It reads in the background first. If that read isn't signed in (some single sign-on setups don't send their cookies to an extension), it runs the same `harvest.js` inside an open tab of the school site, the way the bookmark does. Every request is a GET to the connected site only: the background's fetch refuses any other address, including a "next page" link to another site.
 - **No remote code.** Everything the extension runs is in the package. `harvest.js` is generated at build time from `lms.js` and isn't minified. Nothing is evaluated from text (`tests/extension.test.js` checks).
-- **Into Studyboard.** `relay.js` posts the stored results to the page. The web app (`index.html`, "The Studyboard School Sync browser extension") treats them like a bookmark code: it cleans them again for the address they claim, imports each read once, and opens the usual review the first time. The page can only ask the extension for its data or for a sync now.
+- **Into Studyboard.** `relay.js` posts the stored results to the page. The web app (`index.html`, "The Studyboard School Sync browser extension") treats them as untrusted: it cleans them again for the address they claim, imports each read once, and opens the usual review the first time. The page can only ask the extension for its data or for a sync now.
 - **Talking to the website.** Two ways, both offering only "what was read" and "sync now": `relay.js` (a content script on studyboardapp.com, used by today's website and by Firefox) and, from 1.0.1 on Chrome and Edge, `externally_connectable` (the page calls `chrome.runtime.sendMessage(extensionId, {type: "get" | "sync"})`; `background.js`, `onMessageExternal`). The second needs no content script, so once the website uses it, a later version can drop `relay.js` from the Chrome build and install with no "Read and change your data on studyboardapp.com" warning. Plan: the website asks the extension directly when it can and falls back to `relay.js`; after that is live, a later version drops the relay for Chrome and Edge.
 - **Firefox.** Firefox may close the popup while it asks for a permission, so the popup first tells the background which site is pending, and the background finishes connecting when the permission arrives (`permissions.onAdded`).
 
