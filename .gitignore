@@ -30,3 +30,4 @@ ios-www/
 # The browser extension: built by scripts/build-extension.js (packages to upload to the stores)
 /extension/build/
 /extension/dist/
+msstore-upload/
