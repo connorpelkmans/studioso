@@ -48,23 +48,28 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
   const app = await ctx.newPage(); const errs = []; app.on("pageerror", e => errs.push(e.message));
   try {
     await app.goto(base); await app.waitForSelector("#view", {state: "attached"}); await app.waitForFunction(() => window.SBLMS);
-    // Connect sheet on the website offers the bookmark; its sheet builds the bookmark
+    // Connect sheet on the website: never the bookmark. The extension is offered in desktop Google Chrome only; elsewhere the calendar link leads
     await app.evaluate(() => SBLMS.canvas.connectSheet());
-    ok(await app.locator('dialog [data-act="cv-grab"]').count() === 1, "the website's Connect Canvas sheet offers reading Canvas in this browser");
-    const ways = await app.evaluate(() => [...document.querySelectorAll("#dlg .bs-way")].map(w => ({t: w.querySelector("b").textContent, rec: w.classList.contains("rec"), pill: (w.querySelector(".bs-pill") || {}).textContent, text: w.innerText})));
-    ok(ways[0].t === "Read Canvas in This Browser" && ways[0].rec && ways[0].pill === "Recommended" && ways.filter(w => w.rec).length === 1, "on the website the bookmark comes first and is the one recommended: " + JSON.stringify(ways.map(w => [w.t, w.pill])));
-    ok(/holds a small program/.test(ways[0].text) && /only reads/.test(ways[0].text) && /never sent to any server/.test(ways[0].text) && /doesn't pass through Studyboard's servers/.test(ways[0].text) && /Delete the bookmark/.test(ways[0].text),
-      "it says plainly what the bookmark is, what it reads, where the data goes and how to stop it");
+    let ways = await app.evaluate(() => [...document.querySelectorAll("#dlg .bs-way")].map(w => ({t: w.querySelector("b").textContent, rec: w.classList.contains("rec"), pill: (w.querySelector(".bs-pill") || {}).textContent, text: w.innerText})));
+    ok(!/bookmark/i.test(await app.evaluate(() => document.querySelector("#dlg").innerText)) && !(await app.locator('dialog [data-act="cv-grab"]').count()), "the Connect sheet never mentions or offers the bookmark");
+    ok(ways.length === 1 && /Calendar Link/.test(ways[0].t) && ways[0].rec, "not Google Chrome (this test browser): no extension, the calendar link is the way offered: " + JSON.stringify(ways.map(w => [w.t, w.pill])));
+    await app.evaluate(() => { Object.defineProperty(navigator, "userAgentData", {configurable: true, get: () => ({brands: [{brand: "Google Chrome", version: "141"}], mobile: false})}); document.querySelector("#dlg").close(); SBLMS.canvas.connectSheet(); });
+    ways = await app.evaluate(() => [...document.querySelectorAll("#dlg .bs-way")].map(w => ({t: w.querySelector("b").textContent, rec: w.classList.contains("rec"), pill: (w.querySelector(".bs-pill") || {}).textContent, text: w.innerText})));
+    ok(/Studyboard School Sync Extension/.test(ways[0].t) && ways[0].rec && ways[0].pill === "Recommended" && ways.filter(w => w.rec).length === 1, "in desktop Chrome the extension comes first and is the one recommended: " + JSON.stringify(ways.map(w => [w.t, w.pill])));
+    ok(await app.getAttribute('#dlg .bs-way a.btn', "href") === "https://chromewebstore.google.com/detail/studyboard-school-sync/ibibaefpedmlgaamopopcoelnnaaollf", "its button opens the extension's Chrome Web Store page");
+    ok(/only reads|Read only/.test(ways[0].text) && /never sees your password/.test(ways[0].text), "it says plainly what the extension reads and that it never sees your password");
     ok(/Due Dates Only/.test(ways[1].pill) && /can't see grades/.test(ways[1].text), "the calendar link is offered second, as due dates only");
+    await app.evaluate(() => { delete navigator.userAgentData; document.querySelector("#dlg").close(); });
+    // A bookmark someone made before still works: its sheet (no longer offered anywhere) and its import
     const fetched = []; app.on("request", r => fetched.push(new URL(r.url()).pathname));
-    await app.click('dialog [data-act="cv-grab"]'); await app.waitForSelector("#grabLink", {timeout: 3000});
+    await app.evaluate(() => SBLMS.canvas.grabSheet()); await app.waitForSelector("#grabLink", {timeout: 3000});
     ok(!fetched.some(p => /\.js$/.test(p)), "Set It Up opens its sheet without downloading anything: " + JSON.stringify(fetched));
     await app.click("#dlg [data-submit]");
     ok(await app.evaluate(() => { const t = document.querySelector("#toast"), r = t.getBoundingClientRect(), el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
       return /Click the bookmark/.test(t.innerText) && t.contains(el) && document.querySelector("#dlg").open; }), "a message from the sheet shows on top of it, not hidden behind it");
     ok(await app.evaluate(async () => { SBLMS.canvas.connectSheet(); const a = !!document.querySelector("#toastMsg"); document.querySelector("#dlg").close(); await new Promise(r => setTimeout(r, 50)); return a && document.querySelector("#toast").parentNode === document.body; }),
       "switching to another sheet while a message shows keeps the message (it isn't wiped with the old sheet), and closing hands it back to the page");
-    await app.evaluate(() => SBLMS.canvas.connectSheet()); await app.click('dialog [data-act="cv-grab"]'); await app.waitForSelector("#grabLink");
+    await app.evaluate(() => SBLMS.canvas.grabSheet()); await app.waitForSelector("#grabLink");
     const js = await app.getAttribute("#grabLink", "href");
     ok(await app.evaluate(() => { const d = [...document.querySelectorAll("#dlg details")].find(x => /exact code/.test(x.querySelector("summary").textContent)); return !!d && decodeURIComponent(document.querySelector("#grabLink").getAttribute("href").slice(11)) === d.querySelector("pre").textContent; }),
       "the sheet shows the exact code the bookmark runs, character for character");
@@ -124,8 +129,8 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
     const old = await tab.evaluate(async code => { const p = await SBLMS.grabDecode(code); delete p.hv; const raw = new TextEncoder().encode(JSON.stringify(p)); let x = ""; raw.forEach(c => { x += String.fromCharCode(c); }); return "SBG1j." + btoa(x).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }, href.split("#sbgrab=")[1]);
     tab.evaluate(code => SBLMS.grabReceive(code), old);
     await tab.waitForSelector("#dlg [data-submit]", {timeout: 5000}); await tab.click("#dlg [data-submit]");
-    await tab.waitForFunction(() => /out of date/.test(document.querySelector("#toastMsg").textContent), null, {timeout: 6000});
-    ok(/Update Bookmark/.test(await tab.evaluate(() => document.querySelector("#toast").innerText)), "an old bookmark still works, and Studyboard offers to update it");
+    await tab.waitForTimeout(3000);
+    ok(!/Bookmark/.test(await tab.evaluate(() => document.querySelector("#toast").innerText)), "an old bookmark still works, and Studyboard no longer offers to make a new bookmark (outside Chrome it says nothing; in Chrome it points to the extension)");
     // Refused: junk, an unknown platform, a stale read, an address that isn't a public https site
     const forged = async obj => tab.evaluate(async o => { const b = btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); return SBLMS.grabReceive("SBG1j." + b); }, obj);
     ok(await tab.evaluate(() => SBLMS.grabReceive("hello")) === false, "junk is refused");
