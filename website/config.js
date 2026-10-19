@@ -31,18 +31,18 @@ window.STUDYBOARD_SITE = {
 
   // ---- Downloads (home page) ----
   // The version shown on the page.
-  VERSION: "1.14.3",
+  VERSION: "1.14.4",
 
   // Where each installer lives. While a url is "" the button stays on the page and says "coming soon" when pressed. Paste the link when
   // the installer is published (https only). Tip for Windows, Mac and Linux: publish the installers as a GitHub Release, then a link like
-  //   https://github.com/YOUR-NAME/YOUR-REPO/releases/download/v1.14.3/Studyboard-Setup-1.14.3.exe
+  //   https://github.com/YOUR-NAME/YOUR-REPO/releases/download/v1.14.4/Studyboard-Setup-1.14.4.exe
   // points at one exact file. {version} in "file" is replaced by VERSION above (the names electron-builder makes).
   DOWNLOADS: {
     // store: the Microsoft Store page. When it's set, Windows visitors get the official "Get it from Microsoft" badge (signed, updates
     // itself); url stays as a direct .exe download for computers where the Store is blocked (many school and work PCs).
-    windows:  { label: "Windows",              store: "https://apps.microsoft.com/detail/9N8PHL54N3SN?ocid=pdpshare", url: "https://github.com/connorpelkmans/installers/releases/download/v1.14.3/Studyboard-Setup-1.14.3.exe", file: "Studyboard-Setup-{version}.exe",       needs: "Windows 10 and 11" },
-    macArm:   { label: "Mac (Apple M-series)", url: "https://github.com/connorpelkmans/installers/releases/download/v1.14.3/Studyboard-1.14.3-mac.dmg", file: "Studyboard-{version}-mac.dmg", needs: "Macs with an M1 chip or newer" },
-    macIntel: { label: "Mac (Intel)",          url: "https://github.com/connorpelkmans/installers/releases/download/v1.14.3/Studyboard-1.14.3-mac-intel.dmg", file: "Studyboard-{version}-mac-intel.dmg", needs: "Macs with an Intel processor" },
+    windows:  { label: "Windows",              store: "https://apps.microsoft.com/detail/9N8PHL54N3SN?ocid=pdpshare", url: "https://github.com/connorpelkmans/installers/releases/download/v1.14.4/Studyboard-Setup-1.14.4.exe", file: "Studyboard-Setup-{version}.exe",       needs: "Windows 10 and 11" },
+    macArm:   { label: "Mac (Apple M-series)", url: "https://github.com/connorpelkmans/installers/releases/download/v1.14.4/Studyboard-1.14.4-mac.dmg", file: "Studyboard-{version}-mac.dmg", needs: "Macs with an M1 chip or newer" },
+    macIntel: { label: "Mac (Intel)",          url: "https://github.com/connorpelkmans/installers/releases/download/v1.14.4/Studyboard-1.14.4-mac-intel.dmg", file: "Studyboard-{version}-mac-intel.dmg", needs: "Macs with an Intel processor" },
     linux:    { label: "Linux",                url: "", file: "Studyboard-{version}.AppImage",        needs: "64-bit Linux, runs as an AppImage" },
     ios:      { label: "App Store",            url: "", needs: "iPhone and iPad" },       // e.g. https://apps.apple.com/app/idXXXXXXXXXX
     android:  { label: "Google Play",          url: "", needs: "Android phones and tablets" }   // e.g. https://play.google.com/store/apps/details?id=com.studioso.app
