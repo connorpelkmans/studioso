@@ -6344,6 +6344,11 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
    Bands with no course or group colour use the theme's main colour as it is in light mode (--accent-band), in both modes. */
 :root{--accent-band:#1A60D0}
 .g2-band,.c2-band,.gp-hero-band,.cr2-band,.next-up .nu-top,.g2-sheet-head,.cpt3-band,.tl-row.tl-group,.card.has-tab > .card-course,.fc-band{background:linear-gradient(135deg,color-mix(in srgb,var(--c) 86%,#000),var(--c))!important}
+/* Timeline course rows: the sticky name column and the long track are separate boxes, so one fade runs across both: the name column goes from
+   the deep end to a midpoint, and the track carries on from that same midpoint, with no jump in lightness where they meet. */
+.tl-scroll .tl-row.tl-group{--ba:color-mix(in srgb,var(--c) 86%,#000);--bb:var(--c);--bm:color-mix(in srgb,var(--ba) 72%,var(--bb));background:none!important}
+.tl-scroll .tl-group .tl-label{background:linear-gradient(90deg,var(--ba),var(--bm))!important;border-right:0!important}
+.tl-scroll .tl-group .tl-track{background:linear-gradient(90deg,var(--bm),var(--bb))}
 /* sheet heads: the band is only the top strip; the title below sits on the sheet */
 .g2-sheet-head{background-size:100% 62px!important;background-repeat:no-repeat!important;background-position:top!important}
 .gp-hero-band{--c:var(--accent-band)!important}
