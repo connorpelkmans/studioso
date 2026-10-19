@@ -108,7 +108,7 @@ const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries
     assert.match(await dlgText(page), /Privacy Policy/, "sign-up links to the privacy policy");
     await fillSubmit(page, {email: "new@example.com", password: "correct horse 7"});
     const t = await dlgText(page);
-    assert.match(t, /Check Your Email/); assert.match(t, /If\s+new@example\.com\s+can be used/i); assert.match(t, /need to confirm your email before your account can be used/i);   // the new account works once its email is confirmed
+    assert.match(t, /Check Your Email/); assert.match(t, /If\s+new@example\.com\s+can be used/i); assert.match(t, /Confirm your email to start using your account/i);   // the new account works once its email is confirmed
     assert.equal((await calls(page, "signUp")).length, 1);
     await page.click("#sbResend"); await page.waitForTimeout(200);
     assert.equal((await calls(page, "resend")).length, 1);
@@ -128,7 +128,7 @@ const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries
     const {ctx, page} = await newPage(browser, {cfg: {existing: true}});
     await page.waitForSelector("dialog[open] form.sb-acct"); await page.click('dialog[open] [data-sbm="signup"]');
     await fillSubmit(page, {email: "taken@example.com", password: "correct horse 7"});
-    const t = await dlgText(page); assert.match(t, /Check Your Email/); assert.ok(!/already/i.test(t.replace(/Already have an account\?/i, "")));
+    const t = await dlgText(page); assert.match(t, /Check Your Email/); assert.ok(!/already/i.test(t.replace(/Already have (an account|one)\?/i, "")));
     await ctx.close();
   });
 
@@ -280,7 +280,7 @@ const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries
     await page.click('[data-act="plan-restore"]'); assert.match(await say(), /Apple said no/);
     await page.waitForTimeout(3500);
     await page.evaluate(() => { window.__bridge.next.restore = "cancelled"; });
-    await page.click('[data-act="plan-restore"]'); assert.match(await say(), /Restore cancelled/);
+    await page.click('[data-act="plan-restore"]'); assert.match(await say(), /Restore cancell?ed/);
     await ctx.close();
     const anon = await newPage(browser, {signedIn: false, bridge: true});
     await anon.page.evaluate(() => StudyboardPlan.openSheet()); await anon.page.waitForSelector(".plan-sheet");
@@ -297,7 +297,7 @@ const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries
     await page.waitForTimeout(600);
     assert.deepEqual(await page.evaluate(() => window.__bridge.log.map(l => [l[0], l[1].period])), [["checkout", "yearly"]]);
     assert.deepEqual(await page.evaluate(() => window.__opened), [], "no browser window was opened");
-    assert.match(await page.evaluate(() => [...document.querySelectorAll(".toast")].map(t => t.innerText).join(" ")), /Purchase cancelled/);
+    assert.match(await page.evaluate(() => [...document.querySelectorAll(".toast")].map(t => t.innerText).join(" ")), /Purchase cancell?ed/);
     await ctx.close();
   });
 
