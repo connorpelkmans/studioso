@@ -119,6 +119,22 @@ function lockPartition(part) {
     let local = false; try { local = TEST_MODE && new URL(d.url).hostname === "127.0.0.1"; } catch (e) {}
     cb({ cancel: !local });
   });
+  keepCookies(ses);
+}
+// Staying signed in: many school and Microsoft/Google sign-in cookies are "session" cookies, which a browser forgets when it closes,
+// so a desktop app restart used to sign you out. Each one is kept for up to 30 days instead (the site can still end it sooner: a
+// cookie the site removes or replaces is left alone, and signing out clears them all). Only this platform's private store is touched.
+const KEEP_DAYS = 30;
+function keepCookies(ses) {
+  ses.cookies.on("changed", (e, c, cause, removed) => {
+    if (removed || !c || !c.session || !c.name) return;
+    const host = String(c.domain || "").replace(/^\./, ""); if (!host) return;
+    const d = { url: "https://" + host + (c.path || "/"), name: c.name, value: c.value, path: c.path || "/", secure: !!c.secure, httpOnly: !!c.httpOnly,
+      expirationDate: Math.floor(Date.now() / 1000) + KEEP_DAYS * 86400 };
+    if (!c.hostOnly && c.domain) d.domain = c.domain;
+    if (c.sameSite && c.sameSite !== "unspecified") d.sameSite = c.sameSite;
+    ses.cookies.set(d).catch(() => {});
+  });
 }
 // Sign-in pop-ups (Microsoft, Google, Duo) stay in the same private store, but only for https addresses, and they are locked down the same way.
 function guardWindow(w, Pv, sameOrigin) {
@@ -1087,8 +1103,27 @@ async function feed(id, url) {
   } catch (e) { return { error: String(e && e.message || e).slice(0, 200) }; }
 }
 
+// Is this sign-in still good? A light check on the school's own site (who am I), which also counts as activity there, so an idle
+// sign-in doesn't time out while Studyboard is open. At most one check per platform every 5 minutes.
+const lastPing = {};
+async function ping(id, host) {
+  const Pv = prov(id), origin = originOf(host);
+  if (!Pv || !origin || !WHO[id]) return { error: "bad-provider" };
+  if (busy[id]) return { ok: true, busy: true };
+  const k = id + "|" + origin, now = Date.now();
+  if (lastPing[k] && now - lastPing[k].at < 5 * 60000) return lastPing[k].r;
+  let r;
+  try {
+    r = await Promise.race([withPage(Pv, origin, async w => (await w.webContents.executeJavaScript(WHO[id], true).catch(() => null)) ? { ok: true } : { needLogin: true }), timeout(45000)]);
+  } catch (e) { r = { error: String(e && e.message || e).slice(0, 200) }; }
+  r = r && r.needLogin ? { needLogin: true } : r && r.ok ? { ok: true } : { error: (r && r.error) || "no-answer" };
+  lastPing[k] = { at: now, r };
+  return r;
+}
+
 async function signOut(id) {
   const Pv = prov(id); if (!Pv) return false;
+  Object.keys(lastPing).forEach(k => { if (k.startsWith(id + "|")) delete lastPing[k]; });
   try { await session.fromPartition(Pv.part).clearStorageData(); await session.fromPartition(Pv.part).clearCache(); return true; } catch (e) { return false; }
 }
 
@@ -1101,7 +1136,10 @@ function register(getMain, trusted) {
   ipcMain.handle("lms:mail", (e, id, host, spec) => fromMain(e) ? mail(String(id), host, spec, getMain()) : null);
   ipcMain.handle("lms:feed", (e, id, url) => fromMain(e) ? feed(String(id), url) : null);
   ipcMain.handle("lms:signout", (e, id) => fromMain(e) ? signOut(String(id)) : null);
+  ipcMain.handle("lms:ping", (e, id, host) => fromMain(e) ? ping(String(id), host) : null);
+  // Kept sign-ins are written to disk before the app closes
+  app.on("before-quit", () => { Object.values(P).forEach(Pv => { try { session.fromPartition(Pv.part).cookies.flushStore(); } catch (e) {} }); });
 }
 
 // harvestScript, cleanHarvest, cleanFile and privateIp are exported for tests/lms-harvest.test.js only (nothing in the app reads them from here).
-module.exports = { WHO, BS_FILE, CV_FILE, cvMail, HARVEST_PRELUDE, register, bsHarvest, cvHarvest, bbHarvest, originOf, feedOk, connect, sync, file, feed, signOut, mail, harvestScript, cleanHarvest, cleanFile, privateIp, P };
+module.exports = { WHO, BS_FILE, CV_FILE, cvMail, HARVEST_PRELUDE, register, bsHarvest, cvHarvest, bbHarvest, originOf, feedOk, connect, sync, file, feed, signOut, ping, keepCookies, mail, harvestScript, cleanHarvest, cleanFile, privateIp, P };
