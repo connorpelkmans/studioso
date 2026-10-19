@@ -37,7 +37,7 @@ async function deleteEach(page) {
   // note
   await click(page, "note-trash", "n2"); await sleep(250);
   // event
-  await click(page, "sch-occ", "e1", JSON.stringify({type: "event", key: plus(1)})); await sleep(300);
+  await click(page, "sch-occ", "e1", JSON.stringify({type: "event", key: plus(1)})); await sleep(300); await page.click("#occEdit"); await sleep(300);
   await page.click("#evDel"); await sleep(250);
   // file
   await click(page, "f-open", "f1"); await sleep(300); await page.click("#fsDel"); await sleep(250);
@@ -60,7 +60,7 @@ async function deleteEach(page) {
     await undoOne(() => click(page, "delete-task", "t4"), async back => (await counts(page)).t === (back ? 4 : 3), "task");
     await undoOne(() => click(page, "note-trash", "n2"), async back => (await counts(page)).n === (back ? 2 : 1), "note");
     await undoOne(async () => { await click(page, "f-open", "f1"); await sleep(300); await page.click("#fsDel"); }, async back => (await counts(page)).f === (back ? 1 : 0), "file");
-    await undoOne(async () => { await click(page, "sch-occ", "e1", JSON.stringify({type: "event", key: plus(1)})); await sleep(300); await page.click("#evDel"); }, async back => (await counts(page)).e === (back ? 1 : 0), "event");
+    await undoOne(async () => { await click(page, "sch-occ", "e1", JSON.stringify({type: "event", key: plus(1)})); await sleep(300); await page.click("#occEdit"); await sleep(300); await page.click("#evDel"); }, async back => (await counts(page)).e === (back ? 1 : 0), "event");
     await undoOne(async () => { await click(page, "fc-open", "d1"); await sleep(300); await click(page, "fc-card", "k1"); await sleep(300); await page.click("#cdDel"); }, async back => (await counts(page)).cards === (back ? 3 : 2), "card");
     await undoOne(async () => { await click(page, "fc-edit", "d1"); await sleep(300); await page.click("#dkDel"); }, async back => (await counts(page)).d === (back ? 1 : 0), "deck");
     await undoOne(async () => { await click(page, "delete-course", "c1"); await sleep(300); await page.click("[data-submit]"); }, async back => { const c = await counts(page); return back ? c.c === 2 && c.t === 4 : c.c === 1 && c.t === 2; }, "course and its tasks");
