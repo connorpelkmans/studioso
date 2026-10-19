@@ -4410,7 +4410,7 @@ h2.sec .pill{align-self:center}
 .tp-packs{display:grid;gap:8px}
 .env-tp{display:grid;gap:3px;font-size:.75rem;font-weight:700;color:#4A3014}
 .sheet.occv{padding:0;overflow:hidden}
-.occv-band{display:flex;align-items:center;gap:10px;padding:14px 14px 14px 18px;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 62%,var(--surface)));color:#fff}
+.occv-band{display:flex;align-items:center;gap:10px;padding:14px 14px 14px 18px;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 74%,var(--surface)));color:#fff}
 .occv-band b{flex:1;min-width:0;font:800 .82rem/1.2 var(--display);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .occv-ic{display:grid;place-items:center;width:34px;height:34px;flex:none;border-radius:50%;background:#fff;color:var(--c)}
 .occv-ic svg{width:70%;height:70%}
@@ -5964,7 +5964,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 /* ===== Grades, Direction 1 (Grades B): a hero card with the average and a colour bar per course, then marks and a calculator ===== */
 .gp-hero{margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 2px 8px rgba(14,42,86,.08);overflow:hidden}
-.gp-hero-band{--c:var(--accent);display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:18px 20px;background:linear-gradient(120deg,color-mix(in srgb,var(--accent) 92%,#000),color-mix(in srgb,var(--accent) 62%,var(--surface)));color:#fff}
+.gp-hero-band{--c:var(--accent);display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:18px 20px;background:linear-gradient(120deg,color-mix(in srgb,var(--accent) 92%,#000),color-mix(in srgb,var(--accent) 74%,var(--surface)));color:#fff}
 .gp-cap{width:76px;height:76px;background:var(--surface);color:var(--accent);box-shadow:0 0 0 4px rgba(255,255,255,.35)}
 .gp-cap svg{width:46%;height:46%}
 .gp-hero-t{display:grid;gap:2px;flex:1;min-width:180px}
@@ -6042,7 +6042,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .cr2-now,.cr2-chart{background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 2px 8px rgba(14,42,86,.08)}
 .cr2-now{--c:var(--cr2,#9DDBA8);display:flex;flex-direction:column;overflow:hidden;padding:0 0 16px;margin:0}
 .cr2-now.lv0{--c:#4C9BE8}.cr2-now.lv1{--c:#3FA866}.cr2-now.lv2{--c:#D9A21B}.cr2-now.lv3{--c:#E8833A}.cr2-now.lv4{--c:#D3352A}
-.cr2-band{height:64px;padding:12px 16px;background:linear-gradient(135deg,color-mix(in srgb,var(--c) 92%,#000),color-mix(in srgb,var(--c) 62%,var(--surface)));color:#fff}
+.cr2-band{height:64px;padding:12px 16px;background:linear-gradient(135deg,color-mix(in srgb,var(--c) 92%,#000),color-mix(in srgb,var(--c) 74%,var(--surface)));color:#fff}
 .cr2-id{display:flex;align-items:flex-start;gap:12px;padding:0 16px;margin-top:-30px}
 .cr2-id > div{padding-top:34px}
 .cr2-ring{width:66px;height:66px;color:var(--c)}
@@ -6106,7 +6106,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .cr2-cb,.cr2-meter{display:block}
 /* ===== Board, Direction 1 ===== */
 .next-up{padding:0!important;overflow:hidden;border-radius:18px;background:var(--surface);border:1px solid color-mix(in srgb,var(--c) 30%,var(--line));box-shadow:0 2px 8px rgba(14,42,86,.08)}
-.next-up .nu-top{margin:0!important;padding:9px 16px;min-height:42px;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 62%,var(--surface)));color:#fff}
+.next-up .nu-top{margin:0!important;padding:9px 16px;min-height:42px;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 74%,var(--surface)));color:#fff}
 .next-up .nu-label{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.2)}
 .next-up .nu-alloc{color:#fff;font-weight:800;background:none}
 .next-up .nu-who{color:#fff}
@@ -6130,7 +6130,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 @media (max-width:600px){.plan-row .pr-ring,.plan-fixed .pr-ring{display:none}.plan-row:has(.pr-ring){grid-template-columns:26px minmax(0,1fr) auto;grid-template-areas:"chk main side" "chk why side" ". slot slot" ". more more"}}
 /* Task Board cards: a thin band in the course colour with the code, and the course sticker in a ring */
 .card.has-tab{margin-top:10px;padding-top:0!important;overflow:visible;border-radius:16px!important;border-top-left-radius:16px!important}
-.card.has-tab > .card-course{position:static;display:block;max-width:none;height:auto;margin:0 -1px 0;padding:5px 12px 5px 60px;border-radius:15px 15px 0 0;text-align:right;color:#fff;font:800 .68rem/1.2 var(--display);letter-spacing:.05em;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 62%,var(--surface)))}
+.card.has-tab > .card-course{position:static;display:block;max-width:none;height:auto;margin:0 -1px 0;padding:5px 12px 5px 60px;border-radius:15px 15px 0 0;text-align:right;color:#fff;font:800 .68rem/1.2 var(--display);letter-spacing:.05em;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 74%,var(--surface)))}
 .card.has-tab{position:relative}
 .card-ring{position:absolute;left:10px;top:8px;width:40px;height:40px;box-shadow:0 0 0 3px var(--surface),0 0 0 4.5px var(--c)}
 .card.has-tab > .card-title{padding-left:46px;margin-top:8px}
@@ -6305,7 +6305,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .pomo-sheet .g2-sheet-head .sh-ring svg{width:66%!important;height:66%!important}
 /* ===== Timeline, Direction 1 (A): course bands, due-date dots with their icons and dates ===== */
 .tl-scroll{border-radius:18px!important;box-shadow:0 2px 8px rgba(14,42,86,.08)}
-.tl-row.tl-group{z-index:1;height:42px;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 90%,#000),color-mix(in srgb,var(--c) 62%,var(--surface)))!important;color:#fff}
+.tl-row.tl-group{z-index:1;height:42px;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 90%,#000),color-mix(in srgb,var(--c) 74%,var(--surface)))!important;color:#fff}
 .tl-group .tl-label{background:color-mix(in srgb,var(--c) 90%,#000)!important;color:#fff;gap:10px!important;border-right-color:transparent!important;font:800 .9rem var(--display)!important}
 .tl-gic{display:grid;place-items:center;width:28px;height:28px;flex:none;border-radius:50%;background:#fff}
 .tl-gic svg{width:70%;height:70%;display:block}
@@ -6346,7 +6346,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 /* class meetings: a card like the board's task cards: a band in the course colour with its icon and code, then the details */
 .sch-b:has(> .sch-band){display:flex!important;flex-direction:column;padding:0!important;gap:0!important;background:var(--surface)!important;color:var(--ink)!important;border:1px solid color-mix(in srgb,var(--c) 35%,var(--line))!important;border-radius:12px!important;box-shadow:0 2px 8px rgba(8,20,50,.14)!important}
 .sch-b:has(> .sch-band):hover{background:color-mix(in srgb,var(--c) 6%,var(--surface))!important}
-.sch-b > .sch-band{flex:none;display:flex;align-items:center;gap:6px;min-width:0;padding:4px 8px;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 62%,var(--surface)));color:#fff}
+.sch-b > .sch-band{flex:none;display:flex;align-items:center;gap:6px;min-width:0;padding:4px 8px;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 74%,var(--surface)));color:#fff}
 .sch-b > .sch-band .cc-ic{width:16px;height:16px}
 .sch-b > .sch-band b{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff!important;font:800 .72rem/1.2 var(--display)!important;letter-spacing:.04em}
 .sch-b > .sch-bd{display:grid;gap:1px;align-content:start;min-height:0;padding:4px 8px 5px}
@@ -6399,11 +6399,11 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 /* Colour bands: one recipe everywhere, made only from the band's own colour, so the same colour looks the same in light and dark.
    Bands with no course or group colour use the theme's main colour as it is in light mode (--accent-band), in both modes. */
 :root{--accent-band:#1A60D0}
-.g2-band,.c2-band,.gp-hero-band,.cr2-band,.next-up .nu-top,.g2-sheet-head,.cpt3-band,.tl-row.tl-group,.card.has-tab > .card-course,.fc-band,.sch-b > .sch-band{background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 62%,var(--surface)))!important}
+.g2-band,.c2-band,.gp-hero-band,.cr2-band,.next-up .nu-top,.g2-sheet-head,.cpt3-band,.tl-row.tl-group,.card.has-tab > .card-course,.fc-band,.sch-b > .sch-band{background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 74%,var(--surface)))!important}
 /* Timeline course rows: the sticky name column and the long track are separate boxes. The name column is the band's deep colour, and the
    track starts at exactly that colour where it comes out from under the name column (--tls, kept equal to how far the timeline is scrolled)
    and fades across the visible width (--tlv), so there is no jump where they meet at any scroll position. */
-.tl-scroll .tl-row.tl-group{--ba:color-mix(in srgb,var(--c) 88%,#000);--bb:color-mix(in srgb,var(--c) 62%,var(--surface));background:none!important}
+.tl-scroll .tl-row.tl-group{--ba:color-mix(in srgb,var(--c) 88%,#000);--bb:color-mix(in srgb,var(--c) 74%,var(--surface));background:none!important}
 .tl-scroll .tl-group .tl-label{background:var(--ba)!important;border-right:0!important;box-shadow:none!important}
 .tl-scroll .tl-group .tl-track{background:linear-gradient(90deg,var(--ba) var(--tls,0px),var(--bb) calc(var(--tls,0px) + var(--tlv,1000px)))!important}
 /* sheet heads: the band is only the top strip; the title below sits on the sheet */
