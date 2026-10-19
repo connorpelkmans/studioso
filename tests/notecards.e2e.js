@@ -157,6 +157,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(await page.evaluate(() => { const b = document.querySelector(".nc-from"); return b.tagName === "BUTTON" && /Open the note this card came from/.test(b.getAttribute("aria-label")); }), "the link is a labelled button");
       await page.screenshot({path: path.join(SHOTS, "deck-links.png")});
       await page.click(".fc-row .nc-from"); await page.waitForSelector(".note.editing, .note[data-note=n1]");
+      await page.waitForFunction(() => document.activeElement && document.activeElement.dataset.note === "n1", null, {timeout: 3000}).catch(() => {});   // focus lands once the note has scrolled into view
       ok(await page.evaluate(() => ui.tab === "notes" && document.activeElement && document.activeElement.dataset.note === "n1"), "from note takes you to that note");
       ok(/^\d+ cards$/.test(await page.textContent('.note[data-note="n1"] .nc-chip')), "a resting note shows a count chip: " + await page.textContent('.note[data-note="n1"] .nc-chip'));
       ok(!(await page.$('.note[data-note="n2"] .nc-chip')), "notes with no cards show no chip");
