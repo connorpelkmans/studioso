@@ -38,7 +38,9 @@ window.STUDYBOARD_SITE = {
   //   https://github.com/YOUR-NAME/YOUR-REPO/releases/download/v1.14.3/Studyboard-Setup-1.14.3.exe
   // points at one exact file. {version} in "file" is replaced by VERSION above (the names electron-builder makes).
   DOWNLOADS: {
-    windows:  { label: "Windows",              url: "https://github.com/connorpelkmans/installers/releases/download/v1.14.3/Studyboard-Setup-1.14.3.exe", file: "Studyboard-Setup-{version}.exe",       needs: "Windows 10 or 11, 64-bit" },
+    // store: the Microsoft Store page. When it's set, Windows visitors get the official "Get it from Microsoft" badge (signed, updates
+    // itself); url stays as a direct .exe download for computers where the Store is blocked (many school and work PCs).
+    windows:  { label: "Windows",              store: "https://apps.microsoft.com/detail/9N8PHL54N3SN?ocid=pdpshare", url: "https://github.com/connorpelkmans/installers/releases/download/v1.14.3/Studyboard-Setup-1.14.3.exe", file: "Studyboard-Setup-{version}.exe",       needs: "Windows 10 and 11" },
     macArm:   { label: "Mac (Apple M-series)", url: "https://github.com/connorpelkmans/installers/releases/download/v1.14.3/Studyboard-1.14.3-mac.dmg", file: "Studyboard-{version}-mac.dmg", needs: "Macs with an M1 chip or newer" },
     macIntel: { label: "Mac (Intel)",          url: "https://github.com/connorpelkmans/installers/releases/download/v1.14.3/Studyboard-1.14.3-mac-intel.dmg", file: "Studyboard-{version}-mac-intel.dmg", needs: "Macs with an Intel processor" },
     linux:    { label: "Linux",                url: "", file: "Studyboard-{version}.AppImage",        needs: "64-bit Linux, runs as an AppImage" },
