@@ -1,5 +1,5 @@
 // node tests/notecards.e2e.js  (Playwright + Chromium; the AI network call is stubbed)
-// Notes to Flashcards: selection -> floating button -> review sheet -> save -> cards in the deck (with srcNote), one Undo removes them, the whole-note path
+// Notes to Flashcards: selection -> Make Cards (in the note's More menu, no floating button) -> review sheet -> save -> cards in the deck (with srcNote), one Undo removes them, the whole-note path
 // (toolbar button and keyboard shortcut, no selection), editing / deleting / adding / reordering / unticking cards, dedupe against an existing deck, the AI path
 // (stubbed reply with an ungrounded card that must be dropped, the "text was sent" notice, failure falls back, no consent sends nothing), AI off, the
 // links in both directions, sync merge of the new card field, phone width, dark theme, no page errors. Screenshots go to $SHOTS.
@@ -45,7 +45,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await page.waitForTimeout(400); return page;
   };
   const goNotes = async page => { await page.evaluate(() => { ui.tab = "notes"; ui.noteBoard = ""; render(); }); await page.waitForSelector(".note[data-note]"); };
-  const editNote = async (page, id) => { await page.click(`.note[data-note="${id}"] .note-body`); await page.waitForSelector(`.note.editing[data-note="${id}"] #noteText`); await page.waitForTimeout(120); };
+  const openMore = page => page.evaluate(() => { const d = document.querySelector(".note.editing .note-moredd"); if (d) d.open = true; });   // Make Cards sits in the note's More menu
+  const editNote = async (page, id) => { await page.click(`.note[data-note="${id}"] .note-body`); await page.waitForSelector(`.note.editing[data-note="${id}"] #noteText`); await page.waitForTimeout(120); await openMore(page); };
   const select = async (page, from, to) => page.evaluate(([a, b]) => { const t = document.querySelector("#noteText"); const v = t.value; const i = typeof a === "string" ? v.indexOf(a) : a; const j = typeof b === "string" ? v.indexOf(b) + b.length : b; t.focus(); t.setSelectionRange(i, j); t.dispatchEvent(new Event("select", {bubbles: true})); document.dispatchEvent(new Event("selectionchange")); }, [from, to]);
   const deck = (page, id) => page.evaluate(id => JSON.parse(JSON.stringify(state.decks[id] || null)), id);
   const decks = page => page.evaluate(() => JSON.parse(JSON.stringify(Object.values(state.decks))));
@@ -54,7 +55,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   const noOverflow = async (page, what) => { const o = await page.evaluate(() => { const d = document.querySelector("#dlg"); const b = document.querySelector("#dlg .sheet-body"); return {page: document.documentElement.scrollWidth - document.documentElement.clientWidth, dlg: d.scrollWidth - d.clientWidth, body: b ? b.scrollWidth - b.clientWidth : 0}; }); ok(o.page <= 0 && o.dlg <= 0 && o.body <= 0, `no horizontal overflow ${what} (${JSON.stringify(o)})`); };
   const targets = async (page, what) => { const small = await page.evaluate(() => [...document.querySelectorAll("#dlg .nc-sheet button, #dlg .nc-sheet select, #dlg .nc-sheet .nc-tick")].filter(e => e.offsetParent).map(e => { const r = e.getBoundingClientRect(); return {t: (e.getAttribute("aria-label") || e.textContent || e.id).trim().slice(0, 30), h: Math.round(r.height), w: Math.round(r.width)}; }).filter(x => x.h < 43.5 || x.w < 43.5 && !/^(Cancel|Close)/.test(x.t) && x.t.length < 3)); ok(small.length === 0, `touch targets are 44px ${what} ${JSON.stringify(small.slice(0, 4))}`); };
   try {
-    // ---- selection -> floating button -> sheet -> edit -> save -> one Undo (AI is off: no key at all)
+    // ---- selection -> Make Cards -> sheet -> edit -> save -> one Undo (AI is off: no key at all)
     {
       const ctx = await mkCtx(); const page = await open(ctx);
       await goNotes(page);
@@ -64,12 +65,9 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(await page.evaluate(() => { const b = document.querySelector(".nc-btn"); return b.tagName === "BUTTON" && b.getAttribute("aria-keyshortcuts") && b.getAttribute("aria-label") === "Make flashcards from this note"; }), "toolbar button is a button with a label and keyboard shortcut");
       ok(await page.evaluate(() => { const f = document.getElementById("ncFloat"); return !f || f.hidden; }), "no floating button without a selection");
       await select(page, "Osmosis - movement", "semipermeable membrane");
-      await page.waitForSelector("#ncFloat:not([hidden])", {timeout: 3000}); ok(true, "selecting text shows the floating Make cards button");
-      const fb = await page.evaluate(() => { const f = document.getElementById("ncFloat"), t = document.getElementById("noteText").getBoundingClientRect(), r = f.getBoundingClientRect(); return {tag: f.tagName, label: f.getAttribute("aria-label"), h: r.height, inView: r.top >= 0 && r.bottom <= innerHeight && r.left >= 0 && r.right <= innerWidth, near: r.top > t.top - 80 && r.top < t.bottom + 80}; });
-      ok(fb.tag === "BUTTON" && /selected text/.test(fb.label) && fb.h >= 44 && fb.inView && fb.near, "floating button is a 44px button, on screen and near the text " + JSON.stringify(fb));
+      await page.waitForTimeout(200); ok(await page.evaluate(() => { const f = document.getElementById("ncFloat"); return !f || f.hidden; }), "selecting text shows no floating button over the note");
       ok(await page.evaluate(() => document.querySelector(".nc-btn-t").textContent) === "Cards from Selection", "the toolbar button says it will use the selection");
-      await page.click("#ncFloat"); await page.waitForSelector("#dlg .nc-sheet");
-      ok(await page.evaluate(() => document.getElementById("ncFloat").hidden), "floating button hides when the sheet opens");
+      await page.click(".note.editing .nc-btn"); await page.waitForSelector("#dlg .nc-sheet");
       let cs = await cardsIn(page);
       ok(cs.length === 1 && cs[0].front === "Osmosis" && /semipermeable membrane/.test(cs[0].back) && cs[0].on, "only the selected text became cards: " + JSON.stringify(cs));
       ok(await page.getAttribute('[data-nc="scope"][data-v="sel"]', "aria-pressed") === "true" && await page.getAttribute('[data-nc="scope"][data-v="note"]', "aria-pressed") === "false", "the sheet shows Selection is in use, with a switch to the whole note");
@@ -199,7 +197,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
         {front: "How many stomata per square millimetre?", back: "About 450", quote: "about 300 stomata"},
         {front: "Where does photosynthesis happen?", back: "In the chloroplasts", quote: "takes place in the chloroplasts"}]};
       await goNotes(page); await editNote(page, "n3");
-      await select(page, "Photosynthesis takes place", "NADPH"); await page.waitForSelector("#ncFloat:not([hidden])"); await page.click("#ncFloat"); await page.waitForSelector("#dlg .nc-sheet");
+      await select(page, "Photosynthesis takes place", "NADPH"); await page.click(".note.editing .nc-btn"); await page.waitForSelector("#dlg .nc-sheet");
       ok(ctx.aiBodies.length === 0, "nothing is sent just by opening the sheet");
       const heur = await cardsIn(page); ok(heur.length >= 1, "device cards are shown first");
       ok(await page.isVisible('#dlg [data-nc="ai"]') && /Improve with AI/.test(await page.textContent('#dlg [data-nc="ai"]')), "Improve with AI is offered: " + await page.textContent("#ncAi"));
@@ -245,10 +243,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const ctx = await mkCtx({w: 390, h: 800, touch: true, dark: true}); const page = await open(ctx);
       await goNotes(page); await page.tap(`.note[data-note="n1"] .note-body`); await page.waitForSelector("#noteText"); await page.waitForTimeout(150);
       await select(page, "Osmosis - movement", "semipermeable membrane");
-      await page.waitForSelector("#ncFloat:not([hidden])");
-      const fb = await page.evaluate(() => { const r = document.getElementById("ncFloat").getBoundingClientRect(); return {h: r.height, l: r.left, r: r.right, t: r.top, b: r.bottom, w: innerWidth, hh: innerHeight}; });
-      ok(fb.h >= 44 && fb.l >= 0 && fb.r <= fb.w && fb.t >= 0 && fb.b <= fb.hh, "on a phone the floating button is 44px tall and fully on screen " + JSON.stringify(fb));
-      await page.tap("#ncFloat"); await page.waitForSelector("#dlg .nc-sheet");
+      await openMore(page);
+      await page.tap(".note.editing .nc-btn"); await page.waitForSelector("#dlg .nc-sheet");
       const cs0 = await cardsIn(page); ok(cs0.length === 1 && cs0[0].front === "Osmosis", "touch selection -> button -> sheet");
       await page.tap('[data-nc="scope"][data-v="note"]'); await page.waitForFunction(() => document.querySelectorAll("#dlg .nc-card").length >= 5);
       await noOverflow(page, "at phone width"); await targets(page, "at phone width");
