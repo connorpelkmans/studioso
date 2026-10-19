@@ -898,7 +898,7 @@ async function sync(id, host, opts) {
     skip: Array.isArray(o.skip) ? o.skip.map(String).filter(idOk).slice(0, 200) : [] };
   busy[id] = (async () => {
     try {
-      return cleanHarvest(await withPage(Pv, origin, w => Promise.race([w.webContents.executeJavaScript(harvestScript(Pv, safe), true), timeout(150000)])), origin);
+      return cleanHarvest(await withPage(Pv, origin, w => Promise.race([w.webContents.executeJavaScript(harvestScript(Pv, safe), true), timeout(240000)])), origin);
     } catch (e) { return { error: String(e && e.message || e).slice(0, 200) }; }
     finally { busy[id] = null; }
   })();
