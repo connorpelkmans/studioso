@@ -17,7 +17,7 @@
 //   STRIPE_SECRET_KEY         a restricted key with Read on Subscriptions and Charges: the exact renewal date and the owner of a disputed charge are looked up with it
 //   REVENUECAT_WEBHOOK_AUTH   any long random text; type the same text in RevenueCat's "Authorization header value"
 //   RC_ALLOW_SANDBOX          optional: set to 1 only while testing, so RevenueCat sandbox purchases count (never in production)
-//   STRIPE_PRICE_IDS          optional: comma-separated price_ ids that give Pro (STRIPE_PRICE_MONTHLY / _YEARLY are added to it). When set, a
+//   STRIPE_PRICE_IDS          optional: comma-separated price_ ids that give Pro (STRIPE_PRICE_MONTHLY / _SEMESTER / _YEARLY are added to it). When set, a
 //                             subscription or invoice for any other price is ignored. Unset: any subscription of a known customer counts.
 // Supabase adds SUPABASE_URL and the service key by itself.
 // Deploy with "Verify JWT" turned OFF: Stripe and RevenueCat don't sign in to Supabase. Each request is checked
@@ -99,7 +99,7 @@ async function stripeGet(d: Deps, path: string): Promise<any | null> {
 export function priceAllowed(d: Deps, ids: string[]): boolean {
   const list = d.env("STRIPE_PRICE_IDS");
   if (!list.trim()) return true;
-  const allow = new Set([...list.split(","), d.env("STRIPE_PRICE_MONTHLY"), d.env("STRIPE_PRICE_YEARLY")].map(s => s.trim()).filter(Boolean));
+  const allow = new Set([...list.split(","), d.env("STRIPE_PRICE_MONTHLY"), d.env("STRIPE_PRICE_SEMESTER"), d.env("STRIPE_PRICE_YEARLY")].map(s => s.trim()).filter(Boolean));
   return ids.some(id => allow.has(id));
 }
 const subPrices = (sub: any): string[] => ((sub?.items?.data || []) as any[]).map(i => idOf(i?.price || i?.plan));
