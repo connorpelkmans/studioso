@@ -1,10 +1,10 @@
 {
   "name": "studyboard",
   "productName": "Studyboard",
-  "version": "1.14.0",
+  "version": "1.14.3",
   "description": "Studyboard: a student planner for courses, deadlines, study sessions and flashcards",
   "author": {
-    "name": "Connor Pelkmans (Studyboard)",
+    "name": "Studyboard",
     "email": "support@studyboardapp.com"
   },
   "license": "UNLICENSED",
@@ -99,9 +99,9 @@
       "uninstallDisplayName": "Studyboard"
     },
     "appx": {
-      "identityName": "REPLACE_WITH_PARTNER_CENTER_PACKAGE_IDENTITY_NAME",
-      "publisher": "CN=REPLACE_WITH_PARTNER_CENTER_PUBLISHER_ID",
-      "publisherDisplayName": "Connor Pelkmans (Studyboard)",
+      "identityName": "Studyboard.Studyboard",
+      "publisher": "CN=B6CF97E9-64F4-4B7B-B3E1-87D82D6A64D9",
+      "publisherDisplayName": "Studyboard",
       "applicationId": "Studyboard",
       "displayName": "Studyboard",
       "backgroundColor": "#11305F",

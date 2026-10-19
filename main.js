@@ -287,6 +287,12 @@ function createWindow(hidden) {
   win.webContents.setWindowOpenHandler(({ url }) => { openExternalSafe(url); return { action: "deny" }; });
   win.webContents.on("will-navigate", (e, url) => { if (!isAppUrl(url, MAIN_ORIGIN)) { e.preventDefault(); openExternalSafe(url); } });
   win.on("resize", saveWindowState); win.on("move", saveWindowState);
+  const fsSay = () => { try { if (!win.isDestroyed()) win.webContents.send("app:fullscreen", win.isFullScreen()); } catch (err) {} };
+  win.on("enter-full-screen", fsSay); win.on("leave-full-screen", fsSay);
+  // F11 toggles full screen on Windows and Linux even though the window has no menu bar to show the shortcut
+  win.webContents.on("before-input-event", (e, input) => {
+    if (input.type === "keyDown" && input.key === "F11" && process.platform !== "darwin" && !input.control && !input.alt && !input.meta) { e.preventDefault(); win.setFullScreen(!win.isFullScreen()); }
+  });
   // Give the page a moment to write its latest copy to the Studyboard folder before closing.
   win.on("close", e => {
     saveWindowState();
@@ -846,9 +852,18 @@ ipcMain.handle("fs:open", async (e, rel) => fromMain(e) ? openSafely(resolveRel(
 function finishClose() { if (flushed) return; flushed = true; if (win && !win.isDestroyed()) win.close(); if (quitting) setTimeout(() => app.quit(), 50); }
 ipcMain.on("app:flushed", e => { if (fromMain(e)) finishClose(); });
 app.on("before-quit", () => { quitting = true; });
-ipcMain.on("app:titlebar", (e, color) => {
+// The window buttons' strip takes the colour of what is under it (the page's background in a wide window, the dark spine in a narrow one),
+// with dark or light buttons to match. The window's own background (seen while resizing) stays the spine colour.
+ipcMain.on("app:titlebar", (e, color, symbol) => {
   if (!fromMain(e) || !win || process.platform === "darwin" || !/^#[0-9a-f]{3,8}$/i.test(String(color))) return;
-  try { win.setTitleBarOverlay({ color, symbolColor: "#FFFFFF" }); win.setBackgroundColor(color); } catch (err) {}
+  const sym = /^#[0-9a-f]{3,8}$/i.test(String(symbol)) ? String(symbol) : "#FFFFFF";
+  try { win.setTitleBarOverlay({ color, symbolColor: sym }); } catch (err) {}
+});
+// Full screen: F11 (Windows and Linux) or Ctrl+Cmd+F (Mac), the View menu, or Settings > Widgets and Desktop. The page hides its top strip while it lasts.
+ipcMain.handle("app:fullscreen", (e, on) => {
+  if (!fromMain(e) || !win || win.isDestroyed()) return false;
+  win.setFullScreen(on === undefined || on === null ? !win.isFullScreen() : !!on);
+  return win.isFullScreen();
 });
 
 // ---------- Brightspace, Canvas and Blackboard (read-only sync of your courses, due dates, grades and announcements) ----------

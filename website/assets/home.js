@@ -18,6 +18,14 @@
   var httpsUrl = function (u) { try { var x = new URL(u); return x.protocol === "https:" && !x.username && !x.password ? x.href : ""; } catch (e) { return ""; } };
   var WEB = httpsUrl(cfg.APP_URL || "");
   var fileName = function (d) { return d && d.file ? String(d.file).replace("{version}", VER) : ""; };
+  // Windows comes from the Microsoft Store when its page is set: Microsoft's own "Get it from Microsoft" badge, used as Microsoft provides it
+  // (assets/ms-store-badge-*.svg, the dark one on light pages and the light one on dark pages).
+  var MS = httpsUrl((D.windows && D.windows.store) || "");
+  function msBadge(cls) {
+    return '<a class="msb' + (cls ? " " + cls : "") + '" href="' + esc(MS) + '" target="_blank" rel="noopener" aria-label="Get Studyboard from the Microsoft Store">' +
+      '<img class="on-light" src="assets/ms-store-badge-dark.svg" alt="Get it from Microsoft" width="161" height="44">' +
+      '<img class="on-dark" src="assets/ms-store-badge-light.svg" alt="Get it from Microsoft" width="161" height="44"></a>';
+  }
 
   // ---- Which device is this? ----
   function detectMacChip(uaData) {
@@ -55,8 +63,8 @@
     t.textContent = msg; t.classList.add("show");
     clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove("show"); }, 2800);
   }
-  var ready = function (k) { return !!(D[k] && httpsUrl(D[k].url)); };
-  var hrefFor = function (k) { return ready(k) ? httpsUrl(D[k].url) : "#download"; };
+  var ready = function (k) { return !!(D[k] && (httpsUrl(D[k].url) || (k === "windows" && MS))); };
+  var hrefFor = function (k) { return k === "windows" && MS ? MS : ready(k) ? httpsUrl(D[k].url) : "#download"; };
   document.addEventListener("click", function (e) {
     var b = e.target.closest ? e.target.closest("[data-download]") : null; if (!b) return;
     var k = b.getAttribute("data-download"), d = D[k]; if (!d) return;
@@ -70,13 +78,14 @@
     return '<a class="dl store' + (primary ? " primary" : "") + '" data-download="' + k + '" href="' + esc(hrefFor(k)) + '">' + (apple ? ICONS.store : ICONS.play) + '<span class="t"><small>' + (ready(k) ? (apple ? "Download on the" : "Get it on") : (apple ? "Coming soon on the" : "Coming soon on")) + "</small><b>" + (apple ? "App Store" : "Google Play") + "</b></span></a>";
   }
   function webButton(primary) { return WEB ? '<a class="dl' + (primary ? " primary" : "") + '" href="' + esc(WEB) + '">' + ICONS.web + '<span class="t"><small>Free · works in any browser, nothing to install</small><b>Open Studyboard</b></span></a>' : ""; }
-  function chip(k, icon, text) { return '<a class="chip" data-download="' + k + '" href="' + esc(hrefFor(k)) + '">' + icon + esc(text) + (ready(k) ? "" : " · soon") + "</a>"; }
+  function chip(k, icon, text) { return '<a class="chip" data-download="' + k + '" href="' + esc(hrefFor(k)) + '"' + (k === "windows" && MS ? ' target="_blank" rel="noopener"' : "") + ">" + icon + esc(text) + (ready(k) ? "" : " · soon") + "</a>"; }
   var macHelp = '<details class="which"><summary>Which Mac do I have?</summary><p>Click the Apple menu in the top-left corner and choose <b>About This Mac</b>. If it says <b>Chip: Apple M1</b> (or M2, M3, M4 and so on), pick Apple M-series. If it says <b>Processor: Intel</b>, pick Intel.</p></details>';
   var seeAll = '<a href="#download">See all downloads</a>';
   var NAMES = {windows: ["windows", "Windows", "Windows 10 & 11"], macArm: ["mac", "Mac", "Apple M-series"], macIntel: ["mac", "Mac", "Intel Macs"], linux: ["linux", "Linux", "AppImage"]};
 
   function desktopRow(k, p) {
     var n = NAMES[k], free = "Free · v" + VER + " · " + (D[k] && D[k].needs ? D[k].needs : n[2]);
+    if (k === "windows" && MS) return webButton(true) + msBadge("big");
     if (ready(k)) return webButton(true) + bigButton(k, ICONS[n[0]], free, "Download for " + n[1], false);
     return webButton(true) + bigButton(k, ICONS[n[0]], "Coming soon · " + n[2], n[1], false);
   }
@@ -110,6 +119,11 @@
     var mine = p.os === "windows" ? "windows" : p.os === "mac" ? (p.chip === "intel" ? "macIntel" : p.chip === "arm" ? "macArm" : "") : p.os === "ios" ? "ios" : p.os === "android" ? "android" : p.os === "linux" ? "linux" : "";
     function card(k, icon, title, action) {
       var d = D[k] || {}, f = fileName(d);
+      if (k === "windows" && MS) {
+        var exe = httpsUrl(d.url);
+        return '<div class="plat' + (mine === k ? " you" : "") + '">' + (mine === k ? '<span class="you-tag">Your device</span>' : "") + '<div class="ico">' + icon + "</div><h4>" + title + "</h4><div><p>" + esc(d.needs || "") + " · from the Microsoft Store, with automatic updates</p></div>" +
+          '<div class="ms-go">' + msBadge("") + (exe ? '<a class="exe" data-download="windows" href="' + esc(exe) + '">Or download the .exe</a>' : "") + "</div></div>";
+      }
       return '<div class="plat' + (mine === k ? " you" : "") + '">' + (mine === k ? '<span class="you-tag">Your device</span>' : "") + '<div class="ico">' + icon + "</div><h4>" + title + (ready(k) ? "" : '<span class="soon">Soon</span>') + "</h4><div><p>" + esc(d.needs || "") + "</p>" + (f ? '<p class="file">' + esc(f) + "</p>" : "") + '</div><a class="go" data-download="' + k + '" href="' + esc(hrefFor(k)) + '">' + ICONS.down + action + "</a></div>";
     }
     var webCard = WEB ? '<div class="group"><h3>In your browser</h3><div class="plats"><div class="plat web"><div class="ico">' + ICONS.web + '</div><h4>Studyboard on the Web<span class="live">Available Now</span></h4><div><p>Works in Chrome, Edge, Safari and Firefox on any computer or phone. Use the browser\'s install option (or Add to Home Screen) to open it like an app.</p></div><a class="go" href="' + esc(WEB) + '">' + ICONS.web + "Open Studyboard</a></div></div></div>" : "";

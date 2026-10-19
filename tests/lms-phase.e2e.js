@@ -474,6 +474,9 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     ok(tyOf("Midterm Clinical Evaluation") === "Exam" && tyOf("BSNC 1000 Midterm Exam- Requires Respondus LockDown Browser") === "Exam" && tyOf("Practice Midterm Exam Questions") === "Assignment", "real exams stay exams; practice questions are work: " + JSON.stringify(ty.recs));
     // Settings shows one short line per school site; what the read found is in the site's window under Sync details, closed
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
+    // (the read came from the School Sync extension, which still reports Brightspace)
+    await app.evaluate(() => window.postMessage({source: "studyboard-ext", type: "data", version: "1.0.3", schools: [{id: "brightspace", origin: "https://learn.example.edu", state: "ok", at: Date.now()}], list: []}, location.origin));
+    await app.waitForTimeout(200);
     const sh = await app.evaluate(() => SBLMS.brightspace.shortStatus());
     ok(/^synced /.test(sh) && !/Grade rows|submitted/.test(sh), "Settings' line is short: " + sh);
     await app.evaluate(() => SBLMS.brightspace.bsSheet()); await app.waitForSelector("dialog[open] .bs-status");

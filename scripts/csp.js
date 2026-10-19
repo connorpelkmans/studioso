@@ -13,7 +13,9 @@
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
 
 const MARK = "/*CSP-HASHES*/";
-const sha = s => "'sha256-" + crypto.createHash("sha256").update(s, "utf8").digest("base64") + "'";
+// The browser turns every CRLF (and lone CR) into LF before it hashes a script, so the hash is taken the same way: a page saved with
+// Windows line endings (a Windows checkout) must still match.
+const sha = s => "'sha256-" + crypto.createHash("sha256").update(String(s).replace(/\r\n?/g, "\n"), "utf8").digest("base64") + "'";
 
 function apply(html){
   const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];

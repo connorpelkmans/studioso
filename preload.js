@@ -44,7 +44,9 @@ contextBridge.exposeInMainWorld("studiosoDesktop", {
   setCrashReports: on => ipcRenderer.send("crash:set", on === true),
   onFlush: fn => ipcRenderer.on("app:flush", () => fn()),
   flushed: () => ipcRenderer.send("app:flushed"),
-  setTitleBar: color => ipcRenderer.send("app:titlebar", color),
+  setTitleBar: (color, symbol) => ipcRenderer.send("app:titlebar", String(color || ""), String(symbol || "")),
+  fullscreen: on => ipcRenderer.invoke("app:fullscreen", on === undefined ? null : !!on),
+  onFullscreen: fn => ipcRenderer.on("app:fullscreen", (e, on) => fn(!!on)),
   // 1.11: native reminders. list = [{id, at (ms), title, body, taskId}]; the whole list each time. Kept on disk, shown once each.
   setReminders: list => ipcRenderer.invoke("rem:set", Array.isArray(list) ? list : []),
   notify: o => ipcRenderer.invoke("rem:notify", o && typeof o === "object" ? { title: o.title, body: o.body, taskId: o.taskId } : {}),

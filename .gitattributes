@@ -1,0 +1,8 @@
+# The app's pages and scripts always keep LF line endings, on every checkout (Windows too). The browser hashes inline scripts with
+# LF line endings, so a CRLF copy would get CSP hashes that never match and the page's code would be blocked.
+*.html text eol=lf
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.css  text eol=lf
+*.json text eol=lf
+*.md   text eol=lf

@@ -2,7 +2,7 @@
 
 The Windows app goes to the Store as an **MSIX package** (electron-builder's `appx` target). The Store signs the package itself, so you don't need a code-signing certificate. Installs and uninstalls are clean, and the Store delivers updates. The website's `.exe` installer stays as it is for direct downloads.
 
-Publisher: **Connor Pelkmans (Studyboard)**, an **Individual** developer account.
+Publisher: **Studyboard** (the publisher display name), an **Individual** developer account.
 
 ## 1. Account
 
@@ -19,7 +19,7 @@ Publisher: **Connor Pelkmans (Studyboard)**, an **Individual** developer account
 |---|---|---|
 | Package/Identity/Name | `identityName` | `12345ConnorPelkmans.Studyboard` |
 | Package/Identity/Publisher | `publisher` | `CN=1A2B3C4D-…` |
-| Package/Properties/PublisherDisplayName | `publisherDisplayName` | `Connor Pelkmans (Studyboard)` (already set; it must match exactly) |
+| Package/Properties/PublisherDisplayName | `publisherDisplayName` | `Studyboard` (already set; it must match exactly) |
 
 3. `npm run check:msstore` must print *nothing left to fill in*. Until then the build stops on purpose, because the Store refuses a package with the wrong identity.
 
@@ -52,6 +52,10 @@ What to try in the packaged app:
 * "This product has in-app purchases": **Yes**. Pro is sold through the Studyboard website with Stripe. Microsoft's policy lets non-game apps use their own payment system, and Microsoft takes no fee on it. Leave the Microsoft Store in-app purchase (add-ons) section empty.
 * "Accesses, collects or transmits personal information": **Yes** (account email, synced data, files).
 * System requirements: Windows 10 version 1809 or later (the package's minimum), x64 or ARM64, internet for sync and AI.
+
+**Restricted capability `runFullTrust`.** The package upload warns that it needs approval. That is expected for every Electron/MSIX desktop app. Under Submission options > Restricted capabilities (or Notes for certification), paste:
+
+> Studyboard is a desktop app built with Electron and packaged as MSIX, so it requires runFullTrust to run as a standard Win32 desktop process. It uses this for normal desktop features: a window with system tray support so reminders keep working when the window is closed, Windows notifications, an optional global keyboard shortcut for screenshot capture (which can be turned off in Settings), the studyboard:// link handler, and a startup task that is off until the user turns it on in Windows Settings. It doesn't install drivers or services or change system settings.
 
 **Age ratings (IARC questionnaire).** Answer it honestly. The points specific to Studyboard:
 * **Users can interact or exchange content:** Yes. Study groups have chat, shared tasks and decks. Report and Block exist, and the Terms ban objectionable content.
