@@ -82,7 +82,7 @@ alter table public.studyboard_entitlements add column if not exists billing_even
 alter table public.studyboard_entitlements add column if not exists billing_revoked_at timestamptz;
 alter table public.studyboard_entitlements drop constraint if exists studyboard_entitlements_source_check;
 alter table public.studyboard_entitlements add constraint studyboard_entitlements_source_check
-  check (source is null or source in ('stripe', 'apple', 'google', 'revenuecat', 'promo', 'lifetime', 'grant'));
+  check (source is null or source in ('stripe', 'apple', 'google', 'revenuecat', 'promo', 'lifetime', 'grant', 'welcome'));
 create index if not exists studyboard_entitlements_external_idx on public.studyboard_entitlements (external_id);
 alter table public.studyboard_entitlements enable row level security;
 drop policy if exists "entitlement own read" on public.studyboard_entitlements;
@@ -1138,6 +1138,96 @@ begin
       end if;
     end loop;
   end if;
+end $$;
+
+-- ---------- A free week of Pro for every new account ----------
+-- Every account made after this was switched on gets 7 days of Pro once, with no card, the moment its email address is confirmed
+-- (an account made with Google or Apple is confirmed at once). Nobody can ask for it: it is granted here, by the database, from a trigger
+-- on the sign-up itself, and the app can't call the function behind it.
+-- What stops repeats:
+--   * one per account: an account that ever had a trial, a plan, a grant or a payment never gets one
+--   * one per email address, ever: the same hash as studyboard_start_trial (Gmail dots and +tags don't make a new address), kept in
+--     studyboard_trial_uses after the account is deleted, so delete-and-sign-up-again gets nothing
+--   * a confirmed address only, and never a guest (anonymous) account
+--   * throw-away mail services are turned away (studyboard_trial_blocked_domains: add more with an insert)
+--   * a daily ceiling across all accounts (welcome_trial_daily_cap, 1000 by default), so a flood of fake sign-ups can't run up costs
+--   * only accounts made after it was switched on (welcome_trial_since), so existing free accounts aren't changed
+-- Turn it off with: update public.studyboard_config set value = 'false' where key = 'welcome_trial';
+insert into public.studyboard_config (key, value) values
+  ('welcome_trial', 'true'::jsonb), ('welcome_trial_since', to_jsonb(now())), ('welcome_trial_daily_cap', '1000'::jsonb)
+on conflict (key) do nothing;
+
+create table if not exists public.studyboard_trial_blocked_domains (domain text primary key check (domain ~ '^[a-z0-9.-]+\.[a-z]{2,}$'));
+alter table public.studyboard_trial_blocked_domains enable row level security;
+revoke all on public.studyboard_trial_blocked_domains from public, anon, authenticated;
+insert into public.studyboard_trial_blocked_domains (domain) values
+  ('mailinator.com'), ('guerrillamail.com'), ('guerrillamail.net'), ('guerrillamail.org'), ('sharklasers.com'), ('grr.la'), ('10minutemail.com'),
+  ('10minutemail.net'), ('tempmail.com'), ('temp-mail.org'), ('temp-mail.io'), ('tempmail.dev'), ('tempmailo.com'), ('throwawaymail.com'),
+  ('yopmail.com'), ('yopmail.net'), ('getnada.com'), ('nada.email'), ('dispostable.com'), ('maildrop.cc'), ('mailnesia.com'), ('mintemail.com'),
+  ('trashmail.com'), ('trashmail.de'), ('fakeinbox.com'), ('emailondeck.com'), ('mohmal.com'), ('mailcatch.com'), ('mytemp.email'),
+  ('tempinbox.com'), ('spamgourmet.com'), ('moakt.com'), ('emailfake.com'), ('burnermail.io'), ('mail.tm'), ('inboxkitten.com'),
+  ('1secmail.com'), ('1secmail.net'), ('1secmail.org'), ('tmpmail.org'), ('tmpmail.net'), ('dropmail.me'), ('harakirimail.com'),
+  ('mailpoof.com'), ('spambox.us'), ('mail7.io'), ('linshiyouxiang.net'), ('emailtemporanea.net'), ('tempr.email'), ('discard.email')
+on conflict (domain) do nothing;
+
+create or replace function public.plans_welcome_trial(p_uid uuid) returns timestamptz
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare u jsonb; em text; eh text; dom text; days int; until timestamptz; since timestamptz; cap int; made timestamptz;
+begin
+  if coalesce((select value from public.studyboard_config where key = 'welcome_trial'), 'false'::jsonb) <> 'true'::jsonb then return null; end if;
+  select to_jsonb(x) into u from auth.users x where x.id = p_uid;
+  if u is null then return null; end if;
+  em := lower(btrim(u ->> 'email'));
+  if em is null or em = '' or position('@' in em) = 0 then return null; end if;
+  if nullif(u ->> 'email_confirmed_at', '') is null then return null; end if;
+  if coalesce((u ->> 'is_anonymous')::boolean, false) then return null; end if;
+  since := coalesce((select (value #>> '{}')::timestamptz from public.studyboard_config where key = 'welcome_trial_since'), now());
+  made := (u ->> 'created_at')::timestamptz;
+  if made is null or made < since then return null; end if;
+  -- one per account: any trial, plan, grant or payment before means no
+  if exists (select 1 from public.studyboard_entitlements e where e.user_id = p_uid
+             and (e.trial_until is not null or e.plan <> 'free' or e.external_id is not null or e.grant_until is not null or e.grant_lifetime or e.billing_event_at is not null)) then
+    return null;
+  end if;
+  -- one per email address, ever
+  eh := public.plans_email_hash(em);
+  if eh is null or exists (select 1 from public.studyboard_trial_uses where email_hash = eh) then return null; end if;
+  -- no throw-away addresses (the domain or any of its subdomains)
+  dom := split_part(em, '@', 2);
+  if exists (select 1 from public.studyboard_trial_blocked_domains b where dom = b.domain or right(dom, length(b.domain) + 1) = '.' || b.domain) then return null; end if;
+  -- a ceiling per day across everyone
+  cap := coalesce((select (value #>> '{}')::int from public.studyboard_config where key = 'welcome_trial_daily_cap'), 1000);
+  if (select count(*) from public.studyboard_trial_uses where used_at > now() - interval '1 day') >= cap then return null; end if;
+  days := least(14, greatest(1, coalesce((select (value ->> 'trialDays')::int from public.studyboard_config where key = 'prices'), 7)));
+  until := now() + make_interval(days => days);
+  -- The email is recorded first: if two sign-ups race for the same address, only one insert wins and only that one gets the week.
+  insert into public.studyboard_trial_uses (email_hash) values (eh) on conflict (email_hash) do nothing;
+  if not found then return null; end if;
+  insert into public.studyboard_entitlements as e (user_id, plan, trial_until, source, will_renew, updated_at)
+  values (p_uid, 'free', until, 'welcome', false, now())
+  on conflict (user_id) do update set trial_until = until, source = coalesce(e.source, 'welcome'), will_renew = false, updated_at = now()
+    where e.trial_until is null and e.plan = 'free' and e.external_id is null;
+  return until;
+end $$;
+revoke all on function public.plans_welcome_trial(uuid) from public, anon, authenticated;
+
+-- Fires when an account is made already confirmed (Google, Apple, or email confirmation turned off) and when its email is confirmed.
+create or replace function public.plans_welcome_trigger() returns trigger
+language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  if new.email_confirmed_at is not null and (tg_op = 'INSERT' or old.email_confirmed_at is null or coalesce(old.email, '') <> coalesce(new.email, '')) then
+    begin perform public.plans_welcome_trial(new.id);
+    exception when others then null;   -- a problem here must never stop someone signing up
+    end;
+  end if;
+  return new;
+end $$;
+revoke all on function public.plans_welcome_trigger() from public, anon, authenticated;
+drop trigger if exists plans_welcome_trial on auth.users;
+create trigger plans_welcome_trial after insert or update of email_confirmed_at, email on auth.users
+  for each row execute function public.plans_welcome_trigger();
+do $$ begin
+  if exists (select 1 from pg_roles where rolname = 'service_role') then grant all on public.studyboard_trial_blocked_domains to service_role; end if;
 end $$;
 
 -- Ask the API to notice the new tables right away

@@ -94,6 +94,7 @@
       return Object.assign(res, { tag: "Pro", pro: true, subscribed: true, detail: end ? (e.will_renew ? "Your plan renews around " + end + "." : "Your plan ends on " + end + " and will not renew.") : "Your plan is active." });
     }
     if (grant) return Object.assign(res, { tag: "Pro (gift)", pro: true, detail: "Studyboard Pro is on for your account until " + fmt(e.grant_until) + "." });
+    if (trial && e.source === "welcome") return Object.assign(res, { tag: "Free week of Pro", pro: true, detail: "Your free week of Pro ends on " + fmt(e.trial_until) + ". No card needed: after that you're on the free plan unless you choose a plan below." });
     if (trial) return Object.assign(res, { tag: "Pro trial", pro: true, detail: "Your free trial ends on " + fmt(e.trial_until) + "." });
     return res;
   }

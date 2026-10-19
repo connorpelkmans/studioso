@@ -58,8 +58,8 @@ declare
   ub uuid := gen_random_uuid();   -- another account, with a gift from you
   r text; n bigint; f record; t text; msg text;
   tables text[] := array['studyboard_config', 'studyboard_entitlements', 'studyboard_devices', 'studyboard_usage', 'studyboard_billing_customers',
-                         'studyboard_billing_events', 'studyboard_pro_grants', 'studyboard_plan_rate', 'studyboard_device_removals'];
-  secret_tables text[] := array['studyboard_billing_customers', 'studyboard_billing_events', 'studyboard_pro_grants', 'studyboard_plan_rate', 'studyboard_device_removals'];
+                         'studyboard_billing_events', 'studyboard_pro_grants', 'studyboard_plan_rate', 'studyboard_device_removals', 'studyboard_trial_uses', 'studyboard_trial_blocked_domains'];
+  secret_tables text[] := array['studyboard_billing_customers', 'studyboard_billing_events', 'studyboard_pro_grants', 'studyboard_plan_rate', 'studyboard_device_removals', 'studyboard_trial_uses', 'studyboard_trial_blocked_domains'];
   allowed_fn text[] := array['studyboard_paywall', 'studyboard_start_trial'];
   gid uuid := gen_random_uuid();
 begin
@@ -115,6 +115,8 @@ begin
   execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user ran studyboard_apply_billing'); execute 'set local role authenticated';
   r := public.sbt_try('select public.studyboard_plan_rate_hit(''x'', 1, 1)');
   execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user ran studyboard_plan_rate_hit'); execute 'set local role authenticated';
+  r := public.sbt_try(format('select public.plans_welcome_trial(%L)', ua));
+  execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user gave themselves the free week of Pro (plans_welcome_trial)'); execute 'set local role authenticated';
   r := public.sbt_try(format('select public.studyboard_is_pro(%L)', ub));
   execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user ran studyboard_is_pro for someone else'); execute 'set local role authenticated';
   r := public.sbt_try(format('select public.studyboard_limit(%L, ''devices'')', ub));
@@ -777,6 +779,50 @@ begin
       perform public.sbt_ok(r like 'SB_STORAGE_PATH%', 'a file was put in someone else''s folder (got ' || r || ')');
       perform set_config('request.jwt.claims', '', true);
     end if;
+  end;
+  end if;
+
+  -- ===== The free week of Pro for new accounts (plans_welcome_trial): only the database grants it, once per person =====
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  if to_regprocedure('public.plans_welcome_trial(uuid)') is not null then
+  declare
+    tag text := substr(replace(gen_random_uuid()::text, '-', ''), 1, 12);
+    w1 uuid := gen_random_uuid(); w2 uuid := gen_random_uuid(); w3 uuid := gen_random_uuid(); w4 uuid := gen_random_uuid(); w5 uuid := gen_random_uuid();
+    tu timestamptz;
+  begin
+    insert into public.studyboard_config (key, value) values ('welcome_trial', 'true'::jsonb) on conflict (key) do update set value = 'true'::jsonb;
+    insert into public.studyboard_config (key, value) values ('welcome_trial_since', to_jsonb(now() - interval '1 minute')) on conflict (key) do update set value = to_jsonb(now() - interval '1 minute');
+    insert into public.studyboard_config (key, value) values ('welcome_trial_daily_cap', '1000000'::jsonb) on conflict (key) do update set value = '1000000'::jsonb;
+    -- a new confirmed account gets it
+    insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, created_at, updated_at)
+      values (w1, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sbt.welcome.' || tag || '@gmail.com', now(), now(), now());
+    select trial_until into tu from public.studyboard_entitlements where user_id = w1;
+    perform public.sbt_ok(tu > now() + interval '6 days' and tu < now() + interval '15 days', 'a new confirmed account did not get its free week');
+    perform public.sbt_ok(public.studyboard_is_pro(w1), 'the free week does not count as Pro');
+    -- the same person again: deleted and back, or the same Gmail with dots and a +tag
+    delete from auth.users where id = w1;
+    insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, created_at, updated_at)
+      values (w2, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sbtwelcome' || tag || '+again@gmail.com', now(), now(), now());
+    perform public.sbt_ok(not exists (select 1 from public.studyboard_entitlements where user_id = w2 and trial_until is not null), 'deleting the account and signing up again (Gmail dots and +tag) gave a second free week');
+    -- unconfirmed, throw-away mail, guest
+    insert into auth.users (id, instance_id, aud, role, email, created_at, updated_at)
+      values (w3, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sbt.unconfirmed.' || tag || '@example.org', now(), now());
+    perform public.sbt_ok(not exists (select 1 from public.studyboard_entitlements where user_id = w3 and trial_until is not null), 'an unconfirmed email got the free week');
+    insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, created_at, updated_at)
+      values (w4, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sbt.' || tag || '@mailinator.com', now(), now(), now());
+    perform public.sbt_ok(not exists (select 1 from public.studyboard_entitlements where user_id = w4 and trial_until is not null), 'a throw-away mail address got the free week');
+    -- an account can't hand it to itself, and changing its email doesn't give another
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', w3, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    r := public.sbt_try(format('select public.plans_welcome_trial(%L)', w3));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user granted their own free week');
+    perform set_config('request.jwt.claims', '', true);
+    insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, created_at, updated_at)
+      values (w5, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sbt.first.' || tag || '@example.org', now(), now(), now());
+    select trial_until into tu from public.studyboard_entitlements where user_id = w5;
+    update auth.users set email = 'sbt.second.' || tag || '@example.org', email_confirmed_at = now() where id = w5;
+    perform public.sbt_ok((select trial_until = tu from public.studyboard_entitlements where user_id = w5), 'changing the email gave the account another free week');
   end;
   end if;
 
