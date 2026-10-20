@@ -250,6 +250,16 @@ function SEED(){
     ok(await page.locator('.cd-tabs [data-id="lectures"]').count() === 1, "a course has a Lectures tab");
     await page.click('.c2-head [data-act="lec-open"]'); await page.waitForTimeout(250);
     ok(await page.evaluate(() => /BIO101/.test(document.querySelector(".lec-for").textContent) && !document.getElementById("lecCourse") && !document.getElementById("lecTitle")), "from a course, the recorder is for that course and asks no name yet");
+    // a microphone the browser has blocked: say how to unblock it (the browser can't ask again); one the person just didn't allow: ask again
+    await page.evaluate(() => { const md = navigator.mediaDevices, orig = md.getUserMedia.bind(md), pq = navigator.permissions.query.bind(navigator.permissions); window.__micState = "denied";
+      md.getUserMedia = c => window.__micState ? Promise.reject(Object.assign(new Error("no"), {name: "NotAllowedError"})) : orig(c);
+      navigator.permissions.query = d => d && d.name === "microphone" && window.__micState ? Promise.resolve({state: window.__micState}) : pq(d); });
+    await page.click('[data-act="lec-start"]'); await page.waitForSelector(".lec-err", {timeout: 4000});
+    ok(/address bar, set Microphone to Allow/.test(await page.textContent(".lec-err")), "a blocked microphone says how to allow it");
+    await page.evaluate(() => { window.__micState = "prompt"; });
+    await page.click('[data-act="lec-start"]'); await page.waitForTimeout(300);
+    ok(/Choose Allow when your browser asks/.test(await page.textContent(".lec-err")), "a dismissed prompt says to choose Allow and try again");
+    await page.evaluate(() => { window.__micState = ""; });
     await page.click('[data-act="lec-start"]');
     await page.waitForSelector(".lec-live", {timeout: 8000});
     ok(await page.evaluate(() => window.__sbProStudy.rec().view === "rec"), "recording");

@@ -606,6 +606,20 @@ let powerLocked = false;
 function pushPower() { try { if (win && !win.isDestroyed() && listening.has("desk:power")) win.webContents.send("desk:power", powerState()); } catch (err) {} }
 ipcMain.handle("power:get", e => fromMain(e) ? powerState() : null);
 // Microsoft Store build: opens Windows Settings > Apps > Startup, where Studyboard's startup task is switched on or off. A fixed address, never the page's.
+// Record a Lecture: the computer's own microphone permission. On a Mac, ask now (the system shows its "Allow microphone?" box the first
+// time); on Windows there is no box to show, so "settings" opens Settings > Privacy & security > Microphone.
+ipcMain.handle("desk:mic", async (e, what) => {
+  if (!fromMain(e)) return "unknown";
+  try {
+    if (what === "settings") {
+      if (process.platform === "win32") await shell.openExternal("ms-settings:privacy-microphone");
+      else if (process.platform === "darwin") await shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone");
+      return "opened";
+    }
+    if (process.platform === "darwin" && systemPreferences.getMediaAccessStatus("microphone") === "not-determined") return (await systemPreferences.askForMediaAccess("microphone")) ? "granted" : "denied";
+    return systemPreferences.getMediaAccessStatus ? systemPreferences.getMediaAccessStatus("microphone") : "unknown";
+  } catch (err) { return "unknown"; }
+});
 ipcMain.handle("desk:startup-settings", e => { if (!fromMain(e) || !IS_MSSTORE) return false; shell.openExternal("ms-settings:startupapps").catch(() => {}); return true; });
 ipcMain.handle("desk:settings:get", e => fromMain(e) ? deskSettings() : null);
 ipcMain.handle("desk:settings:set", (e, key, value) => {
