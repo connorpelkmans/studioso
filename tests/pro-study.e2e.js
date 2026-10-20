@@ -315,6 +315,20 @@ function SEED(){
     await page.click('.sheet-foot [data-act="lec-file"]'); await page.waitForTimeout(500);
     ok(/Cells are the unit of life/.test(await page.locator(".lec-tr").textContent()), "it shows the saved transcript");
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
+    // Live captions where the browser has no speech service (the desktop app): Gemini writes them from short pieces while recording
+    await page.evaluate(() => { window.__srKeep = window.SpeechRecognition; window.SpeechRecognition = window.webkitSpeechRecognition = undefined; window.__sbProStudy.lecCapMs(1500); window.confirm = () => true; });
+    await tab(page, "courses"); await act(page, "open-course", "c1"); await page.waitForTimeout(250);
+    await page.click('.c2-head [data-act="lec-open"]'); await page.waitForTimeout(250);
+    ok(/Written by Gemini every 30 seconds/.test(await page.textContent(".lec-body")) && await page.locator("#lecCap").isChecked(), "without the browser's speech service, live captions come from Gemini");
+    const before = page.context().aiBodies.length;
+    await page.click('[data-act="lec-start"]'); await page.waitForSelector(".lec-live", {timeout: 8000});
+    await page.waitForFunction(() => /Today we talk about osmosis/.test((document.querySelector(".lec-caps") || {}).textContent || ""), null, {timeout: 15000});
+    ok(true, "captions appear while recording");
+    ok(page.context().aiBodies.slice(before).some(b => /inline_data/.test(b) && /Thirty seconds of a lecture/.test(b)), "each short piece goes to Gemini as it's recorded");
+    await page.click('[data-act="lec-stop"]'); await page.waitForSelector("#lecText", {timeout: 20000});
+    ok(await page.evaluate(() => /Today we talk about osmosis/.test(document.getElementById("lecText").value) && window.__sbProStudy.rec().by === "ai"), "when it stops, the transcript is already written");
+    await page.click('[data-act="lec-discard"]'); await page.waitForTimeout(300);
+    await page.evaluate(() => { window.SpeechRecognition = window.webkitSpeechRecognition = window.__srKeep; window.__sbProStudy.lecCapMs(30000); });
     // Drafts: a recording is kept on this device until it's saved or thrown away, even if the app closes
     const lecDrafts = pg => pg.evaluate(() => new Promise(res => { const r = indexedDB.open("studyboard-lecture-drafts", 1); r.onsuccess = () => { const db = r.result; if (!db.objectStoreNames.contains("meta")) { res([]); return; } const q = db.transaction("meta").objectStore("meta").getAll(); q.onsuccess = () => res(q.result); q.onerror = () => res([]); }; r.onerror = () => res([]); }));
     ok((await lecDrafts(page)).length === 0, "the saved lecture left no draft behind");
@@ -329,7 +343,7 @@ function SEED(){
     ok(d1 && d1.state === "review", "and the recording is kept as a draft");
     // The app closing (a second window stands in for the next start): the draft is in the course's Lectures, to finish or delete
     const p2 = await open(page.context());
-    await p2.evaluate(() => { window.confirm = () => true; ui.tab = "courses"; ui.courseId = "c1"; ui.courseTab = "lectures"; ui.courseTabFor = "c1"; render(); }); await p2.waitForTimeout(400);
+    await p2.evaluate(() => { window.confirm = () => true; ui.tab = "courses"; ui.courseId = "c1"; ui.courseTab = "lectures"; ui.courseTabFor = "c1"; render(); }); await p2.waitForSelector(".lec-draft", {timeout: 5000}).catch(() => {});
     ok(await p2.locator(".lec-draft").count() === 1 && /Draft, not saved yet/.test(await p2.textContent(".lec-draft")), "the draft shows in the course's Lectures");
     await p2.click('.lec-draft [data-act="lec-draft-open"]'); await p2.waitForSelector("#lecText", {timeout: 8000});
     ok(await p2.evaluate(() => !!document.querySelector(".lec-audio") && window.__sbProStudy.rec().view === "review"), "Finish opens it in the recorder, ready to listen, transcribe and save");
