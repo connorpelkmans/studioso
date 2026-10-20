@@ -422,11 +422,11 @@ Settings > Quick Capture explains each way in that works on your device (the sha
   - Things older than a month are left out unless you ask for them.
 - Events sync to your other devices like everything else and are included in backups.
 
-## Daily Quote and Streak Rewards
+## Daily Quote and Streak
 
 - **Daily quote:** the first time you open Studyboard each day, a short motivational quote pops up with your streak. Turn it off in Settings with **Daily Quote**, or see today's again from **Today's Quote and Streak**.
 - **Progress streak:** every day you make progress, your streak grows. Progress means completing a task, moving one from To Do to In Work, raising its progress, or ticking a checklist item. The 🔥 count sits next to the date on the Board.
-- **Rewards:** every 10 days in a row earns one Pro sticky note shape, sticker pack or flashcard style, picked at random from ones you don't have yet. It's added to your collection and stays yours when Studyboard Pro arrives. Everything is free during early access. Missing a day starts the streak over.
+- Missing a day starts the streak over. Streaks don't earn Pro items; the only free Pro is the free trial.
 
 ## Style Shop
 
@@ -1127,7 +1127,7 @@ The first time you open Studyboard with the scrapbook, it starts your page from 
 - **Zoom In** (on a phone) makes the page bigger so you can place stickers precisely.
 
 **Free and Pro**
-The scrapbook, every milestone and every sticker are free. Studyboard Pro adds extra paper designs (Grid Journal, Dot Journal, Blush, Night Sky, Meadow and Match My Theme), extra washi tape and frames, and **Save as Image**, which saves your page as a picture to share. While Pro isn't switched on, everyone has all of it.
+The scrapbook, every milestone, every sticker and **Save as Image** (your page as a picture to share) are free. Studyboard Pro adds extra paper designs (Grid Journal, Dot Journal, Blush, Night Sky, Meadow and Match My Theme) and extra washi tape and frames. While Pro isn't switched on, everyone has all of it.
 
 **Fair play**
 Only work you finish counts. Tasks that arrive already done (from your school site, a calendar file, or added as done) don't count, and neither does checking and unchecking the same task: once you have a sticker it stays, but it can't be earned twice. Nothing rewards studying late at night or huge single days.
@@ -1159,7 +1159,6 @@ Only work you finish counts. Tasks that arrive already done (from your school si
 
 **Streaks** (make progress on a task each day)
 - **3, 7, 14, 30 and 60-Day Streaks.**
-- **Streak Reward:** every 10 days in a row earns a streak reward, and each one also adds a gift sticker to your page.
 
 **Focus**
 - **First Focus Session:** finish a focus session.
