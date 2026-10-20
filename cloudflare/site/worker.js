@@ -8,10 +8,14 @@
 // Supabase also refuses to serve web pages from supabase.co (they arrive as text), so the connect pages only display properly from here.
 // SUPABASE_URL is set in wrangler.jsonc (vars). Only these two paths run this code (assets.run_worker_first); the rest never does.
 const PASS = /^\/functions\/v1\/(cloud-files|calendar-sync)$/;
+// The privacy policy and terms live in the website folder; the short addresses people (and Google's app review) use point there.
+// Without this they answered with the app page. These paths are listed in assets.run_worker_first too.
+const MOVED = {"/privacy": "/website/privacy.html", "/privacy.html": "/website/privacy.html", "/terms": "/website/terms.html", "/terms.html": "/website/terms.html"};
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (MOVED[url.pathname]) return Response.redirect(new URL(MOVED[url.pathname] + url.search, url.origin).toString(), 301);
     if (PASS.test(url.pathname) && env.SUPABASE_URL) {
       const target = new URL(url.pathname + url.search, env.SUPABASE_URL);
       const headers = new Headers(request.headers);
