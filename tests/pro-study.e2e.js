@@ -290,8 +290,17 @@ function SEED(){
     ok(/★ 0:0\d/.test(await page.inputValue("#lecText")), "the marks are kept");
     ok(await page.locator('input[name="lecMake"]').count() === 0, "no note to make");
     await page.fill("#lecName", "Osmosis Day");
+    // Studyboard's storage is full: Save asks where the recording should go instead
+    await page.evaluate(() => { const H = window.__sbProStudy; window.__fullDl = []; H.lecBk.assets = {upload: async () => { throw Object.assign(new Error("Over the free storage limit"), {code: "quota_or_state"}); }}; H.lecBk.download = (name, blob) => window.__fullDl.push(name + ":" + blob.size); const k = document.getElementById("lecKeep"); k.disabled = false; k.checked = true; });
     await page.click('[data-act="lec-save"]');
+    await page.waitForSelector(".lec-full", {timeout: 8000});
+    ok(/storage is full/i.test(await page.textContent(".lec-full")) && await page.locator('.lec-full [data-act="lec-full-dl"]').count() === 1 && await page.locator('.lec-full [data-act="lec-full-skip"]').count() === 1, "storage full: offers Save to This Device or Save Without It");
+    ok(/Today we talk about osmosis/.test(await page.inputValue("#lecText")) && await page.inputValue("#lecName") === "Osmosis Day", "nothing typed is lost");
+    await page.click('[data-act="lec-full-dl"]');
     await page.waitForSelector(".lec-done", {timeout: 15000});
+    ok(await page.evaluate(() => window.__fullDl.length === 1 && /^Osmosis Day\.webm:[1-9]/.test(window.__fullDl[0])), "the recording downloads to this device: " + await page.evaluate(() => window.__fullDl.join()));
+    ok(await page.evaluate(() => /saved to the device/.test(Object.values(state.files).find(f => f.folderId === "lectures").desc)), "and the lecture says where the recording is");
+    await page.evaluate(() => { const H = window.__sbProStudy; H.lecBk.assets = null; H.lecBk.download = null; });
     const lf = await page.evaluate(() => Object.values(state.files).find(f => f.folderId === "lectures"));
     ok(lf && lf.name === "Osmosis Day" && lf.courseId === "c1" && /Today we talk about osmosis/.test(lf.tr.text), "Save keeps the lecture under the name given");
     ok(lf && /^## Osmosis/.test(lf.lec.org) && /How water and solutes[\s\S]*## Key Terms\n• Osmosis: Water moving across a membrane[\s\S]*## Takeaways/.test(lf.lec.sum), "with an organized transcript and a summary");
@@ -326,6 +335,41 @@ function SEED(){
     ok(await page.locator("#lecPill").count() === 0 && await page.evaluate(() => !window.__sbProStudy.rec()), "the recorder is finished");
     await tab(page, "files");
     ok(!/Osmosis Day/.test(await page.locator("#view").textContent()), "lectures stay out of Files");
+    // Back Up: to Files (sharing the stored recording), Google Drive / OneDrive, or this device
+    await page.evaluate(() => { ui.tab = "courses"; ui.courseId = "c1"; ui.courseTab = "lectures"; ui.courseTabFor = "c1"; render(); }); await page.waitForTimeout(200);
+    await page.click(".lec-row"); await page.waitForTimeout(300);
+    await page.click('.lec-vfoot [data-act="lec-bk"]'); await page.waitForSelector(".lec-bk", {timeout: 5000});
+    ok(await page.locator(".lec-bk-o").count() === 4, "Back Up offers Files, Google Drive, OneDrive and This Device");
+    await page.evaluate(() => { window.__bkUp = []; window.__bkDl = []; SBCLOUD.connected = () => ["google"]; SBCLOUD.saveBlob = async (p, blob, name, o) => { window.__bkUp.push({p, name, folder: o.folderId, size: blob.size}); return {p, id: "x" + window.__bkUp.length, url: "https://drive.google.com/x"}; }; const H = window.__sbProStudy; H.lecBk.download = (name, blob) => window.__bkDl.push(name);
+      H.lecBk.upload = async (list, o) => { const f = {id: "up" + Date.now(), name: list[0].name, courseId: o.courseId, folderId: o.folderId, kind: "file", revs: [{assetId: "a-up", name: list[0].name, size: list[0].size, type: "text/plain", at: Date.now()}], taskIds: [], desc: "", url: "", created: Date.now()}; window.__bkCloudFlag = o.cloud; H.applyChanges([{kind: "file", id: f.id, after: f}], ""); return [f]; }; });
+    await page.click('.lec-bk-o[data-where="files"]');
+    await page.waitForFunction(() => { const f = Object.values(state.files).find(x => x.folderId === "lectures"); return f && f.lec && f.lec.bk && f.lec.bk.files; }, null, {timeout: 8000});
+    const bk = await page.evaluate(() => { const L = Object.values(state.files).find(x => x.folderId === "lectures"); return {L, copies: L.lec.bk.files.map(id => state.files[id])}; });
+    ok(bk.copies.some(c => /Transcript and Summary\.txt$/.test(c.name) && c.folderId === "notes" && c.courseId === "c1"), "Files gets the transcript and summary, in the course's Lecture Notes");
+    ok(await page.evaluate(() => window.__bkCloudFlag === false), "always in Studyboard's own storage (not redirected to the cloud)");
+    ok(!bk.L.revs.length || bk.copies.some(c => c.revs.length && c.revs[0].assetId === bk.L.revs[bk.L.revs.length - 1].assetId), "and the recording, sharing the stored copy (no extra storage)");
+    await page.waitForSelector('.lec-bk-o.done[data-where="files"]', {timeout: 5000});
+    ok(true, "Files shows as backed up");
+    await page.click('.lec-bk-o[data-where="google"]');
+    await page.waitForFunction(() => window.__bkUp.length >= 1 && document.querySelector('.lec-bk-o.done[data-where="google"]'), null, {timeout: 8000});
+    const up = await page.evaluate(() => window.__bkUp);
+    ok(up.some(u => /Transcript and Summary\.txt$/.test(u.name) && u.p === "google" && u.folder === "lectures") && (!bk.L.revs.length || up.some(u => /^Osmosis Day\.(webm|m4a|ogg|wav)$/.test(u.name))), "Google Drive gets the recording and the transcript and summary, in Lectures: " + up.map(u => u.name).join(", "));
+    await page.click('.lec-bk-o[data-where="microsoft"]'); await page.waitForTimeout(300);
+    ok(await page.evaluate(() => /Cloud/i.test((document.querySelector("dialog[open]") || {}).textContent || "")), "OneDrive not connected: opens Cloud to connect it");
+    await page.evaluate(() => dlg.close());
+    await page.click(".lec-row"); await page.waitForTimeout(300);
+    await page.click('.lec-vfoot [data-act="lec-bk"]'); await page.waitForSelector(".lec-bk");
+    await page.click('.lec-bk-o[data-where="device"]'); await page.waitForTimeout(900);
+    ok(await page.evaluate(() => window.__bkDl.some(n => /Transcript and Summary\.txt$/.test(n))), "This Device downloads the transcript and summary");
+    // A lecture with its recording kept
+    await page.evaluate(() => { window.__sbProStudy.applyChanges([{kind: "file", id: "lec2", after: {id: "lec2", name: "Week 2", courseId: "c1", folderId: "lectures", kind: "file", revs: [{assetId: "a-lec2", name: "Week 2.webm", size: 4096, type: "audio/webm", at: Date.now()}], taskIds: [], desc: "", url: "", created: Date.now(), tr: {text: "Hello class"}}}], ""); dlg.close(); window.__bkUp = []; });
+    await act(page, "lec-bk", "lec2"); await page.waitForSelector(".lec-bk");
+    await page.click('.lec-bk-o[data-where="files"]');
+    await page.waitForFunction(() => { const f = window.__sbProStudy.state().files.lec2; return f.lec && f.lec.bk && f.lec.bk.files; }, null, {timeout: 8000});
+    const c2 = await page.evaluate(() => { const S = window.__sbProStudy.state(); return S.files.lec2.lec.bk.files.map(id => S.files[id]); });
+    ok(c2.some(c => c.name === "Week 2.webm" && c.revs[0].assetId === "a-lec2" && c.folderId === "notes"), "the recording's copy in Files points at the same stored file");
+    await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
+    await tab(page, "files");
     // A recording in Files: its transcript
     await act(page, "f-open", "f2"); await page.waitForTimeout(250);
     ok(await page.locator('.sheet-foot [data-act="lec-file"]').count() === 1, "a recording's file sheet has Transcript");
@@ -461,6 +505,26 @@ function SEED(){
     const third = await page.evaluate(() => window.__srv.syncs[2]);
     ok(third.events.find(e => e.k === "t:t1").start === "14:00" && third.events.find(e => e.k === "t:t2").date === day(6), "the next sync sends what Studyboard now has");
     ok(!third.events.some(e => /Shift at café/.test(e.title)), "events from a calendar are never sent back to one");
+    // An event made in the Studyboard calendar itself: it becomes a Studyboard event, editable here, and is sent back under its own key
+    await page.evaluate(d2 => { window.__srv.reply = {added: [{id: "cgn0123456789abcdef0123", title: "Dentist", where: "Main St", date: d2, allDay: false, start: "14:00", end: "15:00"}]}; }, day(2));
+    await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google"})); await page.waitForTimeout(300);
+    const den = await page.evaluate(() => ({e: state.events.cgn0123456789abcdef0123, toast: document.getElementById("toastMsg").textContent}));
+    ok(den.e && den.e.title === "Dentist" && den.e.start === "14:00" && den.e.end === "15:00" && den.e.where === "Main St" && !den.e.src && den.e.calFrom === "google", "an event added in the Studyboard calendar comes in as a Studyboard event: " + JSON.stringify(den.e));
+    ok(/1 new from Google Calendar added/.test(den.toast), "and Sync Now says so: " + den.toast);
+    await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google", quiet: true})); await page.waitForTimeout(200);
+    const back = await page.evaluate(d2 => window.__srv.syncs[window.__srv.syncs.length - 1].events.find(e => e.k === "e:cgn0123456789abcdef0123:" + d2), day(2));
+    ok(back && back.title === "Dentist" && back.start === "14:00" && back.end === "15:00" && back.busy === true && back.where === "Main St" && back.note === "", "the next sync sends it back under its own key, exactly as the server expects: " + JSON.stringify(back));
+    await page.evaluate(d2 => { window.__srv.reply = {changes: [{k: "e:cgn0123456789abcdef0123:" + d2, deleted: true}]}; }, day(2));
+    await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google", quiet: true})); await page.waitForTimeout(300);
+    ok(await page.evaluate(() => !state.events.cgn0123456789abcdef0123), "deleted in Google Calendar: it goes from Studyboard too");
+    // Google didn't let Studyboard read their calendar: Sync Now and the pane say so, with Connect Again
+    await page.evaluate(() => { window.__srv.reply = {busyErr: "no_access"}; });
+    await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google"})); await page.waitForTimeout(300);
+    ok(/can't see your Google Calendar events/.test(await page.evaluate(() => document.getElementById("toastMsg").textContent)), "Sync Now says it can't see their events");
+    await act(page, "cal-sync"); await page.waitForTimeout(250); await page.click('[data-cs-tab="two"]'); await page.waitForTimeout(600);
+    ok(/can't see the events in your Google Calendar/.test(await page.locator("#csPane").textContent()) && /See events on all your calendars/.test(await page.locator("#csPane").textContent()), "the pane explains what to allow");
+    await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
+    await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google", quiet: true})); await page.waitForTimeout(200);
     // Settings: what to send, what to bring in
     await act(page, "cal-sync"); await page.waitForTimeout(250); await page.click('[data-cs-tab="two"]'); await page.waitForTimeout(400);
     ok(/student@gmail\.com/.test(await page.locator("#csPane").textContent()), "the pane shows the connected account");
@@ -468,7 +532,7 @@ function SEED(){
     await page.check('input[name="csyBring"][value="off"]'); await page.waitForTimeout(200);
     ok(await page.evaluate(() => Object.values(state.events).filter(e => e.src === "gcal").length === 0), "Don't bring them in removes the events that came in");
     await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google", quiet: true})); await page.waitForTimeout(200);
-    const fourth = await page.evaluate(() => window.__srv.syncs[3]);
+    const fourth = await page.evaluate(() => window.__srv.syncs[window.__srv.syncs.length - 1]);
     ok(fourth.bring === "off" && !fourth.events.some(e => e.k.startsWith("m:")), "unticked classes aren't sent");
     await page.click('[data-act="csy-ask-off"][data-id="google"]'); await page.waitForTimeout(100);
     await page.click('[data-act="csy-off"][data-id="google"][data-remove="1"]'); await page.waitForTimeout(300);

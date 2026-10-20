@@ -20,7 +20,9 @@
 //   "start"      {provider, tz}        -> {url}: where to send the person to allow access (Pro only once the paywall is on)
 //   "status"                           -> {accounts: [{provider, account, status, last_sync, sent}], providers: {google, microsoft}}
 //   "sync"       {provider, tz, from, to, events: [...], bring: "titles" | "busy" | "off"}
-//                                      -> {changes: [{k, deleted} | {k, allDay, date, endDate, start, end}], busy: [...] | null, more, stats}
+//                                      -> {changes: [{k, deleted} | {k, allDay, date, endDate, start, end}], added: [...], busy: [...] | null, more, stats}
+//                                         added: events the person made themselves in the Studyboard calendar, for the app to add as its own
+//                                         events (see adopt below). They are linked to that calendar event, so they sync both ways from then on.
 //   "disconnect" {provider, remove}    -> {ok}   (remove: also delete the Studyboard calendar there)
 // Errors: 401 sign in · 402 pro_required · 404 not_connected · 409 reauth (allow access again) or busy (another device is syncing) ·
 //         501 not_configured · 502 provider (Google or Microsoft refused or failed) · 400 bad request · 429 too many tries.
@@ -91,10 +93,10 @@ export function wallSpan(x: Ext, tz: string): { allDay: boolean; date: string; e
 const spanDate = (s: string, tz: string) => s[0] === "D" ? s.slice(1) : s[0] === "T" ? wallOf(tz, +s.slice(1)).date : "";
 
 /* ================= The plan: pure, so it can be tested without any network ================= */
-export type Plan = { creates: { w: Want; h: string }[]; patches: { w: Want; h: string; r: Row }[]; deletes: Row[]; changes: any[]; rows: any[]; more: boolean };
+export type Plan = { creates: { w: Want; h: string }[]; patches: { w: Want; h: string; r: Row }[]; deletes: Row[]; changes: any[]; rows: any[]; more: boolean; readd: Row[] };
 // want: what Studyboard has now. map: what was written before. ext: the Studyboard calendar's events in the window, by id (null: not listed).
 export async function plan(want: Want[], map: Row[], ext: Map<string, Ext>, tz: string, from: string, to: string, max = MAX_WRITES): Promise<Plan> {
-  const out: Plan = { creates: [], patches: [], deletes: [], changes: [], rows: [], more: false };
+  const out: Plan = { creates: [], patches: [], deletes: [], changes: [], rows: [], more: false, readd: [] };
   const byKey = new Map(map.map(r => [r.sb_key, r])), wanted = new Map(want.map(w => [w.k, w])), moved = new Set<string>();
   const inWin = (r: Row) => { const d = spanDate(r.ext_start, tz); return !!d && d >= from && d <= to; };
   for (const r of map) {
@@ -113,14 +115,41 @@ export async function plan(want: Want[], map: Row[], ext: Map<string, Ext>, tz: 
     if ((r && r.gone) || moved.has(w.k)) continue;
     const h = await hashOf(w, tz);
     if (!r) out.creates.push({ w, h });
+    else if (r.hash === ADOPTED + h) out.rows.push({ k: r.sb_key, ext_id: r.ext_id, hash: h, ext_start: r.ext_start, ext_end: r.ext_end, gone: false });   // the app has it now
     else if (r.hash !== h) out.patches.push({ w, h, r });
   }
-  for (const r of map) if (!r.gone && !wanted.has(r.sb_key) && !moved.has(r.sb_key) && inWin(r)) out.deletes.push(r);
+  for (const r of map) if (!r.gone && !wanted.has(r.sb_key) && !moved.has(r.sb_key) && inWin(r)) {
+    // A calendar event Studyboard took in that this device doesn't have yet (another device added it, and it hasn't synced here):
+    // never deleted for that, it's offered again instead
+    if (r.hash.startsWith(ADOPTED)) out.readd.push(r); else out.deletes.push(r);
+  }
   // At most max writes in one call: removals and changes first, then new events, soonest first. The app calls again for the rest.
   let room = max;
   const take = <T,>(a: T[]) => { const t = a.slice(0, Math.max(0, room)); room -= t.length; if (t.length < a.length) out.more = true; return t; };
   out.deletes = take(out.deletes); out.patches = take(out.patches); out.creates = take(out.creates);
   return out;
+}
+
+/* ================= Events made in the Studyboard calendar itself ================= */
+// The person can add an event to the Studyboard calendar in Google Calendar or Outlook. It becomes a Studyboard event (the same id on every
+// device: from the provider and the calendar event's id), and a map row links the two so it then syncs like everything else. The row's
+// hash is what the app will send for that event (built the way the app builds it), marked ADOPTED until the app has sent it once.
+export const ADOPTED = "a:";
+export type Listed = { id: string; x: Ext; title: string; where: string; ours?: boolean };
+export async function adopt(it: Listed, prov: Provider, tz: string, from: string, to: string): Promise<{ ev: any; row: any } | null> {
+  if (it.ours) return null;   // one Studyboard wrote (its map row was lost): never taken in as a second copy
+  const sp = wallSpan(it.x, tz); if (!isDate(sp.date) || sp.date < from || sp.date > to) return null;
+  const h = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(prov + "|new|" + it.id))).slice(0, 10), x => x.toString(16).padStart(2, "0")).join("");
+  const id = "c" + prov[0] + "n" + h, title = clean(it.title, 120) || "Event", where = clean(it.where, 120);
+  const ev: any = { id, title, where, date: sp.date, allDay: sp.allDay };
+  if (sp.allDay) { if (sp.endDate && sp.endDate <= addDays(sp.date, 30)) ev.endDate = sp.endDate; }
+  else {   // as the app stores it: an end at or before the start becomes an hour later
+    const m = (t: string) => +t.slice(0, 2) * 60 + +t.slice(3, 5), s0 = sp.start!, e0 = sp.end || "";
+    ev.start = s0; ev.end = e0 && m(e0) > m(s0) ? e0 : (x => `${p2(Math.floor(x / 60))}:${p2(x % 60)}`)(Math.min(1439, m(s0) + 60));
+  }
+  const w = cleanWant({ k: "e:" + id + ":" + sp.date, title, date: sp.date, endDate: ev.endDate, allDay: ev.allDay, start: ev.start, end: ev.end, busy: !ev.allDay, where, note: "" }, from, to);
+  if (!w) return null;
+  return { ev, row: { k: w.k, ext_id: it.id, hash: ADOPTED + await hashOf(w, tz), ext_start: it.x.s, ext_end: it.x.e, gone: false } };
 }
 
 /* ================= Secrets: encrypted tokens and signed state ================= */
@@ -169,7 +198,7 @@ type Adapter = {
   exchange(code: string, redirect: string): Promise<{ refresh: string; access: string; account: string }>;
   refresh(rt: string): Promise<{ access: string; refresh?: string }>;
   ensureCalendar(at: string, id: string | null, tz: string): Promise<{ id: string; made: boolean }>;
-  list(at: string, cal: string, fromMs: number, toMs: number, busyOnly: boolean): Promise<{ id: string; x: Ext; title: string; where: string }[]>;
+  list(at: string, cal: string, fromMs: number, toMs: number, busyOnly: boolean): Promise<Listed[]>;
   create(at: string, cal: string, w: Want, tz: string): Promise<string>;
   patch(at: string, cal: string, id: string, w: Want, tz: string): Promise<boolean>;   // false: it isn't there any more
   remove(at: string, cal: string, id: string): Promise<void>;
@@ -218,12 +247,12 @@ export function google(d: Deps): Adapter {
       const out: any[] = []; let page = "";
       for (let i = 0; i < 6; i++) {
         const q = new URLSearchParams({ timeMin: new Date(fromMs).toISOString(), timeMax: new Date(toMs).toISOString(), singleEvents: "true", showDeleted: "false", maxResults: "2500",
-          fields: "items(id,status,start,end,summary,location,transparency,eventType),nextPageToken", ...(page ? { pageToken: page } : {}) });
+          fields: "items(id,status,start,end,summary,location,transparency,eventType,extendedProperties),nextPageToken", ...(page ? { pageToken: page } : {}) });
         const j = await api(d, `${G}/calendars/${encodeURIComponent(cal)}/events?${q}`, at);
         for (const it of j.items || []) {
           if (it.status === "cancelled") continue;
           if (busyOnly && (it.transparency === "transparent" || it.eventType === "workingLocation")) continue;
-          const x = norm(it); if (x) out.push({ id: String(it.id), x, title: String(it.summary || ""), where: String(it.location || "") });
+          const x = norm(it); if (x) out.push({ id: String(it.id), x, title: String(it.summary || ""), where: String(it.location || ""), ours: !!(it.extendedProperties && it.extendedProperties.private && it.extendedProperties.private.sbk) });
         }
         page = j.nextPageToken || ""; if (!page) break;
       }
@@ -275,13 +304,13 @@ export function microsoft(d: Deps): Adapter {
     async list(at, cal, fromMs, toMs, busyOnly) {
       const out: any[] = [];
       let url = `${cal === "primary" ? `${M}/me/calendar` : `${M}/me/calendars/${encodeURIComponent(cal)}`}/calendarView?` + new URLSearchParams({ startDateTime: new Date(fromMs).toISOString(), endDateTime: new Date(toMs).toISOString(), $top: "500",
-        $select: "id,subject,start,end,isAllDay,showAs,isCancelled,location" }).toString();
+        $select: "id,subject,start,end,isAllDay,showAs,isCancelled,location,bodyPreview" }).toString();
       for (let i = 0; i < 6 && url; i++) {
         const j = await api(d, url, at, { headers: { Prefer: 'outlook.timezone="UTC"' } });
         for (const it of j.value || []) {
           if (it.isCancelled) continue;
           if (busyOnly && (it.showAs === "free" || it.showAs === "workingElsewhere")) continue;
-          const x = norm(it); if (x) out.push({ id: String(it.id), x, title: String(it.subject || ""), where: String(it.location && it.location.displayName || "") });
+          const x = norm(it); if (x) out.push({ id: String(it.id), x, title: String(it.subject || ""), where: String(it.location && it.location.displayName || ""), ours: /From Studyboard\. Change it in Studyboard/.test(String(it.bodyPreview || "")) });
         }
         url = j["@odata.nextLink"] || "";
       }
@@ -443,7 +472,8 @@ async function sync(uid: string, b: any, d: Deps, A: Record<Provider, Adapter>, 
     if (cal.id !== acct.cal_id) await rpc(d, "calsync_update", { p_uid: uid, p_provider: prov, p_cal_id: cal.id });
     const map: Row[] = cal.made ? [] : (await rpc(d, "calsync_map_get", { p_uid: uid, p_provider: prov }) || []);
     const fromMs = zonedMs(tz, addDays(from, -1), "00:00"), toMs = zonedMs(tz, addDays(to, 2), "00:00");
-    const ext = new Map<string, Ext>((await P.list(at, cal.id, fromMs, toMs, false)).map(x => [x.id, x.x]));
+    const listed = await P.list(at, cal.id, fromMs, toMs, false);
+    const ext = new Map<string, Ext>(listed.map(x => [x.id, x.x]));
     // An event the person moved far outside the window isn't in the list: look it up before calling it deleted (a few per sync)
     const inWin = (r: Row) => { const dd = spanDate(r.ext_start, tz); return !!dd && dd >= from && dd <= to; };
     const missing = map.filter(r => !r.gone && inWin(r) && !ext.has(r.ext_id)).slice(0, 40);
@@ -467,21 +497,33 @@ async function sync(uid: string, b: any, d: Deps, A: Record<Provider, Adapter>, 
       try { const sp = spanOf(c.w, tz), eid = await P.create(at, cal.id, c.w, tz); rows.push({ k: c.w.k, ext_id: eid, hash: c.h, ext_start: sp.s, ext_end: sp.e, gone: false }); stats.created++; }
       catch (e) { fail(e); }
     });
+    // Events the person added to the Studyboard calendar themselves: into Studyboard (and offered again until the app has them)
+    const added: any[] = [], known = new Set(map.map(r => r.ext_id)), byExt = new Map(listed.map(i => [i.id, i]));
+    for (const it of listed) {
+      if (known.has(it.id) || added.length >= 100) continue;
+      const a = await adopt(it, prov, tz, from, to); if (!a) continue;
+      added.push(a.ev); rows.push(a.row); known.add(it.id);
+    }
+    for (const r of pl.readd) { const it = byExt.get(r.ext_id); const a = it ? await adopt(it, prov, tz, from, to) : null; if (a && a.row.k === r.sb_key) added.push(a.ev); }
     if (rows.length || drop.length) await rpc(d, "calsync_map_save", { p_uid: uid, p_provider: prov, p_rows: rows, p_drop: drop });
     // Busy times from the person's own calendar, for Today's Plan (only what they chose to bring in)
-    let busy: any[] | null = null;
+    let busy: any[] | null = null, busyErr = "";
     if (b.bring === "titles" || b.bring === "busy") {
       const bf = zonedMs(tz, today, "00:00"), bt = zonedMs(tz, addDays(today, BUSY_DAYS), "00:00");
-      const items = (await P.list(at, "primary", bf, bt, true)).slice(0, MAX_BUSY);
-      busy = [];
-      for (const it of items) {
+      // With titles, everything in their calendar comes in (all-day events are "free" by default in Google, and were left out); busy only
+      // keeps just the time they're busy. If they didn't allow reading their calendar, the rest of the sync still works and the app says so.
+      let items: Listed[] = [];
+      try { items = (await P.list(at, "primary", bf, bt, b.bring === "busy")).slice(0, MAX_BUSY); }
+      catch (e) { if (e instanceof ProviderError && (e.status === 403 || e.status === 401)) busyErr = "no_access"; else throw e; }
+      busy = busyErr ? null : [];
+      if (busy) for (const it of items) {
         const h = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(prov + "|" + it.id))).slice(0, 10), x => x.toString(16).padStart(2, "0")).join("");
         busy.push({ id: h, title: b.bring === "titles" ? clean(it.title, 120) || "Busy" : "Busy", where: b.bring === "titles" ? clean(it.where, 120) : "", ...wallSpan(it.x, tz) });
       }
     }
     synced = stats.failed === 0;
-    log("synced", { provider: prov, n: want.length, ...stats, more: pl.more });
-    return reply({ ok: true, changes: pl.changes, busy, more: pl.more || stats.failed > 0, stats, window: { from, to }, busyWindow: busy ? { from: today, to: addDays(today, BUSY_DAYS - 1) } : null }, 200);
+    log("synced", { provider: prov, n: want.length, ...stats, added: added.length, more: pl.more });
+    return reply({ ok: true, changes: pl.changes, added, busy, busyErr, more: pl.more || stats.failed > 0, stats, window: { from, to }, busyWindow: busy ? { from: today, to: addDays(today, BUSY_DAYS - 1) } : null }, 200);
   } finally {
     try { await rpc(d, "calsync_unlock", { p_uid: uid, p_provider: prov, p_synced: synced }); } catch (_e) { /* the lease runs out by itself */ }
   }

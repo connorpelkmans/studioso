@@ -111,6 +111,12 @@ const stored = p => p.evaluate(() => JSON.parse(localStorage.getItem("coursework
       ok((await p.$$eval(".cpt3-tabs [data-act=cpt-tab]", bs => bs.map(b => b.dataset.id).join())) === "chat,history,wardrobe", "the Companion tabs are Chat, History and Wardrobe");
       await p.click(".cpt-head .cpt-dress"); await p.waitForTimeout(400);
       ok(await vis("#dlg[open] .cp-changebody .cp-tile") && await vis("#dlg[open] #cpName"), "Change opens the companion picker with the companions and the name");
+      // A long name: the field stops at 12 characters, and the name always fits on the card
+      ok(await p.$eval("#cpName", i => i.maxLength) === 12, "a companion's name is at most 12 characters");
+      await p.$eval("#cpName", i => { i.removeAttribute("maxlength"); i.value = "Wwwwwwwwwwwwwwwwwwwwwwww"; });
+      await p.click('#dlg [data-act="comp-rename"]'); await p.waitForTimeout(400);
+      const fit = await p.$eval("#dlg .cp-tile.on", t => { const b = t.querySelector(".cp-tile-t b"), r = b.getBoundingClientRect(), tr = t.getBoundingClientRect(); return {text: b.textContent, inside: r.right <= tr.right + 1 && r.left >= tr.left - 1}; });
+      ok(fit.text === "Wwwwwwwwwwww" && fit.inside, "a longer name is cut to 12 and stays inside its card: " + JSON.stringify(fit));
       await p.click('#dlg [data-act="close"]'); await p.waitForTimeout(300);
       ok(!(await vis("#dlg[open]")) && await vis(".cpt-head"), "Done closes it, back on the Companion tab");
       ok(!errs.filter(e => !IGNORE.test(e)).length, "no page errors: " + errs.filter(e => !IGNORE.test(e)).join("; "));
