@@ -48,6 +48,16 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     for (let i = 0; i < 12; i++) { const s = await b.page.getAttribute(".sheet.ob", "data-step"); steps.push(s); if (s === "done") break; await b.page.click('[data-ob="next"]'); await b.page.waitForTimeout(120); }
     ok(!steps.includes("backups") && steps.includes("done"), "without folder access (Safari, Firefox) the step isn't shown: " + steps.join(", "));
     ok(!(await b.page.textContent(".sheet.ob")).includes("Backing up to"), "and the last page doesn't mention it");
+    // A new account's free week of Pro: the tour is pending while it's open, and its last page is the warm welcome (no bottom pop-up)
+    ok(await b.page.evaluate(() => window.SBOB.pending()), "while the tour is open, the free week's welcome waits for it");
+    ok(!/is on us/.test(await b.page.textContent(".sheet.ob")) && await b.page.locator(".ob-gift").count() === 0, "no free week, no gift card");
+    await b.page.evaluate(() => { window.__said = 0; SBOB.T.plan = {welcomeWeek: () => ({until: "2026-10-27T12:00:00Z", date: "Oct 27, 2026"}), welcomeSaid: () => { window.__said++; }};
+      const segs = document.querySelectorAll(".ob-seg"); segs[segs.length - 2].click(); });
+    await b.page.waitForTimeout(200); await b.page.click('[data-ob="next"]'); await b.page.waitForTimeout(250);
+    const last = await b.page.textContent(".sheet.ob");
+    ok(/Welcome to Studyboard!/.test(last) && /your first week of Pro is on us/.test(last) && /until Oct 27, 2026/.test(last) && await b.page.locator(".ob-gift").count() === 1, "the last step welcomes them with the free week: " + last.slice(0, 160));
+    ok(await b.page.evaluate(() => window.__said > 0), "and marks the welcome as said, so it doesn't also pop up");
+    ok(await b.page.locator("#toast.show, .toast.show").count() === 0, "no bottom pop-up about it");
     await b.ctx.close();
     ok(!errs.length, "no page errors: " + errs.join(" | "));
   } finally { await browser.close(); server.close(); }
