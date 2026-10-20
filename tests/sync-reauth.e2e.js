@@ -11,6 +11,7 @@
 //   6. another Studyboard tab has the device's sync database open while this one deletes it (signing out does): the other tab lets go,
 //      so after a reload this tab connects (it used to wait on the database forever and stay on "reconnecting" until site data was cleared)
 //   7. a tab that never lets go (an older version still open) holds it: sync connects anyway, without the device copy
+//   8. the server never answers: requests give up, Settings says what connecting is waiting on and the last problem, and Try Again connects
 const fs = require("fs"), path = require("path"), http = require("http"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const ROOT = path.join(__dirname, "..");
@@ -28,7 +29,7 @@ const web = http.createServer((req, res) => {
 /* ---------- stand-in Supabase ---------- */
 const b64 = o => Buffer.from(JSON.stringify(o)).toString("base64url");
 const USER = {id: "11111111-1111-1111-1111-111111111111", aud: "authenticated", role: "authenticated", email: "me@example.com", app_metadata: {provider: "email"}, user_metadata: {}, created_at: "2026-01-01T00:00:00Z"};
-const S = {skew: 0, badSig: new Set(), refresh: new Set(), serial: 0, log: []};
+const S = {skew: 0, badSig: new Set(), refresh: new Set(), serial: 0, log: [], hang: false};
 const srvNow = () => Date.now() + S.skew;   // the server's clock; the browser keeps the real one
 function mint(){
   const iat = Math.floor(srvNow() / 1000), exp = iat + 3600, k = ++S.serial;
@@ -58,6 +59,7 @@ async function handle(route){
   if (u.pathname === "/auth/v1/user") return tokenState(req.headers()["authorization"]) === "ok" ? send(200, USER) : send(403, {code: "bad_jwt", msg: "invalid JWT"});
   if (u.pathname === "/auth/v1/logout") return send(204);
   if (u.pathname.startsWith("/rest/v1/")) {
+    if (S.hang && m === "GET") return;   // the server never answers
     const t = tokenState(req.headers()["authorization"]);
     if (t === "expired") return send(401, {code: "PGRST303", details: null, hint: null, message: "JWT expired"});
     if (t === "bad") return send(401, {code: "PGRST301", details: null, hint: null, message: "JWSError JWSInvalidSignature"});
@@ -84,7 +86,7 @@ async function open(browser, session, ctxIn){
 }
 const label = page => page.evaluate(() => (document.querySelector("#sync") || {}).textContent || "");
 const until = async (page, re, ms) => { const end = Date.now() + (ms || 10000); let t = ""; while (Date.now() < end) { t = await label(page); if (re.test(t)) return t; await page.waitForTimeout(150); } return t; };
-const reset = () => { S.skew = 0; S.badSig = new Set(); S.log = []; };
+const reset = () => { S.skew = 0; S.badSig = new Set(); S.log = []; S.hang = false; };
 
 (async () => {
   await new Promise(r => web.listen(0, "127.0.0.1", r));
@@ -152,6 +154,28 @@ const reset = () => { S.skew = 0; S.badSig = new Set(); S.log = []; };
       await H.evaluate(() => { indexedDB.deleteDatabase("studyboard-sync"); });   // a sign-out elsewhere: this delete now waits forever
       const {page} = await open(browser, s, ctx);
       ok(/^Saved$/.test(await until(page, /^Saved$/, 20000)), "sync connects anyway, without the device copy");
+      await ctx.close(); }
+
+    console.log("8. the server never answers");
+    { reset(); S.hang = true;
+      const ctx = await browser.newContext({serviceWorkers: "block", viewport: {width: 1200, height: 800}});
+      await ctx.addInitScript(() => { window.__SB_REQ_WAIT = 1500; });
+      const {page, errs} = await open(browser, mint(), ctx);
+      await page.waitForTimeout(2500);
+      ok(!/^Saved$/.test(await label(page)), "not connected while the server is silent");
+      await page.evaluate(() => document.querySelector('.head-actions [data-act="menu"], [data-act="menu"]').click());
+      await page.waitForSelector(".sb-diag", {timeout: 5000});
+      const d1 = await page.textContent(".sb-diag");
+      ok(/Waiting on: /.test(d1), "Settings says what connecting waits on: " + d1);
+      await page.waitForFunction(() => /Last problem/.test((document.querySelector(".sb-diag") || {}).textContent || ""), null, {timeout: 35000});
+      const d2 = await page.textContent(".sb-diag");
+      ok(/Last problem.*(abort|timed? ?out|signal)/i.test(d2), "a request that never answers gives up and is shown: " + d2);
+      S.hang = false;
+      await page.click('[data-act="sb-retry"]');
+      ok(/^Saved$/.test(await until(page, /^Saved$/, 10000)), "Try Again connects once the server answers");
+      await page.waitForTimeout(2500);
+      ok(!(await page.$(".sb-diag")), "the details go away once connected");
+      ok(!errs.length, "no page errors: " + errs.join("; "));
       await ctx.close(); }
 
     console.log("sync-reauth e2e ok (" + n + " checks)");
