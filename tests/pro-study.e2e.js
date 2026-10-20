@@ -315,6 +315,29 @@ function SEED(){
     await page.click('.sheet-foot [data-act="lec-file"]'); await page.waitForTimeout(500);
     ok(/Cells are the unit of life/.test(await page.locator(".lec-tr").textContent()), "it shows the saved transcript");
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
+    // Drafts: a recording is kept on this device until it's saved or thrown away, even if the app closes
+    const lecDrafts = pg => pg.evaluate(() => new Promise(res => { const r = indexedDB.open("studyboard-lecture-drafts", 1); r.onsuccess = () => { const db = r.result; if (!db.objectStoreNames.contains("meta")) { res([]); return; } const q = db.transaction("meta").objectStore("meta").getAll(); q.onsuccess = () => res(q.result); q.onerror = () => res([]); }; r.onerror = () => res([]); }));
+    ok((await lecDrafts(page)).length === 0, "the saved lecture left no draft behind");
+    await tab(page, "courses"); await act(page, "open-course", "c1"); await page.waitForTimeout(250);
+    await page.click('.c2-head [data-act="lec-open"]'); await page.waitForTimeout(250);
+    await page.click('[data-act="lec-start"]'); await page.waitForSelector(".lec-live", {timeout: 8000});
+    ok((await lecDrafts(page)).some(d => d.state === "recording" && d.cid === "c1"), "a draft starts as soon as recording does");
+    await page.waitForTimeout(1200); await page.click('[data-act="lec-stop"]'); await page.waitForSelector("#lecText", {timeout: 8000});
+    await page.evaluate(() => dlg.close()); await page.waitForTimeout(250);
+    ok(await page.locator("#lecPill.lp-card").count() === 1 && /Lecture recorded/.test(await page.textContent("#lecPill")) && /Name and Save/.test(await page.textContent("#lecPill")), "closing after recording leaves a Lecture recorded card");
+    const d1 = (await lecDrafts(page))[0];
+    ok(d1 && d1.state === "review", "and the recording is kept as a draft");
+    // The app closing (a second window stands in for the next start): the draft is in the course's Lectures, to finish or delete
+    const p2 = await open(page.context());
+    await p2.evaluate(() => { window.confirm = () => true; ui.tab = "courses"; ui.courseId = "c1"; ui.courseTab = "lectures"; ui.courseTabFor = "c1"; render(); }); await p2.waitForTimeout(400);
+    ok(await p2.locator(".lec-draft").count() === 1 && /Draft, not saved yet/.test(await p2.textContent(".lec-draft")), "the draft shows in the course's Lectures");
+    await p2.click('.lec-draft [data-act="lec-draft-open"]'); await p2.waitForSelector("#lecText", {timeout: 8000});
+    ok(await p2.evaluate(() => !!document.querySelector(".lec-audio") && window.__sbProStudy.rec().view === "review"), "Finish opens it in the recorder, ready to listen, transcribe and save");
+    await p2.evaluate(() => dlg.close()); await p2.waitForTimeout(200);
+    await p2.close();
+    await page.evaluate(() => { window.confirm = () => true; }); await page.evaluate(() => dlg.close());
+    await act(page, "lec-open"); await page.waitForTimeout(200); await page.click('[data-act="lec-discard"]'); await page.waitForTimeout(400);
+    ok((await lecDrafts(page)).length === 0, "Discard deletes the draft");
     const lecErrs = page.errs.filter(e => !/only on the computer/.test(e));
     ok(lecErrs.length === 0, "no console errors (recorder): " + lecErrs.join(" | "));
 
