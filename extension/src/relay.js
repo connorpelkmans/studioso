@@ -13,11 +13,13 @@
     const status = all.status || {}, schools = all.schools || {};
     post({ type: "data", v: 1, version, list, schools: Object.keys(schools).map(id => ({ id, origin: schools[id].origin, state: (status[id] || {}).state || "", at: (status[id] || {}).lastOk || 0 })) });
   }
-  // Only the page itself (same window, same site) can ask, and it can only ask for the data or for a sync now
+  // Only the page itself (same window, same site) can ask, and it can only ask for the data, a sync now, or to forget what was read
   window.addEventListener("message", e => {
     if (e.source !== window || e.origin !== ORIGIN || !e.data || e.data.source !== "studyboard-app") return;
     if (e.data.type === "hello" || e.data.type === "get") send();
     else if (e.data.type === "sync") chrome.runtime.sendMessage({ op: "sync" }).catch(() => {});
+    // Signing out of Studyboard: forget what was read, so the next person to sign in here isn't handed it (the schools stay listed)
+    else if (e.data.type === "signout") chrome.runtime.sendMessage({ op: "forget" }).catch(() => {});
   });
   chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && Object.keys(ch).some(k => k.startsWith("result:") || k === "status")) send(); });
   post({ type: "ready", version });

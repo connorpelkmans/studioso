@@ -61,6 +61,8 @@ const H = {ok: true, origin: ORIGIN, me: {name: "Anna Student"}, errors: [], cou
       if (d.type === "get") window.postMessage({source: "studyboard-ext", type: "data", version: "1.0.3", schools: [{id: "canvas", origin: o, state: "ok", at: Date.now()}], list: [{v: 1, id: "canvas", origin: o, at: Date.now(), h}]}, location.origin); }); }, [H, ORIGIN]);
   page = await ctx.newPage(); page.on("pageerror", e => errs.push(e.message));
   await page.goto(base); await page.waitForFunction(() => window.SBLMS && SBLMS.canvas, null, {timeout: 40000});
+  // a new account is asked whose school account this is before anything comes in
+  await page.waitForSelector("#dlg[open] [data-ext-no]", {timeout: 20000}); await page.click("#dlg[open] [data-submit]");
   await page.waitForFunction(() => Object.keys(SBLMS.st().tasks).length >= 4, null, {timeout: 20000});
   await page.waitForTimeout(800);
   const ext = await snapshot(page);
