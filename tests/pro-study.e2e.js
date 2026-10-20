@@ -338,6 +338,21 @@ function SEED(){
     await page.evaluate(() => { window.confirm = () => true; }); await page.evaluate(() => dlg.close());
     await act(page, "lec-open"); await page.waitForTimeout(200); await page.click('[data-act="lec-discard"]'); await page.waitForTimeout(400);
     ok((await lecDrafts(page)).length === 0, "Discard deletes the draft");
+    // Add Lecture: record, or upload a recording made elsewhere (it's transcribed by itself and kept as a draft until saved)
+    await page.evaluate(() => { ui.tab = "courses"; ui.courseId = "c1"; ui.courseTab = "lectures"; ui.courseTabFor = "c1"; render(); }); await page.waitForTimeout(300);
+    ok(/Add Lecture/.test(await page.textContent(".fab")), "the Lectures tab's add button is Add Lecture");
+    await page.click(".fab"); await page.waitForTimeout(200);
+    ok(await page.locator('#dlg [data-act="lec-add-rec"]').count() === 1 && await page.locator('#dlg [data-act="lec-add-up"]').count() === 1, "it offers Record a Lecture and Upload a Recording");
+    const wav = (secs, rate) => { const n = secs * rate, b = Buffer.alloc(44 + n * 2); b.write("RIFF", 0); b.writeUInt32LE(36 + n * 2, 4); b.write("WAVE", 8); b.write("fmt ", 12); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(rate, 24); b.writeUInt32LE(rate * 2, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write("data", 36); b.writeUInt32LE(n * 2, 40); for (let i = 0; i < n; i++) b.writeInt16LE(Math.round(Math.sin(i / 8) * 8000), 44 + i * 2); return b; };
+    const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.click('#dlg [data-act="lec-add-up"]')]);
+    await chooser.setFiles({name: "Week 3 Membranes.wav", mimeType: "audio/wav", buffer: wav(3, 8000)});
+    await page.waitForFunction(() => { const t = document.getElementById("lecText"); return t && /Today we talk about osmosis/.test(t.value); }, null, {timeout: 15000});
+    ok(await page.evaluate(() => { const R = window.__sbProStudy.rec(); return R.uploaded && R.title === "Week 3 Membranes" && R.segs.length === 1 && R.dur > 2000 && !!document.querySelector(".lec-audio"); }), "an uploaded recording opens at the review, named from the file, and is transcribed by itself");
+    ok((await lecDrafts(page)).some(d => d.title === "Week 3 Membranes"), "and is kept as a draft until saved");
+    const parts = await page.evaluate(async b64 => { const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0)); const r = await window.__sbProStudy.lecSplit(new Blob([bytes], {type: "audio/wav"})); return {n: r.segs.length, dur: Math.round(r.dur), type: r.segs[0].type}; }, wav(380, 8000).toString("base64"));
+    ok(parts.n === 2 && parts.dur === 380 && parts.type === "audio/wav", "a long recording is cut into 5-minute parts the AI can take: " + JSON.stringify(parts));
+    await page.click('[data-act="lec-discard"]'); await page.waitForTimeout(300);
+    ok((await lecDrafts(page)).length === 0, "Discard removes the uploaded draft too");
     const lecErrs = page.errs.filter(e => !/only on the computer/.test(e));
     ok(lecErrs.length === 0, "no console errors (recorder): " + lecErrs.join(" | "));
 
