@@ -48,6 +48,7 @@ function stubInit(opts){
   const ownerOf = gid => DB.study_groups.some(g => g.id === gid && g.owner_id === me.id);
   const rpc = {
     // quiz scores, as groups.sql keeps them: anonymous rows reach other members without who took them
+    set_my_face(a) { DB.group_members.filter(m => m.user_id === me.id).forEach(m => { m.face = a.p_face; }); return {data: null}; },
     group_quiz_board(a) { return {data: DB.group_quiz_scores.filter(r => r.group_id === a.p_group).map(r => { const see = (r.shown || "name") === "name" || r.user_id === me.id;
       return {item_id: r.item_id, user_id: see ? r.user_id : null, best_correct: r.best_correct, best_total: r.best_total, last_correct: see ? r.last_correct : null, last_total: see ? r.last_total : null, attempts: see ? r.attempts : null, shown: r.shown || "name"}; })}; },
     submit_quiz_score(a) { const it = DB.group_items.find(i => i.id === a.p_item); let r = DB.group_quiz_scores.find(x => x.item_id === a.p_item && x.user_id === me.id);
@@ -195,10 +196,14 @@ async function quizShare(browser){
 
   // Members see each other's companions; no Nudge, no Resource Hero
   ({ctx, page, errs} = await boot(browser, 1280, {me: "u1"}));
-  await page.evaluate(() => { window.__DB.group_members.forEach(m => { if (m.user_id === "u2") m.face = "sakura-shiba"; }); });
+  await page.evaluate(() => { window.__DB.group_members.forEach(m => { m.face = m.user_id === "u2" ? "sakura-shiba" : null; }); });
   await openGroup(page, "g1"); await tab(page, "members"); await page.waitForTimeout(400);
   const faces = await page.evaluate(() => [...document.querySelectorAll(".grp-members li")].map(li => ({t: li.innerText.replace(/\s+/g, " "), comp: !!li.querySelector(".grp-av.is-comp svg")})));
   ok(faces.some(f => /Sam/.test(f.t) && f.comp) && faces.some(f => /Jo/.test(f.t) && !f.comp), "another member's companion shows as their picture (and initials when they have none): " + JSON.stringify(faces));
+  // your own companion is sent to your groups, so they can draw it
+  await page.waitForFunction(() => window.__DB.group_members.some(m => m.user_id === "u1" && m.face), null, {timeout: 8000}).catch(() => {});
+  const sent = await page.evaluate(() => ({cur: window.SBCOMP && SBCOMP.current(), faces: window.__DB.group_members.filter(m => m.user_id === "u1").map(m => m.face)}));
+  ok(sent.cur && sent.faces.length && sent.faces.every(f => f === sent.cur), "opening a group shares your companion with every group you're in: " + JSON.stringify(sent));
   ok(!(await page.$('[data-act="grp-nudge"]')) && !/Resource Hero|Nudge/.test(await txt(page, "#grpDetail")), "no Nudge button and no Resource Hero badge");
   await page.screenshot({path: shots + "/gk-member-companions.png"});
   ok(errs.length === 0, "companions: no page errors " + errs.join(" | ")); await ctx.close();
@@ -398,8 +403,11 @@ async function hideFeatures(browser){
   let {ctx, page, errs} = await boot(browser, 1280, {me: "u1"});
   await openGroup(page, "g1");
   await page.click('[data-act="grp-edit"]'); await sheet(page, ".grp-feats");
-  eq(await page.$$eval("dialog .grp-feat span", e => e.map(x => x.innerText)), ["Shared Decks", "Practice Quizzes", "Most-Missed Cards", "Questions and Answers", "Deadlines", "Sessions", "Weekly Challenge", "Chat"], "the owner sees every feature as a switch");
-  ok(await page.$$eval('dialog .grp-feat input', e => e.every(x => x.checked)), "all on to start");
+  eq(await page.$$eval("dialog .grp-feat:not(.is-pro) span", e => e.map(x => x.innerText)), ["Shared Decks", "Practice Quizzes", "Most-Missed Cards", "Questions and Answers", "Deadlines", "Sessions", "Weekly Challenge", "Chat"], "the owner sees every feature as a switch");
+  ok(await page.$$eval('dialog .grp-feat:not(.is-pro) input', e => e.every(x => x.checked)), "all on to start");
+  const pro = await page.$$eval("dialog .grp-feat.is-pro", e => e.map(x => ({t: x.querySelector("span").innerText, badge: !!x.querySelector(".pro-badge"), locked: x.classList.contains("is-locked") && x.querySelector("input").disabled && !x.querySelector("input").checked})));
+  ok(pro.length === 3 && pro.every(x => x.badge && x.locked) && pro.map(x => x.t).join() === "Find a Time,Split Exam Topics,Live Quiz", "Pro features are listed with a PRO badge, greyed out and locked in a free group: " + JSON.stringify(pro));
+  await page.evaluate(() => document.querySelector("dialog .grp-feat.is-pro").scrollIntoView({block: "center"})); await page.screenshot({path: shots + "/gk-features-free.png"});
   for (const k of ["sessions", "chat", "qa"]) await page.uncheck(`dialog .grp-feat input[value="${k}"]`);
   await page.click("dialog #grpSave"); await page.waitForTimeout(700);
   eq(await page.evaluate(() => window.__DB.study_groups[0].hidden_features), ["qa", "sessions", "chat"], "saved on the group");

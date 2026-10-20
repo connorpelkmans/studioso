@@ -268,7 +268,7 @@ declare
     ['reminder_queue','user_id'], ['push_subscriptions','user_id'], ['calendar_feeds','user_id'],
     ['studyboard_deletions','user_id'], ['studyboard_archive','user_id'], ['studyboard_devices','user_id'],
     ['studyboard_device_removals','user_id'], ['studyboard_usage','user_id'], ['studyboard_billing_customers','user_id'],
-    ['studyboard_promo_redemptions','user_id'], ['studyboard_entitlements','user_id'], ['studyboard_theme_access','user_id'], ['bug_reports','user_id'], ['items','user_id']];
+    ['group_suspended','user_id'], ['studyboard_promo_redemptions','user_id'], ['studyboard_entitlements','user_id'], ['studyboard_theme_access','user_id'], ['bug_reports','user_id'], ['items','user_id']];
 begin
   if p_uid is null then raise exception 'SB_NO_USER' using errcode = '22023'; end if;
   -- Groups they own: hand over to the longest-standing other member, or delete the group when nobody else is in it.
