@@ -16,6 +16,7 @@ export default {
       const target = new URL(url.pathname + url.search, env.SUPABASE_URL);
       const headers = new Headers(request.headers);
       headers.delete("host");
+      headers.set("x-studyboard-via", "site");   // (so a function knows the browser is on the website, where its cookie belongs)
       const init = { method: request.method, headers, redirect: "manual" };
       if (request.method !== "GET" && request.method !== "HEAD") { init.body = request.body; init.duplex = "half"; }
       const res = await fetch(new Request(target, init));
@@ -24,6 +25,9 @@ export default {
       // pass through unchanged.
       if (res.headers.get("x-studyboard-page") === "html") {
         const h = new Headers(res.headers); h.set("content-type", "text/html; charset=utf-8"); h.delete("x-studyboard-page");
+        // Supabase adds its own "show nothing" policy (sandboxed, no styles, no forms); the connect page needs its styles and its one form
+        h.set("content-security-policy", "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
+        h.set("x-frame-options", "DENY"); h.set("referrer-policy", "no-referrer");
         return new Response(res.body, {status: res.status, statusText: res.statusText, headers: h});
       }
       return res;
