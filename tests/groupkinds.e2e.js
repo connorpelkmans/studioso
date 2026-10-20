@@ -54,6 +54,7 @@ function stubInit(opts){
       DB.group_tasks.push(r); return {data: r}; },
     update_group_task(a) { const t = DB.group_tasks.find(x => x.id === a.p_task && !x.deleted); if (!t) return E("That task isn't in one of your groups"); Object.assign(t, a.p_patch);
       if (a.p_patch.status === "done") { t.completed_at = nowIso(); t.completed_by = me.id; } else if ("status" in a.p_patch) { t.completed_at = null; t.completed_by = null; } t.updated_by = me.id; t.updated_at = nowIso(); return {data: t}; },
+    set_member_color(a) { const m = DB.group_members.find(x => x.group_id === a.p_group && x.user_id === me.id); if (!m) return E("You're not in that group"); m.color = a.p_color ? String(a.p_color).toUpperCase() : null; return {data: m.color}; },
     create_group(a) { const g = {id: "gnew" + (++n), name: a.p_name, course: a.p_course || "", owner_id: me.id, invite_code: "NEW-" + n, created_at: nowIso(), weekly_goal: 0, kind: "study", project_due: null}; DB.study_groups.push(g); DB.group_members.push(mem(g.id, me.id, "owner", NAMES[me.id])); return {data: g.id}; },
     set_group_kind(a) { const g = DB.study_groups.find(x => x.id === a.p_group); if (!g || g.owner_id !== me.id) return E("Only the owner can do that"); g.kind = a.p_kind; g.project_due = a.p_kind === "project" ? a.p_due : null; return {data: null}; },
     report_misses(a) { DB.group_misses = DB.group_misses.filter(r => !(r.group_id === a.p_group && r.user_id === me.id));
@@ -354,7 +355,15 @@ async function createProject(browser){
   await page.click("dialog #grpSave"); await page.waitForSelector("#grpDetail", {timeout: 8000}); await page.waitForTimeout(800);
   eq(await page.evaluate(() => window.__DB.study_groups.find(g => g.name === "History Paper").kind), "project", "creating a group project saves it as a project");
   eq(await tabs(page), ["Overview", "Tasks", "Files", "Meetings", "Chat", "Members"], "and opens with the project tabs: " + (await tabs(page)).join());
-  ok(errs.length === 0, "create: no page errors " + errs.join(" | ")); await ctx.close();
+  // Each member picks a colour: asked right after making the project; their tasks on the board show in it
+  await page.waitForSelector("dialog .mc-grid", {timeout: 8000});
+  ok(/Pick Your Color/.test(await page.textContent("dialog .sheet-head")), "making a project asks for your colour");
+  await page.click('dialog [data-mc="#8E4EC6"]'); await page.waitForTimeout(500);
+  const gid = await page.evaluate(() => window.__DB.study_groups.find(g => g.name === "History Paper").id);
+  eq(await page.evaluate(id => window.__DB.group_members.find(m => m.group_id === id && m.user_id === "u1").color, gid), "#8E4EC6", "the colour is saved for me in this group");
+  await page.evaluate(() => { const b = document.querySelector('[data-act="grp-tab"][data-t="members"]'); if (b) b.click(); }); await page.waitForTimeout(300);
+  ok(/Your Color/.test(await page.textContent("#grpMembers")) && await page.locator('#grpMembers [data-act="grp-color"]').count() === 1, "Members shows your colour, to change it");
+    ok(errs.length === 0, "create: no page errors " + errs.join(" | ")); await ctx.close();
 }
 
 // A saved template shows up in New Group under Start From: it fills in the setup, and a project gets the template's tasks

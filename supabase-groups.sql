@@ -1222,3 +1222,25 @@ alter table public.group_items add constraint group_items_kind_check
   check (kind in ('deck', 'task', 'quiz', 'event', 'qa', 'answer', 'link', 'minutes', 'role', 'avail', 'topics', 'topic', 'gfile', 'battle'));
 create unique index if not exists group_items_one_battle on public.group_items (group_id, user_id) where kind = 'battle';
 notify pgrst, 'reload schema';
+
+-- ---------- Each member's colour ----------
+-- Every member picks a colour when they join (or later, on the Members tab). The group's task board paints each person's tasks in it,
+-- so the team can see at a glance who has what. One of the app's palette colours (#RRGGBB) or none (the app then picks one from the id).
+-- Written only through set_member_color, and only your own row.
+alter table public.group_members add column if not exists color text;
+alter table public.group_members drop constraint if exists group_members_color_check;
+alter table public.group_members add constraint group_members_color_check check (color is null or color ~ '^#[0-9A-F]{6}$');
+revoke update (color) on public.group_members from authenticated;
+create or replace function public.set_member_color(p_group uuid, p_color text) returns text
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare me uuid := auth.uid(); v text := nullif(upper(coalesce(p_color, '')), '');
+begin
+  if me is null then raise exception 'Sign in first'; end if;
+  if v is not null and v !~ '^#[0-9A-F]{6}$' then raise exception 'Pick one of the colours'; end if;
+  update public.group_members set color = v where group_id = p_group and user_id = me;
+  if not found then raise exception 'You''re not in that group'; end if;
+  return v;
+end $$;
+revoke all on function public.set_member_color(uuid, text) from public, anon;
+grant execute on function public.set_member_color(uuid, text) to authenticated;
+notify pgrst, 'reload schema';
