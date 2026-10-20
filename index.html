@@ -6486,6 +6486,12 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .nu-ic{width:24px!important;height:24px!important;border-radius:0;background:none;box-shadow:none;vertical-align:-5.5px!important}
 /* the check circle, the icon and the title's first line share one centre line */
 .next-up .nu-row > .check{position:relative;top:-2px}
+/* an icon's lines may reach a little past its frame: never cut them off */
+svg.ci-svg{overflow:visible!important}
+/* Small course icons (Task Board cards, Do This Next, schedule blocks): lines drawn exactly 2 screen pixels wide, whatever the icon's
+   size, instead of a fraction of a pixel (1.7px at 18px), which looked rough at 100% display scaling */
+:is(.cc-ic,.nu-ic,.fc-ic) svg.ci-svg :is(path,circle,ellipse,rect,line,polyline,polygon){vector-effect:non-scaling-stroke}
+:is(.cc-ic,.nu-ic,.fc-ic) svg.ci-svg{stroke-width:2!important;shape-rendering:geometricPrecision}
 .nu-ic svg.ci-svg{width:100%!important;height:100%!important;stroke-width:2!important;stroke:var(--c);--ci-ink:var(--c)}
 .nu-ic svg .a,.nu-ic svg .b,.nu-ic svg .y,.nu-ic svg .g,.nu-ic svg .r{fill:color-mix(in srgb,var(--c) 22%,transparent)}
 .nu-ic svg .sa,.nu-ic svg .sb{stroke:var(--c)}
