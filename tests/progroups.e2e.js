@@ -211,7 +211,17 @@ const DB = (page, f) => page.evaluate(f);
     await tab(page, "overview");
     await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });
     await page.click('#gxOver [data-act="gx-report"]'); await page.waitForTimeout(500);
-    ok(await page.evaluate(() => window.__printed) === 1 && await page.locator("#sbPrint .pp-gc tbody tr").count() === 3, "the contribution report prints a row per member");
+    ok(await page.evaluate(() => window.__printed) === 0 && await page.locator("#dlg .gx-rep-sheet .pr-prev .pp-gc tbody tr").count() === 3, "the contribution report opens as a preview first, a row per member");
+    ok(await page.locator("#dlg #gxRepSave").count() === 1 && await page.locator("#dlg #gxRepPrint").count() === 1, "with Download PDF and Print");
+    await SHOT(page, "g3-report-preview");
+    await page.click("#dlg #gxRepPrint"); await page.waitForTimeout(500);
+    ok(await page.evaluate(() => window.__printed) === 1 && await page.locator("#sbPrint .pp-gc tbody tr").count() === 3, "Print prints the report");
+    // the desktop app makes a PDF instead of the system print dialog (no preview there): Print opens it, Download asks where to save
+    await page.evaluate(() => { window.__pdf = []; window.studiosoDesktop = Object.assign(window.studiosoDesktop || {}, {printPdf: async o => { window.__pdf.push([o, document.body.classList.contains("sb-printing"), !!document.querySelector("#sbPrint .pp-gc")]); return o.mode === "save" ? {ok: true, saved: true, name: "r.pdf"} : {ok: true, opened: true}; }, openSavedPdf: async () => true}); document.body.classList.remove("sb-printing"); });
+    await page.click('#gxOver [data-act="gx-report"]'); await page.waitForTimeout(300); await page.click("#dlg #gxRepSave"); await page.waitForTimeout(400);
+    const pdf = await page.evaluate(() => window.__pdf);
+    ok(pdf.length === 1 && pdf[0][0].mode === "save" && /Contribution Report/.test(pdf[0][0].name) && pdf[0][1] && pdf[0][2] && await page.evaluate(() => window.__printed) === 1, "in the desktop app Download PDF saves a PDF of the print view (no system print dialog)");
+    ok(await page.evaluate(() => !document.body.classList.contains("sb-printing")), "and the page goes back to normal");
     await page.evaluate(() => document.body.classList.remove("sb-printing"));
     await page.click('#gxOver [data-act="gx-tpl-save"]'); await page.waitForTimeout(300);
     ok(await page.evaluate(() => (JSON.parse(localStorage.getItem("coursework:v2") || "{}").settings || {}).grpTemplates.length === 1), "the project is saved as a template in my settings");
