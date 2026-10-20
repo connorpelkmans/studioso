@@ -534,6 +534,11 @@ function SEED(){
     await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google", quiet: true})); await page.waitForTimeout(200);
     const fourth = await page.evaluate(() => window.__srv.syncs[window.__srv.syncs.length - 1]);
     ok(fourth.bring === "off" && !fourth.events.some(e => e.k.startsWith("m:")), "unticked classes aren't sent");
+    // Reading Google Calendar switched off on the server: the choice is hidden and a note says why
+    await page.evaluate(() => { window.__sbProStudy.calsync.setCache({reads: {google: false, microsoft: true}}); dlg.close(); }); await page.waitForTimeout(150);
+    await act(page, "cal-sync"); await page.waitForTimeout(250); await page.click('[data-cs-tab="two"]'); await page.waitForTimeout(400);
+    ok(await page.locator('input[name="csyBring"]').count() === 0 && /Bringing in your own Google Calendar events isn't available right now/.test(await page.locator("#csPane").textContent()), "with Google reading switched off, Bring In My Own Events is hidden");
+    await page.evaluate(() => window.__sbProStudy.calsync.setCache({reads: {}}));
     await page.click('[data-act="csy-ask-off"][data-id="google"]'); await page.waitForTimeout(100);
     await page.click('[data-act="csy-off"][data-id="google"][data-remove="1"]'); await page.waitForTimeout(300);
     ok(/Connect Google Calendar/.test(await page.locator("#csPane").textContent()), "disconnect");

@@ -91,7 +91,7 @@ function world(opts = {}) {
     throw new Error("unexpected " + m + " " + url);
   };
   const env = k => ({ SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "svc", SUPABASE_ANON_KEY: "anon", CALSYNC_KEY: opts.key ?? SECRET,
-    GOOGLE_CLIENT_ID: "g-id", GOOGLE_CLIENT_SECRET: "g-secret", MS_CLIENT_ID: opts.noMs ? "" : "m-id", MS_CLIENT_SECRET: opts.noMs ? "" : "m-secret" }[k] ?? "");
+    GOOGLE_CLIENT_ID: "g-id", GOOGLE_CLIENT_SECRET: "g-secret", GOOGLE_CALENDAR_READ: opts.googleRead ? "1" : "", MS_CLIENT_ID: opts.noMs ? "" : "m-id", MS_CLIENT_SECRET: opts.noMs ? "" : "m-secret" }[k] ?? "");
   const deps = { env, fetch, now: () => NOW, log: (...a) => logs.push(a.join(" ")) };
   const call = async (body, jwt = "user-jwt") => { const r = await F.handle(new Request("https://x.supabase.co/functions/v1/calendar-sync", { method: "POST", headers: { authorization: "Bearer " + jwt, "content-type": "application/json" }, body: JSON.stringify(body) }), deps); return { status: r.status, body: await r.json() }; };
   const get = async (qs, cookie) => { const r = await F.handle(new Request("https://x.supabase.co/functions/v1/calendar-sync?" + qs, { headers: cookie ? { cookie } : {} }), deps); return { status: r.status, text: await r.text(), csp: r.headers.get("content-security-policy"), location: r.headers.get("location"), cookie: (r.headers.get("set-cookie") || "").split(";")[0] }; };
@@ -272,8 +272,22 @@ await test("at most 60 writes per call, soonest first; the app calls again for t
   assert.equal(r2.body.stats.created, 15); assert.equal(r2.body.more, false);
   assert.equal((await w.call(SYNC(Array.from({ length: 801 }, (_, i) => ({ k: "t:y" + i, title: "x", date: "2026-10-20", allDay: true }))))).status, 400, "800 at most");
 });
+await test("reading the person's own Google calendar is off unless GOOGLE_CALENDAR_READ=1: no read scope, nothing read", async () => {
+  const w = world(); const page = await w.connect();
+  const scope = new URL(page.begin.location).searchParams.get("scope");
+  assert.ok(/calendar\.app\.created/.test(scope) && !/calendar\.events\.readonly/.test(scope), "Google is only asked for calendar.app.created: " + scope);
+  w.g.cals.get("primary").set("p1", { id: "p1", status: "confirmed", summary: "Shift", start: { dateTime: "2026-10-12T13:00:00-04:00" }, end: { dateTime: "2026-10-12T17:00:00-04:00" } });
+  w.g.calls.length = 0;
+  const r = await w.call(SYNC(EV(), { bring: "titles" }));
+  assert.equal(r.status, 200); assert.deepEqual(r.body.busy, [], "nothing comes in (an empty list clears what came before)"); assert.equal(r.body.busyErr, "");
+  assert.ok(!w.g.calls.some(c => /calendars\/primary/.test(c)), "the primary calendar is never asked for");
+  const st = await w.call({ action: "status" });
+  assert.equal(st.body.reads.google, false); assert.equal(st.body.reads.microsoft, true);
+  const on = world({ googleRead: true }), pg = await on.connect();
+  assert.ok(/calendar\.events\.readonly/.test(new URL(pg.begin.location).searchParams.get("scope")), "switched back on, the read scope is asked for again");
+});
 await test("the person's own calendar: every event with titles (all-day ones too), or just the busy time", async () => {
-  const w = world(); await w.connect();
+  const w = world({ googleRead: true }); await w.connect();
   const p = w.g.cals.get("primary");
   p.set("p1", { id: "p1", status: "confirmed", summary: "Shift at café", location: "Main St", start: { dateTime: "2026-10-12T13:00:00-04:00" }, end: { dateTime: "2026-10-12T17:00:00-04:00" } });
   p.set("p2", { id: "p2", status: "confirmed", summary: "Mom's birthday", transparency: "transparent", start: { date: "2026-10-13" }, end: { date: "2026-10-14" } });
