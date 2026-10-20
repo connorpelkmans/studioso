@@ -6612,6 +6612,12 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 [data-fc-deck] ~ .fc-list.fc-styled .fc-back{color:inherit;opacity:.78;position:relative;z-index:1}
 [data-fc-deck] ~ .fc-list.fc-styled .fc-row > :not(.fc-cell){z-index:2}
 [data-fc-deck] ~ .fc-list.fc-styled .fc-row:hover .fc-face{transform:translateY(-2px)}
+/* A card preview shows its front and back in the middle of the card, like a real flashcard (the buttons stay in the corner) */
+[data-fc-deck] ~ .fc-list .fc-cell,[data-fc-deck] ~ .fc-list.fc-styled .fc-face{justify-content:center;align-items:center;text-align:center;padding:22px 18px 26px}
+[data-fc-deck] ~ .fc-list .fc-front,[data-fc-deck] ~ .fc-list .fc-back{width:100%;text-align:center}
+[data-fc-deck] ~ .fc-list .fc-back{-webkit-box-pack:center}
+[data-fc-deck] ~ .fc-list.cs-index .fc-face{justify-content:flex-start;padding-top:12px}   /* the lined index card: the front stays on its header line, the back sits in the middle below it */
+[data-fc-deck] ~ .fc-list.cs-index .fc-back{margin:auto 0}
 /* Holographic: the shine starts and ends fully off the card, so its loop never pops in; colours and shine run on one clock (see holoSync) */
 .cs-holo .face::after{background:linear-gradient(120deg,transparent 0 38%,rgba(255,255,255,.5) 50%,transparent 62% 100%)!important;background-size:300% 100%!important;animation:holo-shine 5s linear infinite!important;animation-delay:inherit!important;will-change:background-position}
 @keyframes holo-shine{from{background-position:100% 0}to{background-position:0% 0}}
