@@ -241,6 +241,8 @@ const DB = (page, f) => page.evaluate(f);
     const tp = await DB(page, () => window.__DB.group_items.find(i => i.kind === "topics"));
     ok(tp && tp.data.topics.length === 4 && new Set(tp.data.topics.map(t => t.who)).size === 3, "four topics are shared out between the three members");
     ok(await page.locator("#gxTopics .gx-mine").count() === 1, "I see my own topic");
+    await page.evaluate(() => { const l = document.querySelector("#gxTopics .gx-tlist"); if (l) l.scrollIntoView({block: "center"}); }); await SHOT(page, "g4-topics-list");
+    ok(await page.evaluate(() => [...document.querySelectorAll("#gxTopics .gx-tlist li")].filter(li => li.classList.contains("mc-row")).every(li => getComputedStyle(li).borderLeftWidth === "4px")), "each person's topic has the curved edge in their colour");
     await SHOT(page, "g4-topics");
     await page.click('#gxTopics [data-act="gx-tp-done"]'); await page.waitForTimeout(600);
     ok(await DB(page, () => window.__DB.group_items.some(i => i.kind === "topic" && i.data.done)), "marking my topic shared is saved");

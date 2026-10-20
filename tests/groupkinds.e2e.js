@@ -200,6 +200,29 @@ async function quizShare(browser){
   await openGroup(page, "g1"); await tab(page, "members"); await page.waitForTimeout(400);
   const faces = await page.evaluate(() => [...document.querySelectorAll(".grp-members li")].map(li => ({t: li.innerText.replace(/\s+/g, " "), comp: !!li.querySelector(".grp-av.is-comp svg")})));
   ok(faces.some(f => /Sam/.test(f.t) && f.comp) && faces.some(f => /Jo/.test(f.t) && !f.comp), "another member's companion shows as their picture (and initials when they have none): " + JSON.stringify(faces));
+  // chat: each message has the curved edge in its writer's colour
+  await page.evaluate(() => window.__DB.group_messages.push({id: "m1", group_id: "g1", user_id: "u2", author_name: "Sam", body: "Hi!", created_at: new Date().toISOString()}, {id: "m2", group_id: "g1", user_id: "u1", author_name: "Connor", body: "Hey Sam", created_at: new Date().toISOString()}));
+  await page.evaluate(() => window.__fire("group_messages")); await tab(page, "chat"); await page.waitForTimeout(600);
+  ok(await page.evaluate(() => { const m = [...document.querySelectorAll("#grpDetail .grp-msg")]; return m.length >= 1 && m.every(x => x.classList.contains("mc-row") && getComputedStyle(x).borderLeftWidth === "4px"); }), "chat messages have the curved edge in the writer's colour");
+  await page.screenshot({path: shots + "/gk-chat-colours.png"});
+  // the group's colour: your own course's when the code matches (written any way), else the owner's choice
+  const gcol = () => page.evaluate(() => getComputedStyle(document.querySelector("#grpDetail")).getPropertyValue("--c").trim().toUpperCase());
+  await page.evaluate(() => { const g = window.__DB.study_groups.find(x => x.id === "g1"); g.course = "biol-201 Intro Biology"; g.color = "#8E4EC6"; });
+  await act(page, "grp-page"); await openGroup(page, "g1");
+  ok(await gcol() === "#3B6FE0", "a group whose course matches one of yours (biol-201 = BIOL 201) shows in your course's colour: " + await gcol());
+  await page.evaluate(() => { const g = window.__DB.study_groups.find(x => x.id === "g1"); g.course = "CHEM 110"; });
+  await act(page, "grp-page"); await openGroup(page, "g1");
+  ok(await gcol() === "#8E4EC6", "with no matching course, the owner's colour: " + await gcol());
+  await page.evaluate(() => document.querySelector('[data-act="grp-edit"]').click()); await sheet(page, ".gc-grid");
+  ok(await page.getAttribute('dialog .gc-grid [data-gc="#8E4EC6"]', "aria-pressed") === "true", "Edit Group starts on the saved colour");
+  ok(await page.isVisible("dialog .gc-free") && !(await page.isVisible("dialog .gc-auto")), "with a course you don't have, the owner picks any colour");
+  await page.click('dialog .gc-grid [data-gc="#30A46C"]'); await page.click("dialog #grpSave"); await page.waitForTimeout(600);
+  ok(await page.evaluate(() => window.__DB.study_groups.find(x => x.id === "g1").color) === "#30A46C", "the owner's new colour is saved");
+  await page.evaluate(() => document.querySelector('[data-act="grp-edit"]').click()); await sheet(page, ".gc-grid");
+  await page.fill('dialog input[name="course"]', "BIOL201"); await page.waitForTimeout(100);
+  ok(!(await page.isVisible("dialog .gc-free")) && /Matches your BIOL 201/.test(await txt(page, "dialog .gc-auto")) && await page.inputValue('dialog input[name="gcolor"]') === "#3B6FE0", "with one of your courses, the group colour is that course's colour: " + await txt(page, "dialog .gc-auto"));
+  await page.click("dialog #grpSave"); await page.waitForTimeout(600);
+  ok(await page.evaluate(() => window.__DB.study_groups.find(x => x.id === "g1").color) === "#3B6FE0", "and it's saved, so members without the course see it too");
   // your own companion is sent to your groups, so they can draw it
   await page.waitForFunction(() => window.__DB.group_members.some(m => m.user_id === "u1" && m.face), null, {timeout: 8000}).catch(() => {});
   const sent = await page.evaluate(() => ({cur: window.SBCOMP && SBCOMP.current(), faces: window.__DB.group_members.filter(m => m.user_id === "u1").map(m => m.face)}));

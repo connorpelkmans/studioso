@@ -1402,3 +1402,12 @@ begin
   return 'They can join and make study groups again (they need a new invite to get back into a group).';
 end $$;
 revoke all on function public.studyboard_suspend_from_groups(text, text), public.studyboard_unsuspend_from_groups(text) from public, anon, authenticated;
+
+-- ---------- The group's colour ----------
+-- The owner picks it (New Group / Edit Group). Each member sees the group in their own course's colour when they have a course with
+-- the same code in their planner (that happens in the app, on their device only); everyone else sees this one.
+alter table public.study_groups add column if not exists color text;
+alter table public.study_groups drop constraint if exists study_groups_color_check;
+alter table public.study_groups add constraint study_groups_color_check check (color is null or color ~ '^#[0-9A-F]{6}$');
+grant update (color) on public.study_groups to authenticated;
+notify pgrst, 'reload schema';
