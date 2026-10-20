@@ -17,7 +17,7 @@
 
 type Env = (k: string) => string;
 type Deps = { env: Env; fetch: typeof fetch; now: () => number; log: (...a: unknown[]) => void };
-type Row = { plan?: string; pro_until?: string | null; trial_until?: string | null; grant_until?: string | null; grant_lifetime?: boolean };
+type Row = { plan?: string; pro_until?: string | null; trial_until?: string | null; grant_until?: string | null; grant_lifetime?: boolean; promo_until?: string | null; promo_lifetime?: boolean };
 
 const DAY = 86400;
 const PRO_TTL = 7 * DAY, TRIAL_TTL = 2 * DAY, FREE_TTL = 1 * DAY;
@@ -54,7 +54,7 @@ export type Tier = "free" | "pro" | "trial" | "lifetime";
 export function computeTier(row: Row | null, nowS: number): { tier: Tier; exp: number } {
   const ms = (v?: string | null) => (v ? Math.floor(Date.parse(v) / 1000) : NaN);
   if (!row) return { tier: "free", exp: nowS + FREE_TTL };
-  const until = ms(row.pro_until), trial = ms(row.trial_until), grant = ms(row.grant_until);
+  const until = ms(row.pro_until), trial = ms(row.trial_until), grant = ms(row.grant_until), promo = ms(row.promo_until);
   const lifetime = row.plan === "lifetime" || !!row.grant_lifetime;
   const paid = row.plan === "pro" && (row.pro_until == null || until > nowS);
   const granted = grant > nowS;
@@ -64,6 +64,9 @@ export function computeTier(row: Row | null, nowS: number): { tier: Tier; exp: n
   if (paid) ends.push(Math.min(nowS + PRO_TTL, row.pro_until == null ? Infinity : until));
   if (granted) ends.push(Math.min(nowS + PRO_TTL, grant));
   if (trialing) ends.push(Math.min(nowS + TRIAL_TTL, trial));
+  // A promo code: Pro's features (the "trial" tier: the free plan's amounts), for good or until promo_until. The token never outlives it.
+  if (row.promo_lifetime) ends.push(nowS + TRIAL_TTL);
+  if (promo > nowS) ends.push(Math.min(nowS + TRIAL_TTL, promo));
   if (!ends.length) return { tier: "free", exp: nowS + FREE_TTL };
   const tier: Tier = lifetime ? "lifetime" : granted || (paid && !trialing) ? "pro" : "trial";
   return { tier, exp: Math.max(...ends) };
@@ -100,7 +103,9 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     if (!rl.ok) throw new Error(`rate check failed ${rl.status}`);
     if ((await rl.json()) !== true) return reply({ error: "too many requests, try again later" }, 429, nowS, { "Retry-After": "600" });
 
-    const r = await d.fetch(`${base(d)}/rest/v1/studyboard_entitlements?user_id=eq.${encodeURIComponent(uid)}&select=plan,pro_until,trial_until,grant_until,grant_lifetime`, { headers: h });
+    let r = await d.fetch(`${base(d)}/rest/v1/studyboard_entitlements?user_id=eq.${encodeURIComponent(uid)}&select=plan,pro_until,trial_until,grant_until,grant_lifetime,promo_until,promo_lifetime`, { headers: h });
+    // a database without the promo columns yet (supabase-plans.sql not re-run): read without them
+    if (!r.ok && r.status === 400) r = await d.fetch(`${base(d)}/rest/v1/studyboard_entitlements?user_id=eq.${encodeURIComponent(uid)}&select=plan,pro_until,trial_until,grant_until,grant_lifetime`, { headers: h });
     if (!r.ok) throw new Error(`read failed ${r.status}`);
     const row = ((await r.json()) as Row[])[0] || null;
 

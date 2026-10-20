@@ -77,6 +77,9 @@ alter table public.studyboard_entitlements add column if not exists will_renew b
 -- Manual grants live in their own columns, so a payment event can never wipe a grant and a grant never hides a payment.
 alter table public.studyboard_entitlements add column if not exists grant_until timestamptz;
 alter table public.studyboard_entitlements add column if not exists grant_lifetime boolean not null default false;
+-- Promo codes (see "Promo codes" below) live in their own columns too: Pro's features, but never Pro's bigger limits.
+alter table public.studyboard_entitlements add column if not exists promo_until timestamptz;
+alter table public.studyboard_entitlements add column if not exists promo_lifetime boolean not null default false;
 -- Billing bookkeeping (newest payment event applied, and "refunded or disputed: stay off until a new purchase").
 alter table public.studyboard_entitlements add column if not exists billing_event_at timestamptz;
 alter table public.studyboard_entitlements add column if not exists billing_revoked_at timestamptz;
@@ -106,13 +109,15 @@ language sql stable security definer set search_path = public, pg_temp as $$
            or (e.plan = 'pro' and (e.pro_until is null or e.pro_until > now()))
            or e.trial_until > now()
            or e.grant_lifetime
-           or e.grant_until > now()))
+           or e.grant_until > now()
+           or e.promo_lifetime
+           or e.promo_until > now()))
 $$;
 
 -- One limit for one account, from the "limits" row. Null means no limit.
 -- Pro's bigger limits (storage, synced data, devices, group size, online backups, Pro groups) come with a paid plan or a gift only.
--- A card-free trial (the free week every new account gets, or studyboard_start_trial) unlocks every Pro theme and feature but keeps the
--- free plan's amounts, so nothing is over a limit when the week ends and nobody can fill 10 GB on a free week.
+-- A card-free trial (the free week every new account gets, or studyboard_start_trial) and a promo code unlock every Pro theme and feature
+-- but keep the free plan's amounts, so nothing is over a limit when the week ends and nobody can fill 10 GB on a free week.
 create or replace function public.studyboard_limits_pro(uid uuid) returns boolean
 language sql stable security definer set search_path = public, pg_temp as $$
   select exists (
@@ -1116,6 +1121,143 @@ begin
   end if;
 end $$;
 
+-- ---------- Promo codes ----------
+-- Codes you hand out. Two kinds:
+--   forever  Pro's features for good.
+--   month    Pro's features for one calendar month from the moment it's redeemed. It really ends: every check compares promo_until
+--            with now() (here, in the entitlement-token function and in the app), so nothing has to run for it to stop.
+-- Both give Pro's themes and features only. Storage, synced data, devices, group size, online backups and Pro groups stay at the free
+-- plan's amounts (studyboard_limits_pro ignores the promo columns), so a code never costs you database or storage room.
+-- Codes are stored only as a SHA-256 hash (with the last 4 characters as a hint): a leaked table can't be used to redeem anything.
+--
+-- In the SQL Editor:
+--   select * from public.studyboard_make_codes('month');                       -- one single-use one-month code
+--   select * from public.studyboard_make_codes('forever', 5);                  -- five single-use codes for Pro for good
+--   select * from public.studyboard_make_codes('month', 1, 50, 30, 'Club');    -- one code 50 people can use, redeemable for 30 days
+--   select public.studyboard_make_code('STUDYFRIEND', 'month', 100);           -- a code you choose, for up to 100 people
+--   select * from public.studyboard_list_codes();                              -- what exists and how much each was used
+--   select public.studyboard_disable_code('STUDYFRIEND');                      -- stops new redemptions (people who have it keep it)
+--   select public.studyboard_revoke_promo('someone@school.edu');               -- takes promo Pro away from one account
+-- People redeem them in the app, signed in: Settings, Redeem a Code (also on the Pro sheet).
+create table if not exists public.studyboard_promo_codes (
+  id bigint generated always as identity primary key,
+  code_hash text not null unique,
+  hint text not null default '',
+  kind text not null check (kind in ('forever', 'month')),
+  max_uses int check (max_uses is null or max_uses > 0),     -- null: no limit
+  uses int not null default 0,
+  valid_until timestamptz,                                    -- redeemable until (null: no deadline)
+  disabled boolean not null default false,
+  note text,
+  created_at timestamptz not null default now()
+);
+create table if not exists public.studyboard_promo_redemptions (
+  code_id bigint not null references public.studyboard_promo_codes(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  redeemed_at timestamptz not null default now(),
+  until timestamptz,                                          -- null: for good
+  primary key (code_id, user_id)
+);
+alter table public.studyboard_promo_codes enable row level security;
+alter table public.studyboard_promo_redemptions enable row level security;
+revoke all on public.studyboard_promo_codes, public.studyboard_promo_redemptions from public, anon, authenticated;
+
+-- One spelling for every code: upper case, letters and digits only (so "sb-abcd 1234" and "SBABCD1234" are the same code)
+create or replace function public.plans_promo_norm(p text) returns text
+language sql immutable set search_path = '' as $$ select regexp_replace(upper(coalesce(p, '')), '[^A-Z0-9]', '', 'g') $$;
+create or replace function public.plans_promo_hash(p text) returns text
+language sql immutable set search_path = '' as $$ select encode(sha256(convert_to('studyboard-promo|' || public.plans_promo_norm(p), 'UTF8')), 'hex') $$;
+
+-- Make a code you choose (4 to 40 letters and digits). Returns it the way people should type it.
+create or replace function public.studyboard_make_code(p_code text, p_kind text, p_max_uses int default 1, p_valid_days int default null, p_note text default null) returns text
+language plpgsql volatile security definer set search_path = '' as $$
+declare n text := public.plans_promo_norm(p_code);
+begin
+  perform public.plans_deny_clients();
+  if p_kind is null or p_kind not in ('forever', 'month') then raise exception 'kind must be forever or month'; end if;
+  if char_length(n) < 4 or char_length(n) > 40 then raise exception 'a code needs 4 to 40 letters or digits'; end if;
+  if p_valid_days is not null and p_valid_days < 1 then raise exception 'valid days must be at least 1, or null'; end if;
+  insert into public.studyboard_promo_codes (code_hash, hint, kind, max_uses, valid_until, note)
+  values (public.plans_promo_hash(n), right(n, 4), p_kind, p_max_uses, case when p_valid_days is null then null else now() + make_interval(days => p_valid_days) end, left(p_note, 300));
+  return n;
+end $$;
+
+-- Make random codes (SB-XXXX-XXXX-XXXX, no look-alike letters). Shown once: only their hash is kept, so copy them now.
+create or replace function public.studyboard_make_codes(p_kind text, p_count int default 1, p_max_uses int default 1, p_valid_days int default null, p_note text default null)
+returns table (code text, kind text, max_uses int, redeemable_until timestamptz)
+language plpgsql volatile security definer set search_path = '' as $$
+declare a constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; raw bytea; c text; i int; k int;
+begin
+  perform public.plans_deny_clients();
+  if p_count is null or p_count < 1 or p_count > 500 then raise exception 'make 1 to 500 codes at a time'; end if;
+  for k in 1 .. p_count loop
+    raw := decode(replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', ''), 'hex');
+    c := 'SB';
+    for i in 0 .. 11 loop c := c || substr(a, (get_byte(raw, i) % 32) + 1, 1); end loop;
+    perform public.studyboard_make_code(c, p_kind, p_max_uses, p_valid_days, p_note);
+    code := 'SB-' || substr(c, 3, 4) || '-' || substr(c, 7, 4) || '-' || substr(c, 11, 4);
+    kind := p_kind; max_uses := p_max_uses;
+    redeemable_until := case when p_valid_days is null then null else now() + make_interval(days => p_valid_days) end;
+    return next;
+  end loop;
+end $$;
+
+create or replace function public.studyboard_list_codes()
+returns table (id bigint, hint text, kind text, uses int, max_uses int, redeemable_until timestamptz, disabled boolean, note text, created_at timestamptz)
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  perform public.plans_deny_clients();
+  return query select c.id, '…' || c.hint, c.kind, c.uses, c.max_uses, c.valid_until, c.disabled, c.note, c.created_at from public.studyboard_promo_codes c order by c.created_at desc;
+end $$;
+
+create or replace function public.studyboard_disable_code(p_code text) returns text
+language plpgsql volatile security definer set search_path = '' as $$
+begin
+  perform public.plans_deny_clients();
+  update public.studyboard_promo_codes set disabled = true where code_hash = public.plans_promo_hash(p_code);
+  return case when found then 'Disabled. Nobody new can redeem it; people who already did keep what it gave them.' else 'No such code' end;
+end $$;
+
+create or replace function public.studyboard_revoke_promo(p_email text) returns text
+language plpgsql volatile security definer set search_path = '' as $$
+declare uid uuid;
+begin
+  perform public.plans_deny_clients();
+  select id into uid from auth.users where lower(email) = lower(btrim(p_email));
+  if uid is null then return 'No account uses ' || coalesce(p_email, '(nothing)'); end if;
+  update public.studyboard_entitlements set promo_until = null, promo_lifetime = false, updated_at = now() where user_id = uid;
+  return 'Promo Pro is removed for ' || p_email || ' (a paid plan or a grant, if there is one, is not touched)';
+end $$;
+
+-- Redeem (the app calls this, signed in). Answers {ok, kind, until} or {error: invalid | expired | used_up | already | slow_down | sign_in}.
+-- A month code adds one calendar month to any promo time still left; a forever code is for good. Each account can use a code once.
+create or replace function public.studyboard_redeem_code(p_code text) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+declare me uuid := auth.uid(); c record; until timestamptz; cur timestamptz;
+begin
+  if me is null then return jsonb_build_object('error', 'sign_in'); end if;
+  -- 10 tries an hour per account, so codes can't be guessed
+  if not public.studyboard_plan_rate_hit('promo:' || me::text, 10, 3600) then return jsonb_build_object('error', 'slow_down'); end if;
+  select * into c from public.studyboard_promo_codes where code_hash = public.plans_promo_hash(p_code) for update;
+  if not found or c.disabled then return jsonb_build_object('error', 'invalid'); end if;
+  if c.valid_until is not null and c.valid_until < now() then return jsonb_build_object('error', 'expired'); end if;
+  if exists (select 1 from public.studyboard_promo_redemptions r where r.code_id = c.id and r.user_id = me) then return jsonb_build_object('error', 'already'); end if;
+  if c.max_uses is not null and c.uses >= c.max_uses then return jsonb_build_object('error', 'used_up'); end if;
+  if c.kind = 'forever' then
+    insert into public.studyboard_entitlements as e (user_id, plan, will_renew, promo_lifetime, updated_at) values (me, 'free', false, true, now())
+    on conflict (user_id) do update set promo_lifetime = true, updated_at = now();
+    until := null;
+  else
+    select e.promo_until into cur from public.studyboard_entitlements e where e.user_id = me;
+    until := greatest(coalesce(cur, now()), now()) + interval '1 month';
+    insert into public.studyboard_entitlements as e (user_id, plan, will_renew, promo_until, updated_at) values (me, 'free', false, until, now())
+    on conflict (user_id) do update set promo_until = until, updated_at = now();
+  end if;
+  update public.studyboard_promo_codes set uses = uses + 1 where id = c.id;
+  insert into public.studyboard_promo_redemptions (code_id, user_id, until) values (c.id, me, until);
+  return jsonb_build_object('ok', true, 'kind', c.kind, 'until', until);
+end $$;
+
 -- ---------- Lock down: who may run what, and what is visible live ----------
 -- Every function in this file except the two the app calls is closed to PUBLIC, anon and signed-in people. Doing it by name over
 -- pg_proc covers every overload, and brand new functions Supabase gives default privileges to can't slip through.
@@ -1126,7 +1268,8 @@ begin
     select p.oid::regprocedure as sig from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
       and (p.proname like 'plans\_%' or p.proname in ('studyboard_is_pro', 'studyboard_limit', 'studyboard_prune_group_messages', 'studyboard_prune_billing', 'studyboard_prune_backups',
-           'studyboard_apply_billing', 'studyboard_plan_rate_hit', 'studyboard_grant_pro', 'studyboard_grant_pro_uid', 'studyboard_revoke_pro', 'studyboard_revoke_pro_uid'))
+           'studyboard_apply_billing', 'studyboard_plan_rate_hit', 'studyboard_grant_pro', 'studyboard_grant_pro_uid', 'studyboard_revoke_pro', 'studyboard_revoke_pro_uid',
+           'studyboard_make_code', 'studyboard_make_codes', 'studyboard_list_codes', 'studyboard_disable_code', 'studyboard_revoke_promo', 'studyboard_redeem_code'))
   loop
     execute format('revoke all on function %s from public, anon, authenticated', f.sig);
     if exists (select 1 from pg_roles where rolname = 'service_role') then execute format('grant execute on function %s to service_role', f.sig); end if;
@@ -1134,6 +1277,7 @@ begin
 end $$;
 revoke all on function public.studyboard_paywall() from public;
 grant execute on function public.studyboard_paywall() to anon, authenticated;
+grant execute on function public.studyboard_redeem_code(text) to authenticated;   -- the one promo function the app calls (it checks who is asking)
 revoke all on function public.studyboard_start_trial() from public, anon;
 grant execute on function public.studyboard_start_trial() to authenticated;
 

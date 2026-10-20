@@ -50,7 +50,7 @@ const STUB = `(() => {
   window.supabase = {createClient: () => ({
     auth,
     from: t => { rec("from", t); return q(t); },
-    rpc: async (n, a) => { rec("rpc", n, a); return {data: null, error: sbx.cfg.rpcError || null}; },
+    rpc: async (n, a) => { rec("rpc", n, a); const h = sbx.cfg.rpc && sbx.cfg.rpc[n]; if (h) { const out = h(a); if (out.ent !== undefined) sbx.ent = out.ent; return {data: out.data, error: null}; } return {data: null, error: sbx.cfg.rpcError || null}; },
     functions: {invoke: async (n, o) => { rec("invoke", n, o && o.body); return respond(n, o && o.body); }},
     storage: {from: b => ({list: async (prefix, o) => { rec("storage.list", b, prefix); return {data: o.offset ? [] : (sbx.cfg.files || []), error: null}; }, remove: async paths => { rec("storage.remove", b, paths); return {data: [], error: null}; }, upload: async () => ({error: null}), createSignedUrl: async () => ({data: {signedUrl: ""}, error: null})})},
     channel: () => ({on() { return this; }, subscribe() { return this; }, unsubscribe() {} }), removeChannel() {}, removeAllChannels() {}
@@ -264,6 +264,34 @@ const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries
     assert.equal(await page.evaluate(() => window.__bridge.log.filter(l => l[0] === "restore").length), 1);
     assert.equal(await page.evaluate(() => window.__bridge.log[0][1].userId), "11111111-2222-4333-8444-555555555555");
     assert.equal(await page.evaluate(() => StudyboardPlan.isPro()), true, "plan refresh after restore");
+    assert.deepEqual(errs, []); await ctx.close();
+  });
+
+  await test("promo codes: redeem from the Pro sheet; Pro's features with the free plan's limits; a month code ends; forever lasts", async () => {
+    const {ctx, page, errs} = await newPage(browser, {signedIn: true});
+    await page.evaluate(() => {
+      const until = new Date(Date.now() + 31 * 864e5).toISOString();
+      window.__sb.cfg.rpc = {studyboard_redeem_code: a => /^sb-?good/i.test(a.p_code) ? {data: {ok: true, kind: "month", until}, ent: {plan: "free", promo_until: until, promo_lifetime: false}} : {data: {error: "invalid"}}};
+    });
+    assert.equal(await page.evaluate(() => StudyboardPlan.isPro()), false, "free before a code");
+    await proSheet(page);
+    await page.click('dialog[open] [data-act="plan-code"]'); await page.waitForSelector("#promoCode");
+    await page.fill("#promoCode", "SB-NOPE-NOPE-NOPE"); await page.click("#promoGo"); await page.waitForTimeout(300);
+    assert.match(await page.textContent("#promoMsg"), /doesn't work/); assert.equal(await page.evaluate(() => StudyboardPlan.isPro()), false);
+    await page.fill("#promoCode", "sb-good-code-1234"); await page.click("#promoGo");
+    await page.waitForFunction(() => StudyboardPlan.isPro(), null, {timeout: 6000});
+    assert.equal(await page.evaluate(() => StudyboardPlan.limitsPro()), false, "a code keeps the free plan's limits");
+    assert.match(await page.evaluate(() => StudyboardPlan.status().title), /Pro From a Code/);
+    assert.ok((await calls(page, "rpc")).some(c => c[1] === "studyboard_redeem_code" && c[2].p_code === "sb-good-code-1234"), "the database decides, with the code as typed");
+    // the month is over: free again on the next check
+    await page.evaluate(() => { window.__sb.ent = {plan: "free", promo_until: new Date(Date.now() - 1000).toISOString(), promo_lifetime: false}; });
+    await page.evaluate(() => StudyboardPlan.refresh()); await page.waitForTimeout(300);
+    assert.equal(await page.evaluate(() => StudyboardPlan.isPro()), false, "an ended month code is free");
+    // forever
+    await page.evaluate(() => { window.__sb.ent = {plan: "free", promo_until: null, promo_lifetime: true}; });
+    await page.evaluate(() => StudyboardPlan.refresh()); await page.waitForTimeout(300);
+    assert.equal(await page.evaluate(() => StudyboardPlan.isPro() && !StudyboardPlan.limitsPro()), true, "a forever code: Pro, free limits");
+    assert.match(await page.evaluate(() => StudyboardPlan.status().sub), /for good/);
     assert.deepEqual(errs, []); await ctx.close();
   });
 

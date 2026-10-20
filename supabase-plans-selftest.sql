@@ -58,9 +58,10 @@ declare
   ub uuid := gen_random_uuid();   -- another account, with a gift from you
   r text; n bigint; f record; t text; msg text;
   tables text[] := array['studyboard_config', 'studyboard_entitlements', 'studyboard_devices', 'studyboard_usage', 'studyboard_billing_customers',
-                         'studyboard_billing_events', 'studyboard_pro_grants', 'studyboard_plan_rate', 'studyboard_device_removals', 'studyboard_trial_uses', 'studyboard_trial_blocked_domains'];
-  secret_tables text[] := array['studyboard_billing_customers', 'studyboard_billing_events', 'studyboard_pro_grants', 'studyboard_plan_rate', 'studyboard_device_removals', 'studyboard_trial_uses', 'studyboard_trial_blocked_domains'];
-  allowed_fn text[] := array['studyboard_paywall', 'studyboard_start_trial'];
+                         'studyboard_billing_events', 'studyboard_pro_grants', 'studyboard_plan_rate', 'studyboard_device_removals', 'studyboard_trial_uses', 'studyboard_trial_blocked_domains',
+                         'studyboard_promo_codes', 'studyboard_promo_redemptions'];
+  secret_tables text[] := array['studyboard_promo_codes', 'studyboard_promo_redemptions', 'studyboard_billing_customers', 'studyboard_billing_events', 'studyboard_pro_grants', 'studyboard_plan_rate', 'studyboard_device_removals', 'studyboard_trial_uses', 'studyboard_trial_blocked_domains'];
+  allowed_fn text[] := array['studyboard_paywall', 'studyboard_start_trial', 'studyboard_redeem_code'];
   gid uuid := gen_random_uuid();
 begin
   -- ===== Set-up (as you, the owner) =====
@@ -248,7 +249,8 @@ begin
     where ns.nspname = 'public'
       and (p.proname like 'plans\_%' or p.proname in ('studyboard_is_pro', 'studyboard_limit', 'studyboard_prune_group_messages', 'studyboard_prune_billing', 'studyboard_prune_backups',
            'studyboard_apply_billing', 'studyboard_plan_rate_hit', 'studyboard_grant_pro', 'studyboard_grant_pro_uid', 'studyboard_revoke_pro', 'studyboard_revoke_pro_uid',
-           'studyboard_paywall', 'studyboard_start_trial'))
+           'studyboard_paywall', 'studyboard_start_trial', 'studyboard_make_code', 'studyboard_make_codes', 'studyboard_list_codes', 'studyboard_disable_code',
+           'studyboard_revoke_promo', 'studyboard_redeem_code'))
   loop
     if not (f.proname = any (allowed_fn)) then
       perform public.sbt_ok(not has_function_privilege('anon', f.oid, 'execute'), 'anon can execute ' || f.sig::text);
@@ -838,6 +840,89 @@ begin
     perform public.sbt_ok((select trial_until = tu from public.studyboard_entitlements where user_id = w5), 'changing the email gave the account another free week');
   end;
   end if;
+
+  -- ===== 12. Promo codes: only you make them; one use each; Pro's features without Pro's limits; a month code really ends =====
+  declare
+    p1 uuid := gen_random_uuid(); p2 uuid := gen_random_uuid(); p3 uuid := gen_random_uuid();
+    cm text; cf text; j jsonb; u timestamptz; k int;
+  begin
+    perform set_config('request.jwt.claims', '', true);
+    insert into auth.users (id, instance_id, aud, role, email, created_at, updated_at)
+      values (p1, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sbt-promo-1-' || p1 || '@example.invalid', now(), now()),
+             (p2, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sbt-promo-2-' || p2 || '@example.invalid', now(), now()),
+             (p3, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sbt-promo-3-' || p3 || '@example.invalid', now(), now());
+    select code into cm from public.studyboard_make_codes('month');
+    select code into cf from public.studyboard_make_codes('forever');
+    perform public.sbt_ok(cm ~ '^SB-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$', 'a made code looks like SB-XXXX-XXXX-XXXX');
+    perform public.sbt_ok(not exists (select 1 from public.studyboard_promo_codes where code_hash = cm or code_hash = public.plans_promo_norm(cm)), 'codes are stored in plain text');
+    -- a signed-in person can't make, list or disable codes, read the tables, or give themselves promo time directly
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', p1, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    r := public.sbt_try('select public.studyboard_make_code(''MYOWNCODE'', ''forever'', null)');
+    execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user made their own promo code'); execute 'set local role authenticated';
+    r := public.sbt_try('select * from public.studyboard_make_codes(''forever'')');
+    execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user made promo codes'); execute 'set local role authenticated';
+    r := public.sbt_try('select * from public.studyboard_list_codes()');
+    execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user listed the promo codes'); execute 'set local role authenticated';
+    r := public.sbt_try(format('update public.studyboard_entitlements set promo_lifetime = true where user_id = %L', p1));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user set their own promo_lifetime'); execute 'set local role authenticated';
+    r := public.sbt_try(format('insert into public.studyboard_entitlements (user_id, promo_until) values (%L, now() + interval ''10 years'')', p1));
+    execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user gave themselves promo time'); execute 'set local role authenticated';
+    -- wrong codes do nothing
+    j := public.studyboard_redeem_code('SB-AAAA-AAAA-AAAA');
+    execute 'reset role'; perform public.sbt_ok(j ->> 'error' = 'invalid' and not public.studyboard_is_pro(p1), 'a made-up code was accepted'); execute 'set local role authenticated';
+    -- the month code: Pro's features now, the free plan's limits, and an end one month away
+    j := public.studyboard_redeem_code(lower(replace(cm, '-', ' ')));
+    execute 'reset role';
+    perform public.sbt_ok((j ->> 'ok')::boolean and j ->> 'kind' = 'month', 'a month code (typed in lower case with spaces) was refused: ' || j::text);
+    select promo_until into u from public.studyboard_entitlements where user_id = p1;
+    perform public.sbt_ok(u = now() + interval '1 month', 'a month code does not end exactly one month after redeeming: ' || coalesce(u::text, 'null'));
+    perform public.sbt_ok(public.studyboard_is_pro(p1), 'a month code did not give Pro');
+    perform public.sbt_ok(not public.studyboard_limits_pro(p1), 'a month code gave Pro''s bigger limits');
+    perform public.sbt_ok(public.studyboard_limit(p1, 'fileMB') = public.studyboard_limit(p3, 'fileMB') and public.studyboard_limit(p1, 'dataMB') = public.studyboard_limit(p3, 'dataMB')
+                          and coalesce(public.studyboard_limit(p1, 'devices'), -1) = coalesce(public.studyboard_limit(p3, 'devices'), -1), 'a month code changed storage, data or device limits');
+    -- and it ends: once promo_until has passed, nothing is left
+    update public.studyboard_entitlements set promo_until = now() - interval '1 second' where user_id = p1;
+    perform public.sbt_ok(not public.studyboard_is_pro(p1), 'a month code was still Pro after its month ended');
+    update public.studyboard_entitlements set promo_until = u where user_id = p1;
+    -- single use: the same account again, and another account, are both refused
+    execute 'set local role authenticated';
+    j := public.studyboard_redeem_code(cm);
+    execute 'reset role'; perform public.sbt_ok(j ->> 'error' = 'already', 'the same account redeemed a code twice: ' || j::text);
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', p2, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    j := public.studyboard_redeem_code(cm);
+    execute 'reset role'; perform public.sbt_ok(j ->> 'error' = 'used_up' and not public.studyboard_is_pro(p2), 'a single-use code worked for a second account: ' || j::text);
+    -- the forever code: Pro for good, still the free plan's limits
+    execute 'set local role authenticated';
+    j := public.studyboard_redeem_code(cf);
+    execute 'reset role';
+    perform public.sbt_ok((j ->> 'ok')::boolean and j ->> 'until' is null and public.studyboard_is_pro(p2) and not public.studyboard_limits_pro(p2), 'a forever code didn''t give lasting Pro without the bigger limits: ' || j::text);
+    -- a second month code adds a month to what's left; a disabled or expired code is refused
+    perform set_config('request.jwt.claims', '', true);
+    perform public.studyboard_make_code('SBTMONTHTWO', 'month', 10);
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', p1, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated'; j := public.studyboard_redeem_code('sbt-month-two'); execute 'reset role';
+    perform public.sbt_ok((select promo_until from public.studyboard_entitlements where user_id = p1) = u + interval '1 month', 'a second month code didn''t add one month to the time left');
+    perform set_config('request.jwt.claims', '', true);
+    perform public.studyboard_make_code('SBTDISABLED', 'forever', 10); perform public.studyboard_disable_code('SBTDISABLED');
+    perform public.studyboard_make_code('SBTEXPIRED', 'forever', 10); update public.studyboard_promo_codes set valid_until = now() - interval '1 day' where hint = 'IRED' and kind = 'forever';
+    perform set_config('request.jwt.claims', jsonb_build_object('sub', p3, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated'; j := public.studyboard_redeem_code('SBTDISABLED'); execute 'reset role';
+    perform public.sbt_ok(j ->> 'error' = 'invalid' and not public.studyboard_is_pro(p3), 'a disabled code still worked');
+    execute 'set local role authenticated'; j := public.studyboard_redeem_code('SBTEXPIRED'); execute 'reset role';
+    perform public.sbt_ok(j ->> 'error' = 'expired' and not public.studyboard_is_pro(p3), 'an expired code still worked');
+    -- guessing is slowed down: after 10 tries in an hour, even a good code waits
+    execute 'set local role authenticated';
+    for k in 1 .. 12 loop j := public.studyboard_redeem_code('SB-WRONG-' || k); end loop;
+    execute 'reset role'; perform public.sbt_ok(j ->> 'error' = 'slow_down', 'codes can be guessed without a limit: ' || j::text);
+    -- nobody signed in: nothing
+    perform set_config('request.jwt.claims', '', true);
+    perform public.sbt_ok(public.studyboard_redeem_code(cf) ->> 'error' = 'sign_in', 'a code was redeemed without signing in');
+    -- taking it back
+    perform public.studyboard_revoke_promo('sbt-promo-2-' || p2 || '@example.invalid');
+    perform public.sbt_ok(not public.studyboard_is_pro(p2), 'revoking promo Pro left Pro on');
+  end;
 
   -- ===== Done =====
   select count(*) into n from public.sbt_log;
