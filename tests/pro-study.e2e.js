@@ -505,6 +505,26 @@ function SEED(){
     const third = await page.evaluate(() => window.__srv.syncs[2]);
     ok(third.events.find(e => e.k === "t:t1").start === "14:00" && third.events.find(e => e.k === "t:t2").date === day(6), "the next sync sends what Studyboard now has");
     ok(!third.events.some(e => /Shift at café/.test(e.title)), "events from a calendar are never sent back to one");
+    // An event made in the Studyboard calendar itself: it becomes a Studyboard event, editable here, and is sent back under its own key
+    await page.evaluate(d2 => { window.__srv.reply = {added: [{id: "cgn0123456789abcdef0123", title: "Dentist", where: "Main St", date: d2, allDay: false, start: "14:00", end: "15:00"}]}; }, day(2));
+    await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google"})); await page.waitForTimeout(300);
+    const den = await page.evaluate(() => ({e: state.events.cgn0123456789abcdef0123, toast: document.getElementById("toastMsg").textContent}));
+    ok(den.e && den.e.title === "Dentist" && den.e.start === "14:00" && den.e.end === "15:00" && den.e.where === "Main St" && !den.e.src && den.e.calFrom === "google", "an event added in the Studyboard calendar comes in as a Studyboard event: " + JSON.stringify(den.e));
+    ok(/1 new from Google Calendar added/.test(den.toast), "and Sync Now says so: " + den.toast);
+    await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google", quiet: true})); await page.waitForTimeout(200);
+    const back = await page.evaluate(d2 => window.__srv.syncs[window.__srv.syncs.length - 1].events.find(e => e.k === "e:cgn0123456789abcdef0123:" + d2), day(2));
+    ok(back && back.title === "Dentist" && back.start === "14:00" && back.end === "15:00" && back.busy === true && back.where === "Main St" && back.note === "", "the next sync sends it back under its own key, exactly as the server expects: " + JSON.stringify(back));
+    await page.evaluate(d2 => { window.__srv.reply = {changes: [{k: "e:cgn0123456789abcdef0123:" + d2, deleted: true}]}; }, day(2));
+    await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google", quiet: true})); await page.waitForTimeout(300);
+    ok(await page.evaluate(() => !state.events.cgn0123456789abcdef0123), "deleted in Google Calendar: it goes from Studyboard too");
+    // Google didn't let Studyboard read their calendar: Sync Now and the pane say so, with Connect Again
+    await page.evaluate(() => { window.__srv.reply = {busyErr: "no_access"}; });
+    await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google"})); await page.waitForTimeout(300);
+    ok(/can't see your Google Calendar events/.test(await page.evaluate(() => document.getElementById("toastMsg").textContent)), "Sync Now says it can't see their events");
+    await act(page, "cal-sync"); await page.waitForTimeout(250); await page.click('[data-cs-tab="two"]'); await page.waitForTimeout(600);
+    ok(/can't see the events in your Google Calendar/.test(await page.locator("#csPane").textContent()) && /See events on all your calendars/.test(await page.locator("#csPane").textContent()), "the pane explains what to allow");
+    await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
+    await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google", quiet: true})); await page.waitForTimeout(200);
     // Settings: what to send, what to bring in
     await act(page, "cal-sync"); await page.waitForTimeout(250); await page.click('[data-cs-tab="two"]'); await page.waitForTimeout(400);
     ok(/student@gmail\.com/.test(await page.locator("#csPane").textContent()), "the pane shows the connected account");
@@ -512,7 +532,7 @@ function SEED(){
     await page.check('input[name="csyBring"][value="off"]'); await page.waitForTimeout(200);
     ok(await page.evaluate(() => Object.values(state.events).filter(e => e.src === "gcal").length === 0), "Don't bring them in removes the events that came in");
     await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google", quiet: true})); await page.waitForTimeout(200);
-    const fourth = await page.evaluate(() => window.__srv.syncs[3]);
+    const fourth = await page.evaluate(() => window.__srv.syncs[window.__srv.syncs.length - 1]);
     ok(fourth.bring === "off" && !fourth.events.some(e => e.k.startsWith("m:")), "unticked classes aren't sent");
     await page.click('[data-act="csy-ask-off"][data-id="google"]'); await page.waitForTimeout(100);
     await page.click('[data-act="csy-off"][data-id="google"][data-remove="1"]'); await page.waitForTimeout(300);

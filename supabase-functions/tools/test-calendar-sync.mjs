@@ -58,6 +58,7 @@ function world(opts = {}) {
       assert.equal(init.headers.Authorization, "Bearer g-access"); g.calls.push(m + " " + u.pathname);
       const parts = u.pathname.replace("/calendar/v3/", "").split("/").map(decodeURIComponent);
       if (parts[0] === "calendars" && parts.length === 1 && m === "POST") { const id = "sbcal" + (++g.n); g.cals.set(id, new Map()); g.tz = body.timeZone; return json({ id }); }
+      if (g.noRead && parts[1] === "primary") return json({ error: "insufficientPermissions" }, 403);
       const cal = g.cals.get(parts[1]); if (!cal) return json({ error: "nf" }, 404);
       if (parts.length === 2) { if (m === "DELETE") { g.cals.delete(parts[1]); return new Response(null, { status: 204 }); } return json({ id: parts[1] }); }
       if (parts[2] === "events" && parts.length === 3 && m === "POST") { const id = "ge" + (++g.n); cal.set(id, gEvent(parts[1], body, id)); return json({ id }); }
@@ -271,20 +272,27 @@ await test("at most 60 writes per call, soonest first; the app calls again for t
   assert.equal(r2.body.stats.created, 15); assert.equal(r2.body.more, false);
   assert.equal((await w.call(SYNC(Array.from({ length: 801 }, (_, i) => ({ k: "t:y" + i, title: "x", date: "2026-10-20", allDay: true }))))).status, 400, "800 at most");
 });
-await test("busy times from the person's own calendar: titles, or just Busy, never free time", async () => {
+await test("the person's own calendar: every event with titles (all-day ones too), or just the busy time", async () => {
   const w = world(); await w.connect();
   const p = w.g.cals.get("primary");
   p.set("p1", { id: "p1", status: "confirmed", summary: "Shift at café", location: "Main St", start: { dateTime: "2026-10-12T13:00:00-04:00" }, end: { dateTime: "2026-10-12T17:00:00-04:00" } });
   p.set("p2", { id: "p2", status: "confirmed", summary: "Mom's birthday", transparency: "transparent", start: { date: "2026-10-13" }, end: { date: "2026-10-14" } });
   p.set("p3", { id: "p3", status: "confirmed", summary: "Trip", start: { date: "2026-10-20" }, end: { date: "2026-10-23" } });
   const r = await w.call(SYNC(EV(), { bring: "titles" }));
-  assert.equal(r.body.busy.length, 2, "free (transparent) events are left out");
+  assert.equal(r.body.busy.length, 3, "with titles, every event comes in, all-day ones too (Google marks them free)");
+  assert.ok(r.body.busy.some(b => b.title === "Mom's birthday" && b.allDay), "the all-day one is there");
   const shift = r.body.busy.find(b => b.title === "Shift at café");
   assert.deepEqual({ ...shift, id: "" }, { id: "", title: "Shift at café", where: "Main St", allDay: false, date: "2026-10-12", start: "13:00", end: "17:00" });
   assert.ok(/^[0-9a-f]{20}$/.test(shift.id), "a stable id that isn't the calendar's own");
-  assert.deepEqual(r.body.busy.find(b => b.allDay), { id: r.body.busy.find(b => b.allDay).id, title: "Trip", where: "", allDay: true, date: "2026-10-20", endDate: "2026-10-22" });
+  assert.deepEqual(r.body.busy.find(b => b.title === "Trip"), { id: r.body.busy.find(b => b.title === "Trip").id, title: "Trip", where: "", allDay: true, date: "2026-10-20", endDate: "2026-10-22" });
   const r2 = await w.call(SYNC(EV(), { bring: "busy" }));
   assert.ok(r2.body.busy.every(b => b.title === "Busy" && b.where === ""), "busy only: no titles or places leave the calendar");
+  assert.equal(r2.body.busy.length, 2, "busy only: free time is left out");
+  // Reading their calendar wasn't allowed (Google lets people untick it): the rest of the sync still works, and the app is told
+  w.g.noRead = true;
+  const r3 = await w.call(SYNC(EV(), { bring: "titles" }));
+  assert.equal(r3.status, 200); assert.equal(r3.body.busy, null); assert.equal(r3.body.busyErr, "no_access");
+  w.g.noRead = false;
   assert.equal((await w.call(SYNC(EV(), { bring: "off" }))).body.busy, null);
 });
 await test("allowing access again when Google stops accepting the token", async () => {
@@ -328,5 +336,47 @@ await test("Outlook: connect, sync (times in UTC, all-day at midnight), moves co
   assert.deepEqual(r2.body.changes, [{ k: "t:lab3", allDay: false, date: "2026-10-16", start: "18:00", end: "18:30" }]);
   const ra = await F.unseal(SECRET, w.db.accounts.get(UID + "|microsoft").refresh_enc, UID, "microsoft");
   assert.equal(ra, "m-refresh-2", "Microsoft's new refresh token replaces the old one");
+});
+await test("an event the person adds to the Studyboard calendar comes into Studyboard, then syncs both ways without copies", async () => {
+  const w = world(); await w.connect(); await w.call(SYNC(EV()));
+  const cal = studyCal(w);
+  cal.set("mine1", { id: "mine1", status: "confirmed", summary: "Dentist", location: "Main St", start: { dateTime: "2026-10-15T18:00:00Z" }, end: { dateTime: "2026-10-15T19:00:00Z" } });
+  cal.set("mine2", { id: "mine2", status: "confirmed", summary: "Reading week", start: { date: "2026-10-19" }, end: { date: "2026-10-24" } });
+  const r = await w.call(SYNC(EV()));
+  assert.equal(r.status, 200);
+  const den = r.body.added.find(a => a.title === "Dentist"), wk = r.body.added.find(a => a.title === "Reading week");
+  assert.ok(den && /^cgn[0-9a-f]{20}$/.test(den.id), "a new event comes back with a Studyboard id: " + JSON.stringify(r.body.added));
+  assert.deepEqual({ date: den.date, start: den.start, end: den.end, allDay: den.allDay, where: den.where }, { date: "2026-10-15", start: "14:00", end: "15:00", allDay: false, where: "Main St" }, "in the person's time zone");
+  assert.deepEqual({ date: wk.date, endDate: wk.endDate, allDay: wk.allDay }, { date: "2026-10-19", endDate: "2026-10-23", allDay: true }, "a multi-day event keeps its days");
+  assert.equal(r.body.added.length, 2, "Studyboard's own events are never taken in");
+  assert.equal(cal.size, 6);
+  // A device that doesn't have them yet syncs: nothing is deleted, they're offered again
+  const r2 = await w.call(SYNC(EV()));
+  assert.equal(cal.size, 6, "not deleted by a device that hasn't got them yet");
+  assert.deepEqual(r2.body.added.map(a => a.id).sort(), [den.id, wk.id].sort(), "offered again, same ids");
+  // The app now sends them the way it stores them: no writes, no copies, and they're settled
+  const mine = [{ k: `e:${den.id}:2026-10-15`, title: "Dentist", date: "2026-10-15", start: "14:00", end: "15:00", allDay: false, busy: true, where: "Main St", note: "" },
+    { k: `e:${wk.id}:2026-10-19`, title: "Reading week", date: "2026-10-19", endDate: "2026-10-23", allDay: true, busy: false, where: "", note: "" }];
+  const r3 = await w.call(SYNC(EV(mine)));
+  assert.deepEqual([r3.body.stats.created, r3.body.stats.updated, r3.body.added.length], [0, 0, 0], "already there: nothing written, nothing added: " + JSON.stringify(r3.body.stats));
+  assert.equal(cal.size, 6);
+  // Changed in Studyboard: the calendar event is updated (not a new one)
+  const r4 = await w.call(SYNC(EV([Object.assign({}, mine[0], { title: "Dentist (moved room)" }), mine[1]])));
+  assert.equal(r4.body.stats.updated, 1); assert.equal(cal.get("mine1").summary, "Dentist (moved room)"); assert.equal(cal.size, 6);
+  // Deleted in the calendar: the app hears about it
+  cal.delete("mine2");
+  const r5 = await w.call(SYNC(EV([Object.assign({}, mine[0], { title: "Dentist (moved room)" }), mine[1]])));
+  assert.ok(r5.body.changes.some(c => c.k === mine[1].k && c.deleted), "deleted there");
+  // Deleted in Studyboard: removed from the calendar
+  const r6 = await w.call(SYNC(EV()));
+  assert.equal(r6.body.stats.removed, 1); assert.ok(!cal.has("mine1"));
+});
+await test("a Studyboard event whose link was lost is never taken in as a copy", async () => {
+  const a = await F.adopt({ id: "x", x: { s: "D2026-10-14", e: "D2026-10-15" }, title: "Due: thing", where: "", ours: true }, "google", TZ, "2026-10-01", "2026-12-01");
+  assert.equal(a, null);
+  const b = await F.adopt({ id: "y", x: { s: "D2027-03-14", e: "D2027-03-15" }, title: "Far away", where: "" }, "google", TZ, "2026-10-01", "2026-12-01");
+  assert.equal(b, null, "outside the window");
+  const c = await F.adopt({ id: "z", x: { s: "T" + Date.parse("2026-10-15T18:00:00Z"), e: "T" + Date.parse("2026-10-15T18:00:00Z") }, title: "", where: "" }, "microsoft", TZ, "2026-10-01", "2026-12-01");
+  assert.ok(/^cmn/.test(c.ev.id) && c.ev.title === "Event" && c.ev.end === "15:00", "no title and no length: named Event, an hour long, as the app stores it");
 });
 console.log(`\ncalendar-sync: ${passed} checks passed`);
