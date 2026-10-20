@@ -43,7 +43,9 @@
   color-scheme:dark;
 }
 *,*::before,*::after{box-sizing:inherit}
-html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px);scrollbar-gutter:stable}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px);scrollbar-gutter:stable;overscroll-behavior-y:none}
+/* no bounce past the top or bottom (Chrome on Windows and Mac touchpads): it slid the page down and showed a strip of the light background above the sidebar */
+body{overscroll-behavior-y:none}
 body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:1rem/1.5 var(--body);-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
