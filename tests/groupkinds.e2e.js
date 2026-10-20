@@ -357,11 +357,35 @@ async function createProject(browser){
   ok(errs.length === 0, "create: no page errors " + errs.join(" | ")); await ctx.close();
 }
 
+// A saved template shows up in New Group under Start From: it fills in the setup, and a project gets the template's tasks
+async function fromTemplate(browser){
+  const {ctx, page, errs} = await boot(browser, 1280, {me: "u1"});
+  await page.waitForFunction(() => window.SBPINPICK);
+  await page.evaluate(() => { const st = window.SBPINPICK.state(); st.settings = Object.assign({}, st.settings, {grpTemplates: [
+    {id: "tp1", name: "Poster Project", kind: "project", course: "BIO 101", icon: "", hidden: ["meetings"], goal: 0, tasks: [{title: "Pick a topic", off: 10}, {title: "Print the poster", off: 1}], at: Date.now()},
+    {id: "tp2", name: "Exam Crew", kind: "study", course: "CHEM 110", icon: "", hidden: [], goal: 90, tasks: [], at: Date.now()}]}); });
+  await act(page, "grp-page"); await page.waitForSelector("[data-grp-list]"); await act(page, "grp-new"); await sheet(page, ".grp-tpls");
+  eq(await page.locator("dialog .grp-tpls [data-tpl]").count(), 3, "New Group offers Blank and both saved templates");
+  await page.click('dialog .grp-tpls [data-tpl="tp1"]'); await page.screenshot({path: shots + "/gk-new-from-template.png"});
+  await page.click('dialog .grp-tpls [data-tpl="tp2"]');
+  ok(await page.evaluate(() => document.querySelector('dialog .grp-kind [data-kind="study"]').getAttribute("aria-pressed") === "true" && document.querySelector("dialog input[name=course]").value === "CHEM 110" && document.querySelector("dialog input[name=goal]").value === "90"), "a study group template fills in the course and weekly goal");
+  await page.click('dialog .grp-tpls [data-tpl="tp1"]');
+  ok(await page.evaluate(() => document.querySelector('dialog .grp-kind [data-kind="project"]').getAttribute("aria-pressed") === "true" && document.querySelector("dialog input[name=course]").value === "BIO 101"), "a project template switches to Group Project");
+  await page.fill('dialog input[name="name"]', "Cell Poster"); await page.fill('dialog input[name="due"]', await page.evaluate(() => window.__day(20)));
+  await page.click("dialog #grpSave"); await page.waitForSelector("#grpDetail", {timeout: 8000});
+  await page.waitForFunction(() => window.__DB.group_tasks.filter(t => !t.deleted).length >= 2, null, {timeout: 10000});
+  const made = await page.evaluate(() => { const g = window.__DB.study_groups.find(x => x.name === "Cell Poster"); return {kind: g.kind, hidden: g.hidden_features || [], tasks: window.__DB.group_tasks.filter(t => t.group_id === g.id).map(t => [t.title, t.due_at && String(t.due_at).slice(0, 10)])}; });
+  eq(made.kind, "project", "the new group is a project");
+  ok(made.hidden.includes("meetings"), "the template's hidden features stay hidden: " + made.hidden.join());
+  ok(made.tasks.length === 2 && made.tasks[0][0] === "Pick a topic" && made.tasks[0][1] === await page.evaluate(() => window.__day(10)), "its tasks are added, timed back from the due date: " + JSON.stringify(made.tasks));
+  ok(errs.length === 0, "template: no page errors " + errs.join(" | ")); await ctx.close();
+}
+
 (async () => {
   const browser = await chromium.launch({executablePath});
   try {
     for (const w of [1280, 390]) { await studyGroup(browser, w); await projectGroup(browser, w); }
-    await memberView(browser); await overdueAndSetup(browser); await createProject(browser); await hideFeatures(browser);
+    await memberView(browser); await overdueAndSetup(browser); await createProject(browser); await hideFeatures(browser); await fromTemplate(browser);
   } finally { await browser.close(); }
   console.log(`groupkinds.e2e.js: ${checks} checks passed. Screenshots in ${shots}`);
 })().catch(e => { console.error("FAILED:", e.message.split("\n")[0], (e.stack.match(/groupkinds.e2e.js:\d+/g) || []).join(" ")); process.exit(1); });
