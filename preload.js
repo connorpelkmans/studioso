@@ -82,6 +82,7 @@ contextBridge.exposeInMainWorld("studiosoDesktop", {
   setDesktopSetting: (key, value) => ipcRenderer.invoke("desk:settings:set", String(key), value),
   // Microsoft Store build only: opens Windows Settings > Apps > Startup (where start-at-sign-in is switched on for a Store app).
   openStartupSettings: () => ipcRenderer.invoke("desk:startup-settings"),
+  mic: what => ipcRenderer.invoke("desk:mic", what === "settings" ? "settings" : "ask"),
   // 1.11: Brightspace, Canvas and Blackboard (id = "brightspace" | "canvas" | "blackboard"). Read-only, with one exception: mail({op: "send"})
   // posts a reply to a Canvas Inbox conversation, and only after the person confirms it in a system dialog shown by the main process.
   // You sign in on the platform's own page, in a separate private cookie store for each.

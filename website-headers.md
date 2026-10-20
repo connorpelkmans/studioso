@@ -19,7 +19,7 @@ If the rel-sec agent's `<meta http-equiv="Content-Security-Policy">` is also in 
 | `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload` | The browser never talks to the site over plain http again. Only add `preload` (and submit at hstspreload.org) when every subdomain is https. |
 | `X-Content-Type-Options` | `nosniff` | A file served as text is never run as a script. |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` | Links to other sites only reveal the site's address, not the page's path or query (deck and group links carry codes). |
-| `Permissions-Policy` | camera, microphone, geolocation, payment, USB and the rest switched off | Studyboard uses none of them; this also stops any injected or third-party code from asking. (`clipboard-write` and `fullscreen` stay for "Copy link" and full screen.) |
+| `Permissions-Policy` | camera, geolocation, payment, USB and the rest switched off; the microphone only for Studyboard itself (`microphone=(self)`) | Record a Lecture needs the microphone (the browser still asks first); nothing else is used, and this stops embedded or third-party frames from asking. (`clipboard-write` and `fullscreen` stay for "Copy link" and full screen.) |
 | `Content-Security-Policy` | see `_headers` | Limits where scripts, styles, fonts, images and network calls can come from; blocks plugins (`object-src 'none'`), `<base>` tricks (`base-uri 'none'`), and **framing by other sites (`frame-ancestors 'none'`)**. |
 | `X-Frame-Options` | `DENY` | Same as `frame-ancestors`, for old browsers. |
 | `Cross-Origin-Opener-Policy` | `same-origin` | Pages opened from Studyboard cannot reach back into it through `window.opener`. |
@@ -40,7 +40,7 @@ If the rel-sec agent's `<meta http-equiv="Content-Security-Policy">` is also in 
 add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
 add_header X-Content-Type-Options "nosniff" always;
 add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-add_header Permissions-Policy "accelerometer=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), usb=(), serial=(), hid=(), bluetooth=(), clipboard-write=(self), fullscreen=(self)" always;
+add_header Permissions-Policy "accelerometer=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(self), midi=(), payment=(), usb=(), serial=(), hid=(), bluetooth=(), clipboard-write=(self), fullscreen=(self)" always;
 add_header Cross-Origin-Opener-Policy "same-origin" always;
 add_header X-Frame-Options "DENY" always;
 # One line. Copy the value from _headers (or _headers.strict) after "Content-Security-Policy:".
@@ -60,7 +60,7 @@ Note: in nginx, `add_header` lines inside a `location` replace (not add to) the 
   Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
   Header always set X-Content-Type-Options "nosniff"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
-  Header always set Permissions-Policy "accelerometer=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), usb=(), serial=(), hid=(), bluetooth=(), clipboard-write=(self), fullscreen=(self)"
+  Header always set Permissions-Policy "accelerometer=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(self), midi=(), payment=(), usb=(), serial=(), hid=(), bluetooth=(), clipboard-write=(self), fullscreen=(self)"
   Header always set Cross-Origin-Opener-Policy "same-origin"
   Header always set X-Frame-Options "DENY"
   Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: blob: data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'; upgrade-insecure-requests"

@@ -113,6 +113,10 @@
       "maxVersionTested": "10.0.26100.0",
       "addAutoLaunchExtension": false,
       "customExtensionsPath": "build-resources/appx-extensions.xml",
+      "capabilities": [
+        "runFullTrust",
+        "microphone"
+      ],
       "artifactName": "Studyboard-${version}-${arch}.${ext}"
     },
     "mac": {

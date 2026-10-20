@@ -250,6 +250,16 @@ function SEED(){
     ok(await page.locator('.cd-tabs [data-id="lectures"]').count() === 1, "a course has a Lectures tab");
     await page.click('.c2-head [data-act="lec-open"]'); await page.waitForTimeout(250);
     ok(await page.evaluate(() => /BIO101/.test(document.querySelector(".lec-for").textContent) && !document.getElementById("lecCourse") && !document.getElementById("lecTitle")), "from a course, the recorder is for that course and asks no name yet");
+    // a microphone the browser has blocked: say how to unblock it (the browser can't ask again); one the person just didn't allow: ask again
+    await page.evaluate(() => { const md = navigator.mediaDevices, orig = md.getUserMedia.bind(md), pq = navigator.permissions.query.bind(navigator.permissions); window.__micState = "denied";
+      md.getUserMedia = c => window.__micState ? Promise.reject(Object.assign(new Error("no"), {name: "NotAllowedError"})) : orig(c);
+      navigator.permissions.query = d => d && d.name === "microphone" && window.__micState ? Promise.resolve({state: window.__micState}) : pq(d); });
+    await page.click('[data-act="lec-start"]'); await page.waitForSelector(".lec-err", {timeout: 4000});
+    ok(/address bar, set Microphone to Allow/.test(await page.textContent(".lec-err")), "a blocked microphone says how to allow it");
+    await page.evaluate(() => { window.__micState = "prompt"; });
+    await page.click('[data-act="lec-start"]'); await page.waitForTimeout(300);
+    ok(/Choose Allow when your browser asks/.test(await page.textContent(".lec-err")), "a dismissed prompt says to choose Allow and try again");
+    await page.evaluate(() => { window.__micState = ""; });
     await page.click('[data-act="lec-start"]');
     await page.waitForSelector(".lec-live", {timeout: 8000});
     ok(await page.evaluate(() => window.__sbProStudy.rec().view === "rec"), "recording");
@@ -295,6 +305,23 @@ function SEED(){
     await page.click('.lec-doc-head [data-act="lec-doc"]'); await page.waitForTimeout(150);
     await page.click('.lec-fopt[data-doc="org"]'); await page.waitForTimeout(150);
     ok(/Today we talk about osmosis/.test(await page.locator(".lec-docv").textContent()) && await page.locator(".lec-docv h4").count() === 1, "the organized transcript");
+    // Slides and Notes: pick a file and a note from the course; the summary is written with them, and Ask can read the lecture
+    await page.click('.lec-doc-head [data-act="lec-doc"]'); await page.waitForTimeout(150);
+    ok(await page.locator(".lec-att").count() === 1 && await page.locator('.lec-att [data-act="lec-att-up"]').count() === 1, "a lecture has Slides and Notes, with Upload Files and From Studyboard");
+    await page.click('.lec-att [data-act="lec-att-pick"]'); await page.waitForSelector("#lecAttOk");
+    await page.check('[data-att="file:f1"]'); await page.check('[data-att="note:n2"]'); await page.click("#lecAttOk");
+    await page.waitForSelector(".lec-att-list li", {timeout: 5000});
+    const lfa = await page.evaluate(() => Object.values(state.files).find(f => f.folderId === "lectures"));
+    ok(lfa.lec.att.length === 2 && await page.locator(".lec-att-list li").count() === 2, "they're attached to the lecture");
+    const nb = page.context().aiBodies.length;
+    await page.click('.lec-fopt[data-doc="sum"]'); await page.waitForTimeout(150);
+    await page.click('[data-act="lec-make"]'); await page.waitForTimeout(1500);
+    ok(page.context().aiBodies.slice(nb).some(b => /Slides and notes/.test(b) && /Fixes carbon/.test(b)), "Write It Again sends the slides and notes as context");
+    await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
+    await act(page, "ask-course", "c1"); await page.waitForTimeout(300);
+    ok(await page.evaluate(() => [...document.querySelectorAll("[data-askf]")].some(i => i.checked && /Lecture: Osmosis Day/.test(i.parentElement.textContent))), "Ask offers the lecture's transcript, checked");
+    await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
+    await page.click(".lec-row"); await page.waitForTimeout(300);
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
     ok(await page.locator("#lecPill").count() === 0 && await page.evaluate(() => !window.__sbProStudy.rec()), "the recorder is finished");
     await tab(page, "files");
@@ -305,6 +332,58 @@ function SEED(){
     await page.click('.sheet-foot [data-act="lec-file"]'); await page.waitForTimeout(500);
     ok(/Cells are the unit of life/.test(await page.locator(".lec-tr").textContent()), "it shows the saved transcript");
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
+    // Live captions where the browser has no speech service (the desktop app): Gemini writes them from short pieces while recording
+    await page.evaluate(() => { window.__srKeep = window.SpeechRecognition; window.SpeechRecognition = window.webkitSpeechRecognition = undefined; window.__sbProStudy.lecCapMs(1500); window.confirm = () => true; });
+    await tab(page, "courses"); await act(page, "open-course", "c1"); await page.waitForTimeout(250);
+    await page.click('.c2-head [data-act="lec-open"]'); await page.waitForTimeout(250);
+    ok(/Written by Gemini every 30 seconds/.test(await page.textContent(".lec-body")) && await page.locator("#lecCap").isChecked(), "without the browser's speech service, live captions come from Gemini");
+    const before = page.context().aiBodies.length;
+    await page.click('[data-act="lec-start"]'); await page.waitForSelector(".lec-live", {timeout: 8000});
+    await page.waitForFunction(() => /Today we talk about osmosis/.test((document.querySelector(".lec-caps") || {}).textContent || ""), null, {timeout: 15000});
+    ok(true, "captions appear while recording");
+    ok(page.context().aiBodies.slice(before).some(b => /inline_data/.test(b) && /Thirty seconds of a lecture/.test(b)), "each short piece goes to Gemini as it's recorded");
+    await page.click('[data-act="lec-stop"]'); await page.waitForSelector("#lecText", {timeout: 20000});
+    ok(await page.evaluate(() => /Today we talk about osmosis/.test(document.getElementById("lecText").value) && window.__sbProStudy.rec().by === "ai"), "when it stops, the transcript is already written");
+    await page.click('[data-act="lec-discard"]'); await page.waitForTimeout(300);
+    await page.evaluate(() => { window.SpeechRecognition = window.webkitSpeechRecognition = window.__srKeep; window.__sbProStudy.lecCapMs(30000); });
+    // Drafts: a recording is kept on this device until it's saved or thrown away, even if the app closes
+    const lecDrafts = pg => pg.evaluate(() => new Promise(res => { const r = indexedDB.open("studyboard-lecture-drafts", 1); r.onsuccess = () => { const db = r.result; if (!db.objectStoreNames.contains("meta")) { res([]); return; } const q = db.transaction("meta").objectStore("meta").getAll(); q.onsuccess = () => res(q.result); q.onerror = () => res([]); }; r.onerror = () => res([]); }));
+    ok((await lecDrafts(page)).length === 0, "the saved lecture left no draft behind");
+    await tab(page, "courses"); await act(page, "open-course", "c1"); await page.waitForTimeout(250);
+    await page.click('.c2-head [data-act="lec-open"]'); await page.waitForTimeout(250);
+    await page.click('[data-act="lec-start"]'); await page.waitForSelector(".lec-live", {timeout: 8000});
+    ok((await lecDrafts(page)).some(d => d.state === "recording" && d.cid === "c1"), "a draft starts as soon as recording does");
+    await page.waitForTimeout(1200); await page.click('[data-act="lec-stop"]'); await page.waitForSelector("#lecText", {timeout: 8000});
+    await page.evaluate(() => dlg.close()); await page.waitForTimeout(250);
+    ok(await page.locator("#lecPill.lp-card").count() === 1 && /Lecture recorded/.test(await page.textContent("#lecPill")) && /Name and Save/.test(await page.textContent("#lecPill")), "closing after recording leaves a Lecture recorded card");
+    const d1 = (await lecDrafts(page))[0];
+    ok(d1 && d1.state === "review", "and the recording is kept as a draft");
+    // The app closing (a second window stands in for the next start): the draft is in the course's Lectures, to finish or delete
+    const p2 = await open(page.context());
+    await p2.evaluate(() => { window.confirm = () => true; ui.tab = "courses"; ui.courseId = "c1"; ui.courseTab = "lectures"; ui.courseTabFor = "c1"; render(); }); await p2.waitForSelector(".lec-draft", {timeout: 5000}).catch(() => {});
+    ok(await p2.locator(".lec-draft").count() === 1 && /Draft, not saved yet/.test(await p2.textContent(".lec-draft")), "the draft shows in the course's Lectures");
+    await p2.click('.lec-draft [data-act="lec-draft-open"]'); await p2.waitForSelector("#lecText", {timeout: 8000});
+    ok(await p2.evaluate(() => !!document.querySelector(".lec-audio") && window.__sbProStudy.rec().view === "review"), "Finish opens it in the recorder, ready to listen, transcribe and save");
+    await p2.evaluate(() => dlg.close()); await p2.waitForTimeout(200);
+    await p2.close();
+    await page.evaluate(() => { window.confirm = () => true; }); await page.evaluate(() => dlg.close());
+    await act(page, "lec-open"); await page.waitForTimeout(200); await page.click('[data-act="lec-discard"]'); await page.waitForTimeout(400);
+    ok((await lecDrafts(page)).length === 0, "Discard deletes the draft");
+    // Add Lecture: record, or upload a recording made elsewhere (it's transcribed by itself and kept as a draft until saved)
+    await page.evaluate(() => { ui.tab = "courses"; ui.courseId = "c1"; ui.courseTab = "lectures"; ui.courseTabFor = "c1"; render(); }); await page.waitForTimeout(300);
+    ok(/Add Lecture/.test(await page.textContent(".fab")), "the Lectures tab's add button is Add Lecture");
+    await page.click(".fab"); await page.waitForTimeout(200);
+    ok(await page.locator('#dlg [data-act="lec-add-rec"]').count() === 1 && await page.locator('#dlg [data-act="lec-add-up"]').count() === 1, "it offers Record a Lecture and Upload a Recording");
+    const wav = (secs, rate) => { const n = secs * rate, b = Buffer.alloc(44 + n * 2); b.write("RIFF", 0); b.writeUInt32LE(36 + n * 2, 4); b.write("WAVE", 8); b.write("fmt ", 12); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(rate, 24); b.writeUInt32LE(rate * 2, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write("data", 36); b.writeUInt32LE(n * 2, 40); for (let i = 0; i < n; i++) b.writeInt16LE(Math.round(Math.sin(i / 8) * 8000), 44 + i * 2); return b; };
+    const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.click('#dlg [data-act="lec-add-up"]')]);
+    await chooser.setFiles({name: "Week 3 Membranes.wav", mimeType: "audio/wav", buffer: wav(3, 8000)});
+    await page.waitForFunction(() => { const t = document.getElementById("lecText"); return t && /Today we talk about osmosis/.test(t.value); }, null, {timeout: 15000});
+    ok(await page.evaluate(() => { const R = window.__sbProStudy.rec(); return R.uploaded && R.title === "Week 3 Membranes" && R.segs.length === 1 && R.dur > 2000 && !!document.querySelector(".lec-audio"); }), "an uploaded recording opens at the review, named from the file, and is transcribed by itself");
+    ok((await lecDrafts(page)).some(d => d.title === "Week 3 Membranes"), "and is kept as a draft until saved");
+    const parts = await page.evaluate(async b64 => { const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0)); const r = await window.__sbProStudy.lecSplit(new Blob([bytes], {type: "audio/wav"})); return {n: r.segs.length, dur: Math.round(r.dur), type: r.segs[0].type}; }, wav(380, 8000).toString("base64"));
+    ok(parts.n === 2 && parts.dur === 380 && parts.type === "audio/wav", "a long recording is cut into 5-minute parts the AI can take: " + JSON.stringify(parts));
+    await page.click('[data-act="lec-discard"]'); await page.waitForTimeout(300);
+    ok((await lecDrafts(page)).length === 0, "Discard removes the uploaded draft too");
     const lecErrs = page.errs.filter(e => !/only on the computer/.test(e));
     ok(lecErrs.length === 0, "no console errors (recorder): " + lecErrs.join(" | "));
 
