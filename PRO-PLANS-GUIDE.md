@@ -240,3 +240,22 @@ What this does **not** stop: someone who edits their own copy of the app can unl
 - [ ] You know that **Delete My Account and Data does not cancel a Stripe subscription**. Tell people to cancel first (the app says so), and cancel in Stripe yourself if someone writes asking you to remove their account.
 - [ ] Both switches (`paywall` in `studyboard_config` and `PRO_ENFORCED` in `index.html`) are set the way you want, and the "early access" wording in the Style Shop and welcome tour disappears once the paywall is on.
 - [ ] App Store and Google Play (only if you ship a store app): RevenueCat webhook tested, subscriptions cancellable from each store, Restore Purchase works, and each store's privacy label and data-safety form match the Privacy Policy.
+
+
+### Upgrade Tracking
+
+While Pro is on sale, the app keeps private daily counts of which Pro prompt was **shown** (the Pro sheet's reason line), which one-time limit **note** appeared, which prompt led to a **buy** tap, and which led to a **purchase** (paid Pro turning on within 14 days of that tap; trials and codes don't count). Only the prompt's wording is sent, with numbers and quoted names taken out; there is no user id and nothing per person. The privacy policy says so under "Anonymous upgrade counts".
+
+It needs the newest `supabase-plans.sql`. The table `studyboard_upgrade_stats` can't be read through the API; read it in the Supabase SQL editor:
+
+```sql
+select reason,
+       sum(n) filter (where event = 'shown') as shown,
+       sum(n) filter (where event = 'buy') as buy_taps,
+       sum(n) filter (where event = 'purchased') as purchases,
+       round(100.0 * sum(n) filter (where event = 'purchased') / nullif(sum(n) filter (where event = 'shown'), 0), 1) as pct
+from public.studyboard_upgrade_stats where day > current_date - 30
+group by reason order by shown desc nulls last;
+```
+
+The prompts near the top with a high `pct` are the features that sell Pro; ones shown often that never lead to a buy tap are candidates to make free or to reword.

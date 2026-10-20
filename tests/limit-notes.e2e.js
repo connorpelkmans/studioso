@@ -34,6 +34,13 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok(!(await page.evaluate(() => StudyboardPlan.limitNote("storage", "again"))), "the same limit never shows twice");
     ok(await page.evaluate(() => StudyboardPlan.limitNote("group", "Study Group has 5 members, the most a free group holds. Upgrade to Pro for groups of up to 100.")), "a different limit still gets its one message");
     ok(await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("studyboard:limitNotes")); return !!(s && s.guest && s.guest.storage && s.guest.group); }), "what was shown is remembered on this device");
+    // upgrade tracking: a fresh sheet counts as shown (a redraw doesn't), a price tap as buy, with numbers and quoted names taken out
+    await page.evaluate(() => { window.__sbTrackSink = []; StudyboardPlan.openSheet('The free plan syncs on up to 2 devices for "My Deck"'); StudyboardPlan.openSheet('The free plan syncs on up to 2 devices for "My Deck"'); });
+    await page.waitForSelector("dialog[open] .plan-sheet"); await page.evaluate(() => document.querySelector('dialog[open] [data-act="plan-buy"]').click()); await page.waitForTimeout(300);
+    const tr = await page.evaluate(() => window.__sbTrackSink);
+    ok(tr.length === 2 && tr[0][0] === "shown" && tr[1][0] === "buy" && tr[0][1] === "The free plan syncs on up to # devices for \u2026" && tr[1][1] === tr[0][1], "upgrade tracking counts shown once and the buy tap, with no names or numbers: " + JSON.stringify(tr));
+    ok(await page.evaluate(() => { const a = JSON.parse(localStorage.getItem("studyboard:upgradeAttr")); return !!a && /syncs on up to/.test(a.r); }), "the buy tap remembers which prompt led to it, for the purchase count");
+    await page.evaluate(() => { localStorage.removeItem("studyboard:upgradeAttr"); const d = document.querySelector("dialog[open]"); if (d) d.close(); window.__sbTrackSink = null; });
     await page.reload(); await page.waitForFunction(() => window.StudyboardPlan && StudyboardPlan.limitNote); await page.waitForTimeout(300);
     ok(!(await page.evaluate(() => StudyboardPlan.limitNote("group", "x"))), "and after a reload it still doesn't show again");
     // paywall off (early access): never
