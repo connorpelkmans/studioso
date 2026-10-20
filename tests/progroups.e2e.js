@@ -125,6 +125,9 @@ const DB = (page, f) => page.evaluate(f);
     let {page, errs} = await boot(browser, {me: "u1", kind: "project", pro: true, seed: true});
     await openGroup(page);
     ok(await page.locator("#grpHead .gx-chip").count() === 1, "the header says PRO GROUP");
+    // A header redrawn on its own (live updates) tucks Assign Pro behind More before the screen paints: it never flickers into view
+    ok(await page.evaluate(async () => { const band = document.createElement("div"); band.className = "g2-band"; band.innerHTML = '<div class="row-actions"><button class="btn primary">Invite</button><button class="btn gx-assign">Assign Pro</button></div>';
+      document.getElementById("view").appendChild(band); await Promise.resolve(); const out = !band.querySelector(".row-actions > .gx-assign") && !!band.querySelector(".ra-menu .gx-assign"); band.remove(); return out; }), "Assign Pro is behind More as soon as a header is drawn");
     await tab(page, "members");
     ok(/Pro thanks to Sam/.test(await txt(page, "#gxPro")), "Members says who made it a Pro group");
     await SHOT(page, "g1-members");
