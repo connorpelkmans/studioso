@@ -29,7 +29,7 @@ function stubInit(opts){
       if (missing(t)) return wait({error: {code: "42P01", message: 'relation "public.' + t + '" does not exist'}});
       const rows = DB[t] || [], hit = rows.filter(r => st.f.every(f => f(r)));
       if (st.op === "insert") {
-        if (t === "group_items" && !(opts.kinds || ["deck", "task", "quiz", "event", "qa", "answer", "link", "minutes", "role", "weak"]).includes([].concat(st.payload)[0].kind)) return wait({error: {code: "23514", message: 'new row violates check constraint "group_items_kind_check"'}});
+        if (t === "group_items" && !(opts.kinds || ["deck", "task", "quiz", "event", "qa", "answer", "link", "minutes", "role", "weak", "battle"]).includes([].concat(st.payload)[0].kind)) return wait({error: {code: "23514", message: 'new row violates check constraint "group_items_kind_check"'}});
         const add = [].concat(st.payload).map(r => Object.assign({id: id("r"), created_at: nowIso(), updated_at: nowIso(), user_id: me.id, author_name: NAMES[me.id]}, r));
         add.forEach(r => rows.push(r)); window.__calls.push(["insert", t, st.payload]); return wait({data: st.one ? add[0] : add});
       }
@@ -176,8 +176,11 @@ async function studyGroup(browser, w){
   await tab(page, "sessions"); ok(await page.isVisible("#grpSessions") && /Study Sessions/.test(await txt(page, "#grpSessions")), tag + " Sessions tab");
   await tab(page, "challenge");
   ok(await page.isVisible("#grpChallenge") && await page.isVisible("#grpCheckin"), tag + " Challenge tab holds the weekly challenge and check-in");
-  ok(/Quiz Battle/.test(await txt(page, "#grpBattle")) && /Hasn't played yet/.test(await txt(page, "#grpBattle")), tag + " battle lists everyone before anyone has played");
+  ok(/Nobody is on the board until they join/.test(await txt(page, "#grpBattle")) && await page.$('#grpBattle [data-act="grp-battle"][data-on="1"]') !== null, tag + " the battle is opt-in: nobody is on it until they join");
+  await page.click('#grpBattle [data-act="grp-battle"][data-on="1"]'); await page.waitForTimeout(400);
+  ok(/Hasn't played yet/.test(await txt(page, "#grpBattle")) && /Leave the Battle/.test(await txt(page, "#grpBattle")) && await page.evaluate(() => window.__DB.group_items.some(i => i.kind === "battle" && i.user_id === "u1")), tag + " joining puts me on the board");
   await page.evaluate(() => { const now = new Date().toISOString(), D = window.__DB;
+    ["u2", "u3"].forEach(u => D.group_items.push({id: "bt-" + u, group_id: "g1", user_id: u, author_name: u, kind: "battle", ref_id: "", title: "battle", data: {v: 1, on: true}, created_at: now, updated_at: now}));
     D.group_quiz_scores.push({item_id: "qz1", group_id: "g1", user_id: "u2", best_correct: 9, best_total: 10, last_correct: 9, last_total: 10, attempts: 1}, {item_id: "qz1", group_id: "g1", user_id: "u3", best_correct: 6, best_total: 10, last_correct: 6, last_total: 10, attempts: 2});
     window.__fire("group_items"); window.__fire("group_quiz_scores"); });
   await page.waitForTimeout(1200);
