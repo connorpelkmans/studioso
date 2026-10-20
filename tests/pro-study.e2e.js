@@ -326,6 +326,41 @@ function SEED(){
     ok(await page.locator("#lecPill").count() === 0 && await page.evaluate(() => !window.__sbProStudy.rec()), "the recorder is finished");
     await tab(page, "files");
     ok(!/Osmosis Day/.test(await page.locator("#view").textContent()), "lectures stay out of Files");
+    // Back Up: to Files (sharing the stored recording), Google Drive / OneDrive, or this device
+    await page.evaluate(() => { ui.tab = "courses"; ui.courseId = "c1"; ui.courseTab = "lectures"; ui.courseTabFor = "c1"; render(); }); await page.waitForTimeout(200);
+    await page.click(".lec-row"); await page.waitForTimeout(300);
+    await page.click('.lec-vfoot [data-act="lec-bk"]'); await page.waitForSelector(".lec-bk", {timeout: 5000});
+    ok(await page.locator(".lec-bk-o").count() === 4, "Back Up offers Files, Google Drive, OneDrive and This Device");
+    await page.evaluate(() => { window.__bkUp = []; window.__bkDl = []; SBCLOUD.connected = () => ["google"]; SBCLOUD.saveBlob = async (p, blob, name, o) => { window.__bkUp.push({p, name, folder: o.folderId, size: blob.size}); return {p, id: "x" + window.__bkUp.length, url: "https://drive.google.com/x"}; }; const H = window.__sbProStudy; H.lecBk.download = (name, blob) => window.__bkDl.push(name);
+      H.lecBk.upload = async (list, o) => { const f = {id: "up" + Date.now(), name: list[0].name, courseId: o.courseId, folderId: o.folderId, kind: "file", revs: [{assetId: "a-up", name: list[0].name, size: list[0].size, type: "text/plain", at: Date.now()}], taskIds: [], desc: "", url: "", created: Date.now()}; window.__bkCloudFlag = o.cloud; H.applyChanges([{kind: "file", id: f.id, after: f}], ""); return [f]; }; });
+    await page.click('.lec-bk-o[data-where="files"]');
+    await page.waitForFunction(() => { const f = Object.values(state.files).find(x => x.folderId === "lectures"); return f && f.lec && f.lec.bk && f.lec.bk.files; }, null, {timeout: 8000});
+    const bk = await page.evaluate(() => { const L = Object.values(state.files).find(x => x.folderId === "lectures"); return {L, copies: L.lec.bk.files.map(id => state.files[id])}; });
+    ok(bk.copies.some(c => /Transcript and Summary\.txt$/.test(c.name) && c.folderId === "notes" && c.courseId === "c1"), "Files gets the transcript and summary, in the course's Lecture Notes");
+    ok(await page.evaluate(() => window.__bkCloudFlag === false), "always in Studyboard's own storage (not redirected to the cloud)");
+    ok(!bk.L.revs.length || bk.copies.some(c => c.revs.length && c.revs[0].assetId === bk.L.revs[bk.L.revs.length - 1].assetId), "and the recording, sharing the stored copy (no extra storage)");
+    await page.waitForSelector('.lec-bk-o.done[data-where="files"]', {timeout: 5000});
+    ok(true, "Files shows as backed up");
+    await page.click('.lec-bk-o[data-where="google"]');
+    await page.waitForFunction(() => window.__bkUp.length >= 1 && document.querySelector('.lec-bk-o.done[data-where="google"]'), null, {timeout: 8000});
+    const up = await page.evaluate(() => window.__bkUp);
+    ok(up.some(u => /Transcript and Summary\.txt$/.test(u.name) && u.p === "google" && u.folder === "lectures") && (!bk.L.revs.length || up.some(u => /^Osmosis Day\.(webm|m4a|ogg|wav)$/.test(u.name))), "Google Drive gets the recording and the transcript and summary, in Lectures: " + up.map(u => u.name).join(", "));
+    await page.click('.lec-bk-o[data-where="microsoft"]'); await page.waitForTimeout(300);
+    ok(await page.evaluate(() => /Cloud/i.test((document.querySelector("dialog[open]") || {}).textContent || "")), "OneDrive not connected: opens Cloud to connect it");
+    await page.evaluate(() => dlg.close());
+    await page.click(".lec-row"); await page.waitForTimeout(300);
+    await page.click('.lec-vfoot [data-act="lec-bk"]'); await page.waitForSelector(".lec-bk");
+    await page.click('.lec-bk-o[data-where="device"]'); await page.waitForTimeout(900);
+    ok(await page.evaluate(() => window.__bkDl.some(n => /Transcript and Summary\.txt$/.test(n))), "This Device downloads the transcript and summary");
+    // A lecture with its recording kept
+    await page.evaluate(() => { window.__sbProStudy.applyChanges([{kind: "file", id: "lec2", after: {id: "lec2", name: "Week 2", courseId: "c1", folderId: "lectures", kind: "file", revs: [{assetId: "a-lec2", name: "Week 2.webm", size: 4096, type: "audio/webm", at: Date.now()}], taskIds: [], desc: "", url: "", created: Date.now(), tr: {text: "Hello class"}}}], ""); dlg.close(); window.__bkUp = []; });
+    await act(page, "lec-bk", "lec2"); await page.waitForSelector(".lec-bk");
+    await page.click('.lec-bk-o[data-where="files"]');
+    await page.waitForFunction(() => { const f = window.__sbProStudy.state().files.lec2; return f.lec && f.lec.bk && f.lec.bk.files; }, null, {timeout: 8000});
+    const c2 = await page.evaluate(() => { const S = window.__sbProStudy.state(); return S.files.lec2.lec.bk.files.map(id => S.files[id]); });
+    ok(c2.some(c => c.name === "Week 2.webm" && c.revs[0].assetId === "a-lec2" && c.folderId === "notes"), "the recording's copy in Files points at the same stored file");
+    await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
+    await tab(page, "files");
     // A recording in Files: its transcript
     await act(page, "f-open", "f2"); await page.waitForTimeout(250);
     ok(await page.locator('.sheet-foot [data-act="lec-file"]').count() === 1, "a recording's file sheet has Transcript");
