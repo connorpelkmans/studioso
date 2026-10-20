@@ -290,8 +290,17 @@ function SEED(){
     ok(/★ 0:0\d/.test(await page.inputValue("#lecText")), "the marks are kept");
     ok(await page.locator('input[name="lecMake"]').count() === 0, "no note to make");
     await page.fill("#lecName", "Osmosis Day");
+    // Studyboard's storage is full: Save asks where the recording should go instead
+    await page.evaluate(() => { const H = window.__sbProStudy; window.__fullDl = []; H.lecBk.assets = {upload: async () => { throw Object.assign(new Error("Over the free storage limit"), {code: "quota_or_state"}); }}; H.lecBk.download = (name, blob) => window.__fullDl.push(name + ":" + blob.size); const k = document.getElementById("lecKeep"); k.disabled = false; k.checked = true; });
     await page.click('[data-act="lec-save"]');
+    await page.waitForSelector(".lec-full", {timeout: 8000});
+    ok(/storage is full/i.test(await page.textContent(".lec-full")) && await page.locator('.lec-full [data-act="lec-full-dl"]').count() === 1 && await page.locator('.lec-full [data-act="lec-full-skip"]').count() === 1, "storage full: offers Save to This Device or Save Without It");
+    ok(/Today we talk about osmosis/.test(await page.inputValue("#lecText")) && await page.inputValue("#lecName") === "Osmosis Day", "nothing typed is lost");
+    await page.click('[data-act="lec-full-dl"]');
     await page.waitForSelector(".lec-done", {timeout: 15000});
+    ok(await page.evaluate(() => window.__fullDl.length === 1 && /^Osmosis Day\.webm:[1-9]/.test(window.__fullDl[0])), "the recording downloads to this device: " + await page.evaluate(() => window.__fullDl.join()));
+    ok(await page.evaluate(() => /saved to the device/.test(Object.values(state.files).find(f => f.folderId === "lectures").desc)), "and the lecture says where the recording is");
+    await page.evaluate(() => { const H = window.__sbProStudy; H.lecBk.assets = null; H.lecBk.download = null; });
     const lf = await page.evaluate(() => Object.values(state.files).find(f => f.folderId === "lectures"));
     ok(lf && lf.name === "Osmosis Day" && lf.courseId === "c1" && /Today we talk about osmosis/.test(lf.tr.text), "Save keeps the lecture under the name given");
     ok(lf && /^## Osmosis/.test(lf.lec.org) && /How water and solutes[\s\S]*## Key Terms\n• Osmosis: Water moving across a membrane[\s\S]*## Takeaways/.test(lf.lec.sum), "with an organized transcript and a summary");
