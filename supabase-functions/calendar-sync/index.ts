@@ -36,6 +36,10 @@ export type Row = { sb_key: string; ext_id: string; hash: string; ext_start: str
 export type Ext = { s: string; e: string };
 
 const PROVIDERS: Provider[] = ["google", "microsoft"];
+// Reading the person's own Google calendar (calendar.events.readonly: busy times and "Bring In My Own Events") is switched OFF for now,
+// so Studyboard doesn't ask for that scope while it waits for Google's review. The code stays: set the Supabase secret
+// GOOGLE_CALENDAR_READ=1 to switch it back on. Outlook is not affected (Calendars.ReadWrite already covers it).
+export const googleReads = (d: Deps) => d.env("GOOGLE_CALENDAR_READ") === "1";
 const MAX_EVENTS = 800, MAX_WRITES = 60, MAX_BUSY = 300, BUSY_DAYS = 28, POOL = 5;
 const enc = new TextEncoder(), dec = new TextDecoder();
 
@@ -231,7 +235,7 @@ export function google(d: Deps): Adapter {
   return {
     configured: () => !!id && !!secret,
     authUrl: (state, redirect) => "https://accounts.google.com/o/oauth2/v2/auth?" + new URLSearchParams({ client_id: id, redirect_uri: redirect, response_type: "code", access_type: "offline", prompt: "consent", include_granted_scopes: "true", state,
-      scope: "openid email https://www.googleapis.com/auth/calendar.app.created https://www.googleapis.com/auth/calendar.events.readonly" }).toString(),
+      scope: "openid email https://www.googleapis.com/auth/calendar.app.created" + (googleReads(d) ? " https://www.googleapis.com/auth/calendar.events.readonly" : "") }).toString(),
     async exchange(code, redirect) {
       const j = await tokenCall(d, "https://oauth2.googleapis.com/token", { code, client_id: id, client_secret: secret, redirect_uri: redirect, grant_type: "authorization_code" });
       if (!j.refresh_token || !j.access_token) throw new ProviderError(400, false, "no refresh token");
@@ -508,7 +512,8 @@ async function sync(uid: string, b: any, d: Deps, A: Record<Provider, Adapter>, 
     if (rows.length || drop.length) await rpc(d, "calsync_map_save", { p_uid: uid, p_provider: prov, p_rows: rows, p_drop: drop });
     // Busy times from the person's own calendar, for Today's Plan (only what they chose to bring in)
     let busy: any[] | null = null, busyErr = "";
-    if (b.bring === "titles" || b.bring === "busy") {
+    if (prov === "google" && !googleReads(d)) busy = [];   // switched off: an empty list clears what came in before
+    else if (b.bring === "titles" || b.bring === "busy") {
       const bf = zonedMs(tz, today, "00:00"), bt = zonedMs(tz, addDays(today, BUSY_DAYS), "00:00");
       // With titles, everything in their calendar comes in (all-day events are "free" by default in Google, and were left out); busy only
       // keeps just the time they're busy. If they didn't allow reading their calendar, the rest of the sync still works and the app says so.
@@ -548,7 +553,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     let b: any; try { b = JSON.parse(text || "{}"); } catch (_e) { b = null; }
     if (!b || typeof b !== "object") return reply({ error: "bad request" }, 400);
     const providers = { google: A.google.configured(), microsoft: A.microsoft.configured() };
-    if (b.action === "status") return reply({ accounts: await rpc(d, "calsync_status", { p_uid: uid }) || [], providers }, 200);
+    if (b.action === "status") return reply({ accounts: await rpc(d, "calsync_status", { p_uid: uid }) || [], providers, reads: { google: googleReads(d), microsoft: true } }, 200);
     if (!PROVIDERS.includes(b.provider)) return reply({ error: "bad request" }, 400);
     const prov: Provider = b.provider;
     if (b.action === "disconnect") {
