@@ -31,7 +31,7 @@ window.STUDYBOARD_SITE = {
 
   // ---- Downloads (home page) ----
   // The version shown on the page.
-  VERSION: "1.14.4",
+  VERSION: "1.14.5",
 
   // Where each installer lives. While a url is "" the button stays on the page and says "coming soon" when pressed. Paste the link when
   // the installer is published (https only). Tip for Windows, Mac and Linux: publish the installers as a GitHub Release, then a link like
