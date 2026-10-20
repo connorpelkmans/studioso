@@ -1,7 +1,7 @@
 // Studyboard account page: sign in, sign up, reset password, see your plan, start Pro, manage billing.
 // It uses the SAME Supabase accounts as the app. Everything shown comes from the database or the user's own typing and is
 // written with textContent only (never innerHTML), so nothing typed or received can run as code.
-// The browser never sends a price, an amount or a customer id: only "monthly" or "yearly". The server decides the rest.
+// The browser never sends a price, an amount or a customer id: only "monthly", "semester" or "yearly". The server decides the rest.
 (function () {
   "use strict";
   var cfg = window.STUDYBOARD_SITE || {};
@@ -33,7 +33,8 @@
 
   // ----- What the link asked for (checked, never trusted) -----
   var qs = new URLSearchParams(location.search);
-  var wantPlan = qs.get("plan") === "monthly" || qs.get("plan") === "yearly" ? qs.get("plan") : null;
+  var PLANS = ["monthly", "semester", "yearly"];
+  var wantPlan = PLANS.indexOf(qs.get("plan")) >= 0 ? qs.get("plan") : null;
   var fromApp = qs.get("src") === "app";
   // "&return=" is honoured only for https addresses whose origin is APP_URL or on RETURN_ALLOWLIST. Anything else is ignored.
   function allowedReturn(candidate) {
@@ -93,6 +94,7 @@
       return Object.assign(res, { tag: "Pro", pro: true, subscribed: true, detail: end ? (e.will_renew ? "Your plan renews around " + end + "." : "Your plan ends on " + end + " and will not renew.") : "Your plan is active." });
     }
     if (grant) return Object.assign(res, { tag: "Pro (gift)", pro: true, detail: "Studyboard Pro is on for your account until " + fmt(e.grant_until) + "." });
+    if (trial && e.source === "welcome") return Object.assign(res, { tag: "Free week of Pro", pro: true, detail: "Your free week of Pro ends on " + fmt(e.trial_until) + ". No card needed: after that you're on the free plan unless you choose a plan below." });
     if (trial) return Object.assign(res, { tag: "Pro trial", pro: true, detail: "Your free trial ends on " + fmt(e.trial_until) + "." });
     return res;
   }
@@ -122,7 +124,7 @@
       state.busy = false; setBuyDisabled(false);
     }).catch(function () { msg($("acct-msg"), "Couldn't reach Studyboard. Check your connection and try again.", "error"); state.busy = false; setBuyDisabled(false); });
   }
-  function setBuyDisabled(d) { ["buy-monthly", "buy-yearly", "btn-manage"].forEach(function (id) { $(id).disabled = d; }); }
+  function setBuyDisabled(d) { ["buy-monthly", "buy-semester", "buy-yearly", "btn-manage"].forEach(function (id) { if ($(id)) $(id).disabled = d; }); }
   function openPortal() {
     if (state.busy) return; state.busy = true; setBuyDisabled(true); msg($("acct-msg"), "Opening billing...", "");
     fn(functions.portal || "create-portal-session", { return_url: location.origin + location.pathname }).then(function (r) {
@@ -169,7 +171,7 @@
   function field(form, name) { return form.elements[name].value; }
   function busy(form, on) { var b = form.querySelector("button[type=submit]"); if (b) b.disabled = on; }
   function redirectBack() {
-    var q = new URLSearchParams(); if (qs.get("plan") === "monthly" || qs.get("plan") === "yearly") q.set("plan", qs.get("plan")); if (fromApp) q.set("src", "app");
+    var q = new URLSearchParams(); if (PLANS.indexOf(qs.get("plan")) >= 0) q.set("plan", qs.get("plan")); if (fromApp) q.set("src", "app");
     return location.origin + location.pathname + (q.toString() ? "?" + q.toString() : "");
   }
   function toCode(mode, email, intro) {
@@ -229,6 +231,7 @@
     $("btn-signout").addEventListener("click", function () { state.sb.auth.signOut().then(function () { state.session = null; show("v-auth"); showForm("form-signin"); }); });
     $("buy-monthly").addEventListener("click", function () { startCheckout("monthly"); });
     $("buy-yearly").addEventListener("click", function () { startCheckout("yearly"); });
+    if ($("buy-semester")) $("buy-semester").addEventListener("click", function () { startCheckout("semester"); });
     $("btn-manage").addEventListener("click", openPortal);
 
     $("form-signin").addEventListener("submit", function (ev) {
@@ -331,7 +334,7 @@
       if (!state.session && !state.recovering) {
         show("v-auth"); showForm("form-signin");
         if (hashErr) { msg($("auth-msg"), "That link has expired or was already used. Links in Studyboard emails work once, for 1 hour.", "error"); $("link-expired").hidden = false; }
-        if (wantPlan) { var b = $("plan-intent"); b.hidden = false; b.textContent = "Sign in or create a free account to start your Studyboard Pro " + wantPlan + " plan. Your 7-day free trial starts at checkout."; }
+        if (wantPlan) { var b = $("plan-intent"); b.hidden = false; b.textContent = "Sign in or create a free account to start your Studyboard Pro " + wantPlan + " plan. Every new account starts with 7 days of Pro free."; }
       }
     });
   }

@@ -88,6 +88,7 @@ contextBridge.exposeInMainWorld("studiosoDesktop", {
     file: (id, host, spec) => ipcRenderer.invoke("lms:file", String(id), String(host || ""), spec && typeof spec === "object" ? JSON.parse(JSON.stringify(spec)) : {}),
     mail: (id, host, spec) => ipcRenderer.invoke("lms:mail", String(id), String(host || ""), spec && typeof spec === "object" ? JSON.parse(JSON.stringify(spec)) : {}),
     feed: (id, url) => ipcRenderer.invoke("lms:feed", String(id), String(url || "")),
-    signOut: id => ipcRenderer.invoke("lms:signout", String(id))
+    signOut: id => ipcRenderer.invoke("lms:signout", String(id)),
+    ping: (id, host) => ipcRenderer.invoke("lms:ping", String(id), String(host || ""))
   }
 });

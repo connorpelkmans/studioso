@@ -1,15 +1,19 @@
 // Studyboard Pro: create-checkout (Supabase Edge Function)
 // Starts a Stripe Checkout for Studyboard Pro, for the person who is signed in. The website's account page calls it and sends the
-// browser to the returned address. The app only ever says "monthly" or "yearly": prices, trial length, who is paying and where
+// browser to the returned address. The app (signed in, so checkout opens already tied to the account, with the plan chosen) can call it
+// directly too. The browser only ever says "monthly", "semester" or "yearly": prices, trial length, who is paying and where
 // they land afterwards are all decided here, never by the browser.
 //
 // Deploy with "Verify JWT" turned ON. Secrets (Supabase > Edge Functions > Secrets):
 //   STRIPE_SECRET_KEY      a Stripe secret or restricted key (restricted: Customers write, Checkout Sessions write)
 //   STRIPE_PRICE_MONTHLY   the monthly price id (price_...)
 //   STRIPE_PRICE_YEARLY    the yearly price id (price_...)
+//   STRIPE_PRICE_SEMESTER  the semester price id (price_...: $12.99, recurring every 4 months). Until it is set, "semester" is refused.
 //   SITE_ORIGINS           the website address(es) that may be used for the return pages, comma separated, e.g. https://studyboard.example
 //                          (the "site_url" row of studyboard_config is allowed too)
-// Optional: ALLOW_LOCALHOST=1 lets http://localhost origins through while you test.
+// Optional: APP_ORIGINS   extra app origins allowed to call this (comma separated). The desktop app (app://studioso) and the phone apps
+//                          (capacitor://localhost, https://localhost) are allowed already; the sign-in token, not the origin, is what counts.
+//           ALLOW_LOCALHOST=1 lets http://localhost origins through while you test.
 //           STRIPE_MANAGED_PAYMENTS=1 turns on Stripe Managed Payments for the checkout (Stripe takes on sales tax / VAT / GST, fraud
 //           and order support). It needs Managed Payments enabled on your Stripe account, and the product's tax category set to an
 //           eligible digital code (for example txcd_10103100) on the Studyboard Pro product. Leave it unset for a normal Checkout.
@@ -17,7 +21,7 @@
 //
 // What it does: checks the sign-in with Supabase Auth, limits each person to a few checkouts an hour, refuses people who already
 // have a live subscription, finds or makes the person's Stripe customer (kept in a server-only table), then creates a subscription
-// Checkout with client_reference_id and metadata.uid = the signed-in person, and a 7-day trial only for people who never had one
+// Checkout with client_reference_id and metadata.uid = the signed-in person, and (only if prices.checkoutTrialDays is set) a trial only for people who never had one
 // (also checked against the email hashes of deleted accounts, studyboard_trial_uses).
 // The billing-webhook function is what actually turns Pro on, once Stripe says the payment happened.
 
@@ -25,7 +29,9 @@ type Env = (k: string) => string;
 type Deps = { env: Env; fetch: typeof fetch; now: () => number; log: (...a: unknown[]) => void };
 
 const RATE_MAX = 10, RATE_WINDOW = 3600;
-const PLANS = ["monthly", "yearly"] as const;
+const PLANS = ["monthly", "semester", "yearly"] as const;
+const PRICE_ENV: Record<string, string> = { monthly: "STRIPE_PRICE_MONTHLY", semester: "STRIPE_PRICE_SEMESTER", yearly: "STRIPE_PRICE_YEARLY" };
+const APP_ORIGINS = ["app://studioso", "capacitor://localhost", "https://localhost"];
 type Plan = typeof PLANS[number];
 const PATH_OK = /^\/[A-Za-z0-9_./-]{0,120}$/;
 
@@ -103,7 +109,8 @@ export async function trialUsed(d: Deps, h: Record<string, string>, email: strin
 
 export async function handle(req: Request, d: Deps): Promise<Response> {
   const local = d.env("ALLOW_LOCALHOST") === "1";
-  const envOrigins = allowedOrigins(d.env, "");
+  const appOrigins = [...APP_ORIGINS, ...d.env("APP_ORIGINS").split(",").map(s => s.trim()).filter(Boolean)];
+  const envOrigins = allowedOrigins(d.env, "").concat(appOrigins);
   const reqOrigin = req.headers.get("origin") || "";
   const cors: Record<string, string> = {
     "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -136,13 +143,14 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     const rl = await (await rest("rpc/studyboard_plan_rate_hit", { method: "POST", body: JSON.stringify({ p_key: `checkout:${uid}`, p_max: RATE_MAX, p_window: RATE_WINDOW }) })).json();
     if (rl !== true) return json({ error: "rate_limited", message: "Too many tries. Please wait a little and try again." }, 429, cors, { "Retry-After": "900" });
 
-    // Only "monthly" or "yearly" is taken from the browser. Anything else in the body is ignored, except the return pages (checked below).
+    // Only "monthly", "semester" or "yearly" is taken from the browser. Anything else in the body is ignored, except the return pages (checked below).
     const text = await req.text();
     if (text.length > 4096) return json({ error: "bad request" }, 400, cors);
     const body = (() => { try { return JSON.parse(text || "{}"); } catch (_e) { return null; } })();
     const plan: Plan | null = body && PLANS.includes(body.plan) ? body.plan : null;
-    if (!plan) return json({ error: "bad request", message: "Choose monthly or yearly." }, 400, cors);
-    const price = d.env(plan === "monthly" ? "STRIPE_PRICE_MONTHLY" : "STRIPE_PRICE_YEARLY");
+    if (!plan) return json({ error: "bad request", message: "Choose monthly, semester or yearly." }, 400, cors);
+    const price = d.env(PRICE_ENV[plan]);
+    if (plan === "semester" && !/^price_[A-Za-z0-9]+$/.test(price)) return json({ error: "plan_unavailable", message: "The semester plan isn't available yet. Choose monthly or yearly." }, 400, cors);
     if (!/^price_[A-Za-z0-9]+$/.test(price) || !d.env("STRIPE_SECRET_KEY")) throw new Error("checkout is not configured");
 
     // Allowed return sites: the secret list plus the owner's "site_url" setting
@@ -150,8 +158,10 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     const siteUrl = String(cfg.find(c => c.key === "site_url")?.value || "");
     const origins = allowedOrigins(d.env, siteUrl);
     if (!origins.length) throw new Error("no allowed site origin is set (SITE_ORIGINS or studyboard_config site_url)");
-    if (reqOrigin && origins.includes(reqOrigin)) cors["Access-Control-Allow-Origin"] = reqOrigin;
-    const trialDays = Math.min(30, Math.max(0, Number((cfg.find(c => c.key === "prices")?.value as any)?.trialDays ?? 7) || 0));
+    if (reqOrigin && (origins.includes(reqOrigin) || appOrigins.includes(reqOrigin))) cors["Access-Control-Allow-Origin"] = reqOrigin;
+    // No card trial at checkout by default: every new account already gets a free week of Pro without a card (supabase-plans.sql).
+    // Set prices.checkoutTrialDays in studyboard_config to offer one again.
+    const trialDays = Math.min(30, Math.max(0, Number((cfg.find(c => c.key === "prices")?.value as any)?.checkoutTrialDays ?? 0) || 0));
 
     const ent = ((await (await rest(`studyboard_entitlements?user_id=eq.${uid}&select=plan,pro_until,trial_until,external_id,source,will_renew`)).json()) as any[])[0] || null;
     const live = ent && ent.plan === "pro" && (ent.pro_until === null || Date.parse(ent.pro_until) > d.now());
