@@ -6488,6 +6488,8 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .next-up .nu-row > .check{position:relative;top:-2px}
 /* Deck previews (Review > Flashcards): the plain card edge, never the theme's coloured card outline (that stays on the cards you study) */
 .deck .face,.deck .deck-lay,.deck .deck-lay .face{border:1px solid var(--line)!important;outline:0!important}
+/* and just slightly rounded corners, like the flashcard itself when it's open (the preview is about half its size) */
+.deck .face,.deck .deck-face,.deck .deck-lay,.deck .deck-lay .face,.deck.deck-fc > .deck-face,.deck.deck-fc .deck-lay .face{border-radius:8px!important;border-top-left-radius:8px!important}
 /* an icon's lines may reach a little past its frame: never cut them off */
 svg.ci-svg{overflow:visible!important}
 /* Small course icons (Task Board cards, Do This Next, schedule blocks): lines drawn exactly 2 screen pixels wide, whatever the icon's
