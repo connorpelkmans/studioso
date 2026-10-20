@@ -866,6 +866,33 @@ ipcMain.handle("app:fullscreen", (e, on) => {
   return win.isFullScreen();
 });
 
+// ---------- Printing ----------
+// An app window can't show a print preview in the Windows print dialog ("This app doesn't support print preview"), so printing makes a PDF
+// of the page's print view: "print" opens it in the computer's PDF viewer (which has its own preview and Print), "save" asks where to save it.
+let lastPdf = "";
+ipcMain.handle("app:pdf", async (e, o) => {
+  if (!fromMain(e) || !win || win.isDestroyed()) return { ok: false };
+  const opts = o && typeof o === "object" ? o : {};
+  const name = String(opts.name || "Studyboard").replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "Studyboard";
+  let pdf;
+  try { pdf = await win.webContents.printToPDF({ pageSize: opts.paper === "a4" ? "A4" : "Letter", printBackground: true, preferCSSPageSize: true }); }
+  catch (err) { return { ok: false, error: "pdf" }; }
+  try {
+    if (opts.mode === "save") {
+      const r = await dialog.showSaveDialog(win, { title: "Save as PDF", defaultPath: path.join(app.getPath("documents"), name + ".pdf"), filters: [{ name: "PDF", extensions: ["pdf"] }] });
+      if (r.canceled || !r.filePath) return { ok: false, cancelled: true };
+      fs.writeFileSync(r.filePath, pdf); lastPdf = r.filePath;
+      return { ok: true, saved: true, name: path.basename(r.filePath) };
+    }
+    const f = path.join(app.getPath("temp"), "Studyboard - " + name + ".pdf");
+    fs.writeFileSync(f, pdf);
+    const err = await shell.openPath(f);
+    return err ? { ok: false, error: String(err).slice(0, 200) } : { ok: true, opened: true };
+  } catch (err) { return { ok: false, error: String(err && err.message || err).slice(0, 200) }; }
+});
+// Opens the PDF that was just saved (only that file: the page can't name another path)
+ipcMain.handle("app:pdf-open", async e => { if (!fromMain(e) || !lastPdf) return false; return !(await shell.openPath(lastPdf)); });
+
 // ---------- Brightspace, Canvas and Blackboard (read-only sync of your courses, due dates, grades and announcements) ----------
 require("./lms").register(() => win, fromMain);
 

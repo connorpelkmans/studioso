@@ -100,6 +100,7 @@ Open **SQL Editor > New query** in Supabase, paste a whole file and click **Run*
 | 11 | `supabase-sync-conflicts.sql` | Sync conflicts: two devices editing the same thing never overwrite each other (run it after `supabase-lean.sql`; see "Two devices, one note" below) | Strongly recommended |
 | 12 | `supabase-calsync.sql` | Two-way sync with Google Calendar and Outlook (Pro). Run it after step 9 so account deletion also clears it, then deploy `calendar-sync` (see "Two-Way Calendar Sync" below) | Optional |
 | 13 | `supabase-theme-access.sql` | Hidden themes: some themes are hidden from everyone (the list is `HIDDEN_THEMES` in `index.html`). An account you mark here sees them all again: `select public.studyboard_grant_all_themes('you@example.com', 'owner');` in the SQL Editor (`studyboard_revoke_all_themes` takes it back). Sign in again or reopen the app to see the change | Optional |
+| 14 | `supabase-cloud.sql` | Google Drive and OneDrive (Pro). Run it after step 9, then run `supabase-lean.sql` again so account deletion also clears it, then deploy `cloud-files` (see "Google Drive and OneDrive" below) | Optional |
 
 If you run `supabase-groups.sql` or `supabase-calendar-feed.sql` later, run `supabase-plans.sql` and `supabase-lean.sql` again afterwards. Running `supabase-groups.sql` again keeps blocking in place (it rebuilds the group read rules with the block filter once `supabase-moderation.sql` has been run), so there's no need to run moderation again after it.
 
@@ -119,6 +120,7 @@ If you run `supabase-groups.sql` or `supabase-calendar-feed.sql` later, run `sup
 | `supabase-functions/error-ingest/index.ts` | `error-ingest` | Off | `supabase functions deploy error-ingest --no-verify-jwt` |
 | `supabase-functions/capture-email/index.ts` | `capture-email` | Off | `supabase functions deploy capture-email --no-verify-jwt` |
 | `supabase-functions/calendar-sync/index.ts` | `calendar-sync` | Off | `supabase functions deploy calendar-sync --no-verify-jwt` |
+| `supabase-functions/cloud-files/index.ts` | `cloud-files` | Off | `supabase functions deploy cloud-files --no-verify-jwt` |
 
 The CLI looks for functions in `supabase/functions/` unless your version reads the `entrypoint` lines in `supabase/config.toml`. If yours says it can't find a function, deploy that one by pasting it in the dashboard instead (or copy the folder to `supabase/functions/<name>/` first). Offline checks for the functions: `node --experimental-strip-types supabase-functions/tools/test-functions.mjs`, `test-capture.mjs`, `test-capture-email.mjs` and `test-calendar-sync.mjs` in the same folder.
 
@@ -688,6 +690,37 @@ Checks without any network: `node --experimental-strip-types supabase-functions/
 | "stopped accepting Studyboard's access" | The person revoked access, changed their password, or (Google, Testing mode) 7 days passed. **Connect Again**. |
 | Google: `redirect_uri_mismatch` | The redirect URI in step 4 must be exactly the function's address. |
 | "This connection wasn't started in this browser" | Connect has to be finished in the browser it opened in (a cookie ties them together, so a link someone sends you can't connect your calendar to their account). Choose Connect again in Studyboard. |
+
+---
+
+## Google Drive and OneDrive (Pro)
+
+**Files > Cloud** connects a Google or Microsoft account. Then:
+
+- **Save New Uploads In** Studyboard, Google Drive or OneDrive. Uploads in Files and task attachments go to the choice, into `Studyboard/<course>/` (Word, PowerPoint and Excel files are fine there). Lecture recordings ask where to keep them (**Keep It In**) and go to `Studyboard/<course>/Lectures/`. If the cloud can't be reached, the file is kept in Studyboard instead.
+- Cloud files sit in their course and folder like any other file: **Open** goes to Google Drive or OneDrive, they attach to tasks and notes, and AI reads them on request (Summarize, flashcards and quizzes from Files, learning objectives), using the student's own access.
+- A stored file's sheet offers **Move to Google Drive / OneDrive** to free Studyboard storage.
+- **Watched OneDrive Folders** (up to 5): what's in a folder, three levels deep, shows up in Files by itself, sorted into courses by folder name (or one course the student picks) and into Syllabus, Assignments, Lecture Notes or Exams by name. It's checked when Studyboard opens, when Files opens, every 15 minutes and with **Check Now**. Files deleted in OneDrive leave Studyboard; **Remove** in Studyboard never deletes anything in the cloud.
+
+Google only lets Studyboard see the files it saved (`drive.file`), so watching folders is OneDrive only. Files go straight between the device and Google or Microsoft; the `cloud-files` function only keeps the sign-in (encrypted) and hands out short-lived access tokens (at most 120 an hour per account).
+
+### One-time setup (about 15 minutes if Two-Way Calendar Sync is set up already)
+
+1. **Database:** run `supabase-cloud.sql` in the SQL Editor, then `supabase-lean.sql` again.
+2. **The function:** deploy `supabase-functions/cloud-files/index.ts` as `cloud-files` with **Verify JWT off** (`supabase functions deploy cloud-files --no-verify-jwt`). Its redirect address is `https://<your-project>.supabase.co/functions/v1/cloud-files`.
+3. **Google:** in the same Google Cloud project as calendar sync (or a new one), turn on the **Google Drive API**, add the scope `.../auth/drive.file` to the OAuth consent screen, and add the redirect address above to the OAuth client's **Authorized redirect URIs**. `drive.file` is a non-sensitive scope, so it needs no extra security review.
+4. **Microsoft:** in the same app registration, add the redirect address above (Web) and the delegated Microsoft Graph permission `Files.ReadWrite`.
+5. **Secrets:** `CLOUD_KEY` (32+ random characters; if it's missing, `CALSYNC_KEY` is used). The function uses `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` and `MS_CLIENT_ID` / `MS_CLIENT_SECRET`, or `CLOUD_GOOGLE_CLIENT_ID`, `CLOUD_GOOGLE_CLIENT_SECRET`, `CLOUD_MS_CLIENT_ID`, `CLOUD_MS_CLIENT_SECRET` if you want separate clients.
+6. **Try it:** with a Pro account open **Files > Cloud**, choose **Connect OneDrive**, finish in the page that opens, come back, and upload a file.
+
+Checks without any network: `node --experimental-strip-types supabase-functions/tools/test-cloud-files.mjs`, and in the browser `node tests/cloud-files.e2e.js`.
+
+| What you see | What to do |
+|---|---|
+| "Google Drive and OneDrive aren't set up on this Studyboard server yet" | Step 2: deploy `cloud-files` (exact name). |
+| "aren't fully set up" | Step 5: `CLOUD_KEY` (or `CALSYNC_KEY`) is missing or too short. |
+| Google: `redirect_uri_mismatch` | Step 3: add the `cloud-files` address as a redirect URI. |
+| "needs you to connect it again" | Access was revoked or expired. **Connect Again** in Files > Cloud. |
 
 ---
 

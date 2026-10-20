@@ -46,6 +46,9 @@ contextBridge.exposeInMainWorld("studiosoDesktop", {
   flushed: () => ipcRenderer.send("app:flushed"),
   setTitleBar: (color, symbol) => ipcRenderer.send("app:titlebar", String(color || ""), String(symbol || "")),
   fullscreen: on => ipcRenderer.invoke("app:fullscreen", on === undefined ? null : !!on),
+  // Printing as a PDF (the page shows its print view first). o = {mode: "print" | "save", paper: "letter" | "a4", name}
+  printPdf: o => ipcRenderer.invoke("app:pdf", { mode: o && o.mode === "save" ? "save" : "print", paper: o && o.paper === "a4" ? "a4" : "letter", name: String((o && o.name) || "").slice(0, 120) }),
+  openSavedPdf: () => ipcRenderer.invoke("app:pdf-open"),
   onFullscreen: fn => ipcRenderer.on("app:fullscreen", (e, on) => fn(!!on)),
   // 1.11: native reminders. list = [{id, at (ms), title, body, taskId}]; the whole list each time. Kept on disk, shown once each.
   setReminders: list => ipcRenderer.invoke("rem:set", Array.isArray(list) ? list : []),

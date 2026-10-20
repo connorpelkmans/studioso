@@ -19,12 +19,12 @@
   var WEB = httpsUrl(cfg.APP_URL || "");
   var fileName = function (d) { return d && d.file ? String(d.file).replace("{version}", VER) : ""; };
   // Windows comes from the Microsoft Store when its page is set: Microsoft's own "Get it from Microsoft" badge, used as Microsoft provides it
-  // (assets/ms-store-badge-*.svg, the dark one on light pages and the light one on dark pages).
+  // (assets/ms-store-badge-*.png: drawn from Microsoft's SVGs at 4x, because some browsers blur the SVG's shadow effects; the dark one on light pages and the light one on dark pages).
   var MS = httpsUrl((D.windows && D.windows.store) || "");
   function msBadge(cls) {
     return '<a class="msb' + (cls ? " " + cls : "") + '" href="' + esc(MS) + '" target="_blank" rel="noopener" aria-label="Get Studyboard from the Microsoft Store">' +
-      '<img class="on-light" src="assets/ms-store-badge-dark.svg" alt="Get it from Microsoft" width="161" height="44">' +
-      '<img class="on-dark" src="assets/ms-store-badge-light.svg" alt="Get it from Microsoft" width="161" height="44"></a>';
+      '<img class="on-light" src="assets/ms-store-badge-dark.png" alt="Download from the Microsoft Store" decoding="async" width="161" height="44">' +
+      '<img class="on-dark" src="assets/ms-store-badge-light.png" alt="Download from the Microsoft Store" decoding="async" width="161" height="44"></a>';
   }
 
   // ---- Which device is this? ----
@@ -120,9 +120,8 @@
     function card(k, icon, title, action) {
       var d = D[k] || {}, f = fileName(d);
       if (k === "windows" && MS) {
-        var exe = httpsUrl(d.url);
         return '<div class="plat' + (mine === k ? " you" : "") + '">' + (mine === k ? '<span class="you-tag">Your device</span>' : "") + '<div class="ico">' + icon + "</div><h4>" + title + "</h4><div><p>" + esc(d.needs || "") + " · from the Microsoft Store, with automatic updates</p></div>" +
-          '<div class="ms-go">' + msBadge("") + (exe ? '<a class="exe" data-download="windows" href="' + esc(exe) + '">Or download the .exe</a>' : "") + "</div></div>";
+          '<div class="ms-go">' + msBadge("") + "</div></div>";
       }
       return '<div class="plat' + (mine === k ? " you" : "") + '">' + (mine === k ? '<span class="you-tag">Your device</span>' : "") + '<div class="ico">' + icon + "</div><h4>" + title + (ready(k) ? "" : '<span class="soon">Soon</span>') + "</h4><div><p>" + esc(d.needs || "") + "</p>" + (f ? '<p class="file">' + esc(f) + "</p>" : "") + '</div><a class="go" data-download="' + k + '" href="' + esc(hrefFor(k)) + '">' + ICONS.down + action + "</a></div>";
     }

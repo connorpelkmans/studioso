@@ -172,11 +172,24 @@ const DB = (page, f) => page.evaluate(f);
     // Find a Time: share my free times, see the best times, add one to Meetings
     await tab(page, "meetings");
     await page.click('#gxFind [data-act="gx-ft"]'); await page.waitForTimeout(300);
-    await page.click('#dlg [data-act="gx-ft-share"]'); await page.waitForTimeout(700);
+    // the default is picking your own free hours (one tap per hour); Fill In Automatically is the other way
+    ok(await page.locator('#dlg [data-act="gx-ft-mine"]').count() === 1 && await page.locator('#dlg [data-act="gx-ft-add"]').count() === 0, "Find a Time asks you to pick your free times first, and can't add a meeting yet");
+    await page.click('#dlg [data-act="gx-ft-mine"]'); await page.waitForSelector("#dlg #pfGrid");
+    ok(await page.locator("#dlg #pfGrid [data-pf]").count() === 98, "the picker goes hour by hour, 8 AM to 10 PM, for 7 days");
+    await page.click("#dlg #pfAuto"); await page.waitForTimeout(150);
+    ok(await page.locator('#dlg #pfGrid [aria-pressed="true"]').count() > 10, "Fill In Automatically marks the hours the planner has free");
+    await SHOT(page, "g3-pickfree");
+    await page.click("#dlg #pfClear");
+    for (const k of ["2:10", "2:11", "2:12", "3:16"]) await page.click(`#dlg #pfGrid [data-pf="${k}"]`);
+    await page.click("#dlg #pfSave"); await page.waitForTimeout(700);
     const av = await DB(page, () => window.__DB.group_items.find(i => i.kind === "avail"));
-    ok(av && av.data.hex.length === 168 && av.data.from > 0, "my free and busy half-hours are shared (14 days, nothing else)");
+    ok(av && av.data.hex.length === 168 && av.data.from > 0, "my picked hours are shared as free and busy half-hours (14 days, nothing else)");
+    ok(await page.evaluate(() => Object.keys(localStorage).some(k => /availShare/.test(k) && localStorage.getItem(k) === "manual")), "picked by hand, so the app won't overwrite it");
+    ok(/at least 2 members/.test(await page.textContent("#dlg")) && await page.locator('#dlg [data-act="gx-ft-add"]').count() === 0, "with only me shared, no session can be added yet");
+    await DB(page, () => { const me = window.__DB.group_items.find(i => i.kind === "avail"); window.__DB.group_items.push({id: "av-u2", group_id: me.group_id, user_id: "u2", author_name: "Sam", kind: "avail", ref_id: "", title: "free", data: {v: 1, from: me.data.from, hex: "0".repeat(168)}, created_at: new Date().toISOString(), updated_at: new Date().toISOString()}); });
+    await page.keyboard.press("Escape"); await page.evaluate(() => window.__fire("group_items", "INSERT")); await page.waitForTimeout(1200); await page.click('#gxFind [data-act="gx-ft"]'); await page.waitForTimeout(400);
     await SHOT(page, "g3-findtime");
-    ok(await page.locator("#dlg .ft-grid .ft-c").count() === 49 && await page.locator('#dlg [data-act="gx-ft-pick"]').count() >= 1, "Find a Time shows the week and the best times");
+    ok(await page.locator("#dlg .ft-grid .ft-c").count() === 98 && await page.locator('#dlg [data-act="gx-ft-pick"]').count() >= 1, "with 2 shared, Find a Time shows the week hour by hour and the best times");
     await page.click('#dlg [data-act="gx-ft-add"]'); await page.waitForTimeout(700);
     ok(await DB(page, () => window.__DB.group_items.some(i => i.kind === "event" && /Find a Time/.test(i.data.notes))), "the picked time is added to Meetings");
 
@@ -198,7 +211,17 @@ const DB = (page, f) => page.evaluate(f);
     await tab(page, "overview");
     await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });
     await page.click('#gxOver [data-act="gx-report"]'); await page.waitForTimeout(500);
-    ok(await page.evaluate(() => window.__printed) === 1 && await page.locator("#sbPrint .pp-gc tbody tr").count() === 3, "the contribution report prints a row per member");
+    ok(await page.evaluate(() => window.__printed) === 0 && await page.locator("#dlg .gx-rep-sheet .pr-prev .pp-gc tbody tr").count() === 3, "the contribution report opens as a preview first, a row per member");
+    ok(await page.locator("#dlg #gxRepSave").count() === 1 && await page.locator("#dlg #gxRepPrint").count() === 1, "with Download PDF and Print");
+    await SHOT(page, "g3-report-preview");
+    await page.click("#dlg #gxRepPrint"); await page.waitForTimeout(500);
+    ok(await page.evaluate(() => window.__printed) === 1 && await page.locator("#sbPrint .pp-gc tbody tr").count() === 3, "Print prints the report");
+    // the desktop app makes a PDF instead of the system print dialog (no preview there): Print opens it, Download asks where to save
+    await page.evaluate(() => { window.__pdf = []; window.studiosoDesktop = Object.assign(window.studiosoDesktop || {}, {printPdf: async o => { window.__pdf.push([o, document.body.classList.contains("sb-printing"), !!document.querySelector("#sbPrint .pp-gc")]); return o.mode === "save" ? {ok: true, saved: true, name: "r.pdf"} : {ok: true, opened: true}; }, openSavedPdf: async () => true}); document.body.classList.remove("sb-printing"); });
+    await page.click('#gxOver [data-act="gx-report"]'); await page.waitForTimeout(300); await page.click("#dlg #gxRepSave"); await page.waitForTimeout(400);
+    const pdf = await page.evaluate(() => window.__pdf);
+    ok(pdf.length === 1 && pdf[0][0].mode === "save" && /Contribution Report/.test(pdf[0][0].name) && pdf[0][1] && pdf[0][2] && await page.evaluate(() => window.__printed) === 1, "in the desktop app Download PDF saves a PDF of the print view (no system print dialog)");
+    ok(await page.evaluate(() => !document.body.classList.contains("sb-printing")), "and the page goes back to normal");
     await page.evaluate(() => document.body.classList.remove("sb-printing"));
     await page.click('#gxOver [data-act="gx-tpl-save"]'); await page.waitForTimeout(300);
     ok(await page.evaluate(() => (JSON.parse(localStorage.getItem("coursework:v2") || "{}").settings || {}).grpTemplates.length === 1), "the project is saved as a template in my settings");

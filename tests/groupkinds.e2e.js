@@ -29,7 +29,7 @@ function stubInit(opts){
       if (missing(t)) return wait({error: {code: "42P01", message: 'relation "public.' + t + '" does not exist'}});
       const rows = DB[t] || [], hit = rows.filter(r => st.f.every(f => f(r)));
       if (st.op === "insert") {
-        if (t === "group_items" && !(opts.kinds || ["deck", "task", "quiz", "event", "qa", "answer", "link", "minutes", "role", "weak"]).includes([].concat(st.payload)[0].kind)) return wait({error: {code: "23514", message: 'new row violates check constraint "group_items_kind_check"'}});
+        if (t === "group_items" && !(opts.kinds || ["deck", "task", "quiz", "event", "qa", "answer", "link", "minutes", "role", "weak", "battle"]).includes([].concat(st.payload)[0].kind)) return wait({error: {code: "23514", message: 'new row violates check constraint "group_items_kind_check"'}});
         const add = [].concat(st.payload).map(r => Object.assign({id: id("r"), created_at: nowIso(), updated_at: nowIso(), user_id: me.id, author_name: NAMES[me.id]}, r));
         add.forEach(r => rows.push(r)); window.__calls.push(["insert", t, st.payload]); return wait({data: st.one ? add[0] : add});
       }
@@ -159,7 +159,7 @@ async function studyGroup(browser, w){
   const sent = await page.evaluate(() => window.__calls.filter(c => c[1] === "report_misses").map(c => c[2]));
   ok(sent.length >= 1 && sent[0].p_rows.length === 3 && sent[0].p_rows.some(r => r.k === "c:s1" && r.m === 3 && r.t === 3) && sent[0].p_rows.some(r => r.k === "q:qq1" && r.m === 2 && r.t === 2), tag + " my totals per shared card and question were sent: " + JSON.stringify(sent[0] && sent[0].p_rows));
   ok(!/Connor|u1|front|back|stem|Mitochondria/.test(JSON.stringify(sent[0].p_rows)), tag + " the report holds no name and no card text");
-  ok(/at least 3 members/.test(await txt(page, "#grpWeak")), tag + " nothing is shown until 3 members take part: " + await txt(page, "#grpWeak"));
+  ok(/at least 3 members|once 3 members/.test(await txt(page, "#grpWeak")), tag + " nothing is shown until 3 members take part: " + await txt(page, "#grpWeak"));
   await page.evaluate(() => { const D = window.__DB; ["u2", "u3"].forEach((u, i) => D.group_misses.push({group_id: "g1", item_id: "dk1", mkey: "c:s1", user_id: u, misses: 2 + i, tries: 3}, {group_id: "g1", item_id: "qz1", mkey: "q:qq1", user_id: u, misses: 1, tries: 2}, {group_id: "g1", item_id: "dk1", mkey: "c:s2", user_id: u, misses: i, tries: 3})); window.__fire("group_items"); });
   await page.waitForTimeout(1200);
   const mm = await txt(page, "#grpWeak");
@@ -176,8 +176,11 @@ async function studyGroup(browser, w){
   await tab(page, "sessions"); ok(await page.isVisible("#grpSessions") && /Study Sessions/.test(await txt(page, "#grpSessions")), tag + " Sessions tab");
   await tab(page, "challenge");
   ok(await page.isVisible("#grpChallenge") && await page.isVisible("#grpCheckin"), tag + " Challenge tab holds the weekly challenge and check-in");
-  ok(/Quiz Battle/.test(await txt(page, "#grpBattle")) && /Hasn't played yet/.test(await txt(page, "#grpBattle")), tag + " battle lists everyone before anyone has played");
+  ok(/Nobody is on the board until they join/.test(await txt(page, "#grpBattle")) && await page.$('#grpBattle [data-act="grp-battle"][data-on="1"]') !== null, tag + " the battle is opt-in: nobody is on it until they join");
+  await page.click('#grpBattle [data-act="grp-battle"][data-on="1"]'); await page.waitForTimeout(400);
+  ok(/Hasn't played yet/.test(await txt(page, "#grpBattle")) && /Leave the Battle/.test(await txt(page, "#grpBattle")) && await page.evaluate(() => window.__DB.group_items.some(i => i.kind === "battle" && i.user_id === "u1")), tag + " joining puts me on the board");
   await page.evaluate(() => { const now = new Date().toISOString(), D = window.__DB;
+    ["u2", "u3"].forEach(u => D.group_items.push({id: "bt-" + u, group_id: "g1", user_id: u, author_name: u, kind: "battle", ref_id: "", title: "battle", data: {v: 1, on: true}, created_at: now, updated_at: now}));
     D.group_quiz_scores.push({item_id: "qz1", group_id: "g1", user_id: "u2", best_correct: 9, best_total: 10, last_correct: 9, last_total: 10, attempts: 1}, {item_id: "qz1", group_id: "g1", user_id: "u3", best_correct: 6, best_total: 10, last_correct: 6, last_total: 10, attempts: 2});
     window.__fire("group_items"); window.__fire("group_quiz_scores"); });
   await page.waitForTimeout(1200);
@@ -247,7 +250,7 @@ async function projectGroup(browser, w){
     ok(/Write the outline/.test(behind) && /overdue/.test(behind) && /Jo/.test(behind) && await page.locator("#grpOverview .gk-behind li").count() === 1, tag + " What's Behind lists the late task and Jo: " + behind); }
   await page.screenshot({path: path.join(shots, `gk-project-${w}-overview.png`), fullPage: true});
   // Files and links
-  await tab(page, "files"); ok(/Keep everything in one place/.test(await txt(page, "#grpFiles")), tag + " files empty state");
+  await tab(page, "files"); ok(/Keep everything in one place|Keep the shared doc/.test(await txt(page, "#grpFiles")), tag + " files empty state");
   // the Add File button at the bottom right offers an upload or a link
   await page.click('[data-act="grp-file-new"]:visible'); await sheet(page, '[data-act="grp-link-new"]'); await page.click('dialog [data-act="grp-link-new"]'); await sheet(page, 'input[name="url"]');
   await page.fill('dialog input[name="title"]', "Poster draft"); await page.fill('dialog input[name="url"]', "not a link at all"); await page.click("dialog [data-submit]"); await page.waitForTimeout(150);
@@ -308,6 +311,41 @@ async function overdueAndSetup(browser){
 }
 
 
+// The owner turns features off (Edit Group > Features): they leave the tabs and the Study tab for everyone, and nothing is deleted
+async function hideFeatures(browser){
+  let {ctx, page, errs} = await boot(browser, 1280, {me: "u1"});
+  await openGroup(page, "g1");
+  await page.click('[data-act="grp-edit"]'); await sheet(page, ".grp-feats");
+  eq(await page.$$eval("dialog .grp-feat span", e => e.map(x => x.innerText)), ["Shared Decks", "Practice Quizzes", "Most-Missed Cards", "Questions and Answers", "Deadlines", "Sessions", "Weekly Challenge", "Chat"], "the owner sees every feature as a switch");
+  ok(await page.$$eval('dialog .grp-feat input', e => e.every(x => x.checked)), "all on to start");
+  for (const k of ["sessions", "chat", "qa"]) await page.uncheck(`dialog .grp-feat input[value="${k}"]`);
+  await page.click("dialog #grpSave"); await page.waitForTimeout(700);
+  eq(await page.evaluate(() => window.__DB.study_groups[0].hidden_features), ["qa", "sessions", "chat"], "saved on the group");
+  eq(await tabs(page), ["Study", "Challenge", "Members"], "the turned-off tabs are gone: " + (await tabs(page)).join());
+  ok(await page.$("#grpQA") === null && await page.isVisible("#grpDecks"), "Q&A left the Study tab, decks stayed");
+  ok(await page.$('#grpHead [data-act="room-start"]') === null, "no Start a Session button without Sessions");
+  await page.waitForTimeout(1500); ok(errs.length === 0, "hiding: no page errors while it keeps updating " + errs.join(" | "));
+  await page.screenshot({path: path.join(shots, "gk-hidden-owner.png")});
+  // everything in the Study tab off: a note says where to turn them on
+  await page.evaluate(() => { window.__DB.study_groups[0].hidden_features = ["decks", "quizzes", "weak", "qa", "deadlines", "sessions", "chat"]; });
+  await ctx.close();
+  ({ctx, page, errs} = await boot(browser, 1280, {me: "u1"}));
+  await page.evaluate(() => { window.__DB.study_groups[0].hidden_features = ["decks", "quizzes", "weak", "qa", "deadlines"]; });
+  await openGroup(page, "g1");
+  ok(/Turn them on in Edit Group/.test(await txt(page, '[data-pane="study"]')), "an empty Study tab tells the owner where to turn things on");
+  await ctx.close();
+  // a member sees the same trimmed group, with no switches
+  ({ctx, page, errs} = await boot(browser, 1280, {me: "u2"}));
+  await page.evaluate(() => { window.__DB.study_groups[0].hidden_features = ["sessions", "chat"]; window.__DB.study_groups[1].hidden_features = ["files"]; });
+  await openGroup(page, "g1");
+  eq(await tabs(page), ["Study", "Challenge", "Members"], "a member sees the owner's choice");
+  ok(await page.$('[data-act="grp-edit"]') === null, "and can't change it");
+  await openGroup(page, "g2");
+  eq(await tabs(page), ["Overview", "Tasks", "Meetings", "Chat", "Members"], "a project can turn Files off too");
+  await page.waitForTimeout(1200); ok(errs.length === 0, "member: no page errors " + errs.join(" | "));
+  await ctx.close();
+}
+
 async function createProject(browser){
   const {ctx, page, errs} = await boot(browser, 1280, {me: "u1"});
   await act(page, "grp-page"); await page.waitForSelector("[data-grp-list]"); await act(page, "grp-new"); await sheet(page, ".grp-kind");
@@ -319,11 +357,35 @@ async function createProject(browser){
   ok(errs.length === 0, "create: no page errors " + errs.join(" | ")); await ctx.close();
 }
 
+// A saved template shows up in New Group under Start From: it fills in the setup, and a project gets the template's tasks
+async function fromTemplate(browser){
+  const {ctx, page, errs} = await boot(browser, 1280, {me: "u1"});
+  await page.waitForFunction(() => window.SBPINPICK);
+  await page.evaluate(() => { const st = window.SBPINPICK.state(); st.settings = Object.assign({}, st.settings, {grpTemplates: [
+    {id: "tp1", name: "Poster Project", kind: "project", course: "BIO 101", icon: "", hidden: ["meetings"], goal: 0, tasks: [{title: "Pick a topic", off: 10}, {title: "Print the poster", off: 1}], at: Date.now()},
+    {id: "tp2", name: "Exam Crew", kind: "study", course: "CHEM 110", icon: "", hidden: [], goal: 90, tasks: [], at: Date.now()}]}); });
+  await act(page, "grp-page"); await page.waitForSelector("[data-grp-list]"); await act(page, "grp-new"); await sheet(page, ".grp-tpls");
+  eq(await page.locator("dialog .grp-tpls [data-tpl]").count(), 3, "New Group offers Blank and both saved templates");
+  await page.click('dialog .grp-tpls [data-tpl="tp1"]'); await page.screenshot({path: shots + "/gk-new-from-template.png"});
+  await page.click('dialog .grp-tpls [data-tpl="tp2"]');
+  ok(await page.evaluate(() => document.querySelector('dialog .grp-kind [data-kind="study"]').getAttribute("aria-pressed") === "true" && document.querySelector("dialog input[name=course]").value === "CHEM 110" && document.querySelector("dialog input[name=goal]").value === "90"), "a study group template fills in the course and weekly goal");
+  await page.click('dialog .grp-tpls [data-tpl="tp1"]');
+  ok(await page.evaluate(() => document.querySelector('dialog .grp-kind [data-kind="project"]').getAttribute("aria-pressed") === "true" && document.querySelector("dialog input[name=course]").value === "BIO 101"), "a project template switches to Group Project");
+  await page.fill('dialog input[name="name"]', "Cell Poster"); await page.fill('dialog input[name="due"]', await page.evaluate(() => window.__day(20)));
+  await page.click("dialog #grpSave"); await page.waitForSelector("#grpDetail", {timeout: 8000});
+  await page.waitForFunction(() => window.__DB.group_tasks.filter(t => !t.deleted).length >= 2, null, {timeout: 10000});
+  const made = await page.evaluate(() => { const g = window.__DB.study_groups.find(x => x.name === "Cell Poster"); return {kind: g.kind, hidden: g.hidden_features || [], tasks: window.__DB.group_tasks.filter(t => t.group_id === g.id).map(t => [t.title, t.due_at && String(t.due_at).slice(0, 10)])}; });
+  eq(made.kind, "project", "the new group is a project");
+  ok(made.hidden.includes("meetings"), "the template's hidden features stay hidden: " + made.hidden.join());
+  ok(made.tasks.length === 2 && made.tasks[0][0] === "Pick a topic" && made.tasks[0][1] === await page.evaluate(() => window.__day(10)), "its tasks are added, timed back from the due date: " + JSON.stringify(made.tasks));
+  ok(errs.length === 0, "template: no page errors " + errs.join(" | ")); await ctx.close();
+}
+
 (async () => {
   const browser = await chromium.launch({executablePath});
   try {
     for (const w of [1280, 390]) { await studyGroup(browser, w); await projectGroup(browser, w); }
-    await memberView(browser); await overdueAndSetup(browser); await createProject(browser);
+    await memberView(browser); await overdueAndSetup(browser); await createProject(browser); await hideFeatures(browser); await fromTemplate(browser);
   } finally { await browser.close(); }
   console.log(`groupkinds.e2e.js: ${checks} checks passed. Screenshots in ${shots}`);
 })().catch(e => { console.error("FAILED:", e.message.split("\n")[0], (e.stack.match(/groupkinds.e2e.js:\d+/g) || []).join(" ")); process.exit(1); });
