@@ -204,6 +204,7 @@ async function quizShare(browser){
   await page.waitForFunction(() => window.__DB.group_members.some(m => m.user_id === "u1" && m.face), null, {timeout: 8000}).catch(() => {});
   const sent = await page.evaluate(() => ({cur: window.SBCOMP && SBCOMP.current(), faces: window.__DB.group_members.filter(m => m.user_id === "u1").map(m => m.face)}));
   ok(sent.cur && sent.faces.length && sent.faces.every(f => f === sent.cur), "opening a group shares your companion with every group you're in: " + JSON.stringify(sent));
+  ok(await page.evaluate(() => [...document.querySelectorAll(".grp-members li")].every(li => !li.classList.contains("mc-row")) && !!document.querySelector(".grp-members .grp-av.is-comp")), "the members list shows the coloured ring only, no stripe");
   ok(!(await page.$('[data-act="grp-nudge"]')) && !/Resource Hero|Nudge/.test(await txt(page, "#grpDetail")), "no Nudge button and no Resource Hero badge");
   await page.screenshot({path: shots + "/gk-member-companions.png"});
   ok(errs.length === 0, "companions: no page errors " + errs.join(" | ")); await ctx.close();

@@ -246,12 +246,28 @@ const DB = (page, f) => page.evaluate(f);
     ok(await DB(page, () => window.__DB.group_items.some(i => i.kind === "topic" && i.data.done)), "marking my topic shared is saved");
     await tab(page, "sessions");
     ok(await page.locator("#gxLive").count() === 1 && await page.locator('#gxFind [data-act="gx-ft"]').count() === 1, "Sessions has Find a Time and the Live Quiz");
+    // Any color (Pro groups): a picker and a code box, with a check against everyone else's color
+    await DB(page, () => { window.__DB.group_members.forEach(m => { if (m.user_id === "u2") m.color = "#E5484D"; }); });
+    await click(page, "grp-color", await DB(page, () => window.__DB.study_groups[0].id)); await page.waitForSelector("#dlg[open] #mcAny");
+    ok(await page.locator("#dlg[open] .mc-any .pro-badge").count() === 1, "Any Color shows with a PRO badge");
+    await page.fill("#mcHex", "#E8504F"); await page.waitForTimeout(100);
+    ok(await page.isDisabled("#mcUse") && /Too close to/.test(await txt(page, "#mcMsg")), "a shade very close to someone's color can't be used: " + await txt(page, "#mcMsg"));
+    ok(await page.isDisabled('#dlg[open] [data-mc="#E5484D"]'), "their palette color is taken");
+    await page.fill("#mcHex", "7fffd4"); await page.waitForTimeout(100);
+    ok(!(await page.isDisabled("#mcUse")) && (await page.inputValue("#mcAny")) === "#7fffd4", "a code without # works and moves the picker");
+    ok(await page.evaluate(() => getComputedStyle(document.querySelector("#mcPrev")).color) === "rgb(31, 36, 48)", "initials turn dark on a light color");
+    await SHOT(page, "g4-any-color");
+    await page.click("#mcUse"); await page.waitForTimeout(500);
+    ok(await DB(page, () => window.__calls.some(c => c[1] === "set_member_color" && c[2].p_color === "#7FFFD4")), "Use This Color saves it");
     ok(!errs.length, "no errors in the study group: " + errs.join(" | "));
     await page.context().close();
 
     // ---------- A free group (nobody made it Pro) ----------
     ({page, errs} = await boot(browser, {me: "u1", kind: "project", pro: false, seed: true}));
     await openGroup(page);
+    await click(page, "grp-color", await DB(page, () => window.__DB.study_groups[0].id)); await page.waitForSelector("#dlg[open] .mc-grid");
+    ok(await page.locator("#dlg[open] .mc-any.is-locked .pro-badge").count() === 1 && await page.locator("#dlg[open] #mcAny").count() === 0, "a free group shows Any Color locked, with the PRO badge");
+    await page.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); }); await page.waitForTimeout(200);
     ok(await page.locator("#grpHead .gx-chip").count() === 0 && await page.locator("#gxOver").count() === 0 && await page.locator("#gxTasks").count() === 0, "a free group has no Pro extras");
     await tab(page, "members");
     ok(/A member with Studyboard Pro can make this a Pro group/.test(await txt(page, "#gxPro")), "Members explains Pro groups, once");

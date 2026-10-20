@@ -1279,14 +1279,33 @@ alter table public.group_members add column if not exists color text;
 alter table public.group_members drop constraint if exists group_members_color_check;
 alter table public.group_members add constraint group_members_color_check check (color is null or color ~ '^#[0-9A-F]{6}$');
 revoke update (color) on public.group_members from authenticated;
+-- Two colours look the same to people when they are this close (distance in RGB, weighted the way eyes see it, "redmean")
+create or replace function public.sbg_color_near(a text, b text) returns boolean
+language plpgsql immutable set search_path = public, pg_temp as $$
+declare r1 int; g1 int; b1 int; r2 int; g2 int; b2 int; rm float8;
+begin
+  if a is null or b is null or a !~* '^#[0-9A-F]{6}$' or b !~* '^#[0-9A-F]{6}$' then return false; end if;
+  r1 := ('x' || substr(a, 2, 2))::bit(8)::int; g1 := ('x' || substr(a, 4, 2))::bit(8)::int; b1 := ('x' || substr(a, 6, 2))::bit(8)::int;
+  r2 := ('x' || substr(b, 2, 2))::bit(8)::int; g2 := ('x' || substr(b, 4, 2))::bit(8)::int; b2 := ('x' || substr(b, 6, 2))::bit(8)::int;
+  rm := (r1 + r2) / 2.0;
+  return sqrt((2 + rm / 256) * (r1 - r2) ^ 2 + 4 * (g1 - g2) ^ 2 + (2 + (255 - rm) / 256) * (b1 - b2) ^ 2) < 60;
+end $$;
 create or replace function public.set_member_color(p_group uuid, p_color text) returns text
 language plpgsql security definer set search_path = public, pg_temp as $$
-declare me uuid := auth.uid(); v text := nullif(upper(coalesce(p_color, '')), '');
+declare me uuid := auth.uid(); v text := nullif(upper(coalesce(p_color, '')), ''); pro boolean;
 begin
   if me is null then raise exception 'Sign in first'; end if;
   if v is not null and v !~ '^#[0-9A-F]{6}$' then raise exception 'Pick one of the colours'; end if;
-  if v is not null and exists (select 1 from public.group_members where group_id = p_group and color = v and user_id <> me) then
-    raise exception 'Someone in this group already has that colour. Pick another.';
+  -- The 10 palette colours are for every group; any other colour (the colour picker) is for Pro groups
+  if v is not null and not (v = any (array['#E5484D','#F76B15','#E2A50B','#30A46C','#12A594','#0090FF','#3E63DD','#8E4EC6','#D6409F','#6E5240'])) then
+    if to_regproc('public.plans_group_is_pro') is not null then
+      execute 'select public.plans_group_is_pro($1)' into pro using p_group;
+      if not coalesce(pro, false) then raise exception 'Any colour is part of Pro groups. Pick one of the colours shown.'; end if;
+    end if;
+  end if;
+  -- Taken: the same colour, or one so close nobody could tell them apart
+  if v is not null and exists (select 1 from public.group_members where group_id = p_group and user_id <> me and color is not null and public.sbg_color_near(color, v)) then
+    raise exception 'Someone in this group already has that colour (or one very close to it). Pick another.';
   end if;
   update public.group_members set color = v where group_id = p_group and user_id = me;
   if not found then raise exception 'You''re not in that group'; end if;
