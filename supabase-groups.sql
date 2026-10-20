@@ -1203,3 +1203,13 @@ begin
     perform cron.schedule('studyboard-purge-deleted-groups', '41 4 * * *', 'select public.sbg_purge_deleted_groups()');
   end if;
 end $$;
+
+-- ---------- Features the owner turns off ----------
+-- The owner can hide parts of a group nobody uses (Edit Group > Features), so members only see what the group wants. It only hides:
+-- nothing is deleted, and turning a feature back on shows everything again. Only the owner can change it (the "group owner update" policy).
+alter table public.study_groups add column if not exists hidden_features text[] not null default '{}';
+alter table public.study_groups drop constraint if exists study_groups_hidden_features_check;
+alter table public.study_groups add constraint study_groups_hidden_features_check
+  check (cardinality(hidden_features) <= 20 and array_to_string(hidden_features, ',') ~ '^([a-z]{2,16}(,[a-z]{2,16})*)?$');
+grant update (hidden_features) on public.study_groups to authenticated;
+notify pgrst, 'reload schema';
