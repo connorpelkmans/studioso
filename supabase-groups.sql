@@ -1022,7 +1022,7 @@ grant execute on function public.report_misses(uuid, jsonb), public.forget_misse
 --  * Live quiz: a private Realtime channel per group, "sbquiz:<group id>", that only members can listen or send on.
 alter table public.group_items drop constraint if exists group_items_kind_check;
 alter table public.group_items add constraint group_items_kind_check
-  check (kind in ('deck', 'task', 'quiz', 'event', 'qa', 'answer', 'link', 'minutes', 'role', 'avail', 'topics', 'topic', 'gfile'));
+  check (kind in ('deck', 'task', 'quiz', 'event', 'qa', 'answer', 'link', 'minutes', 'role', 'avail', 'topics', 'topic', 'gfile')) not valid;   -- not valid: when this file runs again, 'battle' rows (added below) are kept; the last list is checked in full
 create unique index if not exists group_items_one_avail on public.group_items (group_id, user_id) where kind = 'avail';
 create unique index if not exists group_items_one_topic on public.group_items (group_id, user_id, ref_id, title) where kind = 'topic';
 
