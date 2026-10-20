@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /website/account/
+Disallow: /website/success.html
+Disallow: /website/cancel.html
+
+Sitemap: https://studyboardapp.com/sitemap.xml
