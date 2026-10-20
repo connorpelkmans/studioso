@@ -32,7 +32,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok(/free file storage/.test(await page.textContent("dialog[open] .plan-reason")), "See Pro opens the Pro sheet with the reason on top");
     await page.evaluate(() => document.querySelector("dialog[open]").close());
     ok(!(await page.evaluate(() => StudyboardPlan.limitNote("storage", "again"))), "the same limit never shows twice");
-    ok(await page.evaluate(() => StudyboardPlan.limitNote("group", "Study Group has 3 members, the most a free group holds. Upgrade to Pro for groups of up to 100.")), "a different limit still gets its one message");
+    ok(await page.evaluate(() => StudyboardPlan.limitNote("group", "Study Group has 5 members, the most a free group holds. Upgrade to Pro for groups of up to 100.")), "a different limit still gets its one message");
     ok(await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("studyboard:limitNotes")); return !!(s && s.guest && s.guest.storage && s.guest.group); }), "what was shown is remembered on this device");
     await page.reload(); await page.waitForFunction(() => window.StudyboardPlan && StudyboardPlan.limitNote); await page.waitForTimeout(300);
     ok(!(await page.evaluate(() => StudyboardPlan.limitNote("group", "x"))), "and after a reload it still doesn't show again");

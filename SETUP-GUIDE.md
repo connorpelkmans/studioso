@@ -904,7 +904,7 @@ The first time you share or join, Studyboard asks what classmates should call yo
 ### Project Tasks (new in 1.13)
 Each group page has a **Project Tasks** section: shared task lists (for example "BIOL 201 Poster") with assignees, due dates, a progress bar, filters (All, Mine, Unassigned, Overdue, Done) and a per-person workload line that shows an uneven split. Anyone can add and edit tasks and mark them done, anyone can claim an unassigned task, and only the person a task is assigned to (or the group owner) can reassign it. Tasks assigned to you also appear under Today's Plan on your Board. A group keeps up to 20 active lists with up to 200 tasks each. To turn it on, run `supabase-groups.sql` again (it is safe to repeat), then `supabase-moderation.sql` again. Until then, the group owner sees a note saying to run it and other members see nothing. Run `supabase-plans-selftest.sql` afterwards to confirm the new tables and functions are locked down (section 9 covers them).
 
-**Pro groups (1.16):** Team Deadline, Review Before Done, Rubric Checklist, templates, weekly sessions, Find a Time, Split Exam Topics, Live Quiz and Group Uploads need the newest `supabase-groups.sql` **and** `supabase-plans.sql`. Run them again in that order, then `supabase-lean.sql` and `supabase-moderation.sql`, then `supabase-plans-selftest.sql`. See **Pro Groups** in `PRO-PLANS-GUIDE.md`.
+**Pro groups (1.16):** Team Deadline, Review Before Done, Rubric Checklist, templates, weekly sessions, Find a Time (free in every group), Split Exam Topics, Live Quiz and Group Uploads need the newest `supabase-groups.sql` **and** `supabase-plans.sql`. Run them again in that order, then `supabase-lean.sql` and `supabase-moderation.sql`, then `supabase-plans-selftest.sql`. See **Pro Groups** in `PRO-PLANS-GUIDE.md`.
 
 ### Study groups
 - Open **Groups** (in the sidebar on a computer, or from the Flashcards page or **Settings** on a phone) and tap **New Group**. Add a name and, if you like, a course.
@@ -1235,7 +1235,7 @@ Update the `calendar-feed` and `lms-feed` functions too (Edge Functions > the fu
 ## Studyboard Pro
 
 Studyboard has a Free plan and a Pro plan built in, but the paywall is **switched off**. Right now everything is unlocked for everyone and nothing is limited. You don't need to set anything up until you decide to launch Pro.
-- **Free, forever:** the whole planner, sync on up to 2 devices, Brightspace, Canvas and Blackboard sync, reminders, study groups (up to 3 members, messages kept 60 days), AI with your own Gemini key, the 14 plain color themes and the free styles, 100 MB of cloud files and 25 MB of synced data.
+- **Free, forever:** the whole planner, sync on up to 2 devices, Brightspace, Canvas and Blackboard sync, reminders, study groups (up to 5 members, messages kept 60 days), AI with your own Gemini key, the 14 plain color themes and the free styles, 100 MB of cloud files and 25 MB of synced data.
 - **Pro ($3.99 a month or $29.99 a year, with a 7-day free trial):** unlimited devices, 10 GB of cloud files and 250 MB of synced data, every premium theme (including the 4 seasons) and style, 30 days of online backups, and study groups of up to 100 members with unlimited message history.
 - **See it:** Settings → **Studyboard Pro** shows the plan, what Pro adds and how much storage you use.
 

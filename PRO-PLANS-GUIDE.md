@@ -7,11 +7,11 @@ You can do the setup below any time before launch (in any order). While the payw
 ### What's Free and What's Pro
 
 **Free, forever** (this is what gets people to download Studyboard):
-- The whole planner: Board, Timeline, Schedule, Today's Plan, Focus, notes and stickers, flashcards and quizzes, Grade Tracker, Rough Week Rescue and Search Everywhere.
+- The whole planner: Board, Timeline, Schedule, Today's Plan, Focus, notes and stickers (with `[[` linked notes), flashcards with Smart scheduling (FSRS, the default for every deck) and quizzes, Grade Tracker, Rough Week Rescue and Search Everywhere.
 - Sync on up to **2 devices**.
 - Brightspace, Canvas and Blackboard sync, with the desktop sign-in or calendar links.
 - Reminders and notifications, including phone push.
-- Study groups (up to **3 members**, messages kept **60 days**), deck sharing and shared Project Tasks (no extra limits: the size limits come from the group size; after updating run `supabase-groups.sql` again, then `supabase-plans.sql`).
+- Study groups (up to **5 members**, messages kept **60 days**), deck sharing, Find a Time and shared Project Tasks (no extra limits: the size limits come from the group size; after updating run `supabase-groups.sql` again, then `supabase-plans.sql`).
 - AI with your own Gemini key.
 - The 14 plain color themes, and the free card styles, note shapes, pins and sticker packs.
 - **Collection previews:** a free account can try **3 different** Pro Theme Collections for **5 minutes each** (a **Preview 5 Min** button on each collection in the Style Shop). The collection's theme, stickers, pins and flashcard style work during the preview, then the earlier theme comes back by itself; after 3 previews there are no more, and a collection can't be previewed twice. The count lives in the account's settings (`settings.collPreview`) so it follows the person to other devices. It is cosmetic only, like the rest of the shop.
@@ -25,12 +25,11 @@ You can do the setup below any time before launch (in any order). While the payw
 - 30 days of online backup history.
 - Study groups of up to **100 members** with unlimited message history.
 - **Insights** (in the Weekly Review) and a **Term Recap** you can save as an image. Free accounts get neither.
-- **Smart flashcards:** FSRS scheduling, deck stats, image cards, and cards made automatically from the diagrams and labelled pictures in uploaded PDFs (photos too, on browsers that can read text, behind Early Access). New cards arrive as drafts to check first.
+- **Smart flashcards:** deck stats, image cards, and cards made automatically from the diagrams and labelled pictures in uploaded PDFs (photos too, on browsers that can read text, behind Early Access). New cards arrive as drafts to check first.
 - **Focus routines** (Deep Work, Exam Cram, up to 6 custom; Classic stays free) and Focus History. On the desktop app downloaded from the website, **Block Distracting Sites** edits the system hosts file for the length of the session; it asks for the computer's admin password and removes the block on its own afterwards, even if the app is closed. It is hidden in the store builds (Mac App Store and Microsoft Store), whose sandboxes don't allow it.
 - **Print and PDF:** week agenda, term calendar, grade report and exam prep plan.
 - **Listen:** a deck read aloud with the device's own voices (front, a pause, then the back), for a walk or a commute. Due and new, all, or tricky cards; a card on Today offers it just before a Commute / Travel block. Never rates a card.
 - **PDF reader with highlights:** Read on a PDF's file sheet. Highlight in four colours, and turn a highlight into a note (with a `[[file#p3]]` link back to the page) or a flashcard (with Write the Question by AI). Highlights are kept on the file and sync.
-- **Linked notes:** type `[[` in a note to link another note, a task, a deck or a file; an open note lists the notes that mention it, and renames keep the links. Free accounts see the text as typed.
 - **Record a Lecture** (in Notes): live captions where the browser has a speech service, marks, Transcribe with AI (a Gemini key; the audio goes to Google in 5-minute parts), then AI study notes or the transcript as a note, and Make Flashcards. The recording can be kept in the course's Lecture Notes folder (counted in file storage). It uses the microphone only while recording.
 - **Two-way calendar sync** with Google Calendar or Outlook (Calendar Sync > Two-Way): a calendar called Studyboard kept up to date, moves made there come back, and the student's own events come in as busy time for Today's Plan. Needs the `calendar-sync` function and your Google and Microsoft app registrations (SETUP-GUIDE.md, "Two-Way Calendar Sync"); while they aren't set up the tab says so.
 - **Email to Studyboard:** a private address to forward emails to (Settings > Quick Capture); what's found waits in Check and Add. Needs Cloudflare Email Routing and the `capture-email` function (`cloudflare/email-capture/README.md`); hidden until `CAPTURE_EMAIL_DOMAIN` is set.
@@ -46,7 +45,9 @@ In the app, **Settings > Studyboard Pro** shows the plan, what Pro adds, how muc
 A Pro member opens a group and taps **Make It a Pro Group** (up to 5 groups per Pro account). When that person's Pro ends, the group goes back to free on its own; nothing is deleted, the extras just hide again.
 
 - **Group projects:** Team Deadline (a private date ahead of the real one that everyone's planner aims for), Review Before Done (a task can name a reviewer, and when someone else marks it done it waits in **In Review** until the reviewer approves it), Rubric Checklist, Split the Work, Contribution Report (prints or saves as PDF), and Group Uploads (2 GB shared per group, counted separately from each person's own storage).
-- **Study groups:** Find a Time (members share their free hours, and it suggests the best times), Split Exam Topics, Live Quiz, and weekly repeating sessions with an end date.
+- **Study groups:** Split Exam Topics, Live Quiz, and weekly repeating sessions with an end date.
+
+**Find a Time** (members share their free hours, and it suggests the best times) is free in every group, study groups and projects alike.
 - **Everyone:** Save as Template and start a new group from a template, 100 members and unlimited message history.
 
 These all run on the existing group tables, so they add almost no server cost. Group Uploads are the one exception and are capped at 2 GB per group. After updating, run `supabase-groups.sql`, then `supabase-plans.sql`, then `supabase-lean.sql` if you use it, then `supabase-plans-selftest.sql` (section 11 covers Pro groups).

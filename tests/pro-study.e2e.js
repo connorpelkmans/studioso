@@ -558,7 +558,7 @@ function SEED(){
     /* ---------- Free plan ---------- */
     const free = await open(await mkCtx(SEED(), true));
     await tab(free, "notes");
-    ok(await free.locator(".note-link").count() === 0 && /\[\[Calvin cycle\]\]/.test(await free.locator('.note[data-note="n1"] .note-body').textContent()), "free: links stay plain text");
+    ok(await free.locator('.note[data-note="n1"] .note-link').count() > 0, "free: linked notes work on the free plan too");
     await free.evaluate(() => { ui.tab = "flashcards"; ui.deckId = "d1"; render(); }); await free.waitForTimeout(250);
     ok(await free.locator('[data-act="ls-open"]').count() === 0, "free: no Listen button");
     await act(free, "ls-open", "d1"); await free.waitForTimeout(300);
