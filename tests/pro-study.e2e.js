@@ -305,6 +305,23 @@ function SEED(){
     await page.click('.lec-doc-head [data-act="lec-doc"]'); await page.waitForTimeout(150);
     await page.click('.lec-fopt[data-doc="org"]'); await page.waitForTimeout(150);
     ok(/Today we talk about osmosis/.test(await page.locator(".lec-docv").textContent()) && await page.locator(".lec-docv h4").count() === 1, "the organized transcript");
+    // Slides and Notes: pick a file and a note from the course; the summary is written with them, and Ask can read the lecture
+    await page.click('.lec-doc-head [data-act="lec-doc"]'); await page.waitForTimeout(150);
+    ok(await page.locator(".lec-att").count() === 1 && await page.locator('.lec-att [data-act="lec-att-up"]').count() === 1, "a lecture has Slides and Notes, with Upload Files and From Studyboard");
+    await page.click('.lec-att [data-act="lec-att-pick"]'); await page.waitForSelector("#lecAttOk");
+    await page.check('[data-att="file:f1"]'); await page.check('[data-att="note:n2"]'); await page.click("#lecAttOk");
+    await page.waitForSelector(".lec-att-list li", {timeout: 5000});
+    const lfa = await page.evaluate(() => Object.values(state.files).find(f => f.folderId === "lectures"));
+    ok(lfa.lec.att.length === 2 && await page.locator(".lec-att-list li").count() === 2, "they're attached to the lecture");
+    const nb = page.context().aiBodies.length;
+    await page.click('.lec-fopt[data-doc="sum"]'); await page.waitForTimeout(150);
+    await page.click('[data-act="lec-make"]'); await page.waitForTimeout(1500);
+    ok(page.context().aiBodies.slice(nb).some(b => /Slides and notes/.test(b) && /Fixes carbon/.test(b)), "Write It Again sends the slides and notes as context");
+    await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
+    await act(page, "ask-course", "c1"); await page.waitForTimeout(300);
+    ok(await page.evaluate(() => [...document.querySelectorAll("[data-askf]")].some(i => i.checked && /Lecture: Osmosis Day/.test(i.parentElement.textContent))), "Ask offers the lecture's transcript, checked");
+    await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
+    await page.click(".lec-row"); await page.waitForTimeout(300);
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
     ok(await page.locator("#lecPill").count() === 0 && await page.evaluate(() => !window.__sbProStudy.rec()), "the recorder is finished");
     await tab(page, "files");
