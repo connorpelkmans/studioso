@@ -26,5 +26,9 @@ const assert = require("assert"), path = require("path"), {pathToFileURL} = requ
   ok(seen.length === 2 && (await r3.text()) === "asset:/functions/v1/delete-account", "no other function is reachable through the website");
   const r4 = await W.fetch(new Request("https://studyboardapp.com/website/"), env);
   ok((await r4.text()) === "asset:/website/", "everything else is the static site");
+  for (const [from, to] of [["/privacy.html", "/website/privacy.html"], ["/privacy", "/website/privacy.html"], ["/terms.html", "/website/terms.html"]]) {
+    const r = await W.fetch(new Request("https://studyboardapp.com" + from), env);
+    ok(r.status === 301 && r.headers.get("location") === "https://studyboardapp.com" + to, from + " goes to the website's page, not the app");
+  }
   console.log(n + " checks passed");
 })().catch(e => { console.error(e); process.exit(1); });

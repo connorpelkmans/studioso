@@ -14,6 +14,6 @@
     "directory": "./site",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/functions/*"]
+    "run_worker_first": ["/functions/*", "/privacy", "/privacy.html", "/terms", "/terms.html"]
   }
 }
