@@ -240,6 +240,7 @@ end $$;
 --   * Removals from groups by their owners (group_bans) are deleted.
 --   * Voice-capture tokens and inbox (capture_tokens, capture_inbox) and the Email to Studyboard address (capture_email) are deleted.
 --   * Two-way calendar sync connections (calsync_accounts, with their stored sign-in) and what they sent (calsync_map) are deleted.
+--   * Google Drive and OneDrive connections (cloud_accounts, with their stored sign-in) are deleted. Files in the cloud stay there.
 --   * Reports they made or that were made about them (group_reports) stay for safety but lose the link to the account
 --     (reporter_id and reported_user_id become null by the foreign keys).
 --   * Payment bookkeeping that must be kept (studyboard_billing_events, studyboard_pro_grants) is anonymized: the user id,
@@ -263,7 +264,7 @@ declare
     ['group_blocks','blocked_id'], ['group_pro','user_id'], ['group_bans','user_id'], ['group_members','user_id'], ['shared_decks','owner_id'], ['study_profiles','user_id'],
     ['study_room_people','user_id'], ['study_rooms','started_by'],
     ['capture_idem','user_id'], ['capture_inbox','user_id'], ['capture_tokens','user_id'], ['capture_email','user_id'],
-    ['calsync_map','user_id'], ['calsync_accounts','user_id'],
+    ['calsync_map','user_id'], ['calsync_accounts','user_id'], ['cloud_accounts','user_id'],
     ['reminder_queue','user_id'], ['push_subscriptions','user_id'], ['calendar_feeds','user_id'],
     ['studyboard_deletions','user_id'], ['studyboard_archive','user_id'], ['studyboard_devices','user_id'],
     ['studyboard_device_removals','user_id'], ['studyboard_usage','user_id'], ['studyboard_billing_customers','user_id'],
