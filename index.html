@@ -6465,8 +6465,19 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .cpt3-ring{box-shadow:0 0 0 4px var(--c),0 6px 14px rgba(0,0,0,.18)!important}
 .ci-svg{stroke-width:1.5!important;--ci-ink:color-mix(in srgb,var(--c) 52%,#071022)!important}
 /* Small course icons: a white disc behind the inline icon on rows, heavier lines on the tiny white glyphs, so they hold up at 1x */
-.nu-ic{width:26px!important;height:26px!important;border-radius:50%;background:#fff;box-shadow:0 0 0 1.5px var(--c,var(--line))}
-.nu-ic svg.ci-svg{width:70%!important;height:70%!important;stroke-width:1.8!important}
+/* The course icon on Do This Next and plan rows: the icon alone (like the Task Board's), in the course colour; white in dark mode */
+.nu-ic{width:24px!important;height:24px!important;border-radius:0;background:none;box-shadow:none;vertical-align:-5.5px!important}
+/* the check circle, the icon and the title's first line share one centre line */
+.next-up .nu-row > .check{position:relative;top:-2px}
+.nu-ic svg.ci-svg{width:100%!important;height:100%!important;stroke-width:2!important;stroke:var(--c);--ci-ink:var(--c)}
+.nu-ic svg .a,.nu-ic svg .b,.nu-ic svg .y,.nu-ic svg .g,.nu-ic svg .r{fill:color-mix(in srgb,var(--c) 22%,transparent)}
+.nu-ic svg .sa,.nu-ic svg .sb{stroke:var(--c)}
+:root[data-theme="dark"] .nu-ic svg.ci-svg,:root[data-theme="dark"] .nu-ic svg .sa,:root[data-theme="dark"] .nu-ic svg .sb{stroke:#fff;--ci-ink:#fff}
+:root[data-theme="dark"] .nu-ic svg .a,:root[data-theme="dark"] .nu-ic svg .b,:root[data-theme="dark"] .nu-ic svg .y,:root[data-theme="dark"] .nu-ic svg .g,:root[data-theme="dark"] .nu-ic svg .r{fill:rgba(255,255,255,.3)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .nu-ic svg.ci-svg,:root:not([data-theme="light"]) .nu-ic svg .sa,:root:not([data-theme="light"]) .nu-ic svg .sb{stroke:#fff;--ci-ink:#fff}
+  :root:not([data-theme="light"]) .nu-ic svg .a,:root:not([data-theme="light"]) .nu-ic svg .b,:root:not([data-theme="light"]) .nu-ic svg .y,:root:not([data-theme="light"]) .nu-ic svg .g,:root:not([data-theme="light"]) .nu-ic svg .r{fill:rgba(255,255,255,.3)}
+}
 .cc-ic svg.ci-svg,.fc-ic svg.ci-svg{stroke-width:2.1!important}
 .tl-gic svg.ci-svg{stroke-width:1.8!important}
 /* Sticker art in rings: a softer, slightly finer outline than on the note board, where it is drawn much bigger */
