@@ -25,8 +25,10 @@
 --   delete from public.group_messages where id = '<target_id>';                       -- remove a message
 --   delete from public.group_items where id = '<target_id>';                          -- remove a shared item
 --   delete from public.group_members where user_id = '<reported_user_id>' and group_id = '<group_id>';   -- remove from the group
+--   select public.studyboard_suspend_from_groups('<their email>', '<why>');   -- out of ALL study groups and group projects
+--                                                     (their account and the rest of Studyboard keep working; see the end of supabase-groups.sql)
 --   update public.group_reports set status = 'actioned' where id = '<report id>';     -- then mark it done
--- To stop an account altogether: Supabase dashboard > Authentication > Users > the person > Ban user.
+-- To stop an account altogether (the whole app, not just groups): Supabase dashboard > Authentication > Users > the person > Ban user.
 -- Apple expects you to act on reports within 24 hours, so check this table daily and say so in your App Review notes.
 
 -- ---------- Reports ----------

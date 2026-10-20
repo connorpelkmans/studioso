@@ -290,6 +290,9 @@ language plpgsql security definer set search_path = public as $$
 declare g uuid; c text; me uuid := auth.uid();
 begin
   if me is null then raise exception 'Sign in first'; end if;
+  if to_regclass('public.group_suspended') is not null and exists (select 1 from public.group_suspended where user_id = me) then
+    raise exception 'Your account can''t use study groups after a report was reviewed. The rest of Studyboard works as usual.';
+  end if;
   if (select count(*) from public.study_groups where owner_id = me and deleted_at is null) >= 50 then raise exception 'You can own up to 50 groups'; end if;
   loop
     c := public.sbg_new_code();
@@ -358,6 +361,9 @@ begin
   select id into g from public.study_groups where invite_code = public.sbg_norm_code(p_code) and deleted_at is null;
   -- Returning (not raising) keeps this failed guess counted against the hourly limit.
   if g is null then return null; end if;
+  if to_regclass('public.group_suspended') is not null and exists (select 1 from public.group_suspended where user_id = me) then
+    raise exception 'Your account can''t use study groups after a report was reviewed. The rest of Studyboard works as usual.';
+  end if;
   if exists (select 1 from public.group_bans where group_id = g and user_id = me) then
     raise exception 'The group owner removed you from this group, so you can''t rejoin it.';
   end if;
@@ -1213,6 +1219,9 @@ language plpgsql security definer set search_path = public as $$
 declare me uuid := auth.uid();
 begin
   if me is null then raise exception 'Sign in first'; end if;
+  if to_regclass('public.group_suspended') is not null and exists (select 1 from public.group_suspended where user_id = me) then
+    raise exception 'Your account can''t use study groups after a report was reviewed. The rest of Studyboard works as usual.';
+  end if;
   if (select count(*) from public.study_groups where owner_id = me and deleted_at is null) >= 50 then raise exception 'You can own up to 50 groups'; end if;
   update public.study_groups set deleted_at = null
     where id = p_group and owner_id = me and deleted_at is not null and deleted_at > now() - interval '30 days';
@@ -1276,6 +1285,9 @@ declare me uuid := auth.uid(); v text := nullif(upper(coalesce(p_color, '')), ''
 begin
   if me is null then raise exception 'Sign in first'; end if;
   if v is not null and v !~ '^#[0-9A-F]{6}$' then raise exception 'Pick one of the colours'; end if;
+  if v is not null and exists (select 1 from public.group_members where group_id = p_group and color = v and user_id <> me) then
+    raise exception 'Someone in this group already has that colour. Pick another.';
+  end if;
   update public.group_members set color = v where group_id = p_group and user_id = me;
   if not found then raise exception 'You''re not in that group'; end if;
   return v;
@@ -1316,3 +1328,58 @@ begin
     update public.shared_decks set code = c where code = r.code;
   end loop;
 end $$;
+
+-- One colour per person in a group: someone else's colour can't be picked (set_member_color says so, and this index makes sure even
+-- when two people pick at once). A colour two members already share stays with whoever joined first.
+update public.group_members m set color = null
+  where m.color is not null and exists (select 1 from public.group_members o where o.group_id = m.group_id and o.color = m.color and o.user_id <> m.user_id
+    and (o.joined_at < m.joined_at or (o.joined_at = m.joined_at and o.user_id < m.user_id)));
+create unique index if not exists group_members_one_color on public.group_members (group_id, color) where color is not null;
+
+-- ---------- Removed from study groups (after a report) ----------
+-- Acting on a report can take someone out of study groups and group projects altogether: every group they're in, and no joining,
+-- making or restoring groups again. The rest of their Studyboard (planner, files, sync, Pro) is untouched. Only you can do this, in
+-- the SQL Editor:
+--   select public.studyboard_suspend_from_groups('someone@school.edu', 'harassment in a group');
+--   select public.studyboard_unsuspend_from_groups('someone@school.edu');      -- let them use groups again
+--   select u.email, s.reason, s.created_at from public.group_suspended s join auth.users u on u.id = s.user_id;   -- who is out
+-- Groups they own pass to the member who has been in longest (or are deleted, restorable for 30 days, when nobody else is in them).
+create table if not exists public.group_suspended (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  reason text not null default '' check (char_length(reason) <= 300),
+  created_at timestamptz not null default now()
+);
+alter table public.group_suspended enable row level security;
+revoke all on public.group_suspended from public, anon, authenticated;
+
+create or replace function public.studyboard_suspend_from_groups(p_email text, p_reason text default '') returns text
+language plpgsql security definer set search_path = public as $$
+declare uid uuid; g record; heir uuid; n int := 0;
+begin
+  select id into uid from auth.users where lower(email) = lower(btrim(p_email));
+  if uid is null then raise exception 'No account with that email'; end if;
+  insert into public.group_suspended (user_id, reason) values (uid, left(coalesce(p_reason, ''), 300))
+    on conflict (user_id) do update set reason = excluded.reason;
+  for g in select id from public.study_groups where owner_id = uid and deleted_at is null loop
+    heir := null;
+    select m.user_id into heir from public.group_members m where m.group_id = g.id and m.user_id <> uid order by m.joined_at, m.user_id limit 1;
+    if heir is null then update public.study_groups set deleted_at = now() where id = g.id;
+    else
+      update public.study_groups set owner_id = heir where id = g.id;
+      update public.group_members set role = 'owner' where group_id = g.id and user_id = heir;
+    end if;
+  end loop;
+  delete from public.group_members where user_id = uid;
+  get diagnostics n = row_count;
+  return 'Removed from ' || n || ' group(s). Their account and the rest of Studyboard are untouched.';
+end $$;
+create or replace function public.studyboard_unsuspend_from_groups(p_email text) returns text
+language plpgsql security definer set search_path = public as $$
+declare uid uuid;
+begin
+  select id into uid from auth.users where lower(email) = lower(btrim(p_email));
+  if uid is null then raise exception 'No account with that email'; end if;
+  delete from public.group_suspended where user_id = uid;
+  return 'They can join and make study groups again (they need a new invite to get back into a group).';
+end $$;
+revoke all on function public.studyboard_suspend_from_groups(text, text), public.studyboard_unsuspend_from_groups(text) from public, anon, authenticated;
