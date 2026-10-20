@@ -6,8 +6,14 @@
   // Deploys run scripts/build-site.js first and serve only what it writes to site/: icons in icons/, widget files in widgets/, the
   // website, and the strict hash-based script policy in _headers. Serving the repository root instead left those paths answering with the app page.
   "build": { "command": "node scripts/build-site.js" },
+  // A tiny worker passes the Google Drive / OneDrive and calendar-sync sign-in return addresses through to Supabase, so the sign-in
+  // pages show studyboardapp.com (cloudflare/site/worker.js). Every other path is a plain static file, as before.
+  "main": "cloudflare/site/worker.js",
+  "vars": { "SUPABASE_URL": "https://pivcmrqcjseycjkbocmc.supabase.co" },
   "assets": {
     "directory": "./site",
-    "not_found_handling": "single-page-application"
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/functions/*"]
   }
 }
