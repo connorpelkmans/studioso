@@ -800,6 +800,19 @@ begin
     select trial_until into tu from public.studyboard_entitlements where user_id = w1;
     perform public.sbt_ok(tu > now() + interval '6 days' and tu < now() + interval '15 days', 'a new confirmed account did not get its free week');
     perform public.sbt_ok(public.studyboard_is_pro(w1), 'the free week does not count as Pro');
+    -- the free week unlocks features and styles, but every amount stays at the free plan's (nothing to fill up, nothing over a limit after)
+    perform public.sbt_ok(not public.studyboard_limits_pro(w1), 'the free week counted for Pro amounts (storage, devices, group size)');
+    perform public.sbt_ok(public.studyboard_limit(w1, 'fileMB') = public.studyboard_limit(ua, 'fileMB')
+                          and public.studyboard_limit(w1, 'dataMB') = public.studyboard_limit(ua, 'dataMB')
+                          and public.studyboard_limit(w1, 'groupMembers') = public.studyboard_limit(ua, 'groupMembers')
+                          and coalesce(public.studyboard_limit(w1, 'devices'), -1) = coalesce(public.studyboard_limit(ua, 'devices'), -1)
+                          and coalesce(public.studyboard_limit(w1, 'cloudBackupDays'), -1) = coalesce(public.studyboard_limit(ua, 'cloudBackupDays'), -1),
+                          'the free week raised a storage, data, device, group or backup limit above the free plan');
+    if public.studyboard_paywall() then
+      insert into public.studyboard_devices (user_id, device_id, name) values (w1, 'sbt-welcome-dev-1', 'one'), (w1, 'sbt-welcome-dev-2', 'two');
+      r := 'ok'; begin insert into public.studyboard_devices (user_id, device_id, name) values (w1, 'sbt-welcome-dev-3', 'three'); exception when others then r := sqlerrm; end;
+      perform public.sbt_ok(r like 'SB_DEVICE_LIMIT%', 'the free week synced on more devices than the free plan (got ' || r || ')');
+    end if;
     -- the same person again: deleted and back, or the same Gmail with dots and a +tag
     delete from auth.users where id = w1;
     insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, created_at, updated_at)

@@ -21,7 +21,7 @@
 //
 // What it does: checks the sign-in with Supabase Auth, limits each person to a few checkouts an hour, refuses people who already
 // have a live subscription, finds or makes the person's Stripe customer (kept in a server-only table), then creates a subscription
-// Checkout with client_reference_id and metadata.uid = the signed-in person, and a 7-day trial only for people who never had one
+// Checkout with client_reference_id and metadata.uid = the signed-in person, and (only if prices.checkoutTrialDays is set) a trial only for people who never had one
 // (also checked against the email hashes of deleted accounts, studyboard_trial_uses).
 // The billing-webhook function is what actually turns Pro on, once Stripe says the payment happened.
 
@@ -159,7 +159,9 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     const origins = allowedOrigins(d.env, siteUrl);
     if (!origins.length) throw new Error("no allowed site origin is set (SITE_ORIGINS or studyboard_config site_url)");
     if (reqOrigin && (origins.includes(reqOrigin) || appOrigins.includes(reqOrigin))) cors["Access-Control-Allow-Origin"] = reqOrigin;
-    const trialDays = Math.min(30, Math.max(0, Number((cfg.find(c => c.key === "prices")?.value as any)?.trialDays ?? 7) || 0));
+    // No card trial at checkout by default: every new account already gets a free week of Pro without a card (supabase-plans.sql).
+    // Set prices.checkoutTrialDays in studyboard_config to offer one again.
+    const trialDays = Math.min(30, Math.max(0, Number((cfg.find(c => c.key === "prices")?.value as any)?.checkoutTrialDays ?? 0) || 0));
 
     const ent = ((await (await rest(`studyboard_entitlements?user_id=eq.${uid}&select=plan,pro_until,trial_until,external_id,source,will_renew`)).json()) as any[])[0] || null;
     const live = ent && ent.plan === "pro" && (ent.pro_until === null || Date.parse(ent.pro_until) > d.now());

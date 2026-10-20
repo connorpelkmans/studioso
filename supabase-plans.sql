@@ -110,10 +110,25 @@ language sql stable security definer set search_path = public, pg_temp as $$
 $$;
 
 -- One limit for one account, from the "limits" row. Null means no limit.
+-- Pro's bigger limits (storage, synced data, devices, group size, online backups, Pro groups) come with a paid plan or a gift only.
+-- A card-free trial (the free week every new account gets, or studyboard_start_trial) unlocks every Pro theme and feature but keeps the
+-- free plan's amounts, so nothing is over a limit when the week ends and nobody can fill 10 GB on a free week.
+create or replace function public.studyboard_limits_pro(uid uuid) returns boolean
+language sql stable security definer set search_path = public, pg_temp as $$
+  select exists (
+    select 1 from public.studyboard_entitlements e
+    where e.user_id = uid
+      and (e.plan = 'lifetime'
+           or (e.plan = 'pro' and (e.pro_until is null or e.pro_until > now()))
+           or e.grant_lifetime
+           or e.grant_until > now()))
+$$;
+revoke all on function public.studyboard_limits_pro(uuid) from public, anon, authenticated;
+
 create or replace function public.studyboard_limit(uid uuid, name text) returns bigint
 language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare
-  tier text := case when public.studyboard_is_pro(uid) then 'pro' else 'free' end;
+  tier text := case when public.studyboard_limits_pro(uid) then 'pro' else 'free' end;
   defaults constant jsonb := '{"free": {"devices": 2, "fileMB": 25, "dataMB": 25, "groupMembers": 3, "groupMsgDays": 60, "cloudBackupDays": 0},
                                "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}';
   lim jsonb := coalesce((select value from public.studyboard_config where key = 'limits'), defaults);
@@ -474,7 +489,7 @@ begin
   if lim is not null and (select count(*) from public.group_members where group_id = new.group_id) >= lim then
     select (value -> 'pro' ->> 'groupMembers')::bigint into pro_lim from public.studyboard_config where key = 'limits';
     raise exception 'This group is full (% members).%', lim,
-      case when public.studyboard_is_pro(owner) then '' else ' The group owner can go Pro for up to ' || coalesce(pro_lim::text, 'unlimited') || ' members.' end
+      case when public.studyboard_limits_pro(owner) then '' else ' The group owner can go Pro for up to ' || coalesce(pro_lim::text, 'unlimited') || ' members.' end
       using errcode = 'P0001';
   end if;
   return new;
@@ -913,7 +928,7 @@ create or replace function public.plans_group_is_pro(gid uuid) returns boolean
 language sql stable security definer set search_path = public, pg_temp as $$
   select not public.studyboard_paywall()
       or exists (select 1 from public.group_pro p join public.group_members m on m.group_id = p.group_id and m.user_id = p.user_id
-                 where p.group_id = gid and public.studyboard_is_pro(p.user_id))
+                 where p.group_id = gid and public.studyboard_limits_pro(p.user_id))
 $$;
 -- The app asks which of your groups are Pro, and who unlocked them: [{group_id, active, by_user, by_owner}]
 create or replace function public.group_pro_status(p_groups uuid[]) returns table (group_id uuid, active boolean, by_user uuid, by_owner boolean)
@@ -940,12 +955,15 @@ begin
     delete from public.group_pro where group_id = p_group and user_id = me;
     return 'off';
   end if;
-  if public.studyboard_paywall() and not public.studyboard_is_pro(me) then
+  if public.studyboard_paywall() and not public.studyboard_limits_pro(me) then
+    if public.studyboard_is_pro(me) then
+      raise exception 'SB_PRO_NEEDED: Pro groups come with a Pro plan. The free week doesn''t include them, so your groups don''t change when it ends.' using errcode = 'P0001';
+    end if;
     raise exception 'SB_PRO_NEEDED: Making a Pro group is part of Studyboard Pro.' using errcode = 'P0001';
   end if;
   select user_id into cur from public.group_pro where group_id = p_group;
   if cur = me then return 'on'; end if;
-  if cur is not null and exists (select 1 from public.group_members m where m.group_id = p_group and m.user_id = cur) and public.studyboard_is_pro(cur) then
+  if cur is not null and exists (select 1 from public.group_members m where m.group_id = p_group and m.user_id = cur) and public.studyboard_limits_pro(cur) then
     raise exception 'SB_ALREADY_PRO: Someone else already made this a Pro group.' using errcode = 'P0001';
   end if;
   -- (a group you've left doesn't hold one of your 5)

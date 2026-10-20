@@ -83,7 +83,10 @@ begin
   if to_regprocedure('public.studyboard_paywall()') is not null then
     execute 'select public.studyboard_paywall()' into pw;
   end if;
-  if coalesce(pw, false) and to_regprocedure('public.studyboard_is_pro(uuid)') is not null then
+  -- Room size is an amount, like group size: a paid plan or a gift (studyboard_limits_pro), not the card-free free week
+  if coalesce(pw, false) and to_regprocedure('public.studyboard_limits_pro(uuid)') is not null then
+    execute 'select public.studyboard_limits_pro($1)' into pro using owner;
+  elsif coalesce(pw, false) and to_regprocedure('public.studyboard_is_pro(uuid)') is not null then
     execute 'select public.studyboard_is_pro($1)' into pro using owner;
   end if;
   pro := coalesce(pro, false) or not coalesce(pw, false);

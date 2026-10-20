@@ -275,7 +275,7 @@ function coDeps(extra = {}) {
     if (url.endsWith("/auth/v1/user")) return new Response(JSON.stringify({ id: UID, email: "a@b.co", email_confirmed_at: extra.unconfirmed ? null : "2026-01-01" }));
     if (url.includes("rpc/studyboard_plan_rate_hit")) return new Response(JSON.stringify(extra.limited ? false : true));
     if (url.includes("rpc/studyboard_trial_used")) { rest.push(["TRIAL", url, init.body]); return extra.trialFn === "missing" ? new Response("{}", { status: 404 }) : extra.trialFn === "down" ? new Response("{}", { status: 503 }) : new Response(JSON.stringify(!!extra.trialUsed)); }
-    if (url.includes("studyboard_config")) return new Response(JSON.stringify([{ key: "site_url", value: extra.siteUrl ?? "" }, { key: "prices", value: { trialDays: 7 } }]));
+    if (url.includes("studyboard_config")) return new Response(JSON.stringify([{ key: "site_url", value: extra.siteUrl ?? "" }, { key: "prices", value: extra.prices ?? { trialDays: 7, checkoutTrialDays: 7 } }]));
     if (url.includes("studyboard_entitlements")) return new Response(JSON.stringify(extra.ent ? [extra.ent] : []));
     if (url.includes("studyboard_billing_customers")) { rest.push([init.method || "GET", url]); return new Response(JSON.stringify(init.method === "POST" ? [] : extra.customer ? [{ stripe_customer_id: extra.customer }] : (rest.filter(r => r[0] === "POST").length ? [{ stripe_customer_id: "cus_new" }] : []))); }
     if (url === "https://api.stripe.com/v1/customers") { stripeBodies.push(["customers", init.body]); return new Response(JSON.stringify({ id: "cus_new" })); }
@@ -350,6 +350,11 @@ await test("checkout: refuses bad plans, no sign-in, unconfirmed email, rate lim
   assert.equal(bad.headers.get("access-control-allow-origin"), null);
   const noCfg = await co.handle(coReq({ plan: "monthly" }), coDeps({ env: { SITE_ORIGINS: "" } }).deps);
   assert.equal(noCfg.status, 500);
+});
+await test("checkout: no card trial unless checkoutTrialDays is set (new accounts get the free week instead)", async () => {
+  const d = coDeps({ prices: { trialDays: 7 } });
+  assert.equal((await co.handle(coReq({ plan: "monthly" }), d.deps)).status, 200);
+  assert.ok(!("subscription_data[trial_period_days]" in parse(d.stripeBodies.find(b => b[0] === "session")[1])));
 });
 await test("checkout: semester uses its own price, and is refused until that price is set", async () => {
   const on = coDeps({ env: { STRIPE_PRICE_SEMESTER: "price_SEM1" } });
