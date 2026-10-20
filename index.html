@@ -2995,6 +2995,14 @@ html :is(.tl-controls.f-title,.pview-tabs + .tl-controls:has(> .segb)) > h2{flex
 .pview-tabs + .gp > .view-head + *{margin-top:4px}
 /* Timeline, Schedule and Crunch too: 16px from the title to the row or card under it */
 .pview-tabs + .view-head,.pview-tabs + .tl-controls{row-gap:16px}
+/* One rhythm on every page: title, then the course chips, then the content, each 16px apart to the eye (the chip row has 4px/6px of
+   padding of its own). Timeline, Flashcards, Quizzes and Archive used to differ (12 to 28px). */
+#view :is(.view-head,.tl-controls):has(+ .cf-chips){margin-bottom:12px}
+#view .cf-chips{margin-top:0;margin-bottom:0}
+#view .cf-chips + *{margin-top:10px}
+#view .mini + .cf-chips{margin-top:6px}
+#view .cf-row + *{margin-top:12px}
+@media (max-width:639px){#view .pview-tabs + .view-head + :is(.course-list,.empty),#view .pview-tabs.ph-solo + :is(.empty,.grp-list,.cr,.gp){margin-top:12px}}   /* the page switcher sits 12px above whatever comes first, as on every other page */
 /* Crunch's title sits at the top of its row (the range toggle beside it is taller), so it is 12px under the tab selector like the other pages */
 /* the range switch sits centred on the title's plate, and doesn't make the row taller than other tabs' titles */
 @media (min-width:601px){.pview-tabs + .cr > .cr-head{align-items:center}.pview-tabs + .cr > .cr-head > .cr2-range{margin-block:-12px}/* 12px row gap + 4px = the same 16px Timeline has from its title to the course chips */
