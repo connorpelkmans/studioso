@@ -13,7 +13,7 @@ function stubInit(opts){
   const mem = (g, u, role, name) => ({group_id: g, user_id: u, role, display_name: name, joined_at: "2026-01-0" + (u.slice(1))});
   const NAMES = {u1: "Connor", u2: "Sam", u3: "Jo"};
   const DB = {
-    study_groups: [{id: "g1", name: "Bio Squad", course: "BIOL 201", owner_id: "u1", invite_code: "ABC-DEF", created_at: "2026-01-01", weekly_goal: 0, kind: "study", project_due: null},
+    study_groups: [{id: "g1", name: "Bio Squad", course: "BIOL 201", owner_id: "u1", invite_code: "ABCD-EFGH", created_at: "2026-01-01", weekly_goal: 0, kind: "study", project_due: null},
       {id: "g2", name: "Poster Team", course: "BIOL 201", owner_id: "u1", invite_code: "XYZ-123", created_at: "2026-01-02", weekly_goal: 0, kind: "project", project_due: day(opts.due == null ? 10 : opts.due)}],
     group_members: ["g1", "g2"].flatMap(g => [mem(g, "u1", "owner", "Connor"), mem(g, "u2", "member", "Sam"), mem(g, "u3", "member", "Jo")]),
     group_items: [], group_messages: [], study_profiles: [{user_id: opts.me, display_name: NAMES[opts.me]}], shared_decks: [], group_blocks: [],
@@ -47,6 +47,16 @@ function stubInit(opts){
   const E = m => ({error: {message: m}});
   const ownerOf = gid => DB.study_groups.some(g => g.id === gid && g.owner_id === me.id);
   const rpc = {
+    // quiz scores, as groups.sql keeps them: anonymous rows reach other members without who took them
+    group_quiz_board(a) { return {data: DB.group_quiz_scores.filter(r => r.group_id === a.p_group).map(r => { const see = (r.shown || "name") === "name" || r.user_id === me.id;
+      return {item_id: r.item_id, user_id: see ? r.user_id : null, best_correct: r.best_correct, best_total: r.best_total, last_correct: see ? r.last_correct : null, last_total: see ? r.last_total : null, attempts: see ? r.attempts : null, shown: r.shown || "name"}; })}; },
+    submit_quiz_score(a) { const it = DB.group_items.find(i => i.id === a.p_item); let r = DB.group_quiz_scores.find(x => x.item_id === a.p_item && x.user_id === me.id);
+      if (!r) { r = {item_id: a.p_item, group_id: it.group_id, user_id: me.id, best_correct: a.p_correct, best_total: a.p_total, attempts: 0, shown: a.p_shown || "name"}; DB.group_quiz_scores.push(r); }
+      else if (a.p_correct * r.best_total > r.best_correct * a.p_total) Object.assign(r, {best_correct: a.p_correct, best_total: a.p_total});
+      Object.assign(r, {last_correct: a.p_correct, last_total: a.p_total, attempts: r.attempts + 1}); if (a.p_shown) r.shown = a.p_shown; return {data: null}; },
+    set_quiz_score_shown(a) { if (a.p_shown === "none") DB.group_quiz_scores = DB.group_quiz_scores.filter(x => !(x.item_id === a.p_item && x.user_id === me.id));
+      else DB.group_quiz_scores.filter(x => x.item_id === a.p_item && x.user_id === me.id).forEach(x => { x.shown = a.p_shown; }); return {data: null}; },
+    group_preview(a) { const g = DB.study_groups.find(x => x.invite_code === a.p_code); return {data: g ? [{id: g.id, name: g.name, course: g.course, member_count: 3, is_member: true, kind: g.kind}] : []}; },
     create_task_list(a) { const r = {id: id("L"), group_id: a.p_group, title: String(a.p_title).trim(), course_code: a.p_course || "", created_by: me.id, created_at: nowIso(), archived: false}; DB.group_task_lists.push(r); return {data: r}; },
     add_group_task(a) { const l = DB.group_task_lists.find(x => x.id === a.p_list); if (!l) return E("That list isn't in one of your groups");
       const r = {id: id("T"), list_id: l.id, group_id: l.group_id, title: String(a.p_title).trim(), notes: a.p_notes || "", status: "todo", assignee_id: a.p_assignee || null, due_at: a.p_due || null, priority: a.p_priority || null,
@@ -122,6 +132,77 @@ const tabs = page => page.$$eval(".grp-tabs [role=tab]", e => e.map(x => x.inner
 const txt = (page, sel) => page.evaluate(sel => { const e = document.querySelector(sel); return e ? e.innerText.replace(/\s+/g, " ") : ""; }, sel);
 const noOverflow = async (page, label) => ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), "no horizontal overflow: " + label);
 const sheet = (page, sel) => page.waitForSelector("dialog[open] " + sel);
+
+// Sharing a quiz score: asked first (name, anonymous, private), anonymous to others, and changed or removed later
+async function quizShare(browser){
+  let {ctx, page, errs} = await boot(browser, 1280, {me: "u1"});
+  await openGroup(page, "g1");
+  await page.evaluate(() => window.__DB.group_quiz_scores.push({item_id: "qz1", group_id: "g1", user_id: "u2", best_correct: 9, best_total: 10, last_correct: 9, last_total: 10, attempts: 1, shown: "anon"}, {item_id: "qz1", group_id: "g1", user_id: "u3", best_correct: 6, best_total: 10, last_correct: 6, last_total: 10, attempts: 2, shown: "name"}));
+  await page.evaluate(() => window.__fire("group_quiz_scores")); await page.waitForTimeout(400);
+  await page.evaluate(() => window.__sbFire("ai-quiz-done", {deckId: "cp2", quizId: "lq", right: 1, total: 2, partial: false}));
+  await sheet(page, "[data-gq]");
+  ok(/Share Your Score/.test(await txt(page, "dialog[open]")) && await page.locator("dialog[open] [data-gq]").count() === 3, "a finished group quiz asks how to share the score");
+  ok(!(await page.evaluate(() => window.__calls.some(c => c[1] === "submit_quiz_score"))), "nothing is posted before choosing");
+  await page.click('dialog[open] [data-gq="anon"]'); await page.waitForTimeout(500);
+  ok(await page.evaluate(() => window.__DB.group_quiz_scores.some(r => r.user_id === "u1" && r.shown === "anon")), "Share Anonymously posts it as anonymous");
+  await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "grp-quiz-scores"; b.dataset.id = "qz1"; document.body.appendChild(b); b.click(); b.remove(); });
+  await sheet(page, ".grp-lb.scores");
+  const t1 = await txt(page, "dialog[open]");
+  ok(/Anonymous 9\/10/.test(t1) && /Sam No score shared/.test(t1) && /Jo 2 attempts/.test(t1), "the scoreboard shows another member's anonymous score without their name: " + t1);
+  ok(/anonymous to others/.test(t1) && /2 anonymously/.test(t1), "your own anonymous score is marked, and the count says how many are anonymous");
+  await page.screenshot({path: shots + "/gk-quiz-scores-anon.png"});
+  await page.click('dialog[open] [data-act="grp-score-shown"][data-v="name"]'); await page.waitForTimeout(500);
+  ok(await page.evaluate(() => window.__DB.group_quiz_scores.find(r => r.user_id === "u1").shown === "name"), "Show My Name switches it");
+  await page.click('dialog[open] [data-act="grp-score-shown"][data-v="none"]'); await sheet(page, "[data-submit]"); await page.click("dialog[open] [data-submit]"); await page.waitForTimeout(600);
+  ok(await page.evaluate(() => !window.__DB.group_quiz_scores.some(r => r.user_id === "u1")), "Remove My Score takes it off the server");
+  // removed: the next try stays private and isn't asked about again, and it can be shared later from Scores
+  await page.keyboard.press("Escape"); await page.waitForTimeout(300);
+  await page.evaluate(() => window.__sbFire("ai-quiz-done", {deckId: "cp2", quizId: "lq", right: 2, total: 2, partial: false})); await page.waitForTimeout(600);
+  ok(!(await page.$("dialog[open] [data-gq]")) && await page.evaluate(() => !window.__DB.group_quiz_scores.some(r => r.user_id === "u1")), "after removing, retakes stay private without asking");
+  await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "grp-quiz-scores"; b.dataset.id = "qz1"; document.body.appendChild(b); b.click(); b.remove(); });
+  await sheet(page, '[data-act="grp-score-shown"][data-v="anon"]');
+  ok(/Kept private: 2\/2/.test(await txt(page, "dialog[open]")), "Scores shows the private best");
+  await page.click('dialog[open] [data-act="grp-score-shown"][data-v="anon"]'); await page.waitForTimeout(500);
+  ok(await page.evaluate(() => { const r = window.__DB.group_quiz_scores.find(r => r.user_id === "u1"); return r && r.shown === "anon" && r.best_correct === 2; }), "a private score can be shared later");
+  // Keep It Private on a fresh quiz: nothing posted
+  await page.evaluate(() => { window.__DB.group_quiz_scores = window.__DB.group_quiz_scores.filter(r => r.user_id !== "u1"); Object.keys(localStorage).filter(k => k.startsWith("studyboard:gqshare:")).forEach(k => localStorage.removeItem(k)); window.__fire("group_quiz_scores"); });
+  await page.keyboard.press("Escape"); await page.waitForTimeout(900);
+  await page.evaluate(() => window.__sbFire("ai-quiz-done", {deckId: "cp2", quizId: "lq", right: 1, total: 2, partial: false})); await sheet(page, '[data-gq="private"]');
+  await page.click('dialog[open] [data-gq="private"]'); await page.waitForTimeout(400);
+  ok(await page.evaluate(() => !window.__DB.group_quiz_scores.some(r => r.user_id === "u1")), "Keep It Private posts nothing");
+  ok(errs.length === 0, "quiz share: no page errors " + errs.join(" | ")); await ctx.close();
+
+  // Enter a Code: 8-character codes, older 6-character ones, and pasted links or messages all work
+  ({ctx, page, errs} = await boot(browser, 1280, {me: "u1"}));
+  await act(page, "grp-page"); await page.waitForSelector("[data-grp-list]");
+  for (const [typed, want] of [["ABCD-EFGH", "ABCD-EFGH"], ["abcdefgh", "ABCD-EFGH"], ["Join my study group: ABCD-EFGH !", "ABCD-EFGH"], ["https://studyboardapp.com/?group=ABCD-EFGH", "ABCD-EFGH"], ["k7p4qd9x", "K7P4-QD9X"]]) {
+    await act(page, "grp-code"); await sheet(page, ".grp-code-in");
+    await page.focus("dialog[open] .grp-code-in");
+    await page.keyboard.insertText(typed);
+    await page.waitForTimeout(100);
+    await page.click("dialog[open] #grpCodeGo"); await page.waitForTimeout(500);
+    const asked = await page.evaluate(() => (window.__calls.filter(c => c[1] === "group_preview" || c[1] === "get_shared_deck").pop() || [])[2]);
+    ok(asked && (asked.p_code === want), `"${typed}" is looked up as ${want} (got ${JSON.stringify(asked)})`);
+    await page.keyboard.press("Escape"); await page.waitForTimeout(250);
+  }
+  // typing formats as XXXX-XXXX and stops at 8; a 6-character code isn't accepted
+  await act(page, "grp-code"); await sheet(page, ".grp-code-in"); await page.focus("dialog[open] .grp-code-in");
+  await page.keyboard.type("abcdefghjk"); eq(await page.inputValue("dialog[open] .grp-code-in"), "ABCD-EFGH", "typing formats the code as XXXX-XXXX and stops at 8 characters");
+  await page.fill("dialog[open] .grp-code-in", ""); await page.keyboard.type("abcdef");
+  const before = await page.evaluate(() => window.__calls.length); await page.click("dialog[open] #grpCodeGo"); await page.waitForTimeout(300);
+  ok(/8 letters and numbers/.test(await txt(page, "#grpCodeMsg")) && await page.evaluate(n => !window.__calls.slice(n).some(c => c[1] === "group_preview"), before), "a 6-character code is turned down without a lookup");
+  ok(errs.length === 0, "codes: no page errors " + errs.join(" | ")); await ctx.close();
+
+  // Members see each other's companions; no Nudge, no Resource Hero
+  ({ctx, page, errs} = await boot(browser, 1280, {me: "u1"}));
+  await page.evaluate(() => { window.__DB.group_members.forEach(m => { if (m.user_id === "u2") m.face = "sakura-shiba"; }); });
+  await openGroup(page, "g1"); await tab(page, "members"); await page.waitForTimeout(400);
+  const faces = await page.evaluate(() => [...document.querySelectorAll(".grp-members li")].map(li => ({t: li.innerText.replace(/\s+/g, " "), comp: !!li.querySelector(".grp-av.is-comp svg")})));
+  ok(faces.some(f => /Sam/.test(f.t) && f.comp) && faces.some(f => /Jo/.test(f.t) && !f.comp), "another member's companion shows as their picture (and initials when they have none): " + JSON.stringify(faces));
+  ok(!(await page.$('[data-act="grp-nudge"]')) && !/Resource Hero|Nudge/.test(await txt(page, "#grpDetail")), "no Nudge button and no Resource Hero badge");
+  await page.screenshot({path: shots + "/gk-member-companions.png"});
+  ok(errs.length === 0, "companions: no page errors " + errs.join(" | ")); await ctx.close();
+}
 
 async function studyGroup(browser, w){
   const tag = "study " + w + "px", {ctx, page, errs} = await boot(browser, w, {me: "u1"});
@@ -394,6 +475,7 @@ async function fromTemplate(browser){
   const browser = await chromium.launch({executablePath});
   try {
     for (const w of [1280, 390]) { await studyGroup(browser, w); await projectGroup(browser, w); }
+    await quizShare(browser);
     await memberView(browser); await overdueAndSetup(browser); await createProject(browser); await hideFeatures(browser); await fromTemplate(browser);
   } finally { await browser.close(); }
   console.log(`groupkinds.e2e.js: ${checks} checks passed. Screenshots in ${shots}`);

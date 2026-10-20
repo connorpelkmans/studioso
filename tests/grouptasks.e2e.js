@@ -145,10 +145,7 @@ async function scenario(browser, w){
   ok(/Find three figures.*You/.test(await txt(page, ".pt-tasks li:nth-child(2)")), tag + " claim assigns me: " + (await txt(page, ".pt-tasks")).replace(/\s+/g, " "));
   ok(await page.evaluate(() => window.__DB.group_tasks.find(t => t.title === "Find three figures").assignee_id) === "u1", tag + " claim saved");
   // nudge Jo about the overdue task
-  ok(await page.$$eval('[data-act="grp-pt-nudge"]', e => e.length) === 1, tag + " nudge only for someone else's overdue task");
-  await page.click('[data-act="grp-pt-nudge"]'); await page.waitForTimeout(300);
-  ok(await page.evaluate(() => window.__calls.some(c => c[0] === "insert" && c[1] === "group_messages" && /Nudge for Jo/.test(c[2].body))), tag + " nudge posted to the board");
-  ok(/Nudged/.test(await txt(page, "#grpPT")), tag + " nudge is rate limited per day on screen");
+  ok(await page.$$eval('[data-act="grp-pt-nudge"]', e => e.length) === 0, tag + " no Nudge button (the feature was removed)");
   // complete
   await page.click('.pt-task:has-text("Make the slides") [data-act="grp-pt-done"]'); await page.waitForTimeout(300);
   ok(/1 of 4 done/.test(await txt(page, ".pt-prog")), tag + " completing updates progress");

@@ -40,7 +40,10 @@ function stubs(){
     init = init || {}; const u = new URL(url), m = (init.method || "GET").toUpperCase(), auth = (init.headers || {}).Authorization || "";
     if (u.host === "www.googleapis.com") {
       if (auth !== "Bearer g-at") return json({}, 401);
-      if (u.pathname === "/drive/v3/files" && m === "GET") { const q = u.searchParams.get("q"); const name = /name='([^']+)'/.exec(q)[1], parent = /'([^']+)' in parents/.exec(q)[1]; const hit = [...W.g.files.values()].find(f => f.folder && f.name === name && f.parent === parent); return json({files: hit ? [{id: hit.id}] : []}); }
+      if (u.pathname === "/drive/v3/files" && m === "GET") { const q = u.searchParams.get("q"), nm = /name='([^']+)'/.exec(q), parent = /'([^']+)' in parents/.exec(q)[1], folder = /google-apps\.folder/.test(q);
+        const meta = f => ({id: f.id, name: f.name, mimeType: f.folder ? "application/vnd.google-apps.folder" : "application/json", size: String((f.content || "").length), webViewLink: "https://drive.google.com/file/d/" + f.id + "/view", modifiedTime: f.mod || "2026-10-20T10:00:00Z"});
+        const hits = [...W.g.files.values()].filter(f => !!f.folder === folder && f.parent === parent && (!nm || f.name === nm[1]));
+        return json({files: hits.map(meta)}); }
       if (u.pathname === "/drive/v3/files" && m === "POST") { const b = JSON.parse(init.body); const id = "gf" + (++W.g.n); W.g.files.set(id, {id, name: b.name, parent: b.parents[0], folder: true}); return json({id}); }
       if (u.pathname === "/upload/drive/v3/files" && u.searchParams.get("uploadType") === "multipart") {
         const text = await new Response(init.body).text(); const meta = JSON.parse(/\r\n\r\n(\{.*?\})\r\n/s.exec(text)[1]); const id = "gd" + (++W.g.n);
@@ -48,7 +51,10 @@ function stubs(){
         W.g.files.set(id, {id, name: meta.name, parent: meta.parents[0], content}); W.g.uploads.push(meta);
         return json({id, name: meta.name, mimeType: "text/plain", size: String(content.length), webViewLink: "https://drive.google.com/file/d/" + id + "/view", modifiedTime: "2026-10-20T10:00:00Z"});
       }
+      const pm = /^\/upload\/drive\/v3\/files\/([^/]+)$/.exec(u.pathname);
+      if (pm && m === "PATCH") { const f = W.g.files.get(pm[1]); if (!f) return json({}, 404); f.content = await new Response(init.body).text(); f.mod = new Date().toISOString(); W.g.patches = (W.g.patches || 0) + 1; return json({id: f.id, name: f.name, mimeType: "application/json", size: String(f.content.length), webViewLink: "https://drive.google.com/file/d/" + f.id + "/view", modifiedTime: f.mod}); }
       const mm = /^\/drive\/v3\/files\/([^/]+)$/.exec(u.pathname);
+      if (mm && m === "DELETE") { W.g.files.delete(mm[1]); return new Response(null, {status: 204}); }
       if (mm && u.searchParams.get("alt") === "media") { const f = W.g.files.get(mm[1]); return f ? new Response(f.content) : json({}, 404); }
     }
     if (u.host === "graph.microsoft.com") {
@@ -106,7 +112,15 @@ function stubs(){
   ok(await page.getAttribute('.frow:has(.f-cloud) a.btn', "href") === g.f.url, "Open goes to Google Drive");
   // read back through the person's access (what Summarize and AI use)
   ok(await page.evaluate(async id => new TextDecoder().decode(await fileBytes(state.files[id])), g.f.id) === "Mitochondria make ATP.", "its bytes come back from Google Drive");
-  ok(await page.evaluate(id => readableFile(state.files[id]), g.f.id), "AI can read it (Summarize)");
+  // AI reads cloud files only when allowed (the checkbox while connecting); without it the file still opens
+  ok(await page.evaluate(id => !readableFile(state.files[id]), g.f.id), "AI doesn't read Google Drive files until it's allowed");
+  await page.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); SBCLOUD.open(); });
+  await page.waitForSelector('[data-cl-ai="google"]', {timeout: 5000});
+  ok(await page.locator("[data-cl-ai]").count() === 2 && /still works/.test(await page.locator(".cl-ai").first().textContent()), "each account has an Allow AI checkbox that says the account still works without it");
+  await page.check('[data-cl-ai="google"]'); await page.waitForTimeout(200);
+  ok(await page.evaluate(() => SBCLOUD.aiOk("google") && !SBCLOUD.aiOk("microsoft")), "ticking it allows AI for that account only");
+  await page.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); });
+  ok(await page.evaluate(id => readableFile(state.files[id]), g.f.id), "allowed: AI can read it (Summarize)");
   ok((await page.evaluate(id => SBFILETEXT(id, 200), g.f.id)).includes("Mitochondria"), "and its text is available to course tools");
   // the file sheet: In your Google Drive, Remove (not Delete)
   await page.click(`.frow[data-fid="${g.f.id}"] .fmain`); await page.waitForSelector("#dlg .cl-info");
@@ -171,6 +185,23 @@ function stubs(){
   ok(await page.evaluate(() => SBCLOUD.target()) === "" && await page.evaluate(() => SBCLOUD.choices().length) === 0, "without Pro nothing goes to the cloud");
   ok(await page.locator('.f-title [data-act="cl-open"]').count() === 1, "the Cloud button stays while there are cloud files (to reconnect or upgrade)");
   ok(/onedrive/.test(await page.evaluate(() => fileHref(state.files.f1))), "a cloud file still opens in OneDrive");
+
+  // 7a. Backups straight to Google Drive: Studyboard > Backups, replaced in place, the latest in Files, and in Restore a Backup
+  await page.evaluate(() => { SBPRO.locked = () => false; const d = document.querySelector("dialog[open]"); if (d) d.close(); });
+  await page.evaluate(() => SBCLOUD.backup.want("google"));
+  await page.waitForFunction(() => SBCLOUD.backup.on() && !SBCLOUD.backup.state().busy && SBCLOUD.backup.state().last > 0, null, {timeout: 10000});
+  const bk1 = await page.evaluate(() => { const W = window.__cl, fs = [...W.g.files.values()], folder = fs.find(f => f.folder && f.name === "Backups"), top = folder && fs.find(f => f.id === folder.parent);
+    return {top: top && top.name, names: fs.filter(f => folder && f.parent === folder.id).map(f => f.name).sort(), rec: Object.values(state.files).find(f => f.name === "Studyboard Backup.json")}; });
+  ok(bk1.top === "Studyboard" && bk1.names.length === 2 && bk1.names.includes("studyboard-latest.json") && bk1.names.some(n => /^studyboard-\d{4}-\d{2}-\d{2}\.json$/.test(n)), "a backup goes to Studyboard > Backups in Google Drive: " + bk1.names.join(", "));
+  ok(bk1.rec && bk1.rec.kind === "cloud" && bk1.rec.cloud.p === "google" && bk1.rec.courseId === "", "the latest backup shows in Files like a saved file");
+  await page.evaluate(() => SBCLOUD.backup.run()); await page.waitForTimeout(300);
+  await page.waitForFunction(() => !SBCLOUD.backup.state().busy);
+  const bk2 = await page.evaluate(() => { const fs = [...window.__cl.g.files.values()], folder = fs.find(f => f.folder && f.name === "Backups"); return {n: fs.filter(f => f.parent === folder.id).length, patches: window.__cl.g.patches || 0, recs: Object.values(state.files).filter(f => f.name === "Studyboard Backup.json").length}; });
+  ok(bk2.n === 2 && bk2.patches >= 2 && bk2.recs === 1, "backing up again replaces them in place: no copies in Drive or in Files: " + JSON.stringify(bk2));
+  const rs = await page.evaluate(async () => (await SBCLOUD.backup.restorable()).map(b => ({where: b.where, label: b.label, courses: (b.courses || []).length})));
+  ok(rs.length === 1 && rs[0].where === "drive" && rs[0].label === "Google Drive" && rs[0].courses === 2, "and it's in Restore a Backup, read back from Google Drive: " + JSON.stringify(rs));
+  await page.evaluate(() => SBCLOUD.backup.stop());
+  ok(await page.evaluate(() => !SBCLOUD.backup.on()), "Stop turns cloud backups off");
 
   // 7. A saved summary: shown in the file list, and opens without AI being set up
   await page.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); });

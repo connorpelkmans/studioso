@@ -170,6 +170,27 @@ Only you can do this: in the **SQL Editor** (or with the service role). The func
 ```
 A new grant replaces the old one for that person (the days count from now). The account must already exist (they sign up first). Grants live in their own columns, separate from payments: a cancelled or refunded subscription never removes your gift, and revoking a gift never cancels a subscription. The app shows a gift as **Pro (granted)** and the token tier is `pro` (with an end date) or `lifetime` (no end date). Older gifts made with the previous version of this function are moved into grants automatically when you run the SQL again.
 
+### Promo Codes (Pro's Features Without Extra Storage)
+
+Codes you hand out, made in the **SQL Editor** (run `supabase-plans.sql` again first so the code tables exist). Two kinds:
+
+* **forever**: Pro's themes and features for good.
+* **month**: Pro's themes and features for one calendar month from the moment it's redeemed. It really ends: the database, the entitlement token and the app all compare the end date with the current time, so nothing has to run for it to switch off. A second month code adds another month to what's left.
+
+Both keep the **free plan's amounts**: file storage, synced data, devices, group size, online backups and Pro groups stay as on Free (`studyboard_limits_pro` ignores codes), so a code never costs you Supabase room.
+
+```sql
+-- one single-use one-month code           select * from public.studyboard_make_codes('month');
+-- ten single-use forever codes            select * from public.studyboard_make_codes('forever', 10);
+-- one code for up to 50 people, 30 days   select * from public.studyboard_make_codes('month', 1, 50, 30, 'Club fair');
+--   (kind, how many codes, uses per code (null = no limit), days it can be redeemed (null = always), a note for you)
+-- a code you choose                       select public.studyboard_make_code('STUDYFRIEND', 'month', 100);
+-- what exists and how much it's used      select * from public.studyboard_list_codes();
+-- stop new redemptions                    select public.studyboard_disable_code('STUDYFRIEND');
+-- take promo Pro back from someone        select public.studyboard_revoke_promo('someone@school.edu');
+```
+Random codes look like `SB-K7QM-3XRP-9TWD` and are **shown once**: only a hash is stored, so copy them when you make them. People redeem a code signed in, from the Pro sheet (**Redeem a Code**); typing it in lower case or without the dashes is fine. Each account can use a code once, wrong codes are limited to 10 tries an hour per account, and the app shows it as **Pro From a Code**. Codes live in their own columns: they never touch a paid plan or a gift, and `supabase-plans-selftest.sql` checks all of this.
+
 ### Threat Model: How Someone Could Try to Get Pro for Free
 
 | Attempt | What stops it |

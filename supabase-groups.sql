@@ -39,9 +39,7 @@ end $$;
 -- Tidies a typed or pasted code: K7P4QD9X, k7p4-qd9x and "K7P4 QD9X" all become K7P4-QD9X; old 6- and 10-character codes keep their own shapes (K7P-4QD, K7P4Q-D9XWM).
 create or replace function public.sbg_norm_code(p text) returns text
 language sql immutable set search_path = public as $$
-  select case length(x) when 6 then substr(x, 1, 3) || '-' || substr(x, 4, 3)
-                        when 8 then substr(x, 1, 4) || '-' || substr(x, 5, 4)
-                        when 10 then substr(x, 1, 5) || '-' || substr(x, 6, 5) else x end
+  select case length(x) when 8 then substr(x, 1, 4) || '-' || substr(x, 5, 4) else x end   -- codes are 8 characters (K7P4-QD9X), nothing else matches
   from (select upper(regexp_replace(coalesce(p, ''), '[^A-Za-z0-9]', '', 'g')) as x) q
 $$;
 
@@ -474,8 +472,14 @@ alter table public.group_stats enable row level security;
 alter table public.group_checkins enable row level security;
 alter table public.group_reactions enable row level security;
 
+-- Each score is shared with a name ('name') or anonymously ('anon'); keeping it private means not posting it (or removing it).
+-- Other members read rows directly only when they carry a name; anonymous ones reach them through group_quiz_board, without who.
+alter table public.group_quiz_scores add column if not exists shown text not null default 'name';
+alter table public.group_quiz_scores drop constraint if exists group_quiz_scores_shown_check;
+alter table public.group_quiz_scores add constraint group_quiz_scores_shown_check check (shown in ('name', 'anon'));
 drop policy if exists "score member read" on public.group_quiz_scores;
-create policy "score member read" on public.group_quiz_scores for select to authenticated using (public.sbg_is_member(group_id));
+create policy "score member read" on public.group_quiz_scores for select to authenticated
+  using (public.sbg_is_member(group_id) and (shown = 'name' or user_id = auth.uid()));
 drop policy if exists "rsvp member read" on public.group_rsvps;
 create policy "rsvp member read" on public.group_rsvps for select to authenticated using (public.sbg_is_member(group_id));
 drop policy if exists "stats member read" on public.group_stats;
@@ -489,7 +493,9 @@ revoke all on public.group_quiz_scores, public.group_rsvps, public.group_stats, 
 grant select on public.group_quiz_scores, public.group_rsvps, public.group_stats, public.group_checkins, public.group_reactions to authenticated;
 
 -- Record a quiz result. Keeps your best score and your latest one, and counts attempts.
-create or replace function public.submit_quiz_score(p_item uuid, p_correct int, p_total int) returns void
+-- p_shown: 'name' or 'anon'; left out, a score already posted keeps its choice (and a first one is shown with your name, as before).
+drop function if exists public.submit_quiz_score(uuid, int, int);
+create or replace function public.submit_quiz_score(p_item uuid, p_correct int, p_total int, p_shown text default null) returns void
 language plpgsql security definer set search_path = public as $$
 declare gid uuid; me uuid := auth.uid();
 begin
@@ -497,12 +503,45 @@ begin
   select group_id into gid from public.group_items where id = p_item and kind = 'quiz';
   if gid is null or not public.sbg_is_member(gid) then raise exception 'That quiz isn''t in one of your groups'; end if;
   if p_total is null or p_total < 1 or p_total > 500 or p_correct is null or p_correct < 0 or p_correct > p_total then raise exception 'That score isn''t valid'; end if;
-  insert into public.group_quiz_scores as s (item_id, group_id, user_id, best_correct, best_total, last_correct, last_total, attempts, updated_at)
-    values (p_item, gid, me, p_correct, p_total, p_correct, p_total, 1, now())
+  if p_shown is not null and p_shown not in ('name', 'anon') then raise exception 'Pick name or anonymous'; end if;
+  insert into public.group_quiz_scores as s (item_id, group_id, user_id, best_correct, best_total, last_correct, last_total, attempts, updated_at, shown)
+    values (p_item, gid, me, p_correct, p_total, p_correct, p_total, 1, now(), coalesce(p_shown, 'name'))
   on conflict (item_id, user_id) do update set
     best_correct = case when p_correct * s.best_total > s.best_correct * p_total then p_correct else s.best_correct end,
     best_total = case when p_correct * s.best_total > s.best_correct * p_total then p_total else s.best_total end,
-    last_correct = p_correct, last_total = p_total, attempts = s.attempts + 1, updated_at = now();
+    last_correct = p_correct, last_total = p_total, attempts = s.attempts + 1, updated_at = now(), shown = coalesce(p_shown, s.shown);
+end $$;
+
+-- Change how your score on a shared quiz is shown: 'name', 'anon', or 'none' to remove it from the group altogether.
+create or replace function public.set_quiz_score_shown(p_item uuid, p_shown text) returns void
+language plpgsql security definer set search_path = public as $$
+declare me uuid := auth.uid();
+begin
+  if me is null then raise exception 'Sign in first'; end if;
+  if p_shown = 'none' then delete from public.group_quiz_scores where item_id = p_item and user_id = me; return; end if;
+  if p_shown is null or p_shown not in ('name', 'anon') then raise exception 'Pick name, anonymous or none'; end if;
+  update public.group_quiz_scores set shown = p_shown where item_id = p_item and user_id = me;
+end $$;
+
+-- Every score in a group, for its members. Anonymous scores come without who took them, how often, or the latest try
+-- (yours always comes in full), and they're ordered by score so their order says nothing either.
+create or replace function public.group_quiz_board(p_group uuid)
+returns table (item_id uuid, user_id uuid, best_correct int, best_total int, last_correct int, last_total int, attempts int, shown text)
+language plpgsql stable security definer set search_path = public as $$
+declare me uuid := auth.uid();
+begin
+  if me is null then raise exception 'Sign in first'; end if;
+  if not public.sbg_is_member(p_group) then raise exception 'That group isn''t one of yours'; end if;
+  return query
+    select s.item_id,
+      case when s.shown = 'name' or s.user_id = me then s.user_id end,
+      s.best_correct, s.best_total,
+      case when s.shown = 'name' or s.user_id = me then s.last_correct end,
+      case when s.shown = 'name' or s.user_id = me then s.last_total end,
+      case when s.shown = 'name' or s.user_id = me then s.attempts end,
+      s.shown
+    from public.group_quiz_scores s where s.group_id = p_group
+    order by s.item_id, s.best_correct::numeric / greatest(s.best_total, 1) desc, s.best_total desc;
 end $$;
 
 -- Say whether you can make a proposed study session. A null status clears your answer.
@@ -583,9 +622,9 @@ begin
   update public.group_messages set pinned = coalesce(p_pin, false) where id = p_msg;
 end $$;
 
-revoke all on function public.submit_quiz_score(uuid, int, int), public.set_rsvp(uuid, text), public.group_report(uuid, date, int, int),
+revoke all on function public.submit_quiz_score(uuid, int, int, text), public.set_quiz_score_shown(uuid, text), public.group_quiz_board(uuid), public.set_rsvp(uuid, text), public.group_report(uuid, date, int, int),
   public.group_checkin(uuid, date, text, boolean), public.toggle_reaction(uuid, text), public.pin_message(uuid, boolean) from public, anon;
-grant execute on function public.submit_quiz_score(uuid, int, int), public.set_rsvp(uuid, text), public.group_report(uuid, date, int, int),
+grant execute on function public.submit_quiz_score(uuid, int, int, text), public.set_quiz_score_shown(uuid, text), public.group_quiz_board(uuid), public.set_rsvp(uuid, text), public.group_report(uuid, date, int, int),
   public.group_checkin(uuid, date, text, boolean), public.toggle_reaction(uuid, text), public.pin_message(uuid, boolean) to authenticated;
 
 -- ---------- 1.13: Project Tasks (shared task lists with assignees and due dates) ----------
@@ -1244,3 +1283,36 @@ end $$;
 revoke all on function public.set_member_color(uuid, text) from public, anon;
 grant execute on function public.set_member_color(uuid, text) to authenticated;
 notify pgrst, 'reload schema';
+
+-- Every member's companion, shown as their picture in the group (instead of initials). Only the companion's id is kept (letters,
+-- numbers and dashes), the app draws it. Written only through set_my_face, which sets it on all your groups at once; null clears it.
+alter table public.group_members add column if not exists face text;
+alter table public.group_members drop constraint if exists group_members_face_check;
+alter table public.group_members add constraint group_members_face_check check (face is null or face ~ '^[a-z0-9-]{1,40}$');
+revoke update (face) on public.group_members from authenticated;
+create or replace function public.set_my_face(p_face text) returns void
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare me uuid := auth.uid(); v text := nullif(lower(btrim(coalesce(p_face, ''))), '');
+begin
+  if me is null then raise exception 'Sign in first'; end if;
+  if v is not null and v !~ '^[a-z0-9-]{1,40}$' then raise exception 'That companion isn''t valid'; end if;
+  update public.group_members set face = v where user_id = me and face is distinct from v;
+end $$;
+revoke all on function public.set_my_face(text) from public, anon;
+grant execute on function public.set_my_face(text) to authenticated;
+notify pgrst, 'reload schema';
+
+-- Codes are 8 characters only (K7P4-QD9X). Groups and shared decks still holding an older 6 or 10 character code get a new 8
+-- character one (their old code and links stop working; members already in a group stay in it). Safe to run again: nothing left to change.
+do $$
+declare r record; c text;
+begin
+  for r in select id from public.study_groups where invite_code !~ '^[A-Z0-9]{4}-[A-Z0-9]{4}$' loop
+    loop c := public.sbg_new_code(); exit when not exists (select 1 from public.study_groups where invite_code = c); end loop;
+    update public.study_groups set invite_code = c where id = r.id;
+  end loop;
+  for r in select code from public.shared_decks where code !~ '^[A-Z0-9]{4}-[A-Z0-9]{4}$' loop
+    loop c := public.sbg_new_code(); exit when not exists (select 1 from public.shared_decks where code = c); end loop;
+    update public.shared_decks set code = c where code = r.code;
+  end loop;
+end $$;

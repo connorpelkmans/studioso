@@ -168,6 +168,13 @@ async function addSchool(origin0, platform) {
   syncOne(id, "added");
   return { ok: true, id };
 }
+// The person signed out of Studyboard: drop every saved read. The next read waits for the next sync, and the website asks whose it is.
+async function forgetReads() {
+  const all = await chrome.storage.local.get(null);
+  const keys = Object.keys(all).filter(k => k.startsWith("result:"));
+  if (keys.length) await chrome.storage.local.remove(keys);
+  return { ok: true };
+}
 async function removeSchool(id) {
   const st = await load(), s = st.schools[id];
   if (!s) return { ok: true };
@@ -238,6 +245,7 @@ chrome.runtime.onMessage.addListener((m, sender, reply) => {
   const fromPage = !String(sender.url || "").startsWith(chrome.runtime.getURL(""));   // relay.js on a web page, not one of the extension's own pages
   const go = async () => {
     // relay.js asks when Studyboard is opened ("open") and on the website's Sync Now; both wait their turn (mayRun)
+    if (fromPage && m.op === "forget") return forgetReads();
     if (fromPage) return m.op === "sync" ? { ok: true, started: (syncAll(m.why === "open" ? "open" : "app"), true) } : { error: "not-allowed" };
     switch (m.op) {
       case "status": { const st = await load(); return { schools: st.schools, settings: st.settings, status: st.status, version: chrome.runtime.getManifest().version }; }
