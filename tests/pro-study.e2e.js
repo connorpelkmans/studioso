@@ -288,6 +288,16 @@ function SEED(){
     const sent = page.context().aiBodies.find(b => /inline_data/.test(b) && /audio\//.test(b));
     ok(!!sent && /"mime_type":"audio\/webm"/.test(sent), "Transcribe with AI sends the audio to Gemini");
     ok(/★ 0:0\d/.test(await page.inputValue("#lecText")), "the marks are kept");
+    // Questions use the app's own box, on top of the open recorder (never the browser's grey confirm or prompt)
+    let nativeBox = false; page.on("dialog", d => { nativeBox = true; d.dismiss().catch(() => {}); });
+    await page.click('[data-act="lec-discard"]'); await page.waitForSelector("#askDlg[open]", {timeout: 4000});
+    ok(/Throw Away This Recording/.test(await page.textContent("#askDlg")) && await page.evaluate(() => dlg.open && !!dlg.querySelector("#lecText")), "throwing a recording away asks in the app's own box, with the recorder still open under it");
+    await page.click("#askNo"); await page.waitForTimeout(200);
+    ok(await page.evaluate(() => !!window.__sbProStudy.rec() && dlg.open), "Keep It keeps the recording and the recorder");
+    await act(page, "lec-ren", "f2"); await page.waitForSelector("#askDlg[open] #askIn", {timeout: 4000});
+    await page.fill("#askIn", "BIO101 Lecture, Osmosis"); await page.click("#askYes"); await page.waitForTimeout(300);
+    ok(await page.evaluate(() => window.__sbProStudy.state().files.f2.name) === "BIO101 Lecture, Osmosis", "renaming a lecture uses the app's own box");
+    ok(!nativeBox, "no browser pop-up boxes");
     ok(await page.locator('input[name="lecMake"]').count() === 0, "no note to make");
     await page.fill("#lecName", "Osmosis Day");
     // Studyboard's storage is full: Save asks where the recording should go instead
@@ -377,7 +387,7 @@ function SEED(){
     ok(/Cells are the unit of life/.test(await page.locator(".lec-tr").textContent()), "it shows the saved transcript");
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
     // Live captions where the browser has no speech service (the desktop app): Gemini writes them from short pieces while recording
-    await page.evaluate(() => { window.__srKeep = window.SpeechRecognition; window.SpeechRecognition = window.webkitSpeechRecognition = undefined; window.__sbProStudy.lecCapMs(1500); window.confirm = () => true; });
+    await page.evaluate(() => { window.__srKeep = window.SpeechRecognition; window.SpeechRecognition = window.webkitSpeechRecognition = undefined; window.__sbProStudy.lecCapMs(1500); });
     await tab(page, "courses"); await act(page, "open-course", "c1"); await page.waitForTimeout(250);
     await page.click('.c2-head [data-act="lec-open"]'); await page.waitForTimeout(250);
     ok(/Written by Gemini every 30 seconds/.test(await page.textContent(".lec-body")) && await page.locator("#lecCap").isChecked(), "without the browser's speech service, live captions come from Gemini");
@@ -388,7 +398,7 @@ function SEED(){
     ok(page.context().aiBodies.slice(before).some(b => /inline_data/.test(b) && /Thirty seconds of a lecture/.test(b)), "each short piece goes to Gemini as it's recorded");
     await page.click('[data-act="lec-stop"]'); await page.waitForSelector("#lecText", {timeout: 20000});
     ok(await page.evaluate(() => /Today we talk about osmosis/.test(document.getElementById("lecText").value) && window.__sbProStudy.rec().by === "ai"), "when it stops, the transcript is already written");
-    await page.click('[data-act="lec-discard"]'); await page.waitForTimeout(300);
+    await page.click('[data-act="lec-discard"]'); await page.waitForSelector("#askDlg[open]", {timeout: 4000}); await page.click("#askYes"); await page.waitForTimeout(300);
     await page.evaluate(() => { window.SpeechRecognition = window.webkitSpeechRecognition = window.__srKeep; window.__sbProStudy.lecCapMs(30000); });
     // Drafts: a recording is kept on this device until it's saved or thrown away, even if the app closes
     const lecDrafts = pg => pg.evaluate(() => new Promise(res => { const r = indexedDB.open("studyboard-lecture-drafts", 1); r.onsuccess = () => { const db = r.result; if (!db.objectStoreNames.contains("meta")) { res([]); return; } const q = db.transaction("meta").objectStore("meta").getAll(); q.onsuccess = () => res(q.result); q.onerror = () => res([]); }; r.onerror = () => res([]); }));
@@ -411,7 +421,7 @@ function SEED(){
     await p2.evaluate(() => dlg.close()); await p2.waitForTimeout(200);
     await p2.close();
     await page.evaluate(() => { window.confirm = () => true; }); await page.evaluate(() => dlg.close());
-    await act(page, "lec-open"); await page.waitForTimeout(200); await page.click('[data-act="lec-discard"]'); await page.waitForTimeout(400);
+    await act(page, "lec-open"); await page.waitForTimeout(200); await page.click('[data-act="lec-discard"]'); await page.waitForSelector("#askDlg[open]", {timeout: 4000}); await page.click("#askYes"); await page.waitForTimeout(400);
     ok((await lecDrafts(page)).length === 0, "Discard deletes the draft");
     // Add Lecture: record, or upload a recording made elsewhere (it's transcribed by itself and kept as a draft until saved)
     await page.evaluate(() => { ui.tab = "courses"; ui.courseId = "c1"; ui.courseTab = "lectures"; ui.courseTabFor = "c1"; render(); }); await page.waitForTimeout(300);
@@ -426,7 +436,7 @@ function SEED(){
     ok((await lecDrafts(page)).some(d => d.title === "Week 3 Membranes"), "and is kept as a draft until saved");
     const parts = await page.evaluate(async b64 => { const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0)); const r = await window.__sbProStudy.lecSplit(new Blob([bytes], {type: "audio/wav"})); return {n: r.segs.length, dur: Math.round(r.dur), type: r.segs[0].type}; }, wav(380, 8000).toString("base64"));
     ok(parts.n === 2 && parts.dur === 380 && parts.type === "audio/wav", "a long recording is cut into 5-minute parts the AI can take: " + JSON.stringify(parts));
-    await page.click('[data-act="lec-discard"]'); await page.waitForTimeout(300);
+    await page.click('[data-act="lec-discard"]'); await page.waitForSelector("#askDlg[open]", {timeout: 4000}); await page.click("#askYes"); await page.waitForTimeout(300);
     ok((await lecDrafts(page)).length === 0, "Discard removes the uploaded draft too");
     const lecErrs = page.errs.filter(e => !/only on the computer/.test(e));
     ok(lecErrs.length === 0, "no console errors (recorder): " + lecErrs.join(" | "));

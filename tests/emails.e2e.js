@@ -69,6 +69,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   ok(!!(await wp.$('.cf-tabs [data-id="emails"]')), "the Emails tab shows once Canvas is connected");
   await wp.click(".em-item"); await wp.waitForSelector("#emDraft");
   await wp.fill("#emDraft", "On its way."); await wp.click('[data-act="em-send"]');
+  await wp.waitForSelector("#askDlg[open]", {timeout: 4000}); ok(/Send This Reply/.test(await wp.textContent("#askDlg")), "the website asks before sending, in the app's own box"); await wp.click("#askYes");
   await wp.waitForFunction(() => document.querySelector(".em-thread"));
   await wp.waitForTimeout(300);
   ok(seen.some(x => x[0] === "POST" && x[1] === "/api/v1/conversations/11/add_message"), "the reply was posted to Canvas");
