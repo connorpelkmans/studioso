@@ -223,6 +223,7 @@ async function quizShare(browser){
   ok(!(await page.isVisible("dialog .gc-free")) && /Matches your BIOL 201/.test(await txt(page, "dialog .gc-auto")) && await page.inputValue('dialog input[name="gcolor"]') === "#3B6FE0", "with one of your courses, the group colour is that course's colour: " + await txt(page, "dialog .gc-auto"));
   await page.click("dialog #grpSave"); await page.waitForTimeout(600);
   ok(await page.evaluate(() => window.__DB.study_groups.find(x => x.id === "g1").color) === "#3B6FE0", "and it's saved, so members without the course see it too");
+  ok(await page.evaluate(() => ![...document.querySelectorAll("#grpSessions li")].some(li => li.classList.contains("mc-row"))), "study sessions get no colour edge");
   // your own companion is sent to your groups, so they can draw it
   await page.waitForFunction(() => window.__DB.group_members.some(m => m.user_id === "u1" && m.face), null, {timeout: 8000}).catch(() => {});
   const sent = await page.evaluate(() => ({cur: window.SBCOMP && SBCOMP.current(), faces: window.__DB.group_members.filter(m => m.user_id === "u1").map(m => m.face)}));
