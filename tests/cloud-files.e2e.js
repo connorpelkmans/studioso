@@ -172,6 +172,15 @@ function stubs(){
   ok(await page.locator('.f-title [data-act="cl-open"]').count() === 1, "the Cloud button stays while there are cloud files (to reconnect or upgrade)");
   ok(/onedrive/.test(await page.evaluate(() => fileHref(state.files.f1))), "a cloud file still opens in OneDrive");
 
+  // 7. A saved summary: shown in the file list, and opens without AI being set up
+  await page.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); });
+  await page.evaluate(() => { const f = state.files.f1; f.summary = {at: Date.now(), provider: "gemini", model: "", overview: "Osmosis moves water across membranes.", keyPoints: ["Water moves toward higher solute concentration."], keyTerms: [{term: "Osmosis", definition: "Diffusion of water"}], questions: []}; ui.fCourse = "all"; ui.fFolder = ""; render(); });
+  ok(await page.locator('.frow[data-fid="f1"] .f-sum').count() === 1, "a file with a saved summary has a Summary button in the list");
+  await page.click('.frow[data-fid="f1"] .f-sum');
+  await page.waitForSelector("dialog[open] .sum-list", {timeout: 5000});
+  ok(/Osmosis moves water/.test(await page.textContent("dialog[open]")), "it opens the saved summary straight away, with no AI call or setup");
+  await page.evaluate(() => document.querySelector("dialog[open]").close());
+
   ok(errs.length === 0, "no page errors: " + errs.join("; "));
   await browser.close(); server.close(); console.log(n + " checks passed");
 })().catch(e => { console.error(e); process.exit(1); });
