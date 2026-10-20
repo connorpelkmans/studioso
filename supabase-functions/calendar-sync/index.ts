@@ -342,10 +342,16 @@ const htmlEsc = (s: string) => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;
 async function studyboardEmail(d: Deps, uid: string): Promise<string> {
   try { const k = serviceKey(d); const r = await d.fetch(`${base(d)}/auth/v1/admin/users/${uid}`, { headers: { apikey: k, Authorization: `Bearer ${k}` } }); const u = await r.json() as any; return String(u && u.email || ""); } catch (_e) { return ""; }
 }
-async function begin(url: URL, d: Deps, A: Record<Provider, Adapter>, log: (o: string, x?: any) => void): Promise<Response> {
+async function begin(req: Request, url: URL, d: Deps, A: Record<Provider, Adapter>, log: (o: string, x?: any) => void): Promise<Response> {
   const secret = d.env("CALSYNC_KEY"), raw = url.searchParams.get("begin") || "";
   const st = secret.length >= 32 ? await readState(secret, raw, d.now()) : null;
   if (!st || !A[st.p].configured()) { log("begin_bad"); return page("That link has expired", "Go back to Studyboard and choose Connect again.", false); }
+  // When the return address is on the website (CLOUD_REDIRECT / CALSYNC_REDIRECT), the browser's cookie has to be set there too: a link
+  // that reached Supabase directly (one made before the address changed) goes to the website first, which passes it back here.
+  if (new URL(redirectOf(d)).host !== new URL(base(d)).host && req.headers.get("x-studyboard-via") !== "site") {
+    log("begin_to_site");
+    return new Response(null, { status: 302, headers: { Location: `${redirectOf(d)}?begin=${encodeURIComponent(raw)}`, "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
+  }
   return new Response(null, { status: 302, headers: { Location: A[st.p].authUrl(raw, redirectOf(d)), "Set-Cookie": setCookie(st.n, 900), "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
 }
 async function callback(req: Request, url: URL, d: Deps, A: Record<Provider, Adapter>, log: (o: string, x?: any) => void): Promise<Response> {
@@ -486,7 +492,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
   const log = (outcome: string, extra: Record<string, unknown> = {}) => d.log(JSON.stringify({ fn: "calendar-sync", outcome, ms: d.now() - t0, ...extra }));
   const A = adapters(d);
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
-  if (req.method === "GET" && url.searchParams.has("begin")) return begin(url, d, A, log);
+  if (req.method === "GET" && url.searchParams.has("begin")) return begin(req, url, d, A, log);
   if (req.method === "GET" && (url.searchParams.has("state") || url.searchParams.has("code") || url.searchParams.has("error"))) return callback(req, url, d, A, log);
   if (req.method !== "POST") return reply({ error: "method not allowed" }, 405);
   if ((req.headers.get("content-type") || "").includes("application/x-www-form-urlencoded") && !req.headers.get("authorization")) return confirm(req, d, A, log);

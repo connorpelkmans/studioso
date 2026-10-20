@@ -57,11 +57,11 @@ function world(opts = {}) {
     }
     throw new Error("unexpected " + m + " " + url);
   };
-  const env = k => ({ SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "svc", SUPABASE_ANON_KEY: "anon", CLOUD_KEY: opts.key ?? SECRET,
+  const env = k => ({ SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "svc", SUPABASE_ANON_KEY: "anon", CLOUD_KEY: opts.key ?? SECRET, CLOUD_REDIRECT: opts.redirect || "",
     GOOGLE_CLIENT_ID: "g-id", GOOGLE_CLIENT_SECRET: "g-secret", MS_CLIENT_ID: opts.noMs ? "" : "m-id", MS_CLIENT_SECRET: opts.noMs ? "" : "m-secret" }[k] ?? "");
   const deps = { env, fetch, now: () => now, log: (...a) => logs.push(a.join(" ")) };
   const call = async (body, jwt = "user-jwt") => { const r = await F.handle(new Request(FN_URL, { method: "POST", headers: { authorization: "Bearer " + jwt, "content-type": "application/json" }, body: JSON.stringify(body) }), deps); return { status: r.status, body: await r.json() }; };
-  const get = async (qs, cookie) => { const r = await F.handle(new Request(FN_URL + "?" + qs, { headers: cookie ? { cookie } : {} }), deps); return { status: r.status, text: await r.text(), csp: r.headers.get("content-security-policy"), location: r.headers.get("location"), cookie: (r.headers.get("set-cookie") || "").split(";")[0] }; };
+  const get = async (qs, cookie, via) => { const r = await F.handle(new Request(FN_URL + "?" + qs, { headers: { ...(cookie ? { cookie } : {}), ...(via ? { "x-studyboard-via": "site" } : {}) } }), deps); return { status: r.status, text: await r.text(), csp: r.headers.get("content-security-policy"), location: r.headers.get("location"), cookie: (r.headers.get("set-cookie") || "").split(";")[0] }; };
   const post = async (form, cookie) => { const r = await F.handle(new Request(FN_URL, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", ...(cookie ? { cookie } : {}) }, body: new URLSearchParams(form).toString() }), deps); return { status: r.status, text: await r.text() }; };
   const connect = async (provider = "google") => {
     const s = await call({ action: "start", provider });
@@ -156,6 +156,17 @@ await test("revoked access: reauth, and no token until they connect again", asyn
   w.g.badGrant = false;
   await w.connect("google");
   assert.equal((await w.call({ action: "token", provider: "google" })).status, 200, "connecting again fixes it");
+});
+await test("return address on the website: a direct link goes to the website first; from there it goes on to Google", async () => {
+  const w = world({ redirect: "https://studyboardapp.com/functions/v1/cloud-files" });
+  const st = await w.call({ action: "start", provider: "google" });
+  assert.ok(st.body.url.startsWith("https://studyboardapp.com/functions/v1/cloud-files?begin="), "Connect starts on the website");
+  const qs = new URL(st.body.url).search.slice(1);
+  const direct = await w.get(qs);
+  assert.equal(direct.status, 302); assert.ok(direct.location.startsWith("https://studyboardapp.com/functions/v1/cloud-files?begin="), "reached directly: sent to the website"); assert.equal(direct.cookie, "");
+  const via = await w.get(qs, "", true);
+  assert.equal(new URL(via.location).host, "accounts.google.com"); assert.ok(/^sbcf=/.test(via.cookie), "through the website: the cookie is set and it's on to Google");
+  assert.equal(new URL(via.location).searchParams.get("redirect_uri"), "https://studyboardapp.com/functions/v1/cloud-files", "and Google sends people back to the website");
 });
 await test("too many token requests are refused", async () => {
   const w = world();
