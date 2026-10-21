@@ -193,7 +193,7 @@ async function sharer(browser){
   // a username first (the account has none yet)
   await page.evaluate(() => { try { Object.keys(localStorage).filter(k => k.startsWith("studyboard:uname:")).forEach(k => localStorage.removeItem(k)); } catch (e) {} delete window.__SV.username; });
   await page.click("#pubOn"); await page.waitForSelector("dialog[open] #unIn", {timeout: 6000});
-  ok(/Pick a username first/.test(await txt(page, "dialog[open]")), "publishing asks for a username first");
+  ok(/Pick a Username/.test(await txt(page, "dialog[open]")) && !/publish/i.test(await txt(page, "dialog[open] .sheet-body")), "publishing asks for a username first, plainly");
   await page.fill("#unIn", "fuck_this"); await page.waitForTimeout(450);
   ok(/isn't allowed/.test(await txt(page, "#unMsg")), "a foul username is refused while typing: " + await txt(page, "#unMsg"));
   await page.fill("#unIn", "taken_name"); await page.waitForTimeout(450);
