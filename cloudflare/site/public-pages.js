@@ -8,6 +8,8 @@
 // Pages are cached at Cloudflare's edge for an hour (search results for five minutes), so most visits never reach Supabase.
 // Only published, not hidden items are ever read; nothing about the person but their display name.
 
+import {ICONS, GUESS, GENERAL, COLORS} from "./course-icons.js";
+
 const SITE = "Studyboard";
 const KINDS = {
   flashcards: {kind: "deck", noun: "Flashcards", one: "flashcard set", many: "flashcard sets", unit: "term", appParam: "deck"},
@@ -102,9 +104,35 @@ const searchForm = (section, q, course) => `<form class="pub-search" action="/${
   <button class="btn primary" type="submit">Search</button></form>`;
 const crumbs = (list, base) => `<nav class="pub-crumbs" aria-label="Breadcrumb"><ol>${list.map((c, i) => `<li>${i < list.length - 1 ? `<a href="${esc(c[1])}">${esc(c[0])}</a>` : `<span aria-current="page">${esc(c[0])}</span>`}</li>`).join("")}</ol></nav>`;
 const crumbLd = (list, base) => ({"@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: list.map((c, i) => ({"@type": "ListItem", position: i + 1, name: c[0], item: base + c[1]}))});
+// A deck tile drawn like the app's Flashcards screen: a little stack of lined index cards with the course's band, icon and card count.
+// The course colour is a class (pc0, pc1...), since the pages allow no inline styles. Same course, same colour on every page.
+const GENERAL_COLOR = COLORS.indexOf("#5E6B7E");
+const svgOf = k => `<svg class="ci-svg" viewBox="${ICONS[k][0]}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k][1]}</svg>`;
+export function deckLook(r){
+  const label = String(r.course_label || "").trim();
+  // the colour and icon the maker picked when publishing (only the app's own colours and icons)
+  const lk = r.look && typeof r.look === "object" ? r.look : null, ci = lk ? COLORS.indexOf(String(lk.color || "").toUpperCase()) : -1;
+  if (ci >= 0 && (lk.icon === "general" || Object.prototype.hasOwnProperty.call(ICONS, lk.icon))) return {label: label || "General", color: ci, icon: lk.icon === "general" ? GENERAL : svgOf(lk.icon)};
+  if (!label) return {label: "General", color: GENERAL_COLOR, icon: GENERAL};
+  const key = String(r.course_key || label).toUpperCase().replace(/[^A-Z0-9]/g, "");
+  let h = 0; for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const t = (label + " " + (r.course_name || "") + " " + (r.name || "")).toLowerCase(), hit = GUESS.find(g => g[0].test(t)), k = ICONS[hit ? hit[1] : "note"] ? (hit ? hit[1] : "note") : null;
+  const icon = k ? svgOf(k) : GENERAL;
+  return {label, color: h % COLORS.length, icon};
+}
+function deckGrid(section, rows){
+  const K = KINDS[section];
+  return `<ul class="pdecks">${rows.map(r => { const L = deckLook(r), n = Number(r.n) || 0;
+    const meta = [r.school_name, r.sharer_name ? "by " + r.sharer_name : "", r.saves ? plural(Number(r.saves), "save") : ""].filter(Boolean).map(esc).join(" · ");
+    return `<li><a class="pdeck pc${L.color}" href="${esc(itemPath(section, r.name, r.code))}">
+    <span class="pdeck-lay l3" aria-hidden="true"></span><span class="pdeck-lay l2" aria-hidden="true"></span>
+    <span class="pdeck-face"><span class="pdeck-band"><span class="pdeck-ic" aria-hidden="true">${L.icon}</span><span class="pdeck-kick">${esc(L.label)}</span><span class="pdeck-n">${n}<span class="sr"> ${esc(n === 1 ? K.unit : K.unit + "s")}</span></span></span>
+    <span class="pdeck-body"><b class="pdeck-name">${esc(r.name)}</b>${meta ? `<span class="pdeck-meta">${meta}</span>` : ""}${r.preview ? `<span class="pdeck-prev">${esc(clip(r.preview, 110))}</span>` : ""}</span></span></a></li>`; }).join("")}</ul>`;
+}
 function listHtml(section, rows){
   const K = KINDS[section];
   if (!rows.length) return "";
+  if (section === "flashcards") return deckGrid(section, rows);
   return `<ul class="pub-list">${rows.map(r => `<li><a class="pub-item" href="${esc(itemPath(section, r.name, r.code))}">
     <b>${esc(r.name)}</b>
     <span class="pub-meta">${esc(plural(Number(r.n) || 0, K.unit))}${r.course_label ? ` · ${esc(r.course_label)}` : ""}${r.school_name ? ` · ${esc(r.school_name)}` : ""}${r.sharer_name ? ` · by ${esc(r.sharer_name)}` : ""}${r.saves ? ` · ${esc(plural(Number(r.saves), "save"))}` : ""}</span>

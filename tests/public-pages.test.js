@@ -1,6 +1,6 @@
 // The public flashcard and quiz pages (cloudflare/site/public-pages.js), rendered in Node against a stand-in for the Supabase functions.
 // Run: node tests/public-pages.test.js
-const assert = require("assert"), path = require("path");
+const assert = require("assert"), path = require("path"), fs = require("fs");
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 
 const DECKS = [
@@ -74,6 +74,12 @@ const env = {SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "sb_publi
   ({r, t} = await html("/flashcards"));
   ok(r.status === 200 && /Flashcards made by students/.test(t) && /href="\/flashcards\/course\/biol-201"/.test(t) && /cell-biology-basics-abcdefgh/.test(t) && !/noindex/.test(t), "the index lists courses and sets, and is indexed");
   ok(/SearchAction/.test(t), "the index has search structured data");
+  ok(/<a class="pdeck pc\d+" href="\/flashcards\/cell-biology-basics-abcdefgh">/.test(t) && /<span class="pdeck-kick">BIOL 201<\/span>/.test(t) && /<span class="pdeck-n">4<span class="sr"> terms<\/span><\/span>/.test(t) && /class="pdeck-ic"[^>]*><svg class="ci-svg"/.test(t), "flashcard sets are drawn as decks, like the app: course band, icon and card count");
+  ok(P.deckLook({course_label: "BIOL 201", course_key: "BIOL201", name: "x"}).color === P.deckLook({course_label: "BIOL 201", course_key: "BIOL201", name: "y"}).color && P.deckLook({name: "x"}).label === "General", "a course keeps one colour; no course is General");
+  ok(!/pdeck/.test((await html("/quizzes")).t), "quizzes keep their list");
+  ok(fs.readFileSync(require("../scripts/gen-course-icons.js").file, "utf8") === require("../scripts/gen-course-icons.js").build(), "the course icons match the app (run node scripts/gen-course-icons.js)");
+  const css = fs.readFileSync(path.join(__dirname, "..", "website", "assets", "public.css"), "utf8"), {COLORS} = await import(path.join(__dirname, "..", "cloudflare", "site", "course-icons.js"));
+  ok(COLORS.every((c, i) => css.includes(`.pc${i}{--c:${c}}`)), "every course colour has its class in public.css");
   ({r, t} = await html("/flashcards?q=mitochondria"));
   ok(/noindex,follow/.test(t) && /Cell Biology Basics/.test(t) && !/Cell Organelles II/.test(t), "search results show matches and aren't indexed");
   r = await get("/flashcards?q=BIOL%20201");
