@@ -169,7 +169,9 @@ async function indexPage(env, section, url, origin){
   const ck = courseKey(q);
   if (q && ck && q.replace(/[\s._:-]/g, "").toUpperCase() === ck && !courseIn && !f.school && !f.sort && !f.min) return Response.redirect(`${origin}/${section}/course/${courseSlug(ck)}`, 302);
   const [rows, courses, schools] = await Promise.all([
-    rpc(env, "public_search", {p_kind: K.kind, p_q: q, p_course: courseIn, p_limit: PER_PAGE + 1, p_offset: (pageNo - 1) * PER_PAGE, p_school: f.school, p_sort: f.sort, p_min: f.min}),
+    // the filtered search needs the latest supabase-sharing.sql; until it has been run, search the older way (no filters) instead of failing
+    rpc(env, "public_search", {p_kind: K.kind, p_q: q, p_course: courseIn, p_limit: PER_PAGE + 1, p_offset: (pageNo - 1) * PER_PAGE, p_school: f.school, p_sort: f.sort, p_min: f.min})
+      .catch(() => rpc(env, "public_search", {p_kind: K.kind, p_q: q, p_course: courseIn, p_limit: PER_PAGE + 1, p_offset: (pageNo - 1) * PER_PAGE})),
     searching || pageNo > 1 ? Promise.resolve([]) : rpc(env, "public_courses", {p_kind: K.kind, p_limit: 40}),
     rpc(env, "public_schools", {p_kind: K.kind, p_limit: 400}).catch(() => [])]);
   const schoolName = f.school ? ((schools.find(x => x.school_key === f.school) || {}).school_name || "") : "";

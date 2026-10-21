@@ -100,7 +100,7 @@ Open **SQL Editor > New query** in Supabase, paste a whole file and click **Run*
 | 11 | `supabase-sync-conflicts.sql` | Sync conflicts: two devices editing the same thing never overwrite each other (run it after `supabase-lean.sql`; see "Two devices, one note" below) | Strongly recommended |
 | 12 | `supabase-calsync.sql` | Two-way sync with Google Calendar and Outlook (Pro). Run it after step 9 so account deletion also clears it, then deploy `calendar-sync` (see "Two-Way Calendar Sync" below) | Optional |
 | 13 | `supabase-theme-access.sql` | Hidden themes: some themes are hidden from everyone (the list is `HIDDEN_THEMES` in `index.html`). An account you mark here sees them all again: `select public.studyboard_grant_all_themes('you@example.com', 'owner');` in the SQL Editor (`studyboard_revoke_all_themes` takes it back). Sign in again or reopen the app to see the change | Optional |
-| 14 | `supabase-cloud.sql` | Google Drive and OneDrive (Pro). Run it after step 9, then run `supabase-lean.sql` again so account deletion also clears it, then deploy `cloud-files` (see "Google Drive and OneDrive" below) | Optional |
+| 14 | `supabase-cloud.sql` | Google Drive and OneDrive (free for signed-in accounts). Run it after step 9, then run `supabase-lean.sql` again so account deletion also clears it, then deploy `cloud-files` (see "Google Drive and OneDrive" below) | Optional |
 | 15b | `supabase-usernames.sql` | Usernames and age: every account gives its birthday once (students under 13 are signed up by a parent or guardian and can't publish or share publicly, like on Quizlet) and picks a unique @username (on the sign-up form, or once after signing in). The server checks the rules and a foul-word list (with look-alike spellings) and refuses anything else; published flashcards and quizzes show the username. Run it after step 2 and before `supabase-sharing.sql` | Required for publishing |
 | 15a | `supabase-schools.sql`, then `supabase-schools-2.sql`, then `supabase-schools-hs-1.sql` to `-hs-4.sql` (one file per query; each is under the editor's 1 MB limit) | The list of real schools: about 10,000 universities and colleges, plus about 36,000 high schools (every US public and private school with a grade 12, and Ontario and British Columbia secondary schools; each part is about 1.3 MB, so run them one at a time) that publishing checks and the school picker searches. Run it before `supabase-sharing.sql`; requests for missing schools land in `school_requests` (the file's header shows how to add one) | Required for publishing |
 | 15 | `supabase-sharing.sql` | Public share links (a deck, note or quiz opens in any browser, no account needed), published flashcards and quizzes at studyboardapp.com/flashcards and /quizzes (see PUBLIC-PAGES.md for the search-engine steps) and the Course Library (decks listed for a course code at a school). Run it after steps 2 and 3, then run `supabase-lean.sql` again so account deletion also clears it. Reports land in `share_reports`; the file's header has the review queries. Three reports from different people hide an item until you look | Recommended |
@@ -708,7 +708,7 @@ Checks without any network: `node --experimental-strip-types supabase-functions/
 
 ---
 
-## Google Drive and OneDrive (Pro)
+## Google Drive and OneDrive
 
 **Files > Cloud** connects a Google or Microsoft account. Then:
 
@@ -727,7 +727,7 @@ Google only lets Studyboard see the files it saved (`drive.file`), so watching f
 3. **Google:** in the same Google Cloud project as calendar sync (or a new one), turn on the **Google Drive API**, add the scope `.../auth/drive.file` to the OAuth consent screen, and add the redirect address above to the OAuth client's **Authorized redirect URIs**. `drive.file` is a non-sensitive scope, so it needs no extra security review.
 4. **Microsoft:** in the same app registration, add the redirect address above (Web) and the delegated Microsoft Graph permission `Files.ReadWrite`.
 5. **Secrets:** `CLOUD_KEY` (32+ random characters; if it's missing, `CALSYNC_KEY` is used). The function uses `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` and `MS_CLIENT_ID` / `MS_CLIENT_SECRET`, or `CLOUD_GOOGLE_CLIENT_ID`, `CLOUD_GOOGLE_CLIENT_SECRET`, `CLOUD_MS_CLIENT_ID`, `CLOUD_MS_CLIENT_SECRET` if you want separate clients.
-6. **Try it:** with a Pro account open **Files > Cloud**, choose **Connect OneDrive**, finish in the page that opens, come back, and upload a file.
+6. **Try it:** signed in, open **Files > Cloud**, choose **Connect OneDrive**, finish in the page that opens, come back, and upload a file.
 
 Checks without any network: `node --experimental-strip-types supabase-functions/tools/test-cloud-files.mjs`, and in the browser `node tests/cloud-files.e2e.js`.
 

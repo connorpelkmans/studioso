@@ -1,4 +1,4 @@
-// Studyboard: cloud-files (Supabase Edge Function)  ·  Google Drive and OneDrive for Studyboard Pro
+// Studyboard: cloud-files (Supabase Edge Function)  ·  Google Drive and OneDrive (free for every signed-in account)
 //
 // Deploy with "Verify JWT" turned OFF: Google and Microsoft send the person back here (GET ?code=&state=) without a Supabase sign-in.
 // Every POST checks the person's sign-in itself (the same way calendar-sync does). Tables and rules: supabase-cloud.sql.
@@ -18,14 +18,14 @@
 //   reads the folders they choose to watch. It never deletes anything in OneDrive.
 //
 // The browser talks to Google Drive and Microsoft Graph itself (big files go straight there, never through this function). This function
-// keeps the long-lived sign-in (refresh token) encrypted and hands the signed-in Pro person a short-lived access token (about an hour).
+// keeps the long-lived sign-in (refresh token) encrypted and hands the signed-in person a short-lived access token (about an hour).
 //
 // POST {action} with Authorization: Bearer <the person's Supabase access token>:
-//   "start"      {provider}        -> {url}: where to send the person to allow access (Pro only once the paywall is on)
+//   "start"      {provider}        -> {url}: where to send the person to allow access (any signed-in account, not a guest)
 //   "status"                       -> {accounts: [{provider, account, status, connected_at}], providers: {google, microsoft}}
 //   "token"      {provider}        -> {access, expires_in, account}  (Pro only)
 //   "disconnect" {provider}        -> {ok}   (files already in the cloud stay there)
-// Errors: 401 sign in · 402 pro_required · 404 not_connected · 409 reauth (allow access again) · 501 not_configured ·
+// Errors: 401 sign in · 402 not allowed (a guest account) · 404 not_connected · 409 reauth (allow access again) · 501 not_configured ·
 //         502 provider (Google or Microsoft refused or failed) · 400 bad request · 429 too many requests.
 // Logs are one line of JSON per request, never tokens, file names or the account address.
 

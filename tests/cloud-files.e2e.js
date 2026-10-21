@@ -1,5 +1,5 @@
 // node tests/cloud-files.e2e.js   (Playwright + Chromium; see tests/pw.js)
-// Google Drive and OneDrive (Studyboard Pro, module 99-pro): Files > Cloud, saving uploads there, cloud files in Files (open, read by AI,
+// Google Drive and OneDrive (free, module 99-pro): Files > Cloud, saving uploads there, cloud files in Files (open, read by AI,
 // remove without deleting), moving a stored file to the cloud, a recording kept in the cloud, and watching OneDrive folders.
 // The cloud-files function and both clouds are stand-ins inside the page, so every check is deterministic.
 /* global fileBytes, readableFile, clone, applyChanges, fileHref -- copied onto window from __sbCloud.core below */
@@ -180,10 +180,10 @@ function stubs(){
   await page.waitForFunction(() => !Object.values(state.files).some(f => f.cloud && f.cloud.w));
   ok(true, "Stop Watching takes its files out of Studyboard");
 
-  // 6. Locked (free): no Cloud button unless there are cloud files, and cloud files still open as links
+  // 6. Free accounts too: Google Drive and OneDrive aren't Pro (they use the person's own storage)
   await page.evaluate(() => { SBPRO.locked = () => true; render(); });
-  ok(await page.evaluate(() => SBCLOUD.target()) === "" && await page.evaluate(() => SBCLOUD.choices().length) === 0, "without Pro nothing goes to the cloud");
-  ok(await page.locator('.f-title [data-act="cl-open"]').count() === 1, "the Cloud button stays while there are cloud files (to reconnect or upgrade)");
+  ok(await page.evaluate(() => SBCLOUD.choices().length) === 2 && await page.evaluate(() => SBCLOUD.backup.possible("google")), "without Pro, saving and backing up to Google Drive and OneDrive still work");
+  ok(await page.locator('.f-title [data-act="cl-open"]').count() === 1, "the Cloud button is there on Free");
   ok(/onedrive/.test(await page.evaluate(() => fileHref(state.files.f1))), "a cloud file still opens in OneDrive");
 
   // 7a. Backups straight to Google Drive: Studyboard > Backups, replaced in place, the latest in Files, and in Restore a Backup
