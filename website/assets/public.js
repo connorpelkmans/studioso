@@ -31,3 +31,16 @@
     else if (e.key === "ArrowLeft") { go(-1); e.preventDefault(); }
   });
 })();
+
+// Search filters (school, size, sort): picking one runs the search right away
+(function () {
+  "use strict";
+  var box = document.querySelector("[data-pub-filters]");
+  if (!box) return;
+  box.addEventListener("change", function (e) {
+    var f = e.target && e.target.form; if (!f) return;
+    // leave out empty filters so the address stays short
+    Array.prototype.forEach.call(f.querySelectorAll("select"), function (s) { s.disabled = !s.value; });
+    f.submit();
+  });
+})();

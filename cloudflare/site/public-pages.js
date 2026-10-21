@@ -104,11 +104,23 @@ ${body}
 </body>
 </html>`;
 }
-const searchForm = (section, q, course) => `<form class="pub-search" action="/${section}" method="get" role="search">
-  <label class="sr" for="pubQ">Search ${esc(KINDS[section].noun.toLowerCase())}</label>
-  <input id="pubQ" type="search" name="q" value="${esc(q || "")}" placeholder="Search ${section === "quizzes" ? "quizzes" : "flashcards"} by topic or course code, like BIOL 201" maxlength="120" autocomplete="off">
+// Filters under the search box: school, size and order. They change the results as soon as one is picked (public.js); without
+// JavaScript, Search applies them.
+const SORTS = [["", "Best match"], ["new", "Newest"], ["saves", "Most saved"], ["cards", "Most cards"]];
+const SIZES = [0, 10, 25, 50];
+const filtersOf = url => ({school: (url.searchParams.get("school") || "").slice(0, 120), sort: SORTS.some(x => x[0] === url.searchParams.get("sort")) ? url.searchParams.get("sort") : "",
+  min: SIZES.includes(Number(url.searchParams.get("min"))) ? Number(url.searchParams.get("min")) : 0});
+const filterQS = f => (f.school ? "&school=" + encodeURIComponent(f.school) : "") + (f.sort ? "&sort=" + f.sort : "") + (f.min ? "&min=" + f.min : "");
+const searchForm = (section, q, course, f, schools) => `<form class="pub-search" action="/${section}" method="get" role="search">
+  <div class="pub-search-row"><label class="sr" for="pubQ">Search ${esc(KINDS[section].noun.toLowerCase())}</label>
+  <input id="pubQ" type="search" name="q" value="${esc(q || "")}" placeholder="Search by school, course code or topic, like UBC BIOL 201" maxlength="120" autocomplete="off">
   ${course ? `<input type="hidden" name="course" value="${esc(course)}">` : ""}
-  <button class="btn primary" type="submit">Search</button></form>`;
+  <button class="btn primary" type="submit">Search</button></div>
+  ${f ? `<div class="pub-filters" data-pub-filters>
+    <label><span>School</span><select name="school"><option value="">Any school</option>${(schools || []).map(x => `<option value="${esc(x.school_key)}" ${x.school_key === f.school ? "selected" : ""}>${esc(x.school_name)}</option>`).join("")}</select></label>
+    <label><span>Size</span><select name="min">${SIZES.map(n => `<option value="${n || ""}" ${n === f.min ? "selected" : ""}>${n ? `${n}+ ${section === "quizzes" ? "questions" : "cards"}` : "Any size"}</option>`).join("")}</select></label>
+    <label><span>Sort</span><select name="sort">${SORTS.map(([v, l]) => `<option value="${v}" ${v === f.sort ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>
+  </div>` : ""}</form>`;
 const crumbs = (list, base) => `<nav class="pub-crumbs" aria-label="Breadcrumb"><ol>${list.map((c, i) => `<li>${i < list.length - 1 ? `<a href="${esc(c[1])}">${esc(c[0])}</a>` : `<span aria-current="page">${esc(c[0])}</span>`}</li>`).join("")}</ol></nav>`;
 const crumbLd = (list, base) => ({"@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: list.map((c, i) => ({"@type": "ListItem", position: i + 1, name: c[0], item: base + c[1]}))});
 // A deck tile drawn like the app's Flashcards screen: a little stack of lined index cards with the course's band, icon and card count.
@@ -150,26 +162,30 @@ const cta = section => `<aside class="pub-cta"><div><b>Make your own ${section =
 
 /* ---------- the pages ---------- */
 async function indexPage(env, section, url, origin){
-  const K = KINDS[section], q = (url.searchParams.get("q") || "").trim().slice(0, 120), courseIn = url.searchParams.get("course") || "";
+  const K = KINDS[section], q = (url.searchParams.get("q") || "").trim().slice(0, 120), courseIn = url.searchParams.get("course") || "", f = filtersOf(url);
+  const searching = !!(q || f.school || f.sort || f.min);
   const pageNo = Math.max(1, Math.min(100, parseInt(url.searchParams.get("page") || "1", 10) || 1));
   // a search that is just a course code goes to that course's page
   const ck = courseKey(q);
-  if (q && ck && q.replace(/[\s._-]/g, "").toUpperCase() === ck && !courseIn) return Response.redirect(`${origin}/${section}/course/${courseSlug(ck)}`, 302);
-  const [rows, courses] = await Promise.all([
-    rpc(env, "public_search", {p_kind: K.kind, p_q: q, p_course: courseIn, p_limit: PER_PAGE + 1, p_offset: (pageNo - 1) * PER_PAGE}),
-    q || pageNo > 1 ? Promise.resolve([]) : rpc(env, "public_courses", {p_kind: K.kind, p_limit: 40})]);
+  if (q && ck && q.replace(/[\s._:-]/g, "").toUpperCase() === ck && !courseIn && !f.school && !f.sort && !f.min) return Response.redirect(`${origin}/${section}/course/${courseSlug(ck)}`, 302);
+  const [rows, courses, schools] = await Promise.all([
+    rpc(env, "public_search", {p_kind: K.kind, p_q: q, p_course: courseIn, p_limit: PER_PAGE + 1, p_offset: (pageNo - 1) * PER_PAGE, p_school: f.school, p_sort: f.sort, p_min: f.min}),
+    searching || pageNo > 1 ? Promise.resolve([]) : rpc(env, "public_courses", {p_kind: K.kind, p_limit: 40}),
+    rpc(env, "public_schools", {p_kind: K.kind, p_limit: 400}).catch(() => [])]);
+  const schoolName = f.school ? ((schools.find(x => x.school_key === f.school) || {}).school_name || "") : "";
+  const what = q ? `“${q}”` : schoolName ? schoolName : "";
   const more = rows.length > PER_PAGE, list = rows.slice(0, PER_PAGE);
-  const title = q ? `“${q}” ${K.noun} | ${SITE}` : `${K.noun} Made by Students: Search ${K.noun} by Course | ${SITE}`;
+  const title = searching ? `${what ? what + " " : ""}${K.noun} | ${SITE}` : `${K.noun} Made by Students: Search ${K.noun} by Course | ${SITE}`;
   const description = q ? `${K.noun} about ${q}, made by students on Studyboard.` : `Search free ${K.many} made by students, by topic or course code. Study them online or add them to Studyboard with spaced repetition.`;
-  const base = `/${section}` + (q ? `?q=${encodeURIComponent(q)}` : "");
-  const body = `<div class="pub-hero"><h1>${q ? `${esc(K.noun)} for “${esc(q)}”` : `${esc(K.noun)} made by students`}</h1>
-    <p class="lede">${q ? `${list.length ? "" : "Nothing matches that yet. Try a course code or fewer words."}` : `Free ${esc(K.many)} for your courses, shared by students on Studyboard. Search by topic or course code.`}</p>
-    ${searchForm(section, q)}</div>
+  const qs = (q ? `&q=${encodeURIComponent(q)}` : "") + filterQS(f), base = `/${section}` + (qs ? "?" + qs.slice(1) : "");
+  const body = `<div class="pub-hero"><h1>${searching ? (what ? `${esc(K.noun)} ${q ? "for" : "from"} ${esc(what)}` : `${esc(K.noun)}`) : `${esc(K.noun)} made by students`}</h1>
+    <p class="lede">${searching ? `${list.length ? "" : "Nothing matches that yet. Try a school, a course code or fewer words."}` : `Free ${esc(K.many)} for your courses, shared by students on Studyboard. Search by school, course code or topic.`}</p>
+    ${searchForm(section, q, "", f, schools)}</div>
     ${courses.length ? `<section class="pub-sec"><h2>Popular courses</h2><ul class="pub-chips">${courses.map(c => `<li><a href="/${section}/course/${esc(courseSlug(c.course_key))}">${esc(c.course_label || courseLabelOf(c.course_key))} <span>${esc(c.n)}</span></a></li>`).join("")}</ul></section>` : ""}
-    <section class="pub-sec"><h2>${q ? "Results" : "Newest " + esc(K.many)}</h2>${listHtml(section, list) || `<p class="pub-none">No ${esc(K.many)} here yet. Share one from Studyboard: open it, tap Share, then Publish.</p>`}${pager(section, base, pageNo, more)}</section>
+    <section class="pub-sec"><h2>${searching ? "Results" : "Newest " + esc(K.many)}</h2>${listHtml(section, list) || `<p class="pub-none">No ${esc(K.many)} here yet. Share one from Studyboard: open it, tap Share, then Publish.</p>`}${pager(section, base, pageNo, more)}</section>
     ${cta(section)}`;
-  const ld = q ? [] : [{"@context": "https://schema.org", "@type": "WebSite", name: SITE, url: origin + "/", potentialAction: {"@type": "SearchAction", target: `${origin}/${section}?q={search_term_string}`, "query-input": "required name=search_term_string"}}];
-  return {html: page({title, description, canonical: q ? "" : `${origin}/${section}${pageNo > 1 ? "?page=" + pageNo : ""}`, robots: q ? "noindex,follow" : "", body, ld}), ttl: q ? 300 : 1800};
+  const ld = searching ? [] : [{"@context": "https://schema.org", "@type": "WebSite", name: SITE, url: origin + "/", potentialAction: {"@type": "SearchAction", target: `${origin}/${section}?q={search_term_string}`, "query-input": "required name=search_term_string"}}];
+  return {html: page({title, description, canonical: searching ? "" : `${origin}/${section}${pageNo > 1 ? "?page=" + pageNo : ""}`, robots: searching ? "noindex,follow" : "", body, ld}), ttl: searching ? 300 : 1800};
 }
 
 async function coursePage(env, section, slug, url, origin){
