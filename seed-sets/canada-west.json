@@ -1,0 +1,1424 @@
+[
+ {
+  "school_key": "bcit.ca",
+  "course_code": "BHSC 1200",
+  "course_name": "Human Anatomy and Physiology",
+  "source_url": "https://www.bcit.ca/courses/human-anatomy-and-physiology-bhsc-1200/",
+  "name": "BHSC 1200 Exam Review: Cells, Tissues and Organ Systems in Homeostasis",
+  "look": {
+   "color": "#DC2626",
+   "icon": "med"
+  },
+  "cards": [
+   {
+    "front": "Describe anatomical position and the paired terms proximal/distal and medial/lateral.",
+    "back": "Standing upright, facing forward, arms at the sides, palms forward. Proximal/distal: closer to or farther from where a limb attaches. Medial/lateral: toward or away from the body's midline."
+   },
+   {
+    "front": "Sagittal vs frontal (coronal) vs transverse planes",
+    "back": "Sagittal divides the body into left and right parts. Frontal (coronal) divides it into front (anterior) and back (posterior). Transverse divides it into upper (superior) and lower (inferior) parts."
+   },
+   {
+    "front": "What are the three components of a negative feedback loop? Give an example.",
+    "back": "A receptor detects a change, a control centre compares it to the set point, and an effector reverses the change. Example: when body temperature rises, the hypothalamus triggers sweating and skin vasodilation."
+   },
+   {
+    "front": "Give two examples of positive feedback in the body.",
+    "back": "Childbirth (stretching of the cervix triggers more oxytocin and stronger contractions) and blood clotting (activated platelets recruit more platelets). Positive feedback amplifies a change until an endpoint is reached."
+   },
+   {
+    "front": "What are the four primary tissue types?",
+    "back": "Epithelial (covers surfaces and lines cavities), connective (supports and binds, includes bone and blood), muscle (contracts) and nervous (conducts signals)."
+   },
+   {
+    "front": "Where is simple squamous epithelium found, and why does it suit those sites?",
+    "back": "In the air sacs of the lungs (alveoli) and the lining of capillaries. A single thin layer of flat cells allows rapid diffusion of gases and nutrients."
+   },
+   {
+    "front": "Functions of the mitochondria, ribosomes, rough ER, Golgi and lysosomes",
+    "back": "Mitochondria make most ATP. Ribosomes build proteins. Rough ER folds and processes proteins. Golgi modifies, sorts and packages them. Lysosomes digest worn-out parts and debris with enzymes."
+   },
+   {
+    "front": "Mitosis vs meiosis",
+    "back": "Mitosis makes two genetically identical diploid cells for growth and repair. Meiosis makes four genetically different haploid gametes, with two divisions and crossing over."
+   },
+   {
+    "front": "What happens in the stratum basale, and what do melanocytes do?",
+    "back": "The stratum basale is the deepest layer of the epidermis, where cells divide to replace those shed at the surface. Melanocytes there make melanin, which absorbs UV light and protects cell DNA."
+   },
+   {
+    "front": "Osteoblasts vs osteoclasts vs osteocytes",
+    "back": "Osteoblasts build new bone matrix. Osteoclasts break down bone, releasing calcium. Osteocytes are mature bone cells trapped in the matrix that maintain it."
+   },
+   {
+    "front": "How do PTH and calcitonin regulate blood calcium?",
+    "back": "Parathyroid hormone raises blood Ca2+ by stimulating osteoclasts, increasing kidney reabsorption and activating vitamin D. Calcitonin from the thyroid lowers blood Ca2+ by inhibiting osteoclasts."
+   },
+   {
+    "front": "Axial vs appendicular skeleton",
+    "back": "Axial: skull, vertebral column, ribs and sternum, which protect and support the body's core. Appendicular: the limbs plus the pectoral and pelvic girdles that attach them."
+   },
+   {
+    "front": "Summarize the sliding filament mechanism of skeletal muscle contraction.",
+    "back": "Ca2+ released from the sarcoplasmic reticulum binds troponin, which moves tropomyosin off actin's binding sites. Myosin heads bind actin and pull (power stroke); ATP binding releases the myosin head so the cycle repeats."
+   },
+   {
+    "front": "Central vs peripheral nervous system, and somatic vs autonomic",
+    "back": "CNS: brain and spinal cord. PNS: all nerves outside it. Somatic: voluntary control of skeletal muscle. Autonomic: involuntary control of heart, smooth muscle and glands."
+   },
+   {
+    "front": "Sympathetic vs parasympathetic effects",
+    "back": "Sympathetic (fight or flight): faster heart rate, dilated pupils and airways, slower digestion. Parasympathetic (rest and digest): slower heart rate, constricted pupils, increased digestion."
+   },
+   {
+    "front": "List the parts of a reflex arc in order.",
+    "back": "Receptor, sensory (afferent) neuron, integration centre in the CNS (often an interneuron), motor (efferent) neuron, effector (muscle or gland)."
+   },
+   {
+    "front": "Steroid hormones vs peptide hormones",
+    "back": "Steroids (e.g., cortisol, estrogen) are lipid-soluble, cross the membrane and bind receptors inside the cell to change gene expression. Peptides (e.g., insulin) bind surface receptors and act through second messengers."
+   },
+   {
+    "front": "Insulin vs glucagon",
+    "back": "Both come from the pancreatic islets. Insulin (beta cells) lowers blood glucose by promoting uptake and storage as glycogen. Glucagon (alpha cells) raises blood glucose by breaking down glycogen."
+   },
+   {
+    "front": "Trace blood flow through the heart starting at the venae cavae.",
+    "back": "Venae cavae → right atrium → tricuspid valve → right ventricle → pulmonary valve → pulmonary arteries → lungs → pulmonary veins → left atrium → mitral valve → left ventricle → aortic valve → aorta."
+   },
+   {
+    "front": "Order of the cardiac conduction system",
+    "back": "SA node (pacemaker) → AV node (brief delay so the ventricles can fill) → bundle of His → right and left bundle branches → Purkinje fibres."
+   },
+   {
+    "front": "What do the P wave, QRS complex and T wave of an ECG represent?",
+    "back": "P wave: atrial depolarization. QRS complex: ventricular depolarization (atrial repolarization is hidden within it). T wave: ventricular repolarization."
+   },
+   {
+    "front": "Calculate cardiac output when heart rate is 70 beats/min and stroke volume is 70 mL.",
+    "back": "Cardiac output = HR × SV = 70 × 70 mL = 4900 mL/min, or about 4.9 L/min."
+   },
+   {
+    "front": "Main formed elements of blood and their functions",
+    "back": "Red blood cells carry O2 bound to hemoglobin. White blood cells defend against infection. Platelets (cell fragments) help form clots."
+   },
+   {
+    "front": "Innate vs adaptive immunity",
+    "back": "Innate immunity is fast and non-specific (skin, inflammation, phagocytes). Adaptive immunity is slower at first but specific and has memory: B cells make antibodies, and T cells kill infected cells or coordinate the response."
+   },
+   {
+    "front": "What are the cardinal signs of inflammation?",
+    "back": "Redness, heat, swelling and pain, sometimes with loss of function. Vasodilation and leaky capillaries bring more blood, fluid and white blood cells to the injured area."
+   },
+   {
+    "front": "Name three functions of the lymphatic system.",
+    "back": "Returns excess tissue fluid to the blood, absorbs dietary fats from the small intestine (through lacteals), and filters lymph through lymph nodes as part of immune defence."
+   },
+   {
+    "front": "Explain inspiration using Boyle's law.",
+    "back": "The diaphragm and external intercostals contract, increasing thoracic volume. As volume rises, pressure in the lungs falls below atmospheric pressure, so air flows in."
+   },
+   {
+    "front": "How is most CO2 carried in the blood?",
+    "back": "About 70% travels as bicarbonate (HCO3−) in plasma, formed in red blood cells by carbonic anhydrase. The rest is bound to hemoglobin or dissolved."
+   },
+   {
+    "front": "What is the main chemical stimulus driving breathing rate?",
+    "back": "Rising CO2 (and the falling pH it causes), detected mainly by central chemoreceptors in the medulla. Low O2 becomes a strong stimulus only when it falls a lot."
+   },
+   {
+    "front": "Match each digestive enzyme or secretion to its target: salivary amylase, pepsin, pancreatic lipase, bile.",
+    "back": "Salivary amylase: starch. Pepsin (stomach): proteins. Pancreatic lipase: fats (triglycerides). Bile (liver, stored in the gallbladder) has no enzymes; it emulsifies fats."
+   },
+   {
+    "front": "Why is the small intestine so effective at absorption?",
+    "back": "Circular folds, villi and microvilli give it a huge surface area, and it is long. Most nutrient absorption occurs there."
+   },
+   {
+    "front": "What happens at each part of the nephron?",
+    "back": "Glomerulus: filtration of plasma. Proximal tubule: reabsorbs most water, glucose and salts. Loop of Henle: concentrates the medulla. Distal tubule and collecting duct: hormone-controlled fine-tuning."
+   },
+   {
+    "front": "ADH vs aldosterone",
+    "back": "ADH (from the posterior pituitary) makes the collecting ducts more permeable to water, giving concentrated urine. Aldosterone (adrenal cortex) increases Na+ reabsorption and K+ secretion; water follows the sodium."
+   },
+   {
+    "front": "Outline the renin-angiotensin-aldosterone system.",
+    "back": "Low blood pressure leads the kidneys to release renin, which leads to angiotensin II. Angiotensin II constricts blood vessels and triggers aldosterone release and thirst, raising blood volume and pressure."
+   },
+   {
+    "front": "Which hormone surge triggers ovulation?",
+    "back": "A mid-cycle surge of luteinizing hormone (LH) from the anterior pituitary, triggered by rising estrogen."
+   }
+  ]
+ },
+ {
+  "school_key": "bcit.ca",
+  "course_code": "COMP 1510",
+  "course_name": "Programming Methods",
+  "source_url": "https://www.bcit.ca/courses/comp1510",
+  "name": "COMP 1510 Exam Review: Programming Fundamentals, Testing, Error Handling and OOP Design",
+  "look": {
+   "color": "#0D9488",
+   "icon": "code"
+  },
+  "cards": [
+   {
+    "front": "Name the three basic control structures every algorithm can be built from.",
+    "back": "Sequence (steps run in order), selection (if/else decisions) and iteration (loops)."
+   },
+   {
+    "front": "What is a variable's scope?",
+    "back": "The region of the program where the name can be used. A variable declared inside a function or block is usually not accessible outside it."
+   },
+   {
+    "front": "What is a common pitfall with dividing two integers?",
+    "back": "In many languages (e.g., Java, C), integer / integer truncates: 7 / 2 gives 3, not 3.5. Convert one operand to floating point if you need the fractional part."
+   },
+   {
+    "front": "Primitive values vs references to objects",
+    "back": "A primitive variable stores the value itself (e.g., an int). A reference variable stores the address of an object, so two variables can refer to the same object and both see changes to it."
+   },
+   {
+    "front": "Identity vs equality when comparing objects",
+    "back": "Identity asks whether two references point to the same object. Equality asks whether two objects have the same contents. Two separate strings can be equal in content but not identical."
+   },
+   {
+    "front": "What is decomposition?",
+    "back": "Breaking a large problem into smaller, independent pieces (functions, classes, modules), each with a clear purpose and interface, that can be built and tested separately."
+   },
+   {
+    "front": "What is encapsulation?",
+    "back": "Bundling an object's data together with the methods that operate on it, so the data is managed through those methods instead of being changed directly from outside."
+   },
+   {
+    "front": "What is information hiding, and why does it help?",
+    "back": "Keeping internal details private and exposing only a public interface. Callers depend only on the interface, so the internals can change without breaking other code."
+   },
+   {
+    "front": "What is message passing in object-oriented programming?",
+    "back": "Objects interact by calling each other's public methods (sending messages) instead of reaching into each other's data."
+   },
+   {
+    "front": "Class vs object",
+    "back": "A class is a blueprint defining data (fields or attributes) and behaviour (methods). An object is a specific instance created from that class, with its own values."
+   },
+   {
+    "front": "What is a constructor?",
+    "back": "A special method that runs when an object is created. It sets the object's initial state, typically by assigning its fields from the arguments."
+   },
+   {
+    "front": "Instance variables vs class (static) variables",
+    "back": "Each object has its own copy of an instance variable. A class variable is shared by all instances of the class, e.g., a counter of how many objects have been created."
+   },
+   {
+    "front": "Accessor vs mutator methods",
+    "back": "An accessor (getter) returns information about an object's state without changing it. A mutator (setter) changes the state, ideally validating the new value first."
+   },
+   {
+    "front": "What is an API, and why is it valuable?",
+    "back": "An application programming interface is the set of documented operations a module or library offers. It lets you use code without knowing how it works inside, which supports reuse and teamwork."
+   },
+   {
+    "front": "What are preconditions and postconditions?",
+    "back": "A precondition is what must be true before a function is called (e.g., the list is not empty). A postcondition is what the function guarantees afterwards if the precondition held."
+   },
+   {
+    "front": "Why write automated unit tests?",
+    "back": "They check small pieces of code in isolation, run quickly and repeatably, catch regressions when code changes, and document the expected behaviour."
+   },
+   {
+    "front": "A function accepts whole numbers from 1 to 100. Which inputs should you test?",
+    "back": "A typical value (e.g., 50), the boundaries (1 and 100), just outside them (0 and 101), and invalid input of the wrong type or format. Bugs cluster at boundaries."
+   },
+   {
+    "front": "Describe the test-driven development cycle.",
+    "back": "Red: write a failing test for the next small behaviour. Green: write just enough code to make it pass. Refactor: clean up the code while keeping all tests passing."
+   },
+   {
+    "front": "Why use exceptions instead of special error return values?",
+    "back": "Exceptions separate error-handling code from normal logic, cannot be silently ignored the way an unchecked return code can, and carry information about what went wrong."
+   },
+   {
+    "front": "What is the role of a finally block (or equivalent cleanup)?",
+    "back": "Its code runs whether or not an exception occurred. It is used to release resources such as open files or network connections."
+   },
+   {
+    "front": "What is a common mistake when handling exceptions?",
+    "back": "Catching every exception and doing nothing (swallowing it). The program keeps running in a bad state and the real cause becomes hard to find. Catch only what you can handle."
+   },
+   {
+    "front": "An array has n elements. What are the valid indices, and what happens outside them?",
+    "back": "0 to n − 1 with zero-based indexing. Accessing index n or a negative index (where not supported) raises an out-of-bounds or index error."
+   },
+   {
+    "front": "What does it mean that strings are immutable in languages like Java and Python?",
+    "back": "A string object's characters cannot be changed. Operations like concatenation or replace create a new string, which also makes repeated concatenation in a loop inefficient."
+   },
+   {
+    "front": "Why design before coding?",
+    "back": "Planning with pseudocode, diagrams or test cases clarifies requirements and structure first, which reduces wasted effort and costly rewrites."
+   },
+   {
+    "front": "Syntax error vs runtime error vs logic error",
+    "back": "Syntax: code violates the language rules and won't compile or run. Runtime: it crashes while executing (e.g., division by zero). Logic: it runs but produces wrong results."
+   },
+   {
+    "front": "Name a systematic debugging process.",
+    "back": "Reproduce the bug reliably, narrow down where it happens (prints, breakpoints, stepping through), form a hypothesis, fix it, then add a test so it doesn't come back."
+   },
+   {
+    "front": "What usually causes an infinite loop?",
+    "back": "The loop condition never becomes false, often because the loop variable is never updated or is updated in the wrong direction."
+   },
+   {
+    "front": "What is an off-by-one error? Give an example.",
+    "back": "A boundary mistake that makes a loop run one time too many or too few, such as looping i from 0 through n inclusive over an array of length n."
+   },
+   {
+    "front": "What is a side effect, and why prefer functions without unnecessary ones?",
+    "back": "A side effect is any change outside the function's return value (changing globals, printing, modifying arguments). Functions without them are easier to reason about and test."
+   },
+   {
+    "front": "What does the DRY principle mean?",
+    "back": "Don't Repeat Yourself: put each piece of logic in one place, such as a function, instead of copying it, so a fix or change is made once."
+   },
+   {
+    "front": "High cohesion and low coupling",
+    "back": "Cohesion: how focused a module is on a single job (aim high). Coupling: how much modules depend on each other's internals (aim low). Together they make code easier to change and test."
+   },
+   {
+    "front": "Trace: total = 0; for i from 1 to 5 inclusive: total = total + i. What is total?",
+    "back": "15, since 1 + 2 + 3 + 4 + 5 = 15."
+   }
+  ]
+ },
+ {
+  "school_key": "bcit.ca",
+  "course_code": "FMGT 1105",
+  "course_name": "Accounting 1 for Financial Management",
+  "source_url": "https://www.bcit.ca/courses/accounting-1-for-financial-management-fmgt-1105",
+  "name": "FMGT 1105 Final Review: Transactions, Adjusting Entries, Financial Statements and Merchandising",
+  "look": {
+   "color": "#C79A12",
+   "icon": "acct"
+  },
+  "cards": [
+   {
+    "front": "State the basic accounting equation.",
+    "back": "Assets = Liabilities + Equity. Every transaction keeps the equation in balance."
+   },
+   {
+    "front": "Which account types increase with a debit and which with a credit?",
+    "back": "Debits increase assets, expenses and drawings (or dividends). Credits increase liabilities, equity (capital or share capital) and revenues."
+   },
+   {
+    "front": "What is an account's normal balance?",
+    "back": "The side on which it increases: debit for assets, expenses and drawings or dividends; credit for liabilities, equity and revenues. Accumulated depreciation, a contra-asset, has a credit normal balance."
+   },
+   {
+    "front": "Journalize: the owner invests $10,000 cash in a proprietorship.",
+    "back": "Debit Cash 10,000; credit Owner's Capital 10,000. For a corporation issuing shares, the credit is to Common Shares (share capital)."
+   },
+   {
+    "front": "Journalize: supplies are bought on account for $500.",
+    "back": "Debit Supplies 500; credit Accounts Payable 500. No expense is recorded until the supplies are used."
+   },
+   {
+    "front": "When is revenue recognized under accrual accounting?",
+    "back": "When it is earned, meaning the goods or services have been provided to the customer, regardless of when cash is received."
+   },
+   {
+    "front": "What is the expense recognition (matching) principle?",
+    "back": "Expenses are recorded in the same period as the revenues they helped generate, not necessarily when cash is paid."
+   },
+   {
+    "front": "Accrual basis vs cash basis accounting",
+    "back": "Accrual basis records revenues when earned and expenses when incurred. Cash basis records them only when cash changes hands. ASPE requires the accrual basis."
+   },
+   {
+    "front": "Name the four main types of adjusting entries.",
+    "back": "Prepaid expenses (and depreciation), unearned revenues, accrued revenues and accrued expenses. Adjusting entries never involve the Cash account."
+   },
+   {
+    "front": "On Oct 1 a company pays $1,200 for 12 months of insurance. Give the Dec 31 adjusting entry.",
+    "back": "Three months have expired: 3/12 × 1,200 = 300. Debit Insurance Expense 300; credit Prepaid Insurance 300."
+   },
+   {
+    "front": "A customer paid $6,000 in advance for 6 months of service; 2 months are now done. Adjusting entry?",
+    "back": "2/6 × 6,000 = 4,000 earned. Debit Unearned Revenue 4,000; credit Service Revenue 4,000."
+   },
+   {
+    "front": "Employees earned $2,000 of wages by year-end that will be paid next month. Adjusting entry?",
+    "back": "Debit Salaries (Wages) Expense 2,000; credit Salaries (Wages) Payable 2,000. This is an accrued expense."
+   },
+   {
+    "front": "Straight-line depreciation: equipment costs $50,000, residual value $5,000, life 5 years. Annual depreciation?",
+    "back": "(50,000 − 5,000) / 5 = 9,000 per year. Debit Depreciation Expense 9,000; credit Accumulated Depreciation 9,000."
+   },
+   {
+    "front": "What is book value (carrying amount)?",
+    "back": "Cost minus accumulated depreciation. It is not the asset's market value."
+   },
+   {
+    "front": "What does a trial balance prove, and what can't it detect?",
+    "back": "It shows total debits equal total credits. It won't catch a transaction that was never recorded, an entry posted to the wrong account on the correct side, or equal offsetting errors."
+   },
+   {
+    "front": "In what order are the financial statements prepared, and why?",
+    "back": "Income statement first (gives net income), then the statement of owner's equity or retained earnings (uses net income), then the balance sheet (uses ending equity)."
+   },
+   {
+    "front": "What are closing entries for?",
+    "back": "They reset temporary accounts (revenues, expenses, and drawings or dividends) to zero and transfer their balances, through Income Summary, to Owner's Capital or Retained Earnings."
+   },
+   {
+    "front": "Temporary vs permanent accounts",
+    "back": "Temporary (nominal) accounts are closed each period: revenues, expenses, drawings or dividends. Permanent (real) accounts carry their balances forward: assets, liabilities and equity."
+   },
+   {
+    "front": "What appears on a post-closing trial balance?",
+    "back": "Only permanent accounts (assets, liabilities and equity), because every temporary account now has a zero balance."
+   },
+   {
+    "front": "List the main steps of the accounting cycle.",
+    "back": "Analyze transactions, journalize, post to the ledger, prepare a trial balance, journalize and post adjusting entries, prepare an adjusted trial balance, prepare financial statements, close the books, prepare a post-closing trial balance."
+   },
+   {
+    "front": "What is the purpose of a worksheet?",
+    "back": "An optional working tool that lays out the trial balance, adjustments and adjusted trial balance in columns, then sorts amounts into income statement and balance sheet columns to help prepare statements."
+   },
+   {
+    "front": "Current vs non-current assets and liabilities",
+    "back": "Current items are expected to be converted to cash, used up or paid within one year or the operating cycle, whichever is longer. Everything else is non-current, e.g., equipment or a 5-year loan."
+   },
+   {
+    "front": "Perpetual vs periodic inventory systems",
+    "back": "Perpetual systems update Inventory and Cost of Goods Sold with every purchase and sale. Periodic systems record purchases in a Purchases account and work out COGS only at period end from a physical count."
+   },
+   {
+    "front": "Under a perpetual system, journalize a $1,000 credit sale of goods that cost $600.",
+    "back": "Debit Accounts Receivable 1,000; credit Sales 1,000. Also debit Cost of Goods Sold 600; credit Inventory 600."
+   },
+   {
+    "front": "How are net sales and gross profit calculated?",
+    "back": "Net sales = Sales − Sales returns and allowances − Sales discounts. Gross profit = Net sales − Cost of goods sold."
+   },
+   {
+    "front": "Terms 2/10, n/30 on a $1,000 invoice: how much does the buyer pay if paying within 10 days?",
+    "back": "The buyer takes a 2% discount and pays $980. Otherwise the full $1,000 is due within 30 days."
+   },
+   {
+    "front": "FOB shipping point vs FOB destination",
+    "back": "FOB shipping point: the buyer owns the goods and pays freight once they leave the seller. FOB destination: the seller owns them and pays freight until they reach the buyer."
+   },
+   {
+    "front": "Periodic system: how is cost of goods sold calculated?",
+    "back": "COGS = Beginning inventory + Cost of goods purchased − Ending inventory. Cost of goods purchased = Net purchases + Freight in."
+   },
+   {
+    "front": "Compare proprietorships, partnerships and corporations.",
+    "back": "A proprietorship has one owner and a partnership two or more, and the owners usually have unlimited personal liability. A corporation is a separate legal entity owned by shareholders, who have limited liability."
+   },
+   {
+    "front": "Name four principles of internal control.",
+    "back": "Establishing responsibility, segregation of duties, documentation procedures, physical controls, independent checks of performance and human resource controls (any four)."
+   },
+   {
+    "front": "Economic entity, going concern and monetary unit assumptions",
+    "back": "Economic entity: business records are kept separate from the owner's personal affairs. Going concern: the business is assumed to continue operating. Monetary unit: only items measurable in money are recorded."
+   },
+   {
+    "front": "What are the two fundamental qualitative characteristics of useful financial information?",
+    "back": "Relevance (it can make a difference to decisions) and faithful representation (it is complete, neutral and free from material error)."
+   }
+  ]
+ },
+ {
+  "school_key": "ubc.ca",
+  "course_code": "PSYC 101",
+  "course_name": "Introduction to Biological and Cognitive Psychology",
+  "source_url": "https://vancouver.calendar.ubc.ca/course-descriptions/subject/psycv",
+  "name": "PSYC 101 Midterm Review: Research Methods, Biopsychology, Learning, Perception and Memory",
+  "look": {
+   "color": "#9A4FD1",
+   "icon": "psych"
+  },
+  "cards": [
+   {
+    "front": "Independent variable vs dependent variable",
+    "back": "The independent variable is what the experimenter deliberately manipulates; the dependent variable is what is measured to see whether it changed as a result."
+   },
+   {
+    "front": "Why does random assignment allow a causal conclusion in an experiment?",
+    "back": "It makes the groups equivalent on average on all pre-existing characteristics, so a difference in the dependent variable can be attributed to the manipulation rather than to confounds."
+   },
+   {
+    "front": "Random sampling vs random assignment",
+    "back": "Random sampling chooses who is in the study, which supports generalizing to the population (external validity). Random assignment decides which condition each participant gets, which supports causal inference (internal validity)."
+   },
+   {
+    "front": "What is a confounding variable?",
+    "back": "A variable other than the independent variable that changes systematically along with it, providing an alternative explanation for any difference in the dependent variable."
+   },
+   {
+    "front": "What does a correlation coefficient (r) tell you?",
+    "back": "r ranges from −1 to +1. The sign gives the direction of the linear relationship and the absolute value gives its strength; r = 0 means no linear relationship."
+   },
+   {
+    "front": "Give two reasons a correlation between X and Y does not prove X causes Y.",
+    "back": "Directionality: Y might cause X. Third variable: some other factor Z might cause both (e.g., hot weather raises both ice cream sales and drownings)."
+   },
+   {
+    "front": "What is an operational definition?",
+    "back": "A concrete statement of exactly how a variable will be measured or manipulated, e.g., defining aggression as the number of times a child hits a doll in 10 minutes."
+   },
+   {
+    "front": "Reliability vs validity",
+    "back": "Reliability is consistency of a measure across time, raters or items. Validity is whether it measures what it claims to measure. A measure can be reliable but not valid, but it cannot be valid without being reliable."
+   },
+   {
+    "front": "What problems does a double-blind design control for?",
+    "back": "Because neither participants nor the researchers who interact with them know who is in which condition, it controls for placebo effects and experimenter expectancy effects."
+   },
+   {
+    "front": "Which measure of central tendency is least affected by extreme scores?",
+    "back": "The median, the middle score when values are ordered. The mean is pulled toward outliers, which is why median income is usually reported instead of mean income."
+   },
+   {
+    "front": "In a normal distribution, what percentage of scores fall within 1 and 2 standard deviations of the mean?",
+    "back": "About 68% fall within ±1 SD and about 95% fall within ±2 SD."
+   },
+   {
+    "front": "What does p < .05 mean, and what does it NOT mean?",
+    "back": "If the null hypothesis were true, results at least this extreme would occur less than 5% of the time. It does not mean the effect is large or important, or that the hypothesis is 95% likely to be true."
+   },
+   {
+    "front": "Trace the path of a signal through a single neuron.",
+    "back": "Dendrites receive input, the cell body (soma) integrates it, the axon carries the action potential away from the soma, and the axon terminals release neurotransmitter into the synapse."
+   },
+   {
+    "front": "Describe the ion movements during an action potential.",
+    "back": "At threshold, voltage-gated Na+ channels open and Na+ rushes in (depolarization). Then K+ channels open and K+ flows out (repolarization), with a brief hyperpolarization and refractory period."
+   },
+   {
+    "front": "What is the resting membrane potential and what maintains it?",
+    "back": "About −70 mV inside relative to outside. It is maintained by the sodium-potassium pump (3 Na+ out, 2 K+ in) and the membrane's greater permeability to K+ than Na+."
+   },
+   {
+    "front": "What does the all-or-none principle say about action potentials?",
+    "back": "A neuron either fires a full-size action potential or does not fire at all. Stimulus intensity is coded by firing rate and by the number of neurons firing, not by the size of each spike."
+   },
+   {
+    "front": "What does myelin do?",
+    "back": "It insulates the axon so the action potential jumps between gaps called nodes of Ranvier (saltatory conduction), greatly speeding transmission. Myelin loss in multiple sclerosis slows or disrupts signals."
+   },
+   {
+    "front": "Agonist vs antagonist drugs",
+    "back": "An agonist mimics or enhances a neurotransmitter's effect; an antagonist blocks or reduces it. SSRIs, for example, increase serotonin's action by blocking its reuptake."
+   },
+   {
+    "front": "Broca's aphasia vs Wernicke's aphasia",
+    "back": "Broca's (left frontal lobe): slow, effortful, non-fluent speech with relatively good comprehension. Wernicke's (left temporal lobe): fluent but meaningless speech with poor comprehension."
+   },
+   {
+    "front": "A split-brain patient sees a word flashed only to the left visual field. What happens?",
+    "back": "The word reaches the right hemisphere, which usually lacks speech, so the patient cannot say it, but can pick out the named object with the left hand (controlled by the right hemisphere)."
+   },
+   {
+    "front": "In Pavlov's experiments, identify the US, UR, CS and CR.",
+    "back": "Food is the unconditioned stimulus (US) causing salivation, the unconditioned response (UR). After pairing, the tone becomes a conditioned stimulus (CS) that triggers salivation, now the conditioned response (CR)."
+   },
+   {
+    "front": "Extinction vs spontaneous recovery in classical conditioning",
+    "back": "Extinction: the CR weakens when the CS is repeatedly presented without the US. Spontaneous recovery: after a rest period, the extinguished CR briefly reappears, showing the learning was suppressed, not erased."
+   },
+   {
+    "front": "Negative reinforcement vs punishment",
+    "back": "Negative reinforcement removes an unpleasant stimulus to INCREASE a behaviour (taking aspirin removes a headache). Punishment DECREASES a behaviour. A common mistake is treating negative reinforcement as punishment."
+   },
+   {
+    "front": "Which reinforcement schedule produces high, steady responding and the most resistance to extinction?",
+    "back": "Variable ratio, where reinforcement comes after an unpredictable number of responses, as with slot machines."
+   },
+   {
+    "front": "What did Bandura's Bobo doll study show?",
+    "back": "Children who watched an adult act aggressively toward a doll were more likely to copy that aggression. This showed observational learning (modelling) without direct reinforcement."
+   },
+   {
+    "front": "Sensation vs perception, and what is transduction?",
+    "back": "Sensation is the detection of physical energy by sensory receptors; perception is the brain organizing and interpreting it. Transduction is converting that energy into neural signals."
+   },
+   {
+    "front": "State Weber's law.",
+    "back": "The just noticeable difference is a constant proportion of the original stimulus: ΔI / I = k. A larger standard stimulus needs a larger change before the difference is noticed."
+   },
+   {
+    "front": "What does signal detection theory separate?",
+    "back": "It separates sensitivity (how well signal is told apart from noise) from response bias (the criterion for saying 'yes'), using hits, misses, false alarms and correct rejections."
+   },
+   {
+    "front": "Rods vs cones",
+    "back": "Rods are more numerous, very sensitive in dim light, absent from the fovea, and do not code colour. Cones are packed in the fovea, need more light, and support colour vision and fine detail."
+   },
+   {
+    "front": "Describe the Atkinson-Shiffrin (modal) model of memory.",
+    "back": "Information passes from sensory memory (very brief) to short-term memory (limited capacity, about 7 ± 2 items, roughly 20 to 30 s without rehearsal) and, with encoding, into long-term memory."
+   },
+   {
+    "front": "What is the encoding specificity principle?",
+    "back": "Retrieval is best when the cues or context at retrieval match those present at encoding. Example: divers recalled word lists better in the same setting (underwater or on land) where they learned them."
+   },
+   {
+    "front": "Proactive vs retroactive interference",
+    "back": "Proactive: old learning interferes with recalling new information. Retroactive: new learning interferes with recalling old information."
+   },
+   {
+    "front": "What is the serial position effect?",
+    "back": "In free recall of a list, items at the beginning (primacy, via long-term memory) and end (recency, still in short-term memory) are remembered better than items in the middle."
+   },
+   {
+    "front": "Availability heuristic vs representativeness heuristic",
+    "back": "Availability: judging how likely something is by how easily examples come to mind. Representativeness: judging probability by how closely something matches a prototype, often ignoring base rates."
+   }
+  ]
+ },
+ {
+  "school_key": "ubc.ca",
+  "course_code": "ECON 101",
+  "course_name": "Principles of Microeconomics",
+  "source_url": "https://vancouver.calendar.ubc.ca/course-descriptions/subject/econv",
+  "name": "ECON 101 Final Review: Consumer Choice, Market Equilibrium, Welfare and Market Power",
+  "look": {
+   "color": "#1E9E74",
+   "icon": "econ"
+  },
+  "cards": [
+   {
+    "front": "What is opportunity cost?",
+    "back": "The value of the next best alternative given up when a choice is made. Example: the opportunity cost of a year in school includes the wages you could have earned working."
+   },
+   {
+    "front": "Movement along a demand curve vs a shift of the curve",
+    "back": "A change in the good's own price causes a movement along the curve (change in quantity demanded). A change in any other factor shifts the whole curve (change in demand)."
+   },
+   {
+    "front": "List the main factors that shift a demand curve.",
+    "back": "Consumer income, prices of related goods (substitutes and complements), tastes, expectations about future prices or income, and the number of buyers."
+   },
+   {
+    "front": "Normal good vs inferior good",
+    "back": "Demand for a normal good rises when income rises; demand for an inferior good falls when income rises (e.g., instant noodles or bus travel for some consumers)."
+   },
+   {
+    "front": "How does cross-price elasticity identify substitutes and complements?",
+    "back": "Cross-price elasticity = %ΔQ of good A / %ΔP of good B. Positive means substitutes (coffee and tea); negative means complements (printers and ink)."
+   },
+   {
+    "front": "Price elasticity of demand using the midpoint method",
+    "back": "E = (ΔQ / average Q) / (ΔP / average P). If |E| > 1 demand is elastic, if |E| < 1 inelastic, and if |E| = 1 unit elastic."
+   },
+   {
+    "front": "Mini-problem: price rises from $4 to $6 and quantity falls from 120 to 80. Find the midpoint elasticity.",
+    "back": "%ΔQ = −40/100 = −0.4 and %ΔP = 2/5 = 0.4, so E = −1. Demand is unit elastic over this range and total revenue stays the same ($480)."
+   },
+   {
+    "front": "If demand is elastic, what happens to total revenue when price rises?",
+    "back": "Total revenue falls, because the percentage drop in quantity is larger than the percentage rise in price. With inelastic demand, a price rise increases total revenue."
+   },
+   {
+    "front": "Define consumer surplus and producer surplus.",
+    "back": "Consumer surplus is willingness to pay minus price paid (area below demand, above price). Producer surplus is price received minus marginal cost (area above supply, below price)."
+   },
+   {
+    "front": "Supply and demand both increase. What happens to equilibrium price and quantity?",
+    "back": "Quantity definitely rises, but the price change is ambiguous: it depends on which curve shifts by more."
+   },
+   {
+    "front": "What happens with a binding price ceiling?",
+    "back": "Set below equilibrium, it creates a shortage (quantity demanded exceeds quantity supplied), lowers the quantity traded and causes a deadweight loss. Rent control is a classic example."
+   },
+   {
+    "front": "Who bears more of the burden of a per-unit tax?",
+    "back": "The side of the market that is less elastic. Tax incidence does not depend on whether the government collects the tax from buyers or from sellers."
+   },
+   {
+    "front": "What is deadweight loss?",
+    "back": "The loss of total surplus when the quantity traded differs from the efficient quantity, for example due to taxes, price controls, monopoly or externalities."
+   },
+   {
+    "front": "State the consumer's optimal choice condition for two goods.",
+    "back": "Spend the budget so that MUx / Px = MUy / Py. Graphically, the indifference curve is tangent to the budget line: MRS = Px / Py."
+   },
+   {
+    "front": "What is the slope of the budget line, and how does an income increase change it?",
+    "back": "With good X on the horizontal axis, the slope is −Px / Py. An increase in income shifts the line outward in parallel; a price change rotates it."
+   },
+   {
+    "front": "Substitution effect vs income effect of a price decrease",
+    "back": "Substitution effect: the good is now relatively cheaper, so you buy more of it. Income effect: your purchasing power rises, which raises consumption of normal goods and lowers it for inferior goods."
+   },
+   {
+    "front": "What is the law of diminishing marginal returns?",
+    "back": "In the short run, as more of a variable input (like labour) is added to a fixed input (like capital), the extra output from each additional unit eventually falls."
+   },
+   {
+    "front": "Where does marginal cost cross the average cost curves?",
+    "back": "The MC curve crosses both the average variable cost and average total cost curves at their minimum points."
+   },
+   {
+    "front": "Economic profit vs accounting profit",
+    "back": "Accounting profit = revenue − explicit costs. Economic profit = revenue − explicit costs − implicit (opportunity) costs. Zero economic profit means the firm earns a normal return."
+   },
+   {
+    "front": "Profit-maximizing rule and short-run shutdown rule for a perfectly competitive firm",
+    "back": "Produce where P = MC. In the short run, shut down if price is below the minimum of average variable cost."
+   },
+   {
+    "front": "What is long-run equilibrium in a perfectly competitive industry?",
+    "back": "Free entry and exit push price to the minimum of average total cost, so firms earn zero economic profit and P = MC = min ATC."
+   },
+   {
+    "front": "Why is marginal revenue less than price for a monopolist?",
+    "back": "To sell one more unit, a single-price monopolist must lower the price on all units, so the extra revenue is less than the price of the extra unit."
+   },
+   {
+    "front": "Mini-problem: a monopolist faces P = 100 − 2Q with MC = 20. Find Q and P.",
+    "back": "MR = 100 − 4Q. Set MR = MC: 100 − 4Q = 20, so Q = 20. Price comes from demand: P = 100 − 2(20) = 60."
+   },
+   {
+    "front": "Compare monopoly and perfect competition outcomes.",
+    "back": "A monopoly produces less and charges more (P > MC), creating a deadweight loss. Perfect competition produces where P = MC, which is allocatively efficient."
+   },
+   {
+    "front": "What is perfect (first-degree) price discrimination?",
+    "back": "Charging each buyer their maximum willingness to pay. The firm captures all consumer surplus and, unusually, produces the efficient quantity, so there is no deadweight loss."
+   },
+   {
+    "front": "What is a dominant strategy?",
+    "back": "A strategy that gives a player a better payoff than the alternatives no matter what the other players do."
+   },
+   {
+    "front": "Define a Nash equilibrium.",
+    "back": "A set of strategies where no player can improve their payoff by changing their own strategy, given the strategies of the others."
+   },
+   {
+    "front": "How does the prisoner's dilemma explain why cartels are unstable?",
+    "back": "Each firm's dominant strategy is to cheat (produce more), even though both would earn more by cooperating. The Nash equilibrium is mutual cheating, which is worse for both."
+   },
+   {
+    "front": "Negative externality and the Pigouvian tax",
+    "back": "A negative externality is a cost imposed on third parties (e.g., pollution), so the market overproduces. A per-unit tax equal to the marginal external cost moves output to the socially efficient level."
+   },
+   {
+    "front": "What does Pareto efficiency mean?",
+    "back": "An allocation where no one can be made better off without making someone else worse off. A competitive equilibrium without market failures is Pareto efficient."
+   }
+  ]
+ },
+ {
+  "school_key": "ubc.ca",
+  "course_code": "BIOL 112",
+  "course_name": "Biology of the Cell",
+  "source_url": "https://vancouver.calendar.ubc.ca/course-descriptions/subject/biolv",
+  "name": "BIOL 112 Midterm Review: Cell Structure, Membranes, Gene Expression and Energy Metabolism",
+  "look": {
+   "color": "#16A34A",
+   "icon": "bio"
+  },
+  "cards": [
+   {
+    "front": "Prokaryotic vs eukaryotic cells",
+    "back": "Prokaryotes (bacteria, archaea) lack a nucleus and membrane-bound organelles and are usually smaller. Eukaryotes have a nucleus, an endomembrane system and organelles such as mitochondria."
+   },
+   {
+    "front": "Why do phospholipids spontaneously form a bilayer in water?",
+    "back": "They are amphipathic: hydrophilic phosphate heads face the water on both sides while hydrophobic fatty acid tails cluster together inside, away from water."
+   },
+   {
+    "front": "Simple diffusion vs facilitated diffusion vs active transport",
+    "back": "Simple diffusion: small nonpolar molecules cross the bilayer down their gradient. Facilitated diffusion: channels or carriers move solutes down their gradient. Active transport uses energy (often ATP) to move solutes against their gradient."
+   },
+   {
+    "front": "What happens to an animal cell placed in a hypertonic solution?",
+    "back": "Water leaves the cell by osmosis toward the higher solute concentration outside, so the cell shrinks (crenates). In a hypotonic solution it swells and may lyse."
+   },
+   {
+    "front": "What does the Na+/K+ ATPase do?",
+    "back": "Using one ATP per cycle, it pumps 3 Na+ out and 2 K+ in, building gradients that power secondary active transport and contribute to the membrane potential."
+   },
+   {
+    "front": "Trace the path of a secreted protein from synthesis to export.",
+    "back": "Translation begins on a free ribosome, which docks on the rough ER; the protein enters the ER lumen, travels in vesicles to the Golgi for processing, then leaves in secretory vesicles by exocytosis."
+   },
+   {
+    "front": "How is a protein targeted to the ER?",
+    "back": "An N-terminal signal sequence is recognized by the signal recognition particle (SRP), which pauses translation and brings the ribosome to an SRP receptor and translocon on the ER membrane."
+   },
+   {
+    "front": "Give evidence for the endosymbiotic origin of mitochondria and chloroplasts.",
+    "back": "They have double membranes, their own circular DNA, bacteria-like 70S ribosomes, and divide by a fission-like process."
+   },
+   {
+    "front": "Key structural features of DNA",
+    "back": "Two antiparallel strands in a double helix with a sugar-phosphate backbone. A pairs with T (2 hydrogen bonds) and G pairs with C (3 hydrogen bonds)."
+   },
+   {
+    "front": "What did the Meselson-Stahl experiment show?",
+    "back": "Using heavy (15N) and light (14N) nitrogen, they showed DNA replication is semiconservative: each new double helix has one parental strand and one new strand."
+   },
+   {
+    "front": "Leading strand vs lagging strand synthesis",
+    "back": "DNA polymerase only adds nucleotides 5' to 3'. The leading strand is made continuously; the lagging strand is made in short Okazaki fragments, each starting from an RNA primer, later joined by DNA ligase."
+   },
+   {
+    "front": "State the central dogma of molecular biology.",
+    "back": "Genetic information flows from DNA to RNA (transcription) to protein (translation). Reverse transcription in retroviruses is a notable exception to the DNA-first direction."
+   },
+   {
+    "front": "How does transcription start in bacteria, and which way is RNA made?",
+    "back": "Sigma factor helps RNA polymerase bind the promoter. The polymerase reads the template strand 3' to 5' and builds RNA 5' to 3', with no primer needed."
+   },
+   {
+    "front": "Name three processing steps for eukaryotic pre-mRNA.",
+    "back": "Addition of a 5' cap, addition of a 3' poly-A tail, and splicing by the spliceosome to remove introns and join exons."
+   },
+   {
+    "front": "What happens at the A, P and E sites of the ribosome?",
+    "back": "A site: incoming aminoacyl-tRNA binds. P site: holds the tRNA with the growing polypeptide. E site: the empty tRNA exits."
+   },
+   {
+    "front": "What are the start and stop codons?",
+    "back": "Start: AUG, which codes for methionine. Stop: UAA, UAG and UGA, which are recognized by release factors rather than tRNAs."
+   },
+   {
+    "front": "Silent vs missense vs nonsense vs frameshift mutations",
+    "back": "Silent: same amino acid. Missense: a different amino acid. Nonsense: creates a premature stop codon. Frameshift: an insertion or deletion not divisible by 3 shifts the reading frame."
+   },
+   {
+    "front": "How is the lac operon regulated when lactose is absent vs present?",
+    "back": "Lactose absent: the lac repressor binds the operator and blocks transcription. Lactose present: allolactose binds the repressor and releases it from the operator, so the genes can be transcribed."
+   },
+   {
+    "front": "What role do cAMP and CAP play in the lac operon?",
+    "back": "When glucose is low, cAMP rises and binds CAP. CAP-cAMP binds near the promoter and boosts RNA polymerase binding, a form of positive control."
+   },
+   {
+    "front": "How do enzymes speed up reactions?",
+    "back": "They lower the activation energy by stabilizing the transition state. They do not change the overall ΔG or the equilibrium position, and they are not used up."
+   },
+   {
+    "front": "Competitive vs noncompetitive (allosteric) inhibition",
+    "back": "A competitive inhibitor binds the active site and can be overcome with more substrate. A noncompetitive inhibitor binds elsewhere and changes the enzyme's shape, lowering Vmax regardless of substrate level."
+   },
+   {
+    "front": "How does ATP drive unfavourable reactions?",
+    "back": "ATP hydrolysis is strongly exergonic. Cells couple it to endergonic reactions, often by transferring a phosphate to a reactant, so the combined reaction has a negative ΔG."
+   },
+   {
+    "front": "Where does each stage of cellular respiration occur in a eukaryotic cell?",
+    "back": "Glycolysis: cytosol. Pyruvate oxidation and the citric acid cycle: mitochondrial matrix. Electron transport chain and ATP synthase: inner mitochondrial membrane."
+   },
+   {
+    "front": "Explain chemiosmosis in mitochondria.",
+    "back": "The electron transport chain pumps H+ into the intermembrane space. H+ flows back into the matrix through ATP synthase, which uses that energy to make ATP. O2 is the final electron acceptor, forming water."
+   },
+   {
+    "front": "What is the purpose of fermentation?",
+    "back": "To regenerate NAD+ from NADH so glycolysis can keep producing ATP when oxygen is absent. Lactic acid or ethanol is produced as a by-product."
+   },
+   {
+    "front": "Light reactions vs the Calvin cycle",
+    "back": "Light reactions (thylakoid membranes) use light to split water, release O2 and make ATP and NADPH. The Calvin cycle (stroma) uses that ATP and NADPH to fix CO2 into sugar, with rubisco catalyzing carbon fixation."
+   },
+   {
+    "front": "Name the three cytoskeleton filaments and a main role of each.",
+    "back": "Microtubules (tubulin): tracks for transport, spindle, cilia and flagella. Actin microfilaments: cell shape, crawling, muscle contraction. Intermediate filaments: mechanical strength."
+   },
+   {
+    "front": "How does a G protein-coupled receptor pathway amplify a signal?",
+    "back": "One ligand-bound receptor activates many G proteins, which activate adenylyl cyclase to make many cAMP molecules; cAMP activates protein kinase A, which phosphorylates many targets."
+   },
+   {
+    "front": "Gram-positive vs Gram-negative bacterial cell walls",
+    "back": "Gram-positive: thick peptidoglycan layer that retains crystal violet (stains purple). Gram-negative: thin peptidoglycan between two membranes, with an outer membrane containing lipopolysaccharide (stains pink)."
+   },
+   {
+    "front": "Describe the four levels of protein structure.",
+    "back": "Primary: amino acid sequence. Secondary: alpha helices and beta sheets held by backbone hydrogen bonds. Tertiary: overall 3D fold from side-chain interactions. Quaternary: assembly of multiple subunits."
+   }
+  ]
+ },
+ {
+  "school_key": "ubc.ca",
+  "course_code": "MATH 100",
+  "course_name": "Differential Calculus with Applications",
+  "source_url": "https://vancouver.calendar.ubc.ca/course-descriptions/subject/mathv",
+  "name": "MATH 100 Final Review: Limits, Derivative Rules, Optimization and Approximation",
+  "look": {
+   "color": "#3B6FE0",
+   "icon": "calc"
+  },
+  "cards": [
+   {
+    "front": "Limit definition of the derivative",
+    "back": "f'(a) = lim as h→0 of [f(a + h) − f(a)] / h, the slope of the tangent line at x = a and the instantaneous rate of change."
+   },
+   {
+    "front": "Three conditions for f to be continuous at x = a",
+    "back": "f(a) is defined, the limit of f(x) as x→a exists, and that limit equals f(a)."
+   },
+   {
+    "front": "Does continuity imply differentiability?",
+    "back": "No. Differentiable implies continuous, but not the reverse. Example: f(x) = |x| is continuous at 0 but has a corner there, so f'(0) does not exist."
+   },
+   {
+    "front": "Power rule",
+    "back": "d/dx [x^n] = n·x^(n−1) for any real n. Example: d/dx [x^(1/2)] = (1/2)x^(−1/2)."
+   },
+   {
+    "front": "Product rule",
+    "back": "d/dx [f·g] = f'·g + f·g'."
+   },
+   {
+    "front": "Quotient rule",
+    "back": "d/dx [f/g] = (f'·g − f·g') / g^2. Order matters in the numerator: derivative of the top times the bottom comes first."
+   },
+   {
+    "front": "Chain rule",
+    "back": "d/dx [f(g(x))] = f'(g(x))·g'(x). Example: d/dx [(3x + 1)^5] = 5(3x + 1)^4·3 = 15(3x + 1)^4."
+   },
+   {
+    "front": "Derivatives of sin x, cos x and tan x",
+    "back": "d/dx sin x = cos x; d/dx cos x = −sin x; d/dx tan x = sec^2 x. These hold only when x is in radians."
+   },
+   {
+    "front": "Derivatives of e^x, a^x and ln x",
+    "back": "d/dx e^x = e^x; d/dx a^x = a^x·ln a; d/dx ln x = 1/x for x > 0."
+   },
+   {
+    "front": "Derivatives of arcsin x and arctan x",
+    "back": "d/dx arcsin x = 1 / √(1 − x^2); d/dx arctan x = 1 / (1 + x^2)."
+   },
+   {
+    "front": "Evaluate lim as x→0 of sin(x)/x.",
+    "back": "The limit is 1 (with x in radians). It is the key limit used to prove that d/dx sin x = cos x."
+   },
+   {
+    "front": "Use implicit differentiation on x^2 + y^2 = 25 to find dy/dx.",
+    "back": "Differentiate both sides: 2x + 2y·(dy/dx) = 0, so dy/dx = −x/y. At (3, 4) the slope is −3/4."
+   },
+   {
+    "front": "Differentiate y = x^x.",
+    "back": "Take logs: ln y = x·ln x. Differentiate: y'/y = ln x + 1, so y' = x^x·(ln x + 1)."
+   },
+   {
+    "front": "Equation of the tangent line to y = f(x) at x = a",
+    "back": "y = f(a) + f'(a)(x − a)."
+   },
+   {
+    "front": "Use a linear approximation to estimate √4.1.",
+    "back": "With f(x) = √x at a = 4: f(4) = 2 and f'(4) = 1/4. So √4.1 ≈ 2 + (1/4)(0.1) = 2.025 (actual ≈ 2.0248)."
+   },
+   {
+    "front": "Related rates: how is dV/dt related to dr/dt for a sphere?",
+    "back": "V = (4/3)πr^3, so dV/dt = 4πr^2·(dr/dt). Differentiate with respect to time before substituting the values at the given instant."
+   },
+   {
+    "front": "What is a critical point?",
+    "back": "A point c in the domain of f where f'(c) = 0 or f'(c) does not exist. Local extrema can only occur at critical points (or endpoints)."
+   },
+   {
+    "front": "First derivative test",
+    "back": "If f' changes from + to − at a critical point, it is a local maximum; from − to +, a local minimum; if f' does not change sign, it is neither."
+   },
+   {
+    "front": "Second derivative test",
+    "back": "If f'(c) = 0 and f''(c) > 0, f has a local minimum at c; if f''(c) < 0, a local maximum. If f''(c) = 0 the test is inconclusive."
+   },
+   {
+    "front": "What is an inflection point?",
+    "back": "A point on the graph where the concavity changes (f'' changes sign). f''(c) = 0 alone is not enough: f(x) = x^4 has f''(0) = 0 but no inflection point."
+   },
+   {
+    "front": "How do you find absolute extrema of a continuous f on a closed interval [a, b]?",
+    "back": "Evaluate f at every critical point inside (a, b) and at both endpoints; the largest value is the absolute max and the smallest is the absolute min (guaranteed by the Extreme Value Theorem)."
+   },
+   {
+    "front": "State the Mean Value Theorem.",
+    "back": "If f is continuous on [a, b] and differentiable on (a, b), there is some c in (a, b) with f'(c) = [f(b) − f(a)] / (b − a)."
+   },
+   {
+    "front": "State the Intermediate Value Theorem.",
+    "back": "If f is continuous on [a, b] and N is between f(a) and f(b), then f(c) = N for some c in [a, b]. It is often used to show an equation has a root."
+   },
+   {
+    "front": "When can L'Hôpital's rule be used?",
+    "back": "For limits of the indeterminate form 0/0 or ∞/∞: then lim f/g = lim f'/g', if the latter exists. Other forms like 0·∞ must first be rewritten as a quotient."
+   },
+   {
+    "front": "Solve dy/dt = ky and give the doubling time.",
+    "back": "y(t) = y0·e^(kt), where y0 = y(0). For k > 0 the doubling time is ln 2 / k."
+   },
+   {
+    "front": "Newton's method formula",
+    "back": "x_(n+1) = x_n − f(x_n) / f'(x_n). Each step follows the tangent line to where it hits the x-axis. It fails if f'(x_n) = 0."
+   },
+   {
+    "front": "Taylor polynomial of degree n for f about x = a",
+    "back": "T_n(x) = sum for k = 0 to n of f^(k)(a)/k! · (x − a)^k. Example: about 0, e^x ≈ 1 + x + x^2/2 + x^3/6."
+   },
+   {
+    "front": "Find lim as x→∞ of (3x^2 + 1)/(5x^2 − x).",
+    "back": "Divide top and bottom by x^2: the limit is 3/5. When the degrees are equal, the limit is the ratio of leading coefficients, giving the horizontal asymptote y = 3/5."
+   },
+   {
+    "front": "Use the squeeze theorem to find lim as x→0 of x^2·sin(1/x).",
+    "back": "Since −x^2 ≤ x^2·sin(1/x) ≤ x^2 and both bounds → 0, the limit is 0."
+   },
+   {
+    "front": "Optimization: a rectangle has perimeter 40. What dimensions maximize its area?",
+    "back": "With sides x and 20 − x, A = x(20 − x). A' = 20 − 2x = 0 gives x = 10. A 10 by 10 square gives the maximum area of 100."
+   },
+   {
+    "front": "Common pitfall: what is d/dx [e^(x^2)]?",
+    "back": "By the chain rule it is 2x·e^(x^2). It is NOT x^2·e^(x^2 − 1); the power rule does not apply when the variable is in the exponent."
+   }
+  ]
+ },
+ {
+  "school_key": "sfu.ca",
+  "course_code": "PSYC 100",
+  "course_name": "Introduction to Psychology I",
+  "source_url": "https://www.sfu.ca/students/calendar/2026/fall/courses/psyc/100.html",
+  "name": "PSYC 100 Exam Review: History, Research Design, the Brain, Perception, Learning and Motivation",
+  "look": {
+   "color": "#C026D3",
+   "icon": "psych"
+  },
+  "cards": [
+   {
+    "front": "Who founded the first psychology laboratory, and when?",
+    "back": "Wilhelm Wundt, in Leipzig, Germany, in 1879. That date is usually treated as the start of psychology as a separate experimental science."
+   },
+   {
+    "front": "Structuralism vs functionalism",
+    "back": "Structuralism (Wundt, Titchener) used trained introspection to break conscious experience into basic elements. Functionalism (William James), influenced by Darwin, asked what purpose mental processes serve in adapting to the environment."
+   },
+   {
+    "front": "What was the core claim of behaviourism?",
+    "back": "Psychology should study only observable behaviour and how the environment shapes it, not inner mental states. Key figures were John B. Watson and B. F. Skinner."
+   },
+   {
+    "front": "What is the main idea of Gestalt psychology?",
+    "back": "The whole is different from the sum of its parts: we perceive organized patterns rather than isolated sensations. Max Wertheimer was a founder."
+   },
+   {
+    "front": "Psychoanalytic vs humanistic perspectives",
+    "back": "Psychoanalytic (Freud): behaviour is driven by unconscious conflicts and early childhood experiences. Humanistic (Maslow, Rogers): people are basically good and motivated toward growth and self-actualization."
+   },
+   {
+    "front": "What was the cognitive revolution?",
+    "back": "A shift in the 1950s and 1960s back toward studying mental processes such as memory, language and problem solving, often using the computer as a model of information processing."
+   },
+   {
+    "front": "How do twin studies estimate the role of genes?",
+    "back": "They compare identical (monozygotic) twins, who share nearly all their genes, with fraternal (dizygotic) twins, who share about half. Greater similarity in identical twins suggests a genetic contribution."
+   },
+   {
+    "front": "Name three descriptive research methods and one weakness they share.",
+    "back": "Naturalistic observation, case studies and surveys. None of them manipulates variables, so none can establish cause and effect."
+   },
+   {
+    "front": "Hypothesis vs theory",
+    "back": "A theory is a broad, well-supported explanation that ties together many findings. A hypothesis is a specific, testable prediction, often derived from a theory."
+   },
+   {
+    "front": "What does it mean for a claim to be falsifiable?",
+    "back": "It is possible, at least in principle, to describe evidence that would show the claim is wrong. Scientific claims must be falsifiable."
+   },
+   {
+    "front": "Within-subjects vs between-subjects designs",
+    "back": "Within-subjects: every participant experiences all conditions, which needs fewer people but risks order effects. Between-subjects: each participant gets only one condition."
+   },
+   {
+    "front": "How is counterbalancing used?",
+    "back": "In a within-subjects design, the order of conditions is varied across participants (e.g., half get A then B, half get B then A) so practice or fatigue effects do not favour one condition."
+   },
+   {
+    "front": "What are demand characteristics?",
+    "back": "Cues in a study that suggest to participants what the researcher expects, which can lead them to change their behaviour to fit (or defy) the hypothesis."
+   },
+   {
+    "front": "Name three core ethical requirements for research with human participants.",
+    "back": "Informed consent, the right to withdraw without penalty, and debriefing after the study (especially if deception was used). Studies are reviewed by a research ethics board."
+   },
+   {
+    "front": "Main functions of the four cerebral lobes",
+    "back": "Frontal: planning, decision making, voluntary movement. Parietal: touch and body sensation, spatial processing. Temporal: hearing, language comprehension, memory. Occipital: vision."
+   },
+   {
+    "front": "Hippocampus vs amygdala vs hypothalamus",
+    "back": "Hippocampus: forming new long-term memories. Amygdala: fear and emotional responses. Hypothalamus: regulates hunger, thirst, temperature and controls the pituitary gland."
+   },
+   {
+    "front": "What does the cerebellum do?",
+    "back": "It coordinates fine movement, balance and timing, and supports motor learning. Damage produces clumsy, uncoordinated movement."
+   },
+   {
+    "front": "EEG vs fMRI",
+    "back": "EEG records electrical activity from the scalp, with excellent timing (milliseconds) but poor spatial detail. fMRI tracks blood oxygen changes (the BOLD signal), with good spatial detail but slower timing."
+   },
+   {
+    "front": "Match each neurotransmitter to a key role: dopamine, serotonin, acetylcholine, GABA, glutamate.",
+    "back": "Dopamine: reward and movement (lost in Parkinson's). Serotonin: mood, sleep, appetite. Acetylcholine: muscle action and memory. GABA: main inhibitory. Glutamate: main excitatory."
+   },
+   {
+    "front": "Why is the pituitary called the master gland, and what controls it?",
+    "back": "Its hormones regulate many other endocrine glands (thyroid, adrenals, gonads). It is itself controlled by the hypothalamus."
+   },
+   {
+    "front": "What did the case of Phineas Gage suggest?",
+    "back": "After an iron rod damaged his frontal lobe in 1848, he survived but reportedly became impulsive and less reliable, suggesting the frontal lobes are involved in personality and self-control."
+   },
+   {
+    "front": "Bottom-up vs top-down processing",
+    "back": "Bottom-up processing builds perception from raw sensory features. Top-down processing uses knowledge, expectations and context to interpret input, which is why context helps you read messy handwriting."
+   },
+   {
+    "front": "Name four Gestalt grouping principles.",
+    "back": "Proximity (near items group), similarity (alike items group), closure (we fill gaps to see whole shapes) and continuity (we see smooth continuous lines)."
+   },
+   {
+    "front": "Binocular vs monocular depth cues",
+    "back": "Binocular cues need both eyes: retinal disparity and convergence. Monocular cues work with one eye: linear perspective, interposition (overlap), relative size, texture gradient, shading."
+   },
+   {
+    "front": "What is perceptual constancy?",
+    "back": "Perceiving an object's size, shape, colour or brightness as stable even though the image on the retina changes, e.g., a door still looks rectangular as it swings open."
+   },
+   {
+    "front": "Trichromatic theory vs opponent-process theory of colour",
+    "back": "Trichromatic: three cone types (short, medium, long wavelength) explain colour at the retina. Opponent-process: red-green, blue-yellow and black-white channels explain afterimages. Both are correct at different stages."
+   },
+   {
+    "front": "Place theory vs frequency theory of pitch",
+    "back": "Place theory: different pitches excite different locations on the basilar membrane, which explains high pitches best. Frequency theory: neural firing rate matches sound frequency, which explains low pitches best."
+   },
+   {
+    "front": "What is Thorndike's law of effect?",
+    "back": "Behaviours followed by satisfying consequences become more likely, and those followed by unpleasant consequences become less likely. It came from his puzzle box studies with cats."
+   },
+   {
+    "front": "What is shaping in operant conditioning?",
+    "back": "Reinforcing successive approximations, closer and closer steps toward a target behaviour, until the full behaviour appears."
+   },
+   {
+    "front": "What did Garcia's taste aversion research show?",
+    "back": "Rats learned to avoid a taste after a single pairing with illness, even hours later, but did not link illness with lights or sounds. Learning is constrained by biological preparedness."
+   },
+   {
+    "front": "What is latent learning?",
+    "back": "Learning that happens without obvious reinforcement and is shown only when a reason appears. Tolman's rats explored a maze and later ran it quickly once food was added, suggesting a cognitive map."
+   },
+   {
+    "front": "Drive-reduction theory vs arousal theory of motivation",
+    "back": "Drive reduction: biological needs create drives that push us to restore homeostasis. Arousal theory: we seek an optimal level of arousal, which explains curiosity and thrill seeking."
+   },
+   {
+    "front": "What is the Yerkes-Dodson law?",
+    "back": "Performance is best at a moderate level of arousal. For difficult tasks the ideal level is lower; for easy tasks it is higher."
+   },
+   {
+    "front": "Describe Maslow's hierarchy of needs.",
+    "back": "From bottom to top: physiological, safety, belonging and love, esteem, and self-actualization. Lower needs generally must be met before higher ones motivate behaviour."
+   },
+   {
+    "front": "Intrinsic vs extrinsic motivation, and the overjustification effect",
+    "back": "Intrinsic: doing something for its own sake. Extrinsic: doing it for external rewards. The overjustification effect is when rewarding an already enjoyable activity reduces intrinsic interest in it."
+   }
+  ]
+ },
+ {
+  "school_key": "sfu.ca",
+  "course_code": "CMPT 120",
+  "course_name": "Introduction to Computing Science and Programming I",
+  "source_url": "https://www.sfu.ca/students/calendar/2026/fall/courses/cmpt/120.html",
+  "name": "CMPT 120 Final Review: Python Basics, Control Flow, Recursion, Files and Algorithms",
+  "look": {
+   "color": "#4F46E5",
+   "icon": "code"
+  },
+  "cards": [
+   {
+    "front": "In Python 3, what are 7 / 2, 7 // 2 and 7 % 2?",
+    "back": "7 / 2 = 3.5 (true division always gives a float), 7 // 2 = 3 (floor division) and 7 % 2 = 1 (remainder)."
+   },
+   {
+    "front": "What is −7 // 2 in Python, and why?",
+    "back": "−4. Floor division rounds down toward negative infinity, not toward zero."
+   },
+   {
+    "front": "Evaluate 2 + 3 * 4 ** 2.",
+    "back": "50. Exponentiation first (4 ** 2 = 16), then multiplication (3 * 16 = 48), then addition (2 + 48 = 50)."
+   },
+   {
+    "front": "Mutable vs immutable types in Python",
+    "back": "Mutable objects can be changed in place: lists, dictionaries, sets. Immutable objects cannot: int, float, str, tuple. 'Changing' a string really creates a new string."
+   },
+   {
+    "front": "What is the difference between = and == ?",
+    "back": "= assigns a value to a variable. == compares two values and gives True or False."
+   },
+   {
+    "front": "What happens with '5' + 2, and how do you fix it?",
+    "back": "It raises a TypeError because a str and an int cannot be added. Convert first: int('5') + 2 gives 7, or '5' + str(2) gives '52'."
+   },
+   {
+    "front": "For s = 'python', what are s[1:4], s[-1] and s[::-1]?",
+    "back": "s[1:4] = 'yth' (index 1 up to but not including 4), s[-1] = 'n' (last character), s[::-1] = 'nohtyp' (the reversed string)."
+   },
+   {
+    "front": "What values does range(2, 10, 3) produce?",
+    "back": "2, 5, 8. It starts at 2, steps by 3, and stops before reaching 10."
+   },
+   {
+    "front": "When is a while loop a better choice than a for loop?",
+    "back": "When you don't know ahead of time how many iterations you need, such as repeating until the user enters valid input. A for loop suits iterating over a known sequence or range."
+   },
+   {
+    "front": "break vs continue",
+    "back": "break exits the nearest enclosing loop immediately. continue skips the rest of the current iteration and goes on to the next one."
+   },
+   {
+    "front": "What is short-circuit evaluation?",
+    "back": "In A and B, B is not evaluated if A is False; in A or B, B is not evaluated if A is True. This lets you write guards like: x != 0 and 10 / x > 1."
+   },
+   {
+    "front": "return vs print in a function",
+    "back": "return sends a value back to the caller so it can be stored or used. print only displays text. A function with no return statement returns None."
+   },
+   {
+    "front": "Local vs global scope",
+    "back": "A variable assigned inside a function is local to that function and disappears when it returns. Global variables are defined at module level; assigning to one inside a function requires the global keyword."
+   },
+   {
+    "front": "a = [1, 2]; b = a; b.append(3). What is a now, and why?",
+    "back": "[1, 2, 3]. b = a makes b another name (alias) for the same list. To copy instead, use b = a[:] or b = list(a)."
+   },
+   {
+    "front": "list.append vs list.extend",
+    "back": "append adds its argument as a single element: [1, 2].append([3, 4]) gives [1, 2, [3, 4]]. extend adds each element of an iterable: it gives [1, 2, 3, 4]."
+   },
+   {
+    "front": "Key facts about Python dictionaries",
+    "back": "They map keys to values. Keys must be immutable (hashable), such as str, int or tuple. d[k] raises KeyError if k is missing, while d.get(k, default) returns the default instead."
+   },
+   {
+    "front": "What two parts does every correct recursive function need?",
+    "back": "A base case that returns without recursing, and a recursive case that calls the function on a smaller problem moving toward the base case. Without a reachable base case you get a RecursionError."
+   },
+   {
+    "front": "Trace fact(4) where fact(n) returns 1 if n == 0, else n * fact(n − 1).",
+    "back": "fact(4) = 4 * fact(3) = 4 * 3 * fact(2) = 4 * 3 * 2 * fact(1) = 4 * 3 * 2 * 1 * fact(0) = 24."
+   },
+   {
+    "front": "Linear search vs binary search",
+    "back": "Linear search checks items one by one: O(n), works on any list. Binary search repeatedly halves a SORTED list: O(log n)."
+   },
+   {
+    "front": "About how many comparisons does binary search need for a sorted list of 1,000,000 items?",
+    "back": "About 20 in the worst case, since 2^20 ≈ 1,000,000. Linear search could need up to 1,000,000."
+   },
+   {
+    "front": "What is the Big-O running time of two nested loops that each run n times?",
+    "back": "O(n^2), because the inner body runs n × n times. Doubling n roughly quadruples the running time."
+   },
+   {
+    "front": "Running time of selection sort and insertion sort",
+    "back": "Both are O(n^2) in the worst case. Insertion sort is O(n) on an already sorted list, while selection sort is always O(n^2)."
+   },
+   {
+    "front": "Why use 'with open(name) as f:' to read a file?",
+    "back": "It automatically closes the file when the block ends, even if an error occurs. Each line read includes its trailing newline, so use line.strip() or rstrip() before processing."
+   },
+   {
+    "front": "File modes 'r', 'w' and 'a'",
+    "back": "'r' reads (the file must exist). 'w' writes, creating the file or erasing existing contents. 'a' appends to the end without erasing."
+   },
+   {
+    "front": "Syntax error vs runtime error vs logic error",
+    "back": "Syntax error: the code breaks Python's grammar and won't run. Runtime error: it crashes while running (e.g., ZeroDivisionError). Logic error: it runs but produces the wrong answer."
+   },
+   {
+    "front": "What does a try / except block do?",
+    "back": "Code in try runs normally; if a matching exception is raised, control jumps to the except block instead of crashing. Catch specific exceptions (e.g., ValueError) rather than everything."
+   },
+   {
+    "front": "What is pseudocode and why write it?",
+    "back": "An informal, language-independent description of an algorithm's steps. It lets you plan the logic before worrying about exact syntax."
+   },
+   {
+    "front": "Convert decimal 13 to binary.",
+    "back": "1101, since 13 = 8 + 4 + 0 + 1. A bit is one binary digit; a byte is 8 bits, giving 256 possible values."
+   },
+   {
+    "front": "What do the shell commands pwd, ls, cd and mkdir do?",
+    "back": "pwd prints the current directory, ls lists its contents, cd changes directory (cd .. goes up one level) and mkdir creates a new directory."
+   },
+   {
+    "front": "What is an off-by-one error?",
+    "back": "A loop or index that goes one step too far or stops one step short, e.g., using range(1, n) when you meant 1 through n inclusive, which needs range(1, n + 1)."
+   },
+   {
+    "front": "Why is 0.1 + 0.2 == 0.3 False in Python?",
+    "back": "Floats are stored in binary, which cannot represent 0.1 exactly, so the sum is 0.30000000000000004. Compare floats with a tolerance, e.g., abs(a − b) < 1e-9."
+   },
+   {
+    "front": "What does [x * x for x in range(4)] produce?",
+    "back": "[0, 1, 4, 9]. A list comprehension builds a new list by applying the expression to each item."
+   }
+  ]
+ },
+ {
+  "school_key": "sfu.ca",
+  "course_code": "CHEM 121",
+  "course_name": "General Chemistry and Laboratory I",
+  "source_url": "https://www.sfu.ca/students/calendar/2026/fall/courses/chem/121.html",
+  "name": "CHEM 121 Midterm Review: Atomic Structure, Bonding, Stoichiometry, Gases and Thermochemistry",
+  "look": {
+   "color": "#E0673B",
+   "icon": "chem"
+  },
+  "cards": [
+   {
+    "front": "How does atomic radius change across a period and down a group?",
+    "back": "It decreases left to right across a period (more protons, similar shielding, higher effective nuclear charge) and increases down a group (electrons occupy higher shells)."
+   },
+   {
+    "front": "General trend in first ionization energy, and two common exceptions",
+    "back": "It increases across a period and decreases down a group. Exceptions: B is lower than Be (removing a 2p electron) and O is lower than N (pairing repulsion in a 2p orbital)."
+   },
+   {
+    "front": "Electronegativity trend",
+    "back": "It increases toward the top right of the periodic table (excluding noble gases). Fluorine is the most electronegative element."
+   },
+   {
+    "front": "What are the four quantum numbers and their allowed values?",
+    "back": "n = 1, 2, 3...; l = 0 to n − 1 (s, p, d, f); ml = −l to +l; ms = +1/2 or −1/2."
+   },
+   {
+    "front": "Aufbau principle, Pauli exclusion principle and Hund's rule",
+    "back": "Aufbau: fill lower-energy orbitals first. Pauli: no two electrons in an atom share all four quantum numbers, so at most 2 per orbital with opposite spins. Hund: fill degenerate orbitals singly before pairing."
+   },
+   {
+    "front": "Write the electron configurations of Fe and Fe3+.",
+    "back": "Fe: [Ar] 4s2 3d6. Fe3+: [Ar] 3d5. When transition metals form cations, the 4s electrons are removed before the 3d electrons."
+   },
+   {
+    "front": "Why are Cr and Cu exceptions to the expected configurations?",
+    "back": "Cr is [Ar] 4s1 3d5 and Cu is [Ar] 4s1 3d10, because half-filled and completely filled d subshells are especially stable."
+   },
+   {
+    "front": "Relate the energy of a photon to its frequency and wavelength.",
+    "back": "E = hν = hc/λ, where h = 6.626 × 10^−34 J·s and c = 3.00 × 10^8 m/s. Shorter wavelength means higher energy."
+   },
+   {
+    "front": "Rank the isoelectronic species O2−, F−, Na+, Mg2+ by size.",
+    "back": "O2− > F− > Na+ > Mg2+. They all have 10 electrons, so the ion with more protons pulls them in more tightly and is smaller."
+   },
+   {
+    "front": "Formula for formal charge",
+    "back": "Formal charge = (valence electrons) − (nonbonding electrons) − (bonding electrons / 2). The best Lewis structure keeps formal charges small, with negative charge on the more electronegative atoms."
+   },
+   {
+    "front": "VSEPR shapes of H2O and NH3",
+    "back": "Both have 4 electron domains (tetrahedral arrangement). H2O has 2 lone pairs, so it is bent (about 104.5°); NH3 has 1 lone pair, so it is trigonal pyramidal (about 107°)."
+   },
+   {
+    "front": "Why is CO2 nonpolar while H2O is polar?",
+    "back": "Both have polar bonds, but CO2 is linear so its bond dipoles cancel. H2O is bent, so its bond dipoles add up to a net dipole."
+   },
+   {
+    "front": "Match hybridization to electron geometry: sp, sp2, sp3.",
+    "back": "sp: 2 domains, linear, 180°. sp2: 3 domains, trigonal planar, 120°. sp3: 4 domains, tetrahedral, 109.5°."
+   },
+   {
+    "front": "How many sigma and pi bonds are in a double bond and a triple bond?",
+    "back": "A double bond has 1 sigma and 1 pi bond; a triple bond has 1 sigma and 2 pi bonds. Every single bond is a sigma bond."
+   },
+   {
+    "front": "Rank the main intermolecular forces and their effect on boiling point.",
+    "back": "London dispersion forces (all molecules, stronger with more electrons), then dipole-dipole, then hydrogen bonding (H bonded to N, O or F). Stronger forces give higher boiling points."
+   },
+   {
+    "front": "What is a mole, and how do you convert grams to moles?",
+    "back": "One mole is 6.022 × 10^23 particles (Avogadro's number). Moles = mass in grams / molar mass in g/mol."
+   },
+   {
+    "front": "2 H2 + O2 → 2 H2O. With 4 mol H2 and 3 mol O2, what is the limiting reactant and how much water forms?",
+    "back": "4 mol H2 needs only 2 mol O2, so H2 is limiting. It makes 4 mol H2O, and 1 mol O2 is left over."
+   },
+   {
+    "front": "How is percent yield calculated?",
+    "back": "Percent yield = (actual yield / theoretical yield) × 100%. The theoretical yield comes from the limiting reactant."
+   },
+   {
+    "front": "What is the empirical formula of glucose, C6H12O6?",
+    "back": "CH2O, the simplest whole-number ratio of atoms. The molecular formula is a whole-number multiple of it (here 6)."
+   },
+   {
+    "front": "Define molarity and give the dilution equation.",
+    "back": "Molarity M = moles of solute / litres of solution. For dilution, M1V1 = M2V2, because the moles of solute stay the same."
+   },
+   {
+    "front": "Ideal gas law and the two common values of R",
+    "back": "PV = nRT, with T in kelvin. R = 0.08206 L·atm/(mol·K) or 8.314 J/(mol·K)."
+   },
+   {
+    "front": "What volume does 1 mol of ideal gas occupy at 0 °C and 1 atm?",
+    "back": "About 22.4 L. This only applies at those conditions; at other conditions use PV = nRT."
+   },
+   {
+    "front": "State Dalton's law of partial pressures.",
+    "back": "Total pressure is the sum of the partial pressures: P_total = P1 + P2 + ... Each gas's partial pressure equals its mole fraction times P_total."
+   },
+   {
+    "front": "State Graham's law of effusion.",
+    "back": "Rate of effusion is inversely proportional to the square root of molar mass: rate1/rate2 = √(M2/M1). H2 effuses 4 times faster than O2 because √(32/2) = 4."
+   },
+   {
+    "front": "When do real gases deviate most from ideal behaviour?",
+    "back": "At high pressure and low temperature, when molecular volume and intermolecular attractions become significant."
+   },
+   {
+    "front": "Sign of ΔH for exothermic and endothermic reactions",
+    "back": "Exothermic reactions release heat to the surroundings, so ΔH < 0. Endothermic reactions absorb heat, so ΔH > 0."
+   },
+   {
+    "front": "Mini-problem: how much heat raises 100 g of water from 20 °C to 30 °C? (c = 4.184 J/g·°C)",
+    "back": "q = m·c·ΔT = 100 × 4.184 × 10 = 4184 J, or about 4.18 kJ."
+   },
+   {
+    "front": "What does Hess's law state?",
+    "back": "The enthalpy change of a reaction is the same whether it happens in one step or many, so ΔH values of steps can be added. Reversing a reaction flips the sign of ΔH; multiplying it scales ΔH."
+   },
+   {
+    "front": "How do you calculate ΔH°rxn from standard enthalpies of formation?",
+    "back": "ΔH°rxn = Σ n·ΔH°f(products) − Σ n·ΔH°f(reactants). ΔH°f of an element in its standard state (e.g., O2 gas) is zero."
+   },
+   {
+    "front": "Estimating ΔH from bond enthalpies",
+    "back": "ΔH ≈ Σ(bonds broken) − Σ(bonds formed). Breaking bonds costs energy; forming bonds releases it."
+   },
+   {
+    "front": "What makes lattice energy larger?",
+    "back": "Higher ion charges and smaller ions. MgO (2+ and 2−) has a much larger lattice energy than NaCl (1+ and 1−)."
+   },
+   {
+    "front": "Compare ionic, molecular, covalent network and metallic solids.",
+    "back": "Ionic: high melting, brittle, conduct when molten. Molecular: low melting. Covalent network (diamond): very high melting and hard. Metallic: conduct as solids, malleable."
+   }
+  ]
+ }
+]

@@ -1,0 +1,1626 @@
+[
+ {
+  "school_key": "queensu.ca",
+  "course_code": "PSYC 100",
+  "course_name": "Principles of Psychology",
+  "source_url": "https://queensu.ca/academic-calendar/search/?P=PSYC+100",
+  "name": "PSYC 100 Midterm Review: Learning, Memory and Cognition",
+  "look": {
+   "color": "#9A4FD1",
+   "icon": "psych"
+  },
+  "cards": [
+   {
+    "front": "Classical conditioning: what is an unconditioned stimulus (US)?",
+    "back": "A stimulus that triggers a response automatically, without any prior learning. In Pavlov's work, food in the mouth was the US that produced salivation (the unconditioned response)."
+   },
+   {
+    "front": "Classical conditioning: what is a conditioned stimulus (CS)?",
+    "back": "An originally neutral stimulus that, after being repeatedly paired with a US, comes to trigger a learned response (the conditioned response) on its own, such as the tone in Pavlov's studies."
+   },
+   {
+    "front": "Extinction vs spontaneous recovery",
+    "back": "Extinction: the conditioned response weakens when the CS is repeatedly presented without the US. Spontaneous recovery: the extinguished response reappears after a rest period, showing extinction suppresses rather than erases learning."
+   },
+   {
+    "front": "Stimulus generalization vs stimulus discrimination",
+    "back": "Generalization: responding to stimuli similar to the original CS. Discrimination: learning to respond only to the specific CS and not to similar stimuli that were never paired with the US."
+   },
+   {
+    "front": "What did the Little Albert study (Watson and Rayner, 1920) demonstrate?",
+    "back": "That emotional responses such as fear can be classically conditioned. Pairing a white rat with a loud noise made an infant fear the rat, and the fear generalized to other furry objects. It is also a classic example of ethically problematic research."
+   },
+   {
+    "front": "Conditioned taste aversion (Garcia effect): why is it important?",
+    "back": "Animals learn to avoid a taste after a single pairing with illness, even with hours of delay. It shows biological preparedness: some stimulus-response associations are learned far more easily than others."
+   },
+   {
+    "front": "Thorndike's law of effect",
+    "back": "Behaviours followed by satisfying consequences become more likely to be repeated, while those followed by unpleasant consequences become less likely. It is the foundation of operant conditioning."
+   },
+   {
+    "front": "Positive reinforcement vs negative reinforcement",
+    "back": "Both increase a behaviour. Positive reinforcement adds a pleasant stimulus (praise after studying). Negative reinforcement removes an unpleasant stimulus (taking a pill to stop a headache)."
+   },
+   {
+    "front": "Positive punishment vs negative punishment",
+    "back": "Both decrease a behaviour. Positive punishment adds an unpleasant stimulus (a scolding). Negative punishment removes a pleasant stimulus (losing phone privileges)."
+   },
+   {
+    "front": "Common pitfall: is negative reinforcement the same as punishment?",
+    "back": "No. Negative reinforcement increases a behaviour by removing something aversive. Punishment always decreases a behaviour."
+   },
+   {
+    "front": "Which reinforcement schedule produces high, steady responding that is most resistant to extinction?",
+    "back": "A variable-ratio schedule, where reinforcement comes after an unpredictable number of responses. Slot machines are the classic example."
+   },
+   {
+    "front": "Fixed-interval schedule: what response pattern does it produce?",
+    "back": "A scalloped pattern: responding is low right after reinforcement and speeds up as the end of the time interval approaches, like studying more as a scheduled exam gets closer."
+   },
+   {
+    "front": "Shaping",
+    "back": "Training a complex behaviour by reinforcing successive approximations of the target behaviour, gradually requiring closer matches before reinforcement is given."
+   },
+   {
+    "front": "What did Bandura's Bobo doll studies show?",
+    "back": "Children who watched an adult behave aggressively toward a doll were more likely to imitate that aggression. This supports observational learning (modeling) without direct reinforcement."
+   },
+   {
+    "front": "Latent learning (Tolman)",
+    "back": "Learning that occurs without obvious reinforcement and is not shown until there is a reason to show it. Rats that explored a maze unrewarded ran it quickly once food was introduced, suggesting they had formed a cognitive map."
+   },
+   {
+    "front": "Atkinson-Shiffrin (multi-store) model of memory",
+    "back": "Information passes from sensory memory (very brief, large capacity) to short-term memory (limited, seconds) with attention, and into long-term memory (vast, lasting) through rehearsal and encoding."
+   },
+   {
+    "front": "Capacity and duration of short-term memory",
+    "back": "Miller estimated about 7 plus or minus 2 items; newer estimates are closer to 4 chunks. Without rehearsal, information fades in roughly 15 to 30 seconds."
+   },
+   {
+    "front": "Chunking",
+    "back": "Grouping individual items into larger meaningful units to fit more information into short-term memory, for example remembering 1-9-8-4 as the single year 1984."
+   },
+   {
+    "front": "Components of Baddeley's working memory model",
+    "back": "Central executive (controls attention), phonological loop (verbal and auditory information), visuospatial sketchpad (visual and spatial information), and episodic buffer (integrates information and links to long-term memory)."
+   },
+   {
+    "front": "Explicit (declarative) vs implicit (nondeclarative) memory",
+    "back": "Explicit memory is consciously recalled: episodic (personal events) and semantic (facts). Implicit memory is expressed without awareness: procedural skills, priming and classically conditioned responses."
+   },
+   {
+    "front": "Levels of processing (Craik and Lockhart)",
+    "back": "How deeply information is processed affects retention. Deep, meaning-based (semantic) processing produces better memory than shallow processing of appearance or sound."
+   },
+   {
+    "front": "Serial position effect",
+    "back": "When recalling a list, items at the beginning (primacy effect, linked to long-term memory) and the end (recency effect, linked to short-term memory) are remembered better than items in the middle."
+   },
+   {
+    "front": "Proactive vs retroactive interference",
+    "back": "Proactive: old learning disrupts recall of new information (writing last year's date). Retroactive: new learning disrupts recall of old information (a new password making you forget the old one)."
+   },
+   {
+    "front": "Encoding specificity and context-dependent memory",
+    "back": "Retrieval is best when the context at recall matches the context at encoding. Divers who learned words underwater recalled them better underwater than on land (Godden and Baddeley)."
+   },
+   {
+    "front": "Misinformation effect (Loftus and Palmer)",
+    "back": "Misleading information after an event can distort memory of it. Witnesses asked how fast cars smashed (vs hit) each other gave higher speed estimates and were more likely to falsely recall broken glass."
+   },
+   {
+    "front": "Patient H.M.: what did his case reveal?",
+    "back": "After removal of both medial temporal lobes, including the hippocampi, he could not form new explicit long-term memories but could still learn new motor skills. This showed the hippocampus is key for consolidating declarative memories."
+   },
+   {
+    "front": "Anterograde vs retrograde amnesia",
+    "back": "Anterograde: inability to form new memories after the injury. Retrograde: loss of memories formed before the injury."
+   },
+   {
+    "front": "Algorithm vs heuristic",
+    "back": "An algorithm is a step-by-step procedure that guarantees a solution but can be slow. A heuristic is a mental shortcut that is fast but can lead to errors."
+   },
+   {
+    "front": "Availability heuristic",
+    "back": "Judging how likely or frequent something is by how easily examples come to mind, such as overestimating plane crash risk after vivid news coverage."
+   },
+   {
+    "front": "Representativeness heuristic",
+    "back": "Judging probability by how closely something matches a prototype, often while ignoring base rates, such as assuming a quiet person who loves books is a librarian rather than a salesperson."
+   },
+   {
+    "front": "Confirmation bias",
+    "back": "The tendency to seek, interpret and remember information that supports one's existing beliefs while ignoring or discounting contradictory evidence."
+   },
+   {
+    "front": "Functional fixedness",
+    "back": "A barrier to problem solving in which a person sees objects only in their usual function, such as failing to use a coin as a screwdriver."
+   }
+  ]
+ },
+ {
+  "school_key": "queensu.ca",
+  "course_code": "BIOL 102",
+  "course_name": "Introductory Molecular and Cell Biology",
+  "source_url": "https://queensu.ca/academic-calendar/search/?P=BIOL+102",
+  "name": "BIOL 102 Midterm Review: Biomolecules, Metabolism and Molecular Genetics",
+  "look": {
+   "color": "#1E9E74",
+   "icon": "bio"
+  },
+  "cards": [
+   {
+    "front": "What are the four major classes of biological macromolecules?",
+    "back": "Carbohydrates, lipids, proteins and nucleic acids. All except lipids are true polymers built from repeating monomers."
+   },
+   {
+    "front": "Dehydration synthesis vs hydrolysis",
+    "back": "Dehydration synthesis joins monomers by removing a water molecule, forming a covalent bond. Hydrolysis breaks the bond by adding water."
+   },
+   {
+    "front": "Why is water such a good solvent for biological molecules?",
+    "back": "Water is polar and forms hydrogen bonds, so it surrounds and dissolves ions and other polar molecules. Nonpolar molecules are excluded, which drives hydrophobic interactions."
+   },
+   {
+    "front": "The four levels of protein structure",
+    "back": "Primary: amino acid sequence. Secondary: alpha helices and beta sheets held by backbone hydrogen bonds. Tertiary: overall 3D fold from side-chain interactions. Quaternary: assembly of multiple polypeptide subunits."
+   },
+   {
+    "front": "Phospholipid structure and why it forms bilayers",
+    "back": "A hydrophilic phosphate-containing head attached to two hydrophobic fatty acid tails. Being amphipathic, phospholipids in water arrange with heads facing out and tails tucked inward, forming a bilayer."
+   },
+   {
+    "front": "Saturated vs unsaturated fatty acids",
+    "back": "Saturated fatty acids have no C=C double bonds, pack tightly and are solid at room temperature. Unsaturated fatty acids have one or more cis double bonds that kink the chain, so they pack loosely and are usually liquid."
+   },
+   {
+    "front": "Three structural differences between DNA and RNA",
+    "back": "DNA uses deoxyribose sugar, RNA uses ribose. DNA uses thymine, RNA uses uracil. DNA is usually double-stranded, RNA is usually single-stranded."
+   },
+   {
+    "front": "How do enzymes speed up reactions?",
+    "back": "They lower the activation energy by stabilizing the transition state. They do not change the overall free energy change (delta G) or the equilibrium position, and they are not consumed."
+   },
+   {
+    "front": "Competitive vs noncompetitive inhibition",
+    "back": "A competitive inhibitor binds the active site and can be overcome by adding more substrate (Vmax unchanged, apparent Km rises). A noncompetitive inhibitor binds elsewhere, changes the enzyme's shape and lowers Vmax."
+   },
+   {
+    "front": "What does a negative delta G tell you about a reaction?",
+    "back": "The reaction is exergonic and spontaneous: it releases free energy. It says nothing about speed; a spontaneous reaction can still be very slow without a catalyst."
+   },
+   {
+    "front": "How does ATP power endergonic reactions?",
+    "back": "Hydrolysis of ATP to ADP + phosphate releases free energy. Cells couple this to unfavourable reactions, often by transferring the phosphate to a reactant (phosphorylation) to make the overall process spontaneous."
+   },
+   {
+    "front": "Overall equation for aerobic cellular respiration",
+    "back": "C6H12O6 + 6 O2 -> 6 CO2 + 6 H2O + energy (captured as ATP). Glucose is oxidized and oxygen is reduced."
+   },
+   {
+    "front": "Glycolysis: location and net products per glucose",
+    "back": "Occurs in the cytosol and does not require oxygen. One glucose becomes 2 pyruvate, with a net gain of 2 ATP and 2 NADH."
+   },
+   {
+    "front": "Pyruvate oxidation and the citric acid cycle: where and what?",
+    "back": "In the mitochondrial matrix. Pyruvate is converted to acetyl-CoA, which enters the citric acid cycle. Per glucose: CO2 is released and the cycle yields 2 ATP (or GTP), 6 NADH and 2 FADH2, plus 2 NADH from pyruvate oxidation."
+   },
+   {
+    "front": "How does oxidative phosphorylation make ATP?",
+    "back": "The electron transport chain in the inner mitochondrial membrane uses electrons from NADH and FADH2 to pump H+ into the intermembrane space. H+ flows back through ATP synthase, driving ATP production (chemiosmosis). O2 is the final electron acceptor, forming water."
+   },
+   {
+    "front": "What is the purpose of fermentation?",
+    "back": "To regenerate NAD+ from NADH so glycolysis can continue without oxygen. Animal muscle cells produce lactate; yeast produce ethanol and CO2. Only the 2 ATP from glycolysis are made."
+   },
+   {
+    "front": "Photosynthesis: light reactions vs Calvin cycle",
+    "back": "Light reactions (thylakoid membranes) split water, release O2 and make ATP and NADPH. The Calvin cycle (stroma) uses that ATP and NADPH to fix CO2 into sugar, with rubisco catalyzing carbon fixation."
+   },
+   {
+    "front": "State the central dogma of molecular biology",
+    "back": "Genetic information flows from DNA to RNA (transcription) to protein (translation). DNA is also copied to DNA during replication."
+   },
+   {
+    "front": "What does semiconservative replication mean, and which experiment supported it?",
+    "back": "Each new DNA double helix contains one original strand and one newly made strand. Meselson and Stahl showed this using heavy (15N) and light (14N) nitrogen and density gradient centrifugation."
+   },
+   {
+    "front": "Leading vs lagging strand",
+    "back": "DNA polymerase only adds nucleotides to a 3' end, so it builds new DNA 5' to 3'. The leading strand is made continuously toward the fork; the lagging strand is made in short Okazaki fragments that DNA ligase joins."
+   },
+   {
+    "front": "Role of primase in DNA replication",
+    "back": "Primase makes a short RNA primer that provides the free 3' OH group DNA polymerase needs to start synthesis. The primers are later removed and replaced with DNA."
+   },
+   {
+    "front": "Transcription: what happens?",
+    "back": "RNA polymerase binds a promoter, unwinds the DNA and builds an RNA strand 5' to 3' that is complementary to the template strand. The RNA matches the coding strand, with U in place of T."
+   },
+   {
+    "front": "Three processing steps for eukaryotic pre-mRNA",
+    "back": "Addition of a 5' cap, addition of a 3' poly-A tail, and splicing to remove introns and join exons. These steps occur in the nucleus before export."
+   },
+   {
+    "front": "Start and stop codons",
+    "back": "Start codon: AUG, which codes for methionine. Stop codons: UAA, UAG and UGA, which code for no amino acid and end translation."
+   },
+   {
+    "front": "Mini-problem: a template DNA strand reads 3'-TAC GGA-5'. What are the mRNA and amino acids?",
+    "back": "mRNA: 5'-AUG CCU-3'. This codes for methionine (AUG) then proline (CCU)."
+   },
+   {
+    "front": "Silent vs missense vs nonsense mutations",
+    "back": "Silent: a base change that still codes for the same amino acid. Missense: codes for a different amino acid. Nonsense: creates a premature stop codon, usually producing a truncated protein."
+   },
+   {
+    "front": "Why are frameshift mutations usually severe?",
+    "back": "Inserting or deleting a number of bases that is not a multiple of three shifts the reading frame, changing every codon downstream and often creating an early stop codon."
+   },
+   {
+    "front": "Mitosis vs meiosis",
+    "back": "Mitosis: one division producing two genetically identical diploid cells, used for growth and repair. Meiosis: two divisions producing four genetically different haploid gametes, with crossing over and independent assortment."
+   },
+   {
+    "front": "Mendel's laws of segregation and independent assortment",
+    "back": "Segregation: the two alleles of a gene separate into different gametes. Independent assortment: alleles of different genes (on different chromosomes) sort into gametes independently of one another."
+   },
+   {
+    "front": "Mini-problem: cross Aa x Aa where A is dominant. Expected ratios?",
+    "back": "Genotypes: 1 AA : 2 Aa : 1 aa. Phenotypes: 3 dominant : 1 recessive."
+   },
+   {
+    "front": "What is a test cross?",
+    "back": "Crossing an individual with a dominant phenotype to a homozygous recessive individual. If any recessive offspring appear, the unknown parent must be heterozygous."
+   }
+  ]
+ },
+ {
+  "school_key": "queensu.ca",
+  "course_code": "CHEM 112",
+  "course_name": "General Chemistry",
+  "source_url": "https://queensu.ca/academic-calendar/search/?P=CHEM+112",
+  "name": "CHEM 112 Final Review: Equilibrium, Acids and Bases, Electrochemistry and Kinetics",
+  "look": {
+   "color": "#E0673B",
+   "icon": "chem"
+  },
+  "cards": [
+   {
+    "front": "Write the equilibrium constant expression for aA + bB <=> cC + dD",
+    "back": "K = [C]^c[D]^d / ([A]^a[B]^b). Pure solids and pure liquids are left out of the expression."
+   },
+   {
+    "front": "Reaction quotient Q vs K: which way does the reaction shift?",
+    "back": "If Q < K, the reaction proceeds forward toward products. If Q > K, it shifts in reverse toward reactants. If Q = K, the system is at equilibrium."
+   },
+   {
+    "front": "Le Chatelier's principle: what happens if a reactant is added at equilibrium?",
+    "back": "The system shifts toward products to consume some of the added reactant. K itself does not change."
+   },
+   {
+    "front": "Le Chatelier: effect of decreasing the volume of a gas-phase equilibrium",
+    "back": "Pressure increases, so the equilibrium shifts toward the side with fewer moles of gas. If both sides have equal moles of gas, there is no shift."
+   },
+   {
+    "front": "What is the only change that alters the value of K?",
+    "back": "Temperature. For an exothermic reaction, raising the temperature decreases K; for an endothermic reaction, raising the temperature increases K."
+   },
+   {
+    "front": "How does a catalyst affect an equilibrium?",
+    "back": "It speeds up the forward and reverse reactions equally, so equilibrium is reached faster, but the position of equilibrium and K are unchanged."
+   },
+   {
+    "front": "Relationship between Kp and Kc",
+    "back": "Kp = Kc(RT)^(delta n), where delta n = moles of gaseous products minus moles of gaseous reactants, R = 0.08206 L·atm/(mol·K) and T is in kelvin."
+   },
+   {
+    "front": "Bronsted-Lowry definitions of acid and base",
+    "back": "An acid is a proton (H+) donor and a base is a proton acceptor. After the transfer, the acid becomes its conjugate base and the base becomes its conjugate acid."
+   },
+   {
+    "front": "Identify the conjugate pairs in NH3 + H2O <=> NH4+ + OH-",
+    "back": "NH3 (base) and NH4+ (its conjugate acid); H2O (acid) and OH- (its conjugate base)."
+   },
+   {
+    "front": "pH, pOH and Kw at 25 degrees C",
+    "back": "pH = -log[H3O+], pOH = -log[OH-], Kw = [H3O+][OH-] = 1.0 x 10^-14, so pH + pOH = 14.00."
+   },
+   {
+    "front": "Mini-problem: pH of 0.010 M HCl",
+    "back": "HCl is a strong acid and ionizes completely, so [H3O+] = 0.010 M and pH = -log(0.010) = 2.00."
+   },
+   {
+    "front": "Weak acid pH shortcut and when it is valid",
+    "back": "[H3O+] is approximately sqrt(Ka x C). It is valid when the percent ionization is under about 5 percent (x much smaller than C)."
+   },
+   {
+    "front": "Mini-problem: pH of 0.10 M weak acid with Ka = 1.0 x 10^-5",
+    "back": "[H3O+] = sqrt(1.0 x 10^-5 x 0.10) = 1.0 x 10^-3 M, so pH = 3.00. Ionization is 1 percent, so the approximation holds."
+   },
+   {
+    "front": "Relationship between Ka and Kb for a conjugate acid-base pair",
+    "back": "Ka x Kb = Kw (1.0 x 10^-14 at 25 degrees C), so pKa + pKb = 14. The stronger the acid, the weaker its conjugate base."
+   },
+   {
+    "front": "Henderson-Hasselbalch equation",
+    "back": "pH = pKa + log([A-]/[HA]), where [A-] is the conjugate base concentration and [HA] is the weak acid concentration. Used for buffer calculations."
+   },
+   {
+    "front": "What is a buffer and when is it most effective?",
+    "back": "A solution of a weak acid and its conjugate base (or weak base and conjugate acid) that resists pH change when small amounts of acid or base are added. It works best when pH is within about 1 unit of the pKa."
+   },
+   {
+    "front": "Weak acid titrated with strong base: pH at half-equivalence and equivalence",
+    "back": "At half-equivalence, [HA] = [A-] so pH = pKa. At the equivalence point the pH is above 7 because the conjugate base A- reacts with water to form OH-."
+   },
+   {
+    "front": "Mini-problem: molar solubility of AgCl if Ksp = 1.8 x 10^-10",
+    "back": "AgCl(s) <=> Ag+ + Cl-, so Ksp = s^2 and s = sqrt(1.8 x 10^-10), about 1.3 x 10^-5 M."
+   },
+   {
+    "front": "Common ion effect",
+    "back": "Adding an ion already present in an equilibrium shifts it away from that ion. For example, AgCl is less soluble in NaCl solution than in pure water."
+   },
+   {
+    "front": "Oxidation vs reduction, and where each occurs in a galvanic cell",
+    "back": "Oxidation is loss of electrons and occurs at the anode. Reduction is gain of electrons and occurs at the cathode. Electrons flow through the wire from anode to cathode."
+   },
+   {
+    "front": "How do you calculate the standard cell potential?",
+    "back": "E cell = E(cathode) - E(anode), using standard reduction potentials for both. A positive E cell means the reaction is spontaneous as written."
+   },
+   {
+    "front": "Link between delta G, E cell and K",
+    "back": "delta G = -nFE cell and delta G standard = -RT ln K, where n is moles of electrons transferred and F = 96485 C/mol. Positive E means negative delta G and K greater than 1."
+   },
+   {
+    "front": "Nernst equation",
+    "back": "E = E standard - (RT/nF) ln Q. At 25 degrees C this becomes E = E standard - (0.0592 V/n) log Q."
+   },
+   {
+    "front": "Galvanic vs electrolytic cell",
+    "back": "A galvanic (voltaic) cell uses a spontaneous redox reaction to produce electricity. An electrolytic cell uses an external power source to drive a nonspontaneous reaction. Oxidation is at the anode in both."
+   },
+   {
+    "front": "General form of a rate law",
+    "back": "Rate = k[A]^m[B]^n, where k is the rate constant and m and n are reaction orders. Orders must be determined experimentally, not from the balanced equation's coefficients."
+   },
+   {
+    "front": "Mini-problem: doubling [A] quadruples the rate. What is the order in A?",
+    "back": "Second order, since 2^m = 4 gives m = 2."
+   },
+   {
+    "front": "First-order reactions: integrated rate law and half-life",
+    "back": "ln[A] = ln[A]0 - kt, and t(1/2) = 0.693/k. The half-life does not depend on starting concentration."
+   },
+   {
+    "front": "Arrhenius equation",
+    "back": "k = A e^(-Ea/RT), where A is the frequency factor, Ea the activation energy, R = 8.314 J/(mol·K) and T the kelvin temperature. Higher T or lower Ea gives a larger k."
+   },
+   {
+    "front": "What is the rate-determining step?",
+    "back": "The slowest elementary step in a reaction mechanism. It limits the overall rate, so the rate law follows from that step."
+   },
+   {
+    "front": "Gibbs free energy and spontaneity",
+    "back": "delta G = delta H - T delta S. If delta H is negative and delta S is positive, the process is spontaneous at all temperatures; if delta H is positive and delta S negative, it is never spontaneous."
+   },
+   {
+    "front": "Second law of thermodynamics",
+    "back": "For any spontaneous process, the total entropy of the universe (system plus surroundings) increases."
+   }
+  ]
+ },
+ {
+  "school_key": "queensu.ca",
+  "course_code": "ECON 111",
+  "course_name": "Introductory Microeconomics",
+  "source_url": "https://queensu.ca/academic-calendar/search/?P=ECON+111",
+  "name": "ECON 111 Midterm Review: Supply, Demand, Elasticity and Market Efficiency",
+  "look": {
+   "color": "#C79A12",
+   "icon": "econ"
+  },
+  "cards": [
+   {
+    "front": "Opportunity cost",
+    "back": "The value of the next best alternative given up when a choice is made. For example, the opportunity cost of attending class may be the wages you could have earned working."
+   },
+   {
+    "front": "Why is a production possibilities frontier usually bowed outward?",
+    "back": "Because of increasing opportunity cost: resources are not equally suited to producing both goods, so producing more of one good requires giving up ever larger amounts of the other."
+   },
+   {
+    "front": "Absolute advantage vs comparative advantage",
+    "back": "Absolute advantage: producing more of a good with the same resources. Comparative advantage: producing a good at a lower opportunity cost. Trade gains come from comparative advantage."
+   },
+   {
+    "front": "Mini-problem: In one hour, A makes 10 shirts or 5 hats; B makes 6 shirts or 2 hats. Who has comparative advantage in hats?",
+    "back": "A. A's opportunity cost of a hat is 2 shirts, while B's is 3 shirts. B has comparative advantage in shirts (1/3 hat per shirt vs A's 1/2 hat)."
+   },
+   {
+    "front": "Law of demand",
+    "back": "Other things equal, as the price of a good rises, the quantity demanded falls, giving a downward-sloping demand curve."
+   },
+   {
+    "front": "Change in quantity demanded vs change in demand",
+    "back": "A change in the good's own price causes a movement along the demand curve (change in quantity demanded). A change in any other factor shifts the whole curve (change in demand)."
+   },
+   {
+    "front": "List the main factors that shift a demand curve",
+    "back": "Consumer income, prices of related goods (substitutes and complements), tastes, expectations about future prices, and the number of buyers (population)."
+   },
+   {
+    "front": "Normal good vs inferior good",
+    "back": "Demand for a normal good rises when income rises. Demand for an inferior good falls when income rises, such as instant noodles or bus rides for some consumers."
+   },
+   {
+    "front": "Substitutes vs complements",
+    "back": "Substitutes: a price rise in one increases demand for the other (coffee and tea). Complements: a price rise in one decreases demand for the other (printers and ink)."
+   },
+   {
+    "front": "What happens when the price is above equilibrium? Below?",
+    "back": "Above equilibrium: quantity supplied exceeds quantity demanded, creating a surplus that pushes price down. Below: a shortage pushes price up."
+   },
+   {
+    "front": "Demand and supply both increase. What happens to equilibrium price and quantity?",
+    "back": "Equilibrium quantity rises for sure. The effect on price is ambiguous: it depends on which curve shifts by more."
+   },
+   {
+    "front": "Price elasticity of demand formula (midpoint method)",
+    "back": "Ed = (percent change in quantity demanded) / (percent change in price), using the average of the old and new values as the base for each percent change. Usually reported as an absolute value."
+   },
+   {
+    "front": "Elastic vs inelastic demand and total revenue",
+    "back": "Elastic (Ed > 1): a price increase lowers total revenue. Inelastic (Ed < 1): a price increase raises total revenue. Unit elastic (Ed = 1): total revenue does not change."
+   },
+   {
+    "front": "Mini-problem: price rises 10 percent and quantity demanded falls 20 percent. Elasticity and revenue effect?",
+    "back": "Ed = 20/10 = 2, so demand is elastic and total revenue falls."
+   },
+   {
+    "front": "What makes demand more price elastic?",
+    "back": "Many close substitutes, the good being a luxury rather than a necessity, a large share of the budget, a narrowly defined market, and a longer time to adjust."
+   },
+   {
+    "front": "Income elasticity of demand: what do the signs mean?",
+    "back": "Positive: normal good (greater than 1 is a luxury). Negative: inferior good. It equals percent change in quantity demanded divided by percent change in income."
+   },
+   {
+    "front": "Cross-price elasticity of demand: what do the signs mean?",
+    "back": "Positive: the goods are substitutes. Negative: the goods are complements. Close to zero: unrelated goods."
+   },
+   {
+    "front": "Consumer surplus",
+    "back": "The difference between what buyers are willing to pay and what they actually pay. On a graph, it is the area below the demand curve and above the price."
+   },
+   {
+    "front": "Producer surplus",
+    "back": "The difference between the price sellers receive and their cost (the minimum they would accept). On a graph, it is the area above the supply curve and below the price."
+   },
+   {
+    "front": "Effect of a binding price ceiling",
+    "back": "Set below equilibrium, it creates a shortage because quantity demanded exceeds quantity supplied. Rent control is the classic example, often leading to waiting lists and lower quality."
+   },
+   {
+    "front": "Effect of a binding price floor",
+    "back": "Set above equilibrium, it creates a surplus because quantity supplied exceeds quantity demanded. A minimum wage above the market wage can create unemployment in that labour market."
+   },
+   {
+    "front": "Deadweight loss",
+    "back": "The loss of total surplus when the quantity traded differs from the efficient quantity, for example due to a tax, price control or market power. It is the triangle between supply and demand over the lost units."
+   },
+   {
+    "front": "Tax incidence: who bears more of a tax burden?",
+    "back": "Whichever side of the market is less elastic. The statutory payer does not matter; if demand is very inelastic, buyers bear most of the tax through a higher price."
+   },
+   {
+    "front": "Utility-maximizing rule for a consumer",
+    "back": "Allocate the budget so that the marginal utility per dollar is equal across goods: MUx/Px = MUy/Py."
+   },
+   {
+    "front": "Substitution effect vs income effect of a price fall",
+    "back": "Substitution effect: the good becomes relatively cheaper, so consumers buy more of it. Income effect: purchasing power rises, which increases demand for normal goods and decreases it for inferior goods."
+   },
+   {
+    "front": "Positive vs normative statements",
+    "back": "Positive statements describe how the world is and can be tested with evidence. Normative statements say how the world should be and involve value judgments."
+   },
+   {
+    "front": "Negative externality and a policy fix",
+    "back": "A cost imposed on third parties, such as pollution. The market overproduces because private cost is below social cost. A Pigouvian tax equal to the external cost can restore the efficient quantity."
+   },
+   {
+    "front": "What defines a public good, and why is it underprovided by markets?",
+    "back": "It is non-rival (one person's use does not reduce another's) and non-excludable (people cannot be prevented from using it). Free riders can benefit without paying, so private firms underprovide it."
+   },
+   {
+    "front": "When is a competitive market allocatively efficient?",
+    "back": "When it produces the quantity where marginal benefit (demand) equals marginal cost (supply), which maximizes total surplus."
+   }
+  ]
+ },
+ {
+  "school_key": "uottawa.ca",
+  "course_code": "PSY 1101",
+  "course_name": "Introduction to Psychology: Foundations",
+  "source_url": "https://catalogue.uottawa.ca/en/courses/psy/",
+  "name": "PSY 1101 Midterm Review: Research Methods, Neuroscience, Sensation and Perception",
+  "look": {
+   "color": "#4F46E5",
+   "icon": "psych"
+  },
+  "cards": [
+   {
+    "front": "Hypothesis vs theory",
+    "back": "A hypothesis is a specific, testable prediction. A theory is a broader, well-supported explanation that organizes many observations and generates new hypotheses."
+   },
+   {
+    "front": "Operational definition",
+    "back": "A precise statement of how a variable will be measured or manipulated in a study, such as defining aggression as the number of times a child hits a doll in 10 minutes."
+   },
+   {
+    "front": "Independent vs dependent variable",
+    "back": "The independent variable is the factor the researcher manipulates. The dependent variable is the outcome that is measured to see whether it changed."
+   },
+   {
+    "front": "Why can experiments show causation when correlational studies cannot?",
+    "back": "Experiments manipulate the independent variable and use random assignment, which controls for other factors. Correlational studies only measure variables as they occur, so other explanations remain possible."
+   },
+   {
+    "front": "Interpreting a correlation coefficient (r)",
+    "back": "r ranges from -1 to +1. The sign gives direction and the absolute value gives strength, so r = -0.80 is a stronger relationship than r = +0.50."
+   },
+   {
+    "front": "Third-variable problem",
+    "back": "A correlation between two variables may be caused by an unmeasured third variable. Ice cream sales and drownings both rise in summer because of hot weather, not because one causes the other."
+   },
+   {
+    "front": "Random sampling vs random assignment",
+    "back": "Random sampling selects participants so the sample represents the population (helps generalize). Random assignment places participants into conditions by chance (helps establish causation)."
+   },
+   {
+    "front": "What is a double-blind procedure and why use it?",
+    "back": "Neither participants nor the researchers collecting data know who is in which condition. It reduces placebo effects and experimenter bias."
+   },
+   {
+    "front": "Reliability vs validity",
+    "back": "Reliability is consistency: the measure gives similar results across time or raters. Validity is accuracy: the measure actually assesses what it claims to. A measure can be reliable without being valid."
+   },
+   {
+    "front": "Main parts of a neuron and their roles",
+    "back": "Dendrites receive signals, the cell body (soma) integrates them, the axon conducts the action potential, the myelin sheath speeds conduction, and axon terminals release neurotransmitters."
+   },
+   {
+    "front": "Describe the action potential",
+    "back": "At rest the inside of the neuron is about -70 mV. When threshold is reached, Na+ channels open and Na+ rushes in (depolarization); then K+ flows out (repolarization). It is all-or-none: it fires fully or not at all."
+   },
+   {
+    "front": "What is the refractory period?",
+    "back": "A brief time after an action potential when the neuron cannot fire again (absolute) or needs stronger stimulation to fire (relative). It keeps signals moving in one direction and limits firing rate."
+   },
+   {
+    "front": "How is a signal passed across a synapse?",
+    "back": "The action potential triggers release of neurotransmitter into the synaptic cleft. It binds to receptors on the next neuron, producing excitatory or inhibitory effects, and is then cleared by reuptake or enzymes."
+   },
+   {
+    "front": "Match the neurotransmitters: dopamine, serotonin, acetylcholine, GABA, glutamate",
+    "back": "Dopamine: reward and movement. Serotonin: mood, sleep and appetite. Acetylcholine: muscle contraction and memory. GABA: main inhibitory transmitter. Glutamate: main excitatory transmitter."
+   },
+   {
+    "front": "Agonist vs antagonist",
+    "back": "An agonist mimics or enhances a neurotransmitter's effect at its receptor. An antagonist blocks or reduces the neurotransmitter's effect."
+   },
+   {
+    "front": "Sympathetic vs parasympathetic nervous system",
+    "back": "Both are parts of the autonomic nervous system. Sympathetic: fight or flight (raises heart rate, dilates pupils). Parasympathetic: rest and digest (slows heart rate, promotes digestion)."
+   },
+   {
+    "front": "Main functions of the four cerebral lobes",
+    "back": "Frontal: planning, decision making, movement (motor cortex). Parietal: touch and body position (somatosensory cortex), spatial attention. Temporal: hearing and language comprehension. Occipital: vision."
+   },
+   {
+    "front": "Broca's area vs Wernicke's area",
+    "back": "Broca's area (left frontal lobe) supports speech production; damage causes slow, effortful speech. Wernicke's area (left temporal lobe) supports comprehension; damage causes fluent but meaningless speech."
+   },
+   {
+    "front": "Roles of the hippocampus, amygdala and hypothalamus",
+    "back": "Hippocampus: forming new explicit memories. Amygdala: emotion, especially fear. Hypothalamus: regulating hunger, thirst, body temperature and hormones through the pituitary gland."
+   },
+   {
+    "front": "What did split-brain studies reveal?",
+    "back": "When the corpus callosum is cut, information shown only to the right hemisphere (left visual field) cannot be named aloud, because speech is usually controlled by the left hemisphere. The hemispheres can operate somewhat independently."
+   },
+   {
+    "front": "Sensation vs perception",
+    "back": "Sensation is detecting physical energy with sense receptors and converting it into neural signals (transduction). Perception is the brain organizing and interpreting those signals."
+   },
+   {
+    "front": "Absolute threshold vs difference threshold",
+    "back": "Absolute threshold: the minimum stimulus intensity detected 50 percent of the time. Difference threshold (just noticeable difference): the smallest change in a stimulus that can be detected 50 percent of the time."
+   },
+   {
+    "front": "Weber's law",
+    "back": "The just noticeable difference is a constant proportion of the original stimulus, not a fixed amount. If you can detect 1 g added to 50 g, you would need about 2 g added to 100 g."
+   },
+   {
+    "front": "Signal detection theory",
+    "back": "Detecting a stimulus depends on both its strength and the observer's decision criterion. Outcomes are hits, misses, false alarms and correct rejections."
+   },
+   {
+    "front": "Rods vs cones",
+    "back": "Rods are more numerous, very sensitive to dim light, concentrated in the periphery and do not detect colour. Cones work in bright light, detect colour and fine detail and are concentrated in the fovea."
+   },
+   {
+    "front": "Trichromatic vs opponent-process theory of colour vision",
+    "back": "Trichromatic: three cone types sensitive to short, medium and long wavelengths (roughly blue, green, red). Opponent-process: later neural channels code red vs green, blue vs yellow and black vs white, explaining afterimages."
+   },
+   {
+    "front": "Place theory vs frequency theory of pitch",
+    "back": "Place theory: different pitches stimulate different locations on the basilar membrane, best for high frequencies. Frequency theory: neurons fire at the rate of the sound wave, best for low frequencies."
+   },
+   {
+    "front": "Bottom-up vs top-down processing",
+    "back": "Bottom-up processing builds a perception from raw sensory features. Top-down processing uses expectations, knowledge and context to interpret sensory input."
+   },
+   {
+    "front": "Name four Gestalt grouping principles",
+    "back": "Proximity (near things group together), similarity (alike things group), continuity (smooth continuous patterns), and closure (we fill in gaps to see whole figures). Figure-ground separation is also basic."
+   },
+   {
+    "front": "Monocular vs binocular depth cues",
+    "back": "Binocular cues need both eyes: retinal disparity and convergence. Monocular cues work with one eye: linear perspective, relative size, interposition, texture gradient and motion parallax."
+   },
+   {
+    "front": "Circadian rhythm and REM sleep",
+    "back": "The circadian rhythm is a roughly 24-hour cycle regulated by the suprachiasmatic nucleus of the hypothalamus. REM sleep features rapid eye movements, vivid dreams, an active brain and near-paralysis of skeletal muscles."
+   }
+  ]
+ },
+ {
+  "school_key": "uottawa.ca",
+  "course_code": "CHM 1311",
+  "course_name": "Principles of Chemistry",
+  "source_url": "https://catalogue.uottawa.ca/en/courses/chm/",
+  "name": "CHM 1311 Midterm Review: Stoichiometry, Solutions, Gases and Thermochemistry",
+  "look": {
+   "color": "#EA580C",
+   "icon": "chem"
+  },
+  "cards": [
+   {
+    "front": "What is a mole?",
+    "back": "The amount of substance containing Avogadro's number of particles, 6.022 x 10^23. The mass of one mole in grams equals the formula mass in atomic mass units."
+   },
+   {
+    "front": "Mini-problem: how many moles are in 36.04 g of water?",
+    "back": "Molar mass of H2O = 2(1.008) + 16.00 = 18.02 g/mol, so 36.04 g / 18.02 g/mol = 2.000 mol."
+   },
+   {
+    "front": "Empirical formula vs molecular formula",
+    "back": "The empirical formula gives the simplest whole-number ratio of atoms. The molecular formula gives the actual number of each atom, a whole-number multiple of the empirical formula (glucose C6H12O6 has empirical formula CH2O)."
+   },
+   {
+    "front": "Mini-problem: a compound is 40.0% C, 6.7% H and 53.3% O by mass. Empirical formula?",
+    "back": "In 100 g: 40.0/12.01 = 3.33 mol C, 6.7/1.008 = 6.6 mol H, 53.3/16.00 = 3.33 mol O. Dividing by 3.33 gives a 1:2:1 ratio, so CH2O."
+   },
+   {
+    "front": "Limiting reactant",
+    "back": "The reactant that is completely used up first, which determines the maximum amount of product. Compare the mole ratio available to the ratio in the balanced equation."
+   },
+   {
+    "front": "Mini-problem: 2 H2 + O2 -> 2 H2O with 4.0 mol H2 and 3.0 mol O2. Limiting reactant and product?",
+    "back": "4.0 mol H2 needs only 2.0 mol O2, so H2 is limiting. It forms 4.0 mol H2O, with 1.0 mol O2 left over."
+   },
+   {
+    "front": "Percent yield formula",
+    "back": "Percent yield = (actual yield / theoretical yield) x 100. The theoretical yield is calculated from the limiting reactant."
+   },
+   {
+    "front": "Molarity and the dilution equation",
+    "back": "Molarity M = moles of solute / litres of solution. When diluting, moles of solute stay constant, so M1V1 = M2V2."
+   },
+   {
+    "front": "Mini-problem: 50.0 mL of 2.00 M NaCl is diluted to 250.0 mL. New concentration?",
+    "back": "M2 = (2.00 M x 50.0 mL) / 250.0 mL = 0.400 M."
+   },
+   {
+    "front": "Strong vs weak electrolytes",
+    "back": "Strong electrolytes dissociate completely in water (soluble ionic compounds, strong acids such as HCl). Weak electrolytes ionize only partly (weak acids such as acetic acid). Nonelectrolytes do not ionize (sugar)."
+   },
+   {
+    "front": "Net ionic equation for mixing AgNO3(aq) and NaCl(aq)",
+    "back": "Ag+(aq) + Cl-(aq) -> AgCl(s). Na+ and NO3- are spectator ions because they stay dissolved and unchanged."
+   },
+   {
+    "front": "Key oxidation number rules",
+    "back": "Elements alone are 0. Monatomic ions equal their charge. O is usually -2 (-1 in peroxides). H is +1 with nonmetals. The sum equals the overall charge of the molecule or ion."
+   },
+   {
+    "front": "Mini-problem: oxidation state of Mn in MnO4-",
+    "back": "x + 4(-2) = -1, so x = +7."
+   },
+   {
+    "front": "Ideal gas law and values of R",
+    "back": "PV = nRT, with T in kelvin. R = 0.08206 L·atm/(mol·K) or 8.314 J/(mol·K)."
+   },
+   {
+    "front": "Mini-problem: volume of 1.00 mol of ideal gas at 0 degrees C and 1.00 atm",
+    "back": "V = nRT/P = (1.00)(0.08206)(273.15)/1.00, about 22.4 L."
+   },
+   {
+    "front": "Dalton's law of partial pressures",
+    "back": "The total pressure of a gas mixture equals the sum of the partial pressures of its components. Each partial pressure is P(i) = X(i) x P(total), where X(i) is the mole fraction."
+   },
+   {
+    "front": "Main assumptions of kinetic molecular theory",
+    "back": "Gas particles have negligible volume, move randomly in straight lines, have no attractions or repulsions, and collide elastically. Average kinetic energy is proportional to kelvin temperature."
+   },
+   {
+    "front": "Graham's law of effusion",
+    "back": "rate1 / rate2 = sqrt(M2 / M1). Lighter gases effuse faster; for example, H2 effuses 4 times faster than O2 because sqrt(32/2) = 4."
+   },
+   {
+    "front": "When do real gases deviate most from ideal behaviour?",
+    "back": "At high pressure (particle volume matters) and low temperature (intermolecular attractions matter). The van der Waals equation corrects for both."
+   },
+   {
+    "front": "Heat equation for a temperature change",
+    "back": "q = m c delta T, where m is mass, c is specific heat capacity and delta T is the temperature change. For water, c = 4.184 J/(g·degree C)."
+   },
+   {
+    "front": "Mini-problem: heat needed to warm 100.0 g of water by 10.0 degrees C",
+    "back": "q = (100.0 g)(4.184 J/g·degree C)(10.0 degrees C) = 4184 J, or about 4.18 kJ."
+   },
+   {
+    "front": "Exothermic vs endothermic: sign of delta H",
+    "back": "Exothermic reactions release heat to the surroundings and delta H is negative. Endothermic reactions absorb heat and delta H is positive."
+   },
+   {
+    "front": "Hess's law",
+    "back": "The enthalpy change of a reaction is the same whether it occurs in one step or several, so delta H values for steps can be added. Reversing a reaction flips the sign; multiplying it scales delta H."
+   },
+   {
+    "front": "Calculating delta H of reaction from enthalpies of formation",
+    "back": "delta H rxn = sum of n x delta Hf(products) - sum of n x delta Hf(reactants). The standard enthalpy of formation of an element in its standard state is zero."
+   },
+   {
+    "front": "Coffee-cup vs bomb calorimetry",
+    "back": "A coffee-cup calorimeter works at constant pressure and measures delta H. A bomb calorimeter works at constant volume and measures delta U (internal energy change)."
+   },
+   {
+    "front": "First law of thermodynamics and sign conventions",
+    "back": "delta U = q + w. q is positive when the system absorbs heat; w is positive when work is done on the system. Expansion work against constant pressure is w = -P delta V."
+   },
+   {
+    "front": "VSEPR shapes of CH4, NH3 and H2O",
+    "back": "All have four electron groups (tetrahedral electron geometry). CH4 is tetrahedral (109.5 degrees), NH3 is trigonal pyramidal (about 107 degrees), and H2O is bent (about 104.5 degrees) due to lone pairs."
+   },
+   {
+    "front": "Why is CO2 nonpolar while H2O is polar?",
+    "back": "Both have polar bonds, but CO2 is linear so the bond dipoles cancel. H2O is bent, so its bond dipoles add to give a net dipole."
+   },
+   {
+    "front": "Formal charge formula",
+    "back": "Formal charge = valence electrons - nonbonding electrons - (1/2) bonding electrons. The best Lewis structure keeps formal charges near zero, with negative charges on more electronegative atoms."
+   }
+  ]
+ },
+ {
+  "school_key": "uottawa.ca",
+  "course_code": "MAT 1320",
+  "course_name": "Calculus I",
+  "source_url": "https://catalogue.uottawa.ca/en/courses/mat/",
+  "name": "MAT 1320 Final Review: Applications of Derivatives, Integration Techniques and Numerical Methods",
+  "look": {
+   "color": "#3B6FE0",
+   "icon": "calc"
+  },
+  "cards": [
+   {
+    "front": "State L'Hospital's rule",
+    "back": "If lim f(x)/g(x) gives 0/0 or infinity/infinity, then lim f(x)/g(x) = lim f'(x)/g'(x), provided the second limit exists. Differentiate top and bottom separately, not as a quotient."
+   },
+   {
+    "front": "Mini-problem: lim as x -> 0 of (e^x - 1)/x",
+    "back": "It is 0/0, so apply L'Hospital: lim e^x / 1 = e^0 = 1."
+   },
+   {
+    "front": "Mini-problem: lim as x -> infinity of x/e^x",
+    "back": "It is infinity/infinity. L'Hospital gives lim 1/e^x = 0."
+   },
+   {
+    "front": "How do you handle the indeterminate form 0 x infinity?",
+    "back": "Rewrite the product as a quotient, for example f·g = f / (1/g), to get 0/0 or infinity/infinity, then apply L'Hospital's rule."
+   },
+   {
+    "front": "Mean Value Theorem",
+    "back": "If f is continuous on [a, b] and differentiable on (a, b), there is some c in (a, b) with f'(c) = (f(b) - f(a)) / (b - a): the instantaneous rate equals the average rate somewhere."
+   },
+   {
+    "front": "Extreme Value Theorem",
+    "back": "A function continuous on a closed interval [a, b] attains both an absolute maximum and an absolute minimum there. Check critical points and endpoints to find them."
+   },
+   {
+    "front": "Critical point and the first derivative test",
+    "back": "A critical point is where f'(c) = 0 or f'(c) does not exist. If f' changes from + to - at c, f has a local max; from - to +, a local min; no sign change, neither."
+   },
+   {
+    "front": "Second derivative test and inflection points",
+    "back": "If f'(c) = 0 and f''(c) > 0, local min; if f''(c) < 0, local max; if f''(c) = 0, the test is inconclusive. An inflection point is where concavity changes sign."
+   },
+   {
+    "front": "Linear approximation formula and an example",
+    "back": "L(x) = f(a) + f'(a)(x - a). For sqrt(4.1) with a = 4: f(4) = 2 and f'(4) = 1/(2·2) = 1/4, so sqrt(4.1) is about 2 + 0.1/4 = 2.025."
+   },
+   {
+    "front": "Newton's method formula",
+    "back": "x(n+1) = x(n) - f(x(n)) / f'(x(n)). It repeatedly uses tangent lines to approximate a root and can fail if f'(x(n)) is near zero or the starting guess is poor."
+   },
+   {
+    "front": "Mini-problem: a circle's radius grows at 2 cm/s. How fast is area growing when r = 5 cm?",
+    "back": "A = pi r^2, so dA/dt = 2 pi r (dr/dt) = 2 pi (5)(2) = 20 pi cm^2/s, about 62.8 cm^2/s."
+   },
+   {
+    "front": "Mini-problem: find dy/dx for x^2 + y^2 = 25",
+    "back": "Differentiate implicitly: 2x + 2y (dy/dx) = 0, so dy/dx = -x/y."
+   },
+   {
+    "front": "Derivatives of ln x, arctan x and arcsin x",
+    "back": "d/dx [ln x] = 1/x. d/dx [arctan x] = 1/(1 + x^2). d/dx [arcsin x] = 1/sqrt(1 - x^2)."
+   },
+   {
+    "front": "Derivatives of a^x and log base a of x",
+    "back": "d/dx [a^x] = a^x ln a. d/dx [log_a x] = 1/(x ln a)."
+   },
+   {
+    "front": "Definite integral as a limit of Riemann sums",
+    "back": "The integral from a to b of f(x) dx = lim as n -> infinity of the sum of f(x_i*) delta x, where delta x = (b - a)/n. It gives net signed area."
+   },
+   {
+    "front": "Fundamental Theorem of Calculus, Part 1",
+    "back": "If F(x) = integral from a to x of f(t) dt, then F'(x) = f(x). With a variable upper limit g(x), the derivative is f(g(x))·g'(x)."
+   },
+   {
+    "front": "Fundamental Theorem of Calculus, Part 2",
+    "back": "If F is any antiderivative of a continuous f, then the integral from a to b of f(x) dx = F(b) - F(a)."
+   },
+   {
+    "front": "Mini-problem: integral from 0 to 2 of 3x^2 dx",
+    "back": "Antiderivative x^3, so 2^3 - 0^3 = 8."
+   },
+   {
+    "front": "Mini-problem: integral of 2x cos(x^2) dx",
+    "back": "Let u = x^2, du = 2x dx. The integral becomes integral of cos u du = sin(x^2) + C."
+   },
+   {
+    "front": "Integration by parts formula and a tip for choosing u",
+    "back": "Integral of u dv = uv - integral of v du. Choose u in the order LIATE: Logarithmic, Inverse trig, Algebraic, Trig, Exponential."
+   },
+   {
+    "front": "Mini-problem: integral of x e^x dx",
+    "back": "Let u = x and dv = e^x dx, so du = dx and v = e^x. Result: x e^x - e^x + C."
+   },
+   {
+    "front": "Mini-problem: integral of ln x dx",
+    "back": "Let u = ln x and dv = dx, so du = dx/x and v = x. Result: x ln x - x + C."
+   },
+   {
+    "front": "Mini-problem: integral of 1/(x(x + 1)) dx",
+    "back": "Partial fractions: 1/(x(x+1)) = 1/x - 1/(x+1). Result: ln|x| - ln|x + 1| + C."
+   },
+   {
+    "front": "Antiderivatives of 1/x and 1/(1 + x^2)",
+    "back": "Integral of 1/x dx = ln|x| + C. Integral of 1/(1 + x^2) dx = arctan x + C."
+   },
+   {
+    "front": "Trapezoidal rule",
+    "back": "Integral from a to b of f is about (delta x / 2)[f(x0) + 2f(x1) + 2f(x2) + ... + 2f(x(n-1)) + f(xn)], with delta x = (b - a)/n."
+   },
+   {
+    "front": "Simpson's rule",
+    "back": "Requires n even: integral is about (delta x / 3)[f(x0) + 4f(x1) + 2f(x2) + 4f(x3) + ... + 4f(x(n-1)) + f(xn)]. It fits parabolas and is exact for cubics."
+   },
+   {
+    "front": "Error bounds for midpoint, trapezoidal and Simpson's rules",
+    "back": "If |f''| <= K: midpoint error <= K(b-a)^3/(24n^2), trapezoid error <= K(b-a)^3/(12n^2). If |f''''| <= K: Simpson error <= K(b-a)^5/(180n^4)."
+   },
+   {
+    "front": "Forward vs central difference approximations of f'(a)",
+    "back": "Forward: (f(a + h) - f(a)) / h, error proportional to h. Central: (f(a + h) - f(a - h)) / (2h), error proportional to h^2, so it is usually more accurate."
+   },
+   {
+    "front": "Mini-problem: a rectangle has perimeter 40. What dimensions maximize area?",
+    "back": "Area A = x(20 - x). A'(x) = 20 - 2x = 0 gives x = 10, so a 10 by 10 square with area 100."
+   },
+   {
+    "front": "Common pitfall with u-substitution in definite integrals",
+    "back": "When you substitute, either change the limits to u-values or convert back to x before evaluating. Mixing new integrand with old limits gives wrong answers."
+   }
+  ]
+ },
+ {
+  "school_key": "uottawa.ca",
+  "course_code": "BIO 1141",
+  "course_name": "Introduction to Cell and Molecular Biology",
+  "source_url": "https://catalogue.uottawa.ca/en/courses/bio/",
+  "name": "BIO 1141 Midterm Review: Cell Structure, Membrane Transport, Cytoskeleton and the Cell Cycle",
+  "look": {
+   "color": "#0D9488",
+   "icon": "micro"
+  },
+  "cards": [
+   {
+    "front": "Three tenets of cell theory",
+    "back": "All living things are made of one or more cells; the cell is the basic unit of life; and all cells arise from pre-existing cells."
+   },
+   {
+    "front": "What did the Miller-Urey experiment show?",
+    "back": "Passing electric sparks through a mixture of gases thought to resemble the early atmosphere (methane, ammonia, hydrogen, water vapour) produced amino acids, showing organic molecules can form from simple inorganic precursors."
+   },
+   {
+    "front": "RNA world hypothesis",
+    "back": "The idea that early life used RNA both to store genetic information and to catalyze reactions (ribozymes), before DNA and proteins took over those roles."
+   },
+   {
+    "front": "Evidence for the endosymbiotic origin of mitochondria and chloroplasts",
+    "back": "They have their own circular DNA, bacteria-like ribosomes, double membranes, and divide by a process like binary fission, consistent with descent from engulfed bacteria."
+   },
+   {
+    "front": "Prokaryotic vs eukaryotic cells",
+    "back": "Prokaryotes (bacteria and archaea) lack a nucleus and membrane-bound organelles and are usually smaller. Eukaryotes have a nucleus, membrane-bound organelles and an extensive cytoskeleton."
+   },
+   {
+    "front": "Rough ER vs smooth ER",
+    "back": "Rough ER has ribosomes and makes secreted, membrane and lysosomal proteins. Smooth ER lacks ribosomes and synthesizes lipids, detoxifies drugs and stores calcium."
+   },
+   {
+    "front": "Function of the Golgi apparatus",
+    "back": "It receives proteins and lipids from the ER, modifies them (for example by glycosylation), sorts them and packages them into vesicles for delivery to the membrane, lysosomes or secretion."
+   },
+   {
+    "front": "What do lysosomes do?",
+    "back": "They are acidic, membrane-bound compartments containing hydrolytic enzymes that digest macromolecules, worn-out organelles (autophagy) and material taken in by endocytosis."
+   },
+   {
+    "front": "Structure and roles of the nucleus",
+    "back": "A double-membrane nuclear envelope with nuclear pores encloses the DNA. The nucleolus makes ribosomal RNA and assembles ribosome subunits. Pores control traffic of RNA and proteins."
+   },
+   {
+    "front": "Fluid mosaic model of the plasma membrane",
+    "back": "The membrane is a fluid phospholipid bilayer in which proteins, cholesterol and carbohydrates are embedded or attached and can move laterally."
+   },
+   {
+    "front": "How does cholesterol affect membrane fluidity?",
+    "back": "It buffers fluidity: at warm temperatures it restrains phospholipid movement, and at cool temperatures it prevents tight packing that would make the membrane rigid."
+   },
+   {
+    "front": "Simple diffusion vs facilitated diffusion",
+    "back": "Both move substances down their concentration gradient without ATP. Simple diffusion goes directly through the bilayer (O2, CO2). Facilitated diffusion uses channel or carrier proteins (glucose, ions)."
+   },
+   {
+    "front": "What does the Na+/K+ pump do?",
+    "back": "It uses one ATP to pump 3 Na+ out of the cell and 2 K+ in, against their gradients. This primary active transport maintains the gradients and contributes to the membrane potential."
+   },
+   {
+    "front": "Secondary active transport",
+    "back": "Uses the energy of one ion moving down its gradient (often Na+, set up by the Na+/K+ pump) to move another substance against its gradient, as in the Na+/glucose symporter."
+   },
+   {
+    "front": "What happens to animal and plant cells in a hypotonic solution?",
+    "back": "Water enters by osmosis. Animal cells swell and may burst (lyse). Plant cells swell until the cell wall pushes back, becoming turgid, which is their healthy state."
+   },
+   {
+    "front": "Types of endocytosis",
+    "back": "Phagocytosis: engulfing large particles. Pinocytosis: taking in fluid. Receptor-mediated endocytosis: specific molecules bind receptors in clathrin-coated pits before uptake."
+   },
+   {
+    "front": "Three types of cytoskeletal filaments",
+    "back": "Microfilaments (actin, about 7 nm): cell shape, crawling, muscle contraction. Intermediate filaments (about 10 nm): mechanical strength. Microtubules (tubulin, about 25 nm): tracks for transport, spindle, cilia and flagella."
+   },
+   {
+    "front": "Kinesin vs dynein",
+    "back": "Both are motor proteins that walk along microtubules using ATP. Kinesin generally moves toward the plus end (outward), and dynein moves toward the minus end (inward). Myosin is the motor that moves along actin."
+   },
+   {
+    "front": "Structure of eukaryotic cilia and flagella",
+    "back": "A 9 + 2 arrangement: nine outer microtubule doublets around two central microtubules. Dynein arms cause doublets to slide, bending the structure. They are anchored by a basal body."
+   },
+   {
+    "front": "Sliding filament model of muscle contraction",
+    "back": "Ca2+ binds troponin, which moves tropomyosin and exposes binding sites on actin. Myosin heads bind actin, pull (power stroke) and release when ATP binds, so thin filaments slide past thick filaments."
+   },
+   {
+    "front": "Extracellular matrix and integrins",
+    "back": "The ECM is a network of proteins (such as collagen) and polysaccharides outside animal cells. Integrins are membrane proteins linking the ECM to the cytoskeleton and transmitting signals."
+   },
+   {
+    "front": "Tight junctions vs desmosomes vs gap junctions",
+    "back": "Tight junctions seal neighbouring cells to block leakage. Desmosomes anchor cells together for strength. Gap junctions form channels that let ions and small molecules pass between cells."
+   },
+   {
+    "front": "Phases of the eukaryotic cell cycle",
+    "back": "G1 (growth), S (DNA replication), G2 (preparation for division) and M phase (mitosis and cytokinesis). G1, S and G2 make up interphase. Non-dividing cells may exit to G0."
+   },
+   {
+    "front": "Stages of mitosis",
+    "back": "Prophase: chromosomes condense, spindle forms. Prometaphase: envelope breaks down, kinetochores attach. Metaphase: chromosomes line up. Anaphase: sister chromatids separate. Telophase: nuclei re-form."
+   },
+   {
+    "front": "How do cyclins and CDKs control the cell cycle?",
+    "back": "Cyclin-dependent kinases are active only when bound to cyclins, whose levels rise and fall during the cycle. Active cyclin-CDK complexes phosphorylate targets that push the cell past checkpoints."
+   },
+   {
+    "front": "Role of p53",
+    "back": "A tumour suppressor protein that responds to DNA damage by halting the cell cycle for repair or triggering apoptosis if the damage is too great. Mutations in p53 are common in cancers."
+   },
+   {
+    "front": "Cytokinesis in animal vs plant cells",
+    "back": "Animal cells form a cleavage furrow by a contractile ring of actin and myosin. Plant cells build a cell plate from Golgi-derived vesicles that becomes the new cell wall."
+   },
+   {
+    "front": "Key enzymes of DNA replication and their jobs",
+    "back": "Helicase unwinds the helix, topoisomerase relieves supercoiling, primase lays RNA primers, DNA polymerase adds nucleotides and proofreads, and ligase seals gaps between fragments."
+   },
+   {
+    "front": "Where do transcription and translation occur in eukaryotic cells?",
+    "back": "Transcription and mRNA processing happen in the nucleus. The mature mRNA is exported and translated by ribosomes in the cytosol or on the rough ER."
+   },
+   {
+    "front": "Roles of the ribosome's A, P and E sites",
+    "back": "A site: accepts the incoming aminoacyl-tRNA. P site: holds the tRNA carrying the growing polypeptide. E site: where the empty tRNA exits."
+   },
+   {
+    "front": "How are secreted proteins directed to the ER?",
+    "back": "An N-terminal signal sequence is recognized by the signal recognition particle (SRP), which brings the ribosome to the ER membrane. The protein is threaded into the ER lumen as it is made."
+   }
+  ]
+ },
+ {
+  "school_key": "mcgill.ca",
+  "course_code": "PSYC 100",
+  "course_name": "Introduction to Psychology",
+  "source_url": "https://coursecatalogue.mcgill.ca/courses/psyc-100/index.html",
+  "name": "PSYC 100 Final Review: Development, Personality, Social Psychology and Mental Health",
+  "look": {
+   "color": "#D6386F",
+   "icon": "psych"
+  },
+  "cards": [
+   {
+    "front": "Ainsworth's Strange Situation: main attachment styles",
+    "back": "Secure (upset when caregiver leaves, easily comforted on return), anxious-ambivalent or resistant (very distressed, hard to soothe), and avoidant (little distress, ignores caregiver). A disorganized style was added later."
+   },
+   {
+    "front": "What did Harlow's infant monkey studies show?",
+    "back": "Infant monkeys preferred a soft cloth surrogate mother to a wire one that provided milk, especially when frightened. Contact comfort, not just feeding, is central to attachment."
+   },
+   {
+    "front": "Piaget's four stages of cognitive development",
+    "back": "Sensorimotor (0-2 years, object permanence), preoperational (2-7, symbolic thought, egocentrism), concrete operational (7-11, conservation, logic about concrete things), formal operational (11+, abstract reasoning)."
+   },
+   {
+    "front": "Object permanence vs conservation",
+    "back": "Object permanence: knowing objects still exist when out of sight, developed in the sensorimotor stage. Conservation: knowing quantity stays the same despite changes in shape, mastered in the concrete operational stage."
+   },
+   {
+    "front": "Vygotsky's zone of proximal development",
+    "back": "The gap between what a child can do alone and what they can do with guidance from a more skilled person. Support within this zone (scaffolding) drives learning."
+   },
+   {
+    "front": "Baumrind's parenting styles",
+    "back": "Authoritative (warm, firm, explains rules), authoritarian (strict, low warmth, demands obedience), and permissive (warm, few demands). A neglectful (uninvolved) style was added later. Authoritative is linked to the best outcomes on average."
+   },
+   {
+    "front": "Erikson's main crisis of adolescence",
+    "back": "Identity vs role confusion: teens explore roles and values to form a coherent sense of who they are."
+   },
+   {
+    "front": "The Big Five personality traits",
+    "back": "Openness to experience, Conscientiousness, Extraversion, Agreeableness and Neuroticism (OCEAN). They are relatively stable and partly heritable."
+   },
+   {
+    "front": "Freud's id, ego and superego",
+    "back": "Id: unconscious drives seeking immediate pleasure. Superego: internalized moral standards. Ego: the mostly rational part that balances the id's demands, the superego and reality."
+   },
+   {
+    "front": "Define projection, repression and displacement",
+    "back": "Projection: attributing your own unacceptable feelings to others. Repression: pushing threatening thoughts out of awareness. Displacement: redirecting impulses toward a safer target."
+   },
+   {
+    "front": "Person-situation debate",
+    "back": "Mischel argued that behaviour varies across situations more than trait theories predicted. The modern view is interactionist: traits predict average behaviour, while situations strongly shape specific actions."
+   },
+   {
+    "front": "How does personality tend to change across adulthood?",
+    "back": "On average, conscientiousness and agreeableness increase and neuroticism decreases from young adulthood to middle age, a pattern often called the maturity principle."
+   },
+   {
+    "front": "Fundamental attribution error",
+    "back": "Overestimating personality (dispositional) causes and underestimating situational causes when explaining other people's behaviour."
+   },
+   {
+    "front": "Cognitive dissonance (Festinger and Carlsmith)",
+    "back": "Discomfort from holding conflicting beliefs and actions. Participants paid $1 to say a dull task was fun later rated it as more enjoyable than those paid $20, because they lacked a strong external justification."
+   },
+   {
+    "front": "What did Asch's line studies show?",
+    "back": "Many people conformed to a clearly wrong group answer about line lengths on at least some trials. Conformity dropped sharply when even one other person gave the correct answer."
+   },
+   {
+    "front": "What did Milgram's obedience study find?",
+    "back": "About 65 percent of participants obeyed an experimenter's orders to deliver what they believed were the strongest shocks to another person. Obedience fell when the authority was less present or the victim was closer."
+   },
+   {
+    "front": "Bystander effect and diffusion of responsibility",
+    "back": "People are less likely to help in an emergency when others are present, because each person feels less personal responsibility to act (Darley and Latane)."
+   },
+   {
+    "front": "Social facilitation vs social loafing",
+    "back": "Social facilitation: the presence of others improves performance on easy or well-practiced tasks but impairs it on hard ones. Social loafing: people exert less effort in a group when individual contributions are not identifiable."
+   },
+   {
+    "front": "Groupthink",
+    "back": "A pattern in cohesive groups in which the desire for agreement overrides realistic evaluation of alternatives, leading to poor decisions. Dissent is suppressed and risks are underestimated."
+   },
+   {
+    "front": "Frustration-aggression hypothesis",
+    "back": "Being blocked from a goal creates frustration that increases the likelihood of aggression. It was later revised: frustration produces anger, which raises the readiness to aggress, especially with aggressive cues present."
+   },
+   {
+    "front": "Contact hypothesis for reducing prejudice",
+    "back": "Prejudice between groups decreases with contact under the right conditions: equal status, shared goals, cooperation and support from authorities."
+   },
+   {
+    "front": "Learned helplessness (Seligman) and its link to depression",
+    "back": "After repeated uncontrollable bad events, animals and people stop trying to escape even when escape becomes possible. It became a model for the hopelessness and passivity seen in depression."
+   },
+   {
+    "front": "Core features of major depressive disorder",
+    "back": "At least two weeks of depressed mood or loss of interest or pleasure, plus other symptoms such as sleep or appetite changes, fatigue, worthlessness, poor concentration or thoughts of death, causing significant impairment."
+   },
+   {
+    "front": "Beck's cognitive triad",
+    "back": "Negative automatic thoughts about the self, the world and the future, which Beck proposed maintain depression."
+   },
+   {
+    "front": "Diathesis-stress model",
+    "back": "Psychological disorders arise from an interaction between a predisposition (diathesis, such as genetic vulnerability) and environmental stressors. Neither alone is usually sufficient."
+   },
+   {
+    "front": "Bipolar I vs bipolar II disorder",
+    "back": "Bipolar I involves at least one full manic episode. Bipolar II involves at least one hypomanic episode (milder, no severe impairment) and at least one major depressive episode, but no full mania."
+   },
+   {
+    "front": "Positive vs negative symptoms of schizophrenia",
+    "back": "Positive symptoms are added experiences: hallucinations, delusions, disorganized speech. Negative symptoms are reduced functions: flat affect, lack of motivation, reduced speech and social withdrawal."
+   },
+   {
+    "front": "Generalized anxiety disorder vs panic disorder",
+    "back": "GAD: persistent, hard-to-control worry about many things for at least six months. Panic disorder: recurrent unexpected panic attacks plus ongoing worry about future attacks or changes in behaviour to avoid them."
+   },
+   {
+    "front": "Cognitive-behavioural therapy vs psychodynamic therapy",
+    "back": "CBT targets current maladaptive thoughts and behaviours through structured techniques like cognitive restructuring and exposure. Psychodynamic therapy explores unconscious conflicts and past relationships to build insight."
+   },
+   {
+    "front": "How do SSRIs work?",
+    "back": "Selective serotonin reuptake inhibitors block reuptake of serotonin into the presynaptic neuron, increasing serotonin in the synapse. They are widely used for depression and anxiety disorders."
+   },
+   {
+    "front": "What does heritability mean, and what is a common misconception?",
+    "back": "Heritability is the proportion of variation in a trait within a population that is due to genetic differences. It does not describe how much of one individual's trait is genetic, and it can change across environments."
+   }
+  ]
+ },
+ {
+  "school_key": "mcgill.ca",
+  "course_code": "CHEM 110",
+  "course_name": "General Chemistry 1",
+  "source_url": "https://coursecatalogue.mcgill.ca/courses/chem-110/index.html",
+  "name": "CHEM 110 Final Review: Atomic Structure, Nuclear Chemistry, Bonding and Metal Complexes",
+  "look": {
+   "color": "#DC2626",
+   "icon": "chem"
+  },
+  "cards": [
+   {
+    "front": "Energy of a photon",
+    "back": "E = h nu = hc / lambda, where h = 6.626 x 10^-34 J·s is Planck's constant, nu is frequency, c = 3.00 x 10^8 m/s and lambda is wavelength."
+   },
+   {
+    "front": "Mini-problem: energy of one photon of 500 nm light",
+    "back": "E = hc/lambda = (6.626 x 10^-34)(3.00 x 10^8) / (500 x 10^-9 m), about 3.98 x 10^-19 J."
+   },
+   {
+    "front": "Photoelectric effect equation and its significance",
+    "back": "KE of ejected electron = h nu - work function. No electrons are ejected below a threshold frequency regardless of intensity, showing light comes in quanta (photons)."
+   },
+   {
+    "front": "de Broglie wavelength",
+    "back": "lambda = h / (m v). All moving matter has wave properties; the effect is noticeable only for very small masses such as electrons."
+   },
+   {
+    "front": "Bohr model energy levels for hydrogen",
+    "back": "E(n) = -2.18 x 10^-18 J (1/n^2). When an electron drops from a higher to a lower n, a photon is emitted with energy equal to the difference, giving line spectra."
+   },
+   {
+    "front": "Heisenberg uncertainty principle",
+    "back": "It is impossible to know both the exact position and exact momentum of a particle at once: (delta x)(delta p) >= h/(4 pi). This is why electrons are described by orbitals (probability distributions)."
+   },
+   {
+    "front": "The four quantum numbers",
+    "back": "n: principal (energy level, size). l: angular momentum (shape, 0 to n-1; s, p, d, f). ml: magnetic (orientation, -l to +l). ms: spin, +1/2 or -1/2."
+   },
+   {
+    "front": "How many nodes does an orbital have?",
+    "back": "Total nodes = n - 1. Angular nodes = l. Radial nodes = n - l - 1. For example, a 3p orbital has 1 angular and 1 radial node."
+   },
+   {
+    "front": "Aufbau principle, Pauli exclusion principle and Hund's rule",
+    "back": "Aufbau: fill lowest-energy orbitals first. Pauli: no two electrons in an atom share all four quantum numbers, so at most two per orbital with opposite spins. Hund: fill degenerate orbitals singly with parallel spins before pairing."
+   },
+   {
+    "front": "Electron configurations of Cr and Cu",
+    "back": "Cr is [Ar] 3d5 4s1 and Cu is [Ar] 3d10 4s1, exceptions caused by the extra stability of half-filled and filled d subshells."
+   },
+   {
+    "front": "Trend in atomic radius and why",
+    "back": "Radius decreases across a period because effective nuclear charge increases while electrons enter the same shell. It increases down a group as electrons occupy higher shells."
+   },
+   {
+    "front": "First ionization energy trend and two common exceptions",
+    "back": "Generally increases across a period and decreases down a group. Exceptions: B is lower than Be (removing a higher-energy 2p electron) and O is lower than N (electron pair repulsion in a 2p orbital)."
+   },
+   {
+    "front": "Electronegativity trend",
+    "back": "Increases across a period and decreases down a group. Fluorine is the most electronegative element."
+   },
+   {
+    "front": "Alpha, beta and gamma decay",
+    "back": "Alpha: emits a helium-4 nucleus, mass number drops by 4 and atomic number by 2. Beta (minus): a neutron becomes a proton and emits an electron, atomic number up by 1. Gamma: emits a high-energy photon with no change in mass or atomic number."
+   },
+   {
+    "front": "Positron emission vs electron capture",
+    "back": "Both convert a proton into a neutron, lowering atomic number by 1 with no change in mass number. Positron emission releases a positron; electron capture absorbs an inner electron."
+   },
+   {
+    "front": "Mini-problem: what forms when U-238 undergoes alpha decay?",
+    "back": "Th-234: mass number 238 - 4 = 234 and atomic number 92 - 2 = 90 (thorium), plus a helium-4 nucleus."
+   },
+   {
+    "front": "Mini-problem: 80 g of an isotope decays for three half-lives. How much remains?",
+    "back": "80 -> 40 -> 20 -> 10 g, so 10 g remain."
+   },
+   {
+    "front": "Mass defect and nuclear binding energy",
+    "back": "A nucleus has less mass than its separate protons and neutrons. The missing mass is the binding energy, E = delta m c^2. Iron-56 is near the peak of binding energy per nucleon, so it is among the most stable nuclei."
+   },
+   {
+    "front": "Nuclear fission vs fusion",
+    "back": "Fission splits a heavy nucleus into smaller nuclei, releasing energy (nuclear reactors). Fusion combines light nuclei into a heavier one, releasing energy (stars). Both move toward higher binding energy per nucleon."
+   },
+   {
+    "front": "Predicting decay from the neutron-to-proton ratio",
+    "back": "Nuclei with too many neutrons (above the band of stability) tend to undergo beta minus decay. Those with too few tend toward positron emission or electron capture. Very heavy nuclei often alpha decay."
+   },
+   {
+    "front": "What is resonance in Lewis structures?",
+    "back": "When two or more valid Lewis structures differ only in electron placement, the real molecule is an average (resonance hybrid). For example, both O-O bonds in ozone are equal in length."
+   },
+   {
+    "front": "VSEPR shapes for five and six electron groups with lone pairs",
+    "back": "Five groups: SF4 (1 lone pair) is seesaw, ClF3 (2) is T-shaped, XeF2 (3) is linear. Six groups: BrF5 (1 lone pair) is square pyramidal, XeF4 (2) is square planar."
+   },
+   {
+    "front": "Hybridization from electron groups",
+    "back": "2 electron groups: sp (linear). 3: sp2 (trigonal planar). 4: sp3 (tetrahedral). 5: sp3d. 6: sp3d2."
+   },
+   {
+    "front": "Sigma vs pi bonds",
+    "back": "A sigma bond forms from head-on orbital overlap and allows rotation. A pi bond forms from side-by-side p orbital overlap and restricts rotation. A double bond is 1 sigma + 1 pi; a triple bond is 1 sigma + 2 pi."
+   },
+   {
+    "front": "Bond order formula in molecular orbital theory",
+    "back": "Bond order = (bonding electrons - antibonding electrons) / 2. Higher bond order means a stronger, shorter bond; bond order 0 means the molecule is not expected to exist (He2)."
+   },
+   {
+    "front": "Why does MO theory explain that O2 is paramagnetic?",
+    "back": "O2 has two unpaired electrons in degenerate pi* antibonding orbitals, giving bond order (10 - 6)/2 = 2 and paramagnetism. A simple Lewis structure shows all electrons paired."
+   },
+   {
+    "front": "Coordination complex vocabulary: ligand, coordination number, chelate",
+    "back": "A ligand is a Lewis base donating an electron pair to the metal. Coordination number is the number of donor atoms bonded to the metal. A chelating ligand binds through two or more donor atoms (ethylenediamine is bidentate)."
+   },
+   {
+    "front": "Mini-problem: oxidation state of Co in [Co(NH3)5Cl]Cl2",
+    "back": "Two Cl- counter-ions mean the complex ion is 2+. NH3 is neutral and the bound Cl is -1, so Co + (-1) = +2 and Co is +3."
+   },
+   {
+    "front": "Crystal field splitting in an octahedral complex",
+    "back": "The five d orbitals split into a lower-energy t2g set (dxy, dxz, dyz) and a higher-energy eg set (dz2, dx2-y2), which point at the ligands. The gap is delta o."
+   },
+   {
+    "front": "High-spin vs low-spin complexes",
+    "back": "Weak-field ligands give a small delta o, so electrons occupy eg before pairing (high spin, more unpaired electrons). Strong-field ligands give a large delta o, so electrons pair in t2g first (low spin)."
+   },
+   {
+    "front": "Spectrochemical series (selected ligands, weak to strong field)",
+    "back": "I- < Br- < Cl- < F- < OH- < H2O < NH3 < en < CN- < CO."
+   },
+   {
+    "front": "Why are many transition metal complexes coloured?",
+    "back": "Electrons absorb visible light to jump from t2g to eg orbitals. The colour we see is complementary to the wavelength absorbed; larger delta o means absorption of shorter wavelengths."
+   }
+  ]
+ },
+ {
+  "school_key": "mcgill.ca",
+  "course_code": "MATH 140",
+  "course_name": "Calculus 1",
+  "source_url": "https://coursecatalogue.mcgill.ca/courses/math-140/index.html",
+  "name": "MATH 140 Midterm Review: Functions, Limits, Continuity and Derivatives",
+  "look": {
+   "color": "#1D9BB8",
+   "icon": "calc"
+  },
+  "cards": [
+   {
+    "front": "What is the domain of a composite function f(g(x))?",
+    "back": "All x in the domain of g for which g(x) is in the domain of f. For f(x) = sqrt(x) and g(x) = x - 2, the domain of f(g(x)) is x >= 2."
+   },
+   {
+    "front": "When does a function have an inverse, and how do you find it?",
+    "back": "When it is one-to-one (passes the horizontal line test). Swap x and y and solve for y. The graph of the inverse is the reflection across y = x."
+   },
+   {
+    "front": "When does a two-sided limit exist?",
+    "back": "lim as x -> a of f(x) = L exists only if both one-sided limits exist and are equal to L. The function's value at a does not matter."
+   },
+   {
+    "front": "Mini-problem: lim as x -> 3 of (x^2 - 9)/(x - 3)",
+    "back": "Factor: (x - 3)(x + 3)/(x - 3) = x + 3 for x not equal to 3, so the limit is 6."
+   },
+   {
+    "front": "Mini-problem: lim as x -> 0 of (sqrt(x + 4) - 2)/x",
+    "back": "Multiply by the conjugate: x / (x(sqrt(x + 4) + 2)) = 1/(sqrt(x + 4) + 2). As x -> 0 this gives 1/4."
+   },
+   {
+    "front": "Squeeze theorem",
+    "back": "If g(x) <= f(x) <= h(x) near a and lim g = lim h = L, then lim f = L. Example: -x^2 <= x^2 sin(1/x) <= x^2, so x^2 sin(1/x) -> 0 as x -> 0."
+   },
+   {
+    "front": "Important trigonometric limit",
+    "back": "lim as x -> 0 of sin(x)/x = 1 (x in radians). Also lim as x -> 0 of (1 - cos x)/x = 0."
+   },
+   {
+    "front": "Limits at infinity of rational functions",
+    "back": "Compare degrees. Numerator degree lower: limit 0. Equal degrees: ratio of leading coefficients. Numerator degree higher: no finite limit (grows without bound)."
+   },
+   {
+    "front": "Mini-problem: lim as x -> infinity of (3x^2 + 1)/(5x^2 - x)",
+    "back": "Equal degrees, so the limit is the ratio of leading coefficients: 3/5."
+   },
+   {
+    "front": "What is a vertical asymptote?",
+    "back": "x = a is a vertical asymptote if f(x) approaches positive or negative infinity as x approaches a from at least one side, often where a denominator is zero but the numerator is not."
+   },
+   {
+    "front": "Definition of continuity at a point",
+    "back": "f is continuous at a if f(a) is defined, lim as x -> a of f(x) exists, and the limit equals f(a)."
+   },
+   {
+    "front": "Removable vs jump vs infinite discontinuity",
+    "back": "Removable: the limit exists but differs from f(a) or f(a) is undefined (a hole). Jump: the one-sided limits exist but differ. Infinite: the function goes to infinity near the point."
+   },
+   {
+    "front": "Intermediate Value Theorem",
+    "back": "If f is continuous on [a, b] and N is between f(a) and f(b), then some c in (a, b) has f(c) = N. Often used to show an equation has a root."
+   },
+   {
+    "front": "Limit definition of the derivative",
+    "back": "f'(x) = lim as h -> 0 of (f(x + h) - f(x)) / h. It gives the slope of the tangent line and the instantaneous rate of change."
+   },
+   {
+    "front": "Does continuity imply differentiability?",
+    "back": "No. Differentiability implies continuity, but not the reverse. f(x) = |x| is continuous at 0 but not differentiable there because of the corner."
+   },
+   {
+    "front": "Power rule",
+    "back": "d/dx [x^n] = n·x^(n-1) for any real n. For example, d/dx [x^(-2)] = -2x^(-3)."
+   },
+   {
+    "front": "Product rule",
+    "back": "d/dx [f·g] = f'·g + f·g'."
+   },
+   {
+    "front": "Quotient rule",
+    "back": "d/dx [f/g] = (f'·g - f·g') / g^2. Order matters in the numerator: derivative of the top times the bottom comes first."
+   },
+   {
+    "front": "Chain rule with an example",
+    "back": "d/dx [f(g(x))] = f'(g(x))·g'(x). Example: d/dx [sin(3x^2)] = cos(3x^2)·6x."
+   },
+   {
+    "front": "Derivatives of the six trig functions",
+    "back": "sin -> cos; cos -> -sin; tan -> sec^2; cot -> -csc^2; sec -> sec·tan; csc -> -csc·cot."
+   },
+   {
+    "front": "Derivatives of e^x and ln x",
+    "back": "d/dx [e^x] = e^x. d/dx [ln x] = 1/x for x > 0. With the chain rule, d/dx [e^(g(x))] = e^(g(x))·g'(x)."
+   },
+   {
+    "front": "Mini-problem: equation of the tangent line to y = x^2 at x = 3",
+    "back": "Point (3, 9), slope 2(3) = 6. Tangent line: y - 9 = 6(x - 3), so y = 6x - 9."
+   },
+   {
+    "front": "Logarithmic differentiation of y = x^x",
+    "back": "ln y = x ln x. Differentiate: y'/y = ln x + 1. So y' = x^x (ln x + 1)."
+   },
+   {
+    "front": "Implicit differentiation: key idea",
+    "back": "Differentiate both sides with respect to x, treating y as a function of x, so every y term gets a factor of dy/dx by the chain rule. Then solve for dy/dx."
+   },
+   {
+    "front": "Position, velocity and acceleration",
+    "back": "If s(t) is position, velocity is v(t) = s'(t) and acceleration is a(t) = v'(t) = s''(t). The object speeds up when v and a have the same sign."
+   },
+   {
+    "front": "What is an antiderivative?",
+    "back": "F is an antiderivative of f if F'(x) = f(x). All antiderivatives differ by a constant, so the general antiderivative of x^n (n not -1) is x^(n+1)/(n+1) + C."
+   },
+   {
+    "front": "Mini-problem: f'(x) = 6x and f(0) = 2. Find f(x).",
+    "back": "General antiderivative: f(x) = 3x^2 + C. Using f(0) = 2 gives C = 2, so f(x) = 3x^2 + 2."
+   },
+   {
+    "front": "Using f' to find where f is increasing or decreasing",
+    "back": "f is increasing where f'(x) > 0 and decreasing where f'(x) < 0. Find critical points, then test the sign of f' on each interval."
+   },
+   {
+    "front": "Using f'' to find concavity",
+    "back": "f is concave up where f''(x) > 0 and concave down where f''(x) < 0. A point where concavity changes is an inflection point."
+   },
+   {
+    "front": "Common pitfall: derivative of a product",
+    "back": "The derivative of f·g is not f'·g'. Use the product rule f'g + fg'. Similarly, (f/g)' is not f'/g'."
+   }
+  ]
+ },
+ {
+  "school_key": "mcgill.ca",
+  "course_code": "ECON 208",
+  "course_name": "Microeconomic Analysis and Applications",
+  "source_url": "https://coursecatalogue.mcgill.ca/courses/econ-208/index.html",
+  "name": "ECON 208 Final Review: Production, Costs, Market Structures and Factor Markets",
+  "look": {
+   "color": "#92400E",
+   "icon": "econ"
+  },
+  "cards": [
+   {
+    "front": "Short run vs long run in production",
+    "back": "In the short run, at least one input (usually capital) is fixed. In the long run, all inputs are variable, so the firm can change its scale of operation."
+   },
+   {
+    "front": "Total, average and marginal product; law of diminishing marginal returns",
+    "back": "TP is total output; AP = TP/L; MP = change in TP / change in L. Diminishing marginal returns: adding more of a variable input to a fixed input eventually makes MP fall."
+   },
+   {
+    "front": "Fixed costs vs variable costs",
+    "back": "Fixed costs do not change with output in the short run (rent). Variable costs rise with output (raw materials, hourly labour). TC = TFC + TVC."
+   },
+   {
+    "front": "Average and marginal cost formulas",
+    "back": "AFC = TFC/Q, AVC = TVC/Q, ATC = TC/Q = AFC + AVC. MC = change in TC / change in Q."
+   },
+   {
+    "front": "Where does MC cross AVC and ATC?",
+    "back": "At their minimum points. When MC is below an average, the average falls; when MC is above it, the average rises."
+   },
+   {
+    "front": "Mini-problem: total cost rises from $100 to $130 when output rises from 10 to 11 units. MC?",
+    "back": "MC = (130 - 100)/(11 - 10) = $30."
+   },
+   {
+    "front": "Economies vs diseconomies of scale",
+    "back": "Economies of scale: long-run average cost falls as output expands (specialization, bulk buying). Diseconomies: LRAC rises at large scale (coordination problems). Minimum efficient scale is the smallest output at which LRAC is minimized."
+   },
+   {
+    "front": "Accounting profit vs economic profit",
+    "back": "Accounting profit = revenue - explicit costs. Economic profit = revenue - explicit costs - implicit (opportunity) costs. Zero economic profit means a normal return on resources."
+   },
+   {
+    "front": "Characteristics of perfect competition",
+    "back": "Many buyers and sellers, identical products, free entry and exit, and full information. Each firm is a price taker facing a horizontal demand curve at the market price."
+   },
+   {
+    "front": "Profit-maximizing rule for any firm",
+    "back": "Produce where marginal revenue = marginal cost (MR = MC). For a perfectly competitive firm, MR = P, so it produces where P = MC."
+   },
+   {
+    "front": "Short-run shutdown rule",
+    "back": "A firm should shut down if price is below minimum average variable cost, because it cannot cover variable costs. If P is between min AVC and min ATC, it operates at a loss to cover part of fixed costs."
+   },
+   {
+    "front": "Long-run equilibrium in perfect competition",
+    "back": "Entry and exit drive economic profit to zero, so P = MC = minimum ATC. The outcome is both allocatively and productively efficient."
+   },
+   {
+    "front": "Why is a monopolist's marginal revenue below price?",
+    "back": "To sell an extra unit, a single-price monopolist must lower the price on all units sold. With linear demand P = a - bQ, MR = a - 2bQ, so MR has twice the slope of demand."
+   },
+   {
+    "front": "Mini-problem: monopolist with demand P = 100 - 2Q and MC = 20. Profit-maximizing Q and P?",
+    "back": "MR = 100 - 4Q. Set MR = MC: 100 - 4Q = 20, so Q = 20. Price from demand: P = 100 - 40 = $60."
+   },
+   {
+    "front": "Monopoly vs perfect competition outcomes",
+    "back": "Compared with competition, a monopoly charges a higher price and produces a lower quantity, creating deadweight loss. P > MC, so the outcome is allocatively inefficient."
+   },
+   {
+    "front": "Natural monopoly and the regulation problem",
+    "back": "A natural monopoly has falling average costs over the relevant output range, so one firm can supply the market most cheaply. Marginal-cost pricing causes losses since P < ATC; average-cost pricing lets the firm break even."
+   },
+   {
+    "front": "Conditions needed for price discrimination",
+    "back": "The firm must have market power, be able to identify groups with different willingness to pay or elasticities, and prevent resale between groups."
+   },
+   {
+    "front": "Perfect (first-degree) price discrimination",
+    "back": "Each unit is sold at the buyer's maximum willingness to pay. Output reaches the efficient level, so there is no deadweight loss, but the firm captures all consumer surplus."
+   },
+   {
+    "front": "Long-run equilibrium in monopolistic competition",
+    "back": "Entry pushes economic profit to zero, so P = ATC, but the demand curve slopes down, so P > MC and firms produce below minimum ATC (excess capacity)."
+   },
+   {
+    "front": "Prisoner's dilemma in oligopoly",
+    "back": "Each firm has an incentive to cheat (cut price or raise output) whatever the other does, so the Nash equilibrium is for both to compete, even though both would earn more by cooperating."
+   },
+   {
+    "front": "Dominant strategy vs Nash equilibrium",
+    "back": "A dominant strategy is best regardless of what rivals do. A Nash equilibrium is a set of strategies where no player can gain by changing strategy alone, given the others' choices."
+   },
+   {
+    "front": "Why are cartels unstable?",
+    "back": "Each member can raise its own profit by secretly producing more than its quota at the high cartel price. Cheating is hard to detect and punish, and collusion is illegal in many countries."
+   },
+   {
+    "front": "Herfindahl-Hirschman Index (HHI)",
+    "back": "The sum of the squared market shares (in percent) of all firms. It ranges up to 10,000 for a pure monopoly; higher values mean a more concentrated industry."
+   },
+   {
+    "front": "Why is the demand for labour a derived demand?",
+    "back": "Firms want labour not for itself but for the output it produces, so labour demand depends on demand for the final product and on labour's productivity."
+   },
+   {
+    "front": "How many workers does a profit-maximizing firm hire?",
+    "back": "It hires until the marginal revenue product of labour equals the wage: MRP = MR x MP = w. In a competitive output market, this is P x MP (value of marginal product) = w."
+   },
+   {
+    "front": "What is a monopsony and how does it affect wages?",
+    "back": "A market with a single buyer of a factor, such as one employer in a town. It hires fewer workers and pays a lower wage than a competitive labour market would."
+   },
+   {
+    "front": "Lorenz curve and Gini coefficient",
+    "back": "The Lorenz curve plots the cumulative share of income against the cumulative share of households. The Gini coefficient measures the gap from the line of perfect equality: 0 is perfect equality and 1 is maximum inequality."
+   },
+   {
+    "front": "Economic rent in factor markets",
+    "back": "Payment to a factor above what is needed to keep it in its current use (its transfer earnings). A star athlete's salary far above their next best job includes large economic rent."
+   },
+   {
+    "front": "Allocative vs productive efficiency",
+    "back": "Allocative efficiency: producing the mix of goods society values most, where P = MC. Productive efficiency: producing at the lowest possible average cost (minimum ATC)."
+   },
+   {
+    "front": "Should sunk costs affect business decisions?",
+    "back": "No. Sunk costs have already been paid and cannot be recovered, so only future marginal costs and benefits should guide decisions."
+   }
+  ]
+ }
+]

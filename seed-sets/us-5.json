@@ -1,0 +1,1215 @@
+[
+ {
+  "school_key": "nyu.edu",
+  "course_code": "PSYCH-UA 1",
+  "course_name": "Introduction to Psychology",
+  "source_url": "https://bulletins.nyu.edu/courses/psych_ua/",
+  "name": "PSYCH-UA 1 Exam Review: Research Methods, Brain, Learning, Memory and Social Psychology",
+  "look": {
+   "color": "#9A4FD1",
+   "icon": "psych"
+  },
+  "cards": [
+   {
+    "front": "Independent variable vs dependent variable",
+    "back": "The independent variable is what the experimenter manipulates; the dependent variable is the outcome that is measured to see whether it changed as a result."
+   },
+   {
+    "front": "Why does random assignment matter in an experiment?",
+    "back": "It spreads participant differences evenly across conditions on average, so differences in the outcome can be attributed to the manipulation rather than to preexisting group differences."
+   },
+   {
+    "front": "Correlation vs causation: what are the two classic problems with inferring cause from a correlation?",
+    "back": "The directionality problem (A could cause B or B could cause A) and the third-variable problem (some other factor C could cause both)."
+   },
+   {
+    "front": "What does a correlation coefficient of r = -0.80 tell you?",
+    "back": "A strong negative linear relationship: as one variable increases, the other tends to decrease. The sign gives direction and the magnitude (0 to 1) gives strength."
+   },
+   {
+    "front": "Placebo effect and double-blind design",
+    "back": "A placebo effect is improvement caused by expectations rather than the treatment itself. In a double-blind study neither participants nor experimenters know who gets the real treatment, controlling for expectancy and experimenter bias."
+   },
+   {
+    "front": "Neuron basics: dendrites, axon, myelin, terminal buttons",
+    "back": "Dendrites receive signals, the axon carries the action potential away from the cell body, myelin insulates the axon to speed conduction, and terminal buttons release neurotransmitters into the synapse."
+   },
+   {
+    "front": "What is the all-or-none principle of the action potential?",
+    "back": "A neuron either fires a full-strength action potential once its threshold is reached or does not fire at all; stimulus intensity is coded by firing rate, not by spike size."
+   },
+   {
+    "front": "Sympathetic vs parasympathetic nervous system",
+    "back": "Sympathetic arouses the body for fight or flight (raises heart rate, dilates pupils); parasympathetic calms the body and supports rest and digest functions."
+   },
+   {
+    "front": "Functions of the frontal, parietal, temporal and occipital lobes",
+    "back": "Frontal: planning, decision making and motor control. Parietal: touch and spatial processing. Temporal: hearing and language comprehension. Occipital: vision."
+   },
+   {
+    "front": "Broca's area vs Wernicke's area",
+    "back": "Broca's area (left frontal lobe) supports speech production; damage gives halting, effortful speech. Wernicke's area (left temporal lobe) supports comprehension; damage gives fluent but meaningless speech."
+   },
+   {
+    "front": "Role of the hippocampus and amygdala",
+    "back": "The hippocampus is crucial for forming new explicit (declarative) memories; the amygdala processes emotion, especially fear, and emotional memory."
+   },
+   {
+    "front": "Sensation vs perception",
+    "back": "Sensation is the detection of physical energy by sense receptors; perception is the brain's organization and interpretation of that input into meaningful experience."
+   },
+   {
+    "front": "Classical conditioning: define UCS, UCR, CS and CR using Pavlov's dogs",
+    "back": "Food is the UCS, salivating to food is the UCR, the bell (after pairing) is the CS, and salivating to the bell alone is the CR."
+   },
+   {
+    "front": "Extinction vs spontaneous recovery in classical conditioning",
+    "back": "Extinction is the weakening of the CR when the CS is repeatedly presented without the UCS. Spontaneous recovery is the reappearance of the extinguished CR after a rest period."
+   },
+   {
+    "front": "Positive vs negative reinforcement",
+    "back": "Both increase a behavior. Positive reinforcement adds a pleasant stimulus; negative reinforcement removes an unpleasant one (for example, taking aspirin removes a headache)."
+   },
+   {
+    "front": "Negative reinforcement vs punishment: common pitfall",
+    "back": "Negative reinforcement increases a behavior by removing something aversive. Punishment decreases a behavior, either by adding something aversive or removing something pleasant."
+   },
+   {
+    "front": "Which reinforcement schedule produces behavior most resistant to extinction?",
+    "back": "Variable-ratio schedules (reward after an unpredictable number of responses, like a slot machine) produce high, steady responding that is very resistant to extinction."
+   },
+   {
+    "front": "Bandura's Bobo doll study demonstrated what?",
+    "back": "Observational learning: children who watched an adult behave aggressively toward a doll were more likely to imitate that aggression, showing learning without direct reinforcement."
+   },
+   {
+    "front": "Three stages of the Atkinson-Shiffrin memory model",
+    "back": "Sensory memory (very brief, large capacity), short-term or working memory (about 7 plus or minus 2 items, roughly 20 seconds without rehearsal), and long-term memory (relatively permanent, vast capacity)."
+   },
+   {
+    "front": "Explicit vs implicit memory",
+    "back": "Explicit (declarative) memory is consciously recalled facts and events (semantic and episodic). Implicit memory shows up without awareness, such as skills (procedural memory) and priming."
+   },
+   {
+    "front": "Proactive vs retroactive interference",
+    "back": "Proactive: old learning interferes with recalling new information. Retroactive: new learning interferes with recalling old information."
+   },
+   {
+    "front": "Serial position effect",
+    "back": "Items at the start (primacy effect) and end (recency effect) of a list are recalled better than items in the middle."
+   },
+   {
+    "front": "Piaget's four stages of cognitive development in order",
+    "back": "Sensorimotor (birth to 2, object permanence), preoperational (2 to 7, egocentrism), concrete operational (7 to 11, conservation), and formal operational (12 and up, abstract reasoning)."
+   },
+   {
+    "front": "Assimilation vs accommodation (Piaget)",
+    "back": "Assimilation fits new information into an existing schema; accommodation changes the schema to fit new information."
+   },
+   {
+    "front": "Big Five personality traits",
+    "back": "Openness, Conscientiousness, Extraversion, Agreeableness and Neuroticism (OCEAN)."
+   },
+   {
+    "front": "Fundamental attribution error",
+    "back": "The tendency to overestimate personality or disposition and underestimate the situation when explaining other people's behavior."
+   },
+   {
+    "front": "What did Milgram's obedience studies find?",
+    "back": "A large share of ordinary participants (about 65 percent in the classic version) continued to deliver what they believed were the maximum shocks when instructed by an authority figure."
+   },
+   {
+    "front": "Asch conformity studies",
+    "back": "Participants often went along with a clearly wrong group answer on a simple line-length judgment, showing the power of normative social pressure to conform."
+   },
+   {
+    "front": "Cognitive dissonance",
+    "back": "The discomfort felt when holding conflicting beliefs or when behavior conflicts with attitudes; people often reduce it by changing their attitudes to match their behavior."
+   },
+   {
+    "front": "Bystander effect",
+    "back": "People are less likely to help in an emergency when other people are present, partly due to diffusion of responsibility."
+   }
+  ]
+ },
+ {
+  "school_key": "nyu.edu",
+  "course_code": "ECON-UA 1",
+  "course_name": "Introduction to Macroeconomics",
+  "source_url": "https://bulletins.nyu.edu/courses/econ_ua/",
+  "name": "ECON-UA 1 Exam Review: GDP, Inflation, Unemployment, Growth, Money and the Fed",
+  "look": {
+   "color": "#1E9E74",
+   "icon": "econ"
+  },
+  "cards": [
+   {
+    "front": "GDP definition",
+    "back": "Gross domestic product is the market value of all final goods and services produced within a country in a given period of time."
+   },
+   {
+    "front": "Expenditure approach to GDP",
+    "back": "Y = C + I + G + NX, where C is consumption, I is investment, G is government purchases and NX is net exports (exports minus imports)."
+   },
+   {
+    "front": "Why are intermediate goods excluded from GDP?",
+    "back": "Their value is already included in the price of the final good; counting them separately would double count."
+   },
+   {
+    "front": "Do transfer payments like Social Security count in G?",
+    "back": "No. G counts only government purchases of goods and services; transfers are excluded because nothing is produced in exchange."
+   },
+   {
+    "front": "Nominal vs real GDP",
+    "back": "Nominal GDP uses current-year prices; real GDP uses constant base-year prices, so it changes only when quantities produced change."
+   },
+   {
+    "front": "GDP deflator formula",
+    "back": "GDP deflator = (nominal GDP / real GDP) x 100. It measures the price level of all domestically produced goods and services."
+   },
+   {
+    "front": "Mini-problem: nominal GDP is 1,200 and real GDP is 1,000. What is the deflator?",
+    "back": "Deflator = (1,200 / 1,000) x 100 = 120, meaning prices are 20 percent higher than in the base year."
+   },
+   {
+    "front": "How is the inflation rate calculated from the CPI?",
+    "back": "Inflation rate = (CPI this year - CPI last year) / CPI last year x 100."
+   },
+   {
+    "front": "CPI vs GDP deflator",
+    "back": "The CPI tracks a fixed basket of goods bought by consumers, including imports; the deflator covers all domestically produced goods and uses current quantities."
+   },
+   {
+    "front": "Unemployment rate formula",
+    "back": "Unemployment rate = (number unemployed / labor force) x 100, where labor force = employed + unemployed."
+   },
+   {
+    "front": "Who is counted as unemployed?",
+    "back": "People without a job who are available for work and have actively looked for work in the past four weeks. Discouraged workers who stopped looking are not in the labor force."
+   },
+   {
+    "front": "Frictional vs structural vs cyclical unemployment",
+    "back": "Frictional: short-term job searching. Structural: mismatch between workers' skills or location and available jobs. Cyclical: caused by recessions. The natural rate includes frictional and structural only."
+   },
+   {
+    "front": "Real interest rate (Fisher equation)",
+    "back": "Real interest rate is approximately nominal interest rate minus inflation rate (r = i - pi)."
+   },
+   {
+    "front": "Who is hurt by unexpectedly high inflation?",
+    "back": "Lenders and savers with fixed nominal returns, and people on fixed nominal incomes; borrowers with fixed-rate debt gain because they repay with less valuable money."
+   },
+   {
+    "front": "Main sources of long-run economic growth",
+    "back": "Growth in productivity, driven by physical capital per worker, human capital, natural resources and technological knowledge."
+   },
+   {
+    "front": "Rule of 70",
+    "back": "The number of years for a variable to double is about 70 divided by its annual percentage growth rate. At 2 percent growth, output doubles in about 35 years."
+   },
+   {
+    "front": "Catch-up (convergence) effect",
+    "back": "Countries that start with less capital tend to grow faster because of diminishing returns to capital: each additional unit of capital raises output more when capital is scarce."
+   },
+   {
+    "front": "Three functions of money",
+    "back": "Medium of exchange, unit of account and store of value."
+   },
+   {
+    "front": "Simple money multiplier",
+    "back": "Money multiplier = 1 / reserve ratio. With a 10 percent reserve ratio, each new dollar of reserves can support up to 10 dollars of deposits."
+   },
+   {
+    "front": "Main tools of the Federal Reserve",
+    "back": "Setting the target federal funds rate, paying interest on reserves, open market operations (buying or selling government bonds) and lending through the discount window."
+   },
+   {
+    "front": "Effect of the Fed buying government bonds",
+    "back": "It adds reserves to the banking system, increases the money supply and puts downward pressure on interest rates, which is expansionary."
+   },
+   {
+    "front": "Quantity theory of money",
+    "back": "M x V = P x Y. If velocity V and real output Y are stable, growth in the money supply M leads to proportional growth in the price level P in the long run."
+   },
+   {
+    "front": "Why does aggregate demand slope downward?",
+    "back": "A lower price level raises real wealth (wealth effect), lowers interest rates (interest rate effect) and makes domestic goods cheaper relative to foreign goods (exchange rate effect)."
+   },
+   {
+    "front": "Short-run vs long-run aggregate supply",
+    "back": "Long-run AS is vertical at potential output because it depends on resources and technology, not prices. Short-run AS slopes upward because some wages and prices are sticky."
+   },
+   {
+    "front": "Expansionary fiscal policy and its effect in the AD-AS model",
+    "back": "Increasing government spending or cutting taxes shifts AD right, raising output and the price level in the short run."
+   },
+   {
+    "front": "Spending multiplier formula",
+    "back": "Multiplier = 1 / (1 - MPC), where MPC is the marginal propensity to consume. With MPC = 0.8, the multiplier is 5."
+   },
+   {
+    "front": "Crowding out",
+    "back": "When government borrowing raises interest rates, private investment falls, offsetting part of the effect of expansionary fiscal policy."
+   },
+   {
+    "front": "Stagflation and what causes it",
+    "back": "Simultaneous high inflation and falling output or rising unemployment, typically caused by an adverse supply shock (such as an oil price spike) that shifts short-run AS left."
+   },
+   {
+    "front": "Recession definition (common rule of thumb)",
+    "back": "A significant, widespread decline in economic activity; a common rule of thumb is two consecutive quarters of falling real GDP, though the NBER uses a broader set of indicators."
+   }
+  ]
+ },
+ {
+  "school_key": "nyu.edu",
+  "course_code": "MATH-UA 121",
+  "course_name": "Calculus I",
+  "source_url": "https://bulletins.nyu.edu/courses/math_ua/",
+  "name": "MATH-UA 121 Exam Review: Limits, Derivatives, Applications and Intro Integrals",
+  "look": {
+   "color": "#4F46E5",
+   "icon": "calc"
+  },
+  "cards": [
+   {
+    "front": "Formal idea of lim x->a f(x) = L",
+    "back": "f(x) can be made as close as you like to L by taking x sufficiently close to a (but not equal to a). The value f(a) itself does not matter."
+   },
+   {
+    "front": "When does a two-sided limit exist?",
+    "back": "Only when both one-sided limits exist and are equal: lim x->a- f(x) = lim x->a+ f(x)."
+   },
+   {
+    "front": "Evaluate lim x->2 (x^2 - 4)/(x - 2)",
+    "back": "Factor: (x - 2)(x + 2)/(x - 2) = x + 2 for x not equal to 2, so the limit is 4."
+   },
+   {
+    "front": "lim x->0 sin(x)/x",
+    "back": "1 (with x in radians). It is the key limit used to derive d/dx [sin x] = cos x."
+   },
+   {
+    "front": "Three conditions for f to be continuous at x = a",
+    "back": "f(a) is defined, lim x->a f(x) exists, and lim x->a f(x) = f(a)."
+   },
+   {
+    "front": "Intermediate Value Theorem",
+    "back": "If f is continuous on [a, b] and N is between f(a) and f(b), then there is some c in (a, b) with f(c) = N. Often used to show a root exists."
+   },
+   {
+    "front": "Limit definition of the derivative",
+    "back": "f'(x) = lim h->0 [f(x + h) - f(x)] / h, the slope of the tangent line, or instantaneous rate of change."
+   },
+   {
+    "front": "Differentiable vs continuous",
+    "back": "Differentiability at a point implies continuity there, but not the reverse. Example: f(x) = |x| is continuous at 0 but not differentiable (sharp corner)."
+   },
+   {
+    "front": "Power rule",
+    "back": "d/dx [x^n] = n*x^(n-1) for any real constant n."
+   },
+   {
+    "front": "Product rule",
+    "back": "d/dx [f*g] = f'*g + f*g'."
+   },
+   {
+    "front": "Quotient rule",
+    "back": "d/dx [f/g] = (f'*g - f*g') / g^2."
+   },
+   {
+    "front": "Chain rule",
+    "back": "d/dx [f(g(x))] = f'(g(x)) * g'(x). Differentiate the outer function at the inner one, then multiply by the derivative of the inner function."
+   },
+   {
+    "front": "Differentiate y = (3x^2 + 1)^5",
+    "back": "By the chain rule, y' = 5(3x^2 + 1)^4 * 6x = 30x(3x^2 + 1)^4."
+   },
+   {
+    "front": "Derivatives of sin x, cos x and tan x",
+    "back": "d/dx sin x = cos x; d/dx cos x = -sin x; d/dx tan x = sec^2 x."
+   },
+   {
+    "front": "Derivatives of e^x and ln x",
+    "back": "d/dx e^x = e^x; d/dx ln x = 1/x for x > 0. More generally d/dx a^x = a^x * ln a."
+   },
+   {
+    "front": "Implicit differentiation: find dy/dx for x^2 + y^2 = 25",
+    "back": "Differentiate both sides: 2x + 2y*(dy/dx) = 0, so dy/dx = -x/y."
+   },
+   {
+    "front": "Strategy for related rates problems",
+    "back": "Draw and label a diagram, write an equation relating the quantities, differentiate both sides with respect to time t, then substitute known values only after differentiating."
+   },
+   {
+    "front": "Linear approximation formula",
+    "back": "f(x) is approximately f(a) + f'(a)(x - a) for x near a; this is the tangent line at x = a."
+   },
+   {
+    "front": "Critical number definition",
+    "back": "A number c in the domain of f where f'(c) = 0 or f'(c) does not exist. Local extrema can only occur at critical numbers."
+   },
+   {
+    "front": "First derivative test",
+    "back": "If f' changes from positive to negative at c, f has a local max at c; from negative to positive, a local min; no sign change means no local extremum."
+   },
+   {
+    "front": "Second derivative test",
+    "back": "If f'(c) = 0 and f''(c) > 0, local min at c; if f''(c) < 0, local max; if f''(c) = 0 the test is inconclusive."
+   },
+   {
+    "front": "Concavity and inflection points",
+    "back": "f'' > 0 means concave up and f'' < 0 means concave down. An inflection point is where concavity changes."
+   },
+   {
+    "front": "Closed interval method for absolute extrema",
+    "back": "For continuous f on [a, b], evaluate f at all critical numbers in (a, b) and at the endpoints a and b; the largest value is the absolute max and the smallest is the absolute min."
+   },
+   {
+    "front": "Mean Value Theorem",
+    "back": "If f is continuous on [a, b] and differentiable on (a, b), there is some c in (a, b) with f'(c) = [f(b) - f(a)] / (b - a)."
+   },
+   {
+    "front": "L'Hopital's rule",
+    "back": "If lim f/g gives 0/0 or infinity/infinity, then lim f(x)/g(x) = lim f'(x)/g'(x), provided the latter limit exists. Do not use it for other forms without rewriting first."
+   },
+   {
+    "front": "Horizontal asymptote of (3x^2 + 1)/(5x^2 - x)",
+    "back": "Degrees of numerator and denominator are equal, so the limit as x goes to infinity is the ratio of leading coefficients: y = 3/5."
+   },
+   {
+    "front": "Antiderivative of x^n (n not -1)",
+    "back": "Integral of x^n dx = x^(n+1)/(n+1) + C. For n = -1, the integral of 1/x dx = ln|x| + C."
+   },
+   {
+    "front": "Fundamental Theorem of Calculus, Part 2",
+    "back": "If F is an antiderivative of continuous f on [a, b], then the integral from a to b of f(x) dx = F(b) - F(a)."
+   },
+   {
+    "front": "Compute the integral from 0 to 2 of 3x^2 dx",
+    "back": "An antiderivative is x^3, so the value is 2^3 - 0^3 = 8."
+   },
+   {
+    "front": "Fundamental Theorem of Calculus, Part 1",
+    "back": "If g(x) = integral from a to x of f(t) dt with f continuous, then g'(x) = f(x)."
+   }
+  ]
+ },
+ {
+  "school_key": "rutgers.edu",
+  "course_code": "01:119:115",
+  "course_name": "General Biology",
+  "source_url": "https://biology.rutgers.edu/academics/undergraduate/courses/detail/28-biological-sciences-courses-3/52-01-119-115-116-general-biology",
+  "name": "01:119:115 General Biology I Review: Cells, Metabolism, Genetics, Evolution and Ecology",
+  "look": {
+   "color": "#16A34A",
+   "icon": "bio"
+  },
+  "cards": [
+   {
+    "front": "Four major classes of biological macromolecules and their monomers",
+    "back": "Carbohydrates (monosaccharides), proteins (amino acids), nucleic acids (nucleotides) and lipids (not true polymers; fats are built from glycerol and fatty acids)."
+   },
+   {
+    "front": "Dehydration synthesis vs hydrolysis",
+    "back": "Dehydration synthesis joins monomers by removing a water molecule; hydrolysis breaks polymers apart by adding water."
+   },
+   {
+    "front": "Four levels of protein structure",
+    "back": "Primary: amino acid sequence. Secondary: alpha helices and beta sheets from backbone hydrogen bonds. Tertiary: overall 3D fold from R-group interactions. Quaternary: multiple polypeptide subunits."
+   },
+   {
+    "front": "Prokaryotic vs eukaryotic cells",
+    "back": "Prokaryotes (bacteria and archaea) lack a nucleus and membrane-bound organelles; eukaryotes have a nucleus, membrane-bound organelles and usually larger cells."
+   },
+   {
+    "front": "Endosymbiotic theory and its evidence",
+    "back": "Mitochondria and chloroplasts descend from engulfed prokaryotes. Evidence: they have their own circular DNA, double membranes, bacteria-like ribosomes and divide by fission."
+   },
+   {
+    "front": "Fluid mosaic model",
+    "back": "The plasma membrane is a phospholipid bilayer with proteins embedded in or attached to it, and its components can move laterally."
+   },
+   {
+    "front": "Osmosis: what happens to an animal cell in a hypotonic solution?",
+    "back": "Water moves into the cell because the solution has a lower solute concentration than the cytoplasm, so the cell swells and may burst (lyse)."
+   },
+   {
+    "front": "Passive vs active transport",
+    "back": "Passive transport (diffusion, facilitated diffusion, osmosis) moves substances down their concentration gradient without energy input; active transport moves them against it using energy, usually ATP, as in the sodium-potassium pump."
+   },
+   {
+    "front": "How do enzymes speed up reactions?",
+    "back": "They lower the activation energy by binding substrates at the active site; they do not change the overall free energy change (delta G) of the reaction."
+   },
+   {
+    "front": "Competitive vs noncompetitive inhibition",
+    "back": "A competitive inhibitor binds the active site and can be outcompeted by more substrate. A noncompetitive inhibitor binds elsewhere and changes the enzyme's shape, reducing activity regardless of substrate level."
+   },
+   {
+    "front": "Overall equation for cellular respiration",
+    "back": "C6H12O6 + 6 O2 -> 6 CO2 + 6 H2O + energy (ATP and heat)."
+   },
+   {
+    "front": "Stages of aerobic respiration and where they occur",
+    "back": "Glycolysis (cytosol), pyruvate oxidation and the citric acid cycle (mitochondrial matrix), and oxidative phosphorylation via the electron transport chain and chemiosmosis (inner mitochondrial membrane)."
+   },
+   {
+    "front": "Role of oxygen in cellular respiration",
+    "back": "Oxygen is the final electron acceptor of the electron transport chain, combining with electrons and H+ to form water."
+   },
+   {
+    "front": "Why does fermentation occur and what does it regenerate?",
+    "back": "Without oxygen, cells use fermentation to regenerate NAD+ from NADH so glycolysis can continue producing a small amount of ATP; products include lactate or ethanol plus CO2."
+   },
+   {
+    "front": "Light reactions vs Calvin cycle",
+    "back": "Light reactions (thylakoid membranes) split water, release O2 and make ATP and NADPH. The Calvin cycle (stroma) uses that ATP and NADPH to fix CO2 into sugar, with rubisco as the key enzyme."
+   },
+   {
+    "front": "Phases of mitosis in order",
+    "back": "Prophase, prometaphase, metaphase, anaphase and telophase, usually followed by cytokinesis."
+   },
+   {
+    "front": "Mitosis vs meiosis",
+    "back": "Mitosis produces two genetically identical diploid cells for growth and repair. Meiosis has two divisions and produces four genetically different haploid gametes."
+   },
+   {
+    "front": "Sources of genetic variation in meiosis",
+    "back": "Crossing over between homologous chromosomes in prophase I, independent assortment of homologs in metaphase I, and random fertilization."
+   },
+   {
+    "front": "Central dogma of molecular biology",
+    "back": "DNA is transcribed into mRNA, and mRNA is translated into protein by ribosomes."
+   },
+   {
+    "front": "Key features of DNA replication",
+    "back": "It is semiconservative; DNA polymerase adds nucleotides only in the 5' to 3' direction, so the leading strand is made continuously and the lagging strand in Okazaki fragments joined by ligase."
+   },
+   {
+    "front": "Role of tRNA in translation",
+    "back": "Each tRNA carries a specific amino acid and has an anticodon that base-pairs with a complementary mRNA codon in the ribosome."
+   },
+   {
+    "front": "The lac operon: what happens when lactose is present?",
+    "back": "Lactose (as allolactose) binds the repressor, releasing it from the operator so RNA polymerase can transcribe the genes for lactose metabolism."
+   },
+   {
+    "front": "Mendel's law of segregation",
+    "back": "Each organism has two alleles for a gene, and they separate during gamete formation so each gamete carries only one allele."
+   },
+   {
+    "front": "Mini-problem: cross Aa x Aa. Expected genotype and phenotype ratios?",
+    "back": "Genotypes 1 AA : 2 Aa : 1 aa; phenotypes 3 dominant : 1 recessive."
+   },
+   {
+    "front": "Incomplete dominance vs codominance",
+    "back": "Incomplete dominance: heterozygote has an intermediate phenotype (red x white gives pink). Codominance: both alleles are fully expressed (AB blood type)."
+   },
+   {
+    "front": "Why are X-linked recessive disorders more common in males?",
+    "back": "Males have one X chromosome, so a single recessive allele on that X is expressed; females need two copies."
+   },
+   {
+    "front": "Hardy-Weinberg equations and what they assume",
+    "back": "p + q = 1 and p^2 + 2pq + q^2 = 1. Assumes no mutation, random mating, no natural selection, a very large population (no drift) and no gene flow."
+   },
+   {
+    "front": "Mini-problem: 16 percent of a population shows a recessive trait. What is the frequency of the recessive allele?",
+    "back": "q^2 = 0.16, so q = 0.4."
+   },
+   {
+    "front": "Natural selection: what conditions are required?",
+    "back": "Heritable variation among individuals, more offspring produced than can survive, and differential survival and reproduction based on traits."
+   },
+   {
+    "front": "Prezygotic vs postzygotic reproductive barriers",
+    "back": "Prezygotic barriers prevent mating or fertilization (habitat, behavioral, temporal, mechanical, gametic isolation). Postzygotic barriers act after fertilization (hybrid inviability, sterility or breakdown)."
+   },
+   {
+    "front": "Logistic vs exponential population growth",
+    "back": "Exponential growth is unlimited J-shaped growth (dN/dt = rN). Logistic growth slows as population nears carrying capacity K, producing an S-shaped curve (dN/dt = rN(K - N)/K)."
+   },
+   {
+    "front": "Roughly what fraction of energy passes from one trophic level to the next?",
+    "back": "About 10 percent; the rest is lost mainly as heat through metabolism, which limits the length of food chains."
+   }
+  ]
+ },
+ {
+  "school_key": "rutgers.edu",
+  "course_code": "01:160:161",
+  "course_name": "General Chemistry",
+  "source_url": "https://chem.rutgers.edu/academics/undergraduate-program/undergraduate-course-descriptions/course-descriptions/1896-01-160-161-general-chemistry",
+  "name": "01:160:161 General Chemistry Review: Stoichiometry, Gases, Atomic Structure, Bonding and Thermochemistry",
+  "look": {
+   "color": "#E0673B",
+   "icon": "chem"
+  },
+  "cards": [
+   {
+    "front": "What is a mole?",
+    "back": "A mole is 6.022 x 10^23 particles (Avogadro's number). The molar mass in grams per mole equals the formula mass in atomic mass units."
+   },
+   {
+    "front": "Mini-problem: how many moles are in 36.0 g of water (H2O, 18.0 g/mol)?",
+    "back": "36.0 g / 18.0 g/mol = 2.00 mol."
+   },
+   {
+    "front": "Limiting reactant",
+    "back": "The reactant that is completely used up first; it determines the maximum amount of product that can form (the theoretical yield)."
+   },
+   {
+    "front": "Percent yield formula",
+    "back": "Percent yield = (actual yield / theoretical yield) x 100."
+   },
+   {
+    "front": "Molarity definition",
+    "back": "M = moles of solute / liters of solution."
+   },
+   {
+    "front": "Dilution equation",
+    "back": "M1V1 = M2V2: moles of solute stay the same when a solution is diluted."
+   },
+   {
+    "front": "Empirical vs molecular formula",
+    "back": "The empirical formula is the simplest whole-number ratio of atoms (CH2O for glucose); the molecular formula is the actual number of each atom (C6H12O6)."
+   },
+   {
+    "front": "Oxidation vs reduction",
+    "back": "Oxidation is loss of electrons (oxidation number increases); reduction is gain of electrons (oxidation number decreases). Mnemonic: OIL RIG."
+   },
+   {
+    "front": "Ideal gas law with symbols",
+    "back": "PV = nRT: P pressure, V volume, n moles, R gas constant (0.08206 L atm / mol K), T temperature in kelvin."
+   },
+   {
+    "front": "Pitfall in gas law problems",
+    "back": "Temperature must be in kelvin (K = degrees C + 273.15); using Celsius gives wrong answers."
+   },
+   {
+    "front": "Dalton's law of partial pressures",
+    "back": "The total pressure of a gas mixture equals the sum of the partial pressures of each gas; partial pressure of gas A = mole fraction of A x total pressure."
+   },
+   {
+    "front": "Kinetic molecular theory: what does average kinetic energy depend on?",
+    "back": "Only absolute temperature. At the same temperature, lighter gas molecules move faster on average than heavier ones."
+   },
+   {
+    "front": "Graham's law of effusion",
+    "back": "rate1 / rate2 = square root of (M2 / M1): lighter gases effuse faster."
+   },
+   {
+    "front": "Relationship between wavelength, frequency and photon energy",
+    "back": "c = wavelength x frequency, and E = h x frequency, so shorter wavelength means higher frequency and higher energy photons."
+   },
+   {
+    "front": "Four quantum numbers",
+    "back": "n (principal: energy level and size), l (angular momentum: subshell shape, 0 to n - 1), ml (magnetic: orbital orientation) and ms (spin, +1/2 or -1/2)."
+   },
+   {
+    "front": "Pauli exclusion principle and Hund's rule",
+    "back": "Pauli: no two electrons in an atom have the same four quantum numbers, so an orbital holds at most two electrons of opposite spin. Hund: electrons fill degenerate orbitals singly before pairing."
+   },
+   {
+    "front": "Electron configuration of oxygen (Z = 8)",
+    "back": "1s2 2s2 2p4."
+   },
+   {
+    "front": "Periodic trends in atomic radius",
+    "back": "Atomic radius decreases across a period (greater effective nuclear charge) and increases down a group (more electron shells)."
+   },
+   {
+    "front": "Periodic trends in ionization energy and electronegativity",
+    "back": "Both generally increase across a period and decrease down a group. Fluorine is the most electronegative element."
+   },
+   {
+    "front": "Ionic vs covalent bonds",
+    "back": "Ionic bonds form from electron transfer and electrostatic attraction between ions (often metal + nonmetal). Covalent bonds form from shared electron pairs (usually between nonmetals)."
+   },
+   {
+    "front": "Formal charge formula",
+    "back": "Formal charge = valence electrons - nonbonding electrons - (bonding electrons / 2). The best Lewis structure minimizes formal charges."
+   },
+   {
+    "front": "VSEPR: geometry of a molecule with 4 electron domains and 2 lone pairs (like H2O)",
+    "back": "Electron geometry is tetrahedral, molecular geometry is bent, with a bond angle slightly less than 109.5 degrees (about 104.5 for water)."
+   },
+   {
+    "front": "Hybridization for 2, 3 and 4 electron domains",
+    "back": "2 domains: sp (linear). 3 domains: sp2 (trigonal planar). 4 domains: sp3 (tetrahedral)."
+   },
+   {
+    "front": "Sigma vs pi bonds",
+    "back": "A single bond is one sigma bond; a double bond is one sigma and one pi; a triple bond is one sigma and two pi. Pi bonds come from side-by-side p orbital overlap."
+   },
+   {
+    "front": "How can a molecule with polar bonds be nonpolar? Give an example.",
+    "back": "If its geometry is symmetric, the bond dipoles cancel. CO2 is linear with two polar C=O bonds but no net dipole."
+   },
+   {
+    "front": "Rank the intermolecular forces from weakest to strongest",
+    "back": "London dispersion forces < dipole-dipole forces < hydrogen bonding (H bonded to N, O or F). Ion-dipole forces are stronger still."
+   },
+   {
+    "front": "Endothermic vs exothermic reactions",
+    "back": "Exothermic reactions release heat (delta H < 0); endothermic reactions absorb heat (delta H > 0)."
+   },
+   {
+    "front": "Heat equation q = m c delta T",
+    "back": "q is heat, m is mass, c is specific heat capacity and delta T is the temperature change. For water, c = 4.184 J/g C."
+   },
+   {
+    "front": "Hess's law",
+    "back": "The enthalpy change of a reaction is the same regardless of path, so delta H values of steps can be added; reversing a reaction flips the sign and multiplying it scales delta H."
+   },
+   {
+    "front": "Enthalpy of reaction from enthalpies of formation",
+    "back": "Delta H rxn = sum of n x delta Hf(products) - sum of n x delta Hf(reactants). Elements in their standard states have delta Hf = 0."
+   }
+  ]
+ },
+ {
+  "school_key": "rutgers.edu",
+  "course_code": "01:920:101",
+  "course_name": "Introduction to Sociology",
+  "source_url": "https://sociology.rutgers.edu/academics/undergraduate/course-descriptions/course-descriptions/335-01920101-introduction-to-sociology",
+  "name": "01:920:101 Introduction to Sociology Review: Theory, Methods, Culture, Inequality and Institutions",
+  "look": {
+   "color": "#D6386F",
+   "icon": "soc"
+  },
+  "cards": [
+   {
+    "front": "The sociological imagination (C. Wright Mills)",
+    "back": "The ability to see connections between personal experiences and larger social forces and history; for example, seeing one person's job loss as part of a broader economic pattern."
+   },
+   {
+    "front": "Personal troubles vs public issues",
+    "back": "Personal troubles affect an individual and their immediate surroundings; public issues are problems of social structure that affect many people, such as mass unemployment."
+   },
+   {
+    "front": "Structural functionalism",
+    "back": "A macro perspective that views society as a system of interrelated parts, each serving a function that contributes to stability. Associated with Durkheim, Parsons and Merton."
+   },
+   {
+    "front": "Manifest vs latent functions (Merton)",
+    "back": "Manifest functions are intended and recognized consequences; latent functions are unintended and often unrecognized. College's manifest function is education; a latent one is meeting future partners."
+   },
+   {
+    "front": "Conflict theory",
+    "back": "A macro perspective that views society as an arena of inequality and competition over scarce resources, where powerful groups maintain their advantage. Rooted in Marx."
+   },
+   {
+    "front": "Symbolic interactionism",
+    "back": "A micro perspective focused on how people create and interpret shared meanings through everyday interaction and symbols. Associated with Mead and Blumer."
+   },
+   {
+    "front": "Marx's bourgeoisie vs proletariat",
+    "back": "The bourgeoisie own the means of production; the proletariat sell their labor for wages. Marx argued their opposed interests drive class conflict."
+   },
+   {
+    "front": "Durkheim's study of suicide showed what?",
+    "back": "Suicide rates vary with social integration and regulation, so even a seemingly individual act is shaped by social forces."
+   },
+   {
+    "front": "Weber's three dimensions of stratification",
+    "back": "Class (economic position), status (social prestige) and party (political power)."
+   },
+   {
+    "front": "Weber's concept of verstehen",
+    "back": "Interpretive understanding: grasping the subjective meanings people attach to their actions."
+   },
+   {
+    "front": "Quantitative vs qualitative research",
+    "back": "Quantitative research uses numerical data and statistics (surveys, experiments); qualitative research uses non-numerical data such as interviews and participant observation to understand meaning."
+   },
+   {
+    "front": "Reliability vs validity",
+    "back": "Reliability is the consistency of a measure across repeated use; validity is whether it actually measures what it claims to measure."
+   },
+   {
+    "front": "Ethnography / participant observation",
+    "back": "A method in which the researcher spends extended time in a group's natural setting, observing and often participating, to understand its culture from the inside."
+   },
+   {
+    "front": "Material vs nonmaterial culture",
+    "back": "Material culture is physical objects people create (tools, buildings); nonmaterial culture is ideas, values, beliefs, norms and language."
+   },
+   {
+    "front": "Folkways vs mores vs laws",
+    "back": "Folkways are informal everyday norms with mild sanctions; mores are norms with strong moral weight; laws are formal norms enforced by the state."
+   },
+   {
+    "front": "Ethnocentrism vs cultural relativism",
+    "back": "Ethnocentrism judges other cultures by the standards of one's own; cultural relativism tries to understand a culture on its own terms."
+   },
+   {
+    "front": "Subculture vs counterculture",
+    "back": "A subculture shares many mainstream values but has distinctive features; a counterculture actively rejects and opposes key mainstream values."
+   },
+   {
+    "front": "Primary vs secondary socialization agents",
+    "back": "Primary socialization occurs early, mainly through family; secondary socialization continues through school, peers, media and workplaces."
+   },
+   {
+    "front": "Looking-glass self (Cooley)",
+    "back": "Our self-concept develops from how we imagine others see and judge us."
+   },
+   {
+    "front": "Mead's I and me",
+    "back": "The me is the socialized self that reflects others' expectations; the I is the spontaneous, active part of the self that responds."
+   },
+   {
+    "front": "Ascribed vs achieved status",
+    "back": "An ascribed status is assigned at birth or involuntarily (race, age); an achieved status is earned or chosen (college graduate, doctor)."
+   },
+   {
+    "front": "Role strain vs role conflict",
+    "back": "Role strain is tension among demands within one role (a student with too many assignments); role conflict is tension between two different roles (parent and employee)."
+   },
+   {
+    "front": "Primary vs secondary groups",
+    "back": "Primary groups are small, intimate and long-lasting (family, close friends); secondary groups are larger, impersonal and goal-oriented (a work team, a class)."
+   },
+   {
+    "front": "Labeling theory of deviance",
+    "back": "Deviance is not inherent in an act but results from others applying a deviant label; being labeled can push people toward further deviance."
+   },
+   {
+    "front": "Merton's strain theory",
+    "back": "Deviance arises when people lack legitimate means to reach culturally approved goals; responses include conformity, innovation, ritualism, retreatism and rebellion."
+   },
+   {
+    "front": "Open vs closed stratification systems",
+    "back": "Open systems (class systems) allow movement between strata based on achievement; closed systems (caste systems) assign position at birth with little mobility."
+   },
+   {
+    "front": "Intergenerational vs intragenerational mobility",
+    "back": "Intergenerational mobility compares a person's social position to their parents'; intragenerational mobility is change within one person's lifetime."
+   },
+   {
+    "front": "Sex vs gender",
+    "back": "Sex refers to biological characteristics; gender refers to the socially constructed roles, behaviors and identities a society associates with being a man or woman."
+   },
+   {
+    "front": "Race as a social construction",
+    "back": "Racial categories are not fixed biological facts; they are created and given meaning by societies and change over time and place."
+   },
+   {
+    "front": "Prejudice vs discrimination vs institutional racism",
+    "back": "Prejudice is a biased attitude; discrimination is unequal treatment (behavior); institutional racism is inequality built into the policies and practices of organizations and systems."
+   },
+   {
+    "front": "Weber's ideal type of bureaucracy",
+    "back": "A formal organization with hierarchy of authority, division of labor, written rules, impersonality and hiring based on technical qualifications."
+   }
+  ]
+ },
+ {
+  "school_key": "msu.edu",
+  "course_code": "STT 200",
+  "course_name": "Statistical Methods",
+  "source_url": "https://reg.msu.edu/Courses/Request.aspx?SubjectCode=STT&CourseNumber=200",
+  "name": "STT 200 Exam Review: Data Analysis, Probability, Confidence Intervals, Hypothesis Tests and Regression",
+  "look": {
+   "color": "#1D9BB8",
+   "icon": "stats"
+  },
+  "cards": [
+   {
+    "front": "Population vs sample; parameter vs statistic",
+    "back": "A population is the entire group of interest and a parameter describes it (mu, p). A sample is a subset actually measured and a statistic describes it (x-bar, p-hat)."
+   },
+   {
+    "front": "Categorical vs quantitative variables",
+    "back": "Categorical variables place individuals into groups (major, eye color); quantitative variables take numerical values for which arithmetic makes sense (height, income)."
+   },
+   {
+    "front": "Mean vs median when a distribution is right-skewed",
+    "back": "The mean is pulled toward the long right tail, so mean > median. The median is resistant to outliers and better describes the center of skewed data."
+   },
+   {
+    "front": "IQR and the 1.5 x IQR outlier rule",
+    "back": "IQR = Q3 - Q1. A value is flagged as an outlier if it is below Q1 - 1.5 x IQR or above Q3 + 1.5 x IQR."
+   },
+   {
+    "front": "Z-score formula and meaning",
+    "back": "z = (x - mean) / standard deviation. It tells how many standard deviations a value is above (positive) or below (negative) the mean."
+   },
+   {
+    "front": "68-95-99.7 rule",
+    "back": "For a normal distribution, about 68 percent of values fall within 1 SD of the mean, 95 percent within 2 SD, and 99.7 percent within 3 SD."
+   },
+   {
+    "front": "Observational study vs experiment",
+    "back": "In an observational study researchers measure without intervening; in an experiment they assign treatments. Only well-designed randomized experiments can establish cause and effect."
+   },
+   {
+    "front": "Simple random sample and a common source of bias",
+    "back": "An SRS gives every possible sample of size n an equal chance of selection. Voluntary response samples are biased because people with strong opinions are more likely to respond."
+   },
+   {
+    "front": "Addition rule for probability",
+    "back": "P(A or B) = P(A) + P(B) - P(A and B). If A and B are disjoint, P(A and B) = 0."
+   },
+   {
+    "front": "Independent vs disjoint events: common pitfall",
+    "back": "Disjoint events cannot happen together. Independent events do not affect each other's probabilities: P(A and B) = P(A) x P(B). Disjoint events with nonzero probabilities are never independent."
+   },
+   {
+    "front": "Conditional probability formula",
+    "back": "P(A | B) = P(A and B) / P(B): the probability of A given that B has occurred."
+   },
+   {
+    "front": "Expected value of a discrete random variable",
+    "back": "E(X) = sum of x x P(x), the long-run average value of X over many repetitions."
+   },
+   {
+    "front": "Conditions for a binomial setting",
+    "back": "A fixed number n of trials, two outcomes (success or failure), independent trials, and the same probability of success p on each trial."
+   },
+   {
+    "front": "Binomial mean and standard deviation",
+    "back": "Mean = n x p; standard deviation = square root of n x p x (1 - p)."
+   },
+   {
+    "front": "Sampling distribution of the sample mean",
+    "back": "x-bar has mean mu and standard deviation sigma divided by square root of n. Larger samples give less variable sample means."
+   },
+   {
+    "front": "Central Limit Theorem",
+    "back": "For a large enough sample size (a common guideline is n of at least 30), the sampling distribution of x-bar is approximately normal, regardless of the population's shape."
+   },
+   {
+    "front": "General form of a confidence interval",
+    "back": "Estimate plus or minus margin of error, where margin of error = critical value x standard error."
+   },
+   {
+    "front": "Correct interpretation of a 95 percent confidence interval",
+    "back": "We are 95 percent confident the interval captures the true parameter; 95 percent of intervals built this way would contain it. It is not a 95 percent chance that the parameter is in this specific interval."
+   },
+   {
+    "front": "How does sample size affect the margin of error?",
+    "back": "Margin of error shrinks as n grows, in proportion to 1 / square root of n; to cut it in half you need about four times the sample size."
+   },
+   {
+    "front": "Confidence interval for a proportion",
+    "back": "p-hat plus or minus z* x square root of [p-hat(1 - p-hat) / n]. For 95 percent confidence, z* = 1.96."
+   },
+   {
+    "front": "Null vs alternative hypothesis",
+    "back": "The null hypothesis H0 states no effect or no difference (parameter equals a specific value). The alternative Ha states what we are looking for evidence of (greater than, less than or not equal)."
+   },
+   {
+    "front": "Definition of a p-value",
+    "back": "The probability, assuming H0 is true, of getting a test statistic at least as extreme as the one observed. A small p-value is evidence against H0."
+   },
+   {
+    "front": "Decision rule using significance level alpha",
+    "back": "If p-value is at most alpha (often 0.05), reject H0; otherwise fail to reject H0. We never accept or prove H0."
+   },
+   {
+    "front": "Type I vs Type II error",
+    "back": "Type I: rejecting H0 when it is actually true (probability alpha). Type II: failing to reject H0 when it is actually false (probability beta). Power = 1 - beta."
+   },
+   {
+    "front": "When should you use a t procedure instead of z for a mean?",
+    "back": "When the population standard deviation sigma is unknown and estimated by the sample s; use a t distribution with n - 1 degrees of freedom."
+   },
+   {
+    "front": "Correlation coefficient r: key properties",
+    "back": "r ranges from -1 to 1, measures the strength and direction of a linear relationship, has no units, and is not resistant to outliers."
+   },
+   {
+    "front": "Least-squares regression line and slope interpretation",
+    "back": "y-hat = b0 + b1 x. The slope b1 is the predicted change in y for each one-unit increase in x."
+   },
+   {
+    "front": "What is a residual?",
+    "back": "Residual = observed y - predicted y-hat. The least-squares line minimizes the sum of squared residuals."
+   },
+   {
+    "front": "Meaning of r^2 in simple linear regression",
+    "back": "The fraction of the variation in y explained by the linear relationship with x. For r = 0.6, r^2 = 0.36, so 36 percent is explained."
+   },
+   {
+    "front": "Extrapolation pitfall",
+    "back": "Using a regression line to predict far outside the range of observed x values is unreliable because the linear pattern may not continue."
+   }
+  ]
+ },
+ {
+  "school_key": "msu.edu",
+  "course_code": "ACC 201",
+  "course_name": "Principles of Financial Accounting",
+  "source_url": "https://reg.msu.edu/Courses/Request.aspx?SubjectCode=ACC&CourseNumber=201",
+  "name": "ACC 201 Exam Review: Financial Statements, Transaction Analysis, Accruals, Inventory and Assets",
+  "look": {
+   "color": "#C79A12",
+   "icon": "acct"
+  },
+  "cards": [
+   {
+    "front": "The basic accounting equation",
+    "back": "Assets = Liabilities + Stockholders' Equity. Every transaction keeps this equation in balance."
+   },
+   {
+    "front": "Four main financial statements",
+    "back": "Income statement (revenues and expenses over a period), statement of stockholders' equity (or retained earnings), balance sheet (assets, liabilities and equity at a point in time) and statement of cash flows."
+   },
+   {
+    "front": "Normal balances: which accounts increase with a debit?",
+    "back": "Assets, expenses and dividends increase with debits. Liabilities, stockholders' equity (including common stock and retained earnings) and revenues increase with credits."
+   },
+   {
+    "front": "Journal entry: company borrows 10,000 cash from a bank",
+    "back": "Debit Cash 10,000; credit Notes Payable 10,000. Assets and liabilities both rise."
+   },
+   {
+    "front": "Journal entry: company provides services on account for 2,000",
+    "back": "Debit Accounts Receivable 2,000; credit Service Revenue 2,000. Revenue is recognized when earned, not when cash is received."
+   },
+   {
+    "front": "Revenue recognition principle",
+    "back": "Revenue is recognized when the company satisfies its performance obligation by transferring goods or services to the customer, regardless of when cash is collected."
+   },
+   {
+    "front": "Expense recognition (matching) principle",
+    "back": "Expenses are recorded in the same period as the revenues they help generate."
+   },
+   {
+    "front": "Accrual vs cash basis accounting",
+    "back": "Accrual basis records revenues when earned and expenses when incurred; cash basis records them only when cash changes hands. GAAP requires the accrual basis."
+   },
+   {
+    "front": "Four types of adjusting entries",
+    "back": "Deferred (prepaid) expenses, deferred (unearned) revenues, accrued expenses and accrued revenues."
+   },
+   {
+    "front": "Adjusting entry: 300 of prepaid insurance has expired",
+    "back": "Debit Insurance Expense 300; credit Prepaid Insurance 300."
+   },
+   {
+    "front": "Adjusting entry: 500 of wages earned but unpaid at period end",
+    "back": "Debit Wages Expense 500; credit Wages Payable 500."
+   },
+   {
+    "front": "Unearned revenue: what kind of account is it?",
+    "back": "A liability. The company has received cash but still owes goods or services; it becomes revenue as the obligation is fulfilled."
+   },
+   {
+    "front": "Purpose of closing entries",
+    "back": "To reset temporary accounts (revenues, expenses, dividends) to zero and transfer their net balance to Retained Earnings at period end."
+   },
+   {
+    "front": "Retained earnings roll-forward",
+    "back": "Ending retained earnings = beginning retained earnings + net income - dividends."
+   },
+   {
+    "front": "Current vs noncurrent assets",
+    "back": "Current assets are expected to be converted to cash or used up within one year or the operating cycle (cash, receivables, inventory); noncurrent assets last longer (equipment, intangibles)."
+   },
+   {
+    "front": "Allowance method for bad debts",
+    "back": "Estimated uncollectible accounts are recorded as Bad Debt Expense with a credit to Allowance for Doubtful Accounts, a contra-asset that reduces receivables to net realizable value."
+   },
+   {
+    "front": "Writing off a specific uncollectible account under the allowance method",
+    "back": "Debit Allowance for Doubtful Accounts; credit Accounts Receivable. This entry does not affect net income or net receivables."
+   },
+   {
+    "front": "Cost of goods sold formula",
+    "back": "COGS = beginning inventory + purchases - ending inventory."
+   },
+   {
+    "front": "FIFO vs LIFO when prices are rising",
+    "back": "FIFO assigns the oldest (cheaper) costs to COGS, so it gives lower COGS, higher net income and higher ending inventory. LIFO gives higher COGS and lower net income. LIFO is not allowed under IFRS."
+   },
+   {
+    "front": "Gross profit formula",
+    "back": "Gross profit = net sales - cost of goods sold."
+   },
+   {
+    "front": "Straight-line depreciation formula",
+    "back": "Annual depreciation = (cost - residual value) / useful life in years."
+   },
+   {
+    "front": "Mini-problem: equipment costs 50,000, residual value 5,000, useful life 5 years. Straight-line depreciation per year?",
+    "back": "(50,000 - 5,000) / 5 = 9,000 per year."
+   },
+   {
+    "front": "Book value (carrying value) of a long-lived asset",
+    "back": "Cost minus accumulated depreciation. Accumulated depreciation is a contra-asset account."
+   },
+   {
+    "front": "Capital expenditure vs revenue expenditure",
+    "back": "Capital expenditures add to an asset's useful life or capacity and are capitalized; ordinary repairs and maintenance are expensed as incurred."
+   },
+   {
+    "front": "Three sections of the statement of cash flows",
+    "back": "Operating activities (core business), investing activities (buying or selling long-term assets and investments) and financing activities (debt, issuing stock, paying dividends)."
+   },
+   {
+    "front": "Where are dividends paid and interest paid classified under US GAAP?",
+    "back": "Dividends paid are financing activities; interest paid is an operating activity."
+   },
+   {
+    "front": "Current ratio formula and meaning",
+    "back": "Current ratio = current assets / current liabilities. It measures short-term liquidity; higher means more ability to pay short-term obligations."
+   },
+   {
+    "front": "Debt to assets ratio",
+    "back": "Total liabilities / total assets. It measures the share of assets financed with debt, an indicator of solvency risk."
+   },
+   {
+    "front": "Historical cost principle",
+    "back": "Assets are generally recorded at their original cost when acquired, not at their later market value."
+   },
+   {
+    "front": "GAAP vs IFRS: who sets each?",
+    "back": "In the US, GAAP is set by the Financial Accounting Standards Board (FASB). IFRS is set by the International Accounting Standards Board (IASB) and is used in many other countries."
+   }
+  ]
+ },
+ {
+  "school_key": "msu.edu",
+  "course_code": "CSE 231",
+  "course_name": "Introduction to Programming I",
+  "source_url": "https://reg.msu.edu/Courses/Request.aspx?SubjectCode=CSE&CourseNumber=231",
+  "name": "CSE 231 Exam Review: Python Fundamentals, Control Flow, Functions, Collections, Files and Classes",
+  "look": {
+   "color": "#334155",
+   "icon": "code"
+  },
+  "cards": [
+   {
+    "front": "Result of 7 / 2, 7 // 2 and 7 % 2 in Python 3",
+    "back": "7 / 2 is 3.5 (true division, float); 7 // 2 is 3 (floor division); 7 % 2 is 1 (remainder)."
+   },
+   {
+    "front": "What does int('42') + 1 return, and what does '42' + 1 do?",
+    "back": "int('42') + 1 returns 43. '42' + 1 raises a TypeError because you cannot add a str and an int."
+   },
+   {
+    "front": "Mutable vs immutable types in Python",
+    "back": "Lists, dictionaries and sets are mutable (can change in place). Integers, floats, strings and tuples are immutable."
+   },
+   {
+    "front": "What does 'python'[1:4] evaluate to?",
+    "back": "'yth'. Slicing includes the start index and excludes the stop index; indexing starts at 0."
+   },
+   {
+    "front": "What does s[-1] return for a string s?",
+    "back": "The last character. Negative indexes count from the end, so s[-2] is the second-to-last."
+   },
+   {
+    "front": "Why does s[0] = 'X' fail for a string s?",
+    "back": "Strings are immutable, so item assignment raises a TypeError. Build a new string instead, for example 'X' + s[1:]."
+   },
+   {
+    "front": "What values does range(2, 10, 3) produce?",
+    "back": "2, 5, 8. The stop value 10 is excluded."
+   },
+   {
+    "front": "for loop vs while loop",
+    "back": "A for loop iterates over each item of a sequence or iterable; a while loop repeats as long as a condition is True and is used when the number of iterations is not known in advance."
+   },
+   {
+    "front": "break vs continue",
+    "back": "break exits the loop entirely; continue skips the rest of the current iteration and moves on to the next one."
+   },
+   {
+    "front": "Common infinite loop pitfall in a while loop",
+    "back": "Forgetting to update the variable in the loop condition, so the condition never becomes False."
+   },
+   {
+    "front": "Difference between = and ==",
+    "back": "= assigns a value to a variable; == compares two values and returns True or False."
+   },
+   {
+    "front": "How does if / elif / else evaluate?",
+    "back": "Conditions are checked top to bottom; only the first True branch runs. else runs only if none of the conditions were True."
+   },
+   {
+    "front": "Short-circuit evaluation of and / or",
+    "back": "With and, if the left side is False the right side is not evaluated; with or, if the left side is True the right side is not evaluated."
+   },
+   {
+    "front": "print vs return in a function",
+    "back": "print displays a value on screen; return sends a value back to the caller. A function with no return statement returns None."
+   },
+   {
+    "front": "Local vs global scope",
+    "back": "Variables assigned inside a function are local to it and disappear when it returns; globals are defined at the top level of the module. Use parameters and return values instead of modifying globals."
+   },
+   {
+    "front": "Default parameter values",
+    "back": "def greet(name, greeting='Hi'): lets callers omit greeting. Parameters with defaults must come after those without."
+   },
+   {
+    "front": "Pitfall: using a mutable default argument like def f(x, items=[])",
+    "back": "The default list is created once when the function is defined and is shared across calls, so items accumulate unexpectedly. Use items=None and create a new list inside."
+   },
+   {
+    "front": "lst.append(x) vs lst.extend(seq)",
+    "back": "append adds x as a single element at the end; extend adds each element of seq individually."
+   },
+   {
+    "front": "Aliasing: after b = a where a is a list, what happens when you run b.append(5)?",
+    "back": "a also changes, because a and b refer to the same list object. Use b = a.copy() or a[:] for a separate copy."
+   },
+   {
+    "front": "What does sorted(lst) do vs lst.sort()?",
+    "back": "sorted(lst) returns a new sorted list and leaves lst unchanged; lst.sort() sorts the list in place and returns None."
+   },
+   {
+    "front": "List comprehension for the squares of 0 through 4",
+    "back": "[x**2 for x in range(5)] gives [0, 1, 4, 9, 16]."
+   },
+   {
+    "front": "Tuple vs list",
+    "back": "Both are ordered sequences, but tuples are immutable and are written with parentheses; they can be used as dictionary keys if their contents are hashable."
+   },
+   {
+    "front": "Dictionary basics: what are keys and values?",
+    "back": "A dict maps unique, immutable (hashable) keys to values. Access with d[key]; d[key] raises KeyError if missing, while d.get(key, default) returns the default instead."
+   },
+   {
+    "front": "How do you loop over a dictionary's keys and values together?",
+    "back": "for key, value in d.items(): ..."
+   },
+   {
+    "front": "Counting occurrences of words with a dictionary",
+    "back": "for w in words: counts[w] = counts.get(w, 0) + 1"
+   },
+   {
+    "front": "Why use 'with open(name) as f:' to read a file?",
+    "back": "The with statement automatically closes the file when the block ends, even if an error occurs."
+   },
+   {
+    "front": "File modes 'r', 'w' and 'a'",
+    "back": "'r' reads (error if missing), 'w' writes and erases existing contents (creates file if missing), 'a' appends to the end."
+   },
+   {
+    "front": "What does line.strip().split(',') do?",
+    "back": "strip removes leading and trailing whitespace including the newline; split(',') breaks the string into a list of substrings at each comma."
+   },
+   {
+    "front": "try / except: purpose",
+    "back": "Code in try runs normally; if a matching exception is raised, control jumps to the except block instead of crashing, for example except ValueError when converting user input with int()."
+   },
+   {
+    "front": "Class vs object, and the role of __init__",
+    "back": "A class is a blueprint; an object is an instance of it. __init__ is the initializer method that runs when an object is created and typically sets instance attributes."
+   },
+   {
+    "front": "What is self in a Python method?",
+    "back": "self is the first parameter of an instance method and refers to the specific object the method was called on, giving access to its attributes."
+   },
+   {
+    "front": "What does defining __str__ in a class do?",
+    "back": "It returns the string used when the object is printed or passed to str(), giving a readable representation."
+   }
+  ]
+ }
+]

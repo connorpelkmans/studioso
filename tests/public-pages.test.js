@@ -34,6 +34,7 @@ const env = {SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "sb_publi
   ok(P.slugify("Cell Biology: Basics & More!") === "cell-biology-basics-and-more" && P.slugify("Étude") === "etude" && P.slugify("") === "set", "slugs are clean");
   ok(P.itemPath("flashcards", "Cell Biology Basics", "ABCD-EFGH") === "/flashcards/cell-biology-basics-abcdefgh", "item paths end with the code");
   ok(P.courseSlug("BIOL201") === "biol-201" && P.courseKey("biol 201") === "BIOL201", "course slugs and keys");
+  ok(P.courseKey("01:119:115 General Biology") === "01119115" && P.courseSlug("01119115") === "01-119-115" && P.courseLabelOf("01119115") === "01:119:115" && P.courseKey("01-119-115") === "01119115", "all-number codes like Rutgers' 01:119:115");
   ok(P.isPublicPath("/flashcards") && P.isPublicPath("/quizzes/x-abcdefgh") && P.isPublicPath("/sitemap-public.xml") && !P.isPublicPath("/flashcardsx") && !P.isPublicPath("/"), "only the public paths");
 
   // a deck page

@@ -201,7 +201,7 @@ declare ck text := upper(regexp_replace(coalesce(p_course_key, ''), '[^A-Za-z0-9
         sk text := lower(btrim(coalesce(p_school_key, '')));
 begin
   perform public.sbs_may_share();
-  if p_listed and (ck !~ '^([A-Z]{2,8}[0-9]{2,5}[A-Z]{0,3}|[A-Z]{3}[1-4][A-Z][A-Z0-9]?)$' or char_length(ck) > 24) then raise exception 'Add a course code (like BIOL 1000) to the course first.'; end if;
+  if p_listed and (ck !~ '^[A-Z0-9]{2,24}$' or char_length(ck) > 24) then raise exception 'Add a course code (like BIOL 1000) to the course first.'; end if;
   if p_listed and (sk = '' or char_length(sk) > 100 or sk !~ '^[a-z0-9][a-z0-9 .&''-]*$') then raise exception 'Pick your school first.'; end if;
   update public.shared_decks set listed = coalesce(p_listed, false),
     course_key = case when p_listed then ck else course_key end,
@@ -319,13 +319,30 @@ alter table public.shared_items add column if not exists school_name text not nu
 -- The course code as a key: "BIOL 201 - Intro" -> BIOL201 ('' when there's none)
 create or replace function public.sbs_course_key(p text) returns text
 language plpgsql immutable set search_path = public as $$
-declare m text[];
+declare m text[]; s text := coalesce(p, '');
+  nc text := '^(GRADE|GR|YEAR|YR|UNIT|WEEK|WK|CHAPTER|CH|LAB|ROOM|PAGE|PART|LESSON|TERM|SEM|CLASS|PERIOD|QUIZ|TEST|EXAM|MIDTERM|FINAL|LECTURE|LEC|MODULE|TOPIC|SECTION|SEC|GROUP|TEAM|DAY|SET|DECK|LEVEL|NOTE|NOTES|VERSION|STEP|ROUND|BOOK|VOL|NO|NUMBER|COVID)$';
 begin
-  -- BIOL 201, CHEM-1000A ... (but Grade 12, Unit 3 or Week 10 aren't course codes)
-  m := regexp_match(coalesce(p, ''), '([A-Za-z]{2,8})[\s._-]*([0-9]{2,5}[A-Za-z]{0,2})');
-  if m is not null and upper(m[1]) !~ '^(GRADE|GR|YEAR|YR|UNIT|WEEK|WK|CHAPTER|CH|LAB|ROOM|PAGE|PART|LESSON|TERM|SEM|CLASS|PERIOD)$' then return upper(m[1] || m[2]); end if;
+  -- (the same rules as courseKey in cloudflare/site/public-pages.js and codeKey in the app)
+  -- all-number codes like Rutgers' 01:119:115 (school:subject:course) -> 01119115
+  m := regexp_match(s, '(?:^|[^0-9])([0-9]{2})[:. -]([0-9]{3})[:. -]([0-9]{3})(?![0-9])');
+  if m is not null then return m[1] || m[2] || m[3]; end if;
+  -- NYU's PSYCH-UA 1 -> PSYCHUA1
+  m := regexp_match(s, '(?:^|[^A-Za-z])([A-Z]{2,8})-([A-Z]{2})\s*([0-9]{1,4}[A-Z]?)(?![A-Za-z0-9])');
+  if m is not null then return m[1] || m[2] || m[3]; end if;
+  -- BIOL 201, CHEM-1000A, McMaster's BIOLOGY 1A03 (but Grade 12, Unit 3 or Week 10 aren't course codes; CH 301 is)
+  m := regexp_match(s, '(?:^|[^A-Za-z])([A-Za-z]{2,8})[\s._-]*([0-9][A-Za-z][0-9]{2}|[0-9]{2,5}[A-Za-z]{0,2})');
+  if m is not null and (m[2] ~ '^[0-9]{3}' or upper(m[1]) !~ nc) then return upper(m[1] || m[2]); end if;
+  -- Western's Psychology 1002A
+  m := regexp_match(s, '(?:^|[^A-Za-z])([A-Za-z]{9,12})\s+([0-9]{4}[A-Za-z]?)(?![0-9])');
+  if m is not null then return upper(m[1] || m[2]); end if;
+  -- short codes written in capitals: ECON 1, CHEM 1A, LIFESCI 7A, SBI4U
+  m := regexp_match(s, '(?:^|[^A-Za-z0-9])([A-Z]{2,8})[\s._-]?([0-9][A-Z]?)(?![A-Za-z0-9])');
+  if m is not null and m[1] !~ nc then return m[1] || m[2]; end if;
+  -- one-letter subjects: UT Austin's M 408C
+  m := regexp_match(s, '(?:^|[^A-Za-z0-9])([A-Z])\s?([0-9]{3}[A-Z]?)(?![A-Za-z0-9])');
+  if m is not null then return m[1] || m[2]; end if;
   -- high school codes like Ontario's SBI4U and MHF4U: three letters, a grade digit, a level
-  m := regexp_match(coalesce(p, ''), '\m([A-Za-z]{3})[\s-]?([1-4])([A-Za-z][A-Za-z0-9]?)\M');
+  m := regexp_match(s, '\m([A-Za-z]{3})[\s-]?([1-4])([A-Za-z][A-Za-z0-9]?)\M');
   if m is not null then return upper(m[1] || m[2] || m[3]); end if;
   return '';
 end $$;
