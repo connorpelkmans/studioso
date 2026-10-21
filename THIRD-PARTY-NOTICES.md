@@ -95,3 +95,11 @@ THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
 `supabase-schools.sql` contains the list of universities and colleges with their web addresses from https://github.com/Hipo/university-domains-list.
 
 The MIT License (MIT). Copyright (c) 2014-2025 Hipo. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+## High school lists (open government data)
+
+`supabase-schools-hs-1.sql` to `-hs-4.sql` contain school names, cities and regions from:
+- United States public schools: National Center for Education Statistics (NCES), Common Core of Data, school directory 2022-23. Public domain (U.S. government work).
+- United States private schools: NCES Private School Universe Survey 2021-22. Public domain.
+- Ontario: Ontario Ministry of Education, "School information and student demographics" 2022-23. Contains information licensed under the Open Government Licence – Ontario.
+- British Columbia: "BC Schools - K-12 with Francophone Indicators", 2025-26. Contains information licensed under the Open Government Licence – British Columbia.

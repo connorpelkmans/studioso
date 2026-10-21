@@ -24,7 +24,12 @@ export function slugify(s){
 export const codeOf = s => { const x = String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, ""); return x.length === 8 ? x.slice(0, 4) + "-" + x.slice(4) : ""; };
 export const urlCode = code => String(code || "").replace(/-/g, "").toLowerCase();
 export const itemPath = (section, name, code) => `/${section}/${slugify(name)}-${urlCode(code)}`;
-export const courseKey = s => { const m = String(s || "").match(/([A-Za-z]{2,8})[\s._-]*([0-9]{2,5}[A-Za-z]{0,2})/); return m ? (m[1] + m[2]).toUpperCase() : ""; };
+export const courseKey = s => {
+  const m = String(s || "").match(/([A-Za-z]{2,8})[\s._-]*([0-9]{2,5}[A-Za-z]{0,2})/);
+  if (m && !/^(grade|gr|year|yr|unit|week|wk|chapter|ch|lab|room|page|part|lesson|term|sem|class|period)$/i.test(m[1])) return (m[1] + m[2]).toUpperCase();   // (Grade 12 isn't a code)
+  const h = String(s || "").match(/\b([A-Za-z]{3})[\s-]?([1-4])([A-Za-z][A-Za-z0-9]?)\b/);   // high school codes like Ontario's SBI4U
+  return h ? (h[1] + h[2] + h[3]).toUpperCase() : "";
+};
 export const courseSlug = key => { const m = String(key || "").match(/^([A-Z]+)([0-9].*)$/); return m ? (m[1] + "-" + m[2]).toLowerCase() : String(key || "").toLowerCase(); };
 export const courseLabelOf = key => { const m = String(key || "").match(/^([A-Z]+)([0-9].*)$/); return m ? m[1] + " " + m[2] : key; };
 const clip = (s, n) => { s = String(s || "").replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1).replace(/\s+\S*$/, "") + "…" : s; };

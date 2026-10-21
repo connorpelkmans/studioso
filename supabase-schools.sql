@@ -10,6 +10,11 @@
 --   insert into public.schools (key, name, country, code, region, domains, web) values ('example.edu', 'Example College', 'Canada', 'CA', 'Ontario', array['example.edu'], 'https://example.edu');
 --   update public.school_requests set status = 'added' where id = '<request id>';
 -- Read the requests (SQL Editor):  select * from public.school_requests where status = 'new' order by created_at;
+--
+-- High schools are in supabase-schools-hs-1.sql ... -hs-4.sql (about 36,000: every US public and private school with a grade 12, and
+-- Ontario and British Columbia secondary schools; run them after this file). Like Quizlet, a high school is picked from the list
+-- the same way. A published page shows a high school only as "High school, <province or state>", never its name, since many
+-- high school students are minors.
 
 create table if not exists public.schools (
   key text primary key check (char_length(key) between 3 and 120),
@@ -20,7 +25,12 @@ create table if not exists public.schools (
   domains text[] not null default '{}',
   web text not null default ''
 );
+alter table public.schools add column if not exists kind text not null default 'university';   -- 'university' (universities and colleges) or 'high_school'
+alter table public.schools add column if not exists city text not null default '';
+alter table public.schools drop constraint if exists schools_kind_check;
+alter table public.schools add constraint schools_kind_check check (kind in ('university', 'high_school'));
 create index if not exists schools_domains_idx on public.schools using gin (domains);
+create index if not exists schools_kind_idx on public.schools (kind);
 create index if not exists schools_name_idx on public.schools (lower(name));
 alter table public.schools enable row level security;   -- read through the functions below
 revoke all on public.schools from anon, authenticated;
@@ -10379,16 +10389,18 @@ alter table public.school_requests enable row level security;
 revoke all on public.school_requests from public, anon, authenticated;
 
 -- Search the list by name (every word must appear) or web address. Exact and starts-with matches first.
-create or replace function public.search_schools(p_q text, p_limit int)
-returns table (key text, name text, country text, region text, web text)
+drop function if exists public.search_schools(text, int);
+-- p_kind: 'university', 'high_school' or '' (both). Every word has to be in the name, the city or the region ("lincoln high omaha").
+create or replace function public.search_schools(p_q text, p_limit int, p_kind text default '')
+returns table (key text, name text, country text, region text, web text, city text, kind text)
 language sql stable security definer set search_path = public as $$
   with q as (select lower(btrim(coalesce(p_q, ''))) as s),
        w as (select array_remove(regexp_split_to_array((select s from q), '\s+'), '') as words)
-  select sc.key, sc.name, sc.country, sc.region, sc.web from public.schools sc, q, w
-  where char_length(q.s) >= 2
-    and ((select bool_and(lower(sc.name) like '%' || word || '%') from unnest(w.words) word)
+  select sc.key, sc.name, sc.country, sc.region, sc.web, sc.city, sc.kind from public.schools sc, q, w
+  where char_length(q.s) >= 2 and (coalesce(p_kind, '') = '' or sc.kind = p_kind)
+    and ((select bool_and(lower(sc.name || ' ' || sc.city || ' ' || sc.region) like '%' || word || '%') from unnest(w.words) word)
          or exists (select 1 from unnest(sc.domains) dm where dm = q.s or dm like q.s || '%' or q.s like '%.' || dm))
-  order by (lower(sc.name) = q.s) desc, (lower(sc.name) like q.s || '%') desc, (exists (select 1 from unnest(sc.domains) dm where dm = q.s)) desc, char_length(sc.name), sc.name
+  order by (lower(sc.name) = q.s) desc, (sc.kind = 'university') desc, (lower(sc.name) like q.s || '%') desc, (exists (select 1 from unnest(sc.domains) dm where dm = q.s)) desc, char_length(sc.name), sc.name
   limit least(greatest(coalesce(p_limit, 12), 1), 30);
 $$;
 
@@ -10417,19 +10429,21 @@ begin
   end if;
 end $$;
 
-create or replace function public.set_my_school(p_key text) returns table (key text, name text, country text)
+drop function if exists public.set_my_school(text);
+drop function if exists public.my_school();
+create or replace function public.set_my_school(p_key text) returns table (key text, name text, country text, kind text, region text)
 language plpgsql security definer set search_path = public as $$
 begin
   if auth.uid() is null then raise exception 'Sign in first'; end if;
   if not exists (select 1 from public.schools s where s.key = p_key) then raise exception 'Pick your school from the list.'; end if;
   insert into public.user_schools (user_id, school_key) values (auth.uid(), p_key)
     on conflict (user_id) do update set school_key = excluded.school_key, set_at = now();
-  return query select s.key, s.name, s.country from public.schools s where s.key = p_key;
+  return query select s.key, s.name, s.country, s.kind, s.region from public.schools s where s.key = p_key;
 end $$;
 
-create or replace function public.my_school() returns table (key text, name text, country text)
+create or replace function public.my_school() returns table (key text, name text, country text, kind text, region text)
 language sql stable security definer set search_path = public as $$
-  select s.key, s.name, s.country from public.user_schools u join public.schools s on s.key = u.school_key where u.user_id = auth.uid();
+  select s.key, s.name, s.country, s.kind, s.region from public.user_schools u join public.schools s on s.key = u.school_key where u.user_id = auth.uid();
 $$;
 
 create or replace function public.request_school(p_name text, p_country text, p_website text) returns void
@@ -10440,8 +10454,8 @@ begin
   insert into public.school_requests (name, country, website) values (left(btrim(p_name), 160), left(btrim(coalesce(p_country, '')), 80), left(btrim(coalesce(p_website, '')), 200));
 end $$;
 
-revoke all on function public.search_schools(text, int), public.school_for_host(text), public.set_my_school(text), public.my_school(), public.request_school(text, text, text) from public, anon;
-grant execute on function public.search_schools(text, int), public.school_for_host(text) to anon, authenticated;
+revoke all on function public.search_schools(text, int, text), public.school_for_host(text), public.set_my_school(text), public.my_school(), public.request_school(text, text, text) from public, anon;
+grant execute on function public.search_schools(text, int, text), public.school_for_host(text) to anon, authenticated;
 grant execute on function public.set_my_school(text), public.my_school(), public.request_school(text, text, text) to authenticated;
 
 notify pgrst, 'reload schema';

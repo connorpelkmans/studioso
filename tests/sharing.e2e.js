@@ -44,11 +44,14 @@ function serverInit(opts){
     share_saved: a => { if (me()) SV.saves.push(a.p_code); return null; },
     report_share: a => { SV.reports.push(a); return null; },
     my_username: () => SV.username || null,
+    my_age: () => SV.age === undefined ? 20 : SV.age,
+    set_birthdate: a => { const b = new Date(a.p_date + "T12:00:00"), n = new Date(); let y = n.getFullYear() - b.getFullYear(); if (n < new Date(n.getFullYear(), b.getMonth(), b.getDate())) y--; SV.age = y; SV.bday = a.p_date; return y; },
     username_check: a => [{ok: !/fuck|admin/i.test(a.p_name) && a.p_name.toLowerCase() !== "taken_name", reason: /fuck/i.test(a.p_name) ? "That name isn't allowed. Pick another." : "That username is taken."}],
     set_username: a => { if (a.p_name.toLowerCase() === "taken_name") throw {message: "SB_USERNAME: That username is taken."}; SV.username = a.p_name; return a.p_name; },
-    search_schools: a => [{key: "uwaterloo.ca", name: "University of Waterloo", country: "Canada", region: "Ontario", web: ""}, {key: "wlu.ca", name: "Wilfrid Laurier University", country: "Canada", region: "", web: ""}].filter(x => x.name.toLowerCase().includes(String(a.p_q).toLowerCase()) || x.key.startsWith(String(a.p_q).toLowerCase())),
+    search_schools: a => [{key: "uwaterloo.ca", name: "University of Waterloo", country: "Canada", region: "Ontario", web: "", city: "", kind: "university"}, {key: "wlu.ca", name: "Wilfrid Laurier University", country: "Canada", region: "", web: "", city: "", kind: "university"},
+      {key: "hs:on:922960", name: "Lisgar Collegiate Institute", country: "Canada", region: "Ontario", web: "", city: "Ottawa", kind: "high_school"}].filter(x => (!a.p_kind || x.kind === a.p_kind) && (x.name.toLowerCase().includes(String(a.p_q).toLowerCase()) || x.key.startsWith(String(a.p_q).toLowerCase()))),
     school_for_host: a => /uwaterloo\.ca$/.test(String(a.p_host)) ? [{key: "uwaterloo.ca", name: "University of Waterloo", country: "Canada", region: "Ontario", web: ""}] : [],
-    set_my_school: a => { if (!me()) throw {message: "Sign in first"}; if (!["uwaterloo.ca", "wlu.ca"].includes(a.p_key)) throw {message: "Pick your school from the list."}; SV.school = a.p_key; return [{key: a.p_key}]; },
+    set_my_school: a => { if (!me()) throw {message: "Sign in first"}; if (!["uwaterloo.ca", "wlu.ca", "hs:on:922960"].includes(a.p_key)) throw {message: "Pick your school from the list."}; SV.school = a.p_key; return [{key: a.p_key}]; },
     request_school: a => { SV.requests = (SV.requests || []).concat([a]); return null; },
     share_deck: a => { let d = SV.decks.find(x => x.owner === me() && x.deck_id === a.p_deck_id);
       if (!d) { d = {code: "PUBD-000" + (SV.decks.length), owner: me(), deck_id: a.p_deck_id, sharer_name: "Connor", saves: 0}; SV.decks.push(d); }
@@ -185,33 +188,12 @@ async function sharer(browser){
   await page.check("#libOn"); await page.waitForTimeout(300);
   const ll = (await calls(page, "library_list"))[0];
   ok(ll && ll[1].p_listed === true && ll[1].p_course_key === "BIOL201" && ll[1].p_school_key === "uwaterloo.ca", "listing sends the course code and school");
-  // publishing to the public flashcards pages
+  // publishing to the public flashcards pages, from the Share sheet (username, birthday and school already set)
   await page.waitForSelector("dialog[open] #pubOn");
   ok(/Publish to Studyboard Flashcards/.test(await txt(page, "#pubRow")), "the deck's Share sheet offers Publish to Studyboard Flashcards");
-  await page.evaluate(() => { const st = __sbSync.state.settings; delete st.school; __sbSync.saveSettings(); });
-  await page.evaluate(() => { delete window.__SV.school; });
-  // a username first (the account has none yet)
-  await page.evaluate(() => { try { Object.keys(localStorage).filter(k => k.startsWith("studyboard:uname:")).forEach(k => localStorage.removeItem(k)); } catch (e) {} delete window.__SV.username; });
-  await page.click("#pubOn"); await page.waitForSelector("dialog[open] #unIn", {timeout: 6000});
-  ok(/Pick a Username/.test(await txt(page, "dialog[open]")) && !/publish/i.test(await txt(page, "dialog[open] .sheet-body")), "publishing asks for a username first, plainly");
-  await page.fill("#unIn", "fuck_this"); await page.waitForTimeout(450);
-  ok(/isn't allowed/.test(await txt(page, "#unMsg")), "a foul username is refused while typing: " + await txt(page, "#unMsg"));
-  await page.fill("#unIn", "taken_name"); await page.waitForTimeout(450);
-  ok(/taken/.test(await txt(page, "#unMsg")), "a taken username says so");
-  await page.fill("#unIn", "Connor_P"); await page.waitForTimeout(450);
-  ok(/@Connor_P is free/.test(await txt(page, "#unMsg")), "a free one says so");
-  await page.screenshot({path: shots + "/username-sheet.png"});
-  await page.click("#unSave"); await page.waitForSelector("dialog[open] #pubOn", {timeout: 6000});
-  ok(await page.evaluate(() => window.__SV.username === "Connor_P"), "the username is saved, and the Share sheet comes back");
-  await page.waitForTimeout(800); await page.evaluate(() => { const st = __sbSync.state.settings; delete st.school; __sbSync.saveSettings(); }); await page.click("#pubOn");
-  await page.waitForSelector("dialog[open] #schUseAuto, #askDlg[open]", {timeout: 6000});
-  if (await page.$("dialog[open] #schUseAuto")) {
-    await page.screenshot({path: shots + "/school-auto.png"});
-    ok(/From your Brightspace sign-in/.test(await txt(page, "#schAuto")) && /University of Waterloo/.test(await txt(page, "#schAuto")), "publishing asks for a school first, filled in from the Brightspace connection");
-    await page.click("#schUseAuto"); await page.waitForSelector("dialog[open] #pubOn"); await page.waitForTimeout(600);
-  } else { ok(true, "the school was already filled in from the Brightspace connection"); await page.click("#askNo"); await page.waitForTimeout(400); }
-  ok(await page.evaluate(() => __sbSync.state.settings.school.key === "uwaterloo.ca" && __sbSync.state.settings.school.v === 1 && window.__SV.school === "uwaterloo.ca"), "the school is kept, on this device and on the server");
-  await page.check("#pubOn"); await page.waitForSelector("#askDlg[open]");
+  await page.evaluate(() => { window.__SV.username = "Connor_P"; window.__SV.school = "uwaterloo.ca"; localStorage.setItem("studyboard:uname:u1", "Connor_P"); localStorage.setItem("studyboard:age:u1", "ok");
+    __sbSync.state.settings.school = {key: "uwaterloo.ca", name: "University of Waterloo", country: "Canada", region: "Ontario", kind: "university", v: 1}; __sbSync.saveSettings(); });
+  await page.waitForTimeout(300); await page.check("#pubOn"); await page.waitForSelector("#askDlg[open]");
   ok(/anyone can see the cards, your username \(@Connor_P\) and your school \(University of Waterloo\)/i.test(await txt(page, "#askDlg")), "publishing asks first and says what becomes public: username and school");
   await page.click("#askYes"); await page.waitForSelector("#pubUrlIn");
   ok(await page.evaluate(() => window.__SV.decks.find(d => d.code === "MYDK-0001").published === true), "Publish sends share_publish");
@@ -226,7 +208,23 @@ async function sharer(browser){
   // the Publish button on a deck's page
   await page.evaluate(() => { __sbSync.ui.tab = "flashcards"; __sbSync.ui.fc = null; __sbSync.ui.deckId = "d3"; __sbSync.render(); }); await page.waitForTimeout(300);
   ok(/Publish/.test(await txt(page, '#view [data-act="pub-deck"]')), "a deck's page has a Publish button");
-  await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForSelector("dialog[open] #pubGo");
+  // starting with no username and no school: a username, then the school (the birthday is already on the account)
+  await page.evaluate(() => { localStorage.removeItem("studyboard:uname:u1"); localStorage.removeItem("studyboard:age:u1"); delete window.__SV.username; delete window.__SV.school; delete __sbSync.state.settings.school; __sbSync.saveSettings(); });
+  await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForSelector("dialog[open] #unIn", {timeout: 6000});
+  ok(/Pick a Username/.test(await txt(page, "dialog[open]")) && !/publish/i.test(await txt(page, "dialog[open] .sheet-body")), "publishing asks for a username first, plainly");
+  await page.fill("#unIn", "fuck_this"); await page.waitForTimeout(450);
+  ok(/isn't allowed/.test(await txt(page, "#unMsg")), "a foul username is refused while typing: " + await txt(page, "#unMsg"));
+  await page.fill("#unIn", "taken_name"); await page.waitForTimeout(450);
+  ok(/taken/.test(await txt(page, "#unMsg")), "a taken username says so");
+  await page.fill("#unIn", "Connor_P"); await page.waitForTimeout(450);
+  ok(/@Connor_P is free/.test(await txt(page, "#unMsg")), "a free one says so");
+  await page.screenshot({path: shots + "/username-sheet.png"});
+  await page.click("#unSave"); await page.waitForSelector("dialog[open] #schUseAuto", {timeout: 6000});
+  ok(await page.evaluate(() => window.__SV.username === "Connor_P"), "the username is saved");
+  ok(/From your Brightspace sign-in/.test(await txt(page, "#schAuto")) && /University of Waterloo/.test(await txt(page, "#schAuto")), "then the school, filled in from the Brightspace connection");
+  await page.screenshot({path: shots + "/school-auto.png"});
+  await page.click("#schUseAuto"); await page.waitForSelector("dialog[open] #pubGo");
+  ok(await page.evaluate(() => __sbSync.state.settings.school.key === "uwaterloo.ca" && __sbSync.state.settings.school.v === 1 && window.__SV.school === "uwaterloo.ca"), "the school is kept, on this device and on the server");
   await page.screenshot({path: shots + "/publish-confirm.png"});
   ok(/University of Waterloo/.test(await txt(page, "dialog[open] .pub-sum")) && /BIOL 201/.test(await txt(page, "dialog[open] .pub-sum")) && /5 cards/.test(await txt(page, "dialog[open] .pub-sum")) && /@Connor_P/.test(await txt(page, "dialog[open] .pub-sum")), "Publish shows the school, course, card count and @username first");
   await page.click("#pubGo"); await page.waitForSelector("dialog[open] #pubOff");
@@ -237,6 +235,18 @@ async function sharer(browser){
   await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForSelector("dialog[open] #pubOff");
   await page.click("#pubOff"); await page.waitForSelector("#askDlg[open]"); await page.click("#askYes"); await page.waitForTimeout(300);
   ok(await page.evaluate(() => window.__SV.decks.find(x => x.deck_id === "d3").published === false && !__sbSync.state.decks.d3.published), "Unpublish takes the page down");
+  // no birthday yet: asked once (it can't be changed later); under 13: publishing isn't available
+  await page.evaluate(() => { window.__SV.age = null; Object.keys(localStorage).filter(k => k.startsWith("studyboard:age:")).forEach(k => localStorage.removeItem(k)); });
+  await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForSelector("dialog[open] select[name=bm]");
+  ok(/When's Your Birthday/.test(await txt(page, "dialog[open]")) && /can't be changed later/.test(await txt(page, "dialog[open]")), "with no birthday saved, publishing asks for it once");
+  const kid = new Date(); kid.setFullYear(kid.getFullYear() - 11);
+  await page.selectOption("dialog[open] select[name=bm]", String(kid.getMonth() + 1)); await page.selectOption("dialog[open] select[name=bd]", String(kid.getDate())); await page.selectOption("dialog[open] select[name=by]", String(kid.getFullYear()));
+  await page.click("#bdSave"); await page.waitForTimeout(400);
+  ok(await page.evaluate(() => window.__SV.age === 11) && /13 and older/.test(await txt(page, "dialog[open]")), "under 13: the birthday is saved and publishing says it's for 13 and older");
+  await page.evaluate(() => __sbSync.dlg.close());
+  await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForTimeout(300);
+  ok(/13 and older/.test(await txt(page, "dialog[open]")) && !(await page.$("dialog[open] select[name=bm]")), "and it isn't asked again");
+  await page.evaluate(() => { __sbSync.dlg.close(); window.__SV.age = 20; Object.keys(localStorage).filter(k => k.startsWith("studyboard:age:")).forEach(k => localStorage.removeItem(k)); });
   await page.evaluate(() => { __sbSync.ui.deckId = "d1"; __sbSync.render(); }); await page.waitForTimeout(200);
   await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForTimeout(300);
   ok(/at least 4 cards/.test(await page.evaluate(() => document.querySelector("#toast").textContent)), "a deck with fewer than 4 cards can't be published");
@@ -277,6 +287,15 @@ async function sharer(browser){
   await page.click('dialog[open] .sch-item[data-key="uwaterloo.ca"]');
   await page.waitForSelector("dialog[open] .lib-sheet"); await page.waitForTimeout(300);
   ok(await page.evaluate(() => __sbSync.state.settings.school && __sbSync.state.settings.school.key === "uwaterloo.ca" && __sbSync.state.settings.school.v === 1), "a school picked from the list is saved");
+  // a high school, like on Quizlet
+  await page.evaluate(() => SBSHARE.schoolSheet(null)); await page.waitForSelector('dialog[open] .sch-kind [data-k="high_school"]');
+  await page.click('dialog[open] .sch-kind [data-k="high_school"]'); await page.fill("dialog[open] #schQ", "lisgar");
+  await page.waitForSelector('dialog[open] .sch-item[data-key="hs:on:922960"]');
+  ok(/Ottawa, Ontario/.test(await txt(page, 'dialog[open] .sch-item[data-key="hs:on:922960"]')) && /not the school's name/.test(await txt(page, "#schHsNote")), "High School finds high schools, with their city, and says pages won't name the school");
+  ok(!(await page.$('dialog[open] .sch-item[data-key="uwaterloo.ca"]')), "only high schools in that tab");
+  await page.screenshot({path: shots + "/school-highschool-phone.png"});
+  await page.click('dialog[open] .sch-item[data-key="hs:on:922960"]'); await page.waitForTimeout(300);
+  ok(await page.evaluate(() => { const s = __sbSync.state.settings.school; return s.key === "hs:on:922960" && s.kind === "high_school" && s.region === "Ontario"; }), "a high school is saved with its kind and province");
   await noOverflow(page, "library on a phone");
   ok(!errs.length, "no errors (school picker): " + errs.join(" | ")); await ctx.close();
 }

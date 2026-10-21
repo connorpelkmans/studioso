@@ -1,4 +1,9 @@
--- Studyboard: usernames
+-- Studyboard: usernames and age
+--
+-- Age (like Quizlet): every account gives its birthday once (at sign-up, or the first time it publishes). It can't be changed from
+-- the app afterwards. Students under 13 keep using Studyboard but can't publish, list decks in the Course Library or make public
+-- links (supabase-sharing.sql checks sbu_age_ok). Accounts for students under 13 are made by a parent or guardian with their own
+-- email, which they confirm. Only the date is kept, in study_profiles.birth_date, and it is never shown to anyone.
 --
 -- Every account picks a unique username (shown as @name). It's what published flashcards and quizzes show as their maker
 -- (studyboardapp.com/flashcards), so it is checked here, on the server, and the app can't get around it:
@@ -17,6 +22,7 @@
 
 alter table public.study_profiles add column if not exists username text;
 alter table public.study_profiles add column if not exists username_set_at timestamptz;
+alter table public.study_profiles add column if not exists birth_date date;
 create unique index if not exists study_profiles_username_key on public.study_profiles (lower(username)) where username is not null;
 
 create table if not exists public.username_words (
@@ -137,7 +143,41 @@ language sql stable security definer set search_path = public as $$
   select username from public.study_profiles where user_id = auth.uid();
 $$;
 
-revoke all on function public.username_check(text), public.set_username(text), public.my_username() from public, anon;
+-- Your birthday, once (a second call with a different date is refused; ask support to correct it)
+create or replace function public.set_birthdate(p_date date) returns int
+language plpgsql security definer set search_path = public as $$
+declare me uuid := auth.uid(); cur date; meta jsonb;
+begin
+  if me is null then raise exception 'Sign in first'; end if;
+  if p_date is null or p_date > current_date or p_date < date '1900-01-01' then raise exception 'SB_AGE: Enter your real birthday.'; end if;
+  select birth_date into cur from public.study_profiles where user_id = me;
+  if cur is not null and cur <> p_date then raise exception 'SB_AGE: Your birthday is already saved. To correct it, contact support.'; end if;
+  if exists (select 1 from public.study_profiles where user_id = me) then
+    update public.study_profiles set birth_date = p_date where user_id = me;
+  else
+    select raw_user_meta_data into meta from auth.users where id = me;
+    insert into public.study_profiles (user_id, display_name, birth_date)
+    values (me, left(coalesce(nullif(btrim(meta ->> 'full_name'), ''), nullif(btrim(meta ->> 'first_name'), ''), 'Student'), 40), p_date);
+  end if;
+  return extract(year from age(current_date, p_date))::int;
+end $$;
+
+-- Age in years, or null when no birthday is saved yet
+create or replace function public.my_age() returns int
+language sql stable security definer set search_path = public as $$
+  select extract(year from age(current_date, birth_date))::int from public.study_profiles where user_id = auth.uid() and birth_date is not null;
+$$;
+
+-- For the server's own checks: 'ok' (13 or older), 'young' (under 13) or 'unknown' (no birthday yet)
+create or replace function public.sbu_age_ok(p_uid uuid) returns text
+language sql stable security definer set search_path = public as $$
+  select case when b is null then 'unknown' when age(current_date, b) >= interval '13 years' then 'ok' else 'young' end
+  from (select (select birth_date from public.study_profiles where user_id = p_uid) as b) x;
+$$;
+revoke all on function public.sbu_age_ok(uuid) from public, anon, authenticated;
+
+revoke all on function public.username_check(text), public.set_username(text), public.my_username(), public.set_birthdate(date), public.my_age() from public, anon;
+grant execute on function public.set_birthdate(date), public.my_age() to authenticated;
 grant execute on function public.username_check(text) to anon, authenticated;
 grant execute on function public.set_username(text), public.my_username() to authenticated;
 
