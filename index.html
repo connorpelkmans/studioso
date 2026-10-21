@@ -6753,6 +6753,15 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 .pt-panel .av-strip .av-line:not(:only-child){order:3;flex-basis:100%;margin:0;font-size:.85rem;color:var(--muted)}
 .pt-panel .av-strip:has(.av-chips) .av-line{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .pt-panel .av-note{order:4;flex-basis:100%;margin:0}
+/* Phones: free windows as full-width rows (time on the left, length on the right), then + Shift or Work and Availability side by side, equal widths */
+@media (max-width:639px){
+  .pt-panel .av-strip{flex-direction:column;align-items:stretch;gap:10px}
+  .pt-panel .av-strip .av-chips{flex-direction:column;flex-wrap:nowrap;gap:6px}
+  .pt-panel .av-strip .av-chip{width:100%;justify-content:space-between;border-radius:12px;padding-inline:14px}
+  .pt-panel .av-strip .av-top{margin:0;width:100%}
+  .pt-panel .av-strip .av-acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}
+  .pt-panel .av-strip .av-acts .btn{width:100%;min-width:0;justify-content:center;white-space:nowrap}
+}
 .pt-panel .plan-fixed ul{margin:0;gap:6px}
 .pt-panel .plan-fixed li{min-height:0;padding:8px 12px;border-radius:10px;border-left:4px solid var(--c,var(--line));background:var(--surface)}
 .pt-panel .plan-fixed .plan-main{padding:0;font-weight:700}
