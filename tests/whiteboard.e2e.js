@@ -114,6 +114,35 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await page.keyboard.press("End"); await page.keyboard.type("!"); await page.keyboard.press("Escape"); await page.waitForTimeout(80);
     ok((await live()).items[0].s === "Mitosis\nPMAT!", "and the edit is kept");
 
+    // moving without switching to Select
+    const tBB = () => page.evaluate(() => { const it = SBWB.board().items[0], b = SBWB.itemBB(it), c = SBWB.cam(), r = document.querySelector(".wb-frame").getBoundingClientRect(); return {x: r.left + (b[0] + b[2]) / 2 * c.z + c.x, y: r.top + (b[1] + b[3]) / 2 * c.z + c.y, ix: it.x, iy: it.y}; });
+    ok(await page.locator(".wb-selbar:not([hidden])").count() === 1, "text you've just written stays picked up (its box shows), ready to drag");
+    let tb = await tBB();
+    await page.mouse.move(tb.x, tb.y); await page.mouse.down(); await page.mouse.move(tb.x + 40, tb.y + 20, {steps: 4}); await page.mouse.move(tb.x + 80, tb.y + 40, {steps: 4}); await page.mouse.up(); await page.waitForTimeout(80);
+    let tb2 = await tBB();
+    ok(Math.abs(tb2.ix - tb.ix - 80) < 2 && Math.abs(tb2.iy - tb.iy - 40) < 2 && await page.evaluate(() => SBWB.tool()) === "text" && await page.locator(".wb-ta").count() === 0, "with the Text tool, dragging text moves it (no switching tools)");
+    await page.keyboard.press("Escape"); await page.waitForTimeout(40);
+    tb = await tBB();
+    await page.mouse.move(tb.x, tb.y); await page.mouse.down(); await page.mouse.move(tb.x + 60, tb.y, {steps: 5}); await page.mouse.up(); await page.waitForTimeout(80);
+    tb2 = await tBB();
+    ok(Math.abs(tb2.ix - tb.ix - 60) < 2, "and so does dragging text that isn't picked up yet");
+    await page.keyboard.press("Escape"); await page.mouse.click(tb2.x + 60, tb2.y); await page.waitForTimeout(80);
+    ok(await page.locator(".wb-ta").count() === 1 && await page.locator(".wb-ta").inputValue() === "Mitosis\nPMAT!", "a tap on text (no drag) opens it for editing");
+    await page.keyboard.press("Escape"); await page.keyboard.press("Escape"); await page.waitForTimeout(60);
+    // the marker: press and hold on a stroke to pick it up and move it
+    await wb("tool", "pen");
+    const nS0 = (await live()).strokes.length, s1 = (await live()).strokes[0], p1d = await decode(s1.d);
+    const [hx, hy] = await toScreen(p1d[5][0], p1d[5][1]);
+    await page.mouse.move(hx, hy); await page.mouse.down(); await page.waitForTimeout(650);
+    await page.mouse.move(hx + 30, hy + 30, {steps: 4}); await page.mouse.move(hx + 50, hy + 70, {steps: 4}); await page.mouse.up(); await page.waitForTimeout(80);
+    const L2 = await live(), m1 = await decode(L2.strokes.find(x => x.id === s1.id).d), z2 = (await page.evaluate(() => SBWB.cam())).z;
+    ok(L2.strokes.length === nS0 && Math.abs((m1[0][0] - p1d[0][0]) * z2 - 50) < 2 && Math.abs((m1[0][1] - p1d[0][1]) * z2 - 70) < 2 && await page.evaluate(() => SBWB.tool()) === "pen",
+      "with the marker, pressing and holding on a stroke picks it up and moves it (no new stroke drawn)");
+    await page.keyboard.press("Escape");
+    await page.mouse.move(hx, hy + 160); await page.mouse.down(); await page.mouse.move(hx + 80, hy + 170, {steps: 5}); await page.mouse.up(); await page.waitForTimeout(60);
+    ok((await live()).strokes.length === nS0 + 1, "drawing straight away (no hold) still just draws");
+    await page.keyboard.press("Control+z");
+
     // select: click a stroke, drag it, resize it, delete
     await wb("tool", "select");
     const s0 = (await live()).strokes[0], before = await decode(s0.d);
