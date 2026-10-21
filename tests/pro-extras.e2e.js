@@ -140,10 +140,10 @@ function SEED(){
     await page.evaluate(id => { const b = document.createElement("button"); b.dataset.act = "fc-study"; b.dataset.id = "d1"; document.body.appendChild(b); b.click(); b.remove(); }, "");
     await page.waitForTimeout(300);
     // step to an image card in the session (new cards come after due ones)
-    for (let i = 0; i < 8 && !(await page.locator(".flip .ci-face").count()); i++) { await page.click('[data-act="fc-flip"]').catch(() => {}); await page.waitForTimeout(100); await page.click(".rate-btn.easy").catch(() => {}); await page.waitForTimeout(150); }
-    ok(await page.locator(".flip .face.front .ci-box.me").count() === 1, "studying an image card covers its own label on the front");
+    for (let i = 0; i < 8 && !(await page.locator(".ic-study").count()); i++) { await page.click('[data-act="fc-flip"]').catch(() => {}); await page.waitForTimeout(100); await page.click(".rate-btn.easy").catch(() => {}); await page.waitForTimeout(150); }
+    ok(await page.locator(".ic-study button.ci-box.me").count() === 1, "studying an image card covers its own label on the front");
     await page.waitForTimeout(400);
-    ok(await page.locator(".flip .face.front .ci-wrap img").count() === 1, "the picture loads from this device's copy");
+    ok(await page.locator(".ic-study .ci-wrap img").count() === 1, "the picture loads from this device's copy");
     await page.click('[data-act="fc-exit"]').catch(() => {}); await page.waitForTimeout(200);
 
     // ---------- Print and PDF ----------
