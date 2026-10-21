@@ -6621,6 +6621,12 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .deck.deck-fc .fc-band{padding-top:7px!important;padding-bottom:7px!important}
 .deck.deck-fc .deck-main{padding-top:10px!important;padding-bottom:6px!important;gap:6px!important}
 .deck.deck-fc .deck-actions{padding-bottom:10px!important}
+/* a little taller again, and all the same height: the extra room goes between the name and the buttons */
+.deck.deck-fc > .deck-face{height:188px;min-height:0}
+/* every deck the same size: a long name stops after two lines with "...", a long course code after one */
+.deck.deck-fc .deck-name{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.deck.deck-fc .fc-band .g2-kick{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.deck.deck-fc .deck-main{min-height:0;overflow:hidden}
 .deck.deck-fc .deck-lay.l2 .face{clip-path:inset(8px -4px -4px -4px round 8px)}
 .deck.deck-fc .deck-lay.l3 .face{clip-path:inset(10px -4px -4px -4px round 8px)}
 /* and just slightly rounded corners, like the flashcard itself when it's open (the preview is about half its size) */

@@ -60,6 +60,35 @@
   .pub-cta{flex-direction:column;align-items:stretch}
   .pub-card{min-height:180px;font-size:1.12rem}
 }
+/* Flashcard sets as decks, drawn like the app: a stack of lined index cards, the course band with its icon and code, and the card count.
+   Every deck is the same size: the name stops after two lines, the school and preview after one, each with "..." */
+.pdecks{list-style:none;margin:6px 0 0;padding:0 12px 12px 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(250px,100%),1fr));gap:30px 26px}
+.pdecks li{display:flex}
+.pdeck{position:relative;display:flex;flex:1;min-width:0;color:#15213A;text-decoration:none;--c:#3B6FE0;transition:transform .15s ease}
+.pdeck:hover{transform:translateY(-2px)}
+.pdeck:focus-visible{outline:none}
+.pdeck:focus-visible .pdeck-face{box-shadow:0 0 0 3px var(--accent-2),0 12px 30px rgba(14,42,86,.14)}
+.pdeck-lay,.pdeck-face{border-radius:8px;background:#FFFEF9 repeating-linear-gradient(transparent 0 27px,rgba(57,136,254,.18) 27px 28px) 0 40px/100% calc(100% - 40px) no-repeat;box-shadow:0 0 0 1px var(--line)}
+.pdeck-lay{position:absolute;inset:0;pointer-events:none;clip-path:inset(8px -4px -4px -4px round 8px)}
+.pdeck-lay.l2{transform:translate(6px,6px)}
+.pdeck-lay.l3{transform:translate(12px,12px);filter:brightness(.94)}
+.pdeck-face{position:relative;z-index:1;display:flex;flex-direction:column;flex:1;min-width:0;height:176px;overflow:hidden;box-shadow:0 0 0 1px var(--line),0 12px 30px rgba(14,42,86,.14)}
+.pdeck-band{display:flex;align-items:center;gap:8px;min-height:40px;padding:7px 12px;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 78%,#fff));color:#fff}
+.pdeck-ic{display:inline-grid;width:26px;height:26px;flex:none}
+.pdeck-ic svg{width:100%;height:100%;display:block;stroke:#fff;stroke-width:2.1}
+.pdeck-ic svg .a,.pdeck-ic svg .b,.pdeck-ic svg .y,.pdeck-ic svg .g,.pdeck-ic svg .r{fill:rgba(255,255,255,.35)}
+.pdeck-ic svg .w{fill:#fff;stroke:none}
+.pdeck-ic svg .sa,.pdeck-ic svg .sb,.pdeck-ic svg .ws{stroke:#fff}
+.pdeck-kick{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:800 .74rem/1.2 var(--display);letter-spacing:.06em;text-transform:uppercase;text-shadow:0 1px 2px rgba(0,0,0,.25)}
+.pdeck-n{flex:none;min-width:26px;height:26px;padding:0 8px;box-sizing:border-box;display:inline-grid;place-items:center;border-radius:999px;background:rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.55);font:700 .82rem/1 var(--display);font-variant-numeric:tabular-nums}
+.pdeck-body{display:grid;gap:6px;align-content:start;padding:10px 16px 14px;flex:1;min-height:0;overflow:hidden}
+.pdeck-name{font:700 1.12rem/1.25 var(--display);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pdeck-meta{font-size:.84rem;line-height:1.35;color:#4A5875;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pdeck-prev{font-size:.84rem;line-height:1.35;color:#5A6A86;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.pc0{--c:#3B6FE0}.pc1{--c:#1E9E74}.pc2{--c:#E0673B}.pc3{--c:#9A4FD1}.pc4{--c:#D6386F}.pc5{--c:#1D9BB8}.pc6{--c:#C79A12}.pc7{--c:#5E6B7E}.pc8{--c:#DC2626}.pc9{--c:#16A34A}.pc10{--c:#65A30D}.pc11{--c:#0D9488}.pc12{--c:#4F46E5}.pc13{--c:#C026D3}.pc14{--c:#EA580C}.pc15{--c:#92400E}.pc16{--c:#334155}
+@media (max-width:560px){.pdecks{grid-template-columns:minmax(0,1fr);gap:26px}}
+@media (prefers-reduced-motion:reduce){.pdeck{transition:none}.pdeck:hover{transform:none}}
+
 @media (prefers-reduced-motion:reduce){.pub-card,.pub-item,.pub-chips a{transition:none}}
 @media (max-width:480px){
   .pub .top nav.main{gap:12px}
