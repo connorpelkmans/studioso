@@ -5,7 +5,7 @@
 //   - an index with search (/flashcards?q=...; result pages are noindex, the index and course pages are indexed)
 //   - schema.org Quiz / Question markup (Google's flashcard and practice-question formats), canonical links, Open Graph tags
 //   - /sitemap-public.xml listing everything, linked from robots.txt
-// Pages are cached at Cloudflare's edge for an hour (search results for five minutes), so most visits never reach Supabase.
+// Pages are cached at Cloudflare's edge (set pages 15 minutes, lists up to an hour, search results five minutes; the app clears them on publish), so most visits never reach Supabase.
 // Only published, not hidden items are ever read; nothing about the person but their display name.
 
 import {ICONS, GUESS, GENERAL, COLORS} from "./course-icons.js";
@@ -212,12 +212,16 @@ async function itemPage(env, section, slug, code, origin){
     const cards = (Array.isArray(d.cards) ? d.cards : []).filter(c => c && (c.front || c.back)).slice(0, 2000);
     title = `${row.name}${label && !row.name.toLowerCase().includes(label.toLowerCase()) ? " (" + label + ")" : ""} Flashcards | ${SITE}`;
     description = clip(`Study ${row.name}${label ? " for " + label : ""}${school ? " at " + school : ""} with ${cards.length} flashcards: ${cards.slice(0, 5).map(c => c.front).join(", ")}.`, 158);
-    body = `${crumbs(cr)}<header class="pub-head"><h1>${esc(row.name)}</h1><p class="pub-meta">${meta}</p>
-      <div class="pub-acts"><a class="btn primary" href="#study" data-pub-study>Study Flashcards</a><a class="btn" href="${esc(appLink)}">Add to Studyboard</a></div></header>
+    // Drawn like the deck page in the app: the course band with the actions, the big course icon, the name and its numbers, then the cards as lined index cards
+    const L = deckLook({course_label: label, course_key: key, name: row.name, look: d.look});
+    const chips = [`<b>${esc(String(cards.length))}</b> ${esc(cards.length === 1 ? K.unit : K.unit + "s")}`, school && esc(school), row.sharer_name && "by " + esc(row.sharer_name), row.updated_at && "Updated " + esc(monthYear(row.updated_at))].filter(Boolean);
+    body = `${crumbs(cr)}<header class="pdh pc${L.color}"><div class="pdh-band"><span class="pdh-kick">${esc(label || "General")} · Flashcards</span></div>
+      <div class="pdh-low"><span class="pdh-ring" aria-hidden="true">${L.icon}</span><div class="pdh-txt"><h1>${esc(row.name)}</h1><p class="pdh-chips">${chips.map(x => `<span>${x}</span>`).join("")}</p></div></div>
+      <div class="pdh-acts"><a class="pdh-btn primary" href="#study" data-pub-study>Study Flashcards</a><a class="pdh-btn" href="${esc(appLink)}">Add to Studyboard</a></div></header>
       <section id="study" class="pub-study" hidden aria-label="Study these flashcards"><button type="button" class="pub-card" data-pub-card aria-live="polite"></button>
         <div class="pub-nav"><button type="button" class="btn" data-pub-prev>Previous</button><span data-pub-pos></span><button type="button" class="btn" data-pub-next>Next</button><button type="button" class="btn" data-pub-shuffle>Shuffle</button></div></section>
       <section class="pub-sec"><h2>Terms in this set (${cards.length})</h2>
-      <ol class="pub-terms">${cards.map(c => `<li data-front="${esc(c.front)}" data-back="${esc(c.back)}"><span class="t">${esc(c.front)}</span><span class="d">${esc(c.back)}</span></li>`).join("")}</ol></section>`;
+      <ol class="pub-terms pcards">${cards.map(c => `<li data-front="${esc(c.front)}" data-back="${esc(c.back)}"><span class="t">${esc(c.front)}</span><span class="d">${esc(c.back)}</span></li>`).join("")}</ol></section>`;
     ld = [{"@context": "https://schema.org", "@type": "Quiz", name: row.name, about: {"@type": "Thing", name: label || row.name}, educationalLevel: "University",
       ...(row.sharer_name ? {author: {"@type": "Person", name: row.sharer_name, ...(school ? {affiliation: {"@type": "CollegeOrUniversity", name: school}} : {})}} : {}), ...(school ? {sourceOrganization: {"@type": "CollegeOrUniversity", name: school}} : {}), dateModified: isoDate(row.updated_at), url: canonical,
       hasPart: cards.slice(0, 500).map(c => ({"@type": "Question", eduQuestionType: "Flashcard", text: clip(c.front, 600), acceptedAnswer: {"@type": "Answer", text: clip(c.back, 1200)}}))}];
@@ -247,7 +251,7 @@ async function itemPage(env, section, slug, code, origin){
   body += `${related.length ? `<section class="pub-sec"><h2>More ${esc(label || courseLabelOf(key))} ${esc(K.noun.toLowerCase())}</h2>${listHtml(section, related)}<p><a href="/${section}/course/${esc(courseSlug(key))}">See all ${esc(label || courseLabelOf(key))} ${esc(K.noun.toLowerCase())}</a></p></section>` : ""}
     ${cta(section)}
     <p class="pub-report">Something wrong with this ${esc(K.one)}? <a href="${esc(appLink)}">Open it in Studyboard</a> and choose Report.</p>`;
-  return {html: page({title, description, canonical, body, ld, ogType: "article"}), ttl: 3600};
+  return {html: page({title, description, canonical, body, ld, ogType: "article"}), ttl: 900};
 }
 
 async function sitemap(env, origin){
@@ -274,8 +278,24 @@ function notFound(section, origin){
   return new Response(html, {status: 404, headers: Object.assign({"cache-control": "public, max-age=60"}, HTML_HEADERS)});
 }
 
+/* The app calls this right after you publish, update, recolour or unpublish something, so its pages here show the change at once
+   instead of after the hour they're cached for. It only drops cached copies in this data centre (the next visit rebuilds them from
+   Supabase), so anyone may call it: the worst it can do is make a page load fresh. */
+async function refresh(request, env, origin){
+  const ok = new Response(null, {status: 204, headers: {"access-control-allow-origin": "*", "cache-control": "no-store"}});
+  let b = null; try { b = JSON.parse((await request.text()).slice(0, 2000)); } catch (e) {}
+  const code = b && codeOf(String(b.code || "").replace(/-/g, ""));
+  const cache = typeof caches !== "undefined" && !env.__noCache ? caches.default : null;
+  if (!code) return ok;
+  const section = b.kind === "quiz" ? "quizzes" : "flashcards", key = courseKey(String(b.course || ""));
+  const paths = [itemPath(section, String(b.name || "").slice(0, 200), code), `/${section}`].concat(key ? [`/${section}/course/${courseSlug(key)}`] : []);
+  if (env.__refreshed) env.__refreshed.push(...paths);
+  if (cache) await Promise.all(paths.map(p => cache.delete(new Request(origin + p, {method: "GET"})).catch(() => false)));
+  return ok;
+}
 export async function handlePublic(request, env, ctx){
   const url = new URL(request.url), origin = url.origin;
+  if (request.method === "POST" && url.pathname === "/flashcards/refresh") return refresh(request, env, origin);
   if (request.method !== "GET" && request.method !== "HEAD") return new Response("Method not allowed", {status: 405, headers: {allow: "GET, HEAD"}});
   const cache = typeof caches !== "undefined" && !env.__noCache ? caches.default : null;
   const ckey = new Request(url.toString(), {method: "GET"});
@@ -294,7 +314,7 @@ export async function handlePublic(request, env, ctx){
       else { const im = rest.match(/^(?:([a-z0-9-]*?)-)?([a-z0-9]{8})$/i); if (im && codeOf(im[2])) out = await itemPage(env, section, (im[1] || "").toLowerCase(), codeOf(im[2]), origin); }
       if (out instanceof Response) return out;
       if (!out) return notFound(section, origin);
-      res = new Response(out.html, {headers: Object.assign({"cache-control": `public, max-age=300, s-maxage=${out.ttl}, stale-while-revalidate=86400`}, HTML_HEADERS)});
+      res = new Response(out.html, {headers: Object.assign({"cache-control": `public, max-age=60, s-maxage=${out.ttl}, stale-while-revalidate=86400`}, HTML_HEADERS)});
     }
   } catch (e) {
     return new Response(page({title: `Back soon | ${SITE}`, description: "This page is busy right now.", robots: "noindex",

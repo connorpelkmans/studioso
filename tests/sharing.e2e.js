@@ -235,7 +235,10 @@ async function sharer(browser){
   await page.check('dialog[open] input[name="pubColor"][value="#9A4FD1"]', {force: true}); await page.check('dialog[open] input[name="pubIcon"][value="psych"]', {force: true});
   ok(await page.evaluate(() => { const t = document.querySelector("#pubLookTile"); return t.style.getPropertyValue("--c") === "#9A4FD1" && /<path/.test(t.querySelector(".fc-ic").innerHTML) && document.querySelector('dialog[open] input[name="pubIcon"]:checked').value === "psych"; }), "picking a colour and an icon updates the preview");
   await page.screenshot({path: shots + "/publish-look.png"});
+  const refreshed = []; await page.route("**/flashcards/refresh", r => { refreshed.push(r.request().postData()); r.fulfill({status: 204, body: ""}); });
   await page.click("#pubGo"); await page.waitForSelector("dialog[open] #pubOff");
+  await page.waitForTimeout(200);
+  ok(refreshed.some(x => /"code":"PUBD-/.test(x) && /"name":"Organelles"/.test(x) && /"course":"BIOL 201"/.test(x)), "publishing tells the website to refresh its cached pages");
   ok(await page.evaluate(() => { const d = window.__SV.decks.find(x => x.deck_id === "d3"); return !!d && d.published === true && d.card_count === 5; }), "it shares the deck and publishes it in one step");
   ok(await page.evaluate(() => { const d = window.__SV.decks.find(x => x.deck_id === "d3"); return d.data.look && d.data.look.color === "#9A4FD1" && d.data.look.icon === "psych" && __sbSync.state.decks.d3.courseId === "c1"; }), "the page gets the picked colour and icon; the deck in the app keeps its course");
   await page.click("#pubLook"); await page.waitForSelector("dialog[open] #pubLookGo");
