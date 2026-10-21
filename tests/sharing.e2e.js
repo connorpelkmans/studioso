@@ -127,6 +127,10 @@ async function visitor(browser){
   ok(dk && dk.cards.length === 3 && dk.cards.every(c => c.box === 0 && !c.seen), "Study This in Studyboard adds a fresh copy of the deck");
   ok(await page.evaluate(() => __sbSync.ui.tab === "flashcards" && !!__sbSync.ui.deckId), "and opens it");
   ok(!(await page.evaluate(() => window.__SV.saves.length)), "a visitor's copy isn't counted as a save (no account)");
+  // the owner unpublishes and stops sharing: the copy I added stays, cards and all, and still opens
+  await page.evaluate(() => { window.__SV.decks = window.__SV.decks.filter(x => x.code !== "DECK-AAAA"); __sbSync.ui.deckId = null; __sbSync.render(); });
+  await page.evaluate(id => { __sbSync.ui.deckId = id; __sbSync.render(); }, dk.id); await page.waitForTimeout(600);
+  ok(await page.evaluate(id => { const d = __sbSync.state.decks[id]; return !!d && d.cards.length === 3 && !!document.querySelector("#view .deck-head"); }, dk.id), "when the owner unpublishes or stops sharing, the copy I added stays");
   ok(!errs.length, "no errors (deck link): " + errs.join(" | ")); await ctx.close();
 
   // a note
