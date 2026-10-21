@@ -102,7 +102,7 @@ function listHtml(section, rows){
   if (!rows.length) return "";
   return `<ul class="pub-list">${rows.map(r => `<li><a class="pub-item" href="${esc(itemPath(section, r.name, r.code))}">
     <b>${esc(r.name)}</b>
-    <span class="pub-meta">${esc(plural(Number(r.n) || 0, K.unit))}${r.course_label ? ` · ${esc(r.course_label)}` : ""}${r.sharer_name ? ` · by ${esc(r.sharer_name)}` : ""}${r.saves ? ` · ${esc(plural(Number(r.saves), "save"))}` : ""}</span>
+    <span class="pub-meta">${esc(plural(Number(r.n) || 0, K.unit))}${r.course_label ? ` · ${esc(r.course_label)}` : ""}${r.school_name ? ` · ${esc(r.school_name)}` : ""}${r.sharer_name ? ` · by ${esc(r.sharer_name)}` : ""}${r.saves ? ` · ${esc(plural(Number(r.saves), "save"))}` : ""}</span>
     ${r.preview ? `<span class="pub-prev">${esc(clip(r.preview, 140))}</span>` : ""}</a></li>`).join("")}</ul>`;
 }
 const pager = (section, base, pageNo, more) => (pageNo > 1 || more) ? `<nav class="pub-pager" aria-label="Pages">${pageNo > 1 ? `<a class="btn" rel="prev" href="${esc(base + (pageNo === 2 ? "" : (base.includes("?") ? "&" : "?") + "page=" + (pageNo - 1)))}">Previous</a>` : "<span></span>"}<span>Page ${pageNo}</span>${more ? `<a class="btn" rel="next" href="${esc(base + (base.includes("?") ? "&" : "?") + "page=" + (pageNo + 1))}">Next</a>` : "<span></span>"}</nav>` : "";
@@ -172,12 +172,13 @@ async function itemPage(env, section, slug, code, origin){
   const cr = [[K.noun, `/${section}`]].concat(key ? [[label || courseLabelOf(key), `/${section}/course/${courseSlug(key)}`]] : []).concat([[row.name, want]]);
   const related = key ? (await rpc(env, "public_search", {p_kind: K.kind, p_q: "", p_course: key, p_limit: 9, p_offset: 0}).catch(() => [])).filter(r => r.code !== row.code).slice(0, 8) : [];
   const appLink = `/?${K.appParam}=${encodeURIComponent(row.code)}`;
-  const meta = `${esc(plural(Number(row.n) || 0, K.unit))}${label ? ` · ${esc(label)}` : ""}${row.sharer_name ? ` · Made by ${esc(row.sharer_name)}` : ""}${row.updated_at ? ` · Updated ${esc(monthYear(row.updated_at))}` : ""}`;
+  const school = row.school_name || "";
+  const meta = `${esc(plural(Number(row.n) || 0, K.unit))}${label ? ` · ${esc(label)}` : ""}${school ? ` · ${esc(school)}` : ""}${row.sharer_name ? ` · Made by ${esc(row.sharer_name)}` : ""}${row.updated_at ? ` · Updated ${esc(monthYear(row.updated_at))}` : ""}`;
   let body, ld, title, description;
   if (K.kind === "deck") {
     const cards = (Array.isArray(d.cards) ? d.cards : []).filter(c => c && (c.front || c.back)).slice(0, 2000);
     title = `${row.name}${label && !row.name.toLowerCase().includes(label.toLowerCase()) ? " (" + label + ")" : ""} Flashcards | ${SITE}`;
-    description = clip(`Study ${row.name}${label ? " for " + label : ""} with ${cards.length} flashcards: ${cards.slice(0, 5).map(c => c.front).join(", ")}.`, 158);
+    description = clip(`Study ${row.name}${label ? " for " + label : ""}${school ? " at " + school : ""} with ${cards.length} flashcards: ${cards.slice(0, 5).map(c => c.front).join(", ")}.`, 158);
     body = `${crumbs(cr)}<header class="pub-head"><h1>${esc(row.name)}</h1><p class="pub-meta">${meta}</p>
       <div class="pub-acts"><a class="btn primary" href="#study" data-pub-study>Study Flashcards</a><a class="btn" href="${esc(appLink)}">Add to Studyboard</a></div></header>
       <section id="study" class="pub-study" hidden aria-label="Study these flashcards"><button type="button" class="pub-card" data-pub-card aria-live="polite"></button>
@@ -185,12 +186,12 @@ async function itemPage(env, section, slug, code, origin){
       <section class="pub-sec"><h2>Terms in this set (${cards.length})</h2>
       <ol class="pub-terms">${cards.map(c => `<li data-front="${esc(c.front)}" data-back="${esc(c.back)}"><span class="t">${esc(c.front)}</span><span class="d">${esc(c.back)}</span></li>`).join("")}</ol></section>`;
     ld = [{"@context": "https://schema.org", "@type": "Quiz", name: row.name, about: {"@type": "Thing", name: label || row.name}, educationalLevel: "University",
-      ...(row.sharer_name ? {author: {"@type": "Person", name: row.sharer_name}} : {}), dateModified: isoDate(row.updated_at), url: canonical,
+      ...(row.sharer_name ? {author: {"@type": "Person", name: row.sharer_name, ...(school ? {affiliation: {"@type": "CollegeOrUniversity", name: school}} : {})}} : {}), ...(school ? {sourceOrganization: {"@type": "CollegeOrUniversity", name: school}} : {}), dateModified: isoDate(row.updated_at), url: canonical,
       hasPart: cards.slice(0, 500).map(c => ({"@type": "Question", eduQuestionType: "Flashcard", text: clip(c.front, 600), acceptedAnswer: {"@type": "Answer", text: clip(c.back, 1200)}}))}];
   } else {
     const qz = d.quiz && typeof d.quiz === "object" ? d.quiz : {}, qs = (Array.isArray(qz.questions) ? qz.questions : []).filter(q => q && q.stem).slice(0, 300);
     title = `${row.name}${label && !row.name.toLowerCase().includes(label.toLowerCase()) ? " (" + label + ")" : ""}: Practice Quiz | ${SITE}`;
-    description = clip(`Practice quiz with ${qs.length} questions${label ? " for " + label : ""}: ${qs.slice(0, 2).map(q => q.stem).join(" ")}`, 158);
+    description = clip(`Practice quiz with ${qs.length} questions${label ? " for " + label : ""}${school ? " at " + school : ""}: ${qs.slice(0, 2).map(q => q.stem).join(" ")}`, 158);
     body = `${crumbs(cr)}<header class="pub-head"><h1>${esc(row.name)}</h1><p class="pub-meta">${meta}</p>
       <div class="pub-acts"><a class="btn primary" href="${esc(appLink)}">Take the Quiz in Studyboard</a></div></header>
       ${qz.kind === "case" && qz.scenario ? `<section class="pub-sec pub-case"><h2>Case</h2><p>${esc(qz.scenario)}</p></section>` : ""}
@@ -199,7 +200,7 @@ async function itemPage(env, section, slug, code, origin){
         return `<li class="pub-q"><p class="stem">${esc(q.stem)}</p>${o.length && q.type !== "short" ? `<ol class="opts" type="A">${o.map(x => `<li>${esc(x)}</li>`).join("")}</ol>` : ""}
           <details><summary>Show answer</summary><p class="ans"><b>${esc(quizAnswerText(q))}</b></p>${q.rationale ? `<p class="why">${esc(q.rationale)}</p>` : ""}</details></li>`; }).join("")}</ol></section>`;
     ld = [{"@context": "https://schema.org", "@type": "Quiz", name: row.name, about: {"@type": "Thing", name: label || row.name}, educationalLevel: "University",
-      ...(row.sharer_name ? {author: {"@type": "Person", name: row.sharer_name}} : {}), dateModified: isoDate(row.updated_at), url: canonical,
+      ...(row.sharer_name ? {author: {"@type": "Person", name: row.sharer_name, ...(school ? {affiliation: {"@type": "CollegeOrUniversity", name: school}} : {})}} : {}), ...(school ? {sourceOrganization: {"@type": "CollegeOrUniversity", name: school}} : {}), dateModified: isoDate(row.updated_at), url: canonical,
       hasPart: qs.slice(0, 300).map(q => {
         const o = Array.isArray(q.options) ? q.options : [], c = Array.isArray(q.correct) ? q.correct : [];
         if (q.type === "short" || !o.length) return {"@type": "Question", eduQuestionType: "Short answer", text: clip(q.stem, 600), acceptedAnswer: {"@type": "Answer", text: clip(quizAnswerText(q), 600)}};

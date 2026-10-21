@@ -24,13 +24,14 @@ Pages are cached at Cloudflare's edge for an hour, so most visits never reach Su
 
 In the app:
 - A deck's or quiz's Share sheet has **Publish to Studyboard Flashcards** (or **Quizzes**). It asks first, then shows the public address.
+- A deck's page has a **Publish** button: it asks for your school first (filled in from your Brightspace, Canvas or Blackboard connection, or searched from the list of about 10,000 real universities and colleges; the server refuses any other), shows what will be public, then shares and publishes the deck in one step. The school shows on the page.
 - Flashcards and Quizzes have an **Explore** button that opens the public pages.
 - Limits: at least 4 cards or 3 questions, and up to 100 published per account. People suspended from groups can't publish.
 - A page shows the *shared copy*, so **Update Shared Copy** also updates the public page within the hour.
 
 ## What you need to do
 
-1. **Supabase:** run `supabase-sharing.sql` again (SQL Editor > New query > paste > Run), then `supabase-lean.sql`. It adds publishing, the search index and the public read functions. It is safe to run again.
+1. **Supabase:** run `supabase-schools.sql` (the list of real schools, once), then `supabase-sharing.sql` again (SQL Editor > New query > paste > Run), then `supabase-lean.sql`. It adds publishing, the search index and the public read functions. It is safe to run again.
 2. **Deploy the website as usual.** The new routes are in `wrangler.jsonc` (`run_worker_first`), and the public key the pages read with is in `vars`. Nothing secret is added.
 3. **Check it:** open `https://studyboardapp.com/flashcards`. Publish one of your own decks with 4+ cards, then open its page and `https://studyboardapp.com/sitemap-public.xml`.
 4. **Google Search Console** (https://search.google.com/search-console):

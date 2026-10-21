@@ -43,8 +43,15 @@ function serverInit(opts){
       Object.assign(d, {listed: a.p_listed, course_key: a.p_course_key, school_key: a.p_school_key, school_name: a.p_school_name}); return null; },
     share_saved: a => { if (me()) SV.saves.push(a.p_code); return null; },
     report_share: a => { SV.reports.push(a); return null; },
+    search_schools: a => [{key: "uwaterloo.ca", name: "University of Waterloo", country: "Canada", region: "Ontario", web: ""}, {key: "wlu.ca", name: "Wilfrid Laurier University", country: "Canada", region: "", web: ""}].filter(x => x.name.toLowerCase().includes(String(a.p_q).toLowerCase()) || x.key.startsWith(String(a.p_q).toLowerCase())),
+    school_for_host: a => /uwaterloo\.ca$/.test(String(a.p_host)) ? [{key: "uwaterloo.ca", name: "University of Waterloo", country: "Canada", region: "Ontario", web: ""}] : [],
+    set_my_school: a => { if (!me()) throw {message: "Sign in first"}; if (!["uwaterloo.ca", "wlu.ca"].includes(a.p_key)) throw {message: "Pick your school from the list."}; SV.school = a.p_key; return [{key: a.p_key}]; },
+    request_school: a => { SV.requests = (SV.requests || []).concat([a]); return null; },
+    share_deck: a => { let d = SV.decks.find(x => x.owner === me() && x.deck_id === a.p_deck_id);
+      if (!d) { d = {code: "PUBD-000" + (SV.decks.length), owner: me(), deck_id: a.p_deck_id, sharer_name: "Connor", saves: 0}; SV.decks.push(d); }
+      Object.assign(d, {name: a.p_name, data: a.p_data, card_count: a.p_count}); return d.code; },
     my_publish_state: a => !!(SV.decks.find(d => d.code === a.p_code && d.owner === me() && d.published) || SV.items.find(i => i.code === a.p_code && i.owner === me() && i.published)),
-    share_publish: a => { const x = SV.decks.find(d => d.code === a.p_code && d.owner === me()) || SV.items.find(i => i.code === a.p_code && i.owner === me()); if (!x) throw {message: "Share it with a link first."}; x.published = a.p_on; return null; }
+    share_publish: a => { if (a.p_on && !SV.school) throw {message: "SB_SCHOOL: Pick your school first."}; const x = SV.decks.find(d => d.code === a.p_code && d.owner === me()) || SV.items.find(i => i.code === a.p_code && i.owner === me()); if (!x) throw {message: "Share it with a link first."}; x.published = a.p_on; return null; }
   };
   window.__sbShareStub = async (fn, a) => { SV.calls.push([fn, a]); await wait(); if (!F[fn]) throw {code: "PGRST202", message: "Could not find the function public." + fn}; return F[fn](a); };
   if (opts.me) {
@@ -76,7 +83,8 @@ function serverInit(opts){
 const SEED = {v: 2, updated: 1, courses: [{id: "c1", name: "Biology", code: "BIOL 201", color: "#3B6FE0"}], tasks: [],
   settings: {capacity: 15, dailyHours: 3, webUrl: "https://app.example.edu/", brightspace: {host: "learn.uwaterloo.ca"}},
   notes: [{id: "n1", text: "Krebs cycle\nHappens in the mitochondria.", color: "yellow", x: 40, y: 40, z: 1, rot: 0, courseId: "c1"}],
-  decks: [{id: "d1", name: "My Cells", courseId: "c1", created: 1, cards: [{id: "k1", front: "Cell wall", back: "Plants have it", box: 0, due: "", seen: 0, right: 0, wrong: 0}],
+  decks: [{id: "d3", name: "Organelles", courseId: "c1", created: 3, cards: ["Nucleus|DNA", "Ribosome|Protein", "Golgi|Packaging", "Lysosome|Waste", "Vacuole|Storage"].map((x, i) => ({id: "o" + i, front: x.split("|")[0], back: x.split("|")[1], box: 0, due: "", seen: 0, right: 0, wrong: 0}))},
+    {id: "d1", name: "My Cells", courseId: "c1", created: 1, cards: [{id: "k1", front: "Cell wall", back: "Plants have it", box: 0, due: "", seen: 0, right: 0, wrong: 0}],
     aiQuizzes: [{id: "q1", title: "Krebs Quiz", questions: [{id: "z1", type: "single", stem: "Where does the Krebs cycle happen?", options: ["Mitochondria", "Nucleus"], correct: [0]}]}]}]};
 
 async function boot(browser, w, opts, query){
@@ -170,15 +178,22 @@ async function sharer(browser){
   await actStay(page, "fc-share", {id: "d1"}); await page.waitForTimeout(400);
   if (await page.$("dialog[open] #grpMake")) { await page.click("dialog[open] #grpMake"); }
   await page.waitForSelector("dialog[open] #libOn", {timeout: 6000});
-  ok(/BIOL 201 Course Library/.test(await txt(page, "#libRow")) && /learn\.uwaterloo\.ca|uwaterloo\.ca/.test(await txt(page, "#libRow")), "the deck's link sheet offers its course library, at the school from the school site");
+  ok(/BIOL 201 Course Library/.test(await txt(page, "#libRow")) && /uwaterloo\.ca|University of Waterloo/.test(await txt(page, "#libRow")), "the deck's link sheet offers its course library, at the school from the school site");
   await page.check("#libOn"); await page.waitForTimeout(300);
   const ll = (await calls(page, "library_list"))[0];
   ok(ll && ll[1].p_listed === true && ll[1].p_course_key === "BIOL201" && ll[1].p_school_key === "uwaterloo.ca", "listing sends the course code and school");
   // publishing to the public flashcards pages
   await page.waitForSelector("dialog[open] #pubOn");
   ok(/Publish to Studyboard Flashcards/.test(await txt(page, "#pubRow")), "the deck's Share sheet offers Publish to Studyboard Flashcards");
+  await page.evaluate(() => { const st = __sbSync.state.settings; delete st.school; __sbSync.saveSettings(); });
+  await page.evaluate(() => { delete window.__SV.school; });
+  await page.click("#pubOn"); await page.waitForSelector("dialog[open] #schUseAuto", {timeout: 6000});
+  await page.screenshot({path: shots + "/school-auto.png"});
+  ok(/From your Brightspace sign-in/.test(await txt(page, "#schAuto")) && /University of Waterloo/.test(await txt(page, "#schAuto")), "publishing asks for a school first, filled in from the Brightspace connection");
+  await page.click("#schUseAuto"); await page.waitForSelector("dialog[open] #pubOn");
+  ok(await page.evaluate(() => __sbSync.state.settings.school.key === "uwaterloo.ca" && __sbSync.state.settings.school.v === 1 && window.__SV.school === "uwaterloo.ca"), "the school is kept, on this device and on the server");
   await page.check("#pubOn"); await page.waitForSelector("#askDlg[open]");
-  ok(/anyone can see the cards and your display name/i.test(await txt(page, "#askDlg")), "publishing asks first and says what becomes public");
+  ok(/anyone can see the cards, your display name and your school \(University of Waterloo\)/i.test(await txt(page, "#askDlg")), "publishing asks first and says what becomes public, the school included");
   await page.click("#askYes"); await page.waitForSelector("#pubUrlIn");
   ok(await page.evaluate(() => window.__SV.decks.find(d => d.code === "MYDK-0001").published === true), "Publish sends share_publish");
   ok((await page.inputValue("#pubUrlIn")) === "https://app.example.edu/flashcards/my-cells-mydk0001", "it shows the public page's address: " + await page.inputValue("#pubUrlIn"));
@@ -189,6 +204,23 @@ async function sharer(browser){
   await actStay(page, "qz-share", {deck: "d1", id: "q1"}); await page.waitForSelector("dialog[open] #pubOn", {timeout: 6000});
   ok(/Publish to Studyboard Quizzes/.test(await txt(page, "#pubRow")), "a quiz's Share sheet offers Publish to Studyboard Quizzes");
   await page.evaluate(() => __sbSync.dlg.close());
+  // the Publish button on a deck's page
+  await page.evaluate(() => { __sbSync.ui.tab = "flashcards"; __sbSync.ui.fc = null; __sbSync.ui.deckId = "d3"; __sbSync.render(); }); await page.waitForTimeout(300);
+  ok(/Publish/.test(await txt(page, '#view [data-act="pub-deck"]')), "a deck's page has a Publish button");
+  await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForSelector("dialog[open] #pubGo");
+  await page.screenshot({path: shots + "/publish-confirm.png"});
+  ok(/University of Waterloo/.test(await txt(page, "dialog[open] .pub-sum")) && /BIOL 201/.test(await txt(page, "dialog[open] .pub-sum")) && /5 cards/.test(await txt(page, "dialog[open] .pub-sum")), "Publish shows the school, course and card count first");
+  await page.click("#pubGo"); await page.waitForSelector("dialog[open] #pubOff");
+  ok(await page.evaluate(() => { const d = window.__SV.decks.find(x => x.deck_id === "d3"); return !!d && d.published === true && d.card_count === 5; }), "it shares the deck and publishes it in one step");
+  ok(/is live in Studyboard Flashcards/.test(await txt(page, "dialog[open]")) && /\/flashcards\/organelles-pubd/.test(await page.inputValue("#pubUrl2")), "then shows the live page's address");
+  await page.evaluate(() => __sbSync.dlg.close()); await page.evaluate(() => __sbSync.render()); await page.waitForTimeout(200);
+  ok(/Published/.test(await txt(page, '#view [data-act="pub-deck"]')), "the button then says Published");
+  await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForSelector("dialog[open] #pubOff");
+  await page.click("#pubOff"); await page.waitForSelector("#askDlg[open]"); await page.click("#askYes"); await page.waitForTimeout(300);
+  ok(await page.evaluate(() => window.__SV.decks.find(x => x.deck_id === "d3").published === false && !__sbSync.state.decks.d3.published), "Unpublish takes the page down");
+  await page.evaluate(() => { __sbSync.ui.deckId = "d1"; __sbSync.render(); }); await page.waitForTimeout(200);
+  await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForTimeout(300);
+  ok(/at least 4 cards/.test(await page.evaluate(() => document.querySelector("#toast").textContent)), "a deck with fewer than 4 cards can't be published");
   // Explore opens the public pages
   await page.evaluate(() => { window.__opened = []; window.open = u => { window.__opened.push(u); return null; }; __sbSync.ui.tab = "flashcards"; __sbSync.ui.deckId = null; __sbSync.ui.fc = null; __sbSync.render(); });
   await page.click('[data-act="pub-explore"][data-id="flashcards"]');
@@ -217,10 +249,15 @@ async function sharer(browser){
   // no school site: the library asks for the school first
   const seed2 = JSON.parse(JSON.stringify(SEED)); delete seed2.settings.brightspace;
   ({ctx, page, errs} = await boot(browser, 390, {me: "u1", seed: seed2}));
-  await act(page, "lib-open", {}); await page.waitForSelector('dialog[open] input[name="school"]');
-  await page.fill('dialog[open] input[name="school"]', "University of Waterloo"); await page.click('dialog[open] button[type="submit"]');
+  await act(page, "lib-open", {}); await page.waitForSelector("dialog[open] #schQ");
+  ok(!(await page.$("dialog[open] #schUseAuto")), "with no school site, nothing is suggested");
+  await page.fill("dialog[open] #schQ", "zzz"); await page.waitForTimeout(500);
+  ok(/No school by that name/.test(await txt(page, "#schList")), "only schools from the list can be picked");
+  await page.fill("dialog[open] #schQ", "waterl"); await page.waitForSelector('dialog[open] .sch-item[data-key="uwaterloo.ca"]');
+  await page.screenshot({path: shots + "/school-picker-phone.png"});
+  await page.click('dialog[open] .sch-item[data-key="uwaterloo.ca"]');
   await page.waitForSelector("dialog[open] .lib-sheet"); await page.waitForTimeout(300);
-  ok(await page.evaluate(() => __sbSync.state.settings.school && __sbSync.state.settings.school.key === "university of waterloo"), "a typed school is saved");
+  ok(await page.evaluate(() => __sbSync.state.settings.school && __sbSync.state.settings.school.key === "uwaterloo.ca" && __sbSync.state.settings.school.v === 1), "a school picked from the list is saved");
   await noOverflow(page, "library on a phone");
   ok(!errs.length, "no errors (school picker): " + errs.join(" | ")); await ctx.close();
 }

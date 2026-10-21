@@ -4,7 +4,7 @@ const assert = require("assert"), path = require("path");
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 
 const DECKS = [
-  {code: "ABCD-EFGH", name: "Cell Biology Basics", sharer_name: "Sam", n: 4, course_key: "BIOL201", course_label: "BIOL 201", saves: 3, updated_at: "2026-10-01T00:00:00Z", published_at: "2026-10-01T00:00:00Z",
+  {code: "ABCD-EFGH", name: "Cell Biology Basics", sharer_name: "Sam", school_name: "University of Waterloo", n: 4, course_key: "BIOL201", course_label: "BIOL 201", saves: 3, updated_at: "2026-10-01T00:00:00Z", published_at: "2026-10-01T00:00:00Z",
     data: {course: {code: "BIOL 201", name: "Biology"}, cards: [{front: "Mitochondria", back: "Makes ATP"}, {front: "Ribosome", back: "Makes protein <b>fast</b>"}, {front: "Nucleus", back: "Holds DNA"}, {front: "Golgi", back: "Packages proteins"}]}},
   {code: "JKLM-NPQR", name: "Cell Organelles II", sharer_name: "Jo", n: 5, course_key: "BIOL201", course_label: "BIOL 201", saves: 0, updated_at: "2026-10-02T00:00:00Z", published_at: "2026-10-02T00:00:00Z",
     data: {cards: [{front: "a", back: "b"}]}}
@@ -41,11 +41,13 @@ const env = {SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "sb_publi
   ok(r.status === 200 && /text\/html/.test(r.headers.get("content-type")), "a deck page renders");
   ok(/<h1>Cell Biology Basics<\/h1>/.test(t) && /Mitochondria/.test(t) && /Makes ATP/.test(t) && /Packages proteins/.test(t), "every card is in the page's HTML");
   ok(/Makes protein &lt;b&gt;fast&lt;\/b&gt;/.test(t) && !/<b>fast<\/b>/.test(t), "card text is escaped");
+  ok(/BIOL 201 · University of Waterloo · Made by Sam/.test(t) && /at University of Waterloo/.test(t.match(/<meta name="description" content="([^"]*)"/)[1]), "the school shows on the page and in its description");
   ok(/<title>Cell Biology Basics \(BIOL 201\) Flashcards \| Studyboard<\/title>/.test(t), "the title names the set, its course and Flashcards");
   ok(/<link rel="canonical" href="https:\/\/studyboardapp.com\/flashcards\/cell-biology-basics-abcdefgh">/.test(t), "it has a canonical link");
   const ld = [...t.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m => JSON.parse(m[1]));
   const quiz = ld.find(x => x["@type"] === "Quiz");
   ok(quiz && quiz.hasPart.length === 4 && quiz.hasPart.every(q => q.eduQuestionType === "Flashcard" && q.acceptedAnswer && q.acceptedAnswer.text), "flashcard structured data (schema.org Quiz with Flashcard questions)");
+  ok(quiz.sourceOrganization && quiz.sourceOrganization.name === "University of Waterloo" && quiz.author.affiliation.name === "University of Waterloo", "the school is in the structured data");
   ok(ld.some(x => x["@type"] === "BreadcrumbList" && x.itemListElement.length === 3), "breadcrumb structured data");
   ok(/href="\/\?deck=ABCD-EFGH"/.test(t), "Add to Studyboard opens the deck in the app");
   ok(/More BIOL 201 flashcards/.test(t) && /cell-organelles-ii-jklmnpqr/.test(t), "related sets from the same course are linked");
