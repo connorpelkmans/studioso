@@ -428,10 +428,10 @@ async function hideFeatures(browser){
   let {ctx, page, errs} = await boot(browser, 1280, {me: "u1"});
   await openGroup(page, "g1");
   await page.click('[data-act="grp-edit"]'); await sheet(page, ".grp-feats");
-  eq(await page.$$eval("dialog .grp-feat:not(.is-pro) span", e => e.map(x => x.innerText)), ["Shared Decks", "Practice Quizzes", "Most-Missed Cards", "Questions and Answers", "Deadlines", "Sessions", "Weekly Challenge", "Chat"], "the owner sees every feature as a switch");
+  eq(await page.$$eval("dialog .grp-feat:not(.is-pro) span", e => e.map(x => x.innerText)), ["Shared Decks", "Practice Quizzes", "Most-Missed Cards", "Questions and Answers", "Deadlines", "Sessions", "Find a Time", "Weekly Challenge", "Chat"], "the owner sees every feature as a switch");
   ok(await page.$$eval('dialog .grp-feat:not(.is-pro) input', e => e.every(x => x.checked)), "all on to start");
   const pro = await page.$$eval("dialog .grp-feat.is-pro", e => e.map(x => ({t: x.querySelector("span").innerText, badge: !!x.querySelector(".pro-badge"), locked: x.classList.contains("is-locked") && x.querySelector("input").disabled && !x.querySelector("input").checked})));
-  ok(pro.length === 3 && pro.every(x => x.badge && x.locked) && pro.map(x => x.t).join() === "Find a Time,Split Exam Topics,Live Quiz", "Pro features are listed with a PRO badge, greyed out and locked in a free group: " + JSON.stringify(pro));
+  ok(pro.length === 2 && pro.every(x => x.badge && x.locked) && pro.map(x => x.t).join() === "Split Exam Topics,Live Quiz", "Pro features are listed with a PRO badge, greyed out and locked in a free group: " + JSON.stringify(pro));
   await page.evaluate(() => document.querySelector("dialog .grp-feat.is-pro").scrollIntoView({block: "center"})); await page.screenshot({path: shots + "/gk-features-free.png"});
   for (const k of ["sessions", "chat", "qa"]) await page.uncheck(`dialog .grp-feat input[value="${k}"]`);
   await page.click("dialog #grpSave"); await page.waitForTimeout(700);

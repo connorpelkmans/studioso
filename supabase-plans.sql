@@ -40,7 +40,7 @@ alter table public.studyboard_config add constraint studyboard_config_no_secrets
 insert into public.studyboard_config (key, value) values
   ('paywall', 'false'),
   ('prices', '{"monthly": "$3.99", "yearly": "$29.99", "trialDays": 7, "currency": "USD"}'),
-  ('limits', '{"free": {"devices": 2, "fileMB": 25, "dataMB": 25, "groupMembers": 3, "groupMsgDays": 60, "cloudBackupDays": 0},
+  ('limits', '{"free": {"devices": 2, "fileMB": 25, "dataMB": 25, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
                "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}'),
   ('checkout_url_monthly', '""'),
   ('checkout_url_yearly', '""'),
@@ -61,6 +61,11 @@ update public.studyboard_config set
   value = jsonb_set(value, '{free}', (value -> 'free') || '{"devices": 2, "groupMembers": 3, "groupMsgDays": 60}'::jsonb), updated_at = now()
 where key = 'limits'
   and value -> 'free' @> '{"devices": 3, "groupMembers": 30, "groupMsgDays": 120}'::jsonb;
+
+-- Free groups went from 3 members to 5 (a class project team fits, and every invite brings a new student in). Moved over only if it
+-- still says 3, so a size you set yourself is kept.
+update public.studyboard_config set value = jsonb_set(value, '{free,groupMembers}', '5'), updated_at = now()
+where key = 'limits' and value #> '{free,groupMembers}' = '3'::jsonb;
 
 -- ---------- Who has Pro ----------
 create table if not exists public.studyboard_entitlements (
@@ -134,7 +139,7 @@ create or replace function public.studyboard_limit(uid uuid, name text) returns 
 language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare
   tier text := case when public.studyboard_limits_pro(uid) then 'pro' else 'free' end;
-  defaults constant jsonb := '{"free": {"devices": 2, "fileMB": 25, "dataMB": 25, "groupMembers": 3, "groupMsgDays": 60, "cloudBackupDays": 0},
+  defaults constant jsonb := '{"free": {"devices": 2, "fileMB": 25, "dataMB": 25, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
                                "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}';
   lim jsonb := coalesce((select value from public.studyboard_config where key = 'limits'), defaults);
   v jsonb;
@@ -1391,6 +1396,47 @@ create trigger plans_welcome_trial after insert or update of email_confirmed_at,
 do $$ begin
   if exists (select 1 from pg_roles where rolname = 'service_role') then grant all on public.studyboard_trial_blocked_domains to service_role; end if;
 end $$;
+
+-- ---------------------------------------------------------------------------------------------------------------------------
+-- Upgrade tracking: private counts per day of which Pro prompt was shown, which led to a buy click, and which led to a purchase.
+-- The app sends only the prompt's reason line (numbers and quoted names taken out) and the event; no user id, nothing per person.
+--   event 'shown'      the Pro sheet opened with that reason
+--         'note'       a one-time limit note (a toast with See Pro) appeared
+--         'buy'        a price was tapped on that sheet
+--         'purchased'  paid Pro turned on after that buy tap (not a trial or a code)
+-- Nobody can read it through the API. Read it in the Supabase SQL editor, for example the last 30 days by prompt:
+--   select reason,
+--          sum(n) filter (where event = 'shown') as shown,
+--          sum(n) filter (where event = 'buy') as buy_taps,
+--          sum(n) filter (where event = 'purchased') as purchases,
+--          round(100.0 * sum(n) filter (where event = 'purchased') / nullif(sum(n) filter (where event = 'shown'), 0), 1) as pct
+--   from public.studyboard_upgrade_stats where day > current_date - 30
+--   group by reason order by shown desc nulls last;
+create table if not exists public.studyboard_upgrade_stats (
+  day date not null default current_date,
+  reason text not null,
+  event text not null check (event in ('shown', 'note', 'buy', 'purchased')),
+  n integer not null default 0,
+  primary key (day, reason, event)
+);
+alter table public.studyboard_upgrade_stats enable row level security;   -- no policies: closed to the API
+revoke all on public.studyboard_upgrade_stats from public, anon, authenticated;
+
+create or replace function public.studyboard_upgrade_event(p_event text, p_reason text) returns void
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare r text := left(coalesce(nullif(btrim(regexp_replace(p_reason, '\s+', ' ', 'g')), ''), '(none)'), 120);
+begin
+  if p_event is null or p_event not in ('shown', 'note', 'buy', 'purchased') then return; end if;
+  -- keep the table small even if someone sends junk: past 300 different reasons in a day, the rest count as '(other)'
+  if not exists (select 1 from public.studyboard_upgrade_stats where day = current_date and reason = r)
+     and (select count(distinct reason) from public.studyboard_upgrade_stats where day = current_date) >= 300 then
+    r := '(other)';
+  end if;
+  insert into public.studyboard_upgrade_stats as s (day, reason, event, n) values (current_date, r, p_event, 1)
+  on conflict (day, reason, event) do update set n = s.n + 1;
+end $$;
+revoke all on function public.studyboard_upgrade_event(text, text) from public;
+grant execute on function public.studyboard_upgrade_event(text, text) to anon, authenticated;
 
 -- Ask the API to notice the new tables right away
 notify pgrst, 'reload schema';

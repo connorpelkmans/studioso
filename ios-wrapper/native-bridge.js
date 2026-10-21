@@ -132,6 +132,17 @@
         through APNs (kind "apns"). A tap on a notification whose data has taskId / rid opens ?sbtask=&sbrid= like the web push click does. */
   var platform = typeof C.getPlatform === "function" && C.getPlatform() === "android" ? "android" : "ios";
   var isAndroid = platform === "android";
+  // iPad or iPhone (the page's pen tools are iPad only: SBINK.available() in index.html). The app shell says so before any script runs
+  // (MainViewController.swift sets window.StudyboardDevice.idiom); builds without that line fall back to the user agent, where iPadOS
+  // can say "Macintosh" (desktop-class browsing) but still has a touch screen.
+  var device = isAndroid ? "android" : (function () {
+    try {
+      var D = window.StudyboardDevice;
+      if (D && (D.idiom === "pad" || D.idiom === "phone")) return D.idiom === "pad" ? "ipad" : "iphone";
+      var ua = navigator.userAgent || "";
+      return /iPad/.test(ua) || (/Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) > 1) ? "ipad" : "iphone";
+    } catch (e) { return "iphone"; }
+  })();
   // OWNER: set android to true only after android/app/google-services.json is in place (README-ANDROID.md "Push"): without Firebase,
   // registering fails on Android. iOS needs the Push Notifications capability and the two AppDelegate methods (README-IOS.md "Push").
   var PUSH_READY = { ios: true, android: false };
@@ -181,6 +192,7 @@
   window.StudyboardNative = Object.assign(window.StudyboardNative || {}, {
     forwardsDeepLinks: true,
     platform: platform,
+    device: device,                                                // "ipad" | "iphone" | "android"
     store: isAndroid ? "google-play" : "app-store",
     pushAvailable: pushOk,
     enablePush: function (opts) { return getPushToken(!(opts && opts.prompt === false)); },

@@ -101,6 +101,7 @@ Open **SQL Editor > New query** in Supabase, paste a whole file and click **Run*
 | 12 | `supabase-calsync.sql` | Two-way sync with Google Calendar and Outlook (Pro). Run it after step 9 so account deletion also clears it, then deploy `calendar-sync` (see "Two-Way Calendar Sync" below) | Optional |
 | 13 | `supabase-theme-access.sql` | Hidden themes: some themes are hidden from everyone (the list is `HIDDEN_THEMES` in `index.html`). An account you mark here sees them all again: `select public.studyboard_grant_all_themes('you@example.com', 'owner');` in the SQL Editor (`studyboard_revoke_all_themes` takes it back). Sign in again or reopen the app to see the change | Optional |
 | 14 | `supabase-cloud.sql` | Google Drive and OneDrive (Pro). Run it after step 9, then run `supabase-lean.sql` again so account deletion also clears it, then deploy `cloud-files` (see "Google Drive and OneDrive" below) | Optional |
+| 15 | `supabase-sharing.sql` | Public share links (a deck, note or quiz opens in any browser, no account needed) and the Course Library (decks listed for a course code at a school). Run it after steps 2 and 3, then run `supabase-lean.sql` again so account deletion also clears it. Reports land in `share_reports`; the file's header has the review queries. Three reports from different people hide an item until you look | Recommended |
 
 If you run `supabase-groups.sql` or `supabase-calendar-feed.sql` later, run `supabase-plans.sql` and `supabase-lean.sql` again afterwards. Running `supabase-groups.sql` again keeps blocking in place (it rebuilds the group read rules with the block filter once `supabase-moderation.sql` has been run), so there's no need to run moderation again after it.
 
@@ -391,6 +392,16 @@ Things to know:
 ## Big Assignment Breakdown
 
 Open a paper, project, lab report or presentation and tap **Break It Down** (also on the task row, under Courses, or from the menu to paste a prompt or rubric or add a PDF). You get 3 to 8 milestones, scheduled backward from the due date, with the last one a day before it by default. You can edit titles, dates and hours, move a milestone off a heavy day, and create them all at once; one Undo reverses everything. It needs no setup and works offline; if AI Features are on, the steps are worded for your assignment (the dates and hours always come from your calendar). When a syllabus is imported, big assignments have a "Break down into milestones" checkbox. The parent task keeps the real due date and shows "3 of 6 milestones done". If its due date changes later, Studyboard offers to re-plan the open milestones, and an overdue milestone offers a catch-up plan. Nothing to run on the server: milestones are ordinary tasks and sync with everything else.
+
+## Import From Another App
+
+Settings > Data and Backups > Export > **Import From Another App** (also in Add Deck on the Flashcards page, and in Search Everywhere) brings in what lives in another app. There is nothing to set up: files are read on the device and nothing is uploaded. Pick a file or drop it on the sheet; a preview shows what was found (and what was left out, such as pictures), lets you untick parts and choose a course for each deck or project, and the import is one change with one Undo. Free.
+
+- **Anki:** File > Export > Anki Deck Package (.apkg) or Collection Package (.colpkg), with Include Scheduling Information on. Each Anki deck with cards becomes a deck (named by its last part, or the full path when two would share a name). Cards keep their due date, level, right and wrong counts, last review (from Anki's review log) and Anki's FSRS memory state when it has one. Cloze notes become fill-in-the-blank cards; pictures and sounds are counted and left out. Up to 20,000 cards at once. Files from newer Anki (collection.anki21b) are unpacked with the vendored fzstd (`vendor/fzstd-0.1.1.umd.js`, loaded only for those files).
+- **Quizlet:** Quizlet has no file to read; the sheet explains Export and opens Paste Cards. Studyboard never fetches Quizlet links.
+- **Todoist:** a project's Export as CSV, or the backup ZIP (one CSV per project). Sub-tasks become checklist steps, sections and comments go in the notes, priority p1 is Urgent, and a repeating date keeps only its next date. A course whose code or name is in the file name is picked for you.
+- **Notion:** Export > Markdown & CSV (a ZIP; a ZIP inside it works too). Pages become notes on My Notes (headings, lists and checkboxes kept as plain text, Notion's ID dropped from titles). A database with a name and a date column becomes tasks (finished ones are left out); one with two text columns like Term and Definition becomes a deck.
+- **For developers:** the module is "97-import-apps" in `index.html` (a read-only SQLite reader with no wasm, the Anki mapping, CSV, Todoist and Notion parsing between `/*IMPORTAPPS-START*/` and `/*IMPORTAPPS-END*/`). Tests: `node tests/import-apps.test.js` and `node tests/import-apps.e2e.js` (both build real Anki collections with python3's sqlite3).
 
 ## Quick Capture
 
@@ -904,7 +915,7 @@ The first time you share or join, Studyboard asks what classmates should call yo
 ### Project Tasks (new in 1.13)
 Each group page has a **Project Tasks** section: shared task lists (for example "BIOL 201 Poster") with assignees, due dates, a progress bar, filters (All, Mine, Unassigned, Overdue, Done) and a per-person workload line that shows an uneven split. Anyone can add and edit tasks and mark them done, anyone can claim an unassigned task, and only the person a task is assigned to (or the group owner) can reassign it. Tasks assigned to you also appear under Today's Plan on your Board. A group keeps up to 20 active lists with up to 200 tasks each. To turn it on, run `supabase-groups.sql` again (it is safe to repeat), then `supabase-moderation.sql` again. Until then, the group owner sees a note saying to run it and other members see nothing. Run `supabase-plans-selftest.sql` afterwards to confirm the new tables and functions are locked down (section 9 covers them).
 
-**Pro groups (1.16):** Team Deadline, Review Before Done, Rubric Checklist, templates, weekly sessions, Find a Time, Split Exam Topics, Live Quiz and Group Uploads need the newest `supabase-groups.sql` **and** `supabase-plans.sql`. Run them again in that order, then `supabase-lean.sql` and `supabase-moderation.sql`, then `supabase-plans-selftest.sql`. See **Pro Groups** in `PRO-PLANS-GUIDE.md`.
+**Pro groups (1.16):** Team Deadline, Review Before Done, Rubric Checklist, templates, weekly sessions, Find a Time (free in every group), Split Exam Topics, Live Quiz and Group Uploads need the newest `supabase-groups.sql` **and** `supabase-plans.sql`. Run them again in that order, then `supabase-lean.sql` and `supabase-moderation.sql`, then `supabase-plans-selftest.sql`. See **Pro Groups** in `PRO-PLANS-GUIDE.md`.
 
 ### Study groups
 - Open **Groups** (in the sidebar on a computer, or from the Flashcards page or **Settings** on a phone) and tap **New Group**. Add a name and, if you like, a course.
@@ -1235,7 +1246,7 @@ Update the `calendar-feed` and `lms-feed` functions too (Edge Functions > the fu
 ## Studyboard Pro
 
 Studyboard has a Free plan and a Pro plan built in, but the paywall is **switched off**. Right now everything is unlocked for everyone and nothing is limited. You don't need to set anything up until you decide to launch Pro.
-- **Free, forever:** the whole planner, sync on up to 2 devices, Brightspace, Canvas and Blackboard sync, reminders, study groups (up to 3 members, messages kept 60 days), AI with your own Gemini key, the 14 plain color themes and the free styles, 100 MB of cloud files and 25 MB of synced data.
+- **Free, forever:** the whole planner, sync on up to 2 devices, Brightspace, Canvas and Blackboard sync, reminders, study groups (up to 5 members, messages kept 60 days), AI with your own Gemini key, the 14 plain color themes and the free styles, 100 MB of cloud files and 25 MB of synced data.
 - **Pro ($3.99 a month or $29.99 a year, with a 7-day free trial):** unlimited devices, 10 GB of cloud files and 250 MB of synced data, every premium theme (including the 4 seasons) and style, 30 days of online backups, and study groups of up to 100 members with unlimited message history.
 - **See it:** Settings → **Studyboard Pro** shows the plan, what Pro adds and how much storage you use.
 

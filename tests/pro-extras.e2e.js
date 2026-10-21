@@ -195,7 +195,12 @@ function SEED(){
     const pd = p3.locator("#pomoDlg"); if (await pd.evaluate(d => d.open)) await pd.evaluate(d => d.close());
     await p3.click('nav.tabs [data-tab="flashcards"]').catch(() => {}); await p3.waitForTimeout(300);
     await act(p3, "fc-open", "d1"); await p3.waitForTimeout(300);
-    ok(await p3.locator('[data-act="pro-dk-stats"]').count() === 0 && await p3.locator('[data-act="pro-cf-open"]').count() === 0, "free: the deck page shows no Stats or Image Cards buttons (Pro only)");
+    ok(await p3.locator('[data-act="pro-cf-open"]').count() === 0 && /^Scheduling$/.test(((await p3.locator('[data-act="pro-dk-stats"]').allTextContents())[0] || "").trim()), "free: the deck page has Scheduling (free) but no Stats or Image Cards (Pro)");
+    await act(p3, "pro-dk-stats", "d1"); await p3.waitForTimeout(300);
+    ok(await p3.locator('.pro-dk-body [data-act="pro-dk-sched"][data-id="smart"][aria-pressed="true"]').count() === 1 && await p3.locator(".pro-dk-body .dk-heat").count() === 0, "free: Smart scheduling is on by default, and deck stats stay Pro");
+    await p3.evaluate(() => document.querySelector('.pro-dk-body [data-act="pro-dk-sched"][data-id="classic"]').click()); await p3.waitForTimeout(300);
+    ok(await p3.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2") || "{}")) && await p3.locator('.pro-dk-body [data-act="pro-dk-sched"][data-id="classic"][aria-pressed="true"]').count() === 1, "free: a deck can be switched to Classic");
+    await p3.keyboard.press("Escape"); await p3.waitForTimeout(200);
     for (const t of ["courses", "timeline", "schedule"]) { await p3.evaluate(t => { const b = document.querySelector(`nav.tabs [data-tab="${t}"]`); if (b) b.click(); }, t); await p3.waitForTimeout(300); ok(await p3.locator(".pro-tab-btn").count() === 0, `free: no Pro buttons on ${t}`); }
     await act(p3, "pro-cf-open", "d1"); await p3.waitForTimeout(400);
     ok(await p3.locator("#dlg .plan-sheet").count() === 1, "free: Image Cards opens the Pro sheet");
