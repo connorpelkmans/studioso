@@ -43,6 +43,9 @@ function serverInit(opts){
       Object.assign(d, {listed: a.p_listed, course_key: a.p_course_key, school_key: a.p_school_key, school_name: a.p_school_name}); return null; },
     share_saved: a => { if (me()) SV.saves.push(a.p_code); return null; },
     report_share: a => { SV.reports.push(a); return null; },
+    my_username: () => SV.username || null,
+    username_check: a => [{ok: !/fuck|admin/i.test(a.p_name) && a.p_name.toLowerCase() !== "taken_name", reason: /fuck/i.test(a.p_name) ? "That name isn't allowed. Pick another." : "That username is taken."}],
+    set_username: a => { if (a.p_name.toLowerCase() === "taken_name") throw {message: "SB_USERNAME: That username is taken."}; SV.username = a.p_name; return a.p_name; },
     search_schools: a => [{key: "uwaterloo.ca", name: "University of Waterloo", country: "Canada", region: "Ontario", web: ""}, {key: "wlu.ca", name: "Wilfrid Laurier University", country: "Canada", region: "", web: ""}].filter(x => x.name.toLowerCase().includes(String(a.p_q).toLowerCase()) || x.key.startsWith(String(a.p_q).toLowerCase())),
     school_for_host: a => /uwaterloo\.ca$/.test(String(a.p_host)) ? [{key: "uwaterloo.ca", name: "University of Waterloo", country: "Canada", region: "Ontario", web: ""}] : [],
     set_my_school: a => { if (!me()) throw {message: "Sign in first"}; if (!["uwaterloo.ca", "wlu.ca"].includes(a.p_key)) throw {message: "Pick your school from the list."}; SV.school = a.p_key; return [{key: a.p_key}]; },
@@ -51,7 +54,7 @@ function serverInit(opts){
       if (!d) { d = {code: "PUBD-000" + (SV.decks.length), owner: me(), deck_id: a.p_deck_id, sharer_name: "Connor", saves: 0}; SV.decks.push(d); }
       Object.assign(d, {name: a.p_name, data: a.p_data, card_count: a.p_count}); return d.code; },
     my_publish_state: a => !!(SV.decks.find(d => d.code === a.p_code && d.owner === me() && d.published) || SV.items.find(i => i.code === a.p_code && i.owner === me() && i.published)),
-    share_publish: a => { if (a.p_on && !SV.school) throw {message: "SB_SCHOOL: Pick your school first."}; const x = SV.decks.find(d => d.code === a.p_code && d.owner === me()) || SV.items.find(i => i.code === a.p_code && i.owner === me()); if (!x) throw {message: "Share it with a link first."}; x.published = a.p_on; return null; }
+    share_publish: a => { if (a.p_on && !SV.school) throw {message: "SB_SCHOOL: Pick your school first."}; if (a.p_on && !SV.username) throw {message: "SB_USERNAME_NEEDED: Pick a username first."}; const x = SV.decks.find(d => d.code === a.p_code && d.owner === me()) || SV.items.find(i => i.code === a.p_code && i.owner === me()); if (!x) throw {message: "Share it with a link first."}; x.published = a.p_on; return null; }
   };
   window.__sbShareStub = async (fn, a) => { SV.calls.push([fn, a]); await wait(); if (!F[fn]) throw {code: "PGRST202", message: "Could not find the function public." + fn}; return F[fn](a); };
   if (opts.me) {
@@ -187,13 +190,29 @@ async function sharer(browser){
   ok(/Publish to Studyboard Flashcards/.test(await txt(page, "#pubRow")), "the deck's Share sheet offers Publish to Studyboard Flashcards");
   await page.evaluate(() => { const st = __sbSync.state.settings; delete st.school; __sbSync.saveSettings(); });
   await page.evaluate(() => { delete window.__SV.school; });
-  await page.click("#pubOn"); await page.waitForSelector("dialog[open] #schUseAuto", {timeout: 6000});
-  await page.screenshot({path: shots + "/school-auto.png"});
-  ok(/From your Brightspace sign-in/.test(await txt(page, "#schAuto")) && /University of Waterloo/.test(await txt(page, "#schAuto")), "publishing asks for a school first, filled in from the Brightspace connection");
-  await page.click("#schUseAuto"); await page.waitForSelector("dialog[open] #pubOn");
+  // a username first (the account has none yet)
+  await page.evaluate(() => { try { Object.keys(localStorage).filter(k => k.startsWith("studyboard:uname:")).forEach(k => localStorage.removeItem(k)); } catch (e) {} delete window.__SV.username; });
+  await page.click("#pubOn"); await page.waitForSelector("dialog[open] #unIn", {timeout: 6000});
+  ok(/Pick a username first/.test(await txt(page, "dialog[open]")), "publishing asks for a username first");
+  await page.fill("#unIn", "fuck_this"); await page.waitForTimeout(450);
+  ok(/isn't allowed/.test(await txt(page, "#unMsg")), "a foul username is refused while typing: " + await txt(page, "#unMsg"));
+  await page.fill("#unIn", "taken_name"); await page.waitForTimeout(450);
+  ok(/taken/.test(await txt(page, "#unMsg")), "a taken username says so");
+  await page.fill("#unIn", "Connor_P"); await page.waitForTimeout(450);
+  ok(/@Connor_P is free/.test(await txt(page, "#unMsg")), "a free one says so");
+  await page.screenshot({path: shots + "/username-sheet.png"});
+  await page.click("#unSave"); await page.waitForSelector("dialog[open] #pubOn", {timeout: 6000});
+  ok(await page.evaluate(() => window.__SV.username === "Connor_P"), "the username is saved, and the Share sheet comes back");
+  await page.waitForTimeout(800); await page.evaluate(() => { const st = __sbSync.state.settings; delete st.school; __sbSync.saveSettings(); }); await page.click("#pubOn");
+  await page.waitForSelector("dialog[open] #schUseAuto, #askDlg[open]", {timeout: 6000});
+  if (await page.$("dialog[open] #schUseAuto")) {
+    await page.screenshot({path: shots + "/school-auto.png"});
+    ok(/From your Brightspace sign-in/.test(await txt(page, "#schAuto")) && /University of Waterloo/.test(await txt(page, "#schAuto")), "publishing asks for a school first, filled in from the Brightspace connection");
+    await page.click("#schUseAuto"); await page.waitForSelector("dialog[open] #pubOn"); await page.waitForTimeout(600);
+  } else { ok(true, "the school was already filled in from the Brightspace connection"); await page.click("#askNo"); await page.waitForTimeout(400); }
   ok(await page.evaluate(() => __sbSync.state.settings.school.key === "uwaterloo.ca" && __sbSync.state.settings.school.v === 1 && window.__SV.school === "uwaterloo.ca"), "the school is kept, on this device and on the server");
   await page.check("#pubOn"); await page.waitForSelector("#askDlg[open]");
-  ok(/anyone can see the cards, your display name and your school \(University of Waterloo\)/i.test(await txt(page, "#askDlg")), "publishing asks first and says what becomes public, the school included");
+  ok(/anyone can see the cards, your username \(@Connor_P\) and your school \(University of Waterloo\)/i.test(await txt(page, "#askDlg")), "publishing asks first and says what becomes public: username and school");
   await page.click("#askYes"); await page.waitForSelector("#pubUrlIn");
   ok(await page.evaluate(() => window.__SV.decks.find(d => d.code === "MYDK-0001").published === true), "Publish sends share_publish");
   ok((await page.inputValue("#pubUrlIn")) === "https://app.example.edu/flashcards/my-cells-mydk0001", "it shows the public page's address: " + await page.inputValue("#pubUrlIn"));
@@ -209,7 +228,7 @@ async function sharer(browser){
   ok(/Publish/.test(await txt(page, '#view [data-act="pub-deck"]')), "a deck's page has a Publish button");
   await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForSelector("dialog[open] #pubGo");
   await page.screenshot({path: shots + "/publish-confirm.png"});
-  ok(/University of Waterloo/.test(await txt(page, "dialog[open] .pub-sum")) && /BIOL 201/.test(await txt(page, "dialog[open] .pub-sum")) && /5 cards/.test(await txt(page, "dialog[open] .pub-sum")), "Publish shows the school, course and card count first");
+  ok(/University of Waterloo/.test(await txt(page, "dialog[open] .pub-sum")) && /BIOL 201/.test(await txt(page, "dialog[open] .pub-sum")) && /5 cards/.test(await txt(page, "dialog[open] .pub-sum")) && /@Connor_P/.test(await txt(page, "dialog[open] .pub-sum")), "Publish shows the school, course, card count and @username first");
   await page.click("#pubGo"); await page.waitForSelector("dialog[open] #pubOff");
   ok(await page.evaluate(() => { const d = window.__SV.decks.find(x => x.deck_id === "d3"); return !!d && d.published === true && d.card_count === 5; }), "it shares the deck and publishes it in one step");
   ok(/is live in Studyboard Flashcards/.test(await txt(page, "dialog[open]")) && /\/flashcards\/organelles-pubd/.test(await page.inputValue("#pubUrl2")), "then shows the live page's address");

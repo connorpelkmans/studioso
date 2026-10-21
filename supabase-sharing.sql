@@ -283,8 +283,10 @@ grant execute on function public.get_public_share(text), public.library_decks(te
 -- below with the publishable key. Publishing is separate from making a link and from the Course Library, and can be undone any time.
 -- Limits: at least 4 cards (or 3 questions), up to 100 published per account, people suspended from groups can't publish.
 -- School: publishing needs a school from the list of real schools (supabase-schools.sql, run it first). The page shows it.
+-- Username: publishing needs a username (supabase-usernames.sql, run it first). The page shows the maker as @username.
 -- Search: a plain-text copy of the name, course and the first 300 cards (search_text) with a full-text index.
 -- ===========================================================================================================================
+alter table public.study_profiles add column if not exists username text;   -- (supabase-usernames.sql fills and checks it)
 alter table public.shared_decks add column if not exists published boolean not null default false;
 alter table public.shared_decks add column if not exists published_at timestamptz;
 alter table public.shared_decks add column if not exists search_text text not null default '';
@@ -360,6 +362,7 @@ begin
     if to_regclass('public.user_schools') is null then raise exception 'SB_SETUP: Publishing needs supabase-schools.sql. Run it, then supabase-sharing.sql again.'; end if;
     execute 'select s.key, s.name from public.user_schools u join public.schools s on s.key = u.school_key where u.user_id = $1' into sk, sn using me;
     if sk is null or sk = '' then raise exception 'SB_SCHOOL: Pick your school first.'; end if;
+    if not exists (select 1 from public.study_profiles where user_id = me and username is not null) then raise exception 'SB_USERNAME_NEEDED: Pick a username first.'; end if;
     select (select count(*) from public.shared_decks where owner_id = me and published) + (select count(*) from public.shared_items where owner_id = me and published) into n;
     if n >= 100 then raise exception 'You can publish up to 100 decks and quizzes. Unpublish one first.'; end if;
   end if;
@@ -395,14 +398,14 @@ declare q tsquery; ck text := public.sbs_course_key(coalesce(p_course, '')); lim
 begin
   if coalesce(btrim(p_q), '') <> '' then q := websearch_to_tsquery('english', left(p_q, 200)); end if;
   if p_kind = 'quiz' then
-    return query select i.code, i.title, i.sharer_name, i.item_count, i.course_key, i.course_label, i.saves, i.updated_at,
+    return query select i.code, i.title, coalesce('@' || (select pr.username from public.study_profiles pr where pr.user_id = i.owner_id), i.sharer_name), i.item_count, i.course_key, i.course_label, i.saves, i.updated_at,
         left(coalesce(i.data -> 'quiz' -> 'questions' -> 0 ->> 'stem', ''), 200), i.school_name
       from public.shared_items i
       where i.published and not i.hidden and i.kind = 'quiz' and (ck = '' or i.course_key = ck) and (q is null or to_tsvector('english', i.search_text) @@ q)
       order by case when q is null then 0 else ts_rank(to_tsvector('english', i.search_text), q) end desc, i.saves desc, i.published_at desc
       limit lim offset off;
   else
-    return query select d.code, d.name, d.sharer_name, d.card_count, d.course_key, coalesce(nullif(d.course_label, ''), d.data -> 'course' ->> 'code', ''), d.saves, d.updated_at,
+    return query select d.code, d.name, coalesce('@' || (select pr.username from public.study_profiles pr where pr.user_id = d.owner_id), d.sharer_name), d.card_count, d.course_key, coalesce(nullif(d.course_label, ''), d.data -> 'course' ->> 'code', ''), d.saves, d.updated_at,
         left((select string_agg(coalesce(x ->> 'front', ''), ' · ') from (select x from jsonb_array_elements(case when jsonb_typeof(d.data -> 'cards') = 'array' then d.data -> 'cards' else '[]'::jsonb end) x limit 4) z), 200), d.school_name
       from public.shared_decks d
       where d.published and not d.hidden and (ck = '' or d.course_key = ck) and (q is null or to_tsvector('english', d.search_text) @@ q)
@@ -415,11 +418,11 @@ end $$;
 create or replace function public.public_page(p_kind text, p_code text)
 returns table (code text, name text, sharer_name text, n int, course_key text, course_label text, saves int, published_at timestamptz, updated_at timestamptz, data jsonb, school_name text)
 language sql stable security definer set search_path = public as $$
-  select d.code, d.name, d.sharer_name, d.card_count, d.course_key, coalesce(nullif(d.course_label, ''), d.data -> 'course' ->> 'code', ''), d.saves, d.published_at, d.updated_at,
+  select d.code, d.name, coalesce('@' || (select pr.username from public.study_profiles pr where pr.user_id = d.owner_id), d.sharer_name), d.card_count, d.course_key, coalesce(nullif(d.course_label, ''), d.data -> 'course' ->> 'code', ''), d.saves, d.published_at, d.updated_at,
          jsonb_build_object('course', d.data -> 'course', 'cards', d.data -> 'cards'), d.school_name
     from public.shared_decks d where p_kind = 'deck' and d.code = public.sbg_norm_code(p_code) and d.published and not d.hidden
   union all
-  select i.code, i.title, i.sharer_name, i.item_count, i.course_key, i.course_label, i.saves, i.published_at, i.updated_at, i.data, i.school_name
+  select i.code, i.title, coalesce('@' || (select pr.username from public.study_profiles pr where pr.user_id = i.owner_id), i.sharer_name), i.item_count, i.course_key, i.course_label, i.saves, i.published_at, i.updated_at, i.data, i.school_name
     from public.shared_items i where p_kind = 'quiz' and i.kind = 'quiz' and i.code = public.sbg_norm_code(p_code) and i.published and not i.hidden;
 $$;
 
