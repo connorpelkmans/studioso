@@ -395,6 +395,35 @@ create index if not exists shared_decks_pub_idx on public.shared_decks (publishe
 create index if not exists shared_items_pub_idx on public.shared_items (published_at desc) where published and not hidden and kind = 'quiz';
 
 -- Publish or unpublish one of your shared decks or quizzes (by its share code)
+-- Is this shared deck or quiz mostly a copy of someone else's? True when at least half its card fronts (or question stems), and at
+-- least 4, match one deck (or quiz) another person shared before it. Copies added from the website, a link, the Course Library or a group
+-- keep their cards, so they match; a few cards in common with someone else (two students both writing "Mitochondria") don't.
+create or replace function public.sbs_copied(p_code text, p_owner uuid) returns boolean
+language plpgsql stable security definer set search_path = public as $$
+declare dd jsonb; mine text[]; best int; made timestamptz;
+begin
+  select d.data, d.created_at into dd, made from public.shared_decks d where d.code = p_code and d.owner_id = p_owner;
+  if dd is not null then
+    select array_agg(distinct lower(btrim(x ->> 'front'))) into mine
+      from jsonb_array_elements(case when jsonb_typeof(dd -> 'cards') = 'array' then dd -> 'cards' else '[]'::jsonb end) x where btrim(coalesce(x ->> 'front', '')) <> '';
+    if coalesce(cardinality(mine), 0) < 4 then return false; end if;
+    select max(c) into best from (select count(distinct lower(btrim(y ->> 'front'))) c from public.shared_decks o,
+        jsonb_array_elements(case when jsonb_typeof(o.data -> 'cards') = 'array' then o.data -> 'cards' else '[]'::jsonb end) y
+      where o.owner_id <> p_owner and o.created_at < made and lower(btrim(y ->> 'front')) = any(mine) group by o.code) z;   -- (only sets shared before this one: a later copy never blocks the original)
+    return coalesce(best, 0) >= greatest(4, ceil(cardinality(mine) * 0.5));
+  end if;
+  select i.data, i.created_at into dd, made from public.shared_items i where i.code = p_code and i.owner_id = p_owner and i.kind = 'quiz';
+  if dd is null then return false; end if;
+  select array_agg(distinct lower(btrim(x ->> 'stem'))) into mine
+    from jsonb_array_elements(case when jsonb_typeof(dd -> 'quiz' -> 'questions') = 'array' then dd -> 'quiz' -> 'questions' else '[]'::jsonb end) x where btrim(coalesce(x ->> 'stem', '')) <> '';
+  if coalesce(cardinality(mine), 0) < 3 then return false; end if;
+  select max(c) into best from (select count(distinct lower(btrim(y ->> 'stem'))) c from public.shared_items o,
+      jsonb_array_elements(case when jsonb_typeof(o.data -> 'quiz' -> 'questions') = 'array' then o.data -> 'quiz' -> 'questions' else '[]'::jsonb end) y
+    where o.kind = 'quiz' and o.owner_id <> p_owner and o.created_at < made and lower(btrim(y ->> 'stem')) = any(mine) group by o.code) z;
+  return coalesce(best, 0) >= greatest(3, ceil(cardinality(mine) * 0.5));
+end $$;
+revoke all on function public.sbs_copied(text, uuid) from public, anon, authenticated;
+
 create or replace function public.share_publish(p_code text, p_on boolean) returns void
 language plpgsql security definer set search_path = public as $$
 declare k text := public.sbg_norm_code(p_code); me uuid := auth.uid(); n int; sk text := ''; sn text := '';
@@ -410,6 +439,8 @@ begin
       if public.sbu_age_ok(me) = 'unknown' then raise exception 'SB_AGE_NEEDED: Enter your birthday first.'; end if;
       if public.sbu_age_ok(me) = 'young' then raise exception 'SB_UNDER13: Publishing is for students 13 and older.'; end if;
     end if;
+    -- Only your own work: a deck (or quiz) whose cards (or questions) are mostly the same as someone else's shared one can't be published
+    if public.sbs_copied(k, me) then raise exception 'SB_NOT_YOURS: You can only publish decks and quizzes you made. This one matches someone else''s shared set.'; end if;
     select (select count(*) from public.shared_decks where owner_id = me and published) + (select count(*) from public.shared_items where owner_id = me and published) into n;
     if n >= 100 then raise exception 'You can publish up to 100 decks and quizzes. Unpublish one first.'; end if;
   end if;
