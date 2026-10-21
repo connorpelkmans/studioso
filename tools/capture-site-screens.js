@@ -71,7 +71,18 @@ async function capture(browser, scheme, compId) {
   await dismiss(page);
   await page.waitForTimeout(500);
   // the sidebar shows the signed-in state, as a person with an account sees it
-  const shot = async name => { await page.waitForTimeout(700); await page.screenshot({path: path.join(OUT, `${name}-${scheme}.png`)}); console.log("saved", `${name}-${scheme}.png`); };
+  // The companion stands on the bottom line just left of the Add button, where it lives in the app, instead of wherever the busy
+  // sample page left open (the app moves it off content; on these full pages that put it mid-page or half off screen)
+  const homeComp = () => page.evaluate(() => {
+    const f = document.getElementById("fab"), b = document.querySelector("#compFront .cp");
+    if (!f || !b || getComputedStyle(f).display === "none") return;
+    const r = f.getBoundingClientRect(); if (!r.width) return;
+    const px = +b.dataset.px || b.getBoundingClientRect().width, left = Math.round(r.left - 26 - px), top = Math.round(r.bottom - px * 112 / 120);
+    b.getAnimations({subtree: true}).filter(a => !(a.effect && a.effect.target && a.effect.target.closest && a.effect.target.closest(".cp-breathe"))).forEach(a => { try { a.cancel(); } catch (e) {} });
+    b.style.left = left + "px"; b.style.top = top + "px"; b.dataset.x = left; b.dataset.y = top;
+    document.querySelectorAll(".cp-bubble.on").forEach(x => x.classList.remove("on"));
+  });
+  const shot = async name => { await page.waitForTimeout(700); await homeComp(); await page.waitForTimeout(80); await page.screenshot({path: path.join(OUT, `${name}-${scheme}.png`)}); console.log("saved", `${name}-${scheme}.png`); };
   const tab = async label => { await page.evaluate(l => { const b = [...document.querySelectorAll("button")].find(e => e.closest("nav,aside,#nav,.side") && e.textContent.trim().replace(/\d+$/, "") === l); b && b.click(); }, label); await page.waitForTimeout(1200); };
   if (compId) { await tab("Companion"); await shot("companion-" + compId.replace("plain-", "")); await ctx.close(); return; }
   await shot("plan");                                              // Board > Today's Plan

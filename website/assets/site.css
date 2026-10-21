@@ -290,6 +290,16 @@ input.code{font:700 1.6rem ui-monospace,Menlo,Consolas,monospace;letter-spacing:
 
 /* ---- Live theme tiles (assets/scenes.js): the app's own scene and animation, with a small Task Board in the theme's colors on top ---- */
 .tile.scn-on > img{display:none}
+.tile-zoomable{cursor:zoom-in;transition:transform .15s ease,box-shadow .15s ease}
+.tile-zoomable:hover{transform:translateY(-2px)}
+.tile-zoomable:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.tile-zoom{width:min(1120px,94vw);max-width:none;max-height:94vh;padding:0;border:0;background:transparent;overflow:visible}
+.tile-zoom::backdrop{background:rgba(6,12,28,.72)}
+.tile-zoom .tz-tile{cursor:default;box-shadow:0 30px 80px rgba(0,0,0,.45)}
+.tile-zoom .tz-x{position:absolute;top:-14px;right:-14px;z-index:5;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 1.5rem/1 var(--body);cursor:pointer;box-shadow:var(--shadow)}
+.tile-zoom .tz-x:hover,.tile-zoom .tz-x:focus-visible{border-color:var(--accent)}
+@media (max-width:640px){.tile-zoom .tz-x{top:-48px;right:0}}
+@media (prefers-reduced-motion:reduce){.tile-zoomable{transition:none}.tile-zoomable:hover{transform:none}}
 .scn{position:relative;width:100%;aspect-ratio:8/5;overflow:hidden}
 .scn-art{position:absolute;overflow:hidden}
 .scn-in{position:absolute}
