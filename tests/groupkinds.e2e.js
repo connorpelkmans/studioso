@@ -516,6 +516,13 @@ async function examChipAndMenus(browser){
   await openGroup(page, "g1");
   const chip = await txt(page, "#grpDetail .grp-chips");
   ok(/Bio midterm/.test(chip) && !/Chem midterm/.test(chip), "the group's Next Exam is its own course's exam, not a sooner one from another course: " + chip);
+  const dl = await txt(page, "#grpTasks");
+  ok(/Bio midterm/.test(dl) && !/Chem midterm/.test(dl), "Shared Deadlines only lists the group's course: " + dl.slice(0, 120));
+  ok(/2 Deadlines/.test(await txt(page, "#grpHead")) || !/3 Deadlines/.test(await txt(page, "#grpHead")), "the header count leaves out other courses' deadlines: " + (await txt(page, "#grpHead")).slice(0, 160));
+  await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "grp-share-tasks"; document.body.appendChild(b); b.click(); b.remove(); }); await page.waitForTimeout(300);
+  const said = (await txt(page, "dialog[open]")) + " " + (await page.evaluate(() => (document.querySelector("#toastMsg") || {}).textContent || ""));
+  ok(await page.evaluate(() => !document.querySelector("dialog[open] #grpTC")) && /Only BIOL 201 deadlines|Add BIOL 201 to your courses|no upcoming BIOL 201 tasks/.test(said), "Share Deadlines offers only the group's course: " + said.slice(0, 140));
+  await page.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
   await ctx.close();
   ({ctx, page, errs} = await boot(browser, 1280, {me: "u1"}));
   await page.evaluate(() => { const now = new Date().toISOString(); window.__DB.study_groups[0].course = "";

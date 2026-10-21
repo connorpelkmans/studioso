@@ -117,11 +117,28 @@ create or replace function public.sbs_may_share() returns void
 language plpgsql security definer set search_path = public as $$
 begin
   if auth.uid() is null then raise exception 'Sign in first'; end if;
+  -- like Quizlet: students under 13 can't share publicly or list in the Course Library (the rest of Studyboard works as usual)
+  if to_regprocedure('public.sbu_age_ok(uuid)') is not null and public.sbu_age_ok(auth.uid()) = 'young' then
+    raise exception 'SB_UNDER13: Sharing publicly is for students 13 and older.';
+  end if;
   if to_regclass('public.group_suspended') is not null and exists (select 1 from public.group_suspended where user_id = auth.uid()) then
     raise exception 'Your account can''t share publicly after a report was reviewed. The rest of Studyboard works as usual.';
   end if;
 end $$;
 revoke all on function public.sbs_may_share() from public, anon, authenticated;
+
+-- Deck links (share_deck, in supabase-groups.sql) follow the same age rule
+create or replace function public.sbs_deck_link_age() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if to_regprocedure('public.sbu_age_ok(uuid)') is not null and public.sbu_age_ok(new.owner_id) = 'young' then
+    raise exception 'SB_UNDER13: Sharing publicly is for students 13 and older.';
+  end if;
+  return new;
+end $$;
+revoke all on function public.sbs_deck_link_age() from public, anon, authenticated;
+drop trigger if exists sbs_deck_link_age on public.shared_decks;
+create trigger sbs_deck_link_age before insert on public.shared_decks for each row execute function public.sbs_deck_link_age();
 
 -- ---------- Sharing notes and quizzes ----------
 create or replace function public.share_item(p_kind text, p_ref text, p_title text, p_data jsonb) returns text
@@ -184,7 +201,7 @@ declare ck text := upper(regexp_replace(coalesce(p_course_key, ''), '[^A-Za-z0-9
         sk text := lower(btrim(coalesce(p_school_key, '')));
 begin
   perform public.sbs_may_share();
-  if p_listed and (ck !~ '^[A-Z]{2,8}[0-9]{2,5}[A-Z]{0,3}$' or char_length(ck) > 24) then raise exception 'Add a course code (like BIOL 1000) to the course first.'; end if;
+  if p_listed and (ck !~ '^([A-Z]{2,8}[0-9]{2,5}[A-Z]{0,3}|[A-Z]{3}[1-4][A-Z][A-Z0-9]?)$' or char_length(ck) > 24) then raise exception 'Add a course code (like BIOL 1000) to the course first.'; end if;
   if p_listed and (sk = '' or char_length(sk) > 100 or sk !~ '^[a-z0-9][a-z0-9 .&''-]*$') then raise exception 'Pick your school first.'; end if;
   update public.shared_decks set listed = coalesce(p_listed, false),
     course_key = case when p_listed then ck else course_key end,
@@ -282,8 +299,11 @@ grant execute on function public.get_public_share(text), public.library_decks(te
 -- and it shows up in the public search. The website's worker (cloudflare/site/worker.js) reads it through the public_* functions
 -- below with the publishable key. Publishing is separate from making a link and from the Course Library, and can be undone any time.
 -- Limits: at least 4 cards (or 3 questions), up to 100 published per account, people suspended from groups can't publish.
+-- School: publishing needs a school from the list of real schools (supabase-schools.sql, run it first). The page shows it.
+-- Username: publishing needs a username (supabase-usernames.sql, run it first). The page shows the maker as @username.
 -- Search: a plain-text copy of the name, course and the first 300 cards (search_text) with a full-text index.
 -- ===========================================================================================================================
+alter table public.study_profiles add column if not exists username text;   -- (supabase-usernames.sql fills and checks it)
 alter table public.shared_decks add column if not exists published boolean not null default false;
 alter table public.shared_decks add column if not exists published_at timestamptz;
 alter table public.shared_decks add column if not exists search_text text not null default '';
@@ -293,12 +313,22 @@ alter table public.shared_items add column if not exists search_text text not nu
 alter table public.shared_items add column if not exists course_key text not null default '';
 alter table public.shared_items add column if not exists course_label text not null default '';
 alter table public.shared_items add column if not exists item_count int not null default 0;
+alter table public.shared_items add column if not exists school_key text not null default '';
+alter table public.shared_items add column if not exists school_name text not null default '';
 
 -- The course code as a key: "BIOL 201 - Intro" -> BIOL201 ('' when there's none)
 create or replace function public.sbs_course_key(p text) returns text
-language sql immutable set search_path = public as $$
-  select coalesce(upper((regexp_match(coalesce(p, ''), '([A-Za-z]{2,8})[\s._-]*([0-9]{2,5}[A-Za-z]{0,2})'))[1] || (regexp_match(coalesce(p, ''), '([A-Za-z]{2,8})[\s._-]*([0-9]{2,5}[A-Za-z]{0,2})'))[2]), '')
-$$;
+language plpgsql immutable set search_path = public as $$
+declare m text[];
+begin
+  -- BIOL 201, CHEM-1000A ... (but Grade 12, Unit 3 or Week 10 aren't course codes)
+  m := regexp_match(coalesce(p, ''), '([A-Za-z]{2,8})[\s._-]*([0-9]{2,5}[A-Za-z]{0,2})');
+  if m is not null and upper(m[1]) !~ '^(GRADE|GR|YEAR|YR|UNIT|WEEK|WK|CHAPTER|CH|LAB|ROOM|PAGE|PART|LESSON|TERM|SEM|CLASS|PERIOD)$' then return upper(m[1] || m[2]); end if;
+  -- high school codes like Ontario's SBI4U and MHF4U: three letters, a grade digit, a level
+  m := regexp_match(coalesce(p, ''), '\m([A-Za-z]{3})[\s-]?([1-4])([A-Za-z][A-Za-z0-9]?)\M');
+  if m is not null then return upper(m[1] || m[2] || m[3]); end if;
+  return '';
+end $$;
 
 -- Keeps search_text (and, for quizzes, the course and question count) in step with the shared copy
 create or replace function public.sbs_search_fill() returns trigger
@@ -350,20 +380,31 @@ create index if not exists shared_items_pub_idx on public.shared_items (publishe
 -- Publish or unpublish one of your shared decks or quizzes (by its share code)
 create or replace function public.share_publish(p_code text, p_on boolean) returns void
 language plpgsql security definer set search_path = public as $$
-declare k text := public.sbg_norm_code(p_code); me uuid := auth.uid(); n int;
+declare k text := public.sbg_norm_code(p_code); me uuid := auth.uid(); n int; sk text := ''; sn text := '';
 begin
   perform public.sbs_may_share();
   if p_on then
+    if to_regclass('public.user_schools') is null then raise exception 'SB_SETUP: Publishing needs supabase-schools.sql. Run it, then supabase-sharing.sql again.'; end if;
+    -- the page shows a university by name, a high school only as "High school, <province or state>"
+    execute 'select s.key, case when s.kind = ''high_school'' then ''High school, '' || coalesce(nullif(s.region, ''''), s.country) else s.name end from public.user_schools u join public.schools s on s.key = u.school_key where u.user_id = $1' into sk, sn using me;
+    if sk is null or sk = '' then raise exception 'SB_SCHOOL: Pick your school first.'; end if;
+    if not exists (select 1 from public.study_profiles where user_id = me and username is not null) then raise exception 'SB_USERNAME_NEEDED: Pick a username first.'; end if;
+    if to_regprocedure('public.sbu_age_ok(uuid)') is not null then
+      if public.sbu_age_ok(me) = 'unknown' then raise exception 'SB_AGE_NEEDED: Enter your birthday first.'; end if;
+      if public.sbu_age_ok(me) = 'young' then raise exception 'SB_UNDER13: Publishing is for students 13 and older.'; end if;
+    end if;
     select (select count(*) from public.shared_decks where owner_id = me and published) + (select count(*) from public.shared_items where owner_id = me and published) into n;
     if n >= 100 then raise exception 'You can publish up to 100 decks and quizzes. Unpublish one first.'; end if;
   end if;
-  update public.shared_decks set published = coalesce(p_on, false), published_at = case when p_on then coalesce(published_at, now()) else null end
+  update public.shared_decks set published = coalesce(p_on, false), published_at = case when p_on then coalesce(published_at, now()) else null end,
+      school_key = case when p_on then sk else school_key end, school_name = case when p_on then sn else school_name end
     where code = k and owner_id = me;
   if found then
     if p_on and not exists (select 1 from public.shared_decks where code = k and published) then raise exception 'A deck needs at least 4 cards to be published.'; end if;
     return;
   end if;
-  update public.shared_items set published = coalesce(p_on, false), published_at = case when p_on then coalesce(published_at, now()) else null end
+  update public.shared_items set published = coalesce(p_on, false), published_at = case when p_on then coalesce(published_at, now()) else null end,
+      school_key = case when p_on then sk else school_key end, school_name = case when p_on then sn else school_name end
     where code = k and owner_id = me and kind = 'quiz';
   if not found then raise exception 'Share it with a link first.'; end if;
   if p_on and not exists (select 1 from public.shared_items where code = k and published) then raise exception 'A quiz needs at least 3 questions to be published.'; end if;
@@ -376,24 +417,26 @@ language sql stable security definer set search_path = public as $$
                   (select published from public.shared_items where code = public.sbg_norm_code(p_code) and owner_id = auth.uid()), false);
 $$;
 
+drop function if exists public.public_search(text, text, text, int, int);
+drop function if exists public.public_page(text, text);
 -- The public pages. Only published, not hidden items; nothing about the owner except their display name.
 -- p_kind: 'deck' or 'quiz'. p_q: words to search (empty: newest). p_course: a course key (BIOL201) or ''. Sorted by match, then saves.
 create or replace function public.public_search(p_kind text, p_q text, p_course text, p_limit int, p_offset int)
-returns table (code text, name text, sharer_name text, n int, course_key text, course_label text, saves int, updated_at timestamptz, preview text)
+returns table (code text, name text, sharer_name text, n int, course_key text, course_label text, saves int, updated_at timestamptz, preview text, school_name text)
 language plpgsql stable security definer set search_path = public as $$
 declare q tsquery; ck text := public.sbs_course_key(coalesce(p_course, '')); lim int := least(greatest(coalesce(p_limit, 30), 1), 60); off int := least(greatest(coalesce(p_offset, 0), 0), 5000);
 begin
   if coalesce(btrim(p_q), '') <> '' then q := websearch_to_tsquery('english', left(p_q, 200)); end if;
   if p_kind = 'quiz' then
-    return query select i.code, i.title, i.sharer_name, i.item_count, i.course_key, i.course_label, i.saves, i.updated_at,
-        left(coalesce(i.data -> 'quiz' -> 'questions' -> 0 ->> 'stem', ''), 200)
+    return query select i.code, i.title, coalesce('@' || (select pr.username from public.study_profiles pr where pr.user_id = i.owner_id), i.sharer_name), i.item_count, i.course_key, i.course_label, i.saves, i.updated_at,
+        left(coalesce(i.data -> 'quiz' -> 'questions' -> 0 ->> 'stem', ''), 200), i.school_name
       from public.shared_items i
       where i.published and not i.hidden and i.kind = 'quiz' and (ck = '' or i.course_key = ck) and (q is null or to_tsvector('english', i.search_text) @@ q)
       order by case when q is null then 0 else ts_rank(to_tsvector('english', i.search_text), q) end desc, i.saves desc, i.published_at desc
       limit lim offset off;
   else
-    return query select d.code, d.name, d.sharer_name, d.card_count, d.course_key, coalesce(nullif(d.course_label, ''), d.data -> 'course' ->> 'code', ''), d.saves, d.updated_at,
-        left((select string_agg(coalesce(x ->> 'front', ''), ' · ') from (select x from jsonb_array_elements(case when jsonb_typeof(d.data -> 'cards') = 'array' then d.data -> 'cards' else '[]'::jsonb end) x limit 4) z), 200)
+    return query select d.code, d.name, coalesce('@' || (select pr.username from public.study_profiles pr where pr.user_id = d.owner_id), d.sharer_name), d.card_count, d.course_key, coalesce(nullif(d.course_label, ''), d.data -> 'course' ->> 'code', ''), d.saves, d.updated_at,
+        left((select string_agg(coalesce(x ->> 'front', ''), ' · ') from (select x from jsonb_array_elements(case when jsonb_typeof(d.data -> 'cards') = 'array' then d.data -> 'cards' else '[]'::jsonb end) x limit 4) z), 200), d.school_name
       from public.shared_decks d
       where d.published and not d.hidden and (ck = '' or d.course_key = ck) and (q is null or to_tsvector('english', d.search_text) @@ q)
       order by case when q is null then 0 else ts_rank(to_tsvector('english', d.search_text), q) end desc, d.saves desc, d.published_at desc
@@ -403,13 +446,13 @@ end $$;
 
 -- One published page's content
 create or replace function public.public_page(p_kind text, p_code text)
-returns table (code text, name text, sharer_name text, n int, course_key text, course_label text, saves int, published_at timestamptz, updated_at timestamptz, data jsonb)
+returns table (code text, name text, sharer_name text, n int, course_key text, course_label text, saves int, published_at timestamptz, updated_at timestamptz, data jsonb, school_name text)
 language sql stable security definer set search_path = public as $$
-  select d.code, d.name, d.sharer_name, d.card_count, d.course_key, coalesce(nullif(d.course_label, ''), d.data -> 'course' ->> 'code', ''), d.saves, d.published_at, d.updated_at,
-         jsonb_build_object('course', d.data -> 'course', 'cards', d.data -> 'cards')
+  select d.code, d.name, coalesce('@' || (select pr.username from public.study_profiles pr where pr.user_id = d.owner_id), d.sharer_name), d.card_count, d.course_key, coalesce(nullif(d.course_label, ''), d.data -> 'course' ->> 'code', ''), d.saves, d.published_at, d.updated_at,
+         jsonb_build_object('course', d.data -> 'course', 'cards', d.data -> 'cards'), d.school_name
     from public.shared_decks d where p_kind = 'deck' and d.code = public.sbg_norm_code(p_code) and d.published and not d.hidden
   union all
-  select i.code, i.title, i.sharer_name, i.item_count, i.course_key, i.course_label, i.saves, i.published_at, i.updated_at, i.data
+  select i.code, i.title, coalesce('@' || (select pr.username from public.study_profiles pr where pr.user_id = i.owner_id), i.sharer_name), i.item_count, i.course_key, i.course_label, i.saves, i.published_at, i.updated_at, i.data, i.school_name
     from public.shared_items i where p_kind = 'quiz' and i.kind = 'quiz' and i.code = public.sbg_norm_code(p_code) and i.published and not i.hidden;
 $$;
 
