@@ -23,6 +23,8 @@ const copy = (from, to) => fs.copyFileSync(nm(from), path.join(vendor, to));
 const vendoredSb = path.join(root, "vendor", "supabase-js-2.117.2.umd.js");
 if (fs.existsSync(vendoredSb)) fs.copyFileSync(vendoredSb, path.join(vendor, "supabase-js-2.117.2.umd.js"));
 else copy("@supabase/supabase-js/dist/umd/supabase.js", "supabase-js-2.117.2.umd.js");
+// fzstd (MIT) unpacks newer Anki files in Import From Another App; index.html loads it from vendor/ only when one is imported.
+for (const f of ["fzstd-0.1.1.umd.js", "fzstd-LICENSE.txt"]) fs.copyFileSync(path.join(root, "vendor", f), path.join(vendor, f));
 // PDF.js is loaded by index.html with import() from vendor/pdfjs/ (the same relative path the web page uses), so no URL rewrite is needed.
 // The legacy build (ES modules plus polyfills for older WebViews) is staged from the installed package, and must match the copy committed in vendor/pdfjs/.
 fs.mkdirSync(path.join(vendor, "pdfjs"), { recursive: true });

@@ -9,11 +9,12 @@ Studyboard itself is released under the MIT License (see `LICENSE`). It includes
 | @fontsource/atkinson-hyperlegible, @fontsource/atkinson-hyperlegible-next, @fontsource/lexend | Packaged font files for the desktop app (offline use) | Fontsource contributors | MIT (the fonts inside keep their OFL license) |
 | pdfjs-dist (PDF.js) 6.4.299 | Reading PDFs you import (syllabi, study material); the unmodified legacy build is served from `vendor/pdfjs/` | Copyright 2012 Mozilla Foundation | Apache License 2.0 |
 | @supabase/supabase-js | Optional account sign-in and sync | Copyright (c) 2020 Supabase | MIT |
+| fzstd 0.1.1 | Unpacking newer Anki files (collection.anki21b) in Import From Another App; the unmodified UMD build is served from `vendor/fzstd-0.1.1.umd.js` and loaded only for those files | Copyright (c) 2020 Arjun Barrett | MIT |
 | Electron | The desktop app (includes Chromium and Node.js, whose own notices ship inside the installer as `LICENSES.chromium.html`) | Copyright (c) Electron contributors; Copyright (c) 2013-2020 GitHub Inc. | MIT |
 | Lucide icons (lucide-static 1.49.0) | Course icons you make with Create: an icon's shapes are copied from Lucide and coloured; the library is loaded from the jsDelivr CDN only when you make one | Copyright (c) 2026 Lucide Icons and Contributors; icons derived from Feather Copyright (c) 2013-present Cole Bemis | ISC (Lucide); MIT (the Feather-derived icons) |
 | electron-builder | Building the desktop installers (build tool, not shipped) | electron-userland contributors | MIT |
 
-On the website the fonts (Latin subsets from `@fontsource`, SIL OFL 1.1, licenses in `vendor/fonts/`) and supabase-js (`vendor/`, MIT, license beside it) are served from the site itself; pdf.js (`vendor/pdfjs/`) is served from the site itself too. The desktop app ships local copies of all of them (`npm run prep` copies them from `node_modules` and `vendor/`).
+On the website the fonts (Latin subsets from `@fontsource`, SIL OFL 1.1, licenses in `vendor/fonts/`) supabase-js and fzstd (`vendor/`, MIT, licenses beside them) are served from the site itself; pdf.js (`vendor/pdfjs/`) is served from the site itself too. The desktop app ships local copies of all of them (`npm run prep` copies them from `node_modules` and `vendor/`).
 
 ## MIT License (applies to the MIT-licensed components above)
 
