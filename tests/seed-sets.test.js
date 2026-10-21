@@ -10,6 +10,7 @@ for (const s of sets) {
   ok(schools.includes(`'${s.school}'`), `${s.id}: ${s.school} is in the school list`);
   ok(s.cards.length >= 15 && s.cards.length <= 60, `${s.id}: 15 to 60 cards (${s.cards.length})`);
   ok(/^https?:\/\//.test(s.src), `${s.id}: has the official page it was based on`);
+  ok(!/quizlet|coursehero|studocu|chegg|brainscape|cram\.com|scribd|slideshare|docsity|oneclass|knowt|studylib|pdfcoffee|testbank/i.test(s.src), `${s.id}: based on an official school page, never a study-sharing site (${s.src})`);
   ok(!/\bactual exam\b|\breal exam\b|leaked|answer key/i.test(s.name + " " + s.cards.map(c => c.front + " " + c.back).join(" ")), `${s.id}: never claims to be a real exam`);
   ok(!/<[a-z!/]/i.test(s.cards.map(c => c.front + c.back).join("")), `${s.id}: plain text only`);
 }
