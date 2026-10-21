@@ -33,7 +33,7 @@ In the app:
 
 ## What you need to do
 
-1. **Supabase:** run `supabase-schools.sql` and the four `supabase-schools-hs-*.sql` files (the list of real schools and high schools, once) and `supabase-usernames.sql`, then `supabase-sharing.sql` again (SQL Editor > New query > paste > Run), then `supabase-lean.sql`. It adds publishing, the search index and the public read functions. It is safe to run again.
+1. **Supabase:** run `supabase-schools.sql`, then `supabase-schools-2.sql` and the four `supabase-schools-hs-*.sql` files, one per query (the list of real schools and high schools, once) and `supabase-usernames.sql`, then `supabase-sharing.sql` again (SQL Editor > New query > paste > Run), then `supabase-lean.sql`. It adds publishing, the search index and the public read functions. It is safe to run again.
 2. **Deploy the website as usual.** The new routes are in `wrangler.jsonc` (`run_worker_first`), and the public key the pages read with is in `vars`. Nothing secret is added.
 3. **Check it:** open `https://studyboardapp.com/flashcards`. Publish one of your own decks with 4+ cards, then open its page and `https://studyboardapp.com/sitemap-public.xml`.
 4. **Google Search Console** (https://search.google.com/search-console):
