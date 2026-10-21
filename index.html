@@ -6616,7 +6616,8 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .deck .deck-lay{border:0!important;outline:0!important;box-shadow:none!important;background:none!important}
 /* The cards behind sit 6px lower and right, less than the 8px corner, so their light tops peeked into the front card's rounded
    corners (a white sliver, most visible when zoomed out). Each is cut off at the top only, just below the corner of the card in front
-   of it; its sides and bottom keep their own rounded corners (the clip sits 4px outside them, past the outline). */
+   of it, except at the right, where it shows past the front card: there its own rounded top corner stays (the clip sits 4px outside
+   its edges, past the outline). */
 /* A little shorter deck cards: less padding around the band, the name and the buttons (same text and button sizes) */
 .deck.deck-fc .fc-band{padding-top:7px!important;padding-bottom:7px!important}
 .deck.deck-fc .deck-main{padding-top:10px!important;padding-bottom:6px!important;gap:6px!important}
@@ -6627,8 +6628,8 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .deck.deck-fc .deck-name{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .deck.deck-fc .fc-band .g2-kick{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .deck.deck-fc .deck-main{min-height:0;overflow:hidden}
-.deck.deck-fc .deck-lay.l2 .face{clip-path:inset(8px -4px -4px -4px round 8px)}
-.deck.deck-fc .deck-lay.l3 .face{clip-path:inset(10px -4px -4px -4px round 8px)}
+.deck.deck-fc .deck-lay.l2 .face{clip-path:polygon(-4px 8px,calc(100% - 14px) 8px,calc(100% - 14px) -4px,calc(100% + 4px) -4px,calc(100% + 4px) calc(100% + 4px),-4px calc(100% + 4px))}
+.deck.deck-fc .deck-lay.l3 .face{clip-path:polygon(-4px 10px,calc(100% - 20px) 10px,calc(100% - 20px) -4px,calc(100% + 4px) -4px,calc(100% + 4px) calc(100% + 4px),-4px calc(100% + 4px))}
 /* and just slightly rounded corners, like the flashcard itself when it's open (the preview is about half its size) */
 .deck .face,.deck .deck-face,.deck .deck-lay,.deck .deck-lay .face,.deck.deck-fc > .deck-face,.deck.deck-fc .deck-lay .face{border-radius:8px!important;border-top-left-radius:8px!important}
 /* an icon's lines may reach a little past its frame: never cut them off */

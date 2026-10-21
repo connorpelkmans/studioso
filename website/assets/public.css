@@ -69,9 +69,10 @@
 .pdeck:focus-visible{outline:none}
 .pdeck:focus-visible .pdeck-face{box-shadow:0 0 0 3px var(--accent-2),0 12px 30px rgba(14,42,86,.14)}
 .pdeck-lay,.pdeck-face{border-radius:8px;background:#FFFEF9 repeating-linear-gradient(transparent 0 27px,rgba(57,136,254,.18) 27px 28px) 0 40px/100% calc(100% - 40px) no-repeat;box-shadow:0 0 0 1px var(--line)}
-.pdeck-lay{position:absolute;inset:0;pointer-events:none;clip-path:inset(8px -4px -4px -4px round 8px)}
+.pdeck-lay{position:absolute;inset:0;pointer-events:none}
+.pdeck-lay.l2{clip-path:polygon(-4px 8px,calc(100% - 14px) 8px,calc(100% - 14px) -4px,calc(100% + 4px) -4px,calc(100% + 4px) calc(100% + 4px),-4px calc(100% + 4px))}
 .pdeck-lay.l2{transform:translate(6px,6px)}
-.pdeck-lay.l3{transform:translate(12px,12px);filter:brightness(.94)}
+.pdeck-lay.l3{transform:translate(12px,12px);filter:brightness(.94);clip-path:polygon(-4px 10px,calc(100% - 20px) 10px,calc(100% - 20px) -4px,calc(100% + 4px) -4px,calc(100% + 4px) calc(100% + 4px),-4px calc(100% + 4px))}
 .pdeck-face{position:relative;z-index:1;display:flex;flex-direction:column;flex:1;min-width:0;height:176px;overflow:hidden;box-shadow:0 0 0 1px var(--line),0 12px 30px rgba(14,42,86,.14)}
 .pdeck-band{display:flex;align-items:center;gap:8px;min-height:40px;padding:7px 12px;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 78%,#fff));color:#fff}
 .pdeck-ic{display:inline-grid;width:26px;height:26px;flex:none}
