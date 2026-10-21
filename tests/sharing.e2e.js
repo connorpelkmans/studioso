@@ -42,7 +42,9 @@ function serverInit(opts){
     library_list: a => { const d = SV.decks.find(x => x.code === a.p_code && x.owner === me()); if (!d) throw {message: "Share the deck with a link first."};
       Object.assign(d, {listed: a.p_listed, course_key: a.p_course_key, school_key: a.p_school_key, school_name: a.p_school_name}); return null; },
     share_saved: a => { if (me()) SV.saves.push(a.p_code); return null; },
-    report_share: a => { SV.reports.push(a); return null; }
+    report_share: a => { SV.reports.push(a); return null; },
+    my_publish_state: a => !!(SV.decks.find(d => d.code === a.p_code && d.owner === me() && d.published) || SV.items.find(i => i.code === a.p_code && i.owner === me() && i.published)),
+    share_publish: a => { const x = SV.decks.find(d => d.code === a.p_code && d.owner === me()) || SV.items.find(i => i.code === a.p_code && i.owner === me()); if (!x) throw {message: "Share it with a link first."}; x.published = a.p_on; return null; }
   };
   window.__sbShareStub = async (fn, a) => { SV.calls.push([fn, a]); await wait(); if (!F[fn]) throw {code: "PGRST202", message: "Could not find the function public." + fn}; return F[fn](a); };
   if (opts.me) {
@@ -172,7 +174,25 @@ async function sharer(browser){
   await page.check("#libOn"); await page.waitForTimeout(300);
   const ll = (await calls(page, "library_list"))[0];
   ok(ll && ll[1].p_listed === true && ll[1].p_course_key === "BIOL201" && ll[1].p_school_key === "uwaterloo.ca", "listing sends the course code and school");
+  // publishing to the public flashcards pages
+  await page.waitForSelector("dialog[open] #pubOn");
+  ok(/Publish to Studyboard Flashcards/.test(await txt(page, "#pubRow")), "the deck's Share sheet offers Publish to Studyboard Flashcards");
+  await page.check("#pubOn"); await page.waitForSelector("#askDlg[open]");
+  ok(/anyone can see the cards and your display name/i.test(await txt(page, "#askDlg")), "publishing asks first and says what becomes public");
+  await page.click("#askYes"); await page.waitForSelector("#pubUrlIn");
+  ok(await page.evaluate(() => window.__SV.decks.find(d => d.code === "MYDK-0001").published === true), "Publish sends share_publish");
+  ok((await page.inputValue("#pubUrlIn")) === "https://app.example.edu/flashcards/my-cells-mydk0001", "it shows the public page's address: " + await page.inputValue("#pubUrlIn"));
+  await page.uncheck("#pubOn"); await page.waitForTimeout(300);
+  ok(await page.evaluate(() => window.__SV.decks.find(d => d.code === "MYDK-0001").published === false) && !(await page.$("#pubUrlIn")), "unpublishing takes it down (no question needed)");
   await page.evaluate(() => __sbSync.dlg.close());
+  // a quiz can be published from its Share sheet
+  await actStay(page, "qz-share", {deck: "d1", id: "q1"}); await page.waitForSelector("dialog[open] #pubOn", {timeout: 6000});
+  ok(/Publish to Studyboard Quizzes/.test(await txt(page, "#pubRow")), "a quiz's Share sheet offers Publish to Studyboard Quizzes");
+  await page.evaluate(() => __sbSync.dlg.close());
+  // Explore opens the public pages
+  await page.evaluate(() => { window.__opened = []; window.open = u => { window.__opened.push(u); return null; }; __sbSync.ui.tab = "flashcards"; __sbSync.ui.deckId = null; __sbSync.ui.fc = null; __sbSync.render(); });
+  await page.click('[data-act="pub-explore"][data-id="flashcards"]');
+  ok(await page.evaluate(() => window.__opened[0] === "https://app.example.edu/flashcards"), "Explore in Flashcards opens studyboardapp.com/flashcards (the website address)");
 
   // the course page and the library
   await page.evaluate(() => { __sbSync.ui.tab = "courses"; __sbSync.ui.courseId = "c1"; __sbSync.render(); }); await page.waitForTimeout(500); await page.evaluate(() => __sbSync.render()); await page.waitForTimeout(200);

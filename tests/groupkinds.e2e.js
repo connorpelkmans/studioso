@@ -504,11 +504,46 @@ async function fromTemplate(browser){
   ok(errs.length === 0, "template: no page errors " + errs.join(" | ")); await ctx.close();
 }
 
+// The exam countdown in a group's header is only for the group's own course; the "..." menus close when you click elsewhere
+async function examChipAndMenus(browser){
+  let {ctx, page, errs} = await boot(browser, 1280, {me: "u1"});
+  await page.evaluate(() => {
+    const d = n => window.__day(n), now = new Date().toISOString();
+    window.__DB.group_items.push(
+      {id: "ex1", group_id: "g1", user_id: "u2", author_name: "Sam", kind: "task", ref_id: "a", title: "Chem midterm", data: {v: 1, title: "Chem midterm", type: "Exam", due: d(2), course: {code: "CHEM 100", name: "Chemistry"}}, created_at: now, updated_at: now},
+      {id: "ex2", group_id: "g1", user_id: "u2", author_name: "Sam", kind: "task", ref_id: "b", title: "Bio midterm", data: {v: 1, title: "Bio midterm", type: "Exam", due: d(5), course: {code: "BIOL201", name: "Biology"}}, created_at: now, updated_at: now});
+  });
+  await openGroup(page, "g1");
+  const chip = await txt(page, "#grpDetail .grp-chips");
+  ok(/Bio midterm/.test(chip) && !/Chem midterm/.test(chip), "the group's Next Exam is its own course's exam, not a sooner one from another course: " + chip);
+  await ctx.close();
+  ({ctx, page, errs} = await boot(browser, 1280, {me: "u1"}));
+  await page.evaluate(() => { const now = new Date().toISOString(); window.__DB.study_groups[0].course = "";
+    window.__DB.group_items.push({id: "ex3", group_id: "g1", user_id: "u2", author_name: "Sam", kind: "task", ref_id: "c", title: "Bio final", data: {v: 1, title: "Bio final", type: "Exam", due: window.__day(3), course: {code: "BIOL 201", name: "Biology"}}, created_at: now, updated_at: now}); });
+  await openGroup(page, "g1");
+  ok(!/Bio final/.test(await txt(page, "#grpDetail .g2-head, #grpDetail .grp-chips")) && !(await page.$("#grpDetail .grp-chip.soon")), "a group with no course shows no exam countdown");
+  await tab(page, "members"); await page.waitForTimeout(300);
+  const menus = await page.$$("#grpDetail details.grp-more");
+  if (menus.length >= 2) {
+    await page.click("#grpDetail details.grp-more >> nth=0 >> summary"); await page.waitForTimeout(80);
+    ok(await page.$$eval("#grpDetail details.grp-more[open]", e => e.length) === 1, "a member's ... menu opens");
+    await page.evaluate(() => { document.querySelectorAll("#grpDetail details.grp-more")[1].open = true; }); await page.waitForTimeout(80);
+    ok(await page.$$eval("#grpDetail details.grp-more[open]", e => e.length) === 1 && await page.evaluate(() => document.querySelectorAll("#grpDetail details.grp-more")[1].open), "opening another menu closes the first");
+    await page.mouse.click(5, 5); await page.waitForTimeout(80);
+    ok(await page.$$eval("details.grp-more[open]", e => e.length) === 0, "clicking elsewhere closes the menu");
+    await page.click("#grpDetail details.grp-more >> nth=0 >> summary"); await page.keyboard.press("Escape"); await page.waitForTimeout(80);
+    ok(await page.$$eval("details.grp-more[open]", e => e.length) === 0, "Escape closes the menu");
+  } else ok(false, "expected member menus, found " + menus.length);
+  ok(!errs.length, "no errors (exam chip and menus): " + errs.join(" | "));
+  await ctx.close();
+}
+
 (async () => {
   const browser = await chromium.launch({executablePath});
   try {
     for (const w of [1280, 390]) { await studyGroup(browser, w); await projectGroup(browser, w); }
     await quizShare(browser);
+    await examChipAndMenus(browser);
     await memberView(browser); await overdueAndSetup(browser); await createProject(browser); await hideFeatures(browser); await fromTemplate(browser);
   } finally { await browser.close(); }
   console.log(`groupkinds.e2e.js: ${checks} checks passed. Screenshots in ${shots}`);
