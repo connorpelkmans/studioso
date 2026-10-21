@@ -113,5 +113,9 @@ const env = {SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "sb_publi
   ok(r.status === 204 && rf.includes("/flashcards/cell-biology-basics-abcdefgh") && rf.includes("/flashcards") && rf.includes("/flashcards/course/biol-201"), "a refresh after publishing drops the cached page, the index and the course page");
   r = await P.handlePublic(new Request("https://studyboardapp.com/flashcards/refresh", {method: "POST", body: "nonsense"}), env, {});
   ok(r.status === 204, "a bad refresh does nothing");
+  // a database that still has the older search (supabase-sharing.sql not re-run): the page still works, without filters
+  const oldDb = async (url, init) => { const a = JSON.parse(init.body); if (url.endsWith("/public_search") && "p_school" in a) return new Response('{"code":"PGRST202"}', {status: 404}); return fakeFetch(url, init); };
+  r = await P.handlePublic(new Request("https://studyboardapp.com/flashcards"), Object.assign({}, env, {__fetch: oldDb}), {waitUntil() {}});
+  ok(r.status === 200 && /Cell Biology Basics/.test(await r.text()), "with the older search function the flashcards page still lists sets");
   console.log(`public-pages.test: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

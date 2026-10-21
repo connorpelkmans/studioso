@@ -1,4 +1,4 @@
--- Studyboard: Google Drive and OneDrive (Studyboard Pro)
+-- Studyboard: Google Drive and OneDrive (free for every signed-in account)
 -- Run this once in Supabase: SQL Editor > New query > paste everything > Run. Run it after supabase-lean.sql (and supabase-plans.sql if
 -- you use plans), then run supabase-lean.sql again so account deletion includes it. It is safe to run again. Then deploy the
 -- cloud-files Edge Function (Verify JWT OFF) and set its secrets; the steps are in SETUP-GUIDE.md, "Google Drive and OneDrive".
@@ -32,16 +32,11 @@ create table if not exists public.cloud_accounts (
 alter table public.cloud_accounts enable row level security;
 revoke all on public.cloud_accounts from public, anon, authenticated;
 
--- Pro, or no paywall yet (works whether or not supabase-plans.sql has been run)
+-- Free on every plan (Google Drive and OneDrive use the person's own storage): any signed-in account that isn't a guest
 create or replace function public.cloud_allowed(p_uid uuid) returns boolean
-language plpgsql stable security definer set search_path = pg_catalog, public as $$
-declare pw boolean := false; pro boolean := true;
-begin
-  if to_regprocedure('public.studyboard_paywall()') is not null then execute 'select public.studyboard_paywall()' into pw; end if;
-  if not coalesce(pw, false) then return true; end if;
-  if to_regprocedure('public.studyboard_is_pro(uuid)') is not null then execute 'select public.studyboard_is_pro($1)' into pro using p_uid; end if;
-  return coalesce(pro, false);
-end $$;
+language sql stable security definer set search_path = pg_catalog, public as $$
+  select exists (select 1 from auth.users u where u.id = p_uid and not coalesce((to_jsonb(u) ->> 'is_anonymous')::boolean, false));
+$$;
 
 create or replace function public.cloud_account(p_uid uuid, p_provider text) returns setof public.cloud_accounts
 language sql stable security definer set search_path = pg_catalog, public as $$
