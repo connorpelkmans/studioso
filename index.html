@@ -2035,6 +2035,7 @@ body.sch-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 /* ===== module: 10-plan.css ===== */
 /* Studyboard Pro sheet, Your Devices, and the Settings row */
 dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}
+@media (max-width:600px){dialog:has(.plan-sheet){width:100%}}   /* phones: full width like every other sheet (they sit at the left edge, so a narrower one looked off centre) */
 .plan-sheet{--pro-a:#FFB443;--pro-b:#FF5C8A;--pro-glow:color-mix(in srgb,var(--pro-b) 22%,transparent)}
 .plan-sheet .sheet-body{display:flex;flex-direction:column;gap:14px}
 .plan-sheet .sheet-body > *{flex:none}
