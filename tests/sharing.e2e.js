@@ -37,6 +37,7 @@ function serverInit(opts){
     stop_share_item: a => { SV.items = SV.items.filter(x => !(x.code === a.p_code && x.owner === me())); return null; },
     library_decks: a => SV.decks.filter(d => d.listed && !d.hidden && d.course_key === a.p_course_key && (!a.p_school_key || d.school_key === a.p_school_key))
       .map(d => ({code: d.code, name: d.name, sharer_name: d.sharer_name, card_count: d.card_count, updated_at: d.updated_at, saves: d.saves, school_name: d.school_name, school_key: d.school_key, course_label: "", is_mine: d.owner === me()})),
+    public_search: a => (SV.pubQuiz || []).filter(q => a.p_kind === "quiz" && q.course_key === a.p_course && (!a.p_school || q.school_key === a.p_school)).map(q => ({code: q.code, name: q.name, sharer_name: q.sharer_name, n: q.n, saves: 0, school_key: q.school_key, school_name: q.school_name})),
     library_counts: a => { const m = {}; SV.decks.filter(d => d.listed && a.p_course_keys.includes(d.course_key) && (!a.p_school_key || d.school_key === a.p_school_key) && d.owner !== me()).forEach(d => { m[d.course_key] = (m[d.course_key] || 0) + 1; });
       return Object.keys(m).map(k => ({course_key: k, n: m[k]})); },
     library_list: a => { const d = SV.decks.find(x => x.code === a.p_code && x.owner === me()); if (!d) throw {message: "Share the deck with a link first."};
@@ -297,6 +298,20 @@ async function sharer(browser){
   await page.click("#shAdd"); await page.waitForTimeout(400);
   ok(await page.evaluate(() => Object.values(__sbSync.state.decks).some(d => d.sharedFrom && d.sharedFrom.code === "DECK-AAAA" && !d.courseId)), "and the copy goes where I put it");
   ok(!errs.length, "no errors (sharing signed in): " + errs.join(" | ")); await ctx.close();
+
+  // Quizzes has a Course Library too: published quizzes for my course, my school first
+  ({ctx, page, errs} = await boot(browser, 1280, {me: "u1", seed: SEED}));
+  await page.evaluate(() => { window.__SV.pubQuiz = [{code: "QUIZ-AAAA", name: "Cell Quiz", sharer_name: "Sam", n: 8, course_key: "BIOL201", school_key: "uwaterloo.ca", school_name: "University of Waterloo"},
+    {code: "QUIZ-BBBB", name: "Elsewhere Quiz", sharer_name: "Ana", n: 5, course_key: "BIOL201", school_key: "utoronto.ca", school_name: "U of T"}];
+    __sbSync.ui.tab = "flashcards"; __sbSync.ui.deckId = null; __sbSync.ui.fc = null; __sbSync.render(); });
+  await page.evaluate(() => document.querySelector('[data-act="rv-view"][data-id="quizzes"]').click()); await page.waitForTimeout(400);
+  ok(await page.locator('[data-act="lib-open"][data-kind="quiz"]').count() === 1, "Quizzes has a Course Library button");
+  await page.evaluate(() => document.querySelector('[data-act="lib-open"][data-kind="quiz"]').click()); await page.waitForSelector("dialog[open] .lib-item");
+  names = await page.$$eval("dialog[open] .lib-item b", e => e.map(x => x.textContent));
+  ok(names.includes("Cell Quiz") && !names.includes("Elsewhere Quiz") && /8 questions/.test(await txt(page, "dialog[open] .lib-list")) && /Quizzes/.test(await txt(page, "dialog[open] .sheet-head, dialog[open] h2")), "it lists my school's published quizzes for the course, with their question counts: " + names.join());
+  await page.check("#libAll"); await page.waitForTimeout(400);
+  ok((await page.$$eval("dialog[open] .lib-item b", e => e.map(x => x.textContent))).includes("Elsewhere Quiz"), "Other schools too adds the rest");
+  ok(!errs.length, "no errors (quiz library): " + errs.join(" | ")); await ctx.close();
 
   // no school site: the library asks for the school first
   const seed2 = JSON.parse(JSON.stringify(SEED)); delete seed2.settings.brightspace;
