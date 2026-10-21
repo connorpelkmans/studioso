@@ -178,7 +178,7 @@ var COMP_KIT = (() => {
         mouth: {x: 60, y: 70.5, w: 3.4},
         cheeks: {lx: 39, rx: 81, y: 70, w: 4.8, h: 3},
         anchors: {top: [60, 40, 1], neck: [60, 78, 1.2], chest: [75, 92, 0.75], back: [92, 64, 0.85], hands: [60, 100, 0.9]},
-        lines: {tap: ["Got everything? I double checked!", "I've got your back. Literally.", "Heavy day? We'll carry it together.", "Hi! Where are we headed today?", "One thing at a time, out of the bag.", "I packed you a little extra courage."], pet: ["Hehe, my zippers jingle!", "Pats! My favourite pocket feeling."], hello: ["You're back! Bag's packed and ready.", "Hi! Let's unpack today's plan."], morning: ["Good morning! Let's pack up the day's goals."], night: ["Zip it up for today. Rest well."], focus: ["Quiet zippers. You've got this.", "I'll keep everything safe while you work."], done: ["Session done! That's a load lighter.", "Amazing focus! Unpacked and done."], task: ["Done! One less thing to carry.", "Checked off! Feeling lighter already.", "Woo! Another one finished."], break: ["Put the load down. Stretch your shoulders!"]}
+        lines: {tap: ["Got everything? I double-checked!", "I've got your back. Literally.", "Heavy day? We'll carry it together.", "Hi! Where are we headed today?", "One thing at a time, out of the bag.", "I packed you a little extra courage."], pet: ["Hehe, my zippers jingle!", "Pats! My favorite pocket feeling."], hello: ["You're back! Bag's packed and ready.", "Hi! Let's unpack today's plan."], morning: ["Good morning! Let's pack up the day's goals."], night: ["Zip it up for today. Rest well."], focus: ["Quiet zippers. You've got this.", "I'll keep everything safe while you work."], done: ["Session done! That's a load lighter.", "Amazing focus! Unpacked and done."], task: ["Done! One less thing to carry.", "Checked off! Feeling lighter already.", "Woo! Another one finished."], break: ["Put the load down. Stretch your shoulders!"]}
       },
       {
         id: "plain-sum", name: "Sum", kind: "Calculator", pose: "stand", wearColor: "#F28C5A",
@@ -422,7 +422,7 @@ var COMP_KIT = (() => {
           night: ["Bakers sleep early. You too?", "Cooling off now. Rest soon, friend?"],
           focus: ["Rising together! Let's focus!", "Proofing quietly with you. You've got this!"],
           done: ["Golden brown session! Magnifique!", "Baked to perfection! Bravo!"],
-          task: ["Voila! DONE!", "Fresh out of the oven! Yes!", "Finished! Oh la la, wonderful!", "Tres bien! Another one done!"],
+          task: ["Voila! DONE!", "Fresh out of the oven! Yes!", "Finished! Oh la la, wonderful!", "Très bien! Another one done!"],
           break: ["Stretch like soft dough! Ahh!", "Snack break! Something tasty?"]
         }
       }
@@ -864,7 +864,7 @@ var COMP_KIT = (() => {
         lines: {
           tap: ["Hi! My light is on just for you!", "Shining your way! You're amazing!", "Steady as the shore, that's you!", "Every wave passes, and you stay strong!", "Guiding you, one bright page at a time!", "You light up the whole room!", "Keep that warm glow going!"],
           pet: ["Hehe, I'm all aglow!", "Beaming with joy!"],
-          hello: ["Hello! Welcome back to harbor!", "Hi! I kept the light on for you!"],
+          hello: ["Hello! Welcome back to the harbor!", "Hi! I kept the light on for you!"],
           morning: ["Good morning! The sun's taking over the shining!", "Morning, sailor! Smooth seas ahead today!"],
           night: ["My light's low now. Time to rest?", "Safe harbor tonight. Sleep well."],
           focus: ["Shining quietly beside you. Let's go!", "Steady light, steady focus. You've got this!"],
@@ -1175,7 +1175,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 40, rx: 80, y: 60, w: 4.2, h: 2.6, color: "#FF9FCF"},
         anchors: {top: [60, 29, 1], neck: [60, 71, 0.95], chest: [69, 85, 0.7], back: [81, 86, 0.85], hands: [60, 90, 0.9]},
         lines: {
-          tap: ["Greetings, Earth friend! Yay!", "Beep boop! You are so great!", "Earth studying is the coolest thing!", "Take me to your notes! I'm so excited!", "You are my absolute favourite human!", "Tiny steps, cosmic results! Beep!", "My antennae sense a big win coming!"],
+          tap: ["Greetings, Earth friend! Yay!", "Beep boop! You are so great!", "Earth studying is the coolest thing!", "Take me to your notes! I'm so excited!", "You are my absolute favorite human!", "Tiny steps, cosmic results! Beep!", "My antennae sense a big win coming!"],
           pet: ["Beep! Antenna tickles! Hehe!", "Zib is very, very happy! Beep beep!"],
           hello: ["Greetings! Zib missed you so much!", "Landing complete! You're back! Hooray!"],
           morning: ["Good morning, Earthling! Beep!", "Your sun is so pretty! Hello, friend!"],
@@ -1939,7 +1939,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 42, rx: 78, y: 76, w: 4.4, h: 2.7, color: "#FF8FC8"},
         anchors: {top: [60, 30, 0.95], neck: [60, 86, 1.1], chest: [71, 88, 0.6], back: [84, 70, 0.85], hands: [60, 87, 0.85]},
         lines: {
-          tap: ["Hi hi! I added extra pearls just for you!", "You're my favourite order, every single time!", "Sip, study, smile! You're doing amazing!", "Pearls of wisdom coming right up for you!", "Shake it up! You've totally got this!", "Sweet and steady, that's you! I love it!", "Yay, you're here! My pearls are bouncing!"],
+          tap: ["Hi hi! I added extra pearls just for you!", "You're my favorite order, every single time!", "Sip, study, smile! You're doing amazing!", "Pearls of wisdom coming right up for you!", "Shake it up! You've totally got this!", "Sweet and steady, that's you! I love it!", "Yay, you're here! My pearls are bouncing!"],
           pet: ["Hehe! My pearls are doing happy flips!", "Aww! So bubbly and happy right now!"],
           hello: ["You're back! Fresh from the shop and so excited!", "Welcome back! My pearls are dancing for you!"],
           morning: ["Good morning! Fresh brew, fresh start, let's go!", "Rise and shine, sweetie! Today is going to be great!"],
@@ -1972,7 +1972,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 45, rx: 75, y: 62, w: 3.8, h: 2.5, color: "#FF8FC8"},
         anchors: {top: [60, 27, 1], neck: [60, 79, 1.3], chest: [72, 99, 0.6], back: [86, 58, 0.9], hands: [60, 80, 0.9]},
         lines: {
-          tap: ["Beep beep! Hello, my favourite friend!", "Now dispensing: a huge batch of good vibes!", "Today's special? Encouragement, all for you!", "You're the top selection in the whole machine!", "Clunk! One giant cheer, served fresh!", "Lights on, buttons glowing! You've got this!", "Ding! Your smile is my favourite thing!"],
+          tap: ["Beep beep! Hello, my favorite friend!", "Now dispensing: a huge batch of good vibes!", "Today's special? Encouragement, all for you!", "You're the top selection in the whole machine!", "Clunk! One giant cheer, served fresh!", "Lights on, buttons glowing! You've got this!", "Ding! Your smile is my favorite thing!"],
           pet: ["Beep boop! Happy lights all flashing!", "Bonus snack unlocked! Hehe, thank you!"],
           hello: ["Beep! Welcome back! I'm fully stocked for you!", "You're here! All my lights just lit up!"],
           morning: ["Good morning! Freshly restocked and ready to go!", "Beep beep! Rise and shine, superstar!"],
@@ -2116,7 +2116,7 @@ var COMP_KIT = (() => {
           pet: ["Whoa! Warm fuzzies everywhere!", "Hehe! Now I'm glowing extra bright!"],
           hello: ["Hey! Player one is back! Press start!", "You're here! The whole grid just lit up!"],
           morning: ["Sunrise! Good morning, bright one! Let's shine!", "Rise and shine! A brand new level awaits!"],
-          night: ["Time for me to set. You rest up too, okay?", "The sun's down and so are the stars. Sleep soon?"],
+          night: ["Time for me to set. You rest up too, okay?", "The sun's down and the stars are out. Sleep soon?"],
           focus: ["Level up time! Heads down, let's go!", "Glowing quietly for you. You've got this!"],
           done: ["High score session! You're incredible!", "Game complete! What a brilliant run!"],
           task: ["LEVEL UP!", "Bonus points! Another one done!", "Combo! Yes yes yes!", "WOO! Done and done!"],
@@ -2143,9 +2143,9 @@ var COMP_KIT = (() => {
         cheeks: {lx: 40, rx: 80, y: 78, w: 4.2, h: 2.6, color: "#FF7FB5"},
         anchors: {top: [60, 48, 1.2], neck: [60, 98, 1.4], chest: [85, 93, 0.6], back: [96, 62, 0.9], hands: [60, 92, 0.9]},
         lines: {
-          tap: ["Hi hi! Side A is all good vibes for you!", "You're my favourite track on the whole tape!", "Press play on your day! Let's rock it!", "Rewind, relax, reset! You've got this!", "Keep that beat going! You're amazing!", "You're a total hit today! Wow!", "Chill beats and a bright mind! Love it!"],
+          tap: ["Hi hi! Side A is all good vibes for you!", "You're my favorite track on the whole tape!", "Press play on your day! Let's rock it!", "Rewind, relax, reset! You've got this!", "Keep that beat going! You're amazing!", "You're a total hit today! Wow!", "Chill beats and a bright mind! Love it!"],
           pet: ["Whirr whirr! That's my happy song!", "Hehe! That's music to my reels!"],
-          hello: ["You're back! I queued up your favourite song!", "Hello! Ready to press play together?"],
+          hello: ["You're back! I queued up your favorite song!", "Hello! Ready to press play together?"],
           morning: ["Good morning! The morning mix is now playing!", "Rise and shine! Side A, track one, let's go!"],
           night: ["Slow jams playing now. Time to rest soon?", "Lullaby side is on. Sleep well, friend."],
           focus: ["Soft beats rolling for you. You've got this!", "Lo-fi mode on. Heads down, let's go!"],
@@ -2265,7 +2265,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 41, rx: 79, y: 87, w: 4.6, h: 2.8, color: "#FF9A9A"},
         anchors: {top: [60, 54, 1.05], neck: [60, 68, 1.35], chest: [74, 98, 0.72], back: [88, 72, 0.9], hands: [60, 99, 0.9]},
         lines: {
-          tap: ["Hi hi! There's always room for you in here!", "Every cat's favourite seat, and yours too!", "Yay, you're here! My flaps are flapping!", "Think inside the box today! You've got this!", "I'm wide open for all your great ideas!", "Snug and steady, that's us! Love it!", "Flaps up! You're doing amazing!"],
+          tap: ["Hi hi! There's always room for you in here!", "Every cat's favorite seat, and yours too!", "Yay, you're here! My flaps are flapping!", "Think inside the box today! You've got this!", "I'm wide open for all your great ideas!", "Snug and steady, that's us! Love it!", "Flaps up! You're doing amazing!"],
           pet: ["Hehe! Crinkle crinkle! So happy!", "A big box hug! So cozy, thank you!"],
           hello: ["Special delivery: me, super excited to see you!", "You're back! I saved you the coziest corner!"],
           morning: ["Good morning! Freshly unpacked and ready to go!", "Flaps up! Rise and shine, superstar!"],
@@ -2338,7 +2338,7 @@ var COMP_KIT = (() => {
         anchors: {top: [58, 47, 1], neck: [60, 86, 1.2], chest: [72, 96, 0.72], back: [87, 70, 0.9], hands: [60, 97, 0.9]},
         lines: {
           tap: ["Tweet tweet! Hi hi! I'm so glad you're here!", "You're right on tempo today! Wow!", "Every note counts, and you're hitting them!", "Look at all that progress! I could sing!", "La la la! You've totally got this!", "Your study song sounds wonderful!", "Here's a happy little tune just for you!"],
-          pet: ["Chirrup! So fluffy and happy!", "Tweet! You found my favourite crest spot!"],
+          pet: ["Chirrup! So fluffy and happy!", "Tweet! You found my favorite crest spot!"],
           hello: ["Tweet tweet! You're back! I'm so happy!", "Hi! I've been humming for you all day!"],
           morning: ["Good morning! The morning chorus is for you!", "Rise and shine! It's a lovely day for a song!"],
           night: ["Lullaby time now. Let's rest soon, okay?", "A soft song for sleepy wings. Goodnight soon."],
@@ -2440,7 +2440,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 46.5, rx: 75.5, y: 72, w: 3.8, h: 2.5, color: "#FF9AA8"},
         anchors: {top: [58, 31, 1], neck: [58, 91, 1.35], chest: [73, 97, 0.66], back: [30, 60, 0.9], hands: [60, 92, 0.9]},
         lines: {
-          tap: ["Hello, reader! I'm so happy you're here!", "Every page makes you wiser! Look at you!", "Yay, reading time with you! My favourite!", "Chapter by chapter, you're amazing!", "Your story is going so wonderfully!", "Wow, your notes are coming along great!", "I love keeping you company! Let's go!"],
+          tap: ["Hello, reader! I'm so happy you're here!", "Every page makes you wiser! Look at you!", "Yay, reading time with you! My favorite!", "Chapter by chapter, you're amazing!", "Your story is going so wonderfully!", "Wow, your notes are coming along great!", "I love keeping you company! Let's go!"],
           pet: ["Hehe! My pages are rustling with joy!", "Aww! A warm hug for me! Thank you!"],
           hello: ["Welcome back, reader! I've missed you!", "Hi hi! Let's open an exciting new chapter!"],
           morning: ["Good morning! A fresh page and a fresh start!", "Rise and shine, bookworm! Big chapter today!"],
@@ -2804,7 +2804,7 @@ var COMP_KIT = (() => {
         anchors: {top: [60, 38.5, 0.95], neck: [60, 79, 1.05], chest: [67, 92, 0.6], back: [85, 90, 0.85], hands: [60, 97, 0.9]},
         lines: {
           tap: ["Oink! Hello, hello! I'm so glad you're here!", "Something smells like success, and it's you!", "Whisk away the worries! We've got this!", "Need a hand? I'm right here, apron and all!", "Little crumbs add up to a whole loaf!", "Warm oven, warm heart, and a great student!", "You're doing wonderfully! Oink oink!"],
-          pet: ["Oink oink! Hehe, that's my favourite!", "Hehe! My ears are doing a happy wiggle!"],
+          pet: ["Oink oink! Hehe, that's my favorite!", "Hehe! My ears are doing a happy wiggle!"],
           hello: ["Oink! You're back! My tail is curling with joy!", "Hi hi! The oven's warm and ready for you!"],
           morning: ["Good morning! The bread is rising and so are we!", "Oink! Rise and shine, it's a baking day!"],
           night: ["Oven's off now. Bedtime soon, friend?", "Cozy by the warm oven... time to rest?"],
@@ -2887,7 +2887,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 41.5, rx: 78.5, y: 86, w: 4.4, h: 2.8, color: "#FF6F8E"},
         anchors: {top: [60, 47, 1.15], neck: [60, 99, 1.05], chest: [72, 98, 0.72], back: [88, 78, 0.9], hands: [60, 99, 0.9]},
         lines: {
-          tap: ["Hi! I'm in full bloom just for you!", "Look at you growing a little every day!", "You're blooming beautifully!", "Strong roots, then gorgeous flowers! That's you!", "Sunshine and study notes! My favourite combo!", "Petal by petal, you've totally got this!", "Every time you show up, I sprout a new leaf!"],
+          tap: ["Hi! I'm in full bloom just for you!", "Look at you growing a little every day!", "You're blooming beautifully!", "Strong roots, then gorgeous flowers! That's you!", "Sunshine and study notes! My favorite combo!", "Petal by petal, you've totally got this!", "Every time you show up, I sprout a new leaf!"],
           pet: ["Hehe! That tickles my petals!", "Aww, I'm blooming with happiness!"],
           hello: ["Yay, you're back! The whole garden missed you!", "Hello! Let's grow something great today!"],
           morning: ["Good morning! Soaking up the sun with you!", "Morning, sprout! Let's reach for the sky!"],
@@ -3399,7 +3399,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 41.5, rx: 78.5, y: 61, w: 4.2, h: 2.7, color: "#FF8F8F"},
         anchors: {top: [60, 33, 1], neck: [60, 75, 0.95], chest: [69, 96, 0.66], back: [85, 84, 0.85], hands: [60, 95, 0.9]},
         lines: {
-          tap: ["Rawr! Hello, friend! So glad you're here!", "Brave heart, steady steps! That's you!", "Dancing into a lucky year with you!", "You're full of dragon spirit!", "Let's soar a little higher today!", "Fortune favours the curious, like you!", "Tiny dragon, BIG cheers for you!"],
+          tap: ["Rawr! Hello, friend! So glad you're here!", "Brave heart, steady steps! That's you!", "Dancing into a lucky year with you!", "You're full of dragon spirit!", "Let's soar a little higher today!", "Fortune favors the curious, like you!", "Tiny dragon, BIG cheers for you!"],
           pet: ["Rawr hehe! That tickles!", "My whiskers are wiggling with joy!"],
           hello: ["Rawr! Welcome back, brave one!", "Hi! Luck is on your side today!"],
           morning: ["Good morning! Ready to soar?", "Morning, brave one! Let's fly!"],
@@ -3917,7 +3917,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "halloween-bat", name: "Echo", kind: "Sweater Bat", pose: "stand", wearColor: "#8CC63F",
-        bio: "A cozy little bat in a hand knit sweater, up late but never scary.",
+        bio: "A cozy little bat in a hand-knit sweater, up late but never scary.",
         idle: ["wingFlutter", "earTwitch", "headTilt"], cheer: "wingFlutter",
         neck: [60, 72],
         parts: {
@@ -4255,7 +4255,7 @@ var COMP_KIT = (() => {
           tap: ["Hi! I'm fanning my tail for you!", "You're so dazzling today!", "Look at you, strutting along!", "You make my feathers shimmer!", "You're doing amazing! Wow!", "You've got this, I just know it!", "So proud of you, every day!"],
           pet: ["Hehe! My tail is all fluffed up!", "Ooh! That makes me shimmer!"],
           hello: ["You're back! Full tail fan for you!", "Hi hi! I'm so happy to see you!"],
-          morning: ["Good morning! Let's strut into the day!", "Rise and shine! Colours everywhere!"],
+          morning: ["Good morning! Let's strut into the day!", "Rise and shine! Colors everywhere!"],
           night: ["Folding my tail for the night. Rest well!", "Cozy night, friend. Sweet dreams!"],
           focus: ["Feathers tucked! You've got this!", "Quietly cheering right beside you!"],
           done: ["Wow! What a dazzling session!", "Session done! Big tail fan for you!"],
@@ -4842,7 +4842,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 58.5, rx: 85.5, y: 50.5, w: 4, h: 2.5, color: "#FF9A8C"},
         anchors: {top: [72, 23, 0.85], neck: [72, 68, 0.62], chest: [80, 92, 0.6], back: [26, 88, 0.8], hands: [73, 86, 0.8]},
         lines: {
-          tap: ["Oh hi! You made this sleepy camel so happy!", "Long trek? No problem! We're doing it together!", "Look at you go, one step at a time! Wow!", "You're amazing, and I'm not just sleepy saying it!", "Every step across the dunes counts! Yay!", "Showing up again! You're my favorite traveler!", "I'm so proud to walk beside you!"],
+          tap: ["Oh hi! You made this sleepy camel so happy!", "Long trek? No problem! We're doing it together!", "Look at you go, one step at a time! Wow!", "You're amazing, and I'm not just saying it because I'm sleepy!", "Every step across the dunes counts! Yay!", "Showing up again! You're my favorite traveler!", "I'm so proud to walk beside you!"],
           pet: ["Ooh, so cozy! My whole heart is happy!", "Hehe! That's the best pat ever! Thank you!"],
           hello: ["You're back! I woke right up for you! Yay!", "Hi hi! Ready for another fun trek together?"],
           morning: ["Good morning! The sun is up and so are we!", "Morning, friend! A brand new trek awaits! Let's go!"],
@@ -5707,7 +5707,7 @@ var COMP_KIT = (() => {
       },
       {
         id: "psych-bubble", name: "Wonder", kind: "Thought Bubble", pose: "float", wearColor: "#5C9BD6",
-        bio: "A floaty thought bubble full of what ifs and bright ideas.",
+        bio: "A floaty thought bubble full of what-ifs and bright ideas.",
         idle: ["tailSwish", "topBob", "sparkle"], cheer: "spin",
         parts: {
           tail: {svg: `<circle cx="45" cy="92" r="6.4" fill="#F6F2FF" ${O}/><circle cx="35.5" cy="104" r="4" fill="#F6F2FF" ${O}/><circle cx="43" cy="90" r="1.6" fill="#fff"/>`, pivot: [50, 86]},
@@ -5973,7 +5973,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 43.5, rx: 76.5, y: 80, w: 4, h: 2.5, color: "#FF9AB4"},
         anchors: {top: [60, 27, 1], neck: [60, 96, 1.15], chest: [76, 90, 0.6], back: [86, 62, 0.9], hands: [60, 93, 0.85]},
         lines: {
-          tap: ["Hi! Saving this happy moment!", "You're doing so well! Saved!", "1.44 megabytes of pure cheer!", "Whirr whirr! That's my happy noise!", "You're my favourite file to save!", "Ctrl S on all your awesomeness!", "You've got this! Loading pride!", "Retro hugs for my study buddy!"],
+          tap: ["Hi! Saving this happy moment!", "You're doing so well! Saved!", "1.44 megabytes of pure cheer!", "Whirr whirr! That's my happy noise!", "You're my favorite file to save!", "Ctrl S on all your awesomeness!", "You've got this! Loading pride!", "Retro hugs for my study buddy!"],
           pet: ["Whirr! My shutter is all tingly!", "Hehe! Saved to my heart!"],
           hello: ["You're back! Loading happiness!", "Hi hi! Your progress is safe with me!"],
           morning: ["Good morning! Booting up a new day!", "Rise and shine! Fresh disk, fresh day!"],
@@ -6296,7 +6296,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 39, rx: 81, y: 67.5, w: 4.4, h: 2.7, color: "#FF9A8C"},
         anchors: {top: [60, 28, 1], neck: [60, 101, 1.3], chest: [87, 90, 0.6], back: [93, 52, 0.9], hands: [60, 97, 0.9]},
         lines: {
-          tap: ["Bzzt! Tuned in to you! Hi!", "Now playing: You being awesome!", "Your vibes are coming in clear!", "Turning the happy up to eleven!", "You're my favourite station!", "Static? Nope! Just cheering!", "You've got this! On every channel!", "Best signal I ever found!"],
+          tap: ["Bzzt! Tuned in to you! Hi!", "Now playing: You being awesome!", "Your vibes are coming in clear!", "Turning the happy up to eleven!", "You're my favorite station!", "Static? Nope! Just cheering!", "You've got this! On every channel!", "Best signal I ever found!"],
           pet: ["Hehe! My knobs are spinning!", "Ooh! Warm and fuzzy reception!"],
           hello: ["You're back! Back on the air!", "Hi! I kept your station saved!"],
           morning: ["Good morning! Morning show time!", "Rise and shine! Sunny forecast!"],
@@ -6334,7 +6334,7 @@ var COMP_KIT = (() => {
         lines: {
           tap: ["HELLO! Hi! You're AMAZING!", "Announcing: You're doing great!", "Loud and proud of you!", "Everyone, look how awesome you are!", "Hey hey! You've got this!", "Turning your wins up to max volume!", "Attention please! Big cheers for you!", "Best news of the day? You're here!"],
           pet: ["Hehe! That made me squeak!", "Ooh! Soft volume, happy me!"],
-          hello: ["Attention! My favourite person is back!", "HI HI HI! Welcome back!"],
+          hello: ["Attention! My favorite person is back!", "HI HI HI! Welcome back!"],
           morning: ["GOOD MORNING! Big day ahead!", "Rise and shine! Rally time!"],
           night: ["Whisper mode now. Rest well!", "Softest voice: sweet dreams, friend!"],
           focus: ["Whisper cheers! You've got this!", "Volume low, rooting for you!"],
@@ -6591,7 +6591,7 @@ var COMP_KIT = (() => {
           morning: ["Good morning! A brand new swirl of a day!", "Rise and shine! Leave your mark today!"],
           night: ["Swirling down slow. Time to rest!", "Soft swirls, sweet dreams. Night!"],
           focus: ["Quiet little swirls. You've got this!", "Floating softly right beside you!"],
-          done: ["Wow! A one of a kind session!", "Session done! Totally your style!"],
+          done: ["Wow! A one-of-a-kind session!", "Session done! Totally your style!"],
           task: ["DONE! Swirl swirl WOOHOO!", "Yes! Your mark is on that one!", "Checked off! Signed and sealed!", "Another one done! Twirl time!"],
           break: ["Twirl and stretch! Wheee!", "Wiggle your fingers! Break time!"]
         }
@@ -7594,7 +7594,7 @@ var COMP_KIT = (() => {
           morning: ["Good morning! Curtains open, sun in!", "Rise and shine! Let's build a great day!"],
           night: ["Porch light's on low. Rest soon?", "Cozy house, cozy dreams. Sleep well!"],
           focus: ["Quiet house, calm mind. Keep going.", "Building softly beside you."],
-          done: ["WOW! What a well built session!", "Session done! I'm proud from roof to floor!"],
+          done: ["WOW! What a well-built session!", "Session done! I'm proud from roof to floor!"],
           task: ["DONE! Another brick in place! WOO!", "YES! Raise the roof for that one!", "Checked off! Housewarming party time!", "Another one done! Home sweet win!"],
           break: ["Stretch time! Open a window and breathe!", "Break time! Cozy snack in the kitchen?"]
         }
@@ -9968,7 +9968,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 38, rx: 82, y: 70, w: 3.6, h: 2.2, color: "#FF8FB8"},
         anchors: {top: [60, 22, 1], neck: [60, 86, 0.95], chest: [70, 96, 0.66], back: [86, 74, 0.8], hands: [60, 98, 0.85]},
         lines: {
-          tap: ["¡Hola! I iced a flower just for you!", "Sweet as sugar, sharp as a pencil!", "Your memory is getting stronger!", "Every page you study is worth remembering!", "Look at you go! So colourful!", "A big sugary smile for your hard work!", "Remember: you're doing amazing!", "Marigolds, candles and you, all glowing!"],
+          tap: ["¡Hola! I iced a flower just for you!", "Sweet as sugar, sharp as a pencil!", "Your memory is getting stronger!", "Every page you study is worth remembering!", "Look at you go! So colorful!", "A big sugary smile for your hard work!", "Remember: you're doing amazing!", "Marigolds, candles and you, all glowing!"],
           pet: ["Hehe! Careful, my icing tickles!", "Aww, so sweet! Sweeter than me!"],
           hello: ["¡Hola! You're back! My flowers bloomed!", "Hi friend! I saved you a marigold!"],
           morning: ["¡Buenos días! Fresh flowers for a fresh day!", "Good morning! Let's make today bright!"],
@@ -10008,7 +10008,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 40, rx: 80, y: 62, w: 4, h: 2.4, color: "#FF9AB8"},
         anchors: {top: [60, 30, 0.95], neck: [60, 78, 1], chest: [72, 94, 0.66], back: [84, 86, 0.8], hands: [60, 98, 0.86]},
         lines: {
-          tap: ["Woof! Hi hi hi! I'm so happy you're here!", "My ears are up! That means I'm listening!", "You're my favourite study buddy!", "Good human! Great studying!", "Tail wags for every page you read!", "I'll guard your focus. Nobody gets past!", "Sniff sniff. Smells like success!", "Big ears, big heart, big cheers for you!"],
+          tap: ["Woof! Hi hi hi! I'm so happy you're here!", "My ears are up! That means I'm listening!", "You're my favorite study buddy!", "Good human! Great studying!", "Tail wags for every page you read!", "I'll guard your focus. Nobody gets past!", "Sniff sniff. Smells like success!", "Big ears, big heart, big cheers for you!"],
           pet: ["Hehe! Ear scratches are the best!", "Woof! More pats please!"],
           hello: ["WOOF! You're back! Happy zoomies!", "Hi friend! I waited by the door!"],
           morning: ["Good morning! Walkies and studying!", "Woof! The sun's up and so are we!"],
@@ -10076,15 +10076,15 @@ var COMP_KIT = (() => {
         cheeks: {lx: 42, rx: 78, y: 80, w: 4.2, h: 2.6, color: "#FF6AA8"},
         anchors: {top: [60, 42, 0.95], neck: [60, 98, 1], chest: [72, 92, 0.66], back: [88, 62, 0.8], hands: [60, 100, 0.86]},
         lines: {
-          tap: ["Poof! Hi! A little rainbow for you!", "You're bringing so much colour to today!", "Bright mind, bright day!", "Every page adds a new colour!", "Puff puff! You're doing great!", "Let's paint this chapter every colour!", "Happy, fluffy cheers for you!", "Sprinkle, sprinkle, here comes success!"],
+          tap: ["Poof! Hi! A little rainbow for you!", "You're bringing so much color to today!", "Bright mind, bright day!", "Every page adds a new color!", "Puff puff! You're doing great!", "Let's paint this chapter every color!", "Happy, fluffy cheers for you!", "Sprinkle, sprinkle, here comes success!"],
           pet: ["Poof! Now your hands are rainbow!", "Hehe! I'm all fluffed up!"],
-          hello: ["Poof! You're back! Colour time!", "Hi hi! I saved you some pink!"],
-          morning: ["Good morning! Let's colour the day!", "Rise and shine! Rainbow mode on!"],
-          night: ["My colours are getting sleepy. Rest soon?", "Soft and cozy now. Goodnight!"],
-          focus: ["Floating quietly, cheering softly!", "Calm colours, calm mind. Go go!"],
-          done: ["POOF! What a colourful session!", "All done! Rainbows everywhere!"],
-          task: ["POOF! Done!", "Splash! Checked off!", "Another colour added! Yay!", "Yes! That one's painted bright!"],
-          break: ["Colour break! Stretch and smile!", "Fluff up! Time for some water!"]
+          hello: ["Poof! You're back! Color time!", "Hi hi! I saved you some pink!"],
+          morning: ["Good morning! Let's color the day!", "Rise and shine! Rainbow mode on!"],
+          night: ["My colors are getting sleepy. Rest soon?", "Soft and cozy now. Goodnight!"],
+          focus: ["Floating quietly, cheering softly!", "Calm colors, calm mind. Go go!"],
+          done: ["POOF! What a colorful session!", "All done! Rainbows everywhere!"],
+          task: ["POOF! Done!", "Splash! Checked off!", "Another color added! Yay!", "Yes! That one's painted bright!"],
+          break: ["Color break! Stretch and smile!", "Fluff up! Time for some water!"]
         }
       },
       {
@@ -10114,11 +10114,11 @@ var COMP_KIT = (() => {
         cheeks: {lx: 40, rx: 80, y: 62, w: 4, h: 2.4, color: "#FF7AB8"},
         anchors: {top: [60, 30, 0.95], neck: [60, 76, 1], chest: [72, 88, 0.62], back: [84, 80, 0.8], hands: [60, 94, 0.8]},
         lines: {
-          tap: ["Toot! Hi! Look at all my colours!", "I'm painted for good luck, and so are you!", "Big ears, big ideas, big cheers!", "You're doing trunk-tastic!", "Every colour on me is a cheer for you!", "Stomp stomp! Look how far you've come!", "An elephant never forgets, and neither will you!", "You make my whole day colourful!"],
+          tap: ["Toot! Hi! Look at all my colors!", "I'm painted for good luck, and so are you!", "Big ears, big ideas, big cheers!", "You're doing trunk-tastic!", "Every color on me is a cheer for you!", "Stomp stomp! Look how far you've come!", "An elephant never forgets, and neither will you!", "You make my whole day colorful!"],
           pet: ["Toot toot! That tickles my ears!", "Hehe! More pats, please!"],
           hello: ["TOOT! You're back! Happy flaps!", "Hi friend! I painted a new spot today!"],
           morning: ["Good morning! Splash of water, then study!", "Toot! The sun's up and so am I!"],
-          night: ["Big yawn... trunk's getting sleepy.", "Goodnight! I'll dream in colours."],
+          night: ["Big yawn... trunk's getting sleepy.", "Goodnight! I'll dream in colors."],
           focus: ["Quiet as an elephant can be. Go!", "Ears open, trunk still. You've got this."],
           done: ["TOOT TOOT! What a session!", "All done! Celebration splash!"],
           task: ["TOOT! Done!", "Stomp! Checked off!", "Another one! My ears are flapping!", "Yes! Trunk-tastic!"],
@@ -10148,14 +10148,14 @@ var COMP_KIT = (() => {
         cheeks: {lx: 43, rx: 77, y: 71, w: 3.8, h: 2.4, color: "#FF8AC8"},
         anchors: {top: [60, 22, 0.9], neck: [60, 80, 0.95], chest: [72, 88, 0.62], back: [86, 70, 0.8], hands: [60, 92, 0.86]},
         lines: {
-          tap: ["Psssht! Hi! A tiny splash hello!", "Pump it up! You're doing great!", "Splish splash, look at you go!", "I'm full of colourful cheers!", "Keep going and I'll spray a rainbow!", "Fresh, bright and ready to help!", "One more page, one more splash!", "You're making a big splash today!"],
+          tap: ["Psssht! Hi! A tiny splash hello!", "Pump it up! You're doing great!", "Splish splash, look at you go!", "I'm full of colorful cheers!", "Keep going and I'll spray a rainbow!", "Fresh, bright and ready to help!", "One more page, one more splash!", "You're making a big splash today!"],
           pet: ["Hehe! Careful, I might spritz you!", "Psssht! Happy little bubbles!"],
           hello: ["Splash! You're back!", "Hi hi! Pumped and ready!"],
           morning: ["Good morning! Fresh water, fresh start!", "Psssht! Rise and splash!"],
           night: ["Running low on bubbles. Bedtime?", "Goodnight! I'll refill for tomorrow."],
           focus: ["Holding my splash for later. Go!", "Quietly pumping cheers your way!"],
           done: ["SPLASH! What a session!", "All done! Rainbow spray for you!"],
-          task: ["PSSSHT! Done!", "Splash! Checked off!", "Another one! Colour spray!", "Yes! Big splash for that one!"],
+          task: ["PSSSHT! Done!", "Splash! Checked off!", "Another one! Color spray!", "Yes! Big splash for that one!"],
           break: ["Water break! Have a sip!", "Stretch time! Pump those arms!"]
         }
       }
@@ -10227,7 +10227,7 @@ var COMP_KIT = (() => {
           pet: ["Hehe! My tips are curling up!", "Aww, that's a warm, glowy feeling!"],
           hello: ["There you are! I was just rising!", "Welcome back! The sky is happy!"],
           morning: ["Good morning! I'm off to nap, you go shine!", "The sun's turn now. Have a bright day!"],
-          night: ["My favourite time. But rest soon, okay?", "Goodnight! I'll watch over the sky."],
+          night: ["My favorite time. But rest soon, okay?", "Goodnight! I'll watch over the sky."],
           focus: ["Glowing softly, right above you.", "Calm and quiet, like the night sky."],
           done: ["What a radiant session!", "All done! Full moon proud of you!"],
           task: ["Done! A new star appeared!", "Checked off! Glowing!", "Another one! Right on time!", "Yes! Shining bright!"],
@@ -10432,7 +10432,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 48, rx: 72, y: 77, w: 3.4, h: 2.2, color: "#FF8A70"},
         anchors: {top: [61, 40, 0.9], neck: [60, 98, 1], chest: [74, 92, 0.6], back: [88, 66, 0.8], hands: [60, 100, 0.84]},
         lines: {
-          tap: ["Bonjour! Fresh from the oven, just for you!", "Flaky on the outside, focused on the inside!", "Fold by fold, your notes get better!", "You're rising beautifully, like good dough!", "A little butter, a lot of effort. Bravo!", "Ooh la la, look at you study!", "Golden ideas, warm and crisp!", "One more page, then a cafe au lait?"],
+          tap: ["Bonjour! Fresh from the oven, just for you!", "Flaky on the outside, focused on the inside!", "Fold by fold, your notes get better!", "You're rising beautifully, like good dough!", "A little butter, a lot of effort. Bravo!", "Ooh la la, look at you study!", "Golden ideas, warm and crisp!", "One more page, then a café au lait?"],
           pet: ["Hehe! Careful, I leave crumbs!", "Aww, warm and toasty now!"],
           hello: ["Bonjour! The bakery opened just for you!", "You're back! Still warm and ready!"],
           morning: ["Bonjour! Breakfast and books, perfect!", "Good morning! I'm freshly baked!"],
@@ -10516,7 +10516,7 @@ var COMP_KIT = (() => {
           night: ["Bonne nuit! Sweet dreams ahead.", "It's late! Let's wrap up soon, okay?"],
           focus: ["Sitting sweet and quiet beside you.", "Little bites of focus. Go go go!"],
           done: ["What a sweet session! Bravo!", "All done! A whole box of success!"],
-          task: ["Done! Sweet!", "Checked off! Crunch!", "Another one! Pastel power!", "Yes! Tres bien!"],
+          task: ["Done! Sweet!", "Checked off! Crunch!", "Another one! Pastel power!", "Yes! Très bien!"],
           break: ["Treat break! You earned a little one!", "Stretch time! Wiggle your arms!"]
         }
       }
@@ -10912,7 +10912,7 @@ var COMP_KIT = (() => {
           tap: ["Beep beep! Hop in, where are we studying?", "Tuk-tuk-tuk! Full speed ahead!", "Three wheels, zero worries!", "I know all the shortcuts to a good grade!", "Next stop: that task you've been avoiding!", "Engine warm, lights on, ready to go!", "Hold on tight, we're making great time!", "Beep! You're right on schedule!"],
           pet: ["Beep beep! That's my happy horn!", "Hehe! That made my headlights twinkle!"],
           hello: ["Beep beep! You're back! Hop in!", "Hi! Engine's running, let's ride!"],
-          morning: ["Good morning! Fuelled up and ready to roll!", "Beep! The morning roads are wide open!"],
+          morning: ["Good morning! Fueled up and ready to roll!", "Beep! The morning roads are wide open!"],
           night: ["Headlights dimming... parking soon?", "Goodnight! I'll be outside at sunrise."],
           focus: ["Engine off, quiet mode. Go go go!", "Idling right beside you. You've got this!"],
           done: ["BEEP BEEP! We made it, and on time!", "All done! What a smooth ride!"],
@@ -10999,7 +10999,7 @@ var COMP_KIT = (() => {
           pet: ["Hehe! That made my headlight twinkle!", "Purr purr! That's my happy engine!"],
           hello: ["Beep beep! You're back! Let's ride!", "Ciao! Engine's warm and ready to go!"],
           morning: ["Buongiorno! Coast road's wide open!", "Good morning! First ride of the day!"],
-          night: ["Headlight's on low. Time to park soon?", "Buonanotte! Parking by the harbour."],
+          night: ["Headlight's on low. Time to park soon?", "Buonanotte! Parking by the harbor."],
           focus: ["Cruising quietly right beside you.", "Steady speed, eyes on the road. Go!"],
           done: ["What a ride! Every bend nailed!", "Session done! Victory lap time!"],
           task: ["Zoom! Done!", "Checked off! Beep beep!", "Another bend taken in style!", "Yes! Full throttle!"],
@@ -11034,7 +11034,7 @@ var COMP_KIT = (() => {
         lines: {
           tap: ["Ciao! Three scoops of cheering, coming up!", "Pistachio for focus, fragola for fun!", "You're the cherry on top of today!", "Cool, calm and totally got this!", "No brain freeze, just brain power!", "One scoop at a time, you'll finish it!", "Sweet work! Keep it rolling!", "Gelato tastes better after a good chapter!"],
           pet: ["Hehe! Careful, I might melt!", "Aww, you make my scoops wobble!"],
-          hello: ["Ciao bella! You're back! Extra scoop!", "Hi! I saved you the best flavour!"],
+          hello: ["Ciao bella! You're back! Extra scoop!", "Hi! I saved you the best flavor!"],
           morning: ["Buongiorno! Gelato for breakfast? Kidding!", "Good morning! Sweet day ahead!"],
           night: ["The piazza's quiet. Rest soon, dolce?", "Buonanotte! Sweet dreams, three scoops!"],
           focus: ["Staying cool right here with you.", "Scoop by scoop. You've got this!"],
@@ -11175,7 +11175,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 38, rx: 82, y: 63, w: 3.8, h: 2.2, color: "#F49A8A"},
         anchors: {top: [60, 26, 0.95], neck: [60, 76, 1], chest: [60, 92, 0.66], back: [86, 86, 0.8], hands: [60, 100, 0.86]},
         lines: {
-          tap: ["Hoo! A wise owl knows when to review.", "Questions are how wisdom starts. Ask away!", "I've read every scroll in the library twice!", "Night or day, I'm here to study with you.", "Big eyes, big ideas, small owl. Hello!", "Think it through slowly. The answer will come.", "Knowledge is the best treasure. You're rich!", "Hoo hoo! That's owl for you're doing great."],
+          tap: ["Hoo! A wise owl knows when to review.", "Questions are how wisdom starts. Ask away!", "I've read every scroll in the library twice!", "Night or day, I'm here to study with you.", "Big eyes, big ideas, small owl. Hello!", "Think it through slowly. The answer will come.", "Knowledge is the best treasure. You're rich!", "Hoo hoo! That's owl for 'you're doing great.'"],
           pet: ["Hoo! My feathers are all fluffed up now!", "Aww, softer than a moonlit breeze!"],
           hello: ["Hoo! You're back! I kept the lamp lit.", "Hello, scholar! Shall we begin?"],
           morning: ["Morning already? I was up studying all night!", "Kalimera! Fresh minds learn the most."],
@@ -11368,7 +11368,7 @@ var COMP_KIT = (() => {
         cheeks: {lx: 44, rx: 76, y: 66, w: 3.8, h: 2.4, color: "#FFB0A0"},
         anchors: {top: [60, 24, 0.8], neck: [60, 82, 0.9], chest: [70, 76, 0.6], back: [86, 56, 0.78], hands: [60, 80, 0.8]},
         lines: {
-          tap: ["Hi! I twirled all the way down to cheer you on!", "Every task you finish makes me redder. Look!", "Crisp air, clear mind. You've got this!", "One leaf at a time, the whole tree turns!", "You're glowing like a maple in October!", "I spin when I'm happy. Whee!", "Keep going! The view from the top is worth it.", "Small steps, big colours!"],
+          tap: ["Hi! I twirled all the way down to cheer you on!", "Every task you finish makes me redder. Look!", "Crisp air, clear mind. You've got this!", "One leaf at a time, the whole tree turns!", "You're glowing like a maple in October!", "I spin when I'm happy. Whee!", "Keep going! The view from the top is worth it.", "Small steps, big colors!"],
           pet: ["Hehe! That rustles in the best way!", "Ooh, I'm turning a little redder!"],
           hello: ["You're back! I saved you a sunny branch!", "Hi! The lake is sparkling for you today!"],
           morning: ["Good morning! Frost on the dock, sun on the peaks!", "Morning! Let's make today bright red!"],
