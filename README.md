@@ -15,6 +15,7 @@ A calm student planner for courses, deadlines, study sessions and flashcards. It
 - **Courses, grades and syllabi:** import a syllabus PDF, track grades, "What do I need?" and Rough Week Rescue.
 - **Flashcards and quizzes**, notes with stickers, files, and Search Everywhere.
 - **Share links and the Course Library:** share a deck, note or quiz as a link that opens in any browser with no account, and list a deck in its course's library so classmates at your school can find it (Flashcards > Course Library, or Decks From Classmates on a course page). Needs `supabase-sharing.sql`.
+- **Match game:** on any deck, race the clock to pair 6 terms with their definitions (a wrong pair adds 1 second). Your best and recent times stay on the deck; in a study group you can post your time on a shared deck, with your name or anonymously, and see the group's best times. It never changes your review schedule.
 - **Focus timer** with sounds, and a study companion.
 - **School sites:** Brightspace, Canvas and Blackboard (read only) on desktop, or calendar links anywhere.
 - **Reminders and calendar sync** on phones and desktop; study groups with shared Project Tasks (task lists with assignees and due dates, workload view, tasks assigned to you show up on your Board), shared decks and Study Together rooms.
