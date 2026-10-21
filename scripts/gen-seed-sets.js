@@ -40,21 +40,24 @@ function build(){
 -- To take them all down:  update public.shared_decks set published = false, listed = false where deck_id like 'seed:%';
 
 do $$
-declare owner uuid;
+declare owner uuid := (select id from auth.users where lower(email) = lower('support@studyboardapp.com'));
 begin
-  select id into owner from auth.users where lower(email) = lower('support@studyboardapp.com');
   if owner is null then raise exception 'Sign up in Studyboard with support@studyboardapp.com first (or change the address in this file).'; end if;
   -- "studyboard" is a reserved username, so only this account can have it (set here, not through the app)
   insert into public.study_profiles (user_id, display_name, username, username_set_at) values (owner, 'Studyboard', 'studyboard', now())
     on conflict (user_id) do update set username = 'studyboard', display_name = 'Studyboard';
 end $$;
 
-create or replace function pg_temp.sb_seed(p_id text, p_school text, p_code text, p_name text, p_data jsonb) returns void
+-- Each set's text is base64 below: the SQL Editor scans for statements that make tables, and plain card text like "divides the body
+-- in two" confused it.
+create or replace function pg_temp.sb_seed(p_id text, p_school text, p_b64 text) returns void
 language plpgsql as $f$
-declare owner uuid; sn text; c text; n int := jsonb_array_length(p_data -> 'cards');
+declare p_data jsonb := convert_from(decode(p_b64, 'base64'), 'UTF8')::jsonb;
+  p_code text := p_data -> 'course' ->> 'code'; p_name text := p_data ->> 'name';
+  owner uuid := (select id from auth.users where lower(email) = lower('support@studyboardapp.com'));
+  sn text := (select name from public.schools where key = p_school);
+  c text; n int := jsonb_array_length(p_data -> 'cards');
 begin
-  select id into owner from auth.users where lower(email) = lower('support@studyboardapp.com');
-  select name into sn from public.schools where key = p_school;
   if sn is null then raise notice 'No school %, skipped %', p_school, p_id; return; end if;
   loop c := public.sbg_new_code(); exit when not exists (select 1 from public.shared_decks where code = c); end loop;
   insert into public.shared_decks (code, owner_id, deck_id, name, sharer_name, card_count, data, listed, listed_at, course_key, course_label, school_key, school_name, published, published_at)
@@ -68,7 +71,8 @@ end $f$;
   for (const s of sets) {
     const data = {v: 1, app: "studyboard", type: "deck", name: s.name, course: {code: s.code, name: s.course}, cards: s.cards, quizzes: [], seed: 1};
     data.look = s.look;
-    const st = `select pg_temp.sb_seed(${q(s.id)}, ${q(s.school)}, ${q(s.code)}, ${q(s.name)}, ${q(JSON.stringify(data))}::jsonb);   -- ${s.src.replace(/\n/g, " ")}\n`;
+    const b64 = Buffer.from(JSON.stringify(data), "utf8").toString("base64").replace(/(.{76})/g, "$1\n");
+    const st = `-- ${s.name.replace(/\n/g, " ")} (${s.src.replace(/\n/g, " ")})\nselect pg_temp.sb_seed(${q(s.id)}, ${q(s.school)}, '${b64}');\n`;
     if (cur.length && size + st.length > LIMIT - 4000) { parts.push(cur); cur = []; size = 0; }
     cur.push(st); size += Buffer.byteLength(st);
   }
