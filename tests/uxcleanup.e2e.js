@@ -54,7 +54,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(ab.join("|") === "Study|Share|Archive Cells", "Study, Share and Archive sit together at the bottom (card style is in Edit Deck, quizzes have their own tab): " + ab.join("|"));
       await page.click('.deck [data-act="fc-share"]'); await page.waitForTimeout(600);
       const shareSaid = await page.evaluate(() => [(document.querySelector("#toast") || {}).textContent || "", document.querySelector("#dlg").open ? document.querySelector("#dlg").innerText.slice(0, 120) : ""].join(" / "));
-      ok(/study group|Sign in|Groups/i.test(shareSaid), "Share on a deck offers it to a study group (signed out here): " + shareSaid);
+      ok(/Share Cells/.test(shareSaid) && /file/i.test(shareSaid), "Share on a deck opens its Share sheet (signed out here: share as a file): " + shareSaid);
       await page.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
       const r1 = await page.locator(".deck .deck-arch").boundingBox(), r0 = await page.locator(".deck .deck-actions [data-act=fc-study]").boundingBox();
       ok(r1.x > r0.x && Math.abs(r1.y - r0.y) < 8, "Archive is at the right end of that row");

@@ -276,4 +276,177 @@ grant execute on function public.share_item(text, text, text, jsonb), public.sto
   public.library_list(text, boolean, text, text, text, text), public.share_saved(text), public.report_share(text, text, text), public.my_shared_items() to authenticated;
 grant execute on function public.get_public_share(text), public.library_decks(text, text), public.library_counts(text[], text) to anon, authenticated;
 
+-- ===========================================================================================================================
+-- Public flashcards and quizzes on the web (studyboardapp.com/flashcards and /quizzes)
+-- A shared deck, or a shared quiz, can be PUBLISHED: then it has a page of its own that anyone (and search engines) can read,
+-- and it shows up in the public search. The website's worker (cloudflare/site/worker.js) reads it through the public_* functions
+-- below with the publishable key. Publishing is separate from making a link and from the Course Library, and can be undone any time.
+-- Limits: at least 4 cards (or 3 questions), up to 100 published per account, people suspended from groups can't publish.
+-- Search: a plain-text copy of the name, course and the first 300 cards (search_text) with a full-text index.
+-- ===========================================================================================================================
+alter table public.shared_decks add column if not exists published boolean not null default false;
+alter table public.shared_decks add column if not exists published_at timestamptz;
+alter table public.shared_decks add column if not exists search_text text not null default '';
+alter table public.shared_items add column if not exists published boolean not null default false;
+alter table public.shared_items add column if not exists published_at timestamptz;
+alter table public.shared_items add column if not exists search_text text not null default '';
+alter table public.shared_items add column if not exists course_key text not null default '';
+alter table public.shared_items add column if not exists course_label text not null default '';
+alter table public.shared_items add column if not exists item_count int not null default 0;
+
+-- The course code as a key: "BIOL 201 - Intro" -> BIOL201 ('' when there's none)
+create or replace function public.sbs_course_key(p text) returns text
+language sql immutable set search_path = public as $$
+  select coalesce(upper((regexp_match(coalesce(p, ''), '([A-Za-z]{2,8})[\s._-]*([0-9]{2,5}[A-Za-z]{0,2})'))[1] || (regexp_match(coalesce(p, ''), '([A-Za-z]{2,8})[\s._-]*([0-9]{2,5}[A-Za-z]{0,2})'))[2]), '')
+$$;
+
+-- Keeps search_text (and, for quizzes, the course and question count) in step with the shared copy
+create or replace function public.sbs_search_fill() returns trigger
+language plpgsql set search_path = public as $$
+declare d jsonb := coalesce(new.data, '{}'::jsonb); c jsonb; t text := '';
+begin
+  if tg_table_name = 'shared_decks' then
+    c := d -> 'course';
+    select coalesce(string_agg(left(coalesce(x ->> 'front', ''), 300) || ' ' || left(coalesce(x ->> 'back', ''), 300), ' '), '') into t
+      from (select x from jsonb_array_elements(case when jsonb_typeof(d -> 'cards') = 'array' then d -> 'cards' else '[]'::jsonb end) x limit 300) q;
+    new.search_text := left(coalesce(new.name, '') || ' ' || coalesce(c ->> 'code', '') || ' ' || coalesce(c ->> 'name', '') || ' ' || t, 60000);
+    if coalesce(new.course_key, '') = '' then new.course_key := public.sbs_course_key(coalesce(c ->> 'code', '') || ' ' || coalesce(c ->> 'name', '')); end if;
+  else
+    c := d -> 'course';
+    new.course_key := public.sbs_course_key(coalesce(c ->> 'code', '') || ' ' || coalesce(c ->> 'name', ''));
+    new.course_label := left(coalesce(nullif(c ->> 'code', ''), c ->> 'name', ''), 120);
+    if new.kind = 'quiz' then
+      new.item_count := coalesce(jsonb_array_length(case when jsonb_typeof(d -> 'quiz' -> 'questions') = 'array' then d -> 'quiz' -> 'questions' else '[]'::jsonb end), 0);
+      select coalesce(string_agg(left(coalesce(x ->> 'stem', ''), 400) || ' ' || coalesce((select string_agg(o, ' ') from jsonb_array_elements_text(case when jsonb_typeof(x -> 'options') = 'array' then x -> 'options' else '[]'::jsonb end) o), ''), ' '), '') into t
+        from (select x from jsonb_array_elements(case when jsonb_typeof(d -> 'quiz' -> 'questions') = 'array' then d -> 'quiz' -> 'questions' else '[]'::jsonb end) x limit 200) q;
+    else
+      new.item_count := 0; t := coalesce(d ->> 'text', '');
+    end if;
+    new.search_text := left(coalesce(new.title, '') || ' ' || coalesce(c ->> 'code', '') || ' ' || coalesce(c ->> 'name', '') || ' ' || t, 60000);
+  end if;
+  -- a changed copy that no longer meets the minimum stops being public on its own
+  if new.published then
+    if tg_table_name = 'shared_decks' then
+      if new.card_count < 4 then new.published := false; end if;
+    elsif new.kind <> 'quiz' or new.item_count < 3 then new.published := false;
+    end if;
+  end if;
+  return new;
+end $$;
+revoke all on function public.sbs_search_fill() from public, anon, authenticated;
+drop trigger if exists sbs_search_fill on public.shared_decks;
+create trigger sbs_search_fill before insert or update of name, data, card_count, published on public.shared_decks for each row execute function public.sbs_search_fill();
+drop trigger if exists sbs_search_fill on public.shared_items;
+create trigger sbs_search_fill before insert or update of title, data, published on public.shared_items for each row execute function public.sbs_search_fill();
+-- fill the search copy for rows shared before this ran
+update public.shared_decks set name = name where search_text = '';
+update public.shared_items set title = title where search_text = '';
+
+create index if not exists shared_decks_pub_fts on public.shared_decks using gin (to_tsvector('english', search_text)) where published and not hidden;
+create index if not exists shared_items_pub_fts on public.shared_items using gin (to_tsvector('english', search_text)) where published and not hidden;
+create index if not exists shared_decks_pub_idx on public.shared_decks (published_at desc) where published and not hidden;
+create index if not exists shared_items_pub_idx on public.shared_items (published_at desc) where published and not hidden and kind = 'quiz';
+
+-- Publish or unpublish one of your shared decks or quizzes (by its share code)
+create or replace function public.share_publish(p_code text, p_on boolean) returns void
+language plpgsql security definer set search_path = public as $$
+declare k text := public.sbg_norm_code(p_code); me uuid := auth.uid(); n int;
+begin
+  perform public.sbs_may_share();
+  if p_on then
+    select (select count(*) from public.shared_decks where owner_id = me and published) + (select count(*) from public.shared_items where owner_id = me and published) into n;
+    if n >= 100 then raise exception 'You can publish up to 100 decks and quizzes. Unpublish one first.'; end if;
+  end if;
+  update public.shared_decks set published = coalesce(p_on, false), published_at = case when p_on then coalesce(published_at, now()) else null end
+    where code = k and owner_id = me;
+  if found then
+    if p_on and not exists (select 1 from public.shared_decks where code = k and published) then raise exception 'A deck needs at least 4 cards to be published.'; end if;
+    return;
+  end if;
+  update public.shared_items set published = coalesce(p_on, false), published_at = case when p_on then coalesce(published_at, now()) else null end
+    where code = k and owner_id = me and kind = 'quiz';
+  if not found then raise exception 'Share it with a link first.'; end if;
+  if p_on and not exists (select 1 from public.shared_items where code = k and published) then raise exception 'A quiz needs at least 3 questions to be published.'; end if;
+end $$;
+
+-- Is it published? (for your own Share sheet)
+create or replace function public.my_publish_state(p_code text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select coalesce((select published from public.shared_decks where code = public.sbg_norm_code(p_code) and owner_id = auth.uid()),
+                  (select published from public.shared_items where code = public.sbg_norm_code(p_code) and owner_id = auth.uid()), false);
+$$;
+
+-- The public pages. Only published, not hidden items; nothing about the owner except their display name.
+-- p_kind: 'deck' or 'quiz'. p_q: words to search (empty: newest). p_course: a course key (BIOL201) or ''. Sorted by match, then saves.
+create or replace function public.public_search(p_kind text, p_q text, p_course text, p_limit int, p_offset int)
+returns table (code text, name text, sharer_name text, n int, course_key text, course_label text, saves int, updated_at timestamptz, preview text)
+language plpgsql stable security definer set search_path = public as $$
+declare q tsquery; ck text := public.sbs_course_key(coalesce(p_course, '')); lim int := least(greatest(coalesce(p_limit, 30), 1), 60); off int := least(greatest(coalesce(p_offset, 0), 0), 5000);
+begin
+  if coalesce(btrim(p_q), '') <> '' then q := websearch_to_tsquery('english', left(p_q, 200)); end if;
+  if p_kind = 'quiz' then
+    return query select i.code, i.title, i.sharer_name, i.item_count, i.course_key, i.course_label, i.saves, i.updated_at,
+        left(coalesce(i.data -> 'quiz' -> 'questions' -> 0 ->> 'stem', ''), 200)
+      from public.shared_items i
+      where i.published and not i.hidden and i.kind = 'quiz' and (ck = '' or i.course_key = ck) and (q is null or to_tsvector('english', i.search_text) @@ q)
+      order by case when q is null then 0 else ts_rank(to_tsvector('english', i.search_text), q) end desc, i.saves desc, i.published_at desc
+      limit lim offset off;
+  else
+    return query select d.code, d.name, d.sharer_name, d.card_count, d.course_key, coalesce(nullif(d.course_label, ''), d.data -> 'course' ->> 'code', ''), d.saves, d.updated_at,
+        left((select string_agg(coalesce(x ->> 'front', ''), ' · ') from (select x from jsonb_array_elements(case when jsonb_typeof(d.data -> 'cards') = 'array' then d.data -> 'cards' else '[]'::jsonb end) x limit 4) z), 200)
+      from public.shared_decks d
+      where d.published and not d.hidden and (ck = '' or d.course_key = ck) and (q is null or to_tsvector('english', d.search_text) @@ q)
+      order by case when q is null then 0 else ts_rank(to_tsvector('english', d.search_text), q) end desc, d.saves desc, d.published_at desc
+      limit lim offset off;
+  end if;
+end $$;
+
+-- One published page's content
+create or replace function public.public_page(p_kind text, p_code text)
+returns table (code text, name text, sharer_name text, n int, course_key text, course_label text, saves int, published_at timestamptz, updated_at timestamptz, data jsonb)
+language sql stable security definer set search_path = public as $$
+  select d.code, d.name, d.sharer_name, d.card_count, d.course_key, coalesce(nullif(d.course_label, ''), d.data -> 'course' ->> 'code', ''), d.saves, d.published_at, d.updated_at,
+         jsonb_build_object('course', d.data -> 'course', 'cards', d.data -> 'cards')
+    from public.shared_decks d where p_kind = 'deck' and d.code = public.sbg_norm_code(p_code) and d.published and not d.hidden
+  union all
+  select i.code, i.title, i.sharer_name, i.item_count, i.course_key, i.course_label, i.saves, i.published_at, i.updated_at, i.data
+    from public.shared_items i where p_kind = 'quiz' and i.kind = 'quiz' and i.code = public.sbg_norm_code(p_code) and i.published and not i.hidden;
+$$;
+
+-- Courses that have published decks or quizzes, most first (the index pages and course pages)
+create or replace function public.public_courses(p_kind text, p_limit int)
+returns table (course_key text, course_label text, n int)
+language sql stable security definer set search_path = public as $$
+  select k, max(l), count(*)::int from (
+    select d.course_key k, coalesce(nullif(d.course_label, ''), d.data -> 'course' ->> 'code', d.course_key) l from public.shared_decks d where p_kind = 'deck' and d.published and not d.hidden and d.course_key <> ''
+    union all
+    select i.course_key, coalesce(nullif(i.course_label, ''), i.course_key) from public.shared_items i where p_kind = 'quiz' and i.kind = 'quiz' and i.published and not i.hidden and i.course_key <> ''
+  ) x group by k order by count(*) desc, k limit least(greatest(coalesce(p_limit, 100), 1), 2000);
+$$;
+
+-- Everything published, for the sitemap (newest changes first)
+create or replace function public.public_sitemap(p_kind text, p_limit int, p_offset int)
+returns table (code text, name text, updated_at timestamptz)
+language sql stable security definer set search_path = public as $$
+  select code, name, updated_at from (
+    select d.code, d.name, d.updated_at from public.shared_decks d where p_kind = 'deck' and d.published and not d.hidden
+    union all
+    select i.code, i.title, i.updated_at from public.shared_items i where p_kind = 'quiz' and i.kind = 'quiz' and i.published and not i.hidden
+  ) x order by updated_at desc limit least(greatest(coalesce(p_limit, 1000), 1), 50000) offset greatest(coalesce(p_offset, 0), 0);
+$$;
+
+-- A person suspended from groups loses their published pages too
+do $$ begin
+  if to_regclass('public.group_suspended') is not null then
+    update public.shared_decks d set published = false where d.published and exists (select 1 from public.group_suspended s where s.user_id = d.owner_id);
+    update public.shared_items i set published = false where i.published and exists (select 1 from public.group_suspended s where s.user_id = i.owner_id);
+  end if;
+end $$;
+
+revoke all on function public.share_publish(text, boolean), public.my_publish_state(text), public.public_search(text, text, text, int, int),
+  public.public_page(text, text), public.public_courses(text, int), public.public_sitemap(text, int, int) from public, anon;
+grant execute on function public.share_publish(text, boolean), public.my_publish_state(text) to authenticated;
+grant execute on function public.public_search(text, text, text, int, int), public.public_page(text, text), public.public_courses(text, int),
+  public.public_sitemap(text, int, int) to anon, authenticated;
+
 notify pgrst, 'reload schema';

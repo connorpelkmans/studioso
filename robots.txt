@@ -3,5 +3,8 @@ Allow: /
 Disallow: /website/account/
 Disallow: /website/success.html
 Disallow: /website/cancel.html
+Disallow: /flashcards?q=
+Disallow: /quizzes?q=
 
 Sitemap: https://studyboardapp.com/sitemap.xml
+Sitemap: https://studyboardapp.com/sitemap-public.xml
