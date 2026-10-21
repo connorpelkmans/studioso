@@ -107,13 +107,17 @@ const crumbLd = (list, base) => ({"@context": "https://schema.org", "@type": "Br
 // A deck tile drawn like the app's Flashcards screen: a little stack of lined index cards with the course's band, icon and card count.
 // The course colour is a class (pc0, pc1...), since the pages allow no inline styles. Same course, same colour on every page.
 const GENERAL_COLOR = COLORS.indexOf("#5E6B7E");
+const svgOf = k => `<svg class="ci-svg" viewBox="${ICONS[k][0]}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k][1]}</svg>`;
 export function deckLook(r){
   const label = String(r.course_label || "").trim();
+  // the colour and icon the maker picked when publishing (only the app's own colours and icons)
+  const lk = r.look && typeof r.look === "object" ? r.look : null, ci = lk ? COLORS.indexOf(String(lk.color || "").toUpperCase()) : -1;
+  if (ci >= 0 && (lk.icon === "general" || Object.prototype.hasOwnProperty.call(ICONS, lk.icon))) return {label: label || "General", color: ci, icon: lk.icon === "general" ? GENERAL : svgOf(lk.icon)};
   if (!label) return {label: "General", color: GENERAL_COLOR, icon: GENERAL};
   const key = String(r.course_key || label).toUpperCase().replace(/[^A-Z0-9]/g, "");
   let h = 0; for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   const t = (label + " " + (r.course_name || "") + " " + (r.name || "")).toLowerCase(), hit = GUESS.find(g => g[0].test(t)), k = ICONS[hit ? hit[1] : "note"] ? (hit ? hit[1] : "note") : null;
-  const icon = k ? `<svg class="ci-svg" viewBox="${ICONS[k][0]}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k][1]}</svg>` : GENERAL;
+  const icon = k ? svgOf(k) : GENERAL;
   return {label, color: h % COLORS.length, icon};
 }
 function deckGrid(section, rows){

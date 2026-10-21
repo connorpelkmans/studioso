@@ -227,8 +227,17 @@ async function sharer(browser){
   ok(await page.evaluate(() => __sbSync.state.settings.school.key === "uwaterloo.ca" && __sbSync.state.settings.school.v === 1 && window.__SV.school === "uwaterloo.ca"), "the school is kept, on this device and on the server");
   await page.screenshot({path: shots + "/publish-confirm.png"});
   ok(/University of Waterloo/.test(await txt(page, "dialog[open] .pub-sum")) && /BIOL 201/.test(await txt(page, "dialog[open] .pub-sum")) && /5 cards/.test(await txt(page, "dialog[open] .pub-sum")) && /@Connor_P/.test(await txt(page, "dialog[open] .pub-sum")), "Publish shows the school, course, card count and @username first");
+  ok(await page.evaluate(() => document.querySelector('dialog[open] input[name="pubColor"]:checked').value === "#3B6FE0" && document.querySelector('dialog[open] input[name="pubIcon"]:checked').value === "bio"), "the page's colour and icon start from the deck's course");
+  await page.check('dialog[open] input[name="pubColor"][value="#9A4FD1"]', {force: true}); await page.check('dialog[open] input[name="pubIcon"][value="psych"]', {force: true});
+  ok(await page.evaluate(() => { const t = document.querySelector("#pubLookTile"); return t.style.getPropertyValue("--c") === "#9A4FD1" && /<path/.test(t.querySelector(".fc-ic").innerHTML) && document.querySelector('dialog[open] input[name="pubIcon"]:checked').value === "psych"; }), "picking a colour and an icon updates the preview");
+  await page.screenshot({path: shots + "/publish-look.png"});
   await page.click("#pubGo"); await page.waitForSelector("dialog[open] #pubOff");
   ok(await page.evaluate(() => { const d = window.__SV.decks.find(x => x.deck_id === "d3"); return !!d && d.published === true && d.card_count === 5; }), "it shares the deck and publishes it in one step");
+  ok(await page.evaluate(() => { const d = window.__SV.decks.find(x => x.deck_id === "d3"); return d.data.look && d.data.look.color === "#9A4FD1" && d.data.look.icon === "psych" && __sbSync.state.decks.d3.courseId === "c1"; }), "the page gets the picked colour and icon; the deck in the app keeps its course");
+  await page.click("#pubLook"); await page.waitForSelector("dialog[open] #pubLookGo");
+  ok(await page.evaluate(() => document.querySelector('dialog[open] input[name="pubColor"]:checked').value === "#9A4FD1"), "Change Color and Icon opens with the current picks");
+  await page.check('dialog[open] input[name="pubColor"][value="#1E9E74"]', {force: true}); await page.click("#pubLookGo"); await page.waitForSelector("dialog[open] #pubOff");
+  ok(await page.evaluate(() => window.__SV.decks.find(x => x.deck_id === "d3").data.look.color === "#1E9E74"), "and updates the page");
   ok(/is live in Studyboard Flashcards/.test(await txt(page, "dialog[open]")) && /\/flashcards\/organelles-pubd/.test(await page.inputValue("#pubUrl2")), "then shows the live page's address");
   await page.evaluate(() => __sbSync.dlg.close()); await page.evaluate(() => __sbSync.render()); await page.waitForTimeout(200);
   ok(/Published/.test(await txt(page, '#view [data-act="pub-deck"]')), "the button then says Published");
@@ -270,9 +279,16 @@ async function sharer(browser){
   await page.check('input[name="reason"][value="cheating"]'); await page.click('dialog[open] button[type="submit"]'); await page.waitForTimeout(300);
   ok(await page.evaluate(() => window.__SV.reports.length === 1 && window.__SV.reports[0].p_reason === "cheating" && window.__SV.reports[0].p_code === "DECK-AAAA"), "Report sends the reason");
   await act(page, "lib-preview", {}); await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "lib-preview"; b.dataset.id = "DECK-AAAA"; document.body.appendChild(b); b.click(); b.remove(); });
-  await page.waitForSelector("dialog[open] #shAdd"); await page.click("#shAdd"); await page.waitForTimeout(400);
+  await page.waitForSelector("dialog[open] #shAdd");
+  ok(await page.evaluate(() => document.querySelector("#shCourse").value === "c1" && !!document.querySelector("#shBand .gp-ic svg")), "Put It In starts on my matching course, with its icon on the band");
+  await page.click("#shAdd"); await page.waitForTimeout(400);
   ok(await page.evaluate(() => window.__SV.saves.includes("DECK-AAAA")), "adding a library deck counts a save");
   ok(await page.evaluate(() => Object.values(__sbSync.state.decks).some(d => d.sharedFrom && d.sharedFrom.code === "DECK-AAAA" && d.courseId === "c1")), "the copy goes in my matching course");
+  await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "lib-preview"; b.dataset.id = "DECK-AAAA"; document.body.appendChild(b); b.click(); b.remove(); });
+  await page.waitForSelector("dialog[open] #shCourse"); await page.selectOption("#shCourse", "");
+  ok(await page.evaluate(() => /General/.test(document.querySelector("#shBand .deck-tab").textContent) && !document.querySelector("#shBand .gp-ic")), "picking another course changes the band");
+  await page.click("#shAdd"); await page.waitForTimeout(400);
+  ok(await page.evaluate(() => Object.values(__sbSync.state.decks).some(d => d.sharedFrom && d.sharedFrom.code === "DECK-AAAA" && !d.courseId)), "and the copy goes where I put it");
   ok(!errs.length, "no errors (sharing signed in): " + errs.join(" | ")); await ctx.close();
 
   // no school site: the library asks for the school first
