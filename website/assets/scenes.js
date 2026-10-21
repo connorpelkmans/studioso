@@ -133,7 +133,39 @@
       else if (en.isIntersecting) run();
     });
   }, {rootMargin: "200px 0px"});
-  tiles.forEach(function (t) { var rec = {tile: t, visible: false}; t.__scn = rec; live.push(rec); io.observe(t); });
+  function track(t) { var rec = {tile: t, visible: false}; t.__scn = rec; live.push(rec); io.observe(t); return rec; }
+  tiles.forEach(track);
+
+  // Click (or Enter) on a tile: the same live theme, drawn large in a window over the page.
+  var zoom = null;
+  function closeZoom() { if (zoom && zoom.open) zoom.close(); }
+  function openZoom(tile) {
+    if (!zoom) {
+      zoom = el("dialog", "tile-zoom", document.body); zoom.setAttribute("aria-label", "Theme preview");
+      var x = el("button", "tz-x", zoom); x.type = "button"; x.setAttribute("aria-label", "Close"); x.textContent = "\u00d7";
+      x.addEventListener("click", closeZoom);
+      zoom.addEventListener("click", function (e) { if (e.target === zoom) closeZoom(); });   // a click on the dimmed backdrop
+      zoom.addEventListener("close", function () {
+        var big = zoom.querySelector(".tile"); if (!big) return;
+        var rec = big.__scn; io.unobserve(big); if (rec) { teardown(rec); live = live.filter(function (r) { return r !== rec; }); }
+        big.parentNode.removeChild(big);
+        if (zoom.__from) { try { zoom.__from.focus(); } catch (e) {} }
+      });
+    }
+    var old = zoom.querySelector(".tile"); if (old) old.parentNode.removeChild(old);
+    var big = el("figure", "tile tz-tile", zoom);
+    ["data-scene", "data-comp"].forEach(function (a) { if (tile.hasAttribute(a)) big.setAttribute(a, tile.getAttribute(a)); });
+    Array.prototype.forEach.call(tile.querySelectorAll(":scope > img, :scope > figcaption"), function (n) { var c = n.cloneNode(true); if (c.tagName === "IMG") c.loading = "eager"; big.appendChild(c); });
+    zoom.__from = tile;
+    zoom.showModal();
+    track(big);
+  }
+  tiles.forEach(function (t) {
+    var name = t.querySelector("figcaption"); name = name ? name.firstChild && name.firstChild.textContent : "";
+    t.classList.add("tile-zoomable"); t.tabIndex = 0; t.setAttribute("role", "button"); t.setAttribute("aria-label", "Enlarge the " + (name || "theme") + " theme");
+    t.addEventListener("click", function () { openZoom(t); });
+    t.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openZoom(t); } });
+  });
 
   // Light/dark switch and window size: redraw the scenes that are on screen.
   var redrawT = 0;
