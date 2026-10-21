@@ -6,7 +6,7 @@ This folder holds everything needed to wrap the Studyboard web build in a native
 | --- | --- |
 | `capacitor.config.json` | Capacitor settings: app id `com.studioso.app`, bundled web files (no remote `server.url`), navigation allow-list, no cleartext, no native HTTP/cookie plugins. |
 | `native-bridge.js` | Small native glue loaded before the page (shared with Android): Keychain session storage, `StudyboardSecrets` for AI keys, safe external links, deep links, native push registration, RevenueCat purchases, and `StudyboardNative.device` (`"ipad"` / `"iphone"` / `"android"`: the pen tools are iPad only). |
-| `native/` | **Quick capture (UNTESTED Swift sources):** App Intents for Siri/Shortcuts, Share Extension, Capacitor plugins `StudyboardCaptureToken` and `StudyboardSharedQueue`. See `native/capture.md` and `../VOICE-CAPTURE-NATIVE.md`. |
+| `native/` | **Quick capture (UNTESTED Swift sources):** App Intents for Siri/Shortcuts, Share Extension, Capacitor plugins `StudyboardCaptureToken` and `StudyboardSharedQueue`. See `native/capture.md` and `../VOICE-CAPTURE-NATIVE.md`. `native/FocusActivity/`: the Focus timer in the Dynamic Island (section 3c). |
 | `Info.plist.additions.plist` | Keys to merge into `ios/App/App/Info.plist` (encryption flag, usage strings, push background mode, URL scheme). |
 | `App.entitlements.template.plist` | Push and associated-domains entitlements. |
 | `apple-app-site-association.template.json` | The universal-links file to host on the website. |
@@ -75,6 +75,27 @@ In Xcode (App target):
 ### 3b. Quick capture: Siri, Shortcuts, share sheet (optional, untested)
 
 Needs the App Groups and Keychain Sharing capabilities, the Swift files in `native/`, a Share Extension target and the plugin registration in `MainViewController`. Follow `native/capture.md` section 2 step by step; the test plan is section 5 there. Nothing in `native/` has been compiled: expect to fix errors, and do not advertise Siri support before a device test. Plugin names are already listed in `capacitor.config.json` (`StudyboardCaptureToken`, `StudyboardSharedQueue`). Capacitor 5 or older: plugins need a `.m` file with `CAP_PLUGIN(...)` instead of `CAPBridgedPlugin`.
+
+### 3c. Focus timer in the Dynamic Island (optional, untested)
+
+While a Focus timer runs, the iPhone app shows it as a **Live Activity**: in the Dynamic Island (iPhone 14 Pro and later) and on the Lock Screen
+(any iPhone on iOS 16.2+). The page then shows only the round tomato button in its header, so the logo and date keep their place. The countdown is
+drawn by the system, so the app sends an update only when the timer's state changes (start, pause, resume, skip, next session) and nothing is
+sent to any server. Files: `native/FocusActivity/`.
+
+1. **Widget extension:** in Xcode, File > New > Target > **Widget Extension**, named `StudyboardWidgets`, with **Include Live Activity** ticked.
+   Delete the Swift files Xcode generated in it and add `native/FocusActivity/StudyboardWidgets.swift`. Deployment target iOS 16.2 or later.
+2. **Shared model:** add `native/FocusActivity/StudyboardFocusAttributes.swift` to **both** the App target and the `StudyboardWidgets` target
+   (File Inspector > Target Membership).
+3. **Plugin:** add `native/FocusActivity/StudyboardFocusActivityPlugin.swift` to the App target. `MainViewController` already registers it.
+4. **Info.plist:** `NSSupportsLiveActivities = YES` in the App's Info.plist (already in `Info.plist.additions.plist`).
+5. **Bridge:** `native-bridge.js` section 7 exposes `StudyboardNative.focusActivity`, which index.html uses by itself (`islandSync()`).
+   Without the plugin (an older build, Android) the page keeps the timer in its header as before.
+
+Test on a device: start a Focus session, swipe home, and the island shows the tomato and the time; long-press it for the expanded view (mode,
+time, what you're working on, progress). Pause in the app and the island says Paused with the time frozen; Reset removes it. Lock the phone and the
+Lock Screen shows the same. If you switch Live Activities off for Studyboard in Settings, the page notices (`show()` resolves false) and keeps
+the time in its header. `tests/focus-island.e2e.js` checks the page side with a stand-in for the plugin.
 
 ## 4. Build, test and submit
 

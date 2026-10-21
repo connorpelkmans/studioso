@@ -1,4 +1,4 @@
-// node tools/capture-site-screens.js [outDir] [--companions | --overlays]    (Playwright + Chromium)
+// node tools/capture-site-screens.js [outDir] [--companions | --overlays | --themes]    (Playwright + Chromium)
 // --companions: only the Companion screen once for each default companion (companion-mochi-light.png, ...), for the Meet Your Companion section
 // Runs the real app with made-up student data on a fixed date and saves screenshots (PNG, light and dark) for the website home page.
 // Convert them to WebP for website/assets/screens/ (for example with Pillow: Image.open(p).save(p.replace(".png", ".webp"), quality=82)).
@@ -8,7 +8,10 @@ const root = path.join(__dirname, ".."), OUT = process.argv.slice(2).find(a => !
 fs.mkdirSync(OUT, {recursive: true});
 const MIME = {".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".png": "image/png", ".css": "text/css", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".webp": "image/webp", ".webmanifest": "application/manifest+json"};
 const server = http.createServer((q, r) => { let p = decodeURIComponent(new URL(q.url, "http://x").pathname); if (p === "/") p = "/index.html"; const f = path.join(root, p);
-  if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { r.writeHead(404); r.end(); return; } r.writeHead(200, {"content-type": MIME[path.extname(f)] || "application/octet-stream"}); fs.createReadStream(f).pipe(r); });
+  if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { r.writeHead(404); r.end(); return; }
+  // ?pro=off: the app with Pro enforcement off, so the theme pictures show the theme itself (the sample account has no plan)
+  if (p === "/index.html" && /[?&]pro=off\b/.test(q.url)) { r.writeHead(200, {"content-type": "text/html"}); r.end(require("../scripts/csp").apply(fs.readFileSync(f, "utf8").replace("const PRO_ENFORCED = true;", "const PRO_ENFORCED = false;"))); return; }
+  r.writeHead(200, {"content-type": MIME[path.extname(f)] || "application/octet-stream"}); fs.createReadStream(f).pipe(r); });
 const NOW = new Date(2026, 9, 8, 10, 0, 0);   // Thursday Oct 8 2026
 const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const plus = k => { const d = new Date(NOW); d.setDate(d.getDate() + k); return iso(d); };
@@ -98,12 +101,14 @@ async function capture(browser, scheme, compId) {
   await ctx.close();
 }
 var THEMES = ["japan", "italy", "sakura", "forest", "galaxy", "sunset", "ocean", "nursing", "compsci"];
-const WINDOW = {width: 1000, height: 625};   // a smaller window than the other shots, so the scenes and cards read larger on the website
+// Theme pictures and the hero: a 1200x750 window (tall enough that the sidebar keeps its usual one-column layout) drawn at 1000x625 pixels,
+// so the scenes and cards still read larger on the website than in the other shots
+const WINDOW = {width: 1200, height: 750}, SHRINK = 1000 / 1200;
 async function openSeeded(browser, scheme, seed, viewport) {
-  const ctx = await browser.newContext({viewport, colorScheme: scheme, deviceScaleFactor: 1, serviceWorkers: "block"});
+  const ctx = await browser.newContext({viewport, colorScheme: scheme, deviceScaleFactor: SHRINK, serviceWorkers: "block"});
   await ctx.clock.setFixedTime(NOW);
   await ctx.addInitScript(([seed, scheme]) => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "1"); localStorage.setItem("studioso:theme", scheme); } } catch (e) {} }, [seed, scheme]);
-  const page = await ctx.newPage(); await page.goto("http://localhost:" + server.address().port + "/"); await page.waitForSelector("#view", {state: "attached"}); await page.waitForTimeout(3000);
+  const page = await ctx.newPage(); await page.goto("http://localhost:" + server.address().port + "/?pro=off"); await page.waitForSelector("#view", {state: "attached"}); await page.waitForTimeout(3000);
   await page.addStyleTag({content: ".toast,#toast{display:none!important}"});
   await dismiss(page);
   return {ctx, page};
@@ -119,7 +124,7 @@ async function captureThemes(browser, scheme) {
 // The home page hero: a calm Task Board with a few real cards, without the quick-add row
 async function captureHero(browser, scheme) {
   const seed = JSON.parse(JSON.stringify(SEED)); const keep = new Set(["t3", "t4", "t2", "t1", "t5", "t8", "t9"]); seed.tasks = seed.tasks.filter(t => keep.has(t.id));
-  const {ctx, page} = await openSeeded(browser, scheme, seed, {width: 1000, height: 640});
+  const {ctx, page} = await openSeeded(browser, scheme, seed, {width: 1200, height: 768});
   await taskBoard(page);
   await page.evaluate(() => { const q = [...document.querySelectorAll("input")].find(i => /Add a task by typing/i.test(i.placeholder || "")); const row = q && (q.closest("form") || q.parentElement.parentElement); if (row) row.style.display = "none"; [...document.querySelectorAll("div,span,label")].filter(e => /^Group By/i.test(e.textContent.trim()) && e.textContent.length < 40 && e.querySelectorAll("button").length <= 2).forEach(e => { e.style.display = "none"; }); });
   await page.waitForTimeout(600); await page.screenshot({path: path.join(OUT, `hero-${scheme}.png`)}); console.log("saved", `hero-${scheme}.png`); await ctx.close();
@@ -127,24 +132,25 @@ async function captureHero(browser, scheme) {
 
 // --overlays: the real interface on a transparent background (no scene, no companion) for the home page theme tiles and hero, plus where the scene and the
 // companion sit in that picture (geometry.json). The website draws the live scene behind the picture and the live companion in front of it.
-const GEO = {window: WINDOW, themes: {}, hero: {}};
+const GEO = {window: {width: Math.round(WINDOW.width * SHRINK), height: Math.round(WINDOW.height * SHRINK)}, themes: {}, hero: {}};
 const measure = page => page.evaluate(() => {
   const r = e => { if (!e) return null; const b = e.getBoundingClientRect(); return {left: +b.left.toFixed(1), top: +b.top.toFixed(1), width: +b.width.toFixed(1), height: +b.height.toFixed(1)}; };
   const cp = document.querySelector(".cp .cp-breathe") || document.querySelector(".cp");
   return {scene: r(document.getElementById("sceneArt")), comp: r(cp), vw: innerWidth, vh: innerHeight};
-});
+}).then(g => { const k = o => o && {left: +(o.left * SHRINK).toFixed(1), top: +(o.top * SHRINK).toFixed(1), width: +(o.width * SHRINK).toFixed(1), height: +(o.height * SHRINK).toFixed(1)};
+  return {scene: k(g.scene), comp: k(g.comp), vw: Math.round(g.vw * SHRINK), vh: Math.round(g.vh * SHRINK)}; });
 const clearArt = page => page.addStyleTag({content: "#sceneArt,.cp-layer,.cp-front,.cp,.cp-bubble{visibility:hidden!important} html,body{background:transparent!important;background-image:none!important}"});
 async function captureOverlays(browser, scheme) {
   for (const th of THEMES) {
     const seed = JSON.parse(JSON.stringify(SEED)); seed.settings.style = {skin: th}; seed.settings.owned = THEMES.map(t => "skin:" + t);
     const {ctx, page} = await openSeeded(browser, scheme, seed, WINDOW);
-    await taskBoard(page); await page.waitForSelector(".cp .cp-svg", {timeout: 8000}).catch(() => {});
+    await taskBoard(page); await page.waitForSelector(".cp .cp-svg", {timeout: 8000}).catch(() => {}); await page.waitForSelector("#sceneArt", {state: "attached", timeout: 8000}).catch(() => {});
     const g = await measure(page); (GEO.themes[th] = GEO.themes[th] || {})[scheme] = g;
     await clearArt(page); await page.waitForTimeout(300);
     await page.screenshot({path: path.join(OUT, `ui-${th}-${scheme}.png`), omitBackground: true}); console.log("saved", `ui-${th}-${scheme}.png`, JSON.stringify(g.comp)); await ctx.close();
   }
   const seed = JSON.parse(JSON.stringify(SEED)); const keep = new Set(["t3", "t4", "t2", "t1", "t5", "t8", "t9"]); seed.tasks = seed.tasks.filter(t => keep.has(t.id));
-  const {ctx, page} = await openSeeded(browser, scheme, seed, {width: 1000, height: 640});
+  const {ctx, page} = await openSeeded(browser, scheme, seed, {width: 1200, height: 768});
   await taskBoard(page); await page.waitForSelector(".cp .cp-svg", {timeout: 8000}).catch(() => {});
   await page.evaluate(() => { const q = [...document.querySelectorAll("input")].find(i => /Add a task by typing/i.test(i.placeholder || "")); const row = q && (q.closest("form") || q.parentElement.parentElement); if (row) row.style.display = "none"; [...document.querySelectorAll("div,span,label")].filter(e => /^Group By/i.test(e.textContent.trim()) && e.textContent.length < 40 && e.querySelectorAll("button").length).forEach(e => { e.style.display = "none"; }); });
   await page.waitForTimeout(600);
@@ -152,4 +158,4 @@ async function captureOverlays(browser, scheme) {
   await page.addStyleTag({content: ".cp-layer,.cp-front,.cp,.cp-bubble{visibility:hidden!important}"}); await page.waitForTimeout(300);
   await page.screenshot({path: path.join(OUT, `hero-${scheme}.png`)}); console.log("saved", `hero-${scheme}.png`, JSON.stringify(GEO.hero[scheme].comp)); await ctx.close();
 }
-(async () => { await new Promise(r => server.listen(0, r)); const browser = await chromium.launch({executablePath}); try { if (process.argv.includes("--overlays")) { for (const s of ["light", "dark"]) await captureOverlays(browser, s); fs.writeFileSync(path.join(OUT, "geometry.json"), JSON.stringify(GEO, null, 1)); return; } const comps = async () => { for (const s of ["light", "dark"]) for (const id of PLAIN) await capture(browser, s, id); }; if (process.argv.includes("--companions")) { await comps(); return; } for (const s of ["light", "dark"]) { await captureHero(browser, s); await captureThemes(browser, s); } for (const s of ["light", "dark"]) await capture(browser, s); await comps(); } finally { await browser.close(); server.close(); } console.log("done:", OUT); })().catch(e => { console.error(e); process.exit(1); });
+(async () => { await new Promise(r => server.listen(0, r)); const browser = await chromium.launch({executablePath}); try { if (process.argv.includes("--themes")) { for (const s of ["light", "dark"]) await captureThemes(browser, s); return; } if (process.argv.includes("--overlays")) { for (const s of ["light", "dark"]) await captureOverlays(browser, s); fs.writeFileSync(path.join(OUT, "geometry.json"), JSON.stringify(GEO, null, 1)); return; } const comps = async () => { for (const s of ["light", "dark"]) for (const id of PLAIN) await capture(browser, s, id); }; if (process.argv.includes("--companions")) { await comps(); return; } for (const s of ["light", "dark"]) { await captureHero(browser, s); await captureThemes(browser, s); } for (const s of ["light", "dark"]) await capture(browser, s); await comps(); } finally { await browser.close(); server.close(); } console.log("done:", OUT); })().catch(e => { console.error(e); process.exit(1); });

@@ -45,7 +45,7 @@ create index if not exists shared_decks_library_idx on public.shared_decks (cour
 create table if not exists public.shared_items (
   code text primary key,
   owner_id uuid not null references auth.users(id) on delete cascade,
-  kind text not null check (kind in ('note', 'quiz')),
+  kind text not null check (kind in ('note', 'quiz', 'board')),
   ref_id text not null check (char_length(ref_id) between 1 and 120),
   title text not null check (char_length(title) between 1 and 200),
   sharer_name text not null default '',
@@ -79,7 +79,7 @@ create table if not exists public.share_reports (
   created_at timestamptz not null default now(),
   reporter_id uuid default auth.uid() references auth.users(id) on delete set null,
   code text not null check (char_length(code) <= 20),
-  kind text not null check (kind in ('deck', 'note', 'quiz')),
+  kind text not null check (kind in ('deck', 'note', 'quiz', 'board')),
   reason text not null check (reason in ('harassment', 'hate', 'sexual', 'threat', 'spam', 'privacy', 'cheating', 'other')),
   details text check (details is null or char_length(details) <= 500),
   status text not null default 'new' check (status in ('new', 'reviewing', 'actioned', 'dismissed'))
@@ -87,6 +87,11 @@ create table if not exists public.share_reports (
 create index if not exists share_reports_code_idx on public.share_reports (code);
 create index if not exists share_reports_status_idx on public.share_reports (status, created_at desc);
 alter table public.share_reports enable row level security;   -- no policies: only you can read them (dashboard / SQL editor)
+-- Whiteboards (Notes > Whiteboard) can be shared as a copy too. Tables made before that get the wider check here.
+alter table public.shared_items drop constraint if exists shared_items_kind_check;
+alter table public.shared_items add constraint shared_items_kind_check check (kind in ('note', 'quiz', 'board'));
+alter table public.share_reports drop constraint if exists share_reports_kind_check;
+alter table public.share_reports add constraint share_reports_kind_check check (kind in ('deck', 'note', 'quiz', 'board'));
 revoke all on public.share_reports from public, anon, authenticated;
 
 -- Who added which library deck (so a save is counted once per person)
@@ -146,7 +151,7 @@ language plpgsql security definer set search_path = public as $$
 declare me uuid := auth.uid(); c text;
 begin
   perform public.sbs_may_share();
-  if p_kind not in ('note', 'quiz') then raise exception 'Only notes and quizzes'; end if;
+  if p_kind not in ('note', 'quiz', 'board') then raise exception 'Only notes, quizzes and whiteboards'; end if;
   if p_data is null or octet_length(p_data::text) >= 1000000 then raise exception 'That is too big to share. Try a shorter one.'; end if;
   select code into c from public.shared_items where owner_id = me and kind = p_kind and ref_id = left(p_ref, 120);
   if c is not null then
@@ -154,7 +159,7 @@ begin
       sharer_name = public.sbg_my_name() where code = c;
     return c;
   end if;
-  if (select count(*) from public.shared_items where owner_id = me) >= 300 then raise exception 'You can share up to 300 notes and quizzes. Stop sharing one first.'; end if;
+  if (select count(*) from public.shared_items where owner_id = me) >= 300 then raise exception 'You can share up to 300 notes, quizzes and whiteboards. Stop sharing one first.'; end if;
   loop
     c := public.sbg_new_code();
     exit when not exists (select 1 from public.shared_items where code = c) and not exists (select 1 from public.shared_decks where code = c);

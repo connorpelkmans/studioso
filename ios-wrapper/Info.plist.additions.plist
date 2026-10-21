@@ -62,5 +62,9 @@
   <string>public.app-category.education</string>
   <key>UIRequiresFullScreen</key>
   <false/>
+
+  <!-- The Focus timer in the Dynamic Island and on the Lock Screen (Live Activities, ios-wrapper/native/FocusActivity). -->
+  <key>NSSupportsLiveActivities</key>
+  <true/>
 </dict>
 </plist>
