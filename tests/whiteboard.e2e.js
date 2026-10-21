@@ -40,11 +40,14 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await page.waitForSelector(".nv-tabs");
     ok(await page.locator('.nv-tabs [data-id="board"][aria-selected=true]').count() === 1 && await page.locator("#nbBoard .note").count() === 1, "Notes opens on the sticky notes, with a Notes | Whiteboard switch");
     await page.click('.nv-tabs [data-id="wb"]'); await page.waitForTimeout(300);
-    ok(await page.locator(".wb-empty .wb-tile").count() === 10 && await page.locator("#fab").isHidden(), "with no boards yet, the Whiteboard shows the 10 templates to start from (and no Add Note button)");
+    ok(await page.locator('.wb-empty [data-act="wb-quick"][data-id="blank"]').count() === 1 && await page.locator(".wb-empty .wb-tile").count() === 9 && await page.locator("#fab").isHidden(), "with no boards yet, the Whiteboard offers a Blank Board or one of 9 templates (and no Add Note button)");
 
     // a new board from the sheet: name, template, course
-    await act("wb-new"); await page.waitForSelector("dialog[open] .wb-tiles");
+    await act("wb-new"); await page.waitForSelector("dialog[open] .wb-start");
     await page.fill('dialog[open] input[name="name"]', "Cell Biology");
+    ok(await page.isChecked('dialog[open] input[name="start"][value="blank"]') && await page.locator("dialog[open] .wb-tpl-pick").isHidden(), "New Whiteboard asks: Blank Board (picked) or A Template (templates hidden until chosen)");
+    await page.click('dialog[open] .wb-start label:has(input[value="tpl"])');
+    ok(await page.locator("dialog[open] .wb-tpl-pick").isVisible() && await page.locator("dialog[open] .wb-tpl-pick .wb-tile").count() === 9, "choosing A Template shows the 9 templates");
     await page.click('dialog[open] .wb-tile:has(input[value="grid"])');
     await page.selectOption('dialog[open] select[name="courseId"]', "c1");
     await page.click("dialog[open] [data-submit]"); await page.waitForSelector(".wb-stage .wb-frame"); await page.waitForTimeout(400);
