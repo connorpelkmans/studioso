@@ -10,6 +10,7 @@ class MainViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(StudyboardCaptureTokenPlugin())
         bridge?.registerPluginInstance(StudyboardSharedQueuePlugin())
         bridge?.registerPluginInstance(StudyboardLmsPlugin())          // school site sign-in and sync (StudyboardLms.swift)
+        bridge?.registerPluginInstance(StudyboardFocusActivityPlugin()) // the Focus timer in the Dynamic Island (FocusActivity/)
         // Tells the page whether this is an iPad or an iPhone before any of its script runs. The pen tools (handwriting on PDFs and notes)
         // are iPad only: index.html SBINK.available(). Without this line the page falls back to the user agent.
         let idiom = UIDevice.current.userInterfaceIdiom == .pad ? "pad" : "phone"

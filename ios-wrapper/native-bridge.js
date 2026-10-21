@@ -18,6 +18,10 @@
       cancelable window events (studyboard:plan-checkout, studyboard:plan-restore, studyboard:plan-manage) and this file answers with
       studyboard:purchase-result. The contract is written out in README-IOS.md ("Purchase bridge contract").
 
+   7. Focus timer Live Activity (iPhone, UNTESTED): StudyboardNative.focusActivity.show(state) / end() put the running Focus timer in the Dynamic Island
+      and on the Lock Screen through the local plugin StudyboardFocusActivity (ios-wrapper/native/FocusActivity). show() resolves true when it is showing,
+      so the page can take the timer out of its own header. Missing on Android and when the plugin isn't in the build.
+
    Needs these Capacitor plugins installed (README-IOS.md section 2, README-ANDROID.md section 2): @capacitor/app, @capacitor/browser, @capacitor/push-notifications,
    capacitor-secure-storage-plugin, @revenuecat/purchases-capacitor (section 6), plus the two local plugins in ios-wrapper/native (StudyboardCaptureToken, StudyboardSharedQueue) for section 5. */
 (function () {
@@ -309,4 +313,24 @@
       if (P.Browser) return P.Browser.open({ url: u }).catch(function () {});
     }).then(function () { result("manage", "success"); });
   });
+
+  /* 7. Focus timer in the Dynamic Island (iOS Live Activity). The page calls show() only when the timer's state changes; the system counts down. */
+  var FA = P.StudyboardFocusActivity;
+  if (FA && !(C.getPlatform && C.getPlatform() === "android")) {
+    var str = function (v, n) { return String(v == null ? "" : v).slice(0, n); };
+    window.StudyboardNative = Object.assign(window.StudyboardNative || {}, {
+      focusActivity: {
+        show: function (st) {
+          st = st || {};
+          var mode = ["focus", "short", "long"].indexOf(st.mode) >= 0 ? st.mode : "focus";
+          return Promise.resolve().then(function () {
+            return FA.show({mode: mode, label: str(st.label, 24), task: str(st.task, 80), running: !!st.running,
+              endsAt: Number(st.endsAt) || 0, left: Math.round(Number(st.left) || 0), total: Math.round(Number(st.total) || 1500),
+              accent: /^#[0-9a-f]{6}$/i.test(String(st.accent || "")) ? st.accent : ""});
+          }).then(function (r) { return !!(r && r.shown); }, function () { return false; });
+        },
+        end: function () { return Promise.resolve().then(function () { return FA.end(); }).then(function () {}, function () {}); }
+      }
+    });
+  }
 })();
