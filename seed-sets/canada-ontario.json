@@ -1,0 +1,1518 @@
+[
+ {
+  "school_key": "uwaterloo.ca",
+  "course_code": "PSYCH 101",
+  "course_name": "Introductory Psychology",
+  "source_url": "https://academic-calendar-archive.uwaterloo.ca/undergraduate-studies/2017-2018/page/SCI-Psychology-Recommended-Course-Sequence1.html",
+  "name": "PSYCH 101 Exam Review: Research Methods, Biopsychology, Learning and Memory",
+  "look": {
+   "color": "#9A4FD1",
+   "icon": "psych"
+  },
+  "cards": [
+   {
+    "front": "What is the difference between an independent variable and a dependent variable?",
+    "back": "The independent variable is the factor the researcher manipulates; the dependent variable is the outcome that is measured to see whether it changed because of the manipulation."
+   },
+   {
+    "front": "Why can a correlational study not establish causation?",
+    "back": "Two variables may be related because of a third variable, or the direction of influence may be reversed. Only an experiment with random assignment and controlled conditions supports causal claims."
+   },
+   {
+    "front": "Random sampling vs random assignment",
+    "back": "Random sampling (choosing participants from a population by chance) improves generalizability. Random assignment (placing participants into conditions by chance) makes groups equivalent so differences can be attributed to the IV."
+   },
+   {
+    "front": "What does a correlation coefficient of r = -0.80 tell you?",
+    "back": "A strong negative relationship: as one variable increases, the other tends to decrease. The sign gives direction and the absolute value (0 to 1) gives strength."
+   },
+   {
+    "front": "What is a double-blind procedure and why use it?",
+    "back": "Neither participants nor the researchers collecting data know who is in which condition. It controls for both placebo effects and experimenter expectancy effects."
+   },
+   {
+    "front": "Operational definition",
+    "back": "A precise statement of how a variable will be measured or manipulated in a study, e.g. defining 'aggression' as the number of times a child hits a toy in 10 minutes."
+   },
+   {
+    "front": "Reliability vs validity of a measure",
+    "back": "Reliability is consistency (the measure gives similar results each time). Validity is accuracy (it measures what it claims to measure). A measure can be reliable without being valid."
+   },
+   {
+    "front": "What are the three main parts of a neuron and their roles?",
+    "back": "Dendrites receive signals, the cell body (soma) integrates them and holds the nucleus, and the axon carries the action potential to terminal buttons that release neurotransmitter."
+   },
+   {
+    "front": "Describe the action potential in terms of ion movement.",
+    "back": "When the membrane reaches threshold, voltage-gated Na+ channels open and Na+ rushes in (depolarization); then K+ channels open and K+ flows out (repolarization), briefly overshooting (hyperpolarization)."
+   },
+   {
+    "front": "What is the all-or-none law?",
+    "back": "A neuron either fires a full-strength action potential or does not fire at all. Stimulus intensity is coded by firing rate and number of neurons, not by the size of each spike."
+   },
+   {
+    "front": "What role does the myelin sheath play?",
+    "back": "It insulates the axon and allows saltatory conduction, where the impulse jumps between nodes of Ranvier, greatly increasing conduction speed."
+   },
+   {
+    "front": "Dopamine: main functions",
+    "back": "Involved in reward, motivation and voluntary movement. Loss of dopamine neurons is linked to Parkinson's disease; excess dopamine activity is associated with positive symptoms of schizophrenia."
+   },
+   {
+    "front": "Agonist vs antagonist drug",
+    "back": "An agonist mimics or enhances a neurotransmitter's effect; an antagonist blocks or reduces it, often by occupying receptors without activating them."
+   },
+   {
+    "front": "Sympathetic vs parasympathetic nervous system",
+    "back": "Both are branches of the autonomic nervous system. Sympathetic prepares the body for fight or flight (raises heart rate); parasympathetic supports rest and digest (conserves energy)."
+   },
+   {
+    "front": "Which lobe contains the primary visual cortex?",
+    "back": "The occipital lobe, at the back of the brain."
+   },
+   {
+    "front": "What did the case of Phineas Gage suggest about the frontal lobes?",
+    "back": "After an iron rod damaged his frontal lobe, his personality and self-control changed while basic intellect remained, suggesting the frontal lobes are important for planning, judgment and impulse control."
+   },
+   {
+    "front": "Broca's area vs Wernicke's area",
+    "back": "Broca's area (left frontal lobe) supports speech production; damage gives slow, effortful speech. Wernicke's area (left temporal lobe) supports language comprehension; damage gives fluent but meaningless speech."
+   },
+   {
+    "front": "Role of the hippocampus",
+    "back": "A limbic structure essential for forming new explicit (declarative) long-term memories. Damage, as in patient H.M., causes anterograde amnesia."
+   },
+   {
+    "front": "Sensation vs perception",
+    "back": "Sensation is the detection of physical energy by sensory receptors; perception is the brain's organization and interpretation of that input into meaningful experience."
+   },
+   {
+    "front": "What is transduction?",
+    "back": "The conversion of physical stimulus energy (light, sound waves, pressure) into neural signals by sensory receptors."
+   },
+   {
+    "front": "Rods vs cones",
+    "back": "Rods are very sensitive to dim light and do not code colour; they dominate the periphery. Cones need brighter light, code colour and detail, and are concentrated in the fovea."
+   },
+   {
+    "front": "Weber's law",
+    "back": "The just noticeable difference is a constant proportion of the original stimulus intensity. Example: if JND is 2% for weight, you notice 2 g added to 100 g but need 20 g added to 1000 g."
+   },
+   {
+    "front": "In classical conditioning, identify the US, UR, CS and CR in Pavlov's dogs.",
+    "back": "US = food, UR = salivation to food, CS = the tone (originally neutral), CR = salivation to the tone after pairing."
+   },
+   {
+    "front": "Extinction vs spontaneous recovery",
+    "back": "Extinction is the weakening of a CR when the CS is repeatedly presented without the US. Spontaneous recovery is the reappearance of the weakened CR after a rest period."
+   },
+   {
+    "front": "Negative reinforcement vs punishment",
+    "back": "Negative reinforcement removes an aversive stimulus to increase a behaviour (taking aspirin removes a headache). Punishment decreases a behaviour. Negative reinforcement is not punishment."
+   },
+   {
+    "front": "Which reinforcement schedule produces the highest, most extinction-resistant response rates?",
+    "back": "Variable-ratio schedules, where reinforcement follows an unpredictable number of responses (e.g. slot machines)."
+   },
+   {
+    "front": "What did Bandura's Bobo doll study demonstrate?",
+    "back": "Children who watched an adult act aggressively toward a doll later imitated that aggression, showing observational learning without direct reinforcement."
+   },
+   {
+    "front": "List the three stages of the Atkinson-Shiffrin memory model.",
+    "back": "Sensory memory (very brief, large capacity), short-term memory (about 7 plus or minus 2 items, roughly 20 seconds without rehearsal), and long-term memory (relatively permanent, vast capacity)."
+   },
+   {
+    "front": "Explicit vs implicit memory",
+    "back": "Explicit (declarative) memory is consciously recalled facts (semantic) and events (episodic). Implicit memory shows up in performance without conscious recall, e.g. procedural skills and priming."
+   },
+   {
+    "front": "Proactive vs retroactive interference",
+    "back": "Proactive: old learning disrupts recall of new information. Retroactive: new learning disrupts recall of old information."
+   }
+  ]
+ },
+ {
+  "school_key": "uwaterloo.ca",
+  "course_code": "BIOL 130",
+  "course_name": "Introductory Cell Biology",
+  "source_url": "https://ucalendar.uwaterloo.ca/2223/COURSE/course-BIOL.html",
+  "name": "BIOL 130 Exam Review: Cell Structure, Membranes, Cellular Energy and Division",
+  "look": {
+   "color": "#1E9E74",
+   "icon": "bio"
+  },
+  "cards": [
+   {
+    "front": "Prokaryotic vs eukaryotic cells: key differences",
+    "back": "Prokaryotes lack a nucleus and membrane-bound organelles, have a circular chromosome and 70S ribosomes. Eukaryotes have a nucleus, internal membrane organelles, linear chromosomes and 80S cytoplasmic ribosomes."
+   },
+   {
+    "front": "What are the main tenets of cell theory?",
+    "back": "All living things are made of one or more cells, the cell is the basic unit of life, and all cells come from pre-existing cells."
+   },
+   {
+    "front": "Describe the fluid mosaic model of the plasma membrane.",
+    "back": "A phospholipid bilayer in which lipids and proteins move laterally, with integral and peripheral proteins, cholesterol and carbohydrate chains embedded in or attached to it."
+   },
+   {
+    "front": "How does cholesterol affect membrane fluidity?",
+    "back": "It acts as a fluidity buffer: at high temperature it restrains phospholipid movement, and at low temperature it prevents tight packing, keeping the membrane from becoming too rigid."
+   },
+   {
+    "front": "How do unsaturated fatty acid tails affect a membrane?",
+    "back": "Cis double bonds create kinks that prevent tight packing, increasing membrane fluidity and lowering the temperature at which the membrane solidifies."
+   },
+   {
+    "front": "Which molecules cross a lipid bilayer easily without a transporter?",
+    "back": "Small nonpolar molecules such as O2, CO2 and N2, and to a lesser extent small uncharged polar molecules like water. Ions and large polar molecules need proteins."
+   },
+   {
+    "front": "Passive vs active transport",
+    "back": "Passive transport moves solutes down their electrochemical gradient with no energy input (simple or facilitated diffusion). Active transport moves solutes against their gradient using ATP or another gradient."
+   },
+   {
+    "front": "What does the Na+/K+ pump do per ATP hydrolyzed?",
+    "back": "It pumps 3 Na+ out of the cell and 2 K+ into the cell, contributing to the membrane potential and maintaining ion gradients."
+   },
+   {
+    "front": "Secondary active transport (cotransport)",
+    "back": "A transporter uses the energy of an ion moving down its gradient (often Na+ or H+) to move another solute against its gradient, e.g. Na+/glucose symport."
+   },
+   {
+    "front": "Function of the rough ER vs smooth ER",
+    "back": "Rough ER has ribosomes and makes secretory, membrane and lysosomal proteins. Smooth ER synthesizes lipids, detoxifies drugs and stores Ca2+."
+   },
+   {
+    "front": "What does the Golgi apparatus do?",
+    "back": "It modifies (e.g. glycosylates), sorts and packages proteins and lipids received from the ER, sending them to the plasma membrane, lysosomes or secretion. Cargo enters the cis face and exits the trans face."
+   },
+   {
+    "front": "Function of lysosomes",
+    "back": "Membrane-bound organelles with acid hydrolases (active at about pH 5) that digest macromolecules, worn-out organelles (autophagy) and engulfed material."
+   },
+   {
+    "front": "What evidence supports the endosymbiotic origin of mitochondria and chloroplasts?",
+    "back": "They have double membranes, their own circular DNA, bacteria-like 70S ribosomes, and divide by a fission-like process."
+   },
+   {
+    "front": "Name the three types of cytoskeletal filaments and a main role of each.",
+    "back": "Microfilaments (actin) for cell shape and movement; intermediate filaments for mechanical strength; microtubules (tubulin) for tracks for transport, the mitotic spindle, cilia and flagella."
+   },
+   {
+    "front": "What are motor proteins kinesin and dynein used for?",
+    "back": "They walk along microtubules using ATP: kinesin generally moves cargo toward the plus end (cell periphery), dynein toward the minus end (cell centre); dynein also bends cilia and flagella."
+   },
+   {
+    "front": "Write the overall equation for aerobic cellular respiration.",
+    "back": "C6H12O6 + 6 O2 -> 6 CO2 + 6 H2O + energy (ATP and heat)."
+   },
+   {
+    "front": "Where does each stage of cellular respiration occur in eukaryotes?",
+    "back": "Glycolysis: cytosol. Pyruvate oxidation and citric acid cycle: mitochondrial matrix. Electron transport chain and ATP synthase: inner mitochondrial membrane."
+   },
+   {
+    "front": "Net products of glycolysis per glucose",
+    "back": "2 pyruvate, 2 ATP (net) and 2 NADH."
+   },
+   {
+    "front": "What is chemiosmosis?",
+    "back": "The electron transport chain pumps H+ into the intermembrane space; H+ then flows back into the matrix through ATP synthase, and that flow drives ATP synthesis."
+   },
+   {
+    "front": "What is the final electron acceptor in aerobic respiration?",
+    "back": "Oxygen, which is reduced to water at the end of the electron transport chain."
+   },
+   {
+    "front": "What does fermentation accomplish when oxygen is absent?",
+    "back": "It regenerates NAD+ from NADH (producing lactate or ethanol plus CO2) so glycolysis can continue to make a small amount of ATP."
+   },
+   {
+    "front": "Competitive vs noncompetitive enzyme inhibition",
+    "back": "A competitive inhibitor binds the active site and can be overcome by more substrate (Km rises, Vmax unchanged). A noncompetitive inhibitor binds elsewhere and lowers Vmax."
+   },
+   {
+    "front": "How do enzymes speed up reactions?",
+    "back": "They lower the activation energy by stabilizing the transition state. They do not change the overall free energy change (delta G) or the equilibrium position."
+   },
+   {
+    "front": "List the phases of the eukaryotic cell cycle in order.",
+    "back": "G1, S (DNA replication), G2 (together called interphase), then M phase: mitosis (prophase, prometaphase, metaphase, anaphase, telophase) followed by cytokinesis."
+   },
+   {
+    "front": "What happens in anaphase of mitosis?",
+    "back": "Cohesin holding sister chromatids together is cleaved, and the chromatids are pulled to opposite poles by shortening kinetochore microtubules."
+   },
+   {
+    "front": "What is the role of cyclins and cyclin-dependent kinases (Cdks)?",
+    "back": "Cyclin levels rise and fall through the cycle; cyclin binding activates Cdks, which phosphorylate targets to drive the cell through checkpoints such as G1/S and G2/M."
+   },
+   {
+    "front": "Mitosis vs meiosis outcomes",
+    "back": "Mitosis produces two genetically identical diploid daughter cells. Meiosis produces four genetically varied haploid cells through two divisions, crossing over and independent assortment."
+   },
+   {
+    "front": "What is apoptosis?",
+    "back": "Programmed cell death carried out by caspases, in which the cell shrinks and fragments in a controlled way without causing inflammation."
+   }
+  ]
+ },
+ {
+  "school_key": "uwaterloo.ca",
+  "course_code": "MATH 137",
+  "course_name": "Calculus 1 for Honours Mathematics",
+  "source_url": "https://academic-calendar-archive.uwaterloo.ca/undergraduate-studies/2017-2018/page/MATH-Mathematical-Studies.html",
+  "name": "MATH 137 Exam Review: Sequences, Limits, Continuity, Derivatives and Taylor Polynomials",
+  "look": {
+   "color": "#4F46E5",
+   "icon": "calc"
+  },
+  "cards": [
+   {
+    "front": "Formal definition: a sequence {a_n} converges to L",
+    "back": "For every epsilon > 0 there exists N such that for all n > N, |a_n - L| < epsilon."
+   },
+   {
+    "front": "State the Monotone Convergence Theorem.",
+    "back": "Every bounded monotonic sequence converges. An increasing sequence bounded above converges to its least upper bound."
+   },
+   {
+    "front": "Does a_n = (-1)^n converge?",
+    "back": "No. The terms alternate between -1 and 1, so there is no single limit; the sequence is bounded but divergent."
+   },
+   {
+    "front": "Squeeze Theorem",
+    "back": "If g(x) <= f(x) <= h(x) near a and lim g(x) = lim h(x) = L as x -> a, then lim f(x) = L as x -> a."
+   },
+   {
+    "front": "Evaluate lim (x -> 0) of x^2 sin(1/x).",
+    "back": "0. Since -x^2 <= x^2 sin(1/x) <= x^2 and both bounds go to 0, the Squeeze Theorem gives 0."
+   },
+   {
+    "front": "Epsilon-delta definition of lim (x -> a) f(x) = L",
+    "back": "For every epsilon > 0 there exists delta > 0 such that 0 < |x - a| < delta implies |f(x) - L| < epsilon."
+   },
+   {
+    "front": "What is the fundamental trig limit?",
+    "back": "lim (x -> 0) sin(x)/x = 1 (x in radians)."
+   },
+   {
+    "front": "Evaluate lim (x -> 3) (x^2 - 9)/(x - 3).",
+    "back": "Factor: (x - 3)(x + 3)/(x - 3) = x + 3 for x not equal to 3, so the limit is 6."
+   },
+   {
+    "front": "Three conditions for f to be continuous at x = a",
+    "back": "f(a) is defined, lim (x -> a) f(x) exists, and the limit equals f(a)."
+   },
+   {
+    "front": "Name the three types of discontinuity.",
+    "back": "Removable (limit exists but differs from f(a) or f(a) undefined), jump (left and right limits exist but differ), and infinite/essential (a one-sided limit is infinite or does not exist)."
+   },
+   {
+    "front": "State the Intermediate Value Theorem.",
+    "back": "If f is continuous on [a, b] and k is any value between f(a) and f(b), then there is some c in [a, b] with f(c) = k."
+   },
+   {
+    "front": "How do you use the IVT to show x^3 + x - 1 = 0 has a root in [0, 1]?",
+    "back": "f(0) = -1 < 0 and f(1) = 1 > 0, and f is a continuous polynomial, so by the IVT there is c in (0, 1) with f(c) = 0."
+   },
+   {
+    "front": "Limit definition of the derivative",
+    "back": "f'(a) = lim (h -> 0) [f(a + h) - f(a)] / h, provided the limit exists."
+   },
+   {
+    "front": "Does differentiability imply continuity? Does the converse hold?",
+    "back": "Differentiable at a implies continuous at a. The converse is false: f(x) = |x| is continuous at 0 but not differentiable there."
+   },
+   {
+    "front": "Product rule and quotient rule",
+    "back": "(fg)' = f'g + fg'. (f/g)' = (f'g - fg') / g^2, where g is not 0."
+   },
+   {
+    "front": "Chain rule; differentiate sin(x^3).",
+    "back": "d/dx f(g(x)) = f'(g(x))·g'(x). So d/dx sin(x^3) = cos(x^3)·3x^2."
+   },
+   {
+    "front": "Derivatives of e^x, ln x, a^x",
+    "back": "d/dx e^x = e^x; d/dx ln x = 1/x for x > 0; d/dx a^x = a^x·ln a."
+   },
+   {
+    "front": "Derivatives of tan x, arcsin x, arctan x",
+    "back": "d/dx tan x = sec^2 x; d/dx arcsin x = 1/sqrt(1 - x^2); d/dx arctan x = 1/(1 + x^2)."
+   },
+   {
+    "front": "Find dy/dx for x^2 + y^2 = 25 by implicit differentiation.",
+    "back": "2x + 2y·dy/dx = 0, so dy/dx = -x/y."
+   },
+   {
+    "front": "When should you use logarithmic differentiation? Differentiate y = x^x.",
+    "back": "When a variable is in both base and exponent, or for messy products. ln y = x ln x, so y'/y = ln x + 1, giving y' = x^x (ln x + 1)."
+   },
+   {
+    "front": "Linear approximation of f near x = a",
+    "back": "L(x) = f(a) + f'(a)(x - a). Example: sqrt(4.1) is about 2 + (1/4)(0.1) = 2.025."
+   },
+   {
+    "front": "State the Mean Value Theorem.",
+    "back": "If f is continuous on [a, b] and differentiable on (a, b), there is c in (a, b) with f'(c) = [f(b) - f(a)] / (b - a)."
+   },
+   {
+    "front": "What is a consequence of the MVT about functions with zero derivative?",
+    "back": "If f'(x) = 0 for all x in an interval, then f is constant on that interval."
+   },
+   {
+    "front": "First derivative test for increasing/decreasing",
+    "back": "If f'(x) > 0 on an interval, f is increasing there; if f'(x) < 0, f is decreasing. A sign change of f' at a critical point indicates a local max or min."
+   },
+   {
+    "front": "State L'Hospital's Rule.",
+    "back": "If lim f(x)/g(x) is of the form 0/0 or infinity/infinity, then lim f(x)/g(x) = lim f'(x)/g'(x), provided the latter limit exists."
+   },
+   {
+    "front": "nth degree Taylor polynomial of f centred at a",
+    "back": "T_n(x) = sum from k = 0 to n of f^(k)(a)/k! · (x - a)^k."
+   },
+   {
+    "front": "Write the degree 3 Taylor polynomial of e^x and sin x centred at 0.",
+    "back": "e^x: 1 + x + x^2/2 + x^3/6. sin x: x - x^3/6."
+   },
+   {
+    "front": "Taylor's Remainder Theorem (Lagrange form)",
+    "back": "f(x) - T_n(x) = f^(n+1)(c)/(n+1)! · (x - a)^(n+1) for some c between a and x; bounding f^(n+1) bounds the error."
+   },
+   {
+    "front": "Newton's method iteration formula",
+    "back": "x_(n+1) = x_n - f(x_n)/f'(x_n). It approximates a root of f by following tangent lines; it may fail if f'(x_n) is near 0."
+   }
+  ]
+ },
+ {
+  "school_key": "uwaterloo.ca",
+  "course_code": "CHEM 120",
+  "course_name": "Physical and Chemical Properties of Matter",
+  "source_url": "https://academic-calendar-archive.uwaterloo.ca/undergraduate-studies/2017-2018/page/SCI-Psychology-Recommended-Course-Sequence1.html",
+  "name": "CHEM 120 Exam Review: Atomic Structure, Periodic Trends, Bonding and Gases",
+  "look": {
+   "color": "#E0673B",
+   "icon": "chem"
+  },
+  "cards": [
+   {
+    "front": "Relationship between energy, frequency and wavelength of light",
+    "back": "E = h·nu and c = lambda·nu, so E = hc/lambda. h = 6.626 x 10^-34 J·s, c = 3.00 x 10^8 m/s. Shorter wavelength means higher energy."
+   },
+   {
+    "front": "Energy of the hydrogen atom levels (Bohr)",
+    "back": "E_n = -2.18 x 10^-18 J / n^2. A photon emitted when an electron drops from n_i to n_f has energy equal to the difference E_i - E_f."
+   },
+   {
+    "front": "What does the de Broglie relation state?",
+    "back": "Any moving particle has a wavelength lambda = h/(m·v), so electrons show wave behaviour such as diffraction."
+   },
+   {
+    "front": "Heisenberg uncertainty principle",
+    "back": "Position and momentum cannot both be known exactly at the same time: delta x · delta p >= h/(4·pi)."
+   },
+   {
+    "front": "Name the four quantum numbers and their allowed values.",
+    "back": "n = 1, 2, 3...; l = 0 to n-1 (s, p, d, f); m_l = -l to +l; m_s = +1/2 or -1/2."
+   },
+   {
+    "front": "How many orbitals and electrons are in the n = 3 shell?",
+    "back": "n^2 = 9 orbitals (one 3s, three 3p, five 3d), holding up to 2n^2 = 18 electrons."
+   },
+   {
+    "front": "State the Pauli exclusion principle and Hund's rule.",
+    "back": "Pauli: no two electrons in an atom have the same four quantum numbers, so an orbital holds at most 2 electrons of opposite spin. Hund: degenerate orbitals fill singly with parallel spins before pairing."
+   },
+   {
+    "front": "Write the ground-state electron configuration of Fe.",
+    "back": "[Ar] 4s^2 3d^6."
+   },
+   {
+    "front": "Why are the configurations of Cr and Cu exceptions?",
+    "back": "A half-filled or filled d subshell is especially stable: Cr is [Ar] 4s^1 3d^5 and Cu is [Ar] 4s^1 3d^10."
+   },
+   {
+    "front": "What is effective nuclear charge (Zeff) and how does it change across a period?",
+    "back": "Zeff = Z - S, the net positive charge felt by an electron after shielding. It increases across a period, pulling electrons closer."
+   },
+   {
+    "front": "Trend in atomic radius on the periodic table",
+    "back": "Radius decreases across a period (Zeff rises) and increases down a group (more shells)."
+   },
+   {
+    "front": "Trend in first ionization energy, and one exception",
+    "back": "Increases across a period and decreases down a group. Exception: O is lower than N because pairing in a 2p orbital adds repulsion (similarly B is lower than Be)."
+   },
+   {
+    "front": "Ionic vs covalent bonding",
+    "back": "Ionic bonds form by electron transfer between atoms with a large electronegativity difference (often metal and nonmetal). Covalent bonds form by sharing electrons between nonmetals."
+   },
+   {
+    "front": "How do you calculate formal charge?",
+    "back": "FC = (valence electrons) - (nonbonding electrons) - (1/2 x bonding electrons). The best Lewis structure minimizes formal charges and puts negative charge on the more electronegative atom."
+   },
+   {
+    "front": "What are resonance structures?",
+    "back": "Two or more valid Lewis structures differing only in electron placement. The real molecule is a hybrid, e.g. all three C-O bonds in carbonate are equivalent."
+   },
+   {
+    "front": "VSEPR: geometry of a molecule with 4 electron domains and 1 lone pair",
+    "back": "Electron geometry tetrahedral; molecular shape trigonal pyramidal (e.g. NH3), bond angle a bit less than 109.5 degrees."
+   },
+   {
+    "front": "VSEPR: shape of SF4 and XeF4",
+    "back": "SF4 (5 domains, 1 lone pair) is seesaw. XeF4 (6 domains, 2 lone pairs) is square planar."
+   },
+   {
+    "front": "What hybridization corresponds to 2, 3 and 4 electron domains?",
+    "back": "2 domains: sp (linear). 3 domains: sp2 (trigonal planar). 4 domains: sp3 (tetrahedral)."
+   },
+   {
+    "front": "Sigma vs pi bonds",
+    "back": "A sigma bond forms by head-on overlap along the bond axis; a pi bond forms by side-on overlap of p orbitals. A double bond is 1 sigma + 1 pi; a triple bond is 1 sigma + 2 pi."
+   },
+   {
+    "front": "How is bond order found from MO theory, and what does it predict for O2?",
+    "back": "Bond order = (bonding e- - antibonding e-)/2. O2 has bond order 2 and two unpaired electrons in pi* orbitals, so it is paramagnetic."
+   },
+   {
+    "front": "When is a molecule with polar bonds nonpolar overall?",
+    "back": "When its geometry makes the bond dipoles cancel, e.g. CO2 (linear) and CCl4 (tetrahedral)."
+   },
+   {
+    "front": "Ideal gas law",
+    "back": "PV = nRT, where P is pressure, V volume, n moles, T temperature in kelvin, and R = 8.314 J/(mol·K) or 0.08206 L·atm/(mol·K)."
+   },
+   {
+    "front": "Mini-problem: what volume does 1.00 mol of ideal gas occupy at 273.15 K and 1.00 atm?",
+    "back": "V = nRT/P = (1.00)(0.08206)(273.15)/1.00 = 22.4 L."
+   },
+   {
+    "front": "Dalton's law of partial pressures",
+    "back": "P_total = P_A + P_B + ...; each partial pressure P_A = x_A·P_total, where x_A is the mole fraction."
+   },
+   {
+    "front": "What does kinetic molecular theory say about average kinetic energy?",
+    "back": "The average kinetic energy of gas particles depends only on absolute temperature: KE_avg = (3/2)RT per mole. At the same T, lighter molecules move faster."
+   },
+   {
+    "front": "Graham's law of effusion",
+    "back": "rate_1/rate_2 = sqrt(M_2/M_1). Lighter gases effuse faster; H2 effuses 4 times faster than O2."
+   },
+   {
+    "front": "When do real gases deviate most from ideal behaviour?",
+    "back": "At high pressure (molecular volume matters) and low temperature (intermolecular attractions matter). The van der Waals equation corrects with constants a (attraction) and b (volume)."
+   }
+  ]
+ },
+ {
+  "school_key": "mcmaster.ca",
+  "course_code": "PSYCH 1X03",
+  "course_name": "Introduction to Psychology, Neuroscience & Behaviour",
+  "source_url": "https://academiccalendars.romcmaster.ca/preview_course_nopop.php?catoid=56&coid=279502",
+  "name": "PSYCH 1X03 Exam Review: Research Design, Learning, Cognition and Social Psychology",
+  "look": {
+   "color": "#D6386F",
+   "icon": "psych"
+  },
+  "cards": [
+   {
+    "front": "What is the third-variable problem?",
+    "back": "An unmeasured variable may cause both measured variables to change, creating a correlation without a direct causal link (e.g. heat raising both ice cream sales and drownings)."
+   },
+   {
+    "front": "Between-subjects vs within-subjects design",
+    "back": "Between-subjects: each participant experiences only one condition. Within-subjects: each participant experiences all conditions, which needs fewer people but risks order effects."
+   },
+   {
+    "front": "What is counterbalancing?",
+    "back": "Varying the order of conditions across participants in a within-subjects design so that practice, fatigue and other order effects are spread evenly across conditions."
+   },
+   {
+    "front": "Internal vs external validity",
+    "back": "Internal validity is confidence that the IV caused the change in the DV. External validity is how well results generalize to other people, settings and times."
+   },
+   {
+    "front": "What is a confound?",
+    "back": "A variable other than the IV that differs systematically between conditions, so it offers an alternative explanation for the results."
+   },
+   {
+    "front": "Demand characteristics",
+    "back": "Cues in a study that hint at the hypothesis, which may lead participants to change their behaviour to fit what they think is expected."
+   },
+   {
+    "front": "What is a statistically significant result, conventionally?",
+    "back": "A result with p < .05, meaning that if the null hypothesis were true, a result at least this extreme would occur less than 5% of the time."
+   },
+   {
+    "front": "Mean, median and mode: which is least affected by outliers?",
+    "back": "The median (middle score). The mean is pulled toward extreme values, which is why income is often reported as a median."
+   },
+   {
+    "front": "Habituation vs sensitization",
+    "back": "Habituation is a decrease in response to a repeated harmless stimulus. Sensitization is an increased response to a stimulus after exposure to an intense or noxious one."
+   },
+   {
+    "front": "What is stimulus generalization in classical conditioning?",
+    "back": "Responding to stimuli similar to the CS, e.g. Little Albert fearing other furry objects after being conditioned to fear a white rat."
+   },
+   {
+    "front": "Why is taste aversion learning a challenge for traditional conditioning theory?",
+    "back": "It can form after one pairing with a long delay between taste and illness, and it forms more readily with tastes than sounds, showing biological preparedness."
+   },
+   {
+    "front": "Thorndike's law of effect",
+    "back": "Behaviours followed by satisfying consequences become more likely to recur, and those followed by unpleasant consequences become less likely."
+   },
+   {
+    "front": "What is shaping in operant conditioning?",
+    "back": "Reinforcing successive approximations of a target behaviour until the full behaviour is produced."
+   },
+   {
+    "front": "Fixed-interval schedule: what response pattern does it produce?",
+    "back": "A scalloped pattern: responding slows right after reinforcement and speeds up as the time for the next available reinforcer approaches."
+   },
+   {
+    "front": "What is latent learning (Tolman)?",
+    "back": "Learning that occurs without obvious reinforcement and is not shown until there is an incentive, e.g. rats that explored a maze quickly ran it once food was introduced, suggesting a cognitive map."
+   },
+   {
+    "front": "Working memory components in Baddeley's model",
+    "back": "The central executive (controls attention), phonological loop (verbal/auditory info), visuospatial sketchpad (visual and spatial info) and episodic buffer (integrates information)."
+   },
+   {
+    "front": "Levels of processing theory",
+    "back": "Deeper, meaning-based (semantic) processing produces better long-term retention than shallow processing of physical or sound features."
+   },
+   {
+    "front": "Serial position effect",
+    "back": "Items at the start (primacy, from transfer to long-term memory) and end (recency, still in short-term memory) of a list are recalled better than items in the middle."
+   },
+   {
+    "front": "Encoding specificity principle",
+    "back": "Memory retrieval is best when cues present at retrieval match those present at encoding, including context (context-dependent memory) and internal state (state-dependent memory)."
+   },
+   {
+    "front": "Availability heuristic vs representativeness heuristic",
+    "back": "Availability: judging likelihood by how easily examples come to mind. Representativeness: judging likelihood by how well something matches a prototype, often ignoring base rates."
+   },
+   {
+    "front": "What is confirmation bias?",
+    "back": "The tendency to seek, notice and remember information that supports one's existing beliefs while overlooking contradicting evidence."
+   },
+   {
+    "front": "What is functional fixedness?",
+    "back": "A barrier to problem solving where a person can only see an object in its usual function, e.g. not thinking to use a coin as a screwdriver."
+   },
+   {
+    "front": "Fundamental attribution error",
+    "back": "The tendency to overemphasize personality (dispositional) explanations and underestimate situational influences when explaining other people's behaviour."
+   },
+   {
+    "front": "Main finding of Asch's line-judgment studies",
+    "back": "Many participants conformed at least once to a group's obviously wrong answer, showing the power of normative social pressure; conformity dropped sharply when one other person dissented."
+   },
+   {
+    "front": "Main finding of Milgram's obedience study",
+    "back": "About 65% of participants obeyed an authority figure's instructions to give what they believed were maximum-voltage shocks, showing strong situational pressure to obey."
+   },
+   {
+    "front": "What is cognitive dissonance?",
+    "back": "Discomfort from holding inconsistent beliefs or acting against one's attitudes, which people reduce by changing attitudes or justifying the behaviour (Festinger and Carlsmith's $1 vs $20 study)."
+   },
+   {
+    "front": "Bystander effect and diffusion of responsibility",
+    "back": "People are less likely to help in an emergency when others are present, partly because each person feels less personal responsibility to act."
+   },
+   {
+    "front": "Social facilitation vs social loafing",
+    "back": "Social facilitation: the presence of others improves performance on simple or well-learned tasks (and worsens it on hard ones). Social loafing: people exert less effort when individual effort is pooled in a group."
+   }
+  ]
+ },
+ {
+  "school_key": "mcmaster.ca",
+  "course_code": "BIOLOGY 1A03",
+  "course_name": "Cellular and Molecular Biology",
+  "source_url": "https://academiccalendars.romcmaster.ca/preview_course_nopop.php?catoid=53&coid=265223",
+  "name": "BIOLOGY 1A03 Exam Review: Macromolecules, Membranes, Metabolism and Gene Expression",
+  "look": {
+   "color": "#16A34A",
+   "icon": "micro"
+  },
+  "cards": [
+   {
+    "front": "Name the four major classes of biological macromolecules and their monomers.",
+    "back": "Proteins (amino acids), nucleic acids (nucleotides), carbohydrates (monosaccharides) and lipids (not true polymers; fats are built from glycerol and fatty acids)."
+   },
+   {
+    "front": "What type of bond links amino acids, and how is it formed?",
+    "back": "A peptide bond, formed by a dehydration (condensation) reaction between the carboxyl group of one amino acid and the amino group of the next."
+   },
+   {
+    "front": "Four levels of protein structure",
+    "back": "Primary: amino acid sequence. Secondary: alpha helices and beta sheets held by backbone H-bonds. Tertiary: 3D fold from side-chain interactions. Quaternary: assembly of multiple polypeptides."
+   },
+   {
+    "front": "Why does a protein denature at high temperature or extreme pH?",
+    "back": "Heat and pH disrupt the hydrogen bonds, ionic interactions and hydrophobic interactions that hold its shape, causing loss of function; the primary sequence is unchanged."
+   },
+   {
+    "front": "DNA vs RNA structure",
+    "back": "DNA: deoxyribose, bases A, T, G, C, usually double-stranded. RNA: ribose (with 2' OH), bases A, U, G, C, usually single-stranded."
+   },
+   {
+    "front": "What does antiparallel mean for DNA strands?",
+    "back": "The two strands run in opposite directions: one 5' to 3', the other 3' to 5'. A pairs with T (2 H-bonds) and G pairs with C (3 H-bonds)."
+   },
+   {
+    "front": "What did the Meselson-Stahl experiment show?",
+    "back": "Using heavy (15N) and light (14N) nitrogen, they showed DNA replication is semiconservative: each new double helix has one parental and one new strand."
+   },
+   {
+    "front": "Leading vs lagging strand synthesis",
+    "back": "DNA polymerase only adds nucleotides to a 3' end. The leading strand is made continuously toward the fork; the lagging strand is made discontinuously as Okazaki fragments that ligase joins."
+   },
+   {
+    "front": "Roles of helicase, primase and DNA ligase",
+    "back": "Helicase unwinds the double helix, primase lays down a short RNA primer to give a 3' OH, and ligase seals nicks between Okazaki fragments."
+   },
+   {
+    "front": "State the central dogma of molecular biology.",
+    "back": "Genetic information flows from DNA to RNA (transcription) to protein (translation). Reverse transcriptase in retroviruses is a notable exception (RNA to DNA)."
+   },
+   {
+    "front": "Where does transcription start and what enzyme carries it out?",
+    "back": "RNA polymerase binds a promoter upstream of the gene (in eukaryotes with the help of transcription factors, e.g. at a TATA box) and synthesizes RNA 5' to 3' from the template strand."
+   },
+   {
+    "front": "Three main eukaryotic pre-mRNA processing steps",
+    "back": "Adding a 5' cap, adding a 3' poly-A tail, and splicing out introns (joining exons) by the spliceosome."
+   },
+   {
+    "front": "What is alternative splicing?",
+    "back": "Different combinations of exons are joined from the same pre-mRNA, allowing one gene to produce several different proteins."
+   },
+   {
+    "front": "Mini-problem: the mRNA codon is 5'-AUG-3'. What is the tRNA anticodon?",
+    "back": "3'-UAC-5' (usually written 5'-CAU-3'). AUG codes for methionine and is the start codon."
+   },
+   {
+    "front": "Name the three stop codons.",
+    "back": "UAA, UAG and UGA. They are recognized by release factors, not tRNAs."
+   },
+   {
+    "front": "What happens at the A, P and E sites of the ribosome?",
+    "back": "A site: incoming aminoacyl-tRNA binds. P site: holds the tRNA with the growing chain; peptide bond forms. E site: empty tRNA exits."
+   },
+   {
+    "front": "What is the genetic code's redundancy?",
+    "back": "Most amino acids are coded by more than one codon (64 codons for 20 amino acids), often differing at the third position (wobble), which reduces the impact of some mutations."
+   },
+   {
+    "front": "Missense vs nonsense vs frameshift mutation",
+    "back": "Missense changes one amino acid. Nonsense creates a premature stop codon. Frameshift (insertion or deletion not a multiple of 3) shifts the reading frame and changes all downstream codons."
+   },
+   {
+    "front": "How does the lac operon respond when lactose is present and glucose is absent?",
+    "back": "Allolactose binds the lac repressor so it leaves the operator, and high cAMP-CAP boosts RNA polymerase binding, so the lac genes are strongly transcribed."
+   },
+   {
+    "front": "What is a signal sequence and what does it do?",
+    "back": "A short stretch of hydrophobic amino acids at the N-terminus that is recognized by SRP, which directs the ribosome to the rough ER so the protein enters the secretory pathway."
+   },
+   {
+    "front": "Exergonic vs endergonic reactions",
+    "back": "Exergonic reactions release free energy (delta G < 0) and are spontaneous. Endergonic reactions require free energy input (delta G > 0) and are often coupled to ATP hydrolysis."
+   },
+   {
+    "front": "Why is ATP called the energy currency of the cell?",
+    "back": "Hydrolysis of its terminal phosphate bond (ATP -> ADP + Pi) releases usable free energy that is coupled to endergonic reactions, often via phosphorylation of a substrate or protein."
+   },
+   {
+    "front": "Oxidation vs reduction (OIL RIG)",
+    "back": "Oxidation is loss of electrons; reduction is gain. In respiration glucose is oxidized and O2 is reduced; NAD+ is reduced to NADH as it carries electrons."
+   },
+   {
+    "front": "What is osmosis, and what happens to an animal cell in a hypotonic solution?",
+    "back": "Osmosis is diffusion of water across a selectively permeable membrane toward higher solute concentration. In a hypotonic solution water enters and an animal cell swells and may lyse."
+   },
+   {
+    "front": "Light reactions vs Calvin cycle in photosynthesis",
+    "back": "Light reactions (thylakoid membranes) split water, release O2 and make ATP and NADPH. The Calvin cycle (stroma) uses that ATP and NADPH to fix CO2 into sugar via rubisco."
+   },
+   {
+    "front": "What is a receptor tyrosine kinase?",
+    "back": "A membrane receptor that dimerizes when a signal binds, then phosphorylates tyrosines on itself, creating docking sites that start intracellular signalling cascades such as Ras/MAP kinase."
+   },
+   {
+    "front": "What is a second messenger? Give an example.",
+    "back": "A small intracellular molecule that relays and amplifies a signal from a membrane receptor, e.g. cAMP made by adenylyl cyclase after G protein activation, or Ca2+."
+   }
+  ]
+ },
+ {
+  "school_key": "mcmaster.ca",
+  "course_code": "CHEM 1A03",
+  "course_name": "Introductory Chemistry I",
+  "source_url": "https://academiccalendars.romcmaster.ca/preview_course_nopop.php?catoid=53&coid=265327",
+  "name": "CHEM 1A03 Exam Review: Bonding, Molecular Structure, Intermolecular Forces and Phase Changes",
+  "look": {
+   "color": "#EA580C",
+   "icon": "chem"
+  },
+  "cards": [
+   {
+    "front": "Mini-problem: how many moles are in 9.0 g of water (M = 18.0 g/mol)?",
+    "back": "n = m/M = 9.0 g / 18.0 g/mol = 0.50 mol."
+   },
+   {
+    "front": "How do you find the limiting reagent?",
+    "back": "Convert each reactant to moles, divide by its stoichiometric coefficient, and the smallest result identifies the limiting reagent, which sets the maximum product."
+   },
+   {
+    "front": "Define molarity and give a dilution formula.",
+    "back": "Molarity = moles of solute per litre of solution (mol/L). For dilution, C1V1 = C2V2."
+   },
+   {
+    "front": "What is electronegativity and what is its periodic trend?",
+    "back": "The ability of an atom in a bond to attract shared electrons. It increases across a period and decreases down a group; fluorine is the most electronegative."
+   },
+   {
+    "front": "Rank bond types by electronegativity difference.",
+    "back": "Roughly: below about 0.4 nonpolar covalent, about 0.4 to 1.8 polar covalent, and large differences (about 2 or more) mostly ionic. It is a continuum, not sharp cutoffs."
+   },
+   {
+    "front": "What is lattice energy and what increases it?",
+    "back": "The energy released when gaseous ions form an ionic solid (or needed to separate it). It increases with higher ion charges and smaller ion sizes, e.g. MgO > NaCl."
+   },
+   {
+    "front": "Exceptions to the octet rule",
+    "back": "Odd-electron species (NO), incomplete octets (BF3, boron with 6 electrons), and expanded octets for period 3 and below (SF6, PCl5)."
+   },
+   {
+    "front": "Draw-in-words: the Lewis structure of CO2",
+    "back": "O=C=O: carbon double-bonded to each oxygen, each oxygen with two lone pairs, no lone pairs on carbon; linear, 180 degrees."
+   },
+   {
+    "front": "VSEPR shape and bond angle of H2O",
+    "back": "4 electron domains (2 bonds, 2 lone pairs): tetrahedral electron geometry, bent molecular shape, angle about 104.5 degrees."
+   },
+   {
+    "front": "Why does a lone pair compress bond angles?",
+    "back": "Lone pairs occupy more space near the central atom than bonding pairs, so they repel bonding pairs more strongly. Repulsion order: lone-lone > lone-bond > bond-bond."
+   },
+   {
+    "front": "VSEPR: shape of PCl5 and of ClF3",
+    "back": "PCl5 (5 domains, no lone pairs) is trigonal bipyramidal. ClF3 (5 domains, 2 lone pairs in equatorial positions) is T-shaped."
+   },
+   {
+    "front": "Hybridization of carbon in ethane, ethene and ethyne",
+    "back": "Ethane: sp3. Ethene: sp2 (one pi bond). Ethyne: sp (two pi bonds)."
+   },
+   {
+    "front": "Bond length and bond energy vs bond order",
+    "back": "Higher bond order gives shorter and stronger bonds: C-C (longest, weakest) > C=C > C≡C (shortest, strongest)."
+   },
+   {
+    "front": "Estimating delta H of reaction from bond enthalpies",
+    "back": "delta H is approximately the sum of bond energies broken minus the sum of bond energies formed. Breaking bonds costs energy; forming bonds releases energy."
+   },
+   {
+    "front": "Name the intermolecular forces from usually weakest to strongest.",
+    "back": "London dispersion forces, dipole-dipole forces, hydrogen bonding (ion-dipole forces are stronger still, between ions and polar molecules)."
+   },
+   {
+    "front": "What is required for hydrogen bonding?",
+    "back": "An H atom covalently bonded to N, O or F, attracted to a lone pair on another N, O or F atom."
+   },
+   {
+    "front": "What determines the strength of London dispersion forces?",
+    "back": "Polarizability, which increases with the number of electrons (molar mass) and with more elongated shapes; e.g. n-pentane boils higher than neopentane."
+   },
+   {
+    "front": "Why does water have an unusually high boiling point for its size?",
+    "back": "Each H2O molecule can form extensive hydrogen bonds with neighbours, which require more energy to overcome than dispersion forces in similar-sized molecules like H2S."
+   },
+   {
+    "front": "Explain why ice floats.",
+    "back": "Hydrogen bonds lock ice into an open hexagonal lattice that is less dense than liquid water, where molecules pack more closely."
+   },
+   {
+    "front": "Relationship between intermolecular forces and vapour pressure",
+    "back": "Stronger intermolecular forces mean fewer molecules escape to the gas phase, so vapour pressure is lower and the boiling point is higher."
+   },
+   {
+    "front": "Define normal boiling point.",
+    "back": "The temperature at which a liquid's vapour pressure equals 1 atm (101.325 kPa)."
+   },
+   {
+    "front": "Heat for a temperature change vs a phase change",
+    "back": "Temperature change within one phase: q = m·c·delta T. Phase change at constant temperature: q = n·delta H (e.g. delta H_fus or delta H_vap)."
+   },
+   {
+    "front": "Mini-problem: heat to warm 100 g of water from 20 C to 30 C (c = 4.18 J/g·C)?",
+    "back": "q = (100 g)(4.18 J/g·C)(10 C) = 4180 J = 4.18 kJ."
+   },
+   {
+    "front": "On a heating curve, why is the temperature flat during melting?",
+    "back": "Added energy goes into overcoming intermolecular attractions (potential energy), not into raising kinetic energy, so temperature stays constant until the phase change is complete."
+   },
+   {
+    "front": "What do the triple point and critical point on a phase diagram represent?",
+    "back": "Triple point: the T and P where solid, liquid and gas coexist. Critical point: beyond this T and P, liquid and gas become indistinguishable (supercritical fluid)."
+   },
+   {
+    "front": "Why does the solid-liquid line on water's phase diagram have a negative slope?",
+    "back": "Because ice is less dense than liquid water, increasing pressure favours the liquid, so the melting point decreases slightly as pressure rises."
+   },
+   {
+    "front": "Clausius-Clapeyron equation (two-point form)",
+    "back": "ln(P2/P1) = -(delta H_vap/R)·(1/T2 - 1/T1), relating vapour pressure to temperature; T in kelvin and R = 8.314 J/(mol·K)."
+   },
+   {
+    "front": "Is enthalpy of vaporization usually larger than enthalpy of fusion? Why?",
+    "back": "Yes. Vaporization must separate molecules almost completely, while melting only loosens the arrangement, so delta H_vap is much larger than delta H_fus."
+   }
+  ]
+ },
+ {
+  "school_key": "mcmaster.ca",
+  "course_code": "ECON 1B03",
+  "course_name": "Introductory Microeconomics",
+  "source_url": "https://academiccalendars.romcmaster.ca/preview_course_nopop.php?catoid=58&coid=291530",
+  "name": "ECON 1B03 Exam Review: Supply and Demand, Elasticity, Efficiency and Market Structures",
+  "look": {
+   "color": "#C79A12",
+   "icon": "econ"
+  },
+  "cards": [
+   {
+    "front": "What is opportunity cost?",
+    "back": "The value of the next best alternative given up when making a choice. For example, the opportunity cost of attending class is what you would have earned working those hours."
+   },
+   {
+    "front": "Absolute vs comparative advantage",
+    "back": "Absolute advantage: producing more output with the same resources. Comparative advantage: producing at a lower opportunity cost. Gains from trade come from comparative advantage."
+   },
+   {
+    "front": "Mini-problem: A can make 10 shirts or 5 hats per hour; B can make 4 shirts or 4 hats. Who has the comparative advantage in hats?",
+    "back": "A's cost of 1 hat = 2 shirts; B's cost of 1 hat = 1 shirt. B has the lower opportunity cost, so B has the comparative advantage in hats and A in shirts."
+   },
+   {
+    "front": "What does a bowed-out (concave) production possibilities frontier indicate?",
+    "back": "Increasing opportunity cost: resources are not equally suited to both goods, so producing more of one good requires giving up increasing amounts of the other."
+   },
+   {
+    "front": "Change in quantity demanded vs change in demand",
+    "back": "A change in the good's own price moves along the demand curve (change in quantity demanded). Changes in income, tastes, related prices, expectations or number of buyers shift the whole curve (change in demand)."
+   },
+   {
+    "front": "Normal vs inferior goods",
+    "back": "Demand for a normal good rises when income rises; demand for an inferior good falls when income rises (e.g. instant noodles)."
+   },
+   {
+    "front": "Substitutes vs complements",
+    "back": "Substitutes: a rise in the price of one increases demand for the other (coffee and tea). Complements: a rise in the price of one decreases demand for the other (printers and ink)."
+   },
+   {
+    "front": "Effect on equilibrium: supply increases while demand is unchanged",
+    "back": "Equilibrium price falls and equilibrium quantity rises."
+   },
+   {
+    "front": "If supply and demand both increase, what happens to price and quantity?",
+    "back": "Quantity definitely rises; the effect on price is ambiguous and depends on which shift is larger."
+   },
+   {
+    "front": "Formula for price elasticity of demand (midpoint method)",
+    "back": "Ed = (% change in Qd)/(% change in P), where each % change = change/average of old and new values. Usually reported as an absolute value."
+   },
+   {
+    "front": "Elastic vs inelastic demand and total revenue",
+    "back": "If |Ed| > 1 (elastic), a price cut raises total revenue. If |Ed| < 1 (inelastic), a price cut lowers total revenue. At |Ed| = 1, revenue is maximized."
+   },
+   {
+    "front": "Determinants of price elasticity of demand",
+    "back": "More substitutes, a larger share of the budget, a longer time horizon and luxury status make demand more elastic; necessities with few substitutes are inelastic."
+   },
+   {
+    "front": "What does a negative cross-price elasticity indicate?",
+    "back": "The goods are complements. A positive cross-price elasticity indicates substitutes."
+   },
+   {
+    "front": "Consumer surplus and producer surplus",
+    "back": "Consumer surplus is willingness to pay minus price (area below demand, above price). Producer surplus is price minus marginal cost (area above supply, below price)."
+   },
+   {
+    "front": "Effect of a binding price ceiling (e.g. rent control)",
+    "back": "Set below equilibrium, it creates a shortage (Qd > Qs), reduces quantity traded and causes deadweight loss, along with waiting lines or black markets."
+   },
+   {
+    "front": "Effect of a binding price floor (e.g. a minimum wage above equilibrium)",
+    "back": "Set above equilibrium, it creates a surplus (Qs > Qd); in the labour market this surplus is unemployment."
+   },
+   {
+    "front": "Who bears more of a tax burden?",
+    "back": "The side of the market that is more inelastic bears more of the tax, regardless of whether the tax is legally imposed on buyers or sellers."
+   },
+   {
+    "front": "What is deadweight loss?",
+    "back": "The loss of total surplus from trades that would have been mutually beneficial but no longer occur, e.g. because of a tax, price control or monopoly."
+   },
+   {
+    "front": "Negative externality and the efficient outcome",
+    "back": "When production imposes external costs (pollution), the market overproduces because marginal social cost exceeds marginal private cost. A Pigouvian tax equal to the external cost restores efficiency."
+   },
+   {
+    "front": "Public good: two defining features",
+    "back": "Nonrival (one person's use does not reduce another's) and nonexcludable (people cannot easily be prevented from using it), which creates a free-rider problem."
+   },
+   {
+    "front": "Accounting profit vs economic profit",
+    "back": "Accounting profit = revenue - explicit costs. Economic profit = revenue - explicit costs - implicit (opportunity) costs. Zero economic profit still means a normal return."
+   },
+   {
+    "front": "What is the profit-maximizing rule for any firm?",
+    "back": "Produce where marginal revenue equals marginal cost (MR = MC)."
+   },
+   {
+    "front": "When should a perfectly competitive firm shut down in the short run?",
+    "back": "When price is below minimum average variable cost (P < AVC), because revenue does not even cover variable costs."
+   },
+   {
+    "front": "Long-run equilibrium in perfect competition",
+    "back": "Entry and exit drive economic profit to zero, so P = MC = minimum ATC; the market is both allocatively and productively efficient."
+   },
+   {
+    "front": "Why is a monopolist's marginal revenue below price?",
+    "back": "To sell an extra unit it must lower the price on all units sold (single-price monopoly), so MR < P and the MR curve lies below the demand curve."
+   },
+   {
+    "front": "Monopoly outcome compared with perfect competition",
+    "back": "A monopoly produces less output at a higher price (where MR = MC and P > MC), creating deadweight loss."
+   },
+   {
+    "front": "Prisoner's dilemma in oligopoly",
+    "back": "Each firm has a dominant strategy to cheat (e.g. cut price), so both end up worse off than if they had cooperated; this explains why cartels tend to be unstable."
+   }
+  ]
+ },
+ {
+  "school_key": "uwo.ca",
+  "course_code": "Psychology 1002A/B",
+  "course_name": "Psychology as a Natural Science",
+  "source_url": "https://www.westerncalendar.uwo.ca/Courses.cfm?CourseAcadCalendarID=MAIN_029880_1&SelectedCalendar=Live",
+  "name": "Psychology 1002 Exam Review: Biopsychology, Sensation and Perception, Learning and Cognition",
+  "look": {
+   "color": "#1D9BB8",
+   "icon": "psych"
+  },
+  "cards": [
+   {
+    "front": "Structuralism vs functionalism",
+    "back": "Structuralism (Wundt, Titchener) used introspection to break consciousness into basic elements. Functionalism (James) studied the purpose of mental processes in helping organisms adapt."
+   },
+   {
+    "front": "What was behaviourism's main claim about psychology?",
+    "back": "That psychology should study only observable behaviour and how the environment shapes it, not unobservable mental states (Watson, Skinner)."
+   },
+   {
+    "front": "Naturalistic observation: one strength and one weakness",
+    "back": "Strength: behaviour is seen in real settings, giving high external validity. Weakness: no control over variables, so causes cannot be identified, and observers may alter behaviour."
+   },
+   {
+    "front": "What is a placebo effect?",
+    "back": "An improvement caused by a person's expectation of treatment rather than by the treatment itself, which is why control groups often receive an inert placebo."
+   },
+   {
+    "front": "Central vs peripheral nervous system",
+    "back": "The CNS is the brain and spinal cord. The PNS includes all nerves outside it, divided into the somatic (voluntary muscles, senses) and autonomic (internal organs) systems."
+   },
+   {
+    "front": "What is a resting potential and its approximate value?",
+    "back": "The voltage across a neuron's membrane at rest, about -70 mV, maintained by unequal ion distribution and the sodium-potassium pump."
+   },
+   {
+    "front": "EPSP vs IPSP",
+    "back": "An excitatory postsynaptic potential depolarizes the membrane, making firing more likely; an inhibitory postsynaptic potential hyperpolarizes it, making firing less likely. The neuron sums them."
+   },
+   {
+    "front": "How is neurotransmitter action ended at the synapse?",
+    "back": "By reuptake into the presynaptic terminal, by enzymatic breakdown (e.g. acetylcholinesterase), or by diffusion away from the synapse."
+   },
+   {
+    "front": "Which neurotransmitter is the main inhibitory transmitter in the brain?",
+    "back": "GABA. Glutamate is the main excitatory neurotransmitter."
+   },
+   {
+    "front": "What do SSRIs do?",
+    "back": "Selective serotonin reuptake inhibitors block the reuptake of serotonin, leaving more of it in the synapse; they are used to treat depression."
+   },
+   {
+    "front": "Function of the cerebellum",
+    "back": "Coordinates movement, balance and timing, and supports motor learning."
+   },
+   {
+    "front": "Role of the hypothalamus",
+    "back": "Regulates hunger, thirst, body temperature and sexual behaviour, and controls the pituitary gland, linking the nervous and endocrine systems."
+   },
+   {
+    "front": "What did split-brain studies reveal?",
+    "back": "When the corpus callosum is cut, information shown only to the right hemisphere (left visual field) cannot be named aloud, because language is usually in the left hemisphere."
+   },
+   {
+    "front": "fMRI vs EEG",
+    "back": "fMRI measures blood-oxygen changes and gives good spatial resolution but poor timing. EEG measures electrical activity from the scalp and gives excellent timing but poor spatial resolution."
+   },
+   {
+    "front": "Monozygotic vs dizygotic twins in behavioural genetics",
+    "back": "MZ twins share about 100% of genes, DZ twins about 50%. If MZ twins are more similar on a trait than DZ twins, the trait has a genetic influence."
+   },
+   {
+    "front": "What does heritability mean, and what does it not mean?",
+    "back": "Heritability is the proportion of variation in a trait across a population that is due to genetic differences. It does not describe how much of one individual's trait is caused by genes."
+   },
+   {
+    "front": "Absolute threshold",
+    "back": "The minimum stimulus intensity a person can detect 50% of the time."
+   },
+   {
+    "front": "What does signal detection theory add to threshold measurement?",
+    "back": "It separates sensitivity from response bias, classifying responses as hits, misses, false alarms and correct rejections, since detection also depends on expectations and motivation."
+   },
+   {
+    "front": "Trichromatic vs opponent-process theory of colour vision",
+    "back": "Trichromatic: three cone types (short, medium, long wavelengths) combine to code colour. Opponent-process: later neurons code red-green, blue-yellow and black-white pairs, explaining afterimages. Both are correct at different stages."
+   },
+   {
+    "front": "Place theory vs frequency theory of pitch",
+    "back": "Place theory: different pitches stimulate different places on the basilar membrane (best for high pitches). Frequency theory: neuron firing rate matches sound frequency (best for low pitches)."
+   },
+   {
+    "front": "Name three Gestalt grouping principles.",
+    "back": "Proximity (near items group together), similarity (alike items group), and closure (we fill in gaps to see whole figures); others include continuity and common fate."
+   },
+   {
+    "front": "Bottom-up vs top-down processing",
+    "back": "Bottom-up processing builds perception from sensory features. Top-down processing uses knowledge, expectations and context to interpret sensory input."
+   },
+   {
+    "front": "Binocular depth cues vs monocular depth cues",
+    "back": "Binocular cues need both eyes: retinal disparity and convergence. Monocular cues work with one eye: linear perspective, interposition, relative size, texture gradient."
+   },
+   {
+    "front": "Positive reinforcement vs negative punishment",
+    "back": "Positive reinforcement adds a pleasant stimulus to increase a behaviour (praise). Negative punishment removes a pleasant stimulus to decrease a behaviour (taking away a phone)."
+   },
+   {
+    "front": "What is learned helplessness (Seligman)?",
+    "back": "After repeated uncontrollable aversive events, animals or people stop trying to escape even when escape becomes possible; it has been linked to depression."
+   },
+   {
+    "front": "Drive-reduction theory of motivation",
+    "back": "Physiological needs create aversive drive states (e.g. hunger), and behaviour is motivated to reduce the drive and return the body to homeostasis."
+   },
+   {
+    "front": "Yerkes-Dodson law",
+    "back": "Performance increases with arousal up to a moderate level and then declines; the optimal arousal level is lower for complex tasks."
+   },
+   {
+    "front": "Algorithm vs heuristic",
+    "back": "An algorithm is a step-by-step procedure guaranteed to find a solution if followed. A heuristic is a mental shortcut that is faster but can lead to errors."
+   },
+   {
+    "front": "Retrograde vs anterograde amnesia",
+    "back": "Retrograde amnesia is loss of memories formed before an injury. Anterograde amnesia is inability to form new long-term memories after the injury."
+   },
+   {
+    "front": "What is the misinformation effect (Loftus)?",
+    "back": "Misleading information presented after an event can distort memory of it, e.g. using the word 'smashed' led people to estimate higher speeds and falsely recall broken glass."
+   }
+  ]
+ },
+ {
+  "school_key": "uwo.ca",
+  "course_code": "Biology 1001A",
+  "course_name": "Biology for Science I",
+  "source_url": "https://www.westerncalendar.uwo.ca/Courses.cfm?CourseAcadCalendarID=MAIN_023016_1",
+  "name": "Biology 1001A Exam Review: Inheritance, Evolution and Ecology",
+  "look": {
+   "color": "#65A30D",
+   "icon": "bio"
+  },
+  "cards": [
+   {
+    "front": "Genotype vs phenotype",
+    "back": "Genotype is an organism's genetic makeup (its alleles); phenotype is its observable traits, which result from the genotype interacting with the environment."
+   },
+   {
+    "front": "State Mendel's law of segregation.",
+    "back": "Each organism carries two alleles for a gene, and these separate during gamete formation so each gamete receives only one allele."
+   },
+   {
+    "front": "State Mendel's law of independent assortment and when it applies.",
+    "back": "Alleles of different genes assort independently into gametes. It holds for genes on different chromosomes or far apart on the same chromosome."
+   },
+   {
+    "front": "Mini-problem: phenotypic ratio from a cross of Aa x Aa with complete dominance",
+    "back": "3 dominant : 1 recessive (genotypes 1 AA : 2 Aa : 1 aa)."
+   },
+   {
+    "front": "Mini-problem: phenotypic ratio from a dihybrid cross AaBb x AaBb",
+    "back": "9 : 3 : 3 : 1, assuming complete dominance and independent assortment."
+   },
+   {
+    "front": "What is a test cross?",
+    "back": "Crossing an individual with a dominant phenotype to a homozygous recessive individual. If any offspring show the recessive phenotype, the tested individual is heterozygous."
+   },
+   {
+    "front": "Incomplete dominance vs codominance",
+    "back": "Incomplete dominance: heterozygote shows an intermediate phenotype (red x white snapdragons give pink). Codominance: both alleles fully expressed (AB blood type)."
+   },
+   {
+    "front": "Why are X-linked recessive disorders more common in males?",
+    "back": "Males have one X chromosome (hemizygous), so a single recessive allele produces the phenotype, while females need two copies."
+   },
+   {
+    "front": "How do crossing over and independent assortment create genetic variation in meiosis?",
+    "back": "Crossing over in prophase I exchanges segments between homologous chromosomes; independent assortment in metaphase I randomly orients homologous pairs, producing new allele combinations."
+   },
+   {
+    "front": "What does a recombination frequency tell you about two genes?",
+    "back": "How far apart they are on a chromosome: higher frequency means farther apart. 1% recombination = 1 map unit (centimorgan); the maximum observed is 50% (unlinked)."
+   },
+   {
+    "front": "What is nondisjunction?",
+    "back": "Failure of homologous chromosomes or sister chromatids to separate properly in meiosis, producing gametes with an abnormal chromosome number (e.g. trisomy 21)."
+   },
+   {
+    "front": "Epistasis",
+    "back": "When one gene's alleles mask or modify the expression of another gene, e.g. in Labrador coat colour, the E gene determines whether pigment from the B gene is deposited."
+   },
+   {
+    "front": "Four conditions Darwin identified for natural selection",
+    "back": "Individuals vary in traits, some variation is heritable, more offspring are produced than can survive, and individuals with certain traits survive and reproduce more."
+   },
+   {
+    "front": "What is evolutionary fitness?",
+    "back": "An individual's relative reproductive success: the number of offspring it contributes to the next generation compared with others in the population."
+   },
+   {
+    "front": "List the conditions for Hardy-Weinberg equilibrium.",
+    "back": "No mutation, no gene flow, very large population (no drift), random mating and no natural selection."
+   },
+   {
+    "front": "Mini-problem: 16% of a population shows a recessive phenotype. Find p and q.",
+    "back": "q^2 = 0.16, so q = 0.4 and p = 1 - 0.4 = 0.6. Heterozygote frequency 2pq = 0.48."
+   },
+   {
+    "front": "Genetic drift: bottleneck vs founder effect",
+    "back": "Both are random changes in allele frequency in small populations. A bottleneck follows a drastic population reduction; the founder effect occurs when a few individuals start a new population."
+   },
+   {
+    "front": "Directional vs stabilizing vs disruptive selection",
+    "back": "Directional favours one extreme, stabilizing favours intermediate phenotypes, and disruptive favours both extremes over the middle."
+   },
+   {
+    "front": "What is sexual selection?",
+    "back": "Selection for traits that improve mating success, through competition within a sex (intrasexual) or choice by the other sex (intersexual), e.g. a peacock's tail."
+   },
+   {
+    "front": "Biological species concept and one limitation",
+    "back": "A species is a group of populations that can interbreed and produce fertile offspring in nature. It cannot be applied to asexual organisms or fossils."
+   },
+   {
+    "front": "Allopatric vs sympatric speciation",
+    "back": "Allopatric: a geographic barrier splits a population, which diverges. Sympatric: new species arise in the same area, e.g. by polyploidy in plants or habitat specialization."
+   },
+   {
+    "front": "Prezygotic vs postzygotic reproductive barriers",
+    "back": "Prezygotic barriers prevent fertilization (habitat, temporal, behavioural, mechanical, gametic isolation). Postzygotic barriers act after (hybrid inviability, sterility, breakdown)."
+   },
+   {
+    "front": "Homologous vs analogous structures",
+    "back": "Homologous structures share ancestry though function may differ (human arm, bat wing). Analogous structures have similar function from convergent evolution, not common ancestry (bird and insect wings)."
+   },
+   {
+    "front": "Exponential vs logistic population growth",
+    "back": "Exponential: dN/dt = rN, unlimited J-shaped growth. Logistic: dN/dt = rN(K - N)/K, growth slows as N approaches carrying capacity K, giving an S-shaped curve."
+   },
+   {
+    "front": "r-selected vs K-selected species",
+    "back": "r-selected: many small offspring, little parental care, rapid growth (insects, weeds). K-selected: few large offspring, high parental care, populations near carrying capacity (elephants)."
+   },
+   {
+    "front": "Density-dependent vs density-independent factors",
+    "back": "Density-dependent factors (competition, disease, predation) have stronger effects as population density rises. Density-independent factors (weather, fire) act regardless of density."
+   },
+   {
+    "front": "Competitive exclusion principle",
+    "back": "Two species competing for exactly the same limiting resources cannot coexist indefinitely; one will be excluded unless they partition resources (niche differentiation)."
+   },
+   {
+    "front": "Mutualism vs commensalism vs parasitism",
+    "back": "Mutualism: both benefit (+/+). Commensalism: one benefits, the other unaffected (+/0). Parasitism: one benefits at the other's expense (+/-)."
+   },
+   {
+    "front": "What is a keystone species?",
+    "back": "A species with a disproportionately large effect on community structure relative to its abundance, e.g. sea otters controlling sea urchins and protecting kelp forests."
+   },
+   {
+    "front": "Why is only about 10% of energy transferred between trophic levels?",
+    "back": "Most energy is lost as heat from metabolism, or is not eaten or not digested, so food chains are usually limited to a few levels."
+   }
+  ]
+ },
+ {
+  "school_key": "uwo.ca",
+  "course_code": "Economics 1021A/B",
+  "course_name": "Principles of Microeconomics",
+  "source_url": "https://westerncalendar.uwo.ca/Courses.cfm?ArchiveID=&CourseAcadCalendarID=HURON_022072_5&SelectedCalendar=Live",
+  "name": "Economics 1021 Exam Review: Consumer Choice, Costs, Competition, Monopoly and Factor Markets",
+  "look": {
+   "color": "#0D9488",
+   "icon": "econ"
+  },
+  "cards": [
+   {
+    "front": "What is the fundamental economic problem?",
+    "back": "Scarcity: wants exceed the limited resources available, so people and societies must make choices and face trade-offs."
+   },
+   {
+    "front": "Positive vs normative statements",
+    "back": "Positive statements describe what is and can be tested (a minimum wage rise reduces teen employment). Normative statements are value judgments about what ought to be."
+   },
+   {
+    "front": "What does a point inside the production possibilities frontier represent?",
+    "back": "An inefficient use of resources (unemployment or misallocation); more of one good could be produced without giving up any of the other."
+   },
+   {
+    "front": "What does the law of demand state, and why does it hold?",
+    "back": "Other things equal, a higher price lowers quantity demanded. It holds because of the substitution effect and the income effect."
+   },
+   {
+    "front": "What shifts the supply curve?",
+    "back": "Changes in input prices, technology, prices of related goods in production, expected future prices, number of sellers, and natural events. The good's own price does not shift supply."
+   },
+   {
+    "front": "Mini-problem: Qd = 100 - 2P and Qs = 20 + 2P. Find equilibrium.",
+    "back": "Set 100 - 2P = 20 + 2P, so 4P = 80 and P = 20. Q = 100 - 40 = 60."
+   },
+   {
+    "front": "Income elasticity of demand: what do the signs mean?",
+    "back": "Positive means a normal good (above 1 is a luxury, between 0 and 1 a necessity). Negative means an inferior good."
+   },
+   {
+    "front": "Price elasticity of supply and its main determinant",
+    "back": "Es = % change in Qs / % change in P. Supply is more elastic with more time to adjust and when inputs can easily be shifted into production."
+   },
+   {
+    "front": "Write the budget constraint and give its slope.",
+    "back": "Px·X + Py·Y = Income. With X on the horizontal axis the slope is -Px/Py, the market rate at which Y trades for X."
+   },
+   {
+    "front": "What does an indifference curve show, and why does it slope downward?",
+    "back": "All bundles giving the consumer the same utility. It slopes down because to stay equally well off, getting more of one good requires giving up some of the other."
+   },
+   {
+    "front": "Marginal rate of substitution (MRS)",
+    "back": "The rate at which a consumer is willing to give up Y for one more X while keeping utility constant; it equals the absolute slope of the indifference curve and usually diminishes."
+   },
+   {
+    "front": "Condition for the consumer's best affordable bundle",
+    "back": "The indifference curve is tangent to the budget line: MRS = Px/Py, or equivalently MUx/Px = MUy/Py (equal marginal utility per dollar)."
+   },
+   {
+    "front": "Substitution effect vs income effect of a price fall",
+    "back": "Substitution effect: the good is relatively cheaper, so buy more of it. Income effect: real income rises, so buy more if the good is normal, less if it is inferior."
+   },
+   {
+    "front": "What is the law of diminishing marginal returns?",
+    "back": "In the short run, adding more of a variable input (labour) to a fixed input (capital) eventually causes the marginal product of each extra unit to fall."
+   },
+   {
+    "front": "How are AFC, AVC, ATC and MC defined?",
+    "back": "AFC = TFC/Q, AVC = TVC/Q, ATC = TC/Q = AFC + AVC, MC = change in TC / change in Q."
+   },
+   {
+    "front": "Why does the MC curve cross ATC and AVC at their minimum points?",
+    "back": "When marginal cost is below an average, it pulls the average down; when above, it pulls it up. So MC intersects each average curve at its lowest point."
+   },
+   {
+    "front": "Economies of scale vs diseconomies of scale",
+    "back": "Economies of scale: long-run average cost falls as output rises (specialization). Diseconomies of scale: LRAC rises at large output (management and coordination problems)."
+   },
+   {
+    "front": "Short run vs long run in production",
+    "back": "In the short run at least one input (usually plant size) is fixed. In the long run all inputs are variable, including the number of firms."
+   },
+   {
+    "front": "Four characteristics of perfect competition",
+    "back": "Many firms and buyers, identical products, no barriers to entry or exit, and full information; each firm is a price taker with horizontal demand at the market price."
+   },
+   {
+    "front": "Which part of the cost curve is a competitive firm's short-run supply curve?",
+    "back": "The portion of the marginal cost curve above the minimum of average variable cost."
+   },
+   {
+    "front": "Mini-problem: a competitive firm sells at P = $10 where MC = $10, ATC = $8, and Q = 50. Find profit.",
+    "back": "Profit = (P - ATC) x Q = (10 - 8) x 50 = $100 in economic profit, which will attract entry in the long run."
+   },
+   {
+    "front": "Sources of monopoly power (barriers to entry)",
+    "back": "Natural barriers (economies of scale making a natural monopoly, control of a key resource), legal barriers (patents, copyrights, licences, public franchises)."
+   },
+   {
+    "front": "What is price discrimination, and what conditions are needed?",
+    "back": "Charging different customers different prices for the same good, not based on cost differences. The firm needs market power, the ability to identify groups with different willingness to pay, and to prevent resale."
+   },
+   {
+    "front": "Monopolistic competition in the long run",
+    "back": "Free entry drives economic profit to zero, but because demand slopes down, firms produce where P = ATC above minimum ATC, so there is excess capacity and a markup over MC."
+   },
+   {
+    "front": "How does a competitive firm decide how much labour to hire?",
+    "back": "Hire until the value of the marginal product of labour (P x MPL) equals the wage rate."
+   },
+   {
+    "front": "Why might income be unequally distributed in a market economy?",
+    "back": "Differences in skills and human capital, wealth and inherited assets, compensating wage differentials, discrimination and market power."
+   },
+   {
+    "front": "What does the Lorenz curve show?",
+    "back": "The cumulative share of income received by cumulative shares of households. The further it bows from the 45-degree line of perfect equality, the greater the inequality (the Gini coefficient measures this gap)."
+   }
+  ]
+ },
+ {
+  "school_key": "uwo.ca",
+  "course_code": "Calculus 1000A/B",
+  "course_name": "Calculus I",
+  "source_url": "https://www.westerncalendar.uwo.ca/Courses.cfm?CourseAcadCalendarID=MAIN_013890_1",
+  "name": "Calculus 1000 Exam Review: Derivatives, L'Hospital's Rule, Definite Integrals and Applications",
+  "look": {
+   "color": "#3B6FE0",
+   "icon": "calc"
+  },
+  "cards": [
+   {
+    "front": "Evaluate lim (x -> infinity) (3x^2 + 1)/(5x^2 - x).",
+    "back": "Divide by x^2: (3 + 1/x^2)/(5 - 1/x) -> 3/5."
+   },
+   {
+    "front": "Evaluate lim (x -> 0) (e^x - 1)/x.",
+    "back": "1. It is 0/0, and L'Hospital's Rule gives lim e^x/1 = 1."
+   },
+   {
+    "front": "Derivative of ln(x^2 + 1)",
+    "back": "2x/(x^2 + 1), by the chain rule."
+   },
+   {
+    "front": "Derivative of e^(3x) · x^2",
+    "back": "Product rule: 3e^(3x)·x^2 + 2x·e^(3x) = x·e^(3x)(3x + 2)."
+   },
+   {
+    "front": "Derivative of log base b of x",
+    "back": "1/(x ln b)."
+   },
+   {
+    "front": "Derivatives of sin x, cos x and sec x",
+    "back": "d/dx sin x = cos x; d/dx cos x = -sin x; d/dx sec x = sec x tan x."
+   },
+   {
+    "front": "Derivative of arccos x",
+    "back": "-1/sqrt(1 - x^2), for -1 < x < 1."
+   },
+   {
+    "front": "What are the domain and range of arcsin x and arctan x?",
+    "back": "arcsin: domain [-1, 1], range [-pi/2, pi/2]. arctan: domain all reals, range (-pi/2, pi/2)."
+   },
+   {
+    "front": "Evaluate arcsin(1/2) and arctan(1).",
+    "back": "arcsin(1/2) = pi/6; arctan(1) = pi/4."
+   },
+   {
+    "front": "Mini-problem: differentiate y = arctan(2x).",
+    "back": "y' = 2/(1 + 4x^2)."
+   },
+   {
+    "front": "Which indeterminate forms can L'Hospital's Rule be applied to directly?",
+    "back": "Only 0/0 and infinity/infinity. Other forms (0·infinity, infinity - infinity, 1^infinity, 0^0, infinity^0) must first be rewritten as a quotient."
+   },
+   {
+    "front": "How do you evaluate a 1^infinity limit like lim (x -> infinity) (1 + 1/x)^x?",
+    "back": "Let y = (1 + 1/x)^x, so ln y = x ln(1 + 1/x) = ln(1 + 1/x)/(1/x), a 0/0 form that tends to 1. So y -> e^1 = e."
+   },
+   {
+    "front": "Evaluate lim (x -> 0+) x ln x.",
+    "back": "Rewrite as ln x/(1/x) (infinity/infinity form). L'Hospital: (1/x)/(-1/x^2) = -x -> 0."
+   },
+   {
+    "front": "Common L'Hospital pitfall",
+    "back": "Applying it when the limit is not indeterminate, or using the quotient rule on f/g instead of differentiating numerator and denominator separately."
+   },
+   {
+    "front": "Riemann sum definition of the definite integral",
+    "back": "Integral from a to b of f(x) dx = lim (n -> infinity) of sum from i = 1 to n of f(x_i*)·delta x, where delta x = (b - a)/n."
+   },
+   {
+    "front": "Fundamental Theorem of Calculus, Part 1",
+    "back": "If F(x) = integral from a to x of f(t) dt with f continuous, then F'(x) = f(x)."
+   },
+   {
+    "front": "Mini-problem: find d/dx of the integral from 0 to x^2 of cos(t) dt.",
+    "back": "By FTC Part 1 and the chain rule: cos(x^2)·2x."
+   },
+   {
+    "front": "Fundamental Theorem of Calculus, Part 2",
+    "back": "If F is any antiderivative of a continuous f on [a, b], then the integral from a to b of f(x) dx = F(b) - F(a)."
+   },
+   {
+    "front": "Evaluate the integral from 0 to pi of sin x dx.",
+    "back": "[-cos x] from 0 to pi = -cos(pi) + cos(0) = 1 + 1 = 2."
+   },
+   {
+    "front": "Basic antiderivatives: x^n, 1/x, e^x",
+    "back": "x^(n+1)/(n+1) + C for n not equal to -1; ln|x| + C; e^x + C."
+   },
+   {
+    "front": "Antiderivatives of 1/(1 + x^2) and 1/sqrt(1 - x^2)",
+    "back": "arctan x + C and arcsin x + C."
+   },
+   {
+    "front": "How does u-substitution work? Integrate 2x·cos(x^2) dx.",
+    "back": "Let u = x^2, du = 2x dx, so the integral becomes integral of cos u du = sin u + C = sin(x^2) + C."
+   },
+   {
+    "front": "When changing variables in a definite integral, what must you do with the limits?",
+    "back": "Either convert the limits to u-values (u(a) and u(b)) or substitute back to x before evaluating with the original limits. Do not mix the two."
+   },
+   {
+    "front": "Area between two curves",
+    "back": "Area = integral from a to b of [top function - bottom function] dx, where a and b are often the intersection points; split the integral if the curves cross."
+   },
+   {
+    "front": "Mini-problem: area between y = x and y = x^2 on [0, 1]",
+    "back": "Integral from 0 to 1 of (x - x^2) dx = 1/2 - 1/3 = 1/6."
+   },
+   {
+    "front": "Disk method formula for volume of revolution about the x-axis",
+    "back": "V = pi · integral from a to b of [f(x)]^2 dx."
+   },
+   {
+    "front": "Washer method formula",
+    "back": "V = pi · integral from a to b of ([R(x)]^2 - [r(x)]^2) dx, where R is the outer radius and r the inner radius."
+   },
+   {
+    "front": "Mini-problem: volume when y = sqrt(x) on [0, 4] is rotated about the x-axis",
+    "back": "V = pi · integral from 0 to 4 of x dx = pi · (16/2) = 8·pi."
+   },
+   {
+    "front": "Does the integral of f from a to b always equal area?",
+    "back": "No. It gives net signed area: regions below the x-axis count as negative. Use |f(x)| to get total area."
+   }
+  ]
+ }
+]

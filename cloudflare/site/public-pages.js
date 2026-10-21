@@ -26,14 +26,21 @@ export function slugify(s){
 export const codeOf = s => { const x = String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, ""); return x.length === 8 ? x.slice(0, 4) + "-" + x.slice(4) : ""; };
 export const urlCode = code => String(code || "").replace(/-/g, "").toLowerCase();
 export const itemPath = (section, name, code) => `/${section}/${slugify(name)}-${urlCode(code)}`;
+// A course code as a key ("BIOL 201" -> BIOL201). Same rules as public.sbs_course_key (supabase-sharing.sql) and the app's codeKey.
+const NOT_CODE = /^(GRADE|GR|YEAR|YR|UNIT|WEEK|WK|CHAPTER|CH|LAB|ROOM|PAGE|PART|LESSON|TERM|SEM|CLASS|PERIOD|QUIZ|TEST|EXAM|MIDTERM|FINAL|LECTURE|LEC|MODULE|TOPIC|SECTION|SEC|GROUP|TEAM|DAY|SET|DECK|LEVEL|NOTE|NOTES|VERSION|STEP|ROUND|BOOK|VOL|NO|NUMBER|COVID)$/;
 export const courseKey = s => {
-  const m = String(s || "").match(/([A-Za-z]{2,8})[\s._-]*([0-9]{2,5}[A-Za-z]{0,2})/);
-  if (m && !/^(grade|gr|year|yr|unit|week|wk|chapter|ch|lab|room|page|part|lesson|term|sem|class|period)$/i.test(m[1])) return (m[1] + m[2]).toUpperCase();   // (Grade 12 isn't a code)
-  const h = String(s || "").match(/\b([A-Za-z]{3})[\s-]?([1-4])([A-Za-z][A-Za-z0-9]?)\b/);   // high school codes like Ontario's SBI4U
+  s = String(s || ""); let m;
+  if ((m = s.match(/(?:^|[^0-9])([0-9]{2})[:. -]([0-9]{3})[:. -]([0-9]{3})(?![0-9])/))) return m[1] + m[2] + m[3];   // all numbers: Rutgers' 01:119:115
+  if ((m = s.match(/(?:^|[^A-Za-z])([A-Z]{2,8})-([A-Z]{2})\s*([0-9]{1,4}[A-Z]?)(?![A-Za-z0-9])/))) return m[1] + m[2] + m[3];   // NYU's PSYCH-UA 1
+  if ((m = s.match(/(?:^|[^A-Za-z])([A-Za-z]{2,8})[\s._-]*([0-9][A-Za-z][0-9]{2}|[0-9]{2,5}[A-Za-z]{0,2})/)) && (/^[0-9]{3}/.test(m[2]) || !NOT_CODE.test(m[1].toUpperCase()))) return (m[1] + m[2]).toUpperCase();   // BIOL 201, McMaster's 1A03 (but not Grade 12)
+  if ((m = s.match(/(?:^|[^A-Za-z])([A-Za-z]{9,12})\s+([0-9]{4}[A-Za-z]?)(?![0-9])/))) return (m[1] + m[2]).toUpperCase();   // Western's Psychology 1002A
+  if ((m = s.match(/(?:^|[^A-Za-z0-9])([A-Z]{2,8})[\s._-]?([0-9][A-Z]?)(?![A-Za-z0-9])/)) && !NOT_CODE.test(m[1])) return m[1] + m[2];   // short ones in capitals: ECON 1, CHEM 1A, SBI4U
+  if ((m = s.match(/(?:^|[^A-Za-z0-9])([A-Z])\s?([0-9]{3}[A-Z]?)(?![A-Za-z0-9])/))) return m[1] + m[2];   // one-letter subjects: UT Austin's M 408C
+  const h = s.match(/\b([A-Za-z]{3})[\s-]?([1-4])([A-Za-z][A-Za-z0-9]?)\b/);   // high school codes like Ontario's SBI4U
   return h ? (h[1] + h[2] + h[3]).toUpperCase() : "";
 };
-export const courseSlug = key => { const m = String(key || "").match(/^([A-Z]+)([0-9].*)$/); return m ? (m[1] + "-" + m[2]).toLowerCase() : String(key || "").toLowerCase(); };
-export const courseLabelOf = key => { const m = String(key || "").match(/^([A-Z]+)([0-9].*)$/); return m ? m[1] + " " + m[2] : key; };
+export const courseSlug = key => { if (/^[0-9]{8}$/.test(key || "")) return key.slice(0, 2) + "-" + key.slice(2, 5) + "-" + key.slice(5); const m = String(key || "").match(/^([A-Z]+)([0-9].*)$/); return m ? (m[1] + "-" + m[2]).toLowerCase() : String(key || "").toLowerCase(); };
+export const courseLabelOf = key => { if (/^[0-9]{8}$/.test(key || "")) return key.slice(0, 2) + ":" + key.slice(2, 5) + ":" + key.slice(5); const m = String(key || "").match(/^([A-Z]+)([0-9].*)$/); return m ? m[1] + " " + m[2] : key; };
 const clip = (s, n) => { s = String(s || "").replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1).replace(/\s+\S*$/, "") + "…" : s; };
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many || one + "s"}`;
 const jsonLd = o => `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026")}</script>`;
@@ -166,7 +173,7 @@ async function indexPage(env, section, url, origin){
 }
 
 async function coursePage(env, section, slug, url, origin){
-  const K = KINDS[section], key = courseKey(slug.replace(/-/g, " "));
+  const K = KINDS[section], key = courseKey(slug.replace(/-/g, " ").toUpperCase());
   if (!key) return null;
   if (courseSlug(key) !== slug) return Response.redirect(`${origin}/${section}/course/${courseSlug(key)}`, 301);
   const pageNo = Math.max(1, Math.min(100, parseInt(url.searchParams.get("page") || "1", 10) || 1));

@@ -6,6 +6,8 @@
 const fs = require("fs"), path = require("path");
 const root = path.join(__dirname, ".."), dir = path.join(root, "seed-sets"), LIMIT = 760000;
 const COLORS = ["#3B6FE0","#1E9E74","#E0673B","#9A4FD1","#D6386F","#1D9BB8","#C79A12","#5E6B7E","#DC2626","#16A34A","#65A30D","#0D9488","#4F46E5","#C026D3","#EA580C","#92400E","#334155"];
+// The app's built-in course icons (cloudflare/site/course-icons.js): every set is published with one of them and one of COLORS
+const ICONS = Object.keys(JSON.parse(fs.readFileSync(path.join(root, "cloudflare", "site", "course-icons.js"), "utf8").match(/export const ICONS = (\{.*\});/)[1]));
 const clean = s => String(s == null ? "" : s).replace(/[—]/g, " - ").replace(/\s+/g, " ").trim();
 const slug = s => clean(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const q = s => "'" + String(s).replace(/'/g, "''") + "'";
@@ -19,7 +21,8 @@ function load(){
       const id = "seed:" + slug(s.school_key) + ":" + slug(s.course_code);
       if (!s.school_key || !s.course_code || !s.name || uniq.length < 10 || seen.has(id)) { console.warn("skipped", f, s.course_code, s.school_key, uniq.length); continue; }
       seen.add(id);
-      const look = s.look && COLORS.includes(String(s.look.color).toUpperCase()) && /^[a-z]{2,12}$/.test(s.look.icon || "") ? {color: s.look.color.toUpperCase(), icon: s.look.icon} : null;
+      const look = s.look && COLORS.includes(String(s.look.color).toUpperCase()) && ICONS.includes(s.look.icon) ? {color: s.look.color.toUpperCase(), icon: s.look.icon} : null;
+      if (!look) { console.warn("skipped (needs a colour and icon from the app's lists)", f, s.course_code, JSON.stringify(s.look)); continue; }
       sets.push({id, school: s.school_key, code: clean(s.course_code), course: clean(s.course_name), src: s.source_url || "", name: clean(s.name).slice(0, 120), look,
         cards: uniq.map((c, i) => ({id: slug(s.course_code) + "-" + (i + 1), front: c.front, back: c.back}))});
     }
@@ -64,7 +67,7 @@ end $f$;
   let cur = [], size = 0;
   for (const s of sets) {
     const data = {v: 1, app: "studyboard", type: "deck", name: s.name, course: {code: s.code, name: s.course}, cards: s.cards, quizzes: [], seed: 1};
-    if (s.look) data.look = s.look;
+    data.look = s.look;
     const st = `select pg_temp.sb_seed(${q(s.id)}, ${q(s.school)}, ${q(s.code)}, ${q(s.name)}, ${q(JSON.stringify(data))}::jsonb);   -- ${s.src.replace(/\n/g, " ")}\n`;
     if (cur.length && size + st.length > LIMIT - 4000) { parts.push(cur); cur = []; size = 0; }
     cur.push(st); size += Buffer.byteLength(st);
@@ -72,7 +75,7 @@ end $f$;
   if (cur.length) parts.push(cur);
   return {sets, files: parts.map((p, i) => [i ? `supabase-seed-sets-${i + 1}.sql` : "supabase-seed-sets.sql", head(i + 1).replace("PARTS", parts.length) + "\n" + p.join("")])};
 }
-module.exports = {build, load};
+module.exports = {build, load, ICONS, COLORS};
 if (require.main === module) {
   const {sets, files} = build();
   for (const f of fs.readdirSync(root).filter(f => /^supabase-seed-sets(-\d+)?\.sql$/.test(f))) fs.unlinkSync(path.join(root, f));

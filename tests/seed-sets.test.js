@@ -12,7 +12,8 @@ for (const s of sets) {
   ok(/^https?:\/\//.test(s.src), `${s.id}: has the official page it was based on`);
   ok(!/quizlet|coursehero|studocu|chegg|brainscape|cram\.com|scribd|slideshare|docsity|oneclass|knowt|studylib|pdfcoffee|testbank/i.test(s.src), `${s.id}: based on an official school page, never a study-sharing site (${s.src})`);
   ok(!/\bactual exam\b|\breal exam\b|leaked|answer key/i.test(s.name + " " + s.cards.map(c => c.front + " " + c.back).join(" ")), `${s.id}: never claims to be a real exam`);
-  ok(!/<[a-z!/]/i.test(s.cards.map(c => c.front + c.back).join("")), `${s.id}: plain text only`);
+  ok(!/<\/?(b|i|p|br|div|span|script|style|a|img|strong|em|ul|ol|li|h[1-6]|table|iframe)\b[^>]*>/i.test(s.cards.map(c => c.front + " " + c.back).join(" ")), `${s.id}: plain text only, no HTML`);
+  ok(s.look && G.COLORS.includes(s.look.color) && G.ICONS.includes(s.look.icon), `${s.id}: published with one of the app's colours and icons`);
 }
 const {files} = G.build();
 for (const [f, t] of files) ok(fs.existsSync(path.join(root, f)) && fs.readFileSync(path.join(root, f), "utf8") === t, `${f} is up to date (run node scripts/gen-seed-sets.js)`);

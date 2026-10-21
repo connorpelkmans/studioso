@@ -1,0 +1,1187 @@
+[
+ {
+  "school_key": "uiuc.edu",
+  "course_code": "PSYC 100",
+  "course_name": "Intro Psych",
+  "source_url": "https://catalog.illinois.edu/courses-of-instruction/psyc/",
+  "name": "PSYC 100 Exam Review: Research Methods, Brain, Learning, Memory and Personality",
+  "look": {
+   "color": "#9A4FD1",
+   "icon": "psych"
+  },
+  "cards": [
+   {
+    "front": "Independent variable vs dependent variable",
+    "back": "The independent variable is what the experimenter manipulates; the dependent variable is the outcome that is measured to see whether it changed."
+   },
+   {
+    "front": "Why does correlation not imply causation?",
+    "back": "Two correlated variables may both be driven by a third variable, or the causal direction may run the other way. Only a controlled experiment with random assignment supports causal claims."
+   },
+   {
+    "front": "Random sampling vs random assignment",
+    "back": "Random sampling picks participants from a population so results generalize. Random assignment places participants into conditions by chance so groups are equivalent and causal conclusions are possible."
+   },
+   {
+    "front": "What is a double-blind study and why use it?",
+    "back": "Neither participants nor the researchers collecting data know who is in which condition. It reduces placebo effects and experimenter bias."
+   },
+   {
+    "front": "What does a correlation coefficient of r = -0.80 tell you?",
+    "back": "A strong negative linear relationship: as one variable increases, the other tends to decrease. The sign gives direction and the absolute value gives strength."
+   },
+   {
+    "front": "Operational definition",
+    "back": "A precise statement of how a variable will be measured or manipulated in a study, e.g. defining aggression as the number of times a child hits a doll in 10 minutes."
+   },
+   {
+    "front": "Parts of a neuron and the direction a signal travels",
+    "back": "Dendrites receive signals, the cell body integrates them, the axon carries the action potential away, and axon terminals release neurotransmitter into the synapse."
+   },
+   {
+    "front": "What is an action potential?",
+    "back": "A brief all-or-none electrical impulse that travels down the axon when the neuron's membrane reaches threshold, caused by sodium ions rushing in and potassium ions flowing out."
+   },
+   {
+    "front": "Role of the myelin sheath",
+    "back": "A fatty insulating layer around many axons that speeds signal conduction. Its breakdown is the hallmark of multiple sclerosis."
+   },
+   {
+    "front": "Dopamine vs serotonin: main associations",
+    "back": "Dopamine: reward, motivation and movement (low levels in Parkinson's disease). Serotonin: mood, sleep and appetite (low levels linked to depression)."
+   },
+   {
+    "front": "Functions of the four cerebral lobes",
+    "back": "Frontal: planning, decision making and motor control. Parietal: touch and spatial processing. Temporal: hearing and language comprehension. Occipital: vision."
+   },
+   {
+    "front": "Broca's area vs Wernicke's area",
+    "back": "Broca's area (left frontal lobe) supports speech production; damage gives halting, effortful speech. Wernicke's area (left temporal lobe) supports comprehension; damage gives fluent but meaningless speech."
+   },
+   {
+    "front": "Functions of the hippocampus and amygdala",
+    "back": "The hippocampus is key for forming new explicit long-term memories. The amygdala processes emotion, especially fear."
+   },
+   {
+    "front": "Sympathetic vs parasympathetic nervous system",
+    "back": "Sympathetic: fight-or-flight arousal (faster heart rate, dilated pupils). Parasympathetic: rest-and-digest calming that conserves energy."
+   },
+   {
+    "front": "Sensation vs perception",
+    "back": "Sensation is detecting physical energy with sense receptors. Perception is the brain organizing and interpreting that input into meaningful experience."
+   },
+   {
+    "front": "Classical conditioning: define US, UR, CS and CR using Pavlov's dogs",
+    "back": "US = food, UR = salivation to food, CS = the tone after pairing with food, CR = salivation to the tone alone."
+   },
+   {
+    "front": "Extinction vs spontaneous recovery",
+    "back": "Extinction is the weakening of a conditioned response when the CS is presented without the US. Spontaneous recovery is the return of the weakened CR after a rest period."
+   },
+   {
+    "front": "Negative reinforcement vs punishment",
+    "back": "Negative reinforcement removes an unpleasant stimulus to increase a behavior (taking aspirin to remove a headache). Punishment decreases a behavior. They are not the same."
+   },
+   {
+    "front": "Which reinforcement schedule produces the most extinction-resistant behavior?",
+    "back": "Variable-ratio schedules, where reinforcement comes after an unpredictable number of responses (like slot machines), produce high steady responding that resists extinction."
+   },
+   {
+    "front": "What did Bandura's Bobo doll study show?",
+    "back": "Children who watched an adult act aggressively toward a doll were more likely to imitate that aggression, showing observational learning without direct reinforcement."
+   },
+   {
+    "front": "Three stages of the multi-store (Atkinson-Shiffrin) memory model",
+    "back": "Sensory memory (very brief), short-term or working memory (about 7 plus or minus 2 items, seconds without rehearsal), and long-term memory (large capacity, long lasting)."
+   },
+   {
+    "front": "Explicit vs implicit memory",
+    "back": "Explicit (declarative) memory is consciously recalled facts and events. Implicit (nondeclarative) memory is unconscious, such as skills, priming and conditioned responses."
+   },
+   {
+    "front": "Proactive vs retroactive interference",
+    "back": "Proactive: old learning disrupts recall of new information. Retroactive: new learning disrupts recall of old information."
+   },
+   {
+    "front": "Serial position effect",
+    "back": "Items at the beginning (primacy) and end (recency) of a list are recalled better than items in the middle."
+   },
+   {
+    "front": "Availability heuristic",
+    "back": "Judging how likely an event is by how easily examples come to mind, which can make vivid events like plane crashes seem more common than they are."
+   },
+   {
+    "front": "Confirmation bias",
+    "back": "The tendency to search for and favor information that supports what you already believe while ignoring evidence against it."
+   },
+   {
+    "front": "Reliability vs validity of a test",
+    "back": "Reliability is consistency of scores across time or forms. Validity is whether the test measures what it claims to measure. A test can be reliable without being valid."
+   },
+   {
+    "front": "Fluid vs crystallized intelligence",
+    "back": "Fluid intelligence is reasoning and solving novel problems quickly; it tends to decline with age. Crystallized intelligence is accumulated knowledge and vocabulary; it tends to hold steady or grow."
+   },
+   {
+    "front": "The Big Five personality traits",
+    "back": "Openness, Conscientiousness, Extraversion, Agreeableness and Neuroticism (OCEAN)."
+   },
+   {
+    "front": "James-Lange vs Cannon-Bard theory of emotion",
+    "back": "James-Lange: we feel emotion because we perceive our body's physiological response. Cannon-Bard: physiological arousal and emotional experience occur at the same time, independently."
+   },
+   {
+    "front": "Fundamental attribution error",
+    "back": "Overestimating personality and underestimating the situation when explaining other people's behavior."
+   }
+  ]
+ },
+ {
+  "school_key": "uiuc.edu",
+  "course_code": "CHEM 102",
+  "course_name": "General Chemistry I",
+  "source_url": "https://catalog.illinois.edu/courses-of-instruction/chem/",
+  "name": "CHEM 102 Exam Review: Atomic Structure, Bonding, Stoichiometry, Gases and Equilibrium",
+  "look": {
+   "color": "#1E9E74",
+   "icon": "chem"
+  },
+  "cards": [
+   {
+    "front": "Avogadro's number and what it means",
+    "back": "6.022 x 10^23 particles per mole. One mole of any substance contains that many atoms, molecules or formula units."
+   },
+   {
+    "front": "How do you convert grams to moles?",
+    "back": "Divide the mass by the molar mass: n = m / M. Example: 36.0 g of water / 18.0 g/mol = 2.00 mol."
+   },
+   {
+    "front": "Limiting reactant",
+    "back": "The reactant that runs out first and therefore sets the maximum amount of product. Find it by converting each reactant to moles of product and taking the smallest amount."
+   },
+   {
+    "front": "Percent yield formula",
+    "back": "Percent yield = (actual yield / theoretical yield) x 100%."
+   },
+   {
+    "front": "Molarity definition and formula",
+    "back": "Molarity M = moles of solute / liters of solution. Dilution: M1*V1 = M2*V2."
+   },
+   {
+    "front": "Mini-problem: how many grams of NaOH (40.0 g/mol) are in 250 mL of 0.200 M NaOH?",
+    "back": "moles = 0.200 mol/L x 0.250 L = 0.0500 mol; mass = 0.0500 x 40.0 = 2.00 g."
+   },
+   {
+    "front": "Empirical vs molecular formula",
+    "back": "The empirical formula is the simplest whole-number ratio of atoms (CH2O). The molecular formula is the actual number of atoms (C6H12O6 for glucose), a whole-number multiple of the empirical formula."
+   },
+   {
+    "front": "Relationship between energy, frequency and wavelength of light",
+    "back": "E = h*nu and c = lambda*nu, so E = h*c / lambda. h = 6.626 x 10^-34 J*s, c = 3.00 x 10^8 m/s. Shorter wavelength means higher energy."
+   },
+   {
+    "front": "What do the four quantum numbers n, l, ml and ms describe?",
+    "back": "n: energy level and size. l: subshell shape (0 = s, 1 = p, 2 = d, 3 = f), from 0 to n-1. ml: orbital orientation, from -l to +l. ms: electron spin, +1/2 or -1/2."
+   },
+   {
+    "front": "Pauli exclusion principle vs Hund's rule",
+    "back": "Pauli: no two electrons in an atom share all four quantum numbers, so an orbital holds at most two electrons of opposite spin. Hund: electrons fill degenerate orbitals singly with parallel spins before pairing."
+   },
+   {
+    "front": "Ground-state electron configuration of Fe (Z = 26)",
+    "back": "1s2 2s2 2p6 3s2 3p6 4s2 3d6, or [Ar] 4s2 3d6."
+   },
+   {
+    "front": "Periodic trend: atomic radius",
+    "back": "Radius decreases left to right across a period (greater effective nuclear charge) and increases down a group (more electron shells)."
+   },
+   {
+    "front": "Periodic trend: first ionization energy",
+    "back": "Increases left to right across a period and decreases down a group. Small exceptions: B is lower than Be, and O is lower than N."
+   },
+   {
+    "front": "Electronegativity and bond polarity",
+    "back": "Electronegativity is an atom's pull on shared electrons; F is highest. A large electronegativity difference gives a polar covalent bond; a very large one gives ionic bonding."
+   },
+   {
+    "front": "How do you calculate formal charge?",
+    "back": "Formal charge = valence electrons - nonbonding electrons - (bonding electrons / 2). The best Lewis structure keeps formal charges near zero, with negative charge on the more electronegative atom."
+   },
+   {
+    "front": "What is resonance?",
+    "back": "When more than one valid Lewis structure can be drawn, the real molecule is an average (hybrid) of them. In ozone or nitrate, all equivalent bonds have the same length."
+   },
+   {
+    "front": "VSEPR: geometry for 4 electron domains with 0, 1 and 2 lone pairs",
+    "back": "0 lone pairs: tetrahedral (109.5 deg, CH4). 1 lone pair: trigonal pyramidal (NH3). 2 lone pairs: bent (H2O)."
+   },
+   {
+    "front": "Hybridization for 2, 3 and 4 electron domains",
+    "back": "2 domains: sp (linear). 3 domains: sp2 (trigonal planar). 4 domains: sp3 (tetrahedral)."
+   },
+   {
+    "front": "Sigma vs pi bonds",
+    "back": "A single bond is one sigma bond. A double bond is one sigma plus one pi. A triple bond is one sigma plus two pi. Pi bonds come from side-by-side p orbital overlap."
+   },
+   {
+    "front": "Rank the intermolecular forces from weakest to strongest",
+    "back": "London dispersion forces < dipole-dipole < hydrogen bonding (H bonded to N, O or F). Stronger forces mean higher boiling points."
+   },
+   {
+    "front": "Ideal gas law and its units",
+    "back": "PV = nRT. R = 0.08206 L*atm/(mol*K) or 8.314 J/(mol*K). Temperature must be in kelvin."
+   },
+   {
+    "front": "Dalton's law of partial pressures",
+    "back": "Total pressure is the sum of partial pressures: P_total = P_A + P_B + ... Each partial pressure P_A = X_A * P_total, where X_A is the mole fraction."
+   },
+   {
+    "front": "Kinetic molecular theory: what does temperature measure?",
+    "back": "Temperature is proportional to the average kinetic energy of gas particles. At the same temperature, lighter gases move faster (rms speed = sqrt(3RT/M))."
+   },
+   {
+    "front": "Equilibrium constant expression for aA + bB <=> cC + dD",
+    "back": "K = [C]^c [D]^d / ([A]^a [B]^b). Pure solids and liquids are left out."
+   },
+   {
+    "front": "Q vs K: which way does the reaction shift?",
+    "back": "If Q < K the reaction goes forward toward products. If Q > K it goes in reverse toward reactants. If Q = K the system is at equilibrium."
+   },
+   {
+    "front": "Le Chatelier: effect of adding reactant or raising pressure",
+    "back": "Adding reactant shifts toward products. Raising pressure by shrinking volume shifts toward the side with fewer moles of gas."
+   },
+   {
+    "front": "Does a catalyst change K?",
+    "back": "No. A catalyst speeds up the forward and reverse reactions equally, so equilibrium is reached faster but its position and K are unchanged. Only temperature changes K."
+   },
+   {
+    "front": "How do you relate Kp and Kc?",
+    "back": "Kp = Kc*(RT)^(delta n), where delta n = moles of gaseous products - moles of gaseous reactants."
+   }
+  ]
+ },
+ {
+  "school_key": "uiuc.edu",
+  "course_code": "ECON 102",
+  "course_name": "Microeconomic Principles",
+  "source_url": "https://catalog.illinois.edu/courses-of-instruction/econ/",
+  "name": "ECON 102 Exam Review: Supply and Demand, Elasticity, Costs and Market Structures",
+  "look": {
+   "color": "#C79A12",
+   "icon": "econ"
+  },
+  "cards": [
+   {
+    "front": "Opportunity cost",
+    "back": "The value of the next best alternative you give up when making a choice."
+   },
+   {
+    "front": "Comparative vs absolute advantage",
+    "back": "Absolute advantage: producing more with the same resources. Comparative advantage: producing at a lower opportunity cost. Trade gains come from comparative advantage."
+   },
+   {
+    "front": "What does a production possibilities frontier show?",
+    "back": "The maximum combinations of two goods an economy can produce with its resources. Points inside are inefficient, points outside are unattainable, and a bowed-out shape reflects increasing opportunity cost."
+   },
+   {
+    "front": "Change in quantity demanded vs change in demand",
+    "back": "A change in the good's own price moves along the demand curve (change in quantity demanded). A change in income, tastes, related prices, expectations or number of buyers shifts the whole curve (change in demand)."
+   },
+   {
+    "front": "Normal vs inferior goods",
+    "back": "Demand for a normal good rises when income rises. Demand for an inferior good falls when income rises."
+   },
+   {
+    "front": "Substitutes vs complements",
+    "back": "Substitutes: a price rise in one raises demand for the other (coffee and tea). Complements: a price rise in one lowers demand for the other (cars and gasoline)."
+   },
+   {
+    "front": "If supply increases and demand stays the same, what happens to equilibrium?",
+    "back": "Equilibrium price falls and equilibrium quantity rises."
+   },
+   {
+    "front": "Price elasticity of demand formula",
+    "back": "Ed = (% change in quantity demanded) / (% change in price), usually reported as an absolute value. Above 1 is elastic, below 1 is inelastic, exactly 1 is unit elastic."
+   },
+   {
+    "front": "Elasticity and total revenue",
+    "back": "If demand is elastic, a price cut raises total revenue. If demand is inelastic, a price increase raises total revenue. At unit elasticity revenue is maximized."
+   },
+   {
+    "front": "What makes demand more elastic?",
+    "back": "Many close substitutes, a large share of the budget, the good being a luxury, a narrowly defined market, and a longer time horizon."
+   },
+   {
+    "front": "Consumer surplus vs producer surplus",
+    "back": "Consumer surplus is willingness to pay minus the price paid (area below demand, above price). Producer surplus is the price received minus the cost to sell (area above supply, below price)."
+   },
+   {
+    "front": "Effect of a binding price ceiling",
+    "back": "Set below equilibrium, it causes a shortage (quantity demanded exceeds quantity supplied) and deadweight loss. Rent control is the classic example."
+   },
+   {
+    "front": "Effect of a binding price floor",
+    "back": "Set above equilibrium, it causes a surplus (quantity supplied exceeds quantity demanded). A minimum wage above the market wage is the classic example."
+   },
+   {
+    "front": "Who bears more of a tax burden?",
+    "back": "The side of the market that is less elastic bears more of the tax, no matter who legally pays it."
+   },
+   {
+    "front": "What is deadweight loss?",
+    "back": "The loss of total surplus from trades that would have benefited buyers and sellers but no longer happen, e.g. because of a tax, price control or monopoly."
+   },
+   {
+    "front": "Negative externality and its fix",
+    "back": "A cost imposed on third parties (pollution), causing overproduction compared with the social optimum. A Pigouvian tax equal to the external cost can correct it."
+   },
+   {
+    "front": "Public good characteristics",
+    "back": "Nonrival (one person's use does not reduce another's) and nonexcludable (people cannot be kept from using it). Leads to the free-rider problem; example: national defense."
+   },
+   {
+    "front": "Marginal utility and the utility-maximizing rule",
+    "back": "Marginal utility is the extra satisfaction from one more unit. Consumers maximize utility when MU_x/P_x = MU_y/P_y."
+   },
+   {
+    "front": "Fixed vs variable costs",
+    "back": "Fixed costs do not change with output in the short run (rent). Variable costs rise with output (materials, hourly labor). TC = FC + VC."
+   },
+   {
+    "front": "Formulas for ATC, AVC and MC",
+    "back": "ATC = TC/Q, AVC = VC/Q, MC = change in TC / change in Q. MC crosses ATC and AVC at their minimum points."
+   },
+   {
+    "front": "Law of diminishing marginal returns",
+    "back": "In the short run, adding more of a variable input to a fixed input eventually makes each additional unit of input add less output."
+   },
+   {
+    "front": "Profit-maximizing rule for any firm",
+    "back": "Produce the quantity where marginal revenue equals marginal cost (MR = MC)."
+   },
+   {
+    "front": "Short-run shutdown rule for a competitive firm",
+    "back": "Shut down if price falls below minimum average variable cost (P < AVC). Between AVC and ATC the firm operates at a loss to cover part of fixed cost."
+   },
+   {
+    "front": "Long-run equilibrium in perfect competition",
+    "back": "Free entry and exit drive economic profit to zero, so P = MC = minimum ATC."
+   },
+   {
+    "front": "Accounting profit vs economic profit",
+    "back": "Accounting profit = revenue - explicit costs. Economic profit = revenue - explicit costs - implicit costs (opportunity costs)."
+   },
+   {
+    "front": "How does a monopoly differ from perfect competition?",
+    "back": "A monopoly faces downward-sloping demand, so MR < P. It sets MR = MC, charges a price above MC, produces less and creates deadweight loss."
+   },
+   {
+    "front": "Monopolistic competition in the long run",
+    "back": "Many firms sell differentiated products. Entry pushes economic profit to zero, but P > MC and firms produce with excess capacity (not at minimum ATC)."
+   },
+   {
+    "front": "Oligopoly and the prisoner's dilemma",
+    "back": "Few interdependent firms. Each firm's dominant strategy may be to cheat on collusion, so they end up at a worse outcome for both than if they cooperated."
+   },
+   {
+    "front": "Nash equilibrium",
+    "back": "A set of strategies where no player can do better by changing their own strategy, given what the others are doing."
+   }
+  ]
+ },
+ {
+  "school_key": "wisc.edu",
+  "course_code": "MATH 221",
+  "course_name": "Calculus and Analytic Geometry 1",
+  "source_url": "https://guide.wisc.edu/courses/math/",
+  "name": "MATH 221 Exam Review: Limits, Derivatives, Applications and Integrals",
+  "look": {
+   "color": "#3B6FE0",
+   "icon": "calc"
+  },
+  "cards": [
+   {
+    "front": "Formal idea of lim x->a f(x) = L",
+    "back": "f(x) can be made as close to L as we like by taking x close enough to a (but not equal to a). The value f(a) itself does not matter."
+   },
+   {
+    "front": "When does a limit fail to exist?",
+    "back": "When the left-hand and right-hand limits differ, when the function grows without bound, or when it oscillates without settling down."
+   },
+   {
+    "front": "lim x->0 of sin(x)/x",
+    "back": "1 (with x in radians)."
+   },
+   {
+    "front": "Evaluate lim x->2 of (x^2 - 4)/(x - 2)",
+    "back": "Factor: (x - 2)(x + 2)/(x - 2) = x + 2, so the limit is 4."
+   },
+   {
+    "front": "Three conditions for f to be continuous at x = a",
+    "back": "f(a) is defined, lim x->a f(x) exists, and the limit equals f(a)."
+   },
+   {
+    "front": "Intermediate Value Theorem",
+    "back": "If f is continuous on [a, b] and N is between f(a) and f(b), then there is a c in (a, b) with f(c) = N. Often used to show a root exists."
+   },
+   {
+    "front": "Limit definition of the derivative",
+    "back": "f'(x) = lim h->0 of [f(x + h) - f(x)] / h. It gives the slope of the tangent line and the instantaneous rate of change."
+   },
+   {
+    "front": "Does differentiable imply continuous? Does continuous imply differentiable?",
+    "back": "Differentiable implies continuous. Continuous does not imply differentiable; f(x) = |x| is continuous at 0 but has a corner there."
+   },
+   {
+    "front": "Power rule",
+    "back": "d/dx [x^n] = n*x^(n-1) for any real n."
+   },
+   {
+    "front": "Product rule and quotient rule",
+    "back": "(fg)' = f'g + fg'. (f/g)' = (f'g - fg') / g^2."
+   },
+   {
+    "front": "Chain rule",
+    "back": "d/dx [f(g(x))] = f'(g(x)) * g'(x). Example: d/dx [sin(x^2)] = cos(x^2) * 2x."
+   },
+   {
+    "front": "Derivatives of sin x, cos x and tan x",
+    "back": "d/dx sin x = cos x, d/dx cos x = -sin x, d/dx tan x = sec^2 x."
+   },
+   {
+    "front": "Derivatives of e^x, a^x and ln x",
+    "back": "d/dx e^x = e^x, d/dx a^x = a^x * ln a, d/dx ln x = 1/x for x > 0."
+   },
+   {
+    "front": "Derivatives of arcsin x and arctan x",
+    "back": "d/dx arcsin x = 1/sqrt(1 - x^2). d/dx arctan x = 1/(1 + x^2)."
+   },
+   {
+    "front": "Implicit differentiation: find dy/dx for x^2 + y^2 = 25",
+    "back": "2x + 2y*(dy/dx) = 0, so dy/dx = -x/y."
+   },
+   {
+    "front": "Steps for a related rates problem",
+    "back": "Draw and label variables, write an equation relating them, differentiate both sides with respect to time t, then substitute the known values only after differentiating."
+   },
+   {
+    "front": "Linear approximation of f near x = a",
+    "back": "L(x) = f(a) + f'(a)(x - a). Example: sqrt(4.1) is about 2 + (1/4)(0.1) = 2.025."
+   },
+   {
+    "front": "Mean Value Theorem",
+    "back": "If f is continuous on [a, b] and differentiable on (a, b), some c in (a, b) has f'(c) = [f(b) - f(a)] / (b - a)."
+   },
+   {
+    "front": "First derivative test for local extrema",
+    "back": "At a critical point, if f' changes from + to - there is a local max; from - to + a local min; no sign change means neither."
+   },
+   {
+    "front": "Second derivative: concavity and the second derivative test",
+    "back": "f'' > 0 means concave up, f'' < 0 means concave down. At a critical point c, f''(c) > 0 gives a local min and f''(c) < 0 gives a local max; f''(c) = 0 is inconclusive."
+   },
+   {
+    "front": "How to find absolute extrema on a closed interval [a, b]",
+    "back": "Evaluate f at every critical point in (a, b) and at both endpoints. The largest value is the absolute max and the smallest is the absolute min."
+   },
+   {
+    "front": "L'Hopital's rule",
+    "back": "If lim f/g gives 0/0 or infinity/infinity, then lim f/g = lim f'/g' (if that limit exists). Differentiate top and bottom separately, not as a quotient."
+   },
+   {
+    "front": "Fundamental Theorem of Calculus, Part 1",
+    "back": "If F(x) = integral from a to x of f(t) dt and f is continuous, then F'(x) = f(x)."
+   },
+   {
+    "front": "Fundamental Theorem of Calculus, Part 2",
+    "back": "If F is any antiderivative of continuous f, then the integral from a to b of f(x) dx = F(b) - F(a)."
+   },
+   {
+    "front": "Antiderivative of x^n and of 1/x",
+    "back": "Integral of x^n dx = x^(n+1)/(n+1) + C for n not equal to -1. Integral of 1/x dx = ln|x| + C."
+   },
+   {
+    "front": "u-substitution: integrate 2x*cos(x^2) dx",
+    "back": "Let u = x^2, du = 2x dx. Integral of cos u du = sin u + C = sin(x^2) + C."
+   },
+   {
+    "front": "Riemann sum and the definite integral",
+    "back": "Sum of f(x_i)*delta x over n subintervals. As n goes to infinity the sum approaches the definite integral, the signed area under the curve."
+   },
+   {
+    "front": "Average value of f on [a, b]",
+    "back": "f_avg = [1/(b - a)] * integral from a to b of f(x) dx."
+   },
+   {
+    "front": "Area between curves y = f(x) and y = g(x) where f >= g on [a, b]",
+    "back": "Area = integral from a to b of [f(x) - g(x)] dx."
+   },
+   {
+    "front": "Solution of the differential equation dy/dt = k*y",
+    "back": "y(t) = y0 * e^(k*t). k > 0 gives exponential growth, k < 0 gives decay."
+   }
+  ]
+ },
+ {
+  "school_key": "wisc.edu",
+  "course_code": "ECON 102",
+  "course_name": "Principles of Macroeconomics",
+  "source_url": "https://guide.wisc.edu/courses/econ/",
+  "name": "ECON 102 Exam Review: GDP, Inflation, Unemployment, AD-AS and Fiscal and Monetary Policy",
+  "look": {
+   "color": "#EA580C",
+   "icon": "econ"
+  },
+  "cards": [
+   {
+    "front": "GDP definition",
+    "back": "The market value of all final goods and services produced within a country in a given period. Intermediate goods and used goods are not counted."
+   },
+   {
+    "front": "Expenditure approach to GDP",
+    "back": "GDP = C + I + G + NX: consumption, investment, government purchases, and net exports (exports - imports)."
+   },
+   {
+    "front": "Do transfer payments count in G?",
+    "back": "No. Social Security and unemployment benefits are transfers, not purchases of goods or services, so they are excluded from G and GDP."
+   },
+   {
+    "front": "Nominal vs real GDP",
+    "back": "Nominal GDP uses current prices. Real GDP uses base-year prices, so it changes only when output changes."
+   },
+   {
+    "front": "GDP deflator formula",
+    "back": "GDP deflator = (nominal GDP / real GDP) x 100."
+   },
+   {
+    "front": "How is the inflation rate computed from the CPI?",
+    "back": "Inflation = (CPI this year - CPI last year) / CPI last year x 100%."
+   },
+   {
+    "front": "Three biases that make the CPI overstate inflation",
+    "back": "Substitution bias, introduction of new goods, and unmeasured quality change."
+   },
+   {
+    "front": "Unemployment rate formula and who counts as unemployed",
+    "back": "Unemployment rate = unemployed / labor force x 100. Unemployed means without a job but actively looking in the past four weeks; labor force = employed + unemployed."
+   },
+   {
+    "front": "Frictional, structural and cyclical unemployment",
+    "back": "Frictional: short spells while job searching. Structural: mismatch of skills or location with available jobs. Cyclical: caused by recessions. Natural rate = frictional + structural."
+   },
+   {
+    "front": "Why does a discouraged worker lower the measured unemployment rate?",
+    "back": "They have stopped looking for work, so they leave the labor force and are no longer counted as unemployed."
+   },
+   {
+    "front": "Fisher equation",
+    "back": "Real interest rate is approximately the nominal interest rate minus the inflation rate."
+   },
+   {
+    "front": "Who is hurt by unexpected inflation?",
+    "back": "Lenders and savers with fixed nominal returns, and people on fixed incomes. Borrowers with fixed-rate loans benefit."
+   },
+   {
+    "front": "Rule of 70",
+    "back": "The number of years for a variable to double is about 70 divided by its annual growth rate in percent. At 2% growth, output doubles in about 35 years."
+   },
+   {
+    "front": "Sources of long-run economic growth",
+    "back": "Growth in physical capital, human capital, natural resources and especially technology (productivity)."
+   },
+   {
+    "front": "Why does the aggregate demand curve slope downward?",
+    "back": "A lower price level raises real wealth (wealth effect), lowers interest rates (interest rate effect) and makes exports cheaper (exchange rate effect)."
+   },
+   {
+    "front": "Short-run vs long-run aggregate supply",
+    "back": "SRAS slopes upward because some wages and prices are sticky. LRAS is vertical at potential output, determined by resources and technology, not the price level."
+   },
+   {
+    "front": "Effect of a negative supply shock such as an oil price spike",
+    "back": "SRAS shifts left: output falls and the price level rises at the same time (stagflation)."
+   },
+   {
+    "front": "Recessionary gap and how the economy self-corrects",
+    "back": "Output is below potential and unemployment is above natural. Over time wages and prices fall, shifting SRAS right and returning output to potential."
+   },
+   {
+    "front": "Marginal propensity to consume and the spending multiplier",
+    "back": "MPC = change in consumption / change in disposable income. Spending multiplier = 1 / (1 - MPC). With MPC = 0.8, the multiplier is 5."
+   },
+   {
+    "front": "Expansionary vs contractionary fiscal policy",
+    "back": "Expansionary: raise government purchases or cut taxes to shift AD right in a recession. Contractionary: cut spending or raise taxes to cool inflation."
+   },
+   {
+    "front": "Crowding out",
+    "back": "Government borrowing to finance deficits can raise interest rates and reduce private investment, weakening the effect of expansionary fiscal policy."
+   },
+   {
+    "front": "Budget deficit vs national debt",
+    "back": "The deficit is the one-year gap when spending exceeds tax revenue. The debt is the accumulated total of past deficits minus surpluses."
+   },
+   {
+    "front": "Automatic stabilizers",
+    "back": "Policies that change fiscal stance without new legislation, like progressive income taxes and unemployment insurance, which soften booms and busts."
+   },
+   {
+    "front": "Three functions of money",
+    "back": "Medium of exchange, unit of account and store of value."
+   },
+   {
+    "front": "Simple money multiplier",
+    "back": "Money multiplier = 1 / reserve requirement ratio. With a 10% requirement, each new dollar of reserves can support up to $10 of deposits."
+   },
+   {
+    "front": "Tools of the Federal Reserve",
+    "back": "Setting the federal funds rate target, mainly through interest on reserve balances, plus open market operations, the discount rate and, historically, reserve requirements."
+   },
+   {
+    "front": "Effect of expansionary monetary policy",
+    "back": "The Fed lowers interest rates (for example by buying bonds), which raises investment and consumption, shifting AD right."
+   },
+   {
+    "front": "Short-run Phillips curve",
+    "back": "A short-run tradeoff: lower unemployment comes with higher inflation. In the long run the Phillips curve is vertical at the natural rate of unemployment."
+   },
+   {
+    "front": "Quantity theory of money",
+    "back": "M*V = P*Y. If velocity V and real output Y are stable, growth in the money supply M leads to proportional growth in the price level P."
+   }
+  ]
+ },
+ {
+  "school_key": "wisc.edu",
+  "course_code": "STAT 301",
+  "course_name": "Introduction to Statistical Methods",
+  "source_url": "https://guide.wisc.edu/courses/stat/",
+  "name": "STAT 301 Exam Review: Descriptive Stats, Normal Distribution, Inference and Regression",
+  "look": {
+   "color": "#1D9BB8",
+   "icon": "stats"
+  },
+  "cards": [
+   {
+    "front": "Mean vs median in a right-skewed distribution",
+    "back": "The mean is pulled toward the long right tail, so mean > median. The median is resistant to outliers."
+   },
+   {
+    "front": "Sample standard deviation formula",
+    "back": "s = sqrt( sum of (x_i - xbar)^2 / (n - 1) ). It measures typical spread around the mean."
+   },
+   {
+    "front": "Why divide by n - 1 in the sample variance?",
+    "back": "Using n - 1 (degrees of freedom) makes the sample variance an unbiased estimator of the population variance."
+   },
+   {
+    "front": "Interquartile range and the 1.5 x IQR outlier rule",
+    "back": "IQR = Q3 - Q1. A value is a suspected outlier if it is below Q1 - 1.5*IQR or above Q3 + 1.5*IQR."
+   },
+   {
+    "front": "Z-score formula and meaning",
+    "back": "z = (x - mu) / sigma. It tells how many standard deviations a value lies above or below the mean."
+   },
+   {
+    "front": "The 68-95-99.7 rule",
+    "back": "For a normal distribution, about 68% of values fall within 1 SD of the mean, 95% within 2 SD, and 99.7% within 3 SD."
+   },
+   {
+    "front": "Mini-problem: scores are normal with mean 70 and SD 10. About what percent score above 90?",
+    "back": "90 is z = 2. About 95% lie within 2 SD, so about 2.5% lie above 90."
+   },
+   {
+    "front": "Standard error of the sample mean",
+    "back": "SE = sigma / sqrt(n), estimated by s / sqrt(n). Quadrupling n halves the standard error."
+   },
+   {
+    "front": "Central Limit Theorem",
+    "back": "For a large enough sample size, the sampling distribution of the sample mean is approximately normal with mean mu and SD sigma/sqrt(n), whatever the population's shape."
+   },
+   {
+    "front": "Parameter vs statistic",
+    "back": "A parameter describes a population (mu, sigma, p) and is usually unknown. A statistic is computed from a sample (xbar, s, p-hat) and estimates the parameter."
+   },
+   {
+    "front": "General form of a confidence interval",
+    "back": "Estimate plus or minus (critical value) x (standard error). For a mean: xbar plus or minus t* x s/sqrt(n)."
+   },
+   {
+    "front": "Correct interpretation of a 95% confidence interval",
+    "back": "If we repeated the sampling many times, about 95% of the intervals built this way would contain the true parameter. It is not a 95% probability that this one interval contains it."
+   },
+   {
+    "front": "What makes a confidence interval narrower?",
+    "back": "A larger sample size, a lower confidence level, or less variability in the data."
+   },
+   {
+    "front": "When do you use t instead of z for a mean?",
+    "back": "When the population standard deviation is unknown and estimated by s. The t distribution has heavier tails and depends on degrees of freedom (n - 1 for one sample)."
+   },
+   {
+    "front": "Null vs alternative hypothesis",
+    "back": "H0 is the no-effect or no-difference claim (e.g. mu = 50). Ha is what we seek evidence for (mu > 50, mu < 50 or mu not equal to 50)."
+   },
+   {
+    "front": "Definition of a p-value",
+    "back": "The probability, assuming H0 is true, of getting a test statistic at least as extreme as the one observed. Small p-values are evidence against H0."
+   },
+   {
+    "front": "Decision rule with significance level alpha",
+    "back": "Reject H0 if p-value <= alpha (often 0.05). Otherwise fail to reject H0; we never accept or prove H0."
+   },
+   {
+    "front": "Type I vs Type II error",
+    "back": "Type I: rejecting a true H0 (probability alpha). Type II: failing to reject a false H0 (probability beta). Power = 1 - beta."
+   },
+   {
+    "front": "One-sample t statistic",
+    "back": "t = (xbar - mu0) / (s / sqrt(n)), with n - 1 degrees of freedom."
+   },
+   {
+    "front": "Paired t-test vs two-sample t-test",
+    "back": "Paired: two measurements on the same subjects (before and after); analyze the differences. Two-sample: two independent groups; compare the two means."
+   },
+   {
+    "front": "Assumptions of t procedures",
+    "back": "Random sample or randomized experiment, independent observations, and a roughly normal population or a large enough sample. They are sensitive to strong skew and outliers in small samples."
+   },
+   {
+    "front": "What does one-way ANOVA test?",
+    "back": "Whether three or more group means are all equal. F = (between-group variability) / (within-group variability); a large F suggests at least one mean differs."
+   },
+   {
+    "front": "Least squares regression line",
+    "back": "y-hat = b0 + b1*x, chosen to minimize the sum of squared residuals. Slope b1 = r*(sy/sx), and the line passes through (xbar, ybar)."
+   },
+   {
+    "front": "Interpreting a slope of b1 = 2.5 for y = exam score and x = hours studied",
+    "back": "Each additional hour of study is associated with a predicted increase of 2.5 points in exam score, on average."
+   },
+   {
+    "front": "Residual",
+    "back": "Residual = observed y - predicted y-hat. A residual plot with no pattern supports a linear model."
+   },
+   {
+    "front": "What does r^2 mean?",
+    "back": "The fraction of variation in y explained by the linear regression on x. r = 0.6 gives r^2 = 0.36, so 36% of variation is explained."
+   },
+   {
+    "front": "Properties of the correlation r",
+    "back": "Between -1 and 1, unitless, measures only linear association, and is strongly affected by outliers."
+   },
+   {
+    "front": "Extrapolation",
+    "back": "Using a regression line to predict far outside the range of observed x values. It is unreliable because the relationship may not continue."
+   },
+   {
+    "front": "Observational study vs experiment",
+    "back": "An observational study measures without intervening and cannot prove causation. An experiment imposes treatments, ideally with random assignment and a control group, allowing causal conclusions."
+   },
+   {
+    "front": "Blocking in experimental design",
+    "back": "Grouping similar experimental units (e.g. by age) and randomizing treatments within each block to reduce variability from that factor."
+   }
+  ]
+ },
+ {
+  "school_key": "purdue.edu",
+  "course_code": "BIOL 11000",
+  "course_name": "Fundamentals of Biology I",
+  "source_url": "https://catalog.purdue.edu/preview_course_nopop.php?catoid=18&coid=209238",
+  "name": "BIOL 11000 Exam Review: Biomolecules, Cells, Metabolism, DNA and Evolution",
+  "look": {
+   "color": "#16A34A",
+   "icon": "bio"
+  },
+  "cards": [
+   {
+    "front": "Why is water a good solvent and why does ice float?",
+    "back": "Water is polar and forms hydrogen bonds, so it dissolves ions and polar molecules. Ice forms an open hydrogen-bonded lattice that is less dense than liquid water."
+   },
+   {
+    "front": "Four major classes of biological macromolecules and their monomers",
+    "back": "Carbohydrates (monosaccharides), proteins (amino acids), nucleic acids (nucleotides) and lipids (not true polymers; fats are built from glycerol and fatty acids)."
+   },
+   {
+    "front": "Dehydration synthesis vs hydrolysis",
+    "back": "Dehydration synthesis joins monomers by removing a water molecule. Hydrolysis breaks polymers apart by adding water."
+   },
+   {
+    "front": "Four levels of protein structure",
+    "back": "Primary: amino acid sequence. Secondary: alpha helices and beta sheets from backbone hydrogen bonds. Tertiary: overall 3-D fold from side-chain interactions. Quaternary: multiple polypeptides together."
+   },
+   {
+    "front": "Saturated vs unsaturated fatty acids",
+    "back": "Saturated fatty acids have no C=C double bonds, pack tightly and are solid at room temperature. Unsaturated ones have one or more cis double bonds that create kinks, so they are usually liquid."
+   },
+   {
+    "front": "How do enzymes speed up reactions?",
+    "back": "They lower the activation energy by binding substrates at the active site. They do not change the overall free energy change of the reaction and are not used up."
+   },
+   {
+    "front": "Competitive vs noncompetitive inhibition",
+    "back": "A competitive inhibitor binds the active site and can be overcome by more substrate. A noncompetitive inhibitor binds elsewhere and changes the enzyme's shape, lowering activity even at high substrate."
+   },
+   {
+    "front": "Prokaryotic vs eukaryotic cells",
+    "back": "Prokaryotes (bacteria, archaea) lack a nucleus and membrane-bound organelles. Eukaryotes have a nucleus and organelles such as mitochondria and ER. Both have ribosomes, DNA and a plasma membrane."
+   },
+   {
+    "front": "Rough ER, smooth ER and Golgi apparatus functions",
+    "back": "Rough ER: ribosomes make secreted and membrane proteins. Smooth ER: lipid synthesis and detoxification. Golgi: modifies, sorts and packages proteins for transport."
+   },
+   {
+    "front": "Evidence for the endosymbiotic theory",
+    "back": "Mitochondria and chloroplasts have their own circular DNA, bacterial-like ribosomes, double membranes and divide by binary fission, suggesting they came from engulfed prokaryotes."
+   },
+   {
+    "front": "Fluid mosaic model of the plasma membrane",
+    "back": "A phospholipid bilayer with hydrophobic tails inside, in which proteins, cholesterol and glycolipids move laterally."
+   },
+   {
+    "front": "Diffusion vs facilitated diffusion vs active transport",
+    "back": "Diffusion: down the gradient through the bilayer, no energy. Facilitated diffusion: down the gradient through channel or carrier proteins, no energy. Active transport: against the gradient using ATP (e.g. Na+/K+ pump)."
+   },
+   {
+    "front": "What happens to an animal cell in a hypotonic solution?",
+    "back": "Water enters by osmosis and the cell swells and may burst (lyse). In a hypertonic solution it loses water and shrivels."
+   },
+   {
+    "front": "Overall equation for cellular respiration",
+    "back": "C6H12O6 + 6 O2 -> 6 CO2 + 6 H2O + energy (ATP and heat)."
+   },
+   {
+    "front": "Stages of aerobic respiration and where they occur",
+    "back": "Glycolysis in the cytoplasm, pyruvate oxidation and the citric acid (Krebs) cycle in the mitochondrial matrix, and the electron transport chain and oxidative phosphorylation on the inner mitochondrial membrane."
+   },
+   {
+    "front": "What is the role of oxygen in cellular respiration?",
+    "back": "Oxygen is the final electron acceptor at the end of the electron transport chain, combining with electrons and H+ to form water."
+   },
+   {
+    "front": "How does chemiosmosis make ATP?",
+    "back": "The electron transport chain pumps H+ across a membrane, building a gradient. H+ flows back through ATP synthase, which uses that energy to make ATP."
+   },
+   {
+    "front": "Fermentation: purpose and products",
+    "back": "Without oxygen, fermentation regenerates NAD+ so glycolysis can continue making 2 ATP per glucose. Products are lactate (muscle) or ethanol and CO2 (yeast)."
+   },
+   {
+    "front": "Light reactions vs Calvin cycle",
+    "back": "Light reactions (thylakoid membranes) split water, release O2 and make ATP and NADPH. The Calvin cycle (stroma) uses that ATP and NADPH to fix CO2 into sugar."
+   },
+   {
+    "front": "What does the enzyme rubisco do?",
+    "back": "It catalyzes carbon fixation in the Calvin cycle, attaching CO2 to RuBP. It is thought to be the most abundant protein on Earth."
+   },
+   {
+    "front": "Structure of DNA",
+    "back": "A double helix of two antiparallel strands with a sugar-phosphate backbone. Bases pair by hydrogen bonds: A with T (2 bonds) and G with C (3 bonds)."
+   },
+   {
+    "front": "What did the Meselson-Stahl experiment show?",
+    "back": "Using heavy and light nitrogen isotopes, it showed DNA replication is semiconservative: each new double helix keeps one old strand and one new strand."
+   },
+   {
+    "front": "Leading vs lagging strand in replication",
+    "back": "DNA polymerase only adds nucleotides 5' to 3'. The leading strand is made continuously; the lagging strand is made in short Okazaki fragments joined by DNA ligase."
+   },
+   {
+    "front": "Key enzymes of DNA replication",
+    "back": "Helicase unwinds the helix, primase lays down RNA primers, DNA polymerase extends and proofreads, and ligase seals gaps between fragments."
+   },
+   {
+    "front": "Mitosis vs meiosis",
+    "back": "Mitosis gives two genetically identical diploid cells for growth and repair. Meiosis gives four genetically different haploid gametes, with crossing over and independent assortment."
+   },
+   {
+    "front": "Natural selection: the necessary conditions",
+    "back": "Heritable variation exists, more offspring are produced than survive, and individuals with certain traits survive and reproduce more, so those traits become more common over generations."
+   },
+   {
+    "front": "Homologous vs analogous structures",
+    "back": "Homologous structures share common ancestry but may differ in function (human arm, bat wing). Analogous structures have similar function from convergent evolution but different ancestry (bird and insect wings)."
+   },
+   {
+    "front": "Hardy-Weinberg equations and conditions",
+    "back": "p + q = 1 and p^2 + 2pq + q^2 = 1. Holds with no mutation, random mating, no selection, a very large population and no gene flow."
+   },
+   {
+    "front": "Genetic drift vs gene flow",
+    "back": "Genetic drift is random change in allele frequencies, strongest in small populations (bottleneck and founder effects). Gene flow is movement of alleles between populations through migration."
+   },
+   {
+    "front": "Biological species concept",
+    "back": "A species is a group of populations whose members can interbreed in nature and produce fertile offspring, and that are reproductively isolated from other groups."
+   }
+  ]
+ },
+ {
+  "school_key": "purdue.edu",
+  "course_code": "PHYS 17200",
+  "course_name": "Modern Mechanics",
+  "source_url": "https://catalog.purdue.edu/preview_course_nopop.php?catoid=18&coid=209864",
+  "name": "PHYS 17200 Exam Review: Momentum Principle, Forces, Energy and Thermal Physics",
+  "look": {
+   "color": "#4F46E5",
+   "icon": "phys"
+  },
+  "cards": [
+   {
+    "front": "Momentum principle",
+    "back": "The change in a system's momentum equals the net external force times the time interval: delta p = F_net * delta t. It is the general form of Newton's second law."
+   },
+   {
+    "front": "Relativistic momentum",
+    "back": "p = gamma*m*v, where gamma = 1/sqrt(1 - v^2/c^2). For v much less than c, gamma is about 1 and p is about m*v."
+   },
+   {
+    "front": "Position update formula for a short time step",
+    "back": "r_f = r_i + v_avg * delta t. In iterative computer models, v_avg is approximated by the velocity at the end of the step (p_f/m)."
+   },
+   {
+    "front": "Steps of an iterative (numerical) motion prediction",
+    "back": "In a loop: compute the net force from the current position, update momentum with p = p + F_net*dt, update position with r = r + (p/m)*dt, then advance time."
+   },
+   {
+    "front": "Newton's law of gravitation in vector form",
+    "back": "F on 2 by 1 = -G*m1*m2/|r|^2 * r-hat, where r points from object 1 to object 2. G = 6.7 x 10^-11 N*m^2/kg^2."
+   },
+   {
+    "front": "Near-Earth gravitational force",
+    "back": "F = m*g, directed downward, with g = 9.8 N/kg. It is the approximation of universal gravitation near Earth's surface."
+   },
+   {
+    "front": "Coulomb's law",
+    "back": "F = (1/(4*pi*epsilon0)) * q1*q2 / r^2, with 1/(4*pi*epsilon0) = 9 x 10^9 N*m^2/C^2. Like charges repel, unlike charges attract."
+   },
+   {
+    "front": "Spring force and the ball-and-spring model of a solid",
+    "back": "F = -ks*s, where s is the stretch from relaxed length. Solids are modeled as atoms connected by springs representing interatomic bonds."
+   },
+   {
+    "front": "Young's modulus",
+    "back": "Y = (F/A) / (delta L/L), stress over strain. It is a macroscopic property related to the interatomic spring stiffness by Y = ks_i / d, where d is the interatomic spacing."
+   },
+   {
+    "front": "Conservation of momentum in a collision",
+    "back": "If the net external force on the system is negligible during the collision, the total momentum before equals the total momentum after."
+   },
+   {
+    "front": "Elastic vs inelastic collision",
+    "back": "Elastic: total kinetic energy is conserved. Inelastic: some kinetic energy becomes internal energy. Momentum is conserved in both if external forces are negligible."
+   },
+   {
+    "front": "Mini-problem: a 2 kg cart at 3 m/s sticks to an identical cart at rest. Final speed?",
+    "back": "Momentum: 2*3 = 4*v, so v = 1.5 m/s."
+   },
+   {
+    "front": "Period of a mass on a spring",
+    "back": "T = 2*pi*sqrt(m/ks). It does not depend on amplitude."
+   },
+   {
+    "front": "Energy principle",
+    "back": "delta E_system = W + Q: the change in the system's energy equals the work done on it by surroundings plus energy transferred by heat."
+   },
+   {
+    "front": "Particle energy in relativity",
+    "back": "E = gamma*m*c^2. Rest energy is m*c^2, and kinetic energy K = (gamma - 1)*m*c^2, which is about (1/2)m*v^2 at low speed."
+   },
+   {
+    "front": "Work done by a constant force",
+    "back": "W = F dot delta r = |F||delta r|cos(theta). Only the force component along the displacement does work."
+   },
+   {
+    "front": "Gravitational potential energy: general and near-Earth forms",
+    "back": "General: U = -G*m1*m2 / r (zero at infinite separation). Near Earth: delta U = m*g*delta y."
+   },
+   {
+    "front": "Escape speed from a planet of mass M and radius R",
+    "back": "v_esc = sqrt(2*G*M/R), from setting K + U = 0 at the surface."
+   },
+   {
+    "front": "Spring potential energy",
+    "back": "U = (1/2)*ks*s^2."
+   },
+   {
+    "front": "Mass-energy and binding energy",
+    "back": "A bound system has less mass than its separated parts. The binding energy is delta m * c^2, the energy needed to pull the parts apart."
+   },
+   {
+    "front": "Quantized energy levels in atoms",
+    "back": "Electrons in atoms have only certain discrete energies. A photon emitted or absorbed has energy equal to the difference between two levels: E_photon = E_upper - E_lower."
+   },
+   {
+    "front": "Energy levels of a quantum harmonic oscillator",
+    "back": "E_N = N*h-bar*omega0 + E0, so levels are equally spaced by h-bar*omega0, where omega0 = sqrt(ks/m)."
+   },
+   {
+    "front": "Torque and angular momentum principle",
+    "back": "Torque tau = r x F. The rate of change of angular momentum equals net torque: dL/dt = tau_net. If net torque is zero, L is conserved."
+   },
+   {
+    "front": "Moment of inertia and rotational kinetic energy",
+    "back": "I = sum of m*r_perp^2. Rotational kinetic energy K_rot = (1/2)*I*omega^2, and L_rot = I*omega."
+   },
+   {
+    "front": "Translational kinetic energy of the center of mass",
+    "back": "K_trans = p^2/(2*M_total) = (1/2)*M*v_cm^2. Total K = K_trans + K_rel, where K_rel includes rotation and vibration."
+   },
+   {
+    "front": "Specific heat capacity",
+    "back": "Q = m*c*delta T for a temperature change without phase change. For water, c = 4.2 J/(g*K)."
+   },
+   {
+    "front": "Entropy in terms of microstates",
+    "back": "S = k_B * ln(Omega), where Omega is the number of microstates consistent with the macrostate. The second law: total entropy of an isolated system tends to increase."
+   },
+   {
+    "front": "Thermodynamic definition of temperature",
+    "back": "1/T = dS/dE: temperature measures how a system's entropy changes as energy is added. Energy flows from higher to lower temperature, increasing total entropy."
+   },
+   {
+    "front": "Average translational kinetic energy of an ideal gas molecule",
+    "back": "K_avg = (3/2)*k_B*T, where k_B = 1.38 x 10^-23 J/K."
+   },
+   {
+    "front": "Ideal gas law in microscopic form",
+    "back": "P*V = N*k_B*T, where N is the number of molecules. Pressure comes from momentum transfer when molecules hit the walls."
+   }
+  ]
+ },
+ {
+  "school_key": "purdue.edu",
+  "course_code": "CS 18000",
+  "course_name": "Problem Solving and Object-Oriented Programming",
+  "source_url": "https://catalog.purdue.edu/preview_course_nopop.php?catoid=8&coid=77766",
+  "name": "CS 18000 Exam Review: Java Basics, OOP, Exceptions, Recursion and Data Structures",
+  "look": {
+   "color": "#334155",
+   "icon": "code"
+  },
+  "cards": [
+   {
+    "front": "Primitive types vs reference types in Java",
+    "back": "Primitives (int, double, boolean, char, etc.) hold values directly. Reference types (String, arrays, objects) hold a reference to an object on the heap; the default is null."
+   },
+   {
+    "front": "What does 7 / 2 evaluate to in Java, and how do you get 3.5?",
+    "back": "7 / 2 is 3 because integer division truncates. Use 7 / 2.0 or (double) 7 / 2 to get 3.5."
+   },
+   {
+    "front": "What does 17 % 5 evaluate to?",
+    "back": "2. The % operator gives the remainder after integer division."
+   },
+   {
+    "front": "== vs .equals() for Strings",
+    "back": "== checks whether two references point to the same object. .equals() compares the characters. Use .equals() to compare String contents."
+   },
+   {
+    "front": "Why are Java Strings called immutable?",
+    "back": "A String object cannot be changed after creation. Methods like toUpperCase() return a new String; the original is unchanged."
+   },
+   {
+    "front": "Short-circuit evaluation",
+    "back": "With && Java skips the right side if the left is false; with || it skips the right side if the left is true. This lets you write if (x != null && x.length() > 0) safely."
+   },
+   {
+    "front": "while vs do-while loop",
+    "back": "A while loop checks its condition before each iteration and may run zero times. A do-while runs the body once before checking, so it runs at least once."
+   },
+   {
+    "front": "Valid indexes of an array of length n",
+    "back": "0 to n - 1. Accessing index n or a negative index throws ArrayIndexOutOfBoundsException."
+   },
+   {
+    "front": "Array vs ArrayList",
+    "back": "An array has a fixed length and can hold primitives. An ArrayList resizes automatically, holds only objects (with autoboxing for primitives) and uses get, set, add and remove."
+   },
+   {
+    "front": "Pass-by-value in Java",
+    "back": "Java always passes a copy of the value. For objects, the copy is the reference, so a method can modify the object's state but reassigning the parameter does not affect the caller's variable."
+   },
+   {
+    "front": "Class vs object",
+    "back": "A class is a blueprint defining fields and methods. An object is a specific instance of a class created with new."
+   },
+   {
+    "front": "What is a constructor?",
+    "back": "A special method with the class's name and no return type that initializes a new object. If you write none, Java provides a default no-argument constructor."
+   },
+   {
+    "front": "Static vs instance members",
+    "back": "Static fields and methods belong to the class and are shared by all instances. Instance members belong to each object. A static method cannot directly use instance fields."
+   },
+   {
+    "front": "Encapsulation",
+    "back": "Hiding an object's internal data by making fields private and exposing controlled access through public methods such as getters and setters."
+   },
+   {
+    "front": "Access modifiers from most to least restrictive",
+    "back": "private (class only), default/package-private (same package), protected (package plus subclasses), public (everywhere)."
+   },
+   {
+    "front": "Inheritance and the super keyword",
+    "back": "A subclass extends a superclass and inherits its non-private members. super(...) calls the superclass constructor and must be the first statement; super.method() calls the parent's version."
+   },
+   {
+    "front": "Overloading vs overriding",
+    "back": "Overloading: same method name with different parameter lists in the same class, chosen at compile time. Overriding: a subclass redefines an inherited method with the same signature, chosen at run time."
+   },
+   {
+    "front": "Polymorphism with dynamic binding",
+    "back": "A superclass reference can point to a subclass object, e.g. Animal a = new Dog(). Calling a.speak() runs Dog's overridden speak() at run time."
+   },
+   {
+    "front": "Abstract class vs interface",
+    "back": "An abstract class can have fields, constructors and implemented methods, and a class extends only one. An interface defines a contract of methods (mostly abstract), and a class can implement many."
+   },
+   {
+    "front": "Checked vs unchecked exceptions",
+    "back": "Checked exceptions (like IOException) must be caught or declared with throws. Unchecked exceptions (RuntimeException subclasses like NullPointerException) do not have to be."
+   },
+   {
+    "front": "What does a finally block do?",
+    "back": "Code in finally runs after the try and any matching catch, whether or not an exception was thrown. It is used for cleanup like closing files."
+   },
+   {
+    "front": "Two essential parts of a recursive method",
+    "back": "A base case that returns without recursing, and a recursive case that moves toward the base case. Missing a base case causes StackOverflowError."
+   },
+   {
+    "front": "Write a recursive factorial in plain words",
+    "back": "If n <= 1 return 1; otherwise return n * factorial(n - 1). factorial(4) = 4*3*2*1 = 24."
+   },
+   {
+    "front": "Linear search vs binary search",
+    "back": "Linear search checks each element: O(n), works on unsorted data. Binary search halves a sorted array each step: O(log n), requires sorted data."
+   },
+   {
+    "front": "Selection sort vs insertion sort",
+    "back": "Selection sort repeatedly finds the smallest remaining item and swaps it into place. Insertion sort inserts each item into the sorted part on its left. Both are O(n^2) in the worst case."
+   },
+   {
+    "front": "Big-O of nested loops each running n times",
+    "back": "O(n^2), since the inner body runs n*n times."
+   },
+   {
+    "front": "Stack vs queue",
+    "back": "A stack is last-in, first-out (push and pop at the top). A queue is first-in, first-out (add at the back, remove from the front)."
+   },
+   {
+    "front": "Singly linked list vs array: access and insertion cost",
+    "back": "Array: O(1) access by index but O(n) insertion in the middle. Linked list: O(n) access by position but O(1) insertion once you hold a reference to the node."
+   },
+   {
+    "front": "What are generics and why use them?",
+    "back": "Type parameters like ArrayList<String> let classes and methods work with any type while the compiler checks types, avoiding casts and ClassCastException."
+   },
+   {
+    "front": "What is a race condition in multithreaded code?",
+    "back": "When two threads access shared data at the same time and at least one writes, so the result depends on timing. Prevent it with synchronized blocks or locks."
+   }
+  ]
+ }
+]
