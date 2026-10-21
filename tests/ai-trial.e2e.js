@@ -135,8 +135,8 @@ const STUB = () => {
     ok(aiCalls(A.ctx) === 2, "no request was sent once today's tries were gone");
     if (SHOTS) await A.page.locator("dialog.ai-consent[open]").screenshot({path: path.join(SHOTS, "trial-out-today.png")});
     await A.page.click("dialog.ai-consent[open] [data-yes]");
-    await A.page.waitForSelector("#aiPaste");
-    ok(true, "Get My Free Gemini Key opens AI Features with Paste My Key");
+    await A.page.waitForSelector('[data-key="gemini"]');
+    ok(true, "Get My Free Gemini Key opens AI Features with the Gemini key box");
 
     // ---- 5. Used up for good: the trial stops being offered and AI Features says so.
     env.TRIAL_USES = "2";

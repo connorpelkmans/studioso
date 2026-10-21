@@ -395,6 +395,35 @@ create index if not exists shared_decks_pub_idx on public.shared_decks (publishe
 create index if not exists shared_items_pub_idx on public.shared_items (published_at desc) where published and not hidden and kind = 'quiz';
 
 -- Publish or unpublish one of your shared decks or quizzes (by its share code)
+-- Is this shared deck or quiz mostly a copy of someone else's? True when at least half its card fronts (or question stems), and at
+-- least 4, match one deck (or quiz) another person shared before it. Copies added from the website, a link, the Course Library or a group
+-- keep their cards, so they match; a few cards in common with someone else (two students both writing "Mitochondria") don't.
+create or replace function public.sbs_copied(p_code text, p_owner uuid) returns boolean
+language plpgsql stable security definer set search_path = public as $$
+declare dd jsonb; mine text[]; best int; made timestamptz;
+begin
+  select d.data, d.created_at into dd, made from public.shared_decks d where d.code = p_code and d.owner_id = p_owner;
+  if dd is not null then
+    select array_agg(distinct lower(btrim(x ->> 'front'))) into mine
+      from jsonb_array_elements(case when jsonb_typeof(dd -> 'cards') = 'array' then dd -> 'cards' else '[]'::jsonb end) x where btrim(coalesce(x ->> 'front', '')) <> '';
+    if coalesce(cardinality(mine), 0) < 4 then return false; end if;
+    select max(c) into best from (select count(distinct lower(btrim(y ->> 'front'))) c from public.shared_decks o,
+        jsonb_array_elements(case when jsonb_typeof(o.data -> 'cards') = 'array' then o.data -> 'cards' else '[]'::jsonb end) y
+      where o.owner_id <> p_owner and o.created_at < made and lower(btrim(y ->> 'front')) = any(mine) group by o.code) z;   -- (only sets shared before this one: a later copy never blocks the original)
+    return coalesce(best, 0) >= greatest(4, ceil(cardinality(mine) * 0.5));
+  end if;
+  select i.data, i.created_at into dd, made from public.shared_items i where i.code = p_code and i.owner_id = p_owner and i.kind = 'quiz';
+  if dd is null then return false; end if;
+  select array_agg(distinct lower(btrim(x ->> 'stem'))) into mine
+    from jsonb_array_elements(case when jsonb_typeof(dd -> 'quiz' -> 'questions') = 'array' then dd -> 'quiz' -> 'questions' else '[]'::jsonb end) x where btrim(coalesce(x ->> 'stem', '')) <> '';
+  if coalesce(cardinality(mine), 0) < 3 then return false; end if;
+  select max(c) into best from (select count(distinct lower(btrim(y ->> 'stem'))) c from public.shared_items o,
+      jsonb_array_elements(case when jsonb_typeof(o.data -> 'quiz' -> 'questions') = 'array' then o.data -> 'quiz' -> 'questions' else '[]'::jsonb end) y
+    where o.kind = 'quiz' and o.owner_id <> p_owner and o.created_at < made and lower(btrim(y ->> 'stem')) = any(mine) group by o.code) z;
+  return coalesce(best, 0) >= greatest(3, ceil(cardinality(mine) * 0.5));
+end $$;
+revoke all on function public.sbs_copied(text, uuid) from public, anon, authenticated;
+
 create or replace function public.share_publish(p_code text, p_on boolean) returns void
 language plpgsql security definer set search_path = public as $$
 declare k text := public.sbg_norm_code(p_code); me uuid := auth.uid(); n int; sk text := ''; sn text := '';
@@ -410,6 +439,8 @@ begin
       if public.sbu_age_ok(me) = 'unknown' then raise exception 'SB_AGE_NEEDED: Enter your birthday first.'; end if;
       if public.sbu_age_ok(me) = 'young' then raise exception 'SB_UNDER13: Publishing is for students 13 and older.'; end if;
     end if;
+    -- Only your own work: a deck (or quiz) whose cards (or questions) are mostly the same as someone else's shared one can't be published
+    if public.sbs_copied(k, me) then raise exception 'SB_NOT_YOURS: You can only publish decks and quizzes you made. This one matches someone else''s shared set.'; end if;
     select (select count(*) from public.shared_decks where owner_id = me and published) + (select count(*) from public.shared_items where owner_id = me and published) into n;
     if n >= 100 then raise exception 'You can publish up to 100 decks and quizzes. Unpublish one first.'; end if;
   end if;
@@ -435,32 +466,110 @@ language sql stable security definer set search_path = public as $$
 $$;
 
 drop function if exists public.public_search(text, text, text, int, int);
+drop function if exists public.public_search(text, text, text, int, int, text, text, int);
 drop function if exists public.public_page(text, text);
--- The public pages. Only published, not hidden items; nothing about the owner except their display name.
--- p_kind: 'deck' or 'quiz'. p_q: words to search (empty: newest). p_course: a course key (BIOL201) or ''. Sorted by match, then saves.
-create or replace function public.public_search(p_kind text, p_q text, p_course text, p_limit int, p_offset int)
-returns table (code text, name text, sharer_name text, n int, course_key text, course_label text, saves int, updated_at timestamptz, preview text, school_name text, look jsonb)
+
+-- What people call their school when they search ("UBC", "U of T", "Penn State"): nickname (letters and digits only, lower case) -> school.
+-- A school's web address name (ubc for ubc.ca) also works once it has published sets. Add your own with:
+--   insert into public.school_aliases (alias, school_key) values ('uvic', 'uvic.ca') on conflict do nothing;
+create table if not exists public.school_aliases (alias text not null check (alias ~ '^[a-z0-9]{2,30}$'), school_key text not null, primary key (alias, school_key));
+alter table public.school_aliases enable row level security;
+revoke all on public.school_aliases from anon, authenticated;
+insert into public.school_aliases (alias, school_key)
+  select a, k from (values
+    ('uoft','utoronto.ca'),('uoftoronto','utoronto.ca'),('utoronto','utoronto.ca'),('toronto','utoronto.ca'),('ubc','ubc.ca'),('sfu','sfu.ca'),('bcit','bcit.ca'),
+    ('uofa','ualberta.ca'),('ualberta','ualberta.ca'),('alberta','ualberta.ca'),('uofc','ucalgary.ca'),('ucalgary','ucalgary.ca'),('calgary','ucalgary.ca'),
+    ('waterloo','uwaterloo.ca'),('uwaterloo','uwaterloo.ca'),('uw','uwaterloo.ca'),('mcmaster','mcmaster.ca'),('western','uwo.ca'),('westernu','uwo.ca'),('uwo','uwo.ca'),
+    ('queens','queensu.ca'),('queensu','queensu.ca'),('uottawa','uottawa.ca'),('ottawa','uottawa.ca'),('mcgill','mcgill.ca'),('york','yorku.ca'),('yorku','yorku.ca'),
+    ('uvic','uvic.ca'),('victoria','uvic.ca'),('usask','usask.ca'),('umanitoba','umanitoba.ca'),('dal','dal.ca'),('dalhousie','dal.ca'),('concordia','concordia.ca'),
+    ('carleton','carleton.ca'),('guelph','uoguelph.ca'),('uoguelph','uoguelph.ca'),('laurier','wlu.ca'),('wlu','wlu.ca'),('ucla','ucla.edu'),
+    ('umich','umich.edu'),('michigan','umich.edu'),('uofm','umich.edu'),('utaustin','utexas.edu'),('utexas','utexas.edu'),('osu','osu.edu'),('ohiostate','osu.edu'),
+    ('pennstate','psu.edu'),('psu','psu.edu'),('uf','ufl.edu'),('ufl','ufl.edu'),('uflorida','ufl.edu'),('asu','asu.edu'),('arizonastate','asu.edu'),
+    ('tamu','tamu.edu'),('texasam','tamu.edu'),('tam','tamu.edu'),('ucf','ucf.edu'),('berkeley','berkeley.edu'),('ucb','berkeley.edu'),('ucberkeley','berkeley.edu'),
+    ('usc','usc.edu'),('uw','uw.edu'),('uwashington','uw.edu'),('udub','uw.edu'),('uwseattle','uw.edu'),('nyu','nyu.edu'),('rutgers','rutgers.edu'),
+    ('msu','msu.edu'),('michiganstate','msu.edu'),('uiuc','uiuc.edu'),('illinois','uiuc.edu'),('uofi','uiuc.edu'),('wisconsin','wisc.edu'),('uwmadison','wisc.edu'),
+    ('uw','wisc.edu'),('wisc','wisc.edu'),('purdue','purdue.edu'),('ucsd','ucsd.edu'),('ucsb','ucsb.edu'),('ucdavis','ucdavis.edu'),('uci','uci.edu'),
+    ('mit','mit.edu'),('harvard','harvard.edu'),('stanford','stanford.edu'),('cornell','cornell.edu'),('gatech','gatech.edu'),('georgiatech','gatech.edu'),
+    ('umd','umd.edu'),('unc','unc.edu'),('uva','virginia.edu'),('uga','uga.edu'),('fsu','fsu.edu'),('byu','byu.edu'),('iu','indiana.edu'),('umn','umn.edu')
+  ) v(a, k) where exists (select 1 from public.schools s where s.key = v.k)
+  on conflict do nothing;
+
+-- The schools a few search words name (a nickname, or a school's web address name when it has published sets)
+create or replace function public.sbs_school_words(p_tok text, p_kind text) returns text[]
+language sql stable security definer set search_path = public as $$
+  select coalesce(array_agg(distinct k), '{}') from (
+    select a.school_key k from public.school_aliases a where a.alias = p_tok
+    union
+    select d.school_key from public.shared_decks d where p_kind = 'deck' and char_length(p_tok) >= 3 and d.published and not d.hidden and split_part(d.school_key, '.', 1) = p_tok and d.school_key not like 'hs:%'
+    union
+    select i.school_key from public.shared_items i where p_kind = 'quiz' and char_length(p_tok) >= 3 and i.published and not i.hidden and split_part(i.school_key, '.', 1) = p_tok and i.school_key not like 'hs:%'
+  ) x;
+$$;
+revoke all on function public.sbs_school_words(text, text) from public, anon, authenticated;
+
+-- The public pages. Only published, not hidden items; nothing about the owner except their username.
+-- p_kind: 'deck' or 'quiz'. p_q: what was typed: a school's name or nickname ("UBC", "U of T"), a course code, words, or a mix
+-- ("ubc psyc 101", "waterloo calculus"). p_course: a course key (BIOL201) or ''. p_school: a school key from the filter ('' for any).
+-- p_sort: '' (best match, then most saved), 'new', 'saves' or 'cards'. p_min: at least this many cards or questions.
+create or replace function public.public_search(p_kind text, p_q text, p_course text, p_limit int, p_offset int, p_school text default '', p_sort text default '', p_min int default 0)
+returns table (code text, name text, sharer_name text, n int, course_key text, course_label text, saves int, updated_at timestamptz, preview text, school_name text, look jsonb, school_key text)
 language plpgsql stable security definer set search_path = public as $$
 declare q tsquery; ck text := public.sbs_course_key(coalesce(p_course, '')); lim int := least(greatest(coalesce(p_limit, 30), 1), 60); off int := least(greatest(coalesce(p_offset, 0), 0), 5000);
+  w text[]; used boolean[]; sk text[] := '{}'; i int; n int; tok text; ks text[]; rest text := ''; srt text := coalesce(p_sort, ''); mn int := greatest(coalesce(p_min, 0), 0);
 begin
-  if coalesce(btrim(p_q), '') <> '' then q := websearch_to_tsquery('english', left(p_q, 200)); end if;
+  -- pick out the school: the longest run of up to three words that names one ("u of t", "penn state", "ubc")
+  w := array_remove(regexp_split_to_array(lower(regexp_replace(left(coalesce(p_q, ''), 200), '[^A-Za-z0-9&'' ]+', ' ', 'g')), '\s+'), '');
+  used := array_fill(false, array[greatest(coalesce(array_length(w, 1), 0), 1)]);
+  i := 1;
+  while i <= coalesce(array_length(w, 1), 0) loop
+    n := least(3, array_length(w, 1) - i + 1);
+    while n >= 1 loop
+      tok := regexp_replace(array_to_string(w[i:i + n - 1], ''), '[^a-z0-9]', '', 'g');
+      ks := case when char_length(tok) >= 2 then public.sbs_school_words(tok, p_kind) else '{}' end;
+      if cardinality(ks) > 0 then sk := sk || ks; for k in i .. i + n - 1 loop used[k] := true; end loop; exit; end if;
+      n := n - 1;
+    end loop;
+    i := i + greatest(n, 1);
+  end loop;
+  for k in 1 .. coalesce(array_length(w, 1), 0) loop if not used[k] then rest := rest || ' ' || w[k]; end if; end loop;
+  rest := btrim(rest);
+  if coalesce(p_school, '') <> '' then sk := array[p_school]; end if;
+  -- what's left: just a course code filters by course; words search the sets (and school names, so "waterloo" finds Waterloo's sets)
+  if ck = '' and rest <> '' and public.sbs_course_key(rest) <> '' and upper(regexp_replace(rest, '[\s._:-]', '', 'g')) = public.sbs_course_key(rest) then ck := public.sbs_course_key(rest); rest := ''; end if;
+  if rest <> '' then q := websearch_to_tsquery('english', rest); end if;
   if p_kind = 'quiz' then
-    return query select i.code, i.title, coalesce('@' || (select pr.username from public.study_profiles pr where pr.user_id = i.owner_id), i.sharer_name), i.item_count, i.course_key, i.course_label, i.saves, i.updated_at,
-        left(coalesce(i.data -> 'quiz' -> 'questions' -> 0 ->> 'stem', ''), 200), i.school_name, null::jsonb
-      from public.shared_items i
-      where i.published and not i.hidden and i.kind = 'quiz' and (ck = '' or i.course_key = ck) and (q is null or to_tsvector('english', i.search_text) @@ q)
-      order by case when q is null then 0 else ts_rank(to_tsvector('english', i.search_text), q) end desc, i.saves desc, i.published_at desc
+    return query select i2.code, i2.title, coalesce('@' || (select pr.username from public.study_profiles pr where pr.user_id = i2.owner_id), i2.sharer_name), i2.item_count, i2.course_key, i2.course_label, i2.saves, i2.updated_at,
+        left(coalesce(i2.data -> 'quiz' -> 'questions' -> 0 ->> 'stem', ''), 200), i2.school_name, null::jsonb, i2.school_key
+      from public.shared_items i2
+      where i2.published and not i2.hidden and i2.kind = 'quiz' and (ck = '' or i2.course_key = ck) and (cardinality(sk) = 0 or i2.school_key = any(sk)) and i2.item_count >= mn
+        and (q is null or to_tsvector('english', i2.search_text) @@ q or (char_length(rest) >= 4 and i2.school_name ilike '%' || rest || '%'))
+      order by case srt when 'new' then extract(epoch from i2.published_at) when 'saves' then i2.saves when 'cards' then i2.item_count
+                 else (case when q is null then 0 else ts_rank(to_tsvector('english', i2.search_text), q) end) * 1000000 + i2.saves end desc nulls last, i2.published_at desc
       limit lim offset off;
   else
     return query select d.code, d.name, coalesce('@' || (select pr.username from public.study_profiles pr where pr.user_id = d.owner_id), d.sharer_name), d.card_count, d.course_key, coalesce(nullif(d.course_label, ''), d.data -> 'course' ->> 'code', ''), d.saves, d.updated_at,
         left((select string_agg(coalesce(x ->> 'front', ''), ' · ') from (select x from jsonb_array_elements(case when jsonb_typeof(d.data -> 'cards') = 'array' then d.data -> 'cards' else '[]'::jsonb end) x limit 4) z), 200), d.school_name,
-        case when jsonb_typeof(d.data -> 'look') = 'object' then jsonb_build_object('color', left(d.data -> 'look' ->> 'color', 7), 'icon', left(d.data -> 'look' ->> 'icon', 20)) end   -- the colour and icon picked when publishing
+        case when jsonb_typeof(d.data -> 'look') = 'object' then jsonb_build_object('color', left(d.data -> 'look' ->> 'color', 7), 'icon', left(d.data -> 'look' ->> 'icon', 20)) end,   -- the colour and icon picked when publishing
+        d.school_key
       from public.shared_decks d
-      where d.published and not d.hidden and (ck = '' or d.course_key = ck) and (q is null or to_tsvector('english', d.search_text) @@ q)
-      order by case when q is null then 0 else ts_rank(to_tsvector('english', d.search_text), q) end desc, d.saves desc, d.published_at desc
+      where d.published and not d.hidden and (ck = '' or d.course_key = ck) and (cardinality(sk) = 0 or d.school_key = any(sk)) and d.card_count >= mn
+        and (q is null or to_tsvector('english', d.search_text) @@ q or (char_length(rest) >= 4 and d.school_name ilike '%' || rest || '%'))
+      order by case srt when 'new' then extract(epoch from d.published_at) when 'saves' then d.saves when 'cards' then d.card_count
+                 else (case when q is null then 0 else ts_rank(to_tsvector('english', d.search_text), q) end) * 1000000 + d.saves end desc nulls last, d.published_at desc
       limit lim offset off;
   end if;
 end $$;
+
+-- Schools with published sets, most first (the search page's School filter). High schools aren't listed by name.
+create or replace function public.public_schools(p_kind text, p_limit int)
+returns table (school_key text, school_name text, n int)
+language sql stable security definer set search_path = public as $$
+  select k, max(nm), count(*)::int from (
+    select d.school_key k, d.school_name nm from public.shared_decks d where p_kind = 'deck' and d.published and not d.hidden and d.school_key <> '' and d.school_key not like 'hs:%'
+    union all
+    select i.school_key, i.school_name from public.shared_items i where p_kind = 'quiz' and i.kind = 'quiz' and i.published and not i.hidden and i.school_key <> '' and i.school_key not like 'hs:%'
+  ) x group by k order by max(nm) limit least(greatest(coalesce(p_limit, 300), 1), 1000);
+$$;
 
 -- One published page's content
 create or replace function public.public_page(p_kind text, p_code text)
@@ -504,10 +613,10 @@ do $$ begin
   end if;
 end $$;
 
-revoke all on function public.share_publish(text, boolean), public.my_publish_state(text), public.public_search(text, text, text, int, int),
-  public.public_page(text, text), public.public_courses(text, int), public.public_sitemap(text, int, int) from public, anon;
+revoke all on function public.share_publish(text, boolean), public.my_publish_state(text), public.public_search(text, text, text, int, int, text, text, int),
+  public.public_page(text, text), public.public_courses(text, int), public.public_schools(text, int), public.public_sitemap(text, int, int) from public, anon;
 grant execute on function public.share_publish(text, boolean), public.my_publish_state(text) to authenticated;
-grant execute on function public.public_search(text, text, text, int, int), public.public_page(text, text), public.public_courses(text, int),
-  public.public_sitemap(text, int, int) to anon, authenticated;
+grant execute on function public.public_search(text, text, text, int, int, text, text, int), public.public_page(text, text), public.public_courses(text, int),
+  public.public_schools(text, int), public.public_sitemap(text, int, int) to anon, authenticated;
 
 notify pgrst, 'reload schema';

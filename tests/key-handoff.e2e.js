@@ -1,4 +1,4 @@
-// Browser test for Paste My Key and Add AI to Another Device, with several browser contexts standing in for separate devices.
+// Browser test for adding a Gemini key and Add AI to Another Device, with several browser contexts standing in for separate devices.
 // Run: node tests/key-handoff.e2e.js    (Playwright + Chromium; the app is served from this folder at https://app.test with KEY_RELAY set,
 // the relay is cloudflare/key-relay/src/relay.js running in this process, and Gemini is stubbed)
 // Covers: a code made on one device and typed on another (any case, no dashes) brings the keys over and turns AI on; the first device
@@ -61,7 +61,7 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
   // The page's functions aren't globals, so AI Features is opened the way a Settings button does it (a data-act="ai-setup" click).
   const openAi = async page => { await page.waitForTimeout(1500); await closeAll(page);
     await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "ai-setup"; document.body.appendChild(b); b.click(); b.remove(); });
-    await page.waitForSelector("#aiPaste"); };
+    await page.waitForSelector('[data-key="gemini"]'); };
 
   try {
     // ---- 1. Device A (set up) shows a code; device B types it.
@@ -125,22 +125,7 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
     ok((await Rp.textContent("#code")) === "K7Q2-9XMD-4TRP" && (await Rp.getAttribute("#open", "href")) === `${APP}#sbkey=K7Q2-9XMD-4TRP`, "the QR page shows the code and an Open Studyboard link");
     await Rp.close();
 
-    // ---- 4. Paste My Key.
-    const E = await device(null, {clipboard: true});
-    await openAi(E.page);
-    await E.page.evaluate(() => navigator.clipboard.writeText("nothing useful here"));
-    await E.page.click("#aiPaste");
-    await E.page.waitForFunction(() => /no Gemini key on the clipboard/.test(document.querySelector("#aiPasteMsg").textContent), null, {timeout: 5000});
-    ok(true, "nothing useful on the clipboard is explained");
-    await E.page.evaluate(k => navigator.clipboard.writeText("Your API key\n" + k + "\n"), BADKEY);
-    await E.page.click("#aiPaste");
-    await E.page.waitForFunction(() => /tap Paste My Key again/.test(document.querySelector("#aiPasteMsg").textContent), null, {timeout: 10000});
-    ok(Object.keys(await savedKeys(E.page)).length === 0, "a key Google refuses is not saved");
-    await E.page.evaluate(k => navigator.clipboard.writeText("Your API key\n" + k + "\n"), KEY2);
-    await E.page.click("#aiPaste");
-    await E.page.waitForFunction(() => /AI is on/.test((document.querySelector("#toastMsg") || {}).textContent || ""), null, {timeout: 10000});
-    ok((await savedKeys(E.page)).gemini === KEY2 && E.ctx.geminiKeys.includes(KEY2), "Paste My Key checked the key with Google and saved it");
-    ok(!(await E.page.evaluate(() => document.querySelector("#dlg").open)), "and closed the window");
+    // ---- 4. (Paste My Key was removed: keys are pasted into the Gemini box, or picked up on coming back, below.)
 
     // ---- 5. Coming back to the tab with a key copied (clipboard already allowed) is enough.
     const F = await device(null, {clipboard: true});

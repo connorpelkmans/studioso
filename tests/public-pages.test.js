@@ -20,6 +20,7 @@ const fakeFetch = async (url, init) => {
   if (fn === "public_search") out = src.filter(r => (!a.p_course || r.course_key === a.p_course.toUpperCase().replace(/[^A-Z0-9]/g, "")) && (!a.p_q || JSON.stringify(r).toLowerCase().includes(a.p_q.toLowerCase()))).slice(a.p_offset, a.p_offset + a.p_limit).map(r => Object.assign({}, r, {preview: "x"}));
   else if (fn === "public_page") out = src.filter(r => r.code === a.p_code);
   else if (fn === "public_courses") out = [{course_key: "BIOL201", course_label: "BIOL 201", n: src.length}];
+  else if (fn === "public_schools") out = [{school_key: "uwaterloo.ca", school_name: "University of Waterloo", n: 1}];
   else if (fn === "public_sitemap") out = src.map(r => ({code: r.code, name: r.name, updated_at: r.updated_at}));
   else return new Response("{}", {status: 404});
   return new Response(JSON.stringify(out), {status: 200, headers: {"content-type": "application/json"}});
@@ -84,6 +85,12 @@ const env = {SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "sb_publi
   ok(COLORS.every((c, i) => css.includes(`.pc${i}{--c:${c}}`)), "every course colour has its class in public.css");
   ({r, t} = await html("/flashcards?q=mitochondria"));
   ok(/noindex,follow/.test(t) && /Cell Biology Basics/.test(t) && !/Cell Organelles II/.test(t), "search results show matches and aren't indexed");
+  ({r, t} = await html("/flashcards?school=uwaterloo.ca&sort=new&min=25"));
+  const sc = calls.filter(c => c[0] === "public_search").pop()[1];
+  ok(sc.p_school === "uwaterloo.ca" && sc.p_sort === "new" && sc.p_min === 25 && /<option value="uwaterloo.ca" selected>University of Waterloo<\/option>/.test(t) && /<option value="new" selected>Newest/.test(t) && /<option value="25" selected>25\+ cards/.test(t), "school, sort and size filters are sent and stay selected");
+  ok(/Flashcards from University of Waterloo/.test(t) && /noindex,follow/.test(t), "a filtered page names the school and isn't indexed");
+  ({r, t} = await html("/flashcards?sort=bogus&min=7"));
+  ok(calls.filter(c => c[0] === "public_search").pop()[1].p_sort === "" && calls.filter(c => c[0] === "public_search").pop()[1].p_min === 0, "unknown filter values are ignored");
   r = await get("/flashcards?q=BIOL%20201");
   ok(r.status === 302 && /\/flashcards\/course\/biol-201$/.test(r.headers.get("location")), "searching a course code goes to its course page");
   ({r, t} = await html("/flashcards/course/biol-201"));
