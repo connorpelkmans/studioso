@@ -100,6 +100,7 @@
 .pdh-btn.primary{background:#fff;border-color:#fff;color:color-mix(in srgb,var(--c) 70%,#000)}
 .pdh-btn.primary:hover{background:#F4F6FB}
 .pdh-btn:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.pub-official{margin:-8px 0 20px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--soft);color:var(--muted);font-size:.9rem}
 .pdh-low{display:flex;align-items:flex-start;gap:18px;padding:0 20px 18px}
 .pdh-ring{flex:none;display:grid;place-items:center;width:104px;height:104px;margin-top:-26px;border-radius:50%;background:#fff;border:5px solid var(--c);box-shadow:0 4px 14px rgba(10,20,40,.22)}
 .pdh-ring svg{width:66%;height:66%;display:block;overflow:visible;stroke:color-mix(in srgb,var(--c) 40%,#0E1424);stroke-width:1.6}

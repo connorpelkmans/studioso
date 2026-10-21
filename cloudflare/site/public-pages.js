@@ -206,6 +206,7 @@ async function itemPage(env, section, slug, code, origin){
   const related = key ? (await rpc(env, "public_search", {p_kind: K.kind, p_q: "", p_course: key, p_limit: 9, p_offset: 0}).catch(() => [])).filter(r => r.code !== row.code).slice(0, 8) : [];
   const appLink = `/?${K.appParam}=${encodeURIComponent(row.code)}`;
   const school = row.school_name || "";
+  const official = String(row.sharer_name || "").toLowerCase() === "@studyboard";   // Studyboard's own sample sets (supabase-seed-sets.sql)
   const meta = `${esc(plural(Number(row.n) || 0, K.unit))}${label ? ` · ${esc(label)}` : ""}${school ? ` · ${esc(school)}` : ""}${row.sharer_name ? ` · Made by ${esc(row.sharer_name)}` : ""}${row.updated_at ? ` · Updated ${esc(monthYear(row.updated_at))}` : ""}`;
   let body, ld, title, description;
   if (K.kind === "deck") {
@@ -218,6 +219,7 @@ async function itemPage(env, section, slug, code, origin){
     body = `${crumbs(cr)}<header class="pdh pc${L.color}"><div class="pdh-band"><span class="pdh-kick">${esc(label || "General")} · Flashcards</span></div>
       <div class="pdh-low"><span class="pdh-ring" aria-hidden="true">${L.icon}</span><div class="pdh-txt"><h1>${esc(row.name)}</h1><p class="pdh-chips">${chips.map(x => `<span>${x}</span>`).join("")}</p></div></div>
       <div class="pdh-acts"><a class="pdh-btn primary" href="#study" data-pub-study>Study Flashcards</a><a class="pdh-btn" href="${esc(appLink)}">Add to Studyboard</a></div></header>
+      ${official ? `<p class="pub-official">A study set written by the Studyboard team for the topics in this course's published outline. It isn't official course material from ${esc(school || "the school")} and doesn't contain real exam questions.</p>` : ""}
       <section id="study" class="pub-study" hidden aria-label="Study these flashcards"><button type="button" class="pub-card" data-pub-card aria-live="polite"></button>
         <div class="pub-nav"><button type="button" class="btn" data-pub-prev>Previous</button><span data-pub-pos></span><button type="button" class="btn" data-pub-next>Next</button><button type="button" class="btn" data-pub-shuffle>Shuffle</button></div></section>
       <section class="pub-sec"><h2>Terms in this set (${cards.length})</h2>
