@@ -53,6 +53,17 @@ t("resolveText: two blocks resolved together; plain text untouched", () => {
 
 /* ---- notes ---- */
 const note = o => Object.assign({id: "n1", text: "", color: "yellow", x: 40, y: 40, z: 1, rot: 0, archived: false, stickers: []}, o);
+/* ---- pen ink (module 99-ink): strokes merge by id ---- */
+const stk = (id, extra) => Object.assign({id, t: "pen", c: "ink", w: 35, d: "w-Bw-BgBw7Fw-BAg6HnfG", at: 1}, extra || {});
+t("ink: strokes drawn on two devices are all kept, with no conflict", () => {
+  const base = note({ink: [stk("a")]}), r = SM.mergeItem("note", base, note({ink: [stk("a"), stk("m")]}), note({ink: [stk("a"), stk("t")]}), {now: T0});
+  assert.deepStrictEqual(r.merged.ink.map(s => s.id).sort(), ["a", "m", "t"]); assert(!r.merged.conflict); assert(!(r.merged.syncLog || []).length);
+});
+t("ink: a stroke erased on one device goes, a stroke drawn on the other stays", () => {
+  const base = {id: "f1", name: "R.pdf", ink: [stk("a", {p: 1, a: "x"}), stk("b", {p: 2, a: "x"})]};
+  const r = SM.mergeItem("file", base, Object.assign({}, base, {ink: [base.ink[1]]}), Object.assign({}, base, {ink: base.ink.concat([stk("c", {p: 1, a: "x"})])}), {now: T0});
+  assert.deepStrictEqual(r.merged.ink.map(s => s.id).sort(), ["b", "c"]);
+});
 t("note: edited on one side only", () => { const r = SM.mergeItem("note", note({text: "a"}), note({text: "a!"}), note({text: "a"})); assert.strictEqual(r.state, "mine"); assert.strictEqual(r.merged.text, "a!"); });
 t("note: scenario 1 same line edited on both -> both kept, conflict flag, history ring", () => {
   const base = note({text: "Cell\nMitochondria"}), mine = note({text: "Cell\nMitochondria make ATP"}), theirs = note({text: "Cell\nMitochondria are organelles"});
