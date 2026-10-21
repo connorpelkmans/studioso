@@ -6,7 +6,8 @@ Studyboard itself is released under the MIT License (see `LICENSE`). It includes
 |---|---|---|---|
 | Atkinson Hyperlegible and Atkinson Hyperlegible Next (typefaces) | Body text | Copyright 2020 Braille Institute of America, Inc. (https://www.brailleinstitute.org/), with Reserved Font Name "Atkinson Hyperlegible" | SIL Open Font License 1.1 |
 | Lexend (typeface) | Headings | Copyright 2018 The Lexend Project Authors (https://github.com/googlefonts/lexend) | SIL Open Font License 1.1 |
-| @fontsource/atkinson-hyperlegible, @fontsource/atkinson-hyperlegible-next, @fontsource/lexend | Packaged font files for the desktop app (offline use) | Fontsource contributors | MIT (the fonts inside keep their OFL license) |
+| Permanent Marker (typeface) | Writing on the Whiteboard in Notes | Copyright (c) 2010 by Font Diner, Inc. | Apache License 2.0 |
+| @fontsource/atkinson-hyperlegible, @fontsource/atkinson-hyperlegible-next, @fontsource/lexend, @fontsource/permanent-marker | Packaged font files for the desktop app (offline use) | Fontsource contributors | MIT (the fonts inside keep their own OFL or Apache license) |
 | pdfjs-dist (PDF.js) 6.4.299 | Reading PDFs you import (syllabi, study material); the unmodified legacy build is served from `vendor/pdfjs/` | Copyright 2012 Mozilla Foundation | Apache License 2.0 |
 | @supabase/supabase-js | Optional account sign-in and sync | Copyright (c) 2020 Supabase | MIT |
 | fzstd 0.1.1 | Unpacking newer Anki files (collection.anki21b) in Import From Another App; the unmodified UMD build is served from `vendor/fzstd-0.1.1.umd.js` and loaded only for those files | Copyright (c) 2020 Arjun Barrett | MIT |
@@ -14,7 +15,7 @@ Studyboard itself is released under the MIT License (see `LICENSE`). It includes
 | Lucide icons (lucide-static 1.49.0) | Course icons you make with Create: an icon's shapes are copied from Lucide and coloured; the library is loaded from the jsDelivr CDN only when you make one | Copyright (c) 2026 Lucide Icons and Contributors; icons derived from Feather Copyright (c) 2013-present Cole Bemis | ISC (Lucide); MIT (the Feather-derived icons) |
 | electron-builder | Building the desktop installers (build tool, not shipped) | electron-userland contributors | MIT |
 
-On the website the fonts (Latin subsets from `@fontsource`, SIL OFL 1.1, licenses in `vendor/fonts/`) supabase-js and fzstd (`vendor/`, MIT, licenses beside them) are served from the site itself; pdf.js (`vendor/pdfjs/`) is served from the site itself too. The desktop app ships local copies of all of them (`npm run prep` copies them from `node_modules` and `vendor/`).
+On the website the fonts (Latin subsets from `@fontsource`, SIL OFL 1.1 or Apache 2.0, licenses in `vendor/fonts/`) supabase-js and fzstd (`vendor/`, MIT, licenses beside them) are served from the site itself; pdf.js (`vendor/pdfjs/`) is served from the site itself too. The desktop app ships local copies of all of them (`npm run prep` copies them from `node_modules` and `vendor/`).
 
 ## MIT License (applies to the MIT-licensed components above)
 
@@ -44,9 +45,9 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 The following Lucide icons are derived from the Feather project, Copyright (c) 2013-present Cole Bemis, and are also under the MIT License above: airplay, alert-circle, alert-octagon, alert-triangle, aperture, arrow-down-circle, arrow-down-left, arrow-down-right, arrow-down, arrow-left-circle, arrow-left, arrow-right-circle, arrow-right, arrow-up-circle, arrow-up-left, arrow-up-right, arrow-up, at-sign, calendar, cast, check, chevron-down, chevron-left, chevron-right, chevron-up, chevrons-down, chevrons-left, chevrons-right, chevrons-up, circle, clipboard, clock, code, columns, command, compass, corner-down-left, corner-down-right, corner-left-down, corner-left-up, corner-right-down, corner-right-up, corner-up-left, corner-up-right, crosshair, database, divide-circle, divide-square, dollar-sign, download, external-link, feather, frown, hash, headphones, help-circle, info, italic, key, layout, life-buoy, link-2, link, loader, lock, log-in, log-out, maximize, meh, minimize, minimize-2, minus-circle, minus-square, minus, monitor, moon, more-horizontal, more-vertical, move, music, navigation-2, navigation, octagon, pause-circle, percent, plus-circle, plus-square, plus, power, radio, rss, search, server, share, shopping-bag, sidebar, smartphone, smile, square, table-2, tablet, target, terminal, trash-2, trash, triangle, tv, type, upload, x-circle, x-octagon, x-square, x, zoom-in, zoom-out
 
-## Apache License 2.0 (pdfjs-dist)
+## Apache License 2.0 (pdfjs-dist, Permanent Marker)
 
-PDF.js is licensed under the Apache License, Version 2.0. You may obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0. Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License. The unmodified `pdf.min.js` and `pdf.worker.min.js` files are distributed with the desktop app and carry their own license headers.
+Permanent Marker (Copyright (c) 2010 by Font Diner, Inc.) is licensed under the Apache License, Version 2.0; the full text is in `vendor/fonts/LICENSE-permanent-marker-Apache-2.0.txt`. PDF.js is licensed under the Apache License, Version 2.0. You may obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0. Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License. The unmodified `pdf.min.js` and `pdf.worker.min.js` files are distributed with the desktop app and carry their own license headers.
 
 ## SIL Open Font License 1.1 (Atkinson Hyperlegible, Lexend)
 

@@ -32,7 +32,7 @@ copy("pdfjs-dist/legacy/build/pdf.min.mjs", "pdfjs/pdf.min.mjs");
 copy("pdfjs-dist/legacy/build/pdf.worker.min.mjs", "pdfjs/pdf.worker.min.mjs");
 copy("pdfjs-dist/LICENSE", "pdfjs/LICENSE");
 
-const faces = [["Lexend", "lexend", [400, 500, 600, 700, 800]], ["Atkinson Hyperlegible Next", "atkinson-hyperlegible-next", [400, 500, 700]], ["Atkinson Hyperlegible", "atkinson-hyperlegible", [400, 700]]];
+const faces = [["Lexend", "lexend", [400, 500, 600, 700, 800]], ["Atkinson Hyperlegible Next", "atkinson-hyperlegible-next", [400, 500, 700]], ["Atkinson Hyperlegible", "atkinson-hyperlegible", [400, 700]], ["Permanent Marker", "permanent-marker", [400]]];
 let css = "";
 for (const [family, pkg, weights] of faces) for (const w of weights) {
   const f = `${pkg}-latin-${w}-normal.woff2`;
