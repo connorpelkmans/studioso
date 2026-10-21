@@ -6617,6 +6617,10 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 /* The cards behind sit 6px lower and right, less than the 8px corner, so their light tops peeked into the front card's rounded
    corners (a white sliver, most visible when zoomed out). Each is cut off at the top only, just below the corner of the card in front
    of it; its sides and bottom keep their own rounded corners (the clip sits 4px outside them, past the outline). */
+/* A little shorter deck cards: less padding around the band, the name and the buttons (same text and button sizes) */
+.deck.deck-fc .fc-band{padding-top:7px!important;padding-bottom:7px!important}
+.deck.deck-fc .deck-main{padding-top:10px!important;padding-bottom:6px!important;gap:6px!important}
+.deck.deck-fc .deck-actions{padding-bottom:10px!important}
 .deck.deck-fc .deck-lay.l2 .face{clip-path:inset(8px -4px -4px -4px round 8px)}
 .deck.deck-fc .deck-lay.l3 .face{clip-path:inset(10px -4px -4px -4px round 8px)}
 /* and just slightly rounded corners, like the flashcard itself when it's open (the preview is about half its size) */
