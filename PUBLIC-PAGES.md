@@ -20,7 +20,7 @@ Every page has:
 - breadcrumbs, and links to related sets from the same course
 - Google's structured data for flashcards (schema.org `Quiz` with `Flashcard` questions) and for practice questions (`Multiple choice`, `Checkbox`, `Short answer`), which is the format Quizlet uses
 
-Pages are cached at Cloudflare's edge for an hour, so most visits never reach Supabase.
+Set pages are cached at Cloudflare's edge for 15 minutes (lists for up to an hour), so most visits never reach Supabase. Publishing, updating, changing the colour or icon, and unpublishing in the app clear the cached copies at once (POST /flashcards/refresh).
 
 In the app:
 - A deck's or quiz's Share sheet has **Publish to Studyboard Flashcards** (or **Quizzes**). It asks first, then shows the public address.

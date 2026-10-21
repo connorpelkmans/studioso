@@ -41,7 +41,8 @@ const env = {SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "sb_publi
   ok(r.status === 200 && /text\/html/.test(r.headers.get("content-type")), "a deck page renders");
   ok(/<h1>Cell Biology Basics<\/h1>/.test(t) && /Mitochondria/.test(t) && /Makes ATP/.test(t) && /Packages proteins/.test(t), "every card is in the page's HTML");
   ok(/Makes protein &lt;b&gt;fast&lt;\/b&gt;/.test(t) && !/<b>fast<\/b>/.test(t), "card text is escaped");
-  ok(/BIOL 201 · University of Waterloo · Made by Sam/.test(t) && /at University of Waterloo/.test(t.match(/<meta name="description" content="([^"]*)"/)[1]), "the school shows on the page and in its description");
+  ok(/<span class="pdh-kick">BIOL 201 · Flashcards<\/span>/.test(t) && /<span>University of Waterloo<\/span>/.test(t) && /<span>by Sam<\/span>/.test(t) && /at University of Waterloo/.test(t.match(/<meta name="description" content="([^"]*)"/)[1]), "the school shows on the page and in its description");
+  ok(/<header class="pdh pc\d+">/.test(t) && /class="pdh-ring"[^>]*><svg class="ci-svg"/.test(t) && /<ol class="pub-terms pcards">/.test(t) && /data-pub-study>Study Flashcards</.test(t), "the set page is drawn like the app's deck page: course band, big icon, index cards");
   ok(/<title>Cell Biology Basics \(BIOL 201\) Flashcards \| Studyboard<\/title>/.test(t), "the title names the set, its course and Flashcards");
   ok(/<link rel="canonical" href="https:\/\/studyboardapp.com\/flashcards\/cell-biology-basics-abcdefgh">/.test(t), "it has a canonical link");
   const ld = [...t.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m => JSON.parse(m[1]));
@@ -52,7 +53,7 @@ const env = {SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "sb_publi
   ok(/href="\/\?deck=ABCD-EFGH"/.test(t), "Add to Studyboard opens the deck in the app");
   ok(/More BIOL 201 flashcards/.test(t) && /cell-organelles-ii-jklmnpqr/.test(t), "related sets from the same course are linked");
   ok(/content-security-policy/i.test([...r.headers.keys()].join(" ")) && /script-src 'self'/.test(r.headers.get("content-security-policy")), "a strict content security policy");
-  ok(/s-maxage=3600/.test(r.headers.get("cache-control")), "cached at the edge for an hour");
+  ok(/s-maxage=900/.test(r.headers.get("cache-control")), "cached at the edge for 15 minutes");
   ok(calls.every(c => c[2] === "sb_publishable_test"), "reads with the public key only");
 
   // an old or wrong name redirects to the current one; a wrong code is a 404
@@ -100,5 +101,9 @@ const env = {SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "sb_publi
   ok(r.status === 503 && r.headers.get("retry-after"), "an outage answers 503 with Retry-After (search engines try again later)");
   r = await P.handlePublic(new Request("https://studyboardapp.com/flashcards", {method: "POST"}), env, {});
   ok(r.status === 405, "only GET");
+  const rf = []; r = await P.handlePublic(new Request("https://studyboardapp.com/flashcards/refresh", {method: "POST", body: JSON.stringify({kind: "deck", code: "ABCD-EFGH", name: "Cell Biology Basics", course: "BIOL 201"})}), Object.assign({}, env, {__refreshed: rf}), {});
+  ok(r.status === 204 && rf.includes("/flashcards/cell-biology-basics-abcdefgh") && rf.includes("/flashcards") && rf.includes("/flashcards/course/biol-201"), "a refresh after publishing drops the cached page, the index and the course page");
+  r = await P.handlePublic(new Request("https://studyboardapp.com/flashcards/refresh", {method: "POST", body: "nonsense"}), env, {});
+  ok(r.status === 204, "a bad refresh does nothing");
   console.log(`public-pages.test: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });
