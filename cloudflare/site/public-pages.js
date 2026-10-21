@@ -78,7 +78,7 @@ ${canonical ? `<meta property="og:url" content="${esc(canonical)}">` : ""}
 <link rel="apple-touch-icon" href="/website/assets/apple-touch-icon.png">
 <link rel="stylesheet" href="/website/assets/fonts.css">
 <link rel="stylesheet" href="/website/assets/site.css">
-<link rel="stylesheet" href="/website/assets/public.css">
+<link rel="stylesheet" href="/website/assets/public.css?v=2">
 ${(ld || []).map(jsonLd).join("\n")}
 </head>
 <body class="pub">
@@ -183,7 +183,7 @@ async function indexPage(env, section, url, origin){
   const body = `<div class="pub-hero"><h1>${searching ? (what ? `${esc(K.noun)} ${q ? "for" : "from"} ${esc(what)}` : `${esc(K.noun)}`) : `${esc(K.noun)} made by students`}</h1>
     <p class="lede">${searching ? `${list.length ? "" : "Nothing matches that yet. Try a school, a course code or fewer words."}` : `Free ${esc(K.many)} for your courses, shared by students on Studyboard. Search by school, course code or topic.`}</p>
     ${searchForm(section, q, "", f, schools)}</div>
-    ${courses.length ? `<section class="pub-sec"><h2>Popular courses</h2><ul class="pub-chips">${courses.map(c => `<li><a href="/${section}/course/${esc(courseSlug(c.course_key))}">${esc(c.course_label || courseLabelOf(c.course_key))} <span>${esc(c.n)}</span></a></li>`).join("")}</ul></section>` : ""}
+    ${courses.length ? `<section class="pub-sec pub-popular"><h2>Popular courses</h2><ul class="pub-chips">${courses.map(c => `<li><a href="/${section}/course/${esc(courseSlug(c.course_key))}">${esc(c.course_label || courseLabelOf(c.course_key))} <span>${esc(c.n)}</span></a></li>`).join("")}</ul></section>` : ""}
     <section class="pub-sec"><h2>${searching ? "Results" : "Newest " + esc(K.many)}</h2>${listHtml(section, list) || `<p class="pub-none">No ${esc(K.many)} here yet. Share one from Studyboard: open it, tap Share, then Publish.</p>`}${pager(section, base, pageNo, more)}</section>
     ${cta(section)}`;
   const ld = searching ? [] : [{"@context": "https://schema.org", "@type": "WebSite", name: SITE, url: origin + "/", potentialAction: {"@type": "SearchAction", target: `${origin}/${section}?q={search_term_string}`, "query-input": "required name=search_term_string"}}];

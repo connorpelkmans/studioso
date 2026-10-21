@@ -158,3 +158,5 @@
   .pub .top .navbtn{white-space:nowrap;padding:8px 12px;font-size:.88rem}
   .pub .top .brand img{width:112px;height:auto}
 }
+/* Phones: no Popular courses list (search and the filters do that job; the long list of chips pushed the sets far down) */
+@media (max-width:640px){.pub-popular{display:none}}
