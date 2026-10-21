@@ -194,6 +194,12 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await act("wb-opts"); await page.click('dialog[open] [data-wbo="del"]'); await page.click("dialog[open] [data-submit]"); await page.waitForTimeout(400);
     await page.waitForTimeout(300); await act("trash-open"); await page.waitForSelector("dialog[open]"); await page.waitForTimeout(400);
     ok((await saved()).length === 1 && (await page.locator("dialog[open]").textContent()).includes("Whiteboard: Cell Biology"), "Delete Board sends it to Recently Deleted as “Whiteboard: Cell Biology”");
+    await page.keyboard.press("Escape"); await page.waitForTimeout(150);
+    // the last board deleted: someone who has made boards gets the New Whiteboard sheet, not the first-time start screen
+    await act("wb-opts"); await page.click('dialog[open] [data-wbo="del"]'); await page.click("dialog[open] [data-submit]"); await page.waitForTimeout(500);
+    ok((await saved()).length === 0 && await page.locator(".wb-empty:not(.wb-none)").count() === 0 && await page.locator(".wb-none").count() === 1, "with every board deleted, the start screen doesn't come back (just a New Whiteboard button)");
+    await page.click('.nv-tabs [data-id="board"]'); await page.waitForTimeout(200); await page.click('.nv-tabs [data-id="wb"]'); await page.waitForTimeout(300);
+    ok(/New Whiteboard/.test(await page.locator("dialog[open] h2").textContent()), "and opening Whiteboard again goes straight to the New Whiteboard sheet");
     ok(!errs.length, "no page errors: " + errs.join(" | "));
     await ctx.close();
     console.log(`whiteboard.e2e: ${n} checks passed`);

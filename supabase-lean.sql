@@ -260,7 +260,7 @@ declare
   -- table, column: rows deleted outright (explicit so it works even before the auth row goes)
   del text[][] := array[
     ['group_reactions','user_id'], ['group_checkins','user_id'], ['group_stats','user_id'], ['group_rsvps','user_id'],
-    ['group_quiz_scores','user_id'], ['group_misses','user_id'], ['group_peer_ratings','from_user'], ['group_peer_ratings','to_user'], ['group_messages','user_id'], ['group_items','user_id'], ['group_blocks','blocker_id'],
+    ['group_quiz_scores','user_id'], ['group_misses','user_id'], ['group_peer_ratings','from_user'], ['group_peer_ratings','to_user'], ['group_messages','user_id'], ['group_items','user_id'], ['group_board_ops','user_id'], ['group_blocks','blocker_id'],
     ['group_blocks','blocked_id'], ['group_pro','user_id'], ['group_bans','user_id'], ['group_members','user_id'], ['shared_decks','owner_id'], ['shared_items','owner_id'], ['share_saves','user_id'], ['user_schools','user_id'], ['study_profiles','user_id'],
     ['study_room_people','user_id'], ['study_rooms','started_by'],
     ['capture_idem','user_id'], ['capture_inbox','user_id'], ['capture_tokens','user_id'], ['capture_email','user_id'],
@@ -291,6 +291,11 @@ begin
       end if;
     end loop;
     res := res || jsonb_build_object('groups_transferred', n);
+  end if;
+  -- Whiteboards they shared with a group stay with the group (everyone has their own copy); only the maker's name goes. Their own
+  -- changes in the log go with the rows above (group_board_ops).
+  if to_regclass('public.group_boards') is not null then
+    update public.group_boards set created_by = null where created_by = p_uid;
   end if;
   -- A used free trial is remembered as a hash of the email only (supabase-plans.sql), so deleting and re-creating the account
   -- doesn't give a second trial. No account id or address is kept.

@@ -1410,4 +1410,85 @@ alter table public.study_groups add column if not exists color text;
 alter table public.study_groups drop constraint if exists study_groups_color_check;
 alter table public.study_groups add constraint study_groups_color_check check (color is null or color ~ '^#[0-9A-F]{6}$');
 grant update (color) on public.study_groups to authenticated;
+
+-- ---------- Live whiteboards (Notes > Whiteboard > Share With a Study Group) ----------
+-- A group board is a name and a log of changes. Every member keeps their own copy (a note on their own account) and replays the log:
+-- each row is a batch of changes [{t: "s" stroke | "i" text or picture, id, v: the new value, or null for removed}]. Rows are only ever
+-- added (nobody can edit or delete someone else's drawing on the server); a copy you delete is only yours.
+create table if not exists public.group_boards (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references public.study_groups(id) on delete cascade,
+  created_by uuid default auth.uid() references auth.users(id) on delete set null,   -- kept for the group when its maker's account is deleted
+  name text not null check (char_length(name) between 1 and 60),
+  tpl text not null default 'blank' check (tpl in ('blank', 'grid', 'dots', 'lines', 'cornell', 'concept', 'week', 'kanban', 'venn', 'timeline')),
+  deleted boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists group_boards_group_idx on public.group_boards (group_id);
+alter table public.group_boards enable row level security;
+drop policy if exists "group board read" on public.group_boards;
+create policy "group board read" on public.group_boards for select to authenticated using (public.sbg_is_member(group_id));
+drop policy if exists "group board add" on public.group_boards;
+create policy "group board add" on public.group_boards for insert to authenticated with check (created_by = auth.uid() and public.sbg_is_member(group_id));
+-- whoever made it, or the group's owner, can rename it or take it off the group (members keep their copies)
+drop policy if exists "group board change" on public.group_boards;
+create policy "group board change" on public.group_boards for update to authenticated
+  using (public.sbg_is_member(group_id) and (created_by = auth.uid() or public.sbg_is_owner(group_id)))
+  with check (public.sbg_is_member(group_id) and (created_by = auth.uid() or public.sbg_is_owner(group_id)));
+revoke delete, truncate, references, trigger on public.group_boards from authenticated;
+revoke all on public.group_boards from anon;
+
+create table if not exists public.group_board_ops (
+  id bigint generated always as identity primary key,
+  board_id uuid not null references public.group_boards(id) on delete cascade,
+  group_id uuid not null references public.study_groups(id) on delete cascade,
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  ch jsonb not null check (jsonb_typeof(ch) = 'array' and jsonb_array_length(ch) between 1 and 200 and octet_length(ch::text) < 600000),
+  tag text not null default '' check (char_length(tag) <= 40),   -- the sending device's session, so it can skip its own echoes
+  created_at timestamptz not null default now()
+);
+alter table public.group_board_ops add column if not exists tag text not null default '';
+create index if not exists group_board_ops_board_idx on public.group_board_ops (board_id, id);
+alter table public.group_board_ops enable row level security;
+drop policy if exists "group board ops read" on public.group_board_ops;
+create policy "group board ops read" on public.group_board_ops for select to authenticated using (public.sbg_is_member(group_id));
+drop policy if exists "group board ops add" on public.group_board_ops;
+create policy "group board ops add" on public.group_board_ops for insert to authenticated with check (
+  user_id = auth.uid() and public.sbg_is_member(group_id)
+  and exists (select 1 from public.group_boards b where b.id = board_id and b.group_id = group_board_ops.group_id and not b.deleted));
+revoke update, delete, truncate, references, trigger on public.group_board_ops from authenticated;
+revoke all on public.group_board_ops from anon;
+
+-- Limits: 40 boards per group, and changes come in batches (a few a second while drawing), so 900 rows a minute per person is plenty
+create or replace function public.sbg_board_limits() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if tg_table_name = 'group_boards' then
+    if (select count(*) from public.group_boards where group_id = new.group_id and not deleted) >= 40 then raise exception 'A group can have 40 whiteboards. Take one off the group first.'; end if;
+  else
+    if to_regprocedure('public.studyboard_rate_hit(text,integer,integer)') is not null and not public.studyboard_rate_hit('wbop:' || auth.uid()::text, 900, 60) then
+      raise exception 'Drawing too fast for the group board. Wait a moment.';
+    end if;
+    update public.group_boards set updated_at = now() where id = new.board_id;
+  end if;
+  return new;
+end $$;
+revoke all on function public.sbg_board_limits() from public, anon, authenticated;
+drop trigger if exists sbg_board_limits on public.group_boards;
+create trigger sbg_board_limits before insert on public.group_boards for each row execute function public.sbg_board_limits();
+drop trigger if exists sbg_board_op_limits on public.group_board_ops;
+create trigger sbg_board_op_limits before insert on public.group_board_ops for each row execute function public.sbg_board_limits();
+
+do $$
+declare t text;
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    foreach t in array array['group_boards', 'group_board_ops'] loop
+      if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
+        execute format('alter publication supabase_realtime add table public.%I', t);
+      end if;
+    end loop;
+  end if;
+end $$;
 notify pgrst, 'reload schema';
