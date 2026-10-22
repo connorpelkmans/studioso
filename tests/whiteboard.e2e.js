@@ -40,7 +40,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await page.waitForSelector(".nv-tabs");
     ok(await page.locator('.nv-tabs [data-id="board"][aria-selected=true]').count() === 1 && await page.locator("#nbBoard .note").count() === 1, "Notes opens on the sticky notes, with a Notes | Whiteboard switch");
     await page.click('.nv-tabs [data-id="wb"]'); await page.waitForTimeout(300);
-    ok(await page.locator('.wb-empty [data-act="wb-quick"][data-id="blank"]').count() === 1 && await page.locator(".wb-empty .wb-tile").count() === 9 && await page.locator("#fab").isHidden(), "with no boards yet, the Whiteboard offers a Blank Board or one of 9 templates (and no Add Note button)");
+    ok(await page.locator('.wb-empty [data-act="wb-quick"][data-id="blank"]').count() === 1 && await page.locator(".wb-empty .wb-tile").count() === 9 && /Add Board/.test(await page.locator("#fab").textContent()) && await page.locator("#fab").isVisible(), "with no boards yet, the Whiteboard offers a Blank Board or one of 9 templates, and the + button is Add Board");
 
     // a new board from the sheet: name, template, course
     await act("wb-new"); await page.waitForSelector("dialog[open] .wb-start");
@@ -60,6 +60,15 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await frameBox();
     const z0 = (await page.evaluate(() => SBWB.cam())).z;
     ok(z0 < 0.4, "a new board opens showing the whole board: " + z0);
+    // the board's own colour: light or dark whatever the app uses
+    const bg = () => page.evaluate(() => getComputedStyle(document.querySelector(".wb-back")).backgroundColor);
+    const light0 = await bg();
+    await page.click('.wb-zoom [data-wb="theme"]'); await page.waitForTimeout(150);
+    ok(await page.evaluate(() => document.querySelector(".wb-stage").classList.contains("wb-dk")) && await bg() !== light0 && !(await page.evaluate(() => document.documentElement.getAttribute("data-theme") === "dark")), "the moon button makes the board dark while the app stays light");
+    await act("wb-opts"); await page.waitForSelector('dialog[open] input[name="wbTheme"]');
+    ok(await page.isChecked('dialog[open] input[name="wbTheme"][value="dark"]'), "Options shows Board Color: Dark");
+    await page.click('dialog[open] .wb-start label:has(input[value="auto"])'); await page.click("dialog[open] [data-submit]"); await page.waitForTimeout(200);
+    ok(!(await page.evaluate(() => document.querySelector(".wb-stage").classList.contains("wb-dk"))) && await bg() === light0, "Match App puts it back to the app's light board");
     await page.click('.wb-zoom [data-wb="zoom-reset"]'); await page.waitForTimeout(100);
     ok((await page.evaluate(() => SBWB.cam())).z === 1 && /100%/.test(await page.locator(".wbz-pct").textContent()), "100% zooms to full size");
 
@@ -114,6 +123,72 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await page.keyboard.press("End"); await page.keyboard.type("!"); await page.keyboard.press("Escape"); await page.waitForTimeout(80);
     ok((await live()).items[0].s === "Mitosis\nPMAT!", "and the edit is kept");
 
+    // writing styles
+    await page.keyboard.press("Escape");
+    await page.click('.wb-tray .wb-fontpick[data-id="font"]'); await page.waitForTimeout(60);
+    ok(await page.locator('.wb-fontmenu [data-wb="font"]').count() === 5 && await page.locator('.wb-tray .wb-fontpick[data-id="font"][aria-expanded=true]').count() === 1, "the Text tool's writing style dropdown lists 5 styles");
+    await page.keyboard.press("Escape"); await page.waitForTimeout(40);
+    ok(await page.locator(".wb-fontmenu").count() === 0, "Escape closes it");
+    await page.evaluate(() => SBWB.select([SBWB.board().items[0]].map(i => "i" + i.id)));
+    await page.click('.wb-tray .wb-fontpick[data-id="font"]'); await page.click('.wb-fontmenu [data-id="neat"]'); await page.waitForTimeout(80);
+    ok(/Neat/.test(await page.locator('.wb-tray .wb-fontpick[data-id="font"]').textContent()) && await page.locator(".wb-fontmenu").count() === 0, "picking from the dropdown closes it and shows the choice");
+    const ff1 = await page.evaluate(() => [SBWB.board().items[0].ff, getComputedStyle(document.querySelector(".wb-t")).fontFamily]);
+    ok(ff1[0] === "neat" && /Patrick Hand/.test(ff1[1]) && await page.evaluate(() => document.fonts.check("40px 'Patrick Hand'")), "picking Neat changes the selected text to it (font served from vendor/fonts): " + ff1.join(" / "));
+    await page.mouse.click(F.x + 600, F.y + 120); await page.waitForTimeout(60); await page.keyboard.type("Quick"); await page.keyboard.press("Escape"); await page.waitForTimeout(60);
+    ok((await live()).items.some(i => i.s === "Quick" && i.ff === "neat"), "new text is written in the chosen style");
+    await page.evaluate(() => { const it = SBWB.board().items.find(i => i.s === "Quick"); SBWB.change(set => set("i", it.id, null)); });
+    await page.evaluate(() => SBWB.select([SBWB.board().items[0]].map(i => "i" + i.id))); await page.click('.wb-tray .wb-fontpick[data-id="font"]'); await page.click('.wb-fontmenu [data-id="marker"]'); await page.waitForTimeout(60);
+    ok(!(await live()).items[0].ff, "and Marker puts it back");
+    // text size dropdown: resizes the selected text
+    await page.evaluate(() => SBWB.select([SBWB.board().items[0]].map(i => "i" + i.id)));
+    const f0 = (await live()).items[0].f;
+    await page.click('.wb-tray .wb-fontpick[data-id="size"]'); await page.waitForTimeout(40);
+    ok(await page.locator('.wb-fontmenu [data-wb="tsize"]').count() === 4, "the text size dropdown has Small, Medium, Large and Huge");
+    await page.click('.wb-fontmenu [data-wb="tsize"][data-id="3"]'); await page.waitForTimeout(80);
+    const f1 = (await live()).items[0].f;
+    ok(f1 > f0 * 1.8 && /Huge/.test(await page.locator('.wb-tray .wb-fontpick[data-id="size"]').textContent()), "Huge makes the selected text bigger: " + f0 + " to " + f1);
+    await page.evaluate(() => SBWB.undo()); await page.click('.wb-tray .wb-fontpick[data-id="size"]'); await page.click('.wb-fontmenu [data-wb="tsize"][data-id="1"]'); await page.evaluate(() => SBWB.undo()); await page.waitForTimeout(40);
+    // the rainbow marker is Pro
+    ok(await page.locator('.wb-tray [data-wb="pen-any"] .wb-pro').count() === 1, "the rainbow (any color) marker shows a Pro badge on a free plan");
+    await page.click('.wb-tray [data-wb="pen-any"]'); await page.waitForTimeout(250);
+    ok(/any color/i.test(await page.locator("dialog[open]").textContent()), "and opens the Pro sheet");
+    await page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
+    await page.keyboard.press("Escape"); await page.waitForTimeout(40);
+    await page.evaluate(() => SBWB.select([SBWB.board().items[0]].map(i => "i" + i.id)));
+
+    // moving without switching to Select
+    const tBB = () => page.evaluate(() => { const it = SBWB.board().items[0], b = SBWB.itemBB(it), c = SBWB.cam(), r = document.querySelector(".wb-frame").getBoundingClientRect(); return {x: r.left + (b[0] + b[2]) / 2 * c.z + c.x, y: r.top + (b[1] + b[3]) / 2 * c.z + c.y, ix: it.x, iy: it.y}; });
+    ok(await page.locator(".wb-selbar:not([hidden])").count() === 1, "text you've just written stays picked up (its box shows), ready to drag");
+    let tb = await tBB();
+    await page.mouse.move(tb.x, tb.y); await page.mouse.down(); await page.mouse.move(tb.x + 40, tb.y + 20, {steps: 4}); await page.mouse.move(tb.x + 80, tb.y + 40, {steps: 4}); await page.mouse.up(); await page.waitForTimeout(80);
+    let tb2 = await tBB();
+    ok(Math.abs(tb2.ix - tb.ix - 80) < 2 && Math.abs(tb2.iy - tb.iy - 40) < 2 && await page.evaluate(() => SBWB.tool()) === "text" && await page.locator(".wb-ta").count() === 0, "with the Text tool, dragging text moves it (no switching tools)");
+    await page.keyboard.press("Escape"); await page.waitForTimeout(40);
+    tb = await tBB();
+    await page.mouse.move(tb.x, tb.y); await page.mouse.down(); await page.mouse.move(tb.x + 60, tb.y, {steps: 5}); await page.mouse.up(); await page.waitForTimeout(80);
+    tb2 = await tBB();
+    ok(Math.abs(tb2.ix - tb.ix - 60) < 2, "and so does dragging text that isn't picked up yet");
+    await page.keyboard.press("Escape"); await page.mouse.click(tb2.x + 60, tb2.y); await page.waitForTimeout(80);
+    ok(await page.locator(".wb-ta").count() === 1 && await page.locator(".wb-ta").inputValue() === "Mitosis\nPMAT!", "a tap on text (no drag) opens it for editing");
+    { const tr = await page.evaluate(() => { const r = document.querySelector(".wb-ta").getBoundingClientRect(); return {x: r.left + 12, y: r.top + 10}; });
+      await page.mouse.dblclick(tr.x, tr.y); await page.waitForTimeout(400);
+      const sel = await page.evaluate(() => { const t = document.querySelector(".wb-ta"); return t && document.activeElement === t ? t.value.slice(t.selectionStart, t.selectionEnd) : null; });
+      ok(sel === "Mitosis", "double-clicking a word in the open text selects it, and it stays selected: " + JSON.stringify(sel)); }
+    await page.keyboard.press("Escape"); await page.keyboard.press("Escape"); await page.waitForTimeout(60);
+    // the marker: press and hold on a stroke to pick it up and move it
+    await wb("tool", "pen");
+    const nS0 = (await live()).strokes.length, s1 = (await live()).strokes[0], p1d = await decode(s1.d);
+    const [hx, hy] = await toScreen(p1d[5][0], p1d[5][1]);
+    await page.mouse.move(hx, hy); await page.mouse.down(); await page.waitForTimeout(650);
+    await page.mouse.move(hx + 30, hy + 30, {steps: 4}); await page.mouse.move(hx + 50, hy + 70, {steps: 4}); await page.mouse.up(); await page.waitForTimeout(80);
+    const L2 = await live(), m1 = await decode(L2.strokes.find(x => x.id === s1.id).d), z2 = (await page.evaluate(() => SBWB.cam())).z;
+    ok(L2.strokes.length === nS0 && Math.abs((m1[0][0] - p1d[0][0]) * z2 - 50) < 2 && Math.abs((m1[0][1] - p1d[0][1]) * z2 - 70) < 2 && await page.evaluate(() => SBWB.tool()) === "pen",
+      "with the marker, pressing and holding on a stroke picks it up and moves it (no new stroke drawn)");
+    await page.keyboard.press("Escape");
+    await page.mouse.move(hx, hy + 160); await page.mouse.down(); await page.mouse.move(hx + 80, hy + 170, {steps: 5}); await page.mouse.up(); await page.waitForTimeout(60);
+    ok((await live()).strokes.length === nS0 + 1, "drawing straight away (no hold) still just draws");
+    await page.keyboard.press("Control+z");
+
     // select: click a stroke, drag it, resize it, delete
     await wb("tool", "select");
     const s0 = (await live()).strokes[0], before = await decode(s0.d);
@@ -154,6 +229,19 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     ok((await live()).strokes.length === nS, "Whole Strokes removes the whole piece it touches");
     await page.keyboard.press("Control+z"); await page.keyboard.press("Control+z");
     ok((await live()).strokes.some(s => s.id === longId), "two undos bring the uncut line back");
+    // the eraser on typed text: Erase Parts takes only the letters it passes over
+    await wb("tool", "text"); await page.mouse.click(F.x + 150, F.y + 330); await page.waitForTimeout(60);
+    await page.keyboard.type("ABCDEFGH"); await page.keyboard.press("Escape"); await page.keyboard.press("Escape"); await page.waitForTimeout(60);
+    const tx = (await live()).items.find(i => i.s === "ABCDEFGH");
+    const tm = await page.evaluate(id => { const it = SBWB.board().items.find(i => i.id === id), b = SBWB.itemBB(it), c = SBWB.cam(), r = document.querySelector(".wb-frame").getBoundingClientRect(); return {x: r.left + (b[0] + b[2]) / 2 * c.z + c.x, y: r.top + (b[1] + b[3]) / 2 * c.z + c.y, top: r.top + b[1] * c.z + c.y, bot: r.top + b[3] * c.z + c.y}; }, tx.id);
+    await wb("tool", "eraser"); await wb("erase", "part"); await wb("ew", 0);
+    await stroke([[tm.x, tm.top - 10], [tm.x, tm.bot + 10]]);
+    const parts = (await live()).items.filter(i => i.k === "t" && /^[A-H]+$/.test(i.s)).sort((a, b) => a.x - b.x);
+    ok(!(await live()).items.some(i => i.id === tx.id) && parts.length === 2 && (parts[0].s + parts[1].s).length >= 5 && (parts[0].s + parts[1].s).length < 8 && "ABCDEFGH".startsWith(parts[0].s) && "ABCDEFGH".endsWith(parts[1].s) && parts[0].x === tx.x,
+      "Erase Parts cuts letters out of typed text, and the rest stays in place: " + parts.map(p => p.s + "@" + p.x).join(", "));
+    await page.keyboard.press("Control+z");
+    ok((await live()).items.some(i => i.s === "ABCDEFGH"), "Undo puts the whole text back");
+    await page.evaluate(id => SBWB.change(set => set("i", id, null)), tx.id);
 
     // zoom with Ctrl + scroll around the pointer
     await page.mouse.move(F.x + 400, F.y + 300);

@@ -7,7 +7,8 @@ Studyboard itself is released under the MIT License (see `LICENSE`). It includes
 | Atkinson Hyperlegible and Atkinson Hyperlegible Next (typefaces) | Body text | Copyright 2020 Braille Institute of America, Inc. (https://www.brailleinstitute.org/), with Reserved Font Name "Atkinson Hyperlegible" | SIL Open Font License 1.1 |
 | Lexend (typeface) | Headings | Copyright 2018 The Lexend Project Authors (https://github.com/googlefonts/lexend) | SIL Open Font License 1.1 |
 | Permanent Marker (typeface) | Writing on the Whiteboard in Notes | Copyright (c) 2010 by Font Diner, Inc. | Apache License 2.0 |
-| @fontsource/atkinson-hyperlegible, @fontsource/atkinson-hyperlegible-next, @fontsource/lexend, @fontsource/permanent-marker | Packaged font files for the desktop app (offline use) | Fontsource contributors | MIT (the fonts inside keep their own OFL or Apache license) |
+| Patrick Hand, Caveat, Kalam, Gochi Hand (typefaces) | Writing styles on the Whiteboard in Notes | Copyright (c) 2010-2012 Patrick Wagesreiter; Copyright 2014 The Caveat Project Authors; Copyright (c) 2014 Indian Type Foundry; Copyright (c) 2011 HT Fonts, with Reserved Font Names "Gochi" and "Gochi Hand" | SIL Open Font License 1.1 |
+| @fontsource/atkinson-hyperlegible, @fontsource/atkinson-hyperlegible-next, @fontsource/lexend, @fontsource/permanent-marker, @fontsource/patrick-hand, @fontsource/caveat, @fontsource/kalam, @fontsource/gochi-hand | Packaged font files for the desktop app (offline use) | Fontsource contributors | MIT (the fonts inside keep their own OFL or Apache license) |
 | pdfjs-dist (PDF.js) 6.4.299 | Reading PDFs you import (syllabi, study material); the unmodified legacy build is served from `vendor/pdfjs/` | Copyright 2012 Mozilla Foundation | Apache License 2.0 |
 | @supabase/supabase-js | Optional account sign-in and sync | Copyright (c) 2020 Supabase | MIT |
 | fzstd 0.1.1 | Unpacking newer Anki files (collection.anki21b) in Import From Another App; the unmodified UMD build is served from `vendor/fzstd-0.1.1.umd.js` and loaded only for those files | Copyright (c) 2020 Arjun Barrett | MIT |
@@ -49,7 +50,7 @@ The following Lucide icons are derived from the Feather project, Copyright (c) 2
 
 Permanent Marker (Copyright (c) 2010 by Font Diner, Inc.) is licensed under the Apache License, Version 2.0; the full text is in `vendor/fonts/LICENSE-permanent-marker-Apache-2.0.txt`. PDF.js is licensed under the Apache License, Version 2.0. You may obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0. Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License. The unmodified `pdf.min.js` and `pdf.worker.min.js` files are distributed with the desktop app and carry their own license headers.
 
-## SIL Open Font License 1.1 (Atkinson Hyperlegible, Lexend)
+## SIL Open Font License 1.1 (Atkinson Hyperlegible, Lexend, Patrick Hand, Caveat, Kalam, Gochi Hand)
 
 Copyright 2020 Braille Institute of America, Inc. (https://www.brailleinstitute.org/), with Reserved Font Name "Atkinson Hyperlegible".
 Copyright 2018 The Lexend Project Authors (https://github.com/googlefonts/lexend).

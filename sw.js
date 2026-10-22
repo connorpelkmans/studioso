@@ -1,6 +1,6 @@
 // Studyboard offline support: keeps a copy of the app so it opens with no internet.
 // Your data is never stored here; it lives in the app itself and in your Supabase account.
-const CACHE = "studyboard-v6";
+const CACHE = "studyboard-v8";
 // CORE must exist for the app to work offline. OPTIONAL files (icons) may be missing, in the icons/ folder layout or the
 // flat layout; a missing one never stops the service worker from installing.
 const CORE = ["./", "./index.html"];
@@ -11,7 +11,8 @@ const OPTIONAL = ["./manifest.webmanifest", "./today.webmanifest", "./icons/icon
   "./vendor/fonts/lexend-latin-700-normal.woff2", "./vendor/fonts/lexend-latin-800-normal.woff2",
   "./vendor/fonts/atkinson-hyperlegible-next-latin-400-normal.woff2", "./vendor/fonts/atkinson-hyperlegible-next-latin-500-normal.woff2",
   "./vendor/fonts/atkinson-hyperlegible-next-latin-700-normal.woff2",
-  "./vendor/fonts/atkinson-hyperlegible-latin-400-normal.woff2", "./vendor/fonts/atkinson-hyperlegible-latin-700-normal.woff2"];
+  "./vendor/fonts/atkinson-hyperlegible-latin-400-normal.woff2", "./vendor/fonts/atkinson-hyperlegible-latin-700-normal.woff2",
+  "./vendor/fonts/permanent-marker-latin-400-normal.woff2", "./vendor/fonts/patrick-hand-latin-400-normal.woff2", "./vendor/fonts/caveat-latin-400-normal.woff2", "./vendor/fonts/kalam-latin-400-normal.woff2", "./vendor/fonts/gochi-hand-latin-400-normal.woff2"];
 // PDF.js (same-origin, ES modules) is saved too so a PDF can be imported offline; if it isn't there the fetch handler saves it on first use.
 OPTIONAL.push("./vendor/pdfjs/pdf.min.mjs", "./vendor/pdfjs/pdf.worker.min.mjs", "./locales/es.json");
 // fzstd unpacks newer Anki files (Import From Another App), so it is saved too for importing offline.
