@@ -1,6 +1,6 @@
 // node tests/whiteboard-pro.e2e.js  (Playwright + Chromium; file storage and the AI are stubbed)
 // Whiteboard pictures (Pro): the Picture tool adds a picture as a file, it shows on the board, Select moves and resizes it, ink goes over it,
-// Draw in Marker redraws it (AI, with the white made see-through) or traces it on this device without AI, and exports include it.
+// Draw in Marker redraws it (AI, with the white made see-through) or draws it on this device from the picture's own lines, and exports include it.
 // On a free plan the Picture tool has a Pro badge and opens the Pro sheet, and pictures already on a board still show.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
@@ -116,8 +116,8 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       const it4 = (await items(page)).find(i => i.id === it.id), f4 = await page.evaluate(id => state.files[id], it4.f);
       const tr = await page.evaluate(async aid => { const b = window.__bytes[aid], u = URL.createObjectURL(new Blob([b], {type: "image/png"})); const im = await new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = u; });
         const c = document.createElement("canvas"); c.width = im.width; c.height = im.height; const g = c.getContext("2d"); g.drawImage(im, 0, 0); const d = g.getImageData(0, 0, im.width, im.height).data; let dark = 0, clear = 0;
-        for (let i = 0; i < d.length; i += 4) { if (d[i + 3] === 255 && d[i] < 60) dark++; if (d[i + 3] === 0) clear++; } return {dark, clear, all: d.length / 4}; }, f4.revs[0].assetId);
-      ok(it4.r === 1 && tr.dark > 200 && tr.clear > tr.all * 0.5, "without AI it's traced here: dark marker outlines on a see-through background: " + JSON.stringify(tr));
+        for (let i = 0; i < d.length; i += 4) { if (d[i + 3] > 150 && d[i] + d[i + 1] + d[i + 2] < 420) dark++; if (d[i + 3] === 0) clear++; } return {dark, clear, all: d.length / 4}; }, f4.revs[0].assetId);
+      ok(it4.r === 1 && tr.dark > 200 && tr.clear > tr.all * 0.5, "without AI it's drawn here: marker outlines in the picture's colours, on a see-through background: " + JSON.stringify(tr));
       ok(/on this device/.test(await page.locator("#toast").textContent()), "and says it was traced on this device (with how to get a full redraw)");
 
       // the rainbow marker: any colour
@@ -150,15 +150,12 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       ok(!((await items(page)).find(x => x.id === it.id).er), "Undo brings the picture back whole");
       await page.evaluate(() => SBWB.setTool("select"));
 
-      // the AI trace (when the key has no picture model): the picture becomes marker strokes
-      const before = await page.evaluate(() => SBWB.board().strokes.length);
-      await page.evaluate(() => { SBWB.pictures.IO.ai = async () => null; SBWB.pictures.IO.trace = async () => [{c: "ink", pts: [[0.1, 0.1], [0.9, 0.1], [0.9, 0.9], [0.1, 0.9], [0.1, 0.1]]}, {c: "red", pts: [[0.3, 0.5], [0.7, 0.5]]}, {c: "blue", pts: [[0.5, 0.3], [0.5, 0.7]]}]; });
-      await page.evaluate(id => SBWB.select(["i" + id]), it.id); await page.waitForTimeout(60);
-      await page.click('.wb-selbar [data-wb="restyle"]'); await page.waitForTimeout(500);
-      const trc = await page.evaluate(() => ({s: SBWB.board().strokes, i: SBWB.board().items}));
-      ok(trc.s.length === before + 3 && !trc.i.some(x => x.id === it.id) && trc.s.slice(-3).map(x => x.c).join() === "ink,red,blue" && /strokes you can erase/.test(await page.locator("#toast").textContent()), "with the AI trace, the picture becomes 3 marker strokes in their colours (erasable, movable)");
-      await page.evaluate(() => { SBWB.undo(); SBWB.pictures.IO.trace = null; }); await page.waitForTimeout(80);
-      ok((await items(page)).some(x => x.id === it.id) && (await page.evaluate(() => SBWB.board().strokes.length)) === before, "Undo brings the picture back");
+      // the drawing made on this device follows the picture's own lines: ink along the square's edges, none in the empty corners
+      const shp = await page.evaluate(async () => { const f = await window.__pic(), im = await new Promise(r => { const m = new Image(); m.onload = () => r(m); m.src = URL.createObjectURL(f); });
+        const c = SBWB.pictures.sketch(im), x = c.getContext("2d"), sx = c.width / 400, sy = c.height / 300;
+        const dark = (px, py) => { let n = 0; for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) { const d = x.getImageData(Math.round(px * sx) + dx, Math.round(py * sy) + dy, 1, 1).data; if (d[0] + d[1] + d[2] < 450) n++; } return n > 0; };
+        return {edges: [[120, 150], [280, 150], [200, 80], [200, 220]].every(q => dark(q[0], q[1])), corners: [[30, 30], [370, 30], [30, 270], [370, 270]].some(q => dark(q[0], q[1]))}; });
+      ok(shp.edges && !shp.corners, "Draw in Marker on this device follows the picture's own outline (ink on the square's edges, empty corners stay empty): " + JSON.stringify(shp));
 
       // export includes the picture
       const ex = await page.evaluate(async () => { const n = state.notes.wb1; const c = await SBWB.renderBoard(n, {max: 600}); const g = c.getContext("2d"); const d = g.getImageData(0, 0, c.width, c.height).data; let dark = 0; for (let i = 0; i < d.length; i += 4) if (d[i] < 80 && d[i + 1] < 80 && d[i + 2] < 90) dark++; return dark; });
