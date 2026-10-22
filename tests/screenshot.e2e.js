@@ -85,7 +85,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     // ---- nothing useful in it ----
     ctx.aiReply = {kind: "other", items: [], rawText: "cat photo"}; ctx.aiCalls = [];
     page = await open(ctx); await send(page, bytes); await page.waitForSelector("#qcIn", {timeout: 8000});
-    ok(/didn't find any tasks/i.test(await page.textContent(".cap-body")), "nothing useful says so and offers typing it in");
+    ok(/didn't find any tasks|no tasks or dates found/i.test(await page.textContent(".cap-body")), "nothing useful says so and offers typing it in");
     await page.keyboard.press("Escape"); await page.close(); await ctx.close();
 
     console.log("\n" + n + " screenshot e2e checks passed. Screenshots in " + SHOTS);

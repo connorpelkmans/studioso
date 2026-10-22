@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!-- Content-Security-Policy: added by script (a static meta tag makes Chrome pre-scan the big inline script and request junk URLs). If your host can send headers, send the same policy as a header too. -->
-<script>try{var H=/*CSP-HASHES*/"'sha256-u6kV8EYZg9U58LoOAOPidYXuzDc8fGvKe+BFmraJuEA=' 'sha256-r/v4H2PTp51jWC9c/241sdO+BU8wDk6gOLKJg0+L8Bg='",lax=!H||/(^|\.)claudeusercontent\.com$/.test(location.hostname);var cm=document.createElement("meta");cm.httpEquiv="Content-Security-Policy";cm.content="default-src 'self'; script-src 'self' "+(lax?"'unsafe-inline'":H)+" https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: blob: data:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'";document.head.appendChild(cm)}catch(e){}</script>
+<script>try{var H=/*CSP-HASHES*/"'sha256-u6kV8EYZg9U58LoOAOPidYXuzDc8fGvKe+BFmraJuEA=' 'sha256-XsGE94yydyMxAO4h4SPyQG2uVmVQ68mKe3G7YyLmcyE='",lax=!H||/(^|\.)claudeusercontent\.com$/.test(location.hostname);var cm=document.createElement("meta");cm.httpEquiv="Content-Security-Policy";cm.content="default-src 'self'; script-src 'self' "+(lax?"'unsafe-inline'":H)+" https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: blob: data:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'";document.head.appendChild(cm)}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Studyboard</title>
 <link rel="canonical" href="https://studyboardapp.com/">
@@ -55485,13 +55485,13 @@ function draw(focus){
   } else if (v === "confirm") {
     const miss = CS.drafts.filter(d => d.checked !== false && !d.due).length;
     body = `${CS.external ? `<p class="cap-ext" role="note">This came from a link or another app. Check it before it is added.</p>` : ""}${thumbsHtml()}
-      ${CS.msg ? `<p class="status-msg" role="status">${esc(CS.msg)}</p>` : ""}
+      ${CS.msg ? `<p class="status-msg" role="status">${esc0(CS.msg)}</p>` : ""}
       <ul class="cap-list" aria-label="Tasks to add">${CS.drafts.map(rowHtml).join("")}</ul>
       <p class="mini" aria-live="polite" id="capMiss">${miss ? `${miss === 1 ? "One task has" : miss + " tasks have"} no due date. Pick one above, or add it as it is.` : ""}</p>
       ${CS.photos.length ? `<label class="mi-check"><input type="checkbox" id="capKeep" ${CS.keep ? "checked" : ""}> Keep the photo with these tasks</label>` : ""}`;
     foot = `<button type="button" class="btn" data-cap="back">Back</button><span class="spacer"></span><button type="button" class="btn primary" data-cap="addall" id="capAddAll" ${confirmCount() ? "" : "disabled"}>${confirmCount() === 1 ? "Add Task" : "Add All" + (confirmCount() > 1 ? " (" + confirmCount() + ")" : "")}</button>`;
   } else if (v === "noai") {
-    body = `${thumbsHtml()}<p class="status-msg" role="status">${esc(CS.msg)}</p>
+    body = `${thumbsHtml()}<p class="status-msg" role="status">${esc0(CS.msg)}</p>
       <label class="cap-lbl" for="qcIn">Type in what is on the photo, one task per line:</label>
       <textarea id="qcIn" rows="3" maxlength="2000" placeholder="Lab report due Fri 5pm">${esc(CS.text)}</textarea>
       <p class="cap-pv" id="capPv" aria-live="polite">${esc(CS.text.trim() ? previewLine(CS.text) : "")}</p>
@@ -55499,7 +55499,7 @@ function draw(focus){
       ${!aiReady() ? `<button type="button" class="btn small" data-cap="ai-setup">Set Up AI to Read Photos</button>` : ""}`;
     foot = `<button type="button" class="btn" data-cap="savenote">Save Photo as a Note</button><span class="spacer"></span><button type="button" class="btn primary" data-cap="add" id="capAdd">Add</button>`;
   } else if (v === "error") {
-    body = `${thumbsHtml()}<p class="status-msg" role="alert">${esc(CS.msg)}</p>`;
+    body = `${thumbsHtml()}<p class="status-msg" role="alert">${esc0(CS.msg)}</p>`;
     foot = `<button type="button" class="btn" data-cap="typeit">Type It In</button><span class="spacer"></span>${CS.photos.length && CS.retry ? `<button type="button" class="btn primary" data-cap="retry">Try Again</button>` : `<button type="button" class="btn primary" data-cap="close">Close</button>`}`;
   }
   el.innerHTML = `<div class="sheet cap" ><div class="sheet-head"><h2 id="capTitle">${title}</h2><button type="button" class="icon-btn" data-cap="close" aria-label="Close">${CLOSE}</button></div>
