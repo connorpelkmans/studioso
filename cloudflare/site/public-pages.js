@@ -98,7 +98,7 @@ ${body}
 </main>
 <footer class="pub-foot"><div class="wrap">
   <p>Flashcards and quizzes on this page were made and shared by students using <a href="/website/">Studyboard</a>, the free student planner with spaced-repetition flashcards.</p>
-  <p><a href="/flashcards">All flashcards</a> · <a href="/quizzes">All quizzes</a> · <a href="/website/privacy.html">Privacy</a> · <a href="/website/terms.html">Terms</a></p>
+  <p><a href="/flashcards">All flashcards</a> · <a href="/quizzes">All quizzes</a> · <a href="/website/privacy">Privacy</a> · <a href="/website/terms">Terms</a></p>
 </div></footer>
 <script src="/website/assets/public.js" defer></script>
 </body>

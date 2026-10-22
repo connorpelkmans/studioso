@@ -13,7 +13,8 @@ import {handlePublic, isPublicPath} from "./public-pages.js";
 const PASS = /^\/functions\/v1\/(cloud-files|calendar-sync)$/;
 // The privacy policy and terms live in the website folder; the short addresses people (and Google's app review) use point there.
 // Without this they answered with the app page. These paths are listed in assets.run_worker_first too.
-const MOVED = {"/privacy": "/website/privacy.html", "/privacy.html": "/website/privacy.html", "/terms": "/website/terms.html", "/terms.html": "/website/terms.html"};
+// (straight to the final address: Cloudflare serves privacy.html at /website/privacy, so pointing at the .html address made a second redirect)
+const MOVED = {"/privacy": "/website/privacy", "/privacy.html": "/website/privacy", "/terms": "/website/terms", "/terms.html": "/website/terms"};
 
 export default {
   async fetch(request, env, ctx) {

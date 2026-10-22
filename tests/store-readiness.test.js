@@ -73,8 +73,8 @@ ok(/data-act="legal-privacy"/.test(app) && /SBLEGAL\.line\(\)/.test(app), "setti
 ok(/id="planLegal"/.test(app) && /data-act="legal-terms">Terms of Use/.test(app) && /data-act="legal-privacy">Privacy Policy/.test(app), "Pro sheet has Terms of Use and Privacy Policy links");
 ok(/renews automatically unless it is cancelled at least 24 hours before the end of the current period/.test(app), "Apple auto-renewal wording present in the Pro sheet");
 const site = read("website/index.html");
-ok(/auto-renewing subscription/.test(site) && /terms\.html/.test(site) && /privacy\.html/.test(site), "website pricing has the renewal disclosure and links");
-for (const f of ["website/index.html", "website/privacy.html", "website/terms.html", "website/account/index.html", "website/success.html", "website/cancel.html"]) ok(/href="(\.\.\/)?privacy\.html"/.test(read(f)) && /href="(\.\.\/)?terms\.html"/.test(read(f)), f + " footer links to privacy and terms");
+ok(/auto-renewing subscription/.test(site) && /href="terms(\.html)?"/.test(site) && /href="privacy(\.html)?"/.test(site), "website pricing has the renewal disclosure and links");
+for (const f of ["website/index.html", "website/privacy.html", "website/terms.html", "website/account/index.html", "website/success.html", "website/cancel.html"]) ok(/href="(\.\.\/)?privacy(\.html)?"/.test(read(f)) && /href="(\.\.\/)?terms(\.html)?"/.test(read(f)), f + " footer links to privacy and terms");
 
 /* ---------- 3. no social login ---------- */
 const authFiles = ["index.html", "website/account/account.js", "website/account/index.html", "SETUP-GUIDE.md", "lms.js", "sw.js"].map(f => [f, read(f)]);
