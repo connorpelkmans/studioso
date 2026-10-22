@@ -47,6 +47,8 @@ function stubInit(opts){
   const E = m => ({error: {message: m}});
   const ownerOf = gid => DB.study_groups.some(g => g.id === gid && g.owner_id === me.id);
   const rpc = {
+    // these groups are Pro groups (Most-Missed Cards and the Weekly Challenge are Pro features)
+    group_pro_status(a) { return {data: (a.p_groups || []).map(g => ({group_id: g, active: !opts.free, by_user: "u1", by_owner: true}))}; },
     // quiz scores, as groups.sql keeps them: anonymous rows reach other members without who took them
     set_my_face(a) { DB.group_members.filter(m => m.user_id === me.id).forEach(m => { m.face = a.p_face; }); return {data: null}; },
     group_quiz_board(a) { return {data: DB.group_quiz_scores.filter(r => r.group_id === a.p_group).map(r => { const see = (r.shown || "name") === "name" || r.user_id === me.id;
@@ -425,18 +427,18 @@ async function overdueAndSetup(browser){
 
 // The owner turns features off (Edit Group > Features): they leave the tabs and the Study tab for everyone, and nothing is deleted
 async function hideFeatures(browser){
-  let {ctx, page, errs} = await boot(browser, 1280, {me: "u1"});
+  let {ctx, page, errs} = await boot(browser, 1280, {me: "u1", free: true});
   await openGroup(page, "g1");
   await page.click('[data-act="grp-edit"]'); await sheet(page, ".grp-feats");
-  eq(await page.$$eval("dialog .grp-feat:not(.is-pro) span", e => e.map(x => x.innerText)), ["Shared Decks", "Practice Quizzes", "Most-Missed Cards", "Questions and Answers", "Deadlines", "Sessions", "Find a Time", "Weekly Challenge", "Chat"], "the owner sees every feature as a switch");
+  eq(await page.$$eval("dialog .grp-feat:not(.is-pro) span", e => e.map(x => x.innerText)), ["Shared Decks", "Practice Quizzes", "Questions and Answers", "Deadlines", "Sessions", "Find a Time", "Chat"], "the owner sees every feature as a switch");
   ok(await page.$$eval('dialog .grp-feat:not(.is-pro) input', e => e.every(x => x.checked)), "all on to start");
   const pro = await page.$$eval("dialog .grp-feat.is-pro", e => e.map(x => ({t: x.querySelector("span").innerText, badge: !!x.querySelector(".pro-badge"), locked: x.classList.contains("is-locked") && x.querySelector("input").disabled && !x.querySelector("input").checked})));
-  ok(pro.length === 2 && pro.every(x => x.badge && x.locked) && pro.map(x => x.t).join() === "Split Exam Topics,Live Quiz", "Pro features are listed with a PRO badge, greyed out and locked in a free group: " + JSON.stringify(pro));
+  ok(pro.length === 4 && pro.every(x => x.badge && x.locked) && pro.map(x => x.t).join() === "Most-Missed Cards,Weekly Challenge,Split Exam Topics,Live Quiz", "Pro features are listed with a PRO badge, greyed out and locked in a free group: " + JSON.stringify(pro));
   await page.evaluate(() => document.querySelector("dialog .grp-feat.is-pro").scrollIntoView({block: "center"})); await page.screenshot({path: shots + "/gk-features-free.png"});
   for (const k of ["sessions", "chat", "qa"]) await page.uncheck(`dialog .grp-feat input[value="${k}"]`);
   await page.click("dialog #grpSave"); await page.waitForTimeout(700);
   eq(await page.evaluate(() => window.__DB.study_groups[0].hidden_features), ["qa", "sessions", "chat"], "saved on the group");
-  eq(await tabs(page), ["Study", "Challenge", "Members"], "the turned-off tabs are gone: " + (await tabs(page)).join());
+  eq(await tabs(page), ["Study", "Members"], "the turned-off tabs are gone (and the Weekly Challenge is Pro): " + (await tabs(page)).join());
   ok(await page.$("#grpQA") === null && await page.isVisible("#grpDecks"), "Q&A left the Study tab, decks stayed");
   ok(await page.$('#grpHead [data-act="room-start"]') === null, "no Start a Session button without Sessions");
   await page.waitForTimeout(1500); ok(errs.length === 0, "hiding: no page errors while it keeps updating " + errs.join(" | "));

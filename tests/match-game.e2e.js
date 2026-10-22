@@ -59,7 +59,7 @@ function stubInit(){
       update(p) { st.op = "update"; st.payload = p; return api; }, delete() { st.op = "delete"; return api; }, upsert(r) { st.op = "insert"; st.payload = r; return api; }, then(res, rej) { return run().then(res, rej); }};
     return api;
   };
-  const client = {from: mk, rpc: (name, a) => { window.__calls.push(["rpc", name, a]); return wait({data: name === "top_misses" ? [] : null}); },
+  const client = {from: mk, rpc: (name, a) => { window.__calls.push(["rpc", name, a]); return wait({data: name === "top_misses" ? [] : name === "group_pro_status" ? (a.p_groups || []).map(g => ({group_id: g, active: true, by_user: "u1", by_owner: true})) : null}); },
     channel: name => { const c = {name, on() { return c; }, subscribe() { return c; }}; return c; }, removeChannel() {}};
   window.__sbGroupsStub = {user: me, client};
   try { localStorage.setItem("sb:grpName:u1", "Connor"); } catch (e) {}
