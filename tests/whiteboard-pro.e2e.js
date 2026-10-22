@@ -110,8 +110,11 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       // the rainbow marker: any colour
       await page.evaluate(() => SBWB.setTool("pen"));
       await page.click('.wb-tray [data-wb="pen-any"]'); await page.waitForTimeout(100);
-      ok(await page.locator("input.wb-anycolor").count() === 1, "Pro: the rainbow marker opens a colour picker");
-      await page.evaluate(() => { const i = document.querySelector("input.wb-anycolor"); i.value = "#00b3a4"; i.dispatchEvent(new Event("change")); }); await page.waitForTimeout(80);
+      const cpb = await page.evaluate(() => { const p = document.querySelector(".wb-cpick"), m = document.querySelector('.wb-tray [data-wb="pen-any"]'); if (!p) return null; const a = p.getBoundingClientRect(), b = m.getBoundingClientRect(); return {top: a.top - b.bottom, dx: Math.abs((a.left + a.width / 2) - (b.left + b.width / 2))}; });
+      ok(cpb && cpb.top >= 0 && cpb.top < 20 && cpb.dx < 130, "Pro: the rainbow marker opens the board's colour picker right under it: " + JSON.stringify(cpb));
+      await page.fill(".wb-cpick .wb-cp-hex", "00b3a4"); await page.waitForTimeout(60);
+      await page.click(".wb-cpick .wb-cp-done"); await page.waitForTimeout(80);
+      ok(await page.locator(".wb-cpick").count() === 0, "typing a hex colour and pressing Done closes it");
       ok(await page.locator('.wb-tray [data-wb="pen-any"][aria-pressed=true]').count() === 1, "the picked colour is now the marker");
       const fr = await page.evaluate(() => { const r = document.querySelector(".wb-frame").getBoundingClientRect(); return {x: r.left, y: r.top}; });
       await page.mouse.move(fr.x + 60, fr.y + 60); await page.mouse.down(); await page.mouse.move(fr.x + 260, fr.y + 70, {steps: 8}); await page.mouse.up(); await page.waitForTimeout(80);
@@ -120,6 +123,29 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       const teal = await page.evaluate(async () => { const c = await SBWB.renderBoard(state.notes.wb1, {max: 900, full: true}), d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - 0) < 30 && Math.abs(d[i + 1] - 179) < 30 && Math.abs(d[i + 2] - 164) < 30) n++; return n; });
       ok(teal > 20, "and exports in exactly that colour: " + teal + " teal pixels");
       await page.evaluate(() => SBWB.undo());
+
+      // the eraser on a picture: Erase Parts rubs out where it goes
+      await page.evaluate(() => { SBWB.setTool("eraser"); });
+      await page.click('.wb-tray [data-wb="erase"][data-id="part"]'); await page.click('.wb-tray [data-wb="ew"][data-id="2"]');
+      const pc = await page.evaluate(id => { const b = SBWB.itemBB(SBWB.getI(id)), c = SBWB.cam(), r = document.querySelector(".wb-frame").getBoundingClientRect(); return {x0: r.left + b[0] * c.z + c.x, x1: r.left + b[2] * c.z + c.x, y: r.top + (b[1] + b[3]) / 2 * c.z + c.y}; }, it.id);
+      await page.mouse.move(pc.x0 + 10, pc.y); await page.mouse.down(); await page.mouse.move(pc.x1 - 10, pc.y, {steps: 12}); await page.mouse.up(); await page.waitForTimeout(150);
+      const er = (await items(page)).find(x => x.id === it.id);
+      ok(er && er.er && er.er.length >= 3 && await page.locator(".wb-img .wb-er").count() === 1, "Erase Parts on a picture rubs out a line across it (" + (er && er.er ? er.er.length : 0) + " spots), keeping the picture");
+      const hole = await page.evaluate(async id => { const it = SBWB.getI(id), c = await SBWB.renderBoard(state.notes.wb1, {area: [it.x, it.y, it.x + it.w, it.y + it.h], scale: 1}), g = c.getContext("2d"); const mid = g.getImageData(Math.round(c.width / 2), Math.round(c.height / 2), 1, 1).data; return [...mid]; }, it.id);
+      ok(hole[0] > 240 && hole[1] > 240 && hole[2] > 240, "the export shows the board through the erased line: " + hole);
+      await page.evaluate(() => SBWB.undo()); await page.waitForTimeout(60);
+      ok(!((await items(page)).find(x => x.id === it.id).er), "Undo brings the picture back whole");
+      await page.evaluate(() => SBWB.setTool("select"));
+
+      // the AI trace (when the key has no picture model): the picture becomes marker strokes
+      const before = await page.evaluate(() => SBWB.board().strokes.length);
+      await page.evaluate(() => { SBWB.pictures.IO.ai = async () => null; SBWB.pictures.IO.trace = async () => [{c: "ink", pts: [[0.1, 0.1], [0.9, 0.1], [0.9, 0.9], [0.1, 0.9], [0.1, 0.1]]}, {c: "red", pts: [[0.3, 0.5], [0.7, 0.5]]}, {c: "blue", pts: [[0.5, 0.3], [0.5, 0.7]]}]; });
+      await page.evaluate(id => SBWB.select(["i" + id]), it.id); await page.waitForTimeout(60);
+      await page.click('.wb-selbar [data-wb="restyle"]'); await page.waitForTimeout(500);
+      const trc = await page.evaluate(() => ({s: SBWB.board().strokes, i: SBWB.board().items}));
+      ok(trc.s.length === before + 3 && !trc.i.some(x => x.id === it.id) && trc.s.slice(-3).map(x => x.c).join() === "ink,red,blue" && /strokes you can erase/.test(await page.locator("#toast").textContent()), "with the AI trace, the picture becomes 3 marker strokes in their colours (erasable, movable)");
+      await page.evaluate(() => { SBWB.undo(); SBWB.pictures.IO.trace = null; }); await page.waitForTimeout(80);
+      ok((await items(page)).some(x => x.id === it.id) && (await page.evaluate(() => SBWB.board().strokes.length)) === before, "Undo brings the picture back");
 
       // export includes the picture
       const ex = await page.evaluate(async () => { const n = state.notes.wb1; const c = await SBWB.renderBoard(n, {max: 600}); const g = c.getContext("2d"); const d = g.getImageData(0, 0, c.width, c.height).data; let dark = 0; for (let i = 0; i < d.length; i += 4) if (d[i] < 80 && d[i + 1] < 80 && d[i + 2] < 90) dark++; return dark; });

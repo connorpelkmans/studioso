@@ -168,8 +168,10 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await page.mouse.move(tb.x, tb.y); await page.mouse.down(); await page.mouse.move(tb.x + 60, tb.y, {steps: 5}); await page.mouse.up(); await page.waitForTimeout(80);
     tb2 = await tBB();
     ok(Math.abs(tb2.ix - tb.ix - 60) < 2, "and so does dragging text that isn't picked up yet");
-    await page.keyboard.press("Escape"); await page.mouse.click(tb2.x + 60, tb2.y); await page.waitForTimeout(80);
-    ok(await page.locator(".wb-ta").count() === 1 && await page.locator(".wb-ta").inputValue() === "Mitosis\nPMAT!", "a tap on text (no drag) opens it for editing");
+    await page.keyboard.press("Escape"); await page.mouse.click(tb2.x + 60, tb2.y); await page.waitForTimeout(700);
+    ok(await page.locator(".wb-ta").count() === 0 && await page.locator(".wb-selbar:not([hidden])").count() === 1 && /Edit Text/.test(await page.locator(".wb-selbar").textContent()), "a first tap on text picks it up and its menu stays open");
+    await page.mouse.click(tb2.x + 60, tb2.y); await page.waitForTimeout(120);
+    ok(await page.locator(".wb-ta").count() === 1 && await page.locator(".wb-ta").inputValue() === "Mitosis\nPMAT!", "a second tap opens it for editing");
     { const tr = await page.evaluate(() => { const r = document.querySelector(".wb-ta").getBoundingClientRect(); return {x: r.left + 12, y: r.top + 10}; });
       await page.mouse.dblclick(tr.x, tr.y); await page.waitForTimeout(400);
       const sel = await page.evaluate(() => { const t = document.querySelector(".wb-ta"); return t && document.activeElement === t ? t.value.slice(t.selectionStart, t.selectionEnd) : null; });
