@@ -1465,7 +1465,10 @@ revoke all on public.group_board_ops from anon;
 -- a member adds a shared board to their own Whiteboards from the group (group_board_people), and takes it off by deleting their copy.
 alter table public.group_boards add column if not exists preview text check (preview is null or (char_length(preview) < 200000 and preview like 'data:image/%'));
 alter table public.group_boards add column if not exists preview_at timestamptz;
-create or replace function public.group_board_preview(p_board uuid, p_preview text) returns void
+-- the same preview as a dark whiteboard shows it, for members whose whiteboards are dark
+alter table public.group_boards add column if not exists preview_dark text check (preview_dark is null or (char_length(preview_dark) < 200000 and preview_dark like 'data:image/%'));
+drop function if exists public.group_board_preview(uuid, text);
+create or replace function public.group_board_preview(p_board uuid, p_preview text, p_dark text default null) returns void
 language plpgsql security definer set search_path = public as $$
 declare g uuid;
 begin
@@ -1473,10 +1476,11 @@ begin
   if g is null or not public.sbg_is_member(g) then raise exception 'That board isn''t in one of your groups.'; end if;
   if p_preview is null or char_length(p_preview) >= 200000 or p_preview not like 'data:image/%' then raise exception 'That preview can''t be used.'; end if;
   if to_regprocedure('public.studyboard_rate_hit(text,integer,integer)') is not null and not public.studyboard_rate_hit('wbpv:' || auth.uid()::text, 30, 60) then return; end if;
-  update public.group_boards set preview = p_preview, preview_at = now() where id = p_board;
+  if p_dark is not null and (char_length(p_dark) >= 200000 or p_dark not like 'data:image/%') then p_dark := null; end if;
+  update public.group_boards set preview = p_preview, preview_dark = p_dark, preview_at = now() where id = p_board;
 end $$;
-revoke all on function public.group_board_preview(uuid, text) from public, anon;
-grant execute on function public.group_board_preview(uuid, text) to authenticated;
+revoke all on function public.group_board_preview(uuid, text, text) from public, anon;
+grant execute on function public.group_board_preview(uuid, text, text) to authenticated;
 
 create table if not exists public.group_board_people (
   board_id uuid not null references public.group_boards(id) on delete cascade,

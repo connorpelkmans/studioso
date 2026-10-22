@@ -48,7 +48,7 @@ function fake(opts){
       then(res, rej) { return run().then(res, rej); }};
     return api;
   };
-  const client = {from: mk, rpc: async (fn, a) => { if (fn === "group_board_preview") { const b = DB.group_boards.find(x => x.id === a.p_board); if (b) b.preview = a.p_preview; DB.calls.push(fn); return {data: null, error: null}; }
+  const client = {from: mk, rpc: async (fn, a) => { if (fn === "group_board_preview") { const b = DB.group_boards.find(x => x.id === a.p_board); if (b) { b.preview = a.p_preview; b.preview_dark = a.p_dark || null; } DB.calls.push(fn); return {data: null, error: null}; }
       return {data: fn === "my_username" ? "connor" : fn === "my_age" ? 20 : null, error: null}; }, removeChannel(c) { c.closed = true; },
     channel: name => { const c = {name, subs: [], on(ev, f, cb) { c.subs.push({f, cb}); return c; }, subscribe(cb) { if (cb) cb("SUBSCRIBED"); return c; }}; DB.chans.push(c); return c; }};
   window.__sbGroupsStub = {user: {id: opts.me, email: opts.me + "@x.com"}, client};
@@ -101,6 +101,8 @@ function fake(opts){
       ok(wb.wb.g && wb.wb.g.bid === "b1" && wb.wb.g.gn === "Bio Squad" && await page.locator(".wb-livechip.on").count() === 1 && /Live with Bio Squad/.test(await page.locator(".wb-livechip").textContent()), "the board shows Live with Bio Squad");
       await page.waitForTimeout(700);
       ok(await page.evaluate(() => __DB.group_board_people.some(r => r.board_id === "b1" && r.user_id === "u1") && __DB.calls.includes("group_board_preview") && /^data:image\/jpeg/.test(__DB.group_boards[0].preview || "")), "sharing puts you on its list and sends a preview picture for the group's Whiteboards tab");
+      const lum = await page.evaluate(async () => { const b = __DB.group_boards[0], m = async u => { if (!u) return -1; const im = new Image(); im.src = u; await im.decode(); const c = document.createElement("canvas"); c.width = 20; c.height = 20; const x = c.getContext("2d"); x.drawImage(im, 0, 0, 20, 20); const d = x.getImageData(0, 0, 20, 20).data; let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] + d[i + 1] + d[i + 2]; return s / (d.length / 4) / 3; }; return [await m(b.preview), await m(b.preview_dark)]; });
+      ok(lum[0] > 180 && lum[1] >= 0 && lum[1] < 90, "it sends a light preview and a dark one (for members whose whiteboards are dark): " + lum.map(Math.round));
       // draw: a batch goes out
       const F = await page.evaluate(() => { const r = document.querySelector(".wb-frame").getBoundingClientRect(); return {x: r.left, y: r.top}; });
       await page.evaluate(() => SBWB.setTool("pen"));
@@ -142,6 +144,15 @@ function fake(opts){
       ok(await page.locator('[data-act="grp-tab"][data-t="boards"]').count() === 1, "study groups have a Whiteboards tab");
       await page.click('[data-act="grp-tab"][data-t="boards"]'); await page.waitForSelector(".wbg-card"); 
       ok(/Group Brainstorm/.test(await page.locator(".wbg-card").textContent()) && /Maya has it/.test(await page.locator(".wbg-card .wbg-who").textContent()) && await page.locator('.wbg-card img[src^="data:image/png"]').count() === 1, "it lists the shared board with its preview and who has it: " + await page.locator(".wbg-card .wbg-who").textContent());
+      ok(await page.locator(".wbg-card .wbg-avs .wbg-face .grp-av").count() >= 1 && await page.locator(".wbg-card .wbg-avs .wbg-av").count() === 0, "who has it shows each member's picture as the group does (companion or initials), not a plain letter");
+      await page.locator(".wbg-card").screenshot({path: "tests-out/wbg-card.png"});
+      // dark whiteboards show the dark preview (when the board has one)
+      await page.evaluate(() => { __DB.group_boards.find(b => b.id === "b9").preview_dark = "data:image/jpeg;base64,QUJD"; });
+      await page.emulateMedia({colorScheme: "dark"}); await page.waitForTimeout(300);
+      const darkSrc = await page.evaluate(() => (document.querySelector(".wbg-card img") || {}).getAttribute && document.querySelector(".wbg-card img").getAttribute("src"));
+      ok(darkSrc === "data:image/jpeg;base64,QUJD", "with dark whiteboards, the group's tab shows the board's dark preview");
+      await page.emulateMedia({colorScheme: "light"}); await page.waitForTimeout(300);
+      ok(/^data:image\/png/.test(await page.locator(".wbg-card img").getAttribute("src")), "and the light one again in light mode");
       await page.click('.wbg-card [data-act="grp-wb-add"]'); await page.waitForTimeout(600);
       st = await S(page); let gb = Object.values(st.notes).find(x => x.wb && x.wb.g && x.wb.g.bid === "b9");
       ok(gb && gb.text === "Group Brainstorm" && gb.wb.tpl === "concept" && gb.wb.g.gn === "Bio Squad" && (gb.wbInk || []).length === 1 && (gb.wbItems || [])[0].s === "Hello group", "Add to My Whiteboards adds it, with everything drawn on it so far");
