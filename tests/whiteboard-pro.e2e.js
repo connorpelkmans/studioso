@@ -78,7 +78,16 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       const px = await page.evaluate(async aid => { const b = window.__bytes[aid], u = URL.createObjectURL(new Blob([b], {type: "image/png"})); const im = await new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = u; });
         const c = document.createElement("canvas"); c.width = im.width; c.height = im.height; const g = c.getContext("2d"); g.drawImage(im, 0, 0); return {bg: [...g.getImageData(20, 20, 1, 1).data], line: [...g.getImageData(152, 180, 1, 1).data]}; }, f3.revs[0].assetId);
       ok(px.bg[3] === 0 && px.line[3] > 200 && px.line[2] > px.line[0], "its white background is see-through and the marker line stays blue: " + JSON.stringify(px));
-      ok(await page.locator(".wb-img.drawn img").count() === 1, "it shows with the marker grain");
+      ok(await page.locator(".wb-img.drawn img").count() === 1, "it shows as a drawn picture");
+      // colours: original, or all in one marker colour
+      ok(await page.locator('.wb-selbar [data-wb="sel-color"][data-id="orig"][aria-pressed=true]').count() === 1 && await page.locator('.wb-selbar [data-wb="sel-color"]').count() === 7, "a drawn picture's menu has Original Colors (picked) and the six marker colours");
+      await page.click('.wb-selbar [data-wb="sel-color"][data-id="red"]'); await page.waitForTimeout(120);
+      ok((await items(page)).find(i => i.id === it.id).tint === "red" && await page.locator(".wb-img .wb-tint").count() === 1 && await page.locator('.wb-selbar [data-id="red"][aria-pressed=true]').count() === 1, "picking red draws the whole picture in red");
+      const red = await page.evaluate(async () => { const c = await SBWB.renderBoard(state.notes.wb1, {max: 600}), d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; let r = 0, b = 0; for (let i = 0; i < d.length; i += 4) { if (d[i] > 180 && d[i + 1] < 90 && d[i + 2] < 90) r++; if (d[i + 2] > 150 && d[i] < 90) b++; } return {r, b}; });
+      ok(red.r > 50 && red.b < 10, "and the exported picture has it in red: " + JSON.stringify(red));
+      await page.click('.wb-selbar [data-wb="sel-color"][data-id="orig"]'); await page.waitForTimeout(120);
+      ok(!(await items(page)).find(i => i.id === it.id).tint && await page.locator(".wb-img .wb-tint").count() === 0, "Original Colors puts its own colours back");
+      await page.evaluate(() => { SBWB.undo(); SBWB.undo(); }); await page.waitForTimeout(60);
       await page.evaluate(() => SBWB.undo()); await page.waitForTimeout(80);
       ok(!(await items(page)).find(i => i.id === it.id).r, "Undo brings the original picture back");
 
