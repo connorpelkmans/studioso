@@ -177,6 +177,7 @@
   }
 
   function makeScene(id, dk, g){
+    if (!L.ready()) return null;   // the scene library (bundle/scenes.js) isn't here yet: skinart loads it and draws again
     const sc = sceneOf(id), wantEng = !!L.ENGINES[sc] && !broken.has(sc);
     let A = null, v = null, eng = null;
     if (wantEng) {
@@ -268,6 +269,8 @@
   hook("skinart", () => {
     const id = document.documentElement.dataset.skin;
     if (!isScene(id)) { teardown(); return false; }
+    // a scene theme, but the library isn't loaded yet (the theme was just picked): load it, then draw
+    if (!L.ready()) { L.load().then(ok => { if (ok && document.documentElement.dataset.skin === id) renderSkinArt(); }); teardown(); return false; }
     const dk = isDarkNow(), g = geometry(), sig = sigOf(id, dk, g);
     if (!cur || cur.id !== id) return build(id) || (teardown(), false);
     if (cur.sig !== sig) {
@@ -401,8 +404,16 @@
     }
     return thumbs.get(key);
   }
+  // Style Shop previews before the library is here: an empty picture now, filled in when it has loaded
+  function fillThumbs(){
+    document.querySelectorAll("img[data-scn-thumb]").forEach(im => {
+      const [id, dk] = im.dataset.scnThumb.split("|"); im.removeAttribute("data-scn-thumb");
+      try { im.src = thumbUrl(id, dk === "1"); } catch (e) { console.warn("scene thumb " + id, e); }
+    });
+  }
   hook("thumb", (id, dark) => {
     if (!isScene(id)) return;
+    if (!L.ready()) { L.load().then(ok => { if (ok) fillThumbs(); }); return `<span class="sp-art sc-thumb"><img alt="" decoding="async" data-scn-thumb="${esc(id)}|${dark ? 1 : 0}"></span>`; }
     try { return `<span class="sp-art sc-thumb"><img alt="" decoding="async" src="${thumbUrl(id, !!dark)}"></span>`; }
     catch (e) { console.warn("scene thumb " + id, e); return; }
   });

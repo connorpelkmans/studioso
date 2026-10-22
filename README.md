@@ -34,7 +34,7 @@ A calm student planner for courses, deadlines, study sessions and flashcards. It
 
 ## Run it
 
-**Website.** `index.html` is the whole app. Serve the folder over HTTPS (GitHub Pages works) or run a local server:
+**Website.** `index.html` is the app page; it loads the app's code and styles from `bundle/` (see *Where the code lives* below). Serve the folder over HTTPS (GitHub Pages works) or run a local server:
 
 ```
 python3 -m http.server 8080
@@ -51,6 +51,28 @@ npm run dist         # Windows installer in dist/   (also: dist:mac, dist:mac-in
 ```
 
 `npm run prep` alone stages the offline copy of the page with its fonts and libraries. The `build-desktop` GitHub workflow (`.github/workflows/build-desktop.yml`) builds the installers when you push a tag such as `v1.13.0` or run it by hand from the Actions tab.
+
+## Where the code lives
+
+The app's code and styles are in `src/`, one file per section, so each part is easy to find and change:
+
+- `src/js/NN-name.js`: the code, one file per feature (for example `src/js/80-groups.js`, `src/js/99-whiteboard.js`, `src/js/01-sync.js`). The `01-*.js` files are the app's core, by topic.
+- `src/css/NN-name.css`: the styles.
+- `src/app.json`: the order the files go in, and which are loaded only when needed.
+
+The browser loads `bundle/app.js`, `bundle/app.css` and `bundle/scenes.js`, which are built from `src/`. **Don't edit `bundle/` by hand.** After changing anything in `src/`, run:
+
+```
+node scripts/csp.js
+```
+
+That one command rebuilds `bundle/`, updates the version stamps (`?v=`) in `index.html` so browsers and the offline copy pick up the change, and refreshes the page's script hashes. `npm test` fails while `bundle/` is out of date.
+
+- **Same behavior as before.** The code files run together as one script inside the same wrapper as before, so they share everything exactly as when they were one file.
+- **Scene library loaded only when needed.** The scene library (`src/js/20-scenes-lib.js`, about 3 MB) is the exception: it's `bundle/scenes.js`, loaded only for a scene theme or the Style Shop.
+- **Searching:** to find where something is, search `src/` (for example `grep -rn "const SUPPORT" src/js`).
+- **Error reports:** an error report's stack line such as `app.js:16336` maps back to its source file with `node scripts/app-files.js --where app.js:16336`.
+- **One-page form:** `node scripts/app-files.js --bundle one-page.html` writes the whole app as one page, the way `index.html` used to be. `node scripts/app-split.js one-page.html` splits such a page back into `src/` (tools/insert-theme-batches.py works this way).
 
 ## Deploy
 

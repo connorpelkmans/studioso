@@ -94,7 +94,7 @@
   "01-events.js",
   "10-plan.js",
   "15-tips.js",
-  "20-scenes-lib.js",
+  "20-scenes-load.js",
   "20-scenes.js",
   "20-scenes-maj-0.js",
   "20-scenes-maj-m1.js",
@@ -243,5 +243,9 @@
   "101-phone-v2.js",
   "99-motion-a11y-tz.js"
  ],
- "lazy": {}
+ "lazy": {
+  "scenes.js": [
+   "20-scenes-lib.js"
+  ]
+ }
 }

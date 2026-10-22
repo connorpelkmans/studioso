@@ -5,6 +5,8 @@ About 20 minutes, done once. You'll need the three files that came with this gui
 
 Throughout, replace `USERNAME` with your GitHub username.
 
+> **Since 1.15 the app's code is split into files.** `index.html` is the page, and the code and styles it runs are in `src/` (one file per section), built into `bundle/` by `node scripts/csp.js`. Where this guide says to change something "in `index.html`", search `src/` for it instead (for example `grep -rn "SB_DEFAULT" src/js`), edit that file, then run `node scripts/csp.js`. Upload or deploy `index.html` together with the `bundle/` folder. See *Where the code lives* in README.md.
+
 ## What's New in 1.13
 
 - **Ready for everyone:** Privacy Policy, Terms of Service and an About page (version, credits and licenses) are now in the app, in **Settings > App and Notifications** and on the sign-in screen.
@@ -99,7 +101,7 @@ Open **SQL Editor > New query** in Supabase, paste a whole file and click **Run*
 | 10 | `supabase-capture.sql` | Voice and shortcut capture (Siri, Gemini, Bixby, share sheet), and Email to Studyboard (Pro). Run it after step 9 so account deletion also clears it, then deploy the `capture-task` function with Verify JWT **off** (and `capture-email`, for email). Optional check: `supabase-capture-selftest.sql`. See `VOICE-CAPTURE.md` and `cloudflare/email-capture/README.md` | Optional |
 | 11 | `supabase-sync-conflicts.sql` | Sync conflicts: two devices editing the same thing never overwrite each other (run it after `supabase-lean.sql`; see "Two devices, one note" below) | Strongly recommended |
 | 12 | `supabase-calsync.sql` | Two-way sync with Google Calendar and Outlook (Pro). Run it after step 9 so account deletion also clears it, then deploy `calendar-sync` (see "Two-Way Calendar Sync" below) | Optional |
-| 13 | `supabase-theme-access.sql` | Hidden themes: some themes are hidden from everyone (the list is `HIDDEN_THEMES` in `index.html`). An account you mark here sees them all again: `select public.studyboard_grant_all_themes('you@example.com', 'owner');` in the SQL Editor (`studyboard_revoke_all_themes` takes it back). Sign in again or reopen the app to see the change | Optional |
+| 13 | `supabase-theme-access.sql` | Hidden themes: some themes are hidden from everyone (the list is `HIDDEN_THEMES` in `src/js/20-scenes-visible.js`). An account you mark here sees them all again: `select public.studyboard_grant_all_themes('you@example.com', 'owner');` in the SQL Editor (`studyboard_revoke_all_themes` takes it back). Sign in again or reopen the app to see the change | Optional |
 | 14 | `supabase-cloud.sql` | Google Drive and OneDrive (free for signed-in accounts). Run it after step 9, then run `supabase-lean.sql` again so account deletion also clears it, then deploy `cloud-files` (see "Google Drive and OneDrive" below) | Optional |
 | 15b | `supabase-usernames.sql` | Usernames and age: every account gives its birthday once (students under 13 are signed up by a parent or guardian and can't publish or share publicly, like on Quizlet) and picks a unique @username (on the sign-up form, or once after signing in). The server checks the rules and a foul-word list (with look-alike spellings) and refuses anything else; published flashcards and quizzes show the username. Run it after step 2 and before `supabase-sharing.sql` | Required for publishing |
 | 15a | `supabase-schools.sql`, then `supabase-schools-2.sql`, then `supabase-schools-hs-1.sql` to `-hs-4.sql` (one file per query; each is under the editor's 1 MB limit) | The list of real schools: about 10,000 universities and colleges, plus about 36,000 high schools (every US public and private school with a grade 12, and Ontario and British Columbia secondary schools; each part is about 1.3 MB, so run them one at a time) that publishing checks and the school picker searches. Run it before `supabase-sharing.sql`; requests for missing schools land in `school_requests` (the file's header shows how to add one) | Required for publishing |
@@ -249,7 +251,7 @@ Your cloud drive keeps its own version history of all of it. After a restart, Ch
 **13. Add your phone and other devices**
 Open the same address, paste the Project URL and publishable key, and sign in. On a phone, use **Add to Home Screen** so it opens like an app. Everything syncs live between devices.
 
-To skip pasting the two values on every new device, you can put them in `index.html` itself: find the line `const SB_DEFAULT = {url: "", key: ""};`, fill in both, and upload the file again. The publishable key is safe to include; your data is protected by your login.
+To skip pasting the two values on every new device, you can put them in the app itself: find the line `const SB_DEFAULT = {url: "", key: ""};` in `src/js/01-accounts.js`, fill in both, run `node scripts/csp.js`, and upload `index.html` and `bundle/` again. The publishable key is safe to include; your data is protected by your login.
 
 ---
 
@@ -403,7 +405,7 @@ Settings > Data and Backups > Export > **Import From Another App** (also in Add 
 - **Quizlet:** Quizlet has no file to read; the sheet explains Export and opens Paste Cards. Studyboard never fetches Quizlet links.
 - **Todoist:** a project's Export as CSV, or the backup ZIP (one CSV per project). Sub-tasks become checklist steps, sections and comments go in the notes, priority p1 is Urgent, and a repeating date keeps only its next date. A course whose code or name is in the file name is picked for you.
 - **Notion:** Export > Markdown & CSV (a ZIP; a ZIP inside it works too). Pages become notes on My Notes (headings, lists and checkboxes kept as plain text, Notion's ID dropped from titles). A database with a name and a date column becomes tasks (finished ones are left out); one with two text columns like Term and Definition becomes a deck.
-- **For developers:** the module is "97-import-apps" in `index.html` (a read-only SQLite reader with no wasm, the Anki mapping, CSV, Todoist and Notion parsing between `/*IMPORTAPPS-START*/` and `/*IMPORTAPPS-END*/`). Tests: `node tests/import-apps.test.js` and `node tests/import-apps.e2e.js` (both build real Anki collections with python3's sqlite3).
+- **For developers:** the module is `src/js/97-import-apps.js` (a read-only SQLite reader with no wasm, the Anki mapping, CSV, Todoist and Notion parsing between `/*IMPORTAPPS-START*/` and `/*IMPORTAPPS-END*/`). Tests: `node tests/import-apps.test.js` and `node tests/import-apps.e2e.js` (both build real Anki collections with python3's sqlite3).
 
 ## Quick Capture
 
@@ -1277,7 +1279,7 @@ Work through this before you tell the public about Studyboard.
 - [ ] Row Level Security shows **enabled** on every table in Table Editor, and the secret or service_role key appears nowhere in the app or repository.
 
 **Legal and contact**
-- [ ] In `index.html`, change `const SUPPORT = "support@YOUR-DOMAIN"` (in the 99-release module) to your real support address, and monitor that inbox.
+- [ ] In `src/js/99-release.js`, change `const SUPPORT = "support@YOUR-DOMAIN"` to your real support address (then run `node scripts/csp.js`), and monitor that inbox.
 - [ ] Read the in-app Privacy Policy and Terms of Service (Settings > App and Notifications) and have them checked for your country or state. They describe the app as built; change them if you change what Studyboard collects.
 - [ ] Add your legal name or business name where you are required to, and the governing law in the Terms.
 - [ ] Switch the same support address into Stripe, your email templates and the store listings.
