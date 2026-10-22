@@ -116,16 +116,34 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
 
     // writing styles
     await page.keyboard.press("Escape");
-    ok(await page.locator('.wb-tray [data-wb="font"]').count() === 5, "the Text tool offers 5 writing styles");
+    await page.click('.wb-tray .wb-fontpick[data-id="font"]'); await page.waitForTimeout(60);
+    ok(await page.locator('.wb-fontmenu [data-wb="font"]').count() === 5 && await page.locator('.wb-tray .wb-fontpick[data-id="font"][aria-expanded=true]').count() === 1, "the Text tool's writing style dropdown lists 5 styles");
+    await page.keyboard.press("Escape"); await page.waitForTimeout(40);
+    ok(await page.locator(".wb-fontmenu").count() === 0, "Escape closes it");
     await page.evaluate(() => SBWB.select([SBWB.board().items[0]].map(i => "i" + i.id)));
-    await wb("font", "neat"); await page.waitForTimeout(80);
+    await page.click('.wb-tray .wb-fontpick[data-id="font"]'); await page.click('.wb-fontmenu [data-id="neat"]'); await page.waitForTimeout(80);
+    ok(/Neat/.test(await page.locator('.wb-tray .wb-fontpick[data-id="font"]').textContent()) && await page.locator(".wb-fontmenu").count() === 0, "picking from the dropdown closes it and shows the choice");
     const ff1 = await page.evaluate(() => [SBWB.board().items[0].ff, getComputedStyle(document.querySelector(".wb-t")).fontFamily]);
     ok(ff1[0] === "neat" && /Patrick Hand/.test(ff1[1]) && await page.evaluate(() => document.fonts.check("40px 'Patrick Hand'")), "picking Neat changes the selected text to it (font served from vendor/fonts): " + ff1.join(" / "));
     await page.mouse.click(F.x + 600, F.y + 120); await page.waitForTimeout(60); await page.keyboard.type("Quick"); await page.keyboard.press("Escape"); await page.waitForTimeout(60);
     ok((await live()).items.some(i => i.s === "Quick" && i.ff === "neat"), "new text is written in the chosen style");
     await page.evaluate(() => { const it = SBWB.board().items.find(i => i.s === "Quick"); SBWB.change(set => set("i", it.id, null)); });
-    await page.evaluate(() => SBWB.select([SBWB.board().items[0]].map(i => "i" + i.id))); await wb("font", "marker"); await page.waitForTimeout(60);
+    await page.evaluate(() => SBWB.select([SBWB.board().items[0]].map(i => "i" + i.id))); await page.click('.wb-tray .wb-fontpick[data-id="font"]'); await page.click('.wb-fontmenu [data-id="marker"]'); await page.waitForTimeout(60);
     ok(!(await live()).items[0].ff, "and Marker puts it back");
+    // text size dropdown: resizes the selected text
+    await page.evaluate(() => SBWB.select([SBWB.board().items[0]].map(i => "i" + i.id)));
+    const f0 = (await live()).items[0].f;
+    await page.click('.wb-tray .wb-fontpick[data-id="size"]'); await page.waitForTimeout(40);
+    ok(await page.locator('.wb-fontmenu [data-wb="tsize"]').count() === 4, "the text size dropdown has Small, Medium, Large and Huge");
+    await page.click('.wb-fontmenu [data-wb="tsize"][data-id="3"]'); await page.waitForTimeout(80);
+    const f1 = (await live()).items[0].f;
+    ok(f1 > f0 * 1.8 && /Huge/.test(await page.locator('.wb-tray .wb-fontpick[data-id="size"]').textContent()), "Huge makes the selected text bigger: " + f0 + " to " + f1);
+    await page.evaluate(() => SBWB.undo()); await page.click('.wb-tray .wb-fontpick[data-id="size"]'); await page.click('.wb-fontmenu [data-wb="tsize"][data-id="1"]'); await page.evaluate(() => SBWB.undo()); await page.waitForTimeout(40);
+    // the rainbow marker is Pro
+    ok(await page.locator('.wb-tray [data-wb="pen-any"] .wb-pro').count() === 1, "the rainbow (any color) marker shows a Pro badge on a free plan");
+    await page.click('.wb-tray [data-wb="pen-any"]'); await page.waitForTimeout(250);
+    ok(/any color/i.test(await page.locator("dialog[open]").textContent()), "and opens the Pro sheet");
+    await page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
     await page.keyboard.press("Escape"); await page.waitForTimeout(40);
     await page.evaluate(() => SBWB.select([SBWB.board().items[0]].map(i => "i" + i.id)));
 
@@ -202,6 +220,19 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     ok((await live()).strokes.length === nS, "Whole Strokes removes the whole piece it touches");
     await page.keyboard.press("Control+z"); await page.keyboard.press("Control+z");
     ok((await live()).strokes.some(s => s.id === longId), "two undos bring the uncut line back");
+    // the eraser on typed text: Erase Parts takes only the letters it passes over
+    await wb("tool", "text"); await page.mouse.click(F.x + 150, F.y + 330); await page.waitForTimeout(60);
+    await page.keyboard.type("ABCDEFGH"); await page.keyboard.press("Escape"); await page.keyboard.press("Escape"); await page.waitForTimeout(60);
+    const tx = (await live()).items.find(i => i.s === "ABCDEFGH");
+    const tm = await page.evaluate(id => { const it = SBWB.board().items.find(i => i.id === id), b = SBWB.itemBB(it), c = SBWB.cam(), r = document.querySelector(".wb-frame").getBoundingClientRect(); return {x: r.left + (b[0] + b[2]) / 2 * c.z + c.x, y: r.top + (b[1] + b[3]) / 2 * c.z + c.y, top: r.top + b[1] * c.z + c.y, bot: r.top + b[3] * c.z + c.y}; }, tx.id);
+    await wb("tool", "eraser"); await wb("erase", "part"); await wb("ew", 0);
+    await stroke([[tm.x, tm.top - 10], [tm.x, tm.bot + 10]]);
+    const parts = (await live()).items.filter(i => i.k === "t" && /^[A-H]+$/.test(i.s)).sort((a, b) => a.x - b.x);
+    ok(!(await live()).items.some(i => i.id === tx.id) && parts.length === 2 && (parts[0].s + parts[1].s).length >= 5 && (parts[0].s + parts[1].s).length < 8 && "ABCDEFGH".startsWith(parts[0].s) && "ABCDEFGH".endsWith(parts[1].s) && parts[0].x === tx.x,
+      "Erase Parts cuts letters out of typed text, and the rest stays in place: " + parts.map(p => p.s + "@" + p.x).join(", "));
+    await page.keyboard.press("Control+z");
+    ok((await live()).items.some(i => i.s === "ABCDEFGH"), "Undo puts the whole text back");
+    await page.evaluate(id => SBWB.change(set => set("i", id, null)), tx.id);
 
     // zoom with Ctrl + scroll around the pointer
     await page.mouse.move(F.x + 400, F.y + 300);

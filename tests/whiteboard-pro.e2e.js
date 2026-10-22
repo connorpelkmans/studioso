@@ -107,6 +107,20 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       ok(it4.r === 1 && tr.dark > 200 && tr.clear > tr.all * 0.5, "without AI it's traced here: dark marker outlines on a see-through background: " + JSON.stringify(tr));
       ok(/on this device/.test(await page.locator("#toast").textContent()), "and says it was traced on this device (with how to get a full redraw)");
 
+      // the rainbow marker: any colour
+      await page.evaluate(() => SBWB.setTool("pen"));
+      await page.click('.wb-tray [data-wb="pen-any"]'); await page.waitForTimeout(100);
+      ok(await page.locator("input.wb-anycolor").count() === 1, "Pro: the rainbow marker opens a colour picker");
+      await page.evaluate(() => { const i = document.querySelector("input.wb-anycolor"); i.value = "#00b3a4"; i.dispatchEvent(new Event("change")); }); await page.waitForTimeout(80);
+      ok(await page.locator('.wb-tray [data-wb="pen-any"][aria-pressed=true]').count() === 1, "the picked colour is now the marker");
+      const fr = await page.evaluate(() => { const r = document.querySelector(".wb-frame").getBoundingClientRect(); return {x: r.left, y: r.top}; });
+      await page.mouse.move(fr.x + 60, fr.y + 60); await page.mouse.down(); await page.mouse.move(fr.x + 260, fr.y + 70, {steps: 8}); await page.mouse.up(); await page.waitForTimeout(80);
+      const cs = await page.evaluate(() => { const l = SBWB.board().strokes; return l[l.length - 1].c; });
+      ok(/^h[a-p]{6}$/.test(cs), "a stroke in that colour is saved with it: " + cs);
+      const teal = await page.evaluate(async () => { const c = await SBWB.renderBoard(state.notes.wb1, {max: 900, full: true}), d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - 0) < 30 && Math.abs(d[i + 1] - 179) < 30 && Math.abs(d[i + 2] - 164) < 30) n++; return n; });
+      ok(teal > 20, "and exports in exactly that colour: " + teal + " teal pixels");
+      await page.evaluate(() => SBWB.undo());
+
       // export includes the picture
       const ex = await page.evaluate(async () => { const n = state.notes.wb1; const c = await SBWB.renderBoard(n, {max: 600}); const g = c.getContext("2d"); const d = g.getImageData(0, 0, c.width, c.height).data; let dark = 0; for (let i = 0; i < d.length; i += 4) if (d[i] < 80 && d[i + 1] < 80 && d[i + 2] < 90) dark++; return dark; });
       ok(ex > 100, "the exported picture of the board includes it: " + ex + " dark pixels");
