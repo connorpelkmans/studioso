@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!-- Content-Security-Policy: added by script (a static meta tag makes Chrome pre-scan the big inline script and request junk URLs). If your host can send headers, send the same policy as a header too. -->
-<script>try{var H=/*CSP-HASHES*/"'sha256-u6kV8EYZg9U58LoOAOPidYXuzDc8fGvKe+BFmraJuEA=' 'sha256-xK8B2aNSNssLGw7dXYYbUPKc3sah191tb0x75FXsN2E='",lax=!H||/(^|\.)claudeusercontent\.com$/.test(location.hostname);var cm=document.createElement("meta");cm.httpEquiv="Content-Security-Policy";cm.content="default-src 'self'; script-src 'self' "+(lax?"'unsafe-inline'":H)+" https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: blob: data:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'";document.head.appendChild(cm)}catch(e){}</script>
+<script>try{var H=/*CSP-HASHES*/"'sha256-u6kV8EYZg9U58LoOAOPidYXuzDc8fGvKe+BFmraJuEA=' 'sha256-IR2yBxyB8NVnJZnQYVgnnugzTN4zRSajqHfF+nJp+Eg='",lax=!H||/(^|\.)claudeusercontent\.com$/.test(location.hostname);var cm=document.createElement("meta");cm.httpEquiv="Content-Security-Policy";cm.content="default-src 'self'; script-src 'self' "+(lax?"'unsafe-inline'":H)+" https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: blob: data:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'";document.head.appendChild(cm)}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Studyboard</title>
 <link rel="canonical" href="https://studyboardapp.com/">
@@ -56640,7 +56640,7 @@ hook("boot", boot);
   // A member's picture (their companion, or initials) in their colour; data-mc lets the row it sits in take the colour too (paintRows)
   // Text that reads on a colour: dark on light colours (any colour can be picked in Pro groups), white otherwise
   const inkOn = c => { if (!okColor(c)) return "#fff"; const [r, g, b] = [1, 3, 5].map(i => parseInt(c.substr(i, 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4); return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45 ? "#1F2430" : "#fff"; };
-  const av = (name, id) => { const f = id && id === myId() ? myFace() : faceOfMember(id), raw = memberHue(ui.tab === "groups" ? ui.grp : "", id, name), c = esc(raw);
+  const av = (name, id, gid) => { const f = id && id === myId() ? myFace() : faceOfMember(id), raw = memberHue(gid != null ? gid : (ui.tab === "groups" ? ui.grp : ""), id, name), c = esc(raw);
     return f ? `<span class="grp-av is-comp" style="--c:${c}" data-mc="${c}" aria-hidden="true">${f}</span>` : `<span class="grp-av" style="--c:${c};color:${inkOn(raw)}" data-mc="${c}" aria-hidden="true">${esc(initials(name))}</span>`; };
   // Rows that belong to one person learn that person's colour (--mc): leaderboard bars are drawn in it. People are told apart by the
   // coloured ring around their picture; rows get no stripe.
@@ -60178,6 +60178,8 @@ ${kindPreview("study")}${kindPreview("project")}`;
     deckShareSheet, matchCourse, codeKey, copyText, sendText, busyBtn, hashOf, loadingSheet, myName: () => S.name || "",
     // members of a group (for who has a shared whiteboard) and the groups you're in
     members: gid => (S.members[gid] || []).map(m => ({id: m.user_id, name: m.display_name || "", color: m.color || ""})),
+    // a member's picture as the group shows it (their companion in their colour, or initials)
+    avatar: (gid, id, name) => av(name, id, gid),
     groups: () => (Array.isArray(S.groups) ? S.groups : []).map(g => ({id: g.id, name: g.name, kind: g.kind || "study"}))};
   hook("boot", () => {
     try {
@@ -105507,8 +105509,8 @@ var SBWB = null;
     });
     return `<svg class="wb-tpl" viewBox="0 0 ${BW} ${BH}" preserveAspectRatio="${thumb ? "xMidYMid slice" : "none"}" aria-hidden="true">${defs ? `<defs>${defs}</defs>` : ""}${parts.join("")}</svg>`;
   }
-  function tplPaint(c, id, area, pa){
-    const pal = PAL_L;
+  function tplPaint(c, id, area, pa, dark){
+    const pal = dark ? PAL_D : PAL_L;
     tplOps(id, pa).forEach(op => {
       c.save(); c.lineCap = "round";
       if (op.k === "grid" || op.k === "dots") {
@@ -106346,7 +106348,7 @@ var SBWB = null;
   const MOON = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>';
   function themeBtn(){ const b = STAGE && STAGE.querySelector(".wbz-theme"); if (!b) return; b.innerHTML = DK ? SUN : MOON; const t = DK ? "Light Board" : "Dark Board"; b.title = t; b.setAttribute("aria-label", t); }
   function setBoardTheme(v){ state.settings = Object.assign({}, state.settings, {wbTheme: v === "light" || v === "dark" ? v : "auto"}); saveSettings(); themeCheck(); }
-  const themeCheck = () => { const d = boardDark(); if (STAGE) { STAGE.classList.toggle("wb-dk", d); themeBtn(); } if (d === DK) return; DK = d; if (STAGE) { const box = STAGE.querySelector(".wb-tplbox"); if (box) box.dataset.tpl = ""; if (B) B.ref = null; } itemsSig = ""; itemsDraw(true); dirty(); if (ui.tab === "notes" && on()) mount(); };
+  const themeCheck = () => { const d = boardDark(); if (d !== DK) setTimeout(() => fire("wb-theme", d), 0); if (STAGE) { STAGE.classList.toggle("wb-dk", d); themeBtn(); } if (d === DK) return; DK = d; if (STAGE) { const box = STAGE.querySelector(".wb-tplbox"); if (box) box.dataset.tpl = ""; if (B) B.ref = null; } itemsSig = ""; itemsDraw(true); dirty(); if (ui.tab === "notes" && on()) mount(); };
   try { new MutationObserver(themeCheck).observe(document.documentElement, {attributes: true, attributeFilter: ["data-theme", "class"]}); } catch (e) {}
   try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", themeCheck); } catch (e) {}
   document.addEventListener("visibilitychange", () => { if (document.hidden) { endText(); flush(); } });
@@ -106464,13 +106466,18 @@ var SBWB = null;
     const W = Math.max(1, Math.round(w * s)), H = Math.max(1, Math.round(h * s));
     const mk = () => { const c = document.createElement("canvas"); c.width = W; c.height = H; const x = c.getContext("2d"); x.setTransform(s, 0, 0, s, -bb[0] * s, -bb[1] * s); x.lineCap = "round"; x.lineJoin = "round"; return [c, x]; };
     const [main, cm] = mk(), [hl, chh] = mk(), [pen, cp] = mk();
-    cm.fillStyle = "#FDFEFE"; cm.fillRect(bb[0], bb[1], w, h);
-    tplPaint(cm, tpl, bb, n.wb && n.wb.pa);
-    await Promise.all(fire("wb-paint-items", {ctx: cm, list: its.filter(it => it.k === "i"), area: bb}));
-    ink.forEach(st => strokePaint(st.t === "hl" ? chh : cp, st, colOf(st, true)));
-    its.forEach(it => { if (it.k !== "t") return; cp.fillStyle = penHex(it.c, true); cp.font = `${it.f}px ${famOf(it.ff)}`; cp.textBaseline = "top"; String(it.s).split("\n").forEach((l, i) => cp.fillText(l, it.x, it.y + i * it.f * 1.3 + it.f * 0.15)); });
+    // o.dark: as the dark board shows it (bright markers on the dark glass), for previews; exports and prints stay white
+    const dk = !!o.dark;
+    cm.fillStyle = dk ? "#1C232C" : "#FDFEFE"; cm.fillRect(bb[0], bb[1], w, h);
+    tplPaint(cm, tpl, bb, n.wb && n.wb.pa, dk);
+    await Promise.all(fire("wb-paint-items", {ctx: cm, list: its.filter(it => it.k === "i"), area: bb, dark: dk}));
+    const DK0 = DK; DK = dk;
+    try {
+    ink.forEach(st => strokePaint(st.t === "hl" ? chh : cp, st, colOf(st, !dk)));
+    its.forEach(it => { if (it.k !== "t") return; cp.fillStyle = penHex(it.c, !dk); cp.font = `${it.f}px ${famOf(it.ff)}`; cp.textBaseline = "top"; String(it.s).split("\n").forEach((l, i) => cp.fillText(l, it.x, it.y + i * it.f * 1.3 + it.f * 0.15)); });
+    } finally { DK = DK0; }
     cm.setTransform(1, 0, 0, 1, 0, 0);
-    cm.save(); cm.globalAlpha = 0.5; cm.globalCompositeOperation = "multiply"; cm.drawImage(hl, 0, 0); cm.restore();
+    cm.save(); cm.globalAlpha = dk ? 0.42 : 0.5; cm.globalCompositeOperation = dk ? "screen" : "multiply"; cm.drawImage(hl, 0, 0); cm.restore();
     cm.drawImage(pen, 0, 0);
     return main;
   }
@@ -106506,7 +106513,7 @@ var SBWB = null;
     return false;
   });
 
-  SBWB = window.SBWB = {view, on, setView, boards, boardName, curId, create, flush, renderBoard, open: id => { setView("wb"); ui.wbCur = id; ui.tab = "notes"; render(); },
+  SBWB = window.SBWB = {view, on, setView, boards, boardName, curId, create, flush, renderBoard, dark: () => boardDark(), open: id => { setView("wb"); ui.wbCur = id; ui.tab = "notes"; render(); },
     board: () => B && {id: B.id, strokes: strokes(), items: items()},
     // for the Pro pictures and live group modules
     set: (t, id, v) => { if (!B) return; opBegin(); set(t, id, v); opEnd(); }, change: fn => { if (!B) return; opBegin(); try { fn(set); } finally { opEnd(); } },
@@ -106838,7 +106845,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     [[c.width, 0], [0, c.height]].forEach(([gx, gy]) => { const g = x.createLinearGradient(0, 0, gx, gy); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(0.14, "#000"); g.addColorStop(0.86, "#000"); g.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = g; x.fillRect(0, 0, c.width, c.height); });
     return c;
   }
-  hook("wb-paint-items", ({ctx, list}) => Promise.all(list.map(async it => { const im = await imageOf(it); if (!im) return; try { let src = it.r && it.tint ? tinted(im, W.penHex(it.tint, true)) : im; if (it.er && it.er.length) src = erased(src, it); if (it.fade) src = faded(src); ctx.drawImage(src, it.x, it.y, it.w, it.h); } catch (e) {} })));
+  hook("wb-paint-items", ({ctx, list, dark}) => Promise.all(list.map(async it => { const im = await imageOf(it); if (!im) return; try { let src = it.r && it.tint ? tinted(im, W.penHex(it.tint, !dark)) : im; if (it.er && it.er.length) src = erased(src, it); if (it.fade) src = faded(src); ctx.drawImage(src, it.x, it.y, it.w, it.h); } catch (e) {} })));
 
   /* ---------- Adding pictures ---------- */
   hook("wb-tools", () => `<button type="button" class="wb-tool wb-pic" data-wb="pic" aria-label="Add a Picture${locked() ? " (Studyboard Pro)" : ""}" title="Add a Picture${locked() ? " (Pro)" : ""}">${PIC}${locked() ? '<span class="wb-pro">PRO</span>' : ""}</button>`);
@@ -107273,7 +107280,6 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
 .wb-tint{display:block;width:100%;height:100%;-webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
 .wb-img img{display:block;width:100%;height:100%;object-fit:fill;-webkit-user-drag:none;user-select:none}
 .wb-img:not(.drawn) img{box-shadow:0 2px 10px rgba(20,30,45,.18)}
-.wb-dk .wb-img.drawn img{filter:invert(1) hue-rotate(180deg)}
 .wb-dk .wb-img-ph{background:#2A323C;border-color:#46505C;color:#AEB7C2}
 .wb-img-ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;background:#EEF1F4;border:2px dashed #C3CCD7;color:#6B7686;font:600 max(14px,2.2%) var(--display);padding:8px}
 .wb-img.busy img{filter:grayscale(.6) opacity(.55)}
@@ -107696,6 +107702,12 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     catch (e) {}
     return ACC.get(bid);
   }
+  // a member's picture: their companion (as the rest of the group shows them), or their initial in their colour
+  const faceOf = (gid, id, titled) => {
+    const m = ((G() && G().members) ? G().members(gid) : []).find(x => x.id === id), nm = memberName(gid, id), real = nm === "You" ? (G() && G().myName && G().myName()) || "You" : nm;
+    let h = ""; try { h = G() && G().avatar ? G().avatar(gid, id, real) : ""; } catch (e) {}
+    if (h) return `<span class="wbg-face"${titled ? ` title="${esc(nm)}"` : ""}>${h}</span>`;
+    return `<span class="wbg-av" style="--c:${esc((m && /^#[0-9A-F]{6}$/i.test(m.color || "")) ? m.color : "#7A8494")}"${titled ? ` title="${esc(nm)}"` : ""}>${esc(real.trim().charAt(0).toUpperCase() || "?")}</span>`; };
   const memberName = (gid, id) => { if (id === me()) return "You"; const m = ((G() && G().members) ? G().members(gid) : []).find(x => x.id === id); return (m && m.name) || "A member"; };
   const whoText = (gid, ids) => { const names = [...new Set(ids)].sort((a, b) => (b === me()) - (a === me())).map(id => memberName(gid, id)); return !names.length ? "Nobody has added it yet" : names.length <= 3 ? names.join(", ").replace(/, ([^,]*)$/, " and $1") + (names.length === 1 && names[0] !== "You" ? " has it" : " have it") : `${names.slice(0, 2).join(", ")} and ${names.length - 2} others have it`; };
   // a small picture of the board for the group's Whiteboards tab, kept fresh while people draw (at most every 20 seconds)
@@ -107706,9 +107718,11 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     PV.set(g.bid, Date.now());
     setTimeout(async () => {
       try {
-        W.flush(); const cv = await W.renderBoard(state.notes[nid] || n, {max: 520}); let url = cv.toDataURL("image/jpeg", 0.72);
-        if (url.length > 190000) url = cv.toDataURL("image/jpeg", 0.45);
-        if (url.length < 190000) await q(cli().rpc("group_board_preview", {p_board: g.bid, p_preview: url}));
+        W.flush(); const pic = async dark => { const cv = await W.renderBoard(state.notes[nid] || n, {max: 520, dark}); let url = cv.toDataURL("image/jpeg", 0.72); if (url.length > 190000) url = cv.toDataURL("image/jpeg", 0.45); return url.length < 190000 ? url : null; };
+        // light and dark, so each member sees it the way their own whiteboards look
+        const url = await pic(false), dk = await pic(true); if (!url) return;
+        try { await q(cli().rpc("group_board_preview", {p_board: g.bid, p_preview: url, p_dark: dk})); }
+        catch (e) { await q(cli().rpc("group_board_preview", {p_board: g.bid, p_preview: url})); }   // a server without dark previews yet
       } catch (e) {}
     }, 300);
   }
@@ -107719,7 +107733,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     const c = GB.get(gid); if (!online() || (c && c.busy) || (!force && c && Date.now() - c.at < 15000)) return;
     const x = c || {rows: null, people: new Map(), at: 0}; x.busy = true; GB.set(gid, x);
     try {
-      x.rows = (await q(cli().from("group_boards").select("id,group_id,name,tpl,created_by,preview,updated_at").eq("group_id", gid).eq("deleted", false).order("updated_at", {ascending: false}))) || [];
+      x.rows = (await q(cli().from("group_boards").select("*").eq("group_id", gid).eq("deleted", false).order("updated_at", {ascending: false}))) || [];
       const ppl = (await q(cli().from("group_board_people").select("board_id,user_id").eq("group_id", gid))) || [];
       x.people = new Map(); ppl.forEach(r => { if (!x.people.has(r.board_id)) x.people.set(r.board_id, []); x.people.get(r.board_id).push(r.user_id); });
       x.err = "";
@@ -107727,6 +107741,8 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     x.at = Date.now(); x.busy = false; fillPanes();
   }
   const okPv = v => typeof v === "string" && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v) && v.length < 200000;
+  const pvOf = r => (W.dark && W.dark() && okPv(r.preview_dark)) ? r.preview_dark : r.preview;
+  hook("wb-theme", () => fillPanes());
   const mineOf = bid => Object.values(state.notes || {}).find(n => live(n) && n.wb.g.bid === bid);
   function paneBody(gid){
     const c = GB.get(gid);
@@ -107736,9 +107752,9 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     if (!c.rows.length) return `<p class="empty mini">No whiteboards here yet. Share one, and everyone in the group can add it and draw on it with you, live.</p>`;
     return `<div class="wbg-grid">${c.rows.map(r => {
       const mine = mineOf(r.id), ids = c.people.get(r.id) || [], who = whoText(gid, mine ? [me()].concat(ids) : ids);
-      const dots = [...new Set(mine ? [me()].concat(ids) : ids)].slice(0, 5).map(id => { const m = ((G() && G().members) ? G().members(gid) : []).find(x => x.id === id); const nm = memberName(gid, id); return `<span class="wbg-av" style="--c:${esc((m && /^#[0-9A-F]{6}$/i.test(m.color || "")) ? m.color : "#7A8494")}" title="${esc(nm)}">${esc((nm === "You" ? (G() && G().myName && G().myName()) || "Y" : nm).trim().charAt(0).toUpperCase() || "?")}</span>`; }).join("");
+      const dots = [...new Set(mine ? [me()].concat(ids) : ids)].slice(0, 5).map(id => { return faceOf(gid, id, true); }).join("");
       return `<div class="wbg-card">
-        <button type="button" class="wbg-pv" data-act="grp-wb-open" data-id="${esc(r.id)}" data-g="${esc(gid)}" aria-label="${mine ? "Open" : "Add and open"} ${esc(r.name)}">${okPv(r.preview) ? `<img src="${esc(r.preview)}" alt="">` : `<span class="wbg-ph">${esc(W.tplName ? W.tplName(r.tpl) : "Whiteboard")}</span>`}</button>
+        <button type="button" class="wbg-pv" data-act="grp-wb-open" data-id="${esc(r.id)}" data-g="${esc(gid)}" aria-label="${mine ? "Open" : "Add and open"} ${esc(r.name)}">${okPv(pvOf(r)) ? `<img src="${esc(pvOf(r))}" alt="">` : `<span class="wbg-ph">${esc(W.tplName ? W.tplName(r.tpl) : "Whiteboard")}</span>`}</button>
         <div class="wbg-meta"><b>${esc(r.name)}</b><span class="wbg-who"><span class="wbg-avs" aria-hidden="true">${dots}</span>${esc(who)}</span></div>
         <div class="wbg-acts">${mine ? `<button type="button" class="btn small" data-act="grp-wb-open" data-id="${esc(r.id)}" data-g="${esc(gid)}">Open</button>` : `<button type="button" class="btn small primary" data-act="grp-wb-add" data-id="${esc(r.id)}" data-g="${esc(gid)}">Add to My Whiteboards</button>`}</div>
       </div>`; }).join("")}</div>`;
@@ -107787,7 +107803,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     const a = await access(g.bid, true); if (!dlg.open) return;
     const ids = [...new Set(((a && a.ids) || []).concat(me()))].sort((x, y) => (y === me()) - (x === me()));
     $(".sheet-body", dlg).innerHTML = `<p style="margin:0">Live with <b>${esc(g.gn || "your study group")}</b>: what anyone here draws or writes shows up for everyone as it happens.</p>
-      <ul class="wbg-people">${ids.map(id => { const m = ((G() && G().members) ? G().members(g.gid) : []).find(x => x.id === id), nm = memberName(g.gid, id); return `<li><span class="wbg-av" style="--c:${esc((m && /^#[0-9A-F]{6}$/i.test(m.color || "")) ? m.color : "#7A8494")}">${esc((nm === "You" ? (G() && G().myName && G().myName()) || "Y" : nm).trim().charAt(0).toUpperCase() || "?")}</span>${esc(nm)}</li>`; }).join("")}</ul>
+      <ul class="wbg-people">${ids.map(id => { const nm = memberName(g.gid, id); return `<li>${faceOf(g.gid, id)}${esc(nm)}</li>`; }).join("")}</ul>
       <p class="mini" style="margin:0">Anyone else in the group can add it from the group's Whiteboards tab. Deleting your copy only removes yours.</p>`;
   }
   hook("wb-head", id => {
@@ -107832,13 +107848,14 @@ html[data-theme=dark] .wb-livechip{color:#7FE3A6}
 .grp-wbs-head{display:flex;align-items:center;gap:10px;margin-bottom:4px}.grp-wbs-head h3{flex:1;margin:0}
 .wbg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
 .wbg-card{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:14px;border:1px solid var(--line);background:var(--surface)}
-.wbg-pv{display:flex;align-items:center;justify-content:center;aspect-ratio:3/2;width:100%;padding:0;border:0;border-radius:10px;overflow:hidden;background:#FDFEFE;box-shadow:inset 0 0 0 1px var(--line);cursor:pointer}
-.wbg-pv img{width:100%;height:100%;object-fit:contain;display:block}
-.wbg-pv:hover,.wbg-pv:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
+.wbg-pv{position:relative;display:flex;align-items:center;justify-content:center;aspect-ratio:3/2;width:100%;min-width:0;min-height:0;padding:6px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#FDFEFE;cursor:pointer;isolation:isolate}
+.wbg-pv img{position:absolute;inset:6px;width:calc(100% - 12px);height:calc(100% - 12px);object-fit:contain;display:block}
+.wbg-pv:hover,.wbg-pv:focus-visible{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);outline:none}
 .wbg-ph{font:700 .85rem var(--display);color:#9BA5B2}
 .wbg-meta{display:flex;flex-direction:column;gap:3px;min-width:0}.wbg-meta b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wbg-who{display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--muted)}
-.wbg-avs{display:inline-flex}.wbg-avs .wbg-av+.wbg-av{margin-left:-6px}
+.wbg-avs{display:inline-flex}.wbg-avs > *+*{margin-left:-6px}
+.wbg-face{display:inline-flex;flex:none;border-radius:50%;box-shadow:0 0 0 2px var(--surface)}.wbg-face .grp-av{width:22px;height:22px;font-size:.6rem}.wbg-people .wbg-face{box-shadow:none}.wbg-people .wbg-face .grp-av{width:30px;height:30px;font-size:.74rem}
 .wbg-av{width:22px;height:22px;border-radius:50%;flex:none;display:inline-grid;place-items:center;background:var(--c);color:#fff;font:700 .7rem var(--display);box-shadow:0 0 0 2px var(--surface)}
 .wbg-acts{display:flex;gap:6px}.wbg-acts .btn{flex:1}
 .wbg-people{list-style:none;margin:0;padding:0;display:grid;gap:8px}.wbg-people li{display:flex;align-items:center;gap:10px;font-weight:600}.wbg-people .wbg-av{width:28px;height:28px;font-size:.8rem}
