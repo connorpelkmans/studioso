@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!-- Content-Security-Policy: added by script (a static meta tag makes Chrome pre-scan the big inline script and request junk URLs). If your host can send headers, send the same policy as a header too. -->
-<script>try{var H=/*CSP-HASHES*/"'sha256-u6kV8EYZg9U58LoOAOPidYXuzDc8fGvKe+BFmraJuEA=' 'sha256-MpoYCYE64DBCwkF6Y/jVhpLr44B9Jg2dGdPtahga260='",lax=!H||/(^|\.)claudeusercontent\.com$/.test(location.hostname);var cm=document.createElement("meta");cm.httpEquiv="Content-Security-Policy";cm.content="default-src 'self'; script-src 'self' "+(lax?"'unsafe-inline'":H)+" https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: blob: data:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'";document.head.appendChild(cm)}catch(e){}</script>
+<script>try{var H=/*CSP-HASHES*/"'sha256-u6kV8EYZg9U58LoOAOPidYXuzDc8fGvKe+BFmraJuEA=' 'sha256-xK8B2aNSNssLGw7dXYYbUPKc3sah191tb0x75FXsN2E='",lax=!H||/(^|\.)claudeusercontent\.com$/.test(location.hostname);var cm=document.createElement("meta");cm.httpEquiv="Content-Security-Policy";cm.content="default-src 'self'; script-src 'self' "+(lax?"'unsafe-inline'":H)+" https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: blob: data:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'";document.head.appendChild(cm)}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Studyboard</title>
 <link rel="canonical" href="https://studyboardapp.com/">
@@ -2995,8 +2995,8 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;overflow:au
 .mc-dot{width:22px;height:22px;border-radius:50%;background:var(--mc);flex:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--mc) 25%,transparent)}
 .mc-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:12px}
 .gc-grid{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 4px}
-.gc-grid .mc-sw{width:34px;height:34px;aspect-ratio:auto;font-size:.8rem;flex:none}
-.gc-any{position:relative;width:34px;height:34px;flex:none;border-radius:50%;display:grid;place-items:center;cursor:pointer;background:var(--mc,transparent);border:2px dashed var(--line);color:var(--muted);font:800 1.1rem var(--display)}
+.gc-grid .mc-sw{width:40px;height:40px;min-height:40px;padding:0;aspect-ratio:1;font-size:.8rem;flex:none}
+.gc-any{position:relative;width:40px;height:40px;flex:none;border-radius:50%;display:grid;place-items:center;cursor:pointer;background:var(--mc,transparent);border:2px dashed var(--line);color:var(--muted);font:800 1.1rem var(--display)}
 .gc-any.on{border:3px solid var(--surface);box-shadow:0 0 0 2px var(--ink);color:#fff}
 .gc-any input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
 .gc-auto{display:flex;align-items:center;gap:8px;margin:6px 0 2px}
@@ -105750,7 +105750,7 @@ var SBWB = null;
     tx.globalCompositeOperation = "destination-out";
     for (const e of s.x) { const [cx, cy, r, h] = e;
       if (h >= 0.99) tx.fillStyle = "#000";
-      else { const gr = tx.createRadialGradient(cx, cy, r * h * 0.5, cx, cy, r); gr.addColorStop(0, `rgba(0,0,0,${(0.3 + 0.55 * h).toFixed(2)})`); gr.addColorStop(1, "rgba(0,0,0,0)"); tx.fillStyle = gr; }
+      else { const gr = tx.createRadialGradient(cx, cy, 0, cx, cy, r); gr.addColorStop(0, `rgba(0,0,0,${Math.min(0.95, 0.2 + 0.9 * h).toFixed(2)})`); gr.addColorStop(1, "rgba(0,0,0,0)"); tx.fillStyle = gr; }
       tx.beginPath(); tx.arc(cx, cy, r, 0, Math.PI * 2); tx.fill(); }
     c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(t, X0, Y0); c.restore();
   }
@@ -106055,10 +106055,12 @@ var SBWB = null;
       if (T.erase === "whole") { if (nearLine(g.pts, w, pad)) { set("s", s.id, null); hit = true; } return; }
       if (!nearLine(g.pts, w, pad)) return;
       const h = EH[T.eh], dot = [Math.round(w[0] * 10) / 10, Math.round(w[1] * 10) / 10, Math.round(r * 10) / 10, h];
-      // soft or medium: the stroke stays whole and fades where it's rubbed (each pass takes a little more)
+      // soft or medium: the stroke stays whole and fades where it's rubbed. Spots in one pass are an eraser-width apart, so each pass
+      // takes about the same amount (soft a third, medium two thirds) instead of the overlapping spots adding up to a full erase.
       if (h < 0.99) {
-        const xs = s.x || [], last = xs[xs.length - 1];
-        if (last && Math.hypot(last[0] - dot[0], last[1] - dot[1]) < r * 0.35 && last[2] === dot[2]) return;
+        const xs = s.x || [], seen = D && D.kind === "erase" ? (D.soft || (D.soft = new Map())) : null, last = seen ? seen.get(s.id) : xs[xs.length - 1];
+        if (last && Math.hypot(last[0] - dot[0], last[1] - dot[1]) < r * 0.95) return;
+        if (seen) seen.set(s.id, dot);
         set("s", s.id, Object.assign({}, s, {x: xs.concat([dot]).slice(-300)})); hit = true; return;
       }
       // hard: the stroke splits where it's rubbed out, and each piece is cut exactly along the eraser's edge (not a rounded end that
