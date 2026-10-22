@@ -1,6 +1,6 @@
 // node tests/whiteboard.e2e.js  (Playwright + Chromium; no network)
 // Notes > Whiteboard: boards are notes with n.wb (never shown as sticky notes); marker, highlighter, shapes, held-still snapping, text in the
-// marker font, the eraser (parts and whole strokes), select / move / resize / delete, undo and redo, zoom, export, saving and Recently Deleted.
+// Neat style, the eraser (parts and whole strokes), select / move / resize / delete, undo and redo, zoom, export, saving and Recently Deleted.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -113,7 +113,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     ok((await live()).strokes.length === 4, "Ctrl+Z takes the last stroke away");
     await wb("redo"); ok((await live()).strokes.length === 5, "Redo puts it back");
 
-    // text in the marker font
+    // text, in the Neat style by default
     await wb("tool", "text"); await wb("pen", "red");
     await page.mouse.click(F.x + 150, F.y + 520); await page.waitForTimeout(80);
     ok(await page.locator(".wb-ta").count() === 1, "the Text tool opens a text box where you click");
@@ -122,7 +122,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     const t = L.items.find(i => i.k === "t");
     ok(t && t.s === "Mitosis\nPMAT" && t.c === "red" && t.f === 46, "Escape saves the text, in red, Medium size: " + JSON.stringify(t));
     const ff = await page.evaluate(() => getComputedStyle(document.querySelector(".wb-t")).fontFamily);
-    ok(/Permanent Marker/.test(ff) && await page.evaluate(() => document.fonts.check('40px "Permanent Marker"')), "typed text is in the marker font (served from vendor/fonts)");
+    ok(t.ff === "neat" && /Patrick Hand/.test(ff) && await page.evaluate(() => document.fonts.check("40px 'Patrick Hand'")), "typed text is in the Neat style by default (served from vendor/fonts): " + ff);
     await page.mouse.dblclick(F.x + 170, F.y + 525); await page.waitForTimeout(80);
     ok(await page.locator(".wb-ta").inputValue() === "Mitosis\nPMAT", "double-clicking text opens it for editing");
     await page.keyboard.press("End"); await page.keyboard.type("!"); await page.keyboard.press("Escape"); await page.waitForTimeout(80);
@@ -135,15 +135,15 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await page.keyboard.press("Escape"); await page.waitForTimeout(40);
     ok(await page.locator(".wb-fontmenu").count() === 0, "Escape closes it");
     await page.evaluate(() => SBWB.select([SBWB.board().items[0]].map(i => "i" + i.id)));
-    await page.click('.wb-tray .wb-fontpick[data-id="font"]'); await page.click('.wb-fontmenu [data-id="neat"]'); await page.waitForTimeout(80);
-    ok(/Neat/.test(await page.locator('.wb-tray .wb-fontpick[data-id="font"]').textContent()) && await page.locator(".wb-fontmenu").count() === 0, "picking from the dropdown closes it and shows the choice");
+    await page.click('.wb-tray .wb-fontpick[data-id="font"]'); await page.click('.wb-fontmenu [data-id="marker"]'); await page.waitForTimeout(80);
+    ok(/Marker/.test(await page.locator('.wb-tray .wb-fontpick[data-id="font"]').textContent()) && await page.locator(".wb-fontmenu").count() === 0, "picking from the dropdown closes it and shows the choice");
     const ff1 = await page.evaluate(() => [SBWB.board().items[0].ff, getComputedStyle(document.querySelector(".wb-t")).fontFamily]);
-    ok(ff1[0] === "neat" && /Patrick Hand/.test(ff1[1]) && await page.evaluate(() => document.fonts.check("40px 'Patrick Hand'")), "picking Neat changes the selected text to it (font served from vendor/fonts): " + ff1.join(" / "));
+    ok(ff1[0] === "marker" && /Permanent Marker/.test(ff1[1]) && await page.evaluate(() => document.fonts.check('40px "Permanent Marker"')), "picking Marker changes the selected text to it (font served from vendor/fonts): " + ff1.join(" / "));
     await page.mouse.click(F.x + 600, F.y + 120); await page.waitForTimeout(60); await page.keyboard.type("Quick"); await page.keyboard.press("Escape"); await page.waitForTimeout(60);
-    ok((await live()).items.some(i => i.s === "Quick" && i.ff === "neat"), "new text is written in the chosen style");
+    ok((await live()).items.some(i => i.s === "Quick" && i.ff === "marker"), "new text is written in the chosen style");
     await page.evaluate(() => { const it = SBWB.board().items.find(i => i.s === "Quick"); SBWB.change(set => set("i", it.id, null)); });
-    await page.evaluate(() => SBWB.select([SBWB.board().items[0]].map(i => "i" + i.id))); await page.click('.wb-tray .wb-fontpick[data-id="font"]'); await page.click('.wb-fontmenu [data-id="marker"]'); await page.waitForTimeout(60);
-    ok(!(await live()).items[0].ff, "and Marker puts it back");
+    await page.evaluate(() => SBWB.select([SBWB.board().items[0]].map(i => "i" + i.id))); await page.click('.wb-tray .wb-fontpick[data-id="font"]'); await page.click('.wb-fontmenu [data-id="neat"]'); await page.waitForTimeout(60);
+    ok((await live()).items[0].ff === "neat", "and Neat puts it back");
     // text size dropdown: resizes the selected text
     await page.evaluate(() => SBWB.select([SBWB.board().items[0]].map(i => "i" + i.id)));
     const f0 = (await live()).items[0].f;
@@ -272,8 +272,8 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     L = await live();
     ok(L.strokes.length === keep.strokes.length && L.items.length === 1 && Math.abs((await page.evaluate(() => SBWB.cam())).z - zc) < 0.01, "after a reload the Whiteboard view, the board, its drawing and its zoom are all back");
     await act("wb-quick", "kanban"); await page.waitForTimeout(400);
-    ok((await saved()).length === 2 && await page.locator("[data-wb-pick] option").count() === 3 && (await live()).strokes.length === 0, "a second board starts empty and the picker lists both (plus New)");
-    await page.selectOption("[data-wb-pick]", (await saved()).find(x => x.text === "Cell Biology").id); await page.waitForTimeout(300);
+    ok((await saved()).length === 2 && await page.locator('.wb-boards [data-act="wb-go"]').count() === 2 && await page.locator('.wb-boards [data-act="wb-go"].on + [data-act="wb-opts"]').count() === 1 && (await live()).strokes.length === 0, "a second board starts empty, both show as tabs, and the ⋯ sits right after the open one");
+    await page.click(`.wb-boards [data-act="wb-go"][data-id="${(await saved()).find(x => x.text === "Cell Biology").id}"]`); await page.waitForTimeout(300);
     ok((await live()).strokes.length === keep.strokes.length, "picking the first board in the dropdown opens it again");
 
     // export a picture
