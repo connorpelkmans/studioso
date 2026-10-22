@@ -128,6 +128,10 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     ok(Math.abs(tb2.ix - tb.ix - 60) < 2, "and so does dragging text that isn't picked up yet");
     await page.keyboard.press("Escape"); await page.mouse.click(tb2.x + 60, tb2.y); await page.waitForTimeout(80);
     ok(await page.locator(".wb-ta").count() === 1 && await page.locator(".wb-ta").inputValue() === "Mitosis\nPMAT!", "a tap on text (no drag) opens it for editing");
+    { const tr = await page.evaluate(() => { const r = document.querySelector(".wb-ta").getBoundingClientRect(); return {x: r.left + 12, y: r.top + 10}; });
+      await page.mouse.dblclick(tr.x, tr.y); await page.waitForTimeout(400);
+      const sel = await page.evaluate(() => { const t = document.querySelector(".wb-ta"); return t && document.activeElement === t ? t.value.slice(t.selectionStart, t.selectionEnd) : null; });
+      ok(sel === "Mitosis", "double-clicking a word in the open text selects it, and it stays selected: " + JSON.stringify(sel)); }
     await page.keyboard.press("Escape"); await page.keyboard.press("Escape"); await page.waitForTimeout(60);
     // the marker: press and hold on a stroke to pick it up and move it
     await wb("tool", "pen");
