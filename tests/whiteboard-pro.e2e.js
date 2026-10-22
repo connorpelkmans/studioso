@@ -87,7 +87,12 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       ok(red.r > 50 && red.b < 10, "and the exported picture has it in red: " + JSON.stringify(red));
       await page.click('.wb-selbar [data-wb="sel-color"][data-id="orig"]'); await page.waitForTimeout(120);
       ok(!(await items(page)).find(i => i.id === it.id).tint && await page.locator(".wb-img .wb-tint").count() === 0, "Original Colors puts its own colours back");
-      await page.evaluate(() => { SBWB.undo(); SBWB.undo(); }); await page.waitForTimeout(60);
+      // Fade Edges
+      await page.click('.wb-selbar [data-wb="fade"]'); await page.waitForTimeout(120);
+      ok((await items(page)).find(i => i.id === it.id).fade === 1 && await page.locator(".wb-img.fade").count() === 1 && await page.locator('.wb-selbar [data-wb="fade"][aria-pressed=true]').count() === 1, "Fade Edges softens the picture's edges (and shows as on)");
+      await page.click('.wb-selbar [data-wb="fade"]'); await page.waitForTimeout(120);
+      ok(!(await items(page)).find(i => i.id === it.id).fade && await page.locator(".wb-img.fade").count() === 0, "pressing it again turns it off");
+      await page.evaluate(() => { SBWB.undo(); SBWB.undo(); SBWB.undo(); SBWB.undo(); }); await page.waitForTimeout(60);
       await page.evaluate(() => SBWB.undo()); await page.waitForTimeout(80);
       ok(!(await items(page)).find(i => i.id === it.id).r, "Undo brings the original picture back");
 
