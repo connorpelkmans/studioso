@@ -156,6 +156,13 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
         const dark = (px, py) => { let n = 0; for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) { const d = x.getImageData(Math.round(px * sx) + dx, Math.round(py * sy) + dy, 1, 1).data; if (d[0] + d[1] + d[2] < 450) n++; } return n > 0; };
         return {edges: [[120, 150], [280, 150], [200, 80], [200, 220]].every(q => dark(q[0], q[1])), corners: [[30, 30], [370, 30], [30, 270], [370, 270]].some(q => dark(q[0], q[1]))}; });
       ok(shp.edges && !shp.corners, "Draw in Marker on this device follows the picture's own outline (ink on the square's edges, empty corners stay empty): " + JSON.stringify(shp));
+      // with a subject outline (from Gemini), only the subject is drawn: here the outline covers the left half
+      const seg = await page.evaluate(async () => { const f = await window.__pic(), im = await new Promise(r => { const m = new Image(); m.onload = () => r(m); m.src = URL.createObjectURL(f); });
+        const W0 = 400, H0 = 300, a = new Float32Array(W0 * H0); for (let y = 0; y < H0; y++) for (let x = 0; x < 200; x++) a[y * W0 + x] = 1;
+        const c = SBWB.pictures.clearWhite(SBWB.pictures.sketch(im, "marker", {w: W0, h: H0, a})), x = c.getContext("2d"), sx = c.width / 400, sy = c.height / 300;
+        const ink = (x0, x1) => { let n = 0; const d = x.getImageData(Math.round(x0 * sx), 0, Math.round((x1 - x0) * sx), c.height).data; for (let i = 3; i < d.length; i += 4) if (d[i] > 60) n++; return n; };
+        return {left: ink(100, 190), right: ink(230, 300)}; });
+      ok(seg.left > 200 && seg.right === 0, "with a subject outline, only the subject is drawn (nothing outside it): " + JSON.stringify(seg));
       // drawing styles: a menu beside the Draw button; picking one draws in it and is remembered
       await page.evaluate(id => SBWB.select(["i" + id]), it.id); await page.waitForTimeout(60);
       await page.click('.wb-selbar [data-wb="restyle-menu"]'); await page.waitForTimeout(80);
