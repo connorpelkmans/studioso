@@ -1,6 +1,6 @@
 // Unit tests for Recently Deleted and Export My Data (pure logic extracted from index.html).  Run: node tests/trash-export.test.js
 const fs = require("fs"), path = require("path"), assert = require("assert"), cp = require("child_process"), os = require("os");
-const s = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const s = require("../scripts/app-files").source();
 const code = s.slice(s.indexOf("/*TRASH-START*/"), s.indexOf("/*TRASH-END*/"));
 const TB = new Function(code + ";return TB;")();
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };

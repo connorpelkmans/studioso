@@ -2,7 +2,7 @@
 // (supabase-usernames.sql, which has the final say). Run: node tests/usernames.test.js
 const fs = require("fs"), path = require("path"), assert = require("assert");
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
-const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8"), sql = fs.readFileSync(path.join(__dirname, "..", "supabase-usernames.sql"), "utf8");
+const html = require("../scripts/app-files").source(), sql = fs.readFileSync(path.join(__dirname, "..", "supabase-usernames.sql"), "utf8");
 const src = html.slice(html.indexOf("/*UNAME-START*/"), html.indexOf("/*UNAME-END*/"));
 const UNAME = new Function(src.replace("/*UNAME-START*/", "") + "\nreturn UNAME;")();
 

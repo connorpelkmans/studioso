@@ -1,0 +1,33 @@
+/* ===== module: 97-exammode.css ===== */
+.exm-card{display:grid;gap:8px;margin:0 0 12px;padding:12px 14px;border:1px solid var(--line);border-left:4px solid var(--c,var(--accent));border-radius:14px;background:color-mix(in srgb,var(--c,var(--accent)) 7%,var(--surface));color:var(--ink)}
+.exm-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.exm-kick{font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.exm-off{font-size:.8rem;min-height:32px;padding:0 4px}
+.exm-main{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap}
+.exm-txt{flex:1 1 220px;min-width:0;display:grid;gap:2px}
+.exm-title{margin:0;font-size:1.05rem;line-height:1.3;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.exm-name{all:unset;cursor:pointer;font-weight:700;overflow-wrap:anywhere;display:inline-flex;align-items:center;min-height:32px}
+.exm-name:hover{text-decoration:underline}
+.exm-name:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.exm-when{margin:0;font-size:.9rem;color:var(--muted)}
+.exm-when b{color:var(--ink)}
+.exm-acts{display:flex;gap:6px;flex-wrap:wrap}
+.exm-ready{display:flex;align-items:center;gap:10px;font-size:.85rem}
+.exm-rl{flex:none}
+.exm-bar{flex:1;max-width:220px;height:6px;border-radius:99px;background:color-mix(in srgb,var(--ink) 12%,transparent);overflow:hidden}
+.exm-bar i{display:block;height:100%;background:var(--c,var(--accent));border-radius:inherit}
+.exm-also{display:grid;gap:4px}
+.exm-h{margin:0;font-size:.78rem;font-weight:700;color:var(--muted)}
+.exm-also ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.exm-item{all:unset;box-sizing:border-box;display:flex;align-items:baseline;gap:4px 10px;flex-wrap:wrap;width:100%;min-height:36px;padding:6px 10px;border:1px solid var(--line);border-left:3px solid var(--c);border-radius:10px;background:var(--surface);cursor:pointer}
+.exm-item:hover{border-color:var(--c)}
+.exm-item:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.exm-it{font-weight:600;overflow-wrap:anywhere;min-width:0}
+.exm-iw{font-size:.82rem;color:var(--muted)}
+.exm-more,.exm-others{margin:0;font-size:.82rem;color:var(--muted)}
+.exm-others .link-btn{font-size:inherit;min-height:32px;display:inline-flex;align-items:center}
+.exm-tag{display:inline-block;margin-top:4px;padding:1px 8px;border-radius:99px;font-size:.7rem;font-weight:700;line-height:1.5;background:color-mix(in srgb,var(--c,var(--accent)) 16%,var(--surface));color:var(--ink);border:1px solid color-mix(in srgb,var(--c,var(--accent)) 40%,transparent)}
+.deck-main .exm-tag{align-self:flex-start}
+.exm-pomo{margin:0;font-size:.85rem;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.exm-pomo b{margin-right:4px}
+@media (max-width:520px){.exm-card{padding:10px 12px}.exm-acts{width:100%}.exm-acts .btn{flex:1 1 auto}}

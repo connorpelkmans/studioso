@@ -58,9 +58,40 @@ function appGlobals(html) {
   return set;
 }
 
-async function lintFile(file, eslint) {
+// Every global of the app: index.html's inline scripts, each src/js file's top-level declarations, and window.X assignments anywhere.
+function splitGlobals() {
+  const AF = require("./app-files"), html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), set = appGlobals(html);
+  for (const p of AF.srcFiles()) if (p.endsWith(".js")) {
+    const code = fs.readFileSync(path.join(ROOT, p), "utf8");
+    topLevelNames(code, false).forEach(n => set.add(n));
+    for (const m of code.matchAll(/\b(?:window|globalThis|self)\.([A-Za-z_$][\w$]*)\s*=(?!=)/g)) set.add(m[1]);
+    for (const m of code.matchAll(/\b(?:window|globalThis)\[["']([A-Za-z_$][\w$]*)["']\]\s*=(?!=)/g)) set.add(m[1]);
+  }
+  return set;
+}
+
+// The page's code (src/js/, built into bundle/ by scripts/app-files.js): each file linted as it is (so line numbers are that file's), with
+// every other file's declarations counted as globals, since the files share one scope.
+async function lintAppFiles(eslint) {
+  const AF = require("./app-files"), results = [], shared = splitGlobals();
+  RUNTIME_GLOBALS.forEach(n => shared.add(n));
+  for (const p of AF.srcFiles()) {
+    if (!p.endsWith(".js")) continue;
+    const file = path.join(ROOT, p), code = fs.readFileSync(file, "utf8"), own = new Set(topLevelNames(code, false)), g = {};
+    for (const n of shared) if (!own.has(n)) g[n] = "writable";
+    const [r] = await eslint.lintText(code, {filePath: path.join(ROOT, "index.inline.js")});
+    r.messages = r.messages.filter(msg => !(msg.ruleId === "no-undef" && g[(msg.message.match(/^'(.+)' is not defined/) || [])[1]]));
+    r.errorCount = r.messages.filter(x => x.severity === 2).length; r.warningCount = r.messages.filter(x => x.severity === 1).length;
+    r.fatalErrorCount = r.messages.filter(x => x.fatal).length;
+    r.filePath = file; r.source = undefined;
+    results.push(r);
+  }
+  return results;
+}
+
+async function lintFile(file, eslint, shellOnly) {
   const html = fs.readFileSync(file, "utf8");
-  const scripts = inlineScripts(html), shared = appGlobals(html);
+  const scripts = inlineScripts(html), shared = shellOnly ? splitGlobals() : appGlobals(html);
   RUNTIME_GLOBALS.forEach(n => shared.add(n));
   const results = [];
   for (const s of scripts) {
@@ -99,7 +130,11 @@ async function main() {
     }),
   }]});
   const results = [];
-  for (const f of files) results.push(await lintFile(f, eslint));
+  for (const f of files) {
+    // index.html: its two inline start-up scripts, then the app's code (src/js/)
+    if (f === path.join(ROOT, "index.html")) { results.push(await lintFile(f, eslint, true)); results.push(...await lintAppFiles(eslint)); }
+    else results.push(await lintFile(f, eslint));
+  }
   const out = (await eslint.loadFormatter("stylish")).format(results);
   if (out) console.log(out);
   const errors = results.reduce((n, r) => n + r.errorCount, 0);
@@ -107,5 +142,5 @@ async function main() {
   process.exit(errors ? 1 : 0);
 }
 
-module.exports = {inlineScripts, topLevelNames, appGlobals};
+module.exports = {inlineScripts, topLevelNames, appGlobals, splitGlobals};
 if (require.main === module) main().catch(e => { console.error(e); process.exit(2); });

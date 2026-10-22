@@ -1,7 +1,7 @@
 // Unit tests for Exam Mode's rules (pure logic extracted from index.html).  Run: node tests/exam-mode.test.js
 // When it is on, which exam it focuses on, what counts as "also due", and the Do This Next order that never buries work due before the exam.
 const fs = require("fs"), path = require("path"), assert = require("assert");
-const s = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const s = require("../scripts/app-files").source();
 const a = s.indexOf("/*EXAMMODE-START*/"), b = s.indexOf("/*EXAMMODE-END*/");
 assert(a > 0 && b > a, "EXAMMODE block found");
 const E = new Function(s.slice(a, b) + ";return EXAMMODE;")();

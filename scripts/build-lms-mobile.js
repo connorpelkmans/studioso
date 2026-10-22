@@ -145,10 +145,15 @@ function nativeCheck(id, use, script, origin, list) {
 module.exports = { build, buildGrab, grabIn, nativeScripts, nativeFiles, nativeCheck, loadLms, cleaning };   // loadLms and cleaning: also for scripts/build-extension.js
 if (require.main === module) {
   if (process.argv.includes("--grab")) {
-    const f = path.join(root, "index.html"), html = fs.readFileSync(f, "utf8");
-    let out = grabIn(html).withFresh;
-    out = require("./csp").apply(out);
-    if (out !== html) { fs.writeFileSync(f, out); console.log("Updated the cleaning code in index.html"); } else console.log("index.html: cleaning code is current");
+    // the block lives in one of the app's code files (src/js/); write it there, rebuild bundle/ and refresh index.html's ?v= hashes
+    const AF = require("./app-files"), hit = AF.fileWith("/* LMS-GRAB-START");
+    if (!hit) throw new Error("build-lms-mobile: LMS-GRAB markers not found in the app's code (src/js/)");
+    const out = grabIn(hit.text).withFresh;
+    if (out !== hit.text) {
+      fs.writeFileSync(hit.file, out);
+      AF.build(); const f = path.join(root, "index.html"); fs.writeFileSync(f, require("./csp").apply(AF.stamp(fs.readFileSync(f, "utf8"))));
+      console.log("Updated the cleaning code in " + hit.path);
+    } else console.log(hit.path + ": cleaning code is current");
   }
   else if (process.argv.includes("--native")) {
     for (const [f, text] of Object.entries(nativeFiles())) {

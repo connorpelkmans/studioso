@@ -3,7 +3,9 @@
 Run from the repo root after the app's scenes or companions change:   python3 tools/make-website-assets.py
 Writes: website/assets/scenes-lib.js, website/assets/companions-data.js, website/assets/companions-engine.js"""
 import re, sys
-src = open("index.html", encoding="utf-8").read().split("\n")
+# The app is split into files (index.html, css/, js/; scripts/app-files.js): read it as one page.
+import subprocess
+src = subprocess.run(["node", "-e", "process.stdout.write(require('./scripts/app-files').source())"], check=True, capture_output=True, text=True, encoding="utf-8").stdout.split("\n")
 def find(prefix, start=0):
     for i in range(start, len(src)):
         if src[i].startswith(prefix): return i

@@ -1,6 +1,6 @@
 // Studyboard offline support: keeps a copy of the app so it opens with no internet.
 // Your data is never stored here; it lives in the app itself and in your Supabase account.
-const CACHE = "studyboard-v8";
+const CACHE = "studyboard-v9";
 // CORE must exist for the app to work offline. OPTIONAL files (icons) may be missing, in the icons/ folder layout or the
 // flat layout; a missing one never stops the service worker from installing.
 const CORE = ["./", "./index.html"];
@@ -22,10 +22,26 @@ OPTIONAL.push("./vendor/fzstd-0.1.1.umd.js");
 // only cached by the fetch handler below on the rare visit that actually needs it.
 const LIB_HOSTS = ["cdn.jsdelivr.net"];
 
+// The app page loads its code and styles from bundle/ (app.js, app.css, and files loaded only when needed), each named with ?v= and a hash
+// of its content (scripts/app-files.js).
+// A page and its files are saved together: a new page is only kept once every file it names is saved, so the offline copy never mixes
+// two versions. The files of the page before stay too, for a page that is still open and loads one of them later.
+const PART = /bundle\/[^"'?\s]+\?v=[0-9a-f]+/g;
+const partsOf = html => [...new Set(String(html).match(PART) || [])].map(p => "./" + p);
+const isPart = url => url.origin === location.origin && /\?v=[0-9a-f]+$/.test(url.search) && /\/bundle\/[^/]+$/.test(url.pathname);
+async function savePage(c, res){
+  const html = await res.text(), want = partsOf(html);
+  await Promise.all(want.map(async u => { if (await c.match(u)) return; const r = await fetch(u); if (!r.ok) throw new Error("sw: " + u + " " + r.status); await c.put(u, r); }));
+  const old = await c.match("./index.html"), keep = new Set(want.concat(old ? partsOf(await old.text()) : []).map(u => new URL(u, location.href).href));
+  await c.put("./index.html", new Response(html, {status: res.status, statusText: res.statusText, headers: res.headers}));
+  for (const k of await c.keys()) { const u = new URL(k.url); if (isPart(u) && !keep.has(u.href)) await c.delete(k); }
+}
 self.addEventListener("install", e => {
   e.waitUntil((async () => {
     const c = await caches.open(CACHE);
     await c.addAll(CORE);
+    const page = await c.match("./index.html");
+    if (page) await c.addAll(partsOf(await page.text()));
     await Promise.all(OPTIONAL.map(u => c.add(u).catch(() => {})));
     await self.skipWaiting();
   })());
@@ -57,10 +73,23 @@ self.addEventListener("fetch", e => {
     e.respondWith((async () => {
       const c = await caches.open(CACHE);
       const hit = isApp ? await c.match("./index.html") : null;
-      const net = fetch(req).then(r => { if (r.ok && r.type === "basic" && isApp) c.put("./index.html", r.clone()); return r; });
-      if (hit) { e.waitUntil(net.catch(() => null)); return hit; }
+      let saving = null;
+      const net = fetch(req).then(r => { if (r.ok && r.type === "basic" && isApp) saving = savePage(c, r.clone()).catch(() => {}); return r; });
+      e.waitUntil(net.then(() => saving, () => null));
+      if (hit) return hit;
       try { return await timeout(net, 5000); }
       catch (err) { return (await c.match("./index.html")) || (await c.match("./")) || Response.error(); }
+    })());
+    return;
+  }
+  // The page's code and style files (bundle/): a ?v= address never changes content, so the saved copy is used as it is.
+  if (isPart(url)) {
+    e.respondWith((async () => {
+      const c = await caches.open(CACHE), hit = await c.match(req);
+      if (hit) return hit;
+      const r = await fetch(req);
+      if (r.ok && r.type === "basic") e.waitUntil(c.put(req, r.clone()));
+      return r;
     })());
     return;
   }

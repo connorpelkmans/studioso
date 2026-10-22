@@ -1,6 +1,6 @@
 // Unit tests for the Automatic AI quality gates (pure logic extracted from index.html).  Run: node tests/ains-gates.test.js
 const fs = require("fs"), path = require("path"), assert = require("assert");
-const s = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const s = require("../scripts/app-files").source();
 const code = s.slice(s.indexOf("/*AINS-START*/"), s.indexOf("/*AINS-END*/"));
 const TYPES = ["Assignment", "Exam", "Quiz", "Reading", "Project", "Lab", "Study", "Other"];
 const A = new Function("TYPES", code + ";return AINS;")(TYPES);

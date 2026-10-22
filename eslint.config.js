@@ -36,7 +36,7 @@ const bugRules = {
 // Tests reach into the page from page.evaluate(): allow the page's own globals and the window.X stubs the tests install themselves.
 function testGlobals() {
   const g = {};
-  try { for (const n of appGlobals(fs.readFileSync(path.join(__dirname, "index.html"), "utf8"))) g[n] = "writable"; } catch (e) { /* no index.html */ }
+  try { for (const n of require("./scripts/lint-inline").splitGlobals()) g[n] = "writable"; } catch (e) { /* no index.html */ }
   const walk = d => fs.readdirSync(d, {withFileTypes: true}).forEach(e => {
     const f = path.join(d, e.name);
     if (e.isDirectory()) walk(f);
@@ -52,7 +52,7 @@ function testGlobals() {
 }
 
 module.exports = [
-  {ignores: ["node_modules/**", "dist/**", "app/**", "build/**", "widget/**", "site/**", "ios-www/**", "tests-out/**",
+  {ignores: ["src/js/**", "bundle/**", "node_modules/**", "dist/**", "app/**", "build/**", "widget/**", "site/**", "ios-www/**", "tests-out/**",
     "vendor/**", "website/vendor/**", "extension/build/**", "extension/dist/**", "extension/released/**", "**/*.min.js", "android-wrapper/**", "ios-wrapper/**", "supabase-functions/**", "index*.ts"]},
   // Electron main process and Node build/tooling scripts
   {

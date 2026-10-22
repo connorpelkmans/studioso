@@ -1,6 +1,6 @@
 // node tests/capture-inbox.test.js  (extracts the pure CAPTURE-INBOX block from index.html and tests it)
 const fs = require("fs"), path = require("path"), assert = require("assert");
-const src = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const src = require("../scripts/app-files").source();
 const a = src.indexOf("/* CAPTURE-INBOX-START"), b = src.indexOf("/* CAPTURE-INBOX-PURE-END */");
 assert.ok(a > 0 && b > a, "markers present");
 assert.ok(src.indexOf("/* CAPTURE-INBOX-END */") > b, "end marker present");

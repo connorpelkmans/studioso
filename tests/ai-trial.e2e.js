@@ -47,7 +47,7 @@ const STUB = () => {
     pool: day => { if (!pools.has(day)) pools.set(day, new T.Pool(mem())); return pools.get(day); },
     ai: {run: async (model, input) => { runs.push(input); return {choices: [{message: {content: JSON.stringify(STAGES)}}], usage: {prompt_tokens: 900, completion_tokens: 300}}; }}
   };
-  const html = require("../scripts/csp").apply(fs.readFileSync(path.join(ROOT, "index.html"), "utf8").replace('const AI_TRIAL = "";', `const AI_TRIAL = "${TRIAL}";`));
+  const html = require("../scripts/csp").apply(require("../scripts/app-files").source().replace('const AI_TRIAL = "";', `const AI_TRIAL = "${TRIAL}";`));
   ok(html.includes(`const AI_TRIAL = "${TRIAL}";`), "test copy of the app points at the test trial server");
 
   const browser = await chromium.launch({executablePath});

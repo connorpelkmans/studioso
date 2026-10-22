@@ -15,13 +15,15 @@ function stamp(html) { return html.replace(LINE, () => `const BUILD_ID = "${idOf
 module.exports = { idOf, stamp };
 if (require.main === module) {
   const a = process.argv.slice(2), w = a.indexOf("--write"), c = a.indexOf("--check");
+  // a page that loads its code from bundle/ (scripts/app-files.js) is read as one piece: the page with its bundle/ files
+  const whole = f => { let h = fs.readFileSync(f, "utf8"); try { const AF = require("./scripts/app-files"); if (AF.refs(h).length) h = AF.inline(h, p => fs.readFileSync(path.join(path.dirname(f), p), "utf8")); } catch (e) { /* not split */ } return h; };
   if (c >= 0) {
-    const html = fs.readFileSync(path.resolve(a[c + 1]), "utf8"), have = (/const BUILD_ID = "([^"]*)";/.exec(html) || [])[1];
+    const html = whole(path.resolve(a[c + 1])), have = (/const BUILD_ID = "([^"]*)";/.exec(html) || [])[1];
     console.log(have, idOf(html) === have ? "matches the file's content" : "does NOT match (expected " + idOf(html) + ")");
     process.exit(idOf(html) === have ? 0 : 1);
   }
   const src = path.resolve(a.find((x, i) => !x.startsWith("--") && i !== w + 1) || path.join(__dirname, "index.html"));
-  const html = fs.readFileSync(src, "utf8");
+  const html = whole(src);   // the id is taken over the whole app as one piece
   if (w >= 0) fs.writeFileSync(path.resolve(a[w + 1]), stamp(html));
   else console.log(idOf(html));
 }

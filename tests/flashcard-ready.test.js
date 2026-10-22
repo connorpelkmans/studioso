@@ -1,6 +1,6 @@
 // Unit tests for a deck's Prepared bar (pure code between /*DR-START*/ and /*DR-END*/ in index.html).  Run: node tests/flashcard-ready.test.js
 const fs = require("fs"), path = require("path"), assert = require("assert");
-const s = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const s = require("../scripts/app-files").source();
 const DR = new Function(s.slice(s.indexOf("/*DR-START*/"), s.indexOf("/*DR-END*/")) + ";return DR;")();
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 const T = "2026-10-10", day = k => new Date(Date.UTC(2026, 9, 10 + k)).toISOString().slice(0, 10);

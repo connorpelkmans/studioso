@@ -1,6 +1,6 @@
 // Unit tests for the study group / group project logic (pure code between /*GK-START*/ and /*GK-END*/ in index.html).  Run: node tests/groupkinds.test.js
 const fs = require("fs"), path = require("path"), assert = require("assert");
-const s = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const s = require("../scripts/app-files").source();
 const gt = s.slice(s.indexOf("/*GT-START*/"), s.indexOf("/*GT-END*/")), gk = s.slice(s.indexOf("/*GK-START*/"), s.indexOf("/*GK-END*/"));
 const K = new Function(gt + gk + ";return GK;")();
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };

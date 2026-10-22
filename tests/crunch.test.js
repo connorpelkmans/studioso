@@ -9,7 +9,7 @@ if (!process.env.CRUNCH_TZ_CHILD && !process.env.CRUNCH_NO_TZ) {
   }
   process.exit(0);
 }
-const s = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const s = require("../scripts/app-files").source();
 const code = s.slice(s.indexOf("/*CRUNCH-START*/"), s.indexOf("/*CRUNCH-END*/"));
 const C = new Function(code + ";return CRUNCH;")();
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };

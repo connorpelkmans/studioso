@@ -1,6 +1,6 @@
 // Unit tests for the Project Tasks logic (pure code between /*GT-START*/ and /*GT-END*/ in index.html).  Run: node tests/grouptasks.test.js
 const fs = require("fs"), path = require("path"), assert = require("assert");
-const s = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const s = require("../scripts/app-files").source();
 const code = s.slice(s.indexOf("/*GT-START*/"), s.indexOf("/*GT-END*/"));
 const G = new Function(code + ";return GTL;")();
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };

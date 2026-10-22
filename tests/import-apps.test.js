@@ -3,7 +3,7 @@
 "use strict";
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const {ankiCollection, local} = require("./anki-fixture");
-const s = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const s = require("../scripts/app-files").source();
 const between = (a, b) => { const i = s.indexOf(a), j = s.indexOf(b, i); assert(i >= 0 && j > i, "marker " + a); return s.slice(i + a.length, j); };
 const IA = new Function(between("/*IMPORTAPPS-START*/", "/*IMPORTAPPS-END*/") + ";return IA;")();
 const FSRS = new Function(between("/*FSRS-START*/", "/*FSRS-END*/") + ";return FSRS;")();

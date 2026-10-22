@@ -1,6 +1,6 @@
 // Unit tests for keeping note boards when settings arrive from the account (code between /*NB-START*/ and /*NB-END*/ in index.html).  Run: node tests/noteboards.test.js
 const fs = require("fs"), path = require("path"), assert = require("assert");
-const s = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const s = require("../scripts/app-files").source();
 const keep = new Function(s.slice(s.indexOf("/*NB-START*/"), s.indexOf("/*NB-END*/")) + ";return keepNoteBoards;")();
 let n = 0; const ok = (c, m) => { n++; assert(c, m); }; const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
 const B = (id, name, extra) => Object.assign({id, name}, extra);

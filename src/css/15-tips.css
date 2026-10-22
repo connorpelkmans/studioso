@@ -1,0 +1,5 @@
+/* ===== module: 15-tips.css ===== */
+/* Everyday how-to tips hide after the first 14 days of use */
+html.tips-off .tip-everyday{display:none!important}
+
+

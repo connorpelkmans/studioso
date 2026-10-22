@@ -16,7 +16,7 @@ if (!process.env.TZ_CHILD) {
   process.exit(bad ? 1 : 0);
 }
 
-const src = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const src = require("../scripts/app-files").source();
 const between = (a, b) => { const i = src.indexOf(a), j = src.indexOf(b, i); assert(i > 0 && j > i, "marker missing: " + a); return src.slice(i, j); };
 
 // A Date whose "now" can be set, so todayISO() and friends can be run at 23:30 and across a clock change.

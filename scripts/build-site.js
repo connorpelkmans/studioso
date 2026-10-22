@@ -32,6 +32,8 @@ function copy(rel, to){
 if (!check && fs.existsSync(OUT)) fs.rmSync(OUT, {recursive: true, force: true});
 fs.mkdirSync(OUT, {recursive: true});
 TOP.forEach(f => copy(f));
+// The page's code and styles (bundle/, built from src/ by scripts/app-files.js; src/ itself isn't served).
+copy("bundle");
 copy("vendor");
 copy("locales");
 // The website, minus its notes and the copy of the headers kept for other hosts (the root _headers is the one in use).
@@ -62,6 +64,8 @@ for (const m of ["manifest.webmanifest", "today.webmanifest"]) {
     for (const [k, v] of Object.entries(o)) { if ((k === "src" || k === "data" || k === "ms_ac_template") && local(v)) { const p = v.replace(/^\.\//, "").split(/[?#]/)[0]; if (p && !fs.existsSync(path.join(OUT, p))) missing.push(`${m}: ${v}`); } else walk(v); } };
   walk(j);
 }
+// Every code and style file the page loads must be there: a missing one would be answered with the app page itself (not_found_handling).
+for (const n of require("./app-files").refs(fs.readFileSync(path.join(OUT, "index.html"), "utf8"))) if (!fs.existsSync(path.join(OUT, "bundle", n))) missing.push("index.html: bundle/" + n);
 const sw = fs.readFileSync(path.join(OUT, "sw.js"), "utf8");
 for (const m of sw.matchAll(/"\.\/((?:icons|widgets|vendor)\/[^"]+)"/g)) if (!fs.existsSync(path.join(OUT, m[1]))) missing.push("sw.js: ./" + m[1]);
 for (const m of sw.matchAll(/sbwUrl\("([^"]+)"\)/g)) if (!fs.existsSync(path.join(OUT, m[1]))) missing.push("sw.js: " + m[1]);

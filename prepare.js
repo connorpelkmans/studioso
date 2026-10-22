@@ -48,29 +48,45 @@ if (fs.existsSync(path.join(root, "locales"))) {
 }
 
 let html = fs.readFileSync(src, "utf8");
+// The page loads its code and styles from bundle/ (app.js, app.css and files loaded later; built from src/ by scripts/app-files.js). They are
+// staged next to it, and the edits below apply to the page and to those files alike. A page still in one piece (no bundle/) is handled as before.
+const AF = require(fs.existsSync(path.join(root, "scripts", "app-files.js")) ? path.join(root, "scripts", "app-files.js") : path.join(root, "..", "scripts", "app-files.js"));
+const srcDir = path.dirname(src), parts = AF.refs(html).map(n => "bundle/" + n), files = new Map(parts.map(p => [p, fs.readFileSync(path.join(srcDir, p), "utf8")]));
+const readPart = p => files.get(p);
 const swaps = [
   [/<link rel="preconnect" href="https:\/\/fonts\.(googleapis|gstatic)\.com"[^>]*>\s*/g, ""],
   [/<link href="https:\/\/fonts\.googleapis\.com\/css2\?[^"]+" rel="stylesheet">/g, '<link href="vendor/fonts.css" rel="stylesheet">'],
   ["https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js", "vendor/supabase-js-2.117.2.umd.js"]
 ];
 for (const [a, b] of swaps) {
-  const before = html;
-  html = typeof a === "string" ? html.split(a).join(b) : html.replace(a, b);
-  if (html === before && !(a instanceof RegExp && a.global)) throw new Error("prepare: couldn't find " + a);
+  let hit = false;
+  const swap = t => { const next = typeof a === "string" ? t.split(a).join(b) : t.replace(a, b); if (next !== t) hit = true; return next; };
+  html = swap(html);
+  for (const [p, t] of files) files.set(p, swap(t));
+  if (!hit && !(a instanceof RegExp && a.global)) throw new Error("prepare: couldn't find " + a);
 }
 // Crash reports: stamp the build id (version + hash of this exact file) into the staged page, and give main.js (the desktop app's own main process)
 // the reporter settings and the same pure scrubbing / envelope code the page uses, so both send identical, scrubbed events. See ERROR-REPORTING.md.
 const bid = require("./build-id.js");
-html = bid.stamp(html);
+if (!parts.length) html = bid.stamp(html);
+else {
+  // the id is taken over the whole page (as one piece), and written into the file that holds BUILD_ID
+  const id = bid.idOf(AF.inline(html, readPart));
+  for (const [p, t] of files) if (/const BUILD_ID = "[^"]*";/.test(t)) files.set(p, t.replace(/const BUILD_ID = "[^"]*";/, () => `const BUILD_ID = "${id}";`));
+}
 {
-  const pick = re => (re.exec(html) || [])[1] || "";
-  const core = html.slice(html.indexOf("/*ERRREPORT-START*/"), html.indexOf("/*ERRREPORT-END*/"));
+  const whole = parts.length ? AF.inline(html, readPart) : html;
+  const pick = re => (re.exec(whole) || [])[1] || "";
+  const core = whole.slice(whole.indexOf("/*ERRREPORT-START*/"), whole.indexOf("/*ERRREPORT-END*/"));
   if (!core) console.warn("prepare: crash-report core not found in the page; main-process reports are off");
   else fs.writeFileSync(path.join(out, "errreport-core.js"), core + "\nmodule.exports = ERRCORE;\n");
   fs.writeFileSync(path.join(out, "error-config.json"), JSON.stringify({ dsn: pick(/const ERROR_REPORTING = \{\s*dsn: "([^"]*)"/), environment: pick(/environment: "([^"]*)"/), release: pick(/const APP_VERSION = "([^"]+)"/), build: pick(/const BUILD_ID = "([^"]+)"/), minidump: process.env.STUDYBOARD_MINIDUMP_URL || "" }));
 }
 // The page's own CSP (a meta tag set by its first inline script) allows inline scripts by hash; the edits above (build id, local supabase) change
 // script text, so the hashes are recomputed here from the final page. The header hashes below are then taken from this same final html.
+// The staged bundle/ files, and fresh ?v= hashes for them in the page.
+for (const [p, t] of files) { fs.mkdirSync(path.dirname(path.join(out, p)), { recursive: true }); fs.writeFileSync(path.join(out, p), t); }
+if (parts.length) html = AF.stamp(html, readPart);
 {
   const cspJs = [path.join(root, "scripts", "csp.js"), path.join(root, "..", "scripts", "csp.js")].find(f => fs.existsSync(f));
   if (cspJs) html = require(cspJs).apply(html);
@@ -115,5 +131,5 @@ if (flat) {
   if (fs.existsSync(appxSrc)) fs.cpSync(appxSrc, path.join(root, "build", "appx"), { recursive: true });
   else console.warn("prepare: build-resources/appx missing; a Microsoft Store build would use electron-builder's sample tiles");
 }
-console.log("Build id " + (/const BUILD_ID = "([^"]+)"/.exec(html) || [])[1] + ".");
+console.log("Build id " + (/const BUILD_ID = "([^"]+)"/.exec(parts.length ? AF.inline(html, readPart) : html) || [])[1] + ".");
 console.log("Prepared app/ from", src, `(${inline.length} inline scripts hashed for the CSP)`);

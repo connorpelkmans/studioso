@@ -1,0 +1,992 @@
+/* ===== module: 100-phone.css ===== */
+/* Phone and tablet bar (the desktop side menu is untouched).
+   Bottom tabs run Board to Groups like the desktop menu, with no More button; the top right holds Focus, Search and Announcements, and the
+   three dots hold light/dark, style and settings. */
+@media (max-width:979px){
+  nav.tabs .in .nav-more{display:none!important}
+  nav.tabs .in .nav-groups{display:flex}
+  nav.tabs .in{grid-template-columns:none!important;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
+  nav.tabs{left:6px;right:6px;padding:6px 3px}
+  nav.tabs .in button{min-width:0;padding-left:1px;padding-right:1px;font-size:clamp(.45rem,2.25vw,.66rem)!important;letter-spacing:-.01em;white-space:nowrap}
+  nav.tabs .in button svg{width:22px;height:22px}
+  .nav-groups .grp-dot{right:50%;margin-right:-22px;top:2px}
+  header.top .theme-btn{display:none}
+  .head-actions .pomo-btn{order:1}
+  .head-actions [data-act="search"]{order:2}
+  .head-actions .ann-btn{order:3}
+  .head-actions [data-act="menu"]{order:4}
+}
+@media (max-width:979px){html[data-ts="l"] nav.tabs .in button{font-size:clamp(.42rem,2.05vw,.6rem)!important}html[data-ts="xl"] nav.tabs .in button{font-size:clamp(.4rem,1.9vw,.55rem)!important}}
+/* Companion page on a phone: the companion scrolls with its name and description, so it passes under the top bar */
+.cp-front.cp-under{z-index:4}
+/* Notes on a phone: a little smaller (same centre, same spacing, same tilt); the sticker envelope sits at the left so it never covers the Add button,
+   and while a sticker is being dragged it steps aside so the whole board shows. */
+@media (max-width:700px){
+  .note{transform:rotate(var(--rot)) scale(.88)}
+  .note.dragging{transform:rotate(calc(var(--rot) + 3deg)) scale(.92)}
+  .note.editing{transform:none}
+  .env.closed{left:14px;right:auto}
+  .env:not(.closed){max-height:min(300px,40dvh)}
+  .env:not(.closed) .env-body{overflow-y:auto}
+  .nb-wrap:has(.env:not(.closed)) .nb-main{padding-bottom:min(300px,40dvh)}
+  .env{transition:opacity .15s}
+  body.stk-dragging .env{opacity:0}
+}
+/* Crunch Forecast on a phone: seven day cells fit the width, each week's label sits on its own line above them, and each cell keeps just the date and the count
+   (the paper and exam breakdown is in the week details). Prefixed with .cr so it wins over the stylesheet the Crunch page adds itself. */
+@media (max-width:600px){
+  .cr .cr-scroll{padding:8px}
+  .cr .cr-grid{min-width:0;gap:2px}
+  .cr .cr-row,.cr .cr-dow{grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+  .cr .cr-dow span:first-child{display:none}
+  .cr .cr-wk{grid-column:1/-1;flex-direction:row;align-items:center;gap:8px;min-height:28px;padding:8px 2px 0;border-radius:6px}
+  .cr .cr-wk .cr-bar{flex:1;margin:0;min-width:24px}
+  .cr .cr-d{min-height:46px}
+  .cr .cr-d .mk,.cr .cr-d .td{display:none}
+}
+/* Board notices: one shows, the rest wait behind a "N more" button (see the Board notices script) */
+.bn-shut{display:none!important}
+.bn-more{display:inline-flex;align-items:center;gap:6px;margin:8px 0 0;padding:6px 12px;min-height:36px;border:1px dashed var(--line);border-radius:999px;background:var(--surface);color:var(--muted);font:600 .85rem var(--display);cursor:pointer}
+.bn-more:hover{color:var(--ink);border-style:solid}
+.bn-more svg{width:14px;height:14px;transition:transform .15s}
+.bn-more{margin:0 0 10px;border-style:solid;color:var(--ink)}
+.bn-n{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--late,#D93B3B);color:#fff;font:800 .74rem/1 var(--display);box-shadow:0 0 0 2px var(--surface)}
+.bn-more[aria-expanded="true"] svg{transform:rotate(180deg)}
+/* Heavy week and Rough week folded into one card */
+.rw-banner.rw-crunch{border-left:6px solid var(--cr3,#F29A4A)}
+.rw-banner.rw-crunch.lv4{border-left-color:var(--cr4,#D3352A)}
+.rw-banner .cc-t{display:block;margin-bottom:4px}
+.rw-banner .cc-t b{font-family:var(--display)}
+.rw-banner .cc-t .mini{display:block;color:var(--muted)}
+/* Courses: as wide as the other pages, cards side by side when there is room */
+body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:719px){body.wide .course-list{grid-template-columns:1fr}}
+/* Grades: course rows two across too */
+@media (min-width:720px){.gp-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.course-card .next{font-size:.92rem;color:var(--muted);margin-top:2px}
+.course-card .next b{color:var(--ink);font-weight:600}
+.course-card .next .late{color:var(--late);font-weight:600}
+/* Deck Archive: the same folder icon as the notes Archive */
+.deck-actions .deck-arch svg{display:block}
+/* Phones: the header frosts over the page once it scrolls; the Add button (and the companion beside it) step aside while the
+   quick-add bar passes under them, and pages leave room at the bottom for both */
+@media (max-width:639px){
+  header.top{transition:background-color .2s,box-shadow .2s,border-color .2s}
+  body.sb-scrolled header.top{background:color-mix(in srgb,var(--paper) 72%,transparent);-webkit-backdrop-filter:blur(20px) saturate(1.5);backdrop-filter:blur(20px) saturate(1.5);border-bottom-color:var(--line);box-shadow:0 8px 18px -14px rgba(8,20,50,.45)}
+  .wrap{padding-bottom:170px}
+  .fab{transition:opacity .18s,transform .18s}
+  body.fab-yield .fab{opacity:0;transform:translateY(12px) scale(.94);pointer-events:none}
+  body.fab-yield .cp-front .cp{opacity:0;scale:.8}
+  body.fab-yield .cp-front .cp-hit{pointer-events:none}
+}
+/* ===== Groups, Direction 1: a band in the course colour, the group's icon in a ring, section cards tinted with the group's colour ===== */
+.grp-grid{grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:20px}
+.grp-card.g2-card{border:1px solid var(--line);border-top:1px solid var(--line);border-radius:18px!important;overflow:hidden;box-shadow:0 2px 8px rgba(14,42,86,.08)}
+.g2-card .grp-main{display:flex;flex-direction:column;align-items:center;text-align:center;gap:0;padding:0 0 16px}
+.g2-band{display:block;align-self:stretch;background:linear-gradient(135deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 70%,var(--surface)));color:#fff;text-align:left}
+.g2-card .g2-band{height:64px;padding:10px 12px}
+.g2-kick{font:800 .74rem/1.2 var(--display);letter-spacing:.06em;text-transform:uppercase;text-shadow:0 1px 2px rgba(0,0,0,.25)}
+.g2-ring{display:grid;place-items:center;flex:none;border-radius:50%;background:color-mix(in srgb,var(--c) 14%,var(--surface));color:var(--c);box-shadow:0 0 0 4px var(--surface),0 0 0 6px var(--c),0 4px 10px rgba(0,0,0,.16);overflow:hidden}
+.g2-ring > svg{width:72%;height:72%;display:block;overflow:visible}
+.g2-sym{display:grid;place-items:center;width:100%;height:100%}
+.g2-sym svg{width:52%;height:52%}
+.g2-card .g2-ring{width:70px;height:70px;margin-top:-35px}
+.g2-card .grp-name{margin:12px 14px 2px;font:800 1.15rem/1.25 var(--display)}
+.g2-meta{font-size:.84rem;color:var(--muted)}
+.g2-card .g2-meta{margin:0 14px}
+.g2-card .gc-foot{justify-content:center;border-top:0;padding:12px 14px 0;margin-top:auto}
+.g2-pill{font:700 .76rem/1.2 var(--display);padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--c) 16%,var(--surface));color:color-mix(in srgb,var(--c) 60%,var(--ink))}
+.g2-pill.due{background:color-mix(in srgb,#F5A524 22%,var(--surface));color:color-mix(in srgb,#8A5300 80%,var(--ink))}
+/* The group's page header */
+.grp-head.g2-head{margin-top:14px;padding:0;border:1px solid var(--line);border-radius:18px!important;box-shadow:0 2px 8px rgba(14,42,86,.08);background:var(--surface)}
+.g2-head .g2-band{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;min-height:88px;padding:14px 18px;border-radius:17px 17px 0 0}
+.g2-head .row-actions{margin:0;gap:8px;flex-wrap:wrap}
+.g2-head .g2-band .btn{min-height:38px;background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.45);color:#fff;box-shadow:none}
+.g2-head .g2-band summary.btn{color:#fff}
+.g2-head .g2-band .btn.primary{background:#fff;border-color:#fff;color:color-mix(in srgb,var(--c) 70%,#000)}
+.g2-head .grp-more{position:relative}
+.g2-low{display:flex;align-items:flex-start;gap:18px;padding:0 20px;margin-top:-44px}
+.g2-head .g2-ring{width:96px;height:96px}
+.g2-txt{padding-top:52px;min-width:0;display:grid;gap:6px;justify-items:start}
+.g2-txt h2{margin:0;font:800 1.75rem/1.15 var(--display);overflow-wrap:anywhere}
+.g2-head .g2-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:.9rem}
+.g2-code{font:800 .7rem/1 var(--display);letter-spacing:.05em;color:#fff;background:var(--c);padding:4px 8px;border-radius:6px}
+.g2-head .grp-avs{margin:0}
+.g2-head .grp-chips{margin:4px 0 0}
+.g2-head .grp-tabs{margin:14px 0 0;padding:0 16px 12px;border:0;gap:6px;flex-wrap:wrap}
+.g2-head .grp-tabs button{border:0!important;border-radius:999px;padding:8px 14px;min-height:38px}
+.g2-head .grp-tabs button.on{background:color-mix(in srgb,var(--c) 15%,var(--surface));color:color-mix(in srgb,var(--c) 62%,var(--ink))}
+/* Start a Session sits in the header; the separate Study Together card only shows while a session is live (or needs attention) */
+#grpDetail .room-sec.is-idle:not(:has(.room-err)){display:none}
+#grpDetail:not(:has(.room-sec.is-idle)) .g2-session{display:none}
+/* Sections are cards with a round icon in the group's colour; ones with nothing in them yet sit side by side */
+#grpDetail .grp-pane{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-flow:row dense;gap:16px;margin-top:16px;align-items:stretch}
+#grpDetail .grp-pane > *{grid-column:1/-1;min-width:0}
+#grpDetail .grp-pane[data-pane="study"] > .grp-sec:has(> .grp-none){grid-column:auto}
+#grpDetail .grp-pane > :empty{display:none}
+#grpDetail .grp-sec{margin:0;padding:14px 16px 16px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 2px 8px rgba(14,42,86,.06)}
+#grpDetail .grp-sec > h3.fsec{margin-top:0}
+#grpDetail .grp-sec > h3.fsec > svg:first-child{box-sizing:border-box;width:30px;height:30px;padding:6px;border-radius:50%;background:color-mix(in srgb,var(--c) 15%,var(--surface));color:var(--c);flex:none}
+#grpDetail .grp-none{border:0;background:color-mix(in srgb,var(--c) 6%,var(--surface));border-radius:12px}
+#grpDetail .score-bar i,#grpDetail .grp-lb .bar i{background:var(--c)}
+#grpDetail .grp-lb .bar{background:color-mix(in srgb,var(--c) 12%,var(--surface))}
+.g2-mm summary.g2-dots{width:32px;height:32px;justify-content:center;border:1px solid var(--line);border-radius:10px;color:var(--muted);font:700 1rem/1 var(--display);background:var(--surface)}
+.g2-mm .grp-menu{left:auto;right:0}
+.g2-mm .grp-menu .btn{justify-content:flex-start;white-space:nowrap}
+#grpMembers .grp-av{box-shadow:0 0 0 2px var(--surface),0 0 0 4px color-mix(in srgb,var(--c) 70%,transparent)}
+@media (max-width:719px){
+  #grpDetail .grp-pane{grid-template-columns:1fr}
+  #grpDetail .grp-pane[data-pane="study"] > .grp-sec:has(> .grp-none){grid-column:1/-1}
+  .g2-head .g2-band{min-height:0;padding:12px 14px 50px}
+  .g2-head .g2-band .btn{min-height:34px;padding:6px 11px;font-size:.84rem}
+  .g2-low{padding:0 14px;gap:12px}
+  .g2-head .g2-ring{width:76px;height:76px}
+  .g2-low{margin-top:-38px}
+  .g2-txt{padding-top:42px}
+  .g2-txt h2{font-size:1.4rem}
+  .g2-head .grp-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:0 10px 10px}
+  .g2-head .grp-tabs button{flex:none}
+}
+/* ===== Courses, Direction 1: band in the course colour, initials in a ring, the grade and one status pill ===== */
+.course-card.c2-card{display:flex;flex-direction:column;gap:0;padding:0;margin-top:0;border-radius:18px!important;overflow:hidden;box-shadow:0 2px 8px rgba(14,42,86,.08)}
+.course-list{margin-top:18px}
+.course-card.c2-card::before{display:none}
+.c2-band{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;height:62px;padding:10px 14px;background:linear-gradient(135deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 70%,var(--surface)));color:#fff}
+.c2-sched{font:700 .76rem var(--display);opacity:.95;text-shadow:0 1px 2px rgba(0,0,0,.25);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.c2-top{display:flex;align-items:flex-end;gap:12px;padding:0 16px;margin-top:-30px}
+.c2-ring{width:64px;height:64px;font:800 .95rem var(--display);letter-spacing:.02em}
+.c2-card h3{font:800 1.3rem/1.2 var(--display)!important;margin:0 0 4px!important;overflow-wrap:anywhere}
+.c2-card .body{padding:8px 16px 14px;gap:6px!important}
+.c2-card .body > .prog{margin-top:6px!important;padding-top:0!important}
+.c2-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:8px;padding-top:10px;border-top:1px solid var(--line);font-size:.88rem;color:var(--muted)}
+.c2-grade{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:inherit}
+.c2-grade .gt-spark svg{stroke:var(--c)}.c2-grade .gt-spark circle{fill:var(--c)}
+.c2-grade b{color:var(--ink);font:800 1rem var(--display)}
+.c2-letter{display:inline-grid;place-items:center;min-width:24px;height:22px;padding:0 5px;border-radius:6px;font:800 .78rem var(--display);background:color-mix(in srgb,var(--c) 16%,var(--surface));color:color-mix(in srgb,var(--c) 65%,var(--ink))}
+.g2-pill.late{background:color-mix(in srgb,var(--late) 16%,var(--surface));color:var(--late)}
+/* A course's page */
+.detail-head.c2-head{padding:0;border:1px solid var(--line);border-radius:18px;box-shadow:0 2px 8px rgba(14,42,86,.08);background:var(--ph-surf,var(--surface));margin-top:14px;overflow:visible}
+.detail-head.c2-head::before{display:none}
+.c2-head .g2-band{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;min-height:88px;padding:14px 18px;border-radius:17px 17px 0 0}
+.c2-head .row-actions{margin:0;gap:8px}
+.c2-head .g2-band .btn{min-height:36px;background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.45);color:#fff;box-shadow:none}
+.c2-head .g2-band .btn:last-child{background:#fff;border-color:#fff;color:color-mix(in srgb,var(--c) 70%,#000)}
+.c2-head .g2-ring{width:96px;height:96px;font:800 1.35rem var(--display)}
+.c2-head h2{font:800 1.75rem/1.15 var(--display);margin:0}
+.c2-head .g2-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:.9rem}
+.c2-head .g2-code{color:#fff;font-size:.7rem}
+.c2-head .cd-tabs{margin:14px 16px 12px;max-width:420px}
+.c2-cols{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:0 22px;align-items:start}
+.c2-side > :first-child,.c2-main > :first-child{margin-top:18px}
+.c2-card2{margin-top:18px;padding:14px 16px 16px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 2px 8px rgba(14,42,86,.06)}
+.c2-card2 h2.sec{margin-top:0}
+.c2-big{display:flex;align-items:center;gap:8px;font:800 2.2rem/1.1 var(--display);margin:4px 0 8px}
+.c2-side .c2-card2 .prog .track i,.c2-head ~ .c2-cols .c2-card2 .prog i{background:var(--c,var(--accent))}
+@media (max-width:899px){.c2-cols{grid-template-columns:1fr}}
+@media (max-width:719px){
+  .c2-head .g2-band{min-height:0;padding:12px 14px 50px}
+  .c2-head .g2-band .btn{min-height:34px;padding:6px 11px;font-size:.84rem}
+  .c2-head .g2-ring{width:76px;height:76px;font-size:1.1rem}
+  .c2-head .g2-low{margin-top:-38px;padding:0 14px;gap:12px}
+  .c2-head .g2-txt{padding-top:42px}
+  .c2-head h2{font-size:1.4rem}
+}
+/* ===== Grades, Direction 1 (Grades B): a hero card with the average and a colour bar per course, then marks and a calculator ===== */
+.gp-hero{margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 2px 8px rgba(14,42,86,.08);overflow:hidden}
+.gp-hero-band{--c:var(--accent);display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:18px 20px;background:linear-gradient(120deg,color-mix(in srgb,var(--accent) 92%,#000),color-mix(in srgb,var(--accent) 74%,var(--surface)));color:#fff}
+.gp-cap{width:76px;height:76px;background:var(--surface);color:var(--accent);box-shadow:0 0 0 4px rgba(255,255,255,.35)}
+.gp-cap svg{width:46%;height:46%}
+.gp-hero-t{display:grid;gap:2px;flex:1;min-width:180px}
+.gp-avg{font:800 2.6rem/1.05 var(--display)}
+.gp-avg.gr-none{font-size:1.6rem}
+.gp-hero-sub{font:600 .9rem var(--display);opacity:.95}
+.gp-hero .gp-sum{display:flex;gap:10px;flex-wrap:wrap;margin:0}
+.gp-hero .gp-tile{min-width:120px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);color:#fff;box-shadow:none}
+.gp-hero .gp-tile .gr-v{font:800 1.4rem/1.1 var(--display);color:#fff}
+.gp-hero .gp-tile .gr-k{color:#fff;opacity:.92;font-size:.78rem;text-transform:none;letter-spacing:0}
+.gp-hero .gp-tile.gr-bad{background:rgba(255,120,110,.3)}
+.gp-hero .gp-list{display:block;list-style:none;margin:0;padding:6px 16px 10px}
+.gp-hero .gp-course{display:flex;align-items:center;gap:8px;border:0;border-bottom:1px solid var(--line);border-radius:0;background:none;box-shadow:none;padding:6px 0;margin:0}
+.gp-hero .gp-course:last-child{border-bottom:0}
+.gp-hero .gp-course::before{display:none}
+.gp-hero .gp-main{flex:1;min-width:0;display:grid;grid-template-columns:46px minmax(0,240px) minmax(0,1fr) 120px;grid-template-areas:"ring who bar grade" "ring line line line";align-items:center;gap:2px 16px;padding:8px 4px;background:none;border:0;text-align:left;color:inherit}
+.gp-ring{grid-area:ring;width:46px;height:46px;font:800 .8rem var(--display)}
+.gp-ring.sm{width:30px;height:30px;font-size:.62rem;box-shadow:0 0 0 2px var(--surface),0 0 0 3.5px var(--c)}
+.gp-who{grid-area:who;display:grid;min-width:0}
+.gp-who .gp-name{font:800 1rem/1.25 var(--display);overflow-wrap:anywhere;white-space:normal;overflow:visible;text-overflow:clip}
+.gp-hero .gp-bar{grid-area:bar;position:relative;display:block;height:12px;border-radius:99px;background:color-mix(in srgb,var(--c) 14%,var(--surface));overflow:visible}
+.gp-hero .gp-bar .gp-fill{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:var(--c)}
+.gp-hero .gp-bar .gp-pass{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;background:var(--ink);border-radius:2px;opacity:.75}
+.gp-hero .gp-bar .gp-goal{position:absolute;top:-5px;bottom:-5px;width:8px;margin-left:-4px;border:2px solid var(--c);border-radius:4px;background:var(--surface)}
+.gp-hero .gp-grade{grid-area:grade;display:inline-flex;align-items:center;gap:6px;justify-self:end}
+.gp-hero .gp-grade b{font:800 1.35rem var(--display)}
+.gp-hero .gp-line{grid-area:line}
+.gp-hero .gp-course .rk-pill,.gp-hero .gp-course .pill{justify-self:start}
+.gp-low{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px;align-items:start}
+.gp-low .fsec{display:flex;align-items:center;gap:8px;margin-top:0}
+.gp-low .fsec .spacer{flex:1}
+.gp-calc select{width:100%;margin:6px 0 10px}
+.gp-calc .gp-need{display:block;margin:0 0 10px;padding:0;border:0;background:none;box-shadow:none;font-size:.9rem}
+.gp-calc .gp-need .gr-k{display:none}
+.gp-calc-t{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.gp-calc-t .chip[aria-pressed="true"]{background:color-mix(in srgb,var(--c) 18%,var(--surface));border-color:var(--c);color:var(--ink)}
+.gp-calc-out{display:grid;gap:2px;padding:12px 14px;border-radius:14px;background:color-mix(in srgb,var(--c) 9%,var(--surface));border:1px solid color-mix(in srgb,var(--c) 30%,var(--line));font-size:.9rem}
+.gp-calc-big{font:800 2rem/1.1 var(--display);color:color-mix(in srgb,var(--c) 75%,var(--ink))}
+@media (max-width:799px){
+  .gp-low{grid-template-columns:1fr}
+  .gp-hero .gp-main{grid-template-columns:46px minmax(0,1fr) auto;grid-template-areas:"ring who grade" "ring bar bar" "ring line line";gap:4px 12px}
+  .gp-hero .gp-tile{min-width:0;flex:1}
+  .gp-avg{font-size:2.1rem}
+}
+/* Course icons: the picker in Edit Course, and the icon inside a course's ring */
+.ci-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:6px}
+.ci-grid label{position:relative;display:block;cursor:pointer}
+.ci-grid input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.ci-grid label > span{display:grid;place-items:center;aspect-ratio:1;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--c);transition:background .12s,border-color .12s}
+.ci-grid .ci-t{font:800 .62rem var(--display);letter-spacing:.02em}
+.ci-grid svg{width:58%;height:58%}
+.ci-grid label:hover > span{border-color:var(--c)}
+.ci-grid input:checked + span{background:color-mix(in srgb,var(--c) 16%,var(--surface));border:2px solid var(--c);box-shadow:0 0 0 2px var(--surface),0 0 0 4px color-mix(in srgb,var(--c) 35%,transparent)}
+.ci-grid input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+.g2-ring > svg.ci-svg{width:56%;height:56%;overflow:visible}
+/* Course icons as stickers: coloured fills, a white die-cut edge and a little tilt */
+.ci-svg{--ci-ink:color-mix(in srgb,var(--c) 40%,#0E1424);stroke:var(--ci-ink);stroke-width:1.6;filter:drop-shadow(1.3px 0 0 #fff) drop-shadow(-1.3px 0 0 #fff) drop-shadow(0 1.3px 0 #fff) drop-shadow(0 -1.3px 0 #fff) drop-shadow(0 1.5px 1.5px rgba(10,20,40,.28));transform:rotate(-7deg)}
+.ci-svg .a{fill:var(--c)}
+.ci-svg .b{fill:color-mix(in srgb,var(--c) 26%,#fff)}
+.ci-svg .w{fill:#fff;stroke:none}
+.ci-svg .y{fill:#FFC93C}
+.ci-svg .g{fill:#3DBE6A}
+.ci-svg .r{fill:#F25C54}
+.ci-svg .sa{stroke:var(--c);stroke-width:3}
+.ci-svg .sb{stroke:color-mix(in srgb,var(--c) 45%,#fff);stroke-width:3}
+.ci-svg .ws{stroke:#fff;stroke-width:1.8}
+.g2-ring > svg.ci-svg{width:64%;height:64%}
+.ci-grid svg{width:70%;height:70%}
+@media (prefers-reduced-motion:no-preference){.ci-grid label:hover svg{transform:rotate(0) scale(1.08);transition:transform .15s}}
+/* ===== Crunch R2 ===== */
+.cr2 .cr-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.cr2 .cr-head h2{flex:1}
+.cr2-range button[disabled]{opacity:1;cursor:default}
+.cr2-top{display:grid;grid-template-columns:minmax(260px,1fr) minmax(0,2.3fr);gap:18px;margin-top:14px;align-items:stretch}
+.cr2-now,.cr2-chart{background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 2px 8px rgba(14,42,86,.08)}
+.cr2-now{--c:var(--cr2,#9DDBA8);display:flex;flex-direction:column;overflow:hidden;padding:0 0 16px;margin:0}
+.cr2-now.lv0{--c:#4C9BE8}.cr2-now.lv1{--c:#3FA866}.cr2-now.lv2{--c:#D9A21B}.cr2-now.lv3{--c:#E8833A}.cr2-now.lv4{--c:#D3352A}
+.cr2-band{height:64px;padding:12px 16px;background:linear-gradient(135deg,color-mix(in srgb,var(--c) 92%,#000),color-mix(in srgb,var(--c) 74%,var(--surface)));color:#fff}
+.cr2-id{display:flex;align-items:flex-start;gap:12px;padding:0 16px;margin-top:-30px}
+.cr2-id > div{padding-top:34px}
+.cr2-ring{width:66px;height:66px;color:var(--c)}
+.cr2-ring svg{width:46%;height:46%}
+.cr2-id > div{display:grid;padding-bottom:2px}
+.cr2-lv{font:800 1.35rem/1.15 var(--display)}
+.cr2-big{padding:14px 16px 6px;color:var(--muted);font-size:.95rem}
+.cr2-big > b{font:800 2.4rem/1 var(--display);color:var(--ink)}
+.cr2-big span b{color:var(--ink)}
+.cr2-meter{margin:0 16px;height:10px;border-radius:99px;background:color-mix(in srgb,var(--c) 15%,var(--surface));overflow:hidden}
+.cr2-meter i{display:block;height:100%;border-radius:99px;background:var(--c)}
+.cr2-over{margin:6px 16px 10px}.cr2-over b{color:var(--late)}
+/* one grid for every row (each row a subgrid), so the hours line up in one column and the bars all start and end together */
+.cr2-courses{list-style:none;margin:0 16px;padding:0;display:grid;grid-template-columns:fit-content(140px) 1fr auto;gap:8px 10px}   /* (the name column is only as wide as the longest code, so the bars start right after it) */
+.cr2-courses li{grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:center;font:700 .82rem var(--display)}
+.cr2-courses li span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cr2-cb{height:8px;border-radius:99px;background:color-mix(in srgb,var(--c) 15%,var(--surface));overflow:hidden}
+.cr2-cb i{display:block;height:100%;border-radius:99px;background:var(--c)}
+.cr2-go{margin:16px 16px 0;justify-content:center}
+.cr2-chart{padding:16px 16px 12px;display:flex;flex-direction:column;min-width:0}
+.cr2-plot{position:relative;flex:1;min-height:260px;margin:10px 0 0 34px}
+.cr2-grid{position:absolute;inset:0 0 34px 0;pointer-events:none}
+.cr2-grid span{position:absolute;left:0;right:0;border-top:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+.cr2-grid span em{position:absolute;right:calc(100% + 6px);top:-.6em;font:600 .7rem var(--display);color:var(--muted);font-style:normal;white-space:nowrap}
+.cr2-grid .cr2-cap{border-top:2px dashed color-mix(in srgb,var(--ink) 45%,transparent);z-index:1}
+.cr2-grid .cr2-cap em{right:4px;left:auto;top:-1.5em}
+.cr2-bars{position:absolute;inset:0;display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:6px}
+.cr2-col{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;border:0;background:none;padding:0;min-width:0;cursor:pointer;color:inherit;border-radius:8px}
+.cr2-col:hover .cr2-stack,.cr2-col:focus-visible .cr2-stack{filter:brightness(1.06);box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--accent)}
+.cr2-stack{position:relative;width:min(58px,78%);display:flex;flex-direction:column-reverse;border-radius:8px 8px 4px 4px;overflow:visible;min-height:3px;background:color-mix(in srgb,var(--line) 70%,transparent);margin-bottom:34px;transition:box-shadow .12s}
+.cr2-stack i{display:block;width:100%}
+.cr2-stack i:last-child{border-radius:8px 8px 0 0}
+.cr2-stack i:first-child{border-radius:0 0 4px 4px}
+.cr2-h{position:absolute;bottom:calc(100% + 3px);left:50%;transform:translateX(-50%);font:800 .74rem var(--display);white-space:nowrap}
+.cr2-x{position:absolute;bottom:0;height:30px;display:grid;justify-items:center;font:600 .74rem var(--display);color:var(--muted);white-space:nowrap}
+.cr2-col{position:relative}
+.cr2-x em{font-style:normal;color:var(--late);font-weight:700}
+.cr2-col.is-now .cr2-x{color:var(--ink);font-weight:800}
+.cr2-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font:600 .8rem var(--display);color:var(--muted)}
+.cr2-legend span{display:inline-flex;align-items:center;gap:6px}
+.cr2-legend i{width:12px;height:12px;border-radius:4px;display:inline-block}
+.cr2-legend i.cap{height:0;width:16px;border-top:2px dashed var(--muted);border-radius:0}
+.cr2-coming{margin-top:18px}
+.cr2-coming ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px}
+/* every week keeps the same room for an Ease This Week button, so a week's bar is the same length whether or not it has one */
+.cr2-coming li{grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:center;border-top:1px solid var(--line);padding:8px 0}
+.cr2-coming li > .cr2-wk{grid-column:1}
+.cr2-wk{flex:1;min-width:0;display:grid;grid-template-columns:120px minmax(80px,1fr) minmax(0,1.3fr);align-items:center;gap:14px;border:0;background:none;padding:4px 0;text-align:left;color:inherit;font-size:.88rem}
+.cr2-mini{display:block;height:10px;border-radius:99px;background:color-mix(in srgb,var(--line) 60%,transparent);overflow:hidden}
+.cr2-mini > span{display:flex;height:100%}
+.cr2-mini i{display:block;height:100%}
+.cr2-wt{color:var(--muted)}.cr2-wt b{color:var(--ink)}
+.cr2-wt b.lv3{color:#C2611F}.cr2-wt b.lv4{color:var(--late)}
+.cr2-days{margin-top:18px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:0 14px}
+.cr2-days > summary{cursor:pointer;min-height:48px;display:flex;align-items:center;font:700 .95rem var(--display)}
+.cr2-days[open]{padding-bottom:14px}
+@media (max-width:899px){.cr2-top{grid-template-columns:1fr}}
+@media (max-width:640px){.cr2-wk{grid-template-columns:1fr;gap:4px}.cr2-plot{min-height:220px}.cr2-h{font-size:.62rem}.cr2-x{font-size:.62rem}}
+.cr2-capm{position:absolute;left:8%;right:8%;height:0;border-top:2px dashed color-mix(in srgb,var(--ink) 55%,transparent);z-index:2;pointer-events:none}
+.cr2-stack.is-over{box-shadow:0 0 0 2px color-mix(in srgb,var(--late) 55%,transparent)}
+.cr2-cb,.cr2-meter{display:block}
+/* ===== Board, Direction 1 ===== */
+.next-up{padding:0!important;overflow:hidden;border-radius:18px;background:var(--surface);border:1px solid color-mix(in srgb,var(--c) 30%,var(--line));box-shadow:0 2px 8px rgba(14,42,86,.08)}
+.next-up .nu-top{margin:0!important;padding:9px 16px;min-height:42px;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 74%,var(--surface)));color:#fff}
+.next-up .nu-label{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.2)}
+.next-up .nu-alloc{color:#fff;font-weight:800;background:none}
+.next-up .nu-who{color:#fff}
+.next-up .nu-row{position:relative;padding:10px 16px 14px}
+.pr-ring{width:34px;height:34px;flex:none;box-shadow:0 0 0 2px var(--surface),0 0 0 3.5px var(--c)}
+.plan-row{align-items:center}
+.plan-fixed li{display:flex;align-items:center;gap:10px}
+/* Notices: cards with a small line icon */
+.nudge,.rw-banner,.crunch-card,.fgs-intro{border-radius:18px!important;background:var(--surface)!important;border:1px solid var(--line)!important;box-shadow:0 2px 8px rgba(14,42,86,.07)}
+.nudge::before,.crunch-card::before,.fgs-intro::before{content:"";flex:none;width:38px;height:38px;border-radius:50%;background:color-mix(in srgb,var(--nic,var(--accent)) 14%,var(--surface)) var(--ni) center/20px no-repeat}
+.nudge{--ni:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239A6A00' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12M7 10l5 5 5-5M5 21h14'/%3E%3C/svg%3E");--nic:#E0A030;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.crunch-card{--ni:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23C2410C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4 2.5 20h19z'/%3E%3Cpath d='M12 10v4M12 17h.01'/%3E%3C/svg%3E");--nic:#E8833A}
+.fgs-intro{--ni:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232F8F55' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 19c0-8 5-13 14-14 0 9-5 14-13 14z'/%3E%3Cpath d='M5 19c3-5 6-8 10-10'/%3E%3C/svg%3E");--nic:#3FA866;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.rw-banner .rw-ic{border-radius:50%}
+.rw-banner.rw-crunch{border-left:1px solid var(--line)!important}
+.rw-banner.rw-crunch .rw-ic{color:#E8833A;background:color-mix(in srgb,#E8833A 14%,var(--surface))}
+.plan-row:has(.pr-ring){grid-template-columns:26px 34px minmax(0,1fr) auto auto;grid-template-areas:"chk ring main why side" ". . slot slot slot" ". . more more more"}
+.plan-row .pr-ring{grid-area:ring}
+@media (max-width:600px){.plan-row:has(.pr-ring){grid-template-columns:26px 34px minmax(0,1fr) auto;grid-template-areas:"chk ring main side" "chk ring why side" ". . slot slot" ". . more more"}}
+.plan-fixed li:has(.pr-ring){border-left:0}
+@media (max-width:600px){.plan-row .pr-ring,.plan-fixed .pr-ring{display:none}.plan-row:has(.pr-ring){grid-template-columns:26px minmax(0,1fr) auto;grid-template-areas:"chk main side" "chk why side" ". slot slot" ". more more"}}
+/* Task Board cards: a thin band in the course colour with the code, and the course sticker in a ring */
+.card.has-tab{margin-top:10px;padding-top:0!important;overflow:visible;border-radius:16px!important;border-top-left-radius:16px!important}
+.card.has-tab > .card-course{position:static;display:block;max-width:none;height:auto;margin:0 -1px 0;padding:5px 12px 5px 60px;border-radius:15px 15px 0 0;text-align:right;color:#fff;font:800 .68rem/1.2 var(--display);letter-spacing:.05em;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 74%,var(--surface)))}
+.card.has-tab{position:relative}
+.card-ring{position:absolute;left:10px;top:8px;width:40px;height:40px;box-shadow:0 0 0 3px var(--surface),0 0 0 4.5px var(--c)}
+.card.has-tab > .card-title{padding-left:46px;margin-top:8px}
+.card.has-tab > .card-sub:first-of-type{padding-left:46px}
+.card.has-tab.is-done > .card-course,.card.has-tab.is-done .card-ring{opacity:.6}
+/* Flashcard decks: a band in the course colour across the top card, with the course sticker in a ring */
+.deck-fc > .deck-tab{display:none}
+.deck-fc{margin-top:0!important}
+.deck-fc .deck-face{overflow:hidden;border-radius:16px!important}
+.deck-fc .deck-lay .face{border-radius:16px!important}
+.fc-band{display:block;height:64px;padding:10px 14px;background:linear-gradient(135deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 62%,#fff));color:#fff;text-align:left;position:relative;z-index:1}
+.fc-ring{position:absolute;left:14px;top:36px;width:58px;height:58px;z-index:2}
+.deck-fc .deck-face .deck-main{padding:12px 16px 12px 84px;text-align:left;justify-items:start;min-height:64px}
+.deck-fc .deck-name{text-align:left}
+.deck-fc .deck-count{top:12px;right:12px;background:rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.55);box-shadow:none}
+.deck-fc .mastery i{background:var(--c)!important}
+/* Settings, Direction 1: a colour per category, round icon chips, a band over the open category, rows as cards */
+.us-cat[data-us="account"],#usPane-account{--uc:#2F6FE4}.us-cat[data-us="appearance"],#usPane-appearance{--uc:#8B5CF6}.us-cat[data-us="study"],#usPane-study{--uc:#16A34A}.us-cat[data-us="capture"],#usPane-capture{--uc:#E8833A}.us-cat[data-us="school"],#usPane-school{--uc:#0E9AA7}.us-cat[data-us="app"],#usPane-app{--uc:#D9467A}.us-cat[data-us="data"],#usPane-data{--uc:#64748B}
+.us-cat .us-ic{border-radius:50%!important;background:color-mix(in srgb,var(--uc,var(--accent)) 14%,var(--surface))!important;color:var(--uc,var(--accent))!important}
+.us-cat[aria-selected="true"] .us-ic{background:var(--uc,var(--accent))!important;color:#fff!important}
+.us-cat[aria-selected="true"]{box-shadow:0 0 0 1px color-mix(in srgb,var(--uc,var(--accent)) 35%,var(--line)),0 4px 14px color-mix(in srgb,var(--uc,var(--accent)) 18%,transparent)!important}
+@media (min-width:720px){
+  .us-main{padding-top:0!important}
+  .us-pane > .us-title{position:relative;display:block;margin:0 -20px 14px;padding:76px 20px 4px 118px;min-height:122px;background:linear-gradient(120deg,color-mix(in srgb,var(--uc,var(--accent)) 90%,#000),color-mix(in srgb,var(--uc,var(--accent)) 60%,var(--surface))) top/100% 64px no-repeat}
+  .us-pane > .us-title .us-ic{position:absolute;left:22px;top:24px;width:80px;height:80px;border-radius:50%;display:grid;place-items:center;background:var(--surface);color:var(--uc,var(--accent));box-shadow:0 0 0 4px var(--surface),0 0 0 6px var(--uc,var(--accent)),0 4px 10px rgba(0,0,0,.16)}
+  .us-pane > .us-title .us-ic svg{width:38px;height:38px}
+  .us-pane > .us-title h3{font:800 1.3rem var(--display)}
+  .us.searching .us-pane > .us-title{margin-top:14px}
+}
+.us-pane .menu-list{gap:8px!important}
+.us-pane .menu-list > button,.us-pane .menu-list > .cap-row,.us-pane .menu-list > label{border:1px solid var(--line)!important;border-radius:14px!important;background:var(--surface);padding:12px 14px!important}
+.us-pane .menu-list > button:hover{border-color:color-mix(in srgb,var(--uc,var(--accent)) 45%,var(--line))!important}
+/* Sheets with a band: New/Edit Task and the Focus timer */
+.g2-sheet-head{position:relative;align-items:flex-start;padding:76px 18px 12px 116px!important;min-height:120px;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 90%,#000),color-mix(in srgb,var(--c) 60%,var(--surface))) top/100% 62px no-repeat}
+.g2-sheet-head .sh-ring{position:absolute;left:20px;top:22px;width:80px;height:80px;color:var(--c);background:color-mix(in srgb,var(--c) 12%,var(--surface))}
+.g2-sheet-head .sh-ring svg{width:46%;height:46%}
+.g2-sheet-head .sh-t{flex:1;min-width:0;display:grid;gap:2px}
+.g2-sheet-head h2{margin:0}
+.g2-sheet-head .sh-t .mini{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.g2-sheet-head > .icon-btn{position:absolute;right:14px;top:12px;background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.5);color:#fff;box-shadow:none}
+@media (max-width:600px){.g2-sheet-head{padding:70px 14px 10px 96px!important;min-height:104px}.g2-sheet-head .sh-ring{width:64px;height:64px;left:16px;top:26px}}
+.sheet:has(.g2-sheet-head) .segb button[aria-pressed="true"],.sheet:has(.g2-sheet-head) .pomo-modes button.on,.sheet:has(.g2-sheet-head) .pomo-modes button[aria-pressed="true"]{background:color-mix(in srgb,var(--sh-c,var(--accent)) 15%,var(--surface))!important;color:color-mix(in srgb,var(--sh-c,var(--accent)) 70%,var(--ink))!important;box-shadow:none}
+.pomo-sheet{--sh-c:#E5484D}
+/* ===== Clean-up pass ===== */
+/* rings always sit on a light disc, so a sticker reads the same in light and dark themes */
+.g2-ring{background:color-mix(in srgb,var(--c) 16%,#fff)!important;color:color-mix(in srgb,var(--c) 75%,#000)}
+/* Do This Next: a plain band, the course sticker beside the title */
+.next-up .nu-top{padding-left:16px!important}
+.next-up .nu-row{padding:12px 16px 14px!important;min-height:0!important}
+
+.nu-ic{display:inline-grid;place-items:center;width:28px;height:28px;margin-right:8px;vertical-align:-7px}
+.nu-ic svg.ci-svg{width:100%;height:100%;transform:rotate(-6deg)}
+/* Task Board cards: slim band with sticker and code */
+.card.has-tab > .card-course{display:flex!important;align-items:center;gap:6px;padding:4px 10px!important;text-align:left!important;font-size:.7rem!important;border-radius:15px 15px 0 0}
+.cc-ic{display:inline-grid;width:18px;height:18px;flex:none}
+.cc-ic svg.ci-svg{width:100%;height:100%;filter:none;transform:none;--ci-ink:#fff;stroke:#fff}
+.cc-ic svg .a,.cc-ic svg .b,.cc-ic svg .y,.cc-ic svg .g,.cc-ic svg .r{fill:rgba(255,255,255,.35)}
+.cc-ic svg .sa,.cc-ic svg .sb{stroke:#fff}
+.card.has-tab > .card-title,.card.has-tab > .card-sub:first-of-type{padding-left:0!important;margin-top:8px}
+/* Flashcards: sticker and code inside the band; the name gets the full width */
+.fc-band{display:flex!important;align-items:center;gap:8px;height:auto!important;padding:9px 46px 9px 12px!important}
+.fc-ic{display:inline-grid;width:26px;height:26px;flex:none}
+.fc-ic svg.ci-svg{width:100%;height:100%;filter:none;transform:none;--ci-ink:#fff;stroke:#fff}
+.fc-ic svg .a,.fc-ic svg .b,.fc-ic svg .y,.fc-ic svg .g,.fc-ic svg .r{fill:rgba(255,255,255,.35)}
+.fc-ic svg .sa,.fc-ic svg .sb{stroke:#fff}
+.deck-fc .deck-count{top:8px!important;right:10px!important}
+.deck-fc .deck-face .deck-main{padding:14px 16px 10px!important;min-height:0!important}
+/* Crunch: icon inline, the big number and its label on separate lines */
+.cr2-id{margin-top:0!important;padding-top:12px!important;align-items:center!important}
+.cr2-id > div{padding-top:0!important}
+.cr2-ic{display:grid;place-items:center;width:44px;height:44px;flex:none;border-radius:50%;background:color-mix(in srgb,var(--c) 16%,var(--surface));color:var(--c)}
+.cr2-ic svg{width:22px;height:22px}
+.cr2-band{height:auto!important;padding:10px 16px!important}
+.cr2-big{display:grid;gap:2px}
+.cr2-big > span{font-size:.9rem}
+.cr2-courses{grid-template-columns:fit-content(160px) 1fr auto!important}
+/* Icons: crisp and centred (no filter, no tilt), filling more of the ring */
+.ci-svg{filter:none!important;transform:none!important;display:block;stroke-width:1.5}
+.g2-ring{display:grid!important;place-items:center!important}
+.g2-ring > svg.ci-svg{width:66%!important;height:66%!important;margin:0}
+.ci-grid svg{width:74%!important;height:74%!important}
+.nu-ic svg.ci-svg{transform:none!important}
+/* Companion R3: centred profile, the companion jumps into the ring */
+.cpt-head.cpt3{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:0 0 14px;overflow:hidden;border-radius:18px;box-shadow:0 2px 8px rgba(14,42,86,.08)}
+.cpt3-band{align-self:stretch;height:96px;padding:12px 14px;display:flex;justify-content:flex-end;align-items:flex-start;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 90%,#000),color-mix(in srgb,var(--c) 58%,var(--surface)))}
+.cpt3-band .btn{min-height:38px;padding:7px 14px;font-size:.9rem;background:#fff;border-color:#fff;color:color-mix(in srgb,var(--c) 70%,#000);box-shadow:none}
+.cpt3-ring{margin-top:-66px;width:132px;height:132px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--c) 14%,#fff);box-shadow:0 0 0 5px var(--surface),0 0 0 7px var(--c),0 6px 14px rgba(0,0,0,.18)}
+.cpt3-ring .cpt-face{width:104px;height:104px}
+.cpt.cpt .cpt3 .cpt-id{flex:none;justify-items:center;padding:0 16px}
+.cpt3 .cpt-id h2{font-size:1.7rem}
+.cpt3 .cpt-bio{max-width:52ch}
+.cpt3-tabs{display:flex;justify-content:center;gap:6px;margin-top:6px}
+.cpt3-tabs button{border:0;background:none;border-radius:999px;padding:8px 16px;min-height:38px;font:700 .92rem var(--display);color:var(--muted);cursor:pointer}
+.cpt3-tabs button[aria-selected="true"]{background:color-mix(in srgb,var(--c) 15%,var(--surface));color:color-mix(in srgb,var(--c) 70%,var(--ink))}
+.cpt3-ward{display:grid;gap:10px;padding:14px 16px 16px;background:var(--surface);border:1px solid var(--line);border-radius:18px}
+.cpt3-ward > h3.fsec:first-child{margin-top:0}
+.cpt3-ward .cp-accs{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.cpt3-how > summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font:700 .95rem var(--display)}
+.cpt3-how[open]{display:grid;gap:8px}
+/* Icons stand out: a white disc, darker outlines and stronger fills */
+.g2-ring{background:#fff!important}
+.ci-svg{--ci-ink:color-mix(in srgb,var(--c) 45%,#071022)!important;stroke-width:1.8!important}
+.ci-svg .b{fill:color-mix(in srgb,var(--c) 42%,#fff)}
+.ci-svg .sb{stroke:color-mix(in srgb,var(--c) 55%,#fff)}
+.ci-svg .a{fill:color-mix(in srgb,var(--c) 92%,#000)}
+/* Fixes: task card strip reaches both edges; dragged cards stay visible; long course names stay below the band */
+.card.has-tab{padding-left:12px!important;padding-right:12px!important}
+.card.has-tab > .card-course{margin:0 -12px!important;width:auto!important}
+.card.ghost,.card.has-tab.ghost{position:fixed!important;margin:0!important}
+.c2-top{align-items:flex-start!important}
+.c2-card h3{padding-top:36px;margin-bottom:0!important}
+.g2-ring > svg.ci-svg{width:70%!important;height:70%!important}
+/* Crunch bars: no outlines; hover lifts the bar a little, this week is marked by its label */
+.cr2-stack.is-over{box-shadow:none!important}
+.cr2-col:hover .cr2-stack,.cr2-col:focus-visible .cr2-stack{box-shadow:none!important;filter:brightness(1.12);transform:translateY(-2px)}
+.cr2-col:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.cr2-stack{transition:filter .15s,transform .15s}
+.cr2-col.is-now .cr2-x{color:var(--ink)}
+/* Week and day sheet (Crunch), freshened */
+.cr3 .sheet-body{display:grid;gap:14px}
+.cr3-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.cr3-sum > div{display:grid;gap:2px;padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.cr3-sum b{font:800 1.35rem/1.1 var(--display)}
+.cr3-sum b.over{color:var(--late)}
+.cr3-sum span{font-size:.8rem;color:var(--muted)}
+.cr3-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.cr3-day{--dc:#4C9BE8;display:grid;justify-items:center;gap:3px;padding:8px 2px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:inherit;font:600 .74rem var(--display);cursor:pointer}
+.cr3-day.lv1{--dc:#3FA866}.cr3-day.lv2{--dc:#D9A21B}.cr3-day.lv3{--dc:#E8833A}.cr3-day.lv4{--dc:#D3352A}
+.cr3-day:hover:not([disabled]){border-color:var(--dc)}
+.cr3-day.is-past{opacity:.45;cursor:default}
+.cr3-day b{font-size:.78rem}
+.cr3-day > span{color:var(--muted)}
+.cr3-bar{position:relative;width:14px;height:56px;border-radius:99px;background:color-mix(in srgb,var(--line) 70%,transparent);overflow:visible}
+.cr3-bar i{position:absolute;left:0;right:0;bottom:0;border-radius:99px;background:var(--dc)}
+.cr3-bar em{position:absolute;left:-4px;right:-4px;height:0;border-top:2px dashed color-mix(in srgb,var(--ink) 50%,transparent)}
+.cr3-due{font-size:.66rem;font-weight:700;color:var(--dc)!important}
+.cr3-box{border:1px solid var(--line)!important;border-radius:16px!important;background:var(--surface)!important;padding:14px!important;display:grid;gap:10px}
+.cr3-bh{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cr3-bh h3{margin:0;flex:1;font:800 1.05rem var(--display)}
+.cr3-chg{display:inline-flex;align-items:center;gap:6px;color:var(--muted)}
+.cr3-moves{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.cr3-moves li{display:grid;gap:2px;padding:8px 12px;border-radius:12px;border-left:4px solid var(--c);background:color-mix(in srgb,var(--c) 7%,var(--surface))}
+.cr3-moves b{font-size:.92rem;overflow-wrap:anywhere}
+.cr3-h{margin:4px 0 0;font:800 1.05rem var(--display)}
+.cr3 .cr-items{display:grid;gap:8px}
+.cr3 .cr-items > li{border:1px solid var(--line);border-left:4px solid var(--c,var(--line));border-radius:12px;padding:10px 12px;background:var(--surface)}
+.cr3 .cr-items .ttl .link-btn{font-weight:700;color:var(--ink);text-align:left}
+/* Companion ring a little smaller so the companion fills it */
+.cpt3-ring{width:116px!important;height:116px!important;margin-top:-58px!important}
+.cpt3-ring .cpt-face{width:98px!important;height:98px!important}
+/* Change Companion: other themes in a drop-down */
+.cp-oth-d{border:1px solid var(--line);border-radius:14px;padding:0 12px;background:var(--surface)}
+.cp-oth-d > summary{cursor:pointer;min-height:46px;display:flex;align-items:center;font:700 .95rem var(--display)}
+.cp-oth-d[open]{display:grid;gap:10px;padding-bottom:12px}
+.cp-oth-g h4{margin:6px 0;font:700 .88rem var(--display);display:flex;align-items:center;gap:6px}
+.cp-oth-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.cp-oth{display:grid;justify-items:center;gap:4px;padding:8px 4px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:inherit;font:600 .78rem var(--display);cursor:pointer}
+.cp-oth:hover{border-color:var(--accent)}
+/* Edit Task: the label sits in the band, the task's name is the big title; bigger pencil */
+.g2-sheet-head .sh-ring svg{width:50%!important;height:50%!important}
+.sh-big .sh-kick{position:absolute;left:116px;top:16px;color:#fff;font:800 1.3rem var(--display);letter-spacing:.02em;text-shadow:0 1px 2px rgba(0,0,0,.25)}
+.sh-big h2.sh-name{font:800 1.45rem/1.2 var(--display);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+@media (max-width:600px){.sh-big .sh-kick{left:96px;top:22px}.sh-big h2.sh-name{font-size:1.2rem}}
+/* Sheets without a task name: the title sits in the colour band, larger and centred in it */
+.g2-sheet-head:not(.sh-big) .sh-t h2{position:absolute;left:116px;right:64px;top:0;height:62px;display:flex;align-items:center;color:#fff;font:800 1.5rem/1.1 var(--display);text-shadow:0 1px 2px rgba(0,0,0,.25);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g2-sheet-head:not(.sh-big):not(:has(.sh-t .mini)){min-height:104px;padding-top:62px!important}
+/* A sheet whose title sits in the band: the ring rides higher, about half over the band, and the title sits a little below the band's middle, nearer the ring's */
+.g2-sheet-head:not(.sh-big) .sh-t h2{top:6px!important}
+.g2-sheet-head:not(.sh-big) .sh-ring{top:12px}
+@media (max-width:600px){.g2-sheet-head:not(.sh-big) .sh-ring{top:14px}}
+@media (max-width:600px){.g2-sheet-head:not(.sh-big) .sh-t h2{left:96px;font-size:1.3rem}}
+.pomo-sheet .g2-sheet-head .sh-ring svg{width:66%!important;height:66%!important}
+/* ===== Timeline, Direction 1 (A): course bands, due-date dots with their icons and dates ===== */
+.tl-scroll{border-radius:18px!important;box-shadow:0 2px 8px rgba(14,42,86,.08)}
+.tl-row.tl-group{z-index:1;height:42px;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 90%,#000),color-mix(in srgb,var(--c) 74%,var(--surface)))!important;color:#fff}
+.tl-group .tl-label{background:color-mix(in srgb,var(--c) 90%,#000)!important;color:#fff;gap:10px!important;border-right-color:transparent!important;font:800 .9rem var(--display)!important}
+.tl-gic{display:grid;place-items:center;width:28px;height:28px;flex:none;border-radius:50%;background:#fff}
+.tl-gic svg{width:70%;height:70%;display:block}
+.tl-group .tl-track{display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:600 .8rem var(--display);color:#fff}
+.tl-gname{opacity:.9;position:sticky;left:240px}
+.tl-gn{position:sticky;right:14px;font-weight:800}
+.tl-dl{position:absolute;top:50%;transform:translateY(-50%);display:inline-flex;align-items:center;gap:6px;font:700 .74rem var(--display);color:var(--muted);white-space:nowrap;pointer-events:none}
+.tl-dl.late{color:var(--late)}
+.tl-dl em{font-style:normal;font:800 .66rem var(--display);padding:2px 7px;border-radius:999px;background:color-mix(in srgb,var(--late) 14%,var(--surface));color:var(--late)}
+.tl-label small{color:var(--muted)}
+.tl-controls .segb,.tl-controls .btn{border-radius:999px}
+/* Pill toggles: the selected segment follows the pill's curve instead of sitting square inside it */
+.tl-controls .segb button,.cr2-range button,.segb:has(> [data-act="f-sort"]) button{border-radius:999px}
+.cr2-range,.segb:has(> [data-act="f-sort"]){border-radius:999px}
+/* Page-heading buttons (Review, Archive, Recently Deleted) are pills too */
+.view-head > .btn{border-radius:999px}
+/* Every button is a pill (menu rows inside a More menu stay square-ish) */
+.btn,.btn.big,:root[data-skin] .btn.primary{border-radius:999px}
+/* Every segmented selector (Status, Priority, view switchers, sub-page tabs) is a pill, and so is its selected segment */
+.seg,.seg span,.segb,.segb button,.bview-tabs,.bview-tabs button,.pview-tabs,.pview-tabs button,.us-subs,.us-sub-tab{border-radius:999px}
+/* ===== Schedule, Direction 1: tinted class blocks with a course-colour edge, a calmer grid ===== */
+.sch-wrap{border-radius:18px!important;box-shadow:0 2px 8px rgba(14,42,86,.08)!important}
+.sch-head{background:var(--surface)!important;min-height:58px;padding:10px 8px!important}
+.sch-dn span{font-size:.72rem!important;font-weight:700!important}
+.sch-dn b{font:800 1.2rem var(--display)!important}
+.sch-head.is-today{background:color-mix(in srgb,var(--accent) 8%,var(--surface))!important}
+.sch-head.is-today .sch-dn span{color:var(--accent)}
+.sch-head.is-today .sch-dn b{background:var(--accent)!important;color:#fff;border-radius:999px!important;padding:0 8px!important}
+.sch-col{background-image:repeating-linear-gradient(to bottom,transparent 0 55px,color-mix(in srgb,var(--line) 60%,transparent) 55px 56px)!important}
+.sch-col.is-today{background-color:color-mix(in srgb,var(--accent) 5%,transparent)}
+.sch-b{container-type:size;border-radius:10px!important;padding:6px 9px 6px 10px!important;background:color-mix(in srgb,var(--c) 16%,var(--surface))!important;color:var(--ink)!important;border:0!important;border-left:4px solid var(--c)!important;box-shadow:0 1px 3px rgba(8,20,50,.12)!important;gap:2px!important}
+.sch-b b{color:color-mix(in srgb,var(--c) 72%,var(--ink));font:800 .8rem/1.2 var(--display)!important}
+.sch-b span{opacity:1!important;color:var(--muted)}
+.sch-b:hover{filter:none!important;background:color-mix(in srgb,var(--c) 24%,var(--surface))!important}
+.sch-b.k-lab{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--c) 18%,var(--surface)) 0 8px,color-mix(in srgb,var(--c) 26%,var(--surface)) 8px 16px)!important}
+.sch-b.k-officehours{background:color-mix(in srgb,var(--c) 6%,var(--surface))!important;border:1.5px dashed color-mix(in srgb,var(--c) 70%,transparent)!important;border-left:4px solid var(--c)!important;box-shadow:none!important}
+.sch-b.k-discussion{background:color-mix(in srgb,var(--c) 10%,var(--surface))!important}
+/* class meetings: a card like the board's task cards: a band in the course colour with its icon and code, then the details */
+.sch-b:has(> .sch-band){display:flex!important;flex-direction:column;padding:0!important;gap:0!important;background:var(--surface)!important;color:var(--ink)!important;border:1px solid color-mix(in srgb,var(--c) 35%,var(--line))!important;border-radius:12px!important;box-shadow:0 2px 8px rgba(8,20,50,.14)!important}
+.sch-b:has(> .sch-band):hover{background:color-mix(in srgb,var(--c) 6%,var(--surface))!important}
+.sch-b > .sch-band{flex:none;display:flex;align-items:center;gap:6px;min-width:0;padding:4px 8px;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 74%,var(--surface)));color:#fff}
+.sch-b > .sch-band .cc-ic{width:16px;height:16px}
+.sch-b > .sch-band b{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff!important;font:800 .72rem/1.2 var(--display)!important;letter-spacing:.04em}
+.sch-b > .sch-bd{display:grid;gap:1px;align-content:start;min-height:0;padding:4px 8px 5px}
+.sch-b > .sch-bd span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sch-b > .sch-bd span:first-child{color:var(--ink)!important;font-weight:600}
+.sch-b > .sch-bd .sch-t{font:700 .78rem/1.25 var(--display)}
+.sch-b.k-lab:has(> .sch-band){background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--c) 5%,var(--surface)) 0 8px,color-mix(in srgb,var(--c) 12%,var(--surface)) 8px 16px)!important}
+.sch-b.k-other,.sch-b.k-event{background:color-mix(in srgb,var(--c) 12%,var(--surface))!important}
+.sch-b.sch-exam{background:color-mix(in srgb,var(--late) 10%,var(--surface))!important;border-left-color:var(--late)!important}
+.sch-b.sch-exam b{color:var(--late)}
+/* short classes: name and time only, nothing clipped */
+@container (max-height:44px){.sch-b span:nth-of-type(2),.sch-b span:nth-of-type(3){display:none}}
+@container (max-height:24px){.sch-b span{display:none}}
+.sch-chip{border-radius:8px!important;border-left-width:4px!important;padding:4px 7px!important;background:color-mix(in srgb,var(--c) 12%,var(--surface))!important;font-weight:700!important}
+.sch-nav .btn,.view-head .sch-nav .btn{border-radius:999px}
+.sch-now{height:2px!important}
+.sch-now::before{content:"";position:absolute;left:-5px;top:-4px;width:10px;height:10px;border-radius:50%;background:var(--late)}
+/* ===== Notes, Direction 1: the cork and stickers stay; the frame around them matches the rest of the app ===== */
+.nb-boards{gap:6px!important;padding:4px;border:1px solid var(--line);border-radius:999px;background:var(--surface);width:max-content;max-width:100%}
+.nb-tab{border:0!important;background:none!important;box-shadow:none!important;min-height:36px!important;padding:6px 14px!important;font-weight:700!important;color:var(--muted)!important}
+.nb-tab.on{background:color-mix(in srgb,var(--c,var(--accent)) 16%,var(--surface))!important;color:color-mix(in srgb,var(--c,var(--accent)) 65%,var(--ink))!important}
+.nb-tab .n{background:color-mix(in srgb,var(--line) 70%,transparent)!important}
+.nb-tab.add{color:var(--accent)!important}
+.nb-boards{align-items:center}
+.nb-boards :is([data-act="nb-edit"],[data-act="wb-opts"]){flex:none;width:34px!important;height:34px!important;min-width:0!important;min-height:0!important;padding:0!important;border:0!important;border-radius:50%!important;background:color-mix(in srgb,var(--line) 55%,transparent)!important;box-shadow:none!important;color:var(--ink)!important}
+.nb-boards :is([data-act="nb-edit"],[data-act="wb-opts"]):hover{background:var(--line)!important}
+.nb-main{padding:10px;border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:0 2px 8px rgba(14,42,86,.08)}
+.nb-scroll{border-radius:12px!important;border:0!important}
+.nb-targets{gap:8px!important}
+.nb-target{width:auto!important;height:auto!important;flex-direction:row!important;gap:6px!important;padding:8px 14px!important;border-radius:999px!important;border:1px solid var(--line)!important;background:var(--surface)!important;box-shadow:0 2px 8px rgba(14,42,86,.14)!important;font:700 .8rem var(--display)!important}
+.nb-target svg{width:18px!important;height:18px!important}
+/* Desktop: the board and the sticker envelope run further down the page (less empty space under them), bottoms aligned */
+@media (min-width:721px){
+  .nb-scroll{height:calc(100dvh - 270px)!important}
+  .env{margin-top:11px;height:calc(100dvh - 270px);max-height:none!important}
+}
+/* Rings at 1x: one solid ring hugging the white disc (no dark gap ring), so there are fewer hard edges to stair-step */
+.g2-ring{box-shadow:0 0 0 3px var(--c),0 3px 9px rgba(0,0,0,.18)!important}
+.gp-ring.sm,.pr-ring,.card-ring{box-shadow:0 0 0 2px var(--c)!important}
+.cpt3-ring{box-shadow:0 0 0 4px var(--c),0 6px 14px rgba(0,0,0,.18)!important}
+.ci-svg{stroke-width:1.5!important;--ci-ink:color-mix(in srgb,var(--c) 52%,#071022)!important}
+/* Small course icons: a white disc behind the inline icon on rows, heavier lines on the tiny white glyphs, so they hold up at 1x */
+/* The course icon on Do This Next and plan rows: the icon alone (like the Task Board's), in the course colour; white in dark mode */
+.nu-ic{width:24px!important;height:24px!important;border-radius:0;background:none;box-shadow:none;vertical-align:-5.5px!important}
+/* the check circle, the icon and the title's first line share one centre line */
+.next-up .nu-row > .check{position:relative;top:-2px}
+/* Deck previews (Review > Flashcards): the plain card edge, never the theme's coloured card outline (that stays on the cards you study) */
+.deck .face,.deck .deck-lay .face{border:0!important;outline:0!important;box-shadow:0 0 0 1px var(--line),0 12px 30px rgba(14,42,86,.14)!important}
+.deck .deck-lay .face{box-shadow:0 0 0 1px var(--line)!important}   /* drawn as a ring outside the card (not a border inside it), so the coloured band reaches the outline with no light sliver between */
+.deck .deck-lay{border:0!important;outline:0!important;box-shadow:none!important;background:none!important}
+/* The cards behind sit 6px lower and right, less than the 8px corner, so their light tops peeked into the front card's rounded
+   corners (a white sliver, most visible when zoomed out). Each is cut off at the top only, just below the corner of the card in front
+   of it, except at the right, where it shows past the front card: there its own rounded top corner stays (the clip sits 4px outside
+   its edges, past the outline). */
+/* A little shorter deck cards: less padding around the band, the name and the buttons (same text and button sizes) */
+.deck.deck-fc .fc-band{padding-top:7px!important;padding-bottom:7px!important}
+.deck.deck-fc .deck-main{padding-top:10px!important;padding-bottom:6px!important;gap:6px!important}
+.deck.deck-fc .deck-actions{padding-bottom:10px!important}
+/* a little taller again, and all the same height: the extra room goes between the name and the buttons */
+.deck.deck-fc > .deck-face{height:188px;min-height:0}
+/* every deck the same size: a long name stops after two lines with "...", a long course code after one */
+.deck.deck-fc .deck-name{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.deck.deck-fc .fc-band .g2-kick{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.deck.deck-fc .deck-main{min-height:0;overflow:hidden}
+.deck.deck-fc .deck-lay.l2 .face{clip-path:polygon(-4px 8px,calc(100% - 14px) 8px,calc(100% - 14px) -4px,calc(100% + 4px) -4px,calc(100% + 4px) calc(100% + 4px),-4px calc(100% + 4px))}
+.deck.deck-fc .deck-lay.l3 .face{clip-path:polygon(-4px 10px,calc(100% - 20px) 10px,calc(100% - 20px) -4px,calc(100% + 4px) -4px,calc(100% + 4px) calc(100% + 4px),-4px calc(100% + 4px))}
+/* and just slightly rounded corners, like the flashcard itself when it's open (the preview is about half its size) */
+.deck .face,.deck .deck-face,.deck .deck-lay,.deck .deck-lay .face,.deck.deck-fc > .deck-face,.deck.deck-fc .deck-lay .face{border-radius:8px!important;border-top-left-radius:8px!important}
+/* an icon's lines may reach a little past its frame: never cut them off */
+svg.ci-svg{overflow:visible!important}
+/* Small course icons (Task Board cards, Do This Next, schedule blocks): lines drawn exactly 2 screen pixels wide, whatever the icon's
+   size, instead of a fraction of a pixel (1.7px at 18px), which looked rough at 100% display scaling */
+:is(.cc-ic,.nu-ic,.fc-ic) svg.ci-svg :is(path,circle,ellipse,rect,line,polyline,polygon){vector-effect:non-scaling-stroke}
+:is(.cc-ic,.nu-ic,.fc-ic) svg.ci-svg{stroke-width:2!important;shape-rendering:geometricPrecision}
+.nu-ic svg.ci-svg{width:100%!important;height:100%!important;stroke-width:2!important;stroke:var(--c);--ci-ink:var(--c)}
+.nu-ic svg .a,.nu-ic svg .b,.nu-ic svg .y,.nu-ic svg .g,.nu-ic svg .r{fill:color-mix(in srgb,var(--c) 22%,transparent)}
+.nu-ic svg .sa,.nu-ic svg .sb{stroke:var(--c)}
+:root[data-theme="dark"] .nu-ic svg.ci-svg,:root[data-theme="dark"] .nu-ic svg .sa,:root[data-theme="dark"] .nu-ic svg .sb{stroke:#fff;--ci-ink:#fff}
+:root[data-theme="dark"] .nu-ic svg .a,:root[data-theme="dark"] .nu-ic svg .b,:root[data-theme="dark"] .nu-ic svg .y,:root[data-theme="dark"] .nu-ic svg .g,:root[data-theme="dark"] .nu-ic svg .r{fill:rgba(255,255,255,.3)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .nu-ic svg.ci-svg,:root:not([data-theme="light"]) .nu-ic svg .sa,:root:not([data-theme="light"]) .nu-ic svg .sb{stroke:#fff;--ci-ink:#fff}
+  :root:not([data-theme="light"]) .nu-ic svg .a,:root:not([data-theme="light"]) .nu-ic svg .b,:root:not([data-theme="light"]) .nu-ic svg .y,:root:not([data-theme="light"]) .nu-ic svg .g,:root:not([data-theme="light"]) .nu-ic svg .r{fill:rgba(255,255,255,.3)}
+}
+.cc-ic svg.ci-svg,.fc-ic svg.ci-svg{stroke-width:2.1!important}
+.tl-gic svg.ci-svg{stroke-width:1.8!important}
+/* Sticker art in rings: a softer, slightly finer outline than on the note board, where it is drawn much bigger */
+.g2-ring > svg:not(.ci-svg){width:80%!important;height:80%!important}
+.g2-ring > svg:not(.ci-svg) [stroke="#2B2233"]{stroke:#4A4058;stroke-width:2.1}
+/* Colour bands: one recipe everywhere, made only from the band's own colour, so the same colour looks the same in light and dark.
+   Bands with no course or group colour use the theme's main colour as it is in light mode (--accent-band), in both modes. */
+:root{--accent-band:#1A60D0}
+.g2-band,.c2-band,.gp-hero-band,.cr2-band,.next-up .nu-top,.g2-sheet-head,.cpt3-band,.tl-row.tl-group,.card.has-tab > .card-course,.fc-band,.sch-b > .sch-band{background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 74%,var(--surface)))!important}
+/* Timeline course rows: the sticky name column and the long track are separate boxes. The name column is the band's deep colour, and the
+   track starts at exactly that colour where it comes out from under the name column (--tls, kept equal to how far the timeline is scrolled)
+   and fades across the visible width (--tlv), so there is no jump where they meet at any scroll position. */
+.tl-scroll .tl-row.tl-group{--ba:color-mix(in srgb,var(--c) 88%,#000);--bb:color-mix(in srgb,var(--c) 74%,var(--surface));background:none!important}
+.tl-scroll .tl-group .tl-label{background:var(--ba)!important;border-right:0!important;box-shadow:none!important}
+.tl-scroll .tl-group .tl-track{background:linear-gradient(90deg,var(--ba) var(--tls,0px),var(--bb) calc(var(--tls,0px) + var(--tlv,1000px)))!important}
+/* sheet heads: the band is only the top strip; the title below sits on the sheet */
+.g2-sheet-head{background-size:100% 62px!important;background-repeat:no-repeat!important;background-position:top!important}
+.gp-hero-band{--c:var(--accent-band)!important}
+.gp-cap{color:var(--accent-band)!important}
+/* Side bar icons: drawn at their native 24px on whole pixels in the roomy layout, so each 2px line lands on the pixel grid (21px blurred
+   every line). The compact layouts (data-fit) keep their sizes, with lines held at exactly 2px. */
+nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:non-scaling-stroke}
+@media (min-width:980px){
+  nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"],[data-fit="2"]) .in button svg,nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"]) .nav-foot button svg{width:24px!important;height:24px!important}
+  nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"],[data-fit="2"]) .in button:not(.nav-focus){font-size:12px!important;line-height:14px!important;padding:0 4px!important;height:52px;min-height:0!important;flex:none!important;gap:4px!important}
+  nav.tabs:is([data-fit="1"],[data-fit="2"]) .in button:not(.nav-focus){height:46px}
+  nav.tabs:is([data-fit="1"],[data-fit="2"]) .nav-brand img{height:64px;width:94px!important}
+  nav.tabs[data-fit="1"] .nav-foot .nav-tool{height:44px!important;padding:1px 4px!important}
+  nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"],[data-fit="2"]) .in{gap:2px!important}
+  nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"],[data-fit="2"]) .nav-brand img{height:72px;width:106px!important}
+  nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"],[data-fit="2"]) .nav-date{line-height:16px!important;height:16px}
+  nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"]) .nav-foot .nav-tool{line-height:14px!important;gap:4px!important;padding:3px 4px!important;height:48px;flex:none}
+  nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"]) .nav-foot .nav-tool > span{line-height:14px!important;height:14px}
+  nav.tabs:is([data-fit="0"],:not([data-fit]),[data-fit="1"]) .nav-sync{height:28px;line-height:14px!important;box-sizing:border-box;padding-top:1px!important;padding-bottom:3px!important}
+  nav.tabs[data-fit="2"] .nav-foot .nav-tool svg{width:22px!important;height:22px!important}
+  nav.tabs[data-fit="2"] .nav-foot .nav-tool{height:38px;min-height:0!important;padding:8px 2px!important}
+  nav.tabs[data-fit="2"] .nav-foot{column-gap:0!important}
+  nav.tabs[data-fit="2"] .nav-sync{height:20px;line-height:16px!important;box-sizing:border-box}
+}
+/* Today's Plan, concept C: stat tiles, chips on Do This Next, a one-line warning, and one tab bar for everything else */
+.plan .focus-head{align-items:stretch!important;flex-wrap:nowrap!important}
+.plan .fh-txt{flex:1 1 auto!important}
+.plan .fh-txt:not(:has(.pt-stats)){align-self:center}
+.plan .focus-head:has(.pt-stats) .fh-ctl{flex-direction:column;justify-content:center;align-items:center;gap:2px!important;margin:0!important;width:auto!important;padding:6px 10px;border-radius:14px;background:color-mix(in srgb,var(--soft) 70%,var(--surface));border:1px solid var(--line)}
+.plan .focus-head:has(.pt-stats) .hours-ctl{border:0!important;background:none!important;padding:0!important}
+.plan .focus-head:has(.pt-stats) .fh-hide{min-height:0!important;padding:2px 8px!important;border:0!important;background:none!important;font-size:.76rem!important;color:var(--muted)!important}
+@media (max-width:600px){.plan .focus-head{flex-wrap:wrap!important}.plan .focus-head:has(.pt-stats) .fh-ctl{flex-direction:row;width:100%!important;justify-content:space-between}}
+.pt-sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.pt-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.pt-stat{padding:12px 14px;border-radius:14px;background:color-mix(in srgb,var(--soft) 70%,var(--surface));border:1px solid var(--line);text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.pt-adj{display:flex;align-items:center;justify-content:center;gap:14px}
+.pt-adj .icon-btn{width:28px;height:28px;min-width:28px;min-height:28px;font-size:1.05rem;font-weight:800;border-radius:50%;color:var(--ink)}
+.plan .focus-head:has(.pt-stats) .fh-chip{background:none;border:0;padding:0}
+@media (max-width:700px){.plan .pt-stats .pt-stat.pt-hours{flex:1.8 1 0}.plan .pt-adj{gap:4px}.plan .pt-adj .icon-btn{width:24px;height:24px;min-width:24px;min-height:24px;font-size:.95rem}}
+.pt-stat b{display:block;font:800 1.5rem/1.15 var(--display);color:var(--ink)}
+.pt-stat span{font-size:.78rem;color:var(--muted)}
+.pt-stat.late{border-color:color-mix(in srgb,var(--late) 45%,transparent);background:color-mix(in srgb,var(--late) 8%,var(--surface))}
+.pt-stat.late b{color:var(--late)}
+.nu-why{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:5px}
+.nu-sep{display:none}
+.nu-chip{display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border-radius:999px;background:color-mix(in srgb,var(--soft) 70%,var(--surface));border:1px solid var(--line);color:var(--ink);font:700 .76rem/1.45 var(--display)}
+.nu-chip svg{width:13px;height:13px;flex:none;opacity:.8}
+.nu-chip.late{background:color-mix(in srgb,var(--late) 12%,var(--surface));border-color:color-mix(in srgb,var(--late) 40%,transparent);color:var(--late)}
+.nu-chip.soon{background:color-mix(in srgb,var(--mark) 22%,var(--surface));border-color:color-mix(in srgb,var(--mark) 45%,transparent)}
+/* Phones: Do This Next's tags pack two or three to a line, and its buttons use the card's full width, side by side and the same size
+   (each as wide as its words; if they can't share a line, each takes a full row) */
+@media (max-width:639px){
+  .next-up .nu-why{gap:5px}
+  .next-up .nu-chip{font-size:.7rem;padding:2px 8px}
+  .next-up .nu-acts{display:flex;flex-wrap:wrap;gap:8px;flex-basis:100%;margin-left:0!important;padding-left:0!important}
+  .next-up .nu-acts > *{flex:1 1 auto;justify-content:center;text-align:center;white-space:nowrap;padding-inline:12px!important}
+  .next-up .nu-acts svg{margin-right:3px}
+}
+.nu-note{flex-basis:100%;color:var(--muted);font-size:.84rem;line-height:1.4}
+.plan-warn{display:flex!important;align-items:center;flex-wrap:wrap;gap:4px 10px;padding:10px 14px!important;border-radius:14px!important}
+.pw-ic{display:grid;place-items:center;width:22px;height:22px;flex:none;border-radius:50%;background:var(--late);color:#fff;font:900 .8rem/1 var(--display)}
+.pw-main{flex:1 1 300px;min-width:0}
+.pw-tip{margin-left:auto;color:var(--muted);font-size:.8rem}
+.plan-tabs{margin:16px 0 6px}
+.pt-bar{display:flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:999px;background:color-mix(in srgb,var(--soft) 60%,var(--surface));width:max-content;max-width:100%;overflow-x:auto;scrollbar-width:none}
+.pt-bar::-webkit-scrollbar{display:none}
+.pt-tab{flex:none;display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:6px 14px;border:0;border-radius:999px;background:none;color:var(--muted);font:700 .84rem var(--display);cursor:pointer}
+.pt-tab:hover{color:var(--ink)}
+.pt-tab[aria-selected="true"]{background:var(--accent-band,var(--accent));color:#fff}
+.pt-n{font-style:normal;font:800 .7rem/1 var(--display);padding:3px 6px;border-radius:999px;background:color-mix(in srgb,currentColor 18%,transparent)}
+.pt-panel{margin-top:10px;padding:14px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--soft) 45%,var(--surface))}
+.pt-panel > .av-strip,.pt-panel > .plan-fixed{margin:0!important;padding:0!important;border:0!important;background:none!important}
+.pt-panel .av-strip .plan-sub,.pt-panel .plan-fixed .plan-sub{display:none}
+.pt-panel .av-top{justify-content:flex-end}
+.pt-panel .av-strip{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.pt-panel .av-strip .av-top{order:2;margin-left:auto}
+.pt-panel .av-strip .av-chips{order:1;margin:0}
+.pt-panel .av-strip .av-line:not(:only-child){order:3;flex-basis:100%;margin:0;font-size:.85rem;color:var(--muted)}
+.pt-panel .av-strip:has(.av-chips) .av-line{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.pt-panel .av-note{order:4;flex-basis:100%;margin:0}
+/* Phones: free windows as full-width rows (time on the left, length on the right), then Availability (where shifts and work are added) across the bottom */
+@media (max-width:639px){
+  .pt-panel .av-strip{flex-direction:column;align-items:stretch;gap:10px}
+  .pt-panel .av-strip .av-chips{flex-direction:column;flex-wrap:nowrap;gap:6px}
+  .pt-panel .av-strip .av-chip{width:100%;justify-content:space-between;border-radius:12px;padding-inline:14px}
+  .pt-panel .av-strip .av-top{margin:0;width:100%}
+  .pt-panel .av-strip .av-acts{display:grid;grid-template-columns:1fr;gap:8px;width:100%}
+  .pt-panel .av-strip .av-acts .btn{width:100%;min-width:0;justify-content:center;white-space:nowrap}
+}
+.pt-panel .plan-fixed ul{margin:0;gap:6px}
+.pt-panel .plan-fixed li{min-height:0;padding:8px 12px;border-radius:10px;border-left:4px solid var(--c,var(--line));background:var(--surface)}
+.pt-panel .plan-fixed .plan-main{padding:0;font-weight:700}
+.pt-panel > :is(.plan-est,.plan-fc,.plan-heads,.auto-ins,.pp-today){margin:0!important;border:0!important;background:none!important;padding:0!important;box-shadow:none!important}
+.pt-panel .auto-ins .ai-top .ph-label,.pt-panel .plan-heads > .ph-label{display:none}
+.pt-panel .auto-ins .ai-top{justify-content:flex-end;margin-bottom:4px}
+@media (max-width:600px){.pw-main{flex:1 1 0}.pt-stats{grid-template-columns:1fr 1fr}.pt-stat{padding:10px 12px}.pt-stat b{font-size:1.25rem}.pw-tip{margin-left:32px}.pt-panel .plan-fixed li{flex-wrap:wrap;row-gap:4px}.pt-panel .plan-fixed .plan-main{flex-basis:100%}}
+/* ===== Phone visibility pass (phones only; the desktop layout is untouched) ===== */
+@media (max-width:600px){
+  /* Scene themes: the readability plate behind page titles and notes hugs the text instead of running the full width */
+  html.sc-on :is(.view-head > h2,.tl-controls > h2,.board-sec-head > h2,.hint-line,.fcrumb){width:fit-content!important;max-width:100%;flex:0 1 auto!important;margin-right:auto}
+  /* that title can share its row with a taller control: it stays at the top of the row, 12px under the tab selector */
+  html.sc-on .pview-tabs + :is(.view-head,.tl-controls){align-items:flex-start}
+  /* Groups: the "share without an account" text sat straight on the artwork */
+  html.sc-on .grp-file{padding:14px;border:1px solid var(--line);border-radius:16px;background:color-mix(in srgb,var(--surface) 94%,transparent)}
+  /* Timeline: the course's full name ran into the "N open" count; the code beside the icon already names it */
+  .tl-row.tl-group .tl-gname{display:none}
+  /* Grades: course names broke mid-word beside the grade; the name gets the whole row and the grade sits beside the bar */
+  .gp-hero .gp-main{grid-template-columns:40px minmax(0,1fr) auto!important;grid-template-areas:"ring who who" "ring bar grade" "ring line line"!important;gap:4px 10px!important}
+  .gp-who .gp-name{overflow-wrap:normal!important;word-break:normal!important}
+  .gp-hero .gp-grade b{font-size:1.15rem!important}
+  /* Companion: a long suggested question ran off both sides of the screen */
+  .cpt-chips .chip{max-width:100%;white-space:normal;text-align:center;height:auto;line-height:1.3;padding-block:8px}
+  /* Notes: Archive and Trash sat under the Stickers tab and the Add button at the bottom of the board */
+  .nb-targets{top:12px;bottom:auto!important;right:12px}
+  .nb-zoom{top:12px;left:12px}
+  /* Crunch chart labels were under 10px */
+  .cr2-h,.cr2-x{font-size:.7rem!important}
+  /* White on light red or blue was hard to read */
+  .pw-ic,.tl-d.is-today b{background:color-mix(in srgb,var(--late) 72%,#000)!important}
+  .sch-head.is-today .sch-dn b{background:color-mix(in srgb,var(--accent) 70%,#000)!important}
+  :root[data-theme="light"] :is(.nu-chip.late,.g2-pill.late,.tl-dl em){color:color-mix(in srgb,var(--late) 80%,#000)!important}
+}
+/* Companion chat: the message list fits the screen with the box to type in, and the box stays in view on a long page */
+.cpt-log{max-height:max(240px,calc(100dvh - 456px))!important}
+.cpt-form{position:sticky;bottom:12px;z-index:3;padding:6px;margin-inline:-6px;border-radius:18px;background:color-mix(in srgb,var(--paper,var(--bg)) 86%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+@media (max-width:979px){.cpt-log{max-height:max(220px,calc(100dvh - 520px))!important}.cpt-form{bottom:calc(84px + env(safe-area-inset-bottom,0px))}}
+.fc-arch-btn{display:inline-flex;align-items:center;gap:6px}
+/* Review, Quizzes: one card per quiz, in its course colour */
+.qz-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-top:12px}
+.qz-card{position:relative;cursor:pointer;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:16px;background:var(--surface);overflow:hidden;box-shadow:0 2px 8px rgba(14,42,86,.06)}
+.qz-band{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--c);color:#fff;min-height:40px}
+.qz-band .fc-ic{width:24px;height:24px}   /* the course icon, white, like the flashcard decks' band */
+.qz-pill{margin-left:auto;font:800 .62rem var(--display);letter-spacing:.06em;text-transform:uppercase;background:rgba(255,255,255,.22);border-radius:6px;padding:2px 7px}
+.qz-body{display:grid;gap:4px;padding:12px 14px 6px;flex:1;border:0;background:none;color:inherit;text-align:left;font:inherit;cursor:pointer;align-content:start}
+.qz-body::after{content:"";position:absolute;inset:0;border-radius:inherit}   /* the whole card opens the quiz */
+.qz-body:focus-visible{outline:none}.qz-card:has(.qz-body:focus-visible){outline:2px solid var(--accent,#3B6FE0);outline-offset:2px}
+.qz-acts > .btn{position:relative;z-index:1}   /* buttons stay above the card-wide click area */
+.qz-acts .deck-arch,.deck-actions .deck-arch{display:inline-grid;place-items:center;padding:0;width:2.25rem;height:2.25rem;min-height:0;aspect-ratio:1}.qz-acts .deck-arch svg,.deck-actions .deck-arch svg{display:block}   /* archive: a round button, icon centred */
+.qzd-list{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:10px}
+.qzd-q{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:12px 14px}
+.qzd-top{display:flex;align-items:center;gap:8px}
+.qzd-n{display:inline-grid;place-items:center;min-width:24px;height:24px;border-radius:50%;background:var(--soft);font:700 .8rem var(--display)}
+.qzd-stem{margin:8px 0;white-space:pre-wrap}
+.qzd-opts{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.qzd-opts li{padding:6px 10px;border-radius:10px;background:var(--soft)}
+.qzd-opts li.ok{background:color-mix(in srgb,var(--leaf,#2e9d5b) 16%,var(--surface));font-weight:600}
+.qzd-ans{margin:0}
+.qzd-q details{margin-top:8px}
+.qzd-scen{margin:14px 0 0;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);white-space:pre-wrap}
+.qz-title{font:700 1.05rem/1.25 var(--display);overflow-wrap:anywhere}
+.qz-acts{display:flex;align-items:center;gap:8px;padding:8px 14px 12px}
+.qz-acts .spacer{flex:1}
+:has(> .fc-arch-btn) > .btn.small{align-self:center;height:2.3rem;min-height:0;display:inline-flex;align-items:center}   /* Review, Archived Decks and Recently Deleted: one height (not stretched to the row) */
+:has(> .fc-arch-btn) > .btn.small.trash-btn:not(:has(> span)){width:2.3rem;padding:0;justify-content:center}   /* with nothing in them, Archived Decks and Recently Deleted are the same round button, icon centred */
+/* Deck page, Direction 1: band with the actions, the course icon in its ring, stats as chips, and the cards as little flashcards */
+.dk2 .deck-stats{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.dk2 .deck-stats > span{display:inline-flex;align-items:baseline;gap:4px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:color-mix(in srgb,var(--soft) 70%,var(--surface));color:var(--muted);font-size:.8rem}
+.dk2 .deck-stats b{color:var(--ink);font-weight:800}
+.dk2 .deck-stats .due{border-color:color-mix(in srgb,var(--c) 45%,transparent);background:color-mix(in srgb,var(--c) 12%,var(--surface))}
+.dk2 .deck-stats .ok b{color:var(--ok,#1E9E74)}
+.dk2 h2{margin:0}
+.deck-head.dk2{margin-top:14px;padding:0;border:1px solid var(--line);border-radius:18px!important;box-shadow:0 2px 8px rgba(14,42,86,.08);background:var(--surface);overflow:hidden}
+[data-fc-deck] ~ .fc-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin:14px 0 0;padding:0;list-style:none;border:0!important;background:none!important;box-shadow:none!important;border-radius:0}
+[data-fc-deck] ~ .fc-list .fc-row{position:relative;display:flex;flex-direction:column;align-items:stretch;gap:0;min-height:132px;padding:0;border:1px solid var(--line)!important;border-radius:14px;background:var(--surface);box-shadow:0 2px 8px rgba(14,42,86,.08);overflow:hidden}
+[data-fc-deck] ~ .fc-list .fc-row::before{content:"";display:block;height:5px;background:var(--c,var(--accent));flex:none}
+[data-fc-deck] ~ .fc-list .fc-cell{flex:1;display:flex;flex-direction:column;align-items:stretch;gap:0;padding:12px 14px 34px;text-align:left;font:inherit;cursor:pointer;min-width:0}
+[data-fc-deck] ~ .fc-list .fc-front{display:block;font:700 1rem/1.35 var(--display);color:var(--ink);padding-bottom:9px;margin-bottom:9px;border-bottom:1px dashed var(--line);white-space:normal;overflow-wrap:anywhere}
+[data-fc-deck] ~ .fc-list .fc-back{display:block;font-size:.88rem;line-height:1.4;color:var(--muted);white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+[data-fc-deck] ~ .fc-list .fc-row > :not(.fc-cell){position:absolute;right:12px;bottom:12px}
+[data-fc-deck] ~ .fc-list .fc-row > .nc-from{right:auto;left:10px;bottom:8px}
+[data-fc-deck] ~ .fc-list .fc-row:hover{border-color:color-mix(in srgb,var(--c,var(--accent)) 45%,var(--line))!important}
+@media (max-width:600px){[data-fc-deck] ~ .fc-list{grid-template-columns:1fr}}
+/* Deck page cards drawn in the deck's card style (the shop pick, or the deck's own style) */
+[data-fc-deck] ~ .fc-list.fc-styled .fc-row{background:none!important;border:0!important;box-shadow:none!important;overflow:visible;min-height:0}
+[data-fc-deck] ~ .fc-list.fc-styled .fc-row::before{display:none}
+[data-fc-deck] ~ .fc-list.fc-styled .fc-face{position:relative;inset:auto;transform:none;backface-visibility:visible;-webkit-backface-visibility:visible;display:flex;flex-direction:column;justify-content:flex-start;align-items:stretch;gap:0;min-height:150px;padding:12px 16px 34px;border-radius:10px;text-align:left;box-shadow:0 6px 16px rgba(14,42,86,.14)}
+[data-fc-deck] ~ .fc-list.fc-styled .fc-front{color:inherit;border-bottom:0;padding-bottom:0;margin-bottom:16px;min-height:26px;position:relative;z-index:1}
+[data-fc-deck] ~ .fc-list.fc-styled .fc-back{color:inherit;opacity:.78;position:relative;z-index:1}
+[data-fc-deck] ~ .fc-list.fc-styled .fc-row > :not(.fc-cell){z-index:2}
+[data-fc-deck] ~ .fc-list.fc-styled .fc-row:hover .fc-face{transform:translateY(-2px)}
+/* A card preview shows its front and back in the middle of the card, like a real flashcard (the buttons stay in the corner) */
+[data-fc-deck] ~ .fc-list .fc-cell,[data-fc-deck] ~ .fc-list.fc-styled .fc-face{justify-content:center;align-items:center;text-align:center;padding:22px 18px 26px}
+[data-fc-deck] ~ .fc-list .fc-front,[data-fc-deck] ~ .fc-list .fc-back{width:100%;text-align:center}
+[data-fc-deck] ~ .fc-list .fc-back{-webkit-box-pack:center}
+[data-fc-deck] ~ .fc-list.cs-index .fc-face{justify-content:flex-start;padding-top:12px}   /* the lined index card: the front stays on its header line, the back sits in the middle below it */
+[data-fc-deck] ~ .fc-list.cs-index .fc-back{margin:auto 0}
+/* the red line sits under the front, however many lines it takes, so it never runs through the text; the blue lines start below it */
+[data-fc-deck] ~ .fc-list.cs-index .fc-face{background-image:repeating-linear-gradient(to bottom,transparent 0 27px,rgba(57,136,254,.18) 27px 28px)!important;background-size:100% 100%!important;background-position:0 0!important;background-repeat:repeat!important}
+[data-fc-deck] ~ .fc-list.cs-index .fc-front{box-sizing:border-box;width:calc(100% + 36px);margin:-12px -18px 14px;padding:12px 18px 9px;min-height:40px;background:#FFFEF9;border-bottom:2px solid rgba(214,57,44,.55);border-radius:inherit;border-bottom-left-radius:0;border-bottom-right-radius:0}
+/* Holographic: the shine starts and ends fully off the card, so its loop never pops in; colours and shine run on one clock (see holoSync) */
+.cs-holo .face::after{background:linear-gradient(120deg,transparent 0 38%,rgba(255,255,255,.5) 50%,transparent 62% 100%)!important;background-size:300% 100%!important;animation:holo-shine 5s linear infinite!important;animation-delay:inherit!important;will-change:background-position}
+@keyframes holo-shine{from{background-position:100% 0}to{background-position:0% 0}}
+@media (prefers-reduced-motion:reduce){.cs-holo .face::after{animation:none!important}}
+.ra-more{position:relative;display:inline-flex}
+.ra-more-btn{display:inline-flex;align-items:center;gap:4px}
+.ra-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;display:grid;gap:2px;min-width:190px;padding:6px;border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:0 12px 30px rgba(0,0,0,.3)}
+.ra-menu[hidden]{display:none}
+:is(.g2-head,.c2-head,.dk2,.detail-head):has(.ra-menu:not([hidden])){overflow:visible!important;z-index:20;position:relative}
+.dk2 > .g2-band{border-radius:17px 17px 0 0}
+.g2-band .ra-menu .btn{justify-content:flex-start;width:100%;min-height:40px;background:none!important;border:0!important;box-shadow:none!important;color:var(--ink)!important;text-align:left;border-radius:10px;font-size:.9rem}
+.g2-band .ra-menu .btn:hover{background:var(--soft)!important}
+.g2-band .ra-menu .gx-assign{background:none!important;color:var(--ink)!important;gap:8px}
+.g2-band .ra-menu .gx-assign:hover{background:var(--soft)!important}
+@media (max-width:600px){.g2-band > .row-actions[data-ra]{flex-wrap:nowrap;gap:8px;justify-content:flex-end;margin-left:auto}.g2-band:has(> .row-actions[data-ra]){overflow:visible;display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:8px}}
+/* Card style tiles: the sample word fits the tile on one line (no mid-word break, no scroll arrows) */
+.cs-demo{container-type:inline-size}
+.cs-demo .face-text{font-size:min(1.05rem,9.5cqi)!important;line-height:1.2!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis;overflow-wrap:normal!important;max-width:100%!important;max-height:none!important}
+.cs-demo .face-label{font-size:min(.72rem,7cqi)!important}
+.cs-demo.cs-ticket .face-text{font-size:min(1rem,7.2cqi)!important}
+.cc-sw{gap:8px}
+.cc-sw span{width:32px;height:32px}
+.cc-custom span{background:conic-gradient(from 0deg,#ef4444,#f59e0b,#eab308,#22c55e,#06b6d4,#3b82f6,#8b5cf6,#ec4899,#ef4444)!important;position:relative}
+.cc-custom span::after{content:"";position:absolute;inset:7px;border-radius:50%;background:var(--c);box-shadow:0 0 0 2px var(--surface)}
+.cc-custom input[type=color]{position:absolute;inset:0;width:100%;height:100%;opacity:0;pointer-events:none}
+.gp-hero .gp-course{flex-wrap:wrap}
+.gp-tog svg{transition:transform .2s}
+.gp-tog[aria-expanded="true"] svg{transform:rotate(180deg)}
+.gp-drop{flex-basis:100%;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;margin:6px 0 10px 58px;padding:14px;border:1px solid var(--line);border-left:4px solid var(--c);border-radius:14px;background:color-mix(in srgb,var(--soft) 50%,var(--surface))}
+.gp-drop[hidden]{display:none}
+.gp-drop > section{min-width:0;margin:0;padding:0;border:0;background:none;box-shadow:none}
+.gp-d-h{display:flex;align-items:center;gap:8px;margin:0 0 8px;font:800 .8rem var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.gp-d-h .spacer{flex:1}
+.gp-d-calc .gp-calc-out{margin-top:10px}
+@media (max-width:760px){.gp-drop{grid-template-columns:1fr;margin-left:0}}
+/* Files, Direction 1: band header with the course ring, course rings in the folder list, pill buttons on rows */
+.fhead.g2-head{margin:0 0 10px;padding:0;border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:0 2px 8px rgba(14,42,86,.08);overflow:hidden}
+.fhead .g2-band{border-radius:17px 17px 0 0}
+.fhead .fcrumb{margin:0;font:800 1.35rem/1.2 var(--display)}
+.fhead .g2-ring svg:not(.ci-svg){width:46%;height:46%;color:var(--c)}
+/* A primary button on a course-coloured band is white with course-coloured text: the glass layer under it must be white too, not the theme's
+   button gradient (that made Study on a deck's page unreadable: dark gold text on a pink and purple gradient) */
+html #view :is(.g2-head,.c2-head) .g2-band .btn.primary::before,html dialog :is(.g2-head,.c2-head) .g2-band .btn.primary::before{background:#fff}
+.dk2 > .g2-band:has(> .row-actions){padding-bottom:36px}
+/* On a wide screen the deck's buttons sit to the right of the ring, so the band only needs as much space under them as above them */
+@media (min-width:720px){.dk2 > .g2-band:has(> .row-actions){padding-bottom:10px}}
+/* Course, Files and deck headers: a shorter band, the ring's top third over it, and the title centred beside the ring */
+.g2-head .g2-band,.c2-head .g2-band{min-height:58px;padding:10px 18px}
+.g2-head .g2-low,.c2-head .g2-low{margin-top:-32px}
+.g2-head .g2-txt,.c2-head .g2-txt{padding-top:42px}
+/* The ring sits a little lower than the low row so it has room under the course code at the top of the band */
+.g2-head .g2-low > .g2-ring,.c2-head .g2-low > .g2-ring{margin-top:10px}
+.fhead .fcrumb{font-size:1.75rem;line-height:1.15}
+@media (max-width:719px){
+  .g2-head .g2-band,.c2-head .g2-band{min-height:0;padding:10px 14px 30px}
+  .g2-head .g2-low,.c2-head .g2-low{margin-top:-26px}
+  .g2-head .g2-txt,.c2-head .g2-txt{padding-top:36px}
+  .fhead .fcrumb{font-size:1.4rem}
+}
+/* Files header: the title sits on the card, so no scenic-theme legibility box behind it; a smaller ring, and the title a touch higher */
+html .fhead .fcrumb{background:none!important;padding-inline:0!important;text-shadow:none!important;box-shadow:none!important}
+.fhead.g2-head .g2-low > .g2-ring{width:66px;height:66px}
+.fhead .g2-ring > svg:not(.ci-svg){width:56%!important;height:56%!important}
+.fhead .g2-ring > svg.ci-svg{width:60%!important;height:60%!important}
+.fhead.g2-head .g2-txt{padding-top:36px;gap:0}   /* (the item count moves up with the title) */
+@media (max-width:719px){.fhead.g2-head .g2-low > .g2-ring{width:54px;height:54px}.fhead.g2-head .g2-txt{padding-top:30px}}
+.fn-ring{display:grid!important;place-items:center;width:24px!important;height:24px!important;flex:0 0 24px!important;padding:0!important;border-radius:50%;background:#fff;box-shadow:0 0 0 1.5px var(--c,var(--line))}
+.fn-ring svg{width:68%;height:68%;display:block}
+.fn-ring.fn-all svg{color:var(--c);width:60%;height:60%}
+.fnode .fn-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:820px){.fnode .fn-name{overflow:visible;flex:none}}
+.fnode.on{background:color-mix(in srgb,var(--c,var(--accent)) 14%,var(--surface))!important;border-color:color-mix(in srgb,var(--c,var(--accent)) 40%,transparent)!important}
+.fnode.sub{padding-left:42px}
+.flist{border-radius:16px!important;overflow:hidden}
+.frow{transition:background .15s}
+.frow:hover{background:color-mix(in srgb,var(--soft) 50%,var(--surface))}
+.frow > a.btn{text-decoration:none!important;border-radius:999px;padding-inline:14px}
+.frow > .f-sum{border-radius:999px;padding-inline:12px;gap:6px;display:inline-flex;align-items:center}
+.frow > .f-sum svg{width:14px;height:14px}
+@media (max-width:640px){.frow > .f-sum{padding-inline:9px}.frow > .f-sum .f-sum-l{display:none}}
+.fpane .fsec{padding:4px 12px;border-radius:999px;background:color-mix(in srgb,var(--soft) 70%,var(--surface));border:1px solid var(--line);width:max-content;font-size:.85rem}
+.gt-dot{display:inline-block;border-style:dashed!important;opacity:.7;pointer-events:none}
+.gt-chip{background:color-mix(in srgb,#C9702B 18%,var(--surface))!important;color:color-mix(in srgb,#C9702B 70%,var(--ink))!important}
+.sort-ghost{position:fixed!important;z-index:200;pointer-events:none;margin:0!important;transform:rotate(1.5deg) scale(1.02);box-shadow:0 18px 40px rgba(0,0,0,.35);opacity:.95;transition:none!important}
+.sort-hole{opacity:.25;outline:2px dashed var(--line);outline-offset:4px;border-radius:18px}
+body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important;-webkit-user-select:none!important}
+[data-sortable] > [data-sort-id]{-webkit-touch-callout:none}
+.ci-ai-btn{display:grid;place-items:center;align-content:center;gap:2px;aspect-ratio:1;border:2px dashed var(--line);border-radius:50%;background:none;color:var(--accent);font:800 .62rem var(--display);cursor:pointer;position:relative;padding:0}
+.ci-ai-btn svg{width:26px;height:26px}
+.ci-ai-btn .cp-ai-face.ai-ic{width:32px;height:32px;min-width:32px;margin:0;vertical-align:0;justify-self:center;display:grid;place-items:center}   /* the companion's face, big and centred over Create */
+.ci-ai-btn .cp-ai-face > svg.cp-svg{inset:0!important;width:100%!important;height:100%!important;display:block}
+.ci-ai-btn > span:not(.cp-ai-face){display:block;text-align:center;line-height:1.1}
+.ci-ai-btn .pro-badge{position:absolute;top:-6px;right:-8px;transform:scale(.8)}
+.ci-ai{margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--soft) 50%,var(--surface))}
+.ci-ai-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px}
+.ci-ai-prev{display:inline-flex;align-items:center;gap:10px;font-weight:700}
+.ci-ai-ring{width:56px;height:56px}
+.beta-sym{display:inline-grid;place-items:center;width:17px;height:17px;margin-left:5px;border-radius:50%;background:linear-gradient(135deg,#FFB443,#FF5C8A);color:#fff;font:700 .7rem/1 var(--body);vertical-align:2px}
+.ci-cand{display:grid;justify-items:center;gap:4px;border:2px solid transparent;border-radius:14px;background:none;padding:6px 8px;font:700 .78rem var(--display);color:var(--ink);cursor:pointer;max-width:110px;text-align:center}
+.ci-cand.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
+.ci-ai-prev:has(.ci-cand){flex-wrap:wrap;gap:6px}
+.ci-src{flex-basis:100%}
+/* Style Shop S2: themed band header, category rail on the left (a strip on phones) */
+.sheet.shop .sheet-head.shop-band{position:relative;display:block;padding:16px 64px 16px 20px!important;background:linear-gradient(135deg,color-mix(in srgb,var(--accent-band,var(--accent)) 86%,#000),var(--accent-band,var(--accent)))!important;color:#fff;border-bottom:0!important}
+.shop-band h2{color:#fff!important;margin:0;font:800 1.35rem var(--display)!important}
+.shop-band .shop-sub{margin:3px 0 0;font-size:.84rem;opacity:.92;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.shop-band > .icon-btn{position:absolute;right:14px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.18)!important;border-color:rgba(255,255,255,.5)!important;color:#fff!important}
+.shop-wrap{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:0;flex:1}
+.shop-wrap > .sheet-body{min-height:0;overflow:auto}
+.shop-rail{display:grid;gap:4px;align-content:start;padding:14px 12px;border-right:1px solid var(--line);background:color-mix(in srgb,var(--soft) 40%,var(--surface));overflow:auto}
+.shop-rail .sr-item{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:7px 10px;border:0;border-radius:12px;background:none;color:var(--muted);font:700 .92rem var(--display);text-align:left;cursor:pointer}
+.shop-rail .sr-item:hover{color:var(--ink);background:color-mix(in srgb,var(--soft) 70%,transparent)}
+.shop-rail .sr-item[aria-selected="true"]{background:color-mix(in srgb,var(--accent-band,var(--accent)) 18%,var(--surface));color:var(--ink)}
+.sr-ic{display:grid;place-items:center;width:30px;height:30px;flex:none;border-radius:50%;background:#fff;color:var(--accent-band,var(--accent));box-shadow:0 0 0 1.5px color-mix(in srgb,var(--accent-band,var(--accent)) 45%,transparent)}
+.sr-ic svg{width:17px;height:17px}
+.sr-t{flex:1;min-width:0}
+.sr-n{font-style:normal;font-size:.72rem;opacity:.75;white-space:nowrap}
+@media (max-width:720px){
+  .shop-wrap{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
+  .shop-rail{display:flex;gap:6px;padding:8px 12px;border-right:0;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+  .shop-rail::-webkit-scrollbar{display:none}
+  .shop-rail .sr-item{width:auto;flex:none;min-height:40px;padding:5px 12px 5px 6px;border-radius:999px}
+  .shop-rail .sr-n{display:none}
+  .sheet.shop .sheet-head.shop-band{padding:12px 60px 12px 16px!important}
+  .shop-band .shop-sub{font-size:.74rem;line-height:1.35}
+  .sr-ic{width:26px;height:26px}
+}

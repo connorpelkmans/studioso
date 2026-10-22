@@ -1,0 +1,36 @@
+/* ===== module: 60-reminders.css ===== */
+/* Reminders and Notifications */
+.rm-sheet fieldset{gap:8px}
+.rm-sheet .mi-check{min-height:44px}
+.rm-row{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px}
+.rm-row .mi-check{flex:0 1 auto}
+.rm-row > span{font-size:.9rem;color:var(--muted)}
+.rm-row input.rm-time,.rm-row select.rm-sel{width:auto;flex:0 0 auto;min-width:118px;min-height:40px;padding:6px 8px;font-size:.9rem}
+.rm-sub{display:grid;gap:2px;padding-left:26px}
+.rm-sub[hidden]{display:none}
+.rm-ok{margin:0;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--accent) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);font-size:.9rem}
+.rm-btns .rm-ok,span.rm-ok{display:inline-block;padding:6px 10px}
+.rm-perm{display:grid;gap:10px;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--soft)}
+.rm-perm .btn{justify-self:start;min-height:44px}
+.rm-list{margin:-4px 0}
+.rm-list button{min-height:44px}
+.rm-up{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.rm-up li{display:grid;grid-template-columns:minmax(96px,34%) 1fr;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-size:.9rem}
+.rm-up time{color:var(--muted);font-size:.82rem;padding-top:1px}
+.rm-up b{display:block;font-weight:600;overflow-wrap:anywhere}
+.rm-up .mini{display:block;overflow-wrap:anywhere}
+.rm-steps{margin:0;padding-left:22px;display:grid;gap:12px}
+.rm-steps li{line-height:1.45}
+.rm-steps code,.rm-sheet code{font-size:.85em;padding:1px 5px;border-radius:5px;background:var(--soft);overflow-wrap:anywhere}
+.rm-steps .btn{min-height:40px}
+.rm-btns{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px}
+.rm-keys{display:grid;gap:8px;margin-top:8px}
+.rm-key{display:flex;gap:6px}
+.rm-key input{flex:1;min-width:0;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.78rem}
+.rm-pick select{width:100%}
+@media (max-width:600px){
+  .rm-up li{grid-template-columns:1fr;gap:2px}
+  .rm-sub{padding-left:12px}
+}
+
+

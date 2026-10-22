@@ -11,7 +11,7 @@ if (!process.env.AV_CHILD) {
   process.exit(bad ? 1 : 0);
 }
 
-const s = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const s = require("../scripts/app-files").source();
 const code = s.slice(s.indexOf("/* AVAIL-START"), s.indexOf("/* AVAIL-END */"));
 assert(code.length > 1000, "AVAIL block found");
 const A = new Function(code + ";return AVAIL;")();

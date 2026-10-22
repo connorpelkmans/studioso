@@ -9,7 +9,7 @@ if (!process.env.BD_TZ_CHILD && !process.env.BD_NO_TZ) {
   }
   process.exit(0);
 }
-const s = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const s = require("../scripts/app-files").source();
 const cut = (a, b) => s.slice(s.indexOf(a), s.indexOf(b));
 const B = new Function(cut("/* BREAKDOWN-START", "/* BREAKDOWN-END */") + ";return BREAKDOWN;")();
 const C = new Function(cut("/*CRUNCH-START*/", "/*CRUNCH-END*/") + ";return CRUNCH;")();

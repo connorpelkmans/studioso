@@ -2,7 +2,7 @@
 // build-id.js and the error-ingest schema check.  Run: node tests/error-report.test.js
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const root = path.join(__dirname, "..");
-const s = fs.readFileSync(path.join(root, "index.html"), "utf8");
+const s = require("../scripts/app-files").source();
 const code = s.slice(s.indexOf("/*ERRREPORT-START*/"), s.indexOf("/*ERRREPORT-END*/"));
 assert(code.length > 1000, "core not found");
 const C = new Function(code + ";return ERRCORE;")();

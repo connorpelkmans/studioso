@@ -14,7 +14,11 @@ A batch folder can hold any of these files (all optional):
 import json, os, re, sys
 
 ROOT = "theme-batches"
-src = open("index.html", encoding="utf-8").read().split("\n")
+# The app is split into files (index.html, css/, js/; scripts/app-files.js): work on it as one page, then split it back.
+import subprocess, tempfile
+_tmp = tempfile.NamedTemporaryFile(suffix=".html", delete=False).name
+subprocess.run(["node", "scripts/app-files.js", "--bundle", _tmp], check=True, stdout=subprocess.DEVNULL)
+src = open(_tmp, encoding="utf-8").read().split("\n")
 
 def find(pred, start=0, what=""):
     for i in range(start, len(src)):
@@ -74,4 +78,6 @@ for b in batches:
     if t: put_sounds(b, json.loads(t))
     print("inserted", b)
 
-open("index.html", "w", encoding="utf-8").write("\n".join(src))
+open(_tmp, "w", encoding="utf-8").write("\n".join(src))
+subprocess.run(["node", "scripts/app-split.js", _tmp], check=True)
+os.unlink(_tmp)

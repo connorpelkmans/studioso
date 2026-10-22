@@ -12,7 +12,7 @@ const server = http.createServer((req, res) => {
   res.writeHead(200, {"content-type": mime[ext] || "application/octet-stream"});
   // The page as served with Pro enforcement off (everyone has Pro, as before launch); the free-plan checks turn it back on with the
   // test switch. The script hashes are recomputed so the page's own security policy still accepts it.
-  if (p === "/index.html") { res.end(csp.apply(fs.readFileSync(f, "utf8").replace("const PRO_ENFORCED = true;", "const PRO_ENFORCED = false;"))); return; }
+  if (p === "/index.html" || /^\/bundle\/[^/]+\.js$/.test(p)) { res.end((/\.html$/.test(p) ? csp.apply : String)(fs.readFileSync(f, "utf8").replace("const PRO_ENFORCED = true;", "const PRO_ENFORCED = false;"))); return; }
   fs.createReadStream(f).pipe(res);
 });
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };

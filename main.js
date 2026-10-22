@@ -1126,6 +1126,8 @@ if (GOT_LOCK) app.whenReady().then(async () => {
       h.set("X-Content-Type-Options", "nosniff");
       h.set("Referrer-Policy", "no-referrer");
       if (/\.html?$/.test(key)) h.set("Content-Security-Policy", dir === WIDGET_DIR ? WIDGET_CSP : appCsp());
+      // The page's code (js/) and styles (css/) are separate files: name their types, since nosniff refuses a script without one.
+      if (/\.m?js$/.test(key)) h.set("Content-Type", "text/javascript; charset=utf-8"); else if (/\.css$/.test(key)) h.set("Content-Type", "text/css; charset=utf-8");
       // The widget uses the app's own fonts, which need permission to be read from app://widget/.
       if (dir === APP_DIR && /^vendor\/fonts\//.test(served)) h.set("Access-Control-Allow-Origin", "app://widget");
       return new Response(r.body, { status: r.status, headers: h });

@@ -28,7 +28,7 @@ const server = http.createServer((req, res) => {
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {}};
 (async () => {
-  { const g = grabIn(fs.readFileSync(path.join(root, "index.html"), "utf8")); ok(g.now === g.withFresh.slice(g.withFresh.indexOf("/* LMS-GRAB-START"), g.withFresh.indexOf("/* LMS-GRAB-END */") + 18), "the cleaning code in index.html is current with lms.js (run: node scripts/build-lms-mobile.js --grab)"); }
+  { const g = grabIn(require("../scripts/app-files").source()); ok(g.now === g.withFresh.slice(g.withFresh.indexOf("/* LMS-GRAB-START"), g.withFresh.indexOf("/* LMS-GRAB-END */") + 18), "the cleaning code in index.html is current with lms.js (run: node scripts/build-lms-mobile.js --grab)"); }
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
   const ctx = await browser.newContext({viewport: {width: 1100, height: 900}, timezoneId: "UTC"});

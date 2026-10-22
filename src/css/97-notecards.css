@@ -1,0 +1,46 @@
+/* ===== module: 97-notecards.css ===== */
+/* Notes to Flashcards: the review sheet, the floating button, and the links between a note and its cards. Colors come from the theme variables, so dark mode follows. */
+.nc-sheet [hidden]{display:none!important}
+.nc-src{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;font-size:.9rem;color:var(--muted)}
+.nc-scope{display:inline-flex;border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:3px;gap:3px}
+.nc-scope button{min-height:44px;padding:0 14px;border:0;border-radius:9px;background:none;font-weight:600;color:var(--ink)}
+.nc-scope button[aria-pressed="true"]{background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.nc-count{margin:0;font-weight:700}
+.nc-list{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.nc-card{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:8px 12px 12px;display:grid;gap:6px;min-width:0}
+.nc-card.off{border-style:dashed;background:var(--bg)}
+.nc-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.nc-tick{display:inline-flex;align-items:center;gap:8px;min-height:44px;min-width:44px;font-weight:700;cursor:pointer}
+.nc-tick input{width:22px;height:22px;margin:0;accent-color:var(--accent)}
+.nc-kind{font-size:.75rem;font-weight:600;border-radius:6px;padding:1px 8px;background:var(--soft);color:var(--ink)}
+.nc-acts{margin-left:auto;display:flex;gap:6px}
+.nc-acts button{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:grid;place-items:center;padding:0}
+.nc-acts button[disabled]{opacity:.45;cursor:default}
+.nc-fields{display:grid;gap:8px}
+.nc-card textarea{min-height:64px}
+.nc-dup,.nc-none{margin:0}
+.nc-none{padding:14px;border:1px dashed var(--line);border-radius:12px;color:var(--muted)}
+.nc-ai-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+.nc-aibtn{min-height:44px;display:inline-flex;align-items:center;gap:6px}
+.nc-aimsg:empty{display:none}
+.nc-aimsg,.nc-aioff{margin:4px 0 0}
+.nc-deck{display:grid;gap:12px}
+.nc-sheet .btn,.nc-sheet .sheet-head .icon-btn{min-height:44px}
+.nc-sheet .sheet-head .icon-btn{width:44px;height:44px}
+.nc-sheet select,.nc-sheet input[type=text]{min-height:44px}
+.nc-float{position:fixed;z-index:9500;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 16px;border-radius:999px;border:0;background:var(--accent);color:var(--accent-ink);font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.3);cursor:pointer}
+.nc-float[hidden]{display:none}
+.nc-btn{display:inline-flex;align-items:center;gap:6px;max-width:100%;white-space:normal;text-align:left;line-height:1.25}
+.note-hbtns .nc-btn,.note-xbtns .nc-btn{flex:1 1 100%}
+.nc-made{display:block;text-align:left}
+.nc-chip,.nc-from{display:inline-flex;align-items:center;gap:5px;border:0;background:none;color:var(--accent);font-weight:600;font-size:.78rem;padding:2px 4px;border-radius:8px;cursor:pointer}
+.nc-chip{margin-top:6px}
+.nc-from{flex:0 0 auto;font-size:.8rem}
+.fc-row .nc-from{padding-right:2px}
+@media (pointer:coarse),(max-width:719px){
+  .nc-chip,.nc-from,.nc-made,.nc-btn{min-height:44px}
+  .nc-chip,.nc-from{padding:6px 8px}
+}
+@media (max-width:600px){
+  .nc-card{padding:6px 10px 10px}
+}

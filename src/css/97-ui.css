@@ -1,0 +1,85 @@
+/* ===== module: 97-ui.css ===== */
+/* ===== 97-ui: Settings in categories ===== */
+.us-sheet .us-back{display:none}
+.us-sheet .sheet-body{display:block}
+.us{--us-glow:color-mix(in srgb,var(--accent) 14%,transparent)}
+.us-search{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--field,var(--bg));border-radius:12px;padding:0 10px;min-height:44px;color:var(--muted);transition:border-color .15s,box-shadow .15s}
+.us-search:focus-within{border-color:color-mix(in srgb,var(--accent) 55%,var(--line));box-shadow:0 0 0 3px var(--us-glow)}
+.us-search svg{width:18px;height:18px;flex:none}
+.us-search input{border:0!important;background:none!important;padding:8px 0!important;min-width:0;flex:1;color:var(--ink);box-shadow:none!important;outline:none}
+.us-cats{display:grid;gap:4px}
+.us-cat{display:flex;align-items:center;gap:12px;border:0;background:none;color:var(--ink);text-align:left;border-radius:12px;padding:10px;cursor:pointer;min-height:44px;width:100%;transition:background .15s,box-shadow .15s}
+.us-cat:hover{background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.us-cat:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.us-ic{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:10px;color:var(--accent);background:color-mix(in srgb,var(--accent) 11%,var(--surface))}
+.us-ic svg{width:19px;height:19px}
+.us-ct{flex:1;min-width:0;display:grid;gap:1px}
+.us-ct b{font:600 .95rem var(--display)}
+.us-cs{font-size:.78rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.us-chev{flex:none;color:var(--muted);display:grid;place-items:center}
+.us-chev svg{width:16px;height:16px}
+.us-pane{display:none}
+.us-pane.on{display:block}
+.us-title{display:flex;align-items:center;gap:12px;margin:2px 0 8px}
+.us-title h3{margin:0;font:700 1.08rem var(--display)}
+.us-title p{margin:1px 0 0}
+.us-pane .menu-list{gap:2px}
+.us-pane .menu-list > button{width:100%;border-radius:0;padding-inline:8px;transition:background .15s}
+.us-pane .menu-list > button:hover{background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.us-pane .menu-list > .cap-row{padding-inline:8px}
+.us-pane .menu-list > :last-child{border-bottom:0}
+.us-pane .us-danger{margin-top:14px;border-top:1px solid var(--line)}
+.us-subs{display:flex;gap:4px;padding:4px;margin:0 0 10px;background:var(--soft);border:1px solid var(--line);border-radius:12px;overflow-x:auto;scrollbar-width:none}
+.us-subs::-webkit-scrollbar{display:none}
+.us-sub-tab{flex:1 0 auto;border:0;background:transparent;border-radius:9px;padding:8px 12px;font:600 .86rem var(--display);color:var(--muted);white-space:nowrap;min-height:38px;cursor:pointer}
+.us-sub-tab[aria-selected=true]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.us-sub-tab:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.us-pane.has-subs .us-sub{display:none}
+.us-pane.has-subs .us-sub.on{display:grid}
+.us.searching .us-subs{display:none}
+.us.searching .us-pane.has-subs .us-sub{display:grid}
+.us-pane > p.summary-sub{margin:14px 8px 4px;font-size:.82rem!important;line-height:1.45}
+.us-miss{display:none!important}
+.us-empty{margin:24px 8px;color:var(--muted);text-align:center}
+/* searching: every category with a match, one after another */
+.us.searching .us-pane{display:none}
+.us.searching .us-pane.us-hit{display:block;margin-bottom:14px}
+
+/* Wide screens: categories on the left, the chosen one on the right */
+@media (min-width:720px){
+  dialog:has(.us-sheet){width:min(900px,calc(100% - 32px));height:min(680px,90vh)}
+  .us-sheet{height:100%}
+  .us-sheet .sheet-body{flex:1;min-height:0;overflow:hidden;padding:0}
+  .us{display:grid;grid-template-columns:268px minmax(0,1fr);height:100%}
+  .us-nav{display:flex;flex-direction:column;gap:12px;padding:14px 12px;border-right:1px solid var(--line);overflow:auto;background:color-mix(in srgb,var(--soft,var(--bg)) 45%,var(--surface))}
+  .us-cat{padding:8px 10px}
+  .us-cat .us-cs,.us-cat .us-chev{display:none}
+  .us-cat[aria-selected="true"]{background:var(--surface);box-shadow:0 1px 2px rgba(8,20,50,.06),0 0 0 1px color-mix(in srgb,var(--accent) 22%,var(--line)),0 4px 16px var(--us-glow)}
+  .us-cat[aria-selected="true"] .us-ic{background:var(--accent);color:var(--accent-ink,#fff)}
+  .us.searching .us-cat{opacity:.5}
+  .us.searching .us-cat.us-has{opacity:1}
+  .us.searching .us-cat[aria-selected="true"]{box-shadow:none;background:none}
+  .us.searching .us-cat[aria-selected="true"] .us-ic{background:color-mix(in srgb,var(--accent) 11%,var(--surface));color:var(--accent)}
+  .us-main{overflow:auto;padding:16px 20px 20px;overscroll-behavior:contain}
+}
+
+/* Phones: a list of categories, then a category page with a Back button */
+@media (max-width:719px){
+  .us-sheet .sheet-body{padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+  .us-nav{display:grid;gap:12px}
+  .us-cat{padding:10px 8px;border:1px solid var(--line);background:var(--surface);border-radius:14px;min-height:60px}
+  .us-cat .us-ic{width:40px;height:40px;border-radius:12px}
+  .us-cats{gap:8px}
+  .us[data-view="home"] .us-main{display:none}
+  .us[data-view="cat"] .us-nav{display:none}
+  .us[data-view="cat"] .us-title{display:none}
+  .us-sheet:has(.us[data-view="cat"]:not(.searching)) .us-back{display:grid}
+  .us.searching .us-cats{display:none}
+  .us.searching .us-main{display:block}
+  .us.searching .us-nav{display:grid}
+  .us.searching .us-title{display:flex}
+  .us-back svg{width:20px;height:20px}
+}
+@media (prefers-reduced-motion:reduce){.us-cat,.us-search,.us-pane .menu-list > button{transition:none}}
+
+

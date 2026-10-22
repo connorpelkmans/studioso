@@ -1,6 +1,6 @@
 // Tests for note version history (undo), Notes to Word/Google Docs, and the Your Photo theme fixes.  Run: node tests/notes-docs-history.test.js
 const fs = require("fs"), path = require("path"), assert = require("assert"), cp = require("child_process"), os = require("os");
-const s = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const s = require("../scripts/app-files").source();
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 const between = (a, b) => { const i = s.indexOf(a), j = s.indexOf(b, i); assert(i >= 0 && j > i, "marker " + a); return s.slice(i + a.length, j); };
 

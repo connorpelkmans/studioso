@@ -2,7 +2,7 @@
 // Needs Playwright + Chromium (see tests/pw.js for how Playwright and Chromium are found).
 const fs = require("fs"), os = require("os"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
-const src = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const src = require("../scripts/app-files").source();
 const DSN = "https://0123456789abcdef0123456789abcdef@o4501.ingest.sentry.io/4507001";
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sb-err-"));
 // These pages patch the main script (a test DSN) and inject inline scripts to throw "app" errors, which the page's hash-based CSP would block.

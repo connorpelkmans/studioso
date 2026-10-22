@@ -1,7 +1,7 @@
 // node tests/lecture-chain.test.js  (the lecture to exam chain's pure part: which lecture dates an exam covers, and the deck's origins)
 // Loads the LECCHAIN block from index.html (module 99-lecture-chain) in Node.
 const fs = require("fs"), path = require("path"), assert = require("assert");
-const src = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const src = require("../scripts/app-files").source();
 const a = src.indexOf("/*LECCHAIN-START*/"), b = src.indexOf("/*LECCHAIN-END*/");
 assert(a > 0 && b > a, "the LECCHAIN block is in index.html");
 const L = new Function(src.slice(a, b) + "; return LECCHAIN;")();

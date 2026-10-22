@@ -1,6 +1,6 @@
 // Unit tests for the sync conflict policy (the SYNC-MERGE block in index.html). Run: node tests/sync-merge.test.js
 const fs = require("fs"), path = require("path"), vm = require("vm"), assert = require("assert");
-const src = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const src = require("../scripts/app-files").source();
 const a = src.indexOf("/* SYNC-MERGE-START"), b = src.indexOf("/* SYNC-MERGE-END */");
 assert(a > 0 && b > a, "SYNC-MERGE block not found");
 const SM = vm.runInNewContext(src.slice(a, b) + "\nSyncMerge;", {Date, JSON, Math, Map, Set, Uint16Array, Object, Array, String, Number, Promise});
