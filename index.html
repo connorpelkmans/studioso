@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!-- Content-Security-Policy: added by script (a static meta tag makes Chrome pre-scan the big inline script and request junk URLs). If your host can send headers, send the same policy as a header too. -->
-<script>try{var H=/*CSP-HASHES*/"'sha256-u6kV8EYZg9U58LoOAOPidYXuzDc8fGvKe+BFmraJuEA=' 'sha256-uhAYuiuOVkKDvPwcZp9adU5V1r1LmLEy0MjHAemfJw0='",lax=!H||/(^|\.)claudeusercontent\.com$/.test(location.hostname);var cm=document.createElement("meta");cm.httpEquiv="Content-Security-Policy";cm.content="default-src 'self'; script-src 'self' "+(lax?"'unsafe-inline'":H)+" https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: blob: data:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'";document.head.appendChild(cm)}catch(e){}</script>
+<script>try{var H=/*CSP-HASHES*/"'sha256-u6kV8EYZg9U58LoOAOPidYXuzDc8fGvKe+BFmraJuEA=' 'sha256-r/v4H2PTp51jWC9c/241sdO+BU8wDk6gOLKJg0+L8Bg='",lax=!H||/(^|\.)claudeusercontent\.com$/.test(location.hostname);var cm=document.createElement("meta");cm.httpEquiv="Content-Security-Policy";cm.content="default-src 'self'; script-src 'self' "+(lax?"'unsafe-inline'":H)+" https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: blob: data:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'";document.head.appendChild(cm)}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Studyboard</title>
 <link rel="canonical" href="https://studyboardapp.com/">
@@ -60180,6 +60180,8 @@ ${kindPreview("study")}${kindPreview("project")}`;
     members: gid => (S.members[gid] || []).map(m => ({id: m.user_id, name: m.display_name || "", color: m.color || ""})),
     // a member's picture as the group shows it (their companion in their colour, or initials)
     avatar: (gid, id, name) => av(name, id, gid),
+    // open a group on its Whiteboards tab
+    openBoards: gid => { if (!gid) return; S.tab[gid] = "boards"; openGroup(gid); },
     // load a group's members (names, colours, companions) when the group page hasn't yet; true when there's something new
     loadMembers: async gid => { if (!gid || !online()) return false; if ((S.members[gid] || []).length) return false; try { const ms = await api.members([gid]); if (ms && ms.length) { S.members[gid] = ms; return true; } } catch (e) {} return false; },
     groups: () => (Array.isArray(S.groups) ? S.groups : []).map(g => ({id: g.id, name: g.name, kind: g.kind || "study"}))};
@@ -107805,9 +107807,11 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     openSheet(`<div class="sheet">${head("Who Has This Board")}<div class="sheet-body"><p class="mini" style="margin:0" role="status">Loading…</p></div></div>`);
     const [a] = await Promise.all([access(g.bid, true), G() && G().loadMembers ? G().loadMembers(g.gid) : null]); if (!dlg.open) return;
     const ids = [...new Set(((a && a.ids) || []).concat(me()))].sort((x, y) => (y === me()) - (x === me()));
-    $(".sheet-body", dlg).innerHTML = `<p style="margin:0">Live with <b>${esc(g.gn || "your study group")}</b>: what anyone here draws or writes shows up for everyone as it happens.</p>
+    $(".sheet-body", dlg).innerHTML = `<div class="wbg-from"><span class="wbg-from-t"><span class="mini">Shared from</span><b>${esc(g.gn || "your study group")}</b></span>${G() && G().openBoards ? `<button type="button" class="btn small" id="wbGoGroup">Go to Group</button>` : ""}</div>
+      <p style="margin:0">Live: what anyone here draws or writes shows up for everyone as it happens.</p>
       <ul class="wbg-people">${ids.map(id => { const nm = memberName(g.gid, id); return `<li>${faceOf(g.gid, id)}${esc(nm)}</li>`; }).join("")}</ul>
       <p class="mini" style="margin:0">Anyone else in the group can add it from the group's Whiteboards tab. Deleting your copy only removes yours.</p>`;
+    const go = $("#wbGoGroup", dlg); if (go) go.addEventListener("click", () => { W.flush(); G().openBoards(g.gid); });
   }
   hook("wb-head", id => {
     const g = live(state.notes[id]); if (!g) return "";
@@ -107861,6 +107865,7 @@ html[data-theme=dark] .wb-livechip{color:#7FE3A6}
 .wbg-face{display:inline-flex;flex:none;border-radius:50%;box-shadow:0 0 0 2px var(--surface)}.wbg-face .grp-av{width:22px;height:22px;font-size:.6rem}.wbg-people .wbg-face{box-shadow:none}.wbg-people .wbg-face .grp-av{width:30px;height:30px;font-size:.74rem}
 .wbg-av{width:22px;height:22px;border-radius:50%;flex:none;display:inline-grid;place-items:center;background:var(--c);color:#fff;font:700 .7rem var(--display);box-shadow:0 0 0 2px var(--surface)}
 .wbg-acts{display:flex;gap:6px}.wbg-acts .btn{flex:1}
+.wbg-from{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;background:var(--soft);border:1px solid var(--line)}.wbg-from-t{flex:1;min-width:0;display:flex;flex-direction:column}.wbg-from-t b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wbg-people{list-style:none;margin:0;padding:0;display:grid;gap:8px}.wbg-people li{display:flex;align-items:center;gap:10px;font-weight:600}.wbg-people .wbg-av{width:28px;height:28px;font-size:.8rem}
 `;
   document.head.appendChild(css);
