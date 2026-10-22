@@ -239,7 +239,7 @@ async function quizShare(browser){
 async function studyGroup(browser, w){
   const tag = "study " + w + "px", {ctx, page, errs} = await boot(browser, w, {me: "u1"});
   await openGroup(page, "g1");
-  eq(await tabs(page), ["Study", "Sessions", "Challenge", "Chat", "Members"], tag + " tabs");
+  eq(await tabs(page), ["Study", "Sessions", "Challenge", "Whiteboards", "Chat", "Members"], tag + " tabs");
   ok(/study group/i.test(await txt(page, "#grpHead")) && await page.$("#grpHead.k-study") !== null, tag + " header says Study Group");
   ok(await page.$("#grpOverview") === null || (await page.$eval("#grpOverview", e => e.children.length)) === 0, tag + " no project overview in a study group");
   // Study tab: decks, quizzes, weak spots, Q&A
@@ -303,9 +303,9 @@ async function studyGroup(browser, w){
   await page.screenshot({path: path.join(shots, `gk-study-${w}-challenge.png`), fullPage: true});
   // creating a group shows what each kind comes with
   await act(page, "grp-back"); await page.waitForSelector("[data-grp-list]"); await act(page, "grp-new"); await sheet(page, ".gk-kind-note");
-  ok(/Quiz Battle/.test(await txt(page, "dialog .gk-kind-note:not([hidden])")) && await page.$$eval("dialog .gk-kind-note:not([hidden]) .gk-kind-tabs span", e => e.map(x => x.innerText).join()) === "Study,Sessions,Challenge,Chat,Members", tag + " the study preview lists its tabs");
+  ok(/Quiz Battle/.test(await txt(page, "dialog .gk-kind-note:not([hidden])")) && await page.$$eval("dialog .gk-kind-note:not([hidden]) .gk-kind-tabs span", e => e.map(x => x.innerText).join()) === "Study,Sessions,Challenge,Whiteboards,Chat,Members", tag + " the study preview lists its tabs");
   await page.click('dialog .grp-kind [data-kind="project"]');
-  ok(await page.$$eval("dialog .gk-kind-note:not([hidden]) .gk-kind-tabs span", e => e.map(x => x.innerText).join()) === "Overview,Tasks,Files,Meetings,Chat,Members" && /Create Project/.test(await txt(page, "#grpSave")), tag + " the project preview lists its tabs");
+  ok(await page.$$eval("dialog .gk-kind-note:not([hidden]) .gk-kind-tabs span", e => e.map(x => x.innerText).join()) === "Overview,Tasks,Files,Meetings,Whiteboards,Chat,Members" && /Create Project/.test(await txt(page, "#grpSave")), tag + " the project preview lists its tabs");
   await page.screenshot({path: path.join(shots, `gk-create-${w}.png`)});
   ok(errs.length === 0, tag + " no page errors " + errs.join(" | "));
   await ctx.close();
@@ -314,7 +314,7 @@ async function studyGroup(browser, w){
 async function projectGroup(browser, w){
   const tag = "project " + w + "px", {ctx, page, errs} = await boot(browser, w, {me: "u1"});
   await openGroup(page, "g2");
-  eq(await tabs(page), ["Overview", "Tasks", "Files", "Meetings", "Chat", "Members"], tag + " tabs");
+  eq(await tabs(page), ["Overview", "Tasks", "Files", "Meetings", "Whiteboards", "Chat", "Members"], tag + " tabs");
   ok(await page.$("#grpHead.k-project") !== null && /group project/i.test(await txt(page, "#grpHead")) && /Invite Teammates/.test(await txt(page, "#grpHead")), tag + " header says Group Project");
   ok(await page.evaluate(() => getComputedStyle(document.querySelector("#grpDetail")).getPropertyValue("--gk").trim()) === "#C9702B", tag + " the project has its own accent colour");
   // Overview
@@ -430,7 +430,7 @@ async function hideFeatures(browser){
   let {ctx, page, errs} = await boot(browser, 1280, {me: "u1", free: true});
   await openGroup(page, "g1");
   await page.click('[data-act="grp-edit"]'); await sheet(page, ".grp-feats");
-  eq(await page.$$eval("dialog .grp-feat:not(.is-pro) span", e => e.map(x => x.innerText)), ["Shared Decks", "Practice Quizzes", "Questions and Answers", "Deadlines", "Sessions", "Find a Time", "Chat"], "the owner sees every feature as a switch");
+  eq(await page.$$eval("dialog .grp-feat:not(.is-pro) span", e => e.map(x => x.innerText)), ["Shared Decks", "Practice Quizzes", "Questions and Answers", "Deadlines", "Sessions", "Find a Time", "Whiteboards", "Chat"], "the owner sees every feature as a switch");
   ok(await page.$$eval('dialog .grp-feat:not(.is-pro) input', e => e.every(x => x.checked)), "all on to start");
   const pro = await page.$$eval("dialog .grp-feat.is-pro", e => e.map(x => ({t: x.querySelector("span").innerText, badge: !!x.querySelector(".pro-badge"), locked: x.classList.contains("is-locked") && x.querySelector("input").disabled && !x.querySelector("input").checked})));
   ok(pro.length === 4 && pro.every(x => x.badge && x.locked) && pro.map(x => x.t).join() === "Most-Missed Cards,Weekly Challenge,Split Exam Topics,Live Quiz", "Pro features are listed with a PRO badge, greyed out and locked in a free group: " + JSON.stringify(pro));
@@ -438,7 +438,7 @@ async function hideFeatures(browser){
   for (const k of ["sessions", "chat", "qa"]) await page.uncheck(`dialog .grp-feat input[value="${k}"]`);
   await page.click("dialog #grpSave"); await page.waitForTimeout(700);
   eq(await page.evaluate(() => window.__DB.study_groups[0].hidden_features), ["qa", "sessions", "chat"], "saved on the group");
-  eq(await tabs(page), ["Study", "Members"], "the turned-off tabs are gone (and the Weekly Challenge is Pro): " + (await tabs(page)).join());
+  eq(await tabs(page), ["Study", "Whiteboards", "Members"], "the turned-off tabs are gone (and the Weekly Challenge is Pro): " + (await tabs(page)).join());
   ok(await page.$("#grpQA") === null && await page.isVisible("#grpDecks"), "Q&A left the Study tab, decks stayed");
   ok(await page.$('#grpHead [data-act="room-start"]') === null, "no Start a Session button without Sessions");
   await page.waitForTimeout(1500); ok(errs.length === 0, "hiding: no page errors while it keeps updating " + errs.join(" | "));
@@ -455,10 +455,10 @@ async function hideFeatures(browser){
   ({ctx, page, errs} = await boot(browser, 1280, {me: "u2"}));
   await page.evaluate(() => { window.__DB.study_groups[0].hidden_features = ["sessions", "chat"]; window.__DB.study_groups[1].hidden_features = ["files"]; });
   await openGroup(page, "g1");
-  eq(await tabs(page), ["Study", "Challenge", "Members"], "a member sees the owner's choice");
+  eq(await tabs(page), ["Study", "Challenge", "Whiteboards", "Members"], "a member sees the owner's choice");
   ok(await page.$('[data-act="grp-edit"]') === null, "and can't change it");
   await openGroup(page, "g2");
-  eq(await tabs(page), ["Overview", "Tasks", "Meetings", "Chat", "Members"], "a project can turn Files off too");
+  eq(await tabs(page), ["Overview", "Tasks", "Meetings", "Whiteboards", "Chat", "Members"], "a project can turn Files off too");
   await page.waitForTimeout(1200); ok(errs.length === 0, "member: no page errors " + errs.join(" | "));
   await ctx.close();
 }
@@ -470,7 +470,7 @@ async function createProject(browser){
   await page.fill('dialog input[name="name"]', "History Paper"); await page.fill('dialog input[name="due"]', await page.evaluate(() => window.__day(20)));
   await page.click("dialog #grpSave"); await page.waitForSelector("#grpDetail", {timeout: 8000}); await page.waitForTimeout(800);
   eq(await page.evaluate(() => window.__DB.study_groups.find(g => g.name === "History Paper").kind), "project", "creating a group project saves it as a project");
-  eq(await tabs(page), ["Overview", "Tasks", "Files", "Meetings", "Chat", "Members"], "and opens with the project tabs: " + (await tabs(page)).join());
+  eq(await tabs(page), ["Overview", "Tasks", "Files", "Meetings", "Whiteboards", "Chat", "Members"], "and opens with the project tabs: " + (await tabs(page)).join());
   // Each member picks a colour: asked right after making the project; their tasks on the board show in it
   await page.waitForSelector("dialog .mc-grid", {timeout: 8000});
   ok(/Pick Your Color/.test(await page.textContent("dialog .sheet-head")), "making a project asks for your colour");

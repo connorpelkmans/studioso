@@ -8,8 +8,8 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
 const T = "2026-10-03";
 
 // ---- tabs: each kind has its own set ----
-eq(K.tabIds("study"), ["study", "sessions", "challenge", "chat", "members"], "study group tabs");
-eq(K.tabIds("project"), ["overview", "tasks", "files", "meetings", "chat", "members"], "group project tabs");
+eq(K.tabIds("study"), ["study", "sessions", "challenge", "boards", "chat", "members"], "study group tabs");
+eq(K.tabIds("project"), ["overview", "tasks", "files", "meetings", "boards", "chat", "members"], "group project tabs");
 eq(K.tabIds("whatever"), K.tabIds("study"), "an unknown kind is a study group");
 eq([K.kindOf({kind: "project"}), K.kindOf({}), K.kindOf(null)], ["project", "study", "study"], "kindOf");
 ok(K.tabIds("study").every(t => t !== "tasks"), "study groups have no Tasks tab");

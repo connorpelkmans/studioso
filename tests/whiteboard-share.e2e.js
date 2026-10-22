@@ -1,8 +1,8 @@
 // node tests/whiteboard-share.e2e.js  (Playwright + Chromium; the server is an in-memory stand-in)
 // Sharing whiteboards: Share a Copy makes a link (share_item, kind "board") with the drawing, text and pictures; opening the link shows the
 // board and Save to My Whiteboards adds a copy. Share With a Study Group makes a live board: the board and everything on it go to the
-// group's log, new strokes follow in batches, changes from others show up at once (and are saved), a member's app adds group boards it
-// doesn't have yet, and deleting your copy doesn't bring it back.
+// group's log, new strokes follow in batches, changes from others show up at once (and are saved). A member sees it in the group's Whiteboards
+// tab (preview, who has it), adds it, opens it from its preview, sees who has access, and deleting their copy takes them off its list.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -18,8 +18,8 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     wbInk: [{id: "s1", t: "pen", c: "blue", w: 70, d: "gHgHgBgB", at: 1}], wbItems: [{id: "t1", k: "t", x: 500, y: 500, s: "G1 -> S -> G2 -> M", c: "red", f: 90, at: 1}]}]};
 // The server: share links, plus the group tables, kept in the page (one page per test user) and readable by the test
 function fake(opts){
-  const DB = window.__DB = {items: [], study_profiles: [{user_id: opts.me, display_name: "Connor"}], study_groups: opts.groups || [], group_members: [], group_items: [], group_messages: [], group_blocks: [],
-    group_boards: opts.boards || [], group_board_ops: opts.ops || [], chans: [], calls: []};
+  const DB = window.__DB = {items: [], study_profiles: [{user_id: opts.me, display_name: "Connor"}], study_groups: opts.groups || [], group_members: opts.members || [], group_items: [], group_messages: [], group_blocks: [],
+    group_boards: opts.boards || [], group_board_ops: opts.ops || [], group_board_people: opts.people || [], chans: [], calls: []};
   let opId = 100 + (opts.ops || []).length;
   window.__sbShareStub = async (fn, a) => { DB.calls.push(fn);
     if (fn === "share_item") { let i = DB.items.find(x => x.kind === a.p_kind && x.ref_id === a.p_ref); if (!i) { i = {code: "WBRD-000" + (DB.items.length + 1), kind: a.p_kind, ref_id: a.p_ref, saves: 0}; DB.items.push(i); } Object.assign(i, {title: a.p_title, data: a.p_data, updated_at: new Date().toISOString()}); return i.code; }
@@ -32,6 +32,8 @@ function fake(opts){
     const st = {f: [], op: "select", one: false, rows: null, lim: 0, gt: null};
     const run = async () => {
       await new Promise(r => setTimeout(r, 5));
+      if (st.op === "delete") { const keep = (DB[t] || []).filter(r => !st.f.every(f => f(r))); const n0 = (DB[t] || []).length; DB[t] = keep; return {data: null, error: null, count: n0 - keep.length}; }
+      if (st.op === "upsert") { const r = Object.assign({user_id: opts.me, added_at: new Date().toISOString()}, st.rows); if (!(DB[t] || []).some(x => x.board_id === r.board_id && x.user_id === r.user_id)) DB[t].push(r); return {data: null, error: null}; }
       if (st.op === "insert") {
         const rows = (Array.isArray(st.rows) ? st.rows : [st.rows]).map(r => { const o = Object.assign({}, r); if (t === "group_board_ops") { o.id = ++opId; o.user_id = opts.me; } if (t === "group_boards") { o.id = o.id || "b" + (DB.group_boards.length + 1); o.deleted = false; o.created_by = opts.me; } return o; });
         DB[t].push(...rows); return {data: st.one ? rows[0] : rows, error: null};
@@ -42,11 +44,12 @@ function fake(opts){
     };
     const api = {select() { return api; }, eq(c, v) { st.f.push(r => r[c] === v); return api; }, neq(c, v) { st.f.push(r => r[c] !== v); return api; }, gt(c, v) { st.f.push(r => r[c] > v); return api; }, in(c, v) { st.f.push(r => v.includes(r[c])); return api; },
       order() { return api; }, limit(k) { st.lim = k; return api; }, gte() { return api; }, or() { return api; }, maybeSingle() { st.one = true; return api; }, single() { st.one = true; return api; },
-      insert(r) { st.op = "insert"; st.rows = r; return api; }, upsert() { return api; }, update() { st.op = "update"; return api; }, delete() { st.op = "delete"; return api; },
+      insert(r) { st.op = "insert"; st.rows = r; return api; }, upsert(r) { st.op = "upsert"; st.rows = r; return api; }, update() { st.op = "update"; return api; }, delete() { st.op = "delete"; return api; },
       then(res, rej) { return run().then(res, rej); }};
     return api;
   };
-  const client = {from: mk, rpc: async fn => ({data: fn === "my_username" ? "connor" : fn === "my_age" ? 20 : null, error: null}), removeChannel(c) { c.closed = true; },
+  const client = {from: mk, rpc: async (fn, a) => { if (fn === "group_board_preview") { const b = DB.group_boards.find(x => x.id === a.p_board); if (b) b.preview = a.p_preview; DB.calls.push(fn); return {data: null, error: null}; }
+      return {data: fn === "my_username" ? "connor" : fn === "my_age" ? 20 : null, error: null}; }, removeChannel(c) { c.closed = true; },
     channel: name => { const c = {name, subs: [], on(ev, f, cb) { c.subs.push({f, cb}); return c; }, subscribe(cb) { if (cb) cb("SUBSCRIBED"); return c; }}; DB.chans.push(c); return c; }};
   window.__sbGroupsStub = {user: {id: opts.me, email: opts.me + "@x.com"}, client};
   window.__SB_TEST = true;
@@ -96,6 +99,8 @@ function fake(opts){
       ok(db.ops.length >= 1 && JSON.stringify(sentIds) === JSON.stringify(["is1".replace("is1", "it1"), "ss1"].sort()) && db.ops.every(o => o.board_id === "b1" && o.group_id === "g1" && o.tag), "and sends what's already on it: " + sentIds.join(", "));
       const st = await S(page), wb = Object.values(st.notes).find(x => x.id === "wb1");
       ok(wb.wb.g && wb.wb.g.bid === "b1" && wb.wb.g.gn === "Bio Squad" && await page.locator(".wb-livechip.on").count() === 1 && /Live with Bio Squad/.test(await page.locator(".wb-livechip").textContent()), "the board shows Live with Bio Squad");
+      await page.waitForTimeout(700);
+      ok(await page.evaluate(() => __DB.group_board_people.some(r => r.board_id === "b1" && r.user_id === "u1") && __DB.calls.includes("group_board_preview") && /^data:image\/jpeg/.test(__DB.group_boards[0].preview || "")), "sharing puts you on its list and sends a preview picture for the group's Whiteboards tab");
       // draw: a batch goes out
       const F = await page.evaluate(() => { const r = document.querySelector(".wb-frame").getBoundingClientRect(); return {x: r.left, y: r.top}; });
       await page.evaluate(() => SBWB.setTool("pen"));
@@ -125,17 +130,33 @@ function fake(opts){
       const seed2 = Object.assign({}, SEED, {notes: []});
       const ops = [{id: 101, board_id: "b9", group_id: "g1", user_id: "u1", tag: "x", ch: [{t: "s", id: "a1", v: {id: "a1", t: "pen", c: "red", w: 70, d: "gHgHgBgB", at: 1}}]},
         {id: 102, board_id: "b9", group_id: "g1", user_id: "u1", tag: "x", ch: [{t: "i", id: "a2", v: {id: "a2", k: "t", x: 100, y: 100, s: "Hello group", c: "blue", f: 60, at: 1}}]}];
-      const {ctx, page} = await boot({me: "u2", seed: seed2, groups: [{id: "g1", name: "Bio Squad"}], boards: [{id: "b9", group_id: "g1", name: "Group Brainstorm", tpl: "concept", deleted: false}], ops,
+      const {ctx, page} = await boot({me: "u2", seed: seed2, groups: [{id: "g1", name: "Bio Squad"}], boards: [{id: "b9", group_id: "g1", name: "Group Brainstorm", tpl: "concept", deleted: false, created_by: "u1", preview: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="}], ops,
+        people: [{board_id: "b9", group_id: "g1", user_id: "u1"}], members: [{group_id: "g1", user_id: "u1", role: "owner", display_name: "Maya", joined_at: "2026-01-01"}, {group_id: "g1", user_id: "u2", role: "member", display_name: "Connor", joined_at: "2026-01-02"}],
         shared: [Object.assign({}, sharedRow, {code: "WBRD-0001"})]});
       await page.waitForTimeout(800);
-      let st = await S(page), gb = Object.values(st.notes).find(x => x.wb && x.wb.g && x.wb.g.bid === "b9");
-      ok(gb && gb.text === "Group Brainstorm" && gb.wb.tpl === "concept" && gb.wb.g.gn === "Bio Squad" && (gb.wbInk || []).length === 1 && (gb.wbItems || [])[0].s === "Hello group", "a member's Whiteboard gets the group's board, with everything drawn on it so far");
-      // delete your copy: it doesn't come back
-      await page.evaluate(id => { SBWB.open(id); }, gb.id); await page.waitForTimeout(300);
-      await act(page, "wb-opts"); await page.click('dialog[open] [data-wbo="del"]'); await page.click("dialog[open] [data-submit]"); await page.waitForTimeout(300);
-      await page.evaluate(() => SBWB.share.discover()); await page.waitForTimeout(400);
+      let st = await S(page);
+      ok(!Object.values(st.notes).some(x => x.wb && x.wb.g && x.wb.g.bid === "b9"), "a group's board doesn't arrive by itself: the member chooses to add it");
+      // the group's Whiteboards tab: a preview, who has it, Add to My Whiteboards
+      await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "grp-page"; document.body.appendChild(b); b.click(); b.remove(); });
+      await page.waitForSelector('[data-act="grp-open"][data-id="g1"]'); await page.click('[data-act="grp-open"][data-id="g1"]'); await page.waitForSelector("#grpDetail"); await page.waitForTimeout(400);
+      ok(await page.locator('[data-act="grp-tab"][data-t="boards"]').count() === 1, "study groups have a Whiteboards tab");
+      await page.click('[data-act="grp-tab"][data-t="boards"]'); await page.waitForSelector(".wbg-card"); 
+      ok(/Group Brainstorm/.test(await page.locator(".wbg-card").textContent()) && /Maya has it/.test(await page.locator(".wbg-card .wbg-who").textContent()) && await page.locator('.wbg-card img[src^="data:image/png"]').count() === 1, "it lists the shared board with its preview and who has it: " + await page.locator(".wbg-card .wbg-who").textContent());
+      await page.click('.wbg-card [data-act="grp-wb-add"]'); await page.waitForTimeout(600);
+      st = await S(page); let gb = Object.values(st.notes).find(x => x.wb && x.wb.g && x.wb.g.bid === "b9");
+      ok(gb && gb.text === "Group Brainstorm" && gb.wb.tpl === "concept" && gb.wb.g.gn === "Bio Squad" && (gb.wbInk || []).length === 1 && (gb.wbItems || [])[0].s === "Hello group", "Add to My Whiteboards adds it, with everything drawn on it so far");
+      ok(await page.evaluate(() => __DB.group_board_people.some(r => r.board_id === "b9" && r.user_id === "u2")) && /You and Maya have it/.test(await page.locator(".wbg-card .wbg-who").textContent()) && await page.locator('.wbg-card [data-act="grp-wb-open"].btn').count() === 1, "it records that you have it, and the card says so");
+      // tapping the preview opens it in Whiteboard
+      await page.click(".wbg-card .wbg-pv"); await page.waitForTimeout(500);
+      ok(await page.evaluate(id => SBWB.on() && SBWB.curId() === id, gb.id), "tapping its preview opens it in your Whiteboard tab");
+      ok(/Live with Bio Squad · 2 people/.test(await page.locator(".wb-livechip").textContent()), "the board shows who has it: " + await page.locator(".wb-livechip").textContent());
+      await page.click(".wb-livechip"); await page.waitForSelector("dialog[open] .wbg-people li");
+      ok(await page.locator("dialog[open] .wbg-people li").count() === 2 && /Maya/.test(await page.locator("dialog[open] .wbg-people").textContent()), "its panel lists who has access");
+      await page.keyboard.press("Escape"); await page.waitForTimeout(150);
+      // delete your copy: you're off its list, and it doesn't come back
+      await act(page, "wb-opts"); await page.click('dialog[open] [data-wbo="del"]'); await page.click("dialog[open] [data-submit]"); await page.waitForTimeout(400);
       st = await S(page);
-      ok(!Object.values(st.notes).some(x => x.wb && x.wb.g && x.wb.g.bid === "b9") && (st.settings.wbGone || []).includes("b9"), "deleting your copy leaves the group board for you (it isn't added back)");
+      ok(!Object.values(st.notes).some(x => x.wb && x.wb.g && x.wb.g.bid === "b9") && (st.settings.wbGone || []).includes("b9") && await page.evaluate(() => !__DB.group_board_people.some(r => r.board_id === "b9" && r.user_id === "u2")), "deleting your copy removes it for you and takes you off its list");
       // open the shared link
       await page.evaluate(() => SBSHARE.open("WBRD-0001")); await page.waitForSelector("dialog[open] #wbShSave");
       await page.waitForFunction(() => { const i = document.getElementById("wbShImg"); return i && i.naturalWidth > 0; });
