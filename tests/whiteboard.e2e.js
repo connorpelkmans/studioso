@@ -247,7 +247,14 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     const soft = (await live()).strokes.find(s => s.id === longId);
     ok((await live()).strokes.length === nS2 && soft && soft.x && soft.x.every(e => e[3] < 1), "the soft eraser keeps the line whole and fades it where it's rubbed");
     const a0 = await inkAt([F.x + 600, F.y + 450]);
-    ok(a0 < 255 && await inkAt([F.x + 380, F.y + 450]) > 200, "partly see-through where rubbed: " + a0);
+    ok(a0 > 110 && a0 < 215 && await inkAt([F.x + 380, F.y + 450]) > 200, "one soft pass only fades it (most of the ink stays): " + a0);
+    await stroke([[F.x + 600, F.y + 400], [F.x + 600, F.y + 500]]);
+    const a1 = await inkAt([F.x + 600, F.y + 450]);
+    ok(a1 < a0 - 30 && a1 > 20, "a second pass takes more: " + a0 + " then " + a1);
+    await page.keyboard.press("Control+z"); await page.keyboard.press("Control+z"); await wb("eh", 1);
+    await stroke([[F.x + 600, F.y + 400], [F.x + 600, F.y + 500]]);
+    const am = await inkAt([F.x + 600, F.y + 450]);
+    ok(am < a0 - 40 && am > 20, "medium takes more than soft, but not all of it: " + am);
     await page.keyboard.press("Control+z"); await wb("eh", 2);
     // the eraser on typed text: Erase Parts takes only the letters it passes over
     await wb("tool", "text"); await page.mouse.click(F.x + 150, F.y + 330); await page.waitForTimeout(60);

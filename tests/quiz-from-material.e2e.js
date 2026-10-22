@@ -12,8 +12,8 @@ const SEED = {v: 2, updated: 1, courses: [{id: "c1", name: "Biology", code: "BIO
   await page.goto("file://" + path.resolve(__dirname, "..", "index.html")); await page.waitForTimeout(1200);
   await page.evaluate(() => { document.querySelectorAll("dialog[open]").forEach(d => d.close()); __sbSync.ui.tab = "flashcards"; __sbSync.ui.rvView = "quizzes"; __sbSync.render(); });
   await page.waitForTimeout(300);
-  ok(await page.evaluate(() => !!document.querySelector('#view .view-head [data-act="qz-add"]')), "Quizzes has a New Quiz button");
-  await page.click('#view .view-head [data-act="qz-add"]'); await page.waitForTimeout(300);
+  ok(await page.evaluate(() => !document.querySelector('#view .view-head [data-act="qz-add"]') && /Add Quiz/.test((document.querySelector("#fab") || {}).textContent || "")), "Quizzes adds a quiz with the + Add Quiz button (no extra New Quiz button)");
+  await page.click("#fab"); await page.waitForTimeout(300);
   ok(await page.evaluate(() => { const b = [...document.querySelectorAll('dialog[open] [data-act="qz-ai"],dialog[open] [data-act="qz-from-deck"]')]; return b.length === 2 && b[0].dataset.act === "qz-ai"; }), "it offers From Slides or Notes first, then From a Deck");
   await page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
   // the review step for a quiz made from material

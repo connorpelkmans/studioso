@@ -55,7 +55,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       ok(it && f && /\.webp$/.test(f.name) && f.folderId === "notes" && f.courseId === "c1", "Add a Picture stores it as a file (WebP, in the board's course): " + (f && f.name));
       ok(Math.abs(it.w / it.h - 4 / 3) < 0.02, "it keeps its shape: " + it.w + " x " + it.h);
       ok(await page.locator(".wb-imgs .wb-img img").count() === 1 && await page.locator(".wb-selbar:not([hidden])").count() === 1 && await page.evaluate(() => SBWB.tool()) === "select", "it shows on the board, selected, with Select on");
-      ok((await page.locator('.wb-selbar [data-wb="restyle-menu"]').textContent()).includes("Draw in Marker"), "its menu offers Draw in Marker (which opens the drawing styles)");
+      ok((await page.locator('.wb-selbar [data-wb="restyle-menu"]').textContent()).includes("Draw"), "its menu offers Draw (which opens the drawing styles)");
       // right after a reload sign-in may still be coming back: a picture whose first loads fail is tried again soon, not shown as missing
       await page.evaluate(async () => {
         const T = window.__sbProStudy, NP = window.__sbNotePhotos, IO = SBWB.pictures.IO, b0 = IO.bytes; let fails = 0;
