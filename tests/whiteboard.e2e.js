@@ -60,6 +60,15 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await frameBox();
     const z0 = (await page.evaluate(() => SBWB.cam())).z;
     ok(z0 < 0.4, "a new board opens showing the whole board: " + z0);
+    // the board's own colour: light or dark whatever the app uses
+    const bg = () => page.evaluate(() => getComputedStyle(document.querySelector(".wb-back")).backgroundColor);
+    const light0 = await bg();
+    await page.click('.wb-zoom [data-wb="theme"]'); await page.waitForTimeout(150);
+    ok(await page.evaluate(() => document.querySelector(".wb-stage").classList.contains("wb-dk")) && await bg() !== light0 && !(await page.evaluate(() => document.documentElement.getAttribute("data-theme") === "dark")), "the moon button makes the board dark while the app stays light");
+    await act("wb-opts"); await page.waitForSelector('dialog[open] input[name="wbTheme"]');
+    ok(await page.isChecked('dialog[open] input[name="wbTheme"][value="dark"]'), "Options shows Board Color: Dark");
+    await page.click('dialog[open] .wb-start label:has(input[value="auto"])'); await page.click("dialog[open] [data-submit]"); await page.waitForTimeout(200);
+    ok(!(await page.evaluate(() => document.querySelector(".wb-stage").classList.contains("wb-dk"))) && await bg() === light0, "Match App puts it back to the app's light board");
     await page.click('.wb-zoom [data-wb="zoom-reset"]'); await page.waitForTimeout(100);
     ok((await page.evaluate(() => SBWB.cam())).z === 1 && /100%/.test(await page.locator(".wbz-pct").textContent()), "100% zooms to full size");
 
