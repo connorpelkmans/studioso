@@ -24,7 +24,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     ctx.ai = [];
     await ctx.route(/generativelanguage\.googleapis\.com/, route => {
       const body = route.request().postData() || ""; ctx.ai.push(body);
-      const reply = /picture of a student's whiteboard/.test(body) ? {title: "Cell Division", notes: NOTES} : /lecture study notes into flashcards/.test(body) ? {cards: CARDS} : {};
+      const reply = /You read handwriting drawn on a whiteboard/.test(body) ? {found: true, text: "Mitosis"} : /picture of a student's whiteboard/.test(body) ? {title: "Cell Division", notes: NOTES} : /lecture study notes into flashcards/.test(body) ? {cards: CARDS} : {};
       route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({candidates: [{content: {parts: [{text: JSON.stringify(reply)}]}, finishReason: "STOP"}]})});
     });
     await ctx.route(/supabase\.co/, r => r.abort());
@@ -62,6 +62,20 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       const decks = Object.values(st.decks), cards = decks.flatMap(d => d.cards || []);
       ok(cards.length === 2 && cards.every(c => c.draft && c.srcNote === made.id) && decks[0].courseId === "c1", "with “and flashcards”, two draft cards are made from the notes in Biology's deck: " + cards.length);
       ok(!page.errs.length, "no page errors: " + page.errs.join(" | "));
+      // handwriting to text (Pro): select drawn lines, tap A, and they become typed text in their place
+      await page.click('.nv-tabs [data-id="wb"]'); await page.waitForSelector(".wb-stage .wb-frame"); await page.waitForTimeout(300);
+      await page.evaluate(() => SBWB.setTool("pen"));
+      const fr = await page.evaluate(() => { const r = document.querySelector(".wb-frame").getBoundingClientRect(); return [r.left, r.top]; });
+      for (const [x0, y0] of [[300, 300], [340, 300]]) { await page.mouse.move(fr[0] + x0, fr[1] + y0); await page.mouse.down(); for (let q = 1; q <= 6; q++) await page.mouse.move(fr[0] + x0 + q * 3, fr[1] + y0 + q * 8, {steps: 2}); await page.mouse.up(); await page.waitForTimeout(80); }
+      const sids = await page.evaluate(() => SBWB.board().strokes.map(x => "s" + x.id));
+      await page.evaluate(ids => { SBPRO.locked = () => true; SBWB.select(ids); }, sids); await page.waitForTimeout(80);
+      ok(await page.locator('.wb-selbar [data-wb="ink-text"] .wb-pro').count() === 1 && await page.evaluate(() => { const a = document.querySelector('.wb-selbar [data-wb="ink-text"]'); return a.nextElementSibling && a.nextElementSibling.dataset.wb === "sel-copy"; }), "drawn lines get an A button (Pro) just before Duplicate");
+      await page.evaluate(ids => { SBPRO.locked = () => false; SBWB.select([]); SBWB.select(ids); }, sids); await page.waitForTimeout(80);
+      await page.click('.wb-selbar [data-wb="ink-text"]'); await page.waitForTimeout(1200);
+      const b2 = await page.evaluate(() => SBWB.board());
+      ok(ctx.ai.some(x => /You read handwriting/.test(x) && /image\/png/.test(x)) && b2.strokes.length === 0 && b2.items.some(i => i.k === "t" && i.s === "Mitosis"), "the AI reads the writing and it becomes typed text in its place");
+      await page.evaluate(() => SBWB.undo()); await page.waitForTimeout(80);
+      ok((await page.evaluate(() => SBWB.board())).strokes.length === sids.length, "Undo brings the handwriting back");
       await ctx.close();
     }
     {
