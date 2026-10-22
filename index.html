@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!-- Content-Security-Policy: added by script (a static meta tag makes Chrome pre-scan the big inline script and request junk URLs). If your host can send headers, send the same policy as a header too. -->
-<script>try{var H=/*CSP-HASHES*/"'sha256-u6kV8EYZg9U58LoOAOPidYXuzDc8fGvKe+BFmraJuEA=' 'sha256-W6RYGXx5NZNZ7Wq4DC2r2eh7YmYdFWsZiNWZY5kk/34='",lax=!H||/(^|\.)claudeusercontent\.com$/.test(location.hostname);var cm=document.createElement("meta");cm.httpEquiv="Content-Security-Policy";cm.content="default-src 'self'; script-src 'self' "+(lax?"'unsafe-inline'":H)+" https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: blob: data:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'";document.head.appendChild(cm)}catch(e){}</script>
+<script>try{var H=/*CSP-HASHES*/"'sha256-u6kV8EYZg9U58LoOAOPidYXuzDc8fGvKe+BFmraJuEA=' 'sha256-YnqQmU/jFLK8kDaub18sHIEVWkQxphWnDPQ74AfmVG8='",lax=!H||/(^|\.)claudeusercontent\.com$/.test(location.hostname);var cm=document.createElement("meta");cm.httpEquiv="Content-Security-Policy";cm.content="default-src 'self'; script-src 'self' "+(lax?"'unsafe-inline'":H)+" https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: blob: data:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'";document.head.appendChild(cm)}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Studyboard</title>
 <link rel="canonical" href="https://studyboardapp.com/">
@@ -100358,7 +100358,7 @@ var SBPRO = null;
   const clampZ = z => { z.s = Math.max(1, Math.min(6, z.s)); z.x = Math.min(0, Math.max(1 - z.s, z.x)); z.y = Math.min(0, Math.max(1 - z.s, z.y)); if (z.s <= 1.001) Object.assign(z, {s: 1, x: 0, y: 0}); return z; };
   function zoomAt(z, s, p){ const cx = (p.x - z.x) / z.s, cy = (p.y - z.y) / z.s; z.s = Math.max(1, Math.min(6, s)); z.x = p.x - cx * z.s; z.y = p.y - cy * z.s; return clampZ(z); }
   function zoomBy(z, dir){ return dir === "fit" ? clampZ(Object.assign(z, {s: 1})) : zoomAt(z, z.s * (dir === "in" ? 1.5 : 1 / 1.5), {x: 0.5, y: 0.5}); }
-  const zoomBar = act => `<div class="ic-zbar" role="group" aria-label="Zoom"><button type="button" class="btn small" data-act="${act}" data-id="out" aria-label="Zoom out">−</button><button type="button" class="btn small" data-act="${act}" data-id="in" aria-label="Zoom in">+</button><button type="button" class="btn small" data-act="${act}" data-id="fit">Fit</button></div>`;
+  const zoomBar = act => `<div class="ic-zbar" role="group" aria-label="Zoom"><button type="button" class="btn small ic-zb" data-act="${act}" data-id="out" aria-label="Zoom out"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></button><button type="button" class="btn small ic-zb" data-act="${act}" data-id="in" aria-label="Zoom in"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button><button type="button" class="btn small" data-act="${act}" data-id="fit">Fit</button></div>`;
   // Pinch, two-finger pan and Ctrl + scroll on a frame; one finger pans too when opts.pan() says so. A pan swallows the click that follows.
   function zoomer(st, inner, z, opts){
     if (!st || !inner || st.dataset.zw) return; st.dataset.zw = "1";
@@ -100726,7 +100726,8 @@ var SBPRO = null;
     const skip = $("#ocSkip"); if (skip) skip.textContent = it.edit ? "Cancel" : "Skip Picture";
     b.innerHTML = `<p class="mini" style="margin:0">${OC.queue.length > 1 ? `Picture ${OC.i + 1} of ${OC.queue.length}` : "Picture"}${it.src ? " · " + esc(it.src) : ""}</p>
       ${it.aiBusy ? `<p class="oc-note" role="status">${AI_ICON} AI is finding the labels…</p>` : it.aiMsg ? `<p class="oc-note" role="status">${esc(it.aiMsg)}</p>` : it.edit ? `<p class="oc-note">Move, resize or add boxes and fix any answer. Cards you keep remember how well you know them.</p>` : n && it.found ? `<p class="oc-note">Found ${n} label${n === 1 ? "" : "s"} and hid ${n === 1 ? "it" : "them"}. Drag a box to move it, or draw one more. Each box becomes its own card.</p>` : `<p class="oc-note">Drag over each label to hide it${aiOn() ? ", and AI fills in what's under it" : ""}. Each box becomes its own card.</p>`}
-      <div class="oc-tools" role="toolbar" aria-label="Drawing tools"><div class="segb" role="group" aria-label="Shape to draw">${TOOLS.map(([k, l]) => `<button type="button" data-act="pro-oc-tool" data-id="${k}" aria-pressed="${OC.tool === k}">${l}</button>`).join("")}</div>
+      <div class="oc-tools" role="toolbar" aria-label="Drawing tools"><div class="segb" role="group" aria-label="Shape to draw">${TOOLS.filter(([k]) => k !== "pan").map(([k, l]) => `<button type="button" data-act="pro-oc-tool" data-id="${k}" aria-pressed="${OC.tool === k}">${l}</button>`).join("")}</div>
+        <button type="button" class="btn small oc-pan" data-act="pro-oc-tool" data-id="pan" aria-pressed="${OC.tool === "pan"}" title="Drag to move around the picture">Pan</button>
         <button type="button" class="btn small" data-act="pro-oc-undo"${undoN ? "" : " disabled"}>Undo</button>${zoomBar("pro-oc-zoom")}</div>
       <div class="oc-stage${OC.zoom.s > 1 ? " zoomed" : ""} tool-${OC.tool}" style="--ar:${(it.w / it.h).toFixed(4)}" data-oc-stage><span class="oc-pad" aria-hidden="true"></span><div class="oc-zoom" style="transform:${zoomT(OC.zoom)}">${url && url !== "x" ? `<img src="${esc(url)}" alt="" draggable="false">` : `<span class="ci-wait">Loading the picture…</span>`}
         ${it.boxes.map((x, j) => `<i class="oc-box${sel.includes(j) ? " sel" : ""}${x.g ? " grp" : ""}" data-oc-box="${j}" style="left:${x.x * 100}%;top:${x.y * 100}%;width:${x.w * 100}%;height:${x.h * 100}%">${shapeSvg(x.s)}<b>${num[j]}</b>${one === j ? ["nw", "ne", "sw", "se"].map(h => `<span class="oc-h ${h}" data-oc-h="${h}"></span>`).join("") : ""}</i>`).join("")}</div></div>
@@ -101140,6 +101141,8 @@ button.ci-box:focus-visible{outline:3px solid var(--ink);outline-offset:2px;z-in
 .ic-frame.zoomed{touch-action:none;cursor:grab}
 .ic-zbar{display:flex;gap:6px;justify-content:center}
 .ic-zbar .btn{min-width:40px}
+.ic-zbar .ic-zb{padding:0!important;width:44px;height:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+.ic-zbar .ic-zb svg{display:block}
 .ic-q{margin:0;text-align:center;color:var(--muted)}
 .ic-study .ci-ans{margin:0;text-align:center;font-size:1.2rem}
 .ic-type{display:flex;gap:8px}
@@ -101171,6 +101174,7 @@ button.ci-box:focus-visible{outline:3px solid var(--ink);outline-offset:2px;z-in
 .oc-free{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
 .oc-free polyline{fill:color-mix(in srgb,var(--accent) 35%,transparent);stroke:var(--accent);stroke-width:2;vector-effect:non-scaling-stroke}
 .oc-tools .segb{flex-wrap:wrap}
+.oc-tools .oc-pan[aria-pressed="true"]{background:var(--sel,var(--accent));color:var(--sel-ink,#fff);border-color:transparent}
 .oc-tools .ic-zbar{margin-left:auto}
 .oc-modes{border:1px solid var(--line);border-radius:12px;padding:8px 12px 10px;margin:0;display:grid;gap:8px}
 .oc-modes legend{font-weight:600;padding:0 4px}
