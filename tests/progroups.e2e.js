@@ -270,6 +270,11 @@ const DB = (page, f) => page.evaluate(f);
     await click(page, "grp-color", await DB(page, () => window.__DB.study_groups[0].id)); await page.waitForSelector("#dlg[open] .mc-grid");
     ok(await page.locator("#dlg[open] .mc-any.is-locked .pro-badge").count() === 1 && await page.locator("#dlg[open] #mcAny").count() === 0, "a free group shows Any Color locked, with the PRO badge");
     await page.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); }); await page.waitForTimeout(200);
+    // with Studyboard Pro yourself, Any Color is open in any group
+    await page.evaluate(() => { const P = window.__sbPlanObj(); window.__proWas = P.isPro; P.isPro = () => true; });
+    await click(page, "grp-color", await DB(page, () => window.__DB.study_groups[0].id)); await page.waitForSelector("#dlg[open] .mc-grid");
+    ok(await page.locator("#dlg[open] .mc-any:not(.is-locked)").count() === 1 && await page.locator("#dlg[open] #mcAny").count() === 1, "with Studyboard Pro yourself, Any Color is open even in a free group");
+    await page.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); window.__sbPlanObj().isPro = window.__proWas; }); await page.waitForTimeout(200);
     ok(await page.locator("#grpHead .gx-chip").count() === 0 && await page.locator("#gxOver").count() === 0 && await page.locator("#gxTasks").count() === 0, "a free group has no Pro extras");
     await tab(page, "meetings");
     ok(await page.locator('#gxFind [data-act="gx-ft"]').count() === 1, "a free group still has Find a Time (it's free)");

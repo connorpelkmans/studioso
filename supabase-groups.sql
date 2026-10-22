@@ -1296,11 +1296,12 @@ declare me uuid := auth.uid(); v text := nullif(upper(coalesce(p_color, '')), ''
 begin
   if me is null then raise exception 'Sign in first'; end if;
   if v is not null and v !~ '^#[0-9A-F]{6}$' then raise exception 'Pick one of the colours'; end if;
-  -- The 10 palette colours are for every group; any other colour (the colour picker) is for Pro groups
+  -- The 10 palette colours are for every group; any other colour (the colour picker) is for a Pro group, or a member with Studyboard Pro
   if v is not null and not (v = any (array['#E5484D','#F76B15','#E2A50B','#30A46C','#12A594','#0090FF','#3E63DD','#8E4EC6','#D6409F','#6E5240'])) then
     if to_regproc('public.plans_group_is_pro') is not null then
       execute 'select public.plans_group_is_pro($1)' into pro using p_group;
-      if not coalesce(pro, false) then raise exception 'Any colour is part of Pro groups. Pick one of the colours shown.'; end if;
+      if not coalesce(pro, false) and to_regproc('public.studyboard_is_pro') is not null then execute 'select public.studyboard_is_pro($1)' into pro using me; end if;
+      if not coalesce(pro, false) then raise exception 'Any colour is part of Studyboard Pro. Pick one of the colours shown.'; end if;
     end if;
   end if;
   -- Taken: the same colour, or one so close nobody could tell them apart
