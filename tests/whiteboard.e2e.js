@@ -65,10 +65,15 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     const light0 = await bg();
     await page.click('.wb-zoom [data-wb="theme"]'); await page.waitForTimeout(150);
     ok(await page.evaluate(() => document.querySelector(".wb-stage").classList.contains("wb-dk")) && await bg() !== light0 && !(await page.evaluate(() => document.documentElement.getAttribute("data-theme") === "dark")), "the moon button makes the board dark while the app stays light");
-    await act("wb-opts"); await page.waitForSelector('dialog[open] input[name="wbTheme"]');
-    ok(await page.isChecked('dialog[open] input[name="wbTheme"][value="dark"]'), "Options shows Board Color: Dark");
-    await page.click('dialog[open] .wb-start label:has(input[value="auto"])'); await page.click("dialog[open] [data-submit]"); await page.waitForTimeout(200);
-    ok(!(await page.evaluate(() => document.querySelector(".wb-stage").classList.contains("wb-dk"))) && await bg() === light0, "Match App puts it back to the app's light board");
+    await page.click('.wb-zoom [data-wb="theme"]'); await page.waitForTimeout(150);
+    ok(!(await page.evaluate(() => document.querySelector(".wb-stage").classList.contains("wb-dk"))) && await bg() === light0, "the sun button puts the light board back");
+    // Options: picking a template previews it on the board; Cancel puts the board's own back
+    await act("wb-opts"); await page.waitForSelector('dialog[open] input[name="tpl"]');
+    ok(await page.locator('dialog[open] input[name="wbTheme"]').count() === 0, "Options has no Board Color (the sun/moon on the board sets it)");
+    await page.click('dialog[open] .wb-tile:has(input[value="cornell"])'); await page.waitForTimeout(80);
+    ok(await page.evaluate(() => document.querySelector(".wb-tplbox").textContent.includes("Summary")), "picking Cornell Notes shows it on the board right away");
+    await page.click('dialog[open] [data-act="close"]'); await page.waitForTimeout(150);
+    ok(await page.locator(".wb-tplbox pattern").count() === 1 && !(await page.evaluate(() => document.querySelector(".wb-tplbox").textContent.includes("Summary"))), "Cancel puts the board's own grid back");
     await page.click('.wb-zoom [data-wb="zoom-reset"]'); await page.waitForTimeout(100);
     ok((await page.evaluate(() => SBWB.cam())).z === 1 && /100%/.test(await page.locator(".wbz-pct").textContent()), "100% zooms to full size");
 
