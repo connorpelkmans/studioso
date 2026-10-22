@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!-- Content-Security-Policy: added by script (a static meta tag makes Chrome pre-scan the big inline script and request junk URLs). If your host can send headers, send the same policy as a header too. -->
-<script>try{var H=/*CSP-HASHES*/"'sha256-u6kV8EYZg9U58LoOAOPidYXuzDc8fGvKe+BFmraJuEA=' 'sha256-IR2yBxyB8NVnJZnQYVgnnugzTN4zRSajqHfF+nJp+Eg='",lax=!H||/(^|\.)claudeusercontent\.com$/.test(location.hostname);var cm=document.createElement("meta");cm.httpEquiv="Content-Security-Policy";cm.content="default-src 'self'; script-src 'self' "+(lax?"'unsafe-inline'":H)+" https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: blob: data:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'";document.head.appendChild(cm)}catch(e){}</script>
+<script>try{var H=/*CSP-HASHES*/"'sha256-u6kV8EYZg9U58LoOAOPidYXuzDc8fGvKe+BFmraJuEA=' 'sha256-uhAYuiuOVkKDvPwcZp9adU5V1r1LmLEy0MjHAemfJw0='",lax=!H||/(^|\.)claudeusercontent\.com$/.test(location.hostname);var cm=document.createElement("meta");cm.httpEquiv="Content-Security-Policy";cm.content="default-src 'self'; script-src 'self' "+(lax?"'unsafe-inline'":H)+" https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: blob: data:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'";document.head.appendChild(cm)}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Studyboard</title>
 <link rel="canonical" href="https://studyboardapp.com/">
@@ -60180,6 +60180,8 @@ ${kindPreview("study")}${kindPreview("project")}`;
     members: gid => (S.members[gid] || []).map(m => ({id: m.user_id, name: m.display_name || "", color: m.color || ""})),
     // a member's picture as the group shows it (their companion in their colour, or initials)
     avatar: (gid, id, name) => av(name, id, gid),
+    // load a group's members (names, colours, companions) when the group page hasn't yet; true when there's something new
+    loadMembers: async gid => { if (!gid || !online()) return false; if ((S.members[gid] || []).length) return false; try { const ms = await api.members([gid]); if (ms && ms.length) { S.members[gid] = ms; return true; } } catch (e) {} return false; },
     groups: () => (Array.isArray(S.groups) ? S.groups : []).map(g => ({id: g.id, name: g.name, kind: g.kind || "study"}))};
   hook("boot", () => {
     try {
@@ -107739,6 +107741,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
       x.err = "";
     } catch (e) { x.err = /does not exist|schema cache/i.test(String(e && e.message)) ? "Group whiteboards need the newest supabase-groups.sql on the server." : "Couldn't load the group's whiteboards."; if (!x.rows) x.rows = []; }
     x.at = Date.now(); x.busy = false; fillPanes();
+    if (G() && G().loadMembers && await G().loadMembers(gid)) fillPanes();
   }
   const okPv = v => typeof v === "string" && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v) && v.length < 200000;
   const pvOf = r => (W.dark && W.dark() && okPv(r.preview_dark)) ? r.preview_dark : r.preview;
@@ -107800,7 +107803,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
   async function accessSheet(nid){
     const g = live(state.notes[nid]); if (!g) return;
     openSheet(`<div class="sheet">${head("Who Has This Board")}<div class="sheet-body"><p class="mini" style="margin:0" role="status">Loading…</p></div></div>`);
-    const a = await access(g.bid, true); if (!dlg.open) return;
+    const [a] = await Promise.all([access(g.bid, true), G() && G().loadMembers ? G().loadMembers(g.gid) : null]); if (!dlg.open) return;
     const ids = [...new Set(((a && a.ids) || []).concat(me()))].sort((x, y) => (y === me()) - (x === me()));
     $(".sheet-body", dlg).innerHTML = `<p style="margin:0">Live with <b>${esc(g.gn || "your study group")}</b>: what anyone here draws or writes shows up for everyone as it happens.</p>
       <ul class="wbg-people">${ids.map(id => { const nm = memberName(g.gid, id); return `<li>${faceOf(g.gid, id)}${esc(nm)}</li>`; }).join("")}</ul>
