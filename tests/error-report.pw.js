@@ -61,7 +61,7 @@ const noPII = (blob, why) => PII.forEach(x => ok(!blob.includes(x), `${why}: pay
       ok(s.method === "POST" && s.url === "https://o4501.ingest.sentry.io/api/4507001/envelope/?sentry_key=0123456789abcdef0123456789abcdef&sentry_version=7&sentry_client=studyboard-errreport%2F1", s.url);
       ok(/^text\/plain/.test(s.headers["content-type"]) && !s.headers.authorization && !s.headers.cookie && !s.headers["x-sentry-auth"], "simple request, no credentials: " + JSON.stringify(s.headers));
       ok(e.n === 4 && e.head.dsn === DSN && /^[0-9a-f]{32}$/.test(e.head.event_id) && e.head.event_id === e.ev.event_id && !isNaN(Date.parse(e.head.sent_at)) && e.item.type === "event" && e.item.length === Buffer.byteLength(s.body.split("\n")[2]), "envelope shape");
-      ok(e.ev.release === "1.13.0" && e.ev.environment === "production" && e.ev.tags.platform === "web" && e.ev.tags.pro && e.ev.tags.theme && e.ev.exception.values[0].type === "Error" && e.ev.exception.values[0].stacktrace.frames.some(f => f["function"] === "boomFn" && f.lineno > 0), JSON.stringify(e.ev).slice(0, 600));
+      ok(e.ev.release === require("../package.json").version && e.ev.environment === "production" && e.ev.tags.platform === "web" && e.ev.tags.pro && e.ev.tags.theme && e.ev.exception.values[0].type === "Error" && e.ev.exception.values[0].stacktrace.frames.some(f => f["function"] === "boomFn" && f.lineno > 0), JSON.stringify(e.ev).slice(0, 600));
       ok(/^[0-9a-f]{16}$/.test(e.ev.user.id) && Object.keys(e.ev.user).length === 1, "anonymous id only");
       ok(e.ev.tags.build === "dev", "build id tag present");
       noPII(s.body, "scrubbed event"); ok(!/file:|\/home\/|\/tmp\//.test(s.body), "no file paths in payload: " + s.body.match(/.{30}(file:|\/home\/|\/tmp\/).{30}/));

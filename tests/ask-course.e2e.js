@@ -195,8 +195,8 @@ function reply(ctx, t){
   await page.click('#sxAnswer [data-sx="tq-save"]');
   await page.waitForSelector("dialog[open] #arSave");
   await page.click("#arSave"); await page.waitForTimeout(300);
-  const qz = ((await H(page)).decks.d1.aiQuizzes || []);
-  ok(qz.length === 1 && qz[0].questions.length === 3, "Save as Practice Quiz adds the quiz to Cell Biology");
+  const qz = Object.values((await H(page)).decks).filter(d => d.courseId === "c1").flatMap(d => d.aiQuizzes || []);
+  ok(qz.length === 1 && qz[0].questions.length === 3, "Save as Practice Quiz saves the quiz in Biology (BIO101)");
 
   // Not covered: says so, and general knowledge is separate and sends no sources
   await openSearch(page); await page.waitForSelector("#sxDlg[open]");

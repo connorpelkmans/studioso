@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <!-- Content-Security-Policy: added by script (a static meta tag makes Chrome pre-scan the big inline script and request junk URLs). If your host can send headers, send the same policy as a header too. -->
-<script>try{var H=/*CSP-HASHES*/"'sha256-u6kV8EYZg9U58LoOAOPidYXuzDc8fGvKe+BFmraJuEA=' 'sha256-XsGE94yydyMxAO4h4SPyQG2uVmVQ68mKe3G7YyLmcyE='",lax=!H||/(^|\.)claudeusercontent\.com$/.test(location.hostname);var cm=document.createElement("meta");cm.httpEquiv="Content-Security-Policy";cm.content="default-src 'self'; script-src 'self' "+(lax?"'unsafe-inline'":H)+" https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: blob: data:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'";document.head.appendChild(cm)}catch(e){}</script>
+<script>try{var H=/*CSP-HASHES*/"'sha256-u6kV8EYZg9U58LoOAOPidYXuzDc8fGvKe+BFmraJuEA=' 'sha256-sK6ufU/W9xDTDPCINXpLfjlgkoqzoE/pTB3PVF47IkY='",lax=!H||/(^|\.)claudeusercontent\.com$/.test(location.hostname);var cm=document.createElement("meta");cm.httpEquiv="Content-Security-Policy";cm.content="default-src 'self'; script-src 'self' "+(lax?"'unsafe-inline'":H)+" https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss: blob: data:; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'";document.head.appendChild(cm)}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Studyboard</title>
 <link rel="canonical" href="https://studyboardapp.com/">
@@ -9043,8 +9043,11 @@ const SBGUEST = window.SBGUEST = (() => {
   function nudge(key, lead){
     if (!is() || !hasData()) return;
     if (key !== "later" && get("did:" + key)) return;
+    let tries = 0;
     const go = () => {
       if (!is()) return;
+      // never over another message: it may carry Undo or Re-plan
+      { const t = document.getElementById("toast"); if (t && t.classList.contains("show") && ++tries < 20) { setTimeout(go, 3000); return; } }
       if (key !== "later") set("did:" + key, 1);
       set("asked", Date.now());
       toast(lead || "Your planner is only on this device.", null, {label: "Save It", fn: () => sheet(lead)});
