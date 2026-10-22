@@ -1460,6 +1460,43 @@ create policy "group board ops add" on public.group_board_ops for insert to auth
 revoke update, delete, truncate, references, trigger on public.group_board_ops from authenticated;
 revoke all on public.group_board_ops from anon;
 
+-- A group board's preview (a small picture for the group's Whiteboards tab), kept fresh by whoever is drawing on it, and who has it:
+-- a member adds a shared board to their own Whiteboards from the group (group_board_people), and takes it off by deleting their copy.
+alter table public.group_boards add column if not exists preview text check (preview is null or (char_length(preview) < 200000 and preview like 'data:image/%'));
+alter table public.group_boards add column if not exists preview_at timestamptz;
+create or replace function public.group_board_preview(p_board uuid, p_preview text) returns void
+language plpgsql security definer set search_path = public as $$
+declare g uuid;
+begin
+  select group_id into g from public.group_boards where id = p_board and not deleted;
+  if g is null or not public.sbg_is_member(g) then raise exception 'That board isn''t in one of your groups.'; end if;
+  if p_preview is null or char_length(p_preview) >= 200000 or p_preview not like 'data:image/%' then raise exception 'That preview can''t be used.'; end if;
+  if to_regprocedure('public.studyboard_rate_hit(text,integer,integer)') is not null and not public.studyboard_rate_hit('wbpv:' || auth.uid()::text, 30, 60) then return; end if;
+  update public.group_boards set preview = p_preview, preview_at = now() where id = p_board;
+end $$;
+revoke all on function public.group_board_preview(uuid, text) from public, anon;
+grant execute on function public.group_board_preview(uuid, text) to authenticated;
+
+create table if not exists public.group_board_people (
+  board_id uuid not null references public.group_boards(id) on delete cascade,
+  group_id uuid not null references public.study_groups(id) on delete cascade,
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  added_at timestamptz not null default now(),
+  primary key (board_id, user_id)
+);
+create index if not exists group_board_people_group_idx on public.group_board_people (group_id);
+alter table public.group_board_people enable row level security;
+drop policy if exists "group board people read" on public.group_board_people;
+create policy "group board people read" on public.group_board_people for select to authenticated using (public.sbg_is_member(group_id));
+drop policy if exists "group board people add" on public.group_board_people;
+create policy "group board people add" on public.group_board_people for insert to authenticated with check (
+  user_id = auth.uid() and public.sbg_is_member(group_id)
+  and exists (select 1 from public.group_boards b where b.id = board_id and b.group_id = group_board_people.group_id and not b.deleted));
+drop policy if exists "group board people leave" on public.group_board_people;
+create policy "group board people leave" on public.group_board_people for delete to authenticated using (user_id = auth.uid());
+revoke update, truncate, references, trigger on public.group_board_people from authenticated;
+revoke all on public.group_board_people from anon;
+
 -- Limits: 40 boards per group, and changes come in batches (a few a second while drawing), so 900 rows a minute per person is plenty
 create or replace function public.sbg_board_limits() returns trigger
 language plpgsql security definer set search_path = public as $$
@@ -1484,7 +1521,7 @@ do $$
 declare t text;
 begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
-    foreach t in array array['group_boards', 'group_board_ops'] loop
+    foreach t in array array['group_boards', 'group_board_ops', 'group_board_people'] loop
       if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
         execute format('alter publication supabase_realtime add table public.%I', t);
       end if;
