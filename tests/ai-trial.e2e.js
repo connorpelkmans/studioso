@@ -22,13 +22,14 @@ const STAGES = {kind: "paper", stages: [
   {title: "Revise, cite and submit on the course site", steps: ["Check the citation style"], weight: 1.5}]};
 
 // A signed-in supabase-js: the session is all the app needs here; every table read comes back empty.
+// The student already has a username (window.__noUsername makes one without, who is asked to pick one after sign-in).
 const STUB = () => {
   const empty = () => { const b = new Proxy(function () {}, {get(_, m) { if (m === "then") return (ok) => Promise.resolve({data: [], error: null, count: 0}).then(ok); return () => b; }, apply() { return b; }}); return b; };
   const user = {id: "u1", email: "student@example.com", email_confirmed_at: "2026-10-01T00:00:00Z"};
   window.supabase = {createClient: () => ({
     auth: {getSession: async () => ({data: {session: {user, access_token: "t"}}}), onAuthStateChange: () => ({data: {subscription: {unsubscribe() {}}}}),
       signOut: async () => ({}), getUser: async () => ({data: {user}}), refreshSession: async () => ({data: {session: {user, access_token: "t"}}})},
-    from: () => empty(), rpc: async () => ({data: null, error: null}),
+    from: () => empty(), rpc: async fn => ({data: fn === "my_username" && !window.__noUsername ? "reef_student" : null, error: null}),
     channel: () => { const ch = {on() { return ch; }, subscribe() { return ch; }}; return ch; }, removeChannel() {},
     storage: {from: () => ({upload: async () => ({error: {message: "no storage"}}), remove: async () => ({}), download: async () => ({error: {message: "no storage"}})})},
     functions: {invoke: async () => ({data: null, error: {message: "none"}})}
@@ -51,12 +52,13 @@ const STUB = () => {
   ok(html.includes(`const AI_TRIAL = "${TRIAL}";`), "test copy of the app points at the test trial server");
 
   const browser = await chromium.launch({executablePath});
-  const device = async (keys) => {
+  const device = async (keys, opts) => {
     const ctx = await browser.newContext({viewport: {width: 1100, height: 900}, serviceWorkers: "block"});
     await ctx.addInitScript({content: `
       try { if (!sessionStorage.getItem("seeded")) { sessionStorage.setItem("seeded", "1");
         localStorage.setItem("coursework:v2", ${JSON.stringify(JSON.stringify(SEED))}); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:tour", "done");
         ${keys ? `localStorage.setItem("studyboard:aiKeys", ${JSON.stringify(JSON.stringify(keys))}); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}}));` : ""} } } catch (e) {}
+      ${opts && opts.noUsername ? "window.__noUsername = true;" : ""}
       (${STUB.toString()})();`});
     await ctx.route(`${APP}/**`, route => {
       const p = decodeURIComponent(new URL(route.request().url()).pathname);
@@ -89,7 +91,7 @@ const STUB = () => {
     await row.first().click(); await page.waitForSelector("#dlg[open]");
   };
   const openBreakdown = async page => { await page.evaluate(() => { document.querySelectorAll("dialog[open]").forEach(d => d.close()); }); await openTask(page, "t1"); await page.click('#dlg [data-act="bd-open"]'); await page.waitForSelector("#bdList li"); };
-  const openAi = async page => { await page.evaluate(() => { document.querySelectorAll("dialog[open]").forEach(d => d.close()); const b = document.createElement("button"); b.dataset.act = "ai-setup"; document.body.appendChild(b); b.click(); b.remove(); }); await page.waitForSelector("#aiPaste"); };
+  const openAi = async page => { await page.evaluate(() => { document.querySelectorAll("dialog[open]").forEach(d => d.close()); const b = document.createElement("button"); b.dataset.act = "ai-setup"; document.body.appendChild(b); b.click(); b.remove(); }); await page.waitForSelector(`#dlg[open] [data-key="gemini"]`); };
 
   try {
     // ---- 1. After sign-in with no key: one message, two ways to start.
@@ -101,7 +103,7 @@ const STUB = () => {
     ok(A.ctx.trialCalls.includes("GET /v1/trial"), "it asked the trial server how many tries are left");
     if (SHOTS) await A.page.locator("#dlg").screenshot({path: path.join(SHOTS, "trial-welcome.png")});
     await A.page.click("#aiwTry");
-    await A.page.waitForFunction(() => /AI is on to try/.test((document.querySelector("#toastMsg") || {}).textContent || ""));
+    await A.page.waitForFunction(() => /Your free AI tries are on/.test((document.querySelector("#toastMsg") || {}).textContent || ""));
     ok(true, "Try AI First closes it with a pointer to the AI buttons");
     await A.page.reload(); await A.page.waitForSelector("#view", {state: "attached"}); await A.page.waitForTimeout(3500);
     ok(!/Turn On AI/.test(await A.page.evaluate(() => document.querySelector("#dlg[open]") ? document.querySelector("#dlg").textContent : "")), "the message shows once per student");
@@ -178,6 +180,15 @@ const STUB = () => {
     await C.page.waitForSelector("dialog.ai-consent[open] [data-yes]"); await C.page.click("dialog.ai-consent[open] [data-yes]");
     await C.page.waitForFunction(() => /Used the AI/.test(document.querySelector("#bdAiMsg").textContent), null, {timeout: 10000});
     ok(aiCalls(C.ctx) === 1, "after the check, the first try just works");
+
+    // ---- 8. No username yet: Pick a Username comes first, and the AI message waits its turn.
+    const D = await device(null, {noUsername: true});
+    await D.page.waitForFunction(() => /Pick a Username/.test((document.querySelector("#dlg[open] h2") || {}).textContent || ""), null, {timeout: 20000});
+    await D.page.waitForTimeout(3000);
+    ok(/Pick a Username/.test(await D.page.textContent("#dlg h2")), "a student with no username is asked for one first, and the AI message doesn't cover it");
+    await D.page.click('#dlg [data-act="close"]');
+    await D.page.waitForFunction(() => /Turn On AI/.test((document.querySelector("#dlg[open] h2") || {}).textContent || ""), null, {timeout: 5000});
+    ok(true, "after Later, the Turn On AI message follows");
 
     console.log(`ai-trial e2e: ${n} checks passed`);
   } finally { await browser.close(); }
