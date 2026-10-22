@@ -62,6 +62,17 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       const decks = Object.values(st.decks), cards = decks.flatMap(d => d.cards || []);
       ok(cards.length === 2 && cards.every(c => c.draft && c.srcNote === made.id) && decks[0].courseId === "c1", "with “and flashcards”, two draft cards are made from the notes in Biology's deck: " + cards.length);
       ok(!page.errs.length, "no page errors: " + page.errs.join(" | "));
+      // picture flashcards (Pro): the board goes to Image Cards in a new deck named after it
+      await page.evaluate(() => { SBPRO.locked = () => false; window.__ic = null; SBPRO.scanImage = async (blob, name) => ({blob, name, boxes: [{x: 0.1, y: 0.1, w: 0.2, h: 0.1, t: "Mitosis"}]}); SBPRO.openImageEditor = (deckId, q) => { window.__ic = {deckId, n: q.length, name: q[0].name, size: q[0].blob.size, found: q[0].found}; }; });
+      await page.click('.nv-tabs [data-id="wb"]'); await page.waitForSelector(".wb-stage .wb-frame"); await page.waitForTimeout(200);
+      await page.click('.wb-head [data-act="wb-ai"]'); await page.waitForSelector("dialog[open] #wbaGo");
+      ok(await page.locator("dialog[open] .wb-ai-k legend").count() === 0, "no stray Make label over the choices");
+      await page.check('input[name="wbaK"][value="pics"]'); await page.waitForTimeout(60);
+      ok(await page.isVisible("#wbaDeck") && /New deck: Cell Division/.test(await page.locator("#wbaDeck").textContent()) && /Make Picture Cards/.test(await page.locator("#wbaGo").textContent()), "Picture flashcards asks for a deck (or a new one named after the board)");
+      await page.selectOption("#wbaDeck", "__new");
+      await page.click("#wbaGo"); await page.waitForTimeout(1500);
+      const ic = await page.evaluate(() => window.__ic), dk = ic && await page.evaluate(id => window.__sbSync.state.decks[id], ic.deckId);
+      ok(ic && ic.n === 1 && ic.size > 1000 && ic.found && dk && dk.name === "Cell Division" && dk.courseId === "c1", "the board picture opens in Image Cards with its labels found, in a new Cell Division deck: " + JSON.stringify([ic, dk && {n: dk.name, c: dk.courseId}]));
       // handwriting to text (Pro): select drawn lines, tap A, and they become typed text in their place
       await page.click('.nv-tabs [data-id="wb"]'); await page.waitForSelector(".wb-stage .wb-frame"); await page.waitForTimeout(300);
       await page.evaluate(() => SBWB.setTool("pen"));
