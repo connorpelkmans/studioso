@@ -40,7 +40,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await page.waitForSelector(".nv-tabs");
     ok(await page.locator('.nv-tabs [data-id="board"][aria-selected=true]').count() === 1 && await page.locator("#nbBoard .note").count() === 1, "Notes opens on the sticky notes, with a Notes | Whiteboard switch");
     await page.click('.nv-tabs [data-id="wb"]'); await page.waitForTimeout(300);
-    ok(await page.locator('.wb-empty [data-act="wb-quick"][data-id="blank"]').count() === 1 && await page.locator(".wb-empty .wb-tile").count() === 9 && await page.locator("#fab").isHidden(), "with no boards yet, the Whiteboard offers a Blank Board or one of 9 templates (and no Add Note button)");
+    ok(await page.locator('.wb-empty [data-act="wb-quick"][data-id="blank"]').count() === 1 && await page.locator(".wb-empty .wb-tile").count() === 9 && /Add Board/.test(await page.locator("#fab").textContent()) && await page.locator("#fab").isVisible(), "with no boards yet, the Whiteboard offers a Blank Board or one of 9 templates, and the + button is Add Board");
 
     // a new board from the sheet: name, template, course
     await act("wb-new"); await page.waitForSelector("dialog[open] .wb-start");
@@ -113,6 +113,21 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     ok(await page.locator(".wb-ta").inputValue() === "Mitosis\nPMAT", "double-clicking text opens it for editing");
     await page.keyboard.press("End"); await page.keyboard.type("!"); await page.keyboard.press("Escape"); await page.waitForTimeout(80);
     ok((await live()).items[0].s === "Mitosis\nPMAT!", "and the edit is kept");
+
+    // writing styles
+    await page.keyboard.press("Escape");
+    ok(await page.locator('.wb-tray [data-wb="font"]').count() === 5, "the Text tool offers 5 writing styles");
+    await page.evaluate(() => SBWB.select([SBWB.board().items[0]].map(i => "i" + i.id)));
+    await wb("font", "neat"); await page.waitForTimeout(80);
+    const ff1 = await page.evaluate(() => [SBWB.board().items[0].ff, getComputedStyle(document.querySelector(".wb-t")).fontFamily]);
+    ok(ff1[0] === "neat" && /Patrick Hand/.test(ff1[1]) && await page.evaluate(() => document.fonts.check("40px 'Patrick Hand'")), "picking Neat changes the selected text to it (font served from vendor/fonts): " + ff1.join(" / "));
+    await page.mouse.click(F.x + 600, F.y + 120); await page.waitForTimeout(60); await page.keyboard.type("Quick"); await page.keyboard.press("Escape"); await page.waitForTimeout(60);
+    ok((await live()).items.some(i => i.s === "Quick" && i.ff === "neat"), "new text is written in the chosen style");
+    await page.evaluate(() => { const it = SBWB.board().items.find(i => i.s === "Quick"); SBWB.change(set => set("i", it.id, null)); });
+    await page.evaluate(() => SBWB.select([SBWB.board().items[0]].map(i => "i" + i.id))); await wb("font", "marker"); await page.waitForTimeout(60);
+    ok(!(await live()).items[0].ff, "and Marker puts it back");
+    await page.keyboard.press("Escape"); await page.waitForTimeout(40);
+    await page.evaluate(() => SBWB.select([SBWB.board().items[0]].map(i => "i" + i.id)));
 
     // moving without switching to Select
     const tBB = () => page.evaluate(() => { const it = SBWB.board().items[0], b = SBWB.itemBB(it), c = SBWB.cam(), r = document.querySelector(".wb-frame").getBoundingClientRect(); return {x: r.left + (b[0] + b[2]) / 2 * c.z + c.x, y: r.top + (b[1] + b[3]) / 2 * c.z + c.y, ix: it.x, iy: it.y}; });

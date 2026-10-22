@@ -1,4 +1,4 @@
-/* Self-hosted Latin subsets of Lexend, Atkinson Hyperlegible (Next) (SIL OFL 1.1) and Permanent Marker (Apache 2.0, the Whiteboard's marker writing) from @fontsource 5.3.0 (see LICENSE-*.txt in vendor/fonts). prepare.js regenerates the same file for the desktop app. */
+/* Self-hosted Latin subsets of Lexend, Atkinson Hyperlegible (Next) (SIL OFL 1.1) Permanent Marker (Apache 2.0), Patrick Hand, Caveat, Kalam and Gochi Hand (SIL OFL 1.1; the Whiteboard's writing styles) from @fontsource 5.3.0 (see LICENSE-*.txt in vendor/fonts). prepare.js regenerates the same file for the desktop app. */
 @font-face{font-family:"Lexend";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/lexend-latin-400-normal.woff2) format("woff2")}
 @font-face{font-family:"Lexend";font-style:normal;font-weight:500;font-display:swap;src:url(fonts/lexend-latin-500-normal.woff2) format("woff2")}
 @font-face{font-family:"Lexend";font-style:normal;font-weight:600;font-display:swap;src:url(fonts/lexend-latin-600-normal.woff2) format("woff2")}
@@ -10,3 +10,7 @@
 @font-face{font-family:"Atkinson Hyperlegible";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/atkinson-hyperlegible-latin-400-normal.woff2) format("woff2")}
 @font-face{font-family:"Atkinson Hyperlegible";font-style:normal;font-weight:700;font-display:swap;src:url(fonts/atkinson-hyperlegible-latin-700-normal.woff2) format("woff2")}
 @font-face{font-family:"Permanent Marker";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/permanent-marker-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Patrick Hand";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/patrick-hand-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Caveat";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/caveat-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Kalam";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/kalam-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Gochi Hand";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/gochi-hand-latin-400-normal.woff2) format("woff2")}
