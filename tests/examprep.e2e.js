@@ -190,9 +190,10 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       await act(page, "prep-plan"); await page.waitForTimeout(300); ok(await vis(page, "#ppBody"), "Search Everywhere's 'Plan My Exam Prep' opens it too"); await page.keyboard.press("Escape");
       ok((await sessions(page)).length === count, "still the same sessions");
       // ---- missed days (fake clock) -> banner and catch up
-      await page.evaluate(() => { try { sessionStorage.setItem("seeded", "1"); } catch (e) {} });
+      // the jump is 4 days, which also makes the weekly guest reminder due; count it as just shown so its toast does not cover the re-plan offer below
+      await page.evaluate(() => { try { sessionStorage.setItem("seeded", "1"); localStorage.setItem("studyboard:guest:asked", String(new Date(2026, 9, 8, 10, 0, 0).getTime())); } catch (e) {} });
       await ctx.clock.setSystemTime(new Date(2026, 9, 8, 10, 0, 0)); await page.reload(); await page.waitForTimeout(1500);
-      await goBoard(page);   // a refresh keeps your place (it was on a course)
+      await goBoard(page);   // a reload keeps your place (the course page here), so go back to Today
       await page.waitForFunction(() => /slipped/.test((document.querySelector("#planExtra .pp-today") || {textContent: ""}).textContent), null, {timeout: 5000}).catch(() => {});
       ok(/Exam Prep/.test(await txt(page, "#planExtra .pt-bar")), "the tab bar names Exam Prep: " + (await txt(page, "#planExtra .pt-bar")).replace(/\n/g, " "));
       await openPrep(page, "slipped");
