@@ -156,6 +156,13 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
         const dark = (px, py) => { let n = 0; for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) { const d = x.getImageData(Math.round(px * sx) + dx, Math.round(py * sy) + dy, 1, 1).data; if (d[0] + d[1] + d[2] < 450) n++; } return n > 0; };
         return {edges: [[120, 150], [280, 150], [200, 80], [200, 220]].every(q => dark(q[0], q[1])), corners: [[30, 30], [370, 30], [30, 270], [370, 270]].some(q => dark(q[0], q[1]))}; });
       ok(shp.edges && !shp.corners, "Draw in Marker on this device follows the picture's own outline (ink on the square's edges, empty corners stay empty): " + JSON.stringify(shp));
+      // drawing styles: a menu beside the Draw button; picking one draws in it and is remembered
+      await page.evaluate(id => SBWB.select(["i" + id]), it.id); await page.waitForTimeout(60);
+      await page.click('.wb-selbar [data-wb="restyle-menu"]'); await page.waitForTimeout(80);
+      ok(await page.locator('.wb-stylemenu [data-wb="restyle-as"]').count() === 4 && await page.locator('.wb-stylemenu .on').textContent() === "Marker", "the style menu offers 4 drawing styles, Marker first and picked");
+      await page.click('.wb-stylemenu [data-id$="|outline"]'); await page.waitForTimeout(1500);
+      ok(/Outline/.test(await page.locator("#toast").textContent()) && await page.locator(".wb-stylemenu").count() === 0 && await page.evaluate(() => localStorage.getItem("studyboard:wbDrawStyle")) === "outline", "picking Outline draws it as an outline and remembers the choice");
+      await page.evaluate(() => { SBWB.undo(); localStorage.removeItem("studyboard:wbDrawStyle"); }); await page.waitForTimeout(80);
 
       // export includes the picture
       const ex = await page.evaluate(async () => { const n = state.notes.wb1; const c = await SBWB.renderBoard(n, {max: 600}); const g = c.getContext("2d"); const d = g.getImageData(0, 0, c.width, c.height).data; let dark = 0; for (let i = 0; i < d.length; i += 4) if (d[i] < 80 && d[i + 1] < 80 && d[i + 2] < 90) dark++; return dark; });
