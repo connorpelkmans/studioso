@@ -55,7 +55,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       ok(it && f && /\.webp$/.test(f.name) && f.folderId === "notes" && f.courseId === "c1", "Add a Picture stores it as a file (WebP, in the board's course): " + (f && f.name));
       ok(Math.abs(it.w / it.h - 4 / 3) < 0.02, "it keeps its shape: " + it.w + " x " + it.h);
       ok(await page.locator(".wb-imgs .wb-img img").count() === 1 && await page.locator(".wb-selbar:not([hidden])").count() === 1 && await page.evaluate(() => SBWB.tool()) === "select", "it shows on the board, selected, with Select on");
-      ok((await page.locator('.wb-selbar [data-wb="restyle"]').textContent()).includes("Draw in Marker"), "its menu offers Draw in Marker");
+      ok((await page.locator('.wb-selbar [data-wb="restyle-menu"]').textContent()).includes("Draw in Marker"), "its menu offers Draw in Marker (which opens the drawing styles)");
       // right after a reload sign-in may still be coming back: a picture whose first loads fail is tried again soon, not shown as missing
       await page.evaluate(async () => {
         const T = window.__sbProStudy, NP = window.__sbNotePhotos, IO = SBWB.pictures.IO, b0 = IO.bytes; let fails = 0;
@@ -85,7 +85,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       await page.evaluate(() => { SBWB.pictures.IO.ai = async () => { const c = document.createElement("canvas"); c.width = 500; c.height = 375; const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, 500, 375); g.strokeStyle = "#1D5BD6"; g.lineWidth = 14; g.strokeRect(150, 100, 200, 175);
         return await new Promise(r => { const im = new Image(); im.onload = () => r(im); im.src = c.toDataURL(); }); }; });
       await page.evaluate(id => SBWB.select(["i" + id]), it.id); await page.waitForTimeout(60);
-      await page.click('.wb-selbar [data-wb="restyle"]'); await page.waitForTimeout(800);
+      await page.click('.wb-selbar [data-wb="restyle-menu"]'); await page.click('.wb-stylemenu [data-id$="|marker"]'); await page.waitForTimeout(800);
       const it3 = (await items(page)).find(i => i.id === it.id), f3 = await page.evaluate(id => state.files[id], it3.f);
       ok(it3.r === 1 && it3.f !== it.f && /\(marker\)\.png$/.test(f3.name), "Draw in Marker replaces it with the redrawn picture (a new PNG file, marked as drawn): " + f3.name);
       const px = await page.evaluate(async aid => { const b = window.__bytes[aid], u = URL.createObjectURL(new Blob([b], {type: "image/png"})); const im = await new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = u; });
@@ -112,7 +112,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       // without AI: traced on this device
       await page.evaluate(() => { SBWB.pictures.IO.ai = async () => null; });
       await page.evaluate(id => SBWB.select(["i" + id]), it.id); await page.waitForTimeout(60);
-      await page.click('.wb-selbar [data-wb="restyle"]'); await page.waitForTimeout(1500);
+      await page.click('.wb-selbar [data-wb="restyle-menu"]'); await page.click('.wb-stylemenu [data-id$="|marker"]'); await page.waitForTimeout(1500);
       const it4 = (await items(page)).find(i => i.id === it.id), f4 = await page.evaluate(id => state.files[id], it4.f);
       const tr = await page.evaluate(async aid => { const b = window.__bytes[aid], u = URL.createObjectURL(new Blob([b], {type: "image/png"})); const im = await new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = u; });
         const c = document.createElement("canvas"); c.width = im.width; c.height = im.height; const g = c.getContext("2d"); g.drawImage(im, 0, 0); const d = g.getImageData(0, 0, im.width, im.height).data; let dark = 0, clear = 0;
@@ -162,6 +162,13 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       ok(await page.locator('.wb-stylemenu [data-wb="restyle-as"]').count() === 4 && await page.locator('.wb-stylemenu .on').textContent() === "Marker", "the style menu offers 4 drawing styles, Marker first and picked");
       await page.click('.wb-stylemenu [data-id$="|outline"]'); await page.waitForTimeout(1500);
       ok(/Outline/.test(await page.locator("#toast").textContent()) && await page.locator(".wb-stylemenu").count() === 0 && await page.evaluate(() => localStorage.getItem("studyboard:wbDrawStyle")) === "outline", "picking Outline draws it as an outline and remembers the choice");
+      const dr = (await items(page)).find(x => x.id === it.id);
+      ok(dr.r === 1 && dr.o === it.f, "the drawing remembers the original picture it came from: " + JSON.stringify({o: dr.o, f: it.f}));
+      await page.evaluate(id => SBWB.select(["i" + id]), it.id); await page.waitForTimeout(60);
+      await page.click('.wb-selbar [data-wb="restyle-menu"]'); await page.click('.wb-stylemenu [data-id$="|bold"]'); await page.waitForTimeout(1500);
+      const dr2 = (await items(page)).find(x => x.id === it.id);
+      ok(dr2.o === it.f && dr2.f !== dr.f, "Draw Again in another style starts from the original again (not the last drawing)");
+      await page.evaluate(() => SBWB.undo()); await page.waitForTimeout(80);
       await page.evaluate(() => { SBWB.undo(); localStorage.removeItem("studyboard:wbDrawStyle"); }); await page.waitForTimeout(80);
 
       // export includes the picture
