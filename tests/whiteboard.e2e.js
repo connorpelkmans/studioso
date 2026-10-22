@@ -226,16 +226,29 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await wb("tool", "eraser"); await wb("erase", "part"); await wb("ew", 1);
     await stroke([[F.x + 500, F.y + 400], [F.x + 500, F.y + 500]]);
     L = await live();
-    ok(!L.strokes.some(s => s.id === longId) && L.strokes.length === nS + 1, "Erase Parts cuts a line through the middle into two strokes");
+    const longW = 120, cut = L.strokes.filter(s => s.w === longW && !s.x === false && s.x.some(e => e[1] > 1520));
+    ok(!L.strokes.some(s => s.id === longId) && cut.length === 2, "Erase Parts cuts a line through the middle into two strokes");
     const mid = await page.evaluate(([x, y]) => SBWB.toWorld(x, y), [F.x + 500, F.y + 450]);
-    const ends = await Promise.all(L.strokes.slice(-2).map(s => decode(s.d)));
-    ok(ends.every(e => e.every(p => Math.abs(p[0] - mid[0]) > 14)), "and nothing is left under the eraser");
+    const ends = await Promise.all(cut.map(s => decode(s.d)));
+    ok(cut.every(s => Array.isArray(s.x) && s.x.some(e => Math.hypot(e[0] - mid[0], e[1] - mid[1]) < 3 && e[3] === 1)) && ends.every(e => e.every(p => Math.abs(p[0] - mid[0]) > 4)), "each piece is cut along the eraser's edge (it keeps the rubbed circle)");
+    const inkAt = ([x, y]) => page.evaluate(([x, y]) => { const c = document.querySelector(".wb-ink"), r = c.getBoundingClientRect(), k = c.width / r.width; return c.getContext("2d").getImageData(Math.round((x - r.left) * k), Math.round((y - r.top) * k), 1, 1).data[3]; }, [x, y]);
+    ok(await inkAt([F.x + 500, F.y + 450]) === 0 && await inkAt([F.x + 560, F.y + 450]) > 200, "nothing shows where it was rubbed, and the line is still there beside it");
     await wb("erase", "whole");
-    const [ex, ey] = [F.x + 400, F.y + 450];
+    const [ex, ey] = [F.x + 400, F.y + 450], nW = (await live()).strokes.length;
     await stroke([[ex, ey - 30], [ex, ey + 30]]);
-    ok((await live()).strokes.length === nS, "Whole Strokes removes the whole piece it touches");
+    ok((await live()).strokes.length === nW - 1, "Whole Strokes removes the whole piece it touches");
     await page.keyboard.press("Control+z"); await page.keyboard.press("Control+z");
     ok((await live()).strokes.some(s => s.id === longId), "two undos bring the uncut line back");
+    // a soft eraser fades the line where it's rubbed, without splitting it
+    await wb("erase", "part"); await wb("eh", 0);
+    ok(await page.locator('.wb-tray [data-wb="eh"]').count() === 3, "Erase Parts has Soft, Medium and Hard");
+    const nS2 = (await live()).strokes.length;
+    await stroke([[F.x + 600, F.y + 400], [F.x + 600, F.y + 500]]);
+    const soft = (await live()).strokes.find(s => s.id === longId);
+    ok((await live()).strokes.length === nS2 && soft && soft.x && soft.x.every(e => e[3] < 1), "the soft eraser keeps the line whole and fades it where it's rubbed");
+    const a0 = await inkAt([F.x + 600, F.y + 450]);
+    ok(a0 < 255 && await inkAt([F.x + 380, F.y + 450]) > 200, "partly see-through where rubbed: " + a0);
+    await page.keyboard.press("Control+z"); await wb("eh", 2);
     // the eraser on typed text: Erase Parts takes only the letters it passes over
     await wb("tool", "text"); await page.mouse.click(F.x + 150, F.y + 330); await page.waitForTimeout(60);
     await page.keyboard.type("ABCDEFGH"); await page.keyboard.press("Escape"); await page.keyboard.press("Escape"); await page.waitForTimeout(60);
