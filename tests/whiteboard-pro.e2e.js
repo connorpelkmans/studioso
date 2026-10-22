@@ -56,6 +56,19 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
       ok(Math.abs(it.w / it.h - 4 / 3) < 0.02, "it keeps its shape: " + it.w + " x " + it.h);
       ok(await page.locator(".wb-imgs .wb-img img").count() === 1 && await page.locator(".wb-selbar:not([hidden])").count() === 1 && await page.evaluate(() => SBWB.tool()) === "select", "it shows on the board, selected, with Select on");
       ok((await page.locator('.wb-selbar [data-wb="restyle"]').textContent()).includes("Draw in Marker"), "its menu offers Draw in Marker");
+      // right after a reload sign-in may still be coming back: a picture whose first loads fail is tried again soon, not shown as missing
+      await page.evaluate(async () => {
+        const T = window.__sbProStudy, NP = window.__sbNotePhotos, IO = SBWB.pictures.IO, b0 = IO.bytes; let fails = 0;
+        window.__bytes["asset-slow"] = window.__bytes[Object.keys(window.__bytes)[0]];
+        IO.bytes = async id => { if (id === "asset-slow" && fails < 2) { fails++; throw new Error("not signed in"); } return b0(id); };
+        T.applyChanges([{kind: "file", id: "slowpic", after: NP.normFile({id: "slowpic", name: "slow.png", courseId: "", folderId: "notes", kind: "file", revs: [{assetId: "asset-slow", size: 10, type: "image/png", at: Date.now(), name: "slow.png"}], taskIds: []})}], "");
+        SBWB.change(set => set("i", "slowit", {id: "slowit", k: "i", f: "slowpic", x: 100, y: 1400, w: 400, h: 300, at: Date.now()}));
+      });
+      await page.waitForTimeout(250);
+      ok(!(await page.locator(".wb-imgs").textContent()).includes("not available"), "a picture that can't load yet isn't shown as missing right away");
+      await page.waitForTimeout(2600);
+      ok(await page.locator(".wb-imgs .wb-img img").count() === 2, "and it shows once it loads, a moment later");
+      await page.evaluate(() => SBWB.change(set => set("i", "slowit", null)));
 
       // resize from the corner handle
       const box = await page.evaluate(id => { const b = SBWB.itemBB(SBWB.getI(id)), c = SBWB.cam(), r = document.querySelector(".wb-frame").getBoundingClientRect(); return {x: r.left + b[2] * c.z + c.x, y: r.top + b[3] * c.z + c.y, z: c.z}; }, it.id);
