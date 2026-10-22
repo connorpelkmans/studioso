@@ -1107,10 +1107,10 @@ Don't want the small note when someone starts a session? Open **Settings**, then
 ### Room size
 | Group owner's plan | People in a room | Longest session |
 |---|---|---|
-| Free | 4 | 60 minutes |
+| Free | 4 | 3 hours |
 | Pro | 30 | 3 hours |
 
-The group owner's plan decides, so one Pro owner gives the whole group bigger rooms. While Pro isn't switched on (the paywall is off), every group gets the Pro sizes. You can change these numbers in the `limits` row of `studyboard_config` (`roomPeople` and `roomMinutes`).
+The group owner's plan decides, so one Pro owner gives the whole group bigger rooms (session length is the same on both plans). While Pro isn't switched on (the paywall is off), every group gets the Pro sizes. You can change these numbers in the `limits` row of `studyboard_config` (`roomPeople` and `roomMinutes`).
 
 ### Without Supabase
 Study Together rooms need your Supabase connection and an account, like study groups. In local-only mode, the Groups page explains how to connect.

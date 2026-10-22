@@ -74,11 +74,12 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await page.evaluate(() => document.querySelector("#pomoDlg").close());
       await page.click("#toastUndo"); await page.waitForTimeout(250);
       t1 = await task(page, "t1"); ok(!(t1.focusMin > 0), "Undo takes it back");
-      // under 3 minutes: nothing
+      // every whole minute counts, even a short one
       await midSession(page, "t1", 2);
       await openTimer(page); await page.click('#pomoDlg [data-act="pomo-reset"]'); await page.waitForTimeout(250);
-      t1 = await task(page, "t1"); ok(!(t1.focusMin > 0), "under 3 minutes is not logged");
+      t1 = await task(page, "t1"); ok(t1.focusMin === 2, "2 minutes of focus are logged too: " + t1.focusMin);
       await page.evaluate(() => document.querySelector("#pomoDlg").close());
+      await page.click("#toastUndo"); await page.waitForTimeout(250);
       // skipping
       await midSession(page, "t1", 20);
       await openTimer(page); await page.click('#pomoDlg [data-act="pomo-skip"]'); await page.waitForTimeout(300);
