@@ -6368,6 +6368,8 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 #view .tl-controls.tl-tools .cf-pick{margin:0}
 /* Side menu: never show a scrollbar while it re-fits */
 @media (min-width:640px){nav.tabs{scrollbar-width:none}nav.tabs::-webkit-scrollbar{display:none}}
+/* The page never scrolls sideways; a stray wide frame (the companion moving between pages) can't add a scrollbar that squeezes the side menu */
+@media (min-width:640px){html{overflow-x:clip}}
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
