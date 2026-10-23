@@ -825,6 +825,10 @@
   const curTab = g => tabsOf(g).some(x => x[0] === S.tab[g.id]) ? S.tab[g.id] : tabsOf(g)[0][0];
   const paneOn = (g, k) => curTab(g) === k ? "" : " hidden";
   const tabsHtml = g => `<div class="grp-tabs" role="tablist" aria-label="Group sections">${tabsOf(g).map(([k, l]) => { const on = curTab(g) === k; return `<button type="button" role="tab" id="grpTab-${k}" class="${on ? "on" : ""}" aria-selected="${on}" aria-controls="grpPane-${k}" tabindex="${on ? 0 : -1}" data-act="grp-tab" data-t="${k}">${l}</button>`; }).join("")}</div>`;
+  // A redraw keeps keyboard focus on the section tabs
+  let tabFocus = false;
+  document.addEventListener("focusin", e => { tabFocus = !!(e.target.closest && e.target.closest("#grpDetail .grp-tabs [role=tab]")); });
+  const keepTabFocus = () => { if (!tabFocus || (document.activeElement && document.activeElement !== document.body)) return; const b = $('#grpDetail .grp-tabs [aria-selected="true"]'); if (b) b.focus(); };
   function showTab(g, t){
     if (!g || !tabsOf(g).some(x => x[0] === t)) return false;
     S.tab[g.id] = t;
@@ -2430,9 +2434,7 @@
     const g = groupOf(gid), root = $("#grpDetail");
     if (!g || !root || root.dataset.gid !== gid) { if (ui.tab === "groups") render(); return; }
     if (root.dataset.feat !== [...hiddenOf(g)].sort().join()) { render(); return; }
-    const ft = document.activeElement && document.activeElement.closest && document.activeElement.closest("#grpHead [role=tab]");
-    swapEl("grpHead", headHtml(g));
-    if (ft) { const b = document.getElementById(ft.id); if (b) b.focus(); }
+    swapEl("grpHead", headHtml(g)); keepTabFocus();
     if (isProj(g)) { swapEl("grpOverview", overviewHtml(g)); swapEl("grpFiles", linksHtml(g)); swapEl("grpMinutes", minutesHtml(g)); }
     else { swapEl("grpChallenge", challengeHtml(g)); swapEl("grpBattle", battleHtml(g)); swapEl("grpDecks", decksHtml(g)); swapEl("grpQuizzes", quizzesHtml(g)); swapEl("grpWeak", weakHtml(g)); swapEl("grpQA", qaHtml(g)); swapEl("grpCheckin", checkinHtml(g)); }
     swapEl("grpSessions", sessionsHtml(g)); swapEl("grpTasks", tasksHtml(g)); swapPT(g); swapEl("grpMembers", membersHtml(g)); swapEl("grpPins", pinsHtml(g)); drawThread();
@@ -3118,6 +3120,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   hook("render", tab => {
     checkUser();
     if (tab === "groups") {
+      keepTabFocus();
       if (online()) {
         if (S.groups == null && !S.busy && !S.err) loadGroups();
         if (!ui.grp && S.shares == null && !S.sharesBusy) loadShares();
