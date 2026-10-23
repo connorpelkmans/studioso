@@ -14638,8 +14638,9 @@ async function deskBoot(){
 let installEvt = null;
 window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; });
 function pwaBoot(){
+  // only on the website (https, or http://localhost while developing): not in the desktop app, nor the iPhone app (capacitor://localhost)
   const links = document.querySelectorAll('link[rel="manifest"]');
-  if (inClaude() || DESK || !(location.protocol === "https:" || location.hostname === "localhost")) { if (inClaude() || DESK) links.forEach(x => x.remove()); return; }
+  if (inClaude() || DESK || !(location.protocol === "https:" || (location.protocol === "http:" && location.hostname === "localhost"))) { if (inClaude() || DESK) links.forEach(x => x.remove()); return; }
   // The page ships a static <link rel="manifest">; only add one (never a second) if it was stripped. A relative href works in both layouts.
   if (!links.length) { const l = document.createElement("link"); l.rel = "manifest"; l.href = "manifest.webmanifest"; document.head.appendChild(l); }
   else for (let i = 1; i < links.length; i++) links[i].remove();
