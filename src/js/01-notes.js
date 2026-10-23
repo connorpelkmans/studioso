@@ -746,7 +746,7 @@ hook("render", tab => { if (tab === "notes") noteFocus(); });
 function noteRefocus(id){
   if (!id) return;
   noteFocusId = id;
-  setTimeout(noteFocus, 60);
+  setTimeout(() => { const el = !noteEditing && $(`.note[data-note="${CSS.escape(id)}"]`), a = document.activeElement; if (el && a !== el && (!a || a === document.body || $("#view").contains(a))) try { el.focus({preventScroll: true}); } catch (e) {} }, 60);
 }
 /* Note versions */
 /*NOTEHIST-START*/
