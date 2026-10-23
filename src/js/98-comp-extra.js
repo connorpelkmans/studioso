@@ -24,7 +24,7 @@ var COMP_EXTRA = [];
         <path d="M60 60.6C55.4 60.2 50.8 62.6 50.8 66.8C50.8 71.6 55.4 74.6 60 78C64.6 74.6 69.2 71.6 69.2 66.8C69.2 62.6 64.6 60.2 60 60.6Z" fill="${WHITE}"/>
         <path d="M39.4 51Q41.4 43 48 39.4" fill="none" stroke="#FFF6E8" stroke-width="3" stroke-linecap="round" opacity=".9"/>`;
       const FACE = `<path d="M57.6 62.6H62.4L60 65.2Z" fill="#F29AAA" ${OW(1.2)}/>`;
-      // the whiskers go in the top layer, drawn after the cheeks, so the pink cheeks sit behind them
+      // the whiskers go in the top layer, so they draw over the face
       const WHISKERS = `<path d="M46 65.4l-12.6 -1.8M46 68l-12.6 1.6M74 65.4l12.6 -1.8M74 68l12.6 1.6" stroke="${INK}" stroke-width="2.2" stroke-linecap="round" opacity=".2"/>
         <path d="M46 65.4l-12.6 -1.8M46 68l-12.6 1.6M74 65.4l12.6 -1.8M74 68l12.6 1.6" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round"/>`;
       const EAR = (tuft = 6) => `<path d="M37.6 46L39.4 23.6L55 37Z" fill="${TAN}" ${O}/><path d="M41.2 40.6L42 29.6L49.4 36.4Z" fill="${PINK}"/>
@@ -84,7 +84,6 @@ var COMP_EXTRA = [];
         },
         eyes: {lx: 49.5, rx: 70.5, y: 55.8, r: 5.2, style: "round", color: EYE},
         mouth: {x: 60, y: 67.6, w: 2.8, color: "#3A2A2A", style: "cat"},
-        cheeks: {lx: 42.5, rx: 77.5, y: 64.6, w: 4.2, h: 2.4, color: "#FFA6BA"},
         anchors: {top: [60, 34, 0.95], neck: [60, 80, 1], chest: [60, 94, 0.62], back: [84, 88, 0.8], hands: [60, 100, 0.86]},
         lines: LINES
       };
