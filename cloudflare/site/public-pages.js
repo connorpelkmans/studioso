@@ -59,7 +59,7 @@ export function siteHeader(current){
       <div class="navlinks" id="site-links">
 ${NAV_LINKS.map(([k, href, label]) => `        <a href="${href}"${k === current ? ' aria-current="page"' : ""}>${label}</a>`).join("\n")}
       </div>
-      <a href="/website/#download" class="navbtn">Download</a>
+      ${current === "flashcards" || current === "quizzes" ? '<a href="/" class="navbtn">Open Studyboard</a>' : '<a href="/website/#download" class="navbtn">Download</a>'}
       <button class="icon-btn" id="theme-toggle" type="button" aria-pressed="false" aria-label="Switch theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
       <button class="icon-btn menu-btn" id="menu-toggle" type="button" aria-expanded="false" aria-controls="site-links" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     </nav>
@@ -310,15 +310,18 @@ async function refresh(request, env, origin){
   const section = b.kind === "quiz" ? "quizzes" : "flashcards", key = courseKey(String(b.course || ""));
   const paths = [itemPath(section, String(b.name || "").slice(0, 200), code), `/${section}`].concat(key ? [`/${section}/course/${courseSlug(key)}`] : []);
   if (env.__refreshed) env.__refreshed.push(...paths);
-  if (cache) await Promise.all(paths.map(p => cache.delete(new Request(origin + p, {method: "GET"})).catch(() => false)));
+  if (cache) await Promise.all(paths.map(p => cache.delete(cacheKey(origin + p)).catch(() => false)));
   return ok;
 }
+// Cached pages are keyed by page version too, so a new release never serves pages built by the old one
+const PAGE_V = "4";
+const cacheKey = u => { const k = new URL(u); k.searchParams.set("__v", PAGE_V); return new Request(k.toString(), {method: "GET"}); };
 export async function handlePublic(request, env, ctx){
   const url = new URL(request.url), origin = url.origin;
   if (request.method === "POST" && url.pathname === "/flashcards/refresh") return refresh(request, env, origin);
   if (request.method !== "GET" && request.method !== "HEAD") return new Response("Method not allowed", {status: 405, headers: {allow: "GET, HEAD"}});
   const cache = typeof caches !== "undefined" && !env.__noCache ? caches.default : null;
-  const ckey = new Request(url.toString(), {method: "GET"});
+  const ckey = cacheKey(url.toString());
   if (cache) { const hit = await cache.match(ckey); if (hit) return hit; }
   let res;
   try {
