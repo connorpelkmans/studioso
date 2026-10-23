@@ -7543,7 +7543,9 @@ document.addEventListener("pointermove", e => {
 }, {capture: true, passive: false});
 document.addEventListener("pointerup", e => { if (sDrag && e.pointerId === sDrag.pid) { e.stopPropagation(); stkEnd(true, e); } }, true);
 document.addEventListener("pointercancel", e => { if (sDrag && e.pointerId === sDrag.pid) stkEnd(sDrag.moved, e); }, true);
-document.addEventListener("click", e => { if (Date.now() - stkClickBlock < 400 && e.target.closest && e.target.closest(".stk,[data-stk-src]")) { e.preventDefault(); e.stopPropagation(); } }, true);
+// The click that ends a sticker drag, turn or resize must not open the note: it often lands on the note itself, not the sticker (the
+// pointer was let go somewhere else on the note, or the sticker was redrawn), so it's swallowed anywhere on the board.
+document.addEventListener("click", e => { if (Date.now() - stkClickBlock < 500 && e.target.closest && e.target.closest(".stk,[data-stk-src],.note,#nbBoard")) { e.preventDefault(); e.stopPropagation(); } }, true);
 document.addEventListener("touchmove", e => { if (sDrag && sDrag.moved) e.preventDefault(); }, {passive: false});
 const STYLE_ACTS = {
   "shop": () => styleShop(),
