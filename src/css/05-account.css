@@ -3,6 +3,18 @@
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}
 .sb-acct .status-msg:empty{display:none}
 .sb-acct .mini .link-btn{font-size:inherit}
+/* New password: Show button and strength meter */
+.pw-wrap{position:relative;display:flex}
+.pw-wrap input{flex:1;min-width:0;padding-right:68px}
+.pw-eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);min-width:56px;min-height:40px;padding:0 10px;border:0;border-radius:8px;background:none;color:var(--accent);font:600 .85rem var(--body);cursor:pointer}
+.pw-eye:hover{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.pw-meter{height:6px;margin:-4px 0 0;border-radius:99px;background:color-mix(in srgb,var(--ink) 10%,transparent);overflow:hidden}
+.pw-meter i{display:block;height:100%;width:0;border-radius:inherit;background:var(--late);transition:width .2s,background-color .2s}
+.pw-meter[data-s="1"] i{width:25%}
+.pw-meter[data-s="2"] i{width:55%;background:#D98A1F}
+.pw-meter[data-s="3"] i{width:80%;background:var(--leaf,#1E9E74)}
+.pw-meter[data-s="4"] i{width:100%;background:var(--leaf,#1E9E74)}
+@media (prefers-reduced-motion:reduce){.pw-meter i{transition:none}}
 /* On phones there's no room beside the logo for words */
 @media (max-width:600px){
   .top-row .sync:not([data-state="ok"]){font-size:0;width:9px;height:9px;flex:none;border-radius:50%;background:#E0A030;box-shadow:0 0 0 3px color-mix(in srgb,#E0A030 22%,transparent);align-self:center}

@@ -158,6 +158,7 @@ canvas.ob-fx{position:fixed;inset:0;z-index:5}
 @media (max-width:600px){
   .ob[data-step="done"] .ob-foot{flex-direction:column-reverse;align-items:stretch;gap:8px}
   .ob[data-step="done"] .ob-foot .spacer{display:none}
+  dialog#dlg .sheet.ob[data-step="done"] .ob-foot > .btn{flex:0 0 auto}
   .ob-foot .btn{white-space:nowrap}
 }
 

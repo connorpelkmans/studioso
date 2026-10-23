@@ -383,8 +383,7 @@
         <p style="margin:0">${isMail ? `Your email is <b>${esc(sbUser.email || "")}</b>. We'll email both your current and your new address, and it changes once you confirm.` : "Choose a new password. You'll stay signed in on this device."}</p>
         <label class="f"><span class="lh">Current Password</span><input type="password" name="current" required autocomplete="current-password" autofocus></label>
         ${isMail ? `<label class="f"><span class="lh">New Email</span><input type="email" name="email" required autocomplete="email"></label>`
-          : `<label class="f"><span class="lh">New Password <span class="hint">At least 8 characters</span></span><input type="password" name="password" required minlength="8" autocomplete="new-password"></label>
-             <p class="mini" id="secStrength" style="margin:0" aria-live="polite"></p>
+          : `${sbPwHtml("New Password", "new-password", {req: false, id: "secStrength"})}
              <label class="f"><span class="lh">Confirm New Password</span><input type="password" name="confirm" required minlength="8" autocomplete="new-password"></label>
              <label class="f" id="secCodeRow" hidden><span class="lh">Code from the email <span class="hint">We emailed you a security code</span></span><input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="10"></label>`}
         <p class="status-msg" id="secMsg" style="margin:0" aria-live="polite" role="status"></p>
@@ -409,7 +408,7 @@
           } else {
             const pw = String(fd.get("password") || "");
             if (pw.length < 8) { say("Use at least 8 characters."); return; }
-            if (!sbStrength(pw).ok) { say("That password is too easy to guess. Add more characters or mix in capitals, numbers or symbols."); return; }
+            if (!sbStrength(pw).ok) { say(SB_WEAK); return; }
             if (pw !== String(fd.get("confirm") || "")) { say("The two passwords don't match."); return; }
             const code = String(fd.get("code") || "").replace(/\s+/g, "");
             let r = await sb.auth.updateUser(code ? {password: pw, nonce: code} : {password: pw});
@@ -429,8 +428,7 @@
       })();
       return false;
     });
-    const pw = dlg.querySelector("input[name=password]"), st = $("#secStrength");
-    if (pw && st) pw.addEventListener("input", () => { st.textContent = pw.value ? "Strength: " + sbStrength(pw.value).label : ""; });
+    sbPwWire(dlg);
   }
 
   /* Hooks */

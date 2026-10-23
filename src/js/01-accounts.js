@@ -53,6 +53,28 @@ function sbStrength(pw){
   const label = pw.length < 8 ? "Too short" : n <= 1 ? "Weak" : n === 2 ? "Okay" : n === 3 ? "Good" : "Strong";
   return {label, score: pw.length < 8 ? 0 : n, ok: pw.length >= 8 && n >= 2};
 }
+const SB_WEAK = "That password is too easy to guess. Add more characters or mix in capitals, numbers or symbols.";
+// A new-password box with Show and a strength meter
+function sbPwHtml(label, ac, o){
+  o = o || {};
+  return `<label class="f"><span class="lh">${label}${o.req === false ? "" : " " + REQ}</span><span class="pw-wrap"><input type="password" name="password" required minlength="8" autocomplete="${ac}"${o.autofocus ? " autofocus" : ""}><button type="button" class="pw-eye" aria-pressed="false" aria-label="Show password">Show</button></span></label>
+    <div class="pw-meter" data-s="0" aria-hidden="true"><i></i></div><p class="mini pw-note" id="${o.id || "sbStrength"}" style="margin:0" aria-live="polite">At least 8 characters.</p>`;
+}
+function sbPwWire(root){
+  root.querySelectorAll(".pw-eye").forEach(b => b.addEventListener("click", () => {
+    const i = b.previousElementSibling, show = i.type === "password";
+    i.type = show ? "text" : "password"; b.textContent = show ? "Hide" : "Show";
+    b.setAttribute("aria-pressed", String(show)); b.setAttribute("aria-label", show ? "Hide password" : "Show password");
+  }));
+  root.querySelectorAll(".pw-meter").forEach(m => {
+    const inp = m.previousElementSibling && m.previousElementSibling.querySelector("input"), out = m.nextElementSibling; if (!inp || !out) return;
+    inp.addEventListener("input", () => {
+      const v = inp.value, r = sbStrength(v);
+      m.dataset.s = v ? String(Math.max(1, r.score)) : "0";
+      out.textContent = !v ? "At least 8 characters." : r.ok ? `Strength: ${r.label}` : `Strength: ${r.label}. ${v.length < 8 ? "Use at least 8 characters." : "Add more characters, or mix in capitals, numbers or symbols."}`;
+    });
+  });
+}
 const sbActive = () => !inPreview() && !!sb && !!sbUser;
 function sbErr(e){
   const msg = String((e && (e.message || e.error_description || e.error)) || e || "");
@@ -756,10 +778,10 @@ function sbSignInSheet(mode, email, note){
   const pwIn = (lbl, ac) => `<label class="f"><span class="lh">${lbl} ${REQ}</span><input type="password" name="password" required minlength="8" autocomplete="${ac}" ${email && mode !== "reset" ? "autofocus" : ""}></label>`;
   const body = {
     signin: `${first ? `<p style="margin:0">Sign in to keep your tasks, notes and files safe online and in sync on all your devices.</p>` : ""}${emailIn()}${pwIn("Password", "current-password")}`,
-    signup: `<p style="margin:0">Free, and it keeps your planner in sync on your phone, laptop and the web.</p><label class="f"><span class="lh">Name <span class="hint">Optional. Your study companion uses it to say hi</span></span><input type="text" name="name" maxlength="40" autocomplete="given-name"></label>${window.SBUNAME ? SBUNAME.field("username", "") + SBUNAME.bdayField() + `<div class="u13" id="u13" hidden><p class="mini" style="margin:0"><b>Under 13?</b> A parent or guardian makes the account with their own email and confirms it. Publishing and sharing with a link stay off until you're 13.</p><label class="mi-check"><input type="checkbox" name="parentok" id="u13ok"> I'm the parent or guardian, and I agree to the Terms and Privacy Policy for my child</label></div>` : ""}${emailIn()}${pwIn("Password", "new-password")}<p class="mini" style="margin:0">At least 8 characters.</p>`,
+    signup: `<p style="margin:0">Free, and it keeps your planner in sync on your phone, laptop and the web.</p><label class="f"><span class="lh">Name <span class="hint">Optional. Your study companion uses it to say hi</span></span><input type="text" name="name" maxlength="40" autocomplete="given-name"></label>${window.SBUNAME ? SBUNAME.bdayField(true) + `<div class="u13" id="u13" hidden><p class="mini" style="margin:0"><b>Under 13?</b> A parent or guardian makes the account with their own email and confirms it. Publishing and sharing with a link stay off until you're 13.</p><label class="mi-check"><input type="checkbox" name="parentok" id="u13ok"> I'm the parent or guardian, and I agree to the Terms and Privacy Policy for my child</label></div>` : ""}${emailIn()}${sbPwHtml("Password", "new-password", {autofocus: !!email})}`,
     confirm: `<p style="margin:0">If <b>${esc(email)}</b> can be used for a new account, we sent a code to it. Type it here to finish, or open the link in the email.</p><p class="mini" style="margin:0">Confirm your email to start using your account. Already have one? Use Back to Sign In.</p>${codeIn}`,
     forgot: `<p style="margin:0">Enter your email and, if an account uses it, we'll send you a code to set a new password.</p>${emailIn()}`,
-    reset: `<p style="margin:0">If an account uses <b>${esc(email)}</b>, we sent it a code. Enter the code with your new password.</p>${codeIn}${pwIn("New Password", "new-password")}<p class="mini" id="sbStrength" style="margin:0" aria-live="polite"></p>`
+    reset: `<p style="margin:0">If an account uses <b>${esc(email)}</b>, we sent it a code. Enter the code with your new password.</p>${codeIn}${sbPwHtml("New Password", "new-password")}`
   }[mode];
   const links = {
     signin: `<button type="button" class="link-btn" data-sbm="forgot">Forgot Password?</button> · <button type="button" class="link-btn" id="sbLater">${first ? "Use Without an Account" : "Not Now"}</button>`,
@@ -780,7 +802,7 @@ function sbSignInSheet(mode, email, note){
   let busy = false;
   const say = t => { const m = $("#sbMsg"); if (m) m.textContent = t; };
   const done = t => { try { localStorage.setItem("studioso:welcomed", "1"); } catch(e) {} if (dlg.open) dlg.close(); toast(t); };
-  openSheet(`<form class="sheet sb-acct" data-mode="${mode}">${head(T)}
+  openSheet(`<form class="sheet sb-acct" data-mode="${mode}"${first ? " data-first" : ""}>${head(T)}
     <div class="sheet-body">
       ${REQ_NOTE}${body}
       <p class="status-msg" id="sbMsg" style="margin:0" aria-live="polite">${esc(note || "")}</p>
@@ -801,20 +823,17 @@ function sbSignInSheet(mode, email, note){
           done("Signed in");
         } else if (mode === "signup") {
           if (pw.length < 8) { say("Use a password of at least 8 characters."); return; }
-          const un = String(fd.get("username") || "").trim();
-          const bday = window.SBUNAME && $("#unIn") ? SBUNAME.bdayOf(fd) : "";
-          if (window.SBUNAME && $("#unIn")) {
-            if (!bday) { say("Pick your whole birthday."); return; }
+          if (!sbStrength(pw).ok) { say(SB_WEAK); return; }
+          const askAge = !!(window.SBUNAME && dlg.querySelector(".sb-acct .bday"));
+          const bday = askAge ? SBUNAME.bdayOf(fd) : "";
+          if (askAge) {
+            if (!bday) { say("Enter your birthday."); return; }
             if (SBUNAME.yearsOld(bday) < 13 && !fd.get("parentok")) { say("A parent or guardian makes the account for students under 13. Tick the box to agree."); return; }
-          }
-          if (window.SBUNAME && $("#unIn")) {
-            const bad = SBUNAME.problem(un); if (bad) { say(bad); const ui2 = $("#unIn"); if (ui2) ui2.focus(); return; }
-            try { const {data: ck} = await sb.rpc("username_check", {p_name: un}); const r = (ck || [])[0]; if (r && !r.ok) { say(r.reason || "That username isn't available."); return; } } catch (e) {}
           }
           say("Creating your account…");
           const nm = String(fd.get("name") || "").replace(/\s+/g, " ").trim().slice(0, 40);
           if (nm) try { localStorage.setItem("studyboard:comp:uname", nm); } catch(e) {}
-          const meta = Object.assign(nm ? {first_name: nm.split(" ")[0], full_name: nm} : {}, un ? {username: un} : {}, bday ? {birth_date: bday} : {}, bday && SBUNAME.yearsOld(bday) < 13 ? {parent_consent: new Date().toISOString()} : {});
+          const meta = Object.assign(nm ? {first_name: nm.split(" ")[0], full_name: nm} : {}, bday ? {birth_date: bday} : {}, bday && SBUNAME.yearsOld(bday) < 13 ? {parent_consent: new Date().toISOString()} : {});
           sbLinkAsked(); const {data, error} = await sb.auth.signUp({email: em, password: pw, options: Object.assign(redirect ? {} : {emailRedirectTo: back}, Object.keys(meta).length ? {data: meta} : {})});
           if (error) throw error;
           if (data && data.session) { done("Welcome to Studyboard!"); return; }
@@ -833,6 +852,7 @@ function sbSignInSheet(mode, email, note){
         } else if (mode === "reset") {
           if (!/^\d{6,10}$/.test(code)) { say("Enter the code from the email. It's all numbers."); return; }
           if (pw.length < 8) { say("Use a password of at least 8 characters."); return; }
+          if (!sbStrength(pw).ok) { say(SB_WEAK); return; }
           say("Saving…");
           const v = await sb.auth.verifyOtp({email: em, token: code, type: "recovery"});
           if (v.error) throw v.error;
@@ -847,18 +867,14 @@ function sbSignInSheet(mode, email, note){
     return false;
   });
   dlg.querySelectorAll("[data-sbm]").forEach(b => b.addEventListener("click", () => sbSignInSheet(b.dataset.sbm)));
-  if (mode === "signup" && window.SBUNAME && $("#unIn")) {
-    SBUNAME.wireCheck($("#unIn"), $("#unMsg"));
+  sbPwWire(dlg);
+  if (mode === "signup" && window.SBUNAME && dlg.querySelector(".sb-acct .bday")) {
     const form = dlg.querySelector("form.sb-acct"), em = form && form.querySelector("input[name=email]"), lab = em && em.closest("label") && em.closest("label").querySelector(".lh");
     const upd = () => { const iso = SBUNAME.bdayOf(new FormData(form)), young = !!iso && SBUNAME.yearsOld(iso) < 13; $("#u13").hidden = !young; $("#u13ok").required = young; if (lab) lab.firstChild.textContent = young ? "Parent or Guardian's Email " : "Email "; };
-    form.querySelectorAll(".bday select").forEach(x => x.addEventListener("change", upd));
+    form.querySelectorAll(".bday input").forEach(x => { x.addEventListener("change", upd); x.addEventListener("input", upd); });
   }
   const later = $("#sbLater");
-  if (later) later.addEventListener("click", () => {
-    try { localStorage.setItem("studioso:welcomed", "1"); if (first) { localStorage.setItem(SB_CFG, JSON.stringify("local")); SBGUEST.chose(); } } catch(e) {}
-    dlg.close(); syncLabel();
-    toast(first ? "Saving on this device only. Sign in any time from Settings." : "Working on this device. Sign in from Settings to sync.");
-  });
+  if (later) later.addEventListener("click", () => { dlg.close(); sbUseLater(first); });
   const rs = $("#sbResend");
   if (rs) {
     const ckey = mode + ":" + String(email).toLowerCase(), label = rs.textContent;
@@ -876,23 +892,31 @@ function sbSignInSheet(mode, email, note){
       say(error ? sbWords(error) : "Sent. Check your email (and your junk folder).");
     });
   }
-  const pwr = dlg.querySelector('.sb-acct[data-mode="reset"] input[name=password]'), st = $("#sbStrength");
-  if (pwr && st) pwr.addEventListener("input", () => { st.textContent = pwr.value ? "Strength: " + sbStrength(pwr.value).label : ""; });
   const sv = $("#sbServer"); if (sv) sv.addEventListener("click", sbSetupSheet);
 }
+// "Use Without an Account", "Not Now", or closing the first sign-in sheet
+function sbUseLater(first){
+  try { localStorage.setItem("studioso:welcomed", "1"); if (first) { localStorage.setItem(SB_CFG, JSON.stringify("local")); SBGUEST.chose(); } } catch(e) {}
+  syncLabel();
+  toast(first ? "Saving on this device only. Sign in any time from Settings." : "Working on this device. Sign in from Settings to sync.");
+}
+document.getElementById("dlg").addEventListener("close", () => {
+  if (sbUser || !dlg.querySelector('.sb-acct[data-first][data-mode="signin"], .sb-acct[data-first][data-mode="signup"]')) return;
+  try { if (localStorage.getItem("studioso:welcomed")) return; } catch(e) { return; }
+  sbUseLater(true);
+});
 // Opened from the link in a password email (recovery session)
 function sbNewPasswordSheet(){
   openSheet(`<form class="sheet sb-acct" data-mode="newpass">${head("Set a New Password")}
     <div class="sheet-body">${REQ_NOTE}
-      <label class="f"><span class="lh">New Password ${REQ} <span class="hint">At least 8 characters</span></span><input type="password" name="password" required minlength="8" autocomplete="new-password" autofocus></label>
-      <p class="mini" id="sbStrength" style="margin:0" aria-live="polite"></p>
+      ${sbPwHtml("New Password", "new-password", {autofocus: true})}
       <label class="f"><span class="lh">Confirm New Password ${REQ}</span><input type="password" name="confirm" required minlength="8" autocomplete="new-password"></label>
       <p class="status-msg" id="sbMsg" style="margin:0" aria-live="polite"></p></div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-submit>Save Password</button></div>
   </form>`, fd => {
     const password = String(fd.get("password") || ""), say = t => { const m = $("#sbMsg"); if (m) m.textContent = t; };
     if (password.length < 8) { say("Use at least 8 characters."); return false; }
-    if (!sbStrength(password).ok) { say("That password is too easy to guess. Add more characters or mix in capitals, numbers or symbols."); return false; }
+    if (!sbStrength(password).ok) { say(SB_WEAK); return false; }
     if (password !== String(fd.get("confirm") || "")) { say("The two passwords don't match."); return false; }
     say("Saving…");
     sb.auth.updateUser({password}).then(({error}) => {
@@ -901,8 +925,7 @@ function sbNewPasswordSheet(){
     }, e => say(sbWords(e)));
     return false;
   });
-  const pw = dlg.querySelector("input[name=password]"), st = $("#sbStrength");
-  if (pw && st) pw.addEventListener("input", () => { st.textContent = pw.value ? "Strength: " + sbStrength(pw.value).label : ""; });
+  sbPwWire(dlg);
 }
 // A link in an email failed (expired or already used)
 function sbLinkErrorSheet(){
