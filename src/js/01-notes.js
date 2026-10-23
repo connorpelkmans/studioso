@@ -614,7 +614,7 @@ function repairNoteBoards(){
     if (keep.length || !bak.length) localStorage.setItem(NB_BAK, JSON.stringify(keep));   // a backup that still holds real boards is never emptied
   } catch (e) {}
 }
-// Full screen board: the arrow button at the top corner of the note board and the whiteboard makes the board fill the whole app window
+// Full screen board: the arrow button at the top right of the note board and the whiteboard (their zoom is at the top left) makes the board fill the whole app window
 // (the page around it is hidden under it). The same button, Esc, or leaving Notes goes back.
 const boardMaxOn = () => document.documentElement.classList.contains("board-max");
 function boardMaxBtn(cls){

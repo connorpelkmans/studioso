@@ -1,5 +1,5 @@
 // node tests/board-max.e2e.js  (Playwright + Chromium; no network)
-// The arrow button at the top left of the note board and the whiteboard makes the board fill the whole app window, on a computer and a phone.
+// The arrow button at the top right of the note board and the whiteboard makes the board fill the whole app window, on a computer and a phone.
 // The same button, Esc, or leaving Notes goes back. Notes still open, drag and draw while it's full screen.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
@@ -38,8 +38,11 @@ const SHOTS = process.env.SHOTS || "";
       // the note board
       const bm = await page.evaluate(() => { const b = document.querySelector(".nb-max").getBoundingClientRect(), s = document.getElementById("nbScroll").getBoundingClientRect(), z = document.querySelector(".nb-zoom").getBoundingClientRect();
         const t = [...document.querySelectorAll(".nb-target")].map(x => x.getBoundingClientRect()), apart = (p, q) => p.right <= q.left || q.right <= p.left || p.bottom <= q.top || q.bottom <= p.top;
-        return {inTopLeft: b.left - s.left < 24 && b.top - s.top < 70 && b.left >= s.left - 1, clear: apart(b, z) && [b, z].every(p => t.every(q => apart(p, q)))}; });
-      ok(await page.locator(".nb-max").isVisible() && bm.inTopLeft && bm.clear, `${label}: the note board has the expand button in its top left corner, clear of the zoom, Archive and Trash`);
+        const covers = [...document.querySelectorAll("nav.tabs, .fab")].filter(e => getComputedStyle(e).position === "fixed" && getComputedStyle(e).opacity !== "0").map(e => e.getBoundingClientRect());
+        return {right: s.right - b.right < 24 && b.top - s.top < 24, zoomLeft: z.left - s.left < 24 && z.top - s.top < 24,
+          bottom: t.every(q => s.bottom - q.bottom < 120 && q.top > s.top + s.height / 2), clear: [b, z].every(p => t.every(q => apart(p, q))) && t.every(q => covers.every(c => apart(q, c)))}; });
+      ok(await page.locator(".nb-max").isVisible() && bm.right && bm.zoomLeft, `${label}: the note board has its zoom at the top left and the expand button at the top right`);
+      ok(bm.bottom && bm.clear, `${label}: Archive and Trash sit at the bottom, clear of the buttons and the tab bar`);
       await page.click(".nb-max"); await page.waitForTimeout(300);
       let c = await covers(page);
       ok(await isMax(page) && c.full && c.over, `${label}: it makes the note board fill the whole window, over the header and tabs`);
@@ -64,8 +67,9 @@ const SHOTS = process.env.SHOTS || "";
       if (!(await page.locator(".wb-frame").count())) { await page.evaluate(() => { const b = document.querySelector('[data-act="wb-quick"][data-id="blank"], [data-act="wb-quick"]'); b && b.click(); }); await page.waitForTimeout(600); }
       await page.waitForSelector(".wb-frame .wb-max");
       const w0 = await page.evaluate(() => document.querySelector(".wb-frame").getBoundingClientRect());
-      const wm = await page.evaluate(() => { const b = document.querySelector(".wb-max").getBoundingClientRect(), f = document.querySelector(".wb-frame").getBoundingClientRect(); return b.left - f.left < 20 && b.top - f.top < 20; });
-      ok(await page.locator(".wb-max").isVisible() && wm, `${label}: the whiteboard has the expand button in its top left corner`);
+      const wm = await page.evaluate(() => { const b = document.querySelector(".wb-max").getBoundingClientRect(), z = document.querySelector(".wb-zoom").getBoundingClientRect(), f = document.querySelector(".wb-frame").getBoundingClientRect();
+        return f.right - b.right < 20 && b.top - f.top < 20 && z.left - f.left < 20 && z.top - f.top < 20 && z.right < b.left; });
+      ok(await page.locator(".wb-max").isVisible() && wm, `${label}: the whiteboard has its zoom at the top left and the expand button at the top right`);
       await page.click(".wb-max"); await page.waitForTimeout(400);
       c = await covers(page);
       const w1 = await page.evaluate(() => { const f = document.querySelector(".wb-frame").getBoundingClientRect(), cv = document.querySelector(".wb-ink"); return {w: f.width, h: f.height, cw: cv.width, ch: cv.height, dpr: devicePixelRatio}; });

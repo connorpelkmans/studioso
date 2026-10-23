@@ -2023,14 +2023,14 @@ body.sch-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .board-max-btn svg{width:17px;height:17px}
 .board-max-btn:hover{filter:brightness(.96)}
 .board-max-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.nb-max{top:14px;left:14px}
-.nb-main .nb-zoom{left:56px}
-.wb-max{top:8px;left:8px;color:#22262D;background:rgba(255,255,255,.9);border-color:rgba(0,0,0,.1);box-shadow:0 2px 8px rgba(20,30,45,.16)}
+.nb-max{top:14px;right:14px}
+.wb-max{top:8px;right:8px;color:#22262D;background:rgba(255,255,255,.9);border-color:rgba(0,0,0,.1);box-shadow:0 2px 8px rgba(20,30,45,.16)}
 .wb-dk .wb-max{background:rgba(38,45,54,.95);border-color:rgba(255,255,255,.1);color:#E6EAEE}
+.wb-stage .wb-zoom{left:8px;right:auto}
 @media (max-width:639px){
-  .nb-max{top:58px;left:12px}   /* under the zoom: Archive and Trash share the top row on a phone */
-  .nb-main .nb-zoom{left:12px}
-  .wb-max{top:6px;left:6px}
+  .nb-max{top:12px;right:12px}
+  .wb-max{top:6px;right:6px}
+  .wb-stage .wb-zoom{left:6px;right:auto}
 }
 html.board-max,html.board-max body{overflow:hidden!important;overscroll-behavior:none}
 html.board-max{scrollbar-gutter:auto}
