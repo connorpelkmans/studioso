@@ -17,4 +17,5 @@ ok(/alt="Available in the Chrome Web Store"/.test(home), "the badge keeps Google
 ok(/class="cwsb" href="' \+ esc\(CWS\) \+ '" target="_blank" rel="noopener"/.test(home), "the badge links to the listing in a new tab");
 ok(/var extCard = CWS \?/.test(home), "no badge is shown without a listing address");
 ok(/\.cwsb img\{display:block;height:\d+px;width:auto\}/.test(css), "the badge is only resized, keeping its proportions");
+ok(/<img src="assets\/school-sync-icon.png"/.test(home) && fs.existsSync(path.join(W, "assets/school-sync-icon.png")), "the extension card shows the School Sync icon");
 console.log(`site-cws-badge: ${n} checks passed`);

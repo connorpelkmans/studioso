@@ -248,6 +248,7 @@ details.faq p{margin:.6em 0 0;color:var(--muted)}
 .plat.you{border-color:var(--accent-2);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent-2) 16%,transparent)}
 .plat .you-tag{position:absolute;top:-11px;left:16px;font:700 .68rem var(--display);letter-spacing:.06em;text-transform:uppercase;background:var(--accent-2);color:#fff;padding:3px 9px;border-radius:999px}
 .plat .ico{width:38px;height:38px;color:var(--ink)}
+.plat .ico img{display:block;width:38px;height:38px;border-radius:9px}
 .plat h4{font:600 1.08rem var(--display);margin:0}
 .plat p{font-size:.9rem;color:var(--muted);margin:0}
 .plat .file{font:500 .72rem ui-monospace,Consolas,monospace;overflow-wrap:anywhere;margin-top:4px}
