@@ -469,7 +469,9 @@
   function check(){
     raf = 0;
     const b = document.body; if (!b) return;
-    b.classList.toggle("sb-scrolled", PHONE.matches && window.scrollY > 4);
+    const on = PHONE.matches && window.scrollY > 4;
+    b.classList.toggle("sb-scrolled", on);
+    if (on) section();
     let y = false;
     const fab = PHONE.matches && document.getElementById("fab"), qa = fab && document.querySelector("#view .qa-bar");
     if (qa && fab.style.display !== "none") {
@@ -477,6 +479,15 @@
       y = q.height > 0 && q.bottom > f.top - 8 && q.top < f.bottom + 8;
     }
     b.classList.toggle("fab-yield", !!y);
+  }
+  // The page's name next to the small logo
+  function section(){
+    const box = document.querySelector("header.top .top-row > div:first-child"), brand = box && box.querySelector(".brand"); if (!brand) return;
+    let el = box.querySelector(".top-sec");
+    if (!el) { el = document.createElement("span"); el.className = "top-sec"; el.setAttribute("aria-hidden", "true"); brand.after(el); }
+    const pick = document.querySelector("#view > .pview-tabs [aria-selected=true], #view .bview-tabs [aria-selected=true]") || document.querySelector("nav.tabs [aria-current=page]");
+    const t = pick ? pick.textContent.replace(/\s+/g, " ").trim() : "";
+    if (el.textContent !== t) el.textContent = t;
   }
   const soon = () => { if (!raf) raf = requestAnimationFrame(check); };
   window.addEventListener("scroll", soon, {passive: true});
