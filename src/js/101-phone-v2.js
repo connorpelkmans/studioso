@@ -1,7 +1,8 @@
 /* ===== module: 101-phone-v2.js ===== */
 /* Phones: the page's name in the top bar (with the date over the Board) */
 (() => {
-  const isPhone = () => innerWidth < 640;
+  const mqPhone = window.matchMedia ? matchMedia("(max-width:639px)") : null;
+  const isPhone = () => mqPhone ? mqPhone.matches : innerWidth < 640;
   const navBtn = t => document.querySelector(`nav.tabs .in [data-tab="${t}"]`);
   const label = t => { const b = navBtn(t); return b ? b.textContent.trim() : ""; };
   const norm = x => String(x || "").replace(/\s+/g, " ").trim().toLowerCase();
@@ -33,7 +34,7 @@
         view.insertBefore(pill, view.firstChild);
       }
       const sel = view.querySelector(":scope > .pview-tabs [aria-selected=true], :scope > .pview-tabs.ph-solo > .ph-solo-t");
-      const same = new Set([norm(t), sel ? norm(sel.textContent) : "", tab === "courses" ? "your courses" : "", "study " + norm(t)].filter(Boolean));
+      const same = new Set([norm(t), sel ? norm(sel.textContent) : "", tab === "courses" ? "your courses" : "", tab === "flashcards" ? "your decks" : "", tab === "flashcards" ? "your quizzes" : "", "study " + norm(t)].filter(Boolean));
       const selT = sel ? norm(sel.textContent) : "";
       view.querySelectorAll(":scope > .view-head > h2, :scope > .tl-controls > h2, :scope > * > .view-head > h2").forEach(h => { const x = norm(h.textContent); h.classList.toggle("ph-dup", same.has(x) || (!!selT && x.startsWith(selT + " "))); });
       view.querySelectorAll(":scope > .view-head, :scope > section > .view-head").forEach(v => { const h = v.querySelector(":scope > h2.ph-dup"), rest = [...v.children].filter(c => c !== h); v.classList.toggle("ph-btns", !!h && rest.length > 0 && rest.length <= 3 && rest.every(c => c.matches("button.btn"))); });
@@ -97,7 +98,21 @@
       }
     } catch (e) {}
   }
-  hook("render", () => { update(); fitChat(); seatCut(); barTint(); });
+  // The nav shape and the bar colour only change with the layout, theme or skin: measured once per frame, and only when one of those changed
+  let raf = 0, seatSig = "", tintSig = "";
+  const sig = () => { const r = document.documentElement; return [isPhone(), r.dataset.theme || "", r.dataset.skin || "", r.dataset.hc || "", r.dataset.ts || "", (document.getElementById("skinCss") || {textContent: ""}).textContent.length].join("|"); };
+  function later(force){
+    if (force) { seatSig = ""; tintSig = ""; }
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      const s = sig(), nav = document.querySelector("nav.tabs");
+      const seat = s + "|" + (nav ? nav.dataset.fit || "" : "") + "|" + (document.querySelector('nav.tabs .in [data-tab="companion"]') ? 1 : 0);
+      if (seat !== seatSig) { seatSig = seat; seatCut(); }
+      if (s !== tintSig) { tintSig = s; barTint(); }
+    });
+  }
+  hook("render", () => { update(); fitChat(); later(false); });
   // Phones: iOS paints the strip behind the clock and battery in the page's theme colour
   function barTint(){
     const m = document.querySelector('meta[name="theme-color"]'); if (!m) return;
@@ -129,7 +144,7 @@
     if (fresh.length === 2) { fresh.forEach(([k, v]) => { if (nav.style.getPropertyValue(k) !== v) nav.style.setProperty(k, v); }); nav.classList.add("ph-seatcut"); }
     else nav.classList.remove("ph-seatcut");
   }
-  hook("boot", () => setTimeout(() => { update(); fitChat(); seatCut(); barTint(); }, 0));
+  hook("boot", () => setTimeout(() => { update(); fitChat(); later(true); }, 0));
   // Companion chat on a phone
   function fitChat(){
     const root = document.documentElement, view = document.getElementById("view");
@@ -158,7 +173,7 @@
     if (s.value === "__new") setTimeout(() => { try { render(); } catch (x) {} }, 0);
   });
   let wasPhone = isPhone();
-  addEventListener("resize", () => { if (isPhone() !== wasPhone) { wasPhone = isPhone(); scheduleRender(); } else update(); fitChat(); seatCut(); barTint(); });
+  addEventListener("resize", () => { if (isPhone() !== wasPhone) { wasPhone = isPhone(); scheduleRender(); } else update(); fitChat(); later(true); });
 
 })();
 
