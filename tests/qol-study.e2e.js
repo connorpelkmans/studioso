@@ -80,7 +80,7 @@ function SEED(){
     const overlap = await page.evaluate(id => { const a = document.querySelector(`.note[data-note="${id}"]`); const ra = {x: a.offsetLeft, y: a.offsetTop, w: 200, h: 140}; return [...document.querySelectorAll("#nbBoard .note")].filter(e => e !== a).some(e => e.offsetLeft < ra.x + ra.w && e.offsetLeft + e.offsetWidth > ra.x && e.offsetTop < ra.y + ra.h && e.offsetTop + e.offsetHeight > ra.y); }, made.id);
     ok(!overlap, "and lands in an empty spot, not on top of another note: " + JSON.stringify({x: made.x, y: made.y}));
     await page.keyboard.press("Escape"); await page.waitForTimeout(200);
-    ok(await page.locator('.tl-controls [data-act="note-photo"]').count() === 1, "Photo to Note is a button beside the board");
+    ok(await page.locator('.tl-controls [data-act="note-photo"], .pg-head [data-act="note-photo"]').count() === 1, "Photo to Note is a button beside the board");
     await act(page, "note-archive-open"); await page.waitForTimeout(250);
     ok(/Drag a note onto the folder, or open it and choose Archive/.test(await page.locator("dialog[open]").textContent()), "an empty Archive explains both ways to archive");
     await page.evaluate(() => document.querySelector("dialog[open]").close());
@@ -112,7 +112,8 @@ function SEED(){
     /* Review */
     await tab(page, "flashcards"); await page.evaluate(() => { ui.rvView = "cards"; ui.filter = "all"; render(); }); await page.waitForTimeout(200);
     ok(/2 due · 1 new/.test(await page.locator('[data-act="fc-study"][data-id="d1"]').locator("xpath=ancestor::article").textContent()), "a deck tile shows what's due and new");
-    ok(/Review\s*3/.test(await page.locator('#view [data-act="fc-review-menu"]').textContent()), "the Review button counts the due cards");
+    const heroCount = 6;
+    ok(new RegExp(`\\b${heroCount} cards ready to review`).test(await page.locator("#view .rv-hero h3").textContent()) && await page.locator('#view .rv-hero [data-act="fc-review-start"]').count() === 1 && await page.locator('#view .rv-hero [data-act="fc-review-menu"]').count() === 1, "the review hero counts the cards ready (" + heroCount + "), with Start Review and Review Options");
     ok((await page.locator('nav.tabs [data-tab="flashcards"] .fc-navdue').textContent()) === "3", "and so does the Review tab");
     await page.evaluate(() => { ui.filter = "c2"; render(); }); await page.waitForTimeout(200);
     await act(page, "fc-review-menu"); await page.waitForTimeout(250);

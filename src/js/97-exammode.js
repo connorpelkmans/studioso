@@ -156,24 +156,46 @@ function study(id){
   runAct("pomo-task", {id: ex.id, study: "1", mins: String(Math.round(Number(pomoCfg().focus) || 25))});
 }
 
-/* Today: one compact card */
+/* Today: one card with a countdown tile */
+// How far along the prep is: the prep plan's readiness, else the course's decks
+function prepLine(ex, sm){
+  if (sm) {
+    const pct = sm.pct != null ? sm.pct : Math.round(sm.done / Math.max(1, sm.total) * 100);
+    return {pct, text: `${pct}% prepared · ${sm.done} of ${sm.total} study block${sm.total === 1 ? "" : "s"} done`};
+  }
+  const ds = ex.courseId ? decksArr().filter(d => d.courseId === ex.courseId && d.cards.length) : [];
+  const n = planSessions(ex.id).filter(t => t.type === "Study" && t.status !== "done").length;
+  const blocks = n ? `${n} study block${n === 1 ? "" : "s"} planned` : "no study blocks planned yet";
+  if (!ds.length) return {pct: 0, text: n ? blocks.charAt(0).toUpperCase() + blocks.slice(1) : "Not started · no study blocks planned yet"};
+  const pct = Math.round(ds.reduce((s, d) => s + DR.deck(d.cards, todayISO()), 0) / ds.length);
+  return {pct, text: `${pct}% prepared · ${blocks}`};
+}
+function countTile(ex, m, hrs){
+  const k = EXAMMODE.kindWord(ex), wd = parse(ex.due).toLocaleDateString(undefined, {weekday: "short"});
+  if (m.days >= 1) return {top: `${k} in`, big: String(m.days), low: `${m.days === 1 ? "day" : "days"} · ${wd}`, unit: m.days === 1 ? "day" : "days"};
+  if (ex.time && hrs >= 1.5) return {top: `${k} in`, big: String(Math.round(hrs)), low: "hours", unit: "hours"};
+  return {top: k, big: "Today", low: ex.time ? fmtTime(ex.time) : wd, word: true};
+}
 function todayHtml(){
   let m; try { m = current(); } catch (e) { return ""; } if (!m) return "";
   const ex = m.exam, c = courseOf(ex.courseId), sm = window.SBPREP && SBPREP.summary ? (() => { try { return SBPREP.summary(ex); } catch (e) { return null; } })() : null;
   const hrs = (EXAMMODE.dueMs(ex) - Date.now()) / 3600000;
   const count = m.days === 0 && ex.time ? (hrs > 1 ? `In about ${Math.round(hrs)} hour${Math.round(hrs) === 1 ? "" : "s"}` : hrs > 0 ? "Starting soon" : "Happening now") : m.days === 0 ? "Today" : m.days === 1 ? "Tomorrow" : `In ${m.days} days`;
   const when = `${m.days <= 1 ? "" : esc(fmtDate(ex.due))}${ex.time ? `${m.days <= 1 ? "" : " at "}${esc(fmtTime(ex.time))}` : ""}`;
-  const ready = sm ? `<div class="exm-ready"><span class="exm-rl">${sm.pct != null ? `Readiness <b>${sm.pct}%</b>` : `<b>${sm.done}</b> of ${sm.total} prep sessions done`}</span><span class="exm-bar" role="img" aria-label="${sm.pct != null ? `Readiness ${sm.pct} percent` : `${sm.done} of ${sm.total} prep sessions done`}"><i style="width:${sm.pct != null ? sm.pct : Math.round(sm.done / Math.max(1, sm.total) * 100)}%"></i></span></div>` : "";
+  const cd = countTile(ex, m, hrs), pr = prepLine(ex, sm), pct = Math.max(0, Math.min(100, pr.pct));
+  const prep = `<div class="exm-prep"><span class="exm-bar" role="img" aria-label="${pct} percent prepared"><i style="width:${pct}%"></i></span><span class="exm-pl">${esc(pr.text)}</span></div>`;
   const othersH = m.others.length ? `<p class="exm-others">Also coming up: ${m.others.map(t => `<button type="button" class="link-btn" data-act="edit-task" data-id="${esc(t.id)}">${esc(t.title)}</button>${courseTag(t) ? ` (${esc(courseTag(t))})` : ""}, ${esc(whenText(t))}`).join("; ")}.</p>` : "";
-  const planBtn = !sm && m.days >= 1 && window.SBPREP ? `<button type="button" class="btn small" data-act="exam-plan" data-id="${esc(ex.id)}">Plan My Prep</button>` : "";
+  const planBtn = !sm && m.days >= 1 && window.SBPREP ? `<button type="button" class="btn" data-act="exam-plan" data-id="${esc(ex.id)}">Plan My Prep</button>` : "";
   return `<section class="exm-card" role="region" aria-label="Exam Mode" style="--c:${esc(colorOf(ex.courseId))}">
-    <div class="exm-top"><span class="exm-kick">Exam Mode</span><button type="button" class="link-btn exm-off" data-act="exm-off" data-id="${esc(ex.id)}" aria-label="Not now: turn Exam Mode off for ${esc(ex.title)}">Not Now</button></div>
-    <div class="exm-main">
-      <div class="exm-txt"><h3 class="exm-title"><button type="button" class="exm-name" data-act="edit-task" data-id="${esc(ex.id)}">${esc(ex.title)}</button>${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</h3>
-        <p class="exm-when"><b>${esc(count)}</b>${when ? ` <span>${when}</span>` : ""}</p></div>
-      <div class="exm-acts"><button type="button" class="btn primary small" data-act="exm-study" data-id="${esc(ex.id)}">Study for It</button>${planBtn}</div>
+    <div class="exm-cd${cd.word ? " word" : ""}" aria-hidden="true"><span class="exm-cd-t">${esc(cd.top)}</span><b>${esc(cd.big)}</b><span class="exm-cd-l">${esc(cd.low)}</span>${cd.unit ? `<span class="exm-cd-u">${esc(cd.unit)}</span>` : ""}</div>
+    <div class="exm-txt">
+      <span class="exm-kick">Exam Mode</span>
+      <h3 class="exm-title"><button type="button" class="exm-name" data-act="edit-task" data-id="${esc(ex.id)}">${esc(ex.title)}</button>${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}</h3>
+      <p class="exm-when"><span class="exm-wk">Exam Mode · </span><b>${esc(count)}</b>${when ? ` <span>${when}</span>` : ""}</p>
+      ${prep}${othersH}
     </div>
-    ${ready}${othersH}
+    <div class="exm-acts"><button type="button" class="btn primary" data-act="exm-study" data-id="${esc(ex.id)}">Study<span class="exm-sl"> for It</span></button>${planBtn}</div>
+    <button type="button" class="link-btn exm-off" data-act="exm-off" data-id="${esc(ex.id)}" aria-label="Not now: turn Exam Mode off for ${esc(ex.title)}"><span class="exm-offt">Not Now</span><svg class="exm-x" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   </section>`;
 }
 
