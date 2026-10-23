@@ -1785,7 +1785,8 @@ body.stk-dragging,body.stk-dragging *{cursor:grabbing!important;user-select:none
 .env-title{flex:1;text-align:left}
 .env-caret{font-size:.8rem}
 .env-head::after{content:"";position:absolute;left:50%;bottom:8px;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#FF8A80,#C62828 60%,#7F0000);box-shadow:0 1px 2px rgba(0,0,0,.35)}
-.env-body{display:grid;gap:8px;padding:6px 10px 12px;overflow:auto;min-height:0}
+.env-body{display:grid;gap:8px;padding:6px 10px 12px;overflow:hidden auto;min-height:0;scrollbar-width:none}
+.env-body::-webkit-scrollbar{display:none}
 .env.closed .env-body,.env.closed .env-pocket{display:none}
 .env.closed{min-height:0}
 .env-packs{display:grid;grid-template-columns:repeat(5,1fr);gap:3px}
@@ -6044,7 +6045,7 @@ nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sy
   .note.editing{transform:none}
   .env.closed{left:14px;right:auto}
   .env:not(.closed){max-height:min(300px,40dvh)}
-  .env:not(.closed) .env-body{overflow-y:auto}
+  .env:not(.closed) .env-body{overflow:hidden auto}
   .nb-wrap:has(.env:not(.closed)) .nb-main{padding-bottom:min(300px,40dvh)}
   .env{transition:opacity .15s}
   body.stk-dragging .env{opacity:0}
