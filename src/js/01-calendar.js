@@ -1049,8 +1049,8 @@ function pageHeadHtml(title, right){
 // Lift the page's own heading above its tabs, with its context line and its buttons beside it
 function pageHeadUp(v){
   if (v.querySelector(":scope > .pg-head")) return;
-  const tabs = v.querySelector(":scope > .pview-tabs, :scope > .bview-row"); if (!tabs) return;
-  const phone = innerWidth < 640;
+  const tabs = v.querySelector(":scope > .pview-tabs, :scope > .bview-row"), phone = innerWidth < 640;
+  if (!tabs) { soloHeadUp(v, phone); return; }
   let title = "", head = null;
   if (tabs.matches(".bview-row")) { const s = tabs.querySelector("[aria-selected=true]"); title = s ? s.textContent.trim() : ""; }
   else {
@@ -1071,6 +1071,20 @@ function pageHeadUp(v){
   }
   (tabs.matches(".bview-row") ? tabs.querySelector(".bview-tabs") : tabs).classList.add("pg-tabs");
   v.insertBefore(pg, tabs);
+}
+// Pages without tabs: the same big title, then the content
+function soloHeadUp(v, phone){
+  const head = v.firstElementChild;
+  if (phone || !head || !head.matches(".view-head") || !head.querySelector(":scope > h2")) return;
+  const h2 = head.querySelector(":scope > h2"), box = document.createElement("div");
+  box.innerHTML = pageHeadHtml(h2.textContent.trim(), "");
+  const pg = box.firstChild; pg.classList.add("pg-solo");
+  [...head.attributes].filter(x => x.name.startsWith("data-")).forEach(x => pg.setAttribute(x.name, x.value));
+  h2.remove();
+  const rest = [...head.children];
+  if (rest.length && rest.length <= 6 && rest.every(c => c.matches("button, .btn, .segb, a.btn"))) { const r = document.createElement("div"); r.className = "pg-right"; rest.forEach(c => r.appendChild(c)); pg.appendChild(r); head.remove(); }
+  else if (!rest.length) head.remove();
+  v.insertBefore(pg, v.firstChild);
 }
 { let was = null; addEventListener("resize", () => { const p = innerWidth < 640; if (was !== null && p !== was && typeof ui !== "undefined" && document.querySelector("#view > .pg-head")) scheduleRender(); was = p; }); }
 function planHeadHtml(){

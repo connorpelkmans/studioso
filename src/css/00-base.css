@@ -1745,6 +1745,8 @@ button.pr-why:hover{background:var(--soft);color:var(--ink)}
 .pg-head{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;margin:14px 0 0;min-height:40px}
 /* the same gap under the tabs on every page */
 #view > .pg-tabs + *{margin-top:0!important}
+#view > .pg-head.pg-solo{margin-bottom:16px}
+#view > .pg-head.pg-solo + *{margin-top:0!important}
 #view > .bview-row:has(> .pg-tabs){margin-bottom:0}
 .pg-tt{flex:1 1 260px;min-width:0}
 .pg-title{margin:0;font:800 2rem/1.1 var(--display);letter-spacing:-.025em;color:var(--ink)}
