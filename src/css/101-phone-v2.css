@@ -94,6 +94,7 @@
 @media (min-width:640px){
   #view .cf-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 14px}
   #view .cf-row.nb-row{display:none}
+  #view .cf-row .board-ctl{display:none}
   .cf-pick{position:relative;display:inline-flex;align-items:center;gap:8px;min-height:38px;max-width:320px;padding:0 14px;border-radius:999px;background:var(--surface);color:var(--ink);border:1px solid var(--line);font:600 .9rem var(--display);cursor:pointer;box-sizing:border-box}
   .cf-pick.on{border-color:color-mix(in srgb,var(--c) 55%,var(--line))}
   .cf-pick .dot{width:9px;height:9px;border-radius:50%;background:var(--c);flex:none}
