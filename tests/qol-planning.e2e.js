@@ -172,8 +172,8 @@ const typeAdd = async (p, text) => { await p.fill("#qaIn", text); await p.click(
       ok(!(await p.locator("#dlg .bd-panel.offer").count()), "14: the dismissal is remembered for that task");
       await p.keyboard.press("Escape"); await wait(200);
 
-      // 15: the add button doesn't need its label next to the add bar, and content clears it
-      ok(await p.evaluate(() => document.querySelector("#fab").classList.contains("fab-icon")), "15: next to the add bar the floating button is icon-only");
+      // 15: the add button keeps its "Add Task" label, and content clears it
+      ok(await p.evaluate(() => /Add Task/.test(document.querySelector("#fab").textContent) && document.querySelector("#fab span").getBoundingClientRect().width > 20), "15: the floating button says Add Task");
       ok(await p.evaluate(() => { const f = document.querySelector("#fab").getBoundingClientRect(), w = parseFloat(getComputedStyle(document.querySelector(".wrap")).paddingBottom); return w >= innerHeight - f.top + 8; }), "15: the page leaves room under the content for the floating button");
 
       // 7, 13, 25: Calendar
