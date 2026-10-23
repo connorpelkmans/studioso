@@ -1075,7 +1075,8 @@ function pageHeadUp(v){
 // Pages without tabs: the same big title, then the content
 function soloHeadUp(v, phone){
   const head = v.firstElementChild;
-  if (phone || !head || !head.matches(".view-head") || !head.querySelector(":scope > h2")) return;
+  if (phone || !["groups", "archive"].includes(ui.tab) || !head || !head.matches(".view-head") || !head.querySelector(":scope > h2")) return;
+  if (!/^(Groups|Archive)$/.test(head.querySelector(":scope > h2").textContent.trim())) return;
   const h2 = head.querySelector(":scope > h2"), box = document.createElement("div");
   box.innerHTML = pageHeadHtml(h2.textContent.trim(), "");
   const pg = box.firstChild; pg.classList.add("pg-solo");
