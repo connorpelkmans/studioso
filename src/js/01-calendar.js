@@ -962,7 +962,7 @@ let schNoticeHtml = "";
 function viewSchedule(){
   const today = todayISO(), mon = ui.schWeek || mondayOf(today);
   const cs = coursesArr();
-  const nav = `<div class="view-head"><h2>Schedule</h2>
+  const nav = `<div class="view-head sch-top">
     <div class="sch-nav"><button class="icon-btn" data-act="sch-prev" aria-label="Previous week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
     <span class="sch-range">${esc(fmtShort(mon))} – ${esc(fmtShort(addDays(mon, 6)))}</span>
     <button class="icon-btn" data-act="sch-next" aria-label="Next week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
@@ -1042,9 +1042,36 @@ function planViewSet(t){
   ui.planView = t;
   try { localStorage.setItem("studyboard:planview", t); } catch(e) {}
 }
+/* Page header: a title with one line of context, then the page's tabs underneath */
+function pageHeadHtml(title, sub, right){
+  return `<header class="pg-head"><div class="pg-tt"><h2 class="pg-title">${esc(title)}</h2>${sub ? `<p class="pg-sub">${esc(sub)}</p>` : ""}</div>${right ? `<div class="pg-right">${right}</div>` : ""}</header>`;
+}
+const relDays = n => n <= 0 ? "today" : n === 1 ? "tomorrow" : `in ${n} days`;
+function nextExamWords(list){
+  const today = todayISO(), ex = (list || tasksArr()).filter(t => t.status !== "done" && t.due && t.due >= today && /^(Exam|Quiz)$/.test(t.type)).sort((a, b) => a.due.localeCompare(b.due) || String(a.time || "").localeCompare(String(b.time || "")))[0];
+  return ex ? `next ${ex.type === "Quiz" ? "quiz" : "exam"} ${relDays(dayDiff(today, ex.due))}` : "";
+}
+function planHeadHtml(){
+  const t = ui.tab, today = todayISO(), open = tasksArr().filter(x => x.status !== "done" && inFilter(x));
+  let title = "Due Dates", sub = [], right = "";
+  if (t === "schedule") {
+    const mon = ui.schWeek || mondayOf(today), n = open.filter(x => x.due && x.due >= mon && x.due <= addDays(mon, 6)).length;
+    title = "Schedule"; sub = [`${fmtShort(mon)} to ${fmtShort(addDays(mon, 6))}`, n ? `${n} due that week` : "nothing due that week"];
+  } else if (t === "crunch") {
+    title = "Crunch Forecast";
+    let w = null; try { w = (SBCRUNCH.model().weeks || []).filter(x => !x.past).slice(0, 6).reduce((m, x) => !m || x.levelIdx > m.levelIdx ? x : m, null); } catch (e) { w = null; }
+    const lv = w ? ["calm", "steady", "busy", "heavy", "like a crunch"][w.levelIdx] || "steady" : "";
+    sub = [w ? `Heaviest week ahead: ${w.start <= today ? "this week" : `week of ${fmtShort(w.start)}`}, ${w.levelIdx >= 4 ? "a crunch" : lv}` : "How heavy each week ahead looks"];
+  } else {
+    const dated = open.filter(x => x.due), cs = new Set(dated.map(x => x.courseId).filter(Boolean)).size;
+    sub = [dated.length ? `${dated.length} open task${dated.length === 1 ? "" : "s"}${cs > 1 ? ` across ${cs} courses` : ""}` : "No open tasks with due dates", nextExamWords(open)];
+    if (!tlPhone()) right = `<div class="segb" role="group" aria-label="View"><button data-act="tl-mode" data-id="bars" aria-pressed="${ui.tlMode === "bars"}">Timeline</button><button data-act="tl-mode" data-id="calendar" aria-pressed="${ui.tlMode === "calendar"}">Month</button></div>`;
+  }
+  return pageHeadHtml(title, sub.filter(Boolean).join(" · "), right);
+}
 function planSwitchHtml(){
   const t = ui.tab;
-  return `<div class="pview-tabs" role="tablist" aria-label="Calendar view"><button role="tab" data-act="plan-view" data-id="timeline" aria-selected="${t === "timeline"}">Due Dates</button><button role="tab" data-act="plan-view" data-id="schedule" aria-selected="${t === "schedule"}">Schedule</button><button role="tab" data-act="plan-view" data-id="crunch" aria-selected="${t === "crunch"}">Crunch</button></div>`;
+  return `<div class="pview-tabs pg-tabs" role="tablist" aria-label="Calendar view"><button role="tab" data-act="plan-view" data-id="timeline" aria-selected="${t === "timeline"}">Due Dates</button><button role="tab" data-act="plan-view" data-id="schedule" aria-selected="${t === "schedule"}">Schedule</button><button role="tab" data-act="plan-view" data-id="crunch" aria-selected="${t === "crunch"}">Crunch</button></div>`;
 }
 
 /* Courses and Files share one nav tab */
