@@ -6349,8 +6349,8 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 /* ===== module: 102-qol.css ===== */
 /* Toasts: a problem stays until dismissed */
 /* a long message wraps in a wide box (not a narrow column), with its buttons beside it or below it */
-.toast{width:max-content;max-width:min(560px,calc(100vw - 24px));box-sizing:border-box;flex-wrap:wrap;row-gap:6px}
-.toast #toastMsg{flex:1 1 220px;min-width:0}
+.toast{width:max-content;max-width:min(560px,calc(100vw - 24px));box-sizing:border-box;flex-wrap:nowrap;row-gap:6px}
+.toast #toastMsg{flex:1 1 auto;min-width:0}
 .toast button{flex:none}
 .toast .toast-x{margin-left:auto}
 @media (min-width:980px){.toast{max-width:min(560px,calc(100vw - 300px))}}
