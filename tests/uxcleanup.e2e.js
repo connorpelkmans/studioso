@@ -1,5 +1,4 @@
-// node tests/uxcleanup.e2e.js  (Playwright + Chromium)
-// Square default note, notes trash opens Recently Deleted, one Review button, + Add Card on a deck, fewer course-page buttons.
+// node tests/uxcleanup.e2e.js (Playwright + Chromium) Square default note
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -28,10 +27,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await page.goto(base); await page.waitForSelector("#view", {state: "attached"});
       await page.waitForFunction(() => window.SBPINPICK);
       await page.evaluate(() => { const T = window.SBPINPICK; Object.defineProperty(window, "state", {get: () => T.state(), configurable: true}); window.ui = T.ui; window.render = T.render; });
-      // 1. notes
       await page.evaluate(() => { ui.tab = "notes"; render(); });
       await page.waitForSelector(".note[data-note]");
-      // Sakura (whose own note shape is scalloped) is a Pro theme: a free device that still holds it never draws scalloped notes either way
       ok(await page.evaluate(() => state.settings.style && state.settings.style.skin) === "sakura", "the device holds the Sakura theme (note shape: scalloped)");
       ok(await page.locator(".note.ns-classic").count() === 1 && await page.locator(".note.ns-scallop").count() === 0, "the note is drawn square");
       ok(await page.locator('.tl-controls [data-act="note-archive-open"]').count() === 0, "no Archive button in the top row");
@@ -39,9 +36,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await page.locator('.nb-target.trash').click(); await page.waitForSelector("#dlg[open] #trQ");
       ok(/Recently Deleted/.test(await page.textContent("#dlg .sheet-head")), "the trash can opens Recently Deleted");
       await page.keyboard.press("Escape");
-      // 2. flashcards
       await page.evaluate(() => { ui.tab = "flashcards"; ui.deckId = null; render(); });
-      await page.waitForSelector(".view-head", {state: "attached"});   /* (on a phone its buttons move beside the course list and the empty header is hidden) */
+      await page.waitForSelector(".view-head", {state: "attached"});
       ok(await page.locator('[data-act="fc-review-menu"]').count() === 1, "one Review button");
       ok(await page.locator('.view-head [data-act="fc-review-all"], .view-head [data-act="fc-weak"]').count() === 0, "Review Due and Weak Spots are not separate buttons");
       const tile = await page.textContent(".deck");
@@ -85,9 +81,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await page.waitForFunction(() => state.decks.d1.cards.length === 4);
       ok(true, "Ctrl + Enter adds another card");
       await page.click('#dlg [data-act="close"]');
-      // Make a Quiz on a deck: its quiz goes to Review, Quizzes (with no AI set up, the questions come from the cards)
       ok(await page.locator('.deck-head [data-act="fc-quiz"]').count() === 1 && await page.locator('.aiq-sec [data-act="ai-quiz-start"], .aiq-sec [data-act="fc-case"]').count() === 0, "a deck keeps Make a Quiz, and lists no quizzes of its own");
-      await page.evaluate(() => document.querySelector('.deck-head [data-act="fc-quiz"]').click()); await page.waitForSelector('#dlg[open] input[name="qname"]');   // (on a phone it sits in the band's More menu)
+      await page.evaluate(() => document.querySelector('.deck-head [data-act="fc-quiz"]').click()); await page.waitForSelector('#dlg[open] input[name="qname"]');
       await page.fill('#dlg input[name="qname"]', "Cell Quiz"); await page.click("#dlg [data-submit]");
       await page.waitForSelector(".qz-card", {timeout: 5000});
       ok(/Cell Quiz/.test(await page.textContent(".qz-card")) && await page.locator('.rv-tabs [data-id="quizzes"][aria-selected="true"]').count() === 1 && await page.evaluate(() => (state.decks.d1.aiQuizzes || []).length === 1), "the quiz is kept on the deck and shown under Quizzes");
@@ -108,10 +103,8 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(await page.locator(".qz-card").count() === 1, "leaving the quiz goes back to Quizzes");
       ok(/Review/.test(await page.textContent('nav [data-tab="flashcards"]')), "the tab is called Review");
       await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "rv-view"; b.dataset.id = "cards"; document.body.appendChild(b); b.click(); b.remove(); }); await page.waitForTimeout(200);
-      // 3. course page
       await page.evaluate(() => { ui.tab = "courses"; ui.courseId = "c1"; render(); });
       await page.waitForSelector(".detail-head");
-      // a short row: Import Syllabus and Edit Course, plus Ask AI, Record Lecture and the school-site link when there is one (Add Task is the page's bottom-right button)
       const row = await page.evaluate(() => [...(document.querySelector(".detail-head .row-actions, .row-actions") || {querySelectorAll: () => []}).querySelectorAll("button")].map(b => b.dataset.act));
       ok(row.length <= 5 && row.includes("import-syllabus") && row.includes("edit-course"), "course page shows " + row.length + " buttons, not 7: " + row.join(","));
       ok(await page.locator('[data-act="course-more"]').count() === 0, "no More menu on the course page");
@@ -121,8 +114,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(errs.length === 0, "no page errors " + errs.join(";"));
       await ctx.close();
     }
-    // 4. default note: plain Square and yellow, even when an old theme switch had saved another shape (and the last note was blue).
-    //    A shape you picked yourself stays (Rounded is free); "match theme" on a Pro theme never hands a free device a Pro shape (Graph Paper).
     for (const [style, want] of [[{skin: "arcade", note: "rounded", noteAuto: false}, "classic"], [{skin: "arcade", note: "rounded", noteAuto: false, notePicked: true}, "rounded"], [{skin: "arcade", note: "gridnote", noteAuto: true}, "classic"]]) {
       const c2 = await browser.newContext({viewport: {width: 1280, height: 900}}), sd = SEED(); sd.notes[0].color = "blue"; sd.settings = {capacity: 15, dailyHours: 3, style};
       await c2.addInitScript(seed => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); } } catch (e) {} }, sd);
@@ -137,7 +128,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await c2.close();
     }
 
-    // 5. note boards are never renamed "Recovered Board"; 6. Photo to Note offers the camera on a phone; 7. Start a 45m Focus runs 45 minutes
     {
       const day = n => { const d = new Date(); d.setDate(d.getDate() + n); const z = x => String(x).padStart(2, "0"); return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()); };
       const sd = SEED(); sd.settings = {capacity: 15, dailyHours: 3}; sd.notes[0].board = "b1"; sd.notes.push(Object.assign({}, sd.notes[0], {id: "n2", board: "b2"}));
@@ -166,14 +156,13 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await c3.close();
     }
 
-    // 8. the "short of time" warning follows the Time Today control
     {
       const day = n => { const d = new Date(); d.setDate(d.getDate() + n); const z = x => String(x).padStart(2, "0"); return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()); };
       const sd = SEED(); sd.settings = {capacity: 15, dailyHours: 3};
       sd.tasks = [{id: "t1", title: "Huge project", courseId: "c1", type: "Project", status: "todo", due: day(2), start: day(0), hours: 30, priority: "high", created: 1}];
       const c4 = await browser.newContext({viewport: {width: 1280, height: 900}});
       await c4.addInitScript(seed => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); } } catch (e) {} }, sd);
-      await c4.clock.install({time: new Date(day(0) + "T12:00:00")});   // midday: late at night the plan stops at about 1 am, so more time today can't shrink the gap
+      await c4.clock.install({time: new Date(day(0) + "T12:00:00")});
       const p4 = await c4.newPage(); await p4.goto(base); await p4.waitForSelector("#view", {state: "attached"}); await p4.waitForFunction(() => window.SBPINPICK);
       await p4.evaluate(() => { const T = window.SBPINPICK; window.ui = T.ui; window.render = T.render; ui.tab = "board"; ui.bview = "plan"; ui.focusOpen = true; render(); });
       await p4.waitForSelector(".plan-warn");

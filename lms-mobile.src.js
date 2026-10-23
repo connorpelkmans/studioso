@@ -1,13 +1,4 @@
-/* Studyboard iPhone and Android: school site sign-in and reading (Brightspace, Canvas, Blackboard).
-   Built into lms-mobile.js by scripts/build-lms-mobile.js. It gives the page the same six calls the desktop app has
-   (connect, sync, file, mail, signOut; feed is left to the server), through the native Capacitor plugin StudyboardLms
-   (ios-wrapper/native/StudyboardLms.swift, android-wrapper/.../StudyboardLms.kt). The plugin only has three jobs:
-     connect({id, origin, url, who})                -> a visible sign-in page on the school's own site; resolves when `who` says you are signed in
-     run({id, origin, url, script, timeoutMs})       -> loads `url` in a hidden page with the same private sign-in, checks it stayed on `origin`, runs `script`
-                                                       there and returns its result as JSON text
-     signOut({id, origin})                           -> forgets that platform's sign-in
-   Everything else, including the harvest scripts and the cleaning of what comes back, is the same code the desktop app uses (copied from lms.js at build time).
-   Only loaded when the native plugin exists, and never next to the desktop app. */
+/* Studyboard iPhone and Android */
 (function () {
   "use strict";
   var C = window.Capacitor, plug = function () { return C && C.Plugins && C.Plugins.StudyboardLms; };
@@ -24,7 +15,7 @@
     catch (e) { return { error: String((e && e.message) || e).slice(0, 200) }; }
   };
   var fill = function (tpl, safe) { return tpl.split('"@@SAFE@@"').join(JSON.stringify(safe)); };
-  // Load a page on the school's site in the hidden view, run a script there, give back what it returned (or why it couldn't)
+  // Load a page on the school's site in the hidden view, run a script there
   async function runPage(id, origin, script, ms) {
     var r = await call("run", { id: id, origin: origin, url: origin + S.providers[id].ctx, script: script, timeoutMs: ms });
     if (r.error) return { error: String(r.error).slice(0, 200) };
@@ -40,7 +31,7 @@
     var o = opts && typeof opts === "object" ? opts : {};
     var idOk = function (x) { return /^[\w.-]{1,40}$/.test(x); };
     var safe = { pastDays: Math.min(365, Math.max(1, Number(o.pastDays) || 60)), aheadDays: Math.min(400, Math.max(7, Number(o.aheadDays) || 240)),
-      grades: o.grades !== false, news: o.news !== false,
+      grades: o.grades !== false, news: o.news !== false, internal: o.internal !== false,
       only: Array.isArray(o.only) ? o.only.map(String).filter(idOk).slice(0, 40) : null,
       skip: Array.isArray(o.skip) ? o.skip.map(String).filter(idOk).slice(0, 200) : [] };
     remember(id, origin);
@@ -59,7 +50,7 @@
     if (r.ok) { remember(id, origin); return { ok: true, origin: origin, name: String(r.name || "").slice(0, 200) }; }
     return r.cancelled ? { ok: false, cancelled: true } : { ok: false, error: String(r.error || "failed").slice(0, 200) };
   }
-  // Canvas file: ask the API for the file's address, then fetch it from inside the signed-in page (the download starts on the school's own site)
+  // Canvas file: ask the API for the file's address
   var FETCH_B64 = function (url) {
     return "(async () => { try { const r = await fetch(" + JSON.stringify(url) + ", {credentials: 'include'});" +
       " if (r.status === 401 || r.status === 403) return {needLogin: true}; if (!r.ok) return {error: 'HTTP ' + r.status};" +
@@ -110,6 +101,6 @@
     try { localStorage.removeItem(KEY + id); } catch (e) {}
     return !r.error;
   }
-  // No `feed`: calendar links on a phone go through Studyboard's server (the page falls back to it when this call is missing)
+  // No `feed`: calendar links on a phone go through Studyboard's server
   window.studiosoLms = { mobile: true, connect: connect, sync: sync, file: file, mail: mail, signOut: signOut };
 })();

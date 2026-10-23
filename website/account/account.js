@@ -1,7 +1,4 @@
-// Studyboard account page: sign in, sign up, reset password, see your plan, start Pro, manage billing.
-// It uses the SAME Supabase accounts as the app. Everything shown comes from the database or the user's own typing and is
-// written with textContent only (never innerHTML), so nothing typed or received can run as code.
-// The browser never sends a price, an amount or a customer id: only "monthly", "semester" or "yearly". The server decides the rest.
+// Studyboard account page
 (function () {
   "use strict";
   var cfg = window.STUDYBOARD_SITE || {};
@@ -10,7 +7,7 @@
   var views = ["v-loading", "v-config", "v-auth", "v-account"];
   var forms = ["form-signin", "form-signup", "form-reset", "form-code", "form-newpass"];
   var state = { sb: null, session: null, recovering: false, codeMode: null, codeEmail: "", autoTimer: null, busy: false };
-  var GRACE_DAYS = 3;   // the stored end of a paid period already includes 3 days of grace
+  var GRACE_DAYS = 3;
 
   function show(v) { views.forEach(function (x) { $(x).hidden = x !== v; }); }
   function showForm(f) {
@@ -31,12 +28,11 @@
     return !!(u && !PLACEHOLDER.test(cfg.SUPABASE_URL) && typeof cfg.SUPABASE_ANON_KEY === "string" && cfg.SUPABASE_ANON_KEY.length > 20 && !PLACEHOLDER.test(cfg.SUPABASE_ANON_KEY) && window.supabase);
   }
 
-  // ----- What the link asked for (checked, never trusted) -----
+  // What the link asked for (checked, never trusted)
   var qs = new URLSearchParams(location.search);
   var PLANS = ["monthly", "semester", "yearly"];
   var wantPlan = PLANS.indexOf(qs.get("plan")) >= 0 ? qs.get("plan") : null;
   var fromApp = qs.get("src") === "app";
-  // "&return=" is honoured only for https addresses whose origin is APP_URL or on RETURN_ALLOWLIST. Anything else is ignored.
   function allowedReturn(candidate) {
     var x = validHttps(candidate); if (!x || x.username || x.password) return null;
     var ok = [];
@@ -46,7 +42,7 @@
   }
   var backUrl = allowedReturn(qs.get("return")) || (function () { var a = validHttps(cfg.APP_URL); return a && !PLACEHOLDER.test(cfg.APP_URL) ? a.href : null; })();
 
-  // ----- Friendly words for errors (the app uses the same wording) -----
+  // Friendly words for errors (the app uses the same wording)
   function words(error, fallback) {
     var m = String((error && (error.message || error.error_description)) || error || ""), st = Number(error && error.status) || 0;
     if (/email not confirmed/i.test(m)) return "Please confirm your email first. We sent you a code.";
@@ -61,7 +57,7 @@
     return fallback || "Something went wrong. Please try again.";
   }
 
-  // ----- Sign-in rate-limit messaging: after 5 wrong tries in 10 minutes the button rests for a minute -----
+  // Sign-in rate-limit messaging
   var fails = [], lockUntil = 0, lockTimer = null;
   function noteFail() {
     var now = Date.now(); fails = fails.filter(function (t) { return now - t < 600000; }); fails.push(now);
@@ -77,7 +73,7 @@
     } else { btn.disabled = false; btn.textContent = "Sign in"; msg($("auth-msg"), ""); }
   }
 
-  // ----- Plan display -----
+  // Plan display
   function fmt(iso) { try { return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }); } catch (e) { return ""; } }
   function describe(e) {
     var now = Date.now(), res = { tag: "Free", pro: false, detail: "You're on the free plan. Pro adds unlimited devices, more storage and every theme.", subscribed: false, manage: false };
@@ -99,7 +95,7 @@
     return res;
   }
 
-  // ----- Calling the Edge Functions (the user's own sign-in token; only a plan name goes out) -----
+  // Calling the Edge Functions (the user's own sign-in token; only a plan name goes out)
   function fn(name, body) {
     var base = String(cfg.SUPABASE_URL).replace(/\/+$/, "");
     return fetch(base + "/functions/v1/" + encodeURIComponent(name), {
@@ -135,7 +131,7 @@
     }).catch(function () { msg($("acct-msg"), "Couldn't reach Studyboard. Check your connection and try again.", "error"); state.busy = false; setBuyDisabled(false); });
   }
 
-  // ----- Signed-in view -----
+  // Signed-in view
   function renderAccount() {
     show("v-account");
     $("acct-email").textContent = (state.session.user && state.session.user.email) || "";
@@ -152,11 +148,11 @@
         maybeAutoCheckout(d);
       }, function () { $("plan-detail").textContent = "Couldn't load your plan right now."; maybeAutoCheckout({ subscribed: false }); });
   }
-  // A link like ?plan=yearly starts checkout once the person is signed in (unless they already have Pro, or they cancel).
+  // A link like ?plan=yearly starts checkout once the person is signed in
   function maybeAutoCheckout(d) {
     if (!wantPlan || d.subscribed) { wantPlan = null; return; }
     var plan = wantPlan; wantPlan = null;
-    try { var last = Number(sessionStorage.getItem("sb-autoco") || 0); if (Date.now() - last < 600000) return; sessionStorage.setItem("sb-autoco", String(Date.now())); } catch (e) { /* no storage: still fine */ }
+    try { var last = Number(sessionStorage.getItem("sb-autoco") || 0); if (Date.now() - last < 600000) return; sessionStorage.setItem("sb-autoco", String(Date.now())); } catch (e) { }
     var u = new URL(location.href); u.searchParams.delete("plan"); history.replaceState(null, "", u.pathname + u.search);
     var box = $("acct-msg"); box.hidden = false; box.className = "msg";
     box.textContent = "Starting your " + plan + " checkout... ";
@@ -166,7 +162,7 @@
     state.autoTimer = setTimeout(function () { startCheckout(plan); }, 1500);
   }
 
-  // ----- Forms -----
+  // Forms
   function emailOk(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) && v.length <= 254; }
   function field(form, name) { return form.elements[name].value; }
   function busy(form, on) { var b = form.querySelector("button[type=submit]"); if (b) b.disabled = on; }
@@ -178,7 +174,7 @@
     state.codeMode = mode; state.codeEmail = email; resendAt = Date.now() + 30000; tickResend(); $("code-intro").textContent = intro; showForm("form-code"); $("form-code").elements.code.value = ""; $("form-code").elements.code.focus();
   }
 
-  // ----- Password strength and the "send a new code" cooldown (30 s, shown on the button) -----
+  // Password strength and the "send a new code" cooldown (30 s, shown on the button)
   function strength(pw) {
     var n = 0;
     if (pw.length >= 8) n++; if (pw.length >= 12) n++;
@@ -263,8 +259,7 @@
         busy(f, false);
         if (r.error) return msg($("auth-msg"), words(r.error), "error");
         f.reset();
-        if (r.data && r.data.session) return;   // email confirmation is switched off: already signed in
-        // The message is the same whether or not the address was already registered (no account guessing).
+        if (r.data && r.data.session) return;
         toCode("signup", email, "If that address can be used, we sent a 6-digit code to " + email + ". Type it here, or tap the button in the email.");
       }, function (e) { busy(f, false); msg($("auth-msg"), words(e), "error"); });
     });
@@ -311,7 +306,6 @@
 
   function init() {
     if (!configured()) { show("v-config"); return; }
-    // Errors that come back in the link (an expired confirmation link, for example)
     var hashErr = new URLSearchParams(location.hash.replace(/^#/, "")).get("error_description");
     state.sb = window.supabase.createClient(String(cfg.SUPABASE_URL).replace(/\/+$/, ""), cfg.SUPABASE_ANON_KEY, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: "studyboard-site-auth" }
@@ -325,7 +319,6 @@
       if (event === "SIGNED_OUT") { show("v-auth"); showForm("form-signin"); return; }
       if (session && !state.recovering && (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "USER_UPDATED")) {
         if (location.hash) history.replaceState(null, "", location.pathname + location.search);
-        // calling the database from inside this callback can stall, so it waits one tick
         setTimeout(renderAccount, 0);
       }
     });

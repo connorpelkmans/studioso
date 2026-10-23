@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- UNTESTED: written without Android Studio. Static launcher shortcuts (long-press the app icon; Android 7.1+). Two plain VIEW shortcuts: no <capability>
-     elements are declared because I could not confirm a built-in intent that is valid for "create a task" in a third-party app (see README-ANDROID.md
-     section 4); an invalid capability would be ignored at best. Handled by MainActivity through the studyboard:// intent filter. -->
+<!-- UNTESTED: written without Android Studio -->
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
     <shortcut
         android:shortcutId="add_task"

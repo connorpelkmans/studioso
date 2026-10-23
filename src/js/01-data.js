@@ -13,10 +13,7 @@ const mondayOf = s => { const d = parse(s); const wd = (d.getDay() + 6) % 7; ret
 function fmtTime(t){ const [h,m] = t.split(":").map(Number); const d = new Date(2001, 0, 15, h, m, 0); return d.toLocaleTimeString(undefined, {hour:"numeric", minute:"2-digit"}); }
 
 /*TRASH-START*/
-/* ---------- Recently Deleted and Export My Data: pure logic (no page access, so it is unit tested in tests/trash-export.test.js) ----------
-   Bin rules: a delete keeps the item (and what went with it) for 30 days. Entries are {id, kind, label, detail, deletedAt, items:[{kind, id, data, parent?}]}.
-   Sync rule: the bin entry is a normal synced record. If the same item is live again (edited on another device after the delete, or restored there),
-   the live copy wins and the stale entry is hidden until it expires. Nothing is ever removed from your account because of a conflict. */
+/* Recently Deleted and Export My Data */
 const TB = (() => {
   const DAY = 864e5, KEEP_DAYS = 30, MAX_ENTRIES = 400, MAX_BYTES = 12e6, BULK_AFTER = 40, SYNC_MAX = 1.5e6;
   const KINDS = ["course", "task", "note", "deck", "file", "event", "card", "quiz", "bulk"];
@@ -52,13 +49,12 @@ const TB = (() => {
     const nm = {course: "course", task: "task", note: "note", deck: "deck", file: "file", event: "event", card: "card", quiz: "quiz"};
     return KINDS.filter(k => c[k] && nm[k]).map(k => plural(c[k], nm[k])).join(", ");
   };
-  // deleted: [{kind, id, data, parent?}]. Returns the entries to keep in the bin.
   function makeEntries(deleted, now, newId, opts){
     opts = opts || {};
     const out = [], used = new Set(), mk = (kind, label, items, detail) => {
       const e = {id: newId(), kind, label, detail: detail || "", deletedAt: now, items: items.map(i => Object.assign({}, i, {data: cl(i.data)}))};
       if (opts.batch) e.batch = opts.batch;
-      if (sizeOf(e) > SYNC_MAX) e.local = true;     // too big to send to the account; kept on this device only
+      if (sizeOf(e) > SYNC_MAX) e.local = true;
       out.push(e);
     };
     const left = () => deleted.filter(d => !used.has(d));
@@ -73,7 +69,6 @@ const TB = (() => {
       if (isSub(d.kind)) return;
       mk(d.kind, labelFor(d.kind, d.data), [d], d.kind === "deck" ? plural((d.data.cards || []).length, "card") : d.kind === "file" ? plural((d.data.revs || []).length, "version") : "");
     });
-    // cards and quizzes taken out of a deck: one entry per deck
     const subs = rest.length > BULK_AFTER ? [] : rest.filter(d => isSub(d.kind));
     const byDeck = new Map(); subs.forEach(s => { const k = s.kind + ":" + (s.parent && s.parent.id); (byDeck.get(k) || byDeck.set(k, []).get(k)).push(s); });
     byDeck.forEach(list => {
@@ -84,21 +79,17 @@ const TB = (() => {
   }
   const expiresAt = e => (e.deletedAt || 0) + KEEP_DAYS * DAY;
   const daysLeft = (e, now) => Math.max(0, Math.ceil((expiresAt(e) - now) / DAY));
-  // Drops what is older than 30 days, then the oldest beyond the count and size caps. Returns {keep, dropped}.
   function purge(entries, now, caps){
     caps = Object.assign({entries: MAX_ENTRIES, bytes: MAX_BYTES}, caps || {});
     const keep = [], dropped = [];
     const fresh = entries.filter(e => { const ok = e && e.id && e.deletedAt && now < expiresAt(e) && Array.isArray(e.items) && e.items.length; if (!ok) dropped.push(e); return ok; }).sort((a, b) => b.deletedAt - a.deletedAt);
     let bytes = 0;
-    // the newest entry is always kept (it may be what was just deleted: dropping it at once would leave nothing to undo or restore)
     fresh.forEach(e => { const s = sizeOf(e); if (keep.length < caps.entries && (bytes + s <= caps.bytes || !keep.length)) { keep.push(e); bytes += s; } else dropped.push(e); });
     return {keep, dropped};
   }
-  // Is every item of this entry already live again? (then the live copy wins and the entry is hidden)
   function superseded(e, exists){
     return !e.items.some(i => isSub(i.kind) ? !exists(i.kind, i.id, i.parent) : !exists(i.kind, i.id));
   }
-  // ctx: {exists(kind,id), getDeck(id), binCourse(courseId) -> another entry or null, newId()}. Returns {changes, notes, entries:[entry ids this restore consumes]}.
   function restorePlan(e, ctx, seen){
     seen = seen || new Set([e.id]);
     const changes = [], notes = [], entries = [e.id], idMap = {};
@@ -143,7 +134,7 @@ const TB = (() => {
     return {changes, notes: [...new Set(notes)], entries: [...new Set(entries)]};
   }
 
-  /* ----- CSV (RFC 4180, UTF-8 with BOM for Excel, formula-injection safe per OWASP) ----- */
+  /* CSV (RFC 4180, UTF-8 with BOM for Excel, formula-injection safe per OWASP) */
   function csvCell(v){
     if (v == null) return "";
     let s = typeof v === "boolean" ? (v ? "true" : "false") : String(v);
@@ -198,7 +189,7 @@ const TB = (() => {
     "In tasks.csv, take_home is yes (an exam or quiz you can take from home) or no (taken in person); blank when it isn't known or the task isn't an exam or quiz.",
     "Never included: AI keys, sign-in tokens or sessions, device ids, or anything from other people's groups."
   ].join("\r\n") + "\r\n";
-  /* ----- ZIP (STORE, CRC32). Builds a Blob from parts, so large exports are never copied into one big buffer. ----- */
+  /* ZIP (STORE, CRC32) */
   let CT = null;
   function crc32(bytes, crc){
     if (!CT) { CT = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; CT[n] = c >>> 0; } }
@@ -230,7 +221,6 @@ const TB = (() => {
     ed.setUint32(0, 0x06054b50, true); ed.setUint16(8, entries.length, true); ed.setUint16(10, entries.length, true); ed.setUint32(12, cdSize, true); ed.setUint32(16, off, true);
     return new Blob(parts.concat(central, [new Uint8Array(ed.buffer)]), {type: "application/zip"});
   }
-  // The complete JSON export: the same arrays a backup holds (so the restore path reads it) plus a header describing it.
   function jsonExport(arrays, now, include){
     const out = Object.assign({app: "studyboard"}, arrays);
     out.export = {schema: "studyboard-export", version: 1, exportedAt: new Date(now).toISOString(), includes: include || [],
@@ -264,12 +254,10 @@ function normTask(t){
   if (!isDate(t.start)) t.start = "";
   delete t.earned; delete t.possible;
   if (t.prep != null) t.prep = normPrep(t.prep);
-  // Big assignment breakdown (only kept when set, so ordinary tasks gain no new fields)
   ["breakdownOf", "step", "bdKind"].forEach(k => { if (typeof t[k] !== "string" || !t[k]) delete t[k]; });
   if (!isDate(t.bdDue)) delete t.bdDue;
   if (t.breakdownParent) t.breakdownParent = true; else delete t.breakdownParent;
   if (!(Number(t.bdHours) > 0)) delete t.bdHours; else t.bdHours = Number(t.bdHours);
-  // Where an exam or quiz is taken (see REMOTEX): only "yes" (from home) or "no" (in person) is kept; absent means not known
   if (t.remote !== "yes" && t.remote !== "no") { delete t.remote; delete t.remoteSrc; delete t.remoteWhy; delete t.remoteAt; delete t.remoteSig; }
   else {
     if (!["user", "lms", "ai", "rule"].includes(t.remoteSrc)) t.remoteSrc = "rule";
@@ -277,10 +265,9 @@ function normTask(t){
     t.remoteAt = Number(t.remoteAt) > 0 ? Number(t.remoteAt) : 0;
     t.remoteSig = String(t.remoteSig || "").slice(0, 12);
   }
-  // Text typed by the person is kept exactly as typed (code, <tags>, &amp; and all); only school-imported tasks get their notes cleaned of markup.
   return scrubFields(t, ["title", "location", "team", "reading"], t.synced || t.icsUid || t.src ? ["notes"] : []);
 }
-// An exam's prep plan settings (task.prep, from the Exam Prep Planner). Topics are records with ids, so two devices' edits merge topic by topic.
+// An exam's prep plan settings (task.prep, from the Exam Prep Planner)
 function normPrep(p){
   if (!p || typeof p !== "object" || Array.isArray(p)) return null;
   const str = (v, n) => String(v == null ? "" : v).replace(/[<>\u0000-\u001f]/g, " ").replace(/\s+/g, " ").trim().slice(0, n);
@@ -303,14 +290,12 @@ function normFile(f){
   f = Object.assign({name:"Untitled", courseId:"", folderId:"other", kind:"file", revs:[], taskIds:[], desc:"", url:""}, f);
   if (!Array.isArray(f.revs)) f.revs = [];
   if (!Array.isArray(f.taskIds)) f.taskIds = [];
-  if (f.cloud != null && (typeof f.cloud !== "object" || !["google", "microsoft"].includes(f.cloud.p) || !f.cloud.id)) delete f.cloud;   // a file kept in Google Drive or OneDrive
+  if (f.cloud != null && (typeof f.cloud !== "object" || !["google", "microsoft"].includes(f.cloud.p) || !f.cloud.id)) delete f.cloud;
   if (f.kind === "cloud" && !f.cloud) f.kind = "link";
-  if (f.ink != null) { const k = normInk(f.ink, 4000); if (k) f.ink = k; else delete f.ink; }   // pen ink on a PDF's pages (module 99-ink)
+  if (f.ink != null) { const k = normInk(f.ink, 4000); if (k) f.ink = k; else delete f.ink; }
   return f;
 }
-// Pen ink (the iPad app's handwriting, module 99-ink), on a PDF (f.ink) or a note (n.ink): [{id, t: "pen" | "hl", c: colour id, w: width in
-// 1/10000 of the page width, d: the points in SBINK's compact code, at, and on a PDF p: page, a: the revision's asset id}]. Strokes never change
-// once drawn, so two devices' strokes merge by id in sync. Synced and imported data is checked here: anything malformed is dropped.
+// Pen ink (the iPad app's handwriting, module 99-ink), on a PDF (f.ink) or a note (n.ink)
 function normInk(list, max){
   if (!Array.isArray(list)) return undefined;
   const seen = new Set(), out = [];
@@ -320,13 +305,12 @@ function normInk(list, max){
     if (typeof s.d !== "string" || !/^[A-Za-z0-9_-]{3,24000}$/.test(s.d)) continue;
     const o = {id: s.id, t: s.t === "hl" ? "hl" : "pen", c: typeof s.c === "string" && /^[a-z]{1,12}$/.test(s.c) ? s.c : "ink", w: Math.max(1, Math.min(600, Math.round(Number(s.w)) || 30)), d: s.d, at: Number(s.at) > 0 ? Math.round(Number(s.at)) : 0};
     if (s.p != null) { o.p = Math.max(1, Math.min(99999, Math.round(Number(s.p)) || 1)); o.a = String(s.a == null ? "" : s.a).slice(0, 120); }
-    // spots the whiteboard eraser rubbed out of this stroke: [x, y, radius, hardness 0..1]
     if (Array.isArray(s.x)) { const x = s.x.filter(e => Array.isArray(e) && e.length === 4 && e.every(Number.isFinite) && e[2] > 0).slice(-300).map(e => [Math.round(e[0] * 10) / 10, Math.round(e[1] * 10) / 10, Math.round(Math.min(2000, e[2]) * 10) / 10, Math.round(Math.max(0, Math.min(1, e[3])) * 100) / 100]); if (x.length) o.x = x; }
     seen.add(s.id); out.push(o);
   }
   return out.length ? out : undefined;
 }
-// Calendar events: one-off or weekly, with this-week-only changes kept in moved[originalDate].
+// Calendar events
 function normEvent(e){
   const isT = x => /^([01]\d|2[0-3]):[0-5]\d$/.test(x || ""), tm = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
   e = Object.assign({title: "Event", courseId: "", label: "", date: "", endDate: "", start: "", end: "", allDay: false, where: "", notes: "", repeat: null, exdates: [], moved: {}, icsUid: "", src: ""}, e);
@@ -355,33 +339,28 @@ function fromArrays(o){
   return s;
 }
 const toArrays = () => ({v:2, courses:Object.values(state.courses), tasks:Object.values(state.tasks), files:Object.values(state.files), notes:Object.values(state.notes), decks:Object.values(state.decks || {}), events:Object.values(state.events || {}), trash:Object.values(state.trash || {}), settings:state.settings, updated:state.updated});
-// Set while this device's copy is being wiped (sign-out, a switch of server, deleting the account): from then on nothing may write the old account's data back to the device.
+// Set while this device's copy is being wiped
 let deviceWiping = false;
 let saveWarnAt = 0;
 function saveLocal(){
   if (deviceWiping || demoDrawing) return;
-  if (lsHold) return;   // an unreadable copy that couldn't be set aside yet stays where it is (see keepUnreadable)
+  if (lsHold) return;
   try { const a = toArrays(); delete a.trash; localStorage.setItem(LS2, JSON.stringify(a)); }
   catch(e){
     if (window.SBERR && e && /quota/i.test(e.name + " " + e.message)) SBERR.flow("storage-quota", e);
-    // Storage full or blocked: tell the person (at most once a minute) instead of silently losing changes.
     if (Date.now() - saveWarnAt > 6e4) { saveWarnAt = Date.now(); setTimeout(() => { try { toast("Couldn't save on this device. Storage is full or blocked. Export a backup so nothing is lost."); } catch(e2) {} }, 700); }
   }
 }
-// A saved copy that can't be read is set aside, never overwritten: the next save would otherwise replace it with an empty one.
+// A saved copy that can't be read is set aside, never overwritten
 let loadProblem = "";
-// Set when that copy couldn't be set aside in localStorage (it is usually full when this happens): until it is safely kept in the device
-// database, nothing writes over it.
+// Set when that copy couldn't be set aside in localStorage
 let lsHold = false;
-// Two tabs of a device-only copy: when the other tab saves, this one takes its newer copy (it carries both tabs' edits) instead of
-// overwriting it with an older picture on its next save. Signed-in tabs are kept in step through the account instead.
+// Two tabs of a device-only copy
 window.addEventListener("storage", e => {
   try {
     if (e.key !== LS2 || !e.newValue || (typeof cloud !== "undefined" && cloud.on)) return;
     const keepTrash = state.trash, editing = typeof noteEditing !== "undefined" && noteEditing, mine = editing && state.notes[editing];
     state = fromArrays(JSON.parse(e.newValue)); state.trash = keepTrash || state.trash || {};
-    // A note open here keeps this tab's copy (its text is still being typed and goes in when the editor closes); everything else is taken
-    // from the other tab now, so closing the note can't save an older picture over the other tab's changes. Not drawn while typing.
     if (editing) { if (mine) state.notes[editing] = mine; return; }
     scheduleRender();
   } catch(x) {}
@@ -391,24 +370,21 @@ function keepUnreadable(key, raw){
     const k = "studyboard:unreadable:" + key + ":" + Date.now();
     localStorage.setItem(k, raw);
     const old = Object.keys(localStorage).filter(x => x.indexOf("studyboard:unreadable:") === 0).sort((a, b) => Number(a.split(":").pop()) - Number(b.split(":").pop()));
-    old.slice(0, Math.max(0, old.length - 3)).forEach(x => localStorage.removeItem(x));   // keep the newest three
+    old.slice(0, Math.max(0, old.length - 3)).forEach(x => localStorage.removeItem(x));
     return;
   } catch(e) {}
-  // No room in localStorage: kept in the device database instead (much more room), and until that is done nothing saves over the original.
   if (key !== "v2" || !raw) return;
   lsHold = true;
   SBC.putStrict("backups", "unreadable-" + Date.now(), {unreadable: raw, keptAt: Date.now()})
     .then(() => { lsHold = false; saveLocal(); })
     .catch(e => { console.warn("Couldn't set the unreadable copy aside", e); setTimeout(() => { try { toast("Studyboard can't save on this device until some storage is freed: your earlier saved copy couldn't be read and is being kept. Export a backup now."); } catch(x) {} }, 3000); });
 }
-// Desktop app: the copy in the Studyboard folder (read by deskBoot). It is written from memory whenever the app closes, even when this
-// device's own copy stopped saving (storage full), so when it is newer it is the one to start from.
+// Desktop app: the copy in the Studyboard folder (read by deskBoot)
 let deskFolderCopy = null;
 function deskNewer(own){
   const f = deskFolderCopy;
   if (!f || (own && !(Number(f.updated) > Number(own.updated || 0)))) return null;
   const out = clone(f); delete out.app; delete out.savedAt; delete out.trash;
-  // the folder copy leaves out AI choices and calendar links: those stay as this device had them
   const ms = (own && own.settings) || {}; out.settings = Object.assign({}, out.settings || {});
   if (ms.ai) out.settings.ai = ms.ai;
   try { LMS_FEED_IDS.forEach(id => { if (ms[id] && typeof ms[id] === "object" && "feed" in ms[id]) out.settings[id] = Object.assign({}, out.settings[id], {feed: ms[id].feed}); }); } catch(e) {}
@@ -426,7 +402,7 @@ function loadLocal(){
     }
   } catch(e) {
     keepUnreadable("v2", r || ""); loadProblem = "v2";
-    try { const f = deskNewer(null); if (f) { state = fromArrays(f); trashLoadLocal(); return; } } catch(e2) {}   // desktop: start from the folder copy
+    try { const f = deskNewer(null); if (f) { state = fromArrays(f); trashLoadLocal(); return; } } catch(e2) {}
   }
   try {
     const o = localStorage.getItem(LS1);
@@ -435,7 +411,7 @@ function loadLocal(){
   trashLoadLocal();
 }
 
-/* ---------- Recently Deleted (the bin): keeping, purging and restoring ---------- */
+/* Recently Deleted (the bin) */
 const LS_TRASH = "studioso:trash";
 const trashList = () => Object.values((state && state.trash) || {}).filter(e => e && Array.isArray(e.items));
 function trashLoadLocal(){
@@ -443,18 +419,15 @@ function trashLoadLocal(){
   try { const r = localStorage.getItem(LS_TRASH); if (r) JSON.parse(r).forEach(e => { if (e && e.id) m[e.id] = TB.normEntry(e); }); } catch(e) {}
   state.trash = m;
 }
-// Written to its own key (and later than the main copy) so a big bin can never stop your planner from saving.
 let trashDirty = false, trashT = 0, trashWarnAt = 0;
 function trashSaveLocal(){
-  if (demoDrawing) return;   // the app tour's example planner is never saved
+  if (demoDrawing) return;
   trashDirty = true; clearTimeout(trashT);
   trashT = setTimeout(trashFlush, 500);
 }
 function trashFlush(){
   if (!trashDirty || deviceWiping) return; trashDirty = false;
   const list = trashList().sort((a, b) => b.deletedAt - a.deletedAt);
-  // Storage full: leave out the biggest entries one at a time (never empty the whole list for one big one). Signed in, the account keeps
-  // them; without an account the person is told, since those can no longer be restored after a reload.
   let left = 0;
   for (let guard = 0; guard < 40; guard++) {
     try { localStorage.setItem(LS_TRASH, JSON.stringify(list)); break; }
@@ -463,20 +436,17 @@ function trashFlush(){
   if (left && !(typeof cloud !== "undefined" && cloud.on) && Date.now() - trashWarnAt > 6e4) { trashWarnAt = Date.now(); try { toast("This device's storage is full, so some of Recently Deleted can't be kept after you close Studyboard. Restore what you need now, or export a backup."); } catch(e) {} }
 }
 window.addEventListener("pagehide", () => { try { trashFlush(); } catch(e) {} });
-// Stored files only go away when the bin lets go of them.
+// Stored files only go away when the bin lets go of them
 function trashAssets(entries){
   const ids = (entries || []).flatMap(e => (e.items || []).filter(i => i.kind === "file").flatMap(i => (i.data.revs || []).map(r => r.assetId))).filter(Boolean);
   if (ids.length) cleanupAssets([...new Set(ids)], 0);
 }
-// 30 days, then it's gone. Also keeps the bin from growing without limit.
+// 30 days, then it's gone
 function trashEnforce(){
-  // The age limit is judged by the server's clock (this device's offset is learned while syncing), so a device with a wrong date can't empty everyone's bin.
   let skewMs = 0; try { skewMs = Number(localStorage.getItem("studioso:skew")) || 0; } catch(e) {}
   const r = TB.purge(trashList(), Date.now() + skewMs);
   if (!r.dropped.length) return 0;
   r.dropped.forEach(e => { if (e && e.id && state.trash[e.id]) { delete state.trash[e.id]; try { queueWrite("trash", e.id, null); } catch(x) {} } });
-  // Stored files go only with entries whose 30 days are up. An entry pushed out because the bin is full keeps its files (they cost space,
-  // but a file this device can't see restored elsewhere, or one deleted moments ago, is never removed for good that way).
   trashAssets(r.dropped.filter(e => e && Date.now() + skewMs >= TB.expiresAt(e)));
   trashSaveLocal();
   return r.dropped.length;
@@ -485,7 +455,7 @@ function trashDrop(ids){
   (ids || []).forEach(id => { if (state.trash[id]) { delete state.trash[id]; queueWrite("trash", id, null); } });
   if (ids && ids.length) trashSaveLocal();
 }
-// Called by applyChanges before anything is removed: keeps what is about to disappear.
+// Called by applyChanges before anything is removed
 function trashCapture(changes, label){
   const deleted = [], inDecks = new Set();
   changes.forEach(c => { if (c.kind === "deck" && c.after) (c.after.cards || []).forEach(x => inDecks.add(x.id)); });
@@ -512,9 +482,9 @@ const trashExists = (kind, id, parent) => {
   if (kind === "quiz") { const d = state.decks[parent && parent.id]; return !!(d && (d.aiQuizzes || []).some(c => c.id === id)); }
   const m = mapOf(kind); return !!(m && m[id]);
 };
-// What shows in the bin: entries that are not already live again (a live copy always wins), newest first.
+// What shows in the bin
 const trashVisible = () => trashList().filter(e => e.items.length && Date.now() < TB.expiresAt(e) && !TB.superseded(e, trashExists)).sort((a, b) => b.deletedAt - a.deletedAt);
-// Puts entries back where they were. Returns {count, notes}.
+// Puts entries back where they were
 function trashRestore(ids){
   const entries = ids.map(id => state.trash[id]).filter(Boolean);
   if (!entries.length) return {count: 0, notes: []};
@@ -536,7 +506,7 @@ function trashRestore(ids){
   lastDelete = null;
   return {count, notes: [...new Set(notes)], entries: gone, inverse: inv};
 }
-// Entries that came in with a backup or export: added when they aren't here yet and haven't expired.
+// Entries that came in with a backup or export
 function trashMerge(list){
   let n = 0;
   (list || []).forEach(e => { if (e && e.id && !state.trash[e.id] && e.items && e.items.length && Date.now() < TB.expiresAt(e)) { state.trash[e.id] = e; if (!e.local) queueWrite("trash", e.id, e); n++; } });
@@ -586,10 +556,10 @@ const SyncMerge = (() => {
   };
   const isTomb = o => o === null || tombAt(o) > 0;
   const untomb = o => { const x = copy(o); TOMB_KEYS.forEach(k => { delete x[k]; }); return x; };
-  const skewFrom = (serverNow, t0, t1) => ms(serverNow) ? ms(serverNow) - Math.round((t0 + t1) / 2) : 0;   // server clock minus this device's clock
+  const skewFrom = (serverNow, t0, t1) => ms(serverNow) ? ms(serverNow) - Math.round((t0 + t1) / 2) : 0;
   const fmtAt = at => { try { return new Date(at).toLocaleString("en-US", {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}); } catch(e) { return ""; } };
 
-  /* ----- text: diff3 by line ----- */
+  /* text: diff3 by line */
   const MARK = {mine: "─── Your edit on this device ───", end: "─── End of conflicting edit ───", theirsRe: /^─── Conflicting edit from your other device( \(.*\))? ───$/};
   const theirsMark = at => "─── Conflicting edit from your other device" + (at ? " (" + fmtAt(at) + ")" : "") + " ───";
   const hasMarks = t => typeof t === "string" && t.includes(MARK.mine) && t.includes(MARK.end);
@@ -608,7 +578,6 @@ const SyncMerge = (() => {
     for (let k = 0; k < a.length - ea; k++) pairs.push([ea + k, eb + k]);
     return pairs;
   }
-  // Classic diff3 over arrays of lines. Returns parts: {ok: [...]} or {mine: [...], theirs: [...], base: [...]}; null when too big to compare.
   function diff3(base, mine, theirs){
     const pa = lcs(base, mine), pb = lcs(base, theirs);
     if (!pa || !pb) return null;
@@ -641,14 +610,13 @@ const SyncMerge = (() => {
     const lines = []; let conflicts = 0;
     parts.forEach(p => {
       if (p.ok) { lines.push(...p.ok); return; }
-      if (!p.base.length) { lines.push(...p.mine, ...p.theirs); return; }        // both added text at the same spot: keep both, in order
-      if (!p.mine.length) { lines.push(...p.theirs); return; }                   // one side deleted lines the other edited: the edit wins
+      if (!p.base.length) { lines.push(...p.mine, ...p.theirs); return; }
+      if (!p.mine.length) { lines.push(...p.theirs); return; }
       if (!p.theirs.length) { lines.push(...p.mine); return; }
       conflicts++; lines.push(MARK.mine, ...p.mine, theirsMark(o.theirsAt), ...p.theirs, MARK.end);
     });
     return {text: lines.join("\n"), conflicts};
   }
-  // choice: "mine" | "theirs" | "both". Resolves every conflict block in the text.
   function resolveText(text, choice){
     const out = []; let mode = 0, A = [], C = [];
     const flush = () => { if (choice === "mine") out.push(...A); else if (choice === "theirs") out.push(...C); else { out.push(...A); if (A.join("\n") !== C.join("\n")) out.push(...C); } };
@@ -660,7 +628,6 @@ const SyncMerge = (() => {
     if (mode === 1) out.push(MARK.mine, ...A); else if (mode === 2) out.push(MARK.mine, ...A, theirsMark(0), ...C);
     return out.join("\n");
   }
-  // The two sides of the first conflict block, for showing in the Resolve sheet.
   function conflictParts(text){
     const lines = String(text).split("\n"), res = []; let mode = 0, A = [], C = [], at = "";
     lines.forEach(ln => {
@@ -671,9 +638,9 @@ const SyncMerge = (() => {
     return res;
   }
 
-  /* ----- values ----- */
+  /* values */
   const pickMine = o => {
-    if (o.mineAt == null) return false;                       // nothing proves this device's edit is the later one
+    if (o.mineAt == null) return false;
     if (o.theirsAt == null) return true;
     return !(ms(o.theirsAt) - (o.mineAt + (o.skew || 0)) > SKEW_GUARD);
   };
@@ -684,7 +651,7 @@ const SyncMerge = (() => {
     if (m === undefined) return t;
     if (t === undefined) return m;
     const key = path[path.length - 1];
-    if (path.length === 1 && key === "schema" && typeof m === "number" && typeof t === "number") return Math.max(m, t);     // the data format version only goes up
+    if (path.length === 1 && key === "schema" && typeof m === "number" && typeof t === "number") return Math.max(m, t);
     if (path.length === 1 && key === "status" && c.kind === "task" && (m === "done") !== (t === "done")) {
       const win = m === "done" ? m : t, lost = m === "done" ? t : m;
       c.losers.push({field: "status", lost, from: m === "done" ? "other" : "this"});
@@ -708,7 +675,6 @@ const SyncMerge = (() => {
   function ma(b, m, t, c, path){
     const all = [...m, ...t];
     if (all.length && all.every(x => isObj(x) && x.id != null)) return byId(b, m, t, c, path);
-    // sets of values or of records without ids: removals are honoured when the base is known, additions from both sides are kept
     let res;
     if (c.hasBase && b) {
       const rm = b.filter(x => !has(m, x)), rt = b.filter(x => !has(t, x));
@@ -722,14 +688,14 @@ const SyncMerge = (() => {
     const bm = new Map((b || []).map(x => [x.id, x])), mm = new Map(m.map(x => [x.id, x])), tm = new Map(t.map(x => [x.id, x]));
     const idsB = (b || []).map(x => x.id), idsM = m.map(x => x.id), idsT = t.map(x => x.id);
     const reordered = ids => !eq(idsB.filter(i => ids.includes(i)), ids.filter(i => idsB.includes(i)));
-    const mineOrder = c.hasBase && reordered(idsM) && !reordered(idsT);       // only this device moved things: keep its order
+    const mineOrder = c.hasBase && reordered(idsM) && !reordered(idsT);
     const order = (mineOrder ? idsM : idsT).slice();
     (mineOrder ? idsT : idsM).forEach(i => { if (!order.includes(i)) order.push(i); });
     const out = [];
     order.forEach(id => {
       const bi = bm.get(id), mi = mm.get(id), ti = tm.get(id);
       if (mi && ti) out.push(eq(mi, ti) ? mi : mo(bi, mi, ti, c, path.concat(id)));
-      else if (mi) { if (!(c.hasBase && bi !== undefined && eq(mi, bi))) out.push(mi); }     // gone on the other side: removed only if untouched here
+      else if (mi) { if (!(c.hasBase && bi !== undefined && eq(mi, bi))) out.push(mi); }
       else if (ti) { if (!(c.hasBase && bi !== undefined && eq(ti, bi))) out.push(ti); }
     });
     return out;
@@ -751,7 +717,7 @@ const SyncMerge = (() => {
     if (base === undefined) base = null;
     const R = (merged, state, extra) => {
       const r = Object.assign({merged: copy(merged === undefined ? null : merged), state, conflict: false, losers: [], title: titleOf(kind, merged || mine || theirs || base)}, extra);
-      if (kind === "meta" && isObj(r.merged) && typeof r.merged.schema === "number") r.merged.schema = Math.max(r.merged.schema, (mine && mine.schema) || 0, (theirs && theirs.schema) || 0);   // the data format version never goes down
+      if (kind === "meta" && isObj(r.merged) && typeof r.merged.schema === "number") r.merged.schema = Math.max(r.merged.schema, (mine && mine.schema) || 0, (theirs && theirs.schema) || 0);
       return r;
     };
     if (eq(mine, theirs)) return R(mine, "same");
@@ -760,16 +726,16 @@ const SyncMerge = (() => {
     const mt = isTomb(mine), tt = isTomb(theirs);
     if (mt || tt) {
       if (mt && tt) return R(theirs, "theirs");
-      if (mt) {                                              // deleted here, edited elsewhere
+      if (mt) {
         if (mine !== null && tombAt(mine) + (o.skew || 0) - ms(o.theirsAt) > DELETE_MARGIN && o.theirsAt != null) return R(mine, "deleted");
         return R(theirs, "restored");
       }
       if (theirs !== null && o.mineAt != null && (ms(o.theirsAt) || tombAt(theirs)) - (o.mineAt + (o.skew || 0)) > DELETE_MARGIN) return R(theirs, "deleted");
-      return R(untomb(mine), "restored");                    // deleted elsewhere (or gone from the server), edited here
+      return R(untomb(mine), "restored");
     }
     const c = {kind, o, hasBase: base !== null, losers: [], texts: 0, tconf: 0, textFields: new Set(), textKeys: TEXT_KEYS[kind] || []};
     const merged = mo(isObj(base) ? base : undefined, mine, theirs, c, []);
-    if (kind === "task") {                                   // where an exam is taken: the student's own answer always beats a rule or the AI, on either device
+    if (kind === "task") {
       const RK = ["remote", "remoteSrc", "remoteWhy", "remoteAt", "remoteSig"], um = isObj(mine) && mine.remoteSrc === "user" && (mine.remote === "yes" || mine.remote === "no"), ut = isObj(theirs) && theirs.remoteSrc === "user" && (theirs.remote === "yes" || theirs.remote === "no");
       const w = um && ut ? ((Number(mine.remoteAt) || 0) >= (Number(theirs.remoteAt) || 0) ? mine : theirs) : um ? mine : ut ? theirs : null;
       if (w) RK.forEach(k => { if (w[k] === undefined) delete merged[k]; else merged[k] = w[k]; });

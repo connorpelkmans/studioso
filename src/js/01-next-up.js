@@ -1,16 +1,15 @@
 /* ===== module: 01-next-up.js: the app's core, time estimates and Next Up ===== */
-/* ---------- Time estimates: learned from your own focus sessions ---------- */
+/* Time estimates */
 const median = a => { const s = a.slice().sort((x, y) => x - y), n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : 0; };
 let LEARN = null, LEARN_AT = 0;
-const accOf = () => (typeof SBACC !== "undefined" ? SBACC : null);   // the planning-accuracy module (92-accuracy.js), defined further down
+const accOf = () => (typeof SBACC !== "undefined" ? SBACC : null);
 function learned(){
   if (LEARN && Date.now() - LEARN_AT < 5000) return LEARN;
-  const mins = t => Math.max(Number(t.focusMin) || 0, Number(t.actualMin) || 0);   // actualMin: a time the person typed when finishing a task
+  const mins = t => Math.max(Number(t.focusMin) || 0, Number(t.actualMin) || 0);
   const done = allTasks().filter(t => t.status === "done" && mins(t) >= 15 && !MILESTONE(t.type));
   const byType = {}, ratios = [];
   done.forEach(t => { const h = mins(t) / 60; (byType[t.type] = byType[t.type] || []).push({h, c: t.courseId, d: t.difficulty}); if (isNum(t.hours) && Number(t.hours) > 0 && (!t.checklist.length || t.checklist.every(i => i.done))) ratios.push(h / Number(t.hours)); });
   let r = ratios.length >= 3 ? Math.min(1.8, Math.max(0.7, median(ratios))) : 1, nR = ratios.length;
-  // Learn My Pace: a recency-weighted, shrunk ratio that also counts the "about right / longer" taps; exactly 1 when turned off in Settings
   const A = accOf(); if (A) { try { const g = A.global(); r = g.r; nR = g.n; } catch(e) { console.warn(e); } }
   LEARN = {byType, ratio: r, nRatio: nR}; LEARN_AT = Date.now();
   return LEARN;
@@ -29,7 +28,6 @@ function localEstimate(t){
     const w = isNum(t.weight) && Number(t.weight) > 0 ? Number(t.weight) : (t.id && PTS_W[t.id]) || 0;
     if (w) h *= Math.min(2, Math.max(0.6, Math.sqrt(w / d.w)));
     basis = `Typical for ${/^[AEIOU]/.test(t.type) ? "an" : "a"} ${t.type === "Other" ? "task" : t.type.toLowerCase()}${t.difficulty && t.difficulty !== "med" ? ` marked ${DIFF_LABEL[t.difficulty].toLowerCase()}` : ""}`;
-    // The instructions often say how long it is: "1000 words", "5 pages", "a 10-minute presentation", "APA references"
     const n = String(t.notes || "") + " " + String(t.title || "");
     const words = n.match(/(\d[\d,]{1,5})\s*(?:-|to|–)?\s*(?:\d[\d,]{1,5}\s*)?words?\b/i), pages = n.match(/(\d{1,2})\s*(?:-|to|–)?\s*(?:\d{1,2}\s*)?(?:double[- ]spaced\s*)?pages?\b/i), mins = n.match(/(\d{1,2})\s*-?\s*min(?:ute)?s?\s+(?:presentation|talk|video)/i);
     let lenH = 0;
@@ -72,9 +70,7 @@ async function tfEstimate(btn){
   btn.disabled = false;
 }
 
-/* ---------- Next Up feedback: what you start and what you skip nudges future picks (stored on this device only) ----------
-   Pure helpers (unit-tested): nufbWeights turns events into decayed per-type, per-course and per-task signals; nufbMult
-   turns them into a gentle multiplier (never more than -30% / +10%) that never touches anything due today or overdue. */
+/* Next Up feedback */
 const NUFB_LS = "studyboard:nextFb";
 const nufbLoad = () => { try { const a = JSON.parse(localStorage.getItem(NUFB_LS) || "[]"); return Array.isArray(a) ? a : []; } catch(e) { return []; } };
 function nufbAdd(kind, t){
@@ -88,7 +84,7 @@ function nufbWeights(ev, now){
     const v = (e.k === "accept" ? 1 : -1) * Math.pow(0.5, age / 10);
     if (e.ty) w.type[e.ty] = (w.type[e.ty] || 0) + v;
     if (e.c) w.course[e.c] = (w.course[e.c] || 0) + v;
-    if (e.k === "skip" && e.id) w.task[e.id] = (w.task[e.id] || 0) + Math.pow(0.5, age / 3);   // snoozed tasks come back slowly
+    if (e.k === "skip" && e.id) w.task[e.id] = (w.task[e.id] || 0) + Math.pow(0.5, age / 3);
   });
   return w;
 }
@@ -98,54 +94,49 @@ function nufbMult(w, type, course, id, dl){
   f *= Math.max(0.8, 1 - 0.07 * (w.task[id] || 0));
   return Math.max(0.7, Math.min(1.1, f));
 }
-// Time of day buckets, and when this student actually studies (minutes of focus per hour over the last 30 days, from task history)
+// Time of day buckets, and when this student actually studies
 const dayPartOf = h => h < 5 ? "night" : h < 12 ? "morning" : h < 17 ? "afternoon" : h < 21 ? "evening" : "night";
 function peakStudyHours(hist, now){
   const bins = new Array(24).fill(0);
   (hist || []).forEach(h => { const m = /^Focus session:? (\d+)m/.exec(h.text || ""); if (m && now - h.at < 30 * 864e5) bins[new Date(h.at).getHours()] += Number(m[1]); });
-  // People who never start the timer: finished tasks and ticked checklist items also say when you work (92-accuracy.js)
   const ex = accOf() ? accOf().extraBins(now) : null; if (ex) ex.forEach((v, i) => { bins[i] += v; });
   const total = bins.reduce((a, b) => a + b, 0); if (total < 90) return "";
   let best = 0, bi = 0;
   for (let i = 0; i < 24; i++) { const s = bins[i] + bins[(i + 1) % 24] + bins[(i + 2) % 24]; if (s > best) { best = s; bi = i; } }
   return `${pad(bi)}:00 to ${pad((bi + 3) % 24)}:00`;
 }
-// Keep only picks that are real, open, unblocked and doable now (an exam or quiz only if it is taken from home: canDoNow), once each, in order; text cleaned (no dashes, links or markup)
+// Keep only picks that are real, open, unblocked and doable now
 function autoCleanNext(raw, back, ok, textOf){
   const seen = new Set(), out = [];
   (Array.isArray(raw) ? raw : []).forEach(x => {
     const id = x && back[String(x.ref || "").trim()];
     if (!id || seen.has(id) || !ok(id)) return;
     seen.add(id);
-    // Generic or title-restating text is dropped, so Do This Next shows the app's own concrete reasons instead
     const tt = textOf ? textOf(id, x.why, x.step) : {why: String(x.why || ""), step: String(x.step || "")};
     out.push({id, why: tt.why, step: tt.step, min: Math.max(10, Math.min(180, Number(x.minutes) || 0)) || null});
   });
   return out.slice(0, 5);
 }
 
-/* ---------- Next Up: the one thing to do right now ---------- */
+/* Next Up: the one thing to do right now */
 function nextUp(F){
   const today = todayISO();
   if (!ui.skipNext || ui.skipNext.day !== today) ui.skipNext = {day: today, ids: []};
   const now = new Date(), hr = now.getHours(), hm = pad(hr) + ":" + pad(now.getMinutes());
   const recent = t => (t.history || []).some(h => /^Focus session/.test(h.text) && Date.now() - h.at < 3 * 3600000);
-  // Exams and quizzes happen at a set time and place, so they're never "the next thing to do" unless they're taken from home (canDoNow). Their study sessions always can be.
   const pool = F.ranked.filter(x => inFilter(x.t) && canDoNow(x.t) && !ui.skipNext.ids.includes(x.t.id) && (x.R > 0 || x.dl <= 0));
   const focusLen = Number(pomoCfg().focus) || 25;
   if (!pool.length) { const em = typeof SBEXAM !== "undefined" ? SBEXAM.rankNext(F, [], pool, focusLen) : null; return (em && em.study) || nextUpStudy(F, null, pool, focusLen); }
-  // The next class or shift today: with less than an hour to go, something that fits in the gap
   let gapMin = null, gapWhat = "";
   try {
     const nowMin = hr * 60 + now.getMinutes();
     const nx = schOccurrences(today, today).filter(o => !o.skipped && o.start && !(o.type === "meet" && o.m && o.m.kind === "Office Hours") && !(o.type === "avail" && (o.avail.kind === "protected" || o.avail.seg === "tail"))).map(o => ({o, m: Number(o.start.slice(0, 2)) * 60 + Number(o.start.slice(3, 5))})).filter(y => y.m > nowMin).sort((a, b) => a.m - b.m)[0];
     if (nx && nx.m - nowMin <= 75) { gapMin = nx.m - nowMin; gapWhat = nx.o.label || nx.o.title || "your class"; }
   } catch(e) {}
-  // Focus minutes per course so far today, from the Focus sessions logged on each task
   const courseMin = {}, dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   tasksArr().forEach(t => (t.history || []).forEach(h => { const mm = /^Focus session:? (\d+)m/.exec(h.text || ""); if (mm && h.at >= dayStart && t.courseId) courseMin[t.courseId] = (courseMin[t.courseId] || 0) + Number(mm[1]); }));
   const fbW = nufbWeights(nufbLoad(), Date.now());
-  const pk = accOf() ? accOf().peak(Date.now()) : null;      // when you usually work, from the timer, finished tasks and checklist ticks (null until there is enough)
+  const pk = accOf() ? accOf().peak(Date.now()) : null;
   const scored = pool.map(x => {
     const t = x.t, why = [];
     let s = x.score * (x.alloc > 0 ? 1 : 0.8);
@@ -156,31 +147,24 @@ function nextUp(F){
     if (hr >= 21) { if (diffOf(t) === "hard" && x.dl > 1 && !(pk && pk.hours.includes(hr))) s *= 0.8; if (sessionH <= 0.75) { s *= 1.1; why.push("Short enough to finish tonight"); } }
     if (gapMin != null && gapMin >= 15) { if (x.R * 60 <= gapMin + 5) { s *= 1.3; why.push(`Fits in the ${gapMin} minutes before ${gapWhat}`); } else if (diffOf(t) === "hard") s *= 0.85; }
     if (t.prepFor) why.push("Part of your exam study plan");
-    // You usually take longer than you estimate on this kind of task, so it gets a little more of the day (92-accuracy.js)
     if (accOf()) { const ub = accOf().underBoost(t); if (ub > 1 && x.dl > 0) { s *= ub; why.push(tr("acc.underWhy", "These usually take you longer than you estimate")); } }
-    // Already 2+ hours on this course today and it isn't due today: a change of subject helps you stay sharp
     if (x.dl > 0 && t.courseId && (courseMin[t.courseId] || 0) >= 120) s *= 0.92;
-    // What you've accepted or skipped before (gentle; never applies to anything due today)
     s *= nufbMult(fbW, t.type, t.courseId, t.id, x.dl);
     return {x, s, why, sessionH};
   });
   deadlineGuard(scored, y => y.x, "s");
   scored.sort((a, b) => b.s - a.s);
-  // Exam Mode (97-exammode.js): study for an exam in the next few days comes first, but never ahead of work due before it; it replaces the AI's pick
   const exm = typeof SBEXAM !== "undefined" ? SBEXAM.rankNext(F, scored, pool, focusLen) : null;
   if (exm && exm.study) return exm.study;
-  // The AI's list is only trusted for the day it was made and for 8 hours (a morning pick shouldn't steer the evening); its ids are checked against the real, unskipped pool
   let aiPick = !exm && autoPlanOn() && AUTO.next && AUTO.next.day === today && Date.now() - (AUTO.next.at || 0) < 8 * 3600000 ? (AUTO.next.list || []).find(x => scored.some(y => y.x.t.id === x.id)) : null;
-  // The AI's pick is a second opinion: it can't bury something due today that you're short of time for, or pick from far down the list
   if (aiPick) {
     const idx = scored.findIndex(y => y.x.t.id === aiPick.id), y = scored[idx], top = scored[0];
     const urgent = top.x.dl <= 0 && top.x.R > 0 && (top.x.behind > 0 || top.x.rho >= 0.9) && y.x.dl > 0;
-    // ...or jump weeks ahead of something due in the next few days that still needs work
     const leap = scored.slice(0, idx).some(z => z.x.dl >= 0 && z.x.dl <= 3 && z.x.R > 0 && y.x.dl >= z.x.dl + 7 && (y.x.own || 0) < 0.75);
     if (urgent || leap || (idx > 5 && y.s < top.s * 0.6)) aiPick = null;
   }
   const pick = aiPick ? scored.find(y => y.x.t.id === aiPick.id) : scored[0];
-  ui.nextShown = pick.x.t.id;                          // so Start / Something Else can be recorded as feedback
+  ui.nextShown = pick.x.t.id;
   const cl = (pick.x.t.checklist || []).find(i => !i.done);
   const step = aiPick && aiPick.step ? {text: aiPick.step} : cl;
   let mins = aiPick && aiPick.min ? Math.round(aiPick.min / 5) * 5 : Math.max(focusLen, Math.min(focusLen * 2, Math.round(pick.sessionH * 60 / 5) * 5));
@@ -188,8 +172,7 @@ function nextUp(F){
   const why = (aiPick && aiPick.why ? [aiPick.why] : pick.why.concat(pick.x.reasons)).filter((r, i, a) => a.indexOf(r) === i && !(r === "Due today" && a.some(y => /^Due at .* today$/.test(y)))).slice(0, aiPick ? 1 : 3);
   return (exm ? null : nextUpStudy(F, pick, pool, focusLen)) || {x: pick.x, why, step, mins, left: pool.length - 1, ai: !!aiPick};
 }
-// An in-person exam or quiz can't be done now, but studying for it can. When one is close and nothing more pressing comes first,
-// Do This Next says "Study for ..." (a Focus session logged on the exam, or Plan My Prep), never the exam itself.
+// An in-person exam or quiz can't be done now, but studying for it can
 function nextUpStudy(F, top, pool, focusLen){
   const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
   const studiedToday = t => (t.history || []).reduce((m, h) => { const mm = /^Focus session:? (\d+)m/.exec(h.text || ""); return mm && h.at >= dayStart.getTime() ? m + Number(mm[1]) : m; }, 0);
@@ -198,17 +181,17 @@ function nextUpStudy(F, top, pool, focusLen){
   if (!ex) return null;
   if (top) {
     const tx = top.x;
-    if (tx.t.prepFor || tx.dl <= 0) return null;                      // already studying, or something is due today or overdue
-    if (tx.dl <= ex.dl) return null;                                  // the top task is due before the exam, or the same day
+    if (tx.t.prepFor || tx.dl <= 0) return null;
+    if (tx.dl <= ex.dl) return null;
   }
   const t = ex.t, hasPlan = planSessions(t.id).length > 0;
   const why = [`${t.type} ${ex.dl === 1 ? "tomorrow" : "in " + ex.dl + " days"}${t.time ? " at " + fmtTime(t.time) : ""}`, hasPlan ? "Extra review before it" : "No study plan yet"];
   ui.nextShown = "study:" + t.id;
   return {x: ex, why, step: null, mins: Math.max(focusLen, Math.min(focusLen * 2, ex.dl <= 1 ? focusLen * 2 : focusLen)), left: pool.length, ai: false, study: true, hasPlan, label: "Study for " + t.title};
 }
-// Heads Up: things the automatic AI noticed that are easy to miss (from instructions, announcements, your schedule, grades)
+// Heads Up: things the automatic AI noticed that are easy to miss
 const HEADS_HIDE = "studyboard:heads:hide";
-const headKey = h => h.id ? "t:" + h.id : "x:" + String(h.text || "").toLowerCase().replace(/[^a-z]+/g, " ").trim().slice(0, 40);     // dismissed for a week, per task (or per line, ignoring digits and punctuation), so a reworded line doesn't come back
+const headKey = h => h.id ? "t:" + h.id : "x:" + String(h.text || "").toLowerCase().replace(/[^a-z]+/g, " ").trim().slice(0, 40);
 function headsHtml(){
   if (!autoPlanOn() || !AUTO.heads || AUTO.heads.day !== todayISO()) return "";
   let hid = {}; try { hid = JSON.parse(localStorage.getItem(HEADS_HIDE) || "{}") || {}; } catch(e) {}
@@ -245,10 +228,9 @@ function nextUpHtml(F, pre){
   </div>`;
 }
 
-// The course's sticker in a ring on Do This Next and the plan rows (nothing for a task with no course)
+// The course's sticker in a ring on Do This Next and the plan rows
 const nuRing = (t, cls) => { const c = t && courseOf(t.courseId); return c ? `<span class="nu-ic ${cls || ""}" style="--c:${esc(c.color)}" aria-hidden="true">${courseRingHtml(c)}</span>` : ""; };
-// When nothing in the plan can be started now, Do This Next still points somewhere (no AI needed): studying for an exam or quiz
-// on the calendar that has no study sessions yet, or else a task with no due date. Returns "" when there's nothing at all.
+// When nothing in the plan can be started now, Do This Next still points somewhere
 function nextUpSpare(F, inView){
   const ex = Object.values(F.info || {}).filter(x => x.fixed && inView(x) && x.t.status !== "done" && x.dl >= 1 && x.dl <= 14 && !planSessions(x.t.id).length).sort((a, b) => dueDate(a.t) - dueDate(b.t))[0];
   if (ex) {

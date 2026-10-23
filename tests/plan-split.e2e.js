@@ -1,6 +1,4 @@
-// node tests/plan-split.e2e.js  (Playwright + Chromium)
-// Today's Plan: the suggested time on each task adds up to the study time the person set for today, unless there is a reason (which the plan then says).
-// Checks the model (__sbPlan) and what is on screen: hero + list rows + the "more tasks" summary row = the planned total.
+// node tests/plan-split.e2e.js (Playwright + Chromium) Today's Plan
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -31,7 +29,6 @@ const q = h => Math.round(h * 4) / 4;
     await ctx.addInitScript(([seed, th]) => { try { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1");
       const d = new Date(), t = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); localStorage.setItem("coursework:today", JSON.stringify({d: t, h: th})); } catch (e) {} },
       [Object.assign({v: 2, courses: [{id: "c1", name: "Biology", code: "BIO1", color: "#3B6FE0"}], settings: {capacity: 15, dailyHours: 3}, updated: 1, tasks}, extra || {}), th]);
-    // midday, so the plan's late-night cap (it stops at about 1 am) never shortens today: this checks the split, whatever hour CI runs at
     await ctx.clock.install({time: new Date(iso(new Date()) + "T12:00:00")});
     const page = await ctx.newPage(); page.errs = []; page.on("pageerror", e => page.errs.push(e.message));
     await page.goto(base); await page.waitForFunction(() => window.__sbPlan && document.querySelector(".focus.plan"), null, {timeout: 20000});
@@ -47,14 +44,12 @@ const q = h => Math.round(h * 4) / 4;
       const planned = r.alloc.reduce((t, x) => t + x, 0), want = Math.min(q(r.thSet), Math.ceil(r.R * 4) / 4 + 0.0001);
       if (r.R * 1 >= r.thSet) ok(Math.abs(planned - q(r.thSet)) < 0.01, `${name} @${th}h: the times add up to the time you set (${planned} of ${q(r.thSet)})`);
       else ok(r.gap.length > 0 && /free/.test(r.gap.join(" ")), `${name} @${th}h: less work than time, and the plan says why: ${r.gap.join(" ")}`);
-      // what is on screen adds up: hero + rows + summary row
       const screen = mins(r.hero) + r.rows.reduce((t, x) => t + mins(x), 0) + mins(r.more.replace(/^\d+ more tasks? today,/, ""));
       ok(Math.abs(screen - Math.round(planned * 60)) <= 1, `${name} @${th}h: what's on screen adds up (${screen}m shown, ${Math.round(planned * 60)}m planned)`);
       ok(r.gapText === "" || r.gap.length > 0, `${name} @${th}h: no unexplained gap text`);
       ok(page.errs.length === 0, "no page errors " + page.errs.join(";"));
       await ctx.close();
     }
-    // nine tasks: only five rows, the rest in one summary row that opens to show all of them
     { const {ctx, page} = await open(SC.nineTasks, 6);
       const rows = () => page.locator(".plan-list:not(.plan-more .plan-list) .plan-row").count();
       const before = await rows(), btn = page.locator(".plan-rows");

@@ -1,5 +1,5 @@
 /* ===== module: 20-scenes-maj-egypt.js ===== */
-/* Around the World: Egypt (the pyramids of Giza, the Sphinx and the Nile at golden hour) */
+/* Around the World */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const r1 = n => Math.round(n * 100) / 100;
@@ -12,11 +12,11 @@
     egyptpyr: {d: "M0 -10L11.5 8.6H-11.5Z", detail: "M-3.8 -3.8H3.8M-6.3 0.3H6.3M-8.8 4.4H8.8M0 -10L2.4 8.6", dstroke: true},
     // a blue lotus flower opening on its pad
     egyptlotus: {d: "M0 6C-2.2 2 -2.2 -4 0 -10C2.2 -4 2.2 2 0 6Z M-0.4 6C-4.6 4.6 -8.4 -0.6 -8.6 -6.4C-4.4 -4.4 -1.4 -0.4 -0.4 6Z M0.4 6C4.6 4.6 8.4 -0.6 8.6 -6.4C4.4 -4.4 1.4 -0.4 0.4 6Z M-10 7.4Q0 3.6 10 7.4Q0 10.6 -10 7.4Z", detail: "M0 4V-6M-1.6 4.6Q-5 1 -6.4 -3.6M1.6 4.6Q5 1 6.4 -3.6", dstroke: true},
-    // an ibis in flight: wings up, long neck and curved bill
+    // an ibis in flight
     egyptibis: {d: "M-9 1C-6 -1.4 2 -1.6 4.6 -0.6L8.4 -1.8Q10.8 -2.2 11.8 0.8L11.2 1.2Q10.2 -0.4 8.6 -0.2L5 1.6C1.6 3 -4.6 3 -9 1Z M-3.4 -0.6L-6.6 -10L-1.6 -9.2L2.4 -0.8Z M-11.6 1.6L-8 0.6L-7.6 2.2Z"},
     // a scarab beetle seen from above
     egyptscarab: {d: ell(0, 2, 6.4, 7.6) + ell(0, -6.8, 3.8, 2.6) + "M-2.4 -9.4L-4 -11.6L-1.4 -9.8Z M2.4 -9.4L4 -11.6L1.4 -9.8Z M-6 -1L-10 -3.4L-9.6 -2L-6 0.4Z M6 -1L10 -3.4L9.6 -2L6 0.4Z M-6 3.6L-10.4 3.4L-10 4.6L-5.8 5Z M6 3.6L10.4 3.4L10 4.6L5.8 5Z M-4.6 7.4L-8 10.6L-6.8 11L-3.6 8.6Z M4.6 7.4L8 10.6L6.8 11L3.6 8.6Z", detail: "M0 -4.4V9.4M-5.6 -2.4Q0 -5.2 5.6 -2.4", dstroke: true},
-    // a papyrus umbel: a burst of rays on a short stem
+    // a papyrus umbel
     egyptpapy: {d: "M0 11V-1" + [0, 1, 2, 3, 4, 5, 6, 7, 8].map(i => { const a = -Math.PI * (0.04 + 0.92 * i / 8), c = Math.cos(a), s = Math.sin(a); return `M0 -1Q${r1(c * 5)} ${r1(-1 + s * 6)} ${r1(c * 9.6)} ${r1(-1 + s * 9.6 + 3 * c * c)}`; }).join(""), stroke: true, lw: 1.3},
     // a felucca's lateen sail on its hull
     egyptsail: {d: "M5.4 6.4L-6.6 -11.4Q-1.6 -2.6 -5 5.2Q0.4 4.4 5.4 6.4Z M-9.6 7.2H9.6L7.6 10.4H-7.6Z", detail: "M5.6 6.6L-7.4 -12.4M0.6 6L-0.4 -8.6", dstroke: true},

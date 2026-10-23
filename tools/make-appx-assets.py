@@ -18,7 +18,7 @@ OUT = os.path.join(ROOT, "build-resources", "appx")
 icon = Image.open(os.path.join(ROOT, "icon-1024.png")).convert("RGBA")
 px = icon.load()
 
-# The icon's background is a plain top-to-bottom gradient; fit it per channel so tiles can extend it past the icon's edges.
+# The icon's background is a plain top-to-bottom gradient
 rows = range(160, 861)
 def fit(ch):
     n = len(rows); sx = sum(rows); sy = sum(px[130, y][ch] for y in rows)
@@ -76,8 +76,7 @@ for t in [16, 20, 24, 30, 32, 36, 40, 48, 60, 64, 72, 80, 96, 256]:
     save(img, f"Square44x44Logo.targetsize-{t}_altform-lightunplated.png")
 print("Wrote", len([f for f in os.listdir(OUT) if f.endswith(".png")]), "images to", os.path.relpath(OUT, ROOT))
 
-# Store listing artwork for Partner Center (Store listings > Store logos), uploaded by hand: 1:1 box art and a 2:3 poster, at the minimum sizes
-# (the source icon is 1024 px, so larger ones would only be upscaled), plus a 300x300 logo for search results.
+# Store listing artwork for Partner Center (Store listings > Store logos), uploaded by hand
 LIST = os.path.join(ROOT, "build-resources", "msstore-listing")
 os.makedirs(LIST, exist_ok=True)
 tile(1080, 1080, 0.50).convert("RGB").save(os.path.join(LIST, "BoxArt-1080x1080.png"), optimize=True)

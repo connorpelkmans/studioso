@@ -1,19 +1,4 @@
-// Studyboard Pro: entitlement-token (Supabase Edge Function)
-// Gives the app a short-lived, SIGNED proof of the person's plan: {tier, exp, uid, iat, sig}.
-// The app checks the signature with the public key baked into it (ENT_PUBKEY), so a person can't just edit local storage to get Pro,
-// and Pro keeps working offline until "exp". The server decides everything; the app only asks.
-//
-// Signed text (UTF-8):   studyboard-ent-v1|<uid>|<tier>|<exp>|<iat>        (exp and iat are whole unix seconds)
-// sig = Ed25519 signature of that text, base64url without padding.
-//
-// Deploy with "Verify JWT" turned ON (the person must be signed in). Secrets: ENT_SIGNING_KEY (from tools/gen-ent-key.mjs).
-// Supabase adds SUPABASE_URL, SUPABASE_ANON_KEY and the service key by itself.
-//
-// Tiers:      free | pro | trial (while trialing) | lifetime (Pro for good). The app rejects a token lasting more than 8 days.
-// Lifetimes:  paid or granted Pro: up to 7 days, but never past the end of the paid time (the stored end already includes the 3 day grace).
-//             trial: up to 2 days (so cancelling or ending a trial is noticed fast).   free: 1 day.
-// The response also carries the server's clock in the "X-Server-Time" header (unix seconds) and the standard Date header, so the app
-// can notice if the device's clock was set back to stretch a token.
+// Studyboard Pro
 
 type Env = (k: string) => string;
 type Deps = { env: Env; fetch: typeof fetch; now: () => number; log: (...a: unknown[]) => void };
@@ -21,10 +6,10 @@ type Row = { plan?: string; pro_until?: string | null; trial_until?: string | nu
 
 const DAY = 86400;
 const PRO_TTL = 7 * DAY, TRIAL_TTL = 2 * DAY, FREE_TTL = 1 * DAY;
-const RATE_MAX = 40, RATE_WINDOW = 3600;   // token requests per person per hour (the app asks at start-up and now and then)
+const RATE_MAX = 40, RATE_WINDOW = 3600;
 
 const CORS: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",   // the app runs on many origins; auth is a bearer token, never a cookie
+  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Expose-Headers": "X-Server-Time, Date",
@@ -35,12 +20,12 @@ const reply = (o: unknown, status: number, nowS: number, extra: Record<string, s
 
 function serviceKey(d: Deps): string {
   let key = d.env("SUPABASE_SERVICE_ROLE_KEY");
-  if (!key) { try { const k = JSON.parse(d.env("SUPABASE_SECRET_KEYS") || "{}"); key = String(k.default || Object.values(k)[0] || ""); } catch (_e) { /* newer projects only */ } }
+  if (!key) { try { const k = JSON.parse(d.env("SUPABASE_SECRET_KEYS") || "{}"); key = String(k.default || Object.values(k)[0] || ""); } catch (_e) { } }
   return key;
 }
 const base = (d: Deps) => d.env("SUPABASE_URL").replace(/\/+$/, "");
 
-// Who is calling? Ask Supabase Auth itself (this also notices deleted accounts and revoked sessions).
+// Who is calling
 async function whoIs(d: Deps, token: string): Promise<string | null> {
   const r = await d.fetch(`${base(d)}/auth/v1/user`, { headers: { apikey: d.env("SUPABASE_ANON_KEY") || serviceKey(d), Authorization: `Bearer ${token}` } });
   if (!r.ok) return null;
@@ -48,8 +33,7 @@ async function whoIs(d: Deps, token: string): Promise<string | null> {
   return u?.id && /^[0-9a-f-]{36}$/i.test(u.id) ? u.id.toLowerCase() : null;
 }
 
-// Pure: what plan, and until when (unix seconds). Exported for tests.
-// tier: "lifetime" (Pro for good: a grant with no end, or paid Pro for good), "pro" (paid or granted with an end), "trial" (while trialing), "free".
+// Pure: what plan, and until when (unix seconds)
 export type Tier = "free" | "pro" | "trial" | "lifetime";
 export function computeTier(row: Row | null, nowS: number): { tier: Tier; exp: number } {
   const ms = (v?: string | null) => (v ? Math.floor(Date.parse(v) / 1000) : NaN);
@@ -64,7 +48,7 @@ export function computeTier(row: Row | null, nowS: number): { tier: Tier; exp: n
   if (paid) ends.push(Math.min(nowS + PRO_TTL, row.pro_until == null ? Infinity : until));
   if (granted) ends.push(Math.min(nowS + PRO_TTL, grant));
   if (trialing) ends.push(Math.min(nowS + TRIAL_TTL, trial));
-  // A promo code: Pro's features (the "trial" tier: the free plan's amounts), for good or until promo_until. The token never outlives it.
+  // A promo code: Pro's features (the "trial" tier: the free plan's amounts)
   if (row.promo_lifetime) ends.push(nowS + TRIAL_TTL);
   if (promo > nowS) ends.push(Math.min(nowS + TRIAL_TTL, promo));
   if (!ends.length) return { tier: "free", exp: nowS + FREE_TTL };
@@ -72,7 +56,7 @@ export function computeTier(row: Row | null, nowS: number): { tier: Tier; exp: n
   return { tier, exp: Math.max(...ends) };
 }
 
-// The private key is PKCS8 DER written as base64url (standard base64 is accepted too).
+// The private key is PKCS8 DER written as base64url (standard base64 is accepted too)
 const b64 = (s: string) => Uint8Array.from(atob(s.trim().replace(/-/g, "+").replace(/_/g, "/").replace(/\s+/g, "")), c => c.charCodeAt(0));
 const b64url = (buf: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 let cached: { raw: string; key: CryptoKey } | null = null;
@@ -104,7 +88,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     if ((await rl.json()) !== true) return reply({ error: "too many requests, try again later" }, 429, nowS, { "Retry-After": "600" });
 
     let r = await d.fetch(`${base(d)}/rest/v1/studyboard_entitlements?user_id=eq.${encodeURIComponent(uid)}&select=plan,pro_until,trial_until,grant_until,grant_lifetime,promo_until,promo_lifetime`, { headers: h });
-    // a database without the promo columns yet (supabase-plans.sql not re-run): read without them
+    // a database without the promo columns yet (supabase-plans.sql not re-run)
     if (!r.ok && r.status === 400) r = await d.fetch(`${base(d)}/rest/v1/studyboard_entitlements?user_id=eq.${encodeURIComponent(uid)}&select=plan,pro_until,trial_until,grant_until,grant_lifetime`, { headers: h });
     if (!r.ok) throw new Error(`read failed ${r.status}`);
     const row = ((await r.json()) as Row[])[0] || null;

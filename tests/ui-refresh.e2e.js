@@ -1,5 +1,4 @@
-// UI refresh: timeline icons, Board tabs on desktop, Crunch and Today's Plan decluttering, settings sub-tabs, area of study,
-// note boards, Grades tab in Courses, and the Companion tab (chat answered by a stubbed Gemini).  Run: node tests/ui-refresh.e2e.js
+// UI refresh: timeline icons, Board tabs on desktop, Crunch and Today's Plan decluttering
 const path = require("path"), assert = require("assert");
 // Note boards: their tabs, or on a phone the board dropdown
 const pickBoard = async (p, id) => { const t = p.locator(`.nb-tab[data-id="${id}"]`); if (await t.isVisible()) await t.click(); else await p.selectOption("select[data-nb-pick]", id); };
@@ -17,7 +16,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     {id: "t4", title: "Essay", courseId: "c2", type: "Assignment", due: plus(6), hours: 5, weight: 30, status: "doing", start: plus(0)},
     {id: "t5", title: "Finished thing", courseId: "c2", type: "Assignment", due: plus(2), weight: 20, mark: {got: 17, outOf: 20}, status: "done", start: plus(0)}],
   decks: [], notes: [], files: [], events: [], settings: {capacity: 15, dailyHours: 3}, updated: 1};
-const IGNORE = /S is not defined/;          // an unrelated companion animation error that exists on main
+const IGNORE = /S is not defined/;
 const tab = (p, t) => p.evaluate(t => { const b = document.querySelector(`[data-tab="${t}"]`); if (b) b.click(); }, t).then(() => p.waitForTimeout(400));
 const act = (p, a, i) => p.evaluate(([a, i]) => { const b = document.createElement("button"); b.dataset.act = a; if (i) b.dataset.id = i; b.style.display = "none"; document.body.appendChild(b); b.click(); b.remove(); }, [a, i]).then(() => p.waitForTimeout(350));
 const stored = p => p.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")));
@@ -34,7 +33,6 @@ const stored = p => p.evaluate(() => JSON.parse(localStorage.getItem("coursework
       await p.goto(FILE); await p.waitForTimeout(1400);
       const vis = sel => p.evaluate(s => { const e = document.querySelector(s); return !!e && !!(e.offsetWidth || e.offsetHeight); }, sel);
 
-      // Board: Today's Plan and Task Board are tabs on every screen size
       await tab(p, "board");
       ok(await vis(".bview-tabs"), "Board has the Today's Plan / Task Board tabs");
       ok(await vis(".bpane-plan") && !(await vis(".bpane-board")), "one pane at a time: Today's Plan");
@@ -44,36 +42,32 @@ const stored = p => p.evaluate(() => JSON.parse(localStorage.getItem("coursework
       ok(await vis(".next-up"), "Do This Next stays up front");
       ok(await p.evaluate(() => !document.querySelector(".focus.plan > .auto-ins, .focus.plan > .plan-fc, .focus.plan > .plan-heads")), "suggestions, flashcards and heads-ups are grouped under More for Today (open when a question needs an answer)");
 
-      // Timeline: icons on due dates, no bars, no completed tasks, no hours-per-week row
       await tab(p, "plan"); await act(p, "plan-view", "timeline");
       if (W >= 640) {
         ok((await p.locator(".tl-ic.ms").count()) === 4, "one icon per open task with a due date (the finished task is left out)");
         ok((await p.locator(".tlbar").count()) === 0 && (await p.locator(".tl-work").count()) === 0, "no bars and no Hours per Week row");
         ok(!(await p.evaluate(() => document.querySelector(".tl").textContent.includes("Finished thing"))), "completed tasks are not on the timeline");
         ok(await p.evaluate(() => { const tl = document.querySelector(".tl-scroll"); return tl.scrollWidth > 0 && document.documentElement.scrollWidth <= innerWidth + 1; }), "no horizontal page overflow");
-      } else {   // phones: the Timeline tab is the month calendar only, named Month
+      } else {
         ok(!(await p.locator(".tl").count()) && await vis(".cal") && /Month/.test(await p.textContent('[data-act="plan-view"][data-id="timeline"]')), "on a phone the Timeline tab is the month calendar, named Month");
         ok((await p.locator(".cal .day .ci").count()) === 5 && (await p.locator('.cal .day .ci[style*="opacity"]').count()) === 1, "one icon per task with a due date, the finished one faded");
         ok(await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "no horizontal page overflow");
       }
 
-      // Crunch: summary first, legend tucked away
       await act(p, "plan-view", "crunch");
       ok(await vis(".cr2-now") && await vis(".cr-help summary") && !(await p.locator(".cr-legend").first().isVisible()), "Crunch shows this week's summary and keeps the legend under How to read this");
 
-      // Settings: sub-tabs inside categories, search still finds everything
       await act(p, "menu");
       await p.evaluate(() => document.querySelector('.us-cat[data-us="data"]').click()); await p.waitForTimeout(200);
       const subs = await p.$$eval(".us-pane.on .us-sub-tab", b => b.map(x => x.textContent));
       ok(subs.join() === "Backups,Export,Cleanup", "Data and Backups has sub-tabs: " + subs.join());
       await p.evaluate(() => document.querySelectorAll(".us-pane.on .us-sub-tab")[2].click()); await p.waitForTimeout(150);
       ok(await vis('.us-pane.on [data-act="clear-all"]') && !(await vis('.us-pane.on [data-act="backup-now"]')), "choosing a sub-tab shows only its rows");
-      if (W < 720) { await p.click(".us-back"); await p.waitForTimeout(150); }   // phones: a category page has Back to the list, where the search box is
+      if (W < 720) { await p.click(".us-back"); await p.waitForTimeout(150); }
       await p.fill(".us-q", "backup"); await p.waitForTimeout(250);
       ok(await vis('.us-pane [data-act="backup-now"]'), "searching shows matching rows from every sub-tab");
       await p.fill(".us-q", "");
 
-      // Area of study
       await p.evaluate(() => document.querySelector('.us-cat[data-us="study"]').click()); await p.waitForTimeout(200);
       await p.click('[data-act="area-open"]'); await p.waitForTimeout(300);
       await p.click('[data-area="cs"]'); await p.fill("#areaText", "Computer Engineering"); await p.click("[data-area-save]"); await p.waitForTimeout(300);
@@ -82,19 +76,17 @@ const stored = p => p.evaluate(() => JSON.parse(localStorage.getItem("coursework
       await tab(p, "board");
       ok((await p.inputValue("#qaIn").then(() => p.getAttribute("#qaIn", "placeholder"))).includes("cs project"), "the quick-add example follows the area");
 
-      // Note boards
       await tab(p, "notes");
-      await act(p, "note-new"); await p.fill("#noteText", "Main board note"); await p.locator("#view").click({position: {x: 2, y: 2}});   /* (somewhere outside the note: the Notes heading is hidden on phones) */ await p.waitForTimeout(250);
+      await act(p, "note-new"); await p.fill("#noteText", "Main board note"); await p.locator("#view").click({position: {x: 2, y: 2}}); await p.waitForTimeout(250);
       await act(p, "nb-new"); await p.fill('input[name=name]', "Biology"); await p.selectOption('select[name=courseId]', "c1"); await p.click("[data-submit]"); await p.waitForTimeout(400);
       ok((await p.locator(".nb-tab[role=tab]").count()) === 3 || (await p.locator(".nb-tab").count()) >= 3, "a new board gets its own tab");
       ok((await p.locator(".note").count()) === 0, "the new board starts empty");
-      await act(p, "note-new"); await p.fill("#noteText", "Biology note"); await p.locator("#view").click({position: {x: 2, y: 2}});   /* (somewhere outside the note: the Notes heading is hidden on phones) */ await p.waitForTimeout(250);
+      await act(p, "note-new"); await p.fill("#noteText", "Biology note"); await p.locator("#view").click({position: {x: 2, y: 2}}); await p.waitForTimeout(250);
       const ns = (await stored(p)).notes;
       ok(ns.length === 2 && ns.some(x => x.text === "Biology note" && x.board && x.courseId === "c1") && ns.some(x => x.text === "Main board note" && !x.board), "notes are kept per board and tagged with the board's class");
       await pickBoard(p, ''); await p.waitForTimeout(250);
       ok((await p.locator(".note").count()) === 1, "switching back shows only My Notes");
 
-      // Grades tab in Courses
       await tab(p, "courses");
       await act(p, "course-tab", "grades");
       ok(await vis(".gp-list") && (await p.locator(".gp-course").count()) === 2, "Courses has a Grades tab with one card per course");
@@ -103,7 +95,6 @@ const stored = p => p.evaluate(() => JSON.parse(localStorage.getItem("coursework
       await act(p, "course-tab", "info");
       ok(await vis(".detail-head") && !(await vis(".gr-card")), "Tasks and Info is the other tab");
 
-      // Companion tab: chat, history, and the picker behind Change or Dress Up
       await p.evaluate(() => { localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); });
       await p.reload(); await p.waitForTimeout(1300);
       await tab(p, "companion");
@@ -113,11 +104,9 @@ const stored = p => p.evaluate(() => JSON.parse(localStorage.getItem("coursework
       ok((await p.inputValue("#cptIn")) === "", "the question box is cleared after asking");
       await act(p, "cpt-tab", "history");
       ok((await p.locator(".cpt-h").count()) === 1, "the chat is kept under Chats");
-      // the Manage tab was dropped (59d6efd): the tabs are Chat and History, and "Change or Dress Up" in the header opens the picker sheet
       ok((await p.$$eval(".cpt3-tabs [data-act=cpt-tab]", bs => bs.map(b => b.dataset.id).join())) === "chat,history,wardrobe", "the Companion tabs are Chat, History and Wardrobe");
       await p.click(".cpt-head .cpt-dress"); await p.waitForTimeout(400);
       ok(await vis("#dlg[open] .cp-changebody .cp-tile") && await vis("#dlg[open] #cpName"), "Change opens the companion picker with the companions and the name");
-      // A long name: the field stops at 12 characters, and the name always fits on the card
       ok(await p.$eval("#cpName", i => i.maxLength) === 12, "a companion's name is at most 12 characters");
       await p.$eval("#cpName", i => { i.removeAttribute("maxlength"); i.value = "Wwwwwwwwwwwwwwwwwwwwwwww"; });
       await p.click('#dlg [data-act="comp-rename"]'); await p.waitForTimeout(400);

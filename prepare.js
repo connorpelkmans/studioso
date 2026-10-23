@@ -1,16 +1,8 @@
-// Copies the Studioso page into app/ and points it at local copies of its fonts and libraries,
-// so the desktop app opens and works with no internet connection.
-// Usage: node prepare.js [path to index.html]
-// Works from two layouts:
-//  - flat (this repository): prepare.js sits next to index.html, main.js, widget.* and the icon files.
-//    It also stages widget/ and build/ from those flat files, so `npm run prep|start|dist` work as they are.
-//  - nested: prepare.js is in desktop/scripts/ and the page is one folder above desktop/ (default ../index.html).
 const fs = require("fs"), path = require("path");
 const flat = fs.existsSync(path.join(__dirname, "main.js")) && fs.existsSync(path.join(__dirname, "index.html"));
 const root = flat ? __dirname : path.join(__dirname, "..");
 const src = path.resolve(process.argv[2] || (flat ? path.join(root, "index.html") : path.join(root, "..", "index.html")));
-// STUDYBOARD_OUT (a folder inside this project, default app/) and STUDYBOARD_BASE (the page's own address, default app://studioso/) let the same
-// script stage the iOS wrapper's web folder: STUDYBOARD_OUT=ios-www STUDYBOARD_BASE=capacitor://localhost/ node prepare.js (see ios-wrapper/README-IOS.md).
+// STUDYBOARD_OUT (a folder inside this project, default app/) and STUDYBOARD_BASE
 const out = process.env.STUDYBOARD_OUT ? path.resolve(root, process.env.STUDYBOARD_OUT) : path.join(root, "app"), vendor = path.join(out, "vendor");
 if (!out.startsWith(root + path.sep)) throw new Error("prepare: STUDYBOARD_OUT must be a folder inside " + root);
 const BASE = process.env.STUDYBOARD_BASE || "app://studioso/";
@@ -19,14 +11,13 @@ fs.mkdirSync(path.join(vendor, "fonts"), { recursive: true });
 const nm = p => path.join(root, "node_modules", p);
 const copy = (from, to) => fs.copyFileSync(nm(from), path.join(vendor, to));
 
-// The same file the website serves (vendor/ next to index.html, verified against its SRI hash in index.html); fall back to the npm package.
+// The same file the website serves
 const vendoredSb = path.join(root, "vendor", "supabase-js-2.117.2.umd.js");
 if (fs.existsSync(vendoredSb)) fs.copyFileSync(vendoredSb, path.join(vendor, "supabase-js-2.117.2.umd.js"));
 else copy("@supabase/supabase-js/dist/umd/supabase.js", "supabase-js-2.117.2.umd.js");
-// fzstd (MIT) unpacks newer Anki files in Import From Another App; index.html loads it from vendor/ only when one is imported.
+// fzstd (MIT) unpacks newer Anki files in Import From Another App
 for (const f of ["fzstd-0.1.1.umd.js", "fzstd-LICENSE.txt"]) fs.copyFileSync(path.join(root, "vendor", f), path.join(vendor, f));
-// PDF.js is loaded by index.html with import() from vendor/pdfjs/ (the same relative path the web page uses), so no URL rewrite is needed.
-// The legacy build (ES modules plus polyfills for older WebViews) is staged from the installed package, and must match the copy committed in vendor/pdfjs/.
+// PDF.js is loaded by index.html with import() from vendor/pdfjs/
 fs.mkdirSync(path.join(vendor, "pdfjs"), { recursive: true });
 copy("pdfjs-dist/legacy/build/pdf.min.mjs", "pdfjs/pdf.min.mjs");
 copy("pdfjs-dist/legacy/build/pdf.worker.min.mjs", "pdfjs/pdf.worker.min.mjs");
@@ -48,8 +39,7 @@ if (fs.existsSync(path.join(root, "locales"))) {
 }
 
 let html = fs.readFileSync(src, "utf8");
-// The page loads its code and styles from bundle/ (app.js, app.css and files loaded later; built from src/ by scripts/app-files.js). They are
-// staged next to it, and the edits below apply to the page and to those files alike. A page still in one piece (no bundle/) is handled as before.
+// The page loads its code and styles from bundle/
 const AF = require(fs.existsSync(path.join(root, "scripts", "app-files.js")) ? path.join(root, "scripts", "app-files.js") : path.join(root, "..", "scripts", "app-files.js"));
 const srcDir = path.dirname(src), parts = AF.refs(html).map(n => "bundle/" + n), files = new Map(parts.map(p => [p, fs.readFileSync(path.join(srcDir, p), "utf8")]));
 const readPart = p => files.get(p);
@@ -65,12 +55,11 @@ for (const [a, b] of swaps) {
   for (const [p, t] of files) files.set(p, swap(t));
   if (!hit && !(a instanceof RegExp && a.global)) throw new Error("prepare: couldn't find " + a);
 }
-// Crash reports: stamp the build id (version + hash of this exact file) into the staged page, and give main.js (the desktop app's own main process)
-// the reporter settings and the same pure scrubbing / envelope code the page uses, so both send identical, scrubbed events. See ERROR-REPORTING.md.
+// Crash reports
 const bid = require("./build-id.js");
 if (!parts.length) html = bid.stamp(html);
 else {
-  // the id is taken over the whole page (as one piece), and written into the file that holds BUILD_ID
+  // the id is taken over the whole page (as one piece)
   const id = bid.idOf(AF.inline(html, readPart));
   for (const [p, t] of files) if (/const BUILD_ID = "[^"]*";/.test(t)) files.set(p, t.replace(/const BUILD_ID = "[^"]*";/, () => `const BUILD_ID = "${id}";`));
 }
@@ -82,9 +71,6 @@ else {
   else fs.writeFileSync(path.join(out, "errreport-core.js"), core + "\nmodule.exports = ERRCORE;\n");
   fs.writeFileSync(path.join(out, "error-config.json"), JSON.stringify({ dsn: pick(/const ERROR_REPORTING = \{\s*dsn: "([^"]*)"/), environment: pick(/environment: "([^"]*)"/), release: pick(/const APP_VERSION = "([^"]+)"/), build: pick(/const BUILD_ID = "([^"]+)"/), minidump: process.env.STUDYBOARD_MINIDUMP_URL || "" }));
 }
-// The page's own CSP (a meta tag set by its first inline script) allows inline scripts by hash; the edits above (build id, local supabase) change
-// script text, so the hashes are recomputed here from the final page. The header hashes below are then taken from this same final html.
-// The staged bundle/ files, and fresh ?v= hashes for them in the page.
 for (const [p, t] of files) { fs.mkdirSync(path.dirname(path.join(out, p)), { recursive: true }); fs.writeFileSync(path.join(out, p), t); }
 if (parts.length) html = AF.stamp(html, readPart);
 {
@@ -92,8 +78,7 @@ if (parts.length) html = AF.stamp(html, readPart);
   if (cspJs) html = require(cspJs).apply(html);
   else console.warn("prepare: scripts/csp.js not found; the page's own CSP hashes may be stale");
 }
-// The iPhone and Android apps (a staged STUDYBOARD_OUT folder) also get the school site layer: the same harvest scripts the desktop app runs, built from lms.js,
-// loaded before the page. It only switches on when the native StudyboardLms plugin exists (see ios-wrapper/README-IOS.md, "School sites").
+// The iPhone and Android apps
 {
   const lmsBuild = path.join(root, "scripts", "build-lms-mobile.js");
   if (process.env.STUDYBOARD_OUT && fs.existsSync(lmsBuild) && fs.existsSync(path.join(root, "lms.js"))) {
@@ -103,16 +88,14 @@ if (parts.length) html = AF.stamp(html, readPart);
 }
 fs.writeFileSync(path.join(out, "index.html"), html);
 
-// Content-Security-Policy support for the desktop app: main.js allows exactly these inline scripts (by SHA-256 hash) and no others.
-// The page must keep working without inline event handlers (on...="") and with no script from the network, so both are checked here.
+// Content-Security-Policy support for the desktop app
 const crypto = require("crypto");
 const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => "sha256-" + crypto.createHash("sha256").update(m[1].replace(/\r\n?/g, "\n"), "utf8").digest("base64"));
-const markup = html.replace(/<script[\s\S]*?<\/script>/gi, "");          // the page's HTML without the code inside its scripts
+const markup = html.replace(/<script[\s\S]*?<\/script>/gi, "");
 if (/<script\b[^>]*\ssrc=["']https?:/i.test(markup)) console.warn("prepare: a script is still loaded from the network; the app's CSP will block it");
 if (/<script\b(?![^>]*\ssrc=)[^>]+>/i.test(html.replace(/<script>[\s\S]*?<\/script>/gi, "<!--s-->"))) console.warn("prepare: a script tag with attributes is not covered by the CSP hashes");
 if (/<[a-z][^>]*\son(click|load|error|change|input|submit|keydown|keyup|mouse\w+)=["']/i.test(markup)) console.warn("prepare: inline event handlers (onclick=...) are blocked by the app's CSP");
 fs.writeFileSync(path.join(out, "csp-hashes.json"), JSON.stringify(inline));
-// Flat layout: stage the widget window files and the icon / installer artwork into the folders electron-builder expects.
 if (flat) {
   const stage = (dir, names) => {
     const d = path.join(root, dir);
@@ -126,7 +109,7 @@ if (flat) {
   };
   stage("widget", ["widget.html", "widget.css", "widget.js", { from: "widget-preload.js", to: "widget-preload.js" }, "shot.html", "shot.css", "shot.js", { from: "shot-preload.js", to: "shot-preload.js" }]);
   stage("build", ["icon.ico", "icon.png", "icon.icns", "installerSidebar.bmp", "uninstallerSidebar.bmp", "installerHeader.bmp"]);
-  // Microsoft Store (MSIX) tiles and logos (tools/make-appx-assets.py). Without build/appx electron-builder packs its own sample images.
+  // Microsoft Store (MSIX) tiles and logos (tools/make-appx-assets.py)
   const appxSrc = path.join(root, "build-resources", "appx");
   if (fs.existsSync(appxSrc)) fs.cpSync(appxSrc, path.join(root, "build", "appx"), { recursive: true });
   else console.warn("prepare: build-resources/appx missing; a Microsoft Store build would use electron-builder's sample tiles");

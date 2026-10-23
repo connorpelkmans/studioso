@@ -231,8 +231,8 @@ Open the **Actions** tab, choose **Keep Supabase awake**, then **Run workflow**.
 
 ## Part 3: Move in and switch on backups
 
-**9. Export everything from the Claude version**
-Open Studyboard in Claude, open the **⋯** menu and choose **Export Backup with Files**. This saves one `.zip` with all your data and every uploaded file. (If you never uploaded files, **Export a Backup File** is enough.)
+**9. Export everything from the preview version**
+Open the preview version of Studyboard, open the **⋯** menu and choose **Export Backup with Files**. This saves one `.zip` with all your data and every uploaded file. (If you never uploaded files, **Export a Backup File** is enough.)
 
 **10. Connect and create your account**
 Open `https://USERNAME.github.io/studioso/`. The **Connect to Supabase** screen appears: paste your Project URL and publishable key, then click **Connect**. Enter your email and a password (at least 8 characters) and click **Create Account**. Open the confirmation email from Supabase; the link brings you back signed in.
@@ -391,7 +391,7 @@ Things to know:
 - PDF is the best format for slides, because the AI also sees pictures and diagrams. From .pptx and .docx files only the text and speaker notes are used.
 - About 13 MB of files can go in one request. Split very large PDFs.
 - AI can get things wrong, so check cards, rationales and summaries against your notes.
-- AI needs an internet connection and doesn't work inside the Claude preview; use the app or your website.
+- AI needs an internet connection and doesn't work inside the preview; use the app or your website.
 
 ## Big Assignment Breakdown
 
@@ -677,7 +677,7 @@ Anyone who has the link can see your calendar (but can't change anything). If it
 | Changes don't show up | Wait for your calendar app's next refresh (Google can take a day). In Apple Calendar on a Mac, right-click the calendar and choose **Refresh**. |
 | Times are an hour off | Check that your computer or phone is set to the right time zone, then change any option in **What to Include** once so the link picks up your time zone. |
 
-In local-only mode, or when using Studyboard inside Claude, the Live Link isn't available. **Download a File** still works: open the file in Apple Calendar or Outlook, or in Google Calendar go to **Settings > Import & export**.
+In local-only mode, or when using the preview version, the Live Link isn't available. **Download a File** still works: open the file in Apple Calendar or Outlook, or in Google Calendar go to **Settings > Import & export**.
 
 ## Two-Way Calendar Sync (Pro)
 
@@ -944,6 +944,14 @@ In local-only mode (or before you connect), you can still share a deck as a file
 The desktop app uses the website address for share links. If a share sheet in the desktop app shows only a code, share a deck or send an invite once from the Studyboard website, and links appear in the app after that. The code always works on its own.
 
 ## Brightspace, Canvas and Blackboard
+
+**Remote switch for Blackboard's internal endpoints.** Studyboard reads Blackboard through its public API, and also uses Blackboard's internal endpoints for rubrics and as a fallback when the public API doesn't answer. To turn the internal ones off for everyone without an app update, run `supabase-app-flags.sql` once in the Supabase SQL editor, then when needed:
+
+```sql
+update public.app_flags set value = 'false', updated_at = now() where key = 'bb_internal';
+```
+
+The website, desktop and phone apps pick it up within about 3 hours (or when they next open); the School Sync extension (version 1.0.4 or later) picks it up the next time the student opens the Studyboard website. Set it back to `'true'` to turn them on again.
 
 Studyboard can bring in everything from your school's learning platform on its own: **Brightspace** (D2L, the learning site many schools use), **Canvas** or **Blackboard Learn**. Assignments, quizzes, discussions and exams go on your Board and Timeline with their due dates, instructor calendar events go on your Schedule, and your grades go into the Grade Tracker. Open **Settings > Brightspace, Canvas and Blackboard**, or the **School Sites** button on the Courses page, and pick your platform. Using more than one? Connect each; they stay separate and nothing is added twice.
 

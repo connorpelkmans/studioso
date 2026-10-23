@@ -1,11 +1,5 @@
 /* ===== module: 96-semester.js ===== */
-/* "Set up your semester": ONE guided path from an empty app to a populated, planned first week. It only strings together what already exists
-   (syllabus reader, school sites, calendar files, quick capture, Estimate Times, Exam Prep, Big Assignment Breakdown, Crunch Forecast) and adds no
-   importer of its own. Six steps: courses, bring in work, review, time estimates, prep, "your week". Every step can be skipped, the sheet can be closed
-   at any moment, and progress (the step, what was skipped, when this run began) is kept on this device only (studyboard:semester).
-   Other sheets (the syllabus reader, Estimate Times, ...) open over this one; when they close we come back to the same step.
-   Entry points: end of the welcome setup and app tour (empty planners only), a card on the Board while the planner is empty, a Settings row, and one
-   companion mention. Anyone who already has tasks never gets the first-run prompts; Settings still offers it. Works offline, no account, no AI. */
+/* "Set up your semester" */
 (() => {
 const LS = "studyboard:semester";
 const read = () => { try { const o = JSON.parse(localStorage.getItem(LS) || "null"); return o && typeof o === "object" ? o : {}; } catch (e) { return {}; } };
@@ -24,8 +18,7 @@ const mine = t => t && !t.breakdownOf && !t.prepFor;
 const aiOn = () => { try { return !!aiReady(); } catch (e) { return false; } };
 const keyOf = t => String(t.title).toLowerCase().replace(/\W+/g, "") + "|" + t.due;
 
-/* ---------- What this run found ---------- */
-// Tasks created since this run began (so existing data is never touched or listed), or every open task when "everything coming up" is chosen
+/* What this run found */
 function found(){
   const since = Number(M.since) || 0;
   let L = tasksArr().filter(mine);
@@ -45,7 +38,7 @@ function tallyText(){
 }
 const snap = () => ({t: allTasks().length, c: allCourses().length});
 
-/* ---------- The sheet ---------- */
+/* The sheet */
 function announce(text){ const l = $("#semLive"); if (!l) return; l.textContent = ""; setTimeout(() => { l.textContent = text; }, 40); }
 function shell(){
   return `<div class="sheet sem-sheet" role="group" aria-labelledby="semH"><p class="sr" id="semLive" role="status" aria-live="polite"></p><div class="sem-main"></div></div>`;
@@ -74,7 +67,7 @@ function paint(keep, focusHead, say){
   const old = main.querySelector(".sem-body"), top = old ? old.scrollTop : 0, id = IDS[stepIdx()];
   main.innerHTML = head(tr("sem.title", "Set Up Your Semester")) + stepper() + `<div class="sheet-body sem-body">${VIEW[id]()}</div>` + foot();
   const b = main.querySelector(".sem-body"); if (keep && b) b.scrollTop = top;
-  if (focusHead) { const h = $("#semH"); if (h) try { h.focus({preventScroll: true}); } catch (e) { /* not focusable yet */ } }
+  if (focusHead) { const h = $("#semH"); if (h) try { h.focus({preventScroll: true}); } catch (e) { } }
   if (say) announce(say === true ? tr("sem.live.step", "Step {i} of {n}: {name}", {i: stepIdx() + 1, n: IDS.length, name: stepName(id)}) : say);
 }
 function open(o){
@@ -101,21 +94,21 @@ function finish(to){
   render(); window.scrollTo(0, 0);
 }
 
-/* ---------- Leaving for another sheet, and coming back ---------- */
+/* Leaving for another sheet, and coming back */
 function leave(fn){
   R.away = true; R.before = snap();
   try { fn(); } catch (e) { console.warn("semester", e); }
-  if (dlg.querySelector(".sem-sheet")) R.away = false;       // nothing took the dialog (it said no, or isn't here): stay put
+  if (dlg.querySelector(".sem-sheet")) R.away = false;
 }
 function nextSyllabus(){
   const f = R.queue.shift(); if (!f) return;
   leave(() => importSheet("", f));
 }
 function back(){
-  if (!R.away || dlg.open) return;                           // another sheet followed this one: wait for it to close too
+  if (!R.away || dlg.open) return;
   R.away = false;
   const a = R.before || snap(), b = snap(), dt = Math.max(0, b.t - a.t), dc = Math.max(0, b.c - a.c);
-  if (R.queue.length && (dt || dc)) { R.msg = ""; nextSyllabus(); return; }   // one syllabus after another, without leaving the flow
+  if (R.queue.length && (dt || dc)) { R.msg = ""; nextSyllabus(); return; }
   R.msg = dt || dc
     ? tr("sem.back.added", "Added {tasks} and {courses}.", {tasks: trn("sem.n.tasks", dt, "{n} task|{n} tasks"), courses: trn("sem.n.courses", dc, "{n} course|{n} courses")})
     : tr("sem.back.none", "Nothing was added. That is okay, you can try another way.");
@@ -123,7 +116,7 @@ function back(){
 }
 dlg.addEventListener("close", () => { if (R.away) setTimeout(back, 250); });
 
-/* ---------- Step 1: courses ---------- */
+/* Step 1: courses */
 function vCourses(){
   const cs = coursesArr();
   return `<h3 class="sem-h" id="semH" tabindex="-1">${esc(tr("sem.courses.h", "Which classes are you taking?"))}</h3>
@@ -146,10 +139,10 @@ function addCourse(){
   applyChanges([{kind: "course", id: nc.id, after: nc}], "");
   R.msg = tr("sem.courses.added", "Added {name}. Add another, or choose Next.", {name: nc.name});
   paint(true, false, R.msg);
-  const f = $("#semCode"); if (f) try { f.focus({preventScroll: true}); } catch (e) { /* ignore */ }
+  const f = $("#semCode"); if (f) try { f.focus({preventScroll: true}); } catch (e) { }
 }
 
-/* ---------- Step 2: bring in work ---------- */
+/* Step 2: bring in work */
 function qPanel(){
   if (!R.queue.length) return "";
   return `<div class="sem-queue" role="group" aria-label="${esc(tr("sem.q.label", "Syllabi waiting"))}"><span>${esc(trn("sem.q.n", R.queue.length, "{n} more syllabus is waiting. Next: {name}|{n} more syllabi are waiting. Next: {name}", {name: R.queue[0].name}))}</span>
@@ -196,10 +189,10 @@ function typeAdd(){
   const made = SBCAPTURE.commit(drafts, {inline: true}) || [];
   R.msg = trn("sem.type.added", made.length, "Added {n} task.|Added {n} tasks.");
   paint(true, false, R.msg);
-  const t2 = $("#semType"); if (t2) try { t2.focus({preventScroll: true}); } catch (e) { /* ignore */ }
+  const t2 = $("#semType"); if (t2) try { t2.focus({preventScroll: true}); } catch (e) { }
 }
 
-/* ---------- Step 3: review ---------- */
+/* Step 3: review */
 const flagsOf = (t, dupes) => {
   const out = [];
   if (!t.due) out.push(tr("sem.flag.nodate", "Needs a date"));
@@ -272,7 +265,7 @@ function removeRow(id){
   applyChanges(gone.map(x => ({kind: "task", id: x.id, after: null})), "");
   R.msg = tr("sem.rv.removed", "Removed {t}. You can undo this.", {t: t.title});
   paint(true, false, R.msg);
-  const u = dlg.querySelector('[data-sem="undo-rm"]'); if (u) try { u.focus({preventScroll: true}); } catch (e) { /* ignore */ }
+  const u = dlg.querySelector('[data-sem="undo-rm"]'); if (u) try { u.focus({preventScroll: true}); } catch (e) { }
 }
 function undoRemove(){
   if (!R.removed.length) return;
@@ -281,7 +274,7 @@ function undoRemove(){
   paint(true, false, R.msg);
 }
 
-/* ---------- Step 4: time estimates ---------- */
+/* Step 4: time estimates */
 function vTimes(){
   const L = needTimes(), have = found().filter(t => !MILESTONE(t.type) && isNum(t.hours) && Number(t.hours) > 0).length;
   const rows = L.slice(0, 40).map(t => { const c = courseOf(t.courseId); return `<li class="sem-r1" style="--c:${esc(colorOf(t.courseId))}"><span class="sem-r1t"><b>${esc(t.title)}</b><span class="mini">${c ? esc(courseLabel(c)) + " · " : ""}${esc(t.type || "")} · ${esc(relDue(t))}</span></span><span class="sem-est">${esc(hrs(suggestH(t)))}</span></li>`; }).join("");
@@ -295,12 +288,12 @@ function vTimes(){
 function useTimes(){
   const L = needTimes(); if (!L.length) return;
   applyChanges(L.map(t => { const n = clone(t); n.hours = suggestH(t); return {kind: "task", id: t.id, after: n}; }), "");
-  try { localStorage.setItem("studyboard:est:done", todayISO()); } catch (e) { /* ignore */ }
+  try { localStorage.setItem("studyboard:est:done", todayISO()); } catch (e) { }
   R.msg = trn("sem.t.saved", L.length, "Added {n} time estimate.|Added {n} time estimates.");
   paint(true, false, R.msg);
 }
 
-/* ---------- Step 5: exam prep and breakdown ---------- */
+/* Step 5: exam prep and breakdown */
 function vPrep(){
   const ex = upcomingExams(), big = bigOnes();
   const meta = t => { const c = courseOf(t.courseId); return `${c ? esc(courseLabel(c)) + " · " : ""}${esc(relDue(t))}`; };
@@ -324,7 +317,7 @@ function bdAll(){
   paint(true, false, R.msg);
 }
 
-/* ---------- Step 6: your week ---------- */
+/* Step 6: your week */
 const LEVEL = l => ({calm: tr("sem.lv.calm", "calm"), steady: tr("sem.lv.steady", "steady"), busy: tr("sem.lv.busy", "busy"), heavy: tr("sem.lv.heavy", "heavy"), crunch: tr("sem.lv.crunch", "crunch")})[l] || l;
 function weeksAhead(){
   try { const m = window.SBCRUNCH && SBCRUNCH.model(); return ((m && m.weeks) || []).filter(w => !w.past).slice(0, 4); } catch (e) { return []; }
@@ -353,7 +346,7 @@ function vWeek(){
 
 const VIEW = {courses: vCourses, work: vWork, review: vReview, times: vTimes, prep: vPrep, week: vWeek};
 
-/* ---------- Events ---------- */
+/* Events */
 dlg.addEventListener("click", e => {
   const b = e.target.closest("[data-sem]"); if (!b || !b.closest(".sem-sheet")) return;
   e.preventDefault(); e.stopPropagation();
@@ -408,7 +401,7 @@ dlg.addEventListener("keydown", e => {
 }));
 hook("changed", () => { if (!dlg.open) return; const t = $("#semTally"); if (t) t.textContent = tallyText(); });
 
-/* ---------- Entry points ---------- */
+/* Entry points */
 hook("render", tab => {
   if (tab !== "board" || !isEmpty() || M.hide) return;
   const v = $("#view"); if (!v || v.querySelector(".sem-card-b")) return;
@@ -430,9 +423,9 @@ window.SBSEM = {
   open,
   found: () => found().map(t => t.id),
   state: () => Object.assign({}, M),
-  // For the welcome setup's last page: a button (only for an empty planner)
+  // For the welcome setup's last page
   tourButton: () => isEmpty() ? `<button type="button" class="btn ob-big" data-ob="semester">${esc(tr("sem.tour.btn", "Set Up My Semester"))}</button><span class="mini">${esc(tr("sem.tour.s", "Syllabi, school site or calendar in about two minutes. Skip anything."))}</span>` : "",
-  // After the app tour: one gentle, non-blocking offer, once
+  // After the app tour
   afterTour(){
     if (!isEmpty() || M.hide || M.tourOffer || M.fin) return;
     save({tourOffer: Date.now()});

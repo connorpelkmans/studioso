@@ -1,5 +1,5 @@
 /* ===== module: 96-tp-b6.js ===== */
-/* Theme Collections, batch 6: stpatricks, easter, july4, halloween, thanksgiving, hanukkah */
+/* Theme Collections, batch 6 */
 (() => {
   // Local drawing helpers (ids passed in are always prefixed with the theme and item)
   const RG = (id, a, b, cx = .35, cy = .3, r = .8) => `<defs><radialGradient id="${id}" cx="${cx}" cy="${cy}" r="${r}"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></radialGradient></defs>`;
@@ -25,7 +25,7 @@
   // heart-shaped shamrock leaf, tip at 0,0, lobes pointing up
   const LEAF = `M0 2C-5-3-15-7-15-16A8 8 0 0 1 0-20A8 8 0 0 1 15-16C15-7 5-3 0 2Z`;
   const MAPLE = "M32 3L36 13L42 10L41 22L50 16L49 25L58 26L52 34L57 38L46 42L47 48L36 45L33 52L31 52L28 45L17 48L18 42L7 38L12 34L6 26L15 25L14 16L23 22L22 10L28 13Z";
-  const zig = (x0, x1, h, dx = 3, n = 6) => { // tape outline with zigzag ends
+  const zig = (x0, x1, h, dx = 3, n = 6) => {
     const s = h / n; let d = `M${x0} 0H${x1}`;
     for (let i = 1; i <= n; i++) d += `L${x1 + (i % 2 ? -dx : 0)} ${f1(i * s)}`;
     d += `H${x0}`;

@@ -1,15 +1,14 @@
 /* ===== module: 98-comp-b6.js ===== */
-/* Study Companions, batch 6: stpatricks, easter, july4, halloween, thanksgiving, hanukkah */
+/* Study Companions, batch 6 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
   const f1 = v => Math.round(v * 10) / 10;
-  // Points of a five-pointed star (outer radius R, inner radius r), top point up.
+  // Points of a five-pointed star (outer radius R, inner radius r), top point up
   const starPts = (cx, cy, R, r) => Array.from({length: 10}, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 5, d = i % 2 ? r : R; return f1(cx + d * Math.cos(a)) + "," + f1(cy + d * Math.sin(a)); }).join(" ");
-  // A heart leaf with its tip at 0,0 and its lobes pointing up (for shamrock leaves).
+  // A heart leaf with its tip at 0,0 and its lobes pointing up (for shamrock leaves)
   const LEAF = "M0 0C-9 -6 -15 -14 -14.5 -22C-14 -29 -8 -32 -3.5 -30C-1.6 -29 -.4 -27.5 0 -26C.4 -27.5 1.6 -29 3.5 -30C8 -32 14 -29 14.5 -22C15 -14 9 -6 0 0Z";
 
-  /* St. Patrick's Day */
   COMP_DATA.push({
     theme: "stpatricks",
     companions: [

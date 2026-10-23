@@ -1,11 +1,11 @@
 /* ===== module: 20-scenes-maj-brazil.js ===== */
-/* Around the World: brazil (Rio de Janeiro). Registered like the Study Fields themes (MAJ_THEMES), in the Style Shop's "Around the World" group. */
+/* Around the World */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const r1 = n => Math.round(n * 100) / 100;
   const circ = (x, y, r) => `M${r1(x - r)} ${r1(y)}a${r1(r)} ${r1(r)} 0 1 0 ${r1(2 * r)} 0a${r1(r)} ${r1(r)} 0 1 0 ${r1(-2 * r)} 0Z`;
   const NOTES = ["#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"];
-  // a monstera leaf: a heart-shaped blade with deep slits between its lobes, pointing up
+  // a monstera leaf
   const monstera = () => { const L = [], R = []; for (let i = 0; i <= 20; i++) { const t = i / 20, w = 10.4 * Math.pow(Math.sin(Math.PI * Math.pow(t, 0.7)), 0.85) * (1 - 0.12 * t), y = 10.6 - t * 21.2, cut = i > 3 && i < 18 && i % 4 === 1;
     L.push(`${r1(-w * (cut ? 0.22 : 1))} ${r1(y)}`); R.unshift(`${r1(w * (i > 3 && i < 18 && i % 4 === 3 ? 0.22 : 1))} ${r1(y)}`); } return `M${L.join("L")}L${R.join("L")}Z`; };
   Object.assign(FX_SHAPES, {

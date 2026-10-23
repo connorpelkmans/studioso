@@ -1,5 +1,5 @@
 /* ===== module: 98-comp-n3.js ===== */
-/* Study Companions, New Theme Ideas batch n3 (Cozy Spots): greenhouse, pottery, campfire, aquarium */
+/* Study Companions, New Theme Ideas batch n3 (Cozy Spots) */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
@@ -30,8 +30,7 @@
             <path d="M30 88H90L84 112H36Z" fill="url(#greenhouse-prickles-greenhouse-prickles-p)" ${O}/>
             <rect x="26" y="81" width="68" height="12" rx="5" fill="#F6B892" ${O}/>
             <path d="M38 101H82" fill="none" stroke="#FFD2B8" stroke-width="2.2" stroke-linecap="round" opacity=".6"/>`,
-          // the cactus's arms already point up, so they are side lobes tucked behind the body (wings in the rig), not arms the
-          // app's wave and stretch would swing across its face
+          // the cactus's arms already point up, so they are side lobes tucked behind the body
           wingL: {svg: `<path d="M40 70H30Q24 70 24 64V52Q24 46 29.5 46Q35 46 35 52V61H40Z" fill="#7CC872" ${O}/><path d="M27 52l-2.6-1.2M27 60l-2.6-1.2" stroke="#FFF6D6" stroke-width="1.5" stroke-linecap="round"/>`, pivot: [37, 66]},
           wingR: {svg: `<path d="M80 64H90Q96 64 96 58V48Q96 42 90.5 42Q85 42 85 48V55H80Z" fill="#62B464" ${O}/><path d="M93 48l2.6-1.2M93 56l2.6-1.2" stroke="#FFF6D6" stroke-width="1.5" stroke-linecap="round"/>`, pivot: [83, 60]},
           top: {svg: `<path d="${petals(60, 27, 6, 11, 4.8, -90)}" fill="#FF8FB0" ${OW(1.8)}/><circle cx="60" cy="27" r="3.6" fill="#FFE27A" ${OW(1.6)}/>`, pivot: [60, 31]}
@@ -64,7 +63,7 @@
             <path d="M38 90H82L77 108H43Z" fill="url(#greenhouse-monty-greenhouse-monty-p)" ${O}/>
             <rect x="34" y="84" width="52" height="10" rx="4.5" fill="#F6B892" ${O}/>
             <ellipse cx="60" cy="85.5" rx="20" ry="2.4" fill="#6E5442"/>`,
-          // little leaf hands on short stems from the pot rim's corners: they hang beside the pot and wave up beside the leaf
+          // little leaf hands on short stems from the pot rim's corners
           armL: {svg: `${LINE("M37 89Q31 93 29 99", "#4E9A58", 3)}<path d="M29 98C23 99 21 105 24 109C29 108 32 103 29 98Z" fill="#7CC872" ${O2}/>`, pivot: [37, 89]},
           armR: {svg: `${LINE("M83 89Q89 93 91 99", "#4E9A58", 3)}<path d="M91 98C97 99 99 105 96 109C91 108 88 103 91 98Z" fill="#62B464" ${O2}/>`, pivot: [83, 89]},
           head: `${LG("greenhouse-monty-greenhouse-monty-h", [[0, "#A6E894"], [0.5, "#52B262"], [1, "#2E8A52"]], 0.2, 0, 0.8, 1)}
@@ -207,7 +206,7 @@
             <path d="M31 88Q60 103 89 88" fill="none" stroke="#FFF6E6" stroke-width="5" stroke-linecap="round"/>
             <path d="M33 80Q60 93 87 80" fill="none" stroke="#FFF6E6" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="2 4" opacity=".7"/>
             <ellipse cx="42" cy="68" rx="6" ry="3.4" transform="rotate(-30 42 68)" fill="#fff" opacity=".6"/>`,
-          // the spout and handle are part of the pot (tucked behind it), not arms that wave and stretch
+          // the spout and handle are part of the pot (tucked behind it)
           back: `${LINE("M36 82Q20 76 17 62", "#4CB8A8", 6)}<ellipse cx="17" cy="60" rx="5" ry="3" transform="rotate(-20 17 60)" fill="#6ACCBC" ${O2}/>${LINE("M86 66Q103 63 103 77Q103 92 86 94", "#4CB8A8", 5)}`,
           top: {svg: `<path d="M38 58Q60 40 82 58Z" fill="#7AD2C4" ${O}/><circle cx="60" cy="45" r="4.6" fill="#F2C84A" ${O2}/>${LINE("M70 38Q66 32 70 27", "#E8F2F0", 2)}${LINE("M78 40Q74 34 78 29", "#E8F2F0", 2)}`, pivot: [60, 56]}
         },
@@ -388,7 +387,7 @@
             <path d="M33 78Q58 96 83 78Q80 96 58 98Q36 96 33 78Z" fill="#FFF8DC" opacity=".9"/>
             <g fill="#C88A2A" opacity=".5"><circle cx="46" cy="52" r="1.8"/><circle cx="58" cy="47" r="1.8"/><circle cx="70" cy="52" r="1.8"/><circle cx="52" cy="58" r="1.4"/><circle cx="64" cy="58" r="1.4"/></g>
             <ellipse cx="44" cy="56" rx="5" ry="3" transform="rotate(-35 44 56)" fill="#fff" opacity=".65"/>`,
-          // pectoral fins tucked behind the round body (wings in the rig), so a wiggle never lays them over the face
+          // pectoral fins tucked behind the round body (wings in the rig)
           wingL: {svg: `<ellipse cx="26" cy="83" rx="8.5" ry="4.6" transform="rotate(30 26 83)" fill="#F7C04A" ${O}/>`, pivot: [32, 80]},
           wingR: {svg: `<ellipse cx="86" cy="93" rx="8.5" ry="4.6" transform="rotate(-32 86 93)" fill="#F7C04A" ${O}/>`, pivot: [80, 89]},
           top: {svg: `<path d="M48 44L52 33L57 41L61 30L65 42L69 36L70 46Z" fill="#F2A23A" ${O2}/>`, pivot: [58, 44]}

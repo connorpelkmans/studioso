@@ -1,9 +1,4 @@
-// Browser test for adding a Gemini key and Add AI to Another Device, with several browser contexts standing in for separate devices.
-// Run: node tests/key-handoff.e2e.js    (Playwright + Chromium; the app is served from this folder at https://app.test with KEY_RELAY set,
-// the relay is cloudflare/key-relay/src/relay.js running in this process, and Gemini is stubbed)
-// Covers: a code made on one device and typed on another (any case, no dashes) brings the keys over and turns AI on; the first device
-// sees "Done"; a used code fails; a scanned link (#sbkey=) is taken off the address and asks before fetching; Paste My Key with a
-// key, with nothing useful on the clipboard, and with a bad key; coming back to the tab with a key copied; pasting into the box.
+// Browser test for adding a Gemini key and Add AI to Another Device
 const path = require("path"), fs = require("fs"), assert = require("assert"), {pathToFileURL} = require("url");
 const {chromium, executablePath} = require("./pw");
 const ROOT = path.join(__dirname, ".."), APP = "https://app.test", RELAY = "https://relay.test";
@@ -16,7 +11,6 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
   const mem = () => { const m = new Map(); return {get: async k => m.get(k), put: async (k, v) => { if (typeof k === "object") Object.entries(k).forEach(([x, y]) => m.set(x, y)); else m.set(k, v); },
     delete: async k => m.delete(k), deleteAll: async () => m.clear(), setAlarm: async () => {}, deleteAlarm: async () => {}}; };
   const objs = new Map(), env = {APP_URL: APP, HANDOFF: {getByName: id => { if (!objs.has(id)) objs.set(id, new R.Slot(mem())); return objs.get(id); }}};
-  // The relay address changes an inline script, so its CSP hash is refreshed the same way the build does it.
   const html = require("../scripts/csp").apply(require("../scripts/app-files").source().replace('const KEY_RELAY = "";', `const KEY_RELAY = "${RELAY}";`));
   ok(html.includes(`const KEY_RELAY = "${RELAY}";`), "test copy of the app points at the test relay");
 
@@ -57,14 +51,12 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
   const savedKeys = page => page.evaluate(() => JSON.parse(localStorage.getItem("studyboard:aiKeys") || "{}"));
   const toast = page => page.evaluate(() => (document.querySelector("#toastMsg") || {}).textContent || "");
   const closeAll = page => page.evaluate(() => { document.querySelectorAll("dialog[open]").forEach(d => d.close()); });
-  // Waits until nothing else (a welcome or what's-new sheet) is in the way, then opens AI Features.
-  // The page's functions aren't globals, so AI Features is opened the way a Settings button does it (a data-act="ai-setup" click).
   const openAi = async page => { await page.waitForTimeout(1500); await closeAll(page);
     await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "ai-setup"; document.body.appendChild(b); b.click(); b.remove(); });
     await page.waitForSelector('[data-key="gemini"]'); };
 
   try {
-    // ---- 1. Device A (set up) shows a code; device B types it.
+    // 1
     const A = await device({gemini: KEY, anthropic: "sk-ant-" + "k".repeat(40)});
     await openAi(A.page);
     ok(await A.page.$("#aiHoSend"), "a set-up device offers Add AI to Another Device");
@@ -91,7 +83,7 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
     await A.page.waitForFunction(() => /Done\./.test((document.querySelector("#kho") || {}).textContent || ""), null, {timeout: 10000});
     ok(true, "device A sees that the other device took the keys");
 
-    // ---- 2. The same code again fails with a clear message.
+    // 2
     const C = await device(null);
     await openAi(C.page);
     await C.page.click("#aiHoIn summary");
@@ -103,7 +95,7 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
     await C.page.click("#aiHoGet");
     ok(/12 letters and numbers/.test(await C.page.textContent("#aiHoMsg")), "a code that's too short is explained");
 
-    // ---- 3. A scanned link: the code leaves the address at once and nothing is fetched until Add Keys.
+    // 3
     await openAi(A.page);
     await A.page.click("#aiHoSend");
     await A.page.waitForSelector(".kho-code", {timeout: 15000});
@@ -118,16 +110,15 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
     await D.page.click("#aiHoYes");
     await D.page.waitForFunction(() => /came from your other device/.test((document.querySelector("#toastMsg") || {}).textContent || ""), null, {timeout: 15000});
     ok((await savedKeys(D.page)).gemini === KEY, "the scanned link brought the keys over");
-    // The relay page the QR code opens (checked here too, against the same relay) links back into the app with the code.
     const Rp = await A.ctx.newPage();
     await Rp.goto(qrLink.replace(code2, "K7Q2-9XMD-4TRP"));
     await Rp.waitForSelector("#code");
     ok((await Rp.textContent("#code")) === "K7Q2-9XMD-4TRP" && (await Rp.getAttribute("#open", "href")) === `${APP}#sbkey=K7Q2-9XMD-4TRP`, "the QR page shows the code and an Open Studyboard link");
     await Rp.close();
 
-    // ---- 4. (Paste My Key was removed: keys are pasted into the Gemini box, or picked up on coming back, below.)
+    // 4
 
-    // ---- 5. Coming back to the tab with a key copied (clipboard already allowed) is enough.
+    // 5
     const F = await device(null, {clipboard: true});
     await openAi(F.page);
     await F.page.evaluate(k => navigator.clipboard.writeText(k), KEY2);
@@ -135,7 +126,7 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
     await F.page.waitForFunction(() => /AI is on/.test((document.querySelector("#toastMsg") || {}).textContent || ""), null, {timeout: 10000});
     ok((await savedKeys(F.page)).gemini === KEY2, "the key was picked up on return");
 
-    // ---- 6. Pasting into the key box checks and saves too; pasting a code there fetches keys instead.
+    // 6
     const G = await device(null);
     await openAi(G.page);
     await G.page.focus('[data-key="gemini"]');
@@ -143,7 +134,7 @@ const TYPES = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/jav
     await G.page.waitForFunction(() => /AI is on/.test((document.querySelector("#toastMsg") || {}).textContent || ""), null, {timeout: 10000});
     ok((await savedKeys(G.page)).gemini === KEY, "pasting the key into the box saves it");
 
-    // ---- 7. Closing the code window early deletes the box from the relay.
+    // 7
     await openAi(A.page);
     await A.page.click("#aiHoSend");
     await A.page.waitForSelector(".kho-code", {timeout: 15000});

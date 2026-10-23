@@ -1,12 +1,12 @@
 /* ===== module: 20-scenes-maj-venice.js ===== */
-/* Around the World: venice (Venice) */
+/* Around the World */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const r1 = n => Math.round(n * 100) / 100;
   const pts = a => "M" + a.map(p => `${r1(p[0])} ${r1(p[1])}`).join("L") + "Z";
   const ell = (x, y, rx, ry) => `M${r1(x - rx)} ${r1(y)}a${r1(rx)} ${r1(ry)} 0 1 0 ${r1(2 * rx)} 0a${r1(rx)} ${r1(ry)} 0 1 0 ${r1(-2 * rx)} 0Z`;
   Object.assign(FX_SHAPES, {
-    // a gondola in profile: the long black hull rising to the stern curl and the toothed bow iron
+    // a gondola in profile
     venicegondola: {d: "M-12.6 -3.6Q-12.8 -1.4 -11.4 0.6Q-6 3.6 4 3.2Q9 2.8 10.6 -0.6L11.4 -4.6L12.6 -5L12.4 -6.6L10.6 -6.2L10 -2.2Q9 -0.2 6.6 0.2Q-1 1.2 -8.6 -0.4Q-11 -1.2 -11.6 -3.6Z",
       detail: "M10.8 -5.4H12.4M11 -4.4H12.2M11.1 -3.4H12M-4 0.6Q0 1.2 4 0.8", dstroke: true},
     // a carnival half-mask, the eyes cut out, a curl at each side

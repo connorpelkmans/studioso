@@ -1,4 +1,4 @@
-/* Theme Collections, new theme ideas batch n2: mushrooms, sunflowers, nighttrain, ramen */
+/* Theme Collections, new theme ideas batch n2 */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2), S15 = SOw(1.6);

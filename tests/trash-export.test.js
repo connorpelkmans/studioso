@@ -1,4 +1,4 @@
-// Unit tests for Recently Deleted and Export My Data (pure logic extracted from index.html).  Run: node tests/trash-export.test.js
+// Unit tests for Recently Deleted and Export My Data (pure logic extracted from index.html)
 const fs = require("fs"), path = require("path"), assert = require("assert"), cp = require("child_process"), os = require("os");
 const s = require("../scripts/app-files").source();
 const code = s.slice(s.indexOf("/*TRASH-START*/"), s.indexOf("/*TRASH-END*/"));
@@ -7,7 +7,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 const NOW = Date.UTC(2026, 9, 3, 12), DAY = 864e5;
 let seq = 0; const newId = () => "n" + (++seq);
 
-// ---- retention
+// retention
 const mk = (id, ageDays) => ({id, kind: "task", label: id, deletedAt: NOW - ageDays * DAY, items: [{kind: "task", id: "t" + id, data: {id: "t" + id, title: id}}]});
 let r = TB.purge([mk("a", 1), mk("b", 29.9), mk("c", 30), mk("d", 45), {id: "bad", deletedAt: NOW, items: []}, {id: "bad2", items: [{}]}], NOW);
 ok(r.keep.map(e => e.id).join() === "a,b", "keeps under 30 days: " + r.keep.map(e => e.id));
@@ -20,12 +20,12 @@ ok(r.keep.length === 400 && r.keep[0].id === "m0" && r.dropped.some(e => e.id ==
 const big = [mk("p", 1), mk("q", 2), mk("r", 3)].map(e => { e.items[0].data.blob = "x".repeat(5e6); return e; });
 r = TB.purge(big, NOW);
 ok(r.keep.map(e => e.id).join() === "p,q" && r.dropped.length === 1, "byte cap keeps newest that fit");
-// the newest entry is kept even when it alone is over the byte cap (it may be what was just deleted: Clear All on a big planner)
+// the newest entry is kept even when it alone is over the byte cap
 const huge = [mk("h", 0), mk("o", 2)]; huge[0].items[0].data.blob = "x".repeat(13e6);
 r = TB.purge(huge, NOW);
 ok(r.keep.length === 1 && r.keep[0].id === "h" && r.dropped.map(e => e.id).join() === "o", "an oversized newest entry is kept, older ones make room");
 
-// ---- making entries: a course takes its tasks along; cards group per deck; bulk collapses
+// making entries
 const course = {kind: "course", id: "c1", data: {id: "c1", name: "Biology"}};
 const T = (id, c) => ({kind: "task", id, data: {id, title: "T" + id, courseId: c}});
 let es = TB.makeEntries([course, T("t1", "c1"), T("t2", "c1"), T("t3", "c2")], NOW, newId);
@@ -41,7 +41,7 @@ ok(es[0].detail === "2 cards" && es[0].label === "Cells", "deck entry keeps its 
 ok(TB.makeEntries([{kind: "deck", id: "d9", data: {id: "d9", name: "Huge", cards: [{id: "z", front: "x".repeat(2e6)}]}}], NOW, newId)[0].local === true, "very large entries stay on this device");
 ok(TB.normEntry({id: 5, items: [{kind: "task", id: "a", data: {}}, {kind: "nope", id: "b", data: {}}, null]}).items.length === 1, "normEntry drops junk items");
 
-// ---- restore
+// restore
 const live = {task: new Set(), course: new Set(), deck: {}, note: new Set()};
 const ctx = (extra) => Object.assign({exists: (k, id) => k === "deck" ? !!live.deck[id] : live[k] && live[k].has(id), newId, getDeck: id => live.deck[id], folderOk: () => true, binCourse: () => null}, extra);
 let ent = TB.makeEntries([course, T("t1", "c1"), T("t2", "c1")], NOW, newId)[0];
@@ -51,7 +51,7 @@ ok(p.changes.length === 3 && p.changes.every(c => c.kind === "course" || c.after
 ent = TB.makeEntries([T("t5", "gone")], NOW, newId)[0];
 p = TB.restorePlan(ent, ctx());
 ok(p.changes[0].after.courseId === "" && p.notes.length === 1, "missing parent -> No Course: " + JSON.stringify(p.notes));
-// parent gone but also in the bin: it comes back too
+// parent gone but also in the bin
 const courseEntry = TB.makeEntries([{kind: "course", id: "gone", data: {id: "gone", name: "Old"}}], NOW, newId)[0];
 p = TB.restorePlan(ent, ctx({binCourse: cid => cid === "gone" ? courseEntry : null}));
 ok(p.changes.some(c => c.kind === "course" && c.id === "gone") && p.changes.find(c => c.kind === "task").after.courseId === "gone" && p.entries.includes(courseEntry.id), "parent restored from the bin");
@@ -73,12 +73,12 @@ ok(p.changes.length === 1 && p.changes[0].after.cards.length === 2 && /Restored/
 // note whose task is gone loses the dangling link
 ent = TB.makeEntries([{kind: "note", id: "nn", data: {id: "nn", text: "hi", taskId: "zzz", courseId: ""}}], NOW, newId)[0];
 ok(TB.restorePlan(ent, ctx()).changes[0].after.taskId === "", "dangling note link cleared");
-// live copy wins: an entry whose items are all live again is hidden
+// live copy wins
 ent = TB.makeEntries([T("t7", "")], NOW, newId)[0]; live.task.add("t7");
 ok(TB.superseded(ent, ctx().exists) === true, "superseded when live again");
 live.task.delete("t7"); ok(TB.superseded(ent, ctx().exists) === false, "not superseded when gone");
 
-// ---- CSV
+// CSV
 ok(TB.csvCell('a,b') === '"a,b"' && TB.csvCell('say "hi"') === '"say ""hi"""' && TB.csvCell("l1\r\nl2") === '"l1\nl2"', "quoting");
 ["=1+1", "+SUM(A1)", "-2+3", "@cmd", "\tx", "=HYPERLINK(\"http://x\")"].forEach(v => ok(TB.csvCell(v).replace(/^"/, "").startsWith("'"), "formula guarded: " + v));
 ok(TB.csvCell(-5) === "-5" && TB.csvCell("-5.5") === "-5.5" && TB.csvCell(null) === "" && TB.csvCell(true) === "true" && TB.csvCell(0) === "0", "plain numbers are untouched");
@@ -101,7 +101,7 @@ ok(Object.keys(TB.toCsvFiles(data, {tasks: true})).join() === "tasks.csv", "sele
 const j = TB.jsonExport({courses: data.courses, tasks: data.tasks}, NOW, ["tasks"]);
 ok(j.export.schema === "studyboard-export" && j.export.version === 1 && j.export.counts.tasks === 2 && j.export.readme.length > 3 && j.app === "studyboard", "json header");
 
-// ---- CRC32 and ZIP: verified with real unzip tools
+// CRC32 and ZIP
 ok(TB.crc32(new TextEncoder().encode("123456789")) === 0xCBF43926, "crc32 check value");
 ok(TB.crc32(new Uint8Array(0)) === 0, "crc32 empty");
 (async () => {

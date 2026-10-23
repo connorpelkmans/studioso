@@ -1,15 +1,7 @@
-# Active copy for the flat repository layout (this repo as it stands: package.json at the root).
+# Active copy for the flat repository layout
 name: Build Studyboard desktop app
 
-# Releases: pushing a v* tag builds the signed + notarized Mac DMG and (when its secrets exist) the signed Windows installer, and only those are
-# attached to the tag's Release. Unsigned builds (the "build" job) are workflow artifacts (Actions > the run > Artifacts); they are published
-# only when you run the workflow by hand with kind "unsigned", which puts them in the public installers repo (publish-unsigned, below) for the
-# website's download buttons. Ad-hoc Mac builds open only on the Mac that trusts them; other Macs and SmartScreen warn or refuse.
-# Every build first passes lint and the unit tests (the "checks" job), so a tag or a hand run can't ship a tree whose tests fail.
-#
-# Hardening: the default token is read-only and only the release job can write (to create the Release); every action is pinned to a commit
-# (the comment shows its version); checkout does not leave the token in .git; npm audit fails the build on a high or critical advisory in any
-# dependency (they are all devDependencies, so --omit=dev would check nothing).
+# Releases: pushing a v* tag builds the signed + notarized Mac DMG and
 
 on:
   workflow_dispatch:
@@ -26,7 +18,6 @@ permissions:
   contents: read
 
 jobs:
-  # Lint and unit tests (the same as the Tests workflow's first job). Every build below waits for it.
   checks:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -71,15 +62,11 @@ jobs:
       - run: npm run ${{ matrix.script }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      # Unsigned: a workflow artifact for testing, never a Release asset.
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: Studyboard-unsigned-${{ matrix.os }}
           path: ${{ matrix.files }}
 
-  # Unsigned builds, published as a GitHub Release in the public installers repo (this repo is private, so its own Releases can't be downloaded
-  # by visitors). Needs the RELEASES_TOKEN repository secret: a fine-grained token with Contents: read and write on connorpelkmans/installers.
-  # These files trigger SmartScreen / Gatekeeper warnings.
   publish-unsigned:
     if: github.event_name == 'workflow_dispatch' && inputs.kind == 'unsigned'
     needs: [build]
@@ -109,21 +96,6 @@ jobs:
           body: "Unsigned installers: Windows and macOS may warn before opening them."
           files: release/*
 
-  # ---------------------------------------------------------------------------------------------------------------
-  # Signed + notarized macOS DMG (Developer ID), the signed Windows installer and the Mac App Store package. They run on a v* tag (signed
-  # builds) or by hand (Actions > Run workflow), because they need your Apple Developer account and signing certificates. See
-  # APP-STORE-CHECKLIST.md for how to create each secret.
-  #   CSC_LINK / CSC_KEY_PASSWORD            Developer ID Application certificate (.p12, base64) + its password
-  #   MAS_CSC_LINK / MAS_CSC_KEY_PASSWORD    "Apple Distribution" or "3rd Party Mac Developer Application" certificate (.p12, base64)
-  #   MAS_INSTALLER_LINK                     "3rd Party Mac Developer Installer" certificate (.p12, base64, same password as MAS_CSC_KEY_PASSWORD)
-  #   MAS_PROFILE_BASE64                     the Mac App Store provisioning profile, base64
-  #   APPLE_API_KEY_BASE64 / APPLE_API_KEY_ID / APPLE_API_ISSUER   App Store Connect API key (notarization and upload)
-  #   APPLE_TEAM_ID
-  # Windows (optional; without them the release has no Windows installer, see build-resources/electron-builder.win-signed.js):
-  #   AZURE_TENANT_ID / AZURE_CLIENT_ID / AZURE_CLIENT_SECRET / AZURE_SIGN_ENDPOINT / AZURE_SIGN_ACCOUNT / AZURE_SIGN_PROFILE / WIN_PUBLISHER_NAME
-  #                                          Azure Trusted Signing, or
-  #   WIN_CSC_LINK / WIN_CSC_KEY_PASSWORD    a code signing certificate (.pfx, base64) + its password
-  # ---------------------------------------------------------------------------------------------------------------
   mac-signed:
     if: (github.event_name == 'workflow_dispatch' && inputs.kind == 'signed') || startsWith(github.ref, 'refs/tags/v')
     needs: [checks]
@@ -147,7 +119,6 @@ jobs:
         env:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-      # Notarizes and staples the app (afterSign) and then the DMG (afterAllArtifactBuild); REQUIRE_NOTARIZATION makes a skip an error.
       - run: npm run dist:mac-signed
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -214,7 +185,6 @@ jobs:
           name: Studyboard-win-signed
           path: dist/*.exe
 
-  # The only job that can write to the repository: it attaches the signed files to the tag's Release, and runs only when the signed builds passed.
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [mac-signed, win-signed]
@@ -242,7 +212,6 @@ jobs:
         with:
           files: release/*
 
-  # Publishes the signed installers as a GitHub Release in the public installers repo (needs the RELEASES_TOKEN secret, see publish-unsigned).
   publish-downloads:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [mac-signed, win-signed]
@@ -282,7 +251,6 @@ jobs:
         run: echo "$MAS_PROFILE_BASE64" | base64 --decode > build-resources/Studyboard_MAS.provisionprofile
         env:
           MAS_PROFILE_BASE64: ${{ secrets.MAS_PROFILE_BASE64 }}
-      # Checks only what the "mas" target needs (build.mas and Studyboard_MAS.provisionprofile), not the mas-dev profile.
       - run: npm run check:store
       - run: npm run dist:mas
         env:
@@ -295,9 +263,6 @@ jobs:
           name: Studyboard-mas
           path: dist/mas*/*.pkg
 
-  # Microsoft Store packages (MSIX, x64 and arm64), uploaded by hand in Partner Center (MICROSOFT-STORE.md). They are left unsigned on purpose:
-  # the Store signs every package it accepts, so no certificate or secret is needed. check:msstore stops the job while package.json build.appx
-  # still holds the Partner Center placeholders (identityName, publisher), because a package with the wrong identity is refused at upload.
   ms-store:
     if: github.event_name == 'workflow_dispatch' && inputs.kind == 'msstore'
     needs: [checks]

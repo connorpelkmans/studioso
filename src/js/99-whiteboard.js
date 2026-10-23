@@ -1,14 +1,5 @@
 /* ===== module: 99-whiteboard.js ===== */
-/* Whiteboard: the second view in Notes (Notes | Whiteboard). Free for everyone (pictures and the AI marker restyle are Pro, in 99-whiteboard-pro).
-   A board is a note with n.wb = {v: 1, tpl} so it syncs, backs up, goes to Recently Deleted and comes back like any note; notesArr() leaves
-   boards out, so they never show up as sticky notes. n.text is the board's name and n.courseId its course.
-     n.wbInk:   strokes in normInk's format {id, t: "pen" | "hl", c: colour id, w: width in tenths of a board unit, d, at}. d packs the points
-                (x, y in quarter board units) as zigzag deltas in a 64-letter code. Shapes are strokes too (a rectangle is 5 points).
-     n.wbItems: typed text {id, k: "t", x, y, s, c, f: size} (and pictures, k: "i").
-   Sync merges both lists by id, so two devices drawing at once both keep their strokes. An edit replaces a stroke under the same id; an erase
-   removes it (erasing part of a stroke removes it and adds the pieces that are left).
-   The board is 4800 x 3200 units (one unit is one CSS pixel at 100%). The stage (canvases, text layer, toolbar) is made once and moved into each
-   new render of the page, so drawing never flickers when the app redraws. Strokes are saved in batches, a moment after the pen stops. */
+/* Whiteboard: the second view in Notes (Notes | Whiteboard) */
 var SBWB = null;
 (() => {
   const BW = 4800, BH = 3200, Q = 4, ZMIN = 0.05, ZMAX = 4;
@@ -19,28 +10,28 @@ var SBWB = null;
   const phone = () => innerWidth < 640;
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const MARKER = '"Permanent Marker","Comic Sans MS",cursive';
-  // Writing styles for typed text (vendor/fonts.css). Single quotes, so a family can go in a style="" attribute as it is.
+  // Writing styles for typed text (vendor/fonts.css)
   const FONTS = [["neat", "Neat", "'Patrick Hand'"], ["marker", "Marker", "'Permanent Marker'"], ["quick", "Quick Notes", "'Caveat'"], ["hand", "Handwritten", "'Kalam'"], ["fun", "Playful", "'Gochi Hand'"]];
   // text saved with no style is the older Marker
   const famOf = ff => (FONTS.find(x => x[0] === ff) || FONTS.find(x => x[0] === "marker"))[2] + ",'Comic Sans MS',cursive";
 
-  /* ---------- Markers, sizes, shapes, templates ---------- */
+  /* Markers, sizes, shapes, templates */
   const PEN = [["ink", "Black", "#22262D"], ["blue", "Blue", "#1D5BD6"], ["red", "Red", "#D8372A"], ["green", "Green", "#178A4A"], ["orange", "Orange", "#E57A10"], ["purple", "Purple", "#7A3CC8"]];
   const HLC = [["yellow", "Yellow", "#FFE24A"], ["green", "Green", "#7FE39A"], ["blue", "Blue", "#86C8FF"], ["pink", "Pink", "#FF9FC8"]];
   const PW = [4, 7, 12, 20], HW = [24, 40, 60], EW = [14, 30, 64], TS = [30, 46, 70, 108];
   const PWN = ["Fine", "Medium", "Bold", "Extra Bold"], HWN = ["Thin", "Medium", "Wide"], EWN = ["Small", "Medium", "Large"], EH = [0.3, 0.65, 1], EHN = ["Soft", "Medium", "Hard"], TSN = ["Small", "Medium", "Large", "Huge"];
-  // Dark mode: the board turns dark (a glass board) and the markers turn bright so they read on it. Exports and prints stay white.
+  // Dark mode: the board turns dark
   const PEN_D = {ink: "#F1F3F6", blue: "#7FB0FF", red: "#FF7B6E", green: "#63D995", orange: "#FFB35A", purple: "#C7A2FF"};
   const isDark = () => { try { return typeof isDarkNow === "function" ? !!isDarkNow() : document.documentElement.getAttribute("data-theme") === "dark"; } catch (e) { return false; } };
-  // The board's own colour: "auto" follows the app's light or dark mode; "light" or "dark" keeps it that way (Options, or the sun/moon on the board)
+  // The board's own colour
   const boardPref = () => { const v = (state.settings || {}).wbTheme; return v === "light" || v === "dark" ? v : "auto"; };
   const boardDark = () => boardPref() === "dark" || (boardPref() === "auto" && isDark());
   let DK = boardDark();
-  // Any colour (the rainbow marker, Pro): stored as "h" + six letters a-p (each a hex digit), so it fits the same colour field as the named markers
+  // Any colour (the rainbow marker, Pro)
   const HEXL = "0123456789abcdef";
   const codeOf = hex => "h" + String(hex).replace("#", "").toLowerCase().split("").map(ch => String.fromCharCode(97 + HEXL.indexOf(ch))).join("");
   const hexOf = c => /^h[a-p]{6}$/.test(c || "") ? "#" + c.slice(1).split("").map(ch => HEXL[ch.charCodeAt(0) - 97]).join("") : "";
-  // on the dark board a very dark custom colour is shown lighter, so it can be seen (it's saved as picked)
+  // on the dark board a very dark custom colour is shown lighter, so it can be seen
   const forDark = hex => { const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255, l = (0.299 * r + 0.587 * g + 0.114 * b) / 255; if (l >= 0.35) return hex; const k = 0.55; return "#" + [r, g, b].map(v => Math.round(v + (255 - v) * k).toString(16).padStart(2, "0")).join(""); };
   const penHex = (c, light) => { const h = hexOf(c); if (h) return !light && DK ? forDark(h) : h; return !light && DK ? (PEN_D[c] || PEN_D.ink) : (PEN.find(x => x[0] === c) || PEN[0])[2]; };
   const proLocked = () => { try { return !!(window.SBPRO && SBPRO.locked()); } catch (e) { return true; } };
@@ -69,20 +60,20 @@ var SBWB = null;
   const tplName = id => (TPL.find(t => t[0] === id) || TPL[0])[1];
 
   const T = Object.assign({font: "neat", tool: "pen", pen: "ink", hl: "yellow", pw: 1, hw: 1, ew: 1, erase: "part", shape: "rect", ts: 1}, (() => { try { return JSON.parse(lsGet(K_TOOLS) || "{}") || {}; } catch (e) { return {}; } })());
-  (() => {   // whatever was stored, only known values are used
+  (() => {
     if (!TOOLS.some(t => t[0] === T.tool)) T.tool = "pen";
-    if (!FONTS.some(f => f[0] === T.font) || !T.fv) { T.font = FONTS.some(f => f[0] === T.font) && T.fv ? T.font : "neat"; T.fv = 1; } // fv: Neat became the default (text with no ff is the older Marker)
+    if (!FONTS.some(f => f[0] === T.font) || !T.fv) { T.font = FONTS.some(f => f[0] === T.font) && T.fv ? T.font : "neat"; T.fv = 1; }
     if (!PEN.some(p => p[0] === T.pen) && !hexOf(T.pen)) T.pen = "ink";
     if (!/^#[0-9a-f]{6}$/.test(T.custom || "")) T.custom = "#e83e8c";
     if (!HLC.some(p => p[0] === T.hl)) T.hl = "yellow";
     if (!SHAPES.some(s => s[0] === T.shape)) T.shape = "rect";
     T.erase = T.erase === "whole" ? "whole" : "part";
-    T.eh = [0, 1, 2].includes(T.eh) ? T.eh : 2;   // eraser hardness: Soft, Medium, Hard
+    T.eh = [0, 1, 2].includes(T.eh) ? T.eh : 2;
     [["pw", PW], ["hw", HW], ["ew", EW], ["ts", TS]].forEach(([k, a]) => { T[k] = clamp(Math.round(Number(T[k]) || 0), 0, a.length - 1); });
   })();
   const saveT = () => lsSet(K_TOOLS, JSON.stringify(T));
 
-  /* ---------- Points: pack and unpack ---------- */
+  /* Points: pack and unpack */
   const AL = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_", AIX = {};
   for (let i = 0; i < 64; i++) AIX[AL.charCodeAt(i)] = i;
   function enc(pts){
@@ -102,7 +93,7 @@ var SBWB = null;
     for (let i = 0; i + 1 < nums.length; i += 2) { x += nums[i]; y += nums[i + 1]; pts.push([x / Q, y / Q]); }
     return pts;
   }
-  // Ramer-Douglas-Peucker: fewer points, same line (eps in board units)
+  // Ramer-Douglas-Peucker
   function simplify(pts, eps){
     if (pts.length < 3) return pts.slice();
     const keep = new Uint8Array(pts.length); keep[0] = keep[pts.length - 1] = 1;
@@ -137,7 +128,7 @@ var SBWB = null;
     if (run.length) runs.push(run);
     return runs.map(r => r.length > 2 ? simplify(r, 0.4) : r);
   }
-  // A finished hand-drawn line: the wobble taken out (fewer points), then rounded off (Chaikin), so curves come out smooth
+  // A finished hand-drawn line
   function chaikin(p, n){
     for (let k = 0; k < n; k++) {
       if (p.length < 3) return p;
@@ -147,7 +138,7 @@ var SBWB = null;
     }
     return p;
   }
-  // Corners stay sharp: the line is cut at every sharp turn and only the pieces between are rounded
+  // Corners stay sharp
   function smoothStroke(pts, ptype){
     const eps = (ptype === "pen" ? 0.45 : ptype === "touch" ? 1 : 1.3) / cam.z;
     const p = simplify(pts.filter((q, i) => i === 0 || q[0] !== pts[i - 1][0] || q[1] !== pts[i - 1][1]), eps);
@@ -156,7 +147,7 @@ var SBWB = null;
     for (let i = 1; i < p.length - 1; i++) {
       const a = Math.atan2(p[i][1] - p[i - 1][1], p[i][0] - p[i - 1][0]), b = Math.atan2(p[i + 1][1] - p[i][1], p[i + 1][0] - p[i][0]);
       let t = Math.abs(b - a); if (t > Math.PI) t = 2 * Math.PI - t;
-      if (t > 1.1) cut.push(i);   // a turn sharper than about 63 degrees
+      if (t > 1.1) cut.push(i);
     }
     cut.push(p.length - 1);
     let out = [];
@@ -167,7 +158,7 @@ var SBWB = null;
   const bbHit = (a, b) => a[0] <= b[2] && a[2] >= b[0] && a[1] <= b[3] && a[3] >= b[1];
   const bbJoin = (a, b) => !a ? b : !b ? a : [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
 
-  /* ---------- Shapes: drawn with the Shapes tool, or a hand-drawn one held still at the end ---------- */
+  /* Shapes: drawn with the Shapes tool, or a hand-drawn one held still at the end */
   function shapePts(kind, a, b, even, wpx){
     let [x0, y0] = a, [x1, y1] = b;
     const lineish = kind === "line" || kind === "arrow" || kind === "double";
@@ -189,7 +180,7 @@ var SBWB = null;
     return ellipsePts(mx, my, Math.abs(x1 - x0) / 2, Math.abs(y1 - y0) / 2);
   }
   function ellipsePts(cx, cy, rx, ry){ const out = []; for (let i = 0; i <= 64; i++) { const a = i / 64 * Math.PI * 2; out.push([cx + Math.cos(a) * rx, cy + Math.sin(a) * ry]); } return out; }
-  // A hand-drawn stroke held still at its end: a straight line, triangle, rectangle (or any four-sided shape) or ellipse, when it looks like one
+  // A hand-drawn stroke held still at its end
   function recognize(pts){
     if (pts.length < 4) return null;
     const bb = bbOf(pts), dw = bb[2] - bb[0], dh = bb[3] - bb[1], diag = Math.hypot(dw, dh); if (diag < 24) return null;
@@ -199,9 +190,9 @@ var SBWB = null;
       if (Math.abs(an - snap) < 0.09) an = snap;
       return [A, [A[0] + Math.cos(an) * chord, A[1] + Math.sin(an) * chord]];
     }
-    if (chord > diag * 0.3) return null;   // not closed: left as drawn
+    if (chord > diag * 0.3) return null;
     let poly = simplify(pts.concat([A]), diag * 0.085); poly = poly.slice(0, -1);
-    for (let again = true; again && poly.length > 2;) {     // drop corners that are nearly straight (where the stroke began mid-side)
+    for (let again = true; again && poly.length > 2;) {
       again = false;
       for (let i = 0; i < poly.length; i++) {
         const p = poly[(i + poly.length - 1) % poly.length], c = poly[i], n = poly[(i + 1) % poly.length];
@@ -221,12 +212,11 @@ var SBWB = null;
     return null;
   }
 
-  /* ---------- Templates: faint guides under the ink (never erased), drawn as SVG on the board and on a canvas for export ---------- */
+  /* Templates: faint guides under the ink (never erased) */
   const PAL_L = {guide: "#C3CCD7", faint: "#E0E5EB", label: "#9BA5B2", dot: "#CDD4DC", margin: "#F0BBB5"}, PAL_D = {guide: "#4E5967", faint: "#333C47", label: "#7F8B99", dot: "#3E4855", margin: "#6B3E3A"};
   const GUIDE = "@guide", FAINT = "@faint";
   const pc = (c, pal) => c && c[0] === "@" ? pal[c.slice(1)] : c;
-  // A template is laid out to fit the board's page: the part you see when it opens, from the shape of the screen it was made on (wb.pa,
-  // width / height). Boards from before that, or without it, use the whole board.
+  // A template is laid out to fit the board's page
   function pageRect(pa){
     if (!(pa > 0)) return [0, 0, BW, BH];
     return pa >= BW / BH ? [0, 0, BW, Math.round(BW / pa)] : [0, 0, Math.round(BH * pa), BH];
@@ -240,7 +230,7 @@ var SBWB = null;
   }
   function tplRaw(id){
     const o = [], L = (x1, y1, x2, y2, c, w, dash) => o.push({k: "l", x1, y1, x2, y2, c: c || GUIDE, w: w || 6, dash}), E = (cx, cy, rx, ry, c, w, dash) => o.push({k: "e", cx, cy, rx, ry, c: c || GUIDE, w: w || 6, dash});
-    const X = (x, y, s, f, a) => o.push({k: "t", x, y: y + 30, s, f: Math.round((f || 60) * 1.8), a: a || "start"});   // labels big enough to read with the whole board on screen
+    const X = (x, y, s, f, a) => o.push({k: "t", x, y: y + 30, s, f: Math.round((f || 60) * 1.8), a: a || "start"});
     if (id === "grid") o.push({k: "grid", s: 80});
     else if (id === "dots") o.push({k: "dots", s: 80});
     else if (id === "lines") { for (let y = 240; y < BH; y += 96) L(0, y, BW, y, FAINT, 3); L(300, 0, 300, BH, "@margin", 4); }
@@ -287,7 +277,7 @@ var SBWB = null;
     });
   }
 
-  /* ---------- Boards ---------- */
+  /* Boards */
   const isBoard = n => !!(n && n.wb && !n.archived);
   const boards = () => Object.values(state.notes || {}).filter(isBoard).sort((a, b) => (b.updated || b.created || 0) - (a.updated || a.created || 0));
   const boardName = n => String((n && n.text) || "").split("\n")[0].trim() || "Untitled Whiteboard";
@@ -308,7 +298,7 @@ var SBWB = null;
     ui.wbCur = n.id; lsSet(K_CUR, n.id); setView("wb");
     return n.id;
   }
-  // Someone who has made a whiteboard before (on any device) gets the New Whiteboard sheet when they have none, not the first-time start screen
+  // Someone who has made a whiteboard before
   const made = () => !!((state.settings || {}).wbMade) || Object.values(state.notes || {}).some(n => n && n.wb) || ((typeof trashVisible === "function" ? trashVisible() : []).some(e => e.kind === "note" && /^Whiteboard: /.test(e.label || "")));
   let askedNew = false;
   // The shape of the board's frame (or what it will be, before it's on the page)
@@ -319,8 +309,8 @@ var SBWB = null;
   }
   const nextName = () => { const used = new Set(boards().map(boardName)); for (let i = boards().length + 1; ; i++) if (!used.has("Whiteboard " + i)) return "Whiteboard " + i; };
 
-  /* ---------- The open board: what's drawn, plus changes not saved yet ---------- */
-  let B = null;     // {id, pS: Map(stroke id -> stroke | null), pI: Map(item id -> item | null), undo, redo, ref, timer}
+  /* The open board */
+  let B = null;
   const GEO = new Map();
   const noteOf = () => B && state.notes[B.id];
   function merged(base, pend){
@@ -343,7 +333,7 @@ var SBWB = null;
     g = {d: s.d, pts, path, bb: [b[0] - r, b[1] - r, b[2] + r, b[3] + r]};
     GEO.set(s.id, g); return g;
   }
-  // Typed text: measured with the marker font (cached), so hit tests and the selection box fit it
+  // Typed text: measured with the marker font (cached)
   const MC = document.createElement("canvas").getContext("2d"), MEAS = new Map();
   function measure(s, f, ff){
     const k = f + "|" + (ff || "") + "|" + s; let m = MEAS.get(k); if (m) return m;
@@ -385,7 +375,7 @@ var SBWB = null;
   function replay(ch, which){ ch.forEach(c => set(c.t, c.id, c[which])); SEL = null; later(); itemsDraw(); dirty(); trayState(); }
   function undo(){ if (!B || !B.undo.length) return; endText(); const ch = B.undo.pop(); B.redo.push(ch); replay(ch, "before"); }
   function redo(){ if (!B || !B.redo.length) return; endText(); const ch = B.redo.pop(); B.undo.push(ch); replay(ch, "after"); }
-  let LIVE = null;   // set by the live group board module: told about every change as it happens
+  let LIVE = null;
 
   function fullWhy(){
     const ss = strokes(), chars = ss.reduce((n, s) => n + s.d.length + 40, 0);
@@ -398,24 +388,23 @@ var SBWB = null;
     opBegin(); set("s", s.id, s); opEnd(); return s;
   }
 
-  // Sizes are what you see: a Medium marker draws the same width on screen at any zoom (so a board zoomed out still gets thin lines for detail)
+  // Sizes are what you see
   const penW = () => clamp(PW[T.pw] / cam.z, 0.5, 60), hlW = () => clamp(HW[T.hw] / cam.z, 2, 60), textF = () => Math.round(clamp(TS[T.ts] / cam.z, 10, 400));
 
-  /* ---------- Camera ---------- */
+  /* Camera */
   let cam = {x: 40, y: 40, z: 1}, fw = 0, fh = 0, dpr = 1;
   function camLoad(id){
     try { const c = (JSON.parse(lsGet(K_CAM) || "{}") || {})[id]; if (Array.isArray(c) && c.every(Number.isFinite)) return {x: c[0], y: c[1], z: clamp(c[2], ZMIN, ZMAX)}; } catch (e) {}
-    return null;   // a board not opened here before: fitted to the frame once it has a size
+    return null;
   }
   let camT = 0;
   function camSave(){
     clearTimeout(camT);
     camT = setTimeout(() => { if (!B) return; let m = {}; try { m = JSON.parse(lsGet(K_CAM) || "{}") || {}; } catch (e) {} delete m[B.id]; m[B.id] = [Math.round(cam.x), Math.round(cam.y), Math.round(cam.z * 1000) / 1000]; const ks = Object.keys(m); ks.slice(0, Math.max(0, ks.length - 40)).forEach(k => delete m[k]); lsSet(K_CAM, JSON.stringify(m)); }, 300);
   }
-  // The white board always fills the frame to its edges: you can't zoom out past that, or pan beyond the board's sides
+  // The white board always fills the frame to its edges
   const zMin = () => fw > 0 && fh > 0 ? Math.max(ZMIN, fw / BW, fh / BH) : ZMIN;
-  // A layout template (Cornell Notes, Week Plan...) is one fixed page: it always shows the whole page and can't be moved or zoomed.
-  // Blank boards and the paper patterns (grid, dots, lines, which cover the whole board) scroll and zoom freely.
+  // A layout template (Cornell Notes, Week Plan...) is one fixed page
   const FREE = ["blank", "grid", "dots", "lines"];
   const fixedPage = () => { const n = noteOf(); return !!(n && n.wb && n.wb.tpl && !FREE.includes(n.wb.tpl)); };
   function clampCam(){
@@ -445,11 +434,11 @@ var SBWB = null;
     const M = whole ? 0 : phone() ? 10 : 40, w = Math.max(200, bb[2] - bb[0]), h = Math.max(150, bb[3] - bb[1]);
     cam.z = clamp(Math.min((fw - M * 2) / w, (fh - M * 2) / h), zMin(), 2);
     cam.x = (fw - w * cam.z) / 2 - bb[0] * cam.z; cam.y = (fh - h * cam.z) / 2 - bb[1] * cam.z;
-    if (whole) { cam.x = 0; cam.y = 0; }   // a board bigger than the frame starts at its top left (a template's title row and first column)
+    if (whole) { cam.x = 0; cam.y = 0; }
     clampCam(); dirty(); camSave();
   }
 
-  /* ---------- The stage (made once, moved into each render) ---------- */
+  /* The stage (made once, moved into each render) */
   let STAGE = null, frame, back, front, texts, cvH, cvI, cvL, tray, selbar, zoomEl;
   function build(){
     if (STAGE) return;
@@ -460,6 +449,7 @@ var SBWB = null;
         <div class="wb-world wb-front"><div class="wb-texts"></div></div>
         <canvas class="wb-cv wb-live"></canvas>
         <div class="wb-selbar" hidden></div>
+        ${boardMaxBtn("wb-max")}
         <div class="wb-zoom" role="group" aria-label="Zoom"><button type="button" data-wb="zoom-out" aria-label="Zoom out">−</button><button type="button" class="wbz-pct" data-wb="zoom-reset" aria-label="Zoom to 100%">100%</button><button type="button" data-wb="zoom-in" aria-label="Zoom in">+</button><button type="button" class="wbz-theme" data-wb="theme" aria-label="Dark board" title="Dark Board"></button><button type="button" data-wb="fit" aria-label="Fit the drawing on screen" title="Fit to Screen">${IC.fit}</button></div>
       </div>
       <div class="wb-tray" role="toolbar" aria-label="Whiteboard tools"></div>`;
@@ -479,15 +469,16 @@ var SBWB = null;
     [cvH, cvI, cvL].forEach(c => { c.width = Math.max(1, Math.round(w * r)); c.height = Math.max(1, Math.round(h * r)); c.style.width = w + "px"; c.style.height = h + "px"; });
     clampCam();
     if (raf) { cancelAnimationFrame(raf); raf = 0; }
-    all = true; paint();   // redrawn at once: resizing a canvas empties it, and waiting a frame shows it blank (a flicker)
+    all = true; paint();
   }
   function sizeHost(host){
+    if (boardMaxOn()) { host.style.height = ""; return; }
     const top = host.getBoundingClientRect().top + window.scrollY, nav = document.querySelector("nav.tabs");
     const navH = phone() && nav ? nav.getBoundingClientRect().height : 0;
     host.style.height = Math.max(phone() ? 420 : 460, Math.round(window.innerHeight - Math.min(top, window.innerHeight * 0.45) - navH - (phone() ? 18 : 28))) + "px";
   }
 
-  /* ---------- Painting ---------- */
+  /* Painting */
   let raf = 0, all = true;
   function dirty(onlyLive){ if (!onlyLive) all = true; if (!raf) raf = requestAnimationFrame(paint); }
   const viewBB = () => [-cam.x / cam.z, -cam.y / cam.z, (fw - cam.x) / cam.z, (fh - cam.y) / cam.z];
@@ -500,8 +491,7 @@ var SBWB = null;
     if (zoomEl) zoomEl.textContent = Math.round(cam.z * 100) + "%";
   }
   const SELHIDE = () => SEL && SEL.drag ? SEL.ids : null;
-  // A stroke, with the spots the eraser rubbed (s.x: [x, y, r, hardness]) cut out of it: exactly along the eraser's circle when hard,
-  // feathered when soft. Drawn on a scratch canvas the size of the stroke on screen, then copied in.
+  // A stroke, with the spots the eraser rubbed
   let TMP = null;
   function strokePaint(c, s, color){
     const g = geo(s); c.strokeStyle = color; c.lineWidth = s.w / 10;
@@ -558,7 +548,7 @@ var SBWB = null;
     if (HOV && T.tool === "eraser") { c.beginPath(); c.arc(HOV[0], HOV[1], EW[T.ew] / 2 / cam.z, 0, Math.PI * 2); c.fillStyle = "rgba(255,255,255,.55)"; c.fill(); c.strokeStyle = "rgba(30,40,55,.55)"; c.lineWidth = 1.4 / cam.z; c.stroke(); }
   }
 
-  /* ---------- Text and picture items ---------- */
+  /* Text and picture items */
   let itemsSig = "";
   function itemsDraw(force){
     if (!texts || !B) return;
@@ -589,13 +579,13 @@ var SBWB = null;
     if (!s.trim()) { if (getI(it.id)) set("i", it.id, null); }
     else if (s !== it.s || !getI(it.id)) set("i", it.id, Object.assign({}, it, {s, at: Date.now()}));
     opEnd(); itemsDraw(true);
-    if (s.trim() && T.tool === "text" && getI(it.id)) select(new Set(["i" + it.id]));   // what you just wrote stays picked up, ready to drag
+    if (s.trim() && T.tool === "text" && getI(it.id)) select(new Set(["i" + it.id]));
   }
   const hitItem = (p, kind) => { const r = 6 / cam.z, l = items(); for (let i = l.length - 1; i >= 0; i--) { const it = l[i]; if (kind && it.k !== kind) continue; const b = itemBB(it); if (p[0] >= b[0] - r && p[0] <= b[2] + r && p[1] >= b[1] - r && p[1] <= b[3] + r) return it; } return null; };
   function hitStroke(p){ const l = strokes(); for (let i = l.length - 1; i >= 0; i--) { const s = l[i], g = geo(s), r = Math.max(s.w / 20, 8 / cam.z); if (p[0] < g.bb[0] - r || p[0] > g.bb[2] + r || p[1] < g.bb[1] - r || p[1] > g.bb[3] + r) continue; if (nearLine(g.pts, p, r)) return s; } return null; }
 
-  /* ---------- Selection: move, resize, recolour, copy, delete ---------- */
-  let SEL = null;   // {ids: Set("s" + id | "i" + id), k, dx, dy, ax, ay, drag}
+  /* Selection: move, resize, recolour, copy, delete */
+  let SEL = null;
   const selM = () => ({k: SEL.k, e: SEL.ax * (1 - SEL.k) + SEL.dx, f: SEL.ay * (1 - SEL.k) + SEL.dy});
   function selBox(){
     if (!SEL) return null; let bb = null;
@@ -632,7 +622,7 @@ var SBWB = null;
     items().forEach(it => { if (!SEL.ids.has("i" + it.id)) return; const n = Object.assign({}, it, {id: uid(), x: it.x + off, y: it.y + off, at: Date.now()}); set("i", n.id, n); ids.add("i" + n.id); });
     opEnd(); select(ids);
   }
-  // c: a marker colour, or "orig" (a picture drawn in marker goes back to its own colours). A drawn picture takes the colour all over.
+  // c: a marker colour, or "orig" (a picture drawn in marker goes back to its own colours)
   function selColor(c){
     if (!SEL) return; opBegin();
     if (c !== "orig") strokes().forEach(s => { if (SEL.ids.has("s" + s.id) && s.t === "pen" && s.c !== c) set("s", s.id, Object.assign({}, s, {c})); });
@@ -653,7 +643,6 @@ var SBWB = null;
     const dots = !colorable ? "" : (drawn ? `<button type="button" class="wb-dot wb-dot-orig" data-wb="sel-color" data-id="orig" aria-label="Original colors" title="Original Colors" aria-pressed="${cur === "orig"}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.7"/><path d="M20.5 16l-5-5-8.5 8.5"/></svg></button>` : "")
       + PEN.map(p => `<button type="button" class="wb-dot" data-wb="sel-color" data-id="${p[0]}" style="--mk:${p[2]}" aria-label="${drawn ? "All in " : "Make it "}${esc(p[1].toLowerCase())}" title="${esc(p[1])}" aria-pressed="${cur === p[0]}"></button>`).join("")
       + `<button type="button" class="wb-dot wb-dot-any" data-wb="sel-any" aria-label="Any color${proLocked() ? " (Studyboard Pro)" : ""}" title="Any Color${proLocked() ? " (Pro)" : ""}" aria-pressed="${!!hexOf(cur)}"${hexOf(cur) ? ` style="--mk:${hexOf(cur)}"` : ""}></button>` + `<span class="wb-sep"></span>`;
-    // built off-screen and swapped in only when something changed, so saving (which redraws) doesn't make the bar flicker
     const nb = document.createElement("div"); nb.innerHTML = `${dots}${it && it.k === "t" ? `<button type="button" data-wb="sel-edit">Edit Text</button>` : ""}<button type="button" data-wb="sel-copy" aria-label="Duplicate" title="Duplicate (Ctrl+D)">${IC.copy}</button><button type="button" data-wb="sel-del" aria-label="Delete" title="Delete">${IC.trash}</button>`;
     fire("wb-selbar", {bar: nb, ids: SEL.ids, it});
     if (nb.innerHTML !== selbar.innerHTML) { selbar.replaceChildren(...nb.childNodes); }
@@ -668,7 +657,7 @@ var SBWB = null;
     selbar.classList.toggle("dragging", !!SEL.drag);
   }
 
-  /* ---------- Pointer: draw, erase, shapes, text, select; two fingers (or Space, the middle button, Move Around) pan and zoom ---------- */
+  /* Pointer: draw, erase, shapes, text, select; two fingers */
   let D = null, GEST = null, HOV = null, penSeen = false, spaceDown = false;
   const PTR = new Map();
   const local = e => { const r = frame.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
@@ -688,7 +677,7 @@ var SBWB = null;
   function bindPointer(){
     frame.addEventListener("contextmenu", e => e.preventDefault());
     frame.addEventListener("pointerdown", e => {
-      if (e.target.closest(".wb-zoom,.wb-selbar,.wb-ta")) return;
+      if (e.target.closest(".wb-zoom,.wb-selbar,.wb-ta,.wb-max")) return;
       if (ED) endText();
       frame.focus({preventScroll: true});
       PTR.set(e.pointerId, {x: e.clientX, y: e.clientY, type: e.pointerType});
@@ -710,7 +699,7 @@ var SBWB = null;
       if (D.id !== e.pointerId) return;
       HOV = toW(s);
       drag(e, s);
-      if (D && D.kind === "erase") dirty(true);   // the eraser's circle follows the pointer even where there's nothing to erase
+      if (D && D.kind === "erase") dirty(true);
     });
     const up = e => {
       PTR.delete(e.pointerId);
@@ -720,7 +709,6 @@ var SBWB = null;
     };
     frame.addEventListener("pointerup", up); frame.addEventListener("pointercancel", up);
     frame.addEventListener("pointerleave", e => { if (e.pointerType !== "touch" && !D) { HOV = null; dirty(true); } });
-    // A double-click inside text being edited is the browser's own (it selects a word); on text that isn't open, it opens it with all of it selected
     frame.addEventListener("dblclick", e => {
       if (e.target.closest && e.target.closest(".wb-ta")) return;
       const it = hitItem(toW(local(e)), "t"); if (!it || !(T.tool === "select" || T.tool === "text")) return;
@@ -733,12 +721,11 @@ var SBWB = null;
       if (e.ctrlKey || e.metaKey) zoomAt(cam.z * Math.exp(-clamp(e.deltaY * k, -80, 80) * 0.01), s[0], s[1]);
       else { const dx = e.shiftKey && !e.deltaX ? e.deltaY : e.deltaX, dy = e.shiftKey && !e.deltaX ? 0 : e.deltaY; cam.x -= dx * k; cam.y -= dy * k; clampCam(); dirty(); camSave(); }
     }, {passive: false});
-    let g0 = 1;   // Safari's trackpad pinch
+    let g0 = 1;
     frame.addEventListener("gesturestart", e => { e.preventDefault(); g0 = cam.z; });
     frame.addEventListener("gesturechange", e => { e.preventDefault(); const s = local(e); zoomAt(g0 * e.scale, s[0], s[1]); });
   }
-  // Moving things without switching to Select: whatever is selected (text you just typed, say) can be dragged with any tool; with the
-  // Text tool, text is dragged (a tap edits it); with the marker, highlighter or Shapes, press and hold on something to pick it up.
+  // Moving things without switching to Select
   function grabAt(w){ const it = hitItem(w); if (it) return "i" + it.id; const st = hitStroke(w); return st ? "s" + st.id : ""; }
   function armGrab(e, s, w){
     const k = grabAt(w); if (!k) return;
@@ -763,7 +750,7 @@ var SBWB = null;
     if (t === "shape") { D = {kind: "shape", id: e.pointerId, a: w, b: w, even: e.shiftKey}; armGrab(e, s, w); return; }
     if (t === "text") {
       const it = hitItem(w, "t");
-      if (it) { select(new Set(["i" + it.id])); D = {kind: "move", id: e.pointerId, a: w, s}; return; }   // a first tap picks it up (with its menu), a drag moves it; a tap on it once picked up edits it
+      if (it) { select(new Set(["i" + it.id])); D = {kind: "move", id: e.pointerId, a: w, s}; return; }
       const f = textF(); editText(Object.assign({id: uid(), k: "t", x: Math.round(w[0]), y: Math.round(w[1] - f * 0.65), s: "", c: T.pen, f, at: Date.now(), ff: T.font}), true); return;
     }
     if (t === "select") {
@@ -775,7 +762,7 @@ var SBWB = null;
       select(null); D = {kind: "marq", id: e.pointerId, a: w, b: w};
     }
   }
-  // Hold still for a moment at the end of a stroke: it turns into the straight line or neat shape it looks like
+  // Hold still for a moment at the end of a stroke
   function armSnap(){ clearTimeout(D.snapT); const d = D; d.snapT = setTimeout(() => { if (D !== d || d.snapped || d.pts.length < 4) return; const r = recognize(d.pts); if (r) { d.pts = r; d.snapped = true; try { navigator.vibrate && navigator.vibrate(8); } catch (e) {} dirty(true); } }, 600); }
   function drag(e, s){
     const w = toW(s);
@@ -796,10 +783,9 @@ var SBWB = null;
   }
   function finish(e, s){
     const d = D; D = null; clearTimeout(d.snapT); clearTimeout(d.grabT); frame.classList.remove("panning");
-    if (d.kind === "move" && d.tap && !SEL.drag) { const it = getI(d.tap); select(null); if (it) editText(it); dirty(); return; }   // a tap on text with the Text tool: edit it
+    if (d.kind === "move" && d.tap && !SEL.drag) { const it = getI(d.tap); select(null); if (it) editText(it); dirty(); return; }
     if (d.kind === "pen" || d.kind === "hl") {
       const pts = d.snapped ? d.pts : smoothStroke(d.pts.concat([d.raw]), d.ptype);
-      // only what's on the board is kept: a line that runs off the edge is cut there (not squashed along it)
       inBoard(pts).forEach(run => { if (d.kind === "pen") addStroke("pen", T.pen, penW() * 10, run); else addStroke("hl", T.hl, hlW() * 10, run); });
     } else if (d.kind === "shape") {
       if (Math.hypot(d.b[0] - d.a[0], d.b[1] - d.a[1]) * cam.z >= 4) inBoard(shapePts(T.shape, d.a, d.b, e.shiftKey, penW())).forEach(run => addStroke("pen", T.pen, penW() * 10, run));
@@ -809,7 +795,7 @@ var SBWB = null;
     else if (d.kind === "pan") camSave();
     dirty();
   }
-  // The eraser: Erase Parts cuts the stroke where it passes and keeps the rest; Whole Strokes takes away anything it touches. Text it touches goes too.
+  // The eraser: Erase Parts cuts the stroke where it passes and keeps the rest
   function eraseAt(w){
     const r = EW[T.ew] / 2 / cam.z, eb = [w[0] - r, w[1] - r, w[0] + r, w[1] + r];
     let hit = false;
@@ -819,16 +805,12 @@ var SBWB = null;
       if (T.erase === "whole") { if (nearLine(g.pts, w, pad)) { set("s", s.id, null); hit = true; } return; }
       if (!nearLine(g.pts, w, pad)) return;
       const h = EH[T.eh], dot = [Math.round(w[0] * 10) / 10, Math.round(w[1] * 10) / 10, Math.round(r * 10) / 10, h];
-      // soft or medium: the stroke stays whole and fades where it's rubbed. Spots in one pass are an eraser-width apart, so each pass
-      // takes about the same amount (soft a third, medium two thirds) instead of the overlapping spots adding up to a full erase.
       if (h < 0.99) {
         const xs = s.x || [], seen = D && D.kind === "erase" ? (D.soft || (D.soft = new Map())) : null, last = seen ? seen.get(s.id) : xs[xs.length - 1];
         if (last && Math.hypot(last[0] - dot[0], last[1] - dot[1]) < r * 0.95) return;
         if (seen) seen.set(s.id, dot);
         set("s", s.id, Object.assign({}, s, {x: xs.concat([dot]).slice(-300)})); hit = true; return;
       }
-      // hard: the stroke splits where it's rubbed out, and each piece is cut exactly along the eraser's edge (not a rounded end that
-      // seems to back away from the eraser)
       const reach = Math.max(0, r - s.w / 20), dense = densify(g.pts, Math.max(0.8, Math.min(r, s.w / 10) / 3)), out = dense.map(p => Math.hypot(p[0] - w[0], p[1] - w[1]) > reach);
       set("s", s.id, null); hit = true;
       let run = [];
@@ -837,7 +819,6 @@ var SBWB = null;
           const pts = simplify(run, 0.3), pb = pts.reduce((b, p) => [Math.min(b[0], p[0]), Math.min(b[1], p[1]), Math.max(b[2], p[0]), Math.max(b[3], p[1])], [Infinity, Infinity, -Infinity, -Infinity]), hw = s.w / 20;
           const near = e => e[0] + e[2] > pb[0] - hw && e[0] - e[2] < pb[2] + hw && e[1] + e[2] > pb[1] - hw && e[1] - e[2] < pb[3] + hw;
           const xs = (s.x || []).concat([dot]).filter(near).slice(-300);
-          // a piece wholly inside rubbed-out spots is gone
           const gone = p => xs.some(e => e[3] >= 0.99 && Math.hypot(p[0] - e[0], p[1] - e[1]) < e[2]);
           if (!densify(pts, Math.max(0.8, r / 4)).every(gone)) { const nid = uid(); set("s", nid, Object.assign({id: nid, t: s.t, c: s.c, w: s.w, d: enc(pts), at: s.at}, xs.length ? {x: xs} : {})); }
         }
@@ -848,10 +829,7 @@ var SBWB = null;
     if (hit) { itemsDraw(); dirty(); }
   }
 
-  // Typed text under the eraser: Whole Strokes takes the whole text; Erase Parts takes only the letters it passes over, and what's left
-  // stays exactly where it was (as separate pieces of text: lines it didn't touch stay together)
-  // Pictures: Erase Parts rubs out the spots the eraser passes over (kept as circles on the picture, so the photo itself is never changed
-  // and Undo brings it all back); Whole Strokes takes the whole picture
+  // Typed text under the eraser
   function erasePicture(it, w, r){
     if (!(it.w > 0 && it.h > 0)) return false;
     const dx = Math.max(it.x - w[0], 0, w[0] - (it.x + it.w)), dy = Math.max(it.y - w[1], 0, w[1] - (it.y + it.h));
@@ -893,12 +871,12 @@ var SBWB = null;
     return true;
   }
 
-  /* ---------- Keys (while the board has focus) ---------- */
+  /* Keys (while the board has focus) */
   function bindKeys(){
     frame.addEventListener("keydown", e => {
       if (e.target !== frame && !(e.target.closest && e.target.closest(".wb-selbar,.wb-zoom"))) return;
       const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
-      if (e.target !== frame && !mod && !["delete", "backspace", "escape"].includes(k)) return;   // on a menu button, Enter and Space press the button
+      if (e.target !== frame && !mod && !["delete", "backspace", "escape"].includes(k)) return;
       let done = true;
       if (mod && k === "z") e.shiftKey ? redo() : undo();
       else if (mod && k === "y") redo();
@@ -918,7 +896,7 @@ var SBWB = null;
     frame.addEventListener("blur", () => { spaceDown = false; frame.classList.remove("pan-ready"); });
   }
 
-  /* ---------- The marker tray (tools under the board) ---------- */
+  /* The marker tray (tools under the board) */
   function setTool(t){ fontMenu(false); if (ED && t !== "text") endText(); if (t !== "select" && SEL) select(null); T.tool = t; saveT(); trayDraw(); dirty(true); }
   function trayDraw(){
     if (!tray) return;
@@ -945,8 +923,7 @@ var SBWB = null;
     frame.dataset.tool = t;
     trayState();
   }
-  // A writing style: for new text, and for the text being typed or selected right now
-  // The writing style dropdown: a list over the board (outside the tray, which scrolls and would clip it), each name in its own style
+  // A writing style
   let FM = null;
   // kind: "font" (writing style) or "size" (text size)
   function fontMenu(open, kind){
@@ -973,7 +950,7 @@ var SBWB = null;
     if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); const k = FM.dataset.kind; fontMenu(false); const b = tray.querySelector(`.wb-fontpick[data-id="${k}"]`); if (b) b.focus(); }
     else if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); const n = opts[(i + (e.key === "ArrowDown" ? 1 : -1) + opts.length) % opts.length]; if (n) n.focus(); }
   }, true);
-  // A text size: for new text, and for the text being typed or selected (the size you see, at this zoom)
+  // A text size: for new text, and for the text being typed or selected
   function setSize(i){
     T.ts = clamp(i, 0, TS.length - 1); saveT(); trayDraw();
     const f = textF();
@@ -987,8 +964,7 @@ var SBWB = null;
     if (ED) { ED.it = v(ED.it); ED.ta.style.fontFamily = famOf(ff); fitTa(); return; }
     if (SEL) { const ts = items().filter(it => it.k === "t" && SEL.ids.has("i" + it.id) && (it.ff || "marker") !== ff); if (ts.length) { opBegin(); ts.forEach(it => set("i", it.id, v(it))); opEnd(); selbarDraw(); } }
   }
-  // The rainbow marker (Pro): any colour at all, from the board's own colour picker (shade square, hue, hex, ready-made and recent colours).
-  // live: the marker takes each colour as you pick it; otherwise (recolouring a selection) it's applied once, when the picker closes.
+  // The rainbow marker (Pro)
   let CP = null;
   const hsv2hex = (h, s, v) => { const f = n => { const k = (n + h / 60) % 6; return v - v * s * Math.max(0, Math.min(k, 4 - k, 1)); }; return "#" + [f(5), f(3), f(1)].map(x => Math.round(x * 255).toString(16).padStart(2, "0")).join(""); };
   const hex2hsv = hex => { const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
@@ -1027,7 +1003,6 @@ var SBWB = null;
     el.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Escape") { e.preventDefault(); finish(); } });
     const finish = () => { const hex = CP && CP.hex; if (hex) { T.custom = hex; T.recent = [hex].concat((T.recent || []).filter(x => x !== hex)).slice(0, 8); saveT(); } closePicker(); if (btn && btn.isConnected) btn.focus({preventScroll: true}); };
     CP.finish = finish;
-    // under the button (above it when there's no room), inside the board
     const r = btn.getBoundingClientRect(), sr = STAGE.getBoundingClientRect(), w = el.offsetWidth, hh = el.offsetHeight;
     el.style.left = clamp(r.left + r.width / 2 - w / 2 - sr.left, 6, Math.max(6, sr.width - w - 6)) + "px";
     el.style.top = (r.bottom - sr.top + hh + 8 <= sr.height ? r.bottom - sr.top + 8 : Math.max(6, r.top - sr.top - hh - 8)) + "px";
@@ -1042,7 +1017,6 @@ var SBWB = null;
       case "tool": setTool(id); break;
       case "pen": T.pen = id; saveT(); trayDraw(); break;
       case "pen-any": pickAny(el, hex => { T.custom = hex; T.pen = codeOf(hex); saveT(); const m = tray.querySelector(".wb-mk-any"); if (m) { m.style.setProperty("--mk", hex); tray.querySelectorAll(".wb-mk").forEach(x => { x.classList.toggle("on", x === m); x.setAttribute("aria-pressed", String(x === m)); }); } }, true); return;
-      // recolouring a selection follows the picker as you pick (one undo step for the whole pick)
       case "sel-any": { const base = B ? B.undo.length : 0, one = SEL && SEL.ids.size === 1 ? [...SEL.ids][0] : "", cur = one ? (one[0] === "s" ? (getS(one.slice(1)) || {}).c : (getI(one.slice(1)) || {}).c || (getI(one.slice(1)) || {}).tint) : "";
         pickAny(el, hex => { selColor(codeOf(hex)); if (!B) return; while (B.undo.length > base + 1) { const last = B.undo.pop(), prev = B.undo[B.undo.length - 1]; last.forEach(c => { const p = prev.find(x => x.t === c.t && x.id === c.id); if (p) p.after = c.after; else prev.push(c); }); } }, true, {start: hexOf(cur) || "", quiet: true}); return; }
       case "hl": T.hl = id; saveT(); trayDraw(); break;
@@ -1070,7 +1044,7 @@ var SBWB = null;
     if (!/^sel-|^zoom|^fit/.test(a) || a === "sel-all") frame.focus({preventScroll: true});
   }
 
-  /* ---------- Open a board, put the stage on the page ---------- */
+  /* Open a board, put the stage on the page */
   function openBoard(id){
     endText(); flush();
     B = {id, pS: new Map(), pI: new Map(), undo: [], redo: [], ref: null, timer: 0};
@@ -1081,9 +1055,10 @@ var SBWB = null;
   function mount(){
     const host = document.getElementById("wbHost"); if (!host) return;
     const id = curId(); if (!id) return;
-    build(); themeCheck();   // (the board colour setting may have arrived from another device)
+    build(); themeCheck();
     if (!B || B.id !== id) openBoard(id);
     const typing = ED && document.activeElement === ED.ta;
+    const mb = STAGE.querySelector(".wb-max"); if (mb) mb.outerHTML = boardMaxBtn("wb-max");
     host.appendChild(STAGE); sizeHost(host); resize(); trayDraw();
     if (B.fitNext && fw > 0) { B.fitNext = false; fit(true); }
     if (typing) try { ED.ta.focus({preventScroll: true}); } catch (e) {}
@@ -1101,7 +1076,6 @@ var SBWB = null;
   hook("render", tab => {
     if (tab === "notes" && on()) {
       mount();
-      // only when you come to Whiteboard (not right after deleting your last board while here)
       if (!askedNew) { askedNew = true; if (!boards().length && made() && !dlg.open) setTimeout(() => { if (!dlg.open && ui.tab === "notes" && on() && !boards().length) newSheet(); }, 0); }
     } else { askedNew = false; if (B) { endText(); flush(); } }
   });
@@ -1116,7 +1090,7 @@ var SBWB = null;
   document.addEventListener("visibilitychange", () => { if (document.hidden) { endText(); flush(); } });
   window.addEventListener("resize", () => { const h = document.getElementById("wbHost"); if (h && STAGE && h.contains(STAGE)) { sizeHost(h); resize(); } });
 
-  /* ---------- The page ---------- */
+  /* The page */
   function picker(list, cur){
     return `<label class="wb-pick"><select data-wb-pick aria-label="Whiteboard">${list.map(b => { const bc = courseOf(b.courseId); return `<option value="${esc(b.id)}"${b.id === cur ? " selected" : ""}>${esc(boardName(b))}${bc ? " · " + esc(bc.code || bc.name) : ""}</option>`; }).join("")}<option value="__new">+ New Whiteboard…</option></select></label>`;
   }
@@ -1128,7 +1102,6 @@ var SBWB = null;
   function view(){
     const list = boards(), cur = curId();
     const extra = fire("wb-head", cur).filter(Boolean).join("");
-    // like Notes: the title with the buttons on its line, then the boards as tabs you scroll side to side (phones keep the dropdown)
     const DOTS = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></svg>';
     const tab = b => { const bc = courseOf(b.courseId), on = b.id === cur; return `<button type="button" role="tab" class="nb-tab${on ? " on" : ""}" aria-selected="${on}" data-act="wb-go" data-id="${esc(b.id)}" style="--c:${esc(bc ? bc.color : "var(--muted)")}"><span class="sd"></span><span class="nb-tn">${esc(boardName(b))}</span></button>${on ? `<button type="button" class="icon-btn sm" data-act="wb-opts" aria-label="Board options" title="Board options">${DOTS}</button>` : ""}`; };
     const strip = list.length ? `<div class="nb-boards wb-boards" role="tablist" aria-label="Whiteboards">${list.map(tab).join("")}</div>` : "";
@@ -1140,7 +1113,7 @@ var SBWB = null;
     return headHtml + `<div class="wb-host" id="wbHost"></div>`;
   }
 
-  /* ---------- Sheets: new board, options, all boards, export ---------- */
+  /* Sheets: new board, options, all boards, export */
   const courseOpts = cur => `<option value="">No course</option>${coursesArr().map(c => `<option value="${esc(c.id)}"${c.id === cur ? " selected" : ""}>${esc(courseLabel(c))}</option>`).join("")}`;
   function newSheet(tpl){
     openSheet(`<form class="sheet wb-sheet">${head("New Whiteboard")}<div class="sheet-body">
@@ -1158,7 +1131,6 @@ var SBWB = null;
   }
   function optsSheet(){
     const id = curId(), n = state.notes[id]; if (!n) return;
-    // the board's actions in one tidy row at the top; Delete at the bottom left
     openSheet(`<form class="sheet wb-sheet">${head("Board Options")}<div class="sheet-body">
       <div class="wb-opt-acts" role="group" aria-label="Board actions">${fire("wb-opt-acts", id).filter(Boolean).join("")}<button type="button" class="btn" data-wbo="dup" title="Make a copy of this board">Duplicate</button><button type="button" class="btn" data-wbo="clear" title="Clear everything off the board">Clear</button></div>
       <label class="f"><span class="lh">Name ${REQ}</span><input type="text" name="name" required maxlength="60" value="${esc(boardName(n))}"></label>
@@ -1174,7 +1146,6 @@ var SBWB = null;
       after.wb = Object.assign({}, after.wb, {tpl: nt}, nt !== (cur.wb && cur.wb.tpl) ? {pa: pageAspect()} : {});
       applyChanges([{kind: "note", id, after}], "Board saved");
     });
-    // picking a template shows it on the board behind the sheet; Cancel (or closing) puts the board's own back
     const box = STAGE && STAGE.querySelector(".wb-tplbox"), pa = (n.wb && n.wb.pa) || pageAspect();
     dlg.querySelectorAll('input[name="tpl"]').forEach(r => r.addEventListener("change", () => { if (box && r.checked) { box.innerHTML = tplSvg(r.value, false, r.value === (n.wb && n.wb.tpl) ? pa : pageAspect(), DK ? PAL_D : PAL_L); box.dataset.tpl = "preview"; } }));
     dlg.addEventListener("close", () => { if (box && box.dataset.tpl === "preview") { box.dataset.tpl = ""; if (B) B.ref = null; mount(); } }, {once: true});
@@ -1213,7 +1184,7 @@ var SBWB = null;
     });
   }
 
-  /* ---------- A board as a picture: export, print, thumbnails (and what the AI looks at) ---------- */
+  /* A board as a picture */
   async function renderBoard(n, o){
     o = o || {};
     try { if (document.fonts && document.fonts.load) await Promise.all(FONTS.map(f => document.fonts.load(`40px ${f[2]}`))); } catch (e) {}
@@ -1228,7 +1199,6 @@ var SBWB = null;
     const W = Math.max(1, Math.round(w * s)), H = Math.max(1, Math.round(h * s));
     const mk = () => { const c = document.createElement("canvas"); c.width = W; c.height = H; const x = c.getContext("2d"); x.setTransform(s, 0, 0, s, -bb[0] * s, -bb[1] * s); x.lineCap = "round"; x.lineJoin = "round"; return [c, x]; };
     const [main, cm] = mk(), [hl, chh] = mk(), [pen, cp] = mk();
-    // o.dark: as the dark board shows it (bright markers on the dark glass), for previews; exports and prints stay white
     const dk = !!o.dark;
     cm.fillStyle = dk ? "#1C232C" : "#FDFEFE"; cm.fillRect(bb[0], bb[1], w, h);
     tplPaint(cm, tpl, bb, n.wb && n.wb.pa, dk);
@@ -1280,7 +1250,7 @@ var SBWB = null;
     // for the Pro pictures and live group modules
     set: (t, id, v) => { if (!B) return; opBegin(); set(t, id, v); opEnd(); }, change: fn => { if (!B) return; opBegin(); try { fn(set); } finally { opEnd(); } },
     remote: () => { if (!B) return; B.ref = null; GEO.clear(); itemsDraw(true); dirty(); },
-    // changes from someone else (a live group board): shown at once, saved with the board like your own, but not undoable and not sent back out
+    // changes from someone else (a live group board)
     applyRemote: (id, ch) => {
       if (!B || B.id !== id) return false;
       ch.forEach(c => { (c.t === "s" ? B.pS : B.pI).set(c.id, c.v || null); if (SEL && !c.v) SEL.ids.delete(c.t + c.id); });
@@ -1290,7 +1260,7 @@ var SBWB = null;
     },
     onLive: fn => { LIVE = fn; }, cam: () => Object.assign({}, cam), toWorld: (cx, cy) => { const r = frame.getBoundingClientRect(); return toW([cx - r.left, cy - r.top]); },
     select: ids => select(new Set(ids)), undo, redo, penHex,
-    // handwriting to text: the selected strokes drawn on white (for the AI to read), then swapped for typed text in one undo step
+    // handwriting to text
     selInk: () => {
       if (!SEL || [...SEL.ids].some(k => k[0] !== "s")) return null;
       const ss = strokes().filter(s => SEL.ids.has("s" + s.id)); if (!ss.length) return null;

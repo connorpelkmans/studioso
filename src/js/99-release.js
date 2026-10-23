@@ -1,18 +1,16 @@
 /* ===== module: 99-release.js ===== */
-/* Studyboard 1.13.0 release polish. Module prefix 99-rel.
-   Privacy Policy, Terms of Service and About sheets (Settings and the sign-in screen), "Delete My Account and Data",
-   and small accessibility helpers (every sheet gets a name for screen readers). */
+/* Studyboard 1.13.0 release polish */
 (() => {
-  const VERSION = "1.15.0";   // keep in step with package.json and APP_VERSION above
-  // The support address shown in the policies and About (the same one as website/config.js SUPPORT_EMAIL).
+  const VERSION = "1.15.1";
+  // The support address shown in the policies and About
   const SUPPORT = "support@studyboardapp.com";
-  const UPDATED = "October 20, 2026";
+  const UPDATED = "October 23, 2026";
   const FIRST_YEAR = 2026;
   const contact = () => `<a href="mailto:${esc(SUPPORT)}">${esc(SUPPORT)}</a>`;
   const year = () => { const y = new Date().getFullYear(); return y > FIRST_YEAR ? FIRST_YEAR + "–" + y : String(FIRST_YEAR); };
   let backFn = null;
 
-  /* ---------- Texts ---------- */
+  /* Texts */
   const PRIVACY = () => `
     <p class="legal-meta">Effective ${UPDATED}</p>
 <p>Studyboard is a planner for courses, deadlines, notes and flashcards, run by Connor Pelkmans, who publishes it as Studyboard ("we"). This page explains, in plain words, what we collect, why, who else handles it, how long we keep it and how to delete it. The short version: without an account your work stays on your device; with a free account it is also kept online so it syncs between your devices. There are no ads, and nothing in Studyboard tracks you or sells your data.</p>
@@ -39,12 +37,13 @@
 <p>Files you attach (for example PDFs and images) are stored in a private storage area of our Supabase project, in a folder that only your account can open. On the website, attaching files needs an account, and the files are kept there rather than in your browser; the desktop app also keeps a copy in its folder on your computer. Photos you choose for your own theme are stored the same way, so they follow you to your other devices. They count toward your plan's storage limit and are deleted when you delete them or your account.</p>
 
 <h3>Optional: AI features, with your own key</h3>
-<p>AI is off until you add your own key from Google (Gemini), Anthropic (Claude) or OpenAI and agree, in a prompt that names the company, to send content to it. When you use an AI feature, the content it needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to the provider you chose, using your key. It does not pass through our servers. If you're signed in and haven't added a key, you can try AI a few times for free: those requests go to Studyboard's trial server, run on Cloudflare, which passes them to an open AI model (Google's Gemma) run by Cloudflare's Workers AI service and sends the answer back, so Cloudflare processes what you send to produce the answer. The trial server keeps only a count of your tries and whether you passed its one-time robot check, under your account id, and deletes both when you delete your account. It never stores what you send. If the robot check (Cloudflare Turnstile) is switched on, Cloudflare sees your network address while it runs. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time.</p>
+<p>AI is off until you add your own key from Google (Gemini), Anthropic (Claude) or OpenAI and agree, in a prompt that names the company, to send content to it. When you use an AI feature, the content it needs (for example task titles, notes, a syllabus or PDF you import, flashcards, your question, or the text of your items when you use search by meaning) is sent straight from your device to the provider you chose, using your key. It does not pass through our servers. If you're signed in and haven't added a key, you can try AI a few times for free: those requests go to Studyboard's trial server, run on Cloudflare, which passes them to an open AI model (Google's Gemma) run by Cloudflare's Workers AI service and sends the answer back, so Cloudflare processes what you send to produce the answer. The trial server keeps only a count of your tries and whether you passed its one-time robot check, under your account id, and deletes both when you delete your account. It never stores what you send. If the robot check (Cloudflare Turnstile) is switched on, Cloudflare sees your network address while it runs. If you use Add AI to Another Device, your keys are locked (encrypted) on your device with a one-time code, and only the locked copy is left with our key relay, which runs on Cloudflare. It is deleted as soon as your other device collects it, or after 10 minutes at most, and we can't unlock it, because the code never reaches our servers. That provider's own terms and privacy policy apply, and they decide how long they keep it. On Google's free tier, Google may use what you send to improve its products, so do not send anything private. You can switch AI off and remove your key at any time. Studyboard never uses what you send, or anything in your planner, to train AI models. AI answers can be wrong, so check dates, grades and facts; a reply to a school message that AI drafted for you is marked as drafted by AI.</p>
 
 <h3>Optional: your school's learning platform</h3>
-<p>If you connect Brightspace, Canvas or Blackboard, the connection stays on your device. On desktop you sign in on your school's own page (Studyboard never sees your password) and the sign-in is kept in a private store on your computer. On the website, the Studyboard School Sync browser extension does this instead (below). </p>
+<p>If you connect Brightspace, Canvas or Blackboard, the connection stays on your device. In the desktop and phone apps you sign in on your school's own page (Studyboard never sees your password) and the sign-in is kept in a private store on that device. On the website, the Studyboard School Sync browser extension does this instead (below). The apps then read your own school work through the platform's own interface, a few requests at a time, and each request from the desktop app names Studyboard as the app asking, so your school can always tell it apart.</p>
+<p>Grades, feedback and messages from your school are private (in the United States they can be protected by FERPA). What Studyboard brings in (your courses, due dates, submission status, grades, feedback and rubrics, announcements, the syllabus and your instructors' names and school email addresses) becomes part of your planner: kept on your device, and stored in your account on our servers (Supabase) if you have one, so it syncs between your devices. Your school Inbox messages are never stored in your account: they are read when you open them, or kept on the device that read them. We never sell this data, share it, publish it or use it for anything except showing your own school work to you, and you can delete it with your account at any time. Studyboard is an independent app: it is not affiliated with, endorsed by or sponsored by Instructure (Canvas), D2L (Brightspace) or Blackboard.</p>
 <p id="extension">The Studyboard School Sync browser extension (for Chrome, Edge and Firefox) reads your school site by itself. It can read only the school site you connect in it, and only after your browser asks you and you allow it; you can remove that permission any time, in the extension or in your browser. About every hour, and when you open that site, it reads your courses, due dates, submission status, grades, feedback and rubrics, announcements, the names and school email addresses of your instructors and teaching assistants, the course syllabus and, for Canvas, your Inbox messages, with the sign-in your browser already has. It only reads: it never submits, posts or changes anything on your school site, and it never sees your password. What it reads is kept in your browser's storage for the extension and handed to Studyboard when you open studyboardapp.com in the same browser; the extension itself sends nothing to Studyboard's servers or to anyone else, and it has no analytics or tracking. Once Studyboard brings it into your planner, it is treated like everything else in your planner: kept on your device, and in your account if you have one (above). Removing a school in the extension, or uninstalling it, deletes what it kept. We do not sell this data, use it for advertising or credit decisions, or use it for anything except showing your own school work in your planner. Studyboard School Sync's use of information it receives complies with the <a href="https://developer.chrome.com/docs/webstore/program-policies/policies">Chrome Web Store User Data Policy</a>, including the Limited Use requirements.</p>
-<p>If you paste a calendar link instead, it is saved on that device only. It works like a password to your calendar, so it is never synced to your account and never put in a backup or export. On the website and phone the link is passed through a small function on our server that fetches the calendar for you and stores nothing. To read your Canvas inbox on the website or phone you can paste a Canvas access token: it stays on that device only, locked (encrypted) in its secure storage, and is sent only to your school's Canvas, never to us. Disconnect Canvas or signing out removes it from the device; deleting the token in Canvas switches it off for good. Studyboard only reads from your school's site. What it brings in (due dates, grades, announcements) becomes part of your planner and syncs to your account like everything else if you have one.</p>
+<p>If you paste a calendar link instead, it is saved on that device only. It works like a password to your calendar, so it is never synced to your account and never put in a backup or export. On the website and phone the link is passed through a small function on our server that fetches the calendar for you and stores nothing. Studyboard does not ask for or use Canvas access tokens. A token an earlier version saved on a device is deleted from it, and you can also delete it in Canvas (Account, Settings). Studyboard only reads from your school's site. What it brings in (due dates, grades, announcements) becomes part of your planner and syncs to your account like everything else if you have one.</p>
 
 <h3>Optional: reminders, calendar link, study groups</h3>
 <p><b>Phone and desktop reminders</b> need your device's push address and your upcoming reminders (task titles and times for the next two weeks) to be stored on our server so a notification can arrive when Studyboard is closed. The notification itself is delivered by your browser or phone maker's push service (Google, Apple or Mozilla). <b>Calendar Sync</b> stores a private link token and your choices so your calendar app can fetch your deadlines. <b>Study groups, shared decks and Study Together rooms</b> share the display name and the decks, deadlines and messages you choose to share with the people in that group. Members of a group can see what is posted in it and who posted it, including messages, shared tasks, quiz scores, check-ins and focus time. Someone with a group's invite code can see only its name, course, member count and owner's name before joining. If you report something in a group, the report keeps a short copy of what was reported so we can review it. Turn any of these off, or leave a group, and it stops. <b>Voice and shortcut capture</b> (optional, for example "Hey Siri, add a task") stores a private capture token (only a hash of it, shown to you once) and the short notes you send, in an inbox on our server until your app collects them; you can revoke the token any time, and everything is deleted with your account. <b>Email to Studyboard</b> (Pro, optional) gives you a private email address. An email you forward to it passes through our email service (Cloudflare) and waits in the same inbox on our server, as its subject, the sender's address and up to 6,000 characters of its text, until your app collects it (it is then deleted within 7 days, and after 30 days at the latest). Your app reads it, with your AI provider if you have agreed to that, and shows you what it found before anything is added. You can make a new address or turn it off at any time. <b>Two-way calendar sync</b> (Pro, optional) connects your Google or Outlook calendar when you ask it to. We keep that account's sign-in, encrypted, so Studyboard can keep a calendar called Studyboard up to date there; it only ever writes to that calendar. For Outlook, if you choose, it also reads your other events (with their titles, or as busy times only); for Google Calendar it doesn&rsquo;t read your other events so your plan can work around them, and they are saved in your planner like your other events. Disconnect any time, which also removes our access; it is deleted with your account. <b>Record a Lecture</b> (Pro, optional) uses your microphone only while you are recording. Live captions use your browser's own speech service, which may send the audio to the browser's maker (Google, in Chrome). A recording you choose to keep is stored with your files, and Transcribe with AI sends the audio to Google with your own key, like other AI features. <b>Share links and the Course Library:</b> when you make a link for a deck, note or quiz, anyone who has the link can see its text and your display name, without an account, until you stop sharing it. A deck you list in the Course Library can be found by anyone who looks up that course code; it shows your display name, the school you picked and how many people saved a copy. <b>Published flashcards and quizzes:</b> if you choose Publish on a shared deck or quiz, it gets a public page on studyboardapp.com that anyone can find, including through search engines such as Google, showing its cards or questions, your username, your school and when it was updated, until you unpublish it. Your username is chosen by you, unique, and also visible to people you share with. Your study progress, photos and stickers are never shared. Shared items can be reported, and we review reports.</p>
@@ -125,10 +124,10 @@
     <p>Study groups, study rooms and shared decks let you post content other people see. There is zero tolerance for objectionable content or abusive users: no harassment, bullying, hate, threats, sexual content, spam, cheating services or sharing other people's personal information. Use Report on a group message, a shared item or a group member to tell us, and Block (in the group's member list) to stop seeing someone's messages straight away. We review reports within 24 hours, remove content that breaks these rules and remove people who post it.</p>
 
     <h3>AI features</h3>
-    <p>AI features are optional. They use either your own key from a provider you choose, whose terms and any costs are between you and that provider, or, if you are signed in without a key, a small number of free trial requests answered by an open AI model run on Cloudflare (see the Privacy Policy). AI answers can be wrong or out of date. Check dates, grades and facts before you rely on them, and do not use AI in a way your school or instructor does not allow.</p>
+    <p>AI features are optional. They use either your own key from a provider you choose, whose terms and any costs are between you and that provider, or, if you are signed in without a key, a small number of free trial requests answered by an open AI model run on Cloudflare (see the Privacy Policy). AI answers can be wrong or out of date. Check dates, grades and facts before you rely on them, and use AI only as your school and instructors allow.</p>
 
     <h3>Your school and other services</h3>
-    <p>Connecting a school learning platform, calendar or other service is your choice. Make sure you are allowed to, and follow your school's rules. Studyboard only reads from those sites. Studyboard is not affiliated with Brightspace, Canvas, Blackboard, Google, Anthropic, OpenAI, Apple or any school.</p>
+    <p>Connecting a school learning platform, calendar or other service is your choice. You're responsible for using it as your school's rules allow. Studyboard only reads from those sites. Studyboard is not affiliated with Brightspace, Canvas, Blackboard, Google, Anthropic, OpenAI, Apple or any school.</p>
 
     <h3>Free and Pro</h3>
     <ul>
@@ -183,7 +182,7 @@
     <details class="about-lic"><summary>Lucide and Feather licenses</summary><pre>${esc(LU_LICENSE)}</pre></details>
     <p class="mini">Full notices are in THIRD-PARTY-NOTICES.md in the project's files. Support: ${contact()}.</p>`;
 
-  /* ---------- Sheets ---------- */
+  /* Sheets */
   function legalSheet(title, html, back){
     backFn = back || null;
     openSheet(`<div class="sheet legal-sheet">${head(title)}<div class="sheet-body legal" tabindex="0">${html}</div>
@@ -193,7 +192,7 @@
   const showPrivacy = back => legalSheet("Privacy Policy", PRIVACY(), back);
   const showTerms = back => legalSheet("Terms of Service", TERMS(), back);
   const showAbout = back => legalSheet("About Studyboard", ABOUT(), back);
-  // Where "Back" goes from the sheet that the link was in.
+  // Where "Back" goes from the sheet that the link was in
   function backFor(el){
     if (el && el.closest(".sb-acct")) {
       const f = el.closest("form"), mode = f && f.dataset.mode || "signin", em = f && f.querySelector("input[name=email]");
@@ -209,8 +208,8 @@
     return `<p class="mini legal-line" style="margin:0">By continuing you agree to the <button type="button" class="link-btn" data-act="legal-terms">Terms of Service</button> and the <button type="button" class="link-btn" data-act="legal-privacy">Privacy Policy</button>.</p>`;
   }
 
-  /* ---------- Delete My Account and Data ---------- */
-  const canDelete = () => { try { return !inClaude() && !!sb && !!sbUser; } catch (e) { return false; } };
+  /* Delete My Account and Data */
+  const canDelete = () => { try { return !inPreview() && !!sb && !!sbUser; } catch (e) { return false; } };
   function deleteErr(e){
     const m = String((e && (e.message || e.error_description)) || e || "");
     if (e && (e.code === "PGRST202" || e.status === 404) || /could not find the function|schema cache|not found/i.test(m)) return `Account deletion isn't switched on for this server yet. Email ${SUPPORT} and ask us to delete your account.`;
@@ -237,7 +236,7 @@
     try {
       const files = await listFiles(uid, 0);
       for (let i = 0; i < files.length; i += 100) await sb.storage.from(SB_BUCKET).remove(files.slice(i, i + 100));
-    } catch (e) { /* best effort: the server also sweeps up what it is allowed to */ }
+    } catch (e) { }
   }
   async function wipeDevice(){
     try { localStorage.clear(); } catch (e) {}
@@ -248,18 +247,15 @@
     } catch (e) {}
     try { if (window.caches) for (const k of await caches.keys()) await caches.delete(k); } catch (e) {}
   }
-  /* What plan the person pays for, from the plan module. Card subscriptions are cancelled for them by the server;
-     App Store / Google Play ones can only be cancelled by the person in the store, so they must acknowledge it. */
+  /* What plan the person pays for, from the plan module */
   const planEnt = () => { try { return typeof PLAN !== "undefined" && PLAN && PLAN.entitlement ? PLAN.entitlement() : null; } catch (e) { return null; } };
   const payingNow = e => !!e && e.plan === "pro" && (!e.pro_until || Date.parse(e.pro_until) > Date.now());
   const storeSub = () => { const e = planEnt(); return payingNow(e) && ["apple", "google", "revenuecat"].includes(e.source) && e.will_renew !== false; };
   const cardSub = () => { const e = planEnt(); return payingNow(e) && e.source === "stripe"; };
   const APPLE_SUBS = "https://apps.apple.com/account/subscriptions";
-  // Calls the delete-account Edge Function. kind: ok | missing (not deployed) | network | http
+  // Calls the delete-account Edge Function
   async function callDelete(payload){
     let res;
-    // A function that isn't deployed, wasn't redeployed or is refused by the gateway often has no CORS headers, so the browser
-    // reports it like a lost connection. If the database still answers (read-only check), the server is reachable: use the fallback.
     const unreachable = async error => { try { const {error: pe} = await sb.rpc("studyboard_delete_my_account_check"); if (!pe) return {kind: "missing"}; } catch (e) {} return {kind: "network", error}; };
     try { res = await sb.functions.invoke("delete-account", {body: payload}); }
     catch (e) { return unreachable(e); }
@@ -345,10 +341,8 @@
           let data = null, fallback = "";
           if (r.kind === "ok") data = r.data;
           else if (r.kind === "missing") {
-            // The Edge Function isn't deployed: delete the files and database rows with the person's own sign-in instead.
             if (cardSub()) { stop("Cancel your plan first (Studyboard Pro, Manage Plan), then try again. This server can't cancel it for you yet."); return; }
             if (storeSub() && !ack) { stop("Tick the box about your App Store subscription first.", true); return; }
-            // The server refuses this path without a recent sign-in or while a card plan renews; ask it first, so nothing is deleted before a refusal.
             if (pw && sbUser && sbUser.email) { const {error: ae} = await sb.auth.signInWithPassword({email: sbUser.email, password: pw}); if (ae) { stop("That password isn't right. Try again."); const i = $("#delPw"); if (i) i.focus(); return; } }
             const {data: why, error: ce} = await sb.rpc("studyboard_delete_my_account_check");
             if (!ce && why === "SB_REAUTH") { stop("For your safety, enter your password (or sign in again), then try again."); const i = $("#delPw"); if (i) i.focus(); return; }
@@ -369,7 +363,7 @@
           }
           try { await sb.auth.signOut({scope: "local"}); } catch (e) {}
           try { localStorage.removeItem(OUTBOX); } catch (e) {}
-          aiWipeLocal();                       // AI keys and AI consent never outlive the account on this device
+          aiWipeLocal();
           if (wipe) { try { await wipeDeviceData(); } catch (e) {} await wipeDevice(); }
           deletedSheet(data, wipe, fallback);
         } catch (e) { stop(deleteErr(e)); }
@@ -380,10 +374,7 @@
     if (inp && go) inp.addEventListener("input", () => { go.disabled = inp.value.trim().toUpperCase() !== "DELETE"; });
   }
 
-  /* ---------- Change email and change password (both ask for the current password first) ----------
-     Email: Supabase "Secure email change" sends a confirmation to the old AND the new address (change-email.html); the address
-     changes after both are confirmed. Password: if the server asks for re-authentication (reauthentication.html) a code is
-     emailed and entered here as the "nonce". */
+  /* Change email and change password (both ask for the current password first) Email */
   function securitySheet(kind){
     if (!canDelete()) { toast("Sign in to your account first."); return; }
     const isMail = kind === "email", T = isMail ? "Change Email" : "Change Password";
@@ -442,7 +433,7 @@
     if (pw && st) pw.addEventListener("input", () => { st.textContent = pw.value ? "Strength: " + sbStrength(pw.value).label : ""; });
   }
 
-  /* ---------- Hooks ---------- */
+  /* Hooks */
   hook("menu", () => {
     const rows = [
       `<button data-act="legal-about" data-group="app"><span>About Studyboard<span class="sub">Version ${VERSION}, credits and licenses</span></span></button>`,
@@ -466,7 +457,7 @@
   });
   window.SBLEGAL = {line, privacy: showPrivacy, terms: showTerms, about: showAbout, version: VERSION};
 
-  /* ---------- Left and Right Arrow move between the tabs of a tab list (Enter or Space picks one) ---------- */
+  /* Left and Right Arrow move between the tabs of a tab list (Enter or Space picks one) */
   document.addEventListener("keydown", e => {
     if (!/^(ArrowLeft|ArrowRight|Home|End)$/.test(e.key) || e.altKey || e.ctrlKey || e.metaKey) return;
     const t = e.target, list = t && t.matches && t.matches('[role="tab"]') ? t.closest('[role="tablist"]') : null;
@@ -477,23 +468,20 @@
     e.preventDefault(); tabs[j].focus();
   });
 
-  /* ---------- Closing a sheet puts keyboard focus back where it was (even if the page re-drew the button meanwhile) ---------- */
+  /* Closing a sheet puts keyboard focus back where it was */
   const was = new WeakMap();
   const sigOf = el => el && el.nodeType === 1 && el !== document.body ? {el, act: el.dataset && el.dataset.act, id: el.dataset && el.dataset.id, tab: el.dataset && el.dataset.tab} : null;
   const visible = el => !!el && el.isConnected && el.getClientRects().length > 0 && !el.disabled;
   function refocus(sig){
     if (!sig) return;
     const a = document.activeElement;
-    if (a && a !== document.body && a.isConnected && !a.closest("dialog:not([open])")) return;    // something else already has focus
+    if (a && a !== document.body && a.isConnected && !a.closest("dialog:not([open])")) return;
     let t = visible(sig.el) ? sig.el : null;
     if (!t && sig.act) t = [...document.querySelectorAll(`[data-act="${CSS.escape(sig.act)}"]${sig.id ? `[data-id="${CSS.escape(sig.id)}"]` : ""}`)].find(visible) || null;
     if (!t && sig.tab) t = [...document.querySelectorAll(`[data-tab="${CSS.escape(sig.tab)}"]`)].find(visible) || null;
     if (t) { try { t.focus({preventScroll: true}); } catch (e) {} }
   }
-  /* Top-level sheets are exclusive: the sheet dialog, the focus timer and Search Everywhere never stack. Opening one closes the
-     others first and hands over the focus-restore target, so closing the new one still returns focus to the original opener.
-     Nested layers are untouched: confirms and sub-sheets reuse the sheet dialog itself, the tour (#sbTour) sits above its own
-     panels, and the timer alert and AI consent dialog are separate layers on purpose. */
+  /* Top-level sheets are exclusive */
   const TOP = ["dlg", "pomoDlg", "sxDlg", "capDlg"];
   TOP.forEach(id => {
     const d = document.getElementById(id);
@@ -506,7 +494,7 @@
       if (!(tour && tour.open)) TOP.forEach(oid => {
         const o = document.getElementById(oid);
         if (!o || o === d || !o.open) return;
-        if (!sig || o.contains(sig.el)) sig = was.get(o) || null;      // the opener of the sheet being replaced
+        if (!sig || o.contains(sig.el)) sig = was.get(o) || null;
         was.delete(o);
         try { o.close(); } catch (e) { o.removeAttribute("open"); }
       });
@@ -515,8 +503,7 @@
     };
     d.addEventListener("close", () => { const sig = was.get(d); was.delete(d); setTimeout(() => refocus(sig), 90); });
   });
-  /* Header and nav buttons that open a sheet ignore double clicks and ghost taps: the same button is ignored while its sheet is
-     open or for a short moment after it was accepted (a safety timeout, since the open itself is synchronous). */
+  /* Header and nav buttons that open a sheet ignore double clicks and ghost taps */
   const OPENERS = {"pomo-open": "pomoDlg", "search": "sxDlg", "menu": "dlg", "ann-open": "dlg", "new-task": "dlg"};
   let lastOpen = {act: "", at: 0};
   document.addEventListener("click", e => {
@@ -530,10 +517,10 @@
     if (same || open) { e.stopImmediatePropagation(); e.preventDefault(); return; }
     lastOpen = {act, at: now};
   }, true);
-  // Once its sheet has closed, the button works again straight away: closing and reopening quickly is deliberate, not a ghost tap.
+  // Once its sheet has closed, the button works again straight away
   new Set(Object.values(OPENERS)).forEach(id => { const d = document.getElementById(id); if (d) d.addEventListener("close", () => { if (OPENERS[lastOpen.act] === id) lastOpen = {act: "", at: 0}; }); });
 
-  /* ---------- Every sheet gets a name for screen readers ---------- */
+  /* Every sheet gets a name for screen readers */
   const nameSheet = d => {
     const h = d.querySelector("h2");
     if (h && h.textContent.trim()) d.setAttribute("aria-label", h.textContent.trim());

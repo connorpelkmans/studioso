@@ -1,25 +1,8 @@
--- Studyboard: voice and shortcut capture ("Hey Siri, add a task to Studyboard", Gemini on Pixel and Galaxy, Bixby, share sheet)
--- Run this once in Supabase: SQL Editor > New query > paste everything > Run. Run it AFTER supabase-setup.sql (and supabase-lean.sql).
--- It is safe to run again (it only creates what is missing and refreshes the functions).
---
--- How it works (full picture in VOICE-CAPTURE.md):
---   phone assistant / Shortcut  --HTTPS + capture token-->  Edge Function "capture-task"  --service role-->  capture_add()
---   capture_add() puts a row in capture_inbox.  The app pulls its own inbox (capture_pull_inbox), turns each row into a
---   normal task on the device (so sync, trash and plan limits all behave as usual) and then acknowledges it (capture_ack).
---   Nothing here ever writes into your "items" table.
---
--- Security model:
---   * A capture token is 32 random bytes made on the server. Only its SHA-256 hash is stored; the token is shown ONCE.
---   * A token can do exactly one thing: drop a short text into ITS OWNER'S inbox (scope "add_task"). It cannot read anything.
---   * Max 5 active tokens per person. Revoke any time. Rate limits: 30 per hour and 200 per day per token, 300 per day per person,
---     200 waiting captures per person.
---   * The two tables have Row Level Security on and NO grants for the app: everything goes through the functions below.
---   * capture_add() can only be called with the service role (the Edge Function). Signed-in users and the public cannot call it.
--- Free for everyone (not a Pro feature), except Email to Studyboard (below), which is part of Studyboard Pro.
+-- Studyboard: voice and shortcut capture
 
 create extension if not exists pgcrypto with schema extensions;
 
--- ---------- Tokens ----------
+-- Tokens
 create table if not exists public.capture_tokens (
   id           uuid primary key default gen_random_uuid(),
   user_id      uuid not null references auth.users(id) on delete cascade,
@@ -39,7 +22,7 @@ alter table public.capture_tokens add constraint capture_tokens_limits check (
 );
 create index if not exists capture_tokens_user_idx on public.capture_tokens (user_id, created_at desc);
 
--- ---------- Inbox ----------
+-- Inbox
 create table if not exists public.capture_inbox (
   id           uuid primary key default gen_random_uuid(),
   user_id      uuid not null references auth.users(id) on delete cascade,
@@ -74,8 +57,7 @@ create index if not exists capture_inbox_token_idx on public.capture_inbox (toke
 create index if not exists capture_inbox_user_created_idx on public.capture_inbox (user_id, created_at desc);
 create index if not exists capture_inbox_idem_idx on public.capture_inbox (user_id, idem_key, created_at desc) where idem_key is not null;
 
--- Idempotency keys seen in the last 7 days (Siri, Shortcuts and the share sheet may resend the same capture much later, for
--- example after the phone was offline). One row per account and key; capture_purge removes rows older than 7 days.
+-- Idempotency keys seen in the last 7 days
 create table if not exists public.capture_idem (
   user_id    uuid not null references auth.users(id) on delete cascade,
   idem_key   text not null check (char_length(idem_key) between 1 and 80),
@@ -85,15 +67,14 @@ create table if not exists public.capture_idem (
 );
 create index if not exists capture_idem_created_idx on public.capture_idem (created_at);
 
--- RLS on, no policies, no grants: the app can only use the functions below.
+-- RLS on, no policies, no grants
 alter table public.capture_tokens enable row level security;
 alter table public.capture_inbox enable row level security;
 alter table public.capture_idem enable row level security;
 revoke all on public.capture_idem from public, anon, authenticated;
 revoke all on public.capture_tokens, public.capture_inbox from public, anon, authenticated;
 
--- ---------- For the signed-in app ----------
--- Makes a token and returns it ONCE. Only the hash is kept.
+-- For the signed-in app
 drop function if exists public.capture_create_token(text);
 create or replace function public.capture_create_token(p_label text, p_allow_get boolean default false) returns jsonb
 language plpgsql volatile security definer set search_path = pg_catalog, public, extensions as $$
@@ -145,8 +126,7 @@ begin
   return n > 0;
 end $$;
 
--- Waiting captures for the signed-in person (oldest first). body and sender are only filled for Email to Studyboard.
--- (An older version returned fewer columns; a function's columns can't be changed in place, so it is dropped first.)
+-- Waiting captures for the signed-in person (oldest first)
 do $$ begin
   if exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = 'capture_pull_inbox'
              and not pg_get_function_result(p.oid) like '%sender%') then
@@ -163,7 +143,7 @@ language sql stable security definer set search_path = pg_catalog, public as $$
   limit greatest(1, least(coalesce(p_limit, 50), 200))
 $$;
 
--- The app calls this AFTER the tasks are stored and saved on the device.
+-- The app calls this AFTER the tasks are stored and saved on the device
 create or replace function public.capture_ack(p_ids uuid[]) returns integer
 language plpgsql volatile security definer set search_path = pg_catalog, public as $$
 declare n integer;
@@ -175,10 +155,7 @@ begin
   return n;
 end $$;
 
--- ---------- For the Edge Function only (service role) ----------
--- p_token_hash: hex SHA-256 of the token the caller sent. Returns jsonb:
---   {ok:true, id, dup, limit_hour, remaining_hour}   or   {ok:false, error:'invalid_token'|'rate_limited'|'inbox_full'|'bad_input'|'get_disabled', retry_after}
--- 'invalid_token' covers unknown AND revoked tokens, so callers can't tell which.
+-- For the Edge Function only (service role)
 create or replace function public.capture_add(
   p_token_hash text, p_text text, p_due_date date default null, p_due_time time default null,
   p_course_hint text default null, p_source text default 'api', p_idem text default null, p_due_text text default null, p_via text default 'post'
@@ -191,7 +168,6 @@ declare
   strip constant text := '[[:cntrl:]​-‏‪-‮⁦-⁩﻿]';
 begin
   if p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$' then return jsonb_build_object('ok', false, 'error', 'invalid_token'); end if;
-  -- lock the token row so two parallel calls can't both slip under a limit
   select * into tk from public.capture_tokens where token_hash = p_token_hash for update;
   if not found or tk.revoked_at is not null or tk.scope <> 'add_task' then return jsonb_build_object('ok', false, 'error', 'invalid_token'); end if;
   if p_via = 'get' and not tk.allow_get then return jsonb_build_object('ok', false, 'error', 'get_disabled'); end if;
@@ -206,7 +182,6 @@ begin
   end if;
   src := left(src, 24);
 
-  -- same request sent again within 7 days (Siri retries, a queued share sent again): answer with the first one, add nothing
   if idem is not null then
     select x.inbox_id into dup from public.capture_idem x
       where x.user_id = tk.user_id and x.idem_key = idem and x.created_at > now() - interval '7 days';
@@ -236,17 +211,7 @@ begin
   return jsonb_build_object('ok', true, 'id', new_id, 'dup', false, 'limit_hour', 30, 'remaining_hour', 30 - h - 1);
 end $$;
 
--- ---------- Email to Studyboard (Pro) ----------
--- Each person can have ONE forwarding address, <key>@<your inbound mail domain>. The key is 12 random letters and digits made here (about
--- 59 bits), so the address works like a capture token: whoever knows it can put an email in its owner's inbox, nothing more. Make a new
--- address (the old one stops working at once) or turn it off any time. The domain is set in the app (CAPTURE_EMAIL_DOMAIN in index.html)
--- and in Cloudflare Email Routing (cloudflare/email-capture/README.md).
---   forwarded email -> Cloudflare Email Routing -> the email-capture Worker (reads the MIME, keeps the subject and the text)
---   -> the capture-email Edge Function (a shared secret only the Worker has) -> capture_add_email() (service role) -> capture_inbox.
--- Rows are source 'email' with the subject in text, the text in body (6000 characters at most) and the sender's address. The app reads
--- each one (with the person's AI when it is set up, else with its own date reader) and ALWAYS shows what it found to check first.
--- Limits: 15 emails an hour and 60 a day per address, and the same per-person caps as other captures (300 a day, 200 waiting).
--- The same email delivered twice (same Message-ID) is added once.
+-- Email to Studyboard (Pro)
 create table if not exists public.capture_email (
   user_id      uuid primary key references auth.users(id) on delete cascade,
   addr_key     text not null unique check (addr_key ~ '^[a-hj-km-np-z2-9]{12}$'),
@@ -275,7 +240,7 @@ language sql stable security definer set search_path = pg_catalog, public as $$
   from public.capture_email e where e.user_id = auth.uid()
 $$;
 
--- A new address (replacing the old one, which stops working). Pro only once the paywall is on.
+-- A new address (replacing the old one, which stops working)
 create or replace function public.capture_email_new() returns jsonb
 language plpgsql volatile security definer set search_path = pg_catalog, public, extensions as $$
 declare
@@ -306,8 +271,7 @@ begin
   return n > 0;
 end $$;
 
--- For the Edge Function only (service role). Returns {ok:true, id, dup} or {ok:false, error:'unknown'|'pro_required'|'rate_limited'|'inbox_full'|'bad_input'}.
--- 'unknown' covers addresses that never existed and ones that were replaced or turned off.
+-- For the Edge Function only (service role)
 create or replace function public.capture_add_email(p_key text, p_from text, p_subject text, p_body text, p_msgid text default null) returns jsonb
 language plpgsql volatile security definer set search_path = pg_catalog, public as $$
 declare
@@ -349,9 +313,7 @@ begin
   return jsonb_build_object('ok', true, 'id', new_id, 'dup', false);
 end $$;
 
--- ---------- Clean-up ----------
--- Done captures are removed after 7 days, ones the app never picked up after 365 days (they are things you asked to be added: a month
--- away from the app, a summer break, must not lose them), idempotency keys after 7 days, old revoked tokens after 90 days.
+-- Clean-up
 create or replace function public.capture_purge() returns void
 language sql volatile security definer set search_path = pg_catalog, public as $$
   delete from public.capture_inbox where (processed_at is not null and processed_at < now() - interval '7 days') or created_at < now() - interval '365 days';
@@ -359,7 +321,7 @@ language sql volatile security definer set search_path = pg_catalog, public as $
   delete from public.capture_tokens where revoked_at is not null and revoked_at < now() - interval '90 days';
 $$;
 
--- ---------- Who may call what ----------
+-- Who may call what
 revoke all on function public.capture_create_token(text, boolean), public.capture_list_tokens(), public.capture_revoke_token(uuid), public.capture_set_allow_get(uuid, boolean),
   public.capture_pull_inbox(integer), public.capture_ack(uuid[]), public.capture_purge(),
   public.capture_add(text, text, date, time, text, text, text, text, text),
@@ -375,7 +337,7 @@ do $$ begin
   end if;
 end $$;
 
--- Nightly clean-up at 4:29 UTC (needs pg_cron: Database > Extensions > pg_cron; without it, run select public.capture_purge(); now and then).
+-- Nightly clean-up at 4:29 UTC
 do $$ begin
   begin
     create extension if not exists pg_cron;

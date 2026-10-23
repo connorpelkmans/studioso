@@ -1,7 +1,4 @@
-// Browser checks for Pro groups (index.html, 80-groups 1.16 block): the Pro group box, Team Deadline, Rubric Checklist, Split the Work,
-// Review Before Done, Find a Time, Contribution Report, templates, group uploads, weekly sessions, Split Exam Topics and the free-group view.
-// Uses an in-memory stand-in for the Supabase client (the same one as tests/grouptasks.e2e.js, with the Pro group calls added).
-// Run: node tests/progroups.e2e.js
+// Browser checks for Pro groups (index.html, 80-groups 1.16 block)
 const path = require("path"), fs = require("fs"), assert = require("assert");
 const file = path.resolve(path.join(__dirname, "..", "index.html"));
 const {chromium, executablePath} = require("./pw");
@@ -11,17 +8,15 @@ function stubInit(opts){
   const me = {id: opts.me, email: opts.me + "@x.com"};
   const day = n => { const d = new Date(); d.setDate(d.getDate() + n); const z = x => String(x).padStart(2, "0"); return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()); };
   const DB = {
-    study_groups: [{id: "g1", name: "Bio Squad", course: "BIOL 201", owner_id: "u1", invite_code: "ABC-DEF", created_at: "2026-01-01", weekly_goal: 0, kind: opts.kind || "study", project_due: opts.kind === "project" ? day(20) : null, team_due: null}],   // task lists now live in study groups that already have one (a group project uses its board, see groupkinds.e2e.js)
+    study_groups: [{id: "g1", name: "Bio Squad", course: "BIOL 201", owner_id: "u1", invite_code: "ABC-DEF", created_at: "2026-01-01", weekly_goal: 0, kind: opts.kind || "study", project_due: opts.kind === "project" ? day(20) : null, team_due: null}],
     group_members: [{group_id: "g1", user_id: "u1", role: "owner", display_name: "Connor", joined_at: "2026-01-01"}, {group_id: "g1", user_id: "u2", role: "member", display_name: "Sam", joined_at: "2026-01-02"}, {group_id: "g1", user_id: "u3", role: "member", display_name: "Jo", joined_at: "2026-01-03"}],
     group_items: [], group_messages: [], study_profiles: [{user_id: opts.me, display_name: opts.me === "u1" ? "Connor" : "Sam"}], shared_decks: [], group_blocks: [],
     group_quiz_scores: [], group_rsvps: [], group_stats: [], group_checkins: [], group_reactions: [],
     group_task_lists: [], group_tasks: []
   };
   const nowIso = () => new Date().toISOString(); let n = 0; const id = p => p + (++n);
-  // more groups of mine (g2...), and the ones I've assigned Pro to
   for (let i = 2; i <= (opts.groups || 1); i++) { DB.study_groups.push({id: "g" + i, name: "Group " + i, course: "", owner_id: "u1", invite_code: "G" + i, created_at: "2026-01-0" + Math.min(9, i), weekly_goal: 0, kind: "study", project_due: null, team_due: null}); DB.group_members.push({group_id: "g" + i, user_id: "u1", role: "owner", display_name: "Connor", joined_at: "2026-01-01"}); }
   const ASSIGNED = new Set(opts.assigned || []);
-  // lists can't be made any more: a study group shows the ones it already has (an empty one here, for the main scenario)
   if (opts.emptyList) DB.group_task_lists.push({id: "L1", group_id: "g1", title: "BIOL 201 Poster", course_code: "BIOL 201", created_by: "u1", created_at: "2026-02-01T00:00:00Z", archived: false});
   if (opts.seed) {
     DB.group_task_lists.push({id: "L1", group_id: "g1", title: "BIOL 201 Poster", course_code: "BIOL 201", created_by: "u2", created_at: "2026-02-01T00:00:00Z", archived: false});
@@ -47,7 +42,6 @@ function stubInit(opts){
     };
     const api = {select() { return api; }, eq(c, v) { st.f.push(r => r[c] === v); return api; }, neq(c, v) { st.f.push(r => r[c] !== v); return api; }, in(c, v) { st.f.push(r => v.includes(r[c])); return api; },
       gte(c, v) { st.f.push(r => r[c] >= v); return api; },
-      // PostgREST's or=(col.op.value,...), as the planner asks for "not done, or finished in the last two weeks"
       or(expr) { const ts = String(expr).split(",").map(x => { const i = x.indexOf("."), j = x.indexOf(".", i + 1); return [x.slice(0, i), x.slice(i + 1, j), x.slice(j + 1)]; });
         const t1 = ([c, op, v], r) => op === "eq" ? String(r[c]) === v : op === "neq" ? String(r[c]) !== v : op === "gte" ? String(r[c] || "") >= v : op === "is" ? (v === "null" ? r[c] == null : String(r[c]) === v) : false;
         st.f.push(r => ts.some(t => t1(t, r))); return api; },
@@ -121,11 +115,10 @@ const DB = (page, f) => page.evaluate(f);
 (async () => {
   const browser = await chromium.launch({executablePath});
   try {
-    // ---------- A group project made Pro by a member (I'm the owner, on the free plan) ----------
+    // A group project made Pro by a member (I'm the owner, on the free plan)
     let {page, errs} = await boot(browser, {me: "u1", kind: "project", pro: true, seed: true});
     await openGroup(page);
     ok(await page.locator("#grpHead .gx-chip").count() === 1, "the header says PRO GROUP");
-    // A header redrawn on its own (live updates) tucks Assign Pro behind More before the screen paints: it never flickers into view
     ok(await page.evaluate(async () => { const band = document.createElement("div"); band.className = "g2-band"; band.innerHTML = '<div class="row-actions"><button class="btn primary">Invite</button><button class="btn gx-assign">Assign Pro</button></div>';
       document.getElementById("view").appendChild(band); await Promise.resolve(); const out = !band.querySelector(".row-actions > .gx-assign") && !!band.querySelector(".ra-menu .gx-assign"); band.remove(); return out; }), "Assign Pro is behind More as soon as a header is drawn");
     await tab(page, "members");
@@ -140,7 +133,6 @@ const DB = (page, f) => page.evaluate(f);
     ok(/days left|Tomorrow|Today/.test(await txt(page, "#gxOver")), "Overview counts down to the team deadline");
     await SHOT(page, "g2-overview");
 
-    // Rubric Checklist
     await tab(page, "tasks");
     await page.click('#gxTasks [data-act="gx-rubric"]'); await page.waitForTimeout(300);
     await page.fill("#dlg [data-rb-text]", "Final report rubric\n- Introduction states the problem (10 points)\n- At least five peer-reviewed sources\n2. Slides are 10 minutes or less\nGood luck!");
@@ -151,7 +143,6 @@ const DB = (page, f) => page.evaluate(f);
     ok(rb.length === 3 && rb.every(x => x.endsWith("|" + td)), "each requirement is a task, due at the team deadline: " + JSON.stringify(rb));
     ok(await DB(page, () => window.__DB.group_task_lists.some(l => l.title === "Rubric")), "they go in a Rubric list");
 
-    // Split the Work
     const unassigned = await DB(page, () => window.__DB.group_tasks.filter(t => !t.assignee_id && t.status !== "done" && !t.deleted).length);
     await page.click('#gxTasks [data-act="gx-split"]'); await page.waitForTimeout(300);
     ok(await page.locator("#dlg .gx-split").count() === 3, "Split the Work shows each member's share");
@@ -160,7 +151,6 @@ const DB = (page, f) => page.evaluate(f);
     ok(await DB(page, () => window.__DB.group_tasks.filter(t => !t.assignee_id && t.status !== "done" && !t.deleted).length) === 0 && unassigned > 0, `every unassigned task (${unassigned}) has someone now`);
     ok(await DB(page, () => window.__DB.group_messages.some(m => /Split the Work/.test(m.body))), "the group is told in chat");
 
-    // Review Before Done: a reviewer on a task; marking it done as someone else sends it to review (server rule), the owner sees Approve
     const tid = await DB(page, () => window.__DB.group_tasks.find(t => t.assignee_id === "u2" && t.status !== "done").id);
     await DB(page, () => {}); await page.evaluate(id => { const t = window.__DB.group_tasks.find(x => x.id === id); t.status = "review"; t.reviewer_id = "u1"; }, tid);
     await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "grp-pt-retry"; document.body.appendChild(b); b.click(); b.remove(); }); await page.waitForTimeout(800);
@@ -172,10 +162,8 @@ const DB = (page, f) => page.evaluate(f);
     await page.selectOption('#dlg select[name="reviewer"]', "u3"); await page.click("#dlg [data-submit]"); await page.waitForTimeout(500);
     ok(await DB(page, () => window.__calls.some(c => c[1] === "update_group_task" && c[2].p_patch.reviewer_id === "u3")), "choosing a reviewer is saved");
 
-    // Find a Time: share my free times, see the best times, add one to Meetings
     await tab(page, "meetings");
     await page.click('#gxFind [data-act="gx-ft"]'); await page.waitForTimeout(300);
-    // the default is picking your own free hours (one tap per hour); Fill In Automatically is the other way
     ok(await page.locator('#dlg [data-act="gx-ft-mine"]').count() === 1 && await page.locator('#dlg [data-act="gx-ft-add"]').count() === 0, "Find a Time asks you to pick your free times first, and can't add a meeting yet");
     await page.click('#dlg [data-act="gx-ft-mine"]'); await page.waitForSelector("#dlg #pfGrid");
     ok(await page.locator("#dlg #pfGrid [data-pf]").count() === 98, "the picker goes hour by hour, 8 AM to 10 PM, for 7 days");
@@ -196,7 +184,6 @@ const DB = (page, f) => page.evaluate(f);
     await page.click('#dlg [data-act="gx-ft-add"]'); await page.waitForTimeout(700);
     ok(await DB(page, () => window.__DB.group_items.some(i => i.kind === "event" && /Find a Time/.test(i.data.notes))), "the picked time is added to Meetings");
 
-    // Weekly meetings
     await page.click('[data-act="grp-event-new"]'); await page.waitForTimeout(300);
     ok(await page.locator('#dlg input[name="weekly"]').count() === 1, "a meeting can repeat every week");
     await page.fill('#dlg input[name="title"]', "Standup"); await page.check('#dlg input[name="weekly"]');
@@ -204,13 +191,11 @@ const DB = (page, f) => page.evaluate(f);
     ok(await DB(page, () => window.__DB.group_items.some(i => i.title === "Standup" && i.data.repeat && i.data.repeat.weekly)), "the weekly meeting is saved");
     ok(/Every week/.test(await txt(page, "#grpSessions")), "the meeting list says Every week");
 
-    // Group uploads
     await tab(page, "files");
     ok(await page.locator("#gxUploads").count() === 1, "Files has Group Uploads");
     await page.setInputFiles('#gxUploads input[type="file"]', {name: "draft.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 test")}); await page.waitForTimeout(800);
     ok(await DB(page, () => (window.__uploads || []).some(p => /^u1\/g\/g1\/.+-draft\.pdf$/.test(p)) && window.__DB.group_items.some(i => i.kind === "gfile" && i.title === "draft.pdf")), "an upload goes to my own folder for this group and is listed");
 
-    // Contribution Report and templates
     await tab(page, "overview");
     await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });
     await page.click('#gxOver [data-act="gx-report"]'); await page.waitForTimeout(500);
@@ -219,7 +204,6 @@ const DB = (page, f) => page.evaluate(f);
     await SHOT(page, "g3-report-preview");
     await page.click("#dlg #gxRepPrint"); await page.waitForTimeout(500);
     ok(await page.evaluate(() => window.__printed) === 1 && await page.locator("#sbPrint .pp-gc tbody tr").count() === 3, "Print prints the report");
-    // the desktop app makes a PDF instead of the system print dialog (no preview there): Print opens it, Download asks where to save
     await page.evaluate(() => { window.__pdf = []; window.studiosoDesktop = Object.assign(window.studiosoDesktop || {}, {printPdf: async o => { window.__pdf.push([o, document.body.classList.contains("sb-printing"), !!document.querySelector("#sbPrint .pp-gc")]); return o.mode === "save" ? {ok: true, saved: true, name: "r.pdf"} : {ok: true, opened: true}; }, openSavedPdf: async () => true}); document.body.classList.remove("sb-printing"); });
     await page.click('#gxOver [data-act="gx-report"]'); await page.waitForTimeout(300); await page.click("#dlg #gxRepSave"); await page.waitForTimeout(400);
     const pdf = await page.evaluate(() => window.__pdf);
@@ -231,7 +215,7 @@ const DB = (page, f) => page.evaluate(f);
     ok(!errs.length, "no errors in the project: " + errs.join(" | "));
     await page.context().close();
 
-    // ---------- A study group made Pro: Split Exam Topics ----------
+    // A study group made Pro
     ({page, errs} = await boot(browser, {me: "u1", kind: "study", pro: true}));
     await openGroup(page);
     ok(await page.locator("#gxTopics").count() === 1, "a Pro study group has Split Exam Topics on its Study tab");
@@ -248,7 +232,6 @@ const DB = (page, f) => page.evaluate(f);
     ok(await DB(page, () => window.__DB.group_items.some(i => i.kind === "topic" && i.data.done)), "marking my topic shared is saved");
     await tab(page, "sessions");
     ok(await page.locator("#gxLive").count() === 1 && await page.locator('#gxFind [data-act="gx-ft"]').count() === 1, "Sessions has Find a Time and the Live Quiz");
-    // Any color (Pro groups): a picker and a code box, with a check against everyone else's color
     await DB(page, () => { window.__DB.group_members.forEach(m => { if (m.user_id === "u2") m.color = "#E5484D"; }); });
     await click(page, "grp-color", await DB(page, () => window.__DB.study_groups[0].id)); await page.waitForSelector("#dlg[open] #mcAny");
     ok(await page.locator("#dlg[open] .mc-any .pro-badge").count() === 1, "Any Color shows with a PRO badge");
@@ -264,13 +247,12 @@ const DB = (page, f) => page.evaluate(f);
     ok(!errs.length, "no errors in the study group: " + errs.join(" | "));
     await page.context().close();
 
-    // ---------- A free group (nobody made it Pro) ----------
+    // A free group (nobody made it Pro)
     ({page, errs} = await boot(browser, {me: "u1", kind: "project", pro: false, seed: true}));
     await openGroup(page);
     await click(page, "grp-color", await DB(page, () => window.__DB.study_groups[0].id)); await page.waitForSelector("#dlg[open] .mc-grid");
     ok(await page.locator("#dlg[open] .mc-any.is-locked .pro-badge").count() === 1 && await page.locator("#dlg[open] #mcAny").count() === 0, "a free group shows Any Color locked, with the PRO badge");
     await page.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); }); await page.waitForTimeout(200);
-    // with Studyboard Pro yourself, Any Color is open in any group
     await page.evaluate(() => { const P = window.__sbPlanObj(); window.__proWas = P.isPro; P.isPro = () => true; });
     await click(page, "grp-color", await DB(page, () => window.__DB.study_groups[0].id)); await page.waitForSelector("#dlg[open] .mc-grid");
     ok(await page.locator("#dlg[open] .mc-any:not(.is-locked)").count() === 1 && await page.locator("#dlg[open] #mcAny").count() === 1, "with Studyboard Pro yourself, Any Color is open even in a free group");

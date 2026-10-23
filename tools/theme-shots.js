@@ -1,10 +1,4 @@
-// node tools/theme-shots.js <theme id> [more ids] [--out dir] [--quick | --gallery]     (Playwright + Chromium)
-// Opens the real app (index.html) with each theme on and saves screenshots, so new scenes and companions can be checked by eye:
-//   <id>-light-c0.png, -c1, -c2   Task Board in light mode with each of the theme's three companions
-//   <id>-dark-c0.png              the same in dark mode (night scene)
-//   <id>-light-finish.png / -dark-finish.png (+ finish2)   2.2 s and 4.7 s into the "task finished" moment, with the board hidden
-//   <id>-phone-light.png          a phone-sized window
-// --quick: only light-c0, dark-c0 and the finish shots. --gallery: the same plus the phone shot. Prints every console error and page error, and exits 1 if there were any.
+// node tools/theme-shots.js <theme id> [more ids] [--out dir] [--quick | --gallery]
 const http = require("http"), fs = require("fs"), path = require("path"), os = require("os");
 const {chromium, executablePath} = require("../tests/pw");
 const root = path.join(__dirname, "..");
@@ -48,10 +42,9 @@ async function open(browser, id, scheme, pick, viewport) {
 }
 const shot = (page, name) => page.screenshot({path: path.join(OUT, name + ".png")}).then(() => console.log("saved", path.join(OUT, name + ".png")));
 async function finish(page, name) {
-  // the scene's own finish moment ("Play Scene Moment" in the menu); a button with the same action is clicked so the app's own handler runs
   const ok = await page.evaluate(() => { const b = document.createElement("button"); b.setAttribute("data-act", "scene-moment"); b.style.cssText = "position:fixed;left:0;top:0;opacity:0"; document.body.appendChild(b); b.click(); b.remove(); return true; });
   if (!ok) errors.push("could not start the scene moment");
-  await page.waitForTimeout(400); await page.addStyleTag({content: "#view,.sheet,.toast,[role=dialog]{visibility:hidden!important}"});   // the scene's own finish moment, without the board over it
+  await page.waitForTimeout(400); await page.addStyleTag({content: "#view,.sheet,.toast,[role=dialog]{visibility:hidden!important}"});
   await page.waitForTimeout(1800); await shot(page, name);
   await page.waitForTimeout(2500); await shot(page, name + "2");
 }

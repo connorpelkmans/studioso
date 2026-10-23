@@ -1,7 +1,7 @@
 /* ===== module: 10-plan.css ===== */
 /* Studyboard Pro sheet, Your Devices, and the Settings row */
 dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}
-@media (max-width:600px){dialog:has(.plan-sheet){width:100%}}   /* phones: full width like every other sheet (they sit at the left edge, so a narrower one looked off centre) */
+@media (max-width:600px){dialog:has(.plan-sheet){width:100%}}
 .plan-sheet{--pro-a:#FFB443;--pro-b:#FF5C8A;--pro-glow:color-mix(in srgb,var(--pro-b) 22%,transparent)}
 .plan-sheet .sheet-body{display:flex;flex-direction:column;gap:14px}
 .plan-sheet .sheet-body > *{flex:none}
@@ -9,13 +9,13 @@ dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}
   background:color-mix(in srgb,var(--pro-a) 13%,var(--surface));border:1px solid color-mix(in srgb,var(--pro-a) 45%,var(--line));color:var(--ink)}
 .plan-reason svg{width:20px;height:20px;flex:none;margin-top:1px;color:color-mix(in srgb,var(--pro-a) 70%,var(--ink))}
 
-.plan-hero{--hero-a:#4ADE80;--hero-b:#16A34A;--hero-glow:color-mix(in srgb,var(--hero-b) 30%,transparent);   /* Free plan: green */
+.plan-hero{--hero-a:#4ADE80;--hero-b:#16A34A;--hero-glow:color-mix(in srgb,var(--hero-b) 30%,transparent);
   position:relative;display:flex;align-items:center;gap:14px;padding:16px;border-radius:16px;overflow:hidden;
   background:radial-gradient(120% 140% at 0% 0%,color-mix(in srgb,var(--hero-a) 18%,transparent),transparent 55%),
              radial-gradient(120% 140% at 100% 100%,color-mix(in srgb,var(--hero-b) 14%,transparent),transparent 60%),
              color-mix(in srgb,var(--surface) 92%,var(--paper));
   border:1px solid color-mix(in srgb,var(--hero-b) 22%,var(--line))}
-.plan-hero.is-pro{--hero-a:var(--pro-a);--hero-b:var(--pro-b);--hero-glow:var(--pro-glow)}   /* Pro bought: orange */
+.plan-hero.is-pro{--hero-a:var(--pro-a);--hero-b:var(--pro-b);--hero-glow:var(--pro-glow)}
 .plan-hero b{display:block;font:700 1.08rem var(--display);color:var(--ink)}
 .plan-hero .mini{margin:3px 0 0;line-height:1.4}
 .plan-orb{flex:none;display:grid;place-items:center;width:46px;height:46px;border-radius:50%;color:#fff;

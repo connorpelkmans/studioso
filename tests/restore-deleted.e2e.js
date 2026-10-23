@@ -1,7 +1,4 @@
-// node tests/restore-deleted.e2e.js  (Playwright + Chromium)
-// A device whose data never synced (a fresh desktop install restored from the Studyboard folder, an old browser copy) must never bring back
-// what the account deleted: on the first sign-in, anything in the account's deletion log is left out (kept in a device backup) and only the
-// rest is uploaded. Another account's folder copy, or a restored copy that can't be checked, is set aside instead of merged in.
+// node tests/restore-deleted.e2e.js (Playwright + Chromium) A device whose data never synced
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -20,7 +17,6 @@ const DATA = {v: 2, updated: 1, settings: {}, courses: [{id: "c1", name: "Old Co
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
-  // from: what the folder restore recorded (null: not restored); deleted: ids in the account's deletion log; fail: the log can't be read
   const run = async (from, deleted, fail) => {
     const ctx = await browser.newContext({serviceWorkers: "block"}); await ctx.route(/supabase\.co/, r => r.abort());
     await ctx.addInitScript(([d, from]) => { window.__SB_TEST = true; try { if (!sessionStorage.getItem("seeded")) { sessionStorage.setItem("seeded", "1");

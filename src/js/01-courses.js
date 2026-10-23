@@ -1,8 +1,8 @@
 /* ===== module: 01-courses.js: the app's core, Timeline, Courses and Archive ===== */
-/* ---------- Timeline ---------- */
+/* Timeline */
 const TYPE_ICONS = {
   Assignment: '<path d="M7 3h8l4 4v14H7z"/><path d="M15 3v4h4M10 12h6M10 16h6"/>',
-  Exam: '<g transform="translate(0 1.8)"><path d="M12 3l9 4-9 4-9-4z"/><path d="M7 9.5V14c0 1.5 2.2 3 5 3s5-1.5 5-3V9.5"/></g>',   // the cap spans y 3 to 17, so it is nudged down to sit in the middle of the box
+  Exam: '<g transform="translate(0 1.8)"><path d="M12 3l9 4-9 4-9-4z"/><path d="M7 9.5V14c0 1.5 2.2 3 5 3s5-1.5 5-3V9.5"/></g>',
   Quiz: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/>',
   Reading: '<path d="M3 5.5C5 4.5 8 4.5 12 6.5c4-2 7-2 9-1v13c-2-1-5-1-9 1-4-2-7-2-9-1z"/><path d="M12 6.5v13"/>',
   Project: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12L4 7.5M12 12v9"/>',
@@ -11,7 +11,7 @@ const TYPE_ICONS = {
   Other: '<circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="9"/>'
 };
 function typeIcon(type){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${TYPE_ICONS[type] || TYPE_ICONS.Other}</svg>`; }
-// Phones show the Timeline as the month calendar only: the chart needs a wide screen
+// Phones show the Timeline as the month calendar only
 const tlPhone = () => innerWidth < 640;
 { let was = null; addEventListener("resize", () => { const now = tlPhone(); if (was !== null && now !== was && typeof ui !== "undefined" && ui.tab === "timeline") render(); was = now; }); }
 function viewTimeline(){
@@ -21,15 +21,13 @@ function viewTimeline(){
 }
 function viewBars(mode){
   const today = todayISO();
-  const all = visibleTasks().filter(t => t.status !== "done");     // finished work leaves the timeline
+  const all = visibleTasks().filter(t => t.status !== "done");
   const ts = all.filter(t => t.due);
   const noDue = all.length - ts.length;
   const dw = {week: 42, month: 22, term: 9}[ui.tlZoom] || 22;
   const LW = window.matchMedia("(min-width:700px)").matches ? 230 : 140;
   let min = addDays(today, ui.tlZoom === "term" ? -60 : ui.tlZoom === "week" ? -14 : -30), max = addDays(today, ui.tlZoom === "term" ? 100 : 40);
   ts.forEach(t => { const s = startOf(t); if (s < min) min = s; if (t.due > max) max = t.due; });
-  // At most about six months back and thirteen ahead: one old unfinished task (or a far-off date) would otherwise stretch the chart over
-  // years of empty days, and drawing tens of thousands of day cells made opening the Calendar freeze for a second or more
   const floor = addDays(today, -183), ceil = addDays(today, 400);
   if (min < floor) min = floor; if (max > ceil) max = ceil;
   min = mondayOf(addDays(min, -3)); max = addDays(max, 10);
@@ -89,7 +87,6 @@ function viewCalendar(mode){
   const dows = [];
   for (let i = 0; i < 7; i++) { const d = new Date(2023, 0, 1 + i); dows.push(`<div class="dow" aria-hidden="true">${d.toLocaleDateString(undefined, {weekday:"narrow"})}</div>`); }
   let cells = "";
-  // Only the weeks this month reaches: no last row made entirely of next month's days
   const weeks = Math.ceil((first.getDay() + new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate()) / 7);
   for (let i = 0; i < weeks * 7; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i);
@@ -113,7 +110,7 @@ function viewCalendar(mode){
     ${dayTasks.length ? taskList(dayTasks) : `<div class="empty">Nothing due. <button class="link-btn" data-act="new-task" data-due="${ui.calDay}">Add a Task Due This Day</button></div>`}`;
 }
 
-/* ---------- Courses ---------- */
+/* Courses */
 function viewCourses(){
   if (ui.courseId) {
     const c = courseOf(ui.courseId);
@@ -130,7 +127,6 @@ function viewCourses(){
     const hrs = weekHours(open, mondayOf(today));
     const doneN = ts.length - open.length, nFiles = Object.values(state.files).filter(f => f.courseId === c.id).length;
     const gn = window.SBGRADES && SBGRADES.now(c), pill = courseStatusPill(open, today);
-    // Direction 1: a band in the course colour, the course's initials in a ring, what's next, progress, then the grade and one status pill
     return `<div class="course-wrap" data-sort-id="${esc(c.id)}"><button class="course-card c2-card" style="--c:${esc(c.color)}" data-code="${esc(courseLabel(c))}" data-act="open-course" data-id="${esc(c.id)}">
       <span class="c2-band"><span class="g2-kick">${esc(courseLabel(c))}</span>${courseTimesText(c) ? `<span class="c2-sched">${esc(courseTimesText(c))}</span>` : ""}</span>
       <span class="c2-top"><span class="g2-ring c2-ring" aria-hidden="true">${courseRingHtml(c)}</span><h3>${esc(c.name)}</h3></span>
@@ -138,12 +134,12 @@ function viewCourses(){
         ${courseNextHtml(open, today)}
         ${ts.length ? `<div class="prog" style="--c:${esc(c.color)}"><span class="track"><i style="width:${(doneN / ts.length * 100).toFixed(0)}%"></i></span>${doneN} of ${ts.length} done${nFiles ? `, ${nFiles} file${nFiles === 1 ? "" : "s"}` : ""}</div>` : ""}
         ${gn || hrs > 0 || pill ? `<span class="c2-foot">${gn && gn.pct != null ? `<span class="c2-grade">Grade <b>${esc(gn.fmt(gn.pct))}</b>${gn.letter ? `<span class="c2-letter">${esc(gn.letter)}</span>` : ""}<span class="mini">· ${esc(gn.fmt(gn.marked))} marked</span></span>` : gn ? `<span class="mini">No marks yet</span>` : hrs > 0 ? `<span class="mini"><b>${fmtH(hrs)}</b> this week</span>` : "<span></span>"}${pill}</span>` : ""}
-      </span></button></div>`;   // (the course's school-site link is in its page header, not on the card)
+      </span></button></div>`;
   }).join("");
   return `<div class="view-head"><h2>Your Courses</h2>${proBtns("courses")}${trashBtn("course")}</div><div class="course-list" data-sortable="courses">${cards}</div>
     <div class="term-bar"><span>${ARCHIVE_SM}Term over? Put its courses and tasks away, and bring anything back later.</span><button class="btn small" data-act="new-term">Start a New Term</button><button class="btn small" data-act="archive-open">Open Archive${(n => n ? ` (${n})` : "")(allCourses().filter(c => c.archived).length)}</button></div>`;
 }
-// The line under a course's name: what's due next, and how many are late
+// The line under a course's name
 function courseNextHtml(open, today){
   const dated = open.filter(t => t.due).sort((a, b) => (a.due + (a.time || "99")).localeCompare(b.due + (b.time || "99")));
   const late = dated.filter(t => t.due < today).length, next = dated.find(t => t.due >= today);
@@ -151,9 +147,9 @@ function courseNextHtml(open, today){
   const lateHtml = late ? `<span class="late">${late} late</span>` : "";
   return next ? `<div class="next">Next: <b>${esc(next.title)}</b> · ${esc(fmtShort(next.due))}</div>` : late ? `<div class="next">${lateHtml}</div>` : "";
 }
-// 30 study-topic icons a course can wear in its ring (Edit Course > Icon). Line drawings on a 24 grid, in the course colour.
+// 30 study-topic icons a course can wear in its ring (Edit Course > Icon)
 const COURSE_ICONS = {
-  // classes: a = course colour, b = light tint, w = white, y = warm yellow, g = leaf green, r = red, sa = a thick stroke in the course colour; plain lines are dark ink
+  // classes: a = course colour, b = light tint, w = white, y = warm yellow, g = leaf green
   bio: ["Biology", '<path class="sa" d="M8 3c0 5 8 6 8 9s-8 4-8 9"/><path class="sb" d="M16 3c0 5-8 6-8 9s8 4 8 9"/><path d="M9 6h6M9.5 18h5M10 9.5h4M10 14.5h4"/>'],
   chem: ["Chemistry", '<path class="b" d="M10 3v6l-5.5 9.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3z"/><path class="a" d="M6.6 14.5h10.8l2.1 4A1.7 1.7 0 0 1 18 21H6a1.7 1.7 0 0 1-1.5-2.5z"/><path d="M9 3h6M10 3v6l-5.5 9.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3"/><circle class="w" cx="10" cy="17.5" r="1"/><circle class="w" cx="13.5" cy="18.5" r=".7"/>'],
   phys: ["Physics", '<ellipse cx="12" cy="12" rx="9" ry="3.6"/><ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(-60 12 12)"/><circle class="a" cx="12" cy="12" r="2.6"/>'],
@@ -207,12 +203,9 @@ const COURSE_ICONS = {
   fin: ["Finance", '<path class="a" d="M5 11a7 6 0 0 1 12.5-2.5H20v3l-1.5.8A6 6 0 0 1 16 16v3h-2.5v-1.6a8 8 0 0 1-3 0V19H8v-3a6 6 0 0 1-3-5z"/><circle class="w" cx="15" cy="10.5" r=".9"/><circle class="y" cx="11" cy="4.5" r="2"/>'],
   note: ["General", '<rect class="a" x="5" y="3" width="14" height="18" rx="2"/><rect class="b" x="8" y="6.5" width="8" height="3.5" rx=".8"/><path d="M5 7H3.5M5 12H3.5M5 17H3.5"/>']
 };
-// Each icon's drawing measured and centred in a square (so a heart or stethoscope sits in the middle of its circle)
-// Each icon's frame. Most are centred on their outline; the open and rising shapes (stethoscope, the up-arrow charts) sit a little
-// lower than that, since centred by outline they read as high in their circle.
+// Each icon's drawing measured and centred in a square
 const COURSE_ICON_VB = {"bio":"1.6 1.6 20.8 20.8","chem":"1.6 1.6 20.8 20.8","phys":"1.01 1.01 21.99 21.99","math":"1.6 1.6 20.8 20.8","geom":"2.6 2.6 18.8 18.8","stats":"2.1 1.9 19.8 19.8","code":"1.1 1.1 21.8 21.8","eng":"1.4 1.4 21.2 21.2","geo":"1.6 1.6 20.8 20.8","hist":"1.6 1.6 20.8 20.8","pol":"1.6 1.6 20.8 20.8","lang":"2.1 1.1 19.8 19.8","lit":"2.51 2.91 18.99 18.99","write":"1.6 2.1 20.3 20.3","art":"1.6 1.6 20.8 20.8","music":"1.7 1.6 20.6 20.6","drama":"2.6 1.6 18.8 18.8","psych":"1.83 1.83 20.34 20.34","econ":"1.6 0.45 20.8 20.8","biz":"1.6 0.4 20.8 20.8","law":"0.6 0.55 22.8 22.8","nurse":"2.6 -0.6 21.1 21.1","health":"2.07 1.58 19.85 19.85","astro":"-0.36 -1.16 24.72 24.72","env":"3.6 3.6 16.8 16.8","phil":"1.6 1.6 20.8 20.8","soc":"1.6 1.4 21.3 21.3","edu":"2.1 1.6 19.8 19.8","sport":"0.6 0.6 22.8 22.8","acct":"1.6 1.6 20.8 20.8","micro":"1.14 0.68 21.72 21.72","calc":"1.6 1.6 20.8 20.8","robot":"1.6 -0.3 20.8 20.8","med":"1.6 1.6 20.8 20.8","pharm":"0.88 1.88 18.74 18.74","photo":"1.6 2.1 20.8 20.8","film":"1.6 1.4 20.8 20.8","design":"1.6 1.6 20.8 20.8","arch":"1.1 1.1 21.8 21.8","agri":"2.1 3.1 19.3 19.3","geol":"1.1 1.1 21.8 21.8","marine":"1.6 2.1 19.8 19.8","data":"1.6 1.6 20.8 20.8","it":"0.6 0.85 22.8 22.8","cook":"1.58 1.72 20.14 20.14","elec":"0.1 0.6 22.8 22.8","mech":"1.58 1.98 18.87 18.87","vet":"2.55 2 18.9 18.9","mkt":"2.6 2.37 18.85 18.85","fin":"2.85 0.4 19.3 19.3","note":"0.85 1.6 20.8 20.8"};
-// Course icons made with AI (Pro): kept in settings.customIcons as {id, name, svg, vb}. Their markup is cleaned to a small
-// whitelist of shapes, attributes and style classes when made and again when drawn, so synced data can't carry anything else.
+// Course icons made with AI (Pro)
 const CI_TAGS = new Set(["path", "circle", "ellipse", "rect", "line", "polyline", "polygon", "g"]);
 const CI_CLS = new Set(["a", "b", "w", "y", "g", "r", "sa", "sb", "ws"]);
 const CI_ATTR = {d: /^[MmLlHhVvCcSsQqTtAaZz0-9.,\s-]{1,2000}$/, transform: /^((rotate|translate|scale)\(\s*-?[0-9.]+(\s*[ ,]\s*-?[0-9.]+){0,2}\s*\)\s*){1,3}$/, points: /^[0-9.,\s-]{1,800}$/};
@@ -236,7 +229,7 @@ const customIcons = () => Array.isArray(state.settings && state.settings.customI
 const customIcon = k => typeof k === "string" && k.startsWith("x:") ? customIcons().find(x => "x:" + x.id === k) || null : null;
 const CI_CACHE = new Map();
 const customIconSvg = (k, cls) => { const ic = customIcon(k); if (!ic) return ""; const key = k + "|" + ic.svg; if (!CI_CACHE.has(key)) CI_CACHE.set(key, ciClean(ic.svg)); const vb = /^-?[0-9.]+ -?[0-9.]+ [0-9.]+ [0-9.]+$/.test(ic.vb || "") ? ic.vb : "0 0 24 24"; return `<svg class="${cls || "ci-svg"}" viewBox="${vb}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${CI_CACHE.get(key)}</svg>`; };
-// Make a course icon with AI: describe it, the AI draws it with the same shapes and colour classes as the built-in icons
+// Make a course icon with AI
 let ciPending = null;
 function ciMeasure(markup){
   try {
@@ -247,8 +240,7 @@ function ciMeasure(markup){
     return `${r(cx - side / 2)} ${r(cy - side / 2)} ${r(side)} ${r(side)}`;
   } catch (e) { return "0 0 24 24"; }
 }
-// AI course icons: three different drafts, each planned before it's drawn; then the drafts are rendered and shown back to the AI,
-// which checks each against the request and redraws it cleaner. Returns up to three {id, name, svg, vb}.
+// AI course icons
 let ciCands = [];
 const CI_STYLE = `Style rules (follow exactly):
 - A 24 by 24 viewBox. Use only path, circle, ellipse, rect, line, polyline, polygon and g. No text, gradients, style attributes, ids or colours: every shape gets a 2-unit dark outline automatically.
@@ -261,8 +253,7 @@ const CI_CRAFT = `How to make it look good:
 - Centre it and fill the space: the drawing should span about 18 to 20 units in its longer direction, within 2 to 22 on both axes.
 - Keep lines at least 1.5 units apart so it reads at 32 pixels. Fewer, larger parts beat many small ones.`;
 // Icons from Lucide (ISC licence, lucide.dev): ~1,800 professionally drawn 24x24 icons in the same rounded-stroke style as these.
-// The library loads from the jsDelivr CDN only when you make an icon (then the browser keeps it). Search happens here; the AI only
-// suggests search words and picks from what was found, so it costs a couple of short requests instead of drawing SVG by hand.
+// The library loads from the jsDelivr CDN only when you make an icon
 const LU_BASE = "https://cdn.jsdelivr.net/npm/lucide-static@1.49.0/";
 // Lucide's licence (and Feather's, for the icons Lucide took from it), shown in full under Settings, About, Credits and licenses
 const LU_LICENSE = "ISC License\n\nCopyright (c) 2026 Lucide Icons and Contributors\n\nPermission to use, copy, modify, and/or distribute this software for any\npurpose with or without fee is hereby granted, provided that the above\ncopyright notice and this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES\nWITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF\nMERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR\nANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES\nWHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN\nACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF\nOR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.\n\nSome Lucide icons are derived from the Feather project:\nairplay, alert-circle, alert-octagon, alert-triangle, aperture, arrow-down-circle, arrow-down-left, arrow-down-right, arrow-down, arrow-left-circle, arrow-left, arrow-right-circle, arrow-right, arrow-up-circle, arrow-up-left, arrow-up-right, arrow-up, at-sign, calendar, cast, check, chevron-down, chevron-left, chevron-right, chevron-up, chevrons-down, chevrons-left, chevrons-right, chevrons-up, circle, clipboard, clock, code, columns, command, compass, corner-down-left, corner-down-right, corner-left-down, corner-left-up, corner-right-down, corner-right-up, corner-up-left, corner-up-right, crosshair, database, divide-circle, divide-square, dollar-sign, download, external-link, feather, frown, hash, headphones, help-circle, info, italic, key, layout, life-buoy, link-2, link, loader, lock, log-in, log-out, maximize, meh, minimize, minimize-2, minus-circle, minus-square, minus, monitor, moon, more-horizontal, more-vertical, move, music, navigation-2, navigation, octagon, pause-circle, percent, plus-circle, plus-square, plus, power, radio, rss, search, server, share, shopping-bag, sidebar, smartphone, smile, square, table-2, tablet, target, terminal, trash-2, trash, triangle, tv, type, upload, x-circle, x-octagon, x-square, x, zoom-in, zoom-out\n\nThe MIT License (MIT) (for the Lucide icons derived from Feather)\n\nCopyright (c) 2013-present Cole Bemis\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.";
@@ -278,7 +269,7 @@ async function luLoad(){
 const LU_STOP = new Set(["a", "an", "the", "and", "or", "with", "of", "for", "in", "on", "to", "icon", "my", "some", "its", "their"]);
 const luWords = t => String(t || "").toLowerCase().replace(/[^a-z0-9\s-]/g, " ").split(/[\s-]+/).filter(w => w && !LU_STOP.has(w));
 const luStem = w => w.replace(/(ies)$/, "y").replace(/(es|s)$/, "");
-// Icons scored against search words: the icon's name counts most, then its tags
+// Icons scored against search words
 function luSearch(lib, words, max){
   const ws = [...new Set(words.map(luStem).filter(w => w.length > 1))]; if (!ws.length) return [];
   const out = [];
@@ -290,8 +281,7 @@ function luSearch(lib, words, max){
   }
   return out.sort((a, b) => b.sc - a.sc || a.name.length - b.name.length).slice(0, max);
 }
-// A Lucide icon's shapes as this app's markup. Each shape is measured in the page: a closed (or nearly closed) shape fills, the big
-// ones in the course colour and the small ones in its light tint; lines stay plain outline.
+// A Lucide icon's shapes as this app's markup
 function luMarkup(lib, name){
   const nodes = lib.nodes[name]; if (!Array.isArray(nodes)) return "";
   const esc2 = v => String(v).replace(/[^-0-9a-zA-Z.,\s]/g, "");
@@ -306,9 +296,8 @@ function luMarkup(lib, name){
     sv.remove();
   } catch (e) {}
   const big = Math.max(0, ...info.filter(x => x.closed).map(x => x.area));
-  // a small shape, line or dot sitting inside a coloured one (a palette's dots, a calculator's keys, a book's spine) is white, so it still shows
   const inside = (x, k, m) => info.some((y, j) => j !== k && y.closed && y.area >= big * 0.3 && x.box && y.box && x.box.x >= y.box.x + m && x.box.y >= y.box.y + m && x.box.x + x.box.width <= y.box.x + y.box.width - m && x.box.y + x.box.height <= y.box.y + y.box.height - m);
-  return raw.map((m, k) => { const x = info[k] || {}; const cls = x.closed && big ? (x.area >= big * 0.3 ? "a" : inside(x, k, 0) ? "w" : "b") : big && inside(x, k, 1) ? "ws" : "";   // (lines and dots on a coloured shape: white too)
+  return raw.map((m, k) => { const x = info[k] || {}; const cls = x.closed && big ? (x.area >= big * 0.3 ? "a" : inside(x, k, 0) ? "w" : "b") : big && inside(x, k, 1) ? "ws" : "";
     return cls ? m.replace(/^<(\w+) /, `<$1 class="${cls}" `) : m; }).join("");
 }
 const luTitle = name => name.split("-").map(w => w ? w[0].toUpperCase() + w.slice(1) : "").join(" ");
@@ -316,7 +305,6 @@ async function ciFromLibrary(q, say){
   say("Finding icons…");
   const lib = await luLoad();
   let found = luSearch(lib, luWords(q), 40);
-  // Few good matches: one short request for other words to search with (synonyms, the usual symbol for it)
   if (found.filter(f => f.sc >= 4).length < 4) {
     const r = await aiCall({task: "rewrite", fast: true, maxTokens: 300, temperature: 0.2, schema: {type: "OBJECT", properties: {words: {type: "ARRAY", items: {type: "STRING"}}}, required: ["words"]},
       system: "You help find icons in an icon library. Give up to 10 single, common English words to search for: the object itself, synonyms, and the everyday symbol people would draw for it (for 'nursing': heart, stethoscope, syringe, cross, hospital). Lowercase nouns only.",
@@ -325,7 +313,6 @@ async function ciFromLibrary(q, say){
     found = luSearch(lib, luWords(q).concat(extra.flatMap(luWords)), 40);
   }
   if (!found.length) return [];
-  // One short request to pick the three that fit best (optionally with a small second icon as a badge)
   say("Choosing the best ones…");
   const list = found.map(f => `${f.name}: ${(lib.tags[f.name] || []).slice(0, 8).join(", ")}`).join("\n");
   const r2 = await aiCall({task: "rewrite", fast: true, maxTokens: 400, temperature: 0.2,
@@ -342,7 +329,6 @@ async function ciFromLibrary(q, say){
   }).filter(Boolean);
 }
 async function ciDraw(q, col, say){
-  // First the icon library (well drawn, and a fraction of the AI use); drawing from scratch only when it has nothing that fits
   try { const lib = await ciFromLibrary(q, say); if (lib.length) return lib; } catch (e) { console.warn("icon library", e); }
   return ciDrawFree(q, col, say);
 }
@@ -357,7 +343,6 @@ async function ciDrawFree(q, col, say){
     parts: [{text: `Draw three different icons of: ${q}\nMake each a different take (a different object, view or composition), and plan each one in "idea" before you draw it.`}]});
   let cands = keep(r && r.data && r.data.icons);
   if (!cands.length) return [];
-  // Polish: render the drafts, show them back and have each one checked and redrawn
   try {
     say("Polishing them…");
     const pics = await Promise.all(cands.map(c => ciPng(c, col)));
@@ -372,7 +357,7 @@ async function ciDrawFree(q, col, say){
   } catch (e) { console.warn("icon polish", e); }
   return cands;
 }
-// One icon as a PNG (base64), drawn as it appears in the app: course colour fills, a dark outline, on a white disc
+// One icon as a PNG (base64), drawn as it appears in the app
 function ciPng(c, col){
   return new Promise(res => {
     try {
@@ -426,8 +411,7 @@ hook("act", (act, el) => {
   return false;
 });
 const courseIconSvg = (k, cls) => customIcon(k) ? customIconSvg(k, cls) : COURSE_ICONS[k] ? `<svg class="${cls || "ci-svg"}" viewBox="${COURSE_ICON_VB[k] || "0 0 24 24"}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${COURSE_ICONS[k][1]}</svg>` : "";
-// What a course's ring holds: its chosen icon, else its initials (already escaped)
-// A course with no icon picked gets one from its name and code ("Calculus II" -> the integral sign), else the plain notebook
+// What a course's ring holds
 const COURSE_ICON_GUESS = [[/physical ed|phys ed|kinesi|sport|fitness|athlet/, "sport"], [/biochem|bio|genetic|cell|microbio|zoolog|botan/, "bio"], [/pharm/, "pharm"], [/chem/, "chem"], [/astro|space/, "astro"], [/phys/, "phys"],
   [/calc/, "calc"], [/stat/, "stats"], [/geom|trig/, "geom"], [/math|algebra|mat\b/, "math"], [/robot/, "robot"], [/data/, "data"], [/comput|\bcs\b|\bcsc|program|software|coding|cpsc|\bcomp\s?sci/, "code"], [/information tech|\bit\b|network|cyber|\bist\b/, "it"],
   [/electr/, "elec"], [/mechan/, "mech"], [/architect|\barch\b/, "arch"], [/engin|\beng\b|\bengr/, "eng"], [/geolog|earth sci/, "geol"], [/marine|ocean/, "marine"], [/geog|\bgis\b/, "geo"], [/hist/, "hist"], [/polit|govern|\bpols?\b|\bpoli/, "pol"],
@@ -440,13 +424,13 @@ const courseIconKey = c => { if (!c) return "note"; if (COURSE_ICONS[c.icon] || 
 const courseRingHtml = c => courseIconSvg(courseIconKey(c));
 // Work with no course ("General") always wears this one; it isn't offered for courses
 const GENERAL_ICON = `<svg class="ci-svg" viewBox="2.4 2.4 19.2 19.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect class="b" x="7" y="4" width="13" height="10" rx="2" transform="rotate(8 13.5 9)"/><rect class="a" x="4" y="9" width="13" height="10" rx="2"/><path class="ws" d="M7.5 13h6M7.5 15.8h4"/></svg>`;
-// A course's initials for its ring: the letters of its code ("BIO 101" -> BIO), else the first letters of its name
+// A course's initials for its ring
 function courseInitials(c){
   const m = String(c.code || "").match(/[A-Za-z]{2,5}/);
   if (m) return m[0].toUpperCase().slice(0, 4);
   return String(c.name || "?").split(/\s+/).filter(w => /^[A-Za-z]/.test(w)).slice(0, 2).map(w => w[0]).join("").toUpperCase() || "?";
 }
-// One pill for a course card: late work first, else the next thing due this week
+// One pill for a course card
 function courseStatusPill(open, today){
   const dated = open.filter(t => t.due), late = dated.filter(t => t.due < today).length;
   if (late) return `<span class="g2-pill late">${late} late</span>`;
@@ -473,7 +457,7 @@ function viewCourseDetail(c){
   return `<button class="back" data-act="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>All Courses</button>
     <div class="detail-head c2-head" style="--c:${esc(c.color)}">
       <div class="g2-band"><span class="g2-kick">${esc(courseLabel(c))}${courseTimesText(c) ? " · " + esc(courseTimesText(c)) : ""}${c.room ? " · " + esc(c.room) : ""}</span>
-        <div class="row-actions">${(l => l ? `<button class="btn small" data-act="lms-go" data-url="${esc(l.url)}">Open in ${esc(l.name)}</button>` : "")(lmsCourseLink(c))}${inClaude() ? "" : `<button class="btn small ai-btn" data-act="ask-course" data-sx-ask="1" data-id="${esc(c.id)}">${AI_ICON} Ask About This Course</button>`}${window.SBLEC ? SBLEC.btn(c) : ""}<button class="btn small" data-act="import-syllabus" data-course="${esc(c.id)}">Import Syllabus</button><button class="btn small" data-act="edit-course" data-id="${esc(c.id)}">Edit Course</button></div></div>
+        <div class="row-actions">${(l => l ? `<button class="btn small" data-act="lms-go" data-url="${esc(l.url)}">Open in ${esc(l.name)}</button>` : "")(lmsCourseLink(c))}${inPreview() ? "" : `<button class="btn small ai-btn" data-act="ask-course" data-sx-ask="1" data-id="${esc(c.id)}">${AI_ICON} Ask About This Course</button>`}${window.SBLEC ? SBLEC.btn(c) : ""}<button class="btn small" data-act="import-syllabus" data-course="${esc(c.id)}">Import Syllabus</button><button class="btn small" data-act="edit-course" data-id="${esc(c.id)}">Edit Course</button></div></div>
       <div class="g2-low"><span class="g2-ring" aria-hidden="true">${courseRingHtml(c)}</span>
         <div class="g2-txt"><h2>${esc(c.name)}</h2><div class="g2-meta">${c.code ? `<span class="g2-code">${esc(c.code)}</span>` : ""}<span>${esc(courseMetaLine(c))}</span></div></div></div>
       <!--cd-tabs--></div><!--cd-body-->
@@ -494,20 +478,19 @@ function viewCourseDetail(c){
     ${links ? `<h2 class="sec"><span class="t">Links</span></h2><dl class="facts">${links}</dl>` : ""}
     </aside></div>`;
 }
-// Teaching Team on a course page: the school site's list when it has one (staff: <li> rows), otherwise the instructor typed in Edit Course,
-// plus office hours. Wrapped in markers so the school-site module can swap in its list.
+// Teaching Team on a course page
 function courseTeamHtml(c, staff){
   const rows = staff || (c.instructor ? `<li><div class="bs-main"><b>${esc(c.instructor)}</b><span class="mini">Instructor</span></div></li>` : "");
   if (!rows && !c.office) return "<!--team--><!--/team-->";
   return `<!--team--><h2 class="sec"><span class="t">Teaching Team</span></h2><div class="bs-course">${rows ? `<ul class="bs-list lms-staff">${rows}</ul>` : ""}${c.office ? `<p class="mini c-office"><b>Office Hours</b> ${esc(c.office)}</p>` : ""}</div><!--/team-->`;
 }
-// The line under a course's name on its page: progress, exams coming and the grade so far
+// The line under a course's name on its page
 function courseMetaLine(c){
   const all = tasksArr().filter(t => t.courseId === c.id), done = all.filter(t => t.status === "done").length, today = todayISO();
   const ex = all.filter(t => t.status !== "done" && MILESTONE(t.type) && t.due && t.due >= today).length, gn = window.SBGRADES && SBGRADES.now(c);
   return [all.length ? `${done} of ${all.length} done` : "No tasks yet", ex ? `${ex} exam${ex === 1 ? "" : "s"} coming` : "", gn && gn.pct != null ? `${gn.fmt(gn.pct)}${gn.letter ? " " + gn.letter : ""} so far` : ""].filter(Boolean).join(" · ");
 }
-// The side card on a course's page: the grade so far and what's needed, with a way into the Grades tab
+// The side card on a course's page
 function courseGradeSide(c){
   const gn = window.SBGRADES && SBGRADES.now(c); if (!gn) return "";
   return `<section class="c2-card2"><h2 class="sec"><span class="t">Grade So Far</span><span class="n">${esc(gn.fmt(gn.marked))} marked</span></h2>
@@ -523,7 +506,7 @@ function courseFilesHtml(c){
 }
 
 
-/* ---------- Archive ---------- */
+/* Archive */
 const ARCHIVE_SM = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V9M10 13h4"/></svg>';
 function archRow(t){
   const c = courseOf(t.courseId), lab = statusLabels(t.type)[t.status] || STATUS_LABEL[t.status];
@@ -566,7 +549,6 @@ function viewArchive(){
     ${termHtml || `<div class="empty">No past terms yet. When a term ends, choose Start a New Term to put its courses and tasks away here.</div>`}`;
 }
 function seasonGuess(){
-  // Name the term after when most of the current tasks are due.
   const ds = tasksArr().filter(t => t.due && courseOf(t.courseId)).map(t => t.due).sort();
   const d = ds.length ? parse(ds[Math.floor(ds.length / 2)]) : new Date();
   const m = d.getMonth();
@@ -646,7 +628,6 @@ const AVAIL = (() => {
   const isT = x => typeof x === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(x);
   const toMin = t => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
   const toT = m => { m = Math.max(0, Math.min(1439, Math.round(m))); return p2(Math.floor(m / 60)) + ":" + p2(m % 60); };
-  // Calendar days as day numbers (UTC math on the date parts only, so local DST never matters)
   const dnum = s => { const [y, m, d] = s.split("-").map(Number); return Math.round(Date.UTC(y, m - 1, d) / 864e5); };
   const fromDn = n => new Date(n * 864e5).toISOString().slice(0, 10);
   const addD = (s, n) => fromDn(dnum(s) + n);
@@ -657,7 +638,6 @@ const AVAIL = (() => {
   const clampInt = (v, lo, hi, def) => { v = Math.round(Number(v)); return isFinite(v) ? Math.max(lo, Math.min(hi, v)) : def; };
   const str = (s, n) => String(s == null ? "" : s).replace(/[\u0000-\u001f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, n);
 
-  // One block, cleaned. Returns null when it could never occur (no days and no dates).
   function normBlock(b){
     if (!b || typeof b !== "object" || Array.isArray(b)) return null;
     const type = TYPES[b.type] ? b.type : "other";
@@ -686,10 +666,9 @@ const AVAIL = (() => {
     if (!o.dates.length && !o.days.length) return null;
     return o;
   }
-  // Settings. dayStart/dayEnd are the waking window; minChunk drops gaps too short to work in.
   function normCfg(c){
     c = c && typeof c === "object" ? c : {};
-    const tm = v => isT(v) ? toMin(v) : Number.isInteger(v) && v >= 0 && v <= 1440 ? v : null;   // "HH:MM" or minutes, so cleaning twice gives the same result
+    const tm = v => isT(v) ? toMin(v) : Number.isInteger(v) && v >= 0 && v <= 1440 ? v : null;
     const ds = tm(c.dayStart) == null ? 420 : tm(c.dayStart), de = tm(c.dayEnd) == null ? 1380 : tm(c.dayEnd);
     const ok = de - ds >= 120;
     return {dayStart: ok ? ds : 420, dayEnd: ok ? de : 1380, minChunk: clampInt(c.minChunk, 5, 180, 25), maxSession: clampInt(c.maxSession, 15, 240, 90),
@@ -706,7 +685,6 @@ const AVAIL = (() => {
     return {v: 1, blocks, cfg: normCfg(a.cfg)};
   }
 
-  // Does this block start on date d? Specific dates win over weekdays; term range and repeat-every-N-weeks apply to weekdays.
   function occursOn(b, d){
     if (b.dates.length) return b.dates.includes(d);
     if (b.from && d < b.from) return false;
@@ -718,7 +696,6 @@ const AVAIL = (() => {
     }
     return true;
   }
-  // Raw occurrences that START between from and to (inclusive): s/e are minutes from the start date's midnight, e can pass 1440 (overnight).
   function raw(blocks, from, to){
     const out = [];
     blocks.forEach(b => {
@@ -735,8 +712,6 @@ const AVAIL = (() => {
     });
     return out;
   }
-  // Display occurrences for [from, to]: same fields the app's schedule rows use, type "avail". An overnight block is two rows
-  // (evening of day 1, morning of day 2) that share one key, so skipping it skips both.
   function occurrences(blocks, from, to){
     const out = [];
     raw(blocks, addD(from, -1), to).forEach(o => {
@@ -752,7 +727,6 @@ const AVAIL = (() => {
     return out.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.start < b.start ? -1 : a.start > b.start ? 1 : 0);
   }
 
-  // Real minutes between two wall-clock times on a date (DST-aware through the runtime's time zone)
   function realMin(date, a, b){
     const [y, m, d] = date.split("-").map(Number);
     const r = Math.round((new Date(y, m - 1, d, Math.floor(b / 60), b % 60) - new Date(y, m - 1, d, Math.floor(a / 60), a % 60)) / 60000);
@@ -760,8 +734,6 @@ const AVAIL = (() => {
   }
   const CLINICAL = /clinical|practicum|placement|internship|co-?op|field ?work|preceptor|\bshift\b|practice (day|experience)|hospital|sim(ulation)? lab|site visit/i;
 
-  // Everything that takes the day's time, as wall-clock minute intervals clipped to the day (before the waking window is applied).
-  // ext: other timed things on the date, [{start, end, allDay, title, label}] (classes, events). done: [{s, e}] focus already done.
   function busy(date, blocks, cfg, ext, done){
     const iv = [], add = (s, e, kind, title) => { s = Math.max(0, s); e = Math.min(1440, e); if (e > s) iv.push({s, e, kind, title: title || TYPES[kind] && TYPES[kind].label || kind}); };
     const dn = dnum(date);
@@ -772,7 +744,6 @@ const AVAIL = (() => {
       add(o.s + off, o.e + off, b.type, b.title);
       if (b.bufB) add(o.s + off - b.bufB, o.s + off, "travel", "Travel to " + b.title);
       if (b.bufA) add(o.e + off, o.e + off + b.bufA, "travel", "Travel from " + b.title);
-      // Morning after a night shift: no study before noon
       if (cfg.recover && o.overnight && (b.type === "shift" || b.type === "work") && (o.e - 1440) < 720) add(o.e + off, 1440 + 720 + off, "recovery", "Recovery after " + b.title);
     });
     (ext || []).forEach(x => {
@@ -797,8 +768,6 @@ const AVAIL = (() => {
     return out;
   }
 
-  // A day's free intervals. opts: {blocks, cfg, ext, done, nowMin (clip the start to now for today)}.
-  // Returns {date, windows:[{s,e,min,a,b}], total (real minutes), largest, none, busy:[merged], ws, we}.
   function freeWindows(date, opts){
     opts = opts || {};
     const cfg = normCfg(opts.cfg), blocks = opts.blocks || [];
@@ -818,8 +787,6 @@ const AVAIL = (() => {
     return {date, windows, total, largest: windows.reduce((m, w) => Math.max(m, w.min), 0), none: total === 0, busy: mb, ws: cfg.dayStart, we, lo};
   }
 
-  // Put work into free windows, in the order given. tasks: [{id, min}]. A task that doesn't fit in one window is split across windows, and
-  // a task longer than maxSession is split with a short break. Returns {slots:[{id,s,e,min,part,of}], unplaced:{id:min}, placed}.
   function place(windows, tasks, o){
     o = o || {};
     const cfg = normCfg(o.cfg), maxS = o.maxSession || cfg.maxSession, brk = o.breakMin != null ? o.breakMin : cfg.breakMin, minSlot = o.minSlot || 15;
@@ -845,12 +812,11 @@ const AVAIL = (() => {
 
   const defFmt = m => { const h = Math.floor(m / 60) % 24, mm = m % 60, ap = h >= 12 ? "PM" : "AM"; return `${h % 12 || 12}${mm ? ":" + p2(mm) : ""} ${ap}`; };
   const rangeTxt = (w, f) => `${f(w.s)}–${f(w.e)}`;
-  // Plain-language line for today. opts: {nowMin, fmt(minutes) -> text}
   function explain(res, opts){
     opts = opts || {}; const f = opts.fmt || defFmt, now = opts.nowMin;
     const list = res.windows.map(w => rangeTxt(w, f)).join(" and ");
     let act = now != null ? res.busy.find(m => m.s <= now && m.e > now) : null;
-    if (act) { const cur = mainOf(act.parts.filter(p => p.s <= now && p.e > now)); act = Object.assign({}, act, {kind: cur.kind, title: cur.title}); }   // what you're doing right now, until the whole busy stretch ends
+    if (act) { const cur = mainOf(act.parts.filter(p => p.s <= now && p.e > now)); act = Object.assign({}, act, {kind: cur.kind, title: cur.title}); }
     const verb = m => m.kind === "recovery" ? "recovering from your night shift" : (TYPES[m.kind] ? TYPES[m.kind].verb : "busy");
     const what = verb;
     if (!res.windows.length) {
@@ -864,11 +830,10 @@ const AVAIL = (() => {
     return `Free ${now != null ? "for the rest of today" : "that day"}: ${list}.`;
   }
 
-  // ---- Typing helpers ----
+  // Typing helpers
   const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
   const DAYW = [["sun", "sunday"], ["mon", "monday"], ["tue", "tues", "tuesday"], ["wed", "weds", "wednesday"], ["thu", "thur", "thurs", "thursday"], ["fri", "friday"], ["sat", "saturday"]];
   const dayIdx = w => DAYW.findIndex(a => a.includes(String(w).toLowerCase().replace(/\.$/, "")));
-  // "Mon Nov 3, Wed Nov 5, 11/8, 2026-11-10, Nov 12-14" -> {dates, bad}. Years are guessed: the next such date, allowing 45 days back.
   function parseDates(text, today){
     const out = new Set(), bad = [], ty = Number(today.slice(0, 4));
     const mk = (m, d, y) => {
@@ -896,8 +861,6 @@ const AVAIL = (() => {
     });
     return {dates: [...out].sort(), bad};
   }
-  // "work Tue Thu 4-9pm", "shift 7a-7:30p Mon Wed Fri" -> a prefilled block, or null when it reads like an ordinary task
-  // (the first word must be a block word, and days plus a time range must account for everything else typed).
   function parseQuick(text){
     let s = " " + String(text || "").trim().replace(/\s+/g, " ") + " ";
     if (s.length > 170) return null;
@@ -945,7 +908,7 @@ function availState(){
 }
 const availBlocks = () => availState().blocks;
 const availCfg = () => availState().cfg;
-// Plan limits switch on once there's a block or the person has saved availability settings; until then Today's Plan behaves as before.
+// Plan limits switch on once there's a block or the person has saved availability settings
 const availActive = () => { const a = availState(); return a.blocks.length > 0 || a.cfg.set; };
 function availSet(v){ state.settings = Object.assign({}, state.settings, {avail: v}); saveSettings(); scheduleRender(); }
 function availCommit(next, label){
@@ -953,8 +916,7 @@ function availCommit(next, label){
   availSet(AVAIL.normAvail(next));
   if (label) toast(label, () => { availSet(prev); toast("Undone"); });
 }
-// For backup restore and import: replace the blocks without a toast
-// Brings back note boards, photo themes, look and companion from a backup. It only adds: boards and themes that are missing, and a look or companion if this device has none.
+// For backup restore and import
 function restoreSettingsFrom(src){
   try {
     if (!src || typeof src !== "object") return;
@@ -981,7 +943,7 @@ function availOccs(from, to){
     return o;
   });
 }
-// Timed things other than availability blocks (classes, events) per date, for the engine. One schedule read for the whole range.
+// Timed things other than availability blocks (classes, events) per date, for the engine
 function availExtMap(from, to){
   const m = {};
   schOccurrences(from, to).forEach(o => {
@@ -1009,7 +971,7 @@ function availToday(now){
   return {res, active: availActive()};
 }
 const availWhen = (day, today) => { for (let i = 1; i < day.length; i++) if (day[i] >= 0.5) return i === 1 ? "tomorrow" : parse(addDays(today, i)).toLocaleDateString(undefined, {weekday: "long"}); return "the coming days"; };
-// Fill in what Today's Plan can say about free time: the line, the notes, slots for each row
+// Fill in what Today's Plan can say about free time
 function availPlan(av, ranked, th0, needToday, day, today, now){
   const res = av.res, a = availState();
   const nowMin = now.getHours() * 60 + now.getMinutes();
@@ -1032,7 +994,7 @@ function availPlan(av, ranked, th0, needToday, day, today, now){
 }
 const availSlotText = list => list.map(s => availRange(s.s, s.e)).join(", then ");
 
-/* ---- Today's Plan: free time today, as chips ---- */
+/* -- Today's Plan */
 function availStripHtml(F){
   const a = F.avail; if (!a || !a.show) return "";
   const chips = a.res.windows.map(w => `<button type="button" class="av-chip" data-act="avail-focus" data-s="${w.s}" data-e="${w.e}" aria-label="Start a focus session in your free time, ${esc(availRange(w.s, w.e))}"><b>${esc(availRange(w.s, w.e))}</b><small>${esc(fmtHM(w.min / 60))}</small></button>`).join("");
@@ -1052,7 +1014,7 @@ function availFocus(s, e){
   openPomo(); pomoStart();
 }
 
-/* ---- Forms ---- */
+/* -- Forms */
 const AV_ORDER = ["class", "work", "shift", "travel", "other", "protected"];
 const AV_HELP = {class: "A class that isn't in your courses", work: "A job or work shift", shift: "Placement, clinical, practicum, rotation or other shifts", travel: "Time to get somewhere", other: "Sports, family, appointments", protected: "Meals, sleep, personal time. The planner never uses it"};
 function availSummary(b){
@@ -1182,7 +1144,6 @@ function availForm(block, preset){
     if (t === "protected" || t === "travel") { f.elements.bufB.value = "0"; f.elements.bufA.value = "0"; }
     timeSync();
   });
-  // Roster: typed dates plus a small month calendar
   const calDraw = () => {
     const first = calM + "-01", lead = (AVAIL.dow(first) + 6) % 7, [y, m] = calM.split("-").map(Number), nxt = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`, nd = AVAIL.dnum(nxt) - AVAIL.dnum(first);
     let cells = ""; for (let i = 0; i < lead; i++) cells += "<span></span>";
@@ -1219,7 +1180,7 @@ function availDuplicate(id){
   availCommit({blocks: availBlocks().concat(n), cfg: availCfg()}, `Duplicated ${b.title}`);
   setTimeout(() => availForm(availBlocks().find(x => x.id === n.id) || n), 60);
 }
-// Tap a block on the schedule: change just this day, or skip it
+// Tap a block on the schedule
 function availOccSheet(id, key){
   const b = availBlocks().find(x => x.id === id); if (!b) return;
   const sk = b.skip[key], skipped = !!(sk && sk.skip), moved = !!(sk && !sk.skip);
@@ -1247,7 +1208,7 @@ function avSetSkip(b, key, val, label){
   const n = clone(b); n.skip = Object.assign({}, n.skip); if (val) n.skip[key] = val; else delete n.skip[key];
   availCommit({blocks: availBlocks().map(x => x.id === b.id ? n : x), cfg: availCfg()}, label);
 }
-// Test and crunch-view hook: read-only
+// Test and crunch-view hook
 window.__sbAvail = {state: () => availState(), free: (d, nowMin) => availFreeDay(d, nowMin == null ? null : nowMin), occ: (a, b) => availOccs(a, b), plan: () => (FOCUS || computeFocus()).avail,
   // for tests
   view: o => { Object.assign(ui, o); render(); }, pomo: () => ({running: pomo.running, preset: pomo.preset, endAt: pomo.endAt, mode: pomo.mode, taskId: pomo.taskId}), pomoReset: () => { pomoReset(); const d = $("#pomoDlg"); if (d.open) d.close(); },

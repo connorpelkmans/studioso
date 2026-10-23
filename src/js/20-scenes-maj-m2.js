@@ -1,5 +1,5 @@
 /* ===== module: 20-scenes-maj-m2.js ===== */
-/* Study Fields themes, batch m2: compsci, engineering, education, comms */
+/* Study Fields themes, batch m2 */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const NOTES = ["#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"];
@@ -7,7 +7,7 @@
   const gearD = (() => { let d = ""; const N = 8, R = 10.6, r = 8.2; for (let i = 0; i < N; i++) { const a = i / N * Math.PI * 2, w = Math.PI / N; [[a - w * 0.42, r], [a - w * 0.26, R], [a + w * 0.26, R], [a + w * 0.42, r], [a + w * 0.58, r]].forEach(([b, rr], k) => { d += (i === 0 && k === 0 ? "M" : "L") + (Math.round(rr * Math.cos(b) * 100) / 100) + " " + (Math.round(rr * Math.sin(b) * 100) / 100); }); } return d + "Z M3.4 0a3.4 3.4 0 1 0 -6.8 0a3.4 3.4 0 1 0 6.8 0Z"; })();
   const hexD = (R, r) => { let d = ""; for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + Math.PI / 6; d += (i ? "L" : "M") + (Math.round(R * Math.cos(a) * 100) / 100) + " " + (Math.round(R * Math.sin(a) * 100) / 100); } return d + `Z M${r} 0a${r} ${r} 0 1 0 ${-2 * r} 0a${r} ${r} 0 1 0 ${2 * r} 0Z`; };
 
-  /* ---------- Code Night ---------- */
+  /* Code Night */
   MAJ_THEMES.push({
     skin: {id: "compsci", name: "Code Night", desc: "A glowing circuit-board city with data pulses.",
       light: ["#EAF6F1", "rgba(31,138,110,.10)", "#FFFFFF", "#12302A", "#4D6B63", "#CFE6DD", "#E0F0E9", "#F6FBF9", "#1B7F66", "#4FA58C", "#FFFFFF", "#145C49", "#1D5E4D", "#C9EDE2", "#FFE7A0"],
@@ -29,7 +29,7 @@
     tag: "A glowing circuit-board city where data pulses race along the traces and code brackets float"
   });
 
-  /* ---------- Gear Works ---------- */
+  /* Gear Works */
   MAJ_THEMES.push({
     skin: {id: "engineering", name: "Gear Works", desc: "A warm workshop wall with turning gears.",
       light: ["#F6F0E8", "rgba(176,94,40,.10)", "#FFFFFF", "#2A2018", "#6E5E50", "#E8DCCD", "#F1E8DD", "#FCF9F5", "#AE5A24", "#C47C4E", "#FFFFFF", "#6E3614", "#26405F", "#F3DCC8", "#FFE3A0"],
@@ -50,7 +50,7 @@
     tag: "A warm workshop wall with blueprints, turning brass gears and a truss bridge out the window"
   });
 
-  /* ---------- Sunny Classroom ---------- */
+  /* Sunny Classroom */
   MAJ_THEMES.push({
     skin: {id: "education", name: "Sunny Classroom", desc: "A bright classroom with a chalkboard.",
       light: ["#F7F3EA", "rgba(47,107,79,.10)", "#FFFFFF", "#22261E", "#626A5A", "#E4E3D6", "#EEECE2", "#FCFBF7", "#C2463A", "#D06E62", "#FFFFFF", "#7A2A22", "#2F5E47", "#F2D8D2", "#FFE38A"],
@@ -69,7 +69,7 @@
     tag: "A sunny classroom with chalk doodles, paper chains, an apple on the desk and trees outside"
   });
 
-  /* ---------- On Air ---------- */
+  /* On Air */
   MAJ_THEMES.push({
     skin: {id: "comms", name: "On Air", desc: "A cozy radio studio with a glowing ON AIR sign.",
       light: ["#F4F1F4", "rgba(194,58,74,.10)", "#FFFFFF", "#24202E", "#665E70", "#E2DCE4", "#ECE7EE", "#FBF9FB", "#C23A4A", "#D06A76", "#FFFFFF", "#7A1F2C", "#3A3152", "#F2D3D8", "#FFE3A0"],

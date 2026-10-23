@@ -1,5 +1,5 @@
 /* ===== module: 96-tp-mexico.js ===== */
-/* Theme Collection, world theme: mexico */
+/* Theme Collection, world theme */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2), S15 = SOw(1.6);
@@ -13,7 +13,7 @@
   const smile = (x, y, w = 2.4, sw = 1.9) => `<path d="M${x - w} ${y}q${w} ${w * .8} ${w * 2} 0" fill="none" stroke="${O}" stroke-width="${sw}" stroke-linecap="round"/>`;
   const flower = (x, y, r, c, ow = 1) => ring(x, y, 5, r * .6, (px, py) => `<circle cx="${px}" cy="${py}" r="${f1(r * .52)}" fill="${c}" ${SOw(ow)}/>`) + `<circle cx="${x}" cy="${y}" r="${f1(r * .34)}" fill="#FFD23F"/>`;
   const tflower = (x, y, r, c = "#2C58B2") => ring(x, y, 4, r * .55, (px, py) => `<circle cx="${px}" cy="${py}" r="${f1(r * .42)}" fill="${c}"/>`, Math.PI / 4) + `<circle cx="${x}" cy="${y}" r="${f1(r * .28)}" fill="#F2B43A"/>`;
-  // a papel picado flag of width w hung from (x, y): zigzag hem, a cut flower and little diamonds
+  // a papel picado flag of width w hung from (x, y)
   const papel = (x, y, w, c) => { const h = w * 1.2, s = w / 16; let hem = ""; for (let z = 1; z <= 6; z++) hem += `L${f1(x + w / 2 - z * w / 6)} ${f1(y + h - (z % 2 ? 2.4 * s : 0))}`;
     return `<path d="M${f1(x - w / 2)} ${y}H${f1(x + w / 2)}V${f1(y + h)}${hem}Z" fill="${c}" ${SOw(1.3)}/>` + ring(x, y + h * .46, 6, w * .14, (px, py) => `<circle cx="${px}" cy="${py}" r="${f1(w * .07)}" fill="#fff"/>`) + `<path d="M${f1(x - w * .3)} ${f1(y + h * .12)}l${f1(w * .07)} ${f1(w * .09)}l${f1(-w * .07)} ${f1(w * .09)}l${f1(-w * .07)} ${f1(-w * .09)}Z M${f1(x + w * .3)} ${f1(y + h * .12)}l${f1(w * .07)} ${f1(w * .09)}l${f1(-w * .07)} ${f1(w * .09)}l${f1(-w * .07)} ${f1(-w * .09)}Z" fill="#fff"/>`; };
   const tapeEdge = "M3 1.5H83L80 5.5L83 9.5L80 13.5L83 17.5L80 21.5L82 24.5H3L6 20.5L3 16.5L6 12.5L3 8.5L6 4.5z";

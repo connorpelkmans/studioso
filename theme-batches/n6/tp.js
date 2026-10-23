@@ -1,4 +1,4 @@
-/* Theme Collections, Study Fields batch n6: film, culinary, marinebio */
+/* Theme Collections, Study Fields batch n6 */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2), S15 = SOw(1.6);

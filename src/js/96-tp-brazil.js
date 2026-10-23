@@ -1,5 +1,5 @@
 /* ===== module: 96-tp-brazil.js ===== */
-/* Theme Collections, Around the World: brazil */
+/* Theme Collections, Around the World */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2);

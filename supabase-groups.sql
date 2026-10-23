@@ -1,18 +1,6 @@
--- Studyboard 1.11: Share Decks and Study Groups (1.12 adds shared quizzes, study sessions, weekly challenge, check-ins, reactions and pins; 1.13 adds Project Tasks)
--- Run this once in Supabase: SQL Editor > New query > paste everything > Run.
--- It is safe to run again (it only creates what is missing and refreshes the rules).
---
--- What it keeps safe:
---  * Your own planner data (the "items" table) is never touched or opened up. Only what you choose to
---    share is copied into the tables below.
---  * Group data can only be read by members of that group. Only the owner can rename, remove people or delete it.
---  * Share codes and invite codes are looked up one at a time through the functions at the bottom,
---    so nobody can list every shared deck or group.
+-- Studyboard 1.11
 
--- ---------- Codes like K7P4-QD9X (no 0/O or 1/I/L, made from secure random bytes) ----------
--- 8 characters from 31 letters and digits (about 40 bits); the 30-lookups-an-hour limit per account is what makes guessing one hopeless.
--- Each character comes from one random byte; bytes 248-255 are skipped so every character is equally likely (no modulo bias).
--- Codes made by older versions (6 or 10 characters, like K7P-4QD or K7P4Q-D9XWM) keep working.
+-- Codes like K7P4-QD9X (no 0/O or 1/I/L, made from secure random bytes)
 create or replace function public.sbg_new_code() returns text
 language plpgsql volatile set search_path = public as $$
 declare
@@ -36,14 +24,14 @@ begin
   return s;
 end $$;
 
--- Tidies a typed or pasted code: K7P4QD9X, k7p4-qd9x and "K7P4 QD9X" all become K7P4-QD9X; old 6- and 10-character codes keep their own shapes (K7P-4QD, K7P4Q-D9XWM).
+-- Tidies a typed or pasted code
 create or replace function public.sbg_norm_code(p text) returns text
 language sql immutable set search_path = public as $$
   select case length(x) when 8 then substr(x, 1, 4) || '-' || substr(x, 5, 4) else x end   -- codes are 8 characters (K7P4-QD9X), nothing else matches
   from (select upper(regexp_replace(coalesce(p, ''), '[^A-Za-z0-9]', '', 'g')) as x) q
 $$;
 
--- ---------- Tables ----------
+-- Tables
 create table if not exists public.study_profiles (
   user_id uuid primary key references auth.users(id) on delete cascade default auth.uid(),
   display_name text not null check (char_length(btrim(display_name)) between 1 and 40),
@@ -71,7 +59,7 @@ create table if not exists public.study_groups (
   invite_code text not null unique,
   created_at timestamptz not null default now()
 );
--- Deleting a group only hides it for 30 days (see "Deleted groups" at the end); this is when it was deleted.
+-- Deleting a group only hides it for 30 days (see "Deleted groups" at the end)
 alter table public.study_groups add column if not exists deleted_at timestamptz;
 
 create table if not exists public.group_members (
@@ -109,8 +97,7 @@ create table if not exists public.group_messages (
 create index if not exists group_messages_group_idx on public.group_messages (group_id, created_at desc);
 create index if not exists group_messages_user_idx on public.group_messages (user_id, created_at);   -- the posting limits below
 
--- ---------- Helpers used by the rules (security definer so the rules don't loop) ----------
--- A deleted group (waiting out its 30 days) has no members and no owner as far as every rule is concerned: hidden, and nothing changes.
+-- Helpers used by the rules (security definer so the rules don't loop)
 create or replace function public.sbg_is_member(gid uuid) returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (select 1 from public.group_members m join public.study_groups g on g.id = m.group_id
@@ -125,7 +112,7 @@ language sql stable security definer set search_path = public as $$
   select coalesce((select display_name from public.study_profiles where user_id = auth.uid()), 'Classmate')
 $$;
 
--- ---------- Row level security ----------
+-- Row level security
 alter table public.study_profiles enable row level security;
 alter table public.shared_decks enable row level security;
 alter table public.study_groups enable row level security;
@@ -133,7 +120,7 @@ alter table public.group_members enable row level security;
 alter table public.group_items enable row level security;
 alter table public.group_messages enable row level security;
 
--- Your profile: only you can read or change it. Groups see your name through group_members.
+-- Your profile: only you can read or change it
 drop policy if exists "profile own read" on public.study_profiles;
 create policy "profile own read" on public.study_profiles for select to authenticated using (user_id = auth.uid());
 drop policy if exists "profile own insert" on public.study_profiles;
@@ -141,13 +128,13 @@ create policy "profile own insert" on public.study_profiles for insert to authen
 drop policy if exists "profile own update" on public.study_profiles;
 create policy "profile own update" on public.study_profiles for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
--- Shared decks: you see and stop your own. Others only open one by its code (get_shared_deck).
+-- Shared decks: you see and stop your own
 drop policy if exists "shared deck own read" on public.shared_decks;
 create policy "shared deck own read" on public.shared_decks for select to authenticated using (owner_id = auth.uid());
 drop policy if exists "shared deck own delete" on public.shared_decks;
 create policy "shared deck own delete" on public.shared_decks for delete to authenticated using (owner_id = auth.uid());
 
--- Groups: members read; the owner renames (name and course only) and deletes. Creating is through create_group.
+-- Groups: members read; the owner renames (name and course only) and deletes
 drop policy if exists "group member read" on public.study_groups;
 create policy "group member read" on public.study_groups for select to authenticated using (public.sbg_is_member(id));
 drop policy if exists "group owner update" on public.study_groups;
@@ -158,7 +145,7 @@ revoke insert, update on public.study_groups from anon, authenticated;
 grant select, delete on public.study_groups to authenticated;
 grant update (name, course) on public.study_groups to authenticated;
 
--- Members: members see each other. You can leave; the owner can remove others. Joining is through join_group.
+-- Members: members see each other
 drop policy if exists "member read" on public.group_members;
 create policy "member read" on public.group_members for select to authenticated using (public.sbg_is_member(group_id));
 drop policy if exists "member leave or removed" on public.group_members;
@@ -167,7 +154,7 @@ create policy "member leave or removed" on public.group_members for delete to au
 revoke insert, update on public.group_members from anon, authenticated;
 grant select, delete on public.group_members to authenticated;
 
--- Shared decks and deadlines in a group: members read and share; you change your own; the owner can remove any.
+-- Shared decks and deadlines in a group
 drop policy if exists "item member read" on public.group_items;
 create policy "item member read" on public.group_items for select to authenticated using (public.sbg_is_member(group_id));
 drop policy if exists "item member insert" on public.group_items;
@@ -177,7 +164,7 @@ create policy "item own update" on public.group_items for update to authenticate
 drop policy if exists "item own or owner delete" on public.group_items;
 create policy "item own or owner delete" on public.group_items for delete to authenticated using (user_id = auth.uid() or public.sbg_is_owner(group_id));
 
--- Message board: members read and post (pinning and reactions go through pin_message and toggle_reaction); you delete your own; the owner can remove any.
+-- Message board
 drop policy if exists "message member read" on public.group_messages;
 create policy "message member read" on public.group_messages for select to authenticated using (public.sbg_is_member(group_id));
 drop policy if exists "message member insert" on public.group_messages;
@@ -189,7 +176,7 @@ revoke update on public.group_messages from anon, authenticated;
 revoke all on public.study_profiles, public.shared_decks, public.study_groups, public.group_members, public.group_items, public.group_messages from anon;
 revoke truncate, references, trigger on public.study_profiles, public.shared_decks, public.study_groups, public.group_members, public.group_items, public.group_messages from authenticated;
 
--- ---------- Triggers: names and times are filled in by the database, not the app ----------
+-- Triggers: names and times are filled in by the database, not the app
 create or replace function public.sbg_stamp() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
@@ -199,18 +186,15 @@ begin
     new.created_at := now();
     if tg_table_name = 'group_items' then
       new.updated_at := now();
-      -- Stops one account filling a group: at most 500 shared items per person in a group.
       if (select count(*) from public.group_items where group_id = new.group_id and user_id = new.user_id) >= 500 then
         raise exception 'This group already holds 500 of your shared items. Remove some first.';
       end if;
     end if;
     if tg_table_name = 'group_messages' then
-      -- Pins only change through pin_message (so the 3-pin limit and the owner/author rule can't be skipped), and posting is limited to 20 a minute.
       new.pinned := false;
       if (select count(*) from public.group_messages where user_id = new.user_id and created_at > now() - interval '1 minute') >= 20 then
         raise exception 'You are posting too fast. Try again in a minute.';
       end if;
-      -- And at most 500 a day across all your groups, so one account can't fill the message tables.
       if (select count(*) from public.group_messages where user_id = new.user_id and created_at > now() - interval '1 day') >= 500 then
         raise exception 'You have posted 500 messages today. Try again tomorrow.';
       end if;
@@ -240,8 +224,7 @@ end $$;
 drop trigger if exists sbg_profile_sync on public.study_profiles;
 create trigger sbg_profile_sync before insert or update on public.study_profiles for each row execute function public.sbg_profile_sync();
 
--- ---------- Functions the app calls ----------
--- Share (or update) one of your decks. Returns its code.
+-- Functions the app calls
 create or replace function public.share_deck(p_deck_id text, p_name text, p_data jsonb, p_count int) returns text
 language plpgsql security definer set search_path = public as $$
 declare c text; me uuid := auth.uid();
@@ -263,8 +246,7 @@ begin
   return c;
 end $$;
 
--- Open one shared deck by its code.
--- Lean: guessing codes is limited to 30 lookups an hour per account (only once lean.sql is installed).
+-- Open one shared deck by its code
 create or replace function public.sbg_lookup_ok() returns boolean
 language plpgsql volatile security definer set search_path = public as $$
 begin
@@ -284,7 +266,7 @@ begin
   where d.code = public.sbg_norm_code(p_code);
 end $$;
 
--- Make a group; you become its owner.
+-- Make a group; you become its owner
 create or replace function public.create_group(p_name text, p_course text) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare g uuid; c text; me uuid := auth.uid();
@@ -303,7 +285,7 @@ begin
   return g;
 end $$;
 
--- See a group before joining, by its invite code.
+-- See a group before joining, by its invite code
 drop function if exists public.group_preview(text);
 create or replace function public.group_preview(p_code text)
 returns table (id uuid, name text, course text, member_count int, owner_name text, is_member boolean)
@@ -319,10 +301,7 @@ begin
   where g.invite_code = public.sbg_norm_code(p_code) and g.deleted_at is null;
 end $$;
 
--- ---------- Removed by the owner: can't rejoin with the same invite code ----------
--- When the owner removes someone, a row here stops join_group from letting them straight back in. Leaving on your own records
--- nothing. Server only: no rules and no grants, so nobody can read or change it from the app. A removal stays until the group is
--- deleted (or that person deletes their account); to let someone back in, delete their row here in the SQL Editor.
+-- Removed by the owner
 create table if not exists public.group_bans (
   group_id uuid not null references public.study_groups(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -336,8 +315,6 @@ revoke all on public.group_bans from public, anon, authenticated;
 create or replace function public.sbg_member_removed() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
-  -- Only a removal by someone else who is signed in (the owner, through the app). Not leaving on your own, not the server or
-  -- SQL Editor (no auth.uid()), and not when the group or the account itself is being deleted (its row is already gone).
   if auth.uid() is not null and auth.uid() <> old.user_id
      and exists (select 1 from public.study_groups g where g.id = old.group_id)
      and exists (select 1 from auth.users u where u.id = old.user_id) then
@@ -350,16 +327,14 @@ revoke all on function public.sbg_member_removed() from public, anon, authentica
 drop trigger if exists sbg_member_removed on public.group_members;
 create trigger sbg_member_removed after delete on public.group_members for each row execute function public.sbg_member_removed();
 
--- Join a group by its invite code. Someone the owner removed can't come back in with it.
+-- Join a group by its invite code
 create or replace function public.join_group(p_code text) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare g uuid; me uuid := auth.uid();
 begin
   if me is null then raise exception 'Sign in first'; end if;
-  -- Every call counts against the hourly code limit (shared with group_preview and get_shared_deck), before the code is looked at.
   if not public.sbg_lookup_ok() then raise exception 'Too many code lookups. Try again in an hour.'; end if;
   select id into g from public.study_groups where invite_code = public.sbg_norm_code(p_code) and deleted_at is null;
-  -- Returning (not raising) keeps this failed guess counted against the hourly limit.
   if g is null then return null; end if;
   if to_regclass('public.group_suspended') is not null and exists (select 1 from public.group_suspended where user_id = me) then
     raise exception 'Your account can''t use study groups after a report was reviewed. The rest of Studyboard works as usual.';
@@ -374,7 +349,7 @@ begin
   return g;
 end $$;
 
--- Owner only: a new invite code (the old link stops working).
+-- Owner only: a new invite code (the old link stops working)
 create or replace function public.new_group_code(p_group uuid) returns text
 language plpgsql security definer set search_path = public as $$
 declare c text;
@@ -394,26 +369,23 @@ revoke all on function public.sbg_new_code(), public.sbg_norm_code(text), public
 grant execute on function public.sbg_is_member(uuid), public.sbg_is_owner(uuid), public.sbg_my_name(),
   public.share_deck(text, text, jsonb, int), public.get_shared_deck(text), public.create_group(text, text),
   public.group_preview(text), public.join_group(text), public.new_group_code(uuid) to authenticated;
--- Only used inside the functions above: making codes and counting lookups can't be called directly (a direct call would burn
--- the hourly lookup budget or skip it).
+-- Only used inside the functions above
 revoke all on function public.sbg_new_code(), public.sbg_lookup_ok() from authenticated;
 
--- ---------- 1.12: quizzes, study sessions, weekly challenge, check-ins, reactions and pins ----------
--- Quizzes ('quiz') and proposed study sessions ('event') are shared in a group just like decks and deadlines.
+-- 1.12: quizzes, study sessions, weekly challenge, check-ins, reactions and pins
 alter table public.group_items drop constraint if exists group_items_kind_check;
--- (not valid: when this file runs again, rows of kinds added in later sections are kept; the last section's list is the one checked in full)
 alter table public.group_items add constraint group_items_kind_check check (kind in ('deck', 'task', 'quiz', 'event')) not valid;
 
--- The owner can set a weekly focus goal (minutes per member). 0 means no goal.
+-- The owner can set a weekly focus goal (minutes per member)
 alter table public.study_groups add column if not exists weekly_goal int not null default 0;
 alter table public.study_groups drop constraint if exists study_groups_weekly_goal_check;
 alter table public.study_groups add constraint study_groups_weekly_goal_check check (weekly_goal between 0 and 10080);
 grant update (name, course, weekly_goal) on public.study_groups to authenticated;
 
--- Pinned messages (changed only through pin_message below).
+-- Pinned messages (changed only through pin_message below)
 alter table public.group_messages add column if not exists pinned boolean not null default false;
 
--- Quiz scores: your best and latest score on each shared quiz. Written only through submit_quiz_score.
+-- Quiz scores: your best and latest score on each shared quiz
 create table if not exists public.group_quiz_scores (
   item_id uuid not null references public.group_items(id) on delete cascade,
   group_id uuid not null references public.study_groups(id) on delete cascade,
@@ -428,7 +400,7 @@ create table if not exists public.group_quiz_scores (
 );
 create index if not exists group_quiz_scores_group_idx on public.group_quiz_scores (group_id);
 
--- Who can make a proposed study session: yes / maybe / no. Written only through set_rsvp.
+-- Who can make a proposed study session
 create table if not exists public.group_rsvps (
   item_id uuid not null references public.group_items(id) on delete cascade,
   group_id uuid not null references public.study_groups(id) on delete cascade,
@@ -439,7 +411,7 @@ create table if not exists public.group_rsvps (
 );
 create index if not exists group_rsvps_group_idx on public.group_rsvps (group_id);
 
--- Weekly challenge: each member's focus minutes and quizzes taken per week (week = the Monday). Written only through group_report.
+-- Weekly challenge
 create table if not exists public.group_stats (
   group_id uuid not null references public.study_groups(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -450,7 +422,7 @@ create table if not exists public.group_stats (
   primary key (group_id, user_id, week)
 );
 
--- Daily check-ins: "what I'm studying today" and whether it got done. Written only through group_checkin.
+-- Daily check-ins
 create table if not exists public.group_checkins (
   group_id uuid not null references public.study_groups(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -461,7 +433,7 @@ create table if not exists public.group_checkins (
   primary key (group_id, user_id, day)
 );
 
--- Reactions on messages. Written only through toggle_reaction.
+-- Reactions on messages
 create table if not exists public.group_reactions (
   message_id uuid not null references public.group_messages(id) on delete cascade,
   group_id uuid not null references public.study_groups(id) on delete cascade,
@@ -478,8 +450,7 @@ alter table public.group_stats enable row level security;
 alter table public.group_checkins enable row level security;
 alter table public.group_reactions enable row level security;
 
--- Each score is shared with a name ('name') or anonymously ('anon'); keeping it private means not posting it (or removing it).
--- Other members read rows directly only when they carry a name; anonymous ones reach them through group_quiz_board, without who.
+-- Each score is shared with a name ('name') or anonymously ('anon')
 alter table public.group_quiz_scores add column if not exists shown text not null default 'name';
 alter table public.group_quiz_scores drop constraint if exists group_quiz_scores_shown_check;
 alter table public.group_quiz_scores add constraint group_quiz_scores_shown_check check (shown in ('name', 'anon'));
@@ -498,8 +469,7 @@ create policy "reaction member read" on public.group_reactions for select to aut
 revoke all on public.group_quiz_scores, public.group_rsvps, public.group_stats, public.group_checkins, public.group_reactions from anon, authenticated;
 grant select on public.group_quiz_scores, public.group_rsvps, public.group_stats, public.group_checkins, public.group_reactions to authenticated;
 
--- Record a quiz result. Keeps your best score and your latest one, and counts attempts.
--- p_shown: 'name' or 'anon'; left out, a score already posted keeps its choice (and a first one is shown with your name, as before).
+-- Record a quiz result
 drop function if exists public.submit_quiz_score(uuid, int, int);
 create or replace function public.submit_quiz_score(p_item uuid, p_correct int, p_total int, p_shown text default null) returns void
 language plpgsql security definer set search_path = public as $$
@@ -518,7 +488,7 @@ begin
     last_correct = p_correct, last_total = p_total, attempts = s.attempts + 1, updated_at = now(), shown = coalesce(p_shown, s.shown);
 end $$;
 
--- Change how your score on a shared quiz is shown: 'name', 'anon', or 'none' to remove it from the group altogether.
+-- Change how your score on a shared quiz is shown
 create or replace function public.set_quiz_score_shown(p_item uuid, p_shown text) returns void
 language plpgsql security definer set search_path = public as $$
 declare me uuid := auth.uid();
@@ -529,8 +499,7 @@ begin
   update public.group_quiz_scores set shown = p_shown where item_id = p_item and user_id = me;
 end $$;
 
--- Every score in a group, for its members. Anonymous scores come without who took them, how often, or the latest try
--- (yours always comes in full), and they're ordered by score so their order says nothing either.
+-- Every score in a group, for its members
 create or replace function public.group_quiz_board(p_group uuid)
 returns table (item_id uuid, user_id uuid, best_correct int, best_total int, last_correct int, last_total int, attempts int, shown text)
 language plpgsql stable security definer set search_path = public as $$
@@ -550,7 +519,7 @@ begin
     order by s.item_id, s.best_correct::numeric / greatest(s.best_total, 1) desc, s.best_total desc;
 end $$;
 
--- Say whether you can make a proposed study session. A null status clears your answer.
+-- Say whether you can make a proposed study session
 create or replace function public.set_rsvp(p_item uuid, p_status text) returns void
 language plpgsql security definer set search_path = public as $$
 declare gid uuid; me uuid := auth.uid();
@@ -567,7 +536,7 @@ begin
   end if;
 end $$;
 
--- Report your totals for a week (the Monday's date). Only the last few weeks are accepted, and totals never go down.
+-- Report your totals for a week (the Monday's date)
 create or replace function public.group_report(p_group uuid, p_week date, p_focus int, p_quizzes int) returns void
 language plpgsql security definer set search_path = public as $$
 declare me uuid := auth.uid();
@@ -582,7 +551,7 @@ begin
   delete from public.group_stats where group_id = p_group and user_id = me and week < current_date - 120;
 end $$;
 
--- Your check-in for a day (today, yesterday or tomorrow, to allow for time zones).
+-- Your check-in for a day (today, yesterday or tomorrow, to allow for time zones)
 create or replace function public.group_checkin(p_group uuid, p_day date, p_plan text, p_done boolean) returns void
 language plpgsql security definer set search_path = public as $$
 declare me uuid := auth.uid();
@@ -596,7 +565,7 @@ begin
   delete from public.group_checkins where group_id = p_group and user_id = me and day < current_date - 120;
 end $$;
 
--- Add or remove your reaction on a message. Returns true if it's now on.
+-- Add or remove your reaction on a message
 create or replace function public.toggle_reaction(p_msg uuid, p_kind text) returns boolean
 language plpgsql security definer set search_path = public as $$
 declare gid uuid; me uuid := auth.uid();
@@ -613,7 +582,7 @@ begin
   return true;
 end $$;
 
--- Pin or unpin a message. The group owner or the message's author can do it; a group keeps up to 3 pins.
+-- Pin or unpin a message
 create or replace function public.pin_message(p_msg uuid, p_pin boolean) returns void
 language plpgsql security definer set search_path = public as $$
 declare gid uuid; author uuid; me uuid := auth.uid();
@@ -633,10 +602,7 @@ revoke all on function public.submit_quiz_score(uuid, int, int, text), public.se
 grant execute on function public.submit_quiz_score(uuid, int, int, text), public.set_quiz_score_shown(uuid, text), public.group_quiz_board(uuid), public.set_rsvp(uuid, text), public.group_report(uuid, date, int, int),
   public.group_checkin(uuid, date, text, boolean), public.toggle_reaction(uuid, text), public.pin_message(uuid, boolean) to authenticated;
 
--- ---------- 1.13: Project Tasks (shared task lists with assignees and due dates) ----------
--- A group can keep up to 20 active task lists (40 in all, counting archived ones), each holding up to 200 tasks.
--- Everyone in the group can read them. Nobody writes to these tables directly: every change goes through the functions below,
--- which check that you are a member, that an assignee is a current member, and who may do what.
+-- 1.13: Project Tasks (shared task lists with assignees and due dates)
 create table if not exists public.group_task_lists (
   id uuid primary key default gen_random_uuid(),
   group_id uuid not null references public.study_groups(id) on delete cascade,
@@ -667,7 +633,6 @@ create table if not exists public.group_tasks (
   completed_at timestamptz,
   completed_by uuid references auth.users(id) on delete set null,
   deleted boolean not null default false,
-  -- a task can only sit in a list of its own group
   foreign key (list_id, group_id) references public.group_task_lists (id, group_id) on delete cascade
 );
 create index if not exists group_tasks_list_idx on public.group_tasks (list_id, position);
@@ -683,7 +648,7 @@ create policy "gtask member read" on public.group_tasks for select to authentica
 revoke all on public.group_task_lists, public.group_tasks from anon, authenticated;
 grant select on public.group_task_lists, public.group_tasks to authenticated;
 
--- Stamps who and when, keeps the immutable columns put, tracks completion, and enforces the caps (also when something is edited in the SQL Editor).
+-- Stamps who and when, keeps the immutable columns put, tracks completion
 create or replace function public.sbg_task_stamp() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare me uuid := auth.uid();
@@ -712,7 +677,6 @@ begin
     end if;
     return new;
   end if;
-  -- group_tasks
   if tg_op = 'INSERT' then
     new.created_by := me; new.created_at := now(); new.updated_by := me; new.updated_at := now(); new.deleted := false;
     perform pg_advisory_xact_lock(hashtextextended('sb-gtask:' || new.list_id::text, 0));
@@ -730,7 +694,6 @@ begin
     elsif new.status <> 'done' then new.completed_at := null; new.completed_by := null;
     else new.completed_at := old.completed_at; new.completed_by := old.completed_by; end if;
   end if;
-  -- An assignee has to be a current member of the group.
   if new.assignee_id is not null and (tg_op = 'INSERT' or new.assignee_id is distinct from old.assignee_id)
      and not exists (select 1 from public.group_members m where m.group_id = new.group_id and m.user_id = new.assignee_id) then
     raise exception 'You can only assign a task to someone in the group.';
@@ -742,7 +705,7 @@ create trigger sbg_tasklists_stamp before insert or update on public.group_task_
 drop trigger if exists sbg_tasks_stamp on public.group_tasks;
 create trigger sbg_tasks_stamp before insert or update on public.group_tasks for each row execute function public.sbg_task_stamp();
 
--- When someone leaves (or is removed), their tasks become unassigned.
+-- When someone leaves (or is removed), their tasks become unassigned
 create or replace function public.sbg_task_member_left() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
@@ -752,7 +715,7 @@ end $$;
 drop trigger if exists sbg_task_member_left on public.group_members;
 create trigger sbg_task_member_left after delete on public.group_members for each row execute function public.sbg_task_member_left();
 
--- Make a task list. Any member can.
+-- Make a task list
 create or replace function public.create_task_list(p_group uuid, p_title text, p_course text) returns public.group_task_lists
 language plpgsql security definer set search_path = public as $$
 declare r public.group_task_lists; me uuid := auth.uid();
@@ -763,7 +726,7 @@ begin
   return r;
 end $$;
 
--- Rename or archive a list (p_patch keys: title, course_code, archived). Any member can.
+-- Rename or archive a list
 create or replace function public.update_task_list(p_list uuid, p_patch jsonb) returns public.group_task_lists
 language plpgsql security definer set search_path = public as $$
 declare r public.group_task_lists; gid uuid; me uuid := auth.uid();
@@ -780,7 +743,7 @@ begin
   return r;
 end $$;
 
--- Delete a list and everything on it. Only the person who made it, or the group owner.
+-- Delete a list and everything on it
 create or replace function public.delete_task_list(p_list uuid) returns void
 language plpgsql security definer set search_path = public as $$
 declare gid uuid; maker uuid; me uuid := auth.uid();
@@ -792,7 +755,7 @@ begin
   delete from public.group_task_lists where id = p_list;
 end $$;
 
--- Add a task to a list. Any member can; the assignee (optional) has to be a member.
+-- Add a task to a list
 create or replace function public.add_group_task(p_list uuid, p_title text, p_assignee uuid, p_due date, p_notes text, p_priority text) returns public.group_tasks
 language plpgsql security definer set search_path = public as $$
 declare r public.group_tasks; gid uuid; arch boolean; me uuid := auth.uid();
@@ -805,13 +768,11 @@ begin
     values (p_list, gid, btrim(coalesce(p_title, '')), left(btrim(coalesce(p_notes, '')), 1000), p_assignee, p_due, nullif(p_priority, ''),
             coalesce((select max(position) from public.group_tasks where list_id = p_list), 0) + 1)
     returning * into r;
-  -- Tidy up: tasks deleted more than two weeks ago.
   delete from public.group_tasks where group_id = gid and deleted and updated_at < now() - interval '14 days';
   return r;
 end $$;
 
--- Change a task (p_patch keys: title, notes, status, assignee_id, due_at, priority). Any member can edit and mark done.
--- Changing who a task is assigned to: anyone can assign an unassigned task; once it has an owner, only that person or the group owner can reassign it.
+-- Change a task
 create or replace function public.update_group_task(p_task uuid, p_patch jsonb) returns public.group_tasks
 language plpgsql security definer set search_path = public as $$
 declare r public.group_tasks; t public.group_tasks; me uuid := auth.uid();
@@ -836,7 +797,7 @@ begin
   return r;
 end $$;
 
--- Move a task up (-1) or down (1) among the tasks of its list that are in the same state (open or done). Any member can.
+-- Move a task up (-1) or down (1) among the tasks of its list that are in the same state
 create or replace function public.move_group_task(p_task uuid, p_dir int) returns void
 language plpgsql security definer set search_path = public as $$
 declare t public.group_tasks; me uuid := auth.uid(); ids uuid[]; i int; j int;
@@ -845,7 +806,6 @@ begin
   select * into t from public.group_tasks where id = p_task and not deleted;
   if t.id is null or not public.sbg_is_member(t.group_id) then raise exception 'That task isn''t in one of your groups'; end if;
   perform pg_advisory_xact_lock(hashtextextended('sb-gtask:' || t.list_id::text, 0));
-  -- number the whole list 1..n in its current order, then swap this task with its neighbour of the same kind
   update public.group_tasks g set position = x.n from (select id, row_number() over (order by position, created_at, id) as n from public.group_tasks where list_id = t.list_id and not deleted) x
     where g.id = x.id and g.position <> x.n;
   select array_agg(id order by position, id) into ids from public.group_tasks where list_id = t.list_id and not deleted and (status = 'done') = (t.status = 'done');
@@ -856,7 +816,7 @@ begin
     where g.id in (p_task, ids[j]);
 end $$;
 
--- Remove a task (kept out of sight for two weeks, then tidied away). Only whoever added it, or the group owner.
+-- Remove a task (kept out of sight for two weeks, then tidied away)
 create or replace function public.delete_group_task(p_task uuid) returns void
 language plpgsql security definer set search_path = public as $$
 declare t public.group_tasks; me uuid := auth.uid();
@@ -875,7 +835,7 @@ grant execute on function public.create_task_list(uuid, text, text), public.upda
   public.add_group_task(uuid, text, uuid, date, text, text), public.update_group_task(uuid, jsonb), public.move_group_task(uuid, int),
   public.delete_group_task(uuid) to authenticated;
 
--- ---------- Live updates for groups ----------
+-- Live updates for groups
 do $$
 declare t text;
 begin
@@ -886,8 +846,7 @@ begin
   end loop;
 end $$;
 
--- ---------- 1.14: group projects ----------
--- A group is either a study group (the default) or a group project, which can have a due date. Only the owner changes either.
+-- 1.14: group projects
 alter table public.study_groups add column if not exists kind text not null default 'study';
 alter table public.study_groups drop constraint if exists study_groups_kind_check;
 alter table public.study_groups add constraint study_groups_kind_check check (kind in ('study', 'project'));
@@ -904,21 +863,16 @@ end $$;
 revoke all on function public.set_group_kind(uuid, text, date) from public, anon;
 grant execute on function public.set_group_kind(uuid, text, date) to authenticated;
 
--- ---------- 1.15: more for study groups and group projects ----------
--- Study groups: a Q&A board (questions and answers), and an anonymous list of the cards and quiz questions in the group's shared decks that members miss most.
--- Group projects: roles (one per member), files and links, meeting notes, and a private contribution check-in.
--- Everything except the check-in is stored as shared items, so the same rules apply: members read and add, you change your own, the owner can remove any.
--- (An earlier draft kept each person's weak cards as a shared item that named them. Those are removed; most-missed cards are now anonymous, see group_misses below.)
+-- 1.15: more for study groups and group projects
 delete from public.group_items where kind = 'weak';
 drop index if exists public.group_items_one_weak;
 alter table public.group_items drop constraint if exists group_items_kind_check;
 alter table public.group_items add constraint group_items_kind_check
   check (kind in ('deck', 'task', 'quiz', 'event', 'qa', 'answer', 'link', 'minutes', 'role')) not valid;
--- One role per person in a group (choosing again updates it).
+-- One role per person in a group (choosing again updates it)
 create unique index if not exists group_items_one_role on public.group_items (group_id, user_id) where kind = 'role';
 
--- Contribution check-in: each member rates the others (1 to 5, with an optional note). You can only ever read what YOU wrote.
--- The group owner reads totals only (how many people rated someone and the average), never who said what or the notes.
+-- Contribution check-in
 create table if not exists public.group_peer_ratings (
   group_id uuid not null references public.study_groups(id) on delete cascade,
   from_user uuid not null references auth.users(id) on delete cascade,
@@ -949,7 +903,7 @@ begin
   on conflict (group_id, from_user, to_user) do update set score = excluded.score, note = excluded.note, updated_at = now();
 end $$;
 
--- Owner only: for each member, how many people rated them and the average. Nothing that says who rated whom.
+-- Owner only: for each member, how many people rated them and the average
 create or replace function public.peer_summary(p_group uuid) returns table (to_user uuid, raters int, avg_score numeric)
 language plpgsql stable security definer set search_path = public as $$
 begin
@@ -960,9 +914,7 @@ end $$;
 revoke all on function public.submit_peer(uuid, uuid, int, text), public.peer_summary(uuid) from public, anon;
 grant execute on function public.submit_peer(uuid, uuid, int, text), public.peer_summary(uuid) to authenticated;
 
--- Most missed (study groups): members who choose to take part send how often they missed each card and quiz question in the group's shared decks and quizzes.
--- Nobody can read these rows, not even other members or the owner: the table has no read rule at all. The only way out is top_misses, which returns totals per card or question
--- (how many members missed it) and nothing that names or identifies anyone. It returns nothing until at least 3 members have taken part, and only lists a card or question that at least 2 members missed.
+-- Most missed (study groups)
 create table if not exists public.group_misses (
   group_id uuid not null references public.study_groups(id) on delete cascade,
   item_id uuid not null references public.group_items(id) on delete cascade,
@@ -977,7 +929,7 @@ create index if not exists group_misses_group_idx on public.group_misses (group_
 alter table public.group_misses enable row level security;
 revoke all on public.group_misses from anon, authenticated;
 
--- Replace your own numbers for a group. p_rows: [{"item": "<shared deck or quiz id>", "k": "c:<card id>" or "q:<question id>", "m": misses, "t": tries}], up to 300.
+-- Replace your own numbers for a group
 create or replace function public.report_misses(p_group uuid, p_rows jsonb) returns void
 language plpgsql security definer set search_path = public as $$
 declare me uuid := auth.uid();
@@ -994,7 +946,7 @@ begin
   on conflict (item_id, mkey, user_id) do update set misses = excluded.misses, tries = excluded.tries, updated_at = now();
 end $$;
 
--- Stop taking part: removes your numbers.
+-- Stop taking part
 create or replace function public.forget_misses(p_group uuid) returns void
 language plpgsql security definer set search_path = public as $$
 begin
@@ -1018,14 +970,7 @@ end $$;
 revoke all on function public.report_misses(uuid, jsonb), public.forget_misses(uuid), public.top_misses(uuid, int) from public, anon;
 grant execute on function public.report_misses(uuid, jsonb), public.forget_misses(uuid), public.top_misses(uuid, int) to authenticated;
 
--- ---------- 1.16: Pro groups ----------
--- A group is a Pro group when a member with Pro assigns Pro to it, the owner included (supabase-plans.sql: group_pro_set; 5 per account). The extras below are
--- small: they reuse shared items and task lists, and Studyboard shows them in Pro groups only.
---  * New shared item kinds: 'avail' (Find a Time: one per member, only which half-hours are busy, never what's in their plan),
---    'topics' (an exam's topics split among members), 'topic' (a member marking their topic as shared) and 'gfile' (a file uploaded to the group).
---  * Team deadline: an earlier date the group works toward (study_groups.team_due, set by the owner).
---  * Review before done: a task can wait In Review for its reviewer (group_tasks.reviewer_id); only the reviewer or the owner approves it.
---  * Live quiz: a private Realtime channel per group, "sbquiz:<group id>", that only members can listen or send on.
+-- 1.16: Pro groups
 alter table public.group_items drop constraint if exists group_items_kind_check;
 alter table public.group_items add constraint group_items_kind_check
   check (kind in ('deck', 'task', 'quiz', 'event', 'qa', 'answer', 'link', 'minutes', 'role', 'avail', 'topics', 'topic', 'gfile')) not valid;   -- not valid: when this file runs again, 'battle' rows (added below) are kept; the last list is checked in full
@@ -1039,7 +984,7 @@ alter table public.group_tasks add column if not exists reviewer_id uuid referen
 alter table public.group_tasks drop constraint if exists group_tasks_status_check;
 alter table public.group_tasks add constraint group_tasks_status_check check (status in ('todo', 'doing', 'review', 'done'));
 
--- Someone who leaves a group stops being assigned to, or reviewing, its tasks.
+-- Someone who leaves a group stops being assigned to, or reviewing, its tasks
 create or replace function public.sbg_task_member_left() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
@@ -1048,11 +993,7 @@ begin
   return old;
 end $$;
 
--- Change a task (p_patch keys: title, notes, status, assignee_id, due_at, priority, reviewer_id). Any member can edit and mark done.
--- Changing who a task is assigned to: anyone can assign an unassigned task; once it has an owner, only that person or the group owner can reassign it.
--- A task with a reviewer: marking it done (from any state) is for the reviewer or the group owner; anyone else sends it to In Review.
--- Anyone can give a task without a reviewer one; once it has one, only that reviewer or the group owner can change or clear it
--- (so "Review before done" can't be skipped by clearing the reviewer and marking it done in the same change).
+-- Change a task
 create or replace function public.update_group_task(p_task uuid, p_patch jsonb) returns public.group_tasks
 language plpgsql security definer set search_path = public as $$
 declare r public.group_tasks; t public.group_tasks; me uuid := auth.uid(); st text; rev uuid; gate uuid;
@@ -1117,11 +1058,7 @@ begin
   end;
 end $$;
 
--- ---------- Storage caps: shared decks and shared group items ----------
--- Each row was already capped (3 MB of JSON) and counted (200 shared decks, 500 items per person per group), but nothing capped the
--- total, so one account could still fill the database with many groups. Per person: shared decks up to 50 MB in all, and shared group
--- items up to 50 MB in all (across every group). Measured as the space the rows take on disk (pg_column_size, after compression),
--- which is what counts toward the database size and is cheap to add up. Shrinking or deleting always works, whatever the totals.
+-- Storage caps: shared decks and shared group items
 create index if not exists group_items_user_idx on public.group_items (user_id);
 create or replace function public.sbg_size_cap() returns trigger
 language plpgsql security definer set search_path = public as $$
@@ -1146,16 +1083,13 @@ begin
   return new;
 end $$;
 revoke all on function public.sbg_size_cap() from public, anon, authenticated;
--- Named so it runs after sbg_items_stamp (triggers run in name order), which fills in user_id.
+-- Named so it runs after sbg_items_stamp (triggers run in name order)
 drop trigger if exists sbg_size_cap on public.shared_decks;
 create trigger sbg_size_cap before insert or update of data on public.shared_decks for each row execute function public.sbg_size_cap();
 drop trigger if exists sbg_size_cap on public.group_items;
 create trigger sbg_size_cap before insert or update of data, user_id on public.group_items for each row execute function public.sbg_size_cap();
 
--- ---------- Blocking (supabase-moderation.sql) survives running this file again ----------
--- This file (re)creates the members-only read rules above. Once supabase-moderation.sql has added group_blocks, the same rules must
--- also hide what blocked people post, so they are rebuilt here with that filter (and moderation.sql calls this too). Without
--- group_blocks it does nothing, and the plain members-only rules above stay.
+-- Blocking (supabase-moderation.sql) survives running this file again
 create or replace function public.sbg_block_policies() returns void
 language plpgsql set search_path = public as $$
 begin
@@ -1168,7 +1102,6 @@ begin
   execute $p$create policy "item member read" on public.group_items for select to authenticated
     using (public.sbg_is_member(group_id)
            and not exists (select 1 from public.group_blocks b where b.blocker_id = auth.uid() and b.blocked_id = group_items.user_id))$p$;
-  -- Project Tasks: lists and tasks added by someone you blocked are hidden too (the tasks still on a hidden list go with it in the app).
   if to_regclass('public.group_tasks') is null or to_regclass('public.group_task_lists') is null then return; end if;
   execute 'drop policy if exists "tasklist member read" on public.group_task_lists';
   execute $p$create policy "tasklist member read" on public.group_task_lists for select to authenticated
@@ -1182,17 +1115,10 @@ end $$;
 revoke all on function public.sbg_block_policies() from public, anon, authenticated;
 select public.sbg_block_policies();
 
--- ---------- Deleted groups: 30 days to undo ----------
--- Deleting a group (the app deletes the study_groups row) does not remove anything straight away: the row is kept with deleted_at set,
--- every rule treats the group as gone for everyone (sbg_is_member / sbg_is_owner above, and invite codes stop working), and its owner can
--- restore it with everything in it (members, messages, decks, tasks, quizzes, files) for 30 days. Then the nightly clean-up deletes it
--- for good. It costs only the space of those rows for 30 more days.
--- Real deletes still happen: the clean-up, deleting an account, the SQL Editor (none of them run as a signed-in user), and a group made in
--- the last 10 minutes with nobody else in it (the app removes one that couldn't be set up).
+-- Deleted groups
 create or replace function public.sbg_soft_delete() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
-  -- (current_user is this function's owner here; the "role" setting is who is really asking: authenticated for the app)
   if coalesce(current_setting('role', true), 'none') not in ('authenticated', 'anon')
      or coalesce(current_setting('studyboard.group_purge', true), '') = 'on'   -- deleting an account
      or old.deleted_at is not null then return old; end if;
@@ -1205,7 +1131,7 @@ revoke all on function public.sbg_soft_delete() from public, anon, authenticated
 drop trigger if exists sbg_soft_delete on public.study_groups;
 create trigger sbg_soft_delete before delete on public.study_groups for each row execute function public.sbg_soft_delete();
 
--- The groups you deleted in the last 30 days (for Restore in the app).
+-- The groups you deleted in the last 30 days (for Restore in the app)
 create or replace function public.my_deleted_groups() returns table (id uuid, name text, course text, deleted_at timestamptz, purge_at timestamptz)
 language sql stable security definer set search_path = public as $$
   select g.id, g.name, g.course, g.deleted_at, g.deleted_at + interval '30 days'
@@ -1213,7 +1139,7 @@ language sql stable security definer set search_path = public as $$
   where g.owner_id = auth.uid() and g.deleted_at is not null and g.deleted_at > now() - interval '30 days'
   order by g.deleted_at desc
 $$;
--- Brings a deleted group back for everyone, as it was. Only its owner, within the 30 days.
+-- Brings a deleted group back for everyone, as it was
 create or replace function public.restore_group(p_group uuid) returns boolean
 language plpgsql security definer set search_path = public as $$
 declare me uuid := auth.uid();
@@ -1227,7 +1153,7 @@ begin
     where id = p_group and owner_id = me and deleted_at is not null and deleted_at > now() - interval '30 days';
   return found;
 end $$;
--- Nightly: groups deleted more than 30 days ago go for good (with everything in them).
+-- Nightly: groups deleted more than 30 days ago go for good (with everything in them)
 create or replace function public.sbg_purge_deleted_groups() returns integer
 language plpgsql security definer set search_path = public as $$
 declare n integer := 0;
@@ -1252,9 +1178,7 @@ begin
   end if;
 end $$;
 
--- ---------- Features the owner turns off ----------
--- The owner can hide parts of a group nobody uses (Edit Group > Features), so members only see what the group wants. It only hides:
--- nothing is deleted, and turning a feature back on shows everything again. Only the owner can change it (the "group owner update" policy).
+-- Features the owner turns off
 alter table public.study_groups add column if not exists hidden_features text[] not null default '{}';
 alter table public.study_groups drop constraint if exists study_groups_hidden_features_check;
 alter table public.study_groups add constraint study_groups_hidden_features_check
@@ -1262,24 +1186,19 @@ alter table public.study_groups add constraint study_groups_hidden_features_chec
 grant update (hidden_features) on public.study_groups to authenticated;
 notify pgrst, 'reload schema';
 
--- ---------- Quiz Battle is opt-in ----------
--- A member is on a study group's Quiz Battle leaderboard only after they join it: one 'battle' item per member ({on: true}).
--- Leaving deletes it. Shared items follow the usual rules (members read, you change your own, the owner can remove any).
+-- Quiz Battle is opt-in
 alter table public.group_items drop constraint if exists group_items_kind_check;
 alter table public.group_items add constraint group_items_kind_check
   check (kind in ('deck', 'task', 'quiz', 'event', 'qa', 'answer', 'link', 'minutes', 'role', 'avail', 'topics', 'topic', 'gfile', 'battle'));
 create unique index if not exists group_items_one_battle on public.group_items (group_id, user_id) where kind = 'battle';
 notify pgrst, 'reload schema';
 
--- ---------- Each member's colour ----------
--- Every member picks a colour when they join (or later, on the Members tab). The group's task board paints each person's tasks in it,
--- so the team can see at a glance who has what. One of the app's palette colours (#RRGGBB) or none (the app then picks one from the id).
--- Written only through set_member_color, and only your own row.
+-- Each member's colour
 alter table public.group_members add column if not exists color text;
 alter table public.group_members drop constraint if exists group_members_color_check;
 alter table public.group_members add constraint group_members_color_check check (color is null or color ~ '^#[0-9A-F]{6}$');
 revoke update (color) on public.group_members from authenticated;
--- Two colours look the same to people when they are this close (distance in RGB, weighted the way eyes see it, "redmean")
+-- Two colours look the same to people when they are this close
 create or replace function public.sbg_color_near(a text, b text) returns boolean
 language plpgsql immutable set search_path = public, pg_temp as $$
 declare r1 int; g1 int; b1 int; r2 int; g2 int; b2 int; rm float8;
@@ -1296,7 +1215,6 @@ declare me uuid := auth.uid(); v text := nullif(upper(coalesce(p_color, '')), ''
 begin
   if me is null then raise exception 'Sign in first'; end if;
   if v is not null and v !~ '^#[0-9A-F]{6}$' then raise exception 'Pick one of the colours'; end if;
-  -- The 10 palette colours are for every group; any other colour (the colour picker) is for a Pro group, or a member with Studyboard Pro
   if v is not null and not (v = any (array['#E5484D','#F76B15','#E2A50B','#30A46C','#12A594','#0090FF','#3E63DD','#8E4EC6','#D6409F','#6E5240'])) then
     if to_regproc('public.plans_group_is_pro') is not null then
       execute 'select public.plans_group_is_pro($1)' into pro using p_group;
@@ -1304,7 +1222,6 @@ begin
       if not coalesce(pro, false) then raise exception 'Any colour is part of Studyboard Pro. Pick one of the colours shown.'; end if;
     end if;
   end if;
-  -- Taken: the same colour, or one so close nobody could tell them apart
   if v is not null and exists (select 1 from public.group_members where group_id = p_group and user_id <> me and color is not null and public.sbg_color_near(color, v)) then
     raise exception 'Someone in this group already has that colour (or one very close to it). Pick another.';
   end if;
@@ -1316,8 +1233,7 @@ revoke all on function public.set_member_color(uuid, text) from public, anon;
 grant execute on function public.set_member_color(uuid, text) to authenticated;
 notify pgrst, 'reload schema';
 
--- Every member's companion, shown as their picture in the group (instead of initials). Only the companion's id is kept (letters,
--- numbers and dashes), the app draws it. Written only through set_my_face, which sets it on all your groups at once; null clears it.
+-- Every member's companion, shown as their picture in the group (instead of initials)
 alter table public.group_members add column if not exists face text;
 alter table public.group_members drop constraint if exists group_members_face_check;
 alter table public.group_members add constraint group_members_face_check check (face is null or face ~ '^[a-z0-9-]{1,40}$');
@@ -1334,8 +1250,7 @@ revoke all on function public.set_my_face(text) from public, anon;
 grant execute on function public.set_my_face(text) to authenticated;
 notify pgrst, 'reload schema';
 
--- Codes are 8 characters only (K7P4-QD9X). Groups and shared decks still holding an older 6 or 10 character code get a new 8
--- character one (their old code and links stop working; members already in a group stay in it). Safe to run again: nothing left to change.
+-- Codes are 8 characters only (K7P4-QD9X)
 do $$
 declare r record; c text;
 begin
@@ -1349,21 +1264,13 @@ begin
   end loop;
 end $$;
 
--- One colour per person in a group: someone else's colour can't be picked (set_member_color says so, and this index makes sure even
--- when two people pick at once). A colour two members already share stays with whoever joined first.
+-- One colour per person in a group
 update public.group_members m set color = null
   where m.color is not null and exists (select 1 from public.group_members o where o.group_id = m.group_id and o.color = m.color and o.user_id <> m.user_id
     and (o.joined_at < m.joined_at or (o.joined_at = m.joined_at and o.user_id < m.user_id)));
 create unique index if not exists group_members_one_color on public.group_members (group_id, color) where color is not null;
 
--- ---------- Removed from study groups (after a report) ----------
--- Acting on a report can take someone out of study groups and group projects altogether: every group they're in, and no joining,
--- making or restoring groups again. The rest of their Studyboard (planner, files, sync, Pro) is untouched. Only you can do this, in
--- the SQL Editor:
---   select public.studyboard_suspend_from_groups('someone@school.edu', 'harassment in a group');
---   select public.studyboard_unsuspend_from_groups('someone@school.edu');      -- let them use groups again
---   select u.email, s.reason, s.created_at from public.group_suspended s join auth.users u on u.id = s.user_id;   -- who is out
--- Groups they own pass to the member who has been in longest (or are deleted, restorable for 30 days, when nobody else is in them).
+-- Removed from study groups (after a report)
 create table if not exists public.group_suspended (
   user_id uuid primary key references auth.users(id) on delete cascade,
   reason text not null default '' check (char_length(reason) <= 300),
@@ -1404,18 +1311,13 @@ begin
 end $$;
 revoke all on function public.studyboard_suspend_from_groups(text, text), public.studyboard_unsuspend_from_groups(text) from public, anon, authenticated;
 
--- ---------- The group's colour ----------
--- The owner picks it (New Group / Edit Group). Each member sees the group in their own course's colour when they have a course with
--- the same code in their planner (that happens in the app, on their device only); everyone else sees this one.
+-- The group's colour
 alter table public.study_groups add column if not exists color text;
 alter table public.study_groups drop constraint if exists study_groups_color_check;
 alter table public.study_groups add constraint study_groups_color_check check (color is null or color ~ '^#[0-9A-F]{6}$');
 grant update (color) on public.study_groups to authenticated;
 
--- ---------- Live whiteboards (Notes > Whiteboard > Share With a Study Group) ----------
--- A group board is a name and a log of changes. Every member keeps their own copy (a note on their own account) and replays the log:
--- each row is a batch of changes [{t: "s" stroke | "i" text or picture, id, v: the new value, or null for removed}]. Rows are only ever
--- added (nobody can edit or delete someone else's drawing on the server); a copy you delete is only yours.
+-- Live whiteboards (Notes > Whiteboard > Share With a Study Group)
 create table if not exists public.group_boards (
   id uuid primary key default gen_random_uuid(),
   group_id uuid not null references public.study_groups(id) on delete cascade,
@@ -1432,7 +1334,7 @@ drop policy if exists "group board read" on public.group_boards;
 create policy "group board read" on public.group_boards for select to authenticated using (public.sbg_is_member(group_id));
 drop policy if exists "group board add" on public.group_boards;
 create policy "group board add" on public.group_boards for insert to authenticated with check (created_by = auth.uid() and public.sbg_is_member(group_id));
--- whoever made it, or the group's owner, can rename it or take it off the group (members keep their copies)
+-- whoever made it, or the group's owner, can rename it or take it off the group
 drop policy if exists "group board change" on public.group_boards;
 create policy "group board change" on public.group_boards for update to authenticated
   using (public.sbg_is_member(group_id) and (created_by = auth.uid() or public.sbg_is_owner(group_id)))
@@ -1461,8 +1363,7 @@ create policy "group board ops add" on public.group_board_ops for insert to auth
 revoke update, delete, truncate, references, trigger on public.group_board_ops from authenticated;
 revoke all on public.group_board_ops from anon;
 
--- A group board's preview (a small picture for the group's Whiteboards tab), kept fresh by whoever is drawing on it, and who has it:
--- a member adds a shared board to their own Whiteboards from the group (group_board_people), and takes it off by deleting their copy.
+-- A group board's preview (a small picture for the group's Whiteboards tab)
 alter table public.group_boards add column if not exists preview text check (preview is null or (char_length(preview) < 200000 and preview like 'data:image/%'));
 alter table public.group_boards add column if not exists preview_at timestamptz;
 -- the same preview as a dark whiteboard shows it, for members whose whiteboards are dark
@@ -1502,7 +1403,7 @@ create policy "group board people leave" on public.group_board_people for delete
 revoke update, truncate, references, trigger on public.group_board_people from authenticated;
 revoke all on public.group_board_people from anon;
 
--- Limits: 40 boards per group, and changes come in batches (a few a second while drawing), so 900 rows a minute per person is plenty
+-- Limits: 40 boards per group, and changes come in batches (a few a second while drawing)
 create or replace function public.sbg_board_limits() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin

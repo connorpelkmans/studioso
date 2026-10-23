@@ -1,5 +1,5 @@
 /* ===== module: 96-tp-m5.js ===== */
-/* Theme Collections, Study Fields batch m5: observatory, ruins, valley, sketchcity */
+/* Theme Collections, Study Fields batch m5 */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2), S15 = SOw(1.6);

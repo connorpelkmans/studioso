@@ -1,4 +1,4 @@
-// The screenshot picker's only way to talk to the app: receive the picture, send back the box or a cancel.
+// The screenshot picker's only way to talk to the app
 const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("studyboardShot", {
   onInit: fn => ipcRenderer.on("shot:init", (e, url) => { if (typeof url === "string" && url.startsWith("data:image/")) fn(url); }),

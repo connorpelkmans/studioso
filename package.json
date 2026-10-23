@@ -1,7 +1,7 @@
 {
   "name": "studyboard",
   "productName": "Studyboard",
-  "version": "1.15.0",
+  "version": "1.15.1",
   "description": "Studyboard: a student planner for courses, deadlines, study sessions and flashcards",
   "author": {
     "name": "Studyboard",
@@ -23,6 +23,7 @@
     "dist:mac-signed": "node prepare.js && electron-builder --mac dmg --universal -c.dmg.sign=true '-c.mac.artifactName=Studyboard-${version}-mac-universal.${ext}'",
     "dist:mas": "node prepare.js && electron-builder --mac mas --universal",
     "dist:mas-dev": "node prepare.js && electron-builder --mac mas-dev --universal",
+    "ios:stage": "node scripts/ios-stage.js",
     "check:store": "node notarize.js --check mas",
     "check:mas-dev": "node notarize.js --check mas-dev",
     "check:signed": "node notarize.js --check signed",

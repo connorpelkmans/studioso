@@ -1,17 +1,4 @@
--- Studyboard Pro: security self-test
--- Run this in Supabase: SQL Editor > New query > paste everything > Run. Run it AFTER supabase-plans.sql.
---
--- It plays an attacker. It creates two throw-away test accounts, then tries the things a cheater would try while signed in
--- as an ordinary account (or with only the public key): give themselves Pro, change a setting, read someone else's plan,
--- run the grant function, edit their usage totals, and so on. Every attempt must FAIL. If one works, the test stops with
---     ERROR: EXPLOIT SUCCEEDED: <what worked>
--- and you should NOT launch until that is fixed. When everything holds you see the error "SELF-TEST PASSED: ALL n SECURITY CHECKS HELD"
--- (an error on purpose, so nothing is saved).
---
--- It changes nothing for real. The whole test is ONE statement that ends with an error ON PURPOSE, so the database undoes everything
--- (the helpers it creates, the test accounts, the test data and the temporary paywall switch). When every attack was refused, that last
--- error reads "SELF-TEST PASSED: ALL n SECURITY CHECKS HELD". Any other error means a check failed: do NOT launch.
--- It is safe to run on your live project, and safe to run again.
+-- Studyboard Pro
 
 do $outer$
 begin
@@ -64,7 +51,7 @@ declare
   allowed_fn text[] := array['studyboard_paywall', 'studyboard_start_trial', 'studyboard_redeem_code'];
   gid uuid := gen_random_uuid();
 begin
-  -- ===== Set-up (as you, the owner) =====
+  -- Set-up (as you, the owner)
   insert into auth.users (id, instance_id, aud, role, email, created_at, updated_at)
     values (ua, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'selftest-a-' || ua || '@example.invalid', now(), now()),
            (ub, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'selftest-b-' || ub || '@example.invalid', now(), now());
@@ -74,7 +61,7 @@ begin
   insert into public.studyboard_devices (user_id, device_id, name) values (ub, 'selftest-device-b-1', 'B phone');
   insert into public.studyboard_billing_customers (user_id, stripe_customer_id) values (ub, 'cus_selftest_b');
 
-  -- ===== 1. Signed in as account A: the entitlement row =====
+  -- 1. Signed in as account A
   perform set_config('request.jwt.claims', jsonb_build_object('sub', ua, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   r := public.sbt_try(format('insert into public.studyboard_entitlements (user_id, plan) values (%L, ''pro'')', gen_random_uuid()));
@@ -102,7 +89,7 @@ begin
                            from public.studyboard_entitlements where user_id = ua), 'account A is still free after every attempt');
   perform public.sbt_ok((select grant_until > now() + interval '300 days' from public.studyboard_entitlements where user_id = ub), 'account B''s grant is untouched');
 
-  -- ===== 2. Signed in as account A: functions that must be owner-only =====
+  -- 2. Signed in as account A
   execute 'set local role authenticated';
   r := public.sbt_try('select public.studyboard_grant_pro(''selftest-a-' || ua || '@example.invalid'', 365)');
   execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user ran studyboard_grant_pro (by email)'); execute 'set local role authenticated';
@@ -128,13 +115,11 @@ begin
   execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user ran the group message clean-up'); execute 'set local role authenticated';
   r := public.sbt_try('select public.studyboard_prune_billing()');
   execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user ran the billing clean-up');
-  -- Even a forged "role: service_role" claim does nothing without the real database role.
   perform set_config('request.jwt.claims', jsonb_build_object('sub', ua, 'role', 'service_role')::text, true);
   execute 'set local role authenticated';
   r := public.sbt_try(format('select public.studyboard_grant_pro_uid(%L, null)', ua));
   execute 'reset role'; perform public.sbt_blocked(r, 'a forged service_role claim ran studyboard_grant_pro_uid');
   perform public.sbt_ok((select not grant_lifetime from public.studyboard_entitlements where user_id = ua), 'account A got no grant from any attempt');
-  -- The owner checks inside the functions refuse clients even if the EXECUTE privilege were ever restored by mistake.
   perform set_config('request.jwt.claims', jsonb_build_object('sub', ua, 'role', 'authenticated')::text, true);
   r := public.sbt_try('select public.plans_deny_clients()');
   perform public.sbt_ok(r like 'err:%', 'the in-function guard refuses an authenticated sign-in');
@@ -145,7 +130,7 @@ begin
   r := public.sbt_try('select public.plans_deny_clients()');
   perform public.sbt_ok(r like 'ok:%', 'the in-function guard lets the SQL Editor through');
 
-  -- ===== 3. Settings (studyboard_config) =====
+  -- 3. Settings (studyboard_config)
   perform set_config('request.jwt.claims', jsonb_build_object('sub', ua, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   r := public.sbt_try('update public.studyboard_config set value = ''true'' where key = ''paywall''');
@@ -169,7 +154,7 @@ begin
   n := public.sbt_count('select 1 from public.studyboard_config');
   execute 'reset role'; perform public.sbt_ok(n > 0, 'the app can still read the settings (prices and limits)');
 
-  -- ===== 4. Usage, devices and the server-only tables =====
+  -- 4. Usage, devices and the server-only tables
   perform set_config('request.jwt.claims', jsonb_build_object('sub', ua, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   r := public.sbt_try(format('insert into public.studyboard_usage (user_id, data_bytes) values (%L, 0) on conflict (user_id) do update set data_bytes = 0', ua));
@@ -211,7 +196,7 @@ begin
   r := public.sbt_try(format('insert into public.studyboard_billing_customers (user_id, stripe_customer_id) values (%L, ''cus_evil'')', ua));
   execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user linked a Stripe customer to themselves');
 
-  -- ===== 5. The public key alone (not signed in) =====
+  -- 5. The public key alone (not signed in)
   execute 'set local role anon';
   r := public.sbt_try('select * from public.studyboard_entitlements');
   execute 'reset role'; perform public.sbt_ok(r like 'err:%' or r = 'ok:0', 'the anon key can read entitlements'); execute 'set local role anon';
@@ -226,7 +211,7 @@ begin
   r := public.sbt_try('select public.studyboard_paywall()');
   execute 'reset role'; perform public.sbt_ok(r like 'ok:%', 'the app can still ask whether the paywall is on');
 
-  -- ===== 6. Table privileges, function privileges, views, realtime =====
+  -- 6. Table privileges, function privileges, views, realtime
   foreach t in array tables loop
     perform public.sbt_ok(not has_table_privilege('anon', 'public.' || t, 'insert,update,delete,truncate'), 'anon has write privileges on ' || t);
     perform public.sbt_ok(not has_table_privilege('authenticated', 'public.' || t, 'insert,update,delete,truncate'), 'signed-in users have write privileges on ' || t)
@@ -242,7 +227,6 @@ begin
                          'studyboard_entitlements has a policy that allows writes');
   perform public.sbt_ok(not exists (select 1 from pg_policy where polrelid = 'public.studyboard_usage'::regclass and polcmd <> 'r'), 'studyboard_usage has a policy that allows writes');
   perform public.sbt_ok(not exists (select 1 from pg_policy where polrelid = 'public.studyboard_config'::regclass and polcmd <> 'r'), 'studyboard_config has a policy that allows writes');
-  -- Every function this setup defines (every overload) is closed to PUBLIC, anon and signed-in people, except the two the app calls.
   for f in
     select p.oid, p.proname, p.oid::regprocedure as sig, p.prosecdef, p.proconfig, p.proacl, p.proowner
     from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
@@ -274,7 +258,7 @@ begin
                            'a plan table is published over Realtime');
   end if;
 
-  -- ===== 7. The limits cannot be walked around (the paywall is switched on for this test only) =====
+  -- 7. The limits cannot be walked around (the paywall is switched on for this test only)
   update public.studyboard_config set value = 'true' where key = 'paywall';
   update public.studyboard_config set value = '{"free": {"devices": 2, "fileMB": 1, "dataMB": 1, "groupMembers": 3, "groupMsgDays": 60, "cloudBackupDays": 0},
                                                 "pro":  {"devices": null, "fileMB": 10, "dataMB": 5, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30, "backupMB": 3}}'::jsonb where key = 'limits';
@@ -286,7 +270,6 @@ begin
   perform public.sbt_blocked(r, 'a free account added a 3rd device');
   r := public.sbt_try(format('insert into public.studyboard_devices (user_id, device_id, name) values (%L, ''selftest-dev-a-1'', ''again'') on conflict (user_id, device_id) do update set last_seen = now()', ua));
   perform public.sbt_ok(r = 'ok:1', 'a known device can sign in again');
-  -- remove and re-add, over and over: stopped after 4 removals in a week
   for n in 1..4 loop
     r := public.sbt_try(format('delete from public.studyboard_devices where user_id = %L and device_id = ''selftest-dev-a-2''', ua)); perform public.sbt_ok(r = 'ok:1', 'a device can be removed');
     r := public.sbt_try(format('insert into public.studyboard_devices (user_id, device_id, name) values (%L, ''selftest-dev-a-2'', ''2'')', ua));
@@ -296,7 +279,6 @@ begin
   execute 'reset role';
   perform public.sbt_ok((select count(*) <= 2 from public.studyboard_devices where user_id = ua), 'a free account ended up with more than 2 devices');
 
-  -- synced data and online backups
   execute 'set local role authenticated';
   r := public.sbt_try(format('insert into public.items (user_id, kind, id, data) values (%L, ''task'', ''t1'', jsonb_build_object(''x'', repeat(''a'', 600000)))', ua));
   perform public.sbt_ok(r = 'ok:1', 'a free account can store some data');
@@ -312,7 +294,6 @@ begin
   perform public.sbt_ok((select data_bytes = (select coalesce(sum(octet_length(data::text)) filter (where kind <> 'backup'), 0) from public.items where user_id = ua)
                                 and backup_bytes = (select coalesce(sum(octet_length(data::text)) filter (where kind = 'backup'), 0) from public.items where user_id = ua)
                          from public.studyboard_usage where user_id = ua), 'the usage totals match the real data after kind changes');
-  -- File storage (back to being the owner: the sign-in claims are cleared first)
   perform set_config('request.jwt.claims', '', true);
   insert into storage.objects (bucket_id, name, metadata) values ('studioso-files', ua || '/one.bin', '{"size": 600000}');
   begin
@@ -320,7 +301,6 @@ begin
     raise exception 'EXPLOIT SUCCEEDED: a free account went over the file storage limit' using errcode = 'XX999';
   exception when sqlstate 'P0001' then insert into public.sbt_log (name) values ('a free account went over the file storage limit (refused)');
   end;
-  -- The file limit holds with the paywall switched off too (files cost real storage); switched back on straight after.
   update public.studyboard_config set value = 'false' where key = 'paywall';
   begin
     insert into storage.objects (bucket_id, name, metadata) values ('studioso-files', ua || '/three.bin', '{"size": 600000}');
@@ -333,7 +313,6 @@ begin
     raise exception 'EXPLOIT SUCCEEDED: a file outside any account folder was accepted' using errcode = 'XX999';
   exception when sqlstate 'P0001' then insert into public.sbt_log (name) values ('a file outside any account folder is refused');
   end;
-  -- Study groups: 3 members while the owner is free
   insert into public.study_groups (id, owner_id, name, invite_code) values (gid, ua, 'selftest', 'TST-' || substr(gid::text, 1, 3));
   insert into public.group_members (group_id, user_id) values (gid, ua);
   insert into auth.users (id, instance_id, aud, role, email) select u, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'selftest-m-' || u || '@example.invalid'
@@ -346,11 +325,9 @@ begin
     end;
   end loop;
   perform public.sbt_ok(r = 'blocked' and (select count(*) = 3 from public.group_members where group_id = gid), 'a free group has more than 3 members');
-  -- A grant makes the owner Pro (limits rise), and revoking takes it away again
   perform public.sbt_ok(not public.studyboard_is_pro(ua), 'account A is wrongly Pro');
   perform public.studyboard_grant_pro_uid(ua, 30, 'selftest');
   perform public.sbt_ok(public.studyboard_is_pro(ua) and public.studyboard_limit(ua, 'dataMB') = 5, 'a grant should make the account Pro');
-  -- Pro can keep online backups, within their own total, and old ones are cleaned up
   perform set_config('request.jwt.claims', jsonb_build_object('sub', ua, 'role', 'authenticated')::text, true);
   execute 'set local role authenticated';
   r := public.sbt_try(format('insert into public.items (user_id, kind, id, data) values (%L, ''backup'', ''b1'', jsonb_build_object(''x'', repeat(''a'', 2000000)))', ua));
@@ -359,10 +336,8 @@ begin
   execute 'reset role'; perform public.sbt_blocked(r, 'a Pro account used backup rows as unlimited storage');
   perform set_config('request.jwt.claims', '', true);
   if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'items' and column_name = 'updated_at') then
-    -- (lean.sql's trigger stamps updated_at with the server clock on every change, so it is paused to age the backup; the rollback undoes this)
     if exists (select 1 from pg_trigger where tgrelid = 'public.items'::regclass and tgname = 'lean_items_touch') then execute 'alter table public.items disable trigger lean_items_touch'; end if;
     update public.items set updated_at = now() - interval '70 days' where user_id = ua and kind = 'backup';
-    -- a plan that changed in the last 30 days keeps every backup (the grace runs from the change); then it has held for 40 days
     perform public.sbt_ok(public.studyboard_prune_backups() = 0, 'backups are kept for 30 days after the plan last changed');
     update public.studyboard_entitlements set updated_at = now() - interval '40 days' where user_id = ua;
     if exists (select 1 from pg_trigger where tgrelid = 'public.items'::regclass and tgname = 'lean_items_touch') then execute 'alter table public.items enable trigger lean_items_touch'; end if;
@@ -372,7 +347,7 @@ begin
   perform public.sbt_ok(not public.studyboard_is_pro(ua), 'revoking a grant should end Pro');
   perform public.sbt_ok((select count(*) >= 3 from public.studyboard_pro_grants where user_id = ua or user_id = ub), 'grants and revokes are written to the log');
 
-  -- ===== 8. Payments: replays, order, mixed sources, grants =====
+  -- 8. Payments: replays, order, mixed sources, grants
   perform public.studyboard_grant_pro_uid(ua, null, 'selftest forever');
   r := public.studyboard_apply_billing(jsonb_build_object('event_id', 'e1', 'family', 'stripe', 'source', 'stripe', 'type', 'customer.subscription.updated', 'state', 'active',
           'uid_hint', ua, 'trust_hint', true, 'customer', 'cus_a', 'pro_until', now() + interval '30 days', 'event_at', now()));
@@ -396,12 +371,10 @@ begin
   perform public.sbt_ok(r like 'rejected%', 'a second Stripe customer can''t be attached to an account (got ' || r || ')');
   r := public.studyboard_apply_billing(jsonb_build_object('event_id', 'e5c', 'family', 'stripe', 'source', 'stripe', 'state', 'active', 'uid_hint', ub, 'trust_hint', true, 'customer', 'cus_a', 'pro_until', now() + interval '30 days'));
   perform public.sbt_ok(r like 'rejected%', 'someone else''s customer id can''t be moved to another account (got ' || r || ')');
-  -- a store subscription and a Stripe cancel
   r := public.studyboard_apply_billing(jsonb_build_object('event_id', 'r1', 'family', 'revenuecat', 'source', 'apple', 'state', 'active', 'uid_hint', ub, 'pro_until', now() + interval '60 days', 'fresh', true, 'event_at', now() + interval '2 minutes'));
   perform public.sbt_ok(r = 'pro', 'a store purchase turns Pro on (got ' || r || ')');
   r := public.studyboard_apply_billing(jsonb_build_object('event_id', 'e6', 'family', 'stripe', 'source', 'stripe', 'state', 'ended', 'customer', 'cus_selftest_b', 'event_at', now() + interval '3 minutes'));
   perform public.sbt_ok(r = 'kept other source', 'a Stripe cancel must not end an App Store subscription (got ' || r || ')');
-  -- refund / dispute: off, and later renewals can't turn it back on until a new purchase
   r := public.studyboard_apply_billing(jsonb_build_object('event_id', 'r2', 'family', 'revenuecat', 'source', 'apple', 'state', 'revoke', 'uid_hint', ub, 'event_at', now() + interval '4 minutes'));
   perform public.sbt_ok(r = 'revoked', 'a refund switches Pro off (got ' || r || ')');
   perform public.sbt_ok((select plan = 'free' from public.studyboard_entitlements where user_id = ub) and public.studyboard_is_pro(ub), 'account B keeps the owner''s grant after a refund of their purchase');
@@ -409,12 +382,11 @@ begin
   perform public.sbt_ok(r = 'ignored: revoked', 'a renewal after a refund doesn''t switch Pro back on (got ' || r || ')');
   r := public.studyboard_apply_billing(jsonb_build_object('event_id', 'r4', 'family', 'revenuecat', 'source', 'apple', 'state', 'active', 'uid_hint', ub, 'pro_until', now() + interval '60 days', 'fresh', true, 'event_at', now() + interval '6 minutes'));
   perform public.sbt_ok(r = 'pro', 'a brand new purchase after a refund works (got ' || r || ')');
-  -- paid "Pro for good" survives a subscription ending
   r := public.studyboard_apply_billing(jsonb_build_object('event_id', 'r5', 'family', 'revenuecat', 'source', 'apple', 'state', 'lifetime', 'uid_hint', ub, 'fresh', true, 'event_at', now() + interval '7 minutes'));
   r := public.studyboard_apply_billing(jsonb_build_object('event_id', 'r6', 'family', 'revenuecat', 'source', 'apple', 'state', 'ended', 'uid_hint', ub, 'event_at', now() + interval '8 minutes'));
   perform public.sbt_ok(r = 'kept lifetime', 'an ended subscription does not remove paid Pro for good (got ' || r || ')');
 
-  -- ===== 9. Project Tasks (groups.sql 1.13): shared task lists inside a study group =====
+  -- 9. Project Tasks (groups.sql 1.13)
   if to_regclass('public.group_tasks') is null then
     raise notice 'Project Tasks tables not found (run supabase-groups.sql, then this test again): section 9 skipped.';
   else
@@ -433,7 +405,6 @@ begin
     insert into public.study_groups (id, owner_id, name, invite_code) values (g1, ua, 'tasks-1', 'TK1-' || substr(g1::text, 1, 3)), (g2, ub, 'tasks-2', 'TK2-' || substr(g2::text, 1, 3));
     insert into public.group_members (group_id, user_id, role) values (g1, ua, 'owner'), (g1, ub, 'member'), (g1, ud, 'member'), (g2, ub, 'owner');
 
-    -- A (owner of g1) makes a list; B makes a task and assigns it to D; B also adds an unassigned one.
     perform set_config('request.jwt.claims', jsonb_build_object('sub', ua, 'role', 'authenticated')::text, true);
     execute 'set local role authenticated';
     select id into l1 from public.create_task_list(g1, 'BIOL 201 Poster', 'BIOL 201');
@@ -448,7 +419,6 @@ begin
     perform public.sbt_ok(t1 is not null and t2 is not null, 'a member can add tasks (with and without an assignee)');
     perform public.sbt_ok((select created_by = ub and updated_by = ub and position = 1 and status = 'todo' from public.group_tasks where id = t1), 'the server stamps who added the task and where it sits');
 
-    -- 9a. Someone who is not in the group (account C) sees and changes nothing
     perform set_config('request.jwt.claims', jsonb_build_object('sub', uc, 'role', 'authenticated')::text, true);
     execute 'set local role authenticated';
     n := public.sbt_count('select 1 from public.group_task_lists where group_id = ' || quote_literal(g1));
@@ -472,7 +442,6 @@ begin
     perform public.sbt_ok((select count(*) = 2 from public.group_tasks where list_id = l1 and not deleted) and exists (select 1 from public.group_task_lists where id = l1),
                            'the list and its tasks are untouched by the outsider');
 
-    -- 9b. A member still has no direct write access to the tables (only the functions)
     perform set_config('request.jwt.claims', jsonb_build_object('sub', ub, 'role', 'authenticated')::text, true);
     execute 'set local role authenticated';
     r := public.sbt_try(format('insert into public.group_tasks (list_id, group_id, title) values (%L, %L, %L)', l1, g1, 'sneaky'));
@@ -497,7 +466,6 @@ begin
     execute 'reset role'; perform public.sbt_blocked(r, 'the anon key added a group task');
     perform public.sbt_ok((select title = 'Draft the intro' from public.group_tasks where id = t1), 'direct attempts left the task unchanged');
 
-    -- 9c. Assignees must be members, and who may reassign
     execute 'set local role authenticated';
     r := public.sbt_try(format('select public.add_group_task(%L, %L, %L, null, %L, null)', l1, 'for a stranger', uc, ''));
     execute 'reset role'; perform public.sbt_blocked(r, 'a member assigned a new task to a non-member'); execute 'set local role authenticated';
@@ -505,7 +473,6 @@ begin
     execute 'reset role'; perform public.sbt_blocked(r, 'a member assigned an existing task to a non-member'); execute 'set local role authenticated';
     r := public.sbt_try(format('select public.update_group_task(%L, jsonb_build_object(%L, %L))', t2, 'assignee_id', ub));
     execute 'reset role'; perform public.sbt_ok(r = 'ok:1', 'anyone can claim an unassigned task (got ' || r || ')');
-    -- B now holds t2; D (a plain member, not the assignee, not the owner) can't take it
     perform set_config('request.jwt.claims', jsonb_build_object('sub', ud, 'role', 'authenticated')::text, true);
     execute 'set local role authenticated';
     r := public.sbt_try(format('select public.update_group_task(%L, jsonb_build_object(%L, %L))', t2, 'assignee_id', ud));
@@ -513,7 +480,6 @@ begin
     r := public.sbt_try(format('select public.update_group_task(%L, %L)', t2, '{"assignee_id": null}'));
     execute 'reset role'; perform public.sbt_blocked(r, 'a member unassigned someone else''s task');
     perform public.sbt_ok((select assignee_id = ub from public.group_tasks where id = t2), 'the task is still assigned to B');
-    -- any member may edit details and mark it done
     execute 'set local role authenticated';
     r := public.sbt_try(format('select public.update_group_task(%L, %L)', t2, '{"status":"done","notes":"found them"}'));
     execute 'reset role'; perform public.sbt_ok(r = 'ok:1', 'any member can mark a task done (got ' || r || ')');
@@ -524,7 +490,6 @@ begin
     execute 'reset role'; perform public.sbt_ok(r = 'ok:1', 'the group owner can reassign a task (got ' || r || ')');
     perform public.sbt_ok((select assignee_id = ud and completed_at is null and completed_by is null from public.group_tasks where id = t2), 'reopening clears the completion stamp');
 
-    -- 9d. Crafted ids across groups (A is not in g2)
     execute 'set local role authenticated';
     r := public.sbt_try(format('select public.update_group_task(%L, %L)', tx, '{"title":"hijacked"}'));
     execute 'reset role'; perform public.sbt_blocked(r, 'a member edited a task in a group they are not in'); execute 'set local role authenticated';
@@ -537,14 +502,12 @@ begin
     r := public.sbt_try(format('select public.delete_task_list(%L)', l2));
     execute 'reset role'; perform public.sbt_blocked(r, 'a member deleted another group''s list');
     perform set_config('request.jwt.claims', '', true);
-    -- the database itself refuses a task whose group does not match its list, or an assignee who is not a member
     r := public.sbt_try(format('insert into public.group_tasks (list_id, group_id, title) values (%L, %L, %L)', l2, g1, 'mismatch'));
     perform public.sbt_ok(r like 'err:%', 'a task can''t sit in a list of a different group');
     r := public.sbt_try(format('insert into public.group_tasks (list_id, group_id, title, assignee_id) values (%L, %L, %L, %L)', l1, g1, 'stranger', uc));
     perform public.sbt_ok(r like 'err:%', 'the database refuses an assignee who is not a member, even from the SQL Editor');
     perform public.sbt_ok((select title = 'Secret task in another group' and not deleted from public.group_tasks where id = tx), 'the other group''s task is untouched');
 
-    -- 9e. Who can delete, and reordering
     perform set_config('request.jwt.claims', jsonb_build_object('sub', ud, 'role', 'authenticated')::text, true);
     execute 'set local role authenticated';
     r := public.sbt_try(format('select public.delete_group_task(%L)', t1));
@@ -561,7 +524,6 @@ begin
     execute 'reset role'; perform public.sbt_ok(r = 'ok:1', 'the author can remove their task (got ' || r || ')');
     perform public.sbt_ok((select deleted from public.group_tasks where id = t1), 'removal is a soft delete');
 
-    -- 9f. Caps and text limits
     execute 'set local role authenticated';
     r := public.sbt_try(format('select public.add_group_task(%L, repeat(%L, 201), null, null, %L, null)', l1, 'x', ''));
     execute 'reset role'; perform public.sbt_blocked(r, 'a task title over 200 characters was accepted'); execute 'set local role authenticated';
@@ -575,7 +537,6 @@ begin
     perform public.add_group_task(l1, 'long notes', null, null, repeat('n', 5000), null);
     execute 'reset role';
     perform public.sbt_ok((select max(char_length(notes)) <= 1000 from public.group_tasks where list_id = l1), 'notes are capped at 1000 characters');
-    -- 200 tasks in a list
     perform set_config('request.jwt.claims', '', true);
     insert into public.group_task_lists (group_id, title) values (g1, 'cap list') returning id into lcap;
     insert into public.group_tasks (list_id, group_id, title, position) select lcap, g1, 'bulk ' || x, x from generate_series(1, 200) x;
@@ -584,7 +545,6 @@ begin
     r := public.sbt_try(format('select public.add_group_task(%L, %L, null, null, %L, null)', lcap, 'one too many', ''));
     execute 'reset role'; perform public.sbt_blocked(r, 'a list took a 201st task');
     perform public.sbt_ok((select count(*) = 200 from public.group_tasks where list_id = lcap), 'a list holds exactly 200 tasks');
-    -- 20 active lists (the group has l1 and lcap now)
     perform set_config('request.jwt.claims', '', true);
     insert into public.group_task_lists (group_id, title) select g1, 'filler ' || x from generate_series(1, 18) x;
     perform set_config('request.jwt.claims', jsonb_build_object('sub', ub, 'role', 'authenticated')::text, true);
@@ -599,7 +559,6 @@ begin
     execute 'reset role'; perform public.sbt_ok(r = 'ok:1', 'archiving frees a slot for a new list (got ' || r || ')'); execute 'set local role authenticated';
     r := public.sbt_try(format('select public.update_task_list(%L, %L)', lcap, '{"archived": false}'));
     execute 'reset role'; perform public.sbt_blocked(r, 'a restored list pushed the group past 20 active lists');
-    -- flooding: no more than 40 new tasks a minute from one account
     perform set_config('request.jwt.claims', '', true);
     insert into public.group_task_lists (group_id, title) values (g2, 'flood list') returning id into lx;
     perform set_config('request.jwt.claims', jsonb_build_object('sub', ub, 'role', 'authenticated')::text, true);
@@ -614,7 +573,6 @@ begin
     execute 'reset role';
     perform public.sbt_ok(r = 'blocked' and (select count(*) < 50 from public.group_tasks where list_id = lx), 'one account added more than 40 tasks in a minute');
 
-    -- 9g. Leaving a group unassigns your tasks; blocked people's tasks are hidden
     perform set_config('request.jwt.claims', '', true);
     perform public.sbt_ok((select assignee_id = ud from public.group_tasks where id = t2), 'D holds a task before leaving');
     delete from public.group_members where group_id = g1 and user_id = ud;
@@ -634,7 +592,6 @@ begin
       raise notice 'supabase-moderation.sql (task rules) is not installed: the blocked-people check was skipped.';
     end if;
 
-    -- 9h. Privileges, definer settings and realtime
     perform public.sbt_ok(not has_table_privilege('anon', 'public.group_tasks', 'select,insert,update,delete,truncate')
                           and not has_table_privilege('anon', 'public.group_task_lists', 'select,insert,update,delete,truncate'), 'anon has privileges on the task tables');
     perform public.sbt_ok(not has_table_privilege('authenticated', 'public.group_tasks', 'insert,update,delete,truncate')
@@ -662,7 +619,6 @@ begin
   end;
   end if;
 
-  -- ===== 10. A free trial can't be had twice by deleting the account and signing up again with the same email =====
   declare tx uuid := gen_random_uuid(); ty uuid := gen_random_uuid(); em text := 'selftest.trial-' || substr(gen_random_uuid()::text, 1, 8) || '@gmail.com';
   begin
     update public.studyboard_config set value = 'true'::jsonb where key = 'app_trial';
@@ -671,7 +627,6 @@ begin
     perform public.studyboard_start_trial();
     perform public.sbt_ok(exists (select 1 from public.studyboard_trial_uses where email_hash = public.plans_email_hash(em)), 'starting a trial is not remembered by email hash');
     perform public.sbt_ok(not exists (select 1 from public.studyboard_trial_uses where email_hash = em or email_hash like '%@%'), 'the trial record holds the email itself');
-    -- the account is deleted (the worker when lean.sql is installed), then made again with the same address written differently
     if to_regprocedure('public.studyboard_delete_user_data(uuid)') is not null then perform public.studyboard_delete_user_data(tx); end if;
     delete from public.studyboard_entitlements where user_id = tx;
     delete from auth.users where id = tx;
@@ -683,7 +638,6 @@ begin
     perform set_config('request.jwt.claims', '', true);
   end;
 
-  -- ===== 11. Pro groups (plans.sql 1.16): only Pro can unlock a group, at most 5, nobody writes the table directly, badges need Pro =====
   if to_regclass('public.group_pro') is null then
     raise notice 'Pro groups not found (run supabase-plans.sql again): section 11 skipped.';
   else
@@ -697,12 +651,10 @@ begin
              (uf, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'selftest-f-' || uf || '@example.invalid', now(), now()),
              (ug, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'selftest-g-' || ug || '@example.invalid', now(), now()),
              (uh, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'selftest-h-' || uh || '@example.invalid', now(), now());
-    -- gp: owned by free A, members A and B (B has Pro). gq: owned by free A, B is not in it.
     insert into public.study_groups (id, owner_id, name, invite_code) values (gp, ua, 'pro-1', 'PG1-' || substr(gp::text, 1, 3)), (gq, ua, 'pro-2', 'PG2-' || substr(gq::text, 1, 3));
     insert into public.group_members (group_id, user_id, role) values (gp, ua, 'owner'), (gp, ub, 'member'), (gq, ua, 'owner');
     perform public.sbt_ok(not public.plans_group_is_pro(gp), 'a group of a free owner starts as a free group');
 
-    -- A (free) can't unlock, can't write group_pro, can't read the function list
     perform set_config('request.jwt.claims', jsonb_build_object('sub', ua, 'role', 'authenticated')::text, true);
     execute 'set local role authenticated';
     r := public.sbt_try(format('select public.group_pro_set(%L, true)', gp));
@@ -723,7 +675,6 @@ begin
     execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user wrote their badge directly');
     perform public.sbt_ok(not exists (select 1 from public.group_members where user_id = ua and badge), 'the badge is still off');
 
-    -- B (Pro) unlocks gp: everyone in it gets Pro limits; B can't unlock gq (not a member); A still can't take it over
     perform set_config('request.jwt.claims', jsonb_build_object('sub', ub, 'role', 'authenticated')::text, true);
     execute 'set local role authenticated';
     perform public.group_pro_set(gp, true);
@@ -738,13 +689,11 @@ begin
     execute 'set local role authenticated';
     n := public.sbt_count('select 1 from public.group_pro where group_id = ' || quote_literal(gp));
     execute 'reset role'; perform public.sbt_ok(n = 0, 'someone outside the group can read who unlocked it (saw ' || n || ')');
-    -- the member limit follows the Pro group: a 4th member gets in
     perform set_config('request.jwt.claims', '', true);
     insert into public.group_members (group_id, user_id, role) values (gp, ug, 'member'), (gp, uh, 'member');
     perform public.sbt_ok((select count(*) from public.group_members where group_id = gp) = 4, 'a Pro group holds more than 3 members');
     r := 'ok'; begin insert into public.group_members (group_id, user_id, role) values (gq, ug, 'member'), (gq, uh, 'member'), (gq, ue, 'member'); exception when others then r := sqlerrm; end;
     perform public.sbt_ok(r like 'This group is full%', 'a free group still stops at 3 members (got ' || r || ')');
-    -- 5 groups at most per Pro account
     for i in 1..5 loop
       gx := gen_random_uuid();
       insert into public.study_groups (id, owner_id, name, invite_code) values (gx, uf, 'cap-' || i, 'CP' || i || '-' || substr(gx::text, 1, 3));
@@ -755,7 +704,6 @@ begin
     end loop;
     perform public.sbt_ok(r like 'SB_PRO_GROUPS_FULL%', 'a 6th Pro group was allowed (got ' || r || ')');
     perform public.sbt_ok((select count(*) from public.group_pro where user_id = ub) = 5, 'one account holds at most 5 Pro groups');
-    -- leaving one of them frees its place; owning a group with Pro doesn't make it Pro by itself
     delete from public.group_members where user_id = ub and group_id = (select p.group_id from public.group_pro p where p.user_id = ub and p.group_id <> gp limit 1);
     gx := gen_random_uuid();
     insert into public.study_groups (id, owner_id, name, invite_code) values (gx, ub, 'cap-own', 'CPO-' || substr(gx::text, 1, 3));
@@ -765,12 +713,10 @@ begin
     r := 'ok'; begin perform public.group_pro_set(gx, true); exception when others then r := sqlerrm; end;
     perform set_config('request.jwt.claims', '', true);
     perform public.sbt_ok(r = 'ok' and public.plans_group_is_pro(gx), 'a group left behind still held one of the 5 places (got ' || r || ')');
-    -- when B's Pro ends, the group goes back to free limits and B's badge goes
     update public.studyboard_entitlements set plan = 'free', pro_until = null, trial_until = null, grant_lifetime = false, grant_until = null where user_id = ub;
     perform public.sbt_ok(not public.plans_group_is_pro(gp), 'the group stops being Pro when the member who unlocked it loses Pro');
     perform public.plans_badge_tidy();
     perform public.sbt_ok(not exists (select 1 from public.group_members where user_id = ub and badge), 'a badge outlived Pro');
-    -- privileges
     perform public.sbt_ok(not has_table_privilege('authenticated', 'public.group_pro', 'insert,update,delete,truncate') and not has_table_privilege('anon', 'public.group_pro', 'select'), 'group_pro is writable by signed-in users or readable by anon');
     perform public.sbt_ok(not has_function_privilege('anon', 'public.group_pro_set(uuid, boolean)', 'execute') and not has_function_privilege('anon', 'public.set_supporter_badge(boolean)', 'execute'), 'anon can run a Pro group function');
     if to_regclass('storage.objects') is not null and exists (select 1 from pg_trigger where tgname = 'plans_group_upload') then
@@ -784,7 +730,7 @@ begin
   end;
   end if;
 
-  -- ===== The free week of Pro for new accounts (plans_welcome_trial): only the database grants it, once per person =====
+  -- The free week of Pro for new accounts (plans_welcome_trial)
   execute 'reset role';
   perform set_config('request.jwt.claims', '', true);
   if to_regprocedure('public.plans_welcome_trial(uuid)') is not null then
@@ -796,13 +742,11 @@ begin
     insert into public.studyboard_config (key, value) values ('welcome_trial', 'true'::jsonb) on conflict (key) do update set value = 'true'::jsonb;
     insert into public.studyboard_config (key, value) values ('welcome_trial_since', to_jsonb(now() - interval '1 minute')) on conflict (key) do update set value = to_jsonb(now() - interval '1 minute');
     insert into public.studyboard_config (key, value) values ('welcome_trial_daily_cap', '1000000'::jsonb) on conflict (key) do update set value = '1000000'::jsonb;
-    -- a new confirmed account gets it
     insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, created_at, updated_at)
       values (w1, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sbt.welcome.' || tag || '@gmail.com', now(), now(), now());
     select trial_until into tu from public.studyboard_entitlements where user_id = w1;
     perform public.sbt_ok(tu > now() + interval '6 days' and tu < now() + interval '15 days', 'a new confirmed account did not get its free week');
     perform public.sbt_ok(public.studyboard_is_pro(w1), 'the free week does not count as Pro');
-    -- the free week unlocks features and styles, but every amount stays at the free plan's (nothing to fill up, nothing over a limit after)
     perform public.sbt_ok(not public.studyboard_limits_pro(w1), 'the free week counted for Pro amounts (storage, devices, group size)');
     perform public.sbt_ok(public.studyboard_limit(w1, 'fileMB') = public.studyboard_limit(ua, 'fileMB')
                           and public.studyboard_limit(w1, 'dataMB') = public.studyboard_limit(ua, 'dataMB')
@@ -815,19 +759,16 @@ begin
       r := 'ok'; begin insert into public.studyboard_devices (user_id, device_id, name) values (w1, 'sbt-welcome-dev-3', 'three'); exception when others then r := sqlerrm; end;
       perform public.sbt_ok(r like 'SB_DEVICE_LIMIT%', 'the free week synced on more devices than the free plan (got ' || r || ')');
     end if;
-    -- the same person again: deleted and back, or the same Gmail with dots and a +tag
     delete from auth.users where id = w1;
     insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, created_at, updated_at)
       values (w2, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sbtwelcome' || tag || '+again@gmail.com', now(), now(), now());
     perform public.sbt_ok(not exists (select 1 from public.studyboard_entitlements where user_id = w2 and trial_until is not null), 'deleting the account and signing up again (Gmail dots and +tag) gave a second free week');
-    -- unconfirmed, throw-away mail, guest
     insert into auth.users (id, instance_id, aud, role, email, created_at, updated_at)
       values (w3, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sbt.unconfirmed.' || tag || '@example.org', now(), now());
     perform public.sbt_ok(not exists (select 1 from public.studyboard_entitlements where user_id = w3 and trial_until is not null), 'an unconfirmed email got the free week');
     insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, created_at, updated_at)
       values (w4, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sbt.' || tag || '@mailinator.com', now(), now(), now());
     perform public.sbt_ok(not exists (select 1 from public.studyboard_entitlements where user_id = w4 and trial_until is not null), 'a throw-away mail address got the free week');
-    -- an account can't hand it to itself, and changing its email doesn't give another
     perform set_config('request.jwt.claims', jsonb_build_object('sub', w3, 'role', 'authenticated')::text, true);
     execute 'set local role authenticated';
     r := public.sbt_try(format('select public.plans_welcome_trial(%L)', w3));
@@ -841,7 +782,6 @@ begin
   end;
   end if;
 
-  -- ===== 12. Promo codes: only you make them; one use each; Pro's features without Pro's limits; a month code really ends =====
   declare
     p1 uuid := gen_random_uuid(); p2 uuid := gen_random_uuid(); p3 uuid := gen_random_uuid();
     cm text; cf text; j jsonb; u timestamptz; k int;
@@ -855,7 +795,6 @@ begin
     select code into cf from public.studyboard_make_codes('forever');
     perform public.sbt_ok(cm ~ '^SB-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$', 'a made code looks like SB-XXXX-XXXX-XXXX');
     perform public.sbt_ok(not exists (select 1 from public.studyboard_promo_codes where code_hash = cm or code_hash = public.plans_promo_norm(cm)), 'codes are stored in plain text');
-    -- a signed-in person can't make, list or disable codes, read the tables, or give themselves promo time directly
     perform set_config('request.jwt.claims', jsonb_build_object('sub', p1, 'role', 'authenticated')::text, true);
     execute 'set local role authenticated';
     r := public.sbt_try('select public.studyboard_make_code(''MYOWNCODE'', ''forever'', null)');
@@ -868,10 +807,8 @@ begin
     execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user set their own promo_lifetime'); execute 'set local role authenticated';
     r := public.sbt_try(format('insert into public.studyboard_entitlements (user_id, promo_until) values (%L, now() + interval ''10 years'')', p1));
     execute 'reset role'; perform public.sbt_blocked(r, 'a signed-in user gave themselves promo time'); execute 'set local role authenticated';
-    -- wrong codes do nothing
     j := public.studyboard_redeem_code('SB-AAAA-AAAA-AAAA');
     execute 'reset role'; perform public.sbt_ok(j ->> 'error' = 'invalid' and not public.studyboard_is_pro(p1), 'a made-up code was accepted'); execute 'set local role authenticated';
-    -- the month code: Pro's features now, the free plan's limits, and an end one month away
     j := public.studyboard_redeem_code(lower(replace(cm, '-', ' ')));
     execute 'reset role';
     perform public.sbt_ok((j ->> 'ok')::boolean and j ->> 'kind' = 'month', 'a month code (typed in lower case with spaces) was refused: ' || j::text);
@@ -881,11 +818,9 @@ begin
     perform public.sbt_ok(not public.studyboard_limits_pro(p1), 'a month code gave Pro''s bigger limits');
     perform public.sbt_ok(public.studyboard_limit(p1, 'fileMB') = public.studyboard_limit(p3, 'fileMB') and public.studyboard_limit(p1, 'dataMB') = public.studyboard_limit(p3, 'dataMB')
                           and coalesce(public.studyboard_limit(p1, 'devices'), -1) = coalesce(public.studyboard_limit(p3, 'devices'), -1), 'a month code changed storage, data or device limits');
-    -- and it ends: once promo_until has passed, nothing is left
     update public.studyboard_entitlements set promo_until = now() - interval '1 second' where user_id = p1;
     perform public.sbt_ok(not public.studyboard_is_pro(p1), 'a month code was still Pro after its month ended');
     update public.studyboard_entitlements set promo_until = u where user_id = p1;
-    -- single use: the same account again, and another account, are both refused
     execute 'set local role authenticated';
     j := public.studyboard_redeem_code(cm);
     execute 'reset role'; perform public.sbt_ok(j ->> 'error' = 'already', 'the same account redeemed a code twice: ' || j::text);
@@ -893,12 +828,10 @@ begin
     execute 'set local role authenticated';
     j := public.studyboard_redeem_code(cm);
     execute 'reset role'; perform public.sbt_ok(j ->> 'error' = 'used_up' and not public.studyboard_is_pro(p2), 'a single-use code worked for a second account: ' || j::text);
-    -- the forever code: Pro for good, still the free plan's limits
     execute 'set local role authenticated';
     j := public.studyboard_redeem_code(cf);
     execute 'reset role';
     perform public.sbt_ok((j ->> 'ok')::boolean and j ->> 'until' is null and public.studyboard_is_pro(p2) and not public.studyboard_limits_pro(p2), 'a forever code didn''t give lasting Pro without the bigger limits: ' || j::text);
-    -- a second month code adds a month to what's left; a disabled or expired code is refused
     perform set_config('request.jwt.claims', '', true);
     perform public.studyboard_make_code('SBTMONTHTWO', 'month', 10);
     perform set_config('request.jwt.claims', jsonb_build_object('sub', p1, 'role', 'authenticated')::text, true);
@@ -912,19 +845,16 @@ begin
     perform public.sbt_ok(j ->> 'error' = 'invalid' and not public.studyboard_is_pro(p3), 'a disabled code still worked');
     execute 'set local role authenticated'; j := public.studyboard_redeem_code('SBTEXPIRED'); execute 'reset role';
     perform public.sbt_ok(j ->> 'error' = 'expired' and not public.studyboard_is_pro(p3), 'an expired code still worked');
-    -- guessing is slowed down: after 10 tries in an hour, even a good code waits
     execute 'set local role authenticated';
     for k in 1 .. 12 loop j := public.studyboard_redeem_code('SB-WRONG-' || k); end loop;
     execute 'reset role'; perform public.sbt_ok(j ->> 'error' = 'slow_down', 'codes can be guessed without a limit: ' || j::text);
-    -- nobody signed in: nothing
     perform set_config('request.jwt.claims', '', true);
     perform public.sbt_ok(public.studyboard_redeem_code(cf) ->> 'error' = 'sign_in', 'a code was redeemed without signing in');
-    -- taking it back
     perform public.studyboard_revoke_promo('sbt-promo-2-' || p2 || '@example.invalid');
     perform public.sbt_ok(not public.studyboard_is_pro(p2), 'revoking promo Pro left Pro on');
   end;
 
-  -- ===== Done =====
+  -- Done
   select count(*) into n from public.sbt_log;
   raise notice 'ALL % SECURITY CHECKS PASSED. Nothing was changed for real (the test ends with a rollback).', n;
 end

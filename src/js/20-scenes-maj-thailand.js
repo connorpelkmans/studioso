@@ -1,5 +1,5 @@
 /* ===== module: 20-scenes-maj-thailand.js ===== */
-/* Around the World: thailand (Thailand) */
+/* Around the World */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const r1 = n => Math.round(n * 100) / 100;
@@ -12,9 +12,9 @@
     thailandfrang: {d: [0, 1, 2, 3, 4].map(i => petal(0, 0, i / 5 * Math.PI * 2 - Math.PI / 2, 10.6, 4.6)).join(""), detail: circ(0, 0, 2.6), dfill: true},
     // a lotus in bloom, seen from the side
     thailandlotus: {d: petal(0, 7, -Math.PI / 2, 17, 5.2) + petal(-1, 7, -Math.PI / 2 - 0.55, 14, 4.6) + petal(1, 7, -Math.PI / 2 + 0.55, 14, 4.6) + petal(-2, 7.6, -Math.PI + 0.35, 11, 3.8) + petal(2, 7.6, -0.35, 11, 3.8), detail: "M-9 9.6Q0 12.4 9 9.6", dstroke: true},
-    // a candle krathong: a round leaf float, petals and a candle with its flame
+    // a candle krathong
     thailandkrathong: {d: "M-11 4H11Q11 9 0 9Q-11 9 -11 4Z M-10 4L-8 -1L-6 4Z M-6 4L-4 -2L-2 4Z M2 4L4 -2L6 4Z M6 4L8 -1L10 4Z M-1.3 4V-4H1.3V4Z M0 -11.4C1.8 -8.8 1.8 -6.6 0 -5.2C-1.8 -6.6 -1.8 -8.8 0 -11.4Z", detail: circ(-4, 1.6, 1.6) + circ(4, 1.6, 1.6) + circ(0, 2.4, 1.6), dfill: true},
-    // a golden chedi: stepped base, bell, ring stack and spire
+    // a golden chedi
     thailandchedi: {d: "M-10 11H10V9H8V7H-8V9H-10Z M-7 7C-7 1 -5 -2 -2.4 -3.6H2.4C5 -2 7 1 7 7Z M-2.4 -3.6V-5.4H2.4V-3.6Z M-2 -5.4L-0.4 -12H0.4L2 -5.4Z", detail: "M-6.6 3.4H6.6M-1.6 -7.4H1.6M-1.2 -9.4H1.2", dstroke: true}
   });
   MAJ_THEMES.push({

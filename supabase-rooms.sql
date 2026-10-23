@@ -1,16 +1,6 @@
--- Studyboard 1.11: Study Together rooms (shared focus sessions inside a study group)
--- Run this once in Supabase: SQL Editor > New query > paste everything > Run.
--- Run groups.sql first. It is safe to run this again (it only adds what is missing and refreshes the rules).
---
--- What it adds:
---  * study_rooms         one row per group for its current (or last) session: who started it, the length, when it ends.
---  * study_room_people   who joined that session, their goal, and whether they're still in the room.
---  * Functions the app calls: room_now, room_limits, start_room, join_room, leave_room, room_ping, end_room.
---  * Rules so only members of a group can see or join its room, and live updates for rooms.
--- Room size and length follow the group owner's plan, but only while the paywall row in studyboard_config is true.
--- While it is false (or plans.sql isn't installed), every room gets the Pro limits: 30 people and 3 hours.
+-- Studyboard 1.11
 
--- ---------- Tables ----------
+-- Tables
 create table if not exists public.study_rooms (
   id uuid primary key default gen_random_uuid(),
   group_id uuid not null references public.study_groups(id) on delete cascade,
@@ -23,7 +13,7 @@ create table if not exists public.study_rooms (
   ends_at timestamptz not null,
   status text not null default 'active' check (status in ('active', 'ended'))
 );
--- One room per group: starting a new session replaces the finished one.
+-- One room per group
 create unique index if not exists study_rooms_group_idx on public.study_rooms (group_id);
 create index if not exists study_rooms_ends_idx on public.study_rooms (ends_at);
 
@@ -41,7 +31,7 @@ create table if not exists public.study_room_people (
 );
 create index if not exists study_room_people_group_idx on public.study_room_people (group_id);
 
--- ---------- Row level security: members of the group only ----------
+-- Row level security
 alter table public.study_rooms enable row level security;
 alter table public.study_room_people enable row level security;
 
@@ -50,12 +40,11 @@ create policy "room member read" on public.study_rooms for select to authenticat
 drop policy if exists "room people member read" on public.study_room_people;
 create policy "room people member read" on public.study_room_people for select to authenticated using (public.sbg_is_member(group_id));
 
--- Nobody writes these tables directly; everything goes through the functions below.
+-- Nobody writes these tables directly; everything goes through the functions below
 revoke all on public.study_rooms, public.study_room_people from anon, authenticated;
 grant select on public.study_rooms, public.study_room_people to authenticated;
 
--- ---------- Limits (from the group owner's plan) ----------
--- Adds room limits to the plans "limits" row if it's there and doesn't have them yet. Values you changed are kept.
+-- Limits (from the group owner's plan)
 do $$
 begin
   if to_regclass('public.studyboard_config') is null then return; end if;
@@ -65,7 +54,6 @@ begin
        || jsonb_build_object('pro', '{"roomPeople": 30, "roomMinutes": 180}'::jsonb || coalesce(value -> 'pro', '{}'::jsonb))
    where key = 'limits' and jsonb_typeof(value) = 'object'
      and not ((value -> 'free') ? 'roomPeople' and (value -> 'free') ? 'roomMinutes' and (value -> 'pro') ? 'roomPeople' and (value -> 'pro') ? 'roomMinutes');
-  -- Session length isn't a Pro limit any more: free rooms that still have the old 60-minute default get the same 3 hours as Pro
   update public.studyboard_config
      set value = jsonb_set(value, '{free,roomMinutes}', '180'::jsonb)
    where key = 'limits' and jsonb_typeof(value) = 'object' and (value #>> '{free,roomMinutes}') = '60';
@@ -87,7 +75,6 @@ begin
   if to_regprocedure('public.studyboard_paywall()') is not null then
     execute 'select public.studyboard_paywall()' into pw;
   end if;
-  -- Room size is an amount, like group size: a paid plan or a gift (studyboard_limits_pro), not the card-free free week
   if coalesce(pw, false) and to_regprocedure('public.studyboard_limits_pro(uuid)') is not null then
     execute 'select public.studyboard_limits_pro($1)' into pro using owner;
   elsif coalesce(pw, false) and to_regprocedure('public.studyboard_is_pro(uuid)') is not null then
@@ -100,7 +87,6 @@ begin
   tier := case when pro then 'pro' else 'free' end;
   p := coalesce(lim -> tier -> 'roomPeople', defaults -> tier -> 'roomPeople');
   m := coalesce(lim -> tier -> 'roomMinutes', defaults -> tier -> 'roomMinutes');
-  -- A null limit means "as much as a room allows" (500 people, 10 hours).
   max_people := case when jsonb_typeof(p) = 'number' then least(greatest((p #>> '{}')::numeric::int, 1), 500) else 500 end;
   max_minutes := case when jsonb_typeof(m) = 'number' then least(greatest((m #>> '{}')::numeric::int, 5), 600) else 600 end;
   owner_pro := pro and coalesce(pw, false);
@@ -108,7 +94,7 @@ begin
   return next;
 end $$;
 
--- ---------- Small helpers ----------
+-- Small helpers
 create or replace function public.sbr_rate_ok(what text, n int, secs int) returns boolean
 language plpgsql volatile security definer set search_path = public as $$
 begin
@@ -116,14 +102,14 @@ begin
   return public.studyboard_rate_hit(what || ':' || coalesce(auth.uid()::text, 'anon'), n, secs);
 end $$;
 
--- Who is in the room right now. Someone whose app stopped checking in for 5 minutes doesn't hold a seat.
+-- Who is in the room right now
 create or replace function public.sbr_here_count(rid uuid, except_user uuid) returns int
 language sql stable security definer set search_path = public as $$
   select count(*)::int from public.study_room_people p
   where p.room_id = rid and p.here and p.seen_at > now() - interval '5 minutes' and p.user_id is distinct from except_user
 $$;
 
--- Finished rooms are kept for 12 hours (so everyone sees the shared moment), then removed.
+-- Finished rooms are kept for 12 hours (so everyone sees the shared moment), then removed
 create or replace function public.room_cleanup() returns integer
 language plpgsql security definer set search_path = public as $$
 declare n integer;
@@ -133,12 +119,11 @@ begin
   return n;
 end $$;
 
--- ---------- Functions the app calls ----------
--- The server's clock, so every device counts down from the same start time.
+-- Functions the app calls
 create or replace function public.room_now() returns timestamptz
 language sql volatile set search_path = public as $$ select clock_timestamp() $$;
 
--- The size and length limits for a group's room (members only).
+-- The size and length limits for a group's room (members only)
 create or replace function public.room_limits(p_group uuid)
 returns table (max_people int, max_minutes int, owner_pro boolean, paywall boolean)
 language plpgsql stable security definer set search_path = public as $$
@@ -147,7 +132,7 @@ begin
   return query select * from public.sbr_limits(p_group);
 end $$;
 
--- Start a session for the group. You join it right away.
+-- Start a session for the group
 create or replace function public.start_room(p_group uuid, p_minutes int, p_goal text) returns public.study_rooms
 language plpgsql volatile security definer set search_path = public as $$
 declare
@@ -165,7 +150,6 @@ begin
     raise exception 'SB_ROOM_LENGTH: Sessions in this group can be up to % minutes.%', l.max_minutes,
       case when l.paywall and not l.owner_pro then ' The group owner can go Pro for longer sessions.' else '' end using errcode = 'P0001';
   end if;
-  -- Lock this group's room row (if any) so two people starting at the same moment don't both win.
   perform 1 from public.study_groups where id = p_group for update;
   select * into r from public.study_rooms where group_id = p_group;
   if found and r.status = 'active' and r.ends_at > t then
@@ -184,7 +168,7 @@ begin
   return r;
 end $$;
 
--- Join (or rejoin) a running session, with your own goal.
+-- Join (or rejoin) a running session, with your own goal
 create or replace function public.join_room(p_room uuid, p_goal text) returns public.study_rooms
 language plpgsql volatile security definer set search_path = public as $$
 declare
@@ -205,10 +189,8 @@ begin
   if not public.sbr_rate_ok('room-join', 60, 3600) then
     raise exception 'SB_ROOM_RATE: Too many joins this hour. Try again a bit later.' using errcode = 'P0001';
   end if;
-  -- Serialize joins to this room so the size limit holds.
   perform 1 from public.study_rooms where id = p_room for update;
   select * into l from public.sbr_limits(r.group_id);
-  -- The owner's plan right now decides (so going Pro mid-session makes room right away).
   if public.sbr_here_count(p_room, me) >= l.max_people then
     raise exception 'SB_ROOM_FULL: This room is full (% people).%', l.max_people,
       case when l.paywall and not l.owner_pro then ' The group owner can go Pro for bigger rooms.' else '' end using errcode = 'P0001';
@@ -221,7 +203,7 @@ begin
   return r;
 end $$;
 
--- Leave the room (you can rejoin while it's running).
+-- Leave the room (you can rejoin while it's running)
 create or replace function public.leave_room(p_room uuid) returns void
 language plpgsql volatile security definer set search_path = public as $$
 begin
@@ -229,7 +211,7 @@ begin
   where room_id = p_room and user_id = auth.uid() and here;
 end $$;
 
--- "Still here": the app calls this every couple of minutes while you're in a room.
+-- "Still here": the app calls this every couple of minutes while you're in a room
 create or replace function public.room_ping(p_room uuid) returns void
 language plpgsql volatile security definer set search_path = public as $$
 begin
@@ -237,7 +219,7 @@ begin
   where room_id = p_room and user_id = auth.uid() and here and seen_at < clock_timestamp() - interval '30 seconds';
 end $$;
 
--- End the session early for everyone: the person who started it or the group owner.
+-- End the session early for everyone
 create or replace function public.end_room(p_room uuid) returns void
 language plpgsql volatile security definer set search_path = public as $$
 declare r public.study_rooms;
@@ -256,7 +238,7 @@ revoke all on function public.sbr_limits(uuid), public.sbr_rate_ok(text, int, in
 grant execute on function public.room_now(), public.room_limits(uuid), public.start_room(uuid, int, text), public.join_room(uuid, text),
   public.leave_room(uuid), public.room_ping(uuid), public.end_room(uuid) to authenticated;
 
--- ---------- Live updates ----------
+-- Live updates
 do $$
 declare t text;
 begin
@@ -271,8 +253,6 @@ begin
   end loop;
 end $$;
 
--- Who's in the room and the cheers go through private Realtime channels named "sbroom:<group id>".
--- These rules let only members of that group listen or send on it.
 create or replace function public.sbr_topic_ok(p_topic text) returns boolean
 language plpgsql stable security definer set search_path = public as $$
 begin
@@ -298,7 +278,7 @@ begin
   end;
 end $$;
 
--- Clean up finished rooms every hour, if pg_cron is available. Starting a new session also cleans up.
+-- Clean up finished rooms every hour, if pg_cron is available
 do $$
 begin
   begin

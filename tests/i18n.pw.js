@@ -1,4 +1,4 @@
-// node tests/i18n.pw.js  (Playwright + Chromium) Localization groundwork: English untouched, a locale catalog swaps the nav, plurals and fallback work, no console errors.
+// node tests/i18n.pw.js (Playwright + Chromium) Localization groundwork
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -13,7 +13,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
   try {
-    // English (default): nothing changes
     let ctx = await browser.newContext({locale: "en-US"}), page = await ctx.newPage(); const errs = [];
     page.on("pageerror", e => errs.push(e.message));
     await page.goto(base); await page.waitForSelector('nav.tabs [data-tab="notes"]');
@@ -21,7 +20,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok(await page.evaluate(() => document.documentElement.lang) === "en", "html lang is en");
     const r = await page.evaluate(() => { const I = window.SBI18N; return null; }).catch(() => null);
     await ctx.close();
-    // Spanish device: catalog loads from locales/es.json, the nav is translated, English fallbacks still work
     ctx = await browser.newContext({locale: "es-ES"}); page = await ctx.newPage(); page.on("pageerror", e => errs.push(e.message));
     await page.goto(base); await page.waitForFunction(() => /Tablero/.test(document.querySelector('nav.tabs [data-tab="board"]').textContent), null, {timeout: 8000});
     ok(/Repaso/.test(await page.textContent('nav.tabs [data-tab="flashcards"]')), "Spanish nav label");

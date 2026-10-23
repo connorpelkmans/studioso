@@ -1,6 +1,4 @@
-// Public share links (decks, notes, quizzes) and the Course Library (97-sharing.js), with in-memory stand-ins for the server:
-// window.__sbShareStub answers the sharing functions (supabase-sharing.sql), window.__sbGroupsStub the signed-in groups client.
-// Run: node tests/sharing.e2e.js [screenshot-dir]      (needs Playwright; see tests/pw.js)
+// Public share links (decks, notes, quizzes) and the Course Library (97-sharing.js)
 const path = require("path"), fs = require("fs"), assert = require("assert");
 const file = path.resolve(__dirname, "..", "index.html");
 const shots = path.resolve(process.argv[2] || path.join(__dirname, "..", "tests-out"));
@@ -8,7 +6,7 @@ fs.mkdirSync(shots, {recursive: true});
 const {chromium, executablePath} = require("./pw");
 let checks = 0; const ok = (c, m) => { checks++; assert(c, m); console.log("ok -", m); };
 
-// The server, in the page: shared decks and items, the library, reports and saves
+// The server, in the page
 function serverInit(opts){
   const SV = window.__SV = {
     decks: [{code: "DECK-AAAA", owner: "u2", name: "Cell Bio Basics", sharer_name: "Sam", card_count: 3, listed: true, course_key: "BIOL201", school_key: "uwaterloo.ca", school_name: "University of Waterloo", saves: 4,
@@ -62,7 +60,6 @@ function serverInit(opts){
   };
   window.__sbShareStub = async (fn, a) => { SV.calls.push([fn, a]); await wait(); if (!F[fn]) throw {code: "PGRST202", message: "Could not find the function public." + fn}; return F[fn](a); };
   if (opts.me) {
-    // the signed-in client the groups module uses (profiles, the deck link sheet and its share_deck)
     const user = {id: opts.me, email: opts.me + "@x.com"};
     const tables = {study_profiles: [{user_id: opts.me, display_name: "Connor"}], shared_decks: SV.decks, study_groups: [], group_members: [], group_items: [], group_messages: [], group_blocks: []};
     const mk = t => { const st = {f: [], one: false, op: "select"}; const run = () => { const rows = (t === "shared_decks" ? SV.decks.map(d => Object.assign({owner_id: d.owner, deck_id: d.deck_id}, d)) : tables[t] || []).filter(r => st.f.every(f => f(r)));
@@ -104,7 +101,7 @@ async function boot(browser, w, opts, query){
   return {ctx, page, errs};
 }
 const act = (page, a, attrs) => page.evaluate(([a, attrs]) => { const b = document.createElement("button"); b.dataset.act = a; Object.entries(attrs || {}).forEach(([k, v]) => { b.dataset[k] = v; }); document.body.appendChild(b); b.click(); b.remove(); }, [a, attrs]);
-// a button that stays on the page for a moment (the Share picker clicks it again once your groups have loaded)
+// a button that stays on the page for a moment
 const actStay = (page, a, attrs) => page.evaluate(([a, attrs]) => { const b = document.createElement("button"); b.dataset.act = a; Object.entries(attrs || {}).forEach(([k, v]) => { b.dataset[k] = v; }); b.style.cssText = "position:fixed;left:0;top:0;opacity:0"; document.body.appendChild(b); b.click(); setTimeout(() => b.remove(), 2500); }, [a, attrs]);
 const txt = (page, sel) => page.evaluate(sel => { const e = document.querySelector(sel); return e ? e.innerText.replace(/\s+/g, " ") : ""; }, sel);
 const calls = (page, fn) => page.evaluate(fn => window.__SV.calls.filter(c => c[0] === fn), fn);
@@ -112,7 +109,6 @@ const noOverflow = async (page, label) => ok(await page.evaluate(() => document.
 
 // A first-time visitor with no account opens each kind of link
 async function visitor(browser){
-  // a deck
   let {ctx, page, errs} = await boot(browser, 390, {}, "?deck=deck-aaaa");
   await page.waitForSelector("dialog[open] .sh-view", {timeout: 8000});
   ok(/Cell Bio Basics/.test(await txt(page, "dialog[open]")) && /Shared by Sam/.test(await txt(page, "dialog[open]")), "a deck link opens for a visitor with no account");
@@ -128,13 +124,11 @@ async function visitor(browser){
   ok(dk && dk.cards.length === 3 && dk.cards.every(c => c.box === 0 && !c.seen), "Study This in Studyboard adds a fresh copy of the deck");
   ok(await page.evaluate(() => __sbSync.ui.tab === "flashcards" && !!__sbSync.ui.deckId), "and opens it");
   ok(!(await page.evaluate(() => window.__SV.saves.length)), "a visitor's copy isn't counted as a save (no account)");
-  // the owner unpublishes and stops sharing: the copy I added stays, cards and all, and still opens
   await page.evaluate(() => { window.__SV.decks = window.__SV.decks.filter(x => x.code !== "DECK-AAAA"); __sbSync.ui.deckId = null; __sbSync.render(); });
   await page.evaluate(id => { __sbSync.ui.deckId = id; __sbSync.render(); }, dk.id); await page.waitForTimeout(600);
   ok(await page.evaluate(id => { const d = __sbSync.state.decks[id]; return !!d && d.cards.length === 3 && !!document.querySelector("#view .deck-head"); }, dk.id), "when the owner unpublishes or stops sharing, the copy I added stays");
   ok(!errs.length, "no errors (deck link): " + errs.join(" | ")); await ctx.close();
 
-  // a note
   ({ctx, page, errs} = await boot(browser, 1280, {seed: SEED}, "?shared=NOTE-CCCC"));
   await page.waitForSelector("dialog[open] .sh-note", {timeout: 8000});
   ok(/Cells use glycolysis for energy/.test(await txt(page, ".sh-note")), "a note link shows the note, with [[links]] as plain words");
@@ -143,7 +137,6 @@ async function visitor(browser){
   ok(await page.evaluate(() => __sbSync.ui.tab === "notes"), "and shows Notes");
   ok(!errs.length, "no errors (note link): " + errs.join(" | ")); await ctx.close();
 
-  // a quiz
   ({ctx, page, errs} = await boot(browser, 1280, {seed: SEED}, "?shared=QUIZ-DDDD"));
   await page.waitForSelector("dialog[open] #shTake", {timeout: 8000});
   ok(/1 question/.test(await txt(page, "dialog[open]")) && /Which organelle makes ATP/.test(await txt(page, ".sh-q")), "a quiz link shows how many questions and the first one");
@@ -151,17 +144,15 @@ async function visitor(browser){
   ok(await page.evaluate(() => __sbSync.ui.fc && __sbSync.ui.fc.mode === "aiquiz"), "Take the Quiz starts it");
   ok(!errs.length, "no errors (quiz link): " + errs.join(" | ")); await ctx.close();
 
-  // a link that was stopped
   ({ctx, page, errs} = await boot(browser, 1280, {seed: SEED}, "?shared=GONE-0000"));
   await page.waitForFunction(() => /doesn't work any more/.test((document.querySelector("dialog[open]") || {}).innerText || ""), null, {timeout: 8000});
   ok(true, "a stopped link says so");
   ok(!errs.length, "no errors (stopped link): " + errs.join(" | ")); await ctx.close();
 }
 
-// Signed in: share a note and a quiz with a link, list a deck in the library, browse it, report
+// Signed in: share a note and a quiz with a link, list a deck in the library, browse it
 async function sharer(browser){
   let {ctx, page, errs} = await boot(browser, 1280, {me: "u1", seed: SEED});
-  // a note
   await act(page, "share-link", {kind: "note", ref: "n1"}); await page.waitForSelector("dialog[open] #shMake");
   ok(/Only the text is shared/.test(await txt(page, "dialog[open]")), "sharing a note says what is shared");
   await page.click("#shMake"); await page.waitForSelector("dialog[open] #shStop");
@@ -178,14 +169,12 @@ async function sharer(browser){
   await page.click("#shStop"); await page.waitForSelector("#askDlg[open]"); await page.click("#askYes"); await page.waitForTimeout(300);
   ok(await page.evaluate(() => !window.__SV.items.some(x => x.code === "MINE-0001") && !__sbSync.state.notes.n1.shared), "Stop Sharing removes the link");
 
-  // a quiz, through the Share button's picker (no groups: straight to the link)
   await actStay(page, "qz-share", {deck: "d1", id: "q1"}); await page.waitForSelector("dialog[open] #shMake", {timeout: 5000});
   await page.click("#shMake"); await page.waitForSelector("dialog[open] #shStop");
   ok(await page.evaluate(() => { const x = window.__SV.items.find(i => i.kind === "quiz" && i.owner === "u1"); return !!x && x.ref_id === "d1:q1" && x.data.quiz.questions.length === 1; }), "a quiz gets a link with its questions");
   ok(await page.evaluate(() => !!__sbSync.state.decks.d1.aiQuizzes[0].shared), "the quiz remembers it's shared");
   await page.evaluate(() => __sbSync.dlg.close());
 
-  // the deck link sheet lists it in the course library
   await actStay(page, "fc-share", {id: "d1"}); await page.waitForTimeout(400);
   if (await page.$("dialog[open] #grpMake")) { await page.click("dialog[open] #grpMake"); }
   await page.waitForSelector("dialog[open] #libOn", {timeout: 6000});
@@ -193,7 +182,6 @@ async function sharer(browser){
   await page.check("#libOn"); await page.waitForTimeout(300);
   const ll = (await calls(page, "library_list"))[0];
   ok(ll && ll[1].p_listed === true && ll[1].p_course_key === "BIOL201" && ll[1].p_school_key === "uwaterloo.ca", "listing sends the course code and school");
-  // publishing to the public flashcards pages, from the Share sheet (username, birthday and school already set)
   await page.waitForSelector("dialog[open] #pubOn");
   ok(/Publish to Studyboard Flashcards/.test(await txt(page, "#pubRow")), "the deck's Share sheet offers Publish to Studyboard Flashcards");
   await page.evaluate(() => { window.__SV.username = "Connor_P"; window.__SV.school = "uwaterloo.ca"; localStorage.setItem("studyboard:uname:u1", "Connor_P"); localStorage.setItem("studyboard:age:u1", "ok");
@@ -206,14 +194,11 @@ async function sharer(browser){
   await page.uncheck("#pubOn"); await page.waitForTimeout(300);
   ok(await page.evaluate(() => window.__SV.decks.find(d => d.code === "MYDK-0001").published === false) && !(await page.$("#pubUrlIn")), "unpublishing takes it down (no question needed)");
   await page.evaluate(() => __sbSync.dlg.close());
-  // a quiz can be published from its Share sheet
   await actStay(page, "qz-share", {deck: "d1", id: "q1"}); await page.waitForSelector("dialog[open] #pubOn", {timeout: 6000});
   ok(/Publish to Studyboard Quizzes/.test(await txt(page, "#pubRow")), "a quiz's Share sheet offers Publish to Studyboard Quizzes");
   await page.evaluate(() => __sbSync.dlg.close());
-  // the Publish button on a deck's page
   await page.evaluate(() => { __sbSync.ui.tab = "flashcards"; __sbSync.ui.fc = null; __sbSync.ui.deckId = "d3"; __sbSync.render(); }); await page.waitForTimeout(300);
   ok(/Publish/.test(await txt(page, '#view [data-act="pub-deck"]')), "a deck's page has a Publish button");
-  // starting with no username and no school: a username, then the school (the birthday is already on the account)
   await page.evaluate(() => { localStorage.removeItem("studyboard:uname:u1"); localStorage.removeItem("studyboard:age:u1"); delete window.__SV.username; delete window.__SV.school; delete __sbSync.state.settings.school; __sbSync.saveSettings(); });
   await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForSelector("dialog[open] #unIn", {timeout: 6000});
   ok(/Pick a Username/.test(await txt(page, "dialog[open]")) && !/publish/i.test(await txt(page, "dialog[open] .sheet-body")), "publishing asks for a username first, plainly");
@@ -252,7 +237,6 @@ async function sharer(browser){
   await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForSelector("dialog[open] #pubOff");
   await page.click("#pubOff"); await page.waitForSelector("#askDlg[open]"); await page.click("#askYes"); await page.waitForTimeout(300);
   ok(await page.evaluate(() => window.__SV.decks.find(x => x.deck_id === "d3").published === false && !__sbSync.state.decks.d3.published), "Unpublish takes the page down");
-  // no birthday yet: asked once (it can't be changed later); under 13: publishing isn't available
   await page.evaluate(() => { window.__SV.age = null; Object.keys(localStorage).filter(k => k.startsWith("studyboard:age:")).forEach(k => localStorage.removeItem(k)); });
   await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForSelector("dialog[open] select[name=bm]");
   ok(/When's Your Birthday/.test(await txt(page, "dialog[open]")) && /can't be changed later/.test(await txt(page, "dialog[open]")), "with no birthday saved, publishing asks for it once");
@@ -267,12 +251,10 @@ async function sharer(browser){
   await page.evaluate(() => { __sbSync.ui.deckId = "d1"; __sbSync.render(); }); await page.waitForTimeout(200);
   await page.evaluate(() => document.querySelector('#view [data-act="pub-deck"]').click()); await page.waitForTimeout(300);
   ok(/at least 4 cards/.test(await page.evaluate(() => document.querySelector("#toast").textContent)), "a deck with fewer than 4 cards can't be published");
-  // Explore opens the public pages
   await page.evaluate(() => { window.__opened = []; window.open = u => { window.__opened.push(u); return null; }; __sbSync.ui.tab = "flashcards"; __sbSync.ui.deckId = null; __sbSync.ui.fc = null; __sbSync.render(); });
   await page.click('[data-act="pub-explore"][data-id="flashcards"]');
   ok(await page.evaluate(() => window.__opened[0] === "https://app.example.edu/flashcards"), "Explore in Flashcards opens studyboardapp.com/flashcards (the website address)");
 
-  // the course page and the library
   await page.evaluate(() => { __sbSync.ui.tab = "courses"; __sbSync.ui.courseId = "c1"; __sbSync.render(); }); await page.waitForTimeout(500); await page.evaluate(() => __sbSync.render()); await page.waitForTimeout(200);
   ok(/1 deck shared for BIOL 201/.test(await txt(page, ".lib-strip")), "the course page counts classmates' decks (not my own)");
   await page.click('.lib-strip [data-act="lib-open"]'); await page.waitForSelector("dialog[open] .lib-item");
@@ -299,7 +281,6 @@ async function sharer(browser){
   ok(await page.evaluate(() => Object.values(__sbSync.state.decks).some(d => d.sharedFrom && d.sharedFrom.code === "DECK-AAAA" && !d.courseId)), "and the copy goes where I put it");
   ok(!errs.length, "no errors (sharing signed in): " + errs.join(" | ")); await ctx.close();
 
-  // Quizzes has a Course Library too: published quizzes for my course, my school first
   ({ctx, page, errs} = await boot(browser, 1280, {me: "u1", seed: SEED}));
   await page.evaluate(() => { window.__SV.pubQuiz = [{code: "QUIZ-AAAA", name: "Cell Quiz", sharer_name: "Sam", n: 8, course_key: "BIOL201", school_key: "uwaterloo.ca", school_name: "University of Waterloo"},
     {code: "QUIZ-BBBB", name: "Elsewhere Quiz", sharer_name: "Ana", n: 5, course_key: "BIOL201", school_key: "utoronto.ca", school_name: "U of T"}];
@@ -313,7 +294,6 @@ async function sharer(browser){
   ok((await page.$$eval("dialog[open] .lib-item b", e => e.map(x => x.textContent))).includes("Elsewhere Quiz"), "Other schools too adds the rest");
   ok(!errs.length, "no errors (quiz library): " + errs.join(" | ")); await ctx.close();
 
-  // no school site: the library asks for the school first
   const seed2 = JSON.parse(JSON.stringify(SEED)); delete seed2.settings.brightspace;
   ({ctx, page, errs} = await boot(browser, 390, {me: "u1", seed: seed2}));
   await act(page, "lib-open", {}); await page.waitForSelector("dialog[open] #schQ");
@@ -325,7 +305,6 @@ async function sharer(browser){
   await page.click('dialog[open] .sch-item[data-key="uwaterloo.ca"]');
   await page.waitForSelector("dialog[open] .lib-sheet"); await page.waitForTimeout(300);
   ok(await page.evaluate(() => __sbSync.state.settings.school && __sbSync.state.settings.school.key === "uwaterloo.ca" && __sbSync.state.settings.school.v === 1), "a school picked from the list is saved");
-  // a high school, like on Quizlet
   await page.evaluate(() => SBSHARE.schoolSheet(null)); await page.waitForSelector('dialog[open] .sch-kind [data-k="high_school"]');
   await page.click('dialog[open] .sch-kind [data-k="high_school"]'); await page.fill("dialog[open] #schQ", "lisgar");
   await page.waitForSelector('dialog[open] .sch-item[data-key="hs:on:922960"]');

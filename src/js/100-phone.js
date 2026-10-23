@@ -1,12 +1,10 @@
 /* ===== module: 100-phone.js ===== */
-/* Phone follow-ups: swipe between days on the Schedule, small "I dismissed this" and light/dark choices that follow the person to
-   their other devices, and AI keys that sync end to end encrypted (the passphrase never leaves the device, so the server only
-   ever holds ciphertext). */
+/* Phone follow-ups */
 (() => {
   const ls = window.localStorage;
   const rawSet = Storage.prototype.setItem, rawRm = Storage.prototype.removeItem, rawGet = Storage.prototype.getItem;
 
-  /* ---------- Swipe between days on the Schedule (phone layout) ---------- */
+  /* Swipe between days on the Schedule (phone layout) */
   (() => {
     let t0 = null;
     const phoneSch = () => !!(window.matchMedia && matchMedia("(max-width:700px)").matches);
@@ -24,12 +22,12 @@
       const pills = [...document.querySelectorAll(".sch-pills button")]; if (!pills.length) return;
       const cur = Math.max(0, pills.findIndex(b => b.getAttribute("aria-pressed") === "true")), dir = dx < 0 ? 1 : -1, n = cur + dir;
       if (n >= 0 && n < pills.length) ui.schDay = n;
-      else { ui.schWeek = addDays(ui.schWeek || mondayOf(todayISO()), dir * 7); ui.schDay = dir > 0 ? 0 : -1; }   // past the edge: the next or previous week (-1 = its last day)
+      else { ui.schWeek = addDays(ui.schWeek || mondayOf(todayISO()), dir * 7); ui.schDay = dir > 0 ? 0 : -1; }
       render();
     }, {passive: true});
   })();
 
-  /* ---------- Dismissals and light/dark follow you between devices ---------- */
+  /* Dismissals and light/dark follow you between devices */
   const UI_KEYS = new Set(["studioso:theme", "studioso:nudge", "studioso:lastExport", "studyboard:crunch", "studyboard:roughWeekHidden", "studyboard:grpNudge",
     "studyboard:semester", "studyboard:review:snooze", "studyboard:fgs:cards", "studyboard:streak:said", "studyboard:heads:hide", "studyboard:gradeAsked",
     "studyboard:gradeCheer", "studyboard:scrapToastAt"]);
@@ -64,7 +62,7 @@
       scheduleRender();
     } catch (e) {}
   }
-  // Keys that already exist on a device are shared once, as the oldest edit, so another device's newer choice still wins
+  // Keys that already exist on a device are shared once, as the oldest edit
   function uiSeed(){
     try {
       const b = bag(), add = {}; const m = atMap();
@@ -73,7 +71,7 @@
       putAt(m); state.settings = Object.assign({}, state.settings, {uiSync: Object.assign({}, b, add)}); saveSettings();
     } catch (e) {}
   }
-  // Called when settings arrive from the account: the newer entry of each kind wins, so nothing made here is lost
+  // Called when settings arrive from the account
   const newer = (a, b) => ((a && a.at) || 0) > ((b && b.at) || 0);
   window.SBUISYNC = {
     keep(next, mine){
@@ -91,10 +89,7 @@
     apply: uiApply
   };
 
-  /* ---------- AI keys that follow you, end to end encrypted ---------- */
-  // The passphrase is chosen by the person and never leaves this device. It stretches (PBKDF2-SHA-256, 600,000 rounds for new vaults, the
-  // OWASP figure; vaults made before 1.13 say 250,000 and keep it, recorded as "it") into an AES-GCM key; only the
-  // ciphertext goes to the account (settings.aiVault). The derived key is kept on this device as a non-extractable key so later edits re-seal quietly.
+  /* AI keys that follow you, end to end encrypted */
   const subtle = window.crypto && crypto.subtle, enc = new TextEncoder(), dec = new TextDecoder();
   const b64 = u8 => { let s = ""; u8.forEach(c => { s += String.fromCharCode(c); }); return btoa(s); };
   const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
@@ -124,7 +119,7 @@
       } catch (e) {}
     }, 800);
   }
-  // A newer vault from another device: opened with this device's key and merged in (what this device changed since stays)
+  // A newer vault from another device
   async function vaultApply(){
     try {
       const v = vault(); if (!v || !subtle) return;
@@ -147,7 +142,7 @@
   async function vaultUnlock(pass){
     const v = vault(); if (!v) throw new Error("none");
     const key = await derive(pass, unb64(v.salt), roundsOf(v));
-    const keys = await open(key, v);            // throws on a wrong passphrase
+    const keys = await open(key, v);
     await kvSet("key", key);
     try { rawSet.call(ls, AVAT, String(v.at)); } catch (e) {}
     lastSealed = JSON.stringify(Object.assign({}, keys, keysNow()));
@@ -159,7 +154,7 @@
   }
   async function status(){
     const v = vault(), key = v ? await kvGet("key") : null;
-    return !subtle || inClaude() ? "na" : !v ? "off" : key ? "on" : "locked";
+    return !subtle || inPreview() ? "na" : !v ? "off" : key ? "on" : "locked";
   }
   const esc2 = s => esc(String(s));
   async function vaultSheet(){
@@ -191,7 +186,7 @@
     if (off) off.addEventListener("click", () => { vaultOff().then(() => { if (dlg.open) dlg.close(); toast("Your keys stay on this device only. The synced copy was removed."); scheduleRender(); }); });
   }
   hook("menu", () => {
-    if (inClaude() || !subtle) return "";
+    if (inPreview() || !subtle) return "";
     const st = vault() ? (vaultState || "on") : "off";
     return `<button data-act="aivault-open"><span>AI Keys on All My Devices<span class="sub">${st === "off" ? "Lock your keys with a passphrase and use them on your phone and computer" : st === "locked" ? "Your keys are waiting from another device. Tap to unlock." : "On. Your keys follow you, locked with your passphrase."}</span></span></button>`;
   });

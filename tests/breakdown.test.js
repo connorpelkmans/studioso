@@ -1,4 +1,4 @@
-// Unit tests for the Big Assignment Breakdown engine (pure block extracted from index.html).  Run: node tests/breakdown.test.js
+// Unit tests for the Big Assignment Breakdown engine (pure block extracted from index.html)
 const fs = require("fs"), path = require("path"), assert = require("assert"), cp = require("child_process");
 const TZS = ["UTC", "America/New_York", "America/Los_Angeles", "Europe/London", "Australia/Sydney", "Pacific/Auckland", "Asia/Kolkata"];
 if (!process.env.BD_TZ_CHILD && !process.env.BD_NO_TZ) {
@@ -15,12 +15,12 @@ const B = new Function(cut("/* BREAKDOWN-START", "/* BREAKDOWN-END */") + ";retu
 const C = new Function(cut("/*CRUNCH-START*/", "/*CRUNCH-END*/") + ";return CRUNCH;")();
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
-const T0 = "2026-10-05";   // a Monday
+const T0 = "2026-10-05";
 const plan = (o) => B.plan(Object.assign({title: "Research paper on coral", start: T0, due: "2026-10-15", hours: 12}, o));
 const dates = p => p.milestones.map(m => m.due);
 const inc = ds => ds.every((d, i) => !i || d > ds[i - 1]);
 
-// ---- kind detection
+// kind detection
 eq(B.detectKind("Research paper on coral reefs", ""), "paper", "paper");
 eq(B.detectKind("Lab 3 report", ""), "lab", "lab report");
 eq(B.detectKind("Group presentation", ""), "presentation", "presentation beats group");
@@ -36,7 +36,7 @@ eq(B.detectKind("Assignment 2", "Write an essay of 1500 words"), "paper", "kind 
 ok(B.isBig({type: "Project", title: "Thing", hours: 3}) && B.isBig({type: "Assignment", title: "Term paper"}) && !B.isBig({type: "Assignment", title: "Homework 1", hours: 1}), "isBig by hours or cue");
 ok(!B.isBig({type: "Exam", title: "Midterm", hours: 20}) && !B.isBig({type: "Study", title: "Study paper", hours: 5, prepFor: "x"}) && !B.isBig({type: "Project", title: "Paper", hours: 9, breakdownOf: "p"}), "exams, study sessions, milestones are not big");
 
-// ---- stage fractions and counts
+// stage fractions and counts
 {
   for (const k of B.ORDER) {
     const st = B.stagesFor(k, 99, {src: 6, sec: 4}), tot = st.reduce((a, x) => a + x.h, 0);
@@ -54,9 +54,9 @@ ok(!B.isBig({type: "Exam", title: "Midterm", hours: 20}) && !B.isBig({type: "Stu
   ok(plan({text: "Use 5 scholarly sources and 3 sections", hours: 12, due: "2026-12-30"}).milestones.some(m => /5 sources|3 sections/.test(m.title)), "counts from the text are used");
 }
 
-// ---- backward scheduling
+// backward scheduling
 {
-  const p = plan({due: "2026-10-15"});          // 10 days
+  const p = plan({due: "2026-10-15"});
   const ds = dates(p);
   ok(inc(ds), "dates strictly increase: " + ds);
   ok(ds[ds.length - 1] === "2026-10-14", "last milestone is the day before the due date");
@@ -64,7 +64,7 @@ ok(!B.isBig({type: "Exam", title: "Midterm", hours: 20}) && !B.isBig({type: "Stu
   ok(!p.tight && p.mode === "full", "10 days for 12h is not tight");
   ok(plan({due: "2026-10-15", buffer: 2}).milestones.slice(-1)[0].due === "2026-10-13", "buffer 2");
   ok(plan({due: "2026-10-15", buffer: 0}).milestones.slice(-1)[0].due === "2026-10-15", "buffer 0 is the student's choice: the last step may land on the due date");
-  // proportional spacing: the biggest stage gets the longest gap
+  // proportional spacing
   const gaps = ds.map((d, i) => i ? B.diff(ds[i - 1], d) : B.diff(T0, d)), hs = p.milestones.map(m => m.hours);
   ok(gaps[hs.indexOf(Math.max(...hs))] >= Math.min(...gaps), "spacing follows effort");
   // 3 days
@@ -89,7 +89,7 @@ ok(!B.isBig({type: "Exam", title: "Midterm", hours: 20}) && !B.isBig({type: "Stu
   const hp = plan({due: "2026-10-03", hours: 5, start: T0});
   ok(hp.milestones.every(m => m.due === T0) && /past due/.test(hp.messages.join(" ")), "overdue: everything today");
   ok(!plan({due: "2026-10-30", hours: 6}).tight, "plenty of time is never tight");
-  // next to a weekend: due Monday 2026-10-12, weekdays only
+  // next to a weekend
   const wk = plan({due: "2026-10-12", hours: 8, days: [1, 2, 3, 4, 5]});
   ok(wk.milestones.every(m => ![0, 6].includes(B.dow(m.due))) && wk.milestones.slice(-1)[0].due === "2026-10-09", "weekdays only: last step Friday before a Monday due date: " + dates(wk));
   const we = plan({due: "2026-10-12", hours: 8});
@@ -116,7 +116,7 @@ ok(!B.isBig({type: "Exam", title: "Midterm", hours: 20}) && !B.isBig({type: "Stu
   const ds2 = dates(av); ok(new Set(ds2).size === ds2.length, "no two milestones on one day");
 }
 
-// ---- DST and leap days
+// DST and leap days
 {
   for (const [start, due] of [["2026-10-28", "2026-11-06"], ["2026-03-04", "2026-03-12"], ["2028-02-24", "2028-03-03"], ["2026-10-30", "2026-11-02"]]) {
     const p = plan({start, due, hours: 10}), ds = dates(p);
@@ -134,7 +134,7 @@ ok(!B.isBig({type: "Exam", title: "Midterm", hours: 20}) && !B.isBig({type: "Stu
   const p = plan({start: "2026-10-30", due: "2026-11-12", hours: 12}); ok(dates(p).includes("2026-11-01") || dates(p).includes("2026-11-02") || p.milestones.length > 0, "plan across the fall-back day");
 }
 
-// ---- AI output validator
+// AI output validator
 {
   const good = {kind: "paper", stages: [
     {title: "Choose a topic and gather your sources", steps: ["Narrow the question", "Save 3 starting sources"], done: "A source list", weight: 2},
@@ -185,7 +185,7 @@ ok(!B.isBig({type: "Exam", title: "Midterm", hours: 20}) && !B.isBig({type: "Stu
   ok(B.vetAi("{bad", {hours: 12, repair: t => good, text: "x"}).ok, "repair hook used");
 }
 
-// ---- re-plan after a due date change, catch-up, parent progress
+// re-plan after a due date change, catch-up, parent progress
 {
   const p = plan({due: "2026-10-30", hours: 12}), ex = p.milestones.map((m, i) => ({id: "k" + i, title: m.title, hours: m.hours, done: i < 2, steps: m.steps, kind: m.kind}));
   const r = B.replan({due: "2026-11-10", start: "2026-10-12", existing: ex, kind: "paper"});
@@ -212,7 +212,7 @@ ok(!B.isBig({type: "Exam", title: "Midterm", hours: 20}) && !B.isBig({type: "Stu
   eq(B.overdueKids(mine, "2026-10-05").map(k => k.id), ["b"], "overdue milestones");
 }
 
-// ---- reading the assignment text
+// reading the assignment text
 {
   eq(B.parseDue("Paper 2\nDue: Friday, October 16 at 11:59 PM", "2026-10-05"), {date: "2026-10-16", time: "23:59"}, "month + weekday");
   eq(B.parseDue("Submit by 11/20/2026", "2026-10-05"), {date: "2026-11-20", time: ""}, "numeric");
@@ -224,7 +224,7 @@ ok(!B.isBig({type: "Exam", title: "Midterm", hours: 20}) && !B.isBig({type: "Stu
   eq(B.facts("Use at least 5 scholarly sources, 4 sections, about 8 pages").sources, 5, "facts: sources");
 }
 
-// ---- Crunch: milestones do not double count
+// Crunch: milestones do not double count
 {
   const T = (id, type, due, o) => Object.assign({id, title: id, type, due, status: "todo", est: true}, o || {});
   const model = tasks => C.build({today: T0, tasks, dailyHours: 3});
@@ -242,7 +242,7 @@ ok(!B.isBig({type: "Exam", title: "Midterm", hours: 20}) && !B.isBig({type: "Stu
   ok(stress(after) <= stress(before) + 1e-9, "milestones add no due-day stress: " + stress(after) + " vs " + stress(before));
   // the day a milestone is due carries its hours
   const d = after.days.find(x => x.date === p.milestones[1].due); ok(d && d.items["m1"] && d.items["m1"].hours > 0 && d.items["m1"].stress === 0, "milestone hours land on its own day");
-  // the plan reads Crunch load: a loaded day is avoided
+  // the plan reads Crunch load
   const loadMap = {}; model([T("big", "Exam", "2026-10-09", {rem: 12})]).days.forEach(x => { loadMap[x.date] = x.ratio; });
   const calm = plan({due: "2026-10-20", hours: 12}), withLoad = plan({due: "2026-10-20", hours: 12, load: loadMap});
   ok(withLoad.milestones.every(m => !m.heavy) || withLoad.milestones.some(m => m.moved) || JSON.stringify(dates(calm)) === JSON.stringify(dates(withLoad)), "plan reads the Crunch load");

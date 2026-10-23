@@ -1,10 +1,10 @@
 /* ===== module: 20-scenes-maj-m5.js ===== */
-/* Study Fields themes, batch m5: observatory, ruins, valley, sketchcity */
+/* Study Fields themes, batch m5 */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const r1 = n => Math.round(n * 100) / 100;
   const pts = a => "M" + a.map(p => `${r1(p[0])} ${r1(p[1])}`).join("L") + "Z";
-  // ellipse ring (outline band) as a filled path: outer one way, inner the other way, so the middle stays open
+  // ellipse ring (outline band) as a filled path
   const ellPts = (cx, cy, rx, ry, rot, n = 28, rev = false) => { const o = [], a0 = rot * Math.PI / 180; for (let i = 0; i < n; i++) { const t = (rev ? -1 : 1) * i / n * Math.PI * 2, x = rx * Math.cos(t), y = ry * Math.sin(t); o.push([cx + x * Math.cos(a0) - y * Math.sin(a0), cy + x * Math.sin(a0) + y * Math.cos(a0)]); } return o; };
   const band = (rx, ry, w, rot) => pts(ellPts(0, 0, rx, ry, rot)) + pts(ellPts(0, 0, rx - w, Math.max(0.3, ry - w), rot, 28, true));
   const circ = (x, y, r) => `M${r1(x - r)} ${r1(y)}a${r1(r)} ${r1(r)} 0 1 0 ${r1(2 * r)} 0a${r1(r)} ${r1(r)} 0 1 0 ${r1(-2 * r)} 0Z`;
@@ -87,7 +87,7 @@
         fxFall(W, H, n(10), "setsq", d ? ["rgba(168,212,255,.75)", "rgba(255,255,255,.6)"] : ["rgba(47,94,158,.55)", "rgba(192,96,58,.5)"], {sway: 1.2, smin: 12, smax: 16, vmin: 1, vmax: 1.8}),
         Array.from({length: n(6)}, (_, i) => { const lr = i % 2 === 0, sp = fxR(3.2, 4.6), a = -fxR(0.15, 0.45); return {shape: "plane", c: fxPick(d ? ["#FFFFFF", "#FFE3A8", "#FFB3D9"] : ["#FF6F91", "#4FA0E8", "#F2A23A", "#4FD1C5"]), x: lr ? fxR(-60, -10) : W + fxR(10, 60), y: fxR(H * 0.5, H * 0.95), vx: (lr ? 1 : -1) * Math.cos(a) * sp, vy: Math.sin(a) * sp, g: 0, size: fxR(13, 18), rot: lr ? a : Math.PI - a, vr: 0, sway: 0, life: 260, delay: Math.floor(fxR(0, 80))}; }),
         fxTw(W, H, n(34), "star", d ? ["#FFFFFF", "#A8D4FF", "#FFB3D9", "#FFE38A"] : ["#FF6F91", "#F2B53A", "#4FD1C5", "#9B7BF0"], {smin: 3, smax: 7, glow: d ? 10 : 2})),
-      draw: (g, f, W, H, d) => { // construction lines rule themselves across the page, then fade
+      draw: (g, f, W, H, d) => {
         const a = f < 160 ? 1 : Math.max(0, 1 - (f - 160) / 60); if (a <= 0) return;
         g.save(); g.strokeStyle = d ? "rgba(200,225,255,.55)" : "rgba(47,94,158,.45)"; g.lineWidth = 1.2; g.setLineDash([10, 6]); g.globalAlpha = a;
         [[0, 0.82, 1, 0.82, 0], [0.12, 0, 0.12, 1, 14], [1, 0.18, 0, 0.18, 26], [0.9, 1, 0.9, 0, 40]].forEach(([x0, y0, x1, y1, t0]) => { const u = Math.min(1, Math.max(0, (f - t0) / 50)); if (u <= 0) return; const e = 1 - Math.pow(1 - u, 3); g.beginPath(); g.moveTo(x0 * W, y0 * H); g.lineTo((x0 + (x1 - x0) * e) * W, (y0 + (y1 - y0) * e) * H); g.stroke(); });

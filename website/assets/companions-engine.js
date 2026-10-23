@@ -1,4 +1,5 @@
 /* Studyboard companion drawing and animation, copied from the app (module 98-companion). Do not edit by hand: run tools/make-website-assets.py. */
+/* global COMP_EXTRA, SBThemes */
 window.SBCOMPW = (function () {
 
   // The app's settings and conditions, reduced to what the website needs.
@@ -13,23 +14,21 @@ window.SBCOMPW = (function () {
   const DATA = typeof COMP_DATA !== "undefined" ? COMP_DATA : [];
   const GREET_KEY = "studyboard:comp:greeted";
 
-  /* ---------- The rig format ---------- */
+  /* The rig format */
   const PIVOT_PARTS = ["tail", "wingL", "wingR", "armL", "armR", "earL", "earR", "top"];
-  const STATIC_PARTS = ["back", "feet", "body", "head", "face", "hat"];   // hat: headwear drawn as part of the character; left off while a head accessory is worn (hatTop: true does the same for the top part)
+  const STATIC_PARTS = ["back", "feet", "body", "head", "face", "hat"];
   const POSES = ["stand", "sit", "float"];
   const EYE_STYLES = ["dot", "round", "sparkle"];
   const MOUTH_STYLES = ["smile", "cat"];
   const MOUTH_STATES = ["neutral", "smile", "open", "sleepy"];
   const LINE_KINDS = {tap: 6, pet: 2, hello: 2, morning: 1, night: 1, focus: 2, done: 2, task: 3, break: 1};
   const ANCHORS = ["top", "neck", "chest", "back", "hands"];
-  // Signature idles: what each needs ("a|b" = either part, "a,b" = both).
+  // Signature idles
   const IDLES = {
     tailSwish: "tail", earTwitch: "earL|earR", wingFlutter: "wingL,wingR|armL,armR", finWiggle: "armL|armR|tail|wingL|wingR",
     wave: "armL|armR", headTilt: "head", topBob: "top", bounce: "", hop: "", spin: "", sway: "", waddle: "", sparkle: ""
   };
-  /* Props (accessories). Each is earned by ANY ONE of its paths: `hours` (lifetime focus hours, the original way, kept as is for
-     everyone who already has them) or `paths: [[stat, n], ...]` using the lifetime stats in PROP_STATS below. Once earned a prop is
-     remembered in settings.comp.earned and never taken away, even if a stat later drops (a deleted deck, an archived term). */
+  /* Props (accessories) */
   const ACC = [
     {id: "scarf", name: "Cozy Scarf", hours: 1, free: true, paths: [["ontime", 3], ["checkins", 3]]},
     {id: "hat", name: "Tiny Hat", hours: 5, free: true, paths: [["streak", 3], ["notes", 3]]},
@@ -70,7 +69,7 @@ window.SBCOMPW = (function () {
     return c;
   }
   const REG = {}, BYID = {};
-  // How many companions a theme offers: the plain set (used by Classic and every plain colour theme, all free) has 6, every artwork theme has 3.
+  // How many companions a theme offers
   const SET_SIZE = th => th === "plain" ? 6 : 3;
   DATA.forEach(t => {
     if (!t || !t.theme || REG[t.theme]) return;
@@ -79,14 +78,16 @@ window.SBCOMPW = (function () {
     REG[t.theme] = {theme: t.theme, spot: t.spot, list};
     list.forEach(c => { if (!BYID[c.id]) BYID[c.id] = c; });
   });
+  // Extra companions (98-comp-extra.js)
+  const EXTRA = (typeof COMP_EXTRA !== "undefined" && Array.isArray(COMP_EXTRA) ? COMP_EXTRA : []).map((c, i) => norm(c, "extra", i)).filter(c => c && !BYID[c.id]);
+  EXTRA.forEach(c => { BYID[c.id] = c; });
+  const extrasOn = () => { try { return EXTRA.length > 0 && !!(window.SBThemes && SBThemes.all()); } catch (e) { return false; } };
   /* ---------- Drawing ---------- */
   const OUT = (w = 3) => `stroke="${INK}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"`;
   const f1 = n => Math.round(n * 100) / 100;
   function eyeOpen(e, x){
     const r = e.r, c = e.color || INK;
     if (e.style === "round") {
-      // the same big glossy dark eye as the others, with a thin light rim so it still reads on a dark face (a white eyeball
-      // round a small pupil looked like a stare)
       return `<g class="cp-look"><g class="cp-pupil"><ellipse cx="${x}" cy="${e.y}" rx="${f1(r * 0.88)}" ry="${r}" fill="${c}" stroke="#fff" stroke-opacity=".75" stroke-width="${f1(Math.max(0.8, r * 0.14))}"/><circle cx="${f1(x + r * 0.3)}" cy="${f1(e.y - r * 0.38)}" r="${f1(r * 0.38)}" fill="#fff"/><circle cx="${f1(x - r * 0.32)}" cy="${f1(e.y + r * 0.4)}" r="${f1(r * 0.18)}" fill="#fff"/><circle cx="${f1(x + r * 0.42)}" cy="${f1(e.y + r * 0.3)}" r="${f1(r * 0.09)}" fill="#fff"/></g></g>`;
     }
     const hl = e.style === "sparkle" ? `<circle cx="${f1(x + r * 0.3)}" cy="${f1(e.y - r * 0.38)}" r="${f1(r * 0.4)}" fill="#fff"/><circle cx="${f1(x - r * 0.32)}" cy="${f1(e.y + r * 0.4)}" r="${f1(r * 0.2)}" fill="#fff"/><circle cx="${f1(x + r * 0.42)}" cy="${f1(e.y + r * 0.3)}" r="${f1(r * 0.1)}" fill="#fff"/>`
@@ -115,7 +116,7 @@ window.SBCOMPW = (function () {
     const col = k.color || "#FF8FA8", rx = k.w || 5, ry = k.h || 3.2;
     return `<g class="cp-cheeks"><ellipse cx="${k.lx}" cy="${k.y}" rx="${rx}" ry="${ry}" fill="${col}"/><ellipse cx="${k.rx}" cy="${k.y}" rx="${rx}" ry="${ry}" fill="${col}"/></g>`;
   }
-  // Accessories, drawn around (0,0) at the anchor and scaled by the anchor's third number.
+  // Accessories, drawn around (0,0) at the anchor and scaled by the anchor's third number
   const at = (a, inner) => { if (!pt(a)) return ""; const s = num(a[2]) ? a[2] : 1, r = num(a[3]) ? a[3] : 0; return `<g transform="translate(${a[0]} ${a[1]})${r ? ` rotate(${r})` : ""}${s !== 1 ? ` scale(${s})` : ""}">${inner}</g>`; };
   const WEAR = `style="fill:var(--cp-wear,#5B7FD6)"`;
   const ACC_ART = {
@@ -130,11 +131,10 @@ window.SBCOMPW = (function () {
     beanie: `<path d="M-14.5 1C-16 -13 -9 -19 0 -19S16 -13 14.5 1Z" ${WEAR} ${OUT(2.4)}/><path d="M-8 -16Q-11 -9 -10.5 -1M-3 -18.2Q-4.6 -9 -4.2 -1M3 -18.2Q4.6 -9 4.2 -1M8 -16Q11 -9 10.5 -1" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="1.8" stroke-linecap="round"/><path d="M-13.6 -7.5Q0 -4 13.6 -7.5" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="1.2 3.6"/><rect x="-17" y="-3.2" width="34" height="8.4" rx="4.2" fill="#FFF8F0" ${OUT(2.4)}/><path d="M-11.5 -1.6V3.6M-6 -1.6V3.6M-0.5 -1.6V3.6M5 -1.6V3.6M10.5 -1.6V3.6" stroke="#E9D6C4" stroke-width="1.6" stroke-linecap="round"/><circle cx="0" cy="-20.5" r="5.4" fill="#fff" ${OUT(2.4)}/><path d="M-2.8 -21.6Q-1 -24 1.8 -23.6" fill="none" stroke="#DCE7F7" stroke-width="1.5" stroke-linecap="round"/>`,
     cap: `<path d="M-12 -7V1.5Q0 7.5 12 1.5V-7Z" fill="#3A3450" ${OUT(2.4)}/><path d="M-23 -9.5L0 -18L23 -9.5L0 -1Z" ${WEAR} ${OUT(2.4)}/><path d="M-14 -11L0 -16" stroke="#fff" stroke-opacity=".3" stroke-width="2" stroke-linecap="round"/><path d="M0 -9.5L15 -7V3" fill="none" stroke="#F2C14E" stroke-width="2" stroke-linecap="round"/><path d="M13 2.5h4l1 6h-6Z" fill="#F2C14E" ${OUT(1.4)}/><circle cx="0" cy="-9.5" r="2" fill="#F2C14E" ${OUT(1.2)}/>`
   };
-  /* Body regions: an item declares the one it covers, and two items can be worn together only when their regions differ.
-     Putting one on takes off just the item in the same region. (feet is reserved for future shoes.) */
+  /* Body regions: an item declares the one it covers */
   const ACC_SLOT = {hat: "head", cap: "head", crown: "head", beanie: "head", glasses: "face", scarf: "neck", bowtie: "neck", star: "chest", medal: "chest", cape: "back"};
   const slotOf = id => ACC_SLOT[id] || id;
-  // The colour these were drawn in (the others follow the theme colour); a picked colour replaces either
+  // The colour these were drawn in (the others follow the theme colour)
   const ACC_DEF = {star: "#FFD35A", medal: "#FFD35A", crown: "#FFD35A", beanie: "#E5484D", cap: "#4A4366", glasses: "#2B2233"};
   const TINTS = ["#E5484D", "#F2994A", "#FFD35A", "#4CB782", "#2FB5C9", "#5A95FF", "#8E6BE0", "#FF7A9C", "#8B6A4F", "#3A3450", "#FFFFFF"];
   const hexOk = v => typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v);
@@ -151,9 +151,7 @@ window.SBCOMPW = (function () {
   }
   const BOOK = `<path d="M0 0Q-9 -4.5 -18 -1.5V11Q-9 8 0 12.5Q9 8 18 11V-1.5Q9 -4.5 0 0Z" ${WEAR} ${OUT(2.2)}/><path d="M0 -1.6Q-7.5 -5.6 -15.5 -3.4V8.4Q-7.5 6 0 10Z" fill="#FFFDF7" ${OUT(1.6)}/><path d="M0 -1.6Q7.5 -5.6 15.5 -3.4V8.4Q7.5 6 0 10Z" fill="#FFFDF7" ${OUT(1.6)}/><path d="M-12.5 0.4q5 -1.4 9.5 0.6M-12.5 3.6q5 -1.4 9.5 0.6M3 1q5 -1.8 9.5 -0.6M3 4.2q5 -1.8 9.5 -0.6" fill="none" stroke="#B9B2C4" stroke-width="1.2" stroke-linecap="round"/><g class="cp-page" style="transform-origin:0px 0px"><path d="M0 -1.6Q7.5 -5.6 15.5 -3.4V8.4Q7.5 6 0 10Z" fill="#FFF7E6" ${OUT(1.4)}/></g>`;
 
-  // Every drawing gets its own ids. The same companion is often drawn several times at once (scene, picker, Style Shop,
-  // Study Together), and url(#id) resolves to the first element with that id in the page: if that copy sits in a
-  // closed dialog or a hidden list, Chrome paints the fill as nothing and the body turns see-through.
+  // Every drawing gets its own ids
   let uidN = 0;
   function uniqIds(svg){
     const ids = new Set(); svg.replace(/\sid="([^"]+)"/g, (m, id) => { ids.add(id); return m; });
@@ -163,7 +161,7 @@ window.SBCOMPW = (function () {
       .replace(/url\(\s*['"]?#([^)'"\s]+)['"]?\s*\)/g, (m, id) => ids.has(id) ? `url(#${id}${suf})` : m)
       .replace(/((?:xlink:)?href=")#([^"]+)"/g, (m, a, id) => ids.has(id) ? `${a}#${id}${suf}"` : m);
   }
-  // The whole rig as SVG. o: {uid, wear, prop, eyes, mouth, look:[dx,dy], rot:{part: deg}} (the last ones for still previews).
+  // The whole rig as SVG
   function rigSvg(c, o){
     o = o || {};
     const P = c.parts, A = c.anchors, rot = o.rot || {};
@@ -175,14 +173,13 @@ window.SBCOMPW = (function () {
       return `<g class="cp-p cp-${name}"${st ? ` style="${st}"` : ""}${extra || ""}>${inner}</g>`;
     };
     const worn = wornList(o.wear), tints = o.tint || cfg().tint || {};
-    // The cape hangs from the shoulders, centred behind the body (the side-offset "back" anchor was made for a backpack)
     const na = pt(A.neck) ? A.neck : [60, c.neck[1], 1], capeA = [na[0], na[1], f1((num(na[2]) ? na[2] : 1) * 0.95)];
-    const chestA = pt(A.chest) ? [A.chest[0], A.chest[1], f1((num(A.chest[2]) ? A.chest[2] : 1) * 1.3)] : A.chest;   // badges read small at the stored chest scale
+    const chestA = pt(A.chest) ? [A.chest[0], A.chest[1], f1((num(A.chest[2]) ? A.chest[2] : 1) * 1.3)] : A.chest;
     const tintOf = id => hexOk(tints[id]) ? tints[id] : "";
     const acc = (id, a) => worn.includes(id) ? `<g class="cp-acc cp-acc-${id}"${tintOf(id) || ACC_DEF[id] ? ` style="--cp-wear:${tintOf(id) || ACC_DEF[id]}"` : ""}>${at(a, ACC_ART[id])}</g>` : "";
     const capePart = art => worn.includes("cape") ? `<g class="cp-acc cp-acc-cape"${tintOf("cape") ? ` style="--cp-wear:${tintOf("cape")}"` : ""}>${at(capeA, art)}</g>` : "";
     const hasHead = !!partSvg(P.head);
-    const headWorn = worn.some(id => slotOf(id) === "head");   // a worn hat, cap, crown or beanie replaces the one the character already has
+    const headWorn = worn.some(id => slotOf(id) === "head");
     const headRot = rot.head ? `;transform:rotate(${rot.head}deg)` : "";
     const hands = pt(A.hands) ? A.hands : [60, 92];
     const face = `${g("face")}${cheeksSvg(c)}${eyesSvg(c.eyes)}${mouthSvg(c)}${worn.includes("glasses") ? glassesSvg(c.eyes, tintOf("glasses")) : ""}`;
@@ -208,12 +205,12 @@ window.SBCOMPW = (function () {
     const anim = (el, frames, ms, o) => {
       if (!el || still() || !el.animate) return null;
       const a = el.animate(frames, Object.assign({duration: ms, easing: "ease-in-out"}, o));
-      if (opts.watch) opts.watch(ms);   // the placement guard looks at it every frame while it runs
+      if (opts.watch) opts.watch(ms);
       running.add(a); a.onfinish = a.oncancel = () => running.delete(a);
       return a;
     };
     const rot = d => ({transform: `rotate(${d}deg)`});
-    const side = n => /L$/.test(n) ? 1 : -1;   // left parts raise with positive (clockwise) rotation
+    const side = n => /L$/.test(n) ? 1 : -1;
     const has = n => !!part(n);
     const armOf = () => has("armR") ? "armR" : has("armL") ? "armL" : "";
     const A = {

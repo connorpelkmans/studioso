@@ -1,8 +1,8 @@
-// Cloudflare wiring for the Studyboard key relay. The logic and the routes are in relay.js.
+// Cloudflare wiring for the Studyboard key relay
 import { DurableObject } from "cloudflare:workers";
 import { Slot, handle } from "./relay.js";
 
-// One Durable Object per mailbox (named by its id), so each box has its own storage and its own 10-minute alarm.
+// One Durable Object per mailbox (named by its id)
 export class Handoff extends DurableObject {
   constructor(ctx, env) { super(ctx, env); this.slot = new Slot(ctx.storage); }
   put(box) { return this.slot.put(box); }

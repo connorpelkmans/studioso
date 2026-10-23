@@ -1,27 +1,16 @@
-// Studyboard School Sync: the background part of the browser extension (Chrome and Edge run it as a service worker, Firefox as a
-// background script). It keeps the Studyboard website in step with the student's Canvas, Brightspace or Blackboard:
-//  - The student connects a school site from the toolbar button. The browser asks them to let the extension read that one site
-//    (an optional host permission); nothing else is readable.
-//  - On a timer (every hour by default), and when they open that site, it reads the same things the Studyboard desktop app and
-//    bookmark read, with the sign-in this browser already has. It only ever makes GET requests: it never submits, posts or changes anything.
-//  - What it reads is cleaned (cleanHarvest, the same code as the apps) and kept in this browser's extension storage. The Studyboard
-//    website picks it up through relay.js, the only page the extension talks to. Nothing is sent to any server by the extension.
-// The harvest scripts (globalThis.__studyboardExt) are built from the app's lms.js into harvest.js by scripts/build-extension.js and put
-// in front of this file, so this file never runs code it didn't ship with.
+// Studyboard School Sync
 "use strict";
 
 const SBX = globalThis.__studyboardExt;
 const NAMES = { canvas: "Canvas", brightspace: "Brightspace", blackboard: "Blackboard" };
 const DEF = { every: 60, on: true };
 const EVERY = [15, 30, 60, 180, 360, 720];
-// Kind to the school site: automatic reads of one site are at least 5 minutes apart; opening Studyboard reads only when the last read
-// is more than 10 minutes old; after a failed read (an error, or signed out) the automatic ones wait longer each time, up to 6 hours.
-// Sync Now in the popup, and connecting a site, always read.
+// Kind to the school site
 const GAP = 5 * 60000, OPEN_FRESH = 10 * 60000, APP_GAP = 2 * 60000, BACKOFF_MAX = 6 * 3600000;
 function mayRun(why, st) {
   if (why === "button" || why === "added") return true;
   const now = Date.now(), last = st.at || 0;
-  if (why === "app") return now - last >= APP_GAP;                       // Sync Now on the website
+  if (why === "app") return now - last >= APP_GAP;
   if (now - last < GAP) return false;
   if (why === "open") return !(st.state === "ok" && now - (st.lastOk || 0) < OPEN_FRESH);
   if (why === "timer" && st.fails > 0) return now - last >= Math.min(BACKOFF_MAX, 15 * 60000 * Math.pow(2, st.fails - 1));
@@ -44,11 +33,14 @@ function within(p, ms) {
 }
 const errText = e => String((e && e.message) || e || "error").slice(0, 160);
 
-// What the harvest is asked for (the bookmark's options; the Canvas Inbox too, for Studyboard's Emails)
-const OPTS = id => ({ pastDays: 60, aheadDays: 240, grades: true, news: true, only: null, skip: [], mail: id === "canvas" });
+// What the harvest is asked for
+// Remote switch for Blackboard's internal endpoints (stored by relay.js)
+let FLAGS = {};
+chrome.storage.local.get("flags").then(r => { FLAGS = (r && r.flags) || {}; }).catch(() => {});
+chrome.storage.onChanged.addListener((ch, area) => { if (area === "local" && ch.flags) FLAGS = ch.flags.newValue || {}; });
+const OPTS = id => ({ pastDays: 60, aheadDays: 240, grades: true, news: true, only: null, skip: [], mail: id === "canvas", internal: FLAGS.bbInternal !== false });
 
-// fetch for the background read: every address is resolved on the school's own site and anything else is refused,
-// so a "next page" link can't lead the extension anywhere it wasn't allowed.
+// fetch for the background read
 function schoolFetch(origin) {
   return (u, o) => {
     let url;
@@ -58,15 +50,12 @@ function schoolFetch(origin) {
   };
 }
 
-// Reading in the background: the browser sends this site's sign-in cookies because the student allowed the extension to read it.
+// Reading in the background
 async function runBackground(id, origin) {
   return within(SBX.make(schoolFetch(origin), { origin })[id](OPTS(id)), RUN_MS);
 }
-// Reading inside an open tab of the school site (when the background read isn't signed in, which some sign-in setups cause):
-// the same harvest file runs in that page, exactly like the Studyboard bookmark does.
+// Reading inside an open tab of the school site
 async function runInTab(tabId, id) {
-  // The page's own world, like the bookmark; where a browser can't run scripts there (older Safari), the extension's isolated world on
-  // that page, whose requests go to the same site with the same sign-in.
   let world = "MAIN";
   try { await chrome.scripting.executeScript({ target: { tabId }, world, files: ["harvest.js"] }); }
   catch (e) { world = "ISOLATED"; await chrome.scripting.executeScript({ target: { tabId }, world, files: ["harvest.js"] }); }
@@ -102,7 +91,7 @@ async function badge() {
   } catch (e) {}
 }
 
-// One school site, start to finish. A second call while one runs waits for that one.
+// One school site, start to finish
 function syncOne(id, why) {
   if (busy[id]) return busy[id];
   busy[id] = (async () => {
@@ -112,7 +101,6 @@ function syncOne(id, why) {
     if (!(await granted(s.origin))) { await setStatus(id, { state: "permission", at: Date.now() }); return { error: "permission" }; }
     const prev = status[id] || {};
     await setStatus(id, { state: "syncing", since: Date.now() });
-    // Long reads: keep the worker awake (a browser stops an idle extension worker after about 30 seconds)
     const awake = setInterval(() => { chrome.runtime.getPlatformInfo().catch(() => {}); }, 20000);
     let h = null, err = "";
     try {
@@ -141,7 +129,7 @@ async function syncAll(why) {
   return Promise.all(Object.keys(schools).map(id => syncOne(id, why)));
 }
 
-// Which platform a site is: each answers its own small route, signed in or not.
+// Which platform a site is
 async function detect(origin) {
   const f = schoolFetch(origin), json = r => /json/i.test(r.headers.get("content-type") || "");
   const probes = [["canvas", "/api/v1/users/self"], ["brightspace", "/d2l/api/versions/"], ["blackboard", "/learn/api/public/v1/system/version"]];
@@ -161,14 +149,14 @@ async function addSchool(origin0, platform) {
   const old = st.schools[id];
   st.schools[id] = { id, origin, added: Date.now() };
   await set({ schools: st.schools, pending: null });
-  if (old && old.origin !== origin) {               // a different site for the same platform replaces the old one
+  if (old && old.origin !== origin) {
     await chrome.storage.local.remove("result:" + id);
     if (!Object.values(st.schools).some(x => x.origin === old.origin)) chrome.permissions.remove({ origins: [old.origin + "/*"] }).catch(() => {});
   }
   syncOne(id, "added");
   return { ok: true, id };
 }
-// The person signed out of Studyboard: drop every saved read. The next read waits for the next sync, and the website asks whose it is.
+// The person signed out of Studyboard
 async function forgetReads() {
   const all = await chrome.storage.local.get(null);
   const keys = Object.keys(all).filter(k => k.startsWith("result:"));
@@ -181,7 +169,6 @@ async function removeSchool(id) {
   delete st.schools[id]; delete st.status[id];
   await set({ schools: st.schools, status: st.status });
   await chrome.storage.local.remove("result:" + id);
-  // Give back the site access (best effort: Safari keeps that choice in its own settings, and may not answer)
   if (!Object.values(st.schools).some(x => x.origin === s.origin)) { try { await within(chrome.permissions.remove({ origins: [s.origin + "/*"] }), 3000); } catch (e) {} }
   await badge();
   return { ok: true };
@@ -198,7 +185,7 @@ chrome.runtime.onInstalled.addListener(() => { schedule(); badge(); });
 chrome.runtime.onStartup.addListener(() => { schedule(); badge(); });
 chrome.alarms.onAlarm.addListener(a => { if (a.name === "sync") syncAll("timer"); });
 
-// Opening the school site syncs it when the last read is more than half an hour old, or didn't work
+// Opening the school site syncs it when the last read is more than half an hour old
 chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   if (info.status !== "complete" || !tab || !tab.url) return;
   const { schools, status } = await load();
@@ -210,8 +197,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   }
 });
 
-// Firefox closes the toolbar popup when it asks for a permission, so the popup leaves the site it is connecting as "pending" first
-// and the background finishes the job when the permission arrives.
+// Firefox closes the toolbar popup when it asks for a permission
 chrome.permissions.onAdded.addListener(async p => {
   const { pending } = await load();
   if (!pending || Date.now() - pending.at > 10 * 60000) return;
@@ -222,8 +208,7 @@ chrome.permissions.onRemoved.addListener(async p => {
   for (const id of Object.keys(schools)) if ((p.origins || []).includes(schools[id].origin + "/*")) await setStatus(id, { state: "permission", at: Date.now() });
 });
 
-// The Studyboard website talking to the extension directly (Chrome and Edge, "externally_connectable": no permission warning at install).
-// It may ask for what was read and for a sync now, nothing else. relay.js does the same for websites that don't use this yet, and Firefox.
+// The Studyboard website talking to the extension directly
 const APP_ORIGINS = ["https://studyboardapp.com", "https://www.studyboardapp.com"];
 async function results() {
   const all = await chrome.storage.local.get(null), status = all.status || {}, schools = all.schools || {};
@@ -239,12 +224,11 @@ if (chrome.runtime.onMessageExternal) chrome.runtime.onMessageExternal.addListen
   return false;
 });
 
-// Requests from the toolbar popup (everything) and from relay.js on the Studyboard website (only "sync now")
+// Requests from the toolbar popup (everything) and from relay.js on the Studyboard website
 chrome.runtime.onMessage.addListener((m, sender, reply) => {
   if (!m || typeof m !== "object" || sender.id !== chrome.runtime.id) return false;
-  const fromPage = !String(sender.url || "").startsWith(chrome.runtime.getURL(""));   // relay.js on a web page, not one of the extension's own pages
+  const fromPage = !String(sender.url || "").startsWith(chrome.runtime.getURL(""));
   const go = async () => {
-    // relay.js asks when Studyboard is opened ("open") and on the website's Sync Now; both wait their turn (mayRun)
     if (fromPage && m.op === "forget") return forgetReads();
     if (fromPage) return m.op === "sync" ? { ok: true, started: (syncAll(m.why === "open" ? "open" : "app"), true) } : { error: "not-allowed" };
     switch (m.op) {

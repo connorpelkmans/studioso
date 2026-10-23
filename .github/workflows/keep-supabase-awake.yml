@@ -1,6 +1,4 @@
-# Keeps your free Supabase project from pausing by pinging it about every 3 days.
-# Save this in your GitHub repository as: .github/workflows/keep-supabase-awake.yml
-# It needs two repository secrets: SUPABASE_URL and SUPABASE_KEY (your publishable key).
+# Keeps your free Supabase project from pausing by pinging it about every 3 days
 name: Keep Supabase awake
 
 on:
@@ -8,7 +6,7 @@ on:
     - cron: "17 14 */3 * *"   # 14:17 UTC every third day
   workflow_dispatch:          # lets you run it by hand from the Actions tab
 
-# Read-only: it only pings Supabase. (The repository is private, where GitHub doesn't switch off idle schedules, so no keep-alive commit is needed.)
+# Read-only: it only pings Supabase
 permissions:
   contents: read
 

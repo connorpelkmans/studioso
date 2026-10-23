@@ -1,8 +1,8 @@
-// Cloudflare wiring for Studyboard's AI trial. The rules, the limits and the routes are in trial.js.
+// Cloudflare wiring for Studyboard's AI trial
 import { DurableObject } from "cloudflare:workers";
 import { Student, Pool, handle, verifyUser } from "./trial.js";
 
-// One per student, named by their Supabase user id: their tries.
+// One per student, named by their Supabase user id
 export class StudentMeter extends DurableObject {
   constructor(ctx, env) { super(ctx, env); this.m = new Student(ctx.storage); }
   status(cfg) { return this.m.status(cfg); }
@@ -12,7 +12,7 @@ export class StudentMeter extends DurableObject {
   forget() { return this.m.forget(); }
 }
 
-// One per UTC day, named by the date: the neurons everyone's tries may use that day.
+// One per UTC day, named by the date
 export class DayPool extends DurableObject {
   constructor(ctx, env) { super(ctx, env); this.p = new Pool(ctx.storage); }
   reserve(n, ceiling) { return this.p.reserve(n, ceiling); }

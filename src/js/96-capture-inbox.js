@@ -11,15 +11,14 @@ const CAP_DUP_MS = 10 * 60 * 1000;
 const capNorm = s => String(s == null ? "" : s).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const capKey = (text, due) => capNorm(text) + "|" + capNorm(due);
 const capTs = r => Date.parse(r && r.created_at) || 0;
-// The task id comes from the inbox id, so storing the same capture twice (crash, retry, two devices) lands on the same task.
+// The task id comes from the inbox id, so storing the same capture twice
 const capTaskId = rowId => "cap" + String(rowId || "").replace(/[^a-z0-9]/gi, "").toLowerCase().slice(0, 32);
 const CAP_WHO = {siri: "Siri", shortcut: "Shortcuts", shortcuts: "Shortcuts", gemini: "Gemini", pixel: "Gemini", pixelgemini: "Gemini", google: "Google", assistant: "Google Assistant", bixby: "Bixby", galaxy: "Bixby", samsung: "Samsung", share: "the share sheet", sharesheet: "the share sheet", test: "a test"};
 function capWho(sources){
   const names = [...new Set((sources || []).map(s => { const k = String(s || "").toLowerCase().replace(/[^a-z]/g, ""); const hit = Object.keys(CAP_WHO).find(w => k === w || k.startsWith(w)); return hit ? CAP_WHO[hit] : "your voice assistant"; }))];
   return names.length === 1 ? names[0] : "voice capture";
 }
-// Splits rows into: fresh (store them), ackOnly (already stored here, or a repeat of something just added: only acknowledge).
-// o: {seen: Set of inbox ids stored on this device, hasTask(id), recent: [{key, at}] (tasks made in the last minutes)}
+// Splits rows into
 function capDedupe(rows, o){
   o = o || {};
   const seen = o.seen || new Set(), keys = (o.recent || []).map(r => ({k: r.key, at: r.at})), fresh = [], ackOnly = [];
@@ -31,8 +30,7 @@ function capDedupe(rows, o){
   });
   return {fresh, ackOnly};
 }
-// One inbox row -> a task-like item, read with the quick-add reader (d.qaLocal, d.qaConfident, d.qaCourse) in the person's own date and time zone.
-// sure=false when a date or course was said but couldn't be understood: those are the ones worth a look.
+// One inbox row -> a task-like item, read with the quick-add reader
 function capConvert(row, d){
   const text = String(row.text || "").trim(), dueText = String(row.due_text || "").trim(), hint = String(row.course_hint || "").trim();
   const sentence = dueText && !row.due_date ? text + " " + dueText : text;
@@ -45,13 +43,10 @@ function capConvert(row, d){
   return Object.assign(x, {id: capTaskId(row.id), ref: row.id, source: row.source, sure});
 }
 const capDraft = row => ({ref: row.id, id: row.id, kind: "task", due: row.due_date ? row.due_date + (row.due_time ? "T" + String(row.due_time).slice(0, 5) : "") : row.due_text || "", course: row.course_hint || "", createdAt: Date.parse(row.created_at) || 0, text: row.text, due_date: row.due_date || null, due_time: row.due_time || null, due_text: row.due_text || null, course_hint: row.course_hint || null, source: row.source, created_at: row.created_at});
-// The whole round, with every outside step passed in so the order can be tested.
-// d: {dedupe(), convert(row), addTasks(items), verifySaved(ids), seenAdd(ids), ack(ids), ingest?(drafts), onTest?(rows)}
+// The whole round, with every outside step passed in so the order can be tested
 async function capProcess(rows, d){
   const out = {added: 0, acked: 0, tests: 0, duplicates: 0, failed: false, ackFailed: false, stored: []};
   const list = (rows || []).filter(r => r && r.id), tests = list.filter(r => r.source === "test");
-  // Email to Studyboard: forwarded emails go to their own reader (d.email); two emails can share a subject, so they skip the text dedupe
-  // (the server already drops the same Message-ID twice) and are only skipped when this device has stored them before.
   const mailAll = d.email ? list.filter(r => r.source === "email") : [], real = list.filter(r => r.source !== "test" && !mailAll.includes(r));
   const dd = capDedupe(real, d.dedupe ? d.dedupe() : {});
   const seen0 = mailAll.length && d.dedupe ? d.dedupe().seen || new Set() : new Set(), mail = mailAll.filter(r => !seen0.has(r.id));
@@ -90,14 +85,12 @@ async function capProcess(rows, d){
   const seenSet = () => { try { return new Set(JSON.parse(ls(SEEN_KEY) || "[]")); } catch (e) { return new Set(); } };
   const seenAdd = ids => { const a = [...seenSet(), ...ids].slice(-300); ls(SEEN_KEY, JSON.stringify(a)); };
   const missing = err => { const m = String(err && (err.message || err.code) || ""); return err && (err.code === "42P01" || err.code === "PGRST205" || err.code === "PGRST202" || err.status === 404 || /does not exist|Could not find the (table|function)|schema cache/i.test(m)); };
-  // The installed iOS/Android app keeps its own copy of ONE token (Keychain / Keystore) so Siri, Gemini and the share sheet can send while the app is closed.
-  const NATIVE_KEY = "studyboard:capNativeTok";   // id (never the token) of the token the app was given
+  const NATIVE_KEY = "studyboard:capNativeTok";
   const nativeBridge = () => window.StudyboardNative || null;
   function nativeSave(t){
     try { const nb = nativeBridge(); if (nb && typeof nb.saveCaptureToken === "function" && t && t.token) { const c = sbConfig(); nb.saveCaptureToken(t.token, c && c.url ? c.url.replace(/\/+$/, "") : ""); ls(NATIVE_KEY, t.id); } } catch (e) {}
   }
   function nativeClear(){ try { const nb = nativeBridge(); if (nb && typeof nb.clearCaptureToken === "function") nb.clearCaptureToken(); ls(NATIVE_KEY, ""); } catch (e) {} }
-  // On start: if the token the app holds was revoked (on another device), or nobody is signed in, let the app forget it.
   async function nativeCheck(){
     const id = ls(NATIVE_KEY); if (!id || !nativeBridge()) return;
     if (!sbUser && !(sb && sbStarting)) { if (typeof sb !== "undefined" && sb) nativeClear(); return; }
@@ -106,9 +99,9 @@ async function capProcess(rows, d){
   }
   document.addEventListener("click", e => { const b = e.target.closest && e.target.closest('[data-act="sb-signout"]'); if (b) nativeClear(); }, true);
   const endpoint = () => { const c = sbConfig(); return c && c.url ? c.url.replace(/\/+$/, "") + "/functions/v1/capture-task" : ""; };
-  const ready = () => !inClaude() && typeof sbActive === "function" && sbActive() && !sbStarting;
+  const ready = () => !inPreview() && typeof sbActive === "function" && sbActive() && !sbStarting;
 
-  /* ---------- Pulling the inbox ---------- */
+  /* Pulling the inbox */
   let busy = false, off = false, lastAt = 0, onTestRows = null;
   function addTasks(items){
     const today = todayISO();
@@ -144,7 +137,7 @@ async function capProcess(rows, d){
     busy = true; lastAt = Date.now();
     try {
       const {data, error} = await sb.rpc("capture_pull_inbox", {p_limit: 50});
-      if (error) { if (missing(error)) off = true; return null; }   // SQL not run yet: stay quiet
+      if (error) { if (missing(error)) off = true; return null; }
       if (!Array.isArray(data) || !data.length) return {added: 0};
       return await capProcess(data, deps());
     } catch (e) { return null; }
@@ -158,7 +151,7 @@ async function capProcess(rows, d){
   document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
   setInterval(() => { if (!document.hidden) tick(); }, 4 * 60 * 1000);
 
-  /* ---------- Settings: Voice assistants & shortcuts ---------- */
+  /* Settings: Voice assistants & shortcuts */
   const S = {tokens: null, err: "", busy: false, tok: null, testBusy: false, testMsg: "", missing: false};
   const PRESETS = ["Siri on iPhone", "Pixel Gemini", "Galaxy Bixby", "Other"];
   const ago = s => { if (!s) return "never"; const m = Math.round((Date.now() - Date.parse(s)) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : Math.round(m / 1440) + " d ago"; };
@@ -323,11 +316,10 @@ async function capProcess(rows, d){
   dlg.addEventListener("submit", e => { const f = e.target.closest && e.target.closest("[data-capx-form]"); if (f) { e.preventDefault(); create(f); } });
   const rowHtml = group => `<button data-act="cap-voice-open" data-group="${group}"><span>Voice Assistants &amp; Shortcuts<span class="sub">Add tasks by asking Siri, Gemini or Bixby, or from the share sheet</span></span></button>`;
   hook("act", act => { if (act !== "cap-voice-open") return false; if (dlg.open) dlg.close(); setTimeout(open, 40); return true; });
-  // With the capture pipeline present, the row lives in its Quick capture category; without it, a row under Account and Sync.
   let registered = false;
   const register = () => { const P = window.SBCAPTURE; if (registered || !P || typeof P.settingsExtra !== "function") return; registered = true; try { P.settingsExtra(() => rowHtml("capture")); } catch (e) { registered = false; } };
   setTimeout(register, 0); window.addEventListener("load", register);
-  hook("menu", () => { register(); return inClaude() || registered ? "" : rowHtml("account"); });
+  hook("menu", () => { register(); return inPreview() || registered ? "" : rowHtml("account"); });
 
   window.SBCAPINBOX = {pull: () => pull(true), open, endpoint};
 })();

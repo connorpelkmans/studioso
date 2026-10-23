@@ -1,11 +1,5 @@
 /* global chrome */
-// node tests/extension.e2e.js   (Playwright + Chromium; see tests/pw.js)
-// The Studyboard School Sync browser extension, end to end, as the stores will ship it (extension/build/chrome, built here first):
-// it loads in Chromium; its popup shows; connecting a stand-in Canvas (https://canvas.example.edu, answered by Playwright) reads it
-// (in the open Canvas tab, the way it does when the background read isn't signed in) and keeps the cleaned result in extension storage;
-// then Studyboard on studyboardapp.com (this repository's index.html, answered by Playwright) picks it up through relay.js and imports it:
-// tasks, the submitted one marked done, grades, the teaching team. Only GET requests reach the school, and only for read routes.
-// The test build only adds a host permission for the stand-in Canvas, since a permission prompt can't be clicked in a test.
+// node tests/extension.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), os = require("os"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const {build} = require("../scripts/build-extension.js");
@@ -33,7 +27,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { const v = await fn(); if (v) return v; if (Date.now() > end) throw new Error("timed out: " + what); await new Promise(r => setTimeout(r, 250)); } };
 
 (async () => {
-  // SB_EXT_BUILD: an extension build made elsewhere (for example the version in store review), tested against today's website
   if (!process.env.SB_EXT_BUILD) build();
   const ext = fs.mkdtempSync(path.join(os.tmpdir(), "sb-ext-")), prof = fs.mkdtempSync(path.join(os.tmpdir(), "sb-prof-"));
   fs.cpSync(process.env.SB_EXT_BUILD || path.join(root, "extension", "build", "chrome"), ext, {recursive: true});
@@ -42,9 +35,8 @@ const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { 
     "the store build asks for no site at install: school sites are optional permissions, granted one at a time");
   man.host_permissions = [SCHOOL + "/*"]; fs.writeFileSync(path.join(ext, "manifest.json"), JSON.stringify(man));
   await new Promise(r => server.listen(0, r)); const local = "http://127.0.0.1:" + server.address().port;
-  // Playwright's default headless browser (chromium-headless-shell, what CI installs) can't load extensions; its "chromium" channel can.
   const ctx = await chromium.launchPersistentContext(prof, {executablePath, ...(executablePath ? {} : {channel: "chromium"}), headless: true, viewport: {width: 1100, height: 900}, timezoneId: "UTC",
-    args: ["--disable-extensions-except=" + ext, "--load-extension=" + ext]});
+    args: ["--disable-extensions-except=" + ext, "--load-extension=" + ext]}); await ctx.addInitScript(require("./consent-ok"));
   const asked = [];
   await ctx.route(SCHOOL + "/**", route => {
     const u = new URL(route.request().url()), p = u.pathname + u.search;
@@ -59,7 +51,6 @@ const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { 
     const sw = ctx.serviceWorkers()[0] || await ctx.waitForEvent("serviceworker", {timeout: 15000});
     const id = new URL(sw.url()).host;
     ok(/^[a-p]{32}$/.test(id), "the extension loads and its background starts");
-    // The popup, before anything is connected
     const pop = await ctx.newPage(); pop.on("pageerror", e => errs.push("popup: " + e.message));
     await pop.setViewportSize({width: 360, height: 600});
     await pop.goto(`chrome-extension://${id}/popup.html`);
@@ -68,7 +59,6 @@ const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { 
     const needEmpty = await pop.evaluate(() => ["header", "main", "footer"].reduce((n, sel) => n + document.querySelector(sel).offsetHeight, 0));
     if (!process.env.SB_EXT_BUILD) ok(needEmpty <= 540, "connecting needs no scrolling either, with room for larger text: " + needEmpty + "px");
     fs.mkdirSync(OUT, {recursive: true}); await pop.setViewportSize({width: 360, height: 200}); await pop.screenshot({path: path.join(OUT, "extension-popup-empty.png"), fullPage: true});
-    // The student has Canvas open, then connects it
     const school = await ctx.newPage(); await school.goto(SCHOOL + "/");
     const r = await pop.evaluate(o => chrome.runtime.sendMessage({op: "add", origin: o, platform: "canvas"}), SCHOOL);
     ok(r && r.ok && r.id === "canvas", "connecting Canvas works: " + JSON.stringify(r));
@@ -81,17 +71,14 @@ const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { 
     await pop.reload(); await pop.waitForSelector(".school");
     ok(/Synced just now/.test(await pop.textContent(".school")), "the popup says when it last synced");
     await pop.setViewportSize({width: 360, height: 200}); await pop.screenshot({path: path.join(OUT, "extension-popup-synced.png"), fullPage: true});
-    // Studyboard on studyboardapp.com picks it up
     const app = await ctx.newPage(); app.on("pageerror", e => errs.push("app: " + e.message));
-    await app.addInitScript(() => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, courses: [], tasks: [], settings: {}})); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); } } catch (e) {} });   // a student using Studyboard without an account
+    await app.addInitScript(() => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, courses: [], tasks: [], settings: {}})); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); } } catch (e) {} });
     await app.goto(APP + "/"); await app.waitForFunction(() => window.SBLMS && window.SBEXT);
     await until(() => app.evaluate(() => SBEXT.on()), 15000, "the app sees the extension");
     ok(true, "the Studyboard website sees the extension through relay.js");
-    // The first read asks whose school account it is (tests/lms-ext-account.e2e.js); "It's Me" pairs it, and from then on reads come in by themselves
     await app.waitForSelector("#dlg[open] [data-ext-no]", {timeout: 15000});
     ok(/Ana Lee/.test(await app.textContent("#dlg[open]")), "the first read asks whose it is, naming the school account");
     await app.click("#dlg[open] [data-submit]");
-    // The extension's reads are applied by themselves: no "Ready to Import", just a notice of what changed
     await app.waitForFunction(() => Object.values(SBLMS.st().tasks).some(t => t.cv), null, {timeout: 15000});
     ok(!/Ready to Import/.test(await app.evaluate(() => { const d = document.querySelector("#dlg"); return d.open ? d.textContent : ""; })), "the extension's read is applied by itself, without asking to import");
     const got = await until(() => app.evaluate(() => { const ts = Object.values(SBLMS.st().tasks).filter(t => t.cv); return ts.length >= 2 ? ts.map(t => ({title: t.title, status: t.status, mark: t.mark, fb: !!t.cv.fb})) : null; }), 15000, "the import");
@@ -100,22 +87,18 @@ const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { 
     ok(e2 && e2.status === "todo", "Essay 2 is in, still to do");
     const course = await app.evaluate(() => Object.values(SBLMS.st().courses).find(c => c.cv));
     ok(course && course.instructor === "Prof. Ruiz" && (course.meetings || []).length === 1, "the course has its instructor and class times from the syllabus");
-    // Chrome and Edge builds that let studyboardapp.com talk to them directly: the page can ask for what was read
     if (man.externally_connectable) {
       const direct = await app.evaluate(id => new Promise(res => chrome.runtime.sendMessage(id, {type: "get"}, r => res(r || null))), id);
       ok(direct && direct.list && direct.list[0] && direct.list[0].id === "canvas", "studyboardapp.com can also read it from the extension directly (externally_connectable)");
     }
-    // Sync Now on the website asks the extension (through relay.js) to read the school site again
     const before = await pop.evaluate(() => chrome.runtime.sendMessage({op: "status"}).then(x => x.status.canvas.lastOk));
-    // (as if the last read were a while ago: the extension spaces out reads of the school site)
     await pop.evaluate(() => chrome.storage.local.get("status").then(x => { const st = x.status; st.canvas.at = Date.now() - 6 * 60000; st.canvas.lastOk = Date.now() - 6 * 60000; return chrome.storage.local.set({status: st}); }));
     const before2 = await pop.evaluate(() => chrome.runtime.sendMessage({op: "status"}).then(x => x.status.canvas.lastOk));
     await app.evaluate(() => window.postMessage({source: "studyboard-app", type: "sync"}, location.origin));
     const after = await until(() => pop.evaluate(b => chrome.runtime.sendMessage({op: "status"}).then(x => x.status.canvas.state === "ok" && x.status.canvas.lastOk > b ? x.status.canvas.lastOk : null), before2), 60000, "a sync asked for by the website");
     ok(after > before2 && before === before, "the website's Sync Now makes the extension read the school site again");
-    // The feedback, where the student looks for it (a picture for the store listing: scripts/extension-store-assets.js)
     await app.evaluate(cid => SBLMS.go("courses", cid), course.id); await app.waitForTimeout(300);
-    await app.waitForTimeout(1500); await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });   // the app's own "Sign In to Studyboard" prompt
+    await app.waitForTimeout(1500); await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
     await app.click('[data-act="course-tab"][data-id="grades"]'); await app.waitForTimeout(300);
     await app.click('[data-act="lms-fb"]'); await app.waitForSelector(".gr-drop:not([hidden]) .lms-fb");
     const drop = await app.textContent(".gr-drop:not([hidden])");
@@ -124,15 +107,12 @@ const until = async (fn, ms, what) => { const end = Date.now() + ms; for (;;) { 
     await app.waitForTimeout(300); await app.screenshot({path: path.join(OUT, "extension-app-feedback.png")});
     await app.click('[data-act="lms-fb"]'); await app.waitForTimeout(200);
     ok(await app.locator(".gr-drop:not([hidden])").count() === 0, "clicking it again closes it");
-    // The same read is not imported twice
-    await app.evaluate(async () => { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); });   // the app's own offline worker would answer instead of the test
+    await app.evaluate(async () => { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); });
     await app.reload(); await app.waitForFunction(() => window.SBEXT && SBEXT.on()); await app.waitForTimeout(1200);
     const dlgText = await app.locator("dialog[open]").count() ? await app.textContent("dialog[open]") : "";
     ok(!/Ready to Import/.test(dlgText), "a read already imported is not imported again" + (dlgText ? " (open: " + dlgText.slice(0, 80) + ")" : ""));
-    // Everything fits in the popup's 600px (the tallest a popup can be in Chrome; Safari's is kept at the height it needs)
     const need = await pop.evaluate(() => ["header", "main", "footer"].reduce((n, sel) => n + document.querySelector(sel).offsetHeight, 0));
     if (!process.env.SB_EXT_BUILD) ok(need <= 540, "the synced popup needs no scrolling, with room for larger text: " + need + "px");
-    // Remove, asked inside the popup (Safari's popups can't show confirm() dialogs; released builds before 1.0.3 used confirm())
     if (!process.env.SB_EXT_BUILD) {
     await pop.reload(); await pop.waitForSelector(".school");
     await pop.click(".school .link"); await pop.waitForSelector(".school .confirm");

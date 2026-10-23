@@ -1,32 +1,6 @@
--- Studyboard: public share links (decks, notes, quizzes) and the Course Library
---
--- Run this in Supabase (SQL Editor > New query > paste everything > Run) AFTER supabase-groups.sql and supabase-moderation.sql.
--- It is safe to run again.
---
--- What it adds:
---  * Public share links. A deck shared with a link (share_deck in supabase-groups.sql) can now be opened by anyone with the link,
---    signed in or not, through get_public_share. Notes and quizzes get links too (shared_items). The link opens the Studyboard website,
---    which shows the deck, note or quiz read-only with a "Study This in Studyboard" button. Only what was shared is sent: the text
---    of the cards, note or quiz and the sharer's display name. Never their account id, email or study progress.
---  * The Course Library: a shared deck can also be listed for its course (course code + school), so classmates who add that course
---    find it. Listing is a separate choice from making a link, and can be undone any time.
---  * Reports: anyone signed in can report a shared deck, note or quiz. Three reports from different people hide it from the library
---    and from its link until you review it.
---
--- Reviewing reports (SQL Editor), newest first:
---   select r.created_at, r.reason, r.details, r.code, r.kind, coalesce(d.name, i.title) as title,
---          coalesce(d.sharer_name, i.sharer_name) as sharer, coalesce(d.owner_id, i.owner_id) as owner_id
---   from public.share_reports r
---   left join public.shared_decks d on d.code = r.code
---   left join public.shared_items i on i.code = r.code
---   where r.status = 'new' order by r.created_at desc;
--- Acting on one:
---   update public.shared_decks set hidden = true where code = '<code>';     -- or shared_items; false brings it back
---   delete from public.shared_decks where code = '<code>';                  -- remove it for good (people who added it keep their copy)
---   select public.studyboard_suspend_from_groups('<their email>', '<why>'); -- also stops them sharing and listing
---   update public.share_reports set status = 'actioned' where code = '<code>';
+-- Studyboard: public share links
 
--- ---------- Library columns on shared decks ----------
+-- Library columns on shared decks
 alter table public.shared_decks add column if not exists listed boolean not null default false;
 alter table public.shared_decks add column if not exists course_key text not null default '';
 alter table public.shared_decks add column if not exists course_label text not null default '';
@@ -41,7 +15,7 @@ alter table public.shared_decks add constraint shared_decks_library_check check 
 ) not valid;
 create index if not exists shared_decks_library_idx on public.shared_decks (course_key, school_key) where listed and not hidden;
 
--- ---------- Shared notes and quizzes ----------
+-- Shared notes and quizzes
 create table if not exists public.shared_items (
   code text primary key,
   owner_id uuid not null references auth.users(id) on delete cascade,
@@ -73,7 +47,7 @@ revoke all on function public.sbs_name_sync() from public, anon, authenticated;
 drop trigger if exists sbs_name_sync on public.study_profiles;
 create trigger sbs_name_sync after update of display_name on public.study_profiles for each row execute function public.sbs_name_sync();
 
--- ---------- Reports ----------
+-- Reports
 create table if not exists public.share_reports (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default now(),
@@ -87,7 +61,7 @@ create table if not exists public.share_reports (
 create index if not exists share_reports_code_idx on public.share_reports (code);
 create index if not exists share_reports_status_idx on public.share_reports (status, created_at desc);
 alter table public.share_reports enable row level security;   -- no policies: only you can read them (dashboard / SQL editor)
--- Whiteboards (Notes > Whiteboard) can be shared as a copy too. Tables made before that get the wider check here.
+-- Whiteboards (Notes > Whiteboard) can be shared as a copy too
 alter table public.shared_items drop constraint if exists shared_items_kind_check;
 alter table public.shared_items add constraint shared_items_kind_check check (kind in ('note', 'quiz', 'board'));
 alter table public.share_reports drop constraint if exists share_reports_kind_check;
@@ -104,8 +78,7 @@ create table if not exists public.share_saves (
 alter table public.share_saves enable row level security;
 revoke all on public.share_saves from public, anon, authenticated;
 
--- ---------- Helpers ----------
--- Lookups are limited (codes can't be guessed by trying): signed in, per person; signed out, per network address.
+-- Helpers
 create or replace function public.sbs_lookup_ok() returns boolean
 language plpgsql volatile security definer set search_path = public as $$
 declare ip text;
@@ -122,7 +95,6 @@ create or replace function public.sbs_may_share() returns void
 language plpgsql security definer set search_path = public as $$
 begin
   if auth.uid() is null then raise exception 'Sign in first'; end if;
-  -- like Quizlet: students under 13 can't share publicly or list in the Course Library (the rest of Studyboard works as usual)
   if to_regprocedure('public.sbu_age_ok(uuid)') is not null and public.sbu_age_ok(auth.uid()) = 'young' then
     raise exception 'SB_UNDER13: Sharing publicly is for students 13 and older.';
   end if;
@@ -145,7 +117,7 @@ revoke all on function public.sbs_deck_link_age() from public, anon, authenticat
 drop trigger if exists sbs_deck_link_age on public.shared_decks;
 create trigger sbs_deck_link_age before insert on public.shared_decks for each row execute function public.sbs_deck_link_age();
 
--- ---------- Sharing notes and quizzes ----------
+-- Sharing notes and quizzes
 create or replace function public.share_item(p_kind text, p_ref text, p_title text, p_data jsonb) returns text
 language plpgsql security definer set search_path = public as $$
 declare me uuid := auth.uid(); c text;
@@ -181,7 +153,7 @@ language sql stable security definer set search_path = public as $$
   select i.code, i.kind, i.ref_id, i.title, i.updated_at, i.saves, i.hidden from public.shared_items i where i.owner_id = auth.uid() order by i.updated_at desc;
 $$;
 
--- ---------- Opening a link (anyone, signed in or not) ----------
+-- Opening a link (anyone, signed in or not)
 create or replace function public.get_public_share(p_code text)
 returns table (code text, kind text, name text, sharer_name text, card_count int, data jsonb, updated_at timestamptz, is_mine boolean)
 language plpgsql volatile security definer set search_path = public as $$
@@ -196,9 +168,7 @@ begin
     from public.shared_items i where i.code = k and not i.hidden;
 end $$;
 
--- ---------- The Course Library ----------
--- List (or unlist) one of your shared decks for its course. p_course_key is the course code without spaces or dashes (BIOL1000);
--- p_school_key is the school's web address (uwaterloo.ca) or a short name the person typed.
+-- The Course Library
 create or replace function public.library_list(p_code text, p_listed boolean, p_course_key text, p_course_label text, p_school_key text, p_school_name text)
 returns void
 language plpgsql security definer set search_path = public as $$
@@ -218,7 +188,7 @@ begin
   if not found then raise exception 'Share the deck with a link first.'; end if;
 end $$;
 
--- Decks listed for a course. p_school_key empty: every school (each row says which). Hidden decks and people you blocked are left out.
+-- Decks listed for a course
 create or replace function public.library_decks(p_course_key text, p_school_key text)
 returns table (code text, name text, sharer_name text, card_count int, updated_at timestamptz, saves int, school_name text, school_key text, course_label text, is_mine boolean)
 language plpgsql volatile security definer set search_path = public as $$
@@ -237,7 +207,7 @@ begin
     limit 60;
 end $$;
 
--- How many decks each of these courses has in the library (for the "3 decks from classmates" line). Up to 40 courses.
+-- How many decks each of these courses has in the library
 create or replace function public.library_counts(p_course_keys text[], p_school_key text)
 returns table (course_key text, n int)
 language sql stable security definer set search_path = public as $$
@@ -248,7 +218,7 @@ language sql stable security definer set search_path = public as $$
   group by d.course_key;
 $$;
 
--- Someone added a copy: counted once per person, for the library's order.
+-- Someone added a copy
 create or replace function public.share_saved(p_code text) returns void
 language plpgsql security definer set search_path = public as $$
 declare k text := public.sbg_norm_code(p_code);
@@ -261,7 +231,7 @@ begin
   end if;
 end $$;
 
--- Report a shared deck, note or quiz. Three different people reporting it hides it until you review it.
+-- Report a shared deck, note or quiz
 create or replace function public.report_share(p_code text, p_reason text, p_details text) returns void
 language plpgsql security definer set search_path = public as $$
 declare k text := public.sbg_norm_code(p_code); kd text;
@@ -298,16 +268,6 @@ grant execute on function public.share_item(text, text, text, jsonb), public.sto
   public.library_list(text, boolean, text, text, text, text), public.share_saved(text), public.report_share(text, text, text), public.my_shared_items() to authenticated;
 grant execute on function public.get_public_share(text), public.library_decks(text, text), public.library_counts(text[], text) to anon, authenticated;
 
--- ===========================================================================================================================
--- Public flashcards and quizzes on the web (studyboardapp.com/flashcards and /quizzes)
--- A shared deck, or a shared quiz, can be PUBLISHED: then it has a page of its own that anyone (and search engines) can read,
--- and it shows up in the public search. The website's worker (cloudflare/site/worker.js) reads it through the public_* functions
--- below with the publishable key. Publishing is separate from making a link and from the Course Library, and can be undone any time.
--- Limits: at least 4 cards (or 3 questions), up to 100 published per account, people suspended from groups can't publish.
--- School: publishing needs a school from the list of real schools (supabase-schools.sql, run it first). The page shows it.
--- Username: publishing needs a username (supabase-usernames.sql, run it first). The page shows the maker as @username.
--- Search: a plain-text copy of the name, course and the first 300 cards (search_text) with a full-text index.
--- ===========================================================================================================================
 alter table public.study_profiles add column if not exists username text;   -- (supabase-usernames.sql fills and checks it)
 alter table public.shared_decks add column if not exists published boolean not null default false;
 alter table public.shared_decks add column if not exists published_at timestamptz;
@@ -321,38 +281,30 @@ alter table public.shared_items add column if not exists item_count int not null
 alter table public.shared_items add column if not exists school_key text not null default '';
 alter table public.shared_items add column if not exists school_name text not null default '';
 
--- The course code as a key: "BIOL 201 - Intro" -> BIOL201 ('' when there's none)
+-- The course code as a key
 create or replace function public.sbs_course_key(p text) returns text
 language plpgsql immutable set search_path = public as $$
 declare m text[]; s text := coalesce(p, '');
   nc text := '^(GRADE|GR|YEAR|YR|UNIT|WEEK|WK|CHAPTER|CH|LAB|ROOM|PAGE|PART|LESSON|TERM|SEM|CLASS|PERIOD|QUIZ|TEST|EXAM|MIDTERM|FINAL|LECTURE|LEC|MODULE|TOPIC|SECTION|SEC|GROUP|TEAM|DAY|SET|DECK|LEVEL|NOTE|NOTES|VERSION|STEP|ROUND|BOOK|VOL|NO|NUMBER|COVID)$';
 begin
-  -- (the same rules as courseKey in cloudflare/site/public-pages.js and codeKey in the app)
-  -- all-number codes like Rutgers' 01:119:115 (school:subject:course) -> 01119115
   m := regexp_match(s, '(?:^|[^0-9])([0-9]{2})[:. -]([0-9]{3})[:. -]([0-9]{3})(?![0-9])');
   if m is not null then return m[1] || m[2] || m[3]; end if;
-  -- NYU's PSYCH-UA 1 -> PSYCHUA1
   m := regexp_match(s, '(?:^|[^A-Za-z])([A-Z]{2,8})-([A-Z]{2})\s*([0-9]{1,4}[A-Z]?)(?![A-Za-z0-9])');
   if m is not null then return m[1] || m[2] || m[3]; end if;
-  -- BIOL 201, CHEM-1000A, McMaster's BIOLOGY 1A03 (but Grade 12, Unit 3 or Week 10 aren't course codes; CH 301 is)
   m := regexp_match(s, '(?:^|[^A-Za-z])([A-Za-z]{2,8})[\s._-]*([0-9][A-Za-z][0-9]{2}|[0-9]{2,5}[A-Za-z]{0,2})');
   if m is not null and (m[2] ~ '^[0-9]{3}' or upper(m[1]) !~ nc) then return upper(m[1] || m[2]); end if;
-  -- Western's Psychology 1002A
   m := regexp_match(s, '(?:^|[^A-Za-z])([A-Za-z]{9,12})\s+([0-9]{4}[A-Za-z]?)(?![0-9])');
   if m is not null then return upper(m[1] || m[2]); end if;
-  -- short codes written in capitals: ECON 1, CHEM 1A, LIFESCI 7A, SBI4U
   m := regexp_match(s, '(?:^|[^A-Za-z0-9])([A-Z]{2,8})[\s._-]?([0-9][A-Z]?)(?![A-Za-z0-9])');
   if m is not null and m[1] !~ nc then return m[1] || m[2]; end if;
-  -- one-letter subjects: UT Austin's M 408C
   m := regexp_match(s, '(?:^|[^A-Za-z0-9])([A-Z])\s?([0-9]{3}[A-Z]?)(?![A-Za-z0-9])');
   if m is not null then return m[1] || m[2]; end if;
-  -- high school codes like Ontario's SBI4U and MHF4U: three letters, a grade digit, a level
   m := regexp_match(s, '\m([A-Za-z]{3})[\s-]?([1-4])([A-Za-z][A-Za-z0-9]?)\M');
   if m is not null then return upper(m[1] || m[2] || m[3]); end if;
   return '';
 end $$;
 
--- Keeps search_text (and, for quizzes, the course and question count) in step with the shared copy
+-- Keeps search_text
 create or replace function public.sbs_search_fill() returns trigger
 language plpgsql set search_path = public as $$
 declare d jsonb := coalesce(new.data, '{}'::jsonb); c jsonb; t text := '';
@@ -376,7 +328,6 @@ begin
     end if;
     new.search_text := left(coalesce(new.title, '') || ' ' || coalesce(c ->> 'code', '') || ' ' || coalesce(c ->> 'name', '') || ' ' || t, 60000);
   end if;
-  -- a changed copy that no longer meets the minimum stops being public on its own
   if new.published then
     if tg_table_name = 'shared_decks' then
       if new.card_count < 4 then new.published := false; end if;
@@ -399,10 +350,7 @@ create index if not exists shared_items_pub_fts on public.shared_items using gin
 create index if not exists shared_decks_pub_idx on public.shared_decks (published_at desc) where published and not hidden;
 create index if not exists shared_items_pub_idx on public.shared_items (published_at desc) where published and not hidden and kind = 'quiz';
 
--- Publish or unpublish one of your shared decks or quizzes (by its share code)
--- Is this shared deck or quiz mostly a copy of someone else's? True when at least half its card fronts (or question stems), and at
--- least 4, match one deck (or quiz) another person shared before it. Copies added from the website, a link, the Course Library or a group
--- keep their cards, so they match; a few cards in common with someone else (two students both writing "Mitochondria") don't.
+-- Publish or unpublish one of your shared decks or quizzes
 create or replace function public.sbs_copied(p_code text, p_owner uuid) returns boolean
 language plpgsql stable security definer set search_path = public as $$
 declare dd jsonb; mine text[]; best int; made timestamptz;
@@ -436,7 +384,6 @@ begin
   perform public.sbs_may_share();
   if p_on then
     if to_regclass('public.user_schools') is null then raise exception 'SB_SETUP: Publishing needs supabase-schools.sql. Run it, then supabase-sharing.sql again.'; end if;
-    -- the page shows a university by name, a high school only as "High school, <province or state>"
     execute 'select s.key, case when s.kind = ''high_school'' then ''High school, '' || coalesce(nullif(s.region, ''''), s.country) else s.name end from public.user_schools u join public.schools s on s.key = u.school_key where u.user_id = $1' into sk, sn using me;
     if sk is null or sk = '' then raise exception 'SB_SCHOOL: Pick your school first.'; end if;
     if not exists (select 1 from public.study_profiles where user_id = me and username is not null) then raise exception 'SB_USERNAME_NEEDED: Pick a username first.'; end if;
@@ -444,7 +391,6 @@ begin
       if public.sbu_age_ok(me) = 'unknown' then raise exception 'SB_AGE_NEEDED: Enter your birthday first.'; end if;
       if public.sbu_age_ok(me) = 'young' then raise exception 'SB_UNDER13: Publishing is for students 13 and older.'; end if;
     end if;
-    -- Only your own work: a deck (or quiz) whose cards (or questions) are mostly the same as someone else's shared one can't be published
     if public.sbs_copied(k, me) then raise exception 'SB_NOT_YOURS: You can only publish decks and quizzes you made. This one matches someone else''s shared set.'; end if;
     select (select count(*) from public.shared_decks where owner_id = me and published) + (select count(*) from public.shared_items where owner_id = me and published) into n;
     if n >= 100 then raise exception 'You can publish up to 100 decks and quizzes. Unpublish one first.'; end if;
@@ -463,7 +409,7 @@ begin
   if p_on and not exists (select 1 from public.shared_items where code = k and published) then raise exception 'A quiz needs at least 3 questions to be published.'; end if;
 end $$;
 
--- Is it published? (for your own Share sheet)
+-- Is it published
 create or replace function public.my_publish_state(p_code text) returns boolean
 language sql stable security definer set search_path = public as $$
   select coalesce((select published from public.shared_decks where code = public.sbg_norm_code(p_code) and owner_id = auth.uid()),
@@ -474,9 +420,7 @@ drop function if exists public.public_search(text, text, text, int, int);
 drop function if exists public.public_search(text, text, text, int, int, text, text, int);
 drop function if exists public.public_page(text, text);
 
--- What people call their school when they search ("UBC", "U of T", "Penn State"): nickname (letters and digits only, lower case) -> school.
--- A school's web address name (ubc for ubc.ca) also works once it has published sets. Add your own with:
---   insert into public.school_aliases (alias, school_key) values ('uvic', 'uvic.ca') on conflict do nothing;
+-- What people call their school when they search ("UBC", "U of T", "Penn State")
 create table if not exists public.school_aliases (alias text not null check (alias ~ '^[a-z0-9]{2,30}$'), school_key text not null, primary key (alias, school_key));
 alter table public.school_aliases enable row level security;
 revoke all on public.school_aliases from anon, authenticated;
@@ -499,7 +443,7 @@ insert into public.school_aliases (alias, school_key)
   ) v(a, k) where exists (select 1 from public.schools s where s.key = v.k)
   on conflict do nothing;
 
--- The schools a few search words name (a nickname, or a school's web address name when it has published sets)
+-- The schools a few search words name
 create or replace function public.sbs_school_words(p_tok text, p_kind text) returns text[]
 language sql stable security definer set search_path = public as $$
   select coalesce(array_agg(distinct k), '{}') from (
@@ -512,17 +456,13 @@ language sql stable security definer set search_path = public as $$
 $$;
 revoke all on function public.sbs_school_words(text, text) from public, anon, authenticated;
 
--- The public pages. Only published, not hidden items; nothing about the owner except their username.
--- p_kind: 'deck' or 'quiz'. p_q: what was typed: a school's name or nickname ("UBC", "U of T"), a course code, words, or a mix
--- ("ubc psyc 101", "waterloo calculus"). p_course: a course key (BIOL201) or ''. p_school: a school key from the filter ('' for any).
--- p_sort: '' (best match, then most saved), 'new', 'saves' or 'cards'. p_min: at least this many cards or questions.
+-- The public pages
 create or replace function public.public_search(p_kind text, p_q text, p_course text, p_limit int, p_offset int, p_school text default '', p_sort text default '', p_min int default 0)
 returns table (code text, name text, sharer_name text, n int, course_key text, course_label text, saves int, updated_at timestamptz, preview text, school_name text, look jsonb, school_key text)
 language plpgsql stable security definer set search_path = public as $$
 declare q tsquery; ck text := public.sbs_course_key(coalesce(p_course, '')); lim int := least(greatest(coalesce(p_limit, 30), 1), 60); off int := least(greatest(coalesce(p_offset, 0), 0), 5000);
   w text[]; used boolean[]; sk text[] := '{}'; i int; n int; tok text; ks text[]; rest text := ''; srt text := coalesce(p_sort, ''); mn int := greatest(coalesce(p_min, 0), 0);
 begin
-  -- pick out the school: the longest run of up to three words that names one ("u of t", "penn state", "ubc")
   w := array_remove(regexp_split_to_array(lower(regexp_replace(left(coalesce(p_q, ''), 200), '[^A-Za-z0-9&'' ]+', ' ', 'g')), '\s+'), '');
   used := array_fill(false, array[greatest(coalesce(array_length(w, 1), 0), 1)]);
   i := 1;
@@ -539,7 +479,6 @@ begin
   for k in 1 .. coalesce(array_length(w, 1), 0) loop if not used[k] then rest := rest || ' ' || w[k]; end if; end loop;
   rest := btrim(rest);
   if coalesce(p_school, '') <> '' then sk := array[p_school]; end if;
-  -- what's left: just a course code filters by course; words search the sets (and school names, so "waterloo" finds Waterloo's sets)
   if ck = '' and rest <> '' and public.sbs_course_key(rest) <> '' and upper(regexp_replace(rest, '[\s._:-]', '', 'g')) = public.sbs_course_key(rest) then ck := public.sbs_course_key(rest); rest := ''; end if;
   if rest <> '' then q := websearch_to_tsquery('english', rest); end if;
   if p_kind = 'quiz' then
@@ -565,7 +504,7 @@ begin
   end if;
 end $$;
 
--- Schools with published sets, most first (the search page's School filter). High schools aren't listed by name.
+-- Schools with published sets, most first (the search page's School filter)
 create or replace function public.public_schools(p_kind text, p_limit int)
 returns table (school_key text, school_name text, n int)
 language sql stable security definer set search_path = public as $$
@@ -588,7 +527,7 @@ language sql stable security definer set search_path = public as $$
     from public.shared_items i where p_kind = 'quiz' and i.kind = 'quiz' and i.code = public.sbg_norm_code(p_code) and i.published and not i.hidden;
 $$;
 
--- Courses that have published decks or quizzes, most first (the index pages and course pages)
+-- Courses that have published decks or quizzes, most first
 create or replace function public.public_courses(p_kind text, p_limit int)
 returns table (course_key text, course_label text, n int)
 language sql stable security definer set search_path = public as $$

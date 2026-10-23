@@ -1,5 +1,4 @@
-// node tests/gradeinsight.e2e.js   (Playwright + Chromium; see tests/pw.js)
-// Grades: the "What Do I Need?" line on the Grades page, goal distance, biggest swing, and the what-if boxes (nothing is saved).
+// node tests/gradeinsight.e2e.js (Playwright + Chromium; see tests/pw.js) Grades
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, ".."), SHOTS = process.argv[2] || process.env.SHOTS || path.join(require("os").tmpdir(), "gt-shots");

@@ -1,6 +1,4 @@
-// The phone apps' school site layer (lms-mobile.src.js, built by scripts/build-lms-mobile.js): it must give the page the desktop app's calls, run the very
-// same harvest scripts, and clean what comes back exactly as lms.js does. The native plugin is replaced by a stub that records what it was asked.
-// Run: node tests/lms-mobile.test.js   (no Electron, no device)
+// The phone apps' school site layer
 const path = require("path"), assert = require("assert"), vm = require("vm"), Module = require("module");
 const fs = require("fs");
 const { build, nativeFiles, nativeScripts, nativeCheck } = require("../scripts/build-lms-mobile.js");
@@ -10,7 +8,7 @@ Module._load = function (req, ...rest) { if (req === "electron") return { app: {
 const L = require(path.join(__dirname, "..", "lms.js"));
 Module._load = realLoad;
 const SRC = build();
-const seen = [];   // every connect/run the page asked the native side for, checked against the native allowlist at the end
+const seen = [];
 
 function load(opts) {
   const o = opts || {}, calls = [], store = {};
@@ -23,9 +21,9 @@ function load(opts) {
   vm.runInContext(SRC, ctx);
   return { win, calls, store };
 }
-const eq = (a, b, m) => assert.strictEqual(JSON.stringify(a), JSON.stringify(b), m);   // objects from the vm have another realm's prototypes
+const eq = (a, b, m) => assert.strictEqual(JSON.stringify(a), JSON.stringify(b), m);
 let n = 0; const t = async (name, fn) => { n++; try { await fn(); console.log("ok -", name); } catch (e) { console.log("FAIL", name, "\n  ", String(e && e.stack || e).split("\n").slice(0, 6).join("\n   ")); process.exitCode = 1; } };
-const SAFE = { pastDays: 60, aheadDays: 240, grades: true, news: true, only: null, skip: [] };
+const SAFE = { pastDays: 60, aheadDays: 240, grades: true, news: true, internal: true, only: null, skip: [] };
 
 (async () => {
   await t("it stays out of the way: no plugin, or the desktop app", async () => {
@@ -118,13 +116,10 @@ const SAFE = { pastDays: 60, aheadDays: 240, grades: true, news: true, only: nul
     for (const [f, text] of Object.entries(nativeFiles()))
       assert.strictEqual(fs.existsSync(f) && fs.readFileSync(f, "utf8"), text, path.basename(f) + " is stale: run node scripts/build-lms-mobile.js --native");
     const list = nativeScripts();
-    // everything the page sent in the checks above passes, and the native side's refilled copy is the same script
     assert(seen.length > 10 && seen.some(s => s[0] === "who"), "seen " + seen.length);
     for (const [use, a] of seen) { const sc = use === "who" ? a.who : a.script; assert.strictEqual(nativeCheck(a.id, use, sc, a.origin, list), sc, use + " " + a.id + ": " + String(sc).slice(0, 80)); }
-    // a body with quotes and a closing paren is still just data
     const m = load(); await m.win.studiosoLms.mail("canvas", "learn.example.edu", { op: "send", id: "5", body: "\"})(alert(1))//\u2028</script>" });
     const sc = m.calls[0][1].script; assert.strictEqual(nativeCheck("canvas", "run", sc, "https://learn.example.edu", list), sc);
-    // anything else is refused
     const h = L.harvestScript(L.P.canvas, SAFE), o = "https://learn.example.edu";
     for (const bad of ["alert(1)", h + ";alert(1)", h.replace("credentials", "credentialz"), h.replace(JSON.stringify(SAFE), JSON.stringify(SAFE) + ",alert(1)"), h.replace(JSON.stringify(SAFE), "alert(1)"),
       L.CV_FILE("1);alert(1"), L.CV_FILE(""), L.BS_FILE("1", "2", "3x")])

@@ -1,5 +1,5 @@
 /* ===== module: 97-groups-nudge.css ===== */
-/* More button: only in the bottom bar (phones and tablets). The desktop side menu lists Groups itself. */
+/* More button: only in the bottom bar (phones and tablets) */
 nav.tabs .in .nav-more{display:none}
 @media (max-width:979px){
   nav.tabs .in .nav-more{display:flex;position:relative;min-height:44px}

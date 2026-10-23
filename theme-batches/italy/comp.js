@@ -1,4 +1,4 @@
-/* Study Companions, Around the World: italy (Amalfi Coast) */
+/* Study Companions, Around the World */
 (() => {
   const {O, OW, LG, RG, LINE} = COMP_KIT;
   const O2 = OW(2.2);

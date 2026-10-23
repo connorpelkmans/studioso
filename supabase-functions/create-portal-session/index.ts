@@ -1,9 +1,4 @@
-// Studyboard Pro: create-portal-session (Supabase Edge Function)
-// Opens the Stripe customer portal (change card, cancel, invoices) for the person who is signed in, and only for their own customer.
-// Returns {url}. The website's "Manage billing" button calls it.
-//
-// Deploy with "Verify JWT" turned ON. Secrets: STRIPE_SECRET_KEY, SITE_ORIGINS (same as create-checkout).
-// Optional: STRIPE_PORTAL_CONFIG (a bpc_... id) to pick a specific portal setup. Set up the portal first in Stripe > Settings > Billing > Customer portal.
+// Studyboard Pro
 
 type Env = (k: string) => string;
 type Deps = { env: Env; fetch: typeof fetch; now: () => number; log: (...a: unknown[]) => void };
@@ -16,7 +11,7 @@ const json = (o: unknown, status: number, cors: Record<string, string>, extra: R
   new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...cors, ...extra } });
 function serviceKey(d: Deps): string {
   let key = d.env("SUPABASE_SERVICE_ROLE_KEY");
-  if (!key) { try { const k = JSON.parse(d.env("SUPABASE_SECRET_KEYS") || "{}"); key = String(k.default || Object.values(k)[0] || ""); } catch (_e) { /* newer projects only */ } }
+  if (!key) { try { const k = JSON.parse(d.env("SUPABASE_SECRET_KEYS") || "{}"); key = String(k.default || Object.values(k)[0] || ""); } catch (_e) { } }
   return key;
 }
 const base = (d: Deps) => d.env("SUPABASE_URL").replace(/\/+$/, "");
@@ -78,7 +73,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
       if (o && allowed.includes(o) && PATH_OR_OK(p)) ret = o + p;
     }
 
-    // Only this person's own Stripe customer (the one create-checkout made, or the one the older payment link flow recorded)
+    // Only this person's own Stripe customer
     let customer = ((await (await rest(`studyboard_billing_customers?user_id=eq.${uid}&select=stripe_customer_id`)).json()) as any[])[0]?.stripe_customer_id as string | undefined;
     if (!customer) {
       const e = ((await (await rest(`studyboard_entitlements?user_id=eq.${uid}&source=eq.stripe&select=external_id`)).json()) as any[])[0];
@@ -94,9 +89,8 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     });
     if (!r.ok) {
       const e = await r.json().catch(() => ({})) as { error?: { code?: string; message?: string } };
-      // A saved customer from the other Stripe mode (for example a test purchase while the live key is set) can't be opened here.
       if (e.error?.code === "resource_missing") return json({ error: "billing_unavailable", message: "We couldn't find a card subscription for this account in live billing. If you subscribed during testing, it no longer applies. Start a new subscription from the account page, or write to support." }, 409, cors);
-      throw new Error(`stripe portal ${r.status} ${e.error?.code || ""} ${String(e.error?.message || "").slice(0, 200)}`.trim());   // Stripe's reason goes to the function log only (it never holds a key)
+      throw new Error(`stripe portal ${r.status} ${e.error?.code || ""} ${String(e.error?.message || "").slice(0, 200)}`.trim());
     }
     const s = await r.json() as { url?: string };
     if (typeof s.url !== "string" || !/^https:\/\/billing\.stripe\.com\//.test(s.url)) throw new Error("no portal url");

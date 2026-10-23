@@ -1,6 +1,4 @@
-// node tests/lms-ext-gone.e2e.js  (Playwright + Chromium)
-// On the website, a school site synced by the School Sync extension says "Not Syncing" (not "Connected") once the extension is removed
-// or no longer connected to that site, and says "Connected" while the extension still reports it.
+// node tests/lms-ext-gone.e2e.js (Playwright + Chromium) On the website
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -16,7 +14,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
   try {
-    // ext: null = not installed; [] = installed, no school connected; ["brightspace"] = connected to Brightspace
     const run = async (ext) => {
       const ctx = await browser.newContext({serviceWorkers: "block"});
       await ctx.route(/supabase\.co/, r => r.abort());
@@ -30,7 +27,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await page.evaluate(() => { const L = SBLMS.brightspace, due = new Date(Date.now() + 3 * 864e5).toISOString();
         const d = L.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [], courses: [{ou: "7", code: "BIOL1200", name: "BIOL 1200 - Biology", folders: [{id: "1", name: "Lab Report 1", due, end: null, sub: false, files: []}], quizzes: [], grades: [], news: [], events: [], discussions: [], staff: []}]});
         L.save({map: {"7": "c1"}, mode: "api", host: "https://learn.example.edu"}); L.applyPlan(d, L.plan(d), "grab", true); });
-      await page.waitForTimeout(3500);   // the extension check settles
+      await page.waitForTimeout(3500);
       const r = await page.evaluate(() => { const L = SBLMS.brightspace; L.bsSheet(); const st = document.querySelector(".bs-status"); return {head: st.querySelector("b").textContent, line: L.statusLine(), short: L.shortStatus(), warn: st.classList.contains("warn"), body: document.querySelector(".bs-acts").textContent}; });
       await ctx.close(); return Object.assign(r, {errs});
     };

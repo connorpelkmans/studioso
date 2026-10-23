@@ -1,21 +1,17 @@
 /* ===== module: 01-helpers.js: the app's core, backups, helpers, workload and shared pieces ===== */
-/* ---------- Backups ---------- */
+/* Backups */
 let autoBackupDone = false;
-// Backups are kept on this device (the last 14 days, in the browser's storage) so they cost nothing online.
-// Online backup history is a Studyboard Pro extra once plans are switched on (always on while they're off).
+// Backups are kept on this device
 const DEV_BACKUP_DAYS = 14;
-const cloudBackupsOn = () => cloud.on && (inClaude() || typeof PLAN === "undefined" || !PLAN || PLAN.can("cloud-backups"));
+const cloudBackupsOn = () => cloud.on && (inPreview() || typeof PLAN === "undefined" || !PLAN || PLAN.can("cloud-backups"));
 const backupSnap = () => ({at: Date.now(), courses: Object.values(state.courses), tasks: Object.values(state.tasks), files: Object.values(state.files), notes: Object.values(state.notes), decks: Object.values(state.decks || {}), events: Object.values(state.events || {}), avail: (state.settings && state.settings.avail) || null,
-  // the parts of settings that hold things people made (note boards, photo themes, look, companion, owned items), so a restore brings them back too
   keep: (() => { const st = state.settings || {}, o = {}; ["noteBoards", "noteBoardsGone", "photoThemes", "photoGone", "style", "comp", "owned"].forEach(k => { if (st[k] !== undefined) o[k] = clone(st[k]); }); return o; })()});
 async function deviceBackups(){
   let arr = await SBC.all("backups");
-  try { arr = arr.concat(JSON.parse(localStorage.getItem(LSB) || "[]").map(b => Object.assign({where: "device"}, b))); } catch(e) {}   // older versions kept a few here
+  try { arr = arr.concat(JSON.parse(localStorage.getItem(LSB) || "[]").map(b => Object.assign({where: "device"}, b))); } catch(e) {}
   return arr.filter(b => b && b.at).sort((a, b) => b.at - a.at);
 }
-// One backup a day ("d-<date>", the last 14 kept). A backup taken just before something replaces everything (switching accounts, restoring,
-// importing, clearing) is "k-<time>" instead: a later backup the same day never overwrites it, and it is pruned on its own (the newest 10).
-// Throws when the backup could not be written, so a caller about to replace the data can stop instead.
+// One backup a day ("d-<date>", the last 14 kept)
 const DEV_BACKUP_KEPT = 10;
 async function saveDeviceBackup(snap, before){
   const id = before ? "k-" + new Date().toISOString() : "d-" + todayISO();
@@ -25,10 +21,10 @@ async function saveDeviceBackup(snap, before){
   await prune("d-", DEV_BACKUP_DAYS); await prune("k-", DEV_BACKUP_KEPT);
   return id;
 }
-// A device backup of everything here right now, before it is replaced (restore, import, clear). Taken synchronously; written in the background.
+// A device backup of everything here right now, before it is replaced
 function backupBefore(note){
   const has = ["tasks", "courses", "notes", "decks", "files", "events"].some(k => Object.keys(state[k] || {}).length);
-  if (has && !inClaude()) saveDeviceBackup(Object.assign(backupSnap(), {note}), true).catch(e => console.warn("backup before replacing", e));
+  if (has && !inPreview()) saveDeviceBackup(Object.assign(backupSnap(), {note}), true).catch(e => console.warn("backup before replacing", e));
 }
 async function cloudBackupList(){
   const s = await cloud.backups.orderBy("at", "desc").limit(10).get();
@@ -47,7 +43,7 @@ async function makeBackup(){
   if (cloudBackupsOn()) {
     const id = "wk-" + mondayOf(todayISO());
     await cloud.backups.doc(id).set(snap);
-    const keep = typeof PLAN !== "undefined" && PLAN && !inClaude() ? Math.max(1, Math.ceil((PLAN.limits().cloudBackupDays || 30) / 7)) : 6;
+    const keep = typeof PLAN !== "undefined" && PLAN && !inPreview() ? Math.max(1, Math.ceil((PLAN.limits().cloudBackupDays || 30) / 7)) : 6;
     const all = await cloudBackupList();
     for (const b of all.slice(keep)) { try { await cloud.backups.doc(b.id).delete(); } catch(e){} }
   }
@@ -98,8 +94,7 @@ function replaceAllChanges(courses, tasks, files, notes, decks, events){
   Object.values(nt).forEach(t => { if (JSON.stringify(normTask(clone(t))) !== JSON.stringify(state.tasks[t.id])) ch.push({kind:"task", id:t.id, after:t}); });
   return ch;
 }
-/* ---------- Helpers ---------- */
-// Completed tasks move to the Archive two weeks after they're finished. Past terms are archived with Start a New Term.
+/* Helpers */
 const ARCHIVE_DAYS = 14;
 const doneTime = t => t.doneAt || (t.due ? parse(t.due).getTime() + 864e5 : (t.created || Date.now()));
 const autoArchived = t => t.status === "done" && Date.now() - doneTime(t) > ARCHIVE_DAYS * 864e5;
@@ -113,9 +108,7 @@ const coursesArr = () => allCourses().filter(c => !c.archived);
 const courseOf = id => id ? state.courses[id] : null;
 const colorOf = id => { const c = courseOf(id); return c ? c.color : "#8A94A6"; };
 const courseLabel = c => c.code || c.name;
-// A course code from a school site (Brightspace, Canvas, Blackboard) is only used when it reads like one ("NURS 1010", "BIO-101L").
-// Their raw ids and section stubs ("0", "HY1", "12345") are not codes: the code in the course name is used instead, and with none
-// the full name is shown, never a stub.
+// A course code from a school site
 const COURSE_CODE_RX = /\b([A-Za-z]{2,6})[\s_-]?(\d{2,4}[A-Za-z]?)\b/;
 const cleanCourseCode = (raw, name) => {
   for (const s of [raw, name]) { const m = String(s || "").match(COURSE_CODE_RX); if (m) return m[1].toUpperCase() + " " + m[2].toUpperCase(); }
@@ -134,7 +127,7 @@ function progress(t){
     const ps = t.status === "done" ? [] : allTasks().filter(x => x.prepFor === t.id);
     const pm = ps.reduce((s, x) => s + (Number(x.hours) || 0), 0), dm = ps.filter(x => x.status === "done").reduce((s, x) => s + (Number(x.hours) || 0), 0);
     const ai = autoPlanOn() && t.status !== "done" && t.aiPrep && autoFresh(t.aiPrep, 4) ? t.aiPrep : null;
-    const pr = ps.length && t.prep && window.SBPREP ? SBPREP.pct(t) : null;       // the Exam Prep Planner's readiness, once there's evidence behind it
+    const pr = ps.length && t.prep && window.SBPREP ? SBPREP.pct(t) : null;
     return {total, done, frac: t.status === "done" ? 1 : pr != null ? pr / 100 : ai ? ai.pct / 100 : Math.max((Number(t.pct) || 0) / 100, pm ? dm / pm : 0), prep: true, plan: ps.length, ai};
   }
   return {total, done, frac: total ? done / total : (t.status === "done" ? 1 : (Number(t.pct) || 0) / 100)};
@@ -249,16 +242,12 @@ function toast(msg, undoFn, extra){
   b.hidden = !undoFn;
   toastExtraFn = extra ? extra.fn : null;
   x.hidden = !extra; if (extra) x.textContent = extra.label;
-  // An open sheet is a modal dialog: it sits above everything (z-index can't beat it) and makes the rest of the page unclickable.
-  // So while a sheet is open the toast goes inside it, where it can be seen and its Undo pressed; otherwise it lives in the page.
-  // (Only the sheet dialog: openSheet keeps the toast alive when it swaps the sheet's contents.)
-  let host = document.body; try { if (dlg.open) host = dlg; } catch(e) {}   // dlg is declared further down: a message during start-up stays in the page
+  let host = document.body; try { if (dlg.open) host = dlg; } catch(e) {}
   if (t.parentNode !== host) host.appendChild(t);
   t.classList.add("show");
   clearTimeout(toastT);
   toastT = setTimeout(() => { t.classList.remove("show"); toastUndoFn = null; toastExtraFn = null; }, extra ? 9000 : undoFn ? 8000 : 2600);
 }
-// A sheet closing (often right after its own "Saved" message) hands the toast back to the page, so the message stays on screen.
 document.addEventListener("close", e => { const t = $("#toast"); if (t && e.target && t.parentNode === e.target) document.body.appendChild(t); }, true);
 $("#toastUndo").addEventListener("click", () => { const f = toastUndoFn; toastUndoFn = null; $("#toast").classList.remove("show"); if (f) f(); });
 $("#toastExtra").addEventListener("click", () => { const f = toastExtraFn; toastExtraFn = null; $("#toast").classList.remove("show"); if (f) f(); });
@@ -269,8 +258,7 @@ function safeUrl(u){
   try { const x = new URL(u); return (x.protocol === "http:" || x.protocol === "https:") ? x.href : null; } catch(e){ return null; }
 }
 
-// The page for a task on the school's learning site (Canvas, Brightspace, Blackboard): the link school sync saved on the task.
-// A link you typed yourself works the same way, so the button shows whenever the task has a web address.
+// The page for a task on the school's learning site (Canvas, Brightspace, Blackboard)
 const LMS_NAMES = {bs: "Brightspace", cv: "Canvas", bb: "Blackboard"};
 const LMS_GO = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/></svg>';
 const lmsSite = t => { const k = t && Object.keys(LMS_NAMES).find(f => t[f] && t[f].key); return k ? LMS_NAMES[k] : ""; };
@@ -279,7 +267,7 @@ function lmsGoBtn(t, cls){
   const where = lmsSite(t) || "the school site";
   return `<button type="button" class="lms-go ${cls || ""}" data-act="lms-go" data-url="${esc(u)}" title="Open in ${esc(where)}" aria-label="Open ${esc(t.title)} in ${esc(where)}">${LMS_GO}</button>`;
 }
-// A course's home page on the school's site: the link school sync added to the course (labelled with the platform's name)
+// A course's home page on the school's site
 function lmsCourseLink(c){
   const names = Object.values(LMS_NAMES), l = ((c && c.links) || []).find(x => x && names.includes(x.label) && safeUrl(x.url));
   return l ? {name: l.label, url: safeUrl(l.url)} : null;
@@ -288,7 +276,7 @@ function lmsCourseLink(c){
 function openOutside(u){ u = safeUrl(u); if (!u) return; try { window.open(u, "_blank", "noopener,noreferrer"); } catch(e) { location.href = u; } }
 hook("act", (act, el) => { if (act !== "lms-go") return false; openOutside(el.dataset.url); return true; });
 
-/* ---------- Workload ---------- */
+/* Workload */
 function workloadByDay(ts){
   const per = {};
   ts.forEach(t => {
@@ -305,9 +293,7 @@ function weekHours(ts, monday){
   return sum;
 }
 
-/* ---------- Shared pieces ---------- */
-// The course filter. Wide screens: a row of chips. Phones: one "All Courses" button that opens a list of courses (101-phone-v2.css
-// shows .cf-row instead of the chips), with right (the Board's Group By) on the same line.
+/* Shared pieces */
 function chipsHtml(right){
   const cs = coursesArr();
   if (!cs.length) return "";

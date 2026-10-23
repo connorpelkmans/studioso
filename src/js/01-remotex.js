@@ -1,15 +1,12 @@
 /* ===== module: 01-remotex.js: the app's core, exams and quizzes: can this one be done from home ===== */
-/* ---------- Exams and quizzes: can this one be done from home? (REMOTEX does the reading; this connects it to the app) ----------
-   canDoNow(task) is the one gate for every "work on this now" suggestion: Do This Next and its alternatives, the AI's picks, Today's Plan
-   time and free-time slots, focus buttons and the companion. Anything that isn't an exam or quiz is always fine. An exam or quiz is only
-   suggested when it's known to be taken from home. Unknown counts as in person until the rules, the AI or the student say otherwise. */
+/* Exams and quizzes */
 let RMEMO = {k: "", m: new Map()};
 const remoteIsOnline = s => /\b(zoom|teams|webex|google meet|online|virtual|remote)\b|^https?:/i.test(String(s || ""));
 function remoteFacts(t){
   const L = lmsOf(t);
   return {type: t.type, title: t.title || "", text: t.prepFor ? "" : (t.notes || ""), location: t.location || "", rx: L && L.rx ? L.rx : null, sched: {}};
 }
-// Your weekly schedule on the day: an event with a room and a similar name, or a class meeting that the exam time falls inside
+// Your weekly schedule on the day
 function remoteSched(t){
   const out = {};
   if (!t.due) return out;
@@ -41,7 +38,7 @@ function remoteOf(t){
   return REMOTEX.remoteEff(t, r.rule, r.sig);
 }
 const canDoNow = t => REMOTEX.canDoNow(t, remoteOf(t));
-// The day a take-home exam or quiz opens on the school site (empty when it's open already or unknown)
+// The day a take-home exam or quiz opens on the school site
 function remoteOpens(t){ const L = lmsOf(t), ul = L && L.rx && L.rx.ul; if (!ul) return ""; const d = new Date(ul); return isNaN(d) ? "" : iso(d); }
 const remoteChip = e => !e || e.na ? "" : e.v === "yes" ? "Take-home" : e.v === "no" ? "In person" : "Not sure";
 const REMOTE_BY = {user: "You", lms: "School site", ai: "Automatic AI", rule: "Auto"};
@@ -49,14 +46,14 @@ function remoteNoteHtml(e){
   if (!e || !e.v) return `<span class="rx-chip unk">Not sure</span> It isn't suggested as Do This Next until it's known to be taken from home.${e && e.why ? " " + esc(e.why) + "." : ""}`;
   return `<span class="rx-chip ${e.v === "yes" ? "yes" : "no"}">${esc(remoteChip(e))}</span> <b>Detected by:</b> ${esc(REMOTE_BY[e.src] || "Auto")}.${e.why && e.src !== "user" ? " " + esc(e.why) + (/[.!?]$/.test(e.why) ? "" : ".") : e.src === "user" ? " " + esc(e.why) : ""}${e.v === "yes" ? "" : " Not suggested as Do This Next."}`;
 }
-// Keep the saved answer in step with what the rules can tell now (so exports and your other devices see it); your own answer is never touched
+// Keep the saved answer in step with what the rules can tell now
 let rmStoreT = null;
 function remoteStoreSoon(){ clearTimeout(rmStoreT); rmStoreT = setTimeout(remoteStore, 700); }
 let RMSTORE = {n: 0, at: 0};
 function remoteStore(){
   try {
     if (Date.now() - RMSTORE.at > 10000) RMSTORE = {n: 0, at: Date.now()};
-    if (++RMSTORE.n > 6) return;                                      // never a write loop: a handful of passes, then wait
+    if (++RMSTORE.n > 6) return;
     const ch = [];
     tasksArr().forEach(t => {
       if (!MILESTONE(t.type) || t.status === "done" || t.remoteSrc === "user") return;
@@ -73,7 +70,7 @@ function remoteStore(){
     if (ch.length) applyChanges(ch, null);
   } catch(e) { console.warn("Exam location", e); }
 }
-// The student's own answer: always wins over rules and AI, and later syncs never overwrite it
+// The student's own answer
 function remoteSet(id, v, label){
   const t = state.tasks[id]; if (!t) return;
   const n = clone(t);
@@ -82,8 +79,7 @@ function remoteSet(id, v, label){
   const inv = applyChanges([{kind: "task", id, after: n}], label === undefined ? "" : label);
   INS_MEMO.k = ""; return inv;
 }
-// Asked right after an exam or quiz is added by hand, when nothing in it already says where it's taken (works without AI).
-// The answer decides whether Today's Plan can suggest working on it directly (from home) or only studying for it (in person).
+// Asked right after an exam or quiz is added by hand
 function remoteAsk(id){
   const t = state.tasks[id]; if (!t || !MILESTONE(t.type) || t.status === "done" || remoteOf(t).v) return;
   const kind = t.type.toLowerCase();
@@ -91,13 +87,13 @@ function remoteAsk(id){
     <div class="sheet-foot"><button type="button" class="btn" data-rx="">Not Sure</button><span class="spacer"></span><button type="button" class="btn" data-rx="no">In Person</button><button type="button" class="btn primary" data-rx="yes">From Home</button></div></form>`);
   dlg.querySelectorAll("[data-rx]").forEach(b => b.addEventListener("click", () => {
     const v = b.dataset.rx; if (dlg.open) dlg.close();
-    const prep = t.due > todayISO() && window.SBPREP ? {label: "Plan My Prep", fn: () => SBPREP.open(id)} : undefined;   // this sheet covered the add toast's Plan My Prep, so the answer's toast offers it again
+    const prep = t.due > todayISO() && window.SBPREP ? {label: "Plan My Prep", fn: () => SBPREP.open(id)} : undefined;
     if (v !== "yes" && v !== "no") { if (prep) toast(`Left as “Not sure”. You can set it in the ${kind}'s details.`, null, prep); return; }
     const inv = remoteSet(id, v, null);
     toast(v === "yes" ? `“${t.title}” can be done from home` : `“${t.title}” is taken in person`, () => { applyChanges(inv, null); toast("Undone"); }, prep);
   }));
 }
-// Exams and quizzes the AI could read (rules didn't decide, there is real text to read, and this exact text hasn't been tried)
+// Exams and quizzes the AI could read
 function remoteCands(max, today){
   today = today || todayISO();
   return tasksArr().filter(t => MILESTONE(t.type) && t.status !== "done" && t.due && t.remoteSrc !== "user" && !t.prepFor)
@@ -124,12 +120,12 @@ async function autoRemote(){
     }
   } catch(e) { if (!autoTransient(e)) mark("error"); throw e; }
 }
-// The one-tap question in the Suggestions tray: for an exam or quiz in the next 3 weeks that nothing could settle (and the AI has had its turn)
+// The one-tap question in the Suggestions tray
 function remoteQuestions(){
   if (!autoFeatOn("remote")) return [];
   const today = todayISO(), wait = AUTO_ON && navigator.onLine !== false && autoFeatUse("remote").n < AUTO_FEATS.find(f => f.id === "remote").cap;
   return tasksArr().filter(t => MILESTONE(t.type) && t.status !== "done" && t.due && !t.prepFor && dayDiff(today, t.due) >= 0 && dayDiff(today, t.due) <= 21 && !remoteOf(t).v)
-    .filter(t => { const r = remoteRule(t); return !(wait && REMOTEX.hasText(r.f) && (AUTO.rmt || {})[t.id] !== r.sig); })     // the AI is about to read it
+    .filter(t => { const r = remoteRule(t); return !(wait && REMOTEX.hasText(r.f) && (AUTO.rmt || {})[t.id] !== r.sig); })
     .sort((a, b) => a.due < b.due ? -1 : 1).slice(0, 1)
     .map(t => ({id: `rm:${t.id}:${remoteRule(t).sig}`, kind: "remote", tid: t.id, text: `Can you take “${t.title}” from home?`}));
 }
@@ -204,7 +200,7 @@ async function autoNews(){
     cands.filter(n => !got.has(n.key)).forEach(n => { AUTO.ann[n.key] = {sum: "", imp: false, cat: "other", at: Date.now()}; });
     prune();
   } catch(e) {
-    if (!autoTransient(e)) cands.forEach(n => {          // the AI couldn't read these: fall back to plain keyword rules, once
+    if (!autoTransient(e)) cands.forEach(n => {
       const cat = AINS.annKeyword(n.title + ". " + n.text);
       AUTO.ann[n.key] = {sum: "", imp: !!cat, cat: cat || "other", at: Date.now(), fb: true};
       if (cat) flagAttn(n, cat, "");
@@ -214,24 +210,23 @@ async function autoNews(){
 }
 const examSessionsOf = id => planSessions(id).length > 0;
 const coachSig = t => [t.due, t.title].join("|");
-// Exam Study Plans used to ask the AI to draft sessions here. The Exam Prep Planner (module 97-examprep.js) now makes the plan from real data (no AI needed);
-// the AI only words its instructions, when the student asks. This tray item (and any older stored one) opens that planner.
+// Exam Study Plans used to ask the AI to draft sessions here
 async function autoWeekly(){
   const today = todayISO(), ws = AINS.reviewWeek(today);
   if (!ws || AUTO.wk === ws) return;
   const s = AINS.weeklyStats({tasks: allTasks(), today, weekStart: ws});
-  if (!AINS.weeklyWorth(s)) { AUTO.wk = ws; return; }              // a quiet week with nothing coming: say nothing
+  if (!AINS.weeklyWorth(s)) { AUTO.wk = ws; return; }
   let out = null;
   try {
     const r = await aiCall({task: "weekly", auto: true, fast: true, maxTokens: 1200, temperature: 0.4, schema: WEEKLY_SCHEMA, parts: [{text: `Last week (${ws} to ${addDays(ws, 6)}): finished ${s.done}${s.doneTitles.length ? ": " + s.doneTitles.join("; ") : ""}. Slipped (due last week, still open): ${s.slipped.map(x => `${x.title} (due ${x.due})`).join("; ") || "none"}.\nNext week: ${s.next.map(d => `${dayNameOf(d.date)} ${d.count} due (${d.titles.join("; ")})`).join("; ") || "nothing due"}.${s.exams.length ? " Exams: " + s.exams.map(x => `${x.title} on ${dayNameOf(x.date)}`).join("; ") + "." : ""}`}],
       system: "You write a student's short weekly review inside their planner. Two honest, kind sentences on last week using only the numbers given (never any other number), then one concrete suggestion for the week ahead that names a specific task from the lists or a weekday, with the reason (for example 'Do the Stats HW on Tuesday: Thursday already has 3 deadlines'). Never general advice, never invent tasks. Return JSON only."});
-    out = AINS.vetWeekly(r.data, s, dayNameOf);                     // real counts, names a real task or day, not generic
+    out = AINS.vetWeekly(r.data, s, dayNameOf);
   } catch(e) { if (autoTransient(e)) throw e; }
   AUTO.wk = ws;
   const fb = !out; if (!out) out = AINS.weeklyFallback(s, dayNameOf);
   insAdd({id: "wk:" + ws, kind: "weekly", recap: out.recap, suggestion: out.suggestion, fb});
 }
-// The next small background job, if any: only when the main jobs are done and enough of today's budget is left
+// The next small background job, if any
 function autoExtraJob(a){
   if (autoBudget(a.paid) < (a.paid ? 5 : 12)) return null;
   const today = todayISO(), ok = id => autoFeatOn(id) && autoFeatUse(id).n < AUTO_FEATS.find(f => f.id === id).cap;
@@ -243,7 +238,7 @@ function autoExtraJob(a){
   return null;
 }
 
-// What shows in the Suggestions tray: stored AI results (checked again against today's data) plus live rule-based nudges
+// What shows in the Suggestions tray
 let INS_MEMO = {k: "", list: []};
 function autoLiveInsights(){
   const today = todayISO(), k = (state.updated || 0) + "|" + today + "|" + Math.floor(Date.now() / 36e5);
@@ -300,9 +295,9 @@ function autoStoredInsights(){
 function insightsAll(){
   const dis = AUTO.dis || {}, order = {attn: 0, remote: 1, annp: 1, coach: 2, weekly: 3, triage: 6};
   const cap = {triage: 2, coach: 1, annp: 2, attn: 2, crunch: 1, remote: 1, breakdown: 1}, used = {};
-  let rq = []; try { rq = remoteQuestions(); } catch(e) { console.warn(e); }                      // the exam location question works without any AI
+  let rq = []; try { rq = remoteQuestions(); } catch(e) { console.warn(e); }
   return (AUTO_ON ? autoStoredInsights().concat(autoLiveInsights()) : []).concat(rq).filter(e => !dis[e.id] && !insSnoozed(e.kind)).sort((a, b) => (order[a.kind] ?? 4) - (order[b.kind] ?? 4))
-    .filter(e => cap[e.kind] == null || (used[e.kind] = (used[e.kind] || 0) + 1) <= cap[e.kind]).slice(0, 6);       // never a wall of suggestions: a few per kind, six at most
+    .filter(e => cap[e.kind] == null || (used[e.kind] = (used[e.kind] || 0) + 1) <= cap[e.kind]).slice(0, 6);
 }
 function insText(e){
   const c = e.kind;
@@ -323,7 +318,7 @@ function insightsHtml(){
     <ul>${shown.map(e => { const x = insText(e); return `<li data-kind="${esc(e.kind)}"><div class="ins-body"><span class="ins-k">${esc(INS_LABEL[e.kind] || "")}${INS_AI[e.kind] && !e.fb ? " · AI draft" : ""}</span>${x.h ? `<b>${esc(x.h)}</b> ` : ""}<span>${esc(x.t)}</span>${x.more || ""}</div><div class="ins-acts">${e.kind === "remote" ? `<button class="btn small" data-act="rmt-set" data-id="${esc(e.tid)}" data-v="yes">Yes, From Home</button><button class="btn small" data-act="rmt-set" data-id="${esc(e.tid)}" data-v="no">No, In Person</button>` : x.btn ? (e.act ? `<button class="btn small" data-act="${esc(e.act)}" data-id="${esc(e.tid || "")}">${esc(x.btn)}</button>` : `<button class="btn small" data-act="ins-do" data-id="${esc(e.id)}">${esc(x.btn)}</button>`) : ""}<button class="icon-btn sm ph-x" data-act="ins-x" data-id="${esc(e.id)}" aria-label="Dismiss">${CLOSE}</button></div></li>`; }).join("")}</ul>
     ${list.length > 3 ? `<button class="link-btn" data-act="ins-more">${more ? "Show Fewer" : `Show ${list.length - 3} More`}</button>` : ""}</div>`;
 }
-// Which Automatic AI feature each kind of suggestion belongs to (for "Stop these" and the settings list)
+// Which Automatic AI feature each kind of suggestion belongs to
 const INS_FEAT = {breakdown: "nudge", remote: "remote", triage: "triage", annp: "news", attn: "news", coach: "coach", prep: "coach", weekly: "weekly", material: "materials", crunch: "nudge", overload: "nudge", stalled: "nudge", overdue: "nudge", grade: "grades"};
 const insSnoozed = kind => !!((AUTO.snz || {})[kind] > Date.now());
 function autoFeatSet(id, on){
@@ -332,7 +327,7 @@ function autoFeatSet(id, on){
   if (on) Object.keys(INS_FEAT).filter(k => INS_FEAT[k] === id).forEach(k => { if (AUTO.snz) delete AUTO.snz[k]; if (AUTO.dc) delete AUTO.dc[k]; });
   autoSave(); INS_MEMO.k = ""; scheduleRender(); autoKick(1500);
 }
-// Dismissing: remembered (never re-shown), undoable, and three dismissals of one kind within a week pause that kind for a week
+// Dismissing: remembered (never re-shown), undoable
 function insReject(e){
   const wasDc = ((AUTO.dc || {})[e.kind] || []).slice(), wasDis = (AUTO.dis || {})[e.id];
   insDismiss(e.id);
@@ -349,7 +344,7 @@ function insReject(e){
 }
 function insDismiss(id){ AUTO.dis = AUTO.dis || {}; AUTO.dis[id] = Date.now(); Object.keys(AUTO.dis).forEach(k => { if (Date.now() - AUTO.dis[k] > 45 * 864e5) delete AUTO.dis[k]; }); autoSave(); }
 function insDo(e){
-  if (AUTO.dc) delete AUTO.dc[e.kind];                  // acting on one means the kind is useful: reset the dismiss streak
+  if (AUTO.dc) delete AUTO.dc[e.kind];
   if (e.kind === "triage") {
     const t = state.tasks[e.tid]; if (!t) return;
     const n = Object.assign(clone(t), e.patch);
@@ -398,7 +393,7 @@ function autoPanelSheet(){
   if (!dlg.open) dlg.showModal();
 }
 
-// Stickers: original drawings, 64 by 64. Free packs are flat and plain; PRO packs are shaded, outlined and full of character.
+// Stickers: original drawings, 64 by 64
 const SO = 'stroke="#2B2233" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"';
 const SOw = w => `stroke="#2B2233" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"`;
 const EYES = (a, b, y, r = 2.8) => `<circle cx="${a}" cy="${y}" r="${r}" fill="#2B2233"/><circle cx="${b}" cy="${y}" r="${r}" fill="#2B2233"/><circle cx="${a + 0.9}" cy="${y - 1}" r=".9" fill="#fff"/><circle cx="${b + 0.9}" cy="${y - 1}" r=".9" fill="#fff"/>`;

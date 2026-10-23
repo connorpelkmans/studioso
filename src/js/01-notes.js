@@ -1,5 +1,5 @@
 /* ===== module: 01-notes.js: the app's core, files, sticky notes, note boards, note versions, notes to Word or Google Docs ===== */
-/* ---------- Files ---------- */
+/* Files */
 const CLOUD_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.1 9.6 4.2 4.2 0 0 0 7 18z"/></svg>';
 const FOLDER = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>';
 const DEFAULT_FOLDERS = [["syllabus","Syllabus"],["assignments","Assignments"],["notes","Lecture Notes"],["exams","Exams and Quizzes"],["other","Other"]];
@@ -13,12 +13,12 @@ const revLetter = i => i < 26 ? String.fromCharCode(65 + i) : "Z" + (i - 25);
 const curRev = f => f.revs[f.revs.length - 1] || null;
 function fileHref(f){ if (f.kind === "link" || f.kind === "cloud") return safeUrl(f.url) || "#"; const r = curRev(f); return r ? assetHref(r.assetId) : f.cloud ? safeUrl(f.url) || "#" : "#"; }
 function fileAttr(f){ if (f.kind === "link" || f.kind === "cloud") return ""; const r = curRev(f); return r ? assetAttr(r.assetId) : ""; }
-// A file's stored type and name: its latest revision, or what Google Drive or OneDrive said about it
+// A file's stored type and name
 const fileTypeOf = f => f.cloud && !f.revs.length ? String(f.cloud.type || "") : (curRev(f) || {}).type || "";
 const fileSizeOf = f => (curRev(f) || {}).size || (f.cloud && f.cloud.size) || 0;
 const fileNameOf = f => f.cloud && !f.revs.length ? String(f.cloud.name || f.name) : (curRev(f) || {}).name || f.name;
 const CLOUD_NAMES = {google: "Google Drive", microsoft: "OneDrive"};
-// Google Drive's and OneDrive's own logos (unaltered, as Google and Microsoft allow for showing an app works with them), used everywhere they appear
+// Google Drive's and OneDrive's own logos
 const BRAND_LOGO = {gdrive: '<svg viewBox="0 0 87.3 78" width="22" height="20" class="brand-lg"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/><path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/><path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg>', onedrive: '<img src="data:image/webp;base64,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" width="24" height="16" class="brand-lg" alt="">'};
 function fmtSize(b){ if (!b && b !== 0) return ""; if (b < 1024) return b + " B"; if (b < 1048576) return Math.round(b / 1024) + " KB"; return (b / 1048576).toFixed(b < 10485760 ? 1 : 0) + " MB"; }
 function fileKind(f){
@@ -48,10 +48,7 @@ function mimeFor(file){
 }
 async function getAssets(){ if (!caps.assets) caps.assets = await useCap("assets"); return caps.assets; }
 const OFFICE = /\.(docx?|pptx?|xlsx?|odt|ods|odp|pages|key|numbers|zip|rar|7z|heic)$/i;
-// Phone photos are 3-8 MB each, and most of what students attach is a photo of a slide, a whiteboard or a page. Before storing one, a big
-// JPEG, PNG or WebP is scaled to at most UP_SIDE pixels on its long side and saved again (JPEG, or PNG when it has see-through parts), which
-// usually makes it 5-10x smaller with the text still sharp. Drawing it again also drops EXIF data, GPS position included. GIFs (they can move)
-// and SVGs are left alone, and so is anything that doesn't come out clearly smaller.
+// Phone photos are 3-8 MB each, and most of what students attach is a photo of a slide
 const UP_SIDE = 2400, UP_MIN = 400 * 1024;
 async function shrinkForUpload(f, type){
   if (!/^image\/(jpeg|png|webp)$/.test(type) || f.size < UP_MIN || typeof document === "undefined") return {file: f, type};
@@ -79,12 +76,11 @@ async function shrinkForUpload(f, type){
   } catch (e) { return {file: f, type}; }
 }
 async function uploadFiles(list, opts){
-  if (opts && opts.cloud && window.SBCLOUD && SBCLOUD.target()) return SBCLOUD.uploadFiles(list, opts);   // saved in Google Drive or OneDrive instead
+  if (opts && opts.cloud && window.SBCLOUD && SBCLOUD.target()) return SBCLOUD.uploadFiles(list, opts);
   const assets = await getAssets();
   if (!assets) { toast("File storage isn't available here. You can still add links to files."); return []; }
   const made = [], skipped = [], invs = [];
   let next = 0;
-  // A few files upload at once, and each one shows in its folder the moment it is stored, instead of after the whole batch.
   const worker = async () => {
     while (next < list.length) {
       const i = next++; let f = list[i];
@@ -117,13 +113,11 @@ async function uploadFiles(list, opts){
   return made;
 }
 function cleanupAssets(ids, delay = 0){
-  // Only removes stored files this person deleted, and only if nothing points at them any more.
   setTimeout(async () => {
-    // Signed in: wait until this device has caught up with the account, so a file restored on another device is seen as in use and kept.
     if (typeof sbUser !== "undefined" && sbUser && !cloud.on) { cleanupAssets(ids, 30000); return; }
     const a = await getAssets(); if (!a) return;
     const used = new Set(Object.values(state.files).flatMap(f => f.revs.map(r => r.assetId)));
-    trashList().forEach(e => e.items.forEach(i => { if (i.kind === "file") (i.data.revs || []).forEach(r => used.add(r.assetId)); }));   // still in Recently Deleted
+    trashList().forEach(e => e.items.forEach(i => { if (i.kind === "file") (i.data.revs || []).forEach(r => used.add(r.assetId)); }));
     for (const id of ids) if (id && !used.has(id)) { try { await a.delete(id); } catch(e) {} }
   }, delay);
 }
@@ -132,7 +126,7 @@ async function downloadFile(f, revIndex){
   let name = f.name;
   if (revIndex != null && revIndex !== f.revs.length - 1) name = name.replace(/(\.[^.]+)?$/, ` (Rev ${revLetter(revIndex)})$1`);
   if (DESK) { try { saveBlob(name, new Blob([await assetBytes(r.assetId)], {type: r.type || "application/octet-stream"})); } catch(e) { toast(navigator.onLine === false ? "You're offline and this file isn't on this computer yet" : "Couldn't get the file. Try again."); } return; }
-  if (!inClaude()) {
+  if (!inPreview()) {
     if (!sbActive()) { toast("Sign in to download stored files"); return; }
     let data = null; try { data = await sbDownload(r.assetId); } catch (e) {}
     if (!data) { toast("Couldn't download the file. Check your connection."); return; }
@@ -153,7 +147,7 @@ async function downloadFile(f, revIndex){
 function filesVisible(){
   const q = ui.q.trim().toLowerCase();
   return Object.values(state.files).filter(f => {
-    if (f.folderId === "lectures") return false;   // a course's lectures live in its Lectures tab
+    if (f.folderId === "lectures") return false;
     if (ui.fCourse !== "all" && (f.courseId || "") !== ui.fCourse) return false;
     if (ui.fCourse !== "all" && ui.fFolder && f.folderId !== ui.fFolder) return false;
     if (q) { const c = courseOf(f.courseId); const hay = [f.name, f.desc, c && c.name, c && c.code, f.url].join(" ").toLowerCase(); if (!q.split(/\s+/).every(w => hay.includes(w))) return false; }
@@ -173,7 +167,7 @@ function fileRow(f){
     ${fileIcon(f)}
     <button class="fmain" data-act="f-open" data-id="${esc(f.id)}"><span class="fname">${esc(f.name)}</span><span class="task-meta">${meta.join("")}</span>
       ${tasks.length ? `<span class="ftasks">${tasks.slice(0, 3).map(t => `<span class="dep-chip" style="--c:${esc(colorOf(t.courseId))}">${CLIP}${esc(t.title)}</span>`).join("")}${tasks.length > 3 ? `<span class="mini">+${tasks.length - 3}</span>` : ""}</span>` : ""}</button>
-    ${f.summary && !inClaude() ? `<button type="button" class="btn small ai-btn f-sum" data-act="f-summarize" data-id="${esc(f.id)}" aria-label="Summary of ${esc(f.name)}">${AI_ICON}<span class="f-sum-l">Summary</span></button>` : ""}<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">Open</a>
+    ${f.summary && !inPreview() ? `<button type="button" class="btn small ai-btn f-sum" data-act="f-summarize" data-id="${esc(f.id)}" aria-label="Summary of ${esc(f.name)}">${AI_ICON}<span class="f-sum-l">Summary</span></button>` : ""}<a class="btn small" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">Open</a>
   </li>`;
 }
 function viewFiles(){
@@ -203,21 +197,19 @@ function viewFiles(){
       + (() => { const known = new Set(foldersOf(ui.fCourse).map(fo => fo.id)); const g = fs.filter(f => !known.has(f.folderId)); return g.length ? `<h3 class="fsec">${FOLDER}Unsorted<span class="n">${g.length}</span></h3><ul class="flist">${g.map(fileRow).join("")}</ul>` : ""; })();
   } else list = `<ul class="flist">${fs.map(fileRow).join("")}</ul>`;
   const canUpload = !!caps.assets;
-  // Header in the app's band style: the course (or All Files) with its icon in a ring; folder actions sit in the band
   const hcol = c ? c.color : ui.fCourse === "all" ? "var(--accent-band,var(--accent))" : "#8A94A6";
-  const nHere = fs.length, bandActs = [ui.fCourse !== "all" ? `<button class="btn small" data-act="f-newfolder">New Folder</button>` : "", folder ? `<button class="btn small" data-act="f-folder-edit">Edit Folder</button>` : "", ui.fCourse !== "all" && !inClaude() ? `<button class="btn small ai-btn" data-act="ask-course" data-id="${esc(ui.fCourse)}">${AI_ICON} Ask ${aiWho() ? esc(aiWho()) + " " : ""}About These Files</button>` : ""].filter(Boolean).join("");
+  const nHere = fs.length, bandActs = [ui.fCourse !== "all" ? `<button class="btn small" data-act="f-newfolder">New Folder</button>` : "", folder ? `<button class="btn small" data-act="f-folder-edit">Edit Folder</button>` : "", ui.fCourse !== "all" && !inPreview() ? `<button class="btn small ai-btn" data-act="ask-course" data-id="${esc(ui.fCourse)}">${AI_ICON} Ask ${aiWho() ? esc(aiWho()) + " " : ""}About These Files</button>` : ""].filter(Boolean).join("");
   const fhead = `<div class="fhead g2-head" style="--c:${esc(hcol)}">
       <div class="g2-band"><span class="g2-kick">${c ? esc(courseLabel(c)) + " · " : ""}Files</span>${bandActs ? `<div class="row-actions">${bandActs}</div>` : ""}</div>
       <div class="g2-low"><span class="g2-ring" aria-hidden="true">${c ? courseRingHtml(c) : ui.fCourse === "all" ? FOLDER : GENERAL_ICON}</span>
         <div class="g2-txt"><h2 class="fcrumb">${crumbs}</h2><div class="g2-meta"><span>${nHere} ${nHere === 1 ? "item" : "items"}${ui.q.trim() ? " matching your search" : ""}</span></div></div></div>
     </div>`;
-  // the sort (and Recently Deleted) sit on the Files title row
   const actions = `${window.SBCLOUD ? SBCLOUD.filesBtn() : ""}${trashBtn("file")}<div class="segb" role="group" aria-label="Sort"><button data-act="f-sort" data-id="date" aria-pressed="${ui.fSort !== "name"}">Newest</button><button data-act="f-sort" data-id="name" aria-pressed="${ui.fSort === "name"}">Name</button></div>`;
   return `<div class="tl-controls f-title"><h2>Files</h2>${actions}</div>${searchNote()}
     <div class="fwrap">${tree}
       <section class="fpane" id="fpane" aria-label="Files in ${esc(ui.fCourse === "all" ? "all folders" : (c ? c.name : "General"))}">
         ${fhead}${list}
-        <p class="hint-line" id="fmeter">${canUpload ? `<span class="tip-everyday">Drop files here to upload. On a computer, drag a file onto a folder to move it, or open it and pick a new folder.</span>` : (!inClaude() && (sbConfig() || SBGUEST.is()) ? "Sign in or create a free account to upload files. You can still add links." : "File uploads aren't available in this view. You can still add links.")} ${sbActive() ? "Any file type can be uploaded, up to 50 MB each." : "PDFs, images, videos and text files can be uploaded, up to 20 MB each."}</p>
+        <p class="hint-line" id="fmeter">${canUpload ? `<span class="tip-everyday">Drop files here to upload. On a computer, drag a file onto a folder to move it, or open it and pick a new folder.</span>` : (!inPreview() && (sbConfig() || SBGUEST.is()) ? "Sign in or create a free account to upload files. You can still add links." : "File uploads aren't available in this view. You can still add links.")} ${sbActive() ? "Any file type can be uploaded, up to 50 MB each." : "PDFs, images, videos and text files can be uploaded, up to 20 MB each."}</p>
       </section></div>
     <input type="file" id="fUploadIn" multiple class="sr" tabindex="-1" aria-label="Choose files to upload">`;
 }
@@ -245,13 +237,13 @@ function fileSheet(f){
       ${isLink ? "" : `<fieldset><legend>Revisions</legend><ul class="revs">${f.revs.map((r, i) => ({r, i})).reverse().map(({r, i}) => `<li><span class="rev">Rev ${revLetter(i)}</span><span class="mini">${esc(new Date(r.at).toLocaleString(undefined, {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}, ${fmtSize(r.size)}${r.name && r.name !== f.name ? ", " + esc(r.name) : ""}</span><span class="spacer"></span><a class="link-btn" href="${esc(assetHref(r.assetId))}" ${assetAttr(r.assetId)} target="_blank" rel="noopener noreferrer">Open</a><button type="button" class="link-btn" data-dl="${i}">Download</button></li>`).join("")}</ul>
         ${caps.assets ? `<button type="button" class="btn small" id="fsNewRev">Upload a New Revision</button><input type="file" id="fsRevIn" class="sr" tabindex="-1">` : ""}${window.SBCLOUD ? SBCLOUD.moveHtml(f) : ""}</fieldset>`}
     </div>
-    <div class="sheet-foot"><button type="button" class="btn danger" id="fsDel">Delete</button><span class="spacer"></span>${(!isLink || isCloud) && !inClaude() && readableFile(f) ? `<button type="button" class="btn ai-btn" data-act="f-summarize" data-id="${esc(f.id)}">${AI_ICON} ${f.summary ? "Summary" : "Summarize"}</button>` : ""}${!isLink && window.SBPRO && SBPRO.fileBtns ? SBPRO.fileBtns(f) : ""}<a class="btn" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">Open</a><button type="button" class="btn primary" data-submit>Save</button></div>
+    <div class="sheet-foot"><button type="button" class="btn danger" id="fsDel">Delete</button><span class="spacer"></span>${(!isLink || isCloud) && !inPreview() && readableFile(f) ? `<button type="button" class="btn ai-btn" data-act="f-summarize" data-id="${esc(f.id)}">${AI_ICON} ${f.summary ? "Summary" : "Summarize"}</button>` : ""}${!isLink && window.SBPRO && SBPRO.fileBtns ? SBPRO.fileBtns(f) : ""}<a class="btn" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">Open</a><button type="button" class="btn primary" data-submit>Save</button></div>
   </form>`, fd => {
     const name = String(fd.get("name") || "").trim(); if (!name) return false;
     const cur = state.files[f.id]; if (!cur) return;
     const n = Object.assign(clone(cur), {name, courseId: fd.get("courseId") || "", folderId: fd.get("folderId") || "other", desc: String(fd.get("desc") || ""), taskIds: taskIds.slice(), updated: Date.now()});
     if (isLink && !isCloud) { const u = safeUrl(fd.get("url")); if (!u) { toast("Enter a valid web address"); return false; } n.url = u; }
-    if (isCloud && n.cloud && (n.courseId !== (cur.courseId || "") || n.folderId !== cur.folderId)) n.cloud = Object.assign({}, n.cloud, {pin: true});   // a watched folder's next check keeps where you put it
+    if (isCloud && n.cloud && (n.courseId !== (cur.courseId || "") || n.folderId !== cur.folderId)) n.cloud = Object.assign({}, n.cloud, {pin: true});
     applyChanges([{kind:"file", id: f.id, after: n}], "File saved");
   });
   const cSel = $("#fsCourse"), fSel = $("#fsFolder");
@@ -293,7 +285,7 @@ function fileSheet(f){
     const cur = state.files[f.id]; if (!cur) return;
     dlg.close();
     if (cur.kind === "cloud" && window.SBCLOUD) { SBCLOUD.remove(cur); return; }
-    applyChanges([{kind:"file", id: f.id, after: null}], `Deleted ${cur.name}`);   // the stored copies stay until Recently Deleted lets go of it
+    applyChanges([{kind:"file", id: f.id, after: null}], `Deleted ${cur.name}`);
   });
 }
 function linkSheet(){
@@ -378,17 +370,17 @@ document.addEventListener("drop", e => {
   const list = [...(e.dataTransfer.files || [])];
   if (list.length) {
     if (node) { const [cid, folderId] = node.dataset.drop.split("|"); uploadFiles(list, {courseId: cid, folderId, cloud: true}); }
-    else if (ui.fCourse === "all" && window.SBQADD && caps.assets) SBQADD.open(list);      // no course chosen: Quick Add sorts them
+    else if (ui.fCourse === "all" && window.SBQADD && caps.assets) SBQADD.open(list);
     else uploadFiles(list, Object.assign(uploadTarget(), {cloud: true}));
   }
 });
 
-/* ---------- Sticky notes ---------- */
+/* Sticky notes */
 const NOTE_COLORS = [["yellow","#FFE680"],["pink","#FFB8CC"],["blue","#AED6FF"],["green","#BDECA8"],["orange","#FFCB8E"],["purple","#D6C6FF"]];
-const NOTE_COLORS_SHOWN = NOTE_COLORS.map((c, i, a) => a[i === 0 ? 2 : i === 2 ? 0 : i]);   // selector order: blue and yellow swapped; NOTE_COLORS keeps its order for theme colors
-// A note keeps the colour you picked on every theme (themes used to swap in their own palette, so a note changed colour when you changed theme)
+const NOTE_COLORS_SHOWN = NOTE_COLORS.map((c, i, a) => a[i === 0 ? 2 : i === 2 ? 0 : i]);
+// A note keeps the colour you picked on every theme
 const noteColor = k => NOTE_COLORS[Math.max(0, NOTE_COLORS.findIndex(c => c[0] === k))][1];
-// One width on every screen: a narrower note on a phone wraps its text taller than on desktop, so notes laid out on the desktop would overlap and lose their spacing there.
+// One width on every screen
 const NOTE_W = () => 200;
 const TRASH = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7M6 7l1 13a1.5 1.5 0 0 0 1.5 1.4h7a1.5 1.5 0 0 0 1.5-1.4L18 7M10 11v6M14 11v6"/></svg>';
 const ARCHIVE = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/><path d="M9 13h6"/></svg>';
@@ -396,10 +388,9 @@ function normNote(n){
   n = Object.assign({text:"", color:"yellow", x:40, y:40, z:1, rot:0, courseId:"", archived:false, shape:"", pin:"", stickers:[]}, n);
   if (n.shape === "taped") { n.shape = ""; n.pin = n.pin || "tape"; }
   if (!Array.isArray(n.stickers)) n.stickers = [];
-  if (n.ink != null) { const k = normInk(n.ink, 2000); if (k) n.ink = k; else delete n.ink; }   // a drawing on the note (module 99-ink)
-  if (n.wb != null) normWbNote(n);   // a whiteboard (module 99-whiteboard): strokes in n.wbInk, text and pictures in n.wbItems
-  if (n.photos != null) { n.photos = Array.isArray(n.photos) ? [...new Set(n.photos.filter(x => typeof x === "string" && x && x.length <= 80))].slice(0, 12) : []; if (!n.photos.length) delete n.photos; }   // file ids of photos (Pro)
-  // Every field that ends up in a style="" attribute is forced to a finite number here, so an imported backup or a synced row can't inject markup.
+  if (n.ink != null) { const k = normInk(n.ink, 2000); if (k) n.ink = k; else delete n.ink; }
+  if (n.wb != null) normWbNote(n);
+  if (n.photos != null) { n.photos = Array.isArray(n.photos) ? [...new Set(n.photos.filter(x => typeof x === "string" && x && x.length <= 80))].slice(0, 12) : []; if (!n.photos.length) delete n.photos; }
   const num = (v, d, lo, hi) => { const x = Number(v); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d; };
   n.x = num(n.x, 0, 0, 1e6); n.y = num(n.y, 0, 0, 1e6);
   n.z = Math.round(num(n.z, 1, -1e9, 1e9)); n.rot = num(n.rot, 0, -3600, 3600);
@@ -411,15 +402,15 @@ function normNote(n){
     if (x.y != null) o.y = num(x.y, 50, -1e4, 1e4);
     return o;
   });
-  return n;   // a note is shown escaped, so what was typed (code, <tags>, &lt;) stays exactly as typed
+  return n;
 }
-// Whiteboards (module 99-whiteboard) are notes too (so they sync, back up and go to Recently Deleted), but never sticky notes: notesArr() leaves them out.
+// Whiteboards (module 99-whiteboard) are notes too
 const WB_TPLS = ["blank", "grid", "dots", "lines", "cornell", "concept", "week", "kanban", "venn", "timeline"];
 function normWbNote(n){
   const w = n.wb && typeof n.wb === "object" && !Array.isArray(n.wb) ? n.wb : {};
   const o = {v: 1, tpl: WB_TPLS.includes(w.tpl) ? w.tpl : "blank"};
-  if (w.g && typeof w.g === "object" && typeof w.g.gid === "string" && typeof w.g.bid === "string" && /^[\w-]{1,80}$/.test(w.g.gid) && /^[\w-]{1,80}$/.test(w.g.bid)) o.g = {gid: w.g.gid, bid: w.g.bid, seq: Math.max(0, Math.round(Number(w.g.seq)) || 0), gn: String(w.g.gn == null ? "" : w.g.gn).slice(0, 80)};   // a live study-group board (99-whiteboard-share)
-  if (Number.isFinite(Number(w.pa)) && Number(w.pa) > 0) o.pa = Math.round(Math.min(4, Math.max(0.3, Number(w.pa))) * 1000) / 1000;   // the shape of the screen it was made on: its template fits that
+  if (w.g && typeof w.g === "object" && typeof w.g.gid === "string" && typeof w.g.bid === "string" && /^[\w-]{1,80}$/.test(w.g.gid) && /^[\w-]{1,80}$/.test(w.g.bid)) o.g = {gid: w.g.gid, bid: w.g.bid, seq: Math.max(0, Math.round(Number(w.g.seq)) || 0), gn: String(w.g.gn == null ? "" : w.g.gn).slice(0, 80)};
+  if (Number.isFinite(Number(w.pa)) && Number(w.pa) > 0) o.pa = Math.round(Math.min(4, Math.max(0.3, Number(w.pa))) * 1000) / 1000;
   n.wb = o;
   if (n.wbInk != null) { const k = normInk(n.wbInk, 6000); if (k) n.wbInk = k; else delete n.wbInk; }
   if (n.wbItems != null) {
@@ -434,11 +425,11 @@ function normWbNote(n){
         if (typeof it.f === "string" && /^[\w-]{1,80}$/.test(it.f)) o2.f = it.f;
         if (typeof it.src === "string" && it.src.length <= 400000 && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(it.src)) o2.src = it.src;
         if (!o2.f && !o2.src) return;
-        if (it.r === 1) o2.r = 1;   // restyled to look drawn in marker (AI)
-        if (o2.r && typeof it.o === "string" && /^[\w-]{1,80}$/.test(it.o)) o2.o = it.o;   // the original picture it was drawn from (Draw Again starts from it)
-        if (it.fade === 1) o2.fade = 1;   // edges faded into the board
-        if (Array.isArray(it.er)) { const er = it.er.filter(c => Array.isArray(c) && c.length === 3 && c.every(Number.isFinite)).slice(0, 800).map(c => [Math.round(num(c[0], 0, -200, 1200)), Math.round(num(c[1], 0, -200, 1200)), Math.round(num(c[2], 1, 1, 1000))]); if (er.length) o2.er = er; }   // erased spots: [x, y, r] in 1/1000 of the width and height (r of the width)
-        if (o2.r && typeof it.tint === "string" && /^[a-z]{1,12}$/.test(it.tint)) o2.tint = it.tint;   // a drawn picture shown all in one marker colour
+        if (it.r === 1) o2.r = 1;
+        if (o2.r && typeof it.o === "string" && /^[\w-]{1,80}$/.test(it.o)) o2.o = it.o;
+        if (it.fade === 1) o2.fade = 1;
+        if (Array.isArray(it.er)) { const er = it.er.filter(c => Array.isArray(c) && c.length === 3 && c.every(Number.isFinite)).slice(0, 800).map(c => [Math.round(num(c[0], 0, -200, 1200)), Math.round(num(c[1], 0, -200, 1200)), Math.round(num(c[2], 1, 1, 1000))]); if (er.length) o2.er = er; }
+        if (o2.r && typeof it.tint === "string" && /^[a-z]{1,12}$/.test(it.tint)) o2.tint = it.tint;
       }
       seen.add(it.id); out.push(o2);
     });
@@ -496,7 +487,7 @@ function noteHtml(n){
   </div>`;
 }
 
-// Notes never show a scrollbar. The edit box grows to fit its text; a long note on the board stops at 480px with a Show More button.
+// Notes never show a scrollbar
 const NOTE_OPEN = new Set();
 function noteFitText(t){ if (!t) return; const h = t.offsetHeight; t.style.height = "auto"; t.style.height = (t.scrollHeight + 2) + "px"; if (t.offsetHeight !== h) fitNoteBoard(); }
 function noteClipCheck(){
@@ -512,7 +503,7 @@ function noteClipCheck(){
     if (m) { m.innerHTML = (open ? "Show Less" : "Show More") + ` <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>`; m.setAttribute("aria-expanded", open ? "true" : "false"); }
   });
 }
-// Today's Plan numbers on a phone: if they can't all fit on one line, a tidy 2 × 2 grid instead of one tile left alone on a second line
+// Today's Plan numbers on a phone
 function ptStatsFit(){
   const S = document.querySelector("#view .plan .pt-stats"); if (!S) return;
   S.classList.remove("pt-2x2");
@@ -532,7 +523,7 @@ document.addEventListener("click", e => {
   const id = m.closest(".note").dataset.note; NOTE_OPEN.has(id) ? NOTE_OPEN.delete(id) : NOTE_OPEN.add(id); noteClipCheck(); fitNoteBoard();
 }, true);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (ui.tab === "notes") noteClipCheck(); });
-/* ---------- Note boards: separate boards you can switch between, named by class or anything else ---------- */
+/* Note boards: separate boards you can switch between, named by class or anything else */
 const NB_KEY = "studyboard:noteBoard";
 const noteBoards = () => { const a = state.settings && state.settings.noteBoards; return Array.isArray(a) ? a.filter(b => b && b.id) : []; };
 function noteBoardId(){
@@ -547,10 +538,8 @@ const nbColor = b => { const c = b && b.courseId && courseOf(b.courseId); return
 function noteBoardBar(){
   const cur = noteBoardId(), live = notesArr().filter(n => !n.archived);
   const count = id => live.filter(n => noteBoardOf(n) === id).length;
-  // the board's ⋯ (rename or delete) sits right after the board you're on, so it stays in view however many boards there are
   const tab = (id, name, color, n) => `<button type="button" role="tab" class="nb-tab${id === cur ? " on" : ""}" aria-selected="${id === cur}" data-act="nb-pick" data-id="${esc(id)}" data-drop-note="board:${esc(id)}" style="--c:${esc(color)}"><span class="sd"></span><span class="nb-tn">${esc(name)}</span><span class="n">${n}</span></button>${id && id === cur ? `<button type="button" class="icon-btn sm" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : ""}`;
   return `<div class="nb-boards" role="tablist" aria-label="Note boards">${tab("", "My Notes", "var(--muted)", count(""))}${noteBoards().map(b => tab(b.id, b.name, nbColor(b), count(b.id))).join("")}<button type="button" class="nb-tab add" data-act="nb-new" aria-label="New note board">+ New Board</button></div>`
-    // Phones: the boards as one dropdown (101-phone-v2.css shows this instead of the tabs; the page's Export joins this line)
     + `<div class="cf-row nb-row"><label class="cf-pick on" style="--c:${esc(cur ? nbColor(noteBoards().find(b => b.id === cur)) : "var(--muted)")}"><span class="dot" aria-hidden="true"></span><span class="cf-l">${esc(nbName(cur))}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
       <select data-nb-pick aria-label="Note board"><option value=""${cur ? "" : " selected"}>My Notes (${count("")})</option>${noteBoards().map(b => `<option value="${esc(b.id)}"${b.id === cur ? " selected" : ""}>${esc(b.name)} (${count(b.id)})</option>`).join("")}<option value="__new">+ New Board…</option></select></label>${cur ? `<button type="button" class="btn small nb-opts" data-act="nb-edit" data-id="${esc(cur)}" aria-label="Rename or delete this board" title="Board options">${DOTS_H}</button>` : ""}</div>`;
 }
@@ -581,7 +570,7 @@ function noteBoardSheet(id){
     toast(live ? `Board deleted. Its ${live} note${live === 1 ? "" : "s"} moved to My Notes` : "Board deleted");
   });
 }
-// Text still being typed in an open note goes into the note first (with a "Before this edit" version), so moving, archiving or deleting never loses it
+// Text still being typed in an open note goes into the note first
 function takeTypedNoteText(id){
   const n = state.notes[id]; if (!n || noteEditing !== id) return;
   const t = $("#noteText"); noteEditing = null; noteDraftClear();
@@ -593,14 +582,9 @@ function noteToBoard(id, board){
   const c = board && (noteBoards().find(b => b.id === board) || {}).courseId;
   applyChanges([{kind: "note", id, after: Object.assign(clone(n), {board, courseId: n.courseId || c || ""})}], `Moved to ${nbName(board)}`);
 }
-// Boards live in the synced settings, so a settings reload (a refresh, a new deployment, or a sync that arrived without them)
-// could drop a board while its notes still point at it, and they'd pile onto My Notes. Boards are backed up on this device,
-// and any board a note still points at is brought back (under its saved name) before the notes are drawn.
+// Boards live in the synced settings, so a settings reload
 const NB_BAK = "studyboard:noteBoardsBak";
 function repairNoteBoards(){
-  // Notes keep the id of their board even when the board itself is missing for a moment (settings still arriving, or lost by an older version).
-  // They show on My Notes meanwhile and go back to their board when it returns. A board is only put back under its REAL name, from this device's own copy,
-  // and never one you deleted. Nothing is invented: a board once got renamed "Recovered Board" everywhere that way.
   try {
     const real = b => b && b.id && !RECOVERED_NAME.test(String(b.name || ""));
     const gone = new Set((((state.settings || {}).noteBoardsGone) || []).map(g => g && g.id));
@@ -611,10 +595,29 @@ function repairNoteBoards(){
     const healed = have.map(b => RECOVERED_NAME.test(String(b.name || "")) ? (bak.find(x => x.id === b.id) || b) : b);
     if (back.length || healed.some((b, i) => b !== have[i])) { state.settings = Object.assign({}, state.settings, {noteBoards: healed.concat(back)}); saveSettings(); }
     const now = noteBoards(), keep = now.filter(real).concat(bak.filter(b => !now.some(x => x.id === b.id) && notesArr().some(n => n.board === b.id)));
-    if (keep.length || !bak.length) localStorage.setItem(NB_BAK, JSON.stringify(keep));   // a backup that still holds real boards is never emptied
+    if (keep.length || !bak.length) localStorage.setItem(NB_BAK, JSON.stringify(keep));
   } catch (e) {}
 }
-// Notes has two views: the sticky-note boards, and the Whiteboard (module 99-whiteboard)
+// Full screen board
+const boardMaxOn = () => document.documentElement.classList.contains("board-max");
+function boardMaxBtn(cls){
+  const on = boardMaxOn();
+  const ic = on ? '<path d="M4 14h6v6M20 10h-6V4M10 14l-6.5 6.5M14 10l6.5-6.5"/>' : '<path d="M14 4h6v6M10 20H4v-6M20 4l-6.5 6.5M4 20l6.5-6.5"/>';
+  return `<button type="button" class="board-max-btn${cls ? " " + cls : ""}" data-act="board-max" aria-pressed="${on}" aria-label="${on ? "Exit full screen" : "Expand the board to fill the screen"}" title="${on ? "Exit Full Screen (Esc)" : "Expand"}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ic}</svg></button>`;
+}
+function boardMax(on){
+  on = !!on; if (on === boardMaxOn()) return;
+  document.documentElement.classList.toggle("board-max", on);
+  render();
+  const b = document.querySelector(".board-max-btn"); if (b) try { b.focus({preventScroll: true}); } catch (e) {}
+}
+hook("render", tab => { if (tab !== "notes" && boardMaxOn()) document.documentElement.classList.remove("board-max"); });
+window.addEventListener("keydown", e => {
+  if (e.key !== "Escape" || e.defaultPrevented || !boardMaxOn() || dlg.open) return;
+  const t = e.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  boardMax(false);
+});
+// Notes has two views
 const notesSwitchHtml = () => window.SBWB ? `<div class="pview-tabs nv-tabs" role="tablist" aria-label="Notes and Whiteboard"><button role="tab" data-act="nv-view" data-id="board" aria-selected="${!SBWB.on()}">Notes</button><button role="tab" data-act="nv-view" data-id="wb" aria-selected="${SBWB.on()}">Whiteboard</button></div>` : "";
 function viewNotes(){
   if (window.SBWB && SBWB.on()) return notesSwitchHtml() + SBWB.view();
@@ -626,7 +629,6 @@ function viewNoteBoard(){
   const onBoard = notesArr().filter(n => !n.archived && noteBoardOf(n) === curBoard);
   const archived = notesArr().filter(n => n.archived).length;
   const maxY = onBoard.reduce((m, n) => Math.max(m, n.y), 0), maxX = onBoard.reduce((m, n) => Math.max(m, n.x), 0);
-  // The board fills its frame and only grows (with scroll bars) when notes sit past its edge; fitNoteBoard() measures after drawing
   const W = maxX ? maxX + NOTE_W() + 40 : 0, H = maxY ? maxY + 260 : 0;
   return `<div class="tl-controls f-title"><h2>Notes</h2><button class="btn small" data-act="note-export" title="Make a Word or Google Doc from your notes">Export</button>${proBtns("notes")}</div>
     ${noteBoardBar()}
@@ -638,10 +640,10 @@ function viewNoteBoard(){
           ${!onBoard.length ? `<div class="nb-empty"><strong>${curBoard ? esc(nbName(curBoard)) + " Is Empty" : "Your Board Is Empty"}</strong>Choose Add Note, or press and hold anywhere on the board, to pin a quick note.</div>` : ""}
         </div></div>
       </div>
-      ${nbZoomCtl()}
+      ${boardMaxBtn("nb-max")}${nbZoomCtl()}
       <div class="nb-targets">
-        <div class="nb-target" data-drop-note="archive" role="button" tabindex="0" data-act="note-archive-open" aria-label="Archive, ${archived} notes">${ARCHIVE}<span>Archive</span></div>
-        <div class="nb-target trash" data-drop-note="trash" role="button" tabindex="0" data-act="trash-open" data-kind="note" aria-label="Trash${trashVisible().filter(e => e.kind === "note").length ? ", " + trashVisible().filter(e => e.kind === "note").length + " recently deleted" : ""}. Click to see recently deleted notes, or drag a note here to delete it.">${TRASH}<span>Trash</span></div>
+        <div class="nb-target" data-drop-note="archive" role="button" tabindex="0" data-act="note-archive-open" title="Archive" aria-label="Archive, ${archived} notes">${ARCHIVE}<span>Archive</span></div>
+        <div class="nb-target trash" data-drop-note="trash" role="button" tabindex="0" data-act="trash-open" data-kind="note" title="Trash" aria-label="Trash${trashVisible().filter(e => e.kind === "note").length ? ", " + trashVisible().filter(e => e.kind === "note").length + " recently deleted" : ""}. Click to see recently deleted notes, or drag a note here to delete it.">${TRASH}<span>Trash</span></div>
       </div>
     </div>${envelopeHtml()}</div>
     <p class="hint-line tip-everyday">Drag notes to move them. Drop a note on a board tab, the folder (archive) or the trash. Drag stickers onto notes. Tap a note to edit.</p>`;
@@ -651,7 +653,7 @@ function newNoteAt(x, y){
   if (x == null && sc) { x = (sc.scrollLeft + sc.clientWidth / 2) / nbZ() - NOTE_W() / 2 + (Math.random() * 60 - 30); y = (sc.scrollTop + 40) / nbZ() + Math.random() * 40; }
   const z = notesArr().reduce((m, n) => Math.max(m, n.z || 0), 0) + 1;
   const n = normNote({id: uid(), text: "", color: "yellow", x: Math.round(x || 40), y: Math.round(y || 40), z, rot: Math.round((Math.random() * 4 - 2) * 10) / 10,
-    courseId: (() => { const b = noteBoards().find(x => x.id === noteBoardId()); return b && b.courseId || ""; })()   /* a note takes its board's course: none on My Notes or on a board made without one */, board: noteBoardId(), created: Date.now()});
+    courseId: (() => { const b = noteBoards().find(x => x.id === noteBoardId()); return b && b.courseId || ""; })(), board: noteBoardId(), created: Date.now()});
   noteEditing = n.id;
   applyChanges([{kind:"note", id: n.id, after: n}], "");
   setTimeout(() => { const t = $("#noteText"); if (t) t.focus(); }, 60);
@@ -664,14 +666,10 @@ function saveNoteText(){
   if (t.value !== n.text) { nhRecord(id, n.text, "Before this edit"); applyChanges([{kind:"note", id, after: Object.assign(clone(n), {text: t.value, updated: Date.now()})}], ""); }
   else render();
 }
-/* ---------- Note versions: undo for accidental edits ----------
-   Each note keeps a short history of its earlier texts on this device (not synced, so it never grows what is sent).
-   A snapshot of the text as it was is taken before each burst of typing, right before a big delete or replace (a cut, a paste
-   over a selection, select-all and type), and when you press Done. Undo and Redo walk through those versions and put the
-   text back with the browser's own edit command, so Ctrl+Z still works on top of them. "Versions" lists them all. */
+/* Note versions */
 /*NOTEHIST-START*/
 const NH_CAP = {per: 20, perChars: 60000, total: 300000, big: 40, text: 8000};
-// How many characters were replaced or removed going from a to b (what is left after trimming the common start and end).
+// How many characters were replaced or removed going from a to b
 function nhRemoved(a, b){
   const m = Math.min(a.length, b.length); let i = 0;
   while (i < m && a.charCodeAt(i) === b.charCodeAt(i)) i++;
@@ -679,7 +677,7 @@ function nhRemoved(a, b){
   while (j < m - i && a.charCodeAt(a.length - 1 - j) === b.charCodeAt(b.length - 1 - j)) j++;
   return a.length - i - j;
 }
-// Adds a snapshot to one note's list (oldest first); blank text and a repeat of the newest are skipped. Returns the same list if nothing changed.
+// Adds a snapshot to one note's list (oldest first)
 function nhAdd(list, text, at, label, cap){
   cap = cap || NH_CAP; list = Array.isArray(list) ? list : [];
   text = String(text == null ? "" : text).slice(0, cap.text || 8000);
@@ -692,7 +690,7 @@ function nhAdd(list, text, at, label, cap){
   while (out.length > 1 && chars > cap.perChars) chars -= out.shift().text.length;
   return out;
 }
-// Keeps only notes that still exist, and drops the oldest snapshots across all notes until the total fits.
+// Keeps only notes that still exist
 function nhTrimAll(map, keep, total){
   const out = {}; let chars = 0;
   Object.keys(map || {}).forEach(id => { const l = map[id]; if (Array.isArray(l) && l.length && keep(id)) { out[id] = l.filter(x => x && typeof x.text === "string"); chars += out[id].reduce((s, x) => s + x.text.length, 0); } });
@@ -704,7 +702,7 @@ function nhTrimAll(map, keep, total){
   }
   return out;
 }
-// The versions Undo and Redo step through: the saved texts oldest first, without repeats, ending with the text on screen.
+// The versions Undo and Redo step through
 function nhChain(texts, current){
   const out = [];
   texts.concat([current]).forEach(t => { if (!out.length || out[out.length - 1] !== t) out.push(t); });
@@ -722,7 +720,7 @@ function nhRecord(id, text, label){
   if (next === all[id]) return;
   all[id] = next;
   nhMem = nhTrimAll(all, k => !!(state.notes && state.notes[k]), NH_CAP.total);
-  try { localStorage.setItem(NH_KEY, JSON.stringify(nhMem)); } catch (e) { /* storage full or blocked: the history stays in memory for this visit */ }
+  try { localStorage.setItem(NH_KEY, JSON.stringify(nhMem)); } catch (e) { }
 }
 const nhS = {id: "", ta: null, last: "", burst: false, timer: 0, chain: null, cur: 0, busy: false};
 function nhInit(t){
@@ -741,9 +739,7 @@ document.addEventListener("input", e => {
   nhS.burst = true; clearTimeout(nhS.timer); nhS.timer = setTimeout(() => { nhS.burst = false; }, 1500);
   noteDraftSoon(noteEditing, t.value);
 });
-/* A note's text is saved when its editor closes. Until then what is typed is also kept as a draft on this device (a second after each
-   pause), and put into the note when the page is hidden or closed, so closing the window, quitting the app, a phone ending the app in the
-   background or a crash never loses it. A draft left by a crash is put back at the next start (with the older text kept in Versions). */
+/* A note's text is saved when its editor closes */
 const NOTE_DRAFT = "studyboard:noteDraft";
 let noteDraftT = 0;
 function noteDraftSoon(id, text){
@@ -751,7 +747,7 @@ function noteDraftSoon(id, text){
   noteDraftT = setTimeout(() => { try { const n = state.notes[id]; if (n && noteEditing === id) localStorage.setItem(NOTE_DRAFT, JSON.stringify({id, text, base: n.text, at: Date.now()})); } catch(e) {} }, 1000);
 }
 function noteDraftClear(){ clearTimeout(noteDraftT); try { localStorage.removeItem(NOTE_DRAFT); } catch(e) {} }
-// The page is going away (or to the background, where a phone may end it): what is typed goes into the note now. The editor stays open.
+// The page is going away (or to the background, where a phone may end it)
 function noteDraftCommit(){
   const id = noteEditing, t = $("#noteText"), n = id && state.notes[id];
   if (!t || !n || t.value === n.text) return;
@@ -766,12 +762,12 @@ function noteDraftRecover(){
   noteDraftClear();
   const n = d && typeof d.text === "string" && state.notes[d.id];
   if (!n || n.text === d.text) return;
-  if (n.text === d.base) {   // the note hasn't changed since the draft: the draft is the newest text
+  if (n.text === d.base) {
     try { nhRecord(d.id, n.text, "Before a recovered draft"); } catch(e) {}
     applyChanges([{kind: "note", id: d.id, after: Object.assign(clone(n), {text: d.text, updated: Date.now()})}], "Recovered text you were typing in a note");
-  } else { try { nhRecord(d.id, d.text, "Unsaved draft (recovered)"); } catch(e) {} }   // changed since: the draft is kept in the note's Versions instead
+  } else { try { nhRecord(d.id, d.text, "Unsaved draft (recovered)"); } catch(e) {} }
 }
-// Puts text into the note box the way typing would, so the browser's own undo (Ctrl+Z) still works afterwards.
+// Puts text into the note box the way typing would, so the browser's own undo
 function noteSetText(t, text){
   nhInit(t); nhS.busy = true;
   try {
@@ -811,14 +807,11 @@ function noteVersionsSheet(id){
   }));
 }
 
-/* ---------- Notes to Word or Google Docs ----------
-   The Word file is a real .docx made here (a few small XML parts in a zip, using the same zip writer as backups): no library, no upload.
-   Google Docs has no API in this app, so there are two routes: copy the notes as formatted text and open a new Google Doc to paste into,
-   or download the .docx and open it from Google Drive with Google Docs. */
+/* Notes to Word or Google Docs The Word file is a real .docx made here */
 /*NOTEDOC-START*/
 const NX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 const nxX = s => String(s == null ? "" : s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g, "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-// notes: [{text, courseId, created}]; o: {title, date, courseName(id), taskTitle(note), when(note)}. A note's first line is its heading.
+// notes: [{text, courseId, created}]; o: {title, date, courseName(id), taskTitle(note)
 function noteDocModel(notes, o){
   o = o || {}; const groups = new Map();
   notes.slice().sort((a, b) => (a.created || 0) - (b.created || 0)).forEach(n => {
@@ -844,7 +837,7 @@ function noteDocHtml(m){
 function noteDocText(m){
   return [m.title, m.date].filter(Boolean).join("\n") + "\n\n" + m.groups.map(g => g.name.toUpperCase() + "\n\n" + g.notes.map(n => [n.title].concat(n.body, nxMeta(n) ? ["(" + nxMeta(n) + ")"] : []).join("\n")).join("\n\n")).join("\n\n\n") + "\n";
 }
-// The .docx: Title, Heading 1 per course, Heading 2 per note. zip(entries) is the app's zipMany.
+// The .docx: Title, Heading 1 per course, Heading 2 per note
 function noteDocx(m, zip){
   const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main", H = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
   const p = (t, st) => `<w:p>${st ? `<w:pPr><w:pStyle w:val="${st}"/></w:pPr>` : ""}${t === "" ? "" : `<w:r><w:t xml:space="preserve">${nxX(String(t).replace(/\t/g, "    "))}</w:t></w:r>`}</w:p>`;
@@ -884,11 +877,11 @@ function noteDocFor(ids){
 }
 async function noteFileSave(filename, data, mime){
   try { const dl = caps.downloads || await useCap("downloads"); if (dl) { await dl.save({filename, data}); return true; } } catch (e) { if (e && e.code === "declined") return false; }
-  if (inClaude()) { toast("Downloads aren't available here"); return false; }
+  if (inPreview()) { toast("Downloads aren't available here"); return false; }
   saveBlob(filename, data, mime); return true;
 }
 async function noteCopyRich(html, text){
-  try { if (navigator.clipboard && window.ClipboardItem) { await navigator.clipboard.write([new ClipboardItem({"text/html": new Blob([html], {type: "text/html"}), "text/plain": new Blob([text], {type: "text/plain"})})]); return true; } } catch (e) { /* fall back below */ }
+  try { if (navigator.clipboard && window.ClipboardItem) { await navigator.clipboard.write([new ClipboardItem({"text/html": new Blob([html], {type: "text/html"}), "text/plain": new Blob([text], {type: "text/plain"})})]); return true; } } catch (e) { }
   try {
     const d = document.createElement("div"); d.contentEditable = "true"; d.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0"; d.innerHTML = html; document.body.appendChild(d);
     const r = document.createRange(); r.selectNodeContents(d); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
@@ -927,7 +920,6 @@ function noteExportSheet(preId){
     else if (sel.size) {
       const ids = live.filter(n => sel.has(n.id)).map(n => n.id), {m, file} = noteDocFor(ids);
       if (k === "gdoc") {
-        // Open the tab first (it has to happen in this click), then copy
         let w = null; try { w = window.open(GDOC_NEW, "_blank", "noopener"); } catch (err) {}
         const ok = await noteCopyRich(noteDocHtml(m), noteDocText(m));
         toast(ok ? (w ? "Copied. Paste into the new Google Doc with Ctrl+V (Cmd+V on a Mac)." : "Copied. Open a new Google Doc and paste with Ctrl+V (Cmd+V on a Mac).") : "Couldn't copy. Download the Word file instead.");

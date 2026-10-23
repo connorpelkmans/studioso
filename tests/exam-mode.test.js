@@ -1,5 +1,4 @@
-// Unit tests for Exam Mode's rules (pure logic extracted from index.html).  Run: node tests/exam-mode.test.js
-// When it is on, which exam it focuses on, what counts as "also due", and the Do This Next order that never buries work due before the exam.
+// Unit tests for Exam Mode's rules (pure logic extracted from index.html)
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const s = require("../scripts/app-files").source();
 const a = s.indexOf("/*EXAMMODE-START*/"), b = s.indexOf("/*EXAMMODE-END*/");
@@ -34,7 +33,7 @@ ok(pick([T("ex", "Exam", TODAY, {time: "07:30"})]) === null, "off once the exam 
 ok(pick([T("ex", "Exam", TODAY, {time: "07:30"})], {now: new Date(2026, 9, 21, 9, 0).getTime()}) !== null, "but on before it ended");
 ok(pick([T("ex", "Exam", TODAY)]) !== null, "an exam today with no time stays on all day");
 
-// Several exams: the soonest is the focus, the others are listed; Not Now moves on to the next
+// Several exams
 {
   const tasks = [T("e2", "Exam", "2026-10-24", {time: "09:00"}), T("e1", "Exam", "2026-10-23", {time: "13:00"}), T("q1", "Quiz", "2026-10-23", {time: "08:00"})];
   const m = pick(tasks);
@@ -44,7 +43,7 @@ ok(pick([T("ex", "Exam", TODAY)]) !== null, "an exam today with no time stays on
   ok(pick(tasks, {off: {q1: true, e1: true, e2: true}}) === null, "Not Now on all of them turns it off");
 }
 
-// Also due: work in the window, every course, by due time; no study sessions, no later work, nothing that can't be handed in
+// Also due: work in the window, every course, by due time; no study sessions, no later work
 {
   const tasks = [T("ex", "Exam", "2026-10-23", {time: "09:00", courseId: "bio"}),
     T("lab", "Lab", "2026-10-22", {time: "23:59", courseId: "bio"}), T("ess", "Assignment", "2026-10-21", {time: "17:00", courseId: "his"}),
@@ -72,7 +71,7 @@ ok(pick([T("ex", "Exam", TODAY)]) !== null, "an exam today with no time stays on
   const ids = o.map(x => x.id);
   ok(ids.join() === "essToday,riskLater,study1,study2,labTmrw,afterEx,other,far", "order, with a study session due today: " + ids.join());
   ok(o.find(x => x.id === "essToday").lane === "first" && o.find(x => x.id === "riskLater").lane === "first" && o.find(x => x.id === "study1").lane === "study" && o.find(x => x.id === "labTmrw").lane === "after" && o.find(x => x.id === "far").lane === "rest", "lanes");
-  // With no session on the list ("Study for ..." stands in), anything due by the end of the exam's day leads
+  // With no session on the list ("Study for ..." stands in)
   const noS = items.filter(x => x.kind !== "study").map(x => Object.assign({}, x));
   const oV = E.order(noS, exDue, O);
   ok(oV.map(x => x.id).join() === "essToday,labTmrw,afterEx,riskLater,other,far" && oV.find(x => x.id === "afterEx").lane === "first", "no sessions: " + oV.map(x => x.id).join());

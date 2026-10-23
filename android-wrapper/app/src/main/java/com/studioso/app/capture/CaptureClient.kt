@@ -1,17 +1,4 @@
-// UNTESTED on a device. Syntax/type-checked with kotlinc against android-all (API 34) stubs only. Contract: capture-contract.json at the repo root
-// (tests/capture-contract.test.js greps this file for the constants below: path, Idempotency-Key, Bearer, 8000 ms timeout).
-// HTTPS only (also enforced by res/xml/network_security_config.xml), 8 s timeout, Idempotency-Key header, no logging of the token or the task text.
-//
-// Delivery rules (one capture = one stable id, used as the Idempotency-Key on EVERY attempt):
-//   2xx + {"ok":true}            -> delivered: removed from the outbox.
-//   4xx except 401/403/408/429   -> permanent (bad input, too large): dropped, never retried.
-//   401/403                      -> the token is unknown/revoked: the item is handed to the app's queue (pending-captures), where the web
-//                                   app shows it in its confirm sheet. Never retried against the server.
-//   408/429/5xx/network/bad JSON -> transient: kept in filesDir/capture-outbox with attempts + nextAt (backoff 30 s .. 1 h), retried by
-//                                   flushOutbox() (app start/resume via StudyboardSharedQueue.drain, and after each share). After MAX_ATTEMPTS
-//                                   or MAX_AGE_MS the item is handed to the app's queue instead (the person confirms it there), so nothing loops forever.
-// Server-side dedupe (supabase-functions/capture-task) honours the Idempotency-Key for 10 minutes only; a retry that lands later than that after
-// an attempt whose response was lost can still add a duplicate. The outbox keeps the same key so a longer server window fixes that without app changes.
+// UNTESTED on a device
 package com.studioso.app.capture
 
 import android.content.Context
@@ -29,16 +16,16 @@ import java.util.UUID
 
 sealed class CaptureResult {
     data class Added(val speech: String) : CaptureResult()
-    /** No token on this device (or the server refused it): the item is in the app's queue for the confirm sheet. */
+    /* No token on this device (or the server refused it) */
     data class NotConfigured(val queued: Boolean) : CaptureResult()
     object Invalid : CaptureResult()
-    /** The server refused the item permanently (4xx): dropped. */
+    /* The server refused the item permanently (4xx) */
     object Rejected : CaptureResult()
-    /** Transient failure: the item is kept in the outbox (queued = true) and retried later. */
+    /* Transient failure */
     data class Failed(val queued: Boolean) : CaptureResult()
 }
 
-/** One capture waiting for delivery. `id` doubles as the Idempotency-Key. */
+/* One capture waiting for delivery */
 data class OutboxItem(
     val id: String,
     val text: String,
@@ -96,7 +83,7 @@ object CaptureClient {
 
     private fun backoff(attempts: Int): Long = BACKOFF_MS[(attempts - 1).coerceIn(0, BACKOFF_MS.size - 1)]
 
-    /** POST one capture (the caller has already asked the person to confirm). See the delivery rules at the top of this file. */
+    /* POST one capture (the caller has already asked the person to confirm) */
     suspend fun send(context: Context, text: String, due: String? = null, course: String? = null, source: String = "app"): CaptureResult =
         withContext(Dispatchers.IO) {
             val t = clip(text, MAX_TEXT) ?: return@withContext CaptureResult.Invalid
@@ -105,17 +92,16 @@ object CaptureClient {
                 if (source in SOURCES) source else "app", now, 0, now + backoff(1))
             val creds = CaptureStore.load(context)
                 ?: return@withContext CaptureResult.NotConfigured(handOff(context, item))
-            // Persist BEFORE the network call (nextAt in the future so a concurrent flush skips it): a killed process cannot lose the item.
             val persisted = CaptureOutbox.write(context, item)
             deliver(context, item, creds, persisted)
         }
 
-    /** Retries due outbox items once each, oldest first. Stops at the first transient failure (probably offline). Safe to call often. */
+    /* Retries due outbox items once each, oldest first */
     suspend fun flushOutbox(context: Context): Int = withContext(Dispatchers.IO) {
         if (!flushLock.tryLock()) return@withContext 0
         var delivered = 0
         try {
-            val creds = CaptureStore.load(context) ?: return@withContext 0     // signed out: StudyboardCaptureToken.clear() wipes the outbox
+            val creds = CaptureStore.load(context) ?: return@withContext 0
             val now = System.currentTimeMillis()
             for (item in CaptureOutbox.items(context)) {
                 if (now - item.createdAt > MAX_AGE_MS) { handOff(context, item); CaptureOutbox.remove(context, item.id); continue }
@@ -134,10 +120,10 @@ object CaptureClient {
         delivered
     }
 
-    /** Fire-and-forget flush, for callers that are not coroutines (Capacitor plugin methods, activities finishing). */
+    /* Fire-and-forget flush, for callers that are not coroutines */
     fun flushInBackground(context: Context) {
         val app = context.applicationContext
-        background.launch { try { flushOutbox(app) } catch (e: Exception) { /* never log: may carry request data */ } }
+        background.launch { try { flushOutbox(app) } catch (e: Exception) { } }
     }
 
     private fun deliver(context: Context, item: OutboxItem, creds: Pair<String, String>, persisted: Boolean): CaptureResult =
@@ -145,7 +131,7 @@ object CaptureClient {
             is Attempt.Ok -> { CaptureOutbox.remove(context, item.id); CaptureResult.Added(a.speech) }
             Attempt.Permanent -> { CaptureOutbox.remove(context, item.id); CaptureResult.Rejected }
             Attempt.Unauthorized -> {
-                val queued = handOff(context, item)          // write the new copy first, then delete the old one
+                val queued = handOff(context, item)
                 CaptureOutbox.remove(context, item.id)
                 CaptureResult.NotConfigured(queued)
             }
@@ -162,7 +148,7 @@ object CaptureClient {
             }
         }
 
-    /** Moves an item to the app's queue (drained into the web app's confirm sheet by StudyboardSharedQueue). Same id: the page dedupes on it. */
+    /* Moves an item to the app's queue */
     private fun handOff(context: Context, item: OutboxItem): Boolean =
         CaptureQueue.enqueue(context, item.id, item.text, item.due, item.course, item.source, null)
 
@@ -175,7 +161,7 @@ object CaptureClient {
         var conn: HttpURLConnection? = null
         return try {
             val u = URL(endpoint)
-            if (u.protocol != "https" || !CaptureStore.validEndpoint(endpoint)) return Attempt.Permanent   // scheme == "https" enforced
+            if (u.protocol != "https" || !CaptureStore.validEndpoint(endpoint)) return Attempt.Permanent
             val c = (u.openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
                 connectTimeout = TIMEOUT_MS
@@ -185,7 +171,7 @@ object CaptureClient {
                 doOutput = true
                 setRequestProperty("Content-Type", "application/json")
                 setRequestProperty("Authorization", "Bearer $token")
-                setRequestProperty("Idempotency-Key", item.id)        // stable across retries: the server adds the item once
+                setRequestProperty("Idempotency-Key", item.id)
             }
             conn = c
             c.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
@@ -203,9 +189,9 @@ object CaptureClient {
                 code == 401 || code == 403 -> Attempt.Unauthorized
                 code == 408 || code == 429 -> Attempt.Transient
                 code in 400..499 -> Attempt.Permanent
-                else -> Attempt.Transient                              // 5xx, 3xx (redirects are not followed)
+                else -> Attempt.Transient
             }
-        } catch (e: Exception) {                                       // never log `e`: keep the token and text out of logcat
+        } catch (e: Exception) {
             Attempt.Transient
         } finally {
             conn?.disconnect()
@@ -213,7 +199,7 @@ object CaptureClient {
     }
 }
 
-/** Retry store for captures the native side still owes the server: filesDir/capture-outbox/<id>.json, written atomically (tmp + rename). */
+/* Retry store for captures the native side still owes the server */
 object CaptureOutbox {
     private fun dir(context: Context) = File(context.filesDir, "capture-outbox").apply { mkdirs() }
 
@@ -233,14 +219,13 @@ object CaptureOutbox {
     }
 }
 
-/** The app's queue: filesDir/pending-captures/<id>.json (+ <id>.jpg), drained into the web app by StudyboardSharedQueue.
- *  Same item shape as "sharedQueueItem" in capture-contract.json. The web app dedupes on `id`, so a re-delivered item is harmless. */
+/* The app's queue */
 object CaptureQueue {
     val ID_RE = Regex("^[A-Za-z0-9-]{1,64}$")
-    const val MAX_AGE_MS = 30L * 24 * 60 * 60 * 1000          // items the web app never accepted are dropped after 30 days
+    const val MAX_AGE_MS = 30L * 24 * 60 * 60 * 1000
     private fun dir(context: Context) = File(context.filesDir, "pending-captures").apply { mkdirs() }
 
-    /** Write to <name>.tmp then rename over the target (rename is atomic on the same filesystem). */
+    /* Write to <name>.tmp then rename over the target (rename is atomic on the same filesystem) */
     fun atomicWrite(target: File, bytes: ByteArray): Boolean = try {
         val tmp = File(target.parentFile, target.name + ".tmp")
         tmp.writeBytes(bytes)
@@ -254,7 +239,7 @@ object CaptureQueue {
             val j = JSONObject().put("id", id).put("kind", kind).put("createdAt", System.currentTimeMillis())
             text?.let { j.put("text", it) }; due?.let { j.put("due", it) }; course?.let { j.put("course", it) }; source?.let { j.put("source", it) }; url?.let { j.put("url", it) }
             if (imageJpeg != null) j.put("hasImage", true)
-            imageOk && atomicWrite(File(d, "$id.json"), j.toString().toByteArray(Charsets.UTF_8))   // the .json appears last, after the image
+            imageOk && atomicWrite(File(d, "$id.json"), j.toString().toByteArray(Charsets.UTF_8))
         }
     } catch (e: Exception) { false }
 

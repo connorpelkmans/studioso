@@ -1,9 +1,4 @@
-// Exam Mode in the real app.  Run: node tests/exam-mode.e2e.js [outDir]
-// An in-person BIO midterm in 2 days at 9:00, a BIO lab due tomorrow, a HIS essay due that evening and a HIS source list due the day after.
-// Checks: the Exam Mode card (countdown, Also Due, Study for It), Do This Next puts the lab (due before the exam) and the essay (due on the
-// exam day) first, then exam study, then the source list, never dropping any of them,
-// decks for the exam's course sort first with an "Exam in 2 days" tag, Review starts with that course, Focus suggests the same task,
-// the Settings row, Not Now (and Undo), off with no exam in the window, off after the exam, a 390px phone, and no console errors.
+// Exam Mode in the real app
 const path = require("path"), fs = require("fs"), assert = require("assert"), os = require("os");
 const {chromium, executablePath} = require("./pw");
 const FILE = "file://" + path.join(__dirname, "..", "index.html");
@@ -49,7 +44,6 @@ const setTask = (page, id, patch) => page.evaluate(([id, p]) => { const S = wind
       await page.waitForFunction(() => window.__sbSync && window.SBEXAM);
       await toPlan(page);
 
-      // The card
       ok(await vis(page, ".exm-card"), "the Exam Mode card shows on Today's Plan");
       const c = await txt(page, ".exm-card");
       ok(/Exam Mode/i.test(c) && /Midterm 2/.test(c) && /BIO 101/.test(c) && /In 2 days/.test(c), "it names the exam, course and countdown: " + c);
@@ -62,7 +56,6 @@ const setTask = (page, id, patch) => page.evaluate(([id, p]) => { const S = wind
       ok(!/[—]/.test(c), "no em dashes in the card");
       await page.screenshot({path: path.join(OUT, `today-${W}.png`), fullPage: false});
 
-      // Do This Next: the lab (due before the exam) first, never missing; then exam study
       const plan = await page.evaluate(() => window.__sbPlan());
       ok(plan.next && plan.next.id === "lab4", "Do This Next is Lab 4, due before the exam: " + JSON.stringify(plan.next));
       const nu = await txt(page, ".next-up");
@@ -79,13 +72,11 @@ const setTask = (page, id, patch) => page.evaluate(([id, p]) => { const S = wind
       ok(/Source list/.test(await txt(page, ".next-up .nu-title")), "then the source list (due after the exam, in the window)");
       await page.evaluate(() => { window.__sbSync.ui.skipNext = null; window.__sbSync.render(); }); await page.waitForTimeout(150);
 
-      // With the lab and essay done, exam study leads
       await setTask(page, "lab4", {status: "done", doneAt: Date.now()}); await setTask(page, "ess", {status: "done", doneAt: Date.now()}); await toPlan(page);
       ok(/Study for Midterm 2/.test(await txt(page, ".next-up .nu-title")), "with the lab and essay done, Study for Midterm 2 leads Do This Next");
       ok(!(await page.evaluate(() => [...document.querySelectorAll(".exm-also li")].map(l => l.innerText).join(" "))).includes("Lab 4"), "and Also Due drops the finished lab");
       await setTask(page, "lab4", {status: "todo", doneAt: null}); await setTask(page, "ess", {status: "todo", doneAt: null}); await toPlan(page);
 
-      // Focus suggests what Do This Next says
       await page.evaluate(() => { localStorage.removeItem("studioso:pomo"); });
       await act(page, "pomo-open"); await page.waitForTimeout(250);
       ok(await page.evaluate(() => document.querySelector("#pomoTask").value) === "lab4", "the Focus timer suggests Lab 4 (the most urgent, before the exam)");
@@ -98,7 +89,6 @@ const setTask = (page, id, patch) => page.evaluate(([id, p]) => { const S = wind
       await page.evaluate(() => document.querySelector("#pomoDlg").close());
       await setTask(page, "lab4", {status: "todo", doneAt: null}); await setTask(page, "ess", {status: "todo", doneAt: null});
 
-      // Flashcards: the exam's course first, with a tag; Review starts with it
       await page.evaluate(() => { const S = window.__sbSync; S.ui.tab = "flashcards"; S.ui.deckId = null; S.ui.fc = null; S.render(); }); await page.waitForTimeout(200);
       const decks = await page.evaluate(() => [...document.querySelectorAll(".deck-grid .deck")].map(d => ({name: d.querySelector(".deck-name").innerText, tag: (d.querySelector(".exm-tag") || {}).innerText || ""})));
       ok(decks.length === 2 && decks[0].name === "Cell Biology" && decks[1].name === "Reform Era", "the BIO deck sorts first: " + decks.map(d => d.name));
@@ -109,17 +99,14 @@ const setTask = (page, id, patch) => page.evaluate(([id, p]) => { const S = wind
       ok(q.length === 4 && q[0] === "db" && q[1] === "db" && q[2] === "dh", "Review starts with the exam's course: " + q.join());
       await page.evaluate(() => { const S = window.__sbSync; S.ui.fc = null; S.render(); });
 
-      // Study for It (no prep plan): the course's due cards
       await toPlan(page); await page.click(".exm-card [data-act=exm-study]"); await page.waitForTimeout(250);
       ok(await page.evaluate(() => { const f = window.__sbSync.ui.fc; return !!f && f.mode === "study" && f.deckIds.join() === "db"; }), "Study for It starts the course's due cards");
       await page.evaluate(() => { const S = window.__sbSync; S.ui.fc = null; S.render(); });
 
-      // Settings row
       await page.evaluate(() => window.__sbSync.menuSheet()); await page.waitForTimeout(300);
       ok(await page.evaluate(() => { const i = document.querySelector('#dlg input[data-act="exm-toggle"]'); return !!i && i.checked; }), "Settings has an Exam Mode row, on by default");
       await page.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
 
-      // Not Now (remembered for this exam), and Undo
       await toPlan(page);
       await page.click(".exm-card [data-act=exm-off]"); await page.waitForTimeout(250);
       ok(!(await vis(page, ".exm-card")), "Not Now hides the card");
@@ -134,30 +121,24 @@ const setTask = (page, id, patch) => page.evaluate(([id, p]) => { const S = wind
       await page.click("#toastUndo"); await page.waitForTimeout(250);
       ok(await vis(page, ".exm-card"), "Undo after Not Now brings it back");
 
-      // The Settings switch turns it off
       await page.evaluate(() => { const S = window.__sbSync; S.state.settings = Object.assign({}, S.state.settings, {examMode: false}); S.render(); }); await page.waitForTimeout(150);
       ok(!(await vis(page, ".exm-card")) && (await page.evaluate(() => window.SBEXAM.current())) === null, "the setting turns Exam Mode off");
       await page.evaluate(() => { const S = window.__sbSync; S.state.settings = Object.assign({}, S.state.settings, {examMode: true}); S.render(); }); await page.waitForTimeout(150);
 
-      // Phone width: nothing spills sideways
       if (W === 390) {
         ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), "no horizontal page scroll at 390px");
         ok(await page.evaluate(() => { const r = document.querySelector(".exm-card").getBoundingClientRect(); return r.left >= 0 && r.right <= window.innerWidth + 1; }), "the card fits the phone");
         ok(await page.evaluate(() => [...document.querySelectorAll(".exm-card button")].every(b => b.getBoundingClientRect().height >= 30)), "its buttons are big enough to tap");
       }
 
-      // Off with no exam in the window
       await setTask(page, "ex1", {due: plus(5)}); await toPlan(page);
       ok(!(await vis(page, ".exm-card")), "no card with the exam 5 days out");
       ok((await page.evaluate(() => window.__sbPlan().next.id)) === "lab4" && (await page.evaluate(() => window.SBEXAM.current())) === null, "and Do This Next is the normal ranking");
-      // Off after the exam (today at 7:30, now 10:00)
       await setTask(page, "ex1", {due: plus(0), time: "07:30"}); await toPlan(page);
       ok(!(await vis(page, ".exm-card")) && (await page.evaluate(() => window.SBEXAM.current())) === null, "off once the exam has happened");
-      // On during exam day before it (later today)
       await setTask(page, "ex1", {due: plus(0), time: "15:00"}); await toPlan(page);
       ok(/In about 5 hours/.test(await txt(page, ".exm-card")), "exam day shows hours left: " + await txt(page, ".exm-card .exm-when"));
 
-      // Dark theme renders the card with readable text
       await page.evaluate(() => { document.documentElement.dataset.theme = "dark"; });
       ok(await page.evaluate(() => { const s = getComputedStyle(document.querySelector(".exm-title")); return s.color !== getComputedStyle(document.querySelector(".exm-card")).backgroundColor; }), "dark theme: text and background differ");
       await page.screenshot({path: path.join(OUT, `dark-${W}.png`)});

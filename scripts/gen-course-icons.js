@@ -1,6 +1,4 @@
-// Copies the app's course icons, icon guesses and course colours from index.html into cloudflare/site/course-icons.js,
-// so the public flashcard pages draw decks the same way the app does. Run after changing them in index.html:
-//   node scripts/gen-course-icons.js          (tests/public-pages.test.js fails when the copy is out of date)
+// Copies the app's course icons
 const fs = require("fs"), path = require("path"), vm = require("vm");
 const root = path.join(__dirname, "..");
 function build(){

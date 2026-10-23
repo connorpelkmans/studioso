@@ -1,6 +1,4 @@
-// node tests/lms-crosscourse.e2e.js  (Playwright + Chromium)
-// A Brightspace course's calendar can list your other courses' events too ("BSNC 1020 Midterm Exam" in BSNC 1030's calendar).
-// Each event must land in its own course only: never filed under (or merged into) the course whose calendar happened to list it.
+// node tests/lms-crosscourse.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -27,7 +25,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       const mid = ou => ev("500", "BSNC 1020 Midterm Exam", "2026-10-23T07:00:00.000Z", "2026-10-24T07:00:00.000Z", true, ou);
       const course = (ou, name, events) => ({ou, code: name.split(" - ")[0].replace(" ", ""), name, folders: [], quizzes: [], grades: [], news: [], discussions: [], staff: [], events});
       const d = SBLMS.brightspace.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [], courses: [
-        // BSNC 1030's calendar lists 1020's midterm (an older extension sends no org unit; a current one sends 1020's)
         course("20", "BSNC 1030 - Practice of Nursing 1", [withOu ? mid("10") : mid(), ev("501", "Midterm Clinical Evaluation", "2026-10-23T15:30:00.000Z", "2026-10-23T17:00:00.000Z", false)]),
         course("10", "BSNC 1020 - Context of Nursing and Health Care 1", [mid()])]});
       return (d.recs || []).map(t => t.ou + ":" + t.title);

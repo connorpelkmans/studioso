@@ -1,14 +1,4 @@
-// Studyboard desktop: your school's learning platforms (Brightspace/D2L, Canvas and Blackboard Learn).
-// You sign in yourself in a normal browser window (your school's own sign-in page, with MFA if it uses it).
-// Studyboard never sees your password. Each platform's sign-in is kept in its own private cookie store
-// ("persist:brightspace", "persist:canvas", "persist:blackboard"), separate from Studyboard's, and Studyboard reads
-// (GET requests): your courses, due dates, submissions, grades, announcements, calendar and Canvas Inbox.
-// The one thing it ever sends is a reply to a Canvas Inbox conversation you wrote (mail, op "send"), and only after you confirm it in a
-// system dialog shown here in the main process (the page can't skip it). It never submits work or changes anything else there.
-/* Readable plain text from HTML (same helper as index.html: no DOM, so it works in the main process). */
-// Readable plain text from HTML-ish text (LMS text, entity-encoded markup). Pure string work: nothing is parsed into a live DOM, so nothing can run.
-// Handles tags (with line breaks for p/br/li/headings), named, numeric and double-encoded entities (&amp;amp;), and collapses whitespace.
-// opts.line: one line only. opts.max: cut length.
+// Studyboard desktop
 const HT_ENT = {amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ensp: " ", emsp: " ", thinsp: " ", zwnj: "", zwj: "", shy: "", lrm: "", rlm: "",
   lsquo: "\u2018", rsquo: "\u2019", sbquo: "\u201A", ldquo: "\u201C", rdquo: "\u201D", bdquo: "\u201E", laquo: "\u00AB", raquo: "\u00BB", lsaquo: "\u2039", rsaquo: "\u203A",
   ndash: "\u2013", mdash: "\u2014", hellip: "\u2026", bull: "\u2022", middot: "\u00B7", sdot: "\u22C5", dagger: "\u2020", Dagger: "\u2021", prime: "\u2032", Prime: "\u2033",
@@ -18,7 +8,7 @@ const HT_ENT = {amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ens
   alpha: "\u03B1", beta: "\u03B2", gamma: "\u03B3", delta: "\u03B4", mu: "\u03BC", pi: "\u03C0", sigma: "\u03C3", omega: "\u03C9", Omega: "\u03A9", Delta: "\u0394", ordf: "\u00AA", ordm: "\u00BA",
   szlig: "\u00DF", aelig: "\u00E6", AElig: "\u00C6", oslash: "\u00F8", Oslash: "\u00D8", ntilde: "\u00F1", Ntilde: "\u00D1", ccedil: "\u00E7", Ccedil: "\u00C7"};
 const HT_ACC = {grave: "\u0300", acute: "\u0301", circ: "\u0302", tilde: "\u0303", uml: "\u0308", ring: "\u030A", cedil: "\u0327"};
-// Only real HTML tag names count as markup, so text like "<Chapter 3>" or "a < b" is left alone.
+// Only real HTML tag names count as markup
 const HT_TAGS = "a|abbr|address|article|aside|audio|b|bdi|bdo|big|blockquote|body|br|button|canvas|caption|center|cite|code|col|colgroup|dd|del|details|dfn|dialog|div|dl|dt|em|fieldset|figcaption|figure|font|footer|form|h[1-6]|header|hr|html|i|img|input|ins|kbd|label|legend|li|link|main|mark|meta|nav|o:p|ol|optgroup|option|p|pre|q|s|samp|section|select|small|source|span|strike|strong|sub|summary|sup|table|tbody|td|textarea|tfoot|th|thead|time|tr|tt|u|ul|var|video|wbr|!doctype|\\?xml";
 const HT_TAGRE = new RegExp("<\\/?(?:" + HT_TAGS + ")(?=[\\s/>])(?:\"[^\"]*\"|'[^']*'|[^<>\"'])*>", "gi");
 const HT_OPENRE = new RegExp("<\\/?(?:" + HT_TAGS + ")(?:\\s[^<>]*)?$", "i");
@@ -35,7 +25,6 @@ function htmlText(s, opts){
     const lm = /^([A-Za-z])(grave|acute|circ|tilde|uml|ring|cedil)$/.exec(name); if (lm) return (lm[1] + HT_ACC[lm[2]]).normalize("NFC");
     return m;
   };
-  // Each pass strips markup then decodes entities, so "&lt;p&gt;Tom &amp;amp; Jo" (double-encoded) peels one layer per pass.
   for (let i = 0; i < 5; i++) {
     const before = t;
     t = t.replace(/<!--[\s\S]*?(-->|$)/g, "").replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
@@ -52,9 +41,7 @@ function htmlText(s, opts){
   t = t.trim();
   return o.max && t.length > o.max ? t.slice(0, o.max) : t;
 }
-// The harvest functions below run inside the school's page (executeJavaScript), where nothing from this file exists.
-// HARVEST_PRELUDE is the source of htmlText and the constants it uses, put in front of each harvest so the injected script is self-contained
-// (tests/lms-harvest.test.js runs the exact injected string in an empty context, so a new outside name is caught there).
+// The harvest functions below run inside the school's page (executeJavaScript)
 const HARVEST_PRELUDE = [
   "const HT_ENT = " + JSON.stringify(HT_ENT) + ";",
   "const HT_ACC = " + JSON.stringify(HT_ACC) + ";",
@@ -74,7 +61,7 @@ const busy = {};
 function originOf(host) {
   let s = String(host || "").trim();
   if (!s || s.length > 300) return null;
-  if (TEST_MODE && /^http:\/\/127\.0\.0\.1:\d+$/.test(s)) return s;   // automated tests only
+  if (TEST_MODE && /^http:\/\/127\.0\.0\.1:\d+$/.test(s)) return s;
   if (!/^https?:\/\//i.test(s)) s = "https://" + s;
   try {
     const u = new URL(s);
@@ -83,7 +70,7 @@ function originOf(host) {
     return "https://" + h + (u.port && u.port !== "443" ? ":" + u.port : "");
   } catch (e) { return null; }
 }
-// Names that only mean something on a home or office network, never a school's public site.
+// Names that only mean something on a home or office network, never a school's public site
 const LOCAL_SUFFIX = /(^|\.)(local|lan|home|internal|localhost|intranet|corp|home\.arpa)$/;
 // Addresses that are not on the public internet: private, loopback, link-local, carrier-grade NAT, multicast and reserved ranges.
 function privateIp(ip) {
@@ -94,18 +81,20 @@ function privateIp(ip) {
     return a === 0 || a === 10 || a === 127 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) ||
       (a === 192 && b === 168) || (a === 192 && b === 0 && Number(v4[3]) === 0) || (a === 198 && (b === 18 || b === 19)) || a >= 224;
   }
-  if (!s.includes(":")) return true;                                   // not an address at all: treat as unsafe
-  const m = s.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);          // v4-mapped written in hex
+  if (!s.includes(":")) return true;
+  const m = s.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
   if (m) { const n = parseInt(m[1], 16), k = parseInt(m[2], 16); return privateIp([n >> 8, n & 255, k >> 8, k & 255].join(".")); }
   return s === "::" || s === "::1" || /^f[cd]/.test(s) || /^fe[89ab]/.test(s) || /^ff/.test(s) || /^64:ff9b:/.test(s) || /^2001:db8:/.test(s) || /^::ffff:/.test(s);
 }
-// Some sign-in pages turn away browsers they don't recognise, so the windows use a plain Chrome user agent.
+// Some sign-in pages turn away browsers they don't recognise
 function chromeUA() { return String(app.userAgentFallback || "").replace(/\s(Electron|studyboard|Studyboard|studioso)\/\S+/g, ""); }
-// Security: the school windows are sandboxed and isolated like the app's own, have no developer tools in the packaged app, and
-// can't use the camera, microphone, location, notifications or any other permission. They only ever speak https.
+// What the platforms' data APIs see instead
+const API_URLS = ["https://*/api/v1/*", "https://*/d2l/api/*", "https://*/learn/api/*"];
+function apiUA() { return chromeUA() + " Studyboard/" + (app.getVersion ? app.getVersion() : "") + " (+https://studyboardapp.com)"; }
+// Security: the school windows are sandboxed and isolated like the app's own
 const prefs = P => ({ partition: P.part, contextIsolation: true, nodeIntegration: false, nodeIntegrationInWorker: false, nodeIntegrationInSubFrames: false, sandbox: true,
   webSecurity: true, allowRunningInsecureContent: false, webviewTag: false, navigateOnDragDrop: false, safeDialogs: true, devTools: !app.isPackaged });
-const TEST_MODE = process.env.STUDYBOARD_BS_TEST === "1" && !app.isPackaged;   // automated tests only, never in an installed app
+const TEST_MODE = process.env.STUDYBOARD_BS_TEST === "1" && !app.isPackaged;
 const httpsOnly = raw => { try { const u = new URL(String(raw)); return u.protocol === "https:" || (TEST_MODE && u.protocol === "http:" && u.hostname === "127.0.0.1"); } catch (e) { return false; } };
 const locked = new Set();
 function lockPartition(part) {
@@ -119,24 +108,11 @@ function lockPartition(part) {
     let local = false; try { local = TEST_MODE && new URL(d.url).hostname === "127.0.0.1"; } catch (e) {}
     cb({ cancel: !local });
   });
-  keepCookies(ses);
-}
-// Staying signed in: many school and Microsoft/Google sign-in cookies are "session" cookies, which a browser forgets when it closes,
-// so a desktop app restart used to sign you out. Each one is kept for up to 30 days instead (the site can still end it sooner: a
-// cookie the site removes or replaces is left alone, and signing out clears them all). Only this platform's private store is touched.
-const KEEP_DAYS = 30;
-function keepCookies(ses) {
-  ses.cookies.on("changed", (e, c, cause, removed) => {
-    if (removed || !c || !c.session || !c.name) return;
-    const host = String(c.domain || "").replace(/^\./, ""); if (!host) return;
-    const d = { url: "https://" + host + (c.path || "/"), name: c.name, value: c.value, path: c.path || "/", secure: !!c.secure, httpOnly: !!c.httpOnly,
-      expirationDate: Math.floor(Date.now() / 1000) + KEEP_DAYS * 86400 };
-    if (!c.hostOnly && c.domain) d.domain = c.domain;
-    if (c.sameSite && c.sameSite !== "unspecified") d.sameSite = c.sameSite;
-    ses.cookies.set(d).catch(() => {});
+  ses.webRequest.onBeforeSendHeaders({ urls: API_URLS }, (d, cb) => {
+    const h = Object.assign({}, d.requestHeaders); h["User-Agent"] = apiUA(); cb({ requestHeaders: h });
   });
 }
-// Sign-in pop-ups (Microsoft, Google, Duo) stay in the same private store, but only for https addresses, and they are locked down the same way.
+// Staying signed in follows the school's own rules
 function guardWindow(w, Pv, sameOrigin) {
   const wc = w.webContents;
   wc.on("will-attach-webview", e => e.preventDefault());
@@ -146,8 +122,7 @@ function guardWindow(w, Pv, sameOrigin) {
   wc.setWindowOpenHandler(({ url }) => sameOrigin || !httpsOnly(url) ? { action: "deny" } : { action: "allow", overrideBrowserWindowOptions: { autoHideMenuBar: true, webPreferences: prefs(Pv) } });
   wc.on("did-create-window", child => { guardWindow(child, Pv, null); showHost(child); });
 }
-// The sign-in window and its pop-ups always show which site is on screen ("Studyboard – sign in: login.microsoftonline.com"), never
-// a title the page picks, so it is clear which domain a password is typed into.
+// The sign-in window and its pop-ups always show which site is on screen
 function showHost(w) {
   const wc = w.webContents;
   const set = () => { if (w.isDestroyed()) return; let h = ""; try { h = new URL(wc.getURL()).host; } catch (e) {} if (h) w.setTitle("Studyboard \u2013 sign in: " + h); };
@@ -157,7 +132,7 @@ function showHost(w) {
 }
 const timeout = (ms, what) => new Promise((_, rej) => setTimeout(() => rej(new Error(what || "timeout")), ms));
 
-// ---------- Who's signed in (run inside the platform's own page) ----------
+// Who's signed in (run inside the platform's own page)
 const WHO = {
   brightspace: `(async () => {
   try {
@@ -180,7 +155,7 @@ const WHO = {
 })()`
 };
 
-// ---------- Brightspace: read everything (runs inside a hidden Brightspace page). Self-contained. ----------
+// Brightspace: read everything (runs inside a hidden Brightspace page)
 async function bsHarvest(o) {
   const q = o || {}, now = Date.now(), T0 = now;
   const fromISO = new Date(now - (q.pastDays || 60) * 864e5).toISOString();
@@ -190,7 +165,6 @@ async function bsHarvest(o) {
     const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 25000);
     try {
       const r = await fetch(p, { credentials: "include", headers: { Accept: "application/json" }, signal: ctl.signal });
-      // Too many requests at once: Brightspace asks to slow down, so wait and ask again (a few times)
       if ((r.status === 429 || r.status === 503) && (tries || 0) < 3) { clearTimeout(tm); await new Promise(res => setTimeout(res, 1500 * ((tries || 0) + 1))); return get(p, (tries || 0) + 1); }
       if (r.status === 401 || r.status === 403) { const e = new Error("denied"); e.status = r.status; throw e; }
       if (!r.ok) { const e = new Error("HTTP " + r.status); e.status = r.status; throw e; }
@@ -223,7 +197,6 @@ async function bsHarvest(o) {
   try { me = await get(`/d2l/api/lp/${lp}/users/whoami`); }
   catch (e) { return e.status === 401 || e.status === 403 ? { needLogin: true } : { error: "whoami " + (e.status || e.message) }; }
 
-  // Your courses
   const ens = []; let bm = "";
   for (let i = 0; i < 12; i++) {
     const r = await soft(`/d2l/api/lp/${lp}/enrollments/myenrollments/?orgUnitTypeId=3${bm ? "&bookmark=" + enc(bm) : ""}`);
@@ -240,7 +213,6 @@ async function bsHarvest(o) {
   const pick = all.filter(c => (only ? only.has(c.ou) : current(c)) && !skip.has(c.ou))
     .sort((a, b) => (Date.parse(b.last || 0) || 0) - (Date.parse(a.last || 0) || 0)).slice(0, 20);
 
-  // Everything for one course
   const detail = async c => {
     const b = `/d2l/api/le/${le}/${c.ou}`;
     const [folders, quizzes, grades, fin, news, events, forums, roster, over, toc] = await Promise.all([
@@ -251,21 +223,19 @@ async function bsHarvest(o) {
       q.news === false ? null : soft(`${b}/news/`, true),
       pages(`${b}/calendar/events/myEvents/?startDateTime=${enc(fromISO)}&endDateTime=${enc(toISO)}`, true),
       soft(`${b}/discussions/forums/`, true),
-      soft(`${b}/classlist/`, true),                  // who teaches it (only the instructors and TAs are kept)
-      soft(`${b}/overview`, true),                    // the course overview, often the syllabus
-      soft(`${b}/content/toc`, true)                  // to find a "Syllabus" page in Content
+      soft(`${b}/classlist/`, true),
+      soft(`${b}/overview`, true),
+      soft(`${b}/content/toc`, true)
     ]);
     const inWin = d => { const x = Date.parse(d || ""); return !isNaN(x) && x > now - 60 * 864e5 && x < now + 240 * 864e5; };
     const fl = listOf(folders).filter(f => f && !f.IsHidden);
-    // Folders to check for your submissions: due in the window, or with no date of their own (your dates can come from special access instead)
     const recent = fl.filter(f => { const d = Date.parse(f.DueDate || (f.Availability && f.Availability.EndDate) || ""); return isNaN(d) || (d > now - 60 * 864e5 && d < now + 240 * 864e5); }).slice(0, 60);
     const subs = {}, subAt = {}, fbk = {};
-    const inBatches = async (list, fn) => { for (let i = 0; i < list.length; i += 6) await Promise.all(list.slice(i, i + 6).map(fn)); };   // a few at a time: Brightspace slows down bursts
+    const inBatches = async (list, fn) => { for (let i = 0; i < list.length; i += 6) await Promise.all(list.slice(i, i + 6).map(fn)); };
     let subFail = 0, subWhy = "", subOdd = 0;
     await inBatches(recent, async f => {
       const s0 = await get(`${b}/dropbox/folders/${f.Id}/submissions/mysubmissions/`).catch(e => { subFail++; subWhy = String(e.status || e.name || e.message); return null; });
       if (s0 == null) return;
-      // Usually a list of entries; some Brightspace versions wrap it ({Objects: [...]}) or send the one entry on its own
       const s = Array.isArray(s0) ? s0 : listOf(s0).length ? listOf(s0) : typeof s0 === "object" && (s0.Submissions || s0.Status != null) ? [s0] : null;
       if (!s) { subOdd++; return; }
       subs[f.Id] = s.some(x => x && ((Array.isArray(x.Submissions) && x.Submissions.length > 0) || [1, 3, "1", "3", "Submitted", "Published"].includes(x.Status) || !!x.CompletionDate));
@@ -274,8 +244,6 @@ async function bsHarvest(o) {
       const fe = s.map(x => x && x.Feedback).find(Boolean);
       if (fe) fbk[f.Id] = fe;
     });
-    // When the API didn't answer for some folders, Brightspace's own Assignments page says it the way the student sees it
-    // ("1 Submission, 1 File" or "Not Submitted" on each assignment's row)
     let fromPage = 0;
     if (recent.some(f => subs[f.Id] === undefined)) {
       try {
@@ -291,41 +259,32 @@ async function bsHarvest(o) {
         }
       } catch (e) {}
     }
-    // In the sync details: what Brightspace said about handing in, per course, so a task that won't tick off can be explained
     if (recent.length) {
       const yes = recent.filter(f => subs[f.Id] === true).length, no = recent.filter(f => subs[f.Id] === false).length, unk = recent.length - yes - no;
       c.subNote = `${c.code || c.name}: ${yes} submitted, ${no} not, ${unk} unknown` + (subFail ? `; API refused ${subFail} (${subWhy})` : "") + (subOdd ? `; ${subOdd} unreadable answers` : "") + (fromPage ? `; ${fromPage} from the Assignments page` : "");
     }
-    // Quizzes you've finished: a completed attempt (only your own attempts are listed), so they can be marked done too
-    // (and ones with only an opening date, or none: "Available on Oct 6" is all some exams say)
     const qrecent = quizzes.filter(x => { if (!x || x.IsActive === false) return false; const d = Date.parse(x.DueDate || x.EndDate || x.StartDate || ""); return isNaN(d) || (d > now - 60 * 864e5 && d < now + 240 * 864e5); }).slice(0, 40);
     const tried = {};
     let qRefused = 0, qPage = 0, qPageStatus = "", qLinks = 0, qOwn = 0;
     await inBatches(qrecent, async x => {
       const a = await soft(`${b}/quizzes/${x.QuizId}/attempts/`, true);
       if (!a) qRefused++;
-      // Any attempt listed counts: one waiting to be marked ("Pending Evaluation") has no score or completion time yet
       if (a) tried[x.QuizId] = listOf(a).some(t => t && (t.AttemptId != null || t.AttemptNumber != null || t.TimeCompleted || t.DateCompleted || t.SubmittedDate || t.IsGraded === true || (t.Score != null && t.Score !== "")));
     });
-    // Students often may not list their own attempts through the API; the Quizzes page says it in its Attempts column ("1 / 1", "3 / Unlimited")
     if (qrecent.some(x => tried[x.QuizId] !== true)) {
       try {
         const r = await fetch(`/d2l/lms/quizzing/user/quizzes_list.d2l?ou=${c.ou}`, { credentials: "include" });
         qPageStatus = String(r.status);
         if (r.ok) {
           const html = (await r.text()).slice(0, 3000000);
-          // each part starts at a link with the quiz's id (quiz_summary.d2l?qi=…, or another quiz page's ?…&qi=…)
           html.split(/(?=[?&;]qi=\d)/).slice(1).forEach(part => {
             const m = part.match(/^[?&;]qi=(\d+)/); if (!m) return; qLinks++; if (tried[m[1]] === true) return;
-            // the row's last "used / allowed", never a date like 10/6/2026
             const all = [...htmlText(part.slice(0, 6000), { line: true }).matchAll(/(?<![\d/])(\d+)\s*\/\s*(?:\d+|unlimited)(?![\d/])/gi)], a = all[all.length - 1];
             if (a && Number(a[1]) > 0) { tried[m[1]] = true; qPage++; }
           });
         }
       } catch (e) { qPageStatus = String(e && e.name || "error"); }
     }
-    // Still not known: each quiz's own pages, as the student sees them: the summary ("Attempts: Allowed - 1, Completed - 1") and
-    // Submissions ("Attempt 1 ... Pending Evaluation")
     const qLeft = qrecent.filter(x => tried[x.QuizId] !== true).slice(0, 12);
     await inBatches(qLeft, async x => {
       const page = async u => { try { const r = await fetch(u, { credentials: "include" }); return r.ok ? htmlText((await r.text()).slice(0, 1500000), { line: true }) : ""; } catch (e) { return ""; } };
@@ -335,14 +294,11 @@ async function bsHarvest(o) {
       const subm = await page(`/d2l/lms/quizzing/user/quiz_submissions.d2l?qi=${x.QuizId}&ou=${c.ou}`);
       if (/\battempt\s+\d+\b/i.test(subm)) { tried[x.QuizId] = true; qOwn++; }
     });
-    // In the sync details, for a quiz that won't tick off
     if (qrecent.length) {
       const sat = qrecent.filter(x => tried[x.QuizId] === true).length, not = qrecent.filter(x => tried[x.QuizId] === false).length;
       c.quizNote = `quizzes: ${sat} sat, ${not} not, ${qrecent.length - sat - not} unknown` + (qRefused ? `; attempts API refused ${qRefused}` : "") + (qPageStatus ? `; Quizzes page ${qPageStatus}, ${qLinks} quiz links, ${qPage} sat from it` : "") + (qLeft.length ? `; ${qOwn} of ${qLeft.length} sat from their own pages` : "");
     }
-    // A released grade means it was handed in (or is closed): either way there's nothing left to do
     const graded = new Set(listOf(grades).filter(g => g && g.GradeObjectIdentifier != null && g.PointsNumerator != null).map(g => String(g.GradeObjectIdentifier)));
-    // A rubric (Brightspace's levels are shared by a group's criteria; each criterion has one cell per level)
     const rubOf = r => {
       if (!r || !Array.isArray(r.CriteriaGroups)) return null;
       const cr = [];
@@ -362,12 +318,11 @@ async function bsHarvest(o) {
       if (!t && !ra.length && sc == null) return null;
       return { c: t ? [{ by: "Instructor", mine: false, at: null, t }] : [], ra, sc, of, g: String(fe.GradedSymbol || "").slice(0, 20), at: null };
     };
-    // Submitted when, and whether it was late or is missing (past due with nothing handed in)
     const stOf = (due, end, sub, at) => sub == null && !at ? null : { subAt: at || null, late: !!(at && due && Date.parse(at) > Date.parse(due) + 60000), missing: sub === false && !!due && Date.parse(due) < now && !(end && Date.parse(end) > now), excused: false, ext: false };
     c.folders = fl.slice(0, 120).map(f => ({ id: String(f.Id), name: String(f.Name || ""), due: dt(f.DueDate), start: dt(f.Availability && f.Availability.StartDate), end: dt(f.Availability && f.Availability.EndDate),
       text: txt(f.CustomInstructions), files: (f.Attachments || []).slice(0, 12).map(a => ({ id: String(a.FileId), name: String(a.FileName || "file"), size: Number(a.Size) || 0 })),
       gid: f.GradeItemId != null ? String(f.GradeItemId) : "", outOf: f.Assessment && f.Assessment.ScoreDenominator != null ? Number(f.Assessment.ScoreDenominator) : null, sub: subs[f.Id] === true || (f.GradeItemId != null && graded.has(String(f.GradeItemId))) ? true : subs[f.Id] === undefined ? null : subs[f.Id],
-      sbt: f.SubmissionType != null && Number(f.SubmissionType) >= 0 && Number(f.SubmissionType) <= 9 ? Number(f.SubmissionType) : null,   // 0 file, 1 text, 2 on paper, 3 observed in person
+      sbt: f.SubmissionType != null && Number(f.SubmissionType) >= 0 && Number(f.SubmissionType) <= 9 ? Number(f.SubmissionType) : null,
       rub: rubOf(f.Assessment && Array.isArray(f.Assessment.Rubrics) ? f.Assessment.Rubrics[0] : null),
       st: stOf(dt(f.DueDate), dt(f.Availability && f.Availability.EndDate), subs[f.Id] === true || (f.GradeItemId != null && graded.has(String(f.GradeItemId))) ? true : subs[f.Id] === undefined ? null : subs[f.Id], subAt[f.Id]) }));
     c.folders.forEach(f => { const fe = fbk[f.id]; if (fe) f.fb = fbOf(fe, f.rub, f.outOf); });
@@ -375,20 +330,16 @@ async function bsHarvest(o) {
       gid: x.GradeItemId != null ? String(x.GradeItemId) : "", text: txt(x.Description || x.Instructions, 1500), limit: x.TimeLimitValue || (x.TimeLimit && x.TimeLimit.TimeLimitValue) || null,
       done: tried[x.QuizId] === true || (x.GradeItemId != null && graded.has(String(x.GradeItemId))) ? true : tried[x.QuizId] === undefined ? null : false }));
     c.quizzes.forEach(x => { x.st = stOf(x.due, x.end, x.done, null); });
-    c.gradeN = listOf(grades).length;          // how many grade rows the school sent (shown in settings when something looks missing)
+    c.gradeN = listOf(grades).length;
     c.grades = listOf(grades).slice(0, 200).map(g => ({ gid: String(g.GradeObjectIdentifier || ""), name: String(g.GradeObjectName || ""), type: Number(g.GradeObjectType) || 0,
       num: g.PointsNumerator, den: g.PointsDenominator, wnum: g.WeightedNumerator, wden: g.WeightedDenominator, shown: String(g.DisplayedGrade || "").trim(), at: dt(g.ReleasedDate || g.LastModified),
       fb: txt(g.Comments, 3000) ? { c: [{ by: "Instructor", mine: false, at: dt(g.ReleasedDate || g.LastModified), t: txt(g.Comments, 3000) }], ra: [], sc: g.PointsNumerator != null ? Number(g.PointsNumerator) : null, of: g.PointsDenominator != null ? Number(g.PointsDenominator) : null, g: String(g.DisplayedGrade || "").trim().slice(0, 20), at: null } : null }));
-    // The class's average, median, high and low for each graded item, when the instructor shows class statistics. Asked once first:
-    // if Brightspace refuses it there, it isn't asked for the rest of this course.
     const marked = c.grades.filter(g => g.gid && g.num != null).slice(0, 25);
     if (marked.length) {
       const num = v => v != null && isFinite(Number(v)) ? Number(v) : null;
       const statsOf = async g => { const r = await soft(`${b}/grades/${g.gid}/statistics`, true); if (r && num(r.Average) != null) g.cls = { mean: num(r.Average), median: num(r.Median), lo: num(r.Minimum), hi: num(r.Maximum) }; return !!r; };
       if (await statsOf(marked[0])) await inBatches(marked.slice(1), statsOf);
     }
-    // The pass mark, from the course's grade scheme when Brightspace lets a student read it: the start of the lowest band that isn't a fail
-    // (a nursing course whose scheme fails anything under 65% passes at 65). Not read, or no fail band: nothing is guessed.
     try {
       const FAIL = /^(f|fail|failed|failing|e|np|not\s*pass(ed)?|nc|no\s*credit|u|unsatisfactory|insufficient)$/i;
       const setup = await soft(`${b}/grades/setup/`, true);
@@ -400,7 +351,6 @@ async function bsHarvest(o) {
       const pass = rg.find(r => !FAIL.test(r.sym));
       if (rg.some(r => FAIL.test(r.sym)) && pass && pass.at >= 30 && pass.at <= 90) c.passMark = { pct: Math.round(pass.at * 10) / 10, from: "scheme", name: String(sch.Name || "").slice(0, 80) };
     } catch (e) {}
-    // Discussion topics with a due date, and whether you've posted in them (or have a grade for them)
     const meId = String(me.Identifier || "");
     const tops = [];
     await Promise.all(listOf(forums).filter(f => f && !f.IsHidden).slice(0, 15).map(async f => {
@@ -416,11 +366,9 @@ async function bsHarvest(o) {
       c.discussions.push({ id: String(t.TopicId), name: String(t.Name || ""), due, start: dt(t.StartDate) || dt(t.UnlockStartDate), text: txt(t.Description, 1500), gid, outOf: t.ScoreOutOf != null ? Number(t.ScoreOutOf) : null, posted,
         st: stOf(due, null, posted, null) });
     }));
-    // Instructors and TAs from the class list
     const STAFF = /instructor|teacher|professor|lecturer|faculty|\bta\b|teaching assistant|tutor|course leader/i;
     c.staff = listOf(roster).filter(u => u && STAFF.test(String(u.ClasslistRoleDisplayName || u.RoleName || ""))).slice(0, 8)
       .map(u => ({ name: String(u.DisplayName || [u.FirstName, u.LastName].filter(Boolean).join(" ")).slice(0, 120), email: String(u.Email || "").slice(0, 160), role: /\bta\b|assistant|tutor/i.test(String(u.ClasslistRoleDisplayName || "")) ? "TA" : "Instructor" }));
-    // The syllabus: the course overview, and a Content page called "Syllabus" when it's a web page (a PDF is linked instead)
     let syl = over ? txt(over.Description, 24000) : "", sylUrl = "";
     const topics = []; const walk = (ms, d) => (ms || []).forEach(m => { if (!m || d > 4) return; (m.Topics || []).forEach(t => topics.push(t)); walk(m.Modules, d + 1); });
     walk(toc && toc.Modules, 0);
@@ -435,14 +383,11 @@ async function bsHarvest(o) {
     c.final = fin && typeof fin === "object" && !Array.isArray(fin) ? { num: fin.PointsNumerator, den: fin.PointsDenominator, wnum: fin.WeightedNumerator, wden: fin.WeightedDenominator, shown: String(fin.DisplayedGrade || "").trim() } : null;
     c.news = listOf(news).filter(n => n && n.IsPublished !== false && !n.IsHidden).slice(0, 25).map(n => ({ id: String(n.Id), title: String(n.Title || ""), text: txt(n.Body, 3000), date: dt(n.StartDate) || dt(n.CreatedDate) || dt(n.LastModifiedDate),
       files: (n.Attachments || []).length }));
-    // A course's calendar can list your other courses' events too (Brightspace's "all courses" calendar view): keep only this course's own
-    // (an event from another course comes in with that course; one with no org unit given is kept)
     c.events = events.filter(e => e && (e.OrgUnitId == null || String(e.OrgUnitId) === String(c.ou))).slice(0, 200).map(e => ({ ou: e.OrgUnitId != null ? String(e.OrgUnitId) : "", id: String(e.CalendarEventId), title: String(e.Title || ""), text: txt(e.Description, 1500), start: dt(e.StartDateTime), end: dt(e.EndDateTime), allDay: !!e.IsAllDayEvent,
       where: String(e.LocationName || ""), assoc: !!(e.IsAssociatedWithEntity || (e.AssociatedEntity && e.AssociatedEntity.AssociatedEntityId)), kind: e.AssociatedEntity ? String(e.AssociatedEntity.AssociatedEntityType || "") : "", eid: e.AssociatedEntity && e.AssociatedEntity.AssociatedEntityId != null ? String(e.AssociatedEntity.AssociatedEntityId) : "", url: String(e.CalendarEventViewUrl || "") }));
   };
   for (let i = 0; i < pick.length; i += 4) await Promise.all(pick.slice(i, i + 4).map(detail));
 
-  // Scheduled items across courses (includes discussions and content with due dates, and whether each is complete)
   let items = [], completions = [];
   for (let i = 0; i < pick.length; i += 50) {
     const csv = pick.slice(i, i + 50).map(c => c.ou).join(",");
@@ -457,22 +402,33 @@ async function bsHarvest(o) {
     errors: errors.slice(0, 30), ms: Date.now() - T0 };
 }
 
-// ---------- Canvas: read everything (runs inside a hidden Canvas page, so your sign-in applies). Self-contained. ----------
+// Canvas: read everything (runs inside a hidden Canvas page, so your sign-in applies)
 async function cvHarvest(o) {
   const q = o || {}, now = Date.now(), T0 = now;
   const fromISO = new Date(now - (q.pastDays || 60) * 864e5).toISOString();
   const toISO = new Date(now + (q.aheadDays || 240) * 864e5).toISOString();
   const enc = encodeURIComponent, errors = [];
-  const req = async p => {
+  let inFlight = 0, calmUntil = 0; const waiting = [];
+  const slot = async () => { while (inFlight >= 3) await new Promise(res => waiting.push(res)); inFlight++; const w = calmUntil - Date.now(); if (w > 0) await new Promise(res => setTimeout(res, w)); };
+  const free = () => { inFlight--; const n = waiting.shift(); if (n) n(); };
+  const req = async (p, tries) => {
+    await slot();
     const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 25000);
     try {
       const r = await fetch(p, { credentials: "include", headers: { Accept: "application/json" }, signal: ctl.signal });
-      if (r.status === 401 || r.status === 403) { const e = new Error("denied"); e.status = r.status; throw e; }
-      if (!r.ok) { const e = new Error("HTTP " + r.status); e.status = r.status; throw e; }
-      const link = r.headers.get("Link") || "";
-      const t = await r.text();
-      return { body: JSON.parse(t.replace(/^while\(1\);/, "")), next: ((link.match(/<([^>]+)>;\s*rel="next"/) || [])[1]) || null };
-    } finally { clearTimeout(tm); }
+      const left = parseFloat(r.headers.get("X-Rate-Limit-Remaining"));
+      if (left < 200) calmUntil = Math.max(calmUntil, Date.now() + (left < 50 ? 3000 : 1000));
+      const limited = r.status === 429 || (r.status === 403 && /rate limit/i.test(await r.clone().text().catch(() => "")));
+      if (limited && (tries || 0) < 3) calmUntil = Math.max(calmUntil, Date.now() + 2000 * Math.pow(2, tries || 0));
+      else {
+        if (r.status === 401 || r.status === 403) { const e = new Error("denied"); e.status = r.status; throw e; }
+        if (!r.ok) { const e = new Error("HTTP " + r.status); e.status = r.status; throw e; }
+        const link = r.headers.get("Link") || "";
+        const t = await r.text();
+        return { body: JSON.parse(t.replace(/^while\(1\);/, "")), next: ((link.match(/<([^>]+)>;\s*rel="next"/) || [])[1]) || null };
+      }
+    } finally { clearTimeout(tm); free(); }
+    return req(p, (tries || 0) + 1);
   };
   const soft = async (p, quiet) => { try { return (await req(p)).body; } catch (e) { if (!quiet) errors.push(String(p).replace(/\?.*/, "").replace(/\/\d+\//g, "/#/") + " " + (e.status || e.name || e.message)); return null; } };
   const pages = async (p, quiet, max) => {
@@ -503,16 +459,14 @@ async function cvHarvest(o) {
   const detail = async c => {
     const id = c.ou, raw = c.raw; delete c.raw;
     const [asg, groups, events, qzs, mySubs, info, staff] = await Promise.all([
-      pages(`/api/v1/courses/${id}/assignments?include[]=submission&include[]=score_statistics&per_page=100&order_by=due_at`),   // the class's mean, high and low, when the instructor shows them
+      pages(`/api/v1/courses/${id}/assignments?include[]=submission&include[]=score_statistics&per_page=100&order_by=due_at`),
       soft(`/api/v1/courses/${id}/assignment_groups?per_page=100`, true),
       pages(`/api/v1/calendar_events?type=event&context_codes[]=course_${id}&start_date=${enc(fromISO)}&end_date=${enc(toISO)}&per_page=100`, true, 4),
-      pages(`/api/v1/courses/${id}/quizzes?per_page=100`, true, 3),         // time limit, quiz type, lockdown browser and open window: tells whether a quiz is taken from home
-      pages(`/api/v1/courses/${id}/students/submissions?student_ids[]=self&include[]=submission_comments&include[]=rubric_assessment&per_page=100`, true, 4),   // your feedback: comments and rubric scores
+      pages(`/api/v1/courses/${id}/quizzes?per_page=100`, true, 3),
+      pages(`/api/v1/courses/${id}/students/submissions?student_ids[]=self&include[]=submission_comments&include[]=rubric_assessment&per_page=100`, true, 4),
       soft(`/api/v1/courses/${id}?include[]=syllabus_body`, true),
       pages(`/api/v1/courses/${id}/users?enrollment_type[]=teacher&enrollment_type[]=ta&include[]=email&include[]=enrollments&per_page=50`, true, 1)
     ]);
-    // The pass mark, from the course's own grading scheme when it has one and Canvas lets a student read it: the start of the lowest
-    // band that isn't a fail (Canvas's built-in default scheme says nothing about the school, so it's not used)
     if (raw.grading_standard_id != null) {
       const FAIL = /^(f|fail|failed|failing|e|np|not\s*pass(ed)?|nc|no\s*credit|u|unsatisfactory|insufficient)$/i;
       const gs = await pages(`/api/v1/courses/${id}/grading_standards?per_page=50`, true, 1);
@@ -523,7 +477,6 @@ async function cvHarvest(o) {
     }
     const qz = {}; qzs.forEach(x => { if (x && x.id != null) qz[String(x.id)] = x; });
     const subOf = {}; mySubs.forEach(x => { if (x && x.assignment_id != null) subOf[String(x.assignment_id)] = x; });
-    // Who teaches it, the syllabus as plain text, and (per item) its rubric and your feedback
     c.staff = staff.filter(u => u && u.name).slice(0, 8).map(u => ({ name: String(u.name || "").slice(0, 120), email: String(u.email || u.login_id && /@/.test(u.login_id) && u.login_id || "").slice(0, 160),
       role: (u.enrollments || []).some(e => e && e.type === "TeacherEnrollment") ? "Instructor" : "TA" }));
     const syl = info && info.syllabus_body ? htmlText(info.syllabus_body, { max: 24000 }) : "";
@@ -547,9 +500,7 @@ async function cvHarvest(o) {
       if (!cm.length && !ra.length && s.score == null && !cls) return null;
       return { c: cm, ra, sc: s.score != null && !s.excused ? Number(s.score) : null, of: Number(a.points_possible) > 0 ? Number(a.points_possible) : null, g: s.grade != null ? String(s.grade).slice(0, 20) : "", at: dt(s.graded_at), cls };
     };
-    // Submitted when, late, missing, excused, or given an extension (Canvas marks those "extended")
     const stOf = (a, s) => s ? { subAt: dt(s.submitted_at), late: !!s.late, missing: !!s.missing, excused: !!s.excused, ext: s.late_policy_status === "extended" } : null;
-    // How an item is handed in, in a small plain form (nothing from the page is passed on untouched)
     const rxOf = a => {
       const qq = a.quiz_id != null ? qz[String(a.quiz_id)] || null : null, o = {};
       const st = (Array.isArray(a.submission_types) ? a.submission_types : []).map(x => String(x).slice(0, 24)).slice(0, 8);
@@ -561,12 +512,9 @@ async function cvHarvest(o) {
       return o;
     };
     const live = asg.filter(a => a && a.published !== false);
-    // Weights: when the course weights its assignment groups, each item's share is its group's weight times its share of the group's points
     const gw = {}; (Array.isArray(groups) ? groups : []).forEach(g => { gw[g.id] = Number(g.group_weight) || 0; });
     const weighted = !!raw.apply_assignment_group_weights && Object.values(gw).some(x => x > 0);
     const gpts = {}; let tpts = 0; live.forEach(a => { if (!a.omit_from_final_grade && Number(a.points_possible) > 0) { gpts[a.assignment_group_id] = (gpts[a.assignment_group_id] || 0) + Number(a.points_possible); tpts += Number(a.points_possible); } });
-    // A points-based course (no group weights, which is Canvas's default) counts each item by its share of all the points, the way Canvas totals it,
-    // so its grades still reach the Grade Tracker instead of arriving without a weight.
     const wOf = a => Number(a.points_possible) > 0 && !a.omit_from_final_grade ? (weighted ? (gw[a.assignment_group_id] && gpts[a.assignment_group_id] ? Math.round(gw[a.assignment_group_id] * Number(a.points_possible) / gpts[a.assignment_group_id] * 100) / 100 : null)
       : tpts > 0 ? Math.round(Number(a.points_possible) / tpts * 10000) / 100 : null) : null;
     c.items = []; c.grades = [];
@@ -577,7 +525,6 @@ async function cvHarvest(o) {
       const kind = a.is_quiz_assignment || a.is_quiz_lti_assignment || a.quiz_id || (a.submission_types || []).includes("online_quiz") ? "quiz" : (a.submission_types || []).includes("discussion_topic") ? "discussion" : "assignment";
       const done = hasS ? (!!s.submitted_at || ["submitted", "pending_review"].includes(s.workflow_state) || (s.workflow_state === "graded" && s.score != null) || !!s.excused) && !s.missing : null;
       const due = dt(a.due_at);
-      // Also the ones with no due date (up to 60): a calendar entry may carry the date, and it should learn whether this one is handed in
       if (due || dt(a.lock_at) || dt(a.unlock_at) || hasS && s.score != null || undated++ < 60) c.items.push({ kind, id: String(a.id), name: String(a.name || ""), due, start: dt(a.unlock_at), end: dt(a.lock_at), text: txt(a.description), url: String(a.html_url || ""), gid: String(a.id),
         outOf: Number(a.points_possible) > 0 ? Number(a.points_possible) : null, done, files: filesIn(a.description), rx: rxOf(a), st, fb, rub });
       if (Number(a.points_possible) > 0 && (hasS && s.score != null || wOf(a) != null))
@@ -590,13 +537,11 @@ async function cvHarvest(o) {
   };
   for (let i = 0; i < courses.length; i += 4) await Promise.all(courses.slice(i, i + 4).map(detail));
 
-  // Announcements for all courses at once
   if (q.news !== false && courses.length) {
     const ctx = courses.map(c => "context_codes[]=course_" + c.ou).join("&");
     const ann = await pages(`/api/v1/announcements?${ctx}&start_date=${enc(new Date(now - 60 * 864e5).toISOString())}&end_date=${enc(new Date(now + 864e5).toISOString())}&per_page=50`, true, 3);
     ann.forEach(n => { const ou = String(n.context_code || "").replace("course_", ""); const c = courses.find(x => x.ou === ou); if (c && c.news.length < 25) c.news.push({ id: String(n.id), title: String(n.title || ""), text: txt(n.message, 3000), date: dt(n.posted_at) || dt(n.created_at), url: String(n.html_url || "") }); });
   }
-  // The planner adds discussions, quizzes and pages with to-do dates, and whether you've finished them
   const plan = await pages(`/api/v1/planner/items?start_date=${enc(fromISO)}&end_date=${enc(toISO)}&per_page=100`, true, 6);
   const key = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
   plan.forEach(p => {
@@ -604,13 +549,12 @@ async function cvHarvest(o) {
     const t = p.plannable_type; if (!["assignment", "quiz", "discussion_topic", "wiki_page"].includes(t)) return;
     const name = String(p.plannable.title || p.plannable.name || ""); const due = dt(p.plannable.due_at) || dt(p.plannable.todo_date) || dt(p.plannable_date);
     const doneP = !!((p.submissions && (p.submissions.submitted || p.submissions.excused)) || (p.planner_override && p.planner_override.marked_complete));
-    const named = c.items.filter(x => key(x.name) === key(name));    // the same item, by id; or by name (and its date, when two share the name)
+    const named = c.items.filter(x => key(x.name) === key(name));
     const have = c.items.find(x => x.id === String(p.plannable_id || (p.plannable && p.plannable.assignment_id) || "")) || (named.length > 1 ? named.find(x => x.due && due && x.due.slice(0, 10) === due.slice(0, 10)) : named[0]);
-    if (have) { if (doneP) have.done = true; if (!have.due && due) have.due = due; return; }   // the planner may know the date of one with no due date
+    if (have) { if (doneP) have.done = true; if (!have.due && due) have.due = due; return; }
     if (!due) return;
     c.items.push({ kind: t === "quiz" ? "quiz" : t === "discussion_topic" ? "discussion" : "other", id: String(p.plannable_id), name, due, start: null, end: null, text: "", url: String(p.html_url || ""), gid: "", outOf: null, done: doneP, files: [], rx: t === "quiz" ? { k: "quiz", st: ["online_quiz"] } : undefined });
   });
-  // The Inbox (only when asked, as the website's bookmark does): the latest conversations with their messages, read without marking any as read
   const mail = [];
   if (q.mail) {
     const convs = await soft("/api/v1/conversations?scope=inbox&per_page=20", true);
@@ -626,10 +570,11 @@ async function cvHarvest(o) {
     all: all.map(c => ({ ou: String(c.id), code: String(c.course_code || ""), name: String(c.name || "") })), courses, errors: errors.slice(0, 30), ms: Date.now() - T0, mail };
 }
 
-// ---------- Blackboard Learn: read everything (runs inside a hidden Blackboard page, so your sign-in applies). Self-contained. ----------
-// Blackboard's own pages read these same REST routes with your sign-in. Each route has a public and an older path; the first that works is used.
+// Blackboard Learn
 async function bbHarvest(o) {
   const q = o || {}, now = Date.now(), T0 = now;
+  // Internal endpoints (/learn/api/v1): fallbacks and rubrics, remote switch bb_internal
+  const INTERNAL = q.internal !== false;
   const errors = [], enc = encodeURIComponent;
   const req = async p => {
     const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 25000);
@@ -653,16 +598,15 @@ async function bbHarvest(o) {
 
   let me = null;
   let lastErr = null;
-  for (const p of ["/learn/api/public/v1/users/me", "/learn/api/v1/users/me"]) { try { me = await req(p); if (me && me.id) break; } catch (e) { lastErr = e; } }
+  for (const p of ["/learn/api/public/v1/users/me", ...(INTERNAL ? ["/learn/api/v1/users/me"] : [])]) { try { me = await req(p); if (me && me.id) break; } catch (e) { lastErr = e; } }
   if (!me || !me.id) return !lastErr || lastErr.status === 401 || lastErr.status === 403 ? { needLogin: true } : { error: "me " + (lastErr.status || lastErr.message) };
   const uid = me.id, name = me.name ? [me.name.given, me.name.family].filter(Boolean).join(" ") : [me.givenName, me.familyName].filter(Boolean).join(" ");
-  const mem = await pages([`/learn/api/public/v1/users/${uid}/courses?expand=course&limit=100`, `/learn/api/v1/users/${uid}/memberships?expand=course&limit=100`], false, 5);
+  const mem = await pages([`/learn/api/public/v1/users/${uid}/courses?expand=course&limit=100`, ...(INTERNAL ? [`/learn/api/v1/users/${uid}/memberships?expand=course&limit=100`] : [])], false, 5);
   const all = mem.filter(m => m && m.course && !m.course.organization && (!m.availability || m.availability.available !== "No") && (!m.course.availability || m.course.availability.available !== "No"))
     .map(m => ({ ou: String(m.course.id), code: String(m.course.courseId || ""), name: String(m.course.name || m.course.displayName || ""), last: dt(m.lastAccessed), term: m.course.termId || "", url: String(m.course.externalAccessUrl || ""), desc: m.course.description || "" }));
   const only = Array.isArray(q.only) && q.only.length ? new Set(q.only.map(String)) : null;
   const skip = new Set((q.skip || []).map(String));
 
-  // The calendar knows what's current: due dates (gradebook columns) and course events. It allows about 16 weeks per request.
   const cal = [];
   const span = 16 * 7 * 864e5;
   for (let s = now - (q.pastDays || 60) * 864e5, k = 0; s < now + (q.aheadDays || 240) * 864e5 && k < 4; s += span, k++) {
@@ -677,25 +621,19 @@ async function bbHarvest(o) {
     const id = c.ou;
     const desc = c.desc; delete c.desc;
     const [cols, mine, news, people, contents, rubrics, rubAssoc] = await Promise.all([
-      pages([`/learn/api/public/v2/courses/${id}/gradebook/columns?limit=200`, `/learn/api/public/v1/courses/${id}/gradebook/columns?limit=200`, `/learn/api/v1/courses/${id}/gradebook/columns?limit=200`], true, 3),
+      pages([`/learn/api/public/v2/courses/${id}/gradebook/columns?limit=200`, `/learn/api/public/v1/courses/${id}/gradebook/columns?limit=200`, ...(INTERNAL ? [`/learn/api/v1/courses/${id}/gradebook/columns?limit=200`] : [])], true, 3),
       pages([`/learn/api/public/v2/courses/${id}/gradebook/users/${uid}`, `/learn/api/public/v1/courses/${id}/gradebook/users/${uid}`], true, 3),
-      q.news === false ? [] : pages([`/learn/api/public/v1/courses/${id}/announcements?limit=50`, `/learn/api/v1/courses/${id}/announcements?limit=50`], true, 2),
-      pages([`/learn/api/public/v1/courses/${id}/users?expand=user&limit=200`, `/learn/api/v1/courses/${id}/users?expand=user&limit=200`], true, 2),   // who teaches it
-      pages([`/learn/api/public/v1/courses/${id}/contents?limit=200`], true, 2),                                                                   // to find the syllabus
-      // Rubrics: Blackboard has no public rubric route for students, so the routes its own pages use are tried; when they're refused, there's simply no rubric
-      pages([`/learn/api/v1/courses/${id}/rubrics?limit=100`], true, 2),
-      pages([`/learn/api/v1/courses/${id}/rubricAssociations?limit=200`, `/learn/api/v1/courses/${id}/rubrics/associations?limit=200`], true, 2)
+      q.news === false ? [] : pages([`/learn/api/public/v1/courses/${id}/announcements?limit=50`, ...(INTERNAL ? [`/learn/api/v1/courses/${id}/announcements?limit=50`] : [])], true, 2),
+      pages([`/learn/api/public/v1/courses/${id}/users?expand=user&limit=200`, ...(INTERNAL ? [`/learn/api/v1/courses/${id}/users?expand=user&limit=200`] : [])], true, 2),
+      pages([`/learn/api/public/v1/courses/${id}/contents?limit=200`], true, 2),
+      INTERNAL ? pages([`/learn/api/v1/courses/${id}/rubrics?limit=100`], true, 2) : [],
+      INTERNAL ? pages([`/learn/api/v1/courses/${id}/rubricAssociations?limit=200`, `/learn/api/v1/courses/${id}/rubrics/associations?limit=200`], true, 2) : []
     ]);
     const g = {}; mine.forEach(x => { g[String(x.columnId)] = x; });
-    // Blackboard's REST data has no category weights for students, so each counted column is worth its share of all the points (Blackboard's default total).
     const counts = col => !col.externalGrade && !(col.grading && col.grading.type === "Calculated") && col.includeInCalculations !== false && col.score && Number(col.score.possible) > 0;
     const tpts = cols.reduce((s, col) => s + (counts(col) ? Number(col.score.possible) : 0), 0);
     const wOf = col => counts(col) && tpts > 0 ? Math.round(Number(col.score.possible) / tpts * 10000) / 100 : null;
-    // Columns you have no grade entry for yet: your own attempts say whether it's handed in (submitted, waiting to be graded)
-    // Your own attempts: whether it's handed in (submitted, waiting to be graded), when, and the feedback on it
     const tried = {}, atWhen = {}, atFb = {};
-    // (work with no mark yet, and anything due in the last three weeks for when it was handed in; capped so a sync stays quick)
-    // (and work handed in online with no due date of its own, whose date may only be on the calendar)
     const open = cols.filter(col => { const d = Date.parse((col.grading && col.grading.due) || ""), my = g[String(col.id)]; if (col.externalGrade || (col.grading && col.grading.type === "Calculated")) return false;
       if (isNaN(d)) return !!(col.grading && col.grading.type === "Attempts") && !(my && my.score != null);
       return d > now - (q.pastDays || 60) * 864e5 && d < now + (q.aheadDays || 240) * 864e5 && (!(my && my.score != null) || d > now - 21 * 864e5); }).slice(0, 40);
@@ -709,7 +647,6 @@ async function bbHarvest(o) {
       const fbA = ok.map(a => txt(a.feedback, 3000)).filter(Boolean).pop();
       if (fbA) atFb[String(col.id)] = fbA;
     }));
-    // Rubrics (when Blackboard lets a student read them): rows are criteria, columns are levels
     const rubById = {}; rubrics.forEach(r => { if (r && r.id) rubById[String(r.id)] = r; });
     const rubCol = {}; rubAssoc.forEach(a => { const col = a && (a.gradebookColumnId || a.columnId || (a.associatedEntity && a.associatedEntity.id)); const r = a && (a.rubric || rubById[String(a.rubricId || "")]); if (col && r) rubCol[String(col)] = r; });
     const rubOf = r => {
@@ -721,7 +658,6 @@ async function bbHarvest(o) {
         return { id: String(x.id || ""), t: txt(x.header || x.title, 200), d: "", pts: Math.max(0, ...lv.map(v => v.pts)), lv };
       }) };
     };
-    // Instructors and TAs, and the syllabus (the course description, then a content item called Syllabus)
     c.staff = people.filter(m => m && /^(Instructor|TeachingAssistant)$/i.test(String(m.courseRoleId || "")) && m.user).slice(0, 8).map(m => ({
       name: (m.user.name ? [m.user.name.given, m.user.name.family].filter(Boolean).join(" ") : String(m.user.userName || "")).slice(0, 120),
       email: String((m.user.contact && m.user.contact.email) || "").slice(0, 160), role: /assistant/i.test(String(m.courseRoleId)) ? "TA" : "Instructor" })).filter(x => x.name);
@@ -755,8 +691,7 @@ async function bbHarvest(o) {
       const fbT = txt(my && my.feedback, 3000) || atFb[k] || "";
       const fb = fbT || score != null ? { c: fbT ? [{ by: "Instructor", mine: false, at: dt(my && (my.modified || my.lastModified)), t: fbT }] : [], ra: [], sc: score, of: possible, g: shown.slice(0, 20), at: null } : null;
       const rub = rubOf(rubCol[k]);
-      // with no due date too (up to 60): the calendar may carry its date, and its copy should know whether it's handed in
-      if (due || undatedN++ < 60) c.items.push({ kind: /\b(test|quiz|exam|midterm)\b/i.test(col.name || "") ? "quiz" : "assignment", id: String(col.id), name: String(col.name || ""), due, start: null, end: null, text: txt(col.description), url: courseUrl, gid: String(col.id), outOf: possible, done, files: [], rx: col.grading && col.grading.type ? { gt: String(col.grading.type).slice(0, 16) } : undefined, st, fb, rub });   // Attempts = marked from an online attempt, Manual = entered by the instructor
+      if (due || undatedN++ < 60) c.items.push({ kind: /\b(test|quiz|exam|midterm)\b/i.test(col.name || "") ? "quiz" : "assignment", id: String(col.id), name: String(col.name || ""), due, start: null, end: null, text: txt(col.description), url: courseUrl, gid: String(col.id), outOf: possible, done, files: [], rx: col.grading && col.grading.type ? { gt: String(col.grading.type).slice(0, 16) } : undefined, st, fb, rub });
       if (possible && (score != null || wOf(col) != null)) c.grades.push({ gid: String(col.id), name: String(col.name || ""), num: score, den: possible, weight: wOf(col), shown, at: dt(my && (my.modified || my.lastModified)), fb });
     });
     c.news = news.slice(0, 25).map(n => ({ id: String(n.id), title: String(n.title || ""), text: txt(n.body, 3000), date: dt(n.created) || dt(n.availability && n.availability.duration && n.availability.duration.start), url: `${location.origin}/ultra/courses/${id}/announcements` }));
@@ -771,7 +706,7 @@ async function bbHarvest(o) {
     if (type === "GradebookColumn") {
       const name = String(x.title || ""), due = dt(x.end) || dt(x.start);
       const have = c.items.find(y => y.id === String(x.itemSourceId || "")) || c.items.find(y => key(y.name) === key(name));
-      if (have) { if (!have.due && due) have.due = due; return; }    // a column with no due date of its own takes the calendar's
+      if (have) { if (!have.due && due) have.due = due; return; }
       if (!due) return;
       c.items.push({ kind: /\b(test|quiz|exam|midterm)\b/i.test(name) ? "quiz" : "assignment", id: String(x.itemSourceId || x.id), name, due, start: null, end: null, text: txt(x.description, 1500), url: `${location.origin}/ultra/courses/${c.ou}/outline`, gid: String(x.itemSourceId || ""), outOf: null, done: null, files: [] });
     } else if (type === "Course" || type === "OfficeHours") {
@@ -781,7 +716,7 @@ async function bbHarvest(o) {
   return { ok: true, origin: location.origin, me: { name, id: String(uid) }, all: all.map(c => ({ ou: c.ou, code: c.code, name: c.name })), courses, errors: errors.slice(0, 30), ms: Date.now() - T0 };
 }
 
-// ---------- The three platforms ----------
+// The three platforms
 const CV_FILE = id => `(async () => {
   const r = await fetch('/api/v1/files/${id}', {credentials: 'include', headers: {Accept: 'application/json'}});
   if (r.status === 401 || r.status === 403) return {needLogin: true};
@@ -811,13 +746,10 @@ const P = {
   blackboard: { part: "persist:blackboard", home: "/ultra/stream", ctx: "/robots.txt", harvest: bbHarvest, feed: /(\/calendarfeed\/|\.ics$)/i }
 };
 const prov = id => (Object.prototype.hasOwnProperty.call(P, id) ? P[id] : null);
-// The exact script run in the school's page for a sync: htmlText and its constants, then the platform's harvest, called with the checked options.
+// The exact script run in the school's page for a sync
 const harvestScript = (Pv, safe) => `(() => {\n${HARVEST_PRELUDE}\nreturn (${Pv.harvest.toString()})(${JSON.stringify(safe)});\n})()`;
 
-// ---------- What comes back from the school's page ----------
-// The page could be anything (a hijacked school site, a browser extension in that session), so its answer is copied into plain data
-// with known limits before it reaches Studyboard: short plain keys, strings and lists cut to size, finite numbers only, a few levels deep,
-// and address fields kept only when they lead to an https page.
+// What comes back from the school's page
 const KEY_OK = /^[A-Za-z][A-Za-z0-9]{0,23}$/;
 const URL_KEYS = new Set(["url", "home"]);
 function plain(v, origin, depth, key) {
@@ -847,7 +779,7 @@ function cleanHarvest(r, origin) {
   for (const k of ["lp", "le"]) if (typeof r[k] === "string" && /^\d{1,3}\.\d{1,3}$/.test(r[k])) out[k] = r[k];
   return out;
 }
-// A file as base64: real base64 only, and never more than the 50 MB the readers allow.
+// A file as base64
 const MAX_FILE = 52428800;
 const B64 = /^[A-Za-z0-9+/]*={0,2}$/;
 function cleanFile(r) {
@@ -857,7 +789,7 @@ function cleanFile(r) {
   return { ok: true, name: String(r.name || "").replace(/[\u0000-\u001F\u007F/\\]/g, "_").slice(0, 255), type, b64: r.b64 };
 }
 
-// ---------- Sign in ----------
+// Sign in
 function connect(id, host, parent) {
   const Pv = prov(id), origin = originOf(host);
   if (!Pv) return Promise.resolve({ ok: false, error: "bad-provider" });
@@ -866,7 +798,6 @@ function connect(id, host, parent) {
     lockPartition(Pv.part);
     const w = new BrowserWindow({ width: 1000, height: 780, parent: parent || undefined, title: "Studyboard \u2013 sign in: " + new URL(origin).host, autoHideMenuBar: true, show: true, webPreferences: prefs(Pv) });
     w.webContents.setUserAgent(chromeUA());
-    // Sign-in pages sometimes open a pop-up (Microsoft, Google, Duo). Those stay in the same private cookie store.
     guardWindow(w, Pv, null);
     showHost(w);
     let done = false, timer = null;
@@ -886,14 +817,14 @@ function connect(id, host, parent) {
   });
 }
 
-// A hidden page on the platform's own site to run things in, so your sign-in applies.
+// A hidden page on the platform's own site to run things in, so your sign-in applies
 async function withPage(Pv, origin, fn) {
   lockPartition(Pv.part);
   const w = new BrowserWindow({ show: false, width: 800, height: 600, webPreferences: prefs(Pv) });
   w.webContents.setUserAgent(chromeUA());
-  guardWindow(w, Pv, origin);                                   // a hidden page may follow redirects on the school's own site only
+  guardWindow(w, Pv, origin);
   try {
-    try { await w.loadURL(origin + Pv.ctx); } catch (e) { /* a redirect or a non-HTML page can reject; checked below */ }
+    try { await w.loadURL(origin + Pv.ctx); } catch (e) { }
     let here = "";
     try { here = new URL(w.webContents.getURL()).origin; } catch (e) {}
     if (here !== origin) return { needLogin: true };
@@ -909,7 +840,7 @@ async function sync(id, host, opts) {
   const o = opts && typeof opts === "object" ? opts : {};
   const idOk = x => /^[\w.-]{1,40}$/.test(x);
   const safe = { pastDays: Math.min(365, Math.max(1, Number(o.pastDays) || 60)), aheadDays: Math.min(400, Math.max(7, Number(o.aheadDays) || 240)),
-    grades: o.grades !== false, news: o.news !== false,
+    grades: o.grades !== false, news: o.news !== false, internal: o.internal !== false,
     only: Array.isArray(o.only) ? o.only.map(String).filter(idOk).slice(0, 40) : null,
     skip: Array.isArray(o.skip) ? o.skip.map(String).filter(idOk).slice(0, 200) : [] };
   busy[id] = (async () => {
@@ -921,7 +852,7 @@ async function sync(id, host, opts) {
   return busy[id];
 }
 
-// Downloads a file with your sign-in (Canvas files are handed to a storage server, so this follows the download like a browser).
+// Downloads a file with your sign-in
 function downloadVia(Pv, url, name) {
   lockPartition(Pv.part);
   const ses = session.fromPartition(Pv.part);
@@ -948,7 +879,7 @@ function downloadVia(Pv, url, name) {
   });
 }
 
-// One file attached to an assignment, as bytes (for "Save to Studyboard").
+// One file attached to an assignment, as bytes (for "Save to Studyboard")
 async function file(id, host, spec) {
   const Pv = prov(id), origin = originOf(host), s = spec && typeof spec === "object" ? spec : {};
   const num = x => /^\d{1,14}$/.test(String(x));
@@ -964,7 +895,7 @@ async function file(id, host, spec) {
       const bad = meta && (meta.needLogin || meta.error) ? failOf(meta) : null; if (!meta || bad) return bad || { error: "none" };
       if (typeof meta.url !== "string" || meta.url.length > 4000) return { error: "bad-url" };
       let u; try { u = new URL(meta.url, origin); } catch (e) { return { error: "bad-url" }; }
-      if (u.origin !== origin) return { error: "bad-url" };                       // the download always starts on your school's site
+      if (u.origin !== origin) return { error: "bad-url" };
       const r = await downloadVia(Pv, u.href, typeof meta.name === "string" ? meta.name.slice(0, 255) : "");
       if (r.ok && !r.type && typeof meta.type === "string") r.type = meta.type.slice(0, 160);
       return cleanFile(r);
@@ -973,8 +904,7 @@ async function file(id, host, spec) {
   } catch (e) { return { error: String(e && e.message || e).slice(0, 200) }; }
 }
 
-// ---------- Canvas messages (Inbox): list, read and reply, with your sign-in. Brightspace and Blackboard have no mail API for apps. ----------
-// Runs inside a hidden Canvas page. Self-contained.
+// Canvas messages (Inbox)
 async function cvMail(s) {
   const hdr = { Accept: "application/json" };
   const parse = async r => { const t = await r.text(); try { return JSON.parse(t.replace(/^while\(1\);/, "")); } catch (e) { return null; } };
@@ -1006,8 +936,7 @@ async function cvMail(s) {
   }
   return { error: "bad-request" };
 }
-// Sending is the only write to a school site, so the person confirms it here, in a native dialog the page can't draw or click: it names the
-// conversation and its people (looked up on Canvas, not taken from the page) and shows the start of the message. Cancel is the default.
+// Sending is the only write to a school site, so the person confirms it here
 async function confirmSend(parent, origin, convo, body) {
   const c = convo && typeof convo === "object" ? convo : {};
   const names = (Array.isArray(c.names) ? c.names : []).map(n => String(n || "").slice(0, 60)).filter(Boolean).slice(0, 8).join(", ");
@@ -1041,7 +970,7 @@ async function mail(id, host, spec, parent) {
   catch (e) { return { error: String(e && e.message || e).slice(0, 200) }; }
 }
 
-// The calendar subscription link (it has its own private key in it, so no sign-in is needed).
+// The calendar subscription link (it has its own private key in it, so no sign-in is needed)
 function feedOk(id, url) {
   const Pv = prov(id); if (!Pv) return null;
   try {
@@ -1050,12 +979,10 @@ function feedOk(id, url) {
     return okProto && Pv.feed.test(u.pathname) && !!originOf(u.origin) ? u.href : null;
   } catch (e) { return null; }
 }
-// Redirects are followed by hand (at most 3), and every address on the way is checked again: https, a public name (originOf), and a
-// name that resolves only to public internet addresses, so a feed link can't be used to reach a printer or router on the person's network.
-// (Chromium resolves the name again when it connects; this check is the guard against links that point inside, not a DNS-rebinding defence.)
+// Redirects are followed by hand (at most 3), and every address on the way is checked again
 const FEED_MAX = 8e6;
 async function publicHost(u) {
-  if (TEST_MODE && u.hostname === "127.0.0.1") return true;                // automated tests only, never in an installed app
+  if (TEST_MODE && u.hostname === "127.0.0.1") return true;
   if (!originOf(u.origin)) return false;
   try { const list = await dns.promises.lookup(u.hostname, { all: true, verbatim: true }); return list.length > 0 && list.every(a => !privateIp(a.address)); } catch (e) { return false; }
 }
@@ -1089,7 +1016,7 @@ async function feed(id, url) {
         const r = await feedHop(u.href);
         if (r.redirect !== undefined) {
           let next; try { next = new URL(r.redirect, u.href); } catch (e) { return { error: "bad-url" }; }
-          if (!httpsOnly(next.href)) return { error: "bad-url" };                  // never follow a redirect off https
+          if (!httpsOnly(next.href)) return { error: "bad-url" };
           href = next.href; continue;
         }
         if (r.tooLarge) return { error: "too-large" };
@@ -1103,8 +1030,7 @@ async function feed(id, url) {
   } catch (e) { return { error: String(e && e.message || e).slice(0, 200) }; }
 }
 
-// Is this sign-in still good? A light check on the school's own site (who am I), which also counts as activity there, so an idle
-// sign-in doesn't time out while Studyboard is open. At most one check per platform every 5 minutes.
+// Is this sign-in still good
 const lastPing = {};
 async function ping(id, host) {
   const Pv = prov(id), origin = originOf(host);
@@ -1127,7 +1053,6 @@ async function signOut(id) {
   try { await session.fromPartition(Pv.part).clearStorageData(); await session.fromPartition(Pv.part).clearCache(); return true; } catch (e) { return false; }
 }
 
-// trusted(e): main.js passes its check that the message comes from the top frame of Studyboard's own window (event.senderFrame.url).
 function register(getMain, trusted) {
   const fromMain = e => { const w = getMain(); return !!(w && !w.isDestroyed() && e.sender === w.webContents) && (typeof trusted !== "function" || trusted(e)); };
   ipcMain.handle("lms:connect", (e, id, host) => fromMain(e) ? connect(String(id), host, getMain()) : null);
@@ -1137,9 +1062,8 @@ function register(getMain, trusted) {
   ipcMain.handle("lms:feed", (e, id, url) => fromMain(e) ? feed(String(id), url) : null);
   ipcMain.handle("lms:signout", (e, id) => fromMain(e) ? signOut(String(id)) : null);
   ipcMain.handle("lms:ping", (e, id, host) => fromMain(e) ? ping(String(id), host) : null);
-  // Kept sign-ins are written to disk before the app closes
   app.on("before-quit", () => { Object.values(P).forEach(Pv => { try { session.fromPartition(Pv.part).cookies.flushStore(); } catch (e) {} }); });
 }
 
-// harvestScript, cleanHarvest, cleanFile and privateIp are exported for tests/lms-harvest.test.js only (nothing in the app reads them from here).
-module.exports = { WHO, BS_FILE, CV_FILE, cvMail, HARVEST_PRELUDE, register, bsHarvest, cvHarvest, bbHarvest, originOf, feedOk, connect, sync, file, feed, signOut, ping, keepCookies, mail, harvestScript, cleanHarvest, cleanFile, privateIp, P };
+// harvestScript, cleanHarvest
+module.exports = { WHO, BS_FILE, CV_FILE, cvMail, HARVEST_PRELUDE, register, bsHarvest, cvHarvest, bbHarvest, originOf, feedOk, connect, sync, file, feed, signOut, ping, mail, harvestScript, cleanHarvest, cleanFile, privateIp, P };

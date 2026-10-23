@@ -1,4 +1,4 @@
-/* Theme Collection, Around the World: Egypt */
+/* Theme Collection, Around the World */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2);
@@ -11,7 +11,7 @@
   const smile = (x, y, w = 2.4, sw = 1.9) => `<path d="M${x - w} ${y}q${w} ${w * .8} ${w * 2} 0" fill="none" stroke="${O}" stroke-width="${sw}" stroke-linecap="round"/>`;
   const tube = (d, c, w, ow = w + 3.6, cap = "round") => `<path d="${d}" fill="none" stroke="${O}" stroke-width="${ow}" stroke-linecap="${cap}" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="${cap}" stroke-linejoin="round"/>`;
   const tapeEdge = "M3 1.5H83L80 5.5L83 9.5L80 13.5L83 17.5L80 21.5L82 24.5H3L6 20.5L3 16.5L6 12.5L3 8.5L6 4.5z";
-  // a papyrus umbel: rays fanning from the top of a stem at (x, y)
+  // a papyrus umbel
   const umbel = (x, y, r, c) => Array.from({length: 9}, (_, i) => { const a = -Math.PI * (0.05 + 0.9 * i / 8), cx = Math.cos(a), sy = Math.sin(a); return `<path d="M${x} ${y}Q${f1(x + cx * r * .55)} ${f1(y + sy * r * .6)} ${f1(x + cx * r)} ${f1(y + sy * r + r * .3 * cx * cx)}" fill="none" stroke="${c}" stroke-width="1.2" stroke-linecap="round"/>`; }).join("");
 
   TP_DATA.push({

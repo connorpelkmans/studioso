@@ -1,4 +1,4 @@
-/* Study Companions, Around the World: japan */
+/* Study Companions, Around the World */
 (() => {
   const {O, OW, LG, RG} = COMP_KIT;
   const f1 = v => Math.round(v * 10) / 10;

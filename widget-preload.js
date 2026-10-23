@@ -1,5 +1,4 @@
-// The Today widget can only do these things: receive what the Studyboard page sends it, and ask for a task to be
-// checked off or opened, the main window to open, the widget to stay on top, or the widget to close.
+// The Today widget can only do these things
 const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("studyboardWidget", {
   platform: process.platform,

@@ -1,22 +1,4 @@
--- Studyboard: two-way calendar sync with Google Calendar and Outlook (Studyboard Pro)
--- Run this once in Supabase: SQL Editor > New query > paste everything > Run. Run it after supabase-lean.sql (and supabase-plans.sql if
--- you use plans). It is safe to run again. Then deploy the calendar-sync Edge Function (Verify JWT OFF) and set its secrets; the steps are
--- in SETUP-GUIDE.md, "Two-Way Calendar Sync".
---
--- How it works:
---   The app asks the calendar-sync function to connect. The person allows access at Google or Microsoft, which sends them back to the
---   function; it keeps the account's refresh token ENCRYPTED (AES-GCM, with a key that lives only in the function's secrets, bound to the
---   account and provider) and makes a calendar called "Studyboard" in that account. Studyboard only ever writes to that calendar.
---   When the app syncs, it sends what belongs in the calendar (deadlines, exams, classes, events, study sessions); the function adds,
---   changes and removes events there to match, and tells the app what the person moved or deleted in that calendar, plus (if they want)
---   the busy times from their own calendar so Today's Plan plans around them.
---
--- Security model:
---   * Both tables have Row Level Security on and NO grants: only the Edge Function (service role) can read or write them, through the
---     functions below. The app never sees a token, encrypted or not.
---   * calsync_map holds only ids and when each event was: no titles, no text.
---   * Disconnecting deletes the account row and its map (and the function revokes the token at Google). Deleting the Studyboard account
---     deletes both (studyboard_delete_user_data in supabase-lean.sql).
+-- Studyboard: two-way calendar sync with Google Calendar and Outlook
 
 create table if not exists public.calsync_accounts (
   user_id     uuid not null references auth.users(id) on delete cascade,
@@ -59,7 +41,7 @@ begin
   return coalesce(pro, false);
 end $$;
 
--- One sync at a time per account and provider (two devices syncing together would both add the same events). A lease of p_secs seconds.
+-- One sync at a time per account and provider
 create or replace function public.calsync_lock(p_uid uuid, p_provider text, p_secs int default 120) returns boolean
 language plpgsql volatile security definer set search_path = pg_catalog, public as $$
 declare n integer;
@@ -80,14 +62,14 @@ create or replace function public.calsync_account(p_uid uuid, p_provider text) r
 language sql stable security definer set search_path = pg_catalog, public as $$
   select * from public.calsync_accounts where user_id = p_uid and provider = p_provider;
 $$;
--- What the app may see: no token, no lock
+-- What the app may see
 create or replace function public.calsync_status(p_uid uuid) returns jsonb
 language sql stable security definer set search_path = pg_catalog, public as $$
   select coalesce(jsonb_agg(jsonb_build_object('provider', a.provider, 'account', a.account, 'status', a.status, 'last_sync', a.last_sync, 'connected_at', a.created_at,
     'sent', (select count(*) from public.calsync_map m where m.user_id = a.user_id and m.provider = a.provider and not m.gone)) order by a.created_at), '[]'::jsonb)
   from public.calsync_accounts a where a.user_id = p_uid;
 $$;
--- Connect (or connect again): a new token replaces the old one; the map is kept when it is the same calendar
+-- Connect (or connect again)
 create or replace function public.calsync_connect(p_uid uuid, p_provider text, p_account text, p_refresh_enc text, p_cal_id text) returns void
 language plpgsql volatile security definer set search_path = pg_catalog, public as $$
 declare old_cal text;
@@ -112,7 +94,7 @@ language sql volatile security definer set search_path = pg_catalog, public as $
   delete from public.calsync_accounts where user_id = p_uid and provider = p_provider;
 $$;
 
--- The map: read it all, then save the changes of one sync in one call. p_rows: [{k, ext_id, hash, ext_start, ext_end, gone}], p_drop: keys.
+-- The map: read it all, then save the changes of one sync in one call
 create or replace function public.calsync_map_get(p_uid uuid, p_provider text) returns table (sb_key text, ext_id text, hash text, ext_start text, ext_end text, gone boolean)
 language sql stable security definer set search_path = pg_catalog, public as $$
   select m.sb_key, m.ext_id, m.hash, m.ext_start, m.ext_end, m.gone from public.calsync_map m where m.user_id = p_uid and m.provider = p_provider;
@@ -135,7 +117,7 @@ begin
   return n;
 end $$;
 
--- ---------- Who may call what: the service role only ----------
+-- Who may call what
 revoke all on function public.calsync_allowed(uuid), public.calsync_lock(uuid, text, int), public.calsync_unlock(uuid, text, boolean), public.calsync_account(uuid, text),
   public.calsync_status(uuid), public.calsync_connect(uuid, text, text, text, text), public.calsync_update(uuid, text, text, text, text), public.calsync_disconnect(uuid, text),
   public.calsync_map_get(uuid, text), public.calsync_map_save(uuid, text, jsonb, text[]) from public, anon, authenticated;

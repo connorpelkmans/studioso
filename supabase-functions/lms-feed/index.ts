@@ -1,22 +1,4 @@
-// Studyboard 1.11: lms-feed (Supabase Edge Function)
-// Browsers aren't allowed to read another site's calendar link directly, so the website and phone app ask this
-// function to fetch your Brightspace, Canvas or Blackboard calendar link for them. It only works for you when you're
-// signed in to Studyboard (keep "Verify JWT" ON when you deploy; the function also checks your sign-in itself, so it stays
-// safe if that switch is ever turned off), only fetches those platforms' calendar feed links (https, with the platform's
-// feed path), and stores nothing.
-//
-// Call: POST {url, lms, hash?, etag?} with your Studyboard sign-in (lms = "brightspace", "canvas" or "blackboard").
-// Returns {ok, ics, hash, etag}, or {ok, unchanged: true} when the calendar is the same as last time (the app sends the
-// hash it got last time, so nothing big is sent back), or {error}. GET ?ping=1 checks it's deployed.
-// Errors are short codes only (bad-url, auth, rate-limited, refused, http, too-large, not-calendar, timeout, fetch): no
-// upstream status or error text is passed back. "refused" (the school site said 401, 403, 404 or 410) always carries status 403.
-// Lean: each account can ask at most 60 times an hour (needs lean.sql). If the limit can't be checked, the request is refused.
-//
-// Where it may go: every address (the link and each redirect, at most 3, followed by hand) must be an https host name on
-// port 443 with a calendar feed path (the link: its platform's; a redirect: any supported platform's, so a feed may move to a
-// CDN's .ics, but a redirect can't turn this into a fetcher for any other page), whose DNS answers (A and AAAA) are all public. Private, loopback, link-local, CGNAT (100.64/10), multicast,
-// documentation, benchmark and reserved IPv4 ranges, and IPv6 loopback, ULA (fc00::/7), link-local, mapped, NAT64, 6to4,
-// Teredo and documentation ranges are refused. The body is read with an 8 MB cap while it arrives.
+// Studyboard 1.11
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -41,7 +23,7 @@ type Deps = {
   user: (req: Request) => Promise<string | null>;
 };
 
-// Where a link or a redirect may lead, by its text: a real https host name (never an address, localhost or an internal name) on the normal port.
+// Where a link or a redirect may lead, by its text
 export function hostOk(raw: unknown): string | null {
   try {
     const u = new URL(String(raw || ""));
@@ -62,25 +44,25 @@ export function feedOk(raw: unknown, lms?: unknown): string | null {
   return pats.some(rx => rx.test(u.pathname)) ? href : null;
 }
 
-// ---------- Public addresses only ----------
+// Public addresses only
 function v4Public(ip: string): boolean {
   const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ip.trim());
   if (!m) return false;
   const [a, b, c] = [+m[1], +m[2], +m[3]];
   if ([a, b, c, +m[4]].some(x => x > 255)) return false;
-  if (a === 0 || a === 10 || a === 127 || a >= 224) return false;            // this network, private, loopback, multicast, reserved, broadcast
-  if (a === 100 && b >= 64 && b <= 127) return false;                         // CGNAT 100.64/10
-  if (a === 169 && b === 254) return false;                                   // link-local (cloud metadata lives here)
-  if (a === 172 && b >= 16 && b <= 31) return false;                          // private
-  if (a === 192 && b === 168) return false;                                   // private
-  if (a === 192 && b === 0 && (c === 0 || c === 2)) return false;             // IETF protocol assignments, TEST-NET-1
-  if (a === 192 && b === 88 && c === 99) return false;                        // 6to4 relay
-  if (a === 198 && (b === 18 || b === 19)) return false;                      // benchmarking
-  if (a === 198 && b === 51 && c === 100) return false;                       // TEST-NET-2
-  if (a === 203 && b === 0 && c === 113) return false;                        // TEST-NET-3
+  if (a === 0 || a === 10 || a === 127 || a >= 224) return false;
+  if (a === 100 && b >= 64 && b <= 127) return false;
+  if (a === 169 && b === 254) return false;
+  if (a === 172 && b >= 16 && b <= 31) return false;
+  if (a === 192 && b === 168) return false;
+  if (a === 192 && b === 0 && (c === 0 || c === 2)) return false;
+  if (a === 192 && b === 88 && c === 99) return false;
+  if (a === 198 && (b === 18 || b === 19)) return false;
+  if (a === 198 && b === 51 && c === 100) return false;
+  if (a === 203 && b === 0 && c === 113) return false;
   return true;
 }
-// Expands an IPv6 address to 8 numbers (null when it isn't one). A trailing dotted IPv4 part is allowed.
+// Expands an IPv6 address to 8 numbers (null when it isn't one)
 function v6Parts(ip: string): number[] | null {
   let s = ip.trim().toLowerCase().replace(/^\[|\]$/g, "").replace(/%.*$/, "");
   const tail = /(\d+\.\d+\.\d+\.\d+)$/.exec(s);
@@ -102,38 +84,38 @@ function v6Parts(ip: string): number[] | null {
 function v6Public(ip: string): boolean {
   const p = v6Parts(ip);
   if (!p) return false;
-  if ((p[0] & 0xe000) !== 0x2000) return false;                              // only global unicast 2000::/3 (no ::, ::1, mapped, NAT64, fc00::/7, fe80::/10, ff00::/8)
-  if (p[0] === 0x2001 && p[1] === 0x0db8) return false;                      // documentation
-  if (p[0] === 0x2001 && p[1] < 0x0200) return false;                        // 2001::/23 IETF special purpose (Teredo 2001::/32 included)
-  if (p[0] === 0x2002) return false;                                         // 6to4 (can wrap any IPv4)
-  if (p[0] === 0x3fff && p[1] < 0x1000) return false;                        // documentation 3fff::/20
+  if ((p[0] & 0xe000) !== 0x2000) return false;
+  if (p[0] === 0x2001 && p[1] === 0x0db8) return false;
+  if (p[0] === 0x2001 && p[1] < 0x0200) return false;
+  if (p[0] === 0x2002) return false;
+  if (p[0] === 0x3fff && p[1] < 0x1000) return false;
   return true;
 }
 export function ipPublic(ip: string): boolean {
   return ip.includes(":") ? v6Public(ip) : v4Public(ip);
 }
 
-// The host name's DNS answers must exist and all be public. Anything that goes wrong means "no".
+// The host name's DNS answers must exist and all be public
 export async function dnsOk(host: string, resolve: Resolver): Promise<boolean> {
   const got: string[] = [];
   let answered = false;
   for (const t of ["A", "AAAA"] as const) {
-    try { const r = await resolve(host, t); answered = true; got.push(...(r || []).map(String)); } catch (_e) { /* no records of this type */ }
+    try { const r = await resolve(host, t); answered = true; got.push(...(r || []).map(String)); } catch (_e) { }
   }
   return answered && got.length > 0 && got.every(ipPublic);
 }
 
-// Checks the address by text (host and the platform's feed path) and by DNS. Returns the cleaned address, or null.
+// Checks the address by text (host and the platform's feed path) and by DNS
 async function hopOk(raw: string, d: Deps, lms?: unknown): Promise<string | null> {
   const href = feedOk(raw, lms);
   if (!href) return null;
   return (await dnsOk(new URL(href).hostname, d.resolve)) ? href : null;
 }
 
-// Reads the body but stops as soon as it passes max bytes (null = too big).
+// Reads the body but stops as soon as it passes max bytes (null = too big)
 export async function readLimited(r: { headers: Headers; body: ReadableStream<Uint8Array> | null }, max: number): Promise<string | null> {
   const cl = Number(r.headers.get("content-length") || 0);
-  if (cl > max) { try { await r.body?.cancel(); } catch (_e) { /* ignore */ } return null; }
+  if (cl > max) { try { await r.body?.cancel(); } catch (_e) { } return null; }
   if (!r.body) return "";
   const reader = r.body.getReader();
   const chunks: Uint8Array[] = []; let n = 0;
@@ -141,7 +123,7 @@ export async function readLimited(r: { headers: Headers; body: ReadableStream<Ui
     const { done, value } = await reader.read();
     if (done) break;
     n += value.byteLength;
-    if (n > max) { try { await reader.cancel(); } catch (_e) { /* ignore */ } return null; }
+    if (n > max) { try { await reader.cancel(); } catch (_e) { } return null; }
     chunks.push(value);
   }
   const all = new Uint8Array(n); let o = 0;
@@ -158,7 +140,7 @@ async function sha(text: string): Promise<string> {
 const envGet = (k: string): string => { try { return String((globalThis as any).Deno?.env.get(k) || ""); } catch (_e) { return ""; } };
 const anonKey = () => envGet("SUPABASE_ANON_KEY") || envGet("SUPABASE_PUBLISHABLE_KEY");
 
-// Who is asking: the sign-in in the Authorization header, checked with Supabase Auth. null = not signed in.
+// Who is asking
 export async function userFrom(req: Request, fetcher: typeof fetch = fetch): Promise<string | null> {
   try {
     const base = envGet("SUPABASE_URL").replace(/\/+$/, ""), anon = anonKey();
@@ -171,7 +153,7 @@ export async function userFrom(req: Request, fetcher: typeof fetch = fetch): Pro
   } catch (_e) { return null; }
 }
 
-// Counts this request against the signed-in account's hourly limit. If the limit can't be checked, the answer is "no".
+// Counts this request against the signed-in account's hourly limit
 export async function rateOk(req: Request, fetcher: typeof fetch = fetch): Promise<boolean> {
   try {
     const base = envGet("SUPABASE_URL").replace(/\/+$/, ""), anon = anonKey();
@@ -211,14 +193,12 @@ export async function handle(req: Request, deps: Partial<Deps> = {}): Promise<Re
   try {
     const headers: Record<string, string> = { Accept: "text/calendar, */*", "User-Agent": "Studyboard calendar reader" };
     if (lastTag && lastHash) headers["If-None-Match"] = lastTag;
-    // Every hop (the link itself and each redirect) is checked by text and by DNS before it is fetched, and redirects
-    // are followed by hand, so neither the link nor a redirect can send this function to an internal address.
-    let cur = await hopOk(href, d, body.lms);   // redirects below: any platform's feed path (no lms), see the top
+    let cur = await hopOk(href, d, body.lms);
     if (!cur) return json({ error: "bad-url" }, 400);
     let r: Response = await d.fetch(cur, { headers, redirect: "manual", signal: ctl.signal });
     for (let hop = 0; r.status >= 300 && r.status < 400 && r.status !== 304; hop++) {
       const loc = r.headers.get("Location");
-      try { await r.body?.cancel(); } catch (_e) { /* ignore */ }
+      try { await r.body?.cancel(); } catch (_e) { }
       if (!loc || hop >= MAX_HOPS) return json({ error: "fetch" }, 200);
       let next: string | null = null;
       try { next = await hopOk(new URL(loc, cur).href, d); } catch (_e) { next = null; }
@@ -228,7 +208,7 @@ export async function handle(req: Request, deps: Partial<Deps> = {}): Promise<Re
     }
     if (r.status === 304 && lastHash) return json({ ok: true, unchanged: true, hash: lastHash, etag: lastTag });
     if (!r.ok) {
-      try { await r.body?.cancel(); } catch (_e) { /* ignore */ }
+      try { await r.body?.cancel(); } catch (_e) { }
       return [401, 403, 404, 410].includes(r.status) ? json({ error: "refused", status: 403 }, 200) : json({ error: "http" }, 200);
     }
     const text = await readLimited(r, MAX);

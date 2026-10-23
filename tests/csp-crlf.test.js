@@ -1,6 +1,4 @@
-// node tests/csp-crlf.test.js
-// A page saved with Windows line endings (a Windows checkout, as on the Windows build machine) must get the same CSP hashes as the
-// LF page: the browser turns CRLF into LF before hashing, so hashes taken over CRLF text block every multi-line script (a blank app).
+// node tests/csp-crlf.test.js A page saved with Windows line endings
 "use strict";
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const csp = require("../scripts/csp");

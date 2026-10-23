@@ -1,10 +1,4 @@
-// node tests/lms-phase.e2e.js   (Playwright + Chromium; see tests/pw.js)
-// Brightspace's calendar names its entries with a word after the item's name, with or without a dash: "Workshop Quiz - Available",
-// "HSIP 0100 Quiz Completed", "Capacity Building Assignment Due". Those words are not part of the name, so:
-//  - the names are cleaned the same way whichever form the school uses
-//  - copies an older version made from such entries (titled with the word) are ticked off when the real item is done on Brightspace,
-//    and otherwise offered for removal in the platform's sheet, never deleted by themselves
-//  - a second read changes nothing more
+// node tests/lms-phase.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -16,13 +10,13 @@ const server = http.createServer((req, res) => {
   res.writeHead(200, {"content-type": mime || "application/octet-stream"}); fs.createReadStream(f).pipe(res);
 });
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
-// Copies an older version made from calendar entries (from the calendar link: seen by "feed")
+// Copies an older version made from calendar entries
 const copy = (id, title, due) => ({id, created: 1, title, courseId: "c1", type: "Assignment", due, time: "", status: "todo", order: 1,
   bs: {key: "7|" + title.toLowerCase().replace(/[^a-z0-9]/g, ""), ou: "7", last: {title, due, courseId: "c1"}, seen: {feed: 1}}});
 const SEED = {v: 2, updated: 1, courses: [{id: "c1", created: 1, name: "Health Sciences", code: "HSIP 0100", color: "#3b82f6", links: [], meetings: []}],
   tasks: [copy("t1", "Capacity Building Assignment Due", dateOf(-4)), copy("t2", "HSIP 0100 Quiz Completed", dateOf(-9)), copy("t3", "Workshop Quiz - Available", dateOf(-12))],
   settings: {brightspace: {host: "learn.example.edu", mode: "api", name: "Ana", map: {"7": "c1"}, courses: {"7": {code: "HSIP0100", name: "Health Sciences"}}}}};
-// What the bookmark read: the real items, by their real names
+// What the bookmark read
 const rec = (title, due, done) => ({ou: "7", pid: "f" + title.length, title, type: "Assignment", due, time: "23:00", start: "", notes: "", url: "", gid: "", done, sure: true});
 const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", courses: [{ou: "7", code: "HSIP 0100", name: "Health Sciences"}],
   recs: [rec("Capacity Building Assignment", dateOf(-4), true), rec("HSIP 0100 Quiz", dateOf(-9), true), rec("Workshop Quiz", dateOf(-10), false)],
@@ -41,17 +35,14 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     ok(JSON.stringify(names.map(x => x.title)) === JSON.stringify(["Capacity Building Assignment", "HSIP 0100 Quiz", "Workshop Quiz", "Essay 1", "Lab 2", "Quiz 3", "Due Process Essay"]),
       "the calendar's words come off the names, with or without a dash: " + JSON.stringify(names.map(x => x.title)));
     ok(JSON.stringify(names.map(x => x.phase)) === JSON.stringify(["due", "ends", "starts", "due", "ends", "ends", ""]), "and say which date each entry is");
-    // The read: each real item takes over its copy (renamed to the real name); the submitted ones are ticked off. Nothing is doubled.
     const r1 = await app.evaluate(d => { const L = SBLMS.brightspace, p = L.plan(d); L.applyPlan(d, p, "grab", true); const ts = Object.values(SBLMS.st().tasks); return {n: ts.length, done: p.rep.done.map(t => t.id), gone: p.rep.gone.map(t => t.id), t: ts.map(t => [t.id, t.title, t.status])}; }, DATA);
     ok(r1.n === 3, "no task is added twice: " + JSON.stringify(r1.t));
     ok(JSON.stringify(r1.t) === JSON.stringify([["t1", "Capacity Building Assignment", "done"], ["t2", "HSIP 0100 Quiz", "done"], ["t3", "Workshop Quiz", "todo"]]), "the copies take the real names, and the submitted ones are ticked off");
     ok(!r1.gone.length, "nothing is offered for removal when each copy is the real item");
-    // The task sheet says what the latest read said, even when the task itself didn't change
     const line = await app.evaluate(d => { const L = SBLMS.brightspace; d.recs[2].sub = "no"; L.applyPlan(d, L.plan(d), "grab", true); return SBLMS_TASK(SBLMS.st().tasks.t3); }, DATA);
     ok(/said nothing was handed in yet/.test(line), "the task sheet tells what the latest read said: " + line.replace(/<[^>]+>/g, "").slice(0, 120));
     const r2 = await app.evaluate(d => { const p = SBLMS.brightspace.plan(d); return {done: p.rep.done.length, added: p.rep.added.length, gone: p.rep.gone.length}; }, DATA);
     ok(r2.done === 0 && r2.added === 0 && r2.gone === 0, "a second read changes nothing more: " + JSON.stringify(r2));
-    // When the real item already has its own task (an earlier read), the leftover copy is ticked off if it's done, or offered for removal
     const r3 = await app.evaluate(d => {
       const L = SBLMS.brightspace, mk = (id, title, due) => ({kind: "task", id, after: {id, created: 1, title, courseId: "c1", type: "Assignment", due, time: "", status: "todo", order: 1, bs: {key: "7|" + title.toLowerCase().replace(/[^a-z0-9]/g, ""), ou: "7", last: {title, due, courseId: "c1"}, seen: {feed: 1}}}});
       SBLMS.applyChanges([mk("x1", "Capacity Building Assignment Due", d.recs[0].due), mk("x2", "Workshop Quiz - Available", d.recs[2].due)], "");
@@ -59,16 +50,11 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
       return {x1: st.x1.status, x2: st.x2.status, gone: L.cfg().gone};
     }, DATA);
     ok(r3.x1 === "done" && r3.x2 === "todo" && r3.gone.includes("x2") && !r3.gone.includes("x1"), "a leftover copy is ticked off when the item is done, or else offered for removal: " + JSON.stringify(r3));
-    // An assignment with no due date of its own (the student's dates come from special access, through Brightspace's "my items"):
-    // the item still gets the folder's answer about the submission
     const r4 = await app.evaluate(ago => SBLMS.brightspace.fromApi({ok: true, origin: "https://learn.example.edu", me: {name: "Ana"}, all: [], errors: [],
       courses: [{ou: "7", code: "HSIP0100", name: "Health Sciences", folders: [{id: "1", name: "Capacity Building Assignment", due: null, end: null, sub: true, files: []}], quizzes: [], grades: [], news: [], events: []}],
       items: [{ou: "7", id: "1", act: 3, type: 1, name: "Capacity Building Assignment", due: ago, url: "/d2l/lms/dropbox/user/folder_submit_files.d2l?db=1&ou=7", done: null, exempt: false}], completions: []}).recs
       .map(r => [r.title, r.done, r.sub]), new Date(Date.now() - 4 * DAY).toISOString());
     ok(JSON.stringify(r4) === JSON.stringify([["Capacity Building Assignment", true, "yes"]]), "an assignment dated only by your own dates still ticks off when it's submitted: " + JSON.stringify(r4));
-    // A calendar entry named a little differently from the assignment ("Group Care Plan Assignment" for the folder
-    // "Group Care Plan – Individual"): Studyboard asks whether they're the same; once the student says Merge, the task made from the
-    // calendar entry follows the assignment and ticks off; the answer is remembered, so it isn't asked again
     const H = due => ({ok: true, origin: "https://learn.example.edu", me: {name: "Ana"}, all: [], errors: [], items: [], completions: [],
       courses: [{ou: "7", code: "HSIP0100", name: "Health Sciences", quizzes: [], grades: [], news: [],
         folders: [{id: "9", name: "Group Care Plan – Individual", due, end: null, sub: true, files: []}, {id: "10", name: "Week 3 Reflection", due, end: null, sub: false, files: []}],
@@ -91,7 +77,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     ok(JSON.stringify(left) === JSON.stringify([["Group Care Plan – Individual", "done"]]), "after Merge there's one task for it, done because the assignment is submitted: " + JSON.stringify(left));
     const again = await app.evaluate(h => SBLMS.brightspace.fromApi(h).ask.length, H(due5));
     ok(again === 0, "the answer is remembered: the pair isn't asked about again");
-    // Link to an Item: a task tied to something that doesn't say whether it's submitted; the student picks the real item
     const r6 = await app.evaluate(due => {
       const L = SBLMS.brightspace, ts = due.slice(0, 10);
       SBLMS.applyChanges([{kind: "task", id: "lk", after: {id: "lk", created: 1, title: "Capacity Building Assignment", courseId: "c1", type: "Assignment", due: ts, time: "23:30", status: "todo", order: 1,
@@ -112,7 +97,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     await app.waitForFunction(() => !SBLMS.st().tasks.lk || SBLMS.st().tasks.lk.status === "done", null, {timeout: 5000});
     const linked = await app.evaluate(() => Object.values(SBLMS.st().tasks).filter(t => /CB Project Upload|Capacity Building Assignment/.test(t.title) && !["t1", "x1"].includes(t.id)).map(t => [t.title, t.status]));
     ok(linked.length === 1 && linked[0][1] === "done", "after picking it, there's one task for it, done because the item is submitted: " + JSON.stringify(linked));
-    // A quiz whose due date is before it even opens (a midterm "due" 10 days ago that opens today): it's due when it's open
     const q = await app.evaluate(() => {
       const now = new Date(), at = (d, h, m) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + d, h, m).toISOString();
       const d = SBLMS.brightspace.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [],
@@ -120,7 +104,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
       return [d.recs[0].due, d.recs[0].time, (() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0") + "-" + String(n.getDate()).padStart(2, "0"); })()];
     });
     ok(q[0] === q[2] && q[1] === "09:50", "a quiz due before it opens is due when it's open (today 9:50): " + JSON.stringify(q));
-    // The same exam from Brightspace (the quiz) and a calendar entry with a room: Studyboard asks, and Merge keeps one with the link and the room
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
     await app.evaluate(() => {
       const td = (() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0") + "-" + String(n.getDate()).padStart(2, "0"); })();
@@ -139,7 +122,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     ok(kept.loc === "SW1 Room 2015" && /student ID/.test(kept.notes) && kept.key, "Merge keeps the Brightspace one with the room and notes: " + JSON.stringify(kept));
     await app.evaluate(() => SBLMS_DUPES(false)); await app.waitForTimeout(300);
     ok(!(await app.locator("dialog[open] .mg-row").count()), "and it isn't asked again");
-    // Start Fresh: removes what came from Brightspace that you haven't changed, keeps the rest, turns off the calendar link; Undo puts it back
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
     const mergedBefore = await app.evaluate(() => ({md: (SBLMS.brightspace.cfg().mergedDrops || []).slice(), si: Object.keys((SBLMS.st().settings || {}).sameItem || {}).length + Object.keys(SBLMS.brightspace.cfg().merges || {}).length}));
     ok(mergedBefore.md.length > 0, "a merge remembers which copy it set aside: " + JSON.stringify(mergedBefore));
@@ -166,10 +148,8 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     ok(await app.evaluate(() => !!(SBLMS.st().events || {}).sfe), "Undo puts everything back");
     const undone = await app.evaluate(md => { const c = SBLMS.brightspace.cfg(); return md.every(k => (c.dropped || []).includes(k)) && (c.mergedDrops || []).length === md.length; }, mergedBefore.md);
     ok(undone, "and Undo remembers the merges again");
-    // Where this came from: tucked away at the bottom of the task's sheet
     const src = await app.evaluate(() => { const L = SBLMS.brightspace; const d = L.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [], courses: [{ou: "7", code: "HSIP0100", name: "Health Sciences", folders: [{id: "77", name: "Source Check Essay", due: new Date(Date.now() + 5 * 864e5).toISOString(), end: null, sub: null, files: []}], quizzes: [], grades: [], news: [], events: []}]}); d.via = "extension"; L.applyPlan(d, L.plan(d), "grab", true); const t = Object.values(SBLMS.st().tasks).find(x => x.title === "Source Check Essay"); return SBLMS_TASK(t).replace(/<[^>]+>/g, " ").replace(/\s+/g, " "); });
     ok(/Where this came from/.test(src) && /Added by the Studyboard School Sync extension/.test(src), "a task's sheet says, tucked away, what added it: " + src.slice(-160));
-    // Deleted by you: a sync keeps it off; Bring Them Back (in the platform's settings) lets the next read bring it back
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
     const DROP = {ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [], courses: [{ou: "7", code: "HSIP0100", name: "Health Sciences", folders: [{id: "88", name: "Deleted Then Wanted", due: new Date(Date.now() + 6 * 864e5).toISOString(), end: null, sub: null, files: []}], quizzes: [], grades: [], news: [], events: []}]};
     const dr = await app.evaluate(h => {
@@ -189,8 +169,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     ok(!viaFeed, "the calendar link doesn't bring it back");
     const back = await app.evaluate(h => { const L = SBLMS.brightspace, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true); return {dropped: (L.cfg().dropped || []).length, apiOnly: (L.cfg().apiOnly || []).length, back: !!Object.values(SBLMS.st().tasks).find(t => t.title === "Deleted Then Wanted")}; }, DROP);
     ok(back.dropped === 0 && back.back, "the signed-in read (extension, bookmark or app) brings it back: " + JSON.stringify(back));
-    // A calendar copy named nothing like the assignment ("Capacity Building Assignment" for "Upload Portal Week 6"), due the same day as the
-    // only assignment in that course: Studyboard asks Same Item? by itself after the read, and Merge leaves the real one, done
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
     const cdue = new Date(Date.now() + 9 * 864e5).toISOString(), cday = cdue.slice(0, 10);
     await app.evaluate(day => SBLMS.applyChanges([{kind: "task", id: "cpy", after: {id: "cpy", created: 1, title: "Totally Different Calendar Name", courseId: "c1", type: "Assignment", due: day, time: "", status: "todo", order: 1,
@@ -204,8 +182,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     await app.waitForFunction(() => !SBLMS.st().tasks.cpy, null, {timeout: 5000});
     const realLeft = await app.evaluate(() => Object.values(SBLMS.st().tasks).filter(t => t.title === "Upload Portal Week 6").map(t => t.status));
     ok(JSON.stringify(realLeft) === JSON.stringify(["done"]), "after Merge, only the real assignment is left, done because it's submitted: " + JSON.stringify(realLeft));
-    // The real case: the assignment folder has no date of its own ("Capacity Building with a Community Client"), and its date is only on a
-    // calendar entry ("Capacity Building Assignment Due"); the task made from the entry ticks off because the folder is submitted
     const und = await app.evaluate(due => {
       const L = SBLMS.brightspace, ts = due.slice(0, 10);
       SBLMS.applyChanges([{kind: "task", id: "und", after: {id: "und", created: 1, title: "Outreach Planning Assignment", courseId: "c1", type: "Assignment", due: ts, time: "23:30", status: "todo", order: 1,
@@ -218,8 +194,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
       const t = SBLMS.st().tasks.und; return {status: t.status, item: t.bs.item, url: t.link || ""};
     }, new Date(Date.now() - 4 * 864e5).toISOString());
     ok(und.status === "done" && und.item === true && /db=96/.test(und.url), "an undated assignment's submission reaches the calendar entry that carries its date: " + JSON.stringify(und));
-    // The same with what Brightspace often sends: the folder has no due date but does close at the end of term, so it must not become a
-    // task of its own on that day; and a calendar entry Brightspace links to the folder gives the folder its date
     const und2 = await app.evaluate(due => {
       const L = SBLMS.brightspace, ts = due.slice(0, 10), end = new Date(Date.now() + 60 * 864e5).toISOString();
       SBLMS.applyChanges([{kind: "task", id: "und2", after: {id: "und2", created: 1, title: "Capacity Building Assignment", courseId: "c1", type: "Assignment", due: ts, time: "23:30", status: "todo", order: 1,
@@ -239,14 +213,11 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     ok(und2.status === "done" && /db=81/.test(und2.url) && und2.n === 1, "a folder with only an end date still lends its submission to its calendar entry, with no second task: " + JSON.stringify(und2));
     ok(und2.j && und2.j[0] === "done" && und2.j[1] === und2.ts, "a calendar entry linked to an undated folder gives it its date: " + JSON.stringify(und2));
     ok(und2.g && und2.g[0] !== "done" && und2.g[1] === und2.endD, "an unmatched undated folder is still a task on the day it closes: " + JSON.stringify(und2));
-    // The midterm: Brightspace's quiz says only "Available on Oct 6" (no due or end date) and is submitted; the calendar entry for the sitting
-    // ("NK1 Midterm Exam") is today at 9:30 in a room. The quiz takes the entry's day, time and room, and Same Item? puts the two together.
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
     const mt = new Date(Date.now() + 2 * 3600e3), mday = mt.toISOString().slice(0, 10), opened = new Date(Date.now() - 10 * 864e5).toISOString();
     const MQ = opened => ({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [],
       courses: [{ou: "9", code: "BSNC1000", name: "Nursing Knowledge", folders: [], grades: [], news: [], events: [],
         quizzes: [{id: "501", name: "BSNC 1000 Midterm Exam- Requires Respondus LockDown Browser", due: null, end: null, start: opened, done: false}]}]});
-    // before: an earlier read made the quiz a task on the day it opened (as it was), and the calendar made the sitting a task of its own
     const before = await app.evaluate(([h, day]) => { const L = SBLMS.brightspace, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true);
       SBLMS.applyChanges([{kind: "task", id: "mc", after: {id: "mc", created: 1, title: "NK1 Midterm Exam", courseId: Object.values(SBLMS.st().tasks).find(t => t.bs && t.bs.ou === "9").courseId, type: "Exam", due: day, time: "09:30", status: "todo", order: 2,
         bs: {key: "9|nk1midtermexam", ou: "9", last: {title: "NK1 Midterm Exam", due: day, time: "09:30"}, seen: {feed: 1}}}}], "");
@@ -269,7 +240,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     await app.waitForFunction(() => !SBLMS.st().tasks.mc, null, {timeout: 5000});
     const mleft = await app.evaluate(() => Object.values(SBLMS.st().tasks).filter(t => /Midterm/.test(t.title) && t.bs && t.bs.ou === "9").map(t => [t.title, t.status, t.due]));
     ok(mleft.length === 1 && mleft[0][1] === "done" && mleft[0][2] === mday, "after Merge, one midterm is left, on today's date, done because it was submitted: " + JSON.stringify(mleft));
-    // The same, when the sitting is only in Studyboard from the calendar link (the read itself has no calendar entry for it)
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
     const MQ2 = (opened, done) => ({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [],
       courses: [{ou: "10", code: "BSNC1001", name: "Nursing Practice", folders: [], grades: [], news: [], events: [],
@@ -285,8 +255,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     await app.waitForFunction(() => !SBLMS.st().tasks.mc2, null, {timeout: 5000});
     const m2left = await app.evaluate(() => Object.values(SBLMS.st().tasks).filter(t => /Midterm/.test(t.title) && t.bs && (t.bs.ou === "10" || t.bs.ou === "77")).map(t => [t.title, t.status, t.due]));
     ok(m2left.length === 1 && m2left[0][1] === "done" && m2left[0][2] === mday, "after Merge, one midterm, today, done: " + JSON.stringify(m2left));
-    // A "due date" at the very moment the quiz opens says no more than "Available on": it's matched the same way; and the sync details
-    // under Where this came from show the quiz as read and what the read said about the course's quizzes
     const m3 = await app.evaluate(([opened, at]) => {
       const L = SBLMS.brightspace, d = L.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [],
         courses: [{ou: "11", code: "BSNC1002", name: "Nursing Ethics", folders: [], grades: [], news: [], quizNote: "quizzes: 1 sat, 0 not, 0 unknown; Quizzes page 200, 1 sat from it",
@@ -298,7 +266,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     }, [opened, mt.toISOString()]);
     ok(m3.due === mday && m3.ask === 1, "a due date at the moment it opens is matched like an opening date: " + JSON.stringify({due: m3.due, ask: m3.ask}));
     ok(/As read/.test(m3.html) && /opens /.test(m3.html) && /\bsat\b/.test(m3.html) && /Quizzes page 200/.test(m3.html) && /Status here<\/dt><dd>done/.test(m3.html), "Where this came from shows the quiz as read, its status and the course's quiz check: " + (m3.html.match(/<dl[\s\S]*<\/dl>/) || [""])[0].slice(0, 600));
-    // Two calendar exams that fit the quiz's name equally: the one with a room (the sitting) gives it its date, and why is shown
     const m4 = await app.evaluate(([opened, at, later]) => {
       const L = SBLMS.brightspace, d = L.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [],
         courses: [{ou: "13", code: "BSNC1003", name: "Nursing Science", folders: [], grades: [], news: [],
@@ -308,9 +275,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
       const q = d.recs.find(r => r.pid === "q801"); return {due: q && q.due, loc: q && q.location, a: q && q.asRead};
     }, [opened, mt.toISOString(), new Date(Date.now() + 3 * 864e5).toISOString()]);
     ok(m4.due === mday && m4.loc === "SW3 4676/95" && /dated by NK4 Midterm Exam/.test(m4.a), "of two equally named calendar exams, the one with a room dates the quiz: " + JSON.stringify(m4));
-    // HSIP 0100: one real quiz ("Workshop Quiz", open Sep 28 to Oct 16 9 PM, no due date) and the course schedule's "HSIP 0300 Quiz Completed",
-    // Oct 7 5:00 to 11:59 PM, "complete the post seminar quiz by midnight". The entry is due at 11:59 PM; with a second quiz open that day
-    // ("Practice Quiz") the description says which; Merge leaves one quiz, on the instructor's date, and a sync doesn't move it back.
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
     const hs = await app.evaluate(() => {
       const L = SBLMS.brightspace, loc = (dd, h, m) => { const n = new Date(); n.setDate(n.getDate() + dd); n.setHours(h, m, 0, 0); return n; }, ymd = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
@@ -325,7 +289,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
       return {evTime: ev && ev.time, evDue: ev && ev.due, want: ymd(loc(-9, 0, 0)), H};
     });
     ok(hs.evTime === "23:59", "a deadline entry from 5:00 to 11:59 PM is due at 11:59 PM: " + JSON.stringify({t: hs.evTime}));
-    // (the midterms left by the tests above would also be asked about; they're cleared so this one is seen on its own)
     await app.evaluate(() => SBLMS.applyChanges(Object.values(SBLMS.st().tasks).filter(x => /Midterm/.test(x.title)).map(x => ({kind: "task", id: x.id, after: null})), ""));
     await app.evaluate(() => SBLMS_DUPES(false));
     await app.waitForSelector("dialog[open] .mg-row", {timeout: 5000});
@@ -337,7 +300,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
       return Object.values(SBLMS.st().tasks).filter(t => t.bs && t.bs.ou === "14" && /Quiz/.test(t.title) && !/Practice/.test(t.title)).map(t => [t.title, t.due, t.time]); }, hs.H);
     ok(hafter.length === 1 && hafter[0][0] === "Seminar Quiz" && hafter[0][1] === hs.want && hafter[0][2] === "23:59", "after Merge, one Seminar Quiz on the instructor's date, and the next sync keeps it: " + JSON.stringify(hafter));
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
-    // Safeguards: never the same item when a qualifier or a number differs, or an assignment and an exam
     const sg = await app.evaluate(() => {
       const L = SBLMS.brightspace, at = new Date(Date.now() + 5 * 864e5).toISOString(), day = at.slice(0, 10);
       SBLMS.applyChanges([
@@ -357,9 +319,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     ok(!sgRows.some(r => /Practice Midterm/.test(r) || /Quiz 2/.test(r)) && !sg.asked.some(x => /Practice|Quiz 2/.test(x)), "Practice Midterm Exam isn't paired with Midterm Exam, nor Quiz 2 with Quiz 1: " + JSON.stringify({sgRows, asked: sg.asked}));
     ok(!sg.lent, "an undated assignment (Midterm Reflection Paper) never takes an exam entry's date and submission");
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
-    // Canvas and Blackboard get the same: an undated assignment lends its submission to its calendar entry (no second task), a quiz with
-    // only an opening date takes the day and room of its calendar exam (and the pair is asked about), a deadline entry is due when it ends,
-    // and a Practice quiz never takes another quiz's entry
     const cvr = await app.evaluate(() => {
       const L = SBLMS.canvas, loc = (dd, h, m) => { const n = new Date(); n.setDate(n.getDate() + dd); n.setHours(h, m, 0, 0); return n; }, ymd = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
       const d = L.fromApi({ok: true, origin: "https://x.instructure.com", me: {}, all: [], errors: [], courses: [{ou: "501", code: "NURS300", name: "Community Nursing", grades: [], news: [],
@@ -374,8 +333,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     ok(cvr.cap.length === 1 && cvr.cap[0][1] === true && cvr.cap[0][2] === "assignment71" && cvr.cap[0][3] === "23:59", "Canvas: the undated assignment's submission reaches its calendar entry, due when the entry ends: " + JSON.stringify(cvr.cap));
     ok(cvr.mq && cvr.mq[0] === cvr.today && cvr.mq[1] === "09:30" && cvr.mq[2] === "Room 210" && cvr.ask.some(x => /Section 4 Midterm Exam/.test(x)), "Canvas: a quiz with only an opening date takes its calendar exam's day, time and room, and asks: " + JSON.stringify(cvr));
     ok(cvr.pq === cvr.opened && !cvr.ask.some(x => /Practice/.test(x)), "the Practice Midterm Exam keeps its own date and isn't paired: " + JSON.stringify({pq: cvr.pq, ask: cvr.ask}));
-    // An older copy of the midterm, already done (sat), from before Studyboard tracked real items, and the calendar entry for the sitting,
-    // still Late: Same Exam? pairs them; Merge keeps the done one, with the sitting's time and room
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
     const lx = await app.evaluate(() => {
       const td = (() => { const n = new Date(); return n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0") + "-" + String(n.getDate()).padStart(2, "0"); })();
@@ -392,7 +349,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     const lk = await app.evaluate(() => { const t = SBLMS.st().tasks.lq; return t && [t.status, t.time, t.location]; });
     ok(lk && lk[0] === "done" && lk[1] === "09:30" && lk[2] === "SW3 4676/95", "Merge keeps the done one, with the sitting's time and room: " + JSON.stringify(lk));
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
-    // Brightspace's class statistics on a graded quiz reach that quiz's task (by its grade item), so its Grades row can show them
     const bst = await app.evaluate(() => {
       const L = SBLMS.brightspace, d = L.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [],
         courses: [{ou: "21", code: "STAT2000", name: "Statistics", folders: [], news: [], events: [],
@@ -401,8 +357,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
       const q = d.recs.find(r => r.pid === "q211"); return q && q.fb;
     });
     ok(bst && bst.cls && bst.cls.mean === 6.5 && bst.sc === 8 && bst.of === 10, "Brightspace's class results go with the quiz that has that grade: " + JSON.stringify(bst));
-    // The pass mark: from a course's syllabus (or its grade scheme); two courses agreeing make it the default; a pass mark the student sets
-    // is never changed by a sync; "Use this pass mark for all my courses" sets every course
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
     const PM = (syl1, pass2) => ({ok: true, origin: "https://x.instructure.com", me: {}, all: [], errors: [], courses: [
       {ou: "801", code: "NURS1010", name: "Nursing Foundations", items: [{kind: "assignment", id: "8011", name: "Care Plan 1", due: new Date(Date.now() + 5 * 864e5).toISOString(), done: false}], grades: [], news: [], events: [], syl: [syl1]},
@@ -412,7 +366,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
       return {cs: cs.map(c => [c.name, c.grading && c.grading.pass, c.grading && c.grading.passSrc]), def: (SBLMS.st().settings.grades || {}).pass}; },
       PM("Grading: a minimum grade of 65% is required to pass this course.", {pct: 65, name: "BSN"}));
     ok(pm1.cs.length === 2 && pm1.cs.every(c => c[1] === 65 && c[2] === "school") && pm1.def === 65, "each course takes its pass mark from its syllabus or grade scheme, and two agreeing set the default: " + JSON.stringify(pm1));
-    // the student changes one course's pass mark in Grade Settings: a sync keeps it
     const cid1 = await app.evaluate(() => Object.values(SBLMS.st().courses).find(c => c.name === "Nursing Foundations").id);
     await app.evaluate(id => SBLMS.go("courses", id), cid1); await app.waitForTimeout(300);
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
@@ -423,7 +376,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     const pm2 = await app.evaluate(([h, id]) => { const L = SBLMS.canvas, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true); const g = SBLMS.st().courses[id].grading; return [g.pass, g.passSrc]; },
       [PM("Grading: a minimum grade of 65% is required to pass this course.", {pct: 65, name: "BSN"}), cid1]);
     ok(pm2[0] === 70 && pm2[1] === "user", "a pass mark the student set stays after a sync: " + JSON.stringify(pm2));
-    // and the checkbox: this pass mark for every course
     await app.click('[data-act="g-course-set"]'); await app.waitForSelector('dialog[open] input[name="passAll"]');
     await app.fill('dialog[open] input[name="pass"]', "60"); await app.check('dialog[open] input[name="passAll"]'); await app.click("dialog[open] [data-submit]"); await app.waitForTimeout(300);
     const pm3 = await app.evaluate(h => { const L = SBLMS.canvas, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true);
@@ -431,9 +383,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
       PM("Grading: a minimum grade of 65% is required to pass this course.", {pct: 65, name: "BSN"}));
     ok(pm3.def === 60 && pm3.src === "user" && pm3.cs.every(c => c[1] === "default"), "Use this pass mark for all my courses: every course uses 60%, and a sync doesn't change it: " + JSON.stringify(pm3));
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
-    // BSNC 1030: "Midterm Clinical Evaluation" (due Oct 23 8:30) has a calendar entry Brightspace links to it; "Final Clinical Evaluation"
-    // has no due date and its date is only on a calendar entry (Nov 19, 6 PM). The midterm's entry never dates the final (by the linked
-    // id, or without it); the final's own entry takes it; a copy left from the earlier mix-up is offered for removal
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
     const ce = await app.evaluate(() => {
       const L = SBLMS.brightspace, at = (dd, h, m) => { const n = new Date(); n.setDate(n.getDate() + dd); n.setHours(h, m, 0, 0); return n.toISOString(); }, ymd = iso => { const d = new Date(iso); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
@@ -443,7 +392,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
           folders: [{id: "301", name: "Midterm Clinical Evaluation", due: mid, end: null, sub: false, files: []}, {id: "302", name: "Final Clinical Evaluation", due: null, end: null, sub: false, files: []}],
           events: [{id: "e301", title: "Midterm Clinical Evaluation - Due", start: mid, end: mid, allDay: false, assoc: true, kind: "Dropbox", eid: withId ? "301" : "", url: ""},
                    {id: "e302", title: "Final Clinical Evaluation", start: fin, end: fin, allDay: false, assoc: false, url: ""}]}]});
-      // a copy from the earlier mix-up: the final, dated like the midterm
       SBLMS.applyChanges([{kind: "task", id: "fx", after: {id: "fx", created: 1, title: "Final Clinical Evaluation", courseId: "c1", type: "Exam", due: ymd(mid), time: "08:30", status: "todo", order: 1,
         bs: {key: "1030|finalclinicalevaluation", ou: "1030", item: true, last: {title: "Final Clinical Evaluation", due: ymd(mid), time: "08:30"}, seen: {api: 1}}}},
         {kind: "task", id: "fy", after: {id: "fy", created: 1, title: "Final Clinical Evaluation", courseId: "c1", type: "Exam", due: ymd(fin), time: "18:00", status: "todo", order: 2,
@@ -457,8 +405,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     ok(ce.out.every(rs => rs.filter(r => /^Midterm/.test(r[0])).length === 1 && rs.find(r => /^Midterm/.test(r[0]))[1] === ce.midD), "the midterm keeps its own date: " + JSON.stringify(ce.out));
     ok(ce.same === false, "Midterm and Final are never the same item");
     ok(ce.gone.length === 1 && ce.gone[0][0] === "Final Clinical Evaluation", "of the two copies already here, the one the read didn't update is offered for removal: " + JSON.stringify(ce.gone));
-    // Not every entry about an exam is one: "NK1 Midterm Exam Review" (a session in a room) is a calendar event; "Practice Midterm Exam
-    // Questions" is work, not a sitting; "Midterm Clinical Evaluation" and "BSNC 1000 Midterm Exam- Requires Respondus LockDown Browser" are exams
     const ty = await app.evaluate(() => {
       const L = SBLMS.brightspace, at = d => new Date(Date.now() + d * 864e5).toISOString();
       const d = L.fromApi({ok: true, origin: "https://learn.example.edu", me: {}, all: [], errors: [], items: [], completions: [],
@@ -472,9 +418,7 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     const tyOf = t => (ty.recs.find(r => r[0] === t) || [])[1];
     ok(!ty.recs.some(r => /Exam Review/.test(r[0])) && ty.evs.includes("NK1 Midterm Exam Review"), "an exam review session is a calendar event, not a task: " + JSON.stringify(ty));
     ok(tyOf("Midterm Clinical Evaluation") === "Exam" && tyOf("BSNC 1000 Midterm Exam- Requires Respondus LockDown Browser") === "Exam" && tyOf("Practice Midterm Exam Questions") === "Assignment", "real exams stay exams; practice questions are work: " + JSON.stringify(ty.recs));
-    // Settings shows one short line per school site; what the read found is in the site's window under Sync details, closed
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
-    // (the read came from the School Sync extension, which still reports Brightspace)
     await app.evaluate(() => window.postMessage({source: "studyboard-ext", type: "data", version: "1.0.3", schools: [{id: "brightspace", origin: "https://learn.example.edu", state: "ok", at: Date.now()}], list: []}, location.origin));
     await app.waitForTimeout(200);
     const sh = await app.evaluate(() => SBLMS.brightspace.shortStatus());
@@ -484,8 +428,6 @@ const DATA = {src: "api", origin: "https://learn.example.edu", name: "Ana", cour
     ok(dg && !dg.open && /Sync details/.test(dg.text) && /Read \d+ of/.test(dg.text) && !/Grade rows/.test(dg.status.replace(dg.text, "")), "the read's details are in a closed Sync details: " + JSON.stringify(dg && {open: dg.open}));
     await app.screenshot({path: require("path").join(require("os").tmpdir(), "bs-sheet.png")});
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
-    // Two real items both handed in, due at the same moment, named alike ("PHC" and "PHSA Privacy and Confidentiality"): one form per
-    // health authority, listed apart by the school, so never asked about; a calendar copy of a done item, done too, is
     await app.evaluate(() => { const d = document.querySelector("#dlg"); if (d.open) d.close(); });
     await app.evaluate(() => {
       const mk = (id, title, key, item) => ({kind: "task", id, after: {id, created: 1, title, courseId: "c1", type: "Assignment", due: "2026-10-02", time: "19:00", status: "done", order: 1,

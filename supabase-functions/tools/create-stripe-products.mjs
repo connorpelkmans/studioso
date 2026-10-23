@@ -1,16 +1,5 @@
 #!/usr/bin/env node
-// Studyboard: creates the "Studyboard Pro" product in Stripe with its two prices (run it once, in TEST mode first).
-//
-//   Windows PowerShell:   $env:STRIPE_SECRET_KEY = "sk_test_..." ; node supabase-functions/tools/create-stripe-products.mjs
-//   Mac / Linux:          STRIPE_SECRET_KEY=sk_test_... node supabase-functions/tools/create-stripe-products.mjs
-//
-// The key is read from the environment, never from a file. Use a key that can write Products and Prices (a test-mode secret key from
-// Stripe > Developers > API keys is simplest; the restricted key made for create-checkout cannot create products). Delete or roll that
-// key afterwards if it was only for this. It prints the two price ids: save them in Supabase > Edge Functions > Secrets as
-// STRIPE_PRICE_MONTHLY, STRIPE_PRICE_SEMESTER and STRIPE_PRICE_YEARLY. Needs Node 18 or newer. Nothing is written to disk.
-//
-// Change the amounts or the tax code below if you want something else. tax_code is the product's tax category (txcd_10103100 is the
-// digital code used by Stripe's Managed Payments example; check it fits your app in Stripe > Product catalog > Tax category).
+// Studyboard: creates the "Studyboard Pro" product in Stripe with its two prices
 const KEY = process.env.STRIPE_SECRET_KEY || "";
 if (!/^(sk|rk)_(test|live)_/.test(KEY)) { console.error("Set STRIPE_SECRET_KEY first (sk_test_... for test mode). See the top of this file."); process.exit(1); }
 if (/_live_/.test(KEY) && process.env.ALLOW_LIVE !== "1") { console.error("That is a LIVE key. Use a test key first, or set ALLOW_LIVE=1 to create the live product on purpose."); process.exit(1); }

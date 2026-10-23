@@ -1,6 +1,4 @@
-// node tests/ai-report.e2e.js  (Playwright + Chromium; the AI call and the bug_reports server are stubbed)
-// Checks: an AI answer has a Report Response link (Microsoft Store policy 11.16); it opens the report form with the answer filled in and the
-// "ai" category; the report sent carries the answer and which feature it came from; Settings, AI Features has the general report button.
+// node tests/ai-report.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -36,7 +34,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   ok((await page.$eval('form.bug-sheet [name="steps"]', t => t.value)).includes("Something the student wants to report."), "the AI answer is filled in, where it can be edited");
   ok((await page.textContent("#bugDiag")).includes("ai: companion-chat"), "the diagnostics say which feature the answer came from");
   await page.fill("#bugMsg", "This answer was wrong about the exam.");
-  // A server is needed to send: give the page one (the report goes to the stub above)
   await page.evaluate(() => { window.sbConfig = () => ({url: "https://stub.supabase.co", key: "anon"}); });
   await page.click("form.bug-sheet [data-submit]");
   await page.waitForFunction(() => !document.querySelector("form.bug-sheet"), null, {timeout: 8000}).catch(() => {});
@@ -46,7 +43,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     const q = await page.evaluate(() => JSON.parse(localStorage.getItem("studyboard:bugq") || "[]"));
     ok(q.length === 1 && q[0].category === "ai" && /Something the student wants to report/.test(q[0].steps) && q[0].diagnostics.ai === "companion-chat", "the report (queued, no server here) carries the category, the answer and the feature");
   }
-  // Settings, AI Features: the general button
   await page.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); });
   await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "ai-setup"; b.id = "t-ai-setup"; document.body.appendChild(b); });
   await page.click("#t-ai-setup");

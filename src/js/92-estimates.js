@@ -1,13 +1,5 @@
 /* ===== module: 92-estimates.js ===== */
-/* Quick time estimates: add "how long will this take" to many tasks at once.
-   After importing a syllabus or syncing a school site, nobody wants to open every task to type an estimate.
-   - The Estimate Times sheet lists open tasks with no time estimate that are due in the next 2 weeks (or all of them),
-     each with a suggestion (from the automatic AI, your own history, or typical times) and one-tap picks.
-     "Use All Suggestions" fills every empty one, and "Suggest with AI" asks the AI once for the whole list.
-   - Today's Plan shows a small line when tasks due soon have no estimate.
-   - The study companion offers it (at most once a day, and right after a big import); see 98-companion.js.
-   - After a big import (3 or more new tasks without estimates), a toast offers it too.
-   Exams and quizzes are left out: they happen at a set time. */
+/* Quick time estimates */
 var SBEST = (() => {
   const WINDOW = 14;
   const PICKS = [[0.5, "30m"], [1, "1h"], [2, "2h"], [3, "3h"], [5, "5h"]];
@@ -23,8 +15,8 @@ var SBEST = (() => {
   }
   const fmt = h => fmtHM(h) || (h * 60) + "m";
 
-  /* ---------- The sheet ---------- */
-  let S = null;   // {all, pick: {id: hours}, sug: {id: {h, ai}}, busy}
+  /* The sheet */
+  let S = null;
   function row(t){
     const c = courseOf(t.courseId), cur = S.pick[t.id], sg = S.sug[t.id] || suggest(t);
     const on = h => cur != null && Math.abs(cur - h) < 0.01;
@@ -108,22 +100,20 @@ var SBEST = (() => {
     return true;
   });
 
-  /* ---------- A small line in Today's Plan ---------- */
+  /* A small line in Today's Plan */
   hook("render", tab => {
     if (tab !== "board") return;
     const plan = document.querySelector("section.plan"); if (!plan || plan.querySelector(".plan-est")) return;
     const n = count(); if (!n) return;
     const at = plan.querySelector(".plan-fc") || plan.querySelector(".plan-warn") || plan.querySelector(".next-up");
     const html = `<div class="plan-fc plan-est"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2.5h5"/></svg><span><b>${n}</b> task${n === 1 ? "" : "s"} due in the next 2 weeks ${n === 1 ? "has" : "have"} no time estimate</span><button class="btn small" data-act="est-open">Add Times</button></div>`;
-    const extra = plan.querySelector(".pe-b");                    // More for Today, when the plan has one
+    const extra = plan.querySelector(".pe-b");
     if (extra) extra.insertAdjacentHTML("afterbegin", html);
     else if (at) at.insertAdjacentHTML("afterend", html);
     else { const list = plan.querySelector(".plan-list"); if (list) list.insertAdjacentHTML("beforebegin", html); }
   });
 
-  /* ---------- More for Today: each card folds up on its own ---------- */
-  // Runs after the line above is added. Every card inside More for Today gets its own heading that expands it;
-  // the heading on the closed section is rebuilt from the same list.
+  /* More for Today */
   const PE_OPEN = {};
   document.addEventListener("toggle", e => { const d = e.target; if (d && d.classList && d.classList.contains("pe-item")) PE_OPEN[d.dataset.k] = d.open; }, true);
   hook("render", tab => {
@@ -149,9 +139,7 @@ var SBEST = (() => {
     const top = document.querySelector("section.plan .pe-t .pe-dot"); if (top) top.textContent = total > 99 ? "99+" : String(total || "");
   });
 
-  /* ---------- Today's Plan tabs ---------- */
-  // Free Time, the calendar and each More for Today card become one tab bar under the plan, showing one section at a time.
-  // Runs after the cards above are built; the cards keep their own markup (and data-k), only their frame changes.
+  /* Today's Plan tabs */
   const PT_NAME = {free: "Free Time", cal: "Calendar", est: "Estimates", fc: "Flashcards", prep: "Exam Prep", heads: "Heads Up", sugg: "Suggestions"};
   hook("render", tab => {
     if (tab !== "board") return;
@@ -178,7 +166,7 @@ var SBEST = (() => {
     box.querySelectorAll(".pt-panel").forEach(p => { p.hidden = p.dataset.k !== ui.planTab; });
   });
 
-  /* ---------- After a big import ---------- */
+  /* After a big import */
   let importT = 0, bigAt = 0;
   hook("changed", changes => {
     if (!Array.isArray(changes)) return;
@@ -186,7 +174,6 @@ var SBEST = (() => {
     if (fresh.length < 3) return;
     bigAt = Date.now();
     clearTimeout(importT);
-    // The study companion asks about it itself; the toast is for when the companion (or its speech) is off
     const compTalks = () => { try { const c = window.SBCOMP && SBCOMP.el && SBCOMP.el() && SBCOMP.settings(); return !!c && c.on !== false && c.talk !== false; } catch (e) { return false; } };
     importT = setTimeout(() => { const n = count(); if (n >= 2 && !dlg.open && !compTalks()) toast(`${n} tasks due soon don't have a time estimate yet`, null, {label: "Add Times", fn: () => open(false)}); }, 3500);
   });

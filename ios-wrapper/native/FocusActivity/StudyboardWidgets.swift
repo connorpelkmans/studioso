@@ -1,9 +1,4 @@
-// UNTESTED: written without compiler access. Widget extension target ("StudyboardWidgets", File > New > Target > Widget Extension,
-// with "Include Live Activity" ticked; replace the generated Swift files with this one). Also add StudyboardFocusAttributes.swift to this target.
-//
-// The Focus timer in the Dynamic Island (iPhone 14 Pro and later) and on the Lock Screen (every iPhone on iOS 16.2+):
-//   compact:  tomato | 24:59      minimal: tomato      expanded: mode, countdown, what you're working on, progress
-// The countdown runs by itself (Text(timerInterval:)), so the app doesn't need to be open or send updates every second.
+// UNTESTED: written without compiler access
 import ActivityKit
 import SwiftUI
 import WidgetKit
@@ -27,7 +22,7 @@ private let leafGreen = Color(red: 0.24, green: 0.66, blue: 0.40)
 private func tint(_ s: StudyboardFocusAttributes.ContentState) -> Color { s.mode == "focus" ? tomatoRed : leafGreen }
 private func clock(_ secs: Int) -> String { String(format: "%d:%02d", secs / 60, secs % 60) }
 
-/// The time left: counts down by itself while running, a fixed time (and "Paused") while paused.
+// The time left
 private struct TimeLeft: View {
     let s: StudyboardFocusAttributes.ContentState
     var body: some View {
@@ -49,7 +44,6 @@ private struct Tomato: View {
 struct StudyboardFocusLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: StudyboardFocusAttributes.self) { context in
-            // Lock Screen and notification banner
             let s = context.state
             HStack(spacing: 14) {
                 Tomato(s: s).font(.title2)

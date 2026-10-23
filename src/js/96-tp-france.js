@@ -1,5 +1,5 @@
 /* ===== module: 96-tp-france.js ===== */
-/* Theme Collections, around the world: france (Paris) */
+/* Theme Collections, around the world */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2);
@@ -12,7 +12,7 @@
   const smile = (x, y, w = 2.4, sw = 1.9) => `<path d="M${x - w} ${y}q${w} ${w * .8} ${w * 2} 0" fill="none" stroke="${O}" stroke-width="${sw}" stroke-linecap="round"/>`;
   const tube = (d, c, w, ow = w + 3.6, cap = "round") => `<path d="${d}" fill="none" stroke="${O}" stroke-width="${ow}" stroke-linecap="${cap}" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="${cap}" stroke-linejoin="round"/>`;
   const tapeEdge = "M3 1.5H83L80 5.5L83 9.5L80 13.5L83 17.5L80 21.5L82 24.5H3L6 20.5L3 16.5L6 12.5L3 8.5L6 4.5z";
-  // the tower, base centre (x, y), h tall: one outline with its arch, platforms and a few braces
+  // the tower, base centre (x, y), h tall
   const tower = (x, y, h, fill, line) => { const k = h / 56, P = (a, b) => `${f1(x + a * k)} ${f1(y + b * k)}`;
     return `<path d="M${P(-15, 0)}L${P(-9, -14)}L${P(-11, -14)}L${P(-11, -17)}L${P(-6, -17)}L${P(-4, -28)}L${P(-6, -28)}L${P(-6, -30.5)}L${P(-2.6, -30.5)}L${P(-1, -48)}L${P(-0.6, -56)}L${P(0.6, -56)}L${P(1, -48)}L${P(2.6, -30.5)}L${P(6, -30.5)}L${P(6, -28)}L${P(4, -28)}L${P(6, -17)}L${P(11, -17)}L${P(11, -14)}L${P(9, -14)}L${P(15, 0)}L${P(10, 0)}Q${P(7, -9)} ${P(0, -10)}Q${P(-7, -9)} ${P(-10, 0)}Z" fill="${fill}" ${SOw(1.8)}/>
       <path d="M${P(-7.6, -14)}L${P(-3.6, -28)}M${P(7.6, -14)}L${P(3.6, -28)}M${P(-3.4, -17)}L${P(3.4, -17)}M${P(-1.8, -31)}L${P(1.2, -46)}M${P(1.8, -31)}L${P(-1.2, -46)}M${P(-12, -3)}L${P(-8, -12)}M${P(12, -3)}L${P(8, -12)}" fill="none" stroke="${line}" stroke-width="1" stroke-linecap="round"/>`; };

@@ -1,27 +1,4 @@
-// Studyboard 1.12: billing-webhook (Supabase Edge Function)
-// Turns payments into Pro. Stripe (the website and desktop app) and RevenueCat (the App Store and Google Play)
-// call this function when someone buys, renews, cancels, is refunded or runs out of Pro. Every verified event is handed to the
-// database function studyboard_apply_billing, which (in one transaction) remembers the event id so a replay does nothing,
-// ignores events older than the newest one already applied, never lets one payment source cancel another, never touches a
-// manual grant, and only ever acts on a real account.
-//
-// Two addresses (both go to this one function):
-//   https://<your-project>.supabase.co/functions/v1/billing-webhook/stripe       paste this in Stripe > Webhooks
-//   https://<your-project>.supabase.co/functions/v1/billing-webhook/revenuecat   paste this in RevenueCat > Integrations > Webhooks
-//
-// Stripe events to send: checkout.session.completed, customer.subscription.created, customer.subscription.updated,
-//   customer.subscription.deleted, invoice.paid, charge.refunded, charge.dispute.created, charge.dispute.closed
-//
-// Secrets it needs (Supabase > Edge Functions > Secrets):
-//   STRIPE_WEBHOOK_SECRET     starts with whsec_ (Stripe shows it after you add the webhook)
-//   STRIPE_SECRET_KEY         a restricted key with Read on Subscriptions and Charges: the exact renewal date and the owner of a disputed charge are looked up with it
-//   REVENUECAT_WEBHOOK_AUTH   any long random text; type the same text in RevenueCat's "Authorization header value"
-//   RC_ALLOW_SANDBOX          optional: set to 1 only while testing, so RevenueCat sandbox purchases count (never in production)
-//   STRIPE_PRICE_IDS          optional: comma-separated price_ ids that give Pro (STRIPE_PRICE_MONTHLY / _SEMESTER / _YEARLY are added to it). When set, a
-//                             subscription or invoice for any other price is ignored. Unset: any subscription of a known customer counts.
-// Supabase adds SUPABASE_URL and the service key by itself.
-// Deploy with "Verify JWT" turned OFF: Stripe and RevenueCat don't sign in to Supabase. Each request is checked
-// with its own secret instead, and anything that doesn't pass is turned away.
+// Studyboard 1.12
 
 type Env = (k: string) => string;
 type Deps = { env: Env; fetch: typeof fetch; now: () => number; log: (...a: unknown[]) => void };
@@ -32,18 +9,18 @@ type Apply = {
   will_renew?: boolean; external_id?: string; fresh?: boolean;
 };
 
-const GRACE_MS = 3 * 86400_000;   // a few extra days after a renewal date, so a late webhook never switches Pro off by mistake
-const TOLERANCE_S = 300;          // Stripe signatures older than 5 minutes are refused (stops replays)
+const GRACE_MS = 3 * 86400_000;
+const TOLERANCE_S = 300;
 const MAX_BODY = 1_000_000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json" } });
 const iso = (ms: number | null | undefined) => (ms ? new Date(ms).toISOString() : null);
 
-// ---------- The database (PostgREST with the service key; RLS doesn't apply to it) ----------
+// The database (PostgREST with the service key; RLS doesn't apply to it)
 function serviceKey(d: Deps): string {
   let key = d.env("SUPABASE_SERVICE_ROLE_KEY");
-  if (!key) { try { const k = JSON.parse(d.env("SUPABASE_SECRET_KEYS") || "{}"); key = String(k.default || Object.values(k)[0] || ""); } catch (_e) { /* newer projects only */ } }
+  if (!key) { try { const k = JSON.parse(d.env("SUPABASE_SECRET_KEYS") || "{}"); key = String(k.default || Object.values(k)[0] || ""); } catch (_e) { } }
   return key;
 }
 async function apply(d: Deps, row: Apply): Promise<string> {
@@ -51,25 +28,24 @@ async function apply(d: Deps, row: Apply): Promise<string> {
   const r = await d.fetch(d.env("SUPABASE_URL").replace(/\/+$/, "") + "/rest/v1/rpc/studyboard_apply_billing", {
     method: "POST", headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ p: row }),
   });
-  if (!r.ok) throw new Error(`apply failed: ${r.status}`);   // the body is not logged: it could echo what was sent
+  if (!r.ok) throw new Error(`apply failed: ${r.status}`);
   return String(await r.json());
 }
 
-// ---------- Constant-time comparison ----------
+// Constant-time comparison
 const hex = (buf: ArrayBuffer) => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
-function safeEqual(a: string, b: string) {   // for two hex strings (the length of an HMAC is not a secret)
+function safeEqual(a: string, b: string) {
   if (a.length !== b.length) return false;
   let x = 0; for (let i = 0; i < a.length; i++) x |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return x === 0;
 }
-// For secrets of any length: compare hashes, so neither the length nor the content leaks through timing.
+// For secrets of any length
 export async function secretEqual(a: string, b: string): Promise<boolean> {
   const h = async (s: string) => hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)));
   return safeEqual(await h(a), await h(b));
 }
 
-// ---------- Stripe ----------
-// Stripe signs "<timestamp>.<raw body>" with HMAC-SHA256 using the webhook secret. The header looks like "t=...,v1=...".
+// Stripe
 export async function verifyStripe(raw: string, header: string, secret: string, nowS: number): Promise<boolean> {
   if (!header || !secret) return false;
   const parts = header.split(",").map(p => { const i = p.indexOf("="); return i < 0 ? [p.trim(), ""] : [p.slice(0, i).trim(), p.slice(i + 1).trim()]; });
@@ -79,11 +55,10 @@ export async function verifyStripe(raw: string, header: string, secret: string, 
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const want = hex(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${t}.${raw}`)));
   let ok = false;
-  for (const s of sigs) ok = safeEqual(s, want) || ok;   // no early exit
+  for (const s of sigs) ok = safeEqual(s, want) || ok;
   return ok;
 }
 
-// Newer Stripe API versions keep the period end on the subscription item instead of the subscription.
 const periodEnd = (sub: any): number => Number(sub?.current_period_end || sub?.items?.data?.[0]?.current_period_end || 0);
 const idOf = (v: any): string => (typeof v === "string" ? v : String(v?.id || ""));
 const validUid = (v: unknown): string | undefined => (typeof v === "string" && UUID.test(v) ? v.toLowerCase() : undefined);
@@ -95,7 +70,7 @@ async function stripeGet(d: Deps, path: string): Promise<any | null> {
   return r.ok ? await r.json() : null;
 }
 
-// The optional price allowlist (STRIPE_PRICE_IDS). Without it every price counts, as before.
+// The optional price allowlist (STRIPE_PRICE_IDS)
 export function priceAllowed(d: Deps, ids: string[]): boolean {
   const list = d.env("STRIPE_PRICE_IDS");
   if (!list.trim()) return true;
@@ -103,15 +78,15 @@ export function priceAllowed(d: Deps, ids: string[]): boolean {
   return ids.some(id => allow.has(id));
 }
 const subPrices = (sub: any): string[] => ((sub?.items?.data || []) as any[]).map(i => idOf(i?.price || i?.plan));
-// Invoice lines name the price as line.price (older API versions) or line.pricing.price_details.price (newer ones).
+// Invoice lines name the price as line.price
 const linePrices = (inv: any): string[] => ((inv?.lines?.data || []) as any[]).map(l => idOf(l?.pricing?.price_details?.price || l?.price || l?.plan));
 
-// What a subscription object means for Pro. Returns null when it says nothing (a half-finished sign-up, or a price that isn't allowed).
+// What a subscription object means for Pro
 function subscriptionState(sub: any, d: Deps): Pick<Apply, "state" | "pro_until" | "trial_until" | "will_renew"> | null {
   const status = String(sub?.status || "");
   if (status === "trialing" || status === "active" || status === "past_due") {
     if (!priceAllowed(d, subPrices(sub))) return null;
-    // past_due keeps Pro until the paid period (plus a few days) runs out, while Stripe retries the card
+    // past_due keeps Pro until the paid period (plus a few days) runs out
     const end = periodEnd(sub) * 1000;
     return {
       state: "active", pro_until: iso(end ? end + GRACE_MS : d.now() + 35 * 86400_000),
@@ -120,7 +95,7 @@ function subscriptionState(sub: any, d: Deps): Pick<Apply, "state" | "pro_until"
     };
   }
   if (status === "canceled" || status === "unpaid" || status === "incomplete_expired" || status === "paused") return { state: "ended" };
-  return null;   // "incomplete": the first payment hasn't gone through, so nothing is granted
+  return null;
 }
 
 async function handleStripe(req: Request, d: Deps, raw: string): Promise<Response> {
@@ -130,8 +105,7 @@ async function handleStripe(req: Request, d: Deps, raw: string): Promise<Respons
   try { ev = JSON.parse(raw); } catch (_e) { return json({ error: "bad request" }, 400); }
   const o = ev?.data?.object || {};
   if (typeof ev?.id !== "string" || typeof ev?.type !== "string") return json({ error: "bad request" }, 400);
-  // Test (sandbox) events must never change a live project, and live events never a test one: an event whose mode differs from the
-  // STRIPE_SECRET_KEY's is acknowledged (so Stripe stops retrying it) and ignored.
+  // Test (sandbox) events must never change a live project, and live events never a test one
   const sk = d.env("STRIPE_SECRET_KEY"), keyLive = /^[sr]k_live_/.test(sk) ? true : /^[sr]k_test_/.test(sk) ? false : null;
   if (keyLive !== null && typeof ev.livemode === "boolean" && ev.livemode !== keyLive) { d.log("billing-webhook: ignored an event from the other Stripe mode", ev.id, ev.type); return json({ ignored: "other stripe mode" }); }
   const at = iso((Number(ev.created) || Math.floor(d.now() / 1000)) * 1000)!;
@@ -140,7 +114,6 @@ async function handleStripe(req: Request, d: Deps, raw: string): Promise<Respons
 
   switch (ev.type) {
     case "checkout.session.completed": {
-      // Only our own create-checkout sets client_reference_id and metadata.uid to the same account id. Anything else is ignored.
       const uid = validUid(o.client_reference_id);
       if (o.mode !== "subscription" || !uid || String(o.metadata?.uid || "").toLowerCase() !== uid) return json({ ignored: "not one of our checkouts" });
       if (o.payment_status !== "paid" && o.payment_status !== "no_payment_required") return json({ ignored: "not paid" });
@@ -155,7 +128,6 @@ async function handleStripe(req: Request, d: Deps, raw: string): Promise<Respons
     case "customer.subscription.created":
     case "customer.subscription.updated":
     case "customer.subscription.deleted": {
-      // The customer decides who this is. metadata.uid on the subscription was set by our create-checkout, and is used only to link a new customer.
       const customer = idOf(o.customer);
       if (!customer) return json({ ignored: "no customer" });
       const st = ev.type === "customer.subscription.deleted" ? { state: "ended" as const } : subscriptionState(o, d);
@@ -173,7 +145,6 @@ async function handleStripe(req: Request, d: Deps, raw: string): Promise<Respons
       return done({ ...base, state: "extend", customer, external_id: customer, pro_until: iso(end + GRACE_MS) });
     }
     case "charge.refunded": {
-      // Only a full refund takes Pro away (a small goodwill refund doesn't).
       const customer = idOf(o.customer);
       if (!customer || o.refunded !== true) return json({ ignored: "partial refund or no customer" });
       return done({ ...base, state: "revoke", customer });
@@ -191,8 +162,7 @@ async function handleStripe(req: Request, d: Deps, raw: string): Promise<Respons
   }
 }
 
-// ---------- RevenueCat (App Store and Google Play) ----------
-// The app store wrapper logs in to RevenueCat with the Supabase user id, so app_user_id is that id.
+// RevenueCat (App Store and Google Play)
 const RC_SOURCE: Record<string, string> = { APP_STORE: "apple", MAC_APP_STORE: "apple", PLAY_STORE: "google" };
 function rcUser(e: any): string | undefined {
   const ids = [e?.app_user_id, ...(e?.aliases || []), e?.original_app_user_id].filter(Boolean).map(String);
@@ -208,7 +178,7 @@ async function handleRevenueCat(req: Request, d: Deps, raw: string): Promise<Res
   const e = body?.event;
   if (!e?.type || typeof e.id !== "string") return json({ error: "bad request" }, 400);
   if (e.type === "TEST") return json({ ok: "test received" });
-  // Sandbox purchases are free test purchases: never Pro, unless the owner opts in while testing.
+  // Sandbox purchases are free test purchases
   if (e.environment === "SANDBOX" && d.env("RC_ALLOW_SANDBOX") !== "1") return json({ ignored: "sandbox" });
   if (e.store === "STRIPE") return json({ ignored: "Stripe payments are handled by the Stripe webhook" });
   const source = RC_SOURCE[e.store] || "revenuecat";
@@ -217,7 +187,7 @@ async function handleRevenueCat(req: Request, d: Deps, raw: string): Promise<Res
   const done = async (row: Apply) => json({ ok: await apply(d, row) });
 
   if (e.type === "TRANSFER") {
-    // Purchases moved to another account: the old account loses Pro. The new one gets it on its next renewal or Restore Purchase.
+    // Purchases moved to another account
     const out: string[] = [];
     for (const id of ((e.transferred_from || []) as string[]).map(validUid).filter(Boolean) as string[]) {
       out.push(await apply(d, { ...base, event_id: `${e.id}:${id}`, state: "ended", uid_hint: id }));
@@ -244,18 +214,15 @@ async function handleRevenueCat(req: Request, d: Deps, raw: string): Promise<Res
         ? { ...base, event_id: e.id, state: "active", uid_hint: uid, pro_until: iso(exp), will_renew: false, external_id: ext, fresh: true }
         : { ...base, event_id: e.id, state: "lifetime", uid_hint: uid, external_id: ext, fresh: true });
     case "CANCELLATION":
-      // Usually: renewal is off, but Pro stays until the paid time runs out (EXPIRATION comes then).
-      // A refund by the store's support ends it at once.
       return done({ ...base, event_id: e.id, uid_hint: uid, state: e.cancel_reason === "CUSTOMER_SUPPORT" ? "revoke" : "renew_off" });
     case "EXPIRATION":
       return done({ ...base, event_id: e.id, state: "ended", uid_hint: uid });
     default:
-      return json({ ignored: e.type });   // BILLING_ISSUE, SUBSCRIPTION_PAUSED and others: nothing changes (the grace days cover a late card)
+      return json({ ignored: e.type });
   }
 }
 
-// Reads the body but stops as soon as it passes max bytes (null = too big). Content-Length alone can't be trusted (or may be missing,
-// as with a chunked body). The text is decoded exactly as req.text() would, so the Stripe signature still checks the raw body.
+// Reads the body but stops as soon as it passes max bytes (null = too big)
 export async function readLimited(req: Request, max: number): Promise<string | null> {
   const cl = Number(req.headers.get("content-length") || 0);
   if (cl > max) return null;
@@ -266,7 +233,7 @@ export async function readLimited(req: Request, max: number): Promise<string | n
     const { done, value } = await reader.read();
     if (done) break;
     n += value.byteLength;
-    if (n > max) { try { await reader.cancel(); } catch (_e) { /* ignore */ } return null; }
+    if (n > max) { try { await reader.cancel(); } catch (_e) { } return null; }
     chunks.push(value);
   }
   const all = new Uint8Array(n); let o = 0;
@@ -274,7 +241,7 @@ export async function readLimited(req: Request, max: number): Promise<string | n
   return new TextDecoder().decode(all);
 }
 
-// ---------- Routing: /stripe, /revenuecat, or guessed from the headers ----------
+// Routing: /stripe, /revenuecat, or guessed from the headers
 export async function handle(req: Request, d: Deps): Promise<Response> {
   if (req.method !== "POST") return json({ ok: true });
   const path = new URL(req.url).pathname;
@@ -285,8 +252,8 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     if (/\/revenuecat\/?$/.test(path) || req.headers.has("authorization")) return await handleRevenueCat(req, d, raw);
     return json({ error: "bad request" }, 400);
   } catch (err) {
-    d.log("billing-webhook failed", err instanceof Error ? err.message : "error");   // never the body, headers or keys
-    return json({ error: "server error, please retry" }, 500);   // Stripe and RevenueCat retry on errors
+    d.log("billing-webhook failed", err instanceof Error ? err.message : "error");
+    return json({ error: "server error, please retry" }, 500);
   }
 }
 

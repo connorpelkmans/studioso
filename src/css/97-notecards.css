@@ -1,5 +1,5 @@
 /* ===== module: 97-notecards.css ===== */
-/* Notes to Flashcards: the review sheet, the floating button, and the links between a note and its cards. Colors come from the theme variables, so dark mode follows. */
+/* Notes to Flashcards */
 .nc-sheet [hidden]{display:none!important}
 .nc-src{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;font-size:.9rem;color:var(--muted)}
 .nc-scope{display:inline-flex;border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:3px;gap:3px}

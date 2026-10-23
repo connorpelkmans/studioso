@@ -1,24 +1,4 @@
--- Studyboard: usernames and age
---
--- Age (like Quizlet): every account gives its birthday once (at sign-up, or the first time it publishes). It can't be changed from
--- the app afterwards. Students under 13 keep using Studyboard but can't publish, list decks in the Course Library or make public
--- links (supabase-sharing.sql checks sbu_age_ok). Accounts for students under 13 are made by a parent or guardian with their own
--- email, which they confirm. Only the date is kept, in study_profiles.birth_date, and it is never shown to anyone.
---
--- Every account picks a unique username (shown as @name). It's what published flashcards and quizzes show as their maker
--- (studyboardapp.com/flashcards), so it is checked here, on the server, and the app can't get around it:
---   * 3 to 20 characters: letters, numbers, _ and . ; starts with a letter; no "__", "..", "._" or a "." / "_" at the end
---   * unique, whatever the capitals (Connor and connor are the same)
---   * not a reserved name (studyboard, admin, support, ...) and no foul words: the name is checked with the look-alike letters
---     people use to sneak them in turned back into letters (a55, $h!t), with repeated letters squeezed (fuuuck), as a whole and
---     without its _ and . . Short words that hide inside ordinary ones (ass in "classic", rape in "grape") only count as a whole
---     part of the name, and a short allow list (allow, below) keeps words like "therapist" and "torpedo" usable.
---   * can be changed once every 30 days
--- The app keeps its own copy of the word list (index.html, 96-usernames.js) for instant feedback; tests/usernames.test.js checks
--- that both lists match. Add a word here and there, then run this file again.
---
--- Run this in Supabase (SQL Editor > New query > paste everything > Run) AFTER supabase-groups.sql, and before supabase-sharing.sql
--- (publishing needs a username). It is safe to run again.
+-- Studyboard: usernames and age Age (like Quizlet): every account gives its birthday once
 
 alter table public.study_profiles add column if not exists username text;
 alter table public.study_profiles add column if not exists username_set_at timestamptz;
@@ -54,7 +34,7 @@ insert into public.username_words (word, whole) values
   ('shithead', false), ('bullshit', false), ('douche', false), ('scumbag', false)
 on conflict (word) do update set whole = excluded.whole;
 
--- The name as letters: look-alikes turned back (0>o 1>i 3>e 4>a 5>s 7>t 8>b 9>g @>a $>s !>i |>l)
+-- The name as letters
 create or replace function public.sbu_letters(p text) returns text
 language sql immutable set search_path = public as $$
   select translate(lower(coalesce(p, '')), '0134578 9@$!|', 'oieastb gasil')
@@ -69,7 +49,6 @@ $$;
 create or replace function public.sbu_problem(p_name text, p_me uuid, p_check_taken boolean) returns text
 language plpgsql stable security definer set search_path = public as $$
 declare n text := btrim(coalesce(p_name, '')); l text; joined text; parts text[]; w record; a text;
-  -- ordinary words that contain a listed one (taken out before looking for listed words inside the name)
   allow constant text[] := array['scunthorpe', 'shiitake', 'torpedo', 'pedometer', 'montenegro', 'swank', 'therapist', 'cockatoo', 'cocktail', 'peacock', 'hancock', 'hitchcock', 'dickens', 'dickinson', 'analys', 'classic', 'grape', 'drape'];
 begin
   if char_length(n) < 3 then return 'Use at least 3 characters.'; end if;
@@ -84,7 +63,6 @@ begin
   parts := string_to_array(public.sbu_letters(regexp_replace(l, '[_.]+', ' ', 'g')), ' ');
   for w in select word, whole from public.username_words loop
     if w.whole then
-      -- (squeezing only for words without a double letter of their own: "xxx" squeezed would be any x)
       if w.word = any(parts) or joined = w.word
          or (public.sbu_squeeze(w.word) = w.word and w.word = any(select public.sbu_squeeze(x) from unnest(parts) x)) then
         return 'That name isn''t allowed. Pick another.';
@@ -100,7 +78,7 @@ begin
 end $$;
 revoke all on function public.sbu_problem(text, uuid, boolean), public.sbu_letters(text), public.sbu_squeeze(text) from public, anon, authenticated;
 
--- Can I have this one? (the sign-up form asks before the account exists, so this is open to anyone, and limited)
+-- Can I have this one
 create or replace function public.username_check(p_name text) returns table (ok boolean, reason text)
 language plpgsql volatile security definer set search_path = public as $$
 declare why text;
@@ -143,7 +121,7 @@ language sql stable security definer set search_path = public as $$
   select username from public.study_profiles where user_id = auth.uid();
 $$;
 
--- Your birthday, once (a second call with a different date is refused; ask support to correct it)
+-- Your birthday, once
 create or replace function public.set_birthdate(p_date date) returns int
 language plpgsql security definer set search_path = public as $$
 declare me uuid := auth.uid(); cur date; meta jsonb;
@@ -168,7 +146,7 @@ language sql stable security definer set search_path = public as $$
   select extract(year from age(current_date, birth_date))::int from public.study_profiles where user_id = auth.uid() and birth_date is not null;
 $$;
 
--- For the server's own checks: 'ok' (13 or older), 'young' (under 13) or 'unknown' (no birthday yet)
+-- For the server's own checks
 create or replace function public.sbu_age_ok(p_uid uuid) returns text
 language sql stable security definer set search_path = public as $$
   select case when b is null then 'unknown' when age(current_date, b) >= interval '13 years' then 'ok' else 'young' end

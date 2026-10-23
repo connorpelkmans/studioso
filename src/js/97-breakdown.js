@@ -1,6 +1,5 @@
 /* ===== module: 97-breakdown.js ===== */
-/* Big Assignment Breakdown: one big task becomes 2 to 8 milestones scheduled backward from its due date. The engine below is pure and unit-tested
-   (tests/breakdown.test.js); the rest is the review sheet, the task sheet panel, the Suggestions tray item and the offers (all deterministic: AI only words the steps, and only if turned on). */
+/* Big Assignment Breakdown */
 (() => {
 /* BREAKDOWN-START: the Big Assignment Breakdown engine. Pure (no DOM, no app state), so tests/breakdown.test.js can load this block in node.
    Splits one big assignment into 2 to 8 milestones and schedules them BACKWARD from the due date. The dates and the hours always come from this
@@ -27,7 +26,7 @@ const BREAKDOWN = (() => {
   const lowerFirst = s => s ? s.charAt(0).toLowerCase() + s.slice(1) : s;
   const HEAVY = 1.0, MAX_TEXT = 6000;
 
-  /* ---------- Templates: stage = [title, short name, share of the effort, reading|project, steps, done criteria, options] ---------- */
+  /* Templates: stage = [title, short name, share of the effort, reading|project, steps */
   const S = (t, m, f, k, steps, done, o) => Object.assign({t, m, f, k, steps, done}, o || {});
   const KINDS = {
     paper: {label: "Research paper or essay", hours: 12, lead: 28, stages: [
@@ -115,7 +114,7 @@ const BREAKDOWN = (() => {
     programming: /\b(programming|coding|software|code|compiler|algorithm|implement(?:ation)?|website|web app|app|api|database|script|program|build a)\b/i,
     paper: /\b(research\s+paper|term\s+paper|essay|paper|thesis|dissertation|report|capstone|argument|write-?up)\b/i
   };
-  // The kind from the title (counts triple) and the pasted assignment text; "generic" when nothing fits
+  // The kind from the title (counts triple) and the pasted assignment text
   function detectKind(title, text){
     const t = String(title || ""), x = String(text || "").slice(0, MAX_TEXT);
     let best = "generic", bs = 0;
@@ -130,7 +129,7 @@ const BREAKDOWN = (() => {
   }
   const BIG_RX = /\b(paper|essay|report|project|presentation|lab report|thesis|capstone|portfolio|case study|poster|dissertation|literature review|annotated bibliograph\w*|term paper|research)\b/i;
   const BIG_TYPES = {Project: 1, Assignment: 1, Lab: 1};
-  // A task worth offering a breakdown for: a Project or Assignment (a Lab only with a clear cue) of about 3h or more, or one whose title says it is big
+  // A task worth offering a breakdown for
   function isBig(t){
     if (!t || t.prepFor || t.breakdownOf || t.status === "done" || t.breakdownParent) return false;
     if (!BIG_TYPES[t.type]) return false;
@@ -153,7 +152,7 @@ const BREAKDOWN = (() => {
   }
   const fill = (s, ctx) => String(s).replace("{src}", String(ctx.src)).replace("{sec}", String(ctx.sec));
 
-  /* ---------- Stage lists: pick, merge or split to exactly n ---------- */
+  /* Stage lists: pick, merge or split to exactly n */
   const namesOf = x => x.names || [x.m || cut(x.t, 30)];
   function joinNames(ns){
     ns = ns.map((x, i) => i ? lowerFirst(x) : x);
@@ -178,7 +177,7 @@ const BREAKDOWN = (() => {
     let list = K.stages.filter(s => !s.opt || n >= 6).map((s, i) => ({id: i, t: fill(s.t, ctx), m: s.m, h: s.f, k: s.k, steps: s.steps.slice(), done: s.done, opt: !!s.opt, split: s.split ? s.split.map(x => fill(x, ctx)) : null}));
     const tot = list.reduce((s, x) => s + x.h, 0); list.forEach(x => { x.h = x.h / tot; });
     let guard = 0;
-    while (list.length < n && guard++ < 12) {          // too few stages: split the biggest stage that can be split
+    while (list.length < n && guard++ < 12) {
       let bi = -1; list.forEach((x, i) => { if (x.split && (bi < 0 || x.h > list[bi].h)) bi = i; });
       if (bi < 0) break;
       const x = list[bi], a = Object.assign({}, x, {t: x.split[0], h: x.h / 2, split: null, steps: x.steps.slice(0, 2), done: "First half done"}), b = Object.assign({}, x, {t: x.split[1], h: x.h / 2, split: null, steps: x.steps.slice(-2), done: x.done});
@@ -187,14 +186,13 @@ const BREAKDOWN = (() => {
     return mergeStages(list, n).map(x => { delete x.names; return x; });
   }
 
-  /* ---------- The backward scheduler ---------- */
-  // free: {date: study hours that day}, load: {date: share of that day's study time already used (1.0 = full)}, cap: usual study hours a day
+  /* The backward scheduler */
   function schedule(stages, o){
     const start = o.start, due = o.due, buffer = clamp(Math.round(Number(o.buffer == null ? 1 : o.buffer)) || 0, 0, 2);
     const wd = Array.isArray(o.days) && o.days.length && o.days.length < 7 ? new Set(o.days.map(Number)) : null;
     const free = o.free || {}, load = Object.assign({}, o.load || {}), cap = o.cap > 0 ? Number(o.cap) : 3;
     const blocked = d => free[d] != null && free[d] < 0.25, okDay = d => (!wd || wd.has(dow(d))) && !blocked(d);
-    const total = stages.reduce((s, x) => s + x.h, 0), hrs = Number(o.hours) > 0 ? Number(o.hours) : total, D = diff(start, due);        // whole days from start to due
+    const total = stages.reduce((s, x) => s + x.h, 0), hrs = Number(o.hours) > 0 ? Number(o.hours) : total, D = diff(start, due);
     const out = {flags: {}, merged: [], notes: []};
     let last, bufferUsed = buffer;
     if (D <= 0) { last = start; out.flags.forced = true; bufferUsed = 0; }
@@ -231,10 +229,8 @@ const BREAKDOWN = (() => {
       const lo = i === 0 ? 0 : (strict ? idx[i - 1] + 1 : idx[i - 1]), hi = strict ? m - 1 - (n - 1 - i) : m - 1;
       idx.push(clamp(k, Math.min(lo, hi), hi));
     });
-    // keep the last one on the last day (the buffer rule) even when rounding left a gap
     idx[n - 1] = m - 1;
     for (let i = n - 2; i >= 0; i--) { const hi = strict ? idx[i + 1] - 1 : idx[i + 1]; if (idx[i] > hi) idx[i] = hi; }
-    // heavy days: move within 2 days to a lighter one; never stack on another milestone's day (strict), never reorder
     const score = (d, h) => (load[d] || 0) + (free[d] != null && free[d] < h ? 0.5 : 0);
     const res = [];
     for (let i = 0; i < n; i++) {
@@ -266,15 +262,15 @@ const BREAKDOWN = (() => {
     return msgs;
   }
 
-  /* ---------- Plans ---------- */
-  function hoursOf(items, total){          // quarter-hour amounts that add up to the total
+  /* Plans */
+  function hoursOf(items, total){
     const t = Math.max(0.5, total), sh = items.reduce((s, x) => s + x.h, 0) || 1;
     const hs = items.map(x => Math.max(0.25, q4(x.h / sh * t)));
     let drift = q4(t - hs.reduce((s, x) => s + x, 0)), gi = 0; hs.forEach((x, i) => { if (x > hs[gi]) gi = i; });
     if (drift) hs[gi] = Math.max(0.25, q4(hs[gi] + drift));
     return hs;
   }
-  // input: {title, text, type, kind?, due, start, hours?, difficulty, buffer, days, leadDays, free, load, cap, stages?: vetted AI stages}
+  // input: {title, text, type, kind?, due, start, hours?, difficulty, buffer, days, leadDays
   function plan(inp){
     inp = inp || {};
     const text = String(inp.text || "").slice(0, MAX_TEXT), start = isDate(inp.start) ? inp.start : null, due = isDate(inp.due) ? inp.due : null;
@@ -293,7 +289,7 @@ const BREAKDOWN = (() => {
     p.messages = messages(sch, p);
     return p;
   }
-  // Re-plan the steps that are not done yet (a new due date, or a catch-up from today). existing: [{id, title, hours, done, steps, kind, optional}] in order.
+  // Re-plan the steps that are not done yet (a new due date, or a catch-up from today)
   function replan(inp){
     inp = inp || {};
     const start = isDate(inp.start) ? inp.start : null, due = isDate(inp.due) ? inp.due : null, ex = Array.isArray(inp.existing) ? inp.existing : [];
@@ -308,7 +304,7 @@ const BREAKDOWN = (() => {
     p.messages = messages(sch, p);
     return p;
   }
-  // The lightest allowed day for one milestone within `range` days of where it is, between its neighbours
+  // The lightest allowed day for one milestone within `range` days of where it is
   function lighterDay(o){
     const free = o.free || {}, load = o.load || {}, wd = Array.isArray(o.days) && o.days.length < 7 ? new Set(o.days.map(Number)) : null, range = o.range || 3;
     const score = d => (load[d] || 0) + (free[d] != null && free[d] < (o.hours || 1) ? 0.5 : 0) + (free[d] != null && free[d] < 0.25 ? 5 : 0);
@@ -320,7 +316,7 @@ const BREAKDOWN = (() => {
     });
     return best;
   }
-  // Change milestone i to a new date; with shiftRest the later ones move by the same number of days (kept before the due date and in order)
+  // Change milestone i to a new date
   function shiftRest(ms, i, date, o){
     o = o || {}; const delta = diff(ms[i].due, date), out = ms.map(x => Object.assign({}, x));
     out[i].due = date;
@@ -334,7 +330,7 @@ const BREAKDOWN = (() => {
     return out;
   }
 
-  /* ---------- Checking what an AI sent back (it only writes the steps; dates and hours stay ours) ---------- */
+  /* Checking what an AI sent back (it only writes the steps; dates and hours stay ours) */
   const GENERIC_RX = /^(?:do|finish|complete|start|continue|begin|work on|work|get)\b(?: (?:the|your|this|an?|all|some))?(?: (?:work|assignment|task|project|homework|stuff|things?|it|rest|first part|second part|part \d))?(?: now| early| well)?$|\b(?:stay organi[sz]ed|manage your time|time management|stay on (?:track|top)|keep (?:going|up)|do your best|work hard|be consistent|stay focused|get started|start early|make a plan|plan ahead|good luck|misc(?:ellaneous)?|and so on|etc\.?)\b|^(?:other|misc|stuff|tbd|todo|final steps?|next steps?|more work|the work)$/i;
   const NUMW = {one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12, fifteen: 15, twenty: 20};
   const COUNT_RX = /\b(\d{1,4}|one|two|three|four|five|six|seven|eight|nine|ten|twelve|fifteen|twenty)(?:\s*-\s*\d{1,4})?\s+((?:peer[- ]reviewed|scholarly|academic|primary|secondary|credible|outside|different)\s+)?(sources?|references?|citations?|articles?|pages?|words?|sections?|slides?|paragraphs?|figures?|questions?|interviews?|drafts?|minutes?|examples?|quotes?|arguments?|points?)\b/gi;
@@ -343,7 +339,7 @@ const BREAKDOWN = (() => {
   const same = (a, b) => { const x = new Set(toks(a)), y = new Set(toks(b)); if (!x.size || !y.size) return false; let c = 0; x.forEach(w => { if (y.has(w)) c++; }); return c / Math.max(x.size, y.size) >= 0.8; };
   const numOf = w => /^\d/.test(w) ? Number(w) : NUMW[String(w).toLowerCase()];
   const stem = w => String(w).toLowerCase().replace(/s$/, "");
-  // A specific count ("6 sources") the text never states is an invented requirement: the number is taken out and the step is marked
+  // A specific count ("6 sources") the text never states is an invented requirement
   function stripInvented(str, text, found){
     const t = String(text || "").toLowerCase();
     return str.replace(COUNT_RX, (all, num, adj, noun) => {
@@ -353,8 +349,7 @@ const BREAKDOWN = (() => {
       return (adj || "") + noun;
     });
   }
-  // raw: the model's JSON (string or object). opts: {text, kind, hours, repair(fn: string -> object|null)}.
-  // Returns {ok, kind, stages:[{title, steps, done, weight, kind, unsupported}], issues, fixes}. ok is false when it can't be used (the caller falls back to the template).
+  // raw: the model's JSON (string or object)
   function vetAi(raw, opts){
     opts = opts || {}; const issues = [], fixes = [], text = String(opts.text || "");
     let d = raw;
@@ -374,7 +369,7 @@ const BREAKDOWN = (() => {
     const out = [];
     arr.forEach((s, i) => {
       if (!s || typeof s !== "object") { issues.push("stage " + (i + 1) + " not an object"); return; }
-      if (s.date || s.due || s.dueDate || s.deadline) fixes.push("ignored dates");        // the AI never picks dates
+      if (s.date || s.due || s.dueDate || s.deadline) fixes.push("ignored dates");
       let title = cut(s.title || s.name || "", 200).replace(/^\s*(?:step|stage|milestone)\s*\d+\s*[:.\-)]\s*/i, "").replace(/^\d+\s*[.):-]\s*/, "");
       if (title.length > 70) { issues.push("long title: " + cut(title, 30)); return; }
       if (title.length < 8 || title.split(" ").length < 2) { issues.push("title too short: " + title); return; }
@@ -389,7 +384,6 @@ const BREAKDOWN = (() => {
       out.push({title, steps, done: cut(s.done || s.doneWhen || s.criteria || "", 100), weight: w, kind: s.kind === "reading" ? "reading" : "project", unsupported: found.length ? found : null});
     });
     if (out.length < lo) return {ok: false, reason: "too-few-valid", issues, fixes, stages: []};
-    // weights: missing ones get the average, a percent-style total is fine, absurd spreads are limited, then everything sums to 1
     const known = out.filter(x => x.weight > 0), avg = known.length ? known.reduce((s, x) => s + x.weight, 0) / known.length : 1;
     if (known.length < out.length) fixes.push(known.length ? "filled missing weights" : "equal weights");
     const rawSum = known.reduce((s, x) => s + x.weight, 0);
@@ -403,11 +397,11 @@ const BREAKDOWN = (() => {
     return {ok: true, kind, stages: out, issues, fixes, dropped: arr.length - out.length};
   }
 
-  /* ---------- Small readers for the drop-in sheet ---------- */
+  /* Small readers for the drop-in sheet */
   const MONTHS = {jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12};
   const WD = {sun: 0, mon: 1, tue: 2, tues: 2, wed: 3, thu: 4, thur: 4, thurs: 4, fri: 5, sat: 6};
   const mkDate = (y, m, d) => { const s = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`; return isDate(s) ? s : ""; };
-  // "Due Oct 10", "due: 10/14/2026", "due Friday at 11:59 PM" -> {date, time}; null when there is no "due" word near a date
+  // "Due Oct 10", "due
   function parseDue(text, today){
     const x = String(text || "").slice(0, MAX_TEXT), ty = Number(today.slice(0, 4)); let date = "", time = "";
     const near = x.match(/\b(?:due|deadline|submit(?:ted)?|hand(?:ed)? in|turn(?:ed)? in)\b[^\n]{0,60}/i); if (!near) return null;
@@ -422,14 +416,14 @@ const BREAKDOWN = (() => {
     else if ((m = seg.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/))) time = String(m[1]).padStart(2, "0") + ":" + m[2];
     return {date, time};
   }
-  // A title from pasted prompt text: the first short line, with a leading "Assignment 3:" label kept
+  // A title from pasted prompt text
   function guessTitle(text){
     const lines = String(text || "").split(/\r?\n/).map(l => l.replace(/^[#*\s>-]+/, "").trim()).filter(Boolean);
     const l = lines.find(x => x.length >= 4 && x.length <= 110 && !/^(due|deadline|name|date|course|instructor)\b/i.test(x));
     return l ? cut(l.replace(/[.:]+$/, ""), 120) : "";
   }
 
-  /* ---------- Milestones that exist as tasks ---------- */
+  /* Milestones that exist as tasks */
   const kidsOf = (parentId, tasks) => tasks.filter(t => t.breakdownOf === parentId).sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : (parseInt(a.step, 10) || 0) - (parseInt(b.step, 10) || 0)));
   function progressOf(kids){
     const total = kids.length, done = kids.filter(k => k.status === "done").length;
@@ -456,7 +450,7 @@ const hm = h => { const m = Math.round(h * 4) * 15, hh = Math.floor(m / 60), mm 
 const lvOf = r => r >= 1.4 ? 4 : r >= 1 ? 3 : r >= 0.7 ? 2 : r >= 0.4 ? 1 : 0;
 const LVN = ["calm", "steady", "busy", "heavy", "crunch"];
 
-/* ---------- The days around the plan: load (from the Crunch model, without this assignment) and free study hours ---------- */
+/* The days around the plan */
 function ctxFor(excludeIds, from, to){
   const today = todayISO(), load = {}, free = {}, cap = dailyHours() || 3;
   if (to < from) to = from;
@@ -478,7 +472,7 @@ function ctxFor(excludeIds, from, to){
   return {load, free, cap};
 }
 
-/* ---------- Turning a plan into tasks ---------- */
+/* Turning a plan into tasks */
 function milestoneTask(parent, m, i, n, order, id){
   const notes = (m.done ? `Done when: ${m.done}\n` : "") + `Part of “${parent.title}”.`;
   return newTask({id: id || uid(), title: String(m.title).slice(0, 120), type: m.kind === "reading" ? "Reading" : "Project", courseId: parent.courseId || "", start: m.due, due: m.due, hours: m.hours,
@@ -486,7 +480,7 @@ function milestoneTask(parent, m, i, n, order, id){
     checklist: (m.steps || []).slice(0, 3).map(x => ({id: uid(), text: String(x).slice(0, 120), done: false})), notes});
 }
 const markParent = (parent, total, kind) => Object.assign(clone(parent), {breakdownParent: true, bdDue: parent.due, bdKind: kind || "", bdHours: Math.round(total * 4) / 4});
-// Used by the syllabus review: a new parent task and its template milestones, offline and instant
+// Used by the syllabus review
 function expandNew(task){
   try {
     const today = todayISO(); if (!task || !task.due || task.due <= today) return null;
@@ -498,7 +492,7 @@ function expandNew(task){
   } catch (e) { console.warn("breakdown expand", e); return null; }
 }
 
-/* ---------- AI wording (never dates): strict JSON, checked by BREAKDOWN.vetAi, template when anything is off ---------- */
+/* AI wording (never dates) */
 const BD_SCHEMA = {type: "OBJECT", properties: {kind: {type: "STRING", enum: BD.ORDER}, stages: {type: "ARRAY", items: {type: "OBJECT", properties: {
   title: {type: "STRING", description: "Specific verb phrase under 60 characters"}, steps: {type: "ARRAY", items: {type: "STRING"}}, done: {type: "STRING", description: "How the student knows this step is finished"},
   weight: {type: "NUMBER", description: "Relative share of the total effort"}, kind: {type: "STRING", enum: ["reading", "project"]}}, required: ["title", "weight"]}}}, required: ["kind", "stages"]};
@@ -524,7 +518,7 @@ Return JSON only.`;
 }
 const aiOkNow = () => { try { return aiReady() && !aiTrialing() && aiConsented(aiCfg().provider); } catch (e) { return false; } };
 
-/* ---------- The review sheet ---------- */
+/* The review sheet */
 let CUR = null;
 function stripHtml(S){
   const ms = S.ms.filter(m => !m.locked), start = S.start, due = S.due;
@@ -694,7 +688,7 @@ function wire(S){
   const rs = $("#bdRespread"); if (rs) rs.addEventListener("click", () => { rebuild(); toast("Milestones spread out again"); });
   const ai = $("#bdAi");
   if (ai) {
-    if (inClaude() || !aiReady()) { ai.disabled = true; ai.title = "Turn on AI features in Settings to use this"; $("#bdAiMsg").textContent = inClaude() ? "" : "AI isn't set up, so the simple template is used."; }
+    if (inPreview() || !aiReady()) { ai.disabled = true; ai.title = "Turn on AI features in Settings to use this"; $("#bdAiMsg").textContent = inPreview() ? "" : "AI isn't set up, so the simple template is used."; }
     ai.addEventListener("click", () => runAi(S, true));
   }
   $("#bdGo").addEventListener("click", () => commit(S));
@@ -854,7 +848,7 @@ function wireNew(S){
   setTimeout(() => { const t = $("#bdText"); if (t && window.matchMedia("(min-width:601px)").matches) t.focus(); }, 30);
 }
 
-/* ---------- Where it shows up: task sheet, rows, tray, offers ---------- */
+/* Where it shows up */
 const bigBtnTypes = {Project: 1, Assignment: 1, Lab: 1};
 function formHtml(t, isNew){
   if (isNew) return `<p class="mini bd-new-link"><button type="button" class="link-btn" data-act="bd-new">Big Assignment? Break It into Milestones Instead</button></p>`;
@@ -887,7 +881,7 @@ function rowMeta(t){
   if (t.breakdownParent) { const k = kidsOfTask(t.id); if (k.length) { const pr = BD.progressOf(k); return `<span class="bd-tag">${esc(pr.text)}</span>${BD.needsReplan(t, k) ? `<span class="late">Re-plan?</span>` : ""}`; } }
   return "";
 }
-// The Suggestions tray: the biggest task nobody has broken down, due in 5 to 30 days. Rule-based; the AI only runs if it is tapped.
+// The Suggestions tray
 function trayItem(){
   try {
     const today = todayISO();
@@ -899,7 +893,7 @@ function trayItem(){
   } catch (e) { return null; }
 }
 const BIG_CUE = /\b(paper|essay|report|project|presentation|lab report|thesis|capstone|portfolio|case study|poster)\b/i;
-// Deleting a parent: keep the milestones or take them along (everything through applyChanges, so Undo and the bin work)
+// Deleting a parent
 function deleteHook(id){
   const t = state.tasks[id]; if (!t || !t.breakdownParent) return false;
   const kids = kidsOfTask(id); if (!kids.length) return false;
@@ -942,7 +936,6 @@ hook("changed", changes => {
         const kids = kidsOfTask(a.id);
         if (BD.needsReplan(a, kids) && offered.replan[a.id] !== a.due) { offered.replan[a.id] = a.due; setTimeout(() => toast(`The due date moved. Re-plan the ${kids.filter(k => k.status !== "done").length} open milestones?`, null, {label: "Re-plan", fn: () => openFor(a.id)}), 900); }
       }
-      // a gentle, once-only offer when a big task with a faraway due date is created
       if (!a.breakdownOf && !a.breakdownParent && a.created && Date.now() - a.created < 30000 && (changes.filter(x => x.kind === "task" && x.after).length <= 2) && BD.isBig(a) && a.due && BD.diff(today, a.due) >= 5 && !lmsOf(a)) {
         const mem = bdMem(); mem.asked = mem.asked || {};
         if (!mem.asked[a.id]) {
@@ -960,15 +953,15 @@ hook("act", (act, el, id) => {
     case "bd-new": { const f = dlg.querySelector("form.sheet"), g = n => f && f.elements[n] ? f.elements[n].value : ""; const pre = {title: g("title"), courseId: g("courseId"), due: g("due")}; if (dlg.open) dlg.close(); openNew(pre); return true; }
     case "bd-complete": completeParent(id); if (dlg.open) dlg.close(); return true;
     case "bd-remove": removeBreakdown(id); return true;
-    case "bd-new-course": { const pre = {courseId: el.dataset.course || (ui.tab === "courses" && ui.courseId && courseOf(ui.courseId) ? ui.courseId : "")};   // opened from a menu on a course page: that course
-      if (dlg.open) { dlg.addEventListener("close", () => openNew(pre), {once: true}); dlg.close(); }   // open it after the old sheet's close event, which would otherwise reach the new sheet's own close listener
+    case "bd-new-course": { const pre = {courseId: el.dataset.course || (ui.tab === "courses" && ui.courseId && courseOf(ui.courseId) ? ui.courseId : "")};
+      if (dlg.open) { dlg.addEventListener("close", () => openNew(pre), {once: true}); dlg.close(); }
       else openNew(pre);
       return true; }
   }
   return false;
 });
 
-/* ---------- Style ---------- */
+/* Style */
 {
   const st = document.createElement("style"); st.id = "breakdownCss";
   st.textContent = `
@@ -1023,7 +1016,7 @@ hook("act", (act, el, id) => {
 `;
   document.head.appendChild(st);
 }
-// A small hook for tests/breakdown.e2e.js (read-only access to app internals, like window.__sbPlan)
+// A small hook for tests/breakdown.e2e.js
 window.__sbBreakdown = {state: () => state, ui, render, applyChanges, clone, importSheet, lmsOf, newTask, allTasks, remainingOf, TB, plan: () => window.__sbPlan && window.__sbPlan()};
 window.SBBREAK = {open: openFor, openNew, formHtml, rowBtn, rowMeta, trayItem, deleteHook, expandNew, big: x => BD.isBig(Object.assign({status: "todo"}, x)), engine: BD, state: () => CUR};
 

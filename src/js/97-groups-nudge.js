@@ -1,17 +1,11 @@
 /* ===== module: 97-groups-nudge.js ===== */
-/* Study Groups, easier to find on phones and tablets (the desktop side menu already lists Groups).
-   - A "More" button at the end of the bottom bar opens a small sheet: Study Groups, Files, Grades, Settings.
-     It looks selected while the Groups page is open, and shows the same unread dot the Groups button would.
-   - A quiet Board card, "Study with a friend", for people who are not in any group yet and have a few tasks.
-     "Not now" hides it for 3 weeks (after the third time it stays away), "Don't show again" hides it for good.
-     Signed-out people see it too; the button opens the Study Groups page, which explains the free account and offers Sign In.
-   Device-only state: localStorage "studyboard:grpNudge" = {never, snooze: ms, count}. */
+/* Study Groups, easier to find on phones and tablets */
 (() => {
   const KEY = "studyboard:grpNudge", SNOOZE = 21 * 864e5, MAX_SNOOZES = 3;
   const rd = () => { try { return JSON.parse(localStorage.getItem(KEY) || "null") || {}; } catch (e) { return {}; } };
   const wr = patch => { try { localStorage.setItem(KEY, JSON.stringify(Object.assign(rd(), patch))); } catch (e) {} };
   /*NUDGE-START*/
-  // Pure rule: should the card show?  s = {never, snooze, count}; ctx = {now, tasks, groups (number or null when unknown), banner, unavailable}
+  // Pure rule: should the card show
   function showCard(s, ctx){
     s = s || {};
     if (s.never || ctx.unavailable || ctx.banner) return false;
@@ -25,7 +19,7 @@
   const ICON_MORE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18.5" cy="12" r="1.4"/></svg>';
   const ICON_PPL = '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M16 5.2a3 3 0 0 1 0 5.6M18 14.8c2 .7 3.2 2.5 3.2 5.2"/></svg>';
 
-  /* ---------- More in the bottom bar ---------- */
+  /* More in the bottom bar */
   function addMore(){
     const inn = $("nav.tabs .in"); if (!inn || $(".nav-more", inn)) return;
     const b = document.createElement("button");
@@ -64,16 +58,16 @@
     }, {once: true});
   }
 
-  /* ---------- Board card ---------- */
-  let probed = null, probing = null;               // number of groups for a signed-in person, asked once per account
+  /* Board card */
+  let probed = null, probing = null;
   const stub = () => window.__sbGroupsStub || null;
   const accountId = () => { const s = stub(); return s ? (s.user && s.user.id) || "stub" : (typeof sbUser !== "undefined" && sbUser ? sbUser.id : ""); };
   const signedIn = () => !!(stub() || (typeof sbActive === "function" && sbActive()));
   function groupCount(){
-    if (!signedIn()) return 0;                      // signed out: no groups, and the card is a nudge to sign in
+    if (!signedIn()) return 0;
     const k = window.SBGROUPS && SBGROUPS.known(); if (k != null) return k;
     const id = accountId();
-    if (probed && probed.id === id && (probed.n != null || Date.now() - probed.at < 60000)) return probed.n;     // an unknown count (offline) is retried after a minute and never shows the card
+    if (probed && probed.id === id && (probed.n != null || Date.now() - probed.at < 60000)) return probed.n;
     if (!probing && window.SBGROUPS) {
       probing = SBGROUPS.probe().then(n => { probed = {id, n: n == null ? null : n, at: Date.now()}; if (n === 0) scheduleRender(); }).catch(() => { probed = {id, n: null, at: Date.now()}; }).then(() => { probing = null; });
     }
@@ -92,8 +86,8 @@
   viewBoard = function(){
     const html = origBoard.apply(this, arguments);
     try {
-      const claude = typeof inClaude === "function" && inClaude();
-      const ctx = {now: Date.now(), tasks: tasksArr().length, groups: claude ? 0 : groupCount(), banner: html.indexOf("rw-banner") >= 0, unavailable: claude};
+      const preview = typeof inPreview === "function" && inPreview();
+      const ctx = {now: Date.now(), tasks: tasksArr().length, groups: preview ? 0 : groupCount(), banner: html.indexOf("rw-banner") >= 0, unavailable: preview};
       if (!showCard(rd(), ctx)) return html;
       const k = html.indexOf('<div class="qa-wrap">');
       return k >= 0 ? html.slice(0, k) + cardHtml() + html.slice(k) : cardHtml() + html;

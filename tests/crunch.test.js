@@ -1,4 +1,4 @@
-// Unit tests for the Crunch Forecast model (pure logic extracted from index.html).  Run: node tests/crunch.test.js
+// Unit tests for the Crunch Forecast model (pure logic extracted from index.html)
 const fs = require("fs"), path = require("path"), assert = require("assert"), cp = require("child_process");
 const TZS = ["UTC", "America/New_York", "America/Los_Angeles", "Europe/London", "Australia/Sydney", "Pacific/Auckland", "Asia/Kolkata"];
 if (!process.env.CRUNCH_TZ_CHILD && !process.env.CRUNCH_NO_TZ) {
@@ -14,7 +14,7 @@ const code = s.slice(s.indexOf("/*CRUNCH-START*/"), s.indexOf("/*CRUNCH-END*/"))
 const C = new Function(code + ";return CRUNCH;")();
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 const T = (id, type, due, o) => Object.assign({id, title: id, type, due, status: "todo", est: true}, o || {});
-const build = (tasks, o) => C.build(Object.assign({today: "2026-10-05", tasks, dailyHours: 3}, o || {}));   // 2026-10-05 is a Monday
+const build = (tasks, o) => C.build(Object.assign({today: "2026-10-05", tasks, dailyHours: 3}, o || {}));
 const wk = (m, start) => m.weeks.find(w => w.start === start);
 const day = (m, d) => m.days.find(x => x.date === d);
 
@@ -32,7 +32,7 @@ const day = (m, d) => m.days.find(x => x.date === d);
   ok(day(m, "2026-10-14").due[0].id === "e1" && /1 exam/.test(day(m, "2026-10-14").reasons), "exam day listed: " + day(m, "2026-10-14").reasons);
 }
 
-// three exams + a paper in one week: crunch, visible 4+ weeks ahead through the lead-up
+// three exams + a paper in one week
 {
   const tasks = [T("bio", "Exam", "2026-11-10", {rem: 8, weight: 25}), T("chem", "Exam", "2026-11-11", {rem: 8, weight: 25}), T("stat", "Exam", "2026-11-12", {rem: 7, weight: 20}), T("essay", "Assignment", "2026-11-13", {title: "History term paper", rem: 10, weight: 20})];
   const m = build(tasks);
@@ -123,7 +123,7 @@ const day = (m, d) => m.days.find(x => x.date === d);
   ok(day(more, "2026-10-08").ratio < day(free, "2026-10-08").ratio, "more daily hours = lower ratio");
 }
 
-// pulling forward lowers the peak, never moves the crunch elsewhere, and slots land on lighter days
+// pulling forward lowers the peak, never moves the crunch elsewhere
 {
   const tasks = [T("e1", "Exam", "2026-11-10", {rem: 8}), T("e2", "Exam", "2026-11-11", {rem: 8}), T("e3", "Exam", "2026-11-12", {rem: 7}),
     T("paper", "Assignment", "2026-11-13", {title: "Term paper", rem: 12}), T("proj", "Project", "2026-11-16", {rem: 10})];
@@ -149,7 +149,7 @@ const day = (m, d) => m.days.find(x => x.date === d);
   ok(soon.moves.every(m => m.to >= "2026-11-09"), "can't move before today");
 }
 
-// the plan of a synced task: starting earlier really lowers the week
+// the plan of a synced task
 {
   const tasks = [T("e1", "Exam", "2026-11-10", {rem: 8}), T("e2", "Exam", "2026-11-11", {rem: 8}), T("e3", "Exam", "2026-11-12", {rem: 8}), T("lms", "Assignment", "2026-11-13", {title: "Term paper", rem: 12, synced: true})];
   const inp = {today: "2026-10-05", tasks, dailyHours: 3}, a = wk(C.build(inp), "2026-11-09");
@@ -189,7 +189,7 @@ const day = (m, d) => m.days.find(x => x.date === d);
   ok(m.weeks.length <= 20 && m.days.length <= 140, "20 week cap");
   ok(m.weeks.length >= 6, "at least six weeks shown");
 }
-// a start date in the past is just the creation default and changes nothing; a future one narrows the window
+// a start date in the past is just the creation default and changes nothing
 {
   const a = build([T("p", "Assignment", "2026-10-30", {title: "Essay", rem: 8})]), b = build([T("p", "Assignment", "2026-10-30", {title: "Essay", rem: 8, start: "2026-10-01"})]);
   ok(JSON.stringify(a.days.map(d => d.demand)) === JSON.stringify(b.days.map(d => d.demand)), "past start ignored");
@@ -207,7 +207,7 @@ const day = (m, d) => m.days.find(x => x.date === d);
   ok(C.moveFor(inp, "2026-11-09", "e1") === null && C.moveFor(inp, "2026-11-09", "nope") === null, "exam / unknown not movable");
   ok(C.moveFor({today: "2026-10-05", tasks: [T("x", "Assignment", "2026-10-09", {rem: 2})], dailyHours: 3}, "2026-10-05", "x") === null, "a calm week has nothing worth moving");
 }
-// learned pace: capScale / wkScale (from 92-accuracy.js) scale capacity, are clamped, and do nothing when absent
+// learned pace: capScale / wkScale (from 92-accuracy.js) scale capacity, are clamped
 {
   const tasks = [T("e1", "Exam", "2026-10-14", {rem: 8})];
   const base = build(tasks), same = build(tasks, {capScale: 1, wkScale: null}), none = build(tasks, {capScale: undefined, wkScale: [1, 1, 1, 1, 1, 1, 1]});
@@ -215,7 +215,7 @@ const day = (m, d) => m.days.find(x => x.date === d);
   const slow = build(tasks, {capScale: 0.8});
   ok(Math.abs(day(slow, "2026-10-13").capacity - 2.4) < 0.01 && day(slow, "2026-10-13").ratio > day(base, "2026-10-13").ratio, "a lower scale shrinks capacity and raises the load ratio");
   ok(build(tasks, {capScale: 9}).days[0].capacity === 3.75 && build(tasks, {capScale: 0.1}).days[0].capacity === 2.25, "capScale is clamped to 0.75-1.25");
-  // Sunday-first weekday factors: 2026-10-11 is a Sunday
+  // Sunday-first weekday factors
   const wk = build(tasks, {wkScale: [0.8, 1, 1, 1, 1, 1, 1.2]});
   ok(Math.abs(day(wk, "2026-10-11").capacity - 2.4) < 0.01 && Math.abs(day(wk, "2026-10-10").capacity - 3.6) < 0.01 && day(wk, "2026-10-12").capacity === 3, "weekday factors apply by weekday");
   ok(build(tasks, {wkScale: [5, 5, 5, 5, 5, 5, 5]}).days[0].capacity <= 3.6 + 1e-9 && build(tasks, {wkScale: [1, 1]}).days[0].capacity === 3, "wkScale clamped, and ignored unless it has 7 entries");

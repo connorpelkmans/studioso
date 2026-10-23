@@ -1,6 +1,4 @@
-// node tests/note-zoom.e2e.js  (Playwright + Chromium; no network)
-// The note board zooms: − / + and the 100% button, Ctrl + scroll (and a trackpad pinch, which browsers send the same way), and a two-finger
-// pinch on a phone. Zoomed, a dragged note still lands under the pointer, a double-click adds a note where you clicked, and 100% resets.
+// node tests/note-zoom.e2e.js (Playwright + Chromium; no network) The note board zooms
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -46,7 +44,6 @@ const SEED = {v: 2, courses: [], tasks: [], decks: [], files: [], events: [], se
     const sz = await page.evaluate(() => { const s = document.getElementById("nbScroll"), b = document.getElementById("nbBoard"); return {sw: s.scrollWidth, bw: b.offsetWidth, cw: s.clientWidth}; });
     ok(sz.sw <= Math.max(sz.cw, Math.ceil(sz.bw * z1)) + 2, "zoomed out, the frame only scrolls over the board itself (no empty scroll area)");
 
-    // Ctrl + scroll zooms around the pointer, keeping the note under it in place
     const b2 = await noteBox(page, "n2"), px = b2.x + 20, py = b2.y + 20;
     await page.mouse.move(px, py);
     await page.keyboard.down("Control"); await page.mouse.wheel(0, -200); await page.keyboard.up("Control"); await page.waitForTimeout(150);
@@ -56,7 +53,6 @@ const SEED = {v: 2, courses: [], tasks: [], decks: [], files: [], events: [], se
     await page.mouse.wheel(0, 200); await page.waitForTimeout(150);
     ok(await zoom(page) === z2 && await page.evaluate(() => document.getElementById("nbScroll").scrollTop) >= sy0, "a plain scroll still moves around the board");
 
-    // zoom to 50% exactly, then drag a note: it lands under the pointer
     await page.evaluate(() => { const r = document.querySelector('.nb-zoom [data-id="reset"]'); r.click(); });
     await page.waitForTimeout(100);
     for (let i = 0; i < 4; i++) { await page.click('.nb-zoom [data-id="out"]'); await page.waitForTimeout(60); }
@@ -69,7 +65,6 @@ const SEED = {v: 2, courses: [], tasks: [], decks: [], files: [], events: [], se
     ok(Math.abs(after.x - (40 + 200)) <= 3 && Math.abs(after.y - (40 + 120)) <= 3, "at 50%, moving the pointer 100 by 60 moves the note 200 by 120 board pixels: " + JSON.stringify(after));
     ok(Math.abs(a2.x - (a.x + 100)) < 4 && Math.abs(a2.y - (a.y + 60)) < 4, "and on screen it stays under the pointer");
 
-    // double-click an empty spot: the new note appears where you clicked
     const br = await page.evaluate(() => { const r = document.getElementById("nbBoard").getBoundingClientRect(); return {x: r.left, y: r.top}; });
     const cx = br.x + 300, cy = br.y + 250;
     const before = await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem("coursework:v2")).notes || {}).length);
@@ -79,7 +74,6 @@ const SEED = {v: 2, courses: [], tasks: [], decks: [], files: [], events: [], se
     ok(added.length === 1 && Math.abs(added[0].x + nw / 2 - 600) < 30 && Math.abs(added[0].y + 20 - 500) < 30, "a double-click at 50% adds the note at that spot on the board: " + JSON.stringify(added) + " (had " + before + ")");
     await page.keyboard.press("Escape").catch(() => {});
 
-    // 100% puts it back, and the zoom is remembered after a reload
     await page.click('.nb-zoom [data-id="out"]').catch(() => {}); await page.waitForTimeout(100);
     const zr = await zoom(page);
     await page.reload(); await page.waitForTimeout(1500); await page.evaluate(() => { const b = document.querySelector('nav.tabs [data-tab="notes"]'); b && b.click(); }); await page.waitForSelector("#nbBoard .note"); await page.waitForTimeout(300);
@@ -88,7 +82,6 @@ const SEED = {v: 2, courses: [], tasks: [], decks: [], files: [], events: [], se
     ok(await zoom(page) === 1 && /100%/.test(await page.locator(".nb-zoom .nbz-pct").textContent()), "the 100% button puts the board back to its usual size");
     await ctx.close();
 
-    // phone: a two-finger pinch zooms
     const ph = await open({viewport: {width: 390, height: 844}, isMobile: true, hasTouch: true});
     const sc = await ph.page.evaluate(() => { const r = document.getElementById("nbScroll").getBoundingClientRect(); return {x: r.left + r.width / 2, y: r.top + 150}; });
     const cdp = await ph.ctx.newCDPSession(ph.page);

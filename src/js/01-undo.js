@@ -1,6 +1,6 @@
 /* ===== module: 01-undo.js: the app's core, changes and undo ===== */
-/* ---------- Changes and undo ---------- */
-let lastDelete = null;   // the newest delete that can still be undone with Ctrl/Cmd+Z
+/* Changes and undo */
+let lastDelete = null;
 const mapOf = kind => state[KIND_MAP[kind]];
 const getItem = (kind, id) => mapOf(kind)[id] || null;
 function historyDiff(a, b){
@@ -39,7 +39,6 @@ function applyChanges(changes, label, extra){
   if (!changes.length) return;
   const inverse = changes.map(c => ({kind:c.kind, id:c.id, after: clone(getItem(c.kind, c.id))}));
   const progressed = label !== null && typeof isProgress === "function" && changes.some(c => c.kind === "task" && c.after && isProgress(getItem("task", c.id), c.after));
-  // Anything deleted here goes to Recently Deleted (Settings) for 30 days. Undo (label === null) is never binned.
   let binned = [];
   if (label !== null) { try { binned = trashCapture(changes, label); } catch(e) { console.warn("Recently Deleted", e); } }
   changes.forEach(c => setItem(c.kind, c.id, c.after === null ? null : c.after, label !== null));
@@ -51,11 +50,10 @@ function applyChanges(changes, label, extra){
   if (binned.length) lastDelete = {at: Date.now(), undo, label: label || ""};
   if (typeof scheduleFolderBackup === "function") scheduleFolderBackup(DESK ? 3000 : 60000);
   if (progressed) { try { noteProgress(); } catch(e) { console.warn(e); } }
-  fire("changed", changes, inverse);   // inverse: each item as it was before, so a hook can tell what was deleted
+  fire("changed", changes, inverse);
   return inverse;
 }
-// AI keys stay on this device: the copy sent to your account never includes them. Neither do school calendar links
-// (Brightspace, Canvas, Blackboard): a private calendar link works like a password to that calendar, so it is kept on the device it was added on.
+// AI keys stay on this device
 const LMS_FEED_IDS = ["brightspace", "canvas", "blackboard"];
 function dropFeeds(o){ LMS_FEED_IDS.forEach(id => { if (o[id] && typeof o[id] === "object" && "feed" in o[id]) { o[id] = Object.assign({}, o[id]); delete o[id].feed; } }); return o; }
 function syncSettings(st){
@@ -63,8 +61,7 @@ function syncSettings(st){
   if (o.ai && typeof o.ai === "object") { o.ai = Object.assign({}, o.ai); delete o.ai.keys; delete o.ai.key; }
   return dropFeeds(o);
 }
-// Settings from the account: this device's own calendar links stay. A link an older version saved to the account is taken in once
-// (so nothing stops working here) and the account copy is then removed (true is returned so the caller sends the cleaned settings).
+// Settings from the account
 function keepLocalFeeds(st, mine){
   let had = false;
   LMS_FEED_IDS.forEach(id => {

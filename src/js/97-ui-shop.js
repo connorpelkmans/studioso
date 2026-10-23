@@ -1,9 +1,5 @@
 /* ===== module: 97-ui-shop.js ===== */
-/* Studyboard 1.11.0: an easier Style Shop. Module prefix 97-ui.
-   Wraps styleShop (after the scenes and Theme Collections modules have added their parts) and adds:
-   filter chips per tab, collapsible sections with counts, compact tiles, a sticky tab bar, a Collections tab
-   (each scene theme's stickers, pins and flashcard style together), and remembers the tab, filters and open sections.
-   Every buy and use button keeps its data-act (shop-use, shop-unlock), so other modules can route them. */
+/* Studyboard 1.11.0 */
 (() => {
   const KEY = "studyboard:shop";
   let S = {};
@@ -26,7 +22,7 @@
     stickers: [["all", "All"], ["free", "Free"], ["pro", "Pro"], ["collections", "Theme Collections"]]
   };
   const skinGroup = s => ({plain: "free", world: "world", ideas: "ideas", season: "seasons", pro: "scenes", newscenes: "scenes", majors: "majors", hobby: "hobby", holiday: "holidays"})[(s && s.group) || "plain"] || "scenes";
-  // Where a theme sits in the Style Shop (its section in the order above, then its place in the catalogue), so other lists can follow it
+  // Where a theme sits in the Style Shop
   window.SBUI.themeRank = id => { const i = SKINS.findIndex(x => x.id === id); if (i < 0) return 1e6; const g = skinGroup(SKINS[i]), k = g === "free" ? -1 : GROUPS.findIndex(x => x[0] === g); return (k < 0 ? 99 : k + 1) * 1e4 + i; };
   const secKind = (tab, title, tp) => {
     if (tp) return "collections";
@@ -35,21 +31,14 @@
     return /^\s*free/.test(t) ? "free" : /^\s*all pins/.test(t) ? "mixed" : "pro";
   };
   const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  let openCol = "";   // the collection card that's showing everything (kept across re-renders)
+  let openCol = "";
 
-  /* The picture caches live in their own small database, so their writes never hold up the app's own storage */
+  /* The picture caches live in their own small database */
   let cdb = null;
   const cacheDb = () => cdb || (cdb = new Promise((res, rej) => { try { const r = indexedDB.open("studyboard-ui-cache", 1); r.onupgradeneeded = () => r.result.createObjectStore("c"); r.onsuccess = () => { const d = r.result; d.onversionchange = () => { try { d.close(); } catch (e) {} cdb = null; }; res(d); }; r.onerror = () => rej(r.error); } catch (e) { rej(e); } }));
   const cacheGet = async k => { const db = await cacheDb(); return new Promise(res => { const t = db.transaction("c").objectStore("c").get(k); t.onsuccess = () => res(t.result); t.onerror = () => res(null); }); };
   const cacheSet = async (k, v) => { const db = await cacheDb(); return new Promise(res => { const t = db.transaction("c", "readwrite"); t.objectStore("c").put(v, k); t.oncomplete = () => res(true); t.onerror = () => res(false); }); };
 
-  /* ---------- Stickers as cached bitmaps ----------
-     A sticker used to be a live inline SVG with five CSS drop-shadows (the white die-cut edge and the shadow), and the
-     browser redrew every visible sticker on every scroll frame (about 100 ms a frame on a slow laptop). Now each
-     sticker is drawn once: its SVG, with the same edge and shadow baked in as an SVG filter, is rasterised on a canvas
-     at this screen's pixel density and kept as a PNG (in memory, and in IndexedDB so it's done once per device).
-     The shop shows those PNGs as plain <img>s, which scroll like photos. Stickers with words stay inline SVG (an image
-     can't use the app's font), with the same baked filter and no CSS filter. */
   const STK_PAD = 8, BOX = 64 + 2 * STK_PAD;
   const stkFilter = id => `<filter id="${id}" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB"><feFlood flood-color="#fff" result="w"/>` +
     [[1.72, 0], [-1.72, 0], [0, 1.72], [0, -1.72]].map(([dx, dy], i) => `<feOffset in="${i ? "m" + i : "SourceGraphic"}" dx="${dx}" dy="${dy}" result="o${i + 1}"/><feComposite in="w" in2="o${i + 1}" operator="in" result="c${i + 1}"/><feMerge result="m${i + 1}"><feMergeNode in="c${i + 1}"/><feMergeNode in="${i ? "m" + i : "SourceGraphic"}"/></feMerge>`).join("") +
@@ -59,8 +48,8 @@
   const hashOf = k => { const t = STICKERS[k].svg + "|v1"; let h = 5381; for (let i = 0; i < t.length; i++) h = (Math.imul(h, 33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36); };
   // bitmap size: the shop shows a sticker (with its edge) at up to about 76 CSS px
   const needPx = () => Math.round(76 * Math.min(3, Math.max(1, window.devicePixelRatio || 1)));
-  const BMP = new Map();      // k -> {px, h, blob, url}
-  const LIVE = new Map();     // k -> inline html for stickers with words
+  const BMP = new Map();
+  const LIVE = new Map();
   const IDB_KEY = "studyboard:stkBitmaps:v1";
   let loaded = null, queue = [], pumping = false, dirty = false, saveT = 0, readyRes = null;
   const ready = new Promise(r => { readyRes = r; });
@@ -102,7 +91,6 @@
       await load();
       while (queue.length) {
         const t0 = performance.now();
-        // a few stickers per slice, then give the page a turn
         while (queue.length && performance.now() - t0 < 12) { const k = queue.shift(); if (!BMP.has(k)) { try { await raster(k); } catch (e) { BMP.set(k, {px: 0, url: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(stkSvg(k, "o"))}); swap(k); } } }
         persist();
         await new Promise(r => (window.requestIdleCallback ? requestIdleCallback(r) : setTimeout(r, 50)));
@@ -110,7 +98,6 @@
     } finally { pumping = false; if (!queue.length && readyRes) readyRes(true); }
   }
   // Warm the cache quietly after start-up, so the shop is quick the first time too
-  // (Waits for the page to be quiet, so a first visit's start-up and first taps never compete with it.)
   hook("boot", () => setTimeout(() => {
     const warm = () => {
       const all = Object.keys(STICKERS);
@@ -130,7 +117,7 @@
     if (!b) want([k]);
     return `<span class="stk-cell ui-stk"><img data-stk="${esc(k)}" ${b ? `src="${b.url}"` : `class="ui-wait"`} alt="" draggable="false" loading="lazy"></span>`;
   }
-  // A pack's grid of stickers, filled in just before it scrolls into view (so a long list opens quickly)
+  // A pack's grid of stickers, filled in just before it scrolls into view
   const stkGrid = (keys, cls) => `<div class="pack-grid ${cls || ""}" data-stks="${esc(keys.join(" "))}" style="min-height:${keys.length > 6 ? 112 : 54}px"></div>`;
   let io = null;
   function fillGrid(g){ if (!g.dataset.stks) return; const ks = g.dataset.stks.split(" ").filter(Boolean); g.removeAttribute("data-stks"); g.style.minHeight = ""; g.innerHTML = ks.map(stkCell).join(""); bump(g); }
@@ -140,7 +127,6 @@
     if (!window.IntersectionObserver || !scroller) { grids.forEach(fillGrid); return; }
     if (!io || io.root !== scroller) { if (io) io.disconnect(); io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { io.unobserve(e.target); fillGrid(e.target); } }), {root: scroller, rootMargin: "700px 0px"}); }
     grids.forEach(g => io.observe(g));
-    // then quietly fill the rest in idle time, top to bottom, so scrolling later has nothing left to do
     const idle = window.requestIdleCallback || (f => setTimeout(() => f({timeRemaining: () => 8}), 30));
     const rest = () => idle(d => {
       const left = [...root.querySelectorAll(".pack-grid[data-stks], .ui-col-stk[data-stks]")].filter(g => g.offsetParent);
@@ -150,19 +136,16 @@
     });
     rest();
   }
-  // Newly drawn cells that are still waiting move to the front of the queue (top of the page first)
+  // Newly drawn cells that are still waiting move to the front of the queue
   const bump = root => { const ks = [...root.querySelectorAll("img.ui-wait[data-stk]")].map(i => i.dataset.stk); if (ks.length) want(ks, true); };
   window.SBUI = Object.assign(window.SBUI, {stkCell, stkGrid, stkKeys: () => Object.keys(STICKERS), stkInner: k => STICKERS[k] ? STICKERS[k].svg : "", stkOriginal: k => stickerSvg(k), stkReady: () => (want(Object.keys(STICKERS)), ready), stkBitmaps: () => BMP.size});
 
-  /* ---------- Theme previews as cached bitmaps ----------
-     Scene previews in the shop are big SVG pictures; the browser parsed each one again every time the shop was
-     drawn (about a second of work for the Themes tab on a slow laptop). The first time a preview is needed it's
-     rasterised once to a PNG at this screen's pixel density, kept in memory and IndexedDB, and the shop uses that. */
-  const TH_KEY = "studyboard:thumbBitmaps:v1", TH = new Map(); // "id:l" -> {px, h, blob, url}
+  /* Theme previews as cached bitmaps Scene previews in the shop are big SVG pictures */
+  const TH_KEY = "studyboard:thumbBitmaps:v1", TH = new Map();
   let thLoaded = null, thQueue = [], thPumping = false, thDirty = false, thSaveT = 0;
   const thPx = () => Math.min(640, Math.round(320 * Math.min(3, Math.max(1, window.devicePixelRatio || 1))));
   const hashText = t => { let h = 5381; for (let i = 0; i < t.length; i++) h = (Math.imul(h, 33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36) + ":" + t.length; };
-  const thSrc = new Map();   // "id:l" -> the original SVG url, and its text hash once known
+  const thSrc = new Map();
   function thLoad(){
     if (!thLoaded) thLoaded = (async () => { let st = null; try { st = await cacheGet(TH_KEY); } catch (e) {} thLoaded.store = st && typeof st === "object" ? st : {}; })();
     return thLoaded;
@@ -179,7 +162,7 @@
     TH.set(key, {px, h, blob, url: URL.createObjectURL(blob)}); thDirty = true; thSwap(key);
   }
   const thSwap = key => { const t = TH.get(key), src = thSrc.get(key); if (t && src) document.querySelectorAll(`img[src="${esc1(src.url)}"]`).forEach(i => { i.src = t.url; }); };
-  // One preview per idle moment, and only while the Style Shop is open, so it never competes with other work
+  // One preview per idle moment, and only while the Style Shop is open
   const shopOpen = () => !!(dlg.open && dlg.querySelector(".sheet.shop"));
   async function thPump(){
     if (thPumping) return; thPumping = true;
@@ -198,7 +181,7 @@
   artThumb = function(id, dark){
     const h = origThumb.apply(this, arguments);
     const sk = SKINS.find(x => x.id === id);
-    if (!sk || sk.photo || !/^(world|ideas|season|pro|newscenes|majors|hobby|holiday)$/.test(sk.group || "")) return h;   // only the built-in scene art
+    if (!sk || sk.photo || !/^(world|ideas|season|pro|newscenes|majors|hobby|holiday)$/.test(sk.group || "")) return h;
     const m = h && h.match(/<img[^>]*\ssrc="([^"]+)"/); if (!m || !/^(blob:|data:image\/svg)/.test(m[1])) return h;
     const key = id + (dark ? ":d" : ":l");
     if (!thSrc.has(key) || thSrc.get(key).url !== m[1]) { thSrc.set(key, {url: m[1]}); TH.delete(key); }
@@ -261,14 +244,13 @@
       else { body.insertAdjacentHTML("beforeend", stickersHtml()); addStickerCollections(body); sectionize(body, tab); }
     } else sectionize(body, tab);
     tagSlots(body, tab);
-    if (tab === "themes" || tab === "collections") {   // sections follow the filter order
+    if (tab === "themes" || tab === "collections") {
       const rank = ["photos", "free"].concat(GROUPS.map(g => g[0])), r = el => { const i = rank.indexOf(el.dataset.f); return i < 0 ? 99 : i; };
       const secs = [...body.querySelectorAll(":scope > .ui-sec")];
       if (secs.length > 1) { const mark = document.createComment(""); secs[0].before(mark); secs.slice().sort((a, b) => r(a) - r(b)).forEach(x => mark.before(x)); mark.remove(); }
     }
     lazyGrids(body);
     bump(body);
-    // Filter chips: only the ones with something in them
     const has = new Set([...body.querySelectorAll("[data-f]")].map(x => x.dataset.f));
     const chips = (CHIPS[tab] || [["all", "All"]]).filter(([k]) => k === "all" || has.has(k)).concat(STORE.paywall ? [["owned", "Owned"]] : []);
     if (chips.length > 2 || STORE.paywall) bar.insertAdjacentHTML("beforeend", `<div class="ui-chips" role="group" aria-label="Show">${chips.map(([k, l]) => `<button type="button" class="ui-chip" data-ui-f="${k}" aria-pressed="false">${esc(l)}</button>`).join("")}</div>`);
@@ -325,8 +307,7 @@
     releaseAll(body);
     try { apply0(body, tab); } finally { holdRest(body); }
   }
-  /* Sections (and Collections cards) below about the first three rows stay display:none, with a placeholder height,
-     until you scroll near them or the page is idle. They stay in the page, so every button can still be found. */
+  /* Sections (and Collections cards) below about the first three rows stay display:none */
   const HELD = "ui-held";
   const shopCols = min => Math.max(1, Math.floor((Math.min(960, window.innerWidth - 24) - 36 + 10) / (min + 10)));
   function releaseSec(el){
@@ -358,7 +339,6 @@
       const sp = document.createElement("div"); sp.className = "ui-cols-more";
       body.querySelector(".ui-cols").after(sp); sizeMore(body); holdIO.observe(sp);
     }
-    // release the rest in idle time, top to bottom
     const idle = window.requestIdleCallback || (f => setTimeout(() => f({timeRemaining: () => 8}), 30));
     const step = () => idle(d => {
       if (!body.isConnected) return;
@@ -394,7 +374,6 @@
       setOpen(sec, pick ? true : f === "owned" ? true : saved != null ? !!saved : sec.dataset.f !== "collections");
     });
     body.querySelectorAll(".ui-col").forEach(c => { c.hidden = pick && c.dataset.f !== f; });
-    // Owned: only what you can use now
     body.querySelectorAll(".shop-tile, .shop-pack, .ui-col").forEach(t => t.classList.toggle("ui-gone", f === "owned" && !!t.querySelector(':scope > [data-act="shop-unlock"], :scope > .shop-name [data-act="shop-unlock"], :scope > .ui-col-act [data-act="shop-unlock"]')));
     body.querySelectorAll(".ui-sec").forEach(sec => { if (f === "owned") sec.hidden = !sec.querySelector(".shop-tile:not(.ui-gone), .shop-pack:not(.ui-gone)"); });
     const none = body.querySelector(".ui-none");
@@ -403,7 +382,7 @@
     else if (visible && none) none.remove();
   }
 
-  /* ---------- Collections: each theme's stickers, pins and flashcard style together ---------- */
+  /* Collections: each theme's stickers, pins and flashcard style together */
   const useBtn = (kind, id, cur, label) => !owns(kind, id) ? `<button type="button" class="btn small" data-act="shop-unlock" data-kind="${kind}" data-id="${id}">🔒 Unlock</button>${kind === "skin" ? cpBtn(id) : ""}` : cur ? `<button type="button" class="btn small" disabled data-kind="${kind}" data-id="${id}" data-l="${label || "Use"}">In Use</button>` : `<button type="button" class="btn small primary" data-act="shop-use" data-kind="${kind}" data-id="${id}">${label || "Use"}</button>`;
   function collectionsHtml(){
     const T = window.SBTP;
@@ -446,10 +425,6 @@
     tagSlots(box, "collections"); lazyGrids(box); bump(box);
   }
 
-  /* ---------- Use without redrawing the whole shop ----------
-     Each tile with a Use or In Use button is tagged with its kind and id (data-k, data-i). A Use click saves the
-     style exactly like the app does, then only flips the buttons and highlights. Anything untagged falls back to the
-     app's own handler (which redraws the shop). */
   const TAB_KIND = {themes: "skin", cards: "card", notes: "note", pins: "pin"};
   const LABEL = {skin: "Use", card: "Use for All Decks", note: "Use for Notes", pin: "Use for Notes"};
   function curOf(kind){
@@ -491,13 +466,11 @@
     const body = el.closest(".sheet.ui-shop .sheet-body"), tile = el.closest("[data-k]");
     if (!body || !tile) return false;
     const k = el.dataset.kind, id = el.dataset.id;
-    // Themes redraw the whole shop (other modules add their own theme tiles, like My Photos, that depend on it)
     if (!k || !id || !owns(k, id) || !["card", "note", "pin"].includes(k)) return false;
     if (k === "card") saveStyle({card: id, cardAuto: id === "theme"});
     else if (k === "note") saveStyle({note: id, noteAuto: false, notePicked: true});
     else saveStyle({pin: id, pinAuto: false, pinPicked: true});
     refreshSlots(body, k);
-    // redraw the app behind the shop after this frame, so the click feels instant
     requestAnimationFrame(() => { try { render(); } catch (e) { console.warn(e); } });
     return true;
   });

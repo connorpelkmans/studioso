@@ -1,7 +1,5 @@
 /* ===== module: 99-color-picker.js ===== */
-/* One colour picker for the whole app, in the whiteboard's style (shade square, hue, hex, ready-made and recent colours), instead of the
-   browser's own. It takes over every <input type="color">: a click on one (or showPicker()) opens this next to it, the input's value
-   follows as you pick (an "input" event each time) and "change" fires when it closes. Inside the whiteboard, the board's own picker is used. */
+/* One colour picker for the whole app, in the whiteboard's style */
 (() => {
   const SW = ["#ff3b30", "#ff9500", "#ffcc00", "#34c759", "#00c7be", "#30b0c7", "#007aff", "#5856d6", "#af52de", "#ff2d55", "#a2845e", "#8e8e93", "#e83e8c", "#20c997", "#6f42c1", "#fd7e14"];
   const K_RECENT = "studyboard:recentColors";
@@ -28,7 +26,6 @@
     if (OPEN) { const same = OPEN.inp === inp; close(); if (same) return; }
     const start = (okHex(inp.value) ? inp.value : "#3e63dd").toLowerCase();
     let [h, sa, va] = hex2hsv(start);
-    // where it opens: under the input, or under what was clicked when the input itself is hidden (a swatch or label that opens it)
     const vis = el => { const r = el && el.getBoundingClientRect && el.getBoundingClientRect(); return r && r.width > 4 && r.height > 4; };
     const anchor = vis(inp) ? inp : (lastPtr && lastPtr.closest && vis(lastPtr.closest("label,button,[role=button]") || lastPtr) ? (lastPtr.closest("label,button,[role=button]") || lastPtr) : inp.closest("label") || inp.parentElement);
     const el = document.createElement("div"); el.className = "sb-cpick"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", inp.getAttribute("aria-label") || "Pick a color");
@@ -38,7 +35,6 @@
       <div class="sb-cp-row"><span class="sb-cp-now" aria-hidden="true"></span><label class="sb-cp-hexl"><span>#</span><input class="sb-cp-hex" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Hex color"></label><button type="button" class="btn small primary sb-cp-done">Done</button></div>
       <div class="sb-cp-sw" role="group" aria-label="Colors">${SW.map(c => `<button type="button" class="sb-cp-s" data-c="${c}" style="--c:${c}" aria-label="${c}"></button>`).join("")}</div>
       ${rec.length ? `<div class="sb-cp-lbl">Recent</div><div class="sb-cp-sw" role="group" aria-label="Recent colors">${rec.map(c => `<button type="button" class="sb-cp-s" data-c="${c}" style="--c:${c}" aria-label="${c}"></button>`).join("")}</div>` : ""}`;
-    // inside an open sheet (dialogs sit on top of everything else), else on the page
     (inp.closest("dialog[open]") || document.body).appendChild(el);
     const away = e => { if (!el.contains(e.target) && e.target !== inp) close(); };
     OPEN = {el, inp, start, anchor, away};
@@ -50,7 +46,7 @@
       hue.value = Math.round(h); now.style.background = hex; if (!fromHex) hexIn.value = hex.slice(1);
       if (inp.value.toLowerCase() !== hex) { inp.value = hex; inp.dispatchEvent(new Event("input", {bubbles: true})); }
     };
-    show(); inp.value = start;   // opening doesn't change anything by itself
+    show(); inp.value = start;
     const svAt = e => { const r = sv.getBoundingClientRect(); sa = clamp((e.clientX - r.left) / r.width, 0, 1); va = clamp(1 - (e.clientY - r.top) / r.height, 0, 1); show(); };
     sv.addEventListener("pointerdown", e => { e.preventDefault(); sv.setPointerCapture(e.pointerId); svAt(e); const mv = ev => svAt(ev), up = () => { sv.removeEventListener("pointermove", mv); sv.removeEventListener("pointerup", up); }; sv.addEventListener("pointermove", mv); sv.addEventListener("pointerup", up); });
     sv.addEventListener("keydown", e => { const d = e.shiftKey ? 0.1 : 0.02; if (e.key === "ArrowLeft") sa = clamp(sa - d, 0, 1); else if (e.key === "ArrowRight") sa = clamp(sa + d, 0, 1); else if (e.key === "ArrowUp") va = clamp(va + d, 0, 1); else if (e.key === "ArrowDown") va = clamp(va - d, 0, 1); else return; e.preventDefault(); show(); });
@@ -58,10 +54,8 @@
     hexIn.addEventListener("input", () => { const v = hexIn.value.replace(/[^0-9a-f]/gi, "").toLowerCase(); if (v.length === 6) { [h, sa, va] = hex2hsv("#" + v); show(true); } });
     hexIn.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); close(); } });
     el.addEventListener("click", e => { const b = e.target.closest(".sb-cp-s"); if (b) { [h, sa, va] = hex2hsv(b.dataset.c); show(); } if (e.target.closest(".sb-cp-done")) close(); });
-    // Escape closes the picker, not the sheet under it
     el.addEventListener("keydown", e => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); } });
     el.addEventListener("cancel", e => e.preventDefault());
-    // under its anchor (above it when there's no room), on screen
     const r = (anchor && anchor.getBoundingClientRect) ? anchor.getBoundingClientRect() : {left: innerWidth / 2, right: innerWidth / 2, top: innerHeight / 3, bottom: innerHeight / 3, width: 0};
     const w = el.offsetWidth, hh = el.offsetHeight;
     el.style.left = clamp(r.left + r.width / 2 - w / 2, 8, Math.max(8, innerWidth - w - 8)) + "px";

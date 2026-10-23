@@ -1,26 +1,8 @@
 /* ===== module: 97-examprep.js ===== */
-/* Exam Prep Planner: "enter the exam date and topics and it spreads review sessions across the days before, pulling in the matching decks and notes".
-   ONE flow for every exam entry point (row, detail sheet, Courses, Today, Add sheet, capture, Search Everywhere, the Suggestions tray).
-   The plan's settings live on the exam task (task.prep, syncs and merges by field); each session is an ordinary Study task (prepFor = the exam, topicId, kind,
-   matKind/matId = the deck, note, quiz or file it opens). Sessions are written in one applyChanges batch, so one Undo removes them.
-   The engine below is pure and unit tested (tests/examprep.test.js); AI is optional and only words the one-line instructions. */
+/* Exam Prep Planner */
 (() => {
 /*EXAMPREP-START*/
-// The Exam Prep planner's engine. Pure functions only (no app globals, no DOM, no clock): tests/examprep.test.js runs this block in Node.
-// Dates are local "YYYY-MM-DD" strings and every day step goes through day numbers (UTC math on the date parts), so DST and Feb 29 can't skew a day.
-// Everything about WHEN and HOW LONG is decided here, deterministically; AI (optional) only ever words the instructions.
-//
-// How a plan is made:
-//   1. Days: every study day from today (or the chosen start; by default no earlier than 21 days out) to the day BEFORE the exam. Days you
-//      picked out, fully blocked days and days with under 15 minutes free are skipped. A day's minutes are the smaller of the intensity and the
-//      free time; a day with 4h+ of other deadlines or inside a crunch week is cut to 60% (and used last when there's a choice).
-//      The last day can be kept for a light review, or left free as a rest day. A past paper goes 3 to 5 days out when there are 5+ days.
-//   2. Needs: each topic's need = weight x (1 + shakiness) (Shaky 1, OK 0.35, Strong 0; "already studied" counts 60%). Topic minutes are its share
-//      of 92% of the time that's left. Not enough time for even 30 minutes each: the lowest-need topics are dropped and reported.
-//   3. Touches: Learn, then reviews at +1, +3 and +6 days (Shaky 3 reviews, OK 2, Strong 1), then a recap in the last 48 hours. At most 3 topics
-//      a day (2 on short days), each topic at most once a day, shaky topics first and latest.
-//   4. Each touch gets a purpose (note, flashcards, practice questions, teach-back, recall) from the material linked to the topic, and a
-//      one-line instruction. With free windows given, sessions are put into real time slots; otherwise they stay date-only.
+// The Exam Prep planner's engine
 const EXAMPREP = (() => {
   const dn = s => { const [y, m, d] = String(s).split("-").map(Number); return Math.round(Date.UTC(y, m - 1, d) / 864e5); };
   const fromDn = n => new Date(n * 864e5).toISOString().slice(0, 10);
@@ -43,7 +25,7 @@ const EXAMPREP = (() => {
   const KIND_RANK = {cards: 0, recap: 1, recall: 2, learn: 3, teach: 4, questions: 5, past: 6, light: 7};
   const STYLES = [["mc", "Multiple choice"], ["short", "Short answer"], ["calc", "Calculation"], ["essay", "Essay"], ["practical", "Practical"]];
 
-  /* ---------- words: normalise, light stemming, aliases ---------- */
+  /* words: normalise, light stemming, aliases */
   const STOP = new Set("a an the of and or to in on for with from by at as is are be vs about this that my your our review study studying exam exams midterm midterms final finals quiz quizzes test tests notes note lecture lectures lec slides slide deck decks flashcards flashcard cards card pdf docx pptx txt copy draft part".split(" "));
   const ALIAS_GROUPS = [["cardiac", "cardio", "heart", "cardiovascular"], ["renal", "kidney", "nephron", "nephro"], ["respiratory", "lung", "pulmonary", "breathing", "resp"], ["nervous", "neuro", "neural", "brain"],
     ["digestive", "gastro", "gi", "gut", "gastrointestinal"], ["derivative", "differentiation", "differentiate"], ["integral", "integration", "integrate"], ["econ", "economic", "economics"], ["psych", "psychology", "psychological"],
@@ -76,7 +58,7 @@ const EXAMPREP = (() => {
   }
   const keyOf = s => tokens(s).sort().join(" ") || strip(s).replace(/\s+/g, " ").trim();
 
-  /* ---------- topics: parse a pasted list, chapters named in notes ---------- */
+  /* topics: parse a pasted list, chapters named in notes */
   function parseTopics(text){
     const seen = new Set(), out = [];
     String(text == null ? "" : text).split(/\r?\n|;|•|·|,/).forEach(line => {
@@ -109,7 +91,7 @@ const EXAMPREP = (() => {
     });
     return out.slice(0, 12);
   }
-  // Topic ideas from what the course already has (no AI). m: {decks:[{id,name,tags,cards:[{front,tags}]}], notes:[{id,text}], files:[{id,name}], examNotes, reading, checklist:[text], prior:[name]}
+  // Topic ideas from what the course already has (no AI)
   function suggestTopics(m){
     m = m || {}; const out = [], seen = new Set();
     const put = (name, src) => { name = cleanName(name); if (name.length < 3) return; const k = keyOf(name); if (!k || seen.has(k)) return; seen.add(k); out.push({name, src}); };
@@ -124,7 +106,7 @@ const EXAMPREP = (() => {
     return out.slice(0, 24);
   }
 
-  /* ---------- matching material to a topic ---------- */
+  /* matching material to a topic */
   function mkDoc(title, body, extra){ return {t: new Set(tokens(title + " " + (extra || ""), null)), b: new Set(tokens(body || "", null))}; }
   function scoreDoc(T, d){
     if (!T.length) return 0;
@@ -133,7 +115,7 @@ const EXAMPREP = (() => {
     return tS + 0.5 * bS + (T.length >= 2 && bS === 1 ? 0.2 : 0);
   }
   const SCORE_OK = 0.6;
-  // courseId scoping: the exam's own course, or (only for a near-exact name match) material with no course. Other courses never.
+  // courseId scoping
   const scoped = (cid, courseId, score) => (cid || "") === (courseId || "") ? score >= SCORE_OK : !cid ? score >= 1.2 : false;
   function matchTopic(name, mat, courseId){
     const T = tokens(name), out = {decks: [], notes: [], quizzes: [], files: []};
@@ -155,7 +137,6 @@ const EXAMPREP = (() => {
       const s = scoreDoc(T, mkDoc(cleanName(f.name), "", ""));
       if (scoped(f.courseId, courseId, s)) out.files.push({k: "file", id: f.id, title: f.name, score: Math.round(s * 100) / 100});
     });
-    // the exam's own course ranks above general (uncoursed) material with the same score
     const own = new Set([].concat((mat.decks || []), (mat.notes || []), (mat.files || [])).filter(x => (x.courseId || "") === (courseId || "")).map(x => x.id));
     ["decks", "notes", "quizzes", "files"].forEach(k => out[k].sort((a, b) => (b.score + (own.has(b.deckId || b.id) ? 0.1 : 0)) - (a.score + (own.has(a.deckId || a.id) ? 0.1 : 0)) || String(a.title).localeCompare(String(b.title))));
     out.decks = out.decks.slice(0, 2); out.notes = out.notes.slice(0, 3); out.quizzes = out.quizzes.slice(0, 2); out.files = out.files.slice(0, 2);
@@ -163,7 +144,7 @@ const EXAMPREP = (() => {
   }
   const flatLinks = m => m.decks.concat(m.notes, m.quizzes, m.files);
 
-  /* ---------- instruction lines ---------- */
+  /* instruction lines */
   const has = (style, k) => (style || []).includes(k);
   function questionLine(t, style){
     if (has(style, "calc")) return `Work 6 practice problems on ${t} without notes, then check every step.`;
@@ -197,7 +178,7 @@ const EXAMPREP = (() => {
     return null;
   };
 
-  /* ---------- the plan ---------- */
+  /* the plan */
   function simplePlace(windows, items){
     const slots = []; let wi = 0, cur = windows.length ? windows[0].s : 0;
     items.forEach(it => {
@@ -238,14 +219,12 @@ const EXAMPREP = (() => {
     if (!days.length && Array.isArray(inp.days) && inp.days.length) { days = buildDays(false); if (days.length) warnings.push("None of your chosen study days is free before the exam, so other days are used."); }
     if (!days.length) return empty("nodays", "Every day before the exam is blocked or has less than 15 minutes free. Free up some time, or lower the intensity.");
 
-    // The last day: a light review, or a free rest day
     let lightDay = null, restDay = false;
     if (inp.rest && days.length >= 4 && days[days.length - 1].date === last) { days.pop(); restDay = true; }
     if (inp.light !== false && days.length >= 3) lightDay = days[days.length - 1];
     const reg = days.filter(d => d !== lightDay);
     const maxT = intensity <= 60 ? 2 : MAX_TOPICS;
 
-    // Topics, with what's already done
     const doneL = Array.isArray(inp.done) ? inp.done : [];
     const T0 = (inp.topics || []).filter(t => t && String(t.name || "").trim()).map((t, i) => {
       const id = t.id || "t" + i, mine = doneL.filter(x => x.topicId === id);
@@ -261,7 +240,6 @@ const EXAMPREP = (() => {
       t.mv = t.learned ? 20 : 30;
     });
 
-    // Fixed sessions: a past paper, a light review
     let paper = null;
     if (reg.length >= 5 && T0.length >= 2 && inp.paper !== false) {
       const cand = reg.filter(d => diff(d.date, due) >= 3 && diff(d.date, due) <= 5).sort((a, b) => (a.heavy - b.heavy) || (b.cap - a.cap) || (a.date < b.date ? 1 : -1))[0];
@@ -271,7 +249,6 @@ const EXAMPREP = (() => {
     let lightMin = 0;
     if (lightDay) lightMin = Math.min(lightDay.cap, clamp(r5(0.4 * intensity), 15, 30));
 
-    // Budget and dropping
     const B = reg.reduce((s, d) => s + d.cap, 0) - (paper ? paper.min : 0);
     const TB = Math.max(0, B * 0.92);
     let active = T0.slice(), dropped = [];
@@ -284,7 +261,6 @@ const EXAMPREP = (() => {
     const nDays = reg.length + (lightDay ? 1 : 0);
     const crash = nDays <= 3 || dropped.length > 0;
 
-    // Touches per topic
     active.forEach(t => {
       const deck = pick(t.links, "deck"), quiz = pick(t.links, "quiz");
       let learnMin = t.learned ? 0 : clamp(r5(t.min * 0.4), 20, 60), recapMin = clamp(r5(t.min * 0.12), 10, 20);
@@ -297,7 +273,6 @@ const EXAMPREP = (() => {
       t.touches = {learn: learnMin, recap: recapMin, reviews: seq.slice(0, nRev).map(k => ({kind: k, min: revMin}))};
     });
 
-    // Place: a topic once a day, at most maxT topics a day, never over a day's minutes, non-busy days first
     const fit = (d, t, min, floor) => {
       if (d.topics.includes(t.id) || d.topics.length >= maxT) return 0;
       const room = d.cap - d.used; if (room < Math.max(MIN_SESSION, floor || MIN_SESSION)) return 0;
@@ -334,7 +309,6 @@ const EXAMPREP = (() => {
       putIn(hit.d, t, "learn", hit.m); learnDate[t.id] = hit.d.date; lastTouch[t.id] = hit.d.date;
     });
     noRoom.forEach(t => { active = active.filter(x => x !== t); dropped.push({id: t.id, name: t.name, reason: "room"}); });
-    // Reviews at expanding gaps after the learn session
     order.filter(t => active.includes(t)).forEach(t => {
       let anchor = learnDate[t.id] || lastTouch[t.id];
       t.touches.reviews.forEach((rv, k) => {
@@ -347,7 +321,6 @@ const EXAMPREP = (() => {
         putIn(hit.d, t, rv.kind, hit.m); lastTouch[t.id] = hit.d.date;
       });
     });
-    // A recap in the last 48 hours, shaky topics last
     const recapPool = reg.filter(d => diff(d.date, due) <= 3).length ? reg.filter(d => diff(d.date, due) <= 3) : reg.slice(-2);
     order.filter(t => active.includes(t)).forEach(t => {
       const after = d => d.date > (lastTouch[t.id] || "");
@@ -361,7 +334,6 @@ const EXAMPREP = (() => {
       lightDay.used += lightMin;
     }
 
-    // Order inside each day, put into slots, and flatten
     const sessions = [], tById = {}; T0.forEach(t => { tById[t.id] = t; });
     days.forEach(d => {
       d.items.sort((a, b) => (KIND_RANK[a.kind] - KIND_RANK[b.kind]) || (tById[(b.topics || [])[0]] ? tById[b.topics[0]].score : 0) - (tById[(a.topics || [])[0]] ? tById[a.topics[0]].score : 0));
@@ -377,7 +349,6 @@ const EXAMPREP = (() => {
       });
     });
     sessions.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
-    // Report
     const dropNames = dropped.map(x => x.name);
     if (dropped.length) warnings.unshift(`Not enough time to cover everything. Dropped: ${dropNames.join(", ")}.`);
     if (crash && diff(today, due) <= 3) warnings.push(`The exam is ${diff(today, due) === 1 ? "tomorrow" : "in " + diff(today, due) + " days"}, so this is a crash plan: shaky and high-weight topics first.`);
@@ -389,9 +360,7 @@ const EXAMPREP = (() => {
     return {sessions, dropped, warnings, crash, offers, err: "", summary: {days: new Set(sessions.map(s => s.date)).size, minutes: sessions.reduce((s, x) => s + x.min, 0), topics: active.length, perTopic: per, restDay, light: !!lightDay, paper: paper ? paper.day.date : ""}};
   }
 
-  /* ---------- progress: coverage and readiness ---------- */
-  // sessions: [{topicIds, min, done, kind}], decks: {deckId: {mastery 0..1, seen}}, quiz: {deckId: pct 0..100}
-  // Same evidence gate as the app's other readiness number: with no finished session, no flashcard progress and no quiz score there's nothing to base a percentage on.
+  /* progress: coverage and readiness */
   function readiness(o){
     o = o || {}; const topics = o.topics || [], sess = o.sessions || [], decks = o.decks || {}, quiz = o.quiz || {};
     const prior = {weak: 0.1, ok: 0.2, strong: 0.35};
@@ -418,7 +387,7 @@ const EXAMPREP = (() => {
 })();
 /*EXAMPREP-END*/
 
-// ---- the app side: data, the planner sheet, the Prep plan view, Today, the companion ----
+// the app side
 const PPK = "studyboard:prep";
 const ppLoad = () => { try { const o = JSON.parse(localStorage.getItem(PPK) || "{}"); return o && typeof o === "object" ? o : {}; } catch (e) { return {}; } };
 const ppSave = o => { try { localStorage.setItem(PPK, JSON.stringify(o)); } catch (e) {} };
@@ -439,7 +408,7 @@ const hasPlan = ex => !!ex && sessionsOf(ex.id).length > 0;
 const upcoming = () => tasksArr().filter(t => MILESTONE(t.type) && t.status !== "done" && t.due && t.due >= todayISO()).sort(sortTasks);
 const hmm = m => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
 
-/* ----- material in the app ----- */
+/* material in the app */
 function materialFor(){
   return {
     decks: decksArr().map(d => ({id: d.id, name: d.name, courseId: d.courseId || "", cards: d.cards.slice(0, 400).map(c => ({id: c.id, front: c.front, back: c.back})), quizzes: (d.aiQuizzes || []).map(q => ({id: q.id, title: q.title}))})),
@@ -448,7 +417,7 @@ function materialFor(){
   };
 }
 function autoLinksFor(name, courseId, mat){ return EXAMPREP.flatLinks(EXAMPREP.matchTopic(name, mat || materialFor(), courseId)).map(l => ({k: l.k, id: l.id, title: l.title, deckId: l.deckId, cardIds: l.cardIds || null, total: l.total})); }
-// What a link points at today (a deck can have lost cards, a note can be gone), with the due-card count the session is sized from
+// What a link points at today (a deck can have lost cards, a note can be gone)
 function liveLinks(links){
   const out = [];
   (links || []).forEach(l => {
@@ -465,7 +434,7 @@ function suggestFor(ex, courseId){
   return EXAMPREP.suggestTopics({decks: mat.decks.filter(inC), notes: mat.notes.filter(inC), files: mat.files.filter(inC), examNotes: ex.notes, reading: ex.reading, checklist: (ex.checklist || []).map(i => i.text), prior: (ex.planTopics || []).map(t => t.name), objectives: window.SBOBJ ? SBOBJ.topicNames(cid) : []});
 }
 
-/* ----- the plan saved on the exam: ex.prep (syncs with the task and merges field by field) ----- */
+/* the plan saved on the exam */
 function prepOf(ex){
   const p = ex.prep && typeof ex.prep === "object" ? ex.prep : {};
   const topics = (Array.isArray(p.topics) && p.topics.length ? p.topics : (ex.planTopics || []).map(t => ({name: t.name, conf: t.conf}))).map(t => ({id: t.id || uid(), name: t.name, conf: t.conf || "ok", weight: t.weight == null ? null : t.weight, done: !!t.done, links: t.links || [], edited: !!t.edited}));
@@ -505,7 +474,7 @@ function readyMemo(ex){
   const k = (state.updated || 0) + "|" + todayISO(); if (PCACHE.k !== k) PCACHE = {k, v: {}};
   return PCACHE.v[ex.id] || (PCACHE.v[ex.id] = readyFor(ex));
 }
-// Used by the app's own progress bar: the readiness percentage (0 to 100) once there's evidence, else null
+// Used by the app's own progress bar
 function pctOf(ex){ if (!ex || !ex.prep || !hasPlan(ex)) return null; try { return readyMemo(ex).pct; } catch (e) { return null; } }
 function summaryOf(ex){
   const ss = sessionsOf(ex.id); if (!ss.length) return null;
@@ -514,7 +483,7 @@ function summaryOf(ex){
   return {total: ss.length, done, missed, pct: r.pct, gate: r.gate, line: `${done} of ${ss.length} sessions done${r.pct != null ? ` · readiness ${r.pct}%` : ""}`, moved: !!(ex.prep && ex.prep.examDue && ex.prep.examDue !== ex.due)};
 }
 
-/* ----- opening material ----- */
+/* opening material */
 function openNoteById(id){
   const n = state.notes[id]; if (!n) { toast("That note is gone"); return; }
   if (dlg.open) dlg.close();
@@ -544,14 +513,14 @@ function matBtn(t){
   return ok ? `<button type="button" class="btn small pp-open" data-act="prep-open-mat" data-id="${esc(t.id)}">${matLabel(t)}</button>` : "";
 }
 
-/* ----- turn a plan into Study tasks (one undoable batch) ----- */
+/* turn a plan into Study tasks (one undoable batch) */
 function taskFields(ex, s, topic, all){
   const mat = s.mat || null, name = examName(ex), kl = KLOW[s.kind];
   const title = (s.kind === "past" ? `${name}: Timed practice` : s.kind === "light" ? `${name}: Light review + sleep` : `${name}: ${s.topic} (${kl})`).slice(0, 190);
   const f = {title, type: "Study", courseId: ex.courseId || "", start: s.date, due: s.date, hours: Math.round(s.min / 60 * 100) / 100, priority: s.kind === "past" || s.kind === "light" ? "high" : "med",
     prepFor: ex.id, kind: s.kind, topic: s.topic || "", topicId: s.kind === "past" || s.kind === "light" ? "" : s.topicIds && s.topicIds[0] || "", studyKind: s.kind === "past" ? "practice" : s.kind, notes: s.text, slot: s.slot ? hmm(s.slot.s) : "",
     matKind: mat ? mat.k : "", matId: mat ? mat.id : "", matDeck: mat && mat.k === "quiz" ? mat.deckId || "" : "", matTitle: mat ? mat.title : ""};
-  const decks = [...new Set((topic ? liveLinks(topic.links) : s.kind === "past" ? (all || []).flatMap(t => liveLinks(t.links)) : []).filter(l => l.k === "deck").map(l => l.id))];   // a timed practice draws on every topic's deck (Practice Quiz)
+  const decks = [...new Set((topic ? liveLinks(topic.links) : s.kind === "past" ? (all || []).flatMap(t => liveLinks(t.links)) : []).filter(l => l.k === "deck").map(l => l.id))];
   f.studyDecks = s.kind === "cards" || s.kind === "questions" || s.kind === "recap" || s.kind === "past" ? decks : [];
   if (s.gen) f.gen = true;
   return f;
@@ -564,7 +533,6 @@ function applyPlan(ex0, P, topics, due, time, out, opts){
   const tById = {}; topics.forEach(t => { tById[t.id] = t; });
   out.sessions.forEach(s => {
     const f = taskFields(ex, s, tById[s.topicIds && s.topicIds[0]], topics);
-    // An unfinished session with the same topic and purpose is moved (keeping its id, checklist and focus time) rather than deleted and made again
     const old = olds.find(o => !used.has(o.id) && o.topicId === f.topicId && o.kind === f.kind);
     if (old) { used.add(old.id); const n = Object.assign(clone(old), f, {doneAt: null}); if (!f.slot) n.slot = ""; changes.push({kind: "task", id: old.id, after: normTask(n)}); }
     else { const t = newTask(Object.assign({}, f, {order, status: "todo"})); order += 10; changes.push({kind: "task", id: t.id, after: t}); }
@@ -580,7 +548,7 @@ function applyPlan(ex0, P, topics, due, time, out, opts){
   return n;
 }
 
-/* ----- AI wording (optional): only the one-line instructions, never dates or minutes ----- */
+/* AI wording (optional) */
 const PREP_SCHEMA = {type: "OBJECT", properties: {sessions: {type: "ARRAY", items: {type: "OBJECT", properties: {id: {type: "STRING"}, text: {type: "STRING", description: "One concrete instruction for this study session, under 160 characters"}}, required: ["id", "text"]}}}, required: ["sessions"]};
 async function aiWords(ex, out, P, status){
   if (!aiReady() || !out.sessions.length) return 0;
@@ -593,7 +561,7 @@ async function aiWords(ex, out, P, status){
   return n;
 }
 
-/* ----- the planner sheet ----- */
+/* the planner sheet */
 let S = null, SEQ = 0;
 const topicOpt = (id, k) => (S.topics.find(t => t.id === id) || {})[k];
 function stateFor(ex, P){
@@ -696,7 +664,7 @@ function drawPlan(){
   foot.innerHTML = `<button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span>${have.length && !S.replan ? `<button type="button" class="btn" data-pp="view">Back to Plan</button>` : ""}<button type="button" class="btn primary" id="ppCreate" data-pp="create" ${n ? "" : "disabled"}>${have.length ? `Re-plan ${n} Session${n === 1 ? "" : "s"}` : `Create Plan (${n} Session${n === 1 ? "" : "s"})`}</button>`;
   const t = $("#ppTitle"); if (t) t.textContent = have.length ? "Re-plan My Prep" : "Plan My Prep";
 }
-/* ----- the Prep plan view ----- */
+/* the Prep plan view */
 function drawView(){
   const ex = exOf(); if (!ex) { dlg.close(); return; }
   const body = $("#ppBody"), foot = $("#ppFoot"); if (!body) return;
@@ -822,7 +790,7 @@ function wrapUp(id){
   applyChanges(changes, `${ex.title} wrapped up${open.length ? `, ${open.length} unused session${open.length === 1 ? "" : "s"} removed` : ""}`);
   setTimeout(() => runAct("g-mark", {id}), 60);
 }
-/* ----- entry points ----- */
+/* entry points */
 function open(id, o){
   o = o || {};
   let ex = id && state.tasks[id];
@@ -837,8 +805,7 @@ function open(id, o){
   else { if (have) S.replan = true; autoSeed(ex); drawPlan(); }
 }
 
-/* ----- Today: a few quiet lines, never a wall ----- */
-// The Suggestions tray already offers the planner for an exam within 14 days (when Automatic AI suggestions are on), so Today doesn't say it twice
+/* Today: a few quiet lines, never a wall */
 const trayShows = (ex, days) => { try { return !!AUTO_ON && autoFeatOn("coach") && ex.type === "Exam" && days <= 14 && !(AUTO.dis || {})["prep:" + ex.id] && !insSnoozed("prep"); } catch (e) { return false; } };
 function todayItems(){
   const today = todayISO(), dis = ppLoad().dismissed || {}, out = [];
@@ -860,7 +827,7 @@ function todayHtml(){
   if (!items.length) return "";
   return `<div class="pp-today" role="region" aria-label="Exam prep">${items.map(i => `<div class="pp-today-row" data-kind="${esc(i.kind)}"><span class="pp-today-t">${esc(i.text)}</span><span class="pp-today-a"><button type="button" class="btn small ${i.kind === "offer" ? "primary" : ""}" data-act="${esc(i.act)}" data-id="${esc(i.id)}">${esc(i.btn)}</button>${i.kind === "offer" ? `<button type="button" class="icon-btn sm" data-act="prep-dismiss" data-id="${esc(i.id)}" aria-label="Not now">${CLOSE}</button>` : ""}</span></div>`).join("")}</div>`;
 }
-/* ----- the exam's own detail sheet and row ----- */
+/* the exam's own detail sheet and row */
 function formHtml(t){
   if (!t || !MILESTONE(t.type)) return "";
   const sm = summaryOf(t), today = todayISO(), over = t.due && t.due < today;
@@ -877,7 +844,7 @@ function courseHtml(c){
   const list = upcoming().filter(t => t.courseId === c.id).slice(0, 3); if (!list.length) return "";
   return `<h2 class="sec"><span class="t">Upcoming Exams</span><span class="n">${list.length}</span></h2><ul class="pp-exams">${list.map(t => { const sm = summaryOf(t), d = dayDiff(todayISO(), t.due); return `<li><button type="button" class="pp-ex-main" data-act="edit-task" data-id="${esc(t.id)}"><b>${esc(t.title)}</b><span class="mini">${esc(fmtDate(t.due))}${t.time ? " at " + esc(fmtTime(t.time)) : ""} · ${d === 0 ? "today" : d === 1 ? "tomorrow" : d + " days"}${sm ? " · " + esc(sm.line) : ""}</span></button><button type="button" class="btn small ${sm ? "" : "primary"}" data-act="exam-plan" data-id="${esc(t.id)}">${sm ? "Prep Plan" : "Plan My Prep"}</button></li>`; }).join("")}</ul>`;
 }
-/* ----- the companion: one deterministic line when a prep session is due today ----- */
+/* the companion */
 function offer(){
   try {
     const today = todayISO(), said = ppLoad().said || {};
@@ -893,7 +860,7 @@ function offered(id){ const o = ppLoad(), today = todayISO(), s = o.said && o.sa
 const ideaValid = id => { const t = state.tasks[id]; return !!t && t.status !== "done" && !!t.prepFor; };
 function runIdea(id){ const t = state.tasks[id]; if (!t) return; if (t.matKind) openMaterial(t); else { ui.tab = "board"; render(); taskForm(t); } }
 
-/* ----- actions ----- */
+/* actions */
 hook("act", (act, el, id) => {
   switch (act) {
     case "prep-plan": open(id || (upcoming()[0] || {}).id); return true;

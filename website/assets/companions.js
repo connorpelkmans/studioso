@@ -1,6 +1,4 @@
-// Animated study companions on the home page. It loads the app's own companion art and animation code (companions-data.js and
-// companions-engine.js, copied from the app) the first time one comes near the screen, then draws it, blinks, plays its idle moves and has it say
-// something every so often (only the one on the first screen talks; the others just move), like the companion in the app. No inline styles or scripts are used (strict Content-Security-Policy).
+// Animated study companions on the home page
 (function () {
   "use strict";
   var W = null, loading = false, waiting = [];
@@ -17,7 +15,7 @@
     loadScript("assets/companions-data.js", function () { loadScript("assets/companions-engine.js", function () { W = window.SBCOMPW; var q = waiting.splice(0); if (W) q.forEach(function (f) { f(); }); }); });
   }
 
-  // What it says: short lines from its own set (the same lines the app's companion uses).
+  // What it says: short lines from its own set (the same lines the app's companion uses)
   function linesOf(c, max) {
     var out = [];
     ["tap", "hello", "morning", "focus", "break", "task"].forEach(function (k) { (c.lines[k] || []).forEach(function (t) { if (typeof t === "string" && t.length <= max) out.push(t); }); });
@@ -28,8 +26,6 @@
     var id = host.getAttribute("data-companion"), c = W.BYID[id];
     if (!c || host.__cp) return;
     var talks = host.hasAttribute("data-talk"), max = 80;
-    // The drawing carries inline style attributes (each limb's pivot). The page's security policy does not allow those, so they are renamed before the
-    // drawing is parsed and then set through the DOM.
     var geo = window.SB_TILE_GEO, hg = host.getAttribute("data-geo") === "hero" && geo && geo.hero && geo.hero.light;
     if (hg) { host.style.left = (hg.c[0] / hg.w * 100) + "%"; host.style.top = (hg.c[1] / hg.h * 100) + "%"; host.style.width = (hg.c[2] / hg.w * 100) + "%"; }
     var svg = W.rigSvg(c, {}).replace(/\sstyle="([^"]*)"/g, ' data-st="$1"');
@@ -78,13 +74,12 @@
     });
   }, {rootMargin: "100px 0px"}) : null;
 
-  // Hosts are found on the page or handed over by the live theme tiles when they are drawn.
+  // Hosts are found on the page or handed over by the live theme tiles when they are drawn
   function mount(host) { if (io && host && !host.__watched) { host.__watched = true; io.observe(host); } }
   window.SBWebComp = {mount: mount};
   document.querySelectorAll("[data-companion]").forEach(mount);
 
-  // Meet Your Companion: the button steps through the six free companions, in the order the app's companion picker lists them.
-  // The screenshot (its name and greeting) and the live companion in its corner change together.
+  // Meet Your Companion
   var MEET = [["plain-mochi", "Mochi"], ["plain-inky", "Inky"], ["plain-owl", "Hoot"], ["plain-hilo", "Hilo"], ["plain-sum", "Sum"], ["plain-packy", "Packy"]];
   var meet = document.querySelector("[data-meet]"), next = document.querySelector("[data-meet-next]");
   if (meet && next) {

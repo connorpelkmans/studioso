@@ -1,4 +1,4 @@
-/* Study Companions, Around the World: thailand */
+/* Study Companions, Around the World */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);

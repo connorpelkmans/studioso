@@ -1,7 +1,4 @@
-// node tests/cloud-files.e2e.js   (Playwright + Chromium; see tests/pw.js)
-// Google Drive and OneDrive (free, module 99-pro): Files > Cloud, saving uploads there, cloud files in Files (open, read by AI,
-// remove without deleting), moving a stored file to the cloud, a recording kept in the cloud, and watching OneDrive folders.
-// The cloud-files function and both clouds are stand-ins inside the page, so every check is deterministic.
+// node tests/cloud-files.e2e.js
 /* global fileBytes, readableFile, clone, applyChanges, fileHref -- copied onto window from __sbCloud.core below */
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
@@ -30,7 +27,6 @@ function stubs(){
     if (b.action === "disconnect") return {ok: true, status: 200, data: {ok: true}};
     return {ok: false, status: 400, data: {}};
   };
-  // OneDrive: a tiny tree. root > School > (BIO101 Lectures > slides.pdf, Week 2 notes.docx), (ART210 > essay brief.pdf), random.txt
   const it = (id, name, parent, file, extra) => W.ms.items.set(id, Object.assign({id, name, parent, webUrl: "https://onedrive.live.com/?id=" + id, lastModifiedDateTime: "2026-10-01T10:00:00Z", createdDateTime: "2026-09-01T10:00:00Z"}, file ? {file: {mimeType: file}, size: 2048} : {folder: {childCount: 0}}, extra || {}));
   it("school", "School", "root"); it("bio", "BIO101 Lectures", "school"); it("art", "ART210", "school"); it("other", "Other Stuff", "root");
   it("s1", "slides week 1.pdf", "bio", "application/pdf"); it("s2", "Week 2 notes.docx", "bio", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
@@ -86,7 +82,6 @@ function stubs(){
   await page.evaluate(stubs);
   await page.evaluate(() => Object.assign(window, window.__sbCloud.core));
 
-  // 1. Files > Cloud: connected accounts, where uploads go
   await page.evaluate(() => { ui.tab = "files"; render(); });
   await page.waitForSelector('.f-title [data-act="cl-open"]');
   ok(/Cloud/.test(await page.textContent('.f-title [data-act="cl-open"]')), "Files has a Cloud button");
@@ -100,7 +95,6 @@ function stubs(){
   await page.waitForFunction(() => /Google Drive/.test(document.querySelector('.f-title [data-act="cl-open"]').textContent));
   ok(true, "the Cloud button names where uploads go");
 
-  // 2. Upload in Files -> Google Drive, in Studyboard/<course>
   await page.evaluate(() => { ui.fCourse = "c1"; ui.fFolder = "notes"; render(); });
   await page.setInputFiles("#fUploadIn", [{name: "Lab notes.txt", mimeType: "text/plain", buffer: Buffer.from("Mitochondria make ATP.")}]);
   await page.waitForFunction(() => Object.values(state.files).some(f => f.kind === "cloud" && f.name === "Lab notes.txt"));
@@ -110,9 +104,7 @@ function stubs(){
   await page.waitForSelector('.frow .f-cloud');
   ok(/Google Drive/.test(await page.textContent(".frow .f-cloud")), "the row shows it's in Google Drive");
   ok(await page.getAttribute('.frow:has(.f-cloud) a.btn', "href") === g.f.url, "Open goes to Google Drive");
-  // read back through the person's access (what Summarize and AI use)
   ok(await page.evaluate(async id => new TextDecoder().decode(await fileBytes(state.files[id])), g.f.id) === "Mitochondria make ATP.", "its bytes come back from Google Drive");
-  // AI reads cloud files only when allowed (the checkbox while connecting); without it the file still opens
   ok(await page.evaluate(id => !readableFile(state.files[id]), g.f.id), "AI doesn't read Google Drive files until it's allowed");
   await page.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); SBCLOUD.open(); });
   await page.waitForSelector('[data-cl-ai="google"]', {timeout: 5000});
@@ -122,7 +114,6 @@ function stubs(){
   await page.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); });
   ok(await page.evaluate(id => readableFile(state.files[id]), g.f.id), "allowed: AI can read it (Summarize)");
   ok((await page.evaluate(id => SBFILETEXT(id, 200), g.f.id)).includes("Mitochondria"), "and its text is available to course tools");
-  // the file sheet: In your Google Drive, Remove (not Delete)
   await page.click(`.frow[data-fid="${g.f.id}"] .fmain`); await page.waitForSelector("#dlg .cl-info");
   ok(/In your Google Drive/.test(await page.textContent("#dlg .cl-info")), "its sheet says where it lives");
   ok((await page.textContent("#fsDel")).trim() === "Remove", "the button says Remove");
@@ -130,7 +121,6 @@ function stubs(){
   await page.waitForFunction(id => !state.files[id], g.f.id);
   ok(await page.evaluate(() => window.__cl.g.files.size) >= 3, "removing it in Studyboard leaves it in Google Drive");
 
-  // 3. A token problem falls back to Studyboard storage... (local mode has none, so it says so) and marks Connect Again
   await page.evaluate(() => { window.__cl.tokenFail = 409; Object.keys(window.__sbCloud.TOK).forEach(k => delete window.__sbCloud.TOK[k]); });
   const r3 = await page.evaluate(async () => { try { await SBCLOUD.saveBlob("google", new Blob(["x"]), "x.txt", {courseId: "c1"}); return "saved"; } catch (e) { return e.message; } });
   ok(/connect it again/.test(r3), "revoked access asks to connect again: " + r3);
@@ -138,7 +128,6 @@ function stubs(){
   ok(await page.evaluate(() => SBCLOUD.target()) === "", "uploads go back to Studyboard while it's disconnected");
   await page.evaluate(() => { window.__cl.tokenFail = 0; window.__sbCloud.setCache({accounts: window.__cl.status.accounts}); });
 
-  // 4. OneDrive: a stored file moves there (big recordings go up in pieces)
   await page.evaluate(() => SBCLOUD.setPrefs({save: "microsoft"}));
   await page.evaluate(() => { window.__sbCloud.T.bytes = async () => new TextEncoder().encode("Chapter 4: osmosis..."); });
   const moved = await page.evaluate(async () => { await SBCLOUD.move("f1", "microsoft"); return {f: state.files.f1, puts: window.__cl.ms.puts.slice()}; });
@@ -147,7 +136,6 @@ function stubs(){
   const big = await page.evaluate(async () => { const b = new Blob([new Uint8Array(6 * 1048576)], {type: "audio/webm"}); return SBCLOUD.saveBlob("microsoft", b, "Lecture 3.webm", {courseId: "c1", folderId: "lectures", type: "audio/webm"}); });
   ok(big.id === "big1" && await page.evaluate(() => window.__cl.ms.chunks) === 2 && await page.evaluate(() => window.__cl.ms.session) === "Studyboard/BIO101/Lectures/Lecture 3.webm", "a 6 MB recording goes to Studyboard/BIO101/Lectures in two pieces");
 
-  // 5. Watch a OneDrive folder
   await page.click('.f-title [data-act="cl-open"]'); await page.waitForSelector("#clBody .cl-card");
   await page.waitForSelector('#clBody [data-act="cl-browse"][data-mode="watch"]');
   await page.click('#clBody [data-act="cl-browse"][data-mode="watch"]');
@@ -162,7 +150,6 @@ function stubs(){
   ok(w["essay brief.pdf"][0] === "c2", "ART210/ goes to History of Art");
   ok(w["random.txt"][0] === "" && !w["~$lock.docx"], "loose files go to General; Office lock files are skipped");
   ok(await page.evaluate(() => /School/.test(document.getElementById("clBody").textContent) && /4 files/.test(document.getElementById("clBody").textContent)), "the sheet lists the watched folder and its files");
-  // a second check changes nothing; a file deleted in OneDrive leaves; one removed in Studyboard stays away
   const before = await page.evaluate(() => JSON.stringify(Object.values(state.files).filter(f => f.cloud && f.cloud.w).map(f => f.id).sort()));
   await page.evaluate(() => SBCLOUD.scan({quiet: true}));
   ok(await page.evaluate(() => JSON.stringify(Object.values(state.files).filter(f => f.cloud && f.cloud.w).map(f => f.id).sort())) === before, "checking again doesn't duplicate anything");
@@ -171,22 +158,18 @@ function stubs(){
   const after = await page.evaluate(() => Object.values(state.files).filter(f => f.cloud && f.cloud.w).map(f => f.cloud.name).sort());
   ok(!after.includes("random.txt"), "a file deleted in OneDrive leaves Studyboard");
   ok(!after.includes("essay brief.pdf"), "a file removed in Studyboard isn't brought back");
-  // moved by hand: the next check keeps it where you put it
   await page.evaluate(id => { const f = clone(state.files[id]); f.courseId = "c2"; f.folderId = "other"; f.cloud = Object.assign({}, f.cloud, {pin: true}); applyChanges([{kind: "file", id, after: f}], null); }, w["slides week 1.pdf"][2]);
   await page.evaluate(() => SBCLOUD.scan({quiet: true}));
   ok(await page.evaluate(id => state.files[id].courseId, w["slides week 1.pdf"][2]) === "c2", "a file you moved stays where you put it");
-  // stop watching: its files leave Studyboard
   await page.click('#clBody [data-act="cl-unwatch"]');
   await page.waitForFunction(() => !Object.values(state.files).some(f => f.cloud && f.cloud.w));
   ok(true, "Stop Watching takes its files out of Studyboard");
 
-  // 6. Free accounts too: Google Drive and OneDrive aren't Pro (they use the person's own storage)
   await page.evaluate(() => { SBPRO.locked = () => true; render(); });
   ok(await page.evaluate(() => SBCLOUD.choices().length) === 2 && await page.evaluate(() => SBCLOUD.backup.possible("google")), "without Pro, saving and backing up to Google Drive and OneDrive still work");
   ok(await page.locator('.f-title [data-act="cl-open"]').count() === 1, "the Cloud button is there on Free");
   ok(/onedrive/.test(await page.evaluate(() => fileHref(state.files.f1))), "a cloud file still opens in OneDrive");
 
-  // 7a. Backups straight to Google Drive: Studyboard > Backups, replaced in place, the latest in Files, and in Restore a Backup
   await page.evaluate(() => { SBPRO.locked = () => false; const d = document.querySelector("dialog[open]"); if (d) d.close(); });
   await page.evaluate(() => SBCLOUD.backup.want("google"));
   await page.waitForFunction(() => SBCLOUD.backup.on() && !SBCLOUD.backup.state().busy && SBCLOUD.backup.state().last > 0, null, {timeout: 10000});
@@ -203,7 +186,6 @@ function stubs(){
   await page.evaluate(() => SBCLOUD.backup.stop());
   ok(await page.evaluate(() => !SBCLOUD.backup.on()), "Stop turns cloud backups off");
 
-  // 7. A saved summary: shown in the file list, and opens without AI being set up
   await page.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); });
   await page.evaluate(() => { const f = state.files.f1; f.summary = {at: Date.now(), provider: "gemini", model: "", overview: "Osmosis moves water across membranes.", keyPoints: ["Water moves toward higher solute concentration."], keyTerms: [{term: "Osmosis", definition: "Diffusion of water"}], questions: []}; ui.fCourse = "all"; ui.fFolder = ""; render(); });
   ok(await page.locator('.frow[data-fid="f1"] .f-sum').count() === 1, "a file with a saved summary has a Summary button in the list");

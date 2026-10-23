@@ -1,4 +1,4 @@
-// ---- batch n4 engines: diadelosmuertos, holi, ramadan, midautumn
+// -- batch n4 engines
 function n4_ease(u) { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); }
 function n4_env(T, a, b, c, d) { if (T < a || T > d) return 0; if (T < b) return n4_ease((T - a) / (b - a)); if (T <= c) return 1; return 1 - n4_ease((T - c) / (d - c)); }
 var n4_gc = null;
@@ -10,10 +10,7 @@ function n4_dot(c, g, x, y, r, a) { if (a <= 0.003 || r <= 0) return; c.save(); 
 function n4_sprite(w, h, k, fn) { var cv = document.createElement('canvas'); cv.width = Math.ceil(w * k); cv.height = Math.ceil(h * k); var o = cv.getContext('2d'); o.scale(k, k); o.translate(w / 2, h / 2); o.lineJoin = o.lineCap = 'round'; fn(o); cv.w = w; cv.h = h; return cv; }
 function n4_off(W, H, k) { var cv = document.createElement('canvas'); cv.width = Math.max(1, Math.ceil(W * k)); cv.height = Math.max(1, Math.ceil(H * k)); var o = cv.getContext('2d'); o.scale(k, k); o.lineJoin = o.lineCap = 'round'; return {cv: cv, o: o}; }
 
-// ---------- Dia de los Muertos
-// Loop: papel picado flutters on its strings, candle flames flicker on the ofrenda, marigold petals drift down and
-// monarch butterflies float by. Moment: the petal path lights up toward the ofrenda, its candles glow one by one, and a
-// cloud of monarchs rises into the sky.
+// Dia de los Muertos
 function n4_monarch(c, x, y, s, t, ph, ang) {
   var fl = 0.2 + 0.8 * Math.abs(Math.cos(t * 7 + ph)); c.save(); c.translate(x, y); c.rotate(ang || 0); c.scale(s, s);
   c.lineJoin = 'round'; c.lineWidth = 1.1; c.strokeStyle = '#2A1A1A';
@@ -42,7 +39,6 @@ function n4_pan(o, x, y, r) { o.save(); o.translate(x, y); var g = o.createRadia
 ENGINES.diadelosmuertos = function (A, v, dk) {
   var W = v.bw, H = v.bh, ph = !v.desk, C = A.C, T0 = -99, K = ph ? 2 : 1.5;
   var flameG = n4_rg(dk ? 'rgba(255,170,80,0.7)' : 'rgba(255,190,110,0.5)', [0.3, dk ? 0.32 : 0.2]), hotG = n4_rg('rgba(255,246,200,0.95)', [0.3, 0.6]), winG = n4_rg('rgba(255,180,90,0.4)', [0.4, 0.2]), pathG = n4_rg(dk ? 'rgba(255,190,80,0.8)' : 'rgba(255,130,10,0.7)', [0.35, 0.5]), coreG = n4_rg('rgba(255,210,120,0.75)', [0.4, 0.5]), glintG = n4_rg('rgba(255,250,220,0.95)', [0.3, 0.5]), dayG = n4_rg('rgba(255,170,60,0.5)', [0.4, 0.4]);
-  // papel picado: six colours, each flag with cut-out flowers and diamonds
   var PC = dk ? ['#E8508E', '#F2902E', '#F2CC3A', '#3CB87A', '#2EB8C8', '#9A62E0'] : ['#FF5FA2', '#FF9A2E', '#FFD23A', '#3FC27A', '#2EC4D0', '#9A5AE0'], fw = ph ? 26 : 34, fh = fw * 1.25;
   var FL = PC.map(function (col, ci) { return n4_sprite(fw + 4, fh + 4, 3, function (o) { o.translate(0, -fh / 2); o.fillStyle = col; o.beginPath(); o.moveTo(-fw / 2, 0); o.lineTo(fw / 2, 0); o.lineTo(fw / 2, fh * 0.86); for (var q = 0; q <= 6; q++) o.lineTo(fw / 2 - q * fw / 6, fh * (q % 2 ? 1 : 0.86)); o.closePath(); o.fill();
     o.globalCompositeOperation = 'destination-out'; var cx = 0, cy = fh * 0.45, r = fw * 0.16; for (var k = 0; k < 6; k++) { var a = k / 6 * Math.PI * 2; o.beginPath(); o.ellipse(cx + Math.cos(a) * r, cy + Math.sin(a) * r, r * 0.55, r * 0.3, a, 0, 7); o.fill(); } o.beginPath(); o.arc(cx, cy, r * 0.32, 0, 7); o.fill();
@@ -51,7 +47,6 @@ ENGINES.diadelosmuertos = function (A, v, dk) {
     o.globalCompositeOperation = 'source-over'; o.fillStyle = 'rgba(255,255,255,0.25)'; o.fillRect(-fw / 2, 0, fw, fh * 0.05); }); });
   var flags = [], strs = [];
   A.picado.forEach(function (s, si) { var p = new Path2D(); n4_cat(s[0], s[1], s[2], s[3], s[4], 40).forEach(function (q, i) { if (i) p.lineTo(q[0], q[1]); else p.moveTo(q[0], q[1]); }); strs.push(p); var n = Math.floor((s[2] - s[0]) / (fw + 14)); for (var q = 0; q < n; q++) { var pt = n4_at(s[0], s[1], s[2], s[3], s[4], (q + 0.5) / n); flags.push({x: pt[0], y: pt[1], c: (q + si * 2) % 6, ph: hash(q + si * 40) * 6.28}); } });
-  // the ofrenda's treats and the candle jars, painted once
   var dec = n4_off(W, H, K), o = dec.o, SKC = [['#F27BA6', '#2EC4D0', '#FFB23A'], ['#2EC4D0', '#F27BA6', '#9A5AE0'], ['#FFB23A', '#3FC27A', '#F27BA6']];
   A.treats.forEach(function (T) { var w = T.x1 - T.x0, cx = (T.x0 + T.x1) / 2, s = T.s || (ph ? 0.75 : 1);
     if (T.ti === 2) { [-1, 1].forEach(function (d, i) { var fx = cx + d * w * 0.26, fy = T.y - 30 * s, fwid = 26 * s, fhgt = 32 * s; o.save(); o.translate(fx, fy); o.rotate(d * 0.06); o.fillStyle = '#C9962E'; o.strokeStyle = '#6A4418'; o.lineWidth = 1.2; o.beginPath(); o.rect(-fwid / 2, -fhgt / 2, fwid, fhgt); o.fill(); o.stroke(); var g = o.createLinearGradient(0, -fhgt / 2, 0, fhgt / 2); g.addColorStop(0, i ? '#BFE6F2' : '#FFE0C8'); g.addColorStop(1, i ? '#7CC8A0' : '#F6A6B8'); o.fillStyle = g; o.fillRect(-fwid / 2 + 3.5 * s, -fhgt / 2 + 3.5 * s, fwid - 7 * s, fhgt - 7 * s); o.fillStyle = i ? '#FFF6D0' : '#FF6F91';
@@ -60,11 +55,9 @@ ENGINES.diadelosmuertos = function (A, v, dk) {
     else if (T.ti === 1) { n4_pan(o, cx - w * 0.27, T.y - 1, 17 * s); n4_pan(o, cx + w * 0.27, T.y - 1, 15 * s); n4_sugarSkull(o, cx - w * 0.04, T.y - 11 * s, 10 * s, SKC[1]); n4_sugarSkull(o, cx + w * 0.1, T.y - 9 * s, 8 * s, SKC[2]); }
     else { [[-0.36, '#FFA23A'], [-0.28, '#FF8A1E'], [0.24, '#9AD06A'], [0.32, '#FFA23A']].forEach(function (q) { var g = o.createRadialGradient(cx + q[0] * w - 2, T.y - 9 * s, 1, cx + q[0] * w, T.y - 7 * s, 8 * s); g.addColorStop(0, '#FFE2A0'); g.addColorStop(1, q[1]); o.fillStyle = g; o.beginPath(); o.arc(cx + q[0] * w, T.y - 7 * s, 7 * s, 0, 7); o.fill(); });
       n4_sugarSkull(o, cx - w * 0.1, T.y - 9 * s, 8 * s, SKC[2]); n4_sugarSkull(o, cx + w * 0.06, T.y - 9 * s, 8 * s, SKC[1]);
-      // a cup of hot chocolate
       var mx = cx - w * 0.01, my = T.y; o.fillStyle = '#E8DCCB'; o.strokeStyle = '#7A4A2A'; o.lineWidth = 1; o.beginPath(); o.moveTo(mx - 6 * s, my - 12 * s); o.lineTo(mx + 6 * s, my - 12 * s); o.lineTo(mx + 5 * s, my); o.lineTo(mx - 5 * s, my); o.closePath(); o.fill(); o.stroke(); o.fillStyle = '#6A3418'; o.beginPath(); o.ellipse(mx, my - 12 * s, 6 * s, 1.6 * s, 0, 0, 7); o.fill(); } });
   A.candles.forEach(function (c) { if (!c.jar) return; var g = o.createLinearGradient(c.x - c.w, 0, c.x + c.w, 0); g.addColorStop(0, 'rgba(200,40,60,0.85)'); g.addColorStop(0.5, 'rgba(255,110,110,0.75)'); g.addColorStop(1, 'rgba(170,30,60,0.85)'); o.fillStyle = g; o.beginPath(); if (o.roundRect) o.roundRect(c.x - c.w, c.y - 2, c.w * 2, c.h + 3, 3); else o.rect(c.x - c.w, c.y - 2, c.w * 2, c.h + 3); o.fill(); o.fillStyle = 'rgba(255,230,160,0.9)'; o.fillRect(c.x - c.w * 0.6, c.y + c.h * 0.35, c.w * 1.2, c.h * 0.3); });
   var candles = A.candles.map(function (c, i) { return {x: c.x, y: c.y, w: c.w, h: c.h, jar: c.jar, ph: hash(i + 3) * 6.28, d: 1.6 + i * 0.14}; });
-  // petals and monarchs
   var petals = [], bflies = [];
   for (var i = 0; i < (ph ? 9 : 16); i++) petals.push({x: hash(i + 1) * W, y: hash(i + 2) * H, vy: 14 + hash(i + 3) * 12, ph: hash(i + 4) * 6.28, c: i % 2 ? C.ora : C.yel2, s: (ph ? 2.6 : 3.4) * (0.8 + hash(i + 5) * 0.4)});
   for (i = 0; i < (ph ? 3 : 5); i++) bflies.push({x0: hash(i + 20) * W, y0: H * (0.08 + hash(i + 21) * 0.5), vx: (hash(i + 22) < 0.5 ? -1 : 1) * (14 + hash(i + 23) * 10), ph: hash(i + 24) * 6.28, s: ph ? 0.9 : 1.2, t0: 0, amb: 1});
@@ -79,7 +72,6 @@ ENGINES.diadelosmuertos = function (A, v, dk) {
     draw: function (ca, cb, t, f) {
       var tt = t * f.s, i, T = t - T0;
       if (dk) { ca.save(); ca.globalCompositeOperation = 'lighter'; A.wins.forEach(function (w, j) { n4_dot(ca, winG, w[0], w[1], w[2] * 1.5, 0.7 + 0.15 * flick(tt * 0.3, j)); }); ca.restore(); }
-      // the petal path lights up toward the ofrenda
       if (T > 0 && T < 14) { cb.save(); cb.globalCompositeOperation = dk ? 'lighter' : 'source-over'; var head = Math.min(plen, T / 1.8 * plen), fade = n4_env(T, 0, 0.3, 9, 13);
         for (i = 0; i <= head; i += dk ? 1 : 2) { var p = P[i], near = Math.max(0, 1 - (head - i) / 8), k = (dk ? 0.35 : 0.3) + 0.65 * near; n4_dot(cb, pathG, p[0], p[1], (ph ? 22 : 34) * (1 - i / plen * 0.45) * (0.7 + near * 0.5), (dk ? 0.55 : 0.5) * k * fade); }
         if (!dk) { cb.globalCompositeOperation = 'lighter'; for (i = 0; i <= head; i += 2) { var pc = P[i], nc = Math.max(0, 1 - (head - i) / 8); n4_dot(cb, coreG, pc[0], pc[1], (ph ? 13 : 20) * (1 - i / plen * 0.45), (0.45 + 0.55 * nc) * fade); } cb.globalCompositeOperation = 'source-over'; }
@@ -87,18 +79,14 @@ ENGINES.diadelosmuertos = function (A, v, dk) {
         cb.globalCompositeOperation = 'lighter'; for (i = 0; i < 24; i++) { var gi = (i * 1.71 + T * 9) % (head + 1), gp = P[Math.floor(gi)], tw2 = Math.sin(T * 7 + i * 2.1); if (!gp || tw2 < 0) continue; var gx = gp[0] + Math.sin(i * 5.3) * (ph ? 10 : 18), gy = gp[1] + Math.cos(i * 3.7) * (ph ? 3 : 5); n4_dot(cb, glintG, gx, gy, (ph ? 6 : 9) * tw2, fade); cb.fillStyle = 'rgba(255,255,240,' + (fade * tw2) + ')'; cb.save(); cb.translate(gx, gy); cb.scale(tw2 * (ph ? 3.5 : 5), tw2 * (ph ? 3.5 : 5)); cb.fill(glint); cb.restore(); }
         cb.restore(); }
       if (!this.hosted) cb.drawImage(dec.cv, 0, 0, W, H);
-      // candle flames
       candles.forEach(function (c, j) { var boost = n4_env(T - c.d, 0, 0.25, 6, 9), fk = flick(tt * 1.4, c.ph), fh = c.h * (0.55 + 0.15 * fk) * (1 + boost * 0.5) * (ph ? 1.1 : 1), fwid = c.w * 0.45 * (1 + boost * 0.3), fx = c.x + Math.sin(tt * 3 + c.ph) * 0.8, fy = c.y - 1;
         cb.save(); cb.globalCompositeOperation = 'lighter'; n4_dot(cb, flameG, fx, fy - fh * 0.5, c.h * (dk ? 2.3 : 1.6) * (1 + boost * 0.8), (dk ? 0.85 : 0.5) * (0.85 + 0.15 * fk) + boost * 0.3); cb.restore();
         cb.strokeStyle = '#3A2420'; cb.lineWidth = 1; cb.beginPath(); cb.moveTo(c.x, c.y + 1); cb.lineTo(c.x, c.y - 2); cb.stroke();
         cb.fillStyle = '#FF9A2E'; cb.beginPath(); cb.moveTo(fx, fy - fh); cb.quadraticCurveTo(fx + fwid * 1.6, fy - fh * 0.3, fx, fy); cb.quadraticCurveTo(fx - fwid * 1.6, fy - fh * 0.3, fx, fy - fh); cb.fill();
         cb.fillStyle = '#FFF2B8'; cb.beginPath(); cb.moveTo(fx, fy - fh * 0.65); cb.quadraticCurveTo(fx + fwid * 0.8, fy - fh * 0.2, fx, fy - 0.5); cb.quadraticCurveTo(fx - fwid * 0.8, fy - fh * 0.2, fx, fy - fh * 0.65); cb.fill(); });
-      // papel picado
       cb.strokeStyle = dk ? 'rgba(255,230,240,0.45)' : 'rgba(90,50,60,0.55)'; cb.lineWidth = 1; strs.forEach(function (s) { cb.stroke(s); });
       flags.forEach(function (F) { var sw = (Math.sin(tt * 1.7 + F.ph) * 0.1 + Math.sin(tt * 0.6 + F.x * 0.01) * 0.08) * f.a, sk = Math.sin(tt * 2.3 + F.ph * 1.3) * 0.12 * f.a; cb.save(); cb.translate(F.x, F.y); cb.rotate(sw); cb.transform(1, 0, sk, 1, 0, 0); cb.scale(1, 0.94 + 0.06 * Math.cos(tt * 2.1 + F.ph)); var S = FL[F.c]; cb.drawImage(S, -S.w / 2, -2, S.w, S.h); cb.restore(); });
-      // drifting petals
       petals.forEach(function (p) { cb.save(); cb.translate(p.x, p.y); cb.rotate(tt * 1.5 + p.ph); cb.scale(1, 0.4 + 0.6 * Math.abs(Math.sin(tt * 2 + p.ph))); cb.fillStyle = p.c; cb.beginPath(); cb.ellipse(0, 0, p.s * 1.3, p.s * 0.75, 0, 0, 7); cb.fill(); cb.restore(); });
-      // monarchs
       bflies.forEach(function (b) { var x, y, a = 0; if (b.amb) { x = b.x0; y = b.y0 + Math.sin(tt * 0.9 + b.ph) * 26 + Math.sin(tt * 2.3 + b.ph) * 6; a = b.vx > 0 ? 0.25 : -0.25; }
         else { var u = (t - b.t0) / b.life; if (u < 0) return; x = b.x + b.dx * u + Math.sin(u * 8 + b.ph) * 22; y = b.y - b.rise * (1 - Math.pow(1 - u, 1.5)) + Math.sin(u * 13 + b.ph) * 6; a = Math.sin(u * 6 + b.ph) * 0.3; cb.globalAlpha = Math.min(1, u * 8, (1 - u) * 4); }
         n4_monarch(cb, x, y, b.s, tt, b.ph, a); cb.globalAlpha = 1; });
@@ -108,10 +96,7 @@ ENGINES.diadelosmuertos = function (A, v, dk) {
 };
 UIC.diadelosmuertos = {L: ['#C2367A', '#8A2058', 'rgba(255,252,246,0.86)', '#3A1A2E', '#7A5068', '#C2367A', '#C2367A', '#F07A2A', '#FFFFFF'], D: ['#4A1E54', '#24102E', 'rgba(34,16,44,0.8)', '#FCEFF6', '#C9AFC4', '#FFA23A', '#FFA23A', '#FFC86A', '#2A1420']};
 
-// ---------- Holi
-// Loop: soft clouds of pink, yellow, green and blue powder drift and mix, now and then a handful of gulal is thrown up
-// from the courtyard, petals tumble and the marigold garlands sway. Night: fairy lights twinkle along the arches.
-// Moment: a big wave of colour bursts across the whole sky, then settles into the stripes of a rainbow.
+// Holi
 ENGINES.holi = function (A, v, dk) {
   var W = v.bw, H = v.bh, ph = !v.desk, T0 = -99, C = A.C;
   var PC = dk ? ['240,80,170', '250,200,60', '60,200,140', '90,150,250', '170,110,240', '255,130,60'] : ['255,90,170', '255,200,50', '50,200,120', '80,150,250', '160,100,240', '255,140,60'];
@@ -124,15 +109,10 @@ ENGINES.holi = function (A, v, dk) {
   var puffs = [], dots = [], petals = [], nextThrow = 2;
   for (i = 0; i < (ph ? 10 : 18); i++) petals.push({x: hash(i + 30) * W, y: hash(i + 31) * H, vy: 16 + hash(i + 32) * 14, ph: hash(i + 33) * 6.28, c: ['#FF5A8A', '#FF9A1E', '#FFC62A', '#F2479A'][i % 4], s: (ph ? 2.8 : 3.6) * (0.8 + hash(i + 34) * 0.4)});
   var G = A.gar, nG = Math.ceil((W + G.step * 2) / G.step), fairy = [];
-  // fairy lights along the arches (none where a tree trunk stands in front)
   A.arches.forEach(function (a, j) { for (var q = 0; q <= 8; q++) { var ang = Math.PI + q / 8 * Math.PI, x = a.x + Math.cos(ang) * a.w * 0.56, y = a.y + a.w * 0.5 + Math.sin(ang) * a.w * 0.6 - 4; if (A.trunks.some(function (tr) { return Math.abs(x - tr[0]) < tr[1] + 6; })) continue; fairy.push({x: x, y: y, ph: q * 1.3 + j, c: ['#FFE08A', '#FF9AC8', '#9AF0D0'][q % 3]}); } });
-  // the open sky above the haveli: above the parapet's crenellations, with the rooftop pavilions cut out (evenodd), so powder
-  // clouds and the rainbow pass behind the building instead of over its face
   var skyY = A.ft - 16, skyClip = new Path2D(); skyClip.rect(-20, -20, W + 40, skyY + 20);
   A.roofs.forEach(function (r) { var x = r[0], y = r[1], q = r[2], p = [[x - 18.5 * q, y], [x - 18.5 * q, y - 24.5 * q]]; for (var k = 0; k <= 20; k++) { var u = k / 20, a = Math.PI * u; p.push([x - Math.cos(a) * 14.6 * q * (1 - 0.15 * Math.pow(u * 2 - 1, 2)), y - 24 * q - Math.sin(a) * 15.6 * q - Math.pow(Math.sin(a), 6) * 6.4 * q]); } p.push([x + 18.5 * q, y - 24.5 * q], [x + 18.5 * q, y]);
     skyClip.moveTo(p[0][0], p[0][1]); p.forEach(function (pt) { skyClip.lineTo(pt[0], pt[1]); }); skyClip.closePath(); skyClip.rect(x - 1.6 * q, y - 52 * q, 3.2 * q, 6 * q); });
-  // the trees' trunks, limbs and back canopy (mid layer): the window glows (the first thing on canvas A) are wiped off them
-  // (one path per polygon, and all the circles in one path drawn the same way round, so overlaps never cancel out)
   var treeOut = A.treeOcc.polys.map(function (P) { var q = new Path2D(); P.forEach(function (p, k) { if (k) q.lineTo(p[0], p[1]); else q.moveTo(p[0], p[1]); }); q.closePath(); return q; }), treeC = new Path2D();
   A.treeOcc.circ.forEach(function (c) { if (c[3] < 0) return; treeC.moveTo(c[0] + c[2], c[1]); treeC.arc(c[0], c[1], c[2], 0, Math.PI * 2); }); treeOut.push(treeC);
   function throwAt(x, y, big, t0) { var c = Math.floor(Math.random() * 6); puffs.push({sky: big && y < A.ft, x: x, y: y, t0: t0, c: c, s: (ph ? 0.7 : 1) * (big ? (y < A.ft ? 1 : 0.55) * (2.2 + Math.random() * 1.4) : 0.9 + Math.random() * 0.5), life: big ? 5.5 : 4, vy: big ? 6 : 26, big: big});
@@ -147,27 +127,19 @@ ENGINES.holi = function (A, v, dk) {
     },
     draw: function (ca, cb, t, f) {
       var tt = t * f.s, T = t - T0;
-      // window glows (kept off the tree trunks, which stand in front of the haveli)
       if (dk) { ca.save(); ca.globalCompositeOperation = 'lighter'; A.wins.forEach(function (w, j) { n4_dot(ca, winG, w[0], w[1], w[2] * 1.3, 0.75 + 0.15 * flick(tt * 0.3, j)); });
         ca.globalCompositeOperation = 'destination-out'; treeOut.forEach(function (q) { ca.fill(q); }); ca.restore(); }
-      // drifting colour clouds (behind the trees and the haveli's front)
       ca.save(); ca.clip(skyClip, 'evenodd'); clouds.forEach(function (c) { if (c.low) return; var S = CL[c.c], s = c.s * (1 + 0.06 * Math.sin(tt * 0.4 + c.ph)); ca.globalAlpha = c.a; ca.drawImage(S, c.x - 80 * s, c.y + Math.sin(tt * 0.3 + c.ph) * 8 - 60 * s, 160 * s, 120 * s); }); ca.globalAlpha = 1;
-      // the rainbow the wave settles into: an arc over the roof, behind the haveli
       var R = n4_env(T, 2.2, 3.8, 10, 12.5);
       if (R > 0) { var rcx = W * 0.5, rcy = skyY + 6, bw = ph ? 7 : 11, rr = Math.min(W * (ph ? 0.46 : 0.36), rcy - H * 0.03 - bw * 7), RB = ['#FF5A6A', '#FF9A3A', '#FFD23A', '#5AD07A', '#4AA8F0', '#6A6AE0', '#B070E0'], sweep = Math.min(1, (T - 2.2) / 1.2);
         ca.lineCap = 'butt'; RB.forEach(function (col, k) { var r = rr + (6 - k) * bw; ca.strokeStyle = col; ca.globalAlpha = 0.22 * R; ca.lineWidth = bw * 1.7; ca.beginPath(); ca.arc(rcx, rcy, r, Math.PI, Math.PI + Math.PI * sweep); ca.stroke(); ca.globalAlpha = 0.8 * R; ca.lineWidth = bw; ca.beginPath(); ca.arc(rcx, rcy, r, Math.PI, Math.PI + Math.PI * sweep); ca.stroke(); }); ca.globalAlpha = 1; }
-      // the big wave's powder over the sky
       puffs.forEach(function (p) { if (!p.sky) return; var u = (t - p.t0) / p.life, S = CL[p.c], s = p.s * (0.35 + Math.pow(u, 0.5) * 1.1); ca.globalAlpha = Math.min(1, u * 8) * (1 - u) * 0.95; ca.drawImage(S, p.x - 80 * s, p.y - p.vy * u * 4 - 60 * s, 160 * s, 120 * s); }); ca.globalAlpha = 1;
       ca.restore();
       clouds.forEach(function (c) { if (!c.low) return; var S = CL[c.c], s = c.s * (1 + 0.06 * Math.sin(tt * 0.4 + c.ph)); ca.globalAlpha = c.a; ca.drawImage(S, c.x - 80 * s, c.y + Math.sin(tt * 0.3 + c.ph) * 8 - 60 * s, 160 * s, 120 * s); }); ca.globalAlpha = 1;
-      // thrown powder: a puff that grows and fades, with a spray of grains
       puffs.forEach(function (p) { if (p.sky) return; var u = (t - p.t0) / p.life, S = CL[p.c], s = p.s * (0.35 + Math.pow(u, 0.5) * 1.1); cb.globalAlpha = Math.min(1, u * 8) * (1 - u) * (p.big ? 0.95 : 0.85); cb.drawImage(S, p.x - 80 * s, p.y - p.vy * u * 4 - 60 * s, 160 * s, 120 * s); }); cb.globalAlpha = 1;
       dots.forEach(function (d) { var u = (t - d.t0), x = d.x + d.vx * u, y = d.y + d.vy * u + 90 * u * u; cb.fillStyle = 'rgba(' + PC[d.c] + ',' + (0.9 * (1 - u / 1.6)) + ')'; cb.beginPath(); cb.arc(x, y, ph ? 1.6 : 2.2, 0, 7); cb.fill(); });
-      // fairy lights along the arches at night
       if (dk) fairy.forEach(function (L) { var k = 0.55 + 0.45 * Math.sin(tt * 1.8 + L.ph); n4_dot(cb, lightG, L.x, L.y, 9, k * 0.7); cb.fillStyle = L.c; cb.beginPath(); cb.arc(L.x, L.y, 1.8, 0, 7); cb.fill(); });
-      // petals
       petals.forEach(function (p) { cb.save(); cb.translate(p.x, p.y); cb.rotate(tt * 1.3 + p.ph); cb.scale(1, 0.35 + 0.65 * Math.abs(Math.sin(tt * 1.8 + p.ph))); cb.fillStyle = p.c; cb.beginPath(); cb.ellipse(0, 0, p.s * 1.3, p.s * 0.8, 0, 0, 7); cb.fill(); cb.restore(); });
-      // marigold garlands swaying across the top
       var ps = ph ? 0.75 : 1, step = ph ? 9 : 11;
       for (i = 0; i < nG; i++) { var x0 = -G.step * 0.5 + i * G.step, x1 = x0 + G.step, sag = G.sag * (1 + 0.08 * Math.sin(tt * 0.9 + i)), dx = Math.sin(tt * 0.7 + i * 1.3) * 4 * f.a, n = Math.round(G.step / step);
         for (var q = 1; q < n; q++) { var u = q / n, p = n4_at(x0, G.y, x1, G.y, sag, u), sw = Math.sin(Math.PI * u) * dx, S = POM[q % 3]; cb.drawImage(S, p[0] + sw - 10 * ps, p[1] - 10 * ps, 20 * ps, 20 * ps); }
@@ -179,11 +151,7 @@ ENGINES.holi = function (A, v, dk) {
 };
 UIC.holi = {L: ['#D8407E', '#9A2A6A', 'rgba(255,253,250,0.86)', '#3A1A30', '#76546A', '#D23A82', '#D23A82', '#F08A2A', '#FFFFFF'], D: ['#5A2470', '#2A1040', 'rgba(36,18,52,0.8)', '#FCEFFA', '#CBB0D6', '#FF8AC8', '#FF8AC8', '#FFC86A', '#2A1030']};
 
-// ---------- Ramadan Nights
-// Loop: fanous lanterns sway on their strings and a floor lantern throws little stars of coloured light across the
-// terrace, the sky's stars twinkle, the crescent glows softly and the string lights shiver in the breeze.
-// Moment: the crescent brightens over the domes, lanterns and windows light up roof by roof across the city, and a
-// string of stars blinks on overhead.
+// Ramadan Nights
 function n4_fanous(o, R, lit, k) {
   var gold = lit ? '#F6CE6A' : '#D9A43A', dark = '#7A4E1A', G = [['#E8463A', '#FFB070'], ['#2EA86A', '#9AF0B0'], ['#3A6AD8', '#A8C8FF'], ['#F2A21E', '#FFE08A']];
   var a = G[k % 4], b = G[(k + 1) % 4], c = G[(k + 2) % 4];
@@ -210,7 +178,6 @@ ENGINES.ramadan = function (A, v, dk) {
   var SPR = [0, 1, 2, 3].map(function (k) { return [false, true].map(function (lit) { return n4_sprite(40, 76, 3, function (o) { o.translate(0, 2); n4_fanous(o, 16, lit, k); }); }); });
   var spark = new Path2D(n4_spark(0, 0, 1)), star5 = new Path2D(n4_star5(0, 0, 1, 0.45));
   var moonSpr = n4_sprite(M[2] * 2.6, M[2] * 2.6, 3, function (o) { var r = M[2], g = o.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r); g.addColorStop(0, '#FFFFFF'); g.addColorStop(1, dk ? '#FFE6A0' : '#F6D9A4'); o.fillStyle = g; o.fill(new Path2D(n4_cres(0, 0, r, r * 0.45, -r * 0.25, r * 0.85))); if (!dk) { o.strokeStyle = 'rgba(200,150,80,0.35)'; o.lineWidth = 1; o.stroke(new Path2D(n4_cres(0, 0, r, r * 0.45, -r * 0.25, r * 0.85))); } });
-  // lanterns on the strings, star lights between them
   var lan = [], lines = [], slights = [];
   A.lines.forEach(function (s, si) { var p = new Path2D(); n4_cat(s[0], s[1], s[2], s[3], s[4], 40).forEach(function (q, j) { if (j) p.lineTo(q[0], q[1]); else p.moveTo(q[0], q[1]); }); lines.push(p);
     var len = s[2] - s[0], n = Math.max(3, Math.round(len / (ph ? 80 : 120))); for (var j = 0; j < n; j++) { var u = (j + 0.5) / n, q = n4_at(s[0], s[1], s[2], s[3], s[4], u); if (q[0] < -10 || q[0] > W + 10 || Math.abs(q[0] - M[0]) < M[2] * 1.7) continue; lan.push({x: q[0], y: q[1], len: (ph ? 10 : 16) + ((j * 5 + si * 3) % 4) * (ph ? 8 : 14), R: (ph ? 9 : 13) * (0.85 + ((j + si) % 3) * 0.15), k: (j + si * 2) % 4, ph: hash(j + si * 10) * 6.28}); }
@@ -225,24 +192,20 @@ ENGINES.ramadan = function (A, v, dk) {
     step: function () {},
     draw: function (ca, cb, t, f) {
       var tt = t * f.s, T = t - T0, mb = n4_env(T, 0, 0.8, 7, 10);
-      // stars and the crescent
       ca.fillStyle = dk ? '#FFF4DA' : '#FFFFFF';
       stars.forEach(function (s) { var a = 0.5 + 0.5 * Math.sin(tt * s.sp + s.ph); if (s.r > 1.3) { n4_dot(ca, starG, s.x, s.y, s.r * 5, a * (dk ? 0.6 : 0.3)); ca.save(); ca.translate(s.x, s.y); ca.scale(s.r * 2.2 * (0.6 + a * 0.4), s.r * 2.2 * (0.6 + a * 0.4)); ca.globalAlpha = dk ? 0.6 + a * 0.4 : 0.5; ca.fill(spark); ca.restore(); } else { ca.globalAlpha = (dk ? 0.45 : 0.3) + a * 0.5; ca.beginPath(); ca.arc(s.x, s.y, s.r, 0, 7); ca.fill(); } }); ca.globalAlpha = 1;
       var my = M[1] - mb * H * 0.02;
       n4_dot(ca, moonG, M[0], my, M[2] * (2.8 + 0.2 * Math.sin(tt * 0.6) + mb * 1.6), 0.8 + mb * 0.2);
       if (mb > 0) { ca.strokeStyle = 'rgba(255,240,200,' + (0.5 * mb * (1 - ((T * 0.4) % 1))) + ')'; ca.lineWidth = 2; ca.beginPath(); ca.arc(M[0], my, M[2] * (1.4 + ((T * 0.4) % 1) * 1.6), 0, 7); ca.stroke(); }
       var MS = moonSpr.w; ca.drawImage(moonSpr, M[0] - MS / 2, my - MS / 2, MS, MS);
-      // windows and rooftop lamps across the city
       ca.save(); if (dk) ca.globalCompositeOperation = 'lighter';
       wins.forEach(function (w, j) { var L = Math.max(w.on ? 0.85 + 0.15 * flick(tt * 0.3, j) : 0, n4_env(T - w.d, 0, 0.3, 30, 32)); if (L <= 0) return; n4_dot(ca, warmG, w.x, w.y, ph ? 9 : 13, L * (dk ? 0.9 : 0.75)); ca.fillStyle = dk ? 'rgba(255,214,130,' + L + ')' : 'rgba(255,170,60,' + L + ')'; ca.beginPath(); ca.arc(w.x, w.y, ph ? 2.2 : 3, 0, 7); ca.fill(); });
       roofs.forEach(function (r, j) { var L = Math.max(dk ? 0.5 : 0, n4_env(T - r.d, 0, 0.3, 30, 32)); if (L <= 0) return; n4_dot(ca, warmG, r.x, r.y - 6, ph ? 14 : 20, L * 0.9); ca.fillStyle = LC2[j % 4]; ca.globalAlpha = L; ca.beginPath(); ca.arc(r.x, r.y - 6, ph ? 2.4 : 3.2, 0, 7); ca.fill(); ca.globalAlpha = 1; });
       ca.restore();
-      // the floor lantern and the stars of light it throws across the terrace
       var fs = FLn.s, Lf = dk ? 1 : 0.5 + mb * 0.5;
       cb.save(); cb.globalCompositeOperation = dk ? 'lighter' : 'source-over'; n4_dot(cb, warmG, FLn.x, FLn.y - 22 * fs, 60 * fs, (dk ? 0.6 : 0.3) * Lf);
       pat.forEach(function (p, j) { var rr = (ph ? 70 : 120) * p.d * (1 + 0.03 * Math.sin(tt * 1.3 + j)), x = FLn.x + Math.cos(p.a + Math.sin(tt * 0.4) * 0.03) * rr, y = FLn.y - 10 * fs + Math.sin(p.a) * rr * 0.32, s = (ph ? 3.6 : 5) * p.s; if (y < A.pt - 4) return; var al = (dk ? 0.6 : 0.45) * Lf * (0.7 + 0.3 * flick(tt * 0.6, j)); cb.globalAlpha = al; cb.save(); cb.translate(x, y); cb.scale(s, s * 0.7); cb.fillStyle = LC2[p.c]; cb.fill(star5); cb.restore(); }); cb.globalAlpha = 1; cb.restore();
       cb.save(); cb.translate(FLn.x, FLn.y - 21 * fs); cb.scale(fs, fs); cb.drawImage(SPR[0][0], -20, -38, 40, 76); cb.globalAlpha = Lf; cb.drawImage(SPR[0][1], -20, -38, 40, 76); cb.restore(); cb.globalAlpha = 1;
-      // strings, star lights and hanging lanterns
       cb.strokeStyle = dk ? 'rgba(220,200,150,0.45)' : 'rgba(120,80,40,0.55)'; cb.lineWidth = 1; lines.forEach(function (p) { cb.stroke(p); }); cb.stroke(sline);
       slights.forEach(function (s, j) { var a = 0.55 + 0.45 * Math.sin(tt * 2 + s.ph); if (dk) n4_dot(cb, starG, s.x, s.y + 3, 7, a * 0.7); cb.fillStyle = dk ? ['#FFE7A0', '#FFFFFF', '#FFD27A'][s.c] : ['#E2B04A', '#F2C86A', '#D9A43A'][s.c]; cb.save(); cb.translate(s.x, s.y + 3); cb.scale(ph ? 3 : 4, ph ? 3 : 4); cb.fill(star5); cb.restore(); });
       sstars.forEach(function (s) { var on = n4_env(T - s.d, 0, 0.12, 14, 16), base = dk ? 0.25 : 0, L = Math.max(base, on * (0.75 + 0.25 * Math.sin(tt * 3 + s.ph))), sz = ph ? 4.2 : 5.6;
@@ -259,10 +222,7 @@ ENGINES.ramadan = function (A, v, dk) {
 };
 UIC.ramadan = {L: ['#2E7C7A', '#1E5654', 'rgba(255,253,247,0.86)', '#2A2418', '#6E6250', '#2A7A78', '#2A7A78', '#C99A2E', '#FFFFFF'], D: ['#252C66', '#121638', 'rgba(20,24,58,0.8)', '#F2F0FA', '#B4B2D2', '#F2C45A', '#F2C45A', '#F6D892', '#14183A']};
 
-// ---------- Mid-Autumn Festival
-// Loop: lotus lanterns drift downstream with their reflections, osmanthus blossoms fall, clouds slide across the moon
-// and the pavilion's bells and red lanterns sway. Moment: the jade rabbit appears on the moon and pounds its mortar,
-// and a cluster of lanterns rises off the river into the sky.
+// Mid-Autumn Festival
 function n4_lotus(o, s, lit) {
   var P = [['#FFD0DC', '#F27AA0'], ['#FFE2EA', '#F69AB6']];
   o.save(); o.scale(s, s);
@@ -271,26 +231,24 @@ function n4_lotus(o, s, lit) {
   var g2 = o.createLinearGradient(0, -14, 0, 1); g2.addColorStop(0, '#FFF0F4'); g2.addColorStop(1, '#F48AAA'); o.fillStyle = g2; o.beginPath(); o.moveTo(0, 1); o.quadraticCurveTo(-5.4, -7, 0, -14); o.quadraticCurveTo(5.4, -7, 0, 1); o.fill();
   o.fillStyle = '#FFF4DC'; o.fillRect(-1.6, -11, 3.2, 5); o.restore(); }
 function n4_rabbit(c, x, y, r, t, a, ink, rim) {
-  // the jade rabbit on the moon: a clear silhouette in profile, kneeling, ears laid back, pounding a pestle in a mortar
-  // drawn opaque into a small offscreen canvas (outline under the fill, so only the outer edge shows), then faded in as one piece
   var k = r / 40, D = Math.ceil(r * 2.4), o = n4_rabbit.cv || (n4_rabbit.cv = document.createElement('canvas')), dpr = 2; if (o.width !== D * dpr) { o.width = o.height = D * dpr; } var g = o.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, o.width, o.height); g.setTransform(dpr * k, 0, 0, dpr * k, D * dpr / 2, D * dpr / 2); g.lineJoin = 'round';
   var up = Math.max(0, Math.sin(t * 5.2)), py = -up * 7;
   var E = function (p, cx, cy, rx, ry, rot) { p.moveTo(cx + rx * Math.cos(rot), cy + rx * Math.sin(rot)); p.ellipse(cx, cy, rx, ry, rot, 0, Math.PI * 2); };
   var body = new Path2D();
-  E(body, -7, 9, 15, 12, -0.15);                 // body
-  E(body, -20.5, 12, 4.2, 4.2, 0);              // tail
-  E(body, 1, 20, 10, 3.4, 0);                   // feet
-  E(body, 7, -6, 8.6, 7.6, 0.25);               // head
-  E(body, 14.5, -3.5, 3.4, 3, 0.2);             // muzzle
-  E(body, -1, -19, 3.1, 11, -0.6);              // far ear
-  E(body, 3, -20, 3.4, 11.5, -0.35);            // near ear
-  E(body, 12.5, 3 + py * 0.55, 8.4, 3.2, -0.28 - up * 0.2);   // forearm, the paw closed on the pestle
-  E(body, 20, 1 + py * 0.75, 3, 3, 0);                     // paw
+  E(body, -7, 9, 15, 12, -0.15);
+  E(body, -20.5, 12, 4.2, 4.2, 0);
+  E(body, 1, 20, 10, 3.4, 0);
+  E(body, 7, -6, 8.6, 7.6, 0.25);
+  E(body, 14.5, -3.5, 3.4, 3, 0.2);
+  E(body, -1, -19, 3.1, 11, -0.6);
+  E(body, 3, -20, 3.4, 11.5, -0.35);
+  E(body, 12.5, 3 + py * 0.55, 8.4, 3.2, -0.28 - up * 0.2);
+  E(body, 20, 1 + py * 0.75, 3, 3, 0);
   var tool = new Path2D();
-  tool.moveTo(13, 16); tool.lineTo(29, 16); tool.lineTo(26, 26); tool.lineTo(16, 26); tool.closePath();   // mortar
-  tool.rect(11.5, 13.6, 19, 3);                             // mortar lip
-  tool.rect(18.6, -15 + py, 3.2, 30.5);                     // pestle (its foot reaches into the mortar)
-  E(tool, 20.2, -15 + py, 3.6, 2.2, 0);          // pestle cap
+  tool.moveTo(13, 16); tool.lineTo(29, 16); tool.lineTo(26, 26); tool.lineTo(16, 26); tool.closePath();
+  tool.rect(11.5, 13.6, 19, 3);
+  tool.rect(18.6, -15 + py, 3.2, 30.5);
+  E(tool, 20.2, -15 + py, 3.6, 2.2, 0);
   g.strokeStyle = rim; g.lineWidth = 2.6; g.stroke(body); g.stroke(tool);
   g.fillStyle = ink; g.fill(body); g.fill(tool);
   g.fillStyle = rim; g.beginPath(); g.arc(9.6, -8, 1.3, 0, 7); g.fill();
@@ -298,7 +256,6 @@ function n4_rabbit(c, x, y, r, t, a, ink, rim) {
 ENGINES.midautumn = function (A, v, dk) {
   var W = v.bw, H = v.bh, ph = !v.desk, T0 = -99, M = A.moon, C = A.C, i;
   var glowG = n4_rg(dk ? 'rgba(255,236,180,0.5)' : 'rgba(255,250,236,0.65)', [0.35, 0.25]), lanG = n4_rg(dk ? 'rgba(255,170,90,0.7)' : 'rgba(255,190,120,0.5)', [0.3, 0.3]), redG = n4_rg(dk ? 'rgba(255,90,60,0.55)' : 'rgba(255,120,80,0.35)', [0.3, 0.3]);
-  // the moon and its craters as two sprites: the craters fade while the rabbit is on the moon, so they never show through it
   var moonSpr = n4_sprite(M[2] * 2.2, M[2] * 2.2, 2, function (o) { var r = M[2], g = o.createRadialGradient(-r * 0.25, -r * 0.3, r * 0.1, 0, 0, r); g.addColorStop(0, '#FFFFF4'); g.addColorStop(0.7, dk ? '#FFF0C0' : '#FFF6E2'); g.addColorStop(1, dk ? '#F6D890' : '#F8E2BE'); o.fillStyle = g; o.beginPath(); o.arc(0, 0, r, 0, 7); o.fill(); });
   var craterSpr = n4_sprite(M[2] * 2.2, M[2] * 2.2, 2, function (o) { var r = M[2];
     o.fillStyle = dk ? 'rgba(210,180,120,0.22)' : 'rgba(220,190,150,0.2)'; [[-0.35, -0.2, 0.22], [0.3, 0.25, 0.18], [0.1, -0.45, 0.12], [-0.2, 0.45, 0.14], [0.5, -0.15, 0.09]].forEach(function (q) { o.beginPath(); o.arc(q[0] * r, q[1] * r, q[2] * r, 0, 7); o.fill(); }); });
@@ -318,28 +275,22 @@ ENGINES.midautumn = function (A, v, dk) {
     },
     draw: function (ca, cb, t, f) {
       var tt = t * f.s, T = t - T0, rab = n4_env(T, 0.2, 1.4, 12, 14);
-      // the moon, its glow and the jade rabbit
       ca.save(); if (dk) ca.globalCompositeOperation = 'lighter'; n4_dot(ca, glowG, M[0], M[1], M[2] * (2.3 + 0.1 * Math.sin(tt * 0.5) + rab * 0.4), dk ? 0.7 : 0.9); ca.restore();
       var S = moonSpr.w; ca.drawImage(moonSpr, M[0] - S / 2, M[1] - S / 2, S, S); ca.globalAlpha = 1 - rab * 0.85; ca.drawImage(craterSpr, M[0] - S / 2, M[1] - S / 2, S, S); ca.globalAlpha = 1;
       if (rab > 0) n4_rabbit(ca, M[0] - M[2] * 0.08, M[1] + M[2] * 0.02, M[2] * 1.0, T, rab * 0.9, dk ? '#DDB672' : '#E2C29A', dk ? '#FFF8DC' : '#FFFDF4');
       clouds.forEach(function (c) { ca.drawImage(CLD, c.x - 110 * c.s, c.y - 25 * c.s, 220 * c.s, 50 * c.s); });
-      // the moon's path on the water
       ca.save(); ca.globalCompositeOperation = dk ? 'lighter' : 'source-over'; for (i = 0; i < (ph ? 12 : 16); i++) { var yy = ry0 + 6 + i * (by - ry0 - 10) / (ph ? 12 : 16), w = M[2] * (0.5 + i * 0.05) * (0.7 + 0.3 * Math.sin(tt * 1.3 + i * 1.7)), xx = M[0] + Math.sin(tt * 0.8 + i) * 6; ca.fillStyle = dk ? 'rgba(255,236,180,' + (0.28 - i * 0.01) + ')' : 'rgba(255,255,250,' + (0.6 - i * 0.02) + ')'; ca.fillRect(xx - w / 2, yy, w, 2.4); } ca.restore();
-      // lotus lanterns and their reflections (never over the pavilion, which stands nearer)
       ca.save(); ca.clip(pavClip, 'evenodd');
       lotus.forEach(function (l, j) { var k = (l.y - ry0) / (by - ry0), s = (ph ? 0.75 : 1) * (0.7 + k * 0.6), y = l.y + Math.sin(tt * 1.2 + l.ph) * 1.2;
         ca.save(); ca.globalCompositeOperation = dk ? 'lighter' : 'source-over'; n4_dot(ca, lanG, l.x, y - 8 * s, 26 * s, dk ? 0.75 : 0.35); ca.globalAlpha = dk ? 0.3 : 0.2; ca.drawImage(LS, l.x - 18 * s, y + 4 * s, 36 * s, -22 * s); ca.restore();
         ca.drawImage(LS, l.x - 18 * s, y - 16 * s, 36 * s, 22 * s);
         var fk = flick(tt * 1.3, j), fh = 6 * s * (0.8 + 0.2 * fk); ca.fillStyle = '#FFB040'; ca.beginPath(); ca.moveTo(l.x, y - 13 * s - fh); ca.quadraticCurveTo(l.x + 2.4 * s, y - 13 * s - fh * 0.3, l.x, y - 12 * s); ca.quadraticCurveTo(l.x - 2.4 * s, y - 13 * s - fh * 0.3, l.x, y - 13 * s - fh); ca.fill(); });
-      // lanterns rising off the river into the sky
       rising.forEach(function (r) { var u = (t - r.t0) / r.life; if (u < 0) return; var e = 1 - Math.pow(1 - u, 1.5), x = r.x + Math.sin(u * 6 + r.ph) * 14 + r.dx * e, y = r.y - (r.y - r.y1) * e, s = r.s * (1 - u * 0.45), al = Math.min(1, u * 10, (1 - u) * 4);
         ca.save(); ca.globalCompositeOperation = 'lighter'; n4_dot(ca, lanG, x, y, 36 * s, al * (dk ? 0.9 : 0.6)); ca.restore(); ca.globalAlpha = al; ca.drawImage(RL, x - 15 * s, y - 18 * s, 30 * s, 36 * s); ca.globalAlpha = 1; });
       ca.restore();
-      // the pavilion's red lanterns and bells
       var rs = A.rs;
       A.plan.forEach(function (p, j) { var sw = Math.sin(tt * 1 + j * 2) * 0.08 * f.a, L = 14 * rs, x = p[0] + Math.sin(sw) * L, y = p[1] + Math.cos(sw) * L; cb.save(); cb.globalCompositeOperation = dk ? 'lighter' : 'source-over'; n4_dot(cb, redG, x, y, 30 * rs, dk ? 0.9 : 0.5); cb.restore(); cb.strokeStyle = '#3A2A2A'; cb.lineWidth = 1; cb.beginPath(); cb.moveTo(p[0], p[1]); cb.lineTo(x, y - 10 * rs); cb.stroke(); cb.drawImage(RL, x - 15 * rs * 0.9, y - 18 * rs * 0.9, 30 * rs * 0.9, 36 * rs * 0.9); });
       A.bells.forEach(function (b, j) { var sw = (Math.sin(tt * 2.2 + j * 1.7) * 0.25 + Math.sin(tt * 0.7 + j) * 0.1) * f.a, s = rs * (ph ? 1.2 : 1); cb.save(); cb.translate(b[0], b[1]); cb.rotate(sw); cb.strokeStyle = '#4A3A2A'; cb.lineWidth = 1; cb.beginPath(); cb.moveTo(0, 0); cb.lineTo(0, 6 * s); cb.stroke(); var g = cb.createLinearGradient(-5 * s, 0, 5 * s, 0); g.addColorStop(0, '#B8862E'); g.addColorStop(0.5, '#F2C86A'); g.addColorStop(1, '#A8761E'); cb.fillStyle = g; cb.beginPath(); cb.moveTo(-2.4 * s, 6 * s); cb.quadraticCurveTo(-3 * s, 12 * s, -5 * s, 14 * s); cb.lineTo(5 * s, 14 * s); cb.quadraticCurveTo(3 * s, 12 * s, 2.4 * s, 6 * s); cb.closePath(); cb.fill(); cb.fillStyle = '#8A5A1E'; cb.beginPath(); cb.arc(Math.sin(sw * 3) * 2 * s, 15 * s, 1.4 * s, 0, 7); cb.fill(); cb.fillStyle = '#C8402E'; cb.fillRect(-1 * s, 15 * s, 2 * s, 6 * s); cb.restore(); });
-      // osmanthus blossoms drifting down
       blossoms.forEach(function (b) { cb.save(); cb.translate(b.x, b.y); cb.rotate(tt + b.ph); cb.fillStyle = dk ? '#F2B83A' : '#F6B02A'; for (var q = 0; q < 4; q++) { cb.rotate(Math.PI / 2); cb.beginPath(); cb.ellipse(b.s * 0.8, 0, b.s * 0.75, b.s * 0.5, 0, 0, 7); cb.fill(); } cb.fillStyle = '#FFE9A0'; cb.beginPath(); cb.arc(0, 0, b.s * 0.4, 0, 7); cb.fill(); cb.restore(); });
     },
     finish: function (t) { T0 = t; for (var k = 0; k < (ph ? 6 : 10); k++) { var l = lotus[k % lotus.length]; rising.push({x: (k < lotus.length ? l.x : W * (0.2 + Math.random() * 0.7)), y: ry0 + (by - ry0) * (0.4 + Math.random() * 0.5), y1: H * (0.04 + Math.random() * 0.25), dx: (Math.random() - 0.5) * W * 0.2, t0: t + 1.0 + k * 0.28, life: 8 + Math.random() * 3, ph: Math.random() * 6.28, s: (ph ? 0.9 : 1.3) * (0.8 + Math.random() * 0.4)}); } }

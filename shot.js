@@ -1,5 +1,4 @@
-// The screenshot picker: the whole screen is shown still, you drag a box around what you want, and only that part goes to Studyboard.
-// It can't do anything else: it hands back four numbers (the box, as fractions of the screen) or a cancel.
+// The screenshot picker
 (() => {
   const pic = document.getElementById("pic"), sel = document.getElementById("sel");
   let ready = false, a = null, b = null;
@@ -19,7 +18,7 @@
   addEventListener("mouseup", e => {
     if (!a) return;
     b = { x: e.clientX, y: e.clientY }; const r = box(); a = b = null; paint();
-    if (r.w >= 12 && r.h >= 12) send(r);          // a click or a tiny drag does nothing: draw a real box
+    if (r.w >= 12 && r.h >= 12) send(r);
   });
   addEventListener("dblclick", () => { if (ready) send(null); });
   addEventListener("keydown", e => {

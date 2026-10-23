@@ -1,7 +1,4 @@
-// node tests/gradetrend.e2e.js [screenshot-dir]   (Playwright + Chromium; see tests/pw.js)
-// Grade trend: chart in a course's Grades tab (weighted marks, goal line, summary, hidden data table, LMS-synced mark), empty states, sparkline on course cards, dark theme, XL text.
-// Study Groups on phones: the Groups tab in the bottom bar (Board to Groups, no More button), aria-current on Groups, the "Study with a friend" Board card
-// (queued behind a backup reminder, signed out, signed in with and without groups, Not now, Don't show again), desktop unchanged, no horizontal scroll, 44px targets.
+// node tests/gradetrend.e2e.js [screenshot-dir]
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, ".."), SHOTS = process.argv[2] || process.env.SHOTS || path.join(require("os").tmpdir(), "gt-shots");
@@ -40,7 +37,6 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
     }, [o.seed ? o.seed(SEED()) : SEED(), o.groups == null ? null : o.groups, !!o.backedUp]);
     return ctx;
   };
-  // Board notices wait behind the Notices button: opened here (they stay open while on the Board) unless keepFolded
   const open = async (ctx, keepFolded) => { const page = await ctx.newPage(); page.errs = []; page.on("pageerror", e => page.errs.push(e.message)); page.on("console", m => { if (m.type() === "error") page.errs.push(m.text()); }); await page.goto(base); await page.waitForSelector("#view", {state: "attached"}); await page.waitForTimeout(900);
     if (!keepFolded && await page.evaluate(() => { const b = document.querySelector('#view .bn-more[aria-expanded="false"]'); if (b) b.click(); return !!b; })) await page.waitForTimeout(200);
     return page; };
@@ -53,7 +49,7 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
     await page.click('[data-act="course-tab"][data-id="grades"]'); await page.waitForTimeout(250);
   };
   try {
-    /* ---------- Grade trend, phone ---------- */
+    /* Grade trend, phone */
     {
       const ctx = await mkCtx(); const page = await open(ctx);
       await page.click('nav.tabs [data-tab="courses"]'); await page.waitForTimeout(250);
@@ -83,14 +79,12 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
       await svg.evaluate(e => e.scrollIntoView({block: "center"})); await page.waitForTimeout(150);
       await page.screenshot({path: path.join(SHOTS, "trend-390.png")});
       await svg.screenshot({path: path.join(SHOTS, "trend-chart.png")});
-      // dark theme and XL text
       await page.evaluate(() => { document.documentElement.dataset.theme = "dark"; document.documentElement.dataset.ts = "xl"; });
       await page.waitForTimeout(200);
       const dark = await page.evaluate(() => { const l = document.querySelector(".gt-line"), v = document.querySelector(".gt-val"); return {line: getComputedStyle(l).stroke, val: getComputedStyle(v).fill, bg: getComputedStyle(document.body).backgroundColor}; });
       ok(dark.line && dark.val && dark.val !== dark.bg, "dark theme: chart colors resolve (" + JSON.stringify(dark) + ")");
       await noOverflow(page, "dark and XL text"); await page.screenshot({path: path.join(SHOTS, "trend-390-dark-xl.png")});
       await page.evaluate(() => { document.documentElement.dataset.theme = "light"; document.documentElement.dataset.ts = "m"; });
-      // a drop reads neutrally: change the last mark and look at the wording
       await ctx.close();
     }
     {
@@ -116,18 +110,17 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
       await c3.close();
     }
     {
-      // undated items still chart; unweighted course math untouched
       const ctx = await mkCtx({seed: s => { s.tasks.forEach(t => { if (t.courseId === "c1") delete t.due; }); return s; }}); const page = await open(ctx);
       await goCourse(page, "c1");
       ok(await page.locator(".gt-dot").count() === 4, "items without dates are still charted");
       noErr(page, "with undated items"); await ctx.close();
     }
 
-    /* ---------- Phone bar: seven tabs with the companion's seat in the middle, no More button (the three dots hold settings) ---------- */
+    /* Phone bar: seven tabs with the companion's seat in the middle, no More button */
     for (const W of [390, 360, 320]) {
       const ctx = await mkCtx({w: W, h: 760}); const page = await open(ctx);
       ok(!(await page.locator("nav.tabs .nav-more").isVisible()), `no More button in the phone bar @${W}`);
-      const rects = await page.$$eval("nav.tabs .in > button", bs => bs.filter(b => b.offsetParent).map(b => { const r = b.getBoundingClientRect(); return {l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height, tx: b.textContent.trim(), tab: b.dataset.tab || ""}; }).sort((a, b) => a.l - b.l));   // (as shown: the phone bar sets the order)
+      const rects = await page.$$eval("nav.tabs .in > button", bs => bs.filter(b => b.offsetParent).map(b => { const r = b.getBoundingClientRect(); return {l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height, tx: b.textContent.trim(), tab: b.dataset.tab || ""}; }).sort((a, b) => a.l - b.l));
       ok(rects.map(r => r.tab).join() === "board,plan,flashcards,companion,notes,courses,groups", `7 tabs in the phone bar, the companion in the middle @${W}: ${rects.map(r => r.tab).join(",")}`);
       ok(rects.every((r, i) => !i || r.l >= rects[i - 1].r - 0.5) && rects[0].l >= 0 && rects[rects.length - 1].r <= W, `bar buttons don't overlap and stay on screen @${W}`);
       ok(rects.every(r => r.h >= 44), `bar targets are at least 44px tall @${W}`);
@@ -144,16 +137,13 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
       await noOverflow(page, `phone bar @${W}`); noErr(page, `phone bar @${W}`);
       await ctx.close();
     }
-    // focus timer button and existing tabs still work
     {
       const ctx = await mkCtx(); const page = await open(ctx);
-      for (const t of ["plan", "flashcards", "notes", "courses", "companion", "board"]) { await page.evaluate(t => document.querySelector(`nav.tabs [data-tab="${t}"]`).click(), t); await page.waitForTimeout(150); /* (on a phone Notes has no tab in the bar, and the companion stands over its own tab) */ ok(await page.locator(`nav.tabs [data-tab="${t}"]`).getAttribute("aria-current") === "page", "tab still works: " + t); }
+      for (const t of ["plan", "flashcards", "notes", "courses", "companion", "board"]) { await page.evaluate(t => document.querySelector(`nav.tabs [data-tab="${t}"]`).click(), t); await page.waitForTimeout(150); ok(await page.locator(`nav.tabs [data-tab="${t}"]`).getAttribute("aria-current") === "page", "tab still works: " + t); }
       ok(await page.evaluate(() => !!document.querySelector('#navPomo[data-act="pomo-open"]')), "focus timer button still exists");
       await ctx.close();
     }
-    // Board card, signed out
     {
-      // Board notices wait behind one Notices button (with a red count); a pending backup reminder comes first, then the card
       const c0 = await mkCtx(); let page = await open(c0, true);
       const order = await page.evaluate(() => [...document.querySelectorAll("#view > *")].map(e => e.classList[0]).filter(c => c !== "bn-more"));
       ok(order.indexOf("nudge") === 0 && order.indexOf("gn-card") > 0 && order.indexOf("gn-card") < order.indexOf("qa-wrap"), "with a backup reminder pending, it leads and the card is queued above quick add: " + order.join(","));
@@ -162,7 +152,6 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
       const r0 = await page.locator(".gn-card").boundingBox(), q0 = await page.locator(".qa-wrap").boundingBox();
       ok(r0 && q0 && r0.y + r0.height <= q0.y + 1, "Notices shows the card, still above quick add");
       await c0.close();
-      // backed up recently: the card is the notice that shows
       const ctx = await mkCtx({backedUp: true}); page = await open(ctx);
       const card = page.locator(".gn-card");
       ok(await card.count() === 1 && /Study with a Friend/.test(await card.textContent()), "signed out: the Study with a friend card shows");
@@ -196,7 +185,6 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
       ok(await page.locator(".gn-card").count() === 0, "no card until there are a few tasks");
       await c4.close();
     }
-    // Board card, signed in
     {
       const ctx = await mkCtx({groups: []}); const page = await open(ctx);
       await page.waitForTimeout(500);
@@ -207,7 +195,6 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
       ok(await p2.locator(".gn-card").count() === 0, "signed in with a group: no card");
       await c2.close();
     }
-    // desktop is unchanged
     {
       const ctx = await mkCtx({w: 1280, h: 900}); const page = await open(ctx);
       ok(!(await page.locator("nav.tabs .nav-more").isVisible()), "desktop: no More button");
@@ -216,7 +203,6 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
       ok(await page.locator('nav.tabs [data-tab="groups"]').getAttribute("aria-current") === "page", "desktop: Groups highlights as before");
       await ctx.close();
     }
-    // landscape phone, tablet
     for (const [w, h, nm] of [[844, 390, "landscape"], [768, 1024, "tablet"]]) {
       const ctx = await mkCtx({w, h}); const page = await open(ctx);
       ok(!(await page.locator("nav.tabs .nav-more").isVisible()) && await page.locator('nav.tabs [data-tab="groups"]').isVisible(), nm + ": Groups is a tab, no More button");
@@ -224,7 +210,6 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
       ok(rr.every((r, i) => !i || r[0] >= rr[i - 1][1] - 0.5) && rr[rr.length - 1][1] <= w, nm + ": bar buttons don't overlap");
       await noOverflow(page, nm); noErr(page, nm); await ctx.close();
     }
-    // reduced motion, XL text on the phone bar
     {
       const ctx = await browser.newContext({viewport: {width: 390, height: 780}, reducedMotion: "reduce"});
       await ctx.addInitScript(seed => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studyboard:textsize", "xl"); } } catch (e) {} }, SEED());

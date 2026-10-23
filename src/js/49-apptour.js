@@ -1,14 +1,8 @@
 /* ===== module: 49-apptour.js ===== */
-/* App Tour: a coach-mark walk around the app. A dimmed page with one spotlight, a card that says what it is, and Back / Next.
-   It shows once, right after a brand-new person finishes (or closes) the welcome setup above. Anyone who already has data
-   never sees it on its own. It can be replayed from Settings, Search Everywhere and the end of the welcome tour.
-   Each step opens the real tab or sheet it talks about (Calendar's Timeline then Schedule, announcements, focus timer, search,
-   Settings) and the tour puts the person back on their own tab when it ends. A step whose feature isn't on this device (no
-   Groups on a phone, no bell without a school site) is left out, so the tour never points at nothing. */
+/* App Tour: a coach-mark walk around the app */
 (() => {
   const KEY = "studyboard:tour", OB = "sb:onboarded";
-  // Remembered per device and per account, like the welcome setup: a brand-new account (made in the last 2 days) gets the tour
-  // even on a device that has shown it before
+  // Remembered per device and per account, like the welcome setup
   const acctKey = () => typeof sbUser !== "undefined" && sbUser && sbUser.id ? KEY + ":" + sbUser.id : "";
   const newAccount = () => { try { const t = Date.parse((sbUser && sbUser.created_at) || ""); return t > 0 && Date.now() - t < 2 * 864e5; } catch (e) { return false; } };
   const flag = () => { try { const a = acctKey(); if (a) { const v = localStorage.getItem(a); if (v) return v; if (newAccount()) return ""; } return localStorage.getItem(KEY) || ""; } catch (e) { return "done"; } };
@@ -16,12 +10,7 @@
   const phone = () => !!(window.matchMedia && matchMedia("(max-width:719px)").matches);
   const NAV = t => `nav.tabs [data-tab="${t}"]`;
 
-  // Each step opens the real screen it talks about, then points at part of it.
-  //  tab: page to show (ui.tab). panel: a sheet to open on top ("settings", "ann", "pomo", "search"); it stays open across the
-  //  steps that name it and is closed when the tour moves on. sel: where to point, first one on screen wins (none: a centred card).
-  //  fresh: reopen the sheet at its first screen. prep: runs once the sheet is open (Settings: go to its App section).
-  //  has: what must exist on this device for the step to be in the tour at all (a phone has no Groups, no bell until a school
-  //  site is connected). Without it the step is kept when sel can be found after opening its tab.
+  // Each step opens the real screen it talks about, then points at part of it
   const SETTINGS = ['nav.tabs .nav-tool[data-act="menu"]', 'header.top [data-act="menu"]'];
   const BELL = ['header.top .ann-btn', 'nav.tabs .ann-btn'], POMO = ["#navPomo", "#pomoBtn"], SEARCH = ['nav.tabs .nav-tool[data-act="search"]', 'header.top [data-act="search"]'];
   const STEPS = [
@@ -63,7 +52,6 @@
     {id: "settings", title: "Settings", panel: "settings", fresh: true, has: SETTINGS, sel: ["#dlg .us-cats", '#dlg [data-act="plan-open"]', "#dlg .menu-list", "#dlg .sheet"],
       text: () => "Themes and dark mode, study hours, reminders, calendar sync, AI, backups, sign in and Studyboard Pro all live here."},
     {id: "help", title: "Found a Bug? Tell Us", panel: "settings", has: SETTINGS, prep: () => { const c = $('#dlg [data-us="app"]'); if (c) c.click();
-        // then its Help tab, where Report a Bug is (the section opens on its first tab)
         const help = () => [...document.querySelectorAll("#dlg .us-sub-tab")].find(t => /^\s*Help\s*$/.test(t.textContent));
         const go = (n) => { const h = help(); if (h) { if (h.getAttribute("aria-selected") !== "true") h.click(); } else if (n > 0) setTimeout(() => go(n - 1), 50); };
         go(10); },
@@ -75,9 +63,6 @@
 
   let steps = [], i = 0, root = null, spot = null, card = null, tgt = null, opened = null, saved = null, onKey = null, raf = 0, active = false, seq = 0, panel = "";
 
-  // An example planner, so each screen the tour opens shows what it looks like with real work in it. Only for someone with no tasks
-  // yet; it is drawn in place of theirs while the tour is open (tourDemo, see render) and is never saved, synced or kept: it's gone
-  // the moment the tour finishes or is skipped.
   function demoPlanner(){
     const t0 = todayISO(), D = n => addDays(t0, n), now = Date.now();
     const T = (id, title, c, type, due, o) => Object.assign({id: "demo-" + id, title, courseId: "demo-" + c, type, start: D(-3), due, time: "", priority: "med", status: "todo", notes: "", hours: 2,
@@ -121,7 +106,7 @@
     if (!t) return;
     if (ui.tab !== t) { if (t === "flashcards") { ui.fc = null; ui.deckId = null; } if (t !== "courses") ui.courseId = null; if (t === "timeline") ui.tlJump = true; ui.tab = t; render(); window.scrollTo(0, 0); }
   };
-  // Sheets the tour opens on top of the page. Closed again when the tour moves to a step that doesn't need them.
+  // Sheets the tour opens on top of the page
   const press = list => { const b = findIn(list); if (b) b.click(); };
   const PANELS = {
     settings: {dlg: () => dlg, open: () => menuSheet()},
@@ -134,21 +119,19 @@
     const d = PANELS[panel].dlg(); panel = "";
     try { if (d && d.open) d.close(); } catch (e) {}
   }
-  // The tour is itself a modal dialog, so it can sit above the sheets it opens: re-showing it puts it back on top of them.
+  // The tour is itself a modal dialog, so it can sit above the sheets it opens
   function raise(){
     if (!root) return;
     try { if (root.open) root.close(); root.showModal(); } catch (e) { root.setAttribute("open", ""); }
   }
   async function enter(s, my){
     if (panel && panel !== s.panel) closePanel();
-    // The last step shows the person's own (empty) planner again: the example is gone by the time they're told to add their first task
     { const want = s.id === "done" ? null : demoData; if (tourDemo !== want) { tourDemo = want; if (!s.panel && ui.tab === s.tab) render(); } }
     if (s.panel) {
-      if (panel === s.panel && s.fresh) closePanel();    // coming back to the first screen of a sheet
+      if (panel === s.panel && s.fresh) closePanel();
       if (panel !== s.panel) { if (dlg.open && PANELS[s.panel].dlg() === dlg) dlg.close(); panel = s.panel; try { PANELS[s.panel].open(); } catch (e) { console.error(e); } raise(); }
       if (s.prep) { try { s.prep(); } catch (e) {} }
     } else { if (s.go) { try { s.go(); } catch (e) {} if (ui.tab === s.tab) render(); } gotoTab(s.tab); }
-    // Wait for the screen to draw: poll for the target, then fall back to a centred card
     for (let n = 0; s.sel && n < 16 && my === seq && active; n++) { if (find(s)) break; await wait(50); }
   }
 
@@ -178,7 +161,7 @@
       if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); finish(false); return; }
       if (e.key === "ArrowRight" || (e.key === "Enter" && !e.target.closest("button"))) { e.preventDefault(); e.stopPropagation(); move(1); return; }
       if (e.key === "ArrowLeft") { e.preventDefault(); e.stopPropagation(); move(-1); return; }
-      if (e.key === "Tab") {   // keep focus inside the card
+      if (e.key === "Tab") {
         const f = [...card.querySelectorAll("button:not([disabled])")].filter(b => b.offsetParent);
         if (!f.length) return;
         const first = f[0], last = f[f.length - 1];
@@ -207,7 +190,6 @@
       spot.style.cssText = `left:${sx}px;top:${sy}px;width:${sw}px;height:${sh}px`;
       let x, y;
       if (phone() || vw < 560) {
-        // Phones: the card docks to the far edge from the spotlight so it never covers it
         x = Math.round((vw - cw) / 2);
         const mid = sy + sh / 2;
         y = mid > vh / 2 ? Math.max(12, sy - ch - 14) : Math.min(vh - ch - 12, sy + sh + 14);
@@ -228,16 +210,15 @@
   async function show(){
     const s = steps[i]; if (!s) { finish(true); return; }
     const my = ++seq;
-    await enter(s, my);                       // open its tab or sheet, wait for it to draw
+    await enter(s, my);
     if (my !== seq || !active || !card) return;
     tgt = find(s);
-    // Targets inside the page (not the fixed side or bottom bars or a sheet) need to be scrolled into view
     if (tgt && !tgt.closest("nav,header,#fab,#sbTour")) { try { tgt.scrollIntoView({block: "center", behavior: "auto"}); } catch (e) {} }
     $("#tourN").textContent = `${i + 1} of ${steps.length}`;
-    { const ex = $("#tourEx"); if (ex) ex.hidden = !demoData || s.id === "done"; }   // the tour shows example courses and tasks, not the person's own
+    { const ex = $("#tourEx"); if (ex) ex.hidden = !demoData || s.id === "done"; }
     $("#tourT").textContent = s.title;
     $("#tourD").textContent = SPELL.fix(s.text());
-    { const m = $("#tourMore"), b = m.querySelector("button"), body = $("#tourMoreBody");   // a "learn more" that opens right in the card
+    { const m = $("#tourMore"), b = m.querySelector("button"), body = $("#tourMoreBody");
       m.hidden = !s.more; body.hidden = true; b.setAttribute("aria-expanded", "false");
       if (s.more) { b.textContent = s.more.label; body.innerHTML = s.more.html; } else body.innerHTML = ""; }
     $("#tourDots").innerHTML = steps.map((_, k) => `<span class="${k === i ? "on" : k < i ? "past" : ""}"></span>`).join("");
@@ -249,7 +230,7 @@
     try { next.focus({preventScroll: true}); } catch (e) { next.focus(); }
   }
 
-  // dir 1 or -1. Every step sets up its own screen, so Back and Next both land on the right one.
+  // dir 1 or -1
   function move(dir){
     if (!active) return;
     const k = i + dir;
@@ -268,9 +249,8 @@
     if (root) { try { if (root.open) root.close(); } catch (e) {} root.remove(); }
     root = spot = card = tgt = null;
     closePanel();
-    tourDemo = null; demoData = null;   // the example planner goes; the next draw shows the person's own
+    tourDemo = null; demoData = null;
     setFlag("done");
-    // Put the person back where they were: the same tab, view and course
     const s = saved || {tab: "board"};
     try { if (s.planView) planViewSet(s.planView); } catch (e) {}
     ui.tab = s.tab || "board"; ui.courseId = s.courseId || null; ui.courseTab = s.courseTab || ""; ui.bview = s.bview;
@@ -291,22 +271,18 @@
     try { demoData = useDemo() ? demoPlanner() : null; } catch (e) { console.error(e); demoData = null; }
     tourDemo = demoData;
     saved = {tab: ui.tab, planView: ui.planView, courseId: ui.courseId, courseTab: ui.courseTab, bview: ui.bview, fc: ui.fc, deckId: ui.deckId, scrollY: window.scrollY};
-    // Take out every step that can't be shown on this screen (no Groups on a phone, no bell until a school site is connected)
-    // so the dots are right. Steps that open a tab are checked by opening it; the tour puts everything back when it ends.
     steps = STEPS.filter(s => s.has ? !!findIn(s.has) : !s.sel || ((s.go && s.go()), gotoTab(s.tab), render(), !!find(s)));
     i = 0;
     build();
     show();
   }
 
-  /* ---------- When to show it on its own ---------- */
+  /* When to show it on its own */
   let poll = 0, sawSetup = false;
   const setupOpen = () => dlg.open && !!dlg.querySelector(".sheet.ob");
   function check(){
     if (flag() === "done") { stop(); return; }
     if (setupOpen()) { sawSetup = true; return; }
-    // The welcome setup never appeared and was already finished or skipped earlier: an existing person, so no tour
-    // (the welcome setup still to come for this account, e.g. right after signing up, isn't "finished earlier")
     try { if (!sawSetup && localStorage.getItem(OB) && !(window.SBOB && SBOB.pending())) { setFlag("done"); stop(); return; } } catch (e) {}
     if (!sawSetup) return;
     if (dlg.open || document.hidden || document.getElementById("qod") || active) return;
@@ -317,11 +293,11 @@
     if (flag() === "done") return;
     poll = setInterval(check, 700);
   });
-  // Someone signed up or signed in after the page loaded: a brand-new account gets the tour after its welcome setup
+  // Someone signed up or signed in after the page loaded
   let seenUid = "";
   hook("render", () => { const u = typeof sbUser !== "undefined" && sbUser && sbUser.id; if (!u || u === seenUid) return; seenUid = u; if (!poll && flag() !== "done") { sawSetup = false; poll = setInterval(check, 700); } });
 
-  /* ---------- Settings row ---------- */
+  /* Settings row */
   window.SBTOUR = {start, active: () => active};
   hook("menu", () => `<button data-act="tour-open" data-group="app"><span>Take the App Tour<span class="sub">A one-minute walk around the tabs and controls</span></span></button>`);
   hook("act", act => {

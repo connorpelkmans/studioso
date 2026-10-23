@@ -1,5 +1,5 @@
 /* ===== module: 96-tp-m3.js ===== */
-/* Theme Collections, Study Fields batch m3: civics, justice, writing */
+/* Theme Collections, Study Fields batch m3 */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2), S15 = SOw(1.6);
@@ -16,7 +16,7 @@
   const leaf = (x, y, a, l, w, c) => `<path d="M0 0Q${l / 2} ${-w} ${l} 0Q${l / 2} ${w} 0 0z" fill="${c}" ${SOw(1.4)} transform="translate(${x} ${y}) rotate(${a})"/>`;
 
   /* ================= CIVIC SQUARE ================= */
-  // a laurel wreath: two leafy branches curving up around (cx, cy)
+  // a laurel wreath
   const laurelRing = (cx, cy, r, c, c2, n = 7) => {
     let g = `<path d="M${cx - 4} ${cy + r}A${r} ${r} 0 0 1 ${cx - r * .62} ${cy - r * .78}M${cx + 4} ${cy + r}A${r} ${r} 0 0 0 ${cx + r * .62} ${cy - r * .78}" fill="none" stroke="#4E7A56" stroke-width="1.6" stroke-linecap="round"/>`;
     for (let i = 0; i < n; i++) {

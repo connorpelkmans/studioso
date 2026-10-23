@@ -1,11 +1,11 @@
 /* ===== module: 98-comp-m4.js ===== */
-/* Study Companions, Study Fields batch m4: concert, track, math, chem */
+/* Study Companions, Study Fields batch m4 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);
   const f = v => Math.round(v * 100) / 100;
 
-  // A golden (logarithmic) spiral, from the centre outwards, for Fibo's shell.
+  // A golden (logarithmic) spiral, from the centre outwards, for Fibo's shell
   const spiral = (cx, cy, r0, r1, turns, rot) => {
     const T = turns * 2 * Math.PI, b = Math.log(r1 / r0) / T;
     let d = "";

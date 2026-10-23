@@ -1,25 +1,6 @@
--- Studyboard 1.11: Plans (Free and Pro)
--- Run this once in Supabase: SQL Editor > New query > paste everything > Run.
--- It is safe to run again: it only adds what is missing, refreshes the rules, and never changes values you edited.
---
--- Nothing here blocks anyone until you turn the paywall on (the "paywall" row in studyboard_config).
--- While it is false, every plan check below lets everything through, exactly like before. The exceptions, which apply whether the paywall
--- is on or not: a set of generous safety caps on synced data (see "Synced data limit"), so a single account can't fill the database, and
--- the plan's cloud file storage ("fileMB": 25 MB on Free), because uploaded files cost real storage.
---
--- What it adds:
---  * studyboard_config        prices, limits and switches. Everyone can read it; only you (the SQL Editor or the service role) can change it.
---  * studyboard_entitlements  who has Pro and until when. You can read your own row; only the billing-webhook function writes it.
---  * studyboard_devices       the devices signed in to each account (free plan: up to 2).
---  * studyboard_usage         a small running total of each account's synced data and files, kept up to date by triggers.
---  * Limit checks on your data table, file storage and study groups, and a daily clean-up of old group messages on free groups.
--- All the triggers are named plans_... so they never clash with other setup files.
---
--- Security notes (Studyboard Pro): clients can only READ their own plan rows. Nothing a signed-in person (or the anon key) can
--- send will ever change an entitlement, a grant, usage or a setting. Every write goes through the service role (Edge Functions)
--- or the SQL Editor. Run supabase-plans-selftest.sql after this file to prove it.
+-- Studyboard 1.11
 
--- ---------- Settings: prices, limits and switches ----------
+-- Settings: prices, limits and switches
 create table if not exists public.studyboard_config (
   key text primary key,
   value jsonb not null,
@@ -30,13 +11,12 @@ drop policy if exists "config readable" on public.studyboard_config;
 create policy "config readable" on public.studyboard_config for select to anon, authenticated using (true);
 revoke all on public.studyboard_config from anon, authenticated;
 grant select on public.studyboard_config to anon, authenticated;
--- This table is readable by everyone (the app needs the prices), so it must never hold a secret. Refuse keys and values that look like one.
+-- This table is readable by everyone (the app needs the prices)
 alter table public.studyboard_config drop constraint if exists studyboard_config_no_secrets;
 alter table public.studyboard_config add constraint studyboard_config_no_secrets check (
   key !~* '(secret|private|password|service_role|signing)' and value::text !~ '(sk_live|sk_test|rk_live|rk_test|whsec_|BEGIN [A-Z ]*PRIVATE|eyJhbGci)') not valid;
 
--- Starting values. "on conflict do nothing" keeps anything you changed when you run this file again.
--- A null limit means "no limit".
+-- Starting values
 insert into public.studyboard_config (key, value) values
   ('paywall', 'false'),
   ('prices', '{"monthly": "$3.99", "yearly": "$29.99", "trialDays": 7, "currency": "USD"}'),
@@ -50,24 +30,21 @@ insert into public.studyboard_config (key, value) values
   ('item_purchases', 'false'),
   ('features', '{"insights": false, "ai_credits": false}')
 on conflict (key) do nothing;
--- Free cloud file storage went from 100 MB to 25 MB (photos are shrunk before upload, so it holds far more than it did). Projects
--- still on the old starting value get the new one; a value you set yourself is left alone.
+-- Free cloud file storage went from 100 MB to 25 MB
 update public.studyboard_config set value = jsonb_set(value, '{free,fileMB}', '25')
   where key = 'limits' and value #> '{free,fileMB}' = '100'::jsonb;
 
--- The free limits were lowered (devices 3 -> 2, group members 30 -> 3, group messages 120 -> 60 days).
--- "on conflict do nothing" above would keep the old row, so move it over only if you never edited those values.
+-- The free limits were lowered
 update public.studyboard_config set
   value = jsonb_set(value, '{free}', (value -> 'free') || '{"devices": 2, "groupMembers": 3, "groupMsgDays": 60}'::jsonb), updated_at = now()
 where key = 'limits'
   and value -> 'free' @> '{"devices": 3, "groupMembers": 30, "groupMsgDays": 120}'::jsonb;
 
--- Free groups went from 3 members to 5 (a class project team fits, and every invite brings a new student in). Moved over only if it
--- still says 3, so a size you set yourself is kept.
+-- Free groups went from 3 members to 5
 update public.studyboard_config set value = jsonb_set(value, '{free,groupMembers}', '5'), updated_at = now()
 where key = 'limits' and value #> '{free,groupMembers}' = '3'::jsonb;
 
--- ---------- Who has Pro ----------
+-- Who has Pro
 create table if not exists public.studyboard_entitlements (
   user_id uuid primary key references auth.users(id) on delete cascade,
   plan text not null default 'free' check (plan in ('free', 'pro', 'lifetime')),
@@ -79,13 +56,13 @@ create table if not exists public.studyboard_entitlements (
   updated_at timestamptz not null default now()
 );
 alter table public.studyboard_entitlements add column if not exists will_renew boolean not null default true;
--- Manual grants live in their own columns, so a payment event can never wipe a grant and a grant never hides a payment.
+-- Manual grants live in their own columns
 alter table public.studyboard_entitlements add column if not exists grant_until timestamptz;
 alter table public.studyboard_entitlements add column if not exists grant_lifetime boolean not null default false;
--- Promo codes (see "Promo codes" below) live in their own columns too: Pro's features, but never Pro's bigger limits.
+-- Promo codes (see "Promo codes" below) live in their own columns too
 alter table public.studyboard_entitlements add column if not exists promo_until timestamptz;
 alter table public.studyboard_entitlements add column if not exists promo_lifetime boolean not null default false;
--- Billing bookkeeping (newest payment event applied, and "refunded or disputed: stay off until a new purchase").
+-- Billing bookkeeping
 alter table public.studyboard_entitlements add column if not exists billing_event_at timestamptz;
 alter table public.studyboard_entitlements add column if not exists billing_revoked_at timestamptz;
 alter table public.studyboard_entitlements drop constraint if exists studyboard_entitlements_source_check;
@@ -95,11 +72,11 @@ create index if not exists studyboard_entitlements_external_idx on public.studyb
 alter table public.studyboard_entitlements enable row level security;
 drop policy if exists "entitlement own read" on public.studyboard_entitlements;
 create policy "entitlement own read" on public.studyboard_entitlements for select to authenticated using (user_id = (select auth.uid()));
--- Read only, own row only. No insert, update or delete policy exists, and the table privileges are taken away as well (two locks).
+-- Read only, own row only
 revoke all on public.studyboard_entitlements from public, anon, authenticated;
 grant select on public.studyboard_entitlements to authenticated;
 
--- ---------- Helpers ----------
+-- Helpers
 create or replace function public.studyboard_paywall() returns boolean
 language sql stable security definer set search_path = public, pg_temp as $$
   select coalesce((select value = 'true'::jsonb from public.studyboard_config where key = 'paywall'), false)
@@ -119,10 +96,7 @@ language sql stable security definer set search_path = public, pg_temp as $$
            or e.promo_until > now()))
 $$;
 
--- One limit for one account, from the "limits" row. Null means no limit.
--- Pro's bigger limits (storage, synced data, devices, group size, online backups, Pro groups) come with a paid plan or a gift only.
--- A card-free trial (the free week every new account gets, or studyboard_start_trial) and a promo code unlock every Pro theme and feature
--- but keep the free plan's amounts, so nothing is over a limit when the week ends and nobody can fill 10 GB on a free week.
+-- One limit for one account, from the "limits" row
 create or replace function public.studyboard_limits_pro(uid uuid) returns boolean
 language sql stable security definer set search_path = public, pg_temp as $$
   select exists (
@@ -152,7 +126,7 @@ end $$;
 revoke all on function public.studyboard_paywall(), public.studyboard_is_pro(uuid), public.studyboard_limit(uuid, text) from public, anon, authenticated;
 grant execute on function public.studyboard_paywall() to anon, authenticated;
 
--- ---------- Devices ----------
+-- Devices
 create table if not exists public.studyboard_devices (
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
   device_id text not null check (char_length(device_id) between 8 and 80),
@@ -175,7 +149,7 @@ revoke all on public.studyboard_devices from anon;
 revoke truncate, references, trigger on public.studyboard_devices from authenticated;
 grant select, insert, update, delete on public.studyboard_devices to authenticated;
 
--- Removed-device log (server only). It lets the limit stop "remove one, add another" from being used to cycle through many devices.
+-- Removed-device log (server only)
 create table if not exists public.studyboard_device_removals (
   user_id uuid not null,
   removed_at timestamptz not null default now()
@@ -193,16 +167,13 @@ end $$;
 drop trigger if exists plans_device_removed on public.studyboard_devices;
 create trigger plans_device_removed after delete on public.studyboard_devices for each row execute function public.plans_device_removed();
 
--- A 3rd device on the free plan is turned away (only while the paywall is on). The app shows the devices so you can remove one.
--- Free accounts can also remove only 4 devices in any 7 days, so removing and re-adding can't be used to share one account widely.
+-- A 3rd device on the free plan is turned away (only while the paywall is on)
 create or replace function public.plans_device_limit() returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare lim bigint;
 begin
   if not public.studyboard_paywall() then return new; end if;
-  -- One sign-in at a time per account, so two devices signing in together can't both slip under the limit.
   perform pg_advisory_xact_lock(hashtextextended('sb-device:' || new.user_id::text, 0));
-  -- An upsert of a device that's already there is just an update of last_seen.
   if exists (select 1 from public.studyboard_devices where user_id = new.user_id and device_id = new.device_id) then return new; end if;
   lim := public.studyboard_limit(new.user_id, 'devices');
   if lim is not null then
@@ -220,8 +191,7 @@ end $$;
 drop trigger if exists plans_device_limit on public.studyboard_devices;
 create trigger plans_device_limit before insert on public.studyboard_devices for each row execute function public.plans_device_limit();
 
--- A device row can't be turned into a different device (or moved to another account) by changing its keys: that would skip the
--- limit and the removed-device log above. The app's upsert (on user_id, device_id) only refreshes the name, platform and last_seen.
+-- A device row can't be turned into a different device
 create or replace function public.plans_device_keys() returns trigger
 language plpgsql set search_path = public, pg_temp as $$
 begin
@@ -234,7 +204,7 @@ revoke all on function public.plans_device_keys() from public, anon, authenticat
 drop trigger if exists plans_device_keys on public.studyboard_devices;
 create trigger plans_device_keys before update on public.studyboard_devices for each row execute function public.plans_device_keys();
 
--- ---------- Usage totals (kept by triggers, so checks never have to add everything up) ----------
+-- Usage totals (kept by triggers, so checks never have to add everything up)
 create table if not exists public.studyboard_usage (
   user_id uuid primary key references auth.users(id) on delete cascade,
   data_bytes bigint not null default 0,
@@ -250,7 +220,6 @@ create policy "usage own read" on public.studyboard_usage for select to authenti
 revoke all on public.studyboard_usage from public, anon, authenticated;
 grant select on public.studyboard_usage to authenticated;
 
--- (The old 3- and 4-argument versions are replaced by one that also counts online backups and synced rows.)
 drop function if exists public.plans_add_usage(uuid, bigint, bigint);
 drop function if exists public.plans_add_usage(uuid, bigint, bigint, bigint);
 create or replace function public.plans_add_usage(uid uuid, d_data bigint, d_file bigint, d_backup bigint default 0, d_rows bigint default 0) returns void
@@ -263,19 +232,7 @@ language sql security definer set search_path = public, pg_temp as $$
 $$;
 revoke all on function public.plans_add_usage(uuid, bigint, bigint, bigint, bigint) from public, anon, authenticated;
 
--- ---------- Synced data limit (public.items) ----------
--- Everything is measured as the size of the JSON text, so a tiny compressed size can't hide a big item.
--- Online backups (kind 'backup') are Pro only (refused for Free while the paywall is on), have their own total (4 times the data limit,
--- or the "backupMB" row of limits if you add one) and are cleaned up after "cloudBackupDays" days (30 on Pro) by studyboard_prune_backups. Changing an item's kind is checked too (it can't be used to move data out of the count).
---
--- Safety caps that apply even while the paywall is OFF (so one account can't fill the database; Supabase's free plan has 500 MB):
---  * one item (not a backup) can be at most 10 MB of JSON;
---  * at most 50,000 synced items per account (backups not counted);
---  * synced data up to twice the plan's "dataMB" (50 MB on Free, 500 MB on Pro), and online backups up to the same again.
--- With the paywall on, the plan's own limits above apply instead. Only growth is refused: shrinking or deleting always works, data
--- already stored stays, and restoring an archived account (studyboard.restoring) is never limited. The error says "storage limit",
--- which the app shows as "Online storage is full" (the item stays saved on the device).
--- The data and backup limits (MB) for one account, as used by both checks below. Null means no limit.
+-- Synced data limit (public.items)
 create or replace function public.plans_item_limits(uid uuid, out data_mb bigint, out backup_mb bigint)
 language plpgsql stable security definer set search_path = public, pg_temp as $$
 begin
@@ -298,16 +255,13 @@ declare
   item_max constant bigint := 10485760;   -- 10 MB per item
   rows_max constant bigint := 50000;      -- synced items per account
 begin
-  -- Restoring an archived account puts back what the person already had; the limits apply to new writes, not to a restore.
   if current_setting('studyboard.restoring', true) = '1' then return new; end if;
-  -- Online backups are a Pro extra: a free account can't write them at all (the "cloudBackupDays" limit is 0 on Free).
   if pw and new.kind = 'backup' and coalesce(public.studyboard_limit(new.user_id, 'cloudBackupDays'), 0) <= 0 then
     raise exception 'SB_BACKUP_PRO: Online backups are a Pro feature. Your backups on this device are not affected.' using errcode = 'P0001';
   end if;
   sz := octet_length(new.data::text);
   if new.kind = 'backup' then n_bk := sz; else n_data := sz; end if;
   if tg_op = 'INSERT' then
-    -- An upsert of an item that's already there becomes an update, which is checked on its own.
     if exists (select 1 from public.items where user_id = new.user_id and kind = new.kind and id = new.id) then return new; end if;
     new_row := new.kind <> 'backup';
   elsif old.user_id = new.user_id then
@@ -366,15 +320,12 @@ begin
   return null;
 end $$;
 
--- The check above runs before each row, but the running totals are only updated after each row, at the end of the statement. So one
--- statement writing many rows at once (a bulk upsert) is checked again here, once it is done, against the updated totals: if it made an
--- account's synced data, backups or item count grow past the limit, the whole statement is undone. Restores are not limited.
+-- The check above runs before each row
 create or replace function public.plans_items_quota_stmt() returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare g record; lim bigint; blim bigint; u public.studyboard_usage;
 begin
   if current_setting('studyboard.restoring', true) = '1' then return null; end if;
-  -- What each account gained in this statement (new rows minus, for an update, the old ones). Run as text because old_rows only exists for updates.
   for g in execute
     'select user_id, sum(s * sz) filter (where kind <> ''backup'') d, sum(s * sz) filter (where kind = ''backup'') b,
             sum(s) filter (where kind <> ''backup'') r
@@ -409,7 +360,6 @@ begin
   execute 'create trigger plans_items_quota_ins after insert on public.items referencing new table as new_rows for each statement execute function public.plans_items_quota_stmt()';
   execute 'drop trigger if exists plans_items_quota_upd on public.items';
   execute 'create trigger plans_items_quota_upd after update on public.items referencing old table as old_rows new table as new_rows for each statement execute function public.plans_items_quota_stmt()';
-  -- Count what is already there (recounted each time this file runs).
   insert into public.studyboard_usage (user_id, data_bytes, backup_bytes, item_rows, updated_at)
     select i.user_id, coalesce(sum(octet_length(i.data::text)) filter (where i.kind <> 'backup'), 0),
            coalesce(sum(octet_length(i.data::text)) filter (where i.kind = 'backup'), 0), count(*) filter (where i.kind <> 'backup'), now()
@@ -418,8 +368,7 @@ begin
   on conflict (user_id) do update set data_bytes = excluded.data_bytes, backup_bytes = excluded.backup_bytes, item_rows = excluded.item_rows, updated_at = now();
 end $$;
 
--- ---------- File storage limit (the studioso-files bucket) ----------
--- Files are stored under "<your user id>/...", so the first folder says whose file it is.
+-- File storage limit (the studioso-files bucket)
 create or replace function public.plans_object_owner(p_name text) returns uuid
 language sql immutable set search_path = public as $$
   select case when split_part(p_name, '/', 1) ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
@@ -430,11 +379,8 @@ create or replace function public.plans_storage_quota() returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare uid uuid; lim bigint; used bigint; delta bigint;
 begin
-  -- Unlike the other plan limits this one applies whether or not the paywall is on: uploaded files cost real storage, so a free account gets
-  -- the free plan's "fileMB" either way. Restoring an archived account is never limited.
   if new.bucket_id <> 'studioso-files' or current_setting('studyboard.restoring', true) = '1' then return new; end if;
   uid := public.plans_object_owner(new.name);
-  -- Files must live under "<user id>/...". A path without one would not be counted for anybody, so it is refused.
   if uid is null then
     raise exception 'SB_STORAGE_PATH: Files are stored in your own folder.' using errcode = 'P0001';
   end if;
@@ -465,8 +411,7 @@ begin
   return null;
 end $$;
 
--- Some Supabase projects don't let the SQL Editor add triggers to storage tables. If so, this part is skipped
--- with a notice, and the app's own check (before each upload) still keeps free accounts to their storage.
+-- Some Supabase projects don't let the SQL Editor add triggers to storage tables
 do $$
 begin
   if to_regclass('storage.objects') is null then return; end if;
@@ -485,8 +430,7 @@ begin
   on conflict (user_id) do update set file_bytes = excluded.file_bytes, updated_at = now();
 end $$;
 
--- ---------- Study groups: size and message history ----------
--- A group's size follows its owner's plan: 3 members on Free, 100 on Pro (join_group in groups.sql also stops at 100).
+-- Study groups: size and message history
 create or replace function public.plans_group_member_limit() returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare owner uuid; lim bigint; pro_lim bigint;
@@ -515,7 +459,7 @@ begin
   execute 'create trigger plans_group_member_limit before insert on public.group_members for each row execute function public.plans_group_member_limit()';
 end $$;
 
--- Deletes messages older than the owner's plan allows (60 days on Free). Does nothing while the paywall is off.
+-- Deletes messages older than the owner's plan allows (60 days on Free)
 create or replace function public.studyboard_prune_group_messages() returns integer
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare n integer := 0;
@@ -535,7 +479,7 @@ begin
 end $$;
 revoke all on function public.studyboard_prune_group_messages() from public, anon, authenticated;
 
--- Run the clean-up every night at 4:17 (UTC), if pg_cron is available in your project.
+-- Run the clean-up every night at 4:17 (UTC), if pg_cron is available in your project
 do $$
 begin
   begin
@@ -553,12 +497,7 @@ begin
   end if;
 end $$;
 
--- ---------- Free trial started in the app (no card), once per account ----------
--- Only works when the "app_trial" row is true. Store trials (Stripe, App Store, Google Play) don't need this.
--- "Once" survives deleting the account and making a new one with the same email: studyboard_trial_uses keeps a SHA-256 of the
--- tidied email address (lower case, "+anything" dropped, dots ignored for Gmail) and nothing else: no account id, no date of birth,
--- not the address itself. studyboard_delete_user_data (supabase-lean.sql) leaves it in place, the way the privacy policy keeps
--- billing bookkeeping. Server only: row level security on, no policies, no grants.
+-- Free trial started in the app (no card), once per account
 create table if not exists public.studyboard_trial_uses (
   email_hash text primary key check (email_hash ~ '^[0-9a-f]{64}$'),
   used_at timestamptz not null default now()
@@ -575,8 +514,7 @@ language sql immutable set search_path = '' as $$
   from (select nullif(lower(btrim(p_email)), '') as x) q
 $$;
 
--- The create-checkout function asks this (service role only) before it offers a Stripe trial, so deleting the account and signing up
--- again with the same email doesn't give a second trial. Same hashing as above; only true or false comes back.
+-- The create-checkout function asks this (service role only) before it offers a Stripe trial
 create or replace function public.studyboard_trial_used(p_email text) returns boolean
 language sql stable security definer set search_path = public, pg_temp as $$
   select coalesce((select exists (select 1 from public.studyboard_trial_uses t where t.email_hash = public.plans_email_hash(p_email))), false)
@@ -588,7 +526,7 @@ do $$ begin
   end if;
 end $$;
 
--- Trials already used (by an app or store trial) count too.
+-- Trials already used (by an app or store trial) count too
 insert into public.studyboard_trial_uses (email_hash)
   select distinct public.plans_email_hash(u.email) from public.studyboard_entitlements e join auth.users u on u.id = e.user_id
   where e.trial_until is not null and public.plans_email_hash(u.email) is not null
@@ -621,16 +559,15 @@ end $$;
 revoke all on function public.studyboard_start_trial() from public, anon;
 grant execute on function public.studyboard_start_trial() to authenticated;
 
--- ---------- Server-only tables for payments, grants and rate limits ----------
--- All have row level security on and NO policies, and no table privileges for the app: only the service role (Edge Functions) and the SQL Editor can touch them.
+-- Server-only tables for payments, grants and rate limits
 
--- Which Stripe customer belongs to which account (set by the create-checkout function, never by the app).
+-- Which Stripe customer belongs to which account
 create table if not exists public.studyboard_billing_customers (
   user_id uuid primary key references auth.users(id) on delete cascade,
   stripe_customer_id text not null unique,
   created_at timestamptz not null default now()
 );
--- Payment events already handled, so a repeated or replayed event can't grant (or take away) anything twice.
+-- Payment events already handled, so a repeated or replayed event can't grant
 create table if not exists public.studyboard_billing_events (
   family text not null check (family in ('stripe', 'revenuecat')),
   event_id text not null,
@@ -641,7 +578,7 @@ create table if not exists public.studyboard_billing_events (
   received_at timestamptz not null default now(),
   primary key (family, event_id)
 );
--- Who gave Pro to whom, when, for how long and why (see studyboard_grant_pro below).
+-- Who gave Pro to whom, when, for how long and why (see studyboard_grant_pro below)
 create table if not exists public.studyboard_pro_grants (
   id bigint generated always as identity primary key,
   user_id uuid references auth.users(id) on delete set null,
@@ -654,7 +591,7 @@ create table if not exists public.studyboard_pro_grants (
   acting_user text not null default session_user,
   created_at timestamptz not null default now()
 );
--- Per-account counters for the Edge Functions (checkout, portal, entitlement token).
+-- Per-account counters for the Edge Functions (checkout, portal, entitlement token)
 create table if not exists public.studyboard_plan_rate (
   key text not null,
   bucket timestamptz not null,
@@ -670,7 +607,7 @@ begin
   end loop;
 end $$;
 
--- Counts one use of "key" in the current window. False once it's over p_max in p_window seconds. Used by the Edge Functions (service role).
+-- Counts one use of "key" in the current window
 create or replace function public.studyboard_plan_rate_hit(p_key text, p_max int, p_window int) returns boolean
 language plpgsql volatile security definer set search_path = '' as $$
 declare b timestamptz := to_timestamp(floor(extract(epoch from now()) / greatest(p_window, 1)) * greatest(p_window, 1)); c int;
@@ -680,7 +617,7 @@ begin
   return c <= p_max;
 end $$;
 
--- Deletes online backups older than the owner's plan keeps them (30 days on Pro; everything on Free). Does nothing while the paywall is off.
+-- Deletes online backups older than the owner's plan keeps them
 create or replace function public.studyboard_prune_backups() returns integer
 language plpgsql security definer set search_path = '' as $$
 declare n integer := 0;
@@ -691,10 +628,7 @@ begin
     delete from public.items i
     where i.kind = 'backup'
       and public.studyboard_limit(i.user_id, 'cloudBackupDays') is not null   -- no limit means keep them all
-      -- 30 days of grace past the plan's window, so turning plans on or a lapsed plan never wipes a backup the same night
       and i.updated_at < now() - make_interval(days => greatest(public.studyboard_limit(i.user_id, 'cloudBackupDays'), 0)::int + 30)
-      -- and the grace runs from when the plan last changed or ended, not from the backup's age: without this, Pro ending (or a refund, or a
-      -- trial running out) deleted every backup between 30 and 60 days old that same night
       and not exists (select 1 from public.studyboard_entitlements e where e.user_id = i.user_id
         and greatest(e.updated_at, case when e.pro_until <= now() then e.pro_until end, case when e.grant_until <= now() then e.grant_until end,
                      case when e.trial_until <= now() then e.trial_until end) > now() - interval '30 days')
@@ -710,11 +644,7 @@ language sql security definer set search_path = '' as $$
   delete from public.studyboard_device_removals where removed_at < now() - interval '30 days';
 $$;
 
--- ---------- Payments become Pro here (called only by the billing-webhook function, with the service role) ----------
--- One transaction does everything: remember the event id (a repeat does nothing), check the account is real, ignore
--- events older than the newest one already applied, never let one payment source cancel another, and never touch a manual grant.
--- p is JSON: event_id, family (stripe|revenuecat), source (stripe|apple|google|revenuecat), type, event_at,
---   state (active|extend|ended|renew_off|revoke|unrevoke|lifetime), uid_hint, trust_hint, customer, pro_until, trial_until, will_renew, external_id, fresh.
+-- Payments become Pro here
 create or replace function public.studyboard_apply_billing(p jsonb) returns text
 language plpgsql volatile security definer set search_path = '' as $$
 declare
@@ -744,8 +674,6 @@ begin
 
   <<blk>>
   begin
-    -- Whose payment is this? A known Stripe customer decides it. The id in the event is only believed (trust_hint) when
-    -- it came from something our own server set when it created the checkout, and only for a customer nobody else has.
     if v_family = 'stripe' and v_customer is not null then
       select c.user_id into v_mapped from public.studyboard_billing_customers c where c.stripe_customer_id = v_customer;
       if v_mapped is null then
@@ -779,19 +707,14 @@ begin
       update public.studyboard_entitlements set billing_revoked_at = null, updated_at = now() where user_id = v_uid;
       v_out := 'cleared'; exit blk;
     end if;
-    -- Pro for good (paid) is never changed by a subscription event; only a refund or dispute can end it.
     if r.plan = 'lifetime' and v_state <> 'revoke' and v_state <> 'lifetime' then v_out := 'kept lifetime'; exit blk; end if;
-    -- After a refund or dispute, only a brand new purchase turns Pro back on.
     if r.billing_revoked_at is not null and v_state in ('active', 'extend', 'lifetime') and not (v_fresh and v_at > r.billing_revoked_at) then
       v_out := 'ignored: revoked'; exit blk;
     end if;
-    -- One payment source must not cancel or shorten another source's live subscription.
     if v_cur_live and v_cur_family is not null and v_cur_family <> v_family then
       if v_state in ('ended', 'renew_off', 'revoke') then v_out := 'kept other source'; exit blk; end if;
       if v_state in ('active', 'extend') and (r.pro_until is null or v_until is null or v_until <= r.pro_until) then v_out := 'kept other source'; exit blk; end if;
     end if;
-    -- Older than the newest event already applied: ignore (a refund or dispute is the exception, it always applies).
-    -- (Stripe stamps events to the second: when an "on" event and an "off" event share a second, off wins.)
     if v_state <> 'revoke' and r.billing_event_at is not null and (v_cur_family is null or v_cur_family = v_family)
        and (v_at < r.billing_event_at or (v_at = r.billing_event_at and v_state in ('active', 'extend') and r.plan = 'free' and v_cur_family = v_family)) then
       v_out := 'stale'; exit blk;
@@ -835,19 +758,11 @@ begin
   return v_out;
 end $$;
 
--- ---------- For you in the SQL Editor: give someone Pro, or take a gift back ----------
--- Grants are separate from payments: a subscription ending never removes a grant, and a grant never hides or changes a subscription.
--- Nobody but you (SQL Editor) or the service role can run these. They are logged in studyboard_pro_grants.
---   select public.studyboard_grant_pro('friend@example.com', 365, 'tester');            -- a year of Pro (by email)
---   select public.studyboard_grant_pro('you@example.com', null, 'owner');               -- Pro for good
---   select public.studyboard_grant_pro_uid('00000000-0000-0000-0000-000000000000', 30, 'contest winner');   -- by account id
---   select public.studyboard_revoke_pro('friend@example.com', 'ended early');           -- take the grant back
--- Each grant replaces the one before it for that person (the days count from now).
+-- For you in the SQL Editor
 create or replace function public.plans_deny_clients() returns void
 language plpgsql stable set search_path = '' as $$
 declare c text := nullif(current_setting('request.jwt.claims', true), '');
 begin
-  -- Belt and braces on top of the removed EXECUTE privilege: refuse anyone whose sign-in says anon or authenticated.
   if c is not null and coalesce((c::jsonb) ->> 'role', '') in ('anon', 'authenticated') then
     raise exception 'not allowed' using errcode = '42501';
   end if;
@@ -903,7 +818,7 @@ begin
   return public.studyboard_revoke_pro_uid(uid, p_reason);
 end $$;
 
--- Older versions of this file gave Pro by writing the plan itself (source promo or lifetime, no payment id). Move those into grants, once.
+-- Older versions of this file gave Pro by writing the plan itself
 do $$
 begin
   with moved as (
@@ -917,11 +832,7 @@ begin
     from moved m;
 end $$;
 
--- ---------- Pro groups (1.16) ----------
--- A Pro group gets the group extras for every member, and Pro-size limits (100 members, full message history, group uploads).
--- A group is Pro while the paywall is off, or while the member who assigned Pro to it (group_pro) is still in it and has Pro.
--- Each Pro account can assign Pro to at most 5 groups, its own included (owning a group no longer makes it Pro by itself). Assigning
--- changes nothing anyone can't see; unassigning takes nothing away (the data stays, the extras and limits go back to the free ones).
+-- Pro groups (1.16)
 create table if not exists public.group_pro (
   group_id uuid primary key references public.study_groups(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -940,7 +851,7 @@ language sql stable security definer set search_path = public, pg_temp as $$
       or exists (select 1 from public.group_pro p join public.group_members m on m.group_id = p.group_id and m.user_id = p.user_id
                  where p.group_id = gid and public.studyboard_limits_pro(p.user_id))
 $$;
--- The app asks which of your groups are Pro, and who unlocked them: [{group_id, active, by_user, by_owner}]
+-- The app asks which of your groups are Pro, and who unlocked them
 create or replace function public.group_pro_status(p_groups uuid[]) returns table (group_id uuid, active boolean, by_user uuid, by_owner boolean)
 language plpgsql stable security definer set search_path = public, pg_temp as $$
 begin
@@ -953,7 +864,7 @@ begin
     where g.id = any (coalesce(p_groups, '{}')) and public.sbg_is_member(g.id)
     limit 200;
 end $$;
--- Unlock (p_on true) or stop unlocking (false) a group you're in. Needs Pro while the paywall is on.
+-- Unlock (p_on true) or stop unlocking (false) a group you're in
 create or replace function public.group_pro_set(p_group uuid, p_on boolean) returns text
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare me uuid := auth.uid(); cur uuid;
@@ -976,7 +887,6 @@ begin
   if cur is not null and exists (select 1 from public.group_members m where m.group_id = p_group and m.user_id = cur) and public.studyboard_limits_pro(cur) then
     raise exception 'SB_ALREADY_PRO: Someone else already made this a Pro group.' using errcode = 'P0001';
   end if;
-  -- (a group you've left doesn't hold one of your 5)
   if (select count(*) from public.group_pro p join public.group_members m on m.group_id = p.group_id and m.user_id = p.user_id where p.user_id = me) >= 5 then
     raise exception 'SB_PRO_GROUPS_FULL: You''ve assigned Pro to 5 groups. Unassign one first.' using errcode = 'P0001';
   end if;
@@ -984,8 +894,7 @@ begin
     on conflict (group_id) do update set user_id = excluded.user_id, created_at = now();
   return 'on';
 end $$;
--- Once, when owning a group stopped making it Pro: each Pro owner keeps Pro on up to 5 of their groups (the oldest first, counting the
--- groups they had already assigned), so nobody's groups change overnight. A marker row keeps it from running again and undoing an unassign.
+-- Once, when owning a group stopped making it Pro
 do $$
 begin
   if not exists (select 1 from public.studyboard_config where key = 'group_pro_owner_assigned') then
@@ -1003,7 +912,7 @@ end $$;
 revoke all on function public.plans_group_is_pro(uuid), public.group_pro_status(uuid[]), public.group_pro_set(uuid, boolean) from public, anon, authenticated;
 grant execute on function public.group_pro_status(uuid[]), public.group_pro_set(uuid, boolean) to authenticated;
 
--- Group size and message history follow the group (Pro group or not), not just its owner.
+-- Group size and message history follow the group (Pro group or not), not just its owner
 create or replace function public.plans_group_member_limit() returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare lim bigint; tier text;
@@ -1040,7 +949,7 @@ begin
   return n;
 end $$;
 
--- Supporter badge: a star beside your name in your groups, if you choose to show it (Settings > Studyboard Pro). Only while you have Pro.
+-- Supporter badge
 do $$
 begin
   if to_regclass('public.group_members') is not null then
@@ -1070,8 +979,7 @@ grant execute on function public.set_supporter_badge(boolean) to authenticated;
 -- The badge column is written only through set_supporter_badge
 revoke update (badge) on public.group_members from authenticated;
 
--- Group uploads: files a member puts in a Pro group live in their own folder, "<their id>/g/<group id>/...", count toward their own
--- storage, and every member of the group can open them. A group holds up to 2 GB of uploads.
+-- Group uploads
 create or replace function public.plans_group_of_object(p_name text) returns uuid
 language sql immutable set search_path = public as $$
   select case when split_part(p_name, '/', 2) = 'g' and split_part(p_name, '/', 3) ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
@@ -1126,24 +1034,7 @@ begin
   end if;
 end $$;
 
--- ---------- Promo codes ----------
--- Codes you hand out. Two kinds:
---   forever  Pro's features for good.
---   month    Pro's features for one calendar month from the moment it's redeemed. It really ends: every check compares promo_until
---            with now() (here, in the entitlement-token function and in the app), so nothing has to run for it to stop.
--- Both give Pro's themes and features only. Storage, synced data, devices, group size, online backups and Pro groups stay at the free
--- plan's amounts (studyboard_limits_pro ignores the promo columns), so a code never costs you database or storage room.
--- Codes are stored only as a SHA-256 hash (with the last 4 characters as a hint): a leaked table can't be used to redeem anything.
---
--- In the SQL Editor:
---   select * from public.studyboard_make_codes('month');                       -- one single-use one-month code
---   select * from public.studyboard_make_codes('forever', 5);                  -- five single-use codes for Pro for good
---   select * from public.studyboard_make_codes('month', 1, 50, 30, 'Club');    -- one code 50 people can use, redeemable for 30 days
---   select public.studyboard_make_code('STUDYFRIEND', 'month', 100);           -- a code you choose, for up to 100 people
---   select * from public.studyboard_list_codes();                              -- what exists and how much each was used
---   select public.studyboard_disable_code('STUDYFRIEND');                      -- stops new redemptions (people who have it keep it)
---   select public.studyboard_revoke_promo('someone@school.edu');               -- takes promo Pro away from one account
--- People redeem them in the app, signed in: Settings, Redeem a Code (also on the Pro sheet).
+-- Promo codes
 create table if not exists public.studyboard_promo_codes (
   id bigint generated always as identity primary key,
   code_hash text not null unique,
@@ -1167,13 +1058,13 @@ alter table public.studyboard_promo_codes enable row level security;
 alter table public.studyboard_promo_redemptions enable row level security;
 revoke all on public.studyboard_promo_codes, public.studyboard_promo_redemptions from public, anon, authenticated;
 
--- One spelling for every code: upper case, letters and digits only (so "sb-abcd 1234" and "SBABCD1234" are the same code)
+-- One spelling for every code
 create or replace function public.plans_promo_norm(p text) returns text
 language sql immutable set search_path = '' as $$ select regexp_replace(upper(coalesce(p, '')), '[^A-Z0-9]', '', 'g') $$;
 create or replace function public.plans_promo_hash(p text) returns text
 language sql immutable set search_path = '' as $$ select encode(sha256(convert_to('studyboard-promo|' || public.plans_promo_norm(p), 'UTF8')), 'hex') $$;
 
--- Make a code you choose (4 to 40 letters and digits). Returns it the way people should type it.
+-- Make a code you choose (4 to 40 letters and digits)
 create or replace function public.studyboard_make_code(p_code text, p_kind text, p_max_uses int default 1, p_valid_days int default null, p_note text default null) returns text
 language plpgsql volatile security definer set search_path = '' as $$
 declare n text := public.plans_promo_norm(p_code);
@@ -1187,7 +1078,7 @@ begin
   return n;
 end $$;
 
--- Make random codes (SB-XXXX-XXXX-XXXX, no look-alike letters). Shown once: only their hash is kept, so copy them now.
+-- Make random codes (SB-XXXX-XXXX-XXXX, no look-alike letters)
 create or replace function public.studyboard_make_codes(p_kind text, p_count int default 1, p_max_uses int default 1, p_valid_days int default null, p_note text default null)
 returns table (code text, kind text, max_uses int, redeemable_until timestamptz)
 language plpgsql volatile security definer set search_path = '' as $$
@@ -1234,14 +1125,12 @@ begin
   return 'Promo Pro is removed for ' || p_email || ' (a paid plan or a grant, if there is one, is not touched)';
 end $$;
 
--- Redeem (the app calls this, signed in). Answers {ok, kind, until} or {error: invalid | expired | used_up | already | slow_down | sign_in}.
--- A month code adds one calendar month to any promo time still left; a forever code is for good. Each account can use a code once.
+-- Redeem (the app calls this, signed in)
 create or replace function public.studyboard_redeem_code(p_code text) returns jsonb
 language plpgsql volatile security definer set search_path = '' as $$
 declare me uuid := auth.uid(); c record; until timestamptz; cur timestamptz;
 begin
   if me is null then return jsonb_build_object('error', 'sign_in'); end if;
-  -- 10 tries an hour per account, so codes can't be guessed
   if not public.studyboard_plan_rate_hit('promo:' || me::text, 10, 3600) then return jsonb_build_object('error', 'slow_down'); end if;
   select * into c from public.studyboard_promo_codes where code_hash = public.plans_promo_hash(p_code) for update;
   if not found or c.disabled then return jsonb_build_object('error', 'invalid'); end if;
@@ -1263,9 +1152,7 @@ begin
   return jsonb_build_object('ok', true, 'kind', c.kind, 'until', until);
 end $$;
 
--- ---------- Lock down: who may run what, and what is visible live ----------
--- Every function in this file except the two the app calls is closed to PUBLIC, anon and signed-in people. Doing it by name over
--- pg_proc covers every overload, and brand new functions Supabase gives default privileges to can't slip through.
+-- Lock down: who may run what, and what is visible live
 do $$
 declare f record;
 begin
@@ -1289,14 +1176,12 @@ grant execute on function public.studyboard_start_trial() to authenticated;
 do $$
 declare t text;
 begin
-  -- The service role (Edge Functions) needs table access; it skips row level security by design.
   if exists (select 1 from pg_roles where rolname = 'service_role') then
     foreach t in array array['studyboard_config', 'studyboard_entitlements', 'studyboard_devices', 'studyboard_usage', 'studyboard_billing_customers',
                               'studyboard_billing_events', 'studyboard_pro_grants', 'studyboard_plan_rate', 'studyboard_device_removals', 'studyboard_trial_uses'] loop
       execute format('grant all on public.%I to service_role', t);
     end loop;
   end if;
-  -- None of these tables is sent over Realtime (nobody needs to listen to a plan, a grant or a setting).
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime' and not puballtables) then
     foreach t in array array['studyboard_config', 'studyboard_entitlements', 'studyboard_usage', 'studyboard_billing_customers', 'studyboard_billing_events',
                               'studyboard_pro_grants', 'studyboard_plan_rate', 'studyboard_device_removals', 'studyboard_trial_uses'] loop
@@ -1307,19 +1192,7 @@ begin
   end if;
 end $$;
 
--- ---------- A free week of Pro for every new account ----------
--- Every account made after this was switched on gets 7 days of Pro once, with no card, the moment its email address is confirmed
--- (an account made with Google or Apple is confirmed at once). Nobody can ask for it: it is granted here, by the database, from a trigger
--- on the sign-up itself, and the app can't call the function behind it.
--- What stops repeats:
---   * one per account: an account that ever had a trial, a plan, a grant or a payment never gets one
---   * one per email address, ever: the same hash as studyboard_start_trial (Gmail dots and +tags don't make a new address), kept in
---     studyboard_trial_uses after the account is deleted, so delete-and-sign-up-again gets nothing
---   * a confirmed address only, and never a guest (anonymous) account
---   * throw-away mail services are turned away (studyboard_trial_blocked_domains: add more with an insert)
---   * a daily ceiling across all accounts (welcome_trial_daily_cap, 1000 by default), so a flood of fake sign-ups can't run up costs
---   * only accounts made after it was switched on (welcome_trial_since), so existing free accounts aren't changed
--- Turn it off with: update public.studyboard_config set value = 'false' where key = 'welcome_trial';
+-- A free week of Pro for every new account
 insert into public.studyboard_config (key, value) values
   ('welcome_trial', 'true'::jsonb), ('welcome_trial_since', to_jsonb(now())), ('welcome_trial_daily_cap', '1000'::jsonb)
 on conflict (key) do nothing;
@@ -1351,23 +1224,18 @@ begin
   since := coalesce((select (value #>> '{}')::timestamptz from public.studyboard_config where key = 'welcome_trial_since'), now());
   made := (u ->> 'created_at')::timestamptz;
   if made is null or made < since then return null; end if;
-  -- one per account: any trial, plan, grant or payment before means no
   if exists (select 1 from public.studyboard_entitlements e where e.user_id = p_uid
              and (e.trial_until is not null or e.plan <> 'free' or e.external_id is not null or e.grant_until is not null or e.grant_lifetime or e.billing_event_at is not null)) then
     return null;
   end if;
-  -- one per email address, ever
   eh := public.plans_email_hash(em);
   if eh is null or exists (select 1 from public.studyboard_trial_uses where email_hash = eh) then return null; end if;
-  -- no throw-away addresses (the domain or any of its subdomains)
   dom := split_part(em, '@', 2);
   if exists (select 1 from public.studyboard_trial_blocked_domains b where dom = b.domain or right(dom, length(b.domain) + 1) = '.' || b.domain) then return null; end if;
-  -- a ceiling per day across everyone
   cap := coalesce((select (value #>> '{}')::int from public.studyboard_config where key = 'welcome_trial_daily_cap'), 1000);
   if (select count(*) from public.studyboard_trial_uses where used_at > now() - interval '1 day') >= cap then return null; end if;
   days := least(14, greatest(1, coalesce((select (value ->> 'trialDays')::int from public.studyboard_config where key = 'prices'), 7)));
   until := now() + make_interval(days => days);
-  -- The email is recorded first: if two sign-ups race for the same address, only one insert wins and only that one gets the week.
   insert into public.studyboard_trial_uses (email_hash) values (eh) on conflict (email_hash) do nothing;
   if not found then return null; end if;
   insert into public.studyboard_entitlements as e (user_id, plan, trial_until, source, will_renew, updated_at)
@@ -1378,7 +1246,7 @@ begin
 end $$;
 revoke all on function public.plans_welcome_trial(uuid) from public, anon, authenticated;
 
--- Fires when an account is made already confirmed (Google, Apple, or email confirmation turned off) and when its email is confirmed.
+-- Fires when an account is made already confirmed
 create or replace function public.plans_welcome_trigger() returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
 begin
@@ -1397,21 +1265,6 @@ do $$ begin
   if exists (select 1 from pg_roles where rolname = 'service_role') then grant all on public.studyboard_trial_blocked_domains to service_role; end if;
 end $$;
 
--- ---------------------------------------------------------------------------------------------------------------------------
--- Upgrade tracking: private counts per day of which Pro prompt was shown, which led to a buy click, and which led to a purchase.
--- The app sends only the prompt's reason line (numbers and quoted names taken out) and the event; no user id, nothing per person.
---   event 'shown'      the Pro sheet opened with that reason
---         'note'       a one-time limit note (a toast with See Pro) appeared
---         'buy'        a price was tapped on that sheet
---         'purchased'  paid Pro turned on after that buy tap (not a trial or a code)
--- Nobody can read it through the API. Read it in the Supabase SQL editor, for example the last 30 days by prompt:
---   select reason,
---          sum(n) filter (where event = 'shown') as shown,
---          sum(n) filter (where event = 'buy') as buy_taps,
---          sum(n) filter (where event = 'purchased') as purchases,
---          round(100.0 * sum(n) filter (where event = 'purchased') / nullif(sum(n) filter (where event = 'shown'), 0), 1) as pct
---   from public.studyboard_upgrade_stats where day > current_date - 30
---   group by reason order by shown desc nulls last;
 create table if not exists public.studyboard_upgrade_stats (
   day date not null default current_date,
   reason text not null,
@@ -1427,7 +1280,6 @@ language plpgsql security definer set search_path = public, pg_temp as $$
 declare r text := left(coalesce(nullif(btrim(regexp_replace(p_reason, '\s+', ' ', 'g')), ''), '(none)'), 120);
 begin
   if p_event is null or p_event not in ('shown', 'note', 'buy', 'purchased') then return; end if;
-  -- keep the table small even if someone sends junk: past 300 different reasons in a day, the rest count as '(other)'
   if not exists (select 1 from public.studyboard_upgrade_stats where day = current_date and reason = r)
      and (select count(distinct reason) from public.studyboard_upgrade_stats where day = current_date) >= 300 then
     r := '(other)';

@@ -1,8 +1,4 @@
-// The store pictures for the Studyboard School Sync extension, made from the real extension and app (extension/store/):
-//   screenshot-1.png, screenshot-2.png, screenshot-3.png   1280x800 (Chrome Web Store, Edge Add-ons and Firefox Add-ons all accept this size)
-//   promo-small.png 440x280 (Chrome's small promo tile), promo-marquee.png 1400x560 (Chrome's marquee, optional), logo-300.png (Edge's store logo)
-// Usage: node tests/extension.e2e.js   (it saves the popup and app pictures in tests-out/), then: node scripts/extension-store-assets.js
-// Only the product's own names and pictures are used; school platforms are named in plain text, never with their logos.
+// The store pictures for the Studyboard School Sync extension
 const fs = require("fs"), path = require("path");
 const {chromium, executablePath} = require("../tests/pw");
 const root = path.join(__dirname, ".."), IN = path.join(root, "tests-out"), OUT = path.join(root, "extension", "store");

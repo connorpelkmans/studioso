@@ -1,10 +1,5 @@
 #!/usr/bin/env node
-// Runs the Studyboard test files one after another, each in its own Node process with a timeout, and prints a summary table.
-//   node scripts/run-tests.js                 unit tests (tests/*.test.js + the Edge Function checks)
-//   node scripts/run-tests.js --e2e           unit tests + browser tests (tests/*.e2e.js, tests/avail-e2e.js, tests/e2e/*.e2e.js, tests/*.pw.js)
-//   options: --no-unit (skip unit tests)  --no-slow (skip slow browser tests)  --only-slow  --only=<substr>[,<substr>]  --verbose (stream output)
-//            --list (print the plan and exit)  --timeout-scale=<n> (multiply every timeout)
-// Exit code 0 only when every selected file passes. Browser tests need Playwright + Chromium (see tests/pw.js).
+// Runs the Studyboard test files one after another
 "use strict";
 const fs = require("fs"), path = require("path"), cp = require("child_process");
 
@@ -19,7 +14,7 @@ const E2E = flag("--e2e"), UNIT = !flag("--no-unit"), VERBOSE = flag("--verbose"
 const ONLY = (opt("--only") || "").split(",").filter(Boolean), SCALE = Number(opt("--timeout-scale") || 1);
 const MIN = 60 * 1000;
 
-// Per-file settings for browser tests. slow: excluded by --no-slow, run alone in CI. timeout in ms.
+// Per-file settings for browser tests
 const SPECIAL = {
   "tests/mascot-bounds.pw.js": {slow: true, timeout: 25 * MIN},
   "tests/sync-two-device.e2e.js": {timeout: 8 * MIN},
@@ -52,11 +47,11 @@ function runOne(t) {
     let out = "", timedOut = false;
     const take = d => { out += d; if (out.length > 4e6) out = out.slice(-2e6); if (VERBOSE) process.stdout.write(d); };
     child.stdout.on("data", take); child.stderr.on("data", take);
-    const kill = sig => { try { process.platform !== "win32" ? process.kill(-child.pid, sig) : child.kill(sig); } catch (e) { /* already gone */ } };
+    const kill = sig => { try { process.platform !== "win32" ? process.kill(-child.pid, sig) : child.kill(sig); } catch (e) { } };
     const timer = setTimeout(() => { timedOut = true; kill("SIGTERM"); setTimeout(() => kill("SIGKILL"), 5000).unref(); }, timeout);
     child.on("close", (code, signal) => {
       clearTimeout(timer);
-      kill("SIGKILL"); // stray grandchildren (browsers, servers)
+      kill("SIGKILL");
       resolve({t, ms: Date.now() - start, status: timedOut ? "TIMEOUT" : code === 0 ? "pass" : "FAIL", code: code == null ? signal : code, out});
     });
   });

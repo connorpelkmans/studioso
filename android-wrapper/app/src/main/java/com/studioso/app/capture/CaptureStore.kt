@@ -1,8 +1,4 @@
-// UNTESTED: written without compiler access (no kotlinc / Android Studio / device here). Build and run it before relying on it.
-// Platform APIs only (AndroidKeyStore AES-GCM, SharedPreferences, HttpURLConnection, org.json): no dependency on the androidx.security-crypto
-// library (its status/versions change; verify before swapping it in).
-//
-// Token + endpoint are encrypted with a non-exportable AES key in the Android Keystore. Never logged.
+// UNTESTED: written without compiler access (no kotlinc / Android Studio / device here)
 package com.studioso.app.capture
 
 import android.content.Context
@@ -16,7 +12,7 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 object CaptureStore {
-    private const val PREFS = "sb_capture"                  // excluded from backup: res/xml/backup_rules.xml + data_extraction_rules.xml
+    private const val PREFS = "sb_capture"
     private const val KEY_ALIAS = "studyboard_capture_key"
     private val TOKEN_RE = Regex("^[A-Za-z0-9._~+/-]{16,512}$")
     private val HOST_RE = Regex("^[a-z0-9-]+(\\.[a-z0-9-]+)*\\.supabase\\.co$")
@@ -53,7 +49,7 @@ object CaptureStore {
         val c = Cipher.getInstance("AES/GCM/NoPadding")
         c.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, all, 0, 12))
         String(c.doFinal(all, 12, all.size - 12), Charsets.UTF_8)
-    } catch (e: Exception) { null }   // key lost (restore, lock-screen reset): treat as "not configured"
+    } catch (e: Exception) { null }
 
     fun save(context: Context, token: String, endpoint: String): Boolean {
         if (!TOKEN_RE.matches(token) || !validEndpoint(endpoint)) return false
@@ -67,7 +63,7 @@ object CaptureStore {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().commit()
     }
 
-    /** Returns (token, endpoint) or null when not set up. */
+    /* Returns (token, endpoint) or null when not set up */
     fun load(context: Context): Pair<String, String>? {
         val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val t = p.getString("token", null)?.let { decrypt(it) } ?: return null

@@ -1,7 +1,4 @@
-// node tests/focus-island.e2e.js  (Playwright + Chromium; no network)
-// The Focus timer in the iPhone app's Dynamic Island: with StudyboardNative.focusActivity (native-bridge.js, stood in for here) the page sends the
-// timer's state only when it changes (start, pause, reset), and while the island shows it the header keeps just the round tomato button, so the
-// logo and date don't move. Without the bridge (the website, Android, desktop) nothing changes.
+// node tests/focus-island.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");

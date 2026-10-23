@@ -1,8 +1,5 @@
 /* ===== module: 98-companion-tab.js ===== */
-/* The Companion tab: your companion's home. Chat with it about anything in the app (tasks, courses, grades, notes, flashcards,
-   files), see past chats, and manage everything about it (pick, name, accessories, speech, Smart Lines).
-   Chats are kept on this device (localStorage "studyboard:comp:chats") and the newest ones sync with your account (settings.chats). Each question sends the relevant slice of your data to your
-   AI provider, never the whole planner. Needs AI set up in Settings (aiCall); the companion's own tap lines work without it. */
+/* The Companion tab */
 (() => {
   if (!window.SBCOMP || !SBCOMP.tab) return;
   const CH_KEY = "studyboard:comp:chats", MAXC = 30, MAXM = 40;
@@ -16,9 +13,7 @@
     catch (e) { try { localStorage.setItem(CH_KEY, JSON.stringify(a.slice(0, 8))); } catch (e2) {} }
     try { chatPush(before, a); } catch (e) {}
   };
-  /* ---------- Chats follow you to your other devices ----------
-     The newest 15 chats (the last 20 messages of each, without attachments) ride along in the synced settings (settings.chats). A chat deleted here
-     is noted in settings.chatGone so it doesn't come back from another device. Chats from elsewhere are merged in by message time. */
+  /* Chats follow you to your other devices The newest 15 chats */
   const SYNC_CHATS = 15, SYNC_MSGS = 20, SYNC_CHARS = 300000;
   const rawSet = Storage.prototype.setItem;
   let pushT = 0, lastRef = null;
@@ -32,7 +27,7 @@
     return out;
   };
   function chatPush(before, now){
-    if (inClaude()) return;
+    if (inPreview()) return;
     const ids = new Set(now.map(c => c.id)), gone = before.filter(id => !ids.has(id));
     if (gone.length) { const at = Date.now(), keep = (Array.isArray(state.settings.chatGone) ? state.settings.chatGone : []).filter(g => g && !gone.includes(g.id));
       state.settings = Object.assign({}, state.settings, {chatGone: keep.concat(gone.map(id => ({id, at}))).slice(-40)}); }
@@ -67,9 +62,9 @@
   const hits = (hay, ws) => { hay = String(hay || "").toLowerCase(); return ws.reduce((n, w) => n + (hay.includes(w) ? 1 : 0), 0); };
   const clip = (s, n) => { s = String(s == null ? "" : s).replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
   const info = () => SBCOMP.tab.info();
-  const aiOk = () => { try { return !inClaude() && aiReady(); } catch (e) { return false; } };
+  const aiOk = () => { try { return !inPreview() && aiReady(); } catch (e) { return false; } };
 
-  /* ---------- What the companion may look at, for one question ---------- */
+  /* What the companion may look at, for one question */
   async function context(q){
     const ws = words(q), today = todayISO(), src = [], L = [];
     L.push(`Today is ${today}, ${new Date().toLocaleDateString(undefined, {weekday: "long"})}. The student plans ${dailyHours()} hours of study a day.`);
@@ -108,7 +103,6 @@
         .sort((a, b) => b.s - a.s || (b.n.updated || b.n.created || 0) - (a.n.updated || a.n.created || 0)).slice(0, 6);
       if (picked.length) { L.push("STICKY NOTES:\n" + picked.map(({n}) => `- ${clip(n.text, 450)}${n.board ? " [board: " + nbName(noteBoardOf(n)) + "]" : ""}`).join("\n")); src.push("Notes"); }
     }
-    // The same retrieval Search Everywhere's Ask With AI uses: passages from inside files, notes, cards and tasks that match the question
     let R = null; try { R = window.SBSEARCH ? await SBSEARCH.retrieve(q, {max: 8, chars: 1100}) : null; } catch (e) {}
     if (R && R.text) { L.push("SEARCH RESULTS (passages from the student's files, notes, flashcards and tasks that match the question):\n" + R.text); R.src.forEach(x => src.push(x)); }
     const files = Object.values(state.files).filter(f => f.kind === "file");
@@ -164,7 +158,7 @@
     if ((!q && !att.length) || T.busy) return;
     if (!q) q = "Here's what I attached. What can you do with it?";
     if (att.reduce((n, x) => n + aiSourceBytes(x), 0) > AI_LIMIT_BYTES) { toast("Those files are too big to send at once. Remove some."); return; }
-    if (!aiOk()) { if (inClaude()) toast("Chat works in the Studyboard app and on your own Studyboard website."); else aiSetupSheet(false); return; }
+    if (!aiOk()) { if (inPreview()) toast("Chat works in the Studyboard app and on your own Studyboard website."); else aiSetupSheet(false); return; }
     { const ta = $("#cptIn"); if (ta) { ta.value = ""; ta.style.height = ""; } }
     T.att = [];
     const chats = rd();
@@ -226,7 +220,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     return msgs.map(msgHtml).join("") + (busy ? `<div class="cpt-q">${esc(busy.q)}</div><div class="cpt-a cpt-wait"><p><span class="ai-spin" aria-hidden="true"></span> <span id="cptStatus">${esc(T.status || "Thinking…")}</span></p></div>` : "")
       + (last && last.a && !busy && (last.a.followUps || []).length ? `<div class="cpt-chips fu">${last.a.followUps.map(f => `<button type="button" class="chip" data-act="cpt-ask" data-q="${esc(f)}">${esc(f)}</button>`).join("")}</div>` : "");
   }
-  // Attached files are kept on this device (IndexedDB) for as long as the chat message exists, so an action can run after a refresh without attaching again.
+  // Attached files are kept on this device (IndexedDB) for as long as the chat message exists
   const IDBN = "studyboard-cpt-files";
   const idb = (mode, fn) => new Promise(res => { try { const rq = indexedDB.open(IDBN, 1); rq.onupgradeneeded = () => rq.result.createObjectStore("f"); rq.onerror = () => res(null); rq.onsuccess = () => { try { const db = rq.result, tx = db.transaction("f", mode), out = fn(tx.objectStore("f")); tx.oncomplete = () => { db.close(); res(out && "result" in out ? out.result : true); }; tx.onerror = tx.onabort = () => { db.close(); res(null); }; } catch (e) { res(null); } }; } catch (e) { res(null); } });
   const idbPut = (k, v) => idb("readwrite", st => st.put(v, k));
@@ -346,7 +340,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
   }
   function chatHtml(){
     const ready = aiOk();
-    const gate = inClaude() ? `<div class="cpt-gate"><p class="mini" style="margin:0">Chat works in the Studyboard app and on your own Studyboard website. There's nothing to set up in this preview.</p></div>`
+    const gate = inPreview() ? `<div class="cpt-gate"><p class="mini" style="margin:0">Chat works in the Studyboard app and on your own Studyboard website. There's nothing to set up in this preview.</p></div>`
       : !ready ? `<div class="cpt-gate"><p style="margin:0"><b>Chat needs AI.</b> Add a free Google Gemini key to chat.</p><button type="button" class="btn primary small" data-act="ai-setup">Set Up AI</button></div>` : "";
     return `${gate}<div class="cpt-log" id="cptLog" aria-live="polite">${logHtml()}</div>
       <div class="cpt-att" id="cptAtt">${attHtml()}</div>
@@ -363,7 +357,6 @@ You can also DO things in Studyboard, but only when the student asks or what the
   function view(){
     const me = info(), tab = ["chat", "history", "wardrobe"].includes(T.tab) ? T.tab : "chat";
     const area = window.SBAREA ? SBAREA.label() : "";
-    // R3: a centred profile. The band is in the colour the companion wears; the companion itself jumps into the ring (the face slot).
     const wc = (SBCOMP.wearColor && SBCOMP.wearColor()) || "#E5604D", worn = SBCOMP.wornNames ? SBCOMP.wornNames() : [];
     const meta = [worn.length ? "Wearing " + worn.join(" and ") : "", area ? "Studying " + area : ""].filter(Boolean).join(" · ");
     const head = me ? `<div class="cpt-head cpt3" style="--c:var(--accent-band,var(--accent))" data-wear="${esc(wc)}"><div class="cpt3-band"><div class="cpt3-acts"><button type="button" class="btn cpt-dress" data-act="comp-change">Change</button></div></div>
@@ -393,7 +386,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const cin = $("#cptIn"); if (cin && cin.value) cptGrow(cin);
   });
 
-  /* ---------- Actions ---------- */
+  /* Actions */
   hook("act", (act, el, id) => {
     switch (act) {
       case "cpt-tab": T.tab = id; render(); return true;
@@ -410,7 +403,6 @@ You can also DO things in Studyboard, but only when the student asks or what the
         const c = rd().find(x => x.id === T.id), m = c && c.msgs.find(x => String(x.at) === id);
         if (!m || !m.a) return true;
         const text = `${m.q}\n\n${m.a.answer}`.slice(0, 8000), done = board => { addNoteText(text, "", "green", board == null ? {} : {board}); el.textContent = "Saved to Notes"; el.disabled = true; };
-        // One board: save straight to it. Several: ask which one first.
         if (!noteBoards().length) { done(); return true; }
         T.pendingNote = done;
         openSheet(`<div class="sheet">${head("Save to Which Board?")}<div class="sheet-body"><div class="row-actions" style="flex-wrap:wrap">${[["", "My Notes"]].concat(noteBoards().map(b => [b.id, b.name])).map(([bid, nm]) => `<button type="button" class="btn${bid === noteBoardId() ? " primary" : ""}" data-act="cpt-note-to" data-id="${esc(bid)}">${esc(nm)}</button>`).join("")}</div></div></div>`);
@@ -431,7 +423,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
   document.addEventListener("keydown", e => { if (e.target.id === "cptIn" && e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); ask(e.target.value); } });
   const cptGrow = t => { t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 9 * parseFloat(getComputedStyle(t).fontSize)) + "px"; };
   document.addEventListener("input", e => { if (e.target.id === "cptIn") { T.draft = e.target.value; cptGrow(e.target); } });
-  // Anywhere else in the app: open the Companion tab on a question ("Ask <name>" buttons)
+  // Anywhere else in the app
   window.SBCOMPTAB = {open: q => { ui.tab = "companion"; ui.courseId = null; T.tab = "chat"; render(); window.scrollTo(0, 0); if (q) ask(q); }, chats: rd};
 
   const st = document.createElement("style");

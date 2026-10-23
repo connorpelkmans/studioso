@@ -1,8 +1,5 @@
-// node tests/pro-study.e2e.js   (Playwright + Chromium; see tests/pw.js)
-// Studyboard Pro study extras (module 99-pro): Linked Notes ([[links]], Mentioned In, renames), Listen (a deck read aloud),
-// the PDF reader with highlights, the lecture recorder, Email to Studyboard and two-way calendar sync, plus the free-plan locks.
+// node tests/pro-study.e2e.js
 /* global saveNoteText, applyChanges, clone -- copied onto window from __sbProStudy in open() below */
-// Speech, the microphone and the network are stubbed so every check is deterministic in headless Chromium.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const csp = require("../scripts/csp");
@@ -53,9 +50,8 @@ function SEED(){
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath, args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--autoplay-policy=no-user-gesture-required"]});
   const mkCtx = async (seed, free, ai) => {
-    const ctx = await browser.newContext({viewport: {width: 1200, height: 900}, permissions: ["microphone"], serviceWorkers: "block"});   // (so the test's stand-ins answer every request)
+    const ctx = await browser.newContext({viewport: {width: 1200, height: 900}, permissions: ["microphone"], serviceWorkers: "block"});
     ctx.aiBodies = [];
-    // The icon library (Lucide on jsDelivr), cut down to a few icons
     ctx.luHits = 0;
     await ctx.route(/cdn\.jsdelivr\.net\/npm\/lucide-static@[\d.]+\/(tags|icon-nodes)\.json/, route => { ctx.luHits++;
       const tags = {"flask-conical": ["lab", "chemistry", "experiment"], "test-tube": ["lab", "science"], "beaker": ["lab", "chemistry"], "heart": ["love", "health"], "car": ["vehicle"]};
@@ -81,14 +77,12 @@ function SEED(){
     });
     await ctx.addInitScript(([seed, free, ai]) => {
       if (ai) { localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); }
-      // Live captions: a speech recognizer the test speaks into with window.__say(text)
       window.SpeechRecognition = window.webkitSpeechRecognition = function(){ const me = this; window.__sr = me; this.start = () => { me.on = true; }; this.stop = () => { me.on = false; setTimeout(() => me.onend && me.onend(), 0); }; };
       window.__say = text => { const r = window.__sr; if (!r || !r.on || !r.onresult) return false; const res = [{transcript: text}]; res.isFinal = true; r.onresult({resultIndex: 0, results: [res]}); return true; };
       try {
         if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); }
         if (free) localStorage.setItem("studyboard:paywall-test", "1");
       } catch (e) {}
-      // A speech engine that "speaks" instantly and remembers what it said
       window.__said = [];
       const fake = {speaking: false, cancel(){}, pause(){}, resume(){}, getVoices: () => [{name: "Test Voice", lang: "en-US", voiceURI: "test", default: true}],
         speak(u){ window.__said.push(u.text); setTimeout(() => u.onend && u.onend(), 5); }};
@@ -105,7 +99,7 @@ function SEED(){
   try {
     const page = await open(await mkCtx(SEED(), false, true));
 
-    /* ---------- Linked notes ---------- */
+    /* Linked notes */
     await tab(page, "notes");
     const links = page.locator('.note[data-note="n1"] .note-link');
     ok(await links.count() === 3, "a note's [[links]] are buttons");
@@ -124,10 +118,8 @@ function SEED(){
     ok(await page.evaluate(() => Object.values(state.notes).some(n => /^Krebs cycle/.test(n.text)) && noteEditing && /^Krebs cycle/.test(state.notes[noteEditing].text)), "a missing link makes a new note with that name, open to write in");
     await page.evaluate(() => saveNoteText()); await page.waitForTimeout(200);
     ok(await page.locator('.note[data-note="n3"] .note-link.miss').count() === 0, "the link now finds it");
-    // Mentioned In
     await page.locator('.note[data-note="n2"] .note-body').click(); await page.waitForTimeout(300);
     ok(await page.locator('.note.editing .nl-back .note-link').count() === 2, "an open note lists the two notes that mention it");
-    // Typing [[
     await page.evaluate(() => { const t = document.getElementById("noteText"); t.focus(); t.setSelectionRange(t.value.length, t.value.length); });
     await page.keyboard.type(" see [[Lab");
     await page.waitForTimeout(150);
@@ -136,7 +128,6 @@ function SEED(){
     ok(/see \[\[Lab report 3\]\]$/.test(await page.evaluate(() => document.getElementById("noteText").value)), "Enter puts in the whole link");
     ok(await page.locator(".nl-pop").count() === 0, "the suggestions close");
     await page.evaluate(() => saveNoteText()); await page.waitForTimeout(200);
-    // Rename keeps links
     await page.evaluate(() => { const n = state.notes.n2; applyChanges([{kind: "note", id: "n2", after: Object.assign(clone(n), {text: n.text.replace(/^Calvin cycle/, "The Calvin Cycle")})}], ""); });
     await page.waitForTimeout(200);
     ok(await page.evaluate(() => /\[\[The Calvin Cycle\]\]/.test(state.notes.n1.text) && /\[\[The Calvin Cycle\]\]/.test(state.notes.n3.text)), "renaming a note updates the links to it");
@@ -147,10 +138,10 @@ function SEED(){
     await page.waitForTimeout(200);
     ok(await page.evaluate(() => /\[\[The Calvin Cycle\]\]/.test(state.notes.n1.text) && !/\[\[TODO\]\]/.test(state.notes.n1.text)), "typing a new first line above a note's name is not a rename");
 
-    /* ---------- Listen ---------- */
+    /* Listen */
     await page.evaluate(() => { ui.tab = "flashcards"; ui.deckId = "d1"; ui.fc = null; render(); }); await page.waitForTimeout(300);
     ok(await page.locator('[data-act="ls-open"][data-id="d1"]').count() === 1, "the deck page has Listen");
-    await page.click(".deck-head .ra-more-btn"); await page.click('[data-act="ls-open"][data-id="d1"]'); await page.waitForTimeout(300);   // Listen sits behind the deck's More
+    await page.click(".deck-head .ra-more-btn"); await page.click('[data-act="ls-open"][data-id="d1"]'); await page.waitForTimeout(300);
     ok(/Card 1 of 3/.test(await page.locator(".ls-deck").textContent()), "due and new cards: 3 (not due later, an image card is skipped)");
     await page.click('[data-act="ls-play"]'); await page.waitForTimeout(400);
     let said = await page.evaluate(() => window.__said.slice());
@@ -168,7 +159,7 @@ function SEED(){
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
     ok(page.errs.length === 0, "no console errors (Pro): " + page.errs.join(" | "));
 
-    /* ---------- PDF reader and highlights ---------- */
+    /* PDF reader and highlights */
     await page.evaluate(async bytes => { await window.__sbProStudy.idbSet("pdf:a-read4", new Blob([new Uint8Array(bytes)], {type: "application/pdf"})); }, textPdf());
     await act(page, "f-open", "f1"); await page.waitForTimeout(250);
     ok(await page.locator('.sheet-foot [data-act="pdr-open"]').count() === 1, "a PDF's file sheet has Read");
@@ -203,14 +194,12 @@ function SEED(){
     const card = await page.evaluate(() => state.decks.d1.cards.find(c => c.src && c.src.f === "f1"));
     ok(card && card.front === "What makes most of a cell's ATP?" && card.back === "Mitochondria produce most" && card.src.p === 1, "Card adds a flashcard to the course's deck, from the page");
     ok(await page.locator(".pdr-list li").first().locator("text=Card made").count() === 1, "the panel shows the card was made");
-    // Tap a highlight: change it or remove it
     const box = await page.locator('.pdr-hl i').first().boundingBox();
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2); await page.waitForTimeout(200);
     ok(await page.locator('.pdr-pop [data-act="pdr-hl-del"]').count() === 1, "tapping a highlight offers its choices");
     await page.click('.pdr-pop [data-act="pdr-hl-del"]'); await page.waitForTimeout(250);
     ok(await page.evaluate(() => (state.files.f1.hl || []).length === 1), "Remove takes it off");
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(200);
-    // A [[file#p]] link opens the reader at that page
     await tab(page, "notes");
     await page.locator(`.note[data-note="${made.id}"] .note-link`).click();
     await page.waitForSelector(".pdr-page .textLayer span", {timeout: 15000}); await page.waitForTimeout(300);
@@ -218,7 +207,7 @@ function SEED(){
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
     ok(page.errs.length === 0, "no console errors (reader): " + page.errs.join(" | "));
 
-    /* ---------- Course icons made with AI ---------- */
+    /* Course icons made with AI */
     await tab(page, "courses"); await act(page, "edit-course", "c1"); await page.waitForTimeout(300);
     await page.click(".ci-ai-btn"); await page.fill("#ciAiQ", "a flask"); await page.click('[data-act="ci-ai-go"]');
     await page.waitForSelector("#ciAiPrev .ci-cand", {timeout: 15000});
@@ -230,7 +219,7 @@ function SEED(){
     ok(await page.evaluate(() => { const c = state.settings.customIcons || []; return c.length > 0 && c[0].name === "Beaker"; }), "the chosen one is kept");
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
 
-    /* ---------- Turning a sticker on a note ---------- */
+    /* Turning a sticker on a note */
     await tab(page, "notes");
     const sk = await page.evaluate(() => { const n = Object.values(state.notes).find(x => !x.board) || Object.values(state.notes)[0]; n.stickers = [{k: "dot", r: 0, s: 1, x: 50, yp: 50}]; render(); return n.id; });
     await page.waitForTimeout(300);
@@ -242,7 +231,7 @@ function SEED(){
     const sr = await page.evaluate(id => state.notes[id].stickers[0], sk);
     ok(sr && Math.abs(sr.r) > 20 && sr.x === 50, "a sticker turns with its handle and stays put (r " + (sr && sr.r) + ")");
 
-    /* ---------- Record a Lecture ---------- */
+    /* Record a Lecture */
     await tab(page, "notes");
     ok(await page.locator('[data-act="lec-open"]').count() === 0, "Notes no longer has Record Lecture");
     await tab(page, "courses"); await act(page, "open-course", "c1"); await page.waitForTimeout(250);
@@ -250,7 +239,6 @@ function SEED(){
     ok(await page.locator('.cd-tabs [data-id="lectures"]').count() === 1, "a course has a Lectures tab");
     await page.click('.c2-head [data-act="lec-open"]'); await page.waitForTimeout(250);
     ok(await page.evaluate(() => /BIO101/.test(document.querySelector(".lec-for").textContent) && !document.getElementById("lecCourse") && !document.getElementById("lecTitle")), "from a course, the recorder is for that course and asks no name yet");
-    // a microphone the browser has blocked: say how to unblock it (the browser can't ask again); one the person just didn't allow: ask again
     await page.evaluate(() => { const md = navigator.mediaDevices, orig = md.getUserMedia.bind(md), pq = navigator.permissions.query.bind(navigator.permissions); window.__micState = "denied";
       md.getUserMedia = c => window.__micState ? Promise.reject(Object.assign(new Error("no"), {name: "NotAllowedError"})) : orig(c);
       navigator.permissions.query = d => d && d.name === "microphone" && window.__micState ? Promise.resolve({state: window.__micState}) : pq(d); });
@@ -288,7 +276,6 @@ function SEED(){
     const sent = page.context().aiBodies.find(b => /inline_data/.test(b) && /audio\//.test(b));
     ok(!!sent && /"mime_type":"audio\/webm"/.test(sent), "Transcribe with AI sends the audio to Gemini");
     ok(/★ 0:0\d/.test(await page.inputValue("#lecText")), "the marks are kept");
-    // Questions use the app's own box, on top of the open recorder (never the browser's grey confirm or prompt)
     let nativeBox = false; page.on("dialog", d => { nativeBox = true; d.dismiss().catch(() => {}); });
     await page.click('[data-act="lec-discard"]'); await page.waitForSelector("#askDlg[open]", {timeout: 4000});
     ok(/Throw Away This Recording/.test(await page.textContent("#askDlg")) && await page.evaluate(() => dlg.open && !!dlg.querySelector("#lecText")), "throwing a recording away asks in the app's own box, with the recorder still open under it");
@@ -300,7 +287,6 @@ function SEED(){
     ok(!nativeBox, "no browser pop-up boxes");
     ok(await page.locator('input[name="lecMake"]').count() === 0, "no note to make");
     await page.fill("#lecName", "Osmosis Day");
-    // Studyboard's storage is full: Save asks where the recording should go instead
     await page.evaluate(() => { const H = window.__sbProStudy; window.__fullDl = []; H.lecBk.assets = {upload: async () => { throw Object.assign(new Error("Over the free storage limit"), {code: "quota_or_state"}); }}; H.lecBk.download = (name, blob) => window.__fullDl.push(name + ":" + blob.size); const k = document.getElementById("lecKeep"); k.disabled = false; k.checked = true; });
     await page.click('[data-act="lec-save"]');
     await page.waitForSelector(".lec-full", {timeout: 8000});
@@ -324,7 +310,6 @@ function SEED(){
     await page.click('.lec-doc-head [data-act="lec-doc"]'); await page.waitForTimeout(150);
     await page.click('.lec-fopt[data-doc="org"]'); await page.waitForTimeout(150);
     ok(/Today we talk about osmosis/.test(await page.locator(".lec-docv").textContent()) && await page.locator(".lec-docv h4").count() === 1, "the organized transcript");
-    // Slides and Notes: pick a file and a note from the course; the summary is written with them, and Ask can read the lecture
     await page.click('.lec-doc-head [data-act="lec-doc"]'); await page.waitForTimeout(150);
     ok(await page.locator(".lec-att").count() === 1 && await page.locator('.lec-att [data-act="lec-att-up"]').count() === 1, "a lecture has Slides and Notes, with Upload Files and From Studyboard");
     await page.click('.lec-att [data-act="lec-att-pick"]'); await page.waitForSelector("#lecAttOk");
@@ -345,7 +330,6 @@ function SEED(){
     ok(await page.locator("#lecPill").count() === 0 && await page.evaluate(() => !window.__sbProStudy.rec()), "the recorder is finished");
     await tab(page, "files");
     ok(!/Osmosis Day/.test(await page.locator("#view").textContent()), "lectures stay out of Files");
-    // Back Up: to Files (sharing the stored recording), Google Drive / OneDrive, or this device
     await page.evaluate(() => { ui.tab = "courses"; ui.courseId = "c1"; ui.courseTab = "lectures"; ui.courseTabFor = "c1"; render(); }); await page.waitForTimeout(200);
     await page.click(".lec-row"); await page.waitForTimeout(300);
     await page.click('.lec-vfoot [data-act="lec-bk"]'); await page.waitForSelector(".lec-bk", {timeout: 5000});
@@ -371,7 +355,6 @@ function SEED(){
     await page.click('.lec-vfoot [data-act="lec-bk"]'); await page.waitForSelector(".lec-bk");
     await page.click('.lec-bk-o[data-where="device"]'); await page.waitForTimeout(900);
     ok(await page.evaluate(() => window.__bkDl.some(n => /Transcript and Summary\.txt$/.test(n))), "This Device downloads the transcript and summary");
-    // A lecture with its recording kept
     await page.evaluate(() => { window.__sbProStudy.applyChanges([{kind: "file", id: "lec2", after: {id: "lec2", name: "Week 2", courseId: "c1", folderId: "lectures", kind: "file", revs: [{assetId: "a-lec2", name: "Week 2.webm", size: 4096, type: "audio/webm", at: Date.now()}], taskIds: [], desc: "", url: "", created: Date.now(), tr: {text: "Hello class"}}}], ""); dlg.close(); window.__bkUp = []; });
     await act(page, "lec-bk", "lec2"); await page.waitForSelector(".lec-bk");
     await page.click('.lec-bk-o[data-where="files"]');
@@ -380,13 +363,11 @@ function SEED(){
     ok(c2.some(c => c.name === "Week 2.webm" && c.revs[0].assetId === "a-lec2" && c.folderId === "notes"), "the recording's copy in Files points at the same stored file");
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
     await tab(page, "files");
-    // A recording in Files: its transcript
     await act(page, "f-open", "f2"); await page.waitForTimeout(250);
     ok(await page.locator('.sheet-foot [data-act="lec-file"]').count() === 1, "a recording's file sheet has Transcript");
     await page.click('.sheet-foot [data-act="lec-file"]'); await page.waitForTimeout(500);
     ok(/Cells are the unit of life/.test(await page.locator(".lec-tr").textContent()), "it shows the saved transcript");
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
-    // Live captions where the browser has no speech service (the desktop app): Gemini writes them from short pieces while recording
     await page.evaluate(() => { window.__srKeep = window.SpeechRecognition; window.SpeechRecognition = window.webkitSpeechRecognition = undefined; window.__sbProStudy.lecCapMs(1500); });
     await tab(page, "courses"); await act(page, "open-course", "c1"); await page.waitForTimeout(250);
     await page.click('.c2-head [data-act="lec-open"]'); await page.waitForTimeout(250);
@@ -400,7 +381,6 @@ function SEED(){
     ok(await page.evaluate(() => /Today we talk about osmosis/.test(document.getElementById("lecText").value) && window.__sbProStudy.rec().by === "ai"), "when it stops, the transcript is already written");
     await page.click('[data-act="lec-discard"]'); await page.waitForSelector("#askDlg[open]", {timeout: 4000}); await page.click("#askYes"); await page.waitForTimeout(300);
     await page.evaluate(() => { window.SpeechRecognition = window.webkitSpeechRecognition = window.__srKeep; window.__sbProStudy.lecCapMs(30000); });
-    // Drafts: a recording is kept on this device until it's saved or thrown away, even if the app closes
     const lecDrafts = pg => pg.evaluate(() => new Promise(res => { const r = indexedDB.open("studyboard-lecture-drafts", 1); r.onsuccess = () => { const db = r.result; if (!db.objectStoreNames.contains("meta")) { res([]); return; } const q = db.transaction("meta").objectStore("meta").getAll(); q.onsuccess = () => res(q.result); q.onerror = () => res([]); }; r.onerror = () => res([]); }));
     ok((await lecDrafts(page)).length === 0, "the saved lecture left no draft behind");
     await tab(page, "courses"); await act(page, "open-course", "c1"); await page.waitForTimeout(250);
@@ -412,7 +392,6 @@ function SEED(){
     ok(await page.locator("#lecPill.lp-card").count() === 1 && /Lecture recorded/.test(await page.textContent("#lecPill")) && /Name and Save/.test(await page.textContent("#lecPill")), "closing after recording leaves a Lecture recorded card");
     const d1 = (await lecDrafts(page))[0];
     ok(d1 && d1.state === "review", "and the recording is kept as a draft");
-    // The app closing (a second window stands in for the next start): the draft is in the course's Lectures, to finish or delete
     const p2 = await open(page.context());
     await p2.evaluate(() => { window.confirm = () => true; ui.tab = "courses"; ui.courseId = "c1"; ui.courseTab = "lectures"; ui.courseTabFor = "c1"; render(); }); await p2.waitForSelector(".lec-draft", {timeout: 5000}).catch(() => {});
     ok(await p2.locator(".lec-draft").count() === 1 && /Draft, not saved yet/.test(await p2.textContent(".lec-draft")), "the draft shows in the course's Lectures");
@@ -423,7 +402,6 @@ function SEED(){
     await page.evaluate(() => { window.confirm = () => true; }); await page.evaluate(() => dlg.close());
     await act(page, "lec-open"); await page.waitForTimeout(200); await page.click('[data-act="lec-discard"]'); await page.waitForSelector("#askDlg[open]", {timeout: 4000}); await page.click("#askYes"); await page.waitForTimeout(400);
     ok((await lecDrafts(page)).length === 0, "Discard deletes the draft");
-    // Add Lecture: record, or upload a recording made elsewhere (it's transcribed by itself and kept as a draft until saved)
     await page.evaluate(() => { ui.tab = "courses"; ui.courseId = "c1"; ui.courseTab = "lectures"; ui.courseTabFor = "c1"; render(); }); await page.waitForTimeout(300);
     ok(/Add Lecture/.test(await page.textContent(".fab")), "the Lectures tab's add button is Add Lecture");
     await page.click(".fab"); await page.waitForTimeout(200);
@@ -441,7 +419,7 @@ function SEED(){
     const lecErrs = page.errs.filter(e => !/only on the computer/.test(e));
     ok(lecErrs.length === 0, "no console errors (recorder): " + lecErrs.join(" | "));
 
-    /* ---------- Email to Studyboard ---------- */
+    /* Email to Studyboard */
     const due5 = day(5), mon = new Date(due5 + "T12:00:00").toLocaleDateString("en-US", {month: "short"}), dd5 = Number(due5.slice(8));
     page.context().emailDue = due5;
     const mailRow = (id, extra) => Object.assign({id, text: "Fwd: Lab 4 moved", body: `Hi all,\nLab 4 is now due ${mon} ${dd5} at 5pm.\nBring your goggles.\n\nProf. Smith`, sender: "prof@school.edu", source: "email"}, extra || {});
@@ -466,7 +444,7 @@ function SEED(){
     ok(/Sign in to your Studyboard account/.test(await page.evaluate(() => window.__sbProStudy.email.box())), "signed out, the address waits for a sign-in");
     ok(page.errs.length === 0, "no console errors (email): " + page.errs.join(" | "));
 
-    /* ---------- Two-way calendar sync ---------- */
+    /* Two-way calendar sync */
     await page.evaluate(() => {
       const C = window.__sbProStudy.calsync, srv = window.__srv = {connected: false, syncs: [], reply: {}};
       C.T.transport = async body => {
@@ -482,7 +460,6 @@ function SEED(){
     await page.click('[data-cs-tab="two"]'); await page.waitForTimeout(600);
     ok(await page.locator('a[data-csy-go="google"][href^="https://accounts.google.com/"]').count() === 1, "Connect Google Calendar is a link to Google's page, ready to click");
     ok(await page.locator('[data-csy-go="microsoft"]').count() === 0, "a provider the server doesn't offer isn't shown");
-    // Google sends the person back; the app notices and syncs
     await page.evaluate(() => { window.__srv.connected = true; });
     await page.evaluate(() => window.__sbProStudy.calsync.loadStatus());
     await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google", quiet: true}));
@@ -494,7 +471,6 @@ function SEED(){
     ok(quiz && quiz.title === "Canvas Quiz 2 · BIO101" && quiz.busy, "an exam or quiz marks you busy");
     ok(lecs.length >= 30 && lecs[0].title === "BIO101 Lecture" && lecs[0].start === "10:00" && lecs[0].end === "11:20" && lecs[0].where === "Hall B", "classes go week by week, with their room");
     ok(first.events.every(e => /^[tme]:[A-Za-z0-9_.:|-]+$/.test(e.k)), "every key is safe");
-    // The calendar answers with a move, a school deadline move, a deletion and busy time
     await page.evaluate(([d5, d1]) => { const srv = window.__srv; srv.reply = {changes: [{k: "t:t1", allDay: false, date: d5, start: "14:00", end: "14:30"}, {k: "t:t2", allDay: true, date: d5}, {k: srv.syncs[0].events.find(e => e.k.startsWith("m:")).k, deleted: true}],
       busy: [{id: "aaaaaaaaaaaaaaaaaaaa", title: "Shift at café", where: "Main St", allDay: false, date: d1, start: "13:00", end: "17:00"}, {id: "bbbbbbbbbbbbbbbbbbbb", title: "Trip", allDay: true, date: d5, endDate: d5}], busyWindow: {from: d1, to: d5}}; }, [day(5), day(1)]);
     await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google", quiet: true}));
@@ -504,18 +480,15 @@ function SEED(){
     ok(after.t2.due === day(6), "a school deadline keeps its date");
     ok(/Moved in Google Calendar: Lab report three/.test(after.toast), "with a message (and Undo): " + after.toast);
     ok(after.evs.length === 2 && after.evs.some(e => e.title === "Shift at café" && e.start === "13:00" && e.where === "Main St") && after.evs.some(e => e.allDay && e.title === "Trip"), "the person's own events come in as Schedule events");
-    // A pulled event opens read-only
     const shift = after.evs.find(e => e.title === "Shift at café");
     await act(page, "sch-occ", shift.id, {type: "event", key: shift.date}); await page.waitForTimeout(250);
     ok(/From your Google Calendar/.test(await page.evaluate(() => dlg.textContent)) && await page.locator('dlg form input[name="title"], dialog input[name="title"]').count() === 0, "an event from Google opens read-only");
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
-    // Next sync: the moved deadline is sent at its new time; the school one at its own
     await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google", quiet: true}));
     await page.waitForTimeout(200);
     const third = await page.evaluate(() => window.__srv.syncs[2]);
     ok(third.events.find(e => e.k === "t:t1").start === "14:00" && third.events.find(e => e.k === "t:t2").date === day(6), "the next sync sends what Studyboard now has");
     ok(!third.events.some(e => /Shift at café/.test(e.title)), "events from a calendar are never sent back to one");
-    // An event made in the Studyboard calendar itself: it becomes a Studyboard event, editable here, and is sent back under its own key
     await page.evaluate(d2 => { window.__srv.reply = {added: [{id: "cgn0123456789abcdef0123", title: "Dentist", where: "Main St", date: d2, allDay: false, start: "14:00", end: "15:00"}]}; }, day(2));
     await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google"})); await page.waitForTimeout(300);
     const den = await page.evaluate(() => ({e: state.events.cgn0123456789abcdef0123, toast: document.getElementById("toastMsg").textContent}));
@@ -527,7 +500,6 @@ function SEED(){
     await page.evaluate(d2 => { window.__srv.reply = {changes: [{k: "e:cgn0123456789abcdef0123:" + d2, deleted: true}]}; }, day(2));
     await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google", quiet: true})); await page.waitForTimeout(300);
     ok(await page.evaluate(() => !state.events.cgn0123456789abcdef0123), "deleted in Google Calendar: it goes from Studyboard too");
-    // Google didn't let Studyboard read their calendar: Sync Now and the pane say so, with Connect Again
     await page.evaluate(() => { window.__srv.reply = {busyErr: "no_access"}; });
     await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google"})); await page.waitForTimeout(300);
     ok(/can't see your Google Calendar events/.test(await page.evaluate(() => document.getElementById("toastMsg").textContent)), "Sync Now says it can't see their events");
@@ -535,7 +507,6 @@ function SEED(){
     ok(/can't see the events in your Google Calendar/.test(await page.locator("#csPane").textContent()) && /See events on all your calendars/.test(await page.locator("#csPane").textContent()), "the pane explains what to allow");
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
     await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google", quiet: true})); await page.waitForTimeout(200);
-    // Settings: what to send, what to bring in
     await act(page, "cal-sync"); await page.waitForTimeout(250); await page.click('[data-cs-tab="two"]'); await page.waitForTimeout(400);
     ok(/student@gmail\.com/.test(await page.locator("#csPane").textContent()), "the pane shows the connected account");
     await page.uncheck('[data-csy-send="classes"]'); await page.waitForTimeout(100);
@@ -544,7 +515,6 @@ function SEED(){
     await page.evaluate(() => window.__sbProStudy.calsync.syncAll({provider: "google", quiet: true})); await page.waitForTimeout(200);
     const fourth = await page.evaluate(() => window.__srv.syncs[window.__srv.syncs.length - 1]);
     ok(fourth.bring === "off" && !fourth.events.some(e => e.k.startsWith("m:")), "unticked classes aren't sent");
-    // Reading Google Calendar switched off on the server: the choice is hidden and a note says why
     await page.evaluate(() => { window.__sbProStudy.calsync.setCache({reads: {google: false, microsoft: true}}); dlg.close(); }); await page.waitForTimeout(150);
     await act(page, "cal-sync"); await page.waitForTimeout(250); await page.click('[data-cs-tab="two"]'); await page.waitForTimeout(400);
     ok(await page.locator('input[name="csyBring"]').count() === 0 && /Bringing in your own Google Calendar events isn't available right now/.test(await page.locator("#csPane").textContent()), "with Google reading switched off, Bring In My Own Events is hidden");
@@ -555,7 +525,7 @@ function SEED(){
     await page.evaluate(() => dlg.close()); await page.waitForTimeout(150);
     ok(page.errs.length === 0, "no console errors (calendar sync): " + page.errs.join(" | "));
 
-    /* ---------- Free plan ---------- */
+    /* Free plan */
     const free = await open(await mkCtx(SEED(), true));
     await tab(free, "notes");
     ok(await free.locator('.note[data-note="n1"] .note-link').count() > 0, "free: linked notes work on the free plan too");
@@ -575,7 +545,6 @@ function SEED(){
     await act(free, "cal-sync"); await free.waitForTimeout(250);
     ok(await free.locator('[data-cs-tab="two"]').count() === 0 && await free.locator('[data-cs-tab="live"]').count() === 1, "free: Calendar Sync has no Two-Way tab");
     await free.evaluate(() => dlg.close()); await free.waitForTimeout(100);
-    // Without AI, the app's own reader finds the date
     await free.evaluate(() => dlg.close());
     const got = await free.evaluate(row => window.SBPRO.emailIngest([row]), mailRow("e2"));
     await free.waitForTimeout(400);

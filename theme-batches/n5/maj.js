@@ -1,4 +1,4 @@
-/* New Theme Ideas, batch n5: pride, graduation, birthday, geology */
+/* New Theme Ideas, batch n5 */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const r1 = n => Math.round(n * 100) / 100;
@@ -6,7 +6,7 @@
   const circ = (x, y, r) => `M${r1(x - r)} ${r1(y)}a${r1(r)} ${r1(r)} 0 1 0 ${r1(2 * r)} 0a${r1(r)} ${r1(r)} 0 1 0 ${r1(-2 * r)} 0Z`;
   const NOTES = ["#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"];
   Object.assign(FX_SHAPES, {
-    // a little waving rainbow flag on a pole (the stripes come from the colour as a tint, so the detail draws the stripe lines)
+    // a little waving rainbow flag on a pole
     n5flag: {d: "M-9 -10.5H-7.4V11H-9Z M-7.4 -10C-3 -12 1 -7.6 9.6 -9.6V3.6C1 5.6 -3 1.2 -7.4 3.2Z", detail: "M-7.4 -7.7C-3 -9.7 1 -5.3 9.6 -7.3M-7.4 -5.4C-3 -7.4 1 -3 9.6 -5M-7.4 -3.1C-3 -5.1 1 -0.7 9.6 -2.7M-7.4 -0.8C-3 -2.8 1 1.6 9.6 -0.4", dstroke: true},
     n5heart: {d: "M0 9.6C-6 5 -10.4 1.4 -10.4 -3.4C-10.4 -7 -7.6 -9.4 -4.8 -9.4C-2.6 -9.4 -0.9 -8.2 0 -6.4C0.9 -8.2 2.6 -9.4 4.8 -9.4C7.6 -9.4 10.4 -7 10.4 -3.4C10.4 1.4 6 5 0 9.6Z", detail: "M-6 -5.6Q-7.4 -3 -5.8 -0.6", dstroke: true},
     n5rect: {d: "M-5 -2.6H5V2.6H-5Z"},

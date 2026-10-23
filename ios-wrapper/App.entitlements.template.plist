@@ -1,23 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- Template for ios/App/App/App.entitlements (Xcode creates this file when you add capabilities; add only these). -->
+<!-- Template for ios/App/App/App.entitlements -->
 <plist version="1.0">
 <dict>
-  <!-- Push Notifications (native-bridge.js enablePush, APNs). Keep "development" here: Xcode signs App Store / TestFlight archives with
-       "production" automatically (the provisioning profile decides). The server must use the matching APNs host: api.sandbox.push.apple.com for
-       debug builds, api.push.apple.com for TestFlight/App Store. Remove this and UIBackgroundModes/remote-notification together if push is dropped. -->
+  <!-- Push Notifications (native-bridge.js enablePush, APNs) -->
   <key>aps-environment</key>
   <string>development</string>
-  <!-- Universal links: https://YOUR-DOMAIN.example/ opens the app. Replace the domain with the site that hosts the web app (the SAME domain as
-       android:host in ../android-wrapper/app/src/main/AndroidManifest.additions.xml), and host /.well-known/apple-app-site-association there
-       (see README-IOS.md section 6). -->
+  <!-- Universal links -->
   <key>com.apple.developer.associated-domains</key>
   <array>
     <string>applinks:YOUR-DOMAIN.example</string>
   </array>
-  <!-- Quick capture (UNTESTED template; see native/ and VOICE-CAPTURE-NATIVE.md): the App Intents (Siri / Shortcuts) and the Share Extension read the capture token from
-       the shared Keychain group and exchange queued items through the App Group container. The Share Extension target needs the SAME two entries
-       (native/ShareExtension/ShareExtension.entitlements). Add the App Groups and Keychain Sharing capabilities in Xcode, then compare. -->
+  <!-- Quick capture (UNTESTED template; see native/ and VOICE-CAPTURE-NATIVE.md) -->
   <key>com.apple.security.application-groups</key>
   <array>
     <string>group.com.studioso.app</string>
@@ -26,6 +20,6 @@
   <array>
     <string>$(AppIdentifierPrefix)com.studioso.app.shared</string>
   </array>
-  <!-- In-app purchase needs the capability switched on in Xcode but no entitlement key. Keychain: the default app keychain group is enough. -->
+  <!-- In-app purchase needs the capability switched on in Xcode but no entitlement key -->
 </dict>
 </plist>

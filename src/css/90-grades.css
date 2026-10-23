@@ -58,42 +58,37 @@
 .gr-row-main[aria-expanded="true"] .gr-chev{transform:rotate(180deg)}
 .gp{display:grid;gap:12px;margin-top:0}
 .gp>.view-head{margin-bottom:0}
-/* One rhythm for every sub-tab page (Courses, Grades, Emails, Files, Timeline, Schedule, Crunch): 12px from the tab selector to the heading, 12px from the heading to the content */
+/* One rhythm for every sub-tab page */
 .pview-tabs + .view-head,.pview-tabs + .tl-controls,.pview-tabs + .cr > .cr-head,.pview-tabs + .gp > .view-head,.pview-tabs + .view-head{margin-top:0}
 .pview-tabs + .view-head,.pview-tabs + .tl-controls{row-gap:12px}
 .pview-tabs + .view-head > h2,.pview-tabs + .tl-controls > h2{flex:1 0 100%}
 /* Files keeps its sort on the title's line */
-/* Files and Timeline keep their switches on the title's line, centred on its shaded plate (which runs up to them), without making the row taller than other tabs' titles */
 html :is(.tl-controls.f-title,.pview-tabs + .tl-controls:has(> .segb)) > h2{flex:1 1 0!important;min-width:min(100%,8em);width:auto!important;max-width:none!important;margin-right:0!important}
 :is(.tl-controls.f-title,.pview-tabs + .tl-controls:has(> .segb)) > :not(h2){margin-block:-10px}
-/* a head with just the title and buttons (Insights, Recently Deleted) keeps the buttons on the title's line, at the right */
+/* a head with just the title and buttons */
 .view-head:has(> h2:first-child):not(:has(> :not(h2,.btn))) > h2{flex:1 1 auto!important}
 .view-head,.tl-controls{margin-bottom:12px}
-/* Courses, Grades, Emails and Files: the same 16px from the page title to the first card under it */
+/* Courses, Grades, Emails and Files */
 .pview-tabs + .view-head,.pview-tabs + .tl-controls:has(+ .fwrap){margin-bottom:16px}
-/* Buttons beside the title (Insights, Recently Deleted) are taller than it: they centre on the title without making its row taller,
-   so the title sits the same 12px under the tab selector whether a page has them (Courses, Grades) or not (Emails, Files) */
+/* Buttons beside the title (Insights, Recently Deleted) are taller than it */
 .pview-tabs + .view-head > .btn,.pview-tabs + .gp > .view-head > .btn{margin-block:-20px}
-/* on phones the title is hidden (.ph-dup), so there is nothing to centre on: the buttons keep their own height, below the tab selector */
+/* on phones the title is hidden (.ph-dup), so there is nothing to centre on */
 @media (max-width:639px){.pview-tabs + .view-head:has(> h2.ph-dup) > .btn,.pview-tabs + .gp > .view-head:has(> h2.ph-dup) > .btn{margin-block:0}}
 .pview-tabs + .view-head + :is(.course-list,.empty){margin-top:16px}
 .pview-tabs + .gp > .view-head + *{margin-top:4px}
-/* Timeline, Schedule and Crunch too: 16px from the title to the row or card under it */
+/* Timeline, Schedule and Crunch too */
 .pview-tabs + .view-head,.pview-tabs + .tl-controls{row-gap:16px}
-/* Every tab's page starts at the same height on a computer: Notes and Groups open with their title row (no tab selector above it),
-   whose top margin pushed the whole page 8 to 10px lower than the other tabs, so switching tabs made the content hop */
+/* Every tab's page starts at the same height on a computer */
 @media (min-width:640px){#view > :is(.tl-controls,.view-head):first-child{margin-top:0}}
-/* One rhythm on every page: title, then the course chips, then the content, each 16px apart to the eye (the chip row has 4px/6px of
-   padding of its own). Timeline, Flashcards, Quizzes and Archive used to differ (12 to 28px). */
+/* One rhythm on every page */
 #view :is(.view-head,.tl-controls):has(+ .cf-chips){margin-bottom:12px}
 #view .cf-chips{margin-top:0;margin-bottom:0}
 #view .cf-chips + *{margin-top:10px}
 #view .mini + .cf-chips{margin-top:6px}
 #view .cf-row + *{margin-top:12px}
-@media (max-width:639px){#view .pview-tabs + .view-head + :is(.course-list,.empty),#view .pview-tabs.ph-solo + :is(.empty,.grp-list,.cr,.gp){margin-top:12px}}   /* the page switcher sits 12px above whatever comes first, as on every other page */
-/* Crunch's title sits at the top of its row (the range toggle beside it is taller), so it is 12px under the tab selector like the other pages */
-/* the range switch sits centred on the title's plate, and doesn't make the row taller than other tabs' titles */
-@media (min-width:601px){.pview-tabs + .cr > .cr-head{align-items:center}.pview-tabs + .cr > .cr-head > .cr2-range{margin-block:-12px}/* 12px row gap + 4px = the same 16px Timeline has from its title to the course chips */
+@media (max-width:639px){#view .pview-tabs + .view-head + :is(.course-list,.empty),#view .pview-tabs.ph-solo + :is(.empty,.grp-list,.cr,.gp){margin-top:12px}}
+/* Crunch's title sits at the top of its row (the range toggle beside it is taller) */
+@media (min-width:601px){.pview-tabs + .cr > .cr-head{align-items:center}.pview-tabs + .cr > .cr-head > .cr2-range{margin-block:-12px}
 .pview-tabs + .cr > .cr-head + *{margin-top:4px}}
 @media (max-width:600px){.pview-tabs + .cr > .cr-head + *{margin-top:4px}}
 .pview-tabs + .cr,.cr{gap:12px}

@@ -1,5 +1,4 @@
-// The public flashcard and quiz pages (cloudflare/site/public-pages.js), rendered in Node against a stand-in for the Supabase functions.
-// Run: node tests/public-pages.test.js
+// The public flashcard and quiz pages (cloudflare/site/public-pages.js)
 const assert = require("assert"), path = require("path"), fs = require("fs");
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 
@@ -38,7 +37,6 @@ const env = {SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "sb_publi
   ok(P.courseKey("01:119:115 General Biology") === "01119115" && P.courseSlug("01119115") === "01-119-115" && P.courseLabelOf("01119115") === "01:119:115" && P.courseKey("01-119-115") === "01119115", "all-number codes like Rutgers' 01:119:115");
   ok(P.isPublicPath("/flashcards") && P.isPublicPath("/quizzes/x-abcdefgh") && P.isPublicPath("/sitemap-public.xml") && !P.isPublicPath("/flashcardsx") && !P.isPublicPath("/"), "only the public paths");
 
-  // a deck page
   let {r, t} = await html("/flashcards/cell-biology-basics-abcdefgh");
   ok(r.status === 200 && /text\/html/.test(r.headers.get("content-type")), "a deck page renders");
   ok(/<h1>Cell Biology Basics<\/h1>/.test(t) && /Mitochondria/.test(t) && /Makes ATP/.test(t) && /Packages proteins/.test(t), "every card is in the page's HTML");
@@ -58,7 +56,6 @@ const env = {SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "sb_publi
   ok(/s-maxage=900/.test(r.headers.get("cache-control")), "cached at the edge for 15 minutes");
   ok(calls.every(c => c[2] === "sb_publishable_test"), "reads with the public key only");
 
-  // an old or wrong name redirects to the current one; a wrong code is a 404
   r = await get("/flashcards/old-name-abcdefgh");
   ok(r.status === 301 && r.headers.get("location") === "https://studyboardapp.com/flashcards/cell-biology-basics-abcdefgh", "an old name redirects to the current address");
   r = await get("/flashcards/abcdefgh");
@@ -66,14 +63,12 @@ const env = {SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "sb_publi
   ({r, t} = await html("/flashcards/nothing-zzzzzzzz"));
   ok(r.status === 404 && /noindex/.test(t), "an unknown set is a 404 that isn't indexed");
 
-  // a quiz page
   ({r, t} = await html("/quizzes/cell-quiz-qqqqrrrr"));
   ok(r.status === 200 && /Which organelle makes ATP\?/.test(t) && /<details><summary>Show answer<\/summary><p class="ans"><b>B\. Mitochondria<\/b>/.test(t) && /Powerhouse/.test(t), "a quiz page shows the questions, answers behind Show answer");
   const qld = [...t.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m => JSON.parse(m[1])).find(x => x["@type"] === "Quiz");
   ok(qld && qld.hasPart[0].eduQuestionType === "Multiple choice" && qld.hasPart[0].acceptedAnswer[0].text === "Mitochondria" && qld.hasPart[0].suggestedAnswer[0].text === "Nucleus" && qld.hasPart[1].eduQuestionType === "Short answer", "practice-question structured data");
   ok(/href="\/\?shared=QQQQ-RRRR"/.test(t), "Take the Quiz opens it in the app");
 
-  // index, search and course pages
   ({r, t} = await html("/flashcards"));
   ok(r.status === 200 && /Flashcards made by students/.test(t) && /href="\/flashcards\/course\/biol-201"/.test(t) && /cell-biology-basics-abcdefgh/.test(t) && !/noindex/.test(t), "the index lists courses and sets, and is indexed");
   ok(/SearchAction/.test(t), "the index has search structured data");
@@ -100,11 +95,9 @@ const env = {SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "sb_publi
   ({r} = await html("/flashcards/course/chem-999"));
   ok(r.status === 404, "a course with nothing published is a 404");
 
-  // sitemap
   ({r, t} = await html("/sitemap-public.xml"));
   ok(r.status === 200 && /application\/xml/.test(r.headers.get("content-type")) && /<loc>https:\/\/studyboardapp.com\/flashcards\/cell-biology-basics-abcdefgh<\/loc><lastmod>2026-10-01<\/lastmod>/.test(t) && /quizzes\/course\/biol-201/.test(t), "the sitemap lists sets, quizzes and course pages");
 
-  // the server being unreachable
   r = await P.handlePublic(new Request("https://studyboardapp.com/flashcards"), Object.assign({}, env, {__fetch: async () => { throw new Error("down"); }}), {});
   ok(r.status === 503 && r.headers.get("retry-after"), "an outage answers 503 with Retry-After (search engines try again later)");
   r = await P.handlePublic(new Request("https://studyboardapp.com/flashcards", {method: "POST"}), env, {});
@@ -113,7 +106,6 @@ const env = {SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "sb_publi
   ok(r.status === 204 && rf.includes("/flashcards/cell-biology-basics-abcdefgh") && rf.includes("/flashcards") && rf.includes("/flashcards/course/biol-201"), "a refresh after publishing drops the cached page, the index and the course page");
   r = await P.handlePublic(new Request("https://studyboardapp.com/flashcards/refresh", {method: "POST", body: "nonsense"}), env, {});
   ok(r.status === 204, "a bad refresh does nothing");
-  // a database that still has the older search (supabase-sharing.sql not re-run): the page still works, without filters
   const oldDb = async (url, init) => { const a = JSON.parse(init.body); if (url.endsWith("/public_search") && "p_school" in a) return new Response('{"code":"PGRST202"}', {status: 404}); return fakeFetch(url, init); };
   r = await P.handlePublic(new Request("https://studyboardapp.com/flashcards"), Object.assign({}, env, {__fetch: oldDb}), {waitUntil() {}});
   ok(r.status === 200 && /Cell Biology Basics/.test(await r.text()), "with the older search function the flashcards page still lists sets");

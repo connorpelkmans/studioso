@@ -1,14 +1,10 @@
-// node tests/pro-study.test.js
-// Unit tests for the pure parts of the Pro study extras in index.html (each block is extracted between its markers and run in node):
-// Linked Notes (NOTELINK), Listen (LISTEN), the PDF reader (READER), Record a Lecture (LECTURE), Email to Studyboard (EMAILCAP) and the
-// capture inbox's email routing (CAPTURE-INBOX), plus the two-way calendar sync's planner (CALSYNC).
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const src = require("../scripts/app-files").source();
-const block = (a, b, names) => { const i = src.indexOf(a), j = src.indexOf(b, i); assert.ok(i > 0 && j > i, "markers " + a); return new Function(src.slice(a.endsWith("*/") ? i + a.length : i, j) + `; return {${names}};`)(); };   // a marker that opens a comment stays in
+const block = (a, b, names) => { const i = src.indexOf(a), j = src.indexOf(b, i); assert.ok(i > 0 && j > i, "markers " + a); return new Function(src.slice(a.endsWith("*/") ? i + a.length : i, j) + `; return {${names}};`)(); };
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 
 (async () => {
-  /* ---------- Linked Notes ---------- */
+  /* Linked Notes */
   const L = block("/*NOTELINK-START*/", "/*NOTELINK-END*/", "parseLinks, splitTarget, noteTitle, buildIndex, resolve, renameIn, typing, keyOf, linkName");
   ok(L.linkName("Notes [draft] v2.pdf") === "Notes draft v2.pdf" && L.resolve(L.buildIndex({file: [{id: "f", name: "Notes [draft] v2.pdf"}]}), L.linkName("Notes [draft] v2.pdf")).id === "f", "a name with brackets is linked without them, and still found");
   ok(L.parseLinks("[[" + "x".repeat(180) + "]]").length === 1, "long names make working links");
@@ -22,7 +18,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
   ok(L.renameIn("[[Lab 3]] and [[lab 3#p2]] but not [[Lab 30]]", "Lab 3", "Lab Three") === "[[Lab Three]] and [[Lab Three#p2]] but not [[Lab 30]]", "renames keep pages and leave other links alone");
   ok(JSON.stringify(L.typing("see [[Cal", 9)) === JSON.stringify({q: "Cal", from: 4}) && L.typing("see [[Cal]] x", 13) === null && L.typing("[[a\nb", 5) === null, "typing [[ is noticed only while the link is open");
 
-  /* ---------- Listen ---------- */
+  /* Listen */
   const S = block("/*LISTEN-START*/", "/*LISTEN-END*/", "pickCards, speakable");
   const cards = [{id: "a", front: "A", back: "a", seen: 3, right: 1, wrong: 2, due: "2026-10-01"}, {id: "b", front: "B", back: "b", seen: 0}, {id: "c", front: "C", back: "c", seen: 4, right: 4, wrong: 0, due: "2026-12-01"},
     {id: "d", front: "D", back: "d", seen: 2, right: 0, wrong: 2, due: "2026-12-01"}, {id: "e", front: "", back: "x", seen: 0}, {id: "f", front: "F", back: "f", img: {k: "i"}}, {id: "g", front: "G", back: "g", draft: true}];
@@ -31,7 +27,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
   ok(S.pickCards(cards, "tricky", "2026-10-11").map(c => c.id).join() === "d,a", "tricky: most missed first");
   ok(S.speakable("<b>Water</b> {{c1::moves}}\n- across\n___ membrane **now**") === "Water moves. across. blank membrane now", "text reads well aloud: " + S.speakable("<b>Water</b> {{c1::moves}}\n- across\n___ membrane **now**"));
 
-  /* ---------- Reader ---------- */
+  /* Reader */
   const R = block("/*READER-START*/", "/*READER-END*/", "rectsOn, hitAt, cleanSel");
   const box = {left: 100, top: 50, width: 600, height: 800};
   const rs = R.rectsOn([{left: 160, top: 100, width: 100, height: 20}, {left: 262, top: 101, width: 150, height: 19}, {left: 160, top: 130, width: 80, height: 20}, {left: 165, top: 131, width: 20, height: 10}, {left: 0, top: 0, width: 0, height: 0}], box);
@@ -42,7 +38,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
   ok(R.hitAt(hs, 1, 0.15, 0.11).id === "y" && R.hitAt(hs, 1, 0.5, 0.11).id === "x" && R.hitAt(hs, 1, 0.9, 0.9) === null, "the newest highlight under the tap");
   ok(R.cleanSel("photo-\nsynthesis  makes\n sugar") === "photosynthesis makes sugar", "a selection loses hyphenation and line breaks");
 
-  /* ---------- Lecture ---------- */
+  /* Lecture */
   const C = block("/*LECTURE-START*/", "/*LECTURE-END*/", "clock, pickMime, extOf, joinTranscript, studyNoteText, SEG_MS");
   ok(C.clock(0) === "0:00" && C.clock(65000) === "1:05" && C.clock(3725000) === "1:02:05", "clock");
   ok(C.pickMime(m => m === "audio/mp4") === "audio/mp4" && C.pickMime(m => /webm/.test(m)) === "audio/webm;codecs=opus" && C.pickMime(() => false) === "", "the best recording format there is");
@@ -53,7 +49,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
   ok(C.studyNoteText({title: "T", sections: [{heading: "H", points: ["p ".repeat(6000)]}]}, {title: "x"}).length <= 8000, "never longer than a note can be");
   ok(C.SEG_MS === 300000, "5-minute parts for transcription");
 
-  /* ---------- Email ---------- */
+  /* Email */
   const E = block("/*EMAILCAP-START*/", "/*EMAILCAP-END*/", "cleanSubject, dateLines, gmailConfirm");
   ok(E.cleanSubject("RE: Fwd: FW[2]: Lab 4 moved") === "Lab 4 moved" && E.cleanSubject("Reading list") === "Reading list", "reply and forward marks come off the subject");
   const dl = E.dateLines("Fwd: Lab moved", "Hi all,\nLab 4 is now due Friday Oct 16.\nThe office is room 204.\nQuiz 2 on 10/20 covers ch 5.\nThanks!\n" + "Unsubscribe from this list any time by clicking the link in your notification preferences on the course website settings page today and forever.", 8);
@@ -61,7 +57,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
   ok(JSON.stringify(E.gmailConfirm("forwarding-noreply@google.com", "Confirmation code: 123456789\nTo allow, click https://mail-settings.google.com/mail/vf-abc123 ok")) === JSON.stringify({code: "123456789", link: "https://mail-settings.google.com/mail/vf-abc123"}), "Gmail's forwarding confirmation is found");
   ok(E.gmailConfirm("someone@google.com", "Confirmation code: 123456") === null, "only from Gmail's forwarding address");
 
-  /* ---------- Capture inbox: email rows ---------- */
+  /* Capture inbox */
   const I = block("/* CAPTURE-INBOX-START", "/* CAPTURE-INBOX-PURE-END */", "capProcess");
   const row = (id, source, text) => ({id, text: text || id, source, created_at: "2026-10-11T12:00:00Z"});
   const mk = (emailIds, seen) => { const log = {acked: [], seen: [], email: [], ingest: []}; return {log, d: {
@@ -85,7 +81,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
   await I.capProcess([row("e9", "email", "Subject only")], plain.d);
   ok(plain.log.ingest.join() === "e9", "without the email reader (an older setup), an email is an ordinary capture");
 
-  /* ---------- Two-way calendar sync ---------- */
+  /* Two-way calendar sync */
   const Y = block("/*CALSYNC-START*/", "/*CALSYNC-END*/", "wantList, busyEvent, keyPart");
   const SRCS = ["gcal", "mscal"], SRC = {google: "gcal", microsoft: "mscal"};
   const Yw = new Function("SRCS", "SRC", src.slice(src.indexOf("/*CALSYNC-START*/") + 17, src.indexOf("/*CALSYNC-END*/")) + "; return {wantList, busyEvent};")(SRCS, SRC);

@@ -1,7 +1,4 @@
-// node tests/onboarding-backups.e2e.js  (Playwright + Chromium; no network)
-// The welcome tour's Backups step: shown where a web page can save to a folder (Chromium here), the folder is picked from the step itself
-// (the picker is stood in for by the browser's private file storage), backups are written there at once, the step and the last page
-// say so; and where folders can't be used (no showDirectoryPicker, as in Safari and Firefox) the step isn't in the tour.
+// node tests/onboarding-backups.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -48,7 +45,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     for (let i = 0; i < 12; i++) { const s = await b.page.getAttribute(".sheet.ob", "data-step"); steps.push(s); if (s === "done") break; await b.page.click('[data-ob="next"]'); await b.page.waitForTimeout(120); }
     ok(!steps.includes("backups") && steps.includes("done"), "without folder access (Safari, Firefox) the step isn't shown: " + steps.join(", "));
     ok(!(await b.page.textContent(".sheet.ob")).includes("Backing up to"), "and the last page doesn't mention it");
-    // A new account's free week of Pro: the tour is pending while it's open, and its last page is the warm welcome (no bottom pop-up)
     ok(await b.page.evaluate(() => window.SBOB.pending()), "while the tour is open, the free week's welcome waits for it");
     ok(!/is on us/.test(await b.page.textContent(".sheet.ob")) && await b.page.locator(".ob-gift").count() === 0, "no free week, no gift card");
     await b.page.evaluate(() => { window.__said = 0; SBOB.T.plan = {welcomeWeek: () => ({until: "2026-10-27T12:00:00Z", date: "Oct 27, 2026"}), welcomeSaid: () => { window.__said++; }};

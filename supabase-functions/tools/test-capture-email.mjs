@@ -1,6 +1,4 @@
-// Offline checks for the capture-email Edge Function (Email to Studyboard). No network, no Supabase. Run from the repo root:
-//   node --experimental-strip-types supabase-functions/tools/test-capture-email.mjs
-// It loads the real function file with a fake database that answers like capture_add_email() in supabase-capture.sql.
+// Offline checks for the capture-email Edge Function (Email to Studyboard)
 import assert from "node:assert/strict";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";

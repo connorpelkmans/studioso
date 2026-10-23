@@ -1,7 +1,4 @@
-// The offline copy of the app (sw.js, with the page's code and styles in bundle/, see scripts/app-files.js).
-// Run: node tests/sw-offline.e2e.js
-// Covers: the first visit saves the page and every file it names; the app opens offline; a new release (one changed file) is saved as a
-// whole set before the page switches to it, then opens offline with the new file; files no page names any more are dropped.
+// The offline copy of the app
 "use strict";
 const fs = require("fs"), path = require("path"), os = require("os"), http = require("http"), assert = require("assert");
 const {chromium} = require("playwright");
@@ -35,31 +32,26 @@ const server = http.createServer((req, res) => {
     let have = await cached();
     ok(want.length >= 2 && want.every(u => have.includes(u)), `the first visit saves the page and all ${want.length} of its files (${want.join(", ")})`);
 
-    // offline: the app still opens
     await ctx.setOffline(true);
     await page.reload(); await page.waitForTimeout(2500);
     ok(await page.locator("nav [data-tab], [data-tab]").count() > 3 && !errors.length, "offline, the app opens from the saved copy: " + errors.slice(0, 2).join(" | "));
     await ctx.setOffline(false);
 
-    // a release: one file changes, so its ?v= changes
     const f = "bundle/app.js", urlOf = () => urls().find(u => u.startsWith("/" + f)), oldUrl = urlOf();
     fs.appendFileSync(path.join(tmp, f), "\nwindow.__sbRelease = 2;\n");
     const read = p => fs.readFileSync(path.join(tmp, p), "utf8");
     fs.writeFileSync(path.join(tmp, "index.html"), AF.stamp(fs.readFileSync(path.join(tmp, "index.html"), "utf8"), read));
     const newUrl = urlOf();
     ok(oldUrl !== newUrl, "the changed file gets a new ?v=");
-    // this visit still opens the saved (old) page, and saves the new one with its files in the background
     await page.reload(); await page.waitForTimeout(500);
     ok(await page.evaluate(() => !window.__sbRelease), "the visit right after a release opens the saved copy (no waiting on the network)");
     await page.waitForFunction(async u => { const c = await caches.open((await caches.keys()).find(k => /^studyboard-/.test(k))); return !!(await c.match(u)); }, newUrl.slice(1), {timeout: 20000});
     have = await cached();
     ok(have.includes(newUrl) && have.includes(oldUrl), "the new release's file is saved, and the one before it stays for a page that's still open");
-    // offline again: the next open is the new release, whole
     await ctx.setOffline(true);
     await page.reload(); await page.waitForTimeout(2500);
     ok(await page.evaluate(() => window.__sbRelease === 2) && await page.locator("[data-tab]").count() > 3, "offline, the next open is the new release with its new file");
     await ctx.setOffline(false);
-    // a further release drops files no saved page names
     fs.appendFileSync(path.join(tmp, f), "\nwindow.__sbRelease = 3;\n");
     fs.writeFileSync(path.join(tmp, "index.html"), AF.stamp(fs.readFileSync(path.join(tmp, "index.html"), "utf8"), read));
     const v3 = urlOf();

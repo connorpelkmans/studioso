@@ -1,8 +1,5 @@
 /* ===== module: 97-ui.js ===== */
-/* Studyboard 1.11.0: tidier Settings. Module prefix 97-ui.
-   menuSheet still builds every row (so each row's own listeners keep working); this module then moves the rows
-   into categories: a two-pane layout on wide screens, and a category list that opens a category page on phones.
-   A module can pick its category with data-group="account|appearance|study|school|app|data" on its row. */
+/* Studyboard 1.11.0 */
 (() => {
   const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) {} return null; };
   const svg = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
@@ -22,7 +19,7 @@
   const CATS = [
     {k: "account", t: "Account and Sync",
       lead: "Sign in to keep your work in sync on every device.",
-      sum: () => safe(() => inClaude() ? "Saved to your Claude account" : sbUser ? `Signed in as ${sbUser.email || "you"}` : sbConfig() ? "Not signed in yet" : "Saved on this device only", "Sign in and sync")},
+      sum: () => safe(() => inPreview() ? "Saved to your Claude account" : sbUser ? `Signed in as ${sbUser.email || "you"}` : sbConfig() ? "Not signed in yet" : "Saved on this device only", "Sign in and sync")},
     {k: "appearance", t: "Appearance",
       lead: "How Studyboard looks and moves.",
       sum: () => safe(() => { const s = SKINS.find(x => x.id === styleCfg().skin) || SKINS[0], p = themePref(); return `${s.name} theme, ${p === "system" ? "matches your device" : p === "dark" ? "dark mode" : "light mode"}`; }, "Theme, dark mode and animations")},
@@ -43,7 +40,7 @@
       sum: () => "Backups, restore, new term and archive"}
   ];
   const CAT = Object.fromEntries(CATS.map(c => [c.k, c]));
-  // Where each row goes, by its data-act (or input id). Also sets the order inside a category.
+  // Where each row goes, by its data-act (or input id)
   const ORDER = {
     account: ["sb-signout", "sb-signin", "sb-connect", "sb-issues", "plan-open"],
     appearance: ["theme-set", "shop", "anim-mode", "text-size", "lang-set", "a11y-contrast", "anim-toggle", "daily-quote", "scene-moment"],
@@ -53,7 +50,7 @@
     app: ["tz-shift", "rm-open", "sbw-open", "pwa-install", "install", "desk-version", "ob-replay", "tour-open", "bug-open"],
     data: ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "backup-now", "restore", "export", "export-full", "import", "ia-open", "new-term", "archive-open", "trash-open", "export-data", "clear-all"]
   };
-  // Sub-tabs inside a category with many rows: [label, [row keys]]. Rows no list names go in the last sub-tab.
+  // Sub-tabs inside a category with many rows
   const SUBS = {
     appearance: [["Look", ["theme-set", "shop", "scene-moment", "daily-quote"]], ["Accessibility", ["text-size", "a11y-contrast", "anim-mode", "anim-toggle"]]],
     study: [["Study Plan", ["area-open", "dailyIn", "capIn", "avail-open", "acc-toggle", "exm-toggle", "bd-new-course", "wkr-open", "fgs-open"]], ["Grades", ["g-grades"]], ["AI and Search", ["ai-setup", "sx-settings"]]],
@@ -61,7 +58,7 @@
     app: [["Reminders", ["rm-open", "sbw-open", "tz-shift"]], ["Install", ["pwa-install", "install", "desk-version"]], ["Help", ["ob-replay", "tour-open", "bug-open"]]],
     data: [["Backups", ["fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "backup-now", "restore"]], ["Export", ["export", "export-full", "import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open", "clear-all"]]]
   };
-  const SUB_MIN = 5;      // a category with fewer rows than this stays one page
+  const SUB_MIN = 5;
   // Extra words people might search for, per row
   const SYN = {"theme-set": "dark light mode night", shop: "theme colors stickers pins cards", "anim-toggle": "motion confetti", "anim-mode": "reduce motion animation battery low power static still reduced saver", "text-size": "font bigger larger smaller accessibility dynamic type zoom", "lang-set": "language idioma espanol spanish translate locale", "a11y-contrast": "contrast accessibility readable calm background dim blur", "tz-shift": "timezone travel daylight saving dst clock",
     "sb-connect": "sync cloud online login", "sb-signin": "sync login", "sb-issues": "conflict merge two devices edited resolve", "sb-signout": "log out logout", "plan-open": "pro upgrade subscription devices storage",
@@ -158,7 +155,6 @@
     if (note && note.parentNode === body) (main.querySelector('[data-us="data"]') || main).appendChild(note);
     list.remove();
     body.appendChild(wrap);
-    // Header: a Back button for the phone category page
     const hd = sheet.querySelector(".sheet-head"), h2 = hd && hd.querySelector("h2");
     if (hd && !hd.querySelector(".us-back")) hd.insertAdjacentHTML("afterbegin", `<button type="button" class="icon-btn us-back" aria-label="Back to all settings" title="Back">${BACK_IC}</button>`);
     const q = wrap.querySelector(".us-q"), empty = wrap.querySelector(".us-empty");
@@ -220,16 +216,14 @@
     q.addEventListener("keydown", e => { if (e.key === "Escape" && q.value) { e.preventDefault(); e.stopPropagation(); q.value = ""; search(""); } });
     const back = hd && hd.querySelector(".us-back");
     if (back) back.addEventListener("click", e => { e.stopPropagation(); if (q.value) { q.value = ""; search(""); } select(wrap.dataset.cat, "home"); const t = wrap.querySelector(`.us-cat[data-us="${wrap.dataset.cat}"]`); if (t && e.detail === 0) t.focus(); });
-    // Escape on a phone category page goes back to the list instead of closing Settings
     sheet.addEventListener("keydown", e => { if (e.key === "Escape" && phone() && wrap.dataset.view === "cat" && e.target !== q) { e.preventDefault(); e.stopPropagation(); select(wrap.dataset.cat, "home"); } });
-    // Start where you left off
     const start = (prev && prev.cat) || ls(LAST) || cats[0].k;
     select(start, prev ? prev.view : "home", !!prev);
     if (prev && prev.q) { q.value = prev.q; search(prev.q); }
     if (prev) requestAnimationFrame(() => { main.scrollTop = prev.top; });
   }
 
-  // Show one settings row (for other modules and tests): opens its category
+  // Show one settings row (for other modules and tests)
   function reveal(sel){
     const el = typeof sel === "string" ? dlg.querySelector(sel) : sel; if (!el) return null;
     const wrap = el.closest(".us"), pane = el.closest(".us-pane");

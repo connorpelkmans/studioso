@@ -1,18 +1,16 @@
 /* ===== module: 49-errreport.js ===== */
-/* Anonymous crash and error reports (setup and privacy rules: ERROR-REPORTING.md). Paste your Sentry DSN below; with it empty
-   (and supabaseFallback false) nothing is ever sent. Events always go to the local ERRLOG ring buffer, which the bug-report form attaches.
-   No Sentry SDK and no third-party script: a plain fetch POST of one event in Sentry's envelope format. */
-const APP_VERSION = "1.15.0";   // keep in step with package.json and the VERSION / APP_VERSION constants further down
-const BUILD_ID = "dev";         // stamped with the exact file's content hash by build-id.js / prepare.js, so a stack line number can be matched to the deployed file
+/* Anonymous crash and error reports */
+const APP_VERSION = "1.15.1";
+const BUILD_ID = "dev";
 const ERROR_REPORTING = {
-  dsn: "",                      // paste your Sentry DSN here, e.g. "https://PUBLICKEY@o0000.ingest.sentry.io/0000000"
+  dsn: "",
   environment: "production",
   release: APP_VERSION,
-  supabaseFallback: false       // true: with no DSN, send to this project's Supabase Edge Function error-ingest (supabase-error-reports.sql)
+  supabaseFallback: false
 };
 /*ERRREPORT-START*/
 const ERRCORE = (() => {
-  // The same secret patterns as the bug-report scrubber (ERRLOG above), plus a few more token shapes.
+  // The same secret patterns as the bug-report scrubber (ERRLOG above)
   const KEY_RE = /AIza[\w-]{20,}|sk-[\w-]{16,}|sb_(?:secret|publishable)_[\w-]+|eyJ[\w-]{10,}\.[\w-]{10,}\.[\w-]{5,}|(?:ghp|gho|github_pat|xox[a-z])[_-][\w-]{16,}|(key|token|apikey|authorization|bearer|secret|password)([=:\s]+)[\w.~+\/-]{8,}/gi;
   const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]+/g;
   const URL_RE = /\b(?:https?|app|capacitor|file|blob|ionic|chrome-extension|moz-extension|safari-web-extension):\/\/[^\s"'<>)\]]+/gi;
@@ -21,14 +19,14 @@ const ERRCORE = (() => {
   const esc = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const tag = v => String(v == null ? "" : v).replace(/[^\w.-]/g, "").slice(0, 40);
   const hex = n => { let s = ""; try { const a = new Uint8Array(n); crypto.getRandomValues(a); a.forEach(b => { s += (b + 256).toString(16).slice(1); }); } catch (e) { for (let i = 0; i < n; i++) s += (Math.floor(Math.random() * 256) + 256).toString(16).slice(1); } return s; };
-  const newId = () => hex(16);   // 32 hex characters
+  const newId = () => hex(16);
 
-  // A list of strings (task titles, course names, the user id...) that must never appear: compiled once into one expression.
+  // A list of strings (task titles, course names, the user id...) that must never appear
   function redactor(list){
     const w = [...new Set((list || []).map(x => String(x == null ? "" : x).trim()).filter(x => x.length >= 4))].sort((a, b) => b.length - a.length).slice(0, 400);
     return w.length ? new RegExp(w.map(esc).join("|"), "gi") : null;
   }
-  // own: hosts that belong to the app (location.host). Other addresses are reduced to a label so a school's or a person's site is never sent.
+  // own: hosts that belong to the app (location.host)
   function scrubUrl(u, own){
     try {
       const x = new URL(String(u).replace(/[.,;:]+$/, ""));
@@ -41,7 +39,7 @@ const ERRCORE = (() => {
       return "[external-url]";
     } catch (e) { return "[url]"; }
   }
-  // Free text to safe text: no secrets, emails, addresses with queries, ids, home folders, or anything in quotes that isn't a plain identifier.
+  // Free text to safe text
   function scrubText(s, cap, red, own){
     let t = String(s == null ? "" : s);
     if (red) t = t.replace(red, "[hidden]");
@@ -53,7 +51,7 @@ const ERRCORE = (() => {
       .replace(/[\r\n\t]+/g, " ");
     return t.slice(0, cap || 240);
   }
-  // Chrome ("at fn (url:1:2)") and Firefox/Safari ("fn@url:1:2") stacks to Sentry frames, oldest first, at most 30, with only file basenames.
+  // Chrome ("at fn (url:1:2)") and Firefox/Safari ("fn@url:1:2") stacks to Sentry frames
   function parseStack(stack, own){
     const frames = [];
     String(stack || "").split("\n").slice(0, 80).forEach(line => {
@@ -69,18 +67,18 @@ const ERRCORE = (() => {
         const s = scrubUrl(file, own);
         if (/^\[/.test(s)) name = s;
         else { name = (s.split("/").pop() || "index.html").slice(0, 40); inApp = true; }
-      } else { name = file.split(/[\\/]/).pop().slice(0, 40).replace(/[^\w.<>-]/g, "") || "<anonymous>"; inApp = !/^</.test(name); }   // a plain path (Node): the file name only
+      } else { name = file.split(/[\\/]/).pop().slice(0, 40).replace(/[^\w.<>-]/g, "") || "<anonymous>"; inApp = !/^</.test(name); }
       frames.push({"function": String(fn || "").replace(/^async /, "").replace(/[^\w$.<>\s\[\]]/g, "").trim().slice(0, 80) || "?", filename: name, lineno: +ln, colno: +col, in_app: inApp});
     });
     return frames.slice(0, 30).reverse();
   }
   const djb = s => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(16).padStart(8, "0"); };
-  // Same bug, same fingerprint: the error class plus the top three frames (function and file:line); with no stack, the message with numbers and quoted text removed.
+  // Same bug, same fingerprint
   function fingerprint(type, frames, message){
     const top = (frames || []).slice(-3).map(f => f["function"] + "@" + f.filename + ":" + f.lineno).join("|");
     return djb(String(type) + "|" + (top || String(message || "").replace(/(["'`]).*?\1/g, "").replace(/\d+/g, "#").slice(0, 80)));
   }
-  // Errors that are noise or that are not ours. Returns the reason, or "" when the error should be reported.
+  // Errors that are noise or that are not ours
   function ignore(info, opt){
     opt = opt || {};
     const msg = String(info.message || ""), type = String(info.type || ""), st = String(info.stack || ""), file = String(info.filename || "");
@@ -90,7 +88,7 @@ const ERRCORE = (() => {
     if (type === "AbortError" || /\babort(ed)?\b.*\b(request|signal|fetch|operation)|\b(request|signal|fetch|operation)\b.*\babort(ed)?\b|The user aborted/i.test(msg)) return "aborted";
     if (/^(Failed to fetch|Load failed|NetworkError when attempting to fetch resource\.?|Network request failed|fetch failed|The network connection was lost\.?|The Internet connection appears to be offline\.?)$/i.test(msg.trim())) return opt.online === false ? "offline" : "network";
     if (/Non-Error promise rejection captured|ChunkLoadError|Loading chunk/i.test(msg)) return "noise";
-    if (st) { const fr = parseStack(st, opt.own); if (fr.some(f => /^\[/.test(f.filename)) && !fr.some(f => f.in_app)) return "third-party"; /* only other sites' frames count: anonymous and eval frames say nothing */ }
+    if (st) { const fr = parseStack(st, opt.own); if (fr.some(f => /^\[/.test(f.filename)) && !fr.some(f => f.in_app)) return "third-party"; }
     if (file && /^https?:/i.test(file) && opt.own && opt.own.length) { try { if (!opt.own.includes(new URL(file).host)) return "third-party"; } catch (e) {} }
     return "";
   }
@@ -101,7 +99,7 @@ const ERRCORE = (() => {
     return {dsn: pub, key: m[1], host: m[2], path: m[3], project: m[4],
       url: `https://${m[2]}${m[3]}/api/${m[4]}/envelope/?sentry_key=${m[1]}&sentry_version=7&sentry_client=studyboard-errreport%2F1`};
   }
-  // Whitelisted breadcrumbs only: tab names, data-act names, "a sheet opened", sync status, error classes. Anything else is dropped.
+  // Whitelisted breadcrumbs only
   const CRUMB = {nav: /^[a-z][a-z0-9-]{0,23}$/, act: /^[a-z][a-z0-9-]{0,39}$/, sheet: /^open$/, sync: /^(start|ok|fail|retry)$/, error: /^[A-Za-z][\w$.]{0,40}$/};
   function addCrumb(buf, cat, msg, nowMs, cap){
     if (!CRUMB[cat] || typeof msg !== "string" || !CRUMB[cat].test(msg)) return buf;
@@ -125,7 +123,7 @@ const ERRCORE = (() => {
       user: {id: /^[0-9a-f]{8,32}$/.test(ctx.anon || "") ? ctx.anon : undefined},
       breadcrumbs: {values: (ctx.crumbs || []).slice(-20)}, contexts: {app: {app_version: tag(ctx.release), build: tag(ctx.build)}}, sdk: {name: "studyboard.errreport", version: "1"}};
   }
-  // Final safety net over the whole event, then a size cap (breadcrumbs, then frames, are dropped first).
+  // Final safety net over the whole event, then a size cap
   function finish(ev){
     const clean = o => JSON.parse(JSON.stringify(o).replace(KEY_RE, "[hidden]").replace(EMAIL_RE, "[email]"));
     let e = clean(ev), s = JSON.stringify(e);
@@ -133,13 +131,13 @@ const ERRCORE = (() => {
     if (s.length > 24000 && e.exception.values[0].stacktrace) { e.exception.values[0].stacktrace.frames = e.exception.values[0].stacktrace.frames.slice(-10); }
     return e;
   }
-  // The Sentry envelope: header line, item header line, payload line. https://develop.sentry.dev/sdk/data-model/envelopes/
+  // The Sentry envelope
   function envelope(event, dsn, sentAt){
     const payload = JSON.stringify(event), len = typeof TextEncoder === "function" ? new TextEncoder().encode(payload).length : payload.length;
     return [JSON.stringify({event_id: event.event_id, dsn: dsn.dsn, sent_at: sentAt || new Date().toISOString(), sdk: event.sdk}),
       JSON.stringify({type: "event", content_type: "application/json", length: len}), payload].join("\n") + "\n";
   }
-  // At most `maxSession` events a session, `perFp` per fingerprint per hour, half of console errors sampled out, and an exponential back-off after failed sends.
+  // At most `maxSession` events a session, `perFp` per fingerprint per hour
   function makeLimiter(o){
     o = o || {};
     const max = o.maxSession || 20, perFp = o.perFp || 3, now = o.now || Date.now, rnd = o.random || Math.random;
@@ -160,7 +158,7 @@ const ERRCORE = (() => {
     };
   }
   const enqueue = (q, item, cap) => { const n = q.concat([item]); return n.slice(Math.max(0, n.length - (cap || 20))); };
-  // An explicit choice wins; otherwise on, unless the browser sends Global Privacy Control or Do Not Track.
+  // An explicit choice wins; otherwise on
   const decideEnabled = o => o && o.stored === "on" ? true : o && o.stored === "off" ? false : !(o && (o.gpc === true || o.dnt === true));
   return {KEY_RE, newId, redactor, scrubUrl, scrubText, parseStack, fingerprint, ignore, parseDsn, addCrumb, buildEvent, finish, envelope, makeLimiter, enqueue, decideEnabled, tag};
 })();
@@ -178,20 +176,18 @@ const ERRCORE = (() => {
   const platform = () => DESK ? "electron" : flag(() => window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ? "ios-wrapper"
     : flag(() => matchMedia("(display-mode: standalone)").matches || navigator.standalone) ? "pwa" : "web";
   const own = () => { try { return location.host ? [location.host] : []; } catch (e) { return []; } };
-  const anon = () => { let a = lsGet(IDK); if (!/^[0-9a-f]{16}$/.test(a || "")) { a = ERRCORE.newId().slice(0, 16); lsSet(IDK, a); } return a; };   // random per install, never the account id
+  const anon = () => { let a = lsGet(IDK); if (!/^[0-9a-f]{16}$/.test(a || "")) { a = ERRCORE.newId().slice(0, 16); lsSet(IDK, a); } return a; };
   let swVer = "none", busy = false, pumping = false, dead = 0, lastTab = "", timer = 0;
   let q = []; try { const j = JSON.parse(lsGet(QK) || "[]"); if (Array.isArray(j)) q = j.filter(x => x && x.event_id).slice(-20); } catch (e) {}
   const saveQ = () => lsSet(QK, q.length ? JSON.stringify(q) : null);
   const crumbs = [], seen = new WeakSet();
   const crumb = (c, m) => { try { ERRCORE.addCrumb(crumbs, c, String(m), Date.now(), 20); } catch (e) {} };
-  // Everything the page itself knows that must never leave it: the account id and email, every task title and course name.
   function secrets(){
     const l = [];
     try { if (sbUser) l.push(sbUser.id, sbUser.email); } catch (e) {}
     try { Object.values(state.tasks || {}).slice(0, 300).forEach(t => l.push(t.title, t.notes)); Object.values(state.courses || {}).slice(0, 100).forEach(c => l.push(c.name, c.code)); } catch (e) {}
     try { Object.values(state.notes || {}).slice(0, 100).forEach(n => l.push(n.title)); } catch (e) {}
     try { Object.values(state.events || {}).slice(0, 200).forEach(ev => l.push(ev.title, ev.location)); Object.values(state.decks || {}).slice(0, 100).forEach(d => l.push(d.name, d.title)); Object.values(state.files || {}).slice(0, 200).forEach(f => l.push(f.name, f.title)); } catch (e) {}
-    // Long text (notes, descriptions) is matched by its opening words, which is what an error message would quote
     return l.filter(x => typeof x === "string" && x.trim()).map(x => x.length <= 200 ? x : x.trim().slice(0, 60));
   }
   function context(){
@@ -209,11 +205,11 @@ const ERRCORE = (() => {
     if (extra && extra.prefix) o.message = extra.prefix + (o.message ? ": " + o.message : "");
     return o;
   }
-  /* ---------- Sending: queue first (so offline and failures keep it), then a background pump ---------- */
+  /* Sending: queue first (so offline and failures keep it), then a background pump */
   async function send(ev){
     const tg = target(); if (!tg) return "drop";
     let body, headers;
-    if (dsn) { body = ERRCORE.envelope(ev, dsn); headers = {"Content-Type": "text/plain;charset=UTF-8"}; }   // a "simple" request: no CORS preflight, no custom headers
+    if (dsn) { body = ERRCORE.envelope(ev, dsn); headers = {"Content-Type": "text/plain;charset=UTF-8"}; }
     else { body = JSON.stringify({v: 1, event: ev}); headers = {"Content-Type": "application/json", apikey: tg.key}; }
     try {
       const r = await fetch(tg.url, {method: "POST", body, headers, keepalive: body.length < 60000, credentials: "omit", referrerPolicy: "no-referrer", cache: "no-store"});
@@ -228,15 +224,15 @@ const ERRCORE = (() => {
         const r = await send(q[0]);
         if (r === "retry") { lim.fail(); break; }
         q.shift(); saveQ();
-        if (r === "ok") { lim.ok(); dead = 0; } else if (++dead >= 3) { q = []; saveQ(); break; }   // refused three times (wrong DSN?): stop for this session
+        if (r === "ok") { lim.ok(); dead = 0; } else if (++dead >= 3) { q = []; saveQ(); break; }
       }
     } catch (e) {}
     pumping = false;
     if (q.length && dead < 3) { clearTimeout(timer); timer = setTimeout(pump, Math.max(lim.delay(), 2000)); }
   }
-  /* ---------- Reporting ---------- */
+  /* Reporting */
   function report(kind, err, extra){
-    if (busy) return;                                   // an error raised while reporting is swallowed, never reported
+    if (busy) return;
     busy = true;
     try {
       if (err && typeof err === "object") { if (seen.has(err)) return; seen.add(err); }
@@ -266,14 +262,12 @@ const ERRCORE = (() => {
     if (m.type === "sb-sw-info") swVer = ERRCORE.tag(m.v);
     else if (m.type === "sb-sw-error") report("sw", {name: m.name, message: m.msg, stack: m.stack}, {type: "ServiceWorkerError"});
   }); } catch (e) {}
-  // The app's own critical flows. Wrapped here so the code that runs them stays as it is.
   const wrap = (get, set, fn) => { try { set(fn(get())); } catch (e) {} };
   wrap(() => render, f => { render = f; }, orig => function(){
     if (ui.tab !== lastTab) { lastTab = ui.tab; crumb("nav", ui.tab); }
     try { return orig.apply(this, arguments); } catch (e) { flow("render", e); throw e; }
   });
   wrap(() => openSheet, f => { openSheet = f; }, orig => function(){ crumb("sheet", "open"); return orig.apply(this, arguments); });
-  // AI failures that are ours or the provider's (garbled, 5xx, blocked, too long) or unexpected; never a bad key, no credit, rate limit, offline or cancel.
   wrap(() => aiCall, f => { aiCall = f; }, orig => async function(){
     try { return await orig.apply(this, arguments); }
     catch (e) { if (!e || !e.code || /^(bad|http|busy|long|blocked)$/.test(e.code)) flow("ai", e, e && e.code ? {tags: {code: e.code}} : null); throw e; }
@@ -285,12 +279,11 @@ const ERRCORE = (() => {
   });
   function setEnabled(on){
     lsSet(PREF, on ? "on" : "off");
-    if (!on) { q = []; saveQ(); lsSet(IDK, null); }          // turning it off forgets queued reports and the anonymous id
+    if (!on) { q = []; saveQ(); lsSet(IDK, null); }
     try { if (DESK && DESK.setCrashReports) DESK.setCrashReports(!!on); } catch (e) {}
   }
   const configured = () => !!target();
   window.SBERR = {flow, crumb, enabled, setEnabled, configured, report, pending: () => q.length,
-    // The same cleaning as crash reports (secrets, emails, addresses, ids, file names, quoted text and the person's own titles), for the bug-report form
     scrub: m => { try { return ERRCORE.scrubText(m, 240, ERRCORE.redactor(secrets()), own()); } catch (e) { return "[hidden]"; } }};
   hook("menu", () => {
     const on = enabled();

@@ -1,12 +1,8 @@
 /* ===== module: 60-reminders.js ===== */
-/* 60-reminders: Reminders and Notifications.
-   Works out the reminders for the next 14 days from tasks, events, flashcards and settings, then delivers them:
-   1. while the app is open (timers, a system notification or an in-app toast),
-   2. by the desktop app with the window closed (DESK.setReminders),
-   3. to phones and browsers with the app closed (Web Push through the user's own Supabase: reminder_queue + send-reminders). */
+/* 60-reminders: Reminders and Notifications */
 (() => {
 /*@@RM-CORE*/
-// The pure scheduling part. No app globals in here, so test/reminders-core.test.js can run it in Node.
+// The pure scheduling part
 const RM_CORE = (() => {
   const DEF = {tasks: true, dayBefore: true, dayTime: "18:00", hoursBefore: true, hours: 2, exams: true,
     events: true, eventLead: 15, classes: false, morning: false, morningTime: "07:30",
@@ -22,12 +18,12 @@ const RM_CORE = (() => {
   const mins = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
   const at = (day, t) => { const d = pd(day); const m = mins(isT(t) ? t : "09:00"); d.setHours(Math.floor(m / 60), m % 60, 0, 0); return d.getTime(); };
   const MS = type => type === "Exam" || type === "Quiz";
-  // Per-task choices (t.remind). Minute ones need a due time; day ones use the chosen "day before" time.
+  // Per-task choices (t.remind)
   const OVR_MIN = {"0": 0, "15m": 15, "1h": 60, "2h": 120};
   const OVR_DAY = {"1d": 1, "2d": 2, "3d": 3, "1w": 7};
   const cfgOf = c => { const o = Object.assign({}, DEF, c || {}); ["dayTime", "morningTime", "nudgeTime", "cardsTime", "quietFrom", "quietTo"].forEach(k => { if (!isT(o[k])) o[k] = DEF[k]; });
     o.hours = Math.max(0.25, Math.min(24, Number(o.hours) || DEF.hours)); o.eventLead = Math.max(0, Math.min(240, Number(o.eventLead) || 0)); return o; };
-  // Quiet hours: is this moment inside them, and when do they end / start around it.
+  // Quiet hours: is this moment inside them, and when do they end / start around it
   function inQuiet(ms, c){
     if (!c.quiet) return false;
     const d = new Date(ms), m = d.getHours() * 60 + d.getMinutes(), a = mins(c.quietFrom), b = mins(c.quietTo);
@@ -42,7 +38,7 @@ const RM_CORE = (() => {
     const d = new Date(ms), m = d.getHours() * 60 + d.getMinutes(), a = mins(c.quietFrom), day = ymd(d);
     return at(m >= a ? day : addD(day, -1), c.quietFrom) - 5 * 60000;
   }
-  // Move a reminder out of quiet hours: to when they end, unless that's too late (after the deadline), then to just before they start.
+  // Move a reminder out of quiet hours
   function place(ms, c, deadline, now){
     if (!inQuiet(ms, c)) return ms;
     const end = quietEnd(ms, c);
@@ -52,7 +48,7 @@ const RM_CORE = (() => {
   }
   const list = (a, n) => a.length <= n ? a.join(", ") : a.slice(0, n).join(", ") + ` and ${a.length - n} more`;
   function hm(m){ const h = Math.floor(m / 60), r = m % 60; return h && r ? `${h}h ${r}m` : h ? `${h}h` : `${r}m`; }
-  // in: {now, tasks, occ, cards, cfg, top, snoozes, fmtTime(hh:mm), fmtDay(iso)}; out: [{id, at, title, body, taskId, kind}] sorted by time.
+  // in: {now, tasks, occ, cards, cfg, top, snoozes, fmtTime(hh:mm), fmtDay(iso)}; out: [{id
   function compute(inp){
     const c = cfgOf(inp.cfg), now = inp.now, today = ymd(new Date(now)), end = now + WINDOW;
     const fT = inp.fmtTime || (t => t), fD = inp.fmtDay || (s => s);
@@ -67,7 +63,6 @@ const RM_CORE = (() => {
       if (timed && dd === 0) { const left = Math.round((dueMs(t) - ms) / 60000); if (left > 0 && left <= 180) s = `${what} in ${hm(left)}, at ${fT(t.time)}`; }
       return s + (t.course ? ` · ${t.course}` : "");
     };
-    // 1. Tasks
     (inp.tasks || []).forEach(t => {
       if (!t || !t.id || !isD(t.due) || t.status === "done" || t.type === "Study") return;
       const timed = !!(t.time && isT(t.time)), dl = dueMs(t), mk = (code, ms) => add({id: `r:t:${t.id}:${code}:${Math.round(ms / 60000).toString(36)}`, at: ms, title: t.title || "Task", body: "", taskId: t.id, kind: "task", _t: t}, dl);
@@ -84,7 +79,6 @@ const RM_CORE = (() => {
       if (c.hoursBefore && timed) mk("h", dl - c.hours * HOUR);
       if (c.exams && MS(t.type)) mk("3d", at(addD(t.due, -3), c.dayTime));
     });
-    // 2. Calendar events and (optionally) classes; study blocks count as study nudges
     (inp.occ || []).forEach(o => {
       if (!o || !isD(o.date) || !isT(o.start)) return;
       const startMs = at(o.date, o.start);
@@ -92,10 +86,8 @@ const RM_CORE = (() => {
       if (!c.events || (o.meeting && !c.classes)) return;
       add({id: `r:e:${o.id}`, at: startMs - c.eventLead * 60000, title: o.title || "Event", body: `${c.eventLead ? "Starts" : "Starting now,"} at ${fT(o.start)}${o.label ? " · " + o.label : ""}${o.where ? " · " + o.where : ""}`, taskId: "", kind: "event"}, startMs);
     });
-    // 3. Study nudges for planned study sessions (Study tasks on their study day)
     if (c.nudges) (inp.tasks || []).forEach(t => {
       if (!t || t.type !== "Study" || t.status === "done" || t.remind === "off") return;
-      // A one-day session is nudged on its day. A longer study task is nudged on the first day left and on its last day.
       const first = isD(t.start) ? t.start : t.due, last = isD(t.due) ? t.due : first;
       if (!isD(first)) return;
       const days = [...new Set([first < today && last >= today ? today : first, last])];
@@ -105,7 +97,6 @@ const RM_CORE = (() => {
         add({id: `r:n:${t.id}:${day}`, at: ms, title: soon ? "Study Session Soon" : "Study Session Today", body: `${t.title}${len}${t.course ? " · " + t.course : ""}`, taskId: t.id, kind: "nudge"}, isD(t.due) ? dueMs(t) : null);
       });
     });
-    // 4. Morning summary and 5. flashcards, once a day
     const open = (inp.tasks || []).filter(t => t && isD(t.due) && t.status !== "done");
     for (let i = 0; i < 14; i++) {
       const day = addD(today, i), next = addD(day, 1);
@@ -121,9 +112,7 @@ const RM_CORE = (() => {
         if (n) add({id: `r:f:${day}`, at: at(day, c.cardsTime), title: "Flashcards Due", body: `${n} flashcard${n === 1 ? " is" : "s are"} ready for review. A few minutes keeps them fresh.`, taskId: "", kind: "cards"}, null);
       }
     }
-    // Snoozed reminders pass straight through.
     (inp.snoozes || []).forEach(s => { if (s && s.id && ok(s.at)) out.push({id: s.id, at: s.at, title: s.title || "Reminder", body: s.body || "", taskId: s.taskId || "", kind: "snooze"}); });
-    // Fill in task wording now that the final times are known; drop exact repeats (same task within 15 minutes).
     out.forEach(r => { if (r._t) { r.body = phrase(r._t, r.at); delete r._t; } });
     out.sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : 1));
     const seen = new Set(), last = {};
@@ -152,16 +141,16 @@ const RM_CORE = (() => {
   const perm = () => canNotify() ? Notification.permission : "unsupported";
   const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   const standalone = () => !!((window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone);
-  // The App Store / Google Play apps get notifications through APNs / FCM (native-bridge.js), not Web Push.
+  // The App Store / Google Play apps get notifications through APNs / FCM (native-bridge.js)
   const NB = () => window.StudyboardNative || null;
   const nativePush = () => { try { const n = NB(); return !!(n && n.pushAvailable && typeof n.enablePush === "function"); } catch (e) { return false; } };
-  const pushCapable = () => nativePush() || (!DESK && !inClaude() && "serviceWorker" in navigator && "PushManager" in window && location.protocol === "https:");
+  const pushCapable = () => nativePush() || (!DESK && !inPreview() && "serviceWorker" in navigator && "PushManager" in window && location.protocol === "https:");
   const needsHomeScreen = () => isIOS() && !standalone() && !nativePush();
   const appUrl = () => /^https?:$/.test(location.protocol) ? location.origin + location.pathname : "";
   const fmtAt = ms => { const d = new Date(ms), day = iso(d), t = pad(d.getHours()) + ":" + pad(d.getMinutes()), td = todayISO();
     return `${day === td ? "Today" : day === addDays(td, 1) ? "Tomorrow" : fmtDate(day)}, ${fmtTime(t)}`; };
 
-  /* ---------- Working out the list ---------- */
+  /* Working out the list */
   let LIST = [], lastSig = "", debT = 0, timer = 0;
   function gather(){
     const c = rmCfg(), today = todayISO(), now = Date.now();
@@ -195,11 +184,11 @@ const RM_CORE = (() => {
   }
   function refreshSoon(ms){ clearTimeout(debT); debT = setTimeout(refresh, ms == null ? 1200 : ms); }
 
-  /* ---------- 1. While the app is open ---------- */
+  /* 1. While the app is open */
   function fired(){ const f = lsGet(LS_FIRED, {}), old = Date.now() - 2 * 864e5; Object.keys(f).forEach(k => { if (!(f[k] > old)) delete f[k]; }); return f; }
   function arm(){
     clearTimeout(timer);
-    if (deskNative()) return;                      // the desktop app shows them itself, even with the window closed
+    if (deskNative()) return;
     const f = fired(), now = Date.now();
     const due = LIST.filter(r => !f[r.id] && r.at <= now);
     if (due.length) {
@@ -249,7 +238,6 @@ const RM_CORE = (() => {
     const t = state.tasks[id];
     if (!t) { toast("That task isn't here any more."); return; }
     if (t.status === "done") { toast(`${t.title} is already complete`); return; }
-    // Same path as ticking the box, so undo, sync and celebrations all work.
     const b = document.createElement("button"); b.dataset.act = "toggle"; b.dataset.id = id; b.hidden = true;
     document.body.appendChild(b); b.click(); b.remove();
   }
@@ -260,7 +248,7 @@ const RM_CORE = (() => {
     toast(`Snoozed until ${fmtTime(pad(new Date(s.at).getHours()) + ":" + pad(new Date(s.at).getMinutes()))}`);
     refreshSoon(50);
   }
-  // Taps on notification buttons, passed on by the service worker, or by the desktop app.
+  // Taps on notification buttons, passed on by the service worker, or by the desktop app
   function handle(msg){
     if (!msg || typeof msg !== "object") return;
     const act = msg.action, rid = String(msg.rid || ""), taskId = String(msg.taskId || "");
@@ -279,7 +267,7 @@ const RM_CORE = (() => {
     setTimeout(() => { refresh(); handle({action: act || "open", taskId: task || "", rid, title: "", body: ""}); }, 600);
   }
 
-  /* ---------- 2. Desktop app, window closed ---------- */
+  /* 2. Desktop app, window closed */
   let deskSig = "";
   function deskSend(list){
     if (!deskNative()) return;
@@ -291,9 +279,9 @@ const RM_CORE = (() => {
   }
   if (DESK && typeof DESK.onOpenTask === "function") { try { DESK.onOpenTask(id => { if (id) openTask(String(id)); }); } catch (e) {} }
 
-  /* ---------- 3. Phones and browsers, app closed: the queue in Supabase ---------- */
+  /* 3. Phones and browsers, app closed */
   const Q = {missing: false, err: "", at: 0, sig: "", busy: false, t: 0, vkey: "", vtried: 0};
-  // On Studyboard's own server, one notification key is shared by everyone (the vapid_public row in studyboard_config).
+  // On Studyboard's own server, one notification key is shared by everyone
   const hostedPush = () => { try { return SB_HOSTED && !sbCustom(); } catch (e) { return false; } };
   const vKey = () => hostedPush() ? Q.vkey : rmCfg().vapid;
   async function loadVkey(){
@@ -323,18 +311,17 @@ const RM_CORE = (() => {
     }
     Q.busy = false;
   }
-  // A reminder this device already showed shouldn't come again by push.
+  // A reminder this device already showed shouldn't come again by push
   async function markSent(ids){
     const mine = ids.filter(id => /^[rs]:/.test(id));
     if (!mine.length || !cloudOk() || !rmCfg().push || Q.missing) return;
     try {
       const {error} = await sb.rpc("studyboard_reminders_mark_sent", {ids: mine});
-      // Servers that haven't re-run reminders.sql yet don't have the function: fall back to the direct update they still allow.
       if (error) await sb.from("reminder_queue").update({sent_at: new Date().toISOString()}).eq("user_id", sbUser.id).in("id", mine).is("sent_at", null);
     } catch (e) {}
   }
 
-  /* ---------- Web Push on this device ---------- */
+  /* Web Push on this device */
   const b64u = u8 => { let s = ""; u8.forEach(b => { s += String.fromCharCode(b); }); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
   const unb64u = s => { const t = String(s).replace(/-/g, "+").replace(/_/g, "/"), b = atob(t + "===".slice((t.length + 3) % 4)); return Uint8Array.from(b, ch => ch.charCodeAt(0)); };
   async function makeVapid(){
@@ -356,7 +343,7 @@ const RM_CORE = (() => {
     if (error) throw error;
     lsSet(LS_PUSH, {endpoint: j.endpoint, key: vKey(), at: Date.now()});
   }
-  async function saveNativeSub(t){   // t = {platform, kind: "apns" | "fcm", token} from StudyboardNative.enablePush()
+  async function saveNativeSub(t){
     const endpoint = t.kind + ":" + t.token;
     const {error} = await sb.from("push_subscriptions").upsert({user_id: sbUser.id, endpoint, kind: t.kind, p256dh: "", auth: "",
       device: (t.platform === "android" ? "Android" : isIOS() && /iPad/.test(navigator.userAgent) ? "iPad" : "iPhone") + ", Studyboard app", updated_at: new Date().toISOString()}, {onConflict: "user_id,endpoint"});
@@ -411,12 +398,12 @@ const RM_CORE = (() => {
     }
     lsSet(LS_PUSH, null);
   }
-  // Keep this device's subscription saved (browsers sometimes renew it).
+  // Keep this device's subscription saved (browsers sometimes renew it)
   let pushChecked = false;
   async function pushCheck(){
     if (pushChecked || !cloudOk() || !lsGet(LS_PUSH, null) || !pushCapable()) return;
     pushChecked = true;
-    if (nativePush()) {   // the token can change (reinstall, restore): re-read it without prompting and save it when it did
+    if (nativePush()) {
       try {
         const mem = lsGet(LS_PUSH, {}), t = await NB().enablePush({prompt: false});
         if (!t || !t.token) return;
@@ -446,7 +433,7 @@ const RM_CORE = (() => {
     return data || {};
   }
 
-  /* ---------- Screens ---------- */
+  /* Screens */
   const tIn = (k, v) => `<input type="time" class="rm-time" data-rm="${k}" value="${esc(v)}" aria-label="Time">`;
   const cb = (k, v, label) => `<label class="mi-check"><input type="checkbox" data-rm="${k}" ${v ? "checked" : ""}> ${label}</label>`;
   const sel = (k, v, opts, label) => `<select data-rm="${k}" class="rm-sel" aria-label="${esc(label)}">${opts.map(([x, l]) => `<option value="${x}" ${String(x) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
@@ -566,7 +553,7 @@ const RM_CORE = (() => {
   }
   const pmsg = t => { const m = $("#rmPMsg"); if (m) m.textContent = t; };
 
-  /* ---------- Per-task reminder in the task form ---------- */
+  /* Per-task reminder in the task form */
   const OVR = [["", "Default"], ["off", "No Reminder"], ["0", "At Due Time"], ["15m", "15 Minutes Before"], ["1h", "1 Hour Before"], ["2h", "2 Hours Before"], ["1d", "1 Day Before"], ["2d", "2 Days Before"], ["3d", "3 Days Before"], ["1w", "1 Week Before"]];
   let armed = null;
   const origForm = taskForm;
@@ -600,7 +587,7 @@ const RM_CORE = (() => {
     if (btn) btn.addEventListener("click", arm, true);
     form.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.tagName === "INPUT") arm(); }, true);
   }
-  // The form's save builds its own task object, so the choice is added as the save goes through.
+  // The form's save builds its own task object
   const origApply = applyChanges;
   applyChanges = function (changes, label, extra) {
     const A = armed;
@@ -613,7 +600,7 @@ const RM_CORE = (() => {
     return origApply.call(this, changes, label, extra);
   };
 
-  /* ---------- Hooks ---------- */
+  /* Hooks */
   hook("menu", () => {
     const c = rmCfg(), on = [c.tasks && "tasks", c.events && "events", c.morning && "morning summary", c.nudges && "study nudges", c.cards && "flashcards"].filter(Boolean);
     const where = deskNative() ? "Desktop notifications" : perm() === "granted" ? "Notifications on" : perm() === "denied" ? "Notifications blocked here" : "In the app only";

@@ -1,8 +1,7 @@
 /* ===== module: 90-grades.js ===== */
-/* Studyboard 1.11.0: Grade Tracker ("What Do I Need?") and Rough Week Rescue. Module prefix 90-grades. */
+/* Studyboard 1.11.0 */
 (() => {
-  /* ---------- Settings and helpers ---------- */
-  // A common letter scale, used until you set your own. Students can change it per course, or for all courses (Grade Settings can also read one from a screenshot or pasted text).
+  /* Settings and helpers */
   const G_SCALE = [["A+", 90], ["A", 85], ["A-", 80], ["B+", 76], ["B", 72], ["B-", 68], ["C+", 64], ["C", 60], ["C-", 55], ["D", 50], ["F", 0]];
   const gset = () => { const g = Object.assign({pass: 50, prompt: true, rescue: true, scale: null}, (state.settings && state.settings.grades) || {}); if (!isNum(g.pass)) g.pass = 50; return g; };
   const saveG = patch => { state.settings = Object.assign({}, state.settings, {grades: Object.assign({}, (state.settings && state.settings.grades) || {}, patch)}); saveSettings(); };
@@ -19,7 +18,7 @@
   const fmtW = v => r1(v) + "%";
   const courseName = c => c ? courseLabel(c) : "this course";
 
-  // "43/50", "43 out of 50", "86%" or "86". Returns null when empty, undefined when it can't be read.
+  // "43/50", "43 out of 50", "86%" or "86"
   function parseMark(s){
     s = String(s == null ? "" : s).trim().replace(/,/g, ".");
     if (!s) return null;
@@ -33,21 +32,20 @@
   const fmtMark = m => !m ? "" : Number(m.outOf) === 100 ? r1(m.got) + "%" : `${r1(m.got)}/${r1(m.outOf)}`;
   const markInput = m => !m ? "" : Number(m.outOf) === 100 ? String(r1(m.got)) + "%" : `${m.got}/${m.outOf}`;
 
-  /* ---------- Grade math ---------- */
-  // Weighted work in a course. Everything's in "percent of the course grade".
-  function courseGrade(c, asOf){                                  // asOf: optional Set of task ids; only those marks count (grade trend)
+  /* Grade math */
+  function courseGrade(c, asOf){
     const g = gradingOf(c);
     const ts = allTasks().filter(t => t.courseId === c.id && hasWeight(t) && !t.prepFor);
     const marked = ts.filter(t => markPct(t) != null && (!(asOf instanceof Set) || asOf.has(t.id))), open = ts.filter(t => !marked.includes(t));
     const wMarked = marked.reduce((s, t) => s + Number(t.weight), 0);
     const earned = marked.reduce((s, t) => s + Number(t.weight) * markPct(t) / 100, 0);
     const wAll = ts.reduce((s, t) => s + Number(t.weight), 0);
-    const D = Math.max(100, wAll);                                 // weights over 100 are scaled down
+    const D = Math.max(100, wAll);
     const remaining = Math.max(0, D - wMarked), unlisted = Math.max(0, 100 - wAll);
     const current = wMarked > 0 ? earned / wMarked * 100 : null;
     const minFinal = earned / D * 100, maxFinal = (earned + remaining) / D * 100;
     const need = target => remaining > 0.01 ? (target * D / 100 - earned) / remaining * 100 : null;
-    const remShown = remaining / D * 100;                         // share of the final grade still to come
+    const remShown = remaining / D * 100;
     const projected = current == null ? null : remaining > 0.01 ? current : minFinal;
     const gr = {c, g, ts, marked, open, wMarked: wMarked / D * 100, earned, wAll, D, remaining: remShown, unlisted, current, minFinal, maxFinal, projected, need, done: remaining <= 0.01};
     gr.risk = riskOf(gr);
@@ -64,7 +62,7 @@
   }
   const grades = () => coursesArr().map(courseGrade);
 
-  /* ---------- Mark entry: quick sheet ---------- */
+  /* Mark entry: quick sheet */
   function markSheet(id, back){
     const t = state.tasks[id]; if (!t) return;
     const c = courseOf(t.courseId), g = gradingOf(c);
@@ -90,8 +88,7 @@
     $("#gmIn").addEventListener("input", out); out();
     const del = $("#gmDel"); if (del) del.addEventListener("click", () => save(null));
   }
-  /* Paste grades from the school's Grades page. The web version can't read the school's site (only the desktop and phone apps sign in to it),
-     so on the Brightspace Grades page: select everything, copy, and paste it here. Each row's "points / out of" becomes a mark. */
+  /* Paste grades from the school's Grades page */
   function parseBsGrades(text){
     const lines = String(text || "").split(/\r?\n/).map(l => l.replace(/\u00a0/g, " ").trim());
     const PT = /(\d+(?:[.,]\d+)?)\s*\/\s*(\d+(?:[.,]\d+)?)/g, n = x => Number(String(x).replace(",", "."));
@@ -141,7 +138,7 @@
     return `<b>${fmtP(p)}</b>${L ? ` (${esc(L)})` : ""}${hasWeight(t) ? `, which adds ${r1(Number(t.weight) * p / 100)} of the ${r1(Number(t.weight))} points this is worth` : ""}.`;
   }
 
-  /* ---------- Task form: a compact Mark field ---------- */
+  /* Task form: a compact Mark field */
   const origTaskForm = taskForm;
   taskForm = function(t, preset){
     const r = origTaskForm.apply(this, arguments);
@@ -165,7 +162,7 @@
     };
     form.addEventListener("input", sync); form.addEventListener("change", sync); sync();
   }
-  // Save the mark in the same change as the task, so one Undo covers both.
+  // Save the mark in the same change as the task, so one Undo covers both
   let pendingMark = null;
   const stageMark = e => {
     const wrap = $("#gMarkWrap"), inp = $("#gMarkIn");
@@ -189,7 +186,7 @@
     }
     return origApply.apply(this, arguments);
   };
-  // The task's History shows mark changes too.
+  // The task's History shows mark changes too
   const origHist = historyDiff;
   historyDiff = function(a, b){
     const out = origHist.apply(this, arguments);
@@ -197,7 +194,7 @@
     return out;
   };
 
-  /* ---------- Gentle "Add Your Mark?" prompt after finishing weighted work ---------- */
+  /* Gentle "Add Your Mark?" prompt after finishing weighted work */
   const ASKED = "studyboard:gradeAsked";
   const asked = () => { try { return JSON.parse(localStorage.getItem(ASKED) || "[]") || []; } catch(e) { return []; } };
   const setAsked = id => { try { localStorage.setItem(ASKED, JSON.stringify(asked().concat(id).slice(-200))); } catch(e) {} };
@@ -209,7 +206,7 @@
     if (!hasWeight(t) || t.mark || t.prepFor || asked().includes(t.id)) return;
     setAsked(t.id);
     clearTimeout(promptT);
-    promptT = setTimeout(() => showPrompt(t.id), 6800);   // after the Completed toast and its Undo
+    promptT = setTimeout(() => showPrompt(t.id), 6800);
   });
   function showPrompt(id){
     const t = state.tasks[id], el = $("#grPrompt");
@@ -222,7 +219,7 @@
   }
   function hidePrompt(){ const el = $("#grPrompt"); if (!el) return; el.classList.remove("show"); setTimeout(() => { if (!el.classList.contains("show")) el.hidden = true; }, 250); }
 
-  /* ---------- Course page: grade card ---------- */
+  /* Course page: grade card */
   function needLines(gr){
     const g = gr.g, out = [], nm = esc(courseName(gr.c)), L = p => letterOf(p, g.scale);
     const remTxt = `the remaining ${fmtW(gr.remaining)}`;
@@ -247,13 +244,13 @@
     return out;
   }
   const riskPill = r => r === "risk" ? `<span class="pill gr-risk">Pass Mark at Risk</span>` : r === "out" ? `<span class="pill gr-risk">Talk to Your Instructor</span>` : r === "watch" ? `<span class="pill gr-watch">Close to Pass Mark</span>` : "";
-  // Distance from where the course stands now to the goal: {gap: points (+ above, - below), text}
+  // Distance from where the course stands now to the goal
   function goalGap(gr){
     const goal = gr.g.goal; if (goal == null || gr.current == null) return null;
     const gap = r1(gr.current - goal);
     return {gap, text: gr.done ? (gr.minFinal >= goal ? "Goal reached" : `${r1(goal - gr.minFinal)} pts under goal`) : gap >= 0 ? `${r1(gap)} pts above goal` : `${r1(-gap)} pts to goal`};
   }
-  // The unmarked graded item with the most weight: where effort moves the final grade most (ties go to the soonest due)
+  // The unmarked graded item with the most weight
   function biggestSwing(gr){
     const open = (gr.open || []).filter(t => Number(t.weight) > 0);
     if (gr.done || open.length < 2) return null;
@@ -261,7 +258,7 @@
     const share = Number(t.weight) / gr.D * 100;
     return {t, share, per10: share / 10};
   }
-  // What a course would look like with pretend marks: vals {taskId: percent}. Pure; nothing is saved.
+  // What a course would look like with pretend marks
   function whatIf(gr, vals){
     let e = gr.earned, wm = gr.marked.reduce((x, t) => x + Number(t.weight), 0), n = 0;
     gr.open.forEach(t => { const v = vals && vals[t.id]; if (isNum(v)) { e += Number(t.weight) * Number(v) / 100; wm += Number(t.weight); n++; } });
@@ -292,7 +289,7 @@
       <p class="gr-wi-out" role="status" aria-live="polite">${whatIfOut(gr, vals)}</p>
       <button type="button" class="link-btn" data-act="wi-clear" data-id="${esc(gr.c.id)}" style="justify-self:start"${Object.keys(vals).length ? "" : " hidden"}>Clear What-Ifs</button></div>`;
   }
-  // The one course closest to a line that matters (pass mark or goal), and a single plain sentence about what it needs
+  // The one course closest to a line that matters (pass mark or goal)
   function topNeed(all){
     const cand = all.filter(gr => gr.ts.length && !gr.done && gr.current != null && gr.remaining > 0.01);
     if (!cand.length) return null;
@@ -328,7 +325,6 @@
     return list.slice().sort(sortTasks).map(t => {
       const p = markPct(t);
       const fbk = window.SBLMS_HASFB && SBLMS_HASFB(t);
-      // With feedback, a rubric or the class's results from the school site, the row opens in place to show them
       const open = !!(fbk && ui.grOpen && ui.grOpen[t.id]), L = fbk ? FIELDS_OF(t) : null, what = L && (L.feedback || L.rubric) ? "Feedback" : "Class Results";
       return `<li class="${fbk ? "gr-has-drop" : ""}"><button class="gr-row-main" data-act="${fbk ? "lms-fb" : "edit-task"}" data-id="${esc(t.id)}"${fbk ? ` aria-expanded="${open}"` : ""}><span class="gr-row-t">${esc(t.title)}${fbk ? ` <span class="pill lms-fbpill">${what}<span class="gr-chev" aria-hidden="true">▾</span></span>` : ""}</span><span class="mini">${esc(t.type)}, worth ${fmtW(Number(t.weight))}${t.due ? `, due ${esc(fmtShort(t.due))}` : ""}${swingId === t.id ? ` <span class="pill gr-swing">Biggest swing</span>` : ""}</span></button>
         ${p != null ? `<button class="gr-mk" data-act="g-mark" data-id="${esc(t.id)}" aria-label="Edit mark for ${esc(t.title)}"><b>${fmtP(p)}</b>${Number(t.mark.outOf) !== 100 ? `<span class="mini">${esc(fmtMark(t.mark))}</span>` : ""}</button>`
@@ -346,16 +342,14 @@
       : "Pass mark out of reach. Talk to your instructor.";
   }
   window.SBGRADES = {lines: () => grades().filter(gr => gr.ts.length).map(gr => `${courseLabel(gr.c)}: ${gr.current != null ? "current " + fmtP(gr.current) + (letterOf(gr.current, gr.g.scale) ? " (" + letterOf(gr.current, gr.g.scale) + ")" : "") + " on " + fmtW(gr.wMarked) + " marked" : "no marks yet"}; pass mark ${fmtP(gr.g.pass)}${gr.g.goal != null ? ", goal " + fmtP(gr.g.goal) : ""}. ${gradeLine(gr)}`)};
-  // For the course cards and a course's header: where a course stands, or null when it has no graded work
-  // When the courses read from the school site agree on a pass mark (two or more, none different), it becomes the default for courses
-  // without one of their own, unless the student set the default themselves
+  // For the course cards and a course's header
   window.SBGRADES.schoolPass = list => {
     const u = [...new Set((list || []).filter(isNum).map(Number))];
     if ((list || []).length < 2 || u.length !== 1 || gset().passSrc === "user" || r1(gset().pass) === r1(u[0])) return;
     saveG({pass: r1(u[0]), passSrc: "school"}); scheduleRender();
   };
   window.SBGRADES.now = c => { try { const gr = courseGrade(c); if (!gr.ts.length) return null; return {pct: gr.current, letter: gr.current != null ? letterOf(gr.current, gr.g.scale) : "", marked: gr.wMarked, fmt: fmtP, line: gradeLine(gr), risk: gr.risk, done: gr.done}; } catch (e) { return null; } };
-  // The Grades tab of one course: where you stand, what you need, then the graded work in two short lists
+  // The Grades tab of one course
   function gradeCard(c){
     const gr = courseGrade(c), g = gr.g, L = p => letterOf(p, g.scale);
     const settingsBtn = `<button class="btn small" data-act="g-paste" data-id="${esc(c.id)}">Paste Grades</button> <button class="btn small" data-act="g-course-set" data-id="${esc(c.id)}">Grade Settings</button>`;
@@ -378,7 +372,7 @@
     </section>`;
   }
   document.addEventListener("toggle", e => { const d = e.target; if (d && d.classList && d.classList.contains("gr-list")) { ui.grListOpen = ui.grListOpen || {}; ui.grListOpen[d.dataset.cid] = d.open; } }, true);
-  /* ---------- Courses: a Grades tab, on the course list and inside each course ---------- */
+  /* Courses: a Grades tab, on the course list and inside each course */
   const courseTabs = (cur, labels) => `<div class="bview-tabs cd-tabs" role="tablist" aria-label="Courses view">${labels.map(([k, l]) => `<button type="button" role="tab" data-act="course-tab" data-id="${k}" aria-selected="${cur === k}">${l}</button>`).join("")}</div>`;
   const origDetail = viewCourseDetail;
   viewCourseDetail = function(c){
@@ -406,12 +400,10 @@
     const html = origCourses.apply(this, arguments);
     if (ui.courseId) return html;
     if (!coursesArr().length) return html;
-    // The Courses / Files / Grades switch is one row at the top of the page (cfSwitchHtml)
     if (ui.courseTab === "grades") { try { return gradesPage(); } catch (err) { console.warn("grades: page", err); return html; } }
     return html;
   };
-  // Every course side by side, then the marks still to enter, then options
-  // Grades B: one hero card (the average, three counts, a colour bar per course), then a course's marks and a What Do I Need? calculator
+  // Every course side by side, then the marks still to enter, then options Grades B
   const GP_CAP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5"/><path d="M22 9v6"/></svg>';
   function gradesPage(){
     const all = grades(), s = gset();
@@ -425,7 +417,6 @@
         <div class="gp-hero-t"><span class="g2-kick">Average Across Courses</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"} with marks · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : "all on track"}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span><span class="gp-hero-sub">Marks you enter show up here</span>`}</div>
         <div class="gp-sum">${stat(atRisk, "Need attention", atRisk)}${stat(waiting.length, "Waiting for a mark")}${stat(Math.max(0, toCome), "Marks still to come")}</div></div>`;
     const tn = topNeed(all);
-    // Each course's marks and its What Do I Need? calculator open in a dropdown under that course's row
     const detailOf = gr => {
       const c = gr.c, g = gr.g;
       const tg = [["Pass", g.pass]].concat((g.scale || []).filter(x => Number(x[1]) > g.pass).map(x => [x[0], Number(x[1])]).sort((a, b) => a[1] - b[1]).slice(-4));
@@ -481,7 +472,7 @@
     return true;
   });
   document.addEventListener("toggle", e => { const d = e.target; if (d && d.classList && d.classList.contains("gp-opts")) ui.gpOpts = d.open; }, true);
-  // What-if boxes: typed marks only live in memory and update the line under them as you type
+  // What-if boxes
   document.addEventListener("input", e => {
     const i = e.target, box = i && i.dataset && i.dataset.wi ? i.closest("[data-wi-course]") : null; if (!box) return;
     const cid = box.dataset.wiCourse, c = courseOf(cid); if (!c) return;
@@ -510,8 +501,7 @@
     $$('.course-card[data-act="open-course"]').forEach(card => {
       const c = courseOf(card.dataset.id), body = card.querySelector(".body");
       if (!c || !body || body.querySelector(".gr-mini")) return;
-      const gr = courseGrade(c); if (!gr.ts.length || gr.current == null) return;   // a grade shows once there are marks (no "No marks yet" or pass mark line)
-      // the redesigned card already shows the grade in its footer: it only takes the risk pill (and the trend line, which looks for .gr-mini)
+      const gr = courseGrade(c); if (!gr.ts.length || gr.current == null) return;
       const cg = body.querySelector(".c2-grade");
       if (cg) { cg.classList.add("gr-mini"); if (gr.risk) cg.insertAdjacentHTML("beforeend", riskPill(gr.risk)); return; }
       const L = p => letterOf(p, gr.g.scale);
@@ -524,15 +514,13 @@
     });
   });
 
-  /* ---------- Course grade settings ---------- */
-  // Pasted text, one letter per line: "A+ 90", "A+: 90-100%", "B 80 to 84". A range counts by its lower end. (Without AI this is how pasted text is read.)
+  /* Course grade settings */
   function parseScale(txt){
     const out = [], seen = new Set();
     String(txt || "").split(/\r?\n/).forEach(line => {
       const m = /^\s*(?:grade\s*)?([A-Za-z][A-Za-z+\-]{0,3})(?=[\s:=.)\-–—\d]|$)(.*)$/i.exec(line);
       if (!m) return;
       const l = m[1].toUpperCase(), rest = m[2];
-      // "below 50" is the top of the lowest band, so that letter starts at 0; a range counts by its lower end; a % sign wins over other numbers; a GPA column (4.0, 3.7) is skipped
       const rg = /(\d+(?:\.\d+)?)\s*%?\s*(?:-|–|—|to)\s*(\d+(?:\.\d+)?)/i.exec(rest), pc = /(\d+(?:\.\d+)?)\s*%/.exec(rest);
       let nums = rest.match(/\d+(?:\.\d+)?/g) || []; if (nums.length > 1) nums = nums.filter(x => !/^[0-4]\.\d{1,2}$/.test(x));
       const v = /below|under|less than|</i.test(rest) && nums.length ? 0 : rg ? Math.min(Number(rg[1]), Number(rg[2])) : pc ? Number(pc[1]) : nums.length ? Number(nums[0]) : NaN;
@@ -541,7 +529,7 @@
     });
     return out.length >= 2 ? out.sort((a, b) => b[1] - a[1]) : null;
   }
-  // What the AI returns is only kept if it looks like a real scale; for pasted text every number must really be in the text
+  // What the AI returns is only kept if it looks like a real scale
   const numberIn = (text, n) => [String(n), n.toFixed(1)].some(f => new RegExp("(^|[^0-9.])" + f.replace(".", "\\.") + "(?![0-9])").test(text));
   function cleanScale(raw, text){
     const seen = new Set(), out = [];
@@ -554,7 +542,7 @@
     return out.length >= 2 ? out.sort((a, b) => b[1] - a[1]) : null;
   }
   const SCALE_SCHEMA = {type: "OBJECT", properties: {scale: {type: "ARRAY", items: {type: "OBJECT", properties: {letter: {type: "STRING"}, min: {type: "NUMBER", description: "The lowest percent that earns this letter"}}, required: ["letter", "min"]}}}, required: ["scale"]};
-  // A screenshot or PDF needs AI; pasted text uses AI when it is on and otherwise the plain reader above
+  // A screenshot or PDF needs AI
   async function readScale(src){
     const ai = aiReady(), text = src.text != null ? String(src.text) : null;
     if (src.file && !ai) throw new Error(tr("gr.sc.needAi", "Reading a screenshot needs AI. Set up AI in Settings (Gemini is free), or paste the scale as text instead."));
@@ -571,10 +559,6 @@
     if (text != null) { const r = parseScale(text); if (r) return {scale: r, how: "plain"}; }
     throw new Error(tr("gr.sc.aiFail", "Couldn't read a grade scale from that. Make sure it shows letters with percents, or type them in the boxes."));
   }
-  /* ---------- Find my school's grade scale and pass mark ----------
-     The school comes from the learning site you connected (Brightspace, Canvas or Blackboard), or from a name you type. Only that address or name is
-     sent to your AI (never marks, tasks or anything personal). The AI answers from what it knows, with no web search, so the result is always
-     offered for the student to check first. If the AI isn't sure, the student is asked to upload a screenshot or paste the scale. */
   const hostOf = u => { try { return new URL(u).hostname.toLowerCase().replace(/^www\./, ""); } catch (e) { return ""; } };
   function schoolHosts(){
     const out = [], L = window.SBLMS; if (!L) return out;
@@ -585,22 +569,20 @@
         if (!host && c.feed) host = hostOf(c.feed);
         host = host.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
         if (host) out.push({id, host, name: String(c.name || "").trim().slice(0, 80)});
-      } catch (e) { /* not connected */ }
+      } catch (e) { }
     });
     return out;
   }
-  // The AI answers from what it knows (web search needs paid quota on most keys). There is no web page behind the answer, so it is
-  // only ever offered for the student to check against their course outline, never filled in by itself.
+  // The AI answers from what it knows (web search needs paid quota on most keys)
   async function findSchool({host, name, program}){
     const text = `Learning site address: ${host || "(not given)"}.${name ? ` The student calls their school: ${name}.` : ""}${program ? ` The student's program: ${program}.` : ""}`;
     const call = () => aiCall({task: "school", auto: false, maxTokens: 3000, temperature: 0, parts: [{text}],
       system: "You know the grading rules of colleges and universities. Work out which school uses the learning site address given (or is named). Some schools give a program (a faculty, school, college or degree such as nursing, engineering or an MBA) its own letter scale or pass mark. If a program is given and you are confident that program has its own scale or pass mark, give that one and set scope to \"program\". Otherwise give the school's general undergraduate letter scale (each letter with the lowest percent that earns it) and minimum passing mark (percent), and set scope to \"school\". Only answer if you are confident the numbers are right for that school (and program). If you are not sure, answer found false. Never guess and never use another school's scale. Reply with JSON only: {\"found\": true or false, \"school\": \"the school's name\", \"scope\": \"program\" or \"school\", \"program\": \"the program the scale is for, or empty\", \"scale\": [{\"letter\": \"A+\", \"min\": 90}], \"pass\": a number or null, \"note\": \"one short sentence\"}."});
     let r;
     try { r = await call(); }
-    catch (e) { if (e && (e.code === "bad" || e.code === "long")) r = await call(); else throw e; }      // a garbled or cut-off answer gets one more try
+    catch (e) { if (e && (e.code === "bad" || e.code === "long")) r = await call(); else throw e; }
     return Object.assign({}, r, {recalled: true});
   }
-  // The answer is trusted only when it has a real scale and names a page that was one of its search results
   function vetSchool(r){
     const d = (r && r.data) || {};
     if (d.found !== true) return null;
@@ -644,7 +626,7 @@
       const ls = fd.getAll("sl").map(x => String(x).trim().toUpperCase().replace(/\s+/g, "")), ps = fd.getAll("sp").map(x => String(x).trim());
       const scale = [], seenL = new Set();
       for (let i = 0; i < ls.length; i++) {
-        if (!ls[i] && !ps[i]) continue;                                   // an empty row is ignored
+        if (!ls[i] && !ps[i]) continue;
         if (!/^[A-Z][A-Z+\-]{0,3}$/.test(ls[i])) { toast(tr("gr.sc.badLetter", "Each box needs a letter, like A+ or B")); return false; }
         if (!isNum(ps[i]) || Number(ps[i]) < 0 || Number(ps[i]) > 100) { toast(tr("gr.sc.badPct", "Enter a percent from 0 to 100 for {l}", {l: ls[i]})); return false; }
         if (seenL.has(ls[i])) { toast(tr("gr.sc.dup", "{l} is in the list twice", {l: ls[i]})); return false; }
@@ -658,10 +640,8 @@
       const fnd = dlg.__schoolFound;
       if (all && fnd && fnd.pass != null && Number(pass) === fnd.pass) saveG({pass: fnd.pass, school: {name: fnd.school, url: fnd.url, host: fnd.host, at: Date.now(), official: !!fnd.official, program: fnd.program || "", scope: fnd.scope || "school"}, program: dlg.__program || ""});
       const n = clone(state.courses[id]), was = (state.courses[id].grading || {});
-      // A pass mark the student types (or keeps after it was filled in) is theirs from now on: a sync never changes it
       const mine = r1(pass) !== r1(g.pass) || was.passSrc === "user";
       if (fd.get("passAll")) {
-        // For every course: this becomes the default, and each course uses it (marked as the student's, so syncs leave it)
         saveG({pass: r1(pass), passSrc: "user"});
         const chs = coursesArr().filter(x => x.id !== id).map(x => { const o = clone(x); o.grading = Object.assign({}, o.grading || {}, {pass: null, passSrc: "user", passFrom: ""}); return {kind: "course", id: x.id, after: o}; });
         n.grading = {pass: null, passSrc: "user", passFrom: "", goal: goalS ? r1(Number(goalS)) : null, scale: all || isDef ? null : scale};
@@ -674,15 +654,15 @@
     });
     wireScale();
   }
-  // The scale boxes: add and remove letters, and fill them from the school lookup, a screenshot, a pasted image or pasted text
+  // The scale boxes
   function wireScale(){
     const rows = $("#gsRows"), msg = $("#gsMsg"), say = t => { if (msg) msg.textContent = t; };
-    let dirty = false, found = null;                                      // dirty: the student has typed in the boxes; found: what the school lookup gave
+    let dirty = false, found = null;
     const fill = sc => { rows.innerHTML = sc.map(x => scaleRow(x[0], Number(x[1]))).join(""); };
     const showPaste = () => { const b = $("#gsPasteBox"), pb = $("#gsPasteBtn"); if (b && b.hidden) { b.hidden = false; pb.setAttribute("aria-expanded", "true"); } };
     const apply = f => { dlg.__schoolFound = f; fill(f.scale); { const al = dlg.querySelector('input[name="all"]'); if (al) al.checked = true; } const pi = dlg.querySelector('input[name="pass"]'); if (f.pass != null && pi) pi.value = String(r1(f.pass)); found = f; };
     const block = $("#gsSchool");
-    let prog = String(gsave().program || (window.SBAREA && SBAREA.get() ? SBAREA.get().text : "") || "").trim().slice(0, 80);      // the program is kept as typed, and starts as the major from Area of Study
+    let prog = String(gsave().program || (window.SBAREA && SBAREA.get() ? SBAREA.get().text : "") || "").trim().slice(0, 80);
     dlg.__program = prog;
     block.addEventListener("input", e => { if (e.target.id === "gsProgram") { prog = e.target.value.trim(); dlg.__program = prog; } });
     const hosts = schoolHosts();
@@ -736,14 +716,13 @@
     const box = $("#gsPasteBox"), pb = $("#gsPasteBtn");
     pb.addEventListener("click", () => { box.hidden = !box.hidden; pb.setAttribute("aria-expanded", String(!box.hidden)); if (!box.hidden) $("#gsPaste").focus(); });
     $("#gsPasteGo").addEventListener("click", () => { const t = $("#gsPaste").value; if (!t.trim()) { say(tr("gr.sc.empty", "Paste the grade scale first.")); $("#gsPaste").focus(); return; } run({text: t}); });
-    // Pasting a screenshot anywhere in this sheet works too
     dlg.addEventListener("paste", e => {
       const it = [...((e.clipboardData && e.clipboardData.items) || [])].find(x => x.kind === "file" && /^image\//.test(x.type)); if (!it) return;
       const f = it.getAsFile(); if (f) { e.preventDefault(); run({file: f}); }
     });
   }
 
-  /* ---------- Grades sheet (from Settings and the Courses page) ---------- */
+  /* Grades sheet (from Settings and the Courses page) */
   function gradesSheet(){
     const all = grades();
     const waiting = tasksArr().filter(t => t.status === "done" && hasWeight(t) && !t.mark && !t.prepFor).sort(sortTasks);
@@ -780,7 +759,7 @@
   }
   hook("menu", () => `<button data-act="g-grades"><span>Grades<span class="sub">Your marks, what you need on the rest, and pass marks</span></span></button>`);
 
-  /* ---------- Today's Plan: courses near their pass mark move up a little ---------- */
+  /* Today's Plan: courses near their pass mark move up a little */
   const BOOST = {risk: 1.25, out: 1.1, watch: 1.12};
   const origCF = computeFocus;
   computeFocus = function(){
@@ -803,12 +782,10 @@
       x.reasons = (x.reasons || []).slice(); x.reasons.splice(Math.min(1, x.reasons.length), 0, why);
     });
     if (!any) return;
-    // Re-rank and re-split today's time the same way the plan does.
     F.ranked.sort((a, b) => b.score - a.score);
     if (typeof deadlineGuard === "function") { deadlineGuard(F.ranked, x => x, "score"); F.ranked.sort((a, b) => b.score - a.score); }
     const left = splitToday(F.ranked, F.th, F.th >= F.thSet - F.doneToday - 0.001);
     F.planned = F.th - Math.max(0, left);
-    // The free-time placement was made for the old split: redo it so the slots, the "moved to a lighter day" notes and the totals match
     if (F.av) { try { F.avail = availPlan(F.av, F.ranked, F.th0, F.ranked.reduce((t, x) => t + (x.need || 0), 0), F.day, F.today, F.now); F.slotsBy = F.avail.by; if (F.avail.active) F.planned = F.avail.planned; } catch (e) { console.warn(e); } }
     F.gapWhy = planGapWhy(F);
   }
@@ -821,7 +798,7 @@
     return html.slice(0, j) + p + html.slice(j);
   };
 
-  /* ---------- Rough Week Rescue ---------- */
+  /* Rough Week Rescue */
   const RW_KEY = "studyboard:roughWeekHidden";
   const rwHidden = () => { try { return localStorage.getItem(RW_KEY) === mondayOf(todayISO()); } catch(e) { return false; } };
   function rwWindow(){
@@ -829,7 +806,7 @@
     const cap = Number(state.settings.capacity) || 0, byDay = th + dh * 6;
     return {today, end, avail: cap ? Math.min(byDay, cap) : byDay, capUsed: !!cap && cap < byDay, cap, byDay};
   }
-  // Hours of a task that land in the next 7 days.
+  // Hours of a task that land in the next 7 days
   function loadOf(t, w){
     if (!t || t.status === "done" || !t.due) return 0;
     const R = remainingOf(t); if (!(R > 0)) return 0;
@@ -851,7 +828,6 @@
       const t = x.t, W = hasWeight(t) ? Number(t.weight) : 0, exam = t.prepFor && state.tasks[t.prepFor];
       const fix = why => fixed.push(Object.assign({}, x, {why}));
       if (MILESTONE(t.type)) return fix(t.type === "Exam" ? "Exam date" : "Quiz date");
-      // Not due this week and not started: it can start later. Big ones stay unticked, since they need the time next week.
       if (t.due > w.end && t.status === "todo" && !blockers(t).length) {
         const ns = addDays(w.end, 1), left = dayDiff(ns, t.due);
         if (left >= 1) return sugg.push(Object.assign({}, x, {ov: {start: ns}, on: W < 15 && left >= 3, label: `Start ${fmtShort(ns)} instead`,
@@ -874,7 +850,6 @@
       }
       fix(W ? `Graded deadline, worth ${fmtW(W)}` : t.type === "Study" ? "Study session" : "Class deadline");
     });
-    // One heavy assignment that an extension would help most.
     const heavy = items.filter(x => !MILESTONE(x.t.type) && hasWeight(x.t) && Number(x.t.weight) >= 10 && x.t.due >= w.today && x.t.due <= w.end && x.h >= 2
       && !tasksArr().some(e => e.extFor === x.t.id && e.status !== "done")).sort((a, b) => b.h - a.h)[0] || null;
     const need = items.reduce((s, x) => s + x.h, 0);
@@ -910,7 +885,7 @@
       <span class="rw-acts"><button class="btn small primary" data-act="rw-open">Rough Week? Make a Plan</button><button class="btn small" data-act="rw-hide">Not This Week</button></span></div>`;
   }
 
-  let RW = null;       // the plan being edited in the sheet
+  let RW = null;
   function rwSheet(){
     RW = rwPlan();
     const p = RW, w = p.w;
@@ -921,7 +896,7 @@
       if (kind === "fixed") return `<li class="rw-row" style="--c:${esc(colorOf(t.courseId))}"><span class="rw-dot"></span><span class="rw-body">${main}<span class="mini">${esc(x.why)}. ${esc(due)}.</span></span><span class="rw-h">${fmtHM(x.h)}</span></li>`;
       return `<li class="rw-row" style="--c:${esc(colorOf(t.courseId))}"><span class="rw-dot"></span><label class="rw-pick"><input type="checkbox" data-rw="${i}" ${x.on ? "checked" : ""}><span class="rw-body">${main}<span class="rw-lab">${esc(x.label)}</span><span class="mini">${esc(x.note)}${x.ov.due ? " " + esc(due) + "." : ""}</span></span></label><span class="rw-h">${fmtHM(x.h)}</span></li>`;
     };
-    const aiBit = inClaude() ? "" : aiReady() ? (() => {
+    const aiBit = inPreview() ? "" : aiReady() ? (() => {
       const cfg = aiCfg(), paid = !isFreeModel(cfg.provider, cfg.model);
       return `<div class="rw-ai"><div class="rw-ai-head"><button type="button" class="btn small ai-btn" id="rwAiBtn" ${paid ? "disabled" : ""}>${AI_ICON} Write a Short Plan</button><span class="mini">Optional. A few encouraging sentences about this plan.</span></div>
         ${paid ? `<label class="mi-check"><input type="checkbox" id="rwAiOk"> This uses my paid ${esc(AI_PROVIDERS[cfg.provider].short)} account (${esc(aiModelName(cfg.provider, cfg.model))}) and may cost a little money.</label>` : ""}
@@ -1011,7 +986,7 @@ ${p.ext && p.heavy ? `Adding a reminder to ask for an extension on ${nm(p.heavy.
     } finally { const b = $("#rwAiBtn"); if (b) b.classList.remove("busy"); }
   }
 
-  /* ---------- Clicks ---------- */
+  /* Clicks */
   hook("act", (act, el, id) => {
     switch (act) {
       case "g-mark": { const back = el.dataset.back === "grades" ? gradesSheet : null; markSheet(id, back); return true; }
@@ -1031,8 +1006,8 @@ ${p.ext && p.heavy ? `Adding a reminder to ask for an extension on ${nm(p.heavy.
     if (!$("#grPrompt")) { const d = document.createElement("div"); d.id = "grPrompt"; d.className = "gr-prompt"; d.setAttribute("role", "status"); d.hidden = true; document.body.appendChild(d); }
   });
 
-  // For tests and other modules.
-  window.SBGRADES.math = {courseGrade, letterOf, markPct, fmtP, gradingOf};   // 90-grade-trend.js reuses the grade math
+  // For tests and other modules
+  window.SBGRADES.math = {courseGrade, letterOf, markPct, fmtP, gradingOf};
   window.__sbGrades = {parseMark, parseScale, cleanScale, vetSchool, schoolHosts, courseGrade: id => courseGrade(courseOf(id)), rwPlan, showPrompt,
     addTask: f => { const t = newTask(f); applyChanges([{kind: "task", id: t.id, after: t}], null); return t.id; },
     setCourse: (id, patch) => applyChanges([{kind: "course", id, after: Object.assign(clone(state.courses[id]), patch)}], null),

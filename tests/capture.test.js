@@ -1,11 +1,11 @@
-// node tests/capture.test.js  (extracts the CAPTURE block from index.html and tests the pure core: parser, courses, links, validators)
+// node tests/capture.test.js
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const src = require("../scripts/app-files").source();
 const block = src.slice(src.indexOf("/* CAPTURE-START"), src.indexOf("/* CAPTURE-END */"));
 const CAP = new Function(block + "; return CAP;")();
 let n = 0; const t = (name, fn) => { fn(); n++; console.log("ok -", name); };
 const courses = [{id: "c1", code: "BIO101", name: "Intro Biology", aliases: ["bio"]}, {id: "c2", code: "CHEM201", name: "Organic Chemistry"}, {id: "c3", code: "MATH 140", name: "Calculus II"}];
-const ctx = {today: "2026-10-03", courses, termStart: "2026-08-31"};      // a Saturday
+const ctx = {today: "2026-10-03", courses, termStart: "2026-08-31"};
 const P = s => CAP.parseLine(s, ctx);
 const many = [{id: "a", code: "BIO101", name: "Biology I"}, {id: "b", code: "BIO201", name: "Biology II"}];
 
@@ -85,7 +85,6 @@ t("URL params: valid, caps, allowlist, hash form, schemes", () => {
   assert.strictEqual(CAP.parseUrl("studyboard://capture?photo=1").action, "photo"); assert.strictEqual(CAP.parseUrl("https://a.b/?capture=photo").action, "photo");
   assert.strictEqual(CAP.parseUrl("https://a.b/?capture=1").action, "open"); assert.strictEqual(CAP.parseUrl("studyboard://capture").action, "open");
   assert.strictEqual(CAP.parseUrl("https://a.b/?share=1&title=T&text=x").action, "share");
-  // hostile input
   assert.ok(!CAP.parseUrl("javascript:alert(1)").ok); assert.ok(!CAP.parseUrl("studyboard://open?task=1").ok); assert.ok(!CAP.parseUrl("data:text/html,x").ok); assert.ok(!CAP.parseUrl("https://a.b/?x=1").ok);
   assert.ok(!CAP.parseUrl("https://u:p@a.b/?capture=x").ok); assert.ok(!CAP.parseUrl("https://a.b/?capture=" + "x".repeat(7000)).ok); assert.ok(!CAP.parseUrl(null).ok);
   r = CAP.parseUrl("https://a.b/?capture=" + encodeURIComponent("<b>hw</b> <script>alert(1)</script> fri" + "y".repeat(5000)) + "&due=2020-01-01&time=25:00&type=hax&hours=-3&source=evil&link=javascript:x&course=" + "c".repeat(200), {today: ctx.today});
@@ -112,7 +111,7 @@ t("dedupe by normalized title + date", () => {
   const r = CAP.dedupe([{title: "lab report 3!", due: "2026-10-09"}, {title: "Lab report 3", due: "2026-10-16"}, {title: "The read ch 1", due: "2026-10-20"}, {title: "Quiz", due: "2026-10-09"}, {title: "quiz", due: "2026-10-09"}], ex);
   assert.deepStrictEqual(r.drafts.map(d => d.title), ["Lab report 3", "The read ch 1", "Quiz"]); assert.strictEqual(r.dups, 2);
 });
-// ---- the photo model's answer ----
+// the photo model's answer
 const vc = Object.assign({existing: [{title: "Problem set 4", due: "2026-10-16"}]}, ctx);
 const it = (o) => Object.assign({title: "Lab report 3", dueDate: "2026-10-09", dueTime: "", course: "", type: "Lab", notes: "", confidence: 0.9}, o);
 t("vision: good output passes, relative date kept, low confidence unchecked", () => {
@@ -159,7 +158,7 @@ t("screenshot prompt and schema classify what the picture is", () => {
   assert.match(S, /Never invent/i); assert.match(S, /syllabus/); assert.match(S, /timetable/); assert.match(S, /empty items array/i);
   assert.deepStrictEqual(CAP.SHOT_KINDS, ["tasks", "syllabus", "course", "notes", "other"]);
   assert.deepStrictEqual(CAP.SHOT_SCHEMA.properties.kind.enum, CAP.SHOT_KINDS); assert.ok(CAP.SHOT_SCHEMA.required.includes("kind"));
-  assert.ok(CAP.SHOT_SCHEMA.properties.items && CAP.SHOT_SCHEMA.properties.rawText);        // everything a photo returns, plus the kind
-  assert.deepStrictEqual(CAP.VISION_SCHEMA.required, ["items", "rawText"]);                 // photos are unchanged
+  assert.ok(CAP.SHOT_SCHEMA.properties.items && CAP.SHOT_SCHEMA.properties.rawText);
+  assert.deepStrictEqual(CAP.VISION_SCHEMA.required, ["items", "rawText"]);
 });
 console.log(n + " capture tests passed");

@@ -7,7 +7,7 @@ const Q = new Function(code + ";return QADD;")();
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
 
-// ---- what kind of file
+// what kind of file
 const kind = (name, text) => Q.kindOf(name, text).kind;
 eq(kind("BIO101_Syllabus_Fall.pdf", "Office hours: Tue 2-4. Grading policy. Academic integrity."), "syllabus", "syllabus by name and words");
 eq(kind("course.pdf", "Course schedule. Office hours Tuesdays. Grading policy: exams 50%. Required textbook: Campbell."), "syllabus", "syllabus by words alone");
@@ -22,7 +22,7 @@ eq(kind("Final Project Brief.pdf", "Final project instructions. Submit by the du
 ok(Q.kindOf("scan001.pdf", "").conf < 0.5, "low confidence when it is a guess");
 ok(Q.kindOf("BIO101_Syllabus_Fall.pdf", "Office hours. Grading policy.").conf > 0.6, "high confidence when clear");
 
-// ---- which course
+// which course
 const cs = [{id: "c1", name: "Introduction to Biology", code: "BIO 101", instructor: "Dr. Jane Okafor"}, {id: "c2", name: "Calculus II", code: "MATH 152", instructor: "Prof. Lee Chen"}, {id: "c3", name: "Organic Chemistry", code: "CHM 220", instructor: ""}];
 eq(Q.courseOfFile("lecture3.pptx", "BIO101 Fall - Cell respiration", cs).courseId, "c1", "course code in the text, with the space left out");
 eq(Q.courseOfFile("notes.pdf", "Integrals and series. Calculus II. Prof Chen", cs).courseId, "c2", "course name and instructor");
@@ -34,14 +34,14 @@ const g = Q.guess("hw4.pdf", "Calculus II homework due Friday. Submit. 20 points
 eq([g.courseId, g.kind], ["c2", "assignment"], "guess puts both together");
 ok(/assignment/i.test(g.why) && /course/i.test(g.why), "and says why: " + g.why);
 
-// ---- folders
+// folders
 eq(Q.folderFor("slides", ["syllabus", "notes", "other"]), "notes", "slides go in Lecture Notes");
 eq(Q.folderFor("exam", ["syllabus", "exams", "other"]), "exams", "exam folder");
 eq(Q.folderFor("exam", ["syllabus", "other"]), "other", "a course without that folder uses Other");
 eq(Q.folderFor("syllabus", []), "other", "no folders at all");
 eq(Q.folderFor("reading", ["syllabus", "notes", "other"]), "other", "readings go in Other");
 
-// ---- objectives
+// objectives
 const SYL = "Syllabus\nCourse Description\nBlah blah\n\nLearning Objectives\nBy the end of this course, students will be able to:\n• Describe the structure of the cell membrane\n• Explain how ATP is produced in\n  mitochondria\n• Compare mitosis and meiosis\n• Solve basic genetics problems using Punnett squares\n\nGrading\nExams 50%";
 eq(Q.objectives(SYL), ["Describe the structure of the cell membrane", "Explain how ATP is produced in mitochondria", "Compare mitosis and meiosis", "Solve basic genetics problems using Punnett squares"], "bullets under a heading, wrapped line joined, stops at the next heading");
 eq(Q.objectives("Slide 1:\nIntro to Thermodynamics\n\nSlide 2:\nLearning Objectives\nDefine entropy\nExplain the first law\nApply the ideal gas law\n\nSlide 3:\nAgenda\nBlah"), ["Define entropy", "Explain the first law", "Apply the ideal gas law"], "slide text: lines that start with a verb, ends at the slide");
@@ -52,7 +52,7 @@ eq(Q.objectives(""), [], "empty text");
 eq(Q.objectives("Learning Objectives\n- Define osmosis\n- Define osmosis\n- Explain diffusion").length, 2, "repeats are dropped");
 ok(Q.objectives("Learning Objectives\n" + Array.from({length: 40}, (_, i) => `- Explain topic number ${i}`).join("\n")).length <= 20, "at most 20");
 
-// ---- coverage and repeats
+// coverage and repeats
 const objs = [{id: "o1", text: "Explain how the Krebs cycle produces ATP"}, {id: "o2", text: "Compare mitosis and meiosis"}, {id: "o3", text: "Define osmosis"}];
 const cov = Q.coverage(objs, {cards: [{front: "What does the Krebs cycle make?", back: "ATP, NADH and FADH2", obj: ""}, {front: "x", back: "y", obj: "o2"}], notes: [{text: "mitosis vs meiosis differences"}], files: [{name: "krebs cycle slides.pdf"}]});
 eq(cov.o1, {cards: 1, linked: 0, notes: 0, files: 1}, "a card and a file that mention the Krebs cycle cover objective 1");

@@ -17,7 +17,7 @@ const near = (a, b, e, m) => ok(Math.abs(a - b) <= e, `${m}: ${a} vs ${b}`);
 const NOW = new Date(2026, 9, 6, 15, 0).getTime(), DAY = 864e5;
 const done = (o) => Object.assign({id: "t" + Math.random(), type: "Assignment", status: "done", hours: 2, courseId: "c1", checklist: [], doneAt: NOW - 3 * DAY}, o);
 
-// history parsing: both formats, and the old regex still reads the old format
+// history parsing
 {
   ok(A.entry({at: 5, text: "Focus session: 25m"}).min === 25 && A.entry({at: 5, text: "Focus session: 25m"}).kind === "focus", "focus entry");
   ok(A.entry({at: 5, text: "Logged time: 45m"}).min === 45 && A.entry({at: 5, text: "Logged time: 45m"}).kind === "logged", "logged entry");
@@ -39,7 +39,7 @@ const done = (o) => Object.assign({id: "t" + Math.random(), type: "Assignment", 
   ok(A.samples([done({focusMin: 240, status: "todo"})], NOW).length === 0 && A.samples([done({focusMin: 240, hours: null})], NOW).length === 0 && A.samples([done({focusMin: 240, type: "Exam"})], NOW).length === 0 && A.samples([done({focusMin: 240, prepFor: "x"})], NOW).length === 0, "open, unestimated, exam and prep tasks are not samples");
   ok(A.samples([done({focusMin: 240, checklist: [{done: true}, {done: false}]})], NOW).length === 0, "timer ratios need a finished checklist");
 }
-// a 2h task that took 4h, five times: the ratio rises toward 2 but is shrunk and clamped
+// a 2h task that took 4h, five times
 {
   const T = Array.from({length: 5}, () => done({focusMin: 240}));
   const g = A.global(A.samples(T, NOW));
@@ -61,8 +61,8 @@ const done = (o) => Object.assign({id: "t" + Math.random(), type: "Assignment", 
 }
 // outlier resistance and recency
 {
-  const base = Array.from({length: 7}, () => done({focusMin: 150}));          // 1.25x
-  const withOut = base.concat([done({focusMin: 1400})]);                         // one 11.7x task (capped at 4x)
+  const base = Array.from({length: 7}, () => done({focusMin: 150}));
+  const withOut = base.concat([done({focusMin: 1400})]);
   const a = A.global(A.samples(base, NOW)).r, b = A.global(A.samples(withOut, NOW)).r;
   ok(Math.abs(a - b) <= 0.1, `one huge task barely moves it: ${a} vs ${b}`);
   const old = Array.from({length: 6}, () => done({focusMin: 360, doneAt: NOW - 300 * DAY})).concat(Array.from({length: 6}, () => done({focusMin: 120, doneAt: NOW - 2 * DAY})));
@@ -86,9 +86,9 @@ const done = (o) => Object.assign({id: "t" + Math.random(), type: "Assignment", 
   ok(A.velocity([], NOW, 3).scale === 1 && !A.velocity([], NOW, 3).ok, "no data");
   ok(!A.velocity(mk(4, 1, 1), NOW, 3).ok, "too few days");
   ok(!A.velocity(mk(10, 1, 1).filter((t, i) => i < 5), NOW, 3).ok, "too few tasks");
-  const fast = A.velocity(mk(28, 3, 2), NOW, 3);       // 6h/day against 3h
+  const fast = A.velocity(mk(28, 3, 2), NOW, 3);
   ok(fast.ok && fast.scale === 1.2, "clamped high: " + fast.scale);
-  const slow = A.velocity(mk(28, 1, 0.25).concat([]), NOW, 6);   // 0.25h/day against 6h
+  const slow = A.velocity(mk(28, 1, 0.25).concat([]), NOW, 6);
   ok(slow.ok && slow.scale === 0.8, "clamped low: " + slow.scale);
   const mid = A.velocity(mk(28, 1, 3), NOW, 3);
   ok(mid.ok && mid.scale === 1, "matching your setting changes nothing: " + mid.scale);
@@ -119,7 +119,7 @@ const done = (o) => Object.assign({id: "t" + Math.random(), type: "Assignment", 
   ok(b[23] === 0, "hand-logged time says nothing about when you work (it is stamped when typed in)");
   const none = A.peakOf(b, 200); ok(none === null, "below the threshold there is no peak");
   const p = A.peakOf(b, 90); ok(p && p.hours.includes(20) && p.hours.includes(21) && /^\d\d:00 to \d\d:00$/.test(p.text), "peak: " + (p && p.text));
-  // never uses the timer: finished tasks and ticks
+  // never uses the timer
   const D = Array.from({length: 4}, (_, i) => done({doneAt: new Date(2026, 9, 1 + i % 3, 10, 5).getTime()}));
   const ticks = [at(10), at(10), at(11), at(11)];
   const e = A.bins(D, ticks, NOW, {noHistory: true});

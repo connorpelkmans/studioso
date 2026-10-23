@@ -1,7 +1,4 @@
-// node tests/theme-hold.e2e.js  (Playwright + Chromium)
-// On a reload, the theme from last time stays on screen while the plan is still being checked (a Pro theme needs a confirmed Pro
-// plan), instead of dropping to Classic and coming back. Without a confirmed plan it gives up after 10 seconds; with no account at
-// all there is nothing to wait for, so a Pro theme is never shown.
+// node tests/theme-hold.e2e.js (Playwright + Chromium) On a reload
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -19,10 +16,9 @@ const skinNow = page => page.evaluate(() => document.documentElement.dataset.ski
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
   try {
-    // Last session: the Pro theme Ocean was chosen and painted, by someone signed in on this device.
     const open = async signedIn => {
       const ctx = await browser.newContext({serviceWorkers: "block"});
-      await ctx.route(/supabase\.co/, r => r.abort());   // no server answer: the plan can't be confirmed
+      await ctx.route(/supabase\.co/, r => r.abort());
       await ctx.addInitScript(signedIn => {
         try {
           if (sessionStorage.getItem("seeded")) return; sessionStorage.setItem("seeded", "1");

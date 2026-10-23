@@ -1,9 +1,4 @@
-// ---- world theme engine: france (Paris)
-// Loop: the Seine ripples and a tour boat glides along it and under the bridge, pigeons hop, peck and flutter on the
-// quay, the chestnut leaves sway, the cafe awning flaps and a hot-air balloon drifts above the rooftops. Night: the
-// tower glows gold and its beacon sweeps the sky, windows and lamps light up and their reflections shimmer in the river.
-// Moment: the tower bursts into its sparkle of twinkling white lights, the beacon sweeps bright, a ribbon of glowing
-// reflections runs down the river and the pigeons take off.
+// -- world theme engine
 function france_ease(u) { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); }
 function france_env(T, a, b, c, d) { if (T < a || T > d) return 0; if (T < b) return france_ease((T - a) / (b - a)); if (T <= c) return 1; return 1 - france_ease((T - c) / (d - c)); }
 var france_gc = null;
@@ -12,7 +7,7 @@ function france_dot(c, g, x, y, r, a) { if (a <= 0.003 || r <= 0) return; c.save
 // small offscreen canvas, drawn at k times the size, centred on (w/2, h/2)
 function france_sprite(w, h, k, fn) { var cv = document.createElement('canvas'); cv.width = Math.ceil(w * k); cv.height = Math.ceil(h * k); var o = cv.getContext('2d'); o.scale(k, k); o.translate(w / 2, h / 2); o.lineJoin = o.lineCap = 'round'; fn(o); cv.w = w; cv.h = h; return cv; }
 function france_blit(c, sp, x, y, s, rot, a) { c.save(); c.translate(x, y); if (rot) c.rotate(rot); if (a != null) c.globalAlpha = a; c.drawImage(sp, -sp.w * s / 2, -sp.h * s / 2, sp.w * s, sp.h * s); c.restore(); }
-// a pigeon standing at (x, y) (its feet), facing dir (1 right, -1 left); peck 0..1 lowers the head, flap > 0 spreads the wings
+// a pigeon standing at (x, y) (its feet), facing dir (1 right, -1 left)
 function france_pigeon(c, x, y, s, dir, t, peck, flap, dk) {
   var P = dk ? {b: '#6A6E86', w: '#7E8298', bar: '#2E3044', h: '#5A5E76', g: '#4A8A7A', p: '#7A5A92', f: '#C07888'} : {b: '#A2A8B6', w: '#BCC0CC', bar: '#4A4E5C', h: '#8A90A0', g: '#5FA888', p: '#9070B0', f: '#E08A96'};
   c.save(); c.translate(x, y); c.scale(s * dir, s); c.lineCap = 'round';
@@ -32,17 +27,12 @@ function france_pigeon(c, x, y, s, dir, t, peck, flap, dk) {
 ENGINES.france = function (A, v, dk) {
   var W = v.bw, H = v.bh, ph = !v.desk, T0 = -99, C = A.C, S = A.S, i, j;
   var TW = A.T, tBody = new Path2D(TW.body), tLat = new Path2D(TW.lat), ry0 = A.ry0, ptop = A.ptop, pbot = A.pbot, yw = A.yw;
-  // the sky above the far bank's skyline, where the tower's lights may show
   var skyClip = new Path2D(), SK = A.SK; skyClip.moveTo(-40, -40); skyClip.lineTo(W + 40, -40); skyClip.lineTo(W + 40, SK[SK.length - 1]); for (i = SK.length - 1; i >= 0; i--) skyClip.lineTo(i * A.SKs, SK[i] + 1); skyClip.lineTo(-40, SK[0]); skyClip.closePath();
   var goldG = france_rg('rgba(255,196,96,0.5)', [0.35, 0.22]), lampG = france_rg(dk ? 'rgba(255,200,120,0.75)' : 'rgba(255,220,160,0.35)', [0.25, 0.35]), whiteG = france_rg('rgba(255,255,255,0.95)', [0.2, 0.4]), winG = france_rg('rgba(255,200,120,0.4)', [0.3, 0.3]);
-  // sparkle points: at most about 900, spread evenly over the tower
   var SP = TW.pts; if (SP.length > 1800) { var st = SP.length / 1800, s2 = []; for (i = 0; i < SP.length; i += st) s2.push(SP[Math.floor(i)]); SP = s2; }
   var spPh = SP.map(function (p, k) { return [hash(k * 3.1 + 1) * 6.28, 9 + hash(k * 1.7 + 5) * 9]; });
-  // ripples on the Seine
   var rip = []; for (i = 0; i < (ph ? 40 : 80); i++) rip.push({x: hash(i + 11) * W, y: ry0 + 5 + hash(i + 12) * (ptop - ry0 - 9), l: 6 + hash(i + 13) * 22, ph: hash(i + 14) * 6.28, v: 4 + hash(i + 15) * 6});
-  // lit windows at night: about four in ten, a few switch on and off now and then
   var wins = A.wins.map(function (w) { return {x: w[0], y: w[1], w: w[2], h: w[3], on: w[4] < 0.42, k: w[4]}; }), nextFlip = 2;
-  // the tour boat
   var bs = A.boat.s, boatY = A.boat.y, boatX = W * 0.62, boatV = (ph ? 13 : 20) * (ph ? 1 : S);
   var BOAT = france_sprite(140, 40, 3, function (o) { o.translate(0, 8);
     o.fillStyle = dk ? 'rgba(0,0,0,0.25)' : 'rgba(30,50,70,0.15)'; o.beginPath(); o.ellipse(0, 1, 62, 3, 0, 0, 7); o.fill();
@@ -55,7 +45,6 @@ ENGINES.france = function (A, v, dk) {
     o.fillStyle = dk ? '#C8C4D8' : '#FFFFFF'; o.fillRect(-60, -30, 10, 9); o.fillStyle = dk ? '#FFE2A0' : '#9EC4DA'; o.fillRect(-58.6, -28.6, 7.2, 4.4);
     o.fillStyle = dk ? '#A84048' : '#C8463E'; o.fillRect(-61, -31.4, 12, 1.8);
     o.strokeStyle = dk ? '#8A88A0' : '#5A6478'; o.lineWidth = 0.8; o.beginPath(); for (k = 0; k < 20; k++) { o.moveTo(-52 + k * 5, -8); o.lineTo(-52 + k * 5, -5.5); } o.moveTo(-58, -8); o.lineTo(54, -8); o.stroke(); });
-  // the hot-air balloon: coral, cream and teal gores
   var bal = {x: W * (ph ? 0.2 : 0.3), y: H * (ph ? 0.3 : 0.22), v: ph ? 3 : 5}, BR = ph ? 13 : 17 * S;
   var BAL = france_sprite(60, 80, 3, function (o) { o.translate(0, -10); var cols = ['#F0806A', '#FFF4E2', '#4EA8A0', '#FFF4E2', '#F0806A', '#F6C25A'];
     o.save(); o.beginPath(); o.moveTo(-9, 26); o.bezierCurveTo(-22, 14, -26, -4, -22, -14); o.arc(0, -10, 22.4, Math.PI * 1.06, Math.PI * 1.94); o.bezierCurveTo(26, -4, 22, 14, 9, 26); o.closePath(); o.clip();
@@ -63,31 +52,22 @@ ENGINES.france = function (A, v, dk) {
     var g = o.createLinearGradient(-24, 0, 24, 0); g.addColorStop(0, 'rgba(255,255,255,0.25)'); g.addColorStop(0.5, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(40,30,60,0.25)'); o.fillStyle = g; o.fillRect(-30, -40, 60, 70); o.restore();
     o.strokeStyle = '#6A5040'; o.lineWidth = 0.8; o.beginPath(); o.moveTo(-8, 26); o.lineTo(-5, 34); o.moveTo(8, 26); o.lineTo(5, 34); o.stroke();
     o.fillStyle = '#9A6A40'; o.fillRect(-5.4, 34, 10.8, 7); o.fillStyle = '#7A5030'; o.fillRect(-5.4, 34, 10.8, 1.6); });
-  // pigeons on the cobbles
-  // the pigeons keep to open paving (in front of nothing that stands nearer: the flower cart, the bicycle)
   var px0 = W * (ph ? 0.72 : 0.31), px1 = W * (ph ? 0.86 : 0.53), py0 = pbot + H * 0.025, py1 = H - H * 0.02, pigs = [];
   for (i = 0; i < (ph ? 3 : 5); i++) pigs.push({x: px0 + hash(i + 31) * (px1 - px0), y: py0 + hash(i + 32) * (py1 - py0), dir: hash(i + 33) < 0.5 ? -1 : 1, st: 'idle', tt: hash(i + 34) * 2, dur: 1, z: 0, peck: 0, vx: 0, vy: 0, fx: 0, fy: 0, x0: 0, y0: 0});
   function pigNext(p) { var r = Math.random(); p.st = r < 0.42 ? 'peck' : r < 0.82 ? 'hop' : r < 0.96 ? 'idle' : 'fly'; p.dur = p.st === 'peck' ? 0.7 : p.st === 'hop' ? 0.32 : p.st === 'fly' ? 2.6 : 0.8 + Math.random() * 1.4; p.tt = 0; p.x0 = p.x; p.y0 = p.y;
     if (p.st === 'hop') { if (Math.random() < 0.25) p.dir *= -1; p.fx = Math.max(px0, Math.min(px1, p.x + p.dir * (6 + Math.random() * 8) * (ph ? 0.8 : S))); p.fy = Math.max(py0, Math.min(py1, p.y + (Math.random() - 0.5) * 6)); }
     if (p.st === 'fly') { p.fx = px0 + Math.random() * (px1 - px0); p.fy = py0 + Math.random() * (py1 - py0); p.dir = p.fx > p.x ? 1 : -1; } }
-  // chestnut leaves that sway at the edge of each canopy (sprites in the two greens), and a few falling leaves
   var LEAF = [C.lfD, C.lfL].map(function (col) { return france_sprite(30, 30, 3, function (o) { o.fillStyle = col; for (var k = 0; k < 5; k++) { var a = -Math.PI / 2 + (k - 2) * 0.5, L = 13 * (1 - Math.abs(k - 2) * 0.16); o.save(); o.rotate(a); o.beginPath(); o.ellipse(L * 0.55, 0, L * 0.5, L * 0.18, 0, 0, 7); o.fill(); o.restore(); } o.strokeStyle = col; o.lineWidth = 1; o.beginPath(); o.moveTo(0, 0); o.lineTo(0, 5); o.stroke(); }); });
-  // a lamp whose glass is hidden behind the chestnut's crown gets no glow (the glow is painted on the front canvas)
   var lampHid = A.lamps.map(function (l) { return A.trees.some(function (tr) { return tr.blobs.some(function (b) { return Math.hypot(l[0] - b[0], l[1] - b[1]) < b[2] * 0.92 + 6 * tr.s; }); }); });
   var sway = []; A.trees.forEach(function (tr, n) { tr.blobs.forEach(function (b, m) { for (var k = 0; k < 5; k++) { var a = (k / 5 + hash(m * 5 + k + n * 50) * 0.15) * Math.PI * 2; if (Math.sin(a) < -0.6 && hash(k + m) < 0.6) continue; sway.push({x: b[0] + Math.cos(a) * b[2] * 0.98, y: b[1] + Math.sin(a) * b[2] * 0.98, a: a + Math.PI / 2, s: tr.s * (0.8 + hash(k * 7 + m) * 0.4), c: k % 3 === 0 ? 1 : 0, ph: hash(k + m * 3 + n) * 6.28, gx: tr.x}); } }); });
   var fall = []; for (i = 0; i < (ph ? 2 : 4); i++) fall.push({x: -99, y: 0, vx: 0, vy: 0, r: 0, t: i * 3.4});
   var FALLL = france_sprite(30, 30, 3, function (o) { o.fillStyle = dk ? '#7A8A4A' : '#C8A84A'; for (var k = 0; k < 5; k++) { var a = -Math.PI / 2 + (k - 2) * 0.5, L = 13 * (1 - Math.abs(k - 2) * 0.16); o.save(); o.rotate(a); o.beginPath(); o.ellipse(L * 0.55, 0, L * 0.5, L * 0.18, 0, 0, 7); o.fill(); o.restore(); } });
-  // the awnings (the cafe's red and cream, the flower cart's blue and cream): stripes with a scalloped valance that
-  // lifts in the breeze
   function awning(c, t, f, AW, ph2) { var sw = (AW.x1 - AW.x0) / AW.n, dep = AW.y1 - AW.y0, sl = AW.sl, sc = AW.s / S, k2 = dep / 30;
     for (var k = 0; k < AW.n; k++) { var x0 = AW.x0 + k * sw, wv = (Math.sin(t * 2.3 - k * 0.55 + ph2) * 1.6 * f.a + Math.sin(t * 5.1 + k) * 0.5 * f.a) * Math.min(1, k2 + 0.3), lift = (1.2 + Math.sin(t * 1.3 + ph2) * 0.8) * f.a * Math.min(1, k2 + 0.3);
       c.fillStyle = AW.c[k % 2]; c.beginPath(); c.moveTo(x0, AW.y0); c.lineTo(x0 + sw, AW.y0); c.lineTo(x0 + sw + sl, AW.y1 - lift + wv * 0.4); c.lineTo(x0 + sl, AW.y1 - lift + wv * 0.4); c.fill();
       c.beginPath(); c.ellipse(x0 + sl + sw / 2, AW.y1 - lift + wv, sw / 2, Math.max(0.5, 4 * S * sc + wv * 0.3), 0, 0, Math.PI); c.lineTo(x0 + sl, AW.y1 - lift + wv * 0.4 - 2); c.lineTo(x0 + sl + sw, AW.y1 - lift + wv * 0.4 - 2); c.fill(); }
     c.fillStyle = dk ? 'rgba(10,8,30,0.25)' : 'rgba(80,30,20,0.12)'; c.fillRect(AW.x0, AW.y0, AW.x1 - AW.x0 + sl, dep * 0.25);
     c.fillStyle = C.dark; c.fillRect(AW.x0, AW.y0 - 2 * sc, AW.x1 - AW.x0 + 2, 2.4 * sc); }
-  // the tricolours: the cloth ripples along the fly (france_flagP). Each band is one smooth region of the same cloth,
-  // painted over the one before (blue the whole cloth, then cream from a third, red from two thirds) so there are no seams,
-  // and the folds are shaded by a soft gradient that follows the wave. Softened colours; dimmer at night.
   var FC = dk ? ['#3E4E9E', '#BDB6CE', '#9A3C4C'] : ['#3A5CAA', '#FCF7EE', '#CF4840'], NV = 18;
   function region(c, G, t, va) { var q, p, k0 = Math.round(va * NV); c.beginPath();
     for (q = k0; q <= NV; q++) { p = france_flagP(G, 0, q / NV, t); if (q === k0) c.moveTo(p[0], p[1]); else c.lineTo(p[0], p[1]); }
@@ -124,10 +104,8 @@ ENGINES.france = function (A, v, dk) {
     },
     draw: function (ca, cb, t, f) {
       var tt = t * f.s, Tm = t - T0, spk = france_env(Tm, 0.3, 0.9, 7.4, 9), ribbon = france_env(Tm, 0.6, 1.6, 8, 10), beamA = dk ? 0.35 + spk * 0.6 : spk * 0.55;
-      // the balloon, behind the tower and buildings' tops
       france_blit(ca, BAL, bal.x, bal.y + Math.sin(tt * 0.6) * 4, BR / 17, Math.sin(tt * 0.5) * 0.04, dk ? 0.75 : 1);
       if (dk) france_dot(ca, france_rg('rgba(255,170,80,0.6)'), bal.x, bal.y + BR * 1.4, BR * 0.8, 0.3 + 0.3 * flick(tt, 2));
-      // the tower: gold at night, the beacon, the sparkle (only where it shows above the far bank)
       var B = TW.beacon;
       ca.save(); ca.clip(skyClip);
       if (dk) { ca.save(); ca.globalCompositeOperation = 'lighter'; france_dot(ca, goldG, A.TX, A.TB - A.TH * 0.4, A.TH * 0.55, 0.55 - spk * 0.2); ca.restore();
@@ -146,9 +124,7 @@ ENGINES.france = function (A, v, dk) {
           if (vv > 0.97) france_dot(ca, whiteG, p[0], p[1], rr * 6, al * 0.7); }
         ca.restore(); }
       ca.restore();
-      // lit windows at night
       if (dk) { ca.save(); wins.forEach(function (w) { if (!w.on && spk < 0.5) return; ca.fillStyle = w.k < 0.15 ? '#FFE6B0' : '#F6C878'; ca.globalAlpha = w.on ? 0.95 : spk * 0.6; ca.fillRect(w.x, w.y, w.w, w.h); ca.fillStyle = 'rgba(160,90,40,0.35)'; ca.fillRect(w.x + w.w * 0.46, w.y, w.w * 0.08, w.h); ca.fillRect(w.x, w.y + w.h * 0.4, w.w, w.h * 0.06); }); ca.restore(); }
-      // the river: ripples, the tower's reflection, windows' reflections, and the finishing ribbon of light
       ca.save(); ca.beginPath(); ca.rect(-10, ry0, W + 20, ptop - ry0 + 2); ca.clip();
       ca.lineCap = 'round';
       rip.forEach(function (r) { var a = 0.5 + 0.5 * Math.sin(tt * 1.4 + r.ph); ca.strokeStyle = dk ? 'rgba(170,190,255,' + (0.28 * a) + ')' : 'rgba(255,255,255,' + (0.75 * a) + ')'; ca.lineWidth = 1.2; ca.beginPath(); ca.moveTo(r.x, r.y); ca.lineTo(r.x + r.l, r.y); ca.stroke(); });
@@ -160,12 +136,11 @@ ENGINES.france = function (A, v, dk) {
         for (i = 0; i < (ph ? 70 : 140); i++) { var rx = W * hash(i * 1.3 + 2), ry = ry0 + 4 + hash(i * 2.1 + 3) * (ptop - ry0 - 8); if (rx < front) continue; var fade = Math.min(1, (rx - front) / 60) * ribbon, wl = 6 + hash(i + 9) * 20, sh = 0.5 + 0.5 * Math.sin(t * 6 + i);
           ca.fillStyle = (dk ? 'rgba(255,220,140,' : 'rgba(255,236,170,') + (fade * sh * 0.95) + ')'; ca.fillRect(rx - wl / 2 - (t * 6 % 12), ry, wl, dk ? 1.8 : 2.4); } }
       ca.restore();
-      // the boat, with its reflection; the bridge (in front) hides it as it passes under
       ca.save(); ca.globalAlpha = dk ? 0.25 : 0.18; ca.translate(boatX, boatY + 2); ca.scale(bs, -bs * 0.6); ca.drawImage(BOAT, -70, -28, 140, 40); ca.restore();
       france_blit(ca, BOAT, boatX, boatY - 12 * bs + Math.sin(tt * 1.6) * 0.5, bs, 0);
       ca.strokeStyle = dk ? 'rgba(200,210,255,0.3)' : 'rgba(255,255,255,0.8)'; ca.lineWidth = 1.2; ca.beginPath(); for (i = 0; i < 3; i++) { var wx = boatX + (66 + i * 16) * bs; ca.moveTo(wx, boatY + 1 + i * 1.6); ca.lineTo(wx + 14 * bs, boatY + 2 + i * 2.2); } ca.stroke();
       if (dk) france_dot(ca, winG, boatX, boatY - 10 * bs, 60 * bs, 0.5);
-      // ---- front canvas: the awning, the chestnut leaves, pigeons, lamps
+      // -- front canvas
       A.awns.forEach(function (aw, k) { awning(cb, tt, f, aw, k * 1.7); });
       var wind = 1 + spk * 0.5; A.flags.forEach(function (F, k) { flag(cb, F, tt * (1 + spk * 0.35) + k * 1.3, (0.75 + 0.25 * Math.sin(tt * 0.4 + k)) * wind * Math.max(0.35, f.a)); });
       sway.forEach(function (l) { var a = l.a + (Math.sin(tt * 1.3 + l.ph) * 0.14 + Math.sin(tt * 0.5 + l.gx * 0.01) * 0.08) * f.a; france_blit(cb, LEAF[l.c], l.x, l.y, l.s * 0.95, a); });

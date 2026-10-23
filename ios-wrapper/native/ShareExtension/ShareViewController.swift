@@ -1,9 +1,4 @@
-// UNTESTED: written without compiler access. Share Extension target ("StudyboardShare"), iOS 16+. Also add SBCapture.swift to this target.
-//
-// Takes shared text / a web URL / one image.
-//   text or URL only -> POST to the capture endpoint (source "share"); on any failure it is queued in the App Group container.
-//   image            -> saved (downscaled JPEG) with any text into the App Group queue. Extensions cannot reliably open the host app, so the
-//                       person finishes by opening Studyboard: the app drains the queue on launch/resume (StudyboardSharedQueue plugin).
+// UNTESTED: written without compiler access
 import UIKit
 import UniformTypeIdentifiers
 import ImageIO
@@ -47,7 +42,6 @@ final class ShareViewController: UIViewController {
             }
         }
 
-        // One line for the task: the shared text, else the URL. If both exist (Safari shares title + URL), keep both.
         let combined = [text, url].compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }.joined(separator: " ")
         var item = PendingCapture(text: combined.isEmpty ? (image != nil ? "Photo from share sheet" : nil) : combined, source: "share")
         guard let clean = item.sanitized() else { return finish("Nothing to add.") }
@@ -72,7 +66,7 @@ final class ShareViewController: UIViewController {
         }
     }
 
-    /// Returns a JPEG no larger than 2048 px / 8 MB, or nil. Handles file URLs, UIImage and raw Data.
+    // Returns a JPEG no larger than 2048 px / 8 MB, or nil
     private func loadImage(_ p: NSItemProvider) async -> Data? {
         let item = await load(p, UTType.image.identifier)
         var source: CGImageSource?

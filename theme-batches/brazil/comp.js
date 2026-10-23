@@ -1,11 +1,11 @@
-/* Study Companions, Around the World: brazil */
+/* Study Companions, Around the World */
 (() => {
   const {O, OW, LG, RG} = COMP_KIT;
   const f1 = v => Math.round(v * 10) / 10;
   const ring = (cx, cy, n, r, fn) => Array.from({length: n}, (_, i) => { const a = i / n * Math.PI * 2; return fn(f1(cx + Math.cos(a) * r), f1(cy + Math.sin(a) * r), a * 180 / Math.PI, i); }).join("");
-  // a little hibiscus: five round petals and a stamen
+  // a little hibiscus
   const hibiscus = (x, y, r, c = "#FF5A6A", mid = "#FFD23A") => `<g>${ring(x, y, 5, r * 0.52, (px, py, a) => `<ellipse cx="${px}" cy="${py}" rx="${f1(r * 0.55)}" ry="${f1(r * 0.42)}" transform="rotate(${f1(a)} ${px} ${py})" fill="${c}" ${OW(1)}/>`)}<circle cx="${x}" cy="${y}" r="${f1(r * 0.22)}" fill="${mid}"/></g>`;
-  // the shaggy edge of the tamarin's golden mane: n tufts round an ellipse
+  // the shaggy edge of the tamarin's golden mane
   const mane = (cx, cy, rx, ry, n) => { let d = ""; for (let i = 0; i <= n; i++) { const a = i / n * Math.PI * 2, b = (i + 0.5) / n * Math.PI * 2, k = 1.16 + (i % 2) * 0.05;
     d += `${i ? "Q" : "M"}${i ? `${f1(cx + Math.cos(b - Math.PI / n) * rx * k)} ${f1(cy + Math.sin(b - Math.PI / n) * ry * k)} ` : ""}${f1(cx + Math.cos(a) * rx)} ${f1(cy + Math.sin(a) * ry)}`; } return d + "Z"; };
 

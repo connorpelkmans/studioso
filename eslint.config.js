@@ -1,5 +1,5 @@
 // ESLint flat config: catches real bugs (undefined names, duplicate keys, unreachable code, reassigned consts), not style.
-// Run: npm run lint   (this file for the .js sources, then scripts/lint-inline.js for the inline <script> blocks in index.html)
+// Run: npm run lint
 "use strict";
 const fs = require("fs"), path = require("path"), globals = require("globals");
 const {appGlobals} = require("./scripts/lint-inline");
@@ -29,24 +29,24 @@ const bugRules = {
   "no-setter-return": "error",
   "for-direction": "error",
   "no-sparse-arrays": "warn",
-  "no-sequences": "off",          // the codebase uses comma expressions on purpose
-  "no-unused-vars": "off",        // noisy on purpose-built one-liners; not a bug finder here
+  "no-sequences": "off",
+  "no-unused-vars": "off",
 };
 
-// Tests reach into the page from page.evaluate(): allow the page's own globals and the window.X stubs the tests install themselves.
+// Tests reach into the page from page.evaluate()
 function testGlobals() {
   const g = {};
-  try { for (const n of require("./scripts/lint-inline").splitGlobals()) g[n] = "writable"; } catch (e) { /* no index.html */ }
+  try { for (const n of require("./scripts/lint-inline").splitGlobals()) g[n] = "writable"; } catch (e) { }
   const walk = d => fs.readdirSync(d, {withFileTypes: true}).forEach(e => {
     const f = path.join(d, e.name);
     if (e.isDirectory()) walk(f);
     else if (/\.js$/.test(e.name)) {
       const src = fs.readFileSync(f, "utf8");
       for (const m of src.matchAll(/\bwindow\.([A-Za-z_$][\w$]*)\s*=(?!=)/g)) g[m[1]] = "writable";
-      for (const m of src.matchAll(/\bObject\.defineProperty\(\s*window\s*,\s*["']([A-Za-z_$][\w$]*)["']/g)) g[m[1]] = "writable";   // e.g. a live getter for the page's state
+      for (const m of src.matchAll(/\bObject\.defineProperty\(\s*window\s*,\s*["']([A-Za-z_$][\w$]*)["']/g)) g[m[1]] = "writable";
     }
   });
-  try { walk(path.join(__dirname, "tests")); } catch (e) { /* no tests */ }
+  try { walk(path.join(__dirname, "tests")); } catch (e) { }
   for (const n of Object.keys(g)) if (n in globals.node || n in globals.browser) delete g[n];
   return g;
 }
@@ -60,26 +60,25 @@ module.exports = [
     languageOptions: {ecmaVersion: 2024, sourceType: "commonjs", globals: {...globals.node}},
     rules: bugRules,
   },
-  // Electron preloads, and lms.js (main process, but some of its functions are sent into the school's pages to run there)
+  // Electron preloads, and lms.js
   {
     files: ["preload.js", "widget-preload.js", "shot-preload.js", "lms.js"],
     languageOptions: {ecmaVersion: 2024, sourceType: "commonjs", globals: {...globals.node, ...globals.browser}},
     rules: bugRules,
   },
-  // Renderer pages loaded with <script src>: widget and screenshot overlays, the marketing site
+  // Renderer pages loaded with <script src>
   {
     files: ["widget.js", "shot.js", "website/**/*.js"],
-    // SCN20 and COMP_DATA are declared by scenes-lib.js and companions-data.js, loaded as separate scripts
+    // SCN20 and COMP_DATA are declared by scenes-lib.js and companions-data.js
     languageOptions: {ecmaVersion: 2024, sourceType: "script", globals: {...globals.browser, supabase: "readonly", SITE_CONFIG: "readonly", SCN20: "readonly", COMP_DATA: "readonly"}},
     rules: bugRules,
   },
-  // The app's scene and companion code, copied unchanged by tools/make-website-assets.py: same relaxations as the app's own inline lint (scripts/lint-inline.js)
+  // The app's scene and companion code, copied unchanged by tools/make-website-assets.py
   {
     files: ["website/assets/scenes-lib.js", "website/assets/companions-engine.js", "website/assets/companions-data.js"],
     rules: {"no-redeclare": "off", "no-self-assign": "warn"},
   },
-  // The browser extension (extension/src): its pages and background run with the extension APIs (chrome.*). __studyboardExt is made by
-  // harvest.js, which scripts/build-extension.js builds from lms.js and loads in front of them.
+  // The browser extension (extension/src)
   {
     files: ["extension/src/**/*.js"],
     languageOptions: {ecmaVersion: 2024, sourceType: "script", globals: {...globals.browser, ...globals.serviceworker, ...globals.webextensions}},
@@ -91,11 +90,11 @@ module.exports = [
     languageOptions: {ecmaVersion: 2024, sourceType: "script", globals: {...globals.serviceworker}},
     rules: bugRules,
   },
-  // Tests run under Node; page.evaluate() callbacks run in the browser, so browser globals are allowed too
+  // Tests run under Node; page.evaluate() callbacks run in the browser
   {
     files: ["tests/**/*.js"],
     languageOptions: {ecmaVersion: 2024, sourceType: "commonjs", globals: {...globals.node, ...globals.browser, ...testGlobals()}},
-    // a test's own /* global ... */ comment may name a page global another test also exposes: that is not a redeclaration
+    // a test's own /* global ... */ comment may name a page global another test also exposes
     rules: {...bugRules, "no-redeclare": ["error", {builtinGlobals: false}]},
   },
 ];

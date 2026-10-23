@@ -1,14 +1,10 @@
-// Browser test for PDF text extraction with the vendored PDF.js (vendor/pdfjs/).
-// Run: node tests/pdf-import.e2e.js    (Playwright + Chromium; the repo is served over a throwaway local http server, because
-// module import() is blocked on file:// URLs)
-// Covers: the vendored PDF.js loads as an ES module the way index.html loads it (same URL, same worker, the exact PDF_OPTS read out of
-// index.html), and reads the text of a real (hand-built) two-page PDF in order, the way pdfText() does.
+// Browser test for PDF text extraction with the vendored PDF.js (vendor/pdfjs/)
 const path = require("path"), fs = require("fs"), http = require("http"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const ROOT = path.join(__dirname, "..");
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 
-// A minimal valid PDF: two pages, Helvetica text, correct xref offsets.
+// A minimal valid PDF
 function makePdf(pages){
   const objs = [];
   const kids = pages.map((_, i) => `${3 + i * 2} 0 R`).join(" ");

@@ -1,32 +1,4 @@
-// Studyboard: calendar-sync (Supabase Edge Function)  ·  two-way sync with Google Calendar and Outlook (Studyboard Pro)
-//
-// Deploy with "Verify JWT" turned OFF: Google and Microsoft send the person back here (GET ?code=&state=) without a Supabase sign-in.
-// Every POST checks the person's sign-in itself (the same way create-checkout does). Tables and rules: supabase-calsync.sql.
-// Secrets (Edge Functions > Secrets):
-//   CALSYNC_KEY            32+ random characters. Encrypts the stored refresh tokens (AES-GCM) and signs the sign-in state (HMAC);
-//                          two different keys are derived from it (HKDF). If it changes, people connect again.
-//   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET   an OAuth "Web application" client (Google Cloud > APIs & Services > Credentials), with the
-//                          Calendar API on. Authorized redirect URI: https://<project>.supabase.co/functions/v1/calendar-sync
-//   MS_CLIENT_ID, MS_CLIENT_SECRET           an app registration (Microsoft Entra > App registrations, "personal and work accounts"), a Web
-//                          redirect URI (the same address), delegated permissions Calendars.ReadWrite, User.Read, offline_access.
-//   Either provider can be left out; the app then only offers the other. Optional: CALSYNC_REDIRECT (a different redirect address).
-// Supabase adds SUPABASE_URL, SUPABASE_ANON_KEY and the service key.
-//
-// What Studyboard may do with the account: Google: make secondary calendars and manage the events in them (calendar.app.created), and read
-// the person's events (calendar.events.readonly) for busy times. Microsoft: Calendars.ReadWrite. It only ever WRITES to the calendar it
-// made, "Studyboard"; it never changes or deletes anything else.
-//
-// POST {action} with Authorization: Bearer <the person's Supabase access token>:
-//   "start"      {provider, tz}        -> {url}: where to send the person to allow access (Pro only once the paywall is on)
-//   "status"                           -> {accounts: [{provider, account, status, last_sync, sent}], providers: {google, microsoft}}
-//   "sync"       {provider, tz, from, to, events: [...], bring: "titles" | "busy" | "off"}
-//                                      -> {changes: [{k, deleted} | {k, allDay, date, endDate, start, end}], added: [...], busy: [...] | null, more, stats}
-//                                         added: events the person made themselves in the Studyboard calendar, for the app to add as its own
-//                                         events (see adopt below). They are linked to that calendar event, so they sync both ways from then on.
-//   "disconnect" {provider, remove}    -> {ok}   (remove: also delete the Studyboard calendar there)
-// Errors: 401 sign in · 402 pro_required · 404 not_connected · 409 reauth (allow access again) or busy (another device is syncing) ·
-//         501 not_configured · 502 provider (Google or Microsoft refused or failed) · 400 bad request · 429 too many tries.
-// Logs are one line of JSON per request, never tokens, titles, times or the account address.
+// Studyboard: calendar-sync
 
 type Env = (k: string) => string;
 type Deps = { env: Env; fetch: typeof fetch; now: () => number; log: (...a: unknown[]) => void };
@@ -36,9 +8,7 @@ export type Row = { sb_key: string; ext_id: string; hash: string; ext_start: str
 export type Ext = { s: string; e: string };
 
 const PROVIDERS: Provider[] = ["google", "microsoft"];
-// Reading the person's own Google calendar (calendar.events.readonly: busy times and "Bring In My Own Events") is switched OFF for now,
-// so Studyboard doesn't ask for that scope while it waits for Google's review. The code stays: set the Supabase secret
-// GOOGLE_CALENDAR_READ=1 to switch it back on. Outlook is not affected (Calendars.ReadWrite already covers it).
+// Reading the person's own Google calendar
 export const googleReads = (d: Deps) => d.env("GOOGLE_CALENDAR_READ") === "1";
 const MAX_EVENTS = 800, MAX_WRITES = 60, MAX_BUSY = 300, BUSY_DAYS = 28, POOL = 5;
 const enc = new TextEncoder(), dec = new TextDecoder();
@@ -56,7 +26,7 @@ function parts(tz: string, ms: number) {
   const o: Record<string, string> = {}; f.formatToParts(new Date(ms)).forEach(x => { o[x.type] = x.value; }); return o;
 }
 const offsetMin = (tz: string, ms: number) => { const o = parts(tz, ms); return Math.round((Date.UTC(+o.year, +o.month - 1, +o.day, +o.hour % 24, +o.minute, +o.second) - Math.floor(ms / 1000) * 1000) / 6e4); };
-// Wall-clock date and time in tz -> UTC milliseconds (the later instant when a time happens twice, the next real one when it is skipped)
+// Wall-clock date and time in tz -> UTC milliseconds
 export function zonedMs(tz: string, date: string, time: string): number {
   const g = dMs(date) + (+time.slice(0, 2) * 60 + +time.slice(3, 5)) * 6e4;
   let ms = g - offsetMin(tz, g) * 6e4; const o2 = offsetMin(tz, ms); if (g - o2 * 6e4 !== ms) ms = g - o2 * 6e4;
@@ -76,12 +46,12 @@ export function cleanWant(raw: any, from: string, to: string): Want | null {
   else { w.start = raw.start; w.end = isTime(raw.end) && raw.end !== raw.start ? raw.end : undefined; }
   return w;
 }
-// Where an event is, as compared with what the calendar has: "D<date>" (all day; the end is the day AFTER, as calendars store it) or "T<ms>"
+// Where an event is, as compared with what the calendar has
 export function spanOf(w: Want, tz: string): { s: string; e: string; sMs: number; eMs: number } {
   if (w.allDay) { const end = addDays(w.endDate || w.date, 1); return { s: "D" + w.date, e: "D" + end, sMs: dMs(w.date), eMs: dMs(end) }; }
   const sMs = zonedMs(tz, w.date, w.start!);
   let eMs = w.end ? zonedMs(tz, w.date, w.end) : sMs + 30 * 6e4;
-  if (eMs <= sMs) eMs = zonedMs(tz, addDays(w.date, 1), w.end!);   // ends after midnight
+  if (eMs <= sMs) eMs = zonedMs(tz, addDays(w.date, 1), w.end!);
   return { s: "T" + sMs, e: "T" + eMs, sMs, eMs };
 }
 export async function hashOf(w: Want, tz: string): Promise<string> {
@@ -98,7 +68,7 @@ const spanDate = (s: string, tz: string) => s[0] === "D" ? s.slice(1) : s[0] ===
 
 /* ================= The plan: pure, so it can be tested without any network ================= */
 export type Plan = { creates: { w: Want; h: string }[]; patches: { w: Want; h: string; r: Row }[]; deletes: Row[]; changes: any[]; rows: any[]; more: boolean; readd: Row[] };
-// want: what Studyboard has now. map: what was written before. ext: the Studyboard calendar's events in the window, by id (null: not listed).
+// want: what Studyboard has now
 export async function plan(want: Want[], map: Row[], ext: Map<string, Ext>, tz: string, from: string, to: string, max = MAX_WRITES): Promise<Plan> {
   const out: Plan = { creates: [], patches: [], deletes: [], changes: [], rows: [], more: false, readd: [] };
   const byKey = new Map(map.map(r => [r.sb_key, r])), wanted = new Map(want.map(w => [w.k, w])), moved = new Set<string>();
@@ -108,7 +78,6 @@ export async function plan(want: Want[], map: Row[], ext: Map<string, Ext>, tz: 
     const x = ext.get(r.ext_id);
     if (!x) { if (inWin(r)) { out.changes.push({ k: r.sb_key, deleted: true }); out.rows.push({ k: r.sb_key, ext_id: r.ext_id, hash: r.hash, ext_start: r.ext_start, ext_end: r.ext_end, gone: true }); moved.add(r.sb_key); } continue; }
     if (r.ext_start && (x.s !== r.ext_start || x.e !== r.ext_end)) {
-      // Moved in the calendar: Studyboard hears about it first, and the next sync writes whatever Studyboard then has (hash cleared)
       out.changes.push({ k: r.sb_key, ...wallSpan(x, tz) });
       out.rows.push({ k: r.sb_key, ext_id: r.ext_id, hash: "", ext_start: x.s, ext_end: x.e, gone: false });
       moved.add(r.sb_key);
@@ -119,15 +88,14 @@ export async function plan(want: Want[], map: Row[], ext: Map<string, Ext>, tz: 
     if ((r && r.gone) || moved.has(w.k)) continue;
     const h = await hashOf(w, tz);
     if (!r) out.creates.push({ w, h });
-    else if (r.hash === ADOPTED + h) out.rows.push({ k: r.sb_key, ext_id: r.ext_id, hash: h, ext_start: r.ext_start, ext_end: r.ext_end, gone: false });   // the app has it now
+    else if (r.hash === ADOPTED + h) out.rows.push({ k: r.sb_key, ext_id: r.ext_id, hash: h, ext_start: r.ext_start, ext_end: r.ext_end, gone: false });
     else if (r.hash !== h) out.patches.push({ w, h, r });
   }
   for (const r of map) if (!r.gone && !wanted.has(r.sb_key) && !moved.has(r.sb_key) && inWin(r)) {
-    // A calendar event Studyboard took in that this device doesn't have yet (another device added it, and it hasn't synced here):
-    // never deleted for that, it's offered again instead
+    // A calendar event Studyboard took in that this device doesn't have yet
     if (r.hash.startsWith(ADOPTED)) out.readd.push(r); else out.deletes.push(r);
   }
-  // At most max writes in one call: removals and changes first, then new events, soonest first. The app calls again for the rest.
+  // At most max writes in one call
   let room = max;
   const take = <T,>(a: T[]) => { const t = a.slice(0, Math.max(0, room)); room -= t.length; if (t.length < a.length) out.more = true; return t; };
   out.deletes = take(out.deletes); out.patches = take(out.patches); out.creates = take(out.creates);
@@ -135,19 +103,17 @@ export async function plan(want: Want[], map: Row[], ext: Map<string, Ext>, tz: 
 }
 
 /* ================= Events made in the Studyboard calendar itself ================= */
-// The person can add an event to the Studyboard calendar in Google Calendar or Outlook. It becomes a Studyboard event (the same id on every
-// device: from the provider and the calendar event's id), and a map row links the two so it then syncs like everything else. The row's
-// hash is what the app will send for that event (built the way the app builds it), marked ADOPTED until the app has sent it once.
+// The person can add an event to the Studyboard calendar in Google Calendar or Outlook
 export const ADOPTED = "a:";
 export type Listed = { id: string; x: Ext; title: string; where: string; ours?: boolean };
 export async function adopt(it: Listed, prov: Provider, tz: string, from: string, to: string): Promise<{ ev: any; row: any } | null> {
-  if (it.ours) return null;   // one Studyboard wrote (its map row was lost): never taken in as a second copy
+  if (it.ours) return null;
   const sp = wallSpan(it.x, tz); if (!isDate(sp.date) || sp.date < from || sp.date > to) return null;
   const h = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(prov + "|new|" + it.id))).slice(0, 10), x => x.toString(16).padStart(2, "0")).join("");
   const id = "c" + prov[0] + "n" + h, title = clean(it.title, 120) || "Event", where = clean(it.where, 120);
   const ev: any = { id, title, where, date: sp.date, allDay: sp.allDay };
   if (sp.allDay) { if (sp.endDate && sp.endDate <= addDays(sp.date, 30)) ev.endDate = sp.endDate; }
-  else {   // as the app stores it: an end at or before the start becomes an hour later
+  else {
     const m = (t: string) => +t.slice(0, 2) * 60 + +t.slice(3, 5), s0 = sp.start!, e0 = sp.end || "";
     ev.start = s0; ev.end = e0 && m(e0) > m(s0) ? e0 : (x => `${p2(Math.floor(x / 60))}:${p2(x % 60)}`)(Math.min(1439, m(s0) + 60));
   }
@@ -169,7 +135,7 @@ export async function keys(secret: string) {
   KEYS = { raw: secret, aes, mac };
   return KEYS;
 }
-// The token is bound to its owner and provider: a row copied to another account can't be opened there
+// The token is bound to its owner and provider
 export async function seal(secret: string, text: string, uid: string, provider: string): Promise<string> {
   const k = await keys(secret), iv = crypto.getRandomValues(new Uint8Array(12));
   const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: enc.encode(uid + "|" + provider) }, k.aes, enc.encode(text));
@@ -204,9 +170,9 @@ type Adapter = {
   ensureCalendar(at: string, id: string | null, tz: string): Promise<{ id: string; made: boolean }>;
   list(at: string, cal: string, fromMs: number, toMs: number, busyOnly: boolean): Promise<Listed[]>;
   create(at: string, cal: string, w: Want, tz: string): Promise<string>;
-  patch(at: string, cal: string, id: string, w: Want, tz: string): Promise<boolean>;   // false: it isn't there any more
+  patch(at: string, cal: string, id: string, w: Want, tz: string): Promise<boolean>;
   remove(at: string, cal: string, id: string): Promise<void>;
-  getOne(at: string, cal: string, id: string): Promise<Ext | null>;   // null: deleted
+  getOne(at: string, cal: string, id: string): Promise<Ext | null>;
   removeCalendar(at: string, cal: string): Promise<void>;
   revoke(rt: string): Promise<void>;
 };
@@ -267,7 +233,7 @@ export function google(d: Deps): Adapter {
     async remove(at, cal, eid) { await api(d, `${G}/calendars/${encodeURIComponent(cal)}/events/${encodeURIComponent(eid)}`, at, { method: "DELETE" }, true); },
     async getOne(at, cal, eid) { const it = await api(d, `${G}/calendars/${encodeURIComponent(cal)}/events/${encodeURIComponent(eid)}`, at, {}, true); return it && it.status !== "cancelled" ? norm(it) : null; },
     async removeCalendar(at, cal) { await api(d, `${G}/calendars/${encodeURIComponent(cal)}`, at, { method: "DELETE" }, true); },
-    async revoke(rt) { try { await d.fetch("https://oauth2.googleapis.com/revoke?token=" + encodeURIComponent(rt), { method: "POST" }); } catch (_e) { /* best effort */ } },
+    async revoke(rt) { try { await d.fetch("https://oauth2.googleapis.com/revoke?token=" + encodeURIComponent(rt), { method: "POST" }); } catch (_e) { } },
   };
 }
 
@@ -290,14 +256,12 @@ export function microsoft(d: Deps): Adapter {
       const j = await tokenCall(d, `${T}/token`, { client_id: id, client_secret: secret, code, redirect_uri: redirect, grant_type: "authorization_code", scope: SCOPE });
       if (!j.refresh_token || !j.access_token) throw new ProviderError(400, false, "no refresh token");
       let account = jwtEmail(j.id_token || "");
-      if (!account) { try { const me = await api(d, `${M}/me?$select=mail,userPrincipalName`, j.access_token); account = String(me.mail || me.userPrincipalName || ""); } catch (_e) { /* the email is only for display */ } }
+      if (!account) { try { const me = await api(d, `${M}/me?$select=mail,userPrincipalName`, j.access_token); account = String(me.mail || me.userPrincipalName || ""); } catch (_e) { } }
       return { refresh: j.refresh_token, access: j.access_token, account };
     },
     async refresh(rt) { const j = await tokenCall(d, `${T}/token`, { client_id: id, client_secret: secret, refresh_token: rt, grant_type: "refresh_token", scope: SCOPE }); return { access: j.access_token, refresh: j.refresh_token }; },
     async ensureCalendar(at, cal) {
       if (cal && await api(d, `${M}/me/calendars/${encodeURIComponent(cal)}?$select=id`, at, {}, true)) return { id: cal, made: false };
-      // Only ever a calendar it made itself (one called Studyboard may be someone's own, or a subscription to the live link): if the
-      // name is taken, the new one gets another
       for (const name of ["Studyboard", "Studyboard Sync", "Studyboard (two-way)"]) {
         const r = await d.fetch(`${M}/me/calendars`, { method: "POST", headers: { Authorization: `Bearer ${at}`, "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
         if (r.ok) return { id: String((await r.json() as any).id), made: true };
@@ -325,20 +289,20 @@ export function microsoft(d: Deps): Adapter {
     async remove(at, _cal, eid) { await api(d, `${M}/me/events/${encodeURIComponent(eid)}`, at, { method: "DELETE" }, true); },
     async getOne(at, _cal, eid) { const it = await api(d, `${M}/me/events/${encodeURIComponent(eid)}?$select=id,start,end,isAllDay,isCancelled`, at, { headers: { Prefer: 'outlook.timezone="UTC"' } }, true); return it && !it.isCancelled ? norm(it) : null; },
     async removeCalendar(at, cal) { await api(d, `${M}/me/calendars/${encodeURIComponent(cal)}`, at, { method: "DELETE" }, true); },
-    async revoke() { /* Microsoft has no token revocation for this kind of app: deleting the stored token is what disconnects */ },
+    async revoke() { },
   };
 }
 
 /* ================= The function ================= */
 const CORS: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",   // the app runs on many origins; auth is a bearer token, never a cookie
+  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
   "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Max-Age": "600",
 };
 const reply = (o: unknown, status: number) => new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...CORS } });
 function serviceKey(d: Deps): string {
   let key = d.env("SUPABASE_SERVICE_ROLE_KEY");
-  if (!key) { try { const k = JSON.parse(d.env("SUPABASE_SECRET_KEYS") || "{}"); key = String(k.default || Object.values(k)[0] || ""); } catch (_e) { /* newer projects only */ } }
+  if (!key) { try { const k = JSON.parse(d.env("SUPABASE_SECRET_KEYS") || "{}"); key = String(k.default || Object.values(k)[0] || ""); } catch (_e) { } }
   return key;
 }
 const base = (d: Deps) => d.env("SUPABASE_URL").replace(/\/+$/, "");
@@ -362,12 +326,7 @@ const page = (title: string, text: string, ok: boolean) => new Response(`<!docty
 <body><main><i>${ok ? "✓" : "!"}</i><b>${title}</b><p>${text}</p></main></body></html>`, { status: ok ? 200 : 400, headers: { "Content-Type": "text/html; charset=utf-8", "X-Studyboard-Page": "html", "Cache-Control": "no-store", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'", "Referrer-Policy": "no-referrer" } });
 const NAME: Record<Provider, string> = { google: "Google Calendar", microsoft: "Outlook" };
 
-/* Connecting is bound to the browser that started it, and confirmed by the person:
-   1. The app opens ?begin=<state> (made by "start" for the signed-in person). It sets a short cookie holding the state's nonce in this
-      browser and sends it on to Google or Microsoft.
-   2. They send the browser back with ?code&state. Without the matching cookie (a link that someone sent you) nothing happens.
-   3. A page asks: connect <calendar account> to the Studyboard account <hana@school.edu>? Only that button stores anything. The full
-      address is shown (not a masked one): a ?begin link someone else made carries THEIR account, and the person has to be able to see that. */
+/* Connecting is bound to the browser that started it, and confirmed by the person */
 const COOKIE = "sbcs";
 const cookieOf = (req: Request) => ((req.headers.get("cookie") || "").split(/;\s*/).find(c => c.startsWith(COOKIE + "=")) || "").slice(COOKIE.length + 1);
 const setCookie = (v: string, age: number) => `${COOKIE}=${v}; Max-Age=${age}; Path=/functions/v1/calendar-sync; HttpOnly; Secure; SameSite=Lax`;
@@ -379,8 +338,7 @@ async function begin(req: Request, url: URL, d: Deps, A: Record<Provider, Adapte
   const secret = d.env("CALSYNC_KEY"), raw = url.searchParams.get("begin") || "";
   const st = secret.length >= 32 ? await readState(secret, raw, d.now()) : null;
   if (!st || !A[st.p].configured()) { log("begin_bad"); return page("That link has expired", "Go back to Studyboard and choose Connect again.", false); }
-  // When the return address is on the website (CLOUD_REDIRECT / CALSYNC_REDIRECT), the browser's cookie has to be set there too: a link
-  // that reached Supabase directly (one made before the address changed) goes to the website first, which passes it back here.
+  // When the return address is on the website (CLOUD_REDIRECT / CALSYNC_REDIRECT)
   if (new URL(redirectOf(d)).host !== new URL(base(d)).host && req.headers.get("x-studyboard-via") !== "site") {
     log("begin_to_site");
     return new Response(null, { status: 302, headers: { Location: `${redirectOf(d)}?begin=${encodeURIComponent(raw)}`, "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
@@ -410,7 +368,7 @@ const confirmPage = (title: string, html: string, box: string) => new Response(`
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0E2A56;font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:#0E2A56}main{background:#fff;border-radius:18px;padding:28px 26px;max-width:440px;margin:16px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)}h1{font-size:1.25rem;margin:0 0 8px}p{margin:0 0 18px;color:#40506B}button{font:inherit;font-weight:700;border:0;border-radius:12px;padding:12px 22px;background:#2563EB;color:#fff;cursor:pointer}</style></head>
 <body><main><h1>${title}</h1><p>${html}</p><form method="post"><input type="hidden" name="confirm" value="${htmlEsc(box)}"><button type="submit">Connect</button></form></main></body></html>`, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8", "X-Studyboard-Page": "html", "Cache-Control": "no-store", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY" } });
 async function confirm(req: Request, d: Deps, A: Record<Provider, Adapter>, log: (o: string, x?: any) => void): Promise<Response> {
-  const secret = d.env("CALSYNC_KEY"), text = await readLimited(req, 9000);   // unsigned-in POST: read at most 9000 bytes
+  const secret = d.env("CALSYNC_KEY"), text = await readLimited(req, 9000);
   if (secret.length < 32 || text === null) return page("Not connected", "Try again from Studyboard.", false);
   let o: any = null;
   try { o = JSON.parse(await unseal(secret, new URLSearchParams(text).get("confirm") || "", "confirm", "calsync")); } catch (_e) { o = null; }
@@ -430,7 +388,7 @@ async function confirm(req: Request, d: Deps, A: Record<Provider, Adapter>, log:
   }
 }
 
-// Reads the body but stops as soon as it passes max bytes (null = too big). Content-Length alone can't be trusted (or may be missing).
+// Reads the body but stops as soon as it passes max bytes (null = too big)
 export async function readLimited(req: Request, max: number): Promise<string | null> {
   const cl = Number(req.headers.get("content-length") || 0);
   if (cl > max) return null;
@@ -441,7 +399,7 @@ export async function readLimited(req: Request, max: number): Promise<string | n
     const { done, value } = await reader.read();
     if (done) break;
     n += value.byteLength;
-    if (n > max) { try { await reader.cancel(); } catch (_e) { /* ignore */ } return null; }
+    if (n > max) { try { await reader.cancel(); } catch (_e) { } return null; }
     chunks.push(value);
   }
   const all = new Uint8Array(n); let o = 0;
@@ -478,11 +436,11 @@ async function sync(uid: string, b: any, d: Deps, A: Record<Provider, Adapter>, 
     const fromMs = zonedMs(tz, addDays(from, -1), "00:00"), toMs = zonedMs(tz, addDays(to, 2), "00:00");
     const listed = await P.list(at, cal.id, fromMs, toMs, false);
     const ext = new Map<string, Ext>(listed.map(x => [x.id, x.x]));
-    // An event the person moved far outside the window isn't in the list: look it up before calling it deleted (a few per sync)
+    // An event the person moved far outside the window isn't in the list
     const inWin = (r: Row) => { const dd = spanDate(r.ext_start, tz); return !!dd && dd >= from && dd <= to; };
     const missing = map.filter(r => !r.gone && inWin(r) && !ext.has(r.ext_id)).slice(0, 40);
     await pool(missing, POOL, async r => { try { const x = await P.getOne(at, cal.id, r.ext_id); if (x) ext.set(r.ext_id, x); } catch (_e) { ext.set(r.ext_id, { s: r.ext_start, e: r.ext_end }); } });
-    // Rows for things long past are forgotten (the events stay in the calendar), so the map doesn't grow term after term
+    // Rows for things long past are forgotten (the events stay in the calendar)
     const wantedKeys = new Set(want.map(w => w.k));
     const old = map.filter(r => { const dd = spanDate(r.ext_start, tz); return !wantedKeys.has(r.sb_key) && !!dd && dd < addDays(from, -30); }).map(r => r.sb_key);
     const live = map.filter(r => !old.includes(r.sb_key));
@@ -501,7 +459,7 @@ async function sync(uid: string, b: any, d: Deps, A: Record<Provider, Adapter>, 
       try { const sp = spanOf(c.w, tz), eid = await P.create(at, cal.id, c.w, tz); rows.push({ k: c.w.k, ext_id: eid, hash: c.h, ext_start: sp.s, ext_end: sp.e, gone: false }); stats.created++; }
       catch (e) { fail(e); }
     });
-    // Events the person added to the Studyboard calendar themselves: into Studyboard (and offered again until the app has them)
+    // Events the person added to the Studyboard calendar themselves
     const added: any[] = [], known = new Set(map.map(r => r.ext_id)), byExt = new Map(listed.map(i => [i.id, i]));
     for (const it of listed) {
       if (known.has(it.id) || added.length >= 100) continue;
@@ -510,13 +468,11 @@ async function sync(uid: string, b: any, d: Deps, A: Record<Provider, Adapter>, 
     }
     for (const r of pl.readd) { const it = byExt.get(r.ext_id); const a = it ? await adopt(it, prov, tz, from, to) : null; if (a && a.row.k === r.sb_key) added.push(a.ev); }
     if (rows.length || drop.length) await rpc(d, "calsync_map_save", { p_uid: uid, p_provider: prov, p_rows: rows, p_drop: drop });
-    // Busy times from the person's own calendar, for Today's Plan (only what they chose to bring in)
+    // Busy times from the person's own calendar, for Today's Plan
     let busy: any[] | null = null, busyErr = "";
-    if (prov === "google" && !googleReads(d)) busy = [];   // switched off: an empty list clears what came in before
+    if (prov === "google" && !googleReads(d)) busy = [];
     else if (b.bring === "titles" || b.bring === "busy") {
       const bf = zonedMs(tz, today, "00:00"), bt = zonedMs(tz, addDays(today, BUSY_DAYS), "00:00");
-      // With titles, everything in their calendar comes in (all-day events are "free" by default in Google, and were left out); busy only
-      // keeps just the time they're busy. If they didn't allow reading their calendar, the rest of the sync still works and the app says so.
       let items: Listed[] = [];
       try { items = (await P.list(at, "primary", bf, bt, b.bring === "busy")).slice(0, MAX_BUSY); }
       catch (e) { if (e instanceof ProviderError && (e.status === 403 || e.status === 401)) busyErr = "no_access"; else throw e; }
@@ -530,7 +486,7 @@ async function sync(uid: string, b: any, d: Deps, A: Record<Provider, Adapter>, 
     log("synced", { provider: prov, n: want.length, ...stats, added: added.length, more: pl.more });
     return reply({ ok: true, changes: pl.changes, added, busy, busyErr, more: pl.more || stats.failed > 0, stats, window: { from, to }, busyWindow: busy ? { from: today, to: addDays(today, BUSY_DAYS - 1) } : null }, 200);
   } finally {
-    try { await rpc(d, "calsync_unlock", { p_uid: uid, p_provider: prov, p_synced: synced }); } catch (_e) { /* the lease runs out by itself */ }
+    try { await rpc(d, "calsync_unlock", { p_uid: uid, p_provider: prov, p_synced: synced }); } catch (_e) { }
   }
 }
 
@@ -548,7 +504,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
   try {
     const uid = await whoIs(d, (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim());
     if (!uid) return reply({ error: "sign in first" }, 401);
-    const text = await readLimited(req, 1_200_000);   // bytes (400 000 characters of any script fit); the character cap stays
+    const text = await readLimited(req, 1_200_000);
     if (text === null || text.length > 400_000) return reply({ error: "bad request" }, 400);
     let b: any; try { b = JSON.parse(text || "{}"); } catch (_e) { b = null; }
     if (!b || typeof b !== "object") return reply({ error: "bad request" }, 400);
@@ -563,7 +519,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
           const rt = await unseal(secret, acct.refresh_enc, uid, prov);
           if (b.remove && acct.cal_id) { const tok = await A[prov].refresh(rt); await A[prov].removeCalendar(tok.access, acct.cal_id); }
           await A[prov].revoke(rt);
-        } catch (_e) { /* disconnecting never fails because the provider did */ }
+        } catch (_e) { }
         await rpc(d, "calsync_disconnect", { p_uid: uid, p_provider: prov });
       }
       log("disconnected", { provider: prov });
@@ -574,7 +530,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     if (b.action === "start") {
       const state = await signState(secret, { u: uid, p: prov, e: Math.floor(d.now() / 1000) + 900, z: validTz(b.tz) ? b.tz : "UTC" });
       log("start", { provider: prov });
-      return reply({ url: `${redirectOf(d)}?begin=${encodeURIComponent(state)}` }, 200);   // through this function first, to tie it to the browser
+      return reply({ url: `${redirectOf(d)}?begin=${encodeURIComponent(state)}` }, 200);
     }
     if (b.action === "sync") return await sync(uid, b, d, A, log);
     return reply({ error: "bad request" }, 400);

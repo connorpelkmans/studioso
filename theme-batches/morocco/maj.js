@@ -1,4 +1,4 @@
-/* Around the World: Morocco (a tiled riad courtyard below the Atlas mountains) */
+/* Around the World */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const r1 = n => Math.round(n * 100) / 100;
@@ -6,9 +6,9 @@
   const circ = (x, y, r) => `M${r1(x - r)} ${r1(y)}a${r1(r)} ${r1(r)} 0 1 0 ${r1(2 * r)} 0a${r1(r)} ${r1(r)} 0 1 0 ${r1(-2 * r)} 0Z`;
   const star = (cx, cy, R, r, n, rot = 0) => pts(Array.from({length: n * 2}, (_, i) => { const a = rot - Math.PI / 2 + i * Math.PI / n, q = i % 2 ? r : R; return [cx + q * Math.cos(a), cy + q * Math.sin(a)]; }));
   Object.assign(FX_SHAPES, {
-    // a zellige star: an eight-point star with a smaller star set inside it
+    // a zellige star
     moroccostar: {d: star(0, 0, 10.4, 7.6, 8, Math.PI / 8), detail: star(0, 0, 4.6, 3.2, 8), dstroke: true},
-    // a pierced brass lantern: finial, onion dome, a body with little holes, a pointed foot
+    // a pierced brass lantern
     moroccolantern: {d: "M-0.8 -12.6H0.8V-10.4H-0.8Z M-4.4 -6.6Q-4.4 -10.6 0 -10.8Q4.4 -10.6 4.4 -6.6Z M-5.4 -6.6H5.4V-5H-5.4Z M-5 -5H5L4.2 4.4H-4.2Z M-4.8 4.4H4.8V5.8H-4.8Z M-3.8 5.8H3.8L0 11.4Z",
       detail: circ(-2, -2.6, 0.7) + circ(2, -2.6, 0.7) + circ(0, -0.4, 0.8) + circ(-2, 1.8, 0.7) + circ(2, 1.8, 0.7), dfill: true},
     moroccopetal: {d: "M0 -7.6C4.6 -7.8 7 -3 5.4 1.6C4 5.6 1.4 7.6 0 7.6C-1.4 7.6 -4 5.6 -5.4 1.6C-7 -3 -4.6 -7.8 0 -7.6Z", detail: "M0 -4.6Q-0.6 1 0 5.4", dstroke: true},

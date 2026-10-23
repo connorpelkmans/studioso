@@ -1,20 +1,8 @@
 /* ===== module: 97-crunch.js ===== */
-/* Crunch Forecast (Calendar, third view). A heatmap of the term's workload, a week-by-week summary, a detail sheet with
-   "Move earlier" / "Start now" and a what-if preview, a card on Today, and one companion suggestion. Free, works offline, no AI. */
+/* Crunch Forecast (Calendar, third view) */
 (() => {
 /*CRUNCH-START*/
-// The Crunch Forecast model. Pure functions only (no app globals), so tests/crunch.test.js can run it in Node.
-// Dates are local "YYYY-MM-DD" strings and every day step goes through setDate, so DST and Feb 29 can't skew a day.
-//
-// How a day's load is worked out (all in hours of demand, compared with that day's study capacity):
-//   - work: each open task's remaining hours are spread backwards from its due date over a lead-up window
-//     (exam 5 days, quiz 3, paper 7, project 9, ...), heavier close to the deadline (the "decay"), never before today.
-//     A planned start date flattens and lengthens the window, which is how starting early lowers the peak.
-//   - stress: the due day itself costs extra (exam 1.5h, paper 1h, ...), scaled by the grade weight.
-//   - overdue work lands on today. Done tasks, and work that can't be turned in any more, count for nothing.
-//   - capacity: your usual study hours a day, shortened by classes, labs, shifts and events (same rule as Today's Plan).
-// Day level from load / capacity: calm < 0.4 <= steady < 1.1 <= busy < 1.3 <= heavy < 2.0 <= crunch. (1x your usual study time is normal, so it is steady, never heavy.)
-// A week blends its worst day with its overall load, and a week with 3+ big deadlines is at least heavy (4+ is crunch).
+// The Crunch Forecast model
 const CRUNCH = (() => {
   const LEVELS = ["calm", "steady", "busy", "heavy", "crunch"];
   const CUTS = [0.4, 1.1, 1.3, 2.0];
@@ -29,7 +17,7 @@ const CRUNCH = (() => {
   const num = v => v !== null && v !== "" && v !== undefined && Number.isFinite(Number(v));
   const r2 = x => Math.round(x * 100) / 100;
 
-  // Task classes: how heavy a deadline is. "major" ones count toward a week's big-deadline floor.
+  // Task classes: how heavy a deadline is
   const PROF = {
     exam:       {one: "exam", many: "exams", stress: 1.5, hours: 8, lead: 5, decay: 0.78, dueFrac: 0.1, w: 20, major: 1},
     quiz:       {one: "quiz", many: "quizzes", stress: 0.75, hours: 2, lead: 3, decay: 0.7, dueFrac: 0.2, w: 3, major: 0.5},
@@ -48,7 +36,7 @@ const CRUNCH = (() => {
     const ty = t && t.type, title = String((t && t.title) || "");
     if (ty === "Exam") return "exam";
     if (ty === "Quiz") return "quiz";
-    if (ty === "Study" || (t && (t.prep || t.bd))) return "study";   // exam study sessions and breakdown milestones are placed on their own day, no lead-up window or due-day stress
+    if (ty === "Study" || (t && (t.prep || t.bd))) return "study";
     if (ty === "Reading") return "reading";
     if (EXAM_RX.test(title)) return "exam";
     if (ty === "Project" || BIGPROJ_RX.test(title)) return "project";
@@ -66,8 +54,7 @@ const CRUNCH = (() => {
   }
   const weightFactor = (t, c) => { const w = num(t.weight) && Number(t.weight) > 0 ? Number(t.weight) : (PROF[c] || PROF.other).w; return Math.max(0.8, Math.min(1.6, 0.8 + w / 50)); };
 
-  // Remaining hours: the planner's own figure when given (0 is a real answer, e.g. an exam whose study plan carries the work),
-  // otherwise a typical figure for the type, less any progress.
+  // Remaining hours
   function remOf(t, c){
     if (num(t.rem) && Number(t.rem) >= 0) return Number(t.rem);
     const p = num(t.pct) ? Math.max(0, Math.min(100, Number(t.pct))) : 0;
@@ -75,26 +62,24 @@ const CRUNCH = (() => {
   }
   const busyFactor = h => Math.max(0.3, Math.min(1, 1 - Math.max(0, h - 3) / 8));
 
-  // Which open tasks count, and where each one's hours land (offset from today -> {hours, stress}).
+  // Which open tasks count, and where each one's hours land
   function place(t, today, lastDay){
     const c = classOf(t), P = PROF[c] || PROF.other, wf = weightFactor(t, c);
     const R = remOf(t, c) * Math.sqrt(wf), S = P.stress * wf * (t.status === "doing" ? 0.85 : 1);
-    const out = [];   // {date, hours, stress, kind}
+    const out = [];
     const due = t.due;
-    if (diff(today, due) <= 0) {   // due today or overdue: it all falls on today
+    if (diff(today, due) <= 0) {
       const over = diff(today, due) < 0;
       out.push({date: today, hours: R, stress: over ? S * 0.5 : S, kind: over ? "overdue" : "due"});
       return {c, out, R};
     }
-    // window of days before the due date
-    // a start date only means something when it's still ahead (new tasks get today's date as their start)
     const start = isDay(t.start) && t.start > today && t.start < due ? t.start : "";
     const L = P.lead;
     let first = add(due, -L), decay = P.decay;
     if (start) {
       const planned = diff(start, due);
       first = planned > L ? start : (start > first ? start : first);
-      if (planned > L) decay = Math.max(decay, 0.95);   // a planned early start spreads the work
+      if (planned > L) decay = Math.max(decay, 0.95);
       if (diff(first, due) > 28) first = add(due, -28);
     }
     if (first < today) first = today;
@@ -108,12 +93,10 @@ const CRUNCH = (() => {
     return {c, out, R};
   }
 
-  // input: {today, tasks, busy: {date: hours}, dailyHours, maxWeeks (20), minWeeks (6)}
-  // task: {id, title, type, due, time, start, status, rem, est, weight, synced, blocked, prep, pct, courseId, dead}
+  // input: {today, tasks, busy: {date: hours}, dailyHours, maxWeeks (20), minWeeks
   function build(input){
     const today = input.today, maxWeeks = input.maxWeeks || 20, minWeeks = input.minWeeks || 6;
     const dh = num(input.dailyHours) ? Math.max(0.5, Number(input.dailyHours)) : 3, busy = input.busy || {};
-    // Learned pace (92-accuracy.js): capScale (0.75-1.25) scales every day's capacity; wkScale is 7 optional factors (0.8-1.2), Sunday first. Both default to 1.
     const cs = num(input.capScale) ? Math.max(0.75, Math.min(1.25, Number(input.capScale))) : 1;
     const wks = Array.isArray(input.wkScale) && input.wkScale.length === 7 ? input.wkScale.map(v => num(v) ? Math.max(0.8, Math.min(1.2, Number(v))) : 1) : null;
     const open = (input.tasks || []).filter(t => t && t.status !== "done" && isDay(t.due) && !t.dead);
@@ -146,7 +129,7 @@ const CRUNCH = (() => {
       });
     });
     res.days.forEach(D => {
-      D.cap0 = r2(dh * cs * (wks ? wks[pd(D.date).getDay()] : 1));   // study time before classes and events are taken out
+      D.cap0 = r2(dh * cs * (wks ? wks[pd(D.date).getDay()] : 1));
       D.capacity = Math.max(0.5, D.cap0 * busyFactor(D.busy));
       D.demand = r2(D.demand);
       D.ratio = D.past ? 0 : r2(D.demand / D.capacity);
@@ -155,7 +138,6 @@ const CRUNCH = (() => {
       D.top = Object.values(D.items).sort((a, b) => b.total - a.total).slice(0, 5).map(x => ({id: x.id, title: x.title, cls: x.cls, kind: x.kind, hours: r2(x.hours), stress: r2(x.stress), total: r2(x.total), due: x.due, synced: x.synced, est: x.est}));
       D.reasons = describe(D.counts);
     });
-    // weeks
     for (let w = g0; w <= gridEnd; w = add(w, 7)) {
       const days = res.days.filter(D => D.date >= w && D.date <= add(w, 6)), live = days.filter(D => !D.past);
       const W = {start: w, end: add(w, 6), days: days.map(D => D.date), counts: {}, items: {}, past: !live.length};
@@ -174,13 +156,11 @@ const CRUNCH = (() => {
       if (W.major >= 4) lv = Math.max(lv, 4); else if (W.major >= 3) lv = Math.max(lv, 3);
       W.levelIdx = W.past ? 0 : lv; W.level = LEVELS[W.levelIdx];
       W.top = Object.values(W.items).sort((a, b) => b.total - a.total).slice(0, 6).map(x => ({id: x.id, title: x.title, cls: x.cls, kind: x.kind, hours: r2(x.hours), stress: r2(x.stress), total: r2(x.total), due: x.due, synced: x.synced, est: x.est}));
-      // big deadlines that fall after this week but are being prepared for in it
       W.prepCounts = {};
       Object.values(W.items).forEach(x => { if (x.kind === "prep" && isMajor(x.cls) && x.hours >= 0.5) W.prepCounts[x.cls] = (W.prepCounts[x.cls] || 0) + 1; });
       delete W.items;
       const due = describe(W.counts), prep = describe(W.prepCounts);
       W.reasons = (due || prep ? [due, prep ? `prep for ${prep}` : ""].filter(Boolean).join("; ") : "") || (W.top.length ? `Prep for ${W.top[0].title}` : "");
-      // the same thing as a sentence: "3 exams and a paper", "prep for 3 exams and a paper", "an exam due, plus prep for 2 papers"
       const big = {}; Object.keys(W.counts).forEach(c => { if (isMajor(c)) big[c] = W.counts[c]; });
       const prepP = phrase(W.prepCounts), dueP = Object.keys(big).length ? phrase(big) : prepP ? "" : phrase(W.counts);
       W.headline = dueP && prepP ? `${dueP} due, plus prep for ${prepP}` : dueP || (prepP ? `prep for ${prepP}` : "");
@@ -189,7 +169,7 @@ const CRUNCH = (() => {
     return res;
   }
 
-  // Whole weeks from this week to that one: 0 = this week, 1 = next week
+  // Whole weeks from this week to that one
   const weeksAway = (today, weekStart) => Math.max(0, Math.round(diff(monday(today), weekStart) / 7));
   function heaviest(model, minIdx){
     let best = null;
@@ -202,7 +182,7 @@ const CRUNCH = (() => {
     return (model.weeks || []).find(w => !w.past && w.levelIdx >= (o.min == null ? 3 : o.min) && diff(today, w.start) <= (o.maxDays || 42) && diff(today, w.start) >= (o.minDays == null ? -6 : o.minDays)) || null;
   }
 
-  // ---------- Pulling work forward ----------
+  // Pulling work forward
   const movable = (t, week, today) => {
     const c = classOf(t);
     if (!t || t.status === "done" || t.dead || !isDay(t.due) || c === "exam" || c === "quiz" || c === "study" || t.prep || t.blocked) return false;
@@ -226,11 +206,10 @@ const CRUNCH = (() => {
   function applyMoves(tasks, moves){ return (moves || []).reduce((ts, m) => withMove(ts, m), tasks); }
   const weekOf = (model, ws) => (model.weeks || []).find(w => w.start === ws);
   const SHIFTS = [1, 2, 3, 4, 5, 6, 7, 9, 11, 14, 18, 21];
-  // Best single move for one task: the date that lowers the target week the most (earliest wins a tie). null when nothing helps.
+  // Best single move for one task
   function bestMove(input, base, week, t, minGain){
     const today = input.today, c = classOf(t), cands = [];
     if (t.synced) {
-      // school-synced due dates are the school's: start earlier instead
       const s0 = effStart(t, today);
       SHIFTS.forEach(s => { const to = add(s0, -s); if (to > today && to < s0) cands.push({id: t.id, mode: "start", from: s0, to}); });
     } else {
@@ -244,7 +223,6 @@ const CRUNCH = (() => {
       const nw = weekOf(after, week.start); if (!nw) return;
       const gain = week.score - nw.score;
       if (gain < (minGain == null ? 0.05 : minGain)) return;
-      // moving the crunch somewhere else doesn't count
       const worse = after.weeks.some(w => { const o = weekOf(base, w.start), o0 = weekOf(input.__orig || base, w.start); return o && w.start !== week.start && !w.past && (w.score > Math.max(o.score, nw.score) + 0.001 || w.score > Math.max(o0.score, input.__crunch || 0) + 0.001); });
       if (worse) return;
       const shift = Math.abs(diff(m.from, m.to));
@@ -252,7 +230,6 @@ const CRUNCH = (() => {
     });
     return best;
   }
-  // Spread a moved task's remaining hours over the lightest days between the new start and the old due date
   function slotsFor(model, t, move, today){
     const c = classOf(t), R = remOf(t, c);
     const moved = withMove([t], move)[0], a = effStart(moved, today), b = moved.due;
@@ -262,7 +239,7 @@ const CRUNCH = (() => {
     const each = Math.max(0.5, Math.round(Math.min(R / days.length, Math.min(...days.map(d => d.spare))) * 4) / 4);
     return days.map(d => ({date: d.date, hours: each}));
   }
-  // suggest(input, {weekStart, max}) -> {week, before, after, moves: [{id, title, mode, from, to, gain, shift, slots}]}
+  // suggest(input, {weekStart, max}) -> {week, before, after, moves
   function suggest(input, opts){
     const o = opts || {}, today = input.today, base = build(input);
     const week = (o.weekStart && weekOf(base, o.weekStart)) || heaviest(base, 2);
@@ -286,7 +263,7 @@ const CRUNCH = (() => {
     if (res.moves.length) res.after = {score: curWeek.score, level: curWeek.level, peak: curWeek.peak};
     return res;
   }
-  // Two or three weeks out up to five: the week the companion may mention (crunch only, never sooner than 2 weeks)
+  // Two or three weeks out up to five
   function companionPick(model, today, opts){
     const o = opts || {};
     return (model.weeks || []).find(w => !w.past && w.levelIdx >= 4 && diff(today, w.start) >= (o.minDays || 14) && diff(today, w.start) <= (o.maxDays || 35)) || null;
@@ -314,7 +291,7 @@ const store = {
   get(){ try { const o = JSON.parse(localStorage.getItem(KEY) || "{}"); return o && typeof o === "object" ? o : {}; } catch (e) { return {}; } },
   set(o){ try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {} }
 };
-/* ---------- Style ---------- */
+/* Style */
 {
   const st = document.createElement("style"); st.id = "crunchCss";
   st.textContent = `
@@ -403,7 +380,7 @@ button.cr-d:hover{filter:brightness(.95)}
   document.head.appendChild(st);
 }
 
-/* ---------- The planner's data, in the model's shape ---------- */
+/* The planner's data, in the model's shape */
 let MEMO = {k: "", m: null, input: null};
 function inputNow(){
   const today = todayISO(), stamp = nowStamp();
@@ -413,11 +390,10 @@ function inputNow(){
     return {id: t.id, title: t.title, type: t.type, due: t.due, time: t.time || "", start: t.start || "", status: t.status, rem: remainingOf(t), weight: weightOf(t), pct: t.pct,
       est: (isNum(t.hours) && Number(t.hours) > 0) || !!(autoPlanOn() && t.aiHours && t.aiHours.h > 0) || !!t.prepFor, synced: !!lmsOf(t), blocked: blockers(t).length > 0, prep: !!t.prepFor, bd: !!t.breakdownOf, courseId: t.courseId || "", dead};
   });
-  // the planner's busy-time helper keeps one cached range for Today's Plan: borrow it without disturbing that cache
   let busy = {}; const keep = BUSY_CACHE;
   try { busy = Object.assign({}, busyDays(today, addDays(today, 21 * 7)).m); } catch (e) {}
   BUSY_CACHE = keep;
-  const A = typeof SBACC !== "undefined" ? SBACC : null;     // learned pace: how much you actually finish (92-accuracy.js)
+  const A = typeof SBACC !== "undefined" ? SBACC : null;
   const cs = A ? A.capScale() : 1, wk = [0, 1, 2, 3, 4, 5, 6].map(i => A ? A.wkScale(addDays(today, i)) : 1).map((v, i) => ({d: parse(addDays(today, i)).getDay(), v})).sort((p, q) => p.d - q.d).map(x => x.v);
   return {today, tasks, busy, dailyHours: dailyHours() || 3, capScale: cs, wkScale: wk.some(v => v !== 1) ? wk : null, maxWeeks: 20, minWeeks: 6};
 }
@@ -430,7 +406,7 @@ function modelNow(){
 }
 const inputCur = () => { modelNow(); return MEMO.input; };
 
-/* ---------- Words ---------- */
+/* Words */
 const rangeLabel = (a, b) => { const x = parse(a), y = parse(b); return x.getMonth() === y.getMonth() ? `${fmtShort(a)}–${y.getDate()}` : `${fmtShort(a)}–${fmtShort(b)}`; };
 const awayText = (today, ws) => { const n = C.weeksAway(today, ws); return n === 0 ? "this week" : n === 1 ? "next week" : `in ${n} weeks`; };
 const dayWord = d => parse(d).toLocaleDateString(undefined, {weekday: "long", month: "short", day: "numeric"}).replace(",", "");
@@ -443,22 +419,21 @@ function weekLabel(W){ return `Week of ${fmtShort(W.start)} to ${fmtShort(W.end)
 const cap1 = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 const typeName = c => ({exam: "Exam", quiz: "Quiz", paper: "Paper", project: "Project", lab: "Lab", assignment: "Assignment", reading: "Reading", study: "Study", other: "Task"})[c] || "Task";
 
-/* ---------- The heatmap ---------- */
-// The icons are the app's own type icons (typeIcon, the same ones the Timeline and the week summary use); Paper counts as an Assignment
+/* The heatmap */
 const MK_ORDER = ["exam", "quiz", "paper", "assignment", "project", "lab", "reading", "study", "other"];
 const mkKinds = D => { const out = []; MK_ORDER.forEach(c => { const k = ICON_OF[c]; if (D.counts[c] && !out.includes(k)) out.push(k); }); return out; };
 function cellHtml(D, o){
   o = o || {};
   const cls = `cr-d lv${D.levelIdx}${D.past ? " is-past" : ""}${D.today ? " is-today" : ""}`;
   const dn = parse(D.date).getDate(), first = dn === 1;
-  const mk = mkKinds(D);   // every kind of work due that day: two icons fit, more fold into "+n"
+  const mk = mkKinds(D);
   const nDue = D.due.length;
   const inner = `<span class="dn">${first ? `<small>${esc(parse(D.date).toLocaleDateString(undefined, {month: "short"}))}</small>` : ""}${dn}</span>${D.today ? `<span class="td">today</span>` : ""}${mk.length ? `<span class="mk" aria-hidden="true">${(mk.length > 2 ? mk.slice(0, 1) : mk).map(k => `<i>${typeIcon(k)}</i>`).join("")}${mk.length > 2 ? `<i>+${mk.length - 1}</i>` : ""}</span>` : ""}${nDue ? `<span class="nb" aria-hidden="true">${nDue}</span>` : ""}`;
   if (o.plain) return `<span class="${cls}" role="img" aria-label="${esc(dayLabel(D))}">${inner}</span>`;
   if (D.past) return `<span class="${cls}" role="gridcell" aria-label="${esc(dayLabel(D))}" aria-disabled="true">${inner}</span>`;
   return `<button type="button" class="${cls}" role="gridcell" tabindex="${o.tab ? 0 : -1}" data-act="cr-day" data-id="${D.date}" aria-label="${esc(dayLabel(D))}" title="${esc(dayLabel(D))}">${inner}</button>`;
 }
-// What is due in a week: the Timeline's type icons, each with its count to the left ("2 [exam icon]")
+// What is due in a week
 const ICON_OF = {exam: "Exam", quiz: "Quiz", paper: "Assignment", project: "Project", lab: "Lab", assignment: "Assignment", reading: "Reading", study: "Study", other: "Other"};
 function typeCounts(W){
   const by = {}; Object.keys(W.counts).forEach(c => { const k = ICON_OF[c] || "Other"; by[k] = (by[k] || 0) + W.counts[c]; });
@@ -501,19 +476,16 @@ function viewCrunch(){
   try { return crunchR2(m, today, call, est, grid, help); } catch (e) { console.warn("crunch view", e); }
   return `<section class="cr" aria-label="Crunch Forecast">${head}${call}${grid}${help}</section>`;
 }
-/* Crunch R2: this week's load against your study time, a stacked bar per week in course colours with a study-time line,
-   and the coming weeks as a list. The day-by-day grid (taps, arrow keys) stays below, under Day by Day. */
+/* Crunch R2: this week's load against your study time */
 const CR_IC = ["<path d='M5 19c0-8 5-13 14-14 0 9-5 14-13 14z'/><path d='M5 19c3-5 6-8 10-10'/>", "<path d='M3 12h4l2-5 4 10 2-5h6'/>", "<circle cx='12' cy='12' r='8.5'/><path d='M12 7.5V12l3 2'/>",
   "<path d='M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2.5 1.5-4 2.5-5 .3 1.6 1 2.4 2 2.8C11 8.5 11 6 12 3z'/>", "<path d='M13 2.5L5 13.5h6l-1 8 8-11h-6z'/>"];
 const crIcon = i => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${CR_IC[i] || CR_IC[0]}</svg>`;
 function crunchR2(m, today, call, est, grid, help){
   const live = m.weeks.filter(W => !W.past); if (!live.length) throw new Error("no weeks");
   const tw = live[0], dayOf = d => m.days.find(x => x.date === d);
-  // a week's hours by course ("" = not tied to a course)
   const byCourse = W => { const out = {}; W.days.forEach(d => { const D = dayOf(d); if (!D || D.past) return; Object.values(D.items || {}).forEach(x => { const t = state.tasks[x.id], k = t && t.courseId && courseOf(t.courseId) ? t.courseId : ""; out[k] = (out[k] || 0) + x.total; }); }); return out; };
   const order = coursesArr().map(c => c.id).concat([""]);
   const col = k => k ? colorOf(k) : "#94A3B8";
-  // two courses with the same code ("BIOS 230" twice) are told apart by name
   const lab = k => { if (!k) return "Other"; const c = courseOf(k), l = courseLabel(c); return coursesArr().filter(x => courseLabel(x) === l).length > 1 ? c.name : l; };
   const chartWeeks = ui.crAll ? live : live.slice(0, 6);
   const data = chartWeeks.map(W => ({W, by: byCourse(W)}));
@@ -522,7 +494,6 @@ function crunchR2(m, today, call, est, grid, help){
   const top = Math.ceil(hiH / step) * step;
   const pct = h => (h / top * 100).toFixed(2);
   const used = order.filter(k => data.some(x => (x.by[k] || 0) > 0.05));
-  // This week
   const twBy = byCourse(tw), over = tw.demand - tw.capacity;
   const thisWeek = `<section class="cr2-now lv${tw.levelIdx}" aria-label="This week">
       <div class="cr2-band"><span class="g2-kick">This Week · ${esc(rangeLabel(tw.start, tw.end))}</span></div>
@@ -532,7 +503,6 @@ function crunchR2(m, today, call, est, grid, help){
       <p class="mini cr2-over">${over > 0.25 ? `<b>${fmtHM(over)} over</b> your study time` : `${fmtHM(Math.max(0, -over)) || "No"} time to spare`}</p>
       <ul class="cr2-courses">${order.filter(k => (twBy[k] || 0) > 0.05).sort((a, b) => twBy[b] - twBy[a]).map(k => `<li style="--c:${esc(col(k))}"><span>${esc(lab(k))}</span><span class="cr2-cb"><i style="width:${(twBy[k] / Math.max(...Object.values(twBy)) * 100).toFixed(0)}%"></i></span><b>${fmtHM(twBy[k])}</b></li>`).join("")}</ul>
       <button type="button" class="btn primary cr2-go" data-act="cr-week" data-id="${tw.start}">See What's Driving It</button></section>`;
-  // Chart: one stacked bar per week, the study-time line across
   const bars = data.map(({W, by}) => `<button type="button" class="cr2-col${W.start === tw.start ? " is-now" : ""}" data-act="cr-week" data-id="${W.start}" aria-label="${esc(`Week of ${fmtShort(W.start)}: ${fmtHM(W.demand) || "0h"} of work, ${LV_WORD[W.levelIdx]}. Open week details`)}">
       ${W.capacity > 0 ? `<i class="cr2-capm" style="bottom:calc(34px + (100% - 34px) * ${(Math.min(W.capacity, top) / top).toFixed(4)})" title="Study time ${fmtHM(W.capacity)}"></i>` : ""}<span class="cr2-stack${W.demand > W.capacity + 0.25 ? " is-over" : ""}" style="height:${pct(W.demand)}%"><b class="cr2-h">${W.demand >= 0.25 ? fmtHM(W.demand) : ""}</b>${used.map(k => (by[k] || 0) > 0.05 ? `<i style="height:${(by[k] / Math.max(W.demand, 0.01) * 100).toFixed(2)}%;background:${esc(col(k))}"></i>` : "").join("")}</span>
       <span class="cr2-x">${esc(fmtShort(W.start))}${W.start === tw.start ? `<em>This Week</em>` : ""}</span></button>`).join("");
@@ -542,7 +512,6 @@ function crunchR2(m, today, call, est, grid, help){
         <div class="cr2-grid" aria-hidden="true">${ticks.map(v => `<span style="bottom:${pct(v)}%"><em>${Math.round(v)}h</em></span>`).join("")}</div>
         <div class="cr2-bars">${bars}</div></div>
       <div class="cr2-legend">${used.map(k => `<span><i style="background:${esc(col(k))}"></i>${esc(lab(k))}</span>`).join("")}<span><i class="cap"></i>Your study time that week</span></div></section>`;
-  // Coming weeks
   const maxD = Math.max(1, ...live.slice(1, 7).map(W => W.demand));
   const coming = live.slice(1, 6).map(W => { const by = byCourse(W); return `<li><button type="button" class="cr2-wk" data-act="cr-week" data-id="${W.start}"><b>${esc(rangeLabel(W.start, W.end))}</b>
       <span class="cr2-mini" aria-hidden="true"><span style="width:${(W.demand / maxD * 100).toFixed(0)}%">${used.map(k => (by[k] || 0) > 0.05 ? `<i style="flex:${by[k].toFixed(2)};background:${esc(col(k))}"></i>` : "").join("")}</span></span>
@@ -558,7 +527,7 @@ function crunchR2(m, today, call, est, grid, help){
 document.addEventListener("toggle", e => { const d = e.target; if (d && d.classList && d.classList.contains("cr2-days")) ui.crDays = d.open; }, true);
 VIEWS.crunch = viewCrunch;
 
-/* ---------- Keyboard: arrows move over the grid ---------- */
+/* Keyboard: arrows move over the grid */
 document.addEventListener("keydown", e => {
   const c = e.target.closest && e.target.closest(".cr-d[data-act=cr-day]"); if (!c || e.altKey || e.ctrlKey || e.metaKey) return;
   const step = {ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7, PageUp: -28, PageDown: 28}[e.key];
@@ -568,15 +537,14 @@ document.addEventListener("keydown", e => {
   else return;
   e.preventDefault();
   let el = null; const grid = c.closest(".cr-grid");
-  // skip past days and gaps by trying further steps in the same direction (up to 4 weeks)
   for (let i = 0; i < 4 && !el && to; i++) { el = grid.querySelector(`.cr-d[data-id="${to}"]`); if (!el && step && Math.abs(step) < 7) break; if (!el && step) to = C.add(to, step); }
   if (!el || el === c) return;
   c.tabIndex = -1; el.tabIndex = 0; el.focus(); ui.crFocus = el.dataset.id;
   try { el.scrollIntoView({block: "nearest", inline: "nearest"}); } catch (err) {}
 });
 
-/* ---------- Detail sheet ---------- */
-let SH = null;   // {kind: "day" | "week", key, pv: [moves] | null, focus}
+/* Detail sheet */
+let SH = null;
 function sheetMoves(ws){
   const inp = inputCur(), sug = C.suggest(inp, {weekStart: ws, max: 3});
   return {inp, sug};
@@ -627,7 +595,6 @@ function showSheet(){
   const {inp, sug} = sheetMoves(ws);
   const byId = {}; sug.moves.forEach(x => { byId[x.id] = x; });
   const list = (isDay ? D.top : W.top).filter(x => state.tasks[x.id]);
-  // single-task moves for rows that weren't in the greedy plan
   list.forEach(x => { if (!byId[x.id]) { try { const mv = C.moveFor(inp, ws, x.id); if (mv) byId[x.id] = mv; } catch (e) {} } });
   const order = list.slice().sort((a, b) => (byId[b.id] ? 1 : 0) - (byId[a.id] ? 1 : 0));
   let box = "";
@@ -665,7 +632,7 @@ function openWeek(ws, o){
 function openDay(d){ SH = {kind: "day", key: d, pv: null, focus: false}; showSheet(); }
 dlg.addEventListener("close", () => { SH = null; });
 
-/* ---------- Moving work ---------- */
+/* Moving work */
 function changeFor(mv){
   const t = state.tasks[mv.id]; if (!t) return null;
   const n = clone(t);
@@ -678,7 +645,7 @@ function applyMoves(moves){
   const label = one ? (one.mode === "start" ? `“${t.title}” now starts ${fmtShort(one.to)}` : `Moved “${t.title}” to ${fmtShort(one.to)}`) : `Pulled ${ch.length} tasks forward`;
   if (dlg.open) dlg.close();
   applyChanges(ch, label);
-  crunchHush(3);   // dealt with: don't bring up the next heavy week straight away
+  crunchHush(3);
 }
 hook("act", (act, el) => {
   const id = el.dataset.id;
@@ -711,10 +678,10 @@ hook("act", (act, el) => {
   return false;
 });
 
-/* ---------- Today card, companion line, Suggestions tray ---------- */
+/* Today card, companion line, Suggestions tray */
 const trayDismissed = ws => { try { return !!(AUTO.dis && AUTO.dis["cr:" + ws]); } catch (e) { return false; } };
 const dismissedWeek = ws => !!(store.get().dis || {})[ws] || trayDismissed(ws);
-// Waving one crunch week off (or acting on it) quiets the card and the companion for a week, so the next week doesn't pop up straight away.
+// Waving one crunch week off (or acting on it) quiets the card and the companion for a week
 const crunchQuiet = () => Date.now() < (store.get().quietUntil || 0);
 const crunchHush = days => { const o = store.get(); o.quietUntil = Date.now() + days * DAY_MS; store.set(o); };
 const trayOn = () => { try { return AUTO_ON && autoFeatOn("nudge") && !insSnoozed("crunch"); } catch (e) { return false; } };
@@ -723,13 +690,13 @@ function cardHtml(){
     const m = modelNow(), today = todayISO();
     const w = C.nextCrunch(m, today, {min: 3, maxDays: 42});
     if (!w || dismissedWeek(w.start) || crunchQuiet()) return "";
-    if (trayOn()) { const ti = SBCRUNCH.trayItem(); if (ti && ti.tid === w.start) return ""; }   // the Suggestions tray already says it
+    if (trayOn()) { const ti = SBCRUNCH.trayItem(); if (ti && ti.tid === w.start) return ""; }
     const crunch = w.levelIdx >= 4;
     return `<div class="crunch-card lv${w.levelIdx}" role="region" aria-label="${crunch ? "Crunch" : "Heavy week"} ahead"><div class="cc-t"><b>${crunch ? "Crunch ahead" : "Heavy week ahead"}: week of ${esc(fmtShort(w.start))}</b> (${esc(awayText(today, w.start))})<span class="mini">${esc(cap1(w.headline || w.reasons || ""))}</span></div>
       <button type="button" class="btn small" data-act="cr-open" data-id="${w.start}">See Forecast</button><button type="button" class="icon-btn sm" data-act="cr-dismiss" data-id="${w.start}" aria-label="Hide this for the week of ${esc(fmtShort(w.start))}">${CLOSE}</button></div>`;
   } catch (e) { console.warn("crunch card", e); return ""; }
 }
-// One line the companion may say, with a concrete first suggestion; null when nothing is worth saying right now
+// One line the companion may say, with a concrete first suggestion
 function pickWeek(){
   const m = modelNow(), today = todayISO();
   return C.companionPick(m, today, {minDays: 14, maxDays: 35});
@@ -760,17 +727,17 @@ const SBCRUNCH = {
       if (quietNowClock()) return null;
       const w = pickWeek(); if (!w) return null;
       const o = store.get(), c = o.comp || {};
-      if (crunchQuiet() || dismissedWeek(w.start) || (c.weeks || {})[w.start]) return null;               // once per crunch week, and never one the student waved off
-      if (Date.now() - (c.last || 0) < 3 * DAY_MS) return null;                          // a few days between offers
+      if (crunchQuiet() || dismissedWeek(w.start) || (c.weeks || {})[w.start]) return null;
+      if (Date.now() - (c.last || 0) < 3 * DAY_MS) return null;
       if (c.day === todayISO()) return null;
       const L = lineFor(w);
       return {text: L.text, action: "crunch", week: w.start, yes: L.sug.moves.length ? "See Plan" : "See Week", local: true};
     } catch (e) { console.warn("crunch offer", e); return null; }
   },
   offered(ws){ const o = store.get(); o.comp = Object.assign({}, o.comp); o.comp.weeks = Object.assign({}, o.comp.weeks); o.comp.weeks[ws] = {at: Date.now()}; o.comp.last = Date.now(); o.comp.day = todayISO(); const ks = Object.keys(o.comp.weeks); if (ks.length > 30) ks.sort().slice(0, ks.length - 30).forEach(k => delete o.comp.weeks[k]); store.set(o); },
-  dismiss(ws){ const o = store.get(); o.dis = Object.assign({}, o.dis); o.dis[ws] = Date.now(); o.comp = Object.assign({}, o.comp); o.comp.last = Date.now() + 2 * DAY_MS; store.set(o); },   // "Not Now": that week is never mentioned again, and the next offer waits about five days
+  dismiss(ws){ const o = store.get(); o.dis = Object.assign({}, o.dis); o.dis[ws] = Date.now(); o.comp = Object.assign({}, o.comp); o.comp.last = Date.now() + 2 * DAY_MS; store.set(o); },
   valid(ws){ try { const w = modelNow().weeks.find(x => x.start === ws); return !!w && !w.past && w.levelIdx >= 3; } catch (e) { return false; } },
-  // For the Suggestions tray: the same week, 2 to 6 weeks out, rule-based with no AI
+  // For the Suggestions tray
   trayItem(){
     try {
       const m = modelNow(), today = todayISO();

@@ -1,13 +1,4 @@
-// electron-builder config for a signed Windows installer: `npm run dist:win-signed` (and the Windows job in .github/workflows/build-desktop.yml).
-// It is package.json's "build" section plus Windows code signing, switched on only by what is in the environment, so nothing secret is ever in
-// the repository and the plain `npm run dist` stays unsigned for local testing.
-//
-//   Azure Trusted Signing (recommended)   AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET (read by Microsoft's signing tool) and
-//                                         AZURE_SIGN_ENDPOINT (e.g. https://eus.codesigning.azure.net), AZURE_SIGN_ACCOUNT (code signing account),
-//                                         AZURE_SIGN_PROFILE (certificate profile), WIN_PUBLISHER_NAME (the certificate's subject CN)
-//   A .pfx certificate                    WIN_CSC_LINK (or CSC_LINK) + WIN_CSC_KEY_PASSWORD (or CSC_KEY_PASSWORD); electron-builder reads these
-//                                         itself, this file only sets SHA-256 and a timestamp server
-// With neither, the build stops (set ALLOW_UNSIGNED_WINDOWS=1 to build unsigned anyway), because this script exists to make a release build.
+// electron-builder config for a signed Windows installer
 const path = require("path");
 const base = require(path.join(__dirname, "..", "package.json")).build;
 const has = k => !!(process.env[k] && String(process.env[k]).trim());

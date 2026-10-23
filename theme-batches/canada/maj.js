@@ -1,4 +1,4 @@
-/* Around the World, batch canada: canada (Canada) */
+/* Around the World, batch canada */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const r1 = n => Math.round(n * 100) / 100;

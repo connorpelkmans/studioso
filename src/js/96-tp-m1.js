@@ -1,5 +1,5 @@
 /* ===== module: 96-tp-m1.js ===== */
-/* Theme Collections, Study Fields batch m1: business, nursing, psych, biology */
+/* Theme Collections, Study Fields batch m1 */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2), S15 = SOw(1.6);

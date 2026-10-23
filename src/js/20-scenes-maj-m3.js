@@ -1,10 +1,10 @@
 /* ===== module: 20-scenes-maj-m3.js ===== */
-/* Study Fields themes, batch m3: civics, justice, writing */
+/* Study Fields themes, batch m3 */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const NOTES = ["#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"];
 
-  /* ---------- Civic Square (Political Science and Law) ---------- */
+  /* Civic Square (Political Science and Law) */
   MAJ_THEMES.push({
     skin: {id: "civics", name: "Civic Square", desc: "A sunny plaza before a domed courthouse, with fountains and banners.",
       light: ["#F2F5F8", "rgba(47,110,142,.10)", "#FFFFFF", "#1E2A36", "#5C6672", "#D7E0E8", "#E6EDF3", "#F8FAFC", "#2F6E8E", "#5A8CA6", "#FFFFFF", "#1F4C63", "#2F5672", "#CFE1EC", "#FFE3A3"],
@@ -24,7 +24,7 @@
     tag: "A festival square before a domed courthouse, with kites, balloons and bunting"
   });
 
-  /* ---------- Case Room (Criminal Justice) ---------- */
+  /* Case Room (Criminal Justice) */
   MAJ_THEMES.push({
     skin: {id: "justice", name: "Case Room", desc: "A cozy detective's office with a corkboard of clues on a rainy day.",
       light: ["#F5F0EA", "rgba(178,58,48,.09)", "#FFFDF9", "#2A1E18", "#6A5A50", "#E6DBD0", "#EFE7DE", "#FBF8F4", "#B23A30", "#C66A5E", "#FFFFFF", "#6E2018", "#4E3626", "#EED6CC", "#FFE29A"],
@@ -47,7 +47,7 @@
     tag: "Neon rain, fairy lights and a corkboard of clues tied with red string in a cozy detective office"
   });
 
-  /* ---------- Writer's Retreat (English) ---------- */
+  /* Writer's Retreat (English) */
   MAJ_THEMES.push({
     skin: {id: "writing", name: "Writer's Retreat", desc: "A cottage writing desk with a typewriter by a garden window.",
       light: ["#F7F2EA", "rgba(168,85,58,.09)", "#FFFDF8", "#2A2622", "#6A625A", "#E8DFD2", "#F0E9DF", "#FCFAF6", "#A8553A", "#C07A60", "#FFFFFF", "#6A3220", "#4A6A5A", "#DCE8E0", "#FFE4A0"],

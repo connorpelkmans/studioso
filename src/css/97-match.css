@@ -1,5 +1,5 @@
 /* ===== module: 97-match.css ===== */
-/* Match game (97-match.js): a grid of term and definition tiles in a sheet. Colors come from the theme variables, so dark mode and themes follow. */
+/* Match game (97-match.js) */
 dialog:has(.sheet.mt-sheet){width:min(780px,calc(100% - 24px))}
 .mt-sheet .sheet-body{display:flex;flex-direction:column;gap:10px}
 .mt-bar{display:flex;align-items:center;gap:10px;min-width:0}

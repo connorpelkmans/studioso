@@ -11,7 +11,7 @@ const QADD = (() => {
   const KINDS = [["syllabus", "Syllabus"], ["slides", "Lecture Slides"], ["notes", "Notes"], ["assignment", "Assignment"], ["exam", "Exam or Quiz"], ["reading", "Reading"], ["other", "Other"]];
   const FOLDER = {syllabus: "syllabus", slides: "notes", notes: "notes", assignment: "assignments", exam: "exams", reading: "other", other: "other"};
   const KIND_NAME = Object.fromEntries(KINDS);
-  // Each rule: [pattern, weight, label]. A hit in the file name counts three times, a hit in the first part of the text once.
+  // Each rule: [pattern, weight, label]
   const RULES = {
     syllabus: [[/\bsyllab(?:us|i)\b/, 6, "syllabus"], [/course (?:outline|schedule|calendar|description|policies)/, 3, "course schedule"], [/office hours?/, 2, "office hours"], [/grading (?:policy|scheme|breakdown|scale)|grade breakdown|how you will be graded/, 3, "grading policy"], [/academic (?:integrity|honesty|misconduct)/, 2, "academic integrity"], [/required (?:text|textbooks?|materials|readings?)/, 2, "required texts"], [/late (?:work|policy|submissions?|penalt)/, 1, "late policy"], [/teaching assistant|instructor:|professor:|course coordinator/, 1, "instructor"], [/learning (?:objectives|outcomes)/, 1, "outcomes"]],
     slides: [[/\bslides?\b/, 4, "slides"], [/\blectures?\s*#?\d+\b|\blec\s*\d+\b|\bweek\s*\d+\b/, 2, "lecture number"], [/\bppt\b|\bpowerpoint\b/, 3, "PowerPoint"], [/^slide \d+:/m, 6, "slide text"], [/agenda|learning objectives|today we|questions\?|thank you|next time/, 1, "slide wording"]],
@@ -21,7 +21,7 @@ const QADD = (() => {
     reading: [[/\b(?:chapter|chap\.?|ch\.?)\s*\d+/, 3, "chapter"], [/\b(?:reading|article|journal|abstract|bibliography|doi:|et al\.?|textbook|proceedings|literature review)\b/, 2, "article wording"], [/\bvol(?:ume)?\.?\s*\d+|\bpp\.\s*\d+|\bissn\b/, 2, "citation"], [/references\s*\n/, 1, "references"]]
   };
   const NEG = {exam: /final (?:project|paper|essay|presentation|report|draft|assignment|portfolio|submission|reflection)/, assignment: /\bnotes? (?:on|about)\b/};
-  // Which kind of file this is, from its name and the start of its text. {kind, conf (0..1), why: [labels], scores}
+  // Which kind of file this is, from its name and the start of its text
   function kindOf(name, text){
     const n = fold(name), ext = (n.split(".").pop() || ""), t = fold(String(text || "").slice(0, 5000));
     const base = n.replace(/\.[a-z0-9]{1,5}$/, "").replace(/[_\-.]+/g, " ");
@@ -39,12 +39,11 @@ const QADD = (() => {
     const ranked = Object.keys(score).sort((a, b) => score[b] - score[a]);
     const top = ranked[0], second = ranked[1];
     if (score[top] < 3) return {kind: "other", conf: 0.2, why: [], scores: score};
-    // Slides and notes share words ("lecture"): a file named for notes stays notes
     return {kind: top, conf: Math.max(0.3, Math.min(0.95, score[top] / (score[top] + score[second] + 4))), why: [...new Set(why[top])].slice(0, 3), scores: score};
   }
   const STOPW = new Set("the and for with from that this these those your you are was were will our not but all any can has have into over under about course class introduction intro general principles fundamentals topics advanced basic basics studies study lecture lectures notes slides week unit module part section".split(" "));
   const words = s => (fold(s).match(/[a-z0-9]+/g) || []);
-  // Which course a file belongs to, from the course code, name and instructor in its name and text. courses: [{id, name, code, instructor}]. {courseId, conf, why}
+  // Which course a file belongs to, from the course code
   function courseOfFile(name, text, courses){
     const nameF = fold(name), head = fold(String(text || "").slice(0, 6000));
     const hay = nameF + "\n" + head, compact = hay.replace(/[^a-z0-9]/g, ""), nameWords = new Set(words(nameF)), hayWords = new Set(words(hay));
@@ -72,10 +71,10 @@ const QADD = (() => {
     if (c.courseId) bits.push("mentions " + c.why.join(" and "));
     return {courseId: c.courseId, kind: k.kind, conf: Math.min(k.conf, c.courseId ? 1 : 0.6), why: bits.join("; "), src: "rules"};
   }
-  // The folder in a course (or General) that a kind of file goes in: the standard folder if it exists there, otherwise Other
+  // The folder in a course (or General) that a kind of file goes in
   const folderFor = (kind, folderIds) => { const f = FOLDER[kind] || "other"; return (folderIds || []).includes(f) ? f : (folderIds || []).includes("other") ? "other" : (folderIds || [])[0] || "other"; };
 
-  /* ---------- Learning objectives ---------- */
+  /* Learning objectives */
   const VERBS = "define|describe|explain|identify|list|compare|contrast|analy[sz]e|apply|evaluate|assess|discuss|summari[sz]e|demonstrate|calculate|solve|design|develop|create|construct|interpret|distinguish|differentiate|recogni[sz]e|recall|outline|predict|justify|critique|classify|derive|illustrate|use|understand|know|explore|examine|formulate|implement|integrate|measure|perform|prepare|present|propose|recommend|relate|review|select|state|trace|write|communicate|compute|determine|diagnose|administer|prioritize|plan|synthesi[sz]e|appreciate|gain|learn|master|build|conduct|critically|be able to|become|navigate|reflect|collaborate|practice|operate|name|label|arrange|categori[sz]e|choose|defend|estimate|express|infer|locate|model|organi[sz]e|paraphrase|produce|provide|reproduce|sketch|test|translate|work|show|read|monitor|manage|maintain|obtain|distinguish|detect|document|educate|encourage|ensure|establish|follow|promote|recognise";
   const VERB_RE = new RegExp("^(?:" + VERBS + ")\\b", "i");
   const BULLET = /^\s*(?:[-*•●▪◦‣–—·■→>]+|\(?\d{1,2}[.)]|\(?[a-hA-H][.)]|(?:LO|CLO|ILO|SLO|O)\s*\d+[.:)\-]?)\s+/;
@@ -101,8 +100,7 @@ const QADD = (() => {
     }
     return null;
   }
-  // Objectives stated in a syllabus, a lecture's slides or any document: a heading like "Learning Objectives" or "By the end of this class, you will be able to"
-  // followed by bullets or lines that start with a verb. Returns up to 20 short sentences.
+  // Objectives stated in a syllabus, a lecture's slides or any document
   function objectives(text, limit){
     const lines = String(text || "").replace(/\r/g, "").split("\n").map(s => s.replace(/\t+/g, " ").replace(/[  ]+/g, " ").trim()), out = [], seen = new Set();
     const add = raw => {
@@ -132,7 +130,6 @@ const QADD = (() => {
           if (add(l)) { got++; last = out.length - 1; }
           continue;
         }
-        // A wrapped line continues the item above it; anything else (a new heading, a paragraph) ends the list
         if (last >= 0 && /^[a-z(]/.test(body) && out[last].length + body.length < 260 && !/[.!?]$/.test(out[last])) { const old = out[last]; seen.delete(words(old).join(" ")); out[last] = old + " " + body; seen.add(words(out[last]).join(" ")); continue; }
         if (!got && !bulletsSeen && j < i + 3 && body.length > 20 && body.length < 200 && !/[.!?]$/.test(body)) { if (add(l)) { got++; last = out.length - 1; } continue; }
         break;
@@ -142,7 +139,7 @@ const QADD = (() => {
     return out.slice(0, max);
   }
 
-  /* ---------- Coverage: which objectives have cards, notes and files ---------- */
+  /* Coverage: which objectives have cards, notes and files */
   const OBJ_STOP = new Set(("able ability understand understanding concepts concept principles basic basics using use used students student course topic topics various different important key general fundamental major main describe explain identify define compare contrast apply analyze analyse evaluate discuss summarize demonstrate calculate solve design develop create construct interpret distinguish differentiate recognize recall outline predict justify critique classify derive illustrate explore examine formulate implement integrate measure perform prepare present propose recommend relate review select state trace write communicate compute determine their they them with from that this these those which where when what into about between among within across through during after before while also such each both only other than then more most some many much very well will would should could able lecture class").split(" "));
   const stem = w => w.length > 5 ? w.replace(/(?:ing|ed|es|ly|s)$/, "") : w.length > 4 ? w.replace(/s$/, "") : w;
   function terms(text){
@@ -155,7 +152,7 @@ const QADD = (() => {
     let hit = 0; ts.forEach(t => { if (hw.has(t)) hit++; });
     return hit >= Math.min(ts.length, 2) && hit / ts.length >= 0.5;
   }
-  // objs: [{id, text}]; mat: {cards: [{front, back, obj}], notes: [{text}], files: [{name, desc, summary}]}. Returns {id: {cards, notes, files, linked}}.
+  // objs: [{id, text}]; mat: {cards: [{front, back, obj}], notes: [{text}], files: [{name
   function coverage(objs, mat){
     mat = mat || {};
     const cardW = (mat.cards || []).map(c => ({c, w: hayWords((c.front || "") + " " + (c.back || ""))}));
@@ -169,14 +166,14 @@ const QADD = (() => {
     });
     return out;
   }
-  // A short name for an objective, for topic lists: "Explain how the Krebs cycle produces ATP" -> "Krebs cycle produces ATP"
+  // A short name for an objective, for topic lists
   function shortName(text){
     let s = clean(text).replace(VERB_RE, "").replace(/^\s*(?:how|why|what|the|a|an|and|between|of|that)\b\s*/i, "").replace(/^\s*(?:how|why|what|the|a|an)\b\s*/i, "").trim();
     if (s.length < 4) s = clean(text);
     if (s.length > 70) { s = s.slice(0, 70); const sp = s.lastIndexOf(" "); if (sp > 30) s = s.slice(0, sp); }
     return cap1(s.replace(/[\s.,;:]+$/, ""));
   }
-  // Add new objectives to a list, skipping any that repeat one already there. Returns the ones that were new.
+  // Add new objectives to a list, skipping any that repeat one already there
   function fresh(have, cand){
     const keys = (have || []).map(h => new Set(terms(h.text || h)));
     const seen = new Set((have || []).map(h => words(h.text || h).join(" ")));
@@ -193,10 +190,10 @@ const QADD = (() => {
 })();
 /*QADD-END*/
 
-  /* ---------- Shared bits ---------- */
+  /* Shared bits */
   const clip = (s, n) => String(s == null ? "" : s).replace(/\s+/g, " ").trim().slice(0, n);
   const aiOn = () => { try { return aiReady(); } catch (e) { return false; } };
-  // AI without asking: only after the person has already agreed to send content to their provider, and only when Automatic AI allows it
+  // AI without asking
   const aiQuiet = () => { try { return aiReady() && !aiTrialing() && aiConsented(aiCfg().provider); } catch (e) { return false; } };
   const aiMsg = e => (e && e.code === "no-consent") ? "AI is off until you agree to send content to your AI provider." : (e && e.message) || "AI isn't available right now.";
   const css = document.createElement("style");
@@ -225,7 +222,7 @@ const QADD = (() => {
 `;
   document.head.appendChild(css);
 
-  // The text of a file that isn't stored yet (the same readers file analysis and Search Everywhere use)
+  // The text of a file that isn't stored yet
   async function textOfFile(file, max){
     const ext = (file.name.split(".").pop() || "").toLowerCase();
     try {
@@ -238,7 +235,7 @@ const QADD = (() => {
     return "";
   }
 
-  /* ---------- Quick Add Files ---------- */
+  /* Quick Add Files */
   const QA = {items: [], seq: 0, busy: false, note: ""};
   const storable = f => !!(mimeFor(f) || sbActive() || DESK);
   const courseList = () => coursesArr().map(c => ({id: c.id, name: c.name, code: c.code || "", instructor: c.instructor || ""}));
@@ -266,7 +263,7 @@ const QADD = (() => {
     courseId: {type: "STRING", description: "An id from the COURSES list, or an empty string if no course clearly fits"},
     type: {type: "STRING", enum: ["syllabus", "slides", "notes", "assignment", "exam", "reading", "other"]},
     confidence: {type: "NUMBER", description: "0 to 1"}}, required: ["n", "type"]}}}, required: ["files"]};
-  // One AI call per ten files: the course and type of each, read from the start of its text. The rule-based guess stays when AI is off or fails.
+  // One AI call per ten files
   async function qaAI(){
     const todo = QA.items.filter(x => x.state === "ready" && !x.aiDone && !x.bad);
     if (!todo.length || !aiOn()) return;
@@ -368,7 +365,7 @@ const QADD = (() => {
     toast(`Filed ${all.length} file${all.length === 1 ? "" : "s"} in ${where.length === 1 ? where[0] : where.length + " places"}`, () => { applyChanges(all.map(f => ({kind: "file", id: f.id, after: null})), null); cleanupAssets(all.flatMap(f => f.revs.map(r => r.assetId))); toast("Undone"); });
   }
 
-  /* ---------- Learning objectives ---------- */
+  /* Learning objectives */
   const OB = {pending: {}, all: {}};
   const objsOf = c => Array.isArray(c && c.objectives) ? c.objectives.filter(o => o && o.id && o.text) : [];
   const mkObj = (text, src) => ({id: uid(), text: clip(text, 240), done: false, src: clip(src, 80), at: Date.now()});
@@ -383,7 +380,7 @@ const QADD = (() => {
       files: Object.values(state.files).filter(f => f.courseId === c.id).map(f => ({name: f.name, desc: f.desc, summary: f.summary ? [f.summary.overview].concat(f.summary.keyPoints || []).join(" ") : ""}))};
   }
   const OBJ_SCHEMA = {type: "OBJECT", properties: {objectives: {type: "ARRAY", items: {type: "STRING"}, description: "Learning objectives the material itself states, one short sentence each starting with an action verb"}}, required: ["objectives"]};
-  // Objectives from files' text: AI reads it (and only keeps what the text supports), the keyword rules always run too.
+  // Objectives from files' text
   async function findObjs(items, cName, mode){
     const rules = []; items.forEach(x => QADD.objectives(x.text).forEach(o => rules.push(o)));
     let ai = [];
@@ -393,7 +390,6 @@ const QADD = (() => {
         const r = await aiCall({task: "topics", auto: mode === "auto", maxTokens: 3000, temperature: 0.2, schema: OBJ_SCHEMA, parts: [{text: `Course: ${cName || "not given"}\n\n${body}`}],
           system: "You pull learning objectives out of a syllabus or lecture slides for a student's planner. Return only objectives the material itself states, such as a section called Learning Objectives or Outcomes, or 'By the end of this lecture you will be able to'. If the material states none, return an empty list: never invent objectives. Rewrite each as one short sentence that starts with an action verb (Explain, Compare, Calculate), under 160 characters, no numbering, using the material's own terms. At most 20."});
         const got = ((r.data && r.data.objectives) || []).map(x => QADD.tidy(x)).filter(x => x.length >= 10);
-        // Keep only what the text supports
         const all = items.map(x => x.text).join("\n"), cov = QADD.coverage(got.map((t, i) => ({id: "g" + i, text: t})), {notes: [{text: all}]});
         ai = got.filter((t, i) => (cov["g" + i] || {}).notes > 0);
       } catch (e) { if (mode === "ai") throw e; }
@@ -401,7 +397,7 @@ const QADD = (() => {
     return QADD.fresh([], ai.concat(rules)).slice(0, 20);
   }
   const wrapEligible = (f, o) => { const k = o && o.qkind; if (k) return k === "syllabus" || k === "slides"; return f.folderId === "syllabus" || /\.pptx?$/i.test(f.name) || /syllab|slides?|lecture|outline/i.test(f.name); };
-  // After files are uploaded into a course: look for objectives in syllabi and lecture slides, and offer them. Never adds anything by itself.
+  // After files are uploaded into a course
   async function offer(made, opts){
     const el = (made || []).filter(f => f.courseId && f.kind === "file" && wrapEligible(f, opts));
     const by = {}; el.forEach(f => { (by[f.courseId] = by[f.courseId] || []).push(f); });
@@ -481,7 +477,7 @@ const QADD = (() => {
     if (!add.length) { upd(items.length ? `No new learning objectives were found${err ? " (" + err + ")" : ""}. You can add your own.` : "None of these files has text Studyboard can read.", true); return; }
     reviewSheet(cid, add, items.map(x => x.name).join(", "));
   }
-  // Flashcards for objectives: one AI call for all of them, each card tagged with its objective so coverage can be tracked
+  // Flashcards for objectives
   function cardsSheet(cid){
     const c = courseOf(cid); if (!c) return;
     if (!aiOn()) { aiSetupSheet(true); return; }
@@ -531,7 +527,7 @@ const QADD = (() => {
     return add.length;
   }
 
-  // The course page section: progress, the objectives with what covers each one, and the actions
+  // The course page section
   function courseHtml(c){
     const objs = objsOf(c), pend = OB.pending[c.id];
     const hasFiles = Object.values(state.files).some(f => f.courseId === c.id && f.kind === "file");
@@ -549,10 +545,10 @@ const QADD = (() => {
     return `${head}${review}<div class="obj-bar"><span class="track"><i style="width:${Math.round(done / objs.length * 100)}%"></i></span><span class="mini">${done} of ${objs.length} mastered</span></div>
       <ul class="obj-list">${shown.map(li).join("")}</ul>
       ${objs.length > shown.length ? `<button class="link-btn" data-act="obj-more" data-c="${esc(c.id)}">Show All ${objs.length}</button>` : objs.length > 6 ? `<button class="link-btn" data-act="obj-more" data-c="${esc(c.id)}">Show Fewer</button>` : ""}
-      <div class="row-actions" style="margin-top:10px">${!inClaude() && gaps ? `<button class="btn small ai-btn" data-act="obj-cards" data-c="${esc(c.id)}">${AI_ICON} Flashcards for ${gaps} Without Cards</button>` : !inClaude() ? `<button class="btn small ai-btn" data-act="obj-cards" data-c="${esc(c.id)}">${AI_ICON} Make Flashcards</button>` : ""}
+      <div class="row-actions" style="margin-top:10px">${!inPreview() && gaps ? `<button class="btn small ai-btn" data-act="obj-cards" data-c="${esc(c.id)}">${AI_ICON} Flashcards for ${gaps} Without Cards</button>` : !inPreview() ? `<button class="btn small ai-btn" data-act="obj-cards" data-c="${esc(c.id)}">${AI_ICON} Make Flashcards</button>` : ""}
         <button class="btn small" data-act="obj-edit" data-c="${esc(c.id)}">Edit</button>${hasFiles ? `<button class="btn small ai-btn" data-act="obj-find" data-c="${esc(c.id)}">${AI_ICON} Find in Files</button>` : ""}</div>`;
   }
-  // Topic names for the Exam Prep Planner: objectives not yet mastered
+  // Topic names for the Exam Prep Planner
   const topicNames = cid => { const c = courseOf(cid); return c ? objsOf(c).filter(o => !o.done).map(o => QADD.shortName(o.text)).slice(0, 12) : []; };
 
   hook("act", (act, el, id) => {
@@ -569,7 +565,7 @@ const QADD = (() => {
     return false;
   });
   window.SBQADD = {open: openQuick, engine: QADD};
-  window.__sbQadd = {caps, ui, render, state: () => state, setAssetBytes: f => { assetBytes = f; }};      // for tests/quickadd.e2e.js
+  window.__sbQadd = {caps, ui, render, state: () => state, setAssetBytes: f => { assetBytes = f; }};
   window.SBOBJ = {courseHtml, topicNames, objsOf, find: findInFiles, review: reviewSheet, pending: cid => OB.pending[cid] || null};
 })();
 

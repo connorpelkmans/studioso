@@ -1,7 +1,5 @@
 /* ===== module: 99-whiteboard-ai.js ===== */
-/* Whiteboard to study material (free, with AI set up): the board is sent as a picture and comes back as clean typed notes you check and
-   edit, saved as a sticky note in the board's course; "and flashcards" then drafts cards from that note (99-lecture-chain's Make Cards, so they
-   land as drafts to check in the course's deck). Without AI set up, the button opens AI setup. */
+/* Whiteboard to study material (free, with AI set up) */
 (() => {
   const W = window.SBWB; if (!W) return;
   const MAX = 2000;
@@ -39,7 +37,6 @@
       </div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="wbaGo">${AI_ICON} Read the Board</button></div></form>`);
     let src = null;
-    // picture flashcards: pick a deck in the course (or a new one named after the board); the button says what it'll do
     const deckOpts = () => { const cid = $("#wbaCourse").value, ds = (typeof deckListArr === "function" ? deckListArr() : []).filter(d => (d.courseId || "") === cid);
       $("#wbaDeck").innerHTML = ds.map(d => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join("") + `<option value="__new">New deck: ${esc(W.boardName(n))}</option>`; };
     const kindNow = () => (dlg.querySelector('input[name="wbaK"]:checked') || {}).value;
@@ -62,7 +59,7 @@
       } catch (e) { if (!dlg.open) return; status.textContent = (e && e.message) || "Something went wrong. Try again."; go.disabled = false; go.classList.remove("busy"); }
     });
   }
-  // Picture flashcards (Pro): the board as a picture in Image Cards, where its labels are found and hidden for you to check
+  // Picture flashcards (Pro)
   const picLocked = () => { try { return !!(window.SBPRO && SBPRO.locked()); } catch (e) { return true; } };
   async function picCards(id, n, cid, deckSel){
     if (picLocked()) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Picture flashcards from your whiteboards are part of Studyboard Pro: the board becomes an image card with its labels hidden, to guess."); return; }
@@ -93,7 +90,7 @@
   }
   hook("act", act => { if (act !== "wb-ai") return false; sheet(); return true; });
 
-  // Handwriting to text: an "A" button for a selection of drawn lines; the AI reads the writing and it becomes typed text in its place
+  // Handwriting to text
   const A_IC = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 19L11.2 4.5h1.6L19 19"/><path d="M7.6 13.5h8.8"/></svg>';
   const INK_SCHEMA = {type: "OBJECT", properties: {found: {type: "BOOLEAN", description: "true if the picture has handwritten letters, numbers or words"},
     text: {type: "STRING", description: "Exactly what is written, with its line breaks. Empty if nothing is written."}}, required: ["found", "text"]};

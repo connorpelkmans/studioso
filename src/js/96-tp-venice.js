@@ -1,5 +1,5 @@
 /* ===== module: 96-tp-venice.js ===== */
-/* Theme Collections, around the world: venice (Venice) */
+/* Theme Collections, around the world */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2);

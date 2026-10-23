@@ -1,10 +1,10 @@
-/* Around the World: japan (Japan). Registered like the Study Fields themes (MAJ_THEMES), in the Style Shop's "Around the World" group. */
+/* Around the World */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const r1 = n => Math.round(n * 100) / 100;
   const circ = (x, y, r) => `M${r1(x - r)} ${r1(y)}a${r1(r)} ${r1(r)} 0 1 0 ${r1(2 * r)} 0a${r1(r)} ${r1(r)} 0 1 0 ${r1(-2 * r)} 0Z`;
   const NOTES = ["#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"];
-  // a cherry blossom: five notched petals round a centre
+  // a cherry blossom
   const sakura = (R, notch) => [0, 1, 2, 3, 4].map(i => { const a = -Math.PI / 2 + i * Math.PI * 2 / 5, c = Math.cos(a), s = Math.sin(a), P = (u, v) => `${r1(c * u - s * v)} ${r1(s * u + c * v)}`;
     return `M${P(1.2, 0)}C${P(3.4, -4.4)} ${P(R - 1, -4.6)} ${P(R, -1.6)}L${P(R - notch, 0)}L${P(R, 1.6)}C${P(R - 1, 4.6)} ${P(3.4, 4.4)} ${P(1.2, 0)}Z`; }).join("");
   Object.assign(FX_SHAPES, {

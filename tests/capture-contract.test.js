@@ -1,15 +1,11 @@
-// Keeps the native capture clients in step with capture-contract.json.  Run: node tests/capture-contract.test.js
-// 1. Static: the Swift and Kotlin sources (never compiled here) still contain the contract's path, headers, fields, limits, timeout and source list.
-// 2. Behavioural: a request built exactly the way the native code builds it (reference builder below, mirroring SBCapture.send / CaptureClient.send)
-//    is sent to a local mock of the endpoint that ENFORCES the contract; plus negative cases the mock must reject.
-// It cannot prove the Swift/Kotlin compile or behave: see VOICE-CAPTURE-NATIVE.md "verification checklist".
+// Keeps the native capture clients in step with capture-contract.json
 const fs = require("fs"), path = require("path"), assert = require("assert"), http = require("http"), crypto = require("crypto");
 const root = path.join(__dirname, "..");
 const read = p => fs.readFileSync(path.join(root, p), "utf8");
 const C = JSON.parse(read("capture-contract.json"));
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 
-// ---------- 1. static checks on the native sources ----------
+// 1. static checks on the native sources
 const swift = read("ios-wrapper/native/SBCapture.swift");
 const kotlin = read("android-wrapper/app/src/main/java/com/studioso/app/capture/CaptureClient.kt") + read("android-wrapper/app/src/main/java/com/studioso/app/capture/CaptureStore.kt");
 const both = { swift, kotlin };
@@ -35,9 +31,9 @@ ok(bridge.includes(C.path) && bridge.includes("supabase\\.co"), "bridge builds t
 // deep links named in the contract exist in the Android shortcuts / README
 ok(read("android-wrapper/app/src/main/res/xml/shortcuts.xml").includes("studyboard://capture?photo=1"), "photo deep link in shortcuts");
 
-// ---------- 2. behavioural: reference builder + contract-enforcing mock ----------
+// 2. behavioural
 const clip = (s, n) => (typeof s === "string" && s.trim() ? s.trim().slice(0, n) : undefined);
-function buildRequest(token, endpoint, o) {          // mirrors SBCapture.send / CaptureClient.send
+function buildRequest(token, endpoint, o) {
   const text = clip(o.text, C.bodyFields.text.maxLength);
   if (!text) return null;
   const body = { text };
@@ -47,7 +43,7 @@ function buildRequest(token, endpoint, o) {          // mirrors SBCapture.send /
   if (C.bodyFields.source.enum.includes(o.source)) body.source = o.source;
   return { method: C.method, path: new URL(endpoint).pathname, headers: { "Content-Type": C.headers.contentType, Authorization: C.headers.authorizationScheme + " " + token, "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify(body) };
 }
-function validate(req, token) {                      // what cap-server's function must accept/reject
+function validate(req, token) {
   if (req.method !== C.method || req.url !== C.path) return [404, { ok: false }];
   if (req.headers.authorization !== "Bearer " + token) return [401, { ok: false }];
   if (req.headers["content-type"] !== C.headers.contentType) return [415, { ok: false }];
@@ -91,14 +87,12 @@ server.listen(0, "127.0.0.1", async () => {
     ok(JSON.parse(longText.body).text.length === 500 && !("source" in JSON.parse(longText.body)), "long text clipped, bad source dropped");
     r = await post(port, longText); ok(r.status === 200, "clipped request accepted");
     ok(buildRequest(TOKEN, endpoint, { text: "   " }) === null, "blank text never sent");
-    // negative: the mock really enforces the contract
     const bad = (mut) => { const q = buildRequest(TOKEN, endpoint, { text: "t" }); mut(q); return post(port, q); };
     ok((await bad(q => { q.headers.Authorization = "Bearer wrong"; })).status === 401, "wrong token rejected");
     ok((await bad(q => { delete q.headers["Idempotency-Key"]; })).status === 400, "missing idempotency key rejected");
     ok((await bad(q => { q.body = JSON.stringify({ text: "t", extra: 1 }); })).status === 400, "unknown field rejected");
     ok((await bad(q => { q.body = JSON.stringify({ due: "x" }); })).status === 400, "missing text rejected");
     ok((await bad(q => { q.body = JSON.stringify({ text: "t", source: "nope" }); })).status === 400, "bad source rejected");
-    // retry with the same Idempotency-Key is seen as a duplicate (server must dedupe; contract requires the key to be stable per item)
     const a = buildRequest(TOKEN, endpoint, { text: "once" });
     await post(port, a); r = await post(port, a);
     ok(r.json.duplicate === true, "same Idempotency-Key detected as duplicate");

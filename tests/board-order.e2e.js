@@ -1,5 +1,4 @@
-// Task Board order: To Do and In Work go by due date and Complete puts the most recently finished on top, until a column is rearranged by hand.
-// Run: node tests/board-order.e2e.js
+// Task Board order
 const {chromium, executablePath} = require("./pw");
 const path = require("path"), fs = require("fs"), http = require("http");
 const ROOT = path.join(__dirname, "..");
@@ -11,7 +10,7 @@ const server = http.createServer((req, res) => {
 });
 let checks = 0; const ok = (c, m) => { checks++; if (!c) { console.log("FAIL:", m); process.exitCode = 1; } };
 const COURSE = {id: "c1", name: "Biology 101", code: "BIO101", color: "#4F8A5B"};
-// order numbers are the opposite of the due dates (the order they were added), to show the due date wins until you rearrange
+// order numbers are the opposite of the due dates (the order they were added)
 const T = (id, title, due, status, order, doneAt) => ({id, title, courseId: "c1", type: "Assignment", start: "2026-10-01", due, time: "", priority: "med", status, notes: "", hours: 2, checklist: [], pct: status === "done" ? 100 : 0, dependsOn: [], history: [], created: 1, order, doneAt: doneAt || null});
 const TASKS = [T("t1", "Late Due", "2026-10-20", "todo", 10), T("t2", "Soon Due", "2026-10-08", "todo", 20), T("t3", "Middle Due", "2026-10-12", "todo", 30),
   T("d1", "Done First", "2026-10-02", "done", 10, Date.parse("2026-10-03T10:00:00Z")), T("d2", "Done Last", "2026-10-01", "done", 20, Date.parse("2026-10-05T10:00:00Z")), T("d3", "Done Middle", "2026-10-04", "done", 30, Date.parse("2026-10-04T10:00:00Z"))];
@@ -40,7 +39,6 @@ async function open(browser, manual){
     ok(JSON.stringify(todo) === JSON.stringify(["Soon Due", "Middle Due", "Late Due"]), "To Do goes by due date: " + todo.join(" | "));
     ok(JSON.stringify(done) === JSON.stringify(["Done Last", "Done Middle", "Done First"]), "Complete puts the most recently completed on top: " + done.join(" | "));
     ok(await p.locator(".col-resort").count() === 0, "no Sort button while nothing is rearranged");
-    // drag Late Due above Soon Due: the column now keeps that order
     const card = n => p.locator('.col[data-status="todo"] .card', {hasText: n}).first();
     const a = await card("Late Due").boundingBox(), b = await card("Soon Due").boundingBox();
     await p.mouse.move(a.x + 20, a.y + 15); await p.mouse.down();

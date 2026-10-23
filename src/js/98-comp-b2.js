@@ -1,5 +1,5 @@
 /* ===== module: 98-comp-b2.js ===== */
-/* Study Companions, batch 2: forest, galaxy, arctic, lemonade, xmas */
+/* Study Companions, batch 2 */
 (() => {
   const {INK, O, OW, LG, RG, puff, LINE} = COMP_KIT;
   const O2 = OW(2.2);

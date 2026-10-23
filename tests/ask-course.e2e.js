@@ -1,13 +1,4 @@
-// node tests/ask-course.e2e.js   (Playwright + Chromium; see tests/pw.js. The AI is stubbed, so every answer is fixed.)
-// Ask Your Course (Search Everywhere, Ask With AI, module 30-search):
-//   - Ask About This Course on the course page opens Ask scoped to that course; only its material is sent (another course's note is not)
-//   - a question that names a course code scopes Ask to it by itself
-//   - answers cite [n]; source chips open the exact note, lecture transcript or PDF page (with Read Page N in Pro)
-//   - not covered: says so plainly, and Answer From General Knowledge is separate, labelled, and sends no sources
-//   - a follow-up keeps the conversation (and the last answer's sources)
-//   - Make Flashcards (review sheet, the course's deck picked), Save as Note ([[links]] to sources), Quiz Me (one question at a
-//     time, checked, explained, saved as a practice quiz); Quiz Me is Pro (free shows the PRO badge and the Pro sheet)
-//   - no horizontal scrolling at phone width
+// node tests/ask-course.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const csp = require("../scripts/csp");
@@ -17,7 +8,6 @@ const server = http.createServer((req, res) => {
   const f = path.join(root, p); if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end("no"); return; }
   const ext = path.extname(f), mime = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".css": "text/css", ".webmanifest": "application/manifest+json"};
   res.writeHead(200, {"content-type": mime[ext] || "application/octet-stream"});
-  // Pro on (enforcement off); the free context below forces the paywall back on with studyboard:paywall-test
   if (p === "/index.html" || /^\/bundle\/[^/]+\.js$/.test(p)) { res.end((/\.html$/.test(p) ? csp.apply : String)(fs.readFileSync(f, "utf8").replace("const PRO_ENFORCED = true;", "const PRO_ENFORCED = false;"))); return; }
   fs.createReadStream(f).pipe(res);
 });
@@ -94,7 +84,7 @@ function reply(ctx, t){
         localStorage.setItem("studyboard:search:debug", "1");
         if (free) localStorage.setItem("studyboard:paywall-test", "1");
       } catch (e) {}
-      window.__sxBytes = async assetId => assetId === "a-ps" ? new Uint8Array(pdf) : null;   // the PDF's bytes, for Search Inside Files
+      window.__sxBytes = async assetId => assetId === "a-ps" ? new Uint8Array(pdf) : null;
     }, [SEED(), !!free, textPdf()]);
     return ctx;
   };
@@ -112,7 +102,7 @@ function reply(ctx, t){
   const answered = (page, k) => page.waitForFunction(k => { const S = window.__sxDebug.S; return S.ask && S.ask.answer && S.ask.answer.state === "done" && S.thread.length >= k; }, k, {timeout: 15000});
   const openSearch = page => page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "search"; document.body.appendChild(b); b.click(); b.remove(); });
 
-  /* ---------- Pro: the course page, scoped answers, citations, follow-ups, study tools ---------- */
+  /* Pro: the course page, scoped answers, citations, follow-ups, study tools */
   const ctx = await mkCtx(false), page = await openPage(ctx);
   await page.evaluate(() => { const T = window.__sbProStudy; T.ui.tab = "courses"; T.ui.courseId = "c1"; T.render(); });
   await page.waitForSelector('[data-act="ask-course"][data-sx-ask]');
@@ -136,7 +126,6 @@ function reply(ctx, t){
   ok(await page.locator('#sxAnswer [data-sx="mk-cards"]').count() === 1 && await page.locator('#sxAnswer [data-sx="quiz"]').count() === 1 && await page.locator('#sxAnswer [data-sx="save-note"]').count() === 1, "Make Flashcards, Quiz Me and Save as Note under the answer");
   ok(await page.locator('#sxAnswer [data-sx="quiz"] .pro-badge').count() === 0, "no PRO badge on Quiz Me for Pro");
 
-  // Save as Note: the answer plus [[links]] to its sources
   const before = (await H(page)).notes.length;
   await page.click('#sxAnswer [data-sx="save-note"]');
   await page.waitForSelector('#sxAnswer [data-sx="open-note"]');
@@ -144,7 +133,6 @@ function reply(ctx, t){
   ok(hs.notes.length === before + 1 && saved && saved.courseId === "c1", "Save as Note adds a BIO101 note named after the question");
   ok(/Sources:\n\[\d+\] \[\[Photosynthesis\]\]/.test(saved.text) && /\[\[Lecture 3 Photosynthesis\]\]/.test(saved.text) && /absorbs light \[\d+\]/.test(saved.text), "the note keeps the citations and links each source with [[...]]");
 
-  // A citation opens the exact source: the lecture transcript, then the note
   await page.click('#sxAnswer .sx-from .sx-src:has-text("Lecture:")');
   await page.waitForSelector("dialog[open] .lec-sheet", {timeout: 5000});
   ok(!(await page.evaluate(() => document.querySelector("#sxDlg").open)), "the lecture citation closes search and opens the lecture");
@@ -155,7 +143,6 @@ function reply(ctx, t){
   await page.waitForFunction(() => window.__sbProStudy.ui.tab === "notes");
   ok(true, "the note citation opens the note on the Notes board");
 
-  // Follow-up: keeps context
   await openSearch(page); await page.waitForSelector("#sxDlg[open]");
   await ask(page, "Explain that more simply");
   await answered(page, 2); await page.waitForSelector("#sxAnswer .sx-turn");
@@ -164,7 +151,6 @@ function reply(ctx, t){
   ok(/Sticky note: Photosynthesis/.test(fu), "and keeps the sources the last answer used");
   ok(await page.locator("#sxAnswer .sx-q").count() === 2 && /green pigment/.test(await page.textContent("#sxAnswer")), "both questions and answers show, like a chat");
 
-  // Make Flashcards: the review sheet, with BIO101's deck picked
   await page.click('#sxAnswer [data-sx="mk-cards"]');
   await page.waitForSelector("dialog[open] #arSave", {timeout: 10000});
   ok(/thylakoid/.test(ctx.cards[0]) && !/photochemistry/i.test(ctx.cards[0]), "Make Flashcards sends the answer and its sources only");
@@ -172,7 +158,6 @@ function reply(ctx, t){
   await page.click("#arSave"); await page.waitForTimeout(300);
   ok((await H(page)).decks.d1.cards.length === 3, "the cards are saved to Cell Biology");
 
-  // Quiz Me: one question at a time, checked and explained with its source
   await openSearch(page); await page.waitForSelector("#sxDlg[open]");
   await page.click('#sxAnswer [data-sx="quiz"]');
   await page.waitForSelector("#sxAnswer .sx-tutor .sx-tq", {timeout: 10000});
@@ -198,7 +183,6 @@ function reply(ctx, t){
   const qz = Object.values((await H(page)).decks).filter(d => d.courseId === "c1").flatMap(d => d.aiQuizzes || []);
   ok(qz.length === 1 && qz[0].questions.length === 3, "Save as Practice Quiz saves the quiz in Biology (BIO101)");
 
-  // Not covered: says so, and general knowledge is separate and sends no sources
   await openSearch(page); await page.waitForSelector("#sxDlg[open]");
   await page.click('#sxAnswer [data-sx="restart"]');
   ok(await page.locator("#sxAnswer .sx-q").count() === 0, "Start Over clears the conversation");
@@ -212,7 +196,6 @@ function reply(ctx, t){
   ok(/From General Knowledge/.test(gtxt) && /Not from your course material/.test(gtxt) && /acetyl-CoA/.test(gtxt), "Answer From General Knowledge is labelled as not from the course material");
   ok(ctx.gens.length === 1 && !/thylakoid|NUMBERED SOURCES/.test(ctx.gens[0]), "and sends only the question, none of the student's material");
 
-  // A PDF page: once the file is read, a citation opens that page
   await page.waitForFunction(() => window.__sxDebug.IX.chunks.docs.some(d => !d.dead && /stroma/.test(d.text)), null, {timeout: 20000});
   await ask(page, "Where does the Calvin cycle run?");
   await answered(page, 2); await page.waitForSelector("#sxAnswer .sx-ans:not(.miss) .sx-cite");
@@ -222,7 +205,6 @@ function reply(ctx, t){
   ok(/Page 2/.test(await page.textContent("dialog[open] .sx-prev .sx-pg")) && (await page.textContent("#sxRead")).trim() === "Read Page 2", "the citation shows that page's passage, with Read Page 2");
   await closeAll(page);
 
-  // A question that names a course scopes Ask to it
   await page.evaluate(() => { const S = window.__sxDebug.S; S.course = ""; S.scopeSet = false; S.autoScope = ""; S.thread = []; S.ask = null; });
   await openSearch(page); await page.waitForSelector("#sxDlg[open]");
   await ask(page, "In CHEM200, what splits water with light?");
@@ -233,7 +215,7 @@ function reply(ctx, t){
   ok(page.errs.length === 0, "no page errors: " + page.errs.join("; "));
   await ctx.close();
 
-  /* ---------- Free, at phone width: the same answers, Quiz Me behind Pro ---------- */
+  /* Free, at phone width */
   const fctx = await mkCtx(true, {width: 390, height: 844}), fp = await openPage(fctx);
   await fp.evaluate(() => { const T = window.__sbProStudy; T.ui.tab = "courses"; T.ui.courseId = "c1"; T.render(); });
   await fp.evaluate(() => { const b = document.querySelector('[data-act="ask-course"][data-sx-ask]'); if (b) b.click(); else { const x = document.createElement("button"); x.dataset.act = "sx-ask-course"; x.dataset.id = "c1"; document.body.appendChild(x); x.click(); x.remove(); } });

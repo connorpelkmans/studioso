@@ -1,9 +1,5 @@
 /* ===== module: 95-announce.js ===== */
-/* Class announcements in one place: a bell in the header (and the side bar) opens a panel with the announcements school sync
-   brought in. A Home tab shows the 3 newest across every class; each class that has announcements gets its own tab. Unread ones
-   have a dot; opening one or pressing Mark Read clears it. Which ones you've read (and the last tab you looked at) stays on this
-   device. Announcements come from the school connections (Brightspace, Canvas, Blackboard) module above.
-   Check Now runs a real sync by hand: the sync scheduler's minimum gaps and back-off only hold back the automatic checks. */
+/* Class announcements in one place */
 (() => {
   const KEY = "studyboard:annRead", TAB_KEY = "studyboard:annTab", FRESH_DAYS = 21, HOME = "home";
   const plats = () => ["brightspace", "canvas", "blackboard"].map(k => window.SBLMS && window.SBLMS[k]).filter(L => L && L.cfg && L.connected(L.cfg()));
@@ -12,9 +8,9 @@
   const saveRead = () => { try { localStorage.setItem(KEY, JSON.stringify([...readSet()].slice(-600))); } catch(e) {} };
   let tab = HOME; try { tab = localStorage.getItem(TAB_KEY) || HOME; } catch(e) {}
   const setTab = k => { tab = k; try { localStorage.setItem(TAB_KEY, k); } catch(e) {} };
-  // The last Check Now: {busy, kind: "ok" | "err" | "info", msg, btn: {act, plat, label}}
+  // The last Check Now
   let st = {busy: false, kind: "", msg: "", btn: null};
-  // Everything announced, newest first: {key, ou, id, title, text, long, date, url, plat, cid, course}
+  // Everything announced, newest first
   function items(){
     const out = [];
     plats().forEach(L => {
@@ -32,7 +28,7 @@
   }
   const isNew = (n, rs) => !rs.has(n.key) && (!n.date || Date.parse(n.date) > Date.now() - FRESH_DAYS * 864e5);
   const unread = () => { const rs = readSet(); return items().filter(n => isNew(n, rs)).length; };
-  window.SBANN = {items, info: key => { try { return AUTO_ON && autoFeatOn("news") && AUTO.ann && AUTO.ann[key] || null; } catch(e) { return null; } }};      // for Automatic AI (announcement alerts)
+  window.SBANN = {items, info: key => { try { return AUTO_ON && autoFeatOn("news") && AUTO.ann && AUTO.ann[key] || null; } catch(e) { return null; } }};
   function badge(){
     const on = plats().length > 0, n = on ? unread() : 0;
     $$(".ann-btn").forEach(b => {
@@ -49,7 +45,7 @@
   }
   const ago = ms => { const m = Math.floor((Date.now() - ms) / 6e4); return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.floor(m / 60)} h ago` : `${Math.floor(m / 1440)} d ago`; };
   const bsDesk = () => !!lmsBridge();
-  // Can this connection fetch announcements from this device? "api" yes; otherwise why not.
+  // Can this connection fetch announcements from this device
   function how(L){
     const c = L.cfg();
     if (!bsDesk()) return "web";
@@ -104,15 +100,13 @@
   }
   const mark = (key, on) => { on ? readSet().add(key) : readSet().delete(key); saveRead(); };
 
-  // Check Now: a real sync, started by hand. syncNow() has no minimum gap of its own (only the automatic checks do), so this
-  // always asks the school; if a check is already running it waits for that one instead of starting a second.
+  // Check Now: a real sync, started by hand
   async function check(){
     if (st.busy) return;
     const ps = plats();
     if (!ps.length) { st = {busy: false, kind: "info", msg: "No school site is connected yet. Connect one in Settings.", btn: null}; sheet(); return; }
     if (!navigator.onLine) { st = {busy: false, kind: "err", msg: "You're offline. Connect to the internet and try again.", btn: null}; sheet(); return; }
     const can = ps.filter(L => how(L) === "api"), cant = ps.filter(L => how(L) !== "api");
-    // Why some connections can't be checked from here
     let why = "", btn = null;
     if (cant.length) {
       const w = cant[0], h = how(w), nm = cant.map(L => L.P.name).join(" and ");

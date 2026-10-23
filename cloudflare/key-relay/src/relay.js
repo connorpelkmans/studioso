@@ -1,29 +1,16 @@
-// Studyboard key relay: everything except the Cloudflare wiring (src/index.js), so tests/key-relay.test.js can run it in Node.
-//
-// One device seals its AI keys with a code (AES-GCM, key and mailbox id both derived from the code with PBKDF2, in index.html: KEYHO) and
-// leaves the box here under the id. The other device fetches it once with the same code. The relay never sees the code or a key: only a
-// 64-hex id and ciphertext, kept at most 10 minutes and handed out once.
-//
-//   POST   /v1/h/<id>         {"box": "<base64url>"}   201 stored, 409 id already used, 400/413 bad body
-//   GET    /v1/h/<id>         200 {"box"} and the box is gone; 404 when there is none (taken, expired or never made)
-//   GET    /v1/h/<id>/status  200 {"state": "waiting" | "taken" | "none"}   (the first device waits for "taken")
-//   DELETE /v1/h/<id>         204, the first device closed the window before the code was used
-//   GET    /k                 the page a scanned QR code opens (the code is in the #fragment, which browsers never send)
-// POST is the only route that stores anything (a new Durable Object), so it's limited per network address by the POST_LIMIT rate limiting
-// binding (wrangler.jsonc): 429 past it. Without the binding (older deploys, the tests) there's no such limit.
+// Studyboard key relay
 
 export const TTL_MS = 10 * 60 * 1000;
 export const MAX_BOX = 4096;
 const ID_RE = /^[0-9a-f]{64}$/;
 const BOX_RE = /^[A-Za-z0-9_-]{40,4096}$/;
 
-// One mailbox, kept in the Durable Object's own storage. Durable Objects run one request at a time with storage gates, so "take" can
-// never hand the same box out twice.
+// One mailbox, kept in the Durable Object's own storage
 export class Slot {
   constructor(storage, now = () => Date.now()) { this.s = storage; this.now = now; }
   async state() {
     const st = await this.s.get("state");
-    if (st && (await this.s.get("until")) < this.now()) { await this.expire(); return null; }   // in case the alarm runs late
+    if (st && (await this.s.get("until")) < this.now()) { await this.expire(); return null; }
     return st || null;
   }
   async put(box) {
@@ -70,7 +57,7 @@ export async function handle(request, env) {
     const text = await request.text();
     if (text.length > MAX_BOX + 200) return json({ error: "too_large" }, 413);
     let box = null;
-    try { box = JSON.parse(text).box; } catch (e) { /* not JSON */ }
+    try { box = JSON.parse(text).box; } catch (e) { }
     if (typeof box !== "string" || !BOX_RE.test(box)) return json({ error: "bad_box" }, 400);
     return (await slot.put(box)) ? json({ ok: true, ttl: TTL_MS / 1000 }, 201) : json({ error: "exists" }, 409);
   }

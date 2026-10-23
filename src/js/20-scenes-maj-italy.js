@@ -1,5 +1,5 @@
 /* ===== module: 20-scenes-maj-italy.js ===== */
-/* Around the World: italy (Amalfi Coast) */
+/* Around the World */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const r1 = n => Math.round(n * 100) / 100;
@@ -7,15 +7,15 @@
   const ell = (x, y, rx, ry) => `M${r1(x - rx)} ${r1(y)}a${r1(rx)} ${r1(ry)} 0 1 0 ${r1(2 * rx)} 0a${r1(rx)} ${r1(ry)} 0 1 0 ${r1(-2 * rx)} 0Z`;
   const NOTES = ["#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"];
   Object.assign(FX_SHAPES, {
-    // an Amalfi lemon: pointed at both ends, with a leaf
+    // an Amalfi lemon
     italylemon: {d: "M-10 1C-10 -4 -5 -7.4 0 -7.4C5 -7.4 10 -4 10 1C10 5 5 7.4 0 7.4C-5 7.4 -10 5 -10 1Z M-10 1L-12 0.2L-10.4 -0.6Z M10 1L12 0.2L10.4 -0.6Z M1 -7.2C3 -11 7 -12 10 -11C8 -8 4 -7 1 -7.2Z", detail: "M-5 -3.4Q-2 -5.4 2 -5", dstroke: true},
-    // lemon blossom: five round petals and a yellow heart
+    // lemon blossom
     italyblossom: {d: [0, 1, 2, 3, 4].map(i => { const a = -Math.PI / 2 + i / 5 * Math.PI * 2; return circ(Math.cos(a) * 5.4, Math.sin(a) * 5.4, 4.6); }).join("") + circ(0, 0, 4), detail: circ(0, 0, 2.2), dfill: true},
     // a striped beach umbrella
     italyumb: {d: "M-11 -1C-10 -8 -4 -10.5 0 -10.5C4 -10.5 10 -8 11 -1Z M-0.8 -1H0.8V10H-0.8Z", detail: "M0 -10.5L-6 -1M0 -10.5L6 -1M0 -10.5V-1", dstroke: true},
     // a little sailboat
     italysail: {d: "M0.6 -11L9 4H0.6Z M-1 -8L-8.6 4H-1Z M-11 5.6H11L7.6 10.4H-7.6Z"},
-    // a majolica tile: a square with a flower star
+    // a majolica tile
     italytile: {d: "M-9 -9H9V9H-9Z", detail: "M0 -7L2 -2L7 0L2 2L0 7L-2 2L-7 0L-2 -2Z" + circ(0, 0, 1.4), dfill: true}
   });
 

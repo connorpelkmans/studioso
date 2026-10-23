@@ -1,13 +1,4 @@
-# Daily backup of the Supabase database (the free plan has none), kept as encrypted files on GitHub, not in Supabase.
-# Save this in your GitHub repository as: .github/workflows/backup-supabase.yml
-# It needs two repository secrets (Settings > Secrets and variables > Actions):
-#   SUPABASE_DB_URL     the "Session pooler" connection string from Supabase (Connect button at the top of the dashboard), with your
-#                       database password filled in. (The direct connection doesn't work from GitHub: it is IPv6 only on the free plan.)
-#   BACKUP_PASSPHRASE   any long passphrase you keep somewhere safe. The backups are encrypted with it; without it they can't be opened.
-# Each run stores one artifact for 30 days (a file named supabase-backup-<date>.tar.gz.gpg): roles, schema and every row (accounts, synced data, groups, plans).
-# Uploaded files (Supabase Storage) are not in it: those stay in the bucket, and the app's own backups keep copies on people's devices.
-# It only reads the database, so it costs Supabase nothing but a few MB of transfer a day, and uses no Supabase storage.
-# To restore, see "Restoring the database from a backup" in SETUP-GUIDE.md.
+# Daily backup of the Supabase database (the free plan has none)
 name: Back up Supabase
 
 on:
@@ -45,7 +36,6 @@ jobs:
           supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/roles.sql --role-only
           supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/schema.sql
           supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/data.sql --use-copy --data-only
-          # an empty data file means the dump failed quietly: fail the run so it shows red in the Actions tab
           test -s backup/schema.sql && test -s backup/data.sql
           ls -l backup
 

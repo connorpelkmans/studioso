@@ -1,8 +1,5 @@
 /* ===== module: 39-area.js ===== */
-/* Area of study. Asked once in the welcome tour and changeable in Settings (Study and AI). It is stored in
-   state.settings.area = {id, text}, so it syncs with everything else, and it tunes a few things around that field:
-   the order of task types in the New Task form, the quick-add example, the typical hours behind Today's Plan for each kind of
-   task, the Study Fields theme the tour suggests, and a one-line hint for AI features about what the student studies. */
+/* Area of study */
 var SBAREA = (() => {
   const T = (...a) => a;
   const AREAS = [
@@ -20,7 +17,7 @@ var SBAREA = (() => {
   ];
   const BASE = {}; let based = false;
   const get = () => { const a = state.settings && state.settings.area; return a && AREAS.some(x => x.id === a.id) ? a : null; };
-  // A typed field the AI has tuned (area.custom) is laid over the preset in the same shape, so everything below reads one definition
+  // A typed field the AI has tuned (area.custom) is laid over the preset in the same shape
   const def = () => {
     const a = get(), d = a ? AREAS.find(x => x.id === a.id) : null;
     return d && a.custom && a.text && a.custom.for === a.text ? Object.assign({}, d, a.custom, {hrs: Object.assign({}, d.hrs, a.custom.hrs)}) : d;
@@ -34,14 +31,14 @@ var SBAREA = (() => {
       const d = def(); if (d) Object.entries(d.hrs || {}).forEach(([k, h]) => { if (TYPE_DEFAULTS[k]) TYPE_DEFAULTS[k].h = h; });
     } catch (e) { console.warn("area defaults", e); }
   }
-  const FIELD_SKINS = ["business", "nursing", "psych", "biology", "compsci", "engineering", "education", "comms", "civics", "justice", "writing", "concert", "track", "math", "chem", "observatory", "ruins", "valley", "sketchcity"].filter(id => SKINS.some(s => s.id === id));   // only the themes that show (20-scenes-visible.js)
+  const FIELD_SKINS = ["business", "nursing", "psych", "biology", "compsci", "engineering", "education", "comms", "civics", "justice", "writing", "concert", "track", "math", "chem", "observatory", "ruins", "valley", "sketchcity"].filter(id => SKINS.some(s => s.id === id));
   const AREA_SCHEMA = {type: "OBJECT", properties: {
     ctx: {type: "STRING", description: "The field in a few lowercase words, as in 'marine biology', for a sentence like 'The student is studying ...'"},
     ex: {type: "STRING", description: "One realistic quick-add example task for a student in this field, like 'chem lab report fri 5pm worth 8%'. Lowercase, under 60 characters, with a short day and optional time or weight"},
     types: {type: "ARRAY", items: {type: "STRING", enum: ["Assignment", "Exam", "Quiz", "Reading", "Project", "Lab", "Study", "Other"]}, description: "All eight task types, the ones this field uses most first"},
     hours: {type: "OBJECT", properties: {Assignment: {type: "NUMBER"}, Project: {type: "NUMBER"}, Lab: {type: "NUMBER"}, Reading: {type: "NUMBER"}, Exam: {type: "NUMBER"}, Quiz: {type: "NUMBER"}, Study: {type: "NUMBER"}}, description: "Typical hours a student in this field spends on one task of each type"},
     skin: {type: "STRING", enum: FIELD_SKINS.concat([""]), description: "The theme that fits the field best, or an empty string when none really does"}}, required: ["ctx", "ex", "types", "hours", "skin"]};
-  // The same tuning each preset field has (type order, example task, typical hours, theme, what the AI is told), made for a field the student typed
+  // The same tuning each preset field has
   const cleanTuned = (r, text) => {
     if (!r || typeof r !== "object") return null;
     const all = typeof TYPES !== "undefined" ? TYPES : [], seen = new Set(), tys = [];
@@ -68,7 +65,7 @@ var SBAREA = (() => {
         saveSettings(); applyDefaults(); applied = key(); try { scheduleRender(); } catch (e) {}
         toast(`Studyboard is set up for ${text}`);
       }
-    } catch (e) { /* the preset stays as it is */ }
+    } catch (e) { }
     tuning = "";
   }
   function set(id, text){

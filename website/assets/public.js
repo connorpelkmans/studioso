@@ -1,5 +1,4 @@
-// Public flashcard pages: the Study Flashcards panel (flip, previous and next, shuffle; arrow keys and space). The cards are read from
-// the term list already on the page, so nothing is fetched. Without JavaScript the full list still shows and the button jumps to it.
+// Public flashcard pages
 (function () {
   "use strict";
   var panel = document.getElementById("study"), list = document.querySelectorAll(".pub-terms li[data-front]");
@@ -32,14 +31,13 @@
   });
 })();
 
-// Search filters (school, size, sort): picking one runs the search right away
+// Search filters (school, size, sort)
 (function () {
   "use strict";
   var box = document.querySelector("[data-pub-filters]");
   if (!box) return;
   box.addEventListener("change", function (e) {
     var f = e.target && e.target.form; if (!f) return;
-    // leave out empty filters so the address stays short
     Array.prototype.forEach.call(f.querySelectorAll("select"), function (s) { s.disabled = !s.value; });
     f.submit();
   });

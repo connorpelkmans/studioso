@@ -16,7 +16,7 @@ ok(F.interval(10, 0.9) === 10 && F.interval(3.7145, 0.9) === 4, "interval = stab
 ok(F.interval(10, 0.95) < 10 && F.interval(10, 0.85) > 10, "asking to remember more means sooner reviews");
 ok(F.interval(0.01, 0.9) === 1, "never less than a day");
 
-// reviewing on time: Good grows stability a lot, Easy more, Hard a little, Again drops it
+// reviewing on time
 const on = F.next(a, "good", F.interval(a.s, 0.9)), hard = F.next(a, "hard", 4), easy = F.next(a, "easy", 4), again = F.next(a, "again", 4);
 ok(on.s > a.s * 2, "Good on time more than doubles stability (" + a.s + " -> " + on.s + ")");
 ok(easy.s > on.s && hard.s < on.s && hard.s > a.s, "Easy > Good > Hard > before");

@@ -1,6 +1,4 @@
-// node tests/breakdown.e2e.js  (Playwright + Chromium; the AI network call is stubbed)
-// Big assignment breakdown: detail-sheet entry, drop-in text flow, syllabus review checkbox, edit/shift/heavy-day/tight banner, create + one Undo, parent progress,
-// complete/delete offers, due-date re-plan offer, LMS-synced parent, offline template fallback, AI path, phone width. Screenshots go to $SHOTS.
+// node tests/breakdown.e2e.js
 /* global state, ui, render, applyChanges, clone, importSheet, lmsOf, newTask, allTasks, remainingOf, TB -- copied onto window from __sbBreakdown in open() below */
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
@@ -46,7 +44,6 @@ const AI_STAGES = {kind: "paper", stages: [
   const toastOf = page => page.evaluate(() => { const t = document.querySelector("#toast"); return t.classList.contains("show") ? t.textContent : ""; });
   const noOverflow = async (page, what) => { const o = await page.evaluate(() => { const d = document.querySelector("#dlg"); return {page: document.documentElement.scrollWidth - document.documentElement.clientWidth, dlg: d ? d.scrollWidth - d.clientWidth : 0, body: (document.querySelector("#dlg .sheet-body") || {}).scrollWidth - (document.querySelector("#dlg .sheet-body") || {}).clientWidth}; }); ok(o.page <= 0 && o.dlg <= 0 && !(o.body > 0), `no horizontal overflow ${what} (${JSON.stringify(o)})`); };
   const targets = async (page, what) => { const small = await page.evaluate(() => [...document.querySelectorAll("#dlg .bd-sheet button, #dlg .bd-sheet input, #dlg .bd-sheet select, #dlg .bd-sheet summary")].filter(e => e.offsetParent && !e.classList.contains("sr") && e.type !== "checkbox").map(e => { const r = e.getBoundingClientRect(); return {t: (e.getAttribute("aria-label") || e.textContent || e.id).trim().slice(0, 30), h: Math.round(r.height), w: Math.round(r.width)}; }).filter(x => x.h < 40 || x.w < 40)); ok(small.length === 0, `touch targets are 40px or more ${what} ${JSON.stringify(small.slice(0, 4))}`); };
-  // The Board shows Today's Plan or the Task Board, one at a time on every screen size: if the task isn't in the current view, switch to the board
   const openTask = async (page, id) => {
     const row = page.locator(`#view [data-act="edit-task"][data-id="${id}"]:visible`);
     if (!(await row.count())) await page.evaluate(() => { const b = document.querySelector('[data-act="bview"][data-id="board"]'); if (b) b.click(); });
@@ -57,14 +54,14 @@ const AI_STAGES = {kind: "paper", stages: [
     for (const W of [1280, 390]) {
       console.log("\n=== width", W);
       const ctx = await mkCtx({w: W, h: W === 390 ? 780 : 900}); let page = await open(ctx);
-      await page.evaluate(() => { ui.tab = "courses"; ui.courseId = "c1"; render(); });   // the course page lists tasks as rows
-      // ---- row action and detail sheet entry
+      await page.evaluate(() => { ui.tab = "courses"; ui.courseId = "c1"; render(); });
+      // row action and detail sheet entry
       ok(await page.locator('.bd-row-btn[data-id="t1"]').count() === 1 && await page.locator('.bd-row-btn[data-id="t2"]').count() === 0 && await page.locator('.bd-row-btn[data-id="t4"]').count() === 0, "row action appears for the big paper only, not homework or the exam");
       await openTask(page, 't1');
       ok(await page.locator('#dlg .bd-panel.offer [data-act="bd-open"]').count() === 1, "task sheet offers Break It Down");
       await page.click('#dlg .bd-panel.offer [data-act="bd-open"]');
       await page.waitForSelector("#dlg .bd-sheet #bdList li");
-      await page.waitForTimeout(800);   // the AI wording attempt (stub returns nothing usable) falls back to the template
+      await page.waitForTimeout(800);
       let items = await page.$$eval("#bdList li.bd-m", els => els.map(e => ({title: e.querySelector("[data-f=title]").value, due: e.querySelector("[data-f=due]").value, hours: Number(e.querySelector("[data-f=hours]").value)})));
       ok(items.length === 5, "12 hours gives 5 milestones: " + items.map(i => i.title).join(" | "));
       ok(items[items.length - 1].due === addD(13), "last milestone is the day before the due date");
@@ -73,7 +70,7 @@ const AI_STAGES = {kind: "paper", stages: [
       ok(await page.locator("#bdStrip .bd-c").count() >= 10, "timeline strip is drawn");
       await noOverflow(page, "in the review sheet @" + W); await targets(page, "in the review sheet @" + W);
       await page.screenshot({path: path.join(SHOTS, `review-${W}.png`)});
-      // ---- edit a date; shift the rest
+      // edit a date; shift the rest
       const first = page.locator('#bdList li.bd-m').first().locator("[data-f=due]");
       const d0 = items[0].due, d1 = addD(Number((new Date(d0 + "T00:00") - new Date(addD(0) + "T00:00")) / 864e5) + 1);
       await first.fill(d1); await first.dispatchEvent("change");
@@ -86,7 +83,7 @@ const AI_STAGES = {kind: "paper", stages: [
       let items3 = await page.$$eval("#bdList li.bd-m", els => els.map(e => e.querySelector("[data-f=due]").value));
       ok(items3[1] === shifted && items3[2] > items2[2] && items3[2] >= shifted, "with Shift the rest on, later milestones move too: " + items2.join() + " -> " + items3.join());
       await page.uncheck("#bdShift");
-      // ---- heavy-day warning and move to a lighter day
+      // heavy-day warning and move to a lighter day
       await page.evaluate(() => { const S = SBBREAK.state(); const d = S.ms[2].due; S.ctx.load[d] = 1.9; });
       await page.locator('#bdList li.bd-m').nth(2).locator("[data-f=hours]").dispatchEvent("change");
       ok(await page.locator("#bdList .bd-w button[data-a=lighter]").count() >= 1, "heavy day shows a warning with Move to lighter day");
@@ -95,14 +92,14 @@ const AI_STAGES = {kind: "paper", stages: [
       const after = await page.$$eval("#bdList li.bd-m [data-f=due]", e => e.map(x => x.value));
       ok(/Moved to/.test(await toastOf(page)) && !(await page.$$eval("#bdList [data-f=due]", e => e.map(x => x.value))).includes("") && before.length === 10, "Move to lighter day moved it: " + await toastOf(page));
       await page.screenshot({path: path.join(SHOTS, `heavy-${W}.png`)});
-      // ---- reorder and remove / add
+      // reorder and remove / add
       const t1 = await page.$eval("#bdList li.bd-m:nth-child(2) [data-f=title]", e => e.value), t2 = await page.$eval("#bdList li.bd-m:nth-child(3) [data-f=title]", e => e.value);
       await page.click("#bdList li.bd-m:nth-child(3) [data-a=up]");
       ok(await page.$eval("#bdList li.bd-m:nth-child(2) [data-f=title]", e => e.value) === t2 && await page.$eval("#bdList li.bd-m:nth-child(3) [data-f=title]", e => e.value) === t1, "move up swaps the order");
       await page.click("#bdList li.bd-m:nth-child(5) [data-a=rm]"); await page.click("#bdAdd");
       ok(await page.locator("#bdList li.bd-m").count() === 5 && /Create 5 milestones/.test(await page.textContent("#bdGo")), "remove and add milestone; primary button counts them");
       ok(/add up to/.test(await page.textContent("#bdTotal")), "total hours check shown");
-      // ---- create and a single Undo
+      // create and a single Undo
       const countBefore = (await tasks(page)).length;
       await page.click("#bdGo"); await page.waitForTimeout(300);
       let ts = await tasks(page), kids = kidsOf(ts, "t1"), par = ts.find(t => t.id === "t1");
@@ -111,11 +108,10 @@ const AI_STAGES = {kind: "paper", stages: [
       await page.screenshot({path: path.join(SHOTS, `created-${W}.png`)});
       await undo(page);
       ts = await tasks(page); ok(ts.length === countBefore && kidsOf(ts, "t1").length === 0 && !ts.find(t => t.id === "t1").breakdownParent, "one Undo reverses everything");
-      // redo for the rest of the scenarios (template, no edits)
       await openTask(page, 't1'); await page.click('#dlg [data-act="bd-open"]'); await page.waitForSelector("#bdList li");
       await page.click("#bdGo"); await page.waitForTimeout(300);
       ts = await tasks(page); kids = kidsOf(ts, "t1"); ok(kids.length === 5, "created again");
-      // ---- parent progress on the row and in the sheet
+      // parent progress on the row and in the sheet
       const ids = kids.sort((a, b) => parseInt(a.step) - parseInt(b.step)).map(k => k.id);
       for (const id of ids.slice(0, 2)) await page.evaluate(id => { const t = state.tasks[id]; applyChanges([{kind: "task", id, after: Object.assign(clone(t), {status: "done", doneAt: Date.now()})}], "x"); }, id);
       await page.waitForTimeout(300);
@@ -124,18 +120,18 @@ const AI_STAGES = {kind: "paper", stages: [
       await openTask(page, 't1');
       ok(/2 of 5 milestones done/.test(await page.textContent("#dlg .bd-panel")) && await page.locator("#dlg .bd-kids li").count() === 5, "detail sheet shows progress and the milestone list");
       await page.screenshot({path: path.join(SHOTS, `parent-${W}.png`)}); await page.keyboard.press("Escape");
-      // ---- no double counting in the planner
+      // no double counting in the planner
       const rem = await page.evaluate(([p, k]) => ({parent: remainingOf(state.tasks[p]), kids: k.map(i => remainingOf(state.tasks[i]))}), ["t1", ids.slice(2)]);
       ok(rem.parent === 0.25 && rem.kids.every(h => h > 0), "parent counts 0.25h, milestones carry the work: " + JSON.stringify(rem));
       const crunch = await page.evaluate(() => SBCRUNCH.input().tasks.filter(t => t.id === "t1" || t.bd).map(t => ({id: t.id, bd: t.bd, rem: t.rem})));
       ok(crunch.find(t => t.id === "t1").rem === 0.25 && crunch.filter(t => t.bd).length === 3, "Crunch gets the parent at 0.25h and open milestones flagged");
-      // ---- finishing the last milestones offers to complete the parent (never silently)
+      // finishing the last milestones offers to complete the parent (never silently)
       for (const id of ids.slice(2)) await page.evaluate(id => { const t = state.tasks[id]; applyChanges([{kind: "task", id, after: Object.assign(clone(t), {status: "done", doneAt: Date.now()})}], "x"); }, id);
       await page.waitForTimeout(1100);
       ok(/All 5 milestones done/.test(await toastOf(page)) && (await tasks(page)).find(t => t.id === "t1").status !== "done", "all milestones done: asks, does not complete silently");
       await page.click("#toastExtra"); await page.waitForTimeout(300);
       ok((await tasks(page)).find(t => t.id === "t1").status === "done", "Mark Complete completes the parent");
-      // ---- marking the parent done offers to finish remaining milestones; deleting offers to delete them
+      // marking the parent done offers to finish remaining milestones
       await page.evaluate(id => { const t = state.tasks[id]; applyChanges([{kind: "task", id, after: Object.assign(clone(t), {status: "todo", doneAt: null})}], "x"); }, ids[4]);
       await page.evaluate(id => { const t = state.tasks[id]; applyChanges([{kind: "task", id, after: Object.assign(clone(t), {status: "todo", doneAt: null})}], "x"); }, "t1");
       await page.waitForTimeout(300);
@@ -152,7 +148,7 @@ const AI_STAGES = {kind: "paper", stages: [
       ts = await tasks(page); ok(!ts.find(t => t.id === "t1") && kidsOf(ts, "t1").length === 0, "delete all removes the parent and the milestones");
       ok(await page.evaluate(() => Object.values(state.trash || {}).length) >= 6, "they all went to Recently Deleted");
       await undo(page); ts = await tasks(page); ok(!!ts.find(t => t.id === "t1") && kidsOf(ts, "t1").length === 5, "Undo brings back the assignment and all milestones");
-      // ---- due date change offers a re-plan, keeping done milestones
+      // due date change offers a re-plan, keeping done milestones
       const newDue = addD(25);
       await page.evaluate(ids => { ids.forEach(id => { const t = state.tasks[id]; applyChanges([{kind: "task", id, after: Object.assign(clone(t), {status: "todo", doneAt: null})}], ""); }); }, ids.slice(2));
       await page.waitForTimeout(1500);
@@ -168,7 +164,7 @@ const AI_STAGES = {kind: "paper", stages: [
       ts = await tasks(page); ok(ts.find(t => t.id === "t1").bdDue === newDue && kidsOf(ts, "t1").length === 5, "re-plan updates the milestones in place, no duplicates");
       await page.close(); await ctx.close();
     }
-    // ---- tight timeline, overdue catch-up (1280)
+    // tight timeline, overdue catch-up (1280)
     {
       const ctx = await mkCtx(); const page = await open(ctx);
       await openTask(page, 't3'); await page.click('#dlg [data-act="bd-open"]'); await page.waitForSelector("#bdList li");
@@ -176,7 +172,6 @@ const AI_STAGES = {kind: "paper", stages: [
       await page.screenshot({path: path.join(SHOTS, "tight-1280.png")});
       const its = await page.$$eval("#bdList [data-f=due]", e => e.map(x => x.value)); ok(its.every(d => d >= addD(0) && d < addD(2)), "tight plan stays between today and the due date: " + its);
       await page.click("#bdGo"); await page.waitForTimeout(300);
-      // overdue milestone: catch-up
       const k = kidsOf(await tasks(page), "t3")[0];
       await page.evaluate(id => { const t = state.tasks[id]; applyChanges([{kind: "task", id, after: Object.assign(clone(t), {due: "2020-01-01", start: "2020-01-01"})}], "x"); }, k.id);
       await openTask(page, 't3');
@@ -187,12 +182,11 @@ const AI_STAGES = {kind: "paper", stages: [
       ok(kidsOf(await tasks(page), "t3").every(x => x.due >= addD(0)), "catch-up moves every unfinished milestone to today or later");
       await page.close(); await ctx.close();
     }
-    // ---- drop-in text flow (1280 and phone)
+    // drop-in text flow (1280 and phone)
     for (const W of [1280, 390]) {
       const ctx = await mkCtx({w: W, h: 780}); const page = await open(ctx);
       await page.click('[data-act="tab"][data-id="courses"], [data-tab="courses"]').catch(() => {});
       await page.evaluate(() => { ui.tab = "courses"; ui.courseId = "c1"; render(); });
-      // the course page has no More menu any more: Break Down an Assignment is in the main menu and starts on the course you're looking at
       await page.locator('[data-act="menu"]:visible').first().click(); await page.waitForSelector(".us-cat"); await page.click('.us-cat[data-us="study"]'); await page.waitForSelector('#dlg [data-act="bd-new-course"]'); await page.click('#dlg [data-act="bd-new-course"]');
       await page.waitForSelector("#bdText");
       await page.fill("#bdText", `Case Study Analysis 2\nDue: ${new Date(addD(12) + "T00:00").toLocaleDateString("en-US", {month: "long", day: "numeric"})} at 11:59 PM\nRead the Harvard case and answer the three questions in a 4 page memo.`);
@@ -210,7 +204,7 @@ const AI_STAGES = {kind: "paper", stages: [
       await undo(page); ok(!(await tasks(page)).find(t => t.title === "Case Study Analysis 2"), "one Undo removes the parent and the milestones");
       await page.close(); await ctx.close();
     }
-    // ---- syllabus review checkbox
+    // syllabus review checkbox
     {
       const ctx = await mkCtx(); ctx.aiReply = {course: {name: "History 101", code: "HIS101"}, items: [
         {title: "Research Paper", type: "Assignment", due: addD(30), hours: 10, weight: 20, sure: true}, {title: "Homework 1", type: "Assignment", due: addD(5), hours: 1, sure: true}, {title: "Midterm", type: "Exam", due: addD(20), sure: true}]};
@@ -229,7 +223,7 @@ const AI_STAGES = {kind: "paper", stages: [
       ok(paper && paper.breakdownParent && ks.length >= 4 && ks.every(k => k.due < paper.due) && ctx.aiCalls <= 3, "ticked paper is expanded into milestones using the template (no extra AI call)");
       await page.close(); await ctx.close();
     }
-    // ---- AI wording, then fallbacks (invalid AI output, AI off = offline)
+    // AI wording, then fallbacks (invalid AI output, AI off = offline)
     {
       const ctx = await mkCtx(); ctx.aiReply = AI_STAGES; const page = await open(ctx);
       await openTask(page, 't1'); await page.click('#dlg [data-act="bd-open"]'); await page.waitForSelector("#bdList li");
@@ -251,7 +245,7 @@ const AI_STAGES = {kind: "paper", stages: [
       await p2.click("#bdGo"); await p2.waitForTimeout(300); ok(kidsOf(await tasks(p2), "t1").length === 5, "offline plan creates milestones");
       await p2.close(); await off.close();
     }
-    // ---- LMS-synced parent: milestones are user-owned and survive a due-date change from the sync
+    // LMS-synced parent
     {
       const ctx = await mkCtx(); const page = await open(ctx);
       await openTask(page, 't5'); await page.click('#dlg [data-act="bd-open"]'); await page.waitForSelector("#bdList li"); await page.click("#bdGo"); await page.waitForTimeout(300);
@@ -264,7 +258,7 @@ const AI_STAGES = {kind: "paper", stages: [
       ok(await page.evaluate(() => { const l = lmsOf(state.tasks.t5); return !!l && allTasks().filter(t => t.breakdownOf === "t5" && lmsOf(t)).length === 0; }), "LMS reconciler only sees the parent");
       await page.close(); await ctx.close();
     }
-    // ---- gentle prompt on creating a big task, once
+    // gentle prompt on creating a big task, once
     {
       const ctx = await mkCtx(); const page = await open(ctx);
       await page.evaluate(d => { const t = newTask({title: "Term paper on tides", courseId: "c1", type: "Assignment", due: d, hours: 10}); window.__tid = t.id; applyChanges([{kind: "task", id: t.id, after: t}], "Task added"); }, addD(12));
@@ -275,13 +269,12 @@ const AI_STAGES = {kind: "paper", stages: [
       await page.waitForTimeout(3800); ok(!/looks big/.test(await toastOf(page)), "it is never shown twice for the same task");
       await page.evaluate(d => { const t = newTask({title: "Quick quiz prep", courseId: "c1", type: "Assignment", due: d, hours: 1}); applyChanges([{kind: "task", id: t.id, after: t}], "Task added"); }, addD(12));
       await page.waitForTimeout(3800); ok(!/looks big/.test(await toastOf(page)), "small tasks are not prompted");
-      // suggestions tray item
       const tray = await page.evaluate(() => SBBREAK.trayItem());
       ok(tray && tray.kind === "breakdown" && tray.act === "bd-open" && /Break It Down/.test(tray.btn), "Suggestions tray gets a deterministic 'Break It Down' item: " + (tray && tray.text));
       ok(["t1", "t5"].includes(tray.tid), "tray picks the biggest un-broken-down task (the paper)");
       await page.close(); await ctx.close();
     }
-    // ---- integration with the take-home gate: in-person midterm + big paper with milestones, both due next week
+    // integration with the take-home gate
     {
       const ctx = await mkCtx({seed: sd => { sd.tasks = sd.tasks.filter(t => ["t1"].includes(t.id)); Object.assign(sd.tasks[0], {due: addD(7)});
         sd.tasks.push({id: "mid", title: "Midterm exam", courseId: "c1", type: "Exam", due: addD(7), start: addD(7), status: "todo", priority: "high", remote: "no", remoteSrc: "user", created: Date.now() - 864e5},
@@ -298,7 +291,7 @@ const AI_STAGES = {kind: "paper", stages: [
       ok(page.errs.length === 0, "no page errors: " + page.errs.join("; "));
       await page.close(); await ctx.close();
     }
-    // ---- export CSV columns
+    // export CSV columns
     {
       const ctx = await mkCtx(); const page = await open(ctx);
       await openTask(page, 't1'); await page.click('#dlg [data-act="bd-open"]'); await page.waitForSelector("#bdList li"); await page.click("#bdGo"); await page.waitForTimeout(300);

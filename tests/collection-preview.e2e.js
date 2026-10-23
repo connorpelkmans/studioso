@@ -1,5 +1,4 @@
-// node tests/collection-preview.e2e.js  (Playwright + Chromium)
-// Free plan: 3 different Pro collections can be previewed for 5 minutes each; the earlier theme comes back when time is up; then no more previews.
+// node tests/collection-preview.e2e.js (Playwright + Chromium) Free plan
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -21,7 +20,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     const r = await page.evaluate(() => ({ok: !!window.__sbCollPreview}));
     ok(r.ok, "the preview hooks are present");
     const ids = await page.evaluate(() => {
-      // pick four Pro collection themes through the shop's own list: any Pro skin that the collections module knows
       const T = window.SBTP; return T && T.ordered ? T.ordered().filter(id => { const rec = T.rec(id); return rec; }) : [];
     });
     ok(ids.length >= 5, "Theme Collections are loaded (" + ids.length + ")");
@@ -49,7 +47,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok(res.sameAgainBlocked && !res.ownsAfter, "the same collection can't be previewed twice and locks again");
     ok(res.p1 && res.p2 && res.leftAfter3 === 0, "three different collections can each be previewed");
     ok(res.fourthBlocked && res.fourthNotApplied && res.restored === res.before && res.used === 3, "after 3 previews no more are possible");
-    // a preview left running when the app was closed is undone on the next open
     await page.evaluate(() => { const C = window.__sbCollPreview; C.state.settings.collPreview = {used: [], active: null}; });
     const pro = await page.evaluate(ids => ids.find(id => !window.__sbCollPreview.owns("skin", id)), ids);
     await page.evaluate(id => { const C = window.__sbCollPreview; C.start(id); }, pro);

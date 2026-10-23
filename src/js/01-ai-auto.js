@@ -1,22 +1,20 @@
 /* ===== module: 01-ai-auto.js: the app's core, automatic AI jobs ===== */
-/* ---------- Automatic AI: quietly improves Today's Plan and study sessions ---------- */
-// Off unless the person turned it on, or they're on free Gemini and never changed it.
-// A paid model is only ever used after they tick the box and press Confirm for that exact model.
+/* Automatic AI: quietly improves Today's Plan and study sessions */
 const isFreeModel = (p, m) => (p === "gemini" && (m === "auto" || AI_MODELS.includes(m))) || p === "trial";
 function autoState(){
-  if (inClaude()) return {on: false, reason: "preview"};
+  if (inPreview()) return {on: false, reason: "preview"};
   const raw = (state.settings && state.settings.ai) || {}, c = aiCfg();
   if (!c.key) return {on: false, reason: "nokey"};
-  if (c.provider === "trial") return {on: false, reason: "trial"};       // the free trial is only for jobs the student starts
+  if (c.provider === "trial") return {on: false, reason: "trial"};
   const want = raw.auto !== undefined ? !!raw.auto : isFreeModel(c.provider, c.model);
   if (!want) return {on: false, reason: "off"};
   const cfg = raw.autoModel !== "default" && c.keys.gemini ? {provider: "gemini", model: "auto", keys: c.keys, key: c.keys.gemini} : c;
-  if (!aiConsented(cfg.provider)) return {on: false, reason: "consent", cfg};          // never before the person has said yes to that provider
+  if (!aiConsented(cfg.provider)) return {on: false, reason: "consent", cfg};
   const paid = !isFreeModel(cfg.provider, cfg.model);
   if (paid && raw.autoPaidOk !== `${cfg.provider}|${cfg.model}`) return {on: false, reason: "confirm", cfg, paid};
   return {on: true, cfg, paid};
 }
-let AUTO_ON = false;                                   // refreshed on every render
+let AUTO_ON = false;
 const AUTO_LS = "studyboard:autoAI";
 const AUTO = (() => { try { return JSON.parse(localStorage.getItem(AUTO_LS) || "{}") || {}; } catch(e) { return {}; } })();
 const autoSave = () => { try { localStorage.setItem(AUTO_LS, JSON.stringify(AUTO)); } catch(e) {} };
@@ -28,7 +26,7 @@ const leftSig = t => `${Number(t.focusMin) || 0}|${Number(t.pct) || 0}|${(t.chec
 const autoFresh = (x, days) => x && x.at && Date.now() - x.at < days * 864e5;
 function planSig(){
   const open = tasksArr().filter(t => t.status !== "done" && t.due).sort((a, b) => a.due < b.due ? -1 : 1).slice(0, 40);
-  let grp = ""; try { grp = window.SBGROUPTASKS ? window.SBGROUPTASKS.mine().map(x => [x.id, x.status, x.due, x.priority].join(",")).join(";") : ""; } catch(e) {}   // a change to a group task re-plans too
+  let grp = ""; try { grp = window.SBGROUPTASKS ? window.SBGROUPTASKS.mine().map(x => [x.id, x.status, x.due, x.priority].join(",")).join(";") : ""; } catch(e) {}
   let extra = ""; try { const n = typeof window.SBLMS_NEWS === "function" ? window.SBLMS_NEWS(7) : []; extra = n.length + ":" + (n[0] ? n[0].date : "") + ":" + eventsArr().length + ":" + coursesArr().map(c => (c.meetings || []).length).join(","); } catch(e) {}
   return extra + "#g" + grp + "#" + todayISO() + dayPartOf(new Date().getHours()) + "#" + open.map(t => [t.id, t.status, t.due, t.time, t.hours, t.pct, t.weight, t.priority, t.difficulty, Number(t.focusMin) || 0, (t.checklist || []).filter(i => i.done).length, (t.checklist || []).length, MILESTONE(t.type) ? remoteOf(t).v || "?" : ""].join(",")).join(";") + "#" + dailyHours() + "#" + todayHours();
 }
@@ -67,16 +65,13 @@ async function autoPlan(a){
       t.notes && !t.prepFor && dayDiff(today, t.due) <= 21 ? `instructions: "${String(t.notes).replace(/\s+/g, " ").slice(0, 260)}"` : ""];
     return bits.filter(Boolean).join(" | ");
   }).join("\n");
-  // Group project tasks assigned to this student: the AI weighs them (they take the same time), though it can't pick one for "next"
   let gLines = ""; try { gLines = (window.SBGROUPTASKS ? window.SBGROUPTASKS.mine() : []).slice(0, 15).map((g, i) => `g${i + 1} | ${g.title} | GROUP TASK in "${g.groupName || "a group project"}" | ${g.due ? `due ${g.due} (${dayDiff(today, g.due) < 0 ? -dayDiff(today, g.due) + " days overdue" : dayDiff(today, g.due) === 0 ? "today" : dayDiff(today, g.due) + " days away"})` : "no due date"} | status ${g.status}${g.priority ? " | priority " + g.priority : ""} | about ${g.hours || 1}h`).join("\n"); } catch(e) {}
-  // The student's week: classes, labs, placements or work shifts, focus already done, course standings and fresh announcements
   const B = F.busy || {m: {}, what: {}};
   const week = [0, 1, 2, 3].map(i => { const d = addDays(today, i), h = B.m[d] || 0; let items = []; try { items = schOccurrences(d, d).filter(o => !o.skipped && !(o.type === "meet" && o.m && o.m.kind === "Office Hours")).map(o => `${o.label ? o.label + " " : ""}${o.title}${o.start ? " " + o.start + (o.end ? "-" + o.end : "") : " all day"}`).slice(0, 6); } catch(e) {} return `${i === 0 ? "Today" : parse(d).toLocaleDateString("en-US", {weekday: "long"})} ${d}: ${items.length ? items.join("; ") : "nothing scheduled"}${h ? ` (${fmtHM(h)} scheduled, about ${fmtHM(F.day && F.day[i] != null ? F.day[i] : F.dh)} left for study)` : ""}`; }).join("\n");
   const standings = coursesArr().map(c => { const g = courseRisk(c.id); if (!g || !g.marked || !g.marked.length || g.current == null) return ""; return `${courseLabel(c)}: ${Math.round(g.current)}% so far on ${Math.round(g.wMarked)}% of the grade, pass mark ${g.g.pass}%${g.risk ? ` (${g.risk === "risk" ? "at risk" : g.risk === "out" ? "can't reach the pass mark on paper" : "worth watching"})` : ""}`; }).filter(Boolean).join("; ") || "no marks yet";
   let news = []; try { news = typeof window.SBLMS_NEWS === "function" ? window.SBLMS_NEWS(7) : []; } catch(e) {}
   const newsTxt = news.map(n => { const c = courseOf(n.courseId); return `- ${c ? courseLabel(c) : ""} (${String(n.date || "").slice(0, 10)}): ${n.title}. ${String(n.text || "").replace(/\s+/g, " ").slice(0, 220)}`; }).join("\n") || "none";
   const hist = Object.entries(L.byType).map(([k, v]) => `${k}: ${v.length} finished, median ${fmtHM(median(v.map(x => x.h)))} of focused time`).join("; ") || "none yet";
-  // Exact moment and zone, when this student tends to study, what they've been skipping, and today's progress
   let tz = ""; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch(e) {}
   const peak = (() => { try { return peakStudyHours(tasksArr().flatMap(t => t.history || []), Date.now()); } catch(e) { return ""; } })();
   const fbw = nufbWeights(nufbLoad(), Date.now());
@@ -85,20 +80,17 @@ async function autoPlan(a){
   const r = await aiCall({task: "plan", auto: true, fast: true, maxTokens: 6000, temperature: 0.2, schema: NEXT_SCHEMA, parts: [{text: `Now: ${now.toLocaleDateString("en-US", {weekday: "long"})} ${today} ${pad(now.getHours())}:${pad(now.getMinutes())}${tz ? " (" + tz + ")" : ""}, ${dayPartOf(now.getHours())}. Study time left today: ${fmtHM(F.th)}${F.doneToday >= 0.25 ? ` (already focused ${fmtHM(F.doneToday)} today)` : ""}; usual per day: ${fmtHM(F.dh)}.${doneTodayN ? ` ${doneTodayN} task${doneTodayN === 1 ? "" : "s"} finished today.` : ""}\nThe next few days:\n${week}\nCourse standings: ${standings}\nRecent announcements from the school site:\n${newsTxt}\nThis student's history: ${hist}. They usually take ${L.ratio.toFixed(2)}x their own estimates.${peak ? ` They usually study around ${peak}.` : ""}${skipped.length ? ` They often skip suggestions of these types: ${skipped.join(", ")}.` : ""}${liked.length ? ` They usually accept: ${liked.join(", ")}.` : ""}\nOpen tasks (already ranked by the planner; "rank" 1 is its top choice; days are counted from today):\n${lines}${gLines ? `\n\nGroup project tasks assigned to this student (teammates are waiting on them; they use the same study time as the tasks above; they have refs g1, g2... which must never appear in "next" or anywhere else in your answer):\n${gLines}` : ""}`}],
     system: (gLines ? "The student also has group project tasks (GROUP TASK lines). They can't be picked for 'next', but count them as real work that competes for today's time: when one is due today or tomorrow, favor shorter tasks for 'next' so there is time for it, and in the reasons you may say a group task is due soon. " : "") + "You're an expert study planner working quietly inside a student's planner app. The tasks come pre-ranked by the app's own planner (rank, planner score, days away); treat that ranking as a strong default and only move a task up or down with a concrete reason from the data, never invent a task or id. Using the tasks, the time of day, the time left today and the student's own history: (1) choose up to 5 tasks to work on right now, best first (deadlines come first: never put a task due weeks away ahead of one due in the next few days that still needs work, unless the far one is a big task that needs most of the time left before it; grade weight only breaks ties between similar deadlines), each with a one-sentence reason that cites the evidence in the data (due day, grade weight, hours left, what it unblocks; never just repeat the title or say it is merely important), a concrete first step, and sensible session minutes (an exam or quiz may be chosen only if its line says TAKE-HOME; a line saying FIXED EVENT happens in person at a set time, so never choose it, pick its study tasks instead, and still judge its readiness); skip BLOCKED tasks. (2) Estimate total hours for tasks marked 'no estimate', leaning on how long this student's past tasks took. (3) For started tasks, estimate hours of work left, counting their focus time and progress and their tendency to underestimate. (4) For each exam or quiz, judge readiness 0 to 100 from study sessions done, flashcard mastery and quiz scores, with a short note. (5) Heads up: up to 3 real things the student could miss, read from the instructions, the announcements, the schedule and the standings (an earlier draft or pre-lab deadline, a changed due date or room, a full clinical day right before a deadline, a course near its pass mark); leave it empty rather than state the obvious. Every heads-up must name the specific task, course, day or number it is based on (for example 'Bio lab pre-quiz is due Wed, a day before the report') and must never be general advice like 'stay organized' or 'plan ahead'. (6) Rate how demanding tasks marked 'difficulty not set' look. Consider the schedule: long class or clinical days leave little study time, so plan around them and favour short tasks just before a class. Late submissions: a task that still accepts late work is less urgent than one that closes at the due time, but never suggest planning to be late. Use the refs exactly (t1, t2...). Return JSON only."});
   const d = r.data || {}, changes = [];
-  // Only real, open, unblocked tasks that can be done now (never an in-person or unconfirmed exam or quiz), once each: anything the model invents or repeats is dropped (nextUp falls back to the planner's own ranking)
   const qctx = {titles: open.map(t => t.title), courses: coursesArr().map(c => courseLabel(c))};
   const next = autoCleanNext(d.next, back, id => { const t = state.tasks[id]; return !!t && t.status !== "done" && canDoNow(t) && !blockers(t).length; }, (id, why, step) => AINS.cleanPickText(why, step, (state.tasks[id] || {}).title, qctx));
   AUTO.next = {day: today, at: Date.now(), list: next, model: r.model};
   const patch = (id, fn) => { const cur = changes.find(c => c.id === id); const n = cur ? cur.after : clone(state.tasks[id]); if (fn(n) !== false && !cur) changes.push({kind: "task", id, after: n}); };
   (d.estimates || []).forEach(x => { const id = back[x.ref], t = id && state.tasks[id]; if (!t || MILESTONE(t.type) || isNum(t.hours)) return; const h = AINS.hoursSane(x.hours, localEstimate(t).hours); if (!h) return; if (t.aiHours && Math.abs(t.aiHours.h - h) / h < 0.15) return; patch(id, n => { n.aiHours = {h: Math.round(h * 4) / 4, at: Date.now()}; }); });
   (d.remaining || []).forEach(x => { const id = back[x.ref], t = id && state.tasks[id], h = Number(x.hours); if (!t || MILESTONE(t.type) || !(h >= 0) || h > 40) return; const sig = leftSig(t); if (t.aiLeft && t.aiLeft.sig === sig && Math.abs(t.aiLeft.h - h) < 0.25) return; patch(id, n => { n.aiLeft = {h: Math.round(h * 4) / 4, sig, at: Date.now()}; }); });
-  // Heads-up lines must name real data, not repeat what the Suggestions tray already says, and be few
   let seenTxt = []; try { seenTxt = autoLiveInsights().map(e => insText(e).t); } catch(e) {}
   const heads = AINS.cleanHeads(d.headsUp, back, Object.assign({titleOf: id => (state.tasks[id] || {}).title, visible: seenTxt, openCount: open.length, countOn: dow => open.filter(t => dayDiff(today, t.due) >= 0 && dayDiff(today, t.due) <= 7 && parse(t.due).getDay() === dow).length, hasSource: id => !!(id && state.tasks[id] && String(state.tasks[id].notes || "").length > 30) || news.length > 0}, qctx));
   AUTO.heads = {day: today, at: Date.now(), list: heads};
   (d.difficulty || []).forEach(x => { const id = back[x.ref], t = id && state.tasks[id]; if (!t || (t.difficulty && t.difficulty !== "med") || MILESTONE(t.type) || !["easy", "med", "hard"].includes(x.level)) return; if (t.aiDiff && t.aiDiff.level === x.level) return; patch(id, n => { n.aiDiff = {level: x.level, at: Date.now()}; }); });
   (d.readiness || []).forEach(x => { const id = back[x.ref], t = id && state.tasks[id], p = Math.max(0, Math.min(100, Math.round(Number(x.pct)))); if (!t || !MILESTONE(t.type) || isNaN(p)) return;
-    // A readiness number with nothing behind it is a guess: only accept it when there are sessions done, flashcard progress or a quiz score to base it on
     const ev = planSessions(t.id).some(z => z.status === "done") || decksArr().some(dk => dk.courseId && dk.courseId === t.courseId && (() => { const st = deckStats(dk); return st.mastery > 0 || !!st.last; })()); if (!ev) return;
     x.note = AINS.vet(x.note, {max: 90, min: 6}) ; if (t.aiPrep && Math.abs(t.aiPrep.pct - p) < 3 && autoFresh(t.aiPrep, 1)) return; patch(id, n => { n.aiPrep = {pct: p, note: x.note || "", at: Date.now()}; }); });
   if (changes.length) applyChanges(changes, null); else scheduleRender();
@@ -153,28 +145,27 @@ async function autoRun(){
   let job = null;
   const sig = planSig();
   if (autoFeatOn("plan") && tasksArr().some(t => t.status !== "done" && t.due) && (AUTO.sig !== sig ? Date.now() - (AUTO.planAt || 0) > 90000 : Date.now() - (AUTO.planAt || 0) > 3 * 3600000))
-    job = async () => { const prev = AUTO.sig, prevAt = AUTO.planAt; AUTO.sig = sig; AUTO.planAt = Date.now(); try { await autoPlan(a); } catch(e) { AUTO.sig = prev; AUTO.planAt = prevAt; throw e; } };   // a failed plan retries after the error back-off, not 3 hours later
+    job = async () => { const prev = AUTO.sig, prevAt = AUTO.planAt; AUTO.sig = sig; AUTO.planAt = Date.now(); try { await autoPlan(a); } catch(e) { AUTO.sig = prev; AUTO.planAt = prevAt; throw e; } };
   if (!job && autoFeatOn("sessions")) { const t = tasksArr().find(x => x.type === "Study" && x.prepFor && x.status !== "done" && (x.due === today || x.due === tomorrow) && !x.aiTuned); if (t) job = () => autoTune(t); }
   if (!job && autoFeatOn("sessions")) { const t = tasksArr().find(x => x.type === "Study" && x.studyKind === "practice" && x.status !== "done" && x.due && dayDiff(today, x.due) <= 2 && dayDiff(today, x.due) >= 0 && !x.practiceQuiz); if (t) job = () => autoPractice(t); }
-  if (!job) { try { job = autoExtraJob(a); } catch(e) { console.warn("Automatic AI:", e); } }   // small extras: tidy tasks, announcements, exam plans, weekly review
+  if (!job) { try { job = autoExtraJob(a); } catch(e) { console.warn("Automatic AI:", e); } }
   if (!job) return;
   autoBusy = true; AUTO.n = (AUTO.n || 0) + 1; autoSave();
   try { await job(); autoErr = null; AUTO.lastAt = Date.now(); }
-  catch(e) { console.warn("Automatic AI:", e); autoErr = {at: Date.now(), code: e && e.code, msg: e && e.message}; if (e && (e.code === "offline" || e.code === "auto-off" || e.code === "nokey" || e.code === "preview")) AUTO.n = Math.max(0, (AUTO.n || 1) - 1); }   // a request that never left the device doesn't use up the day's budget
+  catch(e) { console.warn("Automatic AI:", e); autoErr = {at: Date.now(), code: e && e.code, msg: e && e.message}; if (e && (e.code === "offline" || e.code === "auto-off" || e.code === "nokey" || e.code === "preview")) AUTO.n = Math.max(0, (AUTO.n || 1) - 1); }
   autoBusy = false; autoSave();
-  scheduleRender();                                   // show anything the job produced (suggestions, the chip's time)
-  autoKick(1500);                                     // anything else waiting?
+  scheduleRender();
+  autoKick(1500);
 }
 setInterval(() => autoKick(0), 10 * 60000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) autoKick(1500); });
 window.addEventListener("online", () => autoKick(1500));
 function autoChipHtml(){
-  // Only shown when it needs the student: paused for a paid-model confirmation. Otherwise Automatic AI stays out of the way (settings: AI Features, Suggestions > Manage).
   const a = autoState();
   if (a.reason === "confirm") return `<button class="ai-chip paused" data-act="ai-setup" title="Automatic AI is paused because it would use a paid model">Automatic AI Paused: Confirm</button>`;
   return "";
 }
-// Confirmation before automatic AI may use a paid model.
+// Confirmation before automatic AI may use a paid model
 function autoPaidConfirmSheet(cfg, onDone){
   const P = AI_PROVIDERS[cfg.provider], name = aiModelName(cfg.provider, cfg.model);
   openSheet(`<form class="sheet">${head("Use a Paid Model Automatically?")}
@@ -190,20 +181,15 @@ function autoPaidConfirmSheet(cfg, onDone){
 }
 
 /*REMOTEX-START*/
-/* Can this exam or quiz be taken from home?  Pure functions (no DOM, no app globals): tests/remotex.test.js loads this block as is.
-   Exams and quizzes are normally taken at a set place and time, so they are never "Do This Next" unless we know they're taken from home.
-   verdict(facts) reads what the school site gave us (submission types, quiz settings, an open window, a location) and the task's own text,
-   and answers {verdict: "yes" | "no" | "unknown", confidence 0..1, why, src: "lms" | "rule"}. Unknown is NOT eligible: only "yes" is.
-   vetAi() checks a model's answer against the same text before it is believed. A student's own answer always wins (remoteEff). */
+/* Can this exam or quiz be taken from home */
 const REMOTEX = (() => {
   const MS = t => t === "Exam" || t === "Quiz";
-  const APPLY = 0.7;                                              // below this a verdict is not used: the AI or the student decides
+  const APPLY = 0.7;
   const prep = (s, n) => String(s == null ? "" : s).replace(/<[^>]*>/g, " ").replace(/https?:\/\/\S+/gi, " ").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, n || 2000);
   const alnum = s => String(s || "").toLowerCase().replace(/[‘’]/g, "'").replace(/[^a-z0-9]+/g, " ").trim();
   const STOP = new Set("that this with from have will your the and for are was were has had not you its they them then than when what which would could should about into over only also just each been being more most some such very there their these those other".split(" "));
   const words = s => alnum(s).split(" ").filter(w => w && !STOP.has(w) && (w.length > 3 || /^\d{2,}$/.test(w)));
 
-  // Where it is taken: in person (label is shown as the evidence)
   const IN = [
     [/\bin[- ]class\b|\bduring (the )?(class|lecture|lab)( (time|period|session|hours?))?\b/i, "in class", 0.9],
     [/\bin[- ]person\b|\bface[- ]to[- ]face\b/i, "in person", 0.9],
@@ -219,13 +205,11 @@ const REMOTEX = (() => {
     [/\b(held|given|administered|take place|takes place) (in|at) (?!canvas|d2l|brightspace|blackboard|zoom|the lms|an? online|home|your)/i, "held at a place", 0.72]
   ];
   const NEG_IN = /\b(not|no|never|isn'?t|aren'?t|won'?t be|will not be|doesn'?t|does not|without|instead of|rather than|nothing)\b[^.;\n]{0,40}?\b(in[- ]person|on[- ]campus|in[- ]class|face[- ]to[- ]face|testing (center|centre)|on paper|at school)\b/gi;
-  // From home / online
   const RM = [
     [/\btake[- ]?home\b/i, "take-home", 0.85],
     [/\bopen[- ]book (and )?online\b|\bonline open[- ]book\b/i, "open book online", 0.85],
     [/\bonline (exam|quiz|test|midterm|final|assessment)s?\b|\b(exam|quiz|test|midterm|final|assessment)s? (is |will be |are )?(taken |held |given |done |completed )?online\b/i, "online exam", 0.85],
     [/\b(respondus monitor|proctorio|proctoru|honorlock|examity|webcam|remote(ly)? proctor(ed|ing)?)\b/i, "online proctoring", 0.85, 1],
-    // A lockdown browser locks the computer the exam is taken on, which is as often a campus lab or classroom as a laptop at home: not enough on its own
     [/\b(respondus( lockdown)?|lockdown ?browser|examsoft|safe exam browser)\b/i, "a lockdown browser", 0.6, 1],
     [/\bsubmit(ted)? (it |your (work|answers|exam|quiz|test) )?(online|electronically|(through|via|on|in) (canvas|d2l|brightspace|blackboard|the lms))\b/i, "submit online", 0.85],
     [/\b(quiz|exam|test|midterm|final)s? (is |will be |are )?(in|on|through|via) (canvas|d2l|brightspace|blackboard|the lms)\b/i, "in the course site", 0.85],
@@ -255,26 +239,22 @@ const REMOTEX = (() => {
   }
   const hrsBetween = (a, b) => { const x = Date.parse(a), y = Date.parse(b); return isNaN(x) || isNaN(y) ? null : (y - x) / 36e5; };
 
-  // facts: {type, title, text, location, rx: {k, st[], qt, tl, oq, ld, ip, ul, ll, sb, gt}, sched: {inClass, room}}
   function verdict(f){
     f = f || {};
     if (!MS(f.type)) return {verdict: "yes", confidence: 1, why: "Not an exam or quiz", src: "rule", na: true};
     const sig = [], add = (v, c, why, src, k) => sig.push({v, c, why, src, k});
     const body = prep([f.title, f.text].filter(Boolean).join(". "), 4000), loc = String(f.location == null ? "" : f.location).replace(/[<>\u0000-\u001f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 160), rx = f.rx || {};
-    // 1. The words: the title, the instructions and the location
     const cues = inCues(body + (loc && !ONLINE_LOC.test(loc) ? ". " + loc : ""));
     const strongIn = cues.hits.filter(h => h.c >= 0.9), weakIn = cues.hits.filter(h => h.c < 0.9);
     if (strongIn.length) add("no", Math.min(0.95, 0.9 + 0.02 * (strongIn.length - 1)), `The instructions say "${strongIn[0].m.slice(0, 40)}"`, "rule", "txt-no");
     else if (weakIn.length) add("no", 0.72, `The instructions mention ${weakIn[0].label}`, "rule", "txt-no");
     const rm = rmCues(body, cues.negated), strongRm = rm.filter(h => h.c >= 0.85), weakRm = rm.filter(h => h.c < 0.85);
-    if (strongRm.length) add("yes", Math.min(0.95, 0.85 + 0.05 * (strongRm.length - 1)), `The text mentions ${strongRm[0].label}`, "rule", strongRm.some(h => !h.p) ? "txt-yes" : "txt-proc");   // online proctoring alone never outweighs "in person"
+    if (strongRm.length) add("yes", Math.min(0.95, 0.85 + 0.05 * (strongRm.length - 1)), `The text mentions ${strongRm[0].label}`, "rule", strongRm.some(h => !h.p) ? "txt-yes" : "txt-proc");
     else if (weakRm.length) add("yes", 0.6, `The text says "${weakRm[0].label}", which is not enough on its own`, "rule", "txt-weak");
-    // 2. A location (calendar feed or event): a place means in person, a link or "online" means from home
     if (loc && !NO_LOC.test(loc)) {
       if (ONLINE_LOC.test(loc)) add("yes", 0.8, `The location says "${loc.slice(0, 40)}"`, "rule", "loc-yes");
       else add("no", 0.85, `It has a place on the calendar: ${loc.slice(0, 50)}`, "rule", "loc-no");
     }
-    // 3. What the school site says about how it is handed in
     const st = (Array.isArray(rx.st) ? rx.st : []).map(x => String(x).toLowerCase());
     const online = st.filter(x => ONLINE_ST.includes(x));
     if (online.length) add("yes", 0.85, `School site: handed in online (${online[0].replace(/_/g, " ")})`, "lms", "lms-yes");
@@ -291,10 +271,8 @@ const REMOTEX = (() => {
     if (Number(rx.tl) > 0 && rx.k === "quiz") add("yes", 0.8, `School site: a ${Math.round(Number(rx.tl))} minute online time limit`, "lms", "lms-yes");
     if (rx.ip) add("no", 0.7, "School site: limited to certain computers (a campus network)", "lms", "lms-ip");
     const win = hrsBetween(rx.ul, rx.ll);
-    // Open only a few hours on one day (a midterm open 9:50 to 11:30): a set sitting, which is usually in class or in a lab
     if (win != null && win > 0 && win <= 4 && /\b(exam|midterm|final|test)\b/i.test(body) && String(rx.ul).slice(0, 10) === String(rx.ll).slice(0, 10)) add("no", 0.75, `School site: open only ${win < 1.5 ? Math.round(win * 60) + " minutes" : Math.round(win * 10) / 10 + " hours"} on one day, a set sitting`, "lms", "lms-window");
     if (win != null && win > 12 && (f.type === "Quiz" || rx.k === "quiz" || win > 24)) add("yes", 0.8, `School site: open for ${win >= 48 ? Math.round(win / 24) + " days" : Math.round(win) + " hours"}, so taken on your own time`, "lms", "lms-yes");
-    // 4. Your weekly schedule: a class meeting or an event with a room
     const sc = f.sched || {};
     if (sc.room) add("no", 0.8, `On your schedule at ${String(sc.room).slice(0, 50)}`, "rule", "sched-room");
     else if (sc.inClass) add("no", f.type === "Exam" ? 0.75 : 0.6, "It falls inside a class meeting on your schedule", "rule", "sched");
@@ -310,10 +288,8 @@ const REMOTEX = (() => {
     }
     if (yes.length && !no.length) return out("yes", best(yes), best(yes).c + 0.02 * (yes.length - 1));
     if (no.length && !yes.length) return out("no", best(no), best(no).c + 0.02 * (no.length - 1));
-    // Both: in-person words win over a school-site "online", unless the words also say it's online
     const txtNo = no.some(s => s.k === "txt-no" && s.c >= 0.9), txtYes = yes.some(s => s.k === "txt-yes");
     if (txtNo && !txtYes) return out("no", no.find(s => s.k === "txt-no"), 0.85);
-    // A room on the calendar, with nothing in the words saying it's online: an online quiz taken in that room (a lab, a lockdown browser)
     const place = no.find(s => s.k === "loc-no" || s.k === "sched-room");
     if (place && !txtYes && !yes.some(s => s.k === "loc-yes")) return out("no", place, 0.8);
     const lmsYes = yes.find(s => s.src === "lms");
@@ -321,8 +297,6 @@ const REMOTEX = (() => {
     return {verdict: "unknown", confidence: 0.4, why: `Mixed signals: ${best(yes).why}; ${best(no).why}`.slice(0, 120), src: "rule", conflict: true};
   }
 
-  // The effective answer for one task: your own answer always wins, then what the rules can tell, then a checked AI answer made for this exact text.
-  // t: {type, remote, remoteSrc, remoteWhy, remoteSig}; rule: verdict(...); sig: signature of the text now.
   function remoteEff(t, rule, sig){
     t = t || {};
     if (!MS(t.type)) return {v: "yes", src: "n/a", why: "", na: true};
@@ -330,19 +304,16 @@ const REMOTEX = (() => {
     if (rule && rule.verdict !== "unknown" && rule.confidence >= APPLY) return {v: rule.verdict, src: rule.src, why: rule.why, conf: rule.confidence};
     if ((t.remote === "yes" || t.remote === "no") && t.remoteSrc === "ai" && (!sig || !t.remoteSig || t.remoteSig === sig)) return {v: t.remote, src: "ai", why: t.remoteWhy || ""};
     if (rule && rule.conflict) return {v: "", src: "", why: rule.why || "", conflict: true};
-    // Nothing says it can be taken from home: exams and quizzes are assumed to be in person (the AI may still read the text, and you can change it)
     return {v: "no", src: "rule", why: "Assumed in person: nothing found says it is taken from home", assumed: true};
   }
-  // THE gate: may this task be offered as something to work on now?  Everything that is not an exam or quiz always can.
   const canDoNow = (t, eff) => !t || !MS(t.type) || !!(eff && eff.v === "yes");
 
-  // Is the model's answer believable?  raw: the parsed answer (or text); text: exactly what it was shown.
   function evidenceFound(ev, text){
     const e = String(ev || "").trim(), quoted = /^["“'‘][\s\S]{6,}["”'’]$/.test(e);
     const ne = alnum(e), nt = " " + alnum(text) + " ";
     if (ne.length < 6) return false;
     if (nt.includes(" " + ne + " ")) return true;
-    if (quoted) return false;                                        // something put in quotes must be a real quote
+    if (quoted) return false;
     const w = words(e), set = new Set(words(text));
     if (w.length < 2) return false;
     return w.filter(x => set.has(x)).length / w.length >= 0.6;
@@ -370,7 +341,6 @@ const REMOTEX = (() => {
     return {ok: true, apply: true, verdict: th, confidence: Math.round(conf * 100) / 100, why: ev.slice(0, 120)};
   }
 
-  // The text the model is shown (and the only text its evidence may come from): sanitized, no links, capped
   function aiText(f){
     f = f || {}; const rx = f.rx || {}, bits = [];
     bits.push(`Title: ${prep(f.title, 120)}`, `Type: ${f.type}`);
@@ -383,11 +353,9 @@ const REMOTEX = (() => {
     if (desc) bits.push(`Description: ${desc}`);
     return bits.join("\n");
   }
-  // Is there any real description to read?  No text means we ask the student instead of the AI.
   const hasText = f => prep(f && f.text, 2000).length >= 25;
   const sigOf = f => { f = f || {}; const rx = f.rx || {}; const s = ["r2", f.title, f.type, prep(f.text, 2000), (rx.st || []).join(","), rx.k, rx.tl, rx.ul, rx.ll, rx.sb, rx.gt, f.location].join("|"); let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
 
-  // What the sync may store about how an item is handed in: small, plain values only
   function cleanRx(x){
     if (!x || typeof x !== "object" || Array.isArray(x)) return undefined;
     const o = {}, tok = (v, n) => String(v == null ? "" : v).toLowerCase().replace(/[^a-z0-9_ -]/g, "").slice(0, n || 24);
@@ -407,10 +375,7 @@ const REMOTEX = (() => {
 })();
 /*REMOTEX-END*/
 
-/* ---------- Automatic AI, more quiet jobs: tidy new tasks, announcement alerts, exam study plans, weekly review, nudges ----------
-   The app prepares the facts (pure functions in AINS, unit tested); the model only judges and writes, and everything it says is
-   checked against real tasks, courses and dates before it's shown. Nothing is created or changed without a tap.
-   Each job is cached by what it looked at, capped per day, and falls back to plain rules if the AI fails. */
+/* Automatic AI, more quiet jobs */
 /*AINS-START*/
 const AINS = (() => {
   const P2 = n => String(n).padStart(2, "0");
@@ -428,8 +393,7 @@ const AINS = (() => {
   const similar = (a, b) => { const x = words(a), y = words(b); if (!x.length || !y.length) return false; const hit = x.filter(w => y.includes(w)).length; return hit / Math.min(x.length, y.length) >= 0.7; };
   const CATS = ["exam", "deadline", "cancel", "room", "other"];
 
-  // ----- 0. Quality gates: nothing the model writes is shown unless it is specific to this student's data -----
-  // Generic advice that could be said to anyone ("stay organized", "don't forget", "make sure to...")
+  // 0. Quality gates
   const FILLER = [
     /\b(stay|keep|remain) (organi[sz]ed|on track|focused|motivated|positive|consistent|calm)\b/i,
     /\btime[- ]management\b|\b(manage|use|plan) your time\b/i,
@@ -445,17 +409,14 @@ const AINS = (() => {
   const STOP = new Set("the and for this that with your you are its it's is to of on in a an task tasks work working do doing finish start complete now then also just".split(" "));
   const generic = text => FILLER.some(r => r.test(String(text || "")));
   const facts = text => String(text || "").toLowerCase().split(/[^a-z0-9]+/).filter(w => w && !STOP.has(w) && (w.length > 2 || /^\d+$/.test(w)));
-  // True when the text adds fewer than 2 facts beyond the task's own title
   const restates = (text, title) => { const tw = new Set(facts(title)); return facts(text).filter(w => !tw.has(w)).length < 2; };
   const WEEKDAY = /\b(mon|tues?|wed(nes)?|thu(rs)?|fri|sat(ur)?|sun)(day)?\b/i;
-  // Does the text point at something real: a number, a day, or a word from a real task or course title?
   function cites(text, o){
     const t = String(text || "");
     if (/\d/.test(t) || WEEKDAY.test(t) || /\b(today|tonight|tomorrow|overdue|this week|next week)\b/i.test(t)) return true;
     const have = new Set(facts(t).filter(w => w.length >= 4));
     return [].concat((o && o.titles) || [], (o && o.courses) || []).some(x => facts(x).some(w => w.length >= 4 && have.has(w)));
   }
-  // One gate for any short model-written line. Returns the cleaned text, or "" if it should not be shown.
   function vet(text, o){
     o = o || {};
     const t = clean(text, 2000);
@@ -465,7 +426,6 @@ const AINS = (() => {
     if (o.needCite && !cites(t, o)) return "";
     return t;
   }
-  // "Thursday has 3 deadlines" must match the real count for that day; "5 tasks due" can't exceed what is actually open
   const DOW = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
   function countClaimOk(text, ctx){
     if (!ctx || !ctx.countOn) return true;
@@ -474,16 +434,14 @@ const AINS = (() => {
     return w ? ctx.countOn(DOW.indexOf(w[0].toLowerCase().slice(0, 3))) === Number(m[1]) : Number(m[1]) <= (ctx.openCount || 0);
   }
   const SOURCE_CLAIM = /\b(instructions?|description|syllabus|rubric|announce(d|ment|ments)?|posted|notes? (say|state|mention))\b/i;
-  // Heads-up lines: real task (or none), cite the data, not already said by another surface, never more than 2
   function cleanHeads(raw, back, ctx){
     const out = [];
     (Array.isArray(raw) ? raw : []).forEach(x => {
       if (!x) return;
       const ref = String(x.ref || "").trim(), id = ref ? back[ref] || "" : "";
-      if (ref && !id) return;                                           // an id the model made up
+      if (ref && !id) return;
       const text = vet(x.text, {max: 140, title: id && ctx.titleOf ? ctx.titleOf(id) : "", needCite: true, titles: ctx.titles, courses: ctx.courses});
       if (!text) return;
-      // "the instructions say..." is only believable if there are instructions or announcements to read
       if (SOURCE_CLAIM.test(text) && ctx.hasSource && !ctx.hasSource(id)) return;
       if (!countClaimOk(text, ctx)) return;
       if (out.some(o => similar(o.text, text)) || (ctx.visible || []).some(v => similar(v, text))) return;
@@ -491,19 +449,15 @@ const AINS = (() => {
     });
     return out.slice(0, 2);
   }
-  // The "why" and "first step" under Do This Next: dropped (the app's own reasons show instead) if generic or just the title again
   function cleanPickText(why, step, title, ctx){
     return {why: vet(why, {max: 150, title, needCite: true, titles: ctx && ctx.titles, courses: ctx && ctx.courses}), step: vet(step, {max: 80, min: 6, title, step: true})};
   }
-  // An hours estimate must be believable next to the app's own estimate for that task
   function hoursSane(h, local){
     h = Number(h); if (!(h >= 0.25 && h <= 40)) return null;
     local = Number(local); if (local > 0 && (h / local > 3.5 || h / local < 1 / 3.5)) return null;
     return Math.round(h * 4) / 4;
   }
-  // A weekly review is only worth showing if something happened or something is coming
   function weeklyWorth(s){ return !!(s.slippedN || s.heavy.length || s.exams.length || s.done >= 3); }
-  // Counts in the recap must be real; the suggestion must name a real task or day
   function vetWeekly(d, s, dayName){
     d = d || {};
     const recap = vet(d.recap, {max: 300, min: 20}), sug = vet(d.suggestion, {max: 170, min: 12});
@@ -516,12 +470,12 @@ const AINS = (() => {
     return {recap, suggestion: sug};
   }
 
-  // ----- 1. Tidy new tasks -----
+  // 1. Tidy new tasks
   const GENERIC = /^(hw|homework|assignment|assign|task|project|reading|read|lab|quiz|exam|test|midterm|final|essay|paper|report|work|stuff|todo|misc|study|review|ch|chapter|unit|module|week|due|submit|submission|ps|pset|worksheet)[\s\d.#:\-_]*$/i;
   function vague(title){
     const s = String(title || "").trim();
     if (s.length <= 5 || GENERIC.test(s)) return true;
-    if (/^[a-z]{1,4}\s?\d+[a-z]?(\s+[a-z]{1,2}\d+)?$/i.test(s)) return true;      // "hw3", "ps 4", "ch5 q2"
+    if (/^[a-z]{1,4}\s?\d+[a-z]?(\s+[a-z]{1,2}\d+)?$/i.test(s)) return true;
     return s.split(/\s+/).length <= 2 && s.length <= 12 && s === s.toLowerCase();
   }
   const triSig = t => [t.title, t.type, t.courseId, t.due].join("|");
@@ -530,7 +484,6 @@ const AINS = (() => {
       && (!t.due || (diff(today, t.due) <= 45 && diff(today, t.due) >= -14)))
       .sort((a, b) => (b.created || 0) - (a.created || 0)).slice(0, max || 6);
   }
-  // raw: model answer; back: ref -> task; cback: ref -> course id. Only checked, real, changing fields survive.
   function cleanTriage(raw, back, cback, types, cnames){
     const out = [], seen = new Set();
     (raw && Array.isArray(raw.items) ? raw.items : []).forEach(x => {
@@ -546,21 +499,19 @@ const AINS = (() => {
       const h = Number(x.hours), fin = p.type || t.type;
       if (!isNumv(t.hours) && !ms({type: fin}) && h >= 0.25 && h <= 20) p.hours = Math.round(h * 4) / 4;
       const cid = cback[String(x.courseRef || "").trim()];
-      // A course is only suggested when the task's own title or notes point at it (a code or a name word); a guess from nothing isn't offered
       const evid = cid && (!cnames || (() => { const src = new Set(facts(t.title + " " + (t.notes || ""))); return facts(cnames[cid] || "").some(w => w.length >= 3 && src.has(w)); })());
       if (!t.courseId && cid && evid) p.courseId = cid;
-      if (!p.title && !p.type && !p.priority && !p.courseId) delete p.hours;        // a bare hours guess just restates the app's own estimate
+      if (!p.title && !p.type && !p.priority && !p.courseId) delete p.hours;
       if (Object.keys(p).length) out.push({id: t.id, sig: triSig(t), patch: p, why: clean(x.why, 120)});
     });
     return out;
   }
 
-  // ----- 2. Announcements -----
+  // 2. Announcements
   function annCandidates({items, seen, today, maxAgeDays, max}){
     const lim = Date.parse(today + "T00:00:00") - (maxAgeDays || 21) * 864e5;
     return (items || []).filter(n => n && n.key && !(seen || {})[n.key] && (n.title || n.text) && (!n.date || isNaN(Date.parse(n.date)) || Date.parse(n.date) >= lim)).slice(0, max || 5);
   }
-  // Plain-rule read of an announcement, used when the AI can't be reached
   function annKeyword(text){
     const s = String(text || "");
     if (/cancel+ed|no class|class is off|will not meet|won't meet/i.test(s)) return "cancel";
@@ -590,7 +541,7 @@ const AINS = (() => {
         if ((ctx.events || []).some(e => e.date === date && similar(e.title, title))) return;
         if (props.some(q => q.date === date && similar(q.title, title))) return;
         const src = new Set(facts(n.title + " " + n.text));
-        if (!facts(title).some(w => w.length >= 4 && src.has(w))) return;                    // must come from the announcement itself
+        if (!facts(title).some(w => w.length >= 4 && src.has(w))) return;
         const type = (ctx.types || []).includes(p.type) ? p.type : "Assignment";
         props.push({kind: p.kind, title, date, time: isT(p.time) ? p.time : "", type, cid: n.cid || ""});
       });
@@ -599,7 +550,7 @@ const AINS = (() => {
     return out;
   }
 
-  // ----- 3. Exam coach -----
+  // 3. Exam coach
   function examCandidates({tasks, today, sessionsOf, maxDays}){
     return (tasks || []).filter(t => t.type === "Exam" && open(t) && t.due && diff(today, t.due) >= 1 && diff(today, t.due) <= (maxDays || 14) && !sessionsOf(t.id))
       .sort((a, b) => a.due < b.due ? -1 : 1);
@@ -610,14 +561,13 @@ const AINS = (() => {
     if (t.difficulty === "hard") h += 2; else if (t.difficulty === "easy") h -= 1;
     return Math.max(3, Math.min(14, h));
   }
-  // Spread `total` hours over the days before the exam, never more than a day's free time or `maxPer` hours, never under `minPer`.
   function examSlots({today, due, avail, total, maxPer, minPer, maxN}){
     maxPer = maxPer || 2; minPer = minPer || 0.5;
     let days = [];
     for (let d = add(today, 1); d < due; d = add(d, 1)) days.push({date: d, cap: Math.min(maxPer, Math.floor(Math.max(0, avail(d)) * 2) / 2)});
     const t0 = avail(today); if (t0 >= 1) days.unshift({date: today, cap: Math.min(maxPer, Math.floor(t0 * 2) / 2)});
     days = days.filter(d => d.cap >= minPer);
-    if (maxN && days.length > maxN) { const all = days; days = Array.from({length: maxN}, (_, i) => all[Math.round(i * (all.length - 1) / Math.max(1, maxN - 1))]); }   // a few real sessions beat a dozen 30-minute ones
+    if (maxN && days.length > maxN) { const all = days; days = Array.from({length: maxN}, (_, i) => all[Math.round(i * (all.length - 1) / Math.max(1, maxN - 1))]); }
     for (let guard = 0; guard < 20 && days.length; guard++) {
       const cap = days.reduce((s, d) => s + d.cap, 0), tot = Math.min(total, cap), k = tot / cap;
       days.forEach(d => { d.hours = Math.round(d.cap * k * 4) / 4; });
@@ -641,20 +591,19 @@ const AINS = (() => {
     return out;
   }
 
-  // ----- 4. Study material suggestions (no AI used) -----
+  // 4. Study material suggestions (no AI used)
   function materialSuggest({exams, today, materialOf, hasDeck, maxDays}){
     return (exams || []).filter(t => open(t) && ms(t) && t.courseId && t.due && diff(today, t.due) >= 0 && diff(today, t.due) <= (maxDays || 10) && materialOf(t.courseId) > 0 && !hasDeck(t.courseId))
       .map(t => ({id: t.id, days: diff(today, t.due), cid: t.courseId, n: materialOf(t.courseId)}));
   }
 
-  // ----- 5. Weekly review -----
-  // The Monday that starts the week to review: the week ending today on a Sunday, last week on a Monday, otherwise none.
+  // 5. Weekly review
   function reviewWeek(today){
     const wd = parseD(today).getDay();
     return wd === 0 ? add(today, -6) : wd === 1 ? add(today, -7) : "";
   }
   function weeklyStats({tasks, today, weekStart}){
-    const a = parseD(weekStart).getTime(), nextStart = add(weekStart, 7), b = parseD(nextStart).getTime(), nextEnd = add(nextStart, 7);   // a week is 7 calendar days (167 or 169 hours across a clock change)
+    const a = parseD(weekStart).getTime(), nextStart = add(weekStart, 7), b = parseD(nextStart).getTime(), nextEnd = add(nextStart, 7);
     const all = (tasks || []).filter(t => !t.prepFor);
     const done = all.filter(t => t.status === "done" && t.doneAt >= a && t.doneAt < b);
     const slipped = all.filter(t => open(t) && t.due && t.due >= weekStart && t.due < nextStart && t.due < today);
@@ -672,7 +621,7 @@ const AINS = (() => {
     return {recap: bits.join(" "), suggestion: sug};
   }
 
-  // ----- 6. Nudges: crowded days, stalled work, overdue tasks (no AI used) -----
+  // 6. Nudges: crowded days, stalled work, overdue tasks (no AI used)
   function overloadDays({tasks, today, horizon, minCount, hoursOf, capHours}){
     const by = {};
     (tasks || []).filter(t => open(t) && !t.prepFor && t.due && diff(today, t.due) >= 0 && diff(today, t.due) <= (horizon || 7)).forEach(t => { (by[t.due] = by[t.due] || []).push(t); });
@@ -703,7 +652,7 @@ const AINS = (() => {
     return out;
   }
 
-  // ----- 7. Grade risk (no AI used) -----
+  // 7. Grade risk (no AI used)
   function gradeAlerts(list){
     return (list || []).filter(g => g && (g.risk === "risk" || g.risk === "out")).map(g => ({
       id: g.cid + ":" + g.risk + ":" + Math.round(g.current || 0), cid: g.cid,

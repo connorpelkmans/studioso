@@ -1,5 +1,5 @@
 /* ===== module: 96-tp-n3.js ===== */
-/* Theme Collections, New Theme Ideas batch n3 (Cozy Spots): greenhouse, pottery, campfire, aquarium */
+/* Theme Collections, New Theme Ideas batch n3 (Cozy Spots) */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2), S15 = SOw(1.6);

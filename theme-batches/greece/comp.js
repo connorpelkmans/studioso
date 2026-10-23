@@ -1,4 +1,4 @@
-/* Study Companions, Around the World: greece (Santorini) */
+/* Study Companions, Around the World */
 (() => {
   const {INK, O, OW, LG, RG, LINE} = COMP_KIT;
   const O2 = OW(2.2);

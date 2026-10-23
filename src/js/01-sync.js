@@ -1,5 +1,5 @@
 /* ===== module: 01-sync.js: the app's core, cloud sync, the offline outbox and sync conflicts ===== */
-/* ---------- Cloud sync: one document per task and per course ---------- */
+/* Cloud sync: one document per task and per course */
 const cloud = {on:false, base:null, tasks:null, courses:null, files:null, notes:null, decks:null, events:null, trash:null, backups:null};
 const KIND_MAP = {task:"tasks", course:"courses", file:"files", note:"notes", deck:"decks", event:"events", trash:"trash"};
 const queue = new Map(), intended = new Map();
@@ -12,7 +12,7 @@ function syncLabel(){
   const el = $("#sync");
   { const g = !!(window.SBGUEST && window.SBGUEST.is()); ["#guestBadge", "#guestBadgeSide"].forEach(q => { const b = $(q); if (b) b.hidden = !g; }); }
   setTimeout(() => { el.dataset.state = /^(Saved|Saved on this device)$/.test(el.textContent) ? "ok" : /Saving|Connecting/.test(el.textContent) ? "busy" : "warn"; }, 0);
-  if (!cloud.on && typeof sbConfig === "function" && !inClaude() && sbConfig() && !sbLocalOnly()) {
+  if (!cloud.on && typeof sbConfig === "function" && !inPreview() && sbConfig() && !sbLocalOnly()) {
     const n = Object.keys(outboxGet()).length;
     el.textContent = !sb ? (n ? "Offline, changes will sync" : "Offline") : !sbUser ? (n ? "Not signed in, changes kept here" : "Not signed in") : n ? "Offline, changes will sync" : "Connecting…";
   }
@@ -24,9 +24,8 @@ function syncLabel(){
   if (side) { const t = el.textContent; side.textContent = t === "Saved on this device" ? "On this device" : t; side.dataset.state = /^(Saved|Saved on this device)$/.test(t) ? "ok" : /Saving|Connecting/.test(t) ? "busy" : "warn"; side.title = t; }
 }
 function queueWrite(kind, id, data){
-  if (demoDrawing) return;   // the app tour's example planner is never saved
-  // Every change is written to the outbox first, so nothing is lost if the page closes before it reaches Supabase.
-  if (cloud.on && cloud.noteBase && !inClaude()) { try { cloud.noteBase(kind, kind === "meta" ? "planner" : id); } catch(e) {} }
+  if (demoDrawing) return;
+  if (cloud.on && cloud.noteBase && !inPreview()) { try { cloud.noteBase(kind, kind === "meta" ? "planner" : id); } catch(e) {} }
   outboxAdd(kind, id, data);
   if (!cloud.on) return;
   if (kind === "trash" && !cloud.trash) return;
@@ -59,7 +58,7 @@ async function runQueue(key, e){
         if (!e.next) e.next = job;
       } else {
         syncError = true; console.warn("Save failed", code, err && err.message);
-        if (window.SBERR) { SBERR.crumb("sync", "fail"); if (code !== "quota_exceeded") SBERR.flow("sync", err, {tags: {code}}); }   // gave up after the retries
+        if (window.SBERR) { SBERR.crumb("sync", "fail"); if (code !== "quota_exceeded") SBERR.flow("sync", err, {tags: {code}}); }
 
         if (code === "quota_exceeded" || code === "quota_or_state") toast("Online storage is full, so recent changes can't sync. They are still saved on this device. Delete old items or export a backup.");
         if (code === "schema" && !window.__schemaWarned) { window.__schemaWarned = true; toast(SB_HOSTED ? "Flashcards are saved on this device but can't sync yet. They'll sync once Studyboard's server is updated." : "Flashcards are saved on this device but can't sync yet. Run the flashcards update SQL from the setup guide, then reload."); }
@@ -76,8 +75,7 @@ function applySnap(kind, snap){
     v.id = d.id;
     m[d.id] = norm(kind, v);
   });
-  // Changes not yet on the server stay on screen (in flight, or waiting in the outbox): the push merges them with what the server has.
-  const pending = Object.assign({}, inClaude() ? {} : outboxGet());
+  const pending = Object.assign({}, inPreview() ? {} : outboxGet());
   intended.forEach((v, key) => { pending[key] = v; });
   Object.keys(pending).forEach(key => {
     const i = key.indexOf(":"), k = key.slice(0, i), id = key.slice(i + 1), v = pending[key];
@@ -85,9 +83,9 @@ function applySnap(kind, snap){
     if (v === null) delete m[id]; else m[id] = norm(kind, clone(v));
   });
   const prev = state[KIND_MAP[kind]] || {};
-  if (kind === "trash") Object.keys(prev).forEach(id => { if (prev[id] && prev[id].local && !m[id]) m[id] = prev[id]; });   // too big to sync: kept here
+  if (kind === "trash") Object.keys(prev).forEach(id => { if (prev[id] && prev[id].local && !m[id]) m[id] = prev[id]; });
   const same = Object.keys(prev).length === Object.keys(m).length && Object.keys(m).every(id => prev[id] && JSON.stringify(prev[id]) === JSON.stringify(m[id]));
-  if (same) return;                                          // an echo of a change we already have: nothing to redraw
+  if (same) return;
   state[KIND_MAP[kind]] = m;
   saveLocal();
   if (kind === "trash") { trashEnforce(); trashSaveLocal(); }
@@ -96,7 +94,7 @@ function applySnap(kind, snap){
 const useCap = n => (window.claude && typeof window.claude.use === "function") ? window.claude.use(n).catch(() => null) : Promise.resolve(null);
 
 async function initCloud(){
-  if (!inClaude()) { initSupabase(); return; }
+  if (!inPreview()) { initSupabase(); return; }
   useCap("downloads").then(d => { caps.downloads = d; });
   useCap("assets").then(a => { caps.assets = a; scheduleRender(); });
   try {
@@ -111,35 +109,29 @@ async function initCloud(){
     cloud.on = false; syncLabel();
   }
 }
-// Connects a storage backend (Claude's or your Supabase project) and keeps the app in sync with it.
+// Connects a storage backend
 async function connectBackend(b){
   const snap = await b.base.get();
   if (b.alive && !b.alive()) return;
   const md = snap.exists ? clone(snap.data()) : null;
   if (b.hooks) b.hooks.onMeta = applyRemoteSettings;
   Object.assign(cloud, {noteBase: b.noteBase || null, base: b.base, tasks: b.tasks, courses: b.courses, files: b.files, notes: b.notes, decks: b.decks, events: b.events || null, trash: b.trash || null, backups: b.backups, refresh: b.refresh || null});
-  // A newer version of Studyboard may already have saved a newer schema: an older one must not "migrate" (overwrite) the account, and never writes the schema number down.
   cloud.schema = md && Number(md.schema) > 2 ? Number(md.schema) : 2;
   if (md && md.schema >= 2) {
     if (md.settings) {
-      // AI keys live on this device only. Keys an older version saved to the account are kept here once, then removed from the account.
       const rAi = md.settings.ai, lAi = state.settings && state.settings.ai, mineS = state.settings;
-      // Settings this device had not sent yet (a new or wiped device always has some, the defaults it just created) are MERGED with the account's,
-      // never put in place of them: skipping the account's settings here let a fresh device send its defaults over your boards and theme.
-      // The account's settings win a conflict unless this device's base proves its change is the newer one. (The outbox sends the merged result right after connecting.)
       let remote = md.settings, pending = false;
       if (outboxMine("meta:meta")) { pending = true; try { remote = SyncMerge.mergeItem("meta", b.metaBase ? b.metaBase() : null, syncSettings(mineS), md.settings, {}).merged || md.settings; } catch(e) { remote = md.settings; } }
       state.settings = Object.assign({capacity:15}, remote);
       keepPhotoThemes(state.settings, mineS);
-      if (keepLocalFeeds(state.settings, mineS)) setTimeout(() => { try { saveSettings(); } catch(e) {} }, 1500);   // a calendar link older versions synced: kept here, removed from the account
-      if (keepNoteBoards(state.settings, mineS)) setTimeout(() => { try { saveSettings(); } catch(e) {} }, 1500);   // boards only this device had are sent on, not lost
+      if (keepLocalFeeds(state.settings, mineS)) setTimeout(() => { try { saveSettings(); } catch(e) {} }, 1500);
+      if (keepNoteBoards(state.settings, mineS)) setTimeout(() => { try { saveSettings(); } catch(e) {} }, 1500);
       if (window.SBUISYNC) SBUISYNC.keep(state.settings, mineS);
       { const was = md.settings.style && md.settings.style.skin; keepNewerSkin(state.settings, mineS); if ((state.settings.style || {}).skin !== was) setTimeout(() => { try { saveSettings(); } catch(e) {} }, 1500); }
       if (rAi || lAi) state.settings.ai = Object.assign({}, rAi || {}, lAi || {}, {keys: Object.assign({}, rAi && rAi.keys, lAi && lAi.keys)});
       if (rAi && (rAi.keys || rAi.key)) setTimeout(() => { try { saveSettings(); } catch(e) {} }, 1500);
     }
   } else {
-    // First connection: move what's on this device (or older single-document data) into the backend, one record per item.
     const v1 = md && (Array.isArray(md.courses) || Array.isArray(md.tasks)) ? fromArrays(md) : null;
     const localHas = Object.keys(state.tasks).length || Object.keys(state.courses).length || Object.keys(state.notes).length || Object.keys(state.decks || {}).length || Object.keys(state.events || {}).length;
     const src = (v1 && (!localHas || (v1.updated || 0) >= (state.updated || 0))) ? v1 : state;
@@ -150,7 +142,7 @@ async function connectBackend(b){
     }
     await b.base.set({schema:2, settings: syncSettings(src.settings || state.settings), migratedAt: Date.now()});
     { const keep = state.trash; state = src; if (!Object.keys(state.trash || {}).length) state.trash = keep || {}; } saveLocal();
-    if (items.length && !inClaude()) toast(`Moved ${items.length} item${items.length === 1 ? "" : "s"} from this device into your account`);
+    if (items.length && !inPreview()) toast(`Moved ${items.length} item${items.length === 1 ? "" : "s"} from this device into your account`);
   }
   if (b.alive && !b.alive()) return;
   cloud.on = true; syncLabel();
@@ -170,22 +162,21 @@ async function connectBackend(b){
   sub("task", cloud.tasks); sub("course", cloud.courses); sub("file", cloud.files); sub("note", cloud.notes); if (cloud.decks) sub("deck", cloud.decks); if (cloud.events) sub("event", cloud.events); if (cloud.trash) sub("trash", cloud.trash);
 }
 
-/* ---------- Offline outbox: changes made while disconnected are kept and sent later ---------- */
+/* Offline outbox */
 const OUTBOX = "studioso:outbox";
 const outboxGet = () => { try { return JSON.parse(localStorage.getItem(OUTBOX) || "{}") || {}; } catch(e) { return {}; } };
-// The outbox lives in localStorage, which every open tab and window of Studyboard shares. Each one only sends (and waits on) its own
-// entries plus those left by an earlier session: another open tab's entry is a snapshot of THAT tab's copy and is sent by that tab.
+// The outbox lives in localStorage, which every open tab and window of Studyboard shares
 const outboxOwn = new Set(Object.keys(outboxGet()));
 const outboxMine = k => outboxOwn.has(k) && k in outboxGet();
 function outboxAdd(kind, id, data){
-  if (demoDrawing) return;   // the app tour's example planner is never saved
-  if (inClaude() || !sbConfig() || deviceWiping) return;
+  if (demoDrawing) return;
+  if (inPreview() || !sbConfig() || deviceWiping) return;
   outboxOwn.add(kind + ":" + id);
   const o = outboxGet(); o[kind + ":" + id] = data === null ? null : clone(data);
   try { localStorage.setItem(OUTBOX, JSON.stringify(o)); } catch(e) { try { toast("This device's storage is full, so offline changes may not be kept. Export a backup, then free some space."); } catch(e2) {} }
 }
 function outboxDone(key, data){
-  if (inClaude()) return;
+  if (inPreview()) return;
   const o = outboxGet();
   if (!(key in o)) return;
   if (JSON.stringify(o[key]) === JSON.stringify(data === null ? null : data)) { delete o[key]; try { localStorage.setItem(OUTBOX, JSON.stringify(o)); } catch(e) {} }
@@ -200,20 +191,17 @@ async function flushOutbox(){
   keys.forEach(k => { readAs[k] = JSON.stringify(o[k]); });
   for (const k of keys) {
     const i = k.indexOf(":"), kind = k.slice(0, i), id = k.slice(i + 1);
-    if (queue.has(k)) continue;   // the save loop for this item is already retrying it: sending it twice would merge it against its own earlier result
-    if (!outboxOwn.has(k)) continue;   // written by another open tab or window: that one sends it
-    if (kind === "meta") o[k] = {schema: Math.max(2, cloud.schema || 2), settings: syncSettings(state.settings)};   // settings as they are in this tab now
+    if (queue.has(k)) continue;
+    if (!outboxOwn.has(k)) continue;
+    if (kind === "meta") o[k] = {schema: Math.max(2, cloud.schema || 2), settings: syncSettings(state.settings)};
     try {
       const r = refFor(kind, id), res = o[k] === null ? await r.delete({outbox: true}) : await r.set(o[k], {outbox: true});
       const sentData = o[k]; sentBy[k] = sentData; delete o[k]; sent++;
       if (res && res.merge) { merged.push([k, sentData, res]); }
     }
-    catch(e) { const c = e && e.code; if (c === "unavailable" || c === "resource_exhausted" || !c) break; /* one entry the server refuses must not hold back the rest */ }
+    catch(e) { const c = e && e.code; if (c === "unavailable" || c === "resource_exhausted" || !c) break; }
   }
   try {
-    // Starts from the outbox as it is NOW, never from the copy read before sending: an entry skipped above (being saved by the save loop,
-    // or another tab's) may have been sent or edited since, and writing the old copy back would later send older data over newer.
-    // Only what was sent and is still exactly as it was read leaves; an item edited again while it was being sent keeps its newer entry.
     const cur = outboxGet();
     Object.keys(sentBy).forEach(k => { if (k in cur && JSON.stringify(cur[k]) === readAs[k]) delete cur[k]; });
     localStorage.setItem(OUTBOX, JSON.stringify(cur));
@@ -224,8 +212,7 @@ async function flushOutbox(){
   if (sent) syncLabel();
 }
 
-/* ---------- Sync conflicts: what happens after a push finds that another device changed the same item ----------
-   The merge itself is SyncMerge.mergeItem (above). This folds the result into what's on screen and says what happened, quietly. */
+/* Sync conflicts */
 const syncNotes = [];
 let syncNoteT = 0;
 function syncNotify(info){
@@ -241,8 +228,7 @@ function syncNotify(info){
     else toast(`Merged edits to ${say.length} items from your other device`);
   }, 80);
 }
-// Your theme choice carries the time you made it (style.skinAt), so settings arriving from the account, another device or a reload can
-// never put back an older choice over a newer one made here.
+// Your theme choice carries the time you made it (style.skinAt)
 function keepNewerSkin(next, mine){
   try {
     const m = mine && mine.style, t = next && next.style;
@@ -250,8 +236,7 @@ function keepNewerSkin(next, mine){
   } catch (e) {}
   return next;
 }
-// Photo themes you made are merged by id, never replaced by a list from an older copy: one only goes away when it was deleted
-// (settings.photoGone holds {id, at} for the last 20 deleted), and of two copies of one theme the later edit (ed, else at) wins.
+// Photo themes you made are merged by id, never replaced by a list from an older copy
 function keepPhotoThemes(next, mine){
   try {
     const arr = v => Array.isArray(v) ? v.filter(x => x && typeof x === "object" && typeof x.id === "string") : [];
@@ -266,9 +251,7 @@ function keepPhotoThemes(next, mine){
   } catch (e) {}
   return next;
 }
-// Note boards are merged by id, never replaced by a list from the account or another device: a board only goes away when it was deleted
-// (settings.noteBoardsGone holds {id, at} for the last 30 deleted). Without this, a device whose copy of the settings was older or empty wiped the boards of every
-// other device, and all their notes landed on My Notes. Returns true when boards had to be put back (the caller then sends the full list on).
+// Note boards are merged by id, never replaced by a list from the account or another device
 /*NB-START*/
 const RECOVERED_NAME = /^Recovered Board( \d+)?$/;
 function keepNoteBoards(next, mine){
@@ -297,23 +280,21 @@ function adoptSettings(st){
   if (keepLocalFeeds(state.settings, mine)) setTimeout(() => { try { saveSettings(); } catch(e) {} }, 1500);
   if (keep) state.settings.ai = Object.assign({}, state.settings.ai || {}, keep.keys ? {keys: keep.keys} : {}, keep.key ? {key: keep.key} : {});
 }
-// Settings changed on another device: take them unless this device has changes of its own still waiting (those are merged when they're sent).
+// Settings changed on another device
 let remoteMetaLatest = null, remoteMetaTimer = 0, remoteMetaTries = 0;
 function applyRemoteSettings(md){
   try {
-    if (md && md.schema > (cloud.schema || 2)) cloud.schema = Number(md.schema);   // learned from another device: this app must never write an older number back
+    if (md && md.schema > (cloud.schema || 2)) cloud.schema = Number(md.schema);
     if (md && md.schema >= 2 && md.settings) remoteMetaLatest = md;
     if (!md || !(md.schema >= 2) || !md.settings) return;
     if (outboxMine("meta:meta") || intended.has("meta:meta")) {
-      // This device still has settings to send. The newest settings from the account are taken once those are out (tried again every 1.5 seconds, up to 20 times),
-      // so a change made on another device is never just dropped.
       if (!remoteMetaTimer && remoteMetaTries++ < 20) remoteMetaTimer = setTimeout(() => { remoteMetaTimer = 0; if (remoteMetaLatest) applyRemoteSettings(remoteMetaLatest); }, 1500);
       return;
     }
     remoteMetaTries = 0;
     if (SyncMerge.eq(syncSettings(state.settings), md.settings)) return;
     adoptSettings(md.settings); saveLocal(); scheduleRender();
-    if (!SyncMerge.eq(syncSettings(state.settings), md.settings)) queueWrite("meta", "meta", {schema: Math.max(2, cloud.schema || 2), settings: syncSettings(state.settings)});   // a newer local choice (the theme) is kept and sent back
+    if (!SyncMerge.eq(syncSettings(state.settings), md.settings)) queueWrite("meta", "meta", {schema: Math.max(2, cloud.schema || 2), settings: syncSettings(state.settings)});
   } catch(e) { console.warn(e); }
 }
 function syncAdopt(key, sent, res){
@@ -332,7 +313,7 @@ function syncAdopt(key, sent, res){
     if (merged === null) { delete m[id]; }
     else {
       const cur = m[id] || null;
-      if (sent !== null && !cur) return;                          // deleted here since: the delete that follows settles it
+      if (sent !== null && !cur) return;
       let next = merged;
       if (sent !== null && cur && !SyncMerge.eq(norm(kind, clone(cur)), norm(kind, clone(sent)))) next = SyncMerge.mergeItem(kind, sent, cur, merged, {mineAt: Date.now()}).merged;
       if (next === null) delete m[id]; else m[id] = norm(kind, clone(next));
@@ -343,8 +324,7 @@ function syncAdopt(key, sent, res){
   } catch(e) { console.warn("sync merge", e); }
 }
 
-// Sync issues: notes (and other items) where two devices edited the same text at once. Both versions are already in the text between dividers;
-// this lets someone keep one side or both. Whatever is replaced stays recoverable in the note's hidden history.
+// Sync issues: notes (and other items) where two devices edited the same text at once
 const SYNC_KINDS = ["note", "task", "event", "deck", "course"];
 const syncConflicts = () => SYNC_KINDS.flatMap(k => Object.values(mapOf(k) || {}).filter(o => o && o.conflict).map(o => ({kind: k, id: o.id, o})));
 function syncPartsOf(o){
@@ -378,8 +358,8 @@ hook("act", (act, el, id) => {
 });
 hook("menu", () => window.SBGUEST && SBGUEST.is() ? `<button data-act="guest-save" data-group="account"><span>Save Your Planner<span class="sub">It's only on this device. A free account keeps it safe and on all your devices.</span></span></button>` : "");
 hook("act", act => { if (act !== "guest-save") return false; SBGUEST.sheet(); return true; });
-hook("menu", () => { try { const n = inClaude() ? 0 : syncConflicts().length; return n ? `<button data-act="sb-issues" data-group="account"><span>Sync Issues<span class="sub">${n} ${n === 1 ? "item was" : "items were"} edited on two devices. Choose what to keep.</span></span></button>` : ""; } catch(e) { return ""; } });
+hook("menu", () => { try { const n = inPreview() ? 0 : syncConflicts().length; return n ? `<button data-act="sb-issues" data-group="account"><span>Sync Issues<span class="sub">${n} ${n === 1 ? "item was" : "items were"} edited on two devices. Choose what to keep.</span></span></button>` : ""; } catch(e) { return ""; } });
 
-// Test handle (only when a test page sets window.__SB_TEST): lets tests/sync-two-device.e2e.js drive two simulated devices. Not present in normal use.
+// Test handle (only when a test page sets window.__SB_TEST)
 if (window.__SB_TEST) setTimeout(() => { window.__sbSync = {get state(){ return state; }, useClient: c => { sb = c; }, claimDevice, wipeDeviceData, devKeys: {LS2, OUTBOX, OWNER}, mapOf, getItem, applyChanges, clone, saveSettings, outboxGet, idle: () => queue.size === 0 && !flushing, get cloud(){ return cloud; }, toastText: () => $("#toastMsg").textContent, trashVisible, trashRestore, trashForever, trashList, backupBefore, saveDeviceBackup, backupSnap, refresh: () => cloud.refresh && cloud.refresh(), ui, render, scheduleRender, menuSheet, dlg, setKeys: k => aiKeysSetLocal(k), aiReviewSheet: (r, c) => aiReviewSheet(r, c), sbDownload: (p, c) => sbDownload(p, c), FCACHE, wipeDeviceData2: () => wipeDeviceData(), get keys(){ return aiLocalKeys; }}; }, 0);
 

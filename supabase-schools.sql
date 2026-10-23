@@ -1,21 +1,6 @@
--- Studyboard: the list of real schools (universities and colleges) that publishing and the Course Library check against.
---
--- Run this in Supabase (SQL Editor > New query > paste everything > Run) BEFORE supabase-sharing.sql, then supabase-schools-2.sql.
--- (The list is split into files under 0.8 MB because the SQL Editor refuses anything over about 1 MB.) It is safe to run again: it
--- adds new schools and updates changed ones, and never removes one that people already picked.
+-- Studyboard: the list of real schools
 -- The list (10268 schools in 201 countries, with their web addresses) comes from the open "university-domains-list" by Hipo, MIT License
--- (https://github.com/Hipo/university-domains-list), see THIRD-PARTY-NOTICES.md.
---
--- A school's key is its main web address (uwaterloo.ca). That is also how a school site connection is matched: learn.uwaterloo.ca
--- belongs to uwaterloo.ca. People can ask for a missing school (school_requests); you add it with:
---   insert into public.schools (key, name, country, code, region, domains, web) values ('example.edu', 'Example College', 'Canada', 'CA', 'Ontario', array['example.edu'], 'https://example.edu');
---   update public.school_requests set status = 'added' where id = '<request id>';
--- Read the requests (SQL Editor):  select * from public.school_requests where status = 'new' order by created_at;
---
--- High schools are in supabase-schools-hs-1.sql, -hs-2.sql and so on (about 36,000: every US public and private school with a grade 12, and
--- Ontario and British Columbia secondary schools; run them after this file). Like Quizlet, a high school is picked from the list
--- the same way. A published page shows a high school only as "High school, <province or state>", never its name, since many
--- high school students are minors.
+-- (https://github.com/Hipo/university-domains-list), see THIRD-PARTY-NOTICES.md
 
 create table if not exists public.schools (
   key text primary key check (char_length(key) between 3 and 120),
@@ -38,7 +23,7 @@ revoke all on public.schools from anon, authenticated;
 
 
 
--- Someone's school (one per account). Set from the app's school picker; checked by publishing (supabase-sharing.sql).
+-- Someone's school (one per account)
 create table if not exists public.user_schools (
   user_id uuid primary key references auth.users(id) on delete cascade,
   school_key text not null references public.schools(key) on update cascade,
@@ -60,9 +45,9 @@ create table if not exists public.school_requests (
 alter table public.school_requests enable row level security;
 revoke all on public.school_requests from public, anon, authenticated;
 
--- Search the list by name (every word must appear) or web address. Exact and starts-with matches first.
+-- Search the list by name (every word must appear) or web address
 drop function if exists public.search_schools(text, int);
--- p_kind: 'university', 'high_school' or '' (both). Every word has to be in the name, the city or the region ("lincoln high omaha").
+-- p_kind: 'university', 'high_school' or '' (both)
 create or replace function public.search_schools(p_q text, p_limit int, p_kind text default '')
 returns table (key text, name text, country text, region text, web text, city text, kind text)
 language sql stable security definer set search_path = public as $$
@@ -76,7 +61,7 @@ language sql stable security definer set search_path = public as $$
   limit least(greatest(coalesce(p_limit, 12), 1), 30);
 $$;
 
--- The school a school-site address belongs to: learn.uwaterloo.ca -> uwaterloo.ca, uottawa.brightspace.com -> uottawa.ca (by name), ...
+-- The school a school-site address belongs to
 create or replace function public.school_for_host(p_host text)
 returns table (key text, name text, country text, region text, web text)
 language plpgsql stable security definer set search_path = public as $$
@@ -85,13 +70,11 @@ begin
   h := split_part(h, ':', 1);
   if h !~ '^[a-z0-9.-]+\.[a-z]{2,}$' then return; end if;
   parts := string_to_array(h, '.');
-  -- the address itself, then without its first part, and so on (learn.uwaterloo.ca, uwaterloo.ca)
   for i in 1 .. greatest(array_length(parts, 1) - 1, 1) loop
     cand := array_to_string(parts[i:array_length(parts, 1)], '.');
     return query select sc.key, sc.name, sc.country, sc.region, sc.web from public.schools sc where sc.domains @> array[cand] order by char_length(sc.key) limit 1;
     if found then return; end if;
   end loop;
-  -- hosted school sites (uottawa.brightspace.com, school.instructure.com): the first part is usually the school's own short name
   if h ~ '\.(instructure\.com|brightspace\.com|blackboard\.com|d2l\.com|desire2learn\.com|moodlecloud\.com)$' then
     sub := regexp_replace(parts[1], '(-|_)?(sandbox|test|beta|online|learn|elearning|canvas|d2l|bb|ole)$', '');
     if char_length(sub) >= 3 then
@@ -132,7 +115,7 @@ grant execute on function public.set_my_school(text), public.my_school(), public
 
 notify pgrst, 'reload schema';
 
--- The universities and colleges (more in supabase-schools-2.sql and on).
+-- The universities and colleges (more in supabase-schools-2.sql and on)
 
 insert into public.schools (key, name, country, code, region, domains, web)
 select v.k, v.n, 'Afghanistan', 'AF', v.r, coalesce(v.d::text[], array[v.k]), v.w from (values

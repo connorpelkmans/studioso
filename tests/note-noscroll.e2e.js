@@ -1,6 +1,4 @@
-// node tests/note-noscroll.e2e.js  (Playwright + Chromium)
-// Sticky notes never show a scrollbar: a long note on the board stops at 480px and gets a Show More / Show Less button (which doesn't open
-// the editor or start a drag), a short note gets none, and the edit box grows to fit its text as you type. Screenshots go to $SHOTS.
+// node tests/note-noscroll.e2e.js
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, ".."), SHOTS = process.env.SHOTS || path.join(require("os").tmpdir(), "noscroll-shots");
@@ -44,7 +42,6 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok((await info("n1")).open, "the note stays open after a redraw");
     await page.click('.note[data-note="n1"] .note-more'); await page.waitForTimeout(150);
     a = await info("n1"); ok(!a.open && a.clip && !a.editing, "Show Less closes it again");
-    // editing: the box grows with its text
     await page.click('.note[data-note="n1"] .note-body'); await page.waitForSelector('.note.editing[data-note="n1"] #noteText'); await page.waitForTimeout(250);
     const box = () => page.evaluate(() => { const t = document.querySelector("#noteText"); return {sh: t.scrollHeight, ch: t.clientHeight, oy: getComputedStyle(t).overflowY, rz: getComputedStyle(t).resize}; });
     let t1 = await box(); ok(t1.sh <= t1.ch + 2 && t1.oy === "hidden" && t1.rz === "none", "the edit box fits the whole note with no scrollbar");

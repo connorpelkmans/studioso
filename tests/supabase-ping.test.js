@@ -1,4 +1,4 @@
-// Unit test for the Supabase keep-awake Worker (cloudflare/supabase-ping/src/index.js). Run: node tests/supabase-ping.test.js
+// Unit test for the Supabase keep-awake Worker (cloudflare/supabase-ping/src/index.js)
 const path = require("path"), assert = require("assert"), {pathToFileURL} = require("url");
 (async () => {
   const P = await import(pathToFileURL(path.join(__dirname, "..", "cloudflare", "supabase-ping", "src", "index.js")).href);

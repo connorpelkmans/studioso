@@ -1,17 +1,15 @@
 #!/usr/bin/env node
 // Lints the inline <script> blocks of index.html (or the HTML files given) with ESLint's bug-finding rules, no-undef above all.
-//   node scripts/lint-inline.js [file.html ...]       exit 1 on any error; line numbers are the HTML file's own
-// All inline scripts of a page share one global scope, so each block may use what the others declare at top level or put on window.
-// Browser globals, the page's own globals and a short list of libraries loaded at run time are allowed; anything else is reported.
+// node scripts/lint-inline.js [file.html ...] exit 1 on any error
 // Also exports appGlobals(html) for eslint.config.js (the tests call the page's globals inside page.evaluate()).
 "use strict";
 const fs = require("fs"), path = require("path");
 
 const ROOT = path.join(__dirname, "..");
-// Loaded at run time by <script src> or a lazy loader, not declared in the inline scripts.
+// Loaded at run time by <script src> or a lazy loader, not declared in the inline scripts
 const RUNTIME_GLOBALS = ["supabase", "pdfjsLib", "Tesseract", "JSZip", "mammoth", "marked", "DOMPurify", "katex", "Sentry", "webkit", "chrome", "Capacitor", "AndroidBridge"];
 
-// <script> blocks without src (or with an inline type), with the line each starts on.
+// <script> blocks without src (or with an inline type), with the line each starts on
 function inlineScripts(html) {
   const out = [], re = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
   let m;
@@ -19,16 +17,16 @@ function inlineScripts(html) {
     const attrs = m[1];
     if (/\bsrc\s*=/i.test(attrs)) continue;
     const type = (attrs.match(/\btype\s*=\s*["']?([^"'\s>]+)/i) || [])[1];
-    if (type && !/^(text\/javascript|application\/javascript|module)$/i.test(type)) continue;   // JSON, templates, etc.
+    if (type && !/^(text\/javascript|application\/javascript|module)$/i.test(type)) continue;
     const bodyStart = m.index + m[0].indexOf(">") + 1;
-    const line = html.slice(0, bodyStart).split("\n").length;            // 1-based line of the first character of the body
-    const col = bodyStart - html.lastIndexOf("\n", bodyStart - 1) - 1;   // 0-based column of that character
+    const line = html.slice(0, bodyStart).split("\n").length;
+    const col = bodyStart - html.lastIndexOf("\n", bodyStart - 1) - 1;
     out.push({code: m[2], line, col, module: /^module$/i.test(type || "")});
   }
   return out;
 }
 
-// Names a script declares at its top level (they become globals shared with the page's other classic scripts).
+// Names a script declares at its top level
 function topLevelNames(code, module) {
   const espree = require("espree");
   let ast;
@@ -49,7 +47,7 @@ function topLevelNames(code, module) {
   return names;
 }
 
-// Every global the page defines: top-level declarations of its classic inline scripts plus window.X / globalThis.X / self.X assignments.
+// Every global the page defines
 function appGlobals(html) {
   const set = new Set();
   for (const s of inlineScripts(html)) if (!s.module) topLevelNames(s.code, false).forEach(n => set.add(n));
@@ -58,7 +56,7 @@ function appGlobals(html) {
   return set;
 }
 
-// Every global of the app: index.html's inline scripts, each src/js file's top-level declarations, and window.X assignments anywhere.
+// Every global of the app
 function splitGlobals() {
   const AF = require("./app-files"), html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), set = appGlobals(html);
   for (const p of AF.srcFiles()) if (p.endsWith(".js")) {
@@ -70,8 +68,7 @@ function splitGlobals() {
   return set;
 }
 
-// The page's code (src/js/, built into bundle/ by scripts/app-files.js): each file linted as it is (so line numbers are that file's), with
-// every other file's declarations counted as globals, since the files share one scope.
+// The page's code (src/js/, built into bundle/ by scripts/app-files.js)
 async function lintAppFiles(eslint) {
   const AF = require("./app-files"), results = [], shared = splitGlobals();
   RUNTIME_GLOBALS.forEach(n => shared.add(n));
@@ -95,21 +92,18 @@ async function lintFile(file, eslint, shellOnly) {
   RUNTIME_GLOBALS.forEach(n => shared.add(n));
   const results = [];
   for (const s of scripts) {
-    // A script's own declarations are not "globals" for it (that would trip no-redeclare).
     const own = new Set(s.module ? [] : topLevelNames(s.code, false));
     const g = {};
     for (const n of shared) if (!own.has(n)) g[n] = "writable";
     // Pad with newlines and spaces so ESLint's line:column positions are the HTML file's own.
     const text = "\n".repeat(s.line - 1) + " ".repeat(s.col) + s.code;
     const [r] = await eslint.lintText(text, {filePath: path.join(ROOT, "index.inline.js")});
-    // lintText can't take per-call globals, so filter no-undef here against the page's globals instead.
     r.messages = r.messages.filter(msg => !(msg.ruleId === "no-undef" && g[(msg.message.match(/^'(.+)' is not defined/) || [])[1]]));
     r.errorCount = r.messages.filter(x => x.severity === 2).length; r.warningCount = r.messages.filter(x => x.severity === 1).length;
     r.fatalErrorCount = r.messages.filter(x => x.fatal).length;
     r.filePath = path.resolve(file); r.source = undefined;
     results.push(r);
   }
-  // Merge the blocks into one result per HTML file.
   return results.reduce((a, r) => (a.messages.push(...r.messages), a.errorCount += r.errorCount, a.warningCount += r.warningCount, a.fatalErrorCount += r.fatalErrorCount, a),
     {filePath: path.resolve(file), messages: [], errorCount: 0, warningCount: 0, fatalErrorCount: 0, fixableErrorCount: 0, fixableWarningCount: 0, suppressedMessages: [], usedDeprecatedRules: []});
 }
@@ -124,14 +118,13 @@ async function main() {
     languageOptions: {ecmaVersion: "latest", sourceType: "script", globals: {...globals.browser}},
     linterOptions: {reportUnusedDisableDirectives: "off"},
     rules: Object.assign({}, bugRules, {
-      "no-func-assign": "off",   // the page extends its own functions on purpose: render = (o => function(){ ...; o(); })(render)
-      "no-redeclare": "off",     // only function-scoped var reuse in the drawing code (var p in two loops); let/const redeclares are syntax errors anyway
-      "no-self-assign": "warn",  // a few no-op "x = x" lines: worth a look, not a broken page
+      "no-func-assign": "off",
+      "no-redeclare": "off",
+      "no-self-assign": "warn",
     }),
   }]});
   const results = [];
   for (const f of files) {
-    // index.html: its two inline start-up scripts, then the app's code (src/js/)
     if (f === path.join(ROOT, "index.html")) { results.push(await lintFile(f, eslint, true)); results.push(...await lintAppFiles(eslint)); }
     else results.push(await lintFile(f, eslint));
   }

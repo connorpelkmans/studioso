@@ -1,5 +1,5 @@
 /* ===== module: 98-sounds.css ===== */
-/* Focus Sounds (98-sounds): the card in the Focus Timer sheet, its panel, the Settings sheet and the small speaker button */
+/* Focus Sounds (98-sounds) */
 .snd-card{border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--soft) 45%,transparent);padding:4px 6px 4px 4px}
 .snd-top{display:flex;align-items:center;gap:4px}
 .snd-head{flex:1;min-width:0;display:flex;align-items:center;gap:10px;min-height:48px;padding:4px 6px;border:0;border-radius:10px;background:none;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
@@ -61,7 +61,7 @@ button.snd-head:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
   nav.tabs .in .snd-quick-nav:hover{filter:brightness(1.12)}
 }
 @media (pointer:coarse){.snd-chip{min-height:44px}}
-/* narrow phones: the header has no room beside the timer pill, so the switch lives in the Focus Timer sheet only */
+/* narrow phones */
 @media (max-width:479px){#sndQuick{display:none}}
 @media (max-width:420px){.snd-lv{grid-template-columns:1fr;gap:0}}
 @media (prefers-reduced-motion:reduce){.snd-eq i{animation:none;transform:none;will-change:auto}.snd-eq i:nth-child(1){height:55%}.snd-eq i:nth-child(2){height:100%}.snd-eq i:nth-child(3){height:70%}.snd-sw i,.snd-sw::before,.snd-chev svg{transition:none}}

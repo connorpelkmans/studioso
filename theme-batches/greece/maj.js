@@ -1,4 +1,4 @@
-/* Around the World: greece (Santorini) */
+/* Around the World */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const r1 = n => Math.round(n * 100) / 100;
@@ -10,7 +10,7 @@
   Object.assign(FX_SHAPES, {
     // a white dove in flight, wings raised
     greecedove: {d: "M-10.5 2.4C-6.5 0.4 -2 0.2 2 1.2L6 -0.8C8 -1.8 10.2 -1.4 11.2 0.2L8.4 1.4C7.2 3.6 4 5.2 0 5.2C-4.4 5.2 -8.2 4.2 -10.5 2.4Z M-3.4 1.4C-6 -3.6 -4 -9 2.6 -11.4C1.6 -6.4 1.8 -2.4 3 1.2Z M-10.5 2.4L-12 -1.6L-8.6 1.2Z", detail: circ(8.4, -0.2, 0.7), dfill: true},
-    // a sprig of bougainvillea: three papery bracts round a pale centre
+    // a sprig of bougainvillea
     greecebloom: {d: [-90, 30, 150].map(a => rell(Math.cos(a * Math.PI / 180) * 4.6, Math.sin(a * Math.PI / 180) * 4.6, 5, 3.6, a)).join(""), detail: circ(0, 0, 1.6) + circ(1.2, 1.4, 0.9), dfill: true},
     // a blue dome on its drum
     greecedome: {d: half(0, 4, 8.6, 1.02) + "M-9.4 4H9.4V9.6H-9.4Z M-0.7 -10.6H0.7V-4.2H-0.7Z M-2.6 -8.8H2.6V-7.6H-2.6Z", detail: "M-5.6 9V6.6M0 9V6.6M5.6 9V6.6", dstroke: true}

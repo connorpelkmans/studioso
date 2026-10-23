@@ -1,14 +1,9 @@
-// Browser test for Studyboard's free AI trial: a signed-in student with no AI key.
-// Run: node tests/ai-trial.e2e.js   (Playwright + Chromium; the app is served at https://app.test with AI_TRIAL set, supabase-js is replaced by
-// a small stand-in that is signed in, and the trial Worker (cloudflare/ai-trial/src/trial.js) runs in this process with a fake model)
-// Covers: the one-time "Turn On AI" message after sign-in with both ways to start; the trial banner in AI Features; a window that would start
-// AI by itself (Break It Down) waits for a tap; the trial's own consent wording; a tap uses one try, answered by the trial; today's tries
-// running out shows the Gemini prompt, which opens AI Features; used up for good; nothing reaches Google; with a key, no trial at all.
+// Browser test for Studyboard's free AI trial
 const path = require("path"), fs = require("fs"), assert = require("assert"), {pathToFileURL} = require("url");
 const {chromium, executablePath} = require("./pw");
 const ROOT = path.join(__dirname, ".."), APP = "https://app.test", TRIAL = "https://trial.test";
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
-const SHOTS = process.env.SHOTS || "";   // a folder: also save screenshots of the message and the prompt
+const SHOTS = process.env.SHOTS || "";
 const TYPES = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json", ".png": "image/png", ".woff2": "font/woff2", ".webmanifest": "application/manifest+json"};
 const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const addD = k => { const d = new Date(); d.setDate(d.getDate() + k); return iso(d); };
@@ -21,7 +16,7 @@ const STAGES = {kind: "paper", stages: [
   {title: "Write the six page draft", steps: ["Draft the body first"], weight: 4},
   {title: "Revise, cite and submit on the course site", steps: ["Check the citation style"], weight: 1.5}]};
 
-// A signed-in supabase-js: the session is all the app needs here; every table read comes back empty.
+// A signed-in supabase-js
 const STUB = () => {
   const empty = () => { const b = new Proxy(function () {}, {get(_, m) { if (m === "then") return (ok) => Promise.resolve({data: [], error: null, count: 0}).then(ok); return () => b; }, apply() { return b; }}); return b; };
   const user = {id: "u1", email: "student@example.com", email_confirmed_at: "2026-10-01T00:00:00Z"};
@@ -72,7 +67,6 @@ const STUB = () => {
     });
     ctx.google = 0;
     await ctx.route(/generativelanguage\.googleapis\.com/, route => { ctx.google++; route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({candidates: [{content: {parts: [{text: JSON.stringify(STAGES)}]}, finishReason: "STOP"}]})}); });
-    // A stand-in for Cloudflare's Turnstile script: it "passes" at once and calls back with a token the stand-in siteverify accepts.
     await ctx.route(/challenges\.cloudflare\.com\/turnstile\/v0\/api\.js/, route => route.fulfill({status: 200, contentType: "text/javascript",
       body: "window.turnstile = {render: function (el, o) { setTimeout(function () { o.callback(o.action === 'trial' ? 'pass' : 'wrong-action'); }, 300); }}; if (window.sbTurnstile) window.sbTurnstile();"}));
     await ctx.route(/aistudio\.google\.com/, route => route.fulfill({status: 200, contentType: "text/html", body: "AI Studio"}));
@@ -92,7 +86,7 @@ const STUB = () => {
   const openAi = async page => { await page.evaluate(() => { document.querySelectorAll("dialog[open]").forEach(d => d.close()); const b = document.createElement("button"); b.dataset.act = "ai-setup"; document.body.appendChild(b); b.click(); b.remove(); }); await page.waitForSelector('#dlg[open] [data-key="gemini"]'); };
 
   try {
-    // ---- 1. After sign-in with no key: one message, two ways to start.
+    // 1
     const A = await device(null);
     await A.page.waitForFunction(() => /Turn On AI/.test((document.querySelector("#dlg[open] h2") || {}).textContent || ""), null, {timeout: 20000});
     const welcome = await A.page.textContent("#dlg");
@@ -106,12 +100,12 @@ const STUB = () => {
     await A.page.reload(); await A.page.waitForSelector("#view", {state: "attached"}); await A.page.waitForTimeout(3500);
     ok(!/Turn On AI/.test(await A.page.evaluate(() => document.querySelector("#dlg[open]") ? document.querySelector("#dlg").textContent : "")), "the message shows once per student");
 
-    // ---- 2. AI Features says it's a trial.
+    // 2
     await openAi(A.page);
     await A.page.waitForFunction(() => /trying AI for free: 3 tries left/.test(document.querySelector("#dlg").textContent), null, {timeout: 8000});
     ok(true, "AI Features shows the trial and tries left");
 
-    // ---- 3. A window that would start AI by itself waits for a tap; the tap asks consent with the trial's own wording.
+    // 3
     await openBreakdown(A.page);
     await A.page.waitForTimeout(1500);
     ok(aiCalls(A.ctx) === 0, "opening Break It Down used no try (it waits for a tap on the trial)");
@@ -125,7 +119,7 @@ const STUB = () => {
     ok((await A.page.$$eval("#bdList [data-f=title]", e => e.map(x => x.value)))[0] === STAGES.stages[0].title, "the trial's answer is used");
     ok(runs[0] && runs[0].messages[1].content.includes("coral bleaching") && runs[0].max_completion_tokens <= 1500, "the model got the assignment text, with output capped");
 
-    // ---- 4. Today's tries run out: the next tap shows the Gemini prompt without asking the server, and it leads to AI Features.
+    // 4
     await A.page.waitForTimeout(6200); await A.page.click("#bdAi");
     await A.page.waitForFunction(() => /Used the AI/.test(document.querySelector("#bdAiMsg").textContent), null, {timeout: 10000});
     ok(aiCalls(A.ctx) === 2, "second try today");
@@ -138,14 +132,14 @@ const STUB = () => {
     await A.page.waitForSelector('[data-key="gemini"]');
     ok(true, "Get My Free Gemini Key opens AI Features with the Gemini key box");
 
-    // ---- 5. Used up for good: the trial stops being offered and AI Features says so.
+    // 5
     env.TRIAL_USES = "2";
     await openAi(A.page); await A.page.waitForTimeout(800); await openAi(A.page);
     await A.page.waitForFunction(() => /used your free AI tries/.test(document.querySelector("#dlg").textContent), null, {timeout: 8000});
     ok(true, "used up: AI Features asks for the free Gemini key");
     ok(A.ctx.google === 0, "nothing was ever sent to Google on the trial");
 
-    // ---- 6. With a key on the device: no message and no trial.
+    // 6
     const B = await device({gemini: "AIzaSyD-abcdefghijklmnopqrstuvwxyz_0123"});
     await B.page.waitForTimeout(4000);
     ok(!/Turn On AI/.test(await B.page.evaluate(() => document.querySelector("#dlg[open]") ? document.querySelector("#dlg").textContent : "")), "a student with a key gets no trial message");
@@ -153,7 +147,7 @@ const STUB = () => {
     await B.page.waitForFunction(() => /Used the AI/.test(document.querySelector("#bdAiMsg").textContent), null, {timeout: 10000});
     ok(aiCalls(B.ctx) === 0 && B.ctx.google > 0, "their AI goes to Gemini, never the trial");
 
-    // ---- 7. Turnstile: the one-time check, from "Try AI First", through the check page in a new window, back to the app.
+    // 7
     students.clear(); env.TRIAL_USES = "3"; env.TURNSTILE_SITE_KEY = "0x4AAAtest"; env.TURNSTILE_SECRET = "test-secret";
     const verified = []; deps.siteverify = async (e, token) => { verified.push(token); return token === "pass"; };
     const C = await device(null);

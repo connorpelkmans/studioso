@@ -1,18 +1,5 @@
 /* ===== module: 98-sounds.js ===== */
-/* Studyboard 1.11.0: Focus Sounds. Module prefix 98-sounds.
-   Calm ambient sounds for the Focus timer, made entirely in the browser with the Web Audio API (no audio files, so it
-   works offline and adds almost nothing to the app's size). Each sound is a small recipe: looping noise buffers
-   through gentle filters, pre-rendered "texture" buffers of thousands of tiny grains (rain drops, bubbles, crackles),
-   rare scheduled events (a wave, a bird, a page turn) and slow random drift so nothing sounds like a loop.
-   Every buffer is circular (it wraps into itself), so loops never click.
-   Controls: a Focus Sounds card in the Focus Timer sheet, a small on/off button beside the timer pill while a session
-   is active, and a Settings row (Study and AI). Settings live in state.settings.sounds (a few hundred bytes).
-   Free: Rain, Brown Noise and Ocean Waves, one at a time. Pro: every sound, each theme's own mix, mixing up to 3.
-   With the paywall off, everything is unlocked.
-
-   SWITCHED OFF FOR NOW (Studyboard 1.11): SOUNDS_ENABLED is false, so none of the controls, menu rows or focus hooks are
-   registered and nothing ever plays. The whole engine stays in place so custom sound files can be added later: set
-   SOUNDS_ENABLED to true (and add file-based sounds to LIST) to bring it back. */
+/* Studyboard 1.11.0 */
 var SOUNDS_ENABLED = false;
 var SOUNDS_HOOK = hook;
 (() => {
@@ -24,17 +11,17 @@ var SOUNDS_HOOK = hook;
   const rlog = (rng, a, b) => a * Math.pow(b / a, rng());
   const hash = str => { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
 
-  /* ---------- The sounds ---------- */
+  /* The sounds */
   const LIST = [
     ["rain", "Rain"], ["window", "Rain on a Window"], ["thunder", "Thunder Far Away"], ["ocean", "Ocean Waves"], ["stream", "Stream"],
     ["wind", "Wind"], ["snow", "Snowy Wind"], ["fire", "Fireplace"], ["cafe", "Café"], ["birds", "Forest Birds"], ["crickets", "Night Crickets"],
     ["city", "City at Night"], ["library", "Library Room"], ["brown", "Brown Noise"], ["pink", "Pink Noise"], ["pad", "Soft Pad"]];
   const NAME = Object.fromEntries(LIST);
   const FREE = new Set(["rain", "brown", "ocean"]);
-  // Loudness trim per sound, measured offline so switching between sounds doesn't jump (see test/sounds-analyze.py).
+  // Loudness trim per sound, measured offline so switching between sounds doesn't jump
   const CAL = {rain: 0.574, window: 0.576, thunder: 0.604, ocean: 0.492, stream: 0.618, wind: 0.806, snow: 0.913, fire: 0.564, cafe: 0.703, birds: 0.936, crickets: 0.748, city: 0.552, library: 0.524, brown: 0.367, pink: 0.297, pad: 0.311};
 
-  /* Each theme's own mix: "sound level, sound level" for daytime, then "| ..." for dark mode when it differs. */
+  /* Each theme's own mix */
   const THEME = {
     classic: "rain 1", paper: "brown 1", slate: "rain 1", sand: "brown 1", blush: "rain 1", lavender: "brown 1", sky: "ocean 1",
     sage: "rain 1", peach: "brown 1", butter: "rain 1", teal: "ocean 1", mocha: "brown 1", plum: "rain 1", indigo: "brown 1",
@@ -82,7 +69,7 @@ var SOUNDS_HOOK = hook;
     return parseMix(dark && night ? night : day);
   }
 
-  /* ---------- Buffers: made once per sample rate, all circular so loops are seamless ---------- */
+  /* Buffers: made once per sample rate, all circular so loops are seamless */
   const BUF = new Map();
   function cached(ctx, key, make){ const k = ctx.sampleRate + "|" + key; let b = BUF.get(k); if (!b) { b = make(); BUF.set(k, b); } return b; }
   function toBuffer(ctx, chans){ const b = ctx.createBuffer(chans.length, chans[0].length, ctx.sampleRate); chans.forEach((d, i) => b.getChannelData(i).set(d)); return b; }
@@ -92,7 +79,6 @@ var SOUNDS_HOOK = hook;
       const sr = ctx.sampleRate, n = Math.round(NOISE_SEC[kind] * sr), rng = rngOf(hash("noise" + kind)), w = new Float32Array(n);
       for (let i = 0; i < n; i++) w[i] = rng() * 2 - 1;
       let d = w;
-      // Two passes of each filter: the first warms it up from the end of the buffer, so the output wraps around smoothly.
       if (kind === "pink") {
         d = new Float32Array(n); let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
         for (let p = 0; p < 2; p++) for (let i = 0; i < n; i++) {
@@ -111,7 +97,7 @@ var SOUNDS_HOOK = hook;
       return toBuffer(ctx, [d]);
     });
   }
-  // A stereo texture of many short grains, wrapped around the end so it loops without a seam.
+  // A stereo texture of many short grains, wrapped around the end so it loops without a seam
   function texBuf(ctx, key, sec, fill){
     return cached(ctx, "t:" + key, () => {
       const sr = ctx.sampleRate, n = Math.round(sec * sr), L = new Float32Array(n), R = new Float32Array(n);
@@ -127,7 +113,7 @@ var SOUNDS_HOOK = hook;
   }
   const smoothIn = (i, na) => .5 - .5 * Math.cos(Math.PI * i / na);
   function taper(g, sr){ const nt = Math.min(g.length, Math.max(4, Math.round(.002 * sr))); for (let i = 0; i < nt; i++) g[g.length - 1 - i] *= i / nt; return g; }
-  // A short burst of noise ringing through a resonance: a drop, a tick or a crackle. Peak is 1.
+  // A short burst of noise ringing through a resonance
   function blip(sr, rng, f, decay, q, att){
     const len = Math.max(8, Math.min(Math.ceil(decay * sr * 6 + sr * 3 * q / (Math.PI * f)), sr)), g = new Float32Array(len);
     const w = TAU * Math.min(f, sr * .45) / sr, r = Math.exp(-Math.PI * (f / q) / sr), c1 = 2 * r * Math.cos(w), c2 = -r * r;
@@ -140,7 +126,7 @@ var SOUNDS_HOOK = hook;
     if (pk) for (let i = 0; i < len; i++) g[i] /= pk;
     return taper(g, sr);
   }
-  // A water bubble: a sine whose pitch rises as it decays.
+  // A water bubble
   function bubble(sr, f, dur, rise){
     const len = Math.ceil(dur * sr * 5), g = new Float32Array(len), na = Math.max(2, Math.round(.0012 * sr)), kd = Math.exp(-1 / (dur * sr));
     let ph = 0, e = 1;
@@ -153,7 +139,7 @@ var SOUNDS_HOOK = hook;
     for (let i = 0; i < len; i++) { const s = Math.sin(Math.PI * i / len); g[i] = Math.sin(TAU * f * i / sr) * s * s; }
     return g;
   }
-  // A soft room reverb: decaying noise that gets darker as it fades, scaled to unit energy.
+  // A soft room reverb
   function irBuf(ctx){
     return cached(ctx, "ir", () => {
       const sr = ctx.sampleRate, sec = 1.5, n = Math.round(sec * sr), rng = rngOf(99);
@@ -169,11 +155,10 @@ var SOUNDS_HOOK = hook;
     });
   }
 
-  /* ---------- Engine: one per AudioContext (live, or offline for testing) ---------- */
+  /* Engine: one per AudioContext (live, or offline for testing) */
   function Engine(ctx){
     const E = {ctx, voices: new Map(), live: false};
     E.mix = ctx.createGain(); E.master = ctx.createGain(); E.fade = ctx.createGain(); E.fade.gain.value = 0;
-    // A gentle safety limiter: only touches rare peaks, so mixes never clip.
     E.lim = ctx.createDynamicsCompressor();
     E.hp = ctx.createBiquadFilter(); E.hp.type = "highpass"; E.hp.frequency.value = 25; E.hp.Q.value = .6;
     E.lim.threshold.value = -6; E.lim.knee.value = 4; E.lim.ratio.value = 12; E.lim.attack.value = .004; E.lim.release.value = .3;
@@ -215,7 +200,6 @@ var SOUNDS_HOOK = hook;
       ctx, rng, sr: ctx.sampleRate, out: body, wet: wetIn, t0,
       r: (a, b) => rr(rng, a, b), rl: (a, b) => rlog(rng, a, b), ri: (a, b) => Math.floor(rr(rng, a, b + 1)),
       g(v){ const n = ctx.createGain(); n.gain.value = v; return n; },
-      // Filters update once per 128-sample block (k-rate): slow sweeps sound the same and cost far less CPU.
       bq(type, f, Q){ const n = ctx.createBiquadFilter(); n.type = type; n.frequency.value = f; n.Q.value = Q == null ? .707 : Q; kRate(n.frequency); kRate(n.Q); return n; },
       pan(p){ const n = ctx.createStereoPanner(); n.pan.value = clamp(p, -1, 1); return n; },
       chain(...ns){ for (let i = 0; i < ns.length - 1; i++) ns[i].connect(ns[i + 1]); return ns[ns.length - 1]; },
@@ -224,14 +208,10 @@ var SOUNDS_HOOK = hook;
       noise(kind){ const s = X.loop(noiseBuf(ctx, kind), rr(rng, .97, 1.03)); X.drift(s.playbackRate, .955, 1.045, 7, 18); return s; },
       stereo(kind){ const m = ctx.createChannelMerger(2); X.noise(kind).connect(m, 0, 0); X.noise(kind).connect(m, 0, 1); return m; },
       tex(key, sec, fill, rate){ const s = X.loop(texBuf(ctx, key, sec, fill), rate || 1); X.drift(s.playbackRate, (rate || 1) * .97, (rate || 1) * 1.03, 6, 16); return s; },
-      // a one-shot slice of a looping buffer, from a random spot
       once(buf, at, dur, rate){ const s = ctx.createBufferSource(); s.buffer = buf; s.loop = true; s.playbackRate.value = rate || rr(rng, .93, 1.07); s.start(at, rng() * buf.duration); s.stop(at + dur); return s; },
       osc(type, f, at, end){ const o = ctx.createOscillator(); o.type = type; o.frequency.value = f; o.start(at); if (end) o.stop(end); else srcs.push(o); return o; },
-      // a smooth shape over time for a gain (values 0..1 scaled by amp), always starting and ending at 0
       shape(param, at, dur, amp, fn){ const N = 96, c = new Float32Array(N); for (let i = 0; i < N; i++) c[i] = amp * fn(i / (N - 1)); c[0] = 0; c[N - 1] = 0; param.setValueAtTime(0, at); param.setValueCurveAtTime(c, at + .001, dur); },
-      // slow random wandering of a parameter between lo and hi
       drift(param, lo, hi, dMin, dMax, log){ kRate(param); const f = () => log ? rlog(rng, lo, hi) : rr(rng, lo, hi); param.value = f(); seqs.push({next: t0, fn: t => { const d = rr(rng, dMin, dMax); param.setTargetAtTime(f(), t, d / 3); return t + d; }}); },
-      // an event stream: fn(t) schedules something at t and returns the next time
       seq(first, fn){ seqs.push({next: first, fn}); }
     };
     (R[id] || R.rain)(X);
@@ -243,13 +223,13 @@ var SOUNDS_HOOK = hook;
     };
   }
 
-  /* ---------- Recipes ---------- */
+  /* Recipes */
   const R = {};
   const patterFill = (rate, lo, hi) => T => {
     const cnt = Math.round(rate * T.n / T.sr);
     for (let k = 0; k < cnt; k++) T.put(T.rng() * T.n, blip(T.sr, T.rng, rlog(T.rng, lo, hi), rr(T.rng, .0015, .006), rr(T.rng, 1.5, 5), .0007), rr(T.rng, -.9, .9), Math.pow(T.rng(), 2.6) * .3);
   };
-  // Soft steady rain: a hiss bed, a low body and a patter of thousands of tiny drops.
+  // Soft steady rain
   R.rain = (X, lv = 1) => {
     const O = X.g(1); O.connect(X.out); X.drift(O.gain, .78, 1.1, 10, 24); X = Object.assign({}, X, {out: O});
     const lp = X.bq("lowpass", 3400, .5), bed = X.g(.5); X.drift(lp.frequency, 2400, 3800, 6, 16, true); X.drift(bed.gain, .38 * lv, .58 * lv, 5, 14);
@@ -260,7 +240,7 @@ var SOUNDS_HOOK = hook;
     X.tex("patter2", 6.1, patterFill(300, 800, 3400), .97).connect(pl);
     X.chain(pl, plp, X.out);
   };
-  // Rain on a window: a muffled rain bed with drops ticking on the glass and the odd trickle.
+  // Rain on a window
   R.window = X => {
     const lp = X.bq("lowpass", 1500, .5), bed = X.g(.5); X.drift(lp.frequency, 1150, 1900, 6, 15, true); X.drift(bed.gain, .38, .6, 5, 13);
     X.chain(X.stereo("pink"), X.bq("highpass", 200, .6), lp, bed, X.out);
@@ -281,7 +261,7 @@ var SOUNDS_HOOK = hook;
     ticks("wticks1", 7.7, 22, 2.2).connect(tg); ticks("wticks2", 5.3, 14, 1.4).connect(tg);
     const tl = X.chain(tg, X.bq("lowpass", 4200, .5), X.g(1)); tl.connect(X.out); X.send(tl, .12);
   };
-  // Far thunder: soft rain with a rare, slow rolling rumble.
+  // Far thunder: soft rain with a rare, slow rolling rumble
   R.thunder = X => {
     R.rain(X, .82);
     X.seq(X.t0 + X.r(3, 9), t => {
@@ -295,7 +275,7 @@ var SOUNDS_HOOK = hook;
       return t + X.r(22, 60);
     });
   };
-  // Ocean: a distant surf bed, then waves that swell, break into foam and wash back.
+  // Ocean: a distant surf bed, then waves that swell, break into foam and wash back
   R.ocean = X => {
     X.chain(X.stereo("brown"), X.bq("lowpass", 260, .5), X.g(.7), X.out);
     X.seq(X.t0 + X.r(.1, 1.2), t => {
@@ -305,7 +285,6 @@ var SOUNDS_HOOK = hook;
       lp.frequency.setValueAtTime(230, t); lp.frequency.exponentialRampToValueAtTime(X.rl(900, 1500), t + rise); lp.frequency.exponentialRampToValueAtTime(260, t + dur);
       X.shape(e.gain, t, dur, pk * 1.2, wave);
       X.chain(X.once(noiseBuf(X.ctx, "pink"), t, dur + .1), lp, e, pn, X.out);
-      // foam: a hiss and a fizz of tiny bubbles as the wave breaks and slides back
       const w0 = t + rise * .8, wd = fall * 1.1, wc = .12, foam = x => x < wc ? Math.pow(Math.sin(Math.PI / 2 * x / wc), 2) : Math.exp(-3.4 * (x - wc) / (1 - wc)) * (1 - Math.pow((x - wc) / (1 - wc), 8));
       const bp = X.bq("bandpass", 1300, .5), fe = X.g(0), fp = X.pan(p0); fp.pan.setValueAtTime(p0, w0); fp.pan.linearRampToValueAtTime(clamp(p0 + X.r(-.4, .4), -1, 1), w0 + wd);
       X.shape(fe.gain, w0, wd, pk * .55, foam);
@@ -316,7 +295,7 @@ var SOUNDS_HOOK = hook;
       return t + X.r(6.5, 10.5);
     });
   };
-  // A babbling stream: thousands of little bubbles over a soft water hiss.
+  // A babbling stream
   R.stream = X => {
     const bed = X.g(.35); X.drift(bed.gain, .25, .45, 4, 10);
     X.chain(X.stereo("pink"), X.bq("highpass", 300, .6), X.bq("lowpass", 2400, .5), bed, X.out);
@@ -334,7 +313,7 @@ var SOUNDS_HOOK = hook;
     brook("brook1", 7.9, 75).connect(a); brook("brook2", 5.7, 55).connect(b);
     const bl = X.bq("lowpass", 3000, .5); a.connect(bl); b.connect(bl); bl.connect(X.out); X.send(bl, .1);
   };
-  // Wind: two wandering gusty layers and a low body.
+  // Wind: two wandering gusty layers and a low body
   R.wind = (X, lv = 1) => {
     const layer = (lo, hi, pan) => {
       const bp = X.bq("bandpass", 500, 1.2), gg = X.g(.5), pn = X.pan(pan);
@@ -347,7 +326,7 @@ var SOUNDS_HOOK = hook;
     const rs = X.g(.05); X.drift(rs.gain, 0, .1 * lv, 2, 7);
     X.chain(X.stereo("pink"), X.bq("highpass", 1600, .6), X.bq("lowpass", 4200, .5), rs, X.out);
   };
-  // Snowy wind: hushed and airy, with a faint whistle.
+  // Snowy wind: hushed and airy, with a faint whistle
   R.snow = X => {
     const lp = X.bq("lowpass", 3400, .5), air = X.g(.5); X.drift(lp.frequency, 2600, 3900, 5, 12, true); X.drift(air.gain, .22, .8, 4, 12);
     X.chain(X.stereo("pink"), X.bq("highpass", 650, .6), lp, air, X.out);
@@ -357,7 +336,7 @@ var SOUNDS_HOOK = hook;
     const low = X.g(.3); X.drift(low.gain, .15, .4, 4, 10);
     X.chain(X.stereo("brown"), X.bq("lowpass", 160, .6), low, X.out);
   };
-  // Fireplace: a warm roar, a faint hiss, crackle bursts and the odd soft pop.
+  // Fireplace: a warm roar, a faint hiss, crackle bursts and the odd soft pop
   R.fire = X => {
     const roar = X.g(.7); X.drift(roar.gain, .45, .9, 1.2, 3.5);
     X.chain(X.stereo("brown"), X.bq("lowpass", 380, .6), roar, X.out);
@@ -384,12 +363,12 @@ var SOUNDS_HOOK = hook;
       return t + X.r(1.5, 7);
     });
   };
-  // Café: a warm murmur of distant voices (formant-filtered buzz and breath), room tone and the occasional cup clink.
+  // Café: a warm murmur of distant voices (formant-filtered buzz and breath)
   R.cafe = X => {
     X.chain(X.stereo("brown"), X.bq("lowpass", 450, .6), X.g(.5), X.out);
     const far = X.g(.2); X.drift(far.gain, .14, .27, 4, 12);
     X.chain(X.stereo("pink"), X.bq("bandpass", 650, .6), X.bq("lowpass", 1500, .5), far, X.out); X.send(far, .3);
-    const breath = X.noise("pink");  // one shared breath source for every talker
+    const breath = X.noise("pink");
     const VOW = [[730, 1090], [530, 1840], [270, 2290], [570, 840], [440, 1020], [300, 870], [660, 1720], [490, 1350], [400, 1600]];
     const talker = (pan, base, sc, lvl) => {
       const o = X.osc("sawtooth", base, X.t0), og = X.g(.2), ng = X.g(.35); kRate(o.frequency);
@@ -419,7 +398,7 @@ var SOUNDS_HOOK = hook;
       return t + X.r(7, 22);
     });
   };
-  // Forest birds: sparse, gentle calls from different directions over a soft breeze.
+  // Forest birds: sparse, gentle calls from different directions over a soft breeze
   R.birds = X => {
     const br = X.g(.3); X.drift(br.gain, .12, .4, 3, 9);
     X.chain(X.stereo("pink"), X.bq("highpass", 350, .6), X.bq("lowpass", 2000, .5), br, X.out);
@@ -449,7 +428,7 @@ var SOUNDS_HOOK = hook;
       return end + X.r(1.2, 6);
     });
   };
-  // Night crickets: a few nearby crickets, a faint far chorus and a soft night bed.
+  // Night crickets
   R.crickets = X => {
     const bed = X.g(.55); X.drift(bed.gain, .45, .65, 5, 14);
     X.chain(X.stereo("brown"), X.bq("lowpass", 320, .6), bed, X.out);
@@ -471,7 +450,7 @@ var SOUNDS_HOOK = hook;
     }), X.g(.8), cl);
     cl.connect(X.out); X.send(cl, .25);
   };
-  // City at night: distant traffic hum, cars passing now and then, and a rare far-off horn or siren.
+  // City at night
   R.city = X => {
     const hum = X.g(.75); X.drift(hum.gain, .55, .85, 5, 14);
     X.chain(X.stereo("brown"), X.bq("lowpass", 200, .6), hum, X.out);
@@ -486,21 +465,21 @@ var SOUNDS_HOOK = hook;
     });
     X.seq(X.t0 + X.r(8, 20), t => {
       const k = X.rng(), p = X.pan(X.r(-.8, .8)), lp = X.bq("lowpass", 1000, .5); X.chain(lp, p, X.out); X.send(p, .8);
-      if (k < .45) { // a distant car horn
+      if (k < .45) {
         const f = X.r(300, 360), n = X.rng() < .5 ? 1 : 2;
         for (let i = 0; i < n; i++) { const t1 = t + i * .45, d = X.r(.25, .4); [f, f * 1.26].forEach(fr => { const o = X.osc("triangle", fr, t1, t1 + d + .1), g = X.g(0); X.shape(g.gain, t1, d, .03, x => Math.min(1, x * 12, (1 - x) * 12)); X.chain(o, g, lp); }); }
-      } else if (k < .8) { // a far-off siren
+      } else if (k < .8) {
         const o = X.osc("sine", 650, t, t + 9), g = X.g(0), c = new Float32Array(64);
         for (let i = 0; i < 64; i++) c[i] = 760 + 130 * Math.sin(TAU * 2 * i / 63);
         o.frequency.setValueCurveAtTime(c, t, 8.8); X.shape(g.gain, t, 8.8, .022, x => Math.pow(Math.sin(Math.PI * x), 2)); X.chain(o, g, lp);
-      } else { // a train rumbling past far away
+      } else {
         const g = X.g(0); X.shape(g.gain, t, 12, .9, x => Math.pow(Math.sin(Math.PI * x), 2));
         X.chain(X.once(noiseBuf(X.ctx, "brown"), t, 12.1), X.bq("lowpass", 150, .6), g, lp);
       }
       return t + X.r(35, 80);
     });
   };
-  // Library: quiet room tone with soft air, and a rare page turn.
+  // Library: quiet room tone with soft air, and a rare page turn
   R.library = X => {
     X.chain(X.stereo("brown"), X.bq("highpass", 35, .6), X.bq("lowpass", 280, .6), X.g(.7), X.out);
     const air = X.g(.13); X.drift(air.gain, .1, .16, 10, 25);
@@ -518,7 +497,7 @@ var SOUNDS_HOOK = hook;
   };
   R.brown = X => { const lv = X.g(1); X.drift(lv.gain, .92, 1.05, 10, 25); X.chain(X.stereo("brown"), X.bq("highpass", 32, .6), X.bq("lowpass", 1000, .5), lv, X.out); };
   R.pink = X => { const lv = X.g(1); X.drift(lv.gain, .92, 1.05, 10, 25); X.chain(X.stereo("pink"), X.bq("highpass", 40, .6), X.bq("lowpass", 5200, .5), lv, X.out); };
-  // Soft pad: a slow, warm chord drone that breathes and drifts between three related chords. No melody.
+  // Soft pad: a slow, warm chord drone that breathes and drifts between three related chords
   R.pad = X => {
     const bus = X.g(1), lp = X.bq("lowpass", 1300, .5); X.drift(lp.frequency, 900, 1700, 10, 25, true);
     X.chain(bus, lp, X.out); X.send(lp, .9);
@@ -549,7 +528,7 @@ var SOUNDS_HOOK = hook;
     X.seq(X.t0 + 6, t => { for (const v of act.values()) if (v.next <= t + 2) { const d = X.r(6, 14); v.g.gain.setTargetAtTime(v.lv * X.r(.55, 1), v.next, d / 3); v.next += d; } return t + 2; });
   };
 
-  /* ---------- Settings and plan ---------- */
+  /* Settings and plan */
   const DEF = {on: false, mode: "focus", vol: .7, pick: "theme", mix: [{id: "rain", v: 1}], stopAfter: 60, hidePause: false};
   const cfg = () => { const s = (state.settings && state.settings.sounds) || {}; return Object.assign({}, DEF, s, {mix: Array.isArray(s.mix) && s.mix.length ? s.mix.filter(m => m && NAME[m.id]).slice(0, 3) : DEF.mix}); };
   function save(p){ state.settings = Object.assign({}, state.settings, {sounds: Object.assign(cfg(), p)}); saveSettings(); }
@@ -569,7 +548,7 @@ var SOUNDS_HOOK = hook;
   }
   const joinNames = ids => { const n = ids.map(id => NAME[id]); return n.length < 2 ? n.join("") : n.slice(0, -1).join(", ") + " and " + n[n.length - 1]; };
 
-  /* ---------- Playback control ---------- */
+  /* Playback control */
   let E = null, tickT = null, suspendT = null, idleT = null, sleepT = null, previewT = null, blockT = null, themeT = null;
   let armed = false, slept = false, hiddenHold = false, previewing = null, blocked = false;
   function engine(){
@@ -623,34 +602,33 @@ var SOUNDS_HOOK = hook;
   }
   function preview(mix){
     clearTimeout(previewT);
-    if (live() && !previewing) { E.apply(mix, 1.5); return; }  // already playing: just switch
+    if (live() && !previewing) { E.apply(mix, 1.5); return; }
     previewing = mix; start(1); bits();
     if (live()) E.apply(mix, 1.2);
     previewT = setTimeout(() => { previewing = null; if (desired()) E.apply(resolveMix(), 2); sync(2, 2.5); }, 9000);
   }
-  // After a settings change: switch what's playing (crossfade), or start/stop
+  // After a settings change
   function refresh(){ if (live() && !previewing) { E.master.gain.value = volGain(cfg().vol); E.apply(resolveMix(), 2.5); } sync(2, 2.5); }
 
-  // Focus timer events. Clicks on Start run this synchronously, so the browser allows sound to begin.
+  // Focus timer events
   hook("focus", e => {
     const c = cfg();
     if (!e || !c.on) return;
     if (e.type === "start") { if (e.mode === "focus") { armed = true; slept = false; } if (previewing) { clearTimeout(previewT); previewing = null; if (live()) E.apply(resolveMix(), 2); } sync(4, 3); }
     else if (e.type === "pause") sync(2, 2);
     else if (e.type === "stop") sync(2, 3);
-    else if (e.type === "end") sync(4, e.mode === "focus" ? 12 : 3);  // a slow, sleep-safe fade when a focus session ends
+    else if (e.type === "end") sync(4, e.mode === "focus" ? 12 : 3);
   });
   document.addEventListener("visibilitychange", () => {
     const h = !!(document.hidden && cfg().hidePause);
     if (h !== hiddenHold) { hiddenHold = h; sync(2, 1.5); }
   });
-  // Theme or dark mode changed while a theme mix is playing: glide to the new mix
+  // Theme or dark mode changed while a theme mix is playing
   try {
     new MutationObserver(() => { if (!live() || previewing || cfg().pick !== "theme") return; clearTimeout(themeT); themeT = setTimeout(() => { if (live() && !previewing) E.apply(resolveMix(), 4); bits(); }, 700); })
       .observe(document.documentElement, {attributes: true, attributeFilter: ["data-skin", "data-theme"]});
   } catch (e) {}
 
-  /* ---------- UI ---------- */
   const svg = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
   const IC_ON = svg(`<path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z" fill="currentColor" stroke-width="1.6"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18.3 6.5a8 8 0 0 1 0 11"/>`);
   const IC_OFF = svg(`<path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z" fill="currentColor" stroke-width="1.6"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>`);
@@ -704,7 +682,7 @@ var SOUNDS_HOOK = hook;
     $$(".snd-card").forEach(el => { const f = el.classList.contains("fixed"), a = document.activeElement, key = a && el.contains(a) ? (a.dataset.act ? `[data-act="${a.dataset.act}"]${a.dataset.id ? `[data-id="${a.dataset.id}"]` : ""}` : null) : null; el.outerHTML = cardHTML(f); if (key) { const n = $(key); if (n) n.focus(); } });
     const sub = $(".snd-set-sub"); if (sub) sub.textContent = summary();
   }
-  // The small speaker beside the timer: in the phone header next to the timer pill, and as a badge on the sidebar Focus pill
+  // The small speaker beside the timer
   function bits(){
     const c = cfg(), playing = live() && !previewing && !blocked;
     $$(".snd-quick").forEach(q => {
@@ -715,7 +693,7 @@ var SOUNDS_HOOK = hook;
     });
     paint();
   }
-  // The switch shows "on" only when sound is on and allowed to play now (after a reload it waits for a click).
+  // The switch shows "on" only when sound is on and allowed to play now
   function shownOn(c = cfg()){ return !!c.on && !slept && (armed || (c.mode === "focus" && !focusOn())); }
   // Turn sounds on or off from a click (so the browser lets them start)
   function setOn(next){
@@ -777,7 +755,7 @@ var SOUNDS_HOOK = hook;
     const sub = $$(".snd-card .snd-txt .sub"); sub.forEach(s => { s.textContent = summary(); });
   });
 
-  // The Focus Timer sheet: add the Focus Sounds card under the timer controls
+  // The Focus Timer sheet
   const origRenderPomo = renderPomo;
   if (SOUNDS_ENABLED) renderPomo = function(){
     const r = origRenderPomo.apply(this, arguments);
@@ -805,7 +783,7 @@ var SOUNDS_HOOK = hook;
     bits();
   });
 
-  /* ---------- For tests: render any mix offline and report state ---------- */
+  /* For tests: render any mix offline and report state */
   window.StudyboardSounds = {
     enabled: () => SOUNDS_ENABLED,
     list: () => LIST.map(([id, name]) => ({id, name, free: FREE.has(id)})),

@@ -1,5 +1,5 @@
 /* ===== module: 96-tp-greece.js ===== */
-/* Theme Collections, Around the World: greece (Santorini) */
+/* Theme Collections, Around the World */
 (() => {
   const O = "#2B2233";
   const S2 = SOw(2);
@@ -11,7 +11,7 @@
   const blush = (a, b, y, rx = 2.6, ry = 1.7) => `<ellipse cx="${a}" cy="${y}" rx="${rx}" ry="${ry}" fill="#FF8FA8" opacity=".8"/><ellipse cx="${b}" cy="${y}" rx="${rx}" ry="${ry}" fill="#FF8FA8" opacity=".8"/>`;
   const smile = (x, y, w = 2.4, sw = 1.9) => `<path d="M${x - w} ${y}q${w} ${w * .8} ${w * 2} 0" fill="none" stroke="${O}" stroke-width="${sw}" stroke-linecap="round"/>`;
   const tapeEdge = "M3 1.5H83L80 5.5L83 9.5L80 13.5L83 17.5L80 21.5L82 24.5H3L6 20.5L3 16.5L6 12.5L3 8.5L6 4.5z";
-  // a bougainvillea bract cluster: three rounded papery petals round a pale centre
+  // a bougainvillea bract cluster
   const bract = (x, y, r, c = "#E0378C", rot = 0) => `<g transform="translate(${x} ${y}) rotate(${rot})">${[-90, 30, 150].map(a => { const q = a * Math.PI / 180; return `<ellipse cx="${f1(Math.cos(q) * r * .55)}" cy="${f1(Math.sin(q) * r * .55)}" rx="${f1(r * .62)}" ry="${f1(r * .45)}" transform="rotate(${a} ${f1(Math.cos(q) * r * .55)} ${f1(Math.sin(q) * r * .55)})" fill="${c}"/>`; }).join("")}<circle r="${f1(r * .2)}" fill="#FFF2C8"/></g>`;
   const oleaf = (x, y, len, w, ang, fill, extra = "") => `<path d="M0 0Q${f1(len * .45)} ${-w} ${len} 0Q${f1(len * .45)} ${w} 0 0Z" transform="translate(${x} ${y}) rotate(${ang})" fill="${fill}" ${extra}/>`;
   // the Greek key (meander) border, one unit every 10 across

@@ -1,7 +1,4 @@
-// Shared Playwright loader for the browser tests (*.e2e.js, *.pw.js). Not a test itself.
-// Playwright module: $PLAYWRIGHT_MODULE / $PW_MODULE, else require("playwright") (repo devDependency), else /opt/node-tools (this repo's dev image).
-// Chromium binary:   $PLAYWRIGHT_CHROMIUM_EXECUTABLE / $CHROMIUM_PATH / $PW_CHROMIUM, else /opt/pw-browsers/chromium when it exists,
-//                    else undefined so Playwright uses its own browser (e.g. after `npx playwright install chromium` in CI).
+// Shared Playwright loader for the browser tests (*.e2e.js, *.pw.js)
 const fs = require("fs");
 
 const FALLBACK_MODULE = "/opt/node-tools/node_modules/playwright";

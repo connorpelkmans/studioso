@@ -1,4 +1,4 @@
-// node tests/capture-inbox.test.js  (extracts the pure CAPTURE-INBOX block from index.html and tests it)
+// node tests/capture-inbox.test.js
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const src = require("../scripts/app-files").source();
 const a = src.indexOf("/* CAPTURE-INBOX-START"), b = src.indexOf("/* CAPTURE-INBOX-PURE-END */");

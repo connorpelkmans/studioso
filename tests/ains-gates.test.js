@@ -1,4 +1,4 @@
-// Unit tests for the Automatic AI quality gates (pure logic extracted from index.html).  Run: node tests/ains-gates.test.js
+// Unit tests for the Automatic AI quality gates (pure logic extracted from index.html)
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const s = require("../scripts/app-files").source();
 const code = s.slice(s.indexOf("/*AINS-START*/"), s.indexOf("/*AINS-END*/"));
@@ -26,12 +26,12 @@ ok(A.vet("Due Fri, see https://evil.example now", {}).indexOf("http") < 0, "link
 const back = {t1: "id1", t2: "id2", t3: "id3"}, titles = ["Bio lab", "Stats HW", "Essay draft"];
 const heads = A.cleanHeads([
   {ref: "t1", text: "Bio lab pre-quiz is due Wed, a day before the lab report"},
-  {ref: "t9", text: "Stats HW is due in 2 days and still has no estimate"},          // invented id
-  {ref: "t2", text: "Stay organized and plan ahead for this week"},                  // generic
-  {ref: "t2", text: "Stats HW"},                                                     // restates
-  {ref: "t1", text: "Bio lab pre-quiz is due Wed, a day before the lab report."},     // duplicate
+  {ref: "t9", text: "Stats HW is due in 2 days and still has no estimate"},
+  {ref: "t2", text: "Stay organized and plan ahead for this week"},
+  {ref: "t2", text: "Stats HW"},
+  {ref: "t1", text: "Bio lab pre-quiz is due Wed, a day before the lab report."},
   {ref: "", text: "Thursday has 3 deadlines in a row, so start the essay Tuesday"},
-  {ref: "t3", text: "Essay draft instructions say an outline is due Monday"}           // over the cap
+  {ref: "t3", text: "Essay draft instructions say an outline is due Monday"}
 ], back, {titleOf: id => ({id1: "Bio lab", id2: "Stats HW", id3: "Essay draft"})[id], titles, courses: []});
 ok(heads.length === 2 && heads[0].id === "id1" && !heads[1].id, JSON.stringify(heads));
 ok(A.cleanHeads([{text: "Thursday has 3 deadlines: Bio lab, Stats HW and Essay draft"}], {}, {visible: ["Thursday has 3 deadlines (Bio lab, Stats HW, Essay draft)."], titles}).length === 0, "already visible elsewhere");
@@ -56,12 +56,12 @@ ok(A.vetWeekly({recap: "You finished 9 tasks and 1 slipped past its due date.", 
 ok(A.vetWeekly({recap: "You finished 5 tasks and 1 slipped past its due date.", suggestion: "Stay organized and keep up the good work this week."}, stats, day) === null, "generic suggestion");
 ok(A.vetWeekly({recap: "You finished 5 tasks and 1 slipped past its due date.", suggestion: "Try to get more sleep and eat well during the week ahead."}, stats, day) === null, "names nothing real");
 
-// announcements: summary restating title is dropped, proposals must come from the text, past dates dropped, dups dropped
+// announcements
 const ann = {key: "k1", cid: "c1", title: "Midterm moved", text: "The Chem midterm has been moved to Friday October 17 at 10am in room 204."};
 let r = A.cleanAnn({items: [{ref: "a1", summary: "Midterm moved", important: true, category: "exam", items: [
   {kind: "event", title: "Chem midterm", date: "2026-10-17", time: "10:00"},
-  {kind: "task", title: "Quantum physics essay", date: "2026-10-20"},          // not in the announcement
-  {kind: "event", title: "Chem midterm", date: "2026-09-01"}                   // past
+  {kind: "task", title: "Quantum physics essay", date: "2026-10-20"},
+  {kind: "event", title: "Chem midterm", date: "2026-09-01"}
 ]}]}, {a1: ann}, {today: "2026-10-03", tasks: [], events: [], types: TYPES});
 ok(r.length === 1 && r[0].sum === "The Chem midterm has been moved to Friday October 17 at 10am in room 204." && r[0].imp && r[0].props.length === 1 && r[0].props[0].title === "Chem midterm", JSON.stringify(r));
 
@@ -70,7 +70,6 @@ const co = A.cleanCoach({sessions: [{focus: "Glycolysis and the Krebs cycle", st
 ok(co[0].steps.length === 1 && /Krebs/.test(co[0].steps[0]), JSON.stringify(co[0]));
 ok(co[1].focus !== co[0].focus, "duplicate focus replaced");
 
-// heads-up that claims "the instructions say" with no instructions or announcements to read is rejected
 ok(A.cleanHeads([{ref: "t1", text: "Bio lab instructions say a pre-quiz is due Wed"}], back, {titles, hasSource: () => false}).length === 0, "unsupported source claim");
 ok(A.cleanHeads([{ref: "t1", text: "Bio lab instructions say a pre-quiz is due Wed"}], back, {titles, hasSource: () => true}).length === 1, "supported source claim");
 
@@ -81,7 +80,7 @@ ok(tr.length === 0, "no evidence for the course, hours alone: " + JSON.stringify
 tr = A.cleanTriage({items: [{ref: "t1", title: "Homework 3: Chapter 3 problems", courseRef: "c1", hours: 2}]}, {t1: Object.assign({}, tk, {notes: "stat problems ch 3"})}, {c1: "cid"}, TYPES, {cid: "STAT 101 Statistics"});
 ok(tr.length === 1 && tr[0].patch.courseId === "cid" && tr[0].patch.hours === 2, JSON.stringify(tr));
 
-// exam plan: a 12-day window gives at most 6 sessions, none under 45 minutes, ending the day before the exam
+// exam plan: a 12-day window gives at most 6 sessions, none under 45 minutes
 const sl = A.examSlots({today: "2026-10-03", due: "2026-10-15", avail: () => 3, total: 10, maxPer: 2, minPer: 0.75, maxN: 6});
 ok(sl.length === 6 && sl.every(x => x.hours >= 0.75) && sl[5].date === "2026-10-14", JSON.stringify(sl));
 const g = A.cleanCoach(null, 6);

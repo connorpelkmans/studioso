@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- UNTESTED: HTTPS only. No cleartext for any domain, no user-installed CAs, no pinning (Supabase rotates certificates). -->
+<!-- UNTESTED: HTTPS only -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>

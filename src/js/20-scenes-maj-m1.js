@@ -1,11 +1,11 @@
 /* ===== module: 20-scenes-maj-m1.js ===== */
-/* Study Fields themes, batch m1: business, nursing, psych, biology */
+/* Study Fields themes, batch m1 */
 (() => {
   const lg = (a, b) => `linear-gradient(180deg,${a},${b})`, lg2 = (a, b) => `linear-gradient(135deg,${a},${b})`;
   const NOTES = ["#FFF3B8", "#D9F0D8", "#D6E6FF", "#FFD9C8", "#EBD9FF"];
   const c = (x, y, r) => `M${x - r} ${y}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0Z`;
 
-  /* ---------- Market District (Business) ---------- */
+  /* Market District (Business) */
   MAJ_THEMES.push({
     skin: {id: "business", name: "Market District", desc: "Glass towers, a stock ticker and a rising chart line.",
       light: ["#EEF2F6", "rgba(35,136,90,.10)", "#FFFFFF", "#16243A", "#56657A", "#D5DDE6", "#E5EBF1", "#F7F9FB", "#23885A", "#4FA77C", "#FFFFFF", "#155C3C", "#26405F", "#CFE0F0", "#FFE3A0"],
@@ -20,7 +20,7 @@
     fx: {spawn: (W, H, d, n) => fxRise(W, H, n(16), "coin", d ? ["#FFD27A", "#F6C453", "#FFE3A8"] : ["#E8B030", "#F2C24A", "#D49A20"], {smin: 9, smax: 14, vmin: 1.3, vmax: 2.5, sway: 0.8, life: 270, glow: d ? 8 : 0}).map(p => Object.assign(p, {flip: true}))
       .concat(fxRise(W, H, n(14), "bizarrow", d ? ["#7CF0A8", "#9CF5BF"] : ["#2E9E6A", "#23885A", "#4FBF84"], {smin: 8, smax: 12, vmin: 1.8, vmax: 3, sway: 0.3, life: 240, glow: d ? 8 : 0}),
         fxTw(W, H, n(26), "sparkle", d ? ["#FFE3A8", "#FFFFFF", "#9CF5BF"] : ["#F2B53A", "#FFD86B", "#4FBF84"], {smin: 3, smax: 6, glow: d ? 10 : 4})),
-      draw: (g, f, W, H, d) => { // a thin chart line climbs across the lower screen
+      draw: (g, f, W, H, d) => {
         const p = Math.min(1, f / 80), a = f < 170 ? 1 : Math.max(0, 1 - (f - 170) / 40); if (a <= 0) return;
         const pts = []; for (let i = 0; i <= 10; i++) { const u = i / 10; pts.push([W * (0.04 + 0.92 * u), H * (0.92 - 0.3 * (0.7 * u + 0.3 * u * u)) + (i % 2 ? 1 : -1) * H * 0.018 * (i && i < 10 ? 1 : 0)]); }
         const L = Math.max(1, Math.floor(p * 10)), fr = p * 10 - L + 1;
@@ -31,7 +31,7 @@
     tag: "An evening financial district with glass towers, a scrolling stock ticker and a glowing chart line"
   });
 
-  /* ---------- Night Shift (Nursing) ---------- */
+  /* Night Shift (Nursing) */
   MAJ_THEMES.push({
     skin: {id: "nursing", name: "Night Shift", desc: "A cozy nurses' station by a window over the city.",
       light: ["#F1F6F4", "rgba(46,140,120,.10)", "#FFFFFF", "#163130", "#55706C", "#D4E3DF", "#E4EFEC", "#F8FBFA", "#2E8C78", "#5BA898", "#FFFFFF", "#1E5E50", "#24524C", "#CDEBE4", "#FFD9C8"],
@@ -45,7 +45,7 @@
     fx: {spawn: (W, H, d, n) => fxRise(W, H, n(18), "heart", d ? ["#FF9DB4", "#F6B3C4", "#FFD0DA"] : ["#E8708C", "#F29AAE", "#F7B6C4"], {smin: 8, smax: 13, vmin: 1.1, vmax: 2.2, sway: 1, life: 280, glow: d ? 10 : 0})
       .concat(fxRise(W, H, n(7), "pulseheart", d ? ["#7DE0BE", "#A6EED4"] : ["#2E8C78", "#3FA08A"], {smin: 12, smax: 16, vmin: 1, vmax: 1.6, sway: 0.6, life: 300, glow: d ? 10 : 0}),
         fxTw(W, H, n(24), "sparkle", d ? ["#FFFFFF", "#A6EED4", "#FFD0DA"] : ["#F2B53A", "#7CCFB6", "#F29AAE"], {smin: 3, smax: 6, glow: d ? 10 : 4})),
-      draw: (g, f, W, H, d) => { // a heartbeat line sweeps across the bottom of the screen
+      draw: (g, f, W, H, d) => {
         const p = Math.min(1, f / 110), a = f < 160 ? 1 : Math.max(0, 1 - (f - 160) / 40); if (a <= 0) return;
         const y0 = H * 0.86, beat = Math.max(60, W / 5), amp = Math.min(46, H * 0.06), xe = W * p;
         g.save(); g.globalAlpha = a * 0.8; g.lineJoin = g.lineCap = "round"; g.shadowBlur = 12; g.shadowColor = d ? "#7DE0BE" : "#5BA898"; g.strokeStyle = d ? "#A6EED4" : "#2E8C78"; g.lineWidth = 2.6;
@@ -55,7 +55,7 @@
     tag: "A cozy nurses' station by a big window, with a desk lamp, a warm mug and a glowing heartbeat line"
   });
 
-  /* ---------- Mind Garden (Psychology) ---------- */
+  /* Mind Garden (Psychology) */
   MAJ_THEMES.push({
     skin: {id: "psych", name: "Mind Garden", desc: "A dreamy pastel garden of hedges, thought bubbles and butterflies.",
       light: ["#F5F2FA", "rgba(122,92,184,.10)", "#FFFFFF", "#251C3A", "#625A76", "#E1DAEC", "#ECE6F5", "#FBF9FD", "#7A5CB8", "#9A80CC", "#FFFFFF", "#523A85", "#463872", "#E2D8F6", "#FFE3B0"],
@@ -76,7 +76,7 @@
     tag: "A dreamy pastel garden with rounded hedges, a still pond, drifting thought bubbles and inkblot butterflies"
   });
 
-  /* ---------- Cell Garden (Biology) ---------- */
+  /* Cell Garden (Biology) */
   MAJ_THEMES.push({
     skin: {id: "biology", name: "Cell Garden", desc: "A microscope view of drifting cells and tiny swimmers.",
       light: ["#F6F3EC", "rgba(58,138,114,.10)", "#FFFEFB", "#1E2A26", "#5E6A64", "#E3DED2", "#EEEAE0", "#FBFAF6", "#3A8A72", "#62A690", "#FFFFFF", "#285E4E", "#2E4A44", "#D8ECE4", "#FFE3B8"],
