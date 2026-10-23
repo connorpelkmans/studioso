@@ -246,7 +246,7 @@ function toast(msg, undoFn, extra, opts){
   const t = $("#toast"), b = $("#toastUndo"), x = $("#toastExtra"), more = extra ? [].concat(extra).filter(Boolean) : [], err = !!(opts && opts.error);
   let xx = $("#toastX");
   if (!xx) { xx = document.createElement("button"); xx.id = "toastX"; xx.type = "button"; xx.className = "toast-x"; xx.setAttribute("aria-label", "Dismiss"); t.appendChild(xx); xx.addEventListener("click", () => { clearTimeout(toastT); t.classList.remove("show", "toast-err"); toastErr = false; toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }); }
-  t.setAttribute("role", err ? "alert" : "status"); t.classList.toggle("toast-err", err); xx.hidden = !err; toastErr = err;
+  t.setAttribute("role", err ? "alert" : "status"); t.classList.toggle("toast-err", err); t.classList.toggle("toast-done", !err && !!(opts && opts.done)); xx.hidden = !err; toastErr = err;
   $("#toastMsg").textContent = SPELL.fix(msg);
   toastUndoFn = undoFn || null;
   b.hidden = !undoFn;

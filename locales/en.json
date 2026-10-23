@@ -540,5 +540,7 @@
   "trend.th.grade": "Running grade",
   "trend.th.item": "Item",
   "trend.title": "Grade Trend",
-  "trend.up": "Up {n} point over your last {k} grades|Up {n} points over your last {k} grades"
+  "trend.up": "Up {n} point over your last {k} grades|Up {n} points over your last {k} grades",
+  "acc.exactShort": "Exact",
+  "acc.quickerShort": "Quicker"
 }

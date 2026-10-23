@@ -1,0 +1,35 @@
+/* ===== module: 103-phone-design.css ===== */
+/* Done bar and the compact time prompt */
+@keyframes sbPop{0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
+.check.sb-pop{background:var(--c,var(--leaf));border-color:var(--c,var(--leaf));animation:sbPop .18s ease-out}
+.check.sb-pop svg{opacity:1}
+.sb-popped :is(.task-title,.nu-title,.card-title,.title){text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--ink) 45%,transparent);opacity:.55;transition:opacity .12s ease-out .14s}
+.acc-s{display:none}
+@media (prefers-reduced-motion:reduce){.check.sb-pop{animation:none}.sb-popped :is(.task-title,.nu-title,.card-title,.title){transition:none}}
+@media (max-width:639px){
+  :root{--sb-snack-b:calc(var(--ph-bar-b,6px) + 78px)}
+  #toast.toast{left:12px;right:12px;bottom:var(--sb-snack-b);transform:none;width:auto;max-width:none;flex-wrap:nowrap;align-items:center;gap:10px;padding:8px 8px 8px 14px;min-height:52px;border-radius:16px;background:var(--spine);color:#fff;box-shadow:0 12px 30px -8px rgba(8,20,50,.45),0 0 0 1px color-mix(in srgb,#fff 8%,transparent);font-size:.95rem;line-height:1.3}
+  #toast.toast #toastMsg{flex:1 1 auto;min-width:0}
+  #toast.toast-done::before{content:"";flex:none;width:26px;height:26px;border-radius:50%;background:var(--leaf) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/15px no-repeat}
+  #toast.toast-done #toastMsg{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #toast.toast button:not(.toast-x){flex:none;min-height:40px;padding:0 12px;border-radius:10px;color:#FFE45C;font-weight:800}
+  #toast.toast #toastUndo{margin-left:auto;background:color-mix(in srgb,#000 20%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,#fff 16%,transparent)}
+  #toast.toast .toast-x{color:#fff}
+  body:has(#toast.show) .fab{transform:translateY(calc(-8px - var(--toast-h,52px)))}
+  body:has(.acc-chip:not([hidden])) .fab{opacity:0;pointer-events:none}
+  .fab{transition:transform .2s ease,opacity .15s ease}
+  .acc-chip{left:12px;right:12px;width:auto;transform:none;bottom:var(--sb-snack-b);gap:8px;padding:10px 4px 10px 14px;border-radius:18px;box-shadow:0 14px 34px -12px rgba(8,20,50,.38)}
+  body:has(#toast.show) .acc-chip{bottom:calc(var(--sb-snack-b) + var(--toast-h,52px) + 8px)}
+  .acc-chip .acc-q{flex:1 1 0;min-width:0;display:flex;white-space:nowrap;font:700 .92rem/1.3 var(--display)}
+  .acc-chip .acc-t{min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .acc-chip .acc-x{order:2;min-width:40px;min-height:40px;margin:-8px 0 -8px auto}
+  .acc-chip .acc-opts{order:3;flex:1 1 100%;padding-right:10px}
+  .acc-chip[data-kind="took"] .acc-opts{flex-wrap:nowrap;gap:6px}
+  .acc-chip[data-kind="took"] .acc-opt{flex:1 1 auto;min-height:40px;padding:4px 10px;border-radius:999px;font-weight:700;white-space:nowrap}
+  .acc-chip[data-kind="took"] .acc-opt.link{flex:none;padding:4px 6px}
+  .acc-chip[data-kind="took"] .acc-l{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  .acc-chip[data-kind="took"] .acc-s{display:inline}
+}
+@media (max-width:639px) and (prefers-color-scheme:dark){:root:not([data-theme="light"]) #toast.toast{background:color-mix(in srgb,var(--surface) 82%,#fff);color:#fff}}
+@media (max-width:639px){:root[data-theme="dark"] #toast.toast{background:color-mix(in srgb,var(--surface) 82%,#fff);color:#fff}}
+@media (max-width:639px) and (prefers-reduced-motion:reduce){.fab{transition:none}}
