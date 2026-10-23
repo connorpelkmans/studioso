@@ -60,13 +60,24 @@
       if (!document.activeElement || document.activeElement === document.body) { try { m.focus(); } catch (e) {} }
     }, {once: true});
   }
-  // Phones and tablets: the bottom bar keeps the main pages, and the header's More button holds the rest
+  // Phones and tablets: the bottom bar keeps the main pages; Settings (the header's ⋯ button) starts with the rest
+  const goRow = () => {
+    const local = typeof sbLocalOnly === "function" && sbLocalOnly() && !stub();
+    const b = (act, label, sub) => `<button type="button" class="set-go-b" data-act="${act}"><b>${esc(label)}</b><span>${esc(sub)}</span></button>`;
+    return `<nav class="set-go" aria-label="${esc(tr("more.title", "More"))}">${b("more-go-groups", tr("more.groups", "Study Groups"), local ? tr("more.groups.short.local", "Needs a free account") : tr("more.groups.short", "Study with friends"))}${b("more-go-files", tr("more.files", "Files"), tr("more.files.short", "Course files"))}${b("g-grades", tr("more.grades", "Grades"), tr("more.grades.short", "Your marks"))}${b("shop", tr("more.style", "Style Shop"), tr("more.style.short", "Themes and stickers"))}${b("archive-open", tr("more.archive", "Archive"), tr("more.archive.short", "Finished work"))}</nav>`;
+  };
+  const origMenu = menuSheet;
+  menuSheet = function(){
+    const r = origMenu.apply(this, arguments);
+    try { const body = inBar() && !dlg.querySelector(".set-go") ? dlg.querySelector(".sheet-body") : null; if (body) body.insertAdjacentHTML("afterbegin", goRow()); } catch (e) {}
+    return r;
+  };
+  // Phones and tablets: the bottom bar keeps the main pages, and the header's ⋯ button holds the rest
   const headMore = () => $('header.top [data-act="menu"]');
   function headLabel(){
     const b = headMore(); if (!b) return;
-    b.setAttribute("aria-label", inBar() ? tr("more.aria.head", "More: Study Groups, Files, Grades, Style and Settings") : "Settings, backups and import");
-    if (inBar()) b.setAttribute("aria-haspopup", "dialog"); else b.removeAttribute("aria-haspopup");
-    document.body.classList.toggle("sb-local", typeof sbLocalOnly === "function" && sbLocalOnly() && !stub());
+    b.setAttribute("aria-label", inBar() ? tr("more.aria.head", "Settings, Study Groups, Files, Grades, Style and Archive") : "Settings, backups and import");
+        document.body.classList.toggle("sb-local", typeof sbLocalOnly === "function" && sbLocalOnly() && !stub());
   }
   try { const mq = matchMedia("(max-width:979px)"); (mq.addEventListener ? mq.addEventListener("change", headLabel) : mq.addListener(headLabel)); } catch (e) {}
 
@@ -114,7 +125,6 @@
   hook("act", (act, el) => {
     switch (act) {
       case "more-open": moreSheet(); return true;
-      case "menu": if (inBar() && el && el.closest && el.closest("header.top")) { moreSheet(el); return true; } return false;
       case "more-go-groups": if (dlg.open) dlg.close(); ui.tab = "groups"; ui.grp = null; ui.courseId = null; render(); window.scrollTo(0, 0); return true;
       case "more-go-files": if (dlg.open) dlg.close(); ui.tab = "files"; ui.courseId = null; render(); window.scrollTo(0, 0); return true;
       case "gn-open": wr({snooze: Date.now() + 60 * 864e5}); ui.tab = "groups"; ui.grp = null; render(); window.scrollTo(0, 0); return true;

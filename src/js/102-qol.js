@@ -72,6 +72,8 @@
     sheets();
   }
   function go(r, y){
+    // from a study group back to the list of groups: the same as its Back button (which also stops listening for the group's updates)
+    if (ui.tab === "groups" && r.tab === "groups" && ui.grp && !r.grp) { popping = true; try { fire("act", "grp-back", document.body, ""); } finally { popping = false; } return; }
     ui.tab = KNOWN.includes(r.tab) ? r.tab : "board";
     ui.courseId = r.course && state.courses[r.course] ? r.course : null;
     if (ui.tab === "flashcards") { ui.fc = null; ui.deckId = r.deck && state.decks && state.decks[r.deck] ? r.deck : null; }

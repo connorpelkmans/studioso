@@ -6,7 +6,8 @@
 .toast button{flex:none}
 .toast .toast-x{margin-left:auto}
 @media (min-width:980px){.toast{max-width:min(560px,calc(100vw - 300px))}}
-.toast .toast-x{font-size:1.25rem;line-height:1;min-width:32px;min-height:32px;margin:-6px -8px -6px 0;border-radius:8px;color:inherit;opacity:.8}
+.toast .toast-x::before{content:"\00d7"}
+.toast .toast-x{font-size:1.25rem;line-height:1;min-width:32px;min-height:32px;margin:-6px -8px -6px auto;border-radius:8px;color:inherit;opacity:.8}
 .toast .toast-x:hover,.toast .toast-x:focus-visible{opacity:1}
 .toast.toast-err{box-shadow:0 0 0 2px var(--late),0 8px 24px rgba(8,20,50,.3)}
 @media (pointer:coarse){.toast .toast-x{min-width:40px;min-height:40px}}
@@ -46,8 +47,14 @@ button.sync:hover,button.sync:focus-visible{background:color-mix(in srgb,#E0A030
   button.check::after{inset:auto;left:50%;top:50%;width:max(44px,100%);height:max(44px,100%);transform:translate(-50%,-50%);border-radius:50%}
 }
 
-/* Bottom bar (phones and tablets): Board, Calendar, Review, the companion's seat, Notes and Courses. Groups, Files, Grades, Style,
-   Archive and Settings are in More (the header's ⋯ button). Labels stay at least 11 px. */
+/* Bottom bar (phones and tablets): Board, Calendar, Review, the companion's seat, Notes and Courses. Study Groups, Files, Grades,
+   Style and Archive head the Settings sheet (the header's ⋯ button). Labels stay at least 11 px. */
+.set-go{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin:0 0 14px}
+.set-go-b{display:grid;gap:2px;justify-items:start;text-align:left;min-height:52px;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:inherit;cursor:pointer}
+.set-go-b b{font:700 .92rem var(--display,inherit)}
+.set-go-b span{font-size:.78rem;color:var(--muted)}
+.set-go-b:hover,.set-go-b:focus-visible{border-color:var(--accent)}
+@media (min-width:700px){.set-go{grid-template-columns:repeat(5,minmax(0,1fr));padding:14px 16px 0;margin-bottom:12px}}
 @media (max-width:979px){
   nav.tabs .in > .nav-groups,nav.tabs .in .nav-groups{display:none!important}
   nav.tabs .in button,html[data-ts] nav.tabs .in button{font-size:.75rem!important;letter-spacing:0}

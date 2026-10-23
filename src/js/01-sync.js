@@ -4,14 +4,20 @@ const cloud = {on:false, base:null, tasks:null, courses:null, files:null, notes:
 const KIND_MAP = {task:"tasks", course:"courses", file:"files", note:"notes", deck:"decks", event:"events", trash:"trash"};
 const queue = new Map(), intended = new Map();
 let syncError = false, syncRetryT = 0, syncRetryN = 0;
+// Saves that ran out of quick retries where there's no offline outbox (key -> {ref, data}); they're sent again later
+const syncLater = new Map();
+function syncRetryRun(){
+  syncLater.forEach((j, key) => { syncLater.delete(key); if (queue.has(key)) return; const e = {running: false, next: {data: j.data}, ref: j.ref}; queue.set(key, e); intended.set(key, j.data); runQueue(key, e); });
+  flushOutbox();
+}
 // After a failed save, the waiting changes are tried again on their own, less often each time (15 s up to 5 min)
 function syncRetryLater(){
   if (syncRetryT || !cloud.on) return;
-  syncRetryT = setTimeout(() => { syncRetryT = 0; flushOutbox(); }, Math.min(300000, (window.__SB_RETRY_LATER_MS || 15000) * Math.pow(2, syncRetryN++)));
+  syncRetryT = setTimeout(() => { syncRetryT = 0; syncRetryRun(); }, Math.min(300000, (window.__SB_RETRY_LATER_MS || 15000) * Math.pow(2, syncRetryN++)));
 }
 function syncRetryNow(){
   clearTimeout(syncRetryT); syncRetryT = 0; syncRetryN = 0;
-  if (cloud.on) { flushOutbox(); syncLabel(); return true; }
+  if (cloud.on) { syncRetryRun(); return true; }
   if (typeof sbUser !== "undefined" && sbUser) { sbRetryNow(); return true; }
   return false;
 }
@@ -29,7 +35,7 @@ function syncLabel(){
   }
   else if (!cloud.on) el.textContent = "Saved on this device";
   else if (queue.size) el.textContent = "Saving…";
-  else if (syncError) el.textContent = syncRetryT ? "Not saved, retrying" : "Not saved";
+  else if (syncError) el.textContent = syncRetryT || flushing || syncLater.size && queue.size ? "Not saved, retrying" : "Not saved";
   else el.textContent = "Saved";
   const side = $("#syncSide"), t = el.textContent, warn = !/^(Saved|Saved on this device)$/.test(t) && !/Saving|Connecting/.test(t);
   el.setAttribute("aria-label", warn ? t + ". Sync details" : t);
@@ -47,6 +53,7 @@ function queueWrite(kind, id, data){
   if (!cloud.on) return;
   if (kind === "trash" && !cloud.trash) return;
   const key = kind + ":" + id;
+  syncLater.delete(key);
   intended.set(key, data === null ? null : clone(data));
   let e = queue.get(key);
   if (!e) { e = {running:false, next:null}; queue.set(key, e); }
@@ -63,7 +70,7 @@ async function runQueue(key, e){
     const job = e.next; e.next = null;
     try {
       const res = job.data === null ? await e.ref.delete() : await e.ref.set(job.data);
-      tries = 0; syncError = false;
+      tries = 0; syncLater.delete(key); syncError = syncLater.size > 0;
       outboxDone(key, job.data);
       if (res && res.merge) syncAdopt(key, job.data, res);
       if (window.SBERR) SBERR.crumb("sync", "ok");
@@ -75,7 +82,12 @@ async function runQueue(key, e){
         if (!e.next) e.next = job;
       } else {
         syncError = true; console.warn("Save failed", code, err && err.message);
-        if (code !== "quota_exceeded" && code !== "quota_or_state" && code !== "schema") syncRetryLater();
+        // tried again later from the offline outbox (which merges with what the server has now); where there is no outbox, a save that
+        // failed only because the server was out of reach is sent again as it was
+        if (code !== "quota_exceeded" && code !== "quota_or_state" && code !== "schema") {
+          if ((inPreview() || !sbConfig()) && (code === "unavailable" || code === "resource_exhausted")) syncLater.set(key, {ref: e.ref, data: job.data});
+          syncRetryLater();
+        }
         if (window.SBERR) { SBERR.crumb("sync", "fail"); if (code !== "quota_exceeded") SBERR.flow("sync", err, {tags: {code}}); }
 
         if (code === "quota_exceeded" || code === "quota_or_state") toast("Online storage is full, so recent changes can't sync. They are still saved on this device. Delete old items or export a backup.", null, null, {error: true});
@@ -83,7 +95,7 @@ async function runQueue(key, e){
       }
     }
   }
-  e.running = false; queue.delete(key); intended.delete(key); syncLabel();
+  e.running = false; queue.delete(key); if (!syncLater.has(key)) intended.delete(key); syncLabel();
 }
 function applySnap(kind, snap){
   const m = {};
@@ -203,7 +215,7 @@ let flushing = false;
 async function flushOutbox(){
   if (flushing || !cloud.on) return;
   const o = outboxGet(), keys = Object.keys(o);
-  if (!keys.length) { if (syncError && !queue.size) { syncError = false; syncRetryN = 0; syncLabel(); } return; }
+  if (!keys.length) { if (syncError && !queue.size && !syncLater.size) { syncError = false; syncRetryN = 0; syncLabel(); } return; }
   flushing = true;
   let sent = 0, failed = false; const merged = [], sentBy = {}, readAs = {};
   keys.forEach(k => { readAs[k] = JSON.stringify(o[k]); });
@@ -228,7 +240,7 @@ async function flushOutbox(){
   merged.forEach(([k, sentData, res]) => syncAdopt(k, sentData, res));
   if (sent && !merged.some(m => m[2].merge.state === "merged" || m[2].merge.state === "restored")) { toast(`Synced ${sent} change${sent === 1 ? "" : "s"} made while offline`); }
   if (failed) { syncError = true; syncRetryLater(); }
-  else if (!queue.size) { syncError = false; syncRetryN = 0; clearTimeout(syncRetryT); syncRetryT = 0; }
+  else if (!queue.size && !syncLater.size) { syncError = false; syncRetryN = 0; clearTimeout(syncRetryT); syncRetryT = 0; }
   syncLabel();
 }
 
