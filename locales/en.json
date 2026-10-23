@@ -524,7 +524,7 @@
   "streak.today.rest": "Take Today as a Rest Day",
   "streak.today.unrest": "Today is a rest day. Undo",
   "streak.toggle": "Use the gentle streak",
-  "streak.toggle.sub": "When on, it replaces the fire streak line. Your original progress counter keeps running quietly, so rewards still arrive.",
+  "streak.toggle.sub": "When on, it replaces the fire streak line, and companion rewards follow it.",
   "trend.cap": "Your grade after each graded item, in due date order.",
   "trend.desc": "Running grade for {course} after each of {n} graded items, from {first} to {last}.",
   "trend.descgoal": "Your goal is {goal}.",

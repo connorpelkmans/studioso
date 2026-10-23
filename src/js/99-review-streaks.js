@@ -4,11 +4,11 @@
       what got done and the biggest wins, what slipped (matter of fact, with a one tap new day), approximate study time per course,
       next week from the Crunch Forecast (SBCRUNCH.model), upcoming exams, and one gentle idea. Optional AI recap, only when AI is already on.
       "Not Now" hides the card for the rest of the day (this device); "Skip This Week" hides it until next Sunday (synced, state.settings.review).
-   2. Gentle Study Streak (opt in, state.settings.gentle): counts study days (a task finished, focus time tracked or logged, a checklist step
+   2. Gentle Study Streak (state.settings.gentle, on by default for new accounts, opt in for everyone else): counts study days (a task finished, focus time tracked or logged, a checklist step
       ticked, flashcards reviewed), never just opening the app. Rest days never break it: up to 2 a week are free, the student can mark more,
       and chosen weekdays are always off. A longer break pauses and then softens the run instead of resetting it, the last 4 weeks are always
-      shown, and the best run is kept. When it is on it replaces the fire emoji line from the daily quote code (streakLine in the quote module);
-      that older counter (state.settings.streak) and what it feeds (companion props, scrapbook stickers) are left exactly as they were.
+      shown, and the best run is kept. When it is on it replaces the fire emoji line from the daily quote code (streakLine in the quote module),
+      and companion props follow it (shownStreak); the older counter (state.settings.streak) keeps running and still feeds scrapbook stickers.
    The pure logic sits between the RS-START and RS-END markers so tests/review-streaks.test.js can run it in Node under several time zones. */
 (() => {
 /*RS-START*/
@@ -589,7 +589,7 @@ function gridHtml(res){
 function streakBody(){
   const g = gcfg(), res = streakNow(), on = !!g.on, cfg = res.cfg;
   let h = `<p style="margin:0">${esc(tr("streak.about", "A study day is any day you finish a task, track focus time, tick a checklist step or review flashcards. Just opening the app doesn't count, and a quiet day never takes your progress away."))}</p>
-    <label class="fgs-row"><input type="checkbox" data-act="fgs-toggle" ${on ? "checked" : ""}> <span><b>${esc(tr("streak.toggle", "Use the gentle streak"))}</b><span class="mini">${esc(tr("streak.toggle.sub", "When on, it replaces the fire streak line. Your original progress counter keeps running quietly, so rewards still arrive."))}</span></span></label>`;
+    <label class="fgs-row"><input type="checkbox" data-act="fgs-toggle" ${on ? "checked" : ""}> <span><b>${esc(tr("streak.toggle", "Use the gentle streak"))}</b><span class="mini">${esc(tr("streak.toggle.sub", "When on, it replaces the fire streak line, and companion rewards follow it."))}</span></span></label>`;
   if (on) {
     h += `<div class="fgs-sum" aria-live="polite"><p class="fgs-big"><b>${esc(SBI18N.fmtN(res.last28))}</b> ${esc(trn("streak.sum.month", res.last28, "study day in the last 4 weeks|study days in the last 4 weeks"))}</p>
       <p style="margin:0">${esc(runLineText(res))}</p>
@@ -627,6 +627,13 @@ function turnOn(){
   try { scheduleRender(); } catch (e) {}
   toast(tr("streak.toast.on", "Gentle streak is on. Rest days never break it."));
   celebrateSoon(3000);
+}
+// A brand new account starts with the gentle streak, unless a choice was already made
+function newUser(){
+  const g = gcfg();
+  if (g.on !== undefined || g.intro !== undefined || lsr(FGS_CHOICE)) return;
+  setStg("gentle", {on: true, intro: true, since: todayISO()});
+  GMEMO = {k: "", v: null};
 }
 function turnOff(){
   lsw(FGS_CHOICE, "off");
@@ -708,6 +715,6 @@ hook("act", (a, el) => {
 hook("boot", () => { try { if (gentleOn()) celebrateSoon(6000); } catch (e) {} });
 
 window.SBREVIEW = {open: openReview, period: periodNow, stats: () => { const p = periodNow() || RS.periodFor(todayISO(), nowHour(), true); return reviewStats(p); }, cardHtml: reviewCardHtml, RS};
-window.SBSTREAK = {on: gentleOn, line: () => streakLineText(streakNow()), state: streakNow, open: openStreak, enable: turnOn, disable: turnOff, celebrate: tryCelebrate, RS};
+window.SBSTREAK = {on: gentleOn, line: () => streakLineText(streakNow()), state: streakNow, open: openStreak, newUser, enable: turnOn, disable: turnOff, celebrate: tryCelebrate, RS};
 })();
 

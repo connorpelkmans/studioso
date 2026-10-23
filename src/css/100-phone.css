@@ -452,7 +452,10 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .cpt3-ward{display:grid;gap:10px;padding:14px 16px 16px;background:var(--surface);border:1px solid var(--line);border-radius:18px}
 .cpt3-ward > h3.fsec:first-child{margin-top:0}
 .cpt3-ward .cp-accs{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
-.cpt3-how > summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font:700 .95rem var(--display)}
+.cpt3-how > summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:10px;font:700 .95rem var(--display);list-style:none}
+.cpt3-how > summary::-webkit-details-marker{display:none}
+.cpt3-how > summary::after{content:"";margin-left:auto;width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s}
+.cpt3-how[open] > summary::after{transform:rotate(-135deg)}
 .cpt3-how[open]{display:grid;gap:8px}
 /* Icons stand out */
 .g2-ring{background:#fff!important}

@@ -857,6 +857,8 @@ function todaysQuote(){
   return DAILY_QUOTES[((n * 37) % N + N) % N];
 }
 const streakOf = () => { const s = Object.assign({cur: 0, best: 0, last: ""}, (state.settings && state.settings.streak) || {}); if (s.last && s.last < addDays(todayISO(), -1)) s.cur = 0; return s; };
+// The streak the student actually sees: the gentle one when it is on
+const shownStreak = () => { if (window.SBSTREAK && SBSTREAK.on()) { const r = SBSTREAK.state(); return {cur: r.run, best: r.best}; } const s = streakOf(); return {cur: s.cur, best: s.best}; };
 function streakLine(){
   if (window.SBSTREAK && SBSTREAK.on()) return SBSTREAK.line();
   const s = streakOf(), today = s.last === todayISO();

@@ -106,7 +106,10 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-tile.on::after{content:"✓";position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font:700 .78rem/22px var(--display,inherit);text-align:center;box-shadow:0 2px 6px color-mix(in srgb,var(--accent) 40%,transparent)}
 .cp-chosen{display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:999px;background:var(--accent);color:#fff;font-weight:700;font-size:.85rem}
 .cp-tile .cp-bio{margin:0;font-size:.92rem;line-height:1.35;color:var(--ink);opacity:.85;min-height:2.7em}
-.cp-tile .cp-earn{display:block;color:var(--muted);line-height:1.3}
+.cp-tile .cp-earn{display:block;font-weight:600;font-size:.88rem;line-height:1.3;color:var(--ink)}
+.cp-earn-bar{display:block;width:100%;max-width:150px;height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:2px}
+.cp-earn-bar i{display:block;height:100%;border-radius:3px;background:var(--accent)}
+.cp-tile .cp-earn-pro{min-height:40px;font-size:.85rem}
 .cp-tile .btn{margin-top:4px}
 .cp-tile-t{display:flex;align-items:center;gap:6px;font:700 1rem var(--display);max-width:100%;min-width:0}
 .cp-tile-t b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
