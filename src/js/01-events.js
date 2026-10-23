@@ -115,6 +115,7 @@ document.addEventListener("click", e => {
     case "filter": ui.filter = id; render(); break;
     case "tl-mode": ui.tlMode = id; ui.tlJump = true; render(); break;
     case "note-new": if (noteEditing) saveNoteText(); newNoteAt(); break;
+    case "board-max": boardMax(!boardMaxOn()); break;
     case "nb-zoom": if (id === "reset") nbZoomTo(1); else nbZoomStep(id === "in" ? 1 : -1); break;
     case "nb-pick": if (noteEditing) saveNoteText(); ui.noteBoard = el.dataset.id || ""; try { localStorage.setItem(NB_KEY, ui.noteBoard); } catch (e) {} render(); break;
     case "nb-new": if (noteEditing) saveNoteText(); noteBoardSheet(""); break;

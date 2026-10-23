@@ -12935,6 +12935,26 @@ function repairNoteBoards(){
     if (keep.length || !bak.length) localStorage.setItem(NB_BAK, JSON.stringify(keep));   // a backup that still holds real boards is never emptied
   } catch (e) {}
 }
+// Full screen board: the arrow button at the top corner of the note board and the whiteboard makes the board fill the whole app window
+// (the page around it is hidden under it). The same button, Esc, or leaving Notes goes back.
+const boardMaxOn = () => document.documentElement.classList.contains("board-max");
+function boardMaxBtn(cls){
+  const on = boardMaxOn();
+  const ic = on ? '<path d="M4 14h6v6M20 10h-6V4M10 14l-6.5 6.5M14 10l6.5-6.5"/>' : '<path d="M14 4h6v6M10 20H4v-6M20 4l-6.5 6.5M4 20l6.5-6.5"/>';
+  return `<button type="button" class="board-max-btn${cls ? " " + cls : ""}" data-act="board-max" aria-pressed="${on}" aria-label="${on ? "Exit full screen" : "Expand the board to fill the screen"}" title="${on ? "Exit Full Screen (Esc)" : "Expand"}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ic}</svg></button>`;
+}
+function boardMax(on){
+  on = !!on; if (on === boardMaxOn()) return;
+  document.documentElement.classList.toggle("board-max", on);
+  render();
+  const b = document.querySelector(".board-max-btn"); if (b) try { b.focus({preventScroll: true}); } catch (e) {}
+}
+hook("render", tab => { if (tab !== "notes" && boardMaxOn()) document.documentElement.classList.remove("board-max"); });
+window.addEventListener("keydown", e => {
+  if (e.key !== "Escape" || e.defaultPrevented || !boardMaxOn() || dlg.open) return;
+  const t = e.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  boardMax(false);
+});
 // Notes has two views: the sticky-note boards, and the Whiteboard (module 99-whiteboard)
 const notesSwitchHtml = () => window.SBWB ? `<div class="pview-tabs nv-tabs" role="tablist" aria-label="Notes and Whiteboard"><button role="tab" data-act="nv-view" data-id="board" aria-selected="${!SBWB.on()}">Notes</button><button role="tab" data-act="nv-view" data-id="wb" aria-selected="${SBWB.on()}">Whiteboard</button></div>` : "";
 function viewNotes(){
@@ -12959,7 +12979,7 @@ function viewNoteBoard(){
           ${!onBoard.length ? `<div class="nb-empty"><strong>${curBoard ? esc(nbName(curBoard)) + " Is Empty" : "Your Board Is Empty"}</strong>Choose Add Note, or press and hold anywhere on the board, to pin a quick note.</div>` : ""}
         </div></div>
       </div>
-      ${nbZoomCtl()}
+      ${boardMaxBtn("nb-max")}${nbZoomCtl()}
       <div class="nb-targets">
         <div class="nb-target" data-drop-note="archive" role="button" tabindex="0" data-act="note-archive-open" aria-label="Archive, ${archived} notes">${ARCHIVE}<span>Archive</span></div>
         <div class="nb-target trash" data-drop-note="trash" role="button" tabindex="0" data-act="trash-open" data-kind="note" aria-label="Trash${trashVisible().filter(e => e.kind === "note").length ? ", " + trashVisible().filter(e => e.kind === "note").length + " recently deleted" : ""}. Click to see recently deleted notes, or drag a note here to delete it.">${TRASH}<span>Trash</span></div>
@@ -14876,6 +14896,7 @@ document.addEventListener("click", e => {
     case "filter": ui.filter = id; render(); break;
     case "tl-mode": ui.tlMode = id; ui.tlJump = true; render(); break;
     case "note-new": if (noteEditing) saveNoteText(); newNoteAt(); break;
+    case "board-max": boardMax(!boardMaxOn()); break;
     case "nb-zoom": if (id === "reset") nbZoomTo(1); else nbZoomStep(id === "in" ? 1 : -1); break;
     case "nb-pick": if (noteEditing) saveNoteText(); ui.noteBoard = el.dataset.id || ""; try { localStorage.setItem(NB_KEY, ui.noteBoard); } catch (e) {} render(); break;
     case "nb-new": if (noteEditing) saveNoteText(); noteBoardSheet(""); break;
@@ -73863,6 +73884,7 @@ var SBWB = null;
         <div class="wb-world wb-front"><div class="wb-texts"></div></div>
         <canvas class="wb-cv wb-live"></canvas>
         <div class="wb-selbar" hidden></div>
+        ${boardMaxBtn("wb-max")}
         <div class="wb-zoom" role="group" aria-label="Zoom"><button type="button" data-wb="zoom-out" aria-label="Zoom out">−</button><button type="button" class="wbz-pct" data-wb="zoom-reset" aria-label="Zoom to 100%">100%</button><button type="button" data-wb="zoom-in" aria-label="Zoom in">+</button><button type="button" class="wbz-theme" data-wb="theme" aria-label="Dark board" title="Dark Board"></button><button type="button" data-wb="fit" aria-label="Fit the drawing on screen" title="Fit to Screen">${IC.fit}</button></div>
       </div>
       <div class="wb-tray" role="toolbar" aria-label="Whiteboard tools"></div>`;
@@ -73885,6 +73907,7 @@ var SBWB = null;
     all = true; paint();   // redrawn at once: resizing a canvas empties it, and waiting a frame shows it blank (a flicker)
   }
   function sizeHost(host){
+    if (boardMaxOn()) { host.style.height = ""; return; }   // full screen: the page's styles size it
     const top = host.getBoundingClientRect().top + window.scrollY, nav = document.querySelector("nav.tabs");
     const navH = phone() && nav ? nav.getBoundingClientRect().height : 0;
     host.style.height = Math.max(phone() ? 420 : 460, Math.round(window.innerHeight - Math.min(top, window.innerHeight * 0.45) - navH - (phone() ? 18 : 28))) + "px";
@@ -74091,7 +74114,7 @@ var SBWB = null;
   function bindPointer(){
     frame.addEventListener("contextmenu", e => e.preventDefault());
     frame.addEventListener("pointerdown", e => {
-      if (e.target.closest(".wb-zoom,.wb-selbar,.wb-ta")) return;
+      if (e.target.closest(".wb-zoom,.wb-selbar,.wb-ta,.wb-max")) return;
       if (ED) endText();
       frame.focus({preventScroll: true});
       PTR.set(e.pointerId, {x: e.clientX, y: e.clientY, type: e.pointerType});
@@ -74487,6 +74510,7 @@ var SBWB = null;
     build(); themeCheck();   // (the board colour setting may have arrived from another device)
     if (!B || B.id !== id) openBoard(id);
     const typing = ED && document.activeElement === ED.ta;
+    const mb = STAGE.querySelector(".wb-max"); if (mb) mb.outerHTML = boardMaxBtn("wb-max");   // its arrows point in while the board is full screen
     host.appendChild(STAGE); sizeHost(host); resize(); trayDraw();
     if (B.fitNext && fw > 0) { B.fitNext = false; fit(true); }
     if (typing) try { ED.ta.focus({preventScroll: true}); } catch (e) {}

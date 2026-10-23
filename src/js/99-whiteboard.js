@@ -460,6 +460,7 @@ var SBWB = null;
         <div class="wb-world wb-front"><div class="wb-texts"></div></div>
         <canvas class="wb-cv wb-live"></canvas>
         <div class="wb-selbar" hidden></div>
+        ${boardMaxBtn("wb-max")}
         <div class="wb-zoom" role="group" aria-label="Zoom"><button type="button" data-wb="zoom-out" aria-label="Zoom out">−</button><button type="button" class="wbz-pct" data-wb="zoom-reset" aria-label="Zoom to 100%">100%</button><button type="button" data-wb="zoom-in" aria-label="Zoom in">+</button><button type="button" class="wbz-theme" data-wb="theme" aria-label="Dark board" title="Dark Board"></button><button type="button" data-wb="fit" aria-label="Fit the drawing on screen" title="Fit to Screen">${IC.fit}</button></div>
       </div>
       <div class="wb-tray" role="toolbar" aria-label="Whiteboard tools"></div>`;
@@ -482,6 +483,7 @@ var SBWB = null;
     all = true; paint();   // redrawn at once: resizing a canvas empties it, and waiting a frame shows it blank (a flicker)
   }
   function sizeHost(host){
+    if (boardMaxOn()) { host.style.height = ""; return; }   // full screen: the page's styles size it
     const top = host.getBoundingClientRect().top + window.scrollY, nav = document.querySelector("nav.tabs");
     const navH = phone() && nav ? nav.getBoundingClientRect().height : 0;
     host.style.height = Math.max(phone() ? 420 : 460, Math.round(window.innerHeight - Math.min(top, window.innerHeight * 0.45) - navH - (phone() ? 18 : 28))) + "px";
@@ -688,7 +690,7 @@ var SBWB = null;
   function bindPointer(){
     frame.addEventListener("contextmenu", e => e.preventDefault());
     frame.addEventListener("pointerdown", e => {
-      if (e.target.closest(".wb-zoom,.wb-selbar,.wb-ta")) return;
+      if (e.target.closest(".wb-zoom,.wb-selbar,.wb-ta,.wb-max")) return;
       if (ED) endText();
       frame.focus({preventScroll: true});
       PTR.set(e.pointerId, {x: e.clientX, y: e.clientY, type: e.pointerType});
@@ -1084,6 +1086,7 @@ var SBWB = null;
     build(); themeCheck();   // (the board colour setting may have arrived from another device)
     if (!B || B.id !== id) openBoard(id);
     const typing = ED && document.activeElement === ED.ta;
+    const mb = STAGE.querySelector(".wb-max"); if (mb) mb.outerHTML = boardMaxBtn("wb-max");   // its arrows point in while the board is full screen
     host.appendChild(STAGE); sizeHost(host); resize(); trayDraw();
     if (B.fitNext && fw > 0) { B.fitNext = false; fit(true); }
     if (typing) try { ED.ta.focus({preventScroll: true}); } catch (e) {}
