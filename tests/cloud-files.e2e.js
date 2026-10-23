@@ -83,16 +83,16 @@ function stubs(){
   await page.evaluate(() => Object.assign(window, window.__sbCloud.core));
 
   await page.evaluate(() => { ui.tab = "files"; render(); });
-  await page.waitForSelector('.f-title [data-act="cl-open"]');
-  ok(/Cloud/.test(await page.textContent('.f-title [data-act="cl-open"]')), "Files has a Cloud button");
-  await page.click('.f-title [data-act="cl-open"]'); await page.waitForSelector("#clBody .cl-card");
+  await page.waitForSelector('#view [data-act="cl-open"]');
+  ok(/Cloud/.test(await page.textContent('#view [data-act="cl-open"]')), "Files has a Cloud button");
+  await page.click('#view [data-act="cl-open"]'); await page.waitForSelector("#clBody .cl-card");
   await page.waitForFunction(() => document.querySelectorAll("#clBody .cl-card").length === 2 && /sam@gmail\.com/.test(document.getElementById("clBody").textContent));
   ok(/sam@outlook\.com/.test(await page.textContent("#clBody")), "both accounts show, with their addresses");
   ok(await page.locator('#clBody input[name=clSave][value=studyboard]').isChecked(), "uploads stay in Studyboard until chosen");
   await page.check('#clBody input[name=clSave][value=google]');
   ok(await page.evaluate(() => SBCLOUD.target()) === "google", "choosing Google Drive makes it the upload target");
   await page.click('#dlg [data-act="close"]');
-  await page.waitForFunction(() => /Google Drive/.test(document.querySelector('.f-title [data-act="cl-open"]').textContent));
+  await page.waitForFunction(() => /Google Drive/.test(document.querySelector('#view [data-act="cl-open"]').textContent));
   ok(true, "the Cloud button names where uploads go");
 
   await page.evaluate(() => { ui.fCourse = "c1"; ui.fFolder = "notes"; render(); });
@@ -136,7 +136,7 @@ function stubs(){
   const big = await page.evaluate(async () => { const b = new Blob([new Uint8Array(6 * 1048576)], {type: "audio/webm"}); return SBCLOUD.saveBlob("microsoft", b, "Lecture 3.webm", {courseId: "c1", folderId: "lectures", type: "audio/webm"}); });
   ok(big.id === "big1" && await page.evaluate(() => window.__cl.ms.chunks) === 2 && await page.evaluate(() => window.__cl.ms.session) === "Studyboard/BIO101/Lectures/Lecture 3.webm", "a 6 MB recording goes to Studyboard/BIO101/Lectures in two pieces");
 
-  await page.click('.f-title [data-act="cl-open"]'); await page.waitForSelector("#clBody .cl-card");
+  await page.click('#view [data-act="cl-open"]'); await page.waitForSelector("#clBody .cl-card");
   await page.waitForSelector('#clBody [data-act="cl-browse"][data-mode="watch"]');
   await page.click('#clBody [data-act="cl-browse"][data-mode="watch"]');
   await page.waitForSelector('#clBody .cl-fold');
@@ -167,7 +167,7 @@ function stubs(){
 
   await page.evaluate(() => { SBPRO.locked = () => true; render(); });
   ok(await page.evaluate(() => SBCLOUD.choices().length) === 2 && await page.evaluate(() => SBCLOUD.backup.possible("google")), "without Pro, saving and backing up to Google Drive and OneDrive still work");
-  ok(await page.locator('.f-title [data-act="cl-open"]').count() === 1, "the Cloud button is there on Free");
+  ok(await page.locator('#view [data-act="cl-open"]').count() === 1, "the Cloud button is there on Free");
   ok(/onedrive/.test(await page.evaluate(() => fileHref(state.files.f1))), "a cloud file still opens in OneDrive");
 
   await page.evaluate(() => { SBPRO.locked = () => false; const d = document.querySelector("dialog[open]"); if (d) d.close(); });
