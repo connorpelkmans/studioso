@@ -112,7 +112,8 @@ function SEED(){
     /* Review */
     await tab(page, "flashcards"); await page.evaluate(() => { ui.rvView = "cards"; ui.filter = "all"; render(); }); await page.waitForTimeout(200);
     ok(/2 due · 1 new/.test(await page.locator('[data-act="fc-study"][data-id="d1"]').locator("xpath=ancestor::article").textContent()), "a deck tile shows what's due and new");
-    ok(/Review\s*3/.test(await page.locator('#view [data-act="fc-review-menu"]').textContent()), "the Review button counts the due cards");
+    const heroCount = 6;
+    ok(new RegExp(`\\b${heroCount} cards ready to review`).test(await page.locator("#view .rv-hero h3").textContent()) && await page.locator('#view .rv-hero [data-act="fc-review-start"]').count() === 1 && await page.locator('#view .rv-hero [data-act="fc-review-menu"]').count() === 1, "the review hero counts the cards ready (" + heroCount + "), with Start Review and Review Options");
     ok((await page.locator('nav.tabs [data-tab="flashcards"] .fc-navdue').textContent()) === "3", "and so does the Review tab");
     await page.evaluate(() => { ui.filter = "c2"; render(); }); await page.waitForTimeout(200);
     await act(page, "fc-review-menu"); await page.waitForTimeout(250);

@@ -375,11 +375,12 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .deck-fc{margin-top:0!important}
 .deck-fc .deck-face{overflow:hidden;border-radius:16px!important}
 .deck-fc .deck-lay .face{border-radius:16px!important}
-.fc-band{display:block;height:64px;padding:10px 14px;background:linear-gradient(135deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 62%,#fff));color:#fff;text-align:left;position:relative;z-index:1}
+.fc-band{display:block;padding:10px 14px;background:none;color:color-mix(in srgb,var(--c) 60%,currentColor);box-shadow:inset 0 4px 0 var(--c);text-align:left;position:relative;z-index:1}
+.deck-fc:is(.cs-neon,.cs-chalk,.cs-blueprint) .fc-band{color:inherit}
 .fc-ring{position:absolute;left:14px;top:36px;width:58px;height:58px;z-index:2}
 .deck-fc .deck-face .deck-main{padding:12px 16px 12px 84px;text-align:left;justify-items:start;min-height:64px}
 .deck-fc .deck-name{text-align:left}
-.deck-fc .deck-count{top:12px;right:12px;background:rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.55);box-shadow:none}
+.deck-fc .deck-count{top:12px;right:12px;border:0;box-shadow:none}
 .deck-fc .mastery i{background:var(--c)!important}
 /* Settings, Direction 1 */
 .us-cat[data-us="account"],#usPane-account{--uc:#2F6FE4}.us-cat[data-us="appearance"],#usPane-appearance{--uc:#8B5CF6}.us-cat[data-us="study"],#usPane-study{--uc:#16A34A}.us-cat[data-us="capture"],#usPane-capture{--uc:#E8833A}.us-cat[data-us="school"],#usPane-school{--uc:#0E9AA7}.us-cat[data-us="app"],#usPane-app{--uc:#D9467A}.us-cat[data-us="data"],#usPane-data{--uc:#64748B}
@@ -425,11 +426,11 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .cc-ic svg .sa,.cc-ic svg .sb{stroke:#fff}
 .card.has-tab > .card-title,.card.has-tab > .card-sub:first-of-type{padding-left:0!important;margin-top:8px}
 /* Flashcards: sticker and code inside the band; the name gets the full width */
-.fc-band{display:flex!important;align-items:center;gap:8px;height:auto!important;padding:9px 46px 9px 12px!important}
+.fc-band{display:flex!important;align-items:center;gap:8px;height:auto!important;padding:13px 46px 7px 14px!important}
 .fc-ic{display:inline-grid;width:26px;height:26px;flex:none}
-.fc-ic svg.ci-svg{width:100%;height:100%;filter:none;transform:none;--ci-ink:#fff;stroke:#fff}
-.fc-ic svg .a,.fc-ic svg .b,.fc-ic svg .y,.fc-ic svg .g,.fc-ic svg .r{fill:rgba(255,255,255,.35)}
-.fc-ic svg .sa,.fc-ic svg .sb{stroke:#fff}
+.fc-ic svg.ci-svg{width:100%;height:100%;filter:none;transform:none;--ci-ink:var(--c);stroke:var(--c)}
+.fc-ic svg .a,.fc-ic svg .b,.fc-ic svg .y,.fc-ic svg .g,.fc-ic svg .r{fill:color-mix(in srgb,var(--c) 30%,transparent)}
+.fc-ic svg .sa,.fc-ic svg .sb{stroke:var(--c)}
 .deck-fc .deck-count{top:8px!important;right:10px!important}
 .deck-fc .deck-face .deck-main{padding:14px 16px 10px!important;min-height:0!important}
 /* Crunch: icon inline, the big number and its label on separate lines */
@@ -633,7 +634,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .deck .deck-lay .face{box-shadow:0 0 0 1px var(--line)!important}
 .deck .deck-lay{border:0!important;outline:0!important;box-shadow:none!important;background:none!important}
 /* The cards behind sit 6px lower and right, less than the 8px corner */
-.deck.deck-fc .fc-band{padding-top:7px!important;padding-bottom:7px!important}
+.deck.deck-fc .fc-band{padding-top:12px!important;padding-bottom:4px!important}
 .deck.deck-fc .deck-main{padding-top:10px!important;padding-bottom:6px!important;gap:6px!important}
 .deck.deck-fc .deck-actions{padding-bottom:10px!important}
 /* a little taller again, and all the same height */
@@ -667,7 +668,7 @@ svg.ci-svg{overflow:visible!important}
 .g2-ring > svg:not(.ci-svg) [stroke="#2B2233"]{stroke:#4A4058;stroke-width:2.1}
 /* Colour bands: one recipe everywhere, made only from the band's own colour */
 :root{--accent-band:#1A60D0}
-.g2-band,.c2-band,.gp-hero-band,.cr2-band,.next-up .nu-top,.g2-sheet-head,.cpt3-band,.tl-row.tl-group,.card.has-tab > .card-course,.fc-band,.sch-b > .sch-band{background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 74%,var(--surface)))!important}
+.g2-band,.c2-band,.gp-hero-band,.cr2-band,.next-up .nu-top,.g2-sheet-head,.cpt3-band,.tl-row.tl-group,.card.has-tab > .card-course,.sch-b > .sch-band{background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 74%,var(--surface)))!important}
 /* Timeline course rows */
 .tl-scroll .tl-row.tl-group{--ba:color-mix(in srgb,var(--c) 88%,#000);--bb:color-mix(in srgb,var(--c) 74%,var(--surface));background:none!important}
 .tl-scroll .tl-group .tl-label{background:var(--ba)!important;border-right:0!important;box-shadow:none!important}
