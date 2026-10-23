@@ -70,7 +70,7 @@ const env = {SUPABASE_URL: "https://x.supabase.co", SUPABASE_ANON_KEY: "sb_publi
   ok(/href="\/\?shared=QQQQ-RRRR"/.test(t), "Take the Quiz opens it in the app");
 
   ({r, t} = await html("/flashcards"));
-  ok(r.status === 200 && /Flashcards made by students/.test(t) && /href="\/flashcards\/course\/biol-201"/.test(t) && /cell-biology-basics-abcdefgh/.test(t) && !/noindex/.test(t), "the index lists courses and sets, and is indexed");
+  ok(r.status === 200 && /Flashcards made by students/.test(t) && !/Popular courses|pub-popular/.test(t) && !calls.some(c => c[0] === "public_courses") && /cell-biology-basics-abcdefgh/.test(t) && !/noindex/.test(t), "the index lists sets (no Popular courses list), and is indexed");
   ok(/SearchAction/.test(t), "the index has search structured data");
   ok(/<a class="pdeck pc\d+" href="\/flashcards\/cell-biology-basics-abcdefgh">/.test(t) && /<span class="pdeck-kick">BIOL 201<\/span>/.test(t) && /<span class="pdeck-n">4<span class="sr"> terms<\/span><\/span>/.test(t) && /class="pdeck-ic"[^>]*><svg class="ci-svg"/.test(t), "flashcard sets are drawn as decks, like the app: course band, icon and card count");
   ok(P.deckLook({course_label: "BIOL 201", course_key: "BIOL201", name: "x"}).color === P.deckLook({course_label: "BIOL 201", course_key: "BIOL201", name: "y"}).color && P.deckLook({name: "x"}).label === "General", "a course keeps one colour; no course is General");

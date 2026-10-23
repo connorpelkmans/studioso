@@ -156,10 +156,9 @@ async function indexPage(env, section, url, origin){
   const pageNo = Math.max(1, Math.min(100, parseInt(url.searchParams.get("page") || "1", 10) || 1));
   const ck = courseKey(q);
   if (q && ck && q.replace(/[\s._:-]/g, "").toUpperCase() === ck && !courseIn && !f.school && !f.sort && !f.min) return Response.redirect(`${origin}/${section}/course/${courseSlug(ck)}`, 302);
-  const [rows, courses, schools] = await Promise.all([
+  const [rows, schools] = await Promise.all([
     rpc(env, "public_search", {p_kind: K.kind, p_q: q, p_course: courseIn, p_limit: PER_PAGE + 1, p_offset: (pageNo - 1) * PER_PAGE, p_school: f.school, p_sort: f.sort, p_min: f.min})
       .catch(() => rpc(env, "public_search", {p_kind: K.kind, p_q: q, p_course: courseIn, p_limit: PER_PAGE + 1, p_offset: (pageNo - 1) * PER_PAGE})),
-    searching || pageNo > 1 ? Promise.resolve([]) : rpc(env, "public_courses", {p_kind: K.kind, p_limit: 40}),
     rpc(env, "public_schools", {p_kind: K.kind, p_limit: 400}).catch(() => [])]);
   const schoolName = f.school ? ((schools.find(x => x.school_key === f.school) || {}).school_name || "") : "";
   const what = q ? `“${q}”` : schoolName ? schoolName : "";
@@ -170,7 +169,6 @@ async function indexPage(env, section, url, origin){
   const body = `<div class="pub-hero"><h1>${searching ? (what ? `${esc(K.noun)} ${q ? "for" : "from"} ${esc(what)}` : `${esc(K.noun)}`) : `${esc(K.noun)} made by students`}</h1>
     <p class="lede">${searching ? `${list.length ? "" : "Nothing matches that yet. Try a school, a course code or fewer words."}` : `Free ${esc(K.many)} for your courses, shared by students on Studyboard. Search by school, course code or topic.`}</p>
     ${searchForm(section, q, "", f, schools)}</div>
-    ${courses.length ? `<section class="pub-sec pub-popular"><h2>Popular courses</h2><ul class="pub-chips">${courses.map(c => `<li><a href="/${section}/course/${esc(courseSlug(c.course_key))}">${esc(c.course_label || courseLabelOf(c.course_key))} <span>${esc(c.n)}</span></a></li>`).join("")}</ul></section>` : ""}
     <section class="pub-sec"><h2>${searching ? "Results" : "Newest " + esc(K.many)}</h2>${listHtml(section, list) || `<p class="pub-none">No ${esc(K.many)} here yet. Share one from Studyboard: open it, tap Share, then Publish.</p>`}${pager(section, base, pageNo, more)}</section>
     ${cta(section)}`;
   const ld = searching ? [] : [{"@context": "https://schema.org", "@type": "WebSite", name: SITE, url: origin + "/", potentialAction: {"@type": "SearchAction", target: `${origin}/${section}?q={search_term_string}`, "query-input": "required name=search_term_string"}}];
