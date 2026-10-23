@@ -234,7 +234,8 @@ var SBWB = null;
     if (id === "grid") o.push({k: "grid", s: 80});
     else if (id === "dots") o.push({k: "dots", s: 80});
     else if (id === "lines") { for (let y = 240; y < BH; y += 96) L(0, y, BW, y, FAINT, 3); L(300, 0, 300, BH, "@margin", 4); }
-    else if (id === "cornell") { L(0, 380, BW, 380); L(1400, 380, 1400, BH - 760); L(0, BH - 760, BW, BH - 760); X(90, 250, "Title and Date"); X(90, 500, "Questions and Key Words", 52); X(1500, 500, "Notes", 52); X(90, BH - 640, "Summary", 52); }
+    // Cornell: a slim title band, a cue column about 30% wide, and a summary strip about a sixth of the page
+    else if (id === "cornell") { const T = 280, S = BH - 540; L(0, T, BW, T); L(1440, T, 1440, S); L(0, S, BW, S); X(260, 160, "Title and Date"); X(90, T + 110, "Questions and Key Words", 52); X(1540, T + 110, "Notes", 52); X(90, S + 110, "Summary", 52); }
     else if (id === "concept") {
       const cx = BW / 2, cy = BH / 2; E(cx, cy, 440, 250, GUIDE, 7); X(cx, cy + 22, "Main Idea", 70, "middle");
       for (let i = 0; i < 6; i++) { const a = -Math.PI / 2 + i * Math.PI / 3, px = cx + Math.cos(a) * 1450, py = cy + Math.sin(a) * 1000; L(cx + Math.cos(a) * 470, cy + Math.sin(a) * 280, px - Math.cos(a) * 330, py - Math.sin(a) * 200, GUIDE, 5, 26); E(px, py, 330, 190, GUIDE, 5, 26); }
@@ -564,7 +565,7 @@ var SBWB = null;
     endText();
     const ta = document.createElement("textarea"); ta.className = "wb-ta"; ta.setAttribute("aria-label", "Text on the whiteboard"); ta.rows = 1;
     ta.value = it.s || ""; Object.assign(ta.style, {left: it.x + "px", top: it.y + "px", fontSize: it.f + "px", color: penHex(it.c), fontFamily: famOf(it.ff)});
-    front.appendChild(ta); ED = {it, ta, isNew}; itemsDraw(); fitTa();
+    front.appendChild(ta); ED = {it, ta, isNew}; itemsDraw(); fitTa(); trayDraw();
     ta.addEventListener("input", fitTa);
     ta.addEventListener("pointerdown", e => e.stopPropagation());
     ta.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Escape" || (e.key === "Enter" && (e.ctrlKey || e.metaKey))) { e.preventDefault(); endText(); frame.focus({preventScroll: true}); } });
@@ -578,7 +579,7 @@ var SBWB = null;
     opBegin();
     if (!s.trim()) { if (getI(it.id)) set("i", it.id, null); }
     else if (s !== it.s || !getI(it.id)) set("i", it.id, Object.assign({}, it, {s, at: Date.now()}));
-    opEnd(); itemsDraw(true);
+    opEnd(); itemsDraw(true); trayDraw();
     if (s.trim() && T.tool === "text" && getI(it.id)) select(new Set(["i" + it.id]));
   }
   const hitItem = (p, kind) => { const r = 6 / cam.z, l = items(); for (let i = l.length - 1; i >= 0; i--) { const it = l[i]; if (kind && it.k !== kind) continue; const b = itemBB(it); if (p[0] >= b[0] - r && p[0] <= b[2] + r && p[1] >= b[1] - r && p[1] <= b[3] + r) return it; } return null; };
@@ -596,7 +597,7 @@ var SBWB = null;
   }
   function select(ids){
     SEL = ids && ids.size ? {ids, k: 1, dx: 0, dy: 0, ax: 0, ay: 0, drag: false} : null;
-    selbarDraw(); dirty(true);
+    selbarDraw(); dirty(true); trayDraw();
   }
   function selectIn(b){
     const ids = new Set();
@@ -900,7 +901,9 @@ var SBWB = null;
   function setTool(t){ fontMenu(false); if (ED && t !== "text") endText(); if (t !== "select" && SEL) select(null); T.tool = t; saveT(); trayDraw(); dirty(true); }
   function trayDraw(){
     if (!tray) return;
-    const t = T.tool, b = (wb, id, label, inner, pressed, extra) => `<button type="button" data-wb="${wb}" data-id="${esc(id)}" aria-label="${esc(label)}" title="${esc(label)}" aria-pressed="${pressed}"${extra || ""}>${inner}</button>`;
+    // Editing or selecting text shows the text options, so size and writing style apply to it
+    const t0 = T.tool, onlyText = !!SEL && [...SEL.ids].every(k => { const it = k[0] === "i" && getI(k.slice(1)); return it && it.k === "t"; });
+    const t = ED || onlyText ? "text" : t0, b = (wb, id, label, inner, pressed, extra) => `<button type="button" data-wb="${wb}" data-id="${esc(id)}" aria-label="${esc(label)}" title="${esc(label)}" aria-pressed="${pressed}"${extra || ""}>${inner}</button>`;
     const markers = (list, cur, wb) => `<div class="wb-markers" role="group" aria-label="Colors">${list.map(p => `<button type="button" class="wb-mk${p[0] === cur ? " on" : ""}" data-wb="${wb}" data-id="${p[0]}" style="--mk:${p[2]}" aria-label="${esc(p[1])}" title="${esc(p[1])}" aria-pressed="${p[0] === cur}"><span class="wb-cap"></span><span class="wb-body"></span></button>`).join("")}</div>`;
     const sizes = (arr, names, cur, wb, max) => `<div class="wb-sizes" role="group" aria-label="Size">${arr.map((v, i) => b(wb, i, names[i], `<span class="wb-sz" style="--s:${Math.round(4 + (v / max) * 14)}px"></span>`, i === cur, ` class="${i === cur ? "on" : ""}"`)).join("")}</div>`;
     let opts = "";
@@ -919,10 +922,10 @@ var SBWB = null;
     if (t === "select") opts = `${b("sel-all", "", "Select Everything", "Select All", false, ' class="wb-txt"')}`;
     const tn = (TOOLS.find(x => x[0] === t) || [0, "Tools"])[1];
     // the head only shows on the side panel (wide screens)
-    tray.innerHTML = `<div class="wb-tray-head" aria-hidden="true">${esc(tn)}</div><div class="wb-tools" role="group" aria-label="Tools">${TOOLS.map(x => b("tool", x[0], x[1] + " (" + x[2] + ")", IC[x[0]], x[0] === t, ` class="wb-tool${x[0] === t ? " on" : ""}"`)).join("")}${fire("wb-tools").filter(Boolean).join("")}</div>
+    tray.innerHTML = `<div class="wb-tray-head" aria-hidden="true">${esc(tn)}</div><div class="wb-tools" role="group" aria-label="Tools">${TOOLS.map(x => b("tool", x[0], x[1] + " (" + x[2] + ")", IC[x[0]], x[0] === t0, ` class="wb-tool${x[0] === t0 ? " on" : ""}"`)).join("")}${fire("wb-tools").filter(Boolean).join("")}</div>
       <div class="wb-hist" role="group" aria-label="Undo and redo">${b("undo", "", "Undo (Ctrl+Z)", IC.undo, false, ' class="wb-u"')}${b("redo", "", "Redo (Ctrl+Shift+Z)", IC.redo, false, ' class="wb-r"')}</div>
       <div class="wb-opts">${opts}</div>`;
-    frame.dataset.tool = t;
+    frame.dataset.tool = t0;
     trayState();
   }
   // A writing style

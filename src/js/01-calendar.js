@@ -1087,11 +1087,12 @@ function soloHeadUp(v, phone){
   v.insertBefore(pg, v.firstChild);
 }
 { let was = null; addEventListener("resize", () => { const p = innerWidth < 640; if (was !== null && p !== was && typeof ui !== "undefined" && document.querySelector("#view > .pg-head")) scheduleRender(); was = p; }); }
+// Timeline / Month, at the start of the Due Dates toolbar (wide screens)
+const tlModeSeg = () => tlPhone() ? "" : `<div class="segb" role="group" aria-label="View"><button data-act="tl-mode" data-id="bars" aria-pressed="${ui.tlMode === "bars"}">Timeline</button><button data-act="tl-mode" data-id="calendar" aria-pressed="${ui.tlMode === "calendar"}">Month</button></div>`;
 function planHeadHtml(){
   const t = ui.tab;
   const title = t === "schedule" ? "Schedule" : t === "crunch" ? "Crunch Forecast" : "Due Dates";
-  const right = t !== "schedule" && t !== "crunch" && !tlPhone() ? `<div class="segb" role="group" aria-label="View"><button data-act="tl-mode" data-id="bars" aria-pressed="${ui.tlMode === "bars"}">Timeline</button><button data-act="tl-mode" data-id="calendar" aria-pressed="${ui.tlMode === "calendar"}">Month</button></div>` : "";
-  return pageHeadHtml(title, right);
+  return pageHeadHtml(title, "");
 }
 function planSwitchHtml(){
   const t = ui.tab;

@@ -228,3 +228,9 @@
 @media (min-width:640px){nav.tabs{scrollbar-width:none}nav.tabs::-webkit-scrollbar{display:none}}
 /* The page never scrolls sideways; a stray wide frame (the companion moving between pages) can't add a scrollbar that squeezes the side menu */
 @media (min-width:640px){html{overflow-x:clip}}
+/* Page buttons sit level with the tabs, not the title */
+@media (min-width:640px){
+  #view > .pg-head:not(.pg-solo){position:relative}
+  #view > .pg-head:not(.pg-solo) > .pg-right{position:absolute;right:0;top:calc(100% + 6px);height:40px;align-items:center;flex-wrap:nowrap;z-index:2}
+}
+#view .tl-controls.tl-tools > .pro-tab-btn:first-of-type{margin-left:auto}
