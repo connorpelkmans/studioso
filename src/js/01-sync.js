@@ -3,7 +3,18 @@
 const cloud = {on:false, base:null, tasks:null, courses:null, files:null, notes:null, decks:null, events:null, trash:null, backups:null};
 const KIND_MAP = {task:"tasks", course:"courses", file:"files", note:"notes", deck:"decks", event:"events", trash:"trash"};
 const queue = new Map(), intended = new Map();
-let syncError = false;
+let syncError = false, syncRetryT = 0, syncRetryN = 0;
+// After a failed save, the waiting changes are tried again on their own, less often each time (15 s up to 5 min)
+function syncRetryLater(){
+  if (syncRetryT || !cloud.on) return;
+  syncRetryT = setTimeout(() => { syncRetryT = 0; flushOutbox(); }, Math.min(300000, (window.__SB_RETRY_LATER_MS || 15000) * Math.pow(2, syncRetryN++)));
+}
+function syncRetryNow(){
+  clearTimeout(syncRetryT); syncRetryT = 0; syncRetryN = 0;
+  if (cloud.on) { flushOutbox(); syncLabel(); return true; }
+  if (typeof sbUser !== "undefined" && sbUser) { sbRetryNow(); return true; }
+  return false;
+}
 function refFor(kind, id){
   if (kind === "meta") return cloud.base;
   return cloud[KIND_MAP[kind]].doc(id);
@@ -18,10 +29,16 @@ function syncLabel(){
   }
   else if (!cloud.on) el.textContent = "Saved on this device";
   else if (queue.size) el.textContent = "Saving…";
-  else if (syncError) el.textContent = "Not saved, retrying";
+  else if (syncError) el.textContent = syncRetryT ? "Not saved, retrying" : "Not saved";
   else el.textContent = "Saved";
-  const side = $("#syncSide");
-  if (side) { const t = el.textContent; side.textContent = t === "Saved on this device" ? "On this device" : t; side.dataset.state = /^(Saved|Saved on this device)$/.test(t) ? "ok" : /Saving|Connecting/.test(t) ? "busy" : "warn"; side.title = t; }
+  const side = $("#syncSide"), t = el.textContent, warn = !/^(Saved|Saved on this device)$/.test(t) && !/Saving|Connecting/.test(t);
+  el.setAttribute("aria-label", warn ? t + ". Sync details" : t);
+  if (side) {
+    side.textContent = t === "Saved on this device" ? "On this device" : t; side.dataset.state = warn ? "warn" : /Saving|Connecting/.test(t) ? "busy" : "ok";
+    // a problem can be tapped for details and Try Again
+    if (warn) { side.removeAttribute("aria-hidden"); side.setAttribute("role", "button"); side.tabIndex = 0; side.dataset.act = "sync-status"; side.setAttribute("aria-label", t + ". Sync details"); }
+    else { side.setAttribute("aria-hidden", "true"); side.removeAttribute("role"); side.removeAttribute("tabindex"); delete side.dataset.act; side.removeAttribute("aria-label"); }
+  }
 }
 function queueWrite(kind, id, data){
   if (demoDrawing) return;
@@ -58,9 +75,10 @@ async function runQueue(key, e){
         if (!e.next) e.next = job;
       } else {
         syncError = true; console.warn("Save failed", code, err && err.message);
+        if (code !== "quota_exceeded" && code !== "quota_or_state" && code !== "schema") syncRetryLater();
         if (window.SBERR) { SBERR.crumb("sync", "fail"); if (code !== "quota_exceeded") SBERR.flow("sync", err, {tags: {code}}); }
 
-        if (code === "quota_exceeded" || code === "quota_or_state") toast("Online storage is full, so recent changes can't sync. They are still saved on this device. Delete old items or export a backup.");
+        if (code === "quota_exceeded" || code === "quota_or_state") toast("Online storage is full, so recent changes can't sync. They are still saved on this device. Delete old items or export a backup.", null, null, {error: true});
         if (code === "schema" && !window.__schemaWarned) { window.__schemaWarned = true; toast(SB_HOSTED ? "Flashcards are saved on this device but can't sync yet. They'll sync once Studyboard's server is updated." : "Flashcards are saved on this device but can't sync yet. Run the flashcards update SQL from the setup guide, then reload."); }
       }
     }
@@ -173,7 +191,7 @@ function outboxAdd(kind, id, data){
   if (inPreview() || !sbConfig() || deviceWiping) return;
   outboxOwn.add(kind + ":" + id);
   const o = outboxGet(); o[kind + ":" + id] = data === null ? null : clone(data);
-  try { localStorage.setItem(OUTBOX, JSON.stringify(o)); } catch(e) { try { toast("This device's storage is full, so offline changes may not be kept. Export a backup, then free some space."); } catch(e2) {} }
+  try { localStorage.setItem(OUTBOX, JSON.stringify(o)); } catch(e) { try { toast("This device's storage is full, so offline changes may not be kept. Export a backup, then free some space.", null, null, {error: true}); } catch(e2) {} }
 }
 function outboxDone(key, data){
   if (inPreview()) return;
@@ -185,9 +203,9 @@ let flushing = false;
 async function flushOutbox(){
   if (flushing || !cloud.on) return;
   const o = outboxGet(), keys = Object.keys(o);
-  if (!keys.length) return;
+  if (!keys.length) { if (syncError && !queue.size) { syncError = false; syncRetryN = 0; syncLabel(); } return; }
   flushing = true;
-  let sent = 0; const merged = [], sentBy = {}, readAs = {};
+  let sent = 0, failed = false; const merged = [], sentBy = {}, readAs = {};
   keys.forEach(k => { readAs[k] = JSON.stringify(o[k]); });
   for (const k of keys) {
     const i = k.indexOf(":"), kind = k.slice(0, i), id = k.slice(i + 1);
@@ -199,7 +217,7 @@ async function flushOutbox(){
       const sentData = o[k]; sentBy[k] = sentData; delete o[k]; sent++;
       if (res && res.merge) { merged.push([k, sentData, res]); }
     }
-    catch(e) { const c = e && e.code; if (c === "unavailable" || c === "resource_exhausted" || !c) break; }
+    catch(e) { failed = true; const c = e && e.code; if (c === "unavailable" || c === "resource_exhausted" || !c) break; }
   }
   try {
     const cur = outboxGet();
@@ -209,7 +227,9 @@ async function flushOutbox(){
   flushing = false;
   merged.forEach(([k, sentData, res]) => syncAdopt(k, sentData, res));
   if (sent && !merged.some(m => m[2].merge.state === "merged" || m[2].merge.state === "restored")) { toast(`Synced ${sent} change${sent === 1 ? "" : "s"} made while offline`); }
-  if (sent) syncLabel();
+  if (failed) { syncError = true; syncRetryLater(); }
+  else if (!queue.size) { syncError = false; syncRetryN = 0; clearTimeout(syncRetryT); syncRetryT = 0; }
+  syncLabel();
 }
 
 /* Sync conflicts */
