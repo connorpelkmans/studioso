@@ -680,7 +680,7 @@
       else {
         const k = (S.groups || []).findIndex(x => x.id === gid); if (k >= 0) S.groups[k] = g; else S.groups = (S.groups || []).concat(g);
         S.items[gid] = (items || []).filter(x => !S.blocked.has(x.user_id)); S.msgs[gid] = (msgs || []).filter(x => !S.blocked.has(x.user_id)); S.members[gid] = ms || [];
-        indexItems(gid, S.items[gid]); delete S.errG[gid];
+        indexItems(gid, S.items[gid]); delete S.errG[gid]; calSync(gid);
         const n = (S.items[gid] || []).filter(it => { const c = it.kind === "task" ? copyOfTask(it.id) : copyOfItem(it.id), ref = c && (c.groupRef || c.sharedFrom); return ref && it.user_id !== myId() && ts(it.updated_at) > ts(ref.v) + 1000; }).length;
         if (n) S.changed[gid] = n; else delete S.changed[gid];
         updateNavBadge();
@@ -815,7 +815,7 @@
   // Whiteboards tab
   const wbPaneHtml = g => fire("grp-boards", g).filter(Boolean).join("") || `<section class="card grp-sec"><h3 class="fsec">Whiteboards</h3><p class="empty mini">Shared whiteboards show up here.</p></section>`;
   function panesHtml(g){
-    const P = (k, html) => `<div class="grp-pane" data-pane="${k}"${paneOn(g, k)}>${html}</div>`, on = k => featOn(g, k);
+    const P = (k, html) => `<div class="grp-pane" data-pane="${k}" id="grpPane-${k}" role="tabpanel" aria-labelledby="grpTab-${k}"${paneOn(g, k)}>${html}</div>`, on = k => featOn(g, k);
     const owner = isOwner(g), none = `<p class="empty mini grp-feat-none">${owner ? "Every feature here is turned off. Turn them on in Edit Group, under Features." : "Nothing is turned on here yet."}</p>`;
     if (isProj(g)) return P("overview", overviewHtml(g)) + (on("tasks") ? P("tasks", ptHtml(g)) : "") + (on("files") ? P("files", linksHtml(g)) : "") + (on("meetings") ? P("meetings", sessionsHtml(g) + minutesHtml(g)) : "") + (on("boards") ? P("boards", wbPaneHtml(g)) : "") + (on("chat") ? P("chat", boardHtml(g)) : "") + P("members", membersHtml(g));
     const study = (on("decks") ? decksHtml(g) : "") + (on("quizzes") ? quizzesHtml(g) : "") + (on("weak") ? weakHtml(g) : "") + (on("qa") ? qaHtml(g) : "") + (on("deadlines") ? tasksHtml(g) : "") + ptHtml(g);
@@ -824,7 +824,14 @@
   const tabsOf = g => GK.tabsFor(GK.kindOf(g)).filter(([k], i) => i === 0 || k === "members" || featOn(g, k));
   const curTab = g => tabsOf(g).some(x => x[0] === S.tab[g.id]) ? S.tab[g.id] : tabsOf(g)[0][0];
   const paneOn = (g, k) => curTab(g) === k ? "" : " hidden";
-  const tabsHtml = g => `<div class="grp-tabs" role="tablist" aria-label="Group sections">${tabsOf(g).map(([k, l]) => `<button type="button" role="tab" id="grpTab-${k}" class="${curTab(g) === k ? "on" : ""}" aria-selected="${curTab(g) === k}" data-act="grp-tab" data-t="${k}">${l}</button>`).join("")}</div>`;
+  const tabsHtml = g => `<div class="grp-tabs" role="tablist" aria-label="Group sections">${tabsOf(g).map(([k, l]) => { const on = curTab(g) === k; return `<button type="button" role="tab" id="grpTab-${k}" class="${on ? "on" : ""}" aria-selected="${on}" aria-controls="grpPane-${k}" tabindex="${on ? 0 : -1}" data-act="grp-tab" data-t="${k}">${l}</button>`; }).join("")}</div>`;
+  function showTab(g, t){
+    if (!g || !tabsOf(g).some(x => x[0] === t)) return false;
+    S.tab[g.id] = t;
+    $$("#grpDetail .grp-pane").forEach(p => { p.hidden = p.dataset.pane !== t; });
+    $$("#grpDetail .grp-tabs [role=tab]").forEach(b => { const on = b.dataset.t === t; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); b.tabIndex = on ? 0 : -1; });
+    refreshFab(); return true;
+  }
   const BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>';
   function headHtml(g){
     const ms = S.members[g.id] || [], its = S.items[g.id] || [], proj = isProj(g), n = k => its.filter(x => x.kind === k && (k !== "task" || forGroupCourse(g, x.data))).length;
@@ -1169,13 +1176,56 @@
       return `<li class="grp-item grp-task${isPast ? " is-past" : ""}">
         <span class="grp-date" style="--c:var(--accent)"><small>${esc(d.toLocaleDateString(undefined, {month: "short"}))}</small><b>${d.getDate()}</b></span>
         <div class="grp-item-main"><b>${esc(it.title)}</b>
-          <span class="mini">${esc(gWhen(at(it)))}${wk ? " · Every week" + (it.data.repeat.until ? " until " + esc(fmtShort(it.data.repeat.until)) : "") : ""}${it.data.where ? " · " + esc(it.data.where) : ""} · ${mine ? "Proposed by you" : "Proposed by " + esc(it.author_name || "a member")}</span>
+          <span class="mini">${esc(gWhen(at(it)))} to ${esc(new Date(at(it) + sessMins(it) * 60000).toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"}))}${wk ? " · Every week" + (it.data.repeat.until ? " until " + esc(fmtShort(it.data.repeat.until)) : "") : ""}${it.data.where ? " · " + esc(it.data.where) : ""} · ${mine ? "Proposed by you" : "Proposed by " + esc(it.author_name || "a member")}</span>
           ${it.data.notes ? `<span class="mini">${esc(str(it.data.notes, 300))}</span>` : ""}
+          ${!isPast && calCopy(it.id) ? `<span class="mini grp-oncal">On your calendar</span>` : ""}
           <span class="mini grp-rsvp-sum"><b>${yes.length}</b> going${maybe.length ? `, ${maybe.length} maybe` : ""}${yes.length ? ` · ${esc(yes.slice(0, 6).join(", "))}${yes.length > 6 ? ` +${yes.length - 6}` : ""}` : ""}</span></div>
-        <div class="grp-item-btns">${isPast ? "" : btn("yes", "I'm In") + btn("maybe", "Maybe") + btn("no", "Can't")}${mine ? `<button class="btn small" data-act="grp-event-edit" data-id="${esc(it.id)}">Edit</button>` : repBtn(it)}${mine || owner ? `<button class="x-btn" data-act="grp-item-del" data-id="${esc(it.id)}" aria-label="Remove ${esc(it.title)} from the group">${CLOSE}</button>` : ""}</div></li>`;
+        <div class="grp-item-btns">${isPast ? "" : btn("yes", "I'm In") + btn("maybe", "Maybe") + btn("no", "Can't") + (calCopy(it.id) ? "" : `<button class="btn small" data-act="grp-cal-add" data-id="${esc(it.id)}">Add to My Calendar</button>`)}${mine ? `<button class="btn small" data-act="grp-event-edit" data-id="${esc(it.id)}">Edit</button>` : repBtn(it)}${mine || owner ? `<button class="x-btn" data-act="grp-item-del" data-id="${esc(it.id)}" aria-label="Remove ${esc(it.title)} from the group">${CLOSE}</button>` : ""}</div></li>`;
     };
     return `<section class="grp-sec" id="grpSessions"><h3 class="fsec">${I_CAL}${isProj(g) ? "Meetings" : "Study Sessions"}<span class="n">${up.length} upcoming</span><span class="spacer"></span>${!isProj(g) && typeof gxOn === "function" && gxOn(g) ? `<button class="btn small" data-act="gx-ft" data-id="${esc(g.id)}">Find a Time</button>` : `<button class="btn small" data-act="grp-event-new" data-id="${esc(g.id)}">Propose a Time</button>`}</h3>
       ${loadingLine(g.id) || (all.length ? `<ul class="grp-list">${up.map(it => row(it, false)).join("")}${past.map(it => row(it, true)).join("")}</ul>` : `<p class="grp-none">Nothing planned. Propose a time, like Thursday at 6 pm, and see who can make it.</p>`)}</section>`;
+  }
+  /* Sessions you're in, on your own calendar */
+  const SESS_LENS = [30, 45, 60, 90, 120, 180];
+  const sessMins = it => { const m = Math.round(Number(it && it.data && it.data.mins)); return m >= 15 && m <= 600 ? m : 60; };
+  const lenTxt = m => m < 60 ? `${m} min` : `${Math.floor(m / 60)} ${m < 120 ? "hour" : "hours"}${m % 60 ? ` ${m % 60} min` : ""}`;
+  const calCopy = itemId => eventsArr().find(e => e.groupRef && e.groupRef.i === itemId) || null;
+  function calEvent(g, it, prev){
+    const d = it.data || {}, s0 = new Date(d.start); if (isNaN(s0)) return null;
+    const e0 = new Date(s0.getTime() + sessMins(it) * 60000), hm = x => `${String(x.getHours()).padStart(2, "0")}:${String(x.getMinutes()).padStart(2, "0")}`;
+    return normEvent(Object.assign({id: uid()}, prev, {title: str(it.title, 120), courseId: (prev && prev.courseId) || matchCourse(g.course) || "", date: iso(s0), start: hm(s0), end: iso(e0) === iso(s0) ? hm(e0) : "23:59", allDay: false,
+      where: str(d.where, 120), notes: `${isProj(g) ? "Meeting" : "Study session"} with ${g.name}.${d.notes ? " " + str(d.notes, 300) : ""}`,
+      repeat: d.repeat && d.repeat.weekly ? {days: [s0.getDay()], every: 1, until: isDate(d.repeat.until) ? d.repeat.until : ""} : null, groupRef: {g: g.id, i: it.id, v: it.updated_at || "", n: g.name}}));
+  }
+  function calAdd(g, it, label){
+    if (calCopy(it.id)) return false;
+    const ev = calEvent(g, it); if (!ev) return false;
+    applyChanges([{kind: "event", id: ev.id, after: ev}], label || `Added ${it.title} to your calendar`);
+    return true;
+  }
+  function calDrop(it){
+    const ev = calCopy(it.id); if (!ev) return;
+    applyChanges([{kind: "event", id: ev.id, after: null}], `Removed ${it.title} from your calendar`);
+  }
+  // Copies follow changes to the session, and go when it is removed
+  function calSync(gid){
+    const g = groupOf(gid), its = S.items[gid]; if (!g || !its) return;
+    const ch = [];
+    eventsArr().filter(e => e.groupRef && e.groupRef.g === gid).forEach(e => {
+      const it = its.find(x => x.id === e.groupRef.i && x.kind === "event");
+      if (!it) { ch.push({kind: "event", id: e.id, after: null}); return; }
+      if (String(it.updated_at || "") === String(e.groupRef.v || "")) return;
+      const n = calEvent(g, it, e); if (n) ch.push({kind: "event", id: e.id, after: n});
+    });
+    if (ch.length) applyChanges(ch, null);
+  }
+  // The start times of a session between two moments
+  function sessTimes(it, from, to){
+    const d = it.data || {}, t0 = ts(d.start), len = sessMins(it) * 60000, out = []; if (!t0) return out;
+    if (!(d.repeat && d.repeat.weekly)) { if (t0 + len > from && t0 < to) out.push([t0, t0 + len]); return out; }
+    const until = isDate(d.repeat.until) ? parse(d.repeat.until).getTime() + 864e5 : Infinity;
+    for (let s1 = new Date(t0); s1.getTime() < to && s1.getTime() < until; s1.setDate(s1.getDate() + 7)) { const a = s1.getTime(); if (a + len > from) out.push([a, a + len]); }
+    return out;
   }
   function eventSheet(g, it){
     const tom = addDays(todayISO(), 1), pj = isProj(g), ed = it ? it.data || {} : null, sd = ed && ts(ed.start) ? new Date(ed.start) : null, p2 = n => String(n).padStart(2, "0");
@@ -1184,6 +1234,7 @@
       <label class="f"><span class="lh">${pj ? "What Is the Meeting About?" : "What Will You Study?"} ${REQ}</span><input type="text" name="title" required maxlength="120" autofocus value="${esc(it ? it.title : "")}" placeholder="${pj ? "e.g. Poster planning call" : "e.g. Biology midterm review"}"></label>
       <div class="two"><label class="f"><span class="lh">Day ${REQ}</span><input type="date" name="date" required value="${dDate}"${it ? "" : ` min="${todayISO()}"`}></label>
       <label class="f"><span class="lh">Time ${REQ}</span><input type="time" name="time" required value="${dTime}"></label></div>
+      <label class="f"><span class="lh">Length</span><select name="mins">${[...new Set(SESS_LENS.concat(sessMins(it)))].sort((a, b) => a - b).map(m => `<option value="${m}"${m === sessMins(it) ? " selected" : ""}>${esc(lenTxt(m))}</option>`).join("")}</select></label>
       <label class="f"><span class="lh">Where <span class="hint">optional</span></span><input type="text" name="where" maxlength="120" value="${esc(ed ? ed.where || "" : "")}" placeholder="e.g. Library room 204, or a video call link"></label>
       <label class="f"><span class="lh">Notes <span class="hint">optional</span></span><textarea name="notes" rows="2" maxlength="500" placeholder="${pj ? "Agenda, what to bring" : "What to bring or cover"}">${esc(ed ? ed.notes || "" : "")}</textarea></label>
       ${typeof gxOn === "function" && gxOn(g) ? `<div class="two"><label class="mi-check" style="align-self:end"><input type="checkbox" name="weekly"${ed && ed.repeat && ed.repeat.weekly ? " checked" : ""}> Every week</label><label class="f"><span class="lh">Until <span class="hint">optional</span></span><input type="date" name="until" value="${esc(ed && ed.repeat && ed.repeat.until || "")}"></label></div>` : ""}
@@ -1195,15 +1246,16 @@
       const b = $("#grpEvGo"); busyBtn(b, true);
       ensureName(async () => {
         try {
-          const data = {v: 1, type: "event", start: start.toISOString(), where: str(fd.get("where"), 120).trim(), notes: str(fd.get("notes"), 500).trim()};
+          const data = {v: 1, type: "event", start: start.toISOString(), mins: sessMins({data: {mins: fd.get("mins")}}), where: str(fd.get("where"), 120).trim(), notes: str(fd.get("notes"), 500).trim()};
           if (fd.get("weekly")) { const until = String(fd.get("until") || ""); data.repeat = {weekly: true, until: isDate(until) && until >= date ? until : ""}; }
           if (it) {
             const row = await api.updateItem(it.id, {title, data}); Object.assign(it, row || {title, data});
-            if (dlg.open) dlg.close(); toast("Saved the changes"); patch(g.id); return;
+            if (dlg.open) dlg.close(); toast("Saved the changes"); calSync(g.id); patch(g.id); return;
           }
           const rows = await api.addItems([{group_id: g.id, kind: "event", ref_id: "", title, data}]);
-          if (dlg.open) dlg.close(); toast(`Proposed ${title}`);
+          if (dlg.open) dlg.close();
           if (rows && S.items[g.id]) { S.items[g.id] = rows.concat(S.items[g.id]); patch(g.id); }
+          if (!(rows && rows[0] && calAdd(g, rows[0], `Proposed ${title}. It's on your calendar too.`))) toast(`Proposed ${title}`);
           api.rsvp(rows && rows[0] ? rows[0].id : "", "yes").then(() => loadExtras(g.id)).catch(() => {});
           loadGroup(g.id);
         } catch(e) { busyBtn(b, false); toast(e.message); }
@@ -1275,7 +1327,7 @@
       <form class="gk-role-custom" id="gkRoleForm" data-gid="${esc(g.id)}" autocomplete="off"><input type="text" name="role" maxlength="30" placeholder="Or type your own role" aria-label="Your own role title" value="${mine === "custom" ? esc(roleName(g.id, me)) : ""}"><button type="submit" class="btn small">${mine === "custom" ? "Change" : "Set Role"}</button>${mine === "custom" ? `<button type="button" class="btn small" data-act="grp-role-set" data-r="">Clear</button>` : ""}</form></div>`;
     const behind = !ov ? `<p class="mini">${wait}</p>` : !ov.progress.total ? `<p class="grp-none">No tasks yet. <button class="link-btn" data-act="grp-pt-plan">Start from a plan</button> or add your own in <button class="link-btn" data-act="grp-tab" data-t="tasks">Tasks</button>.</p>`
       : (lateTasks.length ? `<ul class="gk-behind">${lateTasks.slice(0, 6).map(t => { const who = t.assignee_id && ms.some(m => m.user_id === t.assignee_id) ? t.assignee_id : ""; return `<li>${who ? av(mName(g.id, who), who) : ""}<span class="gk-behind-t"><button type="button" class="pt-title" data-act="grp-pt-edit" data-id="${esc(t.id)}">${esc(t.title)}</button><span class="mini"><span class="late">${esc(ptDueTxt(t.due_at))}</span> · ${who ? esc(who === me ? "You" : mName(g.id, who)) : "Unassigned"}</span></span></li>`; }).join("")}</ul>${lateTasks.length > 6 ? `<button class="link-btn" data-act="grp-tab" data-t="tasks">${lateTasks.length - 6} more in Tasks</button>` : ""}` : `<p class="gk-ok">${I_CHECK} Nothing is overdue. The team is on track.</p>`)
-        + (ov.unassigned ? `<p class="mini">${plural(ov.unassigned, "open task")} nobody has claimed. <button class="link-btn" data-act="grp-tab" data-t="tasks">Claim one</button></p>` : "") + (ov.uneven ? `<p class="mini pt-uneven">${esc(ov.uneven.hi)} has ${ov.uneven.gap} more open tasks than ${esc(ov.uneven.lo)}.</p>` : "");
+        + (ov.unassigned ? `<p class="mini">${plural(ov.unassigned, "open task")} nobody has claimed. <button class="link-btn" data-act="grp-pt-claim-one">Claim one</button></p>` : "") + (ov.uneven ? `<p class="mini pt-uneven">${esc(ov.uneven.hi)} has ${ov.uneven.gap} more open tasks than ${esc(ov.uneven.lo)}.</p>` : "");
     const team = `<div class="gk-card"><h4>${ICON_GROUP}Roles</h4><ul class="gk-team">${ms.map(m => { const r = roleOf(g.id, m.user_id); return `<li>${av(m.display_name, m.user_id)}<span class="nm">${esc(m.user_id === me ? "You" : m.display_name || "Member")}</span>${r ? `<span class="pill gk-role">${esc(roleName(g.id, m.user_id))}</span>` : `<span class="mini">No role yet</span>`}</li>`; }).join("")}</ul></div>`;
     return `<section class="grp-sec" id="grpOverview">${hero}<div class="gk-grid">${myCard}<div class="gk-card"><h4>${I_CHECK}What's Behind</h4>${behind}</div>${team}</div></section>`;
   }
@@ -1494,8 +1546,9 @@
       const who = t.assignee_id && ms.some(m => m.user_id === t.assignee_id) ? t.assignee_id : "", nm = who ? (who === myId() ? "You" : mName(g.id, who)) : "Unassigned";
       return `<li class="kb-card${late ? " is-late" : ""}${t._tmp ? " is-saving" : ""}${who ? "" : " is-free"}" data-id="${esc(t.id)}" data-kb="${esc(t.status)}" style="--kc:${esc(who ? memberHue(g.id, who) : "#8A94A6")}">
         <div class="kb-band">${who ? av(mName(g.id, who), who) : `<span class="kb-free" aria-hidden="true"></span>`}<span>${esc(nm)}</span></div>
-        <button type="button" class="pt-title" data-act="grp-pt-edit" data-id="${esc(t.id)}">${esc(t.title)}</button>
+        <div class="kb-main"><button type="button" class="pt-check" role="checkbox" aria-checked="${t.status === "done"}" data-act="grp-pt-done" data-id="${esc(t.id)}" aria-label="${t.status === "done" ? "Mark not done" : "Mark done"}: ${esc(str(t.title, 80))}"><span class="pt-box">${CHECK}</span></button><button type="button" class="pt-title" data-act="grp-pt-edit" data-id="${esc(t.id)}">${esc(t.title)}</button></div>
         <div class="pt-meta">${ptDuePill(t, today)}${t.priority === "high" || t.priority === "urgent" ? `<span class="pt-prio ${esc(t.priority)}">${t.priority === "urgent" ? "Urgent" : "High"}</span>` : ""}${typeof gxReviewBtns === "function" ? gxReviewBtns(g, t) : ""}</div>
+        ${t.status !== "done" && !who ? `<button type="button" class="btn small kb-claim" data-act="grp-pt-claim" data-id="${esc(t.id)}">Claim This</button>` : ""}
 </li>`; };
     const DOT = {todo: "#8A94A6", doing: "#2C55D6", done: "#1E9E74"};
     const col = (k, label, list, empty) => `<section class="kb-col k-${k}" data-kbcol="${k}" aria-label="${label}, ${list.length}" style="--sc:${DOT[k]}"><h4><span class="sd" aria-hidden="true"></span>${label}<small>${list.length}</small></h4><ul>${list.map(card).join("") || `<li class="kb-none">${empty}</li>`}</ul></section>`;
@@ -1721,6 +1774,7 @@
   /* Project Tasks (groups.sql 1.13) */
   const PT_ICON = gi('<rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M7.5 9.5l1.5 1.5 2.5-3M7.5 15.5l1.5 1.5 2.5-3M14 10h3.5M14 16h3.5"/>');
   const PT_FILTERS = [["all", "All"], ["mine", "Mine"], ["unassigned", "Unassigned"], ["overdue", "Overdue"], ["done", "Done"]];
+  const PT_BFILTERS = [["all", "All"], ["mine", "Mine"], ["unassigned", "Unassigned"]];
   const PT_PRIO = [["", "None"], ["low", "Low"], ["med", "Medium"], ["high", "High"], ["urgent", "Urgent"]];
   const PT_STATUS = [["todo", "To Do"], ["doing", "In Progress"], ["review", "In Review"], ["done", "Done"]];
   const ptInit = gid => (S.pt[gid] = S.pt[gid] || {ok: false, lists: [], tasks: [], filter: "all", list: "", arch: false, draft: {title: "", who: "", due: ""}, view: "list", busy: false, err: "", setup: false});
@@ -1802,11 +1856,13 @@
     const tasks = x.tasks.filter(t => activeIds.has(t.list_id) && !t.deleted), pr = GTL.progress(tasks), wl = ms.length > 1 ? GTL.workload(tasks, ms, today) : null;
     const wlHtml = wl && wl.uneven ? `<p class="mini pt-uneven">${esc(wl.uneven.hi)} has ${wl.uneven.gap} more open tasks than ${esc(wl.uneven.lo)}. Worth a quick look at the split.</p>` : "";
     const empty = `<p class="grp-none">Split up the work: tap Add Task at the bottom right to add the first one, or describe the project and let ${esc(aiWho("AI"))} suggest tasks.</p>`;
+    const bf = PT_BFILTERS.some(f => f[0] === x.bf) ? x.bf : "all", pick = f => f === "mine" ? tasks.filter(t => t.assignee_id === me) : f === "unassigned" ? tasks.filter(t => !t.assignee_id && t.status !== "done") : tasks;
+    const filters = tasks.length ? `<div class="pt-filters" role="group" aria-label="Show tasks">${PT_BFILTERS.map(([k, l]) => `<button type="button" class="pt-f${bf === k ? " on" : ""}" data-act="grp-pt-bfilter" data-f="${k}" aria-pressed="${bf === k}">${l}${k === "all" ? "" : ` <small>${pick(k).filter(t => t.status !== "done").length}</small>`}</button>`).join("")}</div>` : "";
     return `<section class="grp-sec grp-pt" id="grpPT">${top}${err}
       <div class="pt-listbar"><button type="button" class="btn small ai-btn" data-act="grp-pt-plan">${AI_ICON} Start From a Plan</button></div>
       <div class="pt-prog"><div class="score-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pr.pct}" aria-label="Project progress"><i style="width:${pr.pct}%"></i></div><span class="mini">${pr.done} of ${pr.total} done</span></div>
-      ${wlHtml}${tasks.length ? "" : empty}
-      ${ptBoard(g, tasks, today)}</section>`;
+      ${wlHtml}${tasks.length ? "" : empty}${filters}
+      ${ptBoard(g, pick(bf), today)}</section>`;
   }
   // The one list a project's tasks go on
   async function ptDefaultList(g){
@@ -1976,7 +2032,7 @@
       const j = x.tasks.findIndex(t => t.id === id);
       if (j >= 0 && row && !S.ptPend.has(id)) x.tasks[j] = row;
       deriveMineFor(gid); ptRefresh(gid);
-      if (patch.status === "done" && was !== "done") ptCelebrate(gid, id);
+      if (patch.status === "done" && was !== "done") ptCelebrate(gid, id, was);
     }).catch(e => {
       ptPendDone(id);
       const j = x.tasks.findIndex(t => t.id === id);
@@ -1985,13 +2041,14 @@
       if (!/permission|isn't there|only the/i.test(e.message)) return; loadPT(gid);
     });
   }
-  function ptCelebrate(gid, id){
+  function ptCelebrate(gid, id, was){
     const x = ptX(gid), t = x && x.tasks.find(k => k.id === id); if (!t) return;
     const all = x.tasks.filter(k => k.list_id === t.list_id && !k.deleted), l = x.lists.find(k => k.id === t.list_id);
+    const undo = () => { const k = ptX(gid) && ptX(gid).tasks.find(z => z.id === id); if (k && k.status === "done") ptMutate(gid, id, {status: was && was !== "done" ? was : "todo"}); };
     if (all.length >= 2 && all.every(k => k.status === "done")) {
-      toast(`Everything on ${l ? l.title : "the list"} is done. Nice teamwork.`);
+      toast(`Everything on ${l ? l.title : "the list"} is done. Nice teamwork.`, undo);
       try { if (typeof celebrate === "function") celebrate("check"); } catch(e) {}
-    } else toast(`Done: ${str(t.title, 50)}`);
+    } else toast(`Done: ${str(t.title, 50)}`, undo);
   }
   async function ptAddTask(gid, listId, title, who, due){
     const x = ptX(gid); if (!x) return false;
@@ -2026,7 +2083,11 @@
     if (t) { if (t._tmp) return; return ptMutate(gid, id, {status: t.status === "done" ? "todo" : "done"}); }
     const rows = S.mine[gid] || [], r = rows.find(k => k.id === id); if (!r) return;
     S.mine[gid] = rows.map(k => k.id === id ? Object.assign({}, k, {status: "done"}) : k); persistMine(); decorateBoard(); boardRefresh();
-    try { await api.ptUpd(id, {status: "done"}); toast(`Done: ${str(r.title, 50)}`); if (S.pt[gid]) loadPT(gid); }
+    const undo = async () => {
+      S.mine[gid] = (S.mine[gid] || []).map(k => k.id === id ? Object.assign({}, k, {status: r.status || "todo"}) : k); persistMine(); decorateBoard(); boardRefresh();
+      try { await api.ptUpd(id, {status: r.status && r.status !== "done" ? r.status : "todo"}); if (S.pt[gid]) loadPT(gid); } catch(e) { toast(e.message); }
+    };
+    try { await api.ptUpd(id, {status: "done"}); toast(`Done: ${str(r.title, 50)}`, undo); if (S.pt[gid]) loadPT(gid); }
     catch(e) { S.mine[gid] = rows; persistMine(); decorateBoard(); boardRefresh(); toast(e.message); }
   }
 
@@ -2072,7 +2133,7 @@
         <label class="f"><span class="lh">Priority</span><select name="priority">${PT_PRIO.map(([v, l]) => `<option value="${v}"${(t.priority || "") === v ? " selected" : ""}>${l}</option>`).join("")}</select></label></div>
       ${typeof gxReviewerField === "function" ? gxReviewerField(g, t) : ""}
       <label class="f"><span class="lh">Notes <span class="hint">optional, up to ${GTL.LIM.notes} characters</span></span><textarea name="notes" rows="3" maxlength="${GTL.LIM.notes}" placeholder="What done looks like, links, who to ask">${esc(t.notes || "")}</textarea></label>
-      <div class="pt-sheet-acts"><button type="button" class="btn" data-act="grp-pt-move" data-id="${esc(t.id)}" data-dir="-1">Move Up</button><button type="button" class="btn" data-act="grp-pt-move" data-id="${esc(t.id)}" data-dir="1">Move Down</button></div>
+      <div class="pt-sheet-acts">${!cur && t.status !== "done" && canRe ? `<button type="button" class="btn primary" data-act="grp-pt-claim-sheet">Claim This</button>` : ""}<button type="button" class="btn" data-act="grp-pt-move" data-id="${esc(t.id)}" data-dir="-1">Move Up</button><button type="button" class="btn" data-act="grp-pt-move" data-id="${esc(t.id)}" data-dir="1">Move Down</button></div>
       <p class="mini" style="margin:0">Added by ${esc(t.created_by ? ptWho(g.id, t.created_by) : "a former member")} ${esc(ago(t.created_at, 1))}${t.updated_by && ts(t.updated_at) - ts(t.created_at) > 2000 ? ` · Last changed ${esc(ago(t.updated_at, 1))} by ${esc(ptWho(g.id, t.updated_by))}` : ""}${t.status === "done" && t.completed_by ? ` · Done by ${esc(ptWho(g.id, t.completed_by))}` : ""}</p></div>
       <div class="sheet-foot">${canDel ? `<button type="button" class="btn danger" data-act="grp-pt-del" data-id="${esc(t.id)}">Delete</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save</button></div></form>`, fd => {
       const title = GTL.clamp(fd.get("title"), GTL.LIM.title); if (!title) return false;
@@ -2117,6 +2178,11 @@
         return true; }
       case "grp-pt-done": { const t = ptTaskOf(id); ptToggle(id, t ? t.group_id : gid); return true; }
       case "grp-pt-claim": { const t = ptTaskOf(id); if (t) ptMutate(t.group_id, id, {assignee_id: myId()}); return true; }
+      case "grp-pt-claim-sheet": { const f = el.closest("form"), w = f && f.querySelector('select[name="who"]'), go = f && f.querySelector("[data-submit]"); if (w && go) { w.value = myId(); go.click(); } return true; }
+      case "grp-pt-bfilter": if (x) { x.bf = PT_BFILTERS.some(f => f[0] === el.dataset.f) ? el.dataset.f : "all"; ptRefresh(g.id); } return true;
+      case "grp-pt-claim-one": { if (!g || !x) return true; const live = new Set(x.lists.filter(l => !l.archived).map(l => l.id));
+        const t = x.tasks.filter(k => live.has(k.list_id) && !k.deleted && !k._tmp && k.status !== "done" && !k.assignee_id).sort((a, b) => String(a.due_at || "9999").localeCompare(String(b.due_at || "9999")) || (a.position - b.position))[0];
+        showTab(g, "tasks"); if (t) ptEditSheet(t); return true; }
       case "grp-pt-edit": { const t = ptTaskOf(id); if (t) ptEditSheet(t); return true; }
       case "grp-pt-move": { const t = ptTaskOf(id); if (t) ptMove(t.group_id, id, Number(el.dataset.dir) < 0 ? -1 : 1); return true; }
       case "grp-pt-del": { const t = ptTaskOf(id); if (!t) return true;
@@ -2300,7 +2366,7 @@
     const free = isOwner(g) && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !(PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro()), days = free ? PLAN.limits().groupMsgDays : 0;
     return `<section class="grp-sec" id="grpBoard"><h3 class="fsec"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>Message Board</h3>
       ${pinsHtml(g)}
-      <form class="grp-post" id="grpPost" data-gid="${esc(g.id)}"><textarea id="grpMsgIn" rows="2" maxlength="2000" aria-label="Write a message to the group" placeholder="Write to the group…">${esc(S.drafts[g.id] || "")}</textarea><button type="submit" class="btn primary small">Post</button></form>
+      <form class="grp-post" id="grpPost" data-gid="${esc(g.id)}"><textarea id="grpMsgIn" rows="2" maxlength="2000" aria-label="Write a message to the group" aria-describedby="grpPostHint" placeholder="Write to the group…">${esc(S.drafts[g.id] || "")}</textarea><button type="submit" class="btn primary small">Post</button><span class="mini grp-post-hint" id="grpPostHint">Press ${/Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || "") ? "⌘" : "Ctrl"}+Enter to post</span></form>
       <ul class="grp-msgs" id="grpMsgList" aria-live="polite">${msgsHtml(g)}</ul>
       ${days ? `<p class="mini" style="margin:8px 0 0">Messages are kept ${days} days in Free groups. <button class="link-btn" data-act="grp-upgrade" data-r="Pro keeps your group's message history for good.">Go Pro</button> to keep them all.</p>` : ""}</section>`;
   }
@@ -2364,7 +2430,9 @@
     const g = groupOf(gid), root = $("#grpDetail");
     if (!g || !root || root.dataset.gid !== gid) { if (ui.tab === "groups") render(); return; }
     if (root.dataset.feat !== [...hiddenOf(g)].sort().join()) { render(); return; }
+    const ft = document.activeElement && document.activeElement.closest && document.activeElement.closest("#grpHead [role=tab]");
     swapEl("grpHead", headHtml(g));
+    if (ft) { const b = document.getElementById(ft.id); if (b) b.focus(); }
     if (isProj(g)) { swapEl("grpOverview", overviewHtml(g)); swapEl("grpFiles", linksHtml(g)); swapEl("grpMinutes", minutesHtml(g)); }
     else { swapEl("grpChallenge", challengeHtml(g)); swapEl("grpBattle", battleHtml(g)); swapEl("grpDecks", decksHtml(g)); swapEl("grpQuizzes", quizzesHtml(g)); swapEl("grpWeak", weakHtml(g)); swapEl("grpQA", qaHtml(g)); swapEl("grpCheckin", checkinHtml(g)); }
     swapEl("grpSessions", sessionsHtml(g)); swapEl("grpTasks", tasksHtml(g)); swapPT(g); swapEl("grpMembers", membersHtml(g)); swapEl("grpPins", pinsHtml(g)); drawThread();
@@ -2758,15 +2826,15 @@ ${kindPreview("study")}${kindPreview("project")}`;
     if (isOwner(g) && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && !(PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro()) && PLAN.limitNote && (S.members[g.id] || []).length >= PLAN.limits().groupMembers)
       setTimeout(() => PLAN.limitNote("group", `${g.name} has ${PLAN.limits().groupMembers} members, the most a free group holds. Upgrade to Pro for groups of up to ${PLAN.proLimits().groupMembers}.`, {reason: `Pro groups hold up to ${PLAN.proLimits().groupMembers} members.`}), 300);
     openSheet(`<div class="sheet">${head("Invite to " + g.name)}<div class="sheet-body">
-      <p style="margin:0">Send this link or code to classmates. After they sign in to Studyboard, they can join. ${isOwner(g) ? "You can make a new code in Edit Group." : ""}</p>
+      <p style="margin:0">Send this link or code to ${isProj(g) ? "your teammates" : "classmates"}. After they sign in to Studyboard, they can join. ${isOwner(g) ? "You can make a new code in Edit Group." : ""}</p>
       ${(() => { if (!isOwner(g) || typeof PLAN === "undefined" || !PLAN || !PLAN.paywall() || (PLAN.limitsPro ? PLAN.limitsPro() : PLAN.isPro())) return ""; const n = (S.members[g.id] || []).length, lim = PLAN.limits().groupMembers; return `<div class="grp-note">Free groups hold up to ${lim} members${n >= lim ? " and yours is full" : ` (${n} now)`}. <button type="button" class="link-btn" data-act="grp-upgrade" data-r="Pro groups hold up to 100 members.">Go Pro</button> for up to 100.</div>`; })()}
       <div class="grp-code-big" aria-label="Invite code">${esc(g.invite_code)}</div>
       ${link ? `<div class="grp-link"><input type="text" readonly value="${esc(link)}" aria-label="Invite link" id="grpInvLink"><button type="button" class="btn small" id="grpInvCopy">Copy Link</button></div>` : `<p class="mini" style="margin:0">They can type the code in Studyboard: Groups, then Enter a Code.</p>`}</div>
       <div class="sheet-foot"><button type="button" class="btn" id="grpInvCode">Copy Code</button><span class="spacer"></span><button type="button" class="btn primary" id="grpInvSend">Send Invite</button></div></div>`);
-    const text = `Join my study group "${g.name}" on Studyboard. Code: ${g.invite_code}`;
+    const text = `Join my ${isProj(g) ? "group project" : "study group"} "${g.name}" on Studyboard. Code: ${g.invite_code}`;
     const ic = $("#grpInvCopy"); if (ic) ic.addEventListener("click", () => copyText(link, "Invite link copied"));
     $("#grpInvCode").addEventListener("click", () => copyText(g.invite_code, "Code copied"));
-    $("#grpInvSend").addEventListener("click", () => sendText("Study Group Invite", text, link));
+    $("#grpInvSend").addEventListener("click", () => sendText(isProj(g) ? "Group Project Invite" : "Study Group Invite", text, link));
   }
   function shareDeckToGroupSheet(g, pre){
     const ds = decksArr().filter(d => d.cards.length || (d.aiQuizzes || []).length);
@@ -2942,17 +3010,17 @@ ${kindPreview("study")}${kindPreview("project")}`;
         (async () => { try { const row = await api.updateItem(it.id, {title: str(src.qz.title, 300) || "Practice Quiz", data: quizPayload(src.qz, src.d.courseId)}); Object.assign(it, row || {}); toast("Updated the quiz for the group"); patch(it.group_id); } catch(e) { busyBtn(el, false); toast(e.message); } })();
         return true; }
       case "grp-event-new": if (g) eventSheet(g); return true;
+      case "grp-cal-add": { const it = itemOf(id); if (g && it) { calAdd(g, it); patch(g.id); } return true; }
       case "grp-event-edit": { const it = itemOf(id); if (g && it && it.user_id === myId()) eventSheet(g, it); return true; }
       case "grp-rsvp": { const x = g && extOf(g.id), it = itemOf(id); if (!x || !it) return true;
         const status = el.dataset.s, cur = x.rsvps.find(r => r.item_id === id && r.user_id === myId()), next = cur && cur.status === status ? null : status;
         x.rsvps = x.rsvps.filter(r => !(r.item_id === id && r.user_id === myId()));
         if (next) x.rsvps.push({item_id: id, group_id: g.id, user_id: myId(), status: next});
+        if (next === "yes") calAdd(g, it, `You're in. ${it.title} is on your calendar.`); else if (cur && cur.status === "yes") calDrop(it);
         patch(g.id);
         api.rsvp(id, next).catch(e => { toast(e.message); loadExtras(g.id); });
         return true; }
-      case "grp-tab": if (g && tabsOf(g).some(x => x[0] === el.dataset.t)) { S.tab[g.id] = el.dataset.t;
-        $$("#grpDetail .grp-pane").forEach(p => { p.hidden = p.dataset.pane !== el.dataset.t; });
-        $$("#grpDetail .grp-tabs [role=tab]").forEach(b => { const on = b.dataset.t === el.dataset.t; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); }); refreshFab(); } return true;
+      case "grp-tab": showTab(g, el.dataset.t); return true;
       case "grp-lb": if (g) { S.lb[g.id] = el.dataset.m === "quiz" ? "quiz" : "focus"; patch(g.id); } return true;
       case "grp-check-done": { const x = g && extOf(g.id), mine = x && x.checkins.find(c => c.user_id === myId() && c.day === todayISO()); if (!mine) return true;
         mine.done = !mine.done; patch(g.id);
@@ -3018,6 +3086,12 @@ ${kindPreview("study")}${kindPreview("project")}`;
   });
   document.addEventListener("input", e => { if (e.target && e.target.id === "grpMsgIn" && ui.grp) S.drafts[ui.grp] = e.target.value; });
   document.addEventListener("keydown", e => {
+    const tb = e.target && e.target.closest && e.target.closest("#grpDetail .grp-tabs [role=tab]");
+    if (tb && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) {
+      const all = [...tb.parentNode.querySelectorAll("[role=tab]")], i = all.indexOf(tb), n = all.length;
+      const to = all[e.key === "Home" ? 0 : e.key === "End" ? n - 1 : (i + (e.key === "ArrowRight" ? 1 : -1) + n) % n];
+      e.preventDefault(); if (showTab(groupOf(ui.grp), to.dataset.t)) to.focus(); return;
+    }
     if (e.target && e.target.id === "grpMsgIn" && e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); const f = $("#grpPost"); if (f) f.requestSubmit ? f.requestSubmit() : f.dispatchEvent(new Event("submit", {cancelable: true, bubbles: true})); }
   });
 
@@ -3376,6 +3450,8 @@ ${kindPreview("study")}${kindPreview("project")}`;
   function myBusy(){
     const start = parse(todayISO()).getTime(), from = todayISO(), to = addDays(from, 13), busy = [];
     try { schOccurrences(from, to).forEach(o => { if (o.skipped || o.allDay || !o.start || !o.end) return; const a = new Date(`${o.date}T${o.start}`).getTime(), b = new Date(`${o.date}T${o.end}`).getTime(); if (b > a) busy.push([a, b]); }); } catch(e) {}
+    const end = parse(addDays(from, 14)).getTime();
+    Object.keys(S.ext).forEach(gid => { const x = extOf(gid); if (!x) return; x.rsvps.forEach(r => { const it = r.user_id === myId() && r.status === "yes" ? itemOf(r.item_id) : null; if (it && it.kind === "event" && !calCopy(it.id)) sessTimes(it, start, end).forEach(b => busy.push(b)); }); });
     for (let i = 0; i < 14; i++) { const d0 = start + i * 864e5, day = new Date(d0); const at = (h, m) => new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, m).getTime(); busy.push([d0, at(7, 0)]); busy.push([at(23, 0), d0 + 864e5]); }
     return {from: start, hex: GXP.busyHex(start, busy)};
   }
@@ -3396,6 +3472,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     gxShareAvail(gid, true);
   }
   let FT = {mins: 60};
+  const ftDay = t => { const d = new Date(t); return `<span class="ft-d"><b>${esc(d.toLocaleDateString(undefined, {weekday: "short"}))}</b><small>${esc(d.toLocaleDateString(undefined, {month: "short", day: "numeric"}))}</small></span>`; };
   function gxFindTime(g){
     const ms = (S.members[g.id] || []).filter(m => m.user_id === myId() || !S.blocked.has(m.user_id));
     const avs = ms.map(m => availOf(g.id, m.user_id)).filter(Boolean), have = ms.filter(m => availOf(g.id, m.user_id)).length, iShare = !!availOf(g.id, myId());
@@ -3404,7 +3481,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
     const best = enough ? GXP.bestTimes(avs, days, FT.mins, Date.now(), 3) : [];
     const hours = Array.from({length: 14}, (_, i) => 8 + i);
     const cell = (d, h) => { const a = d.start + h * 3600000; let f = 0; avs.forEach(av => { if (GXP.freeAt(av, a, a + 3600000)) f++; }); return f; };
-    const grid = avs.length ? `<div class="ft-grid" role="img" aria-label="How many people are free, by day and time"><span></span>${days.map(d => `<span class="ft-d">${esc(new Date(d.start).toLocaleDateString(undefined, {weekday: "short"}))}</span>`).join("")}${hours.map(h => `<span class="ft-h">${esc(new Date(2001, 0, 1, h).toLocaleTimeString(undefined, {hour: "numeric"}))}</span>${days.map(d => { const f = cell(d, h); return `<span class="ft-c" style="--a:${Math.round(f / Math.max(1, avs.length) * 100)}%" title="${f} of ${avs.length} free"></span>`; }).join("")}`).join("")}</div>` : "";
+    const grid = avs.length ? `<div class="ft-grid" role="img" aria-label="How many people are free, by day and time"><span></span>${days.map(d => ftDay(d.start)).join("")}${hours.map(h => `<span class="ft-h">${esc(new Date(2001, 0, 1, h).toLocaleTimeString(undefined, {hour: "numeric"}))}</span>${days.map(d => { const f = cell(d, h); return `<span class="ft-c" style="--a:${Math.round(f / Math.max(1, avs.length) * 100)}%" title="${f} of ${avs.length} free"></span>`; }).join("")}`).join("")}</div>` : "";
     openSheet(`<div class="sheet pro-sheet">${head("Find a Time")}<div class="sheet-body">
       ${iShare ? `<div class="pr-row"><span class="mini" style="flex:1">${shareMode(g.id) === "auto" ? "Your free times come from your planner." : "You picked your free times."}</span><button type="button" class="btn small" data-act="gx-ft-mine" data-id="${esc(g.id)}">Edit My Free Times</button></div>` : `<div class="gx-box"><span class="gx-bt"><b>Share your free times</b><span class="mini">Tap the hours you're free this week. Only free or busy is shared, never what's in your plan.</span></span><button type="button" class="btn small primary" data-act="gx-ft-mine" data-id="${esc(g.id)}">Pick My Free Times</button></div>`}
       <div class="pr-row"><span class="pr-lbl">How long</span><div class="segb" role="group" aria-label="How long">${[[30, "30 min"], [60, "1 hour"], [120, "2 hours"]].map(([m, l]) => `<button type="button" data-act="gx-ft-len" data-id="${m}" aria-pressed="${FT.mins === m}">${l}</button>`).join("")}</div></div>
@@ -3419,10 +3496,12 @@ ${kindPreview("study")}${kindPreview("project")}`;
   function gxPickFree(g){
     const today = parse(todayISO()).getTime(), days = Array.from({length: 7}, (_, i) => new Date(new Date(today).setDate(new Date(today).getDate() + i)).getTime());
     const hours = Array.from({length: 14}, (_, i) => 8 + i);
+    const fromPlan = () => { const mine = myBusy(), on = new Set(); days.forEach((d, di) => hours.forEach(h => { const a = d + h * 3600000; if (a >= Date.now() - 3600000 && GXP.freeAt(mine, a, a + 3600000)) on.add(di + ":" + h); })); return on; };
+    let filled = false;
     if (!PF || PF.gid !== g.id) {
       const mine = availOf(g.id, myId()), on = new Set();
       if (mine) days.forEach((d, di) => hours.forEach(h => { const a = d + h * 3600000; if (GXP.freeAt(mine, a, a + 3600000)) on.add(di + ":" + h); }));
-      PF = {gid: g.id, on};
+      PF = {gid: g.id, on: mine ? on : fromPlan()}; filled = !mine;
     }
     const draw = () => {
       const grid = $("#pfGrid"); if (!grid) return;
@@ -3430,15 +3509,22 @@ ${kindPreview("study")}${kindPreview("project")}`;
       const n = $("#pfN"); if (n) n.textContent = PF.on.size === 1 ? "1 hour picked" : `${PF.on.size} hours picked`;
     };
     openSheet(`<div class="sheet pro-sheet">${head("Your Free Times")}<div class="sheet-body">
-      <p style="margin:0">Tap the hours you're free. Only free or busy is shared with the group, never what's in your plan.</p>
+      <p style="margin:0">${filled ? "We filled in your free hours from your planner. " : ""}Tap or drag across hours to change them. Only free or busy is shared with the group, never what's in your plan.</p>
       <div class="pr-row"><span class="mini" id="pfN" style="flex:1"></span><button type="button" class="btn small" id="pfAuto">Fill In Automatically</button><button type="button" class="btn small" id="pfClear">Clear</button></div>
-      <div class="ft-grid pf-grid" id="pfGrid" role="group" aria-label="Your free hours"><span></span>${days.map(d => `<span class="ft-d">${esc(new Date(d).toLocaleDateString(undefined, {weekday: "short"}))}</span>`).join("")}${hours.map(h => `<span class="ft-h">${esc(new Date(2001, 0, 1, h).toLocaleTimeString(undefined, {hour: "numeric"}))}</span>${days.map((d, di) => { const past = d + (h + 1) * 3600000 <= Date.now(); return `<button type="button" class="pf-c" data-pf="${di}:${h}" aria-pressed="false" aria-label="${esc(new Date(d + h * 3600000).toLocaleString(undefined, {weekday: "long", hour: "numeric"}))}"${past ? " disabled" : ""}></button>`; }).join("")}`).join("")}</div>
+      <div class="ft-grid pf-grid" id="pfGrid" role="group" aria-label="Your free hours"><span></span>${days.map(ftDay).join("")}${hours.map(h => `<span class="ft-h">${esc(new Date(2001, 0, 1, h).toLocaleTimeString(undefined, {hour: "numeric"}))}</span>${days.map((d, di) => { const past = d + (h + 1) * 3600000 <= Date.now(); return `<button type="button" class="pf-c" data-pf="${di}:${h}" aria-pressed="false" aria-label="${esc(new Date(d + h * 3600000).toLocaleString(undefined, {weekday: "long", hour: "numeric"}))}"${past ? " disabled" : ""}></button>`; }).join("")}`).join("")}</div>
       <p class="mini" style="margin:0">Fill In Automatically uses your classes, events and work blocks. ${shareMode(g.id) === "auto" ? "Right now your free times come from your planner automatically." : ""}</p>
     </div><div class="sheet-foot"><button type="button" class="btn" id="pfKeepAuto">Share Automatically Instead</button><span class="spacer"></span><button type="button" class="btn" id="pfBack">Back</button><button type="button" class="btn primary" id="pfSave">Share</button></div></div>`);
     draw();
-    $("#pfGrid").addEventListener("click", e => { const b = e.target.closest("[data-pf]"); if (!b || b.disabled) return; const k = b.dataset.pf; PF.on.has(k) ? PF.on.delete(k) : PF.on.add(k); draw(); });
+    const grid = $("#pfGrid"), cellAt = e => { const u = document.elementFromPoint(e.clientX, e.clientY), b = u && u.closest && u.closest("#pfGrid [data-pf]"); return b && !b.disabled ? b : null; };
+    let paint = null;
+    const put = b => { const k = b.dataset.pf; if (paint.on) PF.on.add(k); else PF.on.delete(k); b.setAttribute("aria-pressed", String(paint.on)); };
+    grid.addEventListener("pointerdown", e => { const b = cellAt(e); if (!b || (e.pointerType === "mouse" && e.button !== 0)) return; e.preventDefault(); paint = {on: !PF.on.has(b.dataset.pf), id: e.pointerId}; put(b); try { grid.setPointerCapture(e.pointerId); } catch (err) {} });
+    grid.addEventListener("pointermove", e => { if (!paint || e.pointerId !== paint.id) return; const b = cellAt(e); if (b) put(b); });
+    const stop = () => { if (paint) { paint = null; draw(); } };
+    grid.addEventListener("pointerup", stop); grid.addEventListener("pointercancel", stop); grid.addEventListener("lostpointercapture", stop);
+    grid.addEventListener("click", e => { if (e.detail) return; const b = e.target.closest("[data-pf]"); if (!b || b.disabled) return; const k = b.dataset.pf; PF.on.has(k) ? PF.on.delete(k) : PF.on.add(k); draw(); });
     $("#pfClear").addEventListener("click", () => { PF.on.clear(); draw(); });
-    $("#pfAuto").addEventListener("click", () => { const mine = myBusy(); PF.on.clear(); days.forEach((d, di) => hours.forEach(h => { const a = d + h * 3600000; if (a >= Date.now() - 3600000 && GXP.freeAt(mine, a, a + 3600000)) PF.on.add(di + ":" + h); })); draw(); toast("Filled in from your planner. Change anything, then Share."); });
+    $("#pfAuto").addEventListener("click", () => { PF.on = fromPlan(); draw(); toast("Filled in from your planner. Change anything, then Share."); });
     $("#pfBack").addEventListener("click", () => gxFindTime(g));
     $("#pfKeepAuto").addEventListener("click", () => { PF = null; gxShareAvail(g.id).then(() => gxFindTime(g)); });
     $("#pfSave").addEventListener("click", () => {
@@ -3453,8 +3539,9 @@ ${kindPreview("study")}${kindPreview("project")}`;
     if ((S.members[g.id] || []).filter(m => availOf(g.id, m.user_id)).length < 2) { toast("At least 2 members need to share their free times first."); return; }
     ensureName(async () => {
       try {
-        const rows = await api.addItems([{group_id: g.id, kind: "event", ref_id: "", title: isProj(g) ? "Team meeting" : "Study session", data: {v: 1, type: "event", start: new Date(b.start).toISOString(), where: "", notes: `${FT.mins} minutes, picked with Find a Time`}}]);
-        addRows(g.id, rows); if (dlg.open) dlg.close(); toast(`Added ${new Date(b.start).toLocaleString(undefined, {weekday: "short", hour: "numeric", minute: "2-digit"})} to Meetings`);
+        const rows = await api.addItems([{group_id: g.id, kind: "event", ref_id: "", title: isProj(g) ? "Team meeting" : "Study session", data: {v: 1, type: "event", start: new Date(b.start).toISOString(), mins: FT.mins, where: "", notes: "Picked with Find a Time"}}]);
+        addRows(g.id, rows); if (dlg.open) dlg.close(); const when = new Date(b.start).toLocaleString(undefined, {weekday: "short", hour: "numeric", minute: "2-digit"}), where2 = isProj(g) ? "Meetings" : "Sessions";
+        if (!(rows && rows[0] && calAdd(g, rows[0], `Added ${when} to ${where2}. It's on your calendar too.`))) toast(`Added ${when} to ${where2}`);
         api.rsvp(rows && rows[0] ? rows[0].id : "", "yes").then(() => loadExtras(g.id)).catch(() => {});
         patch(g.id);
       } catch(e) { toast(e.message); }
@@ -3822,7 +3909,9 @@ ${kindPreview("study")}${kindPreview("project")}`;
 .pill.gx-ok{background:color-mix(in srgb,var(--leaf) 18%,var(--surface));border-color:color-mix(in srgb,var(--leaf) 40%,var(--line))}
 .pt-prio.review{background:color-mix(in srgb,#7A4FD6 14%,var(--surface));color:#5B3BB0}
 .ft-grid{display:grid;grid-template-columns:auto repeat(7,minmax(0,1fr));gap:3px;font-size:.72rem;color:var(--muted);align-items:center}
-.ft-d{text-align:center}
+.ft-d{text-align:center;display:grid;line-height:1.15}
+.ft-d b{font-weight:700;color:var(--ink)}
+.ft-d small{font-size:.66rem}
 .ft-h{padding-right:6px;white-space:nowrap}
 .ft-c{height:20px;border-radius:4px;background:color-mix(in srgb,var(--accent) var(--a),var(--soft))}
 .ft-best{display:grid;gap:8px}

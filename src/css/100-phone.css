@@ -109,7 +109,7 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
 .g2-head .grp-avs{margin:0}
 .g2-head .grp-chips{margin:4px 0 0}
 .g2-head .grp-tabs{margin:14px 0 0;padding:0 16px 12px;border:0;gap:6px;flex-wrap:wrap}
-.g2-head .grp-tabs button{border:0!important;border-radius:999px;padding:8px 14px;min-height:38px}
+.g2-head .grp-tabs button{border:0!important;border-radius:999px;padding:8px 14px;min-height:40px}
 .g2-head .grp-tabs button.on{background:color-mix(in srgb,var(--c) 15%,var(--surface));color:color-mix(in srgb,var(--c) 62%,var(--ink))}
 /* Start a Session sits in the header */
 #grpDetail .room-sec.is-idle:not(:has(.room-err)){display:none}
@@ -139,8 +139,8 @@ body.wide .course-list{grid-template-columns:repeat(2,minmax(0,1fr))}
   .g2-low{margin-top:-38px}
   .g2-txt{padding-top:42px}
   .g2-txt h2{font-size:1.4rem}
-  .g2-head .grp-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:0 10px 10px}
-  .g2-head .grp-tabs button{flex:none}
+  .g2-head .grp-tabs{padding:0 10px 10px;gap:6px}
+  .g2-head .grp-tabs button{flex:none;min-height:40px;padding:8px 12px;font-size:.9rem}
 }
 /* ===== Courses, Direction 1: band in the course colour, initials in a ring, the grade and one status pill ===== */
 .course-card.c2-card{display:flex;flex-direction:column;gap:0;padding:0;margin-top:0;border-radius:18px!important;overflow:hidden;box-shadow:0 2px 8px rgba(14,42,86,.08)}

@@ -105,8 +105,8 @@
       case "more-go-groups": if (dlg.open) dlg.close(); ui.tab = "groups"; ui.grp = null; ui.courseId = null; render(); window.scrollTo(0, 0); return true;
       case "more-go-files": if (dlg.open) dlg.close(); ui.tab = "files"; ui.courseId = null; render(); window.scrollTo(0, 0); return true;
       case "gn-open": wr({snooze: Date.now() + 60 * 864e5}); ui.tab = "groups"; ui.grp = null; render(); window.scrollTo(0, 0); return true;
-      case "gn-later": { const s = rd(), n = (s.count || 0) + 1; dismiss(n >= MAX_SNOOZES ? {never: true, count: n} : {snooze: Date.now() + SNOOZE, count: n}); toast(tr("nudge.toast.later", "Okay. You can find Study Groups in More or Settings any time.")); return true; }
-      case "gn-never": dismiss({never: true}); toast(tr("nudge.toast.never", "Got it. You can find Study Groups in More or Settings any time.")); return true;
+      case "gn-later": { const s = rd(), n = (s.count || 0) + 1; dismiss(n >= MAX_SNOOZES ? {never: true, count: n} : {snooze: Date.now() + SNOOZE, count: n}); toast(tr("nudge.toast.later", "Okay. You can find Study Groups in the Groups tab any time.")); return true; }
+      case "gn-never": dismiss({never: true}); toast(tr("nudge.toast.never", "Got it. You can find Study Groups in the Groups tab any time.")); return true;
     }
     return false;
   });
